@@ -113,6 +113,47 @@ export function pendingItemToApproval(item: PendingApprovalItem): PendingApprova
   }
 }
 
+/* ── 附件拖拽/选择的前端预检（与服务端白名单/限额同口径，提前拦住少跑一趟）── */
+
+export const ATTACHMENT_EXTENSIONS = ['.pdf', '.docx', '.doc', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.txt']
+export const ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
+
+/** 校验单个文件；不合规返回中文原因，合规返回 null */
+export function validateAttachmentFile(file: { name: string; size: number }): string | null {
+  const lower = file.name.toLowerCase()
+  if (!ATTACHMENT_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+    return `不支持的格式（仅 ${ATTACHMENT_EXTENSIONS.join(' / ')}）`
+  }
+  if (file.size > ATTACHMENT_MAX_BYTES) {
+    return `超过 20MB 限额`
+  }
+  if (file.size <= 0) {
+    return '文件为空'
+  }
+  return null
+}
+
+/** 人类可读的文件大小（chips 展示用） */
+export function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}KB`
+  return `${bytes}B`
+}
+
+/** 批量分拣：合规附件与拒绝原因（「文件名」+原因） */
+export function splitAttachmentFiles(
+  files: File[],
+): { accepted: File[]; rejected: string[] } {
+  const accepted: File[] = []
+  const rejected: string[] = []
+  for (const file of files) {
+    const reason = validateAttachmentFile(file)
+    if (reason) rejected.push(`「${file.name}」${reason}`)
+    else accepted.push(file)
+  }
+  return { accepted, rejected }
+}
+
 /** 审批卡上工具参数的短预览（卡上只放一行，详情看 args JSON） */
 export function previewToolArgs(args: Record<string, unknown> | undefined, limit = 160): string {
   if (!args || Object.keys(args).length === 0) return ''
@@ -158,4 +199,13 @@ export function tokensPerSecond(samples: Array<[number, number]>, now: number, w
   if (baseline === undefined || baseline === last) return 0
   const elapsed = (last[0] - baseline[0]) / 1000
   return elapsed > 0 ? (last[1] - baseline[1]) / elapsed : 0
+}
+
+/**
+ * 离线待审批列表项是否已超出等待窗口（服务端懒清理之外的客户端兜底）。
+ * 坏日期（NaN/非法字符串）按未超期处理：宁多留一张卡也不误杀。
+ */
+export function isExpiredOfflineItem(item: PendingApprovalItem, now = Date.now()): boolean {
+  const created = new Date(item.created_at).getTime()
+  return Number.isFinite(created) && now - created > APPROVAL_OFFLINE_WINDOW_S * 1000
 }

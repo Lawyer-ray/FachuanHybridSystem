@@ -113,6 +113,42 @@ def _provider_models(provider: Any) -> list[str]:
     return models
 
 
+def _is_vision_model(name: str, provider: Any) -> bool:
+    """该模型是否是 provider 声明的视觉模型（精确名匹配）。
+
+    要求 ``vision_model`` 与模型名 **精确相等**（仅忽略首尾空白与大小写）：
+    前缀/子串匹配会把 ``kimi-2.6`` 的视觉能力误传给 ``kimi-2.6-text``，
+    而网关对纯文本模型收到 ``image_url`` 的响应是 400 报错，比静默退回文本更糟。
+    """
+    vision = str(getattr(provider, "vision_model", "") or "").strip().lower()
+    return bool(vision) and name.strip().lower() == vision
+
+
+def supports_image_input(model_hint: str = "") -> bool:
+    """当前模型是否接受图像输入（下游据此决定走视觉路径还是 OCR 文本路径）。
+
+    与 ``_model_entry`` 的 ``input`` 声明同一口径：两者不一致会造成
+    「models.json 说能读图，但工具层早年就转成了 OCR 文本」。
+
+    调用方在返回 ``False`` 时应明确告知用户「当前模型无法读图，已返回 OCR 文本」，
+    而不是静默退化（用户只看到回答未提图片，无法判断是模型没看图还是看了没看懂）。
+
+    Args:
+        model_hint: 模型名；空则回落到 provider 的 ``default_model``。
+
+    Returns:
+        模型声明为视觉模型时 ``True``；没有任何可用 provider 时 ``False``
+        （fail-closed：宁可不发图，也不发网关不认的 ``image_url``）。
+    """
+    provider = _load_provider(model_hint)
+    if provider is None:
+        return False
+    name = model_hint or str(getattr(provider, "default_model", "") or "")
+    if not name:
+        return False
+    return _is_vision_model(name, provider)
+
+
 def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str, Any]:
     """渲染 models.json 里的单个模型条目。
 
@@ -122,6 +158,17 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
 
     仅对推理模型且平台开启 ``enable_thinking`` 时声明 ``reasoning: true``，
     避免给普通模型（glm53 等）错报能力导致 pi 发它不认的 thinking 参数。
+
+    ``input`` 是 pi 的 **vision gate**：pi 的 openai-completions 适配器只在
+    ``model.input`` 含 ``"image"`` 时才把 image block 转成 ``image_url`` 下发。
+    不写该字段时 pi 默认 ``["text"]``，用户上传的图片被**静默降级**成一句
+    ``"(see attached image)"`` 文本——模型既看不到图，也不报错，表现为
+    「附件显示已发送，但回答完全没提图片内容」。所以这里必须显式声明。
+
+    匹配用**精确相等**（不做前缀/子串匹配）：给纯文本模型错报 vision 会让网关
+    收到它不认的 ``image_url`` 而直接 400。相比「多报能力」，漏报只会退回文本
+    路径，fail-closed 更安全。唯一真值来源是 ``provider.vision_model``
+    （语义：该平台的多模态模型名，留空禁用视觉）。
     """
     supports = bool(getattr(provider, "supports_thinking", None) and provider.supports_thinking(name))
     entry: dict[str, Any] = {
@@ -129,6 +176,7 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
         "contextWindow": DEFAULT_CONTEXT_WINDOW,
         "maxTokens": DEFAULT_MAX_TOKENS,
         "reasoning": bool(enable_thinking and supports),
+        "input": ["text", "image"] if _is_vision_model(name, provider) else ["text"],
         # 网关适配（实测必需）：本仓库的 LiteLLM 网关把思考开关放在
         # ``chat_template_kwargs.thinking``（布尔），而 pi 的 openai-completions
         # 适配器默认探测会误判 → 不发思考参数，网关不返回 reasoning_content，

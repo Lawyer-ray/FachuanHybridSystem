@@ -228,6 +228,52 @@ class TestPendingDiscovery:
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
+    async def test_list_pending_lazy_times_out_zombies(self) -> None:
+        """僵尸 pending（等待进程已死）在列表时被懒清理成 timeout，不再骚扰用户。
+
+        场景：离线审批挂起后 worker 崩溃/重启，waiter 消失，记录永远停在
+        pending（差距分析 B2-4）——每个页面都弹「已超时」卡且无法消除。
+        """
+        from datetime import timedelta
+
+        from asgiref.sync import sync_to_async
+        from django.utils import timezone
+
+        from apps.organization.models import LawFirm, Lawyer
+
+        def _mk() -> Any:
+            firm = LawFirm.objects.create(name="zombie-律所")
+            return Lawyer.objects.create_user(username="zombie-u", password=TEST_PASSWORD, law_firm=firm)
+
+        user = await sync_to_async(_mk)()
+        session = await AgentSession.objects.acreate(title="z", user=user, origin="task")
+        # 僵尸：创建时间已超出 OFFLINE_TIMEOUT（7200s）窗口
+        zombie = await AgentApproval.objects.acreate(
+            session=session,
+            tool_name="mcp__fachuan__delete_reminder",
+            tool_args={"reminder_id": 999999},
+            status=AgentApproval.Status.PENDING,
+            risk_level="high",
+        )
+        await AgentApproval.objects.filter(pk=zombie.pk).aupdate(
+            created_at=timezone.now() - timedelta(seconds=approval_mod.OFFLINE_TIMEOUT + 60)
+        )
+        # 活着的：窗口内，必须保留
+        await AgentApproval.objects.acreate(
+            session=session,
+            tool_name="mcp__fachuan__delete_case",
+            status=AgentApproval.Status.PENDING,
+            risk_level="high",
+        )
+
+        pending = await approval_mod.list_pending_for_user(user_id=user.pk)
+        assert [p.tool_name for p in pending] == ["mcp__fachuan__delete_case"]
+        zombie = await AgentApproval.objects.aget(pk=zombie.pk)
+        assert zombie.status == AgentApproval.Status.TIMEOUT
+        assert zombie.decided_at is not None
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
     async def test_pending_scoped_by_user(self) -> None:
         """不能看到别人的待审批（含工具参数里的业务数据）。"""
         from asgiref.sync import sync_to_async

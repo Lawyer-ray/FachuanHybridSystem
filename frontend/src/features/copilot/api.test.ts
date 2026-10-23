@@ -13,10 +13,11 @@ const apiMock = vi.hoisted(() => ({
   patch: vi.fn(),
 }))
 
-vi.mock('@/lib/api', () => ({ api: apiMock }))
+vi.mock('@/lib/api', () => ({ api: apiMock, UPLOAD_TIMEOUT_MS: 300_000 }))
 
 import {
   createSession,
+  uploadAttachment,
   decideApproval,
   deleteSession,
   fetchHistory,
@@ -148,5 +149,20 @@ describe('copilot api', () => {
     expect(apiMock.get).toHaveBeenCalledWith('agent/usage', { searchParams: { days: 30 } })
     await getUsageSummary(7, true)
     expect(apiMock.get).toHaveBeenLastCalledWith('agent/usage', { searchParams: { days: 7, all: 'true' } })
+  })
+})
+
+describe('copilot api：附件（P1-11）', () => {
+  it('uploadAttachment: POST multipart（FormData 不设 json）', async () => {
+    apiMock.post.mockReturnValue(chain({}))
+    const file = new File(['x'], 'a.txt', { type: 'text/plain' })
+    await uploadAttachment('s-1', file)
+    const call = apiMock.post.mock.calls[0]!
+    expect(call[0]).toBe('agent/sessions/s-1/attachments')
+    const body = call[1].body as FormData
+    expect(body).toBeInstanceOf(FormData)
+    expect(body.get('file')).toBe(file)
+    // 大文件上传走 300s 口径，不吃默认 10s
+    expect(call[1].timeout).toBe(300_000)
   })
 })

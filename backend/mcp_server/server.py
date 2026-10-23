@@ -317,6 +317,7 @@ from mcp_server.tools import (
     process_document,
     process_document_by_path,
     quick_recognize_invoice,
+    read_agent_attachment,
     remove_contract_party,
     rename_inbox_attachment,
     rename_material_group,
@@ -953,6 +954,9 @@ mcp.tool()(get_server_time)
 
 # 专项技能指引：场景化操作说明按需供给（AGENTS.md 只保留路由，省上下文）
 mcp.tool()(get_agent_skill)
+
+# 对话附件：服务端读文件提取正文（base64 不进模型上下文）
+mcp.tool()(read_agent_attachment)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项
 mcp.tool()(list_upcoming_deadlines)

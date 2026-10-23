@@ -199,6 +199,7 @@ class MediaEntity:
     OA_IMPORTS = "oa_imports"
     PROPERTY_CLUE_ATTACHMENTS = "property_clue_attachments"
     CANVAS_FILES = "canvas_files"
+    AGENT_ATTACHMENTS = "agent_attachments"
 
     # ── 劳动仲裁文书爬虫 ──
     LABOR_ARBITRATION_DOCS = "labor_arbitration/docs"

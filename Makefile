@@ -32,6 +32,19 @@ frontend: ## 启动前端开发服务器（Vite，热重载，端口 5090）
 backend: ## 启动后端开发服务器（Uvicorn，热重载，默认端口 8002，可用 PORT=8003 覆盖）
 	cd backend && $(MAKE) run-dev
 
+# ── 共享 MCP 运维（agent 的工具面，:8011；改了 mcp_server 工具后必跑 mcp）──
+mcp: ## 重启共享 MCP：杀旧拉新 + 工具面核对（改 mcp_server 代码后必跑，否则模型拿到旧工具面且无报错）
+	@bash scripts/shared_mcp.sh restart
+
+mcp-status: ## 查看共享 MCP 进程/端口/运行时长/日志路径
+	@bash scripts/shared_mcp.sh status
+
+mcp-logs: ## 跟随共享 MCP 日志（tail -f）
+	@bash scripts/shared_mcp.sh logs
+
+mcp-verify: ## 核对运行中的共享 MCP 工具面与代码注册表一致（MCP 真握手）
+	@bash scripts/shared_mcp.sh verify
+
 q: ## 启动 Django-Q 任务队列（文件变化自动重启）
 	cd backend && $(MAKE) qcluster-dev
 
@@ -86,4 +99,4 @@ help: ## 显示帮助信息
 	@echo "安装 hook:   make install-hooks"
 	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify

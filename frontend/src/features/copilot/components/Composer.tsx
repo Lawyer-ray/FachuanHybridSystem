@@ -7,12 +7,13 @@
  *   已插话的文本以「已插话 N 条」提示，可整体撤回（DELETE /queue）
  * - 后台模式（时钟开关）：提交后立即返回，任务在后台跑完写入会话通知
  *
- * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兑底。
+ * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  */
 
 import { useRef, useState } from 'react'
-import { ArrowUp, Clock, Square, Undo2 } from 'lucide-react'
+import { ArrowUp, Clock, Paperclip, Square, Undo2, X } from 'lucide-react'
 
+import { formatFileSize } from '../domain'
 import { useCopilot } from '../store'
 import { TurnStatsView } from './TurnStatsView'
 
@@ -21,28 +22,41 @@ export function Composer() {
   const [bgMode, setBgMode] = useState(false)
   const streaming = useCopilot((s) => s.streaming)
   const queuedSteers = useCopilot((s) => s.queuedSteers)
+  const pendingFiles = useCopilot((s) => s.pendingFiles)
+  const uploading = useCopilot((s) => s.uploadingAttachments)
+  const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
+  const removeAttachmentFile = useCopilot((s) => s.removeAttachmentFile)
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
   const revokeQueuedSteers = useCopilot((s) => s.revokeQueuedSteers)
   const submitTask = useCopilot((s) => s.submitTask)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const submit = () => {
     const value = text.trim()
-    if (!value) return
-    setText('')
+    if (!value && pendingFiles.length === 0) return
+    if (uploading) return
     if (streaming) {
       // 运行中插话：不改写当前输出，在工具调用后、下次模型调用前生效
       void steer(value)
+      setText('')
       return
     }
     if (bgMode) {
       setBgMode(false)
+      setText('')
       void submitTask(value)
       return
     }
-    void send(value)
+    // 先清空正文腾出输入位；早失败（建会话/附件上传失败）时回填，别让
+    // 用户重打一遍。期间用户又输入了新内容则不打扰（只补空）。
+    setText('')
+    const outgoing = value || '请分析我上传的附件。'
+    void send(outgoing, (sent) => {
+      if (!sent) setText((prev) => (prev.trim() ? prev : outgoing))
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -68,6 +82,29 @@ export function Composer() {
 
   return (
     <div className="flex-none border-t border-border p-2.5">
+      {pendingFiles.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {pendingFiles.map((file, i) => (
+            <span
+              key={`${file.name}-${i}`}
+              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-secondary/60 px-1.5 py-0.5 text-[11.5px] text-secondary-foreground"
+              title={`${file.name} · ${formatFileSize(file.size)}`}
+            >
+              <Paperclip className="h-3 w-3 flex-none text-muted-foreground" />
+              <span className="max-w-44 truncate">{file.name}</span>
+              <span className="flex-none text-muted-foreground">{formatFileSize(file.size)}</span>
+              <button
+                type="button"
+                className="flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
+                aria-label={`移除附件 ${file.name}`}
+                onClick={() => removeAttachmentFile(i)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       {streaming && queuedSteers.length > 0 && (
         <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11.5px] text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">已插话 {queuedSteers.length} 条，将在本轮生效</span>
@@ -90,13 +127,40 @@ export function Composer() {
             bgMode ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
           }`}
           onClick={() => setBgMode((v) => !v)}
-          disabled={streaming}
+          disabled={streaming || pendingFiles.length > 0}
           aria-label={bgMode ? '关闭后台运行模式' : '切换为后台运行'}
           aria-pressed={bgMode}
-          title={bgMode ? '后台运行已开启：提交的任务在后台执行' : '切换为后台运行：适合要跑几分钟的长任务'}
+          title={
+            pendingFiles.length > 0
+              ? '带附件的消息只能即时对话（后台任务暂不支持附件）'
+              : bgMode
+                ? '后台运行已开启：提交的任务在后台执行'
+                : '切换为后台运行：适合要跑几分钟的长任务'
+          }
         >
           <Clock className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={streaming || uploading}
+          aria-label="添加附件"
+          title="添加附件（PDF / Word / 图片 / 文本，≤20MB；也可直接拖入面板）"
+        >
+          <Paperclip className="h-4 w-4" />
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.tif,.tiff,.txt"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) addAttachmentFiles(e.target.files)
+            e.target.value = ''
+          }}
+        />
         <textarea
           ref={textareaRef}
           value={text}
@@ -124,8 +188,9 @@ export function Composer() {
             type="button"
             className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85 disabled:opacity-30"
             onClick={submit}
-            disabled={!text.trim()}
+            disabled={uploading || (!text.trim() && pendingFiles.length === 0)}
             aria-label={bgMode ? '提交后台任务' : '发送'}
+            title={uploading ? '附件上传中…' : undefined}
           >
             <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.5} />
           </button>

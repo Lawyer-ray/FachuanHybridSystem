@@ -11,9 +11,9 @@
  * 收起时才能和滑出动画同步淡出。
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PanelLeftClose, PanelLeftOpen, Plus, SquareStack, X } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, Paperclip, Plus, SquareStack, X } from 'lucide-react'
 
 import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
@@ -46,6 +46,45 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   const queryClient = useQueryClient()
   const isSmUp = useMediaQuery('(min-width: 640px)')
   const { width, railCapable, setPanelRef, onHandlePointerDown } = usePanelResize(isSmUp)
+
+  // 滚轮囚闭：面板是 fixed 浮层，wheel 事件在非滚动区（头部/输入框）或滚动区
+  // 到边界时会「链」到下层页面。React 的 onWheel 是 passive 监听无法 preventDefault，
+  // 必须原生 non-passive 监听：从 target 向上找面板内能消费该滚动的容器
+  //（消息区/会话列表/工具详情嵌套），能滚则放行、到边界则继续向外层、
+  // 面板内无人能消费则阻断——主页面内容不再被带动。
+  const panelRef = useRef<HTMLElement | null>(null)
+  const setRefs = useCallback(
+    (node: HTMLElement | null) => {
+      panelRef.current = node
+      setPanelRef(node)
+    },
+    [setPanelRef],
+  )
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const canScroll = (node: HTMLElement, deltaY: number): boolean => {
+      const overflowY = window.getComputedStyle(node).overflowY
+      if (!['auto', 'scroll', 'overlay'].includes(overflowY)) return false
+      const { scrollTop, scrollHeight, clientHeight } = node
+      // 内容不超出时任何方向都消费不了
+      if (scrollHeight <= clientHeight + 1) return false
+      if (deltaY < 0) return scrollTop > 0
+      return scrollTop + clientHeight < scrollHeight - 1
+    }
+    const onWheel = (e: WheelEvent) => {
+      // ctrl+wheel 是浏览器缩放，不接管
+      if (e.ctrlKey || e.defaultPrevented) return
+      let node = e.target as HTMLElement | null
+      while (node && node !== el) {
+        if (canScroll(node, e.deltaY)) return
+        node = node.parentElement
+      }
+      e.preventDefault()
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
   // 常驻会话栏开关（持久化）；窄屏/收窄时的覆盖式列表开关（瞬态）
   const [railOpen, setRailOpen] = useState(readRailOpen)
   const [listOverlayOpen, setListOverlayOpen] = useState(false)
@@ -113,6 +152,42 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   }, [currentSession, streaming, refreshHistory])
 
   const railVisible = railOpen && railCapable
+  const draggingFiles = useCopilot((s) => s.draggingFiles)
+  const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
+  // 面板级拖拽投放：拖入高亮 + 松手收件。dragenter/over 必须 preventDefault
+  // 才能触发 drop；计数器法处理子元素间的 enter/leave 抖动。
+  // 流式/上传在途不加附件（与回形针按钮同口径）。
+  const filesDropAllowed = () => {
+    const { streaming, uploadingAttachments } = useCopilot.getState()
+    return !(streaming || uploadingAttachments)
+  }
+  const dragDepth = useRef(0)
+  const onDragEnter = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return
+    e.preventDefault()
+    if (!filesDropAllowed()) return
+    dragDepth.current += 1
+    if (!useCopilot.getState().draggingFiles) useCopilot.setState({ draggingFiles: true })
+  }
+  const onDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return
+    e.preventDefault()
+  }
+  const onDragLeave = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return
+    e.preventDefault()
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) useCopilot.setState({ draggingFiles: false })
+  }
+  const onDrop = (e: React.DragEvent) => {
+    // 无条件 preventDefault + 复位：拖文件夹（files 为空列表）或非文件投放，
+    // 既不能让浏览器直接打开被拖入的文件，也不能让高亮层残留
+    e.preventDefault()
+    dragDepth.current = 0
+    useCopilot.setState({ draggingFiles: false })
+    if (!e.dataTransfer?.files?.length || !filesDropAllowed()) return
+    addAttachmentFiles(e.dataTransfer.files)
+  }
 
   const toggleList = () => {
     if (railCapable) {
@@ -131,13 +206,30 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <aside
-      ref={setPanelRef}
+      ref={setRefs}
         style={{ '--copilot-w': `${width}px` } as React.CSSProperties}
         className={`fixed top-(--app-navbar-h) right-0 bottom-0 z-[100] flex w-full flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.06)] duration-200 fill-mode-both transition-none sm:w-(--copilot-w) ${
           open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'
         }`}
         aria-label="AI 助手"
+        onDragEnter={onDragEnter}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
       >
+        {draggingFiles && (
+          <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-background/70 backdrop-blur-[1px]">
+            <div className="flex flex-col items-center gap-2 rounded-[14px] border-2 border-dashed border-primary/60 bg-card px-8 py-6 text-center shadow-lg">
+              <Paperclip className="h-6 w-6 text-primary" />
+              <p className="text-[14px] font-semibold text-foreground">松手添加附件</p>
+              <p className="text-[12px] leading-relaxed text-muted-foreground">
+                PDF / Word / 图片（PNG·JPG·TIFF）/ TXT · 单个 ≤ 20MB
+                <br />
+                附件随下一条消息一起发送，AI 会自动读取内容
+              </p>
+            </div>
+          </div>
+        )}
         {/* 拖拽把手：面板锚定右侧，向左拖变宽 */}
         <div
           role="separator"

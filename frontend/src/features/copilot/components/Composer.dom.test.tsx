@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const copilotState = vi.hoisted(() => ({
   streaming: false,
   queuedSteers: [] as string[],
+  pendingFiles: [] as File[],
+  uploadingAttachments: false,
   turnStats: {
     firstDeltaAt: null as number | null,
     lastDeltaAt: null as number | null,
@@ -25,6 +27,8 @@ const copilotState = vi.hoisted(() => ({
   steer: vi.fn(),
   revokeQueuedSteers: vi.fn(),
   submitTask: vi.fn(),
+  addAttachmentFiles: vi.fn(),
+  removeAttachmentFile: vi.fn(),
 }))
 
 vi.mock('../store', () => ({
@@ -40,11 +44,15 @@ import { Composer } from './Composer'
 beforeEach(() => {
   copilotState.streaming = false
   copilotState.queuedSteers = []
+  copilotState.pendingFiles = []
+  copilotState.uploadingAttachments = false
   copilotState.send = vi.fn()
   copilotState.stop = vi.fn()
   copilotState.steer = vi.fn()
   copilotState.revokeQueuedSteers = vi.fn()
   copilotState.submitTask = vi.fn()
+  copilotState.addAttachmentFiles = vi.fn()
+  copilotState.removeAttachmentFile = vi.fn()
   copilotState.turnStats = {
     firstDeltaAt: null,
     lastDeltaAt: null,
@@ -150,7 +158,7 @@ describe('Composer', () => {
     const box = within(container).getByRole('textbox') as HTMLTextAreaElement
     fireEvent.change(box, { target: { value: '你好' } })
     fireEvent.keyDown(box, { key: 'Enter' })
-    expect(copilotState.send).toHaveBeenCalledWith('你好')
+    expect(copilotState.send).toHaveBeenCalledWith('你好', expect.any(Function))
     container.remove()
   })
 
@@ -233,6 +241,23 @@ describe('Composer', () => {
     const { container } = render(<Composer />)
     const btn = within(container).getByRole('button', { name: '发送' }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
+    container.remove()
+  })
+
+  it('有待发附件时发送按钮可用，chip 可移除（P1-11）', () => {
+    copilotState.pendingFiles = [new File(['x'], '合同.pdf', { type: 'application/pdf' })]
+    const { container } = render(<Composer />)
+    const btn = within(container).getByRole('button', { name: '发送' }) as HTMLButtonElement
+    expect(btn.disabled).toBe(false)
+    expect(container.textContent).toContain('合同.pdf')
+    fireEvent.click(within(container).getByRole('button', { name: '移除附件 合同.pdf' }))
+    expect(copilotState.removeAttachmentFile).toHaveBeenCalledWith(0)
+    container.remove()
+  })
+
+  it('回形针按钮可点（选择文件入口）', () => {
+    const { container } = render(<Composer />)
+    expect(within(container).getByRole('button', { name: '添加附件' })).toBeTruthy()
     container.remove()
   })
 })

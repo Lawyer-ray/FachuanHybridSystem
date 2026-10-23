@@ -122,6 +122,14 @@ export interface CopilotContext extends CopilotScope {
   title: string
 }
 
+/** POST /agent/sessions/{id}/attachments 的上传回执：消息里以 attachment_id 引用 */
+export interface AgentAttachmentReceipt {
+  attachment_id: string
+  filename: string
+  size: number
+  mime: string
+}
+
 /** GET /agent/usage 的汇总（token 由 pi 上报，取消/出错轮次也计入） */
 export interface UsageSummary {
   runs: number
@@ -145,4 +153,69 @@ export interface PendingApprovalItem {
   tool_args: Record<string, unknown>
   risk_level: string
   created_at: string
+}
+
+/**
+ * store（useCopilot）的完整状态形状。
+ * 动作语义见各字段注释；实现见 store.ts（编排）与同域模块
+ * （streaming / turn-handlers / outgoing / transitions / persistence）。
+ */
+export interface CopilotState {
+  sessionId: string | null
+  messages: ChatMessage[]
+  approvals: PendingApproval[]
+  streaming: boolean
+  loadingHistory: boolean
+  lastError: string | null
+  /** 本轮输出统计：流式期间驱动实时 tok/s，结束后展示精确 token 与平均速度 */
+  turnStats: TurnStats
+  /** 池满排队中：队列名次（1 起）；null = 不在排队 */
+  queuePosition: number | null
+  /** 本轮已插话（steer）且尚未撤回的文本 */
+  queuedSteers: string[]
+  /** 插话请求在途（防重复提交） */
+  steering: boolean
+  /** 业务内会话上下文（null = 普通对话模式）；会话列表按它过滤、新会话带归属 */
+  context: CopilotContext | null
+  /** 待发送附件（拖拽/选择后暂存，随下一条消息上传并引用） */
+  pendingFiles: File[]
+  /** 附件上传在途（发送按钮置忙，防止重复提交） */
+  uploadingAttachments: boolean
+  /** 拖拽文件悬停中（面板渲染投放离焦高亮） */
+  draggingFiles: boolean
+  /** 拖拽/选择加入待发附件（前端预检不过的拒绝并提示） */
+  addAttachmentFiles: (files: FileList | File[]) => void
+  /** 移除一个待发附件 */
+  removeAttachmentFile: (index: number) => void
+  /** 进入业务内会话模式（案件/合同页打开）：列表过滤到该业务，新会话带归属 */
+  enterContext: (context: CopilotContext) => Promise<void>
+  /** 退出业务内会话模式，回到普通对话 */
+  exitContext: () => Promise<void>
+  /** 切换会话（null = 新对话）；会先停掉在途流再回放历史 */
+  switchSession: (id: string | null) => Promise<void>
+  /**
+   * 发消息并消费 SSE 流；无会话时先创建。
+   * onQueued 在「消息已入列开流（true）」或「早失败未发出（false，如建会话/
+   * 上传附件失败）」时同步回调一次——调用方（Composer）据此决定是否回填正文。
+   * 注意 send 的 Promise 要等整轮流结束才 resolve，不要用它做快速反馈。
+   */
+  send: (text: string, onQueued?: (sent: boolean) => void) => Promise<void>
+  /** 停止生成（中断在途流） */
+  stop: () => void
+  /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed） */
+  decide: (approvalId: string, approved: boolean) => Promise<void>
+  /** 运行中插话：当前轮工具调用后、下次模型调用前生效 */
+  steer: (text: string) => Promise<void>
+  /** 撤回已排队未生效的全部插话 */
+  revokeQueuedSteers: () => Promise<void>
+  /** 提交后台任务（origin=task）：受理后切到该任务会话 */
+  submitTask: (text: string) => Promise<void>
+  /** 拉取离线待审批并合并进审批卡（面板打开 / 每轮流结束时调用） */
+  loadPendingApprovals: () => Promise<void>
+  /** 关闭一张审批卡（已决/已超时的僵尸卡；仅本地移除，不影响服务端状态） */
+  dismissApproval: (approvalId: string) => void
+  /** 重拉当前会话历史（后台任务跑完后刷新转录用；流式中跳过） */
+  refreshHistory: () => Promise<void>
+  /** 登出清理（换账号不得残留上一账号的会话内容） */
+  reset: () => void
 }
