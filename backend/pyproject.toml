@@ -79,6 +79,8 @@ dependencies = [
     "weasyprint==70.0",
     # --- MCP Server ---
     "mcp[cli]>=2.2.0",
+    # mcp 的传递依赖；固定下限避开 CVE-2026-114603（pip-audit 报 1.44.0 命中，修于 1.45.1）
+    "opentelemetry-api>=1.45.1",
     "gmssl==3.2.2",
     "python-multipart==0.0.32",
     "aiohttp>=3.14.3",
