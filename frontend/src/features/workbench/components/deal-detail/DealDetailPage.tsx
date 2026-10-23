@@ -89,6 +89,15 @@ export function DealDetailPage() {
     })
   }, [])
 
+  // 页面感知精确覆盖：通用助手注入的锚点带上委托名与 contract_id，
+  // 模型可拿 id 用 get_contract / read_folder_file 等工具了解页面内容
+  useEffect(() => {
+    if (!deal) return
+    void import('@/features/copilot/store').then((m) => {
+      m.useCopilot.getState().setPageHint(`委托详情 · ${deal.client}（contract_id=${deal.id}）`)
+    })
+  }, [deal])
+
   const jump = useCallback((caseId: number) => {
     document.getElementById('case-' + caseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setHl(caseId)
@@ -204,7 +213,7 @@ export function DealDetailPage() {
         {aiActive && (
           /* 工作区列：sticky 满视口高（页头下），页面滚动时对话区不动——
              律师边滚案件日志边对话；左缘把手拖宽（--deal-ai-w 驱动 grid 列） */
-          <div className="sticky top-[calc(var(--app-navbar-h)+14px)] h-[calc(100dvh-var(--app-navbar-h)-28px)] min-w-0">
+          <div className="sticky top-[calc(var(--app-navbar-h)_+_14px)] h-[calc(100dvh_-_var(--app-navbar-h)_-_28px)] min-w-0">
             <div
               role="separator"
               aria-orientation="vertical"

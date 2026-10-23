@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Brain, Check, Copy, FolderOpen, Loader2, Wrench } from 'lucide-react'
+import { Brain, Check, Copy, FolderOpen, Loader2, MapPin, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -94,8 +94,18 @@ function Bubble({ message }: { message: ChatMessage }) {
 
   if (message.role === 'user') {
     const refs = message.refs ?? []
+    const pageHint = message.pageHint
     return (
       <div className="flex max-w-[85%] flex-col items-end gap-1">
+        {pageHint && (
+          <span
+            className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
+            title={`发送时所在页面：${pageHint}（AI 可据此了解页面内容）`}
+          >
+            <MapPin className="h-3 w-3 flex-none text-primary" />
+            <span className="max-w-52 truncate">{pageHint}</span>
+          </span>
+        )}
         {refs.length > 0 && (
           <div className="flex max-w-full flex-wrap justify-end gap-1">
             {refs.map((ref) => (
@@ -110,7 +120,7 @@ function Bubble({ message }: { message: ChatMessage }) {
             ))}
           </div>
         )}
-        {(message.content.trim() || refs.length === 0) && (
+        {(message.content.trim() || (refs.length === 0 && !pageHint)) && (
           <div className="max-w-full rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background">
             {message.content}
           </div>

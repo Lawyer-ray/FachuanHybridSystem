@@ -82,6 +82,8 @@ export interface ChatMessage {
   content: string
   /** user 消息里的文件夹引用（从「[已引用文件：…]」块解析，气泡上方重放为 chip） */
   refs?: SentRefMeta[]
+  /** 通用模式下注入的页面锚点（从「[当前页面：…]」块解析，气泡上方重放为 chip） */
+  pageHint?: string
   /** tool 消息的工具名（tool_call 与 tool_result 的归并键） */
   toolName?: string
   toolCallId?: string
@@ -203,6 +205,12 @@ export interface CopilotState {
   pendingFiles: File[]
   /** 待发送的文件夹引用（从合同目录树拖入；随下一条消息落库并引用） */
   pendingRefs: FolderRefDraft[]
+  /** 通用模式的页面感知：用户当前所在页面的描述（详情页会写更精确值覆盖），send 注入 */
+  pageHint: string | null
+  /** 上一条已注入的页面描述：页面没变不重复注入，历史不刷屏 */
+  lastPageHintSent: string | null
+  /** 页面感知写入（AppShell 路由兜底 / 详情页精确覆盖） */
+  setPageHint: (hint: string) => void
   /** 附件上传在途（发送按钮置忙，防止重复提交） */
   uploadingAttachments: boolean
   /** 拖拽文件悬停中（面板渲染投放离焦高亮） */

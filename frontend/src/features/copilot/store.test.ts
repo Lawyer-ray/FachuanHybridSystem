@@ -45,6 +45,44 @@ beforeEach(() => {
   useCopilot.getState().reset()
 })
 
+describe('copilot store：页面感知注入', () => {
+  const emptyStream = () => vi.mocked(copilotApi.openMessageStream).mockResolvedValue(sseResponse(['data: {"type":"done","session_id":"s-1"}\n\n']))
+
+  it('通用模式：页面变化后首条注入 [当前页面：…] 锚点，本地气泡折叠为 chip', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    const st = useCopilot.getState()
+    st.setPageHint('委托详情 · 某银行（contract_id=8）')
+    await st.send('总结一下')
+
+    // 出站消息带锚点前缀（模型可拿 contract_id 用工具了解页面）
+    const sent = vi.mocked(copilotApi.openMessageStream).mock.calls[0]?.[1] ?? ''
+    expect(sent).toBe('[当前页面：委托详情 · 某银行（contract_id=8）]\n总结一下')
+    // 本地气泡：锚点折叠成 pageHint 字段、正文干净
+    const user = useCopilot.getState().messages[0]!
+    expect(user.pageHint).toBe('委托详情 · 某银行（contract_id=8）')
+    expect(user.content).toBe('总结一下')
+  })
+
+  it('同一页面第二条不重复注入；业务 context 模式不注入', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    const st = useCopilot.getState()
+    st.setPageHint('办案列表页')
+    await st.send('第一条')
+    await st.send('第二条')
+    expect(vi.mocked(copilotApi.openMessageStream).mock.calls[1]?.[1]).toBe('第二条')
+
+    // 业务范围（详情页工作区/浮层 context）归属已明确，锚点不注入
+    await st.enterContext({ origin: 'contract', refId: 8, title: '某银行' })
+    st.setPageHint('委托详情 · 某银行（contract_id=8）')
+    await st.send('范围内的消息')
+    const last = vi.mocked(copilotApi.openMessageStream).mock.calls[2]?.[1]
+    expect(last).toBe('范围内的消息')
+    expect(last).not.toContain('当前页面')
+  })
+})
+
 describe('copilot store：发送与流式转录', () => {
   it('无会话时先创建，delta 累加进助手气泡，done 收尾', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)

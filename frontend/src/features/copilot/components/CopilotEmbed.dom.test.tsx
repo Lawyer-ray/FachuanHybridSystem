@@ -91,7 +91,7 @@ describe('CopilotEmbed 壳编排', () => {
 describe('CopilotEmbed 拖拽投放', () => {
   it('自定义 MIME 投放成引用（不进文件上传通道）', () => {
     render(<CopilotEmbed origin="contract" refId={8} title="某银行" />)
-    const zone = screen.getByRole('region', { name: '某银行 AI 助手' })
+    const zone = screen.getByRole('region', { name: '法穿SI超级助理' })
     fireEvent.drop(zone, {
       dataTransfer: {
         getData: (mime: string) =>
@@ -109,7 +109,7 @@ describe('CopilotEmbed 拖拽投放', () => {
 
   it('原生文件投放进上传通道', () => {
     render(<CopilotEmbed origin="contract" refId={8} title="某银行" />)
-    const zone = screen.getByRole('region', { name: '某银行 AI 助手' })
+    const zone = screen.getByRole('region', { name: '法穿SI超级助理' })
     const file = new File(['x'], 'a.txt', { type: 'text/plain' })
     fireEvent.drop(zone, { dataTransfer: { getData: () => '', files: [file] } })
     expect(copilotState.addAttachmentFiles).toHaveBeenCalledWith([file])

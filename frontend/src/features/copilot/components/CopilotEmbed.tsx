@@ -3,6 +3,7 @@
  * CopilotPanel 共享同一 store——本委托的会话两处互通，嵌入区发消息、
  * 全局面板（⌘J）能接着看；反之亦然。
  *
+ * 命名「法穿SI超级助理」：本合同/本案的独家助理（与通用浮层助手相区分）。
  * 与浮层的分工：嵌入区天然绑定单一业务上下文（mount 时进入，不匹配才
  * 重进——从全局面板带着本委托会话过来时无缝延续，不打断当前对话），
  * 没有「业务范围 chip」「并排切换」这些浮层概念；会话列表用覆盖层，
@@ -53,16 +54,19 @@ export function CopilotEmbed({
 
   return (
     <section
-      className="relative flex h-full min-h-[440px] flex-col overflow-hidden rounded-[12px] border border-border bg-card shadow-sm"
-      aria-label={`${title} AI 助手`}
+      className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[12px] border border-border bg-card shadow-sm"
+      aria-label="法穿SI超级助理"
       onDragEnter={drop.onDragEnter}
       onDragOver={drop.onDragOver}
       onDragLeave={drop.onDragLeave}
       onDrop={drop.onDrop}
     >
       <header className="flex h-10 flex-none items-center gap-1.5 border-b border-border px-2.5">
-        <span className="min-w-0 flex-1 truncate px-0.5 text-[12.5px] font-semibold text-foreground" title={title}>
-          本{origin === 'case' ? '案' : '委托'} AI 助手
+        <span className="min-w-0 flex-1 truncate px-0.5 text-[12.5px] font-semibold text-foreground" title={`法穿SI超级助理 · ${title}`}>
+          法穿SI超级助理
+        </span>
+        <span className="hidden min-w-0 flex-none truncate rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10.5px] text-muted-foreground min-[1500px]:block" title={title}>
+          {origin === 'case' ? '本案' : '本委托'}独家
         </span>
         <button
           type="button"

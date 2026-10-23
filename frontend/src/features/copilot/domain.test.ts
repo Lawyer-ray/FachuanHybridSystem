@@ -7,6 +7,8 @@ import {
   historyToMessages,
   parseSseEvent,
   previewToolArgs,
+  describeLocation,
+  splitPageHintLine,
   splitRefBlocks,
   shortToolName,
   takeSseFrames,
@@ -163,5 +165,33 @@ describe('引用块拆分（folder-ref 回放）', () => {
     expect(msgs[0]!.content).toBe('帮我审一遍')
     expect(msgs[1]!.refs).toBeUndefined()
     expect(msgs[1]!.content).toBe(REF)
+  })
+})
+
+describe('页面锚点（通用助手页面感知）', () => {
+  it('splitPageHintLine：拆出首行锚点、正文保留；无锚点原样返回', () => {
+    expect(splitPageHintLine('[当前页面：办案列表页]\n这个页面有什么功能')).toEqual({
+      pageHint: '办案列表页',
+      body: '这个页面有什么功能',
+    })
+    expect(splitPageHintLine('普通消息')).toEqual({ pageHint: null, body: '普通消息' })
+    // 锚点不在首行不解析（注入永远在开头，防误伤正文里的同款文本）
+    expect(splitPageHintLine('前言行\n[当前页面：x]').pageHint).toBeNull()
+  })
+
+  it('describeLocation：路由 → 页面描述（详情页由页面自己覆盖精确值）', () => {
+    expect(describeLocation('/')).toBe('工作台首页')
+    expect(describeLocation('/cases')).toBe('办案列表页')
+    expect(describeLocation('/cases/386')).toBe('委托详情页')
+    expect(describeLocation('/material-prep')).toBe('材料预处理台')
+  })
+
+  it('historyToMessages：user 行锚点折叠为 pageHint、不进正文', () => {
+    const rows: AgentHistoryMessage[] = [
+      { message_id: 1, role: 'user', content: '[当前页面：委托详情 · 某银行（contract_id=8）]\n总结一下', tool_name: '', created_at: '', metadata: {} },
+    ]
+    const msg = historyToMessages(rows)[0]!
+    expect(msg.pageHint).toBe('委托详情 · 某银行（contract_id=8）')
+    expect(msg.content).toBe('总结一下')
   })
 })

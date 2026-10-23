@@ -72,13 +72,39 @@ export function splitRefBlocks(content: string): { refs: SentRefMeta[]; body: st
   return { refs, body: kept.join('\n').replace(/^\n+|\n+$/g, '') }
 }
 
+/** 「[当前页面：xxx]」行——通用模式下 send 注入的页面锚点，回放折叠为 chip */
+const PAGE_HINT_RE = /^\[当前页面：(.+?)\]$/
+
+/** 把 user 消息开头的页面锚点行拆出来；无锚点原样返回 */
+export function splitPageHintLine(content: string): { pageHint: string | null; body: string } {
+  const lines = content.split('\n')
+  const first = lines[0]?.trim() ?? ''
+  const m = PAGE_HINT_RE.exec(first)
+  if (!m?.[1]) return { pageHint: null, body: content }
+  return { pageHint: m[1], body: lines.slice(1).join('\n').replace(/^\n+/, '') }
+}
+
+/**
+ * 路由 → 页面描述（通用助手的页面感知兜底）。详情页会挂载后写更精确的
+ * 描述（含实体名与 id，模型可拿 id 用工具深入了解页面内容）覆盖此值。
+ */
+export function describeLocation(pathname: string): string {
+  if (pathname === '/') return '工作台首页'
+  if (pathname.startsWith('/cases/')) return '委托详情页'
+  if (pathname.startsWith('/cases')) return '办案列表页'
+  if (pathname.startsWith('/material-prep')) return '材料预处理台'
+  return `页面 ${pathname}`
+}
+
 export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
   return rows.map((row) => {
-    const refsSplit = row.role === 'user' ? splitRefBlocks(row.content) : null
+    const hintSplit = row.role === 'user' ? splitPageHintLine(row.content) : null
+    const refsSplit = row.role === 'user' ? splitRefBlocks(hintSplit?.body ?? row.content) : null
     return {
       id: `db-${row.message_id}`,
       role: row.role,
       content: row.role === 'tool' ? row.content.slice(0, 2000) : (refsSplit?.body ?? row.content),
+      pageHint: hintSplit?.pageHint ?? undefined,
       refs: refsSplit?.refs.length ? refsSplit.refs : undefined,
       toolName: row.tool_name || undefined,
       truncated: row.metadata?.truncated === true || undefined,

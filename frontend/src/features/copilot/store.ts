@@ -19,6 +19,7 @@ import {
   nextLocalId,
   pendingItemToApproval,
   splitAttachmentFiles,
+  splitPageHintLine,
   splitRefBlocks,
 } from './domain'
 import { resetUploadReceipts, uploadAttachmentsAndCompose } from './outgoing'
@@ -54,6 +55,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   context: null,
   pendingFiles: [],
   pendingRefs: [],
+  pageHint: null,
+  lastPageHintSent: null,
   uploadingAttachments: false,
   draggingFiles: false,
 
@@ -80,6 +83,11 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   removeFolderRef: (index) => {
     set((s) => ({ pendingRefs: s.pendingRefs.filter((_, i) => i !== index) }))
+  },
+
+  setPageHint: (hint) => {
+    if (get().pageHint === hint) return
+    set({ pageHint: hint })
   },
 
   enterContext: async (context) => {
@@ -129,6 +137,16 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     }
     set({ lastError: null })
 
+    // 通用模式（无业务 context）下注入「当前页面」锚点：页面变化后首条
+    // 才注（历史不刷屏），模型可拿页面里的实体 id 用工具主动了解内容。
+    // 业务范围内（详情页工作区/浮层 context 模式）不注——归属已经明确。
+    const pre = get()
+    let outgoingText = trimmed
+    if (!pre.context && pre.pageHint && pre.pageHint !== pre.lastPageHintSent) {
+      outgoingText = `[当前页面：${pre.pageHint}]\n${trimmed}`
+      set({ lastPageHintSent: pre.pageHint })
+    }
+
     // 本轮发送归属哪个会话：await 期间用户可能切会话/开新对话，
     // 迟到结果必须丢弃，否则会覆盖用户刚选中的会话并把消息推进去
     const startedSessionId = get().sessionId
@@ -156,7 +174,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const pendingFiles = get().pendingFiles
     const pendingRefs = get().pendingRefs
     if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ uploadingAttachments: true })
-    const outgoing = await uploadAttachmentsAndCompose(sessionId, trimmed, pendingFiles, pendingRefs)
+    const outgoing = await uploadAttachmentsAndCompose(sessionId, outgoingText, pendingFiles, pendingRefs)
     set({ uploadingAttachments: false })
     if (outgoing === null) {
       set({ lastError: '附件/引用准备失败，请重试（已保留，重试不会重复上传）' })
@@ -173,12 +191,19 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const composed = outgoing.composed
 
     const assistantId = nextLocalId()
-    // 与历史回放同一解析：本地即时渲染也把引用块还原成 chip，两侧不漂移
-    const { refs, body } = splitRefBlocks(composed)
+    // 与历史回放同一解析：本地即时渲染也把页面锚点/引用块还原成 chip，两侧不漂移
+    const { pageHint, body: noHint } = splitPageHintLine(composed)
+    const { refs, body } = splitRefBlocks(noHint)
     set((s) => ({
       messages: [
         ...s.messages,
-        { id: nextLocalId(), role: 'user', content: body, ...(refs.length ? { refs } : {}) },
+        {
+          id: nextLocalId(),
+          role: 'user',
+          content: body,
+          ...(pageHint ? { pageHint } : {}),
+          ...(refs.length ? { refs } : {}),
+        },
         { id: assistantId, role: 'assistant', content: '', streaming: true },
       ],
       approvals: [],

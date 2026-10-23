@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
-import { Navigate, Outlet, Route, Routes } from 'react-router'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { hasToken } from '@/lib/token'
@@ -87,6 +87,22 @@ function AppShell() {
   // 登录后空闲时把三个主入口的 chunk 预载进来：切标签不再等下载。
   // 悬停预取（AppNavbar）兜住预载还没完成就点进来的情况。
   useEffect(() => whenIdle(() => Object.keys(ROUTE_PRELOADERS).forEach(preloadRoute)), [])
+
+  // 页面感知兜底：路由一变就把页面描述写进 copilot store（通用助手注入
+  // 「[当前页面：…]」锚点用）。详情页挂载后会写更精确的描述（实体名+id）
+  // 覆盖；动态 import 保持 copilot 域的懒加载边界。
+  const location = useLocation()
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([import('@/features/copilot/store'), import('@/features/copilot/domain')]).then(
+      ([storeMod, domainMod]) => {
+        if (!cancelled) storeMod.useCopilot.getState().setPageHint(domainMod.describeLocation(location.pathname))
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [location.pathname])
 
   // AI 助手面板开关：展开状态跨会话记忆（localStorage），首次展开才加载 chunk。
   const [copilotOpen, setCopilotOpen] = useState(() => {
