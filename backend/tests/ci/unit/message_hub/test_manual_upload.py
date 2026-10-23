@@ -129,13 +129,24 @@ def test_create_manual_message_rejects_batch_with_any_bad_file() -> None:
 
 @pytest.mark.django_db
 def test_create_manual_message_accepts_zip_and_images() -> None:
-    archive = SimpleUploadedFile("材料.zip", b"PK\x05\x06" + b"\x00" * 18, content_type="application/zip")
+    """zip 现在会展开为包内文件（archive_extract_service）；空压缩包直接拒绝。"""
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("内层文件.pdf", b"%PDF-1.4 inner")
+    archive = SimpleUploadedFile("材料.zip", buf.getvalue(), content_type="application/zip")
     image = SimpleUploadedFile("scan.png", b"\x89PNG\r\n\x1a\n", content_type="image/png")
     msg = create_manual_message([archive, image])
     try:
-        assert len(msg.attachments_meta) == 2
+        assert [a["filename"] for a in msg.attachments_meta] == ["内层文件.pdf", "scan.png"]
     finally:
         _cleanup(msg)
+
+    empty = SimpleUploadedFile("空.zip", b"PK\x05\x06" + b"\x00" * 18, content_type="application/zip")
+    with pytest.raises(ValidationException, match="空的"):
+        create_manual_message([empty])
 
 
 @pytest.mark.django_db
