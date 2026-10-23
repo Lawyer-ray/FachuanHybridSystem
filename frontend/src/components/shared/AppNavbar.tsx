@@ -43,6 +43,9 @@ export interface AppNavbarProps {
   onPrefetch?: (to: string) => void
   /** 切换右侧 AI 助手面板（AppShell 注入，展开状态由壳层持久化） */
   onToggleCopilot?: () => void
+  /** 全局检索面板开关（AppShell 注入：⌘K 快捷键与 AI 助手面板的互斥联动都在壳层） */
+  searchOpen: boolean
+  onSearchOpenChange: (v: boolean) => void
 }
 
 /** 补拉当前用户信息的 query key（本组件独用，就地定义） */
@@ -53,9 +56,15 @@ function isPlainLeftClick(e: React.MouseEvent): boolean {
   return e.button === 0 && !e.metaKey && !e.altKey && !e.ctrlKey && !e.shiftKey
 }
 
-export function AppNavbar({ onNotify, onLogout, onPrefetch, onToggleCopilot }: AppNavbarProps) {
+export function AppNavbar({
+  onNotify,
+  onLogout,
+  onPrefetch,
+  onToggleCopilot,
+  searchOpen,
+  onSearchOpenChange,
+}: AppNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { pathname } = useLocation()
   // 点击导航后、目标页面 chunk 到达前，react-router 的导航 transition 尚未提交，
@@ -106,17 +115,8 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch, onToggleCopilot }: A
     })
   }
 
-  // ⌘K / Ctrl+K 唤起全局检索。dialog 已打开时不再重复触发。
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setSearchOpen(true)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  // 检索面板开关（⌘K）与 AI 助手面板（⌘J）的互斥、快捷键监听都在 AppShell 壳层：
+  // 两层浮层的状态必须同层协调，否则同屏叠加。这里只消费注入的开关。
 
   const handleLogout = () => {
     setLogoutOpen(false)
@@ -189,7 +189,7 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch, onToggleCopilot }: A
       <button
         type="button"
         className={`${onToggleCopilot ? '' : 'ml-auto '}hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex`}
-        onClick={() => setSearchOpen(true)}
+        onClick={() => onSearchOpenChange(true)}
       >
         <Search className="h-[13px] w-[13px]" />
         <span>检索</span>
@@ -238,7 +238,7 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch, onToggleCopilot }: A
       {/* 全局检索（⌘K） */}
       <GlobalSearch
         open={searchOpen}
-        onOpenChange={setSearchOpen}
+        onOpenChange={onSearchOpenChange}
         onPickUnavailable={(label) => notify(`${label}详情页正在开发中`)}
       />
 

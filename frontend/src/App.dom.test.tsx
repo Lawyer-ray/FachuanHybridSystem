@@ -60,7 +60,10 @@ vi.mock('@/features/material-prep', () => ({ DeskPage: () => <main>desk-page</ma
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(() => ({ json: () => Promise.resolve({ id: 1, username: '张律师' }) })) },
 }))
-vi.mock('@/features/search', () => ({ GlobalSearch: () => null }))
+vi.mock('@/features/search', () => ({
+  // 透出 open 状态：⌘K 开关与 AI 助手互斥的断言都看它
+  GlobalSearch: ({ open }: { open: boolean }) => <div>{open ? 'gs-open' : 'gs-closed'}</div>,
+}))
 
 import App from './App'
 
@@ -91,8 +94,33 @@ function setupApp({ idleFiresNow }: { idleFiresNow: boolean }) {
 const header = () => document.querySelector('header')
 const current = (name: string) => screen.getByRole('link', { name }).getAttribute('aria-current')
 
+/**
+ * jsdom 未实现 window.matchMedia。AppShell 展开时会真实挂载 copilot 域
+ * （懒加载 chunk，本文件不 mock），面板内 useMediaQuery 缺它会直接抛错、
+ * 被 ErrorBoundary 兑底成整页错误页，后续 DOM 断言全部落空（偶发，取决于
+ * chunk 解析时机）。替身固定窄屏分支（matches: false），与
+ * LoginPage.dom.test / CalendarPanel.dom.test 同一套路。
+ */
+function stubMatchMedia() {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }),
+  })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  stubMatchMedia()
 })
 
 afterEach(() => {
@@ -230,6 +258,78 @@ describe('AppShell：AI 助手面板开关', () => {
       fireEvent.keyDown(window, { key: 'j', metaKey: true })
     }).not.toThrow()
     setItem.mockRestore()
+  })
+})
+
+// ============ ⌘K 检索开关与 ⌘J AI 助手互斥（回归：二次 ⌘K 关不掉 + 两层叠加） ============
+
+describe('AppShell：⌘K 检索开关与 ⌘J AI 助手互斥', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('⌘K 打开检索，再按一次 ⌘K 收起（toggle）', async () => {
+    setupApp({ idleFiresNow: false })
+    await screen.findByText('home-page')
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+    expect(screen.getByText('gs-open')).toBeTruthy()
+
+    // 修复前：再次 ⌘K 只是重复 setSearchOpen(true)，弹窗关不掉
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+    expect(screen.getByText('gs-closed')).toBeTruthy()
+  })
+
+  it('Ctrl+K 同样可开可关（Windows/Linux）', async () => {
+    setupApp({ idleFiresNow: false })
+    await screen.findByText('home-page')
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    expect(screen.getByText('gs-open')).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    expect(screen.getByText('gs-closed')).toBeTruthy()
+  })
+
+  it('检索打开时按 ⌘J：收起检索、展开 AI 助手（不叠加）', async () => {
+    setupApp({ idleFiresNow: false })
+    await screen.findByText('home-page')
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+    expect(screen.getByText('gs-open')).toBeTruthy()
+
+    // 修复前：面板展开后检索弹窗仍叠在上面（双重压暗）
+    fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    expect(screen.getByText('gs-closed')).toBeTruthy()
+    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+  })
+
+  it('AI 助手展开时按 ⌘K：收起面板（含持久化）、打开检索（反向互斥）', async () => {
+    setupApp({ idleFiresNow: false })
+    await screen.findByText('home-page')
+
+    fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+    expect(screen.getByText('gs-open')).toBeTruthy()
+    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('0'))
+  })
+
+  it('按住不放（e.repeat）不连续切换', async () => {
+    setupApp({ idleFiresNow: false })
+    await screen.findByText('home-page')
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+    fireEvent.keyDown(window, { key: 'k', metaKey: true, repeat: true })
+    expect(screen.getByText('gs-open')).toBeTruthy()
+  })
+
+  it('无修饰键的 k 不触发检索', async () => {
+    setupApp({ idleFiresNow: false })
+    await screen.findByText('home-page')
+
+    fireEvent.keyDown(window, { key: 'k' })
+    expect(screen.getByText('gs-closed')).toBeTruthy()
   })
 })
 
