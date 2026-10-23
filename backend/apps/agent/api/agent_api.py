@@ -22,12 +22,13 @@ from ninja.errors import HttpError
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentApproval, AgentMessage, AgentSession
+from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentSession
 from ..pi.rpc_client import PiError
 from ..services.approval import classify_risk, decide_approval, get_approval_for_decision
 from ..services.approval import list_approvals as list_approval_records
 from ..services.approval import list_pending_for_user as list_pending_approvals
 from ..services.approval import request_approval
+from ..services.attachments import create_attachment, get_attachment_for_user, read_attachment_content
 from ..services.chat_service import (
     SessionNotLiveError,
     clear_queue_session,
@@ -192,6 +193,15 @@ class PiApprovalOut(Schema):
     approval_id: str = ""
     reason: str = ""
     risk_level: str = ""
+
+
+class AttachmentOut(Schema):
+    """附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。"""
+
+    attachment_id: str
+    filename: str
+    size: int
+    mime: str = ""
 
 
 def _current_user(request: Any) -> Any:
@@ -476,6 +486,65 @@ async def clear_session_queue(request: Any, session_id: str) -> Any:  # pragma: 
         raise HttpError(404, "会话不存在")
     messages = await clear_queue_session(session_id=session_id)
     return ClearQueueOut(success=True, messages=messages)
+
+
+# ── 附件（拖拽/选择上传，服务端提取正文，base64 不进模型上下文）────
+
+
+@router.post("/sessions/{session_id}/attachments", response=AttachmentOut)
+async def upload_attachment(request: Any, session_id: str) -> Any:  # pragma: no cover
+    """上传一个对话附件（multipart 字段名 ``file``；白名单/20MB 限额见 service）。
+
+    归属：会话必须属于当前用户。上传后前端在消息里附
+    「[已上传附件：name (attachment_id=…)]」，模型用 read_agent_attachment 读正文。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    uploaded = request.FILES.get("file")
+    if uploaded is None:
+        raise HttpError(400, "缺少 file 字段")
+    from asgiref.sync import sync_to_async
+
+    from ..services.attachments import create_attachment as create_attachment_record
+
+    try:
+        attachment = await sync_to_async(create_attachment_record, thread_sensitive=True)(
+            session=session, user_id=_user_id(request), uploaded_file=uploaded
+        )
+    except Exception as exc:
+        # 校验类异常（超大/白名单外）翻译成可读 4xx，不吐内部细节
+        message = str(exc) or "附件保存失败"
+        raise HttpError(400, message) from exc
+    return AttachmentOut(
+        attachment_id=str(attachment.attachment_id),
+        filename=attachment.filename,
+        size=attachment.size,
+        mime=attachment.mime,
+    )
+
+
+@router.get("/attachments/{attachment_id}/content")
+async def get_attachment_content(request: Any, attachment_id: str) -> Any:  # pragma: no cover
+    """读附件原始内容（base64）——**mcp_server 专用**（用户 token 鉴权）。
+
+    返回内容只用于服务端转投 /document-parsing 提取正文，不会直接进入模型
+    上下文；前端不需要也不应消费本端点。
+    """
+    user = _current_user(request)
+    if user is None:
+        raise HttpError(401, "未登录")
+    from asgiref.sync import sync_to_async
+
+    from ..services.attachments import get_attachment_for_user, read_attachment_content
+
+    attachment = await sync_to_async(get_attachment_for_user, thread_sensitive=True)(
+        attachment_id=attachment_id, user_id=_user_id(request)
+    )
+    if attachment is None:
+        # 不区分「不存在」与「不属于你」，避免校验式枚举
+        raise HttpError(404, "附件不存在")
+    return await sync_to_async(read_attachment_content, thread_sensitive=True)(attachment)
 
 
 # ─── 审批 ───────────────────────────────────────────────────────────────────

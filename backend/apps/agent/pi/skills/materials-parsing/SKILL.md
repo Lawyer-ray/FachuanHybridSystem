@@ -12,6 +12,12 @@ description: 读取归档材料正文、解析文档、提取表格内容的指�
 
 大材料请显式传 `max_length` 限制长度。
 
+## 对话附件用引用读，不要 base64
+
+用户消息里「[已上传附件：… (attachment_id=…)]」的文件已存在服务端：
+用 `read_agent_attachment(attachment_id)` 直接读正文（PDF/Word/图片均可，
+图片走 OCR；truncated=true 时用 start 分段续读）。
+
 ## 长文档可能转异步
 
 长文档解析可能转异步，此时返回 `task_id`，用 `get_document_parsing_task`
