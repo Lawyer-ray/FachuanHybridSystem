@@ -315,9 +315,12 @@ def replay_events(session_id: str, last_event_id: int) -> list[dict[str, Any]]:
         if not client or not isinstance(client, _redis.Redis):
             return []
         key = f"{_EVENT_STREAM_PREFIX}{session_id}"
-        entries = client.xrange(key, min=f"{last_event_id + 1}", max="+")
+        entries = client.xrange(key, min=f"{last_event_id + 1}", max="+") or []
         events = []
         for _entry_id, fields in entries:
+            # fields 可能是 None（stubs 联合类型；极端断连窗口下防御）
+            if not fields:
+                continue
             try:
                 event = _json.loads(fields.get("data", "{}"))
                 events.append(event)

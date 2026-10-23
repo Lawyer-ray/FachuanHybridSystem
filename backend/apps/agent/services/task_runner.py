@@ -232,16 +232,20 @@ def register_weekly_schedule() -> None:
 
     必须在 Django AppConfig.ready() 或管理命令里调用（参照
     message_hub/tasks.py 的 _register_schedule 模式），否则是死代码。
+    周期注册走 core.tasking 封装（django_q 直连业务层是被结构测试禁止的）。
     """
-    from django_q.models import Schedule
+    # 下一个周一早 8 点（本地时区）：django-q WEEKLY 按 next_run 的星期对齐滚动
+    from datetime import datetime, time
 
-    Schedule.objects.update_or_create(
+    from apps.core.tasking import ScheduleQueryService
+
+    now = timezone.now()
+    days_ahead = (7 - now.weekday()) % 7 or 7
+    next_run = datetime.combine(now.date() + timedelta(days=days_ahead), time(8, 0), tzinfo=now.tzinfo)
+    ScheduleQueryService().upsert_weekly_schedule(
+        func="apps.agent.services.task_runner.run_scheduled_digest",
         name=_SCHEDULE_NAME,
-        defaults={
-            "func": "apps.agent.services.task_runner.run_scheduled_digest",
-            "schedule_type": Schedule.WEEKLY,
-            "repeats": -1,
-        },
+        next_run=next_run,
     )
 
 

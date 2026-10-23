@@ -105,6 +105,9 @@ class TestContentAndPagesApi:
             {"kind": "contract", "owner_id": 1, "subpath": "x.txt"},
         )
         assert resp.status_code == 401
+        body = resp.json()
+        assert body["error"] == "Unauthorized"
+        assert "content_base64" not in body
 
     def test_pages_unsupported_mime_returns_200_with_error(
         self, setup: tuple[Lawyer, Client, Contract, Path, AgentSession]
@@ -127,6 +130,10 @@ class TestContentAndPagesApi:
             {"kind": "contract", "owner_id": contract.id, "subpath": "0-律师资料/委托合同.txt", "pages": "abc"},
         )
         assert resp.status_code == 400
+        body = resp.json()
+        # 错误体指明 pages 字段不合法（人话 message 带字段名与示例格式）
+        assert "pages" in body["message"]
+        assert "abc" in body["message"]
 
     def test_pages_missing_file_is_404_with_reason(
         self, setup: tuple[Lawyer, Client, Contract, Path, AgentSession]

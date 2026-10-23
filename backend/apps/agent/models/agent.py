@@ -73,6 +73,9 @@ class AgentSession(models.Model):
         verbose_name="会话标识",
     )
     title = models.CharField(max_length=200, blank=True, default="", verbose_name="标题")
+    #: 业务范围名透传属性（列表接口 annotate_scope_names 批量注水，非库字段；
+    #: 类级默认让未注水的单会话读取安全返回空串）
+    scope_name: str = ""
     origin = models.CharField(
         max_length=16,
         choices=Origin.choices,

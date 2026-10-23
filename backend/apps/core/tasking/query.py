@@ -207,3 +207,32 @@ class ScheduleQueryService:
             repeats=repeats,
             next_run=next_run,
         )
+
+    def upsert_weekly_schedule(
+        self,
+        *,
+        func: str,
+        name: str,
+        next_run: Any,
+        repeats: int = -1,
+    ) -> Any:
+        """按名字注册/刷新每周执行的调度任务（已存在则更新 func/next_run）。
+
+        业务层（agent/message_hub 等）注册周期任务一律走本封装，
+        不直接 import django_q（结构测试 test_no_django_q_leak 禁止）。
+
+        Returns:
+            创建或更新后的 Schedule 对象
+        """
+        from django_q.models import Schedule
+
+        obj, _created = Schedule.objects.update_or_create(
+            name=name,
+            defaults={
+                "func": func,
+                "schedule_type": Schedule.WEEKLY,
+                "repeats": repeats,
+                "next_run": next_run,
+            },
+        )
+        return obj

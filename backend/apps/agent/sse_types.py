@@ -146,10 +146,11 @@ if __name__ == "__main__":
     if "--ts" in sys.argv:
         sys.stdout.write(generate_ts())
     else:
-        # JSON Schema 导出（供 jsonschema 校验）
+        # JSON Schema 导出（供 jsonschema 校验）；显式 type[BaseModel] 注解——
+        # 联合 type[...] 字面量列表上 mypy 解析不出 pydantic 类方法
         import json
 
-        for model in [
+        models: list[type[BaseModel]] = [
             MetaEvent,
             ActivityEvent,
             DeltaEvent,
@@ -160,5 +161,6 @@ if __name__ == "__main__":
             UsageEvent,
             ErrorEvent,
             DoneEvent,
-        ]:
+        ]
+        for model in models:
             sys.stdout.write(json.dumps(model.model_json_schema(), indent=2) + "\n")
