@@ -151,6 +151,7 @@ from mcp_server.tools import (
     generate_case_template,
     generate_complaint,
     generate_defense,
+    get_agent_skill,
     get_archive_checklist,
     get_archive_overrides,
     get_async_task_status,
@@ -949,6 +950,9 @@ mcp.tool()(cancel_workflow)
 # 身份与时间：模型自述「我是谁、现在几点」的唯一来源
 mcp.tool()(get_current_user)
 mcp.tool()(get_server_time)
+
+# 专项技能指引：场景化操作说明按需供给（AGENTS.md 只保留路由，省上下文）
+mcp.tool()(get_agent_skill)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项
 mcp.tool()(list_upcoming_deadlines)

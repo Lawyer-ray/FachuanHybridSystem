@@ -394,6 +394,7 @@ from mcp_server.tools.core import (
     delete_schedule,
     delete_system_config,
     delete_task,
+    get_agent_skill,
     get_async_task_status,
     get_conversation_history,
     get_current_user,
@@ -889,6 +890,7 @@ __all__ = [
     # ===== 新增能力（身份/期限/解析/任务统一状态）=====
     "get_current_user",
     "get_server_time",
+    "get_agent_skill",
     "get_async_task_status",
     "list_doc_converter_jobs",
     "create_doc_converter_job",
