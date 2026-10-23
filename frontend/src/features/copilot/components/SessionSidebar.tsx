@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react'
 
 import { deleteSession, listSessions, renameSession } from '../api'
+import { taskBadge } from '../domain'
 import { useCopilot } from '../store'
 import type { AgentSession } from '../types'
 import {
@@ -76,6 +77,8 @@ function SessionRow({
     )
   }
 
+  const badge = taskBadge(session.task_state)
+
   return (
     <div
       role="button"
@@ -95,6 +98,14 @@ function SessionRow({
     >
       <MessageSquare className="h-3.5 w-3.5 flex-none text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">{session.title || '未命名对话'}</span>
+      {badge && (
+        <span
+          className={`flex-none rounded-[4px] px-1 py-px text-[10px] leading-4 ${badge.cls}`}
+          title={`后台任务：${badge.label}`}
+        >
+          {badge.label}
+        </span>
+      )}
       {!compact && (
         <span className="flex-none text-[11px] text-muted-foreground">
           {session.updated_at.replace('T', ' ').slice(5, 16)}
@@ -146,6 +157,11 @@ export function SessionSidebar({
     queryFn: () => listSessions(50),
     refetchOnMount: 'always',
     retry: false,
+    // 有排队/运行中的后台任务时轮询：状态落到 succeeded/failed 即停
+    refetchInterval: (query) => {
+      const data = query.state.data
+      return data?.some((s) => s.task_state === 'queued' || s.task_state === 'running') ? 4000 : false
+    },
   })
   const sessions = sessionsQuery.data ?? []
 

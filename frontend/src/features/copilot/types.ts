@@ -10,6 +10,11 @@ export interface AgentSession {
   status: string
   /** 最近一轮实际使用的模型（服务端回写；未对话过为空） */
   llm_model: string
+  /** 来源入口：chat（对话页）/ case（案件内）/ contract（合同内）/ task（任务式后台） */
+  origin?: string
+  /** 任务式会话的进度（queued/running/succeeded/failed/cancelled）；非 task 会话为空串 */
+  task_state?: string
+  task_error?: string
   created_at: string
   updated_at: string
 }
@@ -27,7 +32,7 @@ export interface AgentHistoryMessage {
 /** SSE 流事件（POST /agent/sessions/{id}/messages 的 data 帧） */
 export type AgentStreamEvent =
   | { type: 'meta'; session_id: string; agent?: string }
-  | { type: 'activity'; status: string; agent?: string }
+  | { type: 'activity'; status: string; agent?: string; position?: number }
   | { type: 'delta'; content: string }
   | { type: 'thinking'; content: string }
   | { type: 'tool_call'; tool_call_id: string; name: string; arguments?: unknown }
@@ -38,6 +43,10 @@ export type AgentStreamEvent =
       tool_name: string
       tool_args?: Record<string, unknown>
       message: string
+      /** 风险等级（low/medium/high/critical），服务端分级判定 */
+      risk_level?: string
+      /** 紧急级要求二次确认 */
+      needs_second_confirmation?: boolean
     }
   | { type: 'error'; message: string }
   | { type: 'usage'; output_tokens: number; input_tokens?: number }
@@ -84,6 +93,30 @@ export interface PendingApproval {
   toolArgs: Record<string, unknown>
   message: string
   receivedAt: number
+  /** 风险等级（low/medium/high/critical） */
+  riskLevel?: string
+  /** 紧急级：同意前需二次确认 */
+  needsSecondConfirmation?: boolean
+  /** 离线待审（从 GET /approvals/pending 拉回，多来自后台任务），倒计时口径不同 */
+  offline?: boolean
   /** 本地已提交决定后的终态展示 */
   decided?: 'approved' | 'rejected'
+}
+
+/** POST /agent/tasks 的受理回执 */
+export interface AgentTaskReceipt {
+  session_id: string
+  task_id: string
+  task_state: string
+  title: string
+}
+
+/** GET /agent/approvals/pending 的列表项（离线审批入口） */
+export interface PendingApprovalItem {
+  approval_id: string
+  session_id: string
+  tool_name: string
+  tool_args: Record<string, unknown>
+  risk_level: string
+  created_at: string
 }

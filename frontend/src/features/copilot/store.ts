@@ -5,20 +5,23 @@
  * 重新展开继续看；「停止生成」= AbortController 断开，服务端会把已流出
  * 的部分回答落库（truncated），随后重拉历史对齐。
  * 会话列表这类服务端状态走 react-query（SessionSidebar），不进本 store。
+ *
+ * 本 store 还承载三类「后端已有、前端补齐」的编排：
+ * - 运行中插话（steer / 撤回）：queuedSteers 记录本轮已插话文本
+ * - 后台任务（submitTask）：提交后切到任务会话，跑完由面板轮询刷新
+ * - 离线审批（loadPendingApprovals）：后台任务挂起的高危工具调用，
+ *   面板打开/每轮流结束后拉一次待审列表并渲染成审批卡
  */
 
 import { flushSync } from 'react-dom'
+import { HTTPError } from 'ky'
 import { create } from 'zustand'
 
 import * as copilotApi from './api'
-import {
-  estimateTokens,
-  historyToMessages,
-  nextLocalId,
-  parseSseEvent,
-  takeSseFrames,
-} from './domain'
-import type { ChatMessage, PendingApproval, TurnStats } from './types'
+import { historyToMessages, nextLocalId } from './domain'
+import { consumeAgentStream } from './streaming'
+import { createTurnHandlers } from './turn-handlers'
+import type { ChatMessage, PendingApproval, PendingApprovalItem, TurnStats } from './types'
 
 const EMPTY_STATS: TurnStats = {
   firstDeltaAt: null,
@@ -74,6 +77,19 @@ function storeSession(id: string | null): void {
   }
 }
 
+/** 离线待审批 → 审批卡模型（倒计时按服务端 created_at 起算） */
+function pendingItemToApproval(item: PendingApprovalItem): PendingApproval {
+  return {
+    approvalId: item.approval_id,
+    toolName: item.tool_name,
+    toolArgs: item.tool_args ?? {},
+    message: '',
+    receivedAt: new Date(item.created_at).getTime() || Date.now(),
+    riskLevel: item.risk_level,
+    offline: true,
+  }
+}
+
 interface CopilotState {
   sessionId: string | null
   messages: ChatMessage[]
@@ -83,6 +99,12 @@ interface CopilotState {
   lastError: string | null
   /** 本轮输出统计：流式期间驱动实时 tok/s，结束后展示精确 token 与平均速度 */
   turnStats: TurnStats
+  /** 池满排队中：队列名次（1 起）；null = 不在排队 */
+  queuePosition: number | null
+  /** 本轮已插话（steer）且尚未撤回的文本 */
+  queuedSteers: string[]
+  /** 插话请求在途（防重复提交） */
+  steering: boolean
   /** 切换会话（null = 新对话）；会先停掉在途流再回放历史 */
   switchSession: (id: string | null) => Promise<void>
   /** 发消息并消费 SSE 流；无会话时先创建 */
@@ -91,6 +113,16 @@ interface CopilotState {
   stop: () => void
   /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed） */
   decide: (approvalId: string, approved: boolean) => Promise<void>
+  /** 运行中插话：当前轮工具调用后、下次模型调用前生效 */
+  steer: (text: string) => Promise<void>
+  /** 撤回已排队未生效的全部插话 */
+  revokeQueuedSteers: () => Promise<void>
+  /** 提交后台任务（origin=task）：受理后切到该任务会话 */
+  submitTask: (text: string) => Promise<void>
+  /** 拉取离线待审批并合并进审批卡（面板打开 / 每轮流结束时调用） */
+  loadPendingApprovals: () => Promise<void>
+  /** 重拉当前会话历史（后台任务跑完后刷新转录用；流式中跳过） */
+  refreshHistory: () => Promise<void>
   /** 登出清理（换账号不得残留上一账号的会话内容） */
   reset: () => void
 }
@@ -106,6 +138,9 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   loadingHistory: false,
   lastError: null,
   turnStats: EMPTY_STATS,
+  queuePosition: null,
+  queuedSteers: [],
+  steering: false,
 
   switchSession: async (id) => {
     const prev = get()
@@ -113,7 +148,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     if (id === prev.sessionId && !prev.streaming && (id !== null || prev.messages.length === 0)) return
     get().stop()
     withViewTransition(() => {
-      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null })
+      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [] })
     })
     storeSession(id)
     if (!id) return
@@ -165,154 +200,35 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       ],
       approvals: [],
       streaming: true,
+      queuePosition: null,
+      queuedSteers: [],
       turnStats: { ...EMPTY_STATS, samples: [] },
     }))
 
-    const appendAssistant = (chunk: string) => {
-      if (!chunk) return
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
-          m.id === assistantId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
-        ),
-      }))
-    }
-    const appendThinking = (chunk: string) => {
-      if (!chunk) return
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === assistantId ? { ...m, thinking: (m.thinking ?? '') + chunk } : m,
-        ),
-      }))
-    }
-    const finishAssistant = () => {
-      set((s) => ({
-        messages: s.messages.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
-      }))
-    }
+    // 本轮的 SSE → 状态更新集中在 turn-handlers（正文/思考/工具行/审批/排队/统计）
+    const { handlers, finishAssistant } = createTurnHandlers(assistantId, set)
 
     controller = new AbortController()
     try {
       const resp = await copilotApi.openMessageStream(sessionId, trimmed, controller.signal)
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
-      const reader = resp.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const { frames, rest } = takeSseFrames(buffer)
-        buffer = rest
-        for (const frame of frames) {
-          const event = parseSseEvent(frame)
-          if (!event) continue
-          switch (event.type) {
-            case 'thinking':
-              // 思考增量：单独累积到 thinking 字段，不计入正文也不计入 token 速率估算
-              appendThinking(event.content)
-              break
-            case 'delta':
-              appendAssistant(event.content)
-              set((s) => {
-                const now = Date.now()
-                const estTokens = s.turnStats.estTokens + estimateTokens(event.content)
-                const samples = [...s.turnStats.samples, [now, estTokens] as [number, number]]
-                // 只留最近 4 秒的采样，窗口计算足够（2s 窗口）
-                const cutoff = now - 4000
-                const start = samples.findIndex(([t]) => t >= cutoff)
-                return {
-                  turnStats: {
-                    ...s.turnStats,
-                    firstDeltaAt: s.turnStats.firstDeltaAt ?? now,
-                    lastDeltaAt: now,
-                    estTokens,
-                    samples: start > 0 ? samples.slice(start) : samples,
-                  },
-                }
-              })
-              break
-            case 'tool_call':
-              // pi 对同一工具调用可能发多条 message_end（arguments 渐进完整），
-              // 以 tool_call_id 去重：已有则原行保留，没有才追加
-              set((s) => {
-                if (event.tool_call_id && s.messages.some((m) => m.toolCallId === event.tool_call_id)) {
-                  return s
-                }
-                return {
-                  messages: [
-                    ...s.messages,
-                    {
-                      id: nextLocalId(),
-                      role: 'tool',
-                      content: '',
-                      toolName: event.name,
-                      toolCallId: event.tool_call_id,
-                    },
-                  ],
-                }
-              })
-              break
-            case 'tool_result': {
-              const matchId = event.tool_call_id
-              set((s) => ({
-                // tool_call 与 tool_result 以 tool_call_id 归并；缺 id 时落最近一个空 tool 气泡
-                messages: s.messages.map((m, i) => {
-                  const byId = m.role === 'tool' && matchId && m.toolCallId === matchId
-                  const lastEmpty = !matchId && m.role === 'tool' && !m.content && s.messages.slice(i + 1).every((x) => x.role !== 'tool')
-                  return byId || lastEmpty ? { ...m, content: String(event.result ?? '') } : m
-                }),
-              }))
-              break
-            }
-            case 'usage':
-              set((s) => ({
-                turnStats: {
-                  ...s.turnStats,
-                  exactTokens: (s.turnStats.exactTokens ?? 0) + event.output_tokens,
-                },
-              }))
-              break
-            case 'approval_request':
-              set((s) => ({
-                approvals: [
-                  ...s.approvals,
-                  {
-                    approvalId: event.approval_id,
-                    toolName: event.tool_name,
-                    toolArgs: event.tool_args ?? {},
-                    message: event.message,
-                    receivedAt: Date.now(),
-                  },
-                ],
-              }))
-              break
-            case 'error':
-              set({ lastError: event.message })
-              finishAssistant()
-              break
-            case 'done':
-              finishAssistant()
-              set((s) => ({ turnStats: { ...s.turnStats, doneAt: Date.now() } }))
-              break
-            default:
-              break // meta / activity 不入转录
-          }
-        }
-      }
+      await consumeAgentStream(resp, handlers)
       finishAssistant()
       set((s) => ({ turnStats: { ...s.turnStats, doneAt: s.turnStats.doneAt ?? Date.now() } }))
     } catch {
       finishAssistant()
-      if (controller?.signal.aborted) {
-        // 用户主动停止：服务端已把部分回答落库（truncated），重拉历史对齐
+      const aborted = controller?.signal.aborted
+      if (get().sessionId) {
+        // 服务端会把已流出的部分回答落库（truncated）：无论主动停止还是
+        // 网络中断，都重拉历史对齐，再决定要不要提示错误
         await get().switchSession(get().sessionId)
-      } else {
+      }
+      if (!aborted) {
         set({ lastError: '连接中断，请重试' })
       }
     } finally {
       controller = null
-      set({ streaming: false })
+      set({ streaming: false, queuePosition: null })
     }
   },
 
@@ -333,6 +249,77 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     }
   },
 
+  steer: async (text) => {
+    const trimmed = text.trim()
+    const sessionId = get().sessionId
+    if (!trimmed || !sessionId || !get().streaming || get().steering) return
+    set({ steering: true })
+    try {
+      await copilotApi.steerSession(sessionId, trimmed)
+      set((s) => ({ queuedSteers: [...s.queuedSteers, trimmed] }))
+    } catch (err) {
+      // 409：本轮刚结束（settle），插话没有对象；其余按网络失败提示
+      const status = err instanceof HTTPError ? err.response.status : 0
+      set({ lastError: status === 409 ? '本轮对话已结束，插话未送达' : '插话发送失败，请重试' })
+    } finally {
+      set({ steering: false })
+    }
+  },
+
+  revokeQueuedSteers: async () => {
+    const sessionId = get().sessionId
+    if (!sessionId || get().queuedSteers.length === 0) return
+    try {
+      await copilotApi.clearSessionQueue(sessionId)
+      set({ queuedSteers: [] })
+    } catch {
+      set({ lastError: '撤回插话失败，请重试' })
+    }
+  },
+
+  submitTask: async (text) => {
+    const trimmed = text.trim()
+    if (!trimmed || get().streaming) return
+    set({ lastError: null })
+    try {
+      const receipt = await copilotApi.submitAgentTask(trimmed)
+      // 受理即切到任务会话：侧栏徽标 + 轮询由此展开；跑完的通知消息
+      // 写进会话历史，refreshHistory（面板轮询触发）后即可见
+      await get().switchSession(receipt.session_id)
+    } catch {
+      set({ lastError: '提交后台任务失败，请稍后重试' })
+    }
+  },
+
+  loadPendingApprovals: async () => {
+    try {
+      const items = await copilotApi.fetchPendingApprovals()
+      set((s) => {
+        // 只补前端不知道的：已渲染（含已决定）的不动，避免覆盖本地终态
+        const known = new Set(s.approvals.map((a) => a.approvalId))
+        const fresh = items.filter((i) => !known.has(i.approval_id)).map(pendingItemToApproval)
+        return fresh.length > 0 ? { approvals: [...s.approvals, ...fresh] } : s
+      })
+    } catch {
+      // 待审列表拉不到不阻塞主流程（下一流结束/面板重开会再试）
+    }
+  },
+
+  refreshHistory: async () => {
+    const id = get().sessionId
+    if (!id || get().streaming) return
+    try {
+      const rows = await copilotApi.fetchHistory(id)
+      if (get().sessionId === id) {
+        withViewTransition(() => {
+          set({ messages: historyToMessages(rows) })
+        })
+      }
+    } catch {
+      // 静默：轮询刷新失败不影响现有转录
+    }
+  },
+
   reset: () => {
     get().stop()
     set({
@@ -343,6 +330,9 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       loadingHistory: false,
       lastError: null,
       turnStats: { ...EMPTY_STATS },
+      queuePosition: null,
+      queuedSteers: [],
+      steering: false,
     })
     storeSession(null)
   },

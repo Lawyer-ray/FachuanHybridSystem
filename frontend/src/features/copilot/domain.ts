@@ -68,6 +68,38 @@ export function shortToolName(name: string | undefined): string {
   return i >= 0 ? name.slice(i + marker.length) : name
 }
 
+/* ── 审批倒计时口径（与后端 approval.py 的 DEFAULT/CRITICAL/OFFLINE 常量同步）──
+ * 在线：高。三百秒；紧急九百秒（值得多想一会儿）；离线挂起：两小时
+ * （后台任务无人可问时 pending 挂起，用户回来处理）。
+ */
+export const APPROVAL_WINDOW_S = 300
+export const APPROVAL_CRITICAL_WINDOW_S = 900
+export const APPROVAL_OFFLINE_WINDOW_S = 7200
+
+/** 审批等待上限（秒）：离线 7200；紧急 900；其余 300 */
+export function approvalWindowSec(riskLevel?: string, offline?: boolean): number {
+  if (offline) return APPROVAL_OFFLINE_WINDOW_S
+  return riskLevel === 'critical' ? APPROVAL_CRITICAL_WINDOW_S : APPROVAL_WINDOW_S
+}
+
+/** 任务式会话状态 → 侧边栏徽标（label + 样式）；非任务态返回 null */
+export function taskBadge(state: string | undefined): { label: string; cls: string } | null {
+  switch (state) {
+    case 'queued':
+      return { label: '排队中', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' }
+    case 'running':
+      return { label: '运行中', cls: 'bg-blue-500/15 text-blue-700 dark:text-blue-400' }
+    case 'succeeded':
+      return { label: '已完成', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
+    case 'failed':
+      return { label: '失败', cls: 'bg-destructive/10 text-destructive' }
+    case 'cancelled':
+      return { label: '已取消', cls: 'bg-secondary text-muted-foreground' }
+    default:
+      return null
+  }
+}
+
 /** 审批卡上工具参数的短预览（卡上只放一行，详情看 args JSON） */
 export function previewToolArgs(args: Record<string, unknown> | undefined, limit = 160): string {
   if (!args || Object.keys(args).length === 0) return ''

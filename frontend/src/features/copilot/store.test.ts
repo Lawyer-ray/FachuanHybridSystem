@@ -11,6 +11,10 @@ vi.mock('./api', () => ({
   decideApproval: vi.fn(),
   listSessions: vi.fn(),
   deleteSession: vi.fn(),
+  steerSession: vi.fn(),
+  clearSessionQueue: vi.fn(),
+  submitAgentTask: vi.fn(),
+  fetchPendingApprovals: vi.fn(),
 }))
 
 const encoder = new TextEncoder()
@@ -415,5 +419,200 @@ describe('copilot store：流式事件处理', () => {
     await useCopilot.getState().send('x')
     expect(useCopilot.getState().lastError).toBe('服务端拒绝')
     expect(useCopilot.getState().streaming).toBe(false)
+  })
+})
+
+// ============ 排队可见 / 插话 / 后台任务 / 离线审批（P0 批次） ============
+
+describe('copilot store：排队可见', () => {
+  it('queued 事件设置名次，首个推进事件清除', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"activity","status":"queued","position":3}\n\n',
+        'data: {"type":"delta","content":"开始"}\n\n',
+        'data: {"type":"done"}\n\n',
+      ]),
+    )
+
+    const sending = useCopilot.getState().send('x')
+    // 流式期间无法中途断言（同步消费），改从结果验证：结束后的 queuePosition 必为 null
+    await sending
+    expect(useCopilot.getState().queuePosition).toBeNull()
+    expect(useCopilot.getState().messages.find((m) => m.role === 'assistant')?.content).toBe('开始')
+  })
+
+  it('非 queued 的 activity（thinking）不设 queuePosition', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"activity","status":"thinking"}\n\n', 'data: {"type":"done"}\n\n']),
+    )
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().queuePosition).toBeNull()
+  })
+})
+
+describe('copilot store：运行中插话（steer）', () => {
+  it('流式中 steer 成功记入 queuedSteers，done 后清空', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.steerSession).mockResolvedValue({ success: true, disposition: 'queued' })
+    // 流不结束（手动控制关流时机）
+    let closeStream!: () => void
+    vi.mocked(copilotApi.openMessageStream).mockImplementation(async () => {
+      const body = new ReadableStream<Uint8Array>({ start(c) { closeStream = () => c.close() } })
+      return new Response(body, { status: 200 })
+    })
+
+    const sending = useCopilot.getState().send('主任务')
+    await vi.waitFor(() => expect(useCopilot.getState().streaming).toBe(true))
+
+    await useCopilot.getState().steer('补充：只要近一个月的')
+    expect(copilotApi.steerSession).toHaveBeenCalledWith('s-1', '补充：只要近一个月的')
+    expect(useCopilot.getState().queuedSteers).toEqual(['补充：只要近一个月的'])
+
+    closeStream()
+    await sending
+    // 流结束（done 未到但流关）：queuedSteers 保留到 done——这里流关闭无 done，
+    // 验证不误清；下一轮 send 开始时会重置
+    expect(useCopilot.getState().streaming).toBe(false)
+  })
+
+  it('非流式状态 steer 直接返回（不调接口）', async () => {
+    await useCopilot.getState().steer('没人听')
+    expect(copilotApi.steerSession).not.toHaveBeenCalled()
+  })
+
+  it('steer 409（本轮已结束）：提示且不记入 queuedSteers', async () => {
+    const { HTTPError } = await import('ky')
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.steerSession).mockRejectedValue(
+      new HTTPError(new Response(null, { status: 409 }), new Request('http://localhost/api/v1/agent/sessions/s-1/steer'), {
+        method: 'POST',
+      } as never),
+    )
+    useCopilot.setState({ sessionId: 's-1', streaming: true })
+
+    await useCopilot.getState().steer('迟到的插话')
+    expect(useCopilot.getState().lastError).toBe('本轮对话已结束，插话未送达')
+    expect(useCopilot.getState().queuedSteers).toEqual([])
+    useCopilot.setState({ streaming: false })
+  })
+
+  it('revokeQueuedSteers 调撤回端点并清空本地记录', async () => {
+    vi.mocked(copilotApi.clearSessionQueue).mockResolvedValue({ success: true, messages: ['插话原文'] })
+    useCopilot.setState({ sessionId: 's-1', queuedSteers: ['插话原文'] })
+
+    await useCopilot.getState().revokeQueuedSteers()
+    expect(copilotApi.clearSessionQueue).toHaveBeenCalledWith('s-1')
+    expect(useCopilot.getState().queuedSteers).toEqual([])
+  })
+})
+
+describe('copilot store：后台任务', () => {
+  it('submitTask 受理后切到任务会话并拉取历史', async () => {
+    vi.mocked(copilotApi.submitAgentTask).mockResolvedValue({
+      session_id: 't-9',
+      task_id: 'q-1',
+      task_state: 'queued',
+      title: '梳理材料',
+    })
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+
+    await useCopilot.getState().submitTask('帮我梳理本案材料')
+
+    expect(copilotApi.submitAgentTask).toHaveBeenCalledWith('帮我梳理本案材料')
+    expect(useCopilot.getState().sessionId).toBe('t-9')
+    expect(copilotApi.fetchHistory).toHaveBeenCalledWith('t-9')
+  })
+
+  it('submitTask 失败：提示且不切会话', async () => {
+    vi.mocked(copilotApi.submitAgentTask).mockRejectedValue(new Error('busy'))
+    useCopilot.setState({ sessionId: 's-1' })
+
+    await useCopilot.getState().submitTask('x')
+    expect(useCopilot.getState().lastError).toBe('提交后台任务失败，请稍后重试')
+    expect(useCopilot.getState().sessionId).toBe('s-1')
+  })
+})
+
+describe('copilot store：离线审批', () => {
+  it('loadPendingApprovals 把待审批合并为离线卡，不覆盖已知项', async () => {
+    vi.mocked(copilotApi.fetchPendingApprovals).mockResolvedValue([
+      {
+        approval_id: 'off-1',
+        session_id: 't-9',
+        tool_name: 'mcp__fachuan__delete_case',
+        tool_args: { case_id: 1 },
+        risk_level: 'high',
+        created_at: '2026-10-23T02:00:00Z',
+      },
+      {
+        approval_id: 'a1', // 已在本地（例如本轮流里已弹过）
+        session_id: 's-1',
+        tool_name: 't',
+        tool_args: {},
+        risk_level: 'low',
+        created_at: '2026-10-23T02:00:00Z',
+      },
+    ])
+    useCopilot.setState({
+      approvals: [{ approvalId: 'a1', toolName: 't', toolArgs: {}, message: 'm', receivedAt: Date.now() }],
+    })
+
+    await useCopilot.getState().loadPendingApprovals()
+
+    const { approvals } = useCopilot.getState()
+    expect(approvals).toHaveLength(2)
+    const offline = approvals.find((a) => a.approvalId === 'off-1')
+    expect(offline?.offline).toBe(true)
+    expect(offline?.riskLevel).toBe('high')
+    expect(offline?.toolName).toBe('mcp__fachuan__delete_case')
+    // 已知项不被覆盖（保留本地 message / 终态）
+    expect(approvals.find((a) => a.approvalId === 'a1')?.message).toBe('m')
+  })
+
+  it('拉取失败静默（不打扰主流程）', async () => {
+    vi.mocked(copilotApi.fetchPendingApprovals).mockRejectedValue(new Error('net'))
+    await useCopilot.getState().loadPendingApprovals()
+    expect(useCopilot.getState().lastError).toBeNull()
+  })
+})
+
+describe('copilot store：断线后历史对齐', () => {
+  it('HTTP 非 2xx：同样重拉历史（不只主动停止才拉）', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    const fetchHistory = vi.mocked(copilotApi.fetchHistory).mockResolvedValue([
+      { message_id: 1, role: 'user', content: 'x', tool_name: '', created_at: '', metadata: {} },
+      { message_id: 2, role: 'assistant', content: '半截', tool_name: '', created_at: '', metadata: { truncated: true } },
+    ])
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(new Response(null, { status: 500 }))
+
+    await useCopilot.getState().send('x')
+
+    expect(fetchHistory).toHaveBeenCalledWith('s-1')
+    // 服务端落库的部分回答被恢复，而不是白屏
+    expect(useCopilot.getState().messages[1]?.content).toBe('半截')
+    expect(useCopilot.getState().lastError).toBe('连接中断，请重试')
+  })
+})
+
+describe('copilot store：refreshHistory', () => {
+  it('非流式时重拉并替换转录', async () => {
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([
+      { message_id: 3, role: 'assistant', content: '【后台任务完成】已生成回答', tool_name: '', created_at: '', metadata: {} },
+    ])
+    useCopilot.setState({ sessionId: 't-9', streaming: false, messages: [] })
+
+    await useCopilot.getState().refreshHistory()
+    expect(useCopilot.getState().messages[0]?.content).toContain('后台任务完成')
+  })
+
+  it('流式中跳过（避免与实时追加冲突）', async () => {
+    const fetchHistory = vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    useCopilot.setState({ sessionId: 't-9', streaming: true })
+
+    await useCopilot.getState().refreshHistory()
+    expect(fetchHistory).not.toHaveBeenCalled()
+    useCopilot.setState({ streaming: false })
   })
 })

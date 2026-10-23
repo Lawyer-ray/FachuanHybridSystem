@@ -8,7 +8,7 @@
 
 import { api } from '@/lib/api'
 
-import type { AgentHistoryMessage, AgentSession } from './types'
+import type { AgentHistoryMessage, AgentSession, AgentTaskReceipt, PendingApprovalItem } from './types'
 
 export function listSessions(limit = 50): Promise<AgentSession[]> {
   return api.get('agent/sessions', { searchParams: { limit } }).json<AgentSession[]>()
@@ -46,4 +46,24 @@ export function decideApproval(approvalId: string, approved: boolean): Promise<R
  */
 export function openMessageStream(sessionId: string, message: string, signal: AbortSignal): Promise<Response> {
   return api.post(`agent/sessions/${sessionId}/messages`, { json: { message }, signal })
+}
+
+/** 运行中插话：当前 assistant turn 的工具调用跑完后、下次模型调用前生效（后端 steer） */
+export function steerSession(sessionId: string, message: string): Promise<{ success: boolean; disposition: string }> {
+  return api.post(`agent/sessions/${sessionId}/steer`, { json: { message } }).json<{ success: boolean; disposition: string }>()
+}
+
+/** 撤回已排队未生效的插话/追加（返回被撤回的原文） */
+export function clearSessionQueue(sessionId: string): Promise<{ success: boolean; messages: string[] }> {
+  return api.delete(`agent/sessions/${sessionId}/queue`).json<{ success: boolean; messages: string[] }>()
+}
+
+/** 提交后台任务：立即返回，agent 在后台跑，跑完写入会话的通知消息 */
+export function submitAgentTask(message: string, title = ''): Promise<AgentTaskReceipt> {
+  return api.post('agent/tasks', { json: { message, title } }).json<AgentTaskReceipt>()
+}
+
+/** 当前用户仍待处理的审批（离线审批入口：后台任务挂起的高危工具调用） */
+export function fetchPendingApprovals(): Promise<PendingApprovalItem[]> {
+  return api.get('agent/approvals/pending').json<PendingApprovalItem[]>()
 }

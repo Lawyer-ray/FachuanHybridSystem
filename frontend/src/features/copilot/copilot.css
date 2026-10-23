@@ -125,3 +125,75 @@
   margin: 0.75rem 0;
   border-color: var(--color-border);
 }
+
+/* ── 代码块语法高亮（rehype-highlight 的 hljs 类；亮/暗双主题手写配色，
+   不引入 highlight.js 官方主题 css——那些是单主题的，暗色会洗掉）── */
+.copilot-md pre code.hljs {
+  color: var(--color-foreground);
+}
+.copilot-md .hljs-comment,
+.copilot-md .hljs-quote {
+  color: var(--color-muted-foreground);
+  font-style: italic;
+}
+.copilot-md .hljs-keyword,
+.copilot-md .hljs-selector-tag,
+.copilot-md .hljs-doctag {
+  color: #7c3aed;
+}
+.copilot-md .hljs-string,
+.copilot-md .hljs-regexp {
+  color: #16a34a;
+}
+.copilot-md .hljs-number,
+.copilot-md .hljs-literal {
+  color: #d97706;
+}
+.copilot-md .hljs-title,
+.copilot-md .hljs-title.function_,
+.copilot-md .hljs-built_in {
+  color: #2563eb;
+}
+.copilot-md .hljs-title.class_,
+.copilot-md .hljs-type {
+  color: #0e7490;
+}
+.copilot-md .hljs-attr,
+.copilot-md .hljs-attribute,
+.copilot-md .hljs-variable,
+.copilot-md .hljs-template-variable {
+  color: #be185d;
+}
+.copilot-md .hljs-meta,
+.copilot-md .hljs-punctuation {
+  color: var(--color-muted-foreground);
+}
+
+.dark .copilot-md .hljs-keyword,
+.dark .copilot-md .hljs-selector-tag,
+.dark .copilot-md .hljs-doctag {
+  color: #c4b5fd;
+}
+.dark .copilot-md .hljs-string,
+.dark .copilot-md .hljs-regexp {
+  color: #86efac;
+}
+.dark .copilot-md .hljs-number,
+.dark .copilot-md .hljs-literal {
+  color: #fcd34d;
+}
+.dark .copilot-md .hljs-title,
+.dark .copilot-md .hljs-title.function_,
+.dark .copilot-md .hljs-built_in {
+  color: #93c5fd;
+}
+.dark .copilot-md .hljs-title.class_,
+.dark .copilot-md .hljs-type {
+  color: #67e8f9;
+}
+.dark .copilot-md .hljs-attr,
+.dark .copilot-md .hljs-attribute,
+.dark .copilot-md .hljs-variable,
+.dark .copilot-md .hljs-template-variable {
+  color: #f9a8d4;
+}
