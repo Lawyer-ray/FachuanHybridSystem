@@ -134,3 +134,46 @@ async def rename_session(*, session_id: str, user_id: int | None, title: str) ->
     session.title = title.strip()[:200]
     await session.asave(update_fields=["title", "updated_at"])
     return session
+
+
+async def fork_session(*, session_id: str, user_id: int | None) -> AgentSession | None:
+    """Fork 一个会话（P2-9）：完整上下文记忆的分支。
+
+    做法：新建 AgentSession（metadata.forked_from=原 id）+ 复制 pi session
+    目录（文件系统级 copy-on-write）——新会话有完整对话历史，模型在新
+    分支上继续而不影响原会话。
+
+    Returns:
+        新会话；原会话不存在或不归属当前用户时返回 None。
+    """
+    import shutil
+
+    original = await get_session(session_id=session_id, user_id=user_id)
+    if original is None:
+        return None
+
+    from ..models import AgentSession as AgentSessionModel
+    from ..pi.session_store import layout
+
+    forked = await AgentSessionModel.objects.acreate(
+        title=f"{original.title or 'Fork'}（分支）"[:200],
+        user_id=user_id,
+        origin=original.origin,
+        case_id=original.case_id,
+        contract_id=original.contract_id,
+        metadata={"forked_from": str(original.session_id)},
+    )
+
+    # 复制 pi session 目录（上下文记忆）
+    _, _, sessions_root = layout()
+    src_dir = sessions_root / str(original.session_id)
+    dst_dir = sessions_root / str(forked.session_id)
+    if src_dir.exists():
+        shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
+        # 重命名目录内的 session 文件（pi 按 cwd + session_id 定位）
+        for old_file in dst_dir.glob("*.jsonl"):
+            new_name = old_file.name.replace(str(original.session_id), str(forked.session_id))
+            if new_name != old_file.name:
+                old_file.rename(dst_dir / new_name)
+
+    return forked
