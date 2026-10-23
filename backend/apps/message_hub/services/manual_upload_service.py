@@ -49,13 +49,24 @@ MANUAL_UPLOAD_ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
         ".7z",
     }
 )
-# 单文件上限 50MB（与 document_parsing 上传、合同归档上传的先例一致）
+# 单文件上限 50MB（与 document_parsing 上传、合同归档上传的先例一致）；
+# 压缩包单独放宽——律所扫描件整包常见 100–200MB，展开侧自有
+# 200MB/200 条硬上限兜底（archive_extract_service）
 MANUAL_UPLOAD_MAX_SIZE_BYTES = 50 * 1024 * 1024
+MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES = 200 * 1024 * 1024
 
 
 def validate_manual_upload_file(uploaded: Any) -> None:
     """手动上传附件的类型 / 大小校验（无类型限制时收件箱会沦为任意文件仓库）。"""
+    from apps.message_hub.services.archive_extract_service import is_archive_filename, is_multipart_filename
+
     name = str(getattr(uploaded, "name", "") or "")
+    if is_multipart_filename(name):
+        raise ValidationException(
+            "分卷压缩包不支持直接上传",
+            code="MULTIPART_ARCHIVE",
+            errors={"files": f"{name} 是分卷压缩包，请先在本地合并成完整压缩包再上传"},
+        )
     ext = Path(name).suffix.lower()
     if ext not in MANUAL_UPLOAD_ALLOWED_EXTENSIONS:
         raise ValidationException(
@@ -64,8 +75,14 @@ def validate_manual_upload_file(uploaded: Any) -> None:
             errors={"files": f"允许的格式: {', '.join(sorted(MANUAL_UPLOAD_ALLOWED_EXTENSIONS))}"},
         )
     size = int(getattr(uploaded, "size", 0) or 0)
-    if size > MANUAL_UPLOAD_MAX_SIZE_BYTES:
-        raise ValidationException("附件过大", code="ATTACHMENT_TOO_LARGE", errors={"files": "单个附件不能超过 50MB"})
+    cap = MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES if is_archive_filename(name) else MANUAL_UPLOAD_MAX_SIZE_BYTES
+    if size > cap:
+        limit = f"{cap // (1024 * 1024)}MB" + ("（压缩包）" if cap != MANUAL_UPLOAD_MAX_SIZE_BYTES else "")
+        raise ValidationException(
+            f"附件过大（单个不能超过 {limit}）",
+            code="ATTACHMENT_TOO_LARGE",
+            errors={"files": f"单个附件不能超过 {limit}"},
+        )
 
 
 class ManualUploadFetcher(MessageFetcher):
@@ -136,17 +153,19 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
         rel_path = f"message_hub/manual/{source.pk}/{ts}/{part_index}_{storage_name}"
         # 兼容中文 / 回车文件名，default_storage.save 会再做一次安全清洗
         saved = default_storage.save(rel_path, uploaded)
-        attachment_metas.append(
-            {
-                "filename": display_name,
-                "original_filename": display_name,
-                "custom_filename": "",
-                "content_type": uploaded.content_type or "application/octet-stream",
-                "size": uploaded.size,
-                "part_index": part_index,
-                "local_path": saved,
-            }
-        )
+        meta: dict[str, Any] = {
+            "filename": display_name,
+            "original_filename": display_name,
+            "custom_filename": "",
+            "content_type": getattr(uploaded, "content_type", None) or "application/octet-stream",
+            "size": uploaded.size,
+            "part_index": part_index,
+            "local_path": saved,
+        }
+        expanded_from = str(getattr(uploaded, "expanded_from", "") or "")
+        if expanded_from:
+            meta["expanded_from"] = expanded_from
+        attachment_metas.append(meta)
         uploaded.seek(0)
     # 上传即算好 PDF 页数，前端打开材料包无需下载整包数页数
     fill_page_counts(attachment_metas)
@@ -199,17 +218,19 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
             storage_name = Path(display_name).name
             rel_path = f"message_hub/manual/{locked.source_id}/{ts}/{pi}_{storage_name}"
             saved = default_storage.save(rel_path, uploaded)
-            metas.append(
-                {
-                    "filename": display_name,
-                    "original_filename": display_name,
-                    "custom_filename": "",
-                    "content_type": uploaded.content_type or "application/octet-stream",
-                    "size": uploaded.size,
-                    "part_index": pi,
-                    "local_path": saved,
-                }
-            )
+            meta: dict[str, Any] = {
+                "filename": display_name,
+                "original_filename": display_name,
+                "custom_filename": "",
+                "content_type": getattr(uploaded, "content_type", None) or "application/octet-stream",
+                "size": uploaded.size,
+                "part_index": pi,
+                "local_path": saved,
+            }
+            expanded_from = str(getattr(uploaded, "expanded_from", "") or "")
+            if expanded_from:
+                meta["expanded_from"] = expanded_from
+            metas.append(meta)
             uploaded.seek(0)
         fill_page_counts(metas)
         locked.attachments_meta = metas

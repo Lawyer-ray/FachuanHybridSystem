@@ -80,10 +80,13 @@ export function DeskPage() {
       if (!files || files.length === 0) return
       setUploading(true)
       try {
-        await createPack.mutateAsync(Array.from(files))
+        const detail = await createPack.mutateAsync(Array.from(files))
         setTab('todo')
         setSel(0)
-        toast.success(`已收进 ${files.length} 份材料`)
+        // 压缩包会被服务端展开：以响应里的实际附件数为准，别拿输入文件数冒充
+        const total = detail?.attachment_count ?? files.length
+        const hadArchive = Array.from(files).some((f) => /\.(zip|rar|7z)$/i.test(f.name))
+        toast.success(hadArchive ? `压缩包已展开，共收进 ${total} 份材料` : `已收进 ${total} 份材料`)
       } catch {
         toast.error('上传失败，请检查后端连接')
       } finally {

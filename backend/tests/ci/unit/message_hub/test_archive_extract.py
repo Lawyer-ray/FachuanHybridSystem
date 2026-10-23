@@ -121,16 +121,74 @@ class TestBsdtarPath:
     @pytest.mark.skipif(not Path("/usr/bin/bsdtar").exists(), reason="本机无 bsdtar")
     def test_bsdtar_plumbing_with_zip_content(self) -> None:
         """rar/7z 的子进程管道用 zip 载荷验证（格式支持面取决于系统 libarchive）。"""
+        import tempfile as _tf
+        from pathlib import Path as _Path
+
         from apps.message_hub.services.archive_extract_service import _expand_with_bsdtar
 
-        result = _expand_with_bsdtar(_zip_bytes({"a.txt": b"hi", "d/b.txt": b"yo"}), "载荷.zip")
+        with _tf.TemporaryDirectory() as td:
+            tpath = _Path(td) / "arch.bin"
+            tpath.write_bytes(_zip_bytes({"a.txt": b"hi", "d/b.txt": b"yo"}))
+            result = _expand_with_bsdtar(tpath, "载荷.zip", _Path(td))
         assert [f.name for f in result] == ["a.txt", "d/b.txt"]
 
     def test_bsdtar_failure_surface(self) -> None:
+        import tempfile as _tf
+        from pathlib import Path as _Path
+
         from apps.message_hub.services.archive_extract_service import _expand_with_bsdtar
 
-        with pytest.raises(ValidationException, match="解压失败"):
-            _expand_with_bsdtar(b"garbage-not-an-archive", "坏.rar")
+        with _tf.TemporaryDirectory() as td:
+            tpath = _Path(td) / "arch.bin"
+            tpath.write_bytes(b"garbage-not-an-archive")
+            with pytest.raises(ValidationException, match="解压失败"):
+                _expand_with_bsdtar(tpath, "坏.rar", _Path(td))
+
+
+class TestEncryptedAndMultipart:
+    def test_encrypted_zip_gets_friendly_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """加密 zip：zipfile 抛 RuntimeError('encrypted') → 明确「解密后再上传」。"""
+        import zipfile as _zf
+
+        z = _upload("加密.zip", _zip_bytes({"机密.pdf": PDF_HEAD}))  # 先建包再打补丁（writestr 也走 open）
+
+        def _raise_encrypted(self: Any, name: Any, mode: str = "r") -> Any:
+            raise RuntimeError(f"File {name!r} is encrypted, password required for extraction")
+
+        monkeypatch.setattr(_zf.ZipFile, "open", _raise_encrypted)
+        with pytest.raises(ValidationException, match="加密压缩包，请解密后再上传"):
+            expand_upload_files([z])
+
+    @pytest.mark.parametrize("name", ["卷.part1.rar", "备份.zip.001", "老备份.z02", "disk.r00"])
+    def test_multipart_names_rejected(self, name: str) -> None:
+        """分卷预检在 validate 门（.zip.001 后缀不是压缩包，走不到展开分支）。"""
+        from apps.message_hub.services.manual_upload_service import validate_manual_upload_file
+
+        with pytest.raises(ValidationException, match="分卷压缩包"):
+            validate_manual_upload_file(_upload(name, b"whatever"))
+
+    def test_multipart_part_rar_also_caught_in_expand(self) -> None:
+        with pytest.raises(ValidationException, match="分卷压缩包"):
+            expand_upload_files([_upload("卷.part1.rar", b"whatever")])
+
+
+class TestArchiveSizeCap:
+    def test_archive_cap_wider_than_plain_files(self) -> None:
+        from apps.message_hub.services.manual_upload_service import validate_manual_upload_file
+
+        big_zip = SimpleUploadedFile("大包.zip", b"x", content_type="application/zip")
+        big_zip.size = 150 * 1024 * 1024  # type: ignore[assignment]
+        validate_manual_upload_file(big_zip)  # 150MB 压缩包 → 放行
+
+        huge_zip = SimpleUploadedFile("超大.zip", b"x", content_type="application/zip")
+        huge_zip.size = 250 * 1024 * 1024  # type: ignore[assignment]
+        with pytest.raises(ValidationException, match="200MB"):
+            validate_manual_upload_file(huge_zip)
+
+        big_pdf = SimpleUploadedFile("大.pdf", b"x", content_type="application/pdf")
+        big_pdf.size = 60 * 1024 * 1024  # type: ignore[assignment]
+        with pytest.raises(ValidationException, match="50MB"):
+            validate_manual_upload_file(big_pdf)
 
 
 @pytest.mark.django_db
@@ -181,3 +239,6 @@ class TestCreateManualMessageWithArchive:
         plain = _upload("直传.txt", b"3")
         msg = create_manual_message([z, plain], subject="混合")
         assert [a["filename"] for a in msg.attachments_meta] == ["x.txt", "y.txt", "直传.txt"]
+        # 溯源：展开产物带来源压缩包名，直传文件不带该字段
+        assert msg.attachments_meta[0].get("expanded_from") == "a.zip"
+        assert msg.attachments_meta[2].get("expanded_from") is None

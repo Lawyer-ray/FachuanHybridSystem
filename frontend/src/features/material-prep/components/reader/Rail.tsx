@@ -153,13 +153,28 @@ export function Rail({
         const m = mats[mi]
         if (!m) return null
         const label = m.customName || m.n
+        // 压缩包附件（嵌套保留未展开）：提示可拖回工作台再展开；展开产物悬浮显示来源
+        const isArchive = /\.(zip|rar|7z)$/i.test(label)
+        const title = [label, m.from ? `来自压缩包：${m.from}` : '', isArchive ? '压缩包附件：拖回工作台可再展开' : '']
+          .filter(Boolean)
+          .join('\n')
         return (
           <div key={mi}>
             <ContextMenu>
               <ContextMenuTrigger asChild>
-                <div className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-secondary" title={label}>
+                <div className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-secondary" title={title}>
                   <span className="text-secondary-foreground">{matIcon(m)}</span>
                   <span className="min-w-0 flex-1 truncate text-[13px]">{label}</span>
+                  {m.from && !isArchive && (
+                    <span className="flex-none rounded bg-secondary px-1 text-[10px] leading-4 text-muted-foreground" title={`来自压缩包：${m.from}`}>
+                      包内
+                    </span>
+                  )}
+                  {isArchive && (
+                    <span className="flex-none rounded bg-amber-500/15 px-1 text-[10px] leading-4 text-amber-700 dark:text-amber-400" title="拖回工作台可再展开">
+                      压缩包
+                    </span>
+                  )}
                   <button
                     type="button"
                     title="改源文件名字"

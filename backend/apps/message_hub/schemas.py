@@ -21,6 +21,8 @@ class AttachmentMeta(Schema):
     part_index: int
     """PDF 页数（上传时 / 详情读取时回填算好），前端构建初始分段用，避免整包下载。非 PDF 为 None。"""
     page_count: int | None = None
+    """来源压缩包名：该文件是压缩包展开产物时有值（溯源展示用）。"""
+    expanded_from: str | None = None
 
 
 class MessageAckOut(Schema):
