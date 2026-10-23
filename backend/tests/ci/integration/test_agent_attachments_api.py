@@ -63,12 +63,17 @@ class TestUploadAttachment:
         session = _make_session(user)
         resp = _upload(client, session, "恶意.exe", b"MZ")
         assert resp.status_code == 400
+        # 拒绝要有可读原因，且不落任何记录（含物理文件对应的 DB 行）
+        assert "不支持的文件格式" in resp.json()["message"]
+        assert AgentAttachment.objects.count() == 0
 
     def test_upload_unknown_session_404(self) -> None:
         _user, client = _make_user("att-nosession")
         f = SimpleUploadedFile("a.txt", b"x", content_type="text/plain")
         resp = client.post("/api/v1/agent/sessions/00000000-0000-0000-0000-000000000000/attachments", {"file": f})
         assert resp.status_code == 404
+        assert resp.json()["message"] == "会话不存在"
+        assert AgentAttachment.objects.count() == 0
 
     def test_upload_other_users_session_404(self) -> None:
         owner, _ = _make_user("att-real-owner")
@@ -76,6 +81,9 @@ class TestUploadAttachment:
         _other, other_client = _make_user("att-attacker")
         resp = _upload(other_client, session)
         assert resp.status_code == 404
+        # 与「会话不存在」同文案：不向试探者泄露会话归属
+        assert resp.json()["message"] == "会话不存在"
+        assert AgentAttachment.objects.count() == 0
 
 
 class TestAttachmentContent:
@@ -98,8 +106,11 @@ class TestAttachmentContent:
         _other, other_client = _make_user("att-read-other")
         resp = other_client.get(f"/api/v1/agent/attachments/{receipt['attachment_id']}/content")
         assert resp.status_code == 404
+        # 与「附件不存在」同文案：防枚举他人 attachment_id
+        assert resp.json()["message"] == "附件不存在"
 
     def test_unknown_attachment_404(self) -> None:
         _user, client = _make_user("att-read-none")
         resp = client.get("/api/v1/agent/attachments/00000000-0000-0000-0000-000000000000/content")
         assert resp.status_code == 404
+        assert resp.json()["message"] == "附件不存在"

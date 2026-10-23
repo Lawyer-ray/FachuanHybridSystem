@@ -26,7 +26,8 @@ from typing import Any
 from mcp_server.client import client
 
 #: 常用扩展名 → MIME。解析端点按 MIME 选后端，缺省按 PDF 处理。
-_CONTENT_TYPES: dict[str, str] = {
+#: 供其他工具模块复用（如 agent 附件白名单同口径），勿另建副本。
+CONTENT_TYPES: dict[str, str] = {
     ".pdf": "application/pdf",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".doc": "application/msword",
@@ -39,9 +40,9 @@ _CONTENT_TYPES: dict[str, str] = {
 }
 
 
-def _content_type_for(filename: str) -> str:
+def content_type_for(filename: str) -> str:
     lowered = filename.lower()
-    for suffix, mime in _CONTENT_TYPES.items():
+    for suffix, mime in CONTENT_TYPES.items():
         if lowered.endswith(suffix):
             return mime
     return "application/octet-stream"
@@ -72,7 +73,7 @@ def extract_document_text(
         payload["max_length"] = max_length
     return client.upload(  # type: ignore[no-any-return]
         "/document-parsing/extract-text",
-        files={"file": (filename, file_bytes, _content_type_for(filename))},
+        files={"file": (filename, file_bytes, content_type_for(filename))},
         data={key: str(value) for key, value in payload.items()},
     )
 
@@ -104,7 +105,7 @@ def parse_document(
     }
     return client.upload(  # type: ignore[no-any-return]
         "/document-parsing/parse",
-        files={"file": (filename, file_bytes, _content_type_for(filename))},
+        files={"file": (filename, file_bytes, content_type_for(filename))},
         data=data,
     )
 

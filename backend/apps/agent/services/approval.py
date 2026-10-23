@@ -34,6 +34,7 @@ import logging
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 
 from django.db import models
@@ -541,16 +542,12 @@ async def list_pending_for_user(*, user_id: int | None) -> list[AgentApproval]:
     """
     if user_id is None:
         return []
-    from datetime import timedelta
-
-    from django.utils import timezone as dj_timezone
-
-    zombie_deadline = dj_timezone.now() - timedelta(seconds=OFFLINE_TIMEOUT)
+    zombie_deadline = timezone.now() - timedelta(seconds=OFFLINE_TIMEOUT)
     await AgentApproval.objects.filter(
         status=AgentApproval.Status.PENDING,
         session__user_id=user_id,
         created_at__lt=zombie_deadline,
-    ).aupdate(status=AgentApproval.Status.TIMEOUT, decided_at=dj_timezone.now())
+    ).aupdate(status=AgentApproval.Status.TIMEOUT, decided_at=timezone.now())
     queryset = AgentApproval.objects.filter(
         status=AgentApproval.Status.PENDING,
         session__user_id=user_id,
