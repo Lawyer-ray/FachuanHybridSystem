@@ -20,7 +20,7 @@ class TestContentDisposition:
     def test_ascii_filename(self) -> None:
         """ASCII 文件名：双形态（filename= 与 filename*=）均给出，值一致。"""
         value = content_disposition("report.pdf")
-        assert value == 'attachment; filename="report.pdf"; filename*=UTF-8\'\'report.pdf'
+        assert value == "attachment; filename=\"report.pdf\"; filename*=UTF-8''report.pdf"
 
     def test_inline_flag(self) -> None:
         """inline=True 时语义切换为 inline，其余结构不变。"""
@@ -34,7 +34,7 @@ class TestContentDisposition:
         name = "委托书（测试）.docx"
         value = content_disposition(name)
         quoted = quote(name)
-        assert value == f'attachment; filename="{quoted}"; filename*=UTF-8\'\'{quoted}'
+        assert value == f"attachment; filename=\"{quoted}\"; filename*=UTF-8''{quoted}"
         # ASCII 回退段不含原始中文字符
         ascii_part = value.split('filename="', 1)[1].split('"', 1)[0]
         ascii_part.encode("ascii", errors="strict").decode()

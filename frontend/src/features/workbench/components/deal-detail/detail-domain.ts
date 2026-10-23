@@ -267,7 +267,11 @@ export function timelineEntries(c: DealCase): TimelineEntry[] {
       exist.date = date
       exist.who = l.who || exist.who
       const seenNames = new Set(exist.atts.map((a) => a.name))
-      for (const a of l.atts) if (!seenNames.has(a.name)) exist.atts.push(a)
+      for (const a of l.atts) {
+        if (seenNames.has(a.name)) continue
+        seenNames.add(a.name)
+        exist.atts.push(a)
+      }
       exist.attN = exist.atts.length
       continue
     }

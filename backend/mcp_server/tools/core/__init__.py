@@ -1,5 +1,7 @@
 """核心域 tools 导出"""
 
+from mcp_server.tools.core.dashboard import get_dashboard_stats
+from mcp_server.tools.core.identity import get_current_user, get_server_time
 from mcp_server.tools.core.llm_service import (
     chat_with_context,
     get_conversation_history,
@@ -7,6 +9,7 @@ from mcp_server.tools.core.llm_service import (
     sync_prompt_templates,
     test_model_connection,
 )
+from mcp_server.tools.core.search import global_search
 from mcp_server.tools.core.system_config import (
     create_system_config,
     delete_system_config,
@@ -14,8 +17,6 @@ from mcp_server.tools.core.system_config import (
     patch_system_config,
     update_system_configs,
 )
-from mcp_server.tools.core.dashboard import get_dashboard_stats
-from mcp_server.tools.core.search import global_search
 from mcp_server.tools.core.task_queue import (
     delete_schedule,
     delete_task,
@@ -25,10 +26,12 @@ from mcp_server.tools.core.task_queue import (
     list_scheduled_tasks,
     resubmit_task,
 )
-from mcp_server.tools.core.poi import (
-    generate_poi_complaint,
-    generate_report,
-    poi_health,
+from mcp_server.tools.core.tasks import (
+    create_doc_converter_job,
+    get_async_task_status,
+    list_doc_converter_jobs,
+    list_litigation_sessions,
+    list_pending_court_document_tasks,
 )
 
 __all__ = [
@@ -56,8 +59,13 @@ __all__ = [
     "delete_task",
     "delete_schedule",
     "resubmit_task",
-    # POI 文档生成
-    "poi_health",
-    "generate_poi_complaint",
-    "generate_report",
+    # 身份与时间
+    "get_current_user",
+    "get_server_time",
+    # 异步任务统一状态
+    "get_async_task_status",
+    "list_doc_converter_jobs",
+    "create_doc_converter_job",
+    "list_litigation_sessions",
+    "list_pending_court_document_tasks",
 ]

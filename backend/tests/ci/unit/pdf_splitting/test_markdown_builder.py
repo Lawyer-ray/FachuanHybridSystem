@@ -14,7 +14,9 @@ from apps.pdf_splitting.services.split.markdown_builder import (
 from apps.pdf_splitting.services.split.split_models import PageDescriptor, SegmentDraft
 
 
-def _page(page_no: int, text: str = "", *, layout: dict[str, Any] | None = None, ocr_failed: bool = False) -> PageDescriptor:
+def _page(
+    page_no: int, text: str = "", *, layout: dict[str, Any] | None = None, ocr_failed: bool = False
+) -> PageDescriptor:
     return PageDescriptor(
         page_no=page_no,
         text=text,
@@ -71,9 +73,7 @@ class TestBuildSegmentMarkdown:
         assert "|" not in build_segment_markdown("t", [_page(1, layout=layout)])
 
     def test_单元格竖线转义与短行补齐(self) -> None:
-        table = _html_table_to_markdown(
-            "<table><tr><td>类型</td><td>备注</td></tr><tr><td>借|条</td></tr></table>"
-        )
+        table = _html_table_to_markdown("<table><tr><td>类型</td><td>备注</td></tr><tr><td>借|条</td></tr></table>")
         lines = table.splitlines()
         assert lines[0] == "| 类型 | 备注 |"
         assert lines[2] == "| 借\\|条 |  |"  # 缺列补空、| 转义
@@ -84,16 +84,34 @@ class TestBuildSegmentsMarkdown:
         pages = [_page(1, "起诉状正文"), _page(2, "身份证复印件"), _page(3, "证据正文")]
         drafts = [
             SegmentDraft(
-                order=1, page_start=1, page_end=1, segment_type="complaint",
-                filename="起诉状.pdf", confidence=0.9, source_method="llm", review_flag="normal",
+                order=1,
+                page_start=1,
+                page_end=1,
+                segment_type="complaint",
+                filename="起诉状.pdf",
+                confidence=0.9,
+                source_method="llm",
+                review_flag="normal",
             ),
             SegmentDraft(
-                order=2, page_start=2, page_end=2, segment_type="unrecognized",
-                filename="未识别材料_2-2.pdf", confidence=0.0, source_method="gap_fill", review_flag="unrecognized",
+                order=2,
+                page_start=2,
+                page_end=2,
+                segment_type="unrecognized",
+                filename="未识别材料_2-2.pdf",
+                confidence=0.0,
+                source_method="gap_fill",
+                review_flag="unrecognized",
             ),
             SegmentDraft(
-                order=3, page_start=3, page_end=3, segment_type="evidence_list",
-                filename="证据清单.pdf", confidence=0.8, source_method="llm", review_flag="normal",
+                order=3,
+                page_start=3,
+                page_end=3,
+                segment_type="evidence_list",
+                filename="证据清单.pdf",
+                confidence=0.8,
+                source_method="llm",
+                review_flag="normal",
             ),
         ]
         results = build_segments_markdown(drafts, pages)

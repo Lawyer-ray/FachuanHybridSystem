@@ -35,6 +35,11 @@ def doc_converter_health_check() -> dict[str, Any]:
     return client.get("/doc-converter/health")  # type: ignore[return-value]
 
 
-def save_to_directory(job_id: str, directory: str) -> dict[str, Any]:
-    """将转换后的文件保存到指定目录。"""
-    return client.post(f"/doc-converter/jobs/{job_id}/save-to-dir", json={"target_dir": directory})  # type: ignore[return-value]
+def save_to_directory(job_id: str, target_dir: str) -> dict[str, Any]:
+    """将转换后的文件保存到服务器上的指定目录。
+
+    Args:
+        job_id: 转换任务 ID。
+        target_dir: 目标目录绝对路径（后端 ``SaveToDirIn.target_dir`` 必填）。
+    """
+    return client.post(f"/doc-converter/jobs/{job_id}/save-to-dir", json={"target_dir": target_dir})  # type: ignore[no-any-return]

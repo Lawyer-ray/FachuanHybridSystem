@@ -156,27 +156,37 @@ client = FachuanClient()
 def as_items(result: Any, *, default_page_size: int = 50) -> dict[str, Any]:
     """把 REST 返回归一化为 MCP 工具可声明的分页结构。
 
-    背景：部分 ``/list`` 端点已改为服务端分页，返回
-    ``{"items": [...], "total": n, "page": p, "page_size": ps, ...}``，
-    而另一些仍是裸数组。MCP 框架会在工具返回处做 pydantic 输出校验，
-    若签名声明 ``list[...]`` 却拿到 dict，就会报
-    ``Input should be a valid list``，导致工具**永远调用失败**。
+    .. deprecated::
+        新工具请**直接声明后端真实返回类型**（``list[...]`` 或后端的分页
+        schema），不要再经过本函数。MCP 框架会按返回注解做输出校验，
+        声明与后端一致才是正确做法；在工具侧包一层假分页壳只会制造
+        「声明与实现不符」的第二个源头。
 
-    因此声明返回 dict 的工具统一用本函数归一化，数组入参会被包一层
-    分页壳，使模型总能看到同样的结构（含 total 用于判断是否还有下一页）。
+    保留本函数仅为兼容尚未改造的工具。**任何“猜不出结构”的情况一律抛错**，
+    不再返回空列表：
+
+    - 旧实现把非 ``{items: [...]}`` 的 dict 静默变成
+      ``{"items": [], "total": 0, "data": ...}``，于是后端结构一变（例如改成
+      ``{"data": [...], "count": n}``），模型看到的就是「共 0 条」并如实
+      回答「没有数据」——数据明明存在，用户却无从察觉。宁可抛错让调用方
+      看到真实原因。
 
     Args:
-        result: ``client.get`` 的原始返回（dict / list / None）。
+        result: ``client.get`` 的原始返回（必须已是分页 dict 或裸数组）。
         default_page_size: 裸数组时填入的 ``page_size``。
 
     Returns:
-        至少包含 ``items`` 与 ``total`` 的 dict。
+        含 ``items`` 列表的 dict。
+
+    Raises:
+        TypeError: 返回结构既不是裸数组，也不含 ``items`` 列表。
     """
     if isinstance(result, list):
         return {"items": result, "total": len(result), "page": 1, "page_size": default_page_size}
-    if isinstance(result, dict):
-        if isinstance(result.get("items"), list):
-            return result
-        # 单对象返回（如详情接口被误用）——包一层，避免下游 KeyError
-        return {"items": [], "total": 0, "page": 1, "page_size": default_page_size, "data": result}
-    return {"items": [], "total": 0, "page": 1, "page_size": default_page_size}
+    if isinstance(result, dict) and isinstance(result.get("items"), list):
+        return result
+    raise TypeError(
+        "as_items 收到无法识别的返回结构（既不是数组，也不含 items 数组）: "
+        f"{type(result).__name__} keys={sorted(result) if isinstance(result, dict) else 'n/a'}；"
+        "工具应直接声明后端的真实返回类型，不要依赖 as_items 兜底"
+    )

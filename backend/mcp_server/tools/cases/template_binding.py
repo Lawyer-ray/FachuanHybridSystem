@@ -7,8 +7,12 @@ from typing import Any
 from mcp_server.client import client
 
 
-def list_template_bindings(case_id: int) -> list[dict[str, Any]]:
-    """查询案件的模板绑定列表。"""
+def list_template_bindings(case_id: int) -> dict[str, Any]:
+    """查询案件的模板绑定列表。
+
+    返回 ``{categories, total_count}``（后端 ``BindingsResponseSchema``）——
+    绑定按分类分组，不是扁平数组。
+    """
     return client.get(f"/cases/{case_id}/template-bindings")  # type: ignore[return-value]
 
 
@@ -20,9 +24,9 @@ def create_template_binding(case_id: int, template_id: int, group_name: str = ""
     )
 
 
-def delete_template_binding(case_id: int, binding_id: int) -> None:
-    """删除案件的模板绑定。"""
-    client.delete(f"/cases/{case_id}/template-bindings/{binding_id}")
+def delete_template_binding(case_id: int, binding_id: int) -> dict[str, Any]:
+    """删除案件的模板绑定。返回后端删除结果。"""
+    return client.delete(f"/cases/{case_id}/template-bindings/{binding_id}")  # type: ignore[no-any-return]
 
 
 def list_available_templates(case_id: int) -> list[dict[str, Any]]:

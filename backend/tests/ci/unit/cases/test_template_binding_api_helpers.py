@@ -60,13 +60,12 @@ class TestBuildFileResponse:
         assert response.content == b"docx-content"
         assert response["Content-Type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         assert response["Content-Disposition"] == (
-            f'attachment; filename="{quote("委托书（测试）.docx")}"; '
-            f"filename*=UTF-8''{quote('委托书（测试）.docx')}"
+            f"attachment; filename=\"{quote('委托书（测试）.docx')}\"; filename*=UTF-8''{quote('委托书（测试）.docx')}"
         )
 
     def test_ascii_filename_encoded(self) -> None:
         response = _build_file_response(b"x", "a b.docx")
-        assert response["Content-Disposition"] == 'attachment; filename="a%20b.docx"; filename*=UTF-8\'\'a%20b.docx'
+        assert response["Content-Disposition"] == "attachment; filename=\"a%20b.docx\"; filename*=UTF-8''a%20b.docx"
 
     @pytest.mark.asyncio
     async def test_generate_endpoint_header_is_quoted(self) -> None:
@@ -88,7 +87,7 @@ class TestBuildFileResponse:
             response = await generate_template_document(request, case_id=1, payload=payload)
 
         disposition = response["Content-Disposition"]
-        assert disposition == f'attachment; filename="{expected}"; filename*=UTF-8\'\'{expected}'
+        assert disposition == f"attachment; filename=\"{expected}\"; filename*=UTF-8''{expected}"
         # 裸中文（未编码）不得出现在头里——修复前的 bug 正是缺 quote
         assert "委托书" not in disposition
 

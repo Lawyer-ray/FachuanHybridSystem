@@ -5,6 +5,8 @@
 
 import ky, { type KyInstance, type Options } from 'ky'
 
+import { SessionExpiredError } from './errors'
+import { resetAllClientState } from './reset-client-state'
 import {
   clearTokens,
   getAccessToken,
@@ -30,6 +32,18 @@ export function getApiBaseUrl(): string {
 }
 
 /** 模块级缓存，避免每次调用都读 localStorage */
+/**
+ * 会话过期时清 react-query 缓存的注入点。
+ *
+ * lib 层拿不到 QueryClient 实例（它由 main.tsx 创建），故由入口注册一次。
+ * 不注册时过期路径仍会清 token 与各 feature 状态，只是跳过 query 缓存。
+ */
+let queryCacheCleaner: (() => void) | null = null
+
+export function setQueryCacheCleaner(fn: (() => void) | null): void {
+  queryCacheCleaner = fn
+}
+
 export const API_BASE_URL = getApiBaseUrl()
 
 /**
@@ -201,8 +215,10 @@ export function createApiClient(options?: Options): KyInstance {
             // 否则后续请求会拿已被首个请求消费掉的 refresh token 误判会话失效
             const newToken = await refreshAccessTokenSingleFlight()
             if (!newToken) {
+              // 与主动退出共用清理（否则换人登录会读到上一账号的材料草稿/阅读器恢复点）
+              void resetAllClientState(() => queryCacheCleaner?.())
               window.location.href = '/login'
-              throw new Error('Session expired')
+              throw new SessionExpiredError()
             }
             const retryRequest = new Request(request, {
               headers: new Headers(request.headers),

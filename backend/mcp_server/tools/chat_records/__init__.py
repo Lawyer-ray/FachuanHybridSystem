@@ -5,7 +5,6 @@ from mcp_server.tools.chat_records.chat_records import (
     create_export,
     create_project,
     delete_recording,
-    delete_screenshot,
     download_export,
     extract_recording,
     get_export_statuses,
@@ -38,6 +37,5 @@ __all__ = [
     "cancel_extract_recording",
     "reset_extract_recording",
     "update_screenshot",
-    "delete_screenshot",
     "reorder_screenshots",
 ]

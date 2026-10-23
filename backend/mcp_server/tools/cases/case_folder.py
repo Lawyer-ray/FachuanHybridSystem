@@ -33,8 +33,12 @@ def get_contract_folder_path(case_id: int) -> dict[str, Any]:
     return client.get(f"/cases/{case_id}/contract-folder-path")  # type: ignore[return-value]
 
 
-def browse_case_folders(path: str = "") -> list[dict[str, Any]]:
-    """浏览可用的文件夹目录。path 为空则返回根目录。"""
+def browse_case_folders(path: str = "") -> dict[str, Any]:
+    """浏览可用的文件夹目录。path 为空则返回根目录。
+
+    返回 ``{browsable, message, path, parent_path, entries, storage_type}``
+    （后端 ``FolderBrowseResponseSchema``）——是对象而非条目数组。
+    """
     params: dict[str, Any] = {}
     if path:
         params["path"] = path

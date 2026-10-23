@@ -91,6 +91,8 @@ const packB = () => detail(2, [pdfAtt({ filename: 'c.pdf', original_filename: 'c
 beforeEach(() => {
   vi.clearAllMocks()
   loadPdfDocumentMock.mockResolvedValue({ numPages: 3 } as never)
+  // draft-persistence 期望 saveDraft 返回 thenable，否则 .catch 报错
+  saveDraftMock.mockResolvedValue(undefined as never)
   useReader.setState({
     openId: null,
     detail: null,
@@ -245,5 +247,442 @@ describe('useReader.removeInfo 取字态下标同步', () => {
     useReader.getState().removeInfo(0)
     expect(useReader.getState().pickInfo).toBe(-1)
     expect(useReader.getState().draft?.infos.map((f) => f.k)).toEqual(['标的额'])
+  })
+})
+
+// ============ 选择与分段操作（2026-10 覆盖率补测） ============
+
+/** 造一个含 N 页、每页 1 个 segment 的草稿，供选择逻辑用 */
+function draftWithPages(pageCount: number): DraftState {
+  const mats = [{ partIndex: 0, n: 'a.pdf', k: 'pdf' as const, pages: pageCount }]
+  const segs = Array.from({ length: pageCount }, (_, i) => ({
+    id: `sg-${i}`,
+    t: 'other',
+    fn: `seg-${i}`,
+    refs: [{ mi: 0, p: i }],
+    manual: false,
+  }))
+  return { mats, segs, infos: [] } as unknown as DraftState
+}
+
+describe('useReader 选择模式', () => {
+  it('toggleSelMode 开启时清 pickInfo，关闭时清空选页', () => {
+    useReader.setState({ draft: draftWithPages(3), pickInfo: 2 })
+
+    useReader.getState().toggleSelMode()
+    expect(useReader.getState().selMode).toBe(true)
+    expect(useReader.getState().pickInfo).toBe(-1)
+
+    useReader.setState({ selPages: [{ mi: 0, p: 1 }] })
+    useReader.getState().toggleSelMode()
+    expect(useReader.getState().selMode).toBe(false)
+    expect(useReader.getState().selPages).toEqual([])
+  })
+
+  it('单选：点击加入，再点同页移除', () => {
+    useReader.setState({ draft: draftWithPages(3), selMode: true })
+
+    useReader.getState().toggleSel(0, 1, false)
+    expect(useReader.getState().selPages).toEqual([{ mi: 0, p: 1 }])
+
+    useReader.getState().toggleSel(0, 1, false)
+    expect(useReader.getState().selPages).toEqual([])
+  })
+
+  it('shift 范围选：从锚点到当前页全选', () => {
+    useReader.setState({ draft: draftWithPages(5), selMode: true })
+
+    // 先点第 1 页设锚点
+    useReader.getState().toggleSel(0, 1, false)
+    expect(useReader.getState().lastAnchor).toBe(1)
+
+    // shift 点第 3 页 → 选中 1..3
+    useReader.getState().toggleSel(0, 3, true)
+    expect(useReader.getState().selPages).toEqual([
+      { mi: 0, p: 1 },
+      { mi: 0, p: 2 },
+      { mi: 0, p: 3 },
+    ])
+  })
+
+  it('shift 范围选：反向（锚点大于当前）同样成立', () => {
+    useReader.setState({ draft: draftWithPages(5), selMode: true })
+
+    useReader.getState().toggleSel(0, 3, false)
+    useReader.getState().toggleSel(0, 1, true)
+    expect(useReader.getState().selPages).toEqual([
+      { mi: 0, p: 1 },
+      { mi: 0, p: 2 },
+      { mi: 0, p: 3 },
+    ])
+  })
+
+  it('无锚点时 shift 点击退化为普通点击', () => {
+    useReader.setState({ draft: draftWithPages(3), selMode: true, lastAnchor: -1 })
+    useReader.getState().toggleSel(0, 2, true)
+    expect(useReader.getState().selPages).toEqual([{ mi: 0, p: 2 }])
+  })
+
+  it('无草稿时 toggleSel 是 no-op', () => {
+    useReader.setState({ draft: null, selMode: true })
+    useReader.getState().toggleSel(0, 0, false)
+    expect(useReader.getState().selPages).toEqual([])
+  })
+
+  it('clearSel 同时复位锚点', () => {
+    useReader.setState({ selPages: [{ mi: 0, p: 0 }], lastAnchor: 3 })
+    useReader.getState().clearSel()
+    expect(useReader.getState().selPages).toEqual([])
+    expect(useReader.getState().lastAnchor).toBe(-1)
+  })
+})
+
+describe('useReader.applySel / deleteSelected', () => {
+  it('无选页时 applySel 是 no-op', () => {
+    useReader.setState({ draft: draftWithPages(3), selPages: [] })
+    const before = useReader.getState().draft
+    useReader.getState().applySel()
+    expect(useReader.getState().draft).toBe(before)
+  })
+
+  it('不连续选页时 applySel 拒绝并提示', () => {
+    const d = draftWithPages(4)
+    useReader.setState({ draft: d, selPages: [{ mi: 0, p: 0 }, { mi: 0, p: 2 }] })
+    useReader.getState().applySel()
+    expect(toastMock).toHaveBeenCalledWith(expect.stringContaining('连续'))
+    expect(useReader.getState().selPages).toHaveLength(2)
+  })
+
+  it('连续选页时 applySel 合并并清空选择', () => {
+    useReader.setState({ draft: draftWithPages(4), selPages: [{ mi: 0, p: 0 }, { mi: 0, p: 1 }] })
+    useReader.getState().applySel()
+    expect(useReader.getState().selPages).toEqual([])
+    expect(toastMock).toHaveBeenCalled()
+  })
+
+  it('deleteSelected 无选中时返回 0', () => {
+    useReader.setState({ draft: draftWithPages(3), selPages: [] })
+    expect(useReader.getState().deleteSelected()).toBe(0)
+  })
+
+  it('deleteSelected 可指定目标页（右键未选中页）', () => {
+    useReader.setState({ draft: draftWithPages(3), selPages: [] })
+    const n = useReader.getState().deleteSelected([{ mi: 0, p: 1 }])
+    expect(n).toBe(1)
+  })
+})
+
+describe('useReader 简单 setter', () => {
+  it('setZoom / setCols / setOcrPending / setAssignOpen 各自写入', () => {
+    useReader.getState().setZoom(1.5)
+    expect(useReader.getState().zoom).toBe(1.5)
+
+    useReader.getState().setCols(2)
+    expect(useReader.getState().cols).toBe(2)
+
+    useReader.getState().setAssignOpen(true)
+    expect(useReader.getState().assignOpen).toBe(true)
+  })
+
+  it('update 对空草稿是 no-op', () => {
+    useReader.setState({ draft: null })
+    useReader.getState().update((d) => d)
+    expect(useReader.getState().draft).toBeNull()
+  })
+})
+
+// ============ open / close / resetAll / update（2026-10 覆盖率补测） ============
+
+describe('useReader.open 分支', () => {
+  it('打开成功：写入 detail 与草稿并置 ready', async () => {
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+
+    const s = useReader.getState()
+    expect(s.openId).toBe(2)
+    expect(s.status).toBe('ready')
+    expect(s.detail).not.toBeNull()
+    expect(s.draft).not.toBeNull()
+  })
+
+  it('拉详情失败：置 error 并写入可读文案', async () => {
+    getPackDetailMock.mockRejectedValue(new Error('包不存在'))
+    await useReader.getState().open(99)
+
+    const s = useReader.getState()
+    expect(s.status).toBe('error')
+    expect(s.error).toContain('包不存在')
+  })
+
+  it('快速切换：慢响应后到时丢弃（不覆盖新包）', async () => {
+    const slow = deferred<InboxMessageDetail>()
+    getPackDetailMock.mockReturnValueOnce(slow.promise).mockResolvedValueOnce(packB())
+
+    const first = useReader.getState().open(1)
+    await useReader.getState().open(2) // 切到 B
+    slow.resolve(detail(1, [pdfAtt({ part_index: 0, page_count: 2 })]))
+    await first
+
+    expect(useReader.getState().openId).toBe(2)
+  })
+
+  it('打开时清空上一个包的 PDF 文档与字节缓存', async () => {
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+    expect(clearPdfDocumentsMock).toHaveBeenCalled()
+    expect(clearBytesCacheMock).toHaveBeenCalled()
+  })
+})
+
+describe('useReader.close', () => {
+  it('置 closing 并排队保存草稿', async () => {
+    openPackA()
+    useReader.getState().close()
+    expect(useReader.getState().closing).toBe(true)
+  })
+
+  it('无 openId 时不排队保存', () => {
+    useReader.setState({ openId: null, draft: null })
+    useReader.getState().close()
+    expect(saveDraftMock).not.toHaveBeenCalled()
+  })
+
+  it('退出动画结束后彻底卸载并释放缓存', async () => {
+    vi.useFakeTimers()
+    openPackA()
+    useReader.getState().close()
+    await vi.advanceTimersByTimeAsync(400)
+
+    const s = useReader.getState()
+    expect(s.openId).toBeNull()
+    expect(s.draft).toBeNull()
+    expect(s.status).toBe('idle')
+    vi.useRealTimers()
+  })
+
+  it('动画期间重新 open：取消本次退场', async () => {
+    vi.useFakeTimers()
+    openPackA()
+    getPackDetailMock.mockResolvedValue(packB())
+
+    useReader.getState().close()
+    await useReader.getState().open(2)
+    await vi.advanceTimersByTimeAsync(400)
+
+    // 新包仍在打开状态，未被退场定时器清掉
+    expect(useReader.getState().openId).toBe(2)
+    vi.useRealTimers()
+  })
+})
+
+describe('useReader.resetAll', () => {
+  it('清空全部阅读器状态并释放缓存', () => {
+    openPackA()
+    useReader.getState().resetAll()
+
+    const s = useReader.getState()
+    expect(s.openId).toBeNull()
+    expect(s.detail).toBeNull()
+    expect(s.draft).toBeNull()
+    expect(s.status).toBe('idle')
+    expect(s.error).toBe('')
+    expect(clearPdfDocumentsMock).toHaveBeenCalled()
+    expect(clearBytesCacheMock).toHaveBeenCalled()
+  })
+})
+
+describe('useReader.update', () => {
+  it('草稿变化时写入并排队保存', () => {
+    openPackA()
+    const before = useReader.getState().draft
+    useReader.getState().update((d) => ({ ...d, infos: [{ k: 'x', v: '1', src: '', srcRef: null }] }))
+
+    expect(useReader.getState().draft).not.toBe(before)
+  })
+
+  it('返回同一引用时不写入（避免无谓重渲与保存）', () => {
+    openPackA()
+    const before = useReader.getState().draft
+    useReader.getState().update((d) => d)
+    expect(useReader.getState().draft).toBe(before)
+  })
+
+  it('无 openId 时仍可更新内存态（不排队保存）', () => {
+    useReader.setState({ openId: null, draft: draftOf(1) })
+    useReader.getState().update((d) => ({ ...d, infos: [{ k: 'y', v: '2', src: '', srcRef: null }] }))
+    expect(useReader.getState().draft!.infos).toHaveLength(1)
+  })
+})
+
+// ============ setStatus / setAssign / renameSubject / appendFiles（覆盖率补测） ============
+
+describe('useReader setStatus / setAssign', () => {
+  it('setStatus 更新草稿状态并在有 openId 时排队保存', () => {
+    openPackA()
+    useReader.getState().setStatus('done')
+
+    expect(useReader.getState().draft!.status).toBe('done')
+    // 有 openId + draft → scheduleSave 走 draft-persistence（内部调 saveDraft）
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(saveDraftMock).toHaveBeenCalled()
+        resolve()
+      }, 20)
+    })
+  })
+
+  it('setStatus 无 openId 时只改内存不保存', () => {
+    useReader.setState({ openId: null, draft: draftOf(1) })
+    useReader.getState().setStatus('filed')
+
+    expect(useReader.getState().draft!.status).toBe('filed')
+    expect(saveDraftMock).not.toHaveBeenCalled()
+  })
+
+  it('setAssign 写入归案信息', () => {
+    openPackA()
+    useReader.getState().setAssign({ target: 'existing', caseId: 9, caseTitle: '张三案' } as never)
+
+    expect(useReader.getState().draft!.assign).toMatchObject({ target: 'existing', caseId: 9 })
+  })
+
+  it('setAssign 无 openId 时只改内存', () => {
+    useReader.setState({ openId: null, draft: draftOf(1) })
+    useReader.getState().setAssign({ target: 'new' } as never)
+    expect(useReader.getState().draft!.assign).toEqual({ target: 'new' })
+  })
+})
+
+describe('useReader renameSubject', () => {
+  it('id 匹配且标题不同：更新 detail 标题', () => {
+    openPackA()
+    const before = useReader.getState().detail!.subject
+    useReader.getState().renameSubject(1, '新标题')
+
+    expect(useReader.getState().detail!.subject).toBe('新标题')
+    expect(useReader.getState().detail!.subject).not.toBe(before)
+  })
+
+  it('id 不匹配：不改动', () => {
+    openPackA()
+    const before = useReader.getState().detail
+    useReader.getState().renameSubject(999, '别人的标题')
+    expect(useReader.getState().detail).toBe(before)
+  })
+
+  it('标题相同：不产生新对象（避免无谓重渲）', () => {
+    openPackA()
+    const before = useReader.getState().detail
+    useReader.getState().renameSubject(1, before!.subject)
+    expect(useReader.getState().detail).toBe(before)
+  })
+
+  it('无 detail 时是 no-op', () => {
+    useReader.setState({ detail: null })
+    expect(() => useReader.getState().renameSubject(1, 'x')).not.toThrow()
+  })
+})
+
+describe('useReader renameMatInDraft', () => {
+  it('无草稿时是 no-op', () => {
+    useReader.setState({ draft: null })
+    expect(() => useReader.getState().renameMatInDraft(0, '新名')).not.toThrow()
+  })
+})
+
+describe('useReader appendFiles 分支', () => {
+  it('无 openId / 无草稿时直接返回', async () => {
+    useReader.setState({ openId: null, draft: null })
+    await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
+    expect(appendPackFilesMock).not.toHaveBeenCalled()
+  })
+
+  it('空文件列表直接返回', async () => {
+    openPackA()
+    await useReader.getState().appendFiles([])
+    expect(appendPackFilesMock).not.toHaveBeenCalled()
+  })
+
+  it('上传失败：提示追加失败', async () => {
+    openPackA()
+    appendPackFilesMock.mockRejectedValue(new Error('网络断了'))
+
+    await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
+    expect(toastMock.error).toHaveBeenCalledWith('追加材料失败，请检查后端连接')
+  })
+
+  it('没有新增材料：提示且只更新 detail', async () => {
+    openPackA()
+    // 返回同一份详情（partIndex 已存在）
+    appendPackFilesMock.mockResolvedValue(detail(1, [pdfAtt({ part_index: 0, page_count: 2 })]))
+    const beforeMats = useReader.getState().draft!.mats.length
+
+    await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
+    expect(toastMock).toHaveBeenCalledWith('没有新增材料')
+    expect(useReader.getState().draft!.mats.length).toBe(beforeMats)
+  })
+
+  it('有新增材料：追加进草稿并提示份数', async () => {
+    openPackA()
+    appendPackFilesMock.mockResolvedValue(
+      detail(1, [
+        pdfAtt({ part_index: 0, page_count: 2 }),
+        pdfAtt({ filename: 'c.pdf', original_filename: 'c.pdf', part_index: 3, page_count: 4 }),
+      ]),
+    )
+    fetchBytesMock.mockResolvedValue(new Uint8Array([1]))
+
+    await useReader.getState().appendFiles([new File(['x'], 'c.pdf')])
+    await new Promise((r) => setTimeout(r, 30))
+
+    expect(useReader.getState().draft!.mats.length).toBeGreaterThan(1)
+    expect(toastMock.success).toHaveBeenCalledWith(expect.stringContaining('已追加'))
+  })
+})
+
+// ============ close 定时器 / setter 内部箭头（覆盖率补测） ============
+
+describe('useReader 剩余回调用例', () => {
+  it('close 后定时器到点执行卸载（释放缓存并复位）', async () => {
+    vi.useFakeTimers()
+    openPackA()
+    clearPdfDocumentsMock.mockClear()
+    clearBytesCacheMock.mockClear()
+
+    useReader.getState().close()
+    await vi.advanceTimersByTimeAsync(400)
+
+    expect(useReader.getState().openId).toBeNull()
+    expect(clearPdfDocumentsMock).toHaveBeenCalled()
+    expect(clearBytesCacheMock).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('setStatus 触发 update 内部箭头（写草稿状态）', () => {
+    openPackA()
+    useReader.getState().setStatus('done')
+    expect(useReader.getState().draft?.status).toBe('done')
+  })
+
+  it('setAssign 触发 update 内部箭头（写归案信息）', () => {
+    openPackA()
+    useReader.getState().setAssign({ target: 'new' } as never)
+    expect(useReader.getState().draft?.assign).toEqual({ target: 'new' })
+  })
+
+  it('renameMatInDraft 触发 update 内部箭头（改材料展示名）', () => {
+    openPackA()
+    useReader.getState().renameMatInDraft(0, '新展示名')
+    expect(useReader.getState().draft?.mats[0]?.customName).toBe('新展示名')
+  })
+
+  it('setPickInfo 清空选区与 OCR 待确认', () => {
+    openPackA()
+    useReader.setState({ selPages: [{ mi: 0, p: 0 }], ocrPending: { mi: 0, p: 0 } as never })
+    useReader.getState().setPickInfo(1)
+
+    expect(useReader.getState().pickInfo).toBe(1)
+    expect(useReader.getState().selPages).toEqual([])
+    expect(useReader.getState().ocrPending).toBeNull()
   })
 })

@@ -22,9 +22,9 @@ def update_folder_template(template_id: int, **fields: Any) -> dict[str, Any]:
     return client.put(f"/documents/folder-templates/{template_id}", json=fields)  # type: ignore[return-value]
 
 
-def delete_folder_template(template_id: int) -> None:
-    """软删除文件夹模板。"""
-    client.delete(f"/documents/folder-templates/{template_id}")
+def delete_folder_template(template_id: int) -> dict[str, Any]:
+    """软删除文件夹模板。返回后端删除结果。"""
+    return client.delete(f"/documents/folder-templates/{template_id}")  # type: ignore[no-any-return]
 
 
 def validate_folder_structure(template_id: int) -> dict[str, Any]:

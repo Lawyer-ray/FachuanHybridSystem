@@ -17,9 +17,15 @@ def get_supplementary_agreement(agreement_id: int) -> dict[str, Any]:
     return client.get(f"/contracts/supplementary-agreements/{agreement_id}")  # type: ignore[return-value]
 
 
-def create_supplementary_agreement(agreement_data: dict[str, Any]) -> dict[str, Any]:
-    """创建补充协议。agreement_data 包含 contract_id、name、content 等字段。"""
-    return client.post("/contracts/supplementary-agreements", json=agreement_data)  # type: ignore[return-value]
+def create_supplementary_agreement(contract_id: int, agreement_data: dict[str, Any]) -> dict[str, Any]:
+    """创建补充协议。
+
+    Args:
+        contract_id: 主合同 ID（后端 ``SupplementaryAgreementIn`` 必填）。
+        agreement_data: 其余字段（name、parties、party_ids 等）。
+    """
+    payload: dict[str, Any] = {"contract_id": contract_id, **agreement_data}
+    return client.post("/contracts/supplementary-agreements", json=payload)  # type: ignore[no-any-return]
 
 
 def update_supplementary_agreement(

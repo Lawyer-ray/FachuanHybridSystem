@@ -5,14 +5,37 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tools.core.projection import CASE_LIST_FIELDS, project_list
 
 
 def list_cases(
     case_type: str | None = None,
     status: str | None = None,
     case_number: str | None = None,
+    contract_id: int | None = None,
+    limit: int = 100,
+    fields: list[str] | None = None,
+    full: bool = False,
 ) -> list[dict[str, Any]]:
-    """查询案件列表。可按案件类型（case_type）、状态（status）、案号（case_number）筛选。"""
+    """查询案件列表。
+
+    默认返回**精简投影**（id/名称/状态/案号/类型/日期/金额/案由等 14 个字段），
+    不含当事人、指派、日志、案号列表等嵌套数组——``CaseOut`` 每条内嵌 7 组
+    关系，案件多时一次序列化会撑爆上下文。
+
+    Args:
+        case_type: 按案件类型筛选（litigation / non_litigation / criminal / advisory）。
+        status: 按状态筛选（如 active / closed）。
+        case_number: 按案号精确/模糊查询。
+        contract_id: 按所属合同筛选。
+        limit: 最多返回条数，默认 100，上限 2000。
+        fields: 只返回这些字段；不传用默认投影。
+        full: True 时返回后端完整结构（含当事人、日志等全部嵌套）。
+
+    Returns:
+        案件数组（已投影）。注意本端点**不返回总数**，需要计数请看
+        ``get_dashboard_stats`` 或对结果取长度。
+    """
     params: dict[str, Any] = {}
     if case_type:
         params["case_type"] = case_type
@@ -20,7 +43,12 @@ def list_cases(
         params["status"] = status
     if case_number:
         params["case_number"] = case_number
-    return client.get("/cases/cases", params=params)  # type: ignore[return-value]
+    if contract_id is not None:
+        params["contract_id"] = contract_id
+    if limit:
+        params["limit"] = max(1, min(limit, 2000))
+    rows: list[Any] = client.get("/cases/cases", params=params)  # type: ignore[assignment]
+    return project_list(rows, fields, CASE_LIST_FIELDS, full=full)
 
 
 def search_cases(q: str, limit: int = 10) -> list[dict[str, Any]]:

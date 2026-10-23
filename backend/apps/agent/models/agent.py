@@ -36,6 +36,33 @@ class AgentSession(models.Model):
         ACTIVE = "active", "进行中"
         ARCHIVED = "archived", "已归档"
 
+    class TaskState(models.TextChoices):
+        """任务式（后台）运行的状态。
+
+        只对 ``origin=task`` 的会话有意义；对话式会话用的是 ``status``。
+        分开的原因：对话是「有人盯着、随时可插话」，任务式是「挂后台、回来收」，
+        前者关心「是否进行中」，后者关心「跑完没有 / 结果在哪」。
+        """
+
+        QUEUED = "queued", "排队中"
+        RUNNING = "running", "运行中"
+        SUCCEEDED = "succeeded", "已完成"
+        FAILED = "failed", "失败"
+        CANCELLED = "cancelled", "已取消"
+
+    class Origin(models.TextChoices):
+        """会话从哪个入口发起。
+
+        同一套运行时服务三种入口，落库时要能区分：对话页要「我的全部会话」，
+        案件页要「这个案件的 AI 记录」，任务式要「我挂后台跑完的那几件」。
+        不记录来源的话，这三件事都做不了。
+        """
+
+        CHAT = "chat", "对话"
+        CASE = "case", "案件内"
+        CONTRACT = "contract", "合同内"
+        TASK = "task", "任务式（后台）"
+
     session_id = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
@@ -43,6 +70,33 @@ class AgentSession(models.Model):
         verbose_name="会话标识",
     )
     title = models.CharField(max_length=200, blank=True, default="", verbose_name="标题")
+    origin = models.CharField(
+        max_length=16,
+        choices=Origin.choices,
+        default=Origin.CHAT,
+        verbose_name="来源入口",
+    )
+    #: 案件 / 合同 id。**不加外键**：agent 不该因业务表被删而级联丢审计记录，
+    #: 也不希望这里引入跨 app 的迁移依赖。归属校验仍以 user 为准，
+    #: 案件维度只用来「列出本案相关会话」。
+    case_id = models.BigIntegerField(null=True, blank=True, verbose_name="关联案件")
+    contract_id = models.BigIntegerField(null=True, blank=True, verbose_name="关联合同")
+    #: 任务式运行的进度（非 task 会话留空）
+    task_state = models.CharField(
+        max_length=16,
+        choices=TaskState.choices,
+        blank=True,
+        default="",
+        verbose_name="任务状态",
+    )
+    #: 后台任务的对外句柄（django-q task id），用于查询 / 取消
+    task_id = models.CharField(max_length=64, blank=True, default="", verbose_name="后台任务标识")
+    #: 完成/失败时间；用户据此判断「要不要现在去看」
+    task_finished_at = models.DateTimeField(null=True, blank=True, verbose_name="任务完成时间")
+    #: 失败原因（人话，不含堆栈）
+    task_error = models.CharField(max_length=255, blank=True, default="", verbose_name="任务失败原因")
+    #: 是否已向用户投递完成通知（避免重复打扰）
+    notified = models.BooleanField(default=False, verbose_name="已通知")
     status = models.CharField(
         max_length=16,
         choices=Status.choices,
@@ -68,6 +122,9 @@ class AgentSession(models.Model):
         ordering = ["-updated_at"]
         indexes = [
             models.Index(fields=["user", "-updated_at"], name="agent_session_user_idx"),
+            models.Index(fields=["case_id", "-updated_at"], name="agent_session_case_idx"),
+            models.Index(fields=["origin", "-updated_at"], name="agent_session_origin_idx"),
+            models.Index(fields=["origin", "task_state", "-updated_at"], name="agent_session_task_idx"),
         ]
 
     def __str__(self) -> str:
@@ -137,6 +194,9 @@ class AgentApproval(models.Model):
     tool_name = models.CharField(max_length=200, verbose_name="工具名")
     tool_args = models.JSONField(default=dict, blank=True, verbose_name="工具参数")
     reason = models.TextField(blank=True, default="", verbose_name="请求理由")
+    #: 风险等级（low/medium/high/critical）。落库是为了审计时分得清
+    #: 「删一条草稿」和「清空全库」，也便于事后统计哪类操作最常被拒。
+    risk_level = models.CharField(max_length=16, blank=True, default="", verbose_name="风险等级")
     status = models.CharField(
         max_length=16,
         choices=Status.choices,
@@ -169,3 +229,74 @@ class AgentApproval(models.Model):
     def is_granted(self) -> bool:
         """唯一的放行条件。"""
         return self.status == self.Status.APPROVED
+
+
+class AgentRun(models.Model):
+    """一轮对话的运行记录 —— 成本、耗时与结果。
+
+    ## 为什么单独一张表
+
+    ``AgentMessage.metadata.output_tokens`` 是**逐条消息**的，回答不了运营与
+    管理最关心的三类问题：
+
+    - 这个律师 / 这个律所本月花了多少 token？
+    - 一次回答平均多久？失败率多少？
+    - 哪个模型贵、哪个工具调用最多？
+
+    所以把「一次 ``stream_chat`` 运行」的汇总单独落一行。与 ``AgentApproval``
+    同口径（都挂 session + user），审批率 / 超时率可以直接 join 统计。
+
+    ## 为什么取消与出错也要落
+
+    只记成功路径等于把「最贵的失败」藏起来：用户按停止时模型可能已经跑了
+    大半 token；LLM 网关超时重试三次也是真金白银。``status`` 区分三态，
+    成本字段尽力而为（拿不到就是 0，不编造）。
+    """
+
+    class Status(models.TextChoices):
+        OK = "ok", "正常完成"
+        ERROR = "error", "出错"
+        CANCELLED = "cancelled", "用户中止"
+
+    session = models.ForeignKey(
+        AgentSession,
+        on_delete=models.CASCADE,
+        related_name="runs",
+        verbose_name="所属会话",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="agent_runs",
+        null=True,
+        blank=True,
+        verbose_name="发起人",
+    )
+    model = models.CharField(max_length=100, blank=True, default="", verbose_name="模型")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.OK,
+        verbose_name="结果",
+    )
+    input_tokens = models.IntegerField(default=0, verbose_name="输入 token")
+    output_tokens = models.IntegerField(default=0, verbose_name="输出 token")
+    tool_calls = models.IntegerField(default=0, verbose_name="工具调用数")
+    duration_ms = models.IntegerField(default=0, verbose_name="耗时（毫秒）")
+    #: 出错时的分类标记（如 pi_unavailable / pi_error / unexpected / queue_timeout）。
+    #: 存短码而不是异常原文：既不泄露内部细节，又够做聚合。
+    error_kind = models.CharField(max_length=64, blank=True, default="", verbose_name="错误类型")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        verbose_name = "Agent 运行记录"
+        verbose_name_plural = "Agent 运行记录"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="agent_run_user_idx"),
+            models.Index(fields=["session", "-created_at"], name="agent_run_session_idx"),
+            models.Index(fields=["status", "-created_at"], name="agent_run_status_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.status} {self.model} in={self.input_tokens} out={self.output_tokens}"

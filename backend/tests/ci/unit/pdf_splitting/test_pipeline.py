@@ -96,7 +96,9 @@ class TestPageTextExtractor:
         pdf = tmp_path / "t.pdf"
         _make_pdf(pdf, ["民事起诉状原告张三被告李四诉讼请求事实与理由"])
         handler = _StubOCRHandler()
-        pages, summary = PageTextExtractor(ocr_handler=handler).extract(pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY)
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
 
         assert [p.source_method for p in pages] == ["text"]
         assert handler.cloud_calls == []
@@ -109,9 +111,15 @@ class TestPageTextExtractor:
         _make_pdf(pdf, [None])
         layout = {"blocks": [{"type": "title", "text": "证据清单", "bbox": [0, 10, 100, 30]}]}
         handler = _StubOCRHandler(
-            cloud={1: OCRPageResult(page_no=1, text="证据清单证明内容", source_method="mineru_ocr", ocr_failed=False, layout=layout)}
+            cloud={
+                1: OCRPageResult(
+                    page_no=1, text="证据清单证明内容", source_method="mineru_ocr", ocr_failed=False, layout=layout
+                )
+            }
         )
-        pages, summary = PageTextExtractor(ocr_handler=handler).extract(pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY)
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
 
         assert handler.cloud_calls == ["mineru"]
         assert pages[0].layout_title == "证据清单"
@@ -126,7 +134,9 @@ class TestPageTextExtractor:
             cloud_error=RuntimeError("mineru down"),
             local={1: OCRPageResult(page_no=1, text="银行流水交易明细", source_method="ocr", ocr_failed=False)},
         )
-        pages, summary = PageTextExtractor(ocr_handler=handler).extract(pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY)
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
 
         assert handler.local_calls == [[1, 2]]
         assert [p.source_method for p in pages] == ["ocr", "ocr_failed"]
@@ -183,10 +193,21 @@ class TestAnalyzePdf:
 
         pages = [
             PageDescriptor(
-                page_no=1, text="民事起诉状", normalized_text="民事起诉状", head_text="民事起诉状",
-                source_method="text", ocr_failed=False,
-                top_candidates=[{"segment_type": "complaint", "label": "起诉状", "score": 0.8,
-                                 "matched_strong": ["起诉状"], "matched_weak": []}],
+                page_no=1,
+                text="民事起诉状",
+                normalized_text="民事起诉状",
+                head_text="民事起诉状",
+                source_method="text",
+                ocr_failed=False,
+                top_candidates=[
+                    {
+                        "segment_type": "complaint",
+                        "label": "起诉状",
+                        "score": 0.8,
+                        "matched_strong": ["起诉状"],
+                        "matched_weak": [],
+                    }
+                ],
             )
         ]
         drafts, summary = detect_segments_with_fallback(

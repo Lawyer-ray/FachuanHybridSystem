@@ -26,8 +26,12 @@ def preview_fill(template_id: int, case_id: int, party_id: int | None = None) ->
     return client.get(f"/documents/external-templates/{template_id}/preview", params=params)  # type: ignore[return-value]
 
 
-def match_templates(case_id: int | None = None, source_name: str | None = None) -> list[dict[str, Any]]:
-    """模板匹配推荐。"""
+def match_templates(case_id: int | None = None, source_name: str | None = None) -> dict[str, Any]:
+    """模板匹配推荐。
+
+    返回 ``{success, results}`` 或 ``{success: false, message}``——匹配结果在
+    ``results`` 里，失败时没有 ``results`` 键。
+    """
     params: dict[str, Any] = {}
     if case_id is not None:
         params["case_id"] = case_id
@@ -36,13 +40,20 @@ def match_templates(case_id: int | None = None, source_name: str | None = None) 
     return client.get("/documents/external-templates/match", params=params)  # type: ignore[return-value]
 
 
-def get_custom_fields(template_id: int) -> list[dict[str, Any]]:
-    """获取模板需要手动输入的自定义字段。"""
+def get_custom_fields(template_id: int) -> dict[str, Any]:
+    """获取模板需要手动输入的自定义字段。
+
+    返回 ``{template_id, fields}``，字段清单在 ``fields`` 里。
+    """
     return client.get(f"/documents/external-templates/{template_id}/custom-fields")  # type: ignore[return-value]
 
 
-def get_fill_history(case_id: int | None = None, template_id: int | None = None) -> list[dict[str, Any]]:
-    """查询填充历史。"""
+def get_fill_history(case_id: int | None = None, template_id: int | None = None) -> dict[str, Any]:
+    """查询填充历史。
+
+    返回 ``{success, records}`` 或 ``{success: false, message}``——
+    既不传 case_id 也不传 template_id 时返回错误说明，而不是空列表。
+    """
     params: dict[str, Any] = {}
     if case_id is not None:
         params["case_id"] = case_id
@@ -93,3 +104,33 @@ def update_mapping(mapping_id: int, **fields: Any) -> dict[str, Any]:
 def delete_mapping(mapping_id: int) -> None:
     """删除字段映射。"""
     client.delete(f"/documents/external-templates/mappings/{mapping_id}")
+
+
+def fill_templates(
+    template_ids: list[int],
+    case_id: int,
+    party_ids: list[int] | None = None,
+    custom_values: dict[str, dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    """按案件数据批量填充模板，生成文书文件。
+
+    这是「一次性出整套文书」的入口：传一组模板 + 一个案件，后端会把案件
+    当事人、案号、金额等占位符全部代入。此前 agent 只能逐个模板调 preview，
+    无法真正产出文件。
+
+    Args:
+        template_ids: 要填充的模板 ID 列表（支持批量）。
+        case_id: 案件 ID（数据来源）。
+        party_ids: 可选，指定参与填充的当事人；不传则用案件全部当事人。
+        custom_values: 可选，手动补充值，形如 ``{template_id: {key: value}}``
+            （键为字符串形式的模板 ID）。
+
+    Returns:
+        后端返回填充结果（成功时含生成文件信息）。
+    """
+    payload: dict[str, Any] = {"template_ids": template_ids, "case_id": case_id}
+    if party_ids:
+        payload["party_ids"] = party_ids
+    if custom_values:
+        payload["custom_values"] = custom_values
+    return client.post("/documents/external-templates/fill", json=payload)  # type: ignore[return-value]

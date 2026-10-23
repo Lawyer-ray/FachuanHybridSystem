@@ -1,4 +1,4 @@
-import { createApiClient } from '@/lib/api'
+import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 import type {
   CaseFolderBindingInfo,
   CaseListItem,
@@ -119,7 +119,12 @@ export async function uploadFolderFiles(
   const form = new FormData()
   for (const f of files) form.append('files', f, f.name)
   return folderApi(kind)
-    .post(String(ownerId) + '/folder-upload', { searchParams: subpath ? { subpath } : {}, body: form })
+    .post(String(ownerId) + '/folder-upload', {
+      searchParams: subpath ? { subpath } : {},
+      body: form,
+      // 与其它模块上传端点同口径：ky 默认 10s，多文件扫描包必被误杀
+      timeout: UPLOAD_TIMEOUT_MS,
+    })
     .json<{ saved: Array<{ name: string; subpath: string }> }>()
 }
 

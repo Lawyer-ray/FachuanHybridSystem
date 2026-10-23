@@ -6,6 +6,9 @@
  * 非模态 dock：z-[100] 高于页面与全屏阅读器（z-[80]），低于菜单类
  * portal（z-[120]）与弹窗基线（z-[130]）。路由切换不影响本面板（挂在
  * 壳层），流式收发归 store，收起面板流不断；开/收带滑入滑出动画。
+ * 背景由 PanelBackdrop 压暗一档拉开主次层次（任何视口都生效）。遮罩的
+ * 生命周期跟 copilotMounted 走（AppShell 负责），不随面板一同卸载，
+ * 收起时才能和滑出动画同步淡出。
  */
 
 import { useEffect, useState } from 'react'
@@ -84,63 +87,63 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   return (
     <aside
       ref={setPanelRef}
-      style={{ '--copilot-w': `${width}px` } as React.CSSProperties}
-      className={`fixed top-(--app-navbar-h) right-0 bottom-0 z-[100] flex w-full flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.06)] duration-200 fill-mode-both transition-none sm:w-(--copilot-w) ${
-        open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'
-      }`}
-      aria-label="AI 助手"
-    >
-      {/* 拖拽把手：面板锚定右侧，向左拖变宽 */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="调整面板宽度"
-        className="absolute top-0 bottom-0 left-0 z-30 hidden w-1.5 -translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-foreground/25 sm:block"
-        onPointerDown={onHandlePointerDown}
-      />
+        style={{ '--copilot-w': `${width}px` } as React.CSSProperties}
+        className={`fixed top-(--app-navbar-h) right-0 bottom-0 z-[100] flex w-full flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.06)] duration-200 fill-mode-both transition-none sm:w-(--copilot-w) ${
+          open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'
+        }`}
+        aria-label="AI 助手"
+      >
+        {/* 拖拽把手：面板锚定右侧，向左拖变宽 */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整面板宽度"
+          className="absolute top-0 bottom-0 left-0 z-30 hidden w-1.5 -translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-foreground/25 sm:block"
+          onPointerDown={onHandlePointerDown}
+        />
 
-      <header className="flex h-12 flex-none items-center gap-1.5 border-b border-border px-2.5">
-        <button
-          type="button"
-          className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          onClick={toggleList}
-          aria-label={railVisible ? '收起会话栏' : '展开会话列表'}
-          title={railVisible ? '收起会话栏' : '展开会话列表'}
-        >
-          {railVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-        </button>
-        <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
-          {currentTitle || 'AI 助手'}
-        </span>
-        <button
-          type="button"
-          className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          onClick={() => {
-            void switchSession(null)
-            setListOverlayOpen(false)
-          }}
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-          新对话
-        </button>
-        <button
-          type="button"
-          className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          onClick={onClose}
-          aria-label="收起 AI 助手"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </header>
+        <header className="flex h-12 flex-none items-center gap-1.5 border-b border-border px-2.5">
+          <button
+            type="button"
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            onClick={toggleList}
+            aria-label={railVisible ? '收起会话栏' : '展开会话列表'}
+            title={railVisible ? '收起会话栏' : '展开会话列表'}
+          >
+            {railVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+          </button>
+          <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
+            {currentTitle || 'AI 助手'}
+          </span>
+          <button
+            type="button"
+            className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            onClick={() => {
+              void switchSession(null)
+              setListOverlayOpen(false)
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            新对话
+          </button>
+          <button
+            type="button"
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            onClick={onClose}
+            aria-label="收起 AI 助手"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
 
-      <div className="relative flex min-h-0 flex-1">
-        {railVisible && <SessionSidebar variant="rail" />}
-        {listOverlayOpen && (
-          <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />
-        )}
-        <MessageList />
-      </div>
-      <Composer />
+        <div className="relative flex min-h-0 flex-1">
+          {railVisible && <SessionSidebar variant="rail" />}
+          {listOverlayOpen && (
+            <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />
+          )}
+          <MessageList />
+        </div>
+        <Composer />
     </aside>
   )
 }

@@ -39,6 +39,7 @@ from mcp_server.tools.contracts.folder_scan import (
     list_contract_scan_subfolders,
     start_contract_scan,
 )
+from mcp_server.tools.contracts.parties import add_contract_party, get_client_related_items, remove_contract_party
 from mcp_server.tools.contracts.payments import create_payment, delete_payment, update_payment
 from mcp_server.tools.contracts.supplementary import (
     create_supplementary_agreement,
@@ -58,6 +59,10 @@ __all__ = [
     "delete_contract",
     "update_contract_lawyers",
     "get_contract_all_parties",
+    # 当事人 / 客户关联
+    "get_client_related_items",
+    "add_contract_party",
+    "remove_contract_party",
     # 收款
     "create_payment",
     "update_payment",

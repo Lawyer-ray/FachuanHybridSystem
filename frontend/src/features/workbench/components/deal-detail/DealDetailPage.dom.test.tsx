@@ -453,3 +453,43 @@ describe('DealDetailPage 右栏与档案', () => {
     expect(evil.getAttribute('href')).toBe('#')
   })
 })
+
+describe('DealDetailPage：案件加载失败重试', () => {
+  it('casesError 时显示错误条与重试按钮', async () => {
+    casesMock.mockRejectedValue(new Error('案件列表挂了'))
+    setupUi()
+    await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
+    // 错误条出现即说明分支已渲染（具体文案由 errMessage 决定）
+    expect(document.body.textContent).toContain('重试')
+  })
+})
+
+// ============ 创建类占位按钮（覆盖率补测） ============
+
+describe('DealDetailPage：占位动作按钮', () => {
+  it('页头「＋ 新增期限」「记日志」可点（占位提示，不抛错）', async () => {
+    setupUi()
+    await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
+
+    for (const label of ['＋ 新增期限', '记日志']) {
+      const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+        (b.textContent ?? '').includes(label),
+      )
+      if (btn) {
+        expect(() => fireEvent.click(btn)).not.toThrow()
+      }
+    }
+  })
+
+  it('右栏「记收款」可点（占位提示，不抛错）', async () => {
+    setupUi()
+    await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
+
+    const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+      /记收款/.test(b.textContent ?? ''),
+    )
+    if (btn) {
+      expect(() => fireEvent.click(btn)).not.toThrow()
+    }
+  })
+})

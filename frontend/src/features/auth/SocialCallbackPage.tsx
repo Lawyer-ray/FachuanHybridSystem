@@ -22,6 +22,9 @@ export function SocialCallbackPage() {
   // 初值」派生失败态，改文案就会改变行为。
   const [status, setStatus] = useState<'loading' | 'failed'>('loading')
   const [message, setMessage] = useState('正在完成登录…')
+  // 失败后的返回落点：绑定流程失败要回绑定页（用户已登录，回登录页会丢上下文），
+  // 其余情况回登录页。sanitizeRedirect 已保证是站内路径
+  const [backTarget, setBackTarget] = useState('/login')
   // 严格模式下 effect 会跑两次，避免重复兑换（TempAuth 只能用一次，第二次必然失败）
   const exchanged = useRef(false)
 
@@ -41,6 +44,9 @@ export function SocialCallbackPage() {
     const redirect = sanitizeRedirect(params.get('redirect'))
 
     if (error) {
+      // 绑定流程的失败（not_bound / already_bound / provider_occupied）同样带
+      // redirect，指向绑定页——用户应回到绑定页重试，而非被丢到登录页
+      if (redirect !== '/' && redirect !== '/login') setBackTarget(redirect)
       fail(resolveCallbackError(error))
       return
     }
@@ -80,13 +86,24 @@ export function SocialCallbackPage() {
       {status === 'loading' && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
       <p className="text-[13px] text-muted-foreground">{message}</p>
       {status === 'failed' && (
-        <button
-          type="button"
-          onClick={() => { void navigate('/login', { replace: true }) }}
-          className="text-xs text-primary underline-offset-4 hover:underline"
-        >
-          返回登录页
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => { void navigate(backTarget, { replace: true }) }}
+            className="text-xs text-primary underline-offset-4 hover:underline"
+          >
+            {backTarget === '/login' ? '返回登录页' : '返回账号绑定'}
+          </button>
+          {backTarget !== '/login' && (
+            <button
+              type="button"
+              onClick={() => { void navigate('/login', { replace: true }) }}
+              className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+            >
+              返回登录页
+            </button>
+          )}
+        </>
       )}
     </div>
   )

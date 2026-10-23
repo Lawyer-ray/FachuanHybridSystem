@@ -6,7 +6,7 @@ from mcp.server.mcpserver import MCPServer
 
 from mcp_server.tools import (
     add_case_party,
-    ai_ollama,
+    add_contract_party,
     analyze_template,
     approve_workflow_step,
     assign_lawyer,
@@ -31,6 +31,7 @@ from mcp_server.tools import (
     cleanup_resources,
     clear_all_archive_materials,
     clear_cache,
+    complete_reminders,
     confirm_archive,
     confirm_contract_scan,
     confirm_mappings,
@@ -46,6 +47,7 @@ from mcp_server.tools import (
     create_contract,
     create_contract_with_cases,
     create_credential,
+    create_doc_converter_job,
     create_document_template,
     create_export,
     create_folder_binding,
@@ -98,8 +100,8 @@ from mcp_server.tools import (
     delete_property_clue,
     delete_recording,
     delete_reminder,
+    delete_reminders,
     delete_schedule,
-    delete_screenshot,
     delete_supplementary_agreement,
     delete_system_config,
     delete_task,
@@ -139,17 +141,19 @@ from mcp_server.tools import (
     execute_case_import,
     export_rotated_images,
     export_rotated_pdf,
+    extract_document_text,
     extract_pdf_pages,
     extract_recording,
     extract_template_placeholders,
+    fetch_url,
+    fill_templates,
     generate_archive_folder,
     generate_case_template,
     generate_complaint,
     generate_defense,
-    generate_poi_complaint,
-    generate_report,
     get_archive_checklist,
     get_archive_overrides,
+    get_async_task_status,
     get_automation_config,
     get_automation_status,
     get_cache_statistics,
@@ -165,6 +169,7 @@ from mcp_server.tools import (
     get_cause,
     get_client,
     get_client_import_session,
+    get_client_related_items,
     get_company_personnel,
     get_company_profile,
     get_company_risks,
@@ -178,8 +183,10 @@ from mcp_server.tools import (
     get_conversion_progress,
     get_court_sms_detail,
     get_credential,
+    get_current_user,
     get_custom_fields,
     get_dashboard_stats,
+    get_document_parsing_task,
     get_document_template,
     get_export_statuses,
     get_export_task,
@@ -211,11 +218,13 @@ from mcp_server.tools import (
     get_property_clue_content_template,
     get_recording,
     get_reminder,
+    get_reminder_calendar,
     get_research_task,
     get_resource_usage,
     get_review_models,
     get_review_status,
     get_scan_status,
+    get_server_time,
     get_statistics,
     get_statistics_report,
     get_supplementary_agreement,
@@ -232,6 +241,7 @@ from mcp_server.tools import (
     list_bind_candidates,
     list_case_assignments,
     list_case_cloud_storage_accounts,
+    list_case_folder_entries,
     list_case_logs,
     list_case_numbers,
     list_case_parties,
@@ -243,12 +253,15 @@ from mcp_server.tools import (
     list_cloud_storage_accounts,
     list_completed_tasks,
     list_contacts,
+    list_contract_folder_entries,
     list_contract_scan_subfolders,
     list_contracts,
     list_court_sms,
     list_courts_data,
     list_credentials,
     list_doc_convert_types,
+    list_doc_converter_jobs,
+    list_document_parsing_records,
     list_document_templates,
     list_enterprise_providers,
     list_failed_tasks,
@@ -257,17 +270,20 @@ from mcp_server.tools import (
     list_inbox_messages,
     list_lawfirms,
     list_lawyers,
+    list_litigation_sessions,
     list_lpr_rates,
     list_mappings,
     list_message_sources,
     list_oa_configs,
     list_payments,
+    list_pending_court_document_tasks,
     list_placeholders,
     list_projects,
     list_property_clues,
     list_queued_tasks,
     list_recordings,
     list_reminder_types,
+    list_reminders_by_target,
     list_research_results,
     list_scan_subfolders,
     list_scheduled_tasks,
@@ -277,6 +293,7 @@ from mcp_server.tools import (
     list_teams,
     list_template_bindings,
     list_template_library_files,
+    list_upcoming_deadlines,
     list_workflows,
     match_templates,
     merge_id_card_manual,
@@ -286,9 +303,9 @@ from mcp_server.tools import (
     normalize_contract_format,
     optimize_concurrency,
     parse_client_text,
+    parse_document,
     parse_reminders_from_text,
     patch_system_config,
-    poi_health,
     preview_archive_context,
     preview_contract_context,
     preview_fill,
@@ -299,6 +316,7 @@ from mcp_server.tools import (
     process_document,
     process_document_by_path,
     quick_recognize_invoice,
+    remove_contract_party,
     rename_inbox_attachment,
     rename_material_group,
     reorder_archive_materials,
@@ -706,7 +724,6 @@ mcp.tool()(process_document)
 mcp.tool()(process_document_by_path)
 
 # 自动化 - 主 API
-mcp.tool()(ai_ollama)
 mcp.tool()(get_automation_config)
 mcp.tool()(get_automation_status)
 
@@ -764,7 +781,6 @@ mcp.tool()(extract_recording)
 mcp.tool()(cancel_extract_recording)
 mcp.tool()(reset_extract_recording)
 mcp.tool()(update_screenshot)
-mcp.tool()(delete_screenshot)
 mcp.tool()(reorder_screenshots)
 
 # 合同审查
@@ -917,12 +933,10 @@ mcp.tool()(delete_schedule)
 mcp.tool()(resubmit_task)
 
 # 核心 - POI 文档生成
-mcp.tool()(poi_health)
-mcp.tool()(generate_poi_complaint)
-mcp.tool()(generate_report)
 
 # 网络搜索
 mcp.tool()(web_search)
+mcp.tool()(fetch_url)
 
 # 工作流引擎
 mcp.tool()(start_workflow)
@@ -930,3 +944,40 @@ mcp.tool()(list_workflows)
 mcp.tool()(get_workflow_detail)
 mcp.tool()(approve_workflow_step)
 mcp.tool()(cancel_workflow)
+
+# ===== 新增能力（身份 / 期限聚合 / 文档正文 / 任务统一状态）=====
+# 身份与时间：模型自述「我是谁、现在几点」的唯一来源
+mcp.tool()(get_current_user)
+mcp.tool()(get_server_time)
+
+# 期限聚合：跨案件/合同/日志汇总到期事项
+mcp.tool()(list_upcoming_deadlines)
+mcp.tool()(list_reminders_by_target)
+mcp.tool()(get_reminder_calendar)
+mcp.tool()(complete_reminders)
+mcp.tool()(delete_reminders)
+
+# 文档正文（材料可检索的底座）
+mcp.tool()(extract_document_text)
+mcp.tool()(parse_document)
+mcp.tool()(get_document_parsing_task)
+mcp.tool()(list_document_parsing_records)
+
+# 文书批量生成
+mcp.tool()(fill_templates)
+
+# 文件夹浏览
+mcp.tool()(list_case_folder_entries)
+mcp.tool()(list_contract_folder_entries)
+
+# 客户全景与合同当事人
+mcp.tool()(get_client_related_items)
+mcp.tool()(add_contract_party)
+mcp.tool()(remove_contract_party)
+
+# 异步任务统一状态
+mcp.tool()(get_async_task_status)
+mcp.tool()(list_doc_converter_jobs)
+mcp.tool()(create_doc_converter_job)
+mcp.tool()(list_litigation_sessions)
+mcp.tool()(list_pending_court_document_tasks)

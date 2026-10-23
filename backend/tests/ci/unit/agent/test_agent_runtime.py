@@ -503,3 +503,182 @@ class TestApprovalOwnership:
 
         assert _may_decide(self._user(7), self._record(None)) is False
         assert _may_decide(self._user(1, superuser=True), self._record(None)) is True
+
+
+class _FakeStdin:
+    """记录写进 pi stdin 的协议行，供中止路径断言。"""
+
+    def __init__(self) -> None:
+        self.written: list[str] = []
+        self._closing = False
+
+    def write(self, data: bytes) -> None:
+        self.written.extend(line for line in data.decode("utf-8").splitlines() if line)
+
+    async def drain(self) -> None:
+        return None
+
+    def close(self) -> None:
+        self._closing = True
+
+    def is_closing(self) -> bool:
+        return self._closing
+
+
+class _FakeProc:
+    """假 pi 子进程：只需 stdin 与 returncode。"""
+
+    def __init__(self) -> None:
+        self.stdin = _FakeStdin()
+        self.returncode: int | None = None
+
+    async def wait(self) -> int:
+        self.returncode = 0
+        return 0
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+
+class TestAbortOnCancel:
+    """P0-1：用户点停止时必须真的把 abort 传给 pi。
+
+    ``abort()`` 曾是死代码——客户端断开只关进程，模型仍在服务端跑完继续烧 token。
+    """
+
+    def test_abort_clears_queue_then_aborts(self) -> None:
+        """先撤排队消息再中止（Esc 语义：排队消息不会继续跑）。"""
+        import asyncio
+
+        from apps.agent.pi.rpc_client import PiRpcSession
+
+        async def run() -> tuple[bool, list[str]]:
+            session = PiRpcSession(cwd="/tmp")
+            session._proc = _FakeProc()  # type: ignore[assignment]
+            sent: list[str] = []
+
+            async def fake_send(payload: dict[str, object]) -> dict[str, object]:
+                sent.append(str(payload.get("type")))
+                return {"success": True, "data": {"steering": ["改方向"], "followUp": ["再补一句"]}}
+
+            session._send = fake_send  # type: ignore[assignment]
+            return await session.abort(), sent
+
+        ok, sent = asyncio.run(run())
+        assert ok is True
+        assert sent == ["clear_queue", "abort"]
+
+    def test_close_before_abort_writes_both_commands(self) -> None:
+        """close(abort_running=True) 直接往 stdin 写 clear_queue + abort。
+
+        这条路径不复用 _send()：取消时读协程即将被取消，等不到 response。
+        """
+        import asyncio
+        import json
+
+        from apps.agent.pi.rpc_client import PiRpcSession
+
+        async def run() -> _FakeStdin:
+            session = PiRpcSession(cwd="/tmp")
+            proc = _FakeProc()
+            session._proc = proc  # type: ignore[assignment]
+            await session._abort_before_close(proc)  # type: ignore[arg-type]
+            return proc.stdin
+
+        stdin = asyncio.run(run())
+        assert [json.loads(line)["type"] for line in stdin.written] == ["clear_queue", "abort"]
+
+    def test_close_without_abort_flag_sends_nothing(self) -> None:
+        """正常跑完的路径不额外发 abort（避免无意义握手）。"""
+        import asyncio
+
+        from apps.agent.pi.rpc_client import PiRpcSession
+
+        async def run() -> _FakeStdin:
+            session = PiRpcSession(cwd="/tmp")
+            proc = _FakeProc()
+            session._proc = proc  # type: ignore[assignment]
+            await session.close()
+            return proc.stdin
+
+        assert asyncio.run(run()).written == []
+
+    def test_abort_swallows_send_failure(self) -> None:
+        """进程已退出时 abort 不抛异常（取消路径不能因收尾失败而炸）。"""
+        import asyncio
+
+        from apps.agent.pi.rpc_client import PiError, PiRpcSession
+
+        async def run() -> bool:
+            session = PiRpcSession(cwd="/tmp")
+
+            async def boom(payload: dict[str, object]) -> dict[str, object]:
+                raise PiError("pi 进程已关闭")
+
+            session._send = boom  # type: ignore[assignment]
+            return await session.abort()
+
+        assert asyncio.run(run()) is False
+
+
+class TestPoolAbortWiring:
+    """P0-1 端到端：真实 PiProcessPool 的取消分支必须把 abort_running=True 传下去。
+
+    上一条只测到 PiRpcSession 层；pool 若没转交这个标志，abort 依旧发不出去。
+    """
+
+    @staticmethod
+    def _run_pool(raise_cancel: bool) -> list[bool]:
+        import asyncio
+        from pathlib import Path as _Path
+
+        from apps.agent.pi import pool as pool_module
+        from apps.agent.pi.pool import PiProcessPool, PoolConfig
+
+        seen: list[bool] = []
+
+        class _StubSession:
+            def __init__(self, **kwargs: object) -> None:
+                return None
+
+            async def start(self) -> None:
+                return None
+
+            async def close(self, *, abort_running: bool = False) -> None:
+                seen.append(abort_running)
+
+        async def run() -> None:
+            p = PiProcessPool(PoolConfig(size=1))
+            async with p.acquire():
+                if raise_cancel:
+                    raise asyncio.CancelledError
+
+        saved = (
+            pool_module.write_pi_config,
+            pool_module.PiRpcSession,
+            pool_module.layout,
+        )
+        pool_module.write_pi_config = lambda *a, **k: None  # type: ignore[assignment]
+        pool_module.PiRpcSession = _StubSession  # type: ignore[assignment]
+        pool_module.layout = lambda: (  # type: ignore[assignment]
+            _Path("/tmp/stub-work"),
+            _Path("/tmp/stub-config"),
+            _Path("/tmp/stub-sessions"),
+        )
+        try:
+            asyncio.run(run())
+        except asyncio.CancelledError:
+            pass
+        finally:
+            (
+                pool_module.write_pi_config,
+                pool_module.PiRpcSession,
+                pool_module.layout,
+            ) = saved
+        return seen
+
+    def test_cancel_closes_with_abort(self) -> None:
+        assert self._run_pool(raise_cancel=True) == [True]
+
+    def test_normal_exit_closes_without_abort(self) -> None:
+        assert self._run_pool(raise_cancel=False) == [False]

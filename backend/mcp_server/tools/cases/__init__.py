@@ -24,33 +24,17 @@ from mcp_server.tools.cases.cases import (
     search_cases,
     update_case,
 )
-from mcp_server.tools.cases.cause_court import (
-    get_cause,
-    list_causes_data,
-    list_causes_tree,
-    list_courts_data,
-)
+from mcp_server.tools.cases.cause_court import get_cause, list_causes_data, list_causes_tree, list_courts_data
+from mcp_server.tools.cases.folder_entries import list_case_folder_entries, list_contract_folder_entries
 from mcp_server.tools.cases.folder_scan import (
     create_scan_stage,
     get_scan_status,
     list_scan_subfolders,
     start_folder_scan,
 )
-from mcp_server.tools.cases.grants import (
-    create_grant,
-    delete_grant,
-    get_grant,
-    list_grants,
-    update_grant,
-)
+from mcp_server.tools.cases.grants import create_grant, delete_grant, get_grant, list_grants, update_grant
 from mcp_server.tools.cases.litigation_fee import calculate_litigation_fee
-from mcp_server.tools.cases.logs import (
-    create_case_log,
-    delete_case_log,
-    get_case_log,
-    list_case_logs,
-    update_case_log,
-)
+from mcp_server.tools.cases.logs import create_case_log, delete_case_log, get_case_log, list_case_logs, update_case_log
 from mcp_server.tools.cases.materials import (
     bind_materials,
     delete_all_materials,
@@ -85,6 +69,9 @@ from mcp_server.tools.cases.template_binding import (
 __all__ = [
     # 案件 CRUD
     "list_cases",
+    # 文件夹浏览
+    "list_case_folder_entries",
+    "list_contract_folder_entries",
     "search_cases",
     "get_case",
     "create_case",

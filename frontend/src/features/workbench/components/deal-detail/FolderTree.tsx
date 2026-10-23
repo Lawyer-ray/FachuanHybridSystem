@@ -110,9 +110,22 @@ export function FolderTree({
   })
   const rename = useMutation({
     mutationFn: (p: { subpath: string; name: string }) => renameFolderEntry(kind, ownerId, p.subpath, p.name),
-    onSuccess: () => {
+    onSuccess: (_d, p) => {
       invalidate()
       setRenaming(null)
+      // 重命名后旧 subpath 失效：把展开集合里的旧名（含子树）改写到新名，
+      // 否则已展开的多层目录会莫名其妙地全部收起
+      const parent = p.subpath.includes('/') ? p.subpath.slice(0, p.subpath.lastIndexOf('/') + 1) : ''
+      const nextPath = parent + p.name
+      setOpen((prev) => {
+        const next = new Set<string>()
+        for (const k of prev) {
+          if (k === p.subpath) next.add(nextPath)
+          else if (k.startsWith(p.subpath + '/')) next.add(nextPath + k.slice(p.subpath.length))
+          else next.add(k)
+        }
+        return next
+      })
     },
     onError: (e) => fail(e, '重命名'),
   })
@@ -273,11 +286,18 @@ function NodeList({ ctx, subpath, actions }: { ctx: TreeCtx; subpath: string; ac
     return <div className="py-1.5 pl-2 text-[11.5px] text-muted-foreground/70">{errMessage(q.error, '读取失败')}</div>
   }
   const d = q.data
-  if (!d || d.folders.length === 0) {
+  if (!d) {
+    return <div className="py-2 text-xs text-muted-foreground/70">文件夹是空的</div>
+  }
+  if (d.folders.length === 0) {
     if (subpath === '') {
-      return <div className="py-2 text-xs text-muted-foreground/70">{d?.files.length ? '' : '文件夹是空的'}</div>
-    }
-    if (d.files.length === 0 && ctx.creatingIn !== subpath) {
+      // 根目录没有子文件夹：只在真的什么都没有时提示「文件夹是空的」。
+      // 有文件时必须继续往下渲染（此处曾直接 return，导致只有文件的根目录
+      // 一个文件都不显示）
+      if (d.files.length === 0 && ctx.creatingIn !== subpath) {
+        return <div className="py-2 text-xs text-muted-foreground/70">文件夹是空的</div>
+      }
+    } else if (d.files.length === 0 && ctx.creatingIn !== subpath) {
       return <div className="py-1.5 pl-2 text-[11.5px] text-muted-foreground/60">（空）</div>
     }
   }
@@ -466,7 +486,11 @@ function FileRow({
       title={'预览 ' + file.name}
       onClick={() => void preview()}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') void preview()
+        // role="button" 需同时响应 Enter 与 Space（Space 要 preventDefault 防滚动）
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          void preview()
+        }
       }}
       onContextMenu={(e) => {
         e.preventDefault()

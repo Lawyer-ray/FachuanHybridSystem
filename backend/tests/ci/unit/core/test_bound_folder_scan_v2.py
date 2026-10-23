@@ -388,9 +388,7 @@ class TestExcludeDirKeywords:
         svc = _make_service()
         self._prepare(tmp_path, svc)
 
-        result = svc.scan_folder(
-            folder_path=str(tmp_path), domain="contract", exclude_dir_keywords=("客户资料",)
-        )
+        result = svc.scan_folder(folder_path=str(tmp_path), domain="contract", exclude_dir_keywords=("客户资料",))
 
         filenames = [c["filename"] for c in result["candidates"]]
         assert filenames == ["判决书.pdf", "客户资料清单.pdf"]

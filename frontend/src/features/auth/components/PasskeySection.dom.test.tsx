@@ -119,6 +119,20 @@ describe('PasskeySection', () => {
     await waitFor(() => expect(mockRename).toHaveBeenCalledWith(1, '办公室 Mac'))
   })
 
+  it('重命名行内编辑：Esc 取消不得提交改名', async () => {
+    // 回归 2026-10 审查 A-P1-4：Esc → setRenamingId(null) 卸载 Input，
+    // 卸载先派发 blur，onBlur 里的 rename.mutate 把「取消」变成了「保存」
+    mockRename.mockResolvedValue(undefined)
+    renderSection()
+    fireEvent.click((await screen.findAllByRole('button', { name: '重命名' }))[0]!)
+    const input = await screen.findByDisplayValue('MacBook Touch ID')
+    fireEvent.change(input, { target: { value: '不应保存的名字' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+
+    expect(await screen.findByText('MacBook Touch ID')).toBeTruthy()
+    expect(mockRename).not.toHaveBeenCalled()
+  })
+
   it('添加成功流：create → registerVerify → toast', async () => {
     mockRegisterOptions.mockResolvedValue({
       rp: { id: 'localhost', name: '法穿' },

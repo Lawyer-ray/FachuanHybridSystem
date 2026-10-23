@@ -5,6 +5,7 @@ import { LogOut, Menu, Plus, Search, Sparkles, User } from 'lucide-react'
 
 import { useAuth, type User as AuthUser } from '@/features/auth'
 import { api } from '@/lib/api'
+import { resetAllClientState } from '@/lib/reset-client-state'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -119,24 +120,12 @@ export function AppNavbar({ onNotify, onLogout, onPrefetch, onToggleCopilot }: A
 
   const handleLogout = () => {
     setLogoutOpen(false)
+    // 清 auth store 的 user（resetAllClientState 只负责 token 与各 feature 状态）
     logout()
-    // 清空 react-query 缓存：否则换账号登录后在 staleTime 窗口内
-    // 会直接命中上一账号的日历/收件箱/合同等缓存数据
-    queryClient.clear()
-    // 清空材料预处理阅读器状态与 PDF/字节缓存（换账号不得残留上一账号的材料内容）。
-    // 走 material-prep 对外出口的动态 import：这条依赖链上有 pdfjs-dist（~1MB
-    // 懒加载 chunk），静态引会把整个材料预处理域拖进首屏包（AppNavbar 经
-    // HomePage 进 entry chunk）
-    void import('@/features/material-prep')
-      .then((m) => m.resetMaterialPrepState())
-      .catch(() => {})
-    void import('@/lib/pdf')
-      .then((m) => m.clearPdfCache())
-      .catch(() => {})
-    // 清空 AI 助手转录与会话指向（换账号不得残留上一账号的对话内容）
-    void import('@/features/copilot')
-      .then((m) => m.resetCopilotState())
-      .catch(() => {})
+    // 与「会话过期被踢」共用同一条清理路径（resetAllClientState）：此前两条
+    // 路径清理范围不一致，过期跳转只清 token，换人登录会读到上一账号的
+    // 材料草稿等 localStorage 残留
+    void resetAllClientState(() => queryClient.clear())
     // react-router 的 navigate 返回 void | Promise<void>，这里 fire-and-forget
     void navigate('/login', { replace: true })
     onLogout?.()

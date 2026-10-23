@@ -300,6 +300,67 @@ describe('案件节', () => {
     expect(merged.key).toBe('L4')
   })
 
+  it('timelineEntries：单条待合并日志自带两个同名附件时不得重复计入', () => {
+    // 回归 2026-10 审查 P0：合并分支的 seenNames 漏 add，同一批 l.atts 内的同名
+    // 第二个附件会绕过去重被重复 push（重放日志常带同名不同 id 的附件）
+    const dup = '收到法院短信：执行款已到账'
+    const c = makeCase({
+      logs: [
+        // 倒序：较新的一条带两个同名「裁定书.pdf」
+        {
+          id: 9,
+          when: '2026-09-03T10:00',
+          who: '系统',
+          text: dup,
+          attN: 2,
+          atts: [att(92, '裁定书.pdf'), att(91, '裁定书.pdf')],
+          rem: '',
+          remToday: false,
+        },
+        // 较旧的一条先建立条目
+        { id: 8, when: '2026-09-02T09:00', who: '系统', text: dup, attN: 1, atts: [att(81, '其它.pdf')], rem: '', remToday: false },
+      ],
+    })
+    const merged = timelineEntries(c)[0]!
+    expect(merged.n).toBe(2)
+    // 「裁定书.pdf」只应留一个（先出现的 92），加「其它.pdf」共 2 个
+    expect(merged.atts.map((a) => a.name)).toEqual(['其它.pdf', '裁定书.pdf'])
+    expect(merged.attN).toBe(2)
+  })
+
+  it('timelineEntries：多条日志跨轮次合并时同名附件不重复', () => {
+    // 回归 2026-10 审查 P0：合并分支的 seenNames 曾漏 add，导致第二轮之后的
+    // 同名附件被重复 push（重放日志常带同名不同 id 的附件）
+    const dup = '收到法院短信：执行款已到账'
+    const c = makeCase({
+      logs: [
+        { id: 7, when: '2026-09-04T10:00', who: '李某某', text: dup, attN: 1, atts: [{ id: 73, name: '裁定书.pdf', mediaUrl: '/media/x73' }], rem: '', remToday: false },
+        { id: 6, when: '2026-09-03T10:00', who: '系统', text: dup, attN: 1, atts: [{ id: 62, name: '裁定书.pdf', mediaUrl: '/media/x62' }], rem: '', remToday: false },
+        { id: 5, when: '2026-09-02T09:00', who: '系统', text: dup, attN: 1, atts: [{ id: 51, name: '裁定书.pdf', mediaUrl: '/media/x51' }], rem: '', remToday: false },
+      ],
+    })
+    const merged = timelineEntries(c)[0]!
+    expect(merged.n).toBe(3)
+    // 同名附件只保留最早的一条，跨三轮合并不得重复
+    expect(merged.atts.map((a) => a.id)).toEqual([51])
+    expect(merged.attN).toBe(1)
+  })
+
+  it('timelineEntries：三轮合并时每轮新增的不同名附件都要保留', () => {
+    const dup = '收到法院短信：执行款已到账'
+    const c = makeCase({
+      logs: [
+        { id: 7, when: '2026-09-04T10:00', who: 'A', text: dup, attN: 2, atts: [att(73, 'c.pdf'), att(71, 'a.pdf')], rem: '', remToday: false },
+        { id: 6, when: '2026-09-03T10:00', who: 'B', text: dup, attN: 2, atts: [att(62, 'b.pdf'), att(61, 'a.pdf')], rem: '', remToday: false },
+        { id: 5, when: '2026-09-02T09:00', who: 'C', text: dup, attN: 1, atts: [att(51, 'a.pdf')], rem: '', remToday: false },
+      ],
+    })
+    const merged = timelineEntries(c)[0]!
+    // 去重按文件名，保留首次出现的 id：a=51（最早）、b=62、c=73
+    expect(merged.atts.map((a) => a.name).sort()).toEqual(['a.pdf', 'b.pdf', 'c.pdf'])
+    expect(merged.attN).toBe(3)
+  })
+
   it('stripEntryParens：只隐藏长案件名括号，短括号（当事人/年份/备注）保留', () => {
     // 长描述型（≥12 字）→ 隐藏，卡片已标明案件
     expect(stripEntryParens('民事裁定书（张某诉某公司买卖合同纠纷一案）_20260929收.pdf')).toBe(

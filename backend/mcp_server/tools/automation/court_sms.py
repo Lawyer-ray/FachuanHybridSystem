@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from mcp_server.client import as_items, client
+from mcp_server.client import client
 
 
 def submit_court_sms(
@@ -29,10 +29,18 @@ def list_court_sms(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> dict[str, Any]:
-    """查询法院短信列表。status 可选：pending/processing/completed/failed；has_case=True 只查已关联案件的。
+    """查询法院短信列表。
 
-    返回分页结构 ``{items, total, page, page_size}``（REST 端点返回分页 dict，
-    早期声明为 ``list`` 会使 MCP 输出校验失败）。
+    Args:
+        status: 处理状态（pending / processing / completed / failed）。
+        sms_type: 短信类型。
+        has_case: True 只查已关联案件的。
+        date_from / date_to: 接收时间范围（YYYY-MM-DD）。
+
+    Returns:
+        后端 ``PagedCourtSMSListOut`` 原样：``{items, count}``。注意计数字段叫
+        ``count`` 而非 ``total``——之前用 ``as_items`` 包壳时 docstring 写的是
+        ``{items, total, page, page_size}``，与实际返回并不一致。
     """
     params: dict[str, Any] = {}
     if status:
@@ -45,7 +53,12 @@ def list_court_sms(
         params["date_from"] = date_from
     if date_to:
         params["date_to"] = date_to
-    return as_items(client.get("/automation/court-sms", params=params))
+    payload: dict[str, Any] = client.get("/automation/court-sms", params=params)  # type: ignore[assignment]
+    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+        raise RuntimeError(
+            f"/automation/court-sms 返回了非分页结构: {type(payload).__name__}；后端契约可能已变更，请检查"
+        )
+    return payload
 
 
 def get_court_sms_detail(sms_id: int) -> dict[str, Any]:
@@ -68,9 +81,19 @@ def delete_court_sms(sms_id: int) -> None:
     client.delete(f"/automation/court-sms/{sms_id}")
 
 
-def download_sms_documents(sms_id: int) -> list[dict[str, Any]]:
-    """下载法院短信关联的所有文书文档。返回文书列表。"""
-    return client.get(f"/automation/court-sms/{sms_id}/documents/download-all")  # type: ignore[return-value]
+def download_sms_documents(sms_id: int) -> dict[str, Any]:
+    """打包下载法院短信关联的全部文书（后端返回 ZIP）。
+
+    返回 ``{filename, content_type, data_base64}``，与 ``download_sms_document``
+    一致。早前用 ``client.get`` 请求该端点并声明 ``list[dict]``——后端是
+    ``FileResponse`` 二进制流，``resp.json()`` 必然抛异常，工具永久不可用。
+    """
+    content, filename, content_type = client.download(f"/automation/court-sms/{sms_id}/documents/download-all")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }
 
 
 def download_sms_document(sms_id: int, ref_index: int) -> dict[str, Any]:

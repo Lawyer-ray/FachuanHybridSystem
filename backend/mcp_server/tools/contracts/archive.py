@@ -56,9 +56,9 @@ def confirm_archive(contract_id: int) -> dict[str, Any]:
     return client.post(f"/contracts/{contract_id}/archive/confirm", json={})  # type: ignore[return-value]
 
 
-def delete_archive_material(contract_id: int, material_id: int) -> None:
-    """删除单个归档材料。"""
-    client.delete(f"/contracts/{contract_id}/archive/materials/{material_id}")
+def delete_archive_material(contract_id: int, material_id: int) -> dict[str, Any]:
+    """删除单个归档材料。返回后端删除结果。"""
+    return client.delete(f"/contracts/{contract_id}/archive/materials/{material_id}")  # type: ignore[no-any-return]
 
 
 def reorder_archive_materials(contract_id: int, orders: dict[str, list[int]]) -> dict[str, Any]:
@@ -73,6 +73,6 @@ def move_archive_material(contract_id: int, material_id: int, target_item_code: 
     )  # type: ignore[return-value]
 
 
-def clear_all_archive_materials(contract_id: int) -> None:
-    """删除合同的所有归档材料。"""
-    client.post(f"/contracts/{contract_id}/archive/clear-all", json={})
+def clear_all_archive_materials(contract_id: int) -> dict[str, Any]:
+    """删除合同的所有归档材料。返回后端清理统计。"""
+    return client.post(f"/contracts/{contract_id}/archive/clear-all", json={})  # type: ignore[no-any-return]

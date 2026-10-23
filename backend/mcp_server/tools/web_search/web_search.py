@@ -22,19 +22,39 @@ _HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
 
-# 简单限流：每分钟最多 20 次请求
+# 简单限流：每分钟最多 20 次请求（防止被搜狗封 IP）
+#
+# 这是**进程级**配额：共享 MCP（streamable-http :8011）下所有律师的 agent
+# 共用一个计数器。因此超限时不能阻塞等待：
+# - 旧实现 `time.sleep(wait)` 最长卡 59 秒（实测），该次工具调用整体挂起，
+#   模型只能干等——而它本来可以用“搜不了，我换种方式回答”来收场；
+# - 一个人的高频搜索会把全所拖慢。
+# 现改为**快速失败**：超限立即返回明确原因，由工具层转成可读提示。
 _last_requests: list[float] = []
 _RATE_LIMIT = 20
+_RATE_WINDOW = 60.0
+
+
+class RateLimitedError(RuntimeError):
+    """搜索配额已用完（不是网络错误，不需要重试）。"""
+
+    def __init__(self, retry_after: int) -> None:
+        self.retry_after = retry_after
+        super().__init__(f"搜索请求过于频繁，请 {retry_after} 秒后再试")
 
 
 def _rate_limit() -> None:
+    """登记一次请求；配额不足时**立即抛错**，绝不阻塞。
+
+    Raises:
+        RateLimitedError: 当前 60 秒窗口内的请求数已达上限。
+    """
     now = time.monotonic()
-    _last_requests[:] = [t for t in _last_requests if now - t < 60]
+    _last_requests[:] = [t for t in _last_requests if now - t < _RATE_WINDOW]
     if len(_last_requests) >= _RATE_LIMIT:
-        wait = 60 - (now - _last_requests[0])
-        if wait > 0:
-            time.sleep(wait)
-    _last_requests.append(time.monotonic())
+        retry_after = max(1, int(_RATE_WINDOW - (now - _last_requests[0])) + 1)
+        raise RateLimitedError(retry_after)
+    _last_requests.append(now)
 
 
 @dataclass
@@ -73,8 +93,16 @@ def _parse_results(html: str, max_results: int) -> list[_SearchResult]:
 
 
 def _do_search(query: str, max_results: int, region: str) -> str:
-    """同步执行搜索（在线程池中运行）"""
-    _rate_limit()
+    """同步执行搜索（在线程池中运行）。
+
+    限流/网络错误一律转成**给模型看的自然语言**，不抛异常：
+    模型读到提示就能换种方式回答（告知用户稍后再试），而不是把整轮对话
+    拖到报错。
+    """
+    try:
+        _rate_limit()
+    except RateLimitedError as exc:
+        return f"{exc}。本次无法联网搜索，请先用已有知识回答，或告知用户稍后再试。"
 
     params = {
         "query": query,
@@ -110,12 +138,22 @@ async def web_search(
     max_results: int = 5,
     region: str = "cn-zh",
 ) -> str:
-    """联网搜索互联网获取最新信息。适用于查询实时新闻、最新法规、行业动态、当前时间天气等。
+    """联网搜索互联网获取最新信息。适用于查询实时新闻、最新法规、行业动态。
 
     Args:
-        query: 搜索关键词（建议用中文或英文关键词，简洁明了）
-        max_results: 最大返回结果数量，默认 5 条
-        region: 搜索区域（保留参数，当前固定使用中文搜狗）
+        query: 搜索关键词（建议用中文或英文关键词，简洁明了）。
+        max_results: 最大返回结果数量，默认 5 条，上限 10。
+        region: 保留参数，当前固定使用中文搜狗，传值不影响行为。
+
+    Returns:
+        自然语言搜索结果（标题 + 链接 + 摘要）。
+
+    Notes:
+        - 本工具受**进程级**配额限制（每分钟 20 次，全所共享）。超限时直接
+          返回提示而**不阻塞等待**——模型应用已有知识回答或建议稍后再试。
+        - 结果里的链接是搜索引擎跳转形式，不是原文地址。
+        - **当前日期/时间**请用 ``get_server_time``，不要从搜索结果摘要里抄——
+          摘要常含多个互相矛盾的时间戳。
     """
     if not query.strip():
         return "搜索关键词不能为空"

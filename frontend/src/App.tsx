@@ -17,6 +17,7 @@ const DeskPage = lazy(() => preloadDeskPage().then((m) => ({ default: m.DeskPage
 // AI 助手面板懒加载：只在首次展开时加载 copilot 域；挂壳层、跨路由常驻，
 // 收起面板不卸载状态（流式收发在 store，见 features/copilot）。
 const CopilotPanelLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotPanel })))
+const PanelBackdropLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.PanelBackdrop })))
 
 const COPILOT_OPEN_KEY = 'copilot:open'
 
@@ -93,7 +94,9 @@ function AppShell() {
     }
   })
   // 滑出动画期间保持挂载：收起时先播 animate-out，240ms 后再卸载（与面板
-  // duration-200 对齐留余量）。重新展开会取消定时器，面板无缝回到 animate-in。
+  // duration-200 对齐留余量）。重新展开会取消定时器，无缝回到 animate-in。
+  // 背景压暗遮罩（PanelBackdrop）同理跟 copilotMounted 走，这样收起时它的
+  // fade-out 能和面板滑出同步播完。
   const [copilotMounted, setCopilotMounted] = useState(copilotOpen)
   useEffect(() => {
     if (copilotOpen) {
@@ -130,6 +133,11 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-background">
       <AppNavbar onNotify={(msg) => toast.info(msg)} onPrefetch={preloadRoute} onToggleCopilot={toggleCopilot} />
+      {copilotMounted && (
+        <Suspense fallback={null}>
+          <PanelBackdropLazy open={copilotOpen} onClose={toggleCopilot} />
+        </Suspense>
+      )}
       {copilotMounted && (
         <Suspense fallback={null}>
           <CopilotPanelLazy open={copilotOpen} onClose={toggleCopilot} />

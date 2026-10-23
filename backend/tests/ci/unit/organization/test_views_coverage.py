@@ -145,8 +145,8 @@ class TestRegisterPostForm:
             "/register/",
             {
                 "username": "admin",
-                "password1": "testpass123",
-                "password2": "testpass123",
+                "password1": "testpass123",  # pragma: allowlist secret
+                "password2": "testpass123",  # pragma: allowlist secret
             },
         )
         with (
@@ -291,7 +291,11 @@ class TestAdminLoginFormAndRateLimit:
         from django.core.cache import cache
 
         cache.clear()
-        Lawyer.objects.create_user(username="staffuser", password="goodpass123", is_staff=True)  # pragma: allowlist secret
+        Lawyer.objects.create_user(
+            username="staffuser",
+            password="goodpass123",  # pragma: allowlist secret
+            is_staff=True,
+        )
 
         resp = client.post(
             "/admin/login/",

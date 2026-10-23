@@ -41,6 +41,12 @@ def delete_property_clue(clue_id: int) -> None:
     client.delete(f"/client/property-clues/{clue_id}")
 
 
-def get_property_clue_content_template() -> dict[str, Any]:
-    """获取财产线索的内容模板（预填格式）。"""
-    return client.get("/client/property-clues/content-template")  # type: ignore[return-value]
+def get_property_clue_content_template(clue_type: str) -> dict[str, Any]:
+    """获取指定类型财产线索的内容模板（预填格式）。
+
+    后端必填 query 参数 ``clue_type``。早前工具没传，调用必然 422。
+
+    Args:
+        clue_type: 财产线索类型（如 bank_account / real_estate / vehicle / equity）。
+    """
+    return client.get("/client/property-clues/content-template", params={"clue_type": clue_type})  # type: ignore[return-value]

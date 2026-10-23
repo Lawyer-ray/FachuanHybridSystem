@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ExternalLink, FileText, Loader2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { safeHttpUrl } from '@/lib/url'
 
 interface Props {
   url: string
@@ -11,14 +12,17 @@ interface Props {
 /** 文书原文预览栏：PDF 走 iframe（浏览器原生查看器），图片走 img。 */
 export function DocumentPreview({ url, className }: Props) {
   const [loaded, setLoaded] = useState(false)
-  const isImage = /\.(jpe?g|png)(\?|$)/i.test(url)
+  // 后端可写的 file_url 直通 href/src 前必须过 scheme 白名单（防 javascript:
+  // 存储型注入）。同目录 RecognizeDialog / RecognitionSummary 均已这样做
+  const safeUrl = safeHttpUrl(url)
+  const isImage = /\.(jpe?g|png)(\?|$)/i.test(safeUrl)
   return (
     <div className={cn('flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-border bg-secondary/30', className)}>
       <div className="flex flex-none items-center gap-2 border-b border-border bg-card px-3 py-2">
         <FileText className="h-3.5 w-3.5 flex-none text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold text-muted-foreground">文书原文</span>
         <a
-          href={url}
+          href={safeUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex flex-none items-center gap-1 rounded-[6px] border border-border px-2 py-[3px] text-[10.5px] text-muted-foreground transition-colors hover:border-ring/40 hover:text-foreground"
@@ -35,14 +39,14 @@ export function DocumentPreview({ url, className }: Props) {
         )}
         {isImage ? (
           <img
-            src={url}
+            src={safeUrl}
             alt="文书原文"
             onLoad={() => setLoaded(true)}
             className="h-full w-full object-contain"
           />
         ) : (
           <iframe
-            src={url}
+            src={safeUrl}
             title="文书预览"
             onLoad={() => setLoaded(true)}
             className={cn('h-full w-full border-none transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0')}

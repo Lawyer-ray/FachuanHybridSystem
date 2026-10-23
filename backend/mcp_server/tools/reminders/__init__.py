@@ -1,5 +1,12 @@
 """提醒与财务域 tools 导出"""
 
+from mcp_server.tools.reminders.deadlines import (
+    complete_reminders,
+    delete_reminders,
+    get_reminder_calendar,
+    list_reminders_by_target,
+    list_upcoming_deadlines,
+)
 from mcp_server.tools.reminders.finance import get_finance_stats, list_payments
 from mcp_server.tools.reminders.reminders import (
     create_new_reminder,
@@ -22,6 +29,12 @@ __all__ = [
     "list_reminder_types",
     "parse_reminders_from_text",
     "get_target_options",
+    # 期限聚合
+    "list_upcoming_deadlines",
+    "list_reminders_by_target",
+    "get_reminder_calendar",
+    "complete_reminders",
+    "delete_reminders",
     # 财务
     "list_payments",
     "get_finance_stats",

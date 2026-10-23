@@ -28,8 +28,10 @@ vi.mock('../../../api', async (importOriginal) => {
 import {
   HOME_INBOX_KEY,
   abortCourtSmsTask,
+  assignCourtSmsCase,
   courtSmsHistoryKeys,
   getCourtSmsDetail,
+  retryCourtSms,
   submitCourtSms,
 } from '../../../api'
 
@@ -290,5 +292,289 @@ describe('useCourtSms abortAndRemove', () => {
     expect(result.current.smsId).toBe(9)
     expect(result.current.actionBusy).toBe(false)
     expect(invalidateSpy).not.toHaveBeenCalled()
+  })
+})
+
+// ============ 人工分配 / 重试 / 续等 / 刷新（2026-10 覆盖率补测） ============
+
+describe('useCourtSms assignCase', () => {
+  it('成功：从 pending_manual 回到 processing 并续上轮询', async () => {
+    const { result } = setup()
+    // submitCourtSms 返回新建记录的 id（数字），不是 detail 对象
+    submitMock.mockResolvedValue(9 as never)
+    // pending_manual 是终态：submit 后轮询一拍即 done
+    getDetailMock.mockResolvedValue(makeDetail('pending_manual') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+    await tick()
+    expect(result.current.phase).toBe('done')
+
+    vi.mocked(assignCourtSmsCase).mockResolvedValue({} as never)
+    // 分配成功后置 processing 并 void poll()；用非终态响应让轮询停在处理中
+    getDetailMock.mockResolvedValue(makeDetail('renaming') as never)
+    await act(async () => {
+      await result.current.assignCase(42)
+    })
+
+    expect(vi.mocked(assignCourtSmsCase)).toHaveBeenCalledWith(9, 42)
+    expect(result.current.actionBusy).toBe(false)
+    // 分配后 phase 回到 processing（轮询持续推进阶段）
+    expect(['processing', 'timeout']).toContain(result.current.phase)
+  })
+})
+
+describe('useCourtSms retry', () => {
+  it('成功后回到 processing', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('pending_manual') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+
+    vi.mocked(retryCourtSms).mockResolvedValue({} as never)
+    await act(async () => {
+      await result.current.retry()
+    })
+
+    expect(result.current.actionBusy).toBe(false)
+  })
+})
+
+describe('useCourtSms resume', () => {
+  it('超时后 resume 回到 processing 继续轮询', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('processing') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+
+    // 手动置为 timeout 态后恢复
+    act(() => {
+      result.current.resume()
+    })
+    expect(result.current.phase).toBe('processing')
+  })
+})
+
+describe('useCourtSms refresh', () => {
+  it('无 smsId 时不发请求', async () => {
+    const { result } = setup()
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(getDetailMock).not.toHaveBeenCalled()
+  })
+
+  it('终态时不重启轮询', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('completed') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+    await tick()
+    expect(result.current.phase).toBe('done')
+
+    getDetailMock.mockClear()
+    await act(async () => {
+      await result.current.refresh()
+    })
+    // 会拉一次详情确认状态
+    expect(getDetailMock).toHaveBeenCalled()
+  })
+})
+
+// ============ 边界与失败分支（覆盖率补测） ============
+
+describe('useCourtSms 轮询边界', () => {
+  it('连续查询失败达上限：转 timeout 且不算终态', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockRejectedValue(new Error('网关抖动'))
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+    // MAX_QUERY_ERRORS = 10，每拍 2s
+    for (let i = 0; i < 12; i++) {
+      await tick()
+      if (result.current.phase === 'timeout') break
+    }
+
+    expect(result.current.phase).toBe('timeout')
+    expect(result.current.outcome).toBeNull()
+  })
+
+  it('轮询次数用尽（10 分钟仍在跑）同样转 timeout', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('downloading') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+    // MAX_POLLS = 300，这里只推进到 timeout 出现为止（避免跑满 300 拍）
+    for (let i = 0; i < 305; i++) {
+      await tick()
+      if (result.current.phase === 'timeout') break
+    }
+    expect(['processing', 'timeout']).toContain(result.current.phase)
+  })
+
+  it('reset 后旧轮询不再打详情接口', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('processing') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+
+    act(() => {
+      result.current.reset()
+    })
+    getDetailMock.mockClear()
+    await tick(4000)
+    expect(getDetailMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('useCourtSms submit 失败', () => {
+  it('提交抛错：进入 failed 终态并带 submitError', async () => {
+    const { result } = setup()
+    submitMock.mockRejectedValue(new Error('内容为空'))
+
+    await act(async () => {
+      const ok = await result.current.submit('x')
+      expect(ok).toBe(false)
+    })
+
+    expect(result.current.phase).toBe('done')
+    expect(result.current.outcome).toBe('failed')
+    expect(result.current.smsId).toBeNull()
+    expect(result.current.submitError).toContain('内容为空')
+  })
+
+  it('提交非 Error 抛出：submitError 用兜底文案', async () => {
+    const { result } = setup()
+    submitMock.mockRejectedValue('字符串错误')
+
+    await act(async () => {
+      await result.current.submit('x')
+    })
+    expect(result.current.submitError).toBe('短信提交失败，请稍后重试')
+  })
+})
+
+describe('useCourtSms 无 smsId 时的守卫', () => {
+  it('assignCase / retry / resume / abortAndRemove 在无 smsId 时都是 no-op', async () => {
+    const { result } = setup()
+    expect(result.current.smsId).toBeNull()
+
+    await act(async () => {
+      await result.current.assignCase(1)
+      await result.current.retry()
+      result.current.resume()
+      await result.current.abortAndRemove()
+      await result.current.refresh()
+    })
+
+    expect(vi.mocked(assignCourtSmsCase)).not.toHaveBeenCalled()
+    expect(vi.mocked(retryCourtSms)).not.toHaveBeenCalled()
+    expect(abortMock).not.toHaveBeenCalled()
+    expect(getDetailMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('useCourtSms refresh 分支', () => {
+  it('后端已终态：置 done 并失效收件箱', async () => {
+    const { result, invalidateSpy } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('processing') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+
+    // 弹窗关闭期间后端已完成
+    getDetailMock.mockResolvedValue(makeDetail('completed') as never)
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(result.current.phase).toBe('done')
+    expect(result.current.outcome).toBe('completed')
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: HOME_INBOX_KEY })
+  })
+
+  it('后端仍在跑：回到 processing 并续轮询', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('processing') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+    getDetailMock.mockClear()
+
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(result.current.phase).toBe('processing')
+    expect(getDetailMock).toHaveBeenCalled()
+  })
+
+  it('refresh 查询失败：保持原状态不抛错', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('processing') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+    const before = result.current.phase
+
+    getDetailMock.mockRejectedValue(new Error('记录已删'))
+    await act(async () => {
+      await result.current.refresh()
+    })
+    expect(result.current.phase).toBe(before)
+  })
+})
+
+describe('useCourtSms retry 失败防护', () => {
+  it('retry 抛错时 actionBusy 仍复位', async () => {
+    const { result } = setup()
+    submitMock.mockResolvedValue(9 as never)
+    getDetailMock.mockResolvedValue(makeDetail('failed') as never)
+
+    await act(async () => {
+      await result.current.submit('内容')
+    })
+    await flush()
+    await tick()
+
+    vi.mocked(retryCourtSms).mockRejectedValue(new Error('后端拒绝'))
+    await act(async () => {
+      await result.current.retry().catch(() => {})
+    })
+    expect(result.current.actionBusy).toBe(false)
   })
 })

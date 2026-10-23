@@ -1,8 +1,8 @@
 """文书生产域 tools 导出"""
 
 from mcp_server.tools.documents.authorization import (
-    download_authorization_package,
     download_authority_letter,
+    download_authorization_package,
     download_legal_rep_certificate,
     download_power_of_attorney,
     download_power_of_attorney_combined,
@@ -18,14 +18,13 @@ from mcp_server.tools.documents.documents import (
     preview_contract_context,
     preview_placeholders,
 )
-from mcp_server.tools.documents.evidence import (
-    reorder_evidence_items,
-)
+from mcp_server.tools.documents.evidence import reorder_evidence_items
 from mcp_server.tools.documents.external_templates import (
     analyze_template,
     confirm_mappings,
     create_mapping,
     delete_mapping,
+    fill_templates,
     get_custom_fields,
     get_fill_history,
     get_preview_html,
@@ -55,6 +54,12 @@ from mcp_server.tools.documents.litigation import (
     generate_complaint,
     generate_defense,
     preview_litigation_context,
+)
+from mcp_server.tools.documents.parsing import (
+    extract_document_text,
+    get_document_parsing_task,
+    list_document_parsing_records,
+    parse_document,
 )
 from mcp_server.tools.documents.placeholder_ops import (
     create_placeholder,
@@ -142,4 +147,11 @@ __all__ = [
     "delete_mapping",
     # 证据管理
     "reorder_evidence_items",
+    # 文档解析（材料正文）
+    "extract_document_text",
+    "parse_document",
+    "get_document_parsing_task",
+    "list_document_parsing_records",
+    # 模板批量填充
+    "fill_templates",
 ]

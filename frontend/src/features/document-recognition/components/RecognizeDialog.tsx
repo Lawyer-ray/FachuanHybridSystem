@@ -78,8 +78,9 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
   // 预览 URL 带下载票据（安全审计 M-2）：<img>/<iframe> 带不上 Authorization 头，
   // 且 JWT 不再允许走 ?token=（会进 access log / Referer）。票据换取是异步的，
   // 由 hook 按 file_url 变化重新取。
-  const previewUrl = useMediaUrlWithAuth(isFileMode ? task?.file_url : null)
-  const hasPreview = Boolean(previewUrl)
+  const { url: previewUrl, failed: previewFailed } = useMediaUrlWithAuth(isFileMode ? task?.file_url : null)
+  // 换票失败时 previewUrl 可能非空但不带票据（必然 403），此时不应进入分屏态
+  const hasPreview = Boolean(previewUrl) && !previewFailed
   // 分屏态 = 识别完成且有原文可预览；等待/错误/文字模式保持紧凑小窗
   const splitReady = contentReady && hasPreview
   const fileUrl = previewUrl
@@ -189,7 +190,7 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
             >
               {isFileMode && task && recognition && (
                 <StepCard title="识别结果">
-                  <RecognitionSummary task={task} recognition={recognition} />
+                  <RecognitionSummary task={task} recognition={recognition} previewUrl={previewUrl} />
                 </StepCard>
               )}
 

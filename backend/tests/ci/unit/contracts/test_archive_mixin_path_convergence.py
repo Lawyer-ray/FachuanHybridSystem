@@ -55,17 +55,13 @@ def _make_admin() -> ContractAdmin:
 
 
 def _call_preview(superuser: Lawyer, contract: Contract, material: FinalizedMaterial) -> Any:
-    request = RequestFactory().get(
-        f"/admin/contracts/contract/{contract.id}/archive/materials/{material.id}/preview"
-    )
+    request = RequestFactory().get(f"/admin/contracts/contract/{contract.id}/archive/materials/{material.id}/preview")
     request.user = superuser
     return _make_admin().preview_archive_material_view(request, contract.id, material.id)
 
 
 def _call_delete(superuser: Lawyer, contract: Contract, material: FinalizedMaterial) -> Any:
-    request = RequestFactory().post(
-        f"/admin/contracts/contract/{contract.id}/archive/materials/{material.id}/delete"
-    )
+    request = RequestFactory().post(f"/admin/contracts/contract/{contract.id}/archive/materials/{material.id}/delete")
     request.user = superuser
     return _make_admin().delete_archive_material_view(request, contract.id, material.id)
 
@@ -98,9 +94,7 @@ def test_preview_traversal_escape_rejected(contract: Contract, superuser: Lawyer
 
 
 @pytest.mark.django_db
-def test_preview_other_contract_directory_rejected(
-    contract: Contract, superuser: Lawyer, tmp_path: Any
-) -> None:
+def test_preview_other_contract_directory_rejected(contract: Contract, superuser: Lawyer, tmp_path: Any) -> None:
     other = Contract.objects.create(name="别的合同C", case_type="civil")
     media = tmp_path / "media"
     foreign = media / "contracts" / "finalized" / str(other.id) / "a.pdf"

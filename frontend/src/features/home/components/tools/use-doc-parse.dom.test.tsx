@@ -180,3 +180,98 @@ describe('useDocParse 重提交 / 失效竞态回归', () => {
     expect(getTaskMock.mock.calls.length).toBe(calls)
   })
 })
+
+// ============ 轮询边界与失败分支（覆盖率补测） ============
+
+describe('useDocParse 轮询边界', () => {
+  it('查询抛错不判死，继续下一轮直到成功', async () => {
+    parseMock.mockResolvedValue(submitOf('T1'))
+    let n = 0
+    getTaskMock.mockImplementation(async () => {
+      n += 1
+      if (n === 1) throw new Error('瞬时抖动')
+      return makeStatus('T1', 'success', makeOutcome(true, null))
+    })
+
+    const { result } = setup()
+    await startSubmit(result)
+    await tick()
+
+    expect(result.current.phase).toBe('done')
+    expect(result.current.outcome?.ok).toBe(true)
+  })
+
+  it('not_found 连续达上限：判定 worker 未运行并给可操作提示', async () => {
+    parseMock.mockResolvedValue(submitOf('T2'))
+    getTaskMock.mockResolvedValue(makeStatus('T2', 'not_found', null))
+
+    const { result } = setup()
+    await startSubmit(result)
+    // NOT_FOUND_GRACE_POLLS = 15
+    for (let i = 0; i < 20; i++) {
+      await tick()
+      if (result.current.phase === 'done') break
+    }
+
+    expect(result.current.phase).toBe('done')
+    expect(result.current.outcome?.ok).toBe(false)
+    expect(result.current.outcome?.error).toContain('worker 未运行')
+  })
+
+  it('not_found 之后查到 pending：宽限计数清零', async () => {
+    parseMock.mockResolvedValue(submitOf('T3'))
+    let n = 0
+    getTaskMock.mockImplementation(async () => {
+      n += 1
+      if (n <= 3) return makeStatus('T3', 'not_found', null)
+      if (n === 4) return makeStatus('T3', 'pending', null)
+      return makeStatus('T3', 'success', makeOutcome(true, null))
+    })
+
+    const { result } = setup()
+    await startSubmit(result)
+    for (let i = 0; i < 10; i++) {
+      await tick()
+      if (result.current.phase === 'done') break
+    }
+
+    expect(result.current.outcome?.ok).toBe(true)
+  })
+
+  it('轮询次数用尽：给出超时提示', async () => {
+    parseMock.mockResolvedValue(submitOf('T4'))
+    getTaskMock.mockResolvedValue(makeStatus('T4', 'pending', null))
+
+    const { result } = setup()
+    await startSubmit(result)
+    // DOC_PARSE_MAX_POLLS = 150，逐拍推进到超时
+    for (let i = 0; i < 155; i++) {
+      await tick()
+      if (result.current.phase === 'done') break
+    }
+
+    expect(result.current.phase).toBe('done')
+    expect(result.current.outcome?.error).toContain('解析超时')
+  })
+
+  it('同步返回（无 taskId）：直接进终态，不轮询', async () => {
+    parseMock.mockResolvedValue({ taskId: null, status: 'success', outcome: makeOutcome(true, null) })
+
+    const { result } = setup()
+    await startSubmit(result)
+
+    expect(result.current.phase).toBe('done')
+    expect(getTaskMock).not.toHaveBeenCalled()
+  })
+
+  it('提交抛错：进终态并给可操作提示', async () => {
+    parseMock.mockRejectedValue(new Error('上传失败'))
+
+    const { result } = setup()
+    await startSubmit(result)
+
+    expect(result.current.phase).toBe('done')
+    expect(result.current.outcome?.ok).toBe(false)
+    expect(result.current.outcome?.error).toContain('提交解析失败')
+  })
+})

@@ -22,9 +22,15 @@ export function fmtMoney(v: number | string | null | undefined): string | null {
 
 export function daysFromToday(dateStr: string | null | undefined, today: Date): number | null {
   if (!dateStr) return null
-  const [y, m, d] = dateStr.split('-')
-  if (y == null || m == null || d == null) return null
-  return Math.round((new Date(+y, +m - 1, +d).getTime() - today.getTime()) / 86400000)
+  // 必须是 4-2-2 数字段：后端脏数据（"abc-def-ghi" / "0-0-0"）若直接交给
+  // Date 会得到 NaN 或 1899 年，渲染成「剩 NaN 个月」「已到期 46000 天」
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr)
+  if (!m) return null
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
+  return Math.round((new Date(y, mo - 1, d).getTime() - today.getTime()) / 86400000)
 }
 
 /** 相对到期表述：今日到期 / 已到期 N 天 / 剩 N 天 / 剩 N 个月 */

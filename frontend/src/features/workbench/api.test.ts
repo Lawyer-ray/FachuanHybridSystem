@@ -16,6 +16,7 @@ const clients = vi.hoisted(() => [] as Array<{
 }>)
 
 vi.mock('@/lib/api', () => ({
+  UPLOAD_TIMEOUT_MS: 300_000,
   createApiClient: (opts?: { prefix?: string }) => {
     const client = {
       prefix: opts?.prefix ?? '/api/v1',
@@ -97,5 +98,131 @@ describe('案件与律师只读列表', () => {
     api.get.mockReturnValueOnce(respond(rows))
     await expect(listLawyers()).resolves.toBe(rows)
     expect(api.get).toHaveBeenCalledWith('lawyers')
+  })
+})
+
+// ============ 文件夹接口契约（覆盖率补测） ============
+
+import {
+  copyFolderEntry,
+  createFolderEntry,
+  deleteFolderEntry,
+  folderFileUrl,
+  getCaseFolderBinding,
+  getContract,
+  listFolderEntries,
+  listRemindersByCase,
+  renameFolderEntry,
+  uploadFolderFiles,
+} from './api'
+
+describe('单合同与案件提醒', () => {
+  it('getContract 走 contracts/{id}', async () => {
+    client('/api/v1/contracts').get.mockReturnValue(respond({ id: 7 }))
+    await getContract(7)
+    expect(client('/api/v1/contracts').get).toHaveBeenCalledWith('contracts/7')
+  })
+
+  it('listRemindersByCase 把 case_id 转成字符串参数', async () => {
+    client('/api/v1/reminders').get.mockReturnValue(respond([]))
+    await listRemindersByCase(42)
+    expect(client('/api/v1/reminders').get).toHaveBeenCalledWith('list', {
+      searchParams: { case_id: '42' },
+    })
+  })
+})
+
+describe('文件夹接口：kind 选择客户端', () => {
+  it('kind=case 走 cases 客户端', async () => {
+    client('/api/v1/cases').get.mockReturnValue(respond({ folders: [], files: [] }))
+    await listFolderEntries('case', 9, '')
+    expect(client('/api/v1/cases').get).toHaveBeenCalledWith('9/folder-entries', { searchParams: {} })
+  })
+
+  it('kind=contract 走 contracts 客户端', async () => {
+    client('/api/v1/contracts').get.mockReturnValue(respond({ folders: [], files: [] }))
+    await listFolderEntries('contract', 9, 'dir')
+    expect(client('/api/v1/contracts').get).toHaveBeenCalledWith('9/folder-entries', {
+      searchParams: { subpath: 'dir' },
+    })
+  })
+
+  it('空 subpath 不带 searchParams.subpath', async () => {
+    client('/api/v1/cases').get.mockReturnValue(respond({ folders: [], files: [] }))
+    await listFolderEntries('case', 1, '')
+    const args = client('/api/v1/cases').get.mock.calls[0]!
+    expect(args[1]).toEqual({ searchParams: {} })
+  })
+})
+
+describe('文件夹接口：写操作路径', () => {
+  it('createFolderEntry 走 folder-mkdir', async () => {
+    client('/api/v1/cases').post.mockReturnValue(respond({ subpath: 'dir/new', name: 'new' }))
+    await createFolderEntry('case', 1, 'dir', 'new')
+    expect(client('/api/v1/cases').post).toHaveBeenCalledWith('1/folder-mkdir', {
+      json: { subpath: 'dir', name: 'new' },
+    })
+  })
+
+  it('renameFolderEntry 走 folder-rename', async () => {
+    client('/api/v1/cases').post.mockReturnValue(respond({ subpath: 'dir/b', name: 'b' }))
+    await renameFolderEntry('case', 1, 'dir/a', 'b')
+    expect(client('/api/v1/cases').post).toHaveBeenCalledWith('1/folder-rename', {
+      json: { subpath: 'dir/a', name: 'b' },
+    })
+  })
+
+  it('copyFolderEntry 走 folder-copy', async () => {
+    client('/api/v1/cases').post.mockReturnValue(respond({})) 
+    await copyFolderEntry('case', 1, 'dir/a.pdf', 'dest')
+    expect(client('/api/v1/cases').post).toHaveBeenCalledWith('1/folder-copy', {
+      json: { subpath: 'dir/a.pdf', dest_subpath: 'dest' },
+    })
+  })
+
+  it('deleteFolderEntry 走 folder-delete（POST，语义是移入 _已删除）', async () => {
+    client('/api/v1/cases').post.mockReturnValue(respond({}))
+    await deleteFolderEntry('case', 1, 'dir/a.pdf')
+    expect(client('/api/v1/cases').post).toHaveBeenCalledWith('1/folder-delete', {
+      json: { subpath: 'dir/a.pdf' },
+    })
+  })
+})
+
+describe('文件夹接口：上传与预览直链', () => {
+  it('uploadFolderFiles 传 timeout 且按 subpath 带参', async () => {
+    client('/api/v1/cases').post.mockReturnValue(respond({ saved: [] }))
+    const files = [new File(['x'], 'a.pdf')]
+    await uploadFolderFiles('case', 1, 'dir', files)
+    const [path, opts] = client('/api/v1/cases').post.mock.calls[0]!
+    expect(path).toBe('1/folder-upload')
+    expect(opts.searchParams).toEqual({ subpath: 'dir' })
+    expect(opts.timeout).toBe(300_000)
+  })
+
+  it('空 subpath 上传不带 searchParams', async () => {
+    client('/api/v1/cases').post.mockReturnValue(respond({ saved: [] }))
+    await uploadFolderFiles('case', 1, '', [])
+    const [, opts] = client('/api/v1/cases').post.mock.calls[0]!
+    expect(opts.searchParams).toEqual({})
+  })
+
+  it('folderFileUrl 对 subpath 做 encodeURIComponent', () => {
+    const url = folderFileUrl('case', 5, 'dir/a b.pdf')
+    expect(url).toContain('/api/v1/cases/5/folder-file')
+    expect(url).toContain('subpath=dir%2Fa%20b.pdf')
+  })
+
+  it('folderFileUrl 合同类走 contracts 段', () => {
+    expect(folderFileUrl('contract', 9, 'x.pdf')).toContain('/api/v1/contracts/9/folder-file')
+  })
+})
+
+describe('案件文件夹绑定', () => {
+  it('getCaseFolderBinding 走 {id}/folder-binding', async () => {
+    client('/api/v1/cases').get.mockReturnValue(respond(null))
+    const r = await getCaseFolderBinding(3)
+    expect(client('/api/v1/cases').get).toHaveBeenCalledWith('3/folder-binding')
+    expect(r).toBeNull()
   })
 })

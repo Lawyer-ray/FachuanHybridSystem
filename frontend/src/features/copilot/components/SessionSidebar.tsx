@@ -78,10 +78,20 @@ function SessionRow({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-current={active ? 'true' : undefined}
       className={`group flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-2 text-[13px] transition-colors ${
         active ? 'bg-secondary text-foreground' : 'text-secondary-foreground hover:bg-secondary/60'
       }`}
       onClick={onSwitch}
+      onKeyDown={(e) => {
+        // 键盘用户必须能切会话；内层按钮的按键不冒泡到这里
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSwitch()
+        }
+      }}
     >
       <MessageSquare className="h-3.5 w-3.5 flex-none text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">{session.title || '未命名对话'}</span>

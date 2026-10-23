@@ -26,10 +26,11 @@ export default defineConfig({
         'src/vite-env.d.ts',
         'src/types/api-schema.demo.ts',
       ],
-      // 棘轮（2026-10-05 补测批实测 lines 49.7%，阈值留抖动余量）：只升不降，
-      // 新增未测试的组件/页面会拉低全量数字并被拦下——升级方式为
-      // 补测后同步抬高此处数字
-      thresholds: { lines: 47, functions: 43, statements: 46, branches: 36 },
+      // 棘轮（2026-10 全量补测批）：只升不降。2026-10-23 实测
+      // statements 90.27% / lines 91.94% / functions 85.40% / branches 82.31%，
+      // 阈值取实测值向下取整（留抖动余量）。新增未测试的组件/页面会拉低
+      // 全量数字并被拦下——升级方式为补测后同步抬高此处数字。
+      thresholds: { statements: 90, lines: 91, functions: 85, branches: 82 },
     },
   },
   plugins: [react(), tailwindcss()],

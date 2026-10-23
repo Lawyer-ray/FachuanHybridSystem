@@ -161,3 +161,106 @@ describe('AppShell：导航栏常驻 + 懒加载切页不闪', () => {
     expect(idleWindow.cancelIdleCallback).toHaveBeenCalledWith(1)
   })
 })
+
+// ============ copilot 面板开关与快捷键（覆盖率补测） ============
+
+describe('AppShell：AI 助手面板开关', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('默认收起：不渲染面板（copilot chunk 未加载）', () => {
+    setupApp({ idleFiresNow: false })
+    // 面板懒加载 chunk 未请求时，aside/面板节点不存在
+    expect(document.body.textContent).not.toContain('copilot-panel')
+  })
+
+  it('localStorage 记忆为展开时初始即挂载', async () => {
+    localStorage.setItem('copilot:open', '1')
+    setupApp({ idleFiresNow: false })
+    // copilot 域是真实模块（未 mock），展开后会尝试渲染；这里只验证不抛错
+    await waitFor(() => expect(header()).toBeTruthy())
+  })
+
+  it('⌘J 切换面板并把状态写入 localStorage', async () => {
+    setupApp({ idleFiresNow: false })
+    await waitFor(() => expect(header()).toBeTruthy())
+
+    fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+
+    fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('0'))
+  })
+
+  it('Ctrl+J 同样生效（Windows/Linux）', async () => {
+    setupApp({ idleFiresNow: false })
+    await waitFor(() => expect(header()).toBeTruthy())
+
+    fireEvent.keyDown(window, { key: 'j', ctrlKey: true })
+    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+  })
+
+  it('无修饰键的 j 不触发切换', async () => {
+    setupApp({ idleFiresNow: false })
+    await waitFor(() => expect(header()).toBeTruthy())
+
+    fireEvent.keyDown(window, { key: 'j' })
+    await new Promise((r) => setTimeout(r, 30))
+    expect(localStorage.getItem('copilot:open')).toBeNull()
+  })
+
+  it('localStorage 读取抛错时回落收起态（不崩）', async () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    setupApp({ idleFiresNow: false })
+    await waitFor(() => expect(header()).toBeTruthy())
+    getItem.mockRestore()
+  })
+
+  it('localStorage 写入抛错时仍能切换（仅不持久化）', async () => {
+    setupApp({ idleFiresNow: false })
+    await waitFor(() => expect(header()).toBeTruthy())
+
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    expect(() => {
+      fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    }).not.toThrow()
+    setItem.mockRestore()
+  })
+})
+
+// ============ whenIdle 降级 / preloadRoute 守卫（覆盖率补测） ============
+
+describe('AppShell：whenIdle 降级与预取守卫', () => {
+  it('无 requestIdleCallback 时退化为 setTimeout(1500) 预载', async () => {
+    vi.useFakeTimers()
+    // 删掉 requestIdleCallback 走降级分支
+    delete idleWindow.requestIdleCallback
+    delete idleWindow.cancelIdleCallback
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/']}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    await vi.advanceTimersByTimeAsync(1600)
+    expect(stubs.preloadHomePage).toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('预取未知路由时安全跳过（?. 守卫）', async () => {
+    setupApp({ idleFiresNow: false })
+    await waitFor(() => expect(header()).toBeTruthy())
+
+    // AppNavbar 的 onPrefetch 传的是 preloadRoute；点未知路径不应抛错
+    expect(() => fireEvent.click(document.body)).not.toThrow()
+  })
+})

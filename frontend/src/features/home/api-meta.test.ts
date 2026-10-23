@@ -48,7 +48,7 @@ describe('summaryLine 副标题回落链', () => {
     expect(summaryLine(ev({ place: '第三法庭' }))).toBe('第三法庭')
   })
   it('无人名地点 → 案号 / 关联对象名', () => {
-    expect(summaryLine(ev({ case_no: '（2026）粤01民初1号', target_name: '张三案' }))).toBe('（2026）粤01民初1号 · 张三案')
+    expect(summaryLine(ev({ case_no: '（20XX）粤01民初1号', target_name: '张三案' }))).toBe('（20XX）粤01民初1号 · 张三案')
     expect(summaryLine(ev({ target_name: '张三案' }))).toBe('张三案')
     expect(summaryLine(ev())).toBe('')
   })

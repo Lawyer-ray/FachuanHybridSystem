@@ -27,3 +27,14 @@ export function errMessage(e: unknown, fallback: string, timeoutMessage = '请�
   const msg = (e as { message?: unknown }).message
   return typeof msg === 'string' && msg ? msg : fallback
 }
+
+/**
+ * 会话过期（401 且刷新失败）。用类型而非错误文案字符串做控制流，
+ * 避免改文案/i18n 时 main.tsx 的 retry 判断静默失效。
+ */
+export class SessionExpiredError extends Error {
+  constructor() {
+    super('Session expired')
+    this.name = 'SessionExpiredError'
+  }
+}
