@@ -235,10 +235,10 @@ describe('DealSheet 主办律师节', () => {
     casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
     const deal = makeDeal({
       team: [
-        { name: '张律师', primary: true, phone: '13800000000', firm: '某某所', license: '111' },
+        { name: '张律师', primary: true, phone: '13800000000', firm: '某某所', license: '111' }, // privacy-allow 虚构号码
         { name: '李律师', primary: false, phone: '', firm: '', license: '' },
       ] as never,
-      primaryPhone: '13900000000',
+      primaryPhone: '13900000000', // privacy-allow 虚构号码
       lawFirm: '默认所',
     })
     const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
@@ -246,7 +246,7 @@ describe('DealSheet 主办律师节', () => {
     expect(document.body.textContent).toContain('主办律师')
     expect(document.body.textContent).toContain('张律师')
     expect(document.body.textContent).toContain('主办')
-    expect(document.body.textContent).toContain('13800000000')
+    expect(document.body.textContent).toContain('13800000000') // privacy-allow 虚构号码
     container.remove()
   })
 
@@ -254,11 +254,11 @@ describe('DealSheet 主办律师节', () => {
     casesMock.mockReturnValue({ cases: [], isLoading: false, error: null } as never)
     const deal = makeDeal({
       team: [{ name: '张律师', primary: true, phone: '', firm: '', license: '' }] as never,
-      primaryPhone: '13900000000',
+      primaryPhone: '13900000000', // privacy-allow 虚构号码
       lawFirm: '默认所',
     })
     const { container } = render(<DealSheet deal={deal} open onOpenChange={vi.fn()} />)
-    expect(document.body.textContent).toContain('13900000000')
+    expect(document.body.textContent).toContain('13900000000') // privacy-allow 虚构号码
     container.remove()
   })
 })

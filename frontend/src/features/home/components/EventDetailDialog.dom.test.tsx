@@ -187,7 +187,7 @@ describe('EventDetailDialog：信息行构建', () => {
 
   it('律师 / 方式 / 案号各行按存在与否渲染', () => {
     const { unmount } = renderDetail(
-      ev({ person: '张律师', hearing_type: '线上', case_no: '（2026）京01民初1号' }),
+      ev({ person: '张律师', hearing_type: '线上', case_no: '（20XX）京01民初1号' }),
     )
     const text = document.body.textContent ?? ''
     expect(text).toContain('律师')

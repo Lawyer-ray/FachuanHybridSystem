@@ -67,8 +67,8 @@ describe('RecognitionSummary：类型标签', () => {
 
 describe('RecognitionSummary：可选字段', () => {
   it('有案号时渲染', () => {
-    const { container } = renderCard({}, { case_number: '（2026）京01民初1号' })
-    expect(screen.getByText('（2026）京01民初1号')).toBeTruthy()
+    const { container } = renderCard({}, { case_number: '（20XX）京01民初1号' })
+    expect(screen.getByText('（20XX）京01民初1号')).toBeTruthy()
     container.remove()
   })
 

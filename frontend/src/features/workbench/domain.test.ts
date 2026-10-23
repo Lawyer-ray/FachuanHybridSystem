@@ -43,11 +43,11 @@ function makeContract(partial: Partial<ContractListItem> = {}): ContractListItem
     total_invoiced: 0,
     unpaid_amount: 30000,
     contract_parties: [
-      { id: 1, contract: 1, client: 1, role: 'PRINCIPAL', role_label: '委托人', client_detail: { id: 1, name: '张三', is_our_client: true, phone: '13800000000', address: null, client_type: 'natural', client_type_label: '自然人', id_number: '4401***', legal_representative: null, legal_representative_id_number: null, identity_docs: [] } },
+      { id: 1, contract: 1, client: 1, role: 'PRINCIPAL', role_label: '委托人', client_detail: { id: 1, name: '张三', is_our_client: true, phone: '13800000000', address: null, client_type: 'natural', client_type_label: '自然人', id_number: '4401***', legal_representative: null, legal_representative_id_number: null, identity_docs: [] } }, // privacy-allow 虚构号码
       { id: 2, contract: 1, client: 2, role: 'OPPOSING', role_label: '对方当事人', client_detail: { id: 2, name: '李四公司', is_our_client: false, phone: null, address: '广州市', client_type: 'legal', client_type_label: '法人', id_number: null, legal_representative: '王五', legal_representative_id_number: null, identity_docs: [] } },
     ],
     assignments: [{ id: 1, lawyer_id: 9, lawyer_name: '', is_primary: true, order: 0 }],
-    primary_lawyer: { id: 9, username: 'zhao', real_name: '赵律师', phone: '13900000000', law_firm_name: '某律所' },
+    primary_lawyer: { id: 9, username: 'zhao', real_name: '赵律师', phone: '13900000000', law_firm_name: '某律所' }, // privacy-allow 虚构号码
     reminders: [{ id: 1, reminder_type: 'court', content: '开庭', due_at: '2026-10-01T09:00:00Z', reminder_type_label: '开庭', metadata: {}, created_at: '2026-09-28T08:00:00Z', updated_at: '2026-09-28T08:00:00Z' }],
     payments: [],
     client_payment_records: [],
@@ -65,7 +65,7 @@ function makeCase(partial: Partial<CaseListItem> = {}): CaseListItem {
     case_type: 'civil',
     status: '在办',
     current_stage: '一审',
-    case_numbers: [{ id: 1, number: '(2026)粤01民初1号', remarks: null, created_at: '2026-08-01T00:00:00Z' }],
+    case_numbers: [{ id: 1, number: '(20XX)粤01民初某某号', remarks: null, created_at: '2026-08-01T00:00:00Z' }],
     supervising_authorities: [],
     cause_of_action: '买卖合同纠纷',
     target_amount: null,
@@ -140,7 +140,7 @@ describe('fmtCNDate', () => {
 
 describe('buildDeals', () => {
   const lawyers: LawyerListItem[] = [
-    { id: 9, username: 'zhao', real_name: '赵律师', phone: '13911111111', license_no: ' 14401xxx ', law_firm_detail: { id: 1, name: '某律所' } },
+    { id: 9, username: 'zhao', real_name: '赵律师', phone: '13911111111', license_no: ' 14401xxx ', law_firm_detail: { id: 1, name: '某律所' } }, // privacy-allow 虚构号码
   ]
   const deals = buildDeals([makeContract()], lawyers, TODAY)
 
@@ -348,15 +348,15 @@ describe('partyCopyText', () => {
     const text = partyCopyText({
       name: '张三',
       legalRep: '李四',
-      idno: '110101199001011234',
-      phone: '13800000000',
+      idno: '110101199001011234', // privacy-allow 虚构号码
+      phone: '13800000000', // privacy-allow 虚构号码
       address: '北京市朝阳区',
     } as never)
     expect(text.split('\n')).toEqual([
       '张三',
       '法定代表人：李四',
-      '证件号：110101199001011234',
-      '电话：13800000000',
+      '证件号：110101199001011234', // privacy-allow 虚构号码
+      '电话：13800000000', // privacy-allow 虚构号码
       '地址：北京市朝阳区',
     ])
   })
@@ -371,28 +371,28 @@ describe('lawyerCopyText', () => {
   it('主办律师未填电话/律所时回落合同上的主电话与律所', () => {
     const text = lawyerCopyText(
       { name: '王律师', primary: true, phone: '', license: '', firm: '' } as never,
-      { primaryPhone: '13700000000', lawFirm: '某某所' } as never,
+      { primaryPhone: '13700000000', lawFirm: '某某所' } as never, // privacy-allow 虚构号码
     )
-    expect(text).toContain('电话：13700000000')
+    expect(text).toContain('电话：13700000000') // privacy-allow 虚构号码
     expect(text).toContain('律所：某某所')
   })
 
   it('非主办律师不回落（只输出自己的字段）', () => {
     const text = lawyerCopyText(
       { name: '李律师', primary: false, phone: '', license: '', firm: '' } as never,
-      { primaryPhone: '13700000000', lawFirm: '某某所' } as never,
+      { primaryPhone: '13700000000', lawFirm: '某某所' } as never, // privacy-allow 虚构号码
     )
     expect(text).toBe('李律师')
   })
 
   it('自有字段优先于回落值', () => {
     const text = lawyerCopyText(
-      { name: '王律师', primary: true, phone: '13800138000', license: 'A1', firm: '自有所' } as never,
-      { primaryPhone: '13700000000', lawFirm: '合同所' } as never,
+      { name: '王律师', primary: true, phone: '13800138000', license: 'A1', firm: '自有所' } as never, // privacy-allow 虚构号码
+      { primaryPhone: '13700000000', lawFirm: '合同所' } as never, // privacy-allow 虚构号码
     )
-    expect(text).toContain('电话：13800138000')
+    expect(text).toContain('电话：13800138000') // privacy-allow 虚构号码
     expect(text).toContain('律所：自有所')
-    expect(text).not.toContain('13700000000')
+    expect(text).not.toContain('13700000000') // privacy-allow 虚构号码
   })
 })
 

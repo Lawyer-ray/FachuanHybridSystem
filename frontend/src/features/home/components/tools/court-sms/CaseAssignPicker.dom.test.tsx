@@ -57,10 +57,10 @@ describe('CaseAssignPicker：初始与检索', () => {
 
   it('有候选时按「案号 · 案件名」渲染进文档流', async () => {
     searchMock.mockResolvedValue([
-      { id: 1, name: '张三案', case_numbers: ['（2026）京01民初1号'] },
+      { id: 1, name: '张三案', case_numbers: ['（20XX）京01民初1号'] },
     ])
     const { unmount } = renderPicker()
-    await waitFor(() => expect(screen.getByText('（2026）京01民初1号')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('（20XX）京01民初1号')).toBeTruthy())
     expect(screen.getByText('张三案')).toBeTruthy()
     unmount()
   })
@@ -87,7 +87,7 @@ describe('CaseAssignPicker：初始与检索', () => {
 describe('CaseAssignPicker：选中与重选', () => {
   async function pickFirst() {
     searchMock.mockResolvedValue([
-      { id: 5, name: '目标案件', case_numbers: ['（2026）京02民初9号'] },
+      { id: 5, name: '目标案件', case_numbers: ['（20XX）京02民初9号'] },
     ])
     const utils = renderPicker()
     const option = await waitFor(() => screen.getByText('目标案件'))
@@ -97,7 +97,7 @@ describe('CaseAssignPicker：选中与重选', () => {
 
   it('选中后输入框显示「案号 · 案件名」', async () => {
     const { unmount } = await pickFirst()
-    expect(searchInput().value).toBe('（2026）京02民初9号 · 目标案件')
+    expect(searchInput().value).toBe('（20XX）京02民初9号 · 目标案件')
     unmount()
   })
 

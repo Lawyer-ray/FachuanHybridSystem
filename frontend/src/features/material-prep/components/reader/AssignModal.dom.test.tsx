@@ -126,7 +126,7 @@ describe('AssignModal：新建案件分支', () => {
 describe('AssignModal：追加到已有案件', () => {
   it('搜索出候选后选中：confirm 带 caseId/案号/标题', async () => {
     searchMock.mockResolvedValue([
-      { id: 42, name: '张三诉李四', filing_number: '（2026）京01民初1号', case_numbers: [] },
+      { id: 42, name: '张三诉李四', filing_number: '（20XX）京01民初1号', case_numbers: [] },
     ])
     const { container, onConfirm } = renderModal()
 
@@ -143,7 +143,7 @@ describe('AssignModal：追加到已有案件', () => {
     expect(arg.target).toBe('existing')
     expect(arg.caseId).toBe(42)
     expect(arg.caseTitle).toBe('张三诉李四')
-    expect(arg.caseNo).toBe('（2026）京01民初1号')
+    expect(arg.caseNo).toBe('（20XX）京01民初1号')
     container.remove()
   })
 })

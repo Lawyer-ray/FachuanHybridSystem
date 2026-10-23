@@ -27,7 +27,7 @@ function deal(over: Partial<WorkbenchDeal> = {}): WorkbenchDeal {
     ctype: '民商事',
     lit: true,
     parties: { client: '张三', other: '李四' },
-    no: '（2026）京01民初1号',
+    no: '（20XX）京01民初1号',
     amount: '¥100,000',
     daysLeft: 3,
     ...over,
@@ -56,7 +56,7 @@ describe('DealRow：渲染', () => {
     expect(container.textContent).toContain('张三')
     expect(container.textContent).toContain('vs')
     expect(container.textContent).toContain('李四')
-    expect(container.textContent).toContain('（2026）京01民初1号')
+    expect(container.textContent).toContain('（20XX）京01民初1号')
     container.remove()
   })
 

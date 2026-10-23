@@ -35,7 +35,7 @@ function detail(over: Record<string, unknown> = {}): CourtSmsDetail {
     id: 9,
     status: 'completed',
     sms_type: 'hearing',
-    case_numbers: ['（2026）京01民初1号'],
+    case_numbers: ['（20XX）京01民初1号'],
     party_names: ['张三'],
     retry_count: 0,
     content: '短信原文内容',
@@ -131,7 +131,7 @@ describe('SmsSuccessBody：详情折叠', () => {
     const text = container.textContent ?? ''
     expect(text).toContain('已完成')
     expect(text).toContain('开庭通知')
-    expect(text).toContain('（2026）京01民初1号')
+    expect(text).toContain('（20XX）京01民初1号')
     expect(text).toContain('张三')
     expect(text).toContain('重试次数')
     container.remove()

@@ -48,7 +48,7 @@ function task(over: Record<string, unknown> = {}) {
 }
 
 function reco(id: number, name: string, score = 90) {
-  return { case_id: id, case_name: name, case_numbers: [`（2026）${id}号`], score, reasons: ['同当事人'] }
+  return { case_id: id, case_name: name, case_numbers: [`（20XX）${id}号`], score, reasons: ['同当事人'] }
 }
 
 function renderSection(t: unknown, onBound = vi.fn()) {
@@ -170,7 +170,7 @@ describe('CaseBindingSection：搜索', () => {
 
   it('搜索结果可点选后绑定', async () => {
     apiMock.searchCasesForBinding.mockResolvedValue([
-      { id: 77, name: '搜到的案件', case_numbers: ['（2026）77号'] },
+      { id: 77, name: '搜到的案件', case_numbers: ['（20XX）77号'] },
     ])
     const { container } = renderSection(task())
     const input = container.querySelector('input') as HTMLInputElement
