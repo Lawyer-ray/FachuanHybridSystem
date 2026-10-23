@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,9 +16,20 @@ import {
 } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
+import { openCopilot } from '@/features/copilot/launch'
+import { useMediaQuery } from '@/hooks/use-media'
+
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
+import { REST_MIN, useDealAiResize } from './use-deal-ai-resize'
 import { useDealDetail } from './use-deal-detail'
+
+const AI_OPEN_KEY = 'deal:ai-open'
+
+// 详情页专属 AI 工作区（宽屏三列布局的第三列，非全局浮层）：走动态
+// import 保持 copilot 域的懒加载边界——静态引入会把 react-markdown 等
+// 拖进办案 chunk
+const CopilotEmbedLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotEmbed })))
 
 /**
  * 52 号定则：过去在时间轴（案件节日志按日叙事），未来在右栏（期限只在这里预警）。
@@ -31,6 +42,46 @@ export function DealDetailPage() {
   const d = useDealDetail(valid ? contractId : null)
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
+  // AI 工作区（宽屏专属）：长在详情页布局里的第三列——左列案件卡压缩但不
+  // 遮挡，对话区 sticky 满视口高、宽度可拖（默认 640，为未来 OnlyOffice
+  // 文档预览预留内部再分栏的空间）。窄屏（<1280）装不下三列，页头按钮
+  // 回落到全局浮层面板（既有形态）。
+  const [aiOpen, setAiOpen] = useState(() => {
+    try {
+      return localStorage.getItem(AI_OPEN_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const isXlUp = useMediaQuery('(min-width: 1280px)')
+  const { width: aiWidth, focus: aiFocus, setGridRef, onHandlePointerDown } = useDealAiResize()
+  const aiActive = aiOpen && isXlUp
+
+  /* 容器实测宽（主容器有多档 max-w，容器常比视口窄）：钳制工作区列宽不
+     溢出——记忆宽度在更大屏存下后，换窄容器渲染时收窄到三列能容纳为止 */
+  const gridNodeRef = useRef<HTMLDivElement | null>(null)
+  const [gridW, setGridW] = useState(0)
+  const attachGridRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setGridRef(node)
+      gridNodeRef.current = node
+      if (node) setGridW(node.offsetWidth)
+    },
+    [setGridRef],
+  )
+  useEffect(() => {
+    const node = gridNodeRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setGridW(e.contentRect.width)
+    })
+    ro.observe(node)
+    return () => ro.disconnect()
+  }, [])
+  /** 三列共存时工作区的实际列宽 */
+  const effAiW = gridW > 0 ? Math.min(aiWidth, Math.max(480, gridW - REST_MIN)) : aiWidth
+  /** 聚焦模式（用户拖动越过阈值）：案件卡与档案栏整列隐藏，工作区独占整行 */
+  const hideOthers = aiActive && aiFocus
 
   const deal = d.deal
   // 程序计划以合同勾选的代理阶段为纲、案件实际阶段为实：勾了没立的是未启动，立了没勾的照样展示
@@ -52,6 +103,58 @@ export function DealDetailPage() {
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
   const onAddPayment = useCallback(() => soon('记收款'), [soon])
+
+  /* 工作区高度动态适配：sticky 只保证「滚动后贴顶」，初始位置仍在文档流里
+     （页头 + stepper 之下，标题折行时更低）——按满视口高的固定值会把输入框
+     顶出第一屏。改为 innerHeight − max(容器实际 top, navbar+14) − 14：
+     首屏输入框贴视口底，滚动 sticky 生效后贴满视口高，滚动/resize 实时跟。 */
+  const aiDockRef = useRef<HTMLDivElement>(null)
+  const [aiDockH, setAiDockH] = useState<number | null>(null)
+  useEffect(() => {
+    if (!aiActive) {
+      setAiDockH(null)
+      return
+    }
+    const el = aiDockRef.current
+    if (!el) return
+    const navTop =
+      (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-navbar-h')) || 54) + 14
+    const measure = () => {
+      const floor = Math.max(el.getBoundingClientRect().top, navTop)
+      setAiDockH(Math.max(340, window.innerHeight - floor - 14))
+    }
+    measure()
+    // 数据刚到、字体/图片陆续就位会让首测的 top 漂移：下一帧再校一次
+    requestAnimationFrame(measure)
+    window.addEventListener('scroll', measure, { passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      window.removeEventListener('scroll', measure)
+      window.removeEventListener('resize', measure)
+    }
+    // 依赖 deal：记忆直开（aiOpen 初始即 true）时首渲染还在 loading，
+    // 容器未挂载、el 为 null；数据到达后必须重跑才能拿到真实元素
+  }, [aiActive, deal])
+
+  const toggleAi = useCallback(() => {
+    setAiOpen((v) => {
+      try {
+        localStorage.setItem(AI_OPEN_KEY, v ? '0' : '1')
+      } catch {
+        /* 忽略持久化失败 */
+      }
+      return !v
+    })
+  }, [])
+
+  // 页面感知精确覆盖：通用助手注入的锚点带上委托名与 contract_id，
+  // 模型可拿 id 用 get_contract / read_folder_file 等工具了解页面内容
+  useEffect(() => {
+    if (!deal) return
+    void import('@/features/copilot/store').then((m) => {
+      m.useCopilot.getState().setPageHint(`委托详情 · ${deal.client}（contract_id=${deal.id}）`)
+    })
+  }, [deal])
 
   const jump = useCallback((caseId: number) => {
     document.getElementById('case-' + caseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -83,12 +186,63 @@ export function DealDetailPage() {
 
   return (
     <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
-      <DetailHeader deal={deal} onAddDue={onAddDue} onAddLog={onAddLog} />
+      <DetailHeader
+        deal={deal}
+        onAddDue={onAddDue}
+        onAddLog={onAddLog}
+        onOpenAi={
+          isXlUp
+            ? toggleAi
+            : // 窄屏装不下专属工作区，回落全局浮层（openCopilot 零依赖模块，静态引入无负担）
+              () => openCopilot({ origin: 'contract', refId: deal.id, title: deal.client })
+        }
+      />
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
-      <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]">
-        <div className="min-w-0">
+      <div
+        ref={attachGridRef}
+        className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]"
+        style={
+          aiActive
+            ? ({
+                '--deal-ai-w': `${effAiW}px`,
+                // 工作区在**最左列**（符合律师使用习惯：先看 AI 再翻卷宗）；
+                // 聚焦模式独占整行
+                gridTemplateColumns: hideOthers ? 'minmax(0,1fr)' : 'var(--deal-ai-w) minmax(320px,1fr) 400px',
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {aiActive && (
+          /* 工作区列（第一列）：sticky 满视口高（页头下），页面滚动时对话区不动——
+             律师边滚案件日志边对话；右缘把手拖宽（--deal-ai-w 驱动 grid 列） */
+          <div
+            ref={aiDockRef}
+            className="sticky top-[calc(var(--app-navbar-h)_+_14px)] h-[calc(100dvh_-_var(--app-navbar-h)_-_28px)] min-w-0"
+            style={aiDockH ? { height: aiDockH } : undefined}
+          >
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="调整 AI 工作区宽度"
+              className="absolute top-0 bottom-0 right-0 z-30 w-1.5 translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-foreground/25"
+              onPointerDown={onHandlePointerDown}
+            />
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center rounded-[12px] border border-border bg-card text-[12.5px] text-muted-foreground shadow-sm">
+                  正在载入 AI 助手…
+                </div>
+              }
+            >
+              <CopilotEmbedLazy origin="contract" refId={deal.id} title={deal.client} />
+            </Suspense>
+          </div>
+        )}
+        {!hideOthers && (
+          <>
+            <div className="min-w-0">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
               {d.casesError} ·{' '}
@@ -106,7 +260,7 @@ export function DealDetailPage() {
             <div
               className={
                 'space-y-[18px] ' +
-                (ordered.length >= 2
+                (ordered.length >= 2 && !aiActive
                   ? 'min-[1900px]:columns-2 min-[1900px]:gap-[18px] min-[1900px]:space-y-0'
                   : '')
               }
@@ -131,18 +285,20 @@ export function DealDetailPage() {
               <NextStageRow stage={next} onCreate={onCreateNext} />
             </div>
           )}
-        </div>
+            </div>
 
-        <DetailRail
-          deadlines={deadlines}
-          today={d.today}
-          contactGroups={contacts}
-          team={deal.team}
-          deal={deal}
-          moneyRows={money}
-          onAddDue={onAddDue}
-          onAddPayment={onAddPayment}
-        />
+            <DetailRail
+              deadlines={deadlines}
+              today={d.today}
+              contactGroups={contacts}
+              team={deal.team}
+              deal={deal}
+              moneyRows={money}
+              onAddDue={onAddDue}
+              onAddPayment={onAddPayment}
+            />
+          </>
+        )}
       </div>
     </main>
   )

@@ -11,7 +11,7 @@
  */
 
 import { useRef, useState } from 'react'
-import { ArrowUp, Clock, Paperclip, Square, Undo2, X } from 'lucide-react'
+import { ArrowUp, Clock, Folder, FolderOpen, Paperclip, Square, Undo2, X } from 'lucide-react'
 
 import { formatFileSize } from '../domain'
 import { useCopilot } from '../store'
@@ -23,9 +23,11 @@ export function Composer() {
   const streaming = useCopilot((s) => s.streaming)
   const queuedSteers = useCopilot((s) => s.queuedSteers)
   const pendingFiles = useCopilot((s) => s.pendingFiles)
+  const pendingRefs = useCopilot((s) => s.pendingRefs)
   const uploading = useCopilot((s) => s.uploadingAttachments)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
   const removeAttachmentFile = useCopilot((s) => s.removeAttachmentFile)
+  const removeFolderRef = useCopilot((s) => s.removeFolderRef)
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
@@ -36,7 +38,7 @@ export function Composer() {
 
   const submit = () => {
     const value = text.trim()
-    if (!value && pendingFiles.length === 0) return
+    if (!value && pendingFiles.length === 0 && pendingRefs.length === 0) return
     if (uploading) return
     if (streaming) {
       // 运行中插话：不改写当前输出，在工具调用后、下次模型调用前生效
@@ -53,7 +55,13 @@ export function Composer() {
     // 先清空正文腾出输入位；早失败（建会话/附件上传失败）时回填，别让
     // 用户重打一遍。期间用户又输入了新内容则不打扰（只补空）。
     setText('')
-    const outgoing = value || '请分析我上传的附件。'
+    const outgoing =
+      value ||
+      (pendingRefs.length > 0
+        ? pendingRefs.every((r) => r.isFolder)
+          ? '请浏览我引用的目录并梳理其中的材料。'
+          : '请分析我引用的文件。'
+        : '请分析我上传的附件。')
     void send(outgoing, (sent) => {
       if (!sent) setText((prev) => (prev.trim() ? prev : outgoing))
     })
@@ -82,8 +90,28 @@ export function Composer() {
 
   return (
     <div className="flex-none border-t border-border p-2.5">
-      {pendingFiles.length > 0 && (
+      {/* 内容限宽居中：与消息栏同宽对齐（面板拉宽时两侧留白对称） */}
+      <div className="mx-auto w-full max-w-3xl">
+      {(pendingRefs.length > 0 || pendingFiles.length > 0) && (
         <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {pendingRefs.map((ref, i) => (
+            <span
+              key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
+              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-primary/10 px-1.5 py-0.5 text-[11.5px] text-foreground"
+              title={`${ref.kind === 'case' ? '案件' : '合同'} ${ref.ownerId} · ${ref.subpath}${ref.isFolder ? '（目录引用：AI 会先列出目录内容再按需读取）' : '（引用原文件，发送时由 AI 直接读取）'}`}
+            >
+              {ref.isFolder ? <Folder className="h-3 w-3 flex-none text-primary" /> : <FolderOpen className="h-3 w-3 flex-none text-primary" />}
+              <span className="max-w-52 truncate">{ref.subpath}{ref.isFolder ? '/' : ''}</span>
+              <button
+                type="button"
+                className="flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
+                aria-label={`移除引用 ${ref.name}`}
+                onClick={() => removeFolderRef(i)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
           {pendingFiles.map((file, i) => (
             <span
               key={`${file.name}-${i}`}
@@ -120,19 +148,19 @@ export function Composer() {
           </button>
         </div>
       )}
-      <div className="flex items-end gap-2 rounded-[12px] border border-input bg-background px-2.5 py-1.5 focus-within:border-foreground/40">
+      <div className="flex items-end gap-2 rounded-[14px] border border-border bg-background px-2.5 py-1.5 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-foreground/30 focus-within:ring-4 focus-within:ring-foreground/10">
         <button
           type="button"
           className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors disabled:opacity-40 ${
             bgMode ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
           }`}
           onClick={() => setBgMode((v) => !v)}
-          disabled={streaming || pendingFiles.length > 0}
+          disabled={streaming || pendingFiles.length > 0 || pendingRefs.length > 0}
           aria-label={bgMode ? '关闭后台运行模式' : '切换为后台运行'}
           aria-pressed={bgMode}
           title={
             pendingFiles.length > 0
-              ? '带附件的消息只能即时对话（后台任务暂不支持附件）'
+              ? '带附件/引用的消息只能即时对话（后台任务暂不支持）'
               : bgMode
                 ? '后台运行已开启：提交的任务在后台执行'
                 : '切换为后台运行：适合要跑几分钟的长任务'
@@ -186,9 +214,9 @@ export function Composer() {
         ) : (
           <button
             type="button"
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85 disabled:opacity-30"
+            className="copilot-send flex h-7 w-7 flex-none items-center justify-center rounded-full disabled:opacity-30 disabled:shadow-none"
             onClick={submit}
-            disabled={uploading || (!text.trim() && pendingFiles.length === 0)}
+            disabled={uploading || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0)}
             aria-label={bgMode ? '提交后台任务' : '发送'}
             title={uploading ? '附件上传中…' : undefined}
           >
@@ -202,6 +230,7 @@ export function Composer() {
         </span>
         <TurnStatsView />
       </p>
+      </div>
     </div>
   )
 }

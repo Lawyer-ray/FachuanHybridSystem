@@ -28,8 +28,8 @@ class TestRawJsonBodyHardening:
         request = RequestFactory().post("/x/", data='{"a": 1}', content_type="application/json")
         assert _body(request) == {"a": 1}
 
-    def test_evidence_sorting_body_rejects_malformed_json(self):
-        from apps.evidence_sorting.api.evidence_sorting_api import _body
+    def test_finance_doc_sorting_body_rejects_malformed_json(self):
+        from apps.finance_doc_sorting.api.finance_doc_sorting_api import _body
 
         request = RequestFactory().post("/x/", data="[broken", content_type="application/json")
         with pytest.raises(ValidationException):

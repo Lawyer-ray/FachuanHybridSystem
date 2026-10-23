@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.evidence_sorting.services.exporter import _build_filename, _ensure_output_dir, _get_ext, _write_image
+from apps.finance_doc_sorting.services.exporter import _build_filename, _ensure_output_dir, _get_ext, _write_image
 
 # ---------------------------------------------------------------------------
 # tests for apps.core.llm.fallback_policy (30 missing)
@@ -520,31 +520,31 @@ class TestFolderBrowsePolicy:
 
 
 # ---------------------------------------------------------------------------
-# tests for apps.evidence_sorting.services.exporter (45 missing)
+# tests for apps.finance_doc_sorting.services.exporter (45 missing)
 # ---------------------------------------------------------------------------
 
 
 class TestExporterService:
     def _make_exporter(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         return ExporterService()
 
     def test_get_ext_with_dot(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         assert _get_ext("file.jpg") == ".jpg"
         assert _get_ext("file.tar.gz") == ".gz"
 
     def test_get_ext_no_dot(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         assert _get_ext("noext") == ".jpg"
 
     def test_write_image_normal(self):
         import base64
 
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         zf = MagicMock()
         data = base64.b64encode(b"image_data").decode()
@@ -554,7 +554,7 @@ class TestExporterService:
     def test_write_image_with_data_url_prefix(self):
         import base64
 
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         zf = MagicMock()
         data = "data:image/jpeg;base64," + base64.b64encode(b"image_data").decode()
@@ -562,21 +562,21 @@ class TestExporterService:
         zf.writestr.assert_called_once_with("test.jpg", b"image_data")
 
     def test_write_image_decode_error(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         zf = MagicMock()
         _write_image(zf, "test.jpg", "not_base64!!!")
         zf.writestr.assert_not_called()
 
     def test_build_filename(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         name = _build_filename()
         assert name.startswith("evidence_sorting_")
         assert name.endswith(".zip")
 
     def test_build_delivery_filename_basic(self):
-        from apps.evidence_sorting.services.exporter import STATUS_UNMATCHED, DeliveryNote, ExporterService
+        from apps.finance_doc_sorting.services.exporter import STATUS_UNMATCHED, DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -592,7 +592,7 @@ class TestExporterService:
         assert "出库单" in name
 
     def test_build_delivery_filename_no_date(self):
-        from apps.evidence_sorting.services.exporter import DeliveryNote, ExporterService
+        from apps.finance_doc_sorting.services.exporter import DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -607,7 +607,7 @@ class TestExporterService:
         assert "未知日期" in name
 
     def test_build_delivery_filename_unmatched_with_remark(self):
-        from apps.evidence_sorting.services.exporter import STATUS_UNMATCHED, DeliveryNote, ExporterService
+        from apps.finance_doc_sorting.services.exporter import STATUS_UNMATCHED, DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -622,7 +622,7 @@ class TestExporterService:
         assert "备注" in name
 
     def test_build_delivery_filename_same_date_seq(self):
-        from apps.evidence_sorting.services.exporter import DeliveryNote, ExporterService
+        from apps.finance_doc_sorting.services.exporter import DeliveryNote, ExporterService
 
         svc = self._make_exporter()
         dn = MagicMock(spec=DeliveryNote)
@@ -640,7 +640,7 @@ class TestExporterService:
     def test_write_category(self):
         import base64
 
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         svc = self._make_exporter()
         zf = MagicMock()
@@ -650,7 +650,7 @@ class TestExporterService:
         zf.writestr.assert_called_once()
 
     def test_ensure_output_dir_no_media_root(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         with patch("django.conf.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = None
@@ -658,7 +658,7 @@ class TestExporterService:
                 _ensure_output_dir()
 
     def test_ensure_output_dir_success(self, tmp_path):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         with patch("django.conf.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = str(tmp_path)

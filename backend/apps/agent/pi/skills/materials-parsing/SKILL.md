@@ -20,6 +20,16 @@ truncated=true 时用 start 分段续读）。图片附件与无文字层的扫�
 **原件页图**（非 OCR——多模态视觉通道，版式/表格比 OCR 更忠实），需要指定
 页时传 pages（如 `"1-3,5"` 或 `"all"`），单次最多 10 页。
 
+## 扫描件返回 no_text_layer 时，不要装作读到了
+
+`extract_document_text` / `parse_document` 对无文字层的扫描件会返回
+`success=true` + 空 `text` + `metadata.no_text_layer=true` + `notice`——
+这不是「文档内容为空」，是**提取不到文字层**：
+
+- 对话附件：改用 `read_agent_attachment(attachment_id, pages=…)` 拿页面原图；
+- 归档材料（base64 传入）：如实告知用户该材料无文字层，无法提取文本，
+  不要基于「空」下任何结论。
+
 ## 长文档可能转异步
 
 长文档解析可能转异步，此时返回 `task_id`，用 `get_document_parsing_task`

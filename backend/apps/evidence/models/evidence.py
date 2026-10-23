@@ -70,13 +70,6 @@ def _get_evidence_service() -> Any:
     return EvidenceService()
 
 
-def _get_evidence_storage() -> Any:
-    """工厂函数: 获取证据文件存储实例"""
-    from apps.evidence.services.core.evidence_storage import evidence_file_storage
-
-    return evidence_file_storage
-
-
 class EvidenceList(models.Model):
     """
     证据清单

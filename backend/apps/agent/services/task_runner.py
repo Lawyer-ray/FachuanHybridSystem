@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Any
 
 from django.utils import timezone
@@ -180,6 +181,34 @@ def _notify_completion(*, session: AgentSession, state: str, error: str, chars: 
         logger.warning("任务完成通知写入失败 session=%s", session.session_id, exc_info=True)
 
 
+def cancel_agent_task(session: AgentSession) -> dict[str, Any]:
+    """取消后台任务（P1-4）：排队中→移出队列并置 cancelled。
+
+    - 排队中（还没被 worker 领走）：OrmQ 删除即取消，立刻置 cancelled；
+    - 运行中：**诚实拒绝**——pi 子进程跑在 worker 里，没有跨进程 abort
+      通道（差距报告 P2-4 的领域），硬拆只会留僵尸；任务会跑到自然结束，
+      用户可对结果置之不理；
+    - 已结束：由调用方在 API 层先行拦截。
+    """
+    from apps.core.tasking.submission import TaskSubmissionService
+
+    result = TaskSubmissionService().cancel(session.task_id)
+    if result["queue_deleted"] > 0:
+        AgentSession.objects.filter(pk=session.pk).update(
+            task_state=AgentSession.TaskState.CANCELLED,
+            task_finished_at=timezone.now(),
+        )
+        logger.info("agent 任务已取消（出队）session=%s task=%s", session.pk, session.task_id)
+        return {"success": True, "task_state": "cancelled", "message": "已取消排队中的任务"}
+    if result["running"]:
+        return {
+            "success": False,
+            "task_state": "running",
+            "message": "任务正在运行，暂不支持中途终止；它会跑到自然结束",
+        }
+    return {"success": False, "task_state": session.task_state, "message": "任务已结束，无需取消"}
+
+
 async def submit_task_async(*, session: AgentSession, user_message: str, user_id: int | None) -> str:
     """``enqueue_task`` 的异步包装（Ninja 异步端点用）。
 
@@ -192,3 +221,82 @@ async def submit_task_async(*, session: AgentSession, user_message: str, user_id
         user_message=user_message,
         user_id=user_id,
     )
+
+
+#: 定时任务：每周一早 8 点自动生成本周到期事项摘要写入会话（P2-6）
+_SCHEDULE_NAME = "agent-weekly-deadlines"
+
+
+def register_weekly_schedule() -> None:
+    """注册/刷新定时任务（P2-6：agent 主动汇报，不只是被动响应）。
+
+    必须在 Django AppConfig.ready() 或管理命令里调用（参照
+    message_hub/tasks.py 的 _register_schedule 模式），否则是死代码。
+    周期注册走 core.tasking 封装（django_q 直连业务层是被结构测试禁止的）。
+    """
+    # 下一个周一早 8 点（本地时区）：django-q WEEKLY 按 next_run 的星期对齐滚动
+    from datetime import datetime, time
+
+    from apps.core.tasking import ScheduleQueryService
+
+    now = timezone.now()
+    days_ahead = (7 - now.weekday()) % 7 or 7
+    next_run = datetime.combine(now.date() + timedelta(days=days_ahead), time(8, 0), tzinfo=now.tzinfo)
+    ScheduleQueryService().upsert_weekly_schedule(
+        func="apps.agent.services.task_runner.run_scheduled_digest",
+        name=_SCHEDULE_NAME,
+        next_run=next_run,
+    )
+
+
+def run_scheduled_digest() -> dict[str, int]:
+    """定时摘要入口（django-q worker 内调用）：为有到期事项的律师生成摘要。
+
+    每位有活跃案件的律师得到一条 origin=task 的 agent 会话，消息为
+    「帮我汇总本周到期事项」。有 SSE/审批的完整链路自然走通（离线审批
+    / 任务通知 / 用量记录），复用 stream_chat 无另写编排。
+
+    Returns:
+        {"sessions": 创建会话数}（无到期事项的律师跳过）。
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.cases.models import CaseAssignment
+    from apps.reminders.models import Reminder
+
+    now = timezone.now()
+    week_end = now + timedelta(days=7)
+    # 有未来 7 天内到期提醒的活跃案件 → 找到负责律师
+    upcoming = Reminder.objects.filter(is_completed=False, due_at__lte=week_end, due_at__gte=now).values_list(
+        "case_id", flat=True
+    )
+    case_ids = set(upcoming)
+    if not case_ids:
+        return {"sessions": 0}
+    lawyers = (
+        CaseAssignment.objects.filter(case_id__in=case_ids, case__status="active")
+        .values_list("lawyer_id", flat=True)
+        .distinct()
+    )
+    count = 0
+    for lawyer_id in lawyers:
+        if not lawyer_id:
+            continue
+        session = AgentSession.objects.create(
+            title="本周到期事项摘要",
+            user_id=lawyer_id,
+            origin=AgentSession.Origin.TASK,
+            task_state=AgentSession.TaskState.QUEUED,
+        )
+        enqueue_task(
+            session=session,
+            user_message=(
+                f"帮我汇总本周（{now:%Y-%m-%d} 至 {week_end:%Y-%m-%d}）的到期事项，按紧急程度排序，标注案件与合同编号。"
+            ),
+            user_id=lawyer_id,
+        )
+        count += 1
+    logger.info("定时摘要：为 %s 位律师创建会话", count)
+    return {"sessions": count}

@@ -106,7 +106,7 @@ describe('copilot api', () => {
 
   it('decideApproval: POST 带 approved 布尔', async () => {
     await decideApproval('a-1', true)
-    expect(apiMock.post).toHaveBeenCalledWith('agent/approval/a-1/decide', { json: { approved: true } })
+    expect(apiMock.post).toHaveBeenCalledWith('agent/approval/a-1/decide', { json: { approved: true, reason: '' } })
   })
 
   it('openMessageStream: POST 带 message 与 signal，且返回未消费的 Response', async () => {

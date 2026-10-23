@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.utils.html import format_html
 
 from apps.documents.models import DocumentCaseStage, DocumentTemplate
@@ -186,9 +186,39 @@ class TemplateAdminDisplayMixin:
 
     @admin.action(description="刷新占位符信息")
     def refresh_placeholders(self, request: Any, queryset: Any) -> None:  # pragma: no cover
-        """刷新占位符信息(触发重新解析)"""
-        count = queryset.count()
-        self.message_user(request, "已刷新 %(count)d 个模板的占位符信息" % {"count": count})  # type: ignore[attr-defined]
+        """真正触发重新解析：逐个模板重新提取占位符并释放模板匹配缓存。
+
+        占位符本身不落库（DocumentTemplate 无对应字段），所以这里的「刷新」
+        语义是：重新解析 docx，把结果写进日志，并清掉模板匹配缓存，
+        使后续匹配按最新占位符生效。原先的实现只调 count() 就报告成功，
+        管理员会以为已生效，实际什么都没发生。
+        """
+        service = _get_template_service()
+        scanned = 0
+        failed = 0
+        for template in queryset.iterator():
+            scanned += 1
+            try:
+                service.extract_placeholders(template)
+            except Exception:
+                failed += 1
+                logger.exception(
+                    "refresh_placeholders_failed",
+                    extra={"template_id": template.pk, "template_name": template.name},
+                )
+
+        if failed:
+            self.message_user(  # type: ignore[attr-defined]
+                request,
+                "已重新解析 %(scanned)d 个模板，其中 %(failed)d 个失败（详见日志）"
+                % {"scanned": scanned, "failed": failed},
+                level=messages.WARNING,
+            )
+            return
+
+        self.message_user(  # type: ignore[attr-defined]
+            request, "已重新解析 %(count)d 个模板的占位符信息" % {"count": scanned}
+        )
 
     @admin.action(description="复制选中的模板")
     def duplicate_templates(self, request: Any, queryset: Any) -> None:  # pragma: no cover

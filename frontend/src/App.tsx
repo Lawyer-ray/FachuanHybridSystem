@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
-import { Navigate, Outlet, Route, Routes } from 'react-router'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { hasToken } from '@/lib/token'
+import { useMediaQuery } from '@/hooks/use-media'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
@@ -21,6 +22,7 @@ const CopilotPanelLazy = lazy(() => import('@/features/copilot').then((m) => ({ 
 const PanelBackdropLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.PanelBackdrop })))
 
 const COPILOT_OPEN_KEY = 'copilot:open'
+const COPILOT_DOCK_KEY = 'copilot:dock'
 
 /**
  * 导航入口 → 页面 chunk 加载器。悬停预取（AppNavbar onPrefetch）与登录后的
@@ -86,6 +88,22 @@ function AppShell() {
   // 悬停预取（AppNavbar）兜住预载还没完成就点进来的情况。
   useEffect(() => whenIdle(() => Object.keys(ROUTE_PRELOADERS).forEach(preloadRoute)), [])
 
+  // 页面感知兜底：路由一变就把页面描述写进 copilot store（通用助手注入
+  // 「[当前页面：…]」锚点用）。详情页挂载后会写更精确的描述（实体名+id）
+  // 覆盖；动态 import 保持 copilot 域的懒加载边界。
+  const location = useLocation()
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([import('@/features/copilot/store'), import('@/features/copilot/domain')]).then(
+      ([storeMod, domainMod]) => {
+        if (!cancelled) storeMod.useCopilot.getState().setPageHint(domainMod.describeLocation(location.pathname))
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [location.pathname])
+
   // AI 助手面板开关：展开状态跨会话记忆（localStorage），首次展开才加载 chunk。
   const [copilotOpen, setCopilotOpen] = useState(() => {
     try {
@@ -117,6 +135,30 @@ function AppShell() {
       return !v
     })
   }
+
+  // 并排模式：宽屏（≥1280）下面板不再悬浮覆盖，主内容区让出右侧等宽
+  // padding（--copilot-w-app 由面板的 resize hook 同步），页面与 AI 可同屏
+  // 对照——合同详情页的文件夹树可直接拖文件进 AI 输入区。偏好跨会话记忆，
+  // 窄屏回落悬浮 + 遮罩（面板 header 的切换按钮也只在宽屏出现）。
+  const [copilotDock, setCopilotDock] = useState(() => {
+    try {
+      return localStorage.getItem(COPILOT_DOCK_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const isXlUp = useMediaQuery('(min-width: 1280px)')
+  const toggleCopilotDock = () => {
+    setCopilotDock((v) => {
+      try {
+        localStorage.setItem(COPILOT_DOCK_KEY, v ? '0' : '1')
+      } catch {
+        /* 忽略持久化失败 */
+      }
+      return !v
+    })
+  }
+  const copilotDocked = copilotOpen && copilotDock && isXlUp
 
   // ⌘K 全局检索面板开关：状态收在壳层（与 copilotOpen 同层），⌘K 快捷键、
   // 导航栏检索按钮、弹窗自身关闭（Esc / 点遮罩 / 选中跳转）三条路径都汇到这里。
@@ -195,19 +237,30 @@ function AppShell() {
       />
       {copilotMounted && (
         <Suspense fallback={null}>
-          <PanelBackdropLazy open={copilotOpen} onClose={toggleCopilot} />
+          <PanelBackdropLazy open={copilotOpen && !copilotDocked} onClose={toggleCopilot} />
         </Suspense>
       )}
       {copilotMounted && (
         <Suspense fallback={null}>
-          <CopilotPanelLazy open={copilotOpen} onClose={toggleCopilot} />
+          <CopilotPanelLazy
+            open={copilotOpen}
+            onClose={toggleCopilot}
+            dockCapable={isXlUp}
+            docked={copilotDocked}
+            onDockToggle={toggleCopilotDock}
+          />
         </Suspense>
       )}
-      <PageErrorBoundary>
-        <Suspense fallback={<RouteFallback />}>
-          <Outlet />
-        </Suspense>
-      </PageErrorBoundary>
+      <div
+        className="transition-[padding-right] duration-200"
+        style={copilotDocked ? { paddingRight: 'var(--copilot-w-app, 0px)' } : undefined}
+      >
+        <PageErrorBoundary>
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
+        </PageErrorBoundary>
+      </div>
     </div>
   )
 }

@@ -32,6 +32,7 @@ from mcp_server.tools.contracts.folder import (
     get_folder_binding,
     list_cloud_storage_accounts,
 )
+from mcp_server.tools.contracts.folder_file import list_folder_files, read_folder_file
 from mcp_server.tools.contracts.folder_scan import (
     confirm_contract_scan,
     get_contract_scan_status,
@@ -79,6 +80,9 @@ __all__ = [
     "delete_folder_binding",
     "browse_folders",
     "list_cloud_storage_accounts",
+    # 绑定文件夹文件读取（拖拽引用）
+    "list_folder_files",
+    "read_folder_file",
     # 合同归档
     "learn_archive_rules",
     "get_archive_checklist",

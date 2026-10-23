@@ -122,10 +122,11 @@ class TestGetEvidenceService:
 
 class TestGetEvidenceStorage:
     def test_returns_storage(self) -> None:
-        from apps.evidence.models.evidence import _get_evidence_storage
+        from apps.evidence.models.evidence_storage import evidence_file_storage, get_evidence_storage
 
-        storage = _get_evidence_storage()
+        storage = get_evidence_storage()
         assert storage is not None
+        assert isinstance(evidence_file_storage, type(storage))
 
 
 # ---------------------------------------------------------------------------

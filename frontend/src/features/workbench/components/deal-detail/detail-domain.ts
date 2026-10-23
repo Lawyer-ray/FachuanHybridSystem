@@ -423,6 +423,42 @@ export function headerMetaParts(deal: WorkbenchDeal): MetaPart[] {
 }
 
 /** 面包屑短名：全称动辄五六十字会顶满一整行，18 字足够定位；完整名在主标题和 hover title 里 */
+/**
+ * 附件 chip 的短名：去掉扩展名与第一个「_」起的尾巴。
+ * 生成文书的命名是「{文书名}_{委托人相关标识}.ext」（如
+ * 民事诉讼风险提示书_test_贵州省山地智能….pdf），chip 只显示文书名——
+ * 时间轴里委托人就是本案当事人，尾巴是纯噪音；完整名 hover title 可见。
+ * 无下划线的名字只去扩展名；截断后为空（名字以 _ 开头）回退原全名。
+ */
+export function shortDocName(name: string): string {
+  const noExt = name.replace(/\.[a-z0-9]{1,6}$/i, '')
+  const cut = noExt.indexOf('_')
+  if (cut <= 0) return cut === 0 ? name : noExt
+  return noExt.slice(0, cut)
+}
+
+/** 日志正文按 URL 切段：text 段原样，url 段渲染成「查看链接」超链接——
+ * 法院短信里的送达链接动辄 200+ 字符的 query 串，整串显示既撑版面又没法点。
+ * URL 字符集排除 CJK 与中英文括号/句读：短信里链接常紧贴中文，\S 会把
+ * 后续文字吞进 URL。
+ */
+const URL_RE = /https?:\/\/[^\s<>"'(),;!()\u4e00-\u9fff\u3000-\u303f\uff01-\uff5e]+/g
+
+export type TextSegment = { kind: 'text'; value: string } | { kind: 'url'; value: string }
+
+export function splitLinkText(text: string): TextSegment[] {
+  const segments: TextSegment[] = []
+  let last = 0
+  for (const m of text.matchAll(URL_RE)) {
+    const idx = m.index ?? 0
+    if (idx > last) segments.push({ kind: 'text', value: text.slice(last, idx) })
+    segments.push({ kind: 'url', value: m[0] })
+    last = idx + m[0].length
+  }
+  if (last < text.length) segments.push({ kind: 'text', value: text.slice(last) })
+  return segments
+}
+
 export function crumbName(name: string, cap = 18): string {
   return name.length > cap ? name.slice(0, cap) + '…' : name
 }

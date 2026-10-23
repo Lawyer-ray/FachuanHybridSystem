@@ -5,7 +5,7 @@ import { withDownloadTicket } from '@/lib/download-ticket'
 import { getCaseFolderBinding } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import type { DealCase } from '../../types'
-import { caseMetaParts, legalStatusGroups, stripEntryParens, timelineEntries } from './detail-domain'
+import { caseMetaParts, legalStatusGroups, shortDocName, splitLinkText, timelineEntries } from './detail-domain'
 import { FolderTree } from './FolderTree'
 import { ActionButton, Card, Chip, MetaLine, Pill, StateDot } from './ui'
 
@@ -146,8 +146,27 @@ export function CaseSection({
                   <span className="absolute top-[6px] left-[5px] size-[7px] rounded-full bg-border" />
                 </span>
                 <span className="min-w-0 pl-1.5">
-                  {/* 日志正文可能含法院短信里的长 URL 等不可断行串，break-words 防止撑破窄屏 */}
-                  <span className="block text-[13.5px] leading-[1.55] break-words text-secondary-foreground">{e.text}</span>
+                  {/* 日志正文可能含法院短信里的长 URL：切分段渲染，URL 显示为
+                      「查看链接」超链接（新标签打开）；纯文本段仍 break-words
+                      防止不可断行串撑破窄屏 */}
+                  <span className="block text-[13.5px] leading-[1.55] break-words text-secondary-foreground">
+                    {splitLinkText(e.text).map((seg, si) =>
+                      seg.kind === 'url' ? (
+                        <a
+                          key={si}
+                          href={seg.value}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={seg.value}
+                          className="cursor-pointer text-primary underline decoration-primary/40 underline-offset-3 hover:decoration-primary"
+                        >
+                          查看链接 ↗
+                        </a>
+                      ) : (
+                        <span key={si}>{seg.value}</span>
+                      ),
+                    )}
+                  </span>
                   {(e.who || e.n > 1) && (
                     <span className="mt-0.5 block text-[11.5px] text-muted-foreground/80 tabular-nums">
                       {e.who}
@@ -166,10 +185,14 @@ export function CaseSection({
                           type="button"
                           title={'预览 ' + a.name}
                           onClick={() => void openAttachment(a.mediaUrl)}
-                          className="inline-flex max-w-[300px] cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+                          className="inline-flex max-w-full min-w-0 cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
                         >
-                          <span className="truncate" title={a.name}>
-                            📎 {stripEntryParens(a.name)}
+                          {/* 左列在 AI 工作区展开时压到 ~300px：宽度全部交给容器
+                              （max-w-full），flex 子项 min-w-0 才能让 truncate 生效。
+                              chip 用短名（去 _ 后缀与扩展名），委托人尾巴在时间轴
+                              里是噪音；hover title 看全名 */}
+                          <span className="min-w-0 truncate" title={a.name}>
+                            📎 {shortDocName(a.name)}
                           </span>
                         </button>
                       ))}

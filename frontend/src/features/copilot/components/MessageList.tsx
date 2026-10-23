@@ -10,16 +10,20 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Brain, Check, Copy, Loader2, Wrench } from 'lucide-react'
+import { Brain, Briefcase, Check, Copy, Folder, FolderOpen, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
+
+import { useAuth } from '@/features/auth'
 
 import '../copilot.css'
 import { shortToolName } from '../domain'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
+import { CopilotWelcome } from './CopilotWelcome'
+import { UserAvatar } from './UserAvatar'
 
 function ToolRow({ message }: { message: ChatMessage }) {
   const name = shortToolName(message.toolName)
@@ -54,12 +58,38 @@ function ThinkingBlock({ message }: { message: ChatMessage }) {
     >
       <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
         <Brain className="h-3 w-3 flex-none" />
-        <span>{thinkingNow ? '深度思考中…' : `已深度思考（${thinking.length} 字）`}</span>
+        {/* 思考中用渐变流光（copilot-shimmer），结束后回落普通 muted 色 */}
+        <span className={thinkingNow ? 'copilot-shimmer' : undefined}>
+          {thinkingNow ? '深度思考中…' : `已深度思考（${thinking.length} 字）`}
+        </span>
       </summary>
       <pre className="mt-1.5 max-h-56 overflow-y-auto border-t border-border pt-1.5 text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
         {thinking}
       </pre>
     </details>
+  )
+}
+
+/** 点赞/点踩（P1-9b）：乐观更新在 store，失败自动回滚 */
+function RateButtons({ messageId, rating }: { messageId: number; rating?: 'up' | 'down' }) {
+  const rate = useCopilot((s) => s.rateMessage)
+  const btn = (r: 'up' | 'down') => ({
+    type: 'button' as const,
+    'aria-label': r === 'up' ? '有帮助' : '没帮助',
+    className:
+      'flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary ' +
+      (rating === r ? 'text-foreground' : 'opacity-60 hover:opacity-100'),
+    onClick: () => void rate(messageId, rating === r ? 'none' : r),
+  })
+  return (
+    <span className="ml-1.5 inline-flex gap-0.5 align-middle">
+      <button {...btn('up')}>
+        <ThumbsUp className="h-3 w-3" />
+      </button>
+      <button {...btn('down')}>
+        <ThumbsDown className="h-3 w-3" />
+      </button>
+    </span>
   )
 }
 
@@ -90,14 +120,55 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function Bubble({ message }: { message: ChatMessage }) {
+  const user = useAuth((s) => s.user)
   if (message.role === 'tool') return <ToolRow message={message} />
 
   if (message.role === 'user') {
+    const refs = message.refs ?? []
+    const pageHint = message.pageHint
+    const bizHint = message.bizHint
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background">
-          {message.content}
+      <div className="flex max-w-[88%] items-end gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col items-end gap-1">
+          {bizHint && (
+            <span
+              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              title={`本条消息归属：${bizHint}（AI 据此直达对应案件/合同的数据）`}
+            >
+              <Briefcase className="h-3 w-3 flex-none text-foreground" />
+              <span className="max-w-52 truncate">{bizHint}</span>
+            </span>
+          )}
+          {pageHint && (
+            <span
+              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              title={`发送时所在页面：${pageHint}（AI 可据此了解页面内容）`}
+            >
+              <MapPin className="h-3 w-3 flex-none text-foreground" />
+              <span className="max-w-52 truncate">{pageHint}</span>
+            </span>
+          )}
+          {refs.length > 0 && (
+            <div className="flex max-w-full flex-wrap justify-end gap-1">
+              {refs.map((ref) => (
+                <span
+                  key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
+                  className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                  title={`${ref.kind === 'case' ? '案件' : '合同'} ${ref.ownerId} · ${ref.subpath}${ref.isFolder ? '（目录引用）' : '（引用原文件）'}`}
+                >
+                  {ref.isFolder ? <Folder className="h-3 w-3 flex-none text-foreground" /> : <FolderOpen className="h-3 w-3 flex-none text-foreground" />}
+                  <span className="max-w-52 truncate">{ref.subpath}{ref.isFolder ? '/' : ''}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          {(message.content.trim() || (refs.length === 0 && !pageHint && !bizHint)) && (
+            <div className="max-w-full rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background">
+              {message.content}
+            </div>
+          )}
         </div>
+        <UserAvatar user={user} className="h-6 w-6" />
       </div>
     )
   }
@@ -128,7 +199,12 @@ function Bubble({ message }: { message: ChatMessage }) {
       {message.truncated && (
         <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
       )}
-      {showCopy && <CopyButton text={message.content} />}
+      {showCopy && (
+        <span className="ml-1 inline-flex items-center align-middle">
+          <RateButtons messageId={Number(message.id.slice(3))} rating={message.rating} />
+          <CopyButton text={message.content} />
+        </span>
+      )}
     </div>
   )
 }
@@ -157,6 +233,9 @@ export function MessageList() {
   const loadingHistory = useCopilot((s) => s.loadingHistory)
   const lastError = useCopilot((s) => s.lastError)
   const queuePosition = useCopilot((s) => s.queuePosition)
+  const noMoreHistory = useCopilot((s) => s.noMoreHistory)
+  const loadingOlder = useCopilot((s) => s.loadingOlder)
+  const loadOlderHistory = useCopilot((s) => s.loadOlderHistory)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -175,18 +254,24 @@ export function MessageList() {
 
   return (
     <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
-      {empty && (
-        <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-          <p className="text-[13px] font-medium text-foreground">问点什么，或让它查系统数据</p>
-          <p className="text-[12px] leading-relaxed text-muted-foreground">
-            例如：列一下我名下的案件、看看合同 386 的归档状态。
-            <br />
-            AI 回答仅供参考，法律判断需由律师复核。
-          </p>
-        </div>
-      )}
+      {/* 内容限宽居中（max-w-3xl）：面板拉宽/聚焦满屏时阅读行宽仍舒适，
+          两侧留白对称——ChatGPT/Claude 满宽对话的同一做法；窄面板不受影响 */}
+      <div className="mx-auto w-full max-w-3xl">
+      {empty && <CopilotWelcome />}
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
+      )}
+      {!loadingHistory && !noMoreHistory && messages.length >= 200 && (
+        <div className="mb-2 flex justify-center">
+          <button
+            type="button"
+            className="rounded-[8px] border border-border px-3 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            onClick={() => void loadOlderHistory()}
+            disabled={loadingOlder}
+          >
+            {loadingOlder ? '加载中…' : '加载更早的消息'}
+          </button>
+        </div>
       )}
       {queuePosition !== null && <QueueBanner position={queuePosition} />}
       <div className="flex flex-col gap-2.5">
@@ -202,6 +287,7 @@ export function MessageList() {
         </div>
       )}
       {lastError && <p className="mt-2 text-[12px] text-destructive">{lastError}</p>}
+      </div>
     </div>
   )
 }

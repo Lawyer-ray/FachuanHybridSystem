@@ -99,7 +99,7 @@ INSTALLED_APPS = [
     "apps.batch_printing",  # 5.455 批量打印
     "apps.story_viz",  # 5.46 故事可视化
     "apps.evidence",  # 5.5 证据管理
-    "apps.evidence_sorting",  # 5.51 案件材料整理（财务单据分类/对账单比对）
+    "apps.finance_doc_sorting",  # 5.51 案件材料整理（财务单据分类/对账单比对；原 evidence_sorting，与证据管理无关故改名）
     "apps.documents",  # 6. 文书生成
     "apps.chat_records",  # 6.0 聊天记录梳理
     "apps.litigation_ai",  # 6.1 AI 诉讼文书生成

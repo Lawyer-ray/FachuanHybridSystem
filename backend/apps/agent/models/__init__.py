@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from .agent import AgentApproval, AgentAttachment, AgentMessage, AgentRun, AgentSession
+from .agent import AgentApproval, AgentApprovalPolicy, AgentAttachment, AgentMessage, AgentRun, AgentSession
 
-__all__ = ["AgentApproval", "AgentAttachment", "AgentMessage", "AgentRun", "AgentSession"]
+__all__ = ["AgentApproval", "AgentApprovalPolicy", "AgentAttachment", "AgentMessage", "AgentRun", "AgentSession"]

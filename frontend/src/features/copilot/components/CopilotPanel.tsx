@@ -9,17 +9,23 @@
  * 背景由 PanelBackdrop 压暗一档拉开主次层次（任何视口都生效）。遮罩的
  * 生命周期跟 copilotMounted 走（AppShell 负责），不随面板一同卸载，
  * 收起时才能和滑出动画同步淡出。
+ *
+ * 并排模式（宽屏，AppShell 传入 dockCapable/docked）：遮罩关闭，主内容
+ * 区让出等宽 padding，本面板与页面同屏对照；切换按钮在 header 右侧。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PanelLeftClose, PanelLeftOpen, Paperclip, Plus, SquareStack, X } from 'lucide-react'
+import { Columns2, FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Sparkles, SquareStack, X } from 'lucide-react'
 
 import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
+import { useCopilotDrop } from '../hooks/use-copilot-drop'
 import { usePanelResize } from '../hooks/use-panel-resize'
 import { useCopilot } from '../store'
+
 import { Composer } from './Composer'
+import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
 import { useMediaQuery } from '@/hooks/use-media'
@@ -34,7 +40,21 @@ function readRailOpen(): boolean {
   }
 }
 
-export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CopilotPanel({
+  open,
+  onClose,
+  dockCapable = false,
+  docked = false,
+  onDockToggle,
+}: {
+  open: boolean
+  onClose: () => void
+  /** 宽屏（≥1280）才提供并排切换 */
+  dockCapable?: boolean
+  /** 当前是否处于并排模式（open && 偏好 && 宽屏） */
+  docked?: boolean
+  onDockToggle?: () => void
+}) {
   const sessionId = useCopilot((s) => s.sessionId)
   const streaming = useCopilot((s) => s.streaming)
   const context = useCopilot((s) => s.context)
@@ -153,41 +173,9 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
 
   const railVisible = railOpen && railCapable
   const draggingFiles = useCopilot((s) => s.draggingFiles)
-  const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
-  // 面板级拖拽投放：拖入高亮 + 松手收件。dragenter/over 必须 preventDefault
-  // 才能触发 drop；计数器法处理子元素间的 enter/leave 抖动。
-  // 流式/上传在途不加附件（与回形针按钮同口径）。
-  const filesDropAllowed = () => {
-    const { streaming, uploadingAttachments } = useCopilot.getState()
-    return !(streaming || uploadingAttachments)
-  }
-  const dragDepth = useRef(0)
-  const onDragEnter = (e: React.DragEvent) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return
-    e.preventDefault()
-    if (!filesDropAllowed()) return
-    dragDepth.current += 1
-    if (!useCopilot.getState().draggingFiles) useCopilot.setState({ draggingFiles: true })
-  }
-  const onDragOver = (e: React.DragEvent) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return
-    e.preventDefault()
-  }
-  const onDragLeave = (e: React.DragEvent) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return
-    e.preventDefault()
-    dragDepth.current = Math.max(0, dragDepth.current - 1)
-    if (dragDepth.current === 0) useCopilot.setState({ draggingFiles: false })
-  }
-  const onDrop = (e: React.DragEvent) => {
-    // 无条件 preventDefault + 复位：拖文件夹（files 为空列表）或非文件投放，
-    // 既不能让浏览器直接打开被拖入的文件，也不能让高亮层残留
-    e.preventDefault()
-    dragDepth.current = 0
-    useCopilot.setState({ draggingFiles: false })
-    if (!e.dataTransfer?.files?.length || !filesDropAllowed()) return
-    addAttachmentFiles(e.dataTransfer.files)
-  }
+  const [treeDrawerOpen, setTreeDrawerOpen] = useState(false)
+  // 面板级拖拽投放（双通道）：与详情页嵌入面板共用 use-copilot-drop
+  const drop = useCopilotDrop()
 
   const toggleList = () => {
     if (railCapable) {
@@ -212,10 +200,10 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
           open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'
         }`}
         aria-label="AI 助手"
-        onDragEnter={onDragEnter}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
+        onDragEnter={drop.onDragEnter}
+        onDragOver={drop.onDragOver}
+        onDragLeave={drop.onDragLeave}
+        onDrop={drop.onDrop}
       >
         {draggingFiles && (
           <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-background/70 backdrop-blur-[1px]">
@@ -249,6 +237,9 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
           >
             {railVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
+          <span className="copilot-orb ml-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-[8px]" aria-hidden>
+            <Sparkles className="h-3.5 w-3.5 text-background" strokeWidth={2.2} />
+          </span>
           <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
             {context ? `AI 助手 · ${context.title}` : currentTitle || 'AI 助手'}
           </span>
@@ -263,6 +254,39 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
               <SquareStack className="h-3 w-3 flex-none" />
               <span className="truncate">{context.origin === 'case' ? '本案' : '本委托'}</span>
               <X className="h-3 w-3 flex-none" />
+            </button>
+          )}
+          {context?.origin === 'contract' && (
+            <button
+              type="button"
+              className={`flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12px] transition-colors hover:bg-secondary hover:text-foreground ${
+                treeDrawerOpen ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+              }`}
+              onClick={() => setTreeDrawerOpen((v) => !v)}
+              aria-label={treeDrawerOpen ? '收起合同材料目录' : '展开合同材料目录'}
+              aria-pressed={treeDrawerOpen}
+              title="合同绑定文件夹目录树：把文件拖到输入区即可引用"
+            >
+              <FolderTree className="h-3.5 w-3.5" />
+              材料
+            </button>
+          )}
+          {dockCapable && onDockToggle && (
+            <button
+              type="button"
+              className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors hover:bg-secondary hover:text-foreground ${
+                docked ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+              }`}
+              onClick={onDockToggle}
+              aria-pressed={docked}
+              aria-label={docked ? '切换为悬浮模式' : '切换为并排模式'}
+              title={
+                docked
+                  ? '并排模式中：页面内容让位同屏显示，点击切回悬浮覆盖'
+                  : '并排模式：页面内容自动让位，可与合同详情页并排对照'
+              }
+            >
+              <Columns2 className="h-4 w-4" />
             </button>
           )}
           {currentModel && (
@@ -300,6 +324,9 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
             <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />
           )}
           <MessageList />
+          {treeDrawerOpen && context?.origin === 'contract' && (
+            <FolderTreeDrawer contractId={context.refId} onClose={() => setTreeDrawerOpen(false)} />
+          )}
         </div>
         <Composer />
     </aside>

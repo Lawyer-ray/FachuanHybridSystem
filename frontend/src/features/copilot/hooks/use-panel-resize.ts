@@ -4,13 +4,22 @@
  * 拖动期间直改 aside 上的 `--copilot-w` CSS 变量（ref + 直接 DOM，高频
  * pointermove 不走 React 协调，避免整树重渲染卡顿）；松手才提交 state
  * 并持久化 localStorage，下次展开沿用。宽度钳制在 [min, 可用宽度]。
+ *
+ * 宽度同时镜像到 <html> 的 `--copilot-w-app`：AppShell 的并排模式用它给
+ * 主内容区让出 padding-right（面板在壳层懒挂载，挂载即同步；拖动中同步
+ * 保证让位与面板变宽同帧，松手提交 state 后由 effect 兜底）。
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const WIDTH_KEY = 'copilot:width'
 const MIN_WIDTH = 420
 const RAIL_NEEDS = 560
+const APP_VAR = '--copilot-w-app'
+
+function syncAppVar(px: number): void {
+  document.documentElement.style.setProperty(APP_VAR, `${px}px`)
+}
 
 function clampWidth(px: number): number {
   const max = Math.max(MIN_WIDTH, window.innerWidth - 320)
@@ -41,7 +50,13 @@ interface PanelResize {
 export function usePanelResize(isSmUp: boolean): PanelResize {
   const [width, setWidth] = useState(readStoredWidth)
   const panelRef = useRef<HTMLElement | null>(null)
+
   const drag = useRef<{ startX: number; startWidth: number; targetWidth?: number } | null>(null)
+
+  // 挂载与宽度提交时同步到 <html>（拖动中的高频同步在 onMove 里直改）
+  useEffect(() => {
+    syncAppVar(width)
+  }, [width])
 
   const setPanelRef = useCallback((node: HTMLElement | null) => {
     panelRef.current = node
@@ -59,6 +74,7 @@ export function usePanelResize(isSmUp: boolean): PanelResize {
         const next = clampWidth(state.startWidth + (state.startX - ev.clientX))
         // 拖动中直改 CSS 变量：不触发 React 重渲染
         panelRef.current?.style.setProperty('--copilot-w', `${next}px`)
+        syncAppVar(next)
         // 松手前先本地记住目标值（up 时可能拿不到中间态）
         state.targetWidth = next
       }

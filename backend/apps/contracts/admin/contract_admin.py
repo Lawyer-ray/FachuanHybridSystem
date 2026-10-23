@@ -509,7 +509,7 @@ class ContractAdmin(
         context = self.admin_site.each_context(request)
         context.update(
             {
-                "title": "从金诚同达OA导入案件",
+                "title": "从OA导入案件",
                 "opts": self.model._meta,
             }
         )

@@ -8,7 +8,7 @@
 - documents: analysis_service, template_matching, evidence_export async 方法
 - automation: ChatProvider async 方法, asend_case_chat_notification
 - litigation_ai: middleware async, session/evidence services async
-- evidence_sorting: classify_images_async, parse_statement_async
+- finance_doc_sorting: classify_images_async, parse_statement_async
 - doc_convert: convert_document async 修复
 """
 
@@ -480,12 +480,12 @@ class TestLitigationEvidenceServicesAsync:
 
 
 # ─────────────────────────────────────────────
-# 8. evidence_sorting: async API
+# 8. finance_doc_sorting: async API
 # ─────────────────────────────────────────────
 
 
 class TestEvidenceSortingAsync:
-    """测试 evidence_sorting API 端点使用原生 async"""
+    """测试 finance_doc_sorting API 端点使用原生 async"""
 
     @pytest.mark.django_db
     def test_classify_images_endpoint_exists(self, authenticated_client):

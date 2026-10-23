@@ -194,7 +194,7 @@ def _register_app_routers() -> None:
     )
     from apps.enterprise_data.api import router as enterprise_data_router
     from apps.evidence.api import evidence_router
-    from apps.evidence_sorting.api import router as evidence_sorting_router
+    from apps.finance_doc_sorting.api import router as finance_doc_sorting_router
     from apps.image_rotation.api import router as image_rotation_router
     from apps.invoice_recognition.api import router as invoice_recognition_router
     from apps.legal_research.api import router as legal_research_router
@@ -243,7 +243,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/documents", case_template_download_router, tags=["案件模板下载"])
     api_v1.add_router("/documents/external-templates", external_template_router, tags=["外部模板"])
     api_v1.add_router("/evidence", evidence_router, tags=["证据管理"])
-    api_v1.add_router("/evidence-sorting", evidence_sorting_router, tags=["案件材料整理"])
+    api_v1.add_router("/evidence-sorting", finance_doc_sorting_router, tags=["案件材料整理"])
     api_v1.add_router("/litigation", litigation_router, auth=JWTOrSessionAuth(), tags=["诉讼文书生成"])
     api_v1.add_router("/mock-trial", mock_trial_router, auth=JWTOrSessionAuth(), tags=["模拟庭审"])
     api_v1.add_router("/contract-review", contract_review_router, auth=JWTOrSessionAuth(), tags=["合同审查"])

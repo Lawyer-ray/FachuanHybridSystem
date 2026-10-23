@@ -18,6 +18,7 @@ export function DeskDropLayer({
           <div className="rounded-2xl border border-primary bg-card px-10 py-8 text-center shadow-xl">
             <p className="text-lg font-medium">松手即新建材料包</p>
             <p className="mt-1 text-sm text-secondary-foreground">PDF · Word · 图片 · 视频，混着来都行</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">zip / rar / 7z 压缩包自动解包展开</p>
           </div>
         </div>
       )}

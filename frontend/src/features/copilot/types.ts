@@ -12,11 +12,23 @@ export interface AgentSession {
   llm_model: string
   /** 来源入口：chat（对话页）/ case（案件内）/ contract（合同内）/ task（任务式后台） */
   origin?: string
+  case_id?: number | null
+  contract_id?: number | null
+  /** 业务范围名（案件名 / 委托人客户名，列表接口批量注水），通用与任务会话为空串 */
+  scope_name?: string
   /** 任务式会话的进度（queued/running/succeeded/failed/cancelled）；非 task 会话为空串 */
   task_state?: string
   task_error?: string
   created_at: string
   updated_at: string
+}
+
+/** 会话分组（侧栏按业务范围分组展示，类 IDE 项目分组） */
+export interface SessionGroup {
+  key: string
+  kind: 'contract' | 'case' | 'chat' | 'task'
+  label: string
+  sessions: AgentSession[]
 }
 
 /** 历史消息（GET /agent/sessions/{id}/messages） */
@@ -69,15 +81,36 @@ export interface TurnStats {
 }
 
 /** 转录气泡（历史回放与流式共用一个模型） */
+/** 引用归属：合同绑定文件夹 / 案件绑定文件夹（两套独立绑定） */
+export type RefOwnerKind = 'contract' | 'case'
+
+/** 已发送消息里解析出的文件夹引用（chip 重放用；发送前草稿另见 FolderRefDraft） */
+export interface SentRefMeta {
+  kind: RefOwnerKind
+  ownerId: number
+  subpath: string
+  name: string
+  /** 目录引用：不落附件，靠 [已引用目录：…] 提示块让模型自行浏览 */
+  isFolder?: boolean
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
   content: string
+  /** user 消息里的文件夹引用（从「[已引用文件：…]」块解析，气泡上方重放为 chip） */
+  refs?: SentRefMeta[]
+  /** 通用模式下注入的页面锚点（从「[当前页面：…]」块解析，气泡上方重放为 chip） */
+  pageHint?: string
+  /** 业务范围（详情页工作区/浮层 context）下注入的归属锚点（从「[当前业务：…]」块解析） */
+  bizHint?: string
   /** tool 消息的工具名（tool_call 与 tool_result 的归并键） */
   toolName?: string
   toolCallId?: string
   /** 回答被停止/断连截断（服务端 metadata.truncated 透传） */
   truncated?: boolean
+  /** 用户反馈：点赞/点踩（历史回放透传，P1-9b） */
+  rating?: 'up' | 'down'
   /** 正在流式接收中（assistant 专属） */
   streaming?: boolean
   /** 模型的思考过程（开启思考模式时由 thinking 事件累积，仅展示不入正文） */
@@ -128,7 +161,23 @@ export interface AgentAttachmentReceipt {
   filename: string
   size: number
   mime: string
+  /** 引用型（拖拽绑定目录树文件）才有：指向绑定文件夹原文件，不复制字节 */
+  ref_owner_kind?: 'contract' | 'case'
+  ref_contract_id?: number | null
+  ref_subpath?: string
 }
+
+/** 拖拽引用草稿：合同绑定文件夹内的文件（发送时落库为 ref 记录并附引用块） */
+export interface FolderRefDraft {
+  kind: RefOwnerKind
+  ownerId: number
+  subpath: string
+  name: string
+  isFolder?: boolean
+}
+
+/** 拖拽通道常量与 workbench 共用，定义上提 lib（此处 re-export 便于域内引用） */
+export { FOLDER_REF_MIME } from '@/lib/folder-ref'
 
 /** GET /agent/usage 的汇总（token 由 pi 上报，取消/出错轮次也计入） */
 export interface UsageSummary {
@@ -179,6 +228,14 @@ export interface CopilotState {
   context: CopilotContext | null
   /** 待发送附件（拖拽/选择后暂存，随下一条消息上传并引用） */
   pendingFiles: File[]
+  /** 待发送的文件夹引用（从合同目录树拖入；随下一条消息落库并引用） */
+  pendingRefs: FolderRefDraft[]
+  /** 通用模式的页面感知：用户当前所在页面的描述（详情页会写更精确值覆盖），send 注入 */
+  pageHint: string | null
+  /** 上一条已注入的页面描述：页面没变不重复注入，历史不刷屏 */
+  lastPageHintSent: string | null
+  /** 页面感知写入（AppShell 路由兜底 / 详情页精确覆盖） */
+  setPageHint: (hint: string) => void
   /** 附件上传在途（发送按钮置忙，防止重复提交） */
   uploadingAttachments: boolean
   /** 拖拽文件悬停中（面板渲染投放离焦高亮） */
@@ -187,6 +244,10 @@ export interface CopilotState {
   addAttachmentFiles: (files: FileList | File[]) => void
   /** 移除一个待发附件 */
   removeAttachmentFile: (index: number) => void
+  /** 加入一个待发文件夹引用（同 contractId+subpath 去重） */
+  addFolderRef: (draft: FolderRefDraft) => void
+  /** 移除一个待发文件夹引用 */
+  removeFolderRef: (index: number) => void
   /** 进入业务内会话模式（案件/合同页打开）：列表过滤到该业务，新会话带归属 */
   enterContext: (context: CopilotContext) => Promise<void>
   /** 退出业务内会话模式，回到普通对话 */
@@ -202,8 +263,8 @@ export interface CopilotState {
   send: (text: string, onQueued?: (sent: boolean) => void) => Promise<void>
   /** 停止生成（中断在途流） */
   stop: () => void
-  /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed） */
-  decide: (approvalId: string, approved: boolean) => Promise<void>
+  /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed）；拒绝可附理由 */
+  decide: (approvalId: string, approved: boolean, reason?: string) => Promise<void>
   /** 运行中插话：当前轮工具调用后、下次模型调用前生效 */
   steer: (text: string) => Promise<void>
   /** 撤回已排队未生效的全部插话 */
@@ -214,6 +275,14 @@ export interface CopilotState {
   loadPendingApprovals: () => Promise<void>
   /** 关闭一张审批卡（已决/已超时的僵尸卡；仅本地移除，不影响服务端状态） */
   dismissApproval: (approvalId: string) => void
+  /** 给助手消息点赞/点踩（乐观更新，失败回滚；P1-9b） */
+  rateMessage: (messageId: number, rating: 'up' | 'down' | 'none') => Promise<void>
+  /** 加载更早的历史消息（游标分页，P1-3a）；没有更早时置 noMoreHistory */
+  loadOlderHistory: () => Promise<void>
+  /** 历史已到头（没有更早的消息了） */
+  noMoreHistory: boolean
+  /** 正在加载更早的消息 */
+  loadingOlder: boolean
   /** 重拉当前会话历史（后台任务跑完后刷新转录用；流式中跳过） */
   refreshHistory: () => Promise<void>
   /** 登出清理（换账号不得残留上一账号的会话内容） */

@@ -32,7 +32,7 @@ function detectMaterialKind(contentType: string | undefined, filename: string): 
 async function resolveMat(msg: InboxMessageDetail, att: AttachmentMeta): Promise<BundleMat> {
   const n = effectiveFileName(att)
   const k = detectMaterialKind(att.content_type, n)
-  const base = { partIndex: att.part_index, n, k }
+  const base = { partIndex: att.part_index, n, k, from: att.expanded_from || undefined }
   if (k !== 'pdf') return { ...base, pages: 1 }
   if (att.page_count && att.page_count > 0) return { ...base, pages: att.page_count }
   try {

@@ -71,7 +71,63 @@ async def list_sessions(
         queryset = queryset.filter(case_id=case_id)
     if contract_id is not None:
         queryset = queryset.filter(contract_id=contract_id)
-    return [session async for session in queryset[: _bounded(limit)]]
+    sessions = [session async for session in queryset[: _bounded(limit)]]
+    return await annotate_scope_names(sessions)
+
+
+async def annotate_scope_names(sessions: list[AgentSession]) -> list[AgentSession]:
+    """给会话批量挂上业务范围名（``scope_name`` 透传属性，供列表分组展示）。
+
+    - 案件会话：``Case.name``；
+    - 合同（委托）会话：委托人（PRINCIPAL 当事人）客户名——与详情页标题
+      同口径，比合同名「民事委托代理合同」可识别得多；无委托人回退
+      ``Contract.name``，实体已删回退 ``案件/合同 #id``；
+    - 通用/任务会话：空串（前端不分组）。
+
+    跨域模型经 ``apps.get_model`` 延迟解析（agent 不静态依赖 cases/contracts，
+    与 folder_refs 的单向依赖口径一致）；两个 ``pk__in`` 批量查询，无 N+1。
+    """
+    from django.apps import apps as django_apps
+
+    case_ids = {s.case_id for s in sessions if s.case_id}
+    contract_ids = {s.contract_id for s in sessions if s.contract_id}
+    if not case_ids and not contract_ids:
+        return sessions
+
+    Case = django_apps.get_model("cases", "Case")
+    Contract = django_apps.get_model("contracts", "Contract")
+
+    case_names: dict[int, str] = {}
+    if case_ids:
+        async for cid, name in Case.objects.filter(pk__in=case_ids).values_list("id", "name"):
+            case_names[cid] = name
+
+    contract_names: dict[int, str] = {}
+    principal_names: dict[int, str] = {}
+    if contract_ids:
+        async for cid, name in Contract.objects.filter(pk__in=contract_ids).values_list("id", "name"):
+            contract_names[cid] = name
+        # 每合同取第一个委托人客户名（order_by 保证确定序，setdefault 先到先得）
+        ContractParty = django_apps.get_model("contracts", "ContractParty")
+        principals = (
+            ContractParty.objects.filter(contract_id__in=contract_ids, role="PRINCIPAL")
+            .order_by("contract_id", "id")
+            .values_list("contract_id", "client__name")
+        )
+        async for cid, client_name in principals:
+            if client_name:
+                principal_names.setdefault(cid, client_name)
+
+    for s in sessions:
+        if s.case_id:
+            s.scope_name = case_names.get(s.case_id, f"案件 #{s.case_id}")
+        elif s.contract_id:
+            s.scope_name = principal_names.get(s.contract_id) or contract_names.get(
+                s.contract_id, f"合同 #{s.contract_id}"
+            )
+        else:
+            s.scope_name = ""
+    return sessions
 
 
 async def get_session(*, session_id: str, user_id: int | None) -> AgentSession | None:
@@ -79,8 +135,17 @@ async def get_session(*, session_id: str, user_id: int | None) -> AgentSession |
     return await _scoped(user_id).filter(session_id=session_id).afirst()
 
 
-async def list_messages(*, session_id: str, user_id: int | None, limit: int = 200) -> list[AgentMessage] | None:
+async def list_messages(
+    *,
+    session_id: str,
+    user_id: int | None,
+    limit: int = 200,
+    before_id: int | None = None,
+) -> list[AgentMessage] | None:
     """列出会话消息（旧→新），供前端重开会话时回放转录。
+
+    ``before_id``：游标分页——只取该消息 id 之前的记录（加载更早一页），
+    不传为最新一页。
 
     Returns:
         消息列表；会话不存在或不归属当前用户时返回 ``None``（由 API 层转 404）。
@@ -88,7 +153,10 @@ async def list_messages(*, session_id: str, user_id: int | None, limit: int = 20
     session = await get_session(session_id=session_id, user_id=user_id)
     if session is None:
         return None
-    rows = AgentMessage.objects.filter(session=session).order_by("-created_at", "-id")[: _bounded(limit, 1000)]
+    queryset = AgentMessage.objects.filter(session=session)
+    if before_id is not None and before_id > 0:
+        queryset = queryset.filter(id__lt=before_id)
+    rows = queryset.order_by("-created_at", "-id")[: _bounded(limit, 1000)]
     messages = [m async for m in rows]
     messages.reverse()
     return messages
@@ -122,3 +190,46 @@ async def rename_session(*, session_id: str, user_id: int | None, title: str) ->
     session.title = title.strip()[:200]
     await session.asave(update_fields=["title", "updated_at"])
     return session
+
+
+async def fork_session(*, session_id: str, user_id: int | None) -> AgentSession | None:
+    """Fork 一个会话（P2-9）：完整上下文记忆的分支。
+
+    做法：新建 AgentSession（metadata.forked_from=原 id）+ 复制 pi session
+    目录（文件系统级 copy-on-write）——新会话有完整对话历史，模型在新
+    分支上继续而不影响原会话。
+
+    Returns:
+        新会话；原会话不存在或不归属当前用户时返回 None。
+    """
+    import shutil
+
+    original = await get_session(session_id=session_id, user_id=user_id)
+    if original is None:
+        return None
+
+    from ..models import AgentSession as AgentSessionModel
+    from ..pi.session_store import layout
+
+    forked = await AgentSessionModel.objects.acreate(
+        title=f"{original.title or 'Fork'}（分支）"[:200],
+        user_id=user_id,
+        origin=original.origin,
+        case_id=original.case_id,
+        contract_id=original.contract_id,
+        metadata={"forked_from": str(original.session_id)},
+    )
+
+    # 复制 pi session 目录（上下文记忆）
+    _, _, sessions_root = layout()
+    src_dir = sessions_root / str(original.session_id)
+    dst_dir = sessions_root / str(forked.session_id)
+    if src_dir.exists():
+        shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
+        # 重命名目录内的 session 文件（pi 按 cwd + session_id 定位）
+        for old_file in dst_dir.glob("*.jsonl"):
+            new_name = old_file.name.replace(str(original.session_id), str(forked.session_id))
+            if new_name != old_file.name:
+                old_file.rename(dst_dir / new_name)
+
+    return forked

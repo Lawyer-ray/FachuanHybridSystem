@@ -100,6 +100,7 @@ class InboxMessage(models.Model):
                     "content_type": str(item.get("content_type") or "application/octet-stream"),
                     "part_index": part_index,
                     "page_count": page_count if page_count > 0 else None,
+                    "expanded_from": str(item.get("expanded_from") or "") or None,
                 }
             )
 

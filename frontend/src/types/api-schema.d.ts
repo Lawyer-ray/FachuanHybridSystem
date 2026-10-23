@@ -1863,6 +1863,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/folder-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Case Folder Entries
+         * @description 列出案件绑定文件夹下某一层的子文件夹与文件（非递归，不含隐藏项）。
+         */
+        get: operations["apps_cases_api_case_folder_browse_api_list_case_folder_entries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/folder-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open Case Folder File
+         * @description 内联预览（或下载）绑定文件夹内的单个文件。
+         */
+        get: operations["apps_cases_api_case_folder_browse_api_open_case_folder_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/folder-mkdir": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Case Folder
+         * @description 在 subpath（空 = 绑定根）下新建子文件夹。
+         */
+        post: operations["apps_cases_api_case_folder_browse_api_create_case_folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/folder-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Case Folder Files
+         * @description 拖拽 / 多文件上传到 subpath 目录（multipart 字段名 files，同名自动加序号）。
+         */
+        post: operations["apps_cases_api_case_folder_browse_api_upload_case_folder_files"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/folder-rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename Case Folder Entry
+         * @description 重命名 subpath 指向的文件或文件夹（new_name 同目录内生效）。
+         */
+        post: operations["apps_cases_api_case_folder_browse_api_rename_case_folder_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/folder-copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Case Folder Entry
+         * @description 复制文件/文件夹到目标目录（同名自动加序号；不覆盖既有文件）。
+         */
+        post: operations["apps_cases_api_case_folder_browse_api_copy_case_folder_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/folder-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Case Folder Entry
+         * @description 删除 = 移入绑定根下 _已删除/（带时间戳，可恢复），不做物理删除。
+         */
+        post: operations["apps_cases_api_case_folder_browse_api_delete_case_folder_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/materials/bind-candidates": {
         parameters: {
             query?: never;
@@ -3074,6 +3214,146 @@ export interface paths {
          * @description 清空全部归档材料
          */
         post: operations["apps_contracts_api_archive_api_clear_all_archive_materials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Contract Folder Entries
+         * @description 列出合同绑定文件夹下某一层的子文件夹与文件（非递归，不含隐藏项）。
+         */
+        get: operations["apps_contracts_api_contract_folder_browse_api_list_contract_folder_entries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open Contract Folder File
+         * @description 内联预览（或下载）绑定文件夹内的单个文件。
+         */
+        get: operations["apps_contracts_api_contract_folder_browse_api_open_contract_folder_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-mkdir": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Contract Folder
+         * @description 在 subpath（空 = 绑定根）下新建子文件夹。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_create_contract_folder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Contract Folder Files
+         * @description 拖拽 / 多文件上传到 subpath 目录（multipart 字段名 files，同名自动加序号）。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_upload_contract_folder_files"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename Contract Folder Entry
+         * @description 重命名 subpath 指向的文件或文件夹（name 为新名字，同目录内生效）。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_rename_contract_folder_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Contract Folder Entry
+         * @description 复制文件/文件夹到目标目录（同名自动加序号；不覆盖既有文件）。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_copy_contract_folder_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Contract Folder Entry
+         * @description 删除 = 移入绑定根下 _已删除/（带时间戳，可恢复），不做物理删除。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_delete_contract_folder_entry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8564,7 +8844,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workbench/sessions": {
+    "/api/v1/agent/sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -8573,110 +8853,42 @@ export interface paths {
         };
         /**
          * List Sessions
-         * @description 获取当前用户的工作台会话列表
+         * @description 列出当前用户的会话。
          */
-        get: operations["apps_workbench_api_workbench_api_list_sessions"];
+        get: operations["apps_agent_api_agent_api_list_sessions"];
         put?: never;
         /**
          * Create Session
-         * @description 创建工作台会话
+         * @description 新建会话。
          */
-        post: operations["apps_workbench_api_workbench_api_create_session"];
+        post: operations["apps_agent_api_agent_api_create_session"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workbench/sessions/{session_id}": {
+    "/api/v1/agent/sessions/{session_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Session
-         * @description 获取会话详情
-         */
-        get: operations["apps_workbench_api_workbench_api_get_session"];
+        get?: never;
         put?: never;
         post?: never;
         /**
          * Delete Session
-         * @description 删除会话
+         * @description 删除会话（级联删除消息与审批）。
          */
-        delete: operations["apps_workbench_api_workbench_api_delete_session"];
-        options?: never;
-        head?: never;
-        /**
-         * Update Session
-         * @description 更新会话
-         */
-        patch: operations["apps_workbench_api_workbench_api_update_session"];
-        trace?: never;
-    };
-    "/api/v1/workbench/sessions/{session_id}/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Messages
-         * @description 获取会话的消息列表
-         */
-        get: operations["apps_workbench_api_workbench_api_list_messages"];
-        put?: never;
-        post?: never;
-        delete?: never;
+        delete: operations["apps_agent_api_agent_api_delete_session"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workbench/sessions/{session_id}/messages/from/{message_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Truncate Messages
-         * @description 删除指定消息及其之后的所有消息（用于编辑重发）
-         */
-        delete: operations["apps_workbench_api_workbench_api_truncate_messages"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/messages/{message_id}/feedback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Submit Feedback
-         * @description 提交消息反馈（好评/差评）
-         */
-        patch: operations["apps_workbench_api_workbench_api_submit_feedback"];
-        trace?: never;
-    };
-    "/api/v1/workbench/sessions/{session_id}/messages/stream": {
+    "/api/v1/agent/sessions/{session_id}/messages": {
         parameters: {
             query?: never;
             header?: never;
@@ -8686,17 +8898,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Stream Chat
-         * @description SSE 流式对话 - 发送消息并获取 AI 流式响应
+         * Send Message
+         * @description 发消息并流式返回（SSE）。
          */
-        post: operations["apps_workbench_api_workbench_api_stream_chat"];
+        post: operations["apps_agent_api_agent_api_send_message"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workbench/approval": {
+    "/api/v1/agent/approval/request": {
         parameters: {
             query?: never;
             header?: never;
@@ -8706,17 +8918,19 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Respond Approval
-         * @description 响应审批请求（Human-in-the-Loop）
+         * Pi Approval Request
+         * @description pi extension 的工具调用审批闸门（同步阻塞等用户回答）。
+         *
+         *     鉴权：``X-Internal-Token`` 头（extension 没有用户会话，不走 JWT）。
          */
-        post: operations["apps_workbench_api_workbench_api_respond_approval"];
+        post: operations["apps_agent_api_agent_api_pi_approval_request"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workbench/batch/analyze": {
+    "/api/v1/agent/approval/{approval_id}/decide": {
         parameters: {
             query?: never;
             header?: never;
@@ -8726,17 +8940,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Submit Batch Analysis
-         * @description 提交批量文档分析任务
+         * Submit Approval Decision
+         * @description 前端提交审批决定。
          */
-        post: operations["apps_workbench_api_workbench_api_submit_batch_analysis"];
+        post: operations["apps_agent_api_agent_api_submit_approval_decision"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workbench/batch/{job_id}/progress": {
+    "/api/v1/agent/approvals": {
         parameters: {
             query?: never;
             header?: never;
@@ -8744,190 +8958,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Batch Progress
-         * @description 查询批量分析任务进度
+         * List Approvals
+         * @description 列出审批记录（审计用）。
          */
-        get: operations["apps_workbench_api_workbench_api_get_batch_progress"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/batch/{job_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel Batch Analysis
-         * @description 取消批量分析任务
-         */
-        post: operations["apps_workbench_api_workbench_api_cancel_batch_analysis"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/batch/{job_id}/download": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download Batch Summary
-         * @description 下载批量分析汇总 CSV 文件
-         */
-        get: operations["apps_workbench_api_workbench_api_download_batch_summary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/batch/{job_id}/download-detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download Batch Detail Zip
-         * @description 下载批量分析详情 ZIP 文件
-         */
-        get: operations["apps_workbench_api_workbench_api_download_batch_detail_zip"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/batch/{job_id}/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Save Batch Messages
-         * @description 将批量分析结果持久化为工作台消息
-         */
-        post: operations["apps_workbench_api_workbench_api_save_batch_messages"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/batch/{job_id}/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Stream Batch Progress
-         * @description SSE 流式推送批量分析进度
-         */
-        get: operations["apps_workbench_api_workbench_api_stream_batch_progress"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/batch/{job_id}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry Failed Items
-         * @description 重试批量分析中失败的文件
-         */
-        post: operations["apps_workbench_api_workbench_api_retry_failed_items"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/sessions/{session_id}/batch-jobs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Batch Jobs
-         * @description 获取会话的批量分析任务历史
-         */
-        get: operations["apps_workbench_api_workbench_api_list_batch_jobs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/optimize-prompt": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Optimize Prompt
-         * @description 使用 AI 优化批量分析的 prompt
-         */
-        post: operations["apps_workbench_api_workbench_api_optimize_prompt"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/workbench/models": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Models
-         * @description 获取可用的 LLM 模型列表（默认模型取列表第一个）
-         */
-        get: operations["apps_workbench_api_workbench_api_list_models"];
+        get: operations["apps_agent_api_agent_api_list_approvals"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11654,6 +11688,90 @@ export interface components {
              */
             storage_type: string;
         };
+        /** CaseFolderEntriesResponseSchema */
+        CaseFolderEntriesResponseSchema: {
+            /** Browsable */
+            browsable: boolean;
+            /** Message */
+            message?: string | null;
+            /**
+             * Path Display
+             * @default
+             */
+            path_display: string;
+            /**
+             * Subpath
+             * @default
+             */
+            subpath: string;
+            /**
+             * Parent Subpath
+             * @default
+             */
+            parent_subpath: string;
+            /**
+             * Folders
+             * @default []
+             */
+            folders: components["schemas"]["CaseFolderSubfolderSchema"][];
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["CaseFolderFileSchema"][];
+        };
+        /** CaseFolderFileSchema */
+        CaseFolderFileSchema: {
+            /** Name */
+            name: string;
+            /** Subpath */
+            subpath: string;
+            /** Size */
+            size: number;
+            /** Modified At */
+            modified_at: string;
+        };
+        /** CaseFolderSubfolderSchema */
+        CaseFolderSubfolderSchema: {
+            /** Name */
+            name: string;
+            /** Subpath */
+            subpath: string;
+        };
+        /**
+         * CaseFolderEntryNameIn
+         * @description 新建 / 重命名共用入参：subpath 定位目标（mkdir 为父目录、rename 为条目本身），name 为新名字。
+         */
+        CaseFolderEntryNameIn: {
+            /**
+             * Subpath
+             * @default
+             */
+            subpath: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * CaseFolderCopyIn
+         * @description 复制入参：subpath 为复制源，dest_subpath 为目标目录（空 = 绑定根）。
+         */
+        CaseFolderCopyIn: {
+            /** Subpath */
+            subpath: string;
+            /**
+             * Dest Subpath
+             * @default
+             */
+            dest_subpath: string;
+        };
+        /**
+         * CaseFolderPathIn
+         * @description 删除入参：subpath 定位要移入回收目录的条目。
+         */
+        CaseFolderPathIn: {
+            /** Subpath */
+            subpath: string;
+        };
         /** CaseMaterialBindCandidateOut */
         CaseMaterialBindCandidateOut: {
             /** Attachment Id */
@@ -13466,6 +13584,90 @@ export interface components {
              * @default 0
              */
             deleted_count: number;
+        };
+        /** ContractFolderEntriesOut */
+        ContractFolderEntriesOut: {
+            /** Browsable */
+            browsable: boolean;
+            /** Message */
+            message?: string | null;
+            /**
+             * Path Display
+             * @default
+             */
+            path_display: string;
+            /**
+             * Subpath
+             * @default
+             */
+            subpath: string;
+            /**
+             * Parent Subpath
+             * @default
+             */
+            parent_subpath: string;
+            /**
+             * Folders
+             * @default []
+             */
+            folders: components["schemas"]["ContractFolderSubfolderOut"][];
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["ContractFolderFileOut"][];
+        };
+        /** ContractFolderFileOut */
+        ContractFolderFileOut: {
+            /** Name */
+            name: string;
+            /** Subpath */
+            subpath: string;
+            /** Size */
+            size: number;
+            /** Modified At */
+            modified_at: string;
+        };
+        /** ContractFolderSubfolderOut */
+        ContractFolderSubfolderOut: {
+            /** Name */
+            name: string;
+            /** Subpath */
+            subpath: string;
+        };
+        /**
+         * ContractFolderEntryNameIn
+         * @description 新建 / 重命名共用入参：subpath 定位目标（mkdir 为父目录、rename 为条目本身），name 为新名字。
+         */
+        ContractFolderEntryNameIn: {
+            /**
+             * Subpath
+             * @default
+             */
+            subpath: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ContractFolderCopyIn
+         * @description 复制入参：subpath 为复制源，dest_subpath 为目标目录（空 = 绑定根）。
+         */
+        ContractFolderCopyIn: {
+            /** Subpath */
+            subpath: string;
+            /**
+             * Dest Subpath
+             * @default
+             */
+            dest_subpath: string;
+        };
+        /**
+         * ContractFolderPathIn
+         * @description 删除入参：subpath 定位要移入回收目录的条目。
+         */
+        ContractFolderPathIn: {
+            /** Subpath */
+            subpath: string;
         };
         /** DocumentProcessOut */
         DocumentProcessOut: {
@@ -19304,205 +19506,82 @@ export interface components {
              */
             resource: string;
         };
-        /** SessionCreateIn */
-        SessionCreateIn: {
+        /**
+         * SessionIn
+         * @description 创建会话请求体。
+         */
+        SessionIn: {
             /**
              * Title
-             * @description 会话标题
              * @default
              */
             title: string;
             /**
              * Llm Model
-             * @description 使用的 LLM 模型 ID
              * @default
              */
             llm_model: string;
         };
-        /** SessionUpdateIn */
-        SessionUpdateIn: {
-            /**
-             * Title
-             * @description 会话标题
-             */
-            title?: string | null;
-            /**
-             * Llm Model
-             * @description 使用的 LLM 模型 ID
-             */
-            llm_model?: string | null;
-            /**
-             * Status
-             * @description 会话状态
-             */
-            status?: string | null;
-        };
         /**
-         * FeedbackIn
-         * @description 消息反馈请求体
+         * MessageIn
+         * @description 发消息请求体。
          */
-        FeedbackIn: {
-            /**
-             * Rating
-             * @enum {string}
-             */
-            rating: "good" | "bad";
-            /**
-             * Comment
-             * @default
-             */
-            comment: string;
-        };
-        /** MessageIn */
         MessageIn: {
-            /**
-             * Content
-             * @description 用户消息内容
-             */
-            content: string;
+            /** Message */
+            message: string;
             /**
              * Llm Model
-             * @description 使用的 LLM 模型 ID（覆盖会话默认）
              * @default
              */
             llm_model: string;
-            /**
-             * Agent Type
-             * @description Agent 类型: triage/case/contract/research
-             * @default
-             */
-            agent_type: string;
         };
         /**
-         * ApprovalIn
-         * @description 审批请求体
+         * PiApprovalOut
+         * @description 审批结果（只有 approved=true 放行）。
          */
-        ApprovalIn: {
-            /** Approval Id */
-            approval_id: string;
+        PiApprovalOut: {
             /** Approved */
             approved: boolean;
+            /**
+             * Approval Id
+             * @default
+             */
+            approval_id: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
-        /** BatchJobOut */
-        BatchJobOut: {
+        /**
+         * PiApprovalIn
+         * @description pi extension 发来的审批请求。
+         */
+        PiApprovalIn: {
+            /** Tool */
+            tool: string;
+            /** Args */
+            args?: {
+                [key: string]: unknown;
+            } | null;
             /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Session Id */
-            session_id: number;
-            /** Job Type */
-            job_type: string;
-            /** Status */
-            status: string;
-            /** Prompt */
-            prompt: string;
-            /** Llm Model */
-            llm_model: string;
-            /** Total Items */
-            total_items: number;
-            /** Completed Items */
-            completed_items: number;
-            /** Failed Items */
-            failed_items: number;
-            /** Progress */
-            progress: number;
-            /** Summary */
-            summary: string;
-            /**
-             * Summary File
-             * @default
-             */
-            summary_file: string;
-            /**
-             * Detail Zip File
-             * @default
-             */
-            detail_zip_file: string;
-            /** Error Message */
-            error_message: string;
-            /** Created At */
-            created_at?: string | null;
-            /** Updated At */
-            updated_at?: string | null;
-            /** Started At */
-            started_at?: string | null;
-            /** Finished At */
-            finished_at?: string | null;
-            /** Started Processing At */
-            started_processing_at?: string | null;
-            /** Eta Seconds */
-            eta_seconds?: number | null;
-            /**
-             * Speed Per Minute
+             * User Id
              * @default 0
              */
-            speed_per_minute: number;
-        };
-        /** BatchItemOut */
-        BatchItemOut: {
+            user_id: number;
             /**
-             * Id
-             * Format: uuid
+             * Session Id
+             * @default
              */
-            id: string;
-            /** File Name */
-            file_name: string;
-            /** Status */
-            status: string;
-            /** Result */
-            result: string;
-            /** Error */
-            error: string;
-            /** Duration Ms */
-            duration_ms: number | null;
-        };
-        /** BatchProgressOut */
-        BatchProgressOut: {
-            job: components["schemas"]["BatchJobOut"];
-            /** Items */
-            items: components["schemas"]["BatchItemOut"][];
-            /**
-             * Failed Items Detail
-             * @default []
-             */
-            failed_items_detail: {
-                [key: string]: unknown;
-            }[];
+            session_id: string;
         };
         /**
-         * BatchMessageItemIn
-         * @description 批量消息持久化请求体
+         * ApprovalDecideIn
+         * @description 前端审批决定。
          */
-        BatchMessageItemIn: {
-            /** File Name */
-            file_name: string;
-            /** Content */
-            content: string;
-            /**
-             * Metadata
-             * @default {}
-             */
-            metadata: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * OptimizePromptOut
-         * @description Prompt 优化响应体
-         */
-        OptimizePromptOut: {
-            /** Optimized Prompt */
-            optimized_prompt: string;
-        };
-        /**
-         * OptimizePromptIn
-         * @description Prompt 优化请求体
-         */
-        OptimizePromptIn: {
-            /** Prompt */
-            prompt: string;
+        ApprovalDecideIn: {
+            /** Approved */
+            approved: boolean;
         };
         /** JobSubmitOut */
         JobSubmitOut: {
@@ -23194,6 +23273,170 @@ export interface operations {
             };
         };
     };
+    apps_cases_api_case_folder_browse_api_list_case_folder_entries: {
+        parameters: {
+            query?: {
+                subpath?: string;
+            };
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFolderEntriesResponseSchema"];
+                };
+            };
+        };
+    };
+    apps_cases_api_case_folder_browse_api_open_case_folder_file: {
+        parameters: {
+            query: {
+                subpath: string;
+            };
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_cases_api_case_folder_browse_api_create_case_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseFolderEntryNameIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_cases_api_case_folder_browse_api_upload_case_folder_files: {
+        parameters: {
+            query?: {
+                subpath?: string;
+            };
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_cases_api_case_folder_browse_api_rename_case_folder_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseFolderEntryNameIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_cases_api_case_folder_browse_api_copy_case_folder_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseFolderCopyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_cases_api_case_folder_browse_api_delete_case_folder_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseFolderPathIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_cases_api_case_material_api_list_bind_candidates: {
         parameters: {
             query?: never;
@@ -24893,6 +25136,170 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ClearAllOut"];
                 };
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_list_contract_folder_entries: {
+        parameters: {
+            query?: {
+                subpath?: string;
+            };
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFolderEntriesOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_open_contract_folder_file: {
+        parameters: {
+            query: {
+                subpath: string;
+            };
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_create_contract_folder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractFolderEntryNameIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_upload_contract_folder_files: {
+        parameters: {
+            query?: {
+                subpath?: string;
+            };
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_rename_contract_folder_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractFolderEntryNameIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_copy_contract_folder_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractFolderCopyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_delete_contract_folder_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractFolderPathIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -31924,10 +32331,10 @@ export interface operations {
             };
         };
     };
-    apps_workbench_api_workbench_api_list_sessions: {
+    apps_agent_api_agent_api_list_sessions: {
         parameters: {
             query?: {
-                page?: number;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -31940,11 +32347,13 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SessionOut"][];
+                };
             };
         };
     };
-    apps_workbench_api_workbench_api_create_session: {
+    apps_agent_api_agent_api_create_session: {
         parameters: {
             query?: never;
             header?: never;
@@ -31953,7 +32362,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SessionCreateIn"];
+                "application/json": components["schemas"]["SessionIn"];
             };
         };
         responses: {
@@ -31968,34 +32377,12 @@ export interface operations {
             };
         };
     };
-    apps_workbench_api_workbench_api_get_session: {
+    apps_agent_api_agent_api_delete_session: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionOut"];
-                };
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_delete_session: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
+                session_id: string;
             };
             cookie?: never;
         };
@@ -32010,106 +32397,12 @@ export interface operations {
             };
         };
     };
-    apps_workbench_api_workbench_api_update_session: {
+    apps_agent_api_agent_api_send_message: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SessionUpdateIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionOut"];
-                };
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_list_messages: {
-        parameters: {
-            query?: {
-                page?: number;
-                before_id?: number | null;
-            };
-            header?: never;
-            path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_truncate_messages: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
-                message_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_submit_feedback: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                message_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FeedbackIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_stream_chat: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: number;
+                session_id: string;
             };
             cookie?: never;
         };
@@ -32128,7 +32421,7 @@ export interface operations {
             };
         };
     };
-    apps_workbench_api_workbench_api_respond_approval: {
+    apps_agent_api_agent_api_pi_approval_request: {
         parameters: {
             query?: never;
             header?: never;
@@ -32137,7 +32430,33 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApprovalIn"];
+                "application/json": components["schemas"]["PiApprovalIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PiApprovalOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_submit_approval_decision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalDecideIn"];
             };
         };
         responses: {
@@ -32150,54 +32469,13 @@ export interface operations {
             };
         };
     };
-    apps_workbench_api_workbench_api_submit_batch_analysis: {
+    apps_agent_api_agent_api_list_approvals: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+            };
             header?: never;
             path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Session Id */
-                    session_id: number;
-                    /** Prompt */
-                    prompt: string;
-                    /**
-                     * Llm Model
-                     * @default
-                     */
-                    llm_model?: string;
-                    /**
-                     * Concurrency
-                     * @default 50
-                     */
-                    concurrency?: number;
-                    /** Files */
-                    files: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchJobOut"];
-                };
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_get_batch_progress: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
             cookie?: never;
         };
         requestBody?: never;
@@ -32208,200 +32486,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BatchProgressOut"];
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
                 };
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_cancel_batch_analysis: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_download_batch_summary: {
-        parameters: {
-            query?: {
-                relevant_only?: boolean;
-            };
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_download_batch_detail_zip: {
-        parameters: {
-            query?: {
-                relevant_only?: boolean;
-            };
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_save_batch_messages: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BatchMessageItemIn"][];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_stream_batch_progress: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_retry_failed_items: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_list_batch_jobs: {
-        parameters: {
-            query?: {
-                page?: number;
-            };
-            header?: never;
-            path: {
-                session_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_optimize_prompt: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OptimizePromptIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OptimizePromptOut"];
-                };
-            };
-        };
-    };
-    apps_workbench_api_workbench_api_list_models: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
         };
     };

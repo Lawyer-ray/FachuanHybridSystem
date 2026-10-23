@@ -13,6 +13,7 @@ const copilotState = vi.hoisted(() => ({
   streaming: false,
   queuedSteers: [] as string[],
   pendingFiles: [] as File[],
+  pendingRefs: [] as { contractId: number; subpath: string; name: string }[],
   uploadingAttachments: false,
   turnStats: {
     firstDeltaAt: null as number | null,
@@ -29,6 +30,7 @@ const copilotState = vi.hoisted(() => ({
   submitTask: vi.fn(),
   addAttachmentFiles: vi.fn(),
   removeAttachmentFile: vi.fn(),
+  removeFolderRef: vi.fn(),
 }))
 
 vi.mock('../store', () => ({
@@ -45,6 +47,7 @@ beforeEach(() => {
   copilotState.streaming = false
   copilotState.queuedSteers = []
   copilotState.pendingFiles = []
+  copilotState.pendingRefs = []
   copilotState.uploadingAttachments = false
   copilotState.send = vi.fn()
   copilotState.stop = vi.fn()
@@ -53,6 +56,7 @@ beforeEach(() => {
   copilotState.submitTask = vi.fn()
   copilotState.addAttachmentFiles = vi.fn()
   copilotState.removeAttachmentFile = vi.fn()
+  copilotState.removeFolderRef = vi.fn()
   copilotState.turnStats = {
     firstDeltaAt: null,
     lastDeltaAt: null,

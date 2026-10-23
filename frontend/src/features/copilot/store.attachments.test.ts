@@ -96,7 +96,7 @@ describe('copilot store：附件', () => {
 
     await useCopilot.getState().send('帮我看看')
     expect(copilotApi.openMessageStream).not.toHaveBeenCalled()
-    expect(useCopilot.getState().lastError).toContain('附件上传失败')
+    expect(useCopilot.getState().lastError).toContain('准备失败')
     expect(useCopilot.getState().pendingFiles).toEqual([file])
     expect(useCopilot.getState().streaming).toBe(false)
   })

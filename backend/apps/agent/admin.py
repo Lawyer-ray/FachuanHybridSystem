@@ -12,7 +12,7 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
-from .models import AgentApproval, AgentRun, AgentSession
+from .models import AgentApproval, AgentApprovalPolicy, AgentRun, AgentSession
 
 
 @admin.register(AgentRun)
@@ -71,3 +71,13 @@ class AgentApprovalAdmin(admin.ModelAdmin):
     list_filter = ("status", "created_at")
     search_fields = ("tool_name",)
     date_hierarchy = "created_at"
+
+
+@admin.register(AgentApprovalPolicy)
+class AgentApprovalPolicyAdmin(admin.ModelAdmin):
+    """审批策略配置（P2-5）：用户 × 工具 → allow/ask/deny。"""
+
+    list_display = ("user", "tool_pattern", "is_prefix", "action", "note", "updated_at")
+    list_filter = ("action", "is_prefix")
+    search_fields = ("tool_pattern", "user__username")
+    ordering = ("-updated_at",)

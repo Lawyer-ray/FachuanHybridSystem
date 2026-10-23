@@ -19,6 +19,9 @@ import {
   nextLocalId,
   pendingItemToApproval,
   splitAttachmentFiles,
+  splitBizHintLine,
+  splitPageHintLine,
+  splitRefBlocks,
 } from './domain'
 import { resetUploadReceipts, uploadAttachmentsAndCompose } from './outgoing'
 import { readStoredSession, storeSession } from './persistence'
@@ -52,8 +55,13 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   steering: false,
   context: null,
   pendingFiles: [],
+  pendingRefs: [],
+  pageHint: null,
+  lastPageHintSent: null,
   uploadingAttachments: false,
   draggingFiles: false,
+  noMoreHistory: false,
+  loadingOlder: false,
 
   addAttachmentFiles: (files) => {
     const { accepted, rejected } = splitAttachmentFiles(Array.from(files))
@@ -67,6 +75,22 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   removeAttachmentFile: (index) => {
     set((s) => ({ pendingFiles: s.pendingFiles.filter((_, i) => i !== index) }))
+  },
+
+  addFolderRef: (draft) => {
+    set((s) => {
+      if (s.pendingRefs.some((r) => r.kind === draft.kind && r.ownerId === draft.ownerId && r.subpath === draft.subpath)) return s
+      return { pendingRefs: [...s.pendingRefs, draft] }
+    })
+  },
+
+  removeFolderRef: (index) => {
+    set((s) => ({ pendingRefs: s.pendingRefs.filter((_, i) => i !== index) }))
+  },
+
+  setPageHint: (hint) => {
+    if (get().pageHint === hint) return
+    set({ pageHint: hint })
   },
 
   enterContext: async (context) => {
@@ -96,7 +120,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       // 等待期间用户可能又切走了：只回填仍是当前会话的结果
       if (get().sessionId === id) {
         withViewTransition(() => {
-          set({ messages: historyToMessages(rows), loadingHistory: false })
+          set({ messages: historyToMessages(rows), loadingHistory: false, noMoreHistory: rows.length < 200 })
         })
       }
     } catch {
@@ -115,6 +139,22 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       return
     }
     set({ lastError: null })
+
+    // 锚点注入（模型据此知道自己服务谁、用户在哪个页面）：
+    // - 业务范围内（详情页工作区/浮层 context）：每轮注入归属锚点——pi 的
+    //   compaction 可能把首轮上下文压掉，不重复注入模型就会「失忆」反问
+    //   「哪个案件」（实测发生过）；含实体 id，模型可直接调工具读绑定文件夹。
+    // - 通用模式：页面变化后首条才注页面锚点（历史不刷屏）。
+    const pre = get()
+    let outgoingText = trimmed
+    if (pre.context) {
+      const unit = pre.context.origin === 'case' ? '本案' : '本委托'
+      const idKey = pre.context.origin === 'case' ? 'case_id' : 'contract_id'
+      outgoingText = `[当前业务：${unit}「${pre.context.title}」 ${idKey}=${pre.context.refId}]\n${trimmed}`
+    } else if (pre.pageHint && pre.pageHint !== pre.lastPageHintSent) {
+      outgoingText = `[当前页面：${pre.pageHint}]\n${trimmed}`
+      set({ lastPageHintSent: pre.pageHint })
+    }
 
     // 本轮发送归属哪个会话：await 期间用户可能切会话/开新对话，
     // 迟到结果必须丢弃，否则会覆盖用户刚选中的会话并把消息推进去
@@ -141,11 +181,12 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     // read_agent_attachment(id) 读正文，base64 不进上下文。任一失败则本轮
     // 不发、chips 保留可重试（outgoing 复用已成功回执，不重复上传）。
     const pendingFiles = get().pendingFiles
-    if (pendingFiles.length > 0) set({ uploadingAttachments: true })
-    const outgoing = await uploadAttachmentsAndCompose(sessionId, trimmed, pendingFiles)
+    const pendingRefs = get().pendingRefs
+    if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ uploadingAttachments: true })
+    const outgoing = await uploadAttachmentsAndCompose(sessionId, outgoingText, pendingFiles, pendingRefs)
     set({ uploadingAttachments: false })
     if (outgoing === null) {
-      set({ lastError: '附件上传失败，请重试（附件已保留）' })
+      set({ lastError: '附件/引用准备失败，请重试（已保留，重试不会重复上传）' })
       onQueued?.(false)
       return
     }
@@ -155,14 +196,25 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       onQueued?.(false)
       return
     }
-    if (pendingFiles.length > 0) set({ pendingFiles: [] })
+    if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ pendingFiles: [], pendingRefs: [] })
     const composed = outgoing.composed
 
     const assistantId = nextLocalId()
+    // 与历史回放同一解析：本地即时渲染也把页面/业务锚点、引用块还原成 chip，两侧不漂移
+    const { pageHint, body: noHint } = splitPageHintLine(composed)
+    const { bizHint, body: noBiz } = splitBizHintLine(noHint)
+    const { refs, body } = splitRefBlocks(noBiz)
     set((s) => ({
       messages: [
         ...s.messages,
-        { id: nextLocalId(), role: 'user', content: composed },
+        {
+          id: nextLocalId(),
+          role: 'user',
+          content: body,
+          ...(pageHint ? { pageHint } : {}),
+          ...(bizHint ? { bizHint } : {}),
+          ...(refs.length ? { refs } : {}),
+        },
         { id: assistantId, role: 'assistant', content: '', streaming: true },
       ],
       approvals: [],
@@ -204,14 +256,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     controller?.abort()
   },
 
-  decide: async (approvalId, approved) => {
+  decide: async (approvalId, approved, reason = '') => {
     set((s) => ({
       approvals: s.approvals.map((a) =>
         a.approvalId === approvalId ? { ...a, decided: approved ? 'approved' : 'rejected' } : a,
       ),
     }))
     try {
-      await copilotApi.decideApproval(approvalId, approved)
+      await copilotApi.decideApproval(approvalId, approved, reason)
     } catch {
       // 本地已标记；提交失败不再回滚——服务端 300s 超时按拒绝处理（fail-closed）
     }
@@ -284,6 +336,47 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     set((s) => ({ approvals: s.approvals.filter((a) => a.approvalId !== approvalId) }))
   },
 
+  rateMessage: async (messageId, rating) => {
+    const prev = get().messages.find((m) => m.id === `db-${messageId}`)?.rating
+    const apply = (r?: 'up' | 'down') =>
+      set((s) => ({
+        messages: s.messages.map((m) => (m.id === `db-${messageId}` ? { ...m, rating: r } : m)),
+      }))
+    apply(rating === 'none' ? undefined : rating)
+    try {
+      await copilotApi.rateMessage(messageId, rating)
+    } catch {
+      apply(prev) // 失败回滚
+    }
+  },
+
+  loadOlderHistory: async () => {
+    const { sessionId, messages, loadingHistory, streaming, noMoreHistory } = get()
+    if (!sessionId || loadingHistory || streaming || noMoreHistory) return
+    const oldest = messages.find((m) => m.id.startsWith('db-'))
+    const beforeId = oldest ? Number(oldest.id.slice(3)) : undefined
+    if (!beforeId) {
+      set({ noMoreHistory: true })
+      return
+    }
+    set({ loadingOlder: true })
+    try {
+      const older = await copilotApi.fetchHistory(sessionId, 200, beforeId)
+      if (older.length === 0) {
+        set({ noMoreHistory: true })
+        return
+      }
+      set((s) => ({
+        messages: [...historyToMessages(older), ...s.messages],
+        noMoreHistory: older.length < 200,
+      }))
+    } catch {
+      /* 静默：翻页失败不打扰当前对话 */
+    } finally {
+      set({ loadingOlder: false })
+    }
+  },
+
   refreshHistory: async () => {
     const id = get().sessionId
     if (!id || get().streaming) return
@@ -314,6 +407,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       steering: false,
       context: null,
       pendingFiles: [],
+      pendingRefs: [],
       uploadingAttachments: false,
       draggingFiles: false,
     })

@@ -16,14 +16,16 @@ import logging
 import os
 import re
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.http import StreamingHttpResponse
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limit
+from apps.core.security import get_request_access_context
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentSession
@@ -40,6 +42,7 @@ from ..services.chat_service import (
     steer_session,
     stream_chat,
 )
+from ..services.folder_refs import create_folder_ref, read_folder_file_content, render_folder_file_pages
 from ..services.session_service import create_session as create_session_record
 from ..services.session_service import delete_session as delete_session_record
 from ..services.session_service import get_session as get_session_record
@@ -65,6 +68,16 @@ else:
 logger = logging.getLogger(__name__)
 
 router = Router(tags=["Agent"], auth=JWTOrSessionAuth())
+
+#: 发消息限流（P1-8a）：每用户 20 次/分钟；RATE_LIMIT['AGENT_SEND_*'] 可覆盖
+_AGENT_SEND_RATE_LIMIT = get_rate_limit_config("AGENT_SEND", fallback_requests=20, fallback_window=60)
+
+
+def _send_rate_key(request: Any) -> str:
+    """限流键按用户（JWT 的 auth 或 session 的 user），匿名回退 IP 由基类兜底。"""
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    pk = getattr(user, "pk", None)
+    return f"agent_send:user:{pk if pk is not None else 'anon'}"
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -100,6 +113,9 @@ class SessionOut(Schema):
     task_id: str = ""
     task_error: str = ""
     task_finished_at: str = ""
+    #: 业务范围名（案件名 / 委托人客户名），由列表接口批量注水，
+    #: 供前端按业务分组展示；通用与任务会话为空串。
+    scope_name: str = ""
     created_at: str
     updated_at: str
 
@@ -131,6 +147,8 @@ class ApprovalDecideIn(Schema):
     """前端审批决定。"""
 
     approved: bool
+    #: 拒绝理由（可空）：回传给模型，引导换更安全的路径而不是干巴巴的「用户拒绝」
+    reason: str = ""
 
 
 class TaskIn(Schema):
@@ -184,6 +202,12 @@ class UsageOut(Schema):
     tool_calls: int
     avg_duration_ms: int
     error_rate: float
+    #: 本月累计 token（预算口径）
+    month_tokens: int = 0
+    #: 月度预算（FACHUAN_AGENT_MONTHLY_TOKEN_BUDGET，0=未配置）
+    budget_tokens: int = 0
+    #: 已用超预算 80% 时为真（前端黄条提醒）
+    budget_warn: bool = False
 
 
 class PiApprovalIn(Schema):
@@ -211,12 +235,27 @@ class PiApprovalOut(Schema):
 
 
 class AttachmentOut(Schema):
-    """附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。"""
+    """附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。
+
+    引用型（拖拽绑定文件夹文件）带 ``ref_owner_kind`` / ``ref_contract_id``（归属 id，合同或案件）/ ``ref_subpath``，
+    上传型两者为空——前端据此渲染不同 chip。
+    """
 
     attachment_id: str
     filename: str
     size: int
     mime: str = ""
+    ref_owner_kind: str = "contract"
+    ref_contract_id: int | None = None
+    ref_subpath: str = ""
+
+
+class FolderRefIn(Schema):
+    """拖拽引用入参：指向合同/案件绑定文件夹内的一个文件（不复制字节）。"""
+
+    kind: Literal["contract", "case"] = "contract"
+    owner_id: int
+    subpath: str
 
 
 class AttachmentPageOut(Schema):
@@ -291,6 +330,8 @@ def _to_out(session: AgentSession) -> SessionOut:
         task_id=session.task_id,
         task_error=session.task_error,
         task_finished_at=session.task_finished_at.isoformat() if session.task_finished_at else "",
+        # annotate_scope_names 透传属性；未注水的单会话端点 getattr 兜底空串
+        scope_name=getattr(session, "scope_name", "") or "",
         created_at=session.created_at.isoformat(),
         updated_at=session.updated_at.isoformat(),
     )
@@ -356,9 +397,18 @@ async def get_session_detail(request: Any, session_id: str) -> SessionOut:  # pr
 
 
 @router.get("/sessions/{session_id}/messages", response=list[MessageOut])
-async def list_messages(request: Any, session_id: str, limit: int = 200) -> list[MessageOut]:  # pragma: no cover
-    """会话消息历史（旧→新），前端重开会话时据此回放转录。"""
-    messages = await list_message_records(session_id=session_id, user_id=_user_id(request), limit=limit)
+async def list_messages(
+    request: Any, session_id: str, limit: int = 200, before_id: int | None = None
+) -> list[MessageOut]:  # pragma: no cover
+    """会话消息历史（旧→新），前端重开会话时据此回放转录。
+
+    ``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），
+    不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端
+    用最后一条的 message_id 作为下一页游标。
+    """
+    messages = await list_message_records(
+        session_id=session_id, user_id=_user_id(request), limit=limit, before_id=before_id
+    )
     if messages is None:
         raise HttpError(404, "会话不存在")
     return [_message_out(m) for m in messages]
@@ -392,16 +442,36 @@ async def update_session_title(
 
 
 def _sse(payload: dict[str, Any]) -> bytes:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+    seq = payload.pop("_seq", None)
+    id_line = f"id: {seq}\n" if seq else ""
+    return f"{id_line}data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+
+
+@router.get("/sessions/{session_id}/events/replay")
+async def replay_sse_events(
+    request: Any, session_id: str, last_event_id: int = 0
+) -> list[dict[str, Any]]:  # pragma: no cover
+    """P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
+
+    前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
+    """
+    from ..services.event_bus import replay_events
+
+    return replay_events(session_id, last_event_id)
 
 
 @router.post("/sessions/{session_id}/messages")
+@rate_limit(
+    requests=_AGENT_SEND_RATE_LIMIT[0],
+    window=_AGENT_SEND_RATE_LIMIT[1],
+    key_func=_send_rate_key,
+)
 async def send_message(  # pragma: no cover
     request: Any,
     session_id: str,
     payload: MessageIn,
 ) -> Any:
-    """发消息并流式返回（SSE）。"""
+    """发消息并流式返回（SSE）。限流：每用户 20 次/分钟（RATE_LIMIT['AGENT_SEND_*'] 可覆盖）。"""
     user_id = _user_id(request)
     session = await get_session_record(session_id=session_id, user_id=_user_id(request))
     if session is None:
@@ -486,6 +556,31 @@ async def get_task_status(request: Any, session_id: str) -> Any:  # pragma: no c
     )
 
 
+@router.delete("/tasks/{session_id}")
+async def cancel_task(request: Any, session_id: str) -> dict[str, Any]:  # pragma: no cover
+    """取消后台任务（P1-4）。
+
+    排队中：从 django-q 队列移除并置 cancelled；
+    运行中：诚实告知暂不支持中途终止（pi 子进程在 worker 内，无跨进程
+    abort 通道——见差距报告 P2），任务会跑到自然结束；
+    已结束：如实返回终态。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "任务不存在")
+    if session.origin != AgentSession.Origin.TASK or not session.task_id:
+        raise HttpError(400, "该会话不是后台任务")
+    if session.task_state not in (AgentSession.TaskState.QUEUED, AgentSession.TaskState.RUNNING):
+        return {"success": False, "task_state": session.task_state, "message": "任务已结束，无需取消"}
+
+    from ..services.task_runner import cancel_agent_task
+
+    result = await sync_to_async(cancel_agent_task, thread_sensitive=True)(session)
+    if not result["success"]:
+        raise HttpError(409, result["message"])
+    return result
+
+
 # ─── 运行中插话 ───
 
 
@@ -507,6 +602,7 @@ async def steer_running_session(  # pragma: no cover
 ) -> Any:
     """运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。
 
+    P2-3 跨 Worker：Redis 路由表发现会话在其他 worker → HTTP 转发。
     用于「agent 写到一半发现要改方向」，不必停止重发。
     """
     session = await get_session_record(session_id=session_id, user_id=_user_id(request))
@@ -514,6 +610,27 @@ async def steer_running_session(  # pragma: no cover
         raise HttpError(404, "会话不存在")
     if not payload.message.strip():
         raise HttpError(400, "插话内容不能为空")
+
+    # P2-3：跨 worker 转发（Redis 路由表发现目标 worker）
+    from ..services.live_sessions import get_live_worker
+
+    target = get_live_worker(session_id)
+    if target:
+        import httpx
+
+        internal_token = os.environ.get("FACHUAN_INTERNAL_TOKEN", "")
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as http:
+                resp = await http.post(
+                    f"http://{target}/api/v1/agent/sessions/{session_id}/steer",
+                    json={"message": payload.message},
+                    headers={"X-Internal-Token": internal_token} if internal_token else {},
+                )
+                if resp.status_code == 200:
+                    return SteerOut(**resp.json())
+        except httpx.HTTPError:
+            logger.warning("跨 worker steer 转发失败（%s），回退本 worker", target)
+
     try:
         disposition = await steer_session(session_id=session_id, message=payload.message)
     except (SessionNotLiveError, PiError) as exc:
@@ -746,6 +863,154 @@ async def get_attachment_pages(
     return payload
 
 
+@router.post("/sessions/{session_id}/folder-refs", response=AttachmentOut)
+async def create_session_folder_ref(request: Any, session_id: str, data: FolderRefIn) -> Any:
+    """拖拽引用落库：引用合同绑定文件夹内的原文件（不复制字节、storage_path 留空）。
+
+    归属：会话必须属于当前用户；合同侧走行级 ACL（与 folder-entries 目录树
+    同口径——团队共享合同，协办律师同样可引用）。文件名/MIME/大小为创建时快照。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    ctx = get_request_access_context(request)
+    try:
+        ref = await sync_to_async(create_folder_ref, thread_sensitive=True)(
+            session=session,
+            user_id=_user_id(request),
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+            owner_kind=data.kind,
+            owner_id=data.owner_id,
+            subpath=data.subpath,
+        )
+    except NotFoundError as exc:
+        # 无权/未绑定/云存储绑定/文件不存在 → 同一 404 文案（不区分，防枚举探测）
+        raise HttpError(404, str(exc) or "文件不存在") from exc
+    except ValidationException as exc:
+        raise HttpError(400, str(exc) or "subpath 非法") from exc
+    return AttachmentOut(
+        attachment_id=str(ref.attachment_id),
+        filename=ref.filename,
+        size=ref.size,
+        mime=ref.mime,
+        ref_owner_kind=ref.ref_owner_kind,
+        ref_contract_id=ref.ref_contract_id,
+        ref_subpath=ref.ref_subpath,
+    )
+
+
+@router.get("/folder-refs/content")
+async def get_folder_ref_content(request: Any, kind: str = "contract", owner_id: int = 0, subpath: str = "") -> Any:
+    """读绑定文件夹内原文件（base64）——**mcp_server 专用**（用户 token 鉴权）。
+
+    与 /attachments/{id}/content 同构：内容只用于服务端转投 /document-parsing
+    提取正文，不直接进模型上下文。权限与 folder-entries 同口径（行级 ACL）；
+    kind=contract/case 决定走合同还是案件的绑定文件夹。
+    """
+    user = _current_user(request)
+    if user is None:
+        raise HttpError(401, "未登录")
+    if kind not in ("contract", "case") or owner_id <= 0:
+        raise HttpError(400, "kind 仅支持 contract/case 且 owner_id 必须为正整数")
+    ctx = get_request_access_context(request)
+    try:
+        return await sync_to_async(read_folder_file_content, thread_sensitive=True)(
+            owner_kind=kind,
+            owner_id=owner_id,
+            subpath=subpath,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+    except NotFoundError as exc:
+        raise HttpError(404, str(exc) or "文件不存在（可能已被移动或移入删除区）") from exc
+    except ValidationException as exc:
+        raise HttpError(400, str(exc) or "subpath 非法") from exc
+
+
+@router.get("/folder-refs/pages", response=AttachmentPagesOut)
+async def get_folder_ref_pages(
+    request: Any,
+    kind: str = "contract",
+    owner_id: int = 0,
+    subpath: str = "",
+    pages: str = "all",
+    dpi: str = str(_PAGES_DPI_DEFAULT),
+    format: str = "png",
+    max_pages: str = str(_PAGES_MAX_PAGES),
+) -> AttachmentPagesOut:
+    """把绑定文件夹内文件按页渲染成图（base64）——**mcp_server 专用**。
+
+    与 /attachments/{id}/pages 同构（三段状态：参数非法 400 / 无权或不存在
+    404 / 渲染失败 200 + error 错误码）；页图缓存键含源文件 size/mtime 指纹，
+    文件被替换后旧缓存自动失效。
+    """
+    user = _current_user(request)
+    if user is None:
+        raise HttpError(401, "未登录")
+    if kind not in ("contract", "case") or owner_id <= 0:
+        raise HttpError(400, "kind 仅支持 contract/case 且 owner_id 必须为正整数")
+    requested_format = format
+    fmt = (requested_format or "png").strip().lower()
+    if fmt == "jpg":
+        fmt = "jpeg"
+    if fmt not in ("png", "jpeg"):
+        raise HttpError(400, f"format 仅支持 png / jpeg，收到：{requested_format!r}")
+    requested_dpi = _parse_dpi(dpi)
+    requested_max = _parse_max_pages(max_pages)
+    pages_spec = (pages or "").strip()
+    if not pages_spec:
+        raise HttpError(400, "pages 不能为空（示例：1-3 / 7 / all）")
+    _reject_unsyntactic_pages(pages_spec)
+
+    ctx = get_request_access_context(request)
+    try:
+        outcome = await sync_to_async(render_folder_file_pages, thread_sensitive=True)(
+            owner_kind=kind,
+            owner_id=owner_id,
+            subpath=subpath,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+            pages=pages_spec,
+            dpi=requested_dpi,
+            fmt=fmt,
+            max_pages=requested_max,
+            user_id=_user_id(request),
+        )
+    except NotFoundError as exc:
+        raise HttpError(404, str(exc) or "文件不存在（可能已被移动或移入删除区）") from exc
+    except ValidationException as exc:
+        raise HttpError(400, str(exc) or "subpath 非法") from exc
+    payload = AttachmentPagesOut(
+        attachment_id=outcome.attachment_id,
+        filename=outcome.filename,
+        mime=outcome.mime,
+        total_pages=outcome.total_pages,
+        pages_returned=[_to_page_out(page) for page in outcome.pages],
+        strategy=_summarize_strategy(outcome.pages),
+        error=_error_code(outcome.error),
+        detail=outcome.detail,
+        notices=_build_notices(outcome, requested_max=requested_max),
+        truncated_pages=outcome.truncated_pages > 0,
+    )
+    logger.info(
+        "folder_refs_pages user=%s kind=%s owner_id=%s subpath=%r pages=%r dpi=%d format=%s returned=%d error=%s",
+        _user_id(request),
+        kind,
+        owner_id,
+        subpath,
+        pages_spec,
+        requested_dpi,
+        fmt,
+        len(payload.pages_returned),
+        payload.error or "-",
+    )
+    return payload
+
+
 def _to_page_out(page: Any) -> AttachmentPageOut:
     """T1 的 RenderedPage → 对外页图 schema（字段名翻译集中在这里，别散落到调用点）。
 
@@ -855,7 +1120,7 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
             payload.risk_level,
             level.value,
         )
-    approved, approval_id = await request_approval(
+    approved, approval_id, reason_out = await request_approval(
         tool_name=payload.tool,
         tool_args=payload.args or {},
         user_id=payload.user_id or None,
@@ -864,7 +1129,8 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
     return PiApprovalOut(
         approved=approved,
         approval_id=approval_id,
-        reason="用户同意" if approved else "用户拒绝或超时",
+        # 拒绝时带用户填写的理由（无则兜底文案）——模型据此换路径
+        reason=reason_out,
         risk_level=level.value,
     )
 
@@ -882,7 +1148,7 @@ async def submit_approval_decision(  # pragma: no cover
     if record is not None and not _may_decide(user, record):
         return {"success": False, "approved": payload.approved, "error": "无权审批该请求"}
 
-    ok = await decide_approval(approval_id, payload.approved, user_id=_user_id(request))
+    ok = await decide_approval(approval_id, payload.approved, user_id=_user_id(request), reason=payload.reason)
     return {"success": ok, "approved": payload.approved}
 
 
@@ -936,6 +1202,9 @@ def _to_usage(summary: UsageSummary) -> UsageOut:
         tool_calls=summary.tool_calls,
         avg_duration_ms=summary.avg_duration_ms,
         error_rate=summary.error_rate,
+        month_tokens=summary.month_tokens,
+        budget_tokens=summary.budget_tokens,
+        budget_warn=summary.budget_warn,
     )
 
 
@@ -953,6 +1222,8 @@ async def list_pending_approvals_endpoint(request: Any) -> list[dict[str, Any]]:
     对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。
     """
     records = await list_pending_approvals(user_id=_user_id(request))
+    from ..services.approval import _waiter_is_alive
+
     return [
         {
             "approval_id": str(a.approval_id),
@@ -961,6 +1232,8 @@ async def list_pending_approvals_endpoint(request: Any) -> list[dict[str, Any]]:
             "tool_args": a.tool_args or {},
             "risk_level": a.risk_level,
             "created_at": a.created_at.isoformat(),
+            # P2-4：等待进程已死（心跳键过期）——前端可提示「该审批可能已失效」
+            "waiter_dead": not _waiter_is_alive(str(a.approval_id)),
         }
         for a in records
     ]

@@ -94,10 +94,11 @@ export function AppNavbar({
   })
 
   // 拉到用户名后回写一次 store：让用户菜单 / 依赖 useAuth 的其它组件同步显示。
-  // enabled 仍由 user.username 翻转控制，回写后 query 转禁用、data 保留，effect 不再触发。
+  // 整个 me 透传（含 real_name/avatar_url，头像位消费）；enabled 仍由
+  // user.username 翻转控制，回写后 query 转禁用、data 保留，effect 不再触发。
   useEffect(() => {
     const me = meQuery.data
-    if (me?.username) setUser({ id: me.id, username: me.username })
+    if (me?.username) setUser(me)
   }, [meQuery.data, setUser])
 
   const notify = (msg: string) => onNotify?.(msg)

@@ -18,6 +18,8 @@ export interface BundleMat {
   k: MaterialKind
   pages: number
   customName?: string
+  /** 来源压缩包名（该素材是压缩包展开产物时有值，UI 悬浮展示） */
+  from?: string
 }
 
 /** 页坐标：第几个来源素材 + 第几页（1 起） */
@@ -136,7 +138,11 @@ export type ClientHit = components['schemas']['PartyListOut'] & {
 
 /** 收件箱附件元信息（生成物 AttachmentMeta）。
  *  PDF 页数（page_count）由后端上传时/详情读取时回填算好；缺失时前端下载 PDF 自行数页数兜底 */
-export type AttachmentMeta = components['schemas']['AttachmentMeta']
+// expanded_from：压缩包展开产物的来源压缩包名（后端 get_public_attachments_meta
+// 透出，openapi 生成物未覆盖该字段，这里本地扩展）
+export type AttachmentMeta = components['schemas']['AttachmentMeta'] & {
+  expanded_from?: string | null
+}
 
 /** 收件箱消息列表项（生成物 InboxMessageOut；status 收窄为材料包三态，
  *  后端实际取值即来自本域写入 draft_state 的枚举） */

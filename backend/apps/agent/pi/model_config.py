@@ -311,3 +311,21 @@ def write_models_json(target_dir: str | Path, model_hint: str = "") -> Path | No
     finally:
         os.close(fd)
     return path
+
+
+def resolve_fallback_models(model_hint: str = "") -> list[str]:
+    """解析降级模型链（P2-7）：[主模型, fallback1, fallback2, ...]。
+
+    主模型失败（PiError）时按序尝试备选；无备选返回单元素列表。
+    """
+    provider = _load_provider(model_hint)
+    if provider is None:
+        return [model_hint] if model_hint else []
+    primary = model_hint or str(getattr(provider, "default_model", "") or "")
+    chain = [primary] if primary else []
+    raw_fallback = str(getattr(provider, "fallback_models", "") or "")
+    for part in raw_fallback.replace(";", ",").split(","):
+        name = part.strip()
+        if name and name not in chain:
+            chain.append(name)
+    return chain

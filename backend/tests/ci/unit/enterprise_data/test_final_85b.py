@@ -290,18 +290,18 @@ class TestInfoExtractor:
 
 
 # ============================================================================
-# evidence_sorting/services/reconciler.py
+# finance_doc_sorting/services/reconciler.py
 # ============================================================================
 
 
 class TestEvidenceSortingReconciler:
     def test_module_imports(self):
-        from apps.evidence_sorting.services.reconciler import ReconcilerService
+        from apps.finance_doc_sorting.services.reconciler import ReconcilerService
 
         assert ReconcilerService is not None
 
     def test_line_item_dataclass(self):
-        from apps.evidence_sorting.services.reconciler import LineItem
+        from apps.finance_doc_sorting.services.reconciler import LineItem
 
         item = LineItem.__new__(LineItem)
         assert item is not None

@@ -41,13 +41,15 @@ export function renameSession(sessionId: string, title: string): Promise<AgentSe
   return api.patch(`agent/sessions/${sessionId}`, { json: { title } }).json<AgentSession>()
 }
 
-export function fetchHistory(sessionId: string, limit = 200): Promise<AgentHistoryMessage[]> {
-  return api.get(`agent/sessions/${sessionId}/messages`, { searchParams: { limit } }).json<AgentHistoryMessage[]>()
+export function fetchHistory(sessionId: string, limit = 200, beforeId?: number): Promise<AgentHistoryMessage[]> {
+  const searchParams: Record<string, string | number> = { limit }
+  if (beforeId) searchParams.before_id = beforeId
+  return api.get(`agent/sessions/${sessionId}/messages`, { searchParams }).json<AgentHistoryMessage[]>()
 }
 
 /** 前端提交审批决定（同意/拒绝高危工具调用） */
-export function decideApproval(approvalId: string, approved: boolean): Promise<Record<string, unknown>> {
-  return api.post(`agent/approval/${approvalId}/decide`, { json: { approved } }).json<Record<string, unknown>>()
+export function decideApproval(approvalId: string, approved: boolean, reason = ''): Promise<Record<string, unknown>> {
+  return api.post(`agent/approval/${approvalId}/decide`, { json: { approved, reason } }).json<Record<string, unknown>>()
 }
 
 /**
@@ -94,4 +96,43 @@ export function uploadAttachment(sessionId: string, file: File): Promise<AgentAt
   return api
     .post(`agent/sessions/${sessionId}/attachments`, { body: form, timeout: UPLOAD_TIMEOUT_MS })
     .json<AgentAttachmentReceipt>()
+}
+
+/** 创建文件夹引用（拖拽合同目录树文件；不复制字节，返回引用回执） */
+export function createFolderRef(
+  sessionId: string,
+  kind: 'contract' | 'case',
+  ownerId: number,
+  subpath: string,
+): Promise<AgentAttachmentReceipt> {
+  return api
+    .post(`agent/sessions/${sessionId}/folder-refs`, { json: { kind, owner_id: ownerId, subpath } })
+    .json<AgentAttachmentReceipt>()
+}
+
+/** 合同绑定文件夹的某一层条目（目录树懒加载数据源，非递归） */
+export interface FolderEntries {
+  browsable: boolean
+  message: string | null
+  path_display: string
+  subpath: string
+  parent_subpath: string
+  folders: { name: string; subpath: string }[]
+  files: { name: string; subpath: string; size: number; modified_at: string }[]
+}
+
+export function fetchContractFolderEntries(contractId: number, subpath = ''): Promise<FolderEntries> {
+  return api
+    .get(`contracts/${contractId}/folder-entries`, { searchParams: subpath ? { subpath } : {} })
+    .json<FolderEntries>()
+}
+
+/** 给一条助手消息点赞/点踩（反馈回流；rating: up/down/none，none=撤销） */
+export function rateMessage(messageId: number, rating: 'up' | 'down' | 'none'): Promise<Record<string, unknown>> {
+  return api.post(`agent/messages/${messageId}/rating`, { json: { rating } }).json<Record<string, unknown>>()
+}
+
+/** 取消后台任务（排队中可取消；运行中诚实 409） */
+export function cancelAgentTask(sessionId: string): Promise<Record<string, unknown>> {
+  return api.delete(`agent/tasks/${sessionId}`).json<Record<string, unknown>>()
 }

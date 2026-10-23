@@ -1,6 +1,10 @@
 /**
  * 会话列表：新对话 / 切换 / 行内重命名 / 删除（确认后执行）。
  *
+ * 全局模式按**业务范围分组**（类 IDE 项目分组：委托/案件各一组，后台任务
+ * 与通用对话兜底组），组头可折叠、超 5 条折叠显示「显示更多」；业务范围
+ * 模式（context）列表天然只含单一范围，保持平铺不分。
+ *
  * 两种形态共用本组件（variant）：
  * - rail：md+ 常驻窄栏（面板双栏布局的左列），无关闭钮、无滑入动画；
  * - overlay：sm 以下覆盖层（从左滑入盖住对话区），composer 仍可输入。
@@ -11,12 +15,12 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Briefcase, ChevronRight, Clock3, MessageSquare, Pencil, Plus, Scale, Trash2, X } from 'lucide-react'
 
 import { deleteSession, getUsageSummary, listSessions, renameSession } from '../api'
-import { taskBadge } from '../domain'
+import { groupSessions, taskBadge } from '../domain'
 import { useCopilot } from '../store'
-import type { AgentSession } from '../types'
+import type { AgentSession, SessionGroup } from '../types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +32,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+
+/** 组头图标：委托=公文包 / 案件=天平 / 任务=时钟 / 通用=对话 */
+const GROUP_ICON: Record<SessionGroup['kind'], typeof Briefcase> = {
+  contract: Briefcase,
+  case: Scale,
+  task: Clock3,
+  chat: MessageSquare,
+}
 
 function SessionRow({
   session,
@@ -163,6 +175,73 @@ function UsageFooter() {
   )
 }
 
+/** 分组会话渲染：组头折叠 + 组内「显示更多」（默认前 5 条） */
+function SessionGroupBlock({
+  group,
+  collapsed,
+  onToggleCollapsed,
+  compact,
+  sessionId,
+  onSwitch,
+  onRequestDelete,
+}: {
+  group: SessionGroup
+  collapsed: boolean
+  onToggleCollapsed: () => void
+  compact: boolean
+  sessionId: string | null
+  onSwitch: (s: AgentSession) => void
+  onRequestDelete: (s: AgentSession) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const VISIBLE = 5
+  const visible = expanded ? group.sessions : group.sessions.slice(0, VISIBLE)
+  const hidden = group.sessions.length - visible.length
+  const Icon = GROUP_ICON[group.kind]
+  return (
+    <section aria-label={`会话分组 ${group.label}`}>
+      <button
+        type="button"
+        className="flex w-full items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+        onClick={onToggleCollapsed}
+        aria-expanded={!collapsed}
+      >
+        <ChevronRight
+          className={`h-3 w-3 flex-none transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}
+        />
+        <Icon className="h-3.5 w-3.5 flex-none" />
+        <span className="min-w-0 flex-1 truncate" title={group.label}>
+          {group.label}
+        </span>
+        <span className="flex-none tabular-nums opacity-70">{group.sessions.length}</span>
+      </button>
+      {!collapsed && (
+        <div className="mt-0.5">
+          {visible.map((s) => (
+            <SessionRow
+              key={s.session_id}
+              session={s}
+              active={s.session_id === sessionId}
+              compact={compact}
+              onRequestDelete={() => onRequestDelete(s)}
+              onSwitch={() => onSwitch(s)}
+            />
+          ))}
+          {hidden > 0 && (
+            <button
+              type="button"
+              className="w-full rounded-[6px] px-2 py-1.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+              onClick={() => setExpanded(true)}
+            >
+              显示更多（{hidden}）
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function SessionSidebar({
   variant,
   onClose,
@@ -190,6 +269,9 @@ export function SessionSidebar({
     },
   })
   const sessions = sessionsQuery.data ?? []
+  /** 分组只在全局模式做：context 模式列表天然是单一范围，分组反而多一层噪音 */
+  const groups = context ? [] : groupSessions(sessions)
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteSession(id),
@@ -238,7 +320,7 @@ export function SessionSidebar({
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-1.5 pb-2">
         {sessionsQuery.isLoading && (
           <p className="py-4 text-center text-[12px] text-muted-foreground">加载中…</p>
         )}
@@ -247,19 +329,37 @@ export function SessionSidebar({
             {context ? `「${context.title}」还没有 AI 会话` : '暂无历史会话'}
           </p>
         )}
-        {sessions.map((s) => (
-          <SessionRow
-            key={s.session_id}
-            session={s}
-            active={s.session_id === sessionId}
-            compact={variant === 'rail'}
-            onRequestDelete={() => setConfirmTarget(s)}
-            onSwitch={() => {
-              if (s.session_id !== sessionId) void switchSession(s.session_id)
-              onClose?.()
-            }}
-          />
-        ))}
+        {context
+          ? sessions.map((s) => (
+              <SessionRow
+                key={s.session_id}
+                session={s}
+                active={s.session_id === sessionId}
+                compact={variant === 'rail'}
+                onRequestDelete={() => setConfirmTarget(s)}
+                onSwitch={() => {
+                  if (s.session_id !== sessionId) void switchSession(s.session_id)
+                  onClose?.()
+                }}
+              />
+            ))
+          : groups.map((g) => (
+              <SessionGroupBlock
+                key={g.key}
+                group={g}
+                collapsed={Boolean(collapsedGroups[g.key])}
+                onToggleCollapsed={() =>
+                  setCollapsedGroups((prev) => ({ ...prev, [g.key]: !prev[g.key] }))
+                }
+                compact={variant === 'rail'}
+                sessionId={sessionId}
+                onRequestDelete={setConfirmTarget}
+                onSwitch={(s) => {
+                  if (s.session_id !== sessionId) void switchSession(s.session_id)
+                  onClose?.()
+                }}
+              />
+            ))}
       </div>
 
       <UsageFooter />

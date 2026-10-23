@@ -3,7 +3,7 @@
  * 全部为纯函数，vitest 直接覆盖（node 环境，无 DOM）。
  */
 
-import type { AgentHistoryMessage, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem } from './types'
+import type { AgentHistoryMessage, AgentSession, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem, SentRefMeta, SessionGroup } from './types'
 
 let localIdSeed = 0
 /** 本地气泡 id（历史消息沿用后端 message_id，流式期间的本地消息用递增 id） */
@@ -50,14 +50,130 @@ export function parseSseEvent(frame: string): AgentStreamEvent | null {
  * 历史消息 → 转录气泡。
  * tool 消息后端截断到 8000 字符，前端预览再收一刀；truncated 标记透传。
  */
+/**
+ * 引用块行（发送时由 outgoing 拼入消息）：
+ * - 文件（落了附件）：`[已引用文件：name (attachment_id=…, contract_id=N, subpath="…")]`
+ *   案件文件把 contract_id 换成 case_id
+ * - 目录（不落附件）：`[已引用目录：name (contract_id=N, subpath="…")]`
+ *   模型收到后先用 list_folder_files 列目录、再 read_folder_file 读文件
+ */
+const SENT_REF_RE =
+  /^\[已引用(文件|目录)：(.+?) \((?:attachment_id=[0-9a-f-]+, )?(contract_id|case_id)=(\d+), subpath="(.+?)"\)\]$/
+
+/**
+ * 把 user 消息正文拆成「引用块 + 剩余正文」。
+ * 历史回放与本地发送走同一解析，气泡上方把引用重放为 chip——否则回看
+ * 会话时引用只是一坨长文本。非引用消息原样返回（body 不动）。
+ */
+export function splitRefBlocks(content: string): { refs: SentRefMeta[]; body: string } {
+  const refs: SentRefMeta[] = []
+  const kept: string[] = []
+  for (const line of content.split('\n')) {
+    const m = SENT_REF_RE.exec(line.trim())
+    if (m?.[1] && m[2] && m[3] && m[4] && m[5]) {
+      refs.push({
+        isFolder: m[1] === '目录' || undefined,
+        name: m[2],
+        kind: m[3] === 'case_id' ? 'case' : 'contract',
+        ownerId: Number(m[4]),
+        subpath: m[5],
+      })
+    } else kept.push(line)
+  }
+  if (refs.length === 0) return { refs, body: content }
+  // 去掉引用块后正文可能只剩空白（默认语被引用块替换的场景）——保留原始
+  // 换行结构，仅去掉首尾空段
+  return { refs, body: kept.join('\n').replace(/^\n+|\n+$/g, '') }
+}
+
+/** 「[当前页面：xxx]」行——通用模式下 send 注入的页面锚点，回放折叠为 chip */
+const PAGE_HINT_RE = /^\[当前页面：(.+?)\]$/
+
+/** 「[当前业务：xxx]」行——业务范围（详情页工作区/浮层 context）下 send 注入的
+ *  归属锚点，含委托/案件名与 id，模型据此直达对应绑定文件夹与数据 */
+const BIZ_HINT_RE = /^\[当前业务：(.+?)\]$/
+
+/** 把 user 消息开头的页面锚点行拆出来；无锚点原样返回 */
+export function splitPageHintLine(content: string): { pageHint: string | null; body: string } {
+  const lines = content.split('\n')
+  const first = lines[0]?.trim() ?? ''
+  const m = PAGE_HINT_RE.exec(first)
+  if (!m?.[1]) return { pageHint: null, body: content }
+  return { pageHint: m[1], body: lines.slice(1).join('\n').replace(/^\n+/, '') }
+}
+
+/** 把 user 消息开头的业务锚点行拆出来（与页面锚点同构）；无锚点原样返回 */
+export function splitBizHintLine(content: string): { bizHint: string | null; body: string } {
+  const lines = content.split('\n')
+  const first = lines[0]?.trim() ?? ''
+  const m = BIZ_HINT_RE.exec(first)
+  if (!m?.[1]) return { bizHint: null, body: content }
+  return { bizHint: m[1], body: lines.slice(1).join('\n').replace(/^\n+/, '') }
+}
+
+/**
+ * 路由 → 页面描述（通用助手的页面感知兜底）。详情页会挂载后写更精确的
+ * 描述（含实体名与 id，模型可拿 id 用工具深入了解页面内容）覆盖此值。
+ */
+export function describeLocation(pathname: string): string {
+  if (pathname === '/') return '工作台首页'
+  if (pathname.startsWith('/cases/')) return '委托详情页'
+  if (pathname.startsWith('/cases')) return '办案列表页'
+  if (pathname.startsWith('/material-prep')) return '材料预处理台'
+  return `页面 ${pathname}`
+}
+
 export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
-  return rows.map((row) => ({
-    id: `db-${row.message_id}`,
-    role: row.role,
-    content: row.role === 'tool' ? row.content.slice(0, 2000) : row.content,
-    toolName: row.tool_name || undefined,
-    truncated: row.metadata?.truncated === true || undefined,
-  }))
+  return rows.map((row) => {
+    const hintSplit = row.role === 'user' ? splitPageHintLine(row.content) : null
+    const bizSplit = row.role === 'user' ? splitBizHintLine(hintSplit?.body ?? row.content) : null
+    const refsSplit = row.role === 'user' ? splitRefBlocks(bizSplit?.body ?? row.content) : null
+    return {
+      id: `db-${row.message_id}`,
+      role: row.role,
+      content: row.role === 'tool' ? row.content.slice(0, 2000) : (refsSplit?.body ?? row.content),
+      pageHint: hintSplit?.pageHint ?? undefined,
+      bizHint: bizSplit?.bizHint ?? undefined,
+      refs: refsSplit?.refs.length ? refsSplit.refs : undefined,
+      toolName: row.tool_name || undefined,
+      truncated: row.metadata?.truncated === true || undefined,
+    }
+  })
+}
+
+/**
+ * 会话按业务范围分组（侧栏「项目分组」形态）：案件/合同各成组（组名 =
+ * 案件名 / 委托人客户名，来自后端 scope_name 注水），任务式与通用对话
+ * 各归一组兜底。组间按组内最新 updated_at 排序，组内保持传入顺序
+ * （后端已按 updated_at 降序返回）。
+ */
+export function groupSessions(sessions: AgentSession[]): SessionGroup[] {
+  const groups = new Map<string, SessionGroup>()
+  const groupOf = (s: AgentSession): SessionGroup => {
+    const kind = s.origin === 'task' ? 'task' : s.case_id ? 'case' : s.contract_id ? 'contract' : 'chat'
+    const key =
+      kind === 'task' || kind === 'chat'
+        ? kind
+        : `${kind}:${kind === 'case' ? s.case_id : s.contract_id}`
+    let g = groups.get(key)
+    if (!g) {
+      const label =
+        kind === 'task'
+          ? '后台任务'
+          : kind === 'chat'
+            ? '通用对话'
+            : (s.scope_name?.trim() || `${kind === 'case' ? '案件' : '合同'} #${kind === 'case' ? s.case_id : s.contract_id}`)
+      g = { key, kind, label, sessions: [] }
+      groups.set(key, g)
+    }
+    return g
+  }
+  for (const s of sessions) groupOf(s).sessions.push(s)
+  return [...groups.values()].sort((a, b) => {
+    const ta = a.sessions[0]?.updated_at ?? ''
+    const tb = b.sessions[0]?.updated_at ?? ''
+    return tb.localeCompare(ta)
+  })
 }
 
 /** 工具名去掉 pi 的 mcp__fachuan__ 前缀（纯展示层归一） */

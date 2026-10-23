@@ -24,6 +24,68 @@
   }
 }
 
+/* ── AI 身份视觉：单色 orb、发送钮、思考流光 ──
+   高级感来自克制的单色与微交互，不来自彩色渐变——全局 zinc 单色系，
+   orb 用前景色实底（暗色模式自动反转为浅底深字），微动效为主 */
+.copilot-orb {
+  background: var(--color-foreground);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 1px 3px rgb(0 0 0 / 0.16);
+}
+
+.copilot-send {
+  background: var(--color-foreground);
+  color: var(--color-background);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.copilot-send:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px -2px rgb(0 0 0 / 0.28);
+}
+.copilot-send:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* 深度思考中：灰阶呼吸流光（结束后回落为普通 muted 色） */
+@keyframes copilot-shimmer {
+  0% {
+    background-position: 200% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.copilot-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 0%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: copilot-shimmer 2.4s ease-in-out infinite;
+}
+
+/* 用户系统级「减弱动态效果」：动效直接关闭，流光文字回落为纯色 */
+@media (prefers-reduced-motion: reduce) {
+  .copilot-shimmer {
+    animation: none;
+    background-image: none;
+    color: var(--color-muted-foreground);
+  }
+  .copilot-send,
+  .copilot-send:not(:disabled):hover,
+  .copilot-send:not(:disabled):active {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* ── assistant 回答的 Markdown 排版（.copilot-md）──
    手写 scoped 样式（项目无 typography 插件）；灰阶克制，与面板风格一致 */
 .copilot-md > :first-child {

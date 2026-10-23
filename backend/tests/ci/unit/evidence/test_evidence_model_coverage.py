@@ -248,7 +248,9 @@ class TestGetEvidenceService:
 
 class TestGetEvidenceStorage:
     def test_returns_storage(self):
-        from apps.evidence.models.evidence import _get_evidence_storage
+        from apps.evidence.models.evidence_storage import evidence_file_storage, get_evidence_storage
 
-        storage = _get_evidence_storage()
+        storage = get_evidence_storage()
         assert storage is not None
+        # 存储单例与工厂返回同类型（统一实现后 services 层直接再导出同一对象）
+        assert isinstance(evidence_file_storage, type(storage))

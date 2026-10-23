@@ -1,0 +1,44 @@
+"""案件材料整理 Admin"""
+
+import logging
+from typing import Any
+
+from django.contrib import admin
+from django.template.response import TemplateResponse
+
+from apps.finance_doc_sorting.models import EvidenceSorting
+
+logger = logging.getLogger("apps.finance_doc_sorting")
+
+
+@admin.register(EvidenceSorting)
+class FinanceDocSortingAdmin(admin.ModelAdmin):  # pragma: no cover
+    """案件材料整理工具 Admin，使用虚拟模型作为入口"""
+
+    def changelist_view(
+        self, request: Any, extra_context: dict[str, Any] | None = None
+    ) -> TemplateResponse:  # pragma: no cover
+        context: dict[str, Any] = {
+            "title": "案件材料整理",
+            "opts": self.model._meta,
+            "has_view_permission": self.has_view_permission(request),
+            "site_header": self.admin_site.site_header,
+            "site_title": self.admin_site.site_title,
+        }
+        return TemplateResponse(
+            request,
+            "admin/finance_doc_sorting/finance_doc_sorting.html",
+            context,
+        )
+
+    def has_add_permission(self, request: Any) -> bool:  # pragma: no cover
+        return False
+
+    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
+        return False
+
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
+        return False
+
+    def get_model_perms(self, request: Any) -> dict[str, bool]:  # pragma: no cover
+        return {"view": True}

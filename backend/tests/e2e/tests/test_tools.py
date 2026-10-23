@@ -55,7 +55,6 @@ def test_workflow_run_list(admin_page: Page, base_url: str) -> None:
 # ------------------------------------------------------------------
 
 
-
 # ------------------------------------------------------------------
 # 消息中心
 # ------------------------------------------------------------------
@@ -199,7 +198,7 @@ def test_document_parsing_tool(admin_page: Page, base_url: str) -> None:
 # ------------------------------------------------------------------
 
 
-def test_evidence_sorting(admin_page: Page, base_url: str) -> None:
+def test_finance_doc_sorting(admin_page: Page, base_url: str) -> None:
     """访问证据排序页面，验证页面正常加载。"""
     response = admin_page.goto(f"{base_url}/admin/evidence_sorting/evidencesorting/")
     assert response is not None

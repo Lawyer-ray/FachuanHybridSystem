@@ -48,6 +48,33 @@ def content_type_for(filename: str) -> str:
     return "application/octet-stream"
 
 
+#: 文字层缺失时的模型引导（extract/parse 共用）。空字符串永远不能冒充成功——
+#: 模型拿到空 text 容易把「扫描件无文字层」误读成「文档内容为空」并自信作答。
+_NO_TEXT_LAYER_NOTICE = (
+    "文档没有可提取的文字层（很可能是扫描件或图片型 PDF）。"
+    "若是用户上传的对话附件，改用 read_agent_attachment(attachment_id, pages=…) "
+    "获取页面原图（多模态模型可直接看图）；若是归档材料，如实告知用户该材料"
+    "无文字层、无法提取文本，不要把空结果当作「文档内容为空」。"
+)
+
+
+def _annotate_no_text_layer(result: dict[str, Any]) -> dict[str, Any]:
+    """解析「成功但文本为空」时加 no_text_layer 标记与引导，不静默透传。
+
+    只在 ``success=True`` 且提取文本为空时触发：失败路径本就带 error，
+    正常有文本的路径零改动（老行为不退化）。
+    """
+    if not result.get("success"):
+        return result
+    text = str(result.get("text") or "").strip()
+    # parse 端点的正文在 sections/paragraphs，没有顶层 text 字段时不判
+    if "text" not in result or text:
+        return result
+    metadata = dict(result.get("metadata") or {})
+    metadata["no_text_layer"] = True
+    return {**result, "metadata": metadata, "notice": _NO_TEXT_LAYER_NOTICE}
+
+
 def extract_document_text(
     file_content_base64: str,
     filename: str,
@@ -71,11 +98,12 @@ def extract_document_text(
     payload: dict[str, Any] = {"backend": backend}
     if max_length is not None:
         payload["max_length"] = max_length
-    return client.upload(  # type: ignore[no-any-return]
+    result: dict[str, Any] = client.upload(
         "/document-parsing/extract-text",
         files={"file": (filename, file_bytes, content_type_for(filename))},
         data={key: str(value) for key, value in payload.items()},
     )
+    return _annotate_no_text_layer(result)
 
 
 def parse_document(
@@ -103,11 +131,12 @@ def parse_document(
         "extract_tables": str(extract_tables).lower(),
         "extract_images": str(extract_images).lower(),
     }
-    return client.upload(  # type: ignore[no-any-return]
+    result: dict[str, Any] = client.upload(
         "/document-parsing/parse",
         files={"file": (filename, file_bytes, content_type_for(filename))},
         data=data,
     )
+    return _annotate_no_text_layer(result)
 
 
 def get_document_parsing_task(task_id: str) -> dict[str, Any]:
@@ -116,7 +145,8 @@ def get_document_parsing_task(task_id: str) -> dict[str, Any]:
     Args:
         task_id: ``parse_document`` / ``extract_document_text`` 返回的任务 ID。
     """
-    return client.get(f"/document-parsing/task/{task_id}")  # type: ignore[return-value]
+    result: dict[str, Any] = client.get(f"/document-parsing/task/{task_id}")
+    return result
 
 
 def list_document_parsing_records(
@@ -134,4 +164,5 @@ def list_document_parsing_records(
     params: dict[str, Any] = {"page": max(1, page), "page_size": max(1, min(page_size, 200))}
     if status:
         params["status"] = status
-    return client.get("/document-parsing/records", params=params)  # type: ignore[return-value]
+    result: dict[str, Any] = client.get("/document-parsing/records", params=params)
+    return result

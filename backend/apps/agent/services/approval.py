@@ -37,6 +37,7 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db import models
 from django.utils import timezone
 
@@ -187,6 +188,38 @@ def is_high_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> boo
     return classify_risk(tool_name, tool_args) in (RiskLevel.HIGH, RiskLevel.CRITICAL)
 
 
+def lookup_approval_policy(*, user_id: int | None, tool_name: str) -> str | None:
+    """查用户对某工具的审批策略（P2-5）。
+
+    Returns:
+        "allow" / "deny" / None（无策略或 ask——走系统默认分级）。
+
+    查询优先级：精确匹配 > 前缀匹配；同步函数（request_approval 内
+    经 sync_to_async 调用）。
+    """
+    if user_id is None:
+        return None
+    from ..models import AgentApprovalPolicy
+
+    # 精确匹配：全名（mcp__fachuan__delete_case）或短名（delete_case）都行
+    short_name = tool_name.rsplit("__", 1)[-1]
+    exact = (
+        AgentApprovalPolicy.objects.filter(user_id=user_id, is_prefix=False, tool_pattern__in=[tool_name, short_name])
+        .values_list("action", flat=True)
+        .first()
+    )
+    if exact is not None:
+        return exact
+    # 前缀匹配：策略表里 is_prefix=True 的行，tool_pattern 是前缀
+    prefix_rows = AgentApprovalPolicy.objects.filter(user_id=user_id, is_prefix=True).values_list(
+        "tool_pattern", "action"
+    )
+    for pattern, action in prefix_rows:
+        if tool_name.startswith(pattern) or short_name.startswith(pattern):
+            return action
+    return None
+
+
 def needs_second_confirmation(level: RiskLevel) -> bool:
     """是否要求用户在审批弹窗里再确认一次（紧急级）。"""
     return level == RiskLevel.CRITICAL
@@ -198,6 +231,8 @@ def approval_timeout(level: RiskLevel) -> float:
 
 
 DECISION_KEY_PREFIX = "agent:approval:decision:"
+#: P2-4 waiter 心跳键前缀——存在 = 有 worker 在等；过期 = 等待者已死
+WAITER_KEY_PREFIX = "agent:approval:waiter:"
 DECISION_TTL = 600
 DECISION_POLL_INTERVAL = 0.2
 
@@ -217,6 +252,46 @@ def _write_decision(approval_id: str, approved: bool) -> None:
         cache.set(f"{DECISION_KEY_PREFIX}{approval_id}", "1" if approved else "0", DECISION_TTL)
     except Exception:
         logger.debug("写入审批决定失败: %s", approval_id, exc_info=True)
+
+
+def _write_waiter_heartbeat(approval_id: str, timeout_seconds: float) -> None:
+    """P2-4：写 waiter 心跳键（TTL = 等待超时 × 1.5，下限 60s）。键在 = 有人在等。"""
+    if not redis_cache_enabled():
+        return
+    from django.core.cache import cache
+
+    try:
+        cache.set(
+            f"{WAITER_KEY_PREFIX}{approval_id}",
+            "alive",
+            max(int(timeout_seconds * 1.5), 60),
+        )
+    except Exception:
+        logger.debug("写 waiter 心跳失败: %s", approval_id, exc_info=True)
+
+
+def _waiter_is_alive(approval_id: str) -> bool:
+    """P2-4：waiter 心跳键是否存在（不存在 = 等待进程已死）。"""
+    if not redis_cache_enabled():
+        return True  # 无 Redis 时无法判定，保守认为活着
+    from django.core.cache import cache
+
+    try:
+        return cache.get(f"{WAITER_KEY_PREFIX}{approval_id}") is not None
+    except Exception:
+        return True
+
+
+def _clear_waiter_heartbeat(approval_id: str) -> None:
+    """P2-4：等待结束（决定/超时），清除心跳键。"""
+    if not redis_cache_enabled():
+        return
+    from django.core.cache import cache
+
+    try:
+        cache.delete(f"{WAITER_KEY_PREFIX}{approval_id}")
+    except Exception:
+        pass
 
 
 def _read_decision(approval_id: str) -> bool | None:
@@ -321,7 +396,7 @@ async def request_approval(
     reason: str = "",
     timeout: float | None = None,
     offline_timeout: float = OFFLINE_TIMEOUT,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, str]:
     """发起一次审批并阻塞等待。
 
     分级判定取代原来的布尔判定：中级（常规写）静默放行但记审计标记，
@@ -345,7 +420,21 @@ async def request_approval(
                 tool_name,
                 sorted((tool_args or {}).keys()),
             )
-        return True, approval_id
+        return True, approval_id, "低/中风险，免审批放行"
+
+    # ── P2-5 审批策略覆盖（用户偏好层）──
+    # critical 不可被 allow 覆盖（硬红线）；high 可被 allow/deny 覆盖；
+    # medium 可被 deny 覆盖（更严）；low 本来就不审批
+    policy = await sync_to_async(
+        lambda: lookup_approval_policy(user_id=user_id, tool_name=tool_name),
+        thread_sensitive=True,
+    )()
+    if policy == "allow" and level == RiskLevel.HIGH:
+        logger.info("策略允许（high→allow）tool=%s user=%s", tool_name, user_id)
+        return True, "", "策略允许（用户配置 high 级免审批）"
+    if policy == "deny" and level in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+        logger.info("策略拒绝 tool=%s user=%s", tool_name, user_id)
+        return False, "", f"策略拒绝（用户配置 {level.value} 级禁止）"
 
     effective_timeout = timeout if timeout is not None else approval_timeout(level)
 
@@ -374,6 +463,8 @@ async def request_approval(
     event: asyncio.Event | None = None
     if session_id:
         event = await _waiter.register(approval_id)
+        # P2-4 waiter 心跳：Redis 键带 TTL，键过期 = 等待进程已死
+        _write_waiter_heartbeat(approval_id, effective_timeout)
         from .event_bus import get_bus
 
         bus = get_bus()
@@ -403,10 +494,12 @@ async def request_approval(
             logger.info("审批超时，按拒绝处理: tool=%s approval=%s", tool_name, approval_id)
         finally:
             await _waiter.discard(approval_id)
+            _clear_waiter_heartbeat(approval_id)
             _clear_decision(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
-        return record.is_granted, approval_id
+        reason_out = record.reason or ("用户同意" if record.is_granted else "用户拒绝或超时")
+        return record.is_granted, approval_id, reason_out
 
     # 没有订阅者：无人可问。
     #
@@ -436,18 +529,21 @@ async def request_approval(
             logger.info("离线审批超时，按拒绝处理 tool=%s approval=%s", tool_name, approval_id)
         finally:
             await _waiter.discard(approval_id)
+            _clear_waiter_heartbeat(approval_id)
             _clear_decision(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
-        return record.is_granted, approval_id
+        reason_out = record.reason or ("用户同意" if record.is_granted else "用户拒绝或超时")
+        return record.is_granted, approval_id, reason_out
 
     if event is not None:
         await _waiter.discard(approval_id)
+        _clear_waiter_heartbeat(approval_id)
     logger.warning("无 SSE 订阅者且不允许离线审批，按拒绝处理: tool=%s", tool_name)
     record.status = AgentApproval.Status.REJECTED
     record.decided_at = timezone.now()
     await record.asave(update_fields=["status", "decided_at"])
-    return False, approval_id
+    return False, approval_id, record.reason or "无人在线且不允许离线审批，按拒绝处理"
 
 
 async def _wait_decision(approval_id: str, event: asyncio.Event, timeout: float) -> bool:
@@ -485,8 +581,14 @@ async def decide_approval(
     approved: bool,
     *,
     user_id: int | None = None,
+    reason: str = "",
 ) -> bool:
-    """前端提交决定。返回是否成功（找不到等待者时仍更新数据库）。"""
+    """前端提交决定。返回是否成功（找不到等待者时仍更新数据库）。
+
+    ``reason`` 为拒绝理由（可空）：落库到 ``AgentApproval.reason``，并由
+    ``request_approval`` 的等待方回传给 pi extension——模型据此换更安全的
+    路径，而不是只收到一句干巴巴的「用户拒绝」。
+    """
     normalized = approval_id.replace("-", "")
     found = await _waiter.resolve(approval_id, approved) or await _waiter.resolve(normalized, approved)
     # 唤醒可能在其他 worker 上的等待者
@@ -503,7 +605,11 @@ async def decide_approval(
         record.decided_at = timezone.now()
         if user_id is not None:
             record.decided_by_id = user_id
-        await record.asave(update_fields=["status", "decided_at", "decided_by"])
+        if reason.strip():
+            record.reason = reason.strip()[:2000]
+            await record.asave(update_fields=["status", "decided_at", "decided_by", "reason"])
+        else:
+            await record.asave(update_fields=["status", "decided_at", "decided_by"])
 
     return found or record is not None
 
@@ -552,4 +658,7 @@ async def list_pending_for_user(*, user_id: int | None) -> list[AgentApproval]:
         status=AgentApproval.Status.PENDING,
         session__user_id=user_id,
     ).select_related("session")
-    return [record async for record in queryset.order_by("created_at")[:100]]
+    results = []
+    async for record in queryset.order_by("created_at")[:100]:
+        results.append(record)
+    return results

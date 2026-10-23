@@ -20,6 +20,7 @@ import { stripEntryParens } from './detail-domain'
 import { DeleteConfirm, TreeContextMenu, type TreeMenuItem } from './folder-tree-menu'
 import { EntryInput } from './folder-tree-ui'
 import { fmtSize, type NodeActions, type TreeCtx } from './folder-tree-types'
+import { FOLDER_REF_MIME } from '@/lib/folder-ref'
 
 /**
  * 绑定文件夹树（案件卡「文件夹视图」与右栏「合同文件夹」共用）。
@@ -374,6 +375,15 @@ function FolderRow({
             e.stopPropagation()
             ctx.openMenu(e, { subpath: folder.subpath, name: folder.name, isFolder: true })
           }}
+          draggable
+          onDragStart={(e) => {
+            // 目录可拖为 AI 的「目录引用」：AI 先列目录内容再按需读文件
+            e.dataTransfer.setData(
+              FOLDER_REF_MIME,
+              JSON.stringify({ kind: ctx.kind, ownerId: ctx.ownerId, subpath: folder.subpath, name: folder.name, isFolder: true }),
+            )
+            e.dataTransfer.effectAllowed = 'copyLink'
+          }}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -485,6 +495,16 @@ function FileRow({
       style={{ paddingLeft: 20 }}
       title={'预览 ' + file.name}
       onClick={() => void preview()}
+      draggable
+      onDragStart={(e) => {
+        // 绑定文件拖为 AI 引用（自定义 MIME，与系统外文件的 Files 通道区分）；
+        // 合同/案件绑定各走各的后端通道（kind 决定）
+        e.dataTransfer.setData(
+          FOLDER_REF_MIME,
+          JSON.stringify({ kind: ctx.kind, ownerId: ctx.ownerId, subpath: file.subpath, name: file.name }),
+        )
+        e.dataTransfer.effectAllowed = 'copyLink'
+      }}
       onKeyDown={(e) => {
         // role="button" 需同时响应 Enter 与 Space（Space 要 preventDefault 防滚动）
         if (e.key === 'Enter' || e.key === ' ') {

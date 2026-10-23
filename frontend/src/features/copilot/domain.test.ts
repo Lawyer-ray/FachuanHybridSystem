@@ -7,11 +7,16 @@ import {
   historyToMessages,
   parseSseEvent,
   previewToolArgs,
+  describeLocation,
+  groupSessions,
+  splitBizHintLine,
+  splitPageHintLine,
+  splitRefBlocks,
   shortToolName,
   takeSseFrames,
   tokensPerSecond,
 } from './domain'
-import type { AgentHistoryMessage } from './types'
+import type { AgentHistoryMessage, AgentSession } from './types'
 
 describe('takeSseFrames', () => {
   it('完整帧切出、半截留作 rest', () => {
@@ -126,5 +131,117 @@ describe('附件预检（P1-11）', () => {
     expect(formatFileSize(500)).toBe('500B')
     expect(formatFileSize(2048)).toBe('2KB')
     expect(formatFileSize(3 * 1024 * 1024)).toBe('3.0MB')
+  })
+})
+
+describe('引用块拆分（folder-ref 回放）', () => {
+  const REF = '[已引用文件：委托合同.docx (attachment_id=a1b2c3d4-0000-0000-0000-000000000000, contract_id=8, subpath="1-一审/起诉状.pdf")]'
+
+  it('纯引用消息：refs 解析出来，body 剩空串', () => {
+    const { refs, body } = splitRefBlocks(REF)
+    expect(refs).toEqual([{ name: '委托合同.docx', kind: 'contract', ownerId: 8, subpath: '1-一审/起诉状.pdf' }])
+    expect(body).toBe('')
+  })
+
+  it('引用 + 正文混合：引用行剔除、正文换行结构保留', () => {
+    const REF2 = '[已引用文件：判决书.pdf (attachment_id=b2c3d4e5-0000-0000-0000-000000000001, contract_id=9, subpath="判决书.pdf")]'
+    const { refs, body } = splitRefBlocks(`${REF}\n请对比这两份文件的关键条款。\n${REF2}`)
+    expect(refs).toHaveLength(2)
+    expect(body).toBe('请对比这两份文件的关键条款。')
+  })
+
+  it('无引用消息原样返回（body 不动、refs 为空）', () => {
+    const content = '普通提问\n[已引用文件：长得像但不是]'
+    const { refs, body } = splitRefBlocks(content)
+    expect(refs).toEqual([])
+    expect(body).toBe(content)
+  })
+
+  it('historyToMessages：user 行引用重放为 refs、assistant 行不受影响', () => {
+    const rows: AgentHistoryMessage[] = [
+      { message_id: 1, role: 'user', content: `${REF}\n帮我审一遍`, tool_name: '', created_at: '', metadata: {} },
+      { message_id: 2, role: 'assistant', content: REF, tool_name: '', created_at: '', metadata: {} },
+    ]
+    const msgs = historyToMessages(rows)
+    expect(msgs[0]).toMatchObject({ refs: [{ kind: 'contract', ownerId: 8 }] })
+    expect(msgs[0]!.content).toBe('帮我审一遍')
+    expect(msgs[1]!.refs).toBeUndefined()
+    expect(msgs[1]!.content).toBe(REF)
+  })
+})
+
+describe('页面锚点（通用助手页面感知）', () => {
+  it('splitPageHintLine：拆出首行锚点、正文保留；无锚点原样返回', () => {
+    expect(splitPageHintLine('[当前页面：办案列表页]\n这个页面有什么功能')).toEqual({
+      pageHint: '办案列表页',
+      body: '这个页面有什么功能',
+    })
+    expect(splitPageHintLine('普通消息')).toEqual({ pageHint: null, body: '普通消息' })
+    // 锚点不在首行不解析（注入永远在开头，防误伤正文里的同款文本）
+    expect(splitPageHintLine('前言行\n[当前页面：x]').pageHint).toBeNull()
+  })
+
+  it('splitBizHintLine：拆出业务归属锚点（context 模式每轮注入），与页面锚点可叠加解析', () => {
+    expect(splitBizHintLine('[当前业务：本委托「某银行」 contract_id=8]\n梳理材料')).toEqual({
+      bizHint: '本委托「某银行」 contract_id=8',
+      body: '梳理材料',
+    })
+    expect(splitBizHintLine('普通消息')).toEqual({ bizHint: null, body: '普通消息' })
+    expect(splitBizHintLine('前言行\n[当前业务：x]').bizHint).toBeNull()
+  })
+
+  it('groupSessions：按业务范围分组（案件/合同取 scope_name，任务与通用兜底组），组间按最新排序', () => {
+    const mk = (o: Partial<AgentSession> & Pick<AgentSession, 'session_id' | 'updated_at'>): AgentSession => ({
+      title: o.session_id,
+      llm_model: '',
+      created_at: o.updated_at,
+      ...o,
+    } as AgentSession)
+    const groups = groupSessions([
+      mk({ session_id: 'chat-1', updated_at: '2026-10-23T10:00:00' }),
+      mk({ session_id: 'c-1', updated_at: '2026-10-23T12:00:00', origin: 'contract', contract_id: 390, scope_name: '贵州某公司' }),
+      mk({ session_id: 'c-2', updated_at: '2026-10-23T11:00:00', origin: 'contract', contract_id: 390, scope_name: '贵州某公司' }),
+      mk({ session_id: 'k-1', updated_at: '2026-10-23T09:00:00', origin: 'case', case_id: 217, scope_name: '' }),
+      mk({ session_id: 't-1', updated_at: '2026-10-23T08:00:00', origin: 'task' }),
+    ])
+    expect(groups.map((g) => g.key)).toEqual(['contract:390', 'chat', 'case:217', 'task'])
+    const [contractGroup, , caseGroup, taskGroup] = groups
+    expect(contractGroup).toMatchObject({ kind: 'contract', label: '贵州某公司' })
+    expect(contractGroup?.sessions.map((s) => s.session_id)).toEqual(['c-1', 'c-2'])
+    // scope_name 缺失回退「案件 #id」
+    expect(caseGroup?.label).toBe('案件 #217')
+    expect(taskGroup).toMatchObject({ kind: 'task', label: '后台任务' })
+  })
+
+  it('describeLocation：路由 → 页面描述（详情页由页面自己覆盖精确值）', () => {
+    expect(describeLocation('/')).toBe('工作台首页')
+    expect(describeLocation('/cases')).toBe('办案列表页')
+    expect(describeLocation('/cases/386')).toBe('委托详情页')
+    expect(describeLocation('/material-prep')).toBe('材料预处理台')
+  })
+
+  it('historyToMessages：user 行锚点折叠为 pageHint、不进正文', () => {
+    const rows: AgentHistoryMessage[] = [
+      { message_id: 1, role: 'user', content: '[当前页面：委托详情 · 某银行（contract_id=8）]\n总结一下', tool_name: '', created_at: '', metadata: {} },
+    ]
+    const msg = historyToMessages(rows)[0]!
+    expect(msg.pageHint).toBe('委托详情 · 某银行（contract_id=8）')
+    expect(msg.content).toBe('总结一下')
+  })
+})
+
+describe('引用块解析（kind 与目录）', () => {
+  it('案件文件引用块：case_id → kind=case', () => {
+    const { refs } = splitRefBlocks('[已引用文件：微信记录.txt (attachment_id=c3d4e5f6-0000-0000-0000-000000000002, case_id=99, subpath="证据/微信记录.txt")]')
+    expect(refs[0]).toMatchObject({ kind: 'case', ownerId: 99, subpath: '证据/微信记录.txt', isFolder: undefined })
+  })
+
+  it('目录引用块：无 attachment_id、isFolder=true（contract 与 case）', () => {
+    const { refs } = splitRefBlocks(
+      '[已引用目录：1-一审 (contract_id=8, subpath="1-一审")]\n[已引用目录：证据 (case_id=99, subpath="证据")]',
+    )
+    expect(refs).toHaveLength(2)
+    expect(refs[0]).toMatchObject({ kind: 'contract', ownerId: 8, subpath: '1-一审', isFolder: true })
+    expect(refs[1]).toMatchObject({ kind: 'case', ownerId: 99, subpath: '证据', isFolder: true })
   })
 })

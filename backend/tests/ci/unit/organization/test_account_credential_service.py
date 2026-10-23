@@ -46,20 +46,24 @@ class TestListCredentials:
         mock_qs.return_value.filter.assert_not_called()
         # Superuser branch: no filter applied
 
-    def test_non_superuser_filters_by_firm(self) -> None:
+    def test_non_superuser_filters_by_team(self) -> None:
+        """安全审计收紧：非管理员按「本人 + 同律师团队」过滤，不再按律所。"""
         svc = AccountCredentialService()
         user = _mock_user(law_firm_id=1)
         qs = MagicMock()
         with patch.object(svc, "_get_base_queryset", return_value=qs):
-            svc.list_credentials(user=user)
-            qs.filter.assert_any_call(lawyer__law_firm_id=1)
+            with patch.object(svc, "_visible_credential_owner_ids", return_value=[1, 2]) as mock_visible:
+                svc.list_credentials(user=user)
+                mock_visible.assert_called_once_with(user)
+                qs.filter.assert_any_call(lawyer_id__in=[1, 2])
 
     def test_no_user_no_firm(self) -> None:
+        """无用户时不可见任何凭证。"""
         svc = AccountCredentialService()
         qs = MagicMock()
         with patch.object(svc, "_get_base_queryset", return_value=qs):
-            result = svc.list_credentials(user=None)
-            qs.none.assert_called_once()
+            svc.list_credentials(user=None)
+            qs.filter.assert_any_call(lawyer_id__in=[])
 
     def test_with_lawyer_name(self) -> None:
         svc = AccountCredentialService()
@@ -92,7 +96,7 @@ class TestGetCredential:
         svc = AccountCredentialService()
         cred = _mock_credential()
         with patch.object(svc, "get_credential_by_id", return_value=cred):
-            with patch.object(svc._access_policy, "can_read_lawyer", return_value=True):
+            with patch.object(svc._access_policy, "can_read_credential", return_value=True):
                 assert svc.get_credential(1, _mock_user()) is cred
 
 

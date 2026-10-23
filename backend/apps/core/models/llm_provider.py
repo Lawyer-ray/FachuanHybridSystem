@@ -95,6 +95,8 @@ class LLMProvider(models.Model):
     base_url = models.CharField(max_length=500, verbose_name="API 地址")
     api_keys = EncryptedTextField(blank=True, default="", verbose_name="API Keys")
     default_model = models.CharField(max_length=100, verbose_name="默认模型")
+    #: 降级模型链（逗号分隔，P2-7：主模型失败按序尝试）
+    fallback_models = models.CharField(max_length=500, blank=True, default="", verbose_name="降级模型")
     extra_models = models.TextField(blank=True, default="", verbose_name="模型列表")
     embedding_model = models.CharField(max_length=100, blank=True, default="", verbose_name="向量模型")
     vision_model = models.CharField(

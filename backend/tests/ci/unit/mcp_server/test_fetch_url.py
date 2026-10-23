@@ -47,7 +47,8 @@ class TestSuccess:
 
         assert result["ok"] is True
         assert result["title"] == "测试标题"
-        assert result["text"].startswith("正文内容")
+        assert "外部网页抓取内容" in result["text"]  # 注入防御包裹标注
+        assert "正文内容" in result["text"]
         assert result["truncated"] is False
 
     def test_truncates_long_text(self, fake_http: Any) -> None:
@@ -58,7 +59,12 @@ class TestSuccess:
 
         assert result["ok"] is True
         assert result["truncated"] is True
-        assert result["chars"] == 500
+        # chars 含包裹标注头尾；正文本体被截到 500 字
+        body = result["text"]
+        assert "外部网页抓取内容" in body and body.endswith("〔外部网页内容结束〕")
+        assert result["chars"] == len(body)
+        inner = body.split("〕\n", 1)[1].rsplit("\n〔", 1)[0]
+        assert len(inner) == 500
 
     def test_strips_noise_nodes(self, fake_http: Any) -> None:
         html = (

@@ -535,9 +535,7 @@ class TestErrorCodes:
         from mcp_server.tools.core.agent_attachments import read_agent_attachment
 
         fake_client.get.side_effect = lambda path, *a, **kw: (
-            _content_entry(_PDF, _PDF_MIME, b"%PDF-fake")
-            if path.endswith("/content")
-            else _pages_response([1, 2])
+            _content_entry(_PDF, _PDF_MIME, b"%PDF-fake") if path.endswith("/content") else _pages_response([1, 2])
         )
         # 文字提取转了异步任务 → 回落页图（total_pages 未知）
         fake_client.upload.return_value = {"success": True, "task_id": "t-1", "status": "pending", "text": ""}

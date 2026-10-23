@@ -42,6 +42,15 @@ from .session_cleanup import has_pi_session
 
 logger = logging.getLogger(__name__)
 
+
+def _worker_id() -> str:
+    """本 worker 唯一标识（P2-3 跨 worker 路由用）。"""
+    import os
+    import socket
+
+    return os.environ.get("HOSTNAME", "") or socket.gethostname()
+
+
 DEFAULT_POOL_SIZE = 4
 MAX_POOL_SIZE = 32
 #: 会话标题缺省取首条用户消息的前若干字（侧边栏会话列表用）
@@ -248,8 +257,16 @@ async def stream_chat(
     )
     updates: dict[str, Any] = {"updated_at": timezone.now()}
     if not session.title:
-        # 侧边栏会话列表默认靠标题区分；首条消息前 30 字是最低成本的近似
-        updates["title"] = user_message.strip()[:AUTO_TITLE_LIMIT]
+        # 侧边栏会话列表默认靠标题区分；首条消息前 30 字是最低成本的近似。
+        # 先剥掉前端注入的锚点行（[当前业务：…]/[当前页面：…]/[已引用…：…]
+        # 块）——否则标题变成「[当前业务：本委托] xx公司诉…」，锚点对标题
+        # 没有信息量还挤掉正文
+        title_src = user_message.strip()
+        for lead in ("[当前业务：", "[当前页面：", "[已引用文件：", "[已引用目录："):
+            if title_src.startswith(lead):
+                title_src = title_src.split("\n", 1)[1].strip() if "\n" in title_src else ""
+                break
+        updates["title"] = title_src[:AUTO_TITLE_LIMIT]
     await AgentSession.objects.filter(pk=session.pk).aupdate(**updates)
 
     bus = get_bus()
@@ -302,6 +319,10 @@ async def stream_chat(
             # 必须包在事件循环外面——登记后才有 prompt，否则插话会打空。
             registry = get_live_registry()
             await registry.register(str(session.session_id), pi_session)
+            # P2-3：跨 worker 路由注册（Redis 路由表）
+            from .live_sessions import register_live_route
+
+            register_live_route(str(session.session_id), _worker_id())
             try:
                 await pi_session.prompt(prompt_text)
                 while True:
@@ -338,6 +359,9 @@ async def stream_chat(
                         break
             finally:
                 await registry.unregister(str(session.session_id), pi_session)
+                from .live_sessions import unregister_live_route
+
+                unregister_live_route(str(session.session_id))
                 if pending_next is not None:
                     # 提前退出（done / 取消）时可能还挂着一次 __anext__，必须收掉，
                     # 否则任务泄漏并在事件循环关闭时刷 "Task was destroyed" 警告。

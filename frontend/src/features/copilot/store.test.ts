@@ -45,6 +45,54 @@ beforeEach(() => {
   useCopilot.getState().reset()
 })
 
+describe('copilot store：页面感知注入', () => {
+  // mockImplementation：每次调用生成全新 Response——Response body 只能读一次，
+  // 共享同一个 mock 返回值会让后续 send 复用已耗尽的流、走 catch 清空消息
+  const emptyStream = () =>
+    vi.mocked(copilotApi.openMessageStream).mockImplementation(() =>
+      Promise.resolve(sseResponse(['data: {"type":"done","session_id":"s-1"}\n\n'])),
+    )
+
+  it('通用模式：页面变化后首条注入 [当前页面：…] 锚点，本地气泡折叠为 chip', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    const st = useCopilot.getState()
+    st.setPageHint('委托详情 · 某银行（contract_id=8）')
+    await st.send('总结一下')
+
+    // 出站消息带锚点前缀（模型可拿 contract_id 用工具了解页面）
+    const sent = vi.mocked(copilotApi.openMessageStream).mock.calls[0]?.[1] ?? ''
+    expect(sent).toBe('[当前页面：委托详情 · 某银行（contract_id=8）]\n总结一下')
+    // 本地气泡：锚点折叠成 pageHint 字段、正文干净
+    const user = useCopilot.getState().messages[0]!
+    expect(user.pageHint).toBe('委托详情 · 某银行（contract_id=8）')
+    expect(user.content).toBe('总结一下')
+  })
+
+  it('同一页面第二条不重复注入；业务 context 模式每轮注入归属锚点', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    const st = useCopilot.getState()
+    st.setPageHint('办案列表页')
+    await st.send('第一条')
+    await st.send('第二条')
+    expect(vi.mocked(copilotApi.openMessageStream).mock.calls[1]?.[1]).toBe('第二条')
+
+    // 业务范围（详情页工作区/浮层 context）：每轮注入归属锚点——pi 的
+    // compaction 可能压掉首轮上下文，不重复注入模型就会反问「哪个案件」
+    await st.enterContext({ origin: 'contract', refId: 8, title: '某银行' })
+    st.setPageHint('委托详情 · 某银行（contract_id=8）')
+    await st.send('范围内的消息')
+    const last = vi.mocked(copilotApi.openMessageStream).mock.calls[2]?.[1]
+    expect(last).toBe('[当前业务：本委托「某银行」 contract_id=8]\n范围内的消息')
+    expect(last).not.toContain('当前页面')
+    // 本地气泡：归属锚点折叠成 bizHint 字段、正文干净
+    const user = useCopilot.getState().messages.at(-2)
+    expect(user?.bizHint).toBe('本委托「某银行」 contract_id=8')
+    expect(user?.content).toBe('范围内的消息')
+  })
+})
+
 describe('copilot store：发送与流式转录', () => {
   it('无会话时先创建，delta 累加进助手气泡，done 收尾', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
@@ -198,7 +246,7 @@ describe('copilot store：发送与流式转录', () => {
 
     await useCopilot.getState().decide('a1', true)
     expect(useCopilot.getState().approvals[0]?.decided).toBe('approved')
-    expect(copilotApi.decideApproval).toHaveBeenCalledWith('a1', true)
+    expect(copilotApi.decideApproval).toHaveBeenCalledWith('a1', true, '')
   })
 
   it('createSession 在途时切会话：不得把消息写进用户已切到的会话', async () => {
