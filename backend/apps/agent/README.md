@@ -501,6 +501,19 @@ npm 安装无版本保留：`npm install -g @earendil-works/pi-coding-agent@1.4.
 ### 共享 MCP 无需手动启动
 
 应用首次用到 agent 时自动检测并拉起共享 MCP（已在跑则复用）。
+日常运维统一走根目录 Makefile（实现：`scripts/shared_mcp.sh`）：
+
+```bash
+make mcp          # 重启（杀旧拉新 + 工具面核对；改了 mcp_server 工具后必跑）
+make mcp-verify   # 只核对：线上工具面 vs 代码注册表（MCP 真握手，非端口探测）
+make mcp-status   # 进程 / 端口 / 运行时长 / 日志路径
+make mcp-logs     # 跟随日志
+```
+
+`verify` 会逐名对比「运行中的工具面」与「代码注册表」：改了工具忘重启时
+能直接点名缺失项，端口被非 MCP 进程占用时也会握手失败报错（这种情况下
+Django 的自动拉起只探端口、会静默"复用"占用者，是已知边界）。
+
 如需独立托管（例如拆到另一台机器），手动启动后把 pi 指过去：
 
 ```bash
