@@ -10,7 +10,6 @@ from urllib.parse import quote, urlencode
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
-from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path, reverse
@@ -343,96 +342,24 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
         if not self.has_add_permission(request):
             return JsonResponse({"items": [], "groups": []}, status=403)
 
-        from apps.cases.models import Case
-        from apps.cases.models.log import CaseLog
-        from apps.contracts.models.contract import Contract
+        from apps.core.security.access_context import get_request_access_context
+        from apps.reminders.services.target_query import get_target_options
 
-        keyword = request.GET.get("q", "").strip()
-        limit_per_group = 12
+        ctx = get_request_access_context(request)
+        # 安全审计：admin 后台曾用裸 objects.all() 返回全所合同/案件/案件日志，
+        # 而同功能 REST 入口已按 AccessPolicy 过滤。现统一复用 get_target_options，
+        # 使团队可见性、跨团队授权穿透、管理员全量三条语义与 REST 一致。
+        # 若 user/org_access 缺失（非预期），get_target_options 会退化为全量，
+        # 故此处显式拦下，避免静默越权。
+        if ctx.user is None or not getattr(ctx.user, "is_authenticated", False):
+            return JsonResponse({"items": [], "groups": []}, status=403)
 
-        contract_queryset = Contract.objects.all()
-        case_queryset = Case.objects.all()
-        case_log_queryset = CaseLog.objects.select_related("case").all()
-
-        if keyword:
-            contract_queryset = contract_queryset.filter(name__icontains=keyword)
-            case_queryset = case_queryset.filter(name__icontains=keyword)
-            case_log_queryset = case_log_queryset.filter(
-                Q(case__name__icontains=keyword) | Q(content__icontains=keyword)
-            )
-
-        groups: list[dict[str, object]] = []
-
-        contract_items = [
-            {
-                "id": row["id"],
-                "name": row["name"],
-                "target_type": "contract",
-                "target_type_label": "合同",
-            }
-            for row in contract_queryset.order_by("-id").values("id", "name")[:limit_per_group]
-        ]
-        if contract_items:
-            groups.append(
-                {
-                    "key": "contract",
-                    "label": "合同",
-                    "items": contract_items,
-                }
-            )
-
-        case_items = [
-            {
-                "id": row["id"],
-                "name": row["name"],
-                "target_type": "case",
-                "target_type_label": "案件",
-            }
-            for row in case_queryset.order_by("-id").values("id", "name")[:limit_per_group]
-        ]
-        if case_items:
-            groups.append(
-                {
-                    "key": "case",
-                    "label": "案件",
-                    "items": case_items,
-                }
-            )
-
-        case_log_items: list[dict[str, object]] = []
-        for item in case_log_queryset.order_by("-id")[:limit_per_group]:
-            preview = item.content.strip().replace("\n", " ")
-            if len(preview) > 24:
-                preview = f"{preview[:24]}..."
-            label = "#%(id)s %(case)s｜%(preview)s" % {
-                "id": item.id,
-                "case": item.case.name,
-                "preview": preview or "无内容",
-            }
-            case_log_items.append(
-                {
-                    "id": item.id,
-                    "name": label,
-                    "target_type": "case_log",
-                    "target_type_label": "案件日志",
-                }
-            )
-        if case_log_items:
-            groups.append(
-                {
-                    "key": "case_log",
-                    "label": "案件日志",
-                    "items": case_log_items,
-                }
-            )
-
-        merged_items: list[dict[str, object]] = []
-        for group in groups:
-            group_items = group.get("items", [])
-            if isinstance(group_items, list):
-                merged_items.extend(group_items)
-
-        return JsonResponse({"items": merged_items, "groups": groups})
+        payload = get_target_options(
+            keyword=request.GET.get("q", "").strip(),
+            limit_per_group=12,
+            ctx=ctx,
+        )
+        return JsonResponse(payload)
 
     def calendar_sync_providers_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         """GET: Return available calendar sync providers as JSON."""
