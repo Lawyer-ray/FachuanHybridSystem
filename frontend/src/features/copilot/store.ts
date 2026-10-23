@@ -78,7 +78,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   addFolderRef: (draft) => {
     set((s) => {
-      if (s.pendingRefs.some((r) => r.contractId === draft.contractId && r.subpath === draft.subpath)) return s
+      if (s.pendingRefs.some((r) => r.kind === draft.kind && r.ownerId === draft.ownerId && r.subpath === draft.subpath)) return s
       return { pendingRefs: [...s.pendingRefs, draft] }
     })
   },

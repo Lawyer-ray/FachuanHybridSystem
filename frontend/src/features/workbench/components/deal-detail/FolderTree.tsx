@@ -375,6 +375,15 @@ function FolderRow({
             e.stopPropagation()
             ctx.openMenu(e, { subpath: folder.subpath, name: folder.name, isFolder: true })
           }}
+          draggable
+          onDragStart={(e) => {
+            // 目录可拖为 AI 的「目录引用」：AI 先列目录内容再按需读文件
+            e.dataTransfer.setData(
+              FOLDER_REF_MIME,
+              JSON.stringify({ kind: ctx.kind, ownerId: ctx.ownerId, subpath: folder.subpath, name: folder.name, isFolder: true }),
+            )
+            e.dataTransfer.effectAllowed = 'copyLink'
+          }}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -486,13 +495,13 @@ function FileRow({
       style={{ paddingLeft: 20 }}
       title={'预览 ' + file.name}
       onClick={() => void preview()}
-      draggable={ctx.kind === 'contract'}
+      draggable
       onDragStart={(e) => {
-        // 合同绑定文件可拖为 AI 引用（自定义 MIME，与系统外文件的 Files 通道
-        // 区分）；案件树暂无引用型后端，不开启拖拽
+        // 绑定文件拖为 AI 引用（自定义 MIME，与系统外文件的 Files 通道区分）；
+        // 合同/案件绑定各走各的后端通道（kind 决定）
         e.dataTransfer.setData(
           FOLDER_REF_MIME,
-          JSON.stringify({ contractId: ctx.ownerId, subpath: file.subpath, name: file.name }),
+          JSON.stringify({ kind: ctx.kind, ownerId: ctx.ownerId, subpath: file.subpath, name: file.name }),
         )
         e.dataTransfer.effectAllowed = 'copyLink'
       }}

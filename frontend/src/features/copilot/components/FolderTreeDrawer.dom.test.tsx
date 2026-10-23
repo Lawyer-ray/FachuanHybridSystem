@@ -95,7 +95,7 @@ describe('FolderTreeDrawer 拖拽引用', () => {
     expect(first).toBeDefined()
     const [mime, raw] = first!
     expect(mime).toBe(FOLDER_REF_MIME)
-    expect(JSON.parse(raw)).toEqual({ contractId: 8, subpath: '委托合同.docx', name: '委托合同.docx' })
+    expect(JSON.parse(raw)).toEqual({ kind: 'contract', ownerId: 8, subpath: '委托合同.docx', name: '委托合同.docx' })
     expect(dataTransfer.effectAllowed).toBe('copyLink')
   })
 
@@ -109,9 +109,29 @@ describe('FolderTreeDrawer 拖拽引用', () => {
     const payload = setData.mock.calls[0]?.[1]
     expect(payload).toBeDefined()
     expect(JSON.parse(payload!)).toEqual({
-      contractId: 8,
+      kind: 'contract',
+      ownerId: 8,
       subpath: '1-一审/起诉状.pdf',
       name: '起诉状.pdf',
+    })
+  })
+})
+
+describe('FolderTreeDrawer 目录拖拽', () => {
+  it('文件夹 dragStart 携带 isFolder 的目录引用载荷', async () => {
+    fetchContractFolderEntries.mockResolvedValue(ROOT)
+    renderDrawer()
+    const btn = await screen.findByRole('button', { name: /1-一审/ })
+    const setData = vi.fn()
+    fireEvent.dragStart(btn, { dataTransfer: { setData, effectAllowed: '' } })
+    const [mime, raw] = setData.mock.calls[0] ?? []
+    expect(mime).toBe(FOLDER_REF_MIME)
+    expect(JSON.parse(raw)).toEqual({
+      kind: 'contract',
+      ownerId: 8,
+      subpath: '1-一审',
+      name: '1-一审',
+      isFolder: true,
     })
   })
 })

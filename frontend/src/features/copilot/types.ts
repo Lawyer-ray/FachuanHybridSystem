@@ -69,11 +69,17 @@ export interface TurnStats {
 }
 
 /** 转录气泡（历史回放与流式共用一个模型） */
+/** 引用归属：合同绑定文件夹 / 案件绑定文件夹（两套独立绑定） */
+export type RefOwnerKind = 'contract' | 'case'
+
 /** 已发送消息里解析出的文件夹引用（chip 重放用；发送前草稿另见 FolderRefDraft） */
 export interface SentRefMeta {
-  contractId: number
+  kind: RefOwnerKind
+  ownerId: number
   subpath: string
   name: string
+  /** 目录引用：不落附件，靠 [已引用目录：…] 提示块让模型自行浏览 */
+  isFolder?: boolean
 }
 
 export interface ChatMessage {
@@ -141,16 +147,19 @@ export interface AgentAttachmentReceipt {
   filename: string
   size: number
   mime: string
-  /** 引用型（拖拽合同目录树文件）才有：指向绑定文件夹原文件，不复制字节 */
+  /** 引用型（拖拽绑定目录树文件）才有：指向绑定文件夹原文件，不复制字节 */
+  ref_owner_kind?: 'contract' | 'case'
   ref_contract_id?: number | null
   ref_subpath?: string
 }
 
 /** 拖拽引用草稿：合同绑定文件夹内的文件（发送时落库为 ref 记录并附引用块） */
 export interface FolderRefDraft {
-  contractId: number
+  kind: RefOwnerKind
+  ownerId: number
   subpath: string
   name: string
+  isFolder?: boolean
 }
 
 /** 拖拽通道常量与 workbench 共用，定义上提 lib（此处 re-export 便于域内引用） */

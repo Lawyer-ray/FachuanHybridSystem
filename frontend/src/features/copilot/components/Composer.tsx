@@ -11,7 +11,7 @@
  */
 
 import { useRef, useState } from 'react'
-import { ArrowUp, Clock, FolderOpen, Paperclip, Square, Undo2, X } from 'lucide-react'
+import { ArrowUp, Clock, Folder, FolderOpen, Paperclip, Square, Undo2, X } from 'lucide-react'
 
 import { formatFileSize } from '../domain'
 import { useCopilot } from '../store'
@@ -56,7 +56,12 @@ export function Composer() {
     // 用户重打一遍。期间用户又输入了新内容则不打扰（只补空）。
     setText('')
     const outgoing =
-      value || (pendingRefs.length > 0 ? '请分析我引用的文件。' : '请分析我上传的附件。')
+      value ||
+      (pendingRefs.length > 0
+        ? pendingRefs.every((r) => r.isFolder)
+          ? '请浏览我引用的目录并梳理其中的材料。'
+          : '请分析我引用的文件。'
+        : '请分析我上传的附件。')
     void send(outgoing, (sent) => {
       if (!sent) setText((prev) => (prev.trim() ? prev : outgoing))
     })
@@ -89,12 +94,12 @@ export function Composer() {
         <div className="mb-1.5 flex flex-wrap gap-1.5">
           {pendingRefs.map((ref, i) => (
             <span
-              key={`${ref.contractId}-${ref.subpath}`}
+              key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
               className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-primary/10 px-1.5 py-0.5 text-[11.5px] text-foreground"
-              title={`合同 ${ref.contractId} · ${ref.subpath}（引用原文件，发送时由 AI 直接读取）`}
+              title={`${ref.kind === 'case' ? '案件' : '合同'} ${ref.ownerId} · ${ref.subpath}${ref.isFolder ? '（目录引用：AI 会先列出目录内容再按需读取）' : '（引用原文件，发送时由 AI 直接读取）'}`}
             >
-              <FolderOpen className="h-3 w-3 flex-none text-primary" />
-              <span className="max-w-52 truncate">{ref.subpath}</span>
+              {ref.isFolder ? <Folder className="h-3 w-3 flex-none text-primary" /> : <FolderOpen className="h-3 w-3 flex-none text-primary" />}
+              <span className="max-w-52 truncate">{ref.subpath}{ref.isFolder ? '/' : ''}</span>
               <button
                 type="button"
                 className="flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"

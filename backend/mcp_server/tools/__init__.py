@@ -221,6 +221,7 @@ from mcp_server.tools.contracts import (
     list_cloud_storage_accounts,
     list_contract_scan_subfolders,
     list_contracts,
+    list_folder_files,
     list_supplementary_agreements,
     move_archive_material,
     read_folder_file,
@@ -590,6 +591,7 @@ __all__ = [
     "delete_folder_binding",
     "browse_folders",
     "list_cloud_storage_accounts",
+    "list_folder_files",
     "read_folder_file",
     # 合同归档
     "learn_archive_rules",

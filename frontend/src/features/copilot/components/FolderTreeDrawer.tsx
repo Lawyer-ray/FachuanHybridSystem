@@ -76,6 +76,15 @@ function Level({
               style={{ paddingLeft: depth * 14 + 2 }}
               onClick={() => toggle(folder.subpath)}
               aria-expanded={open}
+              draggable
+              onDragStart={(e) => {
+                // 目录拖入输入区成「目录引用」：AI 先列目录再按需读文件
+                e.dataTransfer.setData(
+                  FOLDER_REF_MIME,
+                  JSON.stringify({ kind: 'contract', ownerId: contractId, subpath: folder.subpath, name: folder.name, isFolder: true }),
+                )
+                e.dataTransfer.effectAllowed = 'copyLink'
+              }}
             >
               {open ? (
                 <ChevronDown className="h-3.5 w-3.5 flex-none text-muted-foreground" />
@@ -108,7 +117,7 @@ function Level({
           onDragStart={(e) => {
             e.dataTransfer.setData(
               FOLDER_REF_MIME,
-              JSON.stringify({ contractId, subpath: file.subpath, name: file.name }),
+              JSON.stringify({ kind: 'contract', ownerId: contractId, subpath: file.subpath, name: file.name }),
             )
             e.dataTransfer.effectAllowed = 'copyLink'
           }}

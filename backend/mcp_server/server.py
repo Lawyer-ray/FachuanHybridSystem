@@ -266,6 +266,7 @@ from mcp_server.tools import (
     list_document_templates,
     list_enterprise_providers,
     list_failed_tasks,
+    list_folder_files,
     list_folder_templates,
     list_grants,
     list_inbox_messages,
@@ -959,6 +960,7 @@ mcp.tool()(get_agent_skill)
 # 对话附件：服务端读文件提取正文（base64 不进模型上下文）
 mcp.tool()(read_agent_attachment)
 # 绑定文件夹引用：拖拽引用型，读原文件（不复制，路径即归属）
+mcp.tool()(list_folder_files)
 mcp.tool()(read_folder_file)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项

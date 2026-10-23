@@ -25,8 +25,10 @@ def lawyer(db: Any) -> Lawyer:
     firm = LawFirm.objects.create(name="folder-ref-测试律所")
     # pragma: allowlist secret —— 与 integration 测试同款的哑密码
     return Lawyer.objects.create_user(
-        username="folderref-lawyer", password="x-test-12345678", law_firm=firm  # pragma: allowlist secret
-    )  # pragma: allowlist secret
+        username="folderref-lawyer",  # pragma: allowlist secret
+        password="x-test-12345678",  # pragma: allowlist secret
+        law_firm=firm,
+    )
 
 
 @pytest.fixture()
@@ -64,7 +66,8 @@ class TestCreateFolderRef:
                 user=lawyer,
                 org_access=None,
                 perm_open_access=False,
-                contract_id=contract.id,
+                owner_kind="contract",
+                owner_id=contract.id,
                 subpath="../../etc/passwd",
             )
 
@@ -77,7 +80,8 @@ class TestCreateFolderRef:
                 user=lawyer,
                 org_access=None,
                 perm_open_access=False,
-                contract_id=contract.id,
+                owner_kind="contract",
+                owner_id=contract.id,
                 subpath="/etc/passwd",
             )
 
@@ -93,7 +97,8 @@ class TestCreateFolderRef:
                 user=lawyer,
                 org_access=None,
                 perm_open_access=False,
-                contract_id=contract.id,
+                owner_kind="contract",
+                owner_id=contract.id,
                 subpath="任何.txt",
             )
 
@@ -114,7 +119,8 @@ class TestCreateFolderRef:
                 user=lawyer,
                 org_access=None,
                 perm_open_access=False,
-                contract_id=contract.id,
+                owner_kind="contract",
+                owner_id=contract.id,
                 subpath="1-一审/2-立案材料/起诉状.txt",
             )
 
@@ -127,7 +133,8 @@ class TestCreateFolderRef:
             user=lawyer,
             org_access=None,
             perm_open_access=False,
-            contract_id=contract.id,
+            owner_kind="contract",
+            owner_id=contract.id,
             subpath="1-一审/2-立案材料/起诉状.txt",
         )
         assert ref.filename == "起诉状.txt"
@@ -147,7 +154,8 @@ class TestCreateFolderRef:
             user=lawyer,
             org_access=None,
             perm_open_access=False,
-            contract_id=contract.id,
+            owner_kind="contract",
+            owner_id=contract.id,
             subpath="1-一审/2-立案材料/起诉状.txt",
         )
         source = root / "1-一审" / "2-立案材料" / "起诉状.txt"
@@ -161,7 +169,8 @@ class TestReadAndRender:
     def test_content_returns_base64_of_source(self, bound_contract: tuple[Contract, Path], lawyer: Lawyer) -> None:
         contract, _ = bound_contract
         payload = read_folder_file_content(
-            contract_id=contract.id,
+            owner_kind="contract",
+            owner_id=contract.id,
             subpath="1-一审/2-立案材料/起诉状.txt",
             user=lawyer,
             org_access=None,
@@ -175,7 +184,8 @@ class TestReadAndRender:
         contract, _ = bound_contract
         with pytest.raises(NotFoundError):
             read_folder_file_content(
-                contract_id=contract.id,
+                owner_kind="contract",
+                owner_id=contract.id,
                 subpath="1-一审/2-立案材料/不存在.txt",
                 user=lawyer,
                 org_access=None,
@@ -186,7 +196,8 @@ class TestReadAndRender:
         contract, root = bound_contract
         (root / "1-一审" / "2-立案材料" / "判决书.pdf").write_bytes(_pdf_bytes())
         outcome = render_folder_file_pages(
-            contract_id=contract.id,
+            owner_kind="contract",
+            owner_id=contract.id,
             subpath="1-一审/2-立案材料/判决书.pdf",
             user=lawyer,
             org_access=None,
@@ -211,7 +222,8 @@ class TestReadAndRender:
         monkeypatch.setattr(folder_refs, "MAX_FOLDER_FILE_BYTES", 10)
         with pytest.raises(ValidationException) as excinfo:
             read_folder_file_content(
-                contract_id=contract.id,
+                owner_kind="contract",
+                owner_id=contract.id,
                 subpath="1-一审/2-立案材料/大文件.bin",
                 user=lawyer,
                 org_access=None,
@@ -227,7 +239,8 @@ class TestReadAndRender:
         big.write_bytes(b"x" * 16)
         monkeypatch.setattr(folder_refs, "MAX_FOLDER_FILE_BYTES", 10)
         outcome = render_folder_file_pages(
-            contract_id=contract.id,
+            owner_kind="contract",
+            owner_id=contract.id,
             subpath="1-一审/2-立案材料/大文件.bin",
             user=lawyer,
             org_access=None,
@@ -240,7 +253,8 @@ class TestReadAndRender:
         contract, root = bound_contract
         (root / "1-一审" / "2-立案材料" / "起诉状.txt").write_text("纯文本没有页图形态", encoding="utf-8")
         outcome = render_folder_file_pages(
-            contract_id=contract.id,
+            owner_kind="contract",
+            owner_id=contract.id,
             subpath="1-一审/2-立案材料/起诉状.txt",
             user=lawyer,
             org_access=None,
@@ -248,3 +262,54 @@ class TestReadAndRender:
         )
         assert outcome.error == "unsupported_mime"
         assert outcome.pages == []
+
+class TestCaseOwnerKind:
+    def test_case_ref_reads_case_binding_folder(self, db, tmp_path, monkeypatch, lawyer) -> None:
+        """案件引用走 CaseFolderBrowseService：读案件绑定文件夹的原文件。"""
+        from apps.cases.models import Case
+        from apps.cases.services.material.case_folder_browse_service import CaseFolderBrowseService
+
+        monkeypatch.setattr(CaseFolderBrowseService, "_require_access", lambda self, **kw: None)
+        root = tmp_path / "case-bound"
+        (root / "证据").mkdir(parents=True)
+        (root / "证据" / "微信记录.txt").write_text("案件证据正文", encoding="utf-8")
+        from apps.cases.models import CaseFolderBinding
+
+        case = Case.objects.create(is_filed=True)
+        CaseFolderBinding.objects.create(case=case, folder_path=str(root))
+        session = AgentSession.objects.create(user=lawyer)
+        ref = create_folder_ref(
+            session=session,
+            user_id=lawyer.id,
+            user=lawyer,
+            org_access=None,
+            perm_open_access=False,
+            owner_kind="case",
+            owner_id=case.id,
+            subpath="证据/微信记录.txt",
+        )
+        assert ref.ref_owner_kind == "case"
+        assert ref.filename == "微信记录.txt"
+        payload = read_folder_file_content(
+            owner_kind="case",
+            owner_id=case.id,
+            subpath="证据/微信记录.txt",
+            user=lawyer,
+            org_access=None,
+            perm_open_access=False,
+        )
+        assert base64.b64decode(payload["content_base64"]).decode("utf-8") == "案件证据正文"
+        assert payload["attachment_id"] == f"folder:case:{case.id}/证据/微信记录.txt"
+
+    def test_unknown_kind_rejected(self, db, lawyer) -> None:
+        with pytest.raises(ValidationException):
+            create_folder_ref(
+                session=AgentSession.objects.create(user=lawyer),
+                user_id=lawyer.id,
+                user=lawyer,
+                org_access=None,
+                perm_open_access=False,
+                owner_kind="client",
+                owner_id=1,
+                subpath="x.txt",
+            )

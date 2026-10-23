@@ -95,12 +95,15 @@ describe('CopilotEmbed 拖拽投放', () => {
     fireEvent.drop(zone, {
       dataTransfer: {
         getData: (mime: string) =>
-          mime === FOLDER_REF_MIME ? JSON.stringify({ contractId: 8, subpath: '1-一审/起诉状.pdf', name: '起诉状.pdf' }) : '',
+          mime === FOLDER_REF_MIME
+            ? JSON.stringify({ kind: 'contract', ownerId: 8, subpath: '1-一审/起诉状.pdf', name: '起诉状.pdf' })
+            : '',
         files: [],
       },
     })
     expect(copilotState.addFolderRef).toHaveBeenCalledWith({
-      contractId: 8,
+      kind: 'contract',
+      ownerId: 8,
       subpath: '1-一审/起诉状.pdf',
       name: '起诉状.pdf',
     })

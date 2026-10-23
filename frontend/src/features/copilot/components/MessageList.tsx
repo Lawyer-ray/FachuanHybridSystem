@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Brain, Check, Copy, FolderOpen, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
+import { Brain, Check, Copy, Folder, FolderOpen, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -133,12 +133,12 @@ function Bubble({ message }: { message: ChatMessage }) {
           <div className="flex max-w-full flex-wrap justify-end gap-1">
             {refs.map((ref) => (
               <span
-                key={`${ref.contractId}-${ref.subpath}`}
+                key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
                 className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                title={`合同 ${ref.contractId} · ${ref.subpath}（引用原文件）`}
+                title={`${ref.kind === 'case' ? '案件' : '合同'} ${ref.ownerId} · ${ref.subpath}${ref.isFolder ? '（目录引用）' : '（引用原文件）'}`}
               >
-                <FolderOpen className="h-3 w-3 flex-none text-primary" />
-                <span className="max-w-52 truncate">{ref.subpath}</span>
+                {ref.isFolder ? <Folder className="h-3 w-3 flex-none text-primary" /> : <FolderOpen className="h-3 w-3 flex-none text-primary" />}
+                <span className="max-w-52 truncate">{ref.subpath}{ref.isFolder ? '/' : ''}</span>
               </span>
             ))}
           </div>

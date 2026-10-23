@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.http import StreamingHttpResponse
@@ -234,7 +234,7 @@ class PiApprovalOut(Schema):
 class AttachmentOut(Schema):
     """附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。
 
-    引用型（拖拽合同文件夹文件）带 ``ref_contract_id`` / ``ref_subpath``，
+    引用型（拖拽绑定文件夹文件）带 ``ref_owner_kind`` / ``ref_contract_id``（归属 id，合同或案件）/ ``ref_subpath``，
     上传型两者为空——前端据此渲染不同 chip。
     """
 
@@ -242,14 +242,16 @@ class AttachmentOut(Schema):
     filename: str
     size: int
     mime: str = ""
+    ref_owner_kind: str = "contract"
     ref_contract_id: int | None = None
     ref_subpath: str = ""
 
 
 class FolderRefIn(Schema):
-    """拖拽引用入参：指向合同绑定文件夹内的一个文件（不复制字节）。"""
+    """拖拽引用入参：指向合同/案件绑定文件夹内的一个文件（不复制字节）。"""
 
-    contract_id: int
+    kind: Literal["contract", "case"] = "contract"
+    owner_id: int
     subpath: str
 
 
@@ -837,7 +839,8 @@ async def create_session_folder_ref(request: Any, session_id: str, data: FolderR
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
-            contract_id=data.contract_id,
+            owner_kind=data.kind,
+            owner_id=data.owner_id,
             subpath=data.subpath,
         )
     except NotFoundError as exc:
@@ -850,25 +853,30 @@ async def create_session_folder_ref(request: Any, session_id: str, data: FolderR
         filename=ref.filename,
         size=ref.size,
         mime=ref.mime,
+        ref_owner_kind=ref.ref_owner_kind,
         ref_contract_id=ref.ref_contract_id,
         ref_subpath=ref.ref_subpath,
     )
 
 
 @router.get("/folder-refs/content")
-async def get_folder_ref_content(request: Any, contract_id: int, subpath: str) -> Any:
+async def get_folder_ref_content(request: Any, kind: str = "contract", owner_id: int = 0, subpath: str = "") -> Any:
     """读绑定文件夹内原文件（base64）——**mcp_server 专用**（用户 token 鉴权）。
 
     与 /attachments/{id}/content 同构：内容只用于服务端转投 /document-parsing
-    提取正文，不直接进模型上下文。权限与 folder-entries 同口径（行级 ACL）。
+    提取正文，不直接进模型上下文。权限与 folder-entries 同口径（行级 ACL）；
+    kind=contract/case 决定走合同还是案件的绑定文件夹。
     """
     user = _current_user(request)
     if user is None:
         raise HttpError(401, "未登录")
+    if kind not in ("contract", "case") or owner_id <= 0:
+        raise HttpError(400, "kind 仅支持 contract/case 且 owner_id 必须为正整数")
     ctx = get_request_access_context(request)
     try:
         return await sync_to_async(read_folder_file_content, thread_sensitive=True)(
-            contract_id=contract_id,
+            owner_kind=kind,
+            owner_id=owner_id,
             subpath=subpath,
             user=ctx.user,
             org_access=ctx.org_access,
@@ -883,8 +891,9 @@ async def get_folder_ref_content(request: Any, contract_id: int, subpath: str) -
 @router.get("/folder-refs/pages", response=AttachmentPagesOut)
 async def get_folder_ref_pages(
     request: Any,
-    contract_id: int,
-    subpath: str,
+    kind: str = "contract",
+    owner_id: int = 0,
+    subpath: str = "",
     pages: str = "all",
     dpi: str = str(_PAGES_DPI_DEFAULT),
     format: str = "png",
@@ -899,6 +908,8 @@ async def get_folder_ref_pages(
     user = _current_user(request)
     if user is None:
         raise HttpError(401, "未登录")
+    if kind not in ("contract", "case") or owner_id <= 0:
+        raise HttpError(400, "kind 仅支持 contract/case 且 owner_id 必须为正整数")
     requested_format = format
     fmt = (requested_format or "png").strip().lower()
     if fmt == "jpg":
@@ -915,7 +926,8 @@ async def get_folder_ref_pages(
     ctx = get_request_access_context(request)
     try:
         outcome = await sync_to_async(render_folder_file_pages, thread_sensitive=True)(
-            contract_id=contract_id,
+            owner_kind=kind,
+            owner_id=owner_id,
             subpath=subpath,
             user=ctx.user,
             org_access=ctx.org_access,
@@ -943,9 +955,10 @@ async def get_folder_ref_pages(
         truncated_pages=outcome.truncated_pages > 0,
     )
     logger.info(
-        "folder_refs_pages user=%s contract_id=%s subpath=%r pages=%r dpi=%d format=%s returned=%d error=%s",
+        "folder_refs_pages user=%s kind=%s owner_id=%s subpath=%r pages=%r dpi=%d format=%s returned=%d error=%s",
         _user_id(request),
-        contract_id,
+        kind,
+        owner_id,
         subpath,
         pages_spec,
         requested_dpi,

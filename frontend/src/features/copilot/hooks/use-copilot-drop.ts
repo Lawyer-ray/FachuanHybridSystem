@@ -57,9 +57,22 @@ export function useCopilotDrop() {
     if (raw) {
       if (!dropAllowed()) return
       try {
-        const draft = JSON.parse(raw) as FolderRefDraft
-        if (typeof draft.contractId === 'number' && typeof draft.subpath === 'string' && draft.subpath) {
-          addFolderRef({ contractId: draft.contractId, subpath: draft.subpath, name: String(draft.name ?? '') })
+        // 兼容三种 payload 形态：旧 {contractId} / 新 {kind, ownerId}（拖拽源已统一为新形态）
+        const d = JSON.parse(raw) as Partial<FolderRefDraft> & { contractId?: number; caseId?: number }
+        const ownerId = d.kind === 'case' ? d.caseId ?? d.ownerId : d.contractId ?? d.ownerId
+        if (
+          (d.kind === 'contract' || d.kind === 'case') &&
+          typeof ownerId === 'number' &&
+          typeof d.subpath === 'string' &&
+          d.subpath
+        ) {
+          addFolderRef({
+            kind: d.kind,
+            ownerId,
+            subpath: d.subpath,
+            name: String(d.name ?? ''),
+            ...(d.isFolder ? { isFolder: true } : {}),
+          })
         }
       } catch {
         // 非法 JSON 静默丢弃：不当作文件处理，也不打断 drop

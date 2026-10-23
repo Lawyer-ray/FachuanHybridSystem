@@ -44,7 +44,7 @@ def setup(
 def _post_ref(client: Client, session: AgentSession, contract_id: int, subpath: str) -> tuple[int, dict[str, Any]]:
     resp = client.post(
         f"/api/v1/agent/sessions/{session.session_id}/folder-refs",
-        data=json.dumps({"contract_id": contract_id, "subpath": subpath}),
+        data=json.dumps({"kind": "contract", "owner_id": contract_id, "subpath": subpath}),
         content_type="application/json",
     )
     return resp.status_code, resp.json()
@@ -90,7 +90,7 @@ class TestContentAndPagesApi:
 
         resp = client.get(
             "/api/v1/agent/folder-refs/content",
-            {"contract_id": contract.id, "subpath": "0-律师资料/委托合同.txt"},
+            {"kind": "contract", "owner_id": contract.id, "subpath": "0-律师资料/委托合同.txt"},
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -102,7 +102,7 @@ class TestContentAndPagesApi:
         anon = Client()
         resp = anon.get(
             "/api/v1/agent/folder-refs/content",
-            {"contract_id": 1, "subpath": "x.txt"},
+            {"kind": "contract", "owner_id": 1, "subpath": "x.txt"},
         )
         assert resp.status_code == 401
 
@@ -113,7 +113,7 @@ class TestContentAndPagesApi:
         _, client, contract, _, _ = setup
         resp = client.get(
             "/api/v1/agent/folder-refs/pages",
-            {"contract_id": contract.id, "subpath": "0-律师资料/委托合同.txt", "pages": "1"},
+            {"kind": "contract", "owner_id": contract.id, "subpath": "0-律师资料/委托合同.txt", "pages": "1"},
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -124,7 +124,7 @@ class TestContentAndPagesApi:
         _, client, contract, _, _ = setup
         resp = client.get(
             "/api/v1/agent/folder-refs/pages",
-            {"contract_id": contract.id, "subpath": "0-律师资料/委托合同.txt", "pages": "abc"},
+            {"kind": "contract", "owner_id": contract.id, "subpath": "0-律师资料/委托合同.txt", "pages": "abc"},
         )
         assert resp.status_code == 400
 
@@ -134,7 +134,7 @@ class TestContentAndPagesApi:
         _, client, contract, _, _ = setup
         resp = client.get(
             "/api/v1/agent/folder-refs/pages",
-            {"contract_id": contract.id, "subpath": "0-律师资料/没了.pdf", "pages": "1"},
+            {"kind": "contract", "owner_id": contract.id, "subpath": "0-律师资料/没了.pdf", "pages": "1"},
         )
         assert resp.status_code == 404
         assert "不存在" in resp.json()["message"]

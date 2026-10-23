@@ -63,11 +63,15 @@ export async function uploadAttachmentsAndCompose(
   } catch {
     return null
   }
+  // 文件引用落附件（按 kind 走合同/案件绑定）；目录引用不落附件——
+  // 提示块让模型用 list_folder_files 自行浏览目录再按需读文件
   let refReceipts: AgentAttachmentReceipt[] = []
-  if (folderRefs.length > 0) {
+  const fileRefs = folderRefs.filter((d) => !d.isFolder)
+  const folderRefsDir = folderRefs.filter((d) => d.isFolder)
+  if (fileRefs.length > 0) {
     try {
       refReceipts = await Promise.all(
-        folderRefs.map((draft) => copilotApi.createFolderRef(sessionId, draft.contractId, draft.subpath)),
+        fileRefs.map((d) => copilotApi.createFolderRef(sessionId, d.kind, d.ownerId, d.subpath)),
       )
     } catch {
       return null
@@ -79,11 +83,15 @@ export async function uploadAttachmentsAndCompose(
   }
   const refBlocks = refReceipts
     .filter((r) => r.ref_contract_id != null)
-    .map(
-      (r) =>
-        `[已引用文件：${r.filename} (attachment_id=${r.attachment_id}, contract_id=${r.ref_contract_id}, subpath="${r.ref_subpath}")]`,
-    )
+    .map((r) => {
+      const idKey = r.ref_owner_kind === 'case' ? 'case_id' : 'contract_id'
+      return `[已引用文件：${r.filename} (attachment_id=${r.attachment_id}, ${idKey}=${r.ref_contract_id}, subpath="${r.ref_subpath}")]`
+    })
+  const dirBlocks = folderRefsDir.map(
+    (d) =>
+      `[已引用目录：${d.name} (${d.kind === 'case' ? 'case_id' : 'contract_id'}=${d.ownerId}, subpath="${d.subpath}")]`,
+  )
   const uploadBlocks = receipts.map((r) => `[已上传附件：${r.filename} (attachment_id=${r.attachment_id})]`)
-  const blocks = [...refBlocks, ...uploadBlocks].join('\n')
+  const blocks = [...refBlocks, ...dirBlocks, ...uploadBlocks].join('\n')
   return { composed: `${trimmed}\n\n${blocks}` }
 }

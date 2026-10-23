@@ -137,7 +137,7 @@ describe('引用块拆分（folder-ref 回放）', () => {
 
   it('纯引用消息：refs 解析出来，body 剩空串', () => {
     const { refs, body } = splitRefBlocks(REF)
-    expect(refs).toEqual([{ name: '委托合同.docx', contractId: 8, subpath: '1-一审/起诉状.pdf' }])
+    expect(refs).toEqual([{ name: '委托合同.docx', kind: 'contract', ownerId: 8, subpath: '1-一审/起诉状.pdf' }])
     expect(body).toBe('')
   })
 
@@ -161,7 +161,7 @@ describe('引用块拆分（folder-ref 回放）', () => {
       { message_id: 2, role: 'assistant', content: REF, tool_name: '', created_at: '', metadata: {} },
     ]
     const msgs = historyToMessages(rows)
-    expect(msgs[0]).toMatchObject({ refs: [{ contractId: 8 }] })
+    expect(msgs[0]).toMatchObject({ refs: [{ kind: 'contract', ownerId: 8 }] })
     expect(msgs[0]!.content).toBe('帮我审一遍')
     expect(msgs[1]!.refs).toBeUndefined()
     expect(msgs[1]!.content).toBe(REF)
@@ -193,5 +193,21 @@ describe('页面锚点（通用助手页面感知）', () => {
     const msg = historyToMessages(rows)[0]!
     expect(msg.pageHint).toBe('委托详情 · 某银行（contract_id=8）')
     expect(msg.content).toBe('总结一下')
+  })
+})
+
+describe('引用块解析（kind 与目录）', () => {
+  it('案件文件引用块：case_id → kind=case', () => {
+    const { refs } = splitRefBlocks('[已引用文件：微信记录.txt (attachment_id=c3d4e5f6-0000-0000-0000-000000000002, case_id=99, subpath="证据/微信记录.txt")]')
+    expect(refs[0]).toMatchObject({ kind: 'case', ownerId: 99, subpath: '证据/微信记录.txt', isFolder: undefined })
+  })
+
+  it('目录引用块：无 attachment_id、isFolder=true（contract 与 case）', () => {
+    const { refs } = splitRefBlocks(
+      '[已引用目录：1-一审 (contract_id=8, subpath="1-一审")]\n[已引用目录：证据 (case_id=99, subpath="证据")]',
+    )
+    expect(refs).toHaveLength(2)
+    expect(refs[0]).toMatchObject({ kind: 'contract', ownerId: 8, subpath: '1-一审', isFolder: true })
+    expect(refs[1]).toMatchObject({ kind: 'case', ownerId: 99, subpath: '证据', isFolder: true })
   })
 })

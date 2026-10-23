@@ -101,11 +101,12 @@ export function uploadAttachment(sessionId: string, file: File): Promise<AgentAt
 /** 创建文件夹引用（拖拽合同目录树文件；不复制字节，返回引用回执） */
 export function createFolderRef(
   sessionId: string,
-  contractId: number,
+  kind: 'contract' | 'case',
+  ownerId: number,
   subpath: string,
 ): Promise<AgentAttachmentReceipt> {
   return api
-    .post(`agent/sessions/${sessionId}/folder-refs`, { json: { contract_id: contractId, subpath } })
+    .post(`agent/sessions/${sessionId}/folder-refs`, { json: { kind, owner_id: ownerId, subpath } })
     .json<AgentAttachmentReceipt>()
 }
 

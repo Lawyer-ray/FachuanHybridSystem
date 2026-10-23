@@ -50,8 +50,15 @@ export function parseSseEvent(frame: string): AgentStreamEvent | null {
  * 历史消息 → 转录气泡。
  * tool 消息后端截断到 8000 字符，前端预览再收一刀；truncated 标记透传。
  */
-/** 「[已引用文件：name (attachment_id=…, contract_id=N, subpath="…")]」行 */
-const SENT_REF_RE = /^\[已引用文件：(.+?) \(attachment_id=[0-9a-f-]+, contract_id=(\d+), subpath="(.+?)"\)\]$/
+/**
+ * 引用块行（发送时由 outgoing 拼入消息）：
+ * - 文件（落了附件）：`[已引用文件：name (attachment_id=…, contract_id=N, subpath="…")]`
+ *   案件文件把 contract_id 换成 case_id
+ * - 目录（不落附件）：`[已引用目录：name (contract_id=N, subpath="…")]`
+ *   模型收到后先用 list_folder_files 列目录、再 read_folder_file 读文件
+ */
+const SENT_REF_RE =
+  /^\[已引用(文件|目录)：(.+?) \((?:attachment_id=[0-9a-f-]+, )?(contract_id|case_id)=(\d+), subpath="(.+?)"\)\]$/
 
 /**
  * 把 user 消息正文拆成「引用块 + 剩余正文」。
@@ -63,8 +70,15 @@ export function splitRefBlocks(content: string): { refs: SentRefMeta[]; body: st
   const kept: string[] = []
   for (const line of content.split('\n')) {
     const m = SENT_REF_RE.exec(line.trim())
-    if (m?.[1] && m[2] && m[3]) refs.push({ name: m[1], contractId: Number(m[2]), subpath: m[3] })
-    else kept.push(line)
+    if (m?.[1] && m[2] && m[3] && m[4] && m[5]) {
+      refs.push({
+        isFolder: m[1] === '目录' || undefined,
+        name: m[2],
+        kind: m[3] === 'case_id' ? 'case' : 'contract',
+        ownerId: Number(m[4]),
+        subpath: m[5],
+      })
+    } else kept.push(line)
   }
   if (refs.length === 0) return { refs, body: content }
   // 去掉引用块后正文可能只剩空白（默认语被引用块替换的场景）——保留原始
