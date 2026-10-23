@@ -26,7 +26,7 @@ def test_classify_no_images(authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.evidence_sorting.services.classifier.ClassifierService")
+@patch("apps.finance_doc_sorting.services.classifier.ClassifierService")
 def test_classify_images(mock_svc_cls, authenticated_client):
     mock_result = MagicMock()
     mock_img = MagicMock()
@@ -75,7 +75,7 @@ def test_parse_statement_no_text(authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.evidence_sorting.services.reconciler.ReconcilerService")
+@patch("apps.finance_doc_sorting.services.reconciler.ReconcilerService")
 def test_parse_statement(mock_svc_cls, authenticated_client):
     mock_info = MagicMock()
     mock_info.month = "2026-01"
@@ -108,7 +108,7 @@ def test_parse_statement(mock_svc_cls, authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.evidence_sorting.services.reconciler.ReconcilerService")
+@patch("apps.finance_doc_sorting.services.reconciler.ReconcilerService")
 def test_reconcile(mock_svc_cls, authenticated_client):
     mock_group = MagicMock()
     mock_group.month = "2026-01"
@@ -154,8 +154,8 @@ def test_reconcile(mock_svc_cls, authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.evidence_sorting.services.exporter.ExporterService")
-@patch("apps.evidence_sorting.services.reconciler.ReconcilerService")
+@patch("apps.finance_doc_sorting.services.exporter.ExporterService")
+@patch("apps.finance_doc_sorting.services.reconciler.ReconcilerService")
 def test_export_zip(mock_reconciler_cls, mock_exporter_cls, authenticated_client):
     mock_result = MagicMock()
     mock_reconciler = MagicMock()

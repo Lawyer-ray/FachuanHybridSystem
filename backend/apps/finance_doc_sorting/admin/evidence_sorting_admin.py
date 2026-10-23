@@ -6,7 +6,7 @@ from typing import Any
 from django.contrib import admin
 from django.template.response import TemplateResponse
 
-from apps.evidence_sorting.models import EvidenceSorting
+from apps.finance_doc_sorting.models import EvidenceSorting
 
 logger = logging.getLogger("apps.evidence_sorting")
 

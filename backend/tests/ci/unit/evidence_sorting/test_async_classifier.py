@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.evidence_sorting.services.classifier import ClassifierService
+from apps.finance_doc_sorting.services.classifier import ClassifierService
 
 
 def _make_image(text_content: str) -> dict:

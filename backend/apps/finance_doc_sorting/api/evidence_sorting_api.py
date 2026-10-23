@@ -37,7 +37,7 @@ async def classify_images(request: HttpRequest) -> dict[str, Any]:  # pragma: no
     if not images:
         return {"success": False, "message": "没有图片"}
 
-    from apps.evidence_sorting.services.classifier import ClassifierService
+    from apps.finance_doc_sorting.services.classifier import ClassifierService
 
     svc = ClassifierService()
 
@@ -73,7 +73,7 @@ async def parse_statement(request: HttpRequest) -> dict[str, Any]:  # pragma: no
     if not ocr_text:
         return {"success": False, "message": "缺少 ocr_text"}
 
-    from apps.evidence_sorting.services.reconciler import ReconcilerService
+    from apps.finance_doc_sorting.services.reconciler import ReconcilerService
 
     svc = ReconcilerService()
 
@@ -99,7 +99,7 @@ async def reconcile(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     backend: str | None = payload.get("backend")
     model: str | None = payload.get("model")
 
-    from apps.evidence_sorting.services.reconciler import ReconcilerService
+    from apps.finance_doc_sorting.services.reconciler import ReconcilerService
 
     svc = ReconcilerService()
 
@@ -171,8 +171,8 @@ async def export_zip(request: HttpRequest) -> dict[str, Any]:  # pragma: no cove
     backend: str | None = payload.get("backend")
     model: str | None = payload.get("model")
 
-    from apps.evidence_sorting.services.exporter import ExporterService
-    from apps.evidence_sorting.services.reconciler import ReconcilerService
+    from apps.finance_doc_sorting.services.exporter import ExporterService
+    from apps.finance_doc_sorting.services.reconciler import ReconcilerService
 
     reconciler = ReconcilerService()
 

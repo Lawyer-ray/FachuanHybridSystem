@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.evidence_sorting.services.reconciler import (
+from apps.finance_doc_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
     FOLDER_DELIVERY_NOT_ENOUGH,

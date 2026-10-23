@@ -194,7 +194,7 @@ def _register_app_routers() -> None:
     )
     from apps.enterprise_data.api import router as enterprise_data_router
     from apps.evidence.api import evidence_router
-    from apps.evidence_sorting.api import router as evidence_sorting_router
+    from apps.finance_doc_sorting.api import router as evidence_sorting_router
     from apps.image_rotation.api import router as image_rotation_router
     from apps.invoice_recognition.api import router as invoice_recognition_router
     from apps.legal_research.api import router as legal_research_router

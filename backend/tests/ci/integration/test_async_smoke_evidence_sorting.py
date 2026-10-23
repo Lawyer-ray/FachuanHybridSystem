@@ -29,7 +29,7 @@ class TestEvidenceSortingSmoke:
         mock_svc = MagicMock()
         mock_svc.classify_images_async = AsyncMock(return_value=mock_classify_result)
 
-        with patch("apps.evidence_sorting.services.classifier.ClassifierService", return_value=mock_svc):
+        with patch("apps.finance_doc_sorting.services.classifier.ClassifierService", return_value=mock_svc):
             resp = authenticated_client.post(
                 "/api/v1/evidence-sorting/classify",
                 data=json.dumps({"images": [{"filename": "stmt.jpg", "data": "base64data"}]}),

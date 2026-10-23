@@ -4,10 +4,8 @@
 此模块解决 models 和 services 之间的循环导入问题。
 """
 
-import os
 import re
 
-from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
 
@@ -56,8 +54,15 @@ class EvidenceFileStorage(FileSystemStorage):
 
 
 def get_evidence_storage() -> EvidenceFileStorage:
-    """获取证据文件存储实例"""
-    return EvidenceFileStorage(location=os.path.join(settings.MEDIA_ROOT, "evidence"), base_url="/media/evidence/")
+    """获取证据文件存储实例。
+
+    注意：不要给 location/base_url 再加 ``evidence`` 前缀。
+    两个使用本 storage 的字段都通过 ``DatedUUIDPath`` 生成路径，其
+    ``MediaEntity`` 已自带 ``evidence/`` 前缀（``evidence/files``、
+    ``evidence/merged``）；若 location 再加一层 ``evidence``，最终 URL 会变成
+    ``/media/evidence/evidence/merged/...``（历史上就是如此，已修正）。
+    """
+    return EvidenceFileStorage()
 
 
 evidence_file_storage = get_evidence_storage()

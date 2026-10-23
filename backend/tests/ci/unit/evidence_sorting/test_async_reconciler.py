@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from apps.evidence_sorting.services.reconciler import ReconcilerService
+from apps.finance_doc_sorting.services.reconciler import ReconcilerService
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ class TestReconcileAsync:
 
         async def fake_parse(text, backend=None, model=None):
             parse_order.append(text)
-            from apps.evidence_sorting.services.reconciler import StatementInfo
+            from apps.finance_doc_sorting.services.reconciler import StatementInfo
 
             return StatementInfo(month="2022-08", total_amount=100, signed=True)
 

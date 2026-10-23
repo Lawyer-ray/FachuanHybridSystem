@@ -290,7 +290,7 @@ class TestEnterpriseData:
 
 class TestEvidence:
     def test_reconciler_import(self):
-        from apps.evidence_sorting.services.reconciler import ReconcilerService
+        from apps.finance_doc_sorting.services.reconciler import ReconcilerService
 
         assert ReconcilerService is not None
 

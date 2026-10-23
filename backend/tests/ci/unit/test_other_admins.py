@@ -48,10 +48,10 @@ from apps.documents.models import (
 )
 from apps.enterprise_data.admin.mcp_workbench_admin import McpWorkbenchAdmin
 from apps.enterprise_data.models import McpWorkbench
-from apps.evidence_sorting.admin.evidence_sorting_admin import EvidenceSortingAdmin
-from apps.evidence_sorting.models import EvidenceSorting
 from apps.express_query.admin.express_query_task_admin import ExpressQueryTaskAdmin, ExpressQueryToolAdmin
 from apps.express_query.models import ExpressQueryTask, ExpressQueryTool
+from apps.finance_doc_sorting.admin.evidence_sorting_admin import EvidenceSortingAdmin
+from apps.finance_doc_sorting.models import EvidenceSorting
 from apps.image_rotation.admin.image_rotation_admin import ImageRotationAdmin
 from apps.image_rotation.models import ImageRotationTool
 from apps.invoice_recognition.admin.invoice_recognition_admin import InvoiceRecognitionTaskAdmin

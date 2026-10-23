@@ -9,7 +9,7 @@ import pytest
 
 class TestClassifierClassifyByKeywords:
     def _make_service(self):
-        from apps.evidence_sorting.services.classifier import ClassifierService
+        from apps.finance_doc_sorting.services.classifier import ClassifierService
 
         return ClassifierService()
 
@@ -40,7 +40,7 @@ class TestClassifierClassifyByKeywords:
 
 class TestClassifierExtractDate:
     def _make_service(self):
-        from apps.evidence_sorting.services.classifier import ClassifierService
+        from apps.finance_doc_sorting.services.classifier import ClassifierService
 
         return ClassifierService()
 
@@ -63,7 +63,7 @@ class TestClassifierExtractDate:
 
 class TestClassifierExtractAmount:
     def _make_service(self):
-        from apps.evidence_sorting.services.classifier import ClassifierService
+        from apps.finance_doc_sorting.services.classifier import ClassifierService
 
         return ClassifierService()
 
@@ -90,7 +90,7 @@ class TestClassifierExtractAmount:
 
 class TestClassifierDetectSigned:
     def _make_service(self):
-        from apps.evidence_sorting.services.classifier import ClassifierService
+        from apps.finance_doc_sorting.services.classifier import ClassifierService
 
         return ClassifierService()
 
@@ -105,7 +105,7 @@ class TestClassifierDetectSigned:
 
 class TestClassifierClassifyImages:
     def _make_service(self):
-        from apps.evidence_sorting.services.classifier import ClassifierService
+        from apps.finance_doc_sorting.services.classifier import ClassifierService
 
         return ClassifierService()
 

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.evidence_sorting.services.exporter import _build_filename, _get_ext, _write_image
-from apps.evidence_sorting.services.reconciler import (
+from apps.finance_doc_sorting.services.exporter import _build_filename, _get_ext, _write_image
+from apps.finance_doc_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_UNSIGNED,
     STATEMENT_PARSE_PROMPT,
@@ -221,17 +221,17 @@ class TestReconcilerServiceBuildFolderName:
 
 class TestExporterServiceHelpers:
     def test_get_ext_with_extension(self) -> None:
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         assert _get_ext("test.jpg") == ".jpg"
 
     def test_get_ext_no_extension(self) -> None:
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         assert _get_ext("noext") == ".jpg"
 
     def test_get_ext_multiple_dots(self) -> None:
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         assert _get_ext("file.backup.pdf") == ".pdf"
 
@@ -240,7 +240,7 @@ class TestExporterServiceHelpers:
         import io
         import zipfile
 
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         data = base64.b64encode(b"fake image data").decode()
         buf = io.BytesIO()
@@ -255,7 +255,7 @@ class TestExporterServiceHelpers:
         import io
         import zipfile
 
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         raw = base64.b64encode(b"image bytes").decode()
         data = f"data:image/jpeg;base64,{raw}"
@@ -268,7 +268,7 @@ class TestExporterServiceHelpers:
             assert content == b"image bytes"
 
     def test_build_filename_format(self) -> None:
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         fn = _build_filename()
         assert fn.startswith("evidence_sorting_")
@@ -277,7 +277,7 @@ class TestExporterServiceHelpers:
 
 class TestExporterBuildDeliveryFilename:
     def test_basic_filename(self) -> None:
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         dn = DeliveryNote(date="20260601", amount="100", filename="test.jpg", ocr_text="出库单明细")
         counter: dict[str, int] = {}
@@ -288,7 +288,7 @@ class TestExporterBuildDeliveryFilename:
         assert name.endswith(".jpg")
 
     def test_same_date_counter(self) -> None:
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         dn1 = DeliveryNote(date="20260601", amount="100", filename="a.jpg", ocr_text="出库单")
         dn2 = DeliveryNote(date="20260601", amount="200", filename="b.jpg", ocr_text="出库单")
@@ -299,7 +299,7 @@ class TestExporterBuildDeliveryFilename:
         assert "_2" in name2
 
     def test_no_date(self) -> None:
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         dn = DeliveryNote(amount="100", filename="test.jpg", ocr_text="出库单")
         counter: dict[str, int] = {}

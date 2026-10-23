@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from apps.evidence_sorting.services.classifier import (
+from apps.finance_doc_sorting.services.classifier import (
     TYPE_DELIVERY,
     TYPE_OTHER,
     TYPE_RECEIPT,
@@ -19,8 +19,8 @@ from apps.evidence_sorting.services.classifier import (
     ClassifierService,
     ClassifyResult,
 )
-from apps.evidence_sorting.services.exporter import ExporterService, _build_filename, _get_ext, _write_image
-from apps.evidence_sorting.services.reconciler import (
+from apps.finance_doc_sorting.services.exporter import ExporterService, _build_filename, _get_ext, _write_image
+from apps.finance_doc_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
     FOLDER_DELIVERY_NOT_ENOUGH,

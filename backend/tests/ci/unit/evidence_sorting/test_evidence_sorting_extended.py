@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.evidence_sorting.services.classifier import (
+from apps.finance_doc_sorting.services.classifier import (
     _KEYWORDS,
     TYPE_DELIVERY,
     TYPE_OTHER,
@@ -17,8 +17,8 @@ from apps.evidence_sorting.services.classifier import (
     ClassifierService,
     ClassifyResult,
 )
-from apps.evidence_sorting.services.exporter import _build_filename, _get_ext, _write_image
-from apps.evidence_sorting.services.reconciler import (
+from apps.finance_doc_sorting.services.exporter import _build_filename, _get_ext, _write_image
+from apps.finance_doc_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     STATUS_MATCHED,
     STATUS_MISSING,
@@ -239,19 +239,19 @@ class TestReconcileResult:
 
 class TestExporterService:
     def test_import(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         assert ExporterService is not None
 
     def test_get_ext(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         assert _get_ext("test.jpg") == ".jpg"
         assert _get_ext("test.pdf") == ".pdf"
         assert _get_ext("noext") == ".jpg"
 
     def test_build_filename(self):
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         filename = _build_filename()
         assert filename.startswith("evidence_sorting_")
@@ -261,7 +261,7 @@ class TestExporterService:
         import io
         import zipfile
 
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -274,7 +274,7 @@ class TestExporterService:
         import io
         import zipfile
 
-        from apps.evidence_sorting.services.exporter import ExporterService
+        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:

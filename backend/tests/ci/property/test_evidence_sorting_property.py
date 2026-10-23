@@ -8,14 +8,14 @@ from typing import Any
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from apps.evidence_sorting.services.classifier import (
+from apps.finance_doc_sorting.services.classifier import (
     TYPE_DELIVERY,
     TYPE_OTHER,
     TYPE_RECEIPT,
     TYPE_STATEMENT,
     ClassifierService,
 )
-from apps.evidence_sorting.services.reconciler import ReconcilerService, StatementInfo, _normalize_date, _to_float
+from apps.finance_doc_sorting.services.reconciler import ReconcilerService, StatementInfo, _normalize_date, _to_float
 
 KNOWN_TYPES = {TYPE_STATEMENT, TYPE_DELIVERY, TYPE_RECEIPT, TYPE_OTHER}
 
@@ -261,7 +261,7 @@ def test_to_float_non_numeric_returns_none(text: str) -> None:
 # ReconcilerService._match_delivery
 # ---------------------------------------------------------------------------
 
-from apps.evidence_sorting.services.reconciler import DeliveryNote, LineItem
+from apps.finance_doc_sorting.services.reconciler import DeliveryNote, LineItem
 
 svc = ReconcilerService()
 

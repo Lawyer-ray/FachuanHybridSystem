@@ -415,7 +415,7 @@ class TestFactoryFunctions:
         assert hasattr(svc, "calculate_start_page")
 
     def test_get_evidence_storage_returns_storage(self):
-        from apps.evidence.models.evidence import _get_evidence_storage
+        from apps.evidence.models.evidence_storage import get_evidence_storage
 
-        storage = _get_evidence_storage()
+        storage = get_evidence_storage()
         assert storage is not None

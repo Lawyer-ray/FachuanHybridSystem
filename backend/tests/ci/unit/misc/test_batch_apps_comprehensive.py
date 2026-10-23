@@ -246,17 +246,17 @@ class TestEvidenceSorting:
     """evidence_sorting 模块测试"""
 
     def test_models_module(self):
-        from apps.evidence_sorting.models import base
+        from apps.finance_doc_sorting.models import base
 
         assert base is not None
 
     def test_schemas_module(self):
-        from apps.evidence_sorting import schemas
+        from apps.finance_doc_sorting import schemas
 
         assert schemas is not None
 
     def test_services_modules(self):
-        from apps.evidence_sorting.services import classifier, exporter, reconciler
+        from apps.finance_doc_sorting.services import classifier, exporter, reconciler
 
         assert classifier is not None
         assert reconciler is not None
