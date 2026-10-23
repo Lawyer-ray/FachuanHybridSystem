@@ -122,6 +122,14 @@ export interface CopilotContext extends CopilotScope {
   title: string
 }
 
+/** POST /agent/sessions/{id}/attachments 的上传回执：消息里以 attachment_id 引用 */
+export interface AgentAttachmentReceipt {
+  attachment_id: string
+  filename: string
+  size: number
+  mime: string
+}
+
 /** GET /agent/usage 的汇总（token 由 pi 上报，取消/出错轮次也计入） */
 export interface UsageSummary {
   runs: number

@@ -1,16 +1,10 @@
 /**
  * Copilot 全局状态：转录、审批卡与流式收发。
  *
- * 流的生命周期归 store（模块级 Zustand）而非组件——收起面板不中断流，
- * 重新展开继续看；「停止生成」= AbortController 断开，服务端会把已流出
- * 的部分回答落库（truncated），随后重拉历史对齐。
+ * 流的生命周期归 store（模块级 Zustand）而非组件——收起面板不中断流；
  * 会话列表这类服务端状态走 react-query（SessionSidebar），不进本 store。
- *
- * 本 store 还承载三类「后端已有、前端补齐」的编排：
- * - 运行中插话（steer / 撤回）：queuedSteers 记录本轮已插话文本
- * - 后台任务（submitTask）：提交后切到任务会话，跑完由面板轮询刷新
- * - 离线审批（loadPendingApprovals）：后台任务挂起的高危工具调用，
- *   面板打开/每轮流结束后拉一次待审列表并渲染成审批卡
+ * 领域编排在同域模块：streaming.ts（帧消费）、turn-handlers.ts（轮处理器）、
+ * outgoing.ts（附件出站）、launch.ts（跨域启动入口）。
  */
 
 import { flushSync } from 'react-dom'
@@ -18,7 +12,8 @@ import { HTTPError } from 'ky'
 import { create } from 'zustand'
 
 import * as copilotApi from './api'
-import { historyToMessages, nextLocalId, pendingItemToApproval } from './domain'
+import { historyToMessages, nextLocalId, pendingItemToApproval, splitAttachmentFiles } from './domain'
+import { uploadAttachmentsAndCompose } from './outgoing'
 import { consumeAgentStream } from './streaming'
 import { createTurnHandlers } from './turn-handlers'
 import type { ChatMessage, CopilotContext, PendingApproval, TurnStats } from './types'
@@ -94,6 +89,16 @@ interface CopilotState {
   steering: boolean
   /** 业务内会话上下文（null = 普通对话模式）；会话列表按它过滤、新会话带归属 */
   context: CopilotContext | null
+  /** 待发送附件（拖拽/选择后暂存，随下一条消息上传并引用） */
+  pendingFiles: File[]
+  /** 附件上传在途（发送按钮置忙，防止重复提交） */
+  uploadingAttachments: boolean
+  /** 拖拽文件悬停中（面板渲染投放离焦高亮） */
+  draggingFiles: boolean
+  /** 拖拽/选择加入待发附件（前端预检不过的拒绝并提示） */
+  addAttachmentFiles: (files: FileList | File[]) => void
+  /** 移除一个待发附件 */
+  removeAttachmentFile: (index: number) => void
   /** 进入业务内会话模式（案件/合同页打开）：列表过滤到该业务，新会话带归属 */
   enterContext: (context: CopilotContext) => Promise<void>
   /** 退出业务内会话模式，回到普通对话 */
@@ -135,6 +140,23 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   queuedSteers: [],
   steering: false,
   context: null,
+  pendingFiles: [],
+  uploadingAttachments: false,
+  draggingFiles: false,
+
+  addAttachmentFiles: (files) => {
+    const { accepted, rejected } = splitAttachmentFiles(Array.from(files))
+    if (accepted.length === 0 && rejected.length === 0) return
+    set((s) => ({
+      pendingFiles: [...s.pendingFiles, ...accepted],
+      draggingFiles: false,
+      lastError: rejected.length > 0 ? `部分文件未添加：${rejected.join('；')}` : s.lastError,
+    }))
+  },
+
+  removeAttachmentFile: (index) => {
+    set((s) => ({ pendingFiles: s.pendingFiles.filter((_, i) => i !== index) }))
+  },
 
   enterContext: async (context) => {
     if (get().streaming) get().stop()
@@ -177,7 +199,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   send: async (text) => {
     const trimmed = text.trim()
-    if (!trimmed || get().streaming) return
+    if (!trimmed || get().streaming || get().uploadingAttachments) return
     set({ lastError: null })
 
     // 本轮发送归属哪个会话：await 期间用户可能切会话/开新对话，
@@ -197,11 +219,27 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       storeSession(sessionId)
     }
 
+    // 附件先行上传（服务端存档拿引用 id），消息里附引用块——模型用
+    // read_agent_attachment(id) 读正文，base64 不进上下文。
+    // 任一失败则本轮不发、chips 保留可重试（见 outgoing.ts）。
+    const outgoing = await uploadAttachmentsAndCompose(
+      sessionId,
+      trimmed,
+      get().pendingFiles,
+      () => set({ uploadingAttachments: true }),
+      (patch) => {
+        if (patch.pendingFiles) set({ uploadingAttachments: false, pendingFiles: patch.pendingFiles, lastError: null })
+        else set({ uploadingAttachments: false, lastError: '附件上传失败，请重试（附件已保留）' })
+      },
+    )
+    if (outgoing === null) return
+    const composed = outgoing.composed
+
     const assistantId = nextLocalId()
     set((s) => ({
       messages: [
         ...s.messages,
-        { id: nextLocalId(), role: 'user', content: trimmed },
+        { id: nextLocalId(), role: 'user', content: composed },
         { id: assistantId, role: 'assistant', content: '', streaming: true },
       ],
       approvals: [],
@@ -216,7 +254,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
     controller = new AbortController()
     try {
-      const resp = await copilotApi.openMessageStream(sessionId, trimmed, controller.signal)
+      const resp = await copilotApi.openMessageStream(sessionId, composed, controller.signal)
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
       await consumeAgentStream(resp, handlers)
       finishAssistant()
@@ -340,6 +378,9 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       queuedSteers: [],
       steering: false,
       context: null,
+      pendingFiles: [],
+      uploadingAttachments: false,
+      draggingFiles: false,
     })
     storeSession(null)
   },

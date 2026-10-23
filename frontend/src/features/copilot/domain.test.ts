@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  validateAttachmentFile,
+  formatFileSize,
   estimateTokens,
   historyToMessages,
   parseSseEvent,
@@ -108,5 +110,21 @@ describe('输出速度估算', () => {
   it('样本不足或时间倒挂时为 0', () => {
     expect(tokensPerSecond([], Date.now())).toBe(0)
     expect(tokensPerSecond([[1000, 5]], Date.now())).toBe(0)
+  })
+})
+
+describe('附件预检（P1-11）', () => {
+  it('validateAttachmentFile：白名单/限额/空文件', () => {
+    expect(validateAttachmentFile({ name: '合同.PDF', size: 100 })).toBeNull()
+    expect(validateAttachmentFile({ name: '图.JPG', size: 100 })).toBeNull()
+    expect(validateAttachmentFile({ name: 'a.exe', size: 1 })).toContain('不支持的格式')
+    expect(validateAttachmentFile({ name: 'a.txt', size: 21 * 1024 * 1024 })).toContain('20MB')
+    expect(validateAttachmentFile({ name: 'a.txt', size: 0 })).toContain('文件为空')
+  })
+
+  it('formatFileSize：B/KB/MB', () => {
+    expect(formatFileSize(500)).toBe('500B')
+    expect(formatFileSize(2048)).toBe('2KB')
+    expect(formatFileSize(3 * 1024 * 1024)).toBe('3.0MB')
   })
 })

@@ -6,6 +6,8 @@
    面板其余部分（头部/输入框）不参与，避免整页 crossfade 的闪动感 */
 .copilot-messages {
   view-transition-name: copilot-messages;
+  /* 滚动到边界不链到下层页面（配合 CopilotPanel 的原生 wheel 囚闭双保险） */
+  overscroll-behavior: contain;
 }
 
 ::view-transition-old(copilot-messages),

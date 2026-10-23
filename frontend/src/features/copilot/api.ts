@@ -6,9 +6,9 @@
  * 由调用方（store）读 resp.body 流。ky 实例同时给了 JWT 注入与 401 刷新重试。
  */
 
-import { api } from '@/lib/api'
+import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentHistoryMessage, AgentSession, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentHistoryMessage, AgentSession, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -85,4 +85,13 @@ export function getUsageSummary(days = 30, all = false): Promise<UsageSummary> {
 /** 当前用户仍待处理的审批（离线审批入口：后台任务挂起的高危工具调用） */
 export function fetchPendingApprovals(): Promise<PendingApprovalItem[]> {
   return api.get('agent/approvals/pending').json<PendingApprovalItem[]>()
+}
+
+/** 上传对话附件（multipart 字段 file；服务端白名单/20MB 限额，返回引用 id） */
+export function uploadAttachment(sessionId: string, file: File): Promise<AgentAttachmentReceipt> {
+  const form = new FormData()
+  form.append('file', file)
+  return api
+    .post(`agent/sessions/${sessionId}/attachments`, { body: form, timeout: UPLOAD_TIMEOUT_MS })
+    .json<AgentAttachmentReceipt>()
 }

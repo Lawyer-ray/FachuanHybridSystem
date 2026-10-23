@@ -204,7 +204,7 @@ export function SessionSidebar({
 
   const rootClass =
     variant === 'rail'
-      ? 'w-[180px] flex-none flex-col border-r border-border bg-card'
+      ? 'flex w-[180px] flex-none flex-col border-r border-border bg-card'
       : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200'
 
   return (
@@ -238,7 +238,7 @@ export function SessionSidebar({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-1.5 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2">
         {sessionsQuery.isLoading && (
           <p className="py-4 text-center text-[12px] text-muted-foreground">加载中…</p>
         )}
