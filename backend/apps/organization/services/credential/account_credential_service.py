@@ -13,6 +13,7 @@ from django.db.models import F, Q, QuerySet
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
+from apps.core.security.admin_access import is_admin_user
 from apps.organization.dtos import AccountCredentialCreateDTO, AccountCredentialUpdateDTO
 from apps.organization.models import AccountCredential, Lawyer
 from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
@@ -31,6 +32,19 @@ class AccountCredentialService:
     def _get_base_queryset(self) -> QuerySet[AccountCredential, AccountCredential]:  # pragma: no cover
         return AccountCredential.objects.select_related("lawyer", "lawyer__law_firm")
 
+    def _visible_credential_owner_ids(self, user: Lawyer | None) -> list[int]:
+        """当前用户可读凭证的归属律师 ID 集合（本人 + 同律师团队）。
+
+        无团队、无用户时仅返回本人（或空集），不会回退到全所可见。
+        """
+        if user is None or not getattr(user, "is_authenticated", False):
+            return []
+        teams = getattr(user, "lawyer_teams", None)
+        team_ids = list(teams.values_list("id", flat=True)) if teams is not None else []
+        if not team_ids:
+            return [user.id]
+        return list(Lawyer.objects.filter(lawyer_teams__id__in=team_ids).values_list("id", flat=True).distinct())
+
     def list_all_credentials(self) -> QuerySet[AccountCredential, AccountCredential]:
         """返回不带权限过滤的凭证查询集，供跨模块适配器读取。"""
         return self._get_base_queryset()
@@ -43,13 +57,11 @@ class AccountCredentialService:
     ) -> QuerySet[AccountCredential, AccountCredential]:
         qs = self._get_base_queryset()
 
-        # 权限过滤：非超级用户只能看到同一律所的凭证
-        if user is None or not user.is_superuser:
-            law_firm_id = user.law_firm_id if user else None
-            if law_firm_id is not None:
-                qs = qs.filter(lawyer__law_firm_id=law_firm_id)
-            else:
-                qs = qs.none()
+        # 权限过滤：凭证为个人外部账号口令，可见面限本人 + 同律师团队 + 管理员
+        # （原口径为「同律所」，会把全所同事的账号密码暴露给任意律师）
+        if not is_admin_user(user):
+            visible_lawyer_ids = self._visible_credential_owner_ids(user)
+            qs = qs.filter(lawyer_id__in=visible_lawyer_ids)
 
         if lawyer_id is not None:
             qs = qs.filter(lawyer_id=lawyer_id)
@@ -70,8 +82,9 @@ class AccountCredentialService:
         """
         credential = self.get_credential_by_id(credential_id)
 
-        # 权限检查：复用 OrganizationAccessPolicy 的律师读取权限
-        if not self._access_policy.can_read_lawyer(user=user, lawyer=credential.lawyer):
+        # 权限检查：凭证为个人外部账号口令，可见面限本人 + 同律师团队 + 管理员
+        # （不可用 can_read_lawyer，那是同所口径，会把可见面放大到全所）
+        if not self._access_policy.can_read_credential(user=user, credential_owner=credential.lawyer):
             raise PermissionDenied(message="无权限访问该凭证", code="CREDENTIAL_ACCESS_DENIED")
 
         return credential

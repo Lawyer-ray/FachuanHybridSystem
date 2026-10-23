@@ -98,13 +98,17 @@ export function DealDetailPage() {
       setAiDockH(Math.max(340, window.innerHeight - floor - 14))
     }
     measure()
+    // 数据刚到、字体/图片陆续就位会让首测的 top 漂移：下一帧再校一次
+    requestAnimationFrame(measure)
     window.addEventListener('scroll', measure, { passive: true })
     window.addEventListener('resize', measure)
     return () => {
       window.removeEventListener('scroll', measure)
       window.removeEventListener('resize', measure)
     }
-  }, [aiActive])
+    // 依赖 deal：记忆直开（aiOpen 初始即 true）时首渲染还在 loading，
+    // 容器未挂载、el 为 null；数据到达后必须重跑才能拿到真实元素
+  }, [aiActive, deal])
 
   const toggleAi = useCallback(() => {
     setAiOpen((v) => {

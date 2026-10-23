@@ -41,6 +41,40 @@ class OrganizationAccessPolicy:
     def ensure_can_read_lawyer(self, user: Any, lawyer: Any) -> None:
         self._ensure(self.can_read_lawyer(user, lawyer))
 
+    # ── credential（账号凭证）────────────────────────────────────────────
+    #
+    # 凭证是外部系统（一张网/威科/OA 等）的个人账号口令，敏感度高于普通律师
+    # 资料，因此可见范围比 can_read_lawyer（同所）更窄：仅本人 + 同律师团队 +
+    # 管理员。无团队的律师只能看到自己的凭证。
+    #
+    # 注意：不要用 can_read_lawyer 替代本方法——那会把可见面扩大到全所。
+
+    def can_read_credential(self, user: Any, credential_owner: Any) -> bool:
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        if is_admin_user(user):
+            return True
+        if getattr(user, "id", None) == getattr(credential_owner, "id", None):
+            return True
+        # 同律师团队（lawyer_teams）内互相可见；无团队时 law 侧返回空集，即只有本人
+        return self._is_same_lawyer_team(user, credential_owner)
+
+    def _is_same_lawyer_team(self, user: Any, other: Any) -> bool:
+        # getattr 容错：调用方可能传入不可用的轻量对象（如测试替身），
+        # 无 lawyer_teams 时视为无团队，不回退到放宽口径。
+        user_teams = getattr(user, "lawyer_teams", None)
+        other_teams = getattr(other, "lawyer_teams", None)
+        if user_teams is None or other_teams is None:
+            return False
+        user_team_ids = set(user_teams.values_list("id", flat=True))
+        if not user_team_ids:
+            return False
+        other_team_ids = set(other_teams.values_list("id", flat=True))
+        return bool(user_team_ids & other_team_ids)
+
+    def ensure_can_read_credential(self, user: Any, credential_owner: Any) -> None:
+        self._ensure(self.can_read_credential(user, credential_owner))
+
     def can_update_lawyer(self, user: Any, lawyer: Any) -> bool:
         if not user or not getattr(user, "is_authenticated", False):
             return False
