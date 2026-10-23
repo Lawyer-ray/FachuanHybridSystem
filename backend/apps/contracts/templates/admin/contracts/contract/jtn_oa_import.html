@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
 
-{% block title %}{% trans "从金诚同达OA导入案件" %}{% endblock %}
+{% block title %}{% trans "从OA导入案件" %}{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -70,7 +70,7 @@
 <ol class="breadcrumbs">
     <li><a href="{% url 'admin:index' %}">{% trans "首页" %}</a></li>
     <li><a href="/admin/contracts/contract/">{% trans "合同" %}</a></li>
-    <li aria-current="page">{% trans "从金诚同达OA导入" %}</li>
+    <li aria-current="page">{% trans "从OA导入" %}</li>
 </ol>
 {% endblock %}
 
@@ -80,7 +80,7 @@
 <div class="jtn-oa-import-page" x-data="jtnOaImportApp()" x-init="init()" x-cloak>
     <div class="jtn-oa-import-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-            <h2 style="margin:0;font-size:18px;color:var(--fc-text-primary);">{% trans "从金诚同达OA导入案件" %}</h2>
+            <h2 style="margin:0;font-size:18px;color:var(--fc-text-primary);">{% trans "从OA导入案件" %}</h2>
             <button type="button" class="button" @click="goBack()">{% trans "返回合同列表" %}</button>
         </div>
 
