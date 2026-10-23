@@ -20,12 +20,16 @@ from apps.organization.models import LawFirm, Lawyer
 
 
 @pytest.fixture()
-def setup(db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Lawyer, Client, Contract, Path, AgentSession]:
+def setup(
+    db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Lawyer, Client, Contract, Path, AgentSession]:
     from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
 
     monkeypatch.setattr(ContractFolderBrowseService, "_require_access", lambda self, **kw: None)
     firm = LawFirm.objects.create(name="folder-ref-api-律所")
-    user = Lawyer.objects.create_user(username="folderref-api", password="x-test-12345678", law_firm=firm)  # pragma: allowlist secret
+    user = Lawyer.objects.create_user(
+        username="folderref-api", password="x-test-12345678", law_firm=firm  # pragma: allowlist secret
+    )  # pragma: allowlist secret
     client = Client()
     client.force_login(user)
     root = tmp_path / "bound"
@@ -102,7 +106,9 @@ class TestContentAndPagesApi:
         )
         assert resp.status_code == 401
 
-    def test_pages_unsupported_mime_returns_200_with_error(self, setup: tuple[Lawyer, Client, Contract, Path, AgentSession]) -> None:
+    def test_pages_unsupported_mime_returns_200_with_error(
+        self, setup: tuple[Lawyer, Client, Contract, Path, AgentSession]
+    ) -> None:
         """txt 没有页图形态：200 + error=unsupported_mime，不用空图冒充成功。"""
         _, client, contract, _, _ = setup
         resp = client.get(
@@ -122,7 +128,9 @@ class TestContentAndPagesApi:
         )
         assert resp.status_code == 400
 
-    def test_pages_missing_file_is_404_with_reason(self, setup: tuple[Lawyer, Client, Contract, Path, AgentSession]) -> None:
+    def test_pages_missing_file_is_404_with_reason(
+        self, setup: tuple[Lawyer, Client, Contract, Path, AgentSession]
+    ) -> None:
         _, client, contract, _, _ = setup
         resp = client.get(
             "/api/v1/agent/folder-refs/pages",

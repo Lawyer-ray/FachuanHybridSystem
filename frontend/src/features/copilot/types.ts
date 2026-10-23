@@ -89,6 +89,8 @@ export interface ChatMessage {
   toolCallId?: string
   /** 回答被停止/断连截断（服务端 metadata.truncated 透传） */
   truncated?: boolean
+  /** 用户反馈：点赞/点踩（历史回放透传，P1-9b） */
+  rating?: 'up' | 'down'
   /** 正在流式接收中（assistant 专属） */
   streaming?: boolean
   /** 模型的思考过程（开启思考模式时由 thinking 事件累积，仅展示不入正文） */
@@ -238,8 +240,8 @@ export interface CopilotState {
   send: (text: string, onQueued?: (sent: boolean) => void) => Promise<void>
   /** 停止生成（中断在途流） */
   stop: () => void
-  /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed） */
-  decide: (approvalId: string, approved: boolean) => Promise<void>
+  /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed）；拒绝可附理由 */
+  decide: (approvalId: string, approved: boolean, reason?: string) => Promise<void>
   /** 运行中插话：当前轮工具调用后、下次模型调用前生效 */
   steer: (text: string) => Promise<void>
   /** 撤回已排队未生效的全部插话 */
@@ -250,6 +252,14 @@ export interface CopilotState {
   loadPendingApprovals: () => Promise<void>
   /** 关闭一张审批卡（已决/已超时的僵尸卡；仅本地移除，不影响服务端状态） */
   dismissApproval: (approvalId: string) => void
+  /** 给助手消息点赞/点踩（乐观更新，失败回滚；P1-9b） */
+  rateMessage: (messageId: number, rating: 'up' | 'down' | 'none') => Promise<void>
+  /** 加载更早的历史消息（游标分页，P1-3a）；没有更早时置 noMoreHistory */
+  loadOlderHistory: () => Promise<void>
+  /** 历史已到头（没有更早的消息了） */
+  noMoreHistory: boolean
+  /** 正在加载更早的消息 */
+  loadingOlder: boolean
   /** 重拉当前会话历史（后台任务跑完后刷新转录用；流式中跳过） */
   refreshHistory: () => Promise<void>
   /** 登出清理（换账号不得残留上一账号的会话内容） */

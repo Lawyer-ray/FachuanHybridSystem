@@ -31,6 +31,8 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
   const decide = useCopilot((s) => s.decide)
   const dismissApproval = useCopilot((s) => s.dismissApproval)
   const [armed, setArmed] = useState(false)
+  const [showReason, setShowReason] = useState(false)
+  const [reasonText, setReasonText] = useState('')
   const [remain, setRemain] = useState(() =>
     Math.max(0, approvalWindowSec(approval.riskLevel, approval.offline)),
   )
@@ -126,9 +128,15 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             variant="destructive"
             size="sm"
             className="h-7 px-3 text-[12px]"
-            onClick={() => void decide(approval.approvalId, false)}
+            onClick={() => {
+              if (showReason) {
+                void decide(approval.approvalId, false, reasonText.trim())
+              } else {
+                setShowReason(true) // 先展开理由输入，再点一次才真正拒绝
+              }
+            }}
           >
-            拒绝
+            {showReason ? '确认拒绝' : '拒绝'}
           </Button>
           <Button
             variant={needSecondConfirm && armed ? 'destructive' : 'outline'}
@@ -142,6 +150,29 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
       )}
       {needSecondConfirm && armed && !approval.decided && !expired && (
         <p className="mt-1 text-[11px] text-destructive">这是不可恢复的批量操作，请确认上方工具名后再点击。</p>
+      )}
+      {showReason && !approval.decided && !expired && (
+        <div className="mt-2 flex gap-1.5">
+          <input
+            autoFocus
+            value={reasonText}
+            maxLength={200}
+            placeholder="拒绝理由（选填，AI 会据此调整方案）"
+            className="h-7 min-w-0 flex-1 rounded-[8px] border border-input bg-background px-2 text-[12px] text-foreground outline-none focus:border-foreground/40"
+            onChange={(e) => setReasonText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void decide(approval.approvalId, false, reasonText.trim())
+              if (e.key === 'Escape') setShowReason(false)
+            }}
+          />
+          <button
+            type="button"
+            className="flex-none rounded-[6px] px-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setShowReason(false)}
+          >
+            取消
+          </button>
+        </div>
       )}
     </div>
   )

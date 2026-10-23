@@ -437,6 +437,28 @@ export function shortDocName(name: string): string {
   return noExt.slice(0, cut)
 }
 
+/** 日志正文按 URL 切段：text 段原样，url 段渲染成「查看链接」超链接——
+ * 法院短信里的送达链接动辄 200+ 字符的 query 串，整串显示既撑版面又没法点。
+ * URL 字符集排除 CJK 与中英文括号/句读：短信里链接常紧贴中文，\S 会把
+ * 后续文字吞进 URL。
+ */
+const URL_RE = /https?:\/\/[^\s<>"'（）【】《》「」,。；;、！!？）)]+/g
+
+export type TextSegment = { kind: 'text'; value: string } | { kind: 'url'; value: string }
+
+export function splitLinkText(text: string): TextSegment[] {
+  const segments: TextSegment[] = []
+  let last = 0
+  for (const m of text.matchAll(URL_RE)) {
+    const idx = m.index ?? 0
+    if (idx > last) segments.push({ kind: 'text', value: text.slice(last, idx) })
+    segments.push({ kind: 'url', value: m[0] })
+    last = idx + m[0].length
+  }
+  if (last < text.length) segments.push({ kind: 'text', value: text.slice(last) })
+  return segments
+}
+
 export function crumbName(name: string, cap = 18): string {
   return name.length > cap ? name.slice(0, cap) + '…' : name
 }

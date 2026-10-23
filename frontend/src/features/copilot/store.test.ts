@@ -236,7 +236,7 @@ describe('copilot store：发送与流式转录', () => {
 
     await useCopilot.getState().decide('a1', true)
     expect(useCopilot.getState().approvals[0]?.decided).toBe('approved')
-    expect(copilotApi.decideApproval).toHaveBeenCalledWith('a1', true)
+    expect(copilotApi.decideApproval).toHaveBeenCalledWith('a1', true, '')
   })
 
   it('createSession 在途时切会话：不得把消息写进用户已切到的会话', async () => {

@@ -108,10 +108,24 @@ describe('ApprovalCard：决定', () => {
     container.remove()
   })
 
-  it('点拒绝下发 approved=false', () => {
+  it('点拒绝：第一步展开理由输入，第二步确认提交（P1-5 附理由）', () => {
+    const { container } = render(<ApprovalCard approval={approval()} />)
+    // 第一步：展开理由输入（不提交决定）
+    fireEvent.click(screen.getByRole('button', { name: '拒绝' }))
+    expect(storeMock.decide).not.toHaveBeenCalled()
+    expect(screen.getByPlaceholderText(/拒绝理由/)).toBeTruthy()
+    // 第二步：确认拒绝
+    fireEvent.click(screen.getByRole('button', { name: '确认拒绝' }))
+    expect(storeMock.decide).toHaveBeenCalledWith('a1', false, '')
+    container.remove()
+  })
+
+  it('填拒绝理由后随确认一起提交', () => {
     const { container } = render(<ApprovalCard approval={approval()} />)
     fireEvent.click(screen.getByRole('button', { name: '拒绝' }))
-    expect(storeMock.decide).toHaveBeenCalledWith('a1', false)
+    fireEvent.change(screen.getByPlaceholderText(/拒绝理由/), { target: { value: '金额不对' } })
+    fireEvent.click(screen.getByRole('button', { name: '确认拒绝' }))
+    expect(storeMock.decide).toHaveBeenCalledWith('a1', false, '金额不对')
     container.remove()
   })
 

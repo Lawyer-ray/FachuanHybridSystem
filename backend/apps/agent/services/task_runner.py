@@ -180,6 +180,34 @@ def _notify_completion(*, session: AgentSession, state: str, error: str, chars: 
         logger.warning("任务完成通知写入失败 session=%s", session.session_id, exc_info=True)
 
 
+def cancel_agent_task(session: AgentSession) -> dict[str, Any]:
+    """取消后台任务（P1-4）：排队中→移出队列并置 cancelled。
+
+    - 排队中（还没被 worker 领走）：OrmQ 删除即取消，立刻置 cancelled；
+    - 运行中：**诚实拒绝**——pi 子进程跑在 worker 里，没有跨进程 abort
+      通道（差距报告 P2-4 的领域），硬拆只会留僵尸；任务会跑到自然结束，
+      用户可对结果置之不理；
+    - 已结束：由调用方在 API 层先行拦截。
+    """
+    from apps.core.tasking.submission import TaskSubmissionService
+
+    result = TaskSubmissionService().cancel(session.task_id)
+    if result["queue_deleted"] > 0:
+        AgentSession.objects.filter(pk=session.pk).update(
+            task_state=AgentSession.TaskState.CANCELLED,
+            task_finished_at=timezone.now(),
+        )
+        logger.info("agent 任务已取消（出队）session=%s task=%s", session.pk, session.task_id)
+        return {"success": True, "task_state": "cancelled", "message": "已取消排队中的任务"}
+    if result["running"]:
+        return {
+            "success": False,
+            "task_state": "running",
+            "message": "任务正在运行，暂不支持中途终止；它会跑到自然结束",
+        }
+    return {"success": False, "task_state": session.task_state, "message": "任务已结束，无需取消"}
+
+
 async def submit_task_async(*, session: AgentSession, user_message: str, user_id: int | None) -> str:
     """``enqueue_task`` 的异步包装（Ninja 异步端点用）。
 

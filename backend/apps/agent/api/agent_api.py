@@ -24,6 +24,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limit
 from apps.core.security import get_request_access_context
 from apps.core.security.auth import JWTOrSessionAuth
 
@@ -67,6 +68,16 @@ else:
 logger = logging.getLogger(__name__)
 
 router = Router(tags=["Agent"], auth=JWTOrSessionAuth())
+
+#: 发消息限流（P1-8a）：每用户 20 次/分钟；RATE_LIMIT['AGENT_SEND_*'] 可覆盖
+_AGENT_SEND_RATE_LIMIT = get_rate_limit_config("AGENT_SEND", fallback_requests=20, fallback_window=60)
+
+
+def _send_rate_key(request: Any) -> str:
+    """限流键按用户（JWT 的 auth 或 session 的 user），匿名回退 IP 由基类兜底。"""
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    pk = getattr(user, "pk", None)
+    return f"agent_send:user:{pk if pk is not None else 'anon'}"
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -133,6 +144,8 @@ class ApprovalDecideIn(Schema):
     """前端审批决定。"""
 
     approved: bool
+    #: 拒绝理由（可空）：回传给模型，引导换更安全的路径而不是干巴巴的「用户拒绝」
+    reason: str = ""
 
 
 class TaskIn(Schema):
@@ -186,6 +199,12 @@ class UsageOut(Schema):
     tool_calls: int
     avg_duration_ms: int
     error_rate: float
+    #: 本月累计 token（预算口径）
+    month_tokens: int = 0
+    #: 月度预算（FACHUAN_AGENT_MONTHLY_TOKEN_BUDGET，0=未配置）
+    budget_tokens: int = 0
+    #: 已用超预算 80% 时为真（前端黄条提醒）
+    budget_warn: bool = False
 
 
 class PiApprovalIn(Schema):
@@ -371,9 +390,18 @@ async def get_session_detail(request: Any, session_id: str) -> SessionOut:  # pr
 
 
 @router.get("/sessions/{session_id}/messages", response=list[MessageOut])
-async def list_messages(request: Any, session_id: str, limit: int = 200) -> list[MessageOut]:  # pragma: no cover
-    """会话消息历史（旧→新），前端重开会话时据此回放转录。"""
-    messages = await list_message_records(session_id=session_id, user_id=_user_id(request), limit=limit)
+async def list_messages(
+    request: Any, session_id: str, limit: int = 200, before_id: int | None = None
+) -> list[MessageOut]:  # pragma: no cover
+    """会话消息历史（旧→新），前端重开会话时据此回放转录。
+
+    ``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），
+    不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端
+    用最后一条的 message_id 作为下一页游标。
+    """
+    messages = await list_message_records(
+        session_id=session_id, user_id=_user_id(request), limit=limit, before_id=before_id
+    )
     if messages is None:
         raise HttpError(404, "会话不存在")
     return [_message_out(m) for m in messages]
@@ -411,12 +439,17 @@ def _sse(payload: dict[str, Any]) -> bytes:
 
 
 @router.post("/sessions/{session_id}/messages")
+@rate_limit(
+    requests=_AGENT_SEND_RATE_LIMIT[0],
+    window=_AGENT_SEND_RATE_LIMIT[1],
+    key_func=_send_rate_key,
+)
 async def send_message(  # pragma: no cover
     request: Any,
     session_id: str,
     payload: MessageIn,
 ) -> Any:
-    """发消息并流式返回（SSE）。"""
+    """发消息并流式返回（SSE）。限流：每用户 20 次/分钟（RATE_LIMIT['AGENT_SEND_*'] 可覆盖）。"""
     user_id = _user_id(request)
     session = await get_session_record(session_id=session_id, user_id=_user_id(request))
     if session is None:
@@ -499,6 +532,31 @@ async def get_task_status(request: Any, session_id: str) -> Any:  # pragma: no c
         task_state=session.task_state,
         title=session.title,
     )
+
+
+@router.delete("/tasks/{session_id}")
+async def cancel_task(request: Any, session_id: str) -> dict[str, Any]:  # pragma: no cover
+    """取消后台任务（P1-4）。
+
+    排队中：从 django-q 队列移除并置 cancelled；
+    运行中：诚实告知暂不支持中途终止（pi 子进程在 worker 内，无跨进程
+    abort 通道——见差距报告 P2），任务会跑到自然结束；
+    已结束：如实返回终态。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "任务不存在")
+    if session.origin != AgentSession.Origin.TASK or not session.task_id:
+        raise HttpError(400, "该会话不是后台任务")
+    if session.task_state not in (AgentSession.TaskState.QUEUED, AgentSession.TaskState.RUNNING):
+        return {"success": False, "task_state": session.task_state, "message": "任务已结束，无需取消"}
+
+    from ..services.task_runner import cancel_agent_task
+
+    result = await sync_to_async(cancel_agent_task, thread_sensitive=True)(session)
+    if not result["success"]:
+        raise HttpError(409, result["message"])
+    return result
 
 
 # ─── 运行中插话 ───
@@ -1007,7 +1065,7 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
             payload.risk_level,
             level.value,
         )
-    approved, approval_id = await request_approval(
+    approved, approval_id, reason_out = await request_approval(
         tool_name=payload.tool,
         tool_args=payload.args or {},
         user_id=payload.user_id or None,
@@ -1016,7 +1074,8 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
     return PiApprovalOut(
         approved=approved,
         approval_id=approval_id,
-        reason="用户同意" if approved else "用户拒绝或超时",
+        # 拒绝时带用户填写的理由（无则兜底文案）——模型据此换路径
+        reason=reason_out,
         risk_level=level.value,
     )
 
@@ -1034,7 +1093,7 @@ async def submit_approval_decision(  # pragma: no cover
     if record is not None and not _may_decide(user, record):
         return {"success": False, "approved": payload.approved, "error": "无权审批该请求"}
 
-    ok = await decide_approval(approval_id, payload.approved, user_id=_user_id(request))
+    ok = await decide_approval(approval_id, payload.approved, user_id=_user_id(request), reason=payload.reason)
     return {"success": ok, "approved": payload.approved}
 
 
@@ -1088,6 +1147,9 @@ def _to_usage(summary: UsageSummary) -> UsageOut:
         tool_calls=summary.tool_calls,
         avg_duration_ms=summary.avg_duration_ms,
         error_rate=summary.error_rate,
+        month_tokens=summary.month_tokens,
+        budget_tokens=summary.budget_tokens,
+        budget_warn=summary.budget_warn,
     )
 
 

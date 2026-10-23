@@ -59,6 +59,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   lastPageHintSent: null,
   uploadingAttachments: false,
   draggingFiles: false,
+  noMoreHistory: false,
+  loadingOlder: false,
 
   addAttachmentFiles: (files) => {
     const { accepted, rejected } = splitAttachmentFiles(Array.from(files))
@@ -117,7 +119,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       // 等待期间用户可能又切走了：只回填仍是当前会话的结果
       if (get().sessionId === id) {
         withViewTransition(() => {
-          set({ messages: historyToMessages(rows), loadingHistory: false })
+          set({ messages: historyToMessages(rows), loadingHistory: false, noMoreHistory: rows.length < 200 })
         })
       }
     } catch {
@@ -245,14 +247,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     controller?.abort()
   },
 
-  decide: async (approvalId, approved) => {
+  decide: async (approvalId, approved, reason = '') => {
     set((s) => ({
       approvals: s.approvals.map((a) =>
         a.approvalId === approvalId ? { ...a, decided: approved ? 'approved' : 'rejected' } : a,
       ),
     }))
     try {
-      await copilotApi.decideApproval(approvalId, approved)
+      await copilotApi.decideApproval(approvalId, approved, reason)
     } catch {
       // 本地已标记；提交失败不再回滚——服务端 300s 超时按拒绝处理（fail-closed）
     }
@@ -323,6 +325,47 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   dismissApproval: (approvalId) => {
     set((s) => ({ approvals: s.approvals.filter((a) => a.approvalId !== approvalId) }))
+  },
+
+  rateMessage: async (messageId, rating) => {
+    const prev = get().messages.find((m) => m.id === `db-${messageId}`)?.rating
+    const apply = (r?: 'up' | 'down') =>
+      set((s) => ({
+        messages: s.messages.map((m) => (m.id === `db-${messageId}` ? { ...m, rating: r } : m)),
+      }))
+    apply(rating === 'none' ? undefined : rating)
+    try {
+      await copilotApi.rateMessage(messageId, rating)
+    } catch {
+      apply(prev) // 失败回滚
+    }
+  },
+
+  loadOlderHistory: async () => {
+    const { sessionId, messages, loadingHistory, streaming, noMoreHistory } = get()
+    if (!sessionId || loadingHistory || streaming || noMoreHistory) return
+    const oldest = messages.find((m) => m.id.startsWith('db-'))
+    const beforeId = oldest ? Number(oldest.id.slice(3)) : undefined
+    if (!beforeId) {
+      set({ noMoreHistory: true })
+      return
+    }
+    set({ loadingOlder: true })
+    try {
+      const older = await copilotApi.fetchHistory(sessionId, 200, beforeId)
+      if (older.length === 0) {
+        set({ noMoreHistory: true })
+        return
+      }
+      set((s) => ({
+        messages: [...historyToMessages(older), ...s.messages],
+        noMoreHistory: older.length < 200,
+      }))
+    } catch {
+      /* 静默：翻页失败不打扰当前对话 */
+    } finally {
+      set({ loadingOlder: false })
+    }
   },
 
   refreshHistory: async () => {

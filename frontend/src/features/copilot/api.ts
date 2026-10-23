@@ -41,13 +41,15 @@ export function renameSession(sessionId: string, title: string): Promise<AgentSe
   return api.patch(`agent/sessions/${sessionId}`, { json: { title } }).json<AgentSession>()
 }
 
-export function fetchHistory(sessionId: string, limit = 200): Promise<AgentHistoryMessage[]> {
-  return api.get(`agent/sessions/${sessionId}/messages`, { searchParams: { limit } }).json<AgentHistoryMessage[]>()
+export function fetchHistory(sessionId: string, limit = 200, beforeId?: number): Promise<AgentHistoryMessage[]> {
+  const searchParams: Record<string, string | number> = { limit }
+  if (beforeId) searchParams.before_id = beforeId
+  return api.get(`agent/sessions/${sessionId}/messages`, { searchParams }).json<AgentHistoryMessage[]>()
 }
 
 /** 前端提交审批决定（同意/拒绝高危工具调用） */
-export function decideApproval(approvalId: string, approved: boolean): Promise<Record<string, unknown>> {
-  return api.post(`agent/approval/${approvalId}/decide`, { json: { approved } }).json<Record<string, unknown>>()
+export function decideApproval(approvalId: string, approved: boolean, reason = ''): Promise<Record<string, unknown>> {
+  return api.post(`agent/approval/${approvalId}/decide`, { json: { approved, reason } }).json<Record<string, unknown>>()
 }
 
 /**
@@ -122,4 +124,14 @@ export function fetchContractFolderEntries(contractId: number, subpath = ''): Pr
   return api
     .get(`contracts/${contractId}/folder-entries`, { searchParams: subpath ? { subpath } : {} })
     .json<FolderEntries>()
+}
+
+/** 给一条助手消息点赞/点踩（反馈回流；rating: up/down/none，none=撤销） */
+export function rateMessage(messageId: number, rating: 'up' | 'down' | 'none'): Promise<Record<string, unknown>> {
+  return api.post(`agent/messages/${messageId}/rating`, { json: { rating } }).json<Record<string, unknown>>()
+}
+
+/** 取消后台任务（排队中可取消；运行中诚实 409） */
+export function cancelAgentTask(sessionId: string): Promise<Record<string, unknown>> {
+  return api.delete(`agent/tasks/${sessionId}`).json<Record<string, unknown>>()
 }

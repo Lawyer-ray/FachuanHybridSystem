@@ -321,7 +321,7 @@ async def request_approval(
     reason: str = "",
     timeout: float | None = None,
     offline_timeout: float = OFFLINE_TIMEOUT,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, str]:
     """发起一次审批并阻塞等待。
 
     分级判定取代原来的布尔判定：中级（常规写）静默放行但记审计标记，
@@ -345,7 +345,7 @@ async def request_approval(
                 tool_name,
                 sorted((tool_args or {}).keys()),
             )
-        return True, approval_id
+        return True, approval_id, "低/中风险，免审批放行"
 
     effective_timeout = timeout if timeout is not None else approval_timeout(level)
 
@@ -406,7 +406,8 @@ async def request_approval(
             _clear_decision(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
-        return record.is_granted, approval_id
+        reason_out = record.reason or ("用户同意" if record.is_granted else "用户拒绝或超时")
+        return record.is_granted, approval_id, reason_out
 
     # 没有订阅者：无人可问。
     #
@@ -439,7 +440,8 @@ async def request_approval(
             _clear_decision(approval_id)
             record.decided_at = timezone.now()
             await record.asave(update_fields=["status", "decided_at"])
-        return record.is_granted, approval_id
+        reason_out = record.reason or ("用户同意" if record.is_granted else "用户拒绝或超时")
+        return record.is_granted, approval_id, reason_out
 
     if event is not None:
         await _waiter.discard(approval_id)
@@ -447,7 +449,7 @@ async def request_approval(
     record.status = AgentApproval.Status.REJECTED
     record.decided_at = timezone.now()
     await record.asave(update_fields=["status", "decided_at"])
-    return False, approval_id
+    return False, approval_id, record.reason or "无人在线且不允许离线审批，按拒绝处理"
 
 
 async def _wait_decision(approval_id: str, event: asyncio.Event, timeout: float) -> bool:
@@ -485,8 +487,14 @@ async def decide_approval(
     approved: bool,
     *,
     user_id: int | None = None,
+    reason: str = "",
 ) -> bool:
-    """前端提交决定。返回是否成功（找不到等待者时仍更新数据库）。"""
+    """前端提交决定。返回是否成功（找不到等待者时仍更新数据库）。
+
+    ``reason`` 为拒绝理由（可空）：落库到 ``AgentApproval.reason``，并由
+    ``request_approval`` 的等待方回传给 pi extension——模型据此换更安全的
+    路径，而不是只收到一句干巴巴的「用户拒绝」。
+    """
     normalized = approval_id.replace("-", "")
     found = await _waiter.resolve(approval_id, approved) or await _waiter.resolve(normalized, approved)
     # 唤醒可能在其他 worker 上的等待者
@@ -503,7 +511,11 @@ async def decide_approval(
         record.decided_at = timezone.now()
         if user_id is not None:
             record.decided_by_id = user_id
-        await record.asave(update_fields=["status", "decided_at", "decided_by"])
+        if reason.strip():
+            record.reason = reason.strip()[:2000]
+            await record.asave(update_fields=["status", "decided_at", "decided_by", "reason"])
+        else:
+            await record.asave(update_fields=["status", "decided_at", "decided_by"])
 
     return found or record is not None
 

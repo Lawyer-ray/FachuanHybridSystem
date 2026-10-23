@@ -256,8 +256,7 @@ def _read_file_via_source(
             image_like = mime.startswith(_IMAGE_MIME_PREFIX)
             notices.extend(parsed.get("notices") or [])
             notices.append(
-                "文字提取不可用（"
-                f"{parsed.get('error') or 'empty'}）：已回落到原件页图，以下为原图而非 OCR 结果"
+                f"文字提取不可用（{parsed.get('error') or 'empty'}）：已回落到原件页图，以下为原图而非 OCR 结果"
             )
             text = ""
             # 页数在文字提取失败时是未知的，除非是位图（恒 1 页）。
@@ -1065,9 +1064,7 @@ def _can_render_pages(mime: str, filename: str) -> bool:
     空文本。这里给出回落的准入判断：只要格式本身能出图（PDF / 位图），
     就该拿原图给模型。
     """
-    return bool(
-        mime.startswith(_IMAGE_MIME_PREFIX) or mime in _PDF_MIMES or filename.lower().endswith(_PDF_SUFFIX)
-    )
+    return bool(mime.startswith(_IMAGE_MIME_PREFIX) or mime in _PDF_MIMES or filename.lower().endswith(_PDF_SUFFIX))
 
 
 #: 「没有文字可给」类失败：这些可以回落成页图。

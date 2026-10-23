@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
@@ -39,6 +40,12 @@ class UsageSummary:
     output_tokens: int
     tool_calls: int
     avg_duration_ms: int
+    #: 本月累计 token（预算口径，P1-8b）
+    month_tokens: int = 0
+    #: 月度预算上限（env 未配置为 0=不限）
+    budget_tokens: int = 0
+    #: 用量达预算 80% 以上时提醒
+    budget_warn: bool = False
 
     @property
     def total_tokens(self) -> int:
@@ -84,6 +91,23 @@ def summarize(
     )
     runs = int(agg["runs"] or 0)
     total_duration = int(agg["total_duration"] or 0)
+
+    # ── 月度预算口径（P1-8b）：本月累计 token；env 配置预算后 80% 提醒 ──
+    from django.utils import timezone as dj_timezone
+
+    now = dj_timezone.localtime()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_qs = AgentRun.objects.filter(created_at__gte=month_start)
+    if user_id is not None:
+        month_qs = month_qs.filter(user_id=user_id)
+    month_agg = month_qs.aggregate(
+        input_tokens=Sum("input_tokens"),
+        output_tokens=Sum("output_tokens"),
+    )
+    month_tokens = int(month_agg["input_tokens"] or 0) + int(month_agg["output_tokens"] or 0)
+    budget_tokens = int(os.environ.get("FACHUAN_AGENT_MONTHLY_TOKEN_BUDGET", "0") or 0)
+    budget_warn = bool(budget_tokens > 0 and month_tokens >= budget_tokens * 0.8)
+
     return UsageSummary(
         runs=runs,
         ok_runs=int(agg["ok_runs"] or 0),
@@ -93,6 +117,9 @@ def summarize(
         output_tokens=int(agg["output_tokens"] or 0),
         tool_calls=int(agg["tool_calls"] or 0),
         avg_duration_ms=int(total_duration / runs) if runs else 0,
+        month_tokens=month_tokens,
+        budget_tokens=budget_tokens,
+        budget_warn=budget_warn,
     )
 
 

@@ -118,7 +118,7 @@ class TestOfflineApproval:
 
         # 用户回来点同意 → 工具继续执行
         await approval_mod.decide_approval(str(record.approval_id), True)
-        approved, _ = await asyncio.wait_for(task, timeout=5.0)
+        approved, _, _reason = await asyncio.wait_for(task, timeout=5.0)
         assert approved is True
 
         refreshed = await AgentApproval.objects.aget(pk=record.pk)
@@ -144,7 +144,7 @@ class TestOfflineApproval:
         record = await AgentApproval.objects.filter(session=session).afirst()
         assert record is not None
         await approval_mod.decide_approval(str(record.approval_id), False)
-        approved, _ = await asyncio.wait_for(task, timeout=5.0)
+        approved, _, _reason = await asyncio.wait_for(task, timeout=5.0)
         assert approved is False
 
     @pytest.mark.django_db(transaction=True)
@@ -155,7 +155,7 @@ class TestOfflineApproval:
         monkeypatch.setattr(approval_mod, "redis_cache_enabled", lambda: False)
         session = await AgentSession.objects.acreate(title="任务式-超时", origin="task")
 
-        approved, _ = await approval_mod.request_approval(
+        approved, _, _reason = await approval_mod.request_approval(
             tool_name="mcp__fachuan__delete_case",
             tool_args={},
             session_id=str(session.session_id),
@@ -174,7 +174,7 @@ class TestOfflineApproval:
         monkeypatch.setattr(approval_mod, "redis_cache_enabled", lambda: False)
         session = await AgentSession.objects.acreate(title="保守部署", origin="task")
 
-        approved, _ = await approval_mod.request_approval(
+        approved, _, _reason = await approval_mod.request_approval(
             tool_name="mcp__fachuan__delete_case",
             tool_args={},
             session_id=str(session.session_id),

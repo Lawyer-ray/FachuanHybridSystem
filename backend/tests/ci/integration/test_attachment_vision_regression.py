@@ -527,6 +527,7 @@ class TestEncryptedPdf:
 #   - 单元测试把 client.get 全 mock 掉，mocked 响应里 b64 永远非空。
 # 下面这组固定复现生产路径：真实端点 + 有文字层 + 默认调用（不给 pages）。
 
+
 def _rich_text_pdf() -> bytes:
     """模拟那份裁定书：多页、有完整文字层、正文远超 50 字符阈值。
 
@@ -602,9 +603,7 @@ class TestTextLayerPageCarriesTextBack:
             f"（当前 pages_returned={entries[:1]}）"
         )
         assert len(carried.strip()) >= 50, f"回传正文过短，疑似占位：{carried[:80]!r}"
-        assert not _page_images(body), (
-            f"文字层页不应渲染图（应 b64 为空），实际 {len(_page_images(body))} 页带图"
-        )
+        assert not _page_images(body), f"文字层页不应渲染图（应 b64 为空），实际 {len(_page_images(body))} 页带图"
 
     def test_default_call_with_async_parse_returns_text_body(self) -> None:
         """第二道闸（生产路径）：解析转异步 + 默认调用（不传 pages）仍必须拿到正文。
@@ -632,8 +631,7 @@ class TestTextLayerPageCarriesTextBack:
 
         meta = json.loads(blocks[0].text)
         assert not meta.get("error"), (
-            "解析转异步时不得退化成 parse_empty：文字层页的 page.text 必须被端点带出、"
-            f"并被工具并入正文。meta={meta}"
+            f"解析转异步时不得退化成 parse_empty：文字层页的 page.text 必须被端点带出、并被工具并入正文。meta={meta}"
         )
         assert meta.get("strategy") in ("text", "mixed"), (
             f"有文字层的 PDF 应走文本路径，实际 strategy={meta.get('strategy')!r}"
@@ -661,9 +659,7 @@ class TestTextLayerPageCarriesTextBack:
             blocks = tool.read_agent_attachment(attachment_id=attachment_id)
 
         image_blocks = [block for block in blocks if getattr(block, "type", None) == "image"]
-        assert not image_blocks, (
-            f"文字层 PDF 不应产生 image block（会白烧视觉 token），实际有 {len(image_blocks)} 个"
-        )
+        assert not image_blocks, f"文字层 PDF 不应产生 image block（会白烧视觉 token），实际有 {len(image_blocks)} 个"
 
     def test_scanned_pdf_with_async_parse_still_renders_images(self) -> None:
         """反向保护：无文字层的扫描件即使解析转异步，仍必须出图。
@@ -684,9 +680,7 @@ class TestTextLayerPageCarriesTextBack:
         meta = json.loads(blocks[0].text)
         image_blocks = [block for block in blocks if getattr(block, "type", None) == "image"]
         assert image_blocks, f"扫描件必须走图像路径，实际 meta={meta}"
-        assert meta.get("strategy") in ("image", "mixed"), (
-            f"strategy 应为 image/mixed，实际 {meta.get('strategy')!r}"
-        )
+        assert meta.get("strategy") in ("image", "mixed"), f"strategy 应为 image/mixed，实际 {meta.get('strategy')!r}"
         for block in image_blocks:
             raw = base64.b64decode(block.data)
             assert raw.startswith(b"\x89PNG") or raw.startswith(b"\xff\xd8"), (

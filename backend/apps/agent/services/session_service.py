@@ -79,8 +79,17 @@ async def get_session(*, session_id: str, user_id: int | None) -> AgentSession |
     return await _scoped(user_id).filter(session_id=session_id).afirst()
 
 
-async def list_messages(*, session_id: str, user_id: int | None, limit: int = 200) -> list[AgentMessage] | None:
+async def list_messages(
+    *,
+    session_id: str,
+    user_id: int | None,
+    limit: int = 200,
+    before_id: int | None = None,
+) -> list[AgentMessage] | None:
     """列出会话消息（旧→新），供前端重开会话时回放转录。
+
+    ``before_id``：游标分页——只取该消息 id 之前的记录（加载更早一页），
+    不传为最新一页。
 
     Returns:
         消息列表；会话不存在或不归属当前用户时返回 ``None``（由 API 层转 404）。
@@ -88,7 +97,10 @@ async def list_messages(*, session_id: str, user_id: int | None, limit: int = 20
     session = await get_session(session_id=session_id, user_id=user_id)
     if session is None:
         return None
-    rows = AgentMessage.objects.filter(session=session).order_by("-created_at", "-id")[: _bounded(limit, 1000)]
+    queryset = AgentMessage.objects.filter(session=session)
+    if before_id is not None and before_id > 0:
+        queryset = queryset.filter(id__lt=before_id)
+    rows = queryset.order_by("-created_at", "-id")[: _bounded(limit, 1000)]
     messages = [m async for m in rows]
     messages.reverse()
     return messages

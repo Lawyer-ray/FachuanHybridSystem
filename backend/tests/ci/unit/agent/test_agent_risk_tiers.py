@@ -214,7 +214,7 @@ class TestApprovalEventPayload:
         """中级（常规写）不该弹窗，否则 agent 每写一条都要人点。"""
         from apps.agent.services.approval import request_approval
 
-        approved, _ = await request_approval(
+        approved, _, _r = await request_approval(
             tool_name="mcp__fachuan__create_case_log",
             tool_args={"note": "记一笔"},
             session_id="sess-medium",

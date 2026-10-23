@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Brain, Check, Copy, FolderOpen, Loader2, MapPin, Wrench } from 'lucide-react'
+import { Brain, Check, Copy, FolderOpen, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -60,6 +60,29 @@ function ThinkingBlock({ message }: { message: ChatMessage }) {
         {thinking}
       </pre>
     </details>
+  )
+}
+
+/** 点赞/点踩（P1-9b）：乐观更新在 store，失败自动回滚 */
+function RateButtons({ messageId, rating }: { messageId: number; rating?: 'up' | 'down' }) {
+  const rate = useCopilot((s) => s.rateMessage)
+  const btn = (r: 'up' | 'down') => ({
+    type: 'button' as const,
+    'aria-label': r === 'up' ? '有帮助' : '没帮助',
+    className:
+      'flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary ' +
+      (rating === r ? 'text-foreground' : 'opacity-60 hover:opacity-100'),
+    onClick: () => void rate(messageId, rating === r ? 'none' : r),
+  })
+  return (
+    <span className="ml-1.5 inline-flex gap-0.5 align-middle">
+      <button {...btn('up')}>
+        <ThumbsUp className="h-3 w-3" />
+      </button>
+      <button {...btn('down')}>
+        <ThumbsDown className="h-3 w-3" />
+      </button>
+    </span>
   )
 }
 
@@ -155,7 +178,12 @@ function Bubble({ message }: { message: ChatMessage }) {
       {message.truncated && (
         <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
       )}
-      {showCopy && <CopyButton text={message.content} />}
+      {showCopy && (
+        <span className="ml-1 inline-flex items-center align-middle">
+          <RateButtons messageId={Number(message.id.slice(3))} rating={message.rating} />
+          <CopyButton text={message.content} />
+        </span>
+      )}
     </div>
   )
 }
@@ -184,6 +212,9 @@ export function MessageList() {
   const loadingHistory = useCopilot((s) => s.loadingHistory)
   const lastError = useCopilot((s) => s.lastError)
   const queuePosition = useCopilot((s) => s.queuePosition)
+  const noMoreHistory = useCopilot((s) => s.noMoreHistory)
+  const loadingOlder = useCopilot((s) => s.loadingOlder)
+  const loadOlderHistory = useCopilot((s) => s.loadOlderHistory)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -214,6 +245,18 @@ export function MessageList() {
       )}
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
+      )}
+      {!loadingHistory && !noMoreHistory && messages.length >= 200 && (
+        <div className="mb-2 flex justify-center">
+          <button
+            type="button"
+            className="rounded-[8px] border border-border px-3 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            onClick={() => void loadOlderHistory()}
+            disabled={loadingOlder}
+          >
+            {loadingOlder ? '加载中…' : '加载更早的消息'}
+          </button>
+        </div>
       )}
       {queuePosition !== null && <QueueBanner position={queuePosition} />}
       <div className="flex flex-col gap-2.5">

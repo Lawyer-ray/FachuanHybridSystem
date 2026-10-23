@@ -84,9 +84,7 @@ def read_folder_file(
     return _read_file_via_source(
         ref_id=f"folder:{contract_id}/{normalized_subpath}",
         load_content=lambda notices: _load_folder_content(contract_id, normalized_subpath, notices),
-        fetch_pages=lambda **kw: _render_folder_pages(
-            contract_id=contract_id, subpath=normalized_subpath, **kw
-        ),
+        fetch_pages=lambda **kw: _render_folder_pages(contract_id=contract_id, subpath=normalized_subpath, **kw),
         max_length=max_length,
         start=start,
         pages=pages,

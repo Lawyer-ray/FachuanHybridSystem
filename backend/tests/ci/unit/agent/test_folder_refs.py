@@ -24,7 +24,9 @@ from apps.organization.models import LawFirm, Lawyer
 def lawyer(db: Any) -> Lawyer:
     firm = LawFirm.objects.create(name="folder-ref-测试律所")
     # pragma: allowlist secret —— 与 integration 测试同款的哑密码
-    return Lawyer.objects.create_user(username="folderref-lawyer", password="x-test-12345678", law_firm=firm)  # pragma: allowlist secret
+    return Lawyer.objects.create_user(
+        username="folderref-lawyer", password="x-test-12345678", law_firm=firm  # pragma: allowlist secret
+    )  # pragma: allowlist secret
 
 
 @pytest.fixture()
@@ -95,7 +97,9 @@ class TestCreateFolderRef:
                 subpath="任何.txt",
             )
 
-    def test_acl_denied_propagates(self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_acl_denied_propagates(
+        self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         contract, _ = bound_contract
         from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
 
@@ -198,7 +202,9 @@ class TestReadAndRender:
         assert len(outcome.pages) == 1
         assert outcome.pages[0].image_bytes  # 真出了图
 
-    def test_oversize_file_rejected_on_content(self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_oversize_file_rejected_on_content(
+        self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         contract, root = bound_contract
         big = root / "1-一审" / "2-立案材料" / "大文件.bin"
         big.write_bytes(b"x" * 16)
@@ -213,7 +219,9 @@ class TestReadAndRender:
             )
         assert "读取上限" in str(excinfo.value)
 
-    def test_oversize_file_reports_too_large_on_render(self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_oversize_file_reports_too_large_on_render(
+        self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         contract, root = bound_contract
         big = root / "1-一审" / "2-立案材料" / "大文件.bin"
         big.write_bytes(b"x" * 16)
