@@ -284,6 +284,12 @@ prototypes/
 # RFC 设计文档（本地参考，不入库）
 rfcs/
 
+# pi 接入说明演示页（本地交付/讲解用，不入库）
+/pi-intro/
+
+# pi agent 本地运行时数据（goals / 会话快照）
+/.pi/
+
 # Playwright 报告和测试产物
 playwright-report/
 backend/tests/e2e/state.json
