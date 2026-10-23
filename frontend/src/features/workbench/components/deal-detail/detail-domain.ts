@@ -442,7 +442,7 @@ export function shortDocName(name: string): string {
  * URL 字符集排除 CJK 与中英文括号/句读：短信里链接常紧贴中文，\S 会把
  * 后续文字吞进 URL。
  */
-const URL_RE = /https?:\/\/[^\s<>"'（）【】《》「」,。；;、！!？）)]+/g
+const URL_RE = /https?:\/\/[^\s<>"'(),;!()\u4e00-\u9fff\u3000-\u303f\uff01-\uff5e]+/g
 
 export type TextSegment = { kind: 'text'; value: string } | { kind: 'url'; value: string }
 
