@@ -8,6 +8,7 @@ import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBound
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePageLazy, preloadHomePage } from '@/features/home'
 import { DealDetailPageLazy, preloadWorkbenchPage, WorkbenchPageLazy } from '@/features/workbench'
+import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
@@ -117,14 +118,67 @@ function AppShell() {
     })
   }
 
-  // ⌘J / Ctrl+J 呼出收起 AI 助手：与 ⌘K 检索同层；非浏览器保留键
-  // （Chrome 的下载面板可被接管），VS Code/ChatGPT 的侧栏肌肉记忆。
+  // ⌘K 全局检索面板开关：状态收在壳层（与 copilotOpen 同层），⌘K 快捷键、
+  // 导航栏检索按钮、弹窗自身关闭（Esc / 点遮罩 / 选中跳转）三条路径都汇到这里。
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  // ⌘K 检索（模态弹窗）与 ⌘J AI 助手（常驻侧栏）两层全局浮层互斥：任意一层
+  // 展开即收起另一层。此前两层各自独立开关，先 ⌘K 再 ⌘J 会弹窗、侧栏与双重
+  // 压暗遮罩同屏叠加。用状态联动而非在各个开关回调里互相关停，所有打开
+  // 路径（快捷键 / 导航栏按钮 / localStorage 恢复）都被覆盖，不会漏。
+  // 联动收起面板时同步写持久化，与用户手动收起（⌘J / 点遮罩）同一语义。
+  useEffect(() => {
+    if (!searchOpen) return
+    setCopilotOpen(false)
+    try {
+      localStorage.setItem(COPILOT_OPEN_KEY, '0')
+    } catch {
+      /* 忽略持久化失败 */
+    }
+  }, [searchOpen])
+  useEffect(() => {
+    if (!copilotOpen) return
+    setSearchOpen(false)
+  }, [copilotOpen])
+
+  // ⌘J / Ctrl+J 呼出收起 AI 助手：非浏览器保留键（Chrome 的下载面板可被
+  // 接管），VS Code/ChatGPT 的侧栏肌肉记忆。e.repeat 挡住按住不放——
+  // toggle 语义下连续 repeat 会快速开关闪烁。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
-        e.preventDefault()
-        toggleCopilot()
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'j') return
+      e.preventDefault()
+      if (e.repeat) return
+      toggleCopilot()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // 业务页的「AI 助手」按钮（案件/合同详情页）：只负责开面板（含 chunk
+  // 加载），业务上下文由 copilot 域自己的监听（CopilotPanel 挂载时）消费。
+  // 打开时同步写持久化，与 ⌘J 手动打开同一语义。
+  useEffect(() => {
+    const onLaunch = () => {
+      setCopilotOpen(true)
+      try {
+        localStorage.setItem(COPILOT_OPEN_KEY, '1')
+      } catch {
+        /* 忽略持久化失败 */
       }
+    }
+    window.addEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
+    return () => window.removeEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
+  }, [])
+
+  // ⌘K / Ctrl+K 唤起 / 收起全局检索（再按一次即收起）。与 ⌘J 同层注册；
+  // e.repeat 同理挡住按住不放的连续切换。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return
+      e.preventDefault()
+      if (e.repeat) return
+      setSearchOpen((v) => !v)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -132,7 +186,13 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppNavbar onNotify={(msg) => toast.info(msg)} onPrefetch={preloadRoute} onToggleCopilot={toggleCopilot} />
+      <AppNavbar
+        onNotify={(msg) => toast.info(msg)}
+        onPrefetch={preloadRoute}
+        onToggleCopilot={toggleCopilot}
+        searchOpen={searchOpen}
+        onSearchOpenChange={setSearchOpen}
+      />
       {copilotMounted && (
         <Suspense fallback={null}>
           <PanelBackdropLazy open={copilotOpen} onClose={toggleCopilot} />

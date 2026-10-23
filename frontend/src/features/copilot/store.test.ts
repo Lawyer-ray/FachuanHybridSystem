@@ -520,7 +520,7 @@ describe('copilot store：后台任务', () => {
 
     await useCopilot.getState().submitTask('帮我梳理本案材料')
 
-    expect(copilotApi.submitAgentTask).toHaveBeenCalledWith('帮我梳理本案材料')
+    expect(copilotApi.submitAgentTask).toHaveBeenCalledWith('帮我梳理本案材料', '', undefined)
     expect(useCopilot.getState().sessionId).toBe('t-9')
     expect(copilotApi.fetchHistory).toHaveBeenCalledWith('t-9')
   })
@@ -614,5 +614,51 @@ describe('copilot store：refreshHistory', () => {
     await useCopilot.getState().refreshHistory()
     expect(fetchHistory).not.toHaveBeenCalled()
     useCopilot.setState({ streaming: false })
+  })
+})
+
+// ============ 业务内会话（案件/合同页打开，P1-1） ============
+
+describe('copilot store：业务上下文', () => {
+  it('enterContext 记录上下文并回到新对话；exitContext 清除', async () => {
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    useCopilot.setState({ sessionId: 's-1', messages: [{ id: '1', role: 'user', content: 'x' }] })
+
+    await useCopilot.getState().enterContext({ origin: 'contract', refId: 386, title: '张三委托' })
+    expect(useCopilot.getState().context).toEqual({ origin: 'contract', refId: 386, title: '张三委托' })
+    expect(useCopilot.getState().sessionId).toBeNull()
+    expect(useCopilot.getState().messages).toEqual([])
+
+    await useCopilot.getState().exitContext()
+    expect(useCopilot.getState().context).toBeNull()
+  })
+
+  it('上下文内发消息：新会话带 origin/contract_id 归属', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(sseResponse(['data: {"type":"done"}\n\n']))
+    useCopilot.setState({ context: { origin: 'contract', refId: 386, title: '张三委托' } })
+
+    await useCopilot.getState().send('本案进展如何')
+    expect(copilotApi.createSession).toHaveBeenCalledWith('', { origin: 'contract', refId: 386, title: '张三委托' })
+  })
+
+  it('上下文内提交后台任务：带 case_id 归属', async () => {
+    vi.mocked(copilotApi.submitAgentTask).mockResolvedValue({
+      session_id: 't-1',
+      task_id: 'q-1',
+      task_state: 'queued',
+      title: '',
+    })
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    useCopilot.setState({ context: { origin: 'case', refId: 12, title: '某案' } })
+
+    await useCopilot.getState().submitTask('梳理本案材料')
+    expect(copilotApi.submitAgentTask).toHaveBeenCalledWith('梳理本案材料', '', { origin: 'case', refId: 12, title: '某案' })
+  })
+
+  it('reset 清除上下文', () => {
+    useCopilot.setState({ context: { origin: 'case', refId: 1, title: 'x' } })
+    useCopilot.getState().reset()
+    expect(useCopilot.getState().context).toBeNull()
   })
 })

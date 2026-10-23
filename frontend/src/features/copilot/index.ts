@@ -1,5 +1,9 @@
 /**
  * Copilot feature 的对外出口：AppShell / AppNavbar 只从这里引。
+ *
+ * **openCopilot 例外**：跨 feature 打开面板（携带业务上下文）请引
+ * '@/features/copilot/launch'——本文件静态引着 CopilotPanel，从这几
+ * re-export 会把整个面板拖进使用方 chunk，破坏懒加载边界。
  */
 
 export { CopilotPanel } from './components/CopilotPanel'

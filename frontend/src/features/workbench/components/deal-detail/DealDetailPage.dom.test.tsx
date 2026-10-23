@@ -481,6 +481,27 @@ describe('DealDetailPage：占位动作按钮', () => {
     }
   })
 
+  it('页头「AI 助手」按钮存在，点击派发 copilot 启动事件并携带委托上下文（P1-1）', async () => {
+    setupUi()
+    await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
+
+    const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+      (b.textContent ?? '').includes('AI 助手'),
+    )
+    expect(btn).toBeTruthy()
+
+    const launched = vi.fn()
+    window.addEventListener('copilot:launch', launched)
+    fireEvent.click(btn!)
+    window.removeEventListener('copilot:launch', launched)
+    expect(launched).toHaveBeenCalledTimes(1)
+    // 事件 detail 携带委托归属（origin=contract + 合同 id），面板据此过滤会话
+    // setupUi 的合同 id 以路由为准，这里只断言 origin 与 title 字段存在
+    const detail = (launched.mock.calls[0]?.[0] as CustomEvent).detail as Record<string, unknown>
+    expect(detail.origin).toBe('contract')
+    expect(typeof detail.refId).toBe('number')
+  })
+
   it('右栏「记收款」可点（占位提示，不抛错）', async () => {
     setupUi()
     await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))

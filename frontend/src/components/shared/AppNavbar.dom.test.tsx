@@ -5,15 +5,15 @@
  * mock 边界：@/features/auth（useAuth 桩）、@/lib/api（organization/me 补拉）、
  * @/features/search（GlobalSearch 桩）、@/features/material-prep 对外出口的
  * resetMaterialPrepState 与 @/lib/pdf（登出时的动态 import 清理点——调用断言的核心）。
- * 覆盖：品牌/导航渲染、
- * ⌘K 唤起检索、无用户名时补拉 me 并回填 store、新建案件回调、
+ * 覆盖：品牌/导航渲染、检索按钮与 searchOpen 受控契约（⌘K 快捷键在壳层，
+ * 见 App.dom.test）、无用户名时补拉 me 并回填 store、新建案件回调、
  * 登出全链路（store 登出 + query 缓存清空 + 阅读器/PDF 缓存清理 + 跳转 /login）、
  * 账号绑定入口跳转、导航入口的悬停预取与点击乐观高亮（目标页 chunk 未到、
  * 路由 transition 挂起期间被点的标签先行高亮，旧页面保持不退回 fallback）。
  */
 import { lazy, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -56,8 +56,9 @@ const apiGetMock = vi.mocked(api.get)
 
 const onNotify = vi.fn()
 const onLogout = vi.fn()
+const onSearchOpenChange = vi.fn()
 
-function setupUi() {
+function setupUi({ searchOpen = false }: { searchOpen?: boolean } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -65,7 +66,12 @@ function setupUi() {
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/']}>
-        <AppNavbar onNotify={onNotify} onLogout={onLogout} />
+        <AppNavbar
+          onNotify={onNotify}
+          onLogout={onLogout}
+          searchOpen={searchOpen}
+          onSearchOpenChange={onSearchOpenChange}
+        />
         <Routes>
           <Route path="/" element={null} />
           <Route path="/login" element={<div>login-page</div>} />
@@ -104,11 +110,16 @@ describe('AppNavbar 渲染与全局检索', () => {
     expect(screen.getByText('张律师')).toBeTruthy()
   })
 
-  it('⌘K 唤起全局检索，未触发时保持关闭', () => {
+  it('检索受控契约：searchOpen 驱动 GlobalSearch，点按钮回调 onSearchOpenChange(true)', () => {
+    // ⌘K 快捷键已上提壳层（与 AI 助手互斥）；导航栏只负责按钮入口与透传 open
+    setupUi({ searchOpen: true })
+    expect(screen.getByText('gs-open')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /检索/ }))
+    expect(onSearchOpenChange).toHaveBeenCalledWith(true)
+
+    cleanup()
     setupUi()
     expect(screen.getByText('gs-closed')).toBeTruthy()
-    fireEvent.keyDown(window, { key: 'k', metaKey: true })
-    expect(screen.getByText('gs-open')).toBeTruthy()
   })
 
   it('store 无用户名时：补拉 organization/me 并回填（setUser）', async () => {
@@ -185,7 +196,11 @@ function setupNav() {
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/']}>
-        <AppNavbar onPrefetch={onPrefetch} />
+        <AppNavbar
+          onPrefetch={onPrefetch}
+          searchOpen={false}
+          onSearchOpenChange={onSearchOpenChange}
+        />
         <PathProbe />
         <Suspense fallback={<div>route-fallback</div>}>
           <Routes>

@@ -111,6 +111,32 @@ export interface AgentTaskReceipt {
   title: string
 }
 
+/** 会话归属的业务范围（案件内 / 合同内）；不带则为普通对话 */
+export interface CopilotScope {
+  origin: 'case' | 'contract'
+  refId: number
+}
+
+/** 业务内会话上下文（案件/合同页打开时携带）：范围 + 展示名 */
+export interface CopilotContext extends CopilotScope {
+  title: string
+}
+
+/** GET /agent/usage 的汇总（token 由 pi 上报，取消/出错轮次也计入） */
+export interface UsageSummary {
+  runs: number
+  ok_runs: number
+  error_runs: number
+  cancelled_runs: number
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  tool_calls: number
+  avg_duration_ms: number
+  /** 小数（0.05 = 5%） */
+  error_rate: number
+}
+
 /** GET /agent/approvals/pending 的列表项（离线审批入口） */
 export interface PendingApprovalItem {
   approval_id: string

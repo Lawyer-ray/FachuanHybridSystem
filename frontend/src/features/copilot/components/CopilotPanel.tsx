@@ -13,9 +13,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PanelLeftClose, PanelLeftOpen, Plus, X } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, Plus, SquareStack, X } from 'lucide-react'
 
 import { listSessions } from '../api'
+import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
 import { usePanelResize } from '../hooks/use-panel-resize'
 import { useCopilot } from '../store'
 import { Composer } from './Composer'
@@ -36,7 +37,10 @@ function readRailOpen(): boolean {
 export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const sessionId = useCopilot((s) => s.sessionId)
   const streaming = useCopilot((s) => s.streaming)
+  const context = useCopilot((s) => s.context)
   const switchSession = useCopilot((s) => s.switchSession)
+  const enterContext = useCopilot((s) => s.enterContext)
+  const exitContext = useCopilot((s) => s.exitContext)
   const loadPendingApprovals = useCopilot((s) => s.loadPendingApprovals)
   const refreshHistory = useCopilot((s) => s.refreshHistory)
   const queryClient = useQueryClient()
@@ -52,6 +56,20 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 业务页打开入口（案件/合同页的「AI 助手」按钮）：
+  // ①面板尚未挂载时 chunk 加载完从这里取走 pending；②已打开时监听后续事件切上下文
+  useEffect(() => {
+    const pending = takePendingLaunchContext()
+    if (pending) void enterContext(pending)
+    const onLaunch = (e: Event) => {
+      const detail = (e as CustomEvent<CopilotLaunchContext | null>).detail
+      if (detail) void enterContext(detail)
+    }
+    window.addEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
+    return () => window.removeEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // 离线审批入口：面板打开、每轮流结束、切会话后拉一次待审列表。
  // 后台任务挂起的高危工具调用由此浮出水面，而不是默默超时。
   useEffect(() => {
@@ -59,23 +77,27 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   }, [streaming, sessionId, loadPendingApprovals])
 
   // 面板标题取当前会话标题：会话列表缓存里查（缓存由侧栏/流结束刷新）
+  // 会话列表按业务范围取：context（案件/合同页打开）时只列该范围的会话；
+  // scopeKey 进 queryKey 保证两套列表缓存互不串
+  const scopeKey = context ? `${context.origin}:${context.refId}` : 'all'
+  const scope = context ? { origin: context.origin, refId: context.refId } : undefined
   const sessionsQuery = useQuery({
-    queryKey: ['copilot', 'sessions'],
-    queryFn: () => listSessions(50),
-    enabled: Boolean(sessionId),
+    queryKey: ['copilot', 'sessions', scopeKey],
+    queryFn: () => listSessions(50, scope),
+    enabled: Boolean(sessionId) || Boolean(context),
     staleTime: 30_000,
     retry: false,
   })
-  const currentTitle = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId)?.title : ''
   const currentSession = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId) : undefined
+  const currentTitle = currentSession?.title ?? ''
   const currentModel = currentSession?.llm_model ?? ''
 
   // 每轮流结束后刷新会话列表：首条消息会自动生成标题，标题要能浮上来
   useEffect(() => {
-    if (!streaming && sessionId) {
+    if (!streaming && (sessionId || context)) {
       void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] })
     }
-  }, [streaming, sessionId, queryClient])
+  }, [streaming, sessionId, context, queryClient])
 
   // 后台任务跑完（updated_at 变化）自动重拉转录：任务的通知消息/产出
   // 不在面板的流式路径里，只能靠轮询发现的 updated_at 变化来刷新。
@@ -136,8 +158,21 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
             {railVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
           <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
-            {currentTitle || 'AI 助手'}
+            {context ? `AI 助手 · ${context.title}` : currentTitle || 'AI 助手'}
           </span>
+          {context && (
+            <button
+              type="button"
+              className="flex h-7 max-w-40 flex-none items-center gap-1 rounded-[8px] bg-secondary px-2 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => void exitContext()}
+              aria-label="退出业务范围，回到全部会话"
+              title={`当前只看「${context.title}」的会话，点击回到全部`}
+            >
+              <SquareStack className="h-3 w-3 flex-none" />
+              <span className="truncate">{context.origin === 'case' ? '本案' : '本委托'}</span>
+              <X className="h-3 w-3 flex-none" />
+            </button>
+          )}
           {currentModel && (
             <span
               className="hidden max-w-28 flex-none truncate rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10.5px] text-muted-foreground sm:block"

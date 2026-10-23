@@ -1,5 +1,6 @@
 """核心域 tools 导出"""
 
+from mcp_server.tools.core.agent_skills import get_agent_skill
 from mcp_server.tools.core.dashboard import get_dashboard_stats
 from mcp_server.tools.core.identity import get_current_user, get_server_time
 from mcp_server.tools.core.llm_service import (
