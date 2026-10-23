@@ -224,10 +224,24 @@ class TestApprovalEventPayload:
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
-    async def test_risk_level_persisted_for_audit(self) -> None:
+    async def test_risk_level_persisted_for_audit(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """审批记录的 risk_level 要落库，审计时分得清轻重。"""
         from apps.agent.models import AgentApproval
+        from apps.agent.services import approval as mod
         from apps.agent.services.approval import request_approval
+
+        # CI 无 Redis：不 mock 时要么挂在真实总线的网络调用上、要么因
+        # 离线审批默认开启而等 OFFLINE_TIMEOUT（7200s），被 pytest-timeout 处决。
+        class _Bus:
+            async def has_subscribers(self, sid: str) -> bool:
+                return False
+
+            async def publish(self, sid: str, event: dict[str, Any]) -> int:
+                return 0
+
+        monkeypatch.setattr("apps.agent.services.event_bus.get_bus", lambda: _Bus())
+        monkeypatch.setattr(mod, "redis_cache_enabled", lambda: False)
+        monkeypatch.setattr(mod, "allow_offline_approval", lambda: False)
 
         await request_approval(
             tool_name="mcp__fachuan__delete_case",
