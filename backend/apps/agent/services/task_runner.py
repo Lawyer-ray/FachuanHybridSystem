@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Any
 
 from django.utils import timezone
@@ -220,3 +221,78 @@ async def submit_task_async(*, session: AgentSession, user_message: str, user_id
         user_message=user_message,
         user_id=user_id,
     )
+
+
+#: 定时任务：每周一早 8 点自动生成本周到期事项摘要写入会话（P2-6）
+_SCHEDULE_NAME = "agent-weekly-deadlines"
+
+
+def register_weekly_schedule() -> None:
+    """注册/刷新定时任务（P2-6：agent 主动汇报，不只是被动响应）。
+
+    必须在 Django AppConfig.ready() 或管理命令里调用（参照
+    message_hub/tasks.py 的 _register_schedule 模式），否则是死代码。
+    """
+    from django_q.models import Schedule
+
+    Schedule.objects.update_or_create(
+        name=_SCHEDULE_NAME,
+        defaults={
+            "func": "apps.agent.services.task_runner.run_scheduled_digest",
+            "schedule_type": Schedule.WEEKLY,
+            "repeats": -1,
+        },
+    )
+
+
+def run_scheduled_digest() -> dict[str, int]:
+    """定时摘要入口（django-q worker 内调用）：为有到期事项的律师生成摘要。
+
+    每位有活跃案件的律师得到一条 origin=task 的 agent 会话，消息为
+    「帮我汇总本周到期事项」。有 SSE/审批的完整链路自然走通（离线审批
+    / 任务通知 / 用量记录），复用 stream_chat 无另写编排。
+
+    Returns:
+        {"sessions": 创建会话数}（无到期事项的律师跳过）。
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.cases.models import CaseAssignment
+    from apps.reminders.models import Reminder
+
+    now = timezone.now()
+    week_end = now + timedelta(days=7)
+    # 有未来 7 天内到期提醒的活跃案件 → 找到负责律师
+    upcoming = Reminder.objects.filter(is_completed=False, due_at__lte=week_end, due_at__gte=now).values_list(
+        "case_id", flat=True
+    )
+    case_ids = set(upcoming)
+    if not case_ids:
+        return {"sessions": 0}
+    lawyers = (
+        CaseAssignment.objects.filter(case_id__in=case_ids, case__status="active")
+        .values_list("lawyer_id", flat=True)
+        .distinct()
+    )
+    count = 0
+    for lawyer_id in lawyers:
+        if not lawyer_id:
+            continue
+        session = AgentSession.objects.create(
+            title="本周到期事项摘要",
+            user_id=lawyer_id,
+            origin=AgentSession.Origin.TASK,
+            task_state=AgentSession.TaskState.QUEUED,
+        )
+        enqueue_task(
+            session=session,
+            user_message=(
+                f"帮我汇总本周（{now:%Y-%m-%d} 至 {week_end:%Y-%m-%d}）的到期事项，按紧急程度排序，标注案件与合同编号。"
+            ),
+            user_id=lawyer_id,
+        )
+        count += 1
+    logger.info("定时摘要：为 %s 位律师创建会话", count)
+    return {"sessions": count}

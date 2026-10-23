@@ -344,10 +344,19 @@ class AgentAttachment(models.Model):
     storage_path = models.CharField(max_length=500, verbose_name="存储路径")
     mime = models.CharField(max_length=100, blank=True, default="", verbose_name="MIME 类型")
     size = models.IntegerField(default=0, verbose_name="大小（字节）")
-    #: 引用型附件（拖拽合同文件夹文件进来）指向绑定文件夹内的原文件：
+    #: 引用型附件（拖拽绑定文件夹文件进来）指向绑定文件夹内的原文件：
     #: **storage_path 留空**（post_delete 物理清理只认 storage_path，绝不触碰
     #: 业务归档原文件），读取走 folder_refs 服务（ACL + 逃逸校验在解析层）。
-    ref_contract_id = models.BigIntegerField(null=True, blank=True, verbose_name="引用合同")
+    #: ref_owner_kind 决定 ref_owner 指向合同还是案件（存量行没有该字段值
+    #: 时按 contract 处理）；合同绑定与案件绑定是两套独立的文件夹。
+    ref_owner_kind = models.CharField(
+        max_length=16,
+        blank=True,
+        default="contract",
+        verbose_name="引用归属类型",
+        choices=[("contract", "合同"), ("case", "案件")],
+    )
+    ref_contract_id = models.BigIntegerField(null=True, blank=True, verbose_name="引用归属 id（合同或案件）")
     ref_subpath = models.CharField(max_length=500, blank=True, default="", verbose_name="引用子路径")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
@@ -374,3 +383,66 @@ def _delete_agent_attachment_file(sender: type[AgentAttachment], instance: Agent
             import logging
 
             logging.getLogger(__name__).warning("agent 附件物理文件删除失败: %s", instance.storage_path, exc_info=True)
+
+
+class AgentApprovalPolicy(models.Model):
+    """审批策略 —— 用户 × 工具类别 → allow / ask / deny（P2-5）。
+
+    ## 定位
+
+    四级风险分级（classify_risk）是**系统兜底**——命中 DANGER/CRITICAL 一律
+    人工审批，不可覆盖。策略表是**用户偏好层**：律师觉得某类操作不需要每次
+    问，可以配 allow；觉得某类操作要更严，可以配 deny。
+
+    ## 判定顺序（classify_risk 前置查询）
+
+    1. 精确策略（tool_name 完全匹配该用户的策略）→ 按策略
+    2. 前缀策略（工具名前缀匹配，如 ``delete_`` 匹配所有删除类）→ 按策略
+    3. 无策略 → 走系统四级分级（现状不变）
+
+    ## 安全约束
+
+    - **critical 级工具不可被 allow 覆盖**（classify_risk 判 critical 的，
+      即便策略写了 allow 也仍走人工审批——这是硬红线）；
+    - 策略只影响「high 级 → allow/deny」与「medium 级 → ask/deny」两档；
+    - deny = 直接拒绝不弹窗（比审批更严）。
+    """
+
+    class Action(models.TextChoices):
+        ALLOW = "allow", "允许（不弹窗）"
+        ASK = "ask", "每次询问（默认行为）"
+        DENY = "deny", "拒绝（不弹窗直接拒）"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="agent_approval_policies",
+        verbose_name="所属用户",
+    )
+    #: 工具名（完整名如 mcp__fachuan__delete_case）或前缀（如 delete_）
+    tool_pattern = models.CharField(max_length=200, verbose_name="工具名或前缀")
+    action = models.CharField(
+        max_length=8,
+        choices=Action.choices,
+        default=Action.ASK,
+        verbose_name="策略动作",
+    )
+    #: 前缀匹配（true = tool_pattern 是前缀，匹配所有以它开头的工具）
+    is_prefix = models.BooleanField(default=False, verbose_name="前缀匹配")
+    note = models.CharField(max_length=200, blank=True, default="", verbose_name="备注")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "审批策略"
+        verbose_name_plural = "审批策略"
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["user", "tool_pattern"], name="agent_policy_user_idx"),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "tool_pattern"], name="agent_policy_unique"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user}:{self.tool_pattern} → {self.action}"

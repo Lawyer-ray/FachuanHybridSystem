@@ -37,6 +37,7 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db import models
 from django.utils import timezone
 
@@ -185,6 +186,38 @@ def classify_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> Ri
 def is_high_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> bool:
     """是否必须人工审批（高 + 紧急）。保留此函数作为「要不要拦」的单一入口。"""
     return classify_risk(tool_name, tool_args) in (RiskLevel.HIGH, RiskLevel.CRITICAL)
+
+
+def lookup_approval_policy(*, user_id: int | None, tool_name: str) -> str | None:
+    """查用户对某工具的审批策略（P2-5）。
+
+    Returns:
+        "allow" / "deny" / None（无策略或 ask——走系统默认分级）。
+
+    查询优先级：精确匹配 > 前缀匹配；同步函数（request_approval 内
+    经 sync_to_async 调用）。
+    """
+    if user_id is None:
+        return None
+    from ..models import AgentApprovalPolicy
+
+    # 精确匹配：全名（mcp__fachuan__delete_case）或短名（delete_case）都行
+    short_name = tool_name.rsplit("__", 1)[-1]
+    exact = (
+        AgentApprovalPolicy.objects.filter(user_id=user_id, is_prefix=False, tool_pattern__in=[tool_name, short_name])
+        .values_list("action", flat=True)
+        .first()
+    )
+    if exact is not None:
+        return exact
+    # 前缀匹配：策略表里 is_prefix=True 的行，tool_pattern 是前缀
+    prefix_rows = AgentApprovalPolicy.objects.filter(user_id=user_id, is_prefix=True).values_list(
+        "tool_pattern", "action"
+    )
+    for pattern, action in prefix_rows:
+        if tool_name.startswith(pattern) or short_name.startswith(pattern):
+            return action
+    return None
 
 
 def needs_second_confirmation(level: RiskLevel) -> bool:
@@ -346,6 +379,20 @@ async def request_approval(
                 sorted((tool_args or {}).keys()),
             )
         return True, approval_id, "低/中风险，免审批放行"
+
+    # ── P2-5 审批策略覆盖（用户偏好层）──
+    # critical 不可被 allow 覆盖（硬红线）；high 可被 allow/deny 覆盖；
+    # medium 可被 deny 覆盖（更严）；low 本来就不审批
+    policy = await sync_to_async(
+        lambda: lookup_approval_policy(user_id=user_id, tool_name=tool_name),
+        thread_sensitive=True,
+    )()
+    if policy == "allow" and level == RiskLevel.HIGH:
+        logger.info("策略允许（high→allow）tool=%s user=%s", tool_name, user_id)
+        return True, "", "策略允许（用户配置 high 级免审批）"
+    if policy == "deny" and level in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+        logger.info("策略拒绝 tool=%s user=%s", tool_name, user_id)
+        return False, "", f"策略拒绝（用户配置 {level.value} 级禁止）"
 
     effective_timeout = timeout if timeout is not None else approval_timeout(level)
 

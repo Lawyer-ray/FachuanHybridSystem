@@ -291,3 +291,98 @@ class TestPendingDiscovery:
 
         assert await approval_mod.list_pending_for_user(user_id=bob.pk) == []
         assert await approval_mod.list_pending_for_user(user_id=None) == []
+
+
+class TestApprovalPolicyOverride:
+    """P2-5：用户策略覆盖审批（high→allow / high→deny / medium→deny / critical 不可覆盖）"""
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_policy_allow_high_skips_approval(self) -> None:
+        """策略 allow + high 级 → 直接放行，不创建审批记录。"""
+        from asgiref.sync import sync_to_async
+
+        from apps.agent.models import AgentApprovalPolicy
+        from apps.organization.models import LawFirm, Lawyer
+
+        def _mk():
+            firm = LawFirm.objects.create(name="policy-allow-律所")
+            u = Lawyer.objects.create_user(username="policy-allow", password=TEST_PASSWORD, law_firm=firm)
+            AgentApprovalPolicy.objects.create(user=u, tool_pattern="delete_reminder", action="allow")
+            return u
+
+        user = await sync_to_async(_mk)()
+        approved, aid, reason = await approval_mod.request_approval(
+            tool_name="mcp__fachuan__delete_reminder",
+            tool_args={},
+            user_id=user.pk,
+        )
+        assert approved is True
+        assert "策略允许" in reason
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_policy_deny_high_rejects(self) -> None:
+        from asgiref.sync import sync_to_async
+
+        from apps.agent.models import AgentApprovalPolicy
+        from apps.organization.models import LawFirm, Lawyer
+
+        def _mk():
+            firm = LawFirm.objects.create(name="policy-deny-律所")
+            u = Lawyer.objects.create_user(username="policy-deny", password=TEST_PASSWORD, law_firm=firm)
+            AgentApprovalPolicy.objects.create(user=u, tool_pattern="delete_", action="deny", is_prefix=True)
+            return u
+
+        user = await sync_to_async(_mk)()
+        approved, _, reason = await approval_mod.request_approval(
+            tool_name="mcp__fachuan__delete_case",
+            tool_args={},
+            user_id=user.pk,
+        )
+        assert approved is False
+        assert "策略拒绝" in reason
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_policy_cannot_override_critical(self) -> None:
+        """critical 级（clear_all 等）即便策略写了 allow 也仍走审批——硬红线。"""
+        from asgiref.sync import sync_to_async
+
+        from apps.agent.models import AgentApprovalPolicy
+        from apps.organization.models import LawFirm, Lawyer
+
+        def _mk():
+            firm = LawFirm.objects.create(name="policy-crit-律所")
+            u = Lawyer.objects.create_user(username="policy-crit", password=TEST_PASSWORD, law_firm=firm)
+            AgentApprovalPolicy.objects.create(user=u, tool_pattern="clear_all", action="allow")
+            return u
+
+        user = await sync_to_async(_mk)()
+        # 不等审批结果（会阻塞），只验证它进入了审批流程而非直接放行
+        task = asyncio.ensure_future(
+            approval_mod.request_approval(
+                tool_name="mcp__fachuan__clear_all_contracts",
+                tool_args={},
+                user_id=user.pk,
+                offline_timeout=1.0,
+            )
+        )
+        await asyncio.sleep(0.1)
+        # 无订阅者 + 无离线 → 走正常审批并被拒绝（不是策略允许的直接放行）
+        approved, _, reason = await asyncio.wait_for(task, timeout=3.0)
+        assert approved is False
+        assert "策略" not in reason  # 走的是审批拒绝，不是策略 bypass
+
+    @pytest.mark.django_db
+    def test_lookup_policy_exact_over_prefix(self) -> None:
+        from apps.agent.models import AgentApprovalPolicy
+        from apps.organization.models import LawFirm, Lawyer
+
+        firm = LawFirm.objects.create(name="policy-precise-律所")
+        user = Lawyer.objects.create_user(username="policy-precise", password=TEST_PASSWORD, law_firm=firm)
+        # 精确与前缀同时存在 → 精确赢
+        AgentApprovalPolicy.objects.create(user=user, tool_pattern="delete_case", action="deny")
+        AgentApprovalPolicy.objects.create(user=user, tool_pattern="delete_", action="allow", is_prefix=True)
+        result = approval_mod.lookup_approval_policy(user_id=user.pk, tool_name="mcp__fachuan__delete_case")
+        assert result == "deny"
