@@ -146,7 +146,7 @@ export function Composer() {
           </button>
         </div>
       )}
-      <div className="flex items-end gap-2 rounded-[12px] border border-input bg-background px-2.5 py-1.5 focus-within:border-foreground/40">
+      <div className="flex items-end gap-2 rounded-[14px] border border-border bg-background px-2.5 py-1.5 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-primary/30 focus-within:ring-4 focus-within:ring-primary/10">
         <button
           type="button"
           className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors disabled:opacity-40 ${
@@ -212,7 +212,7 @@ export function Composer() {
         ) : (
           <button
             type="button"
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85 disabled:opacity-30"
+            className="copilot-send flex h-7 w-7 flex-none items-center justify-center rounded-full text-white disabled:opacity-30 disabled:shadow-none"
             onClick={submit}
             disabled={uploading || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0)}
             aria-label={bgMode ? '提交后台任务' : '发送'}

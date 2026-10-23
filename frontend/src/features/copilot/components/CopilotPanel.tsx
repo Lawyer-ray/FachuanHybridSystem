@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Columns2, FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, SquareStack, X } from 'lucide-react'
+import { Columns2, FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Sparkles, SquareStack, X } from 'lucide-react'
 
 import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
@@ -237,6 +237,9 @@ export function CopilotPanel({
           >
             {railVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
+          <span className="copilot-orb ml-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-[8px]" aria-hidden>
+            <Sparkles className="h-3.5 w-3.5 text-white" strokeWidth={2.2} />
+          </span>
           <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
             {context ? `AI 助手 · ${context.title}` : currentTitle || 'AI 助手'}
           </span>

@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { FolderTree, History, Plus } from 'lucide-react'
+import { FolderTree, History, Plus, Sparkles } from 'lucide-react'
 
 import { useCopilot } from '../store'
 import type { CopilotLaunchContext } from '../launch'
@@ -25,6 +25,7 @@ import { Composer } from './Composer'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
+import '../copilot.css'
 
 export function CopilotEmbed({
   origin,
@@ -37,6 +38,7 @@ export function CopilotEmbed({
 }) {
   const enterContext = useCopilot((s) => s.enterContext)
   const switchSession = useCopilot((s) => s.switchSession)
+  const draggingFiles = useCopilot((s) => s.draggingFiles)
   const [listOpen, setListOpen] = useState(false)
   const [treeDrawerOpen, setTreeDrawerOpen] = useState(false)
   const drop = useCopilotDrop()
@@ -54,18 +56,23 @@ export function CopilotEmbed({
 
   return (
     <section
-      className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[12px] border border-border bg-card shadow-sm"
+      className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-[14px] border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)] transition-[border-color,box-shadow] ${
+        draggingFiles ? 'border-primary/40 ring-4 ring-primary/10' : 'border-border/80'
+      }`}
       aria-label="法穿SI超级助理"
       onDragEnter={drop.onDragEnter}
       onDragOver={drop.onDragOver}
       onDragLeave={drop.onDragLeave}
       onDrop={drop.onDrop}
     >
-      <header className="flex h-10 flex-none items-center gap-1.5 border-b border-border px-2.5">
+      <header className="flex h-11 flex-none items-center gap-2 border-b border-border/70 px-2.5">
+        <span className="copilot-orb flex h-6 w-6 flex-none items-center justify-center rounded-[8px]" aria-hidden>
+          <Sparkles className="h-3.5 w-3.5 text-white" strokeWidth={2.2} />
+        </span>
         <span className="min-w-0 flex-1 truncate px-0.5 text-[12.5px] font-semibold text-foreground" title={`法穿SI超级助理 · ${title}`}>
           法穿SI超级助理
         </span>
-        <span className="hidden min-w-0 flex-none truncate rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10.5px] text-muted-foreground min-[1500px]:block" title={title}>
+        <span className="hidden min-w-0 flex-none truncate rounded-[6px] border border-primary/15 bg-primary/5 px-1.5 py-0.5 text-[10.5px] text-muted-foreground min-[1500px]:block" title={title}>
           {origin === 'case' ? '本案' : '本委托'}独家
         </span>
         <button

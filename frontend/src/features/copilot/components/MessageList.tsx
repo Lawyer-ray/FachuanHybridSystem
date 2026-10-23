@@ -20,6 +20,7 @@ import { shortToolName } from '../domain'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
+import { CopilotWelcome } from './CopilotWelcome'
 
 function ToolRow({ message }: { message: ChatMessage }) {
   const name = shortToolName(message.toolName)
@@ -54,7 +55,10 @@ function ThinkingBlock({ message }: { message: ChatMessage }) {
     >
       <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
         <Brain className="h-3 w-3 flex-none" />
-        <span>{thinkingNow ? '深度思考中…' : `已深度思考（${thinking.length} 字）`}</span>
+        {/* 思考中用渐变流光（copilot-shimmer），结束后回落普通 muted 色 */}
+        <span className={thinkingNow ? 'copilot-shimmer' : undefined}>
+          {thinkingNow ? '深度思考中…' : `已深度思考（${thinking.length} 字）`}
+        </span>
       </summary>
       <pre className="mt-1.5 max-h-56 overflow-y-auto border-t border-border pt-1.5 text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
         {thinking}
@@ -233,16 +237,7 @@ export function MessageList() {
 
   return (
     <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
-      {empty && (
-        <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-          <p className="text-[13px] font-medium text-foreground">问点什么，或让它查系统数据</p>
-          <p className="text-[12px] leading-relaxed text-muted-foreground">
-            例如：列一下我名下的案件、看看合同 386 的归档状态。
-            <br />
-            AI 回答仅供参考，法律判断需由律师复核。
-          </p>
-        </div>
-      )}
+      {empty && <CopilotWelcome />}
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
       )}
