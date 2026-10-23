@@ -1,8 +1,6 @@
 import { Link } from 'react-router'
 import { Sparkles } from 'lucide-react'
 
-import { openCopilot } from '@/features/copilot/launch'
-
 import type { WorkbenchDeal } from '../../types'
 import { crumbName, headerMetaParts } from './detail-domain'
 import { ActionButton, MetaLine } from './ui'
@@ -16,16 +14,14 @@ export function DetailHeader({
   deal,
   onAddDue,
   onAddLog,
+  onOpenAi,
 }: {
   deal: WorkbenchDeal
   onAddDue: () => void
   onAddLog: () => void
+  /** 打开右栏「AI 助手」tab（本委托专属对话区，长在页面里） */
+  onOpenAi: () => void
 }) {
-  // 围绕本委托打开 AI 助手：面板进入「本委托」范围（列表只看该委托的会话，
-  // 新会话带 contract_id 归属，后端多入口 origin=contract）
-  const openDealCopilot = () =>
-    openCopilot({ origin: 'contract', refId: deal.id, title: deal.client })
-
   return (
     <>
       <nav className="mb-3.5 flex gap-[7px] text-[12.5px] text-muted-foreground">
@@ -49,7 +45,7 @@ export function DetailHeader({
           />
         </div>
         <div className="ml-auto flex flex-wrap gap-2 pt-1.5 max-[680px]:ml-0 max-[680px]:pt-0">
-          <ActionButton onClick={openDealCopilot} title="围绕本委托使用 AI 助手（会话只看本委托，新会话自动带归属）">
+          <ActionButton onClick={onOpenAi} title="打开本委托专属 AI 助手（右栏对话区，会话只看本委托，新会话自动带归属）">
             <Sparkles className="mr-0.5 inline h-3.5 w-3.5 align-[-2px]" />
             AI 助手
           </ActionButton>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,9 +16,20 @@ import {
 } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
+import { openCopilot } from '@/features/copilot/launch'
+import { useMediaQuery } from '@/hooks/use-media'
+
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
+import { useDealAiResize } from './use-deal-ai-resize'
 import { useDealDetail } from './use-deal-detail'
+
+const AI_OPEN_KEY = 'deal:ai-open'
+
+// 详情页专属 AI 工作区（宽屏三列布局的第三列，非全局浮层）：走动态
+// import 保持 copilot 域的懒加载边界——静态引入会把 react-markdown 等
+// 拖进办案 chunk
+const CopilotEmbedLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotEmbed })))
 
 /**
  * 52 号定则：过去在时间轴（案件节日志按日叙事），未来在右栏（期限只在这里预警）。
@@ -31,6 +42,20 @@ export function DealDetailPage() {
   const d = useDealDetail(valid ? contractId : null)
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
+  // AI 工作区（宽屏专属）：长在详情页布局里的第三列——左列案件卡压缩但不
+  // 遮挡，对话区 sticky 满视口高、宽度可拖（默认 640，为未来 OnlyOffice
+  // 文档预览预留内部再分栏的空间）。窄屏（<1280）装不下三列，页头按钮
+  // 回落到全局浮层面板（既有形态）。
+  const [aiOpen, setAiOpen] = useState(() => {
+    try {
+      return localStorage.getItem(AI_OPEN_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const isXlUp = useMediaQuery('(min-width: 1280px)')
+  const { width: aiWidth, setGridRef, onHandlePointerDown } = useDealAiResize()
+  const aiActive = aiOpen && isXlUp
 
   const deal = d.deal
   // 程序计划以合同勾选的代理阶段为纲、案件实际阶段为实：勾了没立的是未启动，立了没勾的照样展示
@@ -52,6 +77,17 @@ export function DealDetailPage() {
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
   const onAddPayment = useCallback(() => soon('记收款'), [soon])
+
+  const toggleAi = useCallback(() => {
+    setAiOpen((v) => {
+      try {
+        localStorage.setItem(AI_OPEN_KEY, v ? '0' : '1')
+      } catch {
+        /* 忽略持久化失败 */
+      }
+      return !v
+    })
+  }, [])
 
   const jump = useCallback((caseId: number) => {
     document.getElementById('case-' + caseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -83,11 +119,32 @@ export function DealDetailPage() {
 
   return (
     <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
-      <DetailHeader deal={deal} onAddDue={onAddDue} onAddLog={onAddLog} />
+      <DetailHeader
+        deal={deal}
+        onAddDue={onAddDue}
+        onAddLog={onAddLog}
+        onOpenAi={
+          isXlUp
+            ? toggleAi
+            : // 窄屏装不下专属工作区，回落全局浮层（openCopilot 零依赖模块，静态引入无负担）
+              () => openCopilot({ origin: 'contract', refId: deal.id, title: deal.client })
+        }
+      />
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
-      <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]">
+      <div
+        ref={setGridRef}
+        className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]"
+        style={
+          aiActive
+            ? ({
+                '--deal-ai-w': `${aiWidth}px`,
+                gridTemplateColumns: 'minmax(320px,1fr) 400px var(--deal-ai-w)',
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
         <div className="min-w-0">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
@@ -106,7 +163,7 @@ export function DealDetailPage() {
             <div
               className={
                 'space-y-[18px] ' +
-                (ordered.length >= 2
+                (ordered.length >= 2 && !aiActive
                   ? 'min-[1900px]:columns-2 min-[1900px]:gap-[18px] min-[1900px]:space-y-0'
                   : '')
               }
@@ -143,6 +200,29 @@ export function DealDetailPage() {
           onAddDue={onAddDue}
           onAddPayment={onAddPayment}
         />
+
+        {aiActive && (
+          /* 工作区列：sticky 满视口高（页头下），页面滚动时对话区不动——
+             律师边滚案件日志边对话；左缘把手拖宽（--deal-ai-w 驱动 grid 列） */
+          <div className="sticky top-[calc(var(--app-navbar-h)+14px)] h-[calc(100dvh-var(--app-navbar-h)-28px)] min-w-0">
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="调整 AI 工作区宽度"
+              className="absolute top-0 bottom-0 left-0 z-30 w-1.5 -translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-foreground/25"
+              onPointerDown={onHandlePointerDown}
+            />
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center rounded-[12px] border border-border bg-card text-[12.5px] text-muted-foreground shadow-sm">
+                  正在载入 AI 助手…
+                </div>
+              }
+            >
+              <CopilotEmbedLazy origin="contract" refId={deal.id} title={deal.client} />
+            </Suspense>
+          </div>
+        )}
       </div>
     </main>
   )

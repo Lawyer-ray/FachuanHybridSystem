@@ -20,9 +20,10 @@ import { Columns2, FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, S
 
 import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
+import { useCopilotDrop } from '../hooks/use-copilot-drop'
 import { usePanelResize } from '../hooks/use-panel-resize'
 import { useCopilot } from '../store'
-import { FOLDER_REF_MIME, type FolderRefDraft } from '../types'
+
 import { Composer } from './Composer'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
@@ -172,57 +173,9 @@ export function CopilotPanel({
 
   const railVisible = railOpen && railCapable
   const draggingFiles = useCopilot((s) => s.draggingFiles)
-  const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
-  const addFolderRef = useCopilot((s) => s.addFolderRef)
   const [treeDrawerOpen, setTreeDrawerOpen] = useState(false)
-  // 面板级拖拽投放：拖入高亮 + 松手收件。dragenter/over 必须 preventDefault
-  // 才能触发 drop；计数器法处理子元素间的 enter/leave 抖动。
-  // 流式/上传在途不加附件（与回形针按钮同口径）。
-  const filesDropAllowed = () => {
-    const { streaming, uploadingAttachments } = useCopilot.getState()
-    return !(streaming || uploadingAttachments)
-  }
-  const dragDepth = useRef(0)
-  const onDragEnter = (e: React.DragEvent) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return
-    e.preventDefault()
-    if (!filesDropAllowed()) return
-    dragDepth.current += 1
-    if (!useCopilot.getState().draggingFiles) useCopilot.setState({ draggingFiles: true })
-  }
-  const onDragOver = (e: React.DragEvent) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return
-    e.preventDefault()
-  }
-  const onDragLeave = (e: React.DragEvent) => {
-    if (!e.dataTransfer?.types?.includes('Files')) return
-    e.preventDefault()
-    dragDepth.current = Math.max(0, dragDepth.current - 1)
-    if (dragDepth.current === 0) useCopilot.setState({ draggingFiles: false })
-  }
-  const onDrop = (e: React.DragEvent) => {
-    // 无条件 preventDefault + 复位：拖文件夹（files 为空列表）或非文件投放，
-    // 既不能让浏览器直接打开被拖入的文件，也不能让高亮层残留
-    e.preventDefault()
-    dragDepth.current = 0
-    useCopilot.setState({ draggingFiles: false })
-    // 内部拖拽（目录树 → 输入区）：自定义 MIME 携带引用，优先于 Files 通道
-    const raw = e.dataTransfer.getData(FOLDER_REF_MIME)
-    if (raw) {
-      if (!filesDropAllowed()) return
-      try {
-        const draft = JSON.parse(raw) as FolderRefDraft
-        if (typeof draft.contractId === 'number' && typeof draft.subpath === 'string' && draft.subpath) {
-          addFolderRef({ contractId: draft.contractId, subpath: draft.subpath, name: String(draft.name ?? '') })
-        }
-      } catch {
-        // 非法 JSON 静默丢弃：不当作文件处理，也不打断 drop
-      }
-      return
-    }
-    if (!e.dataTransfer?.files?.length || !filesDropAllowed()) return
-    addAttachmentFiles(e.dataTransfer.files)
-  }
+  // 面板级拖拽投放（双通道）：与详情页嵌入面板共用 use-copilot-drop
+  const drop = useCopilotDrop()
 
   const toggleList = () => {
     if (railCapable) {
@@ -247,10 +200,10 @@ export function CopilotPanel({
           open ? 'animate-in slide-in-from-right' : 'animate-out slide-out-to-right'
         }`}
         aria-label="AI 助手"
-        onDragEnter={onDragEnter}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
+        onDragEnter={drop.onDragEnter}
+        onDragOver={drop.onDragOver}
+        onDragLeave={drop.onDragLeave}
+        onDrop={drop.onDrop}
       >
         {draggingFiles && (
           <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-background/70 backdrop-blur-[1px]">
