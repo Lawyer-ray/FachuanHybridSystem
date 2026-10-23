@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const copilotState = vi.hoisted(() => ({
   streaming: false,
+  queuedSteers: [] as string[],
   turnStats: {
     firstDeltaAt: null as number | null,
     lastDeltaAt: null as number | null,
@@ -21,6 +22,9 @@ const copilotState = vi.hoisted(() => ({
   },
   send: vi.fn(),
   stop: vi.fn(),
+  steer: vi.fn(),
+  revokeQueuedSteers: vi.fn(),
+  submitTask: vi.fn(),
 }))
 
 vi.mock('../store', () => ({
@@ -35,8 +39,12 @@ import { Composer } from './Composer'
 
 beforeEach(() => {
   copilotState.streaming = false
+  copilotState.queuedSteers = []
   copilotState.send = vi.fn()
   copilotState.stop = vi.fn()
+  copilotState.steer = vi.fn()
+  copilotState.revokeQueuedSteers = vi.fn()
+  copilotState.submitTask = vi.fn()
   copilotState.turnStats = {
     firstDeltaAt: null,
     lastDeltaAt: null,
@@ -173,17 +181,57 @@ describe('Composer', () => {
     container.remove()
   })
 
-  it('流式中显示停止按钮，点击调用 stop', () => {
+  it('流式中显示停止按钮，点击调用 stop；输入框保持可用', () => {
     copilotState.streaming = true
     const { container } = render(<Composer />)
-    fireEvent.click(within(container).getByRole('button'))
+    fireEvent.click(within(container).getByRole('button', { name: '停止生成' }))
     expect(copilotState.stop).toHaveBeenCalled()
+    // 流式中仍可插话：textarea 未禁用，占位符切为插话提示
+    const box = within(container).getByRole('textbox') as HTMLTextAreaElement
+    expect(box.disabled).toBe(false)
+    expect(box.placeholder).toContain('插话')
+    container.remove()
+  })
+
+  it('流式中 Enter 发送的是插话（steer）而不是新消息', () => {
+    copilotState.streaming = true
+    const { container } = render(<Composer />)
+    const box = within(container).getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '补充：只要近一个月' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(copilotState.steer).toHaveBeenCalledWith('补充：只要近一个月')
+    expect(copilotState.send).not.toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('流式中有已插话时显示计数与撤回按钮', () => {
+    copilotState.streaming = true
+    copilotState.queuedSteers = ['插话一', '插话二']
+    const { container } = render(<Composer />)
+    expect(container.textContent).toContain('已插话 2 条')
+    fireEvent.click(within(container).getByRole('button', { name: '撤回插话' }))
+    expect(copilotState.revokeQueuedSteers).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('后台运行模式：提交走 submitTask 并自动退出模式', () => {
+    const { container } = render(<Composer />)
+    const toggle = within(container).getByRole('button', { name: '切换为后台运行' })
+    fireEvent.click(toggle)
+    const box = within(container).getByRole('textbox') as HTMLTextAreaElement
+    expect(box.placeholder).toContain('后台运行')
+    fireEvent.change(box, { target: { value: '梳理本案材料' } })
+    fireEvent.click(within(container).getByRole('button', { name: '提交后台任务' }))
+    expect(copilotState.submitTask).toHaveBeenCalledWith('梳理本案材料')
+    expect(copilotState.send).not.toHaveBeenCalled()
+    // 提交后模式自动退出，下一次输入回到常规发送
+    expect(box.placeholder).not.toContain('后台运行')
     container.remove()
   })
 
   it('非流式时发送按钮在空输入下禁用', () => {
     const { container } = render(<Composer />)
-    const btn = within(container).getByRole('button') as HTMLButtonElement
+    const btn = within(container).getByRole('button', { name: '发送' }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
     container.remove()
   })

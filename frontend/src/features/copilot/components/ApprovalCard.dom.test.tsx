@@ -148,3 +148,55 @@ describe('ApprovalCard：内容展示', () => {
     container.remove()
   })
 })
+
+describe('ApprovalCard：风险分级（P0-3）', () => {
+  it('紧急级：首次点击只解锁，再次点击才真正同意', () => {
+    const { container } = render(
+      <ApprovalCard approval={approval({ riskLevel: 'critical', needsSecondConfirmation: true })} />,
+    )
+    expect(container.textContent).toContain('紧急')
+
+    const btn = screen.getByRole('button', { name: '同意' })
+    fireEvent.click(btn)
+    // 首击不提交，只变成「再次确认执行」
+    expect(storeMock.decide).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '再次确认执行' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '再次确认执行' }))
+    expect(storeMock.decide).toHaveBeenCalledWith('a1', true)
+    container.remove()
+  })
+
+  it('紧急级二次确认解锁后 8 秒不动作自动收回', () => {
+    const { container } = render(
+      <ApprovalCard approval={approval({ riskLevel: 'critical' })} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: '同意' }))
+    expect(screen.getByRole('button', { name: '再次确认执行' })).toBeTruthy()
+
+    act(() => {
+      vi.advanceTimersByTime(8100)
+    })
+    // 收回后回到「同意」初始态，且未提交
+    expect(screen.getByRole('button', { name: '同意' })).toBeTruthy()
+    expect(storeMock.decide).not.toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('紧急级倒计时按 900 秒口径（15:00 附近）', () => {
+    const { container } = render(<ApprovalCard approval={approval({ riskLevel: 'critical' })} />)
+    expect(container.textContent).toMatch(/14:5\d|15:00/)
+    container.remove()
+  })
+
+  it('离线待审：显示「后台任务」标记与等待确认文案，倒计时按 7200 秒口径', () => {
+    const { container } = render(
+      <ApprovalCard approval={approval({ offline: true, riskLevel: 'high', message: '', receivedAt: Date.now() - 60_000 })} />,
+    )
+    expect(container.textContent).toContain('后台任务')
+    expect(container.textContent).toContain('等待你确认')
+    // 7200s - 60s ≈ 119:00（格式 m:ss，分钟数不补零）
+    expect(container.textContent).toMatch(/118:5\d|119:00/)
+    container.remove()
+  })
+})

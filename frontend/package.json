@@ -34,6 +34,7 @@
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-router": "^8.4.0",
+    "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",

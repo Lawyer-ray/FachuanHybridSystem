@@ -1,12 +1,18 @@
 /**
- * 转录列表：气泡 + 工具行 + 审批卡 + 错误行。
+ * 转录列表：气泡 + 工具行 + 审批卡 + 排队提示 + 错误行。
  * 自动吸底滚动用 ref 直改 DOM（高频 delta 时不经 React 协调），
  * 用户上翻查看历史时停止吸底，回到底部附近再恢复。
+ *
+ * - 排队提示：池满时后端发 activity{queued,position}，store 记 queuePosition，
+ *   首个推进事件（delta 等）自动清除——用户不用盯着转圈猜发生了什么
+ * - assistant 气泡：Markdown（GFM）渲染 + 代码块语法高亮（rehype-highlight，
+ *   未标注语言的块不高亮）；hover 显示复制按钮（复制 Markdown 源码）
  */
 
-import { useEffect, useRef } from 'react'
-import { Brain, Wrench } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Brain, Check, Copy, Loader2, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 
 import '../copilot.css'
@@ -57,6 +63,32 @@ function ThinkingBlock({ message }: { message: ChatMessage }) {
   )
 }
 
+/** 复制助手回答的 Markdown 源码（hover 浮现；无剪贴板环境静默忽略） */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(timer)
+  }, [copied])
+  return (
+    <button
+      type="button"
+      className="absolute top-0 right-0 flex h-6 w-6 items-center justify-center rounded-[6px] bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+      aria-label="复制回答"
+      title="复制 Markdown 源码"
+      onClick={() => {
+        navigator.clipboard
+          ?.writeText(text)
+          .then(() => setCopied(true))
+          .catch(() => {})
+      }}
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+    </button>
+  )
+}
+
 function Bubble({ message }: { message: ChatMessage }) {
   if (message.role === 'tool') return <ToolRow message={message} />
 
@@ -70,15 +102,18 @@ function Bubble({ message }: { message: ChatMessage }) {
     )
   }
 
+  const showCopy = !message.streaming && Boolean(message.content)
   return (
-    <div className="max-w-full text-[13px] leading-relaxed text-foreground">
+    <div className="group relative max-w-full text-[13px] leading-relaxed text-foreground">
       <ThinkingBlock message={message} />
       {message.content ? (
         // assistant 回答按 Markdown 渲染（gfm：表格/删除线/任务列表）；
-        // react-markdown 默认不执行原始 HTML，无注入面
-        <div className="copilot-md break-words">
+        // react-markdown 默认不执行原始 HTML，无注入面；
+        // rehype-highlight 只处理标注了语言的代码块（detect 关闭）
+        <div className="copilot-md break-words pr-0">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeHighlight]}
             components={{
               a: (props) => <a {...props} target="_blank" rel="noreferrer" />,
             }}
@@ -93,6 +128,24 @@ function Bubble({ message }: { message: ChatMessage }) {
       {message.truncated && (
         <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
       )}
+      {showCopy && <CopyButton text={message.content} />}
+    </div>
+  )
+}
+
+/** 排队提示条：池满时显示名次（position 含自己，「前方 N 人」= N-1） */
+function QueueBanner({ position }: { position: number }) {
+  const ahead = Math.max(0, position - 1)
+  return (
+    <div className="mb-2 flex items-center gap-1.5 rounded-[8px] border border-border bg-secondary/40 px-2.5 py-1.5 text-[12px] text-muted-foreground">
+      <Loader2 className="h-3 w-3 flex-none animate-spin" />
+      {ahead > 0 ? (
+        <span>
+          当前使用人数较多，排队中 · 前方 {ahead} 人…
+        </span>
+      ) : (
+        <span>排队中，即将开始…</span>
+      )}
     </div>
   )
 }
@@ -103,6 +156,7 @@ export function MessageList() {
   const streaming = useCopilot((s) => s.streaming)
   const loadingHistory = useCopilot((s) => s.loadingHistory)
   const lastError = useCopilot((s) => s.lastError)
+  const queuePosition = useCopilot((s) => s.queuePosition)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
@@ -115,7 +169,7 @@ export function MessageList() {
   useEffect(() => {
     const el = scrollRef.current
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
-  }, [messages, approvals, lastError])
+  }, [messages, approvals, lastError, queuePosition])
 
   const empty = messages.length === 0 && !streaming && !loadingHistory
 
@@ -134,6 +188,7 @@ export function MessageList() {
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
       )}
+      {queuePosition !== null && <QueueBanner position={queuePosition} />}
       <div className="flex flex-col gap-2.5">
         {messages.map((m) => (
           <Bubble key={m.id} message={m} />

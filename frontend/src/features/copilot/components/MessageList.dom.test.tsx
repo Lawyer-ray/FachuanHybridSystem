@@ -5,7 +5,7 @@
  * store 直接 setState 注入转录，不 mock 网络。
  */
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { useCopilot } from '../store'
 import { MessageList } from './MessageList'
@@ -164,5 +164,70 @@ describe('MessageList：审批卡与错误', () => {
     })
     render(<MessageList />)
     expect(document.body.textContent).toContain('连接中断，请重试')
+  })
+})
+
+describe('MessageList：排队提示与复制（P0 批次）', () => {
+  it('queuePosition=3 时显示「前方 2 人」的排队条', () => {
+    useCopilot.setState({
+      messages: [],
+      streaming: true,
+      loadingHistory: false,
+      approvals: [],
+      lastError: null,
+      queuePosition: 3,
+    })
+    render(<MessageList />)
+    expect(document.body.textContent).toContain('前方 2 人')
+  })
+
+  it('queuePosition=1 时显示「即将开始」', () => {
+    useCopilot.setState({
+      messages: [],
+      streaming: true,
+      loadingHistory: false,
+      approvals: [],
+      lastError: null,
+      queuePosition: 1,
+    })
+    render(<MessageList />)
+    expect(document.body.textContent).toContain('即将开始')
+    expect(document.body.textContent).not.toContain('前方')
+  })
+
+  it('queuePosition=null 时不渲染排队条', () => {
+    useCopilot.setState({
+      messages: [],
+      streaming: true,
+      loadingHistory: false,
+      approvals: [],
+      lastError: null,
+      queuePosition: null,
+    })
+    render(<MessageList />)
+    expect(document.body.textContent).not.toContain('排队中')
+  })
+
+  it('已完成的助手气泡有复制按钮，点击写入剪贴板', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    renderWithMessages([{ id: 'a9', role: 'assistant', content: '已完成的法律意见' }])
+
+    const btn = screen.getByRole('button', { name: '复制回答' })
+    btn.click()
+    await Promise.resolve()
+    expect(writeText).toHaveBeenCalledWith('已完成的法律意见')
+  })
+
+  it('流式中的助手气泡不显示复制按钮', () => {
+    useCopilot.setState({
+      messages: [{ id: 'a10', role: 'assistant', content: '生成中', streaming: true }],
+      streaming: true,
+      loadingHistory: false,
+      approvals: [],
+      lastError: null,
+    })
+    render(<MessageList />)
+    expect(screen.queryByRole('button', { name: '复制回答' })).toBeNull()
   })
 })

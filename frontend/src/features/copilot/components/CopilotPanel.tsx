@@ -11,7 +11,7 @@
  * 收起时才能和滑出动画同步淡出。
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PanelLeftClose, PanelLeftOpen, Plus, X } from 'lucide-react'
 
@@ -37,6 +37,8 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   const sessionId = useCopilot((s) => s.sessionId)
   const streaming = useCopilot((s) => s.streaming)
   const switchSession = useCopilot((s) => s.switchSession)
+  const loadPendingApprovals = useCopilot((s) => s.loadPendingApprovals)
+  const refreshHistory = useCopilot((s) => s.refreshHistory)
   const queryClient = useQueryClient()
   const isSmUp = useMediaQuery('(min-width: 640px)')
   const { width, railCapable, setPanelRef, onHandlePointerDown } = usePanelResize(isSmUp)
@@ -50,6 +52,12 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 离线审批入口：面板打开、每轮流结束、切会话后拉一次待审列表。
+ // 后台任务挂起的高危工具调用由此浮出水面，而不是默默超时。
+  useEffect(() => {
+    if (!streaming) void loadPendingApprovals()
+  }, [streaming, sessionId, loadPendingApprovals])
+
   // 面板标题取当前会话标题：会话列表缓存里查（缓存由侧栏/流结束刷新）
   const sessionsQuery = useQuery({
     queryKey: ['copilot', 'sessions'],
@@ -59,6 +67,8 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
     retry: false,
   })
   const currentTitle = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId)?.title : ''
+  const currentSession = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId) : undefined
+  const currentModel = currentSession?.llm_model ?? ''
 
   // 每轮流结束后刷新会话列表：首条消息会自动生成标题，标题要能浮上来
   useEffect(() => {
@@ -66,6 +76,19 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
       void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] })
     }
   }, [streaming, sessionId, queryClient])
+
+  // 后台任务跑完（updated_at 变化）自动重拉转录：任务的通知消息/产出
+  // 不在面板的流式路径里，只能靠轮询发现的 updated_at 变化来刷新。
+  // 对话式会话不走这里（store 已实时追加，重拉只会浪费一次请求）。
+  const prevTaskUpdatedRef = useRef('')
+  useEffect(() => {
+    if (currentSession?.origin !== 'task') return
+    const updatedAt = currentSession.updated_at
+    if (!updatedAt || updatedAt === prevTaskUpdatedRef.current) return
+    const isFirst = prevTaskUpdatedRef.current === ''
+    prevTaskUpdatedRef.current = updatedAt
+    if (!isFirst && !streaming) void refreshHistory()
+  }, [currentSession, streaming, refreshHistory])
 
   const railVisible = railOpen && railCapable
 
@@ -115,6 +138,14 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
           <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
             {currentTitle || 'AI 助手'}
           </span>
+          {currentModel && (
+            <span
+              className="hidden max-w-28 flex-none truncate rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10.5px] text-muted-foreground sm:block"
+              title={`当前模型：${currentModel}`}
+            >
+              {currentModel}
+            </span>
+          )}
           <button
             type="button"
             className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
