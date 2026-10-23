@@ -233,6 +233,37 @@ async def test_happy_path_records_title_and_persists_text(monkeypatch: pytest.Mo
     assert "truncated" not in (msg.metadata or {})
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_auto_title_strips_anchor_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    """自动标题剥离前端注入的锚点行——否则列表标题全是「[当前业务：…]」。"""
+    from asgiref.sync import sync_to_async
+
+    user = await sync_to_async(_make_lawyer)("agent-title-anchor-user")
+    session = await sync_to_async(_make_session_sync)()
+
+    async def fake_stream(pi_session: Any, *, agent: str = "pi") -> Any:
+        yield {"type": "delta", "content": "回答"}
+        yield {"type": "done"}
+
+    async def fake_get_pool() -> Any:
+        return _FakePool()
+
+    monkeypatch.setattr(chat_service, "get_pool", fake_get_pool)
+    monkeypatch.setattr(chat_service, "stream_events", fake_stream)
+    from apps.agent.services.event_bus import EventBus
+
+    monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
+
+    anchored = "[当前业务：本委托「某公司」 contract_id=8]\n梳理一下本案材料要点"
+    events = [
+        e["type"] async for e in chat_service.stream_chat(session=session, user_message=anchored, user_id=user.pk)
+    ]
+    assert events[-1] == "done"
+    await session.arefresh_from_db()
+    assert session.title == "梳理一下本案材料要点"
+
+
 @pytest.mark.django_db
 @pytest.mark.asyncio
 async def test_mint_failure_rejects_turn_without_persisting(monkeypatch: pytest.MonkeyPatch) -> None:

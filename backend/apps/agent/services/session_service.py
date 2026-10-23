@@ -71,7 +71,63 @@ async def list_sessions(
         queryset = queryset.filter(case_id=case_id)
     if contract_id is not None:
         queryset = queryset.filter(contract_id=contract_id)
-    return [session async for session in queryset[: _bounded(limit)]]
+    sessions = [session async for session in queryset[: _bounded(limit)]]
+    return await annotate_scope_names(sessions)
+
+
+async def annotate_scope_names(sessions: list[AgentSession]) -> list[AgentSession]:
+    """给会话批量挂上业务范围名（``scope_name`` 透传属性，供列表分组展示）。
+
+    - 案件会话：``Case.name``；
+    - 合同（委托）会话：委托人（PRINCIPAL 当事人）客户名——与详情页标题
+      同口径，比合同名「民事委托代理合同」可识别得多；无委托人回退
+      ``Contract.name``，实体已删回退 ``案件/合同 #id``；
+    - 通用/任务会话：空串（前端不分组）。
+
+    跨域模型经 ``apps.get_model`` 延迟解析（agent 不静态依赖 cases/contracts，
+    与 folder_refs 的单向依赖口径一致）；两个 ``pk__in`` 批量查询，无 N+1。
+    """
+    from django.apps import apps as django_apps
+
+    case_ids = {s.case_id for s in sessions if s.case_id}
+    contract_ids = {s.contract_id for s in sessions if s.contract_id}
+    if not case_ids and not contract_ids:
+        return sessions
+
+    Case = django_apps.get_model("cases", "Case")
+    Contract = django_apps.get_model("contracts", "Contract")
+
+    case_names: dict[int, str] = {}
+    if case_ids:
+        async for cid, name in Case.objects.filter(pk__in=case_ids).values_list("id", "name"):
+            case_names[cid] = name
+
+    contract_names: dict[int, str] = {}
+    principal_names: dict[int, str] = {}
+    if contract_ids:
+        async for cid, name in Contract.objects.filter(pk__in=contract_ids).values_list("id", "name"):
+            contract_names[cid] = name
+        # 每合同取第一个委托人客户名（order_by 保证确定序，setdefault 先到先得）
+        ContractParty = django_apps.get_model("contracts", "ContractParty")
+        principals = (
+            ContractParty.objects.filter(contract_id__in=contract_ids, role="PRINCIPAL")
+            .order_by("contract_id", "id")
+            .values_list("contract_id", "client__name")
+        )
+        async for cid, client_name in principals:
+            if client_name:
+                principal_names.setdefault(cid, client_name)
+
+    for s in sessions:
+        if s.case_id:
+            s.scope_name = case_names.get(s.case_id, f"案件 #{s.case_id}")
+        elif s.contract_id:
+            s.scope_name = principal_names.get(s.contract_id) or contract_names.get(
+                s.contract_id, f"合同 #{s.contract_id}"
+            )
+        else:
+            s.scope_name = ""
+    return sessions
 
 
 async def get_session(*, session_id: str, user_id: int | None) -> AgentSession | None:

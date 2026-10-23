@@ -257,8 +257,16 @@ async def stream_chat(
     )
     updates: dict[str, Any] = {"updated_at": timezone.now()}
     if not session.title:
-        # 侧边栏会话列表默认靠标题区分；首条消息前 30 字是最低成本的近似
-        updates["title"] = user_message.strip()[:AUTO_TITLE_LIMIT]
+        # 侧边栏会话列表默认靠标题区分；首条消息前 30 字是最低成本的近似。
+        # 先剥掉前端注入的锚点行（[当前业务：…]/[当前页面：…]/[已引用…：…]
+        # 块）——否则标题变成「[当前业务：本委托] xx公司诉…」，锚点对标题
+        # 没有信息量还挤掉正文
+        title_src = user_message.strip()
+        for lead in ("[当前业务：", "[当前页面：", "[已引用文件：", "[已引用目录："):
+            if title_src.startswith(lead):
+                title_src = title_src.split("\n", 1)[1].strip() if "\n" in title_src else ""
+                break
+        updates["title"] = title_src[:AUTO_TITLE_LIMIT]
     await AgentSession.objects.filter(pk=session.pk).aupdate(**updates)
 
     bus = get_bus()

@@ -12,11 +12,23 @@ export interface AgentSession {
   llm_model: string
   /** 来源入口：chat（对话页）/ case（案件内）/ contract（合同内）/ task（任务式后台） */
   origin?: string
+  case_id?: number | null
+  contract_id?: number | null
+  /** 业务范围名（案件名 / 委托人客户名，列表接口批量注水），通用与任务会话为空串 */
+  scope_name?: string
   /** 任务式会话的进度（queued/running/succeeded/failed/cancelled）；非 task 会话为空串 */
   task_state?: string
   task_error?: string
   created_at: string
   updated_at: string
+}
+
+/** 会话分组（侧栏按业务范围分组展示，类 IDE 项目分组） */
+export interface SessionGroup {
+  key: string
+  kind: 'contract' | 'case' | 'chat' | 'task'
+  label: string
+  sessions: AgentSession[]
 }
 
 /** 历史消息（GET /agent/sessions/{id}/messages） */

@@ -62,6 +62,52 @@ def _no_shared_mcp(monkeypatch: pytest.MonkeyPatch) -> Any:
 
 
 @pytest.mark.django_db
+def test_session_list_scope_name_enrichment(authenticated_client: Any) -> None:
+    """列表接口按业务范围注水 scope_name（前端分组展示的数据源）。
+
+    案件会话取 Case.name；合同会话取委托人客户名（无委托人回退合同名）；
+    通用会话为空串。实体已删时回退「案件/合同 #id」不炸列表。
+    """
+    from apps.cases.models import Case
+    from apps.client.models import Client
+    from apps.contracts.models import Contract, ContractParty
+
+    case = Case.objects.create(name="某某公司执行异议之诉", is_filed=True)
+    contract = Contract.objects.create(name="委托代理合同", case_type="civil")
+    client = Client.objects.create(name="某某示范公司", is_our_client=True)
+    ContractParty.objects.create(contract=contract, client=client, role="PRINCIPAL")
+    orphan = Contract.objects.create(name="孤儿合同", case_type="civil")
+
+    for payload in (
+        {"title": "a", "origin": "case", "case_id": case.id},
+        {"title": "b", "origin": "contract", "contract_id": contract.id},
+        {"title": "c", "origin": "contract", "contract_id": orphan.id},
+        {"title": "d"},
+    ):
+        resp = _post(authenticated_client, "/api/v1/agent/sessions", payload)
+        assert resp.status_code == 200
+
+    listed = authenticated_client.get("/api/v1/agent/sessions").json()
+    by_title = {s["title"]: s["scope_name"] for s in listed}
+    assert by_title["a"] == "某某公司执行异议之诉"
+    # 合同取委托人客户名（比合同名可识别），孤儿合同回退合同名
+    assert by_title["b"] == "某某示范公司"
+    assert by_title["c"] == "孤儿合同"
+    assert by_title["d"] == ""
+
+    # 实体删除后：回退「#id」，列表不炸（审计记录不因业务行删除而级联）
+    case_id, contract_id, orphan_id = case.id, contract.id, orphan.id
+    case.delete()
+    contract.delete()
+    orphan.delete()
+    relisted = authenticated_client.get("/api/v1/agent/sessions").json()
+    fb = {s["title"]: s["scope_name"] for s in relisted}
+    assert fb["a"] == f"案件 #{case_id}"
+    assert fb["b"] == f"合同 #{contract_id}"
+    assert fb["c"] == f"合同 #{orphan_id}"
+
+
+@pytest.mark.django_db
 def test_session_crud_and_ownership(authenticated_client: Any) -> None:
     resp = _post(authenticated_client, "/api/v1/agent/sessions", {"title": "测试会话"})
     assert resp.status_code == 200

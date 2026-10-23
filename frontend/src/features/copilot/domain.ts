@@ -3,7 +3,7 @@
  * 全部为纯函数，vitest 直接覆盖（node 环境，无 DOM）。
  */
 
-import type { AgentHistoryMessage, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem, SentRefMeta } from './types'
+import type { AgentHistoryMessage, AgentSession, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem, SentRefMeta, SessionGroup } from './types'
 
 let localIdSeed = 0
 /** 本地气泡 id（历史消息沿用后端 message_id，流式期间的本地消息用递增 id） */
@@ -138,6 +138,41 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
       toolName: row.tool_name || undefined,
       truncated: row.metadata?.truncated === true || undefined,
     }
+  })
+}
+
+/**
+ * 会话按业务范围分组（侧栏「项目分组」形态）：案件/合同各成组（组名 =
+ * 案件名 / 委托人客户名，来自后端 scope_name 注水），任务式与通用对话
+ * 各归一组兜底。组间按组内最新 updated_at 排序，组内保持传入顺序
+ * （后端已按 updated_at 降序返回）。
+ */
+export function groupSessions(sessions: AgentSession[]): SessionGroup[] {
+  const groups = new Map<string, SessionGroup>()
+  const groupOf = (s: AgentSession): SessionGroup => {
+    const kind = s.origin === 'task' ? 'task' : s.case_id ? 'case' : s.contract_id ? 'contract' : 'chat'
+    const key =
+      kind === 'task' || kind === 'chat'
+        ? kind
+        : `${kind}:${kind === 'case' ? s.case_id : s.contract_id}`
+    let g = groups.get(key)
+    if (!g) {
+      const label =
+        kind === 'task'
+          ? '后台任务'
+          : kind === 'chat'
+            ? '通用对话'
+            : (s.scope_name?.trim() || `${kind === 'case' ? '案件' : '合同'} #${kind === 'case' ? s.case_id : s.contract_id}`)
+      g = { key, kind, label, sessions: [] }
+      groups.set(key, g)
+    }
+    return g
+  }
+  for (const s of sessions) groupOf(s).sessions.push(s)
+  return [...groups.values()].sort((a, b) => {
+    const ta = a.sessions[0]?.updated_at ?? ''
+    const tb = b.sessions[0]?.updated_at ?? ''
+    return tb.localeCompare(ta)
   })
 }
 

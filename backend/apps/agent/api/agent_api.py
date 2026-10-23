@@ -113,6 +113,9 @@ class SessionOut(Schema):
     task_id: str = ""
     task_error: str = ""
     task_finished_at: str = ""
+    #: 业务范围名（案件名 / 委托人客户名），由列表接口批量注水，
+    #: 供前端按业务分组展示；通用与任务会话为空串。
+    scope_name: str = ""
     created_at: str
     updated_at: str
 
@@ -327,6 +330,8 @@ def _to_out(session: AgentSession) -> SessionOut:
         task_id=session.task_id,
         task_error=session.task_error,
         task_finished_at=session.task_finished_at.isoformat() if session.task_finished_at else "",
+        # annotate_scope_names 透传属性；未注水的单会话端点 getattr 兜底空串
+        scope_name=getattr(session, "scope_name", "") or "",
         created_at=session.created_at.isoformat(),
         updated_at=session.updated_at.isoformat(),
     )
