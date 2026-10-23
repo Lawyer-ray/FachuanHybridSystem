@@ -15,8 +15,10 @@ description: 读取归档材料正文、解析文档、提取表格内容的指�
 ## 对话附件用引用读，不要 base64
 
 用户消息里「[已上传附件：… (attachment_id=…)]」的文件已存在服务端：
-用 `read_agent_attachment(attachment_id)` 直接读正文（PDF/Word/图片均可，
-图片走 OCR；truncated=true 时用 start 分段续读）。
+用 `read_agent_attachment(attachment_id)` 直接读正文（PDF/Word 均可；
+truncated=true 时用 start 分段续读）。图片附件与无文字层的扫描件会返回
+**原件页图**（非 OCR——多模态视觉通道，版式/表格比 OCR 更忠实），需要指定
+页时传 pages（如 `"1-3,5"` 或 `"all"`），单次最多 10 页。
 
 ## 长文档可能转异步
 

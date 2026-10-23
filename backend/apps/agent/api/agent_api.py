@@ -9,17 +9,21 @@
 
 from __future__ import annotations
 
+import base64
 import hmac
 import json
 import logging
 import os
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import StreamingHttpResponse
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
+from apps.core.exceptions import ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentSession
@@ -46,6 +50,17 @@ from ..services.usage_stats import UsageSummary
 from ..services.usage_stats import by_model as usage_by_model
 from ..services.usage_stats import daily_series as usage_daily_series
 from ..services.usage_stats import summarize as usage_summarize
+
+#: 分页渲染的编排门面在 services/attachments.py（读物理文件 → 按 mime 分流 → 渲染 → 审计）。
+#: 模块缺席时不让整个 agent 路由导入失败（那会让所有对话端点 500），而是仅在
+#: /pages 端点调用时返回 503，测试据 IMPORT_ERROR 跳过。
+try:
+    from ..services.attachments import render_attachment_pages
+except ImportError as _render_import_error:  # pragma: no cover —— 依赖落盘后不再触发
+    render_attachment_pages = None  # type: ignore[assignment]
+    _RENDER_IMPORT_ERROR: str = str(_render_import_error)
+else:
+    _RENDER_IMPORT_ERROR = ""
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +217,53 @@ class AttachmentOut(Schema):
     filename: str
     size: int
     mime: str = ""
+
+
+class AttachmentPageOut(Schema):
+    """附件的一页渲染图（base64）。
+
+    ``has_text_layer`` 是「这页可选出文字」的事实陈述：扫描件为 false，
+    调用方据此决定是否走 OCR，而不是把空白渲染当成功文本。
+
+    文字层页（``has_text_layer=true``）**不渲染图**：``b64`` 为空、``bytes=0``，
+    调用方应改走文本通道（省视觉 token）。``error`` 是该页粒度的错误码
+    （如 encrypted / too_large），成功为空；``detail`` 是可读原因。
+    """
+
+    page: int
+    mime: str
+    b64: str
+    bytes: int
+    width: int
+    height: int
+    has_text_layer: bool
+    text: str = ""
+    error: str = ""
+    detail: str = ""
+
+
+class AttachmentPagesOut(Schema):
+    """附件分页渲染结果（MCP 取页面图给模型看）。字段名与 T1 的 RenderResult 一一对应。
+
+    失败时 ``pages_returned`` 为空、``error`` 给出错误码——**不用空图冒充
+    成功**：一页空 base64 会让模型以为「这页是空白」而不是「渲染失败」。
+    """
+
+    attachment_id: str
+    filename: str = ""
+    mime: str = ""
+    total_pages: int = 0
+    pages_returned: list[AttachmentPageOut] = []
+    #: text / image / mixed
+    strategy: str = ""
+    #: not_found / forbidden / parse_empty / encrypted / unsupported_mime /
+    #: too_large / page_out_of_range 之一；空串表示成功
+    error: str = ""
+    #: 与 error 配套的可读原因（MCP 侧直接转给模型看）
+    detail: str = ""
+    notices: list[str] = []
+    #: 请求的页数超过 max_pages 被截断时为 true（与 notices 同时给出）
+    truncated_pages: bool = False
 
 
 def _current_user(request: Any) -> Any:
@@ -492,7 +554,7 @@ async def clear_session_queue(request: Any, session_id: str) -> Any:  # pragma: 
 
 
 @router.post("/sessions/{session_id}/attachments", response=AttachmentOut)
-async def upload_attachment(request: Any, session_id: str) -> Any:  # pragma: no cover
+async def upload_attachment(request: Any, session_id: str) -> Any:
     """上传一个对话附件（multipart 字段名 ``file``；白名单/20MB 限额见 service）。
 
     归属：会话必须属于当前用户。上传后前端在消息里附
@@ -504,18 +566,14 @@ async def upload_attachment(request: Any, session_id: str) -> Any:  # pragma: no
     uploaded = request.FILES.get("file")
     if uploaded is None:
         raise HttpError(400, "缺少 file 字段")
-    from asgiref.sync import sync_to_async
-
-    from ..services.attachments import create_attachment as create_attachment_record
-
     try:
-        attachment = await sync_to_async(create_attachment_record, thread_sensitive=True)(
+        attachment = await sync_to_async(create_attachment, thread_sensitive=True)(
             session=session, user_id=_user_id(request), uploaded_file=uploaded
         )
-    except Exception as exc:
-        # 校验类异常（超大/白名单外）翻译成可读 4xx，不吐内部细节
-        message = str(exc) or "附件保存失败"
-        raise HttpError(400, message) from exc
+    except ValidationException as exc:
+        # 只翻译校验类异常（超大/白名单外）为可读 4xx；
+        # 其余异常如实走全局 5xx，不吞不降级
+        raise HttpError(400, str(exc) or "附件保存失败") from exc
     return AttachmentOut(
         attachment_id=str(attachment.attachment_id),
         filename=attachment.filename,
@@ -525,7 +583,7 @@ async def upload_attachment(request: Any, session_id: str) -> Any:  # pragma: no
 
 
 @router.get("/attachments/{attachment_id}/content")
-async def get_attachment_content(request: Any, attachment_id: str) -> Any:  # pragma: no cover
+async def get_attachment_content(request: Any, attachment_id: str) -> Any:
     """读附件原始内容（base64）——**mcp_server 专用**（用户 token 鉴权）。
 
     返回内容只用于服务端转投 /document-parsing 提取正文，不会直接进入模型
@@ -534,10 +592,6 @@ async def get_attachment_content(request: Any, attachment_id: str) -> Any:  # pr
     user = _current_user(request)
     if user is None:
         raise HttpError(401, "未登录")
-    from asgiref.sync import sync_to_async
-
-    from ..services.attachments import get_attachment_for_user, read_attachment_content
-
     attachment = await sync_to_async(get_attachment_for_user, thread_sensitive=True)(
         attachment_id=attachment_id, user_id=_user_id(request)
     )
@@ -545,6 +599,217 @@ async def get_attachment_content(request: Any, attachment_id: str) -> Any:  # pr
         # 不区分「不存在」与「不属于你」，避免校验式枚举
         raise HttpError(404, "附件不存在")
     return await sync_to_async(read_attachment_content, thread_sensitive=True)(attachment)
+
+
+#: 页面图 dpi 钳制区间：低于 72 字迹糊成色块，高于 300 单页就几十 MB base64
+_PAGES_DPI_MIN = 72
+_PAGES_DPI_MAX = 300
+_PAGES_DPI_DEFAULT = 150
+#: 单次最多取几页（上限即默认值）：一张页面图进模型上下文要几百到上千 token，
+#: 放开会让一次调用吃满上下文
+_PAGES_MAX_PAGES = 10
+#: 单个页范围 token：``3`` 或 ``1-3``（与 T1 parse_pages 的接受面一致）
+_PAGES_TOKEN_RE = re.compile(r"^\d+(-\d+)?$")
+
+
+def _reject_unsyntactic_pages(spec: str) -> None:
+    """只挡「不是合法页范围语法」的入参（越界不在这里判，交给渲染门面）。
+
+    允许的形态与 T1 ``parse_pages`` 对齐：``all`` / ``3`` / ``1-3`` / ``1,3,5``。
+    """
+    raw = (spec or "").strip().lower()
+    if raw == "all":
+        return
+    tokens = [piece.strip() for piece in raw.replace("，", ",").split(",")]
+    tokens = [piece for piece in tokens if piece]
+    if not tokens or not all(_PAGES_TOKEN_RE.match(piece) for piece in tokens):
+        raise HttpError(400, f"pages 不合法：{spec!r}（示例：1-3 / 7 / all）")
+
+
+def _parse_max_pages(raw: str) -> int:
+    """``max_pages`` 钳到 [1, 10]；非数字直接 400（不静默当成默认值）。
+
+    静默回落会让调用方以为「要了 20 页却只给了 10 页是文档问题」——实际是
+    参数写错。这里宁可报错。
+    """
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise HttpError(400, f"max_pages 须为整数，收到：{raw!r}") from exc
+    return max(1, min(value, _PAGES_MAX_PAGES))
+
+
+def _parse_dpi(raw: str) -> int:
+    """``dpi`` 钳到 [72, 300]；非数字 400。
+
+    越界只钳不报错：调用方要的是能看的图，把 600 压到 300 比报错更有用。
+    """
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise HttpError(400, f"dpi 须为整数，收到：{raw!r}") from exc
+    return max(_PAGES_DPI_MIN, min(value, _PAGES_DPI_MAX))
+
+
+@router.get("/attachments/{attachment_id}/pages", response=AttachmentPagesOut)
+async def get_attachment_pages(
+    request: Any,
+    attachment_id: str,
+    pages: str = "all",
+    dpi: str = str(_PAGES_DPI_DEFAULT),
+    #: 对外查询参数名（MCP 侧已按 format 写死）；函数内立刻重命名为 fmt，
+    #: 避免与内置 format() 混淆
+    format: str = "png",
+    max_pages: str = str(_PAGES_MAX_PAGES),
+) -> AttachmentPagesOut:
+    """把附件按页渲染成图片（base64）——**mcp_server 专用**（用户 token 鉴权）。
+
+    PDF 走 PyMuPDF 逐页渲染：扫描件的文本提取为空，但页面图里是真实内容，
+    模型看图仍能读——这是「解析为空」的附件需要的另一条腿。
+
+    三段状态严格分开，不让调用方猜：
+
+    - 参数非法（pages 语法错 / dpi 非数字 / format 不认识）→ 400
+    - 归属不符或不存在 → 404（不区分，防枚举 attachment_id）
+    - 渲染失败（encrypted / too_large / unsupported_mime / page_out_of_range /
+      parse_empty）→ **200 + error 错误码**：mcp_server 要把错误码翻译成模型
+      看得懂的原因，500 会让它只剩「服务端错误」
+
+    权限与 /content 端点同一口径：``get_attachment_for_user``（只认会话所有者，
+    超管同样 fail-closed），这里不放宽也不跳过。
+    """
+    user = _current_user(request)
+    if user is None:
+        raise HttpError(401, "未登录")
+    attachment = await sync_to_async(get_attachment_for_user, thread_sensitive=True)(
+        attachment_id=attachment_id, user_id=_user_id(request)
+    )
+    if attachment is None:
+        # 与 /content 同文案：不区分「不存在」与「不属于你」，避免校验式枚举
+        raise HttpError(404, "附件不存在")
+    if render_attachment_pages is None:  # pragma: no cover —— T1 落盘后不再触发
+        # 依赖缺席时报 503 而不是把「渲染器不存在」包装成 unsupported_mime：
+        # 后者会让调用方以为文件格式不支持，去换文件而非查部署
+        logger.error("分页渲染依赖缺失：%s", _RENDER_IMPORT_ERROR)
+        raise HttpError(503, f"分页渲染服务未就绪：{_RENDER_IMPORT_ERROR}")
+
+    requested_format = format
+    fmt = (requested_format or "png").strip().lower()
+    if fmt == "jpg":
+        fmt = "jpeg"
+    if fmt not in ("png", "jpeg"):
+        raise HttpError(400, f"format 仅支持 png / jpeg，收到：{requested_format!r}")
+    requested_dpi = _parse_dpi(dpi)
+    requested_max = _parse_max_pages(max_pages)
+    pages_spec = (pages or "").strip()
+    if not pages_spec:
+        raise HttpError(400, "pages 不能为空（示例：1-3 / 7 / all）")
+    # 语法错误在进渲染前就挡成 400：门面把 ValueError（语法错与越界）统一折成
+    # page_out_of_range 的 200 响应，调用方会误以为「页码写对了但文档没这些页」，
+    # 实际是参数本身不合语法——这两种情况的下一步动作完全不同。
+    # ；越界仍交给门面返回 page_out_of_range（需要真实页数才知道）；
+    _reject_unsyntactic_pages(pages_spec)
+
+    outcome = await sync_to_async(render_attachment_pages, thread_sensitive=True)(
+        attachment,
+        pages=pages_spec,
+        dpi=requested_dpi,
+        format=fmt,
+        max_pages=requested_max,
+        user_id=_user_id(request),
+    )
+    payload = AttachmentPagesOut(
+        attachment_id=outcome.attachment_id,
+        filename=outcome.filename,
+        mime=outcome.mime,
+        total_pages=outcome.total_pages,
+        pages_returned=[_to_page_out(page) for page in outcome.pages],
+        strategy=_summarize_strategy(outcome.pages),
+        error=_error_code(outcome.error),
+        detail=outcome.detail,
+        notices=_build_notices(outcome, requested_max=requested_max),
+        truncated_pages=outcome.truncated_pages > 0,
+    )
+    # 审计由 T1 的 log_render 在门面内完成（who/attachment_id/pages/strategy/bytes）；
+    # 这里再记一条端点级日志，带上请求参数原文——排查「为什么只给了 2 页」要看
+    # 调用方当时到底要了什么，而门面只看到解析后的页码。
+    logger.info(
+        "附件分页端点 user=%s attachment_id=%s pages=%r dpi=%d format=%s returned=%d error=%s",
+        _user_id(request),
+        payload.attachment_id,
+        pages_spec,
+        requested_dpi,
+        fmt,
+        len(payload.pages_returned),
+        payload.error or "-",
+    )
+    return payload
+
+
+def _to_page_out(page: Any) -> AttachmentPageOut:
+    """T1 的 RenderedPage → 对外页图 schema（字段名翻译集中在这里，别散落到调用点）。
+
+    ``has_text_layer`` 在 T1 里没有独立字段：它的判定口径就是「文字层够长，
+    走文本策略」，所以 ``strategy is TEXT`` 或 ``text`` 非空即视为有文字层。
+    """
+    strategy_is_text = _strategy_value(page.strategy) == "text"
+    image_bytes = page.image_bytes or b""
+    return AttachmentPageOut(
+        page=int(page.page_no),
+        mime=str(page.mime or ""),
+        # 二进制 → base64 只在这一处做；空字节绝不编码成「看起来正常」的空串
+        b64=base64.b64encode(image_bytes).decode("ascii") if image_bytes else "",
+        bytes=len(image_bytes),
+        width=int(page.width),
+        height=int(page.height),
+        has_text_layer=strategy_is_text or bool((page.text or "").strip()),
+        # 文字层页不出图（b64 为空），但**必须把文字带出去**：
+        # 否则调用方只知道「这页有文字」却拿不到文字——解析服务一旦转异步
+        # 就会卡成「有字但读不到」，实测踩到过（扫描件/正常 PDF 都会中）。
+        text=str(page.text or "") if strategy_is_text or (page.text or "").strip() else "",
+        error=_error_code(page.error),
+        detail=str(page.detail or ""),
+    )
+
+
+def _strategy_value(strategy: Any) -> str:
+    """``RenderStrategy`` → 字符串值（``StrEnum`` 的 value；普通字符串原样返回）。"""
+    value = getattr(strategy, "value", strategy)
+    return str(value)
+
+
+def _summarize_strategy(pages: list[Any]) -> str:
+    """整次结果的形态汇总：全 text / 全 image / mixed（MCP 据此决定要不要走视觉通道）。"""
+    kinds = {_strategy_value(page.strategy) for page in pages}
+    if not kinds:
+        return ""
+    if kinds <= {"text"}:
+        return "text"
+    if kinds <= {"page_image", "source_image"}:
+        return "image"
+    return "mixed"
+
+
+def _error_code(error: Any) -> str:
+    """RenderError（StrEnum）→ 错误码字符串；成功时为 ""。"""
+    if error is None:
+        return ""
+    return str(getattr(error, "value", error))
+
+
+def _build_notices(outcome: Any, *, requested_max: int) -> list[str]:
+    """把「被截断 / 整份失败」这类必须让调用方知道的事写进 notices。
+
+    截断一定要说：静默少给页会让模型把「后面那些页不存在」当成文档事实。
+    """
+    notices: list[str] = []
+    if outcome.truncated_pages > 0:
+        notices.append(
+            f"超过 max_pages={requested_max} 限制，还有 {outcome.truncated_pages} 页未渲染（可用 pages 参数分段取）"
+        )
+    if outcome.error is not None and outcome.detail:
+        notices.append(f"{_error_code(outcome.error)}：{outcome.detail}")
+    return notices
 
 
 # ─── 审批 ───────────────────────────────────────────────────────────────────

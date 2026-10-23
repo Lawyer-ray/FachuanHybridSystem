@@ -3,6 +3,7 @@ Pytest 配置文件
 提供测试 fixtures
 """
 
+import contextlib
 import os
 import sys
 from typing import Any
@@ -100,6 +101,61 @@ def pytest_configure(config: Any) -> None:
                 f"请设置 DB_NAME 环境变量为测试数据库名称（如 test_fachuan_dev）。",
                 pytrace=False,
             )
+
+    _install_runtime_db_guard()
+
+
+def _is_safe_test_db_name(name: str) -> bool:
+    """库名是否属「测试库」：集中一处判定，避免配置检查与运行时检查口径漂移。
+
+    空名放行：``connection_created`` 在部分后端（以及被 patch 的测试替身）里
+    会以空 NAME 触发，此时连「哪个库」都还没确定，不应误杀整个测试会话。
+    """
+    lowered = (name or "").lower()
+    if not lowered:
+        return True
+    return (
+        lowered.startswith("test_")
+        or lowered.endswith("_test")
+        or "_test_" in lowered
+        or lowered == "test"
+        or lowered == "fachuan_ci_test"
+    )
+
+
+def _install_runtime_db_guard() -> None:
+    """在**真实连接建立后**再校验一次库名，堵住 ``pytest_configure`` 那道的漏。
+
+    为什么需要第二道：``pytest_configure`` 只读 ``DB_NAME`` 环境变量，而
+    pytest-django 在 ``--reuse-db`` 且目标库已存在时**不会重建**。2026-10-23
+    就因此把开发库 ``fachuan_dev`` 的附件表清空了（测试 flush 落到了真实库）。
+
+    这道防线挂在 ``connection_created`` 信号上：无论配置怎么变、环境变量有没有
+    被覆盖，只要测试进程真的连上了一个非 test 库，立刻中止进程——
+    **宁可误杀，不可再删一次真实数据**。
+    """
+    from django.db import connection
+    from django.db.backends.signals import connection_created
+
+    def _guard(sender: Any, connection: Any, **kwargs: Any) -> None:
+        engine = str(connection.settings_dict.get("ENGINE", ""))
+        if "sqlite" in engine:
+            return
+        name = str(connection.settings_dict.get("NAME", "") or "")
+        if not _is_safe_test_db_name(name):
+            import pytest
+
+            pytest.exit(
+                f"🚨 DANGER: 测试进程已连上非测试数据库 '{name}'，立即中止。\n"
+                "这会导致该库的表被 flush 清空。请用 DB_NAME=test_fachuan_dev 重跑。",
+                returncode=3,
+            )
+
+    connection_created.connect(_guard, dispatch_uid="fachuan_test_db_runtime_guard")
+    # 若连接在函数注册前就已建立（settings 已加载），立即补检一次
+    with contextlib.suppress(Exception):
+        if connection.connection is not None:
+            _guard(sender=None, connection=connection)
 
 
 @pytest.fixture(autouse=True)

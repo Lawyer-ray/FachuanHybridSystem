@@ -250,11 +250,17 @@ def write_pi_config(
 
 
 def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Path | None:
-    """写隔离目录的 ``settings.json``（pin provider/model + 思考等级）。
+    """写隔离目录的 ``settings.json``（pin provider/model + 思考等级 + 图像闸门）。
 
     不写这份文件的后果：pi 会读用户级 ``~/.pi/agent/settings.json``，那里的
     ``defaultProvider`` / ``defaultModel`` 会胜出，我们生成的 models.json 被
     静默绕过（表现为实际请求打到了完全无关的端点）。
+
+    ``images.blockImages`` 必须显式写 ``False``：pi 的默认值是 false，但**用户级
+    settings.json 可能被改成了 true**，此时 pi 会把 image block 整块换成文本
+    ``"Image reading is disabled."`` 且不报错。隔离目录显式声明可以盖掉该设置——
+    否则我们在 models.json 里辛苦声明的 ``input: ["text", "image"]`` 会被
+    用户机器上的一个开关静默作废，且日志里完全看不到原因。
 
     Args:
         target_dir: 会话临时目录（同时充当 PI_CODING_AGENT_DIR）。
@@ -278,6 +284,7 @@ def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Pat
     settings: dict[str, Any] = {
         "defaultProvider": provider_name,
         "defaultModel": model_id,
+        "images": {"blockImages": False},
     }
     level = model_config.resolve_thinking_level(model_id)
     if level:

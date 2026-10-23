@@ -23,7 +23,9 @@ token，且模型回显长 base64 不可靠）——服务端提取文本是唯�
 from __future__ import annotations
 
 import base64
+import logging
 import mimetypes
+import time
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +36,9 @@ from apps.core.services.storage_service import save_uploaded_file
 
 from ..models import AgentAttachment, AgentSession
 
-#: 与解析端点支持面对齐（mcp_server/tools/documents/parsing._CONTENT_TYPES）
+logger = logging.getLogger(__name__)
+
+#: 与解析端点支持面对齐（mcp_server/tools/documents/parsing.CONTENT_TYPES）
 ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".txt"]
 MAX_SIZE_BYTES = 20 * 1024 * 1024
 
@@ -65,7 +69,7 @@ def create_attachment(*, session: AgentSession, user_id: int | None, uploaded_fi
 
 
 def get_attachment_for_user(*, attachment_id: str, user_id: int | None) -> AgentAttachment | None:
-    """按归属取附件：会话属于当前用户（或超管经 API 层判定）才可见。"""
+    """按归属取附件：只有会话属于当前用户才可见（超管/服务账号同样 fail-closed）。"""
     attachment = AgentAttachment.objects.select_related("session").filter(attachment_id=attachment_id).first()
     if attachment is None:
         return None
@@ -86,3 +90,186 @@ def read_attachment_content(attachment: AgentAttachment) -> dict[str, Any]:
         "size": attachment.size,
         "content_base64": payload,
     }
+
+
+#: 走页图渲染的 mime 前缀（其余交给文本解析链路）
+_IMAGE_MIME_PREFIX = "image/"
+_PDF_MIMES = {"application/pdf", "application/x-pdf"}
+
+
+def render_attachment_pages(
+    attachment: AgentAttachment,
+    *,
+    pages: str | int | list[int] | None = None,
+    dpi: int = 200,
+    format: str = "png",
+    max_pages: int = 20,
+    user_id: int | None = None,
+) -> Any:
+    """把附件的指定页渲染成图片，供模型走视觉通道（扫描件/图片附件必需）。
+
+    权限**不在这里重做**：调用方必须先经 :func:`get_attachment_for_user` 拿到
+    ``attachment``（越权即拿不到，返回 404 而非 403，不区分「不存在」与
+    「不是你的」）。这里只负责「读物理文件 → 按 mime 分流 → 渲染」。
+
+    Args:
+        attachment: 已通过归属校验的附件记录。
+        pages: 页范围（``"1-3"`` / ``[1,5]`` / ``"all"`` / ``"7"`` / ``None``=前若干页）。
+            图片附件恒为 1 页，给了别的页码按 ``page_out_of_range`` 处理。
+        dpi: 首选渲染分辨率（PDF 扫描页；超体积会自动降档）。
+        format: ``"png"`` / ``"jpeg"``。
+        max_pages: 本次最多渲染页数（超出截断并标注 ``truncated_pages``）。
+        user_id: 发起人（仅用于审计日志的 ``who`` 字段）。
+
+    Returns:
+        :class:`apps.agent.services.attachment_render.RenderResult`。打开失败/加密/
+        mime 不支持时 ``error`` 非空且 ``pages`` 为空——**不会**用空内容冒充成功。
+    """
+    from . import attachment_render as render
+
+    started = time.monotonic()
+    mime = (attachment.mime or "").lower().strip()
+    fmt = "jpeg" if str(format).lower().strip() in ("jpg", "jpeg") else "png"
+    base: dict[str, Any] = {
+        "attachment_id": str(attachment.attachment_id),
+        "filename": attachment.filename,
+        "mime": mime,
+    }
+
+    if not (mime in _PDF_MIMES or attachment.filename.lower().endswith(".pdf") or mime.startswith(_IMAGE_MIME_PREFIX)):
+        result = render.RenderResult(
+            **base,
+            error=render.RenderError.UNSUPPORTED_MIME,
+            detail=f"mime={mime or '未知'} 没有页图形态，请用文本读取工具（read_agent_attachment）",
+        )
+        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+        return result
+
+    try:
+        with default_storage.open(attachment.storage_path, "rb") as fh:
+            file_bytes = fh.read()
+    except OSError as exc:
+        logger.warning("附件物理文件读取失败 attachment_id=%s: %s", attachment.attachment_id, exc)
+        result = render.RenderResult(**base, error=render.RenderError.NOT_FOUND, detail="附件文件已不存在")
+        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+        return result
+
+    if not file_bytes:
+        result = render.RenderResult(**base, error=render.RenderError.PARSE_EMPTY, detail="附件内容为空")
+        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+        return result
+
+    if mime.startswith(_IMAGE_MIME_PREFIX):
+        return _render_image_attachment(
+            base, file_bytes, mime=mime, pages=pages, fmt=fmt, user_id=user_id, started=started
+        )
+    return _render_pdf_attachment(
+        base,
+        file_bytes,
+        attachment_id=str(attachment.attachment_id),
+        pages=pages,
+        dpi=dpi,
+        fmt=fmt,
+        max_pages=max_pages,
+        user_id=user_id,
+        started=started,
+    )
+
+
+def _render_image_attachment(
+    base: dict[str, Any],
+    file_bytes: bytes,
+    *,
+    mime: str,
+    pages: str | int | list[int] | None,
+    fmt: str,
+    user_id: int | None,
+    started: float,
+) -> Any:
+    """图片附件只有 1 页：页码越界要让调用方知道，而不是悄悄当成第 1 页。"""
+    from . import attachment_render as render
+
+    total_pages = 1
+    try:
+        wanted, _truncated = render.parse_pages(pages, total_pages, max_pages=1)
+    except ValueError as exc:
+        result = render.RenderResult(
+            **base,
+            total_pages=total_pages,
+            error=render.RenderError.PAGE_OUT_OF_RANGE,
+            detail=f"图片附件只有 1 页：{exc}",
+        )
+        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+        return result
+    page = render.render_image(file_bytes, mime, page_no=wanted[0], fmt=fmt)
+    result = render.RenderResult(**base, total_pages=total_pages, requested_pages=wanted, pages=[page])
+    render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+    return result
+
+
+def _render_pdf_attachment(
+    base: dict[str, Any],
+    file_bytes: bytes,
+    *,
+    attachment_id: str,
+    pages: str | int | list[int] | None,
+    dpi: int,
+    fmt: str,
+    max_pages: int,
+    user_id: int | None,
+    started: float,
+) -> Any:
+    """PDF：先数页（页范围校验要用），再逐页渲染（含文字层判断）。"""
+    from . import attachment_render as render
+
+    total_pages = _count_pdf_pages(file_bytes)
+    if total_pages <= 0:
+        result = render.RenderResult(
+            **base,
+            error=render.RenderError.UNSUPPORTED_MIME,
+            detail="PDF 无法打开（可能已损坏），请重新上传",
+        )
+        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+        return result
+
+    try:
+        wanted, truncated = render.parse_pages(pages, total_pages, max_pages=max_pages)
+    except ValueError as exc:
+        result = render.RenderResult(
+            **base,
+            total_pages=total_pages,
+            error=render.RenderError.PAGE_OUT_OF_RANGE,
+            detail=str(exc),
+        )
+        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+        return result
+
+    rendered = render.render_pdf_pages(file_bytes, wanted, attachment_id=attachment_id, dpi=dpi, fmt=fmt)
+    result = render.RenderResult(
+        **base,
+        total_pages=total_pages,
+        requested_pages=wanted,
+        pages=rendered,
+        truncated_pages=truncated,
+    )
+    # 全部页都失败时把首因提到顶层，调用方不必遍历 pages 才知道发生了什么
+    if rendered and all(page.error for page in rendered):
+        result.error = rendered[0].error
+        result.detail = rendered[0].detail
+    render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+    return result
+
+
+def _count_pdf_pages(file_bytes: bytes) -> int:
+    import pymupdf as fitz
+
+    try:
+        with fitz.open(stream=file_bytes, filetype="pdf") as doc:
+            return int(doc.page_count)
+    except Exception as exc:
+        logger.warning("PDF 页数识别失败: %s", exc)
+        return 0
+
+
+def _elapsed_ms(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
