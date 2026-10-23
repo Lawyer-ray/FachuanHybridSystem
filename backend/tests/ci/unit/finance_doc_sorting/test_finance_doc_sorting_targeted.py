@@ -1,4 +1,4 @@
-"""Targeted tests for evidence_sorting module to push coverage to 80%+."""
+"""Targeted tests for finance_doc_sorting module to push coverage to 80%+."""
 
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ class TestEvidenceSortingSchemas:
         assert schemas is not None
 
 
-class TestEvidenceSortingAdmin:
+class TestFinanceDocSortingAdmin:
     def test_admin_import(self):
-        from apps.finance_doc_sorting.admin import evidence_sorting_admin
+        from apps.finance_doc_sorting.admin import finance_doc_sorting_admin
 
-        assert evidence_sorting_admin is not None
+        assert finance_doc_sorting_admin is not None

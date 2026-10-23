@@ -12,7 +12,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
-logger = logging.getLogger("apps.evidence_sorting")
+logger = logging.getLogger("apps.finance_doc_sorting")
 
 # 文件类型常量
 TYPE_STATEMENT = "statement"  # 对账单

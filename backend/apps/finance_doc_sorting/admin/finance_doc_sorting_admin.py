@@ -8,11 +8,11 @@ from django.template.response import TemplateResponse
 
 from apps.finance_doc_sorting.models import EvidenceSorting
 
-logger = logging.getLogger("apps.evidence_sorting")
+logger = logging.getLogger("apps.finance_doc_sorting")
 
 
 @admin.register(EvidenceSorting)
-class EvidenceSortingAdmin(admin.ModelAdmin):  # pragma: no cover
+class FinanceDocSortingAdmin(admin.ModelAdmin):  # pragma: no cover
     """案件材料整理工具 Admin，使用虚拟模型作为入口"""
 
     def changelist_view(
@@ -27,7 +27,7 @@ class EvidenceSortingAdmin(admin.ModelAdmin):  # pragma: no cover
         }
         return TemplateResponse(
             request,
-            "admin/evidence_sorting/evidence_sorting.html",
+            "admin/finance_doc_sorting/finance_doc_sorting.html",
             context,
         )
 

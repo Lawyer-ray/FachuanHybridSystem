@@ -1,4 +1,4 @@
-"""Tests for evidence_sorting classifier service."""
+"""Tests for finance_doc_sorting classifier service."""
 
 from __future__ import annotations
 

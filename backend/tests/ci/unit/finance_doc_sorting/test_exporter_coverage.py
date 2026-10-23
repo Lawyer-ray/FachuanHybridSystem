@@ -1,4 +1,4 @@
-"""Coverage tests for evidence_sorting exporter and pdf_splitting o_handler."""
+"""Coverage tests for finance_doc_sorting exporter and pdf_splitting o_handler."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from apps.finance_doc_sorting.services.exporter import _build_filename, _ensure_
 from apps.pdf_splitting.services.split.ocr_handler import _chunk_pages
 
 # =========================================================================
-# evidence_sorting exporter
+# finance_doc_sorting exporter
 # =========================================================================
 
 

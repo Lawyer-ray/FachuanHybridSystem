@@ -1,3 +1,3 @@
-from .evidence_sorting_admin import EvidenceSortingAdmin
+from .finance_doc_sorting_admin import FinanceDocSortingAdmin
 
-__all__ = ["EvidenceSortingAdmin"]
+__all__ = ["FinanceDocSortingAdmin"]

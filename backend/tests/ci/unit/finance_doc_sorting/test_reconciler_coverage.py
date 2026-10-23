@@ -1,4 +1,4 @@
-"""Comprehensive tests for evidence_sorting reconciler data processing functions."""
+"""Comprehensive tests for finance_doc_sorting reconciler data processing functions."""
 
 from __future__ import annotations
 

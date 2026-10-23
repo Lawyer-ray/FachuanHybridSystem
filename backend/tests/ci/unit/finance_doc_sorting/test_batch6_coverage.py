@@ -1,4 +1,4 @@
-"""Batch 6 coverage tests for evidence_sorting module."""
+"""Batch 6 coverage tests for finance_doc_sorting module."""
 
 from __future__ import annotations
 

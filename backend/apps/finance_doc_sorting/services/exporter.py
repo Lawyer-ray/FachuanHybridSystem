@@ -15,7 +15,7 @@ from apps.core.utils.path import Path
 
 from .reconciler import STATUS_UNMATCHED, DeliveryNote, MonthGroup, ReconcileResult, StatementInfo
 
-logger = logging.getLogger("apps.evidence_sorting")
+logger = logging.getLogger("apps.finance_doc_sorting")
 
 
 class ExporterService:

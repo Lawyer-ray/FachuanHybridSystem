@@ -12,7 +12,7 @@
 - apps/story_viz/models/*.py, schemas/*.py
 - apps/doc_converter/models.py, schemas.py
 - apps/finance/models/*.py, schemas/*.py
-- apps/evidence_sorting/models/*.py, schemas.py
+- apps/finance_doc_sorting/models/*.py, schemas.py
 - apps/doc_convert/models.py, constants.py, exceptions.py
 - apps/contacts/models.py, schemas/*.py
 """
@@ -239,11 +239,11 @@ class TestFinance:
         assert sync_service is not None
 
 
-# ==================== evidence_sorting ====================
+# ==================== finance_doc_sorting ====================
 
 
 class TestEvidenceSorting:
-    """evidence_sorting 模块测试"""
+    """finance_doc_sorting 模块测试"""
 
     def test_models_module(self):
         from apps.finance_doc_sorting.models import base

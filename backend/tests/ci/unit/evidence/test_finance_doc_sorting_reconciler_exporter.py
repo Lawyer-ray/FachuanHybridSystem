@@ -1,4 +1,4 @@
-"""evidence_sorting/services/reconciler.py + exporter.py 单元测试。"""
+"""finance_doc_sorting/services/reconciler.py + exporter.py 单元测试。"""
 
 from __future__ import annotations
 

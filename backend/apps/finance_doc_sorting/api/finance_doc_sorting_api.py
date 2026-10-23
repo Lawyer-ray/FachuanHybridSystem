@@ -14,7 +14,7 @@ from ninja import Router
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
 
-logger = logging.getLogger("apps.evidence_sorting")
+logger = logging.getLogger("apps.finance_doc_sorting")
 
 router = Router(tags=["案件材料整理"], auth=JWTOrSessionAuth())
 

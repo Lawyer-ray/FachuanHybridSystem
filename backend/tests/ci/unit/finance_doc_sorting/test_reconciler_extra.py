@@ -1,4 +1,4 @@
-"""Tests for evidence_sorting/services/reconciler.py"""
+"""Tests for finance_doc_sorting/services/reconciler.py"""
 
 from __future__ import annotations
 

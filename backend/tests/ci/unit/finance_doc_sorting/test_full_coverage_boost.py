@@ -1,4 +1,4 @@
-"""Tests for evidence_sorting services: reconciler, classifier, exporter."""
+"""Tests for finance_doc_sorting services: reconciler, classifier, exporter."""
 
 from __future__ import annotations
 
