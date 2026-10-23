@@ -9,11 +9,14 @@
  * 背景由 PanelBackdrop 压暗一档拉开主次层次（任何视口都生效）。遮罩的
  * 生命周期跟 copilotMounted 走（AppShell 负责），不随面板一同卸载，
  * 收起时才能和滑出动画同步淡出。
+ *
+ * 并排模式（宽屏，AppShell 传入 dockCapable/docked）：遮罩关闭，主内容
+ * 区让出等宽 padding，本面板与页面同屏对照；切换按钮在 header 右侧。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, SquareStack, X } from 'lucide-react'
+import { Columns2, FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, SquareStack, X } from 'lucide-react'
 
 import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
@@ -36,7 +39,21 @@ function readRailOpen(): boolean {
   }
 }
 
-export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CopilotPanel({
+  open,
+  onClose,
+  dockCapable = false,
+  docked = false,
+  onDockToggle,
+}: {
+  open: boolean
+  onClose: () => void
+  /** 宽屏（≥1280）才提供并排切换 */
+  dockCapable?: boolean
+  /** 当前是否处于并排模式（open && 偏好 && 宽屏） */
+  docked?: boolean
+  onDockToggle?: () => void
+}) {
   const sessionId = useCopilot((s) => s.sessionId)
   const streaming = useCopilot((s) => s.streaming)
   const context = useCopilot((s) => s.context)
@@ -296,6 +313,24 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
             >
               <FolderTree className="h-3.5 w-3.5" />
               材料
+            </button>
+          )}
+          {dockCapable && onDockToggle && (
+            <button
+              type="button"
+              className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors hover:bg-secondary hover:text-foreground ${
+                docked ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+              }`}
+              onClick={onDockToggle}
+              aria-pressed={docked}
+              aria-label={docked ? '切换为悬浮模式' : '切换为并排模式'}
+              title={
+                docked
+                  ? '并排模式中：页面内容让位同屏显示，点击切回悬浮覆盖'
+                  : '并排模式：页面内容自动让位，可与合同详情页并排对照'
+              }
+            >
+              <Columns2 className="h-4 w-4" />
             </button>
           )}
           {currentModel && (

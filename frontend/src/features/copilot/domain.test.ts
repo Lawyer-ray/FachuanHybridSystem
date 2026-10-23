@@ -7,6 +7,7 @@ import {
   historyToMessages,
   parseSseEvent,
   previewToolArgs,
+  splitRefBlocks,
   shortToolName,
   takeSseFrames,
   tokensPerSecond,
@@ -126,5 +127,41 @@ describe('附件预检（P1-11）', () => {
     expect(formatFileSize(500)).toBe('500B')
     expect(formatFileSize(2048)).toBe('2KB')
     expect(formatFileSize(3 * 1024 * 1024)).toBe('3.0MB')
+  })
+})
+
+describe('引用块拆分（folder-ref 回放）', () => {
+  const REF = '[已引用文件：委托合同.docx (attachment_id=a1b2c3d4-0000-0000-0000-000000000000, contract_id=8, subpath="1-一审/起诉状.pdf")]'
+
+  it('纯引用消息：refs 解析出来，body 剩空串', () => {
+    const { refs, body } = splitRefBlocks(REF)
+    expect(refs).toEqual([{ name: '委托合同.docx', contractId: 8, subpath: '1-一审/起诉状.pdf' }])
+    expect(body).toBe('')
+  })
+
+  it('引用 + 正文混合：引用行剔除、正文换行结构保留', () => {
+    const REF2 = '[已引用文件：判决书.pdf (attachment_id=b2c3d4e5-0000-0000-0000-000000000001, contract_id=9, subpath="判决书.pdf")]'
+    const { refs, body } = splitRefBlocks(`${REF}\n请对比这两份文件的关键条款。\n${REF2}`)
+    expect(refs).toHaveLength(2)
+    expect(body).toBe('请对比这两份文件的关键条款。')
+  })
+
+  it('无引用消息原样返回（body 不动、refs 为空）', () => {
+    const content = '普通提问\n[已引用文件：长得像但不是]'
+    const { refs, body } = splitRefBlocks(content)
+    expect(refs).toEqual([])
+    expect(body).toBe(content)
+  })
+
+  it('historyToMessages：user 行引用重放为 refs、assistant 行不受影响', () => {
+    const rows: AgentHistoryMessage[] = [
+      { message_id: 1, role: 'user', content: `${REF}\n帮我审一遍`, tool_name: '', created_at: '', metadata: {} },
+      { message_id: 2, role: 'assistant', content: REF, tool_name: '', created_at: '', metadata: {} },
+    ]
+    const msgs = historyToMessages(rows)
+    expect(msgs[0]).toMatchObject({ refs: [{ contractId: 8 }] })
+    expect(msgs[0]!.content).toBe('帮我审一遍')
+    expect(msgs[1]!.refs).toBeUndefined()
+    expect(msgs[1]!.content).toBe(REF)
   })
 })

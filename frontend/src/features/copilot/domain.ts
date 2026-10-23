@@ -3,7 +3,7 @@
  * 全部为纯函数，vitest 直接覆盖（node 环境，无 DOM）。
  */
 
-import type { AgentHistoryMessage, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem } from './types'
+import type { AgentHistoryMessage, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem, SentRefMeta } from './types'
 
 let localIdSeed = 0
 /** 本地气泡 id（历史消息沿用后端 message_id，流式期间的本地消息用递增 id） */
@@ -50,14 +50,40 @@ export function parseSseEvent(frame: string): AgentStreamEvent | null {
  * 历史消息 → 转录气泡。
  * tool 消息后端截断到 8000 字符，前端预览再收一刀；truncated 标记透传。
  */
+/** 「[已引用文件：name (attachment_id=…, contract_id=N, subpath="…")]」行 */
+const SENT_REF_RE = /^\[已引用文件：(.+?) \(attachment_id=[0-9a-f-]+, contract_id=(\d+), subpath="(.+?)"\)\]$/
+
+/**
+ * 把 user 消息正文拆成「引用块 + 剩余正文」。
+ * 历史回放与本地发送走同一解析，气泡上方把引用重放为 chip——否则回看
+ * 会话时引用只是一坨长文本。非引用消息原样返回（body 不动）。
+ */
+export function splitRefBlocks(content: string): { refs: SentRefMeta[]; body: string } {
+  const refs: SentRefMeta[] = []
+  const kept: string[] = []
+  for (const line of content.split('\n')) {
+    const m = SENT_REF_RE.exec(line.trim())
+    if (m?.[1] && m[2] && m[3]) refs.push({ name: m[1], contractId: Number(m[2]), subpath: m[3] })
+    else kept.push(line)
+  }
+  if (refs.length === 0) return { refs, body: content }
+  // 去掉引用块后正文可能只剩空白（默认语被引用块替换的场景）——保留原始
+  // 换行结构，仅去掉首尾空段
+  return { refs, body: kept.join('\n').replace(/^\n+|\n+$/g, '') }
+}
+
 export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
-  return rows.map((row) => ({
-    id: `db-${row.message_id}`,
-    role: row.role,
-    content: row.role === 'tool' ? row.content.slice(0, 2000) : row.content,
-    toolName: row.tool_name || undefined,
-    truncated: row.metadata?.truncated === true || undefined,
-  }))
+  return rows.map((row) => {
+    const refsSplit = row.role === 'user' ? splitRefBlocks(row.content) : null
+    return {
+      id: `db-${row.message_id}`,
+      role: row.role,
+      content: row.role === 'tool' ? row.content.slice(0, 2000) : (refsSplit?.body ?? row.content),
+      refs: refsSplit?.refs.length ? refsSplit.refs : undefined,
+      toolName: row.tool_name || undefined,
+      truncated: row.metadata?.truncated === true || undefined,
+    }
+  })
 }
 
 /** 工具名去掉 pi 的 mcp__fachuan__ 前缀（纯展示层归一） */

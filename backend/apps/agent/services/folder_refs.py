@@ -28,6 +28,8 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from apps.core.exceptions import ValidationException
+
 from ..models import AgentAttachment, AgentSession
 from .attachments import _render_bytes_pages
 
@@ -35,6 +37,21 @@ if TYPE_CHECKING:
     from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
 
 logger = logging.getLogger(__name__)
+
+#: 引用读取的体积上限（附件上传流是 20MB；绑定文件夹里的原文件不受上传
+#: 限制约束，这里必须自设钳制——否则一次引用几百 MB 的扫描卷宗/视频就是
+#: 内存尖峰 + base64 翻倍）。
+MAX_FOLDER_FILE_BYTES = 50 * 1024 * 1024
+
+
+def _reject_oversize(size: int, *, ref: str) -> None:
+    """超过读取上限直接拒绝（content 抛 ValidationException → 400；
+    render 路径由调用方转 RenderError.TOO_LARGE，两者文案一致）。"""
+    if size > MAX_FOLDER_FILE_BYTES:
+        raise ValidationException(
+            message=f"文件超过 {MAX_FOLDER_FILE_BYTES // (1024 * 1024)}MB 读取上限（{size // (1024 * 1024)}MB），请拆分或压缩后再引用",
+            errors={"subpath": ref},
+        )
 
 
 def _browse_service() -> ContractFolderBrowseService:
@@ -121,6 +138,7 @@ def read_folder_file_content(
         contract_id=contract_id, subpath=subpath, user=user, org_access=org_access, perm_open_access=perm_open_access
     )
     stat = path.stat()
+    _reject_oversize(stat.st_size, ref=f"folder:{contract_id}/{subpath}")
     mime = mimetypes.guess_type(path.name)[0] or ""
     with open(path, "rb") as fh:
         payload = base64.b64encode(fh.read()).decode("ascii")
@@ -151,8 +169,18 @@ def render_folder_file_pages(
         contract_id=contract_id, subpath=subpath, user=user, org_access=org_access, perm_open_access=perm_open_access
     )
     stat = path.stat()
-    mime = mimetypes.guess_type(path.name)[0] or ""
     display = _display_ref(contract_id, subpath)
+    mime = mimetypes.guess_type(path.name)[0] or ""
+    if stat.st_size > MAX_FOLDER_FILE_BYTES:
+        from . import attachment_render as render
+
+        return render.RenderResult(
+            attachment_id=display,
+            filename=path.name,
+            mime=mime,
+            error=render.RenderError.TOO_LARGE,
+            detail=f"文件超过 {MAX_FOLDER_FILE_BYTES // (1024 * 1024)}MB 读取上限，请拆分或压缩后再引用",
+        )
     cache_ref = f"{display}?v={stat.st_size}-{int(stat.st_mtime)}"
     try:
         with open(path, "rb") as fh:

@@ -20,6 +20,7 @@ import { stripEntryParens } from './detail-domain'
 import { DeleteConfirm, TreeContextMenu, type TreeMenuItem } from './folder-tree-menu'
 import { EntryInput } from './folder-tree-ui'
 import { fmtSize, type NodeActions, type TreeCtx } from './folder-tree-types'
+import { FOLDER_REF_MIME } from '@/lib/folder-ref'
 
 /**
  * 绑定文件夹树（案件卡「文件夹视图」与右栏「合同文件夹」共用）。
@@ -485,6 +486,16 @@ function FileRow({
       style={{ paddingLeft: 20 }}
       title={'预览 ' + file.name}
       onClick={() => void preview()}
+      draggable={ctx.kind === 'contract'}
+      onDragStart={(e) => {
+        // 合同绑定文件可拖为 AI 引用（自定义 MIME，与系统外文件的 Files 通道
+        // 区分）；案件树暂无引用型后端，不开启拖拽
+        e.dataTransfer.setData(
+          FOLDER_REF_MIME,
+          JSON.stringify({ contractId: ctx.ownerId, subpath: file.subpath, name: file.name }),
+        )
+        e.dataTransfer.effectAllowed = 'copyLink'
+      }}
       onKeyDown={(e) => {
         // role="button" 需同时响应 Enter 与 Space（Space 要 preventDefault 防滚动）
         if (e.key === 'Enter' || e.key === ' ') {

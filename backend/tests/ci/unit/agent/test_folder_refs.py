@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from apps.agent.models import AgentSession
+from apps.agent.services import folder_refs
 from apps.agent.services.folder_refs import create_folder_ref, read_folder_file_content, render_folder_file_pages
 from apps.contracts.models import Contract, ContractFolderBinding
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
@@ -196,6 +197,36 @@ class TestReadAndRender:
         assert outcome.total_pages == 1
         assert len(outcome.pages) == 1
         assert outcome.pages[0].image_bytes  # 真出了图
+
+    def test_oversize_file_rejected_on_content(self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch) -> None:
+        contract, root = bound_contract
+        big = root / "1-一审" / "2-立案材料" / "大文件.bin"
+        big.write_bytes(b"x" * 16)
+        monkeypatch.setattr(folder_refs, "MAX_FOLDER_FILE_BYTES", 10)
+        with pytest.raises(ValidationException) as excinfo:
+            read_folder_file_content(
+                contract_id=contract.id,
+                subpath="1-一审/2-立案材料/大文件.bin",
+                user=lawyer,
+                org_access=None,
+                perm_open_access=False,
+            )
+        assert "读取上限" in str(excinfo.value)
+
+    def test_oversize_file_reports_too_large_on_render(self, bound_contract: tuple[Contract, Path], lawyer: Lawyer, monkeypatch: pytest.MonkeyPatch) -> None:
+        contract, root = bound_contract
+        big = root / "1-一审" / "2-立案材料" / "大文件.bin"
+        big.write_bytes(b"x" * 16)
+        monkeypatch.setattr(folder_refs, "MAX_FOLDER_FILE_BYTES", 10)
+        outcome = render_folder_file_pages(
+            contract_id=contract.id,
+            subpath="1-一审/2-立案材料/大文件.bin",
+            user=lawyer,
+            org_access=None,
+            perm_open_access=False,
+        )
+        assert outcome.error == "too_large"
+        assert "读取上限" in (outcome.detail or "")
 
     def test_render_unsupported_mime_reports_error(self, bound_contract: tuple[Contract, Path], lawyer: Lawyer) -> None:
         contract, root = bound_contract

@@ -69,10 +69,19 @@ export interface TurnStats {
 }
 
 /** 转录气泡（历史回放与流式共用一个模型） */
+/** 已发送消息里解析出的文件夹引用（chip 重放用；发送前草稿另见 FolderRefDraft） */
+export interface SentRefMeta {
+  contractId: number
+  subpath: string
+  name: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
   content: string
+  /** user 消息里的文件夹引用（从「[已引用文件：…]」块解析，气泡上方重放为 chip） */
+  refs?: SentRefMeta[]
   /** tool 消息的工具名（tool_call 与 tool_result 的归并键） */
   toolName?: string
   toolCallId?: string
@@ -140,11 +149,8 @@ export interface FolderRefDraft {
   name: string
 }
 
-/**
- * 面板内目录树 → 输入区的拖拽通道。自定义 MIME 携带引用 JSON；
- * 从系统外（Finder 等）拖入走原生 Files 通道（上传流），两路互不混淆。
- */
-export const FOLDER_REF_MIME = 'application/x-fachuan-folder-ref'
+/** 拖拽通道常量与 workbench 共用，定义上提 lib（此处 re-export 便于域内引用） */
+export { FOLDER_REF_MIME } from '@/lib/folder-ref'
 
 /** GET /agent/usage 的汇总（token 由 pi 上报，取消/出错轮次也计入） */
 export interface UsageSummary {

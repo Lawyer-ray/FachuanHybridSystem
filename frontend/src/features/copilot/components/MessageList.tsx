@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Brain, Check, Copy, Loader2, Wrench } from 'lucide-react'
+import { Brain, Check, Copy, FolderOpen, Loader2, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -93,11 +93,28 @@ function Bubble({ message }: { message: ChatMessage }) {
   if (message.role === 'tool') return <ToolRow message={message} />
 
   if (message.role === 'user') {
+    const refs = message.refs ?? []
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background">
-          {message.content}
-        </div>
+      <div className="flex max-w-[85%] flex-col items-end gap-1">
+        {refs.length > 0 && (
+          <div className="flex max-w-full flex-wrap justify-end gap-1">
+            {refs.map((ref) => (
+              <span
+                key={`${ref.contractId}-${ref.subpath}`}
+                className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                title={`合同 ${ref.contractId} · ${ref.subpath}（引用原文件）`}
+              >
+                <FolderOpen className="h-3 w-3 flex-none text-primary" />
+                <span className="max-w-52 truncate">{ref.subpath}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        {(message.content.trim() || refs.length === 0) && (
+          <div className="max-w-full rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background">
+            {message.content}
+          </div>
+        )}
       </div>
     )
   }

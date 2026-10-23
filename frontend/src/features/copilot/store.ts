@@ -19,6 +19,7 @@ import {
   nextLocalId,
   pendingItemToApproval,
   splitAttachmentFiles,
+  splitRefBlocks,
 } from './domain'
 import { resetUploadReceipts, uploadAttachmentsAndCompose } from './outgoing'
 import { readStoredSession, storeSession } from './persistence'
@@ -172,10 +173,12 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const composed = outgoing.composed
 
     const assistantId = nextLocalId()
+    // 与历史回放同一解析：本地即时渲染也把引用块还原成 chip，两侧不漂移
+    const { refs, body } = splitRefBlocks(composed)
     set((s) => ({
       messages: [
         ...s.messages,
-        { id: nextLocalId(), role: 'user', content: composed },
+        { id: nextLocalId(), role: 'user', content: body, ...(refs.length ? { refs } : {}) },
         { id: assistantId, role: 'assistant', content: '', streaming: true },
       ],
       approvals: [],
