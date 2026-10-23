@@ -545,7 +545,7 @@ describe('copilot store：离线审批', () => {
         tool_name: 'mcp__fachuan__delete_case',
         tool_args: { case_id: 1 },
         risk_level: 'high',
-        created_at: '2026-10-23T02:00:00Z',
+        created_at: new Date().toISOString(),
       },
       {
         approval_id: 'a1', // 已在本地（例如本轮流里已弹过）
@@ -553,7 +553,7 @@ describe('copilot store：离线审批', () => {
         tool_name: 't',
         tool_args: {},
         risk_level: 'low',
-        created_at: '2026-10-23T02:00:00Z',
+        created_at: new Date().toISOString(),
       },
     ])
     useCopilot.setState({
@@ -720,5 +720,49 @@ describe('copilot store：附件', () => {
     expect(useCopilot.getState().lastError).toContain('附件上传失败')
     expect(useCopilot.getState().pendingFiles).toEqual([file])
     expect(useCopilot.getState().streaming).toBe(false)
+  })
+})
+
+// ============ 僵尸审批卡治理（B2-4 兜底） ============
+
+describe('copilot store：僵尸离线审批', () => {
+  it('已超窗的待审项不合并，且顺带清除本地旧僵尸卡', async () => {
+    const old = Date.now() - 7201_000
+    vi.mocked(copilotApi.fetchPendingApprovals).mockResolvedValue([
+      {
+        approval_id: 'zombie',
+        session_id: 't-1',
+        tool_name: 'mcp__fachuan__delete_reminder',
+        tool_args: { reminder_id: 999999 },
+        risk_level: 'high',
+        created_at: new Date(old).toISOString(),
+      },
+      {
+        approval_id: 'live',
+        session_id: 't-2',
+        tool_name: 'mcp__fachuan__delete_case',
+        tool_args: {},
+        risk_level: 'high',
+        created_at: new Date().toISOString(),
+      },
+    ])
+    // 本地已有一张僵尸离线卡（上次拉进来的）
+    useCopilot.setState({
+      approvals: [{ approvalId: 'zombie', toolName: 't', toolArgs: {}, message: '', receivedAt: old, offline: true }],
+    })
+
+    await useCopilot.getState().loadPendingApprovals()
+
+    const { approvals } = useCopilot.getState()
+    expect(approvals.map((a) => a.approvalId)).toEqual(['live'])
+    expect(approvals.find((a) => a.approvalId === 'zombie')).toBeUndefined()
+  })
+
+  it('dismissApproval 本地移除指定卡', () => {
+    useCopilot.setState({
+      approvals: [{ approvalId: 'x1', toolName: 't', toolArgs: {}, message: '', receivedAt: Date.now(), decided: 'rejected' }],
+    })
+    useCopilot.getState().dismissApproval('x1')
+    expect(useCopilot.getState().approvals).toEqual([])
   })
 })

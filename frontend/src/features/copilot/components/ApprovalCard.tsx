@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock } from 'lucide-react'
+import { AlertTriangle, Clock, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { approvalWindowSec, previewToolArgs, shortToolName } from '../domain'
@@ -29,6 +29,7 @@ function formatRemain(seconds: number): string {
 
 export function ApprovalCard({ approval }: { approval: PendingApproval }) {
   const decide = useCopilot((s) => s.decide)
+  const dismissApproval = useCopilot((s) => s.dismissApproval)
   const [armed, setArmed] = useState(false)
   const [remain, setRemain] = useState(() =>
     Math.max(0, approvalWindowSec(approval.riskLevel, approval.offline)),
@@ -89,8 +90,26 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             后台任务
           </span>
         )}
-        <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
-          {approval.decided ? (approval.decided === 'approved' ? '已同意' : '已拒绝') : expired ? '已超时（按拒绝处理）' : formatRemain(remain)}
+        <span className="ml-auto flex flex-none items-center gap-1.5 text-[11px] tabular-nums text-muted-foreground">
+          {approval.decided
+            ? approval.decided === 'approved'
+              ? '已同意'
+              : '已拒绝'
+            : expired
+              ? '已超时（按拒绝处理）'
+              : formatRemain(remain)}
+          {/* 已决/已超时的卡可关闭：僵尸卡不再永久占屏（服务端已按拒绝处理，本地移除无副作用） */}
+          {(approval.decided || expired) && (
+            <button
+              type="button"
+              className="flex h-5 w-5 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label="关闭此审批卡"
+              title="关闭（该操作已按拒绝/你的决定处理完毕）"
+              onClick={() => dismissApproval(approval.approvalId)}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </span>
       </div>
       {(approval.message || approval.offline) && (

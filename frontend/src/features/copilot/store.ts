@@ -12,11 +12,11 @@ import { HTTPError } from 'ky'
 import { create } from 'zustand'
 
 import * as copilotApi from './api'
-import { historyToMessages, nextLocalId, pendingItemToApproval, splitAttachmentFiles } from './domain'
+import { historyToMessages, nextLocalId, pendingItemToApproval, splitAttachmentFiles, APPROVAL_OFFLINE_WINDOW_S } from './domain'
 import { uploadAttachmentsAndCompose } from './outgoing'
 import { consumeAgentStream } from './streaming'
 import { createTurnHandlers } from './turn-handlers'
-import type { ChatMessage, CopilotContext, PendingApproval, TurnStats } from './types'
+import type { ChatMessage, CopilotContext, PendingApproval, PendingApprovalItem, TurnStats } from './types'
 
 const EMPTY_STATS: TurnStats = {
   firstDeltaAt: null,
@@ -119,6 +119,8 @@ interface CopilotState {
   submitTask: (text: string) => Promise<void>
   /** 拉取离线待审批并合并进审批卡（面板打开 / 每轮流结束时调用） */
   loadPendingApprovals: () => Promise<void>
+  /** 关闭一张审批卡（已决/已超时的僵尸卡；仅本地移除，不影响服务端状态） */
+  dismissApproval: (approvalId: string) => void
   /** 重拉当前会话历史（后台任务跑完后刷新转录用；流式中跳过） */
   refreshHistory: () => Promise<void>
   /** 登出清理（换账号不得残留上一账号的会话内容） */
@@ -127,6 +129,12 @@ interface CopilotState {
 
 /** 在途流的中止句柄（模块级，随 store 生命周期） */
 let controller: AbortController | null = null
+
+/** 离线待审批列表项是否已超出等待窗口（服务端懒清理之外的客户端兑底） */
+function isExpiredOfflineItem(item: PendingApprovalItem): boolean {
+  const created = new Date(item.created_at).getTime()
+  return Number.isFinite(created) && Date.now() - created > APPROVAL_OFFLINE_WINDOW_S * 1000
+}
 
 export const useCopilot = create<CopilotState>((set, get) => ({
   sessionId: readStoredSession(),
@@ -339,14 +347,25 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     try {
       const items = await copilotApi.fetchPendingApprovals()
       set((s) => {
-        // 只补前端不知道的：已渲染（含已决定）的不动，避免覆盖本地终态
+        // 只补前端不知道的：已渲染（含已决定）的不动，避免覆盖本地终态；
+        // 已超窗的僵尸项不合并（服务端懒清理之外的双保险），并顺带满除旧卡
         const known = new Set(s.approvals.map((a) => a.approvalId))
-        const fresh = items.filter((i) => !known.has(i.approval_id)).map(pendingItemToApproval)
-        return fresh.length > 0 ? { approvals: [...s.approvals, ...fresh] } : s
+        const fresh = items
+          .filter((i) => !known.has(i.approval_id) && !isExpiredOfflineItem(i))
+          .map(pendingItemToApproval)
+        const pruned = s.approvals.filter(
+          (a) => !(a.offline && !a.decided && Date.now() - a.receivedAt > APPROVAL_OFFLINE_WINDOW_S * 1000),
+        )
+        if (fresh.length === 0 && pruned.length === s.approvals.length) return s
+        return { approvals: [...pruned, ...fresh] }
       })
     } catch {
       // 待审列表拉不到不阻塞主流程（下一流结束/面板重开会再试）
     }
+  },
+
+  dismissApproval: (approvalId) => {
+    set((s) => ({ approvals: s.approvals.filter((a) => a.approvalId !== approvalId) }))
   },
 
   refreshHistory: async () => {
