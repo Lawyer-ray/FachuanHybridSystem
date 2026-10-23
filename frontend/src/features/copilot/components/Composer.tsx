@@ -90,6 +90,8 @@ export function Composer() {
 
   return (
     <div className="flex-none border-t border-border p-2.5">
+      {/* 内容限宽居中：与消息栏同宽对齐（面板拉宽时两侧留白对称） */}
+      <div className="mx-auto w-full max-w-3xl">
       {(pendingRefs.length > 0 || pendingFiles.length > 0) && (
         <div className="mb-1.5 flex flex-wrap gap-1.5">
           {pendingRefs.map((ref, i) => (
@@ -228,6 +230,7 @@ export function Composer() {
         </span>
         <TurnStatsView />
       </p>
+      </div>
     </div>
   )
 }

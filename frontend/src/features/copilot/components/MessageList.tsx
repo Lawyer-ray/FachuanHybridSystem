@@ -254,6 +254,9 @@ export function MessageList() {
 
   return (
     <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
+      {/* 内容限宽居中（max-w-3xl）：面板拉宽/聚焦满屏时阅读行宽仍舒适，
+          两侧留白对称——ChatGPT/Claude 满宽对话的同一做法；窄面板不受影响 */}
+      <div className="mx-auto w-full max-w-3xl">
       {empty && <CopilotWelcome />}
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
@@ -284,6 +287,7 @@ export function MessageList() {
         </div>
       )}
       {lastError && <p className="mt-2 text-[12px] text-destructive">{lastError}</p>}
+      </div>
     </div>
   )
 }
