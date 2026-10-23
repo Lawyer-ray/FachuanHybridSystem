@@ -3,7 +3,7 @@
  * 全部为纯函数，vitest 直接覆盖（node 环境，无 DOM）。
  */
 
-import type { AgentHistoryMessage, AgentStreamEvent, ChatMessage } from './types'
+import type { AgentHistoryMessage, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem } from './types'
 
 let localIdSeed = 0
 /** 本地气泡 id（历史消息沿用后端 message_id，流式期间的本地消息用递增 id） */
@@ -97,6 +97,19 @@ export function taskBadge(state: string | undefined): { label: string; cls: stri
       return { label: '已取消', cls: 'bg-secondary text-muted-foreground' }
     default:
       return null
+  }
+}
+
+/** 离线待审批列表项 → 审批卡模型（倒计时按服务端 created_at 起算，窗口 7200s） */
+export function pendingItemToApproval(item: PendingApprovalItem): PendingApproval {
+  return {
+    approvalId: item.approval_id,
+    toolName: item.tool_name,
+    toolArgs: item.tool_args ?? {},
+    message: '',
+    receivedAt: new Date(item.created_at).getTime() || Date.now(),
+    riskLevel: item.risk_level,
+    offline: true,
   }
 }
 

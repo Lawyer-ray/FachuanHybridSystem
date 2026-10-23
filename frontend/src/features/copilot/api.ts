@@ -8,14 +8,28 @@
 
 import { api } from '@/lib/api'
 
-import type { AgentHistoryMessage, AgentSession, AgentTaskReceipt, PendingApprovalItem } from './types'
+import type { AgentHistoryMessage, AgentSession, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
 
-export function listSessions(limit = 50): Promise<AgentSession[]> {
-  return api.get('agent/sessions', { searchParams: { limit } }).json<AgentSession[]>()
+/** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
+function scopePayload(scope?: CopilotScope): Record<string, string | number> {
+  if (!scope) return {}
+  return {
+    origin: scope.origin,
+    ...(scope.origin === 'case' ? { case_id: scope.refId } : { contract_id: scope.refId }),
+  }
 }
 
-export function createSession(title = ''): Promise<AgentSession> {
-  return api.post('agent/sessions', { json: { title } }).json<AgentSession>()
+export function listSessions(limit = 50, scope?: CopilotScope): Promise<AgentSession[]> {
+  const searchParams: Record<string, string | number> = { limit }
+  if (scope) {
+    searchParams.origin = scope.origin
+    searchParams[scope.origin === 'case' ? 'case_id' : 'contract_id'] = scope.refId
+  }
+  return api.get('agent/sessions', { searchParams }).json<AgentSession[]>()
+}
+
+export function createSession(title = '', scope?: CopilotScope): Promise<AgentSession> {
+  return api.post('agent/sessions', { json: { title, ...scopePayload(scope) } }).json<AgentSession>()
 }
 
 export function deleteSession(sessionId: string): Promise<{ deleted: number }> {
@@ -59,8 +73,13 @@ export function clearSessionQueue(sessionId: string): Promise<{ success: boolean
 }
 
 /** 提交后台任务：立即返回，agent 在后台跑，跑完写入会话的通知消息 */
-export function submitAgentTask(message: string, title = ''): Promise<AgentTaskReceipt> {
-  return api.post('agent/tasks', { json: { message, title } }).json<AgentTaskReceipt>()
+export function submitAgentTask(message: string, title = '', scope?: CopilotScope): Promise<AgentTaskReceipt> {
+  return api.post('agent/tasks', { json: { message, title, ...scopePayload(scope) } }).json<AgentTaskReceipt>()
+}
+
+/** 当前用户近 N 天的用量汇总（次数/token/失败率）；超管可 all=true 看全所 */
+export function getUsageSummary(days = 30, all = false): Promise<UsageSummary> {
+  return api.get('agent/usage', { searchParams: { days, ...(all ? { all: 'true' } : {}) } }).json<UsageSummary>()
 }
 
 /** 当前用户仍待处理的审批（离线审批入口：后台任务挂起的高危工具调用） */

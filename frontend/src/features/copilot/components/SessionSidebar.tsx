@@ -13,7 +13,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react'
 
-import { deleteSession, listSessions, renameSession } from '../api'
+import { deleteSession, getUsageSummary, listSessions, renameSession } from '../api'
 import { taskBadge } from '../domain'
 import { useCopilot } from '../store'
 import type { AgentSession } from '../types'
@@ -140,6 +140,29 @@ function SessionRow({
   )
 }
 
+/** 个人本月用量摘要（P1-2）：失败率非零才显示，保持一行克制 */
+function UsageFooter() {
+  const { data } = useQuery({
+    queryKey: ['copilot', 'usage', 30],
+    queryFn: () => getUsageSummary(30),
+    staleTime: 300_000,
+    retry: false,
+  })
+  if (!data || data.runs === 0) return null
+  const tokens = data.total_tokens >= 10000 ? `${(data.total_tokens / 1000).toFixed(1)}k` : String(data.total_tokens)
+  const errPct = data.error_rate > 0 ? `${(data.error_rate * 100).toFixed(data.error_rate < 0.1 ? 1 : 0)}%` : ''
+  const avg = data.avg_duration_ms >= 1000 ? `${(data.avg_duration_ms / 1000).toFixed(1)}s` : `${data.avg_duration_ms}ms`
+  return (
+    <div
+      className="mt-auto flex-none border-t border-border px-3 py-2 text-[11px] leading-relaxed text-muted-foreground"
+      title={`近 30 天：${data.runs} 轮（完成 ${data.ok_runs} / 出错 ${data.error_runs} / 中止 ${data.cancelled_runs}），输入 ${data.input_tokens} + 输出 ${data.output_tokens} tokens，工具调用 ${data.tool_calls} 次`}
+    >
+      近 30 天 {data.runs} 轮 · {tokens} tokens · 均耗 {avg}
+      {errPct && <span className="text-destructive/80"> · 失败 {errPct}</span>}
+    </div>
+  )
+}
+
 export function SessionSidebar({
   variant,
   onClose,
@@ -148,13 +171,16 @@ export function SessionSidebar({
   onClose?: () => void
 }) {
   const sessionId = useCopilot((s) => s.sessionId)
+  const context = useCopilot((s) => s.context)
   const switchSession = useCopilot((s) => s.switchSession)
   const queryClient = useQueryClient()
   const [confirmTarget, setConfirmTarget] = useState<AgentSession | null>(null)
 
+  const scopeKey = context ? `${context.origin}:${context.refId}` : 'all'
+  const scope = context ? { origin: context.origin, refId: context.refId } : undefined
   const sessionsQuery = useQuery({
-    queryKey: ['copilot', 'sessions'],
-    queryFn: () => listSessions(50),
+    queryKey: ['copilot', 'sessions', scopeKey],
+    queryFn: () => listSessions(50, scope),
     refetchOnMount: 'always',
     retry: false,
     // 有排队/运行中的后台任务时轮询：状态落到 succeeded/failed 即停
@@ -217,7 +243,9 @@ export function SessionSidebar({
           <p className="py-4 text-center text-[12px] text-muted-foreground">加载中…</p>
         )}
         {!sessionsQuery.isLoading && sessions.length === 0 && (
-          <p className="py-4 text-center text-[12px] text-muted-foreground">暂无历史会话</p>
+          <p className="py-4 text-center text-[12px] text-muted-foreground">
+            {context ? `「${context.title}」还没有 AI 会话` : '暂无历史会话'}
+          </p>
         )}
         {sessions.map((s) => (
           <SessionRow
@@ -233,6 +261,8 @@ export function SessionSidebar({
           />
         ))}
       </div>
+
+      <UsageFooter />
 
       <AlertDialog open={confirmTarget !== null} onOpenChange={(v) => !v && setConfirmTarget(null)}>
         <AlertDialogContent className="max-w-[340px]">

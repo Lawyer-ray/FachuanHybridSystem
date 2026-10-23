@@ -14,9 +14,11 @@ const apiMock = vi.hoisted(() => ({
   listSessions: vi.fn(),
   deleteSession: vi.fn(),
   renameSession: vi.fn(),
+  getUsageSummary: vi.fn(),
 }))
 const storeMock = vi.hoisted(() => ({
   sessionId: 's-2' as string | null,
+  context: null as { origin: 'case' | 'contract'; refId: number; title: string } | null,
   switchSession: vi.fn(),
 }))
 const switchSpy = vi.hoisted(() => vi.fn())
@@ -43,10 +45,23 @@ function renderSidebar(variant: 'rail' | 'overlay' = 'rail') {
 beforeEach(() => {
   vi.clearAllMocks()
   storeMock.sessionId = 's-2'
+  storeMock.context = null
   storeMock.switchSession = switchSpy
   apiMock.listSessions.mockResolvedValue([session('s-1', '第一'), session('s-2', '第二'), session('s-3', '')])
   apiMock.deleteSession.mockResolvedValue({ deleted: 1 })
   apiMock.renameSession.mockResolvedValue(session('s-1', '改名'))
+  apiMock.getUsageSummary.mockResolvedValue({
+    runs: 42,
+    ok_runs: 40,
+    error_runs: 1,
+    cancelled_runs: 1,
+    input_tokens: 120000,
+    output_tokens: 8000,
+    total_tokens: 128000,
+    tool_calls: 66,
+    avg_duration_ms: 4200,
+    error_rate: 0.024,
+  })
 })
 
 describe('SessionSidebar：列表态', () => {
@@ -221,6 +236,48 @@ describe('SessionSidebar：删除与顺位接管', () => {
     fireEvent.click(screen.getByRole('button', { name: '删除' }))
 
     await waitFor(() => expect(switchSpy).toHaveBeenCalledWith(null))
+    container.remove()
+  })
+})
+
+describe('SessionSidebar：业务范围与用量（P1-1 / P1-2）', () => {
+  it('context 模式：列表按 origin+contract_id 过滤，空态提示业务名', async () => {
+    storeMock.context = { origin: 'contract', refId: 386, title: '张三委托' }
+    apiMock.listSessions.mockResolvedValue([])
+    const { container } = renderSidebar()
+    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalledWith(50, { origin: 'contract', refId: 386 }))
+    await waitFor(() => expect(container.textContent).toContain('「张三委托」还没有 AI 会话'))
+    container.remove()
+  })
+
+  it('普通模式：列表不带 scope 参数', async () => {
+    const { container } = renderSidebar()
+    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalledWith(50, undefined))
+    container.remove()
+  })
+
+  it('底部显示近 30 天用量摘要（轮次 / tokens / 失败率）', async () => {
+    const { container } = renderSidebar()
+    await waitFor(() => expect(apiMock.getUsageSummary).toHaveBeenCalledWith(30))
+    await waitFor(() => {
+      expect(container.textContent).toContain('近 30 天 42 轮')
+      expect(container.textContent).toContain('128.0k tokens')
+      expect(container.textContent).toContain('失败 2.4%')
+    })
+    container.remove()
+  })
+
+  it('零用量时用量行不渲染', async () => {
+    apiMock.getUsageSummary.mockResolvedValue({
+      runs: 0, ok_runs: 0, error_runs: 0, cancelled_runs: 0,
+      input_tokens: 0, output_tokens: 0, total_tokens: 0, tool_calls: 0,
+      avg_duration_ms: 0, error_rate: 0,
+    })
+    const { container } = renderSidebar()
+    await waitFor(() => expect(apiMock.getUsageSummary).toHaveBeenCalled())
+    // 等 listSessions 渲染完成后确认无用量行
+    await waitFor(() => expect(within(container).getByText('新对话')).toBeTruthy())
+    expect(container.textContent).not.toContain('近 30 天')
     container.remove()
   })
 })

@@ -18,10 +18,10 @@ import { HTTPError } from 'ky'
 import { create } from 'zustand'
 
 import * as copilotApi from './api'
-import { historyToMessages, nextLocalId } from './domain'
+import { historyToMessages, nextLocalId, pendingItemToApproval } from './domain'
 import { consumeAgentStream } from './streaming'
 import { createTurnHandlers } from './turn-handlers'
-import type { ChatMessage, PendingApproval, PendingApprovalItem, TurnStats } from './types'
+import type { ChatMessage, CopilotContext, PendingApproval, TurnStats } from './types'
 
 const EMPTY_STATS: TurnStats = {
   firstDeltaAt: null,
@@ -77,19 +77,6 @@ function storeSession(id: string | null): void {
   }
 }
 
-/** 离线待审批 → 审批卡模型（倒计时按服务端 created_at 起算） */
-function pendingItemToApproval(item: PendingApprovalItem): PendingApproval {
-  return {
-    approvalId: item.approval_id,
-    toolName: item.tool_name,
-    toolArgs: item.tool_args ?? {},
-    message: '',
-    receivedAt: new Date(item.created_at).getTime() || Date.now(),
-    riskLevel: item.risk_level,
-    offline: true,
-  }
-}
-
 interface CopilotState {
   sessionId: string | null
   messages: ChatMessage[]
@@ -105,6 +92,12 @@ interface CopilotState {
   queuedSteers: string[]
   /** 插话请求在途（防重复提交） */
   steering: boolean
+  /** 业务内会话上下文（null = 普通对话模式）；会话列表按它过滤、新会话带归属 */
+  context: CopilotContext | null
+  /** 进入业务内会话模式（案件/合同页打开）：列表过滤到该业务，新会话带归属 */
+  enterContext: (context: CopilotContext) => Promise<void>
+  /** 退出业务内会话模式，回到普通对话 */
+  exitContext: () => Promise<void>
   /** 切换会话（null = 新对话）；会先停掉在途流再回放历史 */
   switchSession: (id: string | null) => Promise<void>
   /** 发消息并消费 SSE 流；无会话时先创建 */
@@ -141,6 +134,19 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   queuePosition: null,
   queuedSteers: [],
   steering: false,
+  context: null,
+
+  enterContext: async (context) => {
+    if (get().streaming) get().stop()
+    set({ context })
+    await get().switchSession(null)
+  },
+
+  exitContext: async () => {
+    if (get().streaming) get().stop()
+    set({ context: null })
+    await get().switchSession(null)
+  },
 
   switchSession: async (id) => {
     const prev = get()
@@ -180,7 +186,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     let sessionId = startedSessionId
     if (!sessionId) {
       try {
-        sessionId = (await copilotApi.createSession()).session_id
+        sessionId = (await copilotApi.createSession('', get().context ?? undefined)).session_id
       } catch {
         set({ lastError: '创建会话失败，请稍后重试' })
         return
@@ -282,7 +288,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     if (!trimmed || get().streaming) return
     set({ lastError: null })
     try {
-      const receipt = await copilotApi.submitAgentTask(trimmed)
+      const receipt = await copilotApi.submitAgentTask(trimmed, '', get().context ?? undefined)
       // 受理即切到任务会话：侧栏徽标 + 轮询由此展开；跑完的通知消息
       // 写进会话历史，refreshHistory（面板轮询触发）后即可见
       await get().switchSession(receipt.session_id)
@@ -333,6 +339,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       queuePosition: null,
       queuedSteers: [],
       steering: false,
+      context: null,
     })
     storeSession(null)
   },

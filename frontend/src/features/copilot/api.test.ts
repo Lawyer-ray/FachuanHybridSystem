@@ -20,9 +20,13 @@ import {
   decideApproval,
   deleteSession,
   fetchHistory,
+  fetchPendingApprovals,
+  getUsageSummary,
   listSessions,
   openMessageStream,
   renameSession,
+  steerSession,
+  submitAgentTask,
 } from './api'
 
 /** 让 mock 返回链式 .json() */
@@ -50,6 +54,18 @@ describe('copilot api', () => {
     expect(apiMock.get).toHaveBeenCalledWith('agent/sessions', { searchParams: { limit: 10 } })
   })
 
+  it('listSessions: 业务范围过滤带 origin + case_id/contract_id（P1-1）', async () => {
+    apiMock.get.mockReturnValue(chain([]))
+    await listSessions(50, { origin: 'case', refId: 9 })
+    expect(apiMock.get).toHaveBeenCalledWith('agent/sessions', {
+      searchParams: { limit: 50, origin: 'case', case_id: 9 },
+    })
+    await listSessions(50, { origin: 'contract', refId: 386 })
+    expect(apiMock.get).toHaveBeenLastCalledWith('agent/sessions', {
+      searchParams: { limit: 50, origin: 'contract', contract_id: 386 },
+    })
+  })
+
   it('createSession: POST 带 title，默认空串', async () => {
     await createSession()
     expect(apiMock.post).toHaveBeenCalledWith('agent/sessions', { json: { title: '' } })
@@ -58,6 +74,17 @@ describe('copilot api', () => {
   it('createSession: 传入标题', async () => {
     await createSession('新对话')
     expect(apiMock.post).toHaveBeenCalledWith('agent/sessions', { json: { title: '新对话' } })
+  })
+
+  it('createSession: 业务范围内建会话带 origin + contract_id/case_id（P1-1）', async () => {
+    await createSession('', { origin: 'contract', refId: 386 })
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions', {
+      json: { title: '', origin: 'contract', contract_id: 386 },
+    })
+    await createSession('', { origin: 'case', refId: 12 })
+    expect(apiMock.post).toHaveBeenLastCalledWith('agent/sessions', {
+      json: { title: '', origin: 'case', case_id: 12 },
+    })
   })
 
   it('deleteSession: DELETE 带会话 id', async () => {
@@ -93,5 +120,33 @@ describe('copilot api', () => {
     })
     // body 必须仍可读（store 自己读流）
     expect(got.body).not.toBeNull()
+  })
+
+  it('steerSession: POST steer 带 message（P0-2）', async () => {
+    await steerSession('s-1', '补充')
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/steer', { json: { message: '补充' } })
+  })
+
+  it('submitAgentTask: POST tasks；业务范围带归属（P1-1）', async () => {
+    await submitAgentTask('梳理材料')
+    expect(apiMock.post).toHaveBeenCalledWith('agent/tasks', { json: { message: '梳理材料', title: '' } })
+    await submitAgentTask('梳理材料', '标题', { origin: 'case', refId: 9 })
+    expect(apiMock.post).toHaveBeenLastCalledWith('agent/tasks', {
+      json: { message: '梳理材料', title: '标题', origin: 'case', case_id: 9 },
+    })
+  })
+
+  it('fetchPendingApprovals: GET 待审列表（P0-3）', async () => {
+    apiMock.get.mockReturnValue(chain([]))
+    await fetchPendingApprovals()
+    expect(apiMock.get).toHaveBeenCalledWith('agent/approvals/pending')
+  })
+
+  it('getUsageSummary: GET usage 带 days；all=true 透传（P1-2）', async () => {
+    apiMock.get.mockReturnValue(chain({}))
+    await getUsageSummary(30)
+    expect(apiMock.get).toHaveBeenCalledWith('agent/usage', { searchParams: { days: 30 } })
+    await getUsageSummary(7, true)
+    expect(apiMock.get).toHaveBeenLastCalledWith('agent/usage', { searchParams: { days: 7, all: 'true' } })
   })
 })
