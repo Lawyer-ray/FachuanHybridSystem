@@ -5,7 +5,7 @@ import { withDownloadTicket } from '@/lib/download-ticket'
 import { getCaseFolderBinding } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import type { DealCase } from '../../types'
-import { caseMetaParts, legalStatusGroups, stripEntryParens, timelineEntries } from './detail-domain'
+import { caseMetaParts, legalStatusGroups, shortDocName, timelineEntries } from './detail-domain'
 import { FolderTree } from './FolderTree'
 import { ActionButton, Card, Chip, MetaLine, Pill, StateDot } from './ui'
 
@@ -169,9 +169,11 @@ export function CaseSection({
                           className="inline-flex max-w-full min-w-0 cursor-pointer items-center rounded-[6px] border border-border-light bg-background px-2 py-[1px] text-[11px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
                         >
                           {/* 左列在 AI 工作区展开时压到 ~300px：宽度全部交给容器
-                              （max-w-full），flex 子项 min-w-0 才能让 truncate 生效 */}
+                              （max-w-full），flex 子项 min-w-0 才能让 truncate 生效。
+                              chip 用短名（去 _ 后缀与扩展名），委托人尾巴在时间轴
+                              里是噪音；hover title 看全名 */}
                           <span className="min-w-0 truncate" title={a.name}>
-                            📎 {stripEntryParens(a.name)}
+                            📎 {shortDocName(a.name)}
                           </span>
                         </button>
                       ))}

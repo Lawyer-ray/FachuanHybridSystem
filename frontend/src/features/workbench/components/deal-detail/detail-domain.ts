@@ -423,6 +423,20 @@ export function headerMetaParts(deal: WorkbenchDeal): MetaPart[] {
 }
 
 /** 面包屑短名：全称动辄五六十字会顶满一整行，18 字足够定位；完整名在主标题和 hover title 里 */
+/**
+ * 附件 chip 的短名：去掉扩展名与第一个「_」起的尾巴。
+ * 生成文书的命名是「{文书名}_{委托人相关标识}.ext」（如
+ * 民事诉讼风险提示书_test_贵州省山地智能….pdf），chip 只显示文书名——
+ * 时间轴里委托人就是本案当事人，尾巴是纯噪音；完整名 hover title 可见。
+ * 无下划线的名字只去扩展名；截断后为空（名字以 _ 开头）回退原全名。
+ */
+export function shortDocName(name: string): string {
+  const noExt = name.replace(/\.[a-z0-9]{1,6}$/i, '')
+  const cut = noExt.indexOf('_')
+  if (cut <= 0) return cut === 0 ? name : noExt
+  return noExt.slice(0, cut)
+}
+
 export function crumbName(name: string, cap = 18): string {
   return name.length > cap ? name.slice(0, cap) + '…' : name
 }

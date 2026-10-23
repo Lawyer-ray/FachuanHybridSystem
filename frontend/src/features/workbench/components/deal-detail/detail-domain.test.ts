@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ContractReminder, DealCase, ReminderOut, WorkbenchDeal } from '../../types'
-import {
+import {shortDocName,
   ambiguousStages,
   buildDeadlines,
   buildStagePlan,
@@ -487,5 +487,19 @@ describe('页头', () => {
     const long = '某市公路工程质量检测有限责任公司诉广东某交通投资有限公司及第三人某混凝土公司执行异议之诉一案'
     expect(crumbName(long)).toBe('某市公路工程质量检测有限责任公司诉广…')
     expect(crumbName(long).length).toBe(19)
+  })
+})
+
+describe('shortDocName 附件短名', () => {
+  it('去扩展名 + 第一个下划线起的尾巴（生成文书的委托人后缀）', () => {
+    expect(shortDocName('民事诉讼风险提示书_test_某某示范公司.pdf')).toBe('民事诉讼风险提示书')
+    expect(shortDocName('传票_test_某某示范公司.docx')).toBe('传票')
+  })
+  it('无下划线只去扩展名；无扩展名原样', () => {
+    expect(shortDocName('起诉状.txt')).toBe('起诉状')
+    expect(shortDocName('会议纪要')).toBe('会议纪要')
+  })
+  it('以 _ 开头（截断后为空）回退全名，不让 chip 变空', () => {
+    expect(shortDocName('_副本.pdf')).toBe('_副本.pdf')
   })
 })
