@@ -329,9 +329,14 @@ class TestDocumentTemplateAdminActions:
         admin = self._make_admin()
         request = MagicMock()
         queryset = MagicMock()
-        queryset.count.return_value = 5
-        assert admin.refresh_placeholders(request, queryset) is None
-        queryset.count.assert_called_once_with()
+        queryset.iterator.return_value = [MagicMock(pk=1), MagicMock(pk=2)]
+        with patch(
+            "apps.documents.admin.template_admin_display_mixin._get_template_service"
+        ) as mock_svc:
+            assert admin.refresh_placeholders(request, queryset) is None
+        # 新契约：必须真正重新解析每个模板，而不是只 count() 就报成功
+        assert mock_svc.return_value.extract_placeholders.call_count == 2
+        queryset.count.assert_not_called()
 
     def test_duplicate_templates(self) -> None:
         admin = self._make_admin()
