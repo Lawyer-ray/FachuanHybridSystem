@@ -6,7 +6,7 @@
  */
 
 import * as copilotApi from './api'
-import type { AgentAttachmentReceipt } from './types'
+import type { AgentAttachmentReceipt, FolderRefDraft } from './types'
 
 export interface OutgoingMessage {
   /** 实际发出的消息（原文本 + 附件引用块） */
@@ -29,11 +29,13 @@ export function resetUploadReceipts(): void {
 }
 
 /**
- * 上传待发附件并组装出站消息。
+ * 上传待发附件、落库文件夹引用并组装出站消息。
  *
- * - 无附件：直接返回原文；
- * - 有附件：逐个上传（任一失败返回 null——本轮不发、chips 保留可重试，
- *   重试时已成功的走缓存），成功后在原文后附引用块。
+ * - 两者皆无：直接返回原文；
+ * - 附件：逐个上传（任一失败返回 null——本轮不发、chips 保留可重试，
+ *   重试时已成功的走缓存），成功后在原文后附引用块；
+ * - 文件夹引用：逐个落库（POST folder-refs 拿回执），附「已引用文件」块
+ *   ——模型按 contract_id + subpath 调 read_folder_file 读绑定文件夹原文件。
  *
  * 上传在途/收尾的状态落点（uploadingAttachments/pendingFiles）由调用方
  * store.send 负责；本模块只做纯出站组装。
@@ -42,8 +44,9 @@ export async function uploadAttachmentsAndCompose(
   sessionId: string,
   trimmed: string,
   files: File[],
+  folderRefs: FolderRefDraft[] = [],
 ): Promise<OutgoingMessage | null> {
-  if (files.length === 0) return { composed: trimmed }
+  if (files.length === 0 && folderRefs.length === 0) return { composed: trimmed }
   const receipts: AgentAttachmentReceipt[] = []
   try {
     for (const file of files) {
@@ -60,10 +63,27 @@ export async function uploadAttachmentsAndCompose(
   } catch {
     return null
   }
+  let refReceipts: AgentAttachmentReceipt[] = []
+  if (folderRefs.length > 0) {
+    try {
+      refReceipts = await Promise.all(
+        folderRefs.map((draft) => copilotApi.createFolderRef(sessionId, draft.contractId, draft.subpath)),
+      )
+    } catch {
+      return null
+    }
+  }
   // 消息即将发出：回执已写进正文引用，缓存使命完成
   for (const key of uploadReceipts.keys()) {
     if (key.startsWith(`${sessionId}:`)) uploadReceipts.delete(key)
   }
-  const refs = receipts.map((r) => `[已上传附件：${r.filename} (attachment_id=${r.attachment_id})]`).join('\n')
-  return { composed: `${trimmed}\n\n${refs}` }
+  const refBlocks = refReceipts
+    .filter((r) => r.ref_contract_id != null)
+    .map(
+      (r) =>
+        `[已引用文件：${r.filename} (attachment_id=${r.attachment_id}, contract_id=${r.ref_contract_id}, subpath="${r.ref_subpath}")]`,
+    )
+  const uploadBlocks = receipts.map((r) => `[已上传附件：${r.filename} (attachment_id=${r.attachment_id})]`)
+  const blocks = [...refBlocks, ...uploadBlocks].join('\n')
+  return { composed: `${trimmed}\n\n${blocks}` }
 }

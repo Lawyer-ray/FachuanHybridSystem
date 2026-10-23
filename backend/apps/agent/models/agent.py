@@ -344,6 +344,11 @@ class AgentAttachment(models.Model):
     storage_path = models.CharField(max_length=500, verbose_name="存储路径")
     mime = models.CharField(max_length=100, blank=True, default="", verbose_name="MIME 类型")
     size = models.IntegerField(default=0, verbose_name="大小（字节）")
+    #: 引用型附件（拖拽合同文件夹文件进来）指向绑定文件夹内的原文件：
+    #: **storage_path 留空**（post_delete 物理清理只认 storage_path，绝不触碰
+    #: 业务归档原文件），读取走 folder_refs 服务（ACL + 逃逸校验在解析层）。
+    ref_contract_id = models.BigIntegerField(null=True, blank=True, verbose_name="引用合同")
+    ref_subpath = models.CharField(max_length=500, blank=True, default="", verbose_name="引用子路径")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     class Meta:

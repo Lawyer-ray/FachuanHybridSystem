@@ -52,6 +52,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   steering: false,
   context: null,
   pendingFiles: [],
+  pendingRefs: [],
   uploadingAttachments: false,
   draggingFiles: false,
 
@@ -67,6 +68,17 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   removeAttachmentFile: (index) => {
     set((s) => ({ pendingFiles: s.pendingFiles.filter((_, i) => i !== index) }))
+  },
+
+  addFolderRef: (draft) => {
+    set((s) => {
+      if (s.pendingRefs.some((r) => r.contractId === draft.contractId && r.subpath === draft.subpath)) return s
+      return { pendingRefs: [...s.pendingRefs, draft] }
+    })
+  },
+
+  removeFolderRef: (index) => {
+    set((s) => ({ pendingRefs: s.pendingRefs.filter((_, i) => i !== index) }))
   },
 
   enterContext: async (context) => {
@@ -141,11 +153,12 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     // read_agent_attachment(id) 读正文，base64 不进上下文。任一失败则本轮
     // 不发、chips 保留可重试（outgoing 复用已成功回执，不重复上传）。
     const pendingFiles = get().pendingFiles
-    if (pendingFiles.length > 0) set({ uploadingAttachments: true })
-    const outgoing = await uploadAttachmentsAndCompose(sessionId, trimmed, pendingFiles)
+    const pendingRefs = get().pendingRefs
+    if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ uploadingAttachments: true })
+    const outgoing = await uploadAttachmentsAndCompose(sessionId, trimmed, pendingFiles, pendingRefs)
     set({ uploadingAttachments: false })
     if (outgoing === null) {
-      set({ lastError: '附件上传失败，请重试（附件已保留）' })
+      set({ lastError: '附件/引用准备失败，请重试（已保留，重试不会重复上传）' })
       onQueued?.(false)
       return
     }
@@ -155,7 +168,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       onQueued?.(false)
       return
     }
-    if (pendingFiles.length > 0) set({ pendingFiles: [] })
+    if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ pendingFiles: [], pendingRefs: [] })
     const composed = outgoing.composed
 
     const assistantId = nextLocalId()
@@ -314,6 +327,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       steering: false,
       context: null,
       pendingFiles: [],
+      pendingRefs: [],
       uploadingAttachments: false,
       draggingFiles: false,
     })

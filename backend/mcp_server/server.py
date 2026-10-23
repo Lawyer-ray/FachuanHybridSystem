@@ -318,6 +318,7 @@ from mcp_server.tools import (
     process_document_by_path,
     quick_recognize_invoice,
     read_agent_attachment,
+    read_folder_file,
     remove_contract_party,
     rename_inbox_attachment,
     rename_material_group,
@@ -957,6 +958,8 @@ mcp.tool()(get_agent_skill)
 
 # 对话附件：服务端读文件提取正文（base64 不进模型上下文）
 mcp.tool()(read_agent_attachment)
+# 绑定文件夹引用：拖拽引用型，读原文件（不复制，路径即归属）
+mcp.tool()(read_folder_file)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项
 mcp.tool()(list_upcoming_deadlines)

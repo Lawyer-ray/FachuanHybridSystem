@@ -125,32 +125,75 @@ def render_attachment_pages(
         :class:`apps.agent.services.attachment_render.RenderResult`。打开失败/加密/
         mime 不支持时 ``error`` 非空且 ``pages`` 为空——**不会**用空内容冒充成功。
     """
+    mime = (attachment.mime or "").lower().strip()
+    fmt = "jpeg" if str(format).lower().strip() in ("jpg", "jpeg") else "png"
+    try:
+        with default_storage.open(attachment.storage_path, "rb") as fh:
+            file_bytes = fh.read()
+    except OSError as exc:
+        started = time.monotonic()
+        logger.warning("附件物理文件读取失败 attachment_id=%s: %s", attachment.attachment_id, exc)
+        from . import attachment_render as render
+
+        result = render.RenderResult(
+            attachment_id=str(attachment.attachment_id),
+            filename=attachment.filename,
+            mime=mime,
+            error=render.RenderError.NOT_FOUND,
+            detail="附件文件已不存在",
+        )
+        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
+        return result
+    return _render_bytes_pages(
+        ref_id=str(attachment.attachment_id),
+        filename=attachment.filename,
+        mime=mime,
+        file_bytes=file_bytes,
+        pages=pages,
+        dpi=dpi,
+        fmt=fmt,
+        max_pages=max_pages,
+        user_id=user_id,
+    )
+
+
+def _render_bytes_pages(
+    *,
+    ref_id: str,
+    filename: str,
+    mime: str,
+    file_bytes: bytes,
+    pages: str | int | list[int] | None = None,
+    dpi: int = 200,
+    fmt: str = "png",
+    max_pages: int = 20,
+    user_id: int | None = None,
+    cache_ref: str | None = None,
+) -> Any:
+    """从字节渲染页图的共用编排层——附件与绑定文件夹引用（folder_refs）共用。
+
+    ``ref_id`` 是展示与审计标识：附件传 attachment uuid；文件夹引用传
+    ``folder:{contract_id}/{subpath}``。``cache_ref`` 为页图缓存键材料
+    （默认同 ref_id）：文件夹引用必须传「含 size/mtime 指纹」的键，
+    源文件更新后指纹变化、缓存自然失效（attachment_render 的键即
+    ``(ref, page, dpi, fmt)`` 摘要）。
+    """
     from . import attachment_render as render
 
     started = time.monotonic()
-    mime = (attachment.mime or "").lower().strip()
-    fmt = "jpeg" if str(format).lower().strip() in ("jpg", "jpeg") else "png"
+    mime = (mime or "").lower().strip()
     base: dict[str, Any] = {
-        "attachment_id": str(attachment.attachment_id),
-        "filename": attachment.filename,
+        "attachment_id": ref_id,
+        "filename": filename,
         "mime": mime,
     }
 
-    if not (mime in _PDF_MIMES or attachment.filename.lower().endswith(".pdf") or mime.startswith(_IMAGE_MIME_PREFIX)):
+    if not (mime in _PDF_MIMES or filename.lower().endswith(".pdf") or mime.startswith(_IMAGE_MIME_PREFIX)):
         result = render.RenderResult(
             **base,
             error=render.RenderError.UNSUPPORTED_MIME,
             detail=f"mime={mime or '未知'} 没有页图形态，请用文本读取工具（read_agent_attachment）",
         )
-        render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
-        return result
-
-    try:
-        with default_storage.open(attachment.storage_path, "rb") as fh:
-            file_bytes = fh.read()
-    except OSError as exc:
-        logger.warning("附件物理文件读取失败 attachment_id=%s: %s", attachment.attachment_id, exc)
-        result = render.RenderResult(**base, error=render.RenderError.NOT_FOUND, detail="附件文件已不存在")
         render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
         return result
 
@@ -166,7 +209,7 @@ def render_attachment_pages(
     return _render_pdf_attachment(
         base,
         file_bytes,
-        attachment_id=str(attachment.attachment_id),
+        attachment_id=cache_ref or ref_id,
         pages=pages,
         dpi=dpi,
         fmt=fmt,

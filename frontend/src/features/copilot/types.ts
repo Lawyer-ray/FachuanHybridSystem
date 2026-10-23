@@ -128,7 +128,23 @@ export interface AgentAttachmentReceipt {
   filename: string
   size: number
   mime: string
+  /** 引用型（拖拽合同目录树文件）才有：指向绑定文件夹原文件，不复制字节 */
+  ref_contract_id?: number | null
+  ref_subpath?: string
 }
+
+/** 拖拽引用草稿：合同绑定文件夹内的文件（发送时落库为 ref 记录并附引用块） */
+export interface FolderRefDraft {
+  contractId: number
+  subpath: string
+  name: string
+}
+
+/**
+ * 面板内目录树 → 输入区的拖拽通道。自定义 MIME 携带引用 JSON；
+ * 从系统外（Finder 等）拖入走原生 Files 通道（上传流），两路互不混淆。
+ */
+export const FOLDER_REF_MIME = 'application/x-fachuan-folder-ref'
 
 /** GET /agent/usage 的汇总（token 由 pi 上报，取消/出错轮次也计入） */
 export interface UsageSummary {
@@ -179,6 +195,8 @@ export interface CopilotState {
   context: CopilotContext | null
   /** 待发送附件（拖拽/选择后暂存，随下一条消息上传并引用） */
   pendingFiles: File[]
+  /** 待发送的文件夹引用（从合同目录树拖入；随下一条消息落库并引用） */
+  pendingRefs: FolderRefDraft[]
   /** 附件上传在途（发送按钮置忙，防止重复提交） */
   uploadingAttachments: boolean
   /** 拖拽文件悬停中（面板渲染投放离焦高亮） */
@@ -187,6 +205,10 @@ export interface CopilotState {
   addAttachmentFiles: (files: FileList | File[]) => void
   /** 移除一个待发附件 */
   removeAttachmentFile: (index: number) => void
+  /** 加入一个待发文件夹引用（同 contractId+subpath 去重） */
+  addFolderRef: (draft: FolderRefDraft) => void
+  /** 移除一个待发文件夹引用 */
+  removeFolderRef: (index: number) => void
   /** 进入业务内会话模式（案件/合同页打开）：列表过滤到该业务，新会话带归属 */
   enterContext: (context: CopilotContext) => Promise<void>
   /** 退出业务内会话模式，回到普通对话 */

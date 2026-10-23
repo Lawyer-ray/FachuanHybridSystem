@@ -49,6 +49,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 from mcp.types import ImageContent, TextContent
@@ -146,21 +147,55 @@ def read_agent_attachment(
     Returns:
         ``[元数据 TextContent, …正文 TextContent 或 每页 TextContent+ImageContent]``。
     """
+
     if not _ATTACHMENT_ID_RE.match(attachment_id or ""):
         raise ValueError(f"attachment_id 应为 UUID（来自消息里的附件引用），收到：{attachment_id!r}")
 
+    return _read_file_via_source(
+        ref_id=attachment_id,
+        load_content=lambda notices: _load_content(attachment_id, notices),
+        fetch_pages=lambda **kw: _render_pages(attachment_id=attachment_id, **kw),
+        max_length=max_length,
+        start=start,
+        pages=pages,
+        dpi=dpi,
+        format=format,
+        max_pages=max_pages,
+    )
+
+
+def _read_file_via_source(
+    *,
+    ref_id: str,
+    load_content: Callable[[list[str]], dict[str, Any]],
+    fetch_pages: Callable[..., Any],
+    max_length: int,
+    start: int,
+    pages: str | list[int] | None,
+    dpi: int,
+    format: str,
+    max_pages: int,
+) -> list[TextContent | ImageContent]:
+    """read_* 工具的共享编排：取字节 → 文本/图像分流 → content blocks。
+
+    ``ref_id`` 进元数据块（附件版为 uuid，文件夹引用版为 ``folder:{cid}/{subpath}``）；
+    ``load_content``/``fetch_pages`` 是数据源回调——附件版走
+    ``/agent/attachments/{id}/*``，文件夹引用版走 ``/agent/folder-refs/*``，
+    其余编排（文本探针、扫描件回落、分段、限额）完全共用，避免两处漂移。
+    """
+    image_format = _normalize_format(format)
     image_format = _normalize_format(format)
     requested_pages = _parse_pages(pages)
     notices: list[str] = []
 
-    info = _load_content(attachment_id, notices)
+    info = load_content(notices)
     if info.get("error"):
         return _metadata_only(info, notices)
 
     filename = str(info.get("filename") or "")
     mime = str(info.get("mime") or "")
     meta: dict[str, Any] = {
-        "attachment_id": attachment_id,
+        "attachment_id": ref_id,
         "filename": filename,
         "mime": mime,
         "total_pages": None,
@@ -187,7 +222,7 @@ def read_agent_attachment(
         return _render_selection(
             meta=meta,
             selection=selection,
-            attachment_id=attachment_id,
+            fetch_pages=fetch_pages,
             text="",
             requested_pages=requested_pages,
             dpi=dpi,
@@ -242,7 +277,7 @@ def read_agent_attachment(
             return _render_selection(
                 meta=meta,
                 selection=selection,
-                attachment_id=attachment_id,
+                fetch_pages=fetch_pages,
                 text=text,
                 requested_pages=requested_pages,
                 dpi=dpi,
@@ -278,7 +313,7 @@ def read_agent_attachment(
     return _render_selection(
         meta=meta,
         selection=selection,
-        attachment_id=attachment_id,
+        fetch_pages=fetch_pages,
         text=text,
         requested_pages=requested_pages,
         dpi=dpi,
@@ -293,7 +328,7 @@ def _render_selection(
     *,
     meta: dict[str, Any],
     selection: dict[str, Any],
-    attachment_id: str,
+    fetch_pages: Callable[..., Any],
     text: str,
     requested_pages: list[int] | str | None,
     dpi: int,
@@ -320,8 +355,7 @@ def _render_selection(
             return _empty_text_result(meta, notices)
         return _text_result(meta, text, start=max(0, start), limit=_clamp_limit(max_length), notices=notices)
 
-    blocks, rendered_pages, render_notices, render_error = _render_pages(
-        attachment_id=attachment_id,
+    blocks, rendered_pages, render_notices, render_error = fetch_pages(
         pages=selection["image_pages"],
         dpi=dpi,
         image_format=image_format,
@@ -729,6 +763,17 @@ def _render_pages(
         local_notices.append(f"页图渲染不可用：{exc}")
         return [], [], local_notices, ""
 
+    return _consume_pages_response(response, local_notices, image_format=image_format)
+
+
+def _consume_pages_response(
+    response: dict[str, Any], local_notices: list[str], *, image_format: str
+) -> tuple[list[TextContent | ImageContent], list[dict[str, Any]], list[str], str]:
+    """把 /pages 端点响应拼成「说明文本 + ImageContent」块（附件与文件夹引用共用）。
+
+    响应契约（``AttachmentPagesOut``）：渲染失败是 **200 + error 错误码**
+    （不是 500），所以必须读响应体里的 ``error`` 而不是只看是否抛异常。
+    """
     for notice in response.get("notices") or []:
         local_notices.append(str(notice))
     server_error = str(response.get("error") or "")

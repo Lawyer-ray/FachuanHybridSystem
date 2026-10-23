@@ -23,7 +23,8 @@ from django.http import StreamingHttpResponse
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.security import get_request_access_context
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentSession
@@ -40,6 +41,7 @@ from ..services.chat_service import (
     steer_session,
     stream_chat,
 )
+from ..services.folder_refs import create_folder_ref, read_folder_file_content, render_folder_file_pages
 from ..services.session_service import create_session as create_session_record
 from ..services.session_service import delete_session as delete_session_record
 from ..services.session_service import get_session as get_session_record
@@ -211,12 +213,25 @@ class PiApprovalOut(Schema):
 
 
 class AttachmentOut(Schema):
-    """附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。"""
+    """附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。
+
+    引用型（拖拽合同文件夹文件）带 ``ref_contract_id`` / ``ref_subpath``，
+    上传型两者为空——前端据此渲染不同 chip。
+    """
 
     attachment_id: str
     filename: str
     size: int
     mime: str = ""
+    ref_contract_id: int | None = None
+    ref_subpath: str = ""
+
+
+class FolderRefIn(Schema):
+    """拖拽引用入参：指向合同绑定文件夹内的一个文件（不复制字节）。"""
+
+    contract_id: int
+    subpath: str
 
 
 class AttachmentPageOut(Schema):
@@ -737,6 +752,143 @@ async def get_attachment_pages(
         "附件分页端点 user=%s attachment_id=%s pages=%r dpi=%d format=%s returned=%d error=%s",
         _user_id(request),
         payload.attachment_id,
+        pages_spec,
+        requested_dpi,
+        fmt,
+        len(payload.pages_returned),
+        payload.error or "-",
+    )
+    return payload
+
+
+@router.post("/sessions/{session_id}/folder-refs", response=AttachmentOut)
+async def create_session_folder_ref(request: Any, session_id: str, data: FolderRefIn) -> Any:
+    """拖拽引用落库：引用合同绑定文件夹内的原文件（不复制字节、storage_path 留空）。
+
+    归属：会话必须属于当前用户；合同侧走行级 ACL（与 folder-entries 目录树
+    同口径——团队共享合同，协办律师同样可引用）。文件名/MIME/大小为创建时快照。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    ctx = get_request_access_context(request)
+    try:
+        ref = await sync_to_async(create_folder_ref, thread_sensitive=True)(
+            session=session,
+            user_id=_user_id(request),
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+            contract_id=data.contract_id,
+            subpath=data.subpath,
+        )
+    except NotFoundError as exc:
+        # 无权/未绑定/云存储绑定/文件不存在 → 同一 404 文案（不区分，防枚举探测）
+        raise HttpError(404, str(exc) or "文件不存在") from exc
+    except ValidationException as exc:
+        raise HttpError(400, str(exc) or "subpath 非法") from exc
+    return AttachmentOut(
+        attachment_id=str(ref.attachment_id),
+        filename=ref.filename,
+        size=ref.size,
+        mime=ref.mime,
+        ref_contract_id=ref.ref_contract_id,
+        ref_subpath=ref.ref_subpath,
+    )
+
+
+@router.get("/folder-refs/content")
+async def get_folder_ref_content(request: Any, contract_id: int, subpath: str) -> Any:
+    """读绑定文件夹内原文件（base64）——**mcp_server 专用**（用户 token 鉴权）。
+
+    与 /attachments/{id}/content 同构：内容只用于服务端转投 /document-parsing
+    提取正文，不直接进模型上下文。权限与 folder-entries 同口径（行级 ACL）。
+    """
+    user = _current_user(request)
+    if user is None:
+        raise HttpError(401, "未登录")
+    ctx = get_request_access_context(request)
+    try:
+        return await sync_to_async(read_folder_file_content, thread_sensitive=True)(
+            contract_id=contract_id,
+            subpath=subpath,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+    except NotFoundError as exc:
+        raise HttpError(404, str(exc) or "文件不存在（可能已被移动或移入删除区）") from exc
+    except ValidationException as exc:
+        raise HttpError(400, str(exc) or "subpath 非法") from exc
+
+
+@router.get("/folder-refs/pages", response=AttachmentPagesOut)
+async def get_folder_ref_pages(
+    request: Any,
+    contract_id: int,
+    subpath: str,
+    pages: str = "all",
+    dpi: str = str(_PAGES_DPI_DEFAULT),
+    format: str = "png",
+    max_pages: str = str(_PAGES_MAX_PAGES),
+) -> AttachmentPagesOut:
+    """把绑定文件夹内文件按页渲染成图（base64）——**mcp_server 专用**。
+
+    与 /attachments/{id}/pages 同构（三段状态：参数非法 400 / 无权或不存在
+    404 / 渲染失败 200 + error 错误码）；页图缓存键含源文件 size/mtime 指纹，
+    文件被替换后旧缓存自动失效。
+    """
+    user = _current_user(request)
+    if user is None:
+        raise HttpError(401, "未登录")
+    requested_format = format
+    fmt = (requested_format or "png").strip().lower()
+    if fmt == "jpg":
+        fmt = "jpeg"
+    if fmt not in ("png", "jpeg"):
+        raise HttpError(400, f"format 仅支持 png / jpeg，收到：{requested_format!r}")
+    requested_dpi = _parse_dpi(dpi)
+    requested_max = _parse_max_pages(max_pages)
+    pages_spec = (pages or "").strip()
+    if not pages_spec:
+        raise HttpError(400, "pages 不能为空（示例：1-3 / 7 / all）")
+    _reject_unsyntactic_pages(pages_spec)
+
+    ctx = get_request_access_context(request)
+    try:
+        outcome = await sync_to_async(render_folder_file_pages, thread_sensitive=True)(
+            contract_id=contract_id,
+            subpath=subpath,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+            pages=pages_spec,
+            dpi=requested_dpi,
+            fmt=fmt,
+            max_pages=requested_max,
+            user_id=_user_id(request),
+        )
+    except NotFoundError as exc:
+        raise HttpError(404, str(exc) or "文件不存在（可能已被移动或移入删除区）") from exc
+    except ValidationException as exc:
+        raise HttpError(400, str(exc) or "subpath 非法") from exc
+    payload = AttachmentPagesOut(
+        attachment_id=outcome.attachment_id,
+        filename=outcome.filename,
+        mime=outcome.mime,
+        total_pages=outcome.total_pages,
+        pages_returned=[_to_page_out(page) for page in outcome.pages],
+        strategy=_summarize_strategy(outcome.pages),
+        error=_error_code(outcome.error),
+        detail=outcome.detail,
+        notices=_build_notices(outcome, requested_max=requested_max),
+        truncated_pages=outcome.truncated_pages > 0,
+    )
+    logger.info(
+        "folder_refs_pages user=%s contract_id=%s subpath=%r pages=%r dpi=%d format=%s returned=%d error=%s",
+        _user_id(request),
+        contract_id,
+        subpath,
         pages_spec,
         requested_dpi,
         fmt,

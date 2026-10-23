@@ -13,13 +13,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PanelLeftClose, PanelLeftOpen, Paperclip, Plus, SquareStack, X } from 'lucide-react'
+import { FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, SquareStack, X } from 'lucide-react'
 
 import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
 import { usePanelResize } from '../hooks/use-panel-resize'
 import { useCopilot } from '../store'
+import { FOLDER_REF_MIME, type FolderRefDraft } from '../types'
 import { Composer } from './Composer'
+import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
 import { useMediaQuery } from '@/hooks/use-media'
@@ -154,6 +156,8 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
   const railVisible = railOpen && railCapable
   const draggingFiles = useCopilot((s) => s.draggingFiles)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
+  const addFolderRef = useCopilot((s) => s.addFolderRef)
+  const [treeDrawerOpen, setTreeDrawerOpen] = useState(false)
   // 面板级拖拽投放：拖入高亮 + 松手收件。dragenter/over 必须 preventDefault
   // 才能触发 drop；计数器法处理子元素间的 enter/leave 抖动。
   // 流式/上传在途不加附件（与回形针按钮同口径）。
@@ -185,6 +189,20 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
     e.preventDefault()
     dragDepth.current = 0
     useCopilot.setState({ draggingFiles: false })
+    // 内部拖拽（目录树 → 输入区）：自定义 MIME 携带引用，优先于 Files 通道
+    const raw = e.dataTransfer.getData(FOLDER_REF_MIME)
+    if (raw) {
+      if (!filesDropAllowed()) return
+      try {
+        const draft = JSON.parse(raw) as FolderRefDraft
+        if (typeof draft.contractId === 'number' && typeof draft.subpath === 'string' && draft.subpath) {
+          addFolderRef({ contractId: draft.contractId, subpath: draft.subpath, name: String(draft.name ?? '') })
+        }
+      } catch {
+        // 非法 JSON 静默丢弃：不当作文件处理，也不打断 drop
+      }
+      return
+    }
     if (!e.dataTransfer?.files?.length || !filesDropAllowed()) return
     addAttachmentFiles(e.dataTransfer.files)
   }
@@ -265,6 +283,21 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
               <X className="h-3 w-3 flex-none" />
             </button>
           )}
+          {context?.origin === 'contract' && (
+            <button
+              type="button"
+              className={`flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12px] transition-colors hover:bg-secondary hover:text-foreground ${
+                treeDrawerOpen ? 'bg-secondary text-foreground' : 'text-muted-foreground'
+              }`}
+              onClick={() => setTreeDrawerOpen((v) => !v)}
+              aria-label={treeDrawerOpen ? '收起合同材料目录' : '展开合同材料目录'}
+              aria-pressed={treeDrawerOpen}
+              title="合同绑定文件夹目录树：把文件拖到输入区即可引用"
+            >
+              <FolderTree className="h-3.5 w-3.5" />
+              材料
+            </button>
+          )}
           {currentModel && (
             <span
               className="hidden max-w-28 flex-none truncate rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10.5px] text-muted-foreground sm:block"
@@ -300,6 +333,9 @@ export function CopilotPanel({ open, onClose }: { open: boolean; onClose: () => 
             <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />
           )}
           <MessageList />
+          {treeDrawerOpen && context?.origin === 'contract' && (
+            <FolderTreeDrawer contractId={context.refId} onClose={() => setTreeDrawerOpen(false)} />
+          )}
         </div>
         <Composer />
     </aside>

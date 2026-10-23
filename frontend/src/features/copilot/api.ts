@@ -95,3 +95,31 @@ export function uploadAttachment(sessionId: string, file: File): Promise<AgentAt
     .post(`agent/sessions/${sessionId}/attachments`, { body: form, timeout: UPLOAD_TIMEOUT_MS })
     .json<AgentAttachmentReceipt>()
 }
+
+/** 创建文件夹引用（拖拽合同目录树文件；不复制字节，返回引用回执） */
+export function createFolderRef(
+  sessionId: string,
+  contractId: number,
+  subpath: string,
+): Promise<AgentAttachmentReceipt> {
+  return api
+    .post(`agent/sessions/${sessionId}/folder-refs`, { json: { contract_id: contractId, subpath } })
+    .json<AgentAttachmentReceipt>()
+}
+
+/** 合同绑定文件夹的某一层条目（目录树懒加载数据源，非递归） */
+export interface FolderEntries {
+  browsable: boolean
+  message: string | null
+  path_display: string
+  subpath: string
+  parent_subpath: string
+  folders: { name: string; subpath: string }[]
+  files: { name: string; subpath: string; size: number; modified_at: string }[]
+}
+
+export function fetchContractFolderEntries(contractId: number, subpath = ''): Promise<FolderEntries> {
+  return api
+    .get(`contracts/${contractId}/folder-entries`, { searchParams: subpath ? { subpath } : {} })
+    .json<FolderEntries>()
+}
