@@ -89,6 +89,10 @@ export function splitRefBlocks(content: string): { refs: SentRefMeta[]; body: st
 /** 「[当前页面：xxx]」行——通用模式下 send 注入的页面锚点，回放折叠为 chip */
 const PAGE_HINT_RE = /^\[当前页面：(.+?)\]$/
 
+/** 「[当前业务：xxx]」行——业务范围（详情页工作区/浮层 context）下 send 注入的
+ *  归属锚点，含委托/案件名与 id，模型据此直达对应绑定文件夹与数据 */
+const BIZ_HINT_RE = /^\[当前业务：(.+?)\]$/
+
 /** 把 user 消息开头的页面锚点行拆出来；无锚点原样返回 */
 export function splitPageHintLine(content: string): { pageHint: string | null; body: string } {
   const lines = content.split('\n')
@@ -96,6 +100,15 @@ export function splitPageHintLine(content: string): { pageHint: string | null; b
   const m = PAGE_HINT_RE.exec(first)
   if (!m?.[1]) return { pageHint: null, body: content }
   return { pageHint: m[1], body: lines.slice(1).join('\n').replace(/^\n+/, '') }
+}
+
+/** 把 user 消息开头的业务锚点行拆出来（与页面锚点同构）；无锚点原样返回 */
+export function splitBizHintLine(content: string): { bizHint: string | null; body: string } {
+  const lines = content.split('\n')
+  const first = lines[0]?.trim() ?? ''
+  const m = BIZ_HINT_RE.exec(first)
+  if (!m?.[1]) return { bizHint: null, body: content }
+  return { bizHint: m[1], body: lines.slice(1).join('\n').replace(/^\n+/, '') }
 }
 
 /**
@@ -113,12 +126,14 @@ export function describeLocation(pathname: string): string {
 export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
   return rows.map((row) => {
     const hintSplit = row.role === 'user' ? splitPageHintLine(row.content) : null
-    const refsSplit = row.role === 'user' ? splitRefBlocks(hintSplit?.body ?? row.content) : null
+    const bizSplit = row.role === 'user' ? splitBizHintLine(hintSplit?.body ?? row.content) : null
+    const refsSplit = row.role === 'user' ? splitRefBlocks(bizSplit?.body ?? row.content) : null
     return {
       id: `db-${row.message_id}`,
       role: row.role,
       content: row.role === 'tool' ? row.content.slice(0, 2000) : (refsSplit?.body ?? row.content),
       pageHint: hintSplit?.pageHint ?? undefined,
+      bizHint: bizSplit?.bizHint ?? undefined,
       refs: refsSplit?.refs.length ? refsSplit.refs : undefined,
       toolName: row.tool_name || undefined,
       truncated: row.metadata?.truncated === true || undefined,

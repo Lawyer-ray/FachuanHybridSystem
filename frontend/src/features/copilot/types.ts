@@ -90,6 +90,8 @@ export interface ChatMessage {
   refs?: SentRefMeta[]
   /** 通用模式下注入的页面锚点（从「[当前页面：…]」块解析，气泡上方重放为 chip） */
   pageHint?: string
+  /** 业务范围（详情页工作区/浮层 context）下注入的归属锚点（从「[当前业务：…]」块解析） */
+  bizHint?: string
   /** tool 消息的工具名（tool_call 与 tool_result 的归并键） */
   toolName?: string
   toolCallId?: string

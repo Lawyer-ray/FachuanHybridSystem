@@ -46,7 +46,12 @@ beforeEach(() => {
 })
 
 describe('copilot store：页面感知注入', () => {
-  const emptyStream = () => vi.mocked(copilotApi.openMessageStream).mockResolvedValue(sseResponse(['data: {"type":"done","session_id":"s-1"}\n\n']))
+  // mockImplementation：每次调用生成全新 Response——Response body 只能读一次，
+  // 共享同一个 mock 返回值会让后续 send 复用已耗尽的流、走 catch 清空消息
+  const emptyStream = () =>
+    vi.mocked(copilotApi.openMessageStream).mockImplementation(() =>
+      Promise.resolve(sseResponse(['data: {"type":"done","session_id":"s-1"}\n\n'])),
+    )
 
   it('通用模式：页面变化后首条注入 [当前页面：…] 锚点，本地气泡折叠为 chip', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
@@ -64,7 +69,7 @@ describe('copilot store：页面感知注入', () => {
     expect(user.content).toBe('总结一下')
   })
 
-  it('同一页面第二条不重复注入；业务 context 模式不注入', async () => {
+  it('同一页面第二条不重复注入；业务 context 模式每轮注入归属锚点', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
     emptyStream()
     const st = useCopilot.getState()
@@ -73,13 +78,18 @@ describe('copilot store：页面感知注入', () => {
     await st.send('第二条')
     expect(vi.mocked(copilotApi.openMessageStream).mock.calls[1]?.[1]).toBe('第二条')
 
-    // 业务范围（详情页工作区/浮层 context）归属已明确，锚点不注入
+    // 业务范围（详情页工作区/浮层 context）：每轮注入归属锚点——pi 的
+    // compaction 可能压掉首轮上下文，不重复注入模型就会反问「哪个案件」
     await st.enterContext({ origin: 'contract', refId: 8, title: '某银行' })
     st.setPageHint('委托详情 · 某银行（contract_id=8）')
     await st.send('范围内的消息')
     const last = vi.mocked(copilotApi.openMessageStream).mock.calls[2]?.[1]
-    expect(last).toBe('范围内的消息')
+    expect(last).toBe('[当前业务：本委托「某银行」 contract_id=8]\n范围内的消息')
     expect(last).not.toContain('当前页面')
+    // 本地气泡：归属锚点折叠成 bizHint 字段、正文干净
+    const user = useCopilot.getState().messages.at(-2)
+    expect(user?.bizHint).toBe('本委托「某银行」 contract_id=8')
+    expect(user?.content).toBe('范围内的消息')
   })
 })
 

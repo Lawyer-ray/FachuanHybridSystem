@@ -19,6 +19,7 @@ import {
   nextLocalId,
   pendingItemToApproval,
   splitAttachmentFiles,
+  splitBizHintLine,
   splitPageHintLine,
   splitRefBlocks,
 } from './domain'
@@ -139,12 +140,18 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     }
     set({ lastError: null })
 
-    // 通用模式（无业务 context）下注入「当前页面」锚点：页面变化后首条
-    // 才注（历史不刷屏），模型可拿页面里的实体 id 用工具主动了解内容。
-    // 业务范围内（详情页工作区/浮层 context 模式）不注——归属已经明确。
+    // 锚点注入（模型据此知道自己服务谁、用户在哪个页面）：
+    // - 业务范围内（详情页工作区/浮层 context）：每轮注入归属锚点——pi 的
+    //   compaction 可能把首轮上下文压掉，不重复注入模型就会「失忆」反问
+    //   「哪个案件」（实测发生过）；含实体 id，模型可直接调工具读绑定文件夹。
+    // - 通用模式：页面变化后首条才注页面锚点（历史不刷屏）。
     const pre = get()
     let outgoingText = trimmed
-    if (!pre.context && pre.pageHint && pre.pageHint !== pre.lastPageHintSent) {
+    if (pre.context) {
+      const unit = pre.context.origin === 'case' ? '本案' : '本委托'
+      const idKey = pre.context.origin === 'case' ? 'case_id' : 'contract_id'
+      outgoingText = `[当前业务：${unit}「${pre.context.title}」 ${idKey}=${pre.context.refId}]\n${trimmed}`
+    } else if (pre.pageHint && pre.pageHint !== pre.lastPageHintSent) {
       outgoingText = `[当前页面：${pre.pageHint}]\n${trimmed}`
       set({ lastPageHintSent: pre.pageHint })
     }
@@ -193,9 +200,10 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const composed = outgoing.composed
 
     const assistantId = nextLocalId()
-    // 与历史回放同一解析：本地即时渲染也把页面锚点/引用块还原成 chip，两侧不漂移
+    // 与历史回放同一解析：本地即时渲染也把页面/业务锚点、引用块还原成 chip，两侧不漂移
     const { pageHint, body: noHint } = splitPageHintLine(composed)
-    const { refs, body } = splitRefBlocks(noHint)
+    const { bizHint, body: noBiz } = splitBizHintLine(noHint)
+    const { refs, body } = splitRefBlocks(noBiz)
     set((s) => ({
       messages: [
         ...s.messages,
@@ -204,6 +212,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
           role: 'user',
           content: body,
           ...(pageHint ? { pageHint } : {}),
+          ...(bizHint ? { bizHint } : {}),
           ...(refs.length ? { refs } : {}),
         },
         { id: assistantId, role: 'assistant', content: '', streaming: true },

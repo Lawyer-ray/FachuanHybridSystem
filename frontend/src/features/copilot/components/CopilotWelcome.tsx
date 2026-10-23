@@ -35,9 +35,8 @@ export function CopilotWelcome() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-5 py-8 text-center">
       <div className="relative flex items-center justify-center">
-        <div aria-hidden className="copilot-glow absolute h-24 w-24 rounded-full" />
         <span className="copilot-orb relative flex h-11 w-11 items-center justify-center rounded-[14px]">
-          <Sparkles className="h-5 w-5 text-white" strokeWidth={2.2} />
+          <Sparkles className="h-5 w-5 text-background" strokeWidth={2.2} />
         </span>
       </div>
       <div className="max-w-72">
@@ -53,13 +52,13 @@ export function CopilotWelcome() {
           <button
             key={s.label}
             type="button"
-            className="group flex items-center gap-2.5 rounded-[12px] border border-border bg-card px-3 py-2.5 text-left shadow-sm transition-all hover:-translate-y-px hover:border-primary/25 hover:shadow-[0_6px_16px_-8px_rgba(24,24,27,0.2)]"
+            className="group flex items-center gap-2.5 rounded-[12px] border border-border bg-card px-3 py-2.5 text-left shadow-sm transition-all hover:-translate-y-px hover:border-foreground/25 hover:shadow-[0_6px_16px_-8px_rgba(24,24,27,0.2)]"
             onClick={() => void send(s.prompt)}
             aria-label={s.label}
             title={s.prompt}
           >
-            <span className="copilot-orb flex h-7 w-7 flex-none items-center justify-center rounded-[8px] opacity-90 transition-opacity group-hover:opacity-100">
-              <s.icon className="h-3.5 w-3.5 text-white" strokeWidth={2.2} />
+            <span className="copilot-orb flex h-7 w-7 flex-none items-center justify-center rounded-[8px]">
+              <s.icon className="h-3.5 w-3.5 text-background" strokeWidth={2.2} />
             </span>
             <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-foreground">{s.label}</span>
           </button>

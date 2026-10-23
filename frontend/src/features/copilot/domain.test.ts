@@ -8,6 +8,7 @@ import {
   parseSseEvent,
   previewToolArgs,
   describeLocation,
+  splitBizHintLine,
   splitPageHintLine,
   splitRefBlocks,
   shortToolName,
@@ -177,6 +178,15 @@ describe('页面锚点（通用助手页面感知）', () => {
     expect(splitPageHintLine('普通消息')).toEqual({ pageHint: null, body: '普通消息' })
     // 锚点不在首行不解析（注入永远在开头，防误伤正文里的同款文本）
     expect(splitPageHintLine('前言行\n[当前页面：x]').pageHint).toBeNull()
+  })
+
+  it('splitBizHintLine：拆出业务归属锚点（context 模式每轮注入），与页面锚点可叠加解析', () => {
+    expect(splitBizHintLine('[当前业务：本委托「某银行」 contract_id=8]\n梳理材料')).toEqual({
+      bizHint: '本委托「某银行」 contract_id=8',
+      body: '梳理材料',
+    })
+    expect(splitBizHintLine('普通消息')).toEqual({ bizHint: null, body: '普通消息' })
+    expect(splitBizHintLine('前言行\n[当前业务：x]').bizHint).toBeNull()
   })
 
   it('describeLocation：路由 → 页面描述（详情页由页面自己覆盖精确值）', () => {

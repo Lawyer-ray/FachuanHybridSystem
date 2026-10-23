@@ -24,31 +24,31 @@
   }
 }
 
-/* ── AI 身份视觉：渐变 orb、发送钮、思考流光（2026 AI 产品语汇）──
-   全局保持 zinc 单色系，这组渐变只出现在 copilot 域的「AI 身份元素」上
-   （头像 orb / 发送钮 / 思考态 / 欢迎页微光），不当通用装饰用 */
+/* ── AI 身份视觉：单色 orb、发送钮、思考流光 ──
+   高级感来自克制的单色与微交互，不来自彩色渐变——全局 zinc 单色系，
+   orb 用前景色实底（暗色模式自动反转为浅底深字），微动效为主 */
 .copilot-orb {
-  background-image: linear-gradient(135deg, #6366f1 0%, #8b5cf6 48%, #d946ef 100%);
+  background: var(--color-foreground);
   box-shadow:
-    0 1px 8px -1px rgb(139 92 246 / 0.5),
-    inset 0 1px 0 rgb(255 255 255 / 0.25);
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 1px 3px rgb(0 0 0 / 0.16);
 }
 
 .copilot-send {
-  background-image: linear-gradient(135deg, #6366f1 0%, #8b5cf6 48%, #d946ef 100%);
-  box-shadow: 0 1px 6px -1px rgb(139 92 246 / 0.45);
-  transition: filter 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  background: var(--color-foreground);
+  color: var(--color-background);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 .copilot-send:not(:disabled):hover {
-  filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 3px 10px -2px rgb(139 92 246 / 0.55);
+  box-shadow: 0 3px 8px -2px rgb(0 0 0 / 0.28);
 }
 .copilot-send:not(:disabled):active {
   transform: translateY(0);
 }
 
-/* 深度思考中：渐变流光文字（结束后回落为普通 muted 色） */
+/* 深度思考中：灰阶呼吸流光（结束后回落为普通 muted 色） */
 @keyframes copilot-shimmer {
   0% {
     background-position: 200% 50%;
@@ -61,21 +61,14 @@
   background-image: linear-gradient(
     90deg,
     var(--color-muted-foreground) 0%,
-    #8b5cf6 30%,
-    #d946ef 50%,
-    #8b5cf6 70%,
+    var(--color-foreground) 50%,
     var(--color-muted-foreground) 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: copilot-shimmer 2.2s linear infinite;
-}
-
-/* 欢迎页 orb 背后的径向微光 */
-.copilot-glow {
-  background: radial-gradient(closest-side, rgb(139 92 246 / 0.16), transparent 72%);
+  animation: copilot-shimmer 2.4s ease-in-out infinite;
 }
 
 /* 用户系统级「减弱动态效果」：动效直接关闭，流光文字回落为纯色 */
