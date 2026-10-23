@@ -84,7 +84,10 @@ class TestResolveSecretKey:
         assert isinstance(result, str)
 
     @patch.dict(
-        os.environ, {"DJANGO_SECRET_KEY": "a-very-long-secret-key-that-is-at-least-50-characters-long!!"}  # pragma: allowlist secret
+        os.environ,
+        {
+            "DJANGO_SECRET_KEY": "a-very-long-secret-key-that-is-at-least-50-characters-long!!"  # pragma: allowlist secret
+        },
     )
     def test_production_valid_key(self) -> None:
         result = _resolve_secret_key(True, "dev-secret")

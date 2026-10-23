@@ -239,7 +239,11 @@ class TestProperties:
 
     def test_api_key_from_config(self):
         config = BackendConfig(
-            name="test", enabled=True, priority=1, api_key="config-key", default_model="m"  # pragma: allowlist secret
+            name="test",
+            enabled=True,
+            priority=1,
+            api_key="config-key",  # pragma: allowlist secret
+            default_model="m",
         )
         backend = OpenAICompatibleBackend(config=config)
         assert backend.api_key == "config-key"  # pragma: allowlist secret

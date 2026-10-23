@@ -217,20 +217,32 @@ class TestDetectorDetect:
 class TestServiceFallback:
     def test_llm失败降级规则引擎并记录原因(self) -> None:
         pages = [
-            _page(1, "民事起诉状", top_candidates=[{
-                "segment_type": PdfSplitSegmentType.COMPLAINT,
-                "label": "起诉状",
-                "score": 0.8,
-                "matched_strong": ["起诉状"],
-                "matched_weak": [],
-            }]),
-            _page(2, "证据清单", top_candidates=[{
-                "segment_type": PdfSplitSegmentType.EVIDENCE_LIST,
-                "label": "证据清单及明细",
-                "score": 0.7,
-                "matched_strong": ["证据清单"],
-                "matched_weak": [],
-            }]),
+            _page(
+                1,
+                "民事起诉状",
+                top_candidates=[
+                    {
+                        "segment_type": PdfSplitSegmentType.COMPLAINT,
+                        "label": "起诉状",
+                        "score": 0.8,
+                        "matched_strong": ["起诉状"],
+                        "matched_weak": [],
+                    }
+                ],
+            ),
+            _page(
+                2,
+                "证据清单",
+                top_candidates=[
+                    {
+                        "segment_type": PdfSplitSegmentType.EVIDENCE_LIST,
+                        "label": "证据清单及明细",
+                        "score": 0.7,
+                        "matched_strong": ["证据清单"],
+                        "matched_weak": [],
+                    }
+                ],
+            ),
         ]
         service = PdfSplitService(llm_segment_detector=_RaisingDetector())
         drafts, summary = service._detect_segments_with_fallback(pages, template_key=TEMPLATE_KEY)

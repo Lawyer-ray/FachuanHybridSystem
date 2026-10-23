@@ -45,9 +45,7 @@ class TestDashboardServiceGetStats:
         with (
             patch("apps.core.services.dashboard_service._client_count", return_value=patches["_client_count"]),
             patch("apps.core.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
-            patch(
-                "apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
-            ),
+            patch("apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]),
             patch("apps.core.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
             patch(
                 "apps.core.services.dashboard_service._case_status_distribution",
@@ -55,9 +53,7 @@ class TestDashboardServiceGetStats:
             ),
             patch("apps.core.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.core.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch(
-                "apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
-            ),
+            patch("apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]),
             patch(
                 "apps.core.services.dashboard_service._upcoming_reminders",
                 return_value=patches["_upcoming_reminders"],
@@ -91,9 +87,7 @@ class TestDashboardServiceGetStats:
         with (
             patch("apps.core.services.dashboard_service._client_count", return_value=patches["_client_count"]),
             patch("apps.core.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
-            patch(
-                "apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
-            ),
+            patch("apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]),
             patch("apps.core.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
             patch(
                 "apps.core.services.dashboard_service._case_status_distribution",
@@ -101,9 +95,7 @@ class TestDashboardServiceGetStats:
             ),
             patch("apps.core.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.core.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch(
-                "apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
-            ),
+            patch("apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]),
             patch(
                 "apps.core.services.dashboard_service._upcoming_reminders",
                 return_value=patches["_upcoming_reminders"],
@@ -126,9 +118,7 @@ class TestDashboardServiceGetStats:
         with (
             patch("apps.core.services.dashboard_service._client_count", return_value=patches["_client_count"]),
             patch("apps.core.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
-            patch(
-                "apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
-            ),
+            patch("apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]),
             patch("apps.core.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
             patch(
                 "apps.core.services.dashboard_service._case_status_distribution",
@@ -136,9 +126,7 @@ class TestDashboardServiceGetStats:
             ),
             patch("apps.core.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.core.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch(
-                "apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
-            ),
+            patch("apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]),
             patch(
                 "apps.core.services.dashboard_service._upcoming_reminders",
                 return_value=patches["_upcoming_reminders"],
@@ -158,9 +146,7 @@ class TestDashboardServiceGetStats:
         with (
             patch("apps.core.services.dashboard_service._client_count", return_value=patches["_client_count"]),
             patch("apps.core.services.dashboard_service._contract_count", return_value=patches["_contract_count"]),
-            patch(
-                "apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]
-            ),
+            patch("apps.core.services.dashboard_service._case_type_stats", return_value=patches["_case_type_stats"]),
             patch("apps.core.services.dashboard_service._case_trend", return_value=patches["_case_trend"]),
             patch(
                 "apps.core.services.dashboard_service._case_status_distribution",
@@ -168,9 +154,7 @@ class TestDashboardServiceGetStats:
             ),
             patch("apps.core.services.dashboard_service._fee_stats", return_value=patches["_fee_stats"]),
             patch("apps.core.services.dashboard_service._contract_trend", return_value=patches["_contract_trend"]),
-            patch(
-                "apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]
-            ),
+            patch("apps.core.services.dashboard_service._reminder_counts", return_value=patches["_reminder_counts"]),
             patch(
                 "apps.core.services.dashboard_service._upcoming_reminders",
                 return_value=patches["_upcoming_reminders"],

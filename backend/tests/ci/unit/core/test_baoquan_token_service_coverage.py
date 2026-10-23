@@ -161,7 +161,11 @@ class TestAcquireBaoquanTokenHttpPath:
             patch("apps.core.services.wiring.get_court_token_store_service", return_value=mock_token_store),
             patch("asgiref.sync.sync_to_async", side_effect=mock_sync),
         ):
-            result = await svc._acquire_baoquan_token(account="acct", password="pwd", credential_id=7)  # pragma: allowlist secret
+            result = await svc._acquire_baoquan_token(
+                account="acct",
+                password="pwd",  # pragma: allowlist secret
+                credential_id=7,
+            )
 
         assert result == http_token
         mock_token_store.save_token_internal.assert_called_once()

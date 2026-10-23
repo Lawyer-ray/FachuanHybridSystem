@@ -101,8 +101,16 @@ class TestFindSlotPaths:
             template_type="case",
             structure={
                 "children": [
-                    {"id": "a", "name": "A", "children": [{"id": "a1", "name": "委托材料", "children": [], "kind": "power_of_attorney"}]},
-                    {"id": "b", "name": "B", "children": [{"id": "b1", "name": "5-委托材料", "children": [], "kind": "power_of_attorney"}]},
+                    {
+                        "id": "a",
+                        "name": "A",
+                        "children": [{"id": "a1", "name": "委托材料", "children": [], "kind": "power_of_attorney"}],
+                    },
+                    {
+                        "id": "b",
+                        "name": "B",
+                        "children": [{"id": "b1", "name": "5-委托材料", "children": [], "kind": "power_of_attorney"}],
+                    },
                 ]
             },
         )
@@ -113,7 +121,9 @@ class TestFindSlotPaths:
 
 
 class TestResolveBindingPath:
-    def test_slot_hit_derives_path(self, slot_poa: FolderSlot, folder_tpl: FolderTemplate, doc_poa: DocumentTemplate) -> None:
+    def test_slot_hit_derives_path(
+        self, slot_poa: FolderSlot, folder_tpl: FolderTemplate, doc_poa: DocumentTemplate
+    ) -> None:
         doc_poa.folder_slot = slot_poa
         binding = DocumentTemplateFolderBinding(
             document_template=doc_poa,
@@ -240,7 +250,9 @@ class TestGetDocumentPlacementsSlot:
         assert len(placements) == 1
         assert placements[0].folder_path == "一审/1-立案材料/3-委托材料"
 
-    def test_legacy_binding_without_slot_unchanged(self, folder_tpl: FolderTemplate, doc_contract: DocumentTemplate) -> None:
+    def test_legacy_binding_without_slot_unchanged(
+        self, folder_tpl: FolderTemplate, doc_contract: DocumentTemplate
+    ) -> None:
         DocumentTemplateFolderBinding.objects.create(
             document_template=doc_contract,
             folder_template=folder_tpl,
@@ -297,7 +309,9 @@ class TestBackfillCommand:
                 }
             ]
         }
-        tpl = FolderTemplate.objects.create(name="回填骨架", template_type="case", case_types=["civil"], structure=structure)
+        tpl = FolderTemplate.objects.create(
+            name="回填骨架", template_type="case", case_types=["civil"], structure=structure
+        )
         poa = DocumentTemplate.objects.create(
             name="授权委托书",
             template_type=DocumentTemplateType.CASE,
@@ -313,7 +327,10 @@ class TestBackfillCommand:
             file_path="fs.docx",
         )
         DocumentTemplateFolderBinding.objects.create(
-            document_template=poa, folder_template=tpl, folder_node_id="s3", folder_node_path="一审/1-立案材料/3-委托材料"
+            document_template=poa,
+            folder_template=tpl,
+            folder_node_id="s3",
+            folder_node_path="一审/1-立案材料/3-委托材料",
         )
         # 病理样本：佛山确认书一处绑到送达、两处绑到其他答辩材料
         DocumentTemplateFolderBinding.objects.create(

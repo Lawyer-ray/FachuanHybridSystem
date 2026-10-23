@@ -183,7 +183,11 @@ class TestPasswordPolicy:
         svc = LawyerMutationService(access_policy=access_policy, upload_service=MagicMock())
         lawyer = _make_lawyer()
         with pytest.raises(ValidationException):
-            svc.update_lawyer(lawyer, LawyerUpdateDTO(password="abc123"), _make_lawyer(id=99))  # pragma: allowlist secret
+            svc.update_lawyer(
+                lawyer,
+                LawyerUpdateDTO(password="abc123"),  # pragma: allowlist secret
+                _make_lawyer(id=99),
+            )
         lawyer.set_password.assert_not_called()
 
     def test_update_common_password_rejected(self, db: object) -> None:
@@ -192,7 +196,11 @@ class TestPasswordPolicy:
         svc = LawyerMutationService(access_policy=access_policy, upload_service=MagicMock())
         lawyer = _make_lawyer()
         with pytest.raises(ValidationException):
-            svc.update_lawyer(lawyer, LawyerUpdateDTO(password="password"), _make_lawyer(id=99))  # pragma: allowlist secret
+            svc.update_lawyer(
+                lawyer,
+                LawyerUpdateDTO(password="password"),  # pragma: allowlist secret
+                _make_lawyer(id=99),
+            )
         lawyer.set_password.assert_not_called()
 
     def test_create_weak_password_rejected(self, db: object) -> None:

@@ -109,16 +109,15 @@ class TestContractForeignKeyRowFilter:
         obj = ClientPaymentRecord(contract=other, amount=Decimal("100.00"))
 
         with pytest.raises(PermissionDenied):
-            ClientPaymentRecordAdmin(ClientPaymentRecord, AdminSite()).save_model(
-                request, obj, MagicMock(), False
-            )
+            ClientPaymentRecordAdmin(ClientPaymentRecord, AdminSite()).save_model(request, obj, MagicMock(), False)
 
     def test_get_cases_by_contract_view_denies_inaccessible_contract(self) -> None:
         """AJAX 案件列表端点对 contract_id 补行级校验：无权合同 → 403"""
         _mine, other, staff = self._setup_contracts()
         staff = _grant_contract_perm(staff, "view_clientpaymentrecord")
-        request = _make_request("/admin/contracts/clientpaymentrecord/get-cases-by-contract/", staff,
-                                data={"contract_id": str(other.pk)})
+        request = _make_request(
+            "/admin/contracts/clientpaymentrecord/get-cases-by-contract/", staff, data={"contract_id": str(other.pk)}
+        )
 
         with pytest.raises(PermissionDenied):
             ClientPaymentRecordAdmin(ClientPaymentRecord, AdminSite()).get_cases_by_contract_view(request)
@@ -126,8 +125,9 @@ class TestContractForeignKeyRowFilter:
     def test_get_cases_by_contract_view_allows_accessible_contract(self) -> None:
         mine, _other, staff = self._setup_contracts()
         staff = _grant_contract_perm(staff, "view_clientpaymentrecord")
-        request = _make_request("/admin/contracts/clientpaymentrecord/get-cases-by-contract/", staff,
-                                data={"contract_id": str(mine.pk)})
+        request = _make_request(
+            "/admin/contracts/clientpaymentrecord/get-cases-by-contract/", staff, data={"contract_id": str(mine.pk)}
+        )
 
         response = ClientPaymentRecordAdmin(ClientPaymentRecord, AdminSite()).get_cases_by_contract_view(request)
 
@@ -151,8 +151,12 @@ class TestContractAdminCustomViewsRowLevel:
 
     def test_reorder_materials_view_denies_inaccessible_contract(self) -> None:
         _mine, other, staff = self._setup()
-        request = _make_request(f"/admin/contracts/contract/{other.pk}/reorder-materials/", staff,
-                                method="post", data=json.dumps({"ids": [1]}))
+        request = _make_request(
+            f"/admin/contracts/contract/{other.pk}/reorder-materials/",
+            staff,
+            method="post",
+            data=json.dumps({"ids": [1]}),
+        )
 
         with pytest.raises(PermissionDenied):
             ContractAdmin(Contract, AdminSite()).reorder_materials_view(request, other.pk)
@@ -175,9 +179,7 @@ class TestContractAdminCustomViewsRowLevel:
             "/admin/contracts/contract/batch-folder-binding/save/",
             staff,
             method="post",
-            data=json.dumps(
-                {"case_type_roots": [], "contract_selections": [{"contract_id": other.pk, "apply": True}]}
-            ),
+            data=json.dumps({"case_type_roots": [], "contract_selections": [{"contract_id": other.pk, "apply": True}]}),
         )
 
         with pytest.raises(PermissionDenied):
