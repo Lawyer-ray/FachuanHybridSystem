@@ -241,6 +241,20 @@ describe('SessionSidebar：删除与顺位接管', () => {
 })
 
 describe('SessionSidebar：业务范围与用量（P1-1 / P1-2）', () => {
+  it('rail 形态带拖宽把手（180px 固定宽会把客户全称截断）', async () => {
+    const { container } = renderSidebar('rail')
+    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalled())
+    expect(container.querySelector('[data-testid="copilot-rail-handle"]')).not.toBeNull()
+    container.remove()
+  })
+
+  it('overlay 形态不带拖宽把手（覆盖层已占满面板宽）', async () => {
+    const { container } = renderSidebar('overlay')
+    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalled())
+    expect(container.querySelector('[data-testid="copilot-rail-handle"]')).toBeNull()
+    container.remove()
+  })
+
   it('始终拉全量列表并带 limit（不按 scope 过滤：进项目也要能看到别的项目）', async () => {
     storeMock.context = { origin: 'contract', refId: 386, title: '张三委托' }
     const { container } = renderSidebar()

@@ -46,14 +46,22 @@ function ToolRow({ message }: { message: ChatMessage }) {
 
 function ThinkingBlock({ message }: { message: ChatMessage }) {
   const thinking = message.thinking ?? ''
-  if (!thinking) return null
-  // 思考中自动展开（让用户看到实时推理），思考结束（正文已开始）自动收起，
-  // 但保留手动展开能力。用 details + open 受控会打断用户手动操作，
-  // 所以只用 defaultOpen 决定初始态。
   const thinkingNow = !message.thinkingDone
+  // 思考结束自动收起：<details open> 是**静态属性**，只在挂载时生效——
+  // 思考中以 open=true 挂载后，prop 变 false 也不会收起，于是正文开始后
+  // 那片 396 字的思考内容继续占着 max-h-56，读起来就是一大块空白。
+  // 改为受控：用 state 跟踪「用户是否手动改过」，没改过就跟随思考状态。
+  const [userToggled, setUserToggled] = useState<boolean | null>(null)
+  const open = userToggled ?? thinkingNow
+  useEffect(() => {
+    // 思考结束的那一刻清掉手动状态，回落到自动收起
+    if (message.thinkingDone) setUserToggled((v) => (v === null ? v : null))
+  }, [message.thinkingDone])
+  if (!thinking) return null
   return (
     <details
-      open={thinkingNow}
+      open={open}
+      onToggle={(e) => setUserToggled(e.currentTarget.open)}
       className="mb-1.5 rounded-[10px] border border-dashed border-border bg-secondary/30 px-2.5 py-1.5"
     >
       <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">

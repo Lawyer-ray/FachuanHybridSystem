@@ -26,6 +26,7 @@ import { Briefcase, ChevronRight, Clock3, MessageSquare, Pencil, Plus, Scale, Tr
 
 import { deleteSession, getUsageSummary, listSessions, renameSession } from '../api'
 import { groupSessions, taskBadge } from '../domain'
+import { useRailResize } from '../hooks/use-rail-resize'
 import { useCopilot } from '../store'
 import type { AgentSession, SessionGroup } from '../types'
 import {
@@ -274,15 +275,19 @@ function SessionGroupBlock({
 export function SessionSidebar({
   variant,
   onClose,
+  panelWidth = 0,
 }: {
   variant: 'rail' | 'overlay'
   onClose?: () => void
+  /** 所属面板宽度（rail 形态用它钳制侧栏可拖上限，保证对话区留够宽度） */
+  panelWidth?: number
 }) {
   const sessionId = useCopilot((s) => s.sessionId)
   const context = useCopilot((s) => s.context)
   const switchSession = useCopilot((s) => s.switchSession)
   const queryClient = useQueryClient()
   const [confirmTarget, setConfirmTarget] = useState<AgentSession | null>(null)
+  const { width: railWidth, setRailRef, onHandlePointerDown } = useRailResize(panelWidth)
 
   // 始终拉全量（后端按 updated_at 降序 + 注水 scope_name），侧栏按项目分组。
   // 不再按 scope 过滤：过滤后别的项目会话就消失了，与「项目=文件夹」不符。
@@ -316,13 +321,30 @@ export function SessionSidebar({
     },
   })
 
-  const rootClass =
-    variant === 'rail'
-      ? 'flex w-[180px] flex-none flex-col border-r border-border bg-card'
-      : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200'
+  const isRail = variant === 'rail'
+  const rootClass = isRail
+    ? 'relative flex flex-none flex-col border-r border-border bg-card'
+    : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200'
 
   return (
-    <div className={rootClass}>
+    <div
+      className={rootClass}
+      ref={isRail ? setRailRef : undefined}
+      // rail 宽度走 CSS 变量：拖动中直改它，不触发整树重渲染
+      style={isRail ? ({ '--copilot-rail-w': `${railWidth}px`, width: 'var(--copilot-rail-w)' } as React.CSSProperties) : undefined}
+    >
+      {isRail && (
+        /* 右缘拖宽把手：默认 180px 时客户全称被截成（委托方全称被截断），
+           隔着几个项目分不清；拖宽即可读全名（宽度持久化） */
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整会话列表宽度"
+          className="absolute top-0 right-0 bottom-0 z-30 w-1.5 translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-foreground/20"
+          onPointerDown={onHandlePointerDown}
+          data-testid="copilot-rail-handle"
+        />
+      )}
       <header className="flex h-10 flex-none items-center gap-2 border-b border-border px-3">
         <span className="text-[12.5px] font-semibold text-foreground">对话</span>
         {variant === 'overlay' && (
