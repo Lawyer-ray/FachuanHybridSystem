@@ -115,8 +115,16 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   switchSession: async (id) => {
     const prev = get()
-    // 同会话且视图已就绪：不重复拉取、不播切换动画（stop 后的重拉 streaming 仍为 true，放行）
-    if (id === prev.sessionId && !prev.streaming && (id !== null || prev.messages.length === 0)) return
+    // 同会话且**视图已就绪**才跳过：不重复拉取、不播切换动画
+    // （stop 后的重拉 streaming 仍为 true，放行）。
+    //
+    // 原条件 `(id !== null || prev.messages.length === 0)` 在 id 非空时恒真，
+    // 等于「同 id 就跳过」——刷新页面后 store 从 localStorage 恢复了 sessionId
+    // 但 messages 还是空数组，面板挂载时调 switchSession(同一个 id) 被直接
+    // return，历史永远不加载，表现为「侧栏选中着会话、主区域却是欢迎页，
+    // 发了消息才突然出现旧内容」。就绪的判据是「已有正文」而不是「id 相同」。
+    const hasView = prev.messages.length > 0 || prev.loadingHistory
+    if (id === prev.sessionId && !prev.streaming && (id === null || hasView)) return
     get().stop()
     withViewTransition(() => {
       set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [] })

@@ -279,4 +279,33 @@ describe('copilot store：发送与流式转录', () => {
     // 消息不得被推进用户未选择的会话
     expect(useCopilot.getState().messages).toEqual([])
   })
+
+  it('刷新后恢复历史：同 id 但 messages 为空时必须真的去拉（回归）', async () => {
+    // 模拟刷新：store 从 localStorage 恢复 sessionId，但 messages 还是空的
+    useCopilot.setState({ sessionId: 's-restored', messages: [], loadingHistory: false, streaming: false })
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([
+      { message_id: 1, role: 'user', content: '你谁啊', created_at: '', metadata: {} },
+      { message_id: 2, role: 'assistant', content: '我是助手', created_at: '', metadata: {} },
+    ] as AgentHistoryMessage[])
+
+    // 面板挂载时正是这样调：id 与当前 sessionId 相同
+    await useCopilot.getState().switchSession('s-restored')
+
+    // 修复前这里被提前 return 短路，fetchHistory 一次都没调
+    expect(copilotApi.fetchHistory).toHaveBeenCalledWith('s-restored')
+    expect(useCopilot.getState().messages).toHaveLength(2)
+    expect(useCopilot.getState().messages[0]?.content).toBe('你谁啊')
+  })
+
+  it('已就绪的同会话不重复拉取（切回来不闪、不重复请求）', async () => {
+    useCopilot.setState({
+      sessionId: 's-ready',
+      messages: [{ id: 'm1', role: 'user', content: '在的' }],
+      loadingHistory: false,
+      streaming: false,
+    })
+    vi.mocked(copilotApi.fetchHistory).mockClear()
+    await useCopilot.getState().switchSession('s-ready')
+    expect(copilotApi.fetchHistory).not.toHaveBeenCalled()
+  })
 })
