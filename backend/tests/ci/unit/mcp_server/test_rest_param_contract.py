@@ -37,6 +37,11 @@ RAW_PAYLOAD_ALLOWLIST: dict[str, set[str]] = {
     "/image-rotation/export": {"images", "paper_size", "rename_map"},
     # OA 客户导入:无 schema 声明,实现从 request.body 裸读 headless/limit
     "/client-import": {"headless", "limit"},
+    # 批量创建(案件/客户导入):无 schema,实现从 request.body 裸读 cases/customers
+    "/api/v1/case-import/{session_id}/batch-create": {"cases"},
+    "/api/v1/client-import/{session_id}/batch-create": {"customers"},
+    # 占位符预览:GET keys 过滤,实现从 request.GET 裸读
+    "/api/v1/documents/placeholders/preview/{contract_id}": {"keys"},
 }
 
 _VERBS = {"get": "get", "post": "post", "put": "put", "delete": "delete", "patch": "patch", "upload": "post", "download": "post"}
@@ -65,9 +70,19 @@ def _declared_params(spec: Any, api_path: str, verb: str) -> set[str] | None:
         node: Any = spec
         for part in schema["$ref"].split("/")[1:]:
             node = node[part]
-        declared.update((node.get("properties") or {}).keys())
-    elif isinstance(schema.get("properties"), dict):
+        schema = node
+    if isinstance(schema.get("properties"), dict):
         declared.update(schema["properties"].keys())
+    elif isinstance(schema.get("anyOf"), list) or isinstance(schema.get("oneOf"), list):
+        # Optional body 参数(payload: X | None = None)会被 ninja 包成 anyOf[X, null]
+        for sub in schema.get("anyOf", []) + schema.get("oneOf", []):
+            if "$ref" in sub:
+                node: Any = spec
+                for part in sub["$ref"].split("/")[1:]:
+                    node = node[part]
+                declared.update((node.get("properties") or {}).keys())
+            elif isinstance(sub.get("properties"), dict):
+                declared.update(sub["properties"].keys())
     return declared
 
 
@@ -78,7 +93,7 @@ def _match_fstring_path(spec: Any, fstring: ast.JoinedStr) -> str | None:
     模板名不必一致（工具侧变量名 vs OpenAPI 参数名）,按段数与字面段
     全等匹配;多义/零匹配返回 None（跳过,宁漏勿误报）。
     """
-    segs: list[str] = []  # 字面段原文;占位段记 "\x00"
+    segs: list[str] = ["api", "v1"]  # 工具路径不带 /api/v1 前缀,补齐后再逐段比
     for part in fstring.values:
         if isinstance(part, ast.Constant):
             segs.extend(str(part.value).split("/"))
@@ -207,6 +222,9 @@ def test_allowlist_paths_still_undeclared() -> None:
         "/image-rotation/export-pdf": "post",
         "/image-rotation/export": "post",
         "/client-import": "post",
+        "/api/v1/case-import/{session_id}/batch-create": "post",
+        "/api/v1/client-import/{session_id}/batch-create": "post",
+        "/api/v1/documents/placeholders/preview/{contract_id}": "get",
     }
     full = _openapi_spec()
     for path, verb in spec.items():

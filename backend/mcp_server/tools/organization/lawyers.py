@@ -83,7 +83,12 @@ def update_lawyer(
     lawyer_team_ids: list[int] | None = None,
     biz_team_ids: list[int] | None = None,
 ) -> dict[str, Any]:
-    """更新律师信息。只传需要修改的字段，未传字段不修改。"""
+    """更新律师信息。只传需要修改的字段，未传字段不修改。
+
+    与 create_lawyer 同理:端点带 File() 参数(PDF/头像)是 multipart
+    形状,表单单一 ``payload`` 字段装 JSON 串——直接发扁平 JSON 会 422
+    (2026-10-25 修复前该工具从未成功过)。
+    """
     payload: dict[str, Any] = {}
     if real_name is not None:
         payload["real_name"] = real_name
@@ -103,7 +108,7 @@ def update_lawyer(
         payload["lawyer_team_ids"] = lawyer_team_ids
     if biz_team_ids is not None:
         payload["biz_team_ids"] = biz_team_ids
-    return client.put(f"/organization/lawyers/{lawyer_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/organization/lawyers/{lawyer_id}", data={"payload": json.dumps(payload)})  # type: ignore[return-value]
 
 
 def delete_lawyer(lawyer_id: int) -> None:

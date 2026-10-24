@@ -53,9 +53,13 @@ def update_reminder(
     reminder_type: str | None = None,
     content: str | None = None,
     due_at: str | None = None,
-    is_done: bool | None = None,
 ) -> dict[str, Any]:
-    """更新提醒（改内容/时间/完成状态）。只传需要修改的字段。"""
+    """更新提醒（改内容/时间/类型）。只传需要修改的字段。
+
+    完成/取消完成走 ``complete_reminders``（批量接口）——旧签名的
+    ``is_done`` 参数从未生效（端点 ``ReminderUpdate`` 无此字段,
+    2026-10-25 移除）。
+    """
     payload: dict[str, Any] = {}
     if reminder_type is not None:
         payload["reminder_type"] = reminder_type
@@ -63,8 +67,6 @@ def update_reminder(
         payload["content"] = content
     if due_at is not None:
         payload["due_at"] = due_at
-    if is_done is not None:
-        payload["is_done"] = is_done
     return client.put(f"/reminders/{reminder_id}", json=payload)  # type: ignore[return-value]
 
 
