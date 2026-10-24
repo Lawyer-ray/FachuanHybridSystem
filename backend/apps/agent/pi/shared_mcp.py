@@ -275,6 +275,11 @@ def write_pi_config(
             # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；
             # 按需加载的灰度实验见 resolve_exposure / FACHUAN_MCP_EXPOSURE。
             "exposure": exposure,
+            # pi 每请求默认 60s 超时，会先于 client 侧 LLM 链路工具的 180s
+            # （见 tools/documents/litigation.py 等 12 处 timeout=180）掐断——
+            # 双端超时必须 pi > client，否则 client 的努力全部作废。200 给
+            # 传输层留余量；工具发 progress notifications 可重置该计时。
+            "timeout": 200,
         }
     else:
         server = {
@@ -283,6 +288,7 @@ def write_pi_config(
             "cwd": str(_backend_dir()),
             # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
             "exposure": exposure,
+            "timeout": 200,
         }
     config_path.write_text(
         json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
@@ -370,6 +376,11 @@ def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = N
             # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；
             # 按需加载的灰度实验见 resolve_exposure / FACHUAN_MCP_EXPOSURE。
             "exposure": exposure,
+            # pi 每请求默认 60s 超时，会先于 client 侧 LLM 链路工具的 180s
+            # （见 tools/documents/litigation.py 等 12 处 timeout=180）掐断——
+            # 双端超时必须 pi > client，否则 client 的努力全部作废。200 给
+            # 传输层留余量；工具发 progress notifications 可重置该计时。
+            "timeout": 200,
         }
     else:
         server = {
@@ -378,6 +389,7 @@ def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = N
             "cwd": str(_backend_dir()),
             # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
             "exposure": exposure,
+            "timeout": 200,
         }
     config_path.write_text(
         json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),

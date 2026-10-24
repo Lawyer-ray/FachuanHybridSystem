@@ -83,3 +83,31 @@ class TestWritePiMcpConfig:
         write_pi_mcp_config(tmp_path)
 
         assert _load(tmp_path)["exposure"] == "direct"
+
+
+class TestMcpTimeout:
+    """pi 侧每请求超时必须 > client 侧 LLM 工具的 180s。
+
+    pi 默认 60s 会先掐断（工具侧 180 的努力作废）——mcp.json 必须显式
+    写 timeout。双端超时关系见 shared_mcp.write_pi_config 注释。
+    """
+
+    def test_shared_mode_writes_timeout_over_180(self, tmp_path, monkeypatch):
+        import json
+
+        from apps.agent.pi import shared_mcp
+
+        monkeypatch.setenv("FACHUAN_MCP_SHARED", "1")
+        path = shared_mcp.write_pi_config(tmp_path / "cfg")
+        cfg = json.loads(path.read_text())
+        assert cfg["mcpServers"]["fachuan"]["timeout"] > 180
+
+    def test_stdio_mode_writes_timeout_over_180(self, tmp_path, monkeypatch):
+        import json
+
+        from apps.agent.pi import shared_mcp
+
+        monkeypatch.setenv("FACHUAN_MCP_SHARED", "0")
+        path = shared_mcp.write_pi_config(tmp_path / "cfg2")
+        cfg = json.loads(path.read_text())
+        assert cfg["mcpServers"]["fachuan"]["timeout"] > 180
