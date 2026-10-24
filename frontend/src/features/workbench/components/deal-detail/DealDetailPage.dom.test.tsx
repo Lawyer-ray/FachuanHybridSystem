@@ -510,28 +510,15 @@ describe('DealDetailPage：占位动作按钮', () => {
     }
   })
 
-  it('页头「AI 助手」按钮只打开全局侧边栏（派发启动事件并带委托上下文，页面内不再有嵌入对话区）', async () => {
-    // 宽屏下同样走全局面板：页面内不再重复一套对话区
+  it('页头不放 AI 助手入口（只在导航栏），也不挂嵌入对话区与拖拽把手', async () => {
     media.set('(min-width: 1280px)', true)
     setupUi()
     await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
 
-    const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+    const aiBtns = Array.from(document.querySelectorAll('button')).filter((b) =>
       (b.textContent ?? '').includes('AI 助手'),
     )
-    expect(btn).toBeTruthy()
-
-    const launched = vi.fn()
-    window.addEventListener('copilot:launch', launched)
-    fireEvent.click(btn!)
-    window.removeEventListener('copilot:launch', launched)
-
-    expect(launched).toHaveBeenCalledTimes(1)
-    const detail = (launched.mock.calls[0]?.[0] as CustomEvent).detail as Record<string, unknown>
-    expect(detail.origin).toBe('contract')
-    expect(typeof detail.refId).toBe('number')
-
-    // 页面内没有任何 AI 对话区/拖拽把手
+    expect(aiBtns).toHaveLength(0)
     expect(document.querySelector('[role="separator"][aria-label="调整 AI 工作区宽度"]')).toBeNull()
   })
 

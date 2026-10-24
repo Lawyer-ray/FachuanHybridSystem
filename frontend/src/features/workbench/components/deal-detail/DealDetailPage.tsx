@@ -16,7 +16,6 @@ import {
 } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
-import { openCopilot } from '@/features/copilot/launch'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
@@ -98,13 +97,12 @@ export function DealDetailPage() {
         deal={deal}
         onAddDue={onAddDue}
         onAddLog={onAddLog}
-        onOpenAi={() => openCopilot({ origin: 'contract', refId: deal.id, title: deal.client })}
       />
 
       <ChainStepper steps={steps} summary={chainSummary(plan)} onJump={jump} />
 
-      {/* AI 助手只在壳层的全局侧边栏（CopilotPanel），页面内不再重复一套对话区：
-          页头按钮 / ⌘J 打开同一个面板，面板自带本委托上下文与会话列表 */}
+      {/* AI 助手入口只在导航栏（全局侧边栏 CopilotPanel，⌘J 同效）：页面内既不挂
+          对话区、页头也不放按钮，避免与导航栏入口重复 */}
       <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]">
         <div className="min-w-0">
           {d.casesError ? (
