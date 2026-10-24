@@ -15,6 +15,7 @@ def list_cases(
     case_number: str | None = None,
     contract_id: int | None = None,
     limit: int = 40,
+    offset: int = 0,
     fields: list[str] | None = None,
     full: bool = False,
 ) -> dict[str, Any]:
@@ -32,6 +33,8 @@ def list_cases(
         contract_id: 按所属合同筛选。
         limit: 最多返回条数，默认 40（投影后约 0.4KB/条,40 条 ≈ 17KB——
             pi 对工具输出 20KB 起腰斩,默认调用应留在截断线内）,上限 2000。
+        offset: 跳过前 offset 条再取——truncated=true 时续取翻页用
+            (第 N 页传 offset=N×limit)。
         fields: 只返回这些字段；不传用默认投影。
         full: True 时返回后端完整结构（含当事人、日志等全部嵌套）。
 
@@ -51,6 +54,7 @@ def list_cases(
     if limit:
         # limit+1 探测:多取一条判断「还有更多」;truncated=True 时 total 是下界
         params["limit"] = max(1, min(limit + 1, 2000))
+    params["offset"] = max(0, offset)
     rows: list[Any] = client.get("/cases/cases", params=params)
     return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=full), limit=limit)
 

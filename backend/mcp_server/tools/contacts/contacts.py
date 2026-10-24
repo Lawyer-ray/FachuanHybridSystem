@@ -8,13 +8,19 @@ from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
 
-def list_contacts(case_id: int | None = None, stage: str | None = None, limit: int = 50) -> dict[str, Any]:
+def list_contacts(case_id: int | None = None, stage: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """获取案件联系人列表，可按案件ID和阶段筛选。
 
     limit 默认 50——REST 端点默认 1000 是给前端表格的,对模型上下文过大;
-    需要更多结果时显式调大。
+    truncated=true 时用 offset 续取(第 N 页传 offset=N×limit),或换更窄筛选。
+
+    Args:
+        case_id: 按案件筛选。
+        stage: 按诉讼阶段筛选(如 一审/二审/执行)。
+        limit: 最多返回条数(默认 50)。
+        offset: 跳过前 offset 条再取——续取翻页用。
     """
-    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
+    params: dict[str, Any] = {"limit": limit + 1, "offset": offset}  # limit+1 探测:知还有更多
     if case_id is not None:
         params["case_id"] = case_id
     if stage is not None:

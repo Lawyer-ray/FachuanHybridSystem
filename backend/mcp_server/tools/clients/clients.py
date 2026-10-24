@@ -13,13 +13,21 @@ def list_clients(
     client_type: str | None = None,
     is_our_client: bool | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """查询客户列表。支持按姓名/公司名搜索（search）、客户类型（client_type：natural/legal/non_legal_org）、是否我方客户（is_our_client）筛选。
 
     limit 默认 50（REST 默认 1000 是给前端表格的,对模型上下文过大）;
-    需要更多结果时显式调大,上限 2000。
+    truncated=true 时用 offset 续取(第 N 页传 offset=N×limit),或换更窄筛选。
+
+    Args:
+        search: 姓名/公司名关键词。
+        client_type: 客户类型——natural(自然人)/legal(法人)/non_legal_org(非法人组织)。
+        is_our_client: 是否我方客户。
+        limit: 最多返回条数(默认 50),上限 2000。
+        offset: 跳过前 offset 条再取——续取翻页用。
     """
-    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
+    params: dict[str, Any] = {"limit": limit + 1, "offset": offset}  # limit+1 探测:知还有更多
     if search:
         params["search"] = search
     if client_type:
@@ -100,14 +108,23 @@ def list_clients_with_docs(
     is_our_client: bool | None = None,
     search: str | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """按条件列出客户（MCP 场景无法附带文档上传，仅做查询）。
 
     实际委托 ``GET /client/clients``（REST 返回裸数组,工具侧包成
     ``{total, items}`` 信封）。名字里的 ``with_docs`` 是历史命名，工具本身
-    不返回文档。limit 默认 50（见 ``list_clients``）。
+    不返回文档。limit 默认 50（见 ``list_clients``）;truncated=true 时用
+    offset 续取。
+
+    Args:
+        client_type: 客户类型——natural/legal/non_legal_org。
+        is_our_client: 是否我方客户。
+        search: 姓名/公司名关键词。
+        limit: 最多返回条数(默认 50)。
+        offset: 跳过前 offset 条再取——续取翻页用。
     """
-    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
+    params: dict[str, Any] = {"limit": limit + 1, "offset": offset}  # limit+1 探测:知还有更多
     if client_type is not None:
         params["client_type"] = client_type
     if is_our_client is not None:

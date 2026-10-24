@@ -13,14 +13,22 @@ def list_inbox_messages(
     has_attachments: bool | None = None,
     search: str | None = None,
     limit: int = 30,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """查询收件箱消息列表。可按来源（source_id）、是否有附件（has_attachments）、关键词（search）筛选。
 
     limit 默认 30（实测约 0.57KB/条,30 条 ≈ 17KB——pi 对工具输出 20KB 起
     腰斩,默认调用应留在截断线内;REST 端点默认 500 是给前端收件箱的）;
-    需要更多结果时显式调大。
+    truncated=true 时用 offset 续取(第 N 页传 offset=N×limit),或换更窄筛选。
+
+    Args:
+        source_id: 按消息来源筛选。
+        has_attachments: 按是否有附件筛选。
+        search: 主题/发件人/正文关键词。
+        limit: 最多返回条数(默认 30)。
+        offset: 跳过前 offset 条再取——续取翻页用。
     """
-    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
+    params: dict[str, Any] = {"limit": limit + 1, "offset": offset}  # limit+1 探测:知还有更多
     if source_id is not None:
         params["source_id"] = source_id
     if has_attachments is not None:

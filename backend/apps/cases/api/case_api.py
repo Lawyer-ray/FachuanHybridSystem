@@ -87,6 +87,7 @@ async def list_cases(  # pragma: no cover
     case_number: str | None = None,
     contract_id: int | None = None,
     limit: int | None = None,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）
 
@@ -94,6 +95,7 @@ async def list_cases(  # pragma: no cover
     - 显式传 limit 时按它截断，上限 2000（向后兼容，上限内任意 limit 均生效）；
     - 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），
       防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。
+    - offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。
     """
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
@@ -101,6 +103,7 @@ async def list_cases(  # pragma: no cover
         effective_limit: int | None = max(1, min(limit, CASES_MAX_LIMIT))
     else:
         effective_limit = CASES_DEFAULT_LIMIT
+    bounded_offset = max(0, offset)
 
     def _do() -> list[dict[str, Any]]:
         if case_number:
@@ -121,7 +124,8 @@ async def list_cases(  # pragma: no cover
                 org_access=ctx.org_access,
                 perm_open_access=ctx.perm_open_access,
             )
-            raw = list(qs[:effective_limit]) if effective_limit is not None else list(qs)
+            sliced = qs[bounded_offset : bounded_offset + effective_limit] if effective_limit is not None else qs
+            raw = list(sliced)
         return [_serialize_case(c) for c in raw]
 
     return await sync_to_async(_do)()
