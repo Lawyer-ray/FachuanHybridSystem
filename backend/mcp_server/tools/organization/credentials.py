@@ -20,9 +20,9 @@ def list_credentials(
     return client.get("/organization/credentials", params=params)  # type: ignore[no-any-return]
 
 
-def get_credential(cred_id: int) -> dict[str, Any]:
+def get_credential(credential_id: int) -> dict[str, Any]:
     """获取单个账号凭证详情（站点、账号;密码不回显）。"""
-    return client.get(f"/organization/credentials/{cred_id}")  # type: ignore[no-any-return]
+    return client.get(f"/organization/credentials/{credential_id}")  # type: ignore[no-any-return]
 
 
 def create_credential(
@@ -52,7 +52,7 @@ def create_credential(
 
 
 def update_credential(
-    cred_id: int,
+    credential_id: int,
     site_name: str | None = None,
     url: str | None = None,
     account: str | None = None,
@@ -68,9 +68,9 @@ def update_credential(
         payload["account"] = account
     if password is not None:
         payload["password"] = password
-    return client.put(f"/organization/credentials/{cred_id}", json=payload)  # type: ignore[no-any-return]
+    return client.put(f"/organization/credentials/{credential_id}", json=payload)  # type: ignore[no-any-return]
 
 
-def delete_credential(cred_id: int) -> None:
+def delete_credential(credential_id: int) -> None:
     """删除账号凭证——硬删除,不可恢复;依赖它的自动化任务将无法登录。"""
-    client.delete(f"/organization/credentials/{cred_id}")
+    client.delete(f"/organization/credentials/{credential_id}")

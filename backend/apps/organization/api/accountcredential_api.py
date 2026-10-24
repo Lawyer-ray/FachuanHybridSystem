@@ -37,9 +37,9 @@ def list_credentials(  # pragma: no cover
     )
 
 
-@router.get("/credentials/{cred_id}", response=AccountCredentialOut)
-def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:  # pragma: no cover
-    return _credential_service.get_credential(cred_id, user=get_request_user(request))  # type: ignore[return-value]
+@router.get("/credentials/{credential_id}", response=AccountCredentialOut)
+def get_credential(request: HttpRequest, credential_id: int) -> AccountCredentialOut:  # pragma: no cover
+    return _credential_service.get_credential(credential_id, user=get_request_user(request))  # type: ignore[return-value]
 
 
 @router.post("/credentials", response=AccountCredentialOut)
@@ -55,9 +55,9 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
     return AccountCredentialOut.from_orm(credential)
 
 
-@router.put("/credentials/{cred_id}", response=AccountCredentialOut)
+@router.put("/credentials/{credential_id}", response=AccountCredentialOut)
 def update_credential(
-    request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn
+    request: HttpRequest, credential_id: int, payload: AccountCredentialUpdateIn
 ) -> AccountCredentialOut:  # pragma: no cover
     dto = AccountCredentialUpdateDTO(
         site_name=payload.site_name,
@@ -66,14 +66,14 @@ def update_credential(
         password=payload.password,
     )
     credential = _credential_service.update_credential(
-        credential_id=cred_id,
+        credential_id=credential_id,
         data=dto,
         user=get_request_user(request),
     )
     return AccountCredentialOut.from_orm(credential)
 
 
-@router.delete("/credentials/{cred_id}")
-def delete_credential(request: HttpRequest, cred_id: int) -> dict[str, bool]:  # pragma: no cover
-    _credential_service.delete_credential(cred_id, user=get_request_user(request))
+@router.delete("/credentials/{credential_id}")
+def delete_credential(request: HttpRequest, credential_id: int) -> dict[str, bool]:  # pragma: no cover
+    _credential_service.delete_credential(credential_id, user=get_request_user(request))
     return {"success": True}
