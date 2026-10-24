@@ -1,7 +1,7 @@
 /**
  * 面板拖拽投放（双通道）：内部拖拽（目录树 → 输入区）走自定义 MIME
  * （FOLDER_REF_MIME）成引用；系统外文件走原生 Files 通道进上传流。
- * 浮层面板（CopilotPanel）与详情页嵌入面板（CopilotEmbed）共用。
+ * 浮层面板（CopilotPanel）使用。
  *
  * dragenter/over 必须 preventDefault 才能触发 drop；计数器法处理子元素
  * 间的 enter/leave 抖动。流式/上传在途不收件（与回形针按钮同口径）。

@@ -9,14 +9,6 @@
 export { CopilotPanel } from './components/CopilotPanel'
 
 /**
- * 业务详情页的嵌入式 AI 助手（详情页右栏专属对话区，与浮层共享 store）。
- * 跨 feature 使用请走 `lazy(() => import('@/features/copilot').then(...))`，
- * 与 AppShell 挂 CopilotPanel 同款——静态引入会把 copilot 域拖进使用方
- * chunk，破坏懒加载边界。
- */
-export { CopilotEmbed } from './components/CopilotEmbed'
-
-/**
  * AI 助手面板的背景压暗遮罩（非模态 dock 只在窄视口下才生效，见组件注释）。
  * 由 AppShell 与面板并列渲染：它不占布局，但需要自己跟面板的挂载/卸载
  * 同步，才能把 fade-out 播完。

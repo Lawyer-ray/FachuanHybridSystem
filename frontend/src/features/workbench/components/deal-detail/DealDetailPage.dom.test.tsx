@@ -12,12 +12,6 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// 右栏「AI 助手」tab 懒加载 copilot 域：mock 掉整域（动态 import 同样被拦截），
-// 只留一个可断言的占位——真实嵌入面板有专属 dom 测试
-vi.mock('@/features/copilot', () => ({
-  CopilotEmbed: () => <div data-testid="copilot-embed">嵌入面板</div>,
-}))
-
 vi.mock('../../api', () => ({
   getContract: vi.fn(),
   listLawyers: vi.fn(),
@@ -274,8 +268,7 @@ beforeEach(() => {
   )
 })
 
-// jsdom 未实现 window.matchMedia：替身默认全 false（窄屏），单个用例内
-// set('(min-width: 1280px)', true) 切宽屏来展开 AI 工作区
+// jsdom 未实现 window.matchMedia：页面布局已不依赖断点，替身仅保证调用不抛错
 const media = installMatchMediaStub()
 
 afterEach(() => {
@@ -517,7 +510,9 @@ describe('DealDetailPage：占位动作按钮', () => {
     }
   })
 
-  it('窄屏页头「AI 助手」按钮回落全局浮层（派发启动事件并带委托上下文）', async () => {
+  it('页头「AI 助手」按钮只打开全局侧边栏（派发启动事件并带委托上下文，页面内不再有嵌入对话区）', async () => {
+    // 宽屏下同样走全局面板：页面内不再重复一套对话区
+    media.set('(min-width: 1280px)', true)
     setupUi()
     await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
 
@@ -530,39 +525,14 @@ describe('DealDetailPage：占位动作按钮', () => {
     window.addEventListener('copilot:launch', launched)
     fireEvent.click(btn!)
     window.removeEventListener('copilot:launch', launched)
+
     expect(launched).toHaveBeenCalledTimes(1)
     const detail = (launched.mock.calls[0]?.[0] as CustomEvent).detail as Record<string, unknown>
     expect(detail.origin).toBe('contract')
     expect(typeof detail.refId).toBe('number')
-  })
 
-  it('宽屏页头「AI 助手」展开专属工作区（页面第三列，不再弹浮层），再点收起', async () => {
-    media.set('(min-width: 1280px)', true)
-    setupUi()
-    await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
-
-    // 初始收起：只有委托档案（两列），工作区未挂载
-    expect(document.querySelector('[data-testid="copilot-embed"]')).toBeNull()
+    // 页面内没有任何 AI 对话区/拖拽把手
     expect(document.querySelector('[role="separator"][aria-label="调整 AI 工作区宽度"]')).toBeNull()
-
-    const headerBtn = Array.from(document.querySelectorAll('button')).find((b) =>
-      (b.textContent ?? '').includes('AI 助手'),
-    )
-    expect(headerBtn).toBeTruthy()
-
-    const launched = vi.fn()
-    window.addEventListener('copilot:launch', launched)
-    fireEvent.click(headerBtn!)
-    window.removeEventListener('copilot:launch', launched)
-
-    // 展开专属工作区而非派发浮层启动事件
-    expect(launched).not.toHaveBeenCalled()
-    await waitFor(() => expect(document.querySelector('[data-testid="copilot-embed"]')).not.toBeNull())
-    expect(document.querySelector('[role="separator"][aria-label="调整 AI 工作区宽度"]')).not.toBeNull()
-
-    // 再点收起
-    fireEvent.click(headerBtn!)
-    await waitFor(() => expect(document.querySelector('[data-testid="copilot-embed"]')).toBeNull())
   })
 
   it('右栏「记收款」可点（占位提示，不抛错）', async () => {
