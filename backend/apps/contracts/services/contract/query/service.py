@@ -135,12 +135,19 @@ class ContractQueryService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         slim: bool = False,
+        include_facets: bool = True,
     ) -> dict[str, Any]:
         """分页列表（服务端分页，前端不再全量拉）。
 
         排序沿用办案主页口径「离今天最近」：|end_date - 今天| 升序、无到期沉底。
-        facets 计数固定全库口径（与旧客户端筛选行为一致），三条 group by 很便宜。
+        facets 计数固定全库口径（与旧客户端筛选行为一致）。
         slim=True 时 queryset 不预取归档材料/收款记录（序列化侧同步跳过）。
+
+        include_facets=False 时跳过 facets 的四次全表聚合，只回 total/items：
+        facets 是**全库口径**、与页码无关，翻页时逐页重算纯属浪费（每次多 4 条
+        count/group-by 全表扫描，其中 contract_facets 还要重建 base queryset 并
+        再跑一次 access_policy 的 OR JOIN）。前端首屏/改筛选时传 True，翻页传
+        False 并复用已有计数。默认 True 保持既有调用方行为不变。
         """
         qs = (
             self.get_contract_queryset(slim=slim)
@@ -159,7 +166,11 @@ class ContractQueryService:
         total = qs.count()
         offset = max(0, (page - 1)) * page_size
         items = list(qs[offset : offset + page_size])
-        facets = self.contract_facets(user=user, org_access=org_access, perm_open_access=perm_open_access)
+        facets = (
+            self.contract_facets(user=user, org_access=org_access, perm_open_access=perm_open_access)
+            if include_facets
+            else {"status_counts": {}, "cat_counts": [], "fee_counts": []}
+        )
         return {"total": total, "items": items, **facets}
 
     def contract_facets(

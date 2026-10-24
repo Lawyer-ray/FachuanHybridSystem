@@ -27,6 +27,9 @@ export async function listContractsPage(opts: {
   cat?: string
   fee?: string
   q?: string
+  /** 是否要 facets 计数（默认 true）。翻页时传 false：facets 是全库口径，
+   *  与页码无关，逐页重算是 4 次白扫全表。 */
+  includeFacets?: boolean
 }): Promise<ContractPageResponse> {
   return contractsApi
     .get('contracts', {
@@ -38,6 +41,7 @@ export async function listContractsPage(opts: {
         ...(opts.cat ? { case_type: opts.cat } : {}),
         ...(opts.fee ? { fee_mode: opts.fee } : {}),
         ...(opts.q ? { search: opts.q } : {}),
+        ...(opts.includeFacets === false ? { include_facets: 'false' } : {}),
       },
     })
     .json<ContractPageResponse>()
@@ -67,8 +71,13 @@ export async function listRemindersByCase(caseId: number): Promise<ReminderOut[]
   return remindersApi.get('list', { searchParams: { case_id: String(caseId) } }).json<ReminderOut[]>()
 }
 
+/**
+ * 律师列表：slim=true 只取 id/real_name/phone/license_no/law_firm_name——
+ * 本域只做「lawyer_id → 人名/电话/执业证/律所名」映射，不需要文件签 URL
+ * 和律所嵌套对象（全量 500 人时那是 1000 次多余签名 + 嵌套 DTO 构建）。
+ */
 export async function listLawyers(): Promise<LawyerListItem[]> {
-  return organizationApi.get('lawyers').json<LawyerListItem[]>()
+  return organizationApi.get('lawyers', { searchParams: { slim: 'true' } }).json<LawyerListItem[]>()
 }
 
 /* ============ 绑定文件夹（案件卡「文件夹视图」+ 右栏「合同文件夹」树共用） ============ */

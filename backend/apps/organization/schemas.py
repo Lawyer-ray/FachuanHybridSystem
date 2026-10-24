@@ -66,6 +66,26 @@ class LawyerOut(ModelSchema, SchemaMixin):
         return LawFirmOut.from_orm(obj.law_firm)
 
 
+class LawyerSlimOut(ModelSchema):
+    """列表瘦身版：只供「lawyer_id → 人名/电话/执业证/律所名」的映射消费。
+
+    办案主页等列表页要按 500 人全量映射团队信息，但只需要这四个字段；
+    完整 LawyerOut 还带 license_pdf_url / avatar_url 两个文件签 URL
+    （每个都要走存储后端取签名）加 law_firm_detail 整个嵌套对象，几百条
+    累起来是纯浪费。law_firm_name 平铺成字符串替代嵌套对象。
+    """
+
+    law_firm_name: str = ""
+
+    class Meta:
+        model = Lawyer
+        fields: ClassVar[list[str]] = ["id", "real_name", "phone", "license_no"]
+
+    @staticmethod
+    def resolve_law_firm_name(obj: Lawyer) -> str:
+        return obj.law_firm.name if obj.law_firm else ""
+
+
 class LawyerCreateIn(Schema):
     username: str
     password: str

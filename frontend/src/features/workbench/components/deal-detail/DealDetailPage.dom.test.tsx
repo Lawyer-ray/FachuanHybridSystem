@@ -122,8 +122,8 @@ function makeContract(over: Partial<ContractListItem> = {}): ContractListItem {
       { id: 1, contract: 7, client: 1, role: 'principal', role_label: '委托人', client_detail: clientLite(1, '某银行', true) },
       { id: 2, contract: 7, client: 2, role: 'opponent', role_label: '对方当事人', client_detail: clientLite(2, '某公司', false) },
     ],
-    assignments: [{ id: 1, lawyer_id: 1, lawyer_name: '黄崧', is_primary: true, order: 0 }],
-    primary_lawyer: { id: 1, username: 'hs', real_name: '黄崧', phone: '138', law_firm_name: '某律所' },
+    assignments: [{ id: 1, lawyer_id: 1, lawyer_name: '黄某', is_primary: true, order: 0 }],
+    primary_lawyer: { id: 1, username: 'hs', real_name: '黄某', phone: '138', law_firm_name: '某律所' },
     reminders: [
       {
         id: 1,
@@ -178,7 +178,7 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
 }
 
 const lawyers: LawyerListItem[] = [
-  { id: 1, username: 'hs', real_name: '黄崧', phone: '138', license_no: '1440120', law_firm_detail: { id: 1, name: '某律所' } },
+  { id: 1, real_name: '黄某', phone: '138', license_no: '144****', law_firm_name: '某律所' },
 ]
 
 function setupUi(path = '/projects/7') {
@@ -221,11 +221,11 @@ beforeEach(() => {
       logs: [
         {
           id: 11, case: 2, content: '二审立案', actor: 1, created_at: '2026-03-05T10:00:00+08:00', updated_at: '2026-03-05T10:00:00+08:00',
-          actor_detail: { id: 1, username: 'zm', real_name: '周明' }, attachments: [], reminders: [],
+          actor_detail: { id: 1, username: 'zhou', real_name: '周某' }, attachments: [], reminders: [],
         },
         {
           id: 10, case: 2, content: '收到上诉状', actor: 1, created_at: '2026-02-02T09:00:00+08:00', updated_at: '2026-02-02T09:00:00+08:00',
-          actor_detail: { id: 1, username: 'hs', real_name: '黄崧' },
+          actor_detail: { id: 1, username: 'hs', real_name: '黄某' },
           attachments: [{ id: 1, log: 10, file_path: 'a.pdf', media_url: null, uploaded_at: '2026-02-02T09:00:00+08:00', original_filename: 'a.pdf' }],
           reminders: [
             {
@@ -460,7 +460,7 @@ describe('DealDetailPage 右栏与档案', () => {
     await screen.findByText('梁某')
     expect(screen.getByText('法院联系人')).toBeTruthy()
     expect(screen.getAllByText('佛山市中级人民法院').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText(/执业证号 1440120/)).toBeTruthy()
+    expect(screen.getByText(/执业证号 144\*\*\*\*/)).toBeTruthy()
     expect(screen.getByText('标的额')).toBeTruthy()
     expect(screen.getByText('¥50,000 · 半风险')).toBeTruthy()
     // 风险比例只在「涉案与收费」出现一次：右栏「合同要素」去掉了同卡重复的收费方式/风险比例/代理阶段

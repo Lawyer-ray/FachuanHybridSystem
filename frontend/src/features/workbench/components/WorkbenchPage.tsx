@@ -28,13 +28,17 @@ export function WorkbenchPage() {
   // open 与 deal 分离：关闭时保留 deal 引用，抽屉才能播完滑出动画（DealSheet 由 Radix 卸载）
   const [sheet, setSheet] = useState<{ open: boolean; deal: WorkbenchDeal | null }>({ open: false, deal: null })
 
-  // 空闲预载详情页 chunk：列表行左键是最常见的下一步，点过去不等待下载
+  // 空闲预载详情页 chunk：列表行左键是最常见的下一步，点过去不等待下载。
+  // 但必须等本页数据先渲染完——固定 1.5s 定时器会在首屏还在等接口时就抢带宽，
+  // 800KB 级的详情 chunk 与列表请求争同一条连接。改为「数据到位后再排期」。
+  const dataReady = !isLoading && !error
   useEffect(() => {
+    if (!dataReady) return
     const t = window.setTimeout(() => {
       void import('./deal-detail/DealDetailPage').catch(() => {})
-    }, 1500)
+    }, 800)
     return () => window.clearTimeout(t)
-  }, [])
+  }, [dataReady])
 
   /** 左键行 / → / 抽屉「详情 →」：争议解决进详情页；非诉详情页另轮设计，先明说 */
   const openDetail = useCallback(

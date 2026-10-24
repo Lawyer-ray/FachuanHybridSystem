@@ -64,7 +64,7 @@ function makeContract(id: number, name: string, over: Partial<ContractListItem> 
 }
 
 const lawyers: LawyerListItem[] = [
-  { id: 1, username: 'zhang', real_name: '张律师', phone: '13800000000', license_no: '137xxx', law_firm_detail: { id: 1, name: '发川律所' } },
+  { id: 1, real_name: '张律师', phone: '138****0000', license_no: '137xxx', law_firm_name: '某律所' },
 ]
 
 function makePage(partial: Partial<ContractPageResponse> = {}): ContractPageResponse {

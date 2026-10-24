@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useToday } from '@/hooks/use-today'
@@ -50,12 +50,23 @@ export interface WorkbenchData {
  * 案件明细不随列表加载——抽屉打开时按合同 ID 按需拉（useContractCases）。
  */
 export function useWorkbenchData(filter: WorkbenchFilter, page: number): WorkbenchData {
+  const queryClient = useQueryClient()
   // 搜索防抖：输入停 300ms 才进 queryKey，避免逐键打后端
   const dq = useDebouncedValue(filter.q.trim(), 300)
+  // facets（状态/类目/收费计数）是**全库口径**，与页码无关：只在第 1 页拉，
+  // 翻页传 include_facets=false 跳过后端那 4 次全表聚合。第 1 页的结果同时被
+  // 后面所有页复用（见 facets 变量），切筛选条件会换 queryKey 重新拉。
   const pageQuery = useQuery({
     queryKey: workbenchKeys.contractPage(filter, dq, page),
     queryFn: () =>
-      listContractsPage({ page, status: filter.status, cat: filter.cat, fee: filter.fee, q: dq }),
+      listContractsPage({
+        page,
+        status: filter.status,
+        cat: filter.cat,
+        fee: filter.fee,
+        q: dq,
+        includeFacets: page === 1,
+      }),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   })
@@ -65,13 +76,21 @@ export function useWorkbenchData(filter: WorkbenchFilter, page: number): Workben
   // 口径冻结在昨天（旧 useMemo([]) 挂载即定格的缺陷）
   const today = useToday()
 
+  // 不把律师表当列表的前置条件：buildDeals 的姓名取 assignment 自带的
+  // lawyer_name（首屏必有），律师表只补 phone/license/firm——晚到只会让这三列
+  // 从空变成有值，不必让整张列表陪它等。此前 && lawyers.data 让首屏同时等两个
+  // 请求（其中一个是 500 人全量），是 /projects 首屏慢的主因。
   const deals = useMemo(
-    () =>
-      pageQuery.data && lawyers.data ? buildDeals(pageQuery.data.items, lawyers.data, today) : [],
+    () => (pageQuery.data ? buildDeals(pageQuery.data.items, lawyers.data ?? [], today) : []),
     [pageQuery.data, lawyers.data, today],
   )
 
-  const statusCounts = pageQuery.data?.status_counts ?? {}
+  // facets 只由第 1 页产生（page===1 时 includeFacets=true）。翻页后从 React Query
+  // 缓存里读同一筛选条件下的第 1 页结果，chips 计数才不会随翻页归零；缓存由
+  // 上方的 pageQuery 自己写入，无需额外状态。
+  const facetKey = queryClient.getQueryData<ContractPageResponse>(workbenchKeys.contractPage(filter, dq, 1))
+  const facetData = page === 1 ? pageQuery.data : facetKey
+  const statusCounts = facetData?.status_counts ?? {}
   const totalContracts = Object.values(statusCounts).reduce((a, b) => a + b, 0)
   const total = pageQuery.data?.total ?? 0
   const pageSize = pageQuery.data?.page_size ?? 50
@@ -83,10 +102,11 @@ export function useWorkbenchData(filter: WorkbenchFilter, page: number): Workben
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
     page: pageQuery.data?.page ?? page,
     fetching: pageQuery.isFetching,
-    facets: pageQuery.data ?? null,
+    facets: facetData ?? null,
     totalContracts,
     activeCount: statusCounts['active'] ?? 0,
-    isLoading: pageQuery.isPending || lawyers.isPending,
+    // 只看合同页请求：律师表（500 人全量）与列表渲染无强依赖，不该阻塞首屏
+    isLoading: pageQuery.isPending,
     error: error ? errMessage(error, '办案数据加载失败') : null,
     refetch: () => {
       void pageQuery.refetch()

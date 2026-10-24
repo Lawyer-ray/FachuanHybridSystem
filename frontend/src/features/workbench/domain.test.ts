@@ -140,7 +140,7 @@ describe('fmtCNDate', () => {
 
 describe('buildDeals', () => {
   const lawyers: LawyerListItem[] = [
-    { id: 9, username: 'zhao', real_name: '赵律师', phone: '13911111111', license_no: ' 14401xxx ', law_firm_detail: { id: 1, name: '某律所' } }, // privacy-allow 虚构号码
+    { id: 9, real_name: '赵律师', phone: '13911111111', license_no: ' 14401xxx ', law_firm_name: '某律所' }, // privacy-allow 虚构号码
   ]
   const deals = buildDeals([makeContract()], lawyers, TODAY)
 
@@ -269,8 +269,8 @@ describe('buildDeals', () => {
 
   it('buildDeals：团队成员名回落 assignment.lawyer_name → 律师表 real_name → 空', () => {
     const lawyers: LawyerListItem[] = [
-      { id: 9, username: 'zhao', real_name: '赵律师', phone: '', license_no: '', law_firm_detail: null },
-      { id: 10, username: 'sun', real_name: '孙律师', phone: '', license_no: '', law_firm_detail: null },
+      { id: 9, real_name: '赵律师', phone: '', license_no: '', law_firm_name: null },
+      { id: 10, real_name: '孙律师', phone: '', license_no: '', law_firm_name: null },
     ]
     const deals = buildDeals(
       [

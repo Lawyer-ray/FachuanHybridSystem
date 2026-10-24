@@ -68,11 +68,10 @@ function makeContract(id: number, name: string): ContractListItem {
 const lawyers: LawyerListItem[] = [
   {
     id: 1,
-    username: 'zhang',
     real_name: '张律师',
-    phone: '13800000000',
+    phone: '138****0000',
     license_no: '13700...',
-    law_firm_detail: { id: 1, name: '发川律所' },
+    law_firm_name: '某律所',
   },
 ]
 
@@ -125,16 +124,19 @@ describe('useWorkbenchData 过滤参数下推', () => {
       cat: '',
       fee: '',
       q: '',
+      includeFacets: true,
     })
 
     rerender({ filter: { ...baseFilter, status: 'active', cat: 'civil', fee: 'FIXED' }, page: 2 })
     await waitFor(() =>
+      // 第 2 页不再要 facets（全库口径，与页码无关，白白多扫 4 次全表）
       expect(listContractsPage).toHaveBeenLastCalledWith({
         page: 2,
         status: 'active',
         cat: 'civil',
         fee: 'FIXED',
         q: '',
+        includeFacets: false,
       }),
     )
   })
@@ -200,7 +202,7 @@ describe('useWorkbenchData 结果映射', () => {
     expect(result.current.activeCount).toBe(80)
   })
 
-  it('deals 由合同 × 律师两源合并：任一源未到时为空数组，双源到齐后产出', async () => {
+  it('deals 不等律师表：合同到达即可产出（姓名取 assignment 自带），律师表晚到只补电话/执业证/律所', async () => {
     listPageMock.mockResolvedValue(makePage({ items: [makeContract(1, '王五委托')] }))
     let resolveLawyers!: (v: LawyerListItem[]) => void
     lawyersMock.mockReturnValue(
@@ -210,14 +212,29 @@ describe('useWorkbenchData 结果映射', () => {
     )
     const { result } = setup()
 
+    // 律师源未到：列表照样渲染（姓名取 assignment 自带的 lawyer_name）
     await waitFor(() => expect(result.current.facets).not.toBeNull())
-    // 律师源未到：deals 空
-    expect(result.current.deals).toEqual([])
-
+    expect(result.current.deals.length).toBe(1)
+    expect(result.current.deals[0]?.client).toBe('王五委托')
+    expect(result.current.deals[0]?.caseCount).toBe(1)
+    // 律师表未到不报错、不塌列表；律师表到达后仍是同一份列表（无需重等）
     resolveLawyers(lawyers)
     await waitFor(() => expect(result.current.deals.length).toBe(1))
     expect(result.current.deals[0]?.client).toBe('王五委托')
-    expect(result.current.deals[0]?.caseCount).toBe(1)
+  })
+
+  it('翻页时 facets 沿用第 1 页缓存（第二页虽不带 facets，chips 计数不归零）', async () => {
+    listPageMock
+      .mockResolvedValueOnce(makePage({ page: 1, status_counts: { active: 6, archived: 3 } }))
+      .mockResolvedValueOnce(makePage({ page: 2, status_counts: {} }))
+    const { result, rerender } = setup()
+    await waitFor(() => expect(result.current.facets?.status_counts).toEqual({ active: 6, archived: 3 }))
+
+    rerender({ filter: baseFilter, page: 2 })
+    await waitFor(() => expect(result.current.page).toBe(2))
+    // 第 2 页响应里 counts 为空，但 facets 取回第 1 页那份，计数不闪成 0
+    expect(result.current.facets?.status_counts).toEqual({ active: 6, archived: 3 })
+    expect(result.current.activeCount).toBe(6)
   })
 
   it('列表接口失败：error 映射为后端可读文案', async () => {

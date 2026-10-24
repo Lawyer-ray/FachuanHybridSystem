@@ -10,7 +10,7 @@
  * - judge：命中 leaving 时防重入；成功后按目标方向离场并定时清理
  * - 卸载时清掉离场定时器
  */
-import { act, fireEvent, render, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hookMock = vi.hoisted(() => ({

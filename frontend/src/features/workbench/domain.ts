@@ -125,7 +125,7 @@ export function buildDeals(
         primary: a.is_primary,
         phone: det?.phone || '',
         license: (det?.license_no || '').trim(),
-        firm: det?.law_firm_detail?.name || '',
+        firm: det?.law_firm_name || '',
       }
     })
 
