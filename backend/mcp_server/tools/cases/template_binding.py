@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_template_bindings(case_id: int) -> dict[str, Any]:
@@ -34,9 +35,9 @@ def delete_template_binding(case_id: int, binding_id: int) -> dict[str, Any]:
     return client.delete(f"/cases/{case_id}/template-bindings/{binding_id}")  # type: ignore[no-any-return]
 
 
-def list_available_templates(case_id: int) -> list[dict[str, Any]]:
+def list_available_templates(case_id: int) -> dict[str, Any]:
     """获取案件可用的文书模板列表（已按案件类型过滤适用性）。"""
-    return client.get(f"/cases/{case_id}/available-templates")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/cases/{case_id}/available-templates"))
 
 
 def generate_case_template(case_id: int, template_id: int) -> dict[str, Any]:

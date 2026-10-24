@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_grants(case_id: int) -> list[dict[str, Any]]:
+def list_grants(case_id: int) -> dict[str, Any]:
     """查询案件的访问授权列表（哪些律师被授予了该案件的访问权）。"""
-    return client.get("/cases/grants", params={"case_id": case_id})  # type: ignore[no-any-return]
+    return list_result(client.get("/cases/grants", params={"case_id": case_id}))
 
 
 def create_grant(case_id: int, grantee_id: int) -> dict[str, Any]:

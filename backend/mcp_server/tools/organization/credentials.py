@@ -5,19 +5,20 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_credentials(
     lawyer_id: int | None = None,
     lawyer_name: str | None = None,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """查询账号凭证列表。可按律师 ID（lawyer_id）或律师姓名（lawyer_name）筛选。"""
     params: dict[str, Any] = {}
     if lawyer_id is not None:
         params["lawyer_id"] = lawyer_id
     if lawyer_name:
         params["lawyer_name"] = lawyer_name
-    return client.get("/organization/credentials", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/organization/credentials", params=params))
 
 
 def get_credential(credential_id: int) -> dict[str, Any]:

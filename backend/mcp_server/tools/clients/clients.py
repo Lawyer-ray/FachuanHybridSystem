@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_clients(
@@ -12,7 +13,7 @@ def list_clients(
     client_type: str | None = None,
     is_our_client: bool | None = None,
     limit: int = 50,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """查询客户列表。支持按姓名/公司名搜索（search）、客户类型（client_type：natural/legal/non_legal_org）、是否我方客户（is_our_client）筛选。
 
     limit 默认 50（REST 默认 1000 是给前端表格的,对模型上下文过大）;
@@ -25,7 +26,7 @@ def list_clients(
         params["client_type"] = client_type
     if is_our_client is not None:
         params["is_our_client"] = is_our_client
-    return client.get("/client/clients", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/client/clients", params=params))
 
 
 def get_client(client_id: int) -> dict[str, Any]:
@@ -99,11 +100,12 @@ def list_clients_with_docs(
     is_our_client: bool | None = None,
     search: str | None = None,
     limit: int = 50,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """按条件列出客户（MCP 场景无法附带文档上传，仅做查询）。
 
-    实际委托 ``GET /client/clients``，后端返回裸数组。名字里的 ``with_docs``
-    是历史命名，工具本身不返回文档。limit 默认 50（见 ``list_clients``）。
+    实际委托 ``GET /client/clients``（REST 返回裸数组,工具侧包成
+    ``{total, items}`` 信封）。名字里的 ``with_docs`` 是历史命名，工具本身
+    不返回文档。limit 默认 50（见 ``list_clients``）。
     """
     params: dict[str, Any] = {"limit": limit}
     if client_type is not None:
@@ -112,7 +114,7 @@ def list_clients_with_docs(
         params["is_our_client"] = is_our_client
     if search is not None:
         params["search"] = search
-    return client.get("/client/clients", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/client/clients", params=params))
 
 
 def get_identity_doc_task(task_id: str) -> dict[str, Any]:

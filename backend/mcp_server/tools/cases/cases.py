@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 from mcp_server.tools.core.projection import CASE_LIST_FIELDS, project_list
 
 
@@ -16,7 +17,7 @@ def list_cases(
     limit: int = 100,
     fields: list[str] | None = None,
     full: bool = False,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """查询案件列表。
 
     默认返回**精简投影**（id/名称/状态/案号/类型/日期/金额/案由等 14 个字段），
@@ -49,12 +50,12 @@ def list_cases(
     if limit:
         params["limit"] = max(1, min(limit, 2000))
     rows: list[Any] = client.get("/cases/cases", params=params)
-    return project_list(rows, fields, CASE_LIST_FIELDS, full=full)
+    return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=full))
 
 
-def search_cases(q: str, limit: int = 10) -> list[dict[str, Any]]:
+def search_cases(q: str, limit: int = 10) -> dict[str, Any]:
     """按关键词搜索案件，支持案件名称、当事人姓名等模糊搜索。"""
-    return client.get("/cases/cases/search", params={"q": q, "limit": limit})  # type: ignore[no-any-return]
+    return list_result(client.get("/cases/cases/search", params={"q": q, "limit": limit}))
 
 
 def get_case(case_id: int) -> dict[str, Any]:

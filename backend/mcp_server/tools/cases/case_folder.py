@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def create_case_folder_binding(
@@ -45,6 +46,6 @@ def browse_case_folders(path: str = "") -> dict[str, Any]:
     return client.get("/cases/folder-browse", params=params)  # type: ignore[no-any-return]
 
 
-def list_case_cloud_storage_accounts() -> list[dict[str, Any]]:
+def list_case_cloud_storage_accounts() -> dict[str, Any]:
     """获取可用的云存储账号列表（坚果云、OneDrive等）。"""
-    return client.get("/cases/cloud-storage-accounts")  # type: ignore[no-any-return]
+    return list_result(client.get("/cases/cloud-storage-accounts"))

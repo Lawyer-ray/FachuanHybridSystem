@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_payments(
@@ -13,7 +14,7 @@ def list_payments(
     start_date: str | None = None,
     end_date: str | None = None,
     limit: int = 200,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """查询收款记录列表。可按合同 ID（contract_id）、开票状态（invoice_status）、
     收款日期范围（start_date/end_date，ISO 格式）筛选。
 
@@ -33,7 +34,7 @@ def list_payments(
         params["start_date"] = start_date
     if end_date:
         params["end_date"] = end_date
-    return client.get("/contracts/finance/payments", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/contracts/finance/payments", params=params))
 
 
 def get_finance_stats() -> dict[str, Any]:

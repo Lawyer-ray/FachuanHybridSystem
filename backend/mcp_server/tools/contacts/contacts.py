@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_contacts(case_id: int | None = None, stage: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+def list_contacts(case_id: int | None = None, stage: str | None = None, limit: int = 50) -> dict[str, Any]:
     """获取案件联系人列表，可按案件ID和阶段筛选。
 
     limit 默认 50——REST 端点默认 1000 是给前端表格的,对模型上下文过大;
@@ -18,7 +19,7 @@ def list_contacts(case_id: int | None = None, stage: str | None = None, limit: i
         params["case_id"] = case_id
     if stage is not None:
         params["stage"] = stage
-    return client.get("/contacts/contacts", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/contacts/contacts", params=params))
 
 
 def create_contact(
@@ -47,7 +48,7 @@ def create_contact(
     )
 
 
-def search_contacts(q: str | None = None, court: str | None = None, role: str | None = None) -> list[dict[str, Any]]:
+def search_contacts(q: str | None = None, court: str | None = None, role: str | None = None) -> dict[str, Any]:
     """公开搜索联系人库,按姓名、法院和角色筛选——跨案件复用联系人。"""
     params: dict[str, Any] = {}
     if q is not None:
@@ -56,7 +57,7 @@ def search_contacts(q: str | None = None, court: str | None = None, role: str | 
         params["court"] = court
     if role is not None:
         params["role"] = role
-    return client.get("/contacts/contacts/search", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/contacts/contacts/search", params=params))
 
 
 def get_contact(contact_id: int) -> dict[str, Any]:

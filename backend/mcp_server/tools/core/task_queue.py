@@ -5,26 +5,27 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_queued_tasks() -> list[dict[str, Any]]:
+def list_queued_tasks() -> dict[str, Any]:
     """获取排队中的任务列表（管理员;反映系统实时负载）。"""
-    return client.get("/task-queue/queued")  # type: ignore[no-any-return]
+    return list_result(client.get("/task-queue/queued"))
 
 
-def list_completed_tasks() -> list[dict[str, Any]]:
+def list_completed_tasks() -> dict[str, Any]:
     """获取已完成任务列表（管理员）。"""
-    return client.get("/task-queue/completed")  # type: ignore[no-any-return]
+    return list_result(client.get("/task-queue/completed"))
 
 
-def list_failed_tasks() -> list[dict[str, Any]]:
+def list_failed_tasks() -> dict[str, Any]:
     """获取失败任务列表（管理员;排障入口,可配合 resubmit_task 重试）。"""
-    return client.get("/task-queue/failed")  # type: ignore[no-any-return]
+    return list_result(client.get("/task-queue/failed"))
 
 
-def list_scheduled_tasks() -> list[dict[str, Any]]:
+def list_scheduled_tasks() -> dict[str, Any]:
     """获取定时任务列表（含下次/上次执行时间）。"""
-    return client.get("/task-queue/scheduled")  # type: ignore[no-any-return]
+    return list_result(client.get("/task-queue/scheduled"))
 
 
 def delete_task(task_id: str) -> None:

@@ -5,14 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_lawfirms(name: str | None = None) -> list[dict[str, Any]]:
+def list_lawfirms(name: str | None = None) -> dict[str, Any]:
     """查询律所列表。可按名称（name）模糊搜索。"""
     params: dict[str, Any] = {}
     if name:
         params["name"] = name
-    return client.get("/organization/lawfirms", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/organization/lawfirms", params=params))
 
 
 def get_lawfirm(law_firm_id: int) -> dict[str, Any]:

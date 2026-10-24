@@ -5,16 +5,17 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_oa_configs() -> list[dict[str, Any]]:
+def list_oa_configs() -> dict[str, Any]:
     """获取当前用户可用的 OA 系统列表。
 
     每项含 ``oa_system_name``（发起立案时的 site_name 取值）与
     ``has_credential``（当前律师是否已配置该站点的登录凭证）——
     ``has_credential=false`` 的站点发起立案必失败。
     """
-    return client.get("/oa-filing/configs")  # type: ignore[no-any-return]
+    return list_result(client.get("/oa-filing/configs"))
 
 
 def trigger_oa_filing(

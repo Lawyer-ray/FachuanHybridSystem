@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_supplementary_agreements(contract_id: int) -> list[dict[str, Any]]:
+def list_supplementary_agreements(contract_id: int) -> dict[str, Any]:
     """查询合同的补充协议列表（按主合同归组）。"""
-    return client.get(f"/contracts/contracts/{contract_id}/supplementary-agreements")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/contracts/contracts/{contract_id}/supplementary-agreements"))
 
 
 def get_supplementary_agreement(agreement_id: int) -> dict[str, Any]:

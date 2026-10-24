@@ -6,6 +6,7 @@ import base64
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def create_project(name: str) -> dict[str, Any]:
@@ -13,19 +14,19 @@ def create_project(name: str) -> dict[str, Any]:
     return client.post("/chat-records/projects", json={"name": name})  # type: ignore[no-any-return]
 
 
-def list_projects() -> list[dict[str, Any]]:
+def list_projects() -> dict[str, Any]:
     """列出当前用户的全部取证项目。"""
-    return client.get("/chat-records/projects")  # type: ignore[no-any-return]
+    return list_result(client.get("/chat-records/projects"))
 
 
-def list_recordings(project_id: int) -> list[dict[str, Any]]:
+def list_recordings(project_id: int) -> dict[str, Any]:
     """列出取证项目下的录屏列表。"""
-    return client.get(f"/chat-records/projects/{project_id}/recordings")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/chat-records/projects/{project_id}/recordings"))
 
 
-def list_screenshots(project_id: int) -> list[dict[str, Any]]:
+def list_screenshots(project_id: int) -> dict[str, Any]:
     """列出取证项目下的截图列表。"""
-    return client.get(f"/chat-records/projects/{project_id}/screenshots")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/chat-records/projects/{project_id}/screenshots"))
 
 
 def create_export(project_id: int, export_type: str = "pdf") -> dict[str, Any]:
@@ -41,14 +42,14 @@ def get_export_task(task_id: str) -> dict[str, Any]:
     return client.get(f"/chat-records/exports/{task_id}")  # type: ignore[no-any-return]
 
 
-def get_export_types() -> list[dict[str, Any]]:
+def get_export_types() -> dict[str, Any]:
     """获取可用的证据导出类型枚举。"""
-    return client.get("/chat-records/export-types")  # type: ignore[no-any-return]
+    return list_result(client.get("/chat-records/export-types"))
 
 
-def get_export_statuses() -> list[dict[str, Any]]:
+def get_export_statuses() -> dict[str, Any]:
     """获取导出任务的状态枚举（轮询时判断用）。"""
-    return client.get("/chat-records/export-statuses")  # type: ignore[no-any-return]
+    return list_result(client.get("/chat-records/export-statuses"))
 
 
 def download_export(task_id: str) -> dict[str, Any]:

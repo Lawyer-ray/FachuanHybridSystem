@@ -252,6 +252,12 @@ def test_output_contract_matches_backend(openapi: dict[str, Any], registered_too
         if payload is None:
             continue
 
+        # 信封化工具(源码含 list_result( 标记):SDK 会把裸 list 逐项拆成
+        # 独立 TextContent、空列表变成零内容块,故统一包 {total, items}。
+        # 这里把后端响应同样包一层再校验,items 形状仍受契约约束。
+        if "list_result(" in segment:
+            payload = {"total": len(payload) if isinstance(payload, list) else 1, "items": payload}
+
         checked += 1
         try:
             tool.fn_metadata.convert_result(payload)

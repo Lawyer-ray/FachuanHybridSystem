@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_property_clues(client_id: int) -> list[dict[str, Any]]:
+def list_property_clues(client_id: int) -> dict[str, Any]:
     """查询指定客户的所有财产线索，包含房产、车辆、银行账户等信息。"""
-    return client.get(f"/client/clients/{client_id}/property-clues")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/client/clients/{client_id}/property-clues"))
 
 
 def create_property_clue(client_id: int, clue_type: str, content: str) -> dict[str, Any]:

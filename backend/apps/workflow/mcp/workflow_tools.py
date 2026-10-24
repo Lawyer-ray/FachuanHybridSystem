@@ -6,6 +6,8 @@ import logging
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from mcp_server.tool_shaping import list_result
+
 if TYPE_CHECKING:
     from temporalio.client import Client
 
@@ -490,7 +492,7 @@ async def delete_workflow_run(run_id: int) -> dict[str, Any]:
 # ════════════════════════════════════════════════════════════════
 
 
-async def get_step_registry() -> list[dict[str, Any]]:
+async def get_step_registry() -> dict[str, Any]:
     """获取所有可用的工作流步骤类型（步骤注册表）
 
     AI Agent 在创建模板前应先调用此工具，了解有哪些步骤可以使用。
@@ -498,17 +500,17 @@ async def get_step_registry() -> list[dict[str, Any]]:
     """
     from apps.workflow.api.step_registry import STEP_CATEGORIES
 
-    return STEP_CATEGORIES
+    return list_result(STEP_CATEGORIES)
 
 
-async def get_step_registry_flat() -> list[dict[str, Any]]:
+async def get_step_registry_flat() -> dict[str, Any]:
     """获取扁平化的工作流步骤列表（用于搜索）
 
     返回所有步骤的扁平列表，每个步骤附带 category_id 和 category_name。
     """
     from apps.workflow.api.step_registry import get_flat_step_list
 
-    return get_flat_step_list()
+    return list_result(get_flat_step_list())
 
 
 def _validate_steps_or_error(user: Any | None, steps: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -715,7 +717,7 @@ async def update_workflow_template(
 async def list_workflow_templates(
     category: str | None = None,
     is_active: bool | None = None,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """列出工作流模板
 
     Args:
@@ -732,19 +734,21 @@ async def list_workflow_templates(
 
     templates = [t async for t in qs.order_by("-created_at")]
 
-    return [
-        {
-            "template_id": t.id,
-            "name": t.name,
-            "slug": t.slug,
-            "category": t.category,
-            "description": t.description,
-            "is_active": t.is_active,
-            "steps_count": len(t.steps_schema) if isinstance(t.steps_schema, list) else 0,
-            "temporal_workflow_name": t.temporal_workflow_name,
-        }
-        for t in templates
-    ]
+    return list_result(
+        [
+            {
+                "template_id": t.id,
+                "name": t.name,
+                "slug": t.slug,
+                "category": t.category,
+                "description": t.description,
+                "is_active": t.is_active,
+                "steps_count": len(t.steps_schema) if isinstance(t.steps_schema, list) else 0,
+                "temporal_workflow_name": t.temporal_workflow_name,
+            }
+            for t in templates
+        ]
+    )
 
 
 async def get_workflow_template(template_id: int) -> dict[str, Any]:

@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_message_sources() -> list[dict[str, Any]]:
+def list_message_sources() -> dict[str, Any]:
     """查询所有消息来源（邮箱等账号配置）列表。"""
-    return client.get("/inbox/sources")  # type: ignore[no-any-return]
+    return list_result(client.get("/inbox/sources"))
 
 
 def get_message_source(source_id: int) -> dict[str, Any]:

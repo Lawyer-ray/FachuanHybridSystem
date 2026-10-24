@@ -6,6 +6,7 @@ import base64
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def create_research_task(
@@ -63,9 +64,9 @@ def get_research_task(task_id: int) -> dict[str, Any]:
     return client.get(f"/legal-research/tasks/{task_id}")  # type: ignore[no-any-return]
 
 
-def list_research_results(task_id: int) -> list[dict[str, Any]]:
+def list_research_results(task_id: int) -> dict[str, Any]:
     """获取检索任务的结果列表，包含相似度评分、案件摘要等。"""
-    return client.get(f"/legal-research/tasks/{task_id}/results")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/legal-research/tasks/{task_id}/results"))
 
 
 def download_research_result(task_id: int, result_id: int) -> dict[str, Any]:

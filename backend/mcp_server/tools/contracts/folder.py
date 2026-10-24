@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def create_folder_binding(
@@ -57,6 +58,6 @@ def browse_folders(
     return client.get("/contracts/folder-browse", params=params)  # type: ignore[no-any-return]
 
 
-def list_cloud_storage_accounts() -> list[dict[str, Any]]:
+def list_cloud_storage_accounts() -> dict[str, Any]:
     """获取可用的云端存储账号列表（坚果云、OneDrive 等）。"""
-    return client.get("/contracts/cloud-storage-accounts")  # type: ignore[no-any-return]
+    return list_result(client.get("/contracts/cloud-storage-accounts"))

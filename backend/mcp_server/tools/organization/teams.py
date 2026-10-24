@@ -5,19 +5,20 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_teams(
     law_firm_id: int | None = None,
     team_type: str | None = None,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """查询团队列表。可按律所（law_firm_id）和团队类型（team_type，如 lawyer/biz）筛选。"""
     params: dict[str, Any] = {}
     if law_firm_id is not None:
         params["law_firm_id"] = law_firm_id
     if team_type:
         params["team_type"] = team_type
-    return client.get("/organization/teams", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/organization/teams", params=params))
 
 
 def get_team(team_id: int) -> dict[str, Any]:

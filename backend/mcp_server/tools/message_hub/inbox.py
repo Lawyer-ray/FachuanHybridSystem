@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_inbox_messages(
@@ -12,7 +13,7 @@ def list_inbox_messages(
     has_attachments: bool | None = None,
     search: str | None = None,
     limit: int = 50,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """查询收件箱消息列表。可按来源（source_id）、是否有附件（has_attachments）、关键词（search）筛选。
 
     limit 默认 50——REST 端点默认 500 是给前端收件箱的,对模型上下文过大;
@@ -25,7 +26,7 @@ def list_inbox_messages(
         params["has_attachments"] = has_attachments
     if search:
         params["search"] = search
-    return client.get("/inbox/messages", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/inbox/messages", params=params))
 
 
 def get_inbox_message(message_id: int) -> dict[str, Any]:

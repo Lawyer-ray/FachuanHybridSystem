@@ -6,9 +6,10 @@ import json
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_lawyers(search: str | None = None, slim: bool = True) -> list[dict[str, Any]]:
+def list_lawyers(search: str | None = None, slim: bool = True) -> dict[str, Any]:
     """按姓名/用户名搜索律师。返回律师 ID、姓名、电话、执业证号等，用于指派律师时选择。
 
     - search：姓名/用户名关键词；不传则返回全部（按权限可见范围）。
@@ -21,7 +22,7 @@ def list_lawyers(search: str | None = None, slim: bool = True) -> list[dict[str,
     params: dict[str, Any] = {"slim": slim}
     if search:
         params["search"] = search
-    return client.get("/organization/lawyers", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/organization/lawyers", params=params))
 
 
 def get_lawyer(lawyer_id: int) -> dict[str, Any]:

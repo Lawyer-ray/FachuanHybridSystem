@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_bind_candidates(case_id: int) -> list[dict[str, Any]]:
+def list_bind_candidates(case_id: int) -> dict[str, Any]:
     """获取案件材料的绑定候选列表（可关联的文件夹扫描结果）。"""
-    return client.get(f"/cases/{case_id}/materials/bind-candidates")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/cases/{case_id}/materials/bind-candidates"))
 
 
 def bind_materials(

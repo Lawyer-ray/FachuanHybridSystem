@@ -6,6 +6,7 @@ import base64
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def analyze_template(template_id: int) -> dict[str, Any]:
@@ -72,9 +73,9 @@ def get_preview_html(template_id: int) -> dict[str, Any]:
     return client.get(f"/documents/external-templates/{template_id}/preview-html")  # type: ignore[no-any-return]
 
 
-def list_mappings(template_id: int) -> list[dict[str, Any]]:
+def list_mappings(template_id: int) -> dict[str, Any]:
     """列出外部模板的全部字段映射。"""
-    return client.get(f"/documents/external-templates/{template_id}/mappings")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/documents/external-templates/{template_id}/mappings"))
 
 
 def create_mapping(

@@ -5,19 +5,20 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_all_reminders(
     contract_id: int | None = None,
     case_log_id: int | None = None,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """查询提醒列表。必须指定 contract_id（合同ID）或 case_log_id（案件日志ID）其中之一。"""
     params: dict[str, Any] = {}
     if contract_id is not None:
         params["contract_id"] = contract_id
     if case_log_id is not None:
         params["case_log_id"] = case_log_id
-    return client.get("/reminders/list", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/reminders/list", params=params))
 
 
 def get_reminder(reminder_id: int) -> dict[str, Any]:
@@ -75,14 +76,14 @@ def delete_reminder(reminder_id: int) -> None:
     client.delete(f"/reminders/{reminder_id}")
 
 
-def list_reminder_types() -> list[dict[str, Any]]:
+def list_reminder_types() -> dict[str, Any]:
     """获取支持的提醒类型枚举——创建提醒前查合法值。"""
-    return client.get("/reminders/types")  # type: ignore[no-any-return]
+    return list_result(client.get("/reminders/types"))
 
 
-def parse_reminders_from_text(text: str) -> list[dict[str, Any]]:
+def parse_reminders_from_text(text: str) -> dict[str, Any]:
     """从自由文本中解析提醒条目。返回结构化的提醒列表（content、type、due_at）。"""
-    return client.post("/reminders/parse", json={"text": text})  # type: ignore[no-any-return]
+    return list_result(client.post("/reminders/parse", json={"text": text}))
 
 
 def get_target_options(q: str = "") -> dict[str, Any]:

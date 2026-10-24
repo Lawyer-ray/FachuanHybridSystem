@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import FachuanApiError, client
+from mcp_server.tool_shaping import list_result
 from mcp_server.tools.core.projection import CONTRACT_LIST_FIELDS, project_page
 
 
@@ -195,19 +196,19 @@ def delete_contract(contract_id: int) -> None:
 def update_contract_lawyers(
     contract_id: int,
     lawyer_ids: list[int],
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """更新合同的律师指派。lawyer_ids 第一个为主办律师。
 
     后端 ``response=list[ContractAssignmentOut]``，返回更新后的指派列表。
     """
     payload: dict[str, Any] = {"lawyer_ids": lawyer_ids}
-    return client.put(f"/contracts/contracts/{contract_id}/lawyers", json=payload)  # type: ignore[no-any-return]
+    return list_result(client.put(f"/contracts/contracts/{contract_id}/lawyers", json=payload))
 
 
-def get_contract_all_parties(contract_id: int) -> list[dict[str, Any]]:
+def get_contract_all_parties(contract_id: int) -> dict[str, Any]:
     """获取合同全部当事人信息，包含原告、被告、第三人等分组。
 
     后端 ``response=list[ContractPartySourceOut]``，返回扁平数组（每条带
     当事人方向字段），不是按原告/被告分组的对象。
     """
-    return client.get(f"/contracts/contracts/{contract_id}/all-parties")  # type: ignore[no-any-return]
+    return list_result(client.get(f"/contracts/contracts/{contract_id}/all-parties"))

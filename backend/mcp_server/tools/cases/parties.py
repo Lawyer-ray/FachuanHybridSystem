@@ -5,16 +5,17 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_case_parties(case_id: int) -> list[dict[str, Any]]:
+def list_case_parties(case_id: int) -> dict[str, Any]:
     """查询指定案件的所有当事人，包含客户详情和诉讼地位。
 
-    后端 ``/cases/parties`` 声明 ``response=list[CasePartyOut]``，返回裸数组。
-    早前这里声明 ``dict`` 并用 ``as_items`` 包一层分页壳，但那只是掩盖了
-    类型不符（分页壳里的 ``items`` 是模型永远看不到的假结构）。
+    后端 ``/cases/parties`` 返回裸数组,工具侧包成 ``{total, items}`` 信封
+    (SDK 会把裸 list 逐项拆成独立文本块,空列表变成零内容块;早期「分页壳
+    是模型看不到的假结构」的判断经线上实测推翻——dict 信封单块全量可见)。
     """
-    return client.get("/cases/parties", params={"case_id": case_id})  # type: ignore[no-any-return]
+    return list_result(client.get("/cases/parties", params={"case_id": case_id}))
 
 
 def add_case_party(case_id: int, client_id: int, legal_status: str | None = None) -> dict[str, Any]:

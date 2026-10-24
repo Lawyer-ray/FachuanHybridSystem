@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_case_assignments(case_id: int) -> list[dict[str, Any]]:
+def list_case_assignments(case_id: int) -> dict[str, Any]:
     """查询案件的律师指派记录（谁在何时以什么角色办案）。"""
-    return client.get("/cases/assignments", params={"case_id": case_id})  # type: ignore[no-any-return]
+    return list_result(client.get("/cases/assignments", params={"case_id": case_id}))
 
 
 def assign_lawyer(case_id: int, lawyer_id: int) -> dict[str, Any]:
