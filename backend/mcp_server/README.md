@@ -53,6 +53,7 @@ make mcp-status    # 进程/日志
 | 注册完整性 | `test_tool_registration.py` / `test_server_registration.py` | 定义↔注册对账、基线 409、docstring/注解、白名单防退化 |
 | 路径契约 | `test_rest_path_contract.py` | AST 全扫 client 调用 vs OpenAPI,防 REST 路径漂移 |
 | 参数契约 | `test_rest_param_contract.py` | 工具转发的参数必须被端点声明——ninja 静默忽略未声明参数=「从未生效」的假参数(2026-10-25 审计 6 处实锤);裸 payload 端点 allowlist 禁止新增 |
+| docstring 枚举值 | 无自动门禁(review 把关) | 文档宣称的取值必须对照模型 TextChoices——filter 对错值静默空列表、裸 CharField 对错值静默落库(2026-10-25 审计 13 处:case_type 假枚举/fee_mode 小写绕过金额校验/中文代理阶段必炸/running≠in_progress/site_name 死路示例) |
 | 客户端行为 | `test_client.py` | token 刷新、错误信封、传输韧性、下载闸门、巨型列表护栏、抽象边界 |
 | 工具行为 | `test_new_tools.py` / `test_agent_attachments.py` / `test_fetch_url.py`(含 SSRF 拦截) / … | 重组型工具的真实逻辑 |
 
