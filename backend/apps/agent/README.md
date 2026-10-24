@@ -200,8 +200,11 @@ pi 决定调用 mcp__fachuan__delete_case
 
 四张清单（`DANGER_PATTERNS` / `CRITICAL_PATTERNS` / `SENSITIVE_ARG_MARKERS` /
 `WRITE_PREFIXES`）在 Python 与 `approval-gate.ts` 之间**逐项同步**，并有
-parity 单测守护；对 mcp_server 实际注册表（395 个工具）的覆盖由
+parity 单测守护；对 mcp_server 实际注册表（410 个工具，2026-10-25 补注册
+workflow 模板管理 10 件后）的覆盖由
 `test_agent_risk_tiers.py` 对账（新增 `delete_xxx` 忘进审批即红灯，读类被误拦也红灯）。
+`approve_` 亦属高危：`approve_workflow_step` 是工作流 gate 的人工确认动作
+本身，模型低危直调 = 替人批准自己发起的工作流（详见 DANGER_PATTERNS 注释）。
 
 ### fail-closed 与离线审批
 
