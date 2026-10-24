@@ -204,8 +204,13 @@ export function DeskPage() {
         />
 
         {isLoading ? (
-          <div className="flex items-center gap-2 py-20 text-sm text-secondary-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> 加载材料包…
+          /* 与 PackGrid 的空态同构：列表区占位而非整页 loading——页签仍在，
+             所以居中要相对卡片区，不能贴左（原先只有 flex items-center，
+             缺 justify-center，spinner 孤零零挂在左上角，也和空态/错误态
+             的容器语言不一致） */
+          <div className="flex flex-col items-center justify-center gap-2 rounded-[13px] border border-dashed border-zinc-300 py-16 text-sm text-secondary-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            加载材料包…
           </div>
         ) : error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
