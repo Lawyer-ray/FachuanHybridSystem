@@ -15,12 +15,12 @@ def list_causes_data(search: str | None = None, case_type: str | None = None, li
     （如「买卖合同」）,否则只能拿到字典头部。case_type 可按
     civil/criminal/administrative/execution/bankruptcy 收窄。
     """
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if search:
         params["search"] = search
     if case_type:
         params["case_type"] = case_type
-    return list_result(client.get("/cases/causes-data", params=params))
+    return list_result(client.get("/cases/causes-data", params=params), limit=limit)
 
 
 def list_causes_tree(parent_id: int | None = None) -> dict[str, Any]:
@@ -46,7 +46,7 @@ def list_courts_data(search: str | None = None, limit: int = 50) -> dict[str, An
     知道关键词时务必传 ``search``（如「深圳」「浦东」）,否则只能拿到
     字典头部。
     """
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if search:
         params["search"] = search
-    return list_result(client.get("/cases/courts-data", params=params))
+    return list_result(client.get("/cases/courts-data", params=params), limit=limit)

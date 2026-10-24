@@ -19,14 +19,14 @@ def list_clients(
     limit 默认 50（REST 默认 1000 是给前端表格的,对模型上下文过大）;
     需要更多结果时显式调大,上限 2000。
     """
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if search:
         params["search"] = search
     if client_type:
         params["client_type"] = client_type
     if is_our_client is not None:
         params["is_our_client"] = is_our_client
-    return list_result(client.get("/client/clients", params=params))
+    return list_result(client.get("/client/clients", params=params), limit=limit)
 
 
 def get_client(client_id: int) -> dict[str, Any]:
@@ -107,14 +107,14 @@ def list_clients_with_docs(
     ``{total, items}`` 信封）。名字里的 ``with_docs`` 是历史命名，工具本身
     不返回文档。limit 默认 50（见 ``list_clients``）。
     """
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if client_type is not None:
         params["client_type"] = client_type
     if is_our_client is not None:
         params["is_our_client"] = is_our_client
     if search is not None:
         params["search"] = search
-    return list_result(client.get("/client/clients", params=params))
+    return list_result(client.get("/client/clients", params=params), limit=limit)
 
 
 def get_identity_doc_task(task_id: str) -> dict[str, Any]:

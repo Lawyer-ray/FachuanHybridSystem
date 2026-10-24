@@ -49,19 +49,36 @@ def list_cases(
     if contract_id is not None:
         params["contract_id"] = contract_id
     if limit:
-        params["limit"] = max(1, min(limit, 2000))
+        # limit+1 探测:多取一条判断「还有更多」;truncated=True 时 total 是下界
+        params["limit"] = max(1, min(limit + 1, 2000))
     rows: list[Any] = client.get("/cases/cases", params=params)
-    return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=full))
+    return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=full), limit=limit)
 
 
-def search_cases(q: str, limit: int = 10) -> dict[str, Any]:
-    """按关键词搜索案件，支持案件名称、当事人姓名等模糊搜索。"""
-    return list_result(client.get("/cases/cases/search", params={"q": q, "limit": limit}))
+def search_cases(q: str, limit: int = 10, fields: list[str] | None = None) -> dict[str, Any]:
+    """按关键词搜索案件，支持案件名称、当事人姓名等模糊搜索。
+
+    搜索端点返回**未投影的全量嵌套 DTO**（实测 ~12.5KB/条——含当事人/日志
+    等 7 组关系,10 条就能 137KB）,这里与 ``list_cases`` 同款套精简投影
+    （14 字段）;要完整结构请拿 id 调 ``get_case``。
+    limit+1 探测:truncated=True 时 total 是下界(可能还有更多)。
+    """
+    rows = client.get("/cases/cases/search", params={"q": q, "limit": limit + 1})
+    return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=False), limit=limit)
 
 
-def get_case(case_id: int) -> dict[str, Any]:
-    """获取单个案件的详细信息，包含当事人、指派律师、案号、进展日志等。"""
-    return client.get(f"/cases/cases/{case_id}")  # type: ignore[no-any-return]
+def get_case(case_id: int, include_logs: bool = False) -> dict[str, Any]:
+    """获取单个案件的详细信息，包含当事人、指派律师、案号、监督机关等。
+
+    进展日志数组默认**不包含**——它是响应的大头（实测 23 条日志占 45.8KB
+    响应中的 36.3KB,中文转义后 ~1.8KB/条,默认全带会超 pi 20KB 截断线）;
+    看日志请用 ``list_case_logs``（可控条数）。确要一次全带传
+    ``include_logs=True``。
+    """
+    data: dict[str, Any] = client.get(f"/cases/cases/{case_id}")
+    if not include_logs:
+        data.pop("logs", None)
+    return data
 
 
 def create_case(

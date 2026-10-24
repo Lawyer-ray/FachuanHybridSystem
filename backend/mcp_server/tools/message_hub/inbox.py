@@ -20,14 +20,14 @@ def list_inbox_messages(
     腰斩,默认调用应留在截断线内;REST 端点默认 500 是给前端收件箱的）;
     需要更多结果时显式调大。
     """
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if source_id is not None:
         params["source_id"] = source_id
     if has_attachments is not None:
         params["has_attachments"] = has_attachments
     if search:
         params["search"] = search
-    return list_result(client.get("/inbox/messages", params=params))
+    return list_result(client.get("/inbox/messages", params=params), limit=limit)
 
 
 def get_inbox_message(message_id: int) -> dict[str, Any]:

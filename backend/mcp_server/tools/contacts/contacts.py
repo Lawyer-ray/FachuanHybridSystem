@@ -14,12 +14,12 @@ def list_contacts(case_id: int | None = None, stage: str | None = None, limit: i
     limit 默认 50——REST 端点默认 1000 是给前端表格的,对模型上下文过大;
     需要更多结果时显式调大。
     """
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if case_id is not None:
         params["case_id"] = case_id
     if stage is not None:
         params["stage"] = stage
-    return list_result(client.get("/contacts/contacts", params=params))
+    return list_result(client.get("/contacts/contacts", params=params), limit=limit)
 
 
 def create_contact(

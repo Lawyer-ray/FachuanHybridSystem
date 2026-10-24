@@ -25,7 +25,7 @@ def list_payments(
     显式调大（上限 2000）。注意:历史版本的 payment_type 参数从未生效
     （REST 不支持,ninja 静默忽略），已移除。
     """
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if contract_id is not None:
         params["contract_id"] = contract_id
     if invoice_status:
@@ -34,7 +34,7 @@ def list_payments(
         params["start_date"] = start_date
     if end_date:
         params["end_date"] = end_date
-    return list_result(client.get("/contracts/finance/payments", params=params))
+    return list_result(client.get("/contracts/finance/payments", params=params), limit=limit)
 
 
 def get_finance_stats() -> dict[str, Any]:
