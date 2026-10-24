@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import threading
 import time
@@ -15,6 +16,24 @@ from . import config
 from .identity import passthrough_authorization
 
 logger = logging.getLogger(__name__)
+
+#: 下载大小闸门（字节）。默认 1MB：base64 后 ≈ 35 万字符，已接近主流
+#: 模型上下文可承受的单工具返回上限；归档合并 PDF 动辄几十 MB，必须拦。
+#: env 覆盖单位是 MB。
+_MAX_MB = float(os.environ.get("FACHUAN_MCP_MAX_DOWNLOAD_MB", "1") or "1")
+MAX_DOWNLOAD_BYTES = int(_MAX_MB * 1024 * 1024)
+
+
+def filename_of(resp: httpx.Response) -> str:
+    """从 Content-Disposition 解析文件名（闸门报错用），解析不出返回空串。"""
+    disposition = resp.headers.get("content-disposition", "")
+    m = re.search(r"filename\*=UTF-8''([^;]+)", disposition)
+    if m:
+        from urllib.parse import unquote
+
+        return unquote(m.group(1))
+    m2 = re.search(r'filename="?([^";]+)"?', disposition)
+    return m2.group(1).strip() if m2 else ""
 
 
 class FachuanApiError(ToolError):
@@ -134,6 +153,12 @@ class FachuanClient:
         这里写死 ``self._http.get(...)``，而 httpx 的 ``.get()`` 既不接受
         ``method`` 也不接受 ``json``——9 个传 ``method="POST"`` 的工具一调用
         就 TypeError，工具面静默全废（契约测试只校验意图，不校验这层）。
+
+        大小闸门：超过 ``MAX_DOWNLOAD_BYTES``（默认 1MB，env
+        ``FACHUAN_MCP_MAX_DOWNLOAD_MB`` 可调）直接报错。下载工具会把内容
+        base64 塞进模型上下文——1MB 文件 ≈ 35 万 token，归档合并 PDF 动辄
+        几十 MB，一次就能把整个会话挤爆（列表投影防「条数多」，这里防
+        「单件大」，是同一原则的两半）。
         """
         resp = self._http.request(method.upper(), path, headers=self._headers(), **kwargs)
         if not resp.is_success:
@@ -142,6 +167,13 @@ class FachuanClient:
             except Exception:
                 detail = resp.text
             raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
+        if len(resp.content) > MAX_DOWNLOAD_BYTES:
+            raise FachuanApiError(
+                f"文件过大: {filename_of(resp) or path} 约 {len(resp.content) / 1024 / 1024:.1f}MB，"
+                f"超过 {MAX_DOWNLOAD_BYTES / 1024 / 1024:.0f}MB 上限（base64 会挤爆会话上下文）。"
+                "替代方案：①请用户在前端页面直接下载该文件；②如需读取内容，"
+                "改用文本提取类工具（extract-text）只取正文。"
+            )
         content_type = resp.headers.get("content-type", "application/octet-stream")
         disposition = resp.headers.get("content-disposition", "")
         filename = "download"

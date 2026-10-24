@@ -511,6 +511,42 @@ class TestDownload:
         assert http.request.call_args.args[0] == "POST"
 
 
+    def test_download_rejects_oversized_file_with_alternatives(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """超限文件必须拦截,错误里带文件名、大小与替代方案(防挤爆会话)。"""
+        from mcp_server import client as client_mod
+
+        c, http = fc
+        big = b"x" * (client_mod.MAX_DOWNLOAD_BYTES + 1)
+        http.request.return_value = self._make_download_response(
+            big, headers={"content-disposition": 'attachment; filename="merged-archive.pdf"'}
+        )
+        with pytest.raises(FachuanApiError) as excinfo:
+            c.download("/contracts/1/archive/download")
+        msg = str(excinfo.value)
+        assert "merged-archive.pdf" in msg
+        assert "替代方案" in msg and "extract-text" in msg, "要教模型走替代路,不是单纯拒绝"
+
+    def test_download_allows_within_limit(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """限内文件正常返回,闸门不误伤。"""
+        from mcp_server import client as client_mod
+
+        c, http = fc
+        ok = b"y" * max(1024, client_mod.MAX_DOWNLOAD_BYTES - 1)
+        http.request.return_value = self._make_download_response(ok)
+        data, _, _ = c.download("/files/ok")
+        assert data == ok
+
+    def test_download_limit_is_configurable(self, fc: tuple[FachuanClient, mock.MagicMock], monkeypatch: pytest.MonkeyPatch) -> None:
+        """上限可通过 env/属性调整(不同模型上下文规格不同)。"""
+        from mcp_server import client as client_mod
+
+        monkeypatch.setattr(client_mod, "MAX_DOWNLOAD_BYTES", 16)
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"z" * 17)
+        with pytest.raises(FachuanApiError, match="文件过大"):
+            c.download("/files/strict")
+
+
 # ===================================================================
 # 8. _headers helper
 # ===================================================================
