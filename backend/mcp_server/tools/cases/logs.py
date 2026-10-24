@@ -26,12 +26,12 @@ def create_case_log(case_id: int, content: str) -> dict[str, Any]:
 
 
 def get_case_log(log_id: int) -> dict[str, Any]:
-    """获取单条案件日志详情。"""
+    """获取单条进展日志详情。"""
     return client.get(f"/cases/logs/{log_id}")  # type: ignore[return-value]
 
 
 def update_case_log(log_id: int, content: str | None = None) -> dict[str, Any]:
-    """更新案件日志内容。只传需要修改的字段。"""
+    """修改一条进展日志的内容。只传需要修改的字段。"""
     payload: dict[str, Any] = {}
     if content is not None:
         payload["content"] = content
@@ -39,5 +39,5 @@ def update_case_log(log_id: int, content: str | None = None) -> dict[str, Any]:
 
 
 def delete_case_log(log_id: int) -> None:
-    """删除案件日志。此操作不可逆。"""
+    """删除一条进展日志——硬删除,不可恢复。若日志带附件/材料引用,先确认。"""
     client.delete(f"/cases/logs/{log_id}")

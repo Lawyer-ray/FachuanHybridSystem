@@ -8,7 +8,7 @@ from mcp_server.client import client
 
 
 def list_grants(case_id: int) -> list[dict[str, Any]]:
-    """查询案件的访问权限列表。"""
+    """查询案件的访问授权列表（哪些律师被授予了该案件的访问权）。"""
     return client.get("/cases/grants", params={"case_id": case_id})  # type: ignore[return-value]
 
 
@@ -27,12 +27,12 @@ def create_grant(case_id: int, grantee_id: int) -> dict[str, Any]:
 
 
 def get_grant(grant_id: int) -> dict[str, Any]:
-    """获取单条案件访问权限详情。"""
+    """获取单条访问授权详情（被授权律师、权限范围）。"""
     return client.get(f"/cases/grants/{grant_id}")  # type: ignore[return-value]
 
 
 def update_grant(grant_id: int, permission_level: str | None = None) -> dict[str, Any]:
-    """更新案件访问权限。只传需要修改的字段。"""
+    """更新访问授权。只传需要修改的字段。"""
     payload: dict[str, Any] = {}
     if permission_level is not None:
         payload["permission_level"] = permission_level
@@ -40,5 +40,5 @@ def update_grant(grant_id: int, permission_level: str | None = None) -> dict[str
 
 
 def delete_grant(grant_id: int) -> None:
-    """删除案件访问权限。"""
+    """撤销某律师对该案件的访问授权——硬删除,不可恢复。"""
     client.delete(f"/cases/grants/{grant_id}")

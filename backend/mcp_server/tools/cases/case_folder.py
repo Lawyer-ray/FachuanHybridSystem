@@ -19,17 +19,17 @@ def create_case_folder_binding(
 
 
 def get_case_folder_binding(case_id: int) -> dict[str, Any]:
-    """获取案件的文件夹绑定信息。"""
+    """获取案件的文件夹绑定信息（绑定路径、存储类型）。"""
     return client.get(f"/cases/{case_id}/folder-binding")  # type: ignore[return-value]
 
 
 def delete_case_folder_binding(case_id: int) -> None:
-    """解除案件的文件夹绑定。"""
+    """解除案件的文件夹绑定——只解绑,不删除云盘/本地上的实际文件。"""
     client.delete(f"/cases/{case_id}/folder-binding")
 
 
 def get_contract_folder_path(case_id: int) -> dict[str, Any]:
-    """获取案件关联合同的文件夹路径。"""
+    """获取案件关联合同的文件夹路径（合同与案件共用文件夹时定位用）。"""
     return client.get(f"/cases/{case_id}/contract-folder-path")  # type: ignore[return-value]
 
 

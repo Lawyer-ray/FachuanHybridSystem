@@ -25,17 +25,17 @@ def create_template_binding(case_id: int, template_id: int, group_name: str = ""
 
 
 def delete_template_binding(case_id: int, binding_id: int) -> dict[str, Any]:
-    """删除案件的模板绑定。返回后端删除结果。"""
+    """删除案件的某个文书模板绑定——已按该模板生成的文书不受影响。"""
     return client.delete(f"/cases/{case_id}/template-bindings/{binding_id}")  # type: ignore[no-any-return]
 
 
 def list_available_templates(case_id: int) -> list[dict[str, Any]]:
-    """获取案件可用的文书模板列表（已过滤适用类型）。"""
+    """获取案件可用的文书模板列表（已按案件类型过滤适用性）。"""
     return client.get(f"/cases/{case_id}/available-templates")  # type: ignore[return-value]
 
 
 def generate_case_template(case_id: int, template_id: int) -> dict[str, Any]:
-    """基于模板为案件生成文书。返回生成任务信息。"""
+    """基于绑定的模板为案件生成文书（异步任务,返回任务信息,稍后查产物）。"""
     return client.post(  # type: ignore[return-value]
         f"/cases/{case_id}/generate-template",
         json={"template_id": template_id},

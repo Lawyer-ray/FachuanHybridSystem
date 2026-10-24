@@ -26,14 +26,14 @@ def add_case_party(case_id: int, client_id: int, legal_status: str | None = None
 
 
 def get_case_party(party_id: int) -> dict[str, Any]:
-    """获取单个案件当事人详情。"""
+    """获取单个当事人的详情（身份、诉讼地位、联系方式）。"""
     return client.get(f"/cases/parties/{party_id}")  # type: ignore[return-value]
 
 
 def update_case_party(
     party_id: int, legal_status: str | None = None, extra: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """更新案件当事人信息。只传需要修改的字段。"""
+    """更新当事人信息（姓名/诉讼地位/证件等）。只传需要修改的字段。"""
     payload: dict[str, Any] = {}
     if legal_status is not None:
         payload["legal_status"] = legal_status
@@ -42,5 +42,5 @@ def update_case_party(
 
 
 def delete_case_party(party_id: int) -> None:
-    """从案件中移除当事人。"""
+    """把当事人从案件中移除——硬删除该关联记录,不可恢复。"""
     client.delete(f"/cases/parties/{party_id}")

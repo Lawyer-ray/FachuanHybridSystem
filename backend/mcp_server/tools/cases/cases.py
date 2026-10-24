@@ -87,7 +87,10 @@ def update_case(
     cause_of_action: str | None = None,
     status: str | None = None,
 ) -> dict[str, Any]:
-    """更新案件信息。只传需要修改的字段。"""
+    """更新案件档案的可编辑字段（名称/状态/类型/日期/金额/案由等）。
+
+    只传需要修改的字段;改动立即生效并进入审计日志。金额类字段
+    （amount 等）触发审批。案件归属不变。"""
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
@@ -103,7 +106,10 @@ def update_case(
 
 
 def delete_case(case_id: int) -> None:
-    """删除案件。此操作不可逆。"""
+    """删除整个案件档案——硬删除,不可恢复。
+
+    级联删除案件下的当事人、案号、指派、进展日志、访问授权等全部
+    关联记录。删除前确认没有关联合同/文书仍在引用。高危操作,需人工审批。"""
     client.delete(f"/cases/cases/{case_id}")
 
 
