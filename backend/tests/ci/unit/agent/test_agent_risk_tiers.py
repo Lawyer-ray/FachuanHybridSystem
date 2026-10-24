@@ -271,3 +271,77 @@ class TestApproveActionIsGuarded:
     def test_approve_pattern_in_both_tables(self) -> None:
         assert "approve_" in DANGER_PATTERNS
         assert "approve_" in _ts_list("HIGH_RISK_PATTERNS")
+
+
+class TestExternalActionTools:
+    """外部副作用与批量写工具的审批覆盖（2026-10-25 审计）。
+
+    410 工具全量过筛发现 9 个「世界可见效果」工具被判 LOW 直接执行：
+    法院递交立案 / OA 立案 / 外部担保执行询价 / 批量建案建客户 / 批量导入执行。
+    「递交法院」本是审批链的立项目标场景。此断言防止 DANGER_PATTERNS
+    未来重构时把 ``execute_``/``trigger_``/``batch_`` 悄悄丢掉。
+    """
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            "mcp__fachuan__execute_court_filing",  # 向法院递交立案
+            "mcp__fachuan__trigger_oa_filing",  # OA 立案提交
+            "mcp__fachuan__execute_guarantee",  # 外部担保执行
+            "mcp__fachuan__execute_preservation_quote",  # 外部保全询价
+            "mcp__fachuan__execute_case_import",  # 批量导入执行（落库）
+            "mcp__fachuan__batch_create_cases",  # 批量建案
+            "mcp__fachuan__batch_create_clients",  # 批量建客户
+            "mcp__fachuan__trigger_case_import",  # 上传解析（与 upload_ 同级）
+            "mcp__fachuan__trigger_client_import",
+        ],
+    )
+    def test_external_actions_are_high_risk(self, tool: str) -> None:
+        assert is_high_risk(tool), tool
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            "start_workflow",  # 可 cancel，但会真实跑步骤
+            "sync_message_source",  # 拉取入库
+            "sync_all_message_sources",
+            "assign_lawyer",  # 改案件指派
+            "save_archive_overrides",
+            "move_archive_material",
+            "retry_sms_processing",
+            "learn_archive_rules",
+            "generate_complaint",  # 文书生成落库
+            "save_to_directory",  # 写盘到绑定目录
+        ],
+    )
+    def test_write_actions_are_medium(self, tool: str) -> None:
+        """新增写前缀 = 中级：静默放行但留痕，无审批摩擦。"""
+        assert classify_risk(tool) is RiskLevel.MEDIUM, tool
+        assert not is_high_risk(tool), tool
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            "get_court_filing_case_info",
+            "get_filing_status",
+            "get_case_import_preview",
+            "get_lpr_sync_status",
+            "list_oa_configs",
+        ],
+    )
+    def test_reads_stay_low(self, tool: str) -> None:
+        """读类工具不受前缀扩充影响——execute_/sync_ 等前缀只匹配短名开头。"""
+        assert classify_risk(tool) is RiskLevel.LOW, tool
+
+    def test_new_patterns_in_both_tables(self) -> None:
+        for pattern in ("execute_", "trigger_", "batch_"):
+            assert pattern in DANGER_PATTERNS, pattern
+            assert pattern in _ts_list("HIGH_RISK_PATTERNS"), pattern
+        for prefix in ("generate_", "save_", "move_", "sync_", "start_", "retry_", "assign_", "learn_"):
+            assert prefix in WRITE_PREFIXES, prefix
+            assert prefix in _ts_list("WRITE_PREFIXES"), prefix
+
+    def test_retry_with_sensitive_arg_escalates(self) -> None:
+        """中级写前缀 + 敏感参数 → 高危（参数级判定对新增前缀同样生效）。"""
+        assert classify_risk("mcp__fachuan__start_workflow", {"deadline": "2026-01-01"}) is RiskLevel.HIGH
+        assert classify_risk("save_archive_overrides", {"total": 3}) is RiskLevel.HIGH

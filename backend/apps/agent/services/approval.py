@@ -57,9 +57,17 @@ logger = logging.getLogger(__name__)
 #:   模型低危直调它 = 模型替人批准自己发起的工作流,gate 的 HUMAN-in-the-loop
 #:   语义被绕空。定为高危后:模型发起 → 律师看到审批卡 → 人点同意 → 信号才发出,
 #:   正好还原「等 human signal」的设计本意(2026-10-25 审计)。
+#: - ``execute_`` / ``trigger_`` / ``batch_``：外部副作用与批量写(2026-10-25 审计
+#:   补入)。此前 ``execute_court_filing``(向法院递交立案)、``trigger_oa_filing``
+#:   (OA 立案提交)、``execute_guarantee``/``execute_preservation_quote``(外部担保
+#:   接口)、``batch_create_cases``/``batch_create_clients``(批量建档案)全被判 LOW
+#:   直接执行——「递交法院」本是本清单的立项目标场景。``trigger_case_import``/
+#:   ``trigger_client_import`` 虽只是上传解析,但与 ``upload_`` 同级语义(文件已
+#:   离开本系统控制),一并拦。
 #: - ``clear_all`` / ``reset_and_``：批量清空 / 重置
 #: 刻意**不**拦 ``create_`` / ``update_``（常规业务写由各域服务层归属校验兜底,
-#: 逐笔审批会让 agent 不可用）与 ``sync_`` / ``export_`` / ``download_``（拉取导出,无破坏性）。
+#: 逐笔审批会让 agent 不可用）与 ``export_`` / ``download_``（拉取导出,无破坏性）。
+#: ``sync_`` 不进高危但已列入 WRITE_PREFIXES（中级留痕,见下）。
 DANGER_PATTERNS: tuple[str, ...] = (
     "delete",
     "remove_",
@@ -72,6 +80,9 @@ DANGER_PATTERNS: tuple[str, ...] = (
     "approve_",
     "clear_all",
     "reset_and_",
+    "execute_",
+    "trigger_",
+    "batch_",
 )
 
 #: 已知无需审批的例外（按工具名后缀登记；新增例外必须写明理由）。
@@ -108,8 +119,27 @@ SENSITIVE_ARG_MARKERS: tuple[str, ...] = (
     "state",
 )
 
-#: 「业务写」前缀：本身不算高危，但要拿参数做进一步判定。
-WRITE_PREFIXES: tuple[str, ...] = ("create_", "update_", "set_", "patch_", "add_")
+#: 「业务写」前缀：本身不算高危，但要拿参数做进一步判定（中级 = 静默放行 +
+#: logger 留痕，无审批摩擦；带敏感参数则升高危）。
+#: 2026-10-25 审计补入 8 个前缀——它们此前被判 LOW（连留痕都没有）：
+#: ``generate_``（文书/归档产物落库）、``save_``（配置/排序/写盘）、``move_``、
+#: ``sync_``（拉取入库）、``start_``（扫描/工作流启动）、``retry_``、
+#: ``assign_``（案件指派）、``learn_``（规则学习）。读类（get_/list_ 等）不受影响。
+WRITE_PREFIXES: tuple[str, ...] = (
+    "create_",
+    "update_",
+    "set_",
+    "patch_",
+    "add_",
+    "generate_",
+    "save_",
+    "move_",
+    "sync_",
+    "start_",
+    "retry_",
+    "assign_",
+    "learn_",
+)
 
 DEFAULT_TIMEOUT = 300.0
 #: 紧急级审批的等待上限（比常规长：这种操作值得让用户想清楚）。

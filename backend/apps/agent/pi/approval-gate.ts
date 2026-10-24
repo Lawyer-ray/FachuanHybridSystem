@@ -35,7 +35,10 @@ const SESSION_ID = process.env.FACHUAN_SESSION_ID ?? "";
  * 覆盖：一切删除 / 对外发出递交上传 / 归档确认 / 审批动作本身 / 批量清空重置。
  * approve_：approve_workflow_step 是工作流 gate 的人工确认动作本身，模型
  * 低危直调 = 替人批准自己发起的工作流，必须升级为人工审批（2026-10-25 审计）。
- * 刻意不拦 create_/update_（业务写、服务层归属兜底）与 sync_/export_（无破坏性）。
+ * execute_/trigger_/batch_：外部副作用与批量写（法院递交立案 / OA 立案 /
+ * 外部担保接口 / 批量建档案），2026-10-25 审计补入——此前全被判 LOW 直执行。
+ * 刻意不拦 create_/update_（业务写、服务层归属兜底）与 export_/download_（无破坏性）。
+ * sync_ 不进高危但已列入 WRITE_PREFIXES（中级留痕）。
  */
 const HIGH_RISK_PATTERNS: readonly string[] = [
   "delete",
@@ -49,6 +52,9 @@ const HIGH_RISK_PATTERNS: readonly string[] = [
   "approve_",
   "clear_all",
   "reset_and_",
+  "execute_",
+  "trigger_",
+  "batch_",
 ];
 
 /**
@@ -65,6 +71,8 @@ const CRITICAL_PATTERNS: readonly string[] = [
 /**
  * 中级：常规写入，但参数里带金额/期限/状态字段时升级为需审批。
  * 只按工具名判高危会漏掉 `update_contract(fixed_amount=...)` 这类改金额的写操作。
+ * 2026-10-25 审计补入 8 个前缀（generate_/save_/move_/sync_/start_/retry_/
+ * assign_/learn_）——它们此前被判 LOW，连留痕都没有。
  * 与服务端 SENSITIVE_ARG_MARKERS / WRITE_PREFIXES 保持一致。
  */
 const SENSITIVE_ARG_MARKERS: readonly string[] = [
@@ -87,7 +95,21 @@ const SENSITIVE_ARG_MARKERS: readonly string[] = [
   "state",
 ];
 
-const WRITE_PREFIXES: readonly string[] = ["create_", "update_", "set_", "patch_", "add_"];
+const WRITE_PREFIXES: readonly string[] = [
+  "create_",
+  "update_",
+  "set_",
+  "patch_",
+  "add_",
+  "generate_",
+  "save_",
+  "move_",
+  "sync_",
+  "start_",
+  "retry_",
+  "assign_",
+  "learn_",
+];
 
 type RiskLevel = "low" | "medium" | "high" | "critical";
 
