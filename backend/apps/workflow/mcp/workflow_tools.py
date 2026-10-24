@@ -32,6 +32,77 @@ async def _get_client():  # type: ignore[no-untyped-def]
     return _client
 
 
+async def _resolve_mcp_access(
+    user: Any | None, org_access: dict[str, Any] | None, perm_open_access: bool
+) -> tuple[Any | None, dict[str, Any] | None, bool]:
+    """REST 调用（user 已传）原样返回；MCP 调用从请求头 Bearer 重建身份。
+
+    共享 MCP（streamable-http）模式下 pi 以「当前律师」的 token 调工具,
+    但本模块直接 ORM 不走 REST,拿不到 request——工具签名里的 ``user``
+    参数在 MCP 面上模型永远传不进来,此前一律 ``None`` 落到「无用户上下文」
+    分支:归属校验全跳过、审批/创建不留痕(IDOR + 审计缺失)。
+
+    这里从 ``mcp_server.identity`` 的 ContextVar 取 Bearer 并解码出律师,
+    org_access 复用 API 层同一补算函数(同缓存 key)。stdio / 无透传 /
+    解码失败:返回原值(None),维持既有「手工跑 = 服务账号语义」行为。
+    """
+    if user is not None:
+        return user, org_access, perm_open_access
+
+    from mcp_server.identity import passthrough_authorization
+
+    raw = passthrough_authorization()
+    if not raw:
+        return None, org_access, perm_open_access
+    try:
+        from ninja_jwt.tokens import AccessToken
+
+        token = AccessToken(raw.removeprefix("Bearer ").strip())
+        user_id = token["user_id"]
+
+        from asgiref.sync import sync_to_async
+
+        from apps.organization.models import Lawyer
+
+        resolved = await sync_to_async(Lawyer.objects.get, thread_sensitive=False)(id=user_id)
+    except Exception:
+        logger.warning("MCP Bearer 身份重建失败,回退匿名(维持既有行为)", exc_info=True)
+        return None, org_access, perm_open_access
+
+    from asgiref.sync import sync_to_async
+
+    from apps.organization.middleware import get_or_compute_org_access
+
+    resolved_org = await sync_to_async(get_or_compute_org_access, thread_sensitive=False)(resolved)
+    from django.conf import settings
+
+    return resolved, resolved_org, bool(getattr(settings, "PERM_OPEN_ACCESS", False))
+
+
+async def _mcp_guard_run_access(run_id: int) -> None:
+    """MCP 直连路径的 run 访问校验(复用 REST 层同一服务/同一异常语义)。
+
+    只在请求头带 Bearer(共享 MCP 的 pi 会话)时校验;REST 调用链无
+    ContextVar、其 API 层已用同一服务校验过,直接跳过,避免重复查询。
+    stdio 手工链路同样跳过(维持既有行为)。
+    """
+    from mcp_server.identity import passthrough_authorization
+
+    if not passthrough_authorization():
+        return
+    user, org_access, perm_open_access = await _resolve_mcp_access(None, None, False)
+    if user is None:
+        return
+    from apps.core.security.access_context import AccessContext
+
+    from ..services.run_access_service import WorkflowRunAccessService
+
+    await WorkflowRunAccessService().ensure_run_case_access(
+        run_id=run_id,
+        ctx=AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access),
+    )
+
+
 async def start_workflow(
     template_slug: str,
     case_id: int,
@@ -51,6 +122,8 @@ async def start_workflow(
     """
     from apps.workflow.models import WorkflowRun, WorkflowTemplate
 
+    user, org_access, perm_open_access = await _resolve_mcp_access(user, org_access, perm_open_access)
+
     is_authenticated_user = bool(user and getattr(user, "is_authenticated", False))
     if is_authenticated_user:
         # 有用户上下文时校验案件访问权（安全审计 IDOR）
@@ -67,8 +140,9 @@ async def start_workflow(
         )
         if not has_access:
             raise ForbiddenError("无权限访问此案件")
-    # 注意（安全）：MCP 直连调用链无用户上下文，此处无法校验案件归属；
-    # 用户上下文存在时（user 非空）已按 CaseAccessPolicy 校验
+    # 注意（安全）：stdio 手工链路无用户上下文,此处无法校验案件归属;
+    # 用户上下文存在时（REST 传入或 MCP Bearer 重建,user 非空）已按
+    # CaseAccessPolicy 校验
 
     template = await WorkflowTemplate.objects.aget(slug=template_slug, is_active=True)
     client = await _get_client()
@@ -133,6 +207,7 @@ async def list_workflows(
 
     from apps.workflow.models import WorkflowRun
 
+    user, org_access, perm_open_access = await _resolve_mcp_access(user, org_access, perm_open_access)
     effective_limit = max(1, min(limit, 100))
 
     qs = WorkflowRun.objects.select_related("template", "case")
@@ -141,8 +216,8 @@ async def list_workflows(
     if status:
         qs = qs.filter(status=status)
     if user is not None:
-        # 有用户上下文（REST 列表）时按案件访问权过滤；
-        # MCP 直连链路无用户上下文，维持原有不过滤口径（同 start_workflow）
+        # 有用户上下文（REST 列表或 MCP Bearer 重建）时按案件访问权过滤；
+        # stdio 手工链路无用户上下文，维持原有不过滤口径（同 start_workflow）
         from asgiref.sync import sync_to_async
 
         from apps.cases.models import Case
@@ -190,6 +265,8 @@ async def get_workflow_detail(run_id: int) -> dict[str, Any]:
         run_id: 工作流运行 ID
     """
     from apps.workflow.models import WorkflowRun
+
+    await _mcp_guard_run_access(run_id)
 
     run = await WorkflowRun.objects.select_related("template", "case").aget(pk=run_id)
     steps = [s async for s in run.step_executions.all()]
@@ -255,9 +332,9 @@ async def approve_workflow_step(
     发送前校验目标 workflow 注册了该信号（WORKFLOW_SIGNAL_HANDLERS），
     未注册的信号会被 Temporal 静默丢弃，必须明确报错而非假成功。
 
-    审批留痕（安全审计）：有人类用户上下文时（API 调用传入 user），将
-    acted_by/acted_at 写入该 gate 步骤的 StepExecution——通过/拒绝均记录。
-    MCP 直连无用户上下文，留痕字段保持为空。
+    审批留痕（安全审计）：有人类用户上下文时（REST 传入或 MCP Bearer 重建），
+    将 acted_by/acted_at 写入该 gate 步骤的 StepExecution——通过/拒绝均记录。
+    stdio 直连无用户上下文，留痕字段保持为空。
 
     Args:
         run_id: 工作流运行 ID
@@ -267,6 +344,9 @@ async def approve_workflow_step(
     """
     from apps.workflow.models import StepExecution, WorkflowRun
     from apps.workflow.temporal.workflows import WORKFLOW_SIGNAL_HANDLERS
+
+    user, _org, _open = await _resolve_mcp_access(user, None, False)
+    await _mcp_guard_run_access(run_id)
 
     try:
         run = await WorkflowRun.objects.select_related("template").aget(pk=run_id)
@@ -336,6 +416,8 @@ async def cancel_workflow(run_id: int) -> dict[str, Any]:
     from django.utils import timezone
 
     from apps.workflow.models import WorkflowRun
+
+    await _mcp_guard_run_access(run_id)
 
     try:
         run = await WorkflowRun.objects.aget(pk=run_id)

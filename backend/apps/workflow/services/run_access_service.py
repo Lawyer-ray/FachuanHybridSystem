@@ -27,9 +27,10 @@ class WorkflowRunAccessService:
         from apps.workflow.models import WorkflowRun
 
         try:
-            case_id = await sync_to_async(
-                WorkflowRun.objects.values_list("case_id", flat=True).get, thread_sensitive=False
-            )(pk=run_id)
+            # thread_sensitive=True（默认）：与 Django async ORM 同口径，跑在
+            # 调用链同一线程——保证事务/测试事务可见性；False 会开线程池新连接，
+            # 未提交数据（含 pytest-django 测试事务）不可见。
+            case_id = await sync_to_async(WorkflowRun.objects.values_list("case_id", flat=True).get)(pk=run_id)
         except WorkflowRun.DoesNotExist:
             raise NotFoundError(f"工作流运行 #{run_id} 不存在") from None
-        await sync_to_async(CaseAccessPolicy().ensure_access_ctx, thread_sensitive=False)(case_id=case_id, ctx=ctx)
+        await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
