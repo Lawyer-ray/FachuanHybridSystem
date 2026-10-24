@@ -128,6 +128,13 @@ const WRITE_PREFIXES: readonly string[] = [
   "reset_",
   "cleanup_",
   "unified_",
+  // 2026-10-25 晨间审计（十九轮）：与服务端同步——convert_document（落转换
+  // 记录+产物文件）/analyze_template（改模板状态+建 FieldMapping）/
+  // parse_document（存上传文件+建解析任务）POST 但真写，此前误判 LOW。
+  // parse_ 其余纯内存解析，用完整名精确圈定。
+  "convert_",
+  "analyze_",
+  "parse_document",
 ];
 
 type RiskLevel = "low" | "medium" | "high" | "critical";

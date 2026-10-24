@@ -161,6 +161,15 @@ WRITE_PREFIXES: tuple[str, ...] = (
     "reset_",
     "cleanup_",
     "unified_",
+    # 2026-10-25 晨间审计(十九轮)：readOnlyHint↔写方法对账,三个 POST 但真写的
+    # 工具此前判 LOW(零留痕+readOnlyHint):convert_document(每次转换落
+    # DocConvertRecord+产物文件)、analyze_template(改模板状态/指纹+建
+    # FieldMapping)、parse_document(存上传文件+建 DocumentParsingTask+派后台)。
+    # parse_ 其余两员(parse_client_text/parse_reminders_from_text)纯内存解析,
+    # 故用完整名精确圈定而非 parse_ 前缀。
+    "convert_",
+    "analyze_",
+    "parse_document",
 )
 
 DEFAULT_TIMEOUT = 300.0
