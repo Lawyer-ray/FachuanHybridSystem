@@ -30,8 +30,10 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
+import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -39,6 +41,50 @@ import httpx
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
+
+#: SSRF 拦截（2026-10-25 审计）：工具跑在后端同机进程里,模型可以让它抓
+#: 127.0.0.1:8002（自家 Django/mcp）、律所内网网关、云元数据端点——这是
+#: 标准 SSRF 面。抓取前按「域名解析出的全部 IP」判定,命中内网段直接拒绝;
+#: 搜狗跳转解析出的真实地址同样过检。
+_BLOCKED_NETS = tuple(
+    ipaddress.ip_network(net)
+    for net in (
+        "127.0.0.0/8",  # loopback
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",  # 链路本地/云元数据
+        "0.0.0.0/8",
+        "::1/128",
+        "fe80::/10",
+        "fc00::/7",
+    )
+)
+
+
+def _host_is_internal(host: str) -> bool:
+    """host（IP 或域名）是否落在内网/本机段。域名按解析出的全部地址判定。"""
+    if not host:
+        return True
+    try:
+        addr = ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        addr = None
+    if addr is not None:
+        return any(addr in net for net in _BLOCKED_NETS)
+    # 域名：解析失败按内部处理（fail-closed,防 DNS 异常绕过）
+    try:
+        infos = socket.getaddrinfo(host.strip("[]"), None)
+    except OSError:
+        return True
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if any(ip in net for net in _BLOCKED_NETS):
+            return True
+    return False
 
 #: 伪装成普通浏览器；不少站点对默认 UA 直接 403
 _HEADERS = {
@@ -182,6 +228,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS) -> dict[str, Any]:
         ``http_error``        其他非 2xx 状态
         ``empty_content``     抓到了但正文为空
         ``invalid_url``       不是合法 http(s) 地址
+        ``blocked_target``    目标（或重定向跳板）属于内网/本机段,SSRF 防护拒绝
         ====================  ====================================
     """
     raw = (url or "").strip()
@@ -203,20 +250,47 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS) -> dict[str, Any]:
 
     limit = max(200, min(max_chars, 20000))
 
+    # SSRF 拦截:本机/内网/链路本地目标直接拒绝。**重定向手动逐跳跟随**,
+    # 每跳过检——follow_redirects=True 会让「公网 302 → 内网」的攻击路径
+    # 绕过首跳检查。
+    current = target
     try:
-        with httpx.Client(timeout=20.0, follow_redirects=True, trust_env=False) as http:
-            response = http.get(target, headers=_HEADERS)
+        with httpx.Client(timeout=20.0, follow_redirects=False, trust_env=False) as http:
+            for _hop in range(5):
+                if _host_is_internal(urlparse(current).hostname or ""):
+                    return {
+                        "ok": False,
+                        "url": current,
+                        "reason": "blocked_target",
+                        "message": "目标地址属于内网/本机段,为防 SSRF 已拒绝抓取",
+                    }
+                response = http.get(current, headers=_HEADERS)
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get("location", "")
+                    if not location:
+                        break
+                    current = str(httpx.URL(current).join(location))
+                    continue
+                break
             html = response.text
 
-            # 搜狗跳转页：抽真实地址再抓一次
+            # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
             real_url = _resolve_sogou_redirect(html)
-            if real_url and real_url != target:
+            if real_url and real_url != current:
+                if _host_is_internal(urlparse(real_url).hostname or ""):
+                    return {
+                        "ok": False,
+                        "url": real_url,
+                        "reason": "blocked_target",
+                        "message": "跳转目标属于内网/本机段,为防 SSRF 已拒绝抓取",
+                    }
                 try:
                     response = http.get(real_url, headers=_HEADERS)
                     html = response.text
-                    target = real_url
+                    current = real_url
                 except httpx.HTTPError as exc:
                     logger.info("解析到真实地址但抓取失败 %s: %s", real_url, exc)
+            target = current
 
     except httpx.TimeoutException:
         return {"ok": False, "url": target, "reason": "timeout", "message": "请求超时（20 秒）"}

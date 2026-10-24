@@ -31,6 +31,21 @@ def fake_http() -> Any:
         yield patched
 
 
+@pytest.fixture(autouse=True)
+def _public_dns() -> Any:
+    """默认把 DNS 解析 mock 成公网地址。
+
+    SSRF 检查引入了 getaddrinfo 依赖,单测不应触网;个别用例（内网/DNS 失败）
+    在测试体内用更内层的 mock.patch 覆盖。
+    """
+    def _fake_getaddrinfo(host: str, *args: Any, **kwargs: Any) -> list[tuple]:
+        ip = "127.0.0.1" if host in ("localhost",) else "93.184.216.34"
+        return [(None, None, None, "", (ip, 0))]
+
+    with mock.patch.object(_module().socket, "getaddrinfo", side_effect=_fake_getaddrinfo):
+        yield
+
+
 def _set_response(fake_http: Any, response: httpx.Response) -> None:
     instance = fake_http.return_value.__enter__.return_value
     instance.get.return_value = response
@@ -192,3 +207,67 @@ class TestRedirectFallback:
         # 真实地址抓取失败后，仍返回跳转页本身的分析结果（大概率 javascript_required）
         assert result["ok"] is False
         assert result["reason"] in {"javascript_required", "antispider"}
+
+
+class TestSSRFProtection:
+    """SSRF 拦截（2026-10-25 审计）——工具跑在后端同机进程,模型可以让它抓
+    127.0.0.1:8002（自家 Django/MCP）、律所内网网关、云元数据端点。命中内网段
+    必须拒绝;重定向**手动逐跳跟随**且每跳过检,防「公网 302 → 内网」绕过。
+    """
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://127.0.0.1:8002/admin/",
+            "http://localhost:5090/",
+            "http://10.1.2.3/x",
+            "http://192.168.1.1/router",
+            "http://172.16.0.9/",
+            "http://172.31.255.255/",
+            "http://169.254.169.254/latest/meta-data/",
+            "http://[::1]:8080/",
+            "http://0.0.0.0/",
+        ],
+    )
+    def test_internal_targets_blocked(self, url: str) -> None:
+        result = _module().fetch_url(url)
+        assert result["ok"] is False
+        assert result["reason"] == "blocked_target"
+
+    def test_intranet_hostname_blocked(self) -> None:
+        """域名解析出内网 IP 同样拦截（按解析结果而非字面判断）。"""
+        mod = _module()
+        with mock.patch.object(mod.socket, "getaddrinfo", return_value=[(None, None, None, "", ("10.2.3.4", 0))]):
+            result = mod.fetch_url("http://intranet.lawfirm.internal/x")
+        assert result["ok"] is False
+        assert result["reason"] == "blocked_target"
+
+    def test_dns_failure_fails_closed(self) -> None:
+        """域名解析失败按内部处理——DNS 异常不应成为绕过口。"""
+        mod = _module()
+        with mock.patch.object(mod.socket, "getaddrinfo", side_effect=OSError("dns down")):
+            result = mod.fetch_url("http://nonexistent.invalid/x")
+        assert result["ok"] is False
+        assert result["reason"] == "blocked_target"
+
+    def test_public_hostname_allowed_to_proceed(self, fake_http: Any) -> None:
+        """公网域名放行到 HTTP 层（不被 SSRF 检查拦）。"""
+        mod = _module()
+        with mock.patch.object(mod.socket, "getaddrinfo", return_value=[(None, None, None, "", ("93.184.216.34", 0))]):
+            _set_response(fake_http, _response(200, "<html><body>" + "正文" * 200 + "</body></html>"))
+            result = mod.fetch_url("https://example.com/article")
+        assert result.get("reason") != "blocked_target"
+
+    def test_redirect_to_internal_blocked_mid_hop(self, fake_http: Any) -> None:
+        """公网 302 → 内网:第二跳必须被拦,而不是自动跟随。"""
+        mod = _module()
+        with mock.patch.object(mod.socket, "getaddrinfo", return_value=[(None, None, None, "", ("93.184.216.34", 0))]):
+            redirect = httpx.Response(
+                302,
+                headers={"location": "http://127.0.0.1:8002/admin/"},
+                request=httpx.Request("GET", "https://evil.com/"),
+            )
+            _set_response(fake_http, redirect)
+            result = mod.fetch_url("https://evil.com/link")
+        assert result["ok"] is False
+        assert result["reason"] == "blocked_target"
