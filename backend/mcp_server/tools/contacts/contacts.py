@@ -60,9 +60,9 @@ def get_contact(contact_id: int) -> dict[str, Any]:
     return client.get(f"/contacts/contacts/{contact_id}")  # type: ignore[return-value]
 
 
-def update_contact(contact_id: int, **fields: Any) -> dict[str, Any]:
+def update_contact(contact_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新联系人信息。"""
-    return client.put(f"/contacts/contacts/{contact_id}", json=fields)  # type: ignore[return-value]
+    return client.put(f"/contacts/contacts/{contact_id}", json=fields or {})  # type: ignore[return-value]
 
 
 def delete_contact(contact_id: int) -> None:

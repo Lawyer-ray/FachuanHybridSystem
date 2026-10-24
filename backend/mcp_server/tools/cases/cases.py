@@ -108,11 +108,34 @@ def delete_case(case_id: int) -> None:
 
 
 def create_full_case(
-    name: str,
-    case_type: str,
-    parties: list[dict[str, Any]],
-    **extra: Any,
+    case: dict[str, Any],
+    parties: list[dict[str, Any]] | None = None,
+    assignments: list[dict[str, Any]] | None = None,
+    case_numbers: list[dict[str, Any]] | None = None,
+    supervising_authorities: list[dict[str, Any]] | None = None,
+    logs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """创建完整案件（含当事人、案号等）。parties 为当事人列表；其余字段通过 extra 透传。"""
-    payload: dict[str, Any] = {"name": name, "case_type": case_type, "parties": parties, **extra}
+    """创建完整案件（一案落库 + 当事人/案号/指派等一次到位）。
+
+    Args:
+        case: 案件主体字段。必填 ``name``；常用 ``case_type``
+            （litigation / non_litigation / criminal / advisory）、
+            ``target_amount``、``cause_of_action``、``status`` 等。
+        parties: 当事人列表（每项含 name / party_type 等字段）。
+        assignments: 指派律师列表。
+        case_numbers: 案号列表。
+        supervising_authorities: 主管机关列表。
+        logs: 进展日志列表。
+    """
+    payload: dict[str, Any] = {"case": case}
+    if parties:
+        payload["parties"] = parties
+    if assignments:
+        payload["assignments"] = assignments
+    if case_numbers:
+        payload["case_numbers"] = case_numbers
+    if supervising_authorities:
+        payload["supervising_authorities"] = supervising_authorities
+    if logs:
+        payload["logs"] = logs
     return client.post("/cases/cases/full", json=payload)  # type: ignore[return-value]

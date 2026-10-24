@@ -17,6 +17,6 @@ def get_court_filing_session(session_id: int) -> dict[str, Any]:
     return client.get(f"/court-filing/session/{session_id}")  # type: ignore[return-value]
 
 
-def execute_court_filing(case_id: int, **extra: Any) -> dict[str, Any]:
+def execute_court_filing(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     """执行网上立案。case_id 为案件ID；其余参数通过 extra 透传。"""
-    return client.post("/court-filing/execute", json={"case_id": case_id, **extra})  # type: ignore[return-value]
+    return client.post("/court-filing/execute", json={"case_id": case_id, **(extra or {})})  # type: ignore[return-value]

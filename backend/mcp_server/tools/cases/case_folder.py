@@ -11,10 +11,10 @@ def create_case_folder_binding(
     case_id: int,
     folder_path: str,
     storage_type: str = "local",
-    **extra: Any,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """绑定或更新案件文件夹。storage_type: local / webdav / onedrive。"""
-    payload: dict[str, Any] = {"folder_path": folder_path, "storage_type": storage_type, **extra}
+    payload: dict[str, Any] = {"folder_path": folder_path, "storage_type": storage_type, **(extra or {})}
     return client.post(f"/cases/{case_id}/folder-binding", json=payload)  # type: ignore[return-value]
 
 

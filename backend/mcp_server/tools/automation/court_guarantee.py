@@ -17,14 +17,14 @@ def get_guarantee_session(session_id: int) -> dict[str, Any]:
     return client.get(f"/court-guarantee/session/{session_id}")  # type: ignore[return-value]
 
 
-def execute_guarantee(case_id: int, **extra: Any) -> dict[str, Any]:
+def execute_guarantee(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     """执行诉讼保全申请。case_id 为案件ID；其余参数通过 extra 透传。"""
-    return client.post("/court-guarantee/execute", json={"case_id": case_id, **extra})  # type: ignore[return-value]
+    return client.post("/court-guarantee/execute", json={"case_id": case_id, **(extra or {})})  # type: ignore[return-value]
 
 
-def ensure_guarantee_quote(case_id: int, amount: float, **extra: Any) -> dict[str, Any]:
+def ensure_guarantee_quote(case_id: int, amount: float, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     """确保保全询价已创建。若无则自动创建。"""
-    return client.post("/court-guarantee/quote/ensure", json={"case_id": case_id, "amount": amount, **extra})  # type: ignore[return-value]
+    return client.post("/court-guarantee/quote/ensure", json={"case_id": case_id, "amount": amount, **(extra or {})})  # type: ignore[return-value]
 
 
 def bind_guarantee_quote(quote_id: int, case_id: int) -> dict[str, Any]:

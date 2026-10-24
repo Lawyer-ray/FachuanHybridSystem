@@ -7,9 +7,9 @@ from typing import Any
 from mcp_server.client import client
 
 
-def chat_with_context(session_id: str, message: str, **extra: Any) -> dict[str, Any]:
+def chat_with_context(session_id: str, message: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     """多轮 LLM 对话，支持上下文和会话记忆。"""
-    return client.post("/llm/chat", json={"session_id": session_id, "message": message, **extra})  # type: ignore[return-value]
+    return client.post("/llm/chat", json={"session_id": session_id, "message": message, **(extra or {})})  # type: ignore[return-value]
 
 
 def get_conversation_history(session_id: str) -> dict[str, Any]:

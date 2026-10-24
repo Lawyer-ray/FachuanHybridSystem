@@ -66,9 +66,9 @@ def get_recording(recording_id: int) -> dict[str, Any]:
     return client.get(f"/chat-records/recordings/{recording_id}")  # type: ignore[return-value]
 
 
-def update_recording(recording_id: int, **fields: Any) -> dict[str, Any]:
+def update_recording(recording_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新录屏信息。通过 kwargs 传递要修改的字段。"""
-    return client.patch(f"/chat-records/recordings/{recording_id}", json=fields)  # type: ignore[return-value]
+    return client.patch(f"/chat-records/recordings/{recording_id}", json=fields or {})  # type: ignore[return-value]
 
 
 def delete_recording(recording_id: int) -> None:
@@ -91,9 +91,9 @@ def reset_extract_recording(recording_id: int) -> dict[str, Any]:
     return client.post(f"/chat-records/recordings/{recording_id}/extract/reset", json={})  # type: ignore[return-value]
 
 
-def update_screenshot(screenshot_id: int, **fields: Any) -> dict[str, Any]:
+def update_screenshot(screenshot_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新截图信息。通过 kwargs 传递要修改的字段。"""
-    return client.patch(f"/chat-records/screenshots/{screenshot_id}", json=fields)  # type: ignore[return-value]
+    return client.patch(f"/chat-records/screenshots/{screenshot_id}", json=fields or {})  # type: ignore[return-value]
 
 
 def reorder_screenshots(project_id: int, screenshot_ids: list[int]) -> dict[str, Any]:

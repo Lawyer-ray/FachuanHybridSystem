@@ -127,6 +127,37 @@ async def list_cases(  # pragma: no cover
     return await sync_to_async(_do)()
 
 
+@router.post("/cases/full")
+async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dict[str, Any]:  # pragma: no cover
+    """创建完整案件（包含当事人、指派、日志）"""
+    service = _get_case_mutation_facade()
+    ctx = extract_request_context(request)
+    actor_id = getattr(ctx.user, "id", None) if ctx.user else None
+
+    data: dict[str, Any] = {
+        "case": payload.case.model_dump(),
+        "parties": [p.model_dump() for p in payload.parties] if payload.parties else [],
+        "assignments": [a.model_dump() for a in payload.assignments] if payload.assignments else [],
+        "logs": [log.model_dump() for log in payload.logs] if payload.logs else [],
+        "supervising_authorities": (
+            [s.model_dump() for s in payload.supervising_authorities] if payload.supervising_authorities else []
+        ),
+    }
+
+    def _create_full() -> dict[str, Any]:
+        result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
+        return CaseFullOut(
+            case=CaseOut.from_orm(result["case"]),
+            parties=result["parties"],
+            assignments=result["assignments"],
+            logs=result["logs"],
+            case_numbers=[],
+            supervising_authorities=result.get("supervising_authorities", []),
+        ).model_dump(by_alias=True, mode="json")
+
+    return await sync_to_async(_create_full)()
+
+
 @router.get("/cases/{case_id}")
 async def get_case(request: HttpRequest, case_id: int) -> dict[str, Any]:  # pragma: no cover
     """获取单个案件"""
@@ -193,34 +224,3 @@ async def delete_case(request: HttpRequest, case_id: int) -> dict[str, bool]:  #
     )
 
     return {"success": True}
-
-
-@router.post("/cases/full")
-async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dict[str, Any]:  # pragma: no cover
-    """创建完整案件（包含当事人、指派、日志）"""
-    service = _get_case_mutation_facade()
-    ctx = extract_request_context(request)
-    actor_id = getattr(ctx.user, "id", None) if ctx.user else None
-
-    data: dict[str, Any] = {
-        "case": payload.case.model_dump(),
-        "parties": [p.model_dump() for p in payload.parties] if payload.parties else [],
-        "assignments": [a.model_dump() for a in payload.assignments] if payload.assignments else [],
-        "logs": [log.model_dump() for log in payload.logs] if payload.logs else [],
-        "supervising_authorities": (
-            [s.model_dump() for s in payload.supervising_authorities] if payload.supervising_authorities else []
-        ),
-    }
-
-    def _create_full() -> dict[str, Any]:
-        result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
-        return CaseFullOut(
-            case=CaseOut.from_orm(result["case"]),
-            parties=result["parties"],
-            assignments=result["assignments"],
-            logs=result["logs"],
-            case_numbers=[],
-            supervising_authorities=result.get("supervising_authorities", []),
-        ).model_dump(by_alias=True, mode="json")
-
-    return await sync_to_async(_create_full)()

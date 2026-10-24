@@ -95,12 +95,12 @@ def list_doc_converter_jobs(page: int = 1, page_size: int = 20) -> dict[str, Any
     )
 
 
-def create_doc_converter_job(files: list[dict[str, Any]], **options: Any) -> dict[str, Any]:
+def create_doc_converter_job(files: list[dict[str, Any]], options: dict[str, Any] | None = None) -> dict[str, Any]:
     """创建 DOC→DOCX 转换任务。
 
     Args:
         files: 待转换文件列表，每项含 ``filename`` 与 ``content_base64``。
-        options: 其余转换选项原样透传给后端。
+        options: 其余转换选项原样透传给后端（可选）。
 
     Notes:
         文件以 base64 传入；后端按 multipart 接收，这里逐条解码后上传。
@@ -117,7 +117,9 @@ def create_doc_converter_job(files: list[dict[str, Any]], **options: Any) -> dic
     files_payload = {
         f"file_{index}": (item["filename"], item["content"], "application/msword") for index, item in enumerate(encoded)
     }
-    return client.upload("/doc-converter/jobs", files=files_payload, data={k: str(v) for k, v in options.items()})  # type: ignore[no-any-return]
+    return client.upload(  # type: ignore[no-any-return]
+        "/doc-converter/jobs", files=files_payload, data={k: str(v) for k, v in (options or {}).items()}
+    )
 
 
 def list_litigation_sessions(

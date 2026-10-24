@@ -96,9 +96,9 @@ def create_mapping(
     )  # type: ignore[return-value]
 
 
-def update_mapping(mapping_id: int, **fields: Any) -> dict[str, Any]:
+def update_mapping(mapping_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新已有字段映射。"""
-    return client.put(f"/documents/external-templates/mappings/{mapping_id}", json=fields)  # type: ignore[return-value]
+    return client.put(f"/documents/external-templates/mappings/{mapping_id}", json=fields or {})  # type: ignore[return-value]
 
 
 def delete_mapping(mapping_id: int) -> None:

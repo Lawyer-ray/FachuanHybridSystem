@@ -7,9 +7,9 @@ from typing import Any
 from mcp_server.client import client
 
 
-def update_document_template(template_id: int, **fields: Any) -> dict[str, Any]:
+def update_document_template(template_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新文件模板。"""
-    return client.put(f"/documents/templates/{template_id}", json=fields)  # type: ignore[return-value]
+    return client.put(f"/documents/templates/{template_id}", json=fields or {})  # type: ignore[return-value]
 
 
 def delete_document_template(template_id: int) -> dict[str, Any]:

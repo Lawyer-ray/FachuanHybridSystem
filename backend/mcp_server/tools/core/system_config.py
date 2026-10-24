@@ -27,9 +27,9 @@ def create_system_config(key: str, value: str, category: str = "general", descri
     )  # type: ignore[return-value]
 
 
-def patch_system_config(key: str, **fields: Any) -> dict[str, Any]:
+def patch_system_config(key: str, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """部分更新单个配置项的属性。"""
-    return client.patch(f"/config/system-configs/{key}", json=fields)  # type: ignore[return-value]
+    return client.patch(f"/config/system-configs/{key}", json=fields or {})  # type: ignore[return-value]
 
 
 def delete_system_config(key: str) -> dict[str, Any]:

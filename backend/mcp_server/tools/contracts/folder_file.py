@@ -92,7 +92,9 @@ def read_folder_file(
     return _read_file_via_source(
         ref_id=_display_ref(owner_kind, owner_id, normalized_subpath),
         load_content=lambda notices: _load_folder_content(owner_kind, owner_id, normalized_subpath, notices),
-        fetch_pages=lambda **kw: _render_folder_pages(owner_kind=owner_kind, owner_id=owner_id, subpath=normalized_subpath, **kw),
+        fetch_pages=lambda **kw: _render_folder_pages(
+            owner_kind=owner_kind, owner_id=owner_id, subpath=normalized_subpath, **kw
+        ),
         max_length=max_length,
         start=start,
         pages=pages,
@@ -159,6 +161,7 @@ def _render_folder_pages(
         local_notices.append(f"页图渲染不可用：{exc}")
         return [], [], local_notices, ""
     return _consume_pages_response(response, local_notices, image_format=image_format)
+
 
 def list_folder_files(
     subpath: str = "",
