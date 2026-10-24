@@ -10,9 +10,9 @@ from mcp_server.client import client
 def list_lpr_rates(
     start_date: str | None = None,
     end_date: str | None = None,
-    limit: int = 100,
+    limit: int = 60,
 ) -> dict[str, Any]:
-    """获取 LPR 利率列表。日期格式: YYYY-MM-DD。"""
+    """获取 LPR 利率列表（默认最近 60 条,全量实测 25KB 超截断线）。日期格式: YYYY-MM-DD。"""
     params: dict[str, Any] = {"limit": limit}
     if start_date:
         params["start_date"] = start_date

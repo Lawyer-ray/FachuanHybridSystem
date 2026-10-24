@@ -13,8 +13,11 @@ def list_document_templates(
     template_type: str | None = None,
     case_type: str | None = None,
     is_active: bool | None = None,
+    limit: int = 15,
 ) -> dict[str, Any]:
     """获取文件模板列表，支持按类型/案件类型/启用状态过滤。
+    模板条目含字段配置,实测 ~1.2KB/条,默认截前 15 条留在 pi 20KB 截断线内
+    （``total`` 是完整条数,要看更多显式调大 limit）。
 
     template_type: contract 合同文件模板 / case 案件文件模板 /
         archive 归档文件模板。
@@ -28,7 +31,7 @@ def list_document_templates(
         params["case_type"] = case_type
     if is_active is not None:
         params["is_active"] = is_active
-    return list_result(client.get("/documents/templates", params=params))
+    return list_result(client.get("/documents/templates", params=params), limit=limit)
 
 
 def get_document_template(template_id: int) -> dict[str, Any]:
@@ -89,8 +92,11 @@ def list_folder_templates(
     template_type: str | None = None,
     case_type: str | None = None,
     is_active: bool | None = None,
+    limit: int = 4,
 ) -> dict[str, Any]:
-    """获取文件夹模板列表（新案件的目录结构模板）。"""
+    """获取文件夹模板列表（新案件的目录结构模板）。条目含整棵目录树,
+    实测 ~4.2KB/条,默认截前 4 条留在 pi 20KB 截断线内（``total`` 是完整
+    条数,要看更多显式调大 limit）。"""
     params: dict[str, Any] = {}
     if template_type:
         params["template_type"] = template_type
@@ -98,7 +104,7 @@ def list_folder_templates(
         params["case_type"] = case_type
     if is_active is not None:
         params["is_active"] = is_active
-    return list_result(client.get("/documents/folder-templates", params=params))
+    return list_result(client.get("/documents/folder-templates", params=params), limit=limit)
 
 
 def list_placeholders(is_active: bool | None = None) -> dict[str, Any]:

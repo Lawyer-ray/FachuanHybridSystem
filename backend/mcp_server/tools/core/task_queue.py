@@ -13,14 +13,19 @@ def list_queued_tasks() -> dict[str, Any]:
     return list_result(client.get("/task-queue/queued"))
 
 
-def list_completed_tasks() -> dict[str, Any]:
-    """获取已完成任务列表（管理员）。"""
-    return list_result(client.get("/task-queue/completed"))
+def list_completed_tasks(limit: int = 30) -> dict[str, Any]:
+    """获取已完成任务列表（管理员）。REST 端点无分页,默认只取前 30 条
+    （实测全量 71KB+,超 pi 20KB 截断线）;``total`` 是完整条数,要看更多
+    显式调大 limit。"""
+    return list_result(client.get("/task-queue/completed"), limit=limit)
 
 
-def list_failed_tasks() -> dict[str, Any]:
-    """获取失败任务列表（管理员;排障入口,可配合 resubmit_task 重试）。"""
-    return list_result(client.get("/task-queue/failed"))
+def list_failed_tasks(limit: int = 20) -> dict[str, Any]:
+    """获取失败任务列表（管理员;排障入口,可配合 resubmit_task 重试）。
+    REST 端点无分页;失败任务条目肥(含错误结果/堆栈,实测 ~0.9KB/条),
+    默认只取前 20 条避免超 pi 20KB 截断线;``total`` 是完整条数,要看更多
+    显式调大 limit。"""
+    return list_result(client.get("/task-queue/failed"), limit=limit)
 
 
 def list_scheduled_tasks() -> dict[str, Any]:

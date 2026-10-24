@@ -11,14 +11,19 @@ from mcp_server.tool_shaping import list_result
 def list_all_reminders(
     contract_id: int | None = None,
     case_log_id: int | None = None,
+    limit: int = 20,
 ) -> dict[str, Any]:
-    """查询提醒列表。必须指定 contract_id（合同ID）或 case_log_id（案件日志ID）其中之一。"""
+    """查询提醒列表,可按 contract_id（合同ID）或 case_log_id（案件日志ID）过滤,
+    都不传则返回可见范围全部（提醒 DTO 较肥,实测 ~0.72KB/条,默认截前 20 条
+    留在 pi 20KB 截断线内;``total`` 是完整条数）。跨案件的到期汇总请用
+    ``list_upcoming_deadlines``,按目标精确查（含 case_id）请用
+    ``list_reminders_by_target``。"""
     params: dict[str, Any] = {}
     if contract_id is not None:
         params["contract_id"] = contract_id
     if case_log_id is not None:
         params["case_log_id"] = case_log_id
-    return list_result(client.get("/reminders/list", params=params))
+    return list_result(client.get("/reminders/list", params=params), limit=limit)
 
 
 def get_reminder(reminder_id: int) -> dict[str, Any]:
