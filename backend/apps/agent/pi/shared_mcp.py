@@ -180,17 +180,34 @@ def spawn_shared_server(endpoint: McpEndpoint) -> subprocess.Popen[bytes] | None
     )
 
 
-def ensure_shared_server(endpoint: McpEndpoint | None = None) -> McpEndpoint:
+def ensure_shared_server(endpoint: McpEndpoint | None = None, *, wait_ready: bool = False) -> McpEndpoint:
     """确保共享 MCP 在跑；返回可用的 endpoint。
 
     同步版本，供 Django ``AppConfig.ready()`` 或管理命令调用。
-    不等待就绪（就绪由 pi 侧连接时自然等待），避免拖慢启动。
+    幂等：端口已被占用（已有实例在跑）时什么都不做。
+
+    Args:
+        wait_ready: 新拉实例时是否等到端口可连（冷启动实测 ~6s）。
+            崩溃复活场景**必须等**——不等的话 spawn 返回后 pi 立刻连接，
+            落在冷启动窗口里，这个会话照样没有工具。复用现有实例时
+            本参数无效果（本来就 ready）。
     """
     resolved = endpoint or resolve_endpoint()
     if not shared_enabled():
         logger.info("共享 MCP 已禁用（%s=0），pi 将各自启动 stdio MCP", SHARED_ENV)
         return resolved
-    spawn_shared_server(resolved)
+    proc = spawn_shared_server(resolved)
+    if proc is not None and wait_ready:
+        deadline = time.monotonic() + READY_TIMEOUT
+        while time.monotonic() < deadline:
+            if port_open(resolved.host, resolved.port):
+                logger.info("共享 MCP 已就绪: %s", resolved.url)
+                break
+            time.sleep(0.2)
+        else:
+            # 就绪等待超时：不抛——会话退化为「无工具但能对话」，
+            # 下一次 acquire 还会重试拉起。
+            logger.warning("共享 MCP 就绪等待超时（%.0fs），本会话可能无工具", READY_TIMEOUT)
     return resolved
 
 
