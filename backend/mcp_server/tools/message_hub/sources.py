@@ -8,12 +8,12 @@ from mcp_server.client import client
 
 
 def list_message_sources() -> list[dict[str, Any]]:
-    """查询所有消息来源（邮箱配置）列表。"""
+    """查询所有消息来源（邮箱等账号配置）列表。"""
     return client.get("/inbox/sources")  # type: ignore[return-value]
 
 
 def get_message_source(source_id: int) -> dict[str, Any]:
-    """获取单个消息来源的详细配置信息。"""
+    """获取单个消息来源的详细配置（不含密码明文）。"""
     return client.get(f"/inbox/sources/{source_id}")  # type: ignore[return-value]
 
 
@@ -83,7 +83,7 @@ def update_message_source(
 
 
 def delete_message_source(source_id: int) -> None:
-    """删除指定消息来源。此操作不可逆。"""
+    """删除消息来源——硬删除;其历史消息保留,但不再同步新消息。"""
     client.delete(f"/inbox/sources/{source_id}")
 
 

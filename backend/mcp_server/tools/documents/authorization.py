@@ -9,7 +9,7 @@ from mcp_server.client import client
 
 
 def download_authority_letter(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """下载所函。"""
+    """下载所函（DOCX,1MB 闸门内返回 base64）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/authorization/letter/download",
         method="POST",
@@ -20,7 +20,7 @@ def download_authority_letter(case_id: int, extra: dict[str, Any] | None = None)
 
 
 def download_legal_rep_certificate(case_id: int, client_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """下载法定代表人身份证明。"""
+    """下载法定代表人身份证明（DOCX）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/authorization/legal-rep-certificate/{client_id}/download",
         method="POST",
@@ -33,7 +33,7 @@ def download_legal_rep_certificate(case_id: int, client_id: int, extra: dict[str
 def download_power_of_attorney_combined(
     case_id: int, client_ids: list[int], extra: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """下载合并的授权委托书。"""
+    """下载多客户合并版授权委托书（DOCX）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/authorization/power-of-attorney/combined/download",
         method="POST",
@@ -55,7 +55,7 @@ def download_authorization_package(case_id: int, extra: dict[str, Any] | None = 
 
 
 def download_power_of_attorney(case_id: int, client_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """下载单个客户的授权委托书。"""
+    """下载单个客户的授权委托书（DOCX）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/authorization/power-of-attorney/{client_id}/download",
         method="POST",

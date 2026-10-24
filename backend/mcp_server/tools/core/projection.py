@@ -125,7 +125,7 @@ def project_list(
     *,
     full: bool = False,
 ) -> list[Any]:
-    """对裸数组的每一项做投影。"""
+    """对工具返回的裸数组做字段投影（每项只留指定字段）——压缩上下文体积的通用后处理。"""
     if full:
         return items
     return [project(item, fields, default_fields) if isinstance(item, dict) else item for item in items]

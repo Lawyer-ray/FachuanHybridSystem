@@ -8,12 +8,12 @@ from mcp_server.client import client
 
 
 def get_guarantee_case_info(case_id: int) -> dict[str, Any]:
-    """获取保全案件信息。"""
+    """获取案件的保全担保前置信息（保全金额等）——execute_guarantee 前先查。"""
     return client.get(f"/court-guarantee/case-info/{case_id}")  # type: ignore[return-value]
 
 
 def get_guarantee_session(session_id: int) -> dict[str, Any]:
-    """查询保全任务会话状态。"""
+    """查询保全任务会话状态（进行到哪一步、是否需要人工介入）。"""
     return client.get(f"/court-guarantee/session/{session_id}")  # type: ignore[return-value]
 
 
@@ -34,7 +34,7 @@ def ensure_guarantee_quote(case_id: int) -> dict[str, Any]:
 
 
 def bind_guarantee_quote(quote_id: int, case_id: int) -> dict[str, Any]:
-    """将保全询价绑定到案件。"""
+    """把已完成的询价绑定到案件（后续执行保全时使用该报价）。"""
     return client.post(f"/court-guarantee/quote/{quote_id}/bind", json={"case_id": case_id})  # type: ignore[return-value]
 
 

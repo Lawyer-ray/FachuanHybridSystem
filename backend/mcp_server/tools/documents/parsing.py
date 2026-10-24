@@ -41,6 +41,7 @@ CONTENT_TYPES: dict[str, str] = {
 
 
 def content_type_for(filename: str) -> str:
+    """按文件名/类型推断文档解析方式（内部辅助,不直接调用）。"""
     lowered = filename.lower()
     for suffix, mime in CONTENT_TYPES.items():
         if lowered.endswith(suffix):

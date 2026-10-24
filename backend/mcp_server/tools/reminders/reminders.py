@@ -21,7 +21,7 @@ def list_all_reminders(
 
 
 def get_reminder(reminder_id: int) -> dict[str, Any]:
-    """获取单个提醒详情。"""
+    """获取单个提醒详情（类型、内容、关联对象、状态）。"""
     return client.get(f"/reminders/{reminder_id}")  # type: ignore[return-value]
 
 
@@ -55,7 +55,7 @@ def update_reminder(
     due_at: str | None = None,
     is_done: bool | None = None,
 ) -> dict[str, Any]:
-    """更新提醒信息。只传需要修改的字段。"""
+    """更新提醒（改内容/时间/完成状态）。只传需要修改的字段。"""
     payload: dict[str, Any] = {}
     if reminder_type is not None:
         payload["reminder_type"] = reminder_type
@@ -69,12 +69,12 @@ def update_reminder(
 
 
 def delete_reminder(reminder_id: int) -> None:
-    """删除提醒。"""
+    """删除提醒——硬删除,不可恢复。"""
     client.delete(f"/reminders/{reminder_id}")
 
 
 def list_reminder_types() -> list[dict[str, Any]]:
-    """获取所有支持的提醒类型列表。"""
+    """获取支持的提醒类型枚举——创建提醒前查合法值。"""
     return client.get("/reminders/types")  # type: ignore[return-value]
 
 

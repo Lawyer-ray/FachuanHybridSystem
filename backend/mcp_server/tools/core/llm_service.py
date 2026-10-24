@@ -17,7 +17,7 @@ def chat_with_context(session_id: str, message: str, extra: dict[str, Any] | Non
 
 
 def get_conversation_history(session_id: str) -> dict[str, Any]:
-    """获取对话历史记录。"""
+    """获取 chat_with_context 会话的历史记录。"""
     return client.get(f"/llm/conversation/{session_id}/history")  # type: ignore[return-value]
 
 
@@ -35,7 +35,7 @@ def list_available_models() -> dict[str, Any]:
 
 
 def test_model_connection(model_id: str = "") -> dict[str, Any]:
-    """测试指定模型的连通性。"""
+    """测试指定 LLM 模型的连通性（管理员排障用）。"""
     params: dict[str, Any] = {}
     if model_id:
         params["model_id"] = model_id

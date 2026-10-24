@@ -8,7 +8,7 @@ from mcp_server.client import client
 
 
 def update_document_template(template_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
-    """更新文件模板。"""
+    """更新文书模板元数据。只传需要修改的字段。"""
     return client.put(f"/documents/templates/{template_id}", json=fields or {})  # type: ignore[return-value]
 
 
@@ -28,5 +28,5 @@ def get_undefined_placeholders(template_id: int) -> list[str]:
 
 
 def list_template_library_files() -> list[dict[str, Any]]:
-    """列出模板库中可用的 docx 文件。"""
+    """列出模板库目录下可用的 docx 文件——新建模板前查可选用哪些文件。"""
     return client.get("/documents/templates/library-files")  # type: ignore[return-value]

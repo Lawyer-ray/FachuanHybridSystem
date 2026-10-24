@@ -39,7 +39,7 @@ def confirm_pdf_split(job_id: str, segments: list[dict[str, Any]]) -> dict[str, 
 
 
 def cancel_pdf_split(job_id: str) -> dict[str, Any]:
-    """取消 PDF 拆解任务。"""
+    """取消进行中的 PDF 拆解任务。"""
     return client.post(f"/pdf-splitting/jobs/{job_id}/cancel", json={})  # type: ignore[return-value]
 
 

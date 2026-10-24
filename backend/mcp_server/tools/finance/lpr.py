@@ -22,7 +22,7 @@ def list_lpr_rates(
 
 
 def get_latest_lpr_rate() -> dict[str, Any]:
-    """获取最新 LPR 利率。"""
+    """获取最新 LPR 报价（1年期/5年期）——利息计算前查基准利率。"""
     return client.get("/lpr/rates/latest")  # type: ignore[no-any-return]
 
 

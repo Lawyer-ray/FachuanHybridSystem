@@ -80,7 +80,7 @@ def preview_litigation_context(case_id: int, litigation_type: str) -> dict[str, 
 def download_litigation_document(
     case_id: int, litigation_type: str, extra: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """生成并下载诉讼文书为 DOCX。"""
+    """生成并下载诉讼文书为 DOCX（起诉状/答辩状等;LLM 链路,耗时较长,1MB 闸门）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/litigation/{litigation_type}/download",
         method="POST",

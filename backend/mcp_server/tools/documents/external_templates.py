@@ -14,12 +14,12 @@ def analyze_template(template_id: int) -> dict[str, Any]:
 
 
 def confirm_mappings(template_id: int) -> dict[str, Any]:
-    """确认模板字段映射。"""
+    """确认外部模板的字段映射（分析→预览→确认 后模板才可用）。"""
     return client.post(f"/documents/external-templates/{template_id}/confirm")  # type: ignore[return-value]
 
 
 def preview_fill(template_id: int, case_id: int, party_id: int | None = None) -> dict[str, Any]:
-    """预览模板填充结果。"""
+    """预览外部模板的填充结果（用真实数据试填,不落盘）。"""
     params: dict[str, Any] = {"case_id": case_id}
     if party_id is not None:
         params["party_id"] = party_id
@@ -63,7 +63,7 @@ def get_fill_history(case_id: int | None = None, template_id: int | None = None)
 
 
 def get_statistics() -> dict[str, Any]:
-    """获取当前律所的模板使用统计。"""
+    """获取本律所的外部模板使用统计。"""
     return client.get("/documents/external-templates/statistics")  # type: ignore[return-value]
 
 
@@ -73,7 +73,7 @@ def get_preview_html(template_id: int) -> dict[str, Any]:
 
 
 def list_mappings(template_id: int) -> list[dict[str, Any]]:
-    """列出模板的所有字段映射。"""
+    """列出外部模板的全部字段映射。"""
     return client.get(f"/documents/external-templates/{template_id}/mappings")  # type: ignore[return-value]
 
 
@@ -84,7 +84,7 @@ def create_mapping(
     position_description: str = "",
     fill_type: str = "text",
 ) -> dict[str, Any]:
-    """手动创建新的字段映射。"""
+    """手动创建字段映射（LLM 分析不准时人工补正）。"""
     return client.post(
         f"/documents/external-templates/{template_id}/mappings",
         json={
@@ -97,12 +97,12 @@ def create_mapping(
 
 
 def update_mapping(mapping_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
-    """更新已有字段映射。"""
+    """更新字段映射。只传需要修改的字段。"""
     return client.put(f"/documents/external-templates/mappings/{mapping_id}", json=fields or {})  # type: ignore[return-value]
 
 
 def delete_mapping(mapping_id: int) -> None:
-    """删除字段映射。"""
+    """删除字段映射——模板对应字段将不再自动填充。"""
     client.delete(f"/documents/external-templates/mappings/{mapping_id}")
 
 

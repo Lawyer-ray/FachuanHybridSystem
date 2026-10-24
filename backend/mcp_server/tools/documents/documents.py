@@ -25,7 +25,7 @@ def list_document_templates(
 
 
 def get_document_template(template_id: int) -> dict[str, Any]:
-    """获取文件模板详情。"""
+    """获取文书模板详情（含占位符定义）。"""
     return client.get(f"/documents/templates/{template_id}")  # type: ignore[no-any-return]
 
 
@@ -35,7 +35,7 @@ def create_document_template(
     case_type: str = "",
     content: str = "",
 ) -> dict[str, Any]:
-    """创建文件模板。"""
+    """创建文书模板（基于已有 docx 登记元数据）。"""
     payload: dict[str, Any] = {"name": name, "template_type": template_type}
     if case_type:
         payload["case_type"] = case_type
@@ -49,7 +49,7 @@ def list_folder_templates(
     case_type: str | None = None,
     is_active: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """获取文件夹模板列表。"""
+    """获取文件夹模板列表（新案件的目录结构模板）。"""
     params: dict[str, Any] = {}
     if template_type:
         params["template_type"] = template_type
@@ -61,7 +61,7 @@ def list_folder_templates(
 
 
 def list_placeholders(is_active: bool | None = None) -> list[dict[str, Any]]:
-    """获取替换词列表。"""
+    """获取替换词（占位符）列表——文书生成的变量字典。"""
     params: dict[str, Any] = {}
     if is_active is not None:
         params["is_active"] = is_active
@@ -80,7 +80,7 @@ def preview_placeholders(
 
 
 def preview_contract_context(contract_id: int) -> dict[str, Any]:
-    """预览合同占位符上下文数据。"""
+    """预览合同文书的占位符上下文（生成前核对数据会填成什么）。"""
     return client.get(f"/documents/contracts/{contract_id}/preview")  # type: ignore[no-any-return]
 
 

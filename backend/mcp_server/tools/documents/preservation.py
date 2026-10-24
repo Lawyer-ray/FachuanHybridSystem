@@ -9,7 +9,7 @@ from mcp_server.client import client
 
 
 def download_preservation_application(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """下载财产保全申请书。"""
+    """生成并下载财产保全申请书（DOCX）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/preservation/application/download",
         method="POST",
@@ -20,7 +20,7 @@ def download_preservation_application(case_id: int, extra: dict[str, Any] | None
 
 
 def download_delay_delivery_application(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """下载暂缓送达申请书。"""
+    """生成并下载暂缓送达申请书（DOCX）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/preservation/delay-delivery/download",
         method="POST",
@@ -31,7 +31,7 @@ def download_delay_delivery_application(case_id: int, extra: dict[str, Any] | No
 
 
 def download_full_preservation_package(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """下载完整财产保全材料包（ZIP）。"""
+    """下载完整财产保全材料包（ZIP,含申请书/担保函等;LLM 链路,耗时较长）。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/preservation/package/download",
         method="POST",

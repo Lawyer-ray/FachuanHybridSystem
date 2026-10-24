@@ -8,7 +8,7 @@ from mcp_server.client import client
 
 
 def get_conversion_progress(job_id: str) -> dict[str, Any]:
-    """查询文档转换任务进度。"""
+    """查询文档转换任务进度（提交转换后轮询用）。"""
     return client.get(f"/doc-converter/jobs/{job_id}")  # type: ignore[return-value]
 
 
@@ -26,12 +26,12 @@ def download_converted_files(job_id: str) -> dict[str, Any]:
 
 
 def delete_conversion_job(job_id: str) -> None:
-    """删除转换任务及其关联文件。"""
+    """删除转换任务及其关联文件——不可恢复。"""
     client.delete(f"/doc-converter/jobs/{job_id}")
 
 
 def doc_converter_health_check() -> dict[str, Any]:
-    """检查 LibreOffice 服务是否可用。"""
+    """检查 LibreOffice 转换服务是否可用——转换失败时先查这里。"""
     return client.get("/doc-converter/health")  # type: ignore[return-value]
 
 

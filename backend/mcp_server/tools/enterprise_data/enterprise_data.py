@@ -60,7 +60,7 @@ def get_company_risks(
 
 
 def get_company_shareholders(company_id: str, provider: str | None = None) -> dict[str, Any]:
-    """查询企业股东信息。"""
+    """查询企业股东信息（持股比例、认缴额）。"""
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
@@ -72,7 +72,7 @@ def get_company_shareholders(company_id: str, provider: str | None = None) -> di
 
 
 def get_company_personnel(company_id: str, provider: str | None = None) -> dict[str, Any]:
-    """查询企业主要人员（高管、法人等）。"""
+    """查询企业主要人员（高管、法定代表人等）。"""
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider

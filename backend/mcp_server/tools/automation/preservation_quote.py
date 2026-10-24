@@ -48,5 +48,5 @@ def execute_preservation_quote(quote_id: int) -> dict[str, Any]:
 
 
 def retry_preservation_quote(quote_id: int) -> dict[str, Any]:
-    """重试失败的询价任务。"""
+    """重试失败的保全询价任务（重新向保险公司询价）。"""
     return client.post(f"/automation/preservation-quotes/{quote_id}/retry", json={})  # type: ignore[return-value]

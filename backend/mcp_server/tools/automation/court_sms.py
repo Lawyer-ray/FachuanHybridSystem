@@ -77,7 +77,7 @@ def retry_sms_processing(sms_id: int) -> dict[str, Any]:
 
 
 def delete_court_sms(sms_id: int) -> None:
-    """删除法院短信记录。此操作不可逆。"""
+    """删除法院短信记录——硬删除,不可恢复。"""
     client.delete(f"/automation/court-sms/{sms_id}")
 
 

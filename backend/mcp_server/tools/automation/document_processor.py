@@ -10,7 +10,7 @@ from mcp_server.client import client
 def process_document(
     file_path: str, kind: str | None = None, limit: int | None = None, preview_page: int | None = None
 ) -> dict[str, Any]:
-    """处理文档，返回图片 URL 和文本摘要。"""
+    """解析文档（PDF/图片等）,返回可浏览的图片 URL 与文本摘要——大文档预览入口。"""
     params: dict[str, Any] = {"file_path": file_path}
     if kind is not None:
         params["kind"] = kind

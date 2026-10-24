@@ -9,22 +9,22 @@ from mcp_server.client import client
 
 
 def create_project(name: str) -> dict[str, Any]:
-    """创建聊天记录取证项目。"""
+    """创建聊天记录取证项目（微信/QQ 等聊天证据的容器）。"""
     return client.post("/chat-records/projects", json={"name": name})  # type: ignore[no-any-return]
 
 
 def list_projects() -> list[dict[str, Any]]:
-    """列出当前用户的所有取证项目。"""
+    """列出当前用户的全部取证项目。"""
     return client.get("/chat-records/projects")  # type: ignore[no-any-return]
 
 
 def list_recordings(project_id: int) -> list[dict[str, Any]]:
-    """列出项目下的录屏列表。"""
+    """列出取证项目下的录屏列表。"""
     return client.get(f"/chat-records/projects/{project_id}/recordings")  # type: ignore[no-any-return]
 
 
 def list_screenshots(project_id: int) -> list[dict[str, Any]]:
-    """列出项目下的截图列表。"""
+    """列出取证项目下的截图列表。"""
     return client.get(f"/chat-records/projects/{project_id}/screenshots")  # type: ignore[no-any-return]
 
 
@@ -42,12 +42,12 @@ def get_export_task(task_id: str) -> dict[str, Any]:
 
 
 def get_export_types() -> list[dict[str, Any]]:
-    """获取所有可用的导出类型列表。"""
+    """获取可用的证据导出类型枚举。"""
     return client.get("/chat-records/export-types")  # type: ignore[return-value]
 
 
 def get_export_statuses() -> list[dict[str, Any]]:
-    """获取所有导出状态列表。"""
+    """获取导出任务的状态枚举（轮询时判断用）。"""
     return client.get("/chat-records/export-statuses")  # type: ignore[return-value]
 
 
@@ -62,7 +62,7 @@ def download_export(task_id: str) -> dict[str, Any]:
 
 
 def get_recording(recording_id: int) -> dict[str, Any]:
-    """获取单条录屏详情。"""
+    """获取单条录屏详情（时长、提取状态）。"""
     return client.get(f"/chat-records/recordings/{recording_id}")  # type: ignore[return-value]
 
 
@@ -72,7 +72,7 @@ def update_recording(recording_id: int, fields: dict[str, Any] | None = None) ->
 
 
 def delete_recording(recording_id: int) -> None:
-    """删除录屏。此操作不可逆。"""
+    """删除录屏——硬删除,不可恢复。"""
     client.delete(f"/chat-records/recordings/{recording_id}")
 
 
