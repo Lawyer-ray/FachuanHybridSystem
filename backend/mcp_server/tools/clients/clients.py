@@ -11,9 +11,14 @@ def list_clients(
     search: str | None = None,
     client_type: str | None = None,
     is_our_client: bool | None = None,
+    limit: int = 50,
 ) -> list[dict[str, Any]]:
-    """查询客户列表。支持按姓名/公司名搜索（search）、客户类型（client_type：natural/legal/non_legal_org）、是否我方客户（is_our_client）筛选。"""
-    params: dict[str, Any] = {}
+    """查询客户列表。支持按姓名/公司名搜索（search）、客户类型（client_type：natural/legal/non_legal_org）、是否我方客户（is_our_client）筛选。
+
+    limit 默认 50（REST 默认 1000 是给前端表格的,对模型上下文过大）;
+    需要更多结果时显式调大,上限 2000。
+    """
+    params: dict[str, Any] = {"limit": limit}
     if search:
         params["search"] = search
     if client_type:
@@ -90,14 +95,17 @@ def delete_client(client_id: int) -> None:
 
 
 def list_clients_with_docs(
-    client_type: str | None = None, is_our_client: bool | None = None, search: str | None = None
+    client_type: str | None = None,
+    is_our_client: bool | None = None,
+    search: str | None = None,
+    limit: int = 50,
 ) -> list[dict[str, Any]]:
     """按条件列出客户（MCP 场景无法附带文档上传，仅做查询）。
 
     实际委托 ``GET /client/clients``，后端返回裸数组。名字里的 ``with_docs``
-    是历史命名，工具本身不返回文档。
+    是历史命名，工具本身不返回文档。limit 默认 50（见 ``list_clients``）。
     """
-    params: dict[str, Any] = {}
+    params: dict[str, Any] = {"limit": limit}
     if client_type is not None:
         params["client_type"] = client_type
     if is_our_client is not None:

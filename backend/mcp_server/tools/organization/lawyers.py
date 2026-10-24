@@ -7,11 +7,19 @@ from typing import Any
 from mcp_server.client import client
 
 
-def list_lawyers(team_id: int | None = None) -> list[dict[str, Any]]:
-    """查询律师列表。可按团队（team_id）筛选。返回律师 ID、姓名、团队等信息，用于指派律师时选择。"""
-    params: dict[str, Any] = {}
-    if team_id is not None:
-        params["team_id"] = team_id
+def list_lawyers(search: str | None = None, slim: bool = True) -> list[dict[str, Any]]:
+    """按姓名/用户名搜索律师。返回律师 ID、姓名、电话、执业证号等，用于指派律师时选择。
+
+    - search：姓名/用户名关键词；不传则返回全部（按权限可见范围）。
+    - slim 默认 True——后端全量 DTO 含文件签名 URL 与律所嵌套对象,500 人律所
+      一次就是几百 KB;模型选人只需要 id/姓名/电话/执业证。需要完整字段时传
+      slim=False。
+    - 注意:REST 端点不支持按团队过滤（历史版本曾传 team_id,ninja 静默忽略
+      未知查询参数,等于没过滤）——按团队找人请先查团队拿成员名单。
+    """
+    params: dict[str, Any] = {"slim": slim}
+    if search:
+        params["search"] = search
     return client.get("/organization/lawyers", params=params)  # type: ignore[return-value]
 
 

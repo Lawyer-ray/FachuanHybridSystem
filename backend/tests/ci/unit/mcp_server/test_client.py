@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json as _json
+import logging
 import time
 from unittest import mock
 
@@ -720,6 +721,46 @@ class TestTransportResilience:
         http.request.side_effect = httpx.ReadTimeout("slow generation")
         with pytest.raises(FachuanTransportError, match="POST"):
             c.download("/documents/cases/1/litigation/complaint/download", method="POST", json={})
+
+
+class TestBulkListGuard:
+    """巨型列表可见性护栏（2026-10-25 审计）。
+
+    REST 端点的默认 limit 面向前端（clients 1000 / inbox 500——前端表格
+    客户端分页没问题），经 MCP 直达模型上下文就是几百 KB 炸弹。护栏
+    **只告警不截断**（截断会让模型误以为看到了全量）——把无界工具暴露
+    到日志，提示维护者补 limit 参数转发。
+    """
+
+    def test_bulk_list_logs_warning_and_passes_through(
+        self, fc: tuple[FachuanClient, mock.MagicMock], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        c, http = fc
+        bulk = [{"id": i} for i in range(301)]
+        http.get.return_value = _make_response(200, json_data=bulk)
+        with caplog.at_level(logging.WARNING, logger="mcp_server.client"):
+            out = c.get("/client/clients", params={"limit": 2000})
+        assert out == bulk  # 数据原样透传,绝不静默截断
+        assert any("响应列表过大" in r.message for r in caplog.records)
+
+    def test_normal_list_no_warning(
+        self, fc: tuple[FachuanClient, mock.MagicMock], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        c, http = fc
+        http.get.return_value = _make_response(200, json_data=[{"id": 1}, {"id": 2}])
+        with caplog.at_level(logging.WARNING, logger="mcp_server.client"):
+            assert c.get("/cases") == [{"id": 1}, {"id": 2}]
+        assert not any("响应列表过大" in r.message for r in caplog.records)
+
+    def test_non_list_payload_no_warning(
+        self, fc: tuple[FachuanClient, mock.MagicMock], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        c, http = fc
+        http.post.return_value = _make_response(200, json_data={"items": list(range(1000)), "total": 1000})
+        with caplog.at_level(logging.WARNING, logger="mcp_server.client"):
+            c.post("/cases", json={})
+        # 分页壳里的长 items 不算——那是端点自己设计的分页结构,不是裸数组
+        assert not any("响应列表过大" in r.message for r in caplog.records)
 
 
 # ===================================================================

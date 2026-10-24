@@ -7,9 +7,15 @@ from typing import Any
 from mcp_server.client import client
 
 
-def list_contacts(case_id: int | None = None, stage: str | None = None) -> list[dict[str, Any]]:
-    """获取案件联系人列表，可按案件ID和阶段筛选。"""
-    params: dict[str, Any] = {}
+def list_contacts(
+    case_id: int | None = None, stage: str | None = None, limit: int = 50
+) -> list[dict[str, Any]]:
+    """获取案件联系人列表，可按案件ID和阶段筛选。
+
+    limit 默认 50——REST 端点默认 1000 是给前端表格的,对模型上下文过大;
+    需要更多结果时显式调大。
+    """
+    params: dict[str, Any] = {"limit": limit}
     if case_id is not None:
         params["case_id"] = case_id
     if stage is not None:

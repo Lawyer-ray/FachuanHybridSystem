@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 _MAX_MB = float(os.environ.get("FACHUAN_MCP_MAX_DOWNLOAD_MB", "1") or "1")
 MAX_DOWNLOAD_BYTES = int(_MAX_MB * 1024 * 1024)
 
+#: 巨型列表告警阈值：超过该条数的 list 响应记 warning（只告警不截断，
+#: 见 ``_warn_bulk``）。300 是「模型一次能消化的列表规模」的经验上限。
+_BULK_LIST_WARN_THRESHOLD = 300
+
 
 def filename_of(resp: httpx.Response) -> str:
     """从 Content-Disposition 解析文件名（闸门报错用），解析不出返回空串。"""
@@ -162,15 +166,15 @@ class FachuanClient:
                 time.sleep(0.5)
                 continue
             break
-        return self._handle(resp)
+        return self._warn_bulk(self._handle(resp), path)
 
     def post(self, path: str, **kwargs: Any) -> Any:
         resp = self._guard_transport(lambda: self._http.post(path, headers=self._headers(), **kwargs), "POST", path)
-        return self._handle(resp)
+        return self._warn_bulk(self._handle(resp), path)
 
     def put(self, path: str, **kwargs: Any) -> Any:
         resp = self._guard_transport(lambda: self._http.put(path, headers=self._headers(), **kwargs), "PUT", path)
-        return self._handle(resp)
+        return self._warn_bulk(self._handle(resp), path)
 
     def delete(self, path: str, **kwargs: Any) -> Any:
         resp = self._guard_transport(lambda: self._http.delete(path, headers=self._headers(), **kwargs), "DELETE", path)
@@ -178,7 +182,7 @@ class FachuanClient:
 
     def patch(self, path: str, **kwargs: Any) -> Any:
         resp = self._guard_transport(lambda: self._http.patch(path, headers=self._headers(), **kwargs), "PATCH", path)
-        return self._handle(resp)
+        return self._warn_bulk(self._handle(resp), path)
 
     def upload(
         self,
@@ -247,6 +251,25 @@ class FachuanClient:
                 if m2:
                     filename = m2.group(1).strip()
         return resp.content, filename, content_type
+
+    @staticmethod
+    def _warn_bulk(data: Any, path: str) -> Any:
+        """巨型列表可见性护栏（2026-10-25 审计）。
+
+        REST 端点的默认 limit 是**面向前端**设计的（clients 默认 1000、
+        inbox 默认 500——前端表格做客户端分页没问题），但经 MCP 直达模型
+        上下文就是几百 KB 的炸弹。这里**只告警不截断**（截断会让模型误以为
+        看到了全量），把「哪个工具在灌无界列表」暴露到日志，提示维护者
+        给工具加 limit 参数转发。
+        """
+        if isinstance(data, list) and len(data) > _BULK_LIST_WARN_THRESHOLD:
+            logger.warning(
+                "响应列表过大 path=%s items=%d——工具未做分页,模型上下文可能被挤爆;"
+                "请给对应 MCP 工具加 limit 参数转发到 REST（客户端分页类端点尤其如此）",
+                path,
+                len(data),
+            )
+        return data
 
     @staticmethod
     def _handle(resp: httpx.Response) -> Any:
