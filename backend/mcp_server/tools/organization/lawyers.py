@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from mcp_server.client import client
@@ -40,7 +41,14 @@ def create_lawyer(
     lawyer_team_ids: list[int] | None = None,
     biz_team_ids: list[int] | None = None,
 ) -> dict[str, Any]:
-    """创建新律师账号。username 和 password 必填；law_firm_id 关联律所；lawyer_team_ids 和 biz_team_ids 关联团队。"""
+    """创建新律师账号。username 和 password 必填；law_firm_id 关联律所；
+    lawyer_team_ids / biz_team_ids 关联律师团队/业务团队。
+
+    注意:该端点因支持执业证 PDF/头像上传而是 **multipart 形状**——
+    表单里只有一个 ``payload`` 字段,值为 JSON 字符串。直接发扁平 JSON
+    会 422 ``Field required: body.payload``(2026-10-25 修复前该工具从未
+    成功过)。执业证 PDF 与头像本工具不支持,需走 admin/前端上传。
+    """
     payload: dict[str, Any] = {
         "username": username,
         "password": password,
@@ -60,7 +68,7 @@ def create_lawyer(
         payload["lawyer_team_ids"] = lawyer_team_ids
     if biz_team_ids is not None:
         payload["biz_team_ids"] = biz_team_ids
-    return client.post("/organization/lawyers", json=payload)  # type: ignore[return-value]
+    return client.post("/organization/lawyers", data={"payload": json.dumps(payload)})  # type: ignore[return-value]
 
 
 def update_lawyer(

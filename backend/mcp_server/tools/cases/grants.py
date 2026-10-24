@@ -31,11 +31,16 @@ def get_grant(grant_id: int) -> dict[str, Any]:
     return client.get(f"/cases/grants/{grant_id}")  # type: ignore[return-value]
 
 
-def update_grant(grant_id: int, permission_level: str | None = None) -> dict[str, Any]:
-    """更新访问授权。只传需要修改的字段。"""
+def update_grant(grant_id: int, grantee_id: int | None = None) -> dict[str, Any]:
+    """更新访问授权（改被授权律师）。只传需要修改的字段。
+
+    授权粒度是「可见/不可见」,没有权限分级——旧签名的
+    ``permission_level`` 参数从未生效（端点 schema 只声明
+    case_id/grantee_id,2026-10-25 移除）。
+    """
     payload: dict[str, Any] = {}
-    if permission_level is not None:
-        payload["permission_level"] = permission_level
+    if grantee_id is not None:
+        payload["grantee_id"] = grantee_id
     return client.put(f"/cases/grants/{grant_id}", json=payload)  # type: ignore[return-value]
 
 

@@ -11,14 +11,16 @@ from mcp_server.client import FachuanApiError, client
 def submit_court_sms(
     content: str,
     received_at: str | None = None,
-    sender: str | None = None,
 ) -> dict[str, Any]:
-    """提交法院短信。content 为短信内容；received_at 为接收时间（ISO格式）；sender 为发件人号码。"""
+    """提交一条法院短信进入解析流水线（状态查询用 list_court_sms）。
+
+    content 为短信全文；received_at 为接收时间（ISO 格式，缺省取当前）。
+    端点只接受这两个字段——法院短信的发件人号码系统不落库,传了会被
+    静默忽略（2026-10-25 移除该假参数）。
+    """
     payload: dict[str, Any] = {"content": content}
     if received_at:
         payload["received_at"] = received_at
-    if sender:
-        payload["sender"] = sender
     return client.post("/automation/court-sms", json=payload)  # type: ignore[return-value]
 
 
@@ -35,7 +37,8 @@ def list_court_sms(
         status: 处理状态，取值：pending / parsing / downloading / download_failed /
             matching / pending_manual（待人工处理）/ renaming / notifying /
             completed / failed。
-        sms_type: 短信类型。
+        sms_type: 短信类型（document_delivery 文书送达 / info_notification
+            信息通知 / filing_notification 立案通知）。
         has_case: True 只查已关联案件的。
         date_from / date_to: 接收时间范围（YYYY-MM-DD）。
 
