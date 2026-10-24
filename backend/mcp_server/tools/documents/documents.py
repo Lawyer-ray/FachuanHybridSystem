@@ -13,7 +13,13 @@ def list_document_templates(
     case_type: str | None = None,
     is_active: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """获取文件模板列表，支持按类型/案件类型/启用状态过滤。"""
+    """获取文件模板列表，支持按类型/案件类型/启用状态过滤。
+
+    template_type: contract 合同文件模板 / case 案件文件模板 /
+        archive 归档文件模板。
+    case_type: 案件类型过滤（civil/administrative/criminal/execution/
+        bankruptcy/all 通用）。
+    """
     params: dict[str, Any] = {}
     if template_type:
         params["template_type"] = template_type

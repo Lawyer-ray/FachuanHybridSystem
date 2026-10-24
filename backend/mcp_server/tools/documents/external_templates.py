@@ -84,7 +84,11 @@ def create_mapping(
     position_description: str = "",
     fill_type: str = "text",
 ) -> dict[str, Any]:
-    """手动创建字段映射（LLM 分析不准时人工补正）。"""
+    """手动创建字段映射（LLM 分析不准时人工补正）。
+
+    fill_type 取值：``text`` 文本替换（默认）/ ``checkbox`` 勾选复选框 /
+    ``delete_inapplicable`` 删除不适用项。
+    """
     return client.post(
         f"/documents/external-templates/{template_id}/mappings",
         json={

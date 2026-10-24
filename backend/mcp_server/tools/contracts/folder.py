@@ -13,7 +13,12 @@ def create_folder_binding(
     storage_type: str = "local",
     storage_account_id: int | None = None,
 ) -> dict[str, Any]:
-    """绑定合同到指定文件夹。storage_type 为 local（本地）或 cloud（云端）；storage_account_id 为云端存储账号 ID。"""
+    """绑定合同到指定文件夹。
+
+    storage_type 取值:``local`` 本地文件系统（默认）/ ``webdav`` /
+    ``onedrive`` / ``s3`` / ``google_drive`` / ``dropbox``（非 local 时
+    需配 storage_account_id 云存储账号;文档旧写法的 ``cloud`` 不是合法值）。
+    """
     payload: dict[str, Any] = {
         "folder_path": folder_path,
         "storage_type": storage_type,
@@ -39,7 +44,11 @@ def browse_folders(
     storage_account_id: int | None = None,
     include_hidden: bool = False,
 ) -> dict[str, Any]:
-    """浏览本地或云端文件夹内容。path 为文件夹路径；storage_type 为 local 或 cloud。"""
+    """浏览本地或云端文件夹内容。
+
+    path 为文件夹路径;storage_type 同 ``create_folder_binding``
+    （local/webdav/onedrive/s3/google_drive/dropbox,``cloud`` 不是合法值）。
+    """
     params: dict[str, Any] = {"storage_type": storage_type, "include_hidden": include_hidden}
     if path:
         params["path"] = path

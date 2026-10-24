@@ -18,7 +18,14 @@ def list_case_parties(case_id: int) -> list[dict[str, Any]]:
 
 
 def add_case_party(case_id: int, client_id: int, legal_status: str | None = None) -> dict[str, Any]:
-    """为案件添加当事人。legal_status 为诉讼地位，如：原告、被告、第三人等。"""
+    """为案件添加当事人。
+
+    legal_status 为诉讼地位,取**英文键**（中文标签不是合法值）:
+    plaintiff 原告 / defendant 被告 / third 第三人 / applicant 申请人 /
+    respondent 被申请人 / criminal_defendant 被告人 / victim 被害人 /
+    appellant 上诉人 / appellee 被上诉人 / orig_plaintiff 原审原告 /
+    orig_defendant 原审被告 / orig_third 原审第三人。
+    """
     payload: dict[str, Any] = {"case_id": case_id, "client_id": client_id}
     if legal_status:
         payload["legal_status"] = legal_status
@@ -33,7 +40,11 @@ def get_case_party(party_id: int) -> dict[str, Any]:
 def update_case_party(
     party_id: int, legal_status: str | None = None, extra: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """更新当事人信息（姓名/诉讼地位/证件等）。只传需要修改的字段。"""
+    """更新当事人信息（姓名/诉讼地位/证件等）。只传需要修改的字段。
+
+    legal_status 取值同 ``add_case_party``（英文键,见其文档）;
+    ``extra`` 里的其他字段名需与端点 ``PartyUpdate`` 声明一致。
+    """
     payload: dict[str, Any] = {}
     if legal_status is not None:
         payload["legal_status"] = legal_status

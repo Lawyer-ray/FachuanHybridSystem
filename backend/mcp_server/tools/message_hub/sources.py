@@ -29,7 +29,12 @@ def create_message_source(
     sender_whitelist: str | None = None,
     sender_blacklist: str | None = None,
 ) -> dict[str, Any]:
-    """创建消息来源。source_type 为 email 等；credential_id 关联 Organization 中的账号凭证；poll_interval_minutes 为同步间隔。"""
+    """创建消息来源。credential_id 关联 Organization 中的账号凭证；poll_interval_minutes 为同步间隔。
+
+    source_type 取值（**没有 ``email`` 这个值**,邮箱收件是 ``imap``）:
+    ``imap`` IMAP 邮箱 / ``manual_upload`` 前端手动上传 /
+    ``court_inbox`` 一张网收件箱 / ``court_schedule`` 一张网庭审日程。
+    """
     payload: dict[str, Any] = {
         "display_name": display_name,
         "source_type": source_type,
