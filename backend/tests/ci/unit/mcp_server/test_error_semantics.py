@@ -51,3 +51,68 @@ def test_no_single_key_error_dict_returns():
         "工具失败必须抛 FachuanApiError(isError 语义),不得 return 单键 {\"error\": ...} 假装成功:\n  - "
         + "\n  - ".join(findings)
     )
+
+
+# ---------------------------------------------------------------------------
+# 吞异常扫描——``except Exception`` 内 ``return`` 必须逐处登记理由。
+# 历史教训:enterprise_data 曾 8 处 ``except Exception`` 后返回伪正常结果,
+# 模型据此得出假事实结论(2026-10-25 早前审计修复)。本门禁防回退:
+# 新增的「吞异常再 return」必须在豁免表里写明为什么这里吞是对的。
+# ---------------------------------------------------------------------------
+
+#: except-Exception 内 return 的豁免(文件名:行号 → 理由)。行号漂移时按名字重对。
+_SWALLOW_ALLOWLIST: dict[str, str] = {
+    "workflow_tools.py:73": "Bearer 身份重建失败回退匿名——有意降级,warning 已留痕",
+    "folder_file.py:123": "批量部分失败聚合:文件级错误进 notices+条目 error 字段,其余附件照常返回",
+    "folder_file.py:162": "页图渲染腿断了只降级 notices(文件本体已取到),报错反会让模型说「文件不存在」",
+    "agent_attachments.py:441": "批量部分失败聚合(同 folder_file:123)",
+    "agent_attachments.py:763": "页图渲染降级(同 folder_file:162)",
+    "fetch_url.py:151": "解析器回退:BeautifulSoup 失败换兼容模式,不是业务失败",
+}
+
+
+def _find_swallowed_exceptions() -> list[str]:
+    findings: list[str] = []
+    for f in _SCOPE:
+        tree = ast.parse(f.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            for h in node.handlers:
+                bare = h.type is None or (isinstance(h.type, ast.Name) and h.type.id == "Exception")
+                if not bare:
+                    continue
+                for sub in ast.walk(h):
+                    if isinstance(sub, ast.Return) and sub.value is not None:
+                        key = f"{f.name}:{sub.lineno}"
+                        if key not in _SWALLOW_ALLOWLIST:
+                            findings.append(key)
+    return findings
+
+
+def test_no_new_swallowed_exceptions():
+    findings = _find_swallowed_exceptions()
+    assert not findings, (
+        "except Exception 内 return(吞异常伪正常)——enterprise_data 8 处旧案的教训;"
+        "要吞必须在 _SWALLOW_ALLOWLIST 登记理由,否则应抛 FachuanApiError:\n  - "
+        + "\n  - ".join(findings)
+    )
+
+
+def test_swallow_allowlist_has_no_stale_entries():
+    """豁免表条目必须仍然命中真实代码(行号漂移/删除后及时清理)。"""
+    live = set()
+    for f in _SCOPE:
+        tree = ast.parse(f.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Try):
+                continue
+            for h in node.handlers:
+                bare = h.type is None or (isinstance(h.type, ast.Name) and h.type.id == "Exception")
+                if not bare:
+                    continue
+                for sub in ast.walk(h):
+                    if isinstance(sub, ast.Return) and sub.value is not None:
+                        live.add(f"{f.name}:{sub.lineno}")
+    stale = sorted(set(_SWALLOW_ALLOWLIST) - live)
+    assert not stale, f"吞异常豁免表已失配(行号漂移或代码已删),请重对: {stale}"

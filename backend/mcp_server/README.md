@@ -55,7 +55,12 @@ make mcp-status    # 进程/日志
 | 参数契约 | `test_rest_param_contract.py` | 工具转发的参数必须被端点声明——ninja 静默忽略未声明参数=「从未生效」的假参数(两轮审计共 17 处实锤,含 create_lawyer/update_lawyer/update_doc_converter 三个「从未成功过」的 multipart 形状错拼);收集器覆盖字面量/变量字典/f-string 路径(含 /api/v1 前缀)/内联与 anyOf schema;裸 payload 端点 allowlist 禁止新增 |
 | 投影契约 | `test_projection_fields.py` | 默认投影列出的字段必须存在于 API items schema——project 按键挑选不报错,列了不存在的字段=模型点名要也静默落空 |
 | docstring 枚举值 | 无自动门禁(review 把关) | 文档宣称的取值必须对照模型 TextChoices——filter 对错值静默空列表、裸 CharField 对错值静默落库(2026-10-25 审计 13 处:case_type 假枚举/fee_mode 小写绕过金额校验/中文代理阶段必炸/running≠in_progress/site_name 死路示例) |
-| 失败语义 | `test_error_semantics.py` | 公共工具函数禁止 `except Exception` 吞异常——FachuanApiError/FachuanTransportError 是 ToolError 子类,必须穿透成 `isError: true`;吞成 `{"success": False}` 伪正常结果会让模型得出假事实结论(2026-10-25 审计 enterprise_data 8 处)。与 MCP 2025-11-25 规范口径一致:API 失败/入参校验/业务逻辑错误都应走 `isError: true` 并携带可自纠反馈,而非伪正常返回。私有 helper 的批量部分失败聚合豁免(folder_file/web_search 形态) |
+| 失败语义 | `test_error_semantics.py` | 双闸:①公共工具函数禁止 `except Exception` 吞异常返回伪正常(enterprise_data 8 处旧案;要吞须在 `_SWALLOW_ALLOWLIST` 登记理由——批量部分失败聚合/页图降级等 6 处已登记);②业务失败禁止 return 单键 `{"error": ...}` 假装成功(workflow 17 处旧案,全改抛 FachuanApiError)。与 MCP 2025-11-25 规范口径一致:API 失败/入参校验/业务逻辑错误都应走 `isError: true` 并携带可自纠反馈 |
+| 审批对齐 | `test_approval_alignment.py` | LOW(直接执行+readOnlyHint)工具的 REST 调用必须 GET,否则须在带理由豁免表(纯计算/内存生成/admin 只读 28 项);readOnlyHint⇔LOW 双向一致;豁免表无僵尸条件。2026-10-25 审计:convert_document/analyze_template/parse_document 三个 POST-但真写工具误判 LOW 已升中 |
+| 参数文档 | `test_param_documentation.py` | ≥3 参工具的 docstring 对参数零提及即红灯——SDK 把整个 docstring 当描述,schema 只有名+类型,零提及=模型瞎猜(23 处已补 Args 段) |
+| 并发身份 | `test_identity_concurrency.py` | 16 线程×50 轮屏障交错 800 请求零串号;RequestAuthMiddleware ContextVar 隔离 + `_headers()` 现读 + 刷新持锁 |
+| 路由遮蔽 | `tests/ci/unit/core/test_route_shadowing.py` | 源级(apps/**/api/*.py)+运行时(Django resolver 全局注册序)双扫描:后注册字面量路由被先注册参数路由吞掉(同方法=永不可达/异方法=恒 405)。4 处旧案已修;新增字面量路由必须放在同前缀参数路由之前 |
+| HTTP 方法纪律 | `tests/ci/unit/core/test_http_method_discipline.py` | GET 处理函数禁写语义调用(否则 MCP 只读分级从根失真);内置扫描器自证(POST 侧须命中 30+) |
 | ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint` 从审批分层权威表(approval.classify_risk)机械推导,注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);线上三分 409=226 只读+69 销毁/高危+114 普通写 |
 | 工具名规范 | `test_server_registration.py::TestMcpSpecNameCompliance` | 名字必须 ASCII `[A-Za-z0-9_-]` 且 1-128 字符(MCP spec 硬性要求)——`isidentifier()` 放行 Unicode 标识符(如中文工具名),部分客户端会拒收,注册面前置拦截 |
 | 列表信封化 | `test_tool_shaping.py` | 裸 list 返回被 SDK 逐项拆成独立文本块、**空列表变零内容块**——列表工具统一 `list_result()` 包 `{total, items}`;翻页用 limit+1 探测法,`truncated=True` 时 total 是下界 | 
