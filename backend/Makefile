@@ -14,7 +14,8 @@ MYPY_CURATED_GATE = \
 	apps/core/dto/auth.py \
 	apps/core/infrastructure/throttling.py \
 	apps/core/exceptions/handlers.py \
-	apiSystem/apiSystem/api.py
+	apiSystem/apiSystem/api.py \
+	mcp_server
 
 MYPY_STRICT_GATE = \
 	$(MYPY_CURATED_GATE) \
