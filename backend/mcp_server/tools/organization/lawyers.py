@@ -89,6 +89,18 @@ def update_lawyer(
     与 create_lawyer 同理:端点带 File() 参数(PDF/头像)是 multipart
     形状,表单单一 ``payload`` 字段装 JSON 串——直接发扁平 JSON 会 422
     (2026-10-25 修复前该工具从未成功过)。
+
+    Args:
+        lawyer_id: 律师 ID。
+        real_name: 姓名。
+        phone: 手机号。
+        license_no: 执业证号。
+        id_card: 身份证号(敏感)。
+        law_firm_id: 所属律所 ID。
+        is_admin: 是否管理员。
+        password: 登录密码(敏感——只在确需重置时传)。
+        lawyer_team_ids: 律师团队 ID 列表(整体替换)。
+        biz_team_ids: 业务团队 ID 列表(整体替换)。
     """
     payload: dict[str, Any] = {}
     if real_name is not None:

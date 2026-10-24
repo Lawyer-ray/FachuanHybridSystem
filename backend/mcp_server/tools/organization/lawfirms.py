@@ -45,7 +45,15 @@ def update_lawfirm(
     phone: str | None = None,
     social_credit_code: str | None = None,
 ) -> dict[str, Any]:
-    """更新律所信息。只传需要修改的字段。"""
+    """更新律所信息。只传需要修改的字段。
+
+    Args:
+        law_firm_id: 律所 ID。
+        name: 律所名称。
+        address: 地址。
+        phone: 电话。
+        social_credit_code: 统一社会信用代码。
+    """
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name

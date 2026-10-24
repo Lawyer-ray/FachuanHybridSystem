@@ -28,7 +28,13 @@ def get_property_clue(clue_id: int) -> dict[str, Any]:
 
 
 def update_property_clue(clue_id: int, clue_type: str | None = None, content: str | None = None) -> dict[str, Any]:
-    """更新财产线索。只传需要修改的字段。"""
+    """更新财产线索。只传需要修改的字段。
+
+    Args:
+        clue_id: 线索 ID。
+        clue_type: 线索类型(如 银行账户/房产/车辆——见类型模板工具)。
+        content: 线索内容(结构建议先取 get_property_clue_content_template)。
+    """
     payload: dict[str, Any] = {}
     if clue_type is not None:
         payload["clue_type"] = clue_type

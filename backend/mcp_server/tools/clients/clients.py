@@ -130,7 +130,14 @@ def submit_identity_doc_recognition() -> dict[str, Any]:
 def merge_id_card_manual(
     front_image_path: str, back_image_path: str, front_corners: list[list[int]], back_corners: list[list[int]]
 ) -> dict[str, Any]:
-    """手动指定四角坐标合并身份证正反面为 PDF。"""
+    """手动指定四角坐标合并身份证正反面为 PDF。
+
+    Args:
+        front_image_path: 正面照片的 media 相对路径或绝对路径。
+        back_image_path: 背面照片的路径。
+        front_corners: 正面四角像素坐标,[[x,y]×4] 按左上/右上/右下/左下顺序。
+        back_corners: 背面四角坐标,同上格式。
+    """
     return client.post(  # type: ignore[no-any-return]
         "/client/identity-docs/merge-id-card-manual",
         json={

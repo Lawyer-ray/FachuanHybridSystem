@@ -67,7 +67,19 @@ def update_message_source(
     sender_whitelist: str | None = None,
     sender_blacklist: str | None = None,
 ) -> dict[str, Any]:
-    """更新消息来源配置。只传需要修改的字段。"""
+    """更新消息来源配置。只传需要修改的字段。
+
+    Args:
+        source_id: 消息来源 ID。
+        display_name: 显示名称。
+        is_enabled: 是否启用(停用后不再轮询)。
+        poll_interval_minutes: 轮询间隔(分钟)。
+        sync_since: 只同步该日期之后的邮件,YYYY-MM-DD。
+        imap_host: IMAP 服务器地址。
+        imap_account: IMAP 账号(与登录凭证可不同)。
+        sender_whitelist: 发件人白名单(逗号分隔;空=不限)。
+        sender_blacklist: 发件人黑名单(逗号分隔)。
+    """
     payload: dict[str, Any] = {}
     if display_name is not None:
         payload["display_name"] = display_name

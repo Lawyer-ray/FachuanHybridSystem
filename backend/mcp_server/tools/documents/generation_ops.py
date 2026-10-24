@@ -29,7 +29,13 @@ def get_archive_overrides(contract_id: int, template_subtype: str = "") -> dict[
 
 
 def save_archive_overrides(contract_id: int, overrides: dict[str, Any], template_subtype: str = "") -> dict[str, Any]:
-    """保存归档文档的替换词覆盖值（人工修正自动提取结果）。"""
+    """保存归档文档的替换词覆盖值（人工修正自动提取结果）。
+
+    Args:
+        contract_id: 合同 ID。
+        overrides: {替换词键: 覆盖值} 字典——键来自归档预览/总览工具列出的替换词。
+        template_subtype: 文书子类型(同合同多类归档文书时区分,默认空)。
+    """
     return client.post(  # type: ignore[no-any-return]
         f"/documents/contracts/{contract_id}/archive-placeholder-overrides",
         params={"template_subtype": template_subtype},

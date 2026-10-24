@@ -65,6 +65,12 @@ def update_reminder(
     完成/取消完成走 ``complete_reminders``（批量接口）——旧签名的
     ``is_done`` 参数从未生效（端点 ``ReminderUpdate`` 无此字段,
     2026-10-25 移除）。
+
+    Args:
+        reminder_id: 提醒 ID。
+        reminder_type: 提醒类型(如 deadline/hearing——同 list_all_reminders 返回的取值)。
+        content: 提醒内容文本。
+        due_at: 到期时间,ISO 8601(如 2026-11-01T09:00:00)。
     """
     payload: dict[str, Any] = {}
     if reminder_type is not None:

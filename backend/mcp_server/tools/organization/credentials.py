@@ -59,7 +59,15 @@ def update_credential(
     account: str | None = None,
     password: str | None = None,
 ) -> dict[str, Any]:
-    """更新账号凭证（改密码/账号）。只传需要修改的字段。"""
+    """更新账号凭证（改密码/账号）。只传需要修改的字段。
+
+    Args:
+        credential_id: 凭证 ID。
+        site_name: 站点/系统名称(如 一张网/威科先行/OA)。
+        url: 站点地址。
+        account: 账号。
+        password: 密码(敏感——只在确需改密时传)。
+    """
     payload: dict[str, Any] = {}
     if site_name is not None:
         payload["site_name"] = site_name

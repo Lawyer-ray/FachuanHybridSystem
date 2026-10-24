@@ -12,7 +12,13 @@ def list_lpr_rates(
     end_date: str | None = None,
     limit: int = 60,
 ) -> dict[str, Any]:
-    """获取 LPR 利率列表（默认最近 60 条,全量实测 25KB 超截断线）。日期格式: YYYY-MM-DD。"""
+    """获取 LPR 利率列表（默认最近 60 条,全量实测 25KB 超截断线）。日期格式: YYYY-MM-DD。
+
+    Args:
+        start_date: 可选,起始日期(含),YYYY-MM-DD。
+        end_date: 可选,截止日期(含),YYYY-MM-DD。
+        limit: 最多返回条数(默认 60;翻页语义见信封 truncated)。
+    """
     params: dict[str, Any] = {"limit": limit + 1}  # limit+1 探测:知还有更多
     if start_date:
         params["start_date"] = start_date

@@ -8,7 +8,13 @@ from mcp_server.client import client
 
 
 def chat_with_context(session_id: str, message: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """多轮 LLM 对话，支持上下文和会话记忆。"""
+    """多轮 LLM 对话，支持上下文和会话记忆。
+
+    Args:
+        session_id: 会话 ID——同 ID 复用上下文记忆,新话题请换新 ID。
+        message: 本轮用户消息全文。
+        extra: 可选,透传给后端的附加字段(如模型/温度覆盖),原样并入请求体。
+    """
     return client.post(  # type: ignore[no-any-return]
         "/llm/chat",
         json={"session_id": session_id, "message": message, **(extra or {})},

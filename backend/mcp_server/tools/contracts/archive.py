@@ -67,7 +67,13 @@ def reorder_archive_materials(contract_id: int, orders: dict[str, list[int]]) ->
 
 
 def move_archive_material(contract_id: int, material_id: int, target_item_code: str) -> dict[str, Any]:
-    """把归档材料移到其他清单项分类。"""
+    """把归档材料移到其他清单项分类。
+
+    Args:
+        contract_id: 合同 ID。
+        material_id: 归档材料 ID。
+        target_item_code: 目标清单项编码(归档清单的 item code,见归档清单工具)。
+    """
     return client.post(  # type: ignore[no-any-return]
         f"/contracts/{contract_id}/archive/materials/{material_id}/move", json={"target_code": target_item_code}
     )

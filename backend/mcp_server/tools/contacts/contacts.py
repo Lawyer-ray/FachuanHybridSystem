@@ -32,7 +32,18 @@ def create_contact(
     stage: str | None = None,
     note: str | None = None,
 ) -> dict[str, Any]:
-    """创建案件联系人（姓名/角色/法院等,便于后续案件快速引用）。"""
+    """创建案件联系人（姓名/角色/法院等,便于后续案件快速引用）。
+
+    Args:
+        case_id: 关联案件 ID。
+        name: 联系人姓名。
+        role: 角色——法官/书记员/对方代理人/鉴定人等自由文本。
+        authority_id: 所属法院/机构 ID(可经 search_contacts 的 court 筛选或法院列表工具查)。
+        phone: 联系电话。
+        address: 地址。
+        stage: 诉讼阶段(如一审/二审/执行)。
+        note: 备注。
+    """
     return client.post(  # type: ignore[no-any-return]
         "/contacts/contacts",
         json={
@@ -49,7 +60,13 @@ def create_contact(
 
 
 def search_contacts(q: str | None = None, court: str | None = None, role: str | None = None) -> dict[str, Any]:
-    """公开搜索联系人库,按姓名、法院和角色筛选——跨案件复用联系人。"""
+    """公开搜索联系人库,按姓名、法院和角色筛选——跨案件复用联系人。
+
+    Args:
+        q: 姓名关键词(模糊匹配)。
+        court: 法院名称关键词。
+        role: 角色关键词(如 法官/书记员)。
+    """
     params: dict[str, Any] = {}
     if q is not None:
         params["q"] = q

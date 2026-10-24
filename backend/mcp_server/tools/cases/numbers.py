@@ -27,7 +27,13 @@ def get_case_number(number_id: int) -> dict[str, Any]:
 
 
 def update_case_number(number_id: int, number: str | None = None, remarks: str | None = None) -> dict[str, Any]:
-    """更新案号或备注。只传需要修改的字段。"""
+    """更新案号或备注。只传需要修改的字段。
+
+    Args:
+        number_id: 案号记录 ID(见案件的案号列表)。
+        number: 案号文本(如 (20XX)粤01民初某某号)。
+        remarks: 备注。
+    """
     payload: dict[str, Any] = {}
     if number is not None:
         payload["number"] = number

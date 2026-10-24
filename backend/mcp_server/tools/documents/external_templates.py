@@ -20,7 +20,13 @@ def confirm_mappings(template_id: int) -> dict[str, Any]:
 
 
 def preview_fill(template_id: int, case_id: int, party_id: int | None = None) -> dict[str, Any]:
-    """预览外部模板的填充结果（用真实数据试填,不落盘）。"""
+    """预览外部模板的填充结果（用真实数据试填,不落盘）。
+
+    Args:
+        template_id: 外部模板 ID(经 analyze_template 分析过的)。
+        case_id: 提供填充数据的案件 ID。
+        party_id: 可选,当事人 ID——多当事人模板时指定用哪一方数据。
+    """
     params: dict[str, Any] = {"case_id": case_id}
     if party_id is not None:
         params["party_id"] = party_id

@@ -111,7 +111,16 @@ def update_case(
     """更新案件档案的可编辑字段（名称/状态/类型/日期/金额/案由等）。
 
     只传需要修改的字段;改动立即生效并进入审计日志。金额类字段
-    （amount 等）触发审批。案件归属不变。"""
+    （amount 等）触发审批。案件归属不变。
+
+    Args:
+        case_id: 案件 ID。
+        name: 案件名称。
+        case_type: 案件类型——civil/administrative/criminal/execution/bankruptcy。
+        target_amount: 标的额(元,数字)。
+        cause_of_action: 案由。
+        status: 案件状态。
+    """
     payload: dict[str, Any] = {}
     if name is not None:
         payload["name"] = name
