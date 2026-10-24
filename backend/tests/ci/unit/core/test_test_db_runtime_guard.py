@@ -23,10 +23,12 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import pytest
 
+import conftest
 from conftest import _install_runtime_db_guard, _is_safe_test_db_name
 
 
@@ -140,3 +142,118 @@ class TestGuardBehaviour:
 
         result = guard(sender=None, connection=_FakeConnection())
         assert result is None, "sqlite 连接应原样放行（不参与判定）"
+
+
+class _FakePgCursor:
+    """按 SQL 文本分发的假游标：current_database / pg_tables 两条查询。
+
+    被测代码用 ``with connection.cursor()``（上下文管理器协议），fake 必须实现
+    ``__enter__``/``__exit__``，否则 TypeError 会被检测的容错分支吞成静默跳过。
+    """
+
+    def __init__(self, current_db: str, tables: list[str]) -> None:
+        self._current_db = current_db
+        self._tables = tables
+
+    def __enter__(self) -> _FakePgCursor:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def execute(self, sql: str) -> _FakePgCursor:
+        self._last = "current" if "current_database" in sql else "tables"
+        return self
+
+    def fetchone(self) -> tuple:
+        return (self._current_db,)
+
+    def fetchall(self) -> list[tuple]:
+        return [(t,) for t in (self._tables if self._last == "tables" else [])]
+
+
+class _FakeIntrospection:
+    """假 introspection：返回固定模型表集合，不触真实连接。
+
+    不能借真实 connection 的 introspection——无 ``django_db`` 标记的测试里
+    pytest-django 会拦截真实游标访问，异常落进检测的容错分支后测试静默失效。
+    """
+
+    def __init__(self, model_tables: set[str]) -> None:
+        self._model_tables = model_tables
+
+    def django_table_names(self, only_existing: bool = True) -> set[str]:
+        return set(self._model_tables)
+
+
+class _FakePgConnection:
+    """僵尸表检测所需的最小连接面：cursor / settings_dict / introspection。
+
+    stale: pg_tables 里出现、但不属于任何当前模型的表（即检测应点名的僵尸）。
+    """
+
+    def __init__(
+        self,
+        name: str,
+        current_db: str | None = None,
+        tables: list[str] | None = None,
+        stale: list[str] | None = None,
+    ) -> None:
+        self.settings_dict = {"ENGINE": "django.db.backends.postgresql", "NAME": name}
+        self._current_db = current_db if current_db is not None else name
+        self._tables = tables if tables is not None else []
+        self.introspection = _FakeIntrospection(set(self._tables) - set(stale or []))
+
+    def cursor(self) -> _FakePgCursor:
+        return _FakePgCursor(self._current_db, self._tables)
+
+
+class TestStaleTableWarning:
+    """僵尸表检测（2026-10-25 事故）：残留表挡 flush + 数据泄漏，必须点名告警。"""
+
+    @pytest.fixture(autouse=True)
+    def _reset_once_flag(self, monkeypatch: pytest.MonkeyPatch):
+        """全局「只查一次」标志在用例间复位，测试才能独立驱动检测函数。"""
+        monkeypatch.setattr(conftest, "_stale_tables_checked", False)
+
+    def test_warns_naming_stale_tables_with_remedy(self) -> None:
+        """库里有僵尸表时告警必须点名，并直接给出可执行的 DROP 语句。"""
+        conn = _FakePgConnection(
+            name="test_fachuan_dev",
+            tables=["organization_lawyer", "copilot_studio_scenariosession"],
+            stale=["copilot_studio_scenariosession"],
+        )
+        with pytest.warns(UserWarning, match="copilot_studio_scenariosession") as record:
+            conftest._warn_stale_tables(conn)
+        message = str(record[0].message)
+        assert "DROP TABLE copilot_studio_scenariosession CASCADE" in message, "告警里要带清理命令"
+
+    def test_maintenance_connection_skips_without_burning_once_flag(self) -> None:
+        """连 postgres 维护库（建库阶段）时跳过检测，且不消耗唯一一次机会。
+
+        真实事故形态：pytest-django 建库阶段首连 postgres，若在维护连接上
+        消耗了标志，后续真实测试库连接永远不再检测——告警静默失效。
+        """
+        maintenance = _FakePgConnection(name="test_fachuan_dev", current_db="postgres", tables=["whatever"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # 任何告警都算失败
+            conftest._warn_stale_tables(maintenance)
+        assert not conftest._stale_tables_checked, "维护连接不应消耗一次性标志"
+
+        # 紧接着的测试库连接仍要真查（本用例的 fake 库里唯一的表就是僵尸）
+        real_conn = _FakePgConnection(
+            name="test_fachuan_dev", tables=["organization_lawyer"], stale=["organization_lawyer"]
+        )
+        with pytest.warns(UserWarning, match="organization_lawyer"):
+            conftest._warn_stale_tables(real_conn)
+
+    def test_check_failure_leaves_flag_for_retry(self) -> None:
+        """检测自身异常（如迁移半途表清单不全）不设标志，下次连接重试。"""
+        broken = _FakePgConnection(name="test_fachuan_dev")
+        broken.cursor = None  # type: ignore[assignment]  # 模拟首连不可用
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            conftest._warn_stale_tables(broken)
+
+        assert not conftest._stale_tables_checked, "失败不应消耗一次性标志"
