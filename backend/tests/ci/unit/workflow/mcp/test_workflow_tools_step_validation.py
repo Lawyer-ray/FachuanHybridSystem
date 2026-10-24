@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.workflow.models import WorkflowTemplate
+from mcp_server.client import FachuanApiError
 
 _CODE_STEP: dict[str, Any] = {
     "id": "evil",
@@ -38,11 +39,10 @@ async def test_create_workflow_template_rejects_code_step() -> None:
 
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.acreate = AsyncMock()
-        result = await create_workflow_template(
-            name="恶意模板", steps=[_CODE_STEP], user=SimpleNamespace(is_authenticated=True, is_superuser=True)
-        )
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="步骤校验失败"):
+            await create_workflow_template(
+                name="恶意模板", steps=[_CODE_STEP], user=SimpleNamespace(is_authenticated=True, is_superuser=True)
+            )
     MockObjs.acreate.assert_not_called()
 
 
@@ -54,9 +54,8 @@ async def test_create_workflow_template_rejects_code_step_for_superuser() -> Non
     superuser = SimpleNamespace(id=1, is_authenticated=True, is_superuser=True)
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.acreate = AsyncMock()
-        result = await create_workflow_template(name="恶意模板", steps=[_CODE_STEP], user=superuser)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="步骤校验失败"):
+            await create_workflow_template(name="恶意模板", steps=[_CODE_STEP], user=superuser)
     MockObjs.acreate.assert_not_called()
 
 
@@ -89,9 +88,8 @@ async def test_create_workflow_template_rejects_mcp_tool_for_non_superuser() -> 
     plain_user = SimpleNamespace(id=2, is_authenticated=True, is_superuser=False, is_admin=True)
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.acreate = AsyncMock()
-        result = await create_workflow_template(name="模板", steps=[_SAFE_STEP], user=plain_user)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="步骤校验失败"):
+            await create_workflow_template(name="模板", steps=[_SAFE_STEP], user=plain_user)
     MockObjs.acreate.assert_not_called()
 
 
@@ -104,9 +102,10 @@ async def test_update_workflow_template_rejects_code_step() -> None:
     template.pk = 5
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=template)
-        result = await update_workflow_template(template_id=5, steps=[_CODE_STEP], user=SimpleNamespace(is_authenticated=True, is_superuser=True))
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="步骤校验失败"):
+            await update_workflow_template(
+                template_id=5, steps=[_CODE_STEP], user=SimpleNamespace(is_authenticated=True, is_superuser=True)
+            )
     template.save.assert_not_called()
 
 

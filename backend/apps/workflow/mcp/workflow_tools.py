@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from mcp_server.client import FachuanApiError
 from mcp_server.tool_shaping import list_result
 
 if TYPE_CHECKING:
@@ -353,21 +354,21 @@ async def approve_workflow_step(
     try:
         run = await WorkflowRun.objects.select_related("template").aget(pk=run_id)
     except WorkflowRun.DoesNotExist:
-        return {"error": f"工作流运行 #{run_id} 不存在"}
+        raise FachuanApiError(f"工作流运行 #{run_id} 不存在")
 
     if run.status != WorkflowRun.Status.WAITING_HUMAN:
-        return {"error": f"当前状态为 {run.status}，无需审批"}
+        raise FachuanApiError(f"当前状态为 {run.status}，无需审批")
 
     step_schema = _find_gate_step(run.template.steps_schema, run.current_step_id)
     if step_schema is None:
-        return {"error": f"模板步骤中不存在待审批的 gate 步骤 {run.current_step_id!r}，无法确定审批信号"}
+        raise FachuanApiError(f"模板步骤中不存在待审批的 gate 步骤 {run.current_step_id!r}，无法确定审批信号")
 
     signal_key = _resolve_signal_key(step_schema)
     workflow_name = run.template.temporal_workflow_name
     if signal_key not in WORKFLOW_SIGNAL_HANDLERS.get(workflow_name, frozenset()):
-        return {
-            "error": f"工作流 {workflow_name} 未注册审批信号 {signal_key}（步骤 {run.current_step_id}），已拒绝审批"
-        }
+        raise FachuanApiError(
+            f"工作流 {workflow_name} 未注册审批信号 {signal_key}（步骤 {run.current_step_id}），已拒绝审批"
+        )
 
     signal_data = {"approved": approved, "step_id": run.current_step_id, "comment": comment}
 
@@ -378,7 +379,7 @@ async def approve_workflow_step(
         await handle.signal(signal_key, signal_data)
     except Exception as e:
         logger.warning("Temporal signal 发送失败: run_id=%s, error=%s", run_id, e)
-        return {"error": f"Temporal 信号发送失败: {e}"}
+        raise FachuanApiError(f"Temporal 信号发送失败: {e}") from e
 
     # 条件更新：仅当 run 仍处于 WAITING_HUMAN 时置 RUNNING，
     # 避免 worker 已写入终态（completed/failed）后被本地乐观写覆盖（竞态）
@@ -424,7 +425,7 @@ async def cancel_workflow(run_id: int) -> dict[str, Any]:
     try:
         run = await WorkflowRun.objects.aget(pk=run_id)
     except WorkflowRun.DoesNotExist:
-        return {"error": f"工作流运行 #{run_id} 不存在"}
+        raise FachuanApiError(f"工作流运行 #{run_id} 不存在")
 
     try:
         client = await _get_client()
@@ -432,7 +433,7 @@ async def cancel_workflow(run_id: int) -> dict[str, Any]:
         await handle.cancel()
     except Exception as e:
         logger.warning("Temporal cancel 失败: run_id=%s, error=%s", run_id, e)
-        return {"error": f"Temporal 取消失败: {e}"}
+        raise FachuanApiError(f"Temporal 取消失败: {e}") from e
 
     run.status = WorkflowRun.Status.CANCELLED
     run.finished_at = timezone.now()
@@ -441,19 +442,18 @@ async def cancel_workflow(run_id: int) -> dict[str, Any]:
     return {"run_id": run_id, "status": "cancelled", "message": "已取消"}
 
 
-def _require_admin(user: Any | None) -> dict[str, Any] | None:
+def _require_admin(user: Any | None) -> None:
     """MCP 模板管理工具的管理员门禁(fail-closed)。
 
     与 REST 层 ``ensure_admin_request`` 同口径(``is_admin``/``is_superuser``,
     2026Q4 审计口径)。user 为空(stdio 手工/解码失败)同样拒绝——模板是
     全所共享配置,REST A-01 收紧后普通律师本就无权,MCP 面不能成为降级
-    绕过口。返回 None 表示放行,dict 为拒绝原因(与既有 error 信封一致)。
+    绕过口。不通过直接抛 FachuanApiError(isError 语义,2026-10-25 二十轮)。
     """
     from apps.core.security.admin_access import is_admin_user
 
     if not is_admin_user(user):
-        return {"error": "仅管理员可管理工作流模板"}
-    return None
+        raise FachuanApiError("仅管理员可管理工作流模板")
 
 
 async def delete_workflow_run(run_id: int) -> dict[str, Any]:
@@ -469,7 +469,7 @@ async def delete_workflow_run(run_id: int) -> dict[str, Any]:
     try:
         run = await WorkflowRun.objects.select_related("template").aget(pk=run_id)
     except WorkflowRun.DoesNotExist:
-        return {"error": f"工作流运行 #{run_id} 不存在"}
+        raise FachuanApiError(f"工作流运行 #{run_id} 不存在")
 
     # 如果还在运行中，先尝试取消 Temporal 工作流
     if run.status in (WorkflowRun.Status.RUNNING, WorkflowRun.Status.WAITING_HUMAN, WorkflowRun.Status.WAITING_EVENT):
@@ -513,16 +513,14 @@ async def get_step_registry_flat() -> dict[str, Any]:
     return list_result(get_flat_step_list())
 
 
-def _validate_steps_or_error(user: Any | None, steps: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _validate_steps_or_error(user: Any | None, steps: list[dict[str, Any]]) -> None:
     """步骤类型白名单校验（安全审计 A-01 旁路修复）。
 
     MCP 是与 HTTP API 并列的模板写入入口，历史上完全未做步骤类型校验，
     code 步骤可经此落库并由 workflows.py 调度 generic_code_exec（可逃逸
     沙箱）。此处复用 API 层同一校验，缺省 fail-closed（user 为空按非
-    superuser 处理）。
-
-    Returns:
-        校验通过返回 None；不通过返回 MCP 约定的 {"error": ...} 字典。
+    superuser 处理）。不通过直接抛 FachuanApiError(isError 语义,2026-10-25
+    二十轮)。
     """
     from apps.core.exceptions import ValidationException
     from apps.workflow.services.template_service import WorkflowTemplateService
@@ -530,8 +528,7 @@ def _validate_steps_or_error(user: Any | None, steps: list[dict[str, Any]]) -> d
     try:
         WorkflowTemplateService().validate_steps_for_user(user, steps)
     except ValidationException as e:
-        return {"error": f"步骤校验失败: {e.message}"}
-    return None
+        raise FachuanApiError(f"步骤校验失败: {e.message}") from e
 
 
 async def create_workflow_template(
@@ -567,16 +564,12 @@ async def create_workflow_template(
     user, _org, _open = await _resolve_mcp_access(user, None, False)
     # 与 REST 层同口径：模板管理仅管理员(ensure_admin_request 的 MCP 侧等价,
     # fail-closed);此前 MCP 面未注册不暴露,注册前必须补齐,防止降级绕过
-    error = _require_admin(user)
-    if error is not None:
-        return error
+    _require_admin(user)
     # 安全审计 A-01（旁路修复）：MCP 是与 HTTP API 并列的模板写入入口，历史上
     # 完全未做步骤类型校验，导致 code 步骤可经此落库并由 workflows.py 调度
     # generic_code_exec（可逃逸沙箱）。此处复用 API 层同一校验，缺省 fail-closed
     # （user 为空时按非 superuser 处理）。
-    error = _validate_steps_or_error(user, steps)
-    if error is not None:
-        return error
+    _validate_steps_or_error(user, steps)
 
     if not slug:
         slug = dj_slugify(name, allow_unicode=True)
@@ -651,20 +644,16 @@ async def update_workflow_template(
     user, _org, _open = await _resolve_mcp_access(user, None, False)
     # 与 create_workflow_template 同口径:仅管理员(REST ensure_admin_request
     # 的 MCP 侧等价,fail-closed)
-    error = _require_admin(user)
-    if error is not None:
-        return error
+    _require_admin(user)
     # 安全审计 A-01（旁路修复）：与 create_workflow_template 同一校验，
     # 防止经 update 写入 code 步骤。
     if steps is not None:
-        error = _validate_steps_or_error(user, steps)
-        if error is not None:
-            return error
+        _validate_steps_or_error(user, steps)
 
     try:
         template = await WorkflowTemplate.objects.aget(pk=template_id)
     except WorkflowTemplate.DoesNotExist:
-        return {"error": f"模板 #{template_id} 不存在"}
+        raise FachuanApiError(f"模板 #{template_id} 不存在")
 
     updated_fields = []
     if name is not None:
@@ -700,7 +689,7 @@ async def update_workflow_template(
         updated_fields.append("steps_schema")
 
     if not updated_fields:
-        return {"error": "没有要更新的字段"}
+        raise FachuanApiError("没有要更新的字段")
 
     await template.asave(update_fields=updated_fields)
 
@@ -762,7 +751,7 @@ async def get_workflow_template(template_id: int) -> dict[str, Any]:
     try:
         template = await WorkflowTemplate.objects.aget(pk=template_id)
     except WorkflowTemplate.DoesNotExist:
-        return {"error": f"模板 #{template_id} 不存在"}
+        raise FachuanApiError(f"模板 #{template_id} 不存在")
 
     return {
         "template_id": template.id,
@@ -787,14 +776,12 @@ async def delete_workflow_template(template_id: int, *, user: Any | None = None)
     from apps.workflow.models import WorkflowTemplate
 
     user, _org, _open = await _resolve_mcp_access(user, None, False)
-    error = _require_admin(user)
-    if error is not None:
-        return error
+    _require_admin(user)
 
     try:
         template = await WorkflowTemplate.objects.aget(pk=template_id)
     except WorkflowTemplate.DoesNotExist:
-        return {"error": f"模板 #{template_id} 不存在"}
+        raise FachuanApiError(f"模板 #{template_id} 不存在")
 
     name = template.name
     await template.adelete()
@@ -815,14 +802,12 @@ async def duplicate_workflow_template(
     from apps.workflow.models import WorkflowTemplate
 
     user, _org, _open = await _resolve_mcp_access(user, None, False)
-    error = _require_admin(user)
-    if error is not None:
-        return error
+    _require_admin(user)
 
     try:
         source = await WorkflowTemplate.objects.aget(pk=template_id)
     except WorkflowTemplate.DoesNotExist:
-        return {"error": f"模板 #{template_id} 不存在"}
+        raise FachuanApiError(f"模板 #{template_id} 不存在")
 
     name = new_name or f"{source.name}(副本)"
     slug = dj_slugify(name, allow_unicode=True)
