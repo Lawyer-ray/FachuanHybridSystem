@@ -58,6 +58,8 @@ make mcp-status    # 进程/日志
 | 失败语义 | `test_error_semantics.py` | 公共工具函数禁止 `except Exception` 吞异常——FachuanApiError/FachuanTransportError 是 ToolError 子类,必须穿透成 `isError: true`;吞成 `{"success": False}` 伪正常结果会让模型得出假事实结论(2026-10-25 审计 enterprise_data 8 处)。与 MCP 2025-11-25 规范口径一致:API 失败/入参校验/业务逻辑错误都应走 `isError: true` 并携带可自纠反馈,而非伪正常返回。私有 helper 的批量部分失败聚合豁免(folder_file/web_search 形态) |
 | ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint` 从审批分层权威表(approval.classify_risk)机械推导,注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);线上三分 409=226 只读+69 销毁/高危+114 普通写 |
 | 工具名规范 | `test_server_registration.py::TestMcpSpecNameCompliance` | 名字必须 ASCII `[A-Za-z0-9_-]` 且 1-128 字符(MCP spec 硬性要求)——`isidentifier()` 放行 Unicode 标识符(如中文工具名),部分客户端会拒收,注册面前置拦截 |
+| 列表信封化 | `test_tool_shaping.py` | 裸 list 返回被 SDK 逐项拆成独立文本块、**空列表变零内容块**——列表工具统一 `list_result()` 包 `{total, items}`;翻页用 limit+1 探测法,`truncated=True` 时 total 是下界 | 
+| 默认体量 ≤20KB | 无门禁(需线上数据) | pi 对工具输出 20KB 起腰斩(中段截断+文件指针),**默认参数的调用必须留在截断线内**——新列表工具按「20KB ÷ 实测均条体积」定默认 limit;`get_case` 默认剥 logs、`search_cases` 套投影同此理 |
 | 客户端行为 | `test_client.py` | token 刷新、错误信封、传输韧性、下载闸门、巨型列表护栏、抽象边界 |
 | 工具行为 | `test_new_tools.py` / `test_agent_attachments.py` / `test_fetch_url.py`(含 SSRF 拦截) / … | 重组型工具的真实逻辑 |
 
