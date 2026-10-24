@@ -95,15 +95,16 @@ def list_doc_converter_jobs(page: int = 1, page_size: int = 20) -> dict[str, Any
     )
 
 
-def create_doc_converter_job(files: list[dict[str, Any]], options: dict[str, Any] | None = None) -> dict[str, Any]:
+def create_doc_converter_job(files: list[dict[str, Any]]) -> dict[str, Any]:
     """创建 DOC→DOCX 转换任务。
 
     Args:
         files: 待转换文件列表，每项含 ``filename`` 与 ``content_base64``。
-        options: 其余转换选项原样透传给后端（可选）。
 
     Notes:
         文件以 base64 传入；后端按 multipart 接收，这里逐条解码后上传。
+        端点只收文件列表,无其他选项字段（旧版的 ``options`` 参数从未被
+        端点读取,已移除）。
     """
     import base64
 
@@ -113,12 +114,13 @@ def create_doc_converter_job(files: list[dict[str, Any]], options: dict[str, Any
         content = base64.b64decode(str(item.get("content_base64") or ""))
         encoded.append({"filename": filename, "content": content})
 
-    # 后端是 multipart 端点；用 upload 逐字段拼接
-    files_payload = {
-        f"file_{index}": (item["filename"], item["content"], "application/msword") for index, item in enumerate(encoded)
-    }
+    # 端点声明 files: list[UploadedFile] = File(...)——多文件必须用
+    # **同名字段 files 重复**传递(httpx files 列表形态)。早前用
+    # file_0/file_1 逐个编号,端点拿不到 files 字段,每次调用必 422
+    # ``Field required: files``(2026-10-25 修复)。
+    files_payload = [("files", (item["filename"], item["content"], "application/msword")) for item in encoded]
     return client.upload(  # type: ignore[no-any-return]
-        "/doc-converter/jobs", files=files_payload, data={k: str(v) for k, v in (options or {}).items()}
+        "/doc-converter/jobs", files=files_payload
     )
 
 
