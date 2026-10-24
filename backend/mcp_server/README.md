@@ -55,8 +55,9 @@ make mcp-status    # 进程/日志
 | 参数契约 | `test_rest_param_contract.py` | 工具转发的参数必须被端点声明——ninja 静默忽略未声明参数=「从未生效」的假参数(两轮审计共 17 处实锤,含 create_lawyer/update_lawyer/update_doc_converter 三个「从未成功过」的 multipart 形状错拼);收集器覆盖字面量/变量字典/f-string 路径(含 /api/v1 前缀)/内联与 anyOf schema;裸 payload 端点 allowlist 禁止新增 |
 | 投影契约 | `test_projection_fields.py` | 默认投影列出的字段必须存在于 API items schema——project 按键挑选不报错,列了不存在的字段=模型点名要也静默落空 |
 | docstring 枚举值 | 无自动门禁(review 把关) | 文档宣称的取值必须对照模型 TextChoices——filter 对错值静默空列表、裸 CharField 对错值静默落库(2026-10-25 审计 13 处:case_type 假枚举/fee_mode 小写绕过金额校验/中文代理阶段必炸/running≠in_progress/site_name 死路示例) |
-| 失败语义 | `test_error_semantics.py` | 公共工具函数禁止 `except Exception` 吞异常——FachuanApiError/FachuanTransportError 是 ToolError 子类,必须穿透成 `isError: true`;吞成 `{"success": False}` 伪正常结果会让模型得出假事实结论(2026-10-25 审计 enterprise_data 8 处)。私有 helper 的批量部分失败聚合豁免(folder_file/web_search 形态) |
+| 失败语义 | `test_error_semantics.py` | 公共工具函数禁止 `except Exception` 吞异常——FachuanApiError/FachuanTransportError 是 ToolError 子类,必须穿透成 `isError: true`;吞成 `{"success": False}` 伪正常结果会让模型得出假事实结论(2026-10-25 审计 enterprise_data 8 处)。与 MCP 2025-11-25 规范口径一致:API 失败/入参校验/业务逻辑错误都应走 `isError: true` 并携带可自纠反馈,而非伪正常返回。私有 helper 的批量部分失败聚合豁免(folder_file/web_search 形态) |
 | ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint` 从审批分层权威表(approval.classify_risk)机械推导,注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);线上三分 409=226 只读+69 销毁/高危+114 普通写 |
+| 工具名规范 | `test_server_registration.py::TestMcpSpecNameCompliance` | 名字必须 ASCII `[A-Za-z0-9_-]` 且 1-128 字符(MCP spec 硬性要求)——`isidentifier()` 放行 Unicode 标识符(如中文工具名),部分客户端会拒收,注册面前置拦截 |
 | 客户端行为 | `test_client.py` | token 刷新、错误信封、传输韧性、下载闸门、巨型列表护栏、抽象边界 |
 | 工具行为 | `test_new_tools.py` / `test_agent_attachments.py` / `test_fetch_url.py`(含 SSRF 拦截) / … | 重组型工具的真实逻辑 |
 

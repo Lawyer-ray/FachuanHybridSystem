@@ -192,6 +192,31 @@ class TestAllListSnapshot:
             assert name.isidentifier(), f"Invalid identifier in __all__: {name!r}"
 
 
+class TestMcpSpecNameCompliance:
+    """MCP 规范对工具名的硬性要求（2025-11-25 spec, Tools 一节）：
+
+    - 长度 1-128 字符
+    - 字符集仅限 ASCII 的 ``A-Za-z0-9_-``（大小写敏感、必须全局唯一）
+
+    注意 ``isidentifier()`` 放得过宽：Unicode 标识符（如中文工具名）能通过
+    Python 语法检查，但违反 MCP 字符集——部分客户端（规范化/匹配逻辑）
+    会拒收。此处在注册面提前拦截。"""
+
+    def test_names_ascii_charset(self):
+        bad = [n for n in _ALL_TOOLS if not re.fullmatch(r"[A-Za-z0-9_-]+", n)]
+        assert not bad, (
+            f"Tool names with characters outside MCP charset [A-Za-z0-9_-]: {bad[:5]}. "
+            "MCP spec requires ASCII-only tool names."
+        )
+
+    def test_names_length_within_spec(self):
+        over = [n for n in _ALL_TOOLS if not 1 <= len(n) <= 128]
+        assert not over, (
+            f"Tool names exceeding MCP spec limit (1-128 chars): "
+            f"{[(n, len(n)) for n in over][:5]}"
+        )
+
+
 class TestCallableAndMetadata:
     """Verify every tool function is callable and has MCP-required metadata."""
 
