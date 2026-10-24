@@ -87,7 +87,7 @@ def list_reminder_types() -> dict[str, Any]:
 
 
 def parse_reminders_from_text(text: str) -> dict[str, Any]:
-    """从自由文本中解析提醒条目。返回结构化的提醒列表（content、type、due_at）。"""
+    """从自由文本中解析提醒条目。返回 {total, items} 信封（items 每条含 content、type、due_at）。"""
     return list_result(client.post("/reminders/parse", json={"text": text}))
 
 

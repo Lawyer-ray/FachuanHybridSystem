@@ -21,7 +21,7 @@ def _build_invoice_files(files: list[dict[str, str]]) -> list[tuple[str, tuple[s
 
 
 def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:
-    """快速识别发票（不创建任务）。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。返回识别结果列表。"""
+    """快速识别发票（不创建任务）。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。返回含识别结果的对象。"""
     # 统一走 client.upload:错误信封(FachuanApiError)与传输层异常翻译
     # (FachuanTransportError)由 client 管——此前直接 client._http.post 且
     # 引用了未 import 的 FachuanApiError,非 2xx 时会 NameError。
