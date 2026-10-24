@@ -86,6 +86,7 @@ def _host_is_internal(host: str) -> bool:
             return True
     return False
 
+
 #: 伪装成普通浏览器；不少站点对默认 UA 直接 403
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "

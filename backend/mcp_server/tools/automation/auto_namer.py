@@ -35,4 +35,5 @@ def auto_namer_process_by_path(
         payload["limit"] = limit
     if preview_page is not None:
         payload["preview_page"] = preview_page
-    return client.post("/automation/auto-namer/process-by-path", json=payload)  # type: ignore[no-any-return]
+    # LLM 逐文件命名,批量目录耗时随 limit 增长——与 LLM 链路工具同口径 180s。
+    return client.post("/automation/auto-namer/process-by-path", json=payload, timeout=180)  # type: ignore[no-any-return]

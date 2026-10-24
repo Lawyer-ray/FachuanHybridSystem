@@ -48,6 +48,7 @@ def delete_archive_overrides(contract_id: int, template_subtype: str = "") -> No
 def download_supplementary_agreement(contract_id: int, agreement_id: int) -> dict[str, Any]:
     """生成并下载补充协议为 DOCX（1MB 闸门内 base64）。"""
     content, filename, content_type = client.download(
-        f"/documents/contracts/{contract_id}/supplementary-agreements/{agreement_id}/download"
+        f"/documents/contracts/{contract_id}/supplementary-agreements/{agreement_id}/download",
+        timeout=180,
     )
     return {"filename": filename, "content_type": content_type, "data_base64": base64.b64encode(content).decode()}

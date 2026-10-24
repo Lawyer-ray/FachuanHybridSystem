@@ -53,7 +53,9 @@ def capability_search(
         "target_count": target_count,
         "search_mode": search_mode,
     }
-    return client.post("/legal-research/capability/search/mcp", json=payload)  # type: ignore[return-value]
+    # 端点同步执行威科检索（Playwright 会话 + 多页抓取,实测 30-90s）,
+    # 60s 默认超时不够;pi 侧 mcp.json timeout=200 兜住。
+    return client.post("/legal-research/capability/search/mcp", json=payload, timeout=180)  # type: ignore[return-value]
 
 
 def get_research_task(task_id: int) -> dict[str, Any]:
