@@ -59,7 +59,7 @@ READY_TIMEOUT = 30.0
 
 #: MCP 工具面 exposure 模式（对应 pi 的 McpExposure）。灰度开关：
 #: - ``direct``（默认）：全部工具 schema 声明给模型。2026-10-25 实测
-#:   410 工具 tools/list ≈ 257KB ≈ 8.8 万 token 常驻上下文（400 工具时
+#:   409 工具 tools/list ≈ 257KB ≈ 8.8 万 token 常驻上下文（400 工具时
 #:   ~215KB ≈ 60k+，补注册 workflow 10 件后上探），靠 prompt cache 摊薄
 #:   成本；单体最大 mortgage_default_calculate 9.3KB 为真实领域知识。
 #: - ``deferred``：工具不声明给模型，模型经 pi 内置 ``tool_search`` 按需

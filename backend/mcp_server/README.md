@@ -1,6 +1,6 @@
 # mcp_server —— 法穿 AI Copilot 的工具面
 
-> 410 个 MCP 工具（2026-10-25），streamable-http :8011 共享一份常驻进程，
+> 409 个 MCP 工具（2026-10-25），streamable-http :8011 共享一份常驻进程，
 > 服务 `apps/agent` 的 pi 会话；也可 stdio 单进程跑（开发/手工）。
 
 ## 架构速览
@@ -10,7 +10,7 @@ pi 会话(每律师一个) ──Bearer 当前律师token──▶ RequestAuthMi
                                                     │ ContextVar 存 Authorization
                                                     ▼
                                         FastMCP(MCPServer "法穿SI Copilot")
-                                                    │ 410 工具(server.py 注册)
+                                                    │ 409 工具(server.py 注册)
                     ┌───────────────────────────────┼──────────────────────┐
                     ▼                               ▼                      ▼
             REST 透传型工具(绝大多数)         直接 ORM 工具(workflow 15 个)  纯本地工具
@@ -50,7 +50,7 @@ make mcp-status    # 进程/日志
 
 | 层 | 文件 | 覆盖 |
 |---|---|---|
-| 注册完整性 | `test_tool_registration.py` / `test_server_registration.py` | 定义↔注册对账、基线 410、docstring/注解、白名单防退化 |
+| 注册完整性 | `test_tool_registration.py` / `test_server_registration.py` | 定义↔注册对账、基线 409、docstring/注解、白名单防退化 |
 | 路径契约 | `test_rest_path_contract.py` | AST 全扫 client 调用 vs OpenAPI,防 REST 路径漂移 |
 | 客户端行为 | `test_client.py` | token 刷新、错误信封、传输韧性、下载闸门、抽象边界 |
 | 工具行为 | `test_new_tools.py` / `test_agent_attachments.py` / … | 重组型工具的真实逻辑 |
@@ -71,5 +71,5 @@ make mcp-status    # 进程/日志
 
 ## 已知规模事实（灰度决策依据）
 
-- 410 工具 `tools/list` ≈ 257KB ≈ **8.8 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。
+- 409 工具 `tools/list` ≈ 257KB ≈ **8.8 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。
 - 灰度开关 `FACHUAN_MCP_EXPOSURE`(deferred/codemode/hidden)与 per-tool `toolExposure` 混合面备选见 `apps/agent/pi/shared_mcp.py` 注释;deferred 的代价是 OpenAI 兼容网关丢 prompt cache(pi #10940)。
