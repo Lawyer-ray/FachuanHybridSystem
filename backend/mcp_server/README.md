@@ -57,6 +57,18 @@ make mcp-status    # 进程/日志
 
 跑法:`DB_NAME=test_fachuan_dev .venv/bin/pytest tests/ci/unit/mcp_server/ -q --reuse-db`(严禁不带 DB_NAME)。
 
+## 并发与审计（2026-10-25 验证）
+
+- **事件循环不阻塞**：工具几乎全是同步 `def`,MCPServer 对同步函数走
+  `anyio.to_thread.run_sync`(worker 线程);唯一 async 工具 `web_search` 已把
+  阻塞的 httpx 调用 `run_in_executor` 委派。一个 180s 的 LLM 工具不会卡住其他会话。
+- **每次工具调用都有审计痕**:pi 侧 `tool_result` 事件逐条落 `AgentMessage`
+  (role=TOOL,工具名+结果[:8000]+时间);完整参数在 pi session 文件
+  (`FACHUAN_AGENT_HOME`);高危另有 `AgentApproval.tool_args`。
+  MEDIUM 级「静默留痕」的承诺由此兑现,不依赖 logs/api.log 轮转。
+- **审批 extension 每请求新进程加载**:pi 进程每请求一造(见 `pool.py`),
+  不复用——approval-gate.ts 的模式表更新后,下一个请求立即生效,无存量进程窗口。
+
 ## 已知规模事实（灰度决策依据）
 
 - 410 工具 `tools/list` ≈ 257KB ≈ **8.8 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。
