@@ -139,6 +139,28 @@ WRITE_PREFIXES: tuple[str, ...] = (
     "retry_",
     "assign_",
     "learn_",
+    # 2026-10-25 二轮：AST 全扫 195 个实际发写请求的工具,50 个连中级留痕
+    # 都没有（改名/重排/绑定/开关/取消/产出文件类）。中级=静默放行+审计
+    # 日志,零摩擦,只补「不留痕」这个洞;纯计算类（calculate_/mortgage_/
+    # check_/chat_/validate_/detect_/parse_/suggest_ 等）刻意保持 LOW。
+    "ensure_",
+    "bind_",
+    "rename_",
+    "reorder_",
+    "toggle_",
+    "merge_",
+    "complete_",
+    "cancel_",
+    "export_",
+    "extract_",
+    "process_",
+    "normalize_",
+    "fill_",
+    "scale_",
+    "clear_",
+    "reset_",
+    "cleanup_",
+    "unified_",
 )
 
 DEFAULT_TIMEOUT = 300.0

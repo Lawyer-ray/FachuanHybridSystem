@@ -341,6 +341,71 @@ class TestExternalActionTools:
             assert prefix in WRITE_PREFIXES, prefix
             assert prefix in _ts_list("WRITE_PREFIXES"), prefix
 
+    def test_round2_write_prefixes_in_both_tables(self) -> None:
+        """2026-10-25 二轮:18 个补漏前缀双表同步。"""
+        added = (
+            "ensure_",
+            "bind_",
+            "rename_",
+            "reorder_",
+            "toggle_",
+            "merge_",
+            "complete_",
+            "cancel_",
+            "export_",
+            "extract_",
+            "process_",
+            "normalize_",
+            "fill_",
+            "scale_",
+            "clear_",
+            "reset_",
+            "cleanup_",
+            "unified_",
+        )
+        for prefix in added:
+            assert prefix in WRITE_PREFIXES, prefix
+            assert prefix in _ts_list("WRITE_PREFIXES"), prefix
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            "rename_inbox_attachment",
+            "rename_material_group",
+            "reorder_archive_materials",
+            "reorder_evidence_items",
+            "toggle_compact_archive",
+            "bind_materials",
+            "ensure_guarantee_quote",
+            "complete_reminders",
+            "cancel_conversion_job",
+            "unified_generate",
+            "clear_cache",
+            "reset_performance_metrics",
+        ],
+    )
+    def test_zero_trace_write_tools_now_medium(self, tool: str) -> None:
+        """此前 50 个发写请求的工具连中级留痕都没有——改名/重排/绑定/开关类
+        现在至少 MEDIUM（静默放行 + 审计日志）。"""
+        assert classify_risk(f"mcp__fachuan__{tool}") is RiskLevel.MEDIUM, tool
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            "calculate_interest",
+            "calculate_litigation_fee",
+            "mortgage_amortize",
+            "check_law_references",
+            "chat_with_context",
+            "validate_folder_structure",
+            "detect_orientation",
+            "suggest_rename",
+        ],
+    )
+    def test_stateless_compute_stays_low(self, tool: str) -> None:
+        """纯计算/校验类刻意保持 LOW——中级是审计留痕,不是给计算器加摩擦。"""
+        assert classify_risk(f"mcp__fachuan__{tool}") is RiskLevel.LOW, tool
+
     def test_retry_with_sensitive_arg_escalates(self) -> None:
         """中级写前缀 + 敏感参数 → 高危（参数级判定对新增前缀同样生效）。"""
         assert classify_risk("mcp__fachuan__start_workflow", {"deadline": "2026-01-01"}) is RiskLevel.HIGH

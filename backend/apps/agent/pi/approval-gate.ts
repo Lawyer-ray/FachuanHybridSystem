@@ -109,6 +109,25 @@ const WRITE_PREFIXES: readonly string[] = [
   "retry_",
   "assign_",
   "learn_",
+  // 2026-10-25 二轮：与服务端同步补 18 前缀（改名/重排/绑定/开关/取消/产出文件类）
+  "ensure_",
+  "bind_",
+  "rename_",
+  "reorder_",
+  "toggle_",
+  "merge_",
+  "complete_",
+  "cancel_",
+  "export_",
+  "extract_",
+  "process_",
+  "normalize_",
+  "fill_",
+  "scale_",
+  "clear_",
+  "reset_",
+  "cleanup_",
+  "unified_",
 ];
 
 type RiskLevel = "low" | "medium" | "high" | "critical";
