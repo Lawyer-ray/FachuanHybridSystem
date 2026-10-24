@@ -217,6 +217,65 @@ class TestMcpSpecNameCompliance:
         )
 
 
+class TestSignatureHygiene:
+    """签名结构卫生门禁(2026-10-25 审计七轮,409 工具基线全零)。
+
+    - ``**kwargs`` 会让输入 schema 退化成任意属性透传,ninja 静默忽略未知
+      参数——这正是 REST 参数契约审计修掉的 17 处「假参数」模式的**结构性
+      后门**,禁绝。
+    - 可变默认参数(list/dict/set)是经典 Python 共享状态炸弹。
+    - docstring Args 节里写了签名不存在的「幽灵参数」= 纯文档噪音,
+      模型按文档传参必被 ninja 静默丢弃。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _load_module(self):
+        self.tools = _get_tools_module()
+
+    def test_no_var_positional_or_keyword_params(self):
+        offenders: list[str] = []
+        for name in _available_tools():
+            for param in inspect.signature(getattr(self.tools, name)).parameters.values():
+                if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                    offenders.append(f"{name}({param.name})")
+        assert not offenders, (
+            f"Tools with *args/**kwargs params: {offenders}. var-keyword 会把输入 "
+            "schema 退化成任意属性透传,REST 静默忽略未知参数=假参数后门。"
+        )
+
+    def test_no_mutable_default_args(self):
+        offenders: list[str] = []
+        for name in _available_tools():
+            for pname, param in inspect.signature(getattr(self.tools, name)).parameters.items():
+                if param.default is not inspect.Parameter.empty and isinstance(
+                    param.default, (list, dict, set)
+                ):
+                    offenders.append(f"{name}({pname}={type(param.default).__name__})")
+        assert not offenders, f"Tools with mutable default args: {offenders}"
+
+    def test_docstring_args_mention_no_ghost_params(self):
+        """Google 风格 Args: 节的参数名必须存在于签名(SDK 把整个 docstring
+        原样作为工具描述,文档里的幽灵参数模型会照着传)。"""
+        offenders: list[str] = []
+        for name in _available_tools():
+            fn = getattr(self.tools, name)
+            doc = inspect.getdoc(fn) or ""
+            m = re.search(r"^\s*Args:\s*\n((?:\s+.+\n?)+?)(?=^\s*\S|\Z)", doc, re.M)
+            if not m:
+                continue
+            sig_params = set(inspect.signature(fn).parameters) - {"request", "ctx"}
+            ghosts = [
+                g for g in re.findall(r"^\s{4,}(\w+)\s*[:(]", m.group(1), re.M)
+                if g not in sig_params
+            ]
+            if ghosts:
+                offenders.append(f"{name}: {ghosts}")
+        assert not offenders, (
+            f"Docstring Args 节引用了签名不存在的参数: {offenders}. "
+            "模型按文档传参会被 REST 静默忽略。"
+        )
+
+
 class TestCallableAndMetadata:
     """Verify every tool function is callable and has MCP-required metadata."""
 
