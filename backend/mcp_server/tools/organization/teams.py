@@ -21,7 +21,7 @@ def list_teams(
 
 
 def get_team(team_id: int) -> dict[str, Any]:
-    """获取单个团队的详细信息。"""
+    """获取单个团队详情（成员、负责人）。"""
     return client.get(f"/organization/teams/{team_id}")  # type: ignore[return-value]
 
 
@@ -55,5 +55,5 @@ def update_team(
 
 
 def delete_team(team_id: int) -> None:
-    """删除指定团队。此操作不可逆。"""
+    """删除团队——管理员操作;只删团队,成员律师账号不受影响。"""
     client.delete(f"/organization/teams/{team_id}")

@@ -22,7 +22,7 @@ def create_property_clue(client_id: int, clue_type: str, content: str) -> dict[s
 
 
 def get_property_clue(clue_id: int) -> dict[str, Any]:
-    """获取单条财产线索详情。"""
+    """获取单条财产线索详情（类型:银行/支付宝/微信/不动产等）。"""
     return client.get(f"/client/property-clues/{clue_id}")  # type: ignore[return-value]
 
 
@@ -37,7 +37,7 @@ def update_property_clue(clue_id: int, clue_type: str | None = None, content: st
 
 
 def delete_property_clue(clue_id: int) -> None:
-    """删除财产线索。此操作不可逆。"""
+    """删除财产线索——硬删除,不可恢复。"""
     client.delete(f"/client/property-clues/{clue_id}")
 
 

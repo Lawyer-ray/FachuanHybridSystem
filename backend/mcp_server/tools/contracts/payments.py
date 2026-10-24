@@ -23,10 +23,10 @@ def update_payment(
     payment_id: int,
     payment_data: dict[str, Any],
 ) -> dict[str, Any]:
-    """更新收款记录。只传需要修改的字段。"""
+    """更新收款记录（金额/日期/开票状态等）。只传需要修改的字段;金额字段触发审批。"""
     return client.put(f"/contracts/finance/payments/{payment_id}", json=payment_data)  # type: ignore[return-value]
 
 
 def delete_payment(payment_id: int) -> None:
-    """删除指定收款记录。此操作不可逆。"""
+    """删除一条收款记录——硬删除,不可恢复（影响财务统计）。"""
     client.delete(f"/contracts/finance/payments/{payment_id}")

@@ -7,9 +7,7 @@ from typing import Any
 from mcp_server.client import client
 
 
-def list_contacts(
-    case_id: int | None = None, stage: str | None = None, limit: int = 50
-) -> list[dict[str, Any]]:
+def list_contacts(case_id: int | None = None, stage: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
     """获取案件联系人列表，可按案件ID和阶段筛选。
 
     limit 默认 50——REST 端点默认 1000 是给前端表格的,对模型上下文过大;
@@ -33,7 +31,7 @@ def create_contact(
     stage: str | None = None,
     note: str | None = None,
 ) -> dict[str, Any]:
-    """创建案件联系人。"""
+    """创建案件联系人（姓名/角色/法院等,便于后续案件快速引用）。"""
     return client.post(
         "/contacts/contacts",
         json={
@@ -50,7 +48,7 @@ def create_contact(
 
 
 def search_contacts(q: str | None = None, court: str | None = None, role: str | None = None) -> list[dict[str, Any]]:
-    """公开搜索联系人，按姓名、法院和角色筛选。"""
+    """公开搜索联系人库,按姓名、法院和角色筛选——跨案件复用联系人。"""
     params: dict[str, Any] = {}
     if q is not None:
         params["q"] = q
@@ -67,10 +65,10 @@ def get_contact(contact_id: int) -> dict[str, Any]:
 
 
 def update_contact(contact_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
-    """更新联系人信息。"""
+    """更新联系人信息。只传需要修改的字段。"""
     return client.put(f"/contacts/contacts/{contact_id}", json=fields or {})  # type: ignore[return-value]
 
 
 def delete_contact(contact_id: int) -> None:
-    """删除联系人。"""
+    """删除联系人——硬删除,不可恢复。"""
     client.delete(f"/contacts/contacts/{contact_id}")

@@ -16,7 +16,7 @@ def list_lawfirms(name: str | None = None) -> list[dict[str, Any]]:
 
 
 def get_lawfirm(law_firm_id: int) -> dict[str, Any]:
-    """获取单个律所的详细信息。"""
+    """获取单个律所详情（名称、联系方式）。"""
     return client.get(f"/organization/lawfirms/{law_firm_id}")  # type: ignore[return-value]
 
 
@@ -58,5 +58,5 @@ def update_lawfirm(
 
 
 def delete_lawfirm(law_firm_id: int) -> None:
-    """删除指定律所。此操作不可逆。"""
+    """删除律所——管理员操作;仍有律师/团队引用时后端拒绝（ConflictError）。"""
     client.delete(f"/organization/lawfirms/{law_firm_id}")

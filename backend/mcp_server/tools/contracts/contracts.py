@@ -171,7 +171,10 @@ def update_contract(
 
 
 def delete_contract(contract_id: int) -> None:
-    """删除指定合同。此操作不可逆。"""
+    """删除合同——硬删除,不可恢复。
+
+    合同下存在案件时后端会**拒绝删除**（Case 外键 PROTECT,防静默抹掉
+    案件数据）,需先处理案件。删除前确认收款/归档记录已不需要。高危操作,需人工审批。"""
     client.delete(f"/contracts/contracts/{contract_id}")
 
 

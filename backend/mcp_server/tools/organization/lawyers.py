@@ -99,5 +99,5 @@ def update_lawyer(
 
 
 def delete_lawyer(lawyer_id: int) -> None:
-    """删除指定律师账号。此操作不可逆。"""
+    """删除律师账号——管理员操作;该律师创建过案件时后端拒绝,会同时移出全部团队。"""
     client.delete(f"/organization/lawyers/{lawyer_id}")

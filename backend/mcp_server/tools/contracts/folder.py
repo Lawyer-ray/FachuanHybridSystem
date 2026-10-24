@@ -29,7 +29,7 @@ def get_folder_binding(contract_id: int) -> dict[str, Any]:
 
 
 def delete_folder_binding(contract_id: int) -> None:
-    """解除合同的文件夹绑定。"""
+    """解除合同的文件夹绑定——只解绑,不删除云盘/本地上的实际文件。"""
     client.delete(f"/contracts/{contract_id}/folder-binding")
 
 

@@ -90,7 +90,7 @@ def update_client(
 
 
 def delete_client(client_id: int) -> None:
-    """删除客户。"""
+    """删除客户档案——硬删除,不可恢复;被案件/合同引用时后端拒绝。"""
     client.delete(f"/client/clients/{client_id}")
 
 
@@ -116,7 +116,7 @@ def list_clients_with_docs(
 
 
 def get_identity_doc_task(task_id: str) -> dict[str, Any]:
-    """查询证件识别任务状态。"""
+    """查询证件识别（OCR）任务的状态与结果。"""
     return client.get(f"/client/identity-doc/task/{task_id}")  # type: ignore[return-value]
 
 

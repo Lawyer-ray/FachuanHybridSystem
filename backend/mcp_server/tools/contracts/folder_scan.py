@@ -8,7 +8,7 @@ from mcp_server.client import client
 
 
 def start_contract_scan(contract_id: int, rescan: bool = False, scan_subfolder: str | None = None) -> dict[str, Any]:
-    """启动合同文件夹扫描任务。"""
+    """启动合同文件夹扫描任务（异步,之后用状态工具轮询）。"""
     body: dict[str, Any] = {"rescan": rescan}
     if scan_subfolder is not None:
         body["scan_subfolder"] = scan_subfolder
@@ -24,12 +24,12 @@ def list_contract_scan_subfolders(contract_id: int) -> dict[str, Any]:
 
 
 def get_latest_contract_scan(contract_id: int) -> dict[str, Any]:
-    """获取合同最新扫描会话状态。"""
+    """获取合同最近一次扫描会话的状态与结果摘要。"""
     return client.get(f"/contracts/{contract_id}/folder-scan/latest")  # type: ignore[return-value]
 
 
 def get_contract_scan_status(contract_id: int, session_id: str) -> dict[str, Any]:
-    """获取指定扫描会话的状态。"""
+    """获取指定扫描会话的状态（传入会话 ID）。"""
     return client.get(f"/contracts/{contract_id}/folder-scan/{session_id}")  # type: ignore[return-value]
 
 

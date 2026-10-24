@@ -21,7 +21,7 @@ def list_credentials(
 
 
 def get_credential(cred_id: int) -> dict[str, Any]:
-    """获取单个账号凭证的详细信息。"""
+    """获取单个账号凭证详情（站点、账号;密码不回显）。"""
     return client.get(f"/organization/credentials/{cred_id}")  # type: ignore[return-value]
 
 
@@ -51,7 +51,7 @@ def update_credential(
     account: str | None = None,
     password: str | None = None,
 ) -> dict[str, Any]:
-    """更新账号凭证。只传需要修改的字段。"""
+    """更新账号凭证（改密码/账号）。只传需要修改的字段。"""
     payload: dict[str, Any] = {}
     if site_name is not None:
         payload["site_name"] = site_name
@@ -65,5 +65,5 @@ def update_credential(
 
 
 def delete_credential(cred_id: int) -> None:
-    """删除指定账号凭证。此操作不可逆。"""
+    """删除账号凭证——硬删除,不可恢复;依赖它的自动化任务将无法登录。"""
     client.delete(f"/organization/credentials/{cred_id}")
