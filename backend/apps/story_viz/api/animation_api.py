@@ -59,6 +59,24 @@ def _build_status_out(payload: dict[str, object]) -> StoryAnimationStatusOut:
     )
 
 
+class ModelItemOut(BaseModel):
+    id: str
+    name: str
+    backend: str
+
+
+class ModelListOut(BaseModel):
+    models: list[ModelItemOut]
+
+
+@router.get("/animations/models", response=ModelListOut)
+def list_models(request: Any) -> ModelListOut:  # pragma: no cover
+    from apps.core.llm.config import LLMConfig
+
+    models = LLMConfig.get_available_models()
+    return ModelListOut(models=[ModelItemOut(id=m["id"], name=m["name"], backend=m["backend"]) for m in models])
+
+
 @router.get("/animations/{animation_id}", response=StoryAnimationStatusOut)
 def get_story_animation_status(request: Any, animation_id: UUID) -> StoryAnimationStatusOut:  # pragma: no cover
     animation = get_story_animation_job_service().get_animation(
@@ -174,21 +192,3 @@ async def ask_story_animation(request: Any, animation_id: UUID, payload: AskRequ
         user=getattr(request, "user", None),
     )
     return AskResponse(answer=answer)
-
-
-class ModelItemOut(BaseModel):
-    id: str
-    name: str
-    backend: str
-
-
-class ModelListOut(BaseModel):
-    models: list[ModelItemOut]
-
-
-@router.get("/animations/models", response=ModelListOut)
-def list_models(request: Any) -> ModelListOut:  # pragma: no cover
-    from apps.core.llm.config import LLMConfig
-
-    models = LLMConfig.get_available_models()
-    return ModelListOut(models=[ModelItemOut(id=m["id"], name=m["name"], backend=m["backend"]) for m in models])

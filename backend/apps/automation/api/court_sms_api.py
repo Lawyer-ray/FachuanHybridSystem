@@ -114,6 +114,21 @@ async def submit_sms_form(  # pragma: no cover
 # ============================================================================
 
 
+@router.post("/court-sms/batch-delete", response=CourtSMSBatchDeleteOut)
+async def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBatchDeleteOut:  # pragma: no cover
+    """批量删除短信（仅管理员）"""
+    # 安全：写操作收敛为管理员专用
+    _require_admin(request)
+    service = _get_court_sms_service()
+    deleted = await sync_to_async(service.batch_delete_sms)(payload.ids)
+    return CourtSMSBatchDeleteOut(deleted=deleted)
+
+
+# ============================================================================
+# 终止任务接口
+# ============================================================================
+
+
 @router.get("/court-sms/{sms_id}", response=CourtSMSDetailOut)
 async def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pragma: no cover
     """
@@ -245,21 +260,6 @@ async def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:  # pragma: n
     service = _get_court_sms_service()
     await sync_to_async(service.delete_sms)(sms_id)
     return {"success": True}
-
-
-@router.post("/court-sms/batch-delete", response=CourtSMSBatchDeleteOut)
-async def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBatchDeleteOut:  # pragma: no cover
-    """批量删除短信（仅管理员）"""
-    # 安全：写操作收敛为管理员专用
-    _require_admin(request)
-    service = _get_court_sms_service()
-    deleted = await sync_to_async(service.batch_delete_sms)(payload.ids)
-    return CourtSMSBatchDeleteOut(deleted=deleted)
-
-
-# ============================================================================
-# 终止任务接口
-# ============================================================================
 
 
 @router.post("/court-sms/{sms_id}/abort-and-delete", response=CourtSMSAbortOut)
