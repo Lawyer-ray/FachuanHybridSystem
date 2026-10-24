@@ -53,9 +53,13 @@ logger = logging.getLogger(__name__)
 #: - ``delete`` / ``remove_`` / ``destroy``：一切删除操作
 #: - ``send_`` / ``submit_`` / ``upload_`` / ``file_``：对外发出、递交、上传（不可撤回）
 #: - ``confirm_``：如 confirm_archive（OA 归档确认）
+#: - ``approve_``：如 approve_workflow_step——工作流 gate 的**人工确认动作本身**。
+#:   模型低危直调它 = 模型替人批准自己发起的工作流,gate 的 HUMAN-in-the-loop
+#:   语义被绕空。定为高危后:模型发起 → 律师看到审批卡 → 人点同意 → 信号才发出,
+#:   正好还原「等 human signal」的设计本意(2026-10-25 审计)。
 #: - ``clear_all`` / ``reset_and_``：批量清空 / 重置
-#: 刻意**不**拦 ``create_`` / ``update_``（常规业务写由各域服务层归属校验兜底，
-#: 逐笔审批会让 agent 不可用）与 ``sync_`` / ``export_`` / ``download_``（拉取导出，无破坏性）。
+#: 刻意**不**拦 ``create_`` / ``update_``（常规业务写由各域服务层归属校验兜底,
+#: 逐笔审批会让 agent 不可用）与 ``sync_`` / ``export_`` / ``download_``（拉取导出,无破坏性）。
 DANGER_PATTERNS: tuple[str, ...] = (
     "delete",
     "remove_",
@@ -65,6 +69,7 @@ DANGER_PATTERNS: tuple[str, ...] = (
     "upload_",
     "file_",
     "confirm_",
+    "approve_",
     "clear_all",
     "reset_and_",
 )

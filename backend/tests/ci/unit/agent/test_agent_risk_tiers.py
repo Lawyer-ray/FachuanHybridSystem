@@ -252,3 +252,22 @@ class TestApprovalEventPayload:
         record = await AgentApproval.objects.filter(tool_name="mcp__fachuan__delete_case").afirst()
         assert record is not None
         assert record.risk_level == "high"
+
+
+class TestApproveActionIsGuarded:
+    """approve_* 是「人工确认」动作本身——必须高危(2026-10-25 审计)。
+
+    approve_workflow_step 是工作流 gate 的人类确认信号;若判低危,模型
+    可自主批准自己发起的工作流,HUMAN-in-the-loop 被绕空。该断言防止
+    DANGER_PATTERNS 未来重构时把 ``approve_`` 悄悄丢掉。
+    """
+
+    def test_approve_workflow_step_is_high_risk(self) -> None:
+        from apps.agent.services.approval import is_high_risk
+
+        assert is_high_risk("mcp__fachuan__approve_workflow_step")
+        assert is_high_risk("approve_workflow_step")
+
+    def test_approve_pattern_in_both_tables(self) -> None:
+        assert "approve_" in DANGER_PATTERNS
+        assert "approve_" in _ts_list("HIGH_RISK_PATTERNS")

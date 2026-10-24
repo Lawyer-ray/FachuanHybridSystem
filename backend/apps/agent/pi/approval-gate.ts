@@ -32,7 +32,9 @@ const SESSION_ID = process.env.FACHUAN_SESSION_ID ?? "";
  * 高风险工具判定模式：命中即必须人工审批。
  * 与 backend/apps/agent/services/approval.py 的 DANGER_PATTERNS 保持一致
  * （一致性由单测守护）；服务端另有二次兜底判定（防 extension 被绕过）。
- * 覆盖：一切删除 / 对外发出递交上传 / 归档确认 / 批量清空重置。
+ * 覆盖：一切删除 / 对外发出递交上传 / 归档确认 / 审批动作本身 / 批量清空重置。
+ * approve_：approve_workflow_step 是工作流 gate 的人工确认动作本身，模型
+ * 低危直调 = 替人批准自己发起的工作流，必须升级为人工审批（2026-10-25 审计）。
  * 刻意不拦 create_/update_（业务写、服务层归属兜底）与 sync_/export_（无破坏性）。
  */
 const HIGH_RISK_PATTERNS: readonly string[] = [
@@ -44,6 +46,7 @@ const HIGH_RISK_PATTERNS: readonly string[] = [
   "upload_",
   "file_",
   "confirm_",
+  "approve_",
   "clear_all",
   "reset_and_",
 ];
