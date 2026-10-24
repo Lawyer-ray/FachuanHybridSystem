@@ -103,8 +103,10 @@ function SessionRow({
       role="button"
       tabIndex={0}
       aria-current={active ? 'true' : undefined}
-      className={`group flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-2 text-[13px] transition-colors ${
-        active ? 'bg-secondary text-foreground' : 'text-secondary-foreground hover:bg-secondary/60'
+      className={`group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-1.5 pr-1.5 pl-2 text-[12.5px] transition-colors ${
+        active
+          ? 'bg-secondary font-medium text-foreground'
+          : 'text-secondary-foreground hover:bg-secondary/50'
       }`}
       onClick={onSwitch}
       onKeyDown={(e) => {
@@ -115,7 +117,7 @@ function SessionRow({
         }
       }}
     >
-      <MessageSquare className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+      <MessageSquare className={`h-3 w-3 flex-none ${active ? 'text-foreground/70' : 'text-muted-foreground/70'}`} />
       <span className="min-w-0 flex-1 truncate">{session.title || '未命名对话'}</span>
       {badge && (
         <span
@@ -209,27 +211,41 @@ function SessionGroupBlock({
   const hidden = group.sessions.length - visible.length
   const Icon = GROUP_ICON[group.kind]
   return (
-    <section aria-label={`会话分组 ${group.label}`}>
+    <section aria-label={`会话分组 ${group.label}`} className="mb-1.5">
+      {/* 组头 = 文件夹层：小字号 + 重字重 + 浅缩进，与下层会话行拉开层级；
+          当前项目在左缘加一条实心强调条，和「你正站在这个委托里」对应 */}
       <button
         type="button"
-        className={`flex w-full items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-[11.5px] font-medium transition-colors hover:bg-secondary/60 ${
+        className={`relative flex w-full items-center gap-1.5 rounded-[7px] py-1.5 pr-2 pl-2.5 text-left transition-colors hover:bg-secondary/70 ${
           current ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         }`}
         onClick={onToggleCollapsed}
         aria-expanded={!collapsed}
         aria-current={current ? 'true' : undefined}
       >
+        {current && (
+          <span aria-hidden className="absolute top-1.5 bottom-1.5 left-0 w-[2.5px] rounded-full bg-foreground" />
+        )}
         <ChevronRight
-          className={`h-3 w-3 flex-none transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}
+          className={`h-3 w-3 flex-none opacity-60 transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}
         />
-        <Icon className="h-3.5 w-3.5 flex-none" />
-        <span className="min-w-0 flex-1 truncate" title={group.label}>
+        <Icon className={`h-3.5 w-3.5 flex-none ${current ? 'opacity-100' : 'opacity-70'}`} />
+        <span
+          className={`min-w-0 flex-1 truncate text-[12px] tracking-[0.01em] ${current ? 'font-[650]' : 'font-medium'}`}
+          title={group.label}
+        >
           {group.label}
         </span>
-        <span className="flex-none tabular-nums opacity-70">{group.sessions.length}</span>
+        {group.sessions.length > 1 && (
+          <span className="flex-none rounded-[5px] bg-foreground/5 px-1.5 py-px text-[10.5px] leading-4 tabular-nums text-muted-foreground">
+            {group.sessions.length}
+          </span>
+        )}
       </button>
       {!collapsed && (
-        <div className="mt-0.5">
+        /* 会话区整体右移，并在左缘画一条贯通引导线：文件挂在文件夹下面，
+           层级靠「缩进 + 引导线」表达，而不是只靠图标区分 */
+        <div className="relative mt-0.5 mb-1 ml-[13px] space-y-px border-l border-border/70 pl-2">
           {visible.map((s) => (
             <SessionRow
               key={s.session_id}
@@ -243,7 +259,7 @@ function SessionGroupBlock({
           {hidden > 0 && (
             <button
               type="button"
-              className="w-full rounded-[6px] px-2 py-1.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="w-full rounded-[6px] px-1.5 py-1.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
               onClick={() => setExpanded(true)}
             >
               显示更多（{hidden}）
@@ -336,7 +352,7 @@ export function SessionSidebar({
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-1.5 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2">
         {sessionsQuery.isLoading && (
           <p className="py-4 text-center text-[12px] text-muted-foreground">加载中…</p>
         )}
