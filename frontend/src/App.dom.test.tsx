@@ -157,8 +157,8 @@ describe('AppShell：导航栏常驻 + 懒加载切页不闪', () => {
     await screen.findByText('home-page')
     const headerBefore = header()
 
-    fireEvent.click(screen.getByRole('link', { name: '案件与合同' }))
-    await waitFor(() => expect(current('案件与合同')).toBe('page'))
+    fireEvent.click(screen.getByRole('link', { name: '办案' }))
+    await waitFor(() => expect(current('办案')).toBe('page'))
     // 修复前：此刻整页（含 header）已被「正在加载…」替换
     expect(header()).toBe(headerBefore)
     expect(screen.getByText('home-page')).toBeTruthy()
@@ -168,7 +168,7 @@ describe('AppShell：导航栏常驻 + 懒加载切页不闪', () => {
     expect(await screen.findByText('cases-page')).toBeTruthy()
     expect(screen.queryByText('home-page')).toBeNull()
     expect(header()).toBe(headerBefore)
-    expect(current('案件与合同')).toBe('page')
+    expect(current('办案')).toBe('page')
   })
 
   it('登录后空闲预载主入口 chunk；悬停导航入口再预取一次', async () => {
@@ -177,7 +177,7 @@ describe('AppShell：导航栏常驻 + 懒加载切页不闪', () => {
     expect(stubs.preloadHomePage).toHaveBeenCalledTimes(1)
     expect(stubs.preloadWorkbenchPage).toHaveBeenCalledTimes(1)
 
-    fireEvent.mouseEnter(screen.getByRole('link', { name: '案件与合同' }))
+    fireEvent.mouseEnter(screen.getByRole('link', { name: '办案' }))
     expect(stubs.preloadWorkbenchPage).toHaveBeenCalledTimes(2)
   })
 

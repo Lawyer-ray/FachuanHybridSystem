@@ -11,7 +11,7 @@ import { DealSheet } from './DealSheet'
 import { FilterBar } from './FilterBar'
 
 /**
- * 案件与合同主页（路由 /projects）：合同全宽大行流 + 业务形态分组（争议解决 / 非诉）+ 右侧详情抽屉。
+ * 办案主页（路由 /projects，合同+案件融合）：合同全宽大行流 + 业务形态分组（争议解决 / 非诉）+ 右侧详情抽屉。
  * 交互语义（38 号原型终态 + 详情页落地）：左键行 / → = 详情页（争议解决已建，非诉提示
  * 开发中）；右键行 / 👁 = 抽屉预览。
  */
@@ -69,7 +69,7 @@ export function WorkbenchPage() {
       <main className="app-page-enter mx-auto max-w-[1460px] px-7 pt-[30px] pb-[110px]">
         {/* 页头单行：标题 + 摘要 + 搜索/筛选/chips */}
         <div className="mb-3.5 flex flex-wrap items-center gap-4">
-          <h1 className="text-[21px] font-[750] tracking-[-0.02em]">案件与合同</h1>
+          <h1 className="text-[21px] font-[750] tracking-[-0.02em]">办案</h1>
           {!isLoading && !error && facets && (
             <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
               <b className="font-semibold text-secondary-foreground">{totalContracts}</b> 个合同 ·{' '}
@@ -82,7 +82,7 @@ export function WorkbenchPage() {
         {isLoading ? (
           <div className="flex flex-col items-center gap-2 py-[90px] text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            正在加载案件与合同数据…
+            正在加载办案数据…
           </div>
         ) : error ? (
           <div className="mx-auto mt-10 max-w-lg rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-center text-sm text-destructive">

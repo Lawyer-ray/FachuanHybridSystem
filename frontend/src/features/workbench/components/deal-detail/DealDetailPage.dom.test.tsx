@@ -299,7 +299,7 @@ describe('DealDetailPage 加载与页头', () => {
     expect(casesMock).toHaveBeenCalledWith(7)
   })
 
-  it('非法 id 直接重定向回案件与合同主页，不发请求', async () => {
+  it('非法 id 直接重定向回办案主页，不发请求', async () => {
     setupUi('/projects/abc')
     expect(await screen.findByText('projects-list')).toBeTruthy()
     expect(getContractMock).not.toHaveBeenCalled()

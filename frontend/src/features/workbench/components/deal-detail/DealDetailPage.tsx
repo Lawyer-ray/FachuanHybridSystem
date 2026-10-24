@@ -28,7 +28,7 @@ const AI_OPEN_KEY = 'deal:ai-open'
 
 // 详情页专属 AI 工作区（宽屏三列布局的第三列，非全局浮层）：走动态
 // import 保持 copilot 域的懒加载边界——静态引入会把 react-markdown 等
-// 拖进案件与合同 chunk
+// 拖进办案 chunk
 const CopilotEmbedLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotEmbed })))
 
 /**
@@ -328,7 +328,7 @@ function NonLitNotice({ name }: { name: string }) {
         {name}
       </div>
       <div className="rounded-[14px] border border-border bg-card px-5 py-6 text-[13px] text-muted-foreground shadow-sm">
-        非诉详情页正在设计中，档案快览可回案件与合同主页右键行打开
+        非诉详情页正在设计中，档案快览可回办案主页右键行打开
         <div className="mt-3">
           <Link to="/projects" className="cursor-pointer underline underline-offset-3">
             返回列表
