@@ -33,8 +33,14 @@ async def list_payments(  # pragma: no cover
     invoice_status: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    limit: int | None = None,
 ) -> list[Any]:
-    """获取收款列表"""
+    """获取收款列表。
+
+    limit 可选截断（默认 None = 不截断,保持前端既有行为;上限 2000）——
+    2026-10-25 审计:MCP 工具此前无界拿全量收款记录灌模型上下文,
+    补可选 limit 供其显式传小值。
+    """
     service = _get_payment_service()
     ctx = await sync_to_async(extract_request_context)(request)
 
@@ -50,6 +56,8 @@ async def list_payments(  # pragma: no cover
         perm_open_access=ctx.perm_open_access,
         org_access=ctx.org_access,
     )
+    if limit is not None:
+        qs = qs[: max(1, min(limit, 2000))]
     return await sync_to_async(list)(qs)  # type: ignore[call-arg]
 
 
