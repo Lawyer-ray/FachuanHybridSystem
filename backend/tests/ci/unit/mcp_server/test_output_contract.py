@@ -302,6 +302,44 @@ def test_binary_download_tools_use_download(registered_tools: dict[str, Any]) ->
     )
 
 
+#: 发了 REST 请求但 _rest_call_of 静态识别不了的合法形态(动态分发/多端点
+#: 聚合)。新增豁免必须写明原因——它们**不受路径/参数契约保护**,改其请求
+#: 构造时须人工对照 OpenAPI。
+_DYNAMIC_CALL_ALLOWLIST = {
+    # 按 kind 从 _KINDS 模板表动态取路径(template.format),静态匹配器看不到
+    "get_async_task_status",
+    # 目录树聚合(多端点+本地组装),返回 list[TextContent] 多块设计
+    "list_folder_files",
+}
+
+
+def test_requesting_tools_are_contract_visible(registered_tools: dict[str, Any]) -> None:
+    """发 REST 请求的工具必须能被 _rest_call_of 识别——否则路径/参数/
+    输出三张契约全部对它失明,契约漂移无人报错(2026-10-25 审计十一轮)。
+
+    409 工具实测:未识别的 8 个里 6 个是纯本地/外部工具(不发 REST),
+    2 个走登记豁免。本门禁把「新增发请求工具但模式没被识别」变成红灯。
+    """
+    sources = {name: segment for name, _file, segment in _iter_tool_functions()}
+    offenders: list[str] = []
+    for name, tool in sorted(registered_tools.items()):
+        segment = sources.get(name)
+        if segment is None or name in _DYNAMIC_CALL_ALLOWLIST:
+            continue
+        makes_request = any(
+            f"client.{method}(" in segment
+            for method in ("get", "post", "put", "patch", "delete", "upload", "download", "request")
+        )
+        if makes_request and _rest_call_of(segment) is None:
+            offenders.append(name)
+
+    assert not offenders, (
+        "以下工具发 REST 请求但 _rest_call_of 识别不了(三张契约全部失明),"
+        "若是动态分发/聚合形态请登记 _DYNAMIC_CALL_ALLOWLIST 并写明原因: "
+        + ", ".join(offenders)
+    )
+
+
 def test_required_params_are_exposed(openapi: dict[str, Any], registered_tools: dict[str, Any]) -> None:
     """后端必填的 query/path/body 字段必须在工具签名里可传。
 
