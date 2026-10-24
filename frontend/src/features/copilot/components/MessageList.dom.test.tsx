@@ -109,6 +109,29 @@ describe('MessageList：工具行与 thinking', () => {
   })
 })
 
+describe('MessageList：气泡对位', () => {
+  it('用户消息整行贴右（ml-auto），AI 回答贴左——不两边都空', () => {
+    const { container } = renderWithMessages([
+      { id: 'u1', role: 'user', content: '你谁啊' } as ChatMessage,
+      { id: 'a1', role: 'assistant', content: '我是助手' } as ChatMessage,
+    ])
+    const userRow = Array.from(container.querySelectorAll('div')).find((d) =>
+      d.className.includes('max-w-[88%]'),
+    )
+    // 外层 flex-col 默认 stretch 会拉满整行，没有 ml-auto 时气泡会贴左
+    expect(userRow?.className).toContain('ml-auto')
+  })
+
+  it('内容区限宽放宽到 max-w-6xl（侧边栏面板里 max-w-3xl 两侧会空一大块）', () => {
+    const { container } = renderWithMessages([{ id: 'a1', role: 'assistant', content: 'x' } as ChatMessage])
+    const limit = Array.from(container.querySelectorAll('div')).filter((d) =>
+      d.className.includes('max-w-6xl'),
+    )
+    expect(limit.length).toBeGreaterThan(0)
+    expect(container.querySelector('.max-w-3xl')).toBeNull()
+  })
+})
+
 describe('MessageList：思考块自动收起', () => {
   it('思考中展开 → 正文到达（thinkingDone）后自动收起，不再占着一大块', () => {
     const thinking = { id: 'a9', role: 'assistant' as const, content: '', thinking: '推理中…', thinkingDone: false }

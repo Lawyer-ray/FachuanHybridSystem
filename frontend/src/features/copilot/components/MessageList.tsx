@@ -135,8 +135,11 @@ function Bubble({ message }: { message: ChatMessage }) {
     const refs = message.refs ?? []
     const pageHint = message.pageHint
     const bizHint = message.bizHint
+    // ml-auto：外层 flex-col 默认 stretch 会把这一行拉满整行，气泡于是贴左，
+    // 右侧再空出 12%——观感就是「两边都空着一大块」。靠右是 IM 惯例，
+    // 也让用户消息与左侧 AI 回答形成清晰的对位。
     return (
-      <div className="flex max-w-[88%] items-end gap-1.5">
+      <div className="ml-auto flex max-w-[88%] items-end gap-1.5">
         <div className="flex min-w-0 flex-1 flex-col items-end gap-1">
           {bizHint && (
             <span
@@ -262,12 +265,21 @@ export function MessageList() {
 
   return (
     <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
-      {/* 内容限宽居中（max-w-3xl）：面板拉宽/聚焦满屏时阅读行宽仍舒适，
-          两侧留白对称——ChatGPT/Claude 满宽对话的同一做法；窄面板不受影响。
-          空态时这里要撑满（h-full + flex）才能让欢迎页垂直居中：本层是
+      {/* 内容限宽居中：避免超宽屏一行长到难读，但同时别把面板里的可用宽度
+          白白让出去。原先写死 max-w-3xl（768px）是按「全屏对话页」定的，可这里是
+          **侧边栏面板**——面板拉到 1200px 时两侧各空 200px 以上，纯亏。
+          改成 max-w-6xl（1152px）：默认 600 与常见拉宽（≤1150）
+          都不产生留白，只有真拉到屏幕级才留白，且那时行宽也确实需要约束。
+          empty 分支要撑满（h-full + flex）才能让欢迎页垂直居中：本层是
           CopilotWelcome 唯一的「高度来源」，不给高度它的 h-full 就塌成
-          内容高、justify-center 无处可居（表现为欢迎页贴顶、下面大片空白）。 */}
-      <div className={empty ? 'flex h-full w-full max-w-3xl flex-col mx-auto' : 'mx-auto w-full max-w-3xl'}>
+          内容高、justify-center 无处可居（欢迎页贴顶、下面大片空白）。 */}
+      <div
+        className={
+          empty
+            ? 'mx-auto flex h-full w-full max-w-6xl flex-col'
+            : 'mx-auto w-full max-w-6xl'
+        }
+      >
       {empty && <CopilotWelcome />}
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
