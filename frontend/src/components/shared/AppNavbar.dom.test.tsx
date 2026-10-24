@@ -105,7 +105,7 @@ describe('AppNavbar 渲染与全局检索', () => {
     expect(screen.getByText('SI Copilot')).toBeTruthy()
     expect(screen.getByRole('link', { name: '首页' })).toBeTruthy()
     expect(screen.getByRole('link', { name: '材料预处理' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: '办案' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '案件与合同' })).toBeTruthy()
     expect(screen.getByRole('button', { name: /检索/ })).toBeTruthy()
     expect(screen.getByText('张律师')).toBeTruthy()
   })
@@ -206,7 +206,7 @@ function setupNav() {
           <Routes>
             <Route path="/" element={<div>home-page</div>} />
             <Route path="/material-prep" element={<div>desk-page</div>} />
-            <Route path="/cases" element={<NeverReadyPage />} />
+            <Route path="/projects" element={<NeverReadyPage />} />
           </Routes>
         </Suspense>
       </MemoryRouter>
@@ -222,8 +222,8 @@ describe('AppNavbar 导航入口：预取与乐观高亮', () => {
     const { onPrefetch } = setupNav()
     fireEvent.mouseEnter(screen.getByRole('link', { name: '材料预处理' }))
     expect(onPrefetch).toHaveBeenCalledWith('/material-prep')
-    fireEvent.focus(screen.getByRole('link', { name: '办案' }))
-    expect(onPrefetch).toHaveBeenCalledWith('/cases')
+    fireEvent.focus(screen.getByRole('link', { name: '案件与合同' }))
+    expect(onPrefetch).toHaveBeenCalledWith('/projects')
   })
 
   it('点击导航入口：路由跳转并高亮目标，原入口取消高亮', async () => {
@@ -238,9 +238,9 @@ describe('AppNavbar 导航入口：预取与乐观高亮', () => {
 
   it('目标页 chunk 未到：被点标签先行高亮，旧页面保持、不退回 fallback、pathname 未变', async () => {
     setupNav()
-    fireEvent.click(screen.getByRole('link', { name: '办案' }))
+    fireEvent.click(screen.getByRole('link', { name: '案件与合同' }))
     // 乐观高亮是同步提交的高优先级更新，transition 挂起期间就应生效
-    await waitFor(() => expect(current('办案')).toBe('page'))
+    await waitFor(() => expect(current('案件与合同')).toBe('page'))
     expect(current('首页')).toBeNull()
     // transition 被 React 保住：旧内容仍在、fallback 不出现、真实路由尚未提交
     expect(screen.getByText('home-page')).toBeTruthy()

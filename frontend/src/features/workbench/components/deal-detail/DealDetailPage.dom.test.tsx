@@ -187,14 +187,14 @@ const lawyers: LawyerListItem[] = [
   { id: 1, username: 'hs', real_name: '黄崧', phone: '138', license_no: '1440120', law_firm_detail: { id: 1, name: '某律所' } },
 ]
 
-function setupUi(path = '/cases/7') {
+function setupUi(path = '/projects/7') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path="/cases" element={<div>cases-list</div>} />
-          <Route path="/cases/:id" element={<DealDetailPage />} />
+          <Route path="/projects" element={<div>projects-list</div>} />
+          <Route path="/projects/:id" element={<DealDetailPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -299,17 +299,17 @@ describe('DealDetailPage 加载与页头', () => {
     expect(casesMock).toHaveBeenCalledWith(7)
   })
 
-  it('非法 id 直接重定向回办案主页，不发请求', async () => {
-    setupUi('/cases/abc')
-    expect(await screen.findByText('cases-list')).toBeTruthy()
+  it('非法 id 直接重定向回案件与合同主页，不发请求', async () => {
+    setupUi('/projects/abc')
+    expect(await screen.findByText('projects-list')).toBeTruthy()
     expect(getContractMock).not.toHaveBeenCalled()
   })
 
-  it('合同加载失败：错误文案（errMessage 透传可读 message）+ 重试 + 返回办案', async () => {
+  it('合同加载失败：错误文案（errMessage 透传可读 message）+ 重试 + 返回列表', async () => {
     getContractMock.mockRejectedValueOnce(new Error('boom'))
     setupUi()
     expect(await screen.findByText(/boom/)).toBeTruthy()
-    expect(screen.getByText('返回办案')).toBeTruthy()
+    expect(screen.getByText('返回列表')).toBeTruthy()
     expect(screen.getByText('重试')).toBeTruthy()
   })
 

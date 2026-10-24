@@ -117,8 +117,8 @@ export function splitBizHintLine(content: string): { bizHint: string | null; bod
  */
 export function describeLocation(pathname: string): string {
   if (pathname === '/') return '工作台首页'
-  if (pathname.startsWith('/cases/')) return '委托详情页'
-  if (pathname.startsWith('/cases')) return '办案列表页'
+  if (pathname.startsWith('/projects/')) return '委托详情页'
+  if (pathname.startsWith('/projects')) return '案件合同列表页'
   if (pathname.startsWith('/material-prep')) return '材料预处理台'
   return `页面 ${pathname}`
 }

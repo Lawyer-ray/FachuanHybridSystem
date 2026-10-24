@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * WorkbenchPage（办案主页）组件渲染单测（jsdom + 真实 timers）。
+ * WorkbenchPage（案件与合同主页 /projects）组件渲染单测（jsdom + 真实 timers）。
  *
  * mock 边界：../api 三个接口。导航栏由 AppShell 常驻，页面本身不再渲染。
  * 覆盖：加载/错误态、业务形态分组（争议解决/非诉）渲染与摘要、FilterBar 搜索防抖下推与筛选面板交互、
@@ -112,7 +112,7 @@ describe('WorkbenchPage 加载 / 错误态', () => {
   it('首屏加载中：展示加载文案，不出列表', () => {
     listPageMock.mockReturnValue(new Promise(() => {}))
     setupUi()
-    expect(screen.getByText('正在加载办案数据…')).toBeTruthy()
+    expect(screen.getByText('正在加载案件与合同数据…')).toBeTruthy()
     expect(screen.queryByText('王五委托')).toBeNull()
   })
 

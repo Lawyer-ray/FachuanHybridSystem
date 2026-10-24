@@ -215,8 +215,8 @@ describe('页面锚点（通用助手页面感知）', () => {
 
   it('describeLocation：路由 → 页面描述（详情页由页面自己覆盖精确值）', () => {
     expect(describeLocation('/')).toBe('工作台首页')
-    expect(describeLocation('/cases')).toBe('办案列表页')
-    expect(describeLocation('/cases/386')).toBe('委托详情页')
+    expect(describeLocation('/projects')).toBe('案件合同列表页')
+    expect(describeLocation('/projects/386')).toBe('委托详情页')
     expect(describeLocation('/material-prep')).toBe('材料预处理台')
   })
 

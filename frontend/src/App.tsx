@@ -32,7 +32,7 @@ const COPILOT_DOCK_KEY = 'copilot:dock'
 const ROUTE_PRELOADERS: Record<string, () => Promise<unknown>> = {
   '/': preloadHomePage,
   '/material-prep': preloadDeskPage,
-  '/cases': preloadWorkbenchPage,
+  '/projects': preloadWorkbenchPage,
 }
 
 function preloadRoute(to: string) {
@@ -284,10 +284,11 @@ export default function App() {
           <Route path="/material-prep" element={<DeskPage />} />
           {/* 详情页：/material-prep/:id —— 可刷新、可分享、支持前进后退 */}
           <Route path="/material-prep/:id" element={<DeskPage />} />
-          {/* 办案主页：合同大行流 + 详情抽屉（/cases 对齐后端 cases 域） */}
-          <Route path="/cases" element={<WorkbenchPageLazy />} />
+          {/* 项目主页：合同大行流 + 详情抽屉。路由用 projects 而非 cases——本页是
+              合同与案件融合展示，单说合同或案件都不准确；cases 在后端已明确指案件。 */}
+          <Route path="/projects" element={<WorkbenchPageLazy />} />
           {/* 争议解决详情页：一页一委托（:id = 委托合同 id），合同与案件链在页内融合呈现 */}
-          <Route path="/cases/:id" element={<DealDetailPageLazy />} />
+          <Route path="/projects/:id" element={<DealDetailPageLazy />} />
           {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
           <Route path="/settings/bindings" element={<BindingsPageLazy />} />
         </Route>

@@ -28,7 +28,7 @@ const AI_OPEN_KEY = 'deal:ai-open'
 
 // 详情页专属 AI 工作区（宽屏三列布局的第三列，非全局浮层）：走动态
 // import 保持 copilot 域的懒加载边界——静态引入会把 react-markdown 等
-// 拖进办案 chunk
+// 拖进案件与合同 chunk
 const CopilotEmbedLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotEmbed })))
 
 /**
@@ -166,7 +166,7 @@ export function DealDetailPage() {
     return () => window.clearTimeout(t)
   }, [hl])
 
-  if (!valid) return <Navigate to="/cases" replace />
+  if (!valid) return <Navigate to="/projects" replace />
   if (d.isLoading) {
     return (
       <div className="flex flex-col items-center gap-2 py-[90px] text-sm text-muted-foreground">
@@ -312,8 +312,8 @@ function DetailError({ error, onRetry }: { error: string; onRetry: () => void })
         <button type="button" className="ml-3 cursor-pointer underline underline-offset-3" onClick={onRetry}>
           重试
         </button>
-        <Link to="/cases" className="ml-3 cursor-pointer underline underline-offset-3">
-          返回办案
+        <Link to="/projects" className="ml-3 cursor-pointer underline underline-offset-3">
+          返回列表
         </Link>
       </div>
     </main>
@@ -328,10 +328,10 @@ function NonLitNotice({ name }: { name: string }) {
         {name}
       </div>
       <div className="rounded-[14px] border border-border bg-card px-5 py-6 text-[13px] text-muted-foreground shadow-sm">
-        非诉详情页正在设计中，档案快览可回办案主页右键行打开
+        非诉详情页正在设计中，档案快览可回案件与合同主页右键行打开
         <div className="mt-3">
-          <Link to="/cases" className="cursor-pointer underline underline-offset-3">
-            返回办案
+          <Link to="/projects" className="cursor-pointer underline underline-offset-3">
+            返回列表
           </Link>
         </div>
       </div>

@@ -25,7 +25,7 @@ export function DetailHeader({
   return (
     <>
       <nav className="mb-3.5 flex gap-[7px] text-[12.5px] text-muted-foreground">
-        <Link to="/cases" className="transition-colors hover:text-foreground">
+        <Link to="/projects" className="transition-colors hover:text-foreground">
           办案
         </Link>
         <span>/</span>

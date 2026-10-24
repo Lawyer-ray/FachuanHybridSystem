@@ -164,9 +164,9 @@ export function AppNavbar({
           onPrefetch={onPrefetch}
         />
         <NavLink
-          to="/cases"
-          label="办案"
-          active={navPath.startsWith('/cases')}
+          to="/projects"
+          label="案件与合同"
+          active={navPath.startsWith('/projects')}
           onSelect={selectNav}
           onPrefetch={onPrefetch}
         />

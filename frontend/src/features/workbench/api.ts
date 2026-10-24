@@ -50,7 +50,7 @@ export async function listCasesByContract(contractId: number): Promise<CaseListI
 }
 
 /**
- * 单份合同（详情页直达 /cases/:id 时列表缓存不一定在）。端点返回全量 ContractOut，
+ * 单份合同（详情页直达 /projects/:id 时列表缓存不一定在）。端点返回全量 ContractOut，
  * 本页消费口径与列表行一致（representation_stages 运行时为中文标签数组、id 必有），
  * 多出的 finalized_materials 不消费，按 ContractListItem 投影即可复用 buildDeals。
  */
