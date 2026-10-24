@@ -9,7 +9,11 @@ from mcp_server.client import client
 
 def chat_with_context(session_id: str, message: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     """多轮 LLM 对话，支持上下文和会话记忆。"""
-    return client.post("/llm/chat", json={"session_id": session_id, "message": message, **(extra or {})})  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
+        "/llm/chat",
+        json={"session_id": session_id, "message": message, **(extra or {})},
+        timeout=180,
+    )
 
 
 def get_conversation_history(session_id: str) -> dict[str, Any]:

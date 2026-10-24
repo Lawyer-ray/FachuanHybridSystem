@@ -26,7 +26,7 @@ def generate_complaint(
         litigation_request: 请判事项（逐项列明，含赔偿项与费用承担）。
         facts_and_reasons: 纠纷经过与法律依据（案情叙事 + 支持请判事项的论证）。
     """
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         "/documents/litigation/complaint/generate",
         json={
             "case_id": case_id,
@@ -36,7 +36,8 @@ def generate_complaint(
             "litigation_request": litigation_request,
             "facts_and_reasons": facts_and_reasons,
         },
-    )  # type: ignore[return-value]
+        timeout=180,
+    )
 
 
 def generate_defense(
@@ -57,7 +58,7 @@ def generate_defense(
         defense_opinion: 答辩意见（核心主张，如「被告不应承担赔偿责任」）。
         defense_reasons: 答辩理由（事实与法律依据）。
     """
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         "/documents/litigation/defense/generate",
         json={
             "case_id": case_id,
@@ -67,7 +68,8 @@ def generate_defense(
             "defense_opinion": defense_opinion,
             "defense_reasons": defense_reasons,
         },
-    )  # type: ignore[return-value]
+        timeout=180,
+    )
 
 
 def preview_litigation_context(case_id: int, litigation_type: str) -> dict[str, Any]:
@@ -80,6 +82,9 @@ def download_litigation_document(
 ) -> dict[str, Any]:
     """生成并下载诉讼文书为 DOCX。"""
     content, filename, content_type = client.download(
-        f"/documents/cases/{case_id}/litigation/{litigation_type}/download", method="POST", json=extra or {}
+        f"/documents/cases/{case_id}/litigation/{litigation_type}/download",
+        method="POST",
+        json=extra or {},
+        timeout=180,
     )
     return {"filename": filename, "content_type": content_type, "data_base64": base64.b64encode(content).decode()}

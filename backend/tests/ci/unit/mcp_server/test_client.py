@@ -618,3 +618,105 @@ class TestErrorVisibility:
             c.get("/x")
         assert re.match(r"HTTP 403:", str(excinfo.value))
         assert "forbidden" in str(excinfo.value)
+
+
+# ===================================================================
+# 10. 传输层韧性（超时/断连翻译 + GET 单次重试）
+# ===================================================================
+
+
+class TestTransportResilience:
+    """_guard_transport + GET 重试。
+
+    httpx 超时/断连不是 ToolError 子类，直接冒泡会被 SDK 包成
+    UnexpectedToolError 黑盒（模型看不到原因、不知道能否重试）。必须
+    翻译成 FachuanTransportError（FachuanApiError 子类）——错误详情出网，
+    且类型本身标记「暂时性、GET 可安全重试」。
+    """
+
+    def test_transport_error_is_api_error_subclass(self) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        assert issubclass(FachuanTransportError, FachuanApiError)
+
+    def test_timeout_wrapped_as_transport_error(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.get.side_effect = httpx.ReadTimeout("read timed out")
+        with mock.patch.object(client_mod.time, "sleep"):
+            with pytest.raises(FachuanTransportError, match="超时") as excinfo:
+                c.get("/cases")
+        # 链上保留原始异常，排查时不丢根因
+        assert isinstance(excinfo.value.__cause__, httpx.ReadTimeout)
+
+    def test_connect_error_wrapped(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.post.side_effect = httpx.ConnectError("connection refused")
+        with pytest.raises(FachuanTransportError, match="不可达"):
+            c.post("/cases", json={})
+
+    def test_get_retries_once_then_succeeds(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """GET 幂等：传输故障自动重试一次后成功，调用方无感。"""
+        c, http = fc
+        http.get.side_effect = [
+            httpx.ConnectError("boom"),
+            _make_response(200, json_data={"id": 1}),
+        ]
+        with mock.patch.object(client_mod.time, "sleep") as sleep_mock:
+            assert c.get("/cases/1") == {"id": 1}
+        sleep_mock.assert_called_once_with(0.5)
+        assert http.get.call_count == 2
+
+    def test_get_retries_on_502_response(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """网关类 5xx 响应同样重试一次。"""
+        c, http = fc
+        http.get.side_effect = [
+            _make_response(502, text="bad gateway"),
+            _make_response(200, json_data={"ok": True}),
+        ]
+        with mock.patch.object(client_mod.time, "sleep"):
+            assert c.get("/cases/1") == {"ok": True}
+        assert http.get.call_count == 2
+
+    def test_get_fails_after_second_transparent_failure(
+        self, fc: tuple[FachuanClient, mock.MagicMock]
+    ) -> None:
+        """重试只做一次：第二次仍失败要把翻译后的错误抛给模型。"""
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.get.side_effect = httpx.ConnectError("still down")
+        with mock.patch.object(client_mod.time, "sleep"):
+            with pytest.raises(FachuanTransportError):
+                c.get("/cases")
+        assert http.get.call_count == 2
+
+    def test_post_does_not_retry_transport_error(
+        self, fc: tuple[FachuanClient, mock.MagicMock]
+    ) -> None:
+        """POST 非幂等：断连后不能自动重发（请求可能已生效，重发=重复创建）。"""
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.post.side_effect = httpx.ConnectError("boom")
+        with pytest.raises(FachuanTransportError):
+            c.post("/cases", json={"name": "x"})
+        assert http.post.call_count == 1
+
+    def test_get_does_not_retry_4xx(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        c, http = fc
+        http.get.return_value = _make_response(404, json_data={"detail": "not found"})
+        with pytest.raises(FachuanApiError, match="HTTP 404"):
+            c.get("/cases/999")
+        assert http.get.call_count == 1
+
+    def test_download_timeout_wrapped(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.request.side_effect = httpx.ReadTimeout("slow generation")
+        with pytest.raises(FachuanTransportError, match="POST"):
+            c.download("/documents/cases/1/litigation/complaint/download", method="POST", json={})

@@ -7,6 +7,7 @@ import os
 import re
 import threading
 import time
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -46,6 +47,15 @@ class FachuanApiError(ToolError):
     ``"Error executing tool <name>"``，一行细节都不出网，模型无法自纠。
     ``agent_attachments._classify_http_error`` 按 ``"HTTP <status>:"`` 消息
     前缀分类，本类保持该消息格式不变。
+    """
+
+
+class FachuanTransportError(FachuanApiError):
+    """暂时性传输故障（超时 / 断连 / 连接被拒）。
+
+    与上游明确拒绝（4xx/5xx 响应）区分开：这类故障**没有证据表明请求
+    未生效**，GET 重试是安全的；类型本身即「可重试」标记，调用方用
+    isinstance 判定，不要解析错误文案。
     """
 
 
@@ -115,24 +125,59 @@ class FachuanClient:
         self._ensure_token()
         return {"Authorization": f"Bearer {self._access_token}"}
 
+    def _guard_transport(
+        self, send: Callable[[], httpx.Response], method: str, path: str, *, timeout: float = 60.0
+    ) -> httpx.Response:
+        """执行请求，把 httpx 传输层异常翻译成模型可读的 FachuanApiError。
+
+        超时/断连若直接冒泡，SDK 会包成 UnexpectedToolError——模型只看到
+        "Error executing tool X"，不知道是暂时性故障、能不能重试。这里统一
+        给出「可重试」的明确指引。
+        """
+        try:
+            return send()
+        except httpx.TimeoutException as exc:
+            raise FachuanTransportError(
+                f"上游超时（{timeout:.0f}s）: {method} {path}（{type(exc).__name__}）。"
+                "暂时性故障可原样重试一次；若反复超时，请缩小请求范围或告知用户稍后再试。"
+            ) from exc
+        except httpx.TransportError as exc:
+            raise FachuanTransportError(
+                f"服务端不可达: {method} {path}（{type(exc).__name__}）。请稍后重试；若持续失败请告知用户联系管理员。"
+            ) from exc
+
     def get(self, path: str, **kwargs: Any) -> Any:
-        resp = self._http.get(path, headers=self._headers(), **kwargs)
+        headers = self._headers()
+        # GET 幂等：传输故障 / 502/503/504 自动重试一次（0.5s 退避）。只重试
+        # 一次以免放大雪崩；非幂等方法（post/put/...）不自动重试。
+        for attempt in (1, 2):
+            try:
+                resp = self._guard_transport(lambda: self._http.get(path, headers=headers, **kwargs), "GET", path)
+            except FachuanTransportError:
+                if attempt == 1:
+                    time.sleep(0.5)
+                    continue
+                raise
+            if resp.status_code in (502, 503, 504) and attempt == 1:
+                time.sleep(0.5)
+                continue
+            break
         return self._handle(resp)
 
     def post(self, path: str, **kwargs: Any) -> Any:
-        resp = self._http.post(path, headers=self._headers(), **kwargs)
+        resp = self._guard_transport(lambda: self._http.post(path, headers=self._headers(), **kwargs), "POST", path)
         return self._handle(resp)
 
     def put(self, path: str, **kwargs: Any) -> Any:
-        resp = self._http.put(path, headers=self._headers(), **kwargs)
+        resp = self._guard_transport(lambda: self._http.put(path, headers=self._headers(), **kwargs), "PUT", path)
         return self._handle(resp)
 
     def delete(self, path: str, **kwargs: Any) -> Any:
-        resp = self._http.delete(path, headers=self._headers(), **kwargs)
+        resp = self._guard_transport(lambda: self._http.delete(path, headers=self._headers(), **kwargs), "DELETE", path)
         return self._handle(resp)
 
     def patch(self, path: str, **kwargs: Any) -> Any:
-        resp = self._http.patch(path, headers=self._headers(), **kwargs)
+        resp = self._guard_transport(lambda: self._http.patch(path, headers=self._headers(), **kwargs), "PATCH", path)
         return self._handle(resp)
 
     def upload(
@@ -142,7 +187,11 @@ class FachuanClient:
         data: dict[str, Any] | None = None,
     ) -> Any:
         """multipart/form-data 上传。files: {field: (filename, content, content_type)}"""
-        resp = self._http.post(path, headers=self._headers(), files=files, data=data or {})
+        resp = self._guard_transport(
+            lambda: self._http.post(path, headers=self._headers(), files=files, data=data or {}),
+            "POST",
+            path,
+        )
         return self._handle(resp)
 
     def download(self, path: str, *, method: str = "GET", **kwargs: Any) -> tuple[bytes, str, str]:
@@ -160,7 +209,11 @@ class FachuanClient:
         几十 MB，一次就能把整个会话挤爆（列表投影防「条数多」，这里防
         「单件大」，是同一原则的两半）。
         """
-        resp = self._http.request(method.upper(), path, headers=self._headers(), **kwargs)
+        resp = self._guard_transport(
+            lambda: self._http.request(method.upper(), path, headers=self._headers(), **kwargs),
+            method.upper(),
+            path,
+        )
         if not resp.is_success:
             try:
                 detail = resp.json()
