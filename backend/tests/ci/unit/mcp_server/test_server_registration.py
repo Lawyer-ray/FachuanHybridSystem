@@ -48,9 +48,13 @@ def _parse_registered_from_server() -> set[str]:
     支持两种形态:``mcp.tool()(fn)`` 直接注册,与 ``mcp.tool()(_workflow_tool(fn))``
     包装(参数剥离 + 业务异常翻译),取内层函数名。"""
     source = _SERVER_PY.read_text()
-    direct = re.findall(r"mcp\.tool\(\)\((\w+)\)", source)
-    wrapped = re.findall(r"mcp\.tool\(\)\(_\w+\((\w+)\)\)", source)
-    return set(direct) | set(wrapped)
+    # 2026-10-25 起统一注册口为 ``_t(fn)``(带 ToolAnnotations 推导);
+    # 兼容识别旧形态 mcp.tool()(fn),绕过 _t 的注册也能被对账。
+    direct = re.findall(r"(?<!\w)_t\((\w+)\)", source)
+    wrapped = re.findall(r"(?<!\w)_t\(_\w+\((\w+)\)\)", source)
+    legacy_direct = re.findall(r"mcp\.tool\(\)\((\w+)\)", source)
+    legacy_wrapped = re.findall(r"mcp\.tool\(\)\(_\w+\((\w+)\)\)", source)
+    return set(direct) | set(wrapped) | set(legacy_direct) | set(legacy_wrapped)
 
 
 def _parse_imports_from_server() -> set[str]:

@@ -56,6 +56,7 @@ make mcp-status    # 进程/日志
 | 投影契约 | `test_projection_fields.py` | 默认投影列出的字段必须存在于 API items schema——project 按键挑选不报错,列了不存在的字段=模型点名要也静默落空 |
 | docstring 枚举值 | 无自动门禁(review 把关) | 文档宣称的取值必须对照模型 TextChoices——filter 对错值静默空列表、裸 CharField 对错值静默落库(2026-10-25 审计 13 处:case_type 假枚举/fee_mode 小写绕过金额校验/中文代理阶段必炸/running≠in_progress/site_name 死路示例) |
 | 失败语义 | `test_error_semantics.py` | 公共工具函数禁止 `except Exception` 吞异常——FachuanApiError/FachuanTransportError 是 ToolError 子类,必须穿透成 `isError: true`;吞成 `{"success": False}` 伪正常结果会让模型得出假事实结论(2026-10-25 审计 enterprise_data 8 处)。私有 helper 的批量部分失败聚合豁免(folder_file/web_search 形态) |
+| ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint` 从审批分层权威表(approval.classify_risk)机械推导,注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);线上三分 409=226 只读+69 销毁/高危+114 普通写 |
 | 客户端行为 | `test_client.py` | token 刷新、错误信封、传输韧性、下载闸门、巨型列表护栏、抽象边界 |
 | 工具行为 | `test_new_tools.py` / `test_agent_attachments.py` / `test_fetch_url.py`(含 SSRF 拦截) / … | 重组型工具的真实逻辑 |
 

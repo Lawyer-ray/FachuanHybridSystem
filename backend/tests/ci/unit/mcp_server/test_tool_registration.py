@@ -69,17 +69,28 @@ def _registered_names() -> set[str]:
                 return call_arg.args[0].id
         return None
 
+    def _is_registration_call(node: ast.Call) -> bool:
+        # 统一注册口 ``_t(fn)``(2026-10-25 起,带 ToolAnnotations 推导);
+        # 兼容识别旧形态 ``mcp.tool()(fn)``,防有人绕过 _t 仍能被对账。
+        outer = node.func
+        if isinstance(outer, ast.Name) and outer.id == "_t":
+            return True
+        return (
+            isinstance(outer, ast.Call)
+            and isinstance(outer.func, ast.Attribute)
+            and outer.func.attr == "tool"
+            # 精确裸形态 mcp.tool()(fn):_t 定义体内的
+            # mcp.tool(annotations=...)(func) 不算注册
+            and not outer.args
+            and not outer.keywords
+        )
+
     server = ast.parse((_MCP_ROOT / "server.py").read_text())
     registered: set[str] = set()
     for node in ast.walk(server):
         if not (isinstance(node, ast.Call) and node.args):
             continue
-        inner = node.func
-        if (
-            isinstance(inner, ast.Call)
-            and isinstance(inner.func, ast.Attribute)
-            and inner.func.attr == "tool"
-        ):
+        if _is_registration_call(node):
             name = _target_name(node.args[0])
             if name:
                 registered.add(name)
