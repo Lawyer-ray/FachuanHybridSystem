@@ -26,7 +26,7 @@ def list_contracts(
     一次序列化约 22 万 token，模型读不完只能从截断处人工统计。
 
     Args:
-        case_type: 按案件类型筛选（civil/criminal/administrative/labor/intl/special）。
+        case_type: 按案件类型筛选（civil/criminal/administrative/labor/intl/special/advisor）。
         status: 按合同状态筛选（unsigned / active / archived）。
         search: 按合同名称模糊搜索。
         fee_mode: 按收费方式筛选（**大写**：``FIXED`` 固定 / ``SEMI_RISK``
@@ -90,7 +90,7 @@ def create_contract(
         name: 合同名称。
         case_type: 案件类型（英文键）：``civil`` 民商事 / ``criminal`` 刑事 /
             ``administrative`` 行政 / ``labor`` 劳动仲裁 / ``intl`` 商事仲裁 /
-            ``special`` 专项服务。
+            ``special`` 专项服务 / ``advisor`` 常法顾问。
         lawyer_ids: 律师 ID 列表，**第一个为主办律师**。
         status: 合同状态（unsigned 未签约 / active 在办 / archived 已归档，
             新建一般留空默认未签约）。
