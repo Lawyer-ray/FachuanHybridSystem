@@ -54,13 +54,32 @@ export function DealDetailPage() {
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
   const onAddPayment = useCallback(() => soon('记收款'), [soon])
 
-  // 页面感知精确覆盖：通用助手注入的锚点带上委托名与 contract_id，
-  // 模型可拿 id 用 get_contract / read_folder_file 等工具了解页面内容
+  // 本页就是「这个委托」——进页即把全局助手绑到该委托的业务上下文：
+  // 欢迎页变成本委托专属文案、快捷任务换成本委托的咨询、开新会话自动带
+  // 归属、每轮消息注入 [当前业务：本委托 … contract_id=N] 锚点，模型据此
+  // 用 get_contract / read_folder_file 等工具查本委托数据。
+  // 以前这件事由页面内嵌工作区的 CopilotEmbed 挂载时做；嵌入区删除后
+  // 导航栏/⌘J 打开的同一个面板必须由页面自己声明上下文，否则助手只会
+  // 当成通用对话（正是"它没意识到自己是本项目的助手"的原因）。
+  // 卸载时清空，避免离开本页后助手仍以为停在这个委托里。pageHint 一并
+  // 承担「非 context 分支」的页面感知（列表页等仍靠它）。
   useEffect(() => {
     if (!deal) return
+    let cancelled = false
     void import('@/features/copilot/store').then((m) => {
-      m.useCopilot.getState().setPageHint(`委托详情 · ${deal.client}（contract_id=${deal.id}）`)
+      if (cancelled) return
+      const st = m.useCopilot.getState()
+      st.setPageHint(`委托详情 · ${deal.client}（contract_id=${deal.id}）`)
+      void st.enterContext({ origin: 'contract', refId: deal.id, title: deal.client })
     })
+    return () => {
+      cancelled = true
+      void import('@/features/copilot/store').then((m) => {
+        const st = m.useCopilot.getState()
+        // 只退出自己绑的那个委托（快速切换委托时新旧 effect 交错）
+        if (st.context?.origin === 'contract' && st.context.refId === deal.id) void st.exitContext()
+      })
+    }
   }, [deal])
 
   const jump = useCallback((caseId: number) => {

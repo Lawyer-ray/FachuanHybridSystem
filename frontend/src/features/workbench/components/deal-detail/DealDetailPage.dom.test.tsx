@@ -277,6 +277,28 @@ afterEach(() => {
   media.reset()
 })
 
+describe('DealDetailPage 助手上下文绑定', () => {
+  it('进页即把全局助手绑到本委托（导航栏助手才知道自己是本项目的助手）', async () => {
+    const store = await import('@/features/copilot/store')
+    store.useCopilot.setState({ context: null })
+    setupUi()
+    await waitFor(() => expect(store.useCopilot.getState().context).not.toBeNull())
+    const ctx = store.useCopilot.getState().context!
+    expect(ctx.origin).toBe('contract')
+    expect(ctx.refId).toBe(7)
+    expect(ctx.title).toBe('某银行与某公司金融借款合同纠纷诉讼委托合同')
+  })
+
+  it('离开本页后解除绑定，助手不再以为停在该委托', async () => {
+    const store = await import('@/features/copilot/store')
+    store.useCopilot.setState({ context: null })
+    const { unmount } = setupUi()
+    await waitFor(() => expect(store.useCopilot.getState().context).not.toBeNull())
+    unmount()
+    await waitFor(() => expect(store.useCopilot.getState().context).toBeNull())
+  })
+})
+
 describe('DealDetailPage 加载与页头', () => {
   it('加载中给 spinner 文案；到达后主标题即合同名，meta 只含类型/状态/建档（当事人与主办在右栏卡）', async () => {
     setupUi()

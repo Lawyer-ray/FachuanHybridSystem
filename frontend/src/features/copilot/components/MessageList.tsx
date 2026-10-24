@@ -255,8 +255,11 @@ export function MessageList() {
   return (
     <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
       {/* 内容限宽居中（max-w-3xl）：面板拉宽/聚焦满屏时阅读行宽仍舒适，
-          两侧留白对称——ChatGPT/Claude 满宽对话的同一做法；窄面板不受影响 */}
-      <div className="mx-auto w-full max-w-3xl">
+          两侧留白对称——ChatGPT/Claude 满宽对话的同一做法；窄面板不受影响。
+          空态时这里要撑满（h-full + flex）才能让欢迎页垂直居中：本层是
+          CopilotWelcome 唯一的「高度来源」，不给高度它的 h-full 就塌成
+          内容高、justify-center 无处可居（表现为欢迎页贴顶、下面大片空白）。 */}
+      <div className={empty ? 'flex h-full w-full max-w-3xl flex-col mx-auto' : 'mx-auto w-full max-w-3xl'}>
       {empty && <CopilotWelcome />}
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>

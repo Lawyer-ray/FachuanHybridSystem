@@ -241,18 +241,55 @@ describe('SessionSidebar：删除与顺位接管', () => {
 })
 
 describe('SessionSidebar：业务范围与用量（P1-1 / P1-2）', () => {
-  it('context 模式：列表按 origin+contract_id 过滤，空态提示业务名', async () => {
+  it('始终拉全量列表并带 limit（不按 scope 过滤：进项目也要能看到别的项目）', async () => {
+    storeMock.context = { origin: 'contract', refId: 386, title: '张三委托' }
+    const { container } = renderSidebar()
+    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalledWith(100))
+    // 第二参数（scope）必须缺省——按 scope 查会让别的项目分组从侧栏消失
+    expect(apiMock.listSessions.mock.calls[0]).toHaveLength(1)
+    container.remove()
+  })
+
+  it('项目模式空列表：空态提示带业务名', async () => {
     storeMock.context = { origin: 'contract', refId: 386, title: '张三委托' }
     apiMock.listSessions.mockResolvedValue([])
     const { container } = renderSidebar()
-    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalledWith(50, { origin: 'contract', refId: 386 }))
     await waitFor(() => expect(container.textContent).toContain('「张三委托」还没有 AI 会话'))
     container.remove()
   })
 
-  it('普通模式：列表不带 scope 参数', async () => {
+  it('按项目分组：多项目各成一个文件夹，当前项目组头高亮并展开', async () => {
+    storeMock.context = { origin: 'contract', refId: 386, title: '张三委托' }
+    apiMock.listSessions.mockResolvedValue([
+      { ...session('a-1', '本项目会话'), origin: 'contract', contract_id: 386, scope_name: '张三委托' },
+      { ...session('b-1', '别的项目会话'), origin: 'contract', contract_id: 999, scope_name: '李四委托' },
+    ])
     const { container } = renderSidebar()
-    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalledWith(50, undefined))
+    // 两个项目都在（进项目后别的项目不消失）
+    await waitFor(() => expect(container.textContent).toContain('张三委托'))
+    expect(container.textContent).toContain('李四委托')
+    // 当前项目组头标 aria-current，且组内会话可见
+    const currentHead = container.querySelector('[aria-current="true"][aria-expanded]')
+    expect(currentHead?.textContent).toContain('张三委托')
+    expect(container.textContent).toContain('本项目会话')
+    container.remove()
+  })
+
+  it('非当前项目默认收起，点组头可展开', async () => {
+    storeMock.context = { origin: 'contract', refId: 386, title: '张三委托' }
+    apiMock.listSessions.mockResolvedValue([
+      { ...session('a-1', '本项目会话'), origin: 'contract', contract_id: 386, scope_name: '张三委托', updated_at: '2026-10-20T10:00:00' },
+      { ...session('b-1', '别的项目会话'), origin: 'contract', contract_id: 999, scope_name: '李四委托', updated_at: '2026-10-19T10:00:00' },
+    ])
+    const { container } = renderSidebar()
+    await waitFor(() => expect(container.textContent).toContain('李四委托'))
+    // 非当前项目会话默认收起
+    expect(container.textContent).not.toContain('别的项目会话')
+    const otherHead = Array.from(container.querySelectorAll('[aria-expanded]')).find((b) =>
+      (b.textContent ?? '').includes('李四委托'),
+    ) as HTMLElement
+    fireEvent.click(otherHead)
+    await waitFor(() => expect(container.textContent).toContain('别的项目会话'))
     container.remove()
   })
 

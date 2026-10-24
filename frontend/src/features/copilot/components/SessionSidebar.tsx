@@ -1,9 +1,16 @@
 /**
  * 会话列表：新对话 / 切换 / 行内重命名 / 删除（确认后执行）。
  *
- * 全局模式按**业务范围分组**（类 IDE 项目分组：委托/案件各一组，后台任务
- * 与通用对话兜底组），组头可折叠、超 5 条折叠显示「显示更多」；业务范围
- * 模式（context）列表天然只含单一范围，保持平铺不分。
+ * 布局照 ZCode 侧边栏：**始终展示全部会话，按项目（业务范围）分组**——
+ * 一个项目 = 一个文件夹，会话平铺在它下面，组头可折叠、超 5 条显示
+ * 「显示更多」。进项目页（context 有值）时不是把列表过滤成只剩本项目，
+ * 而是该项目分组自动展开并高亮，其余项目仍在（律师常要在几个委托间
+ * 来回跳）；此时「新对话」落进当前项目——send 用 store.context 建会话，
+ * 归属天然正确。
+ *
+ * 历史教训：早先 context 模式直接按 scope 查后端、只列单一范围，等于进
+ * 了项目就看不到别的项目会话，切换必须退出页面，与「项目=文件夹」的
+ * 心智模型不符。
  *
  * 两种形态共用本组件（variant）：
  * - rail：md+ 常驻窄栏（面板双栏布局的左列），无关闭钮、无滑入动画；
@@ -179,6 +186,7 @@ function UsageFooter() {
 function SessionGroupBlock({
   group,
   collapsed,
+  current,
   onToggleCollapsed,
   compact,
   sessionId,
@@ -187,6 +195,8 @@ function SessionGroupBlock({
 }: {
   group: SessionGroup
   collapsed: boolean
+  /** 当前项目分组：组头加粗高亮，让律师一眼看到身在哪个委托 */
+  current: boolean
   onToggleCollapsed: () => void
   compact: boolean
   sessionId: string | null
@@ -202,9 +212,12 @@ function SessionGroupBlock({
     <section aria-label={`会话分组 ${group.label}`}>
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+        className={`flex w-full items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-[11.5px] font-medium transition-colors hover:bg-secondary/60 ${
+          current ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
         onClick={onToggleCollapsed}
         aria-expanded={!collapsed}
+        aria-current={current ? 'true' : undefined}
       >
         <ChevronRight
           className={`h-3 w-3 flex-none transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}
@@ -255,11 +268,11 @@ export function SessionSidebar({
   const queryClient = useQueryClient()
   const [confirmTarget, setConfirmTarget] = useState<AgentSession | null>(null)
 
-  const scopeKey = context ? `${context.origin}:${context.refId}` : 'all'
-  const scope = context ? { origin: context.origin, refId: context.refId } : undefined
+  // 始终拉全量（后端按 updated_at 降序 + 注水 scope_name），侧栏按项目分组。
+  // 不再按 scope 过滤：过滤后别的项目会话就消失了，与「项目=文件夹」不符。
   const sessionsQuery = useQuery({
-    queryKey: ['copilot', 'sessions', scopeKey],
-    queryFn: () => listSessions(50, scope),
+    queryKey: ['copilot', 'sessions', 'all'],
+    queryFn: () => listSessions(100),
     refetchOnMount: 'always',
     retry: false,
     // 有排队/运行中的后台任务时轮询：状态落到 succeeded/failed 即停
@@ -269,9 +282,12 @@ export function SessionSidebar({
     },
   })
   const sessions = sessionsQuery.data ?? []
-  /** 分组只在全局模式做：context 模式列表天然是单一范围，分组反而多一层噪音 */
-  const groups = context ? [] : groupSessions(sessions)
+  const groups = groupSessions(sessions)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  /** 当前项目所在分组的 key（无 context 时为 null = 通用/任务视图） */
+  const currentGroupKey = context
+    ? `${context.origin}:${context.refId}`
+    : null
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteSession(id),
@@ -326,40 +342,35 @@ export function SessionSidebar({
         )}
         {!sessionsQuery.isLoading && sessions.length === 0 && (
           <p className="py-4 text-center text-[12px] text-muted-foreground">
-            {context ? `「${context.title}」还没有 AI 会话` : '暂无历史会话'}
+            {context ? `「${context.title}」还没有 AI 会话，问一句就会出现在这里` : '暂无历史会话'}
           </p>
         )}
-        {context
-          ? sessions.map((s) => (
-              <SessionRow
-                key={s.session_id}
-                session={s}
-                active={s.session_id === sessionId}
-                compact={variant === 'rail'}
-                onRequestDelete={() => setConfirmTarget(s)}
-                onSwitch={() => {
-                  if (s.session_id !== sessionId) void switchSession(s.session_id)
-                  onClose?.()
-                }}
-              />
-            ))
-          : groups.map((g) => (
-              <SessionGroupBlock
-                key={g.key}
-                group={g}
-                collapsed={Boolean(collapsedGroups[g.key])}
-                onToggleCollapsed={() =>
-                  setCollapsedGroups((prev) => ({ ...prev, [g.key]: !prev[g.key] }))
-                }
-                compact={variant === 'rail'}
-                sessionId={sessionId}
-                onRequestDelete={setConfirmTarget}
-                onSwitch={(s) => {
-                  if (s.session_id !== sessionId) void switchSession(s.session_id)
-                  onClose?.()
-                }}
-              />
-            ))}
+        {groups.map((g, i) => {
+          // 默认展开规则：当前项目 + 最高位的那个分组展开，其余项目收起——
+          // 照 ZCode「只展开你正在干活/最近用的文件夹，其余是收起的项目行」。
+          // 通用对话/后台任务没有项目归属，不作折叠（它们不是「项目」，
+          // 藏起来只会让人以为历史丢了）。
+          const isCurrent = g.key === currentGroupKey
+          const ungrouped = g.kind === 'chat' || g.kind === 'task'
+          const defaultCollapsed = !ungrouped && !isCurrent && i > 0
+          const collapsed = collapsedGroups[g.key] ?? defaultCollapsed
+          return (
+            <SessionGroupBlock
+              key={g.key}
+              group={g}
+              collapsed={collapsed}
+              current={isCurrent}
+              onToggleCollapsed={() => setCollapsedGroups((prev) => ({ ...prev, [g.key]: !collapsed }))}
+              compact={variant === 'rail'}
+              sessionId={sessionId}
+              onRequestDelete={setConfirmTarget}
+              onSwitch={(s) => {
+                if (s.session_id !== sessionId) void switchSession(s.session_id)
+                onClose?.()
+              }}
+            />
+          )
+        })}
       </div>
 
       <UsageFooter />

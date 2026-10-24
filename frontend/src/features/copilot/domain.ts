@@ -163,7 +163,7 @@ export function groupSessions(sessions: AgentSession[]): SessionGroup[] {
           : kind === 'chat'
             ? '通用对话'
             : (s.scope_name?.trim() || `${kind === 'case' ? '案件' : '合同'} #${kind === 'case' ? s.case_id : s.contract_id}`)
-      g = { key, kind, label, sessions: [] }
+      g = { key, kind, label, sessions: [], refId: kind === 'case' ? s.case_id ?? undefined : kind === 'contract' ? s.contract_id ?? undefined : undefined }
       groups.set(key, g)
     }
     return g

@@ -29,6 +29,8 @@ export interface SessionGroup {
   kind: 'contract' | 'case' | 'chat' | 'task'
   label: string
   sessions: AgentSession[]
+  /** 业务范围的实体 id（合同/案件组才有）——侧栏据此判断「当前项目」 */
+  refId?: number
 }
 
 /** 历史消息（GET /agent/sessions/{id}/messages） */

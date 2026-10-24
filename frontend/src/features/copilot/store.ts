@@ -94,6 +94,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   },
 
   enterContext: async (context) => {
+    // 幂等：已在同一业务范围（详情页每次数据刷新都会重进）不重置对话。
+    // 页面进入时自动绑定（不再依赖用户点按钮）后，这条短路是必须的——
+    // 否则任何一次 effect 重跑都会把用户正在进行的会话清成空白新对话。
+    const cur = get().context
+    if (cur?.origin === context.origin && cur.refId === context.refId) {
+      if (cur.title !== context.title) set({ context })
+      return
+    }
     if (get().streaming) get().stop()
     set({ context })
     await get().switchSession(null)
