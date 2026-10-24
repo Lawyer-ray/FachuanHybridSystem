@@ -9,11 +9,26 @@ import time
 from typing import Any
 
 import httpx
+from mcp.server.mcpserver.exceptions import ToolError
 
 from . import config
 from .identity import passthrough_authorization
 
 logger = logging.getLogger(__name__)
+
+
+class FachuanApiError(ToolError):
+    """上游 REST 调用失败（非 2xx 或不可达）。
+
+    继承 ``ToolError``：MCP 规范里「预期内的业务失败」应以
+    ``is_error=True`` + **完整错误详情**回传给模型（HTTP 状态码、后端
+    ``detail`` 字段级校验错误），模型据此自纠重试。此前抛裸
+    ``RuntimeError``，SDK 会包成 ``UnexpectedToolError``——客户端只能看到
+    ``"Error executing tool <name>"``，一行细节都不出网，模型无法自纠。
+    ``agent_attachments._classify_http_error`` 按 ``"HTTP <status>:"`` 消息
+    前缀分类，本类保持该消息格式不变。
+    """
+
 
 _MAX_OBTAIN_RETRIES = 3
 _RETRY_BACKOFF = (1.0, 3.0, 5.0)
@@ -126,7 +141,7 @@ class FachuanClient:
                 detail = resp.json()
             except Exception:
                 detail = resp.text
-            raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
+            raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
         content_type = resp.headers.get("content-type", "application/octet-stream")
         disposition = resp.headers.get("content-disposition", "")
         filename = "download"
@@ -150,7 +165,7 @@ class FachuanClient:
                 detail = resp.json()
             except Exception:
                 detail = resp.text
-            raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
+            raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
         if resp.status_code == 204:
             return None
         return resp.json()

@@ -7,7 +7,7 @@ import re
 from typing import Any
 from urllib.parse import unquote
 
-from mcp_server.client import client
+from mcp_server.client import FachuanApiError, client
 
 
 def list_doc_convert_types() -> dict[str, Any]:
@@ -38,7 +38,7 @@ def convert_document(file_base64: str, filename: str, mbid: str) -> dict[str, An
             detail = resp.json()
         except Exception:
             detail = resp.text
-        raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
+        raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
 
     content_type = resp.headers.get("content-type", "application/octet-stream")
     disposition = resp.headers.get("content-disposition", "")

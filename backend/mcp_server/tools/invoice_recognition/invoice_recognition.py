@@ -33,7 +33,7 @@ def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:
             detail = resp.json()
         except Exception:
             detail = resp.text
-        raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
+        raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
     return resp.json()  # type: ignore[no-any-return]
 
 
@@ -50,7 +50,7 @@ def upload_invoices(task_id: int, files: list[dict[str, str]]) -> dict[str, Any]
             detail = resp.json()
         except Exception:
             detail = resp.text
-        raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
+        raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
     return resp.json()  # type: ignore[no-any-return]
 
 

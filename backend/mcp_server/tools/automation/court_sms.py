@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from mcp_server.client import client
+from mcp_server.client import FachuanApiError, client
 
 
 def submit_court_sms(
@@ -55,7 +55,7 @@ def list_court_sms(
         params["date_to"] = date_to
     payload: dict[str, Any] = client.get("/automation/court-sms", params=params)  # type: ignore[assignment]
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
-        raise RuntimeError(
+        raise FachuanApiError(
             f"/automation/court-sms 返回了非分页结构: {type(payload).__name__}；后端契约可能已变更，请检查"
         )
     return payload

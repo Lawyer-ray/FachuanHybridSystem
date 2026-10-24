@@ -11,7 +11,7 @@ import pytest
 
 from mcp_server import client as client_mod
 from mcp_server import config as config_mod
-from mcp_server.client import FachuanClient
+from mcp_server.client import FachuanApiError, FachuanClient
 
 
 @pytest.fixture(autouse=True)
@@ -305,7 +305,7 @@ class TestHandleError:
     def test_400_raises_runtime_error_with_json_detail(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.get.return_value = _make_response(400, json_data={"detail": "bad input"})
-        with pytest.raises(RuntimeError, match=r"HTTP 400.*bad input"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 400.*bad input"):
             c.get("/items")
 
     def test_500_raises_runtime_error_with_text_fallback(self, fc: tuple[FachuanClient, mock.MagicMock]):
@@ -318,7 +318,7 @@ class TestHandleError:
             request=httpx.Request("GET", REAL_BASE),
         )
         http.get.return_value = resp_without_json
-        with pytest.raises(RuntimeError, match=r"HTTP 500.*Internal Server Error"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 500.*Internal Server Error"):
             c.get("/items")
 
     def test_204_returns_none(self, fc: tuple[FachuanClient, mock.MagicMock]):
@@ -339,7 +339,7 @@ class TestDownloadError:
         c, http = fc
         resp = _make_response(404, json_data={"detail": "not found"})
         http.request.return_value = resp
-        with pytest.raises(RuntimeError, match=r"HTTP 404"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 404"):
             c.download("/files/missing")
 
 
@@ -466,7 +466,7 @@ class TestDownload:
             content=b"Server Error",
             request=httpx.Request("GET", REAL_BASE),
         )
-        with pytest.raises(RuntimeError, match=r"HTTP 500"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 500"):
             c.download("/files/bad")
 
     def test_download_defaults_to_get_request(self, fc: tuple[FachuanClient, mock.MagicMock]):
@@ -540,7 +540,7 @@ class TestHandleStatic:
             content=b"not json",
             request=httpx.Request("POST", REAL_BASE),
         )
-        with pytest.raises(RuntimeError, match=r"HTTP 422.*not json"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 422.*not json"):
             FachuanClient._handle(resp)
 
     def test_handle_204_returns_none(self):
@@ -550,3 +550,35 @@ class TestHandleStatic:
     def test_handle_200_returns_json(self):
         resp = _make_response(200, json_data={"key": "val"})
         assert FachuanClient._handle(resp) == {"key": "val"}
+
+
+# ===================================================================
+# 9. 错误可达性（MCP 规范：预期失败必须带详情回传模型）
+# ===================================================================
+
+
+class TestErrorVisibility:
+    """FachuanApiError 必须继承 ToolError。
+
+    MCP SDK 对非 ToolError 异常包成 UnexpectedToolError——客户端只看得到
+    "Error executing tool <name>"，一行细节都不出网，模型无法自纠重试
+    （2026-10-25 E2E 实测）。继承关系就是「错误详情可达模型」的全部机关，
+    断掉它等于把所有工具的报错重新变回黑盒。
+    """
+
+    def test_is_tool_error_subclass(self) -> None:
+        from mcp.server.mcpserver.exceptions import ToolError
+
+        assert issubclass(FachuanApiError, ToolError)
+
+    def test_http_error_message_format_preserved(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """消息保持 "HTTP <status>: <detail>" 前缀——agent_attachments
+        的 _classify_http_error 按此正则分类 401/403/404/413。"""
+        import re
+
+        c, http = fc
+        http.get.return_value = _make_response(403, json_data={"detail": "forbidden"})
+        with pytest.raises(FachuanApiError) as excinfo:
+            c.get("/x")
+        assert re.match(r"HTTP 403:", str(excinfo.value))
+        assert "forbidden" in str(excinfo.value)

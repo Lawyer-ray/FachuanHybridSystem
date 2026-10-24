@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp_server.client import client
+from mcp_server.client import FachuanApiError, client
 from mcp_server.tools.core.projection import CONTRACT_LIST_FIELDS, project_page
 
 
@@ -55,7 +55,7 @@ def list_contracts(
         params["is_filed"] = is_filed
     payload: dict[str, Any] = client.get("/contracts/contracts", params=params)  # type: ignore[assignment]
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
-        raise RuntimeError(
+        raise FachuanApiError(
             f"/contracts/contracts 返回了非分页结构: {type(payload).__name__}；后端契约可能已变更，请检查"
         )
     return project_page(payload, fields, CONTRACT_LIST_FIELDS, full=full)

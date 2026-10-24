@@ -29,7 +29,7 @@ from typing import Any
 
 from django.utils import timezone
 
-from mcp_server.client import client
+from mcp_server.client import FachuanApiError, client
 
 
 def _parse_iso_date(value: str, field: str) -> date:
@@ -85,7 +85,7 @@ def list_upcoming_deadlines(
     rows: list[dict[str, Any]] = client.get("/reminders/list", params={})  # type: ignore[assignment]
     if not isinstance(rows, list):
         # 后端形状变化时明确报错，不要静默返回空列表骗模型
-        raise RuntimeError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
+        raise FachuanApiError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
 
     items: list[dict[str, Any]] = []
     for row in rows:
@@ -153,7 +153,7 @@ def list_reminders_by_target(
 
     rows: list[dict[str, Any]] = client.get("/reminders/list", params=params)  # type: ignore[assignment]
     if not isinstance(rows, list):
-        raise RuntimeError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
+        raise FachuanApiError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
 
     items = [
         _deadline_brief(row)
