@@ -12,11 +12,12 @@ def list_inbox_messages(
     source_id: int | None = None,
     has_attachments: bool | None = None,
     search: str | None = None,
-    limit: int = 50,
+    limit: int = 30,
 ) -> dict[str, Any]:
     """查询收件箱消息列表。可按来源（source_id）、是否有附件（has_attachments）、关键词（search）筛选。
 
-    limit 默认 50——REST 端点默认 500 是给前端收件箱的,对模型上下文过大;
+    limit 默认 30（实测约 0.57KB/条,30 条 ≈ 17KB——pi 对工具输出 20KB 起
+    腰斩,默认调用应留在截断线内;REST 端点默认 500 是给前端收件箱的）;
     需要更多结果时显式调大。
     """
     params: dict[str, Any] = {"limit": limit}

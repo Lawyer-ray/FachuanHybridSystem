@@ -14,7 +14,7 @@ def list_cases(
     status: str | None = None,
     case_number: str | None = None,
     contract_id: int | None = None,
-    limit: int = 100,
+    limit: int = 40,
     fields: list[str] | None = None,
     full: bool = False,
 ) -> dict[str, Any]:
@@ -30,13 +30,14 @@ def list_cases(
         status: 按状态筛选（如 active / closed）。
         case_number: 按案号精确/模糊查询。
         contract_id: 按所属合同筛选。
-        limit: 最多返回条数，默认 100，上限 2000。
+        limit: 最多返回条数，默认 40（投影后约 0.4KB/条,40 条 ≈ 17KB——
+            pi 对工具输出 20KB 起腰斩,默认调用应留在截断线内）,上限 2000。
         fields: 只返回这些字段；不传用默认投影。
         full: True 时返回后端完整结构（含当事人、日志等全部嵌套）。
 
     Returns:
-        案件数组（已投影）。注意本端点**不返回总数**，需要计数请看
-        ``get_dashboard_stats`` 或对结果取长度。
+        ``{total, items}`` 信封（items 已投影;total=本次返回条数,后端端点
+        本身不返回总数,需要全量计数请看 ``get_dashboard_stats``）。
     """
     params: dict[str, Any] = {}
     if case_type:
