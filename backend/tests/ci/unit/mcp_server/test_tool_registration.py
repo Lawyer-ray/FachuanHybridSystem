@@ -57,15 +57,15 @@ def _registered_names() -> set[str]:
 
     支持两种形态:
     - ``mcp.tool()(fn)`` —— 直接注册
-    - ``mcp.tool()(_mcp_only(fn))`` —— 参数剥离包装(REST 专用参数不进
-      inputSchema),取内层函数名
+    - ``mcp.tool()(_workflow_tool(fn))`` —— workflow 包装(参数剥离 + 业务
+      异常翻译),取内层函数名
     """
 
     def _target_name(call_arg: ast.AST) -> str | None:
         if isinstance(call_arg, ast.Name):
             return call_arg.id
         if isinstance(call_arg, ast.Call) and isinstance(call_arg.func, ast.Name):
-            if call_arg.func.id == "_mcp_only" and call_arg.args and isinstance(call_arg.args[0], ast.Name):
+            if call_arg.func.id in {"_mcp_only", "_workflow_tool"} and call_arg.args and isinstance(call_arg.args[0], ast.Name):
                 return call_arg.args[0].id
         return None
 

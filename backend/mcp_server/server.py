@@ -955,19 +955,49 @@ mcp.tool()(web_search)
 mcp.tool()(fetch_url)
 
 # 工作流引擎
-# _mcp_only:剥掉 REST 直调专用的 user/org_access/perm_open_access 参数——
-# 不剥离则它们会进 MCP inputSchema,模型看到一个类型为 object 的 user
-# 参数(无法构造、语义困惑),且模型乱传时会绕过 ContextVar 身份重建。
-# 绑定值即默认值,行为等价于「MCP 面不出现这些参数」。
-def _mcp_only(fn: Any) -> Any:
+# _workflow_tool 统一包装 workflow 的 MCP 注册,做两件事:
+# 1. 参数剥离:user/org_access/perm_open_access 是 REST 直调专用(ContextVar
+#    身份重建在函数内做),不剥离则进 MCP inputSchema,模型看到无法构造的
+#    object 参数,且乱传时会绕过身份重建。
+# 2. 业务异常翻译:workflow 工具直接 ORM,访问校验抛 apps.core 的
+#    BusinessException(NotFoundError/PermissionDenied 等)——不是 ToolError
+#    子类,SDK 会包成 UnexpectedToolError 黑盒(模型只看到 "Error executing
+#    tool X",连「案件不存在」还是「无权限」都分不清,无法自纠)。这里翻译
+#    成 ToolError,detail(中文,本来就是给用户看的)直达模型。
+def _workflow_tool(fn: Any) -> Any:
     import inspect
     from functools import wraps
 
+    from django.core.exceptions import ObjectDoesNotExist
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from apps.core.exceptions.common import BusinessException
+
     drop = {"user", "org_access", "perm_open_access"}
 
-    @wraps(fn)
-    async def wrapper(*args: Any, **kwargs: Any) -> Any:
-        return await fn(*args, **kwargs)
+    if inspect.iscoroutinefunction(fn):
+
+        @wraps(fn)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await fn(*args, **kwargs)
+            except BusinessException as exc:
+                raise ToolError(str(exc) or exc.__class__.__name__) from exc
+            except ObjectDoesNotExist as exc:
+                # Django 原生「查无此物」同样是预期内失败(模型传错 id/slug),
+                # 不翻译则黑盒——E2E 实测 start_workflow 坏 slug 只有半句报错
+                raise ToolError(f"对象不存在: {exc}") from exc
+
+    else:
+
+        @wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+            try:
+                return fn(*args, **kwargs)
+            except BusinessException as exc:
+                raise ToolError(str(exc) or exc.__class__.__name__) from exc
+            except ObjectDoesNotExist as exc:
+                raise ToolError(f"对象不存在: {exc}") from exc
 
     sig = inspect.signature(fn)
     wrapper.__signature__ = sig.replace(  # type: ignore[attr-defined]
@@ -976,25 +1006,25 @@ def _mcp_only(fn: Any) -> Any:
     return wrapper
 
 
-mcp.tool()(_mcp_only(start_workflow))
-mcp.tool()(_mcp_only(list_workflows))
-mcp.tool()(get_workflow_detail)
-mcp.tool()(_mcp_only(approve_workflow_step))
-mcp.tool()(cancel_workflow)
+mcp.tool()(_workflow_tool(start_workflow))
+mcp.tool()(_workflow_tool(list_workflows))
+mcp.tool()(_workflow_tool(get_workflow_detail))
+mcp.tool()(_workflow_tool(approve_workflow_step))
+mcp.tool()(_workflow_tool(cancel_workflow))
 # 工作流引擎 · 模板管理与注册表(2026-10-25 补注册;此前实现完整但从未暴露,
 # 注册完整性门禁 test_tool_registration 抓出)。模板写入/删除/复制仅管理员
 # (workflow_tools._require_admin,与 REST ensure_admin_request 同口径);
 # run 删除复用 _mcp_guard_run_access 案件访问校验。
-mcp.tool()(delete_workflow_run)
-mcp.tool()(get_step_registry)
-mcp.tool()(get_step_registry_flat)
-mcp.tool()(_mcp_only(create_workflow_template))
-mcp.tool()(_mcp_only(update_workflow_template))
-mcp.tool()(list_workflow_templates)
-mcp.tool()(get_workflow_template)
-mcp.tool()(_mcp_only(delete_workflow_template))
-mcp.tool()(_mcp_only(duplicate_workflow_template))
-mcp.tool()(start_workflow_from_steps)
+mcp.tool()(_workflow_tool(delete_workflow_run))
+mcp.tool()(_workflow_tool(get_step_registry))
+mcp.tool()(_workflow_tool(get_step_registry_flat))
+mcp.tool()(_workflow_tool(create_workflow_template))
+mcp.tool()(_workflow_tool(update_workflow_template))
+mcp.tool()(_workflow_tool(list_workflow_templates))
+mcp.tool()(_workflow_tool(get_workflow_template))
+mcp.tool()(_workflow_tool(delete_workflow_template))
+mcp.tool()(_workflow_tool(duplicate_workflow_template))
+mcp.tool()(_workflow_tool(start_workflow_from_steps))
 
 # ===== 新增能力（身份 / 期限聚合 / 文档正文 / 任务统一状态）=====
 # 身份与时间：模型自述「我是谁、现在几点」的唯一来源

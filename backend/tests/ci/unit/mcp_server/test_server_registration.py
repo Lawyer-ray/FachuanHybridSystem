@@ -45,11 +45,11 @@ def _parse_all_from_init() -> list[str]:
 def _parse_registered_from_server() -> set[str]:
     """Extract function names passed to mcp.tool()() in server.py.
 
-    支持两种形态:``mcp.tool()(fn)`` 直接注册,与 ``mcp.tool()(_mcp_only(fn))``
-    参数剥离包装(REST 专用参数不进 MCP inputSchema),取内层函数名。"""
+    支持两种形态:``mcp.tool()(fn)`` 直接注册,与 ``mcp.tool()(_workflow_tool(fn))``
+    包装(参数剥离 + 业务异常翻译),取内层函数名。"""
     source = _SERVER_PY.read_text()
     direct = re.findall(r"mcp\.tool\(\)\((\w+)\)", source)
-    wrapped = re.findall(r"mcp\.tool\(\)\(_mcp_only\((\w+)\)\)", source)
+    wrapped = re.findall(r"mcp\.tool\(\)\(_\w+\((\w+)\)\)", source)
     return set(direct) | set(wrapped)
 
 
