@@ -7,7 +7,7 @@ import os
 import re
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import httpx
@@ -183,10 +183,15 @@ class FachuanClient:
     def upload(
         self,
         path: str,
-        files: dict[str, tuple[str, bytes, str]],
+        files: Mapping[str, tuple[str, bytes, str]] | list[tuple[str, tuple[str, bytes, str]]],
         data: dict[str, Any] | None = None,
     ) -> Any:
-        """multipart/form-data 上传。files: {field: (filename, content, content_type)}"""
+        """multipart/form-data 上传,返回 JSON(与 get/post 同走 _handle)。
+
+        files 两种形态:``{field: (filename, content, content_type)}`` 单值
+        dict,或同字段多文件的 ``[(field, (filename, content, type)), ...]``
+        列表(httpx 原生都接受)。
+        """
         resp = self._guard_transport(
             lambda: self._http.post(path, headers=self._headers(), files=files, data=data or {}),
             "POST",

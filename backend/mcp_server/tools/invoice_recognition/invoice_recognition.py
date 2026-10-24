@@ -22,36 +22,21 @@ def _build_invoice_files(files: list[dict[str, str]]) -> dict[str, Any]:
 
 def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:
     """快速识别发票（不创建任务）。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。返回识别结果列表。"""
-    file_list = _build_invoice_files(files)
-    resp = client._http.post(
+    # 统一走 client.upload:错误信封(FachuanApiError)与传输层异常翻译
+    # (FachuanTransportError)由 client 管——此前直接 client._http.post 且
+    # 引用了未 import 的 FachuanApiError,非 2xx 时会 NameError。
+    return client.upload(  # type: ignore[no-any-return]
         "/invoice-recognition/quick-recognize",
-        headers=client._headers(),
-        files=file_list,
+        files=_build_invoice_files(files),
     )
-    if not resp.is_success:
-        try:
-            detail = resp.json()
-        except Exception:
-            detail = resp.text
-        raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
-    return resp.json()  # type: ignore[no-any-return]
 
 
 def upload_invoices(task_id: int, files: list[dict[str, str]]) -> dict[str, Any]:
     """上传发票文件到指定任务并自动识别。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。"""
-    file_list = _build_invoice_files(files)
-    resp = client._http.post(
+    return client.upload(  # type: ignore[no-any-return]
         f"/invoice-recognition/{task_id}/upload",
-        headers=client._headers(),
-        files=file_list,
+        files=_build_invoice_files(files),
     )
-    if not resp.is_success:
-        try:
-            detail = resp.json()
-        except Exception:
-            detail = resp.text
-        raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
-    return resp.json()  # type: ignore[no-any-return]
 
 
 def get_invoice_task_status(task_id: int, include_raw_text: bool = False) -> dict[str, Any]:

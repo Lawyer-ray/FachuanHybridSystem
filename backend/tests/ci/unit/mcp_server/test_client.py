@@ -720,3 +720,63 @@ class TestTransportResilience:
         http.request.side_effect = httpx.ReadTimeout("slow generation")
         with pytest.raises(FachuanTransportError, match="POST"):
             c.download("/documents/cases/1/litigation/complaint/download", method="POST", json={})
+
+
+# ===================================================================
+# 11. 抽象边界:工具层不得绕过 client 的闸门/翻译/解析
+# ===================================================================
+
+
+class TestClientAbstractionBoundary:
+    """禁止工具层直接访问 client 的私有 HTTP 成员。
+
+    ``client._http`` / ``client._headers`` 直连会同时绕过三道防线:
+    1MB 下载闸门(base64 挤爆上下文)、传输层异常翻译
+    (FachuanTransportError)、Content-Disposition 解析;还会丢失统一的
+    错误信封(本类抓到过 invoice_recognition 引用未 import 的
+    FachuanApiError——非 2xx 时 NameError,ruff/测试三层都没拦住)。
+    需要二进制返回走 ``client.download``(支持 method/files/data),
+    JSON 返回走 ``client.upload``(支持同字段多文件列表)。
+    """
+
+    def test_no_private_http_access_in_tools(self) -> None:
+        from pathlib import Path
+
+        tools_root = Path(client_mod.__file__).resolve().parent / "tools"
+        offenders = []
+        for path in sorted(tools_root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            for lineno, line in enumerate(path.read_text().splitlines(), 1):
+                stripped = line.lstrip()
+                if stripped.startswith("#"):
+                    continue  # 注释里提及(历史说明)不算违规
+                if "client._http" in line or "client._headers" in line or "client._handle" in line:
+                    offenders.append(f"{path.relative_to(tools_root)}:{lineno}")
+        assert not offenders, (
+            f"工具层直接访问 client 私有成员(绕过闸门/翻译/统一错误信封): {offenders};"
+            "二进制返回用 client.download,JSON 上传用 client.upload"
+        )
+
+    def test_upload_accepts_multi_file_list(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """upload 支持同字段多文件(list of tuples)——发票识别等场景。"""
+        c, http = fc
+        http.post.return_value = _make_response(200, json_data={"results": [1, 2]})
+        files = [("files", ("a.pdf", b"x", "application/pdf")), ("files", ("b.png", b"y", "image/png"))]
+        assert c.upload("/invoice-recognition/quick-recognize", files=files) == {"results": [1, 2]}
+        http.post.assert_called_once()
+
+    def test_download_supports_multipart_post(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """download 支持 files= multipart(要素式转换:上传 docx 返回二进制)。"""
+        c, http = fc
+        http.request.return_value = _make_response(
+            200,
+            content=b"PK\x03\x04converted",
+            headers={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+        )
+        content, filename, _ct = c.download(
+            "/doc-convert/convert", method="POST", files={"file": ("a.docx", b"doc", "application/msword")}
+        )
+        assert content.startswith(b"PK")
+        assert filename == "download"  # 无 disposition 时的兜底名
+        http.request.assert_called_once()
