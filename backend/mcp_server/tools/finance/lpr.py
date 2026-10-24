@@ -70,12 +70,16 @@ def calculate_interest(
             "year_days": year_days,
             "date_inclusion": date_inclusion,
         },
+        # LPR 模式下后端发现利率过期会先跑 Playwright 同步（服务端等待上限
+        # 120s）——client 默认 60s 会先掐断,首日首算必失败。
+        timeout=180,
     )
 
 
 def sync_lpr_rates() -> dict[str, Any]:
-    """手动触发 LPR 利率同步（从央行网站抓取）。需要管理员权限。"""
-    return client.post("/lpr/sync", json={})  # type: ignore[no-any-return]
+    """手动触发 LPR 利率同步（Playwright 抓央行网站,需数十秒）。需要管理员权限。"""
+    # 抓取走 Playwright,60s 默认超时不够;pi 侧 mcp.json timeout=200 兜住。
+    return client.post("/lpr/sync", json={}, timeout=180)  # type: ignore[no-any-return]
 
 
 def get_lpr_sync_status() -> dict[str, Any]:

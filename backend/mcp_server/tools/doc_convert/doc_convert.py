@@ -27,11 +27,13 @@ def convert_document(file_base64: str, filename: str, mbid: str) -> dict[str, An
     # multipart 上传 + 二进制返回,统一走 client.download:享受 1MB 输出
     # 闸门(base64 不挤爆会话上下文)、传输层异常翻译(FachuanTransportError)
     # 与 Content-Disposition 解析——此前直接 client._http.post 三者全绕过。
+    # LibreOffice 同步转换,大文书(目录/表格)冷启动可超 60s 默认超时。
     content, out_filename, content_type = client.download(
         "/doc-convert/convert",
         method="POST",
         files={"file": (filename, file_bytes, mime)},
         data={"mbid": mbid},
+        timeout=180,
     )
     return {
         "filename": out_filename,
