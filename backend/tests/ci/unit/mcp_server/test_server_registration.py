@@ -43,9 +43,14 @@ def _parse_all_from_init() -> list[str]:
 
 
 def _parse_registered_from_server() -> set[str]:
-    """Extract function names passed to mcp.tool()() in server.py."""
+    """Extract function names passed to mcp.tool()() in server.py.
+
+    支持两种形态:``mcp.tool()(fn)`` 直接注册,与 ``mcp.tool()(_mcp_only(fn))``
+    参数剥离包装(REST 专用参数不进 MCP inputSchema),取内层函数名。"""
     source = _SERVER_PY.read_text()
-    return set(re.findall(r"mcp\.tool\(\)\((\w+)\)", source))
+    direct = re.findall(r"mcp\.tool\(\)\((\w+)\)", source)
+    wrapped = re.findall(r"mcp\.tool\(\)\(_mcp_only\((\w+)\)\)", source)
+    return set(direct) | set(wrapped)
 
 
 def _parse_imports_from_server() -> set[str]:
@@ -224,18 +229,9 @@ class TestServerRegistration:
     # Functions exported in __all__ but not imported/registered in server.py.
     # These are exposed for programmatic use (e.g. other modules import them
     # directly from mcp_server.tools) but are not top-level MCP tools.
-    KNOWN_UNREGISTERED = {
-        "create_workflow_template",
-        "delete_workflow_run",
-        "delete_workflow_template",
-        "duplicate_workflow_template",
-        "get_step_registry",
-        "get_step_registry_flat",
-        "get_workflow_template",
-        "list_workflow_templates",
-        "start_workflow_from_steps",
-        "update_workflow_template",
-    }
+    # 2026-10-25 清空:workflow 模板管理 10 工具已补注册(权限链就绪:
+    # _require_admin 与 _mcp_guard_run_access,见 workflow_tools.py)。
+    KNOWN_UNREGISTERED: set[str] = set()
 
     def test_all_functions_imported_in_server(self):
         """Every name in __all__ should appear in server.py's import block."""

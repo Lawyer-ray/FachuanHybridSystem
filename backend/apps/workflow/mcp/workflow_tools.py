@@ -439,6 +439,21 @@ async def cancel_workflow(run_id: int) -> dict[str, Any]:
     return {"run_id": run_id, "status": "cancelled", "message": "已取消"}
 
 
+def _require_admin(user: Any | None) -> dict[str, Any] | None:
+    """MCP 模板管理工具的管理员门禁(fail-closed)。
+
+    与 REST 层 ``ensure_admin_request`` 同口径(``is_admin``/``is_superuser``,
+    2026Q4 审计口径)。user 为空(stdio 手工/解码失败)同样拒绝——模板是
+    全所共享配置,REST A-01 收紧后普通律师本就无权,MCP 面不能成为降级
+    绕过口。返回 None 表示放行,dict 为拒绝原因(与既有 error 信封一致)。
+    """
+    from apps.core.security.admin_access import is_admin_user
+
+    if not is_admin_user(user):
+        return {"error": "仅管理员可管理工作流模板"}
+    return None
+
+
 async def delete_workflow_run(run_id: int) -> dict[str, Any]:
     """删除诉讼工作流运行记录
 
@@ -446,6 +461,8 @@ async def delete_workflow_run(run_id: int) -> dict[str, Any]:
         run_id: 工作流运行 ID
     """
     from apps.workflow.models import WorkflowRun
+
+    await _mcp_guard_run_access(run_id)
 
     try:
         run = await WorkflowRun.objects.select_related("template").aget(pk=run_id)
@@ -545,6 +562,12 @@ async def create_workflow_template(
     from apps.workflow.models import WorkflowTemplate
     from apps.workflow.services.template_service import WorkflowTemplateService
 
+    user, _org, _open = await _resolve_mcp_access(user, None, False)
+    # 与 REST 层同口径：模板管理仅管理员(ensure_admin_request 的 MCP 侧等价,
+    # fail-closed);此前 MCP 面未注册不暴露,注册前必须补齐,防止降级绕过
+    error = _require_admin(user)
+    if error is not None:
+        return error
     # 安全审计 A-01（旁路修复）：MCP 是与 HTTP API 并列的模板写入入口，历史上
     # 完全未做步骤类型校验，导致 code 步骤可经此落库并由 workflows.py 调度
     # generic_code_exec（可逃逸沙箱）。此处复用 API 层同一校验，缺省 fail-closed
@@ -623,6 +646,12 @@ async def update_workflow_template(
     """
     from apps.workflow.models import WorkflowTemplate
 
+    user, _org, _open = await _resolve_mcp_access(user, None, False)
+    # 与 create_workflow_template 同口径:仅管理员(REST ensure_admin_request
+    # 的 MCP 侧等价,fail-closed)
+    error = _require_admin(user)
+    if error is not None:
+        return error
     # 安全审计 A-01（旁路修复）：与 create_workflow_template 同一校验，
     # 防止经 update 写入 code 步骤。
     if steps is not None:
@@ -745,13 +774,18 @@ async def get_workflow_template(template_id: int) -> dict[str, Any]:
     }
 
 
-async def delete_workflow_template(template_id: int) -> dict[str, Any]:
+async def delete_workflow_template(template_id: int, *, user: Any | None = None) -> dict[str, Any]:
     """删除工作流模板
 
     Args:
         template_id: 模板 ID
     """
     from apps.workflow.models import WorkflowTemplate
+
+    user, _org, _open = await _resolve_mcp_access(user, None, False)
+    error = _require_admin(user)
+    if error is not None:
+        return error
 
     try:
         template = await WorkflowTemplate.objects.aget(pk=template_id)
@@ -763,7 +797,9 @@ async def delete_workflow_template(template_id: int) -> dict[str, Any]:
     return {"template_id": template_id, "message": f"模板「{name}」已删除"}
 
 
-async def duplicate_workflow_template(template_id: int, new_name: str | None = None) -> dict[str, Any]:
+async def duplicate_workflow_template(
+    template_id: int, new_name: str | None = None, *, user: Any | None = None
+) -> dict[str, Any]:
     """复制工作流模板
 
     Args:
@@ -773,6 +809,11 @@ async def duplicate_workflow_template(template_id: int, new_name: str | None = N
     from django.utils.text import slugify as dj_slugify
 
     from apps.workflow.models import WorkflowTemplate
+
+    user, _org, _open = await _resolve_mcp_access(user, None, False)
+    error = _require_admin(user)
+    if error is not None:
+        return error
 
     try:
         source = await WorkflowTemplate.objects.aget(pk=template_id)

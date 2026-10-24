@@ -33,20 +33,42 @@ _HELPER_WHITELIST = {
 
 
 def _defined_public_functions() -> dict[str, str]:
-    """tools/ 下所有模块级 public 函数: name -> 相对路径。"""
+    """工具定义区的 public 函数: name -> 相对路径。
+
+    扫描 ``mcp_server/tools/``(主工具面)与 ``apps/*/mcp/``(业务模块自带
+    工具,如 workflow)。``async def`` 与普通函数一视同仁——async 工具同样
+    要注册,漏扫会造成门禁盲区(web_search 就是 async)。
+    """
+    roots = [_MCP_ROOT / "tools"] + sorted((_MCP_ROOT.parent / "apps").glob("*/mcp"))
     defined: dict[str, str] = {}
-    for path in sorted((_MCP_ROOT / "tools").rglob("*.py")):
-        if "__pycache__" in path.parts:
-            continue
-        tree = ast.parse(path.read_text())
-        for node in tree.body:
-            if isinstance(node, ast.FunctionDef) and not node.name.startswith("_"):
-                defined.setdefault(node.name, str(path.relative_to(_MCP_ROOT)))
+    for root in roots:
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            tree = ast.parse(path.read_text())
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
+                    defined.setdefault(node.name, str(path.relative_to(_MCP_ROOT.parent)))
     return defined
 
 
 def _registered_names() -> set[str]:
-    """server.py 里 ``mcp.tool()(fn)`` 注册的工具名集合。"""
+    """server.py 里注册的工具名集合。
+
+    支持两种形态:
+    - ``mcp.tool()(fn)`` —— 直接注册
+    - ``mcp.tool()(_mcp_only(fn))`` —— 参数剥离包装(REST 专用参数不进
+      inputSchema),取内层函数名
+    """
+
+    def _target_name(call_arg: ast.AST) -> str | None:
+        if isinstance(call_arg, ast.Name):
+            return call_arg.id
+        if isinstance(call_arg, ast.Call) and isinstance(call_arg.func, ast.Name):
+            if call_arg.func.id == "_mcp_only" and call_arg.args and isinstance(call_arg.args[0], ast.Name):
+                return call_arg.args[0].id
+        return None
+
     server = ast.parse((_MCP_ROOT / "server.py").read_text())
     registered: set[str] = set()
     for node in ast.walk(server):
@@ -57,9 +79,10 @@ def _registered_names() -> set[str]:
             isinstance(inner, ast.Call)
             and isinstance(inner.func, ast.Attribute)
             and inner.func.attr == "tool"
-            and isinstance(node.args[0], ast.Name)
         ):
-            registered.add(node.args[0].id)
+            name = _target_name(node.args[0])
+            if name:
+                registered.add(name)
     return registered
 
 
@@ -75,10 +98,10 @@ def test_no_unregistered_tools() -> None:
 
 
 def test_registration_count_matches_registry() -> None:
-    """注册总数与 tools/__init__.py 的 __all__ 规模一致,防止注册面意外缩水。"""
+    """注册总数与线上工具面一致,防止注册面意外缩水。"""
     registered = _registered_names()
-    assert len(registered) == 400, (
-        f"注册工具数 {len(registered)} != 400。新增/删除工具时同步更新该基线数"
+    assert len(registered) == 410, (
+        f"注册工具数 {len(registered)} != 410。新增/删除工具时同步更新该基线数"
         "（本测试防的是「注册面静默缩水」,正常增删改数字即可）。"
     )
 
@@ -97,20 +120,22 @@ def test_whitelisted_helpers_are_used(name: str) -> None:
     否则它可能只是个忘注册的工具,白名单成了逃生门。
     """
     defined = _defined_public_functions()
-    defining_path = _MCP_ROOT / defined[name]
+    defining_path = _MCP_ROOT.parent / defined[name]
     tree = ast.parse(defining_path.read_text())
 
     # (a) 同文件内其他函数调用了它（如 project_list 委托 project）
     used_locally = any(
         isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == name
         for other in tree.body
-        if isinstance(other, ast.FunctionDef) and other.name != name
+        if isinstance(other, (ast.FunctionDef, ast.AsyncFunctionDef)) and other.name != name
         for node in ast.walk(other)
     )
-    # (b) tools/ 其他文件引用了该名字
+    # (b) 工具定义区其他文件引用了该名字
+    roots = [_MCP_ROOT / "tools"] + sorted((_MCP_ROOT.parent / "apps").glob("*/mcp"))
     used_externally = any(
-        name in (other_path.read_text()) and other_path != defining_path
-        for other_path in (_MCP_ROOT / "tools").rglob("*.py")
+        name in other_path.read_text() and other_path != defining_path
+        for root in roots
+        for other_path in root.rglob("*.py")
         if "__pycache__" not in other_path.parts
     )
     assert used_locally or used_externally, f"白名单成员 {name} 无任何使用者——它可能是忘注册的工具"

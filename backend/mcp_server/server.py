@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from mcp.server.mcpserver import MCPServer
 
 from mcp_server.tools import (
@@ -70,6 +72,7 @@ from mcp_server.tools import (
     create_system_config,
     create_team,
     create_template_binding,
+    create_workflow_template,
     delete_all_materials,
     delete_archive_material,
     delete_archive_overrides,
@@ -107,6 +110,8 @@ from mcp_server.tools import (
     delete_task,
     delete_team,
     delete_template_binding,
+    delete_workflow_run,
+    delete_workflow_template,
     detect_orientation,
     detect_single_page_orientation,
     doc_converter_health_check,
@@ -136,6 +141,7 @@ from mcp_server.tools import (
     download_sms_document,
     download_sms_documents,
     download_supplementary_agreement,
+    duplicate_workflow_template,
     enterprise_prefill,
     enterprise_search,
     execute_case_import,
@@ -228,11 +234,14 @@ from mcp_server.tools import (
     get_server_time,
     get_statistics,
     get_statistics_report,
+    get_step_registry,
+    get_step_registry_flat,
     get_supplementary_agreement,
     get_target_options,
     get_team,
     get_undefined_placeholders,
     get_workflow_detail,
+    get_workflow_template,
     global_search,
     health_check,
     learn_archive_rules,
@@ -296,6 +305,7 @@ from mcp_server.tools import (
     list_template_bindings,
     list_template_library_files,
     list_upcoming_deadlines,
+    list_workflow_templates,
     list_workflows,
     match_templates,
     merge_id_card_manual,
@@ -342,6 +352,7 @@ from mcp_server.tools import (
     start_contract_scan,
     start_folder_scan,
     start_workflow,
+    start_workflow_from_steps,
     submit_captcha_answer,
     submit_court_sms,
     submit_identity_doc_recognition,
@@ -383,6 +394,7 @@ from mcp_server.tools import (
     update_supplementary_agreement,
     update_system_configs,
     update_team,
+    update_workflow_template,
     upload_contract_for_review,
     upload_invoices,
     validate_folder_structure,
@@ -943,11 +955,46 @@ mcp.tool()(web_search)
 mcp.tool()(fetch_url)
 
 # 工作流引擎
-mcp.tool()(start_workflow)
-mcp.tool()(list_workflows)
+# _mcp_only:剥掉 REST 直调专用的 user/org_access/perm_open_access 参数——
+# 不剥离则它们会进 MCP inputSchema,模型看到一个类型为 object 的 user
+# 参数(无法构造、语义困惑),且模型乱传时会绕过 ContextVar 身份重建。
+# 绑定值即默认值,行为等价于「MCP 面不出现这些参数」。
+def _mcp_only(fn: Any) -> Any:
+    import inspect
+    from functools import wraps
+
+    drop = {"user", "org_access", "perm_open_access"}
+
+    @wraps(fn)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        return await fn(*args, **kwargs)
+
+    sig = inspect.signature(fn)
+    wrapper.__signature__ = sig.replace(  # type: ignore[attr-defined]
+        parameters=[p for p in sig.parameters.values() if p.name not in drop]
+    )
+    return wrapper
+
+
+mcp.tool()(_mcp_only(start_workflow))
+mcp.tool()(_mcp_only(list_workflows))
 mcp.tool()(get_workflow_detail)
-mcp.tool()(approve_workflow_step)
+mcp.tool()(_mcp_only(approve_workflow_step))
 mcp.tool()(cancel_workflow)
+# 工作流引擎 · 模板管理与注册表(2026-10-25 补注册;此前实现完整但从未暴露,
+# 注册完整性门禁 test_tool_registration 抓出)。模板写入/删除/复制仅管理员
+# (workflow_tools._require_admin,与 REST ensure_admin_request 同口径);
+# run 删除复用 _mcp_guard_run_access 案件访问校验。
+mcp.tool()(delete_workflow_run)
+mcp.tool()(get_step_registry)
+mcp.tool()(get_step_registry_flat)
+mcp.tool()(_mcp_only(create_workflow_template))
+mcp.tool()(_mcp_only(update_workflow_template))
+mcp.tool()(list_workflow_templates)
+mcp.tool()(get_workflow_template)
+mcp.tool()(_mcp_only(delete_workflow_template))
+mcp.tool()(_mcp_only(duplicate_workflow_template))
+mcp.tool()(start_workflow_from_steps)
 
 # ===== 新增能力（身份 / 期限聚合 / 文档正文 / 任务统一状态）=====
 # 身份与时间：模型自述「我是谁、现在几点」的唯一来源

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.workflow.models import WorkflowRun, WorkflowTemplate
+
+_SUPERUSER = SimpleNamespace(id=1, is_authenticated=True, is_superuser=True)
 
 
 # Helper to mock the ORM on real model classes
@@ -678,6 +681,7 @@ async def test_create_workflow_template_success():
         result = await create_workflow_template(
             name="Test",
             steps=[{"id": "s1", "name": "Step 1", "type": "activity"}],
+            user=_SUPERUSER,
         )
 
     assert result["template_id"] == 1
@@ -705,7 +709,7 @@ async def test_create_workflow_template_slug_collision():
         MockObjs.filter.return_value.aexists = mock_exists
         MockObjs.acreate = AsyncMock(return_value=mock_template)
 
-        result = await create_workflow_template(name="Test", steps=[])
+        result = await create_workflow_template(name="Test", steps=[], user=_SUPERUSER)
 
     assert result["slug"] == "test-1"
 
@@ -728,6 +732,7 @@ async def test_create_workflow_template_with_explicit_slug():
             steps=[],
             slug="my-slug",
             category="preservation",
+            user=_SUPERUSER,
         )
 
     assert result["slug"] == "my-slug"
@@ -744,7 +749,7 @@ async def test_update_workflow_template_not_found():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowTemplate.DoesNotExist("nope"))
 
-        result = await update_workflow_template(999, name="New Name")
+        result = await update_workflow_template(999, name="New Name", user=_SUPERUSER)
 
     assert "error" in result
 
@@ -759,7 +764,7 @@ async def test_update_workflow_template_no_fields():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_template)
 
-        result = await update_workflow_template(1)
+        result = await update_workflow_template(1, user=_SUPERUSER)
 
     assert "error" in result
 
@@ -778,7 +783,7 @@ async def test_update_workflow_template_update_name():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_template)
 
-        result = await update_workflow_template(1, name="New Name")
+        result = await update_workflow_template(1, name="New Name", user=_SUPERUSER)
 
     assert result["name"] == "New Name"
     assert "name" in result["updated_fields"]
@@ -801,6 +806,7 @@ async def test_update_workflow_template_update_steps():
         result = await update_workflow_template(
             1,
             steps=[{"id": "s1", "name": "Step 1", "type": "activity"}],
+            user=_SUPERUSER,
         )
 
     assert "steps_schema" in result["updated_fields"]
@@ -821,7 +827,7 @@ async def test_update_workflow_template_deactivate():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_template)
 
-        result = await update_workflow_template(1, is_active=False)
+        result = await update_workflow_template(1, is_active=False, user=_SUPERUSER)
 
     assert "is_active" in result["updated_fields"]
 
@@ -908,7 +914,7 @@ async def test_delete_workflow_template_not_found():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowTemplate.DoesNotExist("nope"))
 
-        result = await delete_workflow_template(999)
+        result = await delete_workflow_template(999, user=_SUPERUSER)
 
     assert "error" in result
 
@@ -925,7 +931,7 @@ async def test_delete_workflow_template_success():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_t)
 
-        result = await delete_workflow_template(1)
+        result = await delete_workflow_template(1, user=_SUPERUSER)
 
     assert "已删除" in result["message"]
 
@@ -940,7 +946,7 @@ async def test_duplicate_workflow_template_not_found():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowTemplate.DoesNotExist("nope"))
 
-        result = await duplicate_workflow_template(999)
+        result = await duplicate_workflow_template(999, user=_SUPERUSER)
 
     assert "error" in result
 
@@ -968,7 +974,7 @@ async def test_duplicate_workflow_template_success():
         MockObjs.filter.return_value.aexists = AsyncMock(return_value=False)
         MockObjs.acreate = AsyncMock(return_value=mock_new)
 
-        result = await duplicate_workflow_template(1)
+        result = await duplicate_workflow_template(1, user=_SUPERUSER)
 
     assert result["source_template_id"] == 1
 
@@ -999,6 +1005,6 @@ async def test_duplicate_workflow_template_with_new_name():
         MockObjs.filter.return_value.aexists = AsyncMock(return_value=False)
         MockObjs.acreate = AsyncMock(return_value=mock_new)
 
-        result = await duplicate_workflow_template(1, new_name="Custom Name")
+        result = await duplicate_workflow_template(1, new_name="Custom Name", user=_SUPERUSER)
 
     assert result["name"] == "Custom Name"
