@@ -13,7 +13,6 @@ from mcp_server.tools import (
     approve_workflow_step,
     assign_lawyer,
     assign_sms_case,
-    auto_namer_process,
     auto_namer_process_by_path,
     batch_create_cases,
     batch_create_clients,
@@ -703,7 +702,6 @@ mcp.tool()(get_captcha_image)
 mcp.tool()(submit_captcha_answer)
 
 # 自动化 - 自动命名
-mcp.tool()(auto_namer_process)
 mcp.tool()(auto_namer_process_by_path)
 
 # 自动化 - 网上立案 (需 plugins/court_automation)

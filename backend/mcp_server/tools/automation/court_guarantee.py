@@ -22,9 +22,15 @@ def execute_guarantee(case_id: int, extra: dict[str, Any] | None = None) -> dict
     return client.post("/court-guarantee/execute", json={"case_id": case_id, **(extra or {})})  # type: ignore[return-value]
 
 
-def ensure_guarantee_quote(case_id: int, amount: float, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """确保保全询价已创建。若无则自动创建。"""
-    return client.post("/court-guarantee/quote/ensure", json={"case_id": case_id, "amount": amount, **(extra or {})})  # type: ignore[return-value]
+def ensure_guarantee_quote(case_id: int) -> dict[str, Any]:
+    """确保保全询价已创建（无则自动创建）。
+
+    询价金额**不由本工具控制**——后端固定取案件档案的保全金额
+    （preservation_amount）。历史版本的 amount 参数从未生效（REST
+    ``CaseQuoteOperationIn`` 只收 case_id）,2026-10-25 参数级契约审计后移除;
+    要按特定金额询价,先更新案件的保全金额。
+    """
+    return client.post("/court-guarantee/quote/ensure", json={"case_id": case_id})  # type: ignore[return-value]
 
 
 def bind_guarantee_quote(quote_id: int, case_id: int) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 """自动化域 tools 导出"""
 
-from mcp_server.tools.automation.auto_namer import auto_namer_process, auto_namer_process_by_path
+from mcp_server.tools.automation.auto_namer import auto_namer_process_by_path
 from mcp_server.tools.automation.captcha import get_captcha_image, submit_captcha_answer
 
 try:
@@ -84,7 +84,6 @@ __all__ = [
     "get_captcha_image",
     "submit_captcha_answer",
     # 自动命名
-    "auto_namer_process",
     "auto_namer_process_by_path",
     # 性能监控
     "health_check",

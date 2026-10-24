@@ -694,7 +694,12 @@ def _get_mcp_tools() -> dict[str, Any]:
     if _MCP_TOOLS is not None:
         return _MCP_TOOLS
 
-    from mcp_server.tools.automation.auto_namer import auto_namer_process
+    # 「auto_namer_process」键名是 workflow 步骤模板的稳定派发名,保留;
+    # 实现换成 process-by-path 版本——旧实现 POST JSON 到 multipart-only 的
+    # /process 端点,每次调用必然 422（2026-10-25 参数级契约审计）。
+    # 服务端 activity 手里是真实文件路径,by-path 语义正确;admin 门禁由
+    # MCP 服务账号（超管）满足。
+    from mcp_server.tools.automation.auto_namer import auto_namer_process_by_path
     from mcp_server.tools.automation.court_guarantee import execute_guarantee
     from mcp_server.tools.automation.court_sms import submit_court_sms
     from mcp_server.tools.automation.document_processor import process_document
@@ -734,7 +739,7 @@ def _get_mcp_tools() -> dict[str, Any]:
         "create_research_task": create_research_task,
         "check_law_references": check_law_references,
         "create_new_reminder": create_new_reminder,
-        "auto_namer_process": auto_namer_process,
+        "auto_namer_process": auto_namer_process_by_path,
         "process_document": process_document,
         "convert_document": convert_document,
         "calculate_litigation_fee": calculate_litigation_fee,

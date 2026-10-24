@@ -7,11 +7,6 @@ from typing import Any
 from mcp_server.client import client
 
 
-def auto_namer_process(file_path: str) -> dict[str, Any]:
-    """对文件执行自动命名。file_path 为文件路径。"""
-    return client.post("/automation/auto-namer/process", json={"file_path": file_path})  # type: ignore[return-value]
-
-
 def auto_namer_process_by_path(
     file_path: str,
     prompt: str | None = None,

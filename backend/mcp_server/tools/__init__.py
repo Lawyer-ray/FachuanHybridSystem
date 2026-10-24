@@ -2,7 +2,6 @@
 
 from mcp_server.tools.automation import (
     assign_sms_case,
-    auto_namer_process,
     auto_namer_process_by_path,
     cleanup_resources,
     clear_cache,
@@ -680,7 +679,6 @@ __all__ = [
     "download_sms_document",
     "get_captcha_image",
     "submit_captcha_answer",
-    "auto_namer_process",
     "auto_namer_process_by_path",
     # 性能监控
     "health_check",
