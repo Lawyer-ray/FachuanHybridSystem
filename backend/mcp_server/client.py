@@ -111,9 +111,16 @@ class FachuanClient:
         resp = self._http.post(path, headers=self._headers(), files=files, data=data or {})
         return self._handle(resp)
 
-    def download(self, path: str, **kwargs: Any) -> tuple[bytes, str, str]:
-        """下载二进制内容，返回 (content_bytes, filename, content_type)。"""
-        resp = self._http.get(path, headers=self._headers(), **kwargs)
+    def download(self, path: str, *, method: str = "GET", **kwargs: Any) -> tuple[bytes, str, str]:
+        """下载二进制内容，返回 (content_bytes, filename, content_type)。
+
+        method: 默认 GET；生成类下载端点（诉讼文书 / 保全材料 / 授权材料等）
+        是 POST，传 ``method="POST"``（可携带 ``json=`` 等请求体）。历史上
+        这里写死 ``self._http.get(...)``，而 httpx 的 ``.get()`` 既不接受
+        ``method`` 也不接受 ``json``——9 个传 ``method="POST"`` 的工具一调用
+        就 TypeError，工具面静默全废（契约测试只校验意图，不校验这层）。
+        """
+        resp = self._http.request(method.upper(), path, headers=self._headers(), **kwargs)
         if not resp.is_success:
             try:
                 detail = resp.json()

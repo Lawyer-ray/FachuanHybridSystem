@@ -338,7 +338,7 @@ class TestDownloadError:
     def test_download_non_success_raises_runtime_error(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         resp = _make_response(404, json_data={"detail": "not found"})
-        http.get.return_value = resp
+        http.request.return_value = resp
         with pytest.raises(RuntimeError, match=r"HTTP 404"):
             c.download("/files/missing")
 
@@ -402,7 +402,7 @@ class TestDownload:
     def test_download_returns_content_and_defaults(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         body = b"\x89PNG\r\n"
-        http.get.return_value = self._make_download_response(body)
+        http.request.return_value = self._make_download_response(body)
 
         data, fname, ctype = c.download("/files/img.png")
 
@@ -416,7 +416,7 @@ class TestDownload:
 
         encoded_name = quote("测试文件.pdf")
         disposition = f"attachment; filename*=UTF-8''{encoded_name}"
-        http.get.return_value = self._make_download_response(
+        http.request.return_value = self._make_download_response(
             b"%PDF", headers={"content-disposition": disposition, "content-type": "application/pdf"}
         )
 
@@ -427,7 +427,7 @@ class TestDownload:
 
     def test_download_parses_filename_quoted(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
-        http.get.return_value = self._make_download_response(
+        http.request.return_value = self._make_download_response(
             b"data",
             headers={"content-disposition": 'attachment; filename="report.xlsx"'},
         )
@@ -438,7 +438,7 @@ class TestDownload:
 
     def test_download_parses_filename_unquoted(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
-        http.get.return_value = self._make_download_response(
+        http.request.return_value = self._make_download_response(
             b"data",
             headers={"content-disposition": "attachment; filename=report.xlsx"},
         )
@@ -453,7 +453,7 @@ class TestDownload:
 
         encoded = quote("中文.xlsx")
         disposition = f"attachment; filename=\"fallback.xlsx\"; filename*=UTF-8''{encoded}"
-        http.get.return_value = self._make_download_response(b"data", headers={"content-disposition": disposition})
+        http.request.return_value = self._make_download_response(b"data", headers={"content-disposition": disposition})
 
         _, fname, _ = c.download("/files/x")
 
@@ -461,13 +461,54 @@ class TestDownload:
 
     def test_download_raises_on_error_status(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
-        http.get.return_value = httpx.Response(
+        http.request.return_value = httpx.Response(
             status_code=500,
             content=b"Server Error",
             request=httpx.Request("GET", REAL_BASE),
         )
         with pytest.raises(RuntimeError, match=r"HTTP 500"):
             c.download("/files/bad")
+
+    def test_download_defaults_to_get_request(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"data")
+
+        c.download("/files/x")
+
+        args, kwargs = http.request.call_args
+        assert args[0] == "GET"
+        assert args[1] == "/files/x"
+        assert "method" not in kwargs
+
+    def test_download_post_with_json_reaches_wire(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        """method="POST" + json= 必须原样到达 wire。
+
+        回归测试：旧实现写死 ``self._http.get(path, **kwargs)``，httpx 的
+        ``.get()`` 不接受 method/json —— authorization/preservation/litigation
+        共 9 个下载工具一调用就 TypeError，且静态契约测试全绿（它只校验
+        意图，不校验 client 这一层）。
+        """
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"%PDF", headers={"content-type": "application/pdf"})
+
+        data, _, ctype = c.download(
+            "/documents/cases/1/litigation/complaint/download", method="POST", json={"overwrite": True}
+        )
+
+        assert data == b"%PDF"
+        assert ctype == "application/pdf"
+        args, kwargs = http.request.call_args
+        assert args[0] == "POST"
+        assert args[1] == "/documents/cases/1/litigation/complaint/download"
+        assert kwargs["json"] == {"overwrite": True}
+
+    def test_download_normalizes_lowercase_method(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"data")
+
+        c.download("/files/x", method="post")
+
+        assert http.request.call_args.args[0] == "POST"
 
 
 # ===================================================================

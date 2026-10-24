@@ -57,6 +57,31 @@ DEFAULT_HOST = "127.0.0.1"
 ENDPOINT_PATH = "/mcp"
 READY_TIMEOUT = 30.0
 
+#: MCP 工具面 exposure 模式（对应 pi 的 McpExposure）。灰度开关：
+#: - ``direct``（默认）：400 个工具 schema 全量声明给模型。实测工具面
+#:   ~215KB ≈ 60k+ token 常驻上下文，靠 prompt cache 摊薄成本。
+#: - ``deferred``：工具不声明给模型，模型经 pi 内置 ``tool_search`` 按需
+#:   加载后直接调用。省上下文，但两个已知代价：OpenAI 兼容网关上每次
+#:   延迟加载会丢 prompt cache（pi 1.4.0 changelog #10940）；每次工具
+#:   发现多一跳搜索轮次。切换前先小流量对比 AgentRun 成本/命中率。
+#:
+#: 历史背景：pi 默认 ``codemode`` 下工具不声明给模型，表现为「模型说去查、
+#: 但没有 tool_call 直接 done」（见下方 server 字典注释），所以必须显式写。
+#: 注意：审批四级按「工具全名」（``mcp__fachuan__delete_case``）匹配，
+#: 任何「用通用分发工具代替具名工具」的裁剪方案都会破坏审批链，
+#: ``deferred`` 没有此问题（加载后仍以真名调用）。
+EXPOSURE_ENV = "FACHUAN_MCP_EXPOSURE"
+_VALID_EXPOSURES = frozenset({"direct", "deferred", "codemode", "hidden"})
+
+
+def resolve_exposure() -> str:
+    """读工具面 exposure 模式；非法值告警并回退 ``direct``（保持现状行为）。"""
+    raw = (os.environ.get(EXPOSURE_ENV, "direct") or "").strip().lower() or "direct"
+    if raw not in _VALID_EXPOSURES:
+        logger.warning("非法 %s=%r（合法值: %s），回退 direct", EXPOSURE_ENV, raw, ", ".join(sorted(_VALID_EXPOSURES)))
+        return "direct"
+    return raw
+
 
 @dataclass(slots=True)
 class McpEndpoint:
@@ -220,21 +245,25 @@ def write_pi_config(
     # 律师本人身份调 REST API（confused deputy 修复，见 ``pi/user_token.py``）。
     # token 缺失时展开为空，mcp_server 回退服务账号（stdio/手工场景）。
     config_path = root / "mcp.json"
+    exposure = resolve_exposure()
     if shared_enabled():
         server: dict[str, Any] = {
             "type": "streamable-http",
             "url": resolved.url,
             "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
-            # pi 1.3.0 默认 exposure=codemode：MCP 工具不声明给模型（只能经
+            # pi 默认 exposure=codemode：MCP 工具不声明给模型（只能经
             # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
-            # done」。法穿场景是模型直接挑工具，必须 direct 全量声明。
-            "exposure": "direct",
+            # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；
+            # 按需加载的灰度实验见 resolve_exposure / FACHUAN_MCP_EXPOSURE。
+            "exposure": exposure,
         }
     else:
         server = {
             "command": _python_bin(),
             "args": ["-m", "mcp_server"],
             "cwd": str(_backend_dir()),
+            # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
+            "exposure": exposure,
         }
     config_path.write_text(
         json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
@@ -311,21 +340,25 @@ def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = N
     root = Path(target_dir)
     root.mkdir(parents=True, exist_ok=True)
     config_path = root / "mcp.json"
+    exposure = resolve_exposure()
     if shared_enabled():
         server: dict[str, Any] = {
             "type": "streamable-http",
             "url": resolved.url,
             "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
-            # pi 1.3.0 默认 exposure=codemode：MCP 工具不声明给模型（只能经
+            # pi 默认 exposure=codemode：MCP 工具不声明给模型（只能经
             # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
-            # done」。法穿场景是模型直接挑工具，必须 direct 全量声明。
-            "exposure": "direct",
+            # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；
+            # 按需加载的灰度实验见 resolve_exposure / FACHUAN_MCP_EXPOSURE。
+            "exposure": exposure,
         }
     else:
         server = {
             "command": _python_bin(),
             "args": ["-m", "mcp_server"],
             "cwd": str(_backend_dir()),
+            # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
+            "exposure": exposure,
         }
     config_path.write_text(
         json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
