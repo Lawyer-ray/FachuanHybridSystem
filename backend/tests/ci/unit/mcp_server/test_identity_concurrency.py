@@ -14,16 +14,80 @@ server 进程，身份靠 ``identity.request_authorization`` ContextVar 按请�
 
 from __future__ import annotations
 
+import asyncio
 import threading
 
 import httpx
 import pytest
 
 from mcp_server.client import FachuanClient
-from mcp_server.identity import request_authorization
+from mcp_server.identity import RequestAuthMiddleware, passthrough_authorization, request_authorization
 
 N_THREADS = 16
 N_ROUNDS = 50
+
+
+class TestRequestAuthMiddlewareIsolation:
+    """第 48 轮线程测试直接设 ContextVar,绕过了 ASGI 中间件本体——
+    这里补上:中间件在并发请求下必须把各自的 Authorization 写进
+    各自请求任务上下文,互不污染;无 Authorization 头时保持默认(回退)。"""
+
+    @pytest.fixture(autouse=True)
+    def _reset_contextvar(self):
+        token = request_authorization.set("")
+        yield
+        request_authorization.reset(token)
+
+    @staticmethod
+    def _scope(auth: str | None) -> dict[str, object]:
+        headers = [] if auth is None else [(b"authorization", auth.encode("latin-1"))]
+        return {"type": "http", "headers": headers}
+
+    def test_concurrent_requests_isolated(self):
+        """两个并发 ASGI 请求任务各持不同 Bearer,下游读到的一直是自己那一份。"""
+        observed: list[tuple[str, str]] = []
+
+        async def downstream(expected: str, tag: str) -> None:
+            for _ in range(50):
+                # 中间件 set 后本任务全程可见;与另一任务交错也不串
+                observed.append((tag, passthrough_authorization()))
+                await asyncio.sleep(0)
+
+        async def run() -> None:
+            async def noop_app(scope: object, receive: object, send: object) -> None:
+                return
+
+            mw = RequestAuthMiddleware(noop_app)
+
+            async def call(expected: str, tag: str) -> None:
+                # 每个请求用独立任务模拟 ASGI server 的任务模型
+                await mw(self._scope(expected), None, None)  # type: ignore[arg-type]
+                await downstream(expected, tag)
+
+            await asyncio.gather(
+                call("Bearer lawyer-a", "a"),
+                call("Bearer lawyer-b", "b"),
+            )
+
+        asyncio.run(run())
+        assert len(observed) == 100
+        wrong = [(t, v) for t, v in observed if v != f"Bearer lawyer-{t}"]
+        assert not wrong, f"中间件串号: {wrong[:5]}"
+
+    def test_missing_or_invalid_header_keeps_default(self):
+        """无 Authorization 头/非 Bearer 值 → ContextVar 保持默认空串(回退服务账号)。"""
+
+        async def run() -> None:
+            async def noop_app(scope: object, receive: object, send: object) -> None:
+                return
+
+            mw = RequestAuthMiddleware(noop_app)
+            await mw(self._scope(None), None, None)
+            assert request_authorization.get() == ""
+            await mw(self._scope("Basic dXNlcjpwYXNz"), None, None)  # type: ignore[arg-type]
+            assert passthrough_authorization() == "", "非 Bearer 方案必须拒绝透传"
+
+        asyncio.run(run())
 
 
 class TestConcurrentIdentityIsolation:
@@ -50,7 +114,7 @@ class TestConcurrentIdentityIsolation:
             return httpx.Response(200, json={"ok": True})
 
         client = FachuanClient()
-        client._http = httpx.Client(  # noqa: SLF001 - 测试注入 mock transport
+        client._http = httpx.Client(
             base_url="http://testserver", transport=httpx.MockTransport(handler), trust_env=False
         )
 
@@ -95,7 +159,7 @@ class TestConcurrentIdentityIsolation:
             return httpx.Response(200, json={})
 
         client = FachuanClient()
-        client._http = httpx.Client(  # noqa: SLF001 - 测试注入 mock transport
+        client._http = httpx.Client(
             base_url="http://testserver", transport=httpx.MockTransport(handler), trust_env=False
         )
 
