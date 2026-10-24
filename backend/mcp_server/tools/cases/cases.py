@@ -48,18 +48,18 @@ def list_cases(
         params["contract_id"] = contract_id
     if limit:
         params["limit"] = max(1, min(limit, 2000))
-    rows: list[Any] = client.get("/cases/cases", params=params)  # type: ignore[assignment]
+    rows: list[Any] = client.get("/cases/cases", params=params)
     return project_list(rows, fields, CASE_LIST_FIELDS, full=full)
 
 
 def search_cases(q: str, limit: int = 10) -> list[dict[str, Any]]:
     """按关键词搜索案件，支持案件名称、当事人姓名等模糊搜索。"""
-    return client.get("/cases/cases/search", params={"q": q, "limit": limit})  # type: ignore[return-value]
+    return client.get("/cases/cases/search", params={"q": q, "limit": limit})  # type: ignore[no-any-return]
 
 
 def get_case(case_id: int) -> dict[str, Any]:
     """获取单个案件的详细信息，包含当事人、指派律师、案号、进展日志等。"""
-    return client.get(f"/cases/cases/{case_id}")  # type: ignore[return-value]
+    return client.get(f"/cases/cases/{case_id}")  # type: ignore[no-any-return]
 
 
 def create_case(
@@ -78,7 +78,7 @@ def create_case(
         payload["cause_of_action"] = cause_of_action
     if status:
         payload["status"] = status
-    return client.post("/cases/cases", json=payload)  # type: ignore[return-value]
+    return client.post("/cases/cases", json=payload)  # type: ignore[no-any-return]
 
 
 def update_case(
@@ -104,7 +104,7 @@ def update_case(
         payload["cause_of_action"] = cause_of_action
     if status is not None:
         payload["status"] = status
-    return client.put(f"/cases/cases/{case_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/cases/cases/{case_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_case(case_id: int) -> None:
@@ -147,4 +147,4 @@ def create_full_case(
         payload["supervising_authorities"] = supervising_authorities
     if logs:
         payload["logs"] = logs
-    return client.post("/cases/cases/full", json=payload)  # type: ignore[return-value]
+    return client.post("/cases/cases/full", json=payload)  # type: ignore[no-any-return]

@@ -185,7 +185,8 @@ def list_folder_files(
     if (contract_id is None) == (case_id is None):
         raise ValueError("contract_id 与 case_id 必须二选一（来自消息里的目录引用）")
     owner_kind = "case" if case_id is not None else "contract"
-    owner_id = int(case_id if case_id is not None else contract_id)
+    # 异或守卫保证二者恰有其一非 None,mypy 穿不透该模式;int() 兼容引用传 str id
+    owner_id = int(case_id if case_id is not None else contract_id)  # type: ignore[arg-type]
     path = f"/{'cases' if owner_kind == 'case' else 'contracts'}/{owner_id}/folder-entries"
     info = client.get(path, params={"subpath": subpath} if subpath else {})
     folders = info.get("folders") or []

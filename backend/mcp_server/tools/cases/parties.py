@@ -14,7 +14,7 @@ def list_case_parties(case_id: int) -> list[dict[str, Any]]:
     早前这里声明 ``dict`` 并用 ``as_items`` 包一层分页壳，但那只是掩盖了
     类型不符（分页壳里的 ``items`` 是模型永远看不到的假结构）。
     """
-    return client.get("/cases/parties", params={"case_id": case_id})  # type: ignore[return-value]
+    return client.get("/cases/parties", params={"case_id": case_id})  # type: ignore[no-any-return]
 
 
 def add_case_party(case_id: int, client_id: int, legal_status: str | None = None) -> dict[str, Any]:
@@ -29,12 +29,12 @@ def add_case_party(case_id: int, client_id: int, legal_status: str | None = None
     payload: dict[str, Any] = {"case_id": case_id, "client_id": client_id}
     if legal_status:
         payload["legal_status"] = legal_status
-    return client.post("/cases/parties", json=payload)  # type: ignore[return-value]
+    return client.post("/cases/parties", json=payload)  # type: ignore[no-any-return]
 
 
 def get_case_party(party_id: int) -> dict[str, Any]:
     """获取单个当事人的详情（身份、诉讼地位、联系方式）。"""
-    return client.get(f"/cases/parties/{party_id}")  # type: ignore[return-value]
+    return client.get(f"/cases/parties/{party_id}")  # type: ignore[no-any-return]
 
 
 def update_case_party(
@@ -48,8 +48,8 @@ def update_case_party(
     payload: dict[str, Any] = {}
     if legal_status is not None:
         payload["legal_status"] = legal_status
-    payload.update(extra)
-    return client.put(f"/cases/parties/{party_id}", json=payload)  # type: ignore[return-value]
+    payload.update(extra or {})  # extra 可为 None:mypy 分诊发现的真 bug,裸 .update(None) 必 TypeError
+    return client.put(f"/cases/parties/{party_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_case_party(party_id: int) -> None:

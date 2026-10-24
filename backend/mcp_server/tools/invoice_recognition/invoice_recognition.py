@@ -8,16 +8,16 @@ from typing import Any
 from mcp_server.client import client
 
 
-def _build_invoice_files(files: list[dict[str, str]]) -> dict[str, Any]:
+def _build_invoice_files(files: list[dict[str, str]]) -> list[tuple[str, tuple[str, bytes, str]]]:
     """将 [{base64, filename}] 转为 httpx files 格式（多文件同字段名）。"""
-    result = []
+    result: list[tuple[str, tuple[str, bytes, str]]] = []
     for f in files:
         file_bytes = base64.b64decode(f["base64"])
         filename = f.get("filename", "invoice.pdf")
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "pdf"
         mime = "application/pdf" if ext == "pdf" else f"image/{ext}"
         result.append(("files", (filename, file_bytes, mime)))
-    return result  # type: ignore[return-value]
+    return result
 
 
 def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:

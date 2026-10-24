@@ -17,12 +17,12 @@ def list_credentials(
         params["lawyer_id"] = lawyer_id
     if lawyer_name:
         params["lawyer_name"] = lawyer_name
-    return client.get("/organization/credentials", params=params)  # type: ignore[return-value]
+    return client.get("/organization/credentials", params=params)  # type: ignore[no-any-return]
 
 
 def get_credential(cred_id: int) -> dict[str, Any]:
     """获取单个账号凭证详情（站点、账号;密码不回显）。"""
-    return client.get(f"/organization/credentials/{cred_id}")  # type: ignore[return-value]
+    return client.get(f"/organization/credentials/{cred_id}")  # type: ignore[no-any-return]
 
 
 def create_credential(
@@ -48,7 +48,7 @@ def create_credential(
     }
     if url:
         payload["url"] = url
-    return client.post("/organization/credentials", json=payload)  # type: ignore[return-value]
+    return client.post("/organization/credentials", json=payload)  # type: ignore[no-any-return]
 
 
 def update_credential(
@@ -68,7 +68,7 @@ def update_credential(
         payload["account"] = account
     if password is not None:
         payload["password"] = password
-    return client.put(f"/organization/credentials/{cred_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/organization/credentials/{cred_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_credential(cred_id: int) -> None:

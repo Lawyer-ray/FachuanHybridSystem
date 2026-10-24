@@ -1020,7 +1020,7 @@ def _workflow_tool(fn: Any) -> Any:
     else:
 
         @wraps(fn)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:  # type: ignore[misc]
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return fn(*args, **kwargs)
             except BusinessException as exc:

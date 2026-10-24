@@ -25,12 +25,12 @@ def list_clients(
         params["client_type"] = client_type
     if is_our_client is not None:
         params["is_our_client"] = is_our_client
-    return client.get("/client/clients", params=params)  # type: ignore[return-value]
+    return client.get("/client/clients", params=params)  # type: ignore[no-any-return]
 
 
 def get_client(client_id: int) -> dict[str, Any]:
     """获取单个客户的详细信息，包含身份证件、联系方式等。"""
-    return client.get(f"/client/clients/{client_id}")  # type: ignore[return-value]
+    return client.get(f"/client/clients/{client_id}")  # type: ignore[no-any-return]
 
 
 def create_client(
@@ -52,12 +52,12 @@ def create_client(
         payload["id_number"] = id_number
     if legal_representative:
         payload["legal_representative"] = legal_representative
-    return client.post("/client/clients", json=payload)  # type: ignore[return-value]
+    return client.post("/client/clients", json=payload)  # type: ignore[no-any-return]
 
 
 def parse_client_text(text: str) -> dict[str, Any]:
     """从自然语言文本中解析客户信息（姓名、电话、身份证号等），返回结构化数据。适合从聊天记录或文件中提取客户信息。"""
-    return client.post("/client/clients/parse-text", json={"text": text})  # type: ignore[return-value]
+    return client.post("/client/clients/parse-text", json={"text": text})  # type: ignore[no-any-return]
 
 
 def update_client(
@@ -86,7 +86,7 @@ def update_client(
         payload["legal_representative"] = legal_representative
     if is_our_client is not None:
         payload["is_our_client"] = is_our_client
-    return client.put(f"/client/clients/{client_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/client/clients/{client_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_client(client_id: int) -> None:
@@ -112,24 +112,24 @@ def list_clients_with_docs(
         params["is_our_client"] = is_our_client
     if search is not None:
         params["search"] = search
-    return client.get("/client/clients", params=params)  # type: ignore[return-value]
+    return client.get("/client/clients", params=params)  # type: ignore[no-any-return]
 
 
 def get_identity_doc_task(task_id: str) -> dict[str, Any]:
     """查询证件识别（OCR）任务的状态与结果。"""
-    return client.get(f"/client/identity-doc/task/{task_id}")  # type: ignore[return-value]
+    return client.get(f"/client/identity-doc/task/{task_id}")  # type: ignore[no-any-return]
 
 
 def submit_identity_doc_recognition() -> dict[str, Any]:
     """提交证件识别异步任务（需文件，MCP 场景不可用，保留接口定义）。"""
-    return client.post("/client/identity-doc/recognize/submit", json={})  # type: ignore[return-value]
+    return client.post("/client/identity-doc/recognize/submit", json={})  # type: ignore[no-any-return]
 
 
 def merge_id_card_manual(
     front_image_path: str, back_image_path: str, front_corners: list[list[int]], back_corners: list[list[int]]
 ) -> dict[str, Any]:
     """手动指定四角坐标合并身份证正反面为 PDF。"""
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         "/client/identity-docs/merge-id-card-manual",
         json={
             "front_image_path": front_image_path,
@@ -137,4 +137,4 @@ def merge_id_card_manual(
             "front_corners": front_corners,
             "back_corners": back_corners,
         },
-    )  # type: ignore[return-value]
+    )

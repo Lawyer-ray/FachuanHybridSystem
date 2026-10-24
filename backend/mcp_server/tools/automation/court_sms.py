@@ -21,7 +21,7 @@ def submit_court_sms(
     payload: dict[str, Any] = {"content": content}
     if received_at:
         payload["received_at"] = received_at
-    return client.post("/automation/court-sms", json=payload)  # type: ignore[return-value]
+    return client.post("/automation/court-sms", json=payload)  # type: ignore[no-any-return]
 
 
 def list_court_sms(
@@ -58,7 +58,7 @@ def list_court_sms(
         params["date_from"] = date_from
     if date_to:
         params["date_to"] = date_to
-    payload: dict[str, Any] = client.get("/automation/court-sms", params=params)  # type: ignore[assignment]
+    payload: dict[str, Any] = client.get("/automation/court-sms", params=params)
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
         raise FachuanApiError(
             f"/automation/court-sms 返回了非分页结构: {type(payload).__name__}；后端契约可能已变更，请检查"
@@ -68,17 +68,17 @@ def list_court_sms(
 
 def get_court_sms_detail(sms_id: int) -> dict[str, Any]:
     """查询单条法院短信的处理详情，包含解析结果和关联案件信息。"""
-    return client.get(f"/automation/court-sms/{sms_id}")  # type: ignore[return-value]
+    return client.get(f"/automation/court-sms/{sms_id}")  # type: ignore[no-any-return]
 
 
 def assign_sms_case(sms_id: int, case_id: int) -> dict[str, Any]:
     """手动为法院短信指定关联案件（自动匹配失败时使用）。"""
-    return client.post(f"/automation/court-sms/{sms_id}/assign-case", json={"case_id": case_id})  # type: ignore[return-value]
+    return client.post(f"/automation/court-sms/{sms_id}/assign-case", json={"case_id": case_id})  # type: ignore[no-any-return]
 
 
 def retry_sms_processing(sms_id: int) -> dict[str, Any]:
     """重新处理法院短信。已绑定案件的保留关联，仅重新执行下载/重命名/通知；未绑定的重新执行完整流程。"""
-    return client.post(f"/automation/court-sms/{sms_id}/retry", json={})  # type: ignore[return-value]
+    return client.post(f"/automation/court-sms/{sms_id}/retry", json={})  # type: ignore[no-any-return]
 
 
 def delete_court_sms(sms_id: int) -> None:

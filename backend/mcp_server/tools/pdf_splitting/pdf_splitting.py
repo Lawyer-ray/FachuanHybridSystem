@@ -17,7 +17,7 @@ def create_pdf_split_job(
 ) -> dict[str, Any]:
     """上传 PDF 并创建拆解任务。file_base64 为文件的 base64 编码；split_mode: content_analysis（内容识别）或 by_page（按页）；ocr_profile: balanced/fast/accurate。返回 job_id。"""
     file_bytes = base64.b64decode(file_base64)
-    return client.upload(
+    return client.upload(  # type: ignore[no-any-return]
         "/pdf-splitting/jobs",
         files={"file": (filename, file_bytes, "application/pdf")},
         data={
@@ -25,22 +25,22 @@ def create_pdf_split_job(
             "split_mode": split_mode,
             "ocr_profile": ocr_profile,
         },
-    )  # type: ignore[return-value]
+    )
 
 
 def get_pdf_split_job(job_id: str) -> dict[str, Any]:
     """查询 PDF 拆解任务状态和结果。status: pending/processing/review_required/exporting/completed/failed/cancelled。"""
-    return client.get(f"/pdf-splitting/jobs/{job_id}")  # type: ignore[return-value]
+    return client.get(f"/pdf-splitting/jobs/{job_id}")  # type: ignore[no-any-return]
 
 
 def confirm_pdf_split(job_id: str, segments: list[dict[str, Any]]) -> dict[str, Any]:
     """确认 PDF 拆解分段结果，触发最终打包。segments 为分段列表，每项包含 page_start、page_end、segment_type、filename 等字段。"""
-    return client.post(f"/pdf-splitting/jobs/{job_id}/confirm", json={"segments": segments})  # type: ignore[return-value]
+    return client.post(f"/pdf-splitting/jobs/{job_id}/confirm", json={"segments": segments})  # type: ignore[no-any-return]
 
 
 def cancel_pdf_split(job_id: str) -> dict[str, Any]:
     """取消进行中的 PDF 拆解任务。"""
-    return client.post(f"/pdf-splitting/jobs/{job_id}/cancel", json={})  # type: ignore[return-value]
+    return client.post(f"/pdf-splitting/jobs/{job_id}/cancel", json={})  # type: ignore[no-any-return]
 
 
 def download_pdf_split_result(job_id: str) -> dict[str, Any]:

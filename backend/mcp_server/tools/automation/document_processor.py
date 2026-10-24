@@ -18,7 +18,7 @@ def process_document(
         params["limit"] = limit
     if preview_page is not None:
         params["preview_page"] = preview_page
-    return client.post("/automation/document-processor/process", params=params, json={})  # type: ignore[return-value]
+    return client.post("/automation/document-processor/process", params=params, json={})  # type: ignore[no-any-return]
 
 
 def process_document_by_path(

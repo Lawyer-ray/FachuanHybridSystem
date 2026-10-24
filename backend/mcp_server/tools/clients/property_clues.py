@@ -9,21 +9,21 @@ from mcp_server.client import client
 
 def list_property_clues(client_id: int) -> list[dict[str, Any]]:
     """查询指定客户的所有财产线索，包含房产、车辆、银行账户等信息。"""
-    return client.get(f"/client/clients/{client_id}/property-clues")  # type: ignore[return-value]
+    return client.get(f"/client/clients/{client_id}/property-clues")  # type: ignore[no-any-return]
 
 
 def create_property_clue(client_id: int, clue_type: str, content: str) -> dict[str, Any]:
     """为客户添加财产线索。clue_type 有效值: bank（银行账户）、alipay（支付宝账户）、
     wechat（微信账户）、real_estate（不动产）、other（其他）。content 为线索详情。"""
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         f"/client/clients/{client_id}/property-clues",
         json={"clue_type": clue_type, "content": content},
-    )  # type: ignore[return-value]
+    )
 
 
 def get_property_clue(clue_id: int) -> dict[str, Any]:
     """获取单条财产线索详情（类型:银行/支付宝/微信/不动产等）。"""
-    return client.get(f"/client/property-clues/{clue_id}")  # type: ignore[return-value]
+    return client.get(f"/client/property-clues/{clue_id}")  # type: ignore[no-any-return]
 
 
 def update_property_clue(clue_id: int, clue_type: str | None = None, content: str | None = None) -> dict[str, Any]:
@@ -33,7 +33,7 @@ def update_property_clue(clue_id: int, clue_type: str | None = None, content: st
         payload["clue_type"] = clue_type
     if content is not None:
         payload["content"] = content
-    return client.put(f"/client/property-clues/{clue_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/client/property-clues/{clue_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_property_clue(clue_id: int) -> None:
@@ -49,4 +49,4 @@ def get_property_clue_content_template(clue_type: str) -> dict[str, Any]:
     Args:
         clue_type: 财产线索类型（如 bank_account / real_estate / vehicle / equity）。
     """
-    return client.get("/client/property-clues/content-template", params={"clue_type": clue_type})  # type: ignore[return-value]
+    return client.get("/client/property-clues/content-template", params={"clue_type": clue_type})  # type: ignore[no-any-return]

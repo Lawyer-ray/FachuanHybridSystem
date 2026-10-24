@@ -19,7 +19,7 @@ def list_causes_data(search: str | None = None, case_type: str | None = None, li
         params["search"] = search
     if case_type:
         params["case_type"] = case_type
-    return client.get("/cases/causes-data", params=params)  # type: ignore[return-value]
+    return client.get("/cases/causes-data", params=params)  # type: ignore[no-any-return]
 
 
 def list_causes_tree(parent_id: int | None = None) -> list[dict[str, Any]]:
@@ -31,12 +31,12 @@ def list_causes_tree(parent_id: int | None = None) -> list[dict[str, Any]]:
     params: dict[str, Any] = {}
     if parent_id is not None:
         params["parent_id"] = parent_id
-    return client.get("/cases/causes-tree", params=params)  # type: ignore[return-value]
+    return client.get("/cases/causes-tree", params=params)  # type: ignore[no-any-return]
 
 
 def get_cause(cause_id: int) -> dict[str, Any]:
     """获取单个案由详情（编码、名称、分类）。"""
-    return client.get(f"/cases/cause/{cause_id}")  # type: ignore[return-value]
+    return client.get(f"/cases/cause/{cause_id}")  # type: ignore[no-any-return]
 
 
 def list_courts_data(search: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
@@ -48,4 +48,4 @@ def list_courts_data(search: str | None = None, limit: int = 50) -> list[dict[st
     params: dict[str, Any] = {"limit": limit}
     if search:
         params["search"] = search
-    return client.get("/cases/courts-data", params=params)  # type: ignore[return-value]
+    return client.get("/cases/courts-data", params=params)  # type: ignore[no-any-return]

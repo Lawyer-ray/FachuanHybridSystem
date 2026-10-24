@@ -21,12 +21,12 @@ def list_lawyers(search: str | None = None, slim: bool = True) -> list[dict[str,
     params: dict[str, Any] = {"slim": slim}
     if search:
         params["search"] = search
-    return client.get("/organization/lawyers", params=params)  # type: ignore[return-value]
+    return client.get("/organization/lawyers", params=params)  # type: ignore[no-any-return]
 
 
 def get_lawyer(lawyer_id: int) -> dict[str, Any]:
     """获取单个律师的详细信息，包含律所、团队、执业证号等。"""
-    return client.get(f"/organization/lawyers/{lawyer_id}")  # type: ignore[return-value]
+    return client.get(f"/organization/lawyers/{lawyer_id}")  # type: ignore[no-any-return]
 
 
 def create_lawyer(
@@ -68,7 +68,7 @@ def create_lawyer(
         payload["lawyer_team_ids"] = lawyer_team_ids
     if biz_team_ids is not None:
         payload["biz_team_ids"] = biz_team_ids
-    return client.post("/organization/lawyers", data={"payload": json.dumps(payload)})  # type: ignore[return-value]
+    return client.post("/organization/lawyers", data={"payload": json.dumps(payload)})  # type: ignore[no-any-return]
 
 
 def update_lawyer(
@@ -108,7 +108,7 @@ def update_lawyer(
         payload["lawyer_team_ids"] = lawyer_team_ids
     if biz_team_ids is not None:
         payload["biz_team_ids"] = biz_team_ids
-    return client.put(f"/organization/lawyers/{lawyer_id}", data={"payload": json.dumps(payload)})  # type: ignore[return-value]
+    return client.put(f"/organization/lawyers/{lawyer_id}", data={"payload": json.dumps(payload)})  # type: ignore[no-any-return]
 
 
 def delete_lawyer(lawyer_id: int) -> None:

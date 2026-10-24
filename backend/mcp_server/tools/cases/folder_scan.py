@@ -25,7 +25,7 @@ def start_folder_scan(
     ``folder_path`` 参数从未生效（端点 ``CaseFolderScanStartIn`` 无此
     字段,2026-10-25 重写）。改绑目录走文件夹绑定接口。
     """
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         f"/cases/{case_id}/folder-scan",
         json={
             "rescan": rescan,
@@ -40,12 +40,12 @@ def list_scan_subfolders(case_id: int) -> dict[str, Any]:
 
     返回 ``{root_path, subfolders}``（后端 ``CaseFolderScanSubfolderListOut``）。
     """
-    return client.get(f"/cases/{case_id}/folder-scan/subfolders")  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/folder-scan/subfolders")  # type: ignore[no-any-return]
 
 
 def get_scan_status(case_id: int, session_id: int) -> dict[str, Any]:
     """查询文件夹扫描任务状态。status: pending/running/classifying/completed/staged/failed/cancelled（staged=文件已导入为案件附件）。"""
-    return client.get(f"/cases/{case_id}/folder-scan/{session_id}")  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/folder-scan/{session_id}")  # type: ignore[no-any-return]
 
 
 def create_scan_stage(case_id: int, session_id: int, items: list[dict[str, Any]]) -> dict[str, Any]:

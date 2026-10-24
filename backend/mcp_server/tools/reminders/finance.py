@@ -33,9 +33,9 @@ def list_payments(
         params["start_date"] = start_date
     if end_date:
         params["end_date"] = end_date
-    return client.get("/contracts/finance/payments", params=params)  # type: ignore[return-value]
+    return client.get("/contracts/finance/payments", params=params)  # type: ignore[no-any-return]
 
 
 def get_finance_stats() -> dict[str, Any]:
     """获取财务统计概览，包含总收款、待收款、本月收款等汇总数据。"""
-    return client.get("/contracts/finance/stats")  # type: ignore[return-value]
+    return client.get("/contracts/finance/stats")  # type: ignore[no-any-return]

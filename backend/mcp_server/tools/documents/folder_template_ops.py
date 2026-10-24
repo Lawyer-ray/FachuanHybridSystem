@@ -9,7 +9,7 @@ from mcp_server.client import client
 
 def get_folder_template(template_id: int) -> dict[str, Any]:
     """获取文件夹模板详情（目录结构树）。"""
-    return client.get(f"/documents/folder-templates/{template_id}")  # type: ignore[return-value]
+    return client.get(f"/documents/folder-templates/{template_id}")  # type: ignore[no-any-return]
 
 
 def create_folder_template(
@@ -48,12 +48,12 @@ def create_folder_template(
         value = locals()[field]
         if value is not None:
             payload[field] = value
-    return client.post("/documents/folder-templates", json=payload)  # type: ignore[return-value]
+    return client.post("/documents/folder-templates", json=payload)  # type: ignore[no-any-return]
 
 
 def update_folder_template(template_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新文件夹模板（目录结构等）。只传需要修改的字段。"""
-    return client.put(f"/documents/folder-templates/{template_id}", json=fields or {})  # type: ignore[return-value]
+    return client.put(f"/documents/folder-templates/{template_id}", json=fields or {})  # type: ignore[no-any-return]
 
 
 def delete_folder_template(template_id: int) -> dict[str, Any]:
@@ -63,4 +63,4 @@ def delete_folder_template(template_id: int) -> dict[str, Any]:
 
 def validate_folder_structure(template_id: int) -> dict[str, Any]:
     """校验文件夹模板的结构合法性（改完模板后自检）。"""
-    return client.post(f"/documents/folder-templates/{template_id}/validate", json={})  # type: ignore[return-value]
+    return client.post(f"/documents/folder-templates/{template_id}/validate", json={})  # type: ignore[no-any-return]

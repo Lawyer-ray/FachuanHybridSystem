@@ -18,7 +18,7 @@ from mcp_server.client import client
 
 def list_enterprise_providers(include_tools: bool = False) -> dict[str, Any]:
     """查询可用的企业数据提供商列表（如天眼查等）。include_tools=True 时返回支持的工具列表。"""
-    return client.get("/enterprise-data/providers", params={"include_tools": include_tools})  # type: ignore[return-value]
+    return client.get("/enterprise-data/providers", params={"include_tools": include_tools})  # type: ignore[no-any-return]
 
 
 def search_companies(keyword: str, provider: str | None = None) -> dict[str, Any]:
@@ -26,7 +26,7 @@ def search_companies(keyword: str, provider: str | None = None) -> dict[str, Any
     params: dict[str, Any] = {"keyword": keyword}
     if provider:
         params["provider"] = provider
-    return client.get("/enterprise-data/companies/search", params=params)  # type: ignore[return-value]
+    return client.get("/enterprise-data/companies/search", params=params)  # type: ignore[no-any-return]
 
 
 def get_company_profile(company_id: str, provider: str | None = None) -> dict[str, Any]:
@@ -34,7 +34,7 @@ def get_company_profile(company_id: str, provider: str | None = None) -> dict[st
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}", params=params)  # type: ignore[return-value]
+    return client.get(f"/enterprise-data/companies/{company_id}", params=params)  # type: ignore[no-any-return]
 
 
 def get_company_risks(
@@ -46,7 +46,7 @@ def get_company_risks(
     params: dict[str, Any] = {"risk_type": risk_type}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}/risks", params=params)  # type: ignore[return-value]
+    return client.get(f"/enterprise-data/companies/{company_id}/risks", params=params)  # type: ignore[no-any-return]
 
 
 def get_company_shareholders(company_id: str, provider: str | None = None) -> dict[str, Any]:
@@ -54,7 +54,7 @@ def get_company_shareholders(company_id: str, provider: str | None = None) -> di
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}/shareholders", params=params)  # type: ignore[return-value]
+    return client.get(f"/enterprise-data/companies/{company_id}/shareholders", params=params)  # type: ignore[no-any-return]
 
 
 def get_company_personnel(company_id: str, provider: str | None = None) -> dict[str, Any]:
@@ -62,7 +62,7 @@ def get_company_personnel(company_id: str, provider: str | None = None) -> dict[
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}/personnel", params=params)  # type: ignore[return-value]
+    return client.get(f"/enterprise-data/companies/{company_id}/personnel", params=params)  # type: ignore[no-any-return]
 
 
 def get_person_profile(hcgid: str, provider: str | None = None) -> dict[str, Any]:
@@ -70,7 +70,7 @@ def get_person_profile(hcgid: str, provider: str | None = None) -> dict[str, Any
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/personnel/{hcgid}", params=params)  # type: ignore[return-value]
+    return client.get(f"/enterprise-data/personnel/{hcgid}", params=params)  # type: ignore[no-any-return]
 
 
 def search_bidding_info(
@@ -89,4 +89,4 @@ def search_bidding_info(
         params["end_date"] = end_date
     if provider:
         params["provider"] = provider
-    return client.get("/enterprise-data/biddings/search", params=params)  # type: ignore[return-value]
+    return client.get("/enterprise-data/biddings/search", params=params)  # type: ignore[no-any-return]

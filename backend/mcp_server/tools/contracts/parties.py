@@ -27,7 +27,7 @@ def get_client_related_items(client_id: int) -> dict[str, Any]:
     Returns:
         ``{cases: [...], contracts: [...]}``
     """
-    return client.get(f"/client/clients/{client_id}/related-items")  # type: ignore[return-value]
+    return client.get(f"/client/clients/{client_id}/related-items")  # type: ignore[no-any-return]
 
 
 def add_contract_party(contract_id: int, client_id: int, role: str = "principal") -> dict[str, Any]:
@@ -39,7 +39,7 @@ def add_contract_party(contract_id: int, client_id: int, role: str = "principal"
         role: 当事人角色，默认 ``principal``（委托人）；常见值还有
             ``opposing``（对方）等，取值同后端 PartyRole 枚举。
     """
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         f"/contracts/contracts/{contract_id}/parties",
         json={"client_id": client_id, "role": role},
     )

@@ -18,12 +18,12 @@ def chat_with_context(session_id: str, message: str, extra: dict[str, Any] | Non
 
 def get_conversation_history(session_id: str) -> dict[str, Any]:
     """获取 chat_with_context 会话的历史记录。"""
-    return client.get(f"/llm/conversation/{session_id}/history")  # type: ignore[return-value]
+    return client.get(f"/llm/conversation/{session_id}/history")  # type: ignore[no-any-return]
 
 
 def sync_prompt_templates() -> dict[str, Any]:
     """同步内置 Prompt 模板到数据库（管理员）。"""
-    return client.post("/llm/templates/sync", json={})  # type: ignore[return-value]
+    return client.post("/llm/templates/sync", json={})  # type: ignore[no-any-return]
 
 
 def list_available_models() -> dict[str, Any]:
@@ -31,7 +31,7 @@ def list_available_models() -> dict[str, Any]:
 
     返回 ``{models}``（后端 ``ModelListResponse``）。
     """
-    return client.get("/llm/models")  # type: ignore[return-value]
+    return client.get("/llm/models")  # type: ignore[no-any-return]
 
 
 def test_model_connection(model_id: str = "") -> dict[str, Any]:
@@ -39,4 +39,4 @@ def test_model_connection(model_id: str = "") -> dict[str, Any]:
     params: dict[str, Any] = {}
     if model_id:
         params["model_id"] = model_id
-    return client.post("/llm/test-connection", params=params, json={})  # type: ignore[return-value]
+    return client.post("/llm/test-connection", params=params, json={})  # type: ignore[no-any-return]

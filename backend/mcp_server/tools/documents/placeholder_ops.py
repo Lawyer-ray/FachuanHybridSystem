@@ -9,12 +9,12 @@ from mcp_server.client import client
 
 def get_placeholder(placeholder_id: int) -> dict[str, Any]:
     """获取替换词详情（key、示例值、适用模板）。"""
-    return client.get(f"/documents/placeholders/{placeholder_id}")  # type: ignore[return-value]
+    return client.get(f"/documents/placeholders/{placeholder_id}")  # type: ignore[no-any-return]
 
 
 def get_placeholder_by_key(key: str) -> dict[str, Any]:
     """按 key 精确获取替换词。"""
-    return client.get(f"/documents/placeholders/by-key/{key}")  # type: ignore[return-value]
+    return client.get(f"/documents/placeholders/by-key/{key}")  # type: ignore[no-any-return]
 
 
 def create_placeholder(
@@ -40,12 +40,12 @@ def create_placeholder(
         payload["description"] = description
     if is_active is not None:
         payload["is_active"] = is_active
-    return client.post("/documents/placeholders", json=payload)  # type: ignore[return-value]
+    return client.post("/documents/placeholders", json=payload)  # type: ignore[no-any-return]
 
 
 def update_placeholder(placeholder_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新替换词。只传需要修改的字段。"""
-    return client.put(f"/documents/placeholders/{placeholder_id}", json=fields or {})  # type: ignore[return-value]
+    return client.put(f"/documents/placeholders/{placeholder_id}", json=fields or {})  # type: ignore[no-any-return]
 
 
 def delete_placeholder(placeholder_id: int) -> dict[str, Any]:

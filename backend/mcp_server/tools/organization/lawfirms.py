@@ -12,12 +12,12 @@ def list_lawfirms(name: str | None = None) -> list[dict[str, Any]]:
     params: dict[str, Any] = {}
     if name:
         params["name"] = name
-    return client.get("/organization/lawfirms", params=params)  # type: ignore[return-value]
+    return client.get("/organization/lawfirms", params=params)  # type: ignore[no-any-return]
 
 
 def get_lawfirm(law_firm_id: int) -> dict[str, Any]:
     """获取单个律所详情（名称、联系方式）。"""
-    return client.get(f"/organization/lawfirms/{law_firm_id}")  # type: ignore[return-value]
+    return client.get(f"/organization/lawfirms/{law_firm_id}")  # type: ignore[no-any-return]
 
 
 def create_lawfirm(
@@ -34,7 +34,7 @@ def create_lawfirm(
         payload["phone"] = phone
     if social_credit_code:
         payload["social_credit_code"] = social_credit_code
-    return client.post("/organization/lawfirms", json=payload)  # type: ignore[return-value]
+    return client.post("/organization/lawfirms", json=payload)  # type: ignore[no-any-return]
 
 
 def update_lawfirm(
@@ -54,7 +54,7 @@ def update_lawfirm(
         payload["phone"] = phone
     if social_credit_code is not None:
         payload["social_credit_code"] = social_credit_code
-    return client.put(f"/organization/lawfirms/{law_firm_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/organization/lawfirms/{law_firm_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_lawfirm(law_firm_id: int) -> None:

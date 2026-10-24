@@ -9,7 +9,7 @@ from mcp_server.client import client
 
 def list_case_numbers(case_id: int) -> list[dict[str, Any]]:
     """查询案件的所有案号记录（一审/二审/执行等可多个）。"""
-    return client.get("/cases/case-numbers", params={"case_id": case_id})  # type: ignore[return-value]
+    return client.get("/cases/case-numbers", params={"case_id": case_id})  # type: ignore[no-any-return]
 
 
 def create_case_number(case_id: int, number: str, remarks: str | None = None) -> dict[str, Any]:
@@ -17,12 +17,12 @@ def create_case_number(case_id: int, number: str, remarks: str | None = None) ->
     payload: dict[str, Any] = {"case_id": case_id, "number": number}
     if remarks:
         payload["remarks"] = remarks
-    return client.post("/cases/case-numbers", json=payload)  # type: ignore[return-value]
+    return client.post("/cases/case-numbers", json=payload)  # type: ignore[no-any-return]
 
 
 def get_case_number(number_id: int) -> dict[str, Any]:
     """获取单条案号记录详情（案号字符串、备注）。"""
-    return client.get(f"/cases/case-numbers/{number_id}")  # type: ignore[return-value]
+    return client.get(f"/cases/case-numbers/{number_id}")  # type: ignore[no-any-return]
 
 
 def update_case_number(number_id: int, number: str | None = None, remarks: str | None = None) -> dict[str, Any]:
@@ -32,7 +32,7 @@ def update_case_number(number_id: int, number: str | None = None, remarks: str |
         payload["number"] = number
     if remarks is not None:
         payload["remarks"] = remarks
-    return client.put(f"/cases/case-numbers/{number_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/cases/case-numbers/{number_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_case_number(number_id: int) -> None:

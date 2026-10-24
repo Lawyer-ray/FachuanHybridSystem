@@ -9,14 +9,14 @@ from mcp_server.client import client
 
 def get_court_filing_case_info(case_id: int) -> dict[str, Any]:
     """获取案件的立案前置信息（一张网所需字段是否齐备）——execute_court_filing 前先查。"""
-    return client.get(f"/court-filing/case-info/{case_id}")  # type: ignore[return-value]
+    return client.get(f"/court-filing/case-info/{case_id}")  # type: ignore[no-any-return]
 
 
 def get_court_filing_session(session_id: int) -> dict[str, Any]:
     """查询立案任务会话状态（进行到哪一步、是否需要人工介入）。"""
-    return client.get(f"/court-filing/session/{session_id}")  # type: ignore[return-value]
+    return client.get(f"/court-filing/session/{session_id}")  # type: ignore[no-any-return]
 
 
 def execute_court_filing(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
     """执行网上立案。case_id 为案件ID；其余参数通过 extra 透传。"""
-    return client.post("/court-filing/execute", json={"case_id": case_id, **(extra or {})})  # type: ignore[return-value]
+    return client.post("/court-filing/execute", json={"case_id": case_id, **(extra or {})})  # type: ignore[no-any-return]

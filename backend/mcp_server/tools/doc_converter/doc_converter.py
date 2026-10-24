@@ -9,12 +9,12 @@ from mcp_server.client import client
 
 def get_conversion_progress(job_id: str) -> dict[str, Any]:
     """查询文档转换任务进度（提交转换后轮询用）。"""
-    return client.get(f"/doc-converter/jobs/{job_id}")  # type: ignore[return-value]
+    return client.get(f"/doc-converter/jobs/{job_id}")  # type: ignore[no-any-return]
 
 
 def cancel_conversion_job(job_id: str) -> dict[str, Any]:
     """取消进行中的文档转换任务。"""
-    return client.post(f"/doc-converter/jobs/{job_id}/cancel", json={})  # type: ignore[return-value]
+    return client.post(f"/doc-converter/jobs/{job_id}/cancel", json={})  # type: ignore[no-any-return]
 
 
 def download_converted_files(job_id: str) -> dict[str, Any]:
@@ -32,7 +32,7 @@ def delete_conversion_job(job_id: str) -> None:
 
 def doc_converter_health_check() -> dict[str, Any]:
     """检查 LibreOffice 转换服务是否可用——转换失败时先查这里。"""
-    return client.get("/doc-converter/health")  # type: ignore[return-value]
+    return client.get("/doc-converter/health")  # type: ignore[no-any-return]
 
 
 def save_to_directory(job_id: str, target_dir: str) -> dict[str, Any]:

@@ -25,12 +25,12 @@ def list_inbox_messages(
         params["has_attachments"] = has_attachments
     if search:
         params["search"] = search
-    return client.get("/inbox/messages", params=params)  # type: ignore[return-value]
+    return client.get("/inbox/messages", params=params)  # type: ignore[no-any-return]
 
 
 def get_inbox_message(message_id: int) -> dict[str, Any]:
     """获取单条消息的详细信息，包含正文（text/html）和附件列表。"""
-    return client.get(f"/inbox/messages/{message_id}")  # type: ignore[return-value]
+    return client.get(f"/inbox/messages/{message_id}")  # type: ignore[no-any-return]
 
 
 def rename_inbox_attachment(
@@ -40,10 +40,10 @@ def rename_inbox_attachment(
 ) -> dict[str, Any]:
     """重命名消息附件。custom_filename 为空字符串时恢复原始文件名。"""
     payload: dict[str, Any] = {"custom_filename": custom_filename}
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         f"/inbox/messages/{message_id}/attachments/{part_index}/rename",
         json=payload,
-    )  # type: ignore[return-value]
+    )
 
 
 def download_inbox_attachment(message_id: int, part_index: int) -> dict[str, Any]:

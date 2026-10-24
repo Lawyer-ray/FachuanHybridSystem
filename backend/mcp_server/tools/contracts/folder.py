@@ -25,12 +25,12 @@ def create_folder_binding(
     }
     if storage_account_id is not None:
         payload["storage_account_id"] = storage_account_id
-    return client.post(f"/contracts/{contract_id}/folder-binding", json=payload)  # type: ignore[return-value]
+    return client.post(f"/contracts/{contract_id}/folder-binding", json=payload)  # type: ignore[no-any-return]
 
 
 def get_folder_binding(contract_id: int) -> dict[str, Any]:
     """获取合同的文件夹绑定信息，包含路径和可访问性状态。"""
-    return client.get(f"/contracts/{contract_id}/folder-binding")  # type: ignore[return-value]
+    return client.get(f"/contracts/{contract_id}/folder-binding")  # type: ignore[no-any-return]
 
 
 def delete_folder_binding(contract_id: int) -> None:
@@ -54,9 +54,9 @@ def browse_folders(
         params["path"] = path
     if storage_account_id is not None:
         params["storage_account_id"] = storage_account_id
-    return client.get("/contracts/folder-browse", params=params)  # type: ignore[return-value]
+    return client.get("/contracts/folder-browse", params=params)  # type: ignore[no-any-return]
 
 
 def list_cloud_storage_accounts() -> list[dict[str, Any]]:
     """获取可用的云端存储账号列表（坚果云、OneDrive 等）。"""
-    return client.get("/contracts/cloud-storage-accounts")  # type: ignore[return-value]
+    return client.get("/contracts/cloud-storage-accounts")  # type: ignore[no-any-return]

@@ -18,7 +18,7 @@ def list_contacts(case_id: int | None = None, stage: str | None = None, limit: i
         params["case_id"] = case_id
     if stage is not None:
         params["stage"] = stage
-    return client.get("/contacts/contacts", params=params)  # type: ignore[return-value]
+    return client.get("/contacts/contacts", params=params)  # type: ignore[no-any-return]
 
 
 def create_contact(
@@ -32,7 +32,7 @@ def create_contact(
     note: str | None = None,
 ) -> dict[str, Any]:
     """创建案件联系人（姓名/角色/法院等,便于后续案件快速引用）。"""
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         "/contacts/contacts",
         json={
             "case_id": case_id,
@@ -44,7 +44,7 @@ def create_contact(
             "stage": stage,
             "note": note,
         },
-    )  # type: ignore[return-value]
+    )
 
 
 def search_contacts(q: str | None = None, court: str | None = None, role: str | None = None) -> list[dict[str, Any]]:
@@ -56,17 +56,17 @@ def search_contacts(q: str | None = None, court: str | None = None, role: str | 
         params["court"] = court
     if role is not None:
         params["role"] = role
-    return client.get("/contacts/contacts/search", params=params)  # type: ignore[return-value]
+    return client.get("/contacts/contacts/search", params=params)  # type: ignore[no-any-return]
 
 
 def get_contact(contact_id: int) -> dict[str, Any]:
     """获取单个联系人详情。"""
-    return client.get(f"/contacts/contacts/{contact_id}")  # type: ignore[return-value]
+    return client.get(f"/contacts/contacts/{contact_id}")  # type: ignore[no-any-return]
 
 
 def update_contact(contact_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新联系人信息。只传需要修改的字段。"""
-    return client.put(f"/contacts/contacts/{contact_id}", json=fields or {})  # type: ignore[return-value]
+    return client.put(f"/contacts/contacts/{contact_id}", json=fields or {})  # type: ignore[no-any-return]
 
 
 def delete_contact(contact_id: int) -> None:

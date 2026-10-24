@@ -35,7 +35,7 @@ def get_current_user() -> dict[str, Any]:
     涉及「我的/我团队/我负责」这类请求前应先调用本工具确认身份，
     不要凭空假设当前用户是谁。
     """
-    return client.get("/organization/me")  # type: ignore[return-value]
+    return client.get("/organization/me")  # type: ignore[no-any-return]
 
 
 def get_server_time() -> dict[str, Any]:

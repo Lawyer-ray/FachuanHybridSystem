@@ -30,7 +30,7 @@ def create_research_task(
     }
     if llm_model:
         payload["llm_model"] = llm_model
-    return client.post("/legal-research/tasks", json=payload)  # type: ignore[return-value]
+    return client.post("/legal-research/tasks", json=payload)  # type: ignore[no-any-return]
 
 
 def capability_search(
@@ -55,17 +55,17 @@ def capability_search(
     }
     # 端点同步执行威科检索（Playwright 会话 + 多页抓取,实测 30-90s）,
     # 60s 默认超时不够;pi 侧 mcp.json timeout=200 兜住。
-    return client.post("/legal-research/capability/search/mcp", json=payload, timeout=180)  # type: ignore[return-value]
+    return client.post("/legal-research/capability/search/mcp", json=payload, timeout=180)  # type: ignore[no-any-return]
 
 
 def get_research_task(task_id: int) -> dict[str, Any]:
     """查询类案检索任务状态和进度。status: pending/queued/running/completed/failed/cancelled。"""
-    return client.get(f"/legal-research/tasks/{task_id}")  # type: ignore[return-value]
+    return client.get(f"/legal-research/tasks/{task_id}")  # type: ignore[no-any-return]
 
 
 def list_research_results(task_id: int) -> list[dict[str, Any]]:
     """获取检索任务的结果列表，包含相似度评分、案件摘要等。"""
-    return client.get(f"/legal-research/tasks/{task_id}/results")  # type: ignore[return-value]
+    return client.get(f"/legal-research/tasks/{task_id}/results")  # type: ignore[no-any-return]
 
 
 def download_research_result(task_id: int, result_id: int) -> dict[str, Any]:
@@ -90,7 +90,7 @@ def download_all_research_results(task_id: int) -> dict[str, Any]:
 
 def check_law_references(text: str, credential_id: int) -> dict[str, Any]:
     """校验文书中的法律条文引用是否有效。text 为文书全文；credential_id 为法规检索服务账号的凭证 ID。"""
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         "/legal-research/law-verification/check",
         json={"text": text, "credential_id": credential_id},
     )

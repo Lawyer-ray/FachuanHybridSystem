@@ -9,4 +9,4 @@ from mcp_server.client import client
 
 def get_dashboard_stats() -> dict[str, Any]:
     """获取仪表盘统计（各模块计数、趋势、分布）——全局概览入口。"""
-    return client.get("/dashboard/stats")  # type: ignore[return-value]
+    return client.get("/dashboard/stats")  # type: ignore[no-any-return]

@@ -15,12 +15,12 @@ def create_case_folder_binding(
 ) -> dict[str, Any]:
     """绑定或更新案件文件夹。storage_type: local / webdav / onedrive。"""
     payload: dict[str, Any] = {"folder_path": folder_path, "storage_type": storage_type, **(extra or {})}
-    return client.post(f"/cases/{case_id}/folder-binding", json=payload)  # type: ignore[return-value]
+    return client.post(f"/cases/{case_id}/folder-binding", json=payload)  # type: ignore[no-any-return]
 
 
 def get_case_folder_binding(case_id: int) -> dict[str, Any]:
     """获取案件的文件夹绑定信息（绑定路径、存储类型）。"""
-    return client.get(f"/cases/{case_id}/folder-binding")  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/folder-binding")  # type: ignore[no-any-return]
 
 
 def delete_case_folder_binding(case_id: int) -> None:
@@ -30,7 +30,7 @@ def delete_case_folder_binding(case_id: int) -> None:
 
 def get_contract_folder_path(case_id: int) -> dict[str, Any]:
     """获取案件关联合同的文件夹路径（合同与案件共用文件夹时定位用）。"""
-    return client.get(f"/cases/{case_id}/contract-folder-path")  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/contract-folder-path")  # type: ignore[no-any-return]
 
 
 def browse_case_folders(path: str = "") -> dict[str, Any]:
@@ -42,9 +42,9 @@ def browse_case_folders(path: str = "") -> dict[str, Any]:
     params: dict[str, Any] = {}
     if path:
         params["path"] = path
-    return client.get("/cases/folder-browse", params=params)  # type: ignore[return-value]
+    return client.get("/cases/folder-browse", params=params)  # type: ignore[no-any-return]
 
 
 def list_case_cloud_storage_accounts() -> list[dict[str, Any]]:
     """获取可用的云存储账号列表（坚果云、OneDrive等）。"""
-    return client.get("/cases/cloud-storage-accounts")  # type: ignore[return-value]
+    return client.get("/cases/cloud-storage-accounts")  # type: ignore[no-any-return]

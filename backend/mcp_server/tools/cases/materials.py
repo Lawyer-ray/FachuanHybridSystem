@@ -9,7 +9,7 @@ from mcp_server.client import client
 
 def list_bind_candidates(case_id: int) -> list[dict[str, Any]]:
     """获取案件材料的绑定候选列表（可关联的文件夹扫描结果）。"""
-    return client.get(f"/cases/{case_id}/materials/bind-candidates")  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/materials/bind-candidates")  # type: ignore[no-any-return]
 
 
 def bind_materials(
@@ -75,7 +75,7 @@ def rename_material_group(case_id: int, type_id: int, new_type_name: str) -> dic
     后端要的是 ``{type_id, new_type_name}``。早前签名传
     ``{old_name, new_name}``，调用必然 422。
     """
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         f"/cases/{case_id}/materials/group-rename",
         json={"type_id": type_id, "new_type_name": new_type_name},
     )

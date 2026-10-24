@@ -14,7 +14,7 @@ def list_oa_configs() -> list[dict[str, Any]]:
     ``has_credential``（当前律师是否已配置该站点的登录凭证）——
     ``has_credential=false`` 的站点发起立案必失败。
     """
-    return client.get("/oa-filing/configs")  # type: ignore[return-value]
+    return client.get("/oa-filing/configs")  # type: ignore[no-any-return]
 
 
 def trigger_oa_filing(
@@ -35,7 +35,7 @@ def trigger_oa_filing(
     payload: dict[str, Any] = {"contract_id": contract_id, "site_name": site_name}
     if case_id is not None:
         payload["case_id"] = case_id
-    return client.post("/oa-filing/execute", json=payload)  # type: ignore[return-value]
+    return client.post("/oa-filing/execute", json=payload)  # type: ignore[no-any-return]
 
 
 def get_filing_status(session_id: int) -> dict[str, Any]:
@@ -45,4 +45,4 @@ def get_filing_status(session_id: int) -> dict[str, Any]:
     ``completed``（已完成）/ ``failed``（失败，含错误信息）/
     ``cancelled``（已取消）。
     """
-    return client.get(f"/oa-filing/session/{session_id}")  # type: ignore[return-value]
+    return client.get(f"/oa-filing/session/{session_id}")  # type: ignore[no-any-return]

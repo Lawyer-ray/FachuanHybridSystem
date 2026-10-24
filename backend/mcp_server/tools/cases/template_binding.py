@@ -13,7 +13,7 @@ def list_template_bindings(case_id: int) -> dict[str, Any]:
     返回 ``{categories, total_count}``（后端 ``BindingsResponseSchema``）——
     绑定按分类分组，不是扁平数组。
     """
-    return client.get(f"/cases/{case_id}/template-bindings")  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/template-bindings")  # type: ignore[no-any-return]
 
 
 def create_template_binding(case_id: int, template_id: int) -> dict[str, Any]:
@@ -23,7 +23,7 @@ def create_template_binding(case_id: int, template_id: int) -> dict[str, Any]:
     参数从未生效（端点 ``BindTemplateRequestSchema`` 只声明 template_id,
     2026-10-25 移除）。
     """
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         f"/cases/{case_id}/template-bindings",
         json={"template_id": template_id},
     )
@@ -36,12 +36,12 @@ def delete_template_binding(case_id: int, binding_id: int) -> dict[str, Any]:
 
 def list_available_templates(case_id: int) -> list[dict[str, Any]]:
     """获取案件可用的文书模板列表（已按案件类型过滤适用性）。"""
-    return client.get(f"/cases/{case_id}/available-templates")  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/available-templates")  # type: ignore[no-any-return]
 
 
 def generate_case_template(case_id: int, template_id: int) -> dict[str, Any]:
     """基于绑定的模板为案件生成文书（异步任务,返回任务信息,稍后查产物）。"""
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         f"/cases/{case_id}/generate-template",
         json={"template_id": template_id},
     )
@@ -79,7 +79,7 @@ def unified_generate(
         payload["client_ids"] = client_ids
     if mode:
         payload["mode"] = mode
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         f"/cases/{case_id}/unified-generate",
         json=payload,
     )

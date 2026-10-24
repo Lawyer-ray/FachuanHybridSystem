@@ -17,12 +17,12 @@ def list_all_reminders(
         params["contract_id"] = contract_id
     if case_log_id is not None:
         params["case_log_id"] = case_log_id
-    return client.get("/reminders/list", params=params)  # type: ignore[return-value]
+    return client.get("/reminders/list", params=params)  # type: ignore[no-any-return]
 
 
 def get_reminder(reminder_id: int) -> dict[str, Any]:
     """获取单个提醒详情（类型、内容、关联对象、状态）。"""
-    return client.get(f"/reminders/{reminder_id}")  # type: ignore[return-value]
+    return client.get(f"/reminders/{reminder_id}")  # type: ignore[no-any-return]
 
 
 def create_new_reminder(
@@ -45,7 +45,7 @@ def create_new_reminder(
         payload["case_log_id"] = case_log_id
     if metadata is not None:
         payload["metadata"] = metadata
-    return client.post("/reminders/create", json=payload)  # type: ignore[return-value]
+    return client.post("/reminders/create", json=payload)  # type: ignore[no-any-return]
 
 
 def update_reminder(
@@ -67,7 +67,7 @@ def update_reminder(
         payload["content"] = content
     if due_at is not None:
         payload["due_at"] = due_at
-    return client.put(f"/reminders/{reminder_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/reminders/{reminder_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_reminder(reminder_id: int) -> None:
@@ -77,12 +77,12 @@ def delete_reminder(reminder_id: int) -> None:
 
 def list_reminder_types() -> list[dict[str, Any]]:
     """获取支持的提醒类型枚举——创建提醒前查合法值。"""
-    return client.get("/reminders/types")  # type: ignore[return-value]
+    return client.get("/reminders/types")  # type: ignore[no-any-return]
 
 
 def parse_reminders_from_text(text: str) -> list[dict[str, Any]]:
     """从自由文本中解析提醒条目。返回结构化的提醒列表（content、type、due_at）。"""
-    return client.post("/reminders/parse", json={"text": text})  # type: ignore[return-value]
+    return client.post("/reminders/parse", json={"text": text})  # type: ignore[no-any-return]
 
 
 def get_target_options(q: str = "") -> dict[str, Any]:
@@ -90,4 +90,4 @@ def get_target_options(q: str = "") -> dict[str, Any]:
     params: dict[str, Any] = {}
     if q:
         params["q"] = q
-    return client.get("/reminders/target-options", params=params)  # type: ignore[return-value]
+    return client.get("/reminders/target-options", params=params)  # type: ignore[no-any-return]

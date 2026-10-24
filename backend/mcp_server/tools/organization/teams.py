@@ -17,12 +17,12 @@ def list_teams(
         params["law_firm_id"] = law_firm_id
     if team_type:
         params["team_type"] = team_type
-    return client.get("/organization/teams", params=params)  # type: ignore[return-value]
+    return client.get("/organization/teams", params=params)  # type: ignore[no-any-return]
 
 
 def get_team(team_id: int) -> dict[str, Any]:
     """获取单个团队详情（成员、负责人）。"""
-    return client.get(f"/organization/teams/{team_id}")  # type: ignore[return-value]
+    return client.get(f"/organization/teams/{team_id}")  # type: ignore[no-any-return]
 
 
 def create_team(
@@ -36,7 +36,7 @@ def create_team(
         "team_type": team_type,
         "law_firm_id": law_firm_id,
     }
-    return client.post("/organization/teams", json=payload)  # type: ignore[return-value]
+    return client.post("/organization/teams", json=payload)  # type: ignore[no-any-return]
 
 
 def update_team(
@@ -51,7 +51,7 @@ def update_team(
         "team_type": team_type,
         "law_firm_id": law_firm_id,
     }
-    return client.put(f"/organization/teams/{team_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/organization/teams/{team_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_team(team_id: int) -> None:

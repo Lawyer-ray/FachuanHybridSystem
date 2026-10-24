@@ -43,12 +43,12 @@ def get_export_task(task_id: str) -> dict[str, Any]:
 
 def get_export_types() -> list[dict[str, Any]]:
     """获取可用的证据导出类型枚举。"""
-    return client.get("/chat-records/export-types")  # type: ignore[return-value]
+    return client.get("/chat-records/export-types")  # type: ignore[no-any-return]
 
 
 def get_export_statuses() -> list[dict[str, Any]]:
     """获取导出任务的状态枚举（轮询时判断用）。"""
-    return client.get("/chat-records/export-statuses")  # type: ignore[return-value]
+    return client.get("/chat-records/export-statuses")  # type: ignore[no-any-return]
 
 
 def download_export(task_id: str) -> dict[str, Any]:
@@ -63,12 +63,12 @@ def download_export(task_id: str) -> dict[str, Any]:
 
 def get_recording(recording_id: int) -> dict[str, Any]:
     """获取单条录屏详情（时长、提取状态）。"""
-    return client.get(f"/chat-records/recordings/{recording_id}")  # type: ignore[return-value]
+    return client.get(f"/chat-records/recordings/{recording_id}")  # type: ignore[no-any-return]
 
 
 def update_recording(recording_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新录屏信息。通过 kwargs 传递要修改的字段。"""
-    return client.patch(f"/chat-records/recordings/{recording_id}", json=fields or {})  # type: ignore[return-value]
+    return client.patch(f"/chat-records/recordings/{recording_id}", json=fields or {})  # type: ignore[no-any-return]
 
 
 def delete_recording(recording_id: int) -> None:
@@ -78,27 +78,27 @@ def delete_recording(recording_id: int) -> None:
 
 def extract_recording(recording_id: int) -> dict[str, Any]:
     """触发录屏的文字提取（OCR/ASR）。异步执行。"""
-    return client.post(f"/chat-records/recordings/{recording_id}/extract", json={})  # type: ignore[return-value]
+    return client.post(f"/chat-records/recordings/{recording_id}/extract", json={})  # type: ignore[no-any-return]
 
 
 def cancel_extract_recording(recording_id: int) -> dict[str, Any]:
     """取消正在进行的录屏文字提取任务。"""
-    return client.post(f"/chat-records/recordings/{recording_id}/extract/cancel", json={})  # type: ignore[return-value]
+    return client.post(f"/chat-records/recordings/{recording_id}/extract/cancel", json={})  # type: ignore[no-any-return]
 
 
 def reset_extract_recording(recording_id: int) -> dict[str, Any]:
     """重置录屏的文字提取结果（清除已提取内容）。"""
-    return client.post(f"/chat-records/recordings/{recording_id}/extract/reset", json={})  # type: ignore[return-value]
+    return client.post(f"/chat-records/recordings/{recording_id}/extract/reset", json={})  # type: ignore[no-any-return]
 
 
 def update_screenshot(screenshot_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """更新截图信息。通过 kwargs 传递要修改的字段。"""
-    return client.patch(f"/chat-records/screenshots/{screenshot_id}", json=fields or {})  # type: ignore[return-value]
+    return client.patch(f"/chat-records/screenshots/{screenshot_id}", json=fields or {})  # type: ignore[no-any-return]
 
 
 def reorder_screenshots(project_id: int, screenshot_ids: list[int]) -> dict[str, Any]:
     """重新排序项目下的截图。screenshot_ids 为按新顺序排列的截图ID列表。"""
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         f"/chat-records/projects/{project_id}/screenshots/reorder",
         json={"screenshot_ids": screenshot_ids},
     )

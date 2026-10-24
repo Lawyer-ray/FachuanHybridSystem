@@ -75,7 +75,7 @@ def _parse_results(html: str, max_results: int) -> list[_SearchResult]:
             continue
 
         title = title_el.get_text(strip=True)
-        url = title_el.get("href", "")
+        url = str(title_el.get("href") or "")  # bs4 .get() 类型是 str|list|None,收窄成 str
 
         # 尝试多种 snippet 选择器
         snippet = ""

@@ -9,7 +9,7 @@ from mcp_server.client import client
 
 def list_grants(case_id: int) -> list[dict[str, Any]]:
     """查询案件的访问授权列表（哪些律师被授予了该案件的访问权）。"""
-    return client.get("/cases/grants", params={"case_id": case_id})  # type: ignore[return-value]
+    return client.get("/cases/grants", params={"case_id": case_id})  # type: ignore[no-any-return]
 
 
 def create_grant(case_id: int, grantee_id: int) -> dict[str, Any]:
@@ -28,7 +28,7 @@ def create_grant(case_id: int, grantee_id: int) -> dict[str, Any]:
 
 def get_grant(grant_id: int) -> dict[str, Any]:
     """获取单条访问授权详情（被授权律师、权限范围）。"""
-    return client.get(f"/cases/grants/{grant_id}")  # type: ignore[return-value]
+    return client.get(f"/cases/grants/{grant_id}")  # type: ignore[no-any-return]
 
 
 def update_grant(grant_id: int, grantee_id: int | None = None) -> dict[str, Any]:
@@ -41,7 +41,7 @@ def update_grant(grant_id: int, grantee_id: int | None = None) -> dict[str, Any]
     payload: dict[str, Any] = {}
     if grantee_id is not None:
         payload["grantee_id"] = grantee_id
-    return client.put(f"/cases/grants/{grant_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/cases/grants/{grant_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_grant(grant_id: int) -> None:

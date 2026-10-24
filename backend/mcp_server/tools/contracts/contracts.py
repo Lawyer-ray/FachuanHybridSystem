@@ -54,7 +54,7 @@ def list_contracts(
         params["fee_mode"] = fee_mode
     if is_filed is not None:
         params["is_filed"] = is_filed
-    payload: dict[str, Any] = client.get("/contracts/contracts", params=params)  # type: ignore[assignment]
+    payload: dict[str, Any] = client.get("/contracts/contracts", params=params)
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
         raise FachuanApiError(
             f"/contracts/contracts 返回了非分页结构: {type(payload).__name__}；后端契约可能已变更，请检查"
@@ -64,7 +64,7 @@ def list_contracts(
 
 def get_contract(contract_id: int) -> dict[str, Any]:
     """获取单个合同的详细信息，包含关联案件、当事人、律师指派、付款记录等。"""
-    return client.get(f"/contracts/contracts/{contract_id}")  # type: ignore[return-value]
+    return client.get(f"/contracts/contracts/{contract_id}")  # type: ignore[no-any-return]
 
 
 def create_contract(
@@ -153,7 +153,7 @@ def create_contract(
     params: dict[str, Any] = {}
     if confirm_finance:
         params["confirm_finance"] = confirm_finance
-    return client.post("/contracts/contracts", json=body, params=params)  # type: ignore[return-value]
+    return client.post("/contracts/contracts", json=body, params=params)  # type: ignore[no-any-return]
 
 
 def create_contract_with_cases(
@@ -162,7 +162,7 @@ def create_contract_with_cases(
 ) -> dict[str, Any]:
     """创建合同并同时关联案件。contract_data 为合同字段（name、case_type、lawyer_ids 等）；cases 为案件列表（每项含 case_type、client_name 等）。"""
     payload: dict[str, Any] = {**contract_data, "cases": cases}
-    return client.post("/contracts/contracts/full", json=payload)  # type: ignore[return-value]
+    return client.post("/contracts/contracts/full", json=payload)  # type: ignore[no-any-return]
 
 
 def update_contract(
@@ -177,11 +177,11 @@ def update_contract(
         params["sync_cases"] = sync_cases
     if confirm_finance:
         params["confirm_finance"] = confirm_finance
-    return client.put(
+    return client.put(  # type: ignore[no-any-return]
         f"/contracts/contracts/{contract_id}",
         json=contract_data,
         params=params,
-    )  # type: ignore[return-value]
+    )
 
 
 def delete_contract(contract_id: int) -> None:
@@ -201,7 +201,7 @@ def update_contract_lawyers(
     后端 ``response=list[ContractAssignmentOut]``，返回更新后的指派列表。
     """
     payload: dict[str, Any] = {"lawyer_ids": lawyer_ids}
-    return client.put(f"/contracts/contracts/{contract_id}/lawyers", json=payload)  # type: ignore[return-value]
+    return client.put(f"/contracts/contracts/{contract_id}/lawyers", json=payload)  # type: ignore[no-any-return]
 
 
 def get_contract_all_parties(contract_id: int) -> list[dict[str, Any]]:
@@ -210,4 +210,4 @@ def get_contract_all_parties(contract_id: int) -> list[dict[str, Any]]:
     后端 ``response=list[ContractPartySourceOut]``，返回扁平数组（每条带
     当事人方向字段），不是按原告/被告分组的对象。
     """
-    return client.get(f"/contracts/contracts/{contract_id}/all-parties")  # type: ignore[return-value]
+    return client.get(f"/contracts/contracts/{contract_id}/all-parties")  # type: ignore[no-any-return]

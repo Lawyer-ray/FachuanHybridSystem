@@ -9,12 +9,12 @@ from mcp_server.client import client
 
 def list_message_sources() -> list[dict[str, Any]]:
     """查询所有消息来源（邮箱等账号配置）列表。"""
-    return client.get("/inbox/sources")  # type: ignore[return-value]
+    return client.get("/inbox/sources")  # type: ignore[no-any-return]
 
 
 def get_message_source(source_id: int) -> dict[str, Any]:
     """获取单个消息来源的详细配置（不含密码明文）。"""
-    return client.get(f"/inbox/sources/{source_id}")  # type: ignore[return-value]
+    return client.get(f"/inbox/sources/{source_id}")  # type: ignore[no-any-return]
 
 
 def create_message_source(
@@ -52,7 +52,7 @@ def create_message_source(
         payload["sender_whitelist"] = sender_whitelist
     if sender_blacklist:
         payload["sender_blacklist"] = sender_blacklist
-    return client.post("/inbox/sources", json=payload)  # type: ignore[return-value]
+    return client.post("/inbox/sources", json=payload)  # type: ignore[no-any-return]
 
 
 def update_message_source(
@@ -84,7 +84,7 @@ def update_message_source(
         payload["sender_whitelist"] = sender_whitelist
     if sender_blacklist is not None:
         payload["sender_blacklist"] = sender_blacklist
-    return client.put(f"/inbox/sources/{source_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/inbox/sources/{source_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_message_source(source_id: int) -> None:
@@ -94,9 +94,9 @@ def delete_message_source(source_id: int) -> None:
 
 def sync_message_source(source_id: int) -> dict[str, Any]:
     """手动触发单个消息来源的同步任务。异步执行，返回任务状态。"""
-    return client.post(f"/inbox/sources/{source_id}/sync")  # type: ignore[return-value]
+    return client.post(f"/inbox/sources/{source_id}/sync")  # type: ignore[no-any-return]
 
 
 def sync_all_message_sources() -> dict[str, Any]:
     """手动触发所有已启用的消息来源同步任务。异步执行。"""
-    return client.post("/inbox/sources/sync-all")  # type: ignore[return-value]
+    return client.post("/inbox/sources/sync-all")  # type: ignore[no-any-return]

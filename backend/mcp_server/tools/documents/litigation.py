@@ -74,7 +74,7 @@ def generate_defense(
 
 def preview_litigation_context(case_id: int, litigation_type: str) -> dict[str, Any]:
     """预览诉讼文书替换词上下文。litigation_type: complaint / defense。"""
-    return client.get(f"/documents/cases/{case_id}/litigation/{litigation_type}/preview")  # type: ignore[return-value]
+    return client.get(f"/documents/cases/{case_id}/litigation/{litigation_type}/preview")  # type: ignore[no-any-return]
 
 
 def download_litigation_document(

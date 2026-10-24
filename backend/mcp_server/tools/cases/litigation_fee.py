@@ -14,4 +14,4 @@ def calculate_litigation_fee(
 ) -> dict[str, Any]:
     """计算诉讼费。case_type: civil（民事）/ administrative（行政）等；target_amount: 诉讼标的额。"""
     payload: dict[str, Any] = {"case_type": case_type, "target_amount": target_amount, **(extra or {})}
-    return client.post("/cases/calculate-fee", json=payload)  # type: ignore[return-value]
+    return client.post("/cases/calculate-fee", json=payload)  # type: ignore[no-any-return]
