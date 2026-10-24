@@ -28,7 +28,7 @@ def upload_contract_for_review(
 
 
 def get_review_status(task_id: str) -> dict[str, Any]:
-    """查询合同审查任务状态。status: pending/extracting/reviewing/completed/failed。"""
+    """查询合同审查任务状态。status: uploaded/parties_identified/confirmed/processing/completed/failed/extraction_failed。"""
     return client.get(f"/contract-review/{task_id}/status")  # type: ignore[no-any-return]
 
 

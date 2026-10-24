@@ -158,7 +158,7 @@ def list_document_parsing_records(
     """查询历史文档解析记录。
 
     Args:
-        status: 可选，按状态筛选（如 pending / completed / failed）。
+        status: 可选，按状态筛选（pending / processing / completed / failed）。
         page: 页码，从 1 开始。
         page_size: 每页条数，默认 20。
     """

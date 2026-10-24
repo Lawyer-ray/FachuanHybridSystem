@@ -18,7 +18,7 @@ def trigger_case_import(file_base64: str, filename: str) -> dict[str, Any]:
 
 
 def get_case_import_session(session_id: int) -> dict[str, Any]:
-    """查询案件导入会话状态。status: pending/running/completed/failed。"""
+    """查询案件导入会话状态。status: pending/in_progress/completed/failed/cancelled。"""
     return client.get(f"/case-import/{session_id}")  # type: ignore[return-value]
 
 

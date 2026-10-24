@@ -26,10 +26,11 @@ def list_contracts(
     一次序列化约 22 万 token，模型读不完只能从截断处人工统计。
 
     Args:
-        case_type: 按案件类型筛选。
-        status: 按合同状态筛选。
+        case_type: 按案件类型筛选（civil/criminal/administrative/labor/intl/special）。
+        status: 按合同状态筛选（unsigned / active / archived）。
         search: 按合同名称模糊搜索。
-        fee_mode: 按收费方式筛选（``fixed`` / ``risk``）。
+        fee_mode: 按收费方式筛选（**大写**：``FIXED`` 固定 / ``SEMI_RISK``
+            半风险 / ``FULL_RISK`` 全风险 / ``CUSTOM`` 自定义）。
         is_filed: 按是否已建档筛选。
         page: 页码，从 1 开始。
         page_size: 每页条数，默认 20，上限 200。
@@ -87,14 +88,27 @@ def create_contract(
 
     Args:
         name: 合同名称。
-        case_type: 案件类型（同案件类型枚举）。
+        case_type: 案件类型（英文键）：``civil`` 民商事 / ``criminal`` 刑事 /
+            ``administrative`` 行政 / ``labor`` 劳动仲裁 / ``intl`` 商事仲裁 /
+            ``special`` 专项服务。
         lawyer_ids: 律师 ID 列表，**第一个为主办律师**。
-        status: 合同状态。
+        status: 合同状态（unsigned 未签约 / active 在办 / archived 已归档，
+            新建一般留空默认未签约）。
         fixed_amount: 固定代理费金额。
-        fee_mode: 收费方式，``fixed``（固定）或 ``risk``（风险代理）。
-        risk_rate: 风险代理比例（fee_mode=risk 时使用）。
+        fee_mode: 收费方式（**大写枚举，写错值会绕过金额校验静默落库**）：
+            ``FIXED`` 固定（需 fixed_amount>0）/ ``SEMI_RISK`` 半风险
+            （需 fixed_amount>0 且 risk_rate>0）/ ``FULL_RISK`` 全风险
+            （需 risk_rate>0）/ ``CUSTOM`` 自定义（需 custom_terms）。
+        risk_rate: 风险代理比例（SEMI_RISK/FULL_RISK 时必填）。
         custom_terms: 自定义条款文本。
-        representation_stages: 代理阶段列表（如 ["一审", "二审"]）。
+        representation_stages: 代理阶段列表，取**英文键**（中文会被
+            ValidationException 拒绝）：``first_trial`` 一审 /
+            ``second_trial`` 二审 / ``enforcement`` 执行 /
+            ``labor_arbitration`` 劳动仲裁 / ``administrative_review``
+            行政复议 / ``private_prosecution`` 自诉 / ``investigation``
+            侦查 / ``prosecution_review`` 审查起诉 / ``retrial_first`` /
+            ``retrial_second`` 重审。仅民商事/刑事/行政/劳动/商事仲裁
+            类合同适用。
         specified_date / start_date / end_date: 关键日期（YYYY-MM-DD）。
         parties: 当事人列表，每项含身份与客户信息；合同当事人是后续
             立案、文书生成的数据源，缺省则合同下无当事人。

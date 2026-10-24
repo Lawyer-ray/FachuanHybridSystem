@@ -24,7 +24,8 @@ def list_cases(
     关系，案件多时一次序列化会撑爆上下文。
 
     Args:
-        case_type: 按案件类型筛选（litigation / non_litigation / criminal / advisory）。
+        case_type: 按案件类型筛选（civil 民事 / administrative 行政 /
+            criminal 刑事 / execution 申请执行 / bankruptcy 破产）。
         status: 按状态筛选（如 active / closed）。
         case_number: 按案号精确/模糊查询。
         contract_id: 按所属合同筛选。
@@ -68,7 +69,8 @@ def create_case(
     cause_of_action: str | None = None,
     status: str | None = None,
 ) -> dict[str, Any]:
-    """创建新案件。case_type 常用值：litigation（诉讼）、non_litigation（非诉）、criminal（刑事）、advisory（顾问）。"""
+    """创建新案件。case_type 取值：civil（民事）/ administrative（行政）/
+    criminal（刑事）/ execution（申请执行）/ bankruptcy（破产）。"""
     payload: dict[str, Any] = {"name": name, "case_type": case_type}
     if target_amount is not None:
         payload["target_amount"] = target_amount
@@ -125,8 +127,9 @@ def create_full_case(
 
     Args:
         case: 案件主体字段。必填 ``name``；常用 ``case_type``
-            （litigation / non_litigation / criminal / advisory）、
-            ``target_amount``、``cause_of_action``、``status`` 等。
+            （civil / administrative / criminal / execution / bankruptcy）、
+            ``target_amount``、``cause_of_action``、``status``
+            （active / closed）等。
         parties: 当事人列表（每项含 name / party_type 等字段）。
         assignments: 指派律师列表。
         case_numbers: 案号列表。

@@ -32,7 +32,9 @@ def list_court_sms(
     """查询法院短信列表。
 
     Args:
-        status: 处理状态（pending / processing / completed / failed）。
+        status: 处理状态，取值：pending / parsing / downloading / download_failed /
+            matching / pending_manual（待人工处理）/ renaming / notifying /
+            completed / failed。
         sms_type: 短信类型。
         has_case: True 只查已关联案件的。
         date_from / date_to: 接收时间范围（YYYY-MM-DD）。

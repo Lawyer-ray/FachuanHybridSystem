@@ -17,6 +17,9 @@ def list_payments(
     """查询收款记录列表。可按合同 ID（contract_id）、开票状态（invoice_status）、
     收款日期范围（start_date/end_date，ISO 格式）筛选。
 
+    invoice_status 取值（**大写**）：UNINVOICED（未开票）/ INVOICED_PARTIAL
+    （部分开票）/ INVOICED_FULL（已开票）。
+
     limit 默认 200——REST 端点本无截断,2026-10-25 补的可选参数;需要更多时
     显式调大（上限 2000）。注意:历史版本的 payment_type 参数从未生效
     （REST 不支持,ninja 静默忽略），已移除。

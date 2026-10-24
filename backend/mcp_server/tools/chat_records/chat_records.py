@@ -37,7 +37,7 @@ def create_export(project_id: int, export_type: str = "pdf") -> dict[str, Any]:
 
 
 def get_export_task(task_id: str) -> dict[str, Any]:
-    """查询导出任务状态。status: pending/processing/completed/failed。"""
+    """查询导出任务状态。status: pending/running/success/failed。"""
     return client.get(f"/chat-records/exports/{task_id}")  # type: ignore[no-any-return]
 
 

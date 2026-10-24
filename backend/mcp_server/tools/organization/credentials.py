@@ -32,7 +32,14 @@ def create_credential(
     password: str,
     url: str | None = None,
 ) -> dict[str, Any]:
-    """创建账号凭证。lawyer_id 关联律师；site_name 为系统名称（如 jczd、gsxt）；account 和 password 为登录凭据。"""
+    """创建账号凭证。lawyer_id 关联律师；account 和 password 为登录凭据。
+
+    site_name 必须与目标系统的**注册名完全一致**——OA 立案/盖章/归档、
+    威科检索等自动化流程都按它精确匹配凭证，写别名会导致流程报
+    「未找到匹配凭证」。已在用的取值示例：一张网、威科先行、wkxx、
+    国家企业信用信息公示系统、163邮箱、微信公众号后台（律所 OA 站点
+    以 ``list_oa_configs`` 返回的 ``oa_system_name`` 为准，勿凭记忆猜）。
+    """
     payload: dict[str, Any] = {
         "lawyer_id": lawyer_id,
         "site_name": site_name,

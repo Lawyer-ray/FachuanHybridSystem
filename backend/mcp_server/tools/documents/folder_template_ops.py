@@ -27,7 +27,8 @@ def create_folder_template(
     Args:
         name: 模板名称（必填）。
         template_type: 模板类型。
-        case_types: 适用案件类型列表（litigation / non_litigation 等）。
+        case_types: 适用案件类型列表（civil / administrative / criminal /
+            execution / bankruptcy / all 通用）。
         case_stages: 适用案件阶段列表。
         contract_types: 适用合同类型列表。
         structure: 目录结构树（节点含 name / children 等）。

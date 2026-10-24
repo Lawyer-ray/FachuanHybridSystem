@@ -29,7 +29,7 @@ def create_pdf_split_job(
 
 
 def get_pdf_split_job(job_id: str) -> dict[str, Any]:
-    """查询 PDF 拆解任务状态和结果。status: pending/processing/completed/failed。"""
+    """查询 PDF 拆解任务状态和结果。status: pending/processing/review_required/exporting/completed/failed/cancelled。"""
     return client.get(f"/pdf-splitting/jobs/{job_id}")  # type: ignore[return-value]
 
 

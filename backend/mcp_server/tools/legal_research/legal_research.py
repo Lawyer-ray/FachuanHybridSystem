@@ -59,7 +59,7 @@ def capability_search(
 
 
 def get_research_task(task_id: int) -> dict[str, Any]:
-    """查询类案检索任务状态和进度。status: pending/running/completed/failed。"""
+    """查询类案检索任务状态和进度。status: pending/queued/running/completed/failed/cancelled。"""
     return client.get(f"/legal-research/tasks/{task_id}")  # type: ignore[return-value]
 
 

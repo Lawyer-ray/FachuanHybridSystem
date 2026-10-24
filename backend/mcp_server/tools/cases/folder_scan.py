@@ -24,7 +24,7 @@ def list_scan_subfolders(case_id: int) -> dict[str, Any]:
 
 
 def get_scan_status(case_id: int, session_id: int) -> dict[str, Any]:
-    """查询文件夹扫描任务状态。status: pending/scanning/completed/failed。"""
+    """查询文件夹扫描任务状态。status: pending/running/classifying/completed/staged/failed/cancelled（staged=文件已导入为案件附件）。"""
     return client.get(f"/cases/{case_id}/folder-scan/{session_id}")  # type: ignore[return-value]
 
 
