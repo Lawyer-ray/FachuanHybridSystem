@@ -48,3 +48,34 @@ class TestListResultEnvelope:
         # 信封必须是单块可解析 JSON(回归 SDK 扁平化)
         text = json.dumps(list_result([{"a": 1}]), ensure_ascii=False)
         assert json.loads(text)["items"] == [{"a": 1}]
+
+
+class TestNoBareListAnnotations:
+    """回归门禁:注册工具禁止裸 list 返回注解——SDK 会把 list 逐项拆成
+    独立文本块、空列表变零内容块,必须走 list_result 信封(2026-10-25
+    信封化清扫后的防回退)。仅 4 个显式 ContentBlock 多块工具豁免。"""
+
+    _CONTENT_BLOCK_TOOLS = frozenset(
+        # 目录树/附件读取:每块是独立渲染单元,多块是刻意设计
+        {"list_folder_files", "read_folder_file", "read_agent_attachment"}
+    )
+
+    def test_registered_tools_have_no_bare_list_returns(self):
+        import inspect
+
+        import django
+
+        django.setup() if not django.apps.apps.ready else None
+        import mcp_server.tools as t
+
+        offenders: list[str] = []
+        for name in t.__all__:
+            if name in self._CONTENT_BLOCK_TOOLS:
+                continue
+            ann = str(inspect.signature(getattr(t, name)).return_annotation)
+            if (ann.startswith("list[") or ann.startswith("List[")) and "Content" not in ann:
+                offenders.append(f"{name}: {ann}")
+        assert not offenders, (
+            "以下工具声明裸 list 返回——SDK 会逐项拆块/空列表零内容,"
+            "请改 dict[str, Any] + list_result() 信封: " + "; ".join(offenders[:8])
+        )

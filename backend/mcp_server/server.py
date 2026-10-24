@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import functools
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
 from apps.agent.services.approval import RiskLevel, classify_risk
+from mcp_server.client import FachuanApiError
 from mcp_server.tools import (
     add_case_party,
     add_contract_party,
@@ -469,8 +472,36 @@ def _tool_annotations(name: str) -> ToolAnnotations | None:
 
 
 def _t(func: Any) -> Any:
-    """409 个工具的统一注册装饰器(替代裸 ``mcp.tool()``)。"""
-    return mcp.tool(annotations=_tool_annotations(getattr(func, "__name__", "")))(func)
+    """409 个工具的统一注册装饰器(替代裸 ``mcp.tool()``)。
+
+    统一翻译 ``ValueError`` → ``FachuanApiError``(ToolError 子类):SDK 对
+    非 ToolError 异常只回 ``Error executing tool X`` 不带消息——工具自己的
+    参数校验文案(如「case_id/contract_id 至多传一个」「未知的 kind」)必须
+    走 ToolError 才能直达模型供其自纠(2026-10-25 审计:list_folder_files
+    空参调用的引导文案被吞成裸错误名)。
+    """
+    if asyncio.iscoroutinefunction(func):
+
+        @functools.wraps(func)
+        async def _aw(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await func(*args, **kwargs)
+            except ValueError as exc:
+                raise FachuanApiError(str(exc)) from exc
+
+        target: Any = _aw
+    else:
+
+        @functools.wraps(func)
+        def _sw(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except ValueError as exc:
+                raise FachuanApiError(str(exc)) from exc
+
+        target = _sw
+
+    return mcp.tool(annotations=_tool_annotations(getattr(func, "__name__", "")))(target)
 
 
 # 案件
