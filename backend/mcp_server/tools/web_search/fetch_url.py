@@ -19,6 +19,7 @@
    - ``javascript_required`` 需要 JS 渲染才有内容
    - ``blocked`` 403/401 等被拒绝
    - ``timeout`` / ``network_error`` / ``http_error`` / ``empty_content``
+   - ``payload_too_large`` 响应体超过抓取上限（见 ``_MAX_BODY_BYTES``）
 
    **绝不**返回 ``{"ok": true, "text": ""}``——那会让模型以为「页面没内容」，
    而不是「我们抓不到」。这正是 ``as_items`` 静默兜底要避免的同一类错误。
@@ -107,6 +108,14 @@ _HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
 
+#: 响应体抓取上限(2026-10-25 审计六十六轮):此前 ``http.get`` 非流式全量
+#: 下载,唯一缓解是 20s 超时——高速服务器 20 秒能传几十 GB,巨型直链会把
+#: worker 内存打满,大 PDF 还会整个塞给 pymupdf。官方 MCP 安全最佳实践
+#: 同样要求限制响应大小。10MB 覆盖正常网页与 500 页内的文本型 PDF;
+#: 超限中止下载并如实报 ``payload_too_large``(预检 Content-Length +
+#: 逐块累积双保险——声明头可以骗,实读为准)。
+_MAX_BODY_BYTES = 10 * 1024 * 1024
+
 #: 搜狗跳转页里的真实地址（``window.location.replace("...")`` 或 meta refresh）。
 #: 两个正则**各自绑定自己的标记词**:URL= 只在 http-equiv(meta refresh)语境
 #: 里找——搜狗搜索结果页内嵌大量 JS,任意 `URL=` 变量赋值会被误抽成
@@ -154,24 +163,30 @@ _META_CHARSET = re.compile(r"""charset\s*=\s*["']?([a-zA-Z0-9_-]+)""", re.IGNORE
 _CHARSET_ALIASES = {"gb2312": "gb18030", "gbk": "gb18030"}
 
 
-def _decode_body(response: httpx.Response) -> str:
+def _decode_body(data: bytes, charset_encoding: str | None) -> str:
     """响应正文解码:HTTP 头 charset 优先,缺失时嗅探 HTML meta 声明。
 
     老政务/法院站点常态是头里只写 ``text/html``、编码藏在 meta 里——
     httpx 此时按 utf-8 硬解,中文全成 U+FFFD 乱码还当成功交付。嗅探失败
-    或编码名不认识则退回 ``response.text``,绝不因解码抛错。
+    或编码名不认识则退回 utf-8 replace,绝不因解码抛错。
+
+    ``charset_encoding`` 是 httpx 语义的「头里真实声明的 charset」(None
+    表示未声明)——不能用 ``response.encoding``,它永远非空(回落 utf-8)。
     """
-    if response.charset_encoding:  # 头里真实声明了 charset(.encoding 永远非空,会回落默认 utf-8)
-        return response.text
-    head = response.content[:2048].decode("ascii", errors="ignore")
+    if charset_encoding:
+        try:
+            return data.decode(charset_encoding, errors="replace")
+        except LookupError:  # 头里声明了 Python 不认识的编码名
+            logger.info("响应头声明了未知编码 %s,退回嗅探/默认解码", charset_encoding)
+    head = data[:2048].decode("ascii", errors="ignore")
     match = _META_CHARSET.search(head)
     if match:
         charset = _CHARSET_ALIASES.get(match.group(1).lower(), match.group(1).lower())
         try:
-            return response.content.decode(charset, errors="replace")
+            return data.decode(charset, errors="replace")
         except LookupError:
             logger.info("meta 声明了未知编码 %s,退回默认解码", match.group(1))
-    return response.text
+    return data.decode("utf-8", errors="replace")
 
 
 #: 正文容器候选（按优先级）
@@ -418,6 +433,40 @@ def _cache_put(url: str, kind: str, title: str, text: str) -> None:
         _fetch_cache[url] = (now + _CACHE_TTL_SECONDS, kind, title, text)
 
 
+def _request_capped(http: httpx.Client, url: str) -> tuple[int, httpx.Headers, bytes, str | None] | dict[str, Any]:
+    """流式 GET 并施加响应体大小上限(见 ``_MAX_BODY_BYTES``)。
+
+    返回 ``(status_code, headers, body, 头声明的 charset)``;超限返回
+    ``payload_too_large`` 错误 dict。重定向响应不读 body(headers 立即
+    可用),正常响应逐块累积、累计越线即刻中止——下载到第 11MB 才发现
+    超限与下载完 2GB 再发现,内存峰值差两个量级。
+    """
+    with http.stream("GET", url, headers=_HEADERS) as response:
+        if response.status_code in (301, 302, 303, 307, 308):
+            return (response.status_code, response.headers, b"", response.charset_encoding)
+        declared = response.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > _MAX_BODY_BYTES:
+            return _payload_too_large(url)
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in response.iter_bytes():
+            total += len(chunk)
+            if total > _MAX_BODY_BYTES:
+                return _payload_too_large(url)
+            chunks.append(chunk)
+        return (response.status_code, response.headers, b"".join(chunks), response.charset_encoding)
+
+
+def _payload_too_large(url: str) -> dict[str, Any]:
+    limit_mb = _MAX_BODY_BYTES // (1024 * 1024)
+    return {
+        "ok": False,
+        "url": url,
+        "reason": "payload_too_large",
+        "message": f"响应体超过 {limit_mb}MB 抓取上限,已中止下载——如需完整文件请在前端直接下载",
+    }
+
+
 def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0) -> dict[str, Any]:
     """抓取网页正文并返回纯文本；目标也可以是 PDF/Word 文档（自动提取文字）。
 
@@ -507,9 +556,12 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                         "reason": "blocked_target",
                         "message": "目标地址属于内网/本机段,为防 SSRF 已拒绝抓取",
                     }
-                response = http.get(current, headers=_HEADERS)
-                if response.status_code in (301, 302, 303, 307, 308):
-                    location = response.headers.get("location", "")
+                outcome = _request_capped(http, current)
+                if isinstance(outcome, dict):
+                    return outcome
+                status, headers, data, charset = outcome
+                if status in (301, 302, 303, 307, 308):
+                    location = headers.get("location", "")
                     if not location:
                         break
                     current = str(httpx.URL(current).join(location))
@@ -523,7 +575,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                     "reason": "too_many_redirects",
                     "message": "重定向超过 5 跳,已停止跟随(疑似重定向环或恶意跳板链)",
                 }
-            html = _decode_body(response)
+            html = _decode_body(data, charset)
 
             # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
             real_url = _resolve_sogou_redirect(html)
@@ -536,9 +588,11 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                         "message": "跳转目标属于内网/本机段,为防 SSRF 已拒绝抓取",
                     }
                 try:
-                    response = http.get(real_url, headers=_HEADERS)
-                    html = _decode_body(response)
-                    current = real_url
+                    outcome = _request_capped(http, real_url)
+                    if not isinstance(outcome, dict):
+                        status, headers, data, charset = outcome
+                        html = _decode_body(data, charset)
+                        current = real_url
                 except httpx.HTTPError as exc:
                     logger.info("解析到真实地址但抓取失败 %s: %s", real_url, exc)
             target = current
@@ -554,41 +608,41 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             "message": f"连接失败：{type(exc).__name__}",
         }
 
-    if response.status_code in {401, 403}:
+    if status in {401, 403}:
         return {
             "ok": False,
             "url": target,
             "reason": "blocked",
-            "message": f"对方拒绝访问（HTTP {response.status_code}），可能需要登录或已被限制",
+            "message": f"对方拒绝访问（HTTP {status}），可能需要登录或已被限制",
         }
-    if response.status_code >= 400:
+    if status >= 400:
         return {
             "ok": False,
             "url": target,
             "reason": "http_error",
-            "message": f"HTTP {response.status_code}",
+            "message": f"HTTP {status}",
         }
-    if 300 <= response.status_code < 400:
+    if 300 <= status < 400:
         # 走到这里说明 3xx 但没带 Location(上面 break 出来的)——把重定向
         # 页壳当正文解析会误诊成 javascript_required,不如直说。
         return {
             "ok": False,
             "url": target,
             "reason": "http_error",
-            "message": f"HTTP {response.status_code} 重定向但未提供跳转目标，无法继续",
+            "message": f"HTTP {status} 重定向但未提供跳转目标，无法继续",
         }
 
     # 二进制文档判定:content-type 说它是,或字节形态就是(PDF 魔数 / ZIP 内
     # 含 word/document.xml)——不少站点配错 content-type。提取后与网页走
     # 完全相同的分块/注入包裹管线。
-    content_type = response.headers.get("content-type", "").lower()
-    is_pdf = "pdf" in content_type or response.content[:5] == b"%PDF-"
-    is_docx = not is_pdf and ("word" in content_type or _sniffs_docx(response.content))
+    content_type = headers.get("content-type", "").lower()
+    is_pdf = "pdf" in content_type or data[:5] == b"%PDF-"
+    is_docx = not is_pdf and ("word" in content_type or _sniffs_docx(data))
 
     if is_pdf or is_docx:
         extractor = _extract_pdf_text if is_pdf else _extract_docx_text
         try:
-            text, title = extractor(response.content)
+            text, title = extractor(data)
         except PdfExtractError as exc:
             return {"ok": False, "url": target, "reason": exc.reason, "message": exc.message}
     else:

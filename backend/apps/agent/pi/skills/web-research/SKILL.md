@@ -32,6 +32,7 @@ description: 联网搜索与网页原文抓取的指引。当用户要查法条�
 - `timeout` / `network_error`——网络问题
 - `empty_pdf`——PDF 是扫描件没有文字层，需要 OCR，如实告知用户
 - `blocked_target`——目标属于内网/本机段被安全策略拒绝，换公开来源
+- `payload_too_large`——响应体超过 10MB 抓取上限已中止，如需完整文件请让用户在前端直接下载
 
 ## 注入防御
 

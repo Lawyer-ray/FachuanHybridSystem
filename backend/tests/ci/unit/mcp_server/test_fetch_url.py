@@ -56,7 +56,26 @@ def _clear_fetch_cache() -> None:
 
 def _set_response(fake_http: Any, response: httpx.Response) -> None:
     instance = fake_http.return_value.__enter__.return_value
-    instance.get.return_value = response
+    instance.stream.return_value = _StreamCM(response)
+
+
+class _StreamCM:
+    """把真实 httpx.Response 包成 with 语句可用的上下文管理器。
+
+    ``_request_capped`` 用 ``http.stream(...)``(六十六轮改流式下载),
+    mock 的 Client.stream 需要返回 cm;httpx.Response 本身不实现
+    ``__enter__/__exit__``。进入 with 拿到真实 Response,status_code/
+    headers/iter_bytes 全部真实行为。
+    """
+
+    def __init__(self, response: httpx.Response) -> None:
+        self._response = response
+
+    def __enter__(self) -> httpx.Response:
+        return self._response
+
+    def __exit__(self, *exc: object) -> bool:
+        return False
 
 
 class TestSuccess:
@@ -113,14 +132,14 @@ class TestSuccess:
         )
 
         instance = fake_http.return_value.__enter__.return_value
-        instance.get.side_effect = [_response(200, redirect_html), _response(200, real_html)]
+        instance.stream.side_effect = [_StreamCM(_response(200, redirect_html)), _StreamCM(_response(200, real_html))]
 
         result = _module().fetch_url("/link?url=hedJjaC291PM8os")
 
         assert result["ok"] is True
         assert result["url"] == "https://real.example.com/article"
         assert result["title"] == "真实页"
-        assert instance.get.call_count == 2
+        assert instance.stream.call_count == 2
 
 
 class TestHonestFailures:
@@ -153,7 +172,7 @@ class TestHonestFailures:
 
     def test_timeout(self, fake_http: Any) -> None:
         instance = fake_http.return_value.__enter__.return_value
-        instance.get.side_effect = httpx.TimeoutException("slow")
+        instance.stream.side_effect = httpx.TimeoutException("slow")
 
         result = _module().fetch_url("https://example.com/a")
 
@@ -162,7 +181,7 @@ class TestHonestFailures:
 
     def test_network_error(self, fake_http: Any) -> None:
         instance = fake_http.return_value.__enter__.return_value
-        instance.get.side_effect = httpx.ConnectError("no route")
+        instance.stream.side_effect = httpx.ConnectError("no route")
 
         result = _module().fetch_url("https://example.com/a")
 
@@ -695,8 +714,8 @@ class TestRedirectFallback:
         """解析到真实地址但抓取失败时，不能静默当成成功。"""
         redirect_html = '<script>window.location.replace("https://real.example.com/x")</script>'
         instance = fake_http.return_value.__enter__.return_value
-        instance.get.side_effect = [
-            _response(200, redirect_html),
+        instance.stream.side_effect = [
+            _StreamCM(_response(200, redirect_html)),
             httpx.ConnectError("real host down"),
         ]
 
@@ -718,7 +737,7 @@ class TestRedirectFallback:
                 request=httpx.Request("GET", f"https://example.com/r{hop - 1}"),
             )
 
-        instance.get.side_effect = [redirect_response(i) for i in range(1, 8)]
+        instance.stream.side_effect = [_StreamCM(redirect_response(i)) for i in range(1, 8)]
 
         result = _module().fetch_url("https://example.com/entry")
 
@@ -820,6 +839,52 @@ class TestSSRFProtection:
         assert result["reason"] == "blocked_target"
 
 
+class TestBodySizeCap:
+    """响应体大小上限(2026-10-25 审计六十六轮)——旧实现 ``http.get``
+    非流式全量下载,唯一缓解是 20s 超时,高速服务器 20 秒能传几十 GB,
+    巨型直链会把 worker 内存打满、大 PDF 整个塞给 pymupdf。现在是
+    Content-Length 预检 + 逐块累积双保险(声明头可以骗,实读为准)。"""
+
+    def test_declared_content_length_over_cap(self, fake_http: Any) -> None:
+        """Content-Length 声明超限:响应头一到即拒绝,一个字节都不下载。"""
+        big = httpx.Response(
+            200,
+            headers={"content-type": "application/pdf", "content-length": str(20 * 1024 * 1024)},
+            request=httpx.Request("GET", "https://big.example/x.pdf"),
+        )
+        _set_response(fake_http, big)
+
+        result = _module().fetch_url("https://big.example/x.pdf")
+
+        assert result["ok"] is False
+        assert result["reason"] == "payload_too_large"
+        assert "10MB" in result["message"]
+
+    def test_chunked_body_over_cap_without_declaration(self, fake_http: Any) -> None:
+        """无 Content-Length(chunked)或声明撒谎:逐块累积在实读越线时中止。"""
+        huge = httpx.Response(
+            200,
+            headers={"content-type": "application/octet-stream"},
+            content=b"x" * (10 * 1024 * 1024 + 1),
+            request=httpx.Request("GET", "https://big.example/blob"),
+        )
+        _set_response(fake_http, huge)
+
+        result = _module().fetch_url("https://big.example/blob")
+
+        assert result["ok"] is False
+        assert result["reason"] == "payload_too_large"
+
+    def test_body_under_cap_unaffected(self, fake_http: Any) -> None:
+        """上限内的正常抓取不受影响。"""
+        _set_response(fake_http, _response(200, "<html><body><article>正文内容</article></body></html>"))
+
+        result = _module().fetch_url("https://example.com/ok")
+
+        assert result["ok"] is True
+        assert "正文内容" in result["text"]
+
+
 class TestFetchCache:
     """抓取结果缓存(2026-10-25 审计六十四轮)——分块续读长文档时,每个
     chunk 都重新下载+解析整页(4 块判决书 = 4 次完整抓取)。按原始输入
@@ -834,11 +899,11 @@ class TestFetchCache:
         first = _module().fetch_url("https://example.com/judgment", max_chars=2000)
 
         instance = fake_http.return_value.__enter__.return_value
-        instance.get.reset_mock()
+        instance.stream.reset_mock()
         second = _module().fetch_url("https://example.com/judgment", max_chars=2000, start_index=first["next_index"])
 
         assert second["cached"] is True
-        instance.get.assert_not_called()
+        instance.stream.assert_not_called()
         # 续读窗口照常按本次参数计算
         assert second["total_chars"] == first["total_chars"]
 
