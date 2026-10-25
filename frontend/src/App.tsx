@@ -22,6 +22,10 @@ const DeskPage = lazy(() => preloadDeskPage().then((m) => ({ default: m.DeskPage
 const CopilotPanelLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotPanel })))
 const PanelBackdropLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.PanelBackdrop })))
 
+// 客户上传单页（公开）：律师生成 /u/{token} 链接一对一发给客户，免登录上传。
+// 独立轻量 chunk（不带 pdfjs 等重依赖），放 RequireAuth 之外与 /login 平级。
+const ClientUploadPageLazy = lazy(() => import('@/features/client-upload').then((m) => ({ default: m.ClientUploadPage })))
+
 const COPILOT_OPEN_KEY = 'copilot:open'
 const COPILOT_DOCK_KEY = 'copilot:dock'
 
@@ -273,6 +277,15 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         {/* 社交登录回调：飞书/微信授权后由后端 302 到此，用一次性码换 JWT */}
         <Route path="/social-callback" element={<SocialCallbackPage />} />
+        {/* 客户材料上传（公开）：链接即凭证，不进 RequireAuth */}
+        <Route
+          path="/u/:token"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <ClientUploadPageLazy />
+            </Suspense>
+          }
+        />
         <Route
           element={
             <RequireAuth>

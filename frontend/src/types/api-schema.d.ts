@@ -2457,6 +2457,9 @@ export interface paths {
          *     - include_facets=false 跳过 facets 的四次全表聚合（只回 total/items，
          *       三个 *_counts 为空）。facets 是全库口径、与页码无关，翻页时应传 false
          *       并复用已有计数，避免每翻一页多扫四遍全表。
+         *     - party=名称片段：按**当事人姓名**匹配（匹配 client.name，非合同名）。
+         *       材料预处理识别出「这份合同属于哪个委托」时用它——客户送审的合同
+         *       由客户与第三方签订，无案号、无 OA 编号，当事人名称是唯一可靠锚点。
          *
          *     Requirements: 6.1, 6.2, 6.3
          */
@@ -3311,6 +3314,56 @@ export interface paths {
          * @description 拖拽 / 多文件上传到 subpath 目录（multipart 字段名 files，同名自动加序号）。
          */
         post: operations["apps_contracts_api_contract_folder_browse_api_upload_contract_folder_files"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Contract Folder File
+         * @description 原地覆盖保存（编辑器 Ctrl+S）。
+         *
+         *     **与 folder-upload 相反**：上传是「不覆盖、同名加序号」；这里是明确的
+         *     覆盖这一份。`expect_mtime` 做乐观锁：与磁盘实际 mtime 不一致就 409，
+         *     避免两人同开时静默丢掉前一个人的修改。
+         *
+         *     不保留备份（产品决定）：覆盖即覆盖，版本追溯走审查链路的
+         *     `DocumentVersion`，不靠磁盘上的 `_历史/`。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_save_contract_folder_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/{contract_id}/folder-save-as": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Contract Folder File As
+         * @description 另存为新文件（同目录，同名自动加序号，不覆盖）。
+         *
+         *     `subpath` 定位源文件（用来找目录），`name` 是新文件名（前端默认给
+         *     `原名[修订版]V1_日期.docx`）。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_save_contract_folder_file_as"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5868,6 +5921,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox/upload-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Links
+         * @description 我的客户上传链接列表（管理员全量），含已收包数/字节与实时状态。
+         */
+        get: operations["apps_message_hub_api_upload_link_api_list_links"];
+        put?: never;
+        /**
+         * Create Link
+         * @description 生成客户上传链接，响应附带 token 明文（仅此一次，前端即时组装 /u/{token}）。
+         */
+        post: operations["apps_message_hub_api_upload_link_api_create_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/upload-links/{link_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Link
+         * @description 作废链接（客户手里的旧 URL 立即失效）。
+         */
+        post: operations["apps_message_hub_api_upload_link_api_revoke_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/upload-links/{link_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Link
+         * @description 换发新 token（旧 URL 立即失效）；仅生效中的链接可换，已作废请重新创建。
+         */
+        post: operations["apps_message_hub_api_upload_link_api_rotate_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/material-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Link Info
+         * @description 链接信息（标题/说明/律师/绑定项目/状态/剩余额度）。
+         */
+        get: operations["apps_message_hub_api_public_upload_api_get_link_info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/material-link/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Uploaded Files
+         * @description 该链接已收文件名录（仅文件名+大小），供客户续传时核对已交内容。
+         */
+        get: operations["apps_message_hub_api_public_upload_api_list_uploaded_files"];
+        put?: never;
+        /**
+         * Upload Files
+         * @description 客户上传一批文件（multipart，每次一个 files 字段），生成一个材料包。
+         *
+         *     单文件类型/大小校验与压缩包展开沿用律师手动上传同一套规则。
+         */
+        post: operations["apps_message_hub_api_public_upload_api_upload_files"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/chat-records/export-types": {
         parameters: {
             query?: never;
@@ -6121,6 +6284,85 @@ export interface paths {
         };
         /** Download Export */
         get: operations["apps_chat_records_api_chat_records_api_download_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onlyoffice/editor-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 取 OnlyOffice 编辑器配置（含签名 token）
+         * @description 按文件生成编辑器配置。
+         *
+         *     - `file_url`：站内下载路径。当前仅 `/api/v1/contract-review/{id}/download*`
+         *       享受完整链路（DS 取文件代理 + 保存回写）；其它路径也能取到 config，
+         *       但 DS 回源取文件会被代理拒绝（与 `/file` 白名单一致）。
+         *     - `mode`：`view`（纯只读）/ `review`（锁定修订）/ `edit`（完全编辑）。
+         *     - `version`：内容版本标识（如 updated_at），变了就换 DS 缓存 key。
+         */
+        get: operations["apps_onlyoffice_api_onlyoffice_api_get_editor_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onlyoffice/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * OnlyOffice 文档状态回调（DS 调用）
+         * @description DS 状态回调：status=2/6 时下载编辑产物落盘（保存回写），其余记日志。
+         *
+         *     验签策略（写路径安全底线）：
+         *     - token 存在但校验失败 → 直接 {"error": 1}，不回落未签名 body；
+         *     - status=2/6（会产生落盘写操作）**必须**持有效签名，否则拒绝；
+         *     - 其余状态无签名也放行（老版本 DS / 未开 inbound JWT 时仅丢日志）。
+         */
+        post: operations["apps_onlyoffice_api_onlyoffice_api_document_callback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onlyoffice/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * DS 取文件代理（签名鉴权，可重复访问）
+         * @description DS 拉取源文件。
+         *
+         *     DS 在独立容器里、无法携带 Authorization 头，且会重试，所以走本端点的
+         *     `?src=&sig=` 签名鉴权（见 signing.sign_file_token），而不是一次性下载票据。
+         *
+         *     `src` 只允许站内相对路径（必须以 `/api/` 开头且不含 `://`）——否则就成了
+         *     任意 URL 的开放代理。注意 Django 解析查询串时**已经解码过一次**，这里
+         *     不得再 unquote：签名与验签必须作用于同一字符串，否则含 % 编码的路径
+         *     会出现「签名对象错位 → 稳定 403」。
+         */
+        get: operations["apps_onlyoffice_api_onlyoffice_api_serve_file"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7712,6 +7954,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contract-review/{task_id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Revisions
+         * @description 取某次审查的结构化修订清单（复审台左栏）.
+         *
+         *     为什么不是直接读 docx 的 Track Changes：痕迹里没有等级、依据、驳回理由，
+         *     也没有「律师已决策」这个状态。清单是决策载体，docx 是产物。
+         */
+        get: operations["apps_contract_review_api_review_api_list_revisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contract-review/{task_id}/revisions/{revision_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Revision
+         * @description 律师对单条建议做决策（采纳 / 驳回 / 撤销）.
+         *
+         *     **只改状态，不改文档**：采纳后文档侧的修订痕迹由 OnlyOffice 编辑器写入
+         *     （前端驱动）。后端不碰 docx——同一份产物可能同时被编辑器持有，
+         *     两边都写会互相覆盖。
+         */
+        post: operations["apps_contract_review_api_review_api_resolve_revision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contract-review/{task_id}/content-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Content Version
+         * @description 文档内容版本：告诉复审台「画布该不该重载」。
+         *
+         *     旧做法是前端自己拼 `version = taskId:acceptedCount`，采纳一次就变 →
+         *     整篇重建 DS 画布（5–15 秒）。律师逐条过一份 30 处建议的合同时，
+         *     每点一次采纳都在等重载。
+         *
+         *     真实信号在 `EditorSession.saved_version`：只有保存回写（DS status=2/6）
+         *     落盘后才 +1，也就是**文档内容真的变了**。采纳只改 DB 状态、不写 docx，
+         *     不该触发重建。
+         */
+        get: operations["apps_contract_review_api_review_api_get_content_version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contract-review/{task_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Versions
+         * @description 文档版本链：从客户来稿 → AI 修订版 → 律师编辑版（→ 客户回稿）。
+         *
+         *     以前版本信息只活在文件名（`[修订版]V1_日期`）：改个名就断链，
+         *     排序也只对同一天有效。这里把它变成真实关系（parent 指向改自的那版）。
+         */
+        get: operations["apps_contract_review_api_review_api_get_versions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contract-review/models": {
         parameters: {
             query?: never;
@@ -9091,6 +9431,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Skills
+         * @description 当前律师可见的技能清单（偏好只记差异，缺省全启用）。
+         */
+        get: operations["apps_agent_api_agent_api_list_skills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{skill_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Toggle Skill
+         * @description 启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。
+         */
+        patch: operations["apps_agent_api_agent_api_toggle_skill"];
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Stats
+         * @description 会话 token 用量与上下文水位（读库即可，不起 pi 进程）。
+         */
+        get: operations["apps_agent_api_agent_api_get_session_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/compact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compact Session Context
+         * @description 手动压缩会话上下文（同步执行：起 pi 续写 session 文件，压缩完才返回）。
+         *
+         *     摘要与自动压缩同源（``compaction-takeover`` 确定性编译，保案号/当事人/
+         *     金额/期限锚点）。进程池忙时 429，pi 故障 502——都不吞。
+         */
+        post: operations["apps_agent_api_agent_api_compact_session_context"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/sessions/{session_id}/attachments": {
         parameters: {
             query?: never;
@@ -9278,6 +9701,50 @@ export interface paths {
          * @description 前端提交审批决定（仅会话所有者或超级用户可决定）。
          */
         post: operations["apps_agent_api_agent_api_submit_approval_decision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/question/{question_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Question Answer
+         * @description 前端提交提问回答（仅会话所有者或超级用户）。
+         *
+         *     ``success=False`` 不一定是错误：等待方可能已超时（律师过了 5 分钟才点
+         *     提交）。此时答案仍被记录，但模型已经按假设继续了——前端应提示「回答已
+         *     记录，但本轮已继续」，而不是当成失败重试。
+         */
+        post: operations["apps_agent_api_agent_api_submit_question_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/questions/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending Questions
+         * @description 当前律师待回答的提问（重开会话时补拉，避免错过）。
+         */
+        get: operations["apps_agent_api_agent_api_list_pending_questions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -14165,6 +14632,11 @@ export interface components {
             name: string;
             /** Subpath */
             subpath: string;
+            /**
+             * File Count
+             * @default 0
+             */
+            file_count: number;
         };
         /**
          * ContractFolderEntryNameIn
@@ -14178,6 +14650,23 @@ export interface components {
             subpath: string;
             /** Name */
             name: string;
+        };
+        /**
+         * ContractFolderSaveOut
+         * @description 保存结果：新 subpath/文件名/大小/mtime（前端据此更新状态）。
+         */
+        ContractFolderSaveOut: {
+            /** Subpath */
+            subpath: string;
+            /** Name */
+            name: string;
+            /**
+             * Size
+             * @default 0
+             */
+            size: number;
+            /** Modified At */
+            modified_at?: string | null;
         };
         /**
          * ContractFolderCopyIn
@@ -16484,6 +16973,20 @@ export interface components {
              * @default
              */
             compose: string;
+            /** Upload Link Id */
+            upload_link_id?: number | null;
+            /**
+             * Upload Link Title
+             * @default
+             */
+            upload_link_title: string;
+            /** Upload Contract Id */
+            upload_contract_id?: number | null;
+            /**
+             * Upload Contract Name
+             * @default
+             */
+            upload_contract_name: string;
         };
         /**
          * AttachmentMeta
@@ -16571,6 +17074,20 @@ export interface components {
              * @default
              */
             compose: string;
+            /** Upload Link Id */
+            upload_link_id?: number | null;
+            /**
+             * Upload Link Title
+             * @default
+             */
+            upload_link_title: string;
+            /** Upload Contract Id */
+            upload_contract_id?: number | null;
+            /**
+             * Upload Contract Name
+             * @default
+             */
+            upload_contract_name: string;
             /** Body Text */
             body_text: string;
             /** Body Html */
@@ -16762,6 +17279,156 @@ export interface components {
             /** Sender Blacklist */
             sender_blacklist?: string | null;
         };
+        /**
+         * UploadLinkCreatedOut
+         * @description 创建 / 轮换响应：附带 token 明文（仅此一次，前端即时组装分享 URL）。
+         */
+        UploadLinkCreatedOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Note */
+            note: string;
+            /** Client Name */
+            client_name: string;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Contract Name
+             * @default
+             */
+            contract_name: string;
+            /** Status */
+            status: string;
+            /** State */
+            state: string;
+            /** Expires At */
+            expires_at: string;
+            /** Created At */
+            created_at: string;
+            /** Pack Count */
+            pack_count: number;
+            /** Used Bytes */
+            used_bytes: number;
+            /** Quota Total Bytes */
+            quota_total_bytes: number;
+            /** Quota Max Packs */
+            quota_max_packs: number;
+            /** Last Uploaded At */
+            last_uploaded_at?: string | null;
+            /** Token */
+            token: string;
+        };
+        /**
+         * UploadLinkCreateIn
+         * @description 创建链接入参。
+         */
+        UploadLinkCreateIn: {
+            /** Title */
+            title: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Client Name
+             * @default
+             */
+            client_name: string;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Expires Days
+             * @default 30
+             */
+            expires_days: number;
+        };
+        /**
+         * UploadLinkOut
+         * @description 客户上传链接（律师端列表行；token 明文绝不在此出现）。
+         */
+        UploadLinkOut: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Note */
+            note: string;
+            /** Client Name */
+            client_name: string;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Contract Name
+             * @default
+             */
+            contract_name: string;
+            /** Status */
+            status: string;
+            /** State */
+            state: string;
+            /** Expires At */
+            expires_at: string;
+            /** Created At */
+            created_at: string;
+            /** Pack Count */
+            pack_count: number;
+            /** Used Bytes */
+            used_bytes: number;
+            /** Quota Total Bytes */
+            quota_total_bytes: number;
+            /** Quota Max Packs */
+            quota_max_packs: number;
+            /** Last Uploaded At */
+            last_uploaded_at?: string | null;
+        };
+        /**
+         * PublicLinkInfoOut
+         * @description 公开链接信息（token 持有者可见；不含律师端统计细节）。
+         */
+        PublicLinkInfoOut: {
+            /** Title */
+            title: string;
+            /** Note */
+            note: string;
+            /** Client Name */
+            client_name: string;
+            /** Lawyer Name */
+            lawyer_name: string;
+            /**
+             * Contract Name
+             * @default
+             */
+            contract_name: string;
+            /** State */
+            state: string;
+            /** Expires At */
+            expires_at: string;
+            /** Remaining Bytes */
+            remaining_bytes: number;
+        };
+        /**
+         * PublicUploadFileOut
+         * @description 公开侧文件条目（仅文件名与大小）。
+         */
+        PublicUploadFileOut: {
+            /** Filename */
+            filename: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * PublicUploadOut
+         * @description 公开上传响应：本批已收文件与剩余额度。
+         */
+        PublicUploadOut: {
+            /** Files */
+            files: components["schemas"]["PublicUploadFileOut"][];
+            /** Remaining Bytes */
+            remaining_bytes: number;
+        };
         /** ProjectOut */
         ProjectOut: {
             /** Created At */
@@ -16939,6 +17606,28 @@ export interface components {
             layout?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * EditorConfigOut
+         * @description 前端直接交给 DocsAPI.DocEditor 的载荷。
+         */
+        EditorConfigOut: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Docserver Url
+             * @default
+             */
+            docserver_url: string;
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
         };
         /** ExpressQueryTaskOut */
         ExpressQueryTaskOut: {
@@ -17930,6 +18619,168 @@ export interface components {
              * @default
              */
             party_d: string;
+            /**
+             * Client Note
+             * @default
+             */
+            client_note: string;
+            /**
+             * Client Demands
+             * @default []
+             */
+            client_demands: string[];
+            /**
+             * Our Client Name
+             * @default
+             */
+            our_client_name: string;
+            /**
+             * Stance Basis
+             * @default
+             */
+            stance_basis: string;
+        };
+        /**
+         * RevisionListOut
+         * @description 修订清单 + 计数。计数由后端算：前端自己数容易与列表不一致。
+         */
+        RevisionListOut: {
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /** Total */
+            total: number;
+            /** Pending */
+            pending: number;
+            /** Accepted */
+            accepted: number;
+            /** Rejected */
+            rejected: number;
+            /** Items */
+            items: components["schemas"]["RevisionOut"][];
+        };
+        /**
+         * RevisionOut
+         * @description 单条审查修订（复审台左栏的判定单元）。
+         */
+        RevisionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Kind */
+            kind: string;
+            /** Severity */
+            severity: string;
+            /** Title */
+            title: string;
+            /** Original */
+            original: string;
+            /** Suggested */
+            suggested: string;
+            /** Reason */
+            reason: string;
+            /** Paragraph Index */
+            paragraph_index: number;
+            /** Status */
+            status: string;
+            /** Reject Reason */
+            reject_reason: string;
+            /** Decided At */
+            decided_at?: string | null;
+        };
+        /**
+         * ResolveRevisionOut
+         * @description 决策结果 + 该任务剩余待决策数（前端据此更新进度不再发第二次请求）。
+         */
+        ResolveRevisionOut: {
+            /**
+             * Revision Id
+             * Format: uuid
+             */
+            revision_id: string;
+            /** Status */
+            status: string;
+            /** Pending */
+            pending: number;
+        };
+        /**
+         * ResolveRevisionIn
+         * @description 律师对单条建议的决策。
+         *
+         *     accept：标记已采纳，文档侧由编辑器以修订模式写入痕迹（前端驱动）；
+         *     reject：标记已驳回，不动文档，理由可留空；
+         *     reset：撤销决策回到待决策，清掉理由与决策时间。
+         */
+        ResolveRevisionIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "accept" | "reject" | "reset";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * ContentVersionOut
+         * @description 文档内容版本：画布到底该不该重载。
+         *
+         *     `content_version` 直接给 OfficeView 当 `version` 用：内容没变则值不变
+         *     （DS 缓存命中、不重建），保存回写后才变（换 key 重新取文件）。
+         */
+        ContentVersionOut: {
+            /** Content Version */
+            content_version: string;
+            /** Saved Version */
+            saved_version: number;
+            /** Output File */
+            output_file: string;
+        };
+        /**
+         * DocumentVersionOut
+         * @description 版本链上的一个节点。
+         */
+        DocumentVersionOut: {
+            /** Id */
+            id: string;
+            /** Version No */
+            version_no: number;
+            /** Kind */
+            kind: string;
+            /** Kind Label */
+            kind_label: string;
+            /** File Name */
+            file_name: string;
+            /** File Path */
+            file_path: string;
+            /** Author */
+            author: string;
+            /** Note */
+            note: string;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** VersionChainOut */
+        VersionChainOut: {
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["DocumentVersionOut"][];
         };
         /**
          * FormatNormalizeOut
@@ -20175,6 +21026,70 @@ export interface components {
             /** Messages */
             messages: string[];
         };
+        /** SkillListOut */
+        SkillListOut: {
+            /** Skills */
+            skills: components["schemas"]["SkillOut"][];
+        };
+        /**
+         * SkillOut
+         * @description 技能清单项。``description`` 来自 SKILL.md frontmatter。
+         */
+        SkillOut: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** SkillToggleOut */
+        SkillToggleOut: {
+            /** Name */
+            name: string;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** SkillToggleIn */
+        SkillToggleIn: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /**
+         * SessionStatsOut
+         * @description 会话累计用量与上下文水位（最新一轮 AgentRun 的快照）。
+         *
+         *     水位 nullable：旧轮数据 / pi 未上报时是 None，前端隐藏水位显示，
+         *     不把「不知道」伪装成「上下文是空的」。
+         */
+        SessionStatsOut: {
+            /** Output Tokens */
+            output_tokens: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Cache Write Tokens */
+            cache_write_tokens: number;
+            /** Context Used Tokens */
+            context_used_tokens?: number | null;
+            /** Context Total Tokens */
+            context_total_tokens?: number | null;
+            /** Context Percent */
+            context_percent?: number | null;
+        };
+        /**
+         * CompactOut
+         * @description 手动压缩回执。``compacted=False`` 表示无历史可压（幂等成功，不报错）。
+         */
+        CompactOut: {
+            /** Compacted */
+            compacted: boolean;
+            /** Context Used Tokens */
+            context_used_tokens?: number | null;
+            /** Context Total Tokens */
+            context_total_tokens?: number | null;
+        };
         /**
          * AttachmentOut
          * @description 附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。
@@ -20389,6 +21304,49 @@ export interface components {
             reason: string;
         };
         /**
+         * QuestionAnswerIn
+         * @description 前端提交提问回答。
+         */
+        QuestionAnswerIn: {
+            /**
+             * Answers
+             * @default []
+             */
+            answers: components["schemas"]["QuestionAnswerItem"][];
+            /**
+             * Skipped
+             * @default false
+             */
+            skipped: boolean;
+        };
+        /**
+         * QuestionAnswerItem
+         * @description 单个问题的回答。
+         *
+         *     按 ``id`` 回填而不是下标：前端可能只答一部分或顺序错乱，按 id 对齐
+         *     才不会出现「答的是第 2 题被当成第 1 题」的静默错位——法律场景里
+         *     问错一次比不问更糟。
+         */
+        QuestionAnswerItem: {
+            /** Id */
+            id: string;
+            /**
+             * Selections
+             * @default []
+             */
+            selections: string[];
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /**
          * UsageOut
          * @description 成本 / 耗时汇总。``error_rate`` 为小数（0.05 = 5%）。
          */
@@ -20407,6 +21365,21 @@ export interface components {
             output_tokens: number;
             /** Total Tokens */
             total_tokens: number;
+            /**
+             * Cache Read Tokens
+             * @default 0
+             */
+            cache_read_tokens: number;
+            /**
+             * Cache Write Tokens
+             * @default 0
+             */
+            cache_write_tokens: number;
+            /**
+             * Cache Hit Rate
+             * @default 0
+             */
+            cache_hit_rate: number;
             /** Tool Calls */
             tool_calls: number;
             /** Avg Duration Ms */
@@ -24930,6 +25903,7 @@ export interface operations {
                 fee_mode?: string | null;
                 is_filed?: boolean | null;
                 slim?: boolean;
+                party?: string | null;
                 include_facets?: boolean;
                 page?: number;
                 page_size?: number;
@@ -26114,6 +27088,56 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_save_contract_folder_file: {
+        parameters: {
+            query: {
+                subpath: string;
+                expect_mtime?: number | null;
+            };
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFolderSaveOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contract_folder_browse_api_save_contract_folder_file_as: {
+        parameters: {
+            query: {
+                subpath: string;
+                name: string;
+            };
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFolderSaveOut"];
+                };
             };
         };
     };
@@ -29247,6 +30271,164 @@ export interface operations {
             };
         };
     };
+    apps_message_hub_api_upload_link_api_list_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadLinkOut"][];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_upload_link_api_create_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadLinkCreateIn"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadLinkCreatedOut"];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_upload_link_api_revoke_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadLinkOut"];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_upload_link_api_rotate_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadLinkCreatedOut"];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_public_upload_api_get_link_info: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicLinkInfoOut"];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_public_upload_api_list_uploaded_files: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicUploadFileOut"][];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_public_upload_api_upload_files: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /**
+                     * Remark
+                     * @default
+                     */
+                    remark?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicUploadOut"];
+                };
+            };
+        };
+    };
     apps_chat_records_api_chat_records_api_get_export_types: {
         parameters: {
             query?: never;
@@ -29739,6 +30921,70 @@ export interface operations {
             path: {
                 task_id: string;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_onlyoffice_api_onlyoffice_api_get_editor_config: {
+        parameters: {
+            query: {
+                file_url: string;
+                file_name: string;
+                mode?: string;
+                version?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditorConfigOut"];
+                };
+            };
+        };
+    };
+    apps_onlyoffice_api_onlyoffice_api_document_callback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_onlyoffice_api_onlyoffice_api_serve_file: {
+        parameters: {
+            query: {
+                src: string;
+                sig: string;
+            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -32010,6 +33256,99 @@ export interface operations {
             };
         };
     };
+    apps_contract_review_api_review_api_list_revisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevisionListOut"];
+                };
+            };
+        };
+    };
+    apps_contract_review_api_review_api_resolve_revision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRevisionIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolveRevisionOut"];
+                };
+            };
+        };
+    };
+    apps_contract_review_api_review_api_get_content_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionOut"];
+                };
+            };
+        };
+    };
+    apps_contract_review_api_review_api_get_versions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionChainOut"];
+                };
+            };
+        };
+    };
     apps_contract_review_api_review_api_get_models: {
         parameters: {
             query?: never;
@@ -33546,6 +34885,96 @@ export interface operations {
             };
         };
     };
+    apps_agent_api_agent_api_list_skills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillListOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_toggle_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skill_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillToggleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillToggleOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_session_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionStatsOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_compact_session_context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompactOut"];
+                };
+            };
+        };
+    };
     apps_agent_api_agent_api_upload_attachment: {
         parameters: {
             query?: never;
@@ -33736,6 +35165,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_submit_question_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_list_pending_questions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
             };
         };
     };

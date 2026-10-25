@@ -1,4 +1,4 @@
-import { Loader2, PackagePlus } from 'lucide-react'
+import { Link2, Loader2, PackagePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { PackStatus } from '../types'
@@ -11,19 +11,21 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'filed', label: '不接归档' },
 ]
 
-/** 页签栏（含各状态计数角标）+ 右上「新建材料包」按钮。 */
+/** 页签栏（含各状态计数角标）+ 右上「新建材料包 / 客户链接」按钮。 */
 export function DeskTabs({
   tab,
   setTab,
   counts,
   uploading,
   onPickFiles,
+  onOpenShareLinks,
 }: {
   tab: Tab
   setTab: (t: Tab) => void
   counts: Record<Tab, number>
   uploading: boolean
   onPickFiles: () => void
+  onOpenShareLinks: () => void
 }) {
   return (
     <div className="mb-5 flex flex-wrap items-end gap-4">
@@ -51,7 +53,11 @@ export function DeskTabs({
         <span className="mx-2 hidden h-[18px] w-px bg-zinc-300 sm:block" />
         <span className="hidden text-[11.5px] text-muted-foreground sm:inline">全部材料都靠手划，机器不猜</span>
       </div>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <Button onClick={onOpenShareLinks} size="sm" variant="outline">
+          <Link2 className="h-4 w-4" />
+          客户链接
+        </Button>
         <Button onClick={onPickFiles} disabled={uploading} size="sm">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
           新建材料包

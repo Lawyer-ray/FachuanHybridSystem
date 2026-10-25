@@ -12,6 +12,7 @@ import { DeskTabs } from './DeskTabs'
 import { PackGrid } from './PackGrid'
 import { DeskDropLayer } from './DeskDropLayer'
 import { DeskDialogs } from './DeskDialogs'
+import { ShareLinkPanel } from './ShareLinkPanel'
 import { Reader } from './reader/Reader'
 import type { InboxMessage, PackStatus } from '../types'
 import '../material-prep.css'
@@ -40,6 +41,8 @@ export function DeskPage() {
   const [deleteTarget, setDeleteTarget] = useState<InboxMessage | null>(null)
   // 待重命名的材料包（右键菜单打开），null 时关闭
   const [renameTarget, setRenameTarget] = useState<InboxMessage | null>(null)
+  // 客户上传链接管理面板
+  const [shareLinksOpen, setShareLinksOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -201,6 +204,7 @@ export function DeskPage() {
           counts={counts}
           uploading={uploading}
           onPickFiles={onPickFiles}
+          onOpenShareLinks={() => setShareLinksOpen(true)}
         />
 
         {isLoading ? (
@@ -252,6 +256,8 @@ export function DeskPage() {
         renameTarget={renameTarget}
         onRenameOpenChange={() => setRenameTarget(null)}
       />
+
+      <ShareLinkPanel open={shareLinksOpen} onOpenChange={setShareLinksOpen} />
     </div>
   )
 }

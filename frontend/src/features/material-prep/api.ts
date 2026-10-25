@@ -3,7 +3,7 @@ import type { components } from '@/types/api-schema'
 // isEmptyDraft 直连 ./draft/state 而非 barrel：经 barrel 会因 resolve → ../api 的
 // 既有依赖形成 api ↔ draft 环（见 draft/index.ts 头注释）
 import { isEmptyDraft } from './draft/state'
-import { MANUAL_SOURCE_TYPE } from './constants'
+import { PACK_SOURCE_TYPES } from './constants'
 import type {
   AssignInfo,
   CaseRow,
@@ -71,7 +71,7 @@ export async function listMaterialPacks(): Promise<InboxMessage[]> {
     .get('messages', {
       // limit 显式对齐服务端兜底默认（500）：收件箱持续增长，桌面仓库列表
       // 在超过该量级前需要真正的分页/筛选，而不是无限拉全量
-      searchParams: { source_type: MANUAL_SOURCE_TYPE, has_attachments: 'true', limit: '500' },
+      searchParams: { source_type: PACK_SOURCE_TYPES, has_attachments: 'true', limit: '500' },
     })
     .json<InboxMessage[]>()
 }
@@ -192,4 +192,61 @@ function toFormData(files: File[], subject?: string): FormData {
   if (subject) fd.append('subject', subject)
   for (const f of files) fd.append('files', f, f.name)
   return fd
+}
+
+/* ============ 客户上传链接（/api/v1/inbox/upload-links） ============ */
+
+/** 链接列表行（生成物 UploadLinkOut；token 明文绝不在列表出现） */
+export type UploadLinkRow = components['schemas']['UploadLinkOut']
+
+/** 创建/轮换响应（生成物 UploadLinkCreatedOut；token 明文仅此一次） */
+export type UploadLinkCreated = components['schemas']['UploadLinkCreatedOut']
+
+export async function createUploadLink(payload: {
+  title: string
+  note?: string
+  client_name?: string
+  contract_id?: number | null
+  expires_days?: number
+}): Promise<UploadLinkCreated> {
+  return inboxApi.post('upload-links', { json: payload }).json<UploadLinkCreated>()
+}
+
+export async function listUploadLinks(): Promise<UploadLinkRow[]> {
+  return inboxApi.get('upload-links').json<UploadLinkRow[]>()
+}
+
+export async function revokeUploadLink(id: number): Promise<UploadLinkRow> {
+  return inboxApi.post(`upload-links/${id}/revoke`).json<UploadLinkRow>()
+}
+
+export async function rotateUploadLink(id: number): Promise<UploadLinkCreated> {
+  return inboxApi.post(`upload-links/${id}/rotate`).json<UploadLinkCreated>()
+}
+
+/** 组装客户分享 URL：公开页路由 /u/:token，用当前站点 origin（公网/内网各自成立） */
+export function buildShareUrl(token: string): string {
+  return `${window.location.origin}/u/${token}`
+}
+
+/* ============ 项目（委托合同）检索：生成链接时绑定项目用 ============ */
+
+/** 跨 feature import workbench 被禁止，这里按需直连同源端点做最小投影 */
+const contractsApi = createApiClient({ prefix: '/api/v1/contracts' })
+
+/** 合同检索命中行（生成物 ContractOut 的消费子集；id 覆写为必有） */
+export type ContractHit = Pick<
+  components['schemas']['ContractOut'],
+  'name' | 'filing_number'
+> & { id: number }
+
+export async function searchContracts(q: string, signal?: AbortSignal): Promise<ContractHit[]> {
+  if (!q.trim()) return []
+  const res = await contractsApi
+    .get('contracts', {
+      searchParams: { search: q, slim: 'true', include_facets: 'false', page: '1', page_size: '10' },
+      signal,
+    })
+    .json<{ items: ContractHit[] }>()
+  return res.items ?? []
 }
