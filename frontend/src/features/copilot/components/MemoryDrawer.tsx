@@ -39,9 +39,10 @@ const KIND_LABEL: Record<MemoryKind, string> = {
   preference: '偏好',
   procedure: '惯例',
   fact: '事实',
+  playbook: '操作指引',
 }
 
-const KIND_OPTIONS: MemoryKind[] = ['preference', 'procedure', 'fact', 'correction']
+const KIND_OPTIONS: MemoryKind[] = ['preference', 'procedure', 'fact', 'correction', 'playbook']
 
 const SCOPE_LABEL: Record<MemoryScope, string> = {
   lawyer: '我的记忆',
@@ -49,8 +50,10 @@ const SCOPE_LABEL: Record<MemoryScope, string> = {
   law_firm: '律所记忆',
 }
 
-/** 单条记忆的字符上限（与后端 `create_memory` 的 1000 字校验一致） */
+/** 短规则的字符上限（后端 create_memory：200 字 × 5） */
 const MAX_CONTENT = 1000
+/** 操作指引的上限（后端 PLAYBOOK_MAX_CHARS） */
+const MAX_PLAYBOOK = 8000
 
 export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const queryClient = useQueryClient()
@@ -103,7 +106,9 @@ export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChan
     (scopesQuery.data?.law_firm.can_curate ?? false) || (scopesQuery.data?.teams.some((t) => t.can_curate) ?? false)
 
   const draftTrimmed = draft.trim()
-  const draftTooLong = draftTrimmed.length > MAX_CONTENT
+  const isPlaybook = draftKind === 'playbook'
+  const draftLimit = isPlaybook ? MAX_PLAYBOOK : MAX_CONTENT
+  const draftTooLong = draftTrimmed.length > draftLimit
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -195,10 +200,19 @@ export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChan
               id="memory-draft"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="例如：文书先给结论，再给理由；引用法条时附条文原文"
-              rows={2}
-              className="resize-none text-[13px]"
+              placeholder={
+                isPlaybook
+                  ? '多步骤操作规范，可分段，例如：\n1. 阅卷前先调 get_case 确认承办阶段\n2. 卷宗按「程序性文书→证据→笔录」排序\n3. 每份材料在页脚标注来源与页码'
+                  : '例如：文书先给结论，再给理由；引用法条时附条文原文'
+              }
+              rows={isPlaybook ? 6 : 2}
+              className="resize-y text-[13px]"
             />
+            {isPlaybook && (
+              <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                操作指引不会每轮注入，只在记忆里留一行索引；需要时助手会自己取全文。适合写成多步骤规范。
+              </p>
+            )}
             <div className="mt-2 flex items-center gap-2">
               <select
                 aria-label="记忆类型"
@@ -212,7 +226,11 @@ export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChan
                   </option>
                 ))}
               </select>
-              {draftTooLong && <span className="text-[10px] text-destructive">超出 {MAX_CONTENT} 字</span>}
+              {draftTrimmed.length > 0 && (
+                <span className={`text-[10px] ${draftTooLong ? 'text-destructive' : 'text-muted-foreground/70'}`}>
+                  {draftTrimmed.length}/{draftLimit}
+                </span>
+              )}
               <Button
                 size="sm"
                 className="ml-auto h-7 gap-1 px-2.5 text-[11px]"

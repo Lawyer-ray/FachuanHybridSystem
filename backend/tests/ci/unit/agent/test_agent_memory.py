@@ -508,3 +508,90 @@ class TestLawFirmAcknowledgment:
             team_id=team.pk,
         )
         assert promoted.scope == AgentMemory.Scope.TEAM
+
+
+@pytest.mark.django_db
+class TestPlaybookChannel:
+    """操作指引走「索引 + 按需取全文」通道，不挤占每轮注入。
+
+    为什么需要这条通道：注入层单条上限 200 字、律所层配额 700 字。一份
+    36 行的「阅卷规范」若按普通记忆处理会被**静默跳过**——律师写了、界面
+    显示已保存、但助手永远看不到，会以为记忆坏了。静默失败比功能缺失更伤信任。
+    """
+
+    PLAYBOOK = (
+        "阅卷规范\n"
+        "1. 阅卷前先调 get_case 确认承办阶段与当事人\n"
+        "2. 卷宗按「程序性文书 → 证据 → 笔录」排序\n"
+        "3. 每份材料页脚标注来源与页码\n"
+        "4. 复印件与原件分卷存放\n"
+    )
+
+    def test_playbook_creation_allows_long_multiline(self, lawyer: Lawyer) -> None:
+        memory = memory_service.create_memory(lawyer, content=self.PLAYBOOK, kind=AgentMemory.Kind.PLAYBOOK)
+        assert memory.kind == AgentMemory.Kind.PLAYBOOK
+        assert "\n" in memory.content, "操作指引必须保留换行（压平会丢失分步结构）"
+        assert len(memory.content) > 80, "多行结构应被保留"
+
+    def test_playbook_not_inlined_only_indexed(self, lawyer: Lawyer) -> None:
+        memory_service.create_memory(lawyer, content=self.PLAYBOOK, kind=AgentMemory.Kind.PLAYBOOK)
+        snapshot = memory_service.build_snapshot(lawyer, refresh=True, refresh_reason="test")
+
+        # 正文不进注入
+        assert "每份材料页脚标注来源与页码" not in snapshot
+        # 但索引行必须在——看不到索引就永远不会去取全文
+        assert "阅卷规范" in snapshot
+        assert "recall_memory" in snapshot
+        # 索引只能是标题，不能带出正文（实测踩过：压平后再切首行会变半截正文）
+        assert "阅卷前先调 get_case" not in snapshot
+
+    def test_short_rules_still_inlined_alongside_playbook(self, lawyer: Lawyer) -> None:
+        memory_service.create_memory(lawyer, content="文书先给结论", kind=AgentMemory.Kind.PREFERENCE)
+        memory_service.create_memory(lawyer, content=self.PLAYBOOK, kind=AgentMemory.Kind.PLAYBOOK)
+        snapshot = memory_service.build_snapshot(lawyer, refresh=True, refresh_reason="test")
+
+        assert "文书先给结论" in snapshot, "短规则不被指引挤掉"
+        assert "阅卷规范" in snapshot
+
+    def test_playbook_full_text_retrievable(self, lawyer: Lawyer) -> None:
+        """按需取全文：检索必须返回完整正文而不是索引。"""
+        memory_service.create_memory(lawyer, content=self.PLAYBOOK, kind=AgentMemory.Kind.PLAYBOOK)
+        with patch.object(memory_service, "_embed_query", return_value=None):
+            hits = memory_service.search_memories(lawyer, "阅卷规范", limit=5)
+        assert hits, "应能检索到指引"
+        assert "每份材料页脚标注来源与页码" in hits[0][0].content
+
+    def test_playbook_rejects_over_limit(self, lawyer: Lawyer) -> None:
+        with pytest.raises(ValueError, match="过长"):
+            memory_service.create_memory(
+                lawyer, content="x" * (memory_service.PLAYBOOK_MAX_CHARS + 1), kind=AgentMemory.Kind.PLAYBOOK
+            )
+
+    def test_short_kind_still_flattened(self, lawyer: Lawyer) -> None:
+        """非指引类型仍压成一行——它们应当是一句可复用的事实。"""
+        memory = memory_service.create_memory(
+            lawyer, content="文书先给结论\n再给理由", kind=AgentMemory.Kind.PREFERENCE
+        )
+        assert "\n" not in memory.content
+
+
+@pytest.mark.django_db
+class TestReinforcedAnchor:
+    """衰减锚点与「最后修改」分离（借 pi-memory-evolution 的 reinforcedAt）。
+
+    混用两者会出两种错：
+    - 用 updated_at 做衰减 → 仅被命中的记忆永远不衰减（命中也推 updated_at）；
+    - 用 updated_at 做衰减 → 改个措辞就无幸续命。
+    """
+
+    def test_hit_refreshes_reinforced_but_not_updated(self, lawyer: Lawyer) -> None:
+        memory = _memory(lawyer, "常被用到的偏好")
+        original_updated = memory.updated_at
+        assert memory.reinforced_at is None
+
+        memory_service.mark_hit([memory])
+
+        memory.refresh_from_db()
+        assert memory.reinforced_at is not None, "命中应刷新衰减锚点"
+        assert memory.updated_at == original_updated, "命中不是修改，不得动 updated_at"
+        assert memory.hit_count == 1

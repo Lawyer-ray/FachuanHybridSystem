@@ -31,6 +31,10 @@ from apps.core.security.auth import JWTOrSessionAuth
 from ..models import AgentMemory
 from ..services import memory_service
 
+#: 检索返回的单条内容上限（字）。操作指引上限 8000，留足不截断；
+#: 真正超出的会带 truncated=True，由模型决定是否收窄查询。
+SEARCH_CONTENT_MAX_CHARS = 8000
+
 logger = logging.getLogger(__name__)
 
 router = Router(tags=["Agent 记忆"], auth=JWTOrSessionAuth())
@@ -111,6 +115,9 @@ class MemoryHitOut(Schema):
     kind: str
     content: str
     score: float
+    #: 返回内容是否被截断。操作指引全文可达 8000 字，模型需要知道
+    #: 自己看到的是否完整（不完整时应收窄查询或分批读取）。
+    truncated: bool = False
 
 
 @router.get("", response=list[MemoryOut])
@@ -195,10 +202,22 @@ async def search_memory(request: Any, q: str, limit: int = 8) -> list[MemoryHitO
 
     def _run() -> list[MemoryHitOut]:
         hits = memory_service.search_memories(lawyer, query, limit=bounded)
-        return [
-            MemoryHitOut(id=str(m.pk), scope=m.scope, kind=m.kind, content=m.content, score=round(float(s), 4))
-            for m, s in hits
-        ]
+        out: list[MemoryHitOut] = []
+        for memory, score in hits:
+            content = memory.content or ""
+            clipped = len(content) > SEARCH_CONTENT_MAX_CHARS
+            out.append(
+                MemoryHitOut(
+                    id=str(memory.pk),
+                    scope=memory.scope,
+                    kind=memory.kind,
+                    # 操作指引按需取全文，这里给足；普通记忆本来就短
+                    content=content[:SEARCH_CONTENT_MAX_CHARS],
+                    score=round(float(score), 4),
+                    truncated=clipped,
+                )
+            )
+        return out
 
     return await sync_to_async(_run, thread_sensitive=True)()
 

@@ -17,11 +17,18 @@ import { api } from '@/lib/api'
 export type MemoryScope = 'lawyer' | 'team' | 'law_firm'
 
 /** 记忆类型：纠正 > 偏好 > 惯例 > 事实（注入优先级同序） */
-export type MemoryKind = 'fact' | 'preference' | 'procedure' | 'correction'
+export type MemoryKind = 'fact' | 'preference' | 'procedure' | 'correction' | 'playbook'
 
 /** 待确认 = 自动抽取/行为推断产出，确认后才进上下文 */
 export type MemoryStatus = 'pending' | 'active' | 'deleted'
 
+/**
+ * 操作指引：长篇多步骤规范（阅卷流程/立案步骤/归档规则）。
+ *
+ * 与短规则的通道不同——它不进每轮注入（注入层单条上限 200 字、律所层配额
+ * 700 字，36 行的规范塞进去会被直接跳过、律师还以为记忆坏了），只在记忆块
+ * 里留一行索引，模型需要时用 recall_memory 取全文。
+ */
 export interface AgentMemoryItem {
   id: string
   scope: MemoryScope

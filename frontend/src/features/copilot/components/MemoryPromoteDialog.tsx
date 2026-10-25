@@ -49,6 +49,9 @@ const KIND_LABEL: Record<MemoryKind, string> = {
   preference: '偏好',
   procedure: '惯例',
   fact: '事实',
+  // 策展不提供「操作指引」：指引是该由管理员直接撰写的长篇规范，
+  // 从个人短记忆「提炼」成 8000 字 SOP 不合理（见 MEMORY_KINDS 注释）。
+  playbook: '操作指引',
 }
 
 /** 律所层只接受惯例/偏好——具体事实进律所层没有正当理由（与后端同口径） */

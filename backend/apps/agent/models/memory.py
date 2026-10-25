@@ -90,6 +90,11 @@ class AgentMemory(models.Model):
         PROCEDURE = "procedure", "惯例"
         #: 纠正（「上次那条已过期：XX 案已调解结案」）
         CORRECTION = "correction", "纠正"
+        #: 长篇操作指引。**不进快照注入**，只以索引行出现，模型按需用
+        #: ``recall_memory`` 取全文。为什么单独一类：注入通道单条上限 200 字、
+        #: 律所层配额 700 字，一份 36 行的「阅卷规范」塞进去会被直接跳过，
+        #: 律师会以为记忆坏了。短规则走注入，长指引走按需——两条通道各尽其职。
+        PLAYBOOK = "playbook", "操作指引"
 
     class Status(models.TextChoices):
         #: 自动抽取待律师确认。默认档位——提示注入污染过的会话能往这里写，
@@ -169,6 +174,14 @@ class AgentMemory(models.Model):
     #: 命中计数 —— 注入排序与「高频优先」策展候选池的依据。
     hit_count = models.IntegerField(default=0, verbose_name="命中次数")
     last_hit_at = models.DateTimeField(null=True, blank=True, verbose_name="最近命中")
+
+    #: 衰减锚点：**最后一次被后来的证据重新证实**的时间，与「最后修改」分开。
+    #:
+    #: 为什么必须分开（借 pi-memory-evolution 的 reinforcedAt 设计）：如果用
+    #: ``updated_at`` 做衰减，那么「仅被重新证实、内容未变」的写入也会把它推向
+    #: 将来，一条陈旧但经常被命中的记忆就永远不会衰减；反过来，修正一条措辞
+    #: 也会无辜地把它「续命」。命中只刷新本字段，修改才动 ``updated_at``。
+    reinforced_at = models.DateTimeField(null=True, blank=True, verbose_name="最近证实时间")
 
     created_by = models.ForeignKey(
         "organization.Lawyer",

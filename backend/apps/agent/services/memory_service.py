@@ -56,6 +56,14 @@ INJECT_QUOTA_LAW_FIRM = 700
 #: 该类条目不参与注入，但仍留在库里供人处理。
 MAX_SINGLE_ENTRY_CHARS = 200
 
+#: 操作指引索引区额外额度（字）。短规则配额已满时，仍要让「本所还有 3 份
+#: 操作指引」这行可见——看不到索引就永远不会去取全文，通道等于不存在。
+INDEX_QUOTA = 400
+
+#: 操作指引正文上限（字）。它不进注入，只在模型按需取全文时返回，
+#: 所以可以比短规则宽得多；8000 字约等于一份完整的阅卷/立案 SOP。
+PLAYBOOK_MAX_CHARS = 8000
+
 #: 单次抽取最多产出条数（防止一次会话灌进上百条噪音）
 MAX_EXTRACT_ITEMS = 8
 
@@ -86,6 +94,8 @@ _KIND_PRIORITY: dict[str, int] = {
     AgentMemory.Kind.PREFERENCE: 1,
     AgentMemory.Kind.PROCEDURE: 2,
     AgentMemory.Kind.FACT: 3,
+    # 操作指引不进正文，不参与短规则排序；给个末位避免影响 _rank_by_usage
+    AgentMemory.Kind.PLAYBOOK: 9,
 }
 
 _KIND_LABEL: dict[str, str] = {
@@ -93,6 +103,7 @@ _KIND_LABEL: dict[str, str] = {
     AgentMemory.Kind.PREFERENCE: "偏好",
     AgentMemory.Kind.PROCEDURE: "惯例",
     AgentMemory.Kind.FACT: "事实",
+    AgentMemory.Kind.PLAYBOOK: "指引",
 }
 
 
@@ -319,9 +330,13 @@ def mark_hit(memories: list[AgentMemory]) -> None:
     """命中计数自增（用于注入排序与团队策展候选池的「共识度」）。"""
     if not memories:
         return
+    now = timezone.now()
     AgentMemory.objects.filter(pk__in=[m.pk for m in memories]).update(
         hit_count=F("hit_count") + 1,
-        last_hit_at=timezone.now(),
+        last_hit_at=now,
+        # hit 是「被后来的证据重新证实」，刷新衰减锚点但不动 updated_at。
+        # 两者混用会让「仅被命中」的记忆永远不衰减，或让「改措辞」无辜续命。
+        reinforced_at=now,
     )
 
 
@@ -340,18 +355,34 @@ class SnapshotLayer:
     def text(self) -> str:
         lines: list[str] = []
         used = 0
+        playbooks: list[str] = []
         for memory in self.memories:
             content = " ".join((memory.content or "").split()).strip()
             if not content:
                 continue
-            if len(content) > MAX_SINGLE_ENTRY_CHARS:
-                # 超长条目意味着抽取失败（把整段对话当一条记忆），跳过注入
+
+            # 长篇指引：**不展开正文**，只留一行索引。正文由模型按需用
+            # recall_memory 取全文。直接内联会被单条 200 字闸门筛掉，
+            # 律师会以为记忆没生效。
+            if memory.kind == AgentMemory.Kind.PLAYBOOK or len(content) > MAX_SINGLE_ENTRY_CHARS:
+                # 标题取**原始** content 的首行：上面的 content 已被压平成一整段，
+                # 从那里切会把正文第一句也带出来（实测过，索引变成半截正文）。
+                raw = (memory.content or "").strip()
+                title = raw.split("\n", 1)[0].strip()[:40] or content[:40]
+                playbooks.append(f"- {title}")
                 continue
+
             line = f"- [{_KIND_LABEL.get(memory.kind, memory.kind)}] {content}"
             if used + len(line) > self.quota:
                 break
             lines.append(line)
             used += len(line)
+
+        if playbooks:
+            # 索引行也受配额约束，但另留一小块（最多 400 字）以免挤掉短规则
+            block = "\n".join(["", "需要时可用 `recall_memory(query)` 取全文的操作指引:", *playbooks])
+            if used + len(block) <= self.quota + INDEX_QUOTA:
+                lines.append(block)
         return "\n".join(lines)
 
 
@@ -440,11 +471,17 @@ def create_memory(
     个人层默认 ``active``（律师自己说的，立刻生效）；团队/律所层**必须**走
     ``promote_memory()``，这里直接拒绝，防止有人绕过策展闸门。
     """
-    content = " ".join((content or "").split()).strip()
-    if not content:
+    # 保留换行：操作指引是多行结构（步骤/要点），压成一行会丢失组织。
+    # 其余类型压平——它们应当是一句可复用的事实。
+    raw = (content or "").strip()
+    if not raw:
         raise ValueError("记忆内容不能为空")
-    if len(content) > 1000:
-        raise ValueError("记忆内容过长（上限 1000 字），请提炼成一句可复用的事实")
+    content = raw if kind == AgentMemory.Kind.PLAYBOOK else " ".join(raw.split())
+    limit = PLAYBOOK_MAX_CHARS if kind == AgentMemory.Kind.PLAYBOOK else MAX_SINGLE_ENTRY_CHARS * 5
+    if len(content) > limit:
+        raise ValueError(
+            f"记忆内容过长（上限 {limit} 字）{'，请拆分' if kind == AgentMemory.Kind.PLAYBOOK else '，请提炼成一句可复用的事实'}"
+        )
     if scope != AgentMemory.Scope.LAWYER:
         raise ValueError("团队/律所记忆只能通过策展提升创建，不能直接写入")
     if kind not in AgentMemory.Kind.values:
