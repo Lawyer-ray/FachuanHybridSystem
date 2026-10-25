@@ -78,6 +78,7 @@ def test_annotation_matches_risk_tier(name: str, expect_read_only: bool, expect_
 def test_every_registered_tool_name_derives_consistently() -> None:
     """对 tools/__all__ 全量 409 个名字,推导结果与 classify_risk 分层一致。"""
     derive, destructive_prefixes = _tool_annotations_from_source()
+    idempotent_prefixes = ("update_", "save_", "sync_", "move_", "delete_")
     tools_init = _SERVER_PY.parent / "tools" / "__init__.py"
     names: list[str] = []
     for m in re.finditer(r"__all__\s*[\+]?=\s*\[(.*?)\]", tools_init.read_text(encoding="utf-8"), re.DOTALL):
@@ -87,12 +88,37 @@ def test_every_registered_tool_name_derives_consistently() -> None:
     for name in names:
         ann = derive(name)
         level = classify_risk(name)
+        idem = name.startswith(idempotent_prefixes)
         if name.startswith(destructive_prefixes) or level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
             assert ann is not None and ann.destructive_hint is True, f"{name} ({level}) 应标 destructive"
+            if idem:
+                assert ann.idempotent_hint is True, f"{name} 幂等前缀应标 idempotent(重试安全)"
         elif level == RiskLevel.LOW:
             assert ann is not None and ann.read_only_hint is True, f"{name} (LOW) 应标 readOnly"
+            assert not ann.idempotent_hint, f"{name} 只读工具不需要 idempotentHint(无意义)"
+        elif idem:
+            # 幂等 MEDIUM 写:idempotentHint=True,其余 hint 不带
+            assert ann is not None and ann.idempotent_hint is True, f"{name} (MEDIUM,幂等前缀) 应标 idempotent"
+            assert ann.destructive_hint is None and ann.read_only_hint is None, f"{name} 幂等写不应带 destructive/readOnly: {ann}"
         else:
-            assert ann is None, f"{name} ({level}) MEDIUM 不应带标注,得到 {ann}"
+            assert ann is None, f"{name} ({level}) 非幂等 MEDIUM 不应带标注,得到 {ann}"
+
+
+def test_idempotent_policy_semantics() -> None:
+    """幂等 hint 的语义边界钉死:绝对值覆盖/收敛/移动/删除=是;新建/翻转=否。"""
+    from mcp_server.server import _tool_annotations
+
+    # update_/save_/sync_/move_:同参数重复调用终态不变
+    for name in ("update_case", "save_archive_overrides", "sync_all_message_sources", "move_archive_material"):
+        ann = _tool_annotations(name)
+        assert ann is not None and ann.idempotent_hint is True, f"{name} 应标 idempotent"
+    # create_/add_/toggle_/confirm_:重复=新副本/翻转/重复导入——刻意不标
+    for name in ("create_case", "add_case_party", "toggle_case_star", "confirm_contract_scan"):
+        ann = _tool_annotations(name)
+        assert ann is None or ann.idempotent_hint is not True, f"{name} 非幂等,不应标 idempotent: {ann}"
+    # delete_:销毁+幂等并存(第二次 404,环境无额外变化)
+    ann = _tool_annotations("delete_case")
+    assert ann is not None and ann.destructive_hint is True and ann.idempotent_hint is True
 
 
 if __name__ == "__main__":

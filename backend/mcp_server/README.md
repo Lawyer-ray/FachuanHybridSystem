@@ -61,7 +61,7 @@ make mcp-status    # 进程/日志
 | 并发身份 | `test_identity_concurrency.py` | 16 线程×50 轮屏障交错 800 请求零串号;RequestAuthMiddleware ContextVar 隔离 + `_headers()` 现读 + 刷新持锁 |
 | 路由遮蔽 | `tests/ci/unit/core/test_route_shadowing.py` | 源级(apps/**/api/*.py)+运行时(Django resolver 全局注册序)双扫描:后注册字面量路由被先注册参数路由吞掉(同方法=永不可达/异方法=恒 405)。4 处旧案已修;新增字面量路由必须放在同前缀参数路由之前 |
 | HTTP 方法纪律 | `tests/ci/unit/core/test_http_method_discipline.py` | GET 处理函数禁写语义调用(否则 MCP 只读分级从根失真);内置扫描器自证(POST 侧须命中 30+) |
-| ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint` 从审批分层权威表(approval.classify_risk)机械推导,注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);线上三分 409=226 只读+69 销毁/高危+114 普通写 |
+| ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint`/`idempotentHint` 从审批分层权威表(approval.classify_risk)机械推导,注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);线上四分 409=226 只读+69 销毁/高危+77 幂等写+37 普通写;幂等=同参重复终态不变(update_/save_/sync_/move_/delete_,客户端重试安全),create_/toggle_/confirm_ 刻意不标 |
 | 工具名规范 | `test_server_registration.py::TestMcpSpecNameCompliance` | 名字必须 ASCII `[A-Za-z0-9_-]` 且 1-128 字符(MCP spec 硬性要求)——`isidentifier()` 放行 Unicode 标识符(如中文工具名),部分客户端会拒收,注册面前置拦截 |
 | 列表信封化 | `test_tool_shaping.py` | 裸 list 返回被 SDK 逐项拆成独立文本块、**空列表变零内容块**——列表工具统一 `list_result()` 包 `{total, items}`;翻页用 limit+1 探测法,`truncated=True` 时 total 是下界 | 
 | 默认体量 ≤20KB | 无门禁(需线上数据) | pi 对工具输出 20KB 起腰斩(中段截断+文件指针),**默认参数的调用必须留在截断线内**——新列表工具按「20KB ÷ 实测均条体积」定默认 limit;`get_case` 默认剥 logs、`search_cases` 套投影同此理 |

@@ -452,22 +452,33 @@ mcp = MCPServer("法穿SI Copilot")
 # 统一注册口:从审批分层权威表(apps.agent.services.approval)推导 MCP
 # ToolAnnotations——与审批双表(Python/TS)共源,不另立第三份口径。
 # 官方参考 server 均设 annotations;客户端(pi/其他 MCP host)可用
-# readOnlyHint 做只读徽标/免审批策略,destructiveHint 标销毁型操作。
-# payload 纪律:只有「读」与「销毁」带标注,普通写工具不带(默认即非只读
-# 非销毁,省 ~45B/工具 × 409 的 tools/list 体积)。
+# readOnlyHint 做只读徽标/免审批策略,destructiveHint 标销毁型操作,
+# idempotentHint 标幂等写(客户端重试安全)。payload 纪律:只有「读」
+# 「销毁」「幂等写」带标注,create_/add_ 等非幂等写不带(默认即各项
+# false,省 ~45B/工具 × 409 的 tools/list 体积)。
 # ---------------------------------------------------------------------------
 _DESTRUCTIVE_PREFIXES = ("delete_", "clear_", "reset_", "cleanup_")
+
+#: 幂等前缀——同参数重复调用终态不变(客户端可安全重试)。
+#: update_/save_/sync_/move_ 是绝对值覆盖/收敛/移动到目标语义;
+#: delete_ 第二次 404 但环境无额外变化(spec 口径「no additional effect」)。
+#: 刻意不含 create_/add_/toggle_/confirm_(重复=新副本/翻转/重复导入)。
+_IDEMPOTENT_PREFIXES = ("update_", "save_", "sync_", "move_", "delete_")
 
 
 def _tool_annotations(name: str) -> ToolAnnotations | None:
     """按工具名推导 MCP 行为提示。销毁前缀或 HIGH/CRITICAL(递交/外发/
     归档确认等不可逆外部动作)标 destructive;LOW(读/无副作用计算)标
-    readOnly;MEDIUM 普通写不带标注(默认即非只读非销毁,省 payload)。"""
+    readOnly;幂等前缀的写工具补 idempotentHint(重试安全,客户端可用于
+    网络失败后的自动重试决策);其余 MEDIUM 普通写不带标注(省 payload)。"""
     level = classify_risk(name)
+    idempotent = name.startswith(_IDEMPOTENT_PREFIXES)
     if name.startswith(_DESTRUCTIVE_PREFIXES) or level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
-        return ToolAnnotations(destructive_hint=True)
+        return ToolAnnotations(destructive_hint=True, idempotent_hint=True) if idempotent else ToolAnnotations(destructive_hint=True)
     if level == RiskLevel.LOW:
         return ToolAnnotations(read_only_hint=True)
+    if idempotent:
+        return ToolAnnotations(idempotent_hint=True)
     return None
 
 
