@@ -60,33 +60,52 @@ def test_no_single_key_error_dict_returns():
 # 新增的「吞异常再 return」必须在豁免表里写明为什么这里吞是对的。
 # ---------------------------------------------------------------------------
 
-#: except-Exception 内 return 的豁免(文件名:行号 → 理由)。行号漂移时按名字重对。
+#: except-Exception 内 return 的豁免(文件名:函数名 → 理由)。
+#: 锚定函数名而非行号——行号锚在本仓一天内漂移三次(签名加 Annotated 即漂),
+#: 函数名锚对上方改动免疫;同函数多处吞异常时后缀 #2。
 _SWALLOW_ALLOWLIST: dict[str, str] = {
-    "workflow_tools.py:73": "Bearer 身份重建失败回退匿名——有意降级,warning 已留痕",
-    "folder_file.py:124": "批量部分失败聚合:文件级错误进 notices+条目 error 字段,其余附件照常返回",
-    "folder_file.py:163": "页图渲染腿断了只降级 notices(文件本体已取到),报错反会让模型说「文件不存在」",
-    "agent_attachments.py:441": "批量部分失败聚合(同 folder_file:123)",
-    "agent_attachments.py:763": "页图渲染降级(同 folder_file:162)",
-    "fetch_url.py:151": "解析器回退:BeautifulSoup 失败换兼容模式,不是业务失败",
+    "workflow_tools.py:_resolve_mcp_access": "Bearer 身份重建失败回退匿名——有意降级,warning 已留痕",
+    "folder_file.py:_load_folder_content": "批量部分失败聚合:文件级错误进 notices+条目 error 字段,其余附件照常返回",
+    "folder_file.py:_render_folder_pages": "页图渲染腿断了只降级 notices(文件本体已取到),报错反会让模型说「文件不存在」",
+    "agent_attachments.py:_load_content": "批量部分失败聚合(同 folder_file:_load_folder_content)",
+    "agent_attachments.py:_render_pages": "页图渲染降级(同 folder_file:_render_folder_pages)",
+    "fetch_url.py:_soup": "解析器回退:BeautifulSoup 失败换兼容模式,不是业务失败",
 }
+
+
+def _swallow_keys() -> dict[str, int]:
+    """全扫描:except-Exception 内 return 的位置,键=文件:函数名,值=出现次数。"""
+    keys: dict[str, int] = {}
+    for f in _SCOPE:
+        tree = ast.parse(f.read_text())
+
+        def visit(node: ast.AST, fn_name: str) -> None:
+            for child in ast.iter_child_nodes(node):
+                child_fn = fn_name
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    child_fn = child.name
+                if isinstance(child, ast.Try):
+                    for h in child.handlers:
+                        bare = h.type is None or (isinstance(h.type, ast.Name) and h.type.id == "Exception")
+                        if not bare:
+                            continue
+                        if any(isinstance(sub, ast.Return) and sub.value is not None for sub in ast.walk(h)):
+                            key = f"{f.name}:{fn_name or '<module>'}"
+                            keys[key] = keys.get(key, 0) + 1
+                visit(child, child_fn)
+
+        visit(tree, "")
+    return keys
 
 
 def _find_swallowed_exceptions() -> list[str]:
     findings: list[str] = []
-    for f in _SCOPE:
-        tree = ast.parse(f.read_text())
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Try):
-                continue
-            for h in node.handlers:
-                bare = h.type is None or (isinstance(h.type, ast.Name) and h.type.id == "Exception")
-                if not bare:
-                    continue
-                for sub in ast.walk(h):
-                    if isinstance(sub, ast.Return) and sub.value is not None:
-                        key = f"{f.name}:{sub.lineno}"
-                        if key not in _SWALLOW_ALLOWLIST:
-                            findings.append(key)
+    for key, count in _swallow_keys().items():
+        registered = 1 if key in _SWALLOW_ALLOWLIST else _SWALLOW_ALLOWLIST.get(f"{key}#2", 0)
+        for i in range(1, count + 1):
+            candidate = key if i == 1 else f"{key}#{i}"
+            if candidate not in _SWALLOW_ALLOWLIST and registered == 0:
+                findings.append(candidate)
     return findings
 
 
@@ -100,19 +119,7 @@ def test_no_new_swallowed_exceptions():
 
 
 def test_swallow_allowlist_has_no_stale_entries():
-    """豁免表条目必须仍然命中真实代码(行号漂移/删除后及时清理)。"""
-    live = set()
-    for f in _SCOPE:
-        tree = ast.parse(f.read_text())
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Try):
-                continue
-            for h in node.handlers:
-                bare = h.type is None or (isinstance(h.type, ast.Name) and h.type.id == "Exception")
-                if not bare:
-                    continue
-                for sub in ast.walk(h):
-                    if isinstance(sub, ast.Return) and sub.value is not None:
-                        live.add(f"{f.name}:{sub.lineno}")
-    stale = sorted(set(_SWALLOW_ALLOWLIST) - live)
-    assert not stale, f"吞异常豁免表已失配(行号漂移或代码已删),请重对: {stale}"
+    """豁免表条目必须仍然命中真实代码(函数改名/删除后及时清理)。"""
+    live = set(_swallow_keys())
+    stale = sorted(k.split("#")[0] for k in _SWALLOW_ALLOWLIST if k.split("#")[0] not in live)
+    assert not stale, f"吞异常豁免表已失配(函数改名或代码已删),请重对: {stale}"

@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 from uuid import uuid4
+
+from pydantic import Field
 
 from mcp_server.client import FachuanApiError
 from mcp_server.tool_shaping import list_result
+
+#: 枚举 Literal 与 WorkflowRun.Status / WorkflowTemplate.Category 同源
+#: (schema 测试逐值对账)。schema 级 enum 让模型选值时只见合法集。
+_RunStatusL = Literal["running", "waiting_human", "waiting_event", "completed", "failed", "cancelled", "timed_out"]
+_TemplateCategoryL = Literal["litigation", "preservation", "enforcement"]
 
 if TYPE_CHECKING:
     from temporalio.client import Client
@@ -107,8 +114,10 @@ async def _mcp_guard_run_access(run_id: int) -> None:
 
 
 async def start_workflow(
-    template_slug: str,
-    case_id: int,
+    template_slug: Annotated[
+        str, Field(description="流程模板 slug,如 'sales-contract-dispute-test';可用模板看 list_workflow_templates")
+    ],
+    case_id: Annotated[int, Field(description="案件 ID", ge=1)],
     *,
     user: Any | None = None,
     org_access: dict[str, Any] | None = None,
@@ -185,9 +194,14 @@ async def start_workflow(
 
 
 async def list_workflows(
-    case_id: int | None = None,
-    status: str | None = None,
-    limit: int = 20,
+    case_id: Annotated[int | None, Field(description="按案件 ID 筛选")] = None,
+    status: Annotated[
+        _RunStatusL | None,
+        Field(
+            description="按状态筛选(running 运行中/waiting_human 等人工/waiting_event 等事件/completed/failed/cancelled/timed_out)"
+        ),
+    ] = None,
+    limit: Annotated[int, Field(description="最多返回条数(默认 20)", ge=1)] = 20,
     *,
     user: Any | None = None,
     org_access: dict[str, Any] | None = None,
@@ -197,7 +211,7 @@ async def list_workflows(
 
     Args:
         case_id: 按案件 ID 筛选（可选）
-        status: 按状态筛选（可选：running/waiting_human/waiting_event/completed/failed）
+        status: 按状态筛选（可选：running/waiting_human/waiting_event/completed/failed/cancelled/timed_out）
         limit: 返回条数上限（默认 20，cap 100）
         user: 当前用户（安全审计 IDOR：有用户上下文时按案件访问权过滤）
         org_access: 组织级访问上下文（与 user 配套，来自请求上下文）
@@ -323,9 +337,9 @@ def _resolve_signal_key(step: dict[str, Any]) -> str:
 
 
 async def approve_workflow_step(
-    run_id: int,
-    approved: bool,
-    comment: str = "",
+    run_id: Annotated[int, Field(description="工作流运行 ID", ge=1)],
+    approved: Annotated[bool, Field(description="是否通过(False=拒绝,同样留痕)")] = True,
+    comment: Annotated[str, Field(description="审批意见(可选,写入 StepExecution 留痕)")] = "",
     *,
     user: Any | None = None,
 ) -> dict[str, Any]:
@@ -532,11 +546,18 @@ def _validate_steps_or_error(user: Any | None, steps: list[dict[str, Any]]) -> N
 
 
 async def create_workflow_template(
-    name: str,
-    steps: list[dict[str, Any]],
-    slug: str = "",
-    category: str = "litigation",
-    description: str = "",
+    name: Annotated[str, Field(description='模板名称,如 "买卖合同纠纷起诉流程"')],
+    steps: Annotated[
+        list[dict[str, Any]],
+        Field(
+            description='步骤列表,每步含 id/name/type/mcp_tool/config;示例 [{"id":"collect_facts","name":"收集案件事实","type":"activity","mcp_tool":"get_case","config":{}}];步骤类型白名单校验(admin 场景)'
+        ),
+    ],
+    slug: Annotated[str, Field(description="URL 标识(留空自动生成)")] = "",
+    category: Annotated[
+        _TemplateCategoryL, Field(description="分类:litigation 诉讼 / preservation 保全 / enforcement 执行")
+    ] = "litigation",
+    description: Annotated[str, Field(description="模板描述")] = "",
     user: Any | None = None,
 ) -> dict[str, Any]:
     """创建 DynamicWorkflow 工作流模板
@@ -620,12 +641,16 @@ async def create_workflow_template(
 
 
 async def update_workflow_template(
-    template_id: int,
-    name: str | None = None,
-    steps: list[dict[str, Any]] | None = None,
-    description: str | None = None,
-    category: str | None = None,
-    is_active: bool | None = None,
+    template_id: Annotated[int, Field(description="模板 ID", ge=1)],
+    name: Annotated[str | None, Field(description="新名称(可选)")] = None,
+    steps: Annotated[
+        list[dict[str, Any]] | None, Field(description="新步骤列表(可选,传入则完全替换;步骤类型白名单校验)")
+    ] = None,
+    description: Annotated[str | None, Field(description="新描述(可选)")] = None,
+    category: Annotated[
+        _TemplateCategoryL | None, Field(description="新分类:litigation/preservation/enforcement(可选)")
+    ] = None,
+    is_active: Annotated[bool | None, Field(description="是否启用(可选)")] = None,
     user: Any | None = None,
 ) -> dict[str, Any]:
     """更新已有的工作流模板

@@ -30,6 +30,13 @@ django.setup()
 
 from mcp.server.mcpserver.utilities.func_metadata import func_metadata
 
+from apps.workflow.mcp.workflow_tools import (
+    approve_workflow_step,
+    create_workflow_template,
+    list_workflows,
+    start_workflow,
+    update_workflow_template,
+)
 from mcp_server.tools.cases.cases import list_cases, search_cases
 from mcp_server.tools.clients.clients import list_clients
 from mcp_server.tools.contacts.contacts import list_contacts
@@ -54,13 +61,19 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "list_lpr_rates": (3, 3),
     "calculate_interest": (10, 10),
     "read_folder_file": (9, 9),
+    "start_workflow": (2, 2),
+    "list_workflows": (3, 3),
+    "approve_workflow_step": (3, 3),
+    "create_workflow_template": (5, 5),
+    "update_workflow_template": (6, 6),
 }
 
 
 _ALL_DESCRIBED_FNS = [
     list_cases, search_cases, list_contracts, create_contract, list_lawyers, create_lawyer,
     update_lawyer, list_clients, list_inbox_messages, list_contacts, list_lpr_rates,
-    calculate_interest, read_folder_file,
+    calculate_interest, read_folder_file, start_workflow, list_workflows,
+    approve_workflow_step, create_workflow_template, update_workflow_template,
 ]
 
 
@@ -68,6 +81,18 @@ def _schema_of(fn: object) -> dict:
     """用 SDK 同款管道(func_metadata)离线生成 inputSchema,不需要起服务。"""
     metadata = func_metadata(fn)  # type: ignore[arg-type]
     return metadata.arg_model.model_json_schema()
+
+
+def _registered_schema(name: str) -> dict:
+    """从 server 注册表取线上真实 schema(workflow 工具经 _workflow_tool
+    剥离 user/org_access/perm_open_access 后才是真工具面——裸函数签名
+    会多出这三个无描述参数,对它们必须走注册表)。"""
+    import mcp_server.server as srv
+
+    for tool in srv.mcp._tool_manager.list_tools():  # type: ignore[attr-defined]
+        if tool.name == name:
+            return tool.parameters
+    raise AssertionError(f"注册表里没有工具 {name}")
 
 
 def _make_canary() -> Callable[..., int]:
@@ -83,7 +108,7 @@ def _make_canary() -> Callable[..., int]:
 def test_described_tool_params_carry_schema_descriptions(fn) -> None:
     name = fn.__name__
     min_total, min_desc = _DESCRIBED_TOOLS[name]
-    schema = _schema_of(fn)
+    schema = _registered_schema(name)
     props = schema.get("properties", {})
     assert len(props) >= min_total, f"{name} 参数数 {len(props)} < {min_total}(签名被改坏?)"
     missing = [k for k, v in props.items() if not v.get("description")]
@@ -165,6 +190,8 @@ def test_schema_enums_match_model_choices() -> None:
     from apps.contracts.models.contract import ContractStatus, FeeMode
     from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
     from apps.finance.schemas.lpr_schemas import InterestCalculateRequest
+    from apps.workflow.models.run import WorkflowRun
+    from apps.workflow.models.template import WorkflowTemplate
     from mcp_server.tools.cases.cases import list_cases
     from mcp_server.tools.clients.clients import list_clients
     from mcp_server.tools.contracts.contracts import create_contract, list_contracts
@@ -189,6 +216,9 @@ def test_schema_enums_match_model_choices() -> None:
         ("calculate_interest", "rate_type"): _backend_literal("rate_type"),
         ("calculate_interest", "custom_rate_unit"): _backend_literal("custom_rate_unit"),
         ("calculate_interest", "date_inclusion"): _backend_literal("date_inclusion"),
+        ("list_workflows", "status"): set(WorkflowRun.Status.values),
+        ("create_workflow_template", "category"): set(WorkflowTemplate.Category.values),
+        ("update_workflow_template", "category"): set(WorkflowTemplate.Category.values),
     }
     schemas = {
         "list_cases": _schema_of(list_cases),
@@ -196,6 +226,10 @@ def test_schema_enums_match_model_choices() -> None:
         "create_contract": _schema_of(create_contract),
         "list_clients": _schema_of(list_clients),
         "calculate_interest": _schema_of(calculate_interest),
+        # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
+        "list_workflows": _registered_schema("list_workflows"),
+        "create_workflow_template": _registered_schema("create_workflow_template"),
+        "update_workflow_template": _registered_schema("update_workflow_template"),
     }
     for (tool, param), expected in authoritative.items():
         prop = schemas[tool]["properties"][param]

@@ -1085,9 +1085,23 @@ def _workflow_tool(fn: Any) -> Any:
                 raise ToolError(f"对象不存在: {exc}") from exc
 
     sig = inspect.signature(fn)
-    wrapper.__signature__ = sig.replace(  # type: ignore[attr-defined]
-        parameters=[p for p in sig.parameters.values() if p.name not in drop]
-    )
+    # 注解字符串(本文件带 from __future__ import annotations)必须在**原函数**
+    # 的模块名字空间里解析——wrapper 的 __globals__ 是 server.py,原生类型
+    # (dict/Any)碰巧可见,业务侧私有别名(如 _RunStatusL)会变悬空 ForwardRef,
+    # pydantic 建 Arguments 模型时炸「not fully defined」。这里先回填成真实类型。
+    try:
+        import typing as _typing
+
+        hints = _typing.get_type_hints(fn, include_extras=True)
+    except Exception:  # 解析失败回退原样(旧行为)
+        hints = {}
+    kept = []
+    for p in sig.parameters.values():
+        if p.name in drop:
+            continue
+        annotation = hints.get(p.name, p.annotation) if isinstance(p.annotation, str) else p.annotation
+        kept.append(p.replace(annotation=annotation))
+    wrapper.__signature__ = sig.replace(parameters=kept)  # type: ignore[attr-defined]
     return wrapper
 
 
