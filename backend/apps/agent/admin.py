@@ -114,7 +114,12 @@ class AgentMemoryAdmin(admin.ModelAdmin):
     search_fields = ("content", "created_by__username", "created_by__real_name")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
-    autocomplete_fields: tuple[str, ...] = ()
+    # 注意：不要声明 `autocomplete_fields`。此前这里写了一行空的
+    # `autocomplete_fields: tuple[str, ...] = ()`：Django 基类把该属性声明为
+    # ``list[str]``，用 tuple 覆写类型不兼容（mypy 报「Cannot override class
+    # variable」），而且值是空的——既没任何行为，又把 CI 的全量 mypy 门卡死。
+    # `promoted_from` 已经由 `filter_horizontal` 接管，两者本身也互斥
+    # （同一字段不能同时出现在两处）。需要自动补全时改用 list 并只放 M2M 字段。
     filter_horizontal = ("promoted_from",)
     readonly_fields = (
         "scope",
