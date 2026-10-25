@@ -46,9 +46,6 @@ def _bootstrap_django() -> None:
 def main() -> None:
     _bootstrap_django()
 
-    # 必须在 django.setup() 之后导入：工具模块在导入期就会访问 Django 模型
-    from mcp_server.server import mcp
-
     # 传输方式由环境变量决定（默认 stdio，保持既有行为完全不变）：
     # - stdio：每个 pi 进程各起一份（实测 ~225MB/份、冷启动 ~6s）
     # - streamable-http：一份常驻，多个 pi 共享（apps/agent 高并发模式）。
@@ -60,6 +57,7 @@ def main() -> None:
         import uvicorn
 
         from mcp_server.identity import RequestAuthMiddleware
+        from mcp_server.server import mcp  # http 模式 stdout 不是协议通道,无需改道窗口
 
         host = os.environ.get("FACHUAN_MCP_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1"
         try:
@@ -69,6 +67,17 @@ def main() -> None:
         uvicorn.run(RequestAuthMiddleware(mcp.streamable_http_app()), host=host, port=port)
         return
 
+    # 必须在 django.setup() 之后导入：工具模块在导入期就会访问 Django 模型。
+    # 工具导入同样包在 stdout 改道窗口内——409 个模块任何一个在 import 期
+    # print/写 stdout 都会插进 JSON-RPC 流毁掉握手（setup 期的改道只护住
+    # Django 自身日志;2026-10-25 实测当时干净,这是结构性防御,纯度由
+    # test_entrypoint 的真 stdio 会话门禁逐行钉死）。
+    real_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        from mcp_server.server import mcp
+    finally:
+        sys.stdout = real_stdout
     mcp.run()
 
 

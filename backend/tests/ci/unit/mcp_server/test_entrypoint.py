@@ -15,6 +15,7 @@ Agent 路径不可用（子进程秒退 → 客户端只看到 "Connection close
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -82,3 +83,68 @@ def test_bootstrap_logs_go_to_stderr() -> None:
     assert result.returncode == 0, result.stderr[-2000:]
     assert "INFO - " not in result.stdout
     assert "INFO - " in result.stderr
+
+
+_STDIO_SESSION = "\n".join(
+    [
+        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"'
+        ',"capabilities":{},"clientInfo":{"name":"purity-probe","version":"0"}}}',
+        '{"jsonrpc":"2.0","method":"notifications/initialized"}',
+        '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
+    ]
+) + "\n"
+
+
+@_TIMEOUT
+def test_stdio_session_stdout_is_pure_jsonrpc() -> None:
+    """真实 stdio 会话全流程的 stdout 必须逐行是纯 JSON-RPC 响应。
+
+    2026-10-25 三十五轮审计:此前只测 bootstrap 探针,从未端到端跑过
+    ``python -m mcp_server`` 的 stdio 会话。工具导入发生在 setup 改道窗口
+    **之外**(main() 里),409 个工具模块任何一个 import 期写 stdout 都会
+    插进协议流毁掉握手且没有任何报错——现在导入已并入改道窗口,本门禁用
+    真会话(initialize→tools/list)逐行验证 stdout 纯度,并确认全量工具可达。
+    冷启动实测 ~4.5s。
+
+    实现注:stdin 不能提前关——EOF 会触发服务端退出,与 tools/list 响应
+    (263KB)竞速,实测 pipe 先关只拿到 initialize 响应;须读满 id=2 再收尾。"""
+    import time
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "mcp_server"],
+        cwd=str(BACKEND_DIR),
+        env=_probe_env() | {"FACHUAN_MCP_TRANSPORT": "stdio"},
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    assert proc.stdin is not None and proc.stdout is not None
+    tool_count = 0
+    saw_list = False
+    try:
+        proc.stdin.write(_STDIO_SESSION)
+        proc.stdin.flush()
+        deadline = time.monotonic() + 100
+        while time.monotonic() < deadline:
+            line = proc.stdout.readline()
+            if not line:
+                break  # 服务端提前断流(本身就是失败,由下方断言暴露)
+            if not line.strip():
+                continue
+            obj = json.loads(line)  # 非 JSON 字节混入即在此炸出
+            assert obj.get("jsonrpc") == "2.0" and "id" in obj, f"stdout 混入非 JSON-RPC 行: {line[:120]}"
+            if obj.get("id") == 2:
+                saw_list = True
+                tool_count = len(obj.get("result", {}).get("tools", []))
+                break
+        proc.stdin.close()
+        proc.wait(timeout=30)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=10)
+
+    assert proc.returncode == 0, f"stdio 会话异常退出: {(proc.stderr.read() if proc.stderr else '')[-2000:]}"
+    assert saw_list, "没等到 tools/list 响应(握手/分帧被破坏?)"
+    assert tool_count >= 400, f"tools/list 不完整: {tool_count}(分帧/截断被破坏?)"
