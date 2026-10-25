@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { copyText } from '@/lib/clipboard'
@@ -24,6 +25,9 @@ export function DetailRail({
   onAddDue,
   onAddPayment,
   showFolder = true,
+  onOpenFile,
+  onReviewFile,
+  folderPreview,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -41,6 +45,12 @@ export function DetailRail({
    * 诉讼页保持 true——左栏是案件程序链，文件夹作次要信息放右栏合适。
    */
   showFolder?: boolean
+  /** 点文件夹里的文件 → 由本组件就地展开预览（诉讼页走这条路） */
+  onOpenFile?: (f: { subpath: string; name: string; size?: number; modified_at?: string }) => void
+  /** 「AI 审查」入口（仅 docx） */
+  onReviewFile?: (f: { subpath: string; name: string }) => void
+  /** 渲染在文件夹树上方的预览卡（由调用方给出，保持本组件不依赖 OnlyOffice） */
+  folderPreview?: ReactNode
 }) {
   const copy = (text: string) => {
     void copyText(text).then(() => toast.success('已复制'))
@@ -155,7 +165,15 @@ export function DetailRail({
           非诉页不渲染（那份树在左栏独占，见 NonLitDetailPage）。 */}
       {showFolder && (
         <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
-          <FolderTree kind="contract" ownerId={deal.id} maxH="max-h-[320px]" title="合同文件夹" />
+          {folderPreview}
+          <FolderTree
+            kind="contract"
+            ownerId={deal.id}
+            maxH="max-h-[320px]"
+            title="合同文件夹"
+            onOpenFile={onOpenFile}
+            onReviewFile={onReviewFile}
+          />
         </div>
       )}
 

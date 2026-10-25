@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate, useParams } from 'react-router'
+import { Navigate, useParams, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
@@ -8,6 +8,8 @@ import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
+import { FilePreviewCard } from './FilePreviewCard'
+import { ContractFileOverlays } from './ContractFileOverlays'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { DetailError } from './ui'
 
@@ -18,9 +20,24 @@ import { DetailError } from './ui'
  */
 export function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  /**
+   * 正在发起审查的文件（null = 抽屉关闭）。
+   * 诉讼页的合同也要能走 AI 审查——起诉状/和解协议同样是「AI 出建议、律师逐条决策」。
+   */
+  const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
   const { valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
+  /**
+   * 合同文件夹里正在预览的文件（null = 未选中）。
+   *
+   * 诉讼页的文件夹在右栏（左栏是案件程序链），所以预览也在右栏就地展开：
+   * 律师核对合同原文时要对照同一栏的期限/当事人，跳走或弹窗都会让对照失效。
+   */
+  const [picked, setPicked] = useState<
+    { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
+  >(null)
 
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
@@ -69,7 +86,16 @@ export function DealDetailPage() {
 
       {/* AI 助手入口只在导航栏（全局侧边栏 CopilotPanel，⌘J 同效）：页面内既不挂
           对话区、页头也不放按钮，避免与导航栏入口重复 */}
-      <div className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[18px] max-[1024px]:grid-cols-1 min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]">
+      {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
+          渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。 */}
+      <div
+        className={
+          'grid items-start gap-[18px] max-[1024px]:grid-cols-1 ' +
+          (picked
+            ? 'grid-cols-[minmax(0,1fr)_minmax(520px,780px)]'
+            : 'grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]')
+        }
+      >
         <div className="min-w-0">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
@@ -124,8 +150,39 @@ export function DealDetailPage() {
           moneyRows={money}
           onAddDue={onAddDue}
           onAddPayment={onAddPayment}
+          onOpenFile={setPicked}
+          onReviewFile={(f) => setReviewTarget(f)}
+          folderPreview={
+            picked ? (
+              <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
+                <FilePreviewCard
+                  kind="contract"
+                  ownerId={deal.id}
+                  file={picked}
+                  onClose={() => setPicked(null)}
+                  onOpenEditor={(f) => {
+                    const next = new URLSearchParams(searchParams)
+                    next.set('file', f.subpath)
+                    if (picked?.mtime !== undefined) next.set('mtime', String(picked.mtime))
+                    else next.delete('mtime')
+                    setSearchParams(next)
+                  }}
+                  onReview={(f) => setReviewTarget(f)}
+                />
+              </div>
+            ) : null
+          }
         />
       </div>
+
+      <ContractFileOverlays
+        ownerId={deal.id}
+        client={deal.parties?.client}
+        other={deal.parties?.other}
+        reviewTarget={reviewTarget}
+        onReviewClose={() => setReviewTarget(null)}
+        onReviewStart={(f) => setReviewTarget(f)}
+      />
     </main>
   )
 }

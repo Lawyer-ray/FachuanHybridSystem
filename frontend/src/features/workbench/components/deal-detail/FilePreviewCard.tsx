@@ -60,7 +60,7 @@ export function FilePreviewCard({
   }, [fileUrl, file.name])
 
   return (
-    <div className="overflow-hidden rounded-[10px] border border-border bg-card">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-border bg-card">
       {/* 头部：类型 + 文件名 + 关闭 */}
       <div className="flex items-center gap-2 border-b border-border-light px-3 py-2">
         <FileKindChip name={file.name} />
@@ -77,8 +77,9 @@ export function FilePreviewCard({
         </button>
       </div>
 
-      {/* 画布：固定高度，不随文档变长把下方信息推走 */}
-      <div className="h-[360px] bg-[#f6f6f7]">
+      {/* 画布：吃掉剩余高度（父级已定好视口高度），而不是写死 360px。
+          写死高度会让 OnlyOffice 把 A4 页缩到几乎不可读——预览的意义就没了。 */}
+      <div className="min-h-0 flex-1 bg-[#f6f6f7]">
         <OfficeView fileUrl={fileUrl} fileName={file.name} mode="view" />
       </div>
 
