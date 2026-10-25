@@ -60,7 +60,10 @@ def download_invoices(
     invoice_id: int | None = None,
     category: str | None = None,
 ) -> dict[str, Any]:
-    """下载发票文件。scope: single（单张）/category（按类别）/all（全部）；fmt: pdf/zip；scope=single 时需传 invoice_id；scope=category 时需传 category。返回 {filename, content_type, data_base64}。"""
+    """下载发票文件。scope: single（单张）/category（按类别）/all（全部）；fmt: pdf/zip；scope=single 时需传 invoice_id；scope=category 时需传 category。返回 {filename, content_type, data_base64}。
+
+    体积预期：zip 打包（scope=all/category）通常超过 15KB 的 b64 返回上限
+    （超限会被拒绝并说明替代路径）；批量发票请引导用户在前端下载。"""
     params: dict[str, Any] = {"scope": scope, "fmt": fmt}
     if invoice_id is not None:
         params["invoice_id"] = invoice_id

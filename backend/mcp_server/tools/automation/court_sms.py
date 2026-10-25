@@ -92,6 +92,10 @@ def download_sms_documents(sms_id: int) -> dict[str, Any]:
     返回 ``{filename, content_type, data_base64}``，与 ``download_sms_document``
     一致。早前用 ``client.get`` 请求该端点并声明 ``list[dict]``——后端是
     ``FileResponse`` 二进制流，``resp.json()`` 必然抛异常，工具永久不可用。
+
+    体积预期：整包 ZIP 通常超过 15KB 的 b64 返回上限（超限会被拒绝并说明
+    替代路径）；批量文书请引导用户在前端下载,模型侧优先用
+    download_sms_document 取单件。
     """
     content, filename, content_type = client.download(f"/automation/court-sms/{sms_id}/documents/download-all")
     return {

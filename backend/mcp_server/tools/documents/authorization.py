@@ -56,7 +56,11 @@ def download_power_of_attorney_combined(
 
 
 def download_authorization_package(case_id: int, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """下载完整授权委托材料包（ZIP）。"""
+    """下载完整授权委托材料包（ZIP）。
+
+    体积预期：整包 ZIP 通常超过 15KB 的 b64 返回上限（超限会被拒绝并说明
+    替代路径）；要给用户整套材料请引导在前端下载,模型侧优先用
+    download_authority_letter 等取单件。"""
     content, filename, content_type = client.download(
         f"/documents/cases/{case_id}/authorization/package/download",
         method="POST",

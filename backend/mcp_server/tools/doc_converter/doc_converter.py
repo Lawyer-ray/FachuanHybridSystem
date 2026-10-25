@@ -18,7 +18,10 @@ def cancel_conversion_job(job_id: str) -> dict[str, Any]:
 
 
 def download_converted_files(job_id: str) -> dict[str, Any]:
-    """下载转换后的文件（ZIP）。返回 {filename, content_type, data_base64}。"""
+    """下载转换后的文件（ZIP）。返回 {filename, content_type, data_base64}。
+
+    体积预期：整包 ZIP 通常超过 15KB 的 b64 返回上限（超限会被拒绝并说明
+    替代路径）；批量文件请引导用户在前端下载。"""
     import base64
 
     content, filename, content_type = client.download(f"/doc-converter/jobs/{job_id}/download")
