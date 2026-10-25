@@ -94,4 +94,7 @@ def check_law_references(text: str, credential_id: int) -> dict[str, Any]:
     return client.post(  # type: ignore[no-any-return]
         "/legal-research/law-verification/check",
         json={"text": text, "credential_id": credential_id},
+        # 后端同步阻塞(威科 Playwright 登录 10-15s + 逐条核查 HTTP IO)——
+        # 60s 默认超时对长文书必掐断;pi 侧 mcp.json timeout=200 兜住。
+        timeout=180,
     )
