@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
 
-def list_contacts(case_id: int | None = None, stage: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+def list_contacts(
+    case_id: Annotated[int | None, Field(description="按案件筛选")] = None,
+    stage: Annotated[str | None, Field(description="按诉讼阶段筛选(如 一审/二审/执行)")] = None,
+    limit: Annotated[int, Field(description="最多返回条数(默认 50)", ge=1)] = 50,
+    offset: Annotated[int, Field(description="跳过前 offset 条再取——truncated=true 时续取翻页用(第 N 页传 offset=N×limit)", ge=0)] = 0,
+) -> dict[str, Any]:
     """获取案件联系人列表，可按案件ID和阶段筛选。
 
     limit 默认 50——REST 端点默认 1000 是给前端表格的,对模型上下文过大;

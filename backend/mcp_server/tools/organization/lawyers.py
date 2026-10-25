@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
 
-def list_lawyers(search: str | None = None, slim: bool = True) -> dict[str, Any]:
+def list_lawyers(
+    search: Annotated[str | None, Field(description="姓名/用户名关键词;不传返回全部(按权限可见范围)。REST 不支持按团队过滤——按团队找人先查团队拿成员名单")] = None,
+    slim: Annotated[bool, Field(description="True 只回 id/姓名/电话/执业证(模型选人够用);False 回全量 DTO(含文件签名 URL 与律所嵌套,500 人律所几百 KB)")] = True,
+) -> dict[str, Any]:
     """按姓名/用户名搜索律师。返回律师 ID、姓名、电话、执业证号等，用于指派律师时选择。
 
     - search：姓名/用户名关键词；不传则返回全部（按权限可见范围）。
@@ -31,16 +36,16 @@ def get_lawyer(lawyer_id: int) -> dict[str, Any]:
 
 
 def create_lawyer(
-    username: str,
-    password: str,
-    real_name: str | None = None,
-    phone: str | None = None,
-    license_no: str | None = None,
-    id_card: str | None = None,
-    law_firm_id: int | None = None,
-    is_admin: bool = False,
-    lawyer_team_ids: list[int] | None = None,
-    biz_team_ids: list[int] | None = None,
+    username: Annotated[str, Field(description="登录用户名(必填,唯一)")],
+    password: Annotated[str, Field(description="初始登录密码(必填,敏感)")],
+    real_name: Annotated[str | None, Field(description="姓名")] = None,
+    phone: Annotated[str | None, Field(description="手机号")] = None,
+    license_no: Annotated[str | None, Field(description="执业证号")] = None,
+    id_card: Annotated[str | None, Field(description="身份证号(敏感)")] = None,
+    law_firm_id: Annotated[int | None, Field(description="所属律所 ID")] = None,
+    is_admin: Annotated[bool, Field(description="是否管理员")] = False,
+    lawyer_team_ids: Annotated[list[int] | None, Field(description="律师团队 ID 列表")] = None,
+    biz_team_ids: Annotated[list[int] | None, Field(description="业务团队 ID 列表")] = None,
 ) -> dict[str, Any]:
     """创建新律师账号。username 和 password 必填；law_firm_id 关联律所；
     lawyer_team_ids / biz_team_ids 关联律师团队/业务团队。
@@ -73,16 +78,16 @@ def create_lawyer(
 
 
 def update_lawyer(
-    lawyer_id: int,
-    real_name: str | None = None,
-    phone: str | None = None,
-    license_no: str | None = None,
-    id_card: str | None = None,
-    law_firm_id: int | None = None,
-    is_admin: bool | None = None,
-    password: str | None = None,
-    lawyer_team_ids: list[int] | None = None,
-    biz_team_ids: list[int] | None = None,
+    lawyer_id: Annotated[int, Field(description="律师 ID")],
+    real_name: Annotated[str | None, Field(description="姓名;只传需要修改的字段")] = None,
+    phone: Annotated[str | None, Field(description="手机号")] = None,
+    license_no: Annotated[str | None, Field(description="执业证号")] = None,
+    id_card: Annotated[str | None, Field(description="身份证号(敏感)")] = None,
+    law_firm_id: Annotated[int | None, Field(description="所属律所 ID")] = None,
+    is_admin: Annotated[bool | None, Field(description="是否管理员")] = None,
+    password: Annotated[str | None, Field(description="登录密码(敏感——只在确需重置时传)")] = None,
+    lawyer_team_ids: Annotated[list[int] | None, Field(description="律师团队 ID 列表(整体替换)")] = None,
+    biz_team_ids: Annotated[list[int] | None, Field(description="业务团队 ID 列表(整体替换)")] = None,
 ) -> dict[str, Any]:
     """更新律师信息。只传需要修改的字段，未传字段不修改。
 

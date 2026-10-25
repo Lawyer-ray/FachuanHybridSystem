@@ -50,7 +50,7 @@ import base64
 import json
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Final, Literal
 
 from mcp.types import ImageContent, TextContent
 
@@ -77,7 +77,7 @@ DPI_CEILING = 300
 #: 文字层短于此长度视为「没有可用文字层」（扫描件常残留页码/水印几个字）
 MIN_TEXT_CHARS = 50
 
-DEFAULT_FORMAT = "png"
+DEFAULT_FORMAT: Final[Literal["png", "jpeg"]] = "png"
 _IMAGE_MIMES = {"png": "image/png", "jpeg": "image/jpeg"}
 
 #: attachment_id 为 UUID（消息里的附件引用原样携带）

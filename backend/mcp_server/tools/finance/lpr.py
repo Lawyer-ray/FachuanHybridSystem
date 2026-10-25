@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
 
+#: 枚举取值与后端 InterestCalculateRequest 的 Literal 同源(逐值对账测试)。
+_RateModeL = Literal["lpr", "custom"]
+_RateTypeL = Literal["1y", "5y"]
+_RateUnitL = Literal["percent", "permille", "permyriad"]
+_DateInclusionL = Literal["both", "start_only", "end_only", "neither"]
+_YearDaysL = Literal[360, 365, 0]
+
 
 def list_lpr_rates(
-    start_date: str | None = None,
-    end_date: str | None = None,
-    limit: int = 60,
+    start_date: Annotated[str | None, Field(description="起始日期(含),YYYY-MM-DD")] = None,
+    end_date: Annotated[str | None, Field(description="截止日期(含),YYYY-MM-DD")] = None,
+    limit: Annotated[int, Field(description="最多返回条数(默认 60,全量 25KB 超截断线)", ge=1)] = 60,
 ) -> dict[str, Any]:
     """获取 LPR 利率列表（默认最近 60 条,全量实测 25KB 超截断线）。日期格式: YYYY-MM-DD。
 
@@ -33,16 +42,16 @@ def get_latest_lpr_rate() -> dict[str, Any]:
 
 
 def calculate_interest(
-    principal: float,
-    start_date: str,
-    end_date: str,
-    rate_mode: str = "lpr",
-    rate_type: str = "1y",
-    multiplier: float = 1.0,
-    custom_rate_value: float | None = None,
-    custom_rate_unit: str = "percent",
-    year_days: int = 360,
-    date_inclusion: str = "both",
+    principal: Annotated[float, Field(description="本金(元)", gt=0)],
+    start_date: Annotated[str, Field(description="起始日期,YYYY-MM-DD")],
+    end_date: Annotated[str, Field(description="截止日期,YYYY-MM-DD")],
+    rate_mode: Annotated[_RateModeL, Field(description="利率模式:lpr=按 LPR 报价 / custom=自定义利率")] = "lpr",
+    rate_type: Annotated[_RateTypeL, Field(description="LPR 期限品种:1y / 5y(LPR 模式)")] = "1y",
+    multiplier: Annotated[float, Field(description="利率倍数(LPR 模式;如 4 倍上浮传 4)", gt=0)] = 1.0,
+    custom_rate_value: Annotated[float | None, Field(description="自定义利率数值(custom 模式必填,如 5 配合 custom_rate_unit=permille 表示千分之五)")] = None,
+    custom_rate_unit: Annotated[_RateUnitL, Field(description="自定义利率单位:percent 百分之 / permille 千分之 / permyriad 万分之")] = "percent",
+    year_days: Annotated[_YearDaysL, Field(description="年基准天数:360 / 365 / 0(按实际天数)")] = 360,
+    date_inclusion: Annotated[_DateInclusionL, Field(description="日期计算方式:both 均计 / start_only 仅起始 / end_only 仅截止 / neither 均不计")] = "both",
 ) -> dict[str, Any]:
     """按 LPR 或自定义利率计算利息（固定本金模式）。
 

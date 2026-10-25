@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
 
 def list_inbox_messages(
-    source_id: int | None = None,
-    has_attachments: bool | None = None,
-    search: str | None = None,
-    limit: int = 30,
-    offset: int = 0,
+    source_id: Annotated[int | None, Field(description="按消息来源筛选(来源 ID 见 list_message_sources)")] = None,
+    has_attachments: Annotated[bool | None, Field(description="按是否有附件筛选")] = None,
+    search: Annotated[str | None, Field(description="主题/发件人/正文关键词")] = None,
+    limit: Annotated[int, Field(description="最多返回条数(默认 30,约 0.57KB/条,默认调用留在 20KB 截断线内)", ge=1)] = 30,
+    offset: Annotated[int, Field(description="跳过前 offset 条再取——truncated=true 时续取翻页用(第 N 页传 offset=N×limit)", ge=0)] = 0,
 ) -> dict[str, Any]:
     """查询收件箱消息列表。可按来源（source_id）、是否有附件（has_attachments）、关键词（search）筛选。
 

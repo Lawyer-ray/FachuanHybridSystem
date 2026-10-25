@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
+#: 与 apps.client.models.client.ClientType 同源(测试逐值对账)。
+_ClientTypeL = Literal["natural", "legal", "non_legal_org"]
+
 
 def list_clients(
-    search: str | None = None,
-    client_type: str | None = None,
-    is_our_client: bool | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    search: Annotated[str | None, Field(description="姓名/公司名关键词")] = None,
+    client_type: Annotated[
+        _ClientTypeL | None,
+        Field(description="客户类型:natural 自然人/legal 法人/non_legal_org 非法人组织"),
+    ] = None,
+    is_our_client: Annotated[bool | None, Field(description="是否我方客户")] = None,
+    limit: Annotated[int, Field(description="最多返回条数(默认 50,上限 2000)", ge=1, le=2000)] = 50,
+    offset: Annotated[int, Field(description="跳过前 offset 条再取——truncated=true 时续取翻页用(第 N 页传 offset=N×limit)", ge=0)] = 0,
 ) -> dict[str, Any]:
     """查询客户列表。支持按姓名/公司名搜索（search）、客户类型（client_type：natural/legal/non_legal_org）、是否我方客户（is_our_client）筛选。
 

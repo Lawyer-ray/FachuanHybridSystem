@@ -19,7 +19,7 @@ description=...)]——描述与数值约束(min/max)都会进 schema。
 from __future__ import annotations
 
 import os
-from typing import Annotated, Callable
+from typing import Annotated, Callable, get_args, get_type_hints
 
 import django
 import pytest
@@ -31,7 +31,13 @@ django.setup()
 from mcp.server.mcpserver.utilities.func_metadata import func_metadata
 
 from mcp_server.tools.cases.cases import list_cases, search_cases
+from mcp_server.tools.clients.clients import list_clients
+from mcp_server.tools.contacts.contacts import list_contacts
 from mcp_server.tools.contracts.contracts import create_contract, list_contracts
+from mcp_server.tools.contracts.folder_file import read_folder_file
+from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
+from mcp_server.tools.message_hub.inbox import list_inbox_messages
+from mcp_server.tools.organization.lawyers import create_lawyer, list_lawyers, update_lawyer
 
 #: 已迁移到 schema 级参数描述的工具:名字 → (参数总数下界, 带描述数下界)
 _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
@@ -39,7 +45,23 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "search_cases": (4, 4),
     "list_contracts": (9, 9),
     "create_contract": (15, 15),
+    "list_lawyers": (2, 2),
+    "create_lawyer": (10, 10),
+    "update_lawyer": (10, 10),
+    "list_clients": (5, 5),
+    "list_inbox_messages": (5, 5),
+    "list_contacts": (4, 4),
+    "list_lpr_rates": (3, 3),
+    "calculate_interest": (10, 10),
+    "read_folder_file": (9, 9),
 }
+
+
+_ALL_DESCRIBED_FNS = [
+    list_cases, search_cases, list_contracts, create_contract, list_lawyers, create_lawyer,
+    update_lawyer, list_clients, list_inbox_messages, list_contacts, list_lpr_rates,
+    calculate_interest, read_folder_file,
+]
 
 
 def _schema_of(fn: object) -> dict:
@@ -57,7 +79,7 @@ def _make_canary() -> Callable[..., int]:
     return _canary
 
 
-@pytest.mark.parametrize("fn", [list_cases, search_cases, list_contracts, create_contract], ids=lambda f: f.__name__)
+@pytest.mark.parametrize("fn", _ALL_DESCRIBED_FNS, ids=lambda f: f.__name__)
 def test_described_tool_params_carry_schema_descriptions(fn) -> None:
     name = fn.__name__
     min_total, min_desc = _DESCRIBED_TOOLS[name]
@@ -139,12 +161,20 @@ def test_schema_enums_match_model_choices() -> None:
     枚举陷阱的根治层:模型选值时只见合法集(小写 fee_mode 在调用前就被
     挡住)。代价是双份口径——后端 TextChoices 加值而 Literal 不跟,schema
     会把新值挡在外面;本测试用权威表逐值对账,drift 即红灯。"""
+    from apps.client.models.client import ClientType
     from apps.contracts.models.contract import ContractStatus, FeeMode
     from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
+    from apps.finance.schemas.lpr_schemas import InterestCalculateRequest
     from mcp_server.tools.cases.cases import list_cases
+    from mcp_server.tools.clients.clients import list_clients
     from mcp_server.tools.contracts.contracts import create_contract, list_contracts
+    from mcp_server.tools.finance.lpr import calculate_interest
 
-    authoritative: dict[tuple[str, str], set[str]] = {
+    def _backend_literal(field_name: str) -> set:
+        hints = get_type_hints(InterestCalculateRequest)
+        return set(get_args(hints[field_name]))
+
+    authoritative: dict[tuple[str, str], set] = {
         ("list_cases", "case_type"): set(SimpleCaseType.values),
         ("list_cases", "status"): set(CaseStatus.values),
         ("list_contracts", "case_type"): set(CaseType.values),
@@ -154,11 +184,18 @@ def test_schema_enums_match_model_choices() -> None:
         ("create_contract", "status"): set(ContractStatus.values),
         ("create_contract", "fee_mode"): set(FeeMode.values),
         ("create_contract", "representation_stages"): set(CaseStage.values),
+        ("list_clients", "client_type"): set(ClientType.values),
+        ("calculate_interest", "rate_mode"): _backend_literal("rate_mode"),
+        ("calculate_interest", "rate_type"): _backend_literal("rate_type"),
+        ("calculate_interest", "custom_rate_unit"): _backend_literal("custom_rate_unit"),
+        ("calculate_interest", "date_inclusion"): _backend_literal("date_inclusion"),
     }
     schemas = {
         "list_cases": _schema_of(list_cases),
         "list_contracts": _schema_of(list_contracts),
         "create_contract": _schema_of(create_contract),
+        "list_clients": _schema_of(list_clients),
+        "calculate_interest": _schema_of(calculate_interest),
     }
     for (tool, param), expected in authoritative.items():
         prop = schemas[tool]["properties"][param]

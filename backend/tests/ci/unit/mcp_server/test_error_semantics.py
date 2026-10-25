@@ -63,8 +63,8 @@ def test_no_single_key_error_dict_returns():
 #: except-Exception 内 return 的豁免(文件名:行号 → 理由)。行号漂移时按名字重对。
 _SWALLOW_ALLOWLIST: dict[str, str] = {
     "workflow_tools.py:73": "Bearer 身份重建失败回退匿名——有意降级,warning 已留痕",
-    "folder_file.py:123": "批量部分失败聚合:文件级错误进 notices+条目 error 字段,其余附件照常返回",
-    "folder_file.py:162": "页图渲染腿断了只降级 notices(文件本体已取到),报错反会让模型说「文件不存在」",
+    "folder_file.py:124": "批量部分失败聚合:文件级错误进 notices+条目 error 字段,其余附件照常返回",
+    "folder_file.py:163": "页图渲染腿断了只降级 notices(文件本体已取到),报错反会让模型说「文件不存在」",
     "agent_attachments.py:441": "批量部分失败聚合(同 folder_file:123)",
     "agent_attachments.py:763": "页图渲染降级(同 folder_file:162)",
     "fetch_url.py:151": "解析器回退:BeautifulSoup 失败换兼容模式,不是业务失败",
