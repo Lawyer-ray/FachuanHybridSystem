@@ -38,6 +38,9 @@ _last_requests: list[float] = []
 _RATE_LIMIT = 20
 _RATE_WINDOW = 60.0
 
+#: 搜索结果页大小防线:正常 <1MB,超过 10MB 视为劫持/异常,放弃解析。
+_MAX_RESULT_BYTES = 10 * 1024 * 1024
+
 
 class RateLimitedError(RuntimeError):
     """搜索配额已用完（不是网络错误，不需要重试）。"""
@@ -160,12 +163,21 @@ def _do_search(query: str, max_results: int, page: int = 1) -> str:
     }
 
     try:
-        with httpx.Client(timeout=15.0, follow_redirects=True) as client:
+        # trust_env=False:与 fetch_url/client.py 一致,忽略系统代理变量——
+        # 本机代理会把国内直连可达的搜狗也代理出去,表现为超时/502 极难排障
+        # (根目录 CLAUDE.md「内网地址必须绕过系统代理」同源问题)。
+        with httpx.Client(timeout=15.0, follow_redirects=True, trust_env=False) as client:
             resp = client.get(_SEARCH_URL, params=params, headers=_HEADERS)
             resp.raise_for_status()
     except httpx.HTTPError as e:
         logger.warning("搜狗搜索请求失败: %s", e)
         return f"搜索请求失败: {e}"
+
+    # 搜索结果页常态 <1MB;异常巨页(劫持/二进制误配)直接放弃解析,
+    # 防止把几十 MB 噪声灌进 bs4(与 fetch_url 的 _MAX_BODY_BYTES 同一纪律)。
+    if len(resp.content) > _MAX_RESULT_BYTES:
+        logger.warning("搜狗结果页异常巨大 %d 字节,放弃解析", len(resp.content))
+        return "搜索结果页异常（响应体过大），疑似被劫持或站点异常，请稍后重试或换关键词。"
 
     results = _parse_results(resp.text, max_results)
 

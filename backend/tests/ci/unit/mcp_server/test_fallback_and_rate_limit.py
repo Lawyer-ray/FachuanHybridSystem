@@ -279,6 +279,52 @@ class TestPagination:
         assert "第 1 页" not in result
 
 
+class TestNetworkHardening:
+    """web_search 网络层对齐(2026-10-25 审计六十八轮)——与 fetch_url/
+    client.py 同一纪律:忽略系统代理变量(本机代理会把直连可达的搜狗
+    代理出去表现为超时);结果页超 10MB 视为劫持/异常,放弃解析。"""
+
+    @pytest.fixture(autouse=True)
+    def _reset_bucket(self) -> Any:
+        module = _web_search_module()
+        module._last_requests.clear()
+        yield
+        module._last_requests.clear()
+
+    def test_trust_env_disabled(self) -> None:
+        import asyncio
+
+        module = _web_search_module()
+        response = httpx.Response(
+            200,
+            content=b"<html><body></body></html>",
+            request=httpx.Request("GET", "https://www.sogou.com/web"),
+        )
+        with mock.patch.object(module.httpx, "Client") as patched:
+            instance = patched.return_value.__enter__.return_value
+            instance.get.return_value = response
+            asyncio.run(module.web_search("测试", 5))
+
+            kwargs = patched.call_args.kwargs
+        assert kwargs.get("trust_env") is False
+
+    def test_oversized_result_page_abandoned(self) -> None:
+        import asyncio
+
+        module = _web_search_module()
+        huge = httpx.Response(
+            200,
+            content=b"x" * (10 * 1024 * 1024 + 1),
+            request=httpx.Request("GET", "https://www.sogou.com/web"),
+        )
+        with mock.patch.object(module.httpx, "Client") as patched:
+            instance = patched.return_value.__enter__.return_value
+            instance.get.return_value = huge
+            result = asyncio.run(module.web_search("测试", 5))
+
+        assert "响应体过大" in result
+
+
 class TestResultSourceInfo:
     """结果来源站点(2026-10-25 审计五十八轮)——搜狗 citeLinkClass 带真实
     站点名+域名,提取到结果行让模型不抓原文就能评估来源权威性并正确引用。"""
