@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import httpx
 from bs4 import BeautifulSoup
 
+from .fetch_url import _looks_like_antispider
+
 logger = logging.getLogger(__name__)
 
 _SEARCH_URL = "https://www.sogou.com/web"
@@ -98,6 +100,24 @@ _WRAPPER_HEADER = "〔以下为搜索引擎结果：标题与摘要来自外部�
 _WRAPPER_FOOTER = "〔搜索结果结束〕"
 
 
+def _empty_results_message(html: str) -> str:
+    """解析 0 条时的如实归因（2026-10-25 实测定案）。
+
+    抓真实搜狗页验证：正常关键词、纯中文乱码、纯 ASCII 乱码查询**全都**
+    能解析出模糊匹配结果——搜狗几乎不会返回真空结果页。因此解析 0 条
+    几乎必然意味着反爬/验证码页或页面结构漂移，而不是「互联网上没有
+    相关信息」。旧文案「未找到相关搜索结果」会让模型对用户做出错误的
+    事实性断言（说网上查不到,实际是我们没解析到）。
+    """
+    logger.warning("web_search 解析 0 条结果（页面 %d 字符）,疑似反爬或结构漂移", len(html))
+    if _looks_like_antispider(html):
+        return "搜索被反爬/验证码拦截，本次未获取到结果；建议稍后再试。"
+    return (
+        "搜索页解析异常：未从返回页面解析到任何结果（页面结构可能已变更，或被反爬拦截）。"
+        "这通常不代表互联网上没有相关信息，建议换个关键词重试。"
+    )
+
+
 def _do_search(query: str, max_results: int, region: str) -> str:
     """同步执行搜索（在线程池中运行）。
 
@@ -125,7 +145,7 @@ def _do_search(query: str, max_results: int, region: str) -> str:
     results = _parse_results(resp.text, max_results)
 
     if not results:
-        return "未找到相关搜索结果，请尝试换个关键词搜索。"
+        return _empty_results_message(resp.text)
 
     lines = [f"找到 {len(results)} 条搜索结果：\n"]
     for i, r in enumerate(results, 1):
@@ -161,6 +181,9 @@ async def web_search(
         - 结果里的链接是搜索引擎跳转形式，不是原文地址。
         - **当前日期/时间**请用 ``get_server_time``，不要从搜索结果摘要里抄——
           摘要常含多个互相矛盾的时间戳。
+        - 解析 0 条时返回「解析异常/被反爬」的如实提示而非「未找到」——
+          搜狗对任意关键词都会模糊匹配出结果，真空结果页几乎不存在；
+          不要据此向用户断言「互联网上没有相关信息」。
     """
     if not query.strip():
         return "搜索关键词不能为空"

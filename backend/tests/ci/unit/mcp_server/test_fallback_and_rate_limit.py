@@ -171,3 +171,54 @@ class TestSearchResultInjectionMarking:
         message = module._do_search("测试", 5, "cn-zh")
 
         assert module._WRAPPER_HEADER not in message
+
+
+class TestEmptyResultsHonesty:
+    """解析 0 条的如实归因（2026-10-25 真实数据定案）。
+
+    实测搜狗对正常关键词/纯中文乱码/纯 ASCII 乱码**全都**返回可解析的
+    模糊匹配结果——解析 0 条几乎必然是反爬页或结构漂移。旧文案
+    「未找到相关搜索结果」会让模型对用户做出错误的事实性断言。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_bucket(self) -> Any:
+        module = _web_search_module()
+        module._last_requests.clear()
+        yield
+        module._last_requests.clear()
+
+    @staticmethod
+    def _search_with_html(html: str) -> str:
+        module = _web_search_module()
+        response = httpx.Response(
+            200,
+            content=html.encode("utf-8"),
+            request=httpx.Request("GET", "https://www.sogou.com/web"),
+        )
+        with mock.patch.object(module.httpx, "Client") as patched:
+            patched.return_value.__enter__.return_value.get.return_value = response
+            return module._do_search("测试", 5, "cn-zh")
+
+    def test_antispider_page_reported_as_blocked(self) -> None:
+        message = self._search_with_html("<html><body>请输入下方验证码完成安全验证</body></html>")
+
+        assert "反爬" in message
+        assert "未找到相关搜索结果" not in message
+
+    def test_structure_drift_reported_as_parse_anomaly(self) -> None:
+        """页面正常返回但结果容器全变了——说「解析异常」而非「未找到」。"""
+        message = self._search_with_html(
+            "<html><body><div class='brand-new-layout'>搜狗全新结果页结构</div></body></html>"
+        )
+
+        assert "解析异常" in message
+        assert "换个关键词" in message
+        assert "未找到相关搜索结果" not in message
+
+    def test_empty_messages_not_injection_wrapped(self) -> None:
+        """归因提示是本系统文本,不套外部内容包裹标注。"""
+        module = _web_search_module()
+        message = self._search_with_html("<html><body>空壳页无结果</body></html>")
+
+        assert module._WRAPPER_HEADER not in message
