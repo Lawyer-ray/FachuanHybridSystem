@@ -44,6 +44,8 @@ from mcp_server.tools.contract_review.review import confirm_party
 from mcp_server.tools.contracts.contracts import create_contract, list_contracts
 from mcp_server.tools.contracts.folder_file import read_folder_file
 from mcp_server.tools.core.agent_attachments import read_agent_attachment
+from mcp_server.tools.documents.documents import create_document_template, list_document_templates
+from mcp_server.tools.documents.folder_template_ops import create_folder_template
 from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
 from mcp_server.tools.finance.mortgage import mortgage_amortize
 from mcp_server.tools.legal_research.legal_research import capability_search, create_research_task
@@ -83,6 +85,9 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "update_case": (6, 6),
     "confirm_party": (7, 7),
     "read_agent_attachment": (7, 7),
+    "list_document_templates": (4, 4),
+    "create_document_template": (10, 10),
+    "create_folder_template": (8, 8),
 }
 
 
@@ -94,7 +99,8 @@ _ALL_DESCRIBED_FNS = [
     approve_workflow_step, create_workflow_template, update_workflow_template,
     create_message_source, update_message_source, mortgage_amortize,
     create_research_task, capability_search, update_case, confirm_party,
-    read_agent_attachment,
+    read_agent_attachment, list_document_templates, create_document_template,
+    create_folder_template,
 ]
 
 
@@ -211,6 +217,7 @@ def test_schema_enums_match_model_choices() -> None:
     from apps.contract_review.schemas.review_schemas import ConfirmPartyIn
     from apps.contracts.models.contract import ContractStatus, FeeMode
     from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
+    from apps.documents.models.choices import DocumentCaseType, DocumentTemplateType
     from apps.finance.schemas.lpr_schemas import InterestCalculateRequest, MortgageAmortizeRequest
     from apps.legal_research.schemas.legal_research_schemas import AgentSearchRequestV1, LegalResearchTaskCreateIn
     from apps.message_hub.models.message_source import SourceType
@@ -251,6 +258,12 @@ def test_schema_enums_match_model_choices() -> None:
         ("capability_search", "search_mode"): _backend_literal(AgentSearchRequestV1, "search_mode"),
         ("update_case", "status"): set(CaseStatus.values),
         ("confirm_party", "represented_party"): _backend_literal(ConfirmPartyIn, "represented_party"),
+        ("list_document_templates", "template_type"): set(DocumentTemplateType.values),
+        ("list_document_templates", "case_type"): set(DocumentCaseType.values),
+        ("create_document_template", "template_type"): set(DocumentTemplateType.values),
+        ("create_document_template", "case_types"): set(DocumentCaseType.values),
+        ("create_folder_template", "template_type"): set(DocumentTemplateType.values),
+        ("create_folder_template", "case_types"): set(DocumentCaseType.values),
         ("list_workflows", "status"): set(WorkflowRun.Status.values),
         ("create_workflow_template", "category"): set(WorkflowTemplate.Category.values),
         ("update_workflow_template", "category"): set(WorkflowTemplate.Category.values),
@@ -269,6 +282,9 @@ def test_schema_enums_match_model_choices() -> None:
         "capability_search": _schema_of(capability_search),
         "update_case": _schema_of(update_case),
         "confirm_party": _schema_of(confirm_party),
+        "list_document_templates": _schema_of(list_document_templates),
+        "create_document_template": _schema_of(create_document_template),
+        "create_folder_template": _schema_of(create_folder_template),
         # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
         "list_workflows": _registered_schema("list_workflows"),
         "create_workflow_template": _registered_schema("create_workflow_template"),

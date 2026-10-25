@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
+
+#: 与 apps/documents/models/choices 的 TextChoices 逐值对账(门禁 test_schema_param_descriptions)。
+_FolderTemplateTypeL = Literal["contract", "case", "archive"]
+_FolderCaseTypeL = Literal["civil", "administrative", "criminal", "execution", "bankruptcy", "all"]
 
 
 def get_folder_template(template_id: int) -> dict[str, Any]:
@@ -13,14 +19,14 @@ def get_folder_template(template_id: int) -> dict[str, Any]:
 
 
 def create_folder_template(
-    name: str,
-    template_type: str | None = None,
-    case_types: list[str] | None = None,
-    case_stages: list[str] | None = None,
-    contract_types: list[str] | None = None,
-    structure: dict[str, Any] | None = None,
-    is_default: bool | None = None,
-    is_active: bool | None = None,
+    name: Annotated[str, Field(description="模板名称")],
+    template_type: Annotated[_FolderTemplateTypeL | None, Field(description="contract 合同/case 案件/archive 归档")] = None,
+    case_types: Annotated[list[_FolderCaseTypeL] | None, Field(description="适用案件类型列表(all=通用)")] = None,
+    case_stages: Annotated[list[str] | None, Field(description="适用案件阶段列表(英文键,见 CaseStage 18 值)")] = None,
+    contract_types: Annotated[list[str] | None, Field(description="适用合同类型列表")] = None,
+    structure: Annotated[dict[str, Any] | None, Field(description="目录结构树(节点含 name/children 等;结构复杂时建议先 get_folder_template 参考现有样例)")] = None,
+    is_default: Annotated[bool | None, Field(description="是否默认模板")] = None,
+    is_active: Annotated[bool | None, Field(description="是否启用")] = None,
 ) -> dict[str, Any]:
     """创建文件夹模板。
 
