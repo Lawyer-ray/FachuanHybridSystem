@@ -109,13 +109,18 @@ async def list_memories(  # pragma: no cover
 ) -> list[MemoryOut]:
     """当前律师可见的记忆列表。
 
-    团队/律所层只返回已生效的（``active``）——待确认的个人推测不该出现在
-    别人视野里。
+    **默认只返回 pending + active**，不返 ``deleted``：软删的语义是「律师不想
+    再看到它」，默认列表里还躺着会让人以为删除没生效（前端靠 ``status`` 过滤
+    可以遮蔽，但接口本身应该语义正确）。要看已删列表显式传 ``status=deleted``
+    （恢复入口需要）。
     """
     lawyer = _current_user(request)
 
     def _run() -> list[MemoryOut]:
-        statuses = (status,) if status else tuple(AgentMemory.Status.values)
+        if status:
+            statuses: tuple[str, ...] = (status,)
+        else:
+            statuses = (AgentMemory.Status.PENDING, AgentMemory.Status.ACTIVE)
         queryset = memory_service.visible_queryset(lawyer, include_status=statuses)
         if scope:
             queryset = queryset.filter(scope=scope)
@@ -139,36 +144,6 @@ async def create_memory(request: Any, payload: MemoryCreateIn) -> MemoryOut:  # 
             )
         except ValueError as exc:
             raise ValidationException(str(exc)) from exc
-        return MemoryOut(**_to_out(memory))
-
-    return await sync_to_async(_run, thread_sensitive=True)()
-
-
-@router.delete("/{memory_id}")
-async def forget_memory(request: Any, memory_id: str) -> dict[str, Any]:  # pragma: no cover
-    """软删除一条记忆（可由 ``/restore`` 恢复）。"""
-    lawyer = _current_user(request)
-
-    def _run() -> dict[str, Any]:
-        try:
-            memory_service.forget_memory(lawyer, memory_id)
-        except ValueError as exc:
-            raise NotFoundError(str(exc)) from exc
-        return {"ok": True}
-
-    return await sync_to_async(_run, thread_sensitive=True)()
-
-
-@router.post("/{memory_id}/restore", response=MemoryOut)
-async def restore_memory(request: Any, memory_id: str) -> MemoryOut:  # pragma: no cover
-    """恢复已删除的记忆。"""
-    lawyer = _current_user(request)
-
-    def _run() -> MemoryOut:
-        try:
-            memory = memory_service.restore_memory(lawyer, memory_id)
-        except ValueError as exc:
-            raise NotFoundError(str(exc)) from exc
         return MemoryOut(**_to_out(memory))
 
     return await sync_to_async(_run, thread_sensitive=True)()
@@ -269,5 +244,44 @@ async def my_scopes(request: Any) -> dict[str, Any]:  # pragma: no cover
             },
             "teams": teams,
         }
+
+    return await sync_to_async(_run, thread_sensitive=True)()
+
+
+# ── 动态段路由（必须放最后）─────────────────────────────────────────────
+#
+# Django 的路径解析是**按注册顺序匹配**，``/{memory_id}`` 会吞掉任何单段路径。
+# 实测踩过：``GET /agent/memory/snapshot`` 命中 ``DELETE /{memory_id}`` 的
+# 路径规则，返回 405 Method Not Allowed（allow: DELETE）——注入扩展拿不到
+# 快照，记忆功能整体失效且前端无感。所以静态路由必须全部登记在这些之前，
+# 新增静态端点时也请往上加，不要写在本段后面。
+
+
+@router.delete("/{memory_id}")
+async def forget_memory(request: Any, memory_id: str) -> dict[str, Any]:  # pragma: no cover
+    """软删除一条记忆（可由 ``/{memory_id}/restore`` 恢复）。"""
+    lawyer = _current_user(request)
+
+    def _run() -> dict[str, Any]:
+        try:
+            memory_service.forget_memory(lawyer, memory_id)
+        except ValueError as exc:
+            raise NotFoundError(str(exc)) from exc
+        return {"ok": True}
+
+    return await sync_to_async(_run, thread_sensitive=True)()
+
+
+@router.post("/{memory_id}/restore", response=MemoryOut)
+async def restore_memory(request: Any, memory_id: str) -> MemoryOut:  # pragma: no cover
+    """恢复已删除的记忆。"""
+    lawyer = _current_user(request)
+
+    def _run() -> MemoryOut:
+        try:
+            memory = memory_service.restore_memory(lawyer, memory_id)
+        except ValueError as exc:
+            raise NotFoundError(str(exc)) from exc
+        return MemoryOut(**_to_out(memory))
 
     return await sync_to_async(_run, thread_sensitive=True)()

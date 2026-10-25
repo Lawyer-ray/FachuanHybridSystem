@@ -493,6 +493,40 @@ def can_curate_scope(lawyer: Lawyer, scope: str, *, team_id: int | None = None) 
     return True
 
 
+def _curation_source_queryset(lawyer: Lawyer, *, scope: str, team_id: int | None) -> QuerySet[AgentMemory]:
+    """策展的**来源范围**：可被提升为指定团队/律所的人记忆。
+
+    这个范围与 ``visible_queryset``（「我自己看得见的」）**刻意不同**：
+    管理员要策展成员的记忆，但他看不到别人的个人记忆。早期实现把两处
+    混用，症状是管理员提交提升时被「部分来源记忆不存在或无权访问」拦住——
+    候选池里明明列着，一提交就报不存在。
+
+    写入仍由 ``can_curate_scope`` 把关（调用方先校验），本函数只负责
+    「该作用域下哪些人记忆属于可策展来源」。
+    """
+    from apps.organization.models import Lawyer as LawyerModel
+
+    if scope == AgentMemory.Scope.TEAM:
+        if not team_id:
+            raise ValueError("提升到团队必须指定 team_id")
+        member_ids = list(
+            # 只取本团队成员的个人记忆
+            LawyerModel.objects.filter(lawyer_teams__id=team_id).values_list("id", flat=True)
+        )
+    elif scope == AgentMemory.Scope.LAW_FIRM:
+        if not lawyer.law_firm_id:
+            raise ValueError("当前账号未归属律所")
+        member_ids = list(LawyerModel.objects.filter(law_firm_id=lawyer.law_firm_id).values_list("id", flat=True))
+    else:
+        raise ValueError("只能向团队或律所层提升")
+
+    return AgentMemory.objects.filter(
+        scope=AgentMemory.Scope.LAWYER,
+        lawyer_id__in=member_ids,
+        status=AgentMemory.Status.ACTIVE,
+    )
+
+
 def promote_candidates(
     lawyer: Lawyer, *, scope: str, team_id: int | None = None, limit: int = 50
 ) -> list[dict[str, Any]]:
@@ -504,31 +538,7 @@ def promote_candidates(
     if not can_curate_scope(lawyer, scope, team_id=team_id):
         raise ValueError("无权查看该作用域的策展候选")
 
-    from apps.organization.models import Lawyer as LawyerModel
-
-    if scope == AgentMemory.Scope.TEAM:
-        if not team_id:
-            raise ValueError("提升到团队必须指定 team_id")
-        member_ids = list(
-            # 只取本团队成员的个人记忆
-            LawyerModel.objects.filter(lawyer_teams__id=team_id).values_list("id", flat=True)
-        )
-        qs = AgentMemory.objects.filter(
-            scope=AgentMemory.Scope.LAWYER,
-            lawyer_id__in=member_ids,
-            status=AgentMemory.Status.ACTIVE,
-        )
-    elif scope == AgentMemory.Scope.LAW_FIRM:
-        if not lawyer.law_firm_id:
-            raise ValueError("当前账号未归属律所")
-        firm_member_ids = list(LawyerModel.objects.filter(law_firm_id=lawyer.law_firm_id).values_list("id", flat=True))
-        qs = AgentMemory.objects.filter(
-            scope=AgentMemory.Scope.LAWYER,
-            lawyer_id__in=firm_member_ids,
-            status=AgentMemory.Status.ACTIVE,
-        )
-    else:
-        raise ValueError("只能向团队或律所层提升")
+    qs = _curation_source_queryset(lawyer, scope=scope, team_id=team_id)
 
     # 已提升过的原记忆不再作为候选
     already = set(AgentMemory.objects.filter(promoted_to__isnull=False).values_list("id", flat=True))
@@ -579,11 +589,7 @@ def promote_memory(
     if len(content) > 500:
         raise ValueError("改写后的规则过长（上限 500 字）")
 
-    sources = list(
-        visible_queryset(lawyer, include_status=(AgentMemory.Status.ACTIVE,)).filter(
-            pk__in=source_ids, scope=AgentMemory.Scope.LAWYER
-        )
-    )
+    sources = list(_curation_source_queryset(lawyer, scope=scope, team_id=team_id).filter(pk__in=source_ids))
     if len(sources) != len(set(source_ids)):
         raise ValueError("部分来源记忆不存在或无权访问")
 

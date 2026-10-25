@@ -308,3 +308,98 @@ class TestKeywordFallback:
     def test_no_match_returns_empty(self, lawyer: Lawyer) -> None:
         _memory(lawyer, "文书先给结论")
         assert memory_service.search_memories(lawyer, "完全不沾边的词") == []
+
+
+# ── 端到端回归：两个真实 bug（2026-10-25 实测发现）──────────────────────────
+
+
+@pytest.mark.django_db
+class TestCurationPermissionBoundary:
+    """管理员策展成员记忆 —— 曾因复用「可见范围」而全线失败。
+
+    真实症状：候选池里明明列出成员记忆，一提交提升就报
+    「部分来源记忆不存在或无权访问」。根因是 `promote_memory` 用
+    `visible_queryset`（「我自己看得见的」）校验来源，而管理员的可见范围
+    不含成员的个人记忆。策展来源范围与读可见范围是两个不同概念。
+    """
+
+    def test_admin_can_promote_member_memory(self, firm: LawFirm, team: Team) -> None:
+        admin = Lawyer.objects.create_user(username="cur_admin", password=TEST_PASSWORD, law_firm=firm, is_admin=True)
+        admin.lawyer_teams.add(team)
+        member = Lawyer.objects.create_user(username="cur_member", password=TEST_PASSWORD, law_firm=firm)
+        member.lawyer_teams.add(team)
+
+        source = _memory(member, "回复法院函件不要超过 800 字", kind=AgentMemory.Kind.PROCEDURE)
+        promoted = memory_service.promote_memory(
+            admin,
+            source_ids=[str(source.pk)],
+            content="对外函件统一控制在 800 字以内，超出的拆附件",
+            kind=AgentMemory.Kind.PROCEDURE,
+            scope=AgentMemory.Scope.TEAM,
+            team_id=team.pk,
+        )
+        assert promoted.scope == AgentMemory.Scope.TEAM
+        assert list(promoted.promoted_from.all()) == [source]
+
+    def test_admin_cannot_promote_other_team_memory(self, firm: LawFirm) -> None:
+        """跨团队成员不在策展来源范围内。"""
+        other_team = Team.objects.create(name="他组", team_type=TeamType.LAWYER, law_firm=firm)
+        admin = Lawyer.objects.create_user(username="cur_admin2", password=TEST_PASSWORD, law_firm=firm, is_admin=True)
+        outsider_member = Lawyer.objects.create_user(username="cur_out2", password=TEST_PASSWORD, law_firm=firm)
+        outsider_member.lawyer_teams.add(other_team)
+
+        source = _memory(outsider_member, "他组的一条惯例", kind=AgentMemory.Kind.PROCEDURE)
+        with pytest.raises(ValueError, match="不存在或无权访问"):
+            memory_service.promote_memory(
+                admin,
+                source_ids=[str(source.pk)],
+                content="改写后的规则",
+                kind=AgentMemory.Kind.PROCEDURE,
+                scope=AgentMemory.Scope.TEAM,
+                team_id=other_team.pk + 999,  # 不属于该团队的 id
+            )
+
+    def test_candidates_and_promote_share_source_scope(self, firm: LawFirm, team: Team) -> None:
+        """候选池里列出来的，必须就能提升成功（口径一致）。"""
+        admin = Lawyer.objects.create_user(username="cur_admin3", password=TEST_PASSWORD, law_firm=firm, is_admin=True)
+        admin.lawyer_teams.add(team)
+        member = Lawyer.objects.create_user(username="cur_member3", password=TEST_PASSWORD, law_firm=firm)
+        member.lawyer_teams.add(team)
+        _memory(member, "回函要附法条原文", kind=AgentMemory.Kind.PROCEDURE)
+
+        candidates = memory_service.promote_candidates(admin, scope=AgentMemory.Scope.TEAM, team_id=team.pk)
+        assert len(candidates) == 1
+        promoted = memory_service.promote_memory(
+            admin,
+            source_ids=[candidates[0]["id"]],
+            content="对外回函一律附引用法条原文",
+            kind=AgentMemory.Kind.PROCEDURE,
+            scope=AgentMemory.Scope.TEAM,
+            team_id=team.pk,
+        )
+        assert promoted.pk is not None
+
+
+@pytest.mark.django_db
+class TestRouteOrdering:
+    """静态路径不能被动态段吞掉 —— 曾导致 /snapshot 返回 405。
+
+    Django 按注册顺序匹配路径，``/{memory_id}`` 会吃掉任何单段路径。
+    真实症状：``GET /agent/memory/snapshot`` 命中 ``DELETE /{memory_id}``
+    的规则返回 405（allow: DELETE），pi 扩展拿不到快照、记忆功能整体失效，
+    而前端与日志都没有明显报错。
+    """
+
+    def test_snapshot_path_resolves_to_snapshot_view(self) -> None:
+        from django.urls import resolve
+
+        match = resolve("/api/v1/agent/memory/snapshot")
+        assert match.func.__name__ != "forget_memory", "静态路径被动态段 /{memory_id} 吞掉了"
+        assert "snapshot" in str(match.func).lower() or "snapshot" in match.url_name.lower()
+
+    @pytest.mark.parametrize("path", ["confirm", "snapshot", "promotion", "promotion/candidates", "scopes"])
+    def test_static_routes_not_shadowed(self, path: str) -> None:
+        from django.urls import resolve
+
+        match = resolve(f"/api/v1/agent/memory/{path}")
+        assert match.func.__name__ != "forget_memory"
