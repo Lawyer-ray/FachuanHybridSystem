@@ -13,7 +13,9 @@ from __future__ import annotations
 import importlib
 import time
 from typing import Any
+from unittest import mock
 
+import httpx
 import pytest
 
 
@@ -117,3 +119,55 @@ class TestWebSearchRateLimitFailsFast:
         assert isinstance(message, str)
         assert "频繁" in message
         assert "稍后再试" in message
+
+
+class TestSearchResultInjectionMarking:
+    """搜索结果的标题/摘要抓自任意外部网页——必须整体包裹注入防护标注
+    （与 ``fetch_url`` 同口径），否则外部内容里的「指令」以裸文本混入
+    模型上下文（OWASP LLM06 间接提示注入）。"""
+
+    @pytest.fixture(autouse=True)
+    def _reset_bucket(self) -> Any:
+        module = _web_search_module()
+        module._last_requests.clear()
+        yield
+        module._last_requests.clear()
+
+    @staticmethod
+    def _sogou_html() -> str:
+        return (
+            "<html><body>"
+            '<div class="vrwrap"><h3><a href="/link?url=abc">标题甲</a></h3>'
+            '<div class="space-txt">摘要甲</div></div>'
+            '<div class="vrwrap"><h3><a href="/link?url=def">标题乙</a></h3>'
+            '<div class="space-txt">摘要乙</div></div>'
+            "</body></html>"
+        )
+
+    def test_results_are_wrapped_with_markers(self) -> None:
+        module = _web_search_module()
+        response = httpx.Response(
+            200,
+            content=self._sogou_html().encode("utf-8"),
+            request=httpx.Request("GET", "https://www.sogou.com/web"),
+        )
+        with mock.patch.object(module.httpx, "Client") as patched:
+            patched.return_value.__enter__.return_value.get.return_value = response
+
+            result = module._do_search("测试", 5, "cn-zh")
+
+        assert result.startswith(module._WRAPPER_HEADER)
+        assert result.endswith(module._WRAPPER_FOOTER)
+        assert "标题甲" in result and "摘要乙" in result
+        assert "2 条搜索结果" in result
+
+    def test_error_messages_are_not_wrapped(self) -> None:
+        """限流提示是本系统生成的文本（非外部内容），不包裹。"""
+        module = _web_search_module()
+
+        now = time.monotonic()
+        module._last_requests[:] = [now - 1] * module._RATE_LIMIT
+
+        message = module._do_search("测试", 5, "cn-zh")
+
+        assert module._WRAPPER_HEADER not in message

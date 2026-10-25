@@ -38,6 +38,7 @@ def _public_dns() -> Any:
     SSRF 检查引入了 getaddrinfo 依赖,单测不应触网;个别用例（内网/DNS 失败）
     在测试体内用更内层的 mock.patch 覆盖。
     """
+
     def _fake_getaddrinfo(host: str, *args: Any, **kwargs: Any) -> list[tuple]:
         ip = "127.0.0.1" if host in ("localhost",) else "93.184.216.34"
         return [(None, None, None, "", (ip, 0))]
@@ -190,6 +191,51 @@ class TestHonestFailures:
         result = _module().fetch_url("https://example.com/a")
 
         assert not (result["ok"] and not result.get("text"))
+
+
+class TestByteBudgetTruncation:
+    """max_chars 按字符计，中文 20000 字符 ≈ 60KB——pi 侧对工具输出按
+    20480 字节拦腰截断，截断点落在 JSON 中段，尾部的 truncated 标志模型
+    看不到。正文必须按 UTF-8 字节预算**先于 pi** 截断，并保住结束标记。"""
+
+    def test_chinese_max_chars_clamped_by_bytes(self, fake_http: Any) -> None:
+        html = "<html><body><article>" + "汉字正文" * 10000 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=20000)
+
+        assert result["ok"] is True
+        assert result["truncated"] is True
+        assert len(result["text"].encode("utf-8")) <= _module()._BYTE_BUDGET
+        assert result["text"].endswith("〔外部网页内容结束〕")
+
+    def test_english_over_budget_clamped(self, fake_http: Any) -> None:
+        html = "<html><body><article>" + "word " * 10000 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=20000)
+
+        assert result["truncated"] is True
+        assert len(result["text"].encode("utf-8")) <= _module()._BYTE_BUDGET
+        assert result["text"].endswith("〔外部网页内容结束〕")
+
+    def test_short_page_not_clamped(self, fake_http: Any) -> None:
+        html = "<html><body><article>" + "短页正文。" * 40 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/a")
+
+        assert result["truncated"] is False
+        assert result["text"].endswith("〔外部网页内容结束〕")
+
+    def test_multibyte_boundary_decodes_safely(self, fake_http: Any) -> None:
+        """字节截断点落在多字节字符中间时，解码丢弃残缺字符而非报错。"""
+        html = "<html><body><article>" + "汉" * 9000 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=20000)
+
+        assert result["chars"] == len(result["text"])
 
 
 class TestRedirectFallback:
