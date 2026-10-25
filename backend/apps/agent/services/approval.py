@@ -317,7 +317,9 @@ def _write_decision(approval_id: str, approved: bool) -> None:
     try:
         cache.set(f"{DECISION_KEY_PREFIX}{approval_id}", "1" if approved else "0", DECISION_TTL)
     except Exception:
-        logger.debug("写入审批决定失败: %s", approval_id, exc_info=True)
+        # CLAUDE.md 标准:失败会让用户看到「审批了但工具没执行」的无法解释结果,
+        # 必须高于 debug——跨 worker 决定丢失正是这一步要防的事故。
+        logger.warning("写入审批决定失败(跨 worker 等待者将读不到结果): %s", approval_id, exc_info=True)
 
 
 def _write_waiter_heartbeat(approval_id: str, timeout_seconds: float) -> None:
@@ -333,7 +335,8 @@ def _write_waiter_heartbeat(approval_id: str, timeout_seconds: float) -> None:
             max(int(timeout_seconds * 1.5), 60),
         )
     except Exception:
-        logger.debug("写 waiter 心跳失败: %s", approval_id, exc_info=True)
+        # 心跳写失败会让「无人在线挂起等离线审批」的判定失真,同上不低于 warning。
+        logger.warning("写 waiter 心跳失败(离线审批挂起判定将失真): %s", approval_id, exc_info=True)
 
 
 def _waiter_is_alive(approval_id: str) -> bool:
@@ -509,7 +512,8 @@ async def request_approval(
         try:
             session = await AgentSession.objects.filter(session_id=session_id).afirst()
         except Exception:
-            logger.debug("按 session_id 查会话失败: %s", session_id, exc_info=True)
+            # 审批记录将丢失会话关联(审计断链),不是可无感降级的失败。
+            logger.warning("按 session_id 查会话失败(审批记录将缺会话关联): %s", session_id, exc_info=True)
 
     record = await AgentApproval.objects.acreate(
         approval_id=uuid.UUID(approval_id),
