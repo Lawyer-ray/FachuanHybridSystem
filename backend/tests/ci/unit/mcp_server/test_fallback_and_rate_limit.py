@@ -277,3 +277,50 @@ class TestPagination:
         result, _ = self._search_capturing(1)
 
         assert "第 1 页" not in result
+
+
+class TestResultSourceInfo:
+    """结果来源站点(2026-10-25 审计五十八轮)——搜狗 citeLinkClass 带真实
+    站点名+域名,提取到结果行让模型不抓原文就能评估来源权威性并正确引用。"""
+
+    @staticmethod
+    def _results_html(with_cite: bool) -> str:
+        cite = (
+            "<a class='citeLinkClass'><span>最高人民法院</span>"
+            "<span>https://www.court.gov.cn/zixun/...</span>"
+            "<span class='cite-date'>3天前</span></a>"
+            if with_cite
+            else ""
+        )
+        return (
+            "<html><body><div class='vrwrap'><h3><a href='/link?url=x'>裁判文书公开</a></h3>"
+            f"<div class='space-txt'>摘要内容</div>{cite}</div></body></html>"
+        )
+
+    def _parse(self, html: str) -> list[Any]:
+        module = _web_search_module()
+        return module._parse_results(html, 5)
+
+    def test_source_site_and_host_extracted(self) -> None:
+        results = self._parse(self._results_html(with_cite=True))
+
+        assert results[0].source == "最高人民法院（www.court.gov.cn）"
+
+    def test_source_line_in_search_output(self) -> None:
+        module = _web_search_module()
+        response = httpx.Response(
+            200,
+            content=self._results_html(with_cite=True).encode("utf-8"),
+            request=httpx.Request("GET", "https://www.sogou.com/web"),
+        )
+        module._last_requests.clear()
+        with mock.patch.object(module.httpx, "Client") as patched:
+            patched.return_value.__enter__.return_value.get.return_value = response
+            output = module._do_search("测试", 5)
+
+        assert "来源: 最高人民法院（www.court.gov.cn）" in output
+
+    def test_missing_cite_degrades_to_no_source(self) -> None:
+        results = self._parse(self._results_html(with_cite=False))
+
+        assert results[0].source == ""
