@@ -137,6 +137,15 @@ describe('useResizablePanel', () => {
     }).not.toThrow()
   })
 
+  it('容器宽度未知时不钳制上限（首帧不误伤）', () => {
+    // containerWidth 为 null 时无法计算上限，不能把宽度钳成 0
+    localStorage.setItem(KEY, '1140')
+    const { result } = renderHook(() =>
+      useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360, maxRatio: 0.68 }),
+    )
+    expect(result.current.effectiveWidth).toBe(1140)
+  })
+
   it('手动设置也不可能超过 maxRatio', () => {
     const { result } = renderHook(() =>
       useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360, maxRatio: 0.68 }),

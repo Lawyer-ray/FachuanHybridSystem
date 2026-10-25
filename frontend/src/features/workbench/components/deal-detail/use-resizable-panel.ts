@@ -11,6 +11,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * **为什么记 localStorage 而不是后端**：这是「这台设备的窗口布局」，换电脑
  * 不该跟着走；也不必为此加一次写库。
  */
+/**
+ * 左栏最小宽度。
+ *
+ * 服务事项表有日期 116 + 类型 68 + 状态 84 三个定宽列（268px），再加上
+ * 「事项」「交付物」两列至少要各留 130 才能容下中文标题——低于 560 就会
+ * 挤成逐字竖排。
+ */
+const LEFT_MIN = 560
+
 export function useResizablePanel({
   storageKey,
   defaultWidth,
@@ -159,33 +168,27 @@ export function useResizablePanel({
   }, [min, maxRatio])
 
   /**
-   * 窄屏（竖排）时不要固定宽度。
+   * 容器能给的硬上限：两个约束取小。
    *
-   * 阈值与页面的竖排断点一致（1100/1024）：一旦上下堆叠，左右分栏的宽度就
-   * 没有意义，继续用 900px 会把容器撑爆。取容器 90% 作为下限判断，
-   * 避免「容器比记住的宽度还窄」时溢出。
-   */
-  /**
-   * 没手动拖过时按容器比例给宽度。
+   * - `hardMax`：右栏最多占容器 maxRatio（默认 68%），否则左栏被压没
+   * - `keepLeftMin`：右栏宽度不超过「容器 − 左栏下限」，保证事项表放得下
    *
-   * **要点是给左栏留够**：左栏放的是服务事项表（日期 116 + 类型 68 + 状态 84
-   * 三个定宽列就 268px，再加事项与交付物两列），低于 460px 中文就会被挤成
-   * 竖排。所以右栏宽度 = 容器 - 左栏最小宽，而不是「容器 × 某个比例」——
-   * 后者在宽屏会把右栏撑得过大、左栏照样不够。
+   * **用户拖过的宽度也必须受它约束**：localStorage 记的是「当时那个窗口」
+   * 拖出来的值，换到更窄的窗口后照用会把容器撑爆（实测：存 1140 换到
+   * 1400 屏，左栏只剩 174px、事项/交付物两列归零、中文逐字竖排）。
    */
-  const LEFT_MIN = 560
-  const autoWidth =
-    containerWidth === null
-      ? width
-      : Math.round(
-          Math.min(
-            // 右栏天花板：容器 68%（留给左栏 32%）
-            Math.max(min, containerWidth * maxRatio),
-            // 右栏按「容器减左栏下限」给，宽屏下右栏才能长起来
-            Math.max(min, containerWidth - LEFT_MIN),
-          ),
-        )
-  const effective = userAdjusted ? width : autoWidth
+  const hardMax =
+    containerWidth === null ? Number.POSITIVE_INFINITY : Math.max(min, containerWidth * maxRatio)
+  const keepLeftMin =
+    containerWidth === null ? Number.POSITIVE_INFINITY : Math.max(min, containerWidth - LEFT_MIN)
+  const capped = Math.min(hardMax, keepLeftMin)
+
+  /** 没手动拖过时按容器给宽度（不留多余空白，也不挤左栏） */
+  const autoWidth = containerWidth === null ? width : Math.round(capped)
+
+  // 用户拖过的值优先，但仍要夹在容器允许的范围内
+  const clampedUserWidth = Math.min(width, capped)
+  const effective = userAdjusted ? clampedUserWidth : autoWidth
 
   const stacked = containerWidth !== null && containerWidth < Math.min(effective, 1100)
 
