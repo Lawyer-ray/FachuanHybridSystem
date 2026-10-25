@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { confirmParty, uploadContract } from '../api'
+import { partyLabel, recommendParty, type PartyKey } from '../domain'
 
 /**
  * 发起审查抽屉。
@@ -11,7 +12,7 @@ import { confirmParty, uploadContract } from '../api'
  * 同一份合同站甲方还是乙方，建议方向是相反的。
  */
 
-export type RepresentedParty = 'party_a' | 'party_b' | 'party_c' | 'party_d'
+export type RepresentedParty = PartyKey
 
 /** 审查步骤（对应后端 selected_steps） */
 const STEPS: Array<{ key: string; label: string; desc: string; on: boolean }> = [
@@ -36,6 +37,7 @@ export function ReviewLaunchDrawer({
   fileName,
   partyHint,
   parties,
+  clientName,
 }: {
   open: boolean
   onClose: () => void
@@ -47,11 +49,32 @@ export function ReviewLaunchDrawer({
    */
   loadFile: () => Promise<ArrayBuffer>
   fileName: string
-  /** AI 从文档里认出的当事人，作为立场选项的展示名 */
+  /**
+   * 调用方已知的当事人（可空）。
+   *
+   * **不再作为唯一来源**：合同可能有甲乙丙丁四方，我方也不一定是甲方
+   * （常见「代表客户股东去审」），所以真正的立场选项以**上传后 AI 识别
+   * 的结果**为准，这里只用于首屏占位与兜底。
+   */
   parties?: Record<string, string>
+  /** 我方委托客户名：用于从识别结果里自动推荐「我方是哪一方」 */
+  clientName?: string
   partyHint?: string
 }) {
-  const [party, setParty] = useState<RepresentedParty>('party_a')
+  /**
+   * 上传后识别出的当事人（`party_a`…`party_d` → 名称）。
+   *
+   * 初始为空：立场不该在「还没看到合同」时就定死。识别完成后才有选项，
+   * 避免把「我方=甲方」这种假设写死——真实场景里有乙方、丙方，
+   * 甚至有代表客户股东去审的。
+   */
+  const [detectedParties, setDetectedParties] = useState<Record<string, string> | null>(null)
+  /** 上传状态：idle → uploading → ready | error */
+  const [phase, setPhase] = useState<'idle' | 'uploading' | 'ready' | 'error'>('idle')
+  /** 上传得到的 taskId（确认立场时复用，不重复上传） */
+  const [taskId, setTaskId] = useState<string | null>(null)
+  /** 选中的立场；识别完成前为 null */
+  const [party, setParty] = useState<RepresentedParty | null>(null)
   const [steps, setSteps] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
     for (const s of STEPS) init[s.key] = s.on
@@ -60,6 +83,79 @@ export function ReviewLaunchDrawer({
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  /**
+   * 打开抽屉即上传并识别当事人（两阶段流程的第一阶段）。
+   *
+   * **为什么必须先识别再选立场**：立场决定全部建议方向。合同可能是甲乙丙丁
+   * 四方、我方也可能是乙方甚至丙方（代表客户股东去审时更是如此）。先让律师
+   * 看着「甲方/乙方」两个空标签选，等于让他猜；识别完再选，他看到的是真实
+   * 当事人名称。
+   */
+  /**
+   * 上传只跑一次的守卫。
+   *
+   * **不能把 phase 放进依赖**：`setPhase('uploading')` 会改变 phase → effect
+   * 重跑 → cleanup 把 cancelled 置 true → 异步结果被丢弃，界面永远停在
+   * 「正在识别」。用 ref 做守卫，依赖只留真正决定「要不要重新识别」的输入。
+   */
+  const runningRef = useRef(false)
+
+  useEffect(() => {
+    if (!open) {
+      // 关闭即复位：下次打开换了一份合同，不能沿用上一份的识别结果
+      runningRef.current = false
+      setPhase('idle')
+      setDetectedParties(null)
+      setTaskId(null)
+      setParty(null)
+      return
+    }
+    if (runningRef.current) return
+    runningRef.current = true
+
+    let cancelled = false
+    setPhase('uploading')
+    void (async () => {
+      try {
+        const bytes = await loadFile()
+        const file = new File([bytes], fileName, {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        })
+        const task = await uploadContract(file)
+        if (cancelled) return
+
+        // 只保留识别到的方：空值不渲染，丙丁没出现就不占位
+        const found: Record<string, string> = {}
+        for (const [k, v] of Object.entries(task.parties ?? {})) {
+          if (v?.trim()) found[k] = v.trim()
+        }
+        setDetectedParties(found)
+        setTaskId(task.task_id)
+
+        // 自动推荐我方：用委托客户名去匹配某一方；匹配不上就留空让律师选
+        const guess = recommendParty(found, clientName)
+        setParty(guess)
+        setPhase('ready')
+      } catch (e) {
+        if (cancelled) return
+        setErr(e instanceof Error ? e.message : '读取合同失败')
+        setPhase('error')
+        runningRef.current = false // 允许重开抽屉重试
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, loadFile, fileName, clientName])
+
+  /** 可选的立场项：识别结果优先，未识别时为空 */
+  const partyOptions = useMemo(() => {
+    const src = detectedParties ?? parties ?? {}
+    return (['party_a', 'party_b', 'party_c', 'party_d'] as RepresentedParty[])
+      .filter((k) => !!src[k]?.trim())
+      .map((k) => ({ key: k, name: (src[k] ?? '').trim() }))
+  }, [detectedParties, parties])
 
   const toggleStep = useCallback((key: string) => {
     setSteps((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -89,18 +185,16 @@ export function ReviewLaunchDrawer({
       setErr('至少选一项审查内容')
       return
     }
+    if (!party || !taskId) {
+      setErr('请先选择我方代表哪一方')
+      return
+    }
     setBusy(true)
     setErr(null)
     try {
-      // 取材 → 转 File → 上传（审查流水线只吃 docx）
-      const bytes = await loadFile()
-      const file = new File([bytes], fileName, {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      })
-      const task = await uploadContract(file)
-      // 立场 + 步骤 + 客户交代一起确认，触发异步流水线。
+      // 上传已在打开抽屉时完成（第一阶段），这里只确认立场并触发流水线。
       // 交代必须真传：以前只弹个 toast，律师写的「一定要压工期」根本没进 prompt。
-      await confirmParty(task.task_id, {
+      await confirmParty(taskId, {
         represented_party: party,
         selected_steps: selected,
         reviewer_name: '法穿SI',
@@ -109,16 +203,16 @@ export function ReviewLaunchDrawer({
           .split(/[，,]/)
           .map((x) => x.trim())
           .filter(Boolean),
-        our_client_name: parties?.[party] ?? '',
+        our_client_name: partyOptions.find((o) => o.key === party)?.name ?? '',
         stance_basis: partyHint ?? '',
       })
-      onStarted(task.task_id)
+      onStarted(taskId)
     } catch (e) {
       setErr(e instanceof Error ? e.message : '发起审查失败')
     } finally {
       setBusy(false)
     }
-  }, [busy, steps, loadFile, fileName, party, note, onStarted, parties, partyHint])
+  }, [busy, steps, party, taskId, note, onStarted, partyOptions, partyHint])
 
   if (!open) return null
 
@@ -160,33 +254,56 @@ export function ReviewLaunchDrawer({
                 决定全部建议方向
               </span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              {(['party_a', 'party_b', 'party_c', 'party_d'] as RepresentedParty[]).map((p) => {
-                const label = parties?.[p]
-                if (p === 'party_c' && !label) return null
-                if (p === 'party_d' && !label) return null
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setParty(p)}
-                    className={cn(
-                      'flex items-center gap-2 rounded-[8px] border px-3 py-2 text-left text-[12.5px] transition-colors',
-                      party === p
-                        ? 'border-foreground bg-secondary/60'
-                        : 'border-border bg-card hover:border-input',
-                    )}
-                  >
-                    <b className="font-[600]">
-                      {p === 'party_a' ? '甲方' : p === 'party_b' ? '乙方' : p === 'party_c' ? '丙方' : '丁方'}
-                    </b>
-                    {label && <span className="truncate text-muted-foreground">{label}</span>}
-                  </button>
-                )
-              })}
-            </div>
-            {partyHint && (
-              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{partyHint}</p>
+            {phase === 'uploading' && (
+              <div className="flex items-center gap-2 rounded-[8px] border border-border bg-secondary/40 px-3 py-2.5 text-[12px] text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                正在读取合同、识别当事人…
+              </div>
+            )}
+
+            {phase === 'error' && (
+              <div className="rounded-[8px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
+                读取合同失败，无法识别当事人。请关闭后重试。
+              </div>
+            )}
+
+            {phase === 'ready' && (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  {partyOptions.map((o) => (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => setParty(o.key)}
+                      className={cn(
+                        'flex items-center gap-2 rounded-[8px] border px-3 py-2 text-left text-[12.5px] transition-colors',
+                        party === o.key
+                          ? 'border-foreground bg-secondary/60'
+                          : 'border-border bg-card hover:border-input',
+                      )}
+                    >
+                      <b className="flex-none font-[600]">{partyLabel(o.key)}</b>
+                      <span className="truncate text-secondary-foreground" title={o.name}>
+                        {o.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {partyOptions.length === 0 && (
+                  <div className="rounded-[8px] border border-border bg-secondary/40 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground">
+                    没有从合同里认出当事人（可能不是标准「甲方：…乙方：…」格式）。
+                    请到复审台后手动指定我方立场。
+                  </div>
+                )}
+
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  {party
+                    ? `已选：${partyLabel(party)}`
+                    : '请选择我方代表哪一方——决定全部建议方向，选错整批返工。'}
+                  {partyHint ? ` ${partyHint}` : ''}
+                </p>
+              </>
             )}
           </section>
 
@@ -276,7 +393,8 @@ export function ReviewLaunchDrawer({
             type="button"
             className="inline-flex h-[31px] items-center gap-1.5 rounded-[8px] border border-foreground bg-foreground px-4 text-[12.5px] font-semibold text-background transition-opacity hover:opacity-85 disabled:opacity-60"
             onClick={() => void start()}
-            disabled={busy}
+            // 未选立场 / 还在识别 / 正在提交：三种情况下都不该让人点
+            disabled={busy || !party || phase !== 'ready'}
           >
             {busy && <Loader2 className="size-3.5 animate-spin" />}
             {busy ? '正在发起…' : '开始审查'}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   bucketRevisions,
+  partyLabel,
+  recommendParty,
   countBySeverity,
   progressText,
   revisedFileName,
@@ -103,5 +105,52 @@ describe('progressText', () => {
   it('已处理 / 共 N', () => {
     expect(progressText(8, 3)).toBe('已处理 5 / 共 8')
     expect(progressText(0, 0)).toBe('已处理 0 / 共 0')
+  })
+})
+
+describe('recommendParty：我方不一定是甲方', () => {
+  const four = {
+    party_a: '甲方示例科技有限公司',
+    party_b: '乙方示例贸易有限公司',
+    party_c: '丙方示例担保有限公司',
+  }
+
+  it('客户是甲方就推甲方', () => {
+    expect(recommendParty(four, '甲方示例科技有限公司')).toBe('party_a')
+  })
+
+  it('客户是乙方就推乙方（不能写死甲方）', () => {
+    // 代表供应方审查自己的合同很常见
+    expect(recommendParty(four, '乙方示例贸易有限公司')).toBe('party_b')
+  })
+
+  it('客户是丙方（担保方/股东）也要能推出来', () => {
+    expect(recommendParty(four, '丙方示例担保有限公司')).toBe('party_c')
+  })
+
+  it('简称与全称互相包含即可匹配', () => {
+    expect(recommendParty(four, '甲方示例')).toBe('party_a')
+    expect(recommendParty({ party_a: '甲方示例' }, '甲方示例科技有限公司')).toBe('party_a')
+  })
+
+  it('忽略括号注释与空白的差异', () => {
+    expect(recommendParty({ party_a: '甲方示例（甲方）' }, '甲方示例')).toBe('party_a')
+  })
+
+  it('匹配不上返回 null，交给律师自己选（宁可多点一次也不能猜错方向）', () => {
+    expect(recommendParty(four, '完全不相干的公司')).toBeNull()
+    expect(recommendParty(four, '')).toBeNull()
+    expect(recommendParty(four, undefined)).toBeNull()
+  })
+
+  it('只从已识别到的方里推荐（没识别出丙方就不推丙方）', () => {
+    expect(recommendParty({ party_a: 'A公司', party_b: '' }, 'B公司')).toBeNull()
+  })
+})
+
+describe('partyLabel', () => {
+  it('甲乙丙丁', () => {
+    expect(partyLabel('party_a')).toBe('甲方')
+    expect(partyLabel('party_d')).toBe('丁方')
   })
 })

@@ -18,7 +18,6 @@ import { FilePreview } from './FilePreview'
 export function ContractFileOverlays({
   ownerId,
   client,
-  other,
   reviewTarget,
   onReviewClose,
   onReviewStart,
@@ -26,8 +25,6 @@ export function ContractFileOverlays({
   ownerId: number
   /** 委托人名称：作为「我方立场」的默认展示名 */
   client?: string
-  /** 对方当事人 */
-  other?: string
   /** 正在发起审查的文件；null = 不渲染 */
   reviewTarget: { subpath: string; name: string } | null
   onReviewClose: () => void
@@ -94,8 +91,17 @@ export function ContractFileOverlays({
         if (!res.ok) throw new Error('读取合同文件失败')
         return res.arrayBuffer()
       }}
-      parties={{ party_a: client ?? '', party_b: other ?? '' }}
-      partyHint={`AI 依据：合同抬头与历史来稿都指向「${client ?? ''}」为我方委托，如判断有误请改。`}
+      /**
+       * 不再硬塞 {party_a: client, party_b: other}：那等于断定我方是甲方。
+       * 当事人以抽屉内「上传后 AI 识别结果」为准，这里只传委托客户名，
+       * 用于自动推荐我方是哪一方（识别不出就让律师自己选）。
+       */
+      clientName={client}
+      partyHint={
+        client
+          ? `AI 依据：委托客户是「${client}」，若合同里有同名一方会自动选中；如判断有误请改。`
+          : undefined
+      }
       onClose={onReviewClose}
       onStarted={(taskId) => {
         onReviewClose()

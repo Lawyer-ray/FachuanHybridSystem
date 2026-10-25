@@ -62,7 +62,6 @@ function setup(over: Partial<Parameters<typeof ContractFileOverlays>[0]> = {}) {
     <ContractFileOverlays
       ownerId={318}
       client="某公司"
-      other="对方公司"
       reviewTarget={null}
       onReviewClose={onReviewClose}
       onReviewStart={onReviewStart}

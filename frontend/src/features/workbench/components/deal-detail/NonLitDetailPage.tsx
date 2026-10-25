@@ -252,7 +252,6 @@ export function NonLitDetailPage() {
       <ContractFileOverlays
         ownerId={deal.id}
         client={deal.parties?.client}
-        other={deal.parties?.other}
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
         onReviewStart={(f) => setReviewTarget(f)}

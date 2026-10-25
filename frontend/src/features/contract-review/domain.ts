@@ -76,3 +76,50 @@ export function revisedFileName(original: string, version = 1, date = new Date()
 export function progressText(total: number, pending: number): string {
   return `已处理 ${total - pending} / 共 ${total}`
 }
+
+/** 立场方的键（与后端 represented_party 对齐） */
+export type PartyKey = 'party_a' | 'party_b' | 'party_c' | 'party_d'
+
+/** 方位标签：甲乙丙丁 */
+export function partyLabel(key: PartyKey): string {
+  return { party_a: '甲方', party_b: '乙方', party_c: '丙方', party_d: '丁方' }[key]
+}
+
+/**
+ * 从识别出的当事人里推荐「我方是哪一方」。
+ *
+ * **为什么不写死甲方**：合同可能有甲乙丙丁四方，我方也可能是乙方甚至丙方
+ * （常见「代表客户股东去审」「我方是承租方/供应方」）。写死甲方会让整批
+ * 建议方向反掉——同一份合同站甲方还是乙方，付款、违约、验收的改法完全相反。
+ *
+ * 匹配策略：委托客户名与某一方做「包含」双向比较（合同里常写全称、系统里
+ * 存简称，或反过来）。匹配不上返回 `null`，由律师自己选——**宁可让他多点
+ * 一次，也不要猜错方向**。
+ */
+export function recommendParty(
+  parties: Record<string, string>,
+  clientName?: string,
+): PartyKey | null {
+  const keys: PartyKey[] = ['party_a', 'party_b', 'party_c', 'party_d']
+  const present = keys.filter((k) => (parties[k] ?? '').trim() !== '')
+
+  if (!clientName?.trim()) return null
+  const target = normalizeName(clientName)
+  if (!target) return null
+
+  for (const k of present) {
+    const name = normalizeName(parties[k] ?? '')
+    if (!name) continue
+    if (name === target || name.includes(target) || target.includes(name)) return k
+  }
+  return null
+}
+
+/** 归一化公司名：去空白与常见后缀，避免「有限公司」之类的差异导致匹配失败 */
+function normalizeName(s: string): string {
+  return (s || '')
+    // 含全角空格（中文公司名里常见）：用转义写法，避免源码里出现不可见字符
+    .replace(/\s|\u3000/g, '')
+    .replace(/[（(].*?[)）]/g, '')
+    .trim()
+}
