@@ -27,7 +27,12 @@ def list_enterprise_providers(include_tools: bool = False) -> dict[str, Any]:
 
 
 def search_companies(keyword: str, provider: str | None = None) -> dict[str, Any]:
-    """按关键词搜索企业。返回企业列表，包含 company_id 可用于后续查询。"""
+    """按关键词搜索企业（企业数据原始查询面）。返回企业列表，包含 company_id 可用于后续查询。
+
+    与 ``enterprise_search``（建客户预填链路）同源——本系列面向**企业情报**
+    （画像/风险/股东/招投标）；要「搜公司→一键生成客户草稿」用 ``enterprise_search``+
+    ``enterprise_prefill``。
+    """
     params: dict[str, Any] = {"keyword": keyword}
     if provider:
         params["provider"] = provider

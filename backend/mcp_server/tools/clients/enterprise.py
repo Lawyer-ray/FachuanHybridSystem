@@ -8,10 +8,13 @@ from mcp_server.client import client
 
 
 def enterprise_search(keyword: str, provider: str | None = None) -> dict[str, Any]:
-    """搜索企业信息。keyword 为搜索关键词（公司名）；provider 为数据源（如 tianyancha、qichacha）。
+    """搜索企业信息（建客户预填流程用）。keyword 为搜索关键词（公司名）；provider 为数据源（如 tianyancha、qichacha）。
 
     返回 ``{keyword, provider, items, total}``（后端 ``EnterpriseCompanySearchOut``），
-    企业条目在 ``items`` 里，不是顶层数组。
+    企业条目在 ``items`` 里，不是顶层数组。与 ``search_companies``（企业数据原始
+    查询面）同源——本工具是**建客户预填链路**的入口：搜到后用企业标识调
+    ``enterprise_prefill`` 直接生成客户草稿；只要原始企业情报（股东/风险/招投标）
+    用 ``search_companies`` 系列。
     """
     params: dict[str, Any] = {"keyword": keyword}
     if provider:
