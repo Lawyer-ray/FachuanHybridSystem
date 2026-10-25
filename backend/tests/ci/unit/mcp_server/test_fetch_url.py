@@ -859,3 +859,39 @@ class TestFetchCache:
         module.fetch_url("https://example.com/denied")
 
         assert "https://example.com/denied" not in module._fetch_cache
+
+
+class TestRedirectParseHonesty:
+    """跳转解析误报(2026-10-25 审计六十五轮,线上实锤)——搜狗搜索页 JS 里的
+    `URL=` 变量赋值被旧正则抽成「跳转地址」(`!1,t=q(t,`),DNS 失败 fail-closed
+    报 blocked_target,归因全错。修法:标记词与正则一一绑定 + 只认 http(s)。"""
+
+    def test_js_url_assignment_not_treated_as_redirect(self, fake_http: Any) -> None:
+        """含 window.location.replace 标记词 + JS `URL=` 赋值的普通页面:
+        抽不出合法地址就当内容页,不误报 blocked_target。"""
+        html = (
+            "<html><head><script>window.location.replace&&(function(){"
+            "var e=!1,t=q(t,tt,s);u=e?URL='!1,t=q(t,'&&r(n):i(o)})();"
+            "</script></head><body><p>搜索结果页正文内容,持续输出足够长度以通过正文判定。</p>"
+            + "正文段落。" * 120
+            + "</body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://www.sogou.com/web?query=x", max_chars=1500)
+
+        assert result["ok"] is True
+        assert "blocked_target" not in result.get("reason", "")
+        assert "正文段落" in result["text"]
+
+    def test_real_link_redirect_still_resolves(self) -> None:
+        module = _module()
+        html = '<script>window.location.replace("https://real.example.com/doc")</script>'
+        assert module._resolve_sogou_redirect(html) == "https://real.example.com/doc"
+
+    def test_meta_refresh_requires_http_prefix(self) -> None:
+        module = _module()
+        html = "<meta http-equiv='refresh' content='0;URL=not-a-url-junk'>"
+        assert module._resolve_sogou_redirect(html) is None
+        html2 = "<meta http-equiv='refresh' content=\"0;URL='https://ok.example.com/x'\">"
+        assert module._resolve_sogou_redirect(html2) == "https://ok.example.com/x"

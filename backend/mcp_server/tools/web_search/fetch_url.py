@@ -107,11 +107,32 @@ _HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
 
-#: 搜狗跳转页里的真实地址（``window.location.replace("...")`` 或 meta refresh）
+#: 搜狗跳转页里的真实地址（``window.location.replace("...")`` 或 meta refresh）。
+#: 两个正则**各自绑定自己的标记词**:URL= 只在 http-equiv(meta refresh)语境
+#: 里找——搜狗搜索结果页内嵌大量 JS,任意 `URL=` 变量赋值会被误抽成
+#: 「跳转地址」(2026-10-25 线上实锤:抽到 `!1,t=q(t,`,DNS 失败 fail-closed
+#: 报 blocked_target,归因全错)。
 _REDIRECT_PATTERNS = (
-    re.compile(r"""window\.location\.replace\(\s*["']([^"']+)["']\s*\)"""),
-    re.compile(r"""URL=['"]?([^"'>\s]+)["']?"""),
+    ("window.location.replace", re.compile(r"""window\.location\.replace\(\s*["']([^"']+)["']\s*\)""")),
+    ("http-equiv", re.compile(r"""URL=['"]?([^"'>\s]+)["']?""")),
 )
+
+
+def _resolve_sogou_redirect(html: str) -> str | None:
+    """从搜狗跳转页里抽出真实目标 URL；不是跳转页则返回 None。
+
+    抽出的串必须是完整 http(s) 地址——搜狗 /link 跳转页一律绝对地址,
+    不满足的一律当 JS 噪声丢弃(相对地址在旧实现里会因无 hostname 被
+    fail-closed 误报 blocked_target,不如在源头就不认)。
+    """
+    for marker, pattern in _REDIRECT_PATTERNS:
+        if marker not in html:
+            continue
+        match = pattern.search(html)
+        if match and match.group(1).startswith(("http://", "https://")):
+            return match.group(1)
+    return None
+
 
 #: 反爬 / 验证码页的典型特征（命中即判定为被拦截，不做后续提取）
 _ANTISPIDER_MARKERS = (
@@ -289,17 +310,6 @@ def _soup(html: str) -> BeautifulSoup:
         return BeautifulSoup(html, "lxml")
     except Exception:  # pragma: no cover - lxml 是 dev 依赖，生产可能缺失
         return BeautifulSoup(html, "html.parser")
-
-
-def _resolve_sogou_redirect(html: str) -> str | None:
-    """从搜狗跳转页里抽出真实目标 URL；不是跳转页则返回 None。"""
-    if "window.location.replace" not in html and "http-equiv" not in html:
-        return None
-    for pattern in _REDIRECT_PATTERNS:
-        match = pattern.search(html)
-        if match:
-            return match.group(1)
-    return None
 
 
 def _looks_like_antispider(html: str) -> bool:
