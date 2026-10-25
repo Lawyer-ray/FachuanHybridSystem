@@ -47,6 +47,13 @@ def _public_dns() -> Any:
         yield
 
 
+@pytest.fixture(autouse=True)
+def _clear_fetch_cache() -> None:
+    """抓取缓存是模块级状态——用例间必须清空,否则后一个用例命中前一个
+    用例的缓存,mock 的响应永远不会被触发(假绿)。"""
+    _module()._fetch_cache.clear()
+
+
 def _set_response(fake_http: Any, response: httpx.Response) -> None:
     instance = fake_http.return_value.__enter__.return_value
     instance.get.return_value = response
@@ -811,3 +818,44 @@ class TestSSRFProtection:
             result = mod.fetch_url("https://evil.com/link")
         assert result["ok"] is False
         assert result["reason"] == "blocked_target"
+
+
+class TestFetchCache:
+    """抓取结果缓存(2026-10-25 审计六十四轮)——分块续读长文档时,每个
+    chunk 都重新下载+解析整页(4 块判决书 = 4 次完整抓取)。按原始输入
+    URL 缓存成功结果的全文,续读直接命中。"""
+
+    @staticmethod
+    def _long_html() -> str:
+        return "<html><body>" + "<p>判决书正文段落内容。</p>" * 400 + "</body></html>"
+
+    def test_second_call_hits_cache_without_network(self, fake_http: Any) -> None:
+        _set_response(fake_http, _response(200, self._long_html()))
+        first = _module().fetch_url("https://example.com/judgment", max_chars=2000)
+
+        instance = fake_http.return_value.__enter__.return_value
+        instance.get.reset_mock()
+        second = _module().fetch_url("https://example.com/judgment", max_chars=2000, start_index=first["next_index"])
+
+        assert second["cached"] is True
+        instance.get.assert_not_called()
+        # 续读窗口照常按本次参数计算
+        assert second["total_chars"] == first["total_chars"]
+
+    def test_expired_entry_refetches(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _module()
+        monkeypatch.setattr(module, "_CACHE_TTL_SECONDS", 0.0)  # 先打补丁:存入即过期
+        _set_response(fake_http, _response(200, self._long_html()))
+        module.fetch_url("https://example.com/stale", max_chars=2000)
+
+        # TTL=0 存入的条目下一次读取即过期——重新走网络
+        again = module.fetch_url("https://example.com/stale", max_chars=2000)
+
+        assert again["cached"] is False
+
+    def test_failures_are_not_cached(self, fake_http: Any) -> None:
+        module = _module()
+        _set_response(fake_http, httpx.Response(403, request=httpx.Request("GET", "https://example.com/denied")))
+        module.fetch_url("https://example.com/denied")
+
+        assert "https://example.com/denied" not in module._fetch_cache
