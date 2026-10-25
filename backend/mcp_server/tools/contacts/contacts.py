@@ -36,14 +36,14 @@ def list_contacts(
 
 
 def create_contact(
-    case_id: int,
-    name: str,
-    role: str,
-    authority_id: int | None = None,
-    phone: str | None = None,
-    address: str | None = None,
-    stage: str | None = None,
-    note: str | None = None,
+    case_id: Annotated[int, Field(description="关联案件 ID", ge=1)],
+    name: Annotated[str, Field(description="联系人姓名")],
+    role: Annotated[str, Field(description="角色——法官/书记员/对方代理人/鉴定人等自由文本")],
+    authority_id: Annotated[int | None, Field(description="所属法院/机构 ID(可经 search_contacts 的 court 筛选或法院列表工具查)", ge=1)] = None,
+    phone: Annotated[str | None, Field(description="联系电话")] = None,
+    address: Annotated[str | None, Field(description="地址")] = None,
+    stage: Annotated[str | None, Field(description="诉讼阶段(如一审/二审/执行)")] = None,
+    note: Annotated[str | None, Field(description="备注")] = None,
 ) -> dict[str, Any]:
     """创建案件联系人（姓名/角色/法院等,便于后续案件快速引用）。
 
@@ -95,7 +95,10 @@ def get_contact(contact_id: int) -> dict[str, Any]:
     return client.get(f"/contacts/contacts/{contact_id}")  # type: ignore[no-any-return]
 
 
-def update_contact(contact_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
+def update_contact(
+    contact_id: Annotated[int, Field(description="联系人 ID", ge=1)],
+    fields: Annotated[dict[str, Any] | None, Field(description='要修改的字段字典,如 {"phone": "...", "note": "..."}(键同 create_contact 参数,只传需要改的)')] = None,
+) -> dict[str, Any]:
     """更新联系人信息。只传需要修改的字段。"""
     return client.put(f"/contacts/contacts/{contact_id}", json=fields or {})  # type: ignore[no-any-return]
 

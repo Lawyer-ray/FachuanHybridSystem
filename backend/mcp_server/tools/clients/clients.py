@@ -51,13 +51,13 @@ def get_client(client_id: int) -> dict[str, Any]:
 
 
 def create_client(
-    name: str,
-    client_type: str,
-    phone: str | None = None,
-    address: str | None = None,
-    id_number: str | None = None,
-    legal_representative: str | None = None,
-    is_our_client: bool = True,
+    name: Annotated[str, Field(description="客户名称(自然人姓名或机构全称)")],
+    client_type: Annotated[_ClientTypeL, Field(description="客户类型:natural 自然人/legal 法人/non_legal_org 非法人组织")],
+    phone: Annotated[str | None, Field(description="联系电话")] = None,
+    address: Annotated[str | None, Field(description="地址")] = None,
+    id_number: Annotated[str | None, Field(description="证件号(自然人身份证号/机构统一社会信用代码)")] = None,
+    legal_representative: Annotated[str | None, Field(description="法定代表人(仅 legal/non_legal_org 需要)")] = None,
+    is_our_client: Annotated[bool, Field(description="是否本所客户(默认 true)")] = True,
 ) -> dict[str, Any]:
     """创建新客户。client_type：natural（自然人）、legal（法人）或 non_legal_org（非法人组织）。legal_representative 仅法人/非法人组织客户需要填写。"""
     payload: dict[str, Any] = {"name": name, "client_type": client_type, "is_our_client": is_our_client}
@@ -78,14 +78,14 @@ def parse_client_text(text: str) -> dict[str, Any]:
 
 
 def update_client(
-    client_id: int,
-    name: str | None = None,
-    client_type: str | None = None,
-    phone: str | None = None,
-    address: str | None = None,
-    id_number: str | None = None,
-    legal_representative: str | None = None,
-    is_our_client: bool | None = None,
+    client_id: Annotated[int, Field(description="客户 ID", ge=1)],
+    name: Annotated[str | None, Field(description="客户名称(不改不传)")] = None,
+    client_type: Annotated[_ClientTypeL | None, Field(description="客户类型:natural/legal/non_legal_org(不改不传)")] = None,
+    phone: Annotated[str | None, Field(description="联系电话")] = None,
+    address: Annotated[str | None, Field(description="地址")] = None,
+    id_number: Annotated[str | None, Field(description="证件号(身份证号/统一社会信用代码)")] = None,
+    legal_representative: Annotated[str | None, Field(description="法定代表人(仅 legal/non_legal_org)")] = None,
+    is_our_client: Annotated[bool | None, Field(description="是否本所客户")] = None,
 ) -> dict[str, Any]:
     """更新客户信息。client_type：natural（自然人）、legal（法人）、non_legal_org（非法人组织）。只传需要修改的字段。"""
     payload: dict[str, Any] = {}

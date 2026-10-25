@@ -62,15 +62,15 @@ def create_message_source(
 
 
 def update_message_source(
-    source_id: int,
-    display_name: str | None = None,
-    is_enabled: bool | None = None,
-    poll_interval_minutes: int | None = None,
-    sync_since: str | None = None,
-    imap_host: str | None = None,
-    imap_account: str | None = None,
-    sender_whitelist: str | None = None,
-    sender_blacklist: str | None = None,
+    source_id: Annotated[int, Field(description="消息来源 ID", ge=1)],
+    display_name: Annotated[str | None, Field(description="显示名称(不改不传)")] = None,
+    is_enabled: Annotated[bool | None, Field(description="是否启用(停用后不再轮询;不改不传)")] = None,
+    poll_interval_minutes: Annotated[int | None, Field(description="轮询间隔分钟数", ge=1)] = None,
+    sync_since: Annotated[str | None, Field(description="只同步该日期之后的邮件,YYYY-MM-DD")] = None,
+    imap_host: Annotated[str | None, Field(description="IMAP 服务器地址")] = None,
+    imap_account: Annotated[str | None, Field(description="IMAP 账号(与登录凭证可不同)")] = None,
+    sender_whitelist: Annotated[str | None, Field(description="发件人白名单(逗号分隔;空=不限)")] = None,
+    sender_blacklist: Annotated[str | None, Field(description="发件人黑名单(逗号分隔)")] = None,
 ) -> dict[str, Any]:
     """更新消息来源配置。只传需要修改的字段。
 

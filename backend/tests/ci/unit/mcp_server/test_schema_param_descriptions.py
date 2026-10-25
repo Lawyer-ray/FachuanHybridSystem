@@ -38,14 +38,14 @@ from apps.workflow.mcp.workflow_tools import (
     update_workflow_template,
 )
 from mcp_server.tools.cases.cases import list_cases, search_cases
-from mcp_server.tools.clients.clients import list_clients
-from mcp_server.tools.contacts.contacts import list_contacts
+from mcp_server.tools.clients.clients import create_client, list_clients, update_client
+from mcp_server.tools.contacts.contacts import create_contact, list_contacts, update_contact
 from mcp_server.tools.contracts.contracts import create_contract, list_contracts
 from mcp_server.tools.contracts.folder_file import read_folder_file
 from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
 from mcp_server.tools.finance.mortgage import mortgage_amortize
 from mcp_server.tools.message_hub.inbox import list_inbox_messages
-from mcp_server.tools.message_hub.sources import create_message_source
+from mcp_server.tools.message_hub.sources import create_message_source, update_message_source
 from mcp_server.tools.organization.lawyers import create_lawyer, list_lawyers, update_lawyer
 
 #: 已迁移到 schema 级参数描述的工具:名字 → (参数总数下界, 带描述数下界)
@@ -58,8 +58,12 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "create_lawyer": (10, 10),
     "update_lawyer": (10, 10),
     "list_clients": (5, 5),
+    "create_client": (7, 7),
+    "update_client": (8, 8),
     "list_inbox_messages": (5, 5),
     "list_contacts": (4, 4),
+    "create_contact": (8, 8),
+    "update_contact": (2, 2),
     "list_lpr_rates": (3, 3),
     "calculate_interest": (10, 10),
     "read_folder_file": (9, 9),
@@ -69,16 +73,18 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "create_workflow_template": (5, 5),
     "update_workflow_template": (6, 6),
     "create_message_source": (10, 10),
+    "update_message_source": (9, 9),
     "mortgage_amortize": (10, 10),
 }
 
 
 _ALL_DESCRIBED_FNS = [
     list_cases, search_cases, list_contracts, create_contract, list_lawyers, create_lawyer,
-    update_lawyer, list_clients, list_inbox_messages, list_contacts, list_lpr_rates,
+    update_lawyer, list_clients, create_client, update_client, list_inbox_messages,
+    list_contacts, create_contact, update_contact, list_lpr_rates,
     calculate_interest, read_folder_file, start_workflow, list_workflows,
     approve_workflow_step, create_workflow_template, update_workflow_template,
-    create_message_source, mortgage_amortize,
+    create_message_source, update_message_source, mortgage_amortize,
 ]
 
 
@@ -218,6 +224,8 @@ def test_schema_enums_match_model_choices() -> None:
         ("create_contract", "fee_mode"): set(FeeMode.values),
         ("create_contract", "representation_stages"): set(CaseStage.values),
         ("list_clients", "client_type"): set(ClientType.values),
+        ("create_client", "client_type"): set(ClientType.values),
+        ("update_client", "client_type"): set(ClientType.values),
         ("calculate_interest", "rate_mode"): _backend_literal(InterestCalculateRequest, "rate_mode"),
         ("calculate_interest", "rate_type"): _backend_literal(InterestCalculateRequest, "rate_type"),
         ("calculate_interest", "custom_rate_unit"): _backend_literal(InterestCalculateRequest, "custom_rate_unit"),
@@ -235,6 +243,8 @@ def test_schema_enums_match_model_choices() -> None:
         "list_contracts": _schema_of(list_contracts),
         "create_contract": _schema_of(create_contract),
         "list_clients": _schema_of(list_clients),
+        "create_client": _schema_of(create_client),
+        "update_client": _schema_of(update_client),
         "calculate_interest": _schema_of(calculate_interest),
         "mortgage_amortize": _schema_of(mortgage_amortize),
         "create_message_source": _schema_of(create_message_source),
