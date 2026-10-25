@@ -101,7 +101,11 @@ def test_every_registered_tool_name_derives_consistently() -> None:
             assert ann is not None and ann.idempotent_hint is True, f"{name} (MEDIUM,幂等前缀) 应标 idempotent"
             assert ann.destructive_hint is None and ann.read_only_hint is None, f"{name} 幂等写不应带 destructive/readOnly: {ann}"
         else:
-            assert ann is None, f"{name} ({level}) 非幂等 MEDIUM 不应带标注,得到 {ann}"
+            # 非幂等 MEDIUM:至多 openWorld(外部交互但非销毁非只读),否则无标注
+            extras = [k for k in ("idempotent_hint", "destructive_hint", "read_only_hint") if getattr(ann, k, None)]
+            assert not extras, f"{name} ({level}) 非幂等 MEDIUM 不应带 {extras},得到 {ann}"
+            if ann is not None:
+                assert ann.open_world_hint is True, f"{name} 带标注但不是 openWorld: {ann}"
 
 
 def test_idempotent_policy_semantics() -> None:
@@ -119,6 +123,26 @@ def test_idempotent_policy_semantics() -> None:
     # delete_:销毁+幂等并存(第二次 404,环境无额外变化)
     ann = _tool_annotations("delete_case")
     assert ann is not None and ann.destructive_hint is True and ann.idempotent_hint is True
+
+
+def test_open_world_hint_semantics() -> None:
+    """openWorldHint 只给真正发起外部交互的工具;可与 readOnly 并存(搜网不改本地)。"""
+    from mcp_server.server import _tool_annotations
+
+    # 开放互联网 + 威科先行检索(发起外部调用)
+    for name in ("web_search", "fetch_url", "capability_search", "check_law_references", "create_research_task"):
+        ann = _tool_annotations(name)
+        assert ann is not None and ann.open_world_hint is True, f"{name} 应标 openWorld"
+    # web_search/fetch_url 是 LOW:readOnly + openWorld 并存
+    ann = _tool_annotations("web_search")
+    assert ann is not None and ann.read_only_hint is True and ann.open_world_hint is True
+    # 本地任务状态读取不是开放世界(只读本地库)
+    for name in ("get_research_task", "list_research_results", "download_research_result"):
+        ann = _tool_annotations(name)
+        assert ann is None or ann.open_world_hint is not True, f"{name} 只读本地,不应标 openWorld: {ann}"
+    # 内部业务工具不标
+    ann = _tool_annotations("list_cases")
+    assert ann is None or ann.open_world_hint is not True
 
 
 if __name__ == "__main__":

@@ -465,21 +465,35 @@ _DESTRUCTIVE_PREFIXES = ("delete_", "clear_", "reset_", "cleanup_")
 #: 刻意不含 create_/add_/toggle_/confirm_(重复=新副本/翻转/重复导入)。
 _IDEMPOTENT_PREFIXES = ("update_", "save_", "sync_", "move_", "delete_")
 
+#: 开放世界工具——真正发起外部网络/外部库交互(web_search/fetch_url 开放
+#: 互联网;威科先行检索三件套)。本地任务状态读取(get/list/download
+#: research task)不标——它们只读本地库。LLM 网关/受控解析后端(mineru/
+#: textin)是基础设施而非开放世界实体,刻意不标。
+_OPEN_WORLD_TOOLS = frozenset(
+    {"web_search", "fetch_url", "capability_search", "check_law_references", "create_research_task"}
+)
+
 
 def _tool_annotations(name: str) -> ToolAnnotations | None:
     """按工具名推导 MCP 行为提示。销毁前缀或 HIGH/CRITICAL(递交/外发/
     归档确认等不可逆外部动作)标 destructive;LOW(读/无副作用计算)标
     readOnly;幂等前缀的写工具补 idempotentHint(重试安全,客户端可用于
-    网络失败后的自动重试决策);其余 MEDIUM 普通写不带标注(省 payload)。"""
+    网络失败后的自动重试决策);开放世界工具补 openWorldHint(可与
+    readOnly 并存——搜网不修改本地环境)。全部 hint 可组合,无一命中才
+    返回 None(省 payload)。"""
     level = classify_risk(name)
     idempotent = name.startswith(_IDEMPOTENT_PREFIXES)
-    if name.startswith(_DESTRUCTIVE_PREFIXES) or level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
-        return ToolAnnotations(destructive_hint=True, idempotent_hint=True) if idempotent else ToolAnnotations(destructive_hint=True)
-    if level == RiskLevel.LOW:
-        return ToolAnnotations(read_only_hint=True)
-    if idempotent:
-        return ToolAnnotations(idempotent_hint=True)
-    return None
+    open_world = name in _OPEN_WORLD_TOOLS
+    destructive = name.startswith(_DESTRUCTIVE_PREFIXES) or level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
+    read_only = not destructive and level == RiskLevel.LOW
+    if not (idempotent or open_world or destructive or read_only):
+        return None
+    return ToolAnnotations(
+        idempotent_hint=True if idempotent else None,
+        open_world_hint=True if open_world else None,
+        destructive_hint=True if destructive else None,
+        read_only_hint=True if read_only else None,
+    )
 
 
 def _t(func: Any) -> Any:
