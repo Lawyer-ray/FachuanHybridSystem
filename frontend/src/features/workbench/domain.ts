@@ -185,29 +185,12 @@ export function buildDeals(
   })
 }
 
-/* ============ 筛选 / 排序 / 分组 ============ */
+/* ============ 分组 ============ */
 
-/* ============ 分组（服务端分页后按页内分组；排序已由后端「离今天最近」完成） ============ */
-
-export interface DealGroup {
-  /** 节标题：争议解决 / 非诉 */
-  title: string
-  lit: boolean
-  deals: WorkbenchDeal[]
-}
-
-/**
- * 按业务形态分两节：争议解决（诉讼/仲裁，有程序链）在前、非诉（专项/常法）在后，
- * 节内保持后端「离今天最近」排序。争议领域（民商事/刑事/行政…）不参与分区，
- * 只作行内标签与筛选维度——领域不改变工作节奏，业务形态才改变。
- */
-export function groupDeals(list: WorkbenchDeal[]): DealGroup[] {
-  const groups: DealGroup[] = [
-    { title: '争议解决', lit: true, deals: list.filter((d) => d.lit) },
-    { title: '非诉', lit: false, deals: list.filter((d) => !d.lit) },
-  ]
-  return groups.filter((g) => g.deals.length > 0)
-}
+/* 已取消「争议解决 / 非诉」二分分区：那是前端对 case_type 的二次推断，
+ * 与合同接口返回的类目（case_type_label / facet cat_counts）会漂移，
+ * 且用户侧认为这一层区分没有信息量。列表按后端「离今天最近」的单一顺序平铺，
+ * 类目只作行内小标签与筛选项（groupDeals 已随之删除）。 */
 
 /* ============ 当事人 / 律师复制文本（首行只放名字，粘进文书不用再删括号） ============ */
 

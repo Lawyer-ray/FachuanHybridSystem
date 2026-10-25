@@ -8,7 +8,7 @@ interface DealRowProps {
   deal: WorkbenchDeal
   /** 右键行 / 👁 按钮：打开详情抽屉 */
   onOpenSheet: (deal: WorkbenchDeal) => void
-  /** 左键行 / → 按钮：进各自详情页（争议解决 /projects/:id，非诉 /projects/:id/nonlit） */
+  /** 左键行 / → 按钮：进项目详情页（单条 `/projects/:id`，诉讼/非诉由页内按 lit 选左栏） */
   onOpenDetail: (deal: WorkbenchDeal) => void
 }
 

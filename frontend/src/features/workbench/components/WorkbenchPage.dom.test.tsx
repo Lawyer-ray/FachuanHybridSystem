@@ -3,7 +3,7 @@
  * WorkbenchPage（办案主页 /projects）组件渲染单测（jsdom + 真实 timers）。
  *
  * mock 边界：../api 三个接口。导航栏由 AppShell 常驻，页面本身不再渲染。
- * 覆盖：加载/错误态、业务形态分组（争议解决/非诉）渲染与摘要、FilterBar 搜索防抖下推与筛选面板交互、
+ * 覆盖：加载/错误态、列表平铺渲染（不分区）与摘要、FilterBar 搜索防抖下推与筛选面板交互、
  * 两种空态分支（真空库 / 筛选后为空 → 清除筛选出口，最近修复的死分支回归）、
  * 分页按钮状态与翻页下推、错误重试。
  */
@@ -112,7 +112,7 @@ describe('WorkbenchPage 加载 / 错误态', () => {
   it('首屏加载中：展示加载文案，不出列表', () => {
     listPageMock.mockReturnValue(new Promise(() => {}))
     setupUi()
-    expect(screen.getByText('正在加载办案数据…')).toBeTruthy()
+    expect(screen.getByText('正在加载项目数据…')).toBeTruthy()
     expect(screen.queryByText('王五委托')).toBeNull()
   })
 
@@ -126,8 +126,8 @@ describe('WorkbenchPage 加载 / 错误态', () => {
   })
 })
 
-describe('WorkbenchPage 分组渲染', () => {
-  it('按业务形态分两节：争议解决在前非诉在后，行内带类型小标签', async () => {
+describe('WorkbenchPage 列表渲染', () => {
+  it('不再按争议解决/非诉分区：按接口顺序平铺，行内带类型小标签', async () => {
     listPageMock.mockResolvedValue(
       makePage({
         items: [
@@ -141,18 +141,15 @@ describe('WorkbenchPage 分组渲染', () => {
     setupUi()
     expect(await screen.findByText('王五委托')).toBeTruthy()
     expect(screen.getByText('赵六法律顾问')).toBeTruthy()
-    const litHeader = screen.getByText('争议解决')
-    const nonLitHeader = screen.getByText('非诉')
-    // 争议解决节在前
-    expect(
-      litHeader.compareDocumentPosition(nonLitHeader) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    // 类型降级为行内标签（不再作为分区标题）
+    // 分区标题已撤销（取后端返回顺序，不再前端二次推断）
+    expect(screen.queryByText('争议解决')).toBeNull()
+    expect(screen.queryByText('非诉')).toBeNull()
+    // 类型降级为行内标签，顺序即接口顺序
     expect(screen.getByText('民事诉讼')).toBeTruthy()
     expect(screen.getByText('法律顾问')).toBeTruthy()
-    // 摘要：totalContracts 取 facets 口径
+    // 摘要：totalContracts 取 facets 口径，量词是「个项目」
     expect(
-      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === '2 个合同 · 2 在办'),
+      screen.getByText((_, el) => el?.tagName === 'SPAN' && el.textContent === '2 个项目 · 2 在办'),
     ).toBeTruthy()
   })
 })
@@ -181,10 +178,10 @@ describe('WorkbenchPage FilterBar 交互下推', () => {
 })
 
 describe('WorkbenchPage 空态两分支', () => {
-  it('真空库（facets 全库为 0）：提示还没有合同数据，不给清除筛选', async () => {
+  it('真空库（facets 全库为 0）：提示还没有项目数据，不给清除筛选', async () => {
     listPageMock.mockResolvedValue(makePage({ items: [], total: 0, status_counts: {} }))
     setupUi()
-    expect(await screen.findByText('还没有合同数据')).toBeTruthy()
+    expect(await screen.findByText('还没有项目数据')).toBeTruthy()
     expect(screen.queryByText('清除筛选')).toBeNull()
   })
 
@@ -196,8 +193,8 @@ describe('WorkbenchPage 空态两分支', () => {
     await screen.findByText('王五委托')
 
     fireEvent.change(screen.getByPlaceholderText('搜索合同（名称）'), { target: { value: '不存在' } })
-    expect(await screen.findByText('没有匹配的合同')).toBeTruthy()
-    expect(screen.queryByText('还没有合同数据')).toBeNull()
+    expect(await screen.findByText('没有匹配的项目')).toBeTruthy()
+    expect(screen.queryByText('还没有项目数据')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: '清除筛选' }))
     // 清除后回到默认 queryKey（60s staleTime 内命中缓存，不再重发请求）——
@@ -245,9 +242,9 @@ describe('WorkbenchPage 分页', () => {
 // ============ 行点击 / 抽屉 / 预载（覆盖率补测） ============
 
 describe('WorkbenchPage：行交互与抽屉', () => {
-  it('左键争议解决行 → 跳详情页（navigate 被调用）', async () => {
+  it('左键行 → 跳详情页（navigate 被调用）', async () => {
     setupUi()
-    await waitFor(() => expect(document.body.textContent).toContain('争议解决'))
+    await waitFor(() => expect(document.querySelector('[data-deal-id]')).toBeTruthy())
 
     const row = document.querySelector('[data-deal-id]') as HTMLElement
     expect(row).toBeTruthy()
@@ -257,7 +254,7 @@ describe('WorkbenchPage：行交互与抽屉', () => {
 
   it('右键行 → 打开抽屉（DealSheet 挂载）', async () => {
     setupUi()
-    await waitFor(() => expect(document.body.textContent).toContain('争议解决'))
+    await waitFor(() => expect(document.querySelector('[data-deal-id]')).toBeTruthy())
 
     const row = document.querySelector('[data-deal-id]') as HTMLElement
     fireEvent.contextMenu(row)
@@ -266,7 +263,7 @@ describe('WorkbenchPage：行交互与抽屉', () => {
 
   it('抽屉内「详情 →」回调到 openDetail', async () => {
     setupUi()
-    await waitFor(() => expect(document.body.textContent).toContain('争议解决'))
+    await waitFor(() => expect(document.querySelector('[data-deal-id]')).toBeTruthy())
 
     const row = document.querySelector('[data-deal-id]') as HTMLElement
     fireEvent.contextMenu(row)

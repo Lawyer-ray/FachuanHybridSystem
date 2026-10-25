@@ -16,6 +16,6 @@ export const LITIGATION_CASE_TYPES: ReadonlySet<string> = new Set([
   'intl',
 ])
 
-/** 合同的 case_type 是否诉讼类（决定详情路由 /projects/:id 还是 /projects/:id/nonlit） */
+/** 合同的 case_type 是否诉讼类（决定详情页左栏：诉讼→案件程序链，非诉→合同文件夹；路由不分流） */
 export const isLitigationType = (caseType: string | null | undefined): boolean =>
   caseType != null && LITIGATION_CASE_TYPES.has(caseType)
