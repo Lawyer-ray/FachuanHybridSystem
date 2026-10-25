@@ -18,11 +18,13 @@ from .identity import passthrough_authorization
 
 logger = logging.getLogger(__name__)
 
-#: 下载大小闸门（字节）。默认 1MB：base64 后 ≈ 35 万字符，已接近主流
-#: 模型上下文可承受的单工具返回上限；归档合并 PDF 动辄几十 MB，必须拦。
-#: env 覆盖单位是 MB。
-_MAX_MB = float(os.environ.get("FACHUAN_MCP_MAX_DOWNLOAD_MB", "1") or "1")
-MAX_DOWNLOAD_BYTES = int(_MAX_MB * 1024 * 1024)
+#: 下载大小闸门（字节）。默认 15KB：宿主 pi 对工具输出按 20480 **字节**
+#: 拦腰截断(2026-10-25 实测定案,见 fetch_url._BYTE_BUDGET)——base64 膨胀
+#: 4/3 倍后,15KB 原始字节 ≈ 20KB 字符,已是完整送达模型的上限;再大就是
+#: 「闸门放行 + pi 截断 = 模型收到损坏 base64」的静默腐败区间(旧默认 1MB
+#: 只防挤爆上下文,没防截断腐败)。env 覆盖单位是 MB(可传小数)。
+_MAX_MB = float(os.environ.get("FACHUAN_MCP_MAX_DOWNLOAD_MB", "0.0143") or "0.0143")
+MAX_DOWNLOAD_BYTES = max(int(_MAX_MB * 1024 * 1024), 1024)
 
 #: 巨型列表告警阈值：超过该条数的 list 响应记 warning（只告警不截断，
 #: 见 ``_warn_bulk``）。300 是「模型一次能消化的列表规模」的经验上限。
@@ -212,11 +214,12 @@ class FachuanClient:
         ``method`` 也不接受 ``json``——9 个传 ``method="POST"`` 的工具一调用
         就 TypeError，工具面静默全废（契约测试只校验意图，不校验这层）。
 
-        大小闸门：超过 ``MAX_DOWNLOAD_BYTES``（默认 1MB，env
+        大小闸门：超过 ``MAX_DOWNLOAD_BYTES``（默认 ~15KB，env
         ``FACHUAN_MCP_MAX_DOWNLOAD_MB`` 可调）直接报错。下载工具会把内容
-        base64 塞进模型上下文——1MB 文件 ≈ 35 万 token，归档合并 PDF 动辄
-        几十 MB，一次就能把整个会话挤爆（列表投影防「条数多」，这里防
-        「单件大」，是同一原则的两半）。
+        base64 塞进工具返回——宿主 pi 按约 20KB 字节截断工具输出,超限
+        文件送达的是拦腰截断的损坏 base64;闸门在截断线**之前**拦下,
+        给模型可执行的替代方案而不是腐败数据（列表投影防「条数多」，
+        这里防「单件大」，是同一原则的两半）。
         """
         resp = self._guard_transport(
             lambda: self._http.request(method.upper(), path, headers=self._headers(), **kwargs),
@@ -231,8 +234,9 @@ class FachuanClient:
             raise FachuanApiError(f"HTTP {resp.status_code}: {detail}")
         if len(resp.content) > MAX_DOWNLOAD_BYTES:
             raise FachuanApiError(
-                f"文件过大: {filename_of(resp) or path} 约 {len(resp.content) / 1024 / 1024:.1f}MB，"
-                f"超过 {MAX_DOWNLOAD_BYTES / 1024 / 1024:.0f}MB 上限（base64 会挤爆会话上下文）。"
+                f"文件过大: {filename_of(resp) or path} 约 {len(resp.content) / 1024:.0f}KB，"
+                f"超过 {MAX_DOWNLOAD_BYTES / 1024:.0f}KB 上限（宿主对工具输出有约 20KB 截断线，"
+                "再大送达的就是损坏的 base64）。"
                 "替代方案：①请用户在前端页面直接下载该文件；②如需读取内容，"
                 "改用文本提取类工具（extract-text）只取正文。"
             )

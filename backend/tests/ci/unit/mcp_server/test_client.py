@@ -511,7 +511,6 @@ class TestDownload:
 
         assert http.request.call_args.args[0] == "POST"
 
-
     def test_download_rejects_oversized_file_with_alternatives(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
         """超限文件必须拦截,错误里带文件名、大小与替代方案(防挤爆会话)。"""
         from mcp_server import client as client_mod
@@ -537,7 +536,9 @@ class TestDownload:
         data, _, _ = c.download("/files/ok")
         assert data == ok
 
-    def test_download_limit_is_configurable(self, fc: tuple[FachuanClient, mock.MagicMock], monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_download_limit_is_configurable(
+        self, fc: tuple[FachuanClient, mock.MagicMock], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """上限可通过 env/属性调整(不同模型上下文规格不同)。"""
         from mcp_server import client as client_mod
 
@@ -546,6 +547,19 @@ class TestDownload:
         http.request.return_value = self._make_download_response(b"z" * 17)
         with pytest.raises(FachuanApiError, match="文件过大"):
             c.download("/files/strict")
+
+    def test_download_default_gate_matches_pi_truncation_line(self) -> None:
+        """默认闸门必须落在 pi 截断线(20480 字节)换算的安全区内——base64
+        膨胀 4/3 倍,原始字节上限 ≈ 15360。改成 1MB 这类大值会重新打开
+        「闸门放行 + pi 截断 = 模型收到损坏 base64」的静默腐败区间。"""
+        import base64
+
+        from mcp_server import client as client_mod
+
+        limit = client_mod.MAX_DOWNLOAD_BYTES
+        assert 1024 <= limit <= 15360, f"默认闸门 {limit} 超出 pi 截断安全区"
+        # 限内最大文件 base64 后必须整体塞得进 20480 字节
+        assert len(base64.b64encode(b"x" * limit)) + 200 < 20480
 
 
 # ===================================================================
@@ -682,9 +696,7 @@ class TestTransportResilience:
             assert c.get("/cases/1") == {"ok": True}
         assert http.get.call_count == 2
 
-    def test_get_fails_after_second_transparent_failure(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ) -> None:
+    def test_get_fails_after_second_transparent_failure(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
         """重试只做一次：第二次仍失败要把翻译后的错误抛给模型。"""
         from mcp_server.client import FachuanTransportError
 
@@ -695,9 +707,7 @@ class TestTransportResilience:
                 c.get("/cases")
         assert http.get.call_count == 2
 
-    def test_post_does_not_retry_transport_error(
-        self, fc: tuple[FachuanClient, mock.MagicMock]
-    ) -> None:
+    def test_post_does_not_retry_transport_error(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
         """POST 非幂等：断连后不能自动重发（请求可能已生效，重发=重复创建）。"""
         from mcp_server.client import FachuanTransportError
 
