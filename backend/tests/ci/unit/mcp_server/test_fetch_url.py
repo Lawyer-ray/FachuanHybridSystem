@@ -238,6 +238,89 @@ class TestByteBudgetTruncation:
         assert result["chars"] == len(result["text"])
 
 
+class TestStartIndexContinuation:
+    """分块续读（官方 fetch server 的 max_length + start_index 模式）。
+
+    截断曾是死路：60KB 判决书默认只看到前 6000 字符,尾部**永远读不到**。
+    现在返回 total_chars + next_index,truncated=True 时模型把 next_index
+    作为下次 start_index 传入即可继续读完。
+    """
+
+    @staticmethod
+    def _marked_html(blocks: int = 1000) -> str:
+        """每块 5 字符（「段」+ 4 位序号）,窗口边界可精确定位。"""
+        return "<html><body><article>" + "".join(f"段{i:04d}" for i in range(blocks)) + "</article></body></html>"
+
+    @staticmethod
+    def _inner(body: str) -> str:
+        return body.split("〕\n", 1)[1].rsplit("\n〔", 1)[0]
+
+    def test_first_chunk_reports_next_index(self, fake_http: Any) -> None:
+        _set_response(fake_http, _response(200, self._marked_html()))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=500)
+
+        assert result["ok"] is True
+        assert result["truncated"] is True
+        assert result["next_index"] == 500
+        assert result["total_chars"] == 5000
+        assert self._inner(result["text"]).startswith("段0000")
+
+    def test_continuation_returns_following_chunk(self, fake_http: Any) -> None:
+        _set_response(fake_http, _response(200, self._marked_html()))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=500, start_index=500)
+
+        inner = self._inner(result["text"])
+        assert inner.startswith("段0100")
+        assert inner.endswith("段0199")
+        assert result["next_index"] == 1000
+
+    def test_final_chunk_next_index_none(self, fake_http: Any) -> None:
+        _set_response(fake_http, _response(200, self._marked_html()))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=500, start_index=4500)
+
+        assert result["ok"] is True
+        assert result["truncated"] is False
+        assert result["next_index"] is None
+        assert self._inner(result["text"]).startswith("段0900")
+
+    def test_start_index_beyond_end_returns_note(self, fake_http: Any) -> None:
+        """窗口越过末尾不是失败（抓取本身成功）,给明确提示而非空正文。"""
+        _set_response(fake_http, _response(200, self._marked_html(blocks=100)))
+
+        result = _module().fetch_url("https://example.com/a", start_index=99999)
+
+        assert result["ok"] is True
+        assert result["next_index"] is None
+        assert result["truncated"] is False
+        assert result["total_chars"] == 500
+        assert "没有更多内容" in result["text"]
+        # 这条提示是本系统生成的文本,不套外部内容包裹标注
+        assert "外部网页抓取内容" not in result["text"]
+
+    def test_byte_clamp_advances_next_index(self, fake_http: Any) -> None:
+        """字节刀落在窗口中段时,next_index 按实际送达的前缀推进——
+        续读既不跳过未读内容,也不返回 null 谎称读完。"""
+        html = "<html><body><article>" + "汉" * 10000 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=20000)
+
+        assert result["truncated"] is True
+        assert 0 < result["next_index"] < result["total_chars"]
+        assert len(result["text"].encode("utf-8")) <= _module()._BYTE_BUDGET
+
+    def test_negative_start_index_treated_as_zero(self, fake_http: Any) -> None:
+        _set_response(fake_http, _response(200, self._marked_html()))
+
+        result = _module().fetch_url("https://example.com/a", max_chars=500, start_index=-50)
+
+        assert result["ok"] is True
+        assert self._inner(result["text"]).startswith("段0000")
+
+
 class TestRedirectFallback:
     def test_redirect_target_failure_still_reports(self, fake_http: Any) -> None:
         """解析到真实地址但抓取失败时，不能静默当成成功。"""
