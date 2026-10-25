@@ -523,6 +523,108 @@ class TestPdfSupport:
         assert "外部网页抓取内容" in result["text"]
 
 
+def _docx_bytes(paragraphs: list[str], table_rows: list[list[str]] | None = None) -> bytes:
+    """用 python-docx 生成真 .docx(测试自备证据,不依赖外网)。"""
+    import io
+
+    import docx as docx_lib
+
+    document = docx_lib.Document()
+    for p in paragraphs:
+        document.add_paragraph(p)
+    if table_rows:
+        table = document.add_table(rows=len(table_rows), cols=len(table_rows[0]))
+        for r, cells in enumerate(table_rows):
+            for c, text in enumerate(cells):
+                table.rows[r].cells[c].text = text
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+class TestDocxSupport:
+    """Word 支持(2026-10-25 审计五十九轮)——政务通知/规章常用 Word 直链,
+    与 PDF 同一病灶:二进制被当 HTML 解成乱码标 ok=true。"""
+
+    def test_docx_extracts_text_and_table(self, fake_http: Any) -> None:
+        payload = _docx_bytes(
+            ["关于调整律师服务费标准的通知", "各律师事务所:"],
+            table_rows=[["标的额", "费率"], ["10 万以下", "50 元"]],
+        )
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=payload,
+                headers={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+                request=httpx.Request("GET", "https://example.com/notice.docx"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/notice.docx")
+
+        assert result["ok"] is True
+        assert result["title"] == "关于调整律师服务费标准的通知"
+        assert "各律师事务所" in result["text"]
+        assert "| 标的额 | 费率 |" in result["text"]
+        assert "| 10 万以下 | 50 元 |" in result["text"]
+        assert "外部 Word 文档抓取内容" in result["text"]
+
+    def test_docx_sniffed_via_zip_entry(self, fake_http: Any) -> None:
+        """content-type 配错(text/html)时,按 ZIP 内 word/document.xml 判定——
+        只看 ZIP 魔数会误伤 xlsx/pptx/epub。"""
+        payload = _docx_bytes(["通知正文内容"])
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=payload,
+                headers={"content-type": "application/octet-stream"},
+                request=httpx.Request("GET", "https://example.com/file"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/file")
+
+        assert result["ok"] is True
+        assert "通知正文内容" in result["text"]
+
+    def test_legacy_doc_reports_parse_error(self, fake_http: Any) -> None:
+        """content-type 是 msword 但字节不是 .docx(旧版 .doc)——如实报错并
+        提示旧格式不支持,不当乱码成功。"""
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=b"\xd0\xcf\x11\xe0legacy-doc-bytes",
+                headers={"content-type": "application/msword"},
+                request=httpx.Request("GET", "https://example.com/old.doc"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/old.doc")
+
+        assert result["ok"] is False
+        assert result["reason"] == "docx_parse_error"
+
+    def test_empty_docx_reports_no_text(self, fake_http: Any) -> None:
+        payload = _docx_bytes([])
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=payload,
+                headers={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+                request=httpx.Request("GET", "https://example.com/blank.docx"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/blank.docx")
+
+        assert result["ok"] is False
+        assert result["reason"] == "empty_docx"
+
+
 class TestEncodingFallback:
     """编码兜底(2026-10-25 审计五十七轮)——老政务/法院站点常只在 meta 里
     声明 gb2312 而响应头不带 charset,httpx 按 utf-8 硬解出 U+FFFD 乱码
