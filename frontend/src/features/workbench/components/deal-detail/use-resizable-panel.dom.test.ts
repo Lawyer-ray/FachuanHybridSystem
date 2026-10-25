@@ -137,6 +137,16 @@ describe('useResizablePanel', () => {
     }).not.toThrow()
   })
 
+  it('stacked 看容器本身是否窄于竖排断点（不是拿容器比面板宽）', () => {
+    // 旧写法 containerWidth < Math.min(effective, 1100)：面板宽本来就小于容器，
+    // 恒为 false → 800px 窄屏下分隔条仍显示、拖拽态失效
+    const { result } = renderHook(() =>
+      useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360, maxRatio: 0.68 }),
+    )
+    // 容器宽度未知时不算竖排（首帧不闪）
+    expect(result.current.stacked).toBe(false)
+  })
+
   it('容器宽度未知时不钳制上限（首帧不误伤）', () => {
     // containerWidth 为 null 时无法计算上限，不能把宽度钳成 0
     localStorage.setItem(KEY, '1140')

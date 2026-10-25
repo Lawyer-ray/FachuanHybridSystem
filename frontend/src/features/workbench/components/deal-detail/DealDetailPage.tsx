@@ -46,7 +46,7 @@ export function DealDetailPage() {
     storageKey: 'fachuan:deal:preview-width',
     defaultWidth: 720,
     min: 360,
-    maxRatio: 0.68,
+    maxRatio: 0.78,
     layoutKey: picked ? 'split' : 'stacked',
   })
   const {

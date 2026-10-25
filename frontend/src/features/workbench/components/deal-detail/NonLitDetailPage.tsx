@@ -55,7 +55,8 @@ export function NonLitDetailPage() {
     storageKey: 'fachuan:nonlit:preview-width',
     defaultWidth: 720,
     min: 360,
-    maxRatio: 0.68,
+    // 事实卡已经移到左栏，右栏可以更宽——0.78 在 1440 屏给到 ~1090
+    maxRatio: 0.78,
     layoutKey: picked ? 'split' : 'stacked',
   })
   const {
@@ -177,6 +178,26 @@ export function NonLitDetailPage() {
               </div>
             </Card>
           )}
+
+          {/* 预览开启时事实卡落在左栏底部：右栏留给 OnlyOffice 一栏到底，
+              两栏各自滚动互不干扰 */}
+          {picked && (
+            <DetailRail
+              deadlines={deadlines}
+              today={d.today}
+              contactGroups={contacts}
+              team={deal.team ?? []}
+              deal={deal}
+              moneyRows={money}
+              showFolder={false}
+              folderOwnerId={deal.id}
+              folderSelectedSubpath={picked.subpath}
+              onOpenFile={openPreview}
+              onReviewFile={(f) => setReviewTarget(f)}
+              onAddDue={() => soonToast('新增期限')}
+              onAddPayment={() => soonToast('记收款')}
+            />
+          )}
         </div>
 
         {picked && (
@@ -189,7 +210,7 @@ export function NonLitDetailPage() {
           />
         )}
 
-        {/* 右：预览（选中时置顶）+ 合同要素/文件夹/事实卡 */}
+        {/* 右：预览（选中时置顶）/ 未预览时放事实卡 */}
         <div
           className="min-w-0 space-y-[18px]"
           style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
@@ -207,21 +228,24 @@ export function NonLitDetailPage() {
             </div>
           )}
 
-          <DetailRail
-            deadlines={deadlines}
-            today={d.today}
-            contactGroups={contacts}
-            team={deal.team ?? []}
-            deal={deal}
-            moneyRows={money}
-            showFolder
-            folderOwnerId={deal.id}
-            folderSelectedSubpath={picked?.subpath ?? null}
-            onOpenFile={openPreview}
-            onReviewFile={(f) => setReviewTarget(f)}
-            onAddDue={() => soonToast('新增期限')}
-            onAddPayment={() => soonToast('记收款')}
-          />
+          {/* 未预览时右栏就是事实卡（期限/当事人/收费/合同文件夹） */}
+          {!picked && (
+            <DetailRail
+              deadlines={deadlines}
+              today={d.today}
+              contactGroups={contacts}
+              team={deal.team ?? []}
+              deal={deal}
+              moneyRows={money}
+              showFolder
+              folderOwnerId={deal.id}
+              folderSelectedSubpath={null}
+              onOpenFile={openPreview}
+              onReviewFile={(f) => setReviewTarget(f)}
+              onAddDue={() => soonToast('新增期限')}
+              onAddPayment={() => soonToast('记收款')}
+            />
+          )}
         </div>
       </div>
 

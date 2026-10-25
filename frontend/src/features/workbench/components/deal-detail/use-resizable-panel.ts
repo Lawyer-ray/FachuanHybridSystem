@@ -190,7 +190,14 @@ export function useResizablePanel({
   const clampedUserWidth = Math.min(width, capped)
   const effective = userAdjusted ? clampedUserWidth : autoWidth
 
-  const stacked = containerWidth !== null && containerWidth < Math.min(effective, 1100)
+  /**
+   * 是否竖排（上下堆叠）：看**容器本身**是否窄于页面的竖排断点。
+   *
+   * 之前写成 `containerWidth < Math.min(effective, 1100)`——拿容器和面板宽度比，
+   * 而面板宽度本来就小于容器，于是恒为 false，竖排判定永不成立（实测 800px
+   * 窄屏下分隔条仍然显示、拖拽态也失效）。
+   */
+  const stacked = containerWidth !== null && containerWidth < 1100
 
   return {
     width: stacked ? undefined : effective,
