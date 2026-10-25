@@ -48,7 +48,7 @@ from mcp_server.tools.documents.documents import create_document_template, list_
 from mcp_server.tools.documents.folder_template_ops import create_folder_template
 from mcp_server.tools.documents.litigation import generate_complaint, generate_defense
 from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
-from mcp_server.tools.finance.mortgage import mortgage_amortize
+from mcp_server.tools.finance.mortgage import mortgage_amortize, mortgage_default_calculate
 from mcp_server.tools.legal_research.legal_research import capability_search, create_research_task
 from mcp_server.tools.message_hub.inbox import list_inbox_messages
 from mcp_server.tools.message_hub.sources import create_message_source, update_message_source
@@ -95,6 +95,7 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "create_full_case": (6, 6),
     "create_new_reminder": (6, 6),
     "list_all_reminders": (3, 3),
+    "mortgage_default_calculate": (48, 48),
 }
 
 
@@ -109,6 +110,7 @@ _ALL_DESCRIBED_FNS = [
     read_agent_attachment, list_document_templates, create_document_template,
     create_folder_template, generate_complaint, generate_defense,
     create_full_case, create_new_reminder, list_all_reminders,
+    mortgage_default_calculate,
 ]
 
 
@@ -226,7 +228,11 @@ def test_schema_enums_match_model_choices() -> None:
     from apps.contracts.models.contract import ContractStatus, FeeMode
     from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
     from apps.documents.models.choices import DocumentCaseType, DocumentTemplateType
-    from apps.finance.schemas.lpr_schemas import InterestCalculateRequest, MortgageAmortizeRequest
+    from apps.finance.schemas.lpr_schemas import (
+        InterestCalculateRequest,
+        MortgageAmortizeRequest,
+        MortgageDefaultRequest,
+    )
     from apps.legal_research.schemas.legal_research_schemas import AgentSearchRequestV1, LegalResearchTaskCreateIn
     from apps.message_hub.models.message_source import SourceType
     from apps.reminders.models import ReminderType
@@ -239,7 +245,13 @@ def test_schema_enums_match_model_choices() -> None:
 
     def _backend_literal(schema_cls: type, field_name: str) -> set:
         hints = get_type_hints(schema_cls)
-        return set(get_args(hints[field_name]))
+        vals: set = set()
+        for a in get_args(hints[field_name]):
+            if a is type(None):
+                continue  # Optional[Literal[...]] 剥掉 NoneType
+            inner = get_args(a)
+            vals.update(inner if inner else {a})
+        return vals
 
     authoritative: dict[tuple[str, str], set] = {
         ("list_cases", "case_type"): set(SimpleCaseType.values),
@@ -274,6 +286,14 @@ def test_schema_enums_match_model_choices() -> None:
         ("create_folder_template", "template_type"): set(DocumentTemplateType.values),
         ("create_folder_template", "case_types"): set(DocumentCaseType.values),
         ("create_new_reminder", "reminder_type"): set(ReminderType.values),
+        ("mortgage_default_calculate", "penalty_mode"): _backend_literal(MortgageDefaultRequest, "penalty_mode"),
+        ("mortgage_default_calculate", "compound_method"): _backend_literal(MortgageDefaultRequest, "compound_method"),
+        ("mortgage_default_calculate", "first_period_interest"): _backend_literal(MortgageDefaultRequest, "first_period_interest"),
+        ("mortgage_default_calculate", "allocation_stance"): _backend_literal(MortgageDefaultRequest, "allocation_stance"),
+        ("mortgage_default_calculate", "prepayment_handling"): _backend_literal(MortgageDefaultRequest, "prepayment_handling"),
+        ("mortgage_default_calculate", "rounding_mode"): _backend_literal(MortgageDefaultRequest, "rounding_mode"),
+        ("mortgage_default_calculate", "claim_mode"): _backend_literal(MortgageDefaultRequest, "claim_mode"),
+        ("mortgage_default_calculate", "cap_total_mode"): _backend_literal(MortgageDefaultRequest, "cap_total_mode"),
         ("list_workflows", "status"): set(WorkflowRun.Status.values),
         ("create_workflow_template", "category"): set(WorkflowTemplate.Category.values),
         ("update_workflow_template", "category"): set(WorkflowTemplate.Category.values),
@@ -297,6 +317,7 @@ def test_schema_enums_match_model_choices() -> None:
         "create_folder_template": _schema_of(create_folder_template),
         "create_full_case": _schema_of(create_full_case),
         "create_new_reminder": _schema_of(create_new_reminder),
+        "mortgage_default_calculate": _schema_of(mortgage_default_calculate),
         # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
         "list_workflows": _registered_schema("list_workflows"),
         "create_workflow_template": _registered_schema("create_workflow_template"),
