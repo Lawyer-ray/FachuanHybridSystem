@@ -129,3 +129,43 @@ async def test_django_does_not_exist_translated() -> None:
     wrapped = wrap(by_slug)
     with pytest.raises(ToolError, match="对象不存在"):
         await wrapped(template_slug="no-such", case_id=1)
+
+
+def test_db_connection_recycled_around_sync_invocation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """直接 ORM 工具进出各回收一次连接(四十轮)。
+
+    共享 MCP 进程没有 HTTP 请求周期,``close_old_connections``(request_finished
+    信号驱动)永远不被调——worker 线程的连接超 CONN_MAX_AGE 也一直持有,
+    PG 重启/切换后全部 workflow 工具持续 OperationalError 直到 MCP 重启。
+    包装器进出各回收一次,过期才关、新鲜即 no-op。"""
+    import django.db
+
+    calls: list[int] = []
+    monkeypatch.setattr(django.db, "close_old_connections", lambda: calls.append(1))
+
+    wrap = _load_wrapper()
+
+    def fake_tool(run_id: int) -> dict[str, Any]:
+        return {"ok": True}
+
+    wrapped = wrap(fake_tool)
+    assert wrapped(run_id=1) == {"ok": True}
+    assert len(calls) == 2, f"进出各应回收一次,实际 {len(calls)} 次"
+
+
+@pytest.mark.asyncio
+async def test_db_connection_recycled_around_async_invocation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """async 工具路径同样回收(双路径都要有,防只修 sync 半边)。"""
+    import django.db
+
+    calls: list[int] = []
+    monkeypatch.setattr(django.db, "close_old_connections", lambda: calls.append(1))
+
+    wrap = _load_wrapper()
+
+    async def fake_tool(run_id: int) -> dict[str, Any]:
+        return {"ok": True}
+
+    wrapped = wrap(fake_tool)
+    assert await wrapped(run_id=1) == {"ok": True}
+    assert len(calls) == 2, f"进出各应回收一次,实际 {len(calls)} 次"

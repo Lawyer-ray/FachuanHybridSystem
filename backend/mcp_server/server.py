@@ -41,6 +41,7 @@ from mcp_server.tools import (
     confirm_archive,
     confirm_contract_scan,
     confirm_mappings,
+    confirm_memories,
     confirm_party,
     confirm_pdf_split,
     convert_document,
@@ -157,6 +158,7 @@ from mcp_server.tools import (
     extract_template_placeholders,
     fetch_url,
     fill_templates,
+    forget_memory,
     generate_archive_folder,
     generate_case_template,
     generate_complaint,
@@ -292,6 +294,7 @@ from mcp_server.tools import (
     list_oa_configs,
     list_payments,
     list_pending_court_document_tasks,
+    list_pending_memories,
     list_placeholders,
     list_projects,
     list_property_clues,
@@ -334,6 +337,8 @@ from mcp_server.tools import (
     quick_recognize_invoice,
     read_agent_attachment,
     read_folder_file,
+    recall_memory,
+    remember,
     remove_contract_party,
     rename_inbox_attachment,
     rename_material_group,
@@ -343,6 +348,7 @@ from mcp_server.tools import (
     reset_and_resync_case_materials,
     reset_extract_recording,
     reset_performance_metrics,
+    restore_memory,
     resubmit_task,
     retry_sms_processing,
     save_archive_overrides,
@@ -1061,16 +1067,31 @@ def _workflow_tool(fn: Any) -> Any:
     from functools import wraps
 
     from django.core.exceptions import ObjectDoesNotExist
+    from django.db import close_old_connections
     from mcp.server.mcpserver.exceptions import ToolError
 
     from apps.core.exceptions.common import BusinessException
 
     drop = {"user", "org_access", "perm_open_access"}
 
+    def _recycle_db_connections() -> None:
+        """直接 ORM 工具的连接生命周期对齐 Django 请求周期。
+
+        共享 MCP 进程里 workflow 工具直连 ORM,但没有 HTTP 请求周期——
+        ``close_old_connections``(由 request_finished 信号驱动)永远不被
+        调用,worker 线程的连接即使超过 CONN_MAX_AGE 也一直持有;
+        CONN_HEALTH_CHECKS 探活同样只在该路径里生效。后果:PG 重启/主备
+        切换后,全部 workflow 工具持续 OperationalError 直到 MCP 重启
+        (同病已治:temporal worker 用每 5 分钟 close_old_connections)。
+        进出各回收一次,代价是过期才关、新鲜即 no-op。"""
+
+        close_old_connections()
+
     if inspect.iscoroutinefunction(fn):
 
         @wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            _recycle_db_connections()
             try:
                 return await fn(*args, **kwargs)
             except BusinessException as exc:
@@ -1079,17 +1100,22 @@ def _workflow_tool(fn: Any) -> Any:
                 # Django 原生「查无此物」同样是预期内失败(模型传错 id/slug),
                 # 不翻译则黑盒——E2E 实测 start_workflow 坏 slug 只有半句报错
                 raise ToolError(f"对象不存在: {exc}") from exc
+            finally:
+                _recycle_db_connections()
 
     else:
 
         @wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
+            _recycle_db_connections()
             try:
                 return fn(*args, **kwargs)
             except BusinessException as exc:
                 raise ToolError(str(exc) or exc.__class__.__name__) from exc
             except ObjectDoesNotExist as exc:
                 raise ToolError(f"对象不存在: {exc}") from exc
+            finally:
+                _recycle_db_connections()
 
     sig = inspect.signature(fn)
     # 注解字符串(本文件带 from __future__ import annotations)必须在**原函数**
@@ -1139,6 +1165,15 @@ _t(get_server_time)
 
 # 专项技能指引：场景化操作说明按需供给（AGENTS.md 只保留路由，省上下文）
 _t(get_agent_skill)
+
+# 记忆：个人 / 团队 / 律所三级跨会话记忆（注入快照由 pi 扩展拉取，
+# 模型只负责「写」「查」「删」三类主动动作）
+_t(remember)
+_t(recall_memory)
+_t(forget_memory)
+_t(restore_memory)
+_t(list_pending_memories)
+_t(confirm_memories)
 
 # 对话附件：服务端读文件提取正文（base64 不进模型上下文）
 _t(read_agent_attachment)
