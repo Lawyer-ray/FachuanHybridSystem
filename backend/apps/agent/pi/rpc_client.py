@@ -63,6 +63,10 @@ _SHUTDOWN_TIMEOUT = 5.0
 _STDERR_LINE_LIMIT = 500
 #: 关闭前写 abort 的 drain 超时（写不进去就算了，后面还有 kill 兜底）
 _ABORT_DRAIN_TIMEOUT = 1.0
+#: compact 命令的等待上限。压缩在 pi 侧可能要跑一次完整 LLM 摘要
+#: （压缩接管 extension 生效时是确定性编译，秒回；回退默认摘要时是一次
+#: 真实 LLM 调用），默认 30 秒命令超时会在半路掐断它。
+_COMPACT_TIMEOUT = 300.0
 
 
 class PiError(RuntimeError):
@@ -71,6 +75,25 @@ class PiError(RuntimeError):
 
 class PiNotAvailableError(PiError):
     """pi 可执行文件缺失或版本不可用。"""
+
+
+def _int_or_none(value: Any) -> int | None:
+    """pi 数值字段容错转换：非数字（含 None / bool）返回 None，不编造 0。"""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return int(value)
+
+
+def parse_context_usage(stats: dict[str, Any]) -> tuple[int | None, int | None]:
+    """从 ``get_session_stats`` 的返回里取 ``(已用 token, 上下文窗口)``。
+
+    水位是事实陈述：拿不到就返回 None，编造 0 会把「不知道」伪装成
+    「上下文是空的」——前者要查链路，后者说明一切正常，运营信号完全不同。
+    """
+    usage = stats.get("contextUsage")
+    if not isinstance(usage, dict):
+        return None, None
+    return _int_or_none(usage.get("tokens")), _int_or_none(usage.get("contextWindow"))
 
 
 @dataclass(slots=True)
@@ -209,6 +232,7 @@ class PiRpcSession:
         session_dir: str | None = None,
         session_id: str | None = None,
         tool_selection: str | None = None,
+        skill_paths: list[str] | None = None,
     ) -> None:
         self._cwd = cwd
         self._session_dir = session_dir
@@ -220,6 +244,10 @@ class PiRpcSession:
         #: 作为构造参数而不是全局常量：子 agent 与主会话必须能在同一进程内
         #: 并发存在，全局常量会让两边互相覆盖。
         self._tool_selection = tool_selection or TOOL_SELECTION
+        #: Agent Skills 注入面（``--skill``，可重复）。空列表表示本次不注入
+        #: 任何技能——配合恒定的 ``--no-skills``（见 :meth:`_build_args`），
+        #: 宿主机的用户级技能目录永远不会混进律师的生产会话。
+        self._skill_paths: list[str] = list(skill_paths) if skill_paths else []
         self._extension = extension_path if extension_path is not None else default_approval_extension()
         self._extra_env = extra_env or {}
         self._command_timeout = command_timeout
@@ -232,15 +260,9 @@ class PiRpcSession:
 
     # ── 生命周期 ────────────────────────────────────────────────────────────
 
-    async def start(self) -> None:
-        if self._proc is not None:
-            return
-        # 审批 extension 是工具调用的唯一人工闸门。文件缺失时若只告警继续，
-        # 等于所有高危工具裸奔（服务端清单只过滤「到达的回调」，没回调就没拦截），
-        # 所以这里 fail-closed：拒绝启动。放在定位 pi 之前，便于无 pi 环境也能测到。
-        if not self._extension or not Path(self._extension).exists():
-            raise PiError(f"审批 extension 不存在，拒绝启动 pi（避免工具调用失去审批约束）: {self._extension}")
-        pi_bin = resolve_pi_bin()
+    def _build_args(self, pi_bin: str) -> list[str]:
+        """拼 pi 启动参数（抽成独立方法：单测要断言技能参数的顺序与存在性，
+        不想为此真拉一个子进程）。"""
         # --approve：RPC 模式无法弹交互式信任提示，项目级 .pi/mcp.json 会被忽略。
         # 工作目录是本 app 自己创建的临时目录（内容由我们控制），可直接信任。
         args: list[str] = [
@@ -260,10 +282,31 @@ class PiRpcSession:
             args.extend(["--session-dir", self._session_dir, "--session-id", self._session_id])
         else:
             args.append("--no-session")
+        # 技能面必须「先全关、再显式开」：pi 默认会自动发现 ~/.agents/skills 与
+        # ~/.pi 下的用户级技能——那是宿主机环境，内容不受本仓库管控（可能是
+        # 开发者自装的无关技能，甚至是与法穿操作规范冲突的指引），律师的生产
+        # 会话绝不能加载它们。--no-skills 关掉全部自动发现后，再逐个注入本会话
+        # 显式选择的技能；pi 的 updateSkillsFromPaths 在两者并存时只认显式列表
+        # （noSkills 且无显式路径才是「零技能」）。
+        args.append("--no-skills")
+        for skill_path in self._skill_paths:
+            args.extend(["--skill", skill_path])
         if self._provider:
             args.extend(["--provider", self._provider])
         if self._model:
             args.extend(["--model", self._model])
+        return args
+
+    async def start(self) -> None:
+        if self._proc is not None:
+            return
+        # 审批 extension 是工具调用的唯一人工闸门。文件缺失时若只告警继续，
+        # 等于所有高危工具裸奔（服务端清单只过滤「到达的回调」，没回调就没拦截），
+        # 所以这里 fail-closed：拒绝启动。放在定位 pi 之前，便于无 pi 环境也能测到。
+        if not self._extension or not Path(self._extension).exists():
+            raise PiError(f"审批 extension 不存在，拒绝启动 pi（避免工具调用失去审批约束）: {self._extension}")
+        pi_bin = resolve_pi_bin()
+        args = self._build_args(pi_bin)
 
         env = {**_clean_env(), **self._extra_env}
         self._proc = await asyncio.create_subprocess_exec(
@@ -430,7 +473,12 @@ class PiRpcSession:
 
     # ── 命令 ────────────────────────────────────────────────────────────────
 
-    async def _send(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _send(self, payload: dict[str, Any], *, timeout: float | None = None) -> dict[str, Any]:
+        """发一条 RPC 命令并等响应。
+
+        ``timeout`` 缺省用构造时的 ``command_timeout``；只有耗时不可预估的
+        命令（如 compact，要等一次 LLM 摘要）才需要单独放宽。
+        """
         proc = self._proc
         if proc is None or proc.stdin is None:
             raise PiError("pi 进程未启动")
@@ -445,8 +493,9 @@ class PiRpcSession:
             self._pending[command] = fut
         proc.stdin.write(json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n")
         await proc.stdin.drain()
+        effective_timeout = self._command_timeout if timeout is None else timeout
         try:
-            return await asyncio.wait_for(fut, timeout=self._command_timeout)
+            return await asyncio.wait_for(fut, timeout=effective_timeout)
         finally:
             self._pending.pop(cmd_id, None)
             if isinstance(command, str):
@@ -489,6 +538,34 @@ class PiRpcSession:
         if isinstance(data, dict):
             return str(data.get("disposition") or "queued")
         return "queued"
+
+    async def get_session_stats(self) -> dict[str, Any]:
+        """取会话统计（token 计数 / 成本 / 上下文水位）。
+
+        返回 pi 的 ``data``，形状::
+
+            {"tokens": {...}, "cost": ..., "contextUsage": {"tokens", "contextWindow", "percent"}}
+
+        水位解析见 :func:`parse_context_usage`。这里**不校验 success**：统计是
+        尽力而为的增强数据，调用方（chat_service）本来就按「拿不到就算了」
+        容错，抛 PiError 与返回空 dict 对它是等价的，少一条分支。
+        """
+        resp = await self._send({"type": "get_session_stats"})
+        data = resp.get("data")
+        return data if isinstance(data, dict) else {}
+
+    async def compact(self) -> dict[str, Any]:
+        """同步执行一次上下文压缩（等压缩完成后才返回）。
+
+        与 ``get_session_stats`` 刻意不同：**必须**校验 success——静默吞掉
+        失败会让调用方以为压缩成功，前端水位条不降、下一轮照旧贵，
+        用户完全没有渠道发现。超时放宽见 ``_COMPACT_TIMEOUT``。
+        """
+        resp = await self._send({"type": "compact"}, timeout=_COMPACT_TIMEOUT)
+        if resp.get("success") is not True:
+            raise PiError(f"compact 被拒绝: {resp.get('error')}")
+        data = resp.get("data")
+        return data if isinstance(data, dict) else {}
 
     async def abort(self) -> bool:
         """中止当前运行；返回是否成功送达。

@@ -16,6 +16,8 @@ vi.mock('./api', () => ({
   submitAgentTask: vi.fn(),
   fetchPendingApprovals: vi.fn(),
   uploadAttachment: vi.fn(),
+  fetchSessionStats: vi.fn(),
+  compactSession: vi.fn(),
 }))
 
 const encoder = new TextEncoder()
@@ -217,3 +219,41 @@ describe('copilot store：refreshHistory', () => {
 })
 
 // ============ 业务内会话（案件/合同页打开，P1-1） ============
+
+describe('copilot store：上下文水位与压缩事件', () => {
+  it('done 带水位字段时写入 contextUsage；不带时保持原值', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"答"}\n\n',
+        'data: {"type":"done","session_id":"s-1","context_used_tokens":65536,"context_total_tokens":131072}\n\n',
+      ]),
+    )
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().contextUsage).toEqual({ used: 65536, total: 131072 })
+
+    // 第二轮 done 不带水位（旧后端）：不把已知水位冲掉
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"答"}\n\n',
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+    await useCopilot.getState().send('y')
+    expect(useCopilot.getState().contextUsage).toEqual({ used: 65536, total: 131072 })
+  })
+
+  it('compaction start/end 切换 compacting 状态', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"compaction","phase":"start"}\n\n',
+        'data: {"type":"delta","content":"答"}\n\n',
+        'data: {"type":"compaction","phase":"end"}\n\n',
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().compacting).toBe(false)
+  })
+})

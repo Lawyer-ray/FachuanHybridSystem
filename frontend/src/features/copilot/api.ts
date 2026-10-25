@@ -8,7 +8,7 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentHistoryMessage, AgentSession, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -135,4 +135,24 @@ export function rateMessage(messageId: number, rating: 'up' | 'down' | 'none'): 
 /** 取消后台任务（排队中可取消；运行中诚实 409） */
 export function cancelAgentTask(sessionId: string): Promise<Record<string, unknown>> {
   return api.delete(`agent/tasks/${sessionId}`).json<Record<string, unknown>>()
+}
+
+/** 技能清单（`/` 命令菜单数据源；消息以 `/skill:名字 参数` 触发，后端 pi 展开） */
+export function fetchAgentSkills(): Promise<AgentSkillList> {
+  return api.get('agent/skills').json<AgentSkillList>()
+}
+
+/** 启停一个技能（name 为技能名；返回终态回执） */
+export function setAgentSkillEnabled(name: string, enabled: boolean): Promise<AgentSkillToggleReceipt> {
+  return api.patch(`agent/skills/${name}`, { json: { enabled } }).json<AgentSkillToggleReceipt>()
+}
+
+/** 会话 token 用量与上下文水位（上下文水位驱动 Composer 底部的水位指示） */
+export function fetchSessionStats(sessionId: string): Promise<AgentSessionStats> {
+  return api.get(`agent/sessions/${sessionId}/stats`).json<AgentSessionStats>()
+}
+
+/** 手动压缩会话上下文：总结历史释放空间，返回压缩后水位 */
+export function compactSession(sessionId: string): Promise<AgentCompactReceipt> {
+  return api.post(`agent/sessions/${sessionId}/compact`).json<AgentCompactReceipt>()
 }

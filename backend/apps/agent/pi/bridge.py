@@ -270,6 +270,15 @@ def translate_all(
     if etype in ("agent_start", "turn_start", "step_start"):
         return [{"type": "activity", "status": "thinking", "agent": agent}]
 
+    # ── 上下文压缩（自动压缩的进行/完成）───────────────────────────────────
+    # 不透传这两条，自动压缩就是「无声失忆」：律师只看到 AI 突然不记得
+    # 之前聊过的内容，没有任何解释。phase=end 时 chat_service 还会落一条
+    # 审计消息（Django 消息表是回放权威）。
+    if etype == "compaction_start":
+        return [{"type": "compaction", "phase": "start"}]
+    if etype == "compaction_end":
+        return [{"type": "compaction", "phase": "end"}]
+
     if etype == "error":
         return [{"type": "error", "message": str(event.raw.get("message") or "pi 运行错误")}]
 

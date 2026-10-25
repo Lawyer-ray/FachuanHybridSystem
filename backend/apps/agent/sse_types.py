@@ -104,6 +104,17 @@ class QuestionRequestEvent(BaseModel):
     timeout_seconds: int = 180
 
 
+class CompactionEvent(BaseModel):
+    """上下文压缩进行中（pi 自动压缩或手动压缩触发）。
+
+    ``phase="start"``：压缩开始（前端可显示「正在压缩上下文…」）；
+    ``phase="end"``：压缩完成（历史已被摘要替代，前端提示「已压缩」）。
+    """
+
+    type: Literal["compaction"]
+    phase: Literal["start", "end"]
+
+
 class ErrorEvent(BaseModel):
     """流内错误（已翻译成人话）"""
 
@@ -112,10 +123,18 @@ class ErrorEvent(BaseModel):
 
 
 class DoneEvent(BaseModel):
-    """流结束"""
+    """流结束。
+
+    ``context_*`` 两个字段（2026-10-25 新增）来自 pi 的 ``get_session_stats``
+    （本轮结束后、进程关闭前取一次）：律师需要看到会话上下文水位，
+    否则自动压缩「无声发生」、模型突然失忆却没有任何解释。
+    拿不到（旧数据 / pi 异常）时为 ``None``，前端隐藏水位显示即可。
+    """
 
     type: Literal["done"]
     session_id: str
+    context_used_tokens: int | None = None
+    context_total_tokens: int | None = None
 
 
 AgentStreamEvent = (
@@ -127,6 +146,8 @@ AgentStreamEvent = (
     | ToolResultEvent
     | ApprovalRequestEvent
     | UsageEvent
+    | QuestionRequestEvent
+    | CompactionEvent
     | ErrorEvent
     | DoneEvent
 )
@@ -169,7 +190,8 @@ export type AgentStreamEvent =
       timeout_seconds: number
     }
   | { type: 'error'; message: string }
-  | { type: 'done'; session_id: string }
+  | { type: 'compaction'; phase: 'start' | 'end' }
+  | { type: 'done'; session_id: string; context_used_tokens?: number; context_total_tokens?: number }
 """
 
 
@@ -190,6 +212,8 @@ if __name__ == "__main__":
             ToolResultEvent,
             ApprovalRequestEvent,
             UsageEvent,
+            QuestionRequestEvent,
+            CompactionEvent,
             ErrorEvent,
             DoneEvent,
         ]

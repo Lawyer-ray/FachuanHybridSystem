@@ -43,36 +43,13 @@ export interface AgentHistoryMessage {
   metadata: Record<string, unknown>
 }
 
-/** SSE 流事件（POST /agent/sessions/{id}/messages 的 data 帧） */
-export type AgentStreamEvent =
-  | { type: 'meta'; session_id: string; agent?: string }
-  | { type: 'activity'; status: string; agent?: string; position?: number }
-  | { type: 'delta'; content: string }
-  | { type: 'thinking'; content: string }
-  | { type: 'tool_call'; tool_call_id: string; name: string; arguments?: unknown }
-  | { type: 'tool_result'; tool_call_id: string; name: string; result?: string }
-  | {
-      type: 'approval_request'
-      approval_id: string
-      tool_name: string
-      tool_args?: Record<string, unknown>
-      message: string
-      /** 风险等级（low/medium/high/critical），服务端分级判定 */
-      risk_level?: string
-      /** 紧急级要求二次确认 */
-      needs_second_confirmation?: boolean
-    }
-  | { type: 'error'; message: string }
-  | {
-      type: 'usage'
-      output_tokens: number
-      input_tokens?: number
-      /** 缓存命中 token（pi usage.cacheRead） */
-      cache_read_tokens?: number
-      /** 缓存写入 token（pi usage.cacheWrite） */
-      cache_write_tokens?: number
-    }
-  | { type: 'done'; session_id: string }
+/**
+ * SSE 流事件（POST /agent/sessions/{id}/messages 的 data 帧）。
+ * 单一来源是自动生成的 sse-events.ts（`python -m apps.agent.sse_types --ts`
+ * 重新生成，后端定义在 apps/agent/sse_types.py）——此处仅 re-export，
+ * 禁止手抄一份（会漂移）。
+ */
+export type { AgentStreamEvent } from './sse-events'
 
 /** 一轮对话的输出统计（实时估算 + 结束后真实值） */
 export interface TurnStats {
@@ -221,6 +198,58 @@ export interface PendingApprovalItem {
   created_at: string
 }
 
+/** GET /agent/skills 的技能清单项（pi 技能；消息以 `/skill:名字 参数` 触发展开） */
+export interface AgentSkill {
+  name: string
+  description: string
+  enabled: boolean
+}
+
+/** GET /agent/skills 的响应体 */
+export interface AgentSkillList {
+  skills: AgentSkill[]
+}
+
+/** PATCH /agent/skills/{name} 的回执 */
+export interface AgentSkillToggleReceipt {
+  name: string
+  enabled: boolean
+}
+
+/** GET /agent/sessions/{id}/stats：token 用量与上下文水位（水位未知为 null） */
+export interface AgentSessionStats {
+  output_tokens: number
+  input_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  context_used_tokens: number | null
+  context_total_tokens: number | null
+  context_percent: number | null
+}
+
+/** POST /agent/sessions/{id}/compact 的回执（compacted=false 表示未超水位、无事发生） */
+export interface AgentCompactReceipt {
+  compacted: boolean
+  context_used_tokens: number | null
+  context_total_tokens: number | null
+}
+
+/** `/` 命令菜单项（技能补全 / 内置命令）；构建与过滤见 domain.ts，交互见 hooks/use-slash-menu */
+export interface SlashMenuItem {
+  /** 列表 key（`skill-名` / `command-名`） */
+  key: string
+  kind: 'skill' | 'command'
+  /** 技能名 / 命令 id（技能补全文本、命令触发动作用） */
+  id: string
+  /** 展示名：技能名 / 命令中文标签 */
+  label: string
+  description: string
+  /** 不可选（如无活动会话时的 compact） */
+  disabled?: boolean
+  /** 禁用原因（菜单项小字提示，如「先开始对话」） */
+  disabledHint?: string
+}
+
 /**
  * store（useCopilot）的完整状态形状。
  * 动作语义见各字段注释；实现见 store.ts（编排）与同域模块
@@ -235,6 +264,10 @@ export interface CopilotState {
   lastError: string | null
   /** 本轮输出统计：流式期间驱动实时 tok/s，结束后展示精确 token 与平均速度 */
   turnStats: TurnStats
+  /** 上下文水位（null = 未知/无会话）；done 事件与 stats/compact 接口回填 */
+  contextUsage: { used: number | null; total: number | null }
+  /** 后端正在压缩上下文（compaction 事件 start→end；手动压缩请求期间同为 true） */
+  compacting: boolean
   /** 池满排队中：队列名次（1 起）；null = 不在排队 */
   queuePosition: number | null
   /** 本轮已插话（steer）且尚未撤回的文本 */
@@ -302,6 +335,12 @@ export interface CopilotState {
   loadingOlder: boolean
   /** 重拉当前会话历史（后台任务跑完后刷新转录用；流式中跳过） */
   refreshHistory: () => Promise<void>
+  /** 写入上下文水位（done 事件 / stats / compact 回填的唯一写入口） */
+  setContextUsage: (used: number | null, total: number | null) => void
+  /** 拉取当前会话上下文水位（会话切换/新建后刷新；失败静默） */
+  refreshContextUsage: () => Promise<void>
+  /** 手动压缩当前会话上下文（slash 菜单 compact 命令）：成功 toast 新水位 */
+  compactContext: () => Promise<void>
   /** 登出清理（换账号不得残留上一账号的会话内容） */
   reset: () => void
 }

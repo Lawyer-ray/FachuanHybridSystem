@@ -28,7 +28,7 @@ from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limi
 from apps.core.security import get_request_access_context
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentSession
+from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentRun, AgentSession
 from ..pi.rpc_client import PiError
 from ..services.approval import classify_risk, decide_approval, get_approval_for_decision
 from ..services.approval import list_approvals as list_approval_records
@@ -695,6 +695,126 @@ async def clear_session_queue(request: Any, session_id: str) -> Any:  # pragma: 
         raise HttpError(404, "会话不存在")
     messages = await clear_queue_session(session_id=session_id)
     return ClearQueueOut(success=True, messages=messages)
+
+
+# ── 技能（`/` 命令菜单数据源；消息以 `/skill:名字 参数` 触发，pi 展开全文）────
+
+
+class SkillOut(Schema):
+    """技能清单项。``description`` 来自 SKILL.md frontmatter。"""
+
+    name: str
+    description: str
+    enabled: bool
+
+
+class SkillListOut(Schema):
+    skills: list[SkillOut]
+
+
+class SkillToggleIn(Schema):
+    enabled: bool
+
+
+class SkillToggleOut(Schema):
+    name: str
+    enabled: bool
+
+
+@router.get("/skills", response=SkillListOut)
+async def list_skills(request: Any) -> SkillListOut:  # pragma: no cover
+    """当前律师可见的技能清单（偏好只记差异，缺省全启用）。"""
+    from ..services import skill_service
+
+    skills = await sync_to_async(skill_service.skills_for_user, thread_sensitive=True)(_user_id(request) or 0)
+    return SkillListOut(skills=[SkillOut(**item) for item in skills])
+
+
+@router.patch("/skills/{skill_name}", response=SkillToggleOut)
+async def toggle_skill(request: Any, skill_name: str, payload: SkillToggleIn) -> SkillToggleOut:  # pragma: no cover
+    """启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。"""
+    from ..services import skill_service
+
+    try:
+        result = await sync_to_async(skill_service.set_skill_enabled, thread_sensitive=True)(
+            _user_id(request) or 0, skill_name, payload.enabled
+        )
+    except ValueError as exc:
+        raise HttpError(404, str(exc)) from exc
+    return SkillToggleOut(name=str(result["name"]), enabled=bool(result["enabled"]))
+
+
+# ── 会话统计与手动压缩 ───────────────────────────────────────────────────────
+
+
+class SessionStatsOut(Schema):
+    """会话累计用量与上下文水位（最新一轮 AgentRun 的快照）。
+
+    水位 nullable：旧轮数据 / pi 未上报时是 None，前端隐藏水位显示，
+    不把「不知道」伪装成「上下文是空的」。
+    """
+
+    output_tokens: int
+    input_tokens: int
+    cache_read_tokens: int
+    cache_write_tokens: int
+    context_used_tokens: int | None = None
+    context_total_tokens: int | None = None
+    context_percent: float | None = None
+
+
+@router.get("/sessions/{session_id}/stats", response=SessionStatsOut)
+async def get_session_stats(request: Any, session_id: str) -> SessionStatsOut:  # pragma: no cover
+    """会话 token 用量与上下文水位（读库即可，不起 pi 进程）。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    latest = await AgentRun.objects.filter(session=session).order_by("-id").afirst()
+    if latest is None:
+        return SessionStatsOut(output_tokens=0, input_tokens=0, cache_read_tokens=0, cache_write_tokens=0)
+    percent: float | None = None
+    if latest.context_used_tokens is not None and latest.context_total_tokens:
+        percent = round(latest.context_used_tokens / latest.context_total_tokens * 100, 1)
+    return SessionStatsOut(
+        output_tokens=latest.output_tokens,
+        input_tokens=latest.input_tokens,
+        cache_read_tokens=latest.cache_read_tokens,
+        cache_write_tokens=latest.cache_write_tokens,
+        context_used_tokens=latest.context_used_tokens,
+        context_total_tokens=latest.context_total_tokens,
+        context_percent=percent,
+    )
+
+
+class CompactOut(Schema):
+    """手动压缩回执。``compacted=False`` 表示无历史可压（幂等成功，不报错）。"""
+
+    compacted: bool
+    context_used_tokens: int | None = None
+    context_total_tokens: int | None = None
+
+
+@router.post("/sessions/{session_id}/compact", response=CompactOut)
+async def compact_session_context(request: Any, session_id: str) -> CompactOut:  # pragma: no cover
+    """手动压缩会话上下文（同步执行：起 pi 续写 session 文件，压缩完才返回）。
+
+    摘要与自动压缩同源（``compaction-takeover`` 确定性编译，保案号/当事人/
+    金额/期限锚点）。进程池忙时 429，pi 故障 502——都不吞。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    from ..services.compact_service import CompactBusyError, CompactNotNeededError, compact_session
+
+    try:
+        return CompactOut(**await compact_session(session=session, user_id=_user_id(request)))
+    except CompactNotNeededError:
+        return CompactOut(compacted=False)
+    except CompactBusyError as exc:
+        raise HttpError(429, str(exc)) from exc
+    except PiError as exc:
+        logger.error("手动压缩失败 session=%s: %s", session_id, exc)
+        raise HttpError(502, "压缩失败，请稍后再试（详见服务端日志）") from exc
 
 
 # ── 附件（拖拽/选择上传，服务端提取正文，base64 不进模型上下文）────

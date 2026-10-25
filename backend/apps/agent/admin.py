@@ -12,7 +12,7 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
-from .models import AgentApproval, AgentApprovalPolicy, AgentMemory, AgentRun, AgentSession
+from .models import AgentApproval, AgentApprovalPolicy, AgentMemory, AgentRun, AgentSession, AgentSkillPreference
 
 
 @admin.register(AgentRun)
@@ -98,6 +98,26 @@ class AgentApprovalPolicyAdmin(admin.ModelAdmin):
     list_filter = ("action", "is_prefix")
     search_fields = ("tool_pattern", "user__username")
     ordering = ("-updated_at",)
+
+
+@admin.register(AgentSkillPreference)
+class AgentSkillPreferenceAdmin(admin.ModelAdmin):
+    """用户技能偏好（只读审计视图）。
+
+    偏好由前端开关经 API 写入（update_or_create 幂等），admin 只用来查
+    「谁关了哪个技能」；手改这里绕过了技能名校验，所以禁增改。
+    """
+
+    list_display = ("user", "skill_name", "enabled", "updated_at")
+    list_filter = ("enabled",)
+    search_fields = ("skill_name", "user__username")
+    ordering = ("-updated_at",)
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+        return False
 
 
 @admin.register(AgentMemory)

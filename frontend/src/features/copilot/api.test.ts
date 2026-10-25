@@ -28,6 +28,10 @@ import {
   renameSession,
   steerSession,
   submitAgentTask,
+  fetchAgentSkills,
+  setAgentSkillEnabled,
+  fetchSessionStats,
+  compactSession,
 } from './api'
 
 /** 让 mock 返回链式 .json() */
@@ -164,5 +168,33 @@ describe('copilot api：附件（P1-11）', () => {
     expect(body.get('file')).toBe(file)
     // 大文件上传走 300s 口径，不吃默认 10s
     expect(call[1].timeout).toBe(300_000)
+  })
+})
+
+// ── 技能 / 统计 / 压缩（`/` 菜单与上下文水位的数据源）────────────────────────
+
+describe('skills & stats & compact api', () => {
+  it('fetchAgentSkills GET agent/skills', async () => {
+    apiMock.get.mockReturnValueOnce(chain({ skills: [] }))
+    await fetchAgentSkills()
+    expect(apiMock.get).toHaveBeenCalledWith('agent/skills')
+  })
+
+  it('setAgentSkillEnabled PATCH agent/skills/{name} 带 enabled', async () => {
+    apiMock.patch.mockReturnValueOnce(chain({ name: 'web-research', enabled: false }))
+    await setAgentSkillEnabled('web-research', false)
+    expect(apiMock.patch).toHaveBeenCalledWith('agent/skills/web-research', { json: { enabled: false } })
+  })
+
+  it('fetchSessionStats GET agent/sessions/{id}/stats', async () => {
+    apiMock.get.mockReturnValueOnce(chain({ output_tokens: 0 }))
+    await fetchSessionStats('s-1')
+    expect(apiMock.get).toHaveBeenCalledWith('agent/sessions/s-1/stats')
+  })
+
+  it('compactSession POST agent/sessions/{id}/compact', async () => {
+    apiMock.post.mockReturnValueOnce(chain({ compacted: true }))
+    await compactSession('s-1')
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/compact')
   })
 })

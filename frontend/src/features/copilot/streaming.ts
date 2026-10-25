@@ -43,10 +43,12 @@ export interface StreamHandlers {
   onApproval(event: ApprovalEvent): void
   /** 排队事件：前方名次（1 起，含自己在队列中的位置） */
   onQueued(position: number): void
+  /** 上下文压缩进行/完成（自动压缩原本无声，律师会以为 AI「失忆」） */
+  onCompaction(phase: 'start' | 'end'): void
   /** 首个推进事件（delta/thinking/tool_call/error/done）：清掉排队提示 */
   onProgress(): void
   onError(message: string): void
-  onDone(): void
+  onDone(context?: { used: number | null; total: number | null }): void
 }
 
 /** 消费一条 agent SSE 流，逐帧分发；流读尽或中途异常时返回/抛出。 */
@@ -90,6 +92,9 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
         case 'approval_request':
           h.onApproval(event)
           break
+        case 'compaction':
+          h.onCompaction(event.phase)
+          break
         case 'activity':
           // queued 时带 position（前方名次）；thinking 不入转录
           if (event.status === 'queued' && typeof event.position === 'number') {
@@ -102,7 +107,12 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           break
         case 'done':
           h.onProgress()
-          h.onDone()
+          // 水位字段可选：旧后端 / pi 未上报时 undefined，前端隐藏水位显示
+          h.onDone(
+            event.context_used_tokens === undefined && event.context_total_tokens === undefined
+              ? undefined
+              : { used: event.context_used_tokens ?? null, total: event.context_total_tokens ?? null },
+          )
           break
         default:
           break // meta / activity(thinking) 不入转录

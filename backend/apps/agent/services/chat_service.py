@@ -32,7 +32,7 @@ from django.utils import timezone
 from ..models import AgentMessage, AgentRun, AgentSession
 from ..pi.bridge import stream_events
 from ..pi.pool import PiProcessPool, PoolConfig, PoolQueueTimeoutError
-from ..pi.rpc_client import PiError, PiNotAvailableError
+from ..pi.rpc_client import PiError, PiNotAvailableError, parse_context_usage
 from ..pi.shared_mcp import resolve_endpoint, shared_enabled
 from ..pi.user_token import USER_TOKEN_ENV, mint_user_access_token
 from .event_bus import get_bus
@@ -40,6 +40,7 @@ from .history import render_transcript
 from .live_sessions import get_live_registry
 from .memory_tasks import enqueue_extraction
 from .session_cleanup import has_pi_session
+from .skill_service import enabled_skill_paths
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +211,20 @@ async def _persist_tool_message(session: AgentSession, event: dict[str, Any]) ->
         logger.warning("工具消息落库失败", exc_info=True)
 
 
+async def _persist_compaction_message(session: AgentSession, label: str) -> None:
+    """落库一条压缩留痕（自动 / 手动共用；失败只记日志）。"""
+    try:
+        await AgentMessage.objects.acreate(
+            session=session,
+            role=AgentMessage.Role.TOOL,
+            content=label,
+            tool_name="context_compaction",
+            metadata={},
+        )
+    except Exception:
+        logger.warning("压缩留痕消息落库失败", exc_info=True)
+
+
 async def stream_chat(
     *,
     session: AgentSession,
@@ -285,6 +300,9 @@ async def stream_chat(
     cache_read_total = 0
     cache_write_total = 0
     tool_calls_total = 0
+    # 上下文水位（轮结束、pi 关闭前取一次；拿不到保持 None，不编造 0）
+    context_used: int | None = None
+    context_total: int | None = None
     error_kind = ""
     started = time.monotonic()
     try:
@@ -302,6 +320,12 @@ async def stream_chat(
         # 必须在启动 pi 之前注入，否则回调里 session_id 为空，前端收不到
         # approval_request，只能等超时走 fail-closed。
         session_env = _session_env(session, user_id, user_token=user_token)
+        # 本律师启用的技能目录（`--skill` 注入；偏好查询走同步 ORM，放线程里）。
+        # 无用户身份（测试场景）时给空清单——不注入任何技能也能正常对话。
+        if user_id is not None:
+            skill_paths = await sync_to_async(enabled_skill_paths, thread_sensitive=True)(user_id)
+        else:
+            skill_paths = []
         # 池满时先告知前端在排队（否则用户只能盯着转圈不知道发生了什么）。
         # 必须在 acquire 之前看：acquire 里会同步等执行位，事件发不出去。
         # 用 getattr 容错：测试与自定义池实现不一定带这两个属性。
@@ -319,6 +343,7 @@ async def stream_chat(
             model=model,
             session_id=session_id,
             tool_selection=tool_selection,
+            skill_paths=skill_paths,
         ) as pi_session:
             # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。
             # 不用「两个 get() task + asyncio.wait」—那个写法在 yield 让出控制权后
@@ -365,6 +390,10 @@ async def stream_chat(
                         cache_write_total += int(event.get("cache_write_tokens") or 0)
                     elif event.get("type") == "tool_call":
                         tool_calls_total += 1
+                    elif event.get("type") == "compaction" and event.get("phase") == "end":
+                        # 自动压缩完成：Django 消息表是回放权威，必须留痕；
+                        # 否则律师重开会话只看到 AI「失忆」，没有任何解释。
+                        await _persist_compaction_message(session, "自动压缩上下文")
                     yield event
                     if event.get("type") == "tool_result":
                         await _persist_tool_message(session, event)
@@ -379,6 +408,14 @@ async def stream_chat(
                     # 提前退出（done / 取消）时可能还挂着一次 __anext__，必须收掉，
                     # 否则任务泄漏并在事件循环关闭时刷 "Task was destroyed" 警告。
                     pending_next.cancel()
+
+            # 轮正常结束、pi 进程还活着（仍在 async with 内）：取一次会话水位，
+            # 供 done 事件与 AgentRun。异常路径不会走到这里；stats 失败只降级
+            # （水位 None），不影响对话本身。
+            try:
+                context_used, context_total = parse_context_usage(await pi_session.get_session_stats())
+            except Exception:
+                logger.warning("会话上下文水位获取失败（不影响对话）", exc_info=True)
 
     except (GeneratorExit, asyncio.CancelledError):
         # 客户端断开/中止：已流出的部分回答也要落库（见 finally），再按生成器语义上抛。
@@ -430,6 +467,8 @@ async def stream_chat(
             cache_write_tokens=cache_write_total,
             tool_calls=tool_calls_total,
             duration_ms=int((time.monotonic() - started) * 1000),
+            context_used_tokens=context_used,
+            context_total_tokens=context_total,
         )
 
         # 助手文本落库放在 finally：取消/出错路径已流出的部分回答同样要保住
@@ -472,7 +511,12 @@ async def stream_chat(
             logger.warning("记忆抽取入队失败（不影响对话）", exc_info=True)
 
     if follow_ok:
-        yield {"type": "done", "session_id": str(session.session_id)}
+        yield {
+            "type": "done",
+            "session_id": str(session.session_id),
+            "context_used_tokens": context_used,
+            "context_total_tokens": context_total,
+        }
 
 
 async def _record_run(
@@ -488,6 +532,8 @@ async def _record_run(
     cache_write_tokens: int = 0,
     tool_calls: int,
     duration_ms: int,
+    context_used_tokens: int | None = None,
+    context_total_tokens: int | None = None,
 ) -> None:
     """落一条 AgentRun。任何失败只记日志——统计不能拖垮对话本身。"""
     if cancelled:
@@ -509,6 +555,8 @@ async def _record_run(
             tool_calls=max(0, int(tool_calls)),
             duration_ms=max(0, int(duration_ms)),
             error_kind=error_kind[:64],
+            context_used_tokens=context_used_tokens,
+            context_total_tokens=context_total_tokens,
         )
     except Exception:
         logger.warning("AgentRun 落库失败（不影响对话）", exc_info=True)

@@ -50,6 +50,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   loadingHistory: false,
   lastError: null,
   turnStats: EMPTY_STATS,
+  contextUsage: { used: null, total: null },
+  compacting: false,
   queuePosition: null,
   queuedSteers: [],
   steering: false,
@@ -127,10 +129,12 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     if (id === prev.sessionId && !prev.streaming && (id === null || hasView)) return
     get().stop()
     withViewTransition(() => {
-      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [] })
+      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [], contextUsage: { used: null, total: null } })
     })
     storeSession(id)
     if (!id) return
+    // 会话打开即拉一次水位（done 事件会在每轮结束后刷新）
+    void get().refreshContextUsage()
     try {
       const rows = await copilotApi.fetchHistory(id)
       // 等待期间用户可能又切走了：只回填仍是当前会话的结果
@@ -408,6 +412,40 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     }
   },
 
+  setContextUsage: (used, total) => {
+    set({ contextUsage: { used, total } })
+  },
+
+  refreshContextUsage: async () => {
+    const id = get().sessionId
+    if (!id) return
+    try {
+      const stats = await copilotApi.fetchSessionStats(id)
+      // 等待期间可能切走：只回填仍是当前会话的水位
+      if (get().sessionId === id) {
+        set({ contextUsage: { used: stats.context_used_tokens, total: stats.context_total_tokens } })
+      }
+    } catch {
+      // 静默：水位是增强信息，拉不到只是不显示
+    }
+  },
+
+  compactContext: async () => {
+    const id = get().sessionId
+    if (!id || get().compacting || get().streaming) return
+    set({ compacting: true, lastError: null })
+    try {
+      const receipt = await copilotApi.compactSession(id)
+      set({ contextUsage: { used: receipt.context_used_tokens, total: receipt.context_total_tokens } })
+      if (!receipt.compacted) set({ lastError: '会话还没有对话历史，无需压缩' })
+    } catch (err) {
+      const status = err instanceof HTTPError ? err.response.status : 0
+      set({ lastError: status === 429 ? '当前使用人数较多，请稍后再试' : '压缩失败，请稍后再试' })
+    } finally {
+      set({ compacting: false })
+    }
+  },
+
   reset: () => {
     get().stop()
     set({
@@ -418,6 +456,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       loadingHistory: false,
       lastError: null,
       turnStats: { ...EMPTY_STATS },
+      contextUsage: { used: null, total: null },
+      compacting: false,
       queuePosition: null,
       queuedSteers: [],
       steering: false,
