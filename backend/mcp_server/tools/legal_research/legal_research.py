@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import base64
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
+#: 与后端 legal_research_schemas 的 Literal 逐值对账(门禁 test_schema_param_descriptions)。
+_IntentL = Literal["similar_case", "same_court_precedent", "claim_style", "reasoning_style", "defense_risk"]
+_SearchModeL = Literal["expanded", "single"]
+
 
 def create_research_task(
-    credential_id: int,
-    keyword: str,
-    case_summary: str,
-    search_mode: str = "expanded",
-    target_count: int = 3,
-    max_candidates: int = 100,
-    min_similarity_score: float = 0.9,
-    llm_model: str | None = None,
+    credential_id: Annotated[int, Field(description="威科先行账号凭证 ID(AccountCredential)", ge=1)],
+    keyword: Annotated[str, Field(description="检索关键词(空格分隔 2-4 个核心词)")],
+    case_summary: Annotated[str, Field(description="案情摘要(用于相似度比对)")],
+    search_mode: Annotated[_SearchModeL, Field(description="expanded 扩展检索/single 单检索")] = "expanded",
+    target_count: Annotated[int, Field(description="目标返回类案数", ge=1)] = 3,
+    max_candidates: Annotated[int, Field(description="候选池上限(相似度筛选前)", ge=1)] = 100,
+    min_similarity_score: Annotated[float, Field(description="相似度阈值(0-1,越高越严)", ge=0.0, le=1.0)] = 0.9,
+    llm_model: Annotated[str | None, Field(description="指定 LLM 型号(可选,默认用系统配置)")] = None,
 ) -> dict[str, Any]:
     """创建类案检索任务。search_mode: expanded（扩展）或 single（单检索）。返回 task_id 和初始状态。"""
     payload: dict[str, Any] = {
@@ -35,13 +41,13 @@ def create_research_task(
 
 
 def capability_search(
-    credential_id: int,
-    facts: str,
-    intent: str = "similar_case",
-    legal_issue: str = "",
-    cause_type: str = "",
-    target_count: int = 5,
-    search_mode: str = "expanded",
+    credential_id: Annotated[int, Field(description="威科先行账号凭证 ID(AccountCredential)", ge=1)],
+    facts: Annotated[str, Field(description="案情事实描述(检索的种子文本)")],
+    intent: Annotated[_IntentL, Field(description="检索意图:similar_case 类案/same_court_precedent 同院先例/claim_style 诉请风格/reasoning_style 说理风格/defense_risk 抗辩风险")] = "similar_case",
+    legal_issue: Annotated[str, Field(description="争议焦点(可选,提高检索精度)")] = "",
+    cause_type: Annotated[str, Field(description="案由(可选)")] = "",
+    target_count: Annotated[int, Field(description="目标返回条数", ge=1)] = 5,
+    search_mode: Annotated[_SearchModeL, Field(description="expanded 扩展检索/single 单检索")] = "expanded",
 ) -> dict[str, Any]:
     """Agent 直接调用的类案检索能力接口（同步返回结果）。intent 可选：similar_case、same_court_precedent、claim_style、reasoning_style、defense_risk。"""
     payload: dict[str, Any] = {

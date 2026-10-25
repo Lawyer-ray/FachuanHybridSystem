@@ -79,3 +79,44 @@ class TestNoBareListAnnotations:
             "以下工具声明裸 list 返回——SDK 会逐项拆块/空列表零内容,"
             "请改 dict[str, Any] + list_result() 信封: " + "; ".join(offenders[:8])
         )
+
+
+class TestListDefaultSizeCap:
+    """列表类参数默认值 ≤200 门禁(三十九轮)。
+
+    pi 对工具输出 20KB 起腰斩(中段截断+文件指针)——默认参数的调用必须
+    留在截断线内。默认 limit 是「模型不传参时拿到的量」,>200 的字面量
+    默认值等于预埋一次超线输出;需要更大的工具在豁免表登记理由。
+    """
+
+    #: 参数名形状即「列表分页参数」;当前无豁免项。
+    _LIMIT_NAMES = ("limit", "page_size", "max_results", "page_limit", "top_k", "max_count", "max_candidates", "size")
+    _CAP = 200
+    _EXEMPT: dict[str, str] = {}  # 工具名 → 理由
+
+    def test_list_param_defaults_stay_under_truncation_budget(self):
+        import ast
+        from pathlib import Path
+
+        tools_dir = Path(__file__).resolve().parents[4] / "mcp_server" / "tools"
+        offenders: list[str] = []
+        for py in sorted(tools_dir.rglob("*.py")):
+            if py.name == "__init__.py":
+                continue
+            tree = ast.parse(py.read_text(encoding="utf-8"))
+            for fn in (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)):
+                if fn.name in self._EXEMPT:
+                    continue
+                pos = fn.args.args
+                for p in pos:
+                    if p.arg not in self._LIMIT_NAMES:
+                        continue
+                    idx = pos.index(p)
+                    if idx < len(fn.args.defaults):
+                        v = getattr(fn.args.defaults[idx], "value", None)
+                        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > self._CAP:
+                            offenders.append(f"{py.name}:{fn.name}({p.arg}={v:g})")
+        assert not offenders, (
+            f"列表参数默认值超过 {self._CAP}(pi 20KB 腰斩线预算,大默认=预埋超线输出): "
+            + "; ".join(offenders)
+        )

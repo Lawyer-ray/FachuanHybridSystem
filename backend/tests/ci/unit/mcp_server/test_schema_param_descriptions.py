@@ -44,6 +44,7 @@ from mcp_server.tools.contracts.contracts import create_contract, list_contracts
 from mcp_server.tools.contracts.folder_file import read_folder_file
 from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
 from mcp_server.tools.finance.mortgage import mortgage_amortize
+from mcp_server.tools.legal_research.legal_research import capability_search, create_research_task
 from mcp_server.tools.message_hub.inbox import list_inbox_messages
 from mcp_server.tools.message_hub.sources import create_message_source, update_message_source
 from mcp_server.tools.organization.lawyers import create_lawyer, list_lawyers, update_lawyer
@@ -75,6 +76,8 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "create_message_source": (10, 10),
     "update_message_source": (9, 9),
     "mortgage_amortize": (10, 10),
+    "create_research_task": (8, 8),
+    "capability_search": (7, 7),
 }
 
 
@@ -85,6 +88,7 @@ _ALL_DESCRIBED_FNS = [
     calculate_interest, read_folder_file, start_workflow, list_workflows,
     approve_workflow_step, create_workflow_template, update_workflow_template,
     create_message_source, update_message_source, mortgage_amortize,
+    create_research_task, capability_search,
 ]
 
 
@@ -201,6 +205,7 @@ def test_schema_enums_match_model_choices() -> None:
     from apps.contracts.models.contract import ContractStatus, FeeMode
     from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
     from apps.finance.schemas.lpr_schemas import InterestCalculateRequest, MortgageAmortizeRequest
+    from apps.legal_research.schemas.legal_research_schemas import AgentSearchRequestV1, LegalResearchTaskCreateIn
     from apps.message_hub.models.message_source import SourceType
     from apps.workflow.models.run import WorkflowRun
     from apps.workflow.models.template import WorkflowTemplate
@@ -234,6 +239,9 @@ def test_schema_enums_match_model_choices() -> None:
         ("mortgage_amortize", "rate_mode"): _backend_literal(MortgageAmortizeRequest, "rate_mode"),
         ("mortgage_amortize", "lpr_type"): _backend_literal(MortgageAmortizeRequest, "lpr_type"),
         ("create_message_source", "source_type"): set(SourceType.values),
+        ("create_research_task", "search_mode"): _backend_literal(LegalResearchTaskCreateIn, "search_mode"),
+        ("capability_search", "intent"): _backend_literal(AgentSearchRequestV1, "intent"),
+        ("capability_search", "search_mode"): _backend_literal(AgentSearchRequestV1, "search_mode"),
         ("list_workflows", "status"): set(WorkflowRun.Status.values),
         ("create_workflow_template", "category"): set(WorkflowTemplate.Category.values),
         ("update_workflow_template", "category"): set(WorkflowTemplate.Category.values),
@@ -248,6 +256,8 @@ def test_schema_enums_match_model_choices() -> None:
         "calculate_interest": _schema_of(calculate_interest),
         "mortgage_amortize": _schema_of(mortgage_amortize),
         "create_message_source": _schema_of(create_message_source),
+        "create_research_task": _schema_of(create_research_task),
+        "capability_search": _schema_of(capability_search),
         # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
         "list_workflows": _registered_schema("list_workflows"),
         "create_workflow_template": _registered_schema("create_workflow_template"),
