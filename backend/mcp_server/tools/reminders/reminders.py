@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
+#: 与 apps/reminders/models.ReminderType 逐值对账(门禁 test_schema_param_descriptions)。
+#: 旧 docstring 曾建议 call/visit/letter——不是合法值,后端枚举直接 422。
+_ReminderTypeL = Literal[
+    "hearing",
+    "asset_preservation_expires",
+    "evidence_deadline",
+    "appeal_deadline",
+    "statute_limitations",
+    "payment_deadline",
+    "submission_deadline",
+    "other",
+]
+
 
 def list_all_reminders(
-    contract_id: int | None = None,
-    case_log_id: int | None = None,
-    limit: int = 20,
+    contract_id: Annotated[int | None, Field(description="按合同 ID 过滤", ge=1)] = None,
+    case_log_id: Annotated[int | None, Field(description="按案件日志 ID 过滤", ge=1)] = None,
+    limit: Annotated[int, Field(description="返回条数上限(提醒 ~0.72KB/条,默认 20 留在 20KB 截断线内)", ge=1, le=100)] = 20,
 ) -> dict[str, Any]:
     """查询提醒列表,可按 contract_id（合同ID）或 case_log_id（案件日志ID）过滤,
     都不传则返回可见范围全部（提醒 DTO 较肥,实测 ~0.72KB/条,默认截前 20 条
@@ -32,14 +47,18 @@ def get_reminder(reminder_id: int) -> dict[str, Any]:
 
 
 def create_new_reminder(
-    reminder_type: str,
-    content: str,
-    due_at: str,
-    contract_id: int | None = None,
-    case_log_id: int | None = None,
-    metadata: dict[str, Any] | None = None,
+    reminder_type: Annotated[_ReminderTypeL, Field(description="提醒类型:hearing 开庭/asset_preservation_expires 保全到期/evidence_deadline 举证到期/appeal_deadline 上诉期/statute_limitations 诉讼时效/payment_deadline 缴费期限/submission_deadline 补正材料提交/other 其他")],
+    content: Annotated[str, Field(description="提醒内容")],
+    due_at: Annotated[str, Field(description="到期时间,ISO 格式如 2026-03-15T10:00:00")],
+    contract_id: Annotated[int | None, Field(description="绑定合同 ID(contract/case/case_log 三者至多传一个)", ge=1)] = None,
+    case_log_id: Annotated[int | None, Field(description="绑定案件日志 ID(与 contract_id 互斥)", ge=1)] = None,
+    metadata: Annotated[dict[str, Any] | None, Field(description="附加信息字典(可选)")] = None,
 ) -> dict[str, Any]:
-    """创建提醒。due_at 为到期时间（ISO格式如 2026-03-15T10:00:00）；reminder_type 常用值：call（电话）、visit（上门）、letter（律师函）。"""
+    """创建提醒。due_at 为到期时间（ISO格式如 2026-03-15T10:00:00）。
+
+    reminder_type 是后端枚举（八值见参数描述;**没有** call/visit/letter）。
+    绑定目标 contract_id/case_log_id 至多传一个（后端互斥校验）。
+    """
     payload: dict[str, Any] = {
         "reminder_type": reminder_type,
         "content": content,

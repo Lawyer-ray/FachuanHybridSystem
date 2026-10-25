@@ -37,7 +37,7 @@ from apps.workflow.mcp.workflow_tools import (
     start_workflow,
     update_workflow_template,
 )
-from mcp_server.tools.cases.cases import list_cases, search_cases, update_case
+from mcp_server.tools.cases.cases import create_full_case, list_cases, search_cases, update_case
 from mcp_server.tools.clients.clients import create_client, list_clients, update_client
 from mcp_server.tools.contacts.contacts import create_contact, list_contacts, update_contact
 from mcp_server.tools.contract_review.review import confirm_party
@@ -46,12 +46,14 @@ from mcp_server.tools.contracts.folder_file import read_folder_file
 from mcp_server.tools.core.agent_attachments import read_agent_attachment
 from mcp_server.tools.documents.documents import create_document_template, list_document_templates
 from mcp_server.tools.documents.folder_template_ops import create_folder_template
+from mcp_server.tools.documents.litigation import generate_complaint, generate_defense
 from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
 from mcp_server.tools.finance.mortgage import mortgage_amortize
 from mcp_server.tools.legal_research.legal_research import capability_search, create_research_task
 from mcp_server.tools.message_hub.inbox import list_inbox_messages
 from mcp_server.tools.message_hub.sources import create_message_source, update_message_source
 from mcp_server.tools.organization.lawyers import create_lawyer, list_lawyers, update_lawyer
+from mcp_server.tools.reminders.reminders import create_new_reminder, list_all_reminders
 
 #: 已迁移到 schema 级参数描述的工具:名字 → (参数总数下界, 带描述数下界)
 _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
@@ -88,6 +90,11 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "list_document_templates": (4, 4),
     "create_document_template": (10, 10),
     "create_folder_template": (8, 8),
+    "generate_complaint": (6, 6),
+    "generate_defense": (6, 6),
+    "create_full_case": (6, 6),
+    "create_new_reminder": (6, 6),
+    "list_all_reminders": (3, 3),
 }
 
 
@@ -100,7 +107,8 @@ _ALL_DESCRIBED_FNS = [
     create_message_source, update_message_source, mortgage_amortize,
     create_research_task, capability_search, update_case, confirm_party,
     read_agent_attachment, list_document_templates, create_document_template,
-    create_folder_template,
+    create_folder_template, generate_complaint, generate_defense,
+    create_full_case, create_new_reminder, list_all_reminders,
 ]
 
 
@@ -221,6 +229,7 @@ def test_schema_enums_match_model_choices() -> None:
     from apps.finance.schemas.lpr_schemas import InterestCalculateRequest, MortgageAmortizeRequest
     from apps.legal_research.schemas.legal_research_schemas import AgentSearchRequestV1, LegalResearchTaskCreateIn
     from apps.message_hub.models.message_source import SourceType
+    from apps.reminders.models import ReminderType
     from apps.workflow.models.run import WorkflowRun
     from apps.workflow.models.template import WorkflowTemplate
     from mcp_server.tools.cases.cases import list_cases
@@ -264,6 +273,7 @@ def test_schema_enums_match_model_choices() -> None:
         ("create_document_template", "case_types"): set(DocumentCaseType.values),
         ("create_folder_template", "template_type"): set(DocumentTemplateType.values),
         ("create_folder_template", "case_types"): set(DocumentCaseType.values),
+        ("create_new_reminder", "reminder_type"): set(ReminderType.values),
         ("list_workflows", "status"): set(WorkflowRun.Status.values),
         ("create_workflow_template", "category"): set(WorkflowTemplate.Category.values),
         ("update_workflow_template", "category"): set(WorkflowTemplate.Category.values),
@@ -285,6 +295,8 @@ def test_schema_enums_match_model_choices() -> None:
         "list_document_templates": _schema_of(list_document_templates),
         "create_document_template": _schema_of(create_document_template),
         "create_folder_template": _schema_of(create_folder_template),
+        "create_full_case": _schema_of(create_full_case),
+        "create_new_reminder": _schema_of(create_new_reminder),
         # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
         "list_workflows": _registered_schema("list_workflows"),
         "create_workflow_template": _registered_schema("create_workflow_template"),

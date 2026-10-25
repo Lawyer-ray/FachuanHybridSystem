@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import base64
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import client
 
 
 def generate_complaint(
-    case_id: int,
-    cause_of_action: str,
-    plaintiff: str,
-    defendant: str,
-    litigation_request: str,
-    facts_and_reasons: str,
+    case_id: Annotated[int, Field(description="关联案件 ID", ge=1)],
+    cause_of_action: Annotated[str, Field(description="案由(如「机动车交通事故责任纠纷」)")],
+    plaintiff: Annotated[str, Field(description="原告名称(个人或单位全称)")],
+    defendant: Annotated[str, Field(description="被告名称")],
+    litigation_request: Annotated[str, Field(description="请判事项(逐项列明,含赔偿项与费用承担)")],
+    facts_and_reasons: Annotated[str, Field(description="纠纷经过与法律依据(案情叙事+支持请判事项的论证)")],
 ) -> dict[str, Any]:
     """生成起诉状（LLM 结构化链）。
 
@@ -41,12 +43,12 @@ def generate_complaint(
 
 
 def generate_defense(
-    case_id: int,
-    cause_of_action: str,
-    plaintiff: str,
-    defendant: str,
-    defense_opinion: str,
-    defense_reasons: str,
+    case_id: Annotated[int, Field(description="关联案件 ID", ge=1)],
+    cause_of_action: Annotated[str, Field(description="案由")],
+    plaintiff: Annotated[str, Field(description="原告名称")],
+    defendant: Annotated[str, Field(description="被告名称(本方为答辩人时的对方当事人按后端约定填写)")],
+    defense_opinion: Annotated[str, Field(description="答辩意见(核心主张,如「被告不应承担赔偿责任」)")],
+    defense_reasons: Annotated[str, Field(description="答辩理由(事实与法律依据)")],
 ) -> dict[str, Any]:
     """生成答辩状（LLM 结构化链）。
 

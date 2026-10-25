@@ -170,12 +170,12 @@ def delete_case(case_id: int) -> None:
 
 
 def create_full_case(
-    case: dict[str, Any],
-    parties: list[dict[str, Any]] | None = None,
-    assignments: list[dict[str, Any]] | None = None,
-    case_numbers: list[dict[str, Any]] | None = None,
-    supervising_authorities: list[dict[str, Any]] | None = None,
-    logs: list[dict[str, Any]] | None = None,
+    case: Annotated[dict[str, Any], Field(description="案件主体字段:必填 name;常用 case_type(civil/administrative/criminal/execution/bankruptcy)、target_amount、cause_of_action、status(active/closed)")],
+    parties: Annotated[list[dict[str, Any]] | None, Field(description="当事人列表(每项含 name/party_type 等)")] = None,
+    assignments: Annotated[list[dict[str, Any]] | None, Field(description="指派律师列表")] = None,
+    case_numbers: Annotated[list[dict[str, Any]] | None, Field(description="案号列表")] = None,
+    supervising_authorities: Annotated[list[dict[str, Any]] | None, Field(description="主管机关列表")] = None,
+    logs: Annotated[list[dict[str, Any]] | None, Field(description="进展日志列表")] = None,
 ) -> dict[str, Any]:
     """创建完整案件（一案落库 + 当事人/案号/指派等一次到位）。
 
