@@ -394,6 +394,135 @@ class TestTableFormatting:
         assert "||" not in result["text"]
 
 
+def _pdf_bytes(pages: list[str], title: str = "") -> bytes:
+    """用 pymupdf 生成真 PDF(测试自备证据,不依赖外网)。
+
+    内容用 ASCII 并逐行落位:内置字体渲染不了中文(会变「······」),且单条
+    insert_text 不换行、超宽部分不可提取。
+    """
+    import pymupdf
+
+    doc = pymupdf.open()
+    doc.set_metadata({"title": title} if title else {})
+    for body in pages:
+        page = doc.new_page()
+        for line_no, start in enumerate(range(0, len(body), 80), start=1):
+            page.insert_text((72, 60 + 12 * line_no), body[start : start + 80], fontsize=10)
+    return doc.tobytes()
+
+
+class TestPdfSupport:
+    """PDF 支持(2026-10-25 审计五十四轮)——判决书/通告链接常直接指 PDF;
+    此前 response.text 把二进制解成乱码还标 ok=true(%PDF-1.7 当正文喂模型)。"""
+
+    def test_pdf_extracts_text_with_injection_wrap(self, fake_http: Any) -> None:
+        pdf = _pdf_bytes(["JUDGMENT PAGE ONE body. " * 20, "JUDGMENT PAGE TWO body. " * 20], title="测试判决书")
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=pdf,
+                headers={"content-type": "application/pdf"},
+                request=httpx.Request("GET", "https://example.com/j.pdf"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/j.pdf")
+
+        assert result["ok"] is True
+        assert result["title"] == "测试判决书"
+        assert "JUDGMENT PAGE ONE" in result["text"]
+        # PDF 与网页同一注入攻击面——同一层包裹标注
+        assert "外部 PDF 文档抓取内容" in result["text"]
+        assert result["text"].rstrip().endswith("〔外部网页内容结束〕")
+
+    def test_pdf_windowing_and_next_index(self, fake_http: Any) -> None:
+        pdf = _pdf_bytes(["LONGDOC CONTENT. " * 800])
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=pdf,
+                headers={"content-type": "application/pdf"},
+                request=httpx.Request("GET", "https://example.com/long.pdf"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/long.pdf", max_chars=2000)
+
+        assert result["ok"] is True
+        assert result["truncated"] is True
+        assert result["next_index"] is not None
+        assert result["total_chars"] > 5000
+
+        # 续读从 next_index 起,不重不漏
+        second = _module().fetch_url("https://example.com/long.pdf", max_chars=2000, start_index=result["next_index"])
+        assert second["ok"] is True
+
+    def test_pdf_magic_overrides_wrong_content_type(self, fake_http: Any) -> None:
+        """站点给 PDF 配错 content-type(如 text/html)时,字节魔数兜底识别。"""
+        pdf = _pdf_bytes(["PLAIN TEXT ROW " * 100])
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=pdf,
+                headers={"content-type": "text/html"},
+                request=httpx.Request("GET", "https://example.com/oops.pdf"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/oops.pdf")
+
+        assert result["ok"] is True
+        assert "外部 PDF 文档抓取内容" in result["text"]
+
+    def test_scanned_pdf_reports_empty_with_hint(self, fake_http: Any) -> None:
+        """无文字 PDF(扫描件形态):能打开但提不出字,如实给 empty_pdf + OCR 提示。"""
+        pdf = _pdf_bytes([""])
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=pdf,
+                headers={"content-type": "application/pdf"},
+                request=httpx.Request("GET", "https://example.com/scan.pdf"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/scan.pdf")
+
+        assert result["ok"] is False
+        assert result["reason"] == "empty_pdf"
+        assert "扫描" in result["message"]
+
+    def test_corrupt_pdf_reports_parse_error(self, fake_http: Any) -> None:
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=b"definitely not a pdf",
+                headers={"content-type": "application/pdf"},
+                request=httpx.Request("GET", "https://example.com/bad.pdf"),
+            ),
+        )
+
+        result = _module().fetch_url("https://example.com/bad.pdf")
+
+        assert result["ok"] is False
+        assert result["reason"] == "pdf_parse_error"
+
+    def test_html_without_pdf_magic_not_treated_as_pdf(self, fake_http: Any) -> None:
+        """普通网页不受 PDF 分支影响(content-type 与魔数都不是 PDF)。"""
+        html = "<html><body>" + "普通网页正文 " * 300 + "</body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/page")
+
+        assert result["ok"] is True
+        assert "外部网页抓取内容" in result["text"]
+
+
 class TestRedirectFallback:
     def test_redirect_target_failure_still_reports(self, fake_http: Any) -> None:
         """解析到真实地址但抓取失败时，不能静默当成成功。"""
