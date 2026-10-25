@@ -1,4 +1,5 @@
-import { FileText, Plus } from 'lucide-react'
+import { ChevronRight, FileText, Plus } from 'lucide-react'
+import { useState } from 'react'
 
 import { FileKindBadge } from './FileKindBadge'
 
@@ -26,8 +27,10 @@ export interface ServiceItem {
   detail?: string
   /** 交付物（文件名 + 定位信息），点击就地预览 */
   deliverable?: { subpath: string; name: string }
-  /** 事项自己的目录（来自文件夹扫描时给出），用于「打开事项文件夹」 */
+  /** 事项自己的目录（来自文件夹扫描时给出），用于展开取交付物 */
   subpath?: string
+  /** 该事项目录下的交付物数量；undefined = 未统计（尚未展开过） */
+  fileCount?: number
   /** 状态 */
   status: 'done' | 'doing' | 'todo'
 }
@@ -43,20 +46,133 @@ const STATUS_CLS: Record<ServiceItem['status'], string> = {
   todo: 'text-muted-foreground/60',
 }
 
+/** 单行：事项 + 可展开的交付物清单 */
+function ItemRow({
+  it,
+  loadFiles,
+  onOpenDeliverable,
+}: {
+  it: ServiceItem
+  loadFiles?: (subpath: string) => Promise<Array<{ name: string; subpath: string; size: number }>>
+  onOpenDeliverable?: (f: { subpath: string; name: string }) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [files, setFiles] = useState<Array<{ name: string; subpath: string; size: number }> | null>(null)
+  const [loading, setLoading] = useState(false)
+  const expandable = !!loadFiles && !!it.subpath && (it.fileCount ?? 0) > 0
+
+  const toggle = async () => {
+    if (!expandable || !loadFiles || !it.subpath) return
+    if (open) {
+      setOpen(false)
+      return
+    }
+    setOpen(true)
+    if (files) return
+    setLoading(true)
+    try {
+      setFiles(await loadFiles(it.subpath))
+    } catch {
+      setFiles([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <tr
+        className={
+          'border-t border-border-light ' +
+          (expandable ? 'cursor-pointer hover:bg-secondary/40' : 'hover:bg-secondary/20')
+        }
+        onClick={() => void toggle()}
+      >
+        <td
+          className={
+            'px-5 py-2.5 align-baseline text-[12.5px] tabular-nums ' +
+            (it.today ? 'font-[650] text-status-red' : 'text-muted-foreground')
+          }
+        >
+          {it.date ? it.date.slice(5) : '—'}
+          {it.today && <div className="text-[10.5px]">今天</div>}
+        </td>
+        <td className="py-2.5 align-baseline">
+          <span className="whitespace-nowrap rounded-[5px] border border-border bg-secondary px-1.5 py-[1px] text-[10.5px] font-[620] text-secondary-foreground">
+            {it.kind}
+          </span>
+        </td>
+        <td className="py-2.5 align-baseline">
+          <div className="flex items-center gap-1 font-[620]">
+            {expandable && (
+              <ChevronRight
+                className={'size-3 flex-none text-muted-foreground transition-transform ' + (open ? 'rotate-90' : '')}
+              />
+            )}
+            {it.title}
+          </div>
+          {it.detail && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{it.detail}</div>}
+        </td>
+        <td className="py-2.5 align-baseline">
+          {it.fileCount ? (
+            <span className="text-[12px] text-secondary-foreground">{it.fileCount} 个文件</span>
+          ) : (
+            <span className="text-[11.5px] text-muted-foreground/50">—</span>
+          )}
+        </td>
+        <td className={'px-5 py-2.5 text-right align-baseline text-[11.5px] font-[600] ' + STATUS_CLS[it.status]}>
+          {STATUS_LABEL[it.status]}
+        </td>
+      </tr>
+
+      {open && (
+        <tr className="border-t border-border-light bg-secondary/20">
+          <td />
+          <td colSpan={4} className="py-2 pr-5">
+            {loading ? (
+              <span className="text-[11.5px] text-muted-foreground">读取交付物…</span>
+            ) : files && files.length > 0 ? (
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {files.map((f) => (
+                  <button
+                    key={f.subpath}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenDeliverable?.({ subpath: f.subpath, name: f.name })
+                    }}
+                    className="inline-flex max-w-[320px] items-center gap-1.5 text-left text-[12px] text-secondary-foreground transition-colors hover:text-foreground"
+                    title={f.name}
+                  >
+                    <FileKindBadge name={f.name} />
+                    <span className="truncate underline decoration-border underline-offset-[3px]">{f.name}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="text-[11.5px] text-muted-foreground">该事项下没有文件（只有子目录或为空）</span>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
 export function ServiceItemStream({
   items,
   note,
-  onOpenFile,
   onAdd,
   sourceSubpath,
   candidates,
   onChangeSource,
   isLoading,
+  loadFiles,
+  onOpenDeliverable,
 }: {
   items: ServiceItem[]
   /** 表尾说明（服务期范围等） */
   note?: string
-  onOpenFile?: (f: { subpath: string; name: string }) => void
   onAdd?: () => void
   /** 当前读的事项源目录（自动识别出来的「办案」或用户指定的） */
   sourceSubpath?: string | null
@@ -65,6 +181,15 @@ export function ServiceItemStream({
   /** 换一个事项源目录；传 null 表示回到自动识别 */
   onChangeSource?: (subpath: string | null) => void
   isLoading?: boolean
+  /**
+   * 展开某事项时取交付物（懒加载）。不传则事项行不可展开。
+   *
+   * 做成回调而不是一次性全量预取：一份顾问合同常有 30+ 事项，全取就是
+   * 30 次目录扫描；真正会被展开的通常只有一两个。
+   */
+  loadFiles?: (subpath: string) => Promise<Array<{ name: string; subpath: string; size: number }>>
+  /** 点交付物文件 → 就地预览 */
+  onOpenDeliverable?: (f: { subpath: string; name: string }) => void
 }) {
   return (
     <div className="rounded-[12px] border border-border bg-card shadow-sm">
@@ -130,46 +255,7 @@ export function ServiceItemStream({
           </thead>
           <tbody>
             {items.map((it, i) => (
-              <tr key={`${it.date}-${i}`} className="border-t border-border-light hover:bg-secondary/40">
-                <td
-                  className={
-                    'px-5 py-2.5 align-baseline text-[12.5px] tabular-nums ' +
-                    (it.today ? 'font-[650] text-status-red' : 'text-muted-foreground')
-                  }
-                >
-                  {it.date.slice(5)}
-                  {it.today && <div className="text-[10.5px]">今天</div>}
-                </td>
-                <td className="py-2.5 align-baseline">
-                  <span className="whitespace-nowrap rounded-[5px] border border-border bg-secondary px-1.5 py-[1px] text-[10.5px] font-[620] text-secondary-foreground">
-                    {it.kind}
-                  </span>
-                </td>
-                <td className="py-2.5 align-baseline">
-                  <div className="font-[620]">{it.title}</div>
-                  {it.detail && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{it.detail}</div>}
-                </td>
-                <td className="py-2.5 align-baseline">
-                  {it.deliverable ? (
-                    <button
-                      type="button"
-                      onClick={() => onOpenFile?.(it.deliverable!)}
-                      className="inline-flex max-w-full items-center gap-1.5 text-left text-[12px] text-secondary-foreground transition-colors hover:text-foreground"
-                      title={it.deliverable.name}
-                    >
-                      <FileKindBadge name={it.deliverable.name} />
-                      <span className="truncate underline decoration-border underline-offset-[3px]">
-                        {it.deliverable.name}
-                      </span>
-                    </button>
-                  ) : (
-                    <span className="text-[11.5px] text-muted-foreground/50">—</span>
-                  )}
-                </td>
-                <td className={'px-5 py-2.5 text-right align-baseline text-[11.5px] font-[600] ' + STATUS_CLS[it.status]}>
-                  {STATUS_LABEL[it.status]}
-                </td>
-              </tr>
+              <ItemRow key={`${it.date}-${i}`} it={it} loadFiles={loadFiles} onOpenDeliverable={onOpenDeliverable} />
             ))}
           </tbody>
         </table>

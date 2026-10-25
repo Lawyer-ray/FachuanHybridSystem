@@ -69,17 +69,23 @@ export function useServiceItems(
         if (b.date) return 1
         return a.title.localeCompare(b.title, 'zh')
       })
-      .map<ServiceItem>(({ kid, date, title }) => ({
-        date,
-        kind: '办案',
-        title,
-        // 目录原名带编号与日期，排查时有用（律师改过名字也能对上）
-        detail: kid.name,
-        subpath: kid.subpath,
-        // 完成状态暂以「有没有日期」判断：有计划日期的视为已发生。
-        // 真正的交付状态需要事项层有文件才可靠，见下方 note。
-        status: date ? 'done' : 'todo',
-      }))
+      .map<ServiceItem>(({ kid, date, title }) => {
+        // 交付状态看事项目录里**有没有文件**（后端在列目录时顺手算了 file_count）：
+        // 空目录 = 事情还没产出东西 → 待办/进行中。比「有没有日期」可靠得多——
+        // 日期只说明计划过，文件才说明做完了。
+        const n = kid.file_count ?? 0
+        const status: ServiceItem['status'] = n > 0 ? 'done' : date ? 'doing' : 'todo'
+        return {
+          date,
+          kind: '办案',
+          title,
+          // 目录原名带编号与日期，排查时有用（律师改过名字也能对上）
+          detail: kid.name,
+          subpath: kid.subpath,
+          fileCount: n,
+          status,
+        }
+      })
   }, [autoSource, itemsQuery.data])
 
   return {

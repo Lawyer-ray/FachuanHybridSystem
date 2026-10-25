@@ -119,7 +119,7 @@ export type FolderEntries = {
   path_display: string
   subpath: string
   parent_subpath: string
-  folders: Array<{ name: string; subpath: string }>
+  folders: Array<{ name: string; subpath: string; file_count?: number }>
   files: Array<{ name: string; subpath: string; size: number; modified_at: string }>
 }
 

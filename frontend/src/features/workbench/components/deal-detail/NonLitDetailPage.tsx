@@ -8,6 +8,7 @@ import { ContractFileOverlays } from './ContractFileOverlays'
 import { FilePreviewCard } from './FilePreviewCard'
 import { ServiceItemStream } from './ServiceItemStream'
 import { useServiceItems } from './use-service-items'
+import { listFolderEntries } from '../../api'
 import { TermBar } from './TermBar'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { Card, DetailError } from './ui'
@@ -123,7 +124,10 @@ export function NonLitDetailPage() {
                 ? `本服务期 ${deal.from} 至 ${deal.to} 内的服务事项与交付物`
                 : '本服务期内的服务事项与交付物'
             }
-            onOpenFile={(f: { subpath: string; name: string }) => setPicked(f)}
+            loadFiles={(subpath) =>
+              listFolderEntries('contract', deal.id, subpath).then((r) => r.files ?? [])
+            }
+            onOpenDeliverable={(f) => setPicked(f)}
             onAdd={() => soonToast('记服务事项')}
           />
 

@@ -19,6 +19,8 @@ class ContractFolderSubfolderOut(Schema):
     """绑定根下的相对路径（posix，不含开头斜杠），下钻时原样回传"""
 
     subpath: str
+    """子目录下**一层**文件数；前端据此判断常法「服务事项是否已交付」"""
+    file_count: int = 0
 
 
 class ContractFolderFileOut(Schema):

@@ -31,6 +31,19 @@ from apps.core.filesystem.path_validator import FolderPathValidator
 logger = logging.getLogger("apps.core.filesystem")
 
 
+def _count_child_files(path: Path) -> int:
+    """统计目录下**一层**文件数（不递归、跳隐藏文件）。
+
+    只扫一层：事项目录的更深层是它自己的附件目录，递归既慢又可能踩到
+    巨大的归档目录；「有没有交付物」看一层就够。
+    """
+    try:
+        return sum(1 for c in path.iterdir() if c.is_file() and not c.name.startswith("."))
+    except OSError:
+        # 权限不足 / 文件已删：按 0 处理，不让整个列表接口失败
+        return 0
+
+
 class BoundFolderBrowseService:
     """本地绑定文件夹的只读浏览（列目录 / 预览）与轻量管理（新建 / 上传 / 重命名）。"""
 
@@ -83,7 +96,16 @@ class BoundFolderBrowseService:
             if child.name.startswith("."):
                 continue
             if child.is_dir():
-                folders.append({"name": child.name, "subpath": self._subpath_of(root, child)})
+                folders.append(
+                    {
+                        "name": child.name,
+                        "subpath": self._subpath_of(root, child),
+                        # 子目录下的文件数（不含子目录）：常法页据它判断「事项是否已交付」。
+                        # 在这里顺手算而不是让前端逐个请求——30 个事项就是 30 次往返；
+                        # 而这层 iterdir 已经在跑，多一次浅扫的代价远小于网络开销。
+                        "file_count": _count_child_files(child),
+                    }
+                )
             elif child.is_file():
                 stat = child.stat()
                 files.append(
