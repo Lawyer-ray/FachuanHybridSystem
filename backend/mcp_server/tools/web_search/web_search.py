@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -70,6 +72,34 @@ class _SearchResult:
     url: str
     snippet: str
     source: str = ""
+    freshness: str = ""
+
+
+#: cite-date 的两种真实形态(2026-10-25 线上实测):绝对日期 ``2023-03-02``
+#: 与相对时间 ``13小时前``。相对时间必须换算成绝对日期再给模型——模型
+#: 不知道「现在」是哪天,拿到「3天前」无法判断法条/司法解释的新旧。
+_CITE_ABSOLUTE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+_CITE_DAYS_AGO = re.compile(r"(\d+)\s*天前")
+_CITE_HOURS_AGO = re.compile(r"(\d+)\s*(?:小时|分钟)前")
+
+
+def _extract_freshness(item: Any, today: date | None = None) -> str:
+    """cite-date → 绝对日期字符串(YYYY-MM-DD);认不出返回空串。
+
+    绝对日期原样透传;「N天前」按当天倒推,「N小时前/N分钟前/刚刚」算今天。
+    """
+    node = item.select_one(".cite-date")
+    if node is None:
+        return ""
+    text = node.get_text(strip=True)
+    if match := _CITE_ABSOLUTE.search(text):
+        return match.group(1)
+    now = today or date.today()
+    if match := _CITE_DAYS_AGO.fullmatch(text):
+        return (now - timedelta(days=int(match.group(1)))).isoformat()
+    if _CITE_HOURS_AGO.fullmatch(text) or text in {"刚刚", "刚才"}:
+        return now.isoformat()
+    return ""
 
 
 def _extract_source(item: Any) -> str:
@@ -116,7 +146,15 @@ def _parse_results(html: str, max_results: int) -> list[_SearchResult]:
                     break
 
         if title:
-            results.append(_SearchResult(title=title, url=url, snippet=snippet, source=_extract_source(item)))
+            results.append(
+                _SearchResult(
+                    title=title,
+                    url=url,
+                    snippet=snippet,
+                    source=_extract_source(item),
+                    freshness=_extract_freshness(item),
+                )
+            )
 
     return results
 
@@ -191,7 +229,10 @@ def _do_search(query: str, max_results: int, page: int = 1) -> str:
         if r.url:
             lines.append(f"   链接: {r.url}")
         if r.source:
-            lines.append(f"   来源: {r.source}")
+            date_suffix = f" · {r.freshness}" if r.freshness else ""
+            lines.append(f"   来源: {r.source}{date_suffix}")
+        elif r.freshness:
+            lines.append(f"   时间: {r.freshness}")
         if r.snippet:
             lines.append(f"   摘要: {r.snippet}")
         lines.append("")

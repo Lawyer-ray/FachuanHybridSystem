@@ -325,6 +325,81 @@ class TestNetworkHardening:
         assert "响应体过大" in result
 
 
+class TestFreshnessDates:
+    """结果时间换算(2026-10-25 审计六十九轮)——搜狗 cite-date 有绝对日期
+    (2023-03-02)与相对时间(13小时前)两种形态;相对时间必须换算成绝对日期,
+    模型不知道「现在」是哪天,拿到「3天前」无法判断法条/司法解释新旧。"""
+
+    @staticmethod
+    def _item_with_date(cite_date: str | None) -> Any:
+        from bs4 import BeautifulSoup
+
+        date_html = f"<span class='cite-date'>{cite_date}</span>" if cite_date else ""
+        soup = BeautifulSoup(
+            "<html><body><div class='vrwrap'><h3><a href='/link?url=x'>标题</a></h3>"
+            f"<div class='space-txt'>摘要</div>{date_html}</div></body></html>",
+            "html.parser",
+        )
+        return soup.select_one(".vrwrap")
+
+    def test_absolute_date_passed_through(self) -> None:
+        from datetime import date
+
+        module = _web_search_module()
+
+        assert module._extract_freshness(self._item_with_date("2023-03-02"), date(2026, 10, 25)) == "2023-03-02"
+
+    def test_days_ago_converted_to_absolute(self) -> None:
+        from datetime import date
+
+        module = _web_search_module()
+
+        got = module._extract_freshness(self._item_with_date("3天前"), date(2026, 10, 25))
+
+        assert got == "2026-10-22"
+
+    def test_hours_ago_is_today(self) -> None:
+        from datetime import date
+
+        module = _web_search_module()
+
+        hours = module._extract_freshness(self._item_with_date("13小时前"), date(2026, 10, 25))
+        minutes = module._extract_freshness(self._item_with_date("45分钟前"), date(2026, 10, 25))
+        just_now = module._extract_freshness(self._item_with_date("刚刚"), date(2026, 10, 25))
+
+        assert hours == minutes == just_now == "2026-10-25"
+
+    def test_unrecognized_or_missing_returns_empty(self) -> None:
+        module = _web_search_module()
+
+        assert module._extract_freshness(self._item_with_date("其他文字"), None) == ""
+        assert module._extract_freshness(self._item_with_date(None), None) == ""
+
+    def test_date_rendered_in_source_line(self) -> None:
+        import asyncio
+
+        module = _web_search_module()
+        html = (
+            "<html><body><div class='vrwrap'><h3><a href='/link?url=x'>标题</a></h3>"
+            "<div class='space-txt'>摘要</div>"
+            "<a class='citeLinkClass'><span>最高人民法院</span>"
+            "<span>https://www.court.gov.cn/a</span><span class='cite-date'>2024-08-20</span></a>"
+            "</div></body></html>"
+        )
+        response = httpx.Response(
+            200,
+            content=html.encode(),
+            request=httpx.Request("GET", "https://www.sogou.com/web"),
+        )
+        module._last_requests.clear()
+        with mock.patch.object(module.httpx, "Client") as patched:
+            instance = patched.return_value.__enter__.return_value
+            instance.get.return_value = response
+            result = asyncio.run(module.web_search("测试", 5))
+
+        assert "来源: 最高人民法院（www.court.gov.cn） · 2024-08-20" in result
+
+
 class TestResultSourceInfo:
     """结果来源站点(2026-10-25 审计五十八轮)——搜狗 citeLinkClass 带真实
     站点名+域名,提取到结果行让模型不抓原文就能评估来源权威性并正确引用。"""
