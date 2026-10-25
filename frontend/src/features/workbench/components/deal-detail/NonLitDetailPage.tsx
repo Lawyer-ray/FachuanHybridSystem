@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
@@ -6,7 +6,8 @@ import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { ContractFileOverlays } from './ContractFileOverlays'
 import { FilePreviewCard } from './FilePreviewCard'
-import { FolderTree } from './FolderTree'
+import { ServiceItemStream, type ServiceItem } from './ServiceItemStream'
+import { TermBar } from './TermBar'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { Card, DetailError } from './ui'
 
@@ -25,12 +26,36 @@ export function NonLitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { valid, d, deal, deadlines, contacts, money, next } = useDealDetailPage(id)
   const [searchParams, setSearchParams] = useSearchParams()
+  /** 今天（yyyy-mm-dd）：服务期条与「今天」高亮共用，跨天刷新时只改这一处 */
+  const todayStr = useMemo(() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+  }, [])
   /** 正在发起审查的文件（null = 抽屉关闭） */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
   /** 右栏页内预览的文件（null = 未选中）；高频「看一眼」不写 URL、不堆历史 */
   const [picked, setPicked] = useState<
     { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
   >(null)
+  /**
+   * 服务事项流的数据源。
+   *
+   * 现阶段由两处合成：**期限**（已有真实数据）与**合同文件夹里的文件**
+   * （交付物的直观来源）。后端「服务事项」表尚未建，等它到位后只需把这里
+   * 换成接口数据，下面的渲染与时间轴联动不用改。
+   */
+  const serviceItems = useMemo<ServiceItem[]>(() => {
+    const items: ServiceItem[] = deadlines.map((dl) => ({
+      date: dl.due,
+      today: dl.today,
+      kind: dl.typeLabel || '期限',
+      title: dl.content,
+      detail: dl.scope,
+      status: dl.today ? 'doing' : 'todo',
+    }))
+    return items.sort((a, b) => b.date.localeCompare(a.date))
+  }, [deadlines])
+
   const openPreview = useCallback(
     (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
       setPicked(f)
@@ -74,37 +99,38 @@ export function NonLitDetailPage() {
     <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1900px]:max-w-[1560px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader deal={deal} onAddDue={() => soonToast('新增期限')} onAddLog={() => soonToast('记办案日志')} />
 
-      {/* 右栏宽度随「是否在预览」切换：平时 400px 放事实卡；一旦选中文件就
-          扩到 780px，让 OnlyOffice 有足够宽度渲染 A4 正文。窄栏里预览只看得到
-          半行字，等于没预览——可读性优先于版面恒定。 */}
+      {/* 服务期条：与下方服务事项流联动（事项按日落在轴上）。
+          常法页最该回答「还剩多久、这一年忙不忙」，纯日期文字要读两遍才反应过来。 */}
+      {deal.from && deal.to && (
+        <div className="mb-[18px]">
+          <TermBar from={deal.from} to={deal.to} today={todayStr} eventDates={serviceItems.map((i) => i.date)} />
+        </div>
+      )}
+
+      {/* 左宽右窄（53 号原型）：左栏 = 服务事项流（本年度做了什么），
+          右栏 = 合同要素 + 合同文件夹 + 预览。
+          事项与文件夹不再是两套东西——文件夹是「交付物放在哪」，事项是
+          「哪天为什么产生了它」，左栏看节奏、右栏取文件。 */}
       <div
         className={
-          'grid items-start gap-[18px] max-[1024px]:grid-cols-1 ' +
+          'grid items-start gap-[18px] max-[1100px]:grid-cols-1 ' +
           (picked
-            ? 'grid-cols-[minmax(0,1fr)_minmax(520px,780px)]'
-            : 'grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px]')
+            ? 'grid-cols-[minmax(0,1fr)_minmax(520px,760px)]'
+            : 'grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px]')
         }
       >
-        {/* 左：非诉的「工作」= 合同文件夹（客户送回审的合同都在里面） */}
+        {/* 左：服务事项流（本年度） */}
         <div className="min-w-0 space-y-[18px]">
-          <Card>
-            <div className="flex items-center gap-2 border-b border-border-light px-[18px] py-[13px]">
-              <span className="text-[12.5px] font-[650]">合同文件夹</span>
-              <span className="text-[11px] text-muted-foreground">
-                点一份在右栏预览 · 双击或「打开编辑器」改
-              </span>
-            </div>
-            <div className="px-[18px] py-3">
-              <FolderTree
-                kind="contract"
-                ownerId={deal.id}
-                maxH="max-h-[620px]"
-                selectedSubpath={picked?.subpath ?? null}
-                onOpenFile={openPreview}
-                onReviewFile={(f) => setReviewTarget(f)}
-              />
-            </div>
-          </Card>
+          <ServiceItemStream
+            items={serviceItems}
+            note={
+              deal.from && deal.to
+                ? `本服务期 ${deal.from} 至 ${deal.to} 内的服务事项与交付物`
+                : '本服务期内的服务事项与交付物'
+            }
+            onOpenFile={(f: { subpath: string; name: string }) => setPicked(f)}
+            onAdd={() => soonToast('记服务事项')}
+          />
 
           {next && (
             <Card>
@@ -122,8 +148,7 @@ export function NonLitDetailPage() {
           )}
         </div>
 
-        {/* 右：预览时预览独占（sticky 满高）；否则是与诉讼页共用的事实卡。
-            showFolder=false：文件夹是左栏主角，右栏不再画第二棵同样的树。 */}
+        {/* 右：预览（选中时置顶）+ 合同要素/文件夹/事实卡 */}
         <div className="min-w-0 space-y-[18px]">
           {picked && (
             <div className="sticky top-[70px] flex h-[calc(100vh-100px)] min-h-[520px] flex-col">
@@ -145,7 +170,11 @@ export function NonLitDetailPage() {
             team={deal.team ?? []}
             deal={deal}
             moneyRows={money}
-            showFolder={false}
+            showFolder
+            folderOwnerId={deal.id}
+            folderSelectedSubpath={picked?.subpath ?? null}
+            onOpenFile={openPreview}
+            onReviewFile={(f) => setReviewTarget(f)}
             onAddDue={() => soonToast('新增期限')}
             onAddPayment={() => soonToast('记收款')}
           />

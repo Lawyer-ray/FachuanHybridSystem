@@ -28,6 +28,8 @@ export function DetailRail({
   onOpenFile,
   onReviewFile,
   folderPreview,
+  folderOwnerId,
+  folderSelectedSubpath,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -51,6 +53,10 @@ export function DetailRail({
   onReviewFile?: (f: { subpath: string; name: string }) => void
   /** 渲染在文件夹树上方的预览卡（由调用方给出，保持本组件不依赖 OnlyOffice） */
   folderPreview?: ReactNode
+  /** 文件夹绑定的合同 id（默认用 deal.id；独立传是为了让调用方能绑定到别的委托） */
+  folderOwnerId?: number
+  /** 当前预览中的 subpath：让树里那一行高亮，知道「看的就是这份」 */
+  folderSelectedSubpath?: string | null
 }) {
   const copy = (text: string) => {
     void copyText(text).then(() => toast.success('已复制'))
@@ -168,9 +174,10 @@ export function DetailRail({
           {folderPreview}
           <FolderTree
             kind="contract"
-            ownerId={deal.id}
-            maxH="max-h-[320px]"
+            ownerId={folderOwnerId ?? deal.id}
+            maxH="max-h-[420px]"
             title="合同文件夹"
+            selectedSubpath={folderSelectedSubpath ?? null}
             onOpenFile={onOpenFile}
             onReviewFile={onReviewFile}
           />
