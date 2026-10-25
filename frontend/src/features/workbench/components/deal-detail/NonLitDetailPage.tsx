@@ -88,7 +88,7 @@ export function NonLitDetailPage() {
   // 预览走整页替换（不开遮罩）：看合同需要宽度，半透明黑遮罩压在列表上又脏。
   // 由 URL 的 ?file= 驱动，刷新 / 后退 / 分享都能回到同一份。
   return (
-    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1900px]:max-w-[1560px] max-[680px]:px-3 max-[680px]:pt-4">
+    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader deal={deal} onAddDue={() => soonToast('新增期限')} onAddLog={() => soonToast('记办案日志')} />
 
       {/* 服务期条：与下方服务事项流联动（事项按日落在轴上）。
@@ -112,8 +112,10 @@ export function NonLitDetailPage() {
         className={
           'grid items-start gap-[18px] max-[1100px]:grid-cols-1 ' +
           (picked
-            ? 'grid-cols-[minmax(0,1fr)_minmax(520px,760px)]'
-            : 'grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px]')
+            ? // 预览时右栏吃更多宽度：OnlyOffice 渲染 A4 需要横向空间，
+              // 宽屏下给它 900 而不是卡在 760，正文才不用缩到看不清
+              'grid-cols-[minmax(0,1fr)_minmax(520px,760px)] min-[1900px]:grid-cols-[minmax(0,1fr)_minmax(720px,900px)] min-[2400px]:grid-cols-[minmax(0,1fr)_minmax(820px,1040px)]'
+            : 'grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px] min-[2400px]:grid-cols-[minmax(0,1fr)_440px]')
         }
       >
         {/* 左：服务事项流（本年度） */}

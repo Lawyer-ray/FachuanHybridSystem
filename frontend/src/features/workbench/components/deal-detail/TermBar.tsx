@@ -41,7 +41,7 @@ export function TermBar({
   return (
     <div className="rounded-[12px] border border-border bg-card px-5 pb-4 pt-3.5 shadow-sm">
       <div className="mb-2.5 flex items-baseline gap-2.5">
-        <b className="text-[14px] font-[680]">服务期</b>
+        <b className="text-[14px] font-[680] min-[1900px]:text-[15px]">服务期</b>
         <span className="text-[12px] tabular-nums text-muted-foreground">
           {t.start} → {t.end}
         </span>
@@ -52,7 +52,7 @@ export function TermBar({
       </div>
 
       {/* 轴：底轨 + 已流逝 + 预警区 + 事项刻度 + 今天标记 */}
-      <div className="relative h-[8px] rounded-full bg-secondary" role="img"
+      <div className="relative h-[8px] rounded-full bg-secondary min-[1900px]:h-[10px] min-[2400px]:h-[12px]" role="img"
         aria-label={`服务期 ${t.start} 至 ${t.end}，${termHeadline(t.daysLeft)}`}
       >
         <span
@@ -79,7 +79,7 @@ export function TermBar({
           <span
             key={tick.ratio}
             className={
-              'absolute top-1/2 size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-card ' +
+              'absolute top-1/2 size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-card min-[1900px]:size-[9px] ' +
               (tick.today ? 'bg-status-red' : 'bg-foreground/45')
             }
             style={{ left: `${tick.ratio * 100}%` }}
@@ -96,7 +96,7 @@ export function TermBar({
         )}
       </div>
 
-      <div className="relative mt-1.5 flex justify-between text-[11px] tabular-nums text-muted-foreground/70">
+      <div className="relative mt-1.5 flex justify-between text-[11px] tabular-nums text-muted-foreground/70 min-[1900px]:text-[11.5px]">
         <span>{t.start}</span>
         {t.ticks.length > 0 && (
           <span className="text-muted-foreground">
