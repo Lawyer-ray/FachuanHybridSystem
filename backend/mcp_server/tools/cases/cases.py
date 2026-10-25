@@ -59,15 +59,21 @@ def list_cases(
     return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=full), limit=limit)
 
 
-def search_cases(q: str, limit: int = 10, fields: list[str] | None = None) -> dict[str, Any]:
+def search_cases(q: str, limit: int = 10, offset: int = 0, fields: list[str] | None = None) -> dict[str, Any]:
     """按关键词搜索案件，支持案件名称、当事人姓名等模糊搜索。
 
     搜索端点返回**未投影的全量嵌套 DTO**（实测 ~12.5KB/条——含当事人/日志
     等 7 组关系,10 条就能 137KB）,这里与 ``list_cases`` 同款套精简投影
     （14 字段）;要完整结构请拿 id 调 ``get_case``。
-    limit+1 探测:truncated=True 时 total 是下界(可能还有更多)。
+    limit+1 探测:truncated=True 时 total 是下界,用 offset 续取。
+
+    Args:
+        q: 搜索关键词(案件名/当事人姓名/案号)。
+        limit: 最多返回条数(默认 10)。
+        offset: 跳过前 offset 条再取——续取翻页用。
+        fields: 只返回这些字段;不传用默认投影。
     """
-    rows = client.get("/cases/cases/search", params={"q": q, "limit": limit + 1})
+    rows = client.get("/cases/cases/search", params={"q": q, "limit": limit + 1, "offset": offset})
     return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=False), limit=limit)
 
 

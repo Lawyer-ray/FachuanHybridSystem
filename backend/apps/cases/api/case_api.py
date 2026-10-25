@@ -59,8 +59,9 @@ async def search_cases(  # pragma: no cover
     request: HttpRequest,
     q: str,
     limit: int | None = 10,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """搜索案件"""
+    """搜索案件(offset 供 MCP 信封 truncated=true 时续取,不传行为不变)"""
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
@@ -69,6 +70,7 @@ async def search_cases(  # pragma: no cover
             service.search_cases(
                 query=q,
                 limit=limit,  # type: ignore[arg-type]
+                offset=offset,
                 user=ctx.user,
                 org_access=ctx.org_access,
                 perm_open_access=ctx.perm_open_access,
