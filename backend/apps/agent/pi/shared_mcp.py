@@ -264,32 +264,7 @@ def write_pi_config(
     # 律师本人身份调 REST API（confused deputy 修复，见 ``pi/user_token.py``）。
     # token 缺失时展开为空，mcp_server 回退服务账号（stdio/手工场景）。
     config_path = root / "mcp.json"
-    exposure = resolve_exposure()
-    if shared_enabled():
-        server: dict[str, Any] = {
-            "type": "streamable-http",
-            "url": resolved.url,
-            "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
-            # pi 默认 exposure=codemode：MCP 工具不声明给模型（只能经
-            # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
-            # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；
-            # 按需加载的灰度实验见 resolve_exposure / FACHUAN_MCP_EXPOSURE。
-            "exposure": exposure,
-            # pi 每请求默认 60s 超时，会先于 client 侧 LLM 链路工具的 180s
-            # （见 tools/documents/litigation.py 等 12 处 timeout=180）掐断——
-            # 双端超时必须 pi > client，否则 client 的努力全部作废。200 给
-            # 传输层留余量；工具发 progress notifications 可重置该计时。
-            "timeout": 200,
-        }
-    else:
-        server = {
-            "command": _python_bin(),
-            "args": ["-m", "mcp_server"],
-            "cwd": str(_backend_dir()),
-            # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
-            "exposure": exposure,
-            "timeout": 200,
-        }
+    server = _build_server_entry(resolved, USER_TOKEN_ENV)
     config_path.write_text(
         json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -339,6 +314,17 @@ def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Pat
         "defaultProvider": provider_name,
         "defaultModel": model_id,
         "images": {"blockImages": False},
+        # compaction：pi 默认 ``reserveTokens=16384`` / ``keepRecentTokens=20000``。
+        # 对 128K 窗口来说 reserve 占 12.8%，意味着上下文用到 ~87% 才开始压，
+        # 压完剩下的余量刚好够几个工具循环——一旦某轮工具返回大 JSON 就溢出、
+        # 触发 compact-and-retry，用户看到的是「卡一下又继续」。
+        # 显式写成比例化的值，并把 ``keepRecentTokens`` 抬到 32K：律师的
+        # 一轮指令往往带一串工具调用（查案→查合同→查期限→起草），最近这一段
+        # 被摘要掉等于模型忘了自己刚查过什么。
+        "compaction": {
+            "reserveTokens": 24576,
+            "keepRecentTokens": 32768,
+        },
     }
     level = model_config.resolve_thinking_level(model_id)
     if level:
@@ -355,6 +341,92 @@ def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Pat
     return path
 
 
+def _tiers_enabled() -> bool:
+    """工具面分层是否启用（延迟 import，避免与 ``mcp_server`` 包耦合）。"""
+    try:
+        from mcp_server.tool_tiers import tiers_enabled
+    except Exception as exc:
+        logger.warning("工具面分层模块不可用，回退全量直连: %s", exc)
+        return False
+    return tiers_enabled()
+
+
+def _build_tool_exposure() -> dict[str, str]:
+    """生成 ``toolExposure`` 映射（失败返回空 → 不分层）。"""
+    try:
+        from mcp_server.tool_tiers import build_tool_exposure
+    except Exception as exc:
+        logger.warning("工具面分层清单读取失败，回退全量直连: %s", exc)
+        return {}
+    return build_tool_exposure()
+
+
+def _describe_tiers() -> str:
+    """分层摘要（日志用）。"""
+    try:
+        from mcp_server.tool_tiers import describe_tiers
+    except Exception:
+        return "（摘要不可用）"
+    return describe_tiers()
+
+
+def _build_server_entry(resolved: McpEndpoint, user_token_env: str) -> dict[str, Any]:
+    """构造 ``mcp.json`` 的 server 条目（共享 HTTP / stdio 两种形态共用）。
+
+    抽成一处的原因：``write_pi_config`` 与 ``write_pi_mcp_config`` 原本各写
+    一份完全相同的字段表，改 exposure 时极容易只改一处——两处一旦不一致，
+    "手工写配置"与"正式链路"的行为就分叉，排查时非常难定位。
+
+    exposure 的取值优先级：
+
+    1. 用户显式设了 ``FACHUAN_MCP_EXPOSURE``（非默认 direct）→ **从用户**，
+       不叠分层（两套机制叠加的行为难预测）。
+    2. 默认为 direct 且分层开关开 → 写 ``deferred`` + ``toolExposure``。
+    3. 分层开关关 → ``direct``（全量声明，与改造前行为一致）。
+    """
+    exposure = resolve_exposure()
+    tool_exposure: dict[str, str] = {}
+    if exposure == "direct" and _tiers_enabled():
+        tool_exposure = _build_tool_exposure()
+        if tool_exposure:
+            # 有 toolExposure 条目时服务端默认必须改为 deferred：未列出的
+            # 工具靠 tool_search 加载，而不是全量声明。
+            exposure = "deferred"
+            logger.info("工具面分层已启用: %s", _describe_tiers())
+    extra: dict[str, Any] = {"toolExposure": tool_exposure} if tool_exposure else {}
+
+    if shared_enabled():
+        return {
+            "type": "streamable-http",
+            "url": resolved.url,
+            "headers": {"Authorization": f"Bearer ${{{user_token_env}}}"},
+            # pi 默认 exposure=codemode：MCP 工具不声明给模型（只能经
+            # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
+            # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；
+            # 按需加载见 resolve_exposure / FACHUAN_MCP_EXPOSURE 与
+            # mcp_server/tool_tiers.py。
+            "exposure": exposure,
+            **extra,
+            # deferred 下 pi 会把它列入 system prompt 的 mcp_servers 小节，
+            # 也让 tool_search 按它排序——写清楚"这服务有什么"比堆关键词有用。
+            "description": "法穿法律事务系统：案件、合同、文书、当事人、财务、期限、法规检索与自动化",
+            # pi 每请求默认 60s 超时，会先于 client 侧 LLM 链路工具的 180s
+            # （见 tools/documents/litigation.py 等 12 处 timeout=180）掐断——
+            # 双端超时必须 pi > client，否则 client 的努力全部作废。200 给
+            # 传输层留余量；工具发 progress notifications 可重置该计时。
+            "timeout": 200,
+        }
+    return {
+        "command": _python_bin(),
+        "args": ["-m", "mcp_server"],
+        "cwd": str(_backend_dir()),
+        # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
+        "exposure": exposure,
+        **extra,
+        "timeout": 200,
+    }
+
+
 def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = None) -> Path:
     """兼容旧名：仅写 MCP 配置（不碰模型），保留供测试/脚本使用。"""
     import json
@@ -365,32 +437,7 @@ def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = N
     root = Path(target_dir)
     root.mkdir(parents=True, exist_ok=True)
     config_path = root / "mcp.json"
-    exposure = resolve_exposure()
-    if shared_enabled():
-        server: dict[str, Any] = {
-            "type": "streamable-http",
-            "url": resolved.url,
-            "headers": {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"},
-            # pi 默认 exposure=codemode：MCP 工具不声明给模型（只能经
-            # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
-            # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；
-            # 按需加载的灰度实验见 resolve_exposure / FACHUAN_MCP_EXPOSURE。
-            "exposure": exposure,
-            # pi 每请求默认 60s 超时，会先于 client 侧 LLM 链路工具的 180s
-            # （见 tools/documents/litigation.py 等 12 处 timeout=180）掐断——
-            # 双端超时必须 pi > client，否则 client 的努力全部作废。200 给
-            # 传输层留余量；工具发 progress notifications 可重置该计时。
-            "timeout": 200,
-        }
-    else:
-        server = {
-            "command": _python_bin(),
-            "args": ["-m", "mcp_server"],
-            "cwd": str(_backend_dir()),
-            # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
-            "exposure": exposure,
-            "timeout": 200,
-        }
+    server = _build_server_entry(resolved, USER_TOKEN_ENV)
     config_path.write_text(
         json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
         encoding="utf-8",

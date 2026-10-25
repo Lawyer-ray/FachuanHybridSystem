@@ -34,11 +34,26 @@ APPROVAL_EXTENSION_ENV = "FACHUAN_PI_APPROVAL_EXTENSION"
 #: 记忆注入 extension（可选）。文件缺失时只告警不阻断——记忆是增强能力，
 #: 与审批网关的 fail-closed 策略刻意不同。
 MEMORY_EXTENSION_ENV = "FACHUAN_PI_MEMORY_EXTENSION"
+#: 工具结果守卫 extension（可选）。剥离内部字段 / 出参敏感号码兜底脱敏 /
+#: 不可见字符扫描。缺失时只告警不阻断——它是质量增强，不是安全闸门
+#: （真正的安全闸门是审批 extension，那个 fail-closed）。
+TOOL_RESULT_GUARD_ENV = "FACHUAN_PI_TOOL_RESULT_GUARD_EXTENSION"
 #: 只向模型声明法穿 MCP 工具。pi 默认还带 read/bash/edit/write 四个内置工具，
 #: 它们能以 Django 进程的权限读写文件、执行命令，且不在审批清单内——
 #: 一段藏在工具输出里的提示注入就能免审批执行 bash。按 cli.md，``--tools``
 #: 以 ``mcp__`` 开头的条目会整体替换工具选择，内置工具不再声明。
-TOOL_SELECTION = "mcp__fachuan__*"
+#:
+#: **为什么现在多了 ``tool_search``**：工具面分层后（见
+#: ``mcp_server/tool_tiers.py``）大部分业务工具是 ``deferred`` 暴露——不声明
+#: 给模型，只能由 ``tool_search`` 按需加载。而 ``--tools`` 是**白名单**：
+#: 不显式列出 ``tool_search``，那 350+ 个 deferred 工具就**永远不可达**
+#: （模型说「我去查」，但没有 search 工具，只能用可见的 61 个）。
+#: 按 cli.md：「只有 ``tool_search``，如果列出，才能加载它」。
+#:
+#: **安全边界仍然在**：``tool_search`` 只能发现/加载 MCP 工具（它不提供
+#: 任何文件系统或 shell 能力），而加载后的每个调用照旧过 ``tool_call``
+#: 钩子 → 四级审批。列它进来不会打开任何新攻击面。
+TOOL_SELECTION = "mcp__fachuan__*,tool_search"
 _READ_CHUNK = 65536
 _SHUTDOWN_TIMEOUT = 5.0
 _STDERR_LINE_LIMIT = 500
@@ -97,19 +112,36 @@ def default_memory_extension() -> str:
     return str(Path(__file__).resolve().parent / "memory-inject.ts")
 
 
+def default_tool_result_guard_extension() -> str:
+    """本 app 内置的工具结果守卫 extension 路径。"""
+    configured = os.environ.get(TOOL_RESULT_GUARD_ENV, "").strip()
+    if configured:
+        return configured
+    return str(Path(__file__).resolve().parent / "tool-result-guard.ts")
+
+
 def resolve_extensions(primary: str | None = None) -> list[str]:
     """要加载的 extension 列表（审批在前，其余按注入顺序）。
 
-    审批 extension 必须永远存在（工具调用的人工闸门）；记忆注入是可选的
-    ——文件缺失时只告警不阻断，因为记忆是增强能力，缺它对话仍可正常进行。
-    这与审批的 fail-closed 策略刻意不同：不能把「没有记忆」当成致命故障。
+    审批 extension 必须永远存在（工具调用的人工闸门）；记忆注入与结果守卫
+    是可选的——文件缺失时只告警不阻断，因为它们是增强能力，缺了对话仍可
+    正常进行。这与审批的 fail-closed 策略刻意不同：不能把「没有记忆」或
+    「没有结果守卫」当成致命故障。
     """
     extensions = [primary or default_approval_extension()]
-    memory = default_memory_extension()
-    if memory and Path(memory).exists() and memory not in extensions:
-        extensions.append(memory)
-    elif memory and not Path(memory).exists():
-        logger.warning("记忆注入 extension 不存在，本次会话不注入记忆: %s", memory)
+    optional = (
+        ("记忆注入", default_memory_extension()),
+        ("工具结果守卫", default_tool_result_guard_extension()),
+    )
+    for label, path in optional:
+        if not path:
+            continue
+        if path in extensions:
+            continue
+        if not Path(path).exists():
+            logger.warning("%s extension 不存在，本次会话不加载: %s", label, path)
+            continue
+        extensions.append(path)
     return extensions
 
 

@@ -97,6 +97,18 @@ CRITICAL_PATTERNS: tuple[str, ...] = (
     "bulk_delete",
 )
 
+#: 硬拒绝级：不允许由模型自主发起，extension 侧直接 ``block``（不进审批、
+#: 不挂离线 pending）。与 ``CRITICAL_PATTERNS`` 的差别是——紧急级是"问两遍"，
+#: 硬拒绝是"根本不问，直接不允许"。两者当前取值相同，但语义与后续策略
+#: 演进方向不同（以后可能放宽紧急级阈值，但硬拒绝永不放宽）。
+#: 与 ``approval-gate.ts`` 的 ``HARD_DENY_PATTERNS`` 逐项同步（parity 测试守）。
+HARD_DENY_PATTERNS: tuple[str, ...] = (
+    "clear_all",
+    "reset_and_",
+    "delete_all",
+    "bulk_delete",
+)
+
 #: 中级：常规写入，但一旦参数里带了这些字段就升级为需审批。
 #: 只按工具名判高危的漏洞：``update_contract`` 免审批，但它能改金额——
 #: 律师有权改自己案件的金额，误改就是事故。参数级判定补上这个洞。
@@ -230,20 +242,54 @@ def _has_sensitive_arg(tool_args: dict[str, Any] | None) -> str:
     return ""
 
 
-def classify_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> RiskLevel:
+def classify_risk(
+    tool_name: str,
+    tool_args: dict[str, Any] | None = None,
+    annotations: dict[str, Any] | None = None,
+) -> RiskLevel:
     """判定一次工具调用的风险等级。
 
     判定顺序（先命中的赢）：
 
-    1. 豁免后缀 → 低
+    0. 豁免后缀 → 低（工具名以 ``_preview`` 这类结尾，永不需要审批）
+    1. ``HARD_DENY_PATTERNS``（批量清空 / delete_all）→ 紧急（extension 侧硬拒）
     2. ``CRITICAL_PATTERNS``（批量清空 / 重置 / delete_all）→ 紧急
     3. ``DANGER_PATTERNS``（删除 / 外发 / 递交 / 上传 / 归档确认）→ 高
     4. 写类工具且参数带敏感字段（金额 / 期限 / 状态）→ 高
     5. 其他写类工具 → 中（静默执行，留审计标记）
     6. 其余（读类）→ 低
+    7. **与 MCP ``annotations`` 取较大者**（声明优先，补名字黑名单的漏）
+
+    Args:
+        tool_name: 工具全名（``mcp__fachuan__delete_case``）或短名。
+        tool_args: 工具入参，用于参数级敏感字段判定。
+        annotations: MCP 工具注解（``read_only_hint`` / ``destructive_hint`` /
+            ``open_world_hint``）。服务端从 ``mcp_server`` 注册表懒加载；
+            显式传入时以传入值为准（测试用）。
+
+    为什么需要 annotations 这层：法穿 415 个工具全部带注解
+    （实测 225 只读 / 119 写 / 71 破坏性），但名字黑名单只覆盖其中一部分
+    —— ``mortgage_default_calculate``、``analyze_template`` 这类不含常规写
+    前缀的工具，光看名字会被判低。名字黑名单保留作兵底（它还能捕获
+    注解写错的工具），两层取较大者。
     """
     if any(tool_name.endswith(suffix) for suffix in APPROVAL_EXEMPT_SUFFIXES):
         return RiskLevel.LOW
+    by_name = _classify_by_name(tool_name, tool_args)
+    hints = annotations if annotations is not None else load_tool_annotations(tool_name)
+    if hints is None:
+        # 取不到注解（未声明 / 注解表加载失败）→ **退回纯名字判定**。
+        # 不能在这里保守升级：那会让 158 个读类工具全变成「中级留痕」，
+        # 直接把 agent 的日常读操作淹没在审计噪声里（parity 测试会红灯）。
+        # 注解是「补漏」而不是「兵底」，兵底是名字黑名单本身。
+        return by_name
+    return _worse(by_name, _classify_by_annotations(hints, by_name))
+
+
+def _classify_by_name(tool_name: str, tool_args: dict[str, Any] | None) -> RiskLevel:
+    """纯名字 + 参数判定（兵底；extension 侧 ``classifyByName`` 与它同序）。"""
+    if any(pattern in tool_name for pattern in HARD_DENY_PATTERNS):
+        return RiskLevel.CRITICAL
     if any(pattern in tool_name for pattern in CRITICAL_PATTERNS):
         return RiskLevel.CRITICAL
     if any(pattern in tool_name for pattern in DANGER_PATTERNS):
@@ -254,6 +300,144 @@ def classify_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> Ri
             return RiskLevel.HIGH
         return RiskLevel.MEDIUM
     return RiskLevel.LOW
+
+
+_RISK_ORDER: dict[str, int] = {
+    RiskLevel.LOW: 0,
+    RiskLevel.MEDIUM: 1,
+    RiskLevel.HIGH: 2,
+    RiskLevel.CRITICAL: 3,
+}
+
+
+def _worse(a: RiskLevel, b: RiskLevel) -> RiskLevel:
+    """取两个风险等级中较高者（extension 侧 ``worse`` 与它同义）。"""
+    return a if _RISK_ORDER[a] >= _RISK_ORDER[b] else b
+
+
+def _classify_by_annotations(
+    annotations: dict[str, Any],
+    by_name: RiskLevel,
+) -> RiskLevel:
+    """从 MCP 注解推导风险下限（与名字判定取较大者）。
+
+    映射口径（保守，宁可多问不可少问）：
+
+    - ``read_only_hint`` 为真 → 不动（读类就是读类）
+    - ``destructive_hint`` 为真 → 至少高
+    - 非只读且 ``open_world_hint`` 为真 → 至少高（会外发到公网/第三方）
+    - 非只读（其余）→ 至少中（留痕，不打扰）
+
+    调用方已保证 ``annotations`` 非空；显式声明为只读但名字命中黑名单时
+    仍取名字判定（两层取较大者，防注解写错）。
+    """
+    if annotations.get("read_only_hint") is True or annotations.get("readOnlyHint") is True:
+        return by_name
+    destructive = annotations.get("destructive_hint") is True or annotations.get("destructiveHint") is True
+    open_world = annotations.get("open_world_hint") is True or annotations.get("openWorldHint") is True
+    if destructive or open_world:
+        return _worse(by_name, RiskLevel.HIGH)
+    return _worse(by_name, RiskLevel.MEDIUM)
+
+
+def _list_mcp_tools(mcp: Any) -> list[Any]:
+    """调 ``mcp.list_tools()``，兼容「已在事件循环内」与「循环外」两种上下文。
+
+    为什么不自接 ``asyncio.run``：审批有可能在 async 路径下被调（
+    ``request_approval`` 本身是 async），那时 ``asyncio.run`` 会抛
+    ``RuntimeError: asyncio.run() cannot be called from a running event loop``。
+    早期版本把这个异常当「注解读不到」静默降级，导致 158 个读类工具全被
+    判成「中级留痕」——静默失败比报错难查得多。这里分三种情况处理。
+    为什么只在无循环时用单独线程：``list_tools`` 是同步完成的内存读取
+    （读已注册的工具表），不碰网络，开线程只是为了避免嵌套循环。
+    """
+    coro_factory = mcp.list_tools
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro_factory())
+    # 已在事件循环内：交给独立线程跑一个新循环，避免嵌套。
+    import threading
+
+    result: list[Any] = []
+    error: list[BaseException] = []
+
+    def _runner() -> None:
+        try:
+            result.extend(asyncio.run(coro_factory()))
+        except BaseException as exc:
+            error.append(exc)
+
+    thread = threading.Thread(target=_runner, name="mcp-annotation-loader", daemon=True)
+    thread.start()
+    thread.join(timeout=10)
+    if thread.is_alive():
+        raise TimeoutError("读取 MCP 工具表超时（10s）")
+    if error:
+        raise error[0]
+    return result
+
+
+#: 注解表缓存（模块级懒加载一次）。
+#: 注意：这里**不用 ``lru_cache``**——它会在并发首次调用时把「加载中/失败的
+#: 空表」一起记下来，导致同进程内先后调用拿到不一致结果（实测：第一个工具
+#: 拿到注解、后续全 ``None``）。审批是安全路径，宁可多读一次也不能读出两套答案。
+_ANNOTATION_TABLE: dict[str, dict[str, Any] | None] | None = None
+
+
+def _reset_annotation_cache() -> None:
+    """清缓存（供测试与热加载用）。
+
+    为什么需要公开一个重置口：``mcp_server`` 的工具注册表在某些测试场景下会
+    被重新导入/重建，旧快照就陈旧了。生产路径不会调它。
+    """
+    global _ANNOTATION_TABLE
+    _ANNOTATION_TABLE = None
+
+
+def _annotation_table() -> dict[str, dict[str, Any] | None]:
+    """工具短名 → MCP 注解字典（进程内懒加载一次，失败时返回空表）。
+
+    ``mcp_server`` 是共享常驻进程，本进程（Django）导入它会多加载一份注册表。
+    只在**首次需要时**读一次；加载失败不抛错——服务端二次判定退回纯名字
+    黑名单，与改造前行为一致（不会因为注解表读不到就放行）。
+
+    返回 ``None`` 表示该工具**没有声明**注解；空表（加载失败）与「全部未声明」
+    由 ``load_tool_annotations`` 区分（空表时直接回 ``None``）。
+    """
+    global _ANNOTATION_TABLE
+    if _ANNOTATION_TABLE is not None:
+        return _ANNOTATION_TABLE
+    try:
+        from mcp_server.server import mcp
+
+        tools = _list_mcp_tools(mcp)
+    except Exception as exc:
+        logger.warning("读取 MCP 工具注解失败，审批退回纯名字判定: %s", exc)
+        _ANNOTATION_TABLE = {}
+        return _ANNOTATION_TABLE
+    table: dict[str, dict[str, Any] | None] = {}
+    for tool in tools:
+        hints = getattr(tool, "annotations", None)
+        if hints is None:
+            table[tool.name] = None
+            continue
+        table[tool.name] = {
+            "read_only_hint": getattr(hints, "read_only_hint", None),
+            "destructive_hint": getattr(hints, "destructive_hint", None),
+            "open_world_hint": getattr(hints, "open_world_hint", None),
+        }
+    _ANNOTATION_TABLE = table
+    return table
+
+
+def load_tool_annotations(tool_name: str) -> dict[str, Any] | None:
+    """按工具全名/短名取 MCP 注解（取不到返回 ``None``）。"""
+    table = _annotation_table()
+    if not table:
+        return None
+    short_name = tool_name.rsplit("__", 1)[-1]
+    return table.get(short_name)
 
 
 def is_high_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> bool:

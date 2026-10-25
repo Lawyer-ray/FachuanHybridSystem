@@ -291,10 +291,38 @@ class TestCleanEnv:
 class TestToolRestriction:
     """红线：pi 内置 bash/edit/write 不得向模型声明（提示注入 → 服务器 RCE 面）。"""
 
-    def test_tool_selection_only_mcp(self) -> None:
+    def test_tool_selection_excludes_dangerous_builtins(self) -> None:
+        """断言**红线本身**（而不是精确字符串）：危险内置工具一个都不能出现。
+
+        为什么不再断言 ``== "mcp__fachuan__*"``：工具面分层后需要额外列出
+        ``tool_search``（否则 350+ 个 deferred 工具永远不可达）。但 ``tool_search``
+        只做工具发现，不提供文件系统或 shell 能力，不构成新攻击面。
+        真正要守的是「哪些工具不得出现」，那才是安全属性。
+        """
         from apps.agent.pi.rpc_client import TOOL_SELECTION
 
-        assert TOOL_SELECTION == "mcp__fachuan__*"
+        entries = {part.strip() for part in TOOL_SELECTION.split(",")}
+        dangerous = {"read", "bash", "edit", "write", "powershell", "grep", "find", "ls"}
+        leaked = entries & dangerous
+        assert not leaked, (
+            f"危险内置工具被声明给模型了: {sorted(leaked)}——它们能以 Django 进程权限读写文件/执行命令，且不在审批清单内"
+        )
+        assert "mcp__fachuan__*" in entries, "法穿业务工具必须整体声明"
+
+    def test_tool_selection_allows_tool_search(self) -> None:
+        """分层生效时必须能搜索 deferred 工具，否则长尾 350+ 工具不可达。"""
+        from apps.agent.pi.rpc_client import TOOL_SELECTION
+
+        assert "tool_search" in TOOL_SELECTION, "缺少 tool_search：deferred 工具将永远无法被模型发现"
+
+    def test_tool_selection_is_allowlist_not_delta(self) -> None:
+        """不得用 ``+name``/``-name`` 形式——那是「改默认选择」，会保留 bash 等内置。"""
+        from apps.agent.pi.rpc_client import TOOL_SELECTION
+
+        entries = [part.strip() for part in TOOL_SELECTION.split(",") if part.strip()]
+        assert not any(e.startswith(("+", "-")) for e in entries), (
+            "``--tools`` 用 +name/-name 形式会保留内置工具，必须用 allowlist"
+        )
 
     @pytest.mark.asyncio
     async def test_start_refuses_missing_extension(self) -> None:

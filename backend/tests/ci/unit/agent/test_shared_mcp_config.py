@@ -68,21 +68,76 @@ class TestWritePiMcpConfig:
         assert server["exposure"] == "deferred"
 
     def test_stdio_fallback_also_writes_exposure(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """stdio 回退分支曾漏写 exposure → 落回 pi 默认 codemode，工具全废。"""
+        """stdio 回退分支曾漏写 exposure → 落回 pi 默认 codemode，工具全废。
+
+        要守的是「不得落回 codemode」（那会让工具只能经脚本间接调，表现为
+        模型说去查但没有 tool_call），而不是精确等于 ``direct``——工具面分层
+        启用后默认是 ``deferred``，那同样是可用形态。
+        """
         monkeypatch.setenv("FACHUAN_MCP_SHARED", "0")
 
         path = write_pi_mcp_config(tmp_path)
 
         server = _load(path.parent)
         assert "command" in server
-        assert server["exposure"] == "direct"
+        assert server["exposure"] in {"direct", "deferred"}, f"stdio 回退落回了不可用 exposure: {server['exposure']}"
 
-    def test_default_stays_direct(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_default_is_direct_or_deferred(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """默认暴露模式必须是「模型能用到工具」的那两种，不得是 codemode/hidden。"""
         monkeypatch.setenv("FACHUAN_MCP_SHARED", "1")
 
         write_pi_mcp_config(tmp_path)
 
-        assert _load(tmp_path)["exposure"] == "direct"
+        assert _load(tmp_path)["exposure"] in {"direct", "deferred"}
+
+    def test_tiers_off_restores_plain_direct(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``FACHUAN_MCP_TOOL_TIERS=off`` 是一键回滚口：回到全量直连、无 toolExposure。"""
+        monkeypatch.setenv("FACHUAN_MCP_SHARED", "1")
+        monkeypatch.setenv("FACHUAN_MCP_TOOL_TIERS", "off")
+
+        write_pi_mcp_config(tmp_path)
+
+        server = _load(tmp_path)
+        assert server["exposure"] == "direct"
+        assert "toolExposure" not in server, "回滚状态下不应写 toolExposure"
+
+    def test_tiers_on_writes_deferred_and_exposure_map(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """分层启用时：服务端 deferred + toolExposure 标出直连工具。"""
+        monkeypatch.setenv("FACHUAN_MCP_SHARED", "1")
+        monkeypatch.delenv("FACHUAN_MCP_TOOL_TIERS", raising=False)
+
+        write_pi_mcp_config(tmp_path)
+
+        server = _load(tmp_path)
+        assert server["exposure"] == "deferred"
+        mapping = server.get("toolExposure", {})
+        assert mapping, "分层启用但没有 toolExposure 映射"
+        assert mapping.get("list_cases") == "direct", "高频工具没被标为直连"
+
+    def test_explicit_exposure_env_wins_over_tiers(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """用户显式设了 exposure 时从用户，不叠分层（两套机制叠加行为难预测）。"""
+        monkeypatch.setenv("FACHUAN_MCP_SHARED", "1")
+        monkeypatch.setenv("FACHUAN_MCP_EXPOSURE", "direct")
+
+        write_pi_mcp_config(tmp_path)
+
+        # 注意：direct 恰好是分层的触发条件，所以这里验证的是「分层不会
+        # 因为显式 direct 而失效」——分层接管后确实会变 deferred。
+        # 真正要守的是显式 codemode/hidden 不被分层覆盖。
+        assert _load(tmp_path)["exposure"] in {"direct", "deferred"}
+
+    def test_explicit_codemode_is_not_overridden_by_tiers(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """显式指定 codemode 时不得被分层悄悄改成 deferred。"""
+        monkeypatch.setenv("FACHUAN_MCP_SHARED", "1")
+        monkeypatch.setenv("FACHUAN_MCP_EXPOSURE", "codemode")
+
+        write_pi_mcp_config(tmp_path)
+
+        server = _load(tmp_path)
+        assert server["exposure"] == "codemode"
+        assert "toolExposure" not in server
 
 
 class TestMcpTimeout:

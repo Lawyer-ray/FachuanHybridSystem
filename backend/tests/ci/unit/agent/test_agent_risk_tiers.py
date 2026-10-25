@@ -17,6 +17,7 @@ import pytest
 from apps.agent.services.approval import (
     CRITICAL_PATTERNS,
     DANGER_PATTERNS,
+    HARD_DENY_PATTERNS,
     SENSITIVE_ARG_MARKERS,
     WRITE_PREFIXES,
     RiskLevel,
@@ -29,11 +30,95 @@ from apps.agent.services.approval import (
 EXTENSION = Path(__file__).resolve().parents[4] / "apps" / "agent" / "pi" / "approval-gate.ts"
 
 
+@pytest.fixture(autouse=True)
+def _fresh_annotation_cache() -> Any:
+    """每个用例前重置工具注解缓存。
+
+    为什么需要：注解表是进程级快照（从 ``mcp_server`` 注册表读一次），而
+    ``mcp_server`` 在其它测试文件里可能被重新导入/重建。不重置就会出现
+    「单独跑通过、全量跑失败」的顺序依赖（本文件实测踩到）。
+
+    审批是安全路径——宁可每个用例多读一次内存表，也不能让判定结果
+    取决于测试执行顺序。
+    """
+    from apps.agent.services import approval
+
+    approval._reset_annotation_cache()
+    yield
+    approval._reset_annotation_cache()
+
+
 def _ts_list(name: str) -> list[str]:
     source = EXTENSION.read_text(encoding="utf-8")
     match = re.search(rf"{name}: readonly string\[\] = \[(.*?)\]", source, re.S)
     assert match is not None, f"approval-gate.ts 缺少 {name}"
     return re.findall(r'"([^"]+)"', match.group(1))
+
+
+class TestAnnotationFallback:
+    """MCP 注解是名字黑名单的**补漏层**（两层取较大者）。
+
+    背景：415 个工具全部带 MCP 注解（225 只读 / 119 写 / 71 破坏性），
+    但名字黑名单只覆盖其中一部分——`clear_cache`、`cleanup_resources`、
+    `reset_performance_metrics` 这类不含 `delete/remove` 的破坏性操作，
+    光看名字永远漏。
+    """
+
+    def test_destructive_annotation_raises_to_high(self) -> None:
+        """注解声明破坏性 → 至少高，即便名字看着是写类。"""
+        level = classify_risk(
+            "mcp__fachuan__update_something",
+            annotations={"read_only_hint": None, "destructive_hint": True, "open_world_hint": None},
+        )
+        assert level is RiskLevel.HIGH
+
+    def test_open_world_annotation_raises_to_high(self) -> None:
+        """非只读 + 开放世界（外发公网/第三方）→ 至少高。"""
+        level = classify_risk(
+            "mcp__fachuan__sync_data",
+            annotations={"read_only_hint": None, "destructive_hint": False, "open_world_hint": True},
+        )
+        assert level is RiskLevel.HIGH
+
+    def test_readonly_annotation_keeps_low(self) -> None:
+        """显式只读不得被注解层抬高——否则读类全变中级留痕，审计噪声淹没真实风险。"""
+        level = classify_risk(
+            "mcp__fachuan__list_cases",
+            annotations={"read_only_hint": True, "destructive_hint": None, "open_world_hint": None},
+        )
+        assert level is RiskLevel.LOW
+
+    def test_annotation_cannot_lower_name_blacklist(self) -> None:
+        """两层取较大者：注解说只读，也不能把名字黑名单命中的删除工具降级。"""
+        level = classify_risk(
+            "mcp__fachuan__delete_case",
+            annotations={"read_only_hint": True, "destructive_hint": None, "open_world_hint": None},
+        )
+        assert level is RiskLevel.HIGH
+
+    def test_missing_annotation_falls_back_to_name(self) -> None:
+        """拿不到注解时退回纯名字判定，不得因缺注解而抬高读类。"""
+        assert classify_risk("mcp__fachuan__list_cases", annotations=None) is RiskLevel.LOW
+
+
+class TestHardDeny:
+    """硬拒绝层：不允许由模型自主发起的操作（extension 直接 block）。"""
+
+    @pytest.mark.parametrize(
+        "tool_name",
+        [
+            "mcp__fachuan__clear_all_data",
+            "mcp__fachuan__delete_all_cases",
+            "mcp__fachuan__bulk_delete_contracts",
+            "mcp__fachuan__reset_and_seed",
+        ],
+    )
+    def test_hard_denied_tools_are_critical(self, tool_name: str) -> None:
+        assert classify_risk(tool_name) is RiskLevel.CRITICAL
+
+    def test_hard_deny_patterns_non_empty(self) -> None:
+        """硬拒绝清单不得被误删空（它存在本身就是一道安全边界）。"""
+        assert HARD_DENY_PATTERNS, "硬拒绝清单为空 = 批量清空类操作无人拦截"
 
 
 class TestClassification:
@@ -132,8 +217,30 @@ class TestServerExtensionParity:
     def test_extension_has_classify_function(self) -> None:
         """extension 必须实现分级（只发 tool 名会导致服务端无法做参数级判定）。"""
         source = EXTENSION.read_text(encoding="utf-8")
-        assert "classifyRisk" in source
+        assert "classifyByName" in source
         assert "risk_level" in source
+
+    def test_hard_deny_patterns_in_sync(self) -> None:
+        """硬拒绝层两侧必须逐项对齐：漏一边就有一边能绕过。"""
+        assert set(_ts_list("HARD_DENY_PATTERNS")) == set(HARD_DENY_PATTERNS)
+
+    def test_extension_has_hard_deny_layer(self) -> None:
+        """extension 必须存在硬拒绝层（命中即 block，不进审批）。"""
+        source = EXTENSION.read_text(encoding="utf-8")
+        assert "isHardDenied" in source
+        assert "block: true" in source
+
+    def test_extension_handles_annotations(self) -> None:
+        """extension 必须接 MCP annotations（补名字黑名单漏掉的那部分工具）。"""
+        source = EXTENSION.read_text(encoding="utf-8")
+        assert "classifyByAnnotations" in source
+        assert "getAllTools" in source
+
+    def test_extension_handles_nested_tool_calls(self) -> None:
+        """嵌套调用（聚合工具 / ctx.executeTool）父子上取大，否则成审批绕过通道。"""
+        source = EXTENSION.read_text(encoding="utf-8")
+        assert "parentToolCallId" in source
+        assert "worse(" in source
 
 
 class TestRegistryCoverage:
@@ -380,14 +487,19 @@ class TestExternalActionTools:
             "complete_reminders",
             "cancel_conversion_job",
             "unified_generate",
-            "clear_cache",
-            "reset_performance_metrics",
         ],
     )
     def test_zero_trace_write_tools_now_medium(self, tool: str) -> None:
         """此前 50 个发写请求的工具连中级留痕都没有——改名/重排/绑定/开关类
         现在至少 MEDIUM（静默放行 + 审计日志）。"""
         assert classify_risk(f"mcp__fachuan__{tool}") is RiskLevel.MEDIUM, tool
+
+    @pytest.mark.parametrize("tool", ["clear_cache", "reset_performance_metrics"])
+    def test_annotation_promotes_cleanup_tools_to_high(self, tool: str) -> None:
+        """`clear_cache` / `reset_performance_metrics` 不含 delete/remove，
+        名字黑名单永远盖不到；它们靠 MCP 注解（destructive）被抬到 HIGH。
+        这条测试就是注解层的实际价值证据——删了注解层它就会红灯。"""
+        assert classify_risk(f"mcp__fachuan__{tool}") is RiskLevel.HIGH, tool
 
     @pytest.mark.parametrize(
         "tool",

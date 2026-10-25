@@ -100,6 +100,14 @@ export default function memoryInjection(pi: ExtensionAPI) {
     await refresh("session_start");
   });
 
+  // 法穿每个请求起一个 pi 进程、用完即关（`pi/pool.py`），进程之间既没有
+  // 保活 prompt cache 的必要，也没有保活的可能：下一次请求是另一个进程、
+  // 另一段时间。pi 的 `cacheWarming` 默认值是 `"streaming"`，但只有当模型
+  // 声明了 `promptCache` 寿命才会真正触发——现在 `models.json` 没声明，
+  // 所以恰好是关的。**一旦哪天给模型补上 `promptCache`，它就会在每次工具
+  // 循环里多打一次请求悄悄花钱**。这里显式关掉，把这个隐患堵死。
+  pi.on("cache_warming_decision", () => ({ action: "stop" as const }));
+
   pi.on("session_before_compact", async () => {
     // 压缩会重写上下文，此时刷新快照是一次「有意的 cache 边界」，
     // 后续所有轮次又回到字节稳定状态。
