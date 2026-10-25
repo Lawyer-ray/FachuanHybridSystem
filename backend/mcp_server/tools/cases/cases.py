@@ -108,11 +108,11 @@ def get_case(case_id: int, include_logs: bool = False) -> dict[str, Any]:
 
 
 def create_case(
-    name: str,
-    case_type: str,
-    target_amount: float | None = None,
-    cause_of_action: str | None = None,
-    status: str | None = None,
+    name: Annotated[str, Field(description="案件名称")],
+    case_type: Annotated[_SimpleCaseTypeL, Field(description="civil 民事/administrative 行政/criminal 刑事/execution 申请执行/bankruptcy 破产")],
+    target_amount: Annotated[float | None, Field(description="标的额(元)", ge=0)] = None,
+    cause_of_action: Annotated[str | None, Field(description="案由(如 买卖合同纠纷)")] = None,
+    status: Annotated[_CaseStatusL | None, Field(description="active 在办(默认)/closed 已结")] = None,
 ) -> dict[str, Any]:
     """创建新案件。case_type 取值：civil（民事）/ administrative（行政）/
     criminal（刑事）/ execution（申请执行）/ bankruptcy（破产）。"""

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 
 
-def list_lawfirms(name: str | None = None) -> dict[str, Any]:
+def list_lawfirms(name: Annotated[str | None, Field(description="按名称模糊搜索")] = None) -> dict[str, Any]:
     """查询律所列表。可按名称（name）模糊搜索。"""
     params: dict[str, Any] = {}
     if name:
@@ -22,10 +24,10 @@ def get_lawfirm(law_firm_id: int) -> dict[str, Any]:
 
 
 def create_lawfirm(
-    name: str,
-    address: str | None = None,
-    phone: str | None = None,
-    social_credit_code: str | None = None,
+    name: Annotated[str, Field(description="律所名称")],
+    address: Annotated[str | None, Field(description="地址")] = None,
+    phone: Annotated[str | None, Field(description="联系电话")] = None,
+    social_credit_code: Annotated[str | None, Field(description="统一社会信用代码")] = None,
 ) -> dict[str, Any]:
     """创建新律所。name 必填；social_credit_code 为统一社会信用代码。"""
     payload: dict[str, Any] = {"name": name}
@@ -39,11 +41,11 @@ def create_lawfirm(
 
 
 def update_lawfirm(
-    law_firm_id: int,
-    name: str | None = None,
-    address: str | None = None,
-    phone: str | None = None,
-    social_credit_code: str | None = None,
+    law_firm_id: Annotated[int, Field(description="律所 ID", ge=1)],
+    name: Annotated[str | None, Field(description="律所名称(不改不传)")] = None,
+    address: Annotated[str | None, Field(description="地址")] = None,
+    phone: Annotated[str | None, Field(description="联系电话")] = None,
+    social_credit_code: Annotated[str | None, Field(description="统一社会信用代码")] = None,
 ) -> dict[str, Any]:
     """更新律所信息。只传需要修改的字段。
 

@@ -37,7 +37,7 @@ from apps.workflow.mcp.workflow_tools import (
     start_workflow,
     update_workflow_template,
 )
-from mcp_server.tools.cases.cases import create_full_case, list_cases, search_cases, update_case
+from mcp_server.tools.cases.cases import create_case, create_full_case, list_cases, search_cases, update_case
 from mcp_server.tools.clients.clients import create_client, list_clients, update_client
 from mcp_server.tools.contacts.contacts import create_contact, list_contacts, update_contact
 from mcp_server.tools.contract_review.review import confirm_party
@@ -52,6 +52,8 @@ from mcp_server.tools.finance.mortgage import mortgage_amortize, mortgage_defaul
 from mcp_server.tools.legal_research.legal_research import capability_search, create_research_task
 from mcp_server.tools.message_hub.inbox import list_inbox_messages
 from mcp_server.tools.message_hub.sources import create_message_source, update_message_source
+from mcp_server.tools.organization.credentials import create_credential, list_credentials, update_credential
+from mcp_server.tools.organization.lawfirms import create_lawfirm, list_lawfirms, update_lawfirm
 from mcp_server.tools.organization.lawyers import create_lawyer, list_lawyers, update_lawyer
 from mcp_server.tools.reminders.reminders import create_new_reminder, list_all_reminders
 
@@ -96,6 +98,13 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "create_new_reminder": (6, 6),
     "list_all_reminders": (3, 3),
     "mortgage_default_calculate": (48, 48),
+    "create_case": (5, 5),
+    "create_credential": (5, 5),
+    "update_credential": (5, 5),
+    "create_lawfirm": (4, 4),
+    "update_lawfirm": (5, 5),
+    "list_credentials": (2, 2),
+    "list_lawfirms": (1, 1),
 }
 
 
@@ -110,7 +119,9 @@ _ALL_DESCRIBED_FNS = [
     read_agent_attachment, list_document_templates, create_document_template,
     create_folder_template, generate_complaint, generate_defense,
     create_full_case, create_new_reminder, list_all_reminders,
-    mortgage_default_calculate,
+    mortgage_default_calculate, create_case, create_credential,
+    update_credential, create_lawfirm, update_lawfirm, list_credentials,
+    list_lawfirms,
 ]
 
 
@@ -286,6 +297,8 @@ def test_schema_enums_match_model_choices() -> None:
         ("create_folder_template", "template_type"): set(DocumentTemplateType.values),
         ("create_folder_template", "case_types"): set(DocumentCaseType.values),
         ("create_new_reminder", "reminder_type"): set(ReminderType.values),
+        ("create_case", "case_type"): set(SimpleCaseType.values),
+        ("create_case", "status"): set(CaseStatus.values),
         ("mortgage_default_calculate", "penalty_mode"): _backend_literal(MortgageDefaultRequest, "penalty_mode"),
         ("mortgage_default_calculate", "compound_method"): _backend_literal(MortgageDefaultRequest, "compound_method"),
         ("mortgage_default_calculate", "first_period_interest"): _backend_literal(MortgageDefaultRequest, "first_period_interest"),
@@ -318,6 +331,7 @@ def test_schema_enums_match_model_choices() -> None:
         "create_full_case": _schema_of(create_full_case),
         "create_new_reminder": _schema_of(create_new_reminder),
         "mortgage_default_calculate": _schema_of(mortgage_default_calculate),
+        "create_case": _schema_of(create_case),
         # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
         "list_workflows": _registered_schema("list_workflows"),
         "create_workflow_template": _registered_schema("create_workflow_template"),
