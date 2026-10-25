@@ -6,7 +6,8 @@ import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { ContractFileOverlays } from './ContractFileOverlays'
 import { FilePreviewCard } from './FilePreviewCard'
-import { ServiceItemStream, type ServiceItem } from './ServiceItemStream'
+import { ServiceItemStream } from './ServiceItemStream'
+import { useServiceItems } from './use-service-items'
 import { TermBar } from './TermBar'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { Card, DetailError } from './ui'
@@ -26,6 +27,8 @@ export function NonLitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { valid, d, deal, deadlines, contacts, money, next } = useDealDetailPage(id)
   const [searchParams, setSearchParams] = useSearchParams()
+  /** 用户手动指定的事项源目录（null = 自动识别「办案」） */
+  const [manualSource, setManualSource] = useState<string | null>(null)
   /** 今天（yyyy-mm-dd）：服务期条与「今天」高亮共用，跨天刷新时只改这一处 */
   const todayStr = useMemo(() => {
     const n = new Date()
@@ -38,23 +41,11 @@ export function NonLitDetailPage() {
     { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
   >(null)
   /**
-   * 服务事项流的数据源。
-   *
-   * 现阶段由两处合成：**期限**（已有真实数据）与**合同文件夹里的文件**
-   * （交付物的直观来源）。后端「服务事项」表尚未建，等它到位后只需把这里
-   * 换成接口数据，下面的渲染与时间轴联动不用改。
+   * 服务事项：直接从合同文件夹的「办案」目录读（目录名 = 事项名 + 日期）。
+   * 找不到「办案」时由页面提示手动指定，不静默扫全盘。
    */
-  const serviceItems = useMemo<ServiceItem[]>(() => {
-    const items: ServiceItem[] = deadlines.map((dl) => ({
-      date: dl.due,
-      today: dl.today,
-      kind: dl.typeLabel || '期限',
-      title: dl.content,
-      detail: dl.scope,
-      status: dl.today ? 'doing' : 'todo',
-    }))
-    return items.sort((a, b) => b.date.localeCompare(a.date))
-  }, [deadlines])
+  const svc = useServiceItems('contract', deal?.id ?? null, { sourceSubpath: manualSource })
+  const serviceItems = svc.items
 
   const openPreview = useCallback(
     (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
@@ -123,6 +114,10 @@ export function NonLitDetailPage() {
         <div className="min-w-0 space-y-[18px]">
           <ServiceItemStream
             items={serviceItems}
+            sourceSubpath={svc.sourceSubpath}
+            candidates={svc.candidates}
+            onChangeSource={setManualSource}
+            isLoading={svc.isLoading}
             note={
               deal.from && deal.to
                 ? `本服务期 ${deal.from} 至 ${deal.to} 内的服务事项与交付物`

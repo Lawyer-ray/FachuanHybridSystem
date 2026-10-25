@@ -26,6 +26,8 @@ export interface ServiceItem {
   detail?: string
   /** 交付物（文件名 + 定位信息），点击就地预览 */
   deliverable?: { subpath: string; name: string }
+  /** 事项自己的目录（来自文件夹扫描时给出），用于「打开事项文件夹」 */
+  subpath?: string
   /** 状态 */
   status: 'done' | 'doing' | 'todo'
 }
@@ -46,12 +48,23 @@ export function ServiceItemStream({
   note,
   onOpenFile,
   onAdd,
+  sourceSubpath,
+  candidates,
+  onChangeSource,
+  isLoading,
 }: {
   items: ServiceItem[]
   /** 表尾说明（服务期范围等） */
   note?: string
   onOpenFile?: (f: { subpath: string; name: string }) => void
   onAdd?: () => void
+  /** 当前读的事项源目录（自动识别出来的「办案」或用户指定的） */
+  sourceSubpath?: string | null
+  /** 可选的候选源目录（根层子目录） */
+  candidates?: Array<{ name: string; subpath: string }>
+  /** 换一个事项源目录；传 null 表示回到自动识别 */
+  onChangeSource?: (subpath: string | null) => void
+  isLoading?: boolean
 }) {
   return (
     <div className="rounded-[12px] border border-border bg-card shadow-sm">
@@ -60,7 +73,24 @@ export function ServiceItemStream({
         <span className="rounded-full bg-secondary px-2 text-[11px] font-[600] leading-[18px] text-muted-foreground tabular-nums">
           {items.length}
         </span>
-        <span className="text-[11.5px] text-muted-foreground/70">本年度</span>
+        <span className="text-[11.5px] text-muted-foreground/70">
+          本年度{sourceSubpath ? ` · ${sourceSubpath.split('/').pop()}` : ''}
+        </span>
+        {onChangeSource && candidates && candidates.length > 0 && (
+          <select
+            value={sourceSubpath ?? ''}
+            onChange={(e) => onChangeSource(e.target.value || null)}
+            title="事项从哪个目录读取（目录名即事项名，前缀日期即发生日）"
+            className="h-[24px] max-w-[160px] cursor-pointer truncate rounded-[6px] border border-border bg-card px-1.5 text-[11px] text-secondary-foreground"
+          >
+            <option value="">自动（找「办案」目录）</option>
+            {candidates.map((c) => (
+              <option key={c.subpath} value={c.subpath}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         {onAdd && (
           <button
             type="button"
@@ -74,8 +104,18 @@ export function ServiceItemStream({
       </div>
 
       {items.length === 0 ? (
-        <div className="px-5 py-6 text-center text-[12.5px] text-muted-foreground">
-          本服务期还没有服务事项。记一条，或在右栏合同文件夹里打开交付物。
+        <div className="px-5 py-6 text-center text-[12.5px] leading-relaxed text-muted-foreground">
+          {isLoading ? (
+            '正在读取事项目录…'
+          ) : sourceSubpath ? (
+            '该目录下还没有事项。按「日期-事项」建子文件夹，这里就会自动列出来。'
+          ) : (
+            <>
+              没有找到「办案」目录。
+              <br />
+              在上方下拉里指定一个事项目录，或在合同文件夹里新建「3-办案」。
+            </>
+          )}
         </div>
       ) : (
         <table className="mt-1 w-full border-collapse text-[13px]">
