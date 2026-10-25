@@ -97,6 +97,7 @@ async def test_return_value_passthrough() -> None:
     assert await wrap(ok)(run_id=7) == {"run_id": 7}
 
 
+@pytest.mark.django_db
 def test_sync_function_variant() -> None:
     """同步工具走 def 分支(当前 workflow 全 async,防御未来新增同步工具)。"""
     from mcp.server.mcpserver.exceptions import ToolError
