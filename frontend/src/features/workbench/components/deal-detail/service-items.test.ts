@@ -62,8 +62,9 @@ describe('parseDatedFolder', () => {
     expect(parseDatedFolder('交接清单')).toEqual({ date: '', title: '交接清单' })
   })
 
-  it('日期后无事项名时回退为原目录名', () => {
-    expect(parseDatedFolder('2026.05.11-').title).toBe('2026.05.11-')
+  it('日期后无事项名时 title 留空（不回退原名，避免与左列日期重复）', () => {
+    // 回退成原名会让左列日期与主行显示同一串 `2026.05.11-`；交给渲染层写「未命名事项」
+    expect(parseDatedFolder('2026.05.11-')).toEqual({ date: '2026-05-11', title: '' })
   })
 })
 

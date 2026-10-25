@@ -79,8 +79,11 @@ export function useServiceItems(
           date,
           kind: '办案',
           title,
-          // 目录原名带编号与日期，排查时有用（律师改过名字也能对上）
-          detail: kid.name,
+          // 不再重复目录名：日期已在左列完整显示、事项名就在主行，把
+          // `2026.06.09-租赁合同` 再贴一行只是把同一信息说两遍。
+          // 唯一例外：目录只有日期没有事项名（`2026.06.09-`），此时事项名
+          // 回退成原名＝重复了日期，也就不需要再显示。
+          detail: undefined,
           subpath: kid.subpath,
           fileCount: n,
           status,

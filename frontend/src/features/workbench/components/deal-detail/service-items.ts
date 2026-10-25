@@ -56,7 +56,10 @@ export function parseDatedFolder(name: string): { date: string; title: string } 
   if (!m) return { date: '', title: name.trim() }
   const [, y, mo, d, rest] = m
   const date = `${y}-${String(Number(mo)).padStart(2, '0')}-${String(Number(d)).padStart(2, '0')}`
-  return { date, title: (rest || '').trim() || name.trim() }
+  const title = (rest || '').trim()
+  // 只有日期没有事项名（`2026.06.09-`）：title 留空，由调用方显示「未命名事项」。
+  // 不能回退成原名——原名里含日期，会和左列日期重复显示同一串东西。
+  return { date, title }
 }
 
 /** 该目录名是否像「办案事项目录」（含办案/日常办案 等） */

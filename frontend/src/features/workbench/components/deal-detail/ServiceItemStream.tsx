@@ -94,7 +94,9 @@ function ItemRow({
             (it.today ? 'font-[650] text-status-red' : 'text-muted-foreground')
           }
         >
-          {it.date ? it.date.slice(5) : '—'}
+          {/* 完整日期：截成 06-09 会丢掉年份，跨年度服务期（如 2026-03 至
+              2027-03）里同一月日可能指两年，必须带年 */}
+          {it.date || '—'}
           {it.today && <div className="text-[10.5px]">今天</div>}
         </td>
         <td className="py-2.5 align-baseline">
@@ -109,7 +111,7 @@ function ItemRow({
                 className={'size-3 flex-none text-muted-foreground transition-transform ' + (open ? 'rotate-90' : '')}
               />
             )}
-            {it.title}
+            {it.title || <span className="text-muted-foreground/70">未命名事项</span>}
           </div>
           {it.detail && <div className="mt-0.5 text-[11.5px] text-muted-foreground">{it.detail}</div>}
         </td>
@@ -198,9 +200,9 @@ export function ServiceItemStream({
         <span className="rounded-full bg-secondary px-2 text-[11px] font-[600] leading-[18px] text-muted-foreground tabular-nums">
           {items.length}
         </span>
-        <span className="text-[11.5px] text-muted-foreground/70">
-          本年度{sourceSubpath ? ` · ${sourceSubpath.split('/').pop()}` : ''}
-        </span>
+        {/* 标题区只留选择器：目录名已在选择器里显示，再写一遍「本年度 · 3-办案」
+            是同一信息说两遍；「本年度」由下方 note 的服务期范围表达更准确 */}
+
         {onChangeSource && candidates && candidates.length > 0 && (
           <select
             value={sourceSubpath ?? ''}
@@ -246,7 +248,7 @@ export function ServiceItemStream({
         <table className="mt-1 w-full border-collapse text-[13px]">
           <thead>
             <tr className="text-[11px] text-muted-foreground/70">
-              <th className="w-[92px] px-5 py-2 text-left font-[600] tracking-[0.03em]">日期</th>
+              <th className="w-[104px] px-5 py-2 text-left font-[600] tracking-[0.03em]">日期</th>
               <th className="w-[64px] py-2 text-left font-[600] tracking-[0.03em]">类型</th>
               <th className="py-2 text-left font-[600] tracking-[0.03em]">事项</th>
               <th className="py-2 text-left font-[600] tracking-[0.03em]">交付物</th>
