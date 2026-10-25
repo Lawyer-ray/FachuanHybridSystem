@@ -44,6 +44,7 @@ const HIGH_RISK_PATTERNS: readonly string[] = [
   "delete",
   "remove_",
   "destroy",
+  "forget_",
   "send_",
   "submit_",
   "upload_",
@@ -135,6 +136,10 @@ const WRITE_PREFIXES: readonly string[] = [
   "convert_",
   "analyze_",
   "parse_document",
+  // 2026-10-25 记忆：remember / restore_memory 是写入但工具名不含常规写前缀，
+  // 此前被判 LOW（连留痕都没有）。删除侧 forget_ 已入 DANGER（需人工审批）。
+  "remember",
+  "restore_memory",
 ];
 
 type RiskLevel = "low" | "medium" | "high" | "critical";

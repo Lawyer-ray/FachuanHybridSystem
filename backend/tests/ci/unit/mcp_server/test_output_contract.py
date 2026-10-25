@@ -60,6 +60,10 @@ _SELF_ASSEMBLED_OUTPUT = frozenset(
         "get_async_task_status",
         # 本地生成，不打 REST
         "get_server_time",
+        # 拉全量列表后在本地做关键词过滤/排序，返回 {memories, note}
+        "recall_memory",
+        # 拉全量后按 status=pending 重新包装为 {pending: [...]}
+        "list_pending_memories",
     }
 )
 

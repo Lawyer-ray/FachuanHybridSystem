@@ -132,6 +132,46 @@ pi 自己裁剪上下文并做自动 compaction（`docs/compaction.md`）。
 本 app 内置，可用 `FACHUAN_PI_AGENTS_PATH` 覆盖。会话标题缺省取首条用户消息前
 30 字；`SessionOut.llm_model` 回报的是服务端解析出的实际模型（客户端不传模型）。
 
+### 跨会话记忆（个人 / 团队 / 律所）
+
+pi session 只负责**会话内**记忆，compaction 反而是遗忘机制：旧消息超阈值就被
+摘要掉。跨会话的偏好与惯例存 Django 的 `AgentMemory` 表，设计全文见
+[`docs/plans/agent-memory-plan.md`](../../../docs/plans/agent-memory-plan.md)。
+
+三段链路：
+
+```
+注入：pi/memory-inject.ts
+        ├─ session_start / session_before_compact / 跨天 → GET /agent/memory/snapshot
+        └─ before_agent_start → systemPromptOptions.sections.memory = 快照
+
+读写：mcp_server/tools/core/agent_memory.py
+        remember / recall_memory / forget_memory / restore_memory / …
+          └─ 以当前律师身份调 REST（identity.py 透传 token）
+
+抽取：stream_chat 收尾 → django-q → services/memory_tasks.py
+        └─ services/memory_service.py 抽取 → status=pending 等律师确认
+```
+
+三条硬约束（改之前先读）：
+
+1. **快照必须字节稳定**。记忆块每轮变化 = system prompt 前缀每轮变 = prompt cache
+   全废。所以只在 `session_start` / 压缩前 / 跨天重建，模型刚 `remember` 不重建。
+2. **用 `sections.memory` 不是整段替换 `systemPrompt`**。后者会让 pi 的结构化
+   sections 与实际 prompt 漂移，且与 `approval-gate.ts` 互相覆盖。
+3. **抽取不在扩展里做**。本系统每请求起一个 pi 进程、用完即关，取消路径走
+   `abort_running=True`，`session_shutdown` 不保证触发；且 pi core 等 shutdown
+   handler 无超时，同步调 LLM 会把关闭拖死。
+
+注入配额：个人 1600 字 / 团队 900 / 律所 700（约 2000-2500 token）。单条 >200 字
+的条目不注入——那意味着抽取失败（把整段对话当成一条记忆）。
+
+**团队/律所层不是自动聚合，是人工策展提升**（`promote_memory`）：强制改写 +
+PII 闸门 + 律所层只收惯例/偏好。理由见 plan 文件第 3 节。
+
+审批分级：`forget_memory` 是 **HIGH（需人工审批）**（工具名不含 `delete`，不加
+这条模型就能静默抹掉律师的记忆）；`remember` / `restore_memory` 是 MEDIUM 留痕。
+
 ### 3.1 pi session 存储（`pi/session_store.py`）
 
 目录布局（根目录 `FACHUAN_AGENT_HOME`，默认 `~/.fachuan-agent`，权限 0700）：

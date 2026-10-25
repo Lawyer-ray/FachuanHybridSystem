@@ -38,6 +38,7 @@ from ..pi.user_token import USER_TOKEN_ENV, mint_user_access_token
 from .event_bus import get_bus
 from .history import render_transcript
 from .live_sessions import get_live_registry
+from .memory_tasks import enqueue_extraction
 from .session_cleanup import has_pi_session
 
 logger = logging.getLogger(__name__)
@@ -444,6 +445,17 @@ async def stream_chat(
                     await persist_coro
                 except Exception:
                     logger.warning("助手消息落库失败", exc_info=True)
+
+        # 会话收尾后异步抽取个人记忆（→ pending，等律师确认）。
+        #
+        # 为什么在这里而不是 pi 扩展里：本系统每请求起一个 pi 进程、用完即关，
+        # 取消路径走 ``abort_running=True``，``session_shutdown`` 不保证干净触发；
+        # 且 pi core 等 shutdown handler 无超时，同步调 LLM 会把关闭拖死。
+        # 取消的运行同样入队：用户按停止不代表前面说的偏好不值得记。
+        try:
+            await asyncio.shield(sync_to_async(enqueue_extraction, thread_sensitive=False)(str(session.session_id)))
+        except Exception:
+            logger.warning("记忆抽取入队失败（不影响对话）", exc_info=True)
 
     if follow_ok:
         yield {"type": "done", "session_id": str(session.session_id)}

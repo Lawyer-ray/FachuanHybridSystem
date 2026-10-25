@@ -72,6 +72,7 @@ DANGER_PATTERNS: tuple[str, ...] = (
     "delete",
     "remove_",
     "destroy",
+    "forget_",
     "send_",
     "submit_",
     "upload_",
@@ -170,6 +171,12 @@ WRITE_PREFIXES: tuple[str, ...] = (
     "convert_",
     "analyze_",
     "parse_document",
+    # 2026-10-25 记忆：``remember`` / ``restore_memory`` 是写入但工具名不含
+    # 常规写前缀，此前被判 LOW（连留痕都没有）。记忆会直接影响后续所有
+    # 会话的输出，写入必须有审计痕迹。删除侧走 ``forget_``（已入 DANGER，
+    # 需人工审批）——模型不能静默抹掉律师的记忆。
+    "remember",
+    "restore_memory",
 )
 
 DEFAULT_TIMEOUT = 300.0

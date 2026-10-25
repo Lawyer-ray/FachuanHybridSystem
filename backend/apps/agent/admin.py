@@ -12,7 +12,7 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
-from .models import AgentApproval, AgentApprovalPolicy, AgentRun, AgentSession
+from .models import AgentApproval, AgentApprovalPolicy, AgentMemory, AgentRun, AgentSession
 
 
 @admin.register(AgentRun)
@@ -81,3 +81,45 @@ class AgentApprovalPolicyAdmin(admin.ModelAdmin):
     list_filter = ("action", "is_prefix")
     search_fields = ("tool_pattern", "user__username")
     ordering = ("-updated_at",)
+
+
+@admin.register(AgentMemory)
+class AgentMemoryAdmin(admin.ModelAdmin):
+    """跨会话记忆（个人 / 团队 / 律所三级）。
+
+    **策展不在这里做**：团队/律所层必须走 ``promote_memory``（强制改写 +
+    PII 闸门），admin 直接改内容会绕过这两道闸门。所以内容字段只读，
+    这里的作用是审计「谁记了什么、从哪次对话来的、有没有被提升」。
+    """
+
+    list_display = ("created_at", "scope", "kind", "status", "short_content", "hit_count", "created_by")
+    list_filter = ("scope", "kind", "status", "created_at")
+    search_fields = ("content", "created_by__username", "created_by__real_name")
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    autocomplete_fields: tuple[str, ...] = ()
+    filter_horizontal = ("promoted_from",)
+    readonly_fields = (
+        "scope",
+        "lawyer",
+        "team",
+        "law_firm",
+        "kind",
+        "content",
+        "content_hash",
+        "source_session",
+        "promoted_from",
+        "confidence",
+        "hit_count",
+        "last_hit_at",
+        "created_by",
+        "created_at",
+        "updated_at",
+    )
+
+    @admin.display(description="内容")
+    def short_content(self, obj: AgentMemory) -> str:
+        return obj.content[:60] + ("…" if len(obj.content) > 60 else "")
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentMemory]:
+        return super().get_queryset(request).select_related("lawyer", "team", "law_firm", "created_by")

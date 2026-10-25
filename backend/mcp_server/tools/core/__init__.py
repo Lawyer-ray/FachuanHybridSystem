@@ -1,6 +1,14 @@
 """核心域 tools 导出"""
 
 from mcp_server.tools.core.agent_attachments import read_agent_attachment
+from mcp_server.tools.core.agent_memory import (
+    confirm_memories,
+    forget_memory,
+    list_pending_memories,
+    recall_memory,
+    remember,
+    restore_memory,
+)
 from mcp_server.tools.core.agent_skills import get_agent_skill
 from mcp_server.tools.core.dashboard import get_dashboard_stats
 from mcp_server.tools.core.identity import get_current_user, get_server_time
@@ -64,6 +72,13 @@ __all__ = [
     # 身份与时间
     "get_current_user",
     "get_server_time",
+    # 记忆（个人 / 团队 / 律所）
+    "remember",
+    "recall_memory",
+    "forget_memory",
+    "restore_memory",
+    "list_pending_memories",
+    "confirm_memories",
     # 异步任务统一状态
     "get_async_task_status",
     "list_doc_converter_jobs",

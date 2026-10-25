@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 PI_BIN_ENV = "FACHUAN_PI_BIN"
 APPROVAL_EXTENSION_ENV = "FACHUAN_PI_APPROVAL_EXTENSION"
+#: 记忆注入 extension（可选）。文件缺失时只告警不阻断——记忆是增强能力，
+#: 与审批网关的 fail-closed 策略刻意不同。
+MEMORY_EXTENSION_ENV = "FACHUAN_PI_MEMORY_EXTENSION"
 #: 只向模型声明法穿 MCP 工具。pi 默认还带 read/bash/edit/write 四个内置工具，
 #: 它们能以 Django 进程的权限读写文件、执行命令，且不在审批清单内——
 #: 一段藏在工具输出里的提示注入就能免审批执行 bash。按 cli.md，``--tools``
@@ -84,6 +87,30 @@ def default_approval_extension() -> str:
     if configured:
         return configured
     return str(Path(__file__).resolve().parent / "approval-gate.ts")
+
+
+def default_memory_extension() -> str:
+    """本 app 内置的记忆注入 extension 路径。"""
+    configured = os.environ.get(MEMORY_EXTENSION_ENV, "").strip()
+    if configured:
+        return configured
+    return str(Path(__file__).resolve().parent / "memory-inject.ts")
+
+
+def resolve_extensions(primary: str | None = None) -> list[str]:
+    """要加载的 extension 列表（审批在前，其余按注入顺序）。
+
+    审批 extension 必须永远存在（工具调用的人工闸门）；记忆注入是可选的
+    ——文件缺失时只告警不阻断，因为记忆是增强能力，缺它对话仍可正常进行。
+    这与审批的 fail-closed 策略刻意不同：不能把「没有记忆」当成致命故障。
+    """
+    extensions = [primary or default_approval_extension()]
+    memory = default_memory_extension()
+    if memory and Path(memory).exists() and memory not in extensions:
+        extensions.append(memory)
+    elif memory and not Path(memory).exists():
+        logger.warning("记忆注入 extension 不存在，本次会话不注入记忆: %s", memory)
+    return extensions
 
 
 def _clean_env() -> dict[str, str]:
@@ -172,9 +199,10 @@ class PiRpcSession:
             "--approve",
             "--tools",
             TOOL_SELECTION,
-            "--extension",
-            self._extension,
         ]
+        # 多个 --extension：审批网关 + 记忆注入。pi 支持重复传该参数。
+        for extension in resolve_extensions(self._extension):
+            args.extend(["--extension", extension])
         # 上下文管理交给 pi：每会话一个 session 文件，pi 负责裁剪与自动 compaction。
         # 没有 session_id 时退回 --no-session（脚本/测试场景）。
         if self._session_dir and self._session_id:
