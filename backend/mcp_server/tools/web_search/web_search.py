@@ -118,7 +118,7 @@ def _empty_results_message(html: str) -> str:
     )
 
 
-def _do_search(query: str, max_results: int) -> str:
+def _do_search(query: str, max_results: int, page: int = 1) -> str:
     """同步执行搜索（在线程池中运行）。
 
     限流/网络错误一律转成**给模型看的自然语言**，不抛异常：
@@ -130,8 +130,9 @@ def _do_search(query: str, max_results: int) -> str:
     except RateLimitedError as exc:
         return f"{exc}。本次无法联网搜索，请先用已有知识回答，或告知用户稍后再试。"
 
-    params = {
+    params: dict[str, str | int] = {
         "query": query,
+        "page": page,
     }
 
     try:
@@ -147,7 +148,8 @@ def _do_search(query: str, max_results: int) -> str:
     if not results:
         return _empty_results_message(resp.text)
 
-    lines = [f"找到 {len(results)} 条搜索结果：\n"]
+    page_label = f"（第 {page} 页）" if page > 1 else ""
+    lines = [f"找到 {len(results)} 条搜索结果{page_label}：\n"]
     for i, r in enumerate(results, 1):
         lines.append(f"{i}. {r.title}")
         if r.url:
@@ -162,12 +164,15 @@ def _do_search(query: str, max_results: int) -> str:
 async def web_search(
     query: str,
     max_results: int = 5,
+    page: int = 1,
 ) -> str:
     """联网搜索互联网获取最新信息。适用于查询实时新闻、最新法规、行业动态。
 
     Args:
         query: 搜索关键词（建议用中文或英文关键词，简洁明了）。
         max_results: 最大返回结果数量，默认 5 条，上限 10。
+        page: 页码，默认 1，上限 10。单页最多 10 条；要更多/更深的结果就
+            翻页（实测相邻页结果完全不重复），不要反复换关键词撞运气。
 
     Returns:
         包裹注入防护标注的搜索结果（标题 + 链接 + 摘要）。标注提醒：
@@ -176,7 +181,9 @@ async def web_search(
     Notes:
         - 本工具受**进程级**配额限制（每分钟 20 次，全所共享）。超限时直接
           返回提示而**不阻塞等待**——模型应用已有知识回答或建议稍后再试。
-        - 结果里的链接是搜索引擎跳转形式，不是原文地址。
+        - 结果里的链接是搜索引擎跳转形式，不是原文地址；把链接（含
+          ``/link?url=...`` 跳转形式与 PDF 直链）交给 ``fetch_url`` 即可
+          读原文全文（支持分块续读与 PDF 提取）。
         - **当前日期/时间**请用 ``get_server_time``，不要从搜索结果摘要里抄——
           摘要常含多个互相矛盾的时间戳。
         - 解析 0 条时返回「解析异常/被反爬」的如实提示而非「未找到」——
@@ -187,6 +194,7 @@ async def web_search(
         return "搜索关键词不能为空"
 
     max_results = min(max(max_results, 1), 10)
+    page = min(max(page, 1), 10)
 
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _do_search, query, max_results)
+    return await loop.run_in_executor(None, _do_search, query, max_results, page)

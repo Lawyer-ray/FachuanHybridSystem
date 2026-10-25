@@ -222,3 +222,58 @@ class TestEmptyResultsHonesty:
         message = self._search_with_html("<html><body>空壳页无结果</body></html>")
 
         assert module._WRAPPER_HEADER not in message
+
+
+class TestPagination:
+    """翻页参数(2026-10-25 审计五十五轮)——实测搜狗相邻页结果零重复,
+    单页 10 条上限从此不再是能力天花板;每翻一页消耗一次进程级配额。"""
+
+    @pytest.fixture(autouse=True)
+    def _reset_bucket(self) -> Any:
+        module = _web_search_module()
+        module._last_requests.clear()
+        yield
+        module._last_requests.clear()
+
+    @staticmethod
+    def _results_html() -> str:
+        return (
+            "<html><body>"
+            + "<div class='vrwrap'><h3><a href='/link?url=abc'>结果甲</a></h3>"
+            + "<div class='space-txt'>摘要甲</div></div>"
+            + "</body></html>"
+        )
+
+    def _search_capturing(self, page: int) -> tuple[str, Any]:
+        import asyncio
+
+        module = _web_search_module()
+        response = httpx.Response(
+            200,
+            content=self._results_html().encode("utf-8"),
+            request=httpx.Request("GET", "https://www.sogou.com/web"),
+        )
+        with mock.patch.object(module.httpx, "Client") as patched:
+            instance = patched.return_value.__enter__.return_value
+            instance.get.return_value = response
+            result = asyncio.run(module.web_search("测试", 5, page=page))
+            params = instance.get.call_args.kwargs.get("params")
+        return result, params
+
+    def test_page_passed_to_sogou_and_labeled(self) -> None:
+        result, params = self._search_capturing(2)
+
+        assert params == {"query": "测试", "page": 2}
+        assert "第 2 页" in result
+
+    def test_page_clamped_to_valid_range(self) -> None:
+        _, low = self._search_capturing(0)
+        _, high = self._search_capturing(99)
+
+        assert low["page"] == 1
+        assert high["page"] == 10
+
+    def test_first_page_has_no_page_label(self) -> None:
+        result, _ = self._search_capturing(1)
+
+        assert "第 1 页" not in result
