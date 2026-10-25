@@ -127,12 +127,12 @@ def create_case(
 
 
 def update_case(
-    case_id: int,
-    name: str | None = None,
-    case_type: str | None = None,
-    target_amount: float | None = None,
-    cause_of_action: str | None = None,
-    status: str | None = None,
+    case_id: Annotated[int, Field(description="案件 ID", ge=1)],
+    name: Annotated[str | None, Field(description="案件名称(不改不传)")] = None,
+    case_type: Annotated[str | None, Field(description="案件类型(自由文本,如 民事诉讼/刑事诉讼;不改不传)")] = None,
+    target_amount: Annotated[float | None, Field(description="标的额(元)", ge=0)] = None,
+    cause_of_action: Annotated[str | None, Field(description="案由(如 买卖合同纠纷)")] = None,
+    status: Annotated[_CaseStatusL | None, Field(description="active 在办/closed 已结(不改不传)")] = None,
 ) -> dict[str, Any]:
     """更新案件档案的可编辑字段（名称/状态/类型/日期/金额/案由等）。
 

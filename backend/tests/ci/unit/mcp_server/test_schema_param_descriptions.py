@@ -37,11 +37,13 @@ from apps.workflow.mcp.workflow_tools import (
     start_workflow,
     update_workflow_template,
 )
-from mcp_server.tools.cases.cases import list_cases, search_cases
+from mcp_server.tools.cases.cases import list_cases, search_cases, update_case
 from mcp_server.tools.clients.clients import create_client, list_clients, update_client
 from mcp_server.tools.contacts.contacts import create_contact, list_contacts, update_contact
+from mcp_server.tools.contract_review.review import confirm_party
 from mcp_server.tools.contracts.contracts import create_contract, list_contracts
 from mcp_server.tools.contracts.folder_file import read_folder_file
+from mcp_server.tools.core.agent_attachments import read_agent_attachment
 from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
 from mcp_server.tools.finance.mortgage import mortgage_amortize
 from mcp_server.tools.legal_research.legal_research import capability_search, create_research_task
@@ -78,6 +80,9 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "mortgage_amortize": (10, 10),
     "create_research_task": (8, 8),
     "capability_search": (7, 7),
+    "update_case": (6, 6),
+    "confirm_party": (7, 7),
+    "read_agent_attachment": (7, 7),
 }
 
 
@@ -88,7 +93,8 @@ _ALL_DESCRIBED_FNS = [
     calculate_interest, read_folder_file, start_workflow, list_workflows,
     approve_workflow_step, create_workflow_template, update_workflow_template,
     create_message_source, update_message_source, mortgage_amortize,
-    create_research_task, capability_search,
+    create_research_task, capability_search, update_case, confirm_party,
+    read_agent_attachment,
 ]
 
 
@@ -202,6 +208,7 @@ def test_schema_enums_match_model_choices() -> None:
     挡住)。代价是双份口径——后端 TextChoices 加值而 Literal 不跟,schema
     会把新值挡在外面;本测试用权威表逐值对账,drift 即红灯。"""
     from apps.client.models.client import ClientType
+    from apps.contract_review.schemas.review_schemas import ConfirmPartyIn
     from apps.contracts.models.contract import ContractStatus, FeeMode
     from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
     from apps.finance.schemas.lpr_schemas import InterestCalculateRequest, MortgageAmortizeRequest
@@ -242,6 +249,8 @@ def test_schema_enums_match_model_choices() -> None:
         ("create_research_task", "search_mode"): _backend_literal(LegalResearchTaskCreateIn, "search_mode"),
         ("capability_search", "intent"): _backend_literal(AgentSearchRequestV1, "intent"),
         ("capability_search", "search_mode"): _backend_literal(AgentSearchRequestV1, "search_mode"),
+        ("update_case", "status"): set(CaseStatus.values),
+        ("confirm_party", "represented_party"): _backend_literal(ConfirmPartyIn, "represented_party"),
         ("list_workflows", "status"): set(WorkflowRun.Status.values),
         ("create_workflow_template", "category"): set(WorkflowTemplate.Category.values),
         ("update_workflow_template", "category"): set(WorkflowTemplate.Category.values),
@@ -258,6 +267,8 @@ def test_schema_enums_match_model_choices() -> None:
         "create_message_source": _schema_of(create_message_source),
         "create_research_task": _schema_of(create_research_task),
         "capability_search": _schema_of(capability_search),
+        "update_case": _schema_of(update_case),
+        "confirm_party": _schema_of(confirm_party),
         # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
         "list_workflows": _registered_schema("list_workflows"),
         "create_workflow_template": _registered_schema("create_workflow_template"),

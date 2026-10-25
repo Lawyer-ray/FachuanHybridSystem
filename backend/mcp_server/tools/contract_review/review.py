@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
 
@@ -43,13 +45,16 @@ def get_review_models() -> dict[str, Any]:
 
 
 def confirm_party(
-    task_id: str,
-    represented_party: str,
-    reviewer_name: str | None = None,
-    party_a: str | None = None,
-    party_b: str | None = None,
-    party_c: str | None = None,
-    party_d: str | None = None,
+    task_id: Annotated[str, Field(description="审查任务 ID")],
+    represented_party: Annotated[
+        Literal["party_a", "party_b", "party_c", "party_d"],
+        Field(description="我方代表哪一方——填**键名** party_a/party_b/party_c/party_d(不是当事人名称;后端 Literal 只收这四个值,传名称必 422)"),
+    ],
+    reviewer_name: Annotated[str | None, Field(description="审查人署名(可选)")] = None,
+    party_a: Annotated[str | None, Field(description="覆盖解析出的甲方名称(可选)")] = None,
+    party_b: Annotated[str | None, Field(description="覆盖解析出的乙方名称(可选)")] = None,
+    party_c: Annotated[str | None, Field(description="覆盖解析出的丙方名称(可选)")] = None,
+    party_d: Annotated[str | None, Field(description="覆盖解析出的丁方名称(可选)")] = None,
 ) -> dict[str, Any]:
     """确认本次审查代表哪一方当事人。
 
@@ -58,7 +63,7 @@ def confirm_party(
 
     Args:
         task_id: 审查任务 ID。
-        represented_party: 我方代表的当事人（通常是 party_a 或 party_b 的取值）。
+        represented_party: 我方代表哪一方——填键名 party_a/party_b/party_c/party_d（不是当事人名称）。
         reviewer_name: 可选，审查人署名。
         party_a/party_b/party_c/party_d: 可选，覆盖解析出的各方名称。
     """
