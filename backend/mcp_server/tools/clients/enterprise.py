@@ -16,7 +16,7 @@ def enterprise_search(keyword: str, provider: str | None = None) -> dict[str, An
     params: dict[str, Any] = {"keyword": keyword}
     if provider:
         params["provider"] = provider
-    return client.get("/client/clients/enterprise/search", params=params)  # type: ignore[no-any-return]
+    return client.get("/client/clients/enterprise/search", params=params, timeout=180)  # type: ignore[no-any-return]
 
 
 def enterprise_prefill(company_id: str) -> dict[str, Any]:
@@ -25,4 +25,4 @@ def enterprise_prefill(company_id: str) -> dict[str, Any]:
     后端必填 query 参数是 ``company_id``（先用 ``enterprise_search`` 拿到的
     企业标识）。早前工具传 ``keyword``，参数名不符，调用必然 422。
     """
-    return client.get("/client/clients/enterprise/prefill", params={"company_id": company_id})  # type: ignore[no-any-return]
+    return client.get("/client/clients/enterprise/prefill", params={"company_id": company_id}, timeout=180)  # type: ignore[no-any-return]

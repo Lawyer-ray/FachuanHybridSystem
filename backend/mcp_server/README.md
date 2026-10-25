@@ -26,7 +26,7 @@ pi 会话(每律师一个) ──Bearer 当前律师token──▶ RequestAuthMi
 | 错误直达模型 | `client.py` | `FachuanApiError(ToolError)`:非 2xx 的 HTTP 状态 + 后端 detail 完整回传(is_error=true),模型可自纠;消息保持 `"HTTP <status>:"` 前缀(agent_attachments 分类依赖) |
 | 传输层翻译 | `client.py` | `_guard_transport` 把超时/断连翻成 `FachuanTransportError`(可读原因+重试指引);GET 幂等自动重试一次(传输故障/502/503/504),非幂等方法不重试 |
 | 下载闸门 | `client.py` | `download()` 1MB 上限(env `FACHUAN_MCP_MAX_DOWNLOAD_MB`),防 base64 挤爆会话上下文;所有 b64encode 输出必须经它(`TestClientAbstractionBoundary` 禁止 `client._http` 直连) |
-| LLM 链路超时 | `tools/documents/*.py` | 生成类工具 client 侧 `timeout=180`;**pi 侧 mcp.json `timeout: 200` 必须更大**(`apps/agent/pi/shared_mcp.py`,双端失配则 180 作废)。同步阻塞的 Playwright 端点同口径 180(`test_slow_tool_timeouts.py` 登记制门禁:/lpr/calculate、/lpr/sync、威科检索/法规核查;submit_task 异步即返的端点不登记) |
+| LLM 链路超时 | `tools/documents/*.py` | 生成类工具 client 侧 `timeout=180`;**pi 侧 mcp.json `timeout: 200` 必须更大**(`apps/agent/pi/shared_mcp.py`,双端失配则 180 作废)。同步阻塞的长 IO 端点同口径 180(`test_slow_tool_timeouts.py` 登记制门禁:/lpr/calculate、/lpr/sync、威科检索/法规核查、**企业数据 provider 链 10 处**(enterprise_data 8+client 预填 2——qichacha provider 单次最长 30+30s,降级串行再试一家可到 ~120s;f-string 路径按前缀登记);submit_task 异步即返的端点不登记) |
 | workflow 身份链 | `apps/workflow/mcp/workflow_tools.py` | 直 ORM 工具用 `_resolve_mcp_access` 从 ContextVar Bearer 重建律师+org_access;`_mcp_guard_run_access` 补 run 案件访问校验;模板管理 `_require_admin` fail-closed;`server.py:_workflow_tool` 统一剥离 user 参数 + 把 BusinessException/DoesNotExist 翻成 ToolError |
 | 审批联动 | `apps/agent/services/approval.py` | pi 侧按工具名模式(delete/send_/submit_/confirm_/**approve_**/…)判高危;MCP 工具面新增删除类工具会被 `delete` 模式自动覆盖,新增其他危险前缀需同步双表 |
 
