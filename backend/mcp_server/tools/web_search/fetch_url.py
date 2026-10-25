@@ -38,7 +38,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +184,35 @@ def _looks_like_antispider(html: str) -> bool:
     return any(marker.lower() in lowered for marker in _ANTISPIDER_MARKERS)
 
 
+def _format_table(table: Any) -> str:
+    """把 ``<table>`` 渲染成 Markdown 风格行。
+
+    法律页面大量用表格(诉讼费标准、赔偿明细、当事人列表),``get_text``
+    逐格一行会把行列关系彻底打散——「诉讼费 | 100 元」变成两行孤字,
+    模型无法对应哪格是什么。colspan/rowspan 不展开(取文本即止),
+    嵌套表格随外层单元格文本一起收进格子。
+    """
+    lines: list[str] = []
+    for row in table.find_all("tr"):
+        if row.find_parent("table") is not table:
+            continue  # 嵌套表的行——已随外层单元格文本收编,不重复出现
+        cells: list[str] = []
+        # recursive=False:只取本行直接的 td/th,嵌套表的格子不算本行的列
+        for cell in row.find_all(["td", "th"], recursive=False):
+            # 格子里的嵌套表**递归**转 pipe 行——政务页面常见「单列壳表套真表格」,
+            # 直接吸收会把行列连成无分隔的「1不超过1万元50」
+            for nested in cell.find_all("table"):
+                inner = _format_table(nested)
+                nested.replace_with(NavigableString(f"\n{inner}\n" if inner else ""))
+            cells.append(cell.get_text(strip=True))
+        if not any(cells):
+            continue
+        lines.append("| " + " | ".join(cells) + " |")
+        if len(lines) == 1:
+            lines.append("|" + "---|" * len(cells))
+    return "\n".join(lines)
+
+
 def _extract_text(html: str) -> str:
     """从 HTML 提取正文纯文本。
 
@@ -195,6 +224,12 @@ def _extract_text(html: str) -> str:
     for selector in _NOISE_SELECTORS:
         for node in soup.select(selector):
             node.decompose()
+
+    # 表格先转 Markdown 行再进正文流(只处理最外层,嵌套表随外层收编);
+    # 之后 get_text 拿到的是成行的「| a | b |」,不再是逐格孤字。
+    for table in [t for t in soup.find_all("table") if t.find_parent("table") is None]:
+        formatted = _format_table(table)
+        table.replace_with(NavigableString(f"\n{formatted}\n" if formatted else ""))
 
     container: Any = None
     for selector in _CONTENT_SELECTORS:

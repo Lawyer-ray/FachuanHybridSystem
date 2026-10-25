@@ -321,6 +321,79 @@ class TestStartIndexContinuation:
         assert self._inner(result["text"]).startswith("段0000")
 
 
+class TestTableFormatting:
+    """表格保真(2026-10-25 审计五十三轮)——法律页面的诉讼费标准/赔偿明细/
+    当事人列表全是表格,逐格一行会把行列关系打散成孤字。转成 Markdown 行。"""
+
+    def test_table_becomes_markdown_rows(self, fake_http: Any) -> None:
+        html = (
+            "<html><body><article>"
+            + "<p>诉讼费用标准如下：</p>"
+            + "<table><tr><th>标的额</th><th>费率</th></tr>"
+            + "<tr><td>10 万以下</td><td>50 元</td></tr>"
+            + "<tr><td>10 万 - 20 万</td><td>2%</td></tr>"
+            + "</table>"
+            + "结语" * 120
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+        text = _module().fetch_url("https://example.com/fee")["text"]
+
+        assert "| 标的额 | 费率 |" in text
+        assert "| 10 万以下 | 50 元 |" in text
+        assert "| 10 万 - 20 万 | 2% |" in text
+        # 首行(表头)后跟分隔行,模型能识别这是表格结构
+        header_pos = text.index("| 标的额")
+        assert text[header_pos:].splitlines()[1].startswith("|---")
+
+    def test_links_inside_cells_keep_text(self, fake_http: Any) -> None:
+        html = (
+            "<html><body><article>"
+            + "<table><tr><th>当事人</th><th>角色</th></tr>"
+            + '<tr><td><a href="/x">某建筑公司</a></td><td>被告</td></tr>'
+            + "</table>"
+            + "正文" * 150
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+        text = _module().fetch_url("https://example.com/parties")["text"]
+
+        assert "| 某建筑公司 | 被告 |" in text
+
+    def test_nested_table_formats_recursively(self, fake_http: Any) -> None:
+        """嵌套表递归转 pipe 行——政务页常见「单列壳表套真费率表」,直接吸收
+        会把行列连成无分隔的「一审3000」。"""
+        html = (
+            "<html><body><article>"
+            + "<table><tr><th>项</th><th>值</th></tr>"
+            + "<tr><td>明细</td><td><table><tr><td>一审</td><td>3000</td></tr></table></td></tr>"
+            + "</table>"
+            + "正文" * 150
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+        result = _module().fetch_url("https://example.com/nested")
+
+        assert result["ok"] is True
+        assert "| 明细 |" in result["text"]
+        # 嵌套表以完整 pipe 行出现,而不是连体文本
+        assert "| 一审 | 3000 |" in result["text"]
+        assert "一审3000" not in result["text"]
+
+    def test_table_without_rows_leaves_no_debris(self, fake_http: Any) -> None:
+        html = (
+            "<html><body><article>"
+            + "<table><tr><td></td><td></td></tr></table>"
+            + "正文" * 150
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+        result = _module().fetch_url("https://example.com/empty-table")
+
+        assert result["ok"] is True
+        assert "||" not in result["text"]
+
+
 class TestRedirectFallback:
     def test_redirect_target_failure_still_reports(self, fake_http: Any) -> None:
         """解析到真实地址但抓取失败时，不能静默当成成功。"""
