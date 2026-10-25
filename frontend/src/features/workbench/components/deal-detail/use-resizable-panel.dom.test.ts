@@ -95,4 +95,45 @@ describe('useResizablePanel', () => {
     iframe.remove()
     void vi
   })
+
+  it('完整拖拽链路：按下 → 移动 → 松手，宽度真的变了', () => {
+    const { result } = renderHook(() =>
+      useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360, maxRatio: 0.68 }),
+    )
+    attachBox(result.current.containerRef)
+
+    // 按下分隔条
+    act(() => {
+      result.current.onPointerDown({ preventDefault: () => {} } as unknown as React.PointerEvent)
+    })
+    expect(result.current.dragging).toBe(true)
+
+    // 指针移到容器右缘左侧 500px 处 → 右栏宽度应为 500
+    act(() => {
+      window.dispatchEvent(Object.assign(new Event('pointermove'), { clientX: 500 }))
+    })
+    expect(result.current.width).toBe(500)
+
+    // 松手
+    act(() => {
+      window.dispatchEvent(new Event('pointerup'))
+    })
+    expect(result.current.dragging).toBe(false)
+    // 落盘
+    expect(localStorage.getItem(KEY)).toBe('500')
+  })
+
+  it('容器未挂载时移动不崩（首帧竞态）', () => {
+    const { result } = renderHook(() =>
+      useResizablePanel({ storageKey: KEY, defaultWidth: 720 }),
+    )
+    act(() => {
+      result.current.onPointerDown({ preventDefault: () => {} } as unknown as React.PointerEvent)
+    })
+    expect(() => {
+      act(() => {
+        window.dispatchEvent(Object.assign(new Event('pointermove'), { clientX: 500 }))
+      })
+    }).not.toThrow()
+  })
 })

@@ -38,8 +38,11 @@ export function ResizeHandle({
         }
       }}
       className={cn(
-        // -mx：把 9px 命中区的一半探进两侧栏，否则它会把两栏推开
-        'group relative -mx-[4px] w-[9px] flex-none cursor-col-resize select-none',
+        // 命中区 10px、自带左右内边距，在 flex 行里是**真实占位**的一块。
+        // 之前用 -mx-[4px] 让它视觉上嵌进两侧栏，结果左侧是 flex-1 的邻居，
+        // 绘制层叠在上（DOM 在前），那 4px 被盖住 → 点不到、拖不动。
+        // 现在不叠负边距，宽度算在布局里，两栏之间自然形成 10px 的呼吸区。
+        'group relative z-10 w-[10px] flex-none cursor-col-resize select-none',
         'focus:outline-none',
       )}
       title="拖动调整宽度（也可用 ← → 键）"

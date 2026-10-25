@@ -111,7 +111,7 @@ export function DealDetailPage() {
         ref={panelContainerRef}
         className={
           picked
-            ? 'flex items-start gap-0 max-[1024px]:flex-col max-[1024px]:gap-[18px]'
+            ? 'flex items-start gap-[8px] max-[1024px]:flex-col max-[1024px]:gap-[18px]'
             : 'grid items-start gap-[18px] max-[1024px]:grid-cols-1 grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
         }
       >
