@@ -201,6 +201,7 @@ def _register_app_routers() -> None:
     from apps.litigation_ai.api.litigation_api import router as litigation_router
     from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
     from apps.message_hub.api import router as inbox_router
+    from apps.onlyoffice.api.onlyoffice_api import router as onlyoffice_router
     from apps.organization.api import router as organization_router
     from apps.pdf_splitting.api import router as pdf_splitting_router
     from apps.reminders.api import router as reminders_router
@@ -224,6 +225,8 @@ def _register_app_routers() -> None:
     api_v1.add_router("/reminders", reminders_router)
     api_v1.add_router("/inbox", inbox_router)
     api_v1.add_router("/chat-records", chat_records_router, tags=["梳理聊天记录"])
+    # router 自带 JWTOrSessionAuth；/file 与 /callback 端点在自身装饰器上 auth=None
+    api_v1.add_router("/onlyoffice", onlyoffice_router)
 
     from apps.express_query.api import router as express_query_router
 

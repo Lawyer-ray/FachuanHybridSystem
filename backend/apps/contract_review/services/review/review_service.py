@@ -174,6 +174,24 @@ class ReviewService:  # pragma: no cover
             raise ContractReviewError("原始文件不存在")
         return path
 
+    def adopt_edited_output(self, task_id: uuid.UUID, data: bytes, *, version_tag: int) -> str:
+        """收养 OnlyOffice 保存回写的编辑产物（律师画布内编辑落盘）。
+
+        与审查流水线的产物落盘同一模式：default_storage + CONTRACT_REVIEW_OUTPUT；
+        旧产物物理文件保留（调用方在 EditorSession.prev_output_file 留档路径），
+        出问题可手工找回。返回新的落库相对路径。
+        """
+        task = self._repository.get_by_id_required(task_id)
+        if task.status != TaskStatus.COMPLETED:
+            raise ContractReviewError("任务尚未完成，不能收养编辑产物")
+        old_name = Path(task.output_file or "").stem or "review"
+        output_name = f"{old_name}-律编v{version_tag}.docx"
+        output_rel = f"{MediaEntity.CONTRACT_REVIEW_OUTPUT}/{sanitize_upload_filename(output_name)}"
+        saved_name = default_storage.save(output_rel, ContentFile(data))
+        self._repository.update(task_id, output_file=saved_name)
+        logger.info("OnlyOffice 编辑产物已收养: task=%s -> %s", task_id, saved_name)
+        return saved_name
+
 
 def process_review(task_id_str: str) -> None:  # pragma: no cover
     """异步执行审查流水线（由 Django-Q2 调用）"""
