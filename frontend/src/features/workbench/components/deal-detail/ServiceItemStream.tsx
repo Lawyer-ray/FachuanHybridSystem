@@ -90,7 +90,9 @@ function ItemRow({
       >
         <td
           className={
-            'px-5 py-2.5 align-baseline text-[12.5px] tabular-nums ' +
+            // whitespace-nowrap：日期是 `2026-10-17` 这类不可断的短串，允许换行
+            // 会把它拆成两行（列宽被浏览器按内容比例压时必然发生），读起来断成两截
+            'whitespace-nowrap px-5 py-2.5 align-baseline text-[12.5px] tabular-nums ' +
             (it.today ? 'font-[650] text-status-red' : 'text-muted-foreground')
           }
         >
@@ -245,14 +247,14 @@ export function ServiceItemStream({
           )}
         </div>
       ) : (
-        <table className="mt-1 w-full border-collapse text-[13px]">
+        <table className="mt-1 w-full table-fixed border-collapse text-[13px]">
           <thead>
             <tr className="text-[11px] text-muted-foreground/70">
-              <th className="w-[104px] px-5 py-2 text-left font-[600] tracking-[0.03em]">日期</th>
-              <th className="w-[64px] py-2 text-left font-[600] tracking-[0.03em]">类型</th>
+              <th className="w-[116px] px-5 py-2 text-left font-[600] tracking-[0.03em]">日期</th>
+              <th className="w-[68px] py-2 text-left font-[600] tracking-[0.03em]">类型</th>
               <th className="py-2 text-left font-[600] tracking-[0.03em]">事项</th>
               <th className="py-2 text-left font-[600] tracking-[0.03em]">交付物</th>
-              <th className="w-[76px] px-5 py-2 text-right font-[600] tracking-[0.03em]">状态</th>
+              <th className="w-[84px] px-5 py-2 text-right font-[600] tracking-[0.03em]">状态</th>
             </tr>
           </thead>
           <tbody>
