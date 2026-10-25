@@ -14,8 +14,17 @@ export function ResizeHandle({
   onPointerDown,
   onKeyAdjust,
   label = '调整宽度',
+  hidden = false,
 }: {
   dragging: boolean
+  /**
+   * 竖排布局（窄屏上下堆叠）时隐藏。
+   *
+   * 竖排下没有左右分栏可分，分隔条只剩一条竖线立在两栏中间——既没法拖，
+   * 还占着 10px 宽度。用 CSS 隐藏而不是不渲染：保持 DOM 稳定，避免
+   * 拖拽中的布局跳变。
+   */
+  hidden?: boolean
   onPointerDown: (e: React.PointerEvent) => void
   /** 键盘调整：传 ±1 表示放大/缩小一档 */
   onKeyAdjust?: (direction: 1 | -1) => void
@@ -47,6 +56,7 @@ export function ResizeHandle({
         // 撑满行高才有可点区域；min-h 兜住内容比视口短的场景。
         'group relative z-10 w-[10px] flex-none cursor-col-resize select-none self-stretch',
         'h-full min-h-[520px]',
+        hidden && 'max-[1100px]:hidden',
         'focus:outline-none',
       )}
       title="拖动调整宽度（也可用 ← → 键）"

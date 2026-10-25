@@ -136,4 +136,26 @@ describe('useResizablePanel', () => {
       })
     }).not.toThrow()
   })
+
+  it('手动设置也不可能超过 maxRatio', () => {
+    const { result } = renderHook(() =>
+      useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360, maxRatio: 0.68 }),
+    )
+    const el = document.createElement('div')
+    el.getBoundingClientRect = () =>
+      ({ right: 2000, left: 0, width: 2000, top: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect
+    result.current.containerRef.current = el
+    // 2000-560=1440 与 2000*0.68=1360 取小 → 1360
+    act(() => result.current.setWidth((w) => w))
+    expect(result.current.effectiveWidth).toBeLessThanOrEqual(1360)
+  })
+
+  it('手动拖过后以用户选择为准（不再自适应）', () => {
+    localStorage.setItem(KEY, '800') // 视为用户拖过
+    const { result } = renderHook(() =>
+      useResizablePanel({ storageKey: KEY, defaultWidth: 720, min: 360, maxRatio: 0.68 }),
+    )
+    attachBox(result.current.containerRef)
+    expect(result.current.effectiveWidth).toBe(800)
+  })
 })

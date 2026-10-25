@@ -29,20 +29,6 @@ export function DealDetailPage() {
    */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
   const { valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
-  /** 预览栏宽度：可拖拽、记住偏好（与非诉页同一套 hook，各记各的 key） */
-  const panel = useResizablePanel({
-    storageKey: 'fachuan:deal:preview-width',
-    defaultWidth: 720,
-    min: 360,
-    maxRatio: 0.68,
-  })
-  const {
-    width: panelWidth,
-    dragging: panelDragging,
-    containerRef: panelContainerRef,
-    onPointerDown: panelPointerDown,
-    setWidth: panelSetWidth,
-  } = panel
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
   /**
@@ -54,6 +40,23 @@ export function DealDetailPage() {
   const [picked, setPicked] = useState<
     { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
   >(null)
+
+  /** 预览栏宽度：可拖拽、记住偏好（与非诉页同一套 hook，各记各的 key） */
+  const panel = useResizablePanel({
+    storageKey: 'fachuan:deal:preview-width',
+    defaultWidth: 720,
+    min: 360,
+    maxRatio: 0.68,
+    layoutKey: picked ? 'split' : 'stacked',
+  })
+  const {
+    effectiveWidth: panelEffectiveWidth,
+    stacked: panelStacked,
+    dragging: panelDragging,
+    containerRef: panelContainerRef,
+    onPointerDown: panelPointerDown,
+    setWidth: panelSetWidth,
+  } = panel
 
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
@@ -163,6 +166,7 @@ export function DealDetailPage() {
         {picked && (
           <ResizeHandle
             dragging={panelDragging}
+            hidden={panelStacked}
             onPointerDown={panelPointerDown}
             onKeyAdjust={(dir) => panelSetWidth((w) => Math.max(320, w + dir * 40))}
             label="调整预览栏宽度"
@@ -171,7 +175,7 @@ export function DealDetailPage() {
 
         <div
           className="min-w-0"
-          style={picked ? { width: panelWidth, flex: 'none' } : undefined}
+          style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
         >
         <DetailRail
           deadlines={deadlines}

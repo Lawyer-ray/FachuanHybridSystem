@@ -30,25 +30,6 @@ export function NonLitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { valid, d, deal, deadlines, contacts, money, next } = useDealDetailPage(id)
   const [searchParams, setSearchParams] = useSearchParams()
-  /**
-   * 预览栏宽度：可拖拽、记住偏好。
-   *
-   * 预览时右栏装的是 OnlyOffice，A4 正文在 600px 以下就开始缩字；而「多宽才够」
-   * 因人的屏幕、系统缩放、阅读习惯而异。写死断点只能猜折中值，交给用户自己拖。
-   */
-  const panel = useResizablePanel({
-    storageKey: 'fachuan:nonlit:preview-width',
-    defaultWidth: 720,
-    min: 360,
-    maxRatio: 0.68,
-  })
-  const {
-    width: panelWidth,
-    dragging: panelDragging,
-    containerRef: panelContainerRef,
-    onPointerDown: panelPointerDown,
-    setWidth: panelSetWidth,
-  } = panel
 
   /** 用户手动指定的事项源目录（null = 自动识别「办案」） */
   const [manualSource, setManualSource] = useState<string | null>(null)
@@ -63,6 +44,28 @@ export function NonLitDetailPage() {
   const [picked, setPicked] = useState<
     { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
   >(null)
+
+  /**
+   * 预览栏宽度：可拖拽、记住偏好。
+   *
+   * 预览时右栏装的是 OnlyOffice，A4 正文在 600px 以下就开始缩字；而「多宽才够」
+   * 因人的屏幕、系统缩放、阅读习惯而异。写死断点只能猜折中值，交给用户自己拖。
+   */
+  const panel = useResizablePanel({
+    storageKey: 'fachuan:nonlit:preview-width',
+    defaultWidth: 720,
+    min: 360,
+    maxRatio: 0.68,
+    layoutKey: picked ? 'split' : 'stacked',
+  })
+  const {
+    effectiveWidth: panelEffectiveWidth,
+    stacked: panelStacked,
+    dragging: panelDragging,
+    containerRef: panelContainerRef,
+    onPointerDown: panelPointerDown,
+    setWidth: panelSetWidth,
+  } = panel
   /**
    * 服务事项：直接从合同文件夹的「办案」目录读（目录名 = 事项名 + 日期）。
    * 找不到「办案」时由页面提示手动指定，不静默扫全盘。
@@ -179,6 +182,7 @@ export function NonLitDetailPage() {
         {picked && (
           <ResizeHandle
             dragging={panelDragging}
+            hidden={panelStacked}
             onPointerDown={panelPointerDown}
             onKeyAdjust={(dir) => panelSetWidth((w) => Math.max(320, w + dir * 40))}
             label="调整预览栏宽度"
@@ -188,7 +192,7 @@ export function NonLitDetailPage() {
         {/* 右：预览（选中时置顶）+ 合同要素/文件夹/事实卡 */}
         <div
           className="min-w-0 space-y-[18px]"
-          style={picked ? { width: panelWidth, flex: 'none' } : undefined}
+          style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
         >
           {picked && (
             <div className="sticky top-[70px] flex h-[calc(100vh-100px)] min-h-[520px] flex-col">
