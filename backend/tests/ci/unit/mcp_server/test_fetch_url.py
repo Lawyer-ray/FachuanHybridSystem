@@ -52,6 +52,16 @@ def _clear_fetch_cache() -> None:
     """抓取缓存是模块级状态——用例间必须清空,否则后一个用例命中前一个
     用例的缓存,mock 的响应永远不会被触发(假绿)。"""
     _module()._fetch_cache.clear()
+    _module()._robots_cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _robots_allow_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认放行 robots.txt 检查(六十七轮)——单测不应触网拉 robots;
+    真实实现存到 ``_robots_allows_real``,TestRobotsTxt 用例恢复它。"""
+    module = _module()
+    module._robots_allows_real = module._robots_allows
+    monkeypatch.setattr(module, "_robots_allows", lambda url, http: True)
 
 
 def _set_response(fake_http: Any, response: httpx.Response) -> None:
@@ -883,6 +893,67 @@ class TestBodySizeCap:
 
         assert result["ok"] is True
         assert "正文内容" in result["text"]
+
+
+class TestRobotsTxt:
+    """robots.txt 尊重(2026-10-25 审计六十七轮,对齐官方 fetch server)——
+    目标站通用组(User-agent: *)明确 Disallow 的路径不抓;robots.txt 拉不到
+    (网络错/非 2xx)fail-open 放行(与官方 fail-closed 的刻意差异,理由见
+    fetch_url._ROBOTS_CACHE_TTL 注释)。autouse fixture 已把检查 patch 成
+    恒放行,本类用例在体内恢复真实实现。"""
+
+    @staticmethod
+    def _use_real_robots(monkeypatch: pytest.MonkeyPatch) -> Any:
+        module = _module()
+        real = module._robots_allows_real
+        monkeypatch.setattr(module, "_robots_allows", real)
+        return module
+
+    @staticmethod
+    def _robots_response(status: int = 200, body: str = "User-agent: *\nDisallow: /private/\n") -> httpx.Response:
+        return httpx.Response(
+            status,
+            content=body.encode(),
+            request=httpx.Request("GET", "https://example.com/robots.txt"),
+        )
+
+    def test_disallowed_path_rejected_before_fetch(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """通用组 Disallow 的路径:robots 检查即拒,正文一个字节不下载。"""
+        module = self._use_real_robots(monkeypatch)
+        instance = fake_http.return_value.__enter__.return_value
+        instance.get.return_value = self._robots_response()
+
+        result = module.fetch_url("https://example.com/private/doc.html")
+
+        assert result["ok"] is False
+        assert result["reason"] == "robots_disallowed"
+        instance.stream.assert_not_called()
+
+    def test_robots_404_fails_open(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """robots.txt 404 = 站点没写规则,标准语义为全允许,照常抓取。"""
+        module = self._use_real_robots(monkeypatch)
+        instance = fake_http.return_value.__enter__.return_value
+        instance.get.return_value = self._robots_response(status=404, body="not found")
+        _set_response(fake_http, _response(200, "<html><body><article>正文内容</article></body></html>"))
+
+        result = module.fetch_url("https://example.com/doc.html")
+
+        assert result["ok"] is True
+        assert "正文内容" in result["text"]
+
+    def test_robots_cached_per_origin(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """同 origin 连续抓取只拉一次 robots.txt(1 小时缓存)。"""
+        module = self._use_real_robots(monkeypatch)
+        instance = fake_http.return_value.__enter__.return_value
+        instance.get.return_value = self._robots_response()
+        _set_response(fake_http, _response(200, "<html><body><article>页面一</article></body></html>"))
+
+        first = module.fetch_url("https://example.com/a.html")
+        second = module.fetch_url("https://example.com/b.html")
+
+        assert first["ok"] is True
+        assert second["ok"] is True
+        assert instance.get.call_count == 1  # 第二次走缓存
 
 
 class TestFetchCache:

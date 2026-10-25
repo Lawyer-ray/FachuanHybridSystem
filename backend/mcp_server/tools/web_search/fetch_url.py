@@ -20,6 +20,7 @@
    - ``blocked`` 403/401 等被拒绝
    - ``timeout`` / ``network_error`` / ``http_error`` / ``empty_content``
    - ``payload_too_large`` 响应体超过抓取上限（见 ``_MAX_BODY_BYTES``）
+   - ``robots_disallowed`` 目标站 robots.txt 通用组明确禁止抓取该路径
 
    **绝不**返回 ``{"ok": true, "text": ""}``——那会让模型以为「页面没内容」，
    而不是「我们抓不到」。这正是 ``as_items`` 静默兜底要避免的同一类错误。
@@ -37,6 +38,7 @@ import re
 import socket
 import threading
 import time
+import urllib.robotparser
 from typing import Any
 from urllib.parse import urlparse
 
@@ -115,6 +117,25 @@ _HEADERS = {
 #: 超限中止下载并如实报 ``payload_too_large``(预检 Content-Length +
 #: 逐块累积双保险——声明头可以骗,实读为准)。
 _MAX_BODY_BYTES = 10 * 1024 * 1024
+
+#: robots.txt 尊重(2026-10-25 审计六十七轮,对齐官方 fetch server):模型自主
+#: 抓取按目标站 robots.txt 的**通用组(User-agent: \*)**判定,明确 Disallow
+#: 的路径不抓,返回 ``robots_disallowed``。与官方的**刻意差异**:robots.txt
+#: 拉不到(网络错/非 2xx)时 **fail-open** 放行——官方是 fail-closed,但本工具
+#: 是律师的公开法律资料检索入口,robots.txt 被 CDN 全站拦截的站点并不少见,
+#: fail-closed 会让工具大面积自断;对方「明确写了不许」才是不抓的红线。
+#: 按站点 origin 缓存 1 小时,避免每抓一页都拉一次 robots。
+#:
+#: **搜索引擎域豁免**:sogou(及一切主流引擎)的 robots 通用组都是
+#: ``Disallow: /`` 全站禁爬——严格执行等于砍掉搜索链路,而搜索结果页
+#: 正是本产品的「查询界面」(``web_search`` 工具的既有设计)。robots
+#: 尊重的合规价值在**内容站**(政府/法院/律所官网):落地页一律遵守,
+#: 搜索前置不查。线上实测首日即被这条规则拦过一次才补的豁免。
+_ROBOTS_EXEMPT_HOSTS = frozenset({"www.sogou.com", "sogou.com"})
+_ROBOTS_CACHE_TTL = 3600.0
+_ROBOTS_CACHE_MAX = 32
+_robots_cache: dict[str, tuple[float, urllib.robotparser.RobotFileParser | None]] = {}
+_robots_lock = threading.Lock()
 
 #: 搜狗跳转页里的真实地址（``window.location.replace("...")`` 或 meta refresh）。
 #: 两个正则**各自绑定自己的标记词**:URL= 只在 http-equiv(meta refresh)语境
@@ -433,6 +454,40 @@ def _cache_put(url: str, kind: str, title: str, text: str) -> None:
         _fetch_cache[url] = (now + _CACHE_TTL_SECONDS, kind, title, text)
 
 
+def _robots_allows(url: str, http: httpx.Client) -> bool:
+    """目标站 robots.txt 通用组是否允许抓取该 URL(见 ``_ROBOTS_CACHE_TTL`` 注释)。
+
+    robots.txt 拉不到或没有 2xx 响应时返回 True(fail-open)。缓存按
+    origin 记 ``(过期时刻, parser)``;parser 为 None 表示「无规则=全允许」。
+    """
+    parsed = urlparse(url)
+    if (parsed.hostname or "").lower() in _ROBOTS_EXEMPT_HOSTS:
+        return True
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    now = time.monotonic()
+    with _robots_lock:
+        hit = _robots_cache.get(origin)
+        if hit and now < hit[0]:
+            return True if hit[1] is None else hit[1].can_fetch("*", url)
+    expires = now + _ROBOTS_CACHE_TTL
+    parser: urllib.robotparser.RobotFileParser | None = None
+    try:
+        resp = http.get(f"{origin}/robots.txt", headers=_HEADERS, timeout=8.0)
+        if 200 <= resp.status_code < 300 and len(resp.text) < 1024 * 1024:
+            parser = urllib.robotparser.RobotFileParser()
+            parser.parse(resp.text.splitlines())
+    except httpx.HTTPError as exc:
+        logger.info("robots.txt 拉取失败 %s: %s——按无规则放行", origin, exc)
+    with _robots_lock:
+        _robots_cache[origin] = (expires, parser)
+        if len(_robots_cache) > _ROBOTS_CACHE_MAX:
+            for stale_origin, _ in sorted(_robots_cache.items(), key=lambda kv: kv[1][0])[
+                : len(_robots_cache) - _ROBOTS_CACHE_MAX
+            ]:
+                _robots_cache.pop(stale_origin, None)
+    return True if parser is None else parser.can_fetch("*", url)
+
+
 def _request_capped(http: httpx.Client, url: str) -> tuple[int, httpx.Headers, bytes, str | None] | dict[str, Any]:
     """流式 GET 并施加响应体大小上限(见 ``_MAX_BODY_BYTES``)。
 
@@ -556,6 +611,13 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                         "reason": "blocked_target",
                         "message": "目标地址属于内网/本机段,为防 SSRF 已拒绝抓取",
                     }
+                if not _robots_allows(current, http):
+                    return {
+                        "ok": False,
+                        "url": current,
+                        "reason": "robots_disallowed",
+                        "message": "目标站 robots.txt 声明不允许自动抓取该路径，请换其他来源，或建议用户直接访问",
+                    }
                 outcome = _request_capped(http, current)
                 if isinstance(outcome, dict):
                     return outcome
@@ -586,6 +648,13 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                         "url": real_url,
                         "reason": "blocked_target",
                         "message": "跳转目标属于内网/本机段,为防 SSRF 已拒绝抓取",
+                    }
+                if not _robots_allows(real_url, http):
+                    return {
+                        "ok": False,
+                        "url": real_url,
+                        "reason": "robots_disallowed",
+                        "message": "跳转目标站 robots.txt 声明不允许自动抓取该路径，请换其他来源，或建议用户直接访问",
                     }
                 try:
                     outcome = _request_capped(http, real_url)
