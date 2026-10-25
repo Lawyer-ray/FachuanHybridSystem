@@ -13,6 +13,20 @@ type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
 type ToolResultEvent = Extract<AgentStreamEvent, { type: 'tool_result' }>
 type ApprovalEvent = Extract<AgentStreamEvent, { type: 'approval_request' }>
 
+/**
+ * usage 事件的归一化载荷。
+ *
+ * `cacheReadTokens` 是验证「提示词前缀稳定 → 命中 prompt cache」的唯一手段：
+ * 它高说明前缀没变（记忆快照没漂、工具集没抖）、成本低；它低说明每轮都在
+ * 重建前缀。命中率 = cacheRead / (input + cacheRead + cacheWrite)。
+ */
+export interface UsagePayload {
+  outputTokens: number
+  inputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}
+
 export interface StreamHandlers {
   /** 思考增量（不计入正文） */
   onThinking(chunk: string): void
@@ -20,8 +34,12 @@ export interface StreamHandlers {
   onDelta(chunk: string): void
   onToolCall(event: ToolCallEvent): void
   onToolResult(event: ToolResultEvent): void
-  /** usage 事件（pi 精确计数，一轮内多段 assistant 逐次上报） */
-  onUsage(outputTokens: number, inputTokens: number): void
+  /** usage 事件（pi 精确计数，一轮内多段 assistant 逐次上报）
+   *
+   * 传结构体而不是位置参数：字段还会长（cache 已是第三个维度），
+   * 位置参数每加一个就要改所有实现，且容易错位。
+   */
+  onUsage(usage: UsagePayload): void
   onApproval(event: ApprovalEvent): void
   /** 排队事件：前方名次（1 起，含自己在队列中的位置） */
   onQueued(position: number): void
@@ -62,7 +80,12 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onToolResult(event)
           break
         case 'usage':
-          h.onUsage(event.output_tokens, event.input_tokens ?? 0)
+          h.onUsage({
+            outputTokens: event.output_tokens,
+            inputTokens: event.input_tokens ?? 0,
+            cacheReadTokens: event.cache_read_tokens ?? 0,
+            cacheWriteTokens: event.cache_write_tokens ?? 0,
+          })
           break
         case 'approval_request':
           h.onApproval(event)

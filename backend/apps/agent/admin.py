@@ -26,6 +26,7 @@ class AgentRunAdmin(admin.ModelAdmin):
         "status",
         "input_tokens",
         "output_tokens",
+        "cache_hit_rate_display",
         "tool_calls",
         "duration_ms",
     )
@@ -40,11 +41,27 @@ class AgentRunAdmin(admin.ModelAdmin):
         "status",
         "input_tokens",
         "output_tokens",
+        "cache_read_tokens",
+        "cache_write_tokens",
+        "cache_hit_rate_display",
         "tool_calls",
         "duration_ms",
         "error_kind",
         "created_at",
     )
+
+    @admin.display(description="缓存命中率")
+    def cache_hit_rate_display(self, obj: AgentRun) -> str:
+        """把命中率显示成百分比。
+
+        这是验证「AGENTS.md 逐轮字节稳定 → 命中 prompt cache」是否真的生效的
+        唯一窗口。什么都没记（全 0）时显示 ``—`` 而不是 ``0%``——后者会被
+        误读成「缓存完全没命中」，而真相是「这一轮没上报缓存字段」。
+        """
+        denominator = obj.input_tokens + obj.cache_read_tokens + obj.cache_write_tokens
+        if denominator <= 0:
+            return "—"
+        return f"{obj.cache_hit_rate:.1%}"
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False

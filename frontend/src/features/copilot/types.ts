@@ -63,7 +63,15 @@ export type AgentStreamEvent =
       needs_second_confirmation?: boolean
     }
   | { type: 'error'; message: string }
-  | { type: 'usage'; output_tokens: number; input_tokens?: number }
+  | {
+      type: 'usage'
+      output_tokens: number
+      input_tokens?: number
+      /** 缓存命中 token（pi usage.cacheRead） */
+      cache_read_tokens?: number
+      /** 缓存写入 token（pi usage.cacheWrite） */
+      cache_write_tokens?: number
+    }
   | { type: 'done'; session_id: string }
 
 /** 一轮对话的输出统计（实时估算 + 结束后真实值） */
@@ -76,8 +84,15 @@ export interface TurnStats {
   doneAt: number | null
   /** 字符启发式累计估算 token */
   estTokens: number
-  /** usage 事件的精确累计（未收到为 null） */
+  /** usage 事件的精确累计（未收到为 null）。**只算输出 token**：
+   * 它用于展示生成速度，混进输入会让速度虚高数倍。 */
   exactTokens: number | null
+  /** 本轮累计输入 token（未命中缓存部分） */
+  inputTokens?: number
+  /** 本轮缓存命中 token——前缀稳定的直接证据 */
+  cacheReadTokens?: number
+  /** 本轮缓存写入 token（前缀变过就会产生，是「cache 破了」的信号） */
+  cacheWriteTokens?: number
   /** 采样点 [时间, 累计估算 token]，只保留近几秒 */
   samples: Array<[number, number]>
 }

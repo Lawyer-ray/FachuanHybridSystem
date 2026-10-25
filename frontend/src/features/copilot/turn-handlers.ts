@@ -99,11 +99,16 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
         }),
       }))
     },
-    onUsage: (outputTokens) => {
+    onUsage: (usage) => {
       set((s) => ({
         turnStats: {
           ...s.turnStats,
-          exactTokens: (s.turnStats.exactTokens ?? 0) + outputTokens,
+          // exactTokens 只算输出：上一代 UI 用它展示「生成速度」，混进输入
+          // 会让速度虚高数倍。输入侧成本看 input/cache 两个字段。
+          exactTokens: (s.turnStats.exactTokens ?? 0) + usage.outputTokens,
+          inputTokens: (s.turnStats.inputTokens ?? 0) + usage.inputTokens,
+          cacheReadTokens: (s.turnStats.cacheReadTokens ?? 0) + usage.cacheReadTokens,
+          cacheWriteTokens: (s.turnStats.cacheWriteTokens ?? 0) + usage.cacheWriteTokens,
         },
       }))
     },

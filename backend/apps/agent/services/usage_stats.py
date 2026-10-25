@@ -40,6 +40,13 @@ class UsageSummary:
     output_tokens: int
     tool_calls: int
     avg_duration_ms: int
+    #: 缓存命中 / 写入 token 汇总。
+    #:
+    #: **为什么单列而不并进 input_tokens**：每轮的 ``cacheRead`` 是那次 API
+    #: 调用重读的累计前缀，逐消息累加会严重虚高。它只用来回答「缓存帮了多少」
+    #: 这个独立问题（见 :attr:`cache_hit_rate`），不参与成本口径。
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
     #: 本月累计 token（预算口径，P1-8b）
     month_tokens: int = 0
     #: 月度预算上限（env 未配置为 0=不限）
@@ -49,7 +56,32 @@ class UsageSummary:
 
     @property
     def total_tokens(self) -> int:
-        return self.input_tokens + self.output_tokens
+        """计费口径的总 token（**不含** ``cache_read``）。
+
+        为什么不计 cacheRead：它是重读的累计前缀，计进来会让「这个律师本月
+        花了多少」虚高数倍，与 provider 账单对不上。要评估缓存收益请用
+        :attr:`cache_hit_rate`。
+
+        为什么**计** cacheWrite：缓存写入是真实计费的（且通常比普通输入更贵），
+        不算进去就低估了「前缀变化导致的成本突增」——那正是本改造要监测的东西。
+        """
+        return self.input_tokens + self.output_tokens + self.cache_write_tokens
+
+    @property
+    def cache_hit_rate(self) -> float:
+        """输入侧缓存命中率（0.0 – 1.0）。
+
+        口径：``cacheRead / (input + cacheRead + cacheWrite)``。
+        分母是「本次请求实际处理的全部输入侧 token」，分子是走缓存的部分。
+
+        这个数字是法穿核心设计（AGENTS.md 逐轮字节稳定 → 命中 prompt cache）
+        的**唯一验证手段**：低于预期就说明有东西在每轮改写系统提示词前缀
+        （记忆快照漂移 / 工具集抖动 / 模型切换）。
+        """
+        denominator = self.input_tokens + self.cache_read_tokens + self.cache_write_tokens
+        if denominator <= 0:
+            return 0.0
+        return round(self.cache_read_tokens / denominator, 4)
 
     @property
     def error_rate(self) -> float:
@@ -86,6 +118,8 @@ def summarize(
         cancelled_runs=Count("id", filter=Q(status=AgentRun.Status.CANCELLED)),
         input_tokens=Sum("input_tokens"),
         output_tokens=Sum("output_tokens"),
+        cache_read_tokens=Sum("cache_read_tokens"),
+        cache_write_tokens=Sum("cache_write_tokens"),
         tool_calls=Sum("tool_calls"),
         total_duration=Sum("duration_ms"),
     )
@@ -103,8 +137,14 @@ def summarize(
     month_agg = month_qs.aggregate(
         input_tokens=Sum("input_tokens"),
         output_tokens=Sum("output_tokens"),
+        cache_write_tokens=Sum("cache_write_tokens"),
     )
-    month_tokens = int(month_agg["input_tokens"] or 0) + int(month_agg["output_tokens"] or 0)
+    # 预算口径与 total_tokens 一致：含 output 与 cacheWrite，**不含** cacheRead
+    month_tokens = (
+        int(month_agg["input_tokens"] or 0)
+        + int(month_agg["output_tokens"] or 0)
+        + int(month_agg["cache_write_tokens"] or 0)
+    )
     budget_tokens = int(os.environ.get("FACHUAN_AGENT_MONTHLY_TOKEN_BUDGET", "0") or 0)
     budget_warn = bool(budget_tokens > 0 and month_tokens >= budget_tokens * 0.8)
 
@@ -115,6 +155,8 @@ def summarize(
         cancelled_runs=int(agg["cancelled_runs"] or 0),
         input_tokens=int(agg["input_tokens"] or 0),
         output_tokens=int(agg["output_tokens"] or 0),
+        cache_read_tokens=int(agg["cache_read_tokens"] or 0),
+        cache_write_tokens=int(agg["cache_write_tokens"] or 0),
         tool_calls=int(agg["tool_calls"] or 0),
         avg_duration_ms=int(total_duration / runs) if runs else 0,
         month_tokens=month_tokens,
@@ -139,6 +181,8 @@ def daily_series(
             runs=Count("id"),
             input_tokens=Sum("input_tokens"),
             output_tokens=Sum("output_tokens"),
+            cache_read_tokens=Sum("cache_read_tokens"),
+            cache_write_tokens=Sum("cache_write_tokens"),
             errors=Count("id", filter=Q(status=AgentRun.Status.ERROR)),
         )
         .order_by("day")
@@ -149,6 +193,8 @@ def daily_series(
             "runs": int(row["runs"] or 0),
             "input_tokens": int(row["input_tokens"] or 0),
             "output_tokens": int(row["output_tokens"] or 0),
+            "cache_read_tokens": int(row["cache_read_tokens"] or 0),
+            "cache_write_tokens": int(row["cache_write_tokens"] or 0),
             "errors": int(row["errors"] or 0),
         }
         for row in rows
@@ -166,15 +212,28 @@ def by_model(*, user_id: int | None = None, days: int = DEFAULT_DAYS) -> list[di
             runs=Count("id"),
             input_tokens=Sum("input_tokens"),
             output_tokens=Sum("output_tokens"),
+            cache_read_tokens=Sum("cache_read_tokens"),
+            cache_write_tokens=Sum("cache_write_tokens"),
         )
         .order_by("-runs")
     )
-    return [
-        {
-            "model": row["model"] or "(未记录)",
-            "runs": int(row["runs"] or 0),
-            "input_tokens": int(row["input_tokens"] or 0),
-            "output_tokens": int(row["output_tokens"] or 0),
-        }
-        for row in rows
-    ]
+    result = []
+    for row in rows:
+        input_tokens = int(row["input_tokens"] or 0)
+        output_tokens = int(row["output_tokens"] or 0)
+        cache_read = int(row["cache_read_tokens"] or 0)
+        cache_write = int(row["cache_write_tokens"] or 0)
+        denominator = input_tokens + cache_read + cache_write
+        result.append(
+            {
+                "model": row["model"] or "(未记录)",
+                "runs": int(row["runs"] or 0),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read,
+                "cache_write_tokens": cache_write,
+                # 逐模型看命中率最有意义：不同 provider 的缓存策略差别很大
+                "cache_hit_rate": round(cache_read / denominator, 4) if denominator else 0.0,
+            }
+        )
+    return result

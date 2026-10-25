@@ -78,11 +78,21 @@ class ApprovalRequestEvent(BaseModel):
 
 
 class UsageEvent(BaseModel):
-    """token 用量（pi 精确计数）"""
+    """token 用量（pi 精确计数）。
+
+    ``cache_read_tokens`` / ``cache_write_tokens`` 是 2026-10-25 新增：
+    法穿把「AGENTS.md 逐轮字节稳定 → 命中 provider prompt cache」当核心设计，
+    但之前账上看不到它到底生效没（``input_tokens`` 只装未命中部分）。
+    前端可用 ``cache_read/(input+cache_read+cache_write)`` 算命中率。
+
+    两个 cache 字段带默认 0：旧版 pi / 某些 provider 不上报时不至于断流。
+    """
 
     type: Literal["usage"]
     output_tokens: int
     input_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
 
 
 class ErrorEvent(BaseModel):
@@ -136,7 +146,13 @@ export type AgentStreamEvent =
       risk_level?: string
       needs_second_confirmation?: boolean
     }
-  | { type: 'usage'; output_tokens: number; input_tokens?: number }
+  | {
+      type: 'usage'
+      output_tokens: number
+      input_tokens: number
+      cache_read_tokens: number
+      cache_write_tokens: number
+    }
   | { type: 'error'; message: string }
   | { type: 'done'; session_id: string }
 """

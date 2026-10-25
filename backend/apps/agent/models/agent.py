@@ -287,6 +287,23 @@ class AgentRun(models.Model):
     )
     input_tokens = models.IntegerField(default=0, verbose_name="输入 token")
     output_tokens = models.IntegerField(default=0, verbose_name="输出 token")
+    #: 缓存读取 token（pi 的 ``usage.cacheRead``）。
+    #:
+    #: ## 为什么必须单独记
+    #:
+    #: 法穿一个核心设计是「AGENTS.md 逐轮字节稳定 → 命中 provider prompt cache」
+    #: （见 ``pi/memory-inject.ts``）。但改造前**没有任何指标能验证它到底生效没**，
+    #: 因为 ``input_tokens`` 只装着未命中部分。cache 一失效，成本会悄悄涨好几倍
+    #: 而账上看不出来。
+    #:
+    #: ## 为什么不能加进 input_tokens
+    #:
+    #: 每轮的 ``cacheRead`` 是**那次 API 调用重读的累计前缀**，逐消息累加会严重
+    #: 虚高（且与 provider 计费口径不符）。所以它只能单列，命中率按
+    #: ``cacheRead / (input + cacheRead + cacheWrite)`` 算。
+    cache_read_tokens = models.IntegerField(default=0, verbose_name="缓存命中 token")
+    #: 缓存写入 token（pi 的 ``usage.cacheWrite``）。首次建立或者前缀变了才计费。
+    cache_write_tokens = models.IntegerField(default=0, verbose_name="缓存写入 token")
     tool_calls = models.IntegerField(default=0, verbose_name="工具调用数")
     duration_ms = models.IntegerField(default=0, verbose_name="耗时（毫秒）")
     #: 出错时的分类标记（如 pi_unavailable / pi_error / unexpected / queue_timeout）。
@@ -305,7 +322,32 @@ class AgentRun(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.status} {self.model} in={self.input_tokens} out={self.output_tokens}"
+        return (
+            f"{self.status} {self.model} in={self.input_tokens} out={self.output_tokens} "
+            f"cache={self.cache_read_tokens}/{self.cache_write_tokens}"
+        )
+
+    @property
+    def total_tokens(self) -> int:
+        """计费口径的总计输入侧 token（**不含** ``cache_read``）。
+
+        为什么要这个口径：``cache_read`` 是重读的累计前缀，把它加进来会让
+        「本月花了多少」虚高数倍。要看「缓存帮了多少」请用
+        :attr:`cache_hit_rate`，两个问题分开回答。
+        """
+        return self.input_tokens + self.output_tokens + self.cache_write_tokens
+
+    @property
+    def cache_hit_rate(self) -> float:
+        """输入侧缓存命中率（0.0 – 1.0）；无输入时不返回 0 而是 0.0。
+
+        口径：``cacheRead / (input + cacheRead + cacheWrite)``。
+        分母是「本次请求实际处理的全部输入侧 token」，分子是其中走缓存的部分。
+        """
+        denominator = self.input_tokens + self.cache_read_tokens + self.cache_write_tokens
+        if denominator <= 0:
+            return 0.0
+        return round(self.cache_read_tokens / denominator, 4)
 
 
 class AgentAttachment(models.Model):

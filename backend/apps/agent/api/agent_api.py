@@ -199,6 +199,14 @@ class UsageOut(Schema):
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    #: 缓存命中 / 写入 token。命中率见 ``cache_hit_rate``。
+    #:
+    #: 为什么单列：这是验证「AGENTS.md 逐轮字节稳定 → 命中 prompt cache」
+    #: 是否生效的唯一仪表。低于预期就说明有东西在每轮改写系统提示词前缀。
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    #: 输入侧缓存命中率（0.0–1.0）。法穿前端用它判断“这轮是不是冷缓存”。
+    cache_hit_rate: float = 0.0
     tool_calls: int
     avg_duration_ms: int
     error_rate: float
@@ -1199,6 +1207,9 @@ def _to_usage(summary: UsageSummary) -> UsageOut:
         input_tokens=summary.input_tokens,
         output_tokens=summary.output_tokens,
         total_tokens=summary.total_tokens,
+        cache_read_tokens=summary.cache_read_tokens,
+        cache_write_tokens=summary.cache_write_tokens,
+        cache_hit_rate=summary.cache_hit_rate,
         tool_calls=summary.tool_calls,
         avg_duration_ms=summary.avg_duration_ms,
         error_rate=summary.error_rate,

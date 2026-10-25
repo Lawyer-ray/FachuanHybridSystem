@@ -303,6 +303,12 @@ def _translate_message_end(
         # 前端会看不到工具在执行——两件事都要发。
         # usage 是 pi 的精确计数（Usage.output 等），前端用来收尾展示真实
         # token 数与平均速度（流式期间的实时速度只能估算）。
+        #
+        # cacheRead / cacheWrite 也要透出：法穿把「AGENTS.md 逐轮字节稳定 →
+        # 命中 prompt cache」当核心设计，但改造前账上完全看不到它有没有生效
+        # （input_tokens 只装未命中部分）。真机 fixture
+        # ``tests/ci/fixtures/agent/*.jsonl`` 实测这两个字段存在（camelCase）。
+        # 前端用 cache_hit_rate = cacheRead/(input+cacheRead+cacheWrite) 显示。
         usage = message.get("usage")
         if isinstance(usage, dict) and isinstance(usage.get("output"), int | float):
             events.append(
@@ -310,6 +316,8 @@ def _translate_message_end(
                     "type": "usage",
                     "output_tokens": int(usage["output"]),
                     "input_tokens": int(usage.get("input") or 0),
+                    "cache_read_tokens": int(usage.get("cacheRead") or 0),
+                    "cache_write_tokens": int(usage.get("cacheWrite") or 0),
                 }
             )
         return events

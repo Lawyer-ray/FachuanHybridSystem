@@ -279,6 +279,10 @@ async def stream_chat(
     assistant_parts: list[str] = []
     output_tokens_total = 0
     input_tokens_total = 0
+    # 缓存 token 单独累加，**不能**并进 input（cacheRead 是每轮重读的累计
+    # 前缀，累加会严重虚高）。详情见 AgentRun.cache_read_tokens 注释。
+    cache_read_total = 0
+    cache_write_total = 0
     tool_calls_total = 0
     error_kind = ""
     started = time.monotonic()
@@ -351,6 +355,8 @@ async def stream_chat(
                         # pi 的精确计数：一轮里工具循环会产出多段 assistant，逐段累加
                         output_tokens_total += int(event.get("output_tokens") or 0)
                         input_tokens_total += int(event.get("input_tokens") or 0)
+                        cache_read_total += int(event.get("cache_read_tokens") or 0)
+                        cache_write_total += int(event.get("cache_write_tokens") or 0)
                     elif event.get("type") == "tool_call":
                         tool_calls_total += 1
                     yield event
@@ -414,6 +420,8 @@ async def stream_chat(
             error_kind=error_kind,
             input_tokens=input_tokens_total,
             output_tokens=output_tokens_total,
+            cache_read_tokens=cache_read_total,
+            cache_write_tokens=cache_write_total,
             tool_calls=tool_calls_total,
             duration_ms=int((time.monotonic() - started) * 1000),
         )
@@ -470,6 +478,8 @@ async def _record_run(
     error_kind: str,
     input_tokens: int,
     output_tokens: int,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
     tool_calls: int,
     duration_ms: int,
 ) -> None:
@@ -488,6 +498,8 @@ async def _record_run(
             status=status,
             input_tokens=max(0, int(input_tokens)),
             output_tokens=max(0, int(output_tokens)),
+            cache_read_tokens=max(0, int(cache_read_tokens)),
+            cache_write_tokens=max(0, int(cache_write_tokens)),
             tool_calls=max(0, int(tool_calls)),
             duration_ms=max(0, int(duration_ms)),
             error_kind=error_kind[:64],
