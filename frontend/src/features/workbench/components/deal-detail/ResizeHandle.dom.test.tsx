@@ -39,6 +39,15 @@ describe('ResizeHandle', () => {
     expect(cls).toMatch(/z-10/)
   })
 
+  it('撑满父级行高（否则 items-start 的 flex 行里高度为 0，点不到）', () => {
+    // 这是「拖不动」的第二个根因：父级 items-start，子项按内容高度排布，
+    // 分隔条没有内容 → height 0。jsdom 不计算布局，只能断言撑高契约。
+    setup()
+    const el = screen.getByRole('separator')
+    expect(el.className).toMatch(/self-stretch|h-full/)
+    expect(el.className).toMatch(/min-h-\[/)
+  })
+
   it('指针按下触发拖拽', () => {
     const { onPointerDown } = setup()
     fireEvent.pointerDown(screen.getByRole('separator'))

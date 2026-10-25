@@ -42,7 +42,11 @@ export function ResizeHandle({
         // 之前用 -mx-[4px] 让它视觉上嵌进两侧栏，结果左侧是 flex-1 的邻居，
         // 绘制层叠在上（DOM 在前），那 4px 被盖住 → 点不到、拖不动。
         // 现在不叠负边距，宽度算在布局里，两栏之间自然形成 10px 的呼吸区。
-        'group relative z-10 w-[10px] flex-none cursor-col-resize select-none',
+        // h-full + self-stretch：父级是 items-start 的 flex 行，子项默认按内容高度
+        // 排布，而分隔条没有内容 → 高度 0、根本点不到（这是「拖不动」的真正原因）。
+        // 撑满行高才有可点区域；min-h 兜住内容比视口短的场景。
+        'group relative z-10 w-[10px] flex-none cursor-col-resize select-none self-stretch',
+        'h-full min-h-[520px]',
         'focus:outline-none',
       )}
       title="拖动调整宽度（也可用 ← → 键）"
