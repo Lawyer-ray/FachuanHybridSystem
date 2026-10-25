@@ -138,6 +138,11 @@ export const PackCard = memo(function PackCard({
         <span className="rounded-full border border-zinc-200 bg-white/90 px-2 py-[2px] text-[10.5px] font-medium text-secondary-foreground">
           {pack.source_name || '收件箱'}
         </span>
+        {pack.upload_contract_name && (
+          <span className="max-w-[160px] truncate rounded-full border border-amber-200 bg-amber-50 px-2 py-[2px] text-[10.5px] font-medium text-amber-700">
+            {pack.upload_contract_name}
+          </span>
+        )}
       </div>
 
       {/* 标题 + 事实链 + 进度条 */}
