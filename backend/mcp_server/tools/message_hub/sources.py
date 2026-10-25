@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
@@ -19,16 +21,19 @@ def get_message_source(source_id: int) -> dict[str, Any]:
 
 
 def create_message_source(
-    display_name: str,
-    source_type: str,
-    credential_id: int,
-    is_enabled: bool = True,
-    poll_interval_minutes: int = 30,
-    sync_since: str | None = None,
-    imap_host: str | None = None,
-    imap_account: str | None = None,
-    sender_whitelist: str | None = None,
-    sender_blacklist: str | None = None,
+    display_name: Annotated[str, Field(description="来源显示名称")],
+    source_type: Annotated[
+        Literal["imap", "manual_upload", "court_inbox", "court_schedule"],
+        Field(description="来源类型:imap IMAP 邮箱(没有 email 这个值)/manual_upload 前端手动上传/court_inbox 一张网收件箱/court_schedule 一张网庭审日程"),
+    ],
+    credential_id: Annotated[int, Field(description="关联 Organization 的账号凭证 ID", ge=1)],
+    is_enabled: Annotated[bool, Field(description="是否启用(启用后按间隔轮询同步)")] = True,
+    poll_interval_minutes: Annotated[int, Field(description="同步间隔分钟数(默认 30)", ge=1)] = 30,
+    sync_since: Annotated[str | None, Field(description="仅同步该日期之后的邮件,YYYY-MM-DD(可选)")] = None,
+    imap_host: Annotated[str | None, Field(description="IMAP 服务器地址(source_type=imap 时用,可选)")] = None,
+    imap_account: Annotated[str | None, Field(description="IMAP 账号(source_type=imap 时用,可选)")] = None,
+    sender_whitelist: Annotated[str | None, Field(description="发件人白名单(可选,逗号分隔)")] = None,
+    sender_blacklist: Annotated[str | None, Field(description="发件人黑名单(可选,逗号分隔)")] = None,
 ) -> dict[str, Any]:
     """创建消息来源。credential_id 关联 Organization 中的账号凭证；poll_interval_minutes 为同步间隔。
 

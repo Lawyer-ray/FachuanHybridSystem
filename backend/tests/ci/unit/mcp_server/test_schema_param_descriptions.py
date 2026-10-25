@@ -43,7 +43,9 @@ from mcp_server.tools.contacts.contacts import list_contacts
 from mcp_server.tools.contracts.contracts import create_contract, list_contracts
 from mcp_server.tools.contracts.folder_file import read_folder_file
 from mcp_server.tools.finance.lpr import calculate_interest, list_lpr_rates
+from mcp_server.tools.finance.mortgage import mortgage_amortize
 from mcp_server.tools.message_hub.inbox import list_inbox_messages
+from mcp_server.tools.message_hub.sources import create_message_source
 from mcp_server.tools.organization.lawyers import create_lawyer, list_lawyers, update_lawyer
 
 #: 已迁移到 schema 级参数描述的工具:名字 → (参数总数下界, 带描述数下界)
@@ -66,6 +68,8 @@ _DESCRIBED_TOOLS: dict[str, tuple[int, int]] = {
     "approve_workflow_step": (3, 3),
     "create_workflow_template": (5, 5),
     "update_workflow_template": (6, 6),
+    "create_message_source": (10, 10),
+    "mortgage_amortize": (10, 10),
 }
 
 
@@ -74,6 +78,7 @@ _ALL_DESCRIBED_FNS = [
     update_lawyer, list_clients, list_inbox_messages, list_contacts, list_lpr_rates,
     calculate_interest, read_folder_file, start_workflow, list_workflows,
     approve_workflow_step, create_workflow_template, update_workflow_template,
+    create_message_source, mortgage_amortize,
 ]
 
 
@@ -189,7 +194,8 @@ def test_schema_enums_match_model_choices() -> None:
     from apps.client.models.client import ClientType
     from apps.contracts.models.contract import ContractStatus, FeeMode
     from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
-    from apps.finance.schemas.lpr_schemas import InterestCalculateRequest
+    from apps.finance.schemas.lpr_schemas import InterestCalculateRequest, MortgageAmortizeRequest
+    from apps.message_hub.models.message_source import SourceType
     from apps.workflow.models.run import WorkflowRun
     from apps.workflow.models.template import WorkflowTemplate
     from mcp_server.tools.cases.cases import list_cases
@@ -197,8 +203,8 @@ def test_schema_enums_match_model_choices() -> None:
     from mcp_server.tools.contracts.contracts import create_contract, list_contracts
     from mcp_server.tools.finance.lpr import calculate_interest
 
-    def _backend_literal(field_name: str) -> set:
-        hints = get_type_hints(InterestCalculateRequest)
+    def _backend_literal(schema_cls: type, field_name: str) -> set:
+        hints = get_type_hints(schema_cls)
         return set(get_args(hints[field_name]))
 
     authoritative: dict[tuple[str, str], set] = {
@@ -212,10 +218,14 @@ def test_schema_enums_match_model_choices() -> None:
         ("create_contract", "fee_mode"): set(FeeMode.values),
         ("create_contract", "representation_stages"): set(CaseStage.values),
         ("list_clients", "client_type"): set(ClientType.values),
-        ("calculate_interest", "rate_mode"): _backend_literal("rate_mode"),
-        ("calculate_interest", "rate_type"): _backend_literal("rate_type"),
-        ("calculate_interest", "custom_rate_unit"): _backend_literal("custom_rate_unit"),
-        ("calculate_interest", "date_inclusion"): _backend_literal("date_inclusion"),
+        ("calculate_interest", "rate_mode"): _backend_literal(InterestCalculateRequest, "rate_mode"),
+        ("calculate_interest", "rate_type"): _backend_literal(InterestCalculateRequest, "rate_type"),
+        ("calculate_interest", "custom_rate_unit"): _backend_literal(InterestCalculateRequest, "custom_rate_unit"),
+        ("calculate_interest", "date_inclusion"): _backend_literal(InterestCalculateRequest, "date_inclusion"),
+        ("mortgage_amortize", "repayment_method"): _backend_literal(MortgageAmortizeRequest, "repayment_method"),
+        ("mortgage_amortize", "rate_mode"): _backend_literal(MortgageAmortizeRequest, "rate_mode"),
+        ("mortgage_amortize", "lpr_type"): _backend_literal(MortgageAmortizeRequest, "lpr_type"),
+        ("create_message_source", "source_type"): set(SourceType.values),
         ("list_workflows", "status"): set(WorkflowRun.Status.values),
         ("create_workflow_template", "category"): set(WorkflowTemplate.Category.values),
         ("update_workflow_template", "category"): set(WorkflowTemplate.Category.values),
@@ -226,6 +236,8 @@ def test_schema_enums_match_model_choices() -> None:
         "create_contract": _schema_of(create_contract),
         "list_clients": _schema_of(list_clients),
         "calculate_interest": _schema_of(calculate_interest),
+        "mortgage_amortize": _schema_of(mortgage_amortize),
+        "create_message_source": _schema_of(create_message_source),
         # workflow 工具必须走注册表(_workflow_tool 剥离了身份参数)
         "list_workflows": _registered_schema("list_workflows"),
         "create_workflow_template": _registered_schema("create_workflow_template"),

@@ -11,22 +11,24 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
 
 
 def mortgage_amortize(
-    principal: float,
-    start_date: str,
-    term_months: int,
-    repayment_method: str = "equal_installment",
-    payment_day: int | None = None,
-    rate_mode: str = "fixed",
-    fixed_rate: float | None = None,
-    lpr_type: str = "5y",
-    basis_points: float = 0.0,
-    repricing_day: str = "01-01",
+    principal: Annotated[float, Field(description="贷款本金(元)", gt=0)],
+    start_date: Annotated[str, Field(description="放款日期,YYYY-MM-DD")],
+    term_months: Annotated[int, Field(description="贷款期限(月)", ge=1)],
+    repayment_method: Annotated[Literal["equal_installment", "equal_principal"], Field(description="还款方式:equal_installment 等额本息(月供固定)/equal_principal 等额本金(月供递减)")] = "equal_installment",
+    payment_day: Annotated[int | None, Field(description="每月扣款日(1-28),不填取放款日对应日", ge=1, le=28)] = None,
+    rate_mode: Annotated[Literal["fixed", "lpr"], Field(description="利率模式:fixed 固定利率/lpr=LPR+基点浮动")] = "fixed",
+    fixed_rate: Annotated[float | None, Field(description="固定年利率(%),rate_mode=fixed 时必填,如 4.2", gt=0)] = None,
+    lpr_type: Annotated[Literal["1y", "5y"], Field(description="LPR 期限品种,1y 或 5y(房贷一般 5y),rate_mode=lpr 时使用")] = "5y",
+    basis_points: Annotated[float, Field(description="LPR 加点基点,100bp=1%,可为负(如 LPR-30bp 传 -30)")] = 0.0,
+    repricing_day: Annotated[str, Field(description='重定价日,"MM-DD"(如 "01-01")或 "anniversary"(放款日对应日)')] = "01-01",
 ) -> dict[str, Any]:
     """生成房贷还款计划（等额本息/等额本金摊销表）。
 
