@@ -1,3 +1,4 @@
+import { isLitigationType } from '@/lib/case-type'
 import { dateKey } from '@/lib/date'
 
 import type {
@@ -9,9 +10,6 @@ import type {
   LawyerListItem,
   WorkbenchDeal,
 } from './types'
-
-/** 诉讼类 case_type 代码集合（其余视为非诉） */
-export const LITIGATION_TYPES = new Set(['civil', 'criminal', 'administrative', 'labor', 'intl'])
 
 /* ============ 基础格式化 ============ */
 
@@ -111,7 +109,7 @@ export function buildDeals(
   const lawyerMap = new Map(lawyers.map((l) => [l.id, l]))
 
   return contracts.map((c) => {
-    const lit = LITIGATION_TYPES.has(c.case_type)
+    const lit = isLitigationType(c.case_type)
     const mine = c.contract_parties.filter((p) => p.client_detail?.is_our_client)
     const other = c.contract_parties.filter(
       (p) => p.role_label === '对方当事人' || (p.client_detail && !p.client_detail.is_our_client),

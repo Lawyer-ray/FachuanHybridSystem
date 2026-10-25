@@ -22,6 +22,7 @@ from apps.cases.models import CaseAssignment
 from apps.client.models import Client
 from apps.contacts.models import CaseContact
 from apps.contracts.models import ContractAssignment
+from apps.core.models.enums import CaseType
 from apps.core.services.search_service import (
     search_cases,
     search_clients,
@@ -260,6 +261,50 @@ class TestResolveRequestOrgAccess:
         mock_compute.assert_not_called()
 
 
+class TestProjectFields:
+    """项目语义字段（前端统称 projects）：cases 带所属委托合同的 id/名称/类型，
+    contracts 带 case_type——前端据此把案件挂在合同分组下并分流
+    /projects/:id（诉讼）或 /projects/:id/nonlit（非诉）。"""
+
+    @pytest.mark.django_db
+    def test_case_hit_carries_contract_info(self) -> None:
+        admin = LawyerFactory(is_admin=True)
+        contract = ContractFactory(name="张三委托代理合同", case_type=CaseType.CIVIL)
+        case = CaseFactory(name="张三买卖合同纠纷一审", contract=contract)
+
+        results = search_cases("张三", 10, user=admin)
+        assert [r.id for r in results] == [case.id]
+        hit = results[0]
+        assert hit.contract_id == contract.id
+        assert hit.contract_name == "张三委托代理合同"
+        assert hit.case_type == CaseType.CIVIL
+
+    @pytest.mark.django_db
+    def test_case_without_contract_gives_empty_project_fields(self) -> None:
+        """历史孤案（contract 为空）：contract_id=None，前端按未建页处理。"""
+        from apps.cases.models import Case
+        from apps.core.models.enums import SimpleCaseType
+
+        admin = LawyerFactory(is_admin=True)
+        Case.objects.create(name="王二历史孤案", case_type=SimpleCaseType.CIVIL)
+
+        hit = search_cases("历史孤案", 10, user=admin)[0]
+        assert hit.contract_id is None
+        assert hit.contract_name == ""
+        assert hit.case_type == ""
+
+    @pytest.mark.django_db
+    def test_contract_hit_carries_case_type(self) -> None:
+        admin = LawyerFactory(is_admin=True)
+        contract = _make_contract_with_assignment(admin, "李四常年法律顾问合同")
+        contract.case_type = CaseType.ADVISOR
+        contract.save(update_fields=["case_type"])
+
+        results = search_contracts("李四", 10, user=admin, org_access=None)
+        assert [r.id for r in results] == [contract.id]
+        assert results[0].case_type == CaseType.ADVISOR
+
+
 class TestGlobalSearchEndpoint:
     # 视图内搜索走 thread_sensitive=False 工作线程（独立 DB 连接），
     # 须用事务库让数据跨连接可见
@@ -278,6 +323,11 @@ class TestGlobalSearchEndpoint:
         assert resp.status_code == 200
         payload = resp.json()
         assert any(item["id"] == case.id for item in payload["cases"])
+        # 项目语义字段透出到 JSON（前端按合同分组 + 路由分流要用）
+        case_hit = next(item for item in payload["cases"] if item["id"] == case.id)
+        assert case_hit["contract_id"] == case.contract_id
+        assert case_hit["contract_name"] == case.contract.name
+        assert case_hit["case_type"] == case.contract.case_type
         # 未命中关键词的客户不出现在结果里
         assert payload["clients"] == []
         # 非当事人类别 side 恒为空串

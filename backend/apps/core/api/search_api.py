@@ -18,6 +18,13 @@ class SearchResultItem(Schema):
     subtitle: str = ""
     # 仅当事人（clients）有值：ours=我方 / opposing=对方；其他类别恒为空串
     side: Literal["ours", "opposing", ""] = ""
+    # 合同类型代码（contracts / cases 两类填充，对应 core.models.enums.CaseType）：
+    # 前端按诉讼(civil/criminal/administrative/labor/intl)/非诉(special/advisor)
+    # 分流详情路由 /projects/:id 或 /projects/:id/nonlit
+    case_type: str = ""
+    # 仅 cases 填充：所属委托合同（= 项目）的 id 与名称——项目语义下案件挂在合同分组下
+    contract_id: int | None = None
+    contract_name: str = ""
 
 
 class GlobalSearchResult(Schema):
@@ -30,7 +37,18 @@ class GlobalSearchResult(Schema):
 
 
 def _to_items(raw: list[Any]) -> list[SearchResultItem]:
-    return [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle, side=r.side) for r in raw]
+    return [
+        SearchResultItem(
+            id=r.id,
+            title=r.title,
+            subtitle=r.subtitle,
+            side=r.side,
+            case_type=r.case_type,
+            contract_id=r.contract_id,
+            contract_name=r.contract_name,
+        )
+        for r in raw
+    ]
 
 
 @router.get("", response=GlobalSearchResult)

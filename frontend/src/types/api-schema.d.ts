@@ -547,7 +547,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Lawyers */
+        /**
+         * List Lawyers
+         * @description 律师列表。
+         *
+         *     - slim=true 只回 id/real_name/phone/license_no/law_firm_name——列表页做
+         *       「lawyer_id → 人名电话执业证」映射就够，不需要文件签 URL 与律所嵌套对象。
+         *       全量 500 人时省掉 1000 次存储签名 + 嵌套 DTO 构建。
+         */
         get: operations["apps_organization_api_lawyer_api_list_lawyers"];
         put?: never;
         /** Create Lawyer */
@@ -595,7 +602,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/organization/credentials/{cred_id}": {
+    "/api/v1/organization/credentials/{credential_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -698,6 +705,8 @@ export interface paths {
         /**
          * List Clients
          * @description 获取客户列表（前端做客户端分页；limit 防全量序列化，默认 1000、上限 2000）
+         *
+         *     offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。
          */
         get: operations["apps_client_api_client_api_list_clients"];
         put?: never;
@@ -1292,7 +1301,7 @@ export interface paths {
         };
         /**
          * Search Cases
-         * @description 搜索案件
+         * @description 搜索案件(offset 供 MCP 信封 truncated=true 时续取,不传行为不变)
          */
         get: operations["apps_cases_api_case_api_search_cases"];
         put?: never;
@@ -1318,6 +1327,7 @@ export interface paths {
          *     - 显式传 limit 时按它截断，上限 2000（向后兼容，上限内任意 limit 均生效）；
          *     - 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），
          *       防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。
+         *     - offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。
          */
         get: operations["apps_cases_api_case_api_list_cases"];
         put?: never;
@@ -1326,6 +1336,26 @@ export interface paths {
          * @description 创建案件
          */
         post: operations["apps_cases_api_case_api_create_case"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/cases/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Case Full
+         * @description 创建完整案件（包含当事人、指派、日志）
+         */
+        post: operations["apps_cases_api_case_api_create_case_full"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1355,26 +1385,6 @@ export interface paths {
          * @description 删除案件
          */
         delete: operations["apps_cases_api_case_api_delete_case"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/cases/cases/full": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Case Full
-         * @description 创建完整案件（包含当事人、指派、日志）
-         */
-        post: operations["apps_cases_api_case_api_create_case_full"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2444,6 +2454,9 @@ export interface paths {
          *     - page 默认 1（旧「不传 page 返回全量裸数组」口径已下线，前端消费方
          *       均显式传 page）；page_size 上限 500，需要大结果集的消费方显式传。
          *     - slim=true 剔除归档材料清单等重负载字段
+         *     - include_facets=false 跳过 facets 的四次全表聚合（只回 total/items，
+         *       三个 *_counts 为空）。facets 是全库口径、与页码无关，翻页时应传 false
+         *       并复用已有计数，避免每翻一页多扫四遍全表。
          *
          *     Requirements: 6.1, 6.2, 6.3
          */
@@ -2581,7 +2594,11 @@ export interface paths {
         };
         /**
          * List Payments
-         * @description 获取收款列表
+         * @description 获取收款列表。
+         *
+         *     limit 可选截断（默认 None = 不截断,保持前端既有行为;上限 2000）——
+         *     2026-10-25 审计:MCP 工具此前无界拿全量收款记录灌模型上下文,
+         *     补可选 limit 供其显式传小值。
          */
         get: operations["apps_contracts_api_contractpayment_api_list_payments"];
         put?: never;
@@ -3764,6 +3781,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/automation/court-sms/batch-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Batch Delete Sms
+         * @description 批量删除短信（仅管理员）
+         */
+        post: operations["apps_automation_api_court_sms_api_batch_delete_sms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/automation/court-sms/{sms_id}": {
         parameters: {
             query?: never;
@@ -3829,26 +3866,6 @@ export interface paths {
          *     否则重置全部状态，重新执行完整处理流程（含匹配）。
          */
         post: operations["apps_automation_api_court_sms_api_retry_processing"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/automation/court-sms/batch-delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Batch Delete Sms
-         * @description 批量删除短信（仅管理员）
-         */
-        post: operations["apps_automation_api_court_sms_api_batch_delete_sms"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5072,6 +5089,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/story-viz/animations/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Models */
+        get: operations["apps_story_viz_api_animation_api_list_models"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/story-viz/animations/{animation_id}": {
         parameters: {
             query?: never;
@@ -5168,23 +5202,6 @@ export interface paths {
         put?: never;
         /** Ask Story Animation */
         post: operations["apps_story_viz_api_animation_api_ask_story_animation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/story-viz/animations/models": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Models */
-        get: operations["apps_story_viz_api_animation_api_list_models"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5591,7 +5608,7 @@ export interface paths {
          *
          *     安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化
          *     （含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。
-         *     此处把 limit 收敛到 [1, 1000]。
+         *     此处把 limit 收敛到 [1, 1000]。offset（默认 0）供 MCP 信封续取。
          */
         get: operations["apps_message_hub_api_inbox_api_list_messages"];
         put?: never;
@@ -5791,6 +5808,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox/sources/sync-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync All Sources
+         * @description 同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。
+         *
+         *     必须注册在 ``/sources/{source_id}`` 参数路由**之前**：ninja 的 URL 正则
+         *     按注册顺序匹配且默认 str 参数——字面量路由放后面会被参数路由吞掉,
+         *     POST 到这里就变成 405 Method Not Allowed(2026-10-25 MCP 审计实测)。
+         */
+        post: operations["apps_message_hub_api_message_source_api_sync_all_sources"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inbox/sources/{source_id}": {
         parameters: {
             query?: never;
@@ -5821,26 +5862,6 @@ export interface paths {
         put?: never;
         /** Sync Source */
         post: operations["apps_message_hub_api_message_source_api_sync_source"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/inbox/sources/sync-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sync All Sources
-         * @description 同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。
-         */
-        post: operations["apps_message_hub_api_message_source_api_sync_all_sources"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6489,6 +6510,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/placeholders/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Placeholder Overview
+         * @description 替换词总览
+         *
+         *     返回系统支持的所有替换词，按分类分组。
+         *     支持 q 参数搜索（匹配 key / display_name / description / source）。
+         */
+        get: operations["apps_documents_api_placeholder_api_placeholder_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/placeholders/{placeholder_id}": {
         parameters: {
             query?: never;
@@ -6546,29 +6590,6 @@ export interface paths {
         };
         /** Preview Placeholders */
         get: operations["apps_documents_api_placeholder_api_preview_placeholders"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/documents/placeholders/overview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Placeholder Overview
-         * @description 替换词总览
-         *
-         *     返回系统支持的所有替换词，按分类分组。
-         *     支持 q 参数搜索（匹配 key / display_name / description / source）。
-         */
-        get: operations["apps_documents_api_placeholder_api_placeholder_overview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7358,7 +7379,7 @@ export interface paths {
          * Classify Images
          * @description OCR + 关键词分类
          */
-        post: operations["apps_evidence_sorting_api_evidence_sorting_api_classify_images"];
+        post: operations["apps_finance_doc_sorting_api_finance_doc_sorting_api_classify_images"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7378,7 +7399,7 @@ export interface paths {
          * Parse Statement
          * @description LLM 解析对账单
          */
-        post: operations["apps_evidence_sorting_api_evidence_sorting_api_parse_statement"];
+        post: operations["apps_finance_doc_sorting_api_finance_doc_sorting_api_parse_statement"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7398,7 +7419,7 @@ export interface paths {
          * Reconcile
          * @description 交叉比对
          */
-        post: operations["apps_evidence_sorting_api_evidence_sorting_api_reconcile"];
+        post: operations["apps_finance_doc_sorting_api_finance_doc_sorting_api_reconcile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7418,7 +7439,7 @@ export interface paths {
          * Export Zip
          * @description 导出 ZIP
          */
-        post: operations["apps_evidence_sorting_api_evidence_sorting_api_export_zip"];
+        post: operations["apps_finance_doc_sorting_api_finance_doc_sorting_api_export_zip"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7436,7 +7457,7 @@ export interface paths {
          * Llm Options
          * @description 获取可用的 LLM 后端和模型列表（仅列出已启用的后端）
          */
-        get: operations["apps_evidence_sorting_api_evidence_sorting_api_llm_options"];
+        get: operations["apps_finance_doc_sorting_api_finance_doc_sorting_api_llm_options"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7882,6 +7903,11 @@ export interface paths {
          *
          *     请求: {"text": "文档全文", "credential_id": 6}
          *     响应: {"references": [...], "total": N}
+         *
+         *     安全/可用性修正：原签名是裸 ``payload: dict[str, Any]``，Django Ninja 无法
+         *     推断请求体，把它当 **query** 参数解析，任何 JSON body 请求都返回
+         *     422 ``Field required: query.payload``——端点从未被成功调用过。改为显式
+         *     ``LawVerificationCheckIn`` 后请求体才被正确识别。
          */
         post: operations["apps_legal_research_api_legal_research_api_check_law_references"];
         delete?: never;
@@ -8854,6 +8880,9 @@ export interface paths {
         /**
          * List Sessions
          * @description 列出当前用户的会话。
+         *
+         *     可按入口（origin）与案件 / 合同过滤。归属始终按当前用户过滤——
+         *     ``case_id`` 只用于缩小范围，不能借它看到别人的会话。
          */
         get: operations["apps_agent_api_agent_api_list_sessions"];
         put?: never;
@@ -8875,7 +8904,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Session Detail
+         * @description 会话详情（不归属当前用户时同样 404，不泄露存在性）。
+         */
+        get: operations["apps_agent_api_agent_api_get_session_detail"];
         put?: never;
         post?: never;
         /**
@@ -8885,7 +8918,11 @@ export interface paths {
         delete: operations["apps_agent_api_agent_api_delete_session"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Session Title
+         * @description 重命名会话（侧边栏会话列表的改名入口）。
+         */
+        patch: operations["apps_agent_api_agent_api_update_session_title"];
         trace?: never;
     };
     "/api/v1/agent/sessions/{session_id}/messages": {
@@ -8895,13 +8932,310 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Messages
+         * @description 会话消息历史（旧→新），前端重开会话时据此回放转录。
+         *
+         *     ``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），
+         *     不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端
+         *     用最后一条的 message_id 作为下一页游标。
+         */
+        get: operations["apps_agent_api_agent_api_list_messages"];
         put?: never;
         /**
          * Send Message
-         * @description 发消息并流式返回（SSE）。
+         * @description 发消息并流式返回（SSE）。限流：每用户 20 次/分钟（RATE_LIMIT['AGENT_SEND_*'] 可覆盖）。
          */
         post: operations["apps_agent_api_agent_api_send_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/events/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replay Sse Events
+         * @description P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
+         *
+         *     前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
+         */
+        get: operations["apps_agent_api_agent_api_replay_sse_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Task
+         * @description 提交一个后台任务：立即返回，agent 在后台跑，跑完通知。
+         *
+         *     适合「这个案子帮我把材料梳理一遍」这类要跑几分钟、人不可能一直盯着的活。
+         *     任务式运行没有 SSE 连接，因此高危工具会**挂起等离线审批**（见
+         *     `GET /approvals/pending`），而不是被直接拒绝。
+         */
+        post: operations["apps_agent_api_agent_api_submit_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/tasks/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Task Status
+         * @description 查询后台任务进度（前端轮询用）。
+         */
+        get: operations["apps_agent_api_agent_api_get_task_status"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel Task
+         * @description 取消后台任务（P1-4）。
+         *
+         *     排队中：从 django-q 队列移除并置 cancelled；
+         *     运行中：诚实告知暂不支持中途终止（pi 子进程在 worker 内，无跨进程
+         *     abort 通道——见差距报告 P2），任务会跑到自然结束；
+         *     已结束：如实返回终态。
+         */
+        delete: operations["apps_agent_api_agent_api_cancel_task"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/steer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Steer Running Session
+         * @description 运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。
+         *
+         *     P2-3 跨 Worker：Redis 路由表发现会话在其他 worker → HTTP 转发。
+         *     用于「agent 写到一半发现要改方向」，不必停止重发。
+         */
+        post: operations["apps_agent_api_agent_api_steer_running_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/follow-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Follow Up Running Session
+         * @description 追加一轮：agent 干完当前所有活后再跑这条。
+         */
+        post: operations["apps_agent_api_agent_api_follow_up_running_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear Session Queue
+         * @description 撤回已排队但尚未生效的插话 / 追加消息（「撤销」按钮）。
+         */
+        delete: operations["apps_agent_api_agent_api_clear_session_queue"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description 上传一个对话附件（multipart 字段名 ``file``；白名单/20MB 限额见 service）。
+         *
+         *     归属：会话必须属于当前用户。上传后前端在消息里附
+         *     「[已上传附件：name (attachment_id=…)]」，模型用 read_agent_attachment 读正文。
+         */
+        post: operations["apps_agent_api_agent_api_upload_attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/attachments/{attachment_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attachment Content
+         * @description 读附件原始内容（base64）——**mcp_server 专用**（用户 token 鉴权）。
+         *
+         *     返回内容只用于服务端转投 /document-parsing 提取正文，不会直接进入模型
+         *     上下文；前端不需要也不应消费本端点。
+         */
+        get: operations["apps_agent_api_agent_api_get_attachment_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/attachments/{attachment_id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attachment Pages
+         * @description 把附件按页渲染成图片（base64）——**mcp_server 专用**（用户 token 鉴权）。
+         *
+         *     PDF 走 PyMuPDF 逐页渲染：扫描件的文本提取为空，但页面图里是真实内容，
+         *     模型看图仍能读——这是「解析为空」的附件需要的另一条腿。
+         *
+         *     三段状态严格分开，不让调用方猜：
+         *
+         *     - 参数非法（pages 语法错 / dpi 非数字 / format 不认识）→ 400
+         *     - 归属不符或不存在 → 404（不区分，防枚举 attachment_id）
+         *     - 渲染失败（encrypted / too_large / unsupported_mime / page_out_of_range /
+         *       parse_empty）→ **200 + error 错误码**：mcp_server 要把错误码翻译成模型
+         *       看得懂的原因，500 会让它只剩「服务端错误」
+         *
+         *     权限与 /content 端点同一口径：``get_attachment_for_user``（只认会话所有者，
+         *     超管同样 fail-closed），这里不放宽也不跳过。
+         */
+        get: operations["apps_agent_api_agent_api_get_attachment_pages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/folder-refs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Session Folder Ref
+         * @description 拖拽引用落库：引用合同绑定文件夹内的原文件（不复制字节、storage_path 留空）。
+         *
+         *     归属：会话必须属于当前用户；合同侧走行级 ACL（与 folder-entries 目录树
+         *     同口径——团队共享合同，协办律师同样可引用）。文件名/MIME/大小为创建时快照。
+         */
+        post: operations["apps_agent_api_agent_api_create_session_folder_ref"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/folder-refs/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Folder Ref Content
+         * @description 读绑定文件夹内原文件（base64）——**mcp_server 专用**（用户 token 鉴权）。
+         *
+         *     与 /attachments/{id}/content 同构：内容只用于服务端转投 /document-parsing
+         *     提取正文，不直接进模型上下文。权限与 folder-entries 同口径（行级 ACL）；
+         *     kind=contract/case 决定走合同还是案件的绑定文件夹。
+         */
+        get: operations["apps_agent_api_agent_api_get_folder_ref_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/folder-refs/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Folder Ref Pages
+         * @description 把绑定文件夹内文件按页渲染成图（base64）——**mcp_server 专用**。
+         *
+         *     与 /attachments/{id}/pages 同构（三段状态：参数非法 400 / 无权或不存在
+         *     404 / 渲染失败 200 + error 错误码）；页图缓存键含源文件 size/mtime 指纹，
+         *     文件被替换后旧缓存自动失效。
+         */
+        get: operations["apps_agent_api_agent_api_get_folder_ref_pages"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8941,9 +9275,95 @@ export interface paths {
         put?: never;
         /**
          * Submit Approval Decision
-         * @description 前端提交审批决定。
+         * @description 前端提交审批决定（仅会话所有者或超级用户可决定）。
          */
         post: operations["apps_agent_api_agent_api_submit_approval_decision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Usage
+         * @description 当前用户的成本与耗时汇总（超级用户可加 ``?all=true`` 看全所）。
+         *
+         *     口径：token 由 pi 上报，一轮内工具循环的多段 assistant 逐段累加；
+         *     取消与出错的轮次同样计入（那些轮也消耗了 token）。
+         */
+        get: operations["apps_agent_api_agent_api_get_usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/usage/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Usage Daily
+         * @description 按天的成本趋势（前端画折线用）。
+         */
+        get: operations["apps_agent_api_agent_api_get_usage_daily"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/usage/by-model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Usage By Model
+         * @description 按模型的用量分布。
+         */
+        get: operations["apps_agent_api_agent_api_get_usage_by_model"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/approvals/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending Approvals Endpoint
+         * @description 当前用户**仍待处理**的审批（离线审批入口）。
+         *
+         *     任务式后台运行没有 SSE 连接，高危工具会挂起等决定。用户下次打开
+         *     对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。
+         */
+        get: operations["apps_agent_api_agent_api_list_pending_approvals_endpoint"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8959,11 +9379,215 @@ export interface paths {
         };
         /**
          * List Approvals
-         * @description 列出审批记录（审计用）。
+         * @description 列出审批记录（审计用；非超级用户仅见自己会话的记录）。
          */
         get: operations["apps_agent_api_agent_api_list_approvals"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Memories
+         * @description 当前律师可见的记忆列表。
+         *
+         *     **默认只返回 pending + active**，不返 ``deleted``：软删的语义是「律师不想
+         *     再看到它」，默认列表里还躺着会让人以为删除没生效（前端靠 ``status`` 过滤
+         *     可以遮蔽，但接口本身应该语义正确）。要看已删列表显式传 ``status=deleted``
+         *     （恢复入口需要）。
+         */
+        get: operations["apps_agent_api_memory_api_list_memories"];
+        put?: never;
+        /**
+         * Create Memory
+         * @description 手动新增一条个人记忆（律师主动说「记住…」时的落库端点）。
+         */
+        post: operations["apps_agent_api_memory_api_create_memory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Memories
+         * @description 确认或否决待确认（自动抽取/行为推断产出）的记忆。
+         */
+        post: operations["apps_agent_api_memory_api_confirm_memories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Memory
+         * @description 语义 + 关键词混合检索。
+         *
+         *     这是 ``recall_memory`` MCP 工具的后端。与 ``GET /`` 的区别：
+         *
+         *     - `GET /` 是**浏览**：按时间倒序列出全部记忆，用于管理界面；
+         *     - `GET /search` 是**检索**：按相关度返回 top-N，带向量召回。
+         *
+         *     为什么必须分开：律师问「我以前说的格式要求」时，记忆里存的是「文书先给
+         *     结论」——字面无关、语义相关，列表浏览永远找不到。早前 `recall_memory`
+         *     拉全量后做子串过滤，就是漏了这一层。
+         */
+        get: operations["apps_agent_api_memory_api_search_memory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Snapshot
+         * @description 注入用记忆快照（pi 扩展在 session_start 调用）。
+         *
+         *     ``refresh=true`` 仅在长期记忆刚写入时使用——它会让快照内容变化，
+         *     进而破坏该会话后续轮次的 prompt cache 前缀。
+         */
+        get: operations["apps_agent_api_memory_api_get_snapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/promotion/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Promotion Candidates
+         * @description 策展候选池：本团队/本律所成员的个人记忆，按共识度排序。
+         */
+        get: operations["apps_agent_api_memory_api_promotion_candidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/promotion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote Memory
+         * @description 把个人记忆策展提升为团队/律所记忆。
+         *
+         *     拒绝原样提升（必须改写）且拒绝含敏感信息的内容，两道闸门都在
+         *     ``memory_service.promote_memory``。
+         */
+        post: operations["apps_agent_api_memory_api_promote_memory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/scopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Scopes
+         * @description 当前律师可策展的作用域（前端据此显示/隐藏「提升到团队」入口）。
+         */
+        get: operations["apps_agent_api_memory_api_my_scopes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/{memory_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Forget Memory
+         * @description 软删除一条记忆（可由 ``/{memory_id}/restore`` 恢复）。
+         */
+        delete: operations["apps_agent_api_memory_api_forget_memory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/{memory_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Memory
+         * @description 恢复已删除的记忆。
+         */
+        post: operations["apps_agent_api_memory_api_restore_memory"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10325,6 +10949,33 @@ export interface components {
             /** Confirm Password */
             confirm_password: string;
         };
+        /**
+         * LawyerSlimOut
+         * @description 列表瘦身版：只供「lawyer_id → 人名/电话/执业证/律所名」的映射消费。
+         *
+         *     办案主页等列表页要按 500 人全量映射团队信息，但只需要这四个字段；
+         *     完整 LawyerOut 还带 license_pdf_url / avatar_url 两个文件签 URL
+         *     （每个都要走存储后端取签名）加 law_firm_detail 整个嵌套对象，几百条
+         *     累起来是纯浪费。law_firm_name 平铺成字符串替代嵌套对象。
+         */
+        LawyerSlimOut: {
+            /**
+             * Law Firm Name
+             * @default
+             */
+            law_firm_name: string;
+            /** ID */
+            id?: number | null;
+            /**
+             * 真实姓名
+             * @default
+             */
+            real_name: string | null;
+            /** 手机号码 */
+            phone?: string | null;
+            /** 执业证号 */
+            license_no?: string | null;
+        };
         /** LawyerCreateIn */
         LawyerCreateIn: {
             /** Username */
@@ -11338,27 +11989,6 @@ export interface components {
             /** 指定日期 */
             specified_date?: string | null;
         };
-        /** CaseUpdate */
-        CaseUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Status */
-            status?: ("active" | "closed") | null;
-            /** Is Filed */
-            is_filed?: boolean | null;
-            /** Case Type */
-            case_type?: string | null;
-            /** Target Amount */
-            target_amount?: number | null;
-            /** Preservation Amount */
-            preservation_amount?: number | null;
-            /** Cause Of Action */
-            cause_of_action?: string | null;
-            /** Current Stage */
-            current_stage?: string | null;
-            /** Effective Date */
-            effective_date?: string | null;
-        };
         /** CaseAssignmentCreate */
         CaseAssignmentCreate: {
             /** Lawyer Id */
@@ -11409,6 +12039,27 @@ export interface components {
             name?: string | null;
             /** Authority Type */
             authority_type?: string | null;
+        };
+        /** CaseUpdate */
+        CaseUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Status */
+            status?: ("active" | "closed") | null;
+            /** Is Filed */
+            is_filed?: boolean | null;
+            /** Case Type */
+            case_type?: string | null;
+            /** Target Amount */
+            target_amount?: number | null;
+            /** Preservation Amount */
+            preservation_amount?: number | null;
+            /** Cause Of Action */
+            cause_of_action?: string | null;
+            /** Current Stage */
+            current_stage?: string | null;
+            /** Effective Date */
+            effective_date?: string | null;
         };
         /** CasePartyIn */
         CasePartyIn: {
@@ -14239,6 +14890,28 @@ export interface components {
             count: number;
         };
         /**
+         * CourtSMSBatchDeleteOut
+         * @description 批量删除短信响应
+         */
+        CourtSMSBatchDeleteOut: {
+            /**
+             * Deleted
+             * @description 删除数量
+             */
+            deleted: number;
+        };
+        /**
+         * CourtSMSBatchDeleteIn
+         * @description 批量删除短信请求
+         */
+        CourtSMSBatchDeleteIn: {
+            /**
+             * Ids
+             * @description 要删除的短信ID列表
+             */
+            ids: number[];
+        };
+        /**
          * CourtSMSDetailOut
          * @description 短信处理详情响应
          */
@@ -14388,28 +15061,6 @@ export interface components {
              * @example 456
              */
             case_id: number;
-        };
-        /**
-         * CourtSMSBatchDeleteOut
-         * @description 批量删除短信响应
-         */
-        CourtSMSBatchDeleteOut: {
-            /**
-             * Deleted
-             * @description 删除数量
-             */
-            deleted: number;
-        };
-        /**
-         * CourtSMSBatchDeleteIn
-         * @description 批量删除短信请求
-         */
-        CourtSMSBatchDeleteIn: {
-            /**
-             * Ids
-             * @description 要删除的短信ID列表
-             */
-            ids: number[];
         };
         /**
          * CourtSMSAbortOut
@@ -15396,6 +16047,20 @@ export interface components {
             /** Items */
             items?: components["schemas"]["BatchPrintItemOut"][];
         };
+        /** ModelItemOut */
+        ModelItemOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Backend */
+            backend: string;
+        };
+        /** ModelListOut */
+        ModelListOut: {
+            /** Models */
+            models: components["schemas"]["ModelItemOut"][];
+        };
         /** StoryAnimationStatusOut */
         StoryAnimationStatusOut: {
             /** Id */
@@ -15516,20 +16181,6 @@ export interface components {
             question: string;
             /** Model */
             model?: string | null;
-        };
-        /** ModelItemOut */
-        ModelItemOut: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Backend */
-            backend: string;
-        };
-        /** ModelListOut */
-        ModelListOut: {
-            /** Models */
-            models: components["schemas"]["ModelItemOut"][];
         };
         /** EnterpriseProvidersOut */
         EnterpriseProvidersOut: {
@@ -15973,6 +16624,8 @@ export interface components {
             part_index: number;
             /** Page Count */
             page_count?: number | null;
+            /** Expanded From */
+            expanded_from?: string | null;
         };
         /**
          * InboxMessageDetailOut
@@ -16439,26 +17092,22 @@ export interface components {
             /** Created At */
             created_at?: string | null;
         };
-        /** TaskOut */
+        /**
+         * TaskOut
+         * @description 后台任务的受理/状态回执。
+         */
         TaskOut: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /** Func */
-            func: string;
-            /** Group */
-            group?: string | null;
-            /** Started At */
-            started_at?: string | null;
-            /** Finished At */
-            finished_at?: string | null;
-            /** Duration */
-            duration?: number | null;
-            /** Success */
-            success: boolean;
-            /** Result */
-            result?: string | null;
+            /** Session Id */
+            session_id: string;
+            /** Task Id */
+            task_id: string;
+            /** Task State */
+            task_state: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
         };
         /** ScheduleOut */
         ScheduleOut: {
@@ -16836,36 +17485,6 @@ export interface components {
             is_active: boolean;
         };
         /**
-         * PlaceholderUpdate
-         * @description 替换词更新输入
-         */
-        PlaceholderUpdate: {
-            /** Key */
-            key?: string | null;
-            /** Display Name */
-            display_name?: string | null;
-            /** Example Value */
-            example_value?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Is Active */
-            is_active?: boolean | null;
-        };
-        /** PlaceholderPreviewOut */
-        PlaceholderPreviewOut: {
-            /** Contract Id */
-            contract_id: number;
-            /** Values */
-            values: {
-                [key: string]: unknown;
-            };
-            /**
-             * Missing Keys
-             * @default []
-             */
-            missing_keys: string[];
-        };
-        /**
          * PlaceholderCategoryGroupOut
          * @description 按分类分组的替换词
          */
@@ -16921,6 +17540,36 @@ export interface components {
             total: number;
             /** Groups */
             groups: components["schemas"]["PlaceholderCategoryGroupOut"][];
+        };
+        /**
+         * PlaceholderUpdate
+         * @description 替换词更新输入
+         */
+        PlaceholderUpdate: {
+            /** Key */
+            key?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Example Value */
+            example_value?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+        };
+        /** PlaceholderPreviewOut */
+        PlaceholderPreviewOut: {
+            /** Contract Id */
+            contract_id: number;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+            /**
+             * Missing Keys
+             * @default []
+             */
+            missing_keys: string[];
         };
         /**
          * ArchiveOverridesPayload
@@ -17850,6 +18499,27 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * LawVerificationCheckIn
+         * @description 法规引用核查请求。
+         *
+         *     显式声明 body 结构：早前端点签名用裸 ``payload: dict[str, Any]``，
+         *     Django Ninja 无法据此推断请求体，只能把参数当 **query** 解析，
+         *     任何 JSON body 请求都返回 ``422 Field required: query.payload``——
+         *     该端点自部署起就没被成功调用过（MCP 的 ``check_law_references`` 因此永久失败）。
+         */
+        LawVerificationCheckIn: {
+            /**
+             * Text
+             * @description 待核查的文书全文
+             */
+            text: string;
+            /**
+             * Credential Id
+             * @description 法规检索服务账号的凭证 ID（LawyerCredential 主键）
+             */
+            credential_id: number;
         };
         /**
          * ParseDocumentResponse
@@ -19385,6 +20055,18 @@ export interface components {
              * @enum {string}
              */
             side: "ours" | "opposing" | "";
+            /**
+             * Case Type
+             * @default
+             */
+            case_type: string;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Contract Name
+             * @default
+             */
+            contract_name: string;
         };
         /** CaseTypeDistItem */
         CaseTypeDistItem: {
@@ -19509,6 +20191,9 @@ export interface components {
         /**
          * SessionIn
          * @description 创建会话请求体。
+         *
+         *     不接受模型参数：模型由服务端按 LLMProvider 配置解析，客户端传了也不会生效，
+         *     所以不在契约里留这个诱饵（``SessionOut.llm_model`` 回报的是实际使用的模型）。
          */
         SessionIn: {
             /**
@@ -19517,10 +20202,45 @@ export interface components {
              */
             title: string;
             /**
-             * Llm Model
-             * @default
+             * Origin
+             * @default chat
              */
-            llm_model: string;
+            origin: string;
+            /** Case Id */
+            case_id?: number | null;
+            /** Contract Id */
+            contract_id?: number | null;
+        };
+        /**
+         * SessionRenameIn
+         * @description 重命名会话请求体。
+         */
+        SessionRenameIn: {
+            /** Title */
+            title: string;
+        };
+        /**
+         * MessageOut
+         * @description 会话消息（历史回放）。``metadata`` 含 ``model`` / ``truncated``（中断的回答）等。
+         */
+        MessageOut: {
+            /** Message Id */
+            message_id: number;
+            /** Role */
+            role: string;
+            /** Content */
+            content: string;
+            /** Tool Name */
+            tool_name: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Metadata
+             * @default {}
+             */
+            metadata: {
+                [key: string]: unknown;
+            };
         };
         /**
          * MessageIn
@@ -19529,11 +20249,197 @@ export interface components {
         MessageIn: {
             /** Message */
             message: string;
+        };
+        /**
+         * TaskIn
+         * @description 提交后台任务。
+         */
+        TaskIn: {
+            /** Message */
+            message: string;
             /**
-             * Llm Model
+             * Title
              * @default
              */
-            llm_model: string;
+            title: string;
+            /** Case Id */
+            case_id?: number | null;
+            /** Contract Id */
+            contract_id?: number | null;
+        };
+        /**
+         * SteerOut
+         * @description 插话结果。``disposition`` 为 queued（已排队）或 handled（被扩展消费）。
+         */
+        SteerOut: {
+            /** Success */
+            success: boolean;
+            /** Disposition */
+            disposition: string;
+        };
+        /**
+         * SteerIn
+         * @description 运行中插话 / 追加一轮的请求体。
+         */
+        SteerIn: {
+            /** Message */
+            message: string;
+        };
+        /**
+         * ClearQueueOut
+         * @description 撤回排队消息的结果；``messages`` 是被撤回的原文。
+         */
+        ClearQueueOut: {
+            /** Success */
+            success: boolean;
+            /** Messages */
+            messages: string[];
+        };
+        /**
+         * AttachmentOut
+         * @description 附件上传回执：消息里以 [已上传附件：name (attachment_id=…)] 引用。
+         *
+         *     引用型（拖拽绑定文件夹文件）带 ``ref_owner_kind`` / ``ref_contract_id``（归属 id，合同或案件）/ ``ref_subpath``，
+         *     上传型两者为空——前端据此渲染不同 chip。
+         */
+        AttachmentOut: {
+            /** Attachment Id */
+            attachment_id: string;
+            /** Filename */
+            filename: string;
+            /** Size */
+            size: number;
+            /**
+             * Mime
+             * @default
+             */
+            mime: string;
+            /**
+             * Ref Owner Kind
+             * @default contract
+             */
+            ref_owner_kind: string;
+            /** Ref Contract Id */
+            ref_contract_id?: number | null;
+            /**
+             * Ref Subpath
+             * @default
+             */
+            ref_subpath: string;
+        };
+        /**
+         * AttachmentPageOut
+         * @description 附件的一页渲染图（base64）。
+         *
+         *     ``has_text_layer`` 是「这页可选出文字」的事实陈述：扫描件为 false，
+         *     调用方据此决定是否走 OCR，而不是把空白渲染当成功文本。
+         *
+         *     文字层页（``has_text_layer=true``）**不渲染图**：``b64`` 为空、``bytes=0``，
+         *     调用方应改走文本通道（省视觉 token）。``error`` 是该页粒度的错误码
+         *     （如 encrypted / too_large），成功为空；``detail`` 是可读原因。
+         */
+        AttachmentPageOut: {
+            /** Page */
+            page: number;
+            /** Mime */
+            mime: string;
+            /** B64 */
+            b64: string;
+            /** Bytes */
+            bytes: number;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Has Text Layer */
+            has_text_layer: boolean;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
+        /**
+         * AttachmentPagesOut
+         * @description 附件分页渲染结果（MCP 取页面图给模型看）。字段名与 T1 的 RenderResult 一一对应。
+         *
+         *     失败时 ``pages_returned`` 为空、``error`` 给出错误码——**不用空图冒充
+         *     成功**：一页空 base64 会让模型以为「这页是空白」而不是「渲染失败」。
+         */
+        AttachmentPagesOut: {
+            /** Attachment Id */
+            attachment_id: string;
+            /**
+             * Filename
+             * @default
+             */
+            filename: string;
+            /**
+             * Mime
+             * @default
+             */
+            mime: string;
+            /**
+             * Total Pages
+             * @default 0
+             */
+            total_pages: number;
+            /**
+             * Pages Returned
+             * @default []
+             */
+            pages_returned: components["schemas"]["AttachmentPageOut"][];
+            /**
+             * Strategy
+             * @default
+             */
+            strategy: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Notices
+             * @default []
+             */
+            notices: string[];
+            /**
+             * Truncated Pages
+             * @default false
+             */
+            truncated_pages: boolean;
+        };
+        /**
+         * FolderRefIn
+         * @description 拖拽引用入参：指向合同/案件绑定文件夹内的一个文件（不复制字节）。
+         */
+        FolderRefIn: {
+            /**
+             * Kind
+             * @default contract
+             * @enum {string}
+             */
+            kind: "contract" | "case";
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
         };
         /**
          * PiApprovalOut
@@ -19552,10 +20458,19 @@ export interface components {
              * @default
              */
             reason: string;
+            /**
+             * Risk Level
+             * @default
+             */
+            risk_level: string;
         };
         /**
          * PiApprovalIn
          * @description pi extension 发来的审批请求。
+         *
+         *     ``risk_level`` 由 extension 预判后一并送来（仅作参考与日志），
+         *     服务端以 ``classify_risk`` 的判定为准——extension 可以被绕过，
+         *     不能让客户端决定自己要不要审批。
          */
         PiApprovalIn: {
             /** Tool */
@@ -19574,6 +20489,11 @@ export interface components {
              * @default
              */
             session_id: string;
+            /**
+             * Risk Level
+             * @default
+             */
+            risk_level: string;
         };
         /**
          * ApprovalDecideIn
@@ -19582,6 +20502,158 @@ export interface components {
         ApprovalDecideIn: {
             /** Approved */
             approved: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * UsageOut
+         * @description 成本 / 耗时汇总。``error_rate`` 为小数（0.05 = 5%）。
+         */
+        UsageOut: {
+            /** Runs */
+            runs: number;
+            /** Ok Runs */
+            ok_runs: number;
+            /** Error Runs */
+            error_runs: number;
+            /** Cancelled Runs */
+            cancelled_runs: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Total Tokens */
+            total_tokens: number;
+            /** Tool Calls */
+            tool_calls: number;
+            /** Avg Duration Ms */
+            avg_duration_ms: number;
+            /** Error Rate */
+            error_rate: number;
+            /**
+             * Month Tokens
+             * @default 0
+             */
+            month_tokens: number;
+            /**
+             * Budget Tokens
+             * @default 0
+             */
+            budget_tokens: number;
+            /**
+             * Budget Warn
+             * @default false
+             */
+            budget_warn: boolean;
+        };
+        /** MemoryOut */
+        MemoryOut: {
+            /** Id */
+            id: string;
+            /** Scope */
+            scope: string;
+            /** Kind */
+            kind: string;
+            /** Content */
+            content: string;
+            /** Status */
+            status: string;
+            /** Confidence */
+            confidence: number;
+            /** Hit Count */
+            hit_count: number;
+            /** Created At */
+            created_at: string;
+            /**
+             * Source Session Id
+             * @default
+             */
+            source_session_id: string;
+        };
+        /** MemoryCreateIn */
+        MemoryCreateIn: {
+            /** Content */
+            content: string;
+            /**
+             * Kind
+             * @default fact
+             */
+            kind: string;
+        };
+        /** MemoryConfirmIn */
+        MemoryConfirmIn: {
+            /** Ids */
+            ids: string[];
+            /**
+             * Accept
+             * @default true
+             */
+            accept: boolean;
+        };
+        /** MemoryHitOut */
+        MemoryHitOut: {
+            /** Id */
+            id: string;
+            /** Scope */
+            scope: string;
+            /** Kind */
+            kind: string;
+            /** Content */
+            content: string;
+            /** Score */
+            score: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** SnapshotOut */
+        SnapshotOut: {
+            /** Content */
+            content: string;
+        };
+        /** PromoteCandidateOut */
+        PromoteCandidateOut: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Content */
+            content: string;
+            /** Hit Count */
+            hit_count: number;
+            /**
+             * From Lawyer
+             * @default
+             */
+            from_lawyer: string;
+            /**
+             * Pii Risk
+             * @default []
+             */
+            pii_risk: string[];
+        };
+        /** PromoteIn */
+        PromoteIn: {
+            /** Source Ids */
+            source_ids: string[];
+            /** Content */
+            content: string;
+            /** Kind */
+            kind: string;
+            /** Scope */
+            scope: string;
+            /** Team Id */
+            team_id?: number | null;
+            /**
+             * Acknowledged Firm Wide
+             * @default false
+             */
+            acknowledged_firm_wide: boolean;
         };
         /** JobSubmitOut */
         JobSubmitOut: {
@@ -20990,6 +22062,7 @@ export interface operations {
             query?: {
                 search?: string | null;
                 law_firm_id?: number | null;
+                slim?: boolean;
             };
             header?: never;
             path?: never;
@@ -21003,7 +22076,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LawyerOut"][];
+                    "application/json": components["schemas"]["LawyerOut"][] | components["schemas"]["LawyerSlimOut"][];
                 };
             };
         };
@@ -21164,7 +22237,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                cred_id: number;
+                credential_id: number;
             };
             cookie?: never;
         };
@@ -21186,7 +22259,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                cred_id: number;
+                credential_id: number;
             };
             cookie?: never;
         };
@@ -21212,7 +22285,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                cred_id: number;
+                credential_id: number;
             };
             cookie?: never;
         };
@@ -21463,6 +22536,7 @@ export interface operations {
                 is_our_client?: boolean | null;
                 search?: string | null;
                 limit?: number;
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -22243,6 +23317,7 @@ export interface operations {
             query: {
                 q: string;
                 limit?: number | null;
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -22269,6 +23344,7 @@ export interface operations {
                 case_number?: string | null;
                 contract_id?: number | null;
                 limit?: number | null;
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -22297,6 +23373,28 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CaseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_cases_api_case_api_create_case_full: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseCreateFull"];
             };
         };
         responses: {
@@ -22363,28 +23461,6 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_cases_api_case_api_create_case_full: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CaseCreateFull"];
-            };
-        };
         responses: {
             /** @description OK */
             200: {
@@ -23902,6 +24978,7 @@ export interface operations {
                 case_id?: number | null;
                 stage?: string | null;
                 limit?: number;
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -24046,6 +25123,7 @@ export interface operations {
                 fee_mode?: string | null;
                 is_filed?: boolean | null;
                 slim?: boolean;
+                include_facets?: boolean;
                 page?: number;
                 page_size?: number;
             };
@@ -24297,6 +25375,7 @@ export interface operations {
                 invoice_status?: string | null;
                 start_date?: string | null;
                 end_date?: string | null;
+                limit?: number | null;
             };
             header?: never;
             path?: never;
@@ -25676,6 +26755,30 @@ export interface operations {
             };
         };
     };
+    apps_automation_api_court_sms_api_batch_delete_sms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourtSMSBatchDeleteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourtSMSBatchDeleteOut"];
+                };
+            };
+        };
+    };
     apps_automation_api_court_sms_api_get_sms_detail: {
         parameters: {
             query?: never;
@@ -25762,30 +26865,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CourtSMSSubmitOut"];
-                };
-            };
-        };
-    };
-    apps_automation_api_court_sms_api_batch_delete_sms: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CourtSMSBatchDeleteIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CourtSMSBatchDeleteOut"];
                 };
             };
         };
@@ -27278,6 +28357,26 @@ export interface operations {
             };
         };
     };
+    apps_story_viz_api_animation_api_list_models: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelListOut"];
+                };
+            };
+        };
+    };
     apps_story_viz_api_animation_api_get_story_animation_status: {
         parameters: {
             query?: never;
@@ -27408,26 +28507,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AskResponse"];
-                };
-            };
-        };
-    };
-    apps_story_viz_api_animation_api_list_models: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ModelListOut"];
                 };
             };
         };
@@ -27949,6 +29028,7 @@ export interface operations {
                 has_attachments?: boolean | null;
                 search?: string | null;
                 limit?: number;
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -28254,6 +29334,24 @@ export interface operations {
             };
         };
     };
+    apps_message_hub_api_message_source_api_sync_all_sources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_message_hub_api_message_source_api_get_source: {
         parameters: {
             query?: never;
@@ -28329,24 +29427,6 @@ export interface operations {
             path: {
                 source_id: number;
             };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_message_hub_api_message_source_api_sync_all_sources: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -29401,6 +30481,28 @@ export interface operations {
             };
         };
     };
+    apps_documents_api_placeholder_api_placeholder_overview: {
+        parameters: {
+            query?: {
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceholderOverviewOut"];
+                };
+            };
+        };
+    };
     apps_documents_api_placeholder_api_get_placeholder: {
         parameters: {
             query?: never;
@@ -29513,28 +30615,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlaceholderPreviewOut"];
-                };
-            };
-        };
-    };
-    apps_documents_api_placeholder_api_placeholder_overview: {
-        parameters: {
-            query?: {
-                q?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaceholderOverviewOut"];
                 };
             };
         };
@@ -30363,7 +31443,7 @@ export interface operations {
             };
         };
     };
-    apps_evidence_sorting_api_evidence_sorting_api_classify_images: {
+    apps_finance_doc_sorting_api_finance_doc_sorting_api_classify_images: {
         parameters: {
             query?: never;
             header?: never;
@@ -30381,7 +31461,7 @@ export interface operations {
             };
         };
     };
-    apps_evidence_sorting_api_evidence_sorting_api_parse_statement: {
+    apps_finance_doc_sorting_api_finance_doc_sorting_api_parse_statement: {
         parameters: {
             query?: never;
             header?: never;
@@ -30399,7 +31479,7 @@ export interface operations {
             };
         };
     };
-    apps_evidence_sorting_api_evidence_sorting_api_reconcile: {
+    apps_finance_doc_sorting_api_finance_doc_sorting_api_reconcile: {
         parameters: {
             query?: never;
             header?: never;
@@ -30417,7 +31497,7 @@ export interface operations {
             };
         };
     };
-    apps_evidence_sorting_api_evidence_sorting_api_export_zip: {
+    apps_finance_doc_sorting_api_finance_doc_sorting_api_export_zip: {
         parameters: {
             query?: never;
             header?: never;
@@ -30435,7 +31515,7 @@ export interface operations {
             };
         };
     };
-    apps_evidence_sorting_api_evidence_sorting_api_llm_options: {
+    apps_finance_doc_sorting_api_finance_doc_sorting_api_llm_options: {
         parameters: {
             query?: never;
             header?: never;
@@ -31346,16 +32426,16 @@ export interface operations {
     };
     apps_legal_research_api_legal_research_api_check_law_references: {
         parameters: {
-            query: {
-                payload: {
-                    [key: string]: unknown;
-                };
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LawVerificationCheckIn"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -32335,6 +33415,9 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                origin?: string | null;
+                case_id?: number | null;
+                contract_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -32377,6 +33460,28 @@ export interface operations {
             };
         };
     };
+    apps_agent_api_agent_api_get_session_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+        };
+    };
     apps_agent_api_agent_api_delete_session: {
         parameters: {
             query?: never;
@@ -32394,6 +33499,57 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_update_session_title: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionRenameIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_list_messages: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before_id?: number | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"][];
+                };
             };
         };
     };
@@ -32418,6 +33574,313 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_replay_sse_events: {
+        parameters: {
+            query?: {
+                last_event_id?: number;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_submit_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_task_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_cancel_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_steer_running_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_follow_up_running_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_clear_session_queue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearQueueOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_upload_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_attachment_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_attachment_pages: {
+        parameters: {
+            query?: {
+                pages?: string;
+                dpi?: string;
+                format?: string;
+                max_pages?: string;
+            };
+            header?: never;
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentPagesOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_create_session_folder_ref: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderRefIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_folder_ref_content: {
+        parameters: {
+            query?: {
+                kind?: string;
+                owner_id?: number;
+                subpath?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_folder_ref_pages: {
+        parameters: {
+            query?: {
+                kind?: string;
+                owner_id?: number;
+                subpath?: string;
+                pages?: string;
+                dpi?: string;
+                format?: string;
+                max_pages?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentPagesOut"];
+                };
             };
         };
     };
@@ -32469,6 +33932,98 @@ export interface operations {
             };
         };
     };
+    apps_agent_api_agent_api_get_usage: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_usage_daily: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_get_usage_by_model: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    apps_agent_api_agent_api_list_pending_approvals_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
     apps_agent_api_agent_api_list_approvals: {
         parameters: {
             query?: {
@@ -32489,6 +34044,229 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     }[];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_list_memories: {
+        parameters: {
+            query?: {
+                scope?: string | null;
+                status?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"][];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_create_memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryCreateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_confirm_memories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoryConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_memory_api_search_memory: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryHitOut"][];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_get_snapshot: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_promotion_candidates: {
+        parameters: {
+            query?: {
+                scope?: string;
+                team_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoteCandidateOut"][];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_promote_memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_my_scopes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_memory_api_forget_memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_memory_api_restore_memory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
                 };
             };
         };

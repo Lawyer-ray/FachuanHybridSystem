@@ -54,6 +54,8 @@ vi.mock('@/features/workbench', async () => {
     preloadWorkbenchPage: stubs.preloadWorkbenchPage,
     DealDetailPageLazy: lazy(() => Promise.resolve({ default: () => <main>deal-detail-page</main> })),
     preloadDealDetailPage: vi.fn(() => Promise.resolve()),
+    NonLitDetailPageLazy: lazy(() => Promise.resolve({ default: () => <main>nonlit-detail-page</main> })),
+    preloadNonLitDetailPage: vi.fn(() => Promise.resolve()),
   }
 })
 vi.mock('@/features/material-prep', () => ({ DeskPage: () => <main>desk-page</main> }))
