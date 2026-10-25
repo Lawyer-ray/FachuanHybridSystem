@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, FileText, FolderClosed, FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
+import { ChevronRight, FileSearch, FileText, FolderClosed, FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { withDownloadTicket } from '@/lib/download-ticket'
@@ -53,12 +53,15 @@ export function FolderTree({
   ownerId,
   maxH = '',
   title,
+  onReviewFile,
 }: {
   kind: FolderOwnerKind
   ownerId: number
   maxH?: string
   /** 传入时渲染节标题行（右栏用，让「新建文件夹」与标题同行） */
   title?: string
+  /** 传入时文件行 hover 显「AI 审查」按钮（非诉详情页的合同回审入口） */
+  onReviewFile?: (f: { subpath: string; name: string }) => void
 }) {
   const qc = useQueryClient()
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -91,8 +94,9 @@ export function FolderTree({
       dropOn,
       setDropOn,
       openMenu: (e, entry) => setMenu({ x: e.clientX, y: e.clientY, ...entry }),
+      onReviewFile,
     }),
-    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn],
+    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn, onReviewFile],
   )
 
   const invalidate = () => {
@@ -528,6 +532,19 @@ function FileRow({
         {file.size > 0 && ' · ' + fmtSize(file.size)}
       </span>
       <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center rounded-[6px] bg-secondary px-0.5 group-hover:flex">
+        {ctx.onReviewFile && (
+          <button
+            type="button"
+            title="AI 审查此文件"
+            className="cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              ctx.onReviewFile?.({ subpath: file.subpath, name: file.name })
+            }}
+          >
+            <FileSearch className="size-3.5" />
+          </button>
+        )}
         <button
           type="button"
           title="重命名"

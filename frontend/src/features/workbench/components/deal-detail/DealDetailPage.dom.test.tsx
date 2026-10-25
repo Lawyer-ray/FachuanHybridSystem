@@ -5,7 +5,7 @@
  * mock 边界：../../api 四个接口（合同 / 律师 / 按合同案件 / 按案件提醒）。
  * 覆盖：加载态、主标题=合同名 + 页头 meta、程序链按收案日期排序 + stepper 虚节点「执行」、
  * 案件节（案号 chip / 诉讼地位行 / 日志升序）、右栏期限三源合流（今日红 + 已完成剔除）、
- * 右栏档案（当事人 / 收款 / 合同要素全在 sticky 卡里，左列只有案件）、非诉委托给开发中提示、合同加载失败给错误 + 返回、非法 id 重定向。
+ * 右栏档案（当事人 / 收款 / 合同要素全在 sticky 卡里，左列只有案件）、非诉委托重定向到非诉路由、合同加载失败给错误 + 返回、非法 id 重定向。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -189,6 +189,8 @@ function setupUi(path = '/projects/7') {
         <Routes>
           <Route path="/projects" element={<div>projects-list</div>} />
           <Route path="/projects/:id" element={<DealDetailPage />} />
+          {/* 非诉路由用 stub：只验证诉讼页对非诉委托的重定向，不引入 NonLitDetailPage 真身 */}
+          <Route path="/projects/:id/nonlit" element={<div>nonlit-stub</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -328,10 +330,10 @@ describe('DealDetailPage 加载与页头', () => {
     expect(screen.getByText('重试')).toBeTruthy()
   })
 
-  it('非诉委托：不渲染诉讼骨架，给设计中提示与返回入口', async () => {
+  it('非诉委托：不渲染诉讼骨架，重定向到非诉详情路由', async () => {
     getContractMock.mockResolvedValueOnce(makeContract({ case_type: 'advisor', case_type_label: '常年法律顾问' }))
     setupUi()
-    expect(await screen.findByText(/非诉详情页正在设计中/)).toBeTruthy()
+    expect(await screen.findByText('nonlit-stub')).toBeTruthy()
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
   })
 })

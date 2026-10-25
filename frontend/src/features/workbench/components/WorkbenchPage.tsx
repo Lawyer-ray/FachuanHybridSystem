@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { groupDeals } from '../domain'
 import { useWorkbenchData } from '../hooks/use-workbench-data'
@@ -12,8 +11,8 @@ import { FilterBar } from './FilterBar'
 
 /**
  * 办案主页（路由 /projects，合同+案件融合）：合同全宽大行流 + 业务形态分组（争议解决 / 非诉）+ 右侧详情抽屉。
- * 交互语义（38 号原型终态 + 详情页落地）：左键行 / → = 详情页（争议解决已建，非诉提示
- * 开发中）；右键行 / 👁 = 抽屉预览。
+ * 交互语义（38 号原型终态 + 详情页落地）：左键行 / → = 详情页（争议解决与
+ * 非诉各自路由）；右键行 / 👁 = 抽屉预览。
  */
 
 /** 默认筛选（与 FilterBar「清除全部筛选」一致）；空态判定也以它为基准 */
@@ -40,11 +39,11 @@ export function WorkbenchPage() {
     return () => window.clearTimeout(t)
   }, [dataReady])
 
-  /** 左键行 / → / 抽屉「详情 →」：争议解决进详情页；非诉详情页另轮设计，先明说 */
+  /** 左键行 / → / 抽屉「详情 →」：争议解决与非诉各进各的详情页（:id 同为委托合同 id） */
   const openDetail = useCallback(
     (deal: WorkbenchDeal) => {
       if (deal.lit) void navigate('/projects/' + deal.id)
-      else toast.info('非诉详情页正在开发中（右键行 = 快速预览）')
+      else void navigate(`/projects/${deal.id}/nonlit`)
     },
     [navigate],
   )

@@ -1,86 +1,39 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router'
+import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
 
-import {
-  ambiguousStages,
-  buildDeadlines,
-  buildStagePlan,
-  chainSteps,
-  chainSummary,
-  contactGroups as groupContacts,
-  moneyRows,
-  nextStage,
-  planCases,
-} from './detail-domain'
+import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
 
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
-import { useDealDetail } from './use-deal-detail'
+import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
+import { DetailError } from './ui'
 
 /**
  * 52 号定则：过去在时间轴（案件节日志按日叙事），未来在右栏（期限只在这里预警）。
  * 左列只放案件本身（程序链 + 下一步），合同层面的当事人/收款/补充协议/要素全在右栏卡里。
+ * 数据组装与助手上下文绑定在 use-deal-detail-page，与 NonLitDetailPage 共用。
  */
 export function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const contractId = Number(id)
-  const valid = Number.isInteger(contractId) && contractId > 0
-  const d = useDealDetail(valid ? contractId : null)
+  const { contractId, valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
 
-  const deal = d.deal
-  // 程序计划以合同勾选的代理阶段为纲、案件实际阶段为实：勾了没立的是未启动，立了没勾的照样展示
-  const plan = useMemo(() => buildStagePlan(deal?.stages ?? [], d.cases), [deal?.stages, d.cases])
-  const ordered = useMemo(() => planCases(plan), [plan])
   const steps = useMemo(() => chainSteps(plan), [plan])
-  const next = nextStage(plan)
-  const deadlines = useMemo(
-    () => buildDeadlines(d.contractReminders, ordered, d.caseReminders, d.today),
-    [d.contractReminders, ordered, d.caseReminders, d.today],
-  )
-  const contacts = useMemo(() => groupContacts(ordered), [ordered])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
-  const money = useMemo(() => (deal ? moneyRows(deal, ordered) : []), [deal, ordered])
 
   /* 创建类动作本轮先占位（样式定稿后接表单）：记日志 / 新增期限 / 新建下一程序案件 / 记收款 */
-  const soon = useCallback((what: string) => toast.info(what + '正在开发中'), [])
+  const soon = useCallback((what: string) => soonToast(what), [])
   const onAddLog = useCallback(() => soon('记办案日志'), [soon])
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
   const onAddPayment = useCallback(() => soon('记收款'), [soon])
 
-  // 本页就是「这个委托」——进页即把全局助手绑到该委托的业务上下文：
-  // 欢迎页变成本委托专属文案、快捷任务换成本委托的咨询、开新会话自动带
-  // 归属、每轮消息注入 [当前业务：本委托 … contract_id=N] 锚点，模型据此
-  // 用 get_contract / read_folder_file 等工具查本委托数据。
-  // 以前这件事由页面内嵌工作区的 CopilotEmbed 挂载时做；嵌入区删除后
-  // 导航栏/⌘J 打开的同一个面板必须由页面自己声明上下文，否则助手只会
-  // 当成通用对话（正是"它没意识到自己是本项目的助手"的原因）。
-  // 卸载时清空，避免离开本页后助手仍以为停在这个委托里。pageHint 一并
-  // 承担「非 context 分支」的页面感知（列表页等仍靠它）。
-  useEffect(() => {
-    if (!deal) return
-    let cancelled = false
-    void import('@/features/copilot/store').then((m) => {
-      if (cancelled) return
-      const st = m.useCopilot.getState()
-      st.setPageHint(`委托详情 · ${deal.client}（contract_id=${deal.id}）`)
-      void st.enterContext({ origin: 'contract', refId: deal.id, title: deal.client })
-    })
-    return () => {
-      cancelled = true
-      void import('@/features/copilot/store').then((m) => {
-        const st = m.useCopilot.getState()
-        // 只退出自己绑的那个委托（快速切换委托时新旧 effect 交错）
-        if (st.context?.origin === 'contract' && st.context.refId === deal.id) void st.exitContext()
-      })
-    }
-  }, [deal])
+  // 本页就是「这个委托」——把全局助手绑到该委托的业务上下文（详见 use-deal-detail-page）
+  useDealCopilotContext(deal, '委托详情')
 
   const jump = useCallback((caseId: number) => {
     document.getElementById('case-' + caseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -105,9 +58,8 @@ export function DealDetailPage() {
     return <DetailError error={d.error ?? '委托不存在'} onRetry={() => d.refetch()} />
   }
   if (!deal.lit) {
-    return (
-      <NonLitNotice name={deal.client} />
-    )
+    // 非诉详情页已就位（/projects/:id/nonlit）：直达诉讼路由的非诉委托直接转过去
+    return <Navigate to={`/projects/${contractId}/nonlit`} replace />
   }
 
   return (
@@ -178,41 +130,6 @@ export function DealDetailPage() {
           onAddDue={onAddDue}
           onAddPayment={onAddPayment}
         />
-      </div>
-    </main>
-  )
-}
-
-function DetailError({ error, onRetry }: { error: string; onRetry: () => void }) {
-  return (
-    <main className="app-page-enter mx-auto max-w-lg px-6 pt-[80px]">
-      <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-center text-sm text-destructive">
-        {error}
-        <button type="button" className="ml-3 cursor-pointer underline underline-offset-3" onClick={onRetry}>
-          重试
-        </button>
-        <Link to="/projects" className="ml-3 cursor-pointer underline underline-offset-3">
-          返回列表
-        </Link>
-      </div>
-    </main>
-  )
-}
-
-/** 非诉委托（专项 / 常法）详情页另轮设计（53/54 号），直达时明确说没做而不是硬渲染诉讼骨架 */
-function NonLitNotice({ name }: { name: string }) {
-  return (
-    <main className="app-page-enter mx-auto max-w-lg px-6 pt-[80px] text-center">
-      <div className="mb-2 truncate text-sm font-[550] text-secondary-foreground" title={name}>
-        {name}
-      </div>
-      <div className="rounded-[14px] border border-border bg-card px-5 py-6 text-[13px] text-muted-foreground shadow-sm">
-        非诉详情页正在设计中，档案快览可回办案主页右键行打开
-        <div className="mt-3">
-          <Link to="/projects" className="cursor-pointer underline underline-offset-3">
-            返回列表
-          </Link>
-        </div>
       </div>
     </main>
   )

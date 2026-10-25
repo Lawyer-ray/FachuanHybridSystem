@@ -8,8 +8,14 @@ import { AppNavbar } from '@/components/shared/AppNavbar'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePageLazy, preloadHomePage } from '@/features/home'
-import { DealDetailPageLazy, preloadWorkbenchPage, WorkbenchPageLazy } from '@/features/workbench'
+import {
+  DealDetailPageLazy,
+  NonLitDetailPageLazy,
+  preloadWorkbenchPage,
+  WorkbenchPageLazy,
+} from '@/features/workbench'
 import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
+import { ReviewWorkbenchPageLazy } from '@/features/contract-review'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
@@ -289,6 +295,10 @@ export default function App() {
           <Route path="/projects" element={<WorkbenchPageLazy />} />
           {/* 争议解决详情页：一页一委托（:id = 委托合同 id），合同与案件链在页内融合呈现 */}
           <Route path="/projects/:id" element={<DealDetailPageLazy />} />
+          {/* 非诉（常法/专项）详情页：同 :id = 委托合同 id，右栏与争议解决页共用，左栏换成合同文件夹 */}
+          <Route path="/projects/:id/nonlit" element={<NonLitDetailPageLazy />} />
+          {/* 合同复审工作台（发起审查后跳入；参数与 ReviewWorkbenchPage 的 useParams 对齐） */}
+          <Route path="/projects/:id/review/:taskId" element={<ReviewWorkbenchPageLazy />} />
           {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
           <Route path="/settings/bindings" element={<BindingsPageLazy />} />
         </Route>

@@ -184,9 +184,9 @@ describe('DealRow：右键与按钮开抽屉', () => {
     unmount()
   })
 
-  it('非诉案件的详情按钮 title 标明开发中', () => {
+  it('非诉案件的详情按钮与争议解决一致（详情页已建成，不再标开发中）', () => {
     const { unmount } = renderRow({ deal: deal({ lit: false }) })
-    expect(screen.getByRole('button', { name: '打开详情' }).getAttribute('title')).toContain('开发中')
+    expect(screen.getByRole('button', { name: '打开详情' }).getAttribute('title')).toBe('打开详情')
     unmount()
   })
 })
