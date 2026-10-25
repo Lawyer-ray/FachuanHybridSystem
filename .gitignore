@@ -101,7 +101,6 @@ backend/apiSystem/.coverage
 # Test output (generated docx files from LLM contract tests)
 backend/test_output/
 # Coverage reports (Jest/Istanbul)
-frontend_2026/coverage/
 # detect-secrets temporary artifact
 *.secrets.baseline.new
 .secrets.baseline
@@ -162,11 +161,6 @@ backend/apps/models/
 MacOS_FC/
 
 # Frontend: track source, ignore dependencies/build/env files
-frontend_2026/node_modules/
-frontend_2026/dist/
-frontend_2026/dist-ssr/
-frontend_2026/.env
-frontend_2026/.env.*
 backend/deploy/*
 !backend/deploy/docker/
 backend/deploy/docker/*
@@ -294,9 +288,6 @@ rfcs/
 playwright-report/
 backend/tests/e2e/state.json
 backend/tests/e2e/test-results/
-frontend_2026/e2e/state.json
-frontend_2026/e2e/test-results/
-frontend_2026/e2e/playwright-report/
 
 # Claude Code
 .claude/
@@ -365,8 +356,6 @@ skills/**/draft_log.txt
 # frontend（新一代前端，收录 README 与后续代码；设计稿与原型不入库）
 frontend/design/
 frontend/prototype/
-# frontend_2026（原 frontend，已移出仓库，本地维护）
-frontend_2026/
 
 # AI 助手工作目录（项目记忆等，不入库）
 .workbuddy-ai/
@@ -380,4 +369,9 @@ frontend_2026/
 .zcodeignore
 
 # 公网栈部署配置（本机专属：绝对路径/域名，不入库；文件保留在本地供 launchd 使用）
-/deploy/
+/deploy/*
+# 例外：OnlyOffice Document Server 编排要入库（镜像 tag = 代码变更，需 PR review/回滚）。
+# 注意：不能用 `/deploy/` —— 目录级排除后 git 不会进该目录，`!` 例外规则无法生效。
+!/deploy/onlyoffice/
+/deploy/onlyoffice/.env
+/deploy/onlyoffice/fonts/
