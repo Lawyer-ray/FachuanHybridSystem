@@ -313,6 +313,10 @@ publish(session_id, event)
 | GET | `/usage` | 成本/耗时汇总（token、工具调用数、失败率、平均耗时） |
 | GET | `/usage/daily` | 按天趋势 |
 | GET | `/usage/by-model` | 按模型分布 |
+| GET | `/skills` | 技能清单（含当前用户启用态；`/` 菜单数据源） |
+| PATCH | `/skills/{name}` | 启停一个技能（下一轮对话生效） |
+| GET | `/sessions/{id}/stats` | 会话 token 用量与上下文水位（读库，不起进程） |
+| POST | `/sessions/{id}/compact` | 手动压缩上下文（同步；无历史幂等 `compacted=false`，池忙 429） |
 
 ### 运行中插话（steer / follow_up）
 
@@ -390,6 +394,68 @@ POST /tasks {message, title?, case_id?}
 
 > 最后一类问题最阴——curl 能通、pi 单独能通，只有「Django 起的 pi」不通。
 > 以后再遇到「pi 连不上模型」，先查 `env | grep -i proxy`。
+
+## 5.2 技能（skills）：安装与使用
+
+技能库是 `pi/skills/` 下的目录集合（Agent Skills 标准，`SKILL.md` 一文件一技能），
+**随代码发布**。一套库、两条消费通道，互不排斥：
+
+| 通道 | 触发者 | 链路 | 适合 |
+|:-|:-|:-|:-|
+| 显式点名 | **律师**（`/` 菜单） | 消息以 ``/skill:名字 参数`` 文本发送 → pi 在送给模型前展开全文 | 用户明确要用的重指引令 |
+| 模型自主 | **模型**（对话中判断） | AGENTS.md 场景路由表 → `get_agent_skill(name)` MCP 工具按名读全文 | 高频轻量场景（期限/列表/材料/检索） |
+
+### 安装一个新技能
+
+1. **建目录与文件**：`pi/skills/<技能名>/SKILL.md`（目录名必须与 frontmatter 的
+   `name` 一致）：
+
+   ```markdown
+   ---
+   name: contract-drafting
+   description: 合同起草的操作指引。当用户要起草/审查合同时使用。
+   ---
+
+   （正文：给模型看的操作指引，Markdown。）
+   ```
+
+2. **命名约束**（`skill_service._NAME_RE`，Agent Skills 规范）：
+   `^[a-z0-9][a-z0-9-]{0,63}$`——小写字母/数字/连字符，≤64 字符。
+   `description` 必填（≤1024 字符），它会出现在前端 `/` 补全菜单里，写「什么时候
+   用」而不是「这是什么」。
+
+3. **可选 frontmatter 开关**：`disable-model-invocation: true` 表示只允许律师
+   `/skill:` 点名、不进 pi 的系统提示词路由——纯用户指令型技能建议加上，省 token。
+
+4. **想走模型自主通道**（可选）：在 `pi/AGENTS.md` 的「专项指引：按需取用」路由表
+   加一行（场景关键词 → 技能名），模型才会知道何时调 `get_agent_skill` 读它。
+
+5. **部署**：无迁移、无重启——技能是目录扫描（`skill_service.list_skills` 每次请求
+   现扫）。容器等异位部署用 `FACHUAN_AGENT_HOME` 之外再加
+   `FACHUAN_AGENT_SKILLS_DIR` 覆盖库路径（与 mcp_server 的同名变量同一约定）。
+   新技能对全部用户**默认启用**（偏好表只记差异）。
+
+### 使用（律师视角）
+
+- 前端输入 `/` 打开命令菜单（技能项 + `/compact` 命令），↑/↓ 选择、Enter/Tab
+  补全成 `/skill:名字 ` 前缀，接着写参数发送。
+- 技能启停：`PATCH /api/v1/agent/skills/{name}`（body `{"enabled": false}`），
+  下一轮对话生效；`GET /api/v1/agent/skills` 看清单。
+
+### 内部机制（改代码前必读）
+
+- **注入面**：`rpc_client` 启动参数**恒定 `--no-skills`**——pi 默认会无条件自动
+  发现宿主机 `~/.agents/skills`（开发机上实测 203 个安全渗透技能）注入系统提示词，
+  这是必须关死的污染面；然后按「该用户启用的技能」逐个 `--skill <目录>` 显式注入
+  （`chat_service` 每轮经 `skill_service.enabled_skill_paths(user_id)` 计算）。
+- **用户偏好**：`AgentSkillPreference`（user × skill_name × enabled），只记
+  `enabled=False` 的差异行，没行 = 默认启用；admin 只读（审计「谁关了什么」）。
+- **安全红线**：SKILL.md 会以完全受信指令的身份进入对话（`/skill:` 展开即注入），
+  等价于提示注入载体——**技能库目录的写权限只属于部署管道**，绝不开放用户上传；
+  名称校验（正则 + 库内实存双检）防路径穿越。
+- **展开语义**：`/skill:名字 参数` 由 pi 在**发给模型前**展开为
+  `<skill name=... location=...>` 全文块 + 用户参数——模型无需任何文件读取工具
+  （这也是本系统工具面刻意不声明 read/bash 的前提下，用户点名通道仍可用的原因）。
 
 ## 6. 事件契约
 
