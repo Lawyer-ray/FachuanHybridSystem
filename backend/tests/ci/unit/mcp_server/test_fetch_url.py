@@ -356,12 +356,28 @@ class TestSSRFProtection:
             "http://169.254.169.254/latest/meta-data/",
             "http://[::1]:8080/",
             "http://0.0.0.0/",
+            # IPv4-mapped IPv6（2026-10-25 实测绕过口:ipaddress 解析成 IPv6,
+            # 与 IPv4 网段的 in 判定恒 False,当年 httpx 经它连上了本机 :8002）
+            "http://[::ffff:127.0.0.1]:8002/admin/",
+            "http://[::ffff:192.168.1.1]/",
+            "http://[::ffff:10.1.2.3]/x",
+            # 6to4 / Teredo 过渡格式内嵌的私有 IPv4
+            "http://[2002:0a01:0203::]/",
+            "http://[2001:0:c0a8:101::]/",
         ],
     )
     def test_internal_targets_blocked(self, url: str) -> None:
         result = _module().fetch_url(url)
         assert result["ok"] is False
         assert result["reason"] == "blocked_target"
+
+    def test_public_ipv6_literal_not_blocked_by_alias_nets(self, fake_http: Any) -> None:
+        """拉黑的是「嵌 IPv4 的过渡前缀」,不是整个 IPv6——普通公网 IPv6 字面量
+        仍放行到 HTTP 层。"""
+        mod = _module()
+        _set_response(fake_http, _response(200, "<html><body>" + "正文" * 200 + "</body></html>"))
+        result = mod.fetch_url("http://[2606:4700::1111]/")
+        assert result.get("reason") != "blocked_target"
 
     def test_intranet_hostname_blocked(self) -> None:
         """域名解析出内网 IP 同样拦截（按解析结果而非字面判断）。"""

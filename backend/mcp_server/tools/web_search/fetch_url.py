@@ -46,6 +46,13 @@ logger = logging.getLogger(__name__)
 #: 127.0.0.1:8002（自家 Django/mcp）、律所内网网关、云元数据端点——这是
 #: 标准 SSRF 面。抓取前按「域名解析出的全部 IP」判定,命中内网段直接拒绝;
 #: 搜狗跳转解析出的真实地址同样过检。
+#:
+#: 末三个网段是 IPv6 里「嵌着 IPv4」的过渡格式（2026-10-25 实测补口）:
+#: ``::ffff:127.0.0.1`` 这类 IPv4-mapped 地址会被 ipaddress 解析成 IPv6,
+#: 与 IPv4 网段的 ``in`` 判定恒为 False——当年 httpx 经它真实连上了本机
+#: :8002（MCP spec 安全最佳实践点名警告的编码绕过）。6to4（2002::/16）
+#: 与 Teredo（2001::/32）同理,内嵌 IPv4 同样应按内网对待;整段拉黑是
+#: fail-closed:公网站点不会以这些字面形态被正常访问。
 _BLOCKED_NETS = tuple(
     ipaddress.ip_network(net)
     for net in (
@@ -58,6 +65,9 @@ _BLOCKED_NETS = tuple(
         "::1/128",
         "fe80::/10",
         "fc00::/7",
+        "::ffff:0:0/96",  # IPv4-mapped IPv6（内嵌 IPv4 直连）
+        "2002::/16",  # 6to4（内嵌 IPv4）
+        "2001::/32",  # Teredo（内嵌 IPv4）
     )
 )
 
