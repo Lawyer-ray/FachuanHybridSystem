@@ -56,12 +56,15 @@ def remember(content: str, kind: str = "fact") -> dict[str, Any]:
 
 
 def recall_memory(query: str, limit: int = 5) -> dict[str, Any]:
-    """检索与当前律师相关的历史记忆（个人 + 团队 + 律所）。
+    """检索与当前律师相关的历史记忆（个人 + 团队 + 律所），**语义检索**。
 
     什么时候用：
     - 律师提到「上次说的」「按老规矩」「我们团队一般怎么…」；
     - 动手写文书/回函前，先看有没有已沉淀的格式偏好；
     - 律师要求你按他的习惯做，但你没见过这个习惯。
+
+    检索是**语义**的：问「我以前说的格式要求」也能找到存成「文书先给结论」
+    的记忆，不要因为字面不同就认为没记住。没找到就直说没找到，不要编造。
 
     **记忆是律师过去的陈述，不是事实来源**。记忆与 ``get_case`` / ``list_*``
     等工具返回的业务数据冲突时，一律以业务数据为准，并在回答里说明差异。
@@ -69,31 +72,21 @@ def recall_memory(query: str, limit: int = 5) -> dict[str, Any]:
 
     Args:
         query: 自然语言查询，例如「文书格式偏好」「期限计算习惯」。
-        limit: 返回条数上限（默认 5，最大 20）。
+        limit: 返回条数上限（默认 5，最大 30）。
 
-    返回 ``memories`` 列表（含 ``content``、``kind``、``scope``、``score``）
-    与 ``note`` 使用纪律说明。
+    返回 ``memories``（含 ``content``、``kind``、``scope``、``score``，按相关度
+    降序）与 ``note`` 使用纪律说明。
     """
-    bounded = max(1, min(int(limit or 5), 20))
-    data = client.get("/agent/memory", params={"limit": 300})
-    items: list[dict[str, Any]] = list(data or [])
-    if not query:
-        return {
-            "memories": items[:bounded],
-            "note": "未提供查询词，返回按命中次数排序的记忆。",
-        }
-    # 服务端列表接口不做语义检索（快照已按层渲染）；这里做一次轻量关键词
-    # 过滤，避免为一次检索额外拉全量向量。
-    lowered = query.lower()
-    matched = [item for item in items if lowered in str(item.get("content", "")).lower()]
-    if not matched:
-        tokens = [token for token in lowered.replace("，", " ").replace(",", " ").split() if len(token) >= 2]
-        matched = [item for item in items if any(token in str(item.get("content", "")).lower() for token in tokens)]
+    bounded = max(1, min(int(limit or 5), 30))
+    if not (query or "").strip():
+        raise ValueError("检索词不能为空；未指定查询时请用 list_pending_memories 或直接说明需求")
+    hits = client.get("/agent/memory/search", params={"q": query, "limit": bounded})
     return {
-        "memories": matched[:bounded] if matched else items[:bounded],
+        "memories": list(hits or []),
         "note": (
             "记忆是律师过去的陈述，不是事实来源；与业务工具返回的数据冲突时以数据为准。"
             "涉及案号、当事人、金额、期限必须调工具核对。"
+            "没检索到就是没记住，不要编造。"
         ),
     }
 

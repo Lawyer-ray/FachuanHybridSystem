@@ -397,6 +397,12 @@ def test_required_params_are_exposed(openapi: dict[str, Any], registered_tools: 
             required_body = list(body_schema["required"])
 
         missing_query = [item for item in required_query if item not in accepted and not has_var_kwargs]
+        # query 参数与 body 同口径：允许源码里显式映射（如 `q` → 更语义化的
+        # `query` 参数：params={"q": query}）。工具面对模型的参数名应当语义化，
+        # 不能让模型去猜 `q` 是什么意思；只要源码里写死了该 key 就算已暴露。
+        missing_query = [
+            item for item in missing_query if not (f'"{item}"' in segment or f"'{item}'" in segment)
+        ]
         # body 必填字段允许两种暴露方式：同名参数，或源码里写死了该 JSON key
         # （如 `target_item_code` 参数 → json={"target_code": target_item_code}）
         missing_body: list[str] = []

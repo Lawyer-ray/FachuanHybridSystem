@@ -59,9 +59,20 @@ MAX_SINGLE_ENTRY_CHARS = 200
 #: 单次抽取最多产出条数（防止一次会话灌进上百条噪音）
 MAX_EXTRACT_ITEMS = 8
 
-#: 语义检索最低相似度。低于此值视为不相关——记忆检索最怕的不是漏，
-#: 是**错**：一条不相关的记忆被注入会主动误导模型。
-MIN_SIMILARITY = 0.62
+#: 语义检索绝对下限。低于此值一律不返回（连“最相关”都不可靠）。
+#:
+#: ## 为什么不能只用一个绝对阈值（实测教训）
+#:
+#: 原本用单一阈值 0.62。实测 bge-m3 的分布：
+#:   相关对（「我问过的写作格式要求」 vs 「文书先给结论再给理由」）= 0.618
+#:   无关对（「文书先给结论」 vs 「劳动争议先查仲裁时效」）         = 0.604
+#: 差 0.014——任何单一绝对值都会同时错杀相关项或放进无关项。
+#: 语义模型的高基线（”任何两句中文都很像“）让绝对阈值在这个量级失效。
+MIN_SIMILARITY = 0.52
+
+#: 相对底线：低于本批最高分这个比例的候选不入结果。
+#: 真正相关的一组通常集中在高分带，无关项被这个比例自然切掉。
+MIN_RELATIVE_RATIO = 0.88
 
 #: 快照缓存 TTL（秒）。扩展通常在同一会话内反复拉，跨天/写记忆会主动失效。
 SNAPSHOT_CACHE_TTL = 3600
@@ -172,11 +183,19 @@ def search_memories(
     limit: int = 8,
     kinds: list[str] | None = None,
 ) -> list[tuple[AgentMemory, float]]:
-    """语义 + 关键词混合检索。
+    """语义 + 关键词混合检索（**这是 `recall_memory` 的真实实现**）。
 
-    有向量的条目走余弦，没有向量的条目（embedding 为空、或 embed 服务未配置）
-    退化为关键词子串命中且给一个保守的固定分。**不静默丢弃**——embed 服务
-    没配时如果只走向量，等于记忆功能整体失效且用户无感知。
+    ## 为什么不能只靠关键词
+
+    律师问「我以前说的格式要求」时，记忆里存的是「文书先给结论」——字面无关、
+    语义相关，子串匹配永远抳不到。向量召回是这个能力的核心，不是锦上添花。
+
+    ## 三层降级（每一层都不静默失败）
+
+    1. **向量**：query 与 memory 都有 embedding → 余弦相似度。
+    2. **关键词**：向量不可用（embed 未配/调用失败）或记忆尚未 embed 时的
+       兜底，取两者较大值。**不静默丢弃**——embed 服务一挂记忆检索不能整体失效。
+    3. **无查询词**：按类型优先级 + 命中次数排。
 
     返回 ``(memory, score)`` 降序。
     """
@@ -191,6 +210,10 @@ def search_memories(
     if not query:
         return [(m, 1.0) for m in _rank_by_usage(candidates, limit)]
 
+    # 懒补向量：历史记忆（自动抽取早期、embed 服务后配）可能没有 embedding。
+    # 只在真正要检索时才补，避免写入路径被 embed 服务拖慢。
+    _backfill_embeddings([m for m in candidates if not m.embedding])
+
     query_vec = _embed_query(query)
     scored: list[tuple[AgentMemory, float]] = []
     for memory in candidates:
@@ -200,11 +223,54 @@ def search_memories(
         # 关键词兜底：向量不可用或相似度低但字符串命中，取两者较大值
         keyword_hit = _keyword_score(query, memory.content)
         score = max(score, keyword_hit)
-        if score >= MIN_SIMILARITY:
-            scored.append((memory, score))
+        scored.append((memory, score))
 
-    scored.sort(key=lambda item: (item[1], item[0].hit_count), reverse=True)
-    return scored[:limit]
+    if not scored:
+        return []
+
+    # 两道闸：绝对下限（连最相关都不可靠时返回空） + 相对底线（切掉同批里的
+    # 长尾）。单独用任一都不行——见 MIN_SIMILARITY 的注释。
+    best = max(score for _m, score in scored)
+    if best < MIN_SIMILARITY:
+        return []
+    floor = max(MIN_SIMILARITY, best * MIN_RELATIVE_RATIO)
+    scored = [(m, s) for m, s in scored if s >= floor]
+
+    # 注意排序键：(score 降序, hit_count 降序)。不能用 tuple reverse=True——
+    # 那会把低命中次数的排前面。
+    scored.sort(key=lambda item: (-item[1], -item[0].hit_count))
+    top = scored[:limit]
+    mark_hit([m for m, _score in top])
+    return top
+
+
+def _backfill_embeddings(memories: list[AgentMemory]) -> None:
+    """批量补齐缺失向量（一次 embed 调用，不逐条往返）。
+
+    失败只记日志不抛——检索会自然退化为关键词。
+    """
+    if not memories:
+        return
+    texts = [m.content for m in memories]
+    try:
+        from apps.core.interfaces import ServiceLocator
+
+        service = ServiceLocator.get_llm_service()
+        vectors = service.embed_texts(texts, caller="agent.memory.backfill")
+    except Exception:
+        logger.info("记忆向量批量补齐失败（退化为关键词）", exc_info=True)
+        return
+    if not vectors or len(vectors) != len(memories):
+        return
+    updates: list[AgentMemory] = []
+    for memory, vector in zip(memories, vectors, strict=False):
+        if not vector:
+            continue
+        memory.embedding = [float(v) for v in vector]
+        updates.append(memory)
+    if updates:
+        AgentMemory.objects.bulk_update(updates, ["embedding"], batch_size=200)
+        logger.info("已补齐 %s 条记忆向量", len(updates))
 
 
 def _keyword_score(query: str, content: str) -> float:
@@ -569,12 +635,19 @@ def promote_memory(
     kind: str,
     scope: str,
     team_id: int | None = None,
+    acknowledged_firm_wide: bool = False,
 ) -> AgentMemory:
     """把若干条个人记忆策展提升为团队/律所记忆。
 
     **强制改写**：``content`` 必须与任何一条来源记忆的原文不同。这不是形式
     要求——原样提升会把「客户 A 同意 30 万分 3 期」这类具体事实搬进全所可见
     的层级，既是保密风险，也让记忆库充满不可复用的噪音。
+
+    **律所层需显式确认影响面**：``acknowledged_firm_wide=True`` 表示提交者
+    已确认「这条规则将对全所所有律师的 AI 生效」。为什么不用双管理员会签：
+    实测生产环境有只有 1 个管理员、甚至 0 个管理员的律所，强制会签会让那些
+    律所完全用不了律所层。真实的约束是「你知道自己在写全所规范」，不是
+    「凑够两个人盖章」。
     """
     if not can_curate_scope(lawyer, scope, team_id=team_id):
         raise ValueError("无权向该作用域提升记忆")
@@ -606,6 +679,8 @@ def promote_memory(
     # 注意顺序：类型闸门放在权限闸门之后，因为它只在有权限时才谈得上
     if scope == AgentMemory.Scope.LAW_FIRM and kind not in (AgentMemory.Kind.PROCEDURE, AgentMemory.Kind.PREFERENCE):
         raise ValueError("律所层只接受「惯例」或「偏好」，不接受具体事实")
+    if scope == AgentMemory.Scope.LAW_FIRM and not acknowledged_firm_wide:
+        raise ValueError("提升到律所层会影响全所所有律师的 AI，请先确认影响面（acknowledged_firm_wide）")
 
     owner: dict[str, Any] = {"law_firm": lawyer.law_firm}
     if scope == AgentMemory.Scope.TEAM:

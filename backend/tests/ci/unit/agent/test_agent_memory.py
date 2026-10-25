@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from apps.agent.models import AgentMemory, content_hash_of
@@ -403,3 +405,106 @@ class TestRouteOrdering:
 
         match = resolve(f"/api/v1/agent/memory/{path}")
         assert match.func.__name__ != "forget_memory"
+
+
+@pytest.mark.django_db
+class TestSemanticSearch:
+    """语义检索：字面无关、语义相关时必须召回。
+
+    这是 `recall_memory` 的核心能力。早前它拉全量后做子串过滤，问
+    「我问过的格式要求」找不到存成「文书先给结论」的记忆——等于该功能
+    只对「用户记得原话」的有用，而那种情况本来就不需要检索。
+    """
+
+    def test_keyword_miss_still_recalled_by_vector(self, lawyer: Lawyer) -> None:
+        """用假向量直接验证余弦通路（不依赖真实 embed 服务）。"""
+        target = _memory(lawyer, "文书先给结论再给理由")
+        AgentMemory.objects.filter(pk=target.pk).update(embedding=[1.0, 0.0, 0.0])
+        irrelevant = _memory(lawyer, "完全不相关的另一条")
+        AgentMemory.objects.filter(pk=irrelevant.pk).update(embedding=[0.0, 1.0, 0.0])
+
+        # 查询语义上接近「格式要求」，但字面与两条都不重合
+        with patch.object(memory_service, "_embed_query", return_value=[1.0, 0.0, 0.0]):
+            hits = memory_service.search_memories(lawyer, "我问过的格式要求")
+
+        ids = [m.pk for m, _score in hits]
+        assert target.pk in ids, "语义命中必须被召回"
+        assert irrelevant.pk not in ids, "不相关的不应混入"
+
+    def test_backfill_fills_missing_embedding(self, lawyer: Lawyer) -> None:
+        """没有向量的历史记忆，在检索时被批量补上。"""
+        memory = _memory(lawyer, "回函要附法条原文")
+        assert not memory.embedding
+
+        with patch.object(memory_service, "_embed_query", return_value=[1.0, 0.0]):
+            with patch(
+                "apps.core.interfaces.ServiceLocator.get_llm_service",
+                return_value=MagicMock(embed_texts=lambda texts, **kw: [[0.9, 0.1]] * len(texts)),
+            ):
+                memory_service.search_memories(lawyer, "法条")
+
+        memory.refresh_from_db()
+        assert memory.embedding == [0.9, 0.1]
+
+    def test_empty_query_falls_back_to_usage_ranking(self, lawyer: Lawyer) -> None:
+        _memory(lawyer, "高命中偏好", hit_count=10)
+        _memory(lawyer, "低命中偏好", hit_count=0)
+        hits = memory_service.search_memories(lawyer, "")
+        assert hits[0][0].content == "高命中偏好"
+
+    def test_search_respects_scope_isolation(self, lawyer: Lawyer, outsider: Lawyer) -> None:
+        mine = _memory(lawyer, "我的私密偏好")
+        with patch.object(memory_service, "_embed_query", return_value=None):
+            assert all(m.pk != mine.pk for m, _ in memory_service.search_memories(outsider, "私密"))
+
+
+@pytest.mark.django_db
+class TestLawFirmAcknowledgment:
+    """律所层影响全所，提交必须显式确认影响面。
+
+    为什么不是双管理员会签：实测生产数据里存在只有 1 个管理员、甚至 0 个
+    管理员的律所，强制会签会让那些律所完全用不了律所层。真实约束应该是
+    「你知道自己在写全所规范」。
+    """
+
+    def test_law_firm_requires_acknowledgment(self, lawyer: Lawyer) -> None:
+        lawyer.is_admin = True
+        lawyer.save(update_fields=["is_admin"])
+        source = _memory(lawyer, "立案前统一做冲突检索")
+
+        with pytest.raises(ValueError, match="影响面"):
+            memory_service.promote_memory(
+                lawyer,
+                source_ids=[str(source.pk)],
+                content="全所立案前统一完成冲突检索并留痕",
+                kind=AgentMemory.Kind.PROCEDURE,
+                scope=AgentMemory.Scope.LAW_FIRM,
+            )
+
+    def test_law_firm_accepts_with_acknowledgment(self, lawyer: Lawyer) -> None:
+        lawyer.is_admin = True
+        lawyer.save(update_fields=["is_admin"])
+        source = _memory(lawyer, "立案前统一做冲突检索")
+
+        promoted = memory_service.promote_memory(
+            lawyer,
+            source_ids=[str(source.pk)],
+            content="全所立案前统一完成冲突检索并留痕",
+            kind=AgentMemory.Kind.PROCEDURE,
+            scope=AgentMemory.Scope.LAW_FIRM,
+            acknowledged_firm_wide=True,
+        )
+        assert promoted.scope == AgentMemory.Scope.LAW_FIRM
+
+    def test_team_layer_does_not_require_acknowledgment(self, lawyer: Lawyer, team: Team) -> None:
+        """团队层影响面有限，不增加摩擦。"""
+        source = _memory(lawyer, "回函先给结论")
+        promoted = memory_service.promote_memory(
+            lawyer,
+            source_ids=[str(source.pk)],
+            content="对外回函统一先给结论再展开理由",
+            kind=AgentMemory.Kind.PROCEDURE,
+            scope=AgentMemory.Scope.TEAM,
+            team_id=team.pk,
+        )
+        assert promoted.scope == AgentMemory.Scope.TEAM

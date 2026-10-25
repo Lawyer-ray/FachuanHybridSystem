@@ -109,6 +109,8 @@ export function promoteMemory(payload: {
   kind: MemoryKind
   scope: 'team' | 'law_firm'
   teamId?: number
+  /** 律所层必填 true：提交者确认过「全对全所所有律师生效」。 */
+  acknowledgedFirmWide?: boolean
 }): Promise<AgentMemoryItem> {
   return api
     .post('agent/memory/promotion', {
@@ -118,6 +120,7 @@ export function promoteMemory(payload: {
         kind: payload.kind,
         scope: payload.scope,
         team_id: payload.teamId ?? null,
+        acknowledged_firm_wide: payload.acknowledgedFirmWide ?? false,
       },
     })
     .json<AgentMemoryItem>()

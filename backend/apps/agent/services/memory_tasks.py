@@ -86,3 +86,68 @@ def derive_preferences_for_user(user_id: int) -> dict[str, Any]:
     except Exception as exc:
         logger.exception("行为偏好推断失败 user=%s", user_id)
         return {"ok": False, "reason": f"error: {exc}"}
+
+
+def dispatch_behavior_derivation() -> dict[str, Any]:
+    """定时任务派发器：为每位活跃律师推断行为偏好。
+
+    为什么要有派发器而不要在 schedule 里直接循环算：一次全所推断是
+    N 位律师 × 2 次聚合查询，放在**同一个** django-q 任务里会形成长事务型
+    任务，一个律师出错整批失败。派发器只做「列出候选人 + 逐个入队」，
+    每个律师一个独立任务，互不影响，也便于在管理端看到单人的失败原因。
+
+    「活跃」的口径：近 90 天有 AgentRun 的律师。没有使用记录的人推断不出
+    任何东西（阈值是 ≥50 次运行），扫全所纯属浪费。
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from ..models import AgentRun
+
+    cutoff = timezone.now() - timedelta(days=90)
+    active_ids = list(
+        AgentRun.objects.filter(created_at__gte=cutoff, user__isnull=False).values_list("user_id", flat=True).distinct()
+    )
+    if not active_ids:
+        return {"ok": True, "dispatched": 0}
+
+    from apps.core.tasking import submit_task
+
+    dispatched = 0
+    for user_id in active_ids:
+        try:
+            submit_task(
+                "apps.agent.services.memory_tasks.derive_preferences_for_user",
+                user_id,
+                task_name=f"agent-memory-derive:{user_id}",
+                timeout=EXTRACT_TIMEOUT,
+            )
+            dispatched += 1
+        except Exception:
+            logger.warning("行为偏好推断入队失败 user=%s（忽略）", user_id, exc_info=True)
+    logger.info("行为偏好推断已派发 %s 位律师", dispatched)
+    return {"ok": True, "dispatched": dispatched}
+
+
+def _register_schedules() -> None:
+    """注册记忆相关定时任务（AgentConfig.ready 调用）。
+
+    用 ``schedule_exists`` 守卫：重复部署不会产生重复任务。与
+    ``apps/core/tasking/cleanup_tasks._register_schedules`` 同一模式。
+    """
+    try:
+        from apps.core.tasking import ScheduleQueryService
+
+        svc = ScheduleQueryService()
+        # 每日一次：行为推断读的是审批与运行统计，一天一变更已足够。
+        name = "agent:derive_behavior_memories"
+        if not svc.schedule_exists(name):
+            svc.create_interval_schedule(
+                func="apps.agent.services.memory_tasks.dispatch_behavior_derivation",
+                name=name,
+                minutes=24 * 60,
+            )
+            logger.info("已注册定时任务: %s", name)
+    except Exception:
+        logger.debug("记忆定时任务注册跳过（未就绪）")

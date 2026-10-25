@@ -94,10 +94,23 @@ class PromoteIn(Schema):
     kind: str
     scope: str
     team_id: int | None = None
+    #: 律所层必须显式传 True：表示已阅读「全所可见」的影响面声明。
+    #: 为什么不是双管理员会签：实测生产环境存在只有 1 个管理员、甚至 0 个
+    #: 管理员的律所（firm2/firm3/firm5），强制会签会让那些律所完全用不了
+    #: 律所层。真实约束应该是「你知道自己在写全所规范」而不是「两个人盖章」。
+    acknowledged_firm_wide: bool = False
 
 
 class SnapshotOut(Schema):
     content: str
+
+
+class MemoryHitOut(Schema):
+    id: str
+    scope: str
+    kind: str
+    content: str
+    score: float
 
 
 @router.get("", response=list[MemoryOut])
@@ -161,6 +174,35 @@ async def confirm_memories(request: Any, payload: MemoryConfirmIn) -> dict[str, 
     return await sync_to_async(_run, thread_sensitive=True)()
 
 
+@router.get("/search", response=list[MemoryHitOut])
+async def search_memory(request: Any, q: str, limit: int = 8) -> list[MemoryHitOut]:  # pragma: no cover
+    """语义 + 关键词混合检索。
+
+    这是 ``recall_memory`` MCP 工具的后端。与 ``GET /`` 的区别：
+
+    - `GET /` 是**浏览**：按时间倒序列出全部记忆，用于管理界面；
+    - `GET /search` 是**检索**：按相关度返回 top-N，带向量召回。
+
+    为什么必须分开：律师问「我以前说的格式要求」时，记忆里存的是「文书先给
+    结论」——字面无关、语义相关，列表浏览永远找不到。早前 `recall_memory`
+    拉全量后做子串过滤，就是漏了这一层。
+    """
+    lawyer = _current_user(request)
+    query = (q or "").strip()
+    if not query:
+        raise ValidationException("检索词不能为空")
+    bounded = max(1, min(limit, 30))
+
+    def _run() -> list[MemoryHitOut]:
+        hits = memory_service.search_memories(lawyer, query, limit=bounded)
+        return [
+            MemoryHitOut(id=str(m.pk), scope=m.scope, kind=m.kind, content=m.content, score=round(float(s), 4))
+            for m, s in hits
+        ]
+
+    return await sync_to_async(_run, thread_sensitive=True)()
+
+
 @router.get("/snapshot", response=SnapshotOut)
 async def get_snapshot(request: Any, refresh: bool = False) -> SnapshotOut:  # pragma: no cover
     """注入用记忆快照（pi 扩展在 session_start 调用）。
@@ -215,6 +257,7 @@ async def promote_memory(request: Any, payload: PromoteIn) -> MemoryOut:  # prag
                 kind=payload.kind,
                 scope=payload.scope,
                 team_id=payload.team_id,
+                acknowledged_firm_wide=payload.acknowledged_firm_wide,
             )
         except ValueError as exc:
             raise ValidationException(str(exc)) from exc

@@ -152,3 +152,40 @@ describe('MemoryPromoteDialog', () => {
     })
   })
 })
+
+  it('律所层必须显式确认影响面才能提交', async () => {
+    renderDialog()
+    await screen.findByText('回复法院函件不要超过 800 字')
+
+    // 切到律所层
+    fireEvent.change(screen.getByLabelText('提升目标') as HTMLSelectElement, { target: { value: 'law_firm' } })
+    await waitFor(() => {
+      expect(screen.getByText(/全所所有律师/)).toBeTruthy()
+    })
+
+    const ack = screen.getByLabelText(/我确认：这条规则将对/) as HTMLInputElement
+    // 切层会触发候选重新拉取并清空已选（换目标不该保留旧选择），
+    // 所以要等律所层候选渲染出来后再勾。
+    await waitFor(() => {
+      expect(screen.getByText('回复法院函件不要超过 800 字')).toBeTruthy()
+    })
+    const all = screen.getAllByRole('checkbox')
+    expect(all.length).toBeGreaterThan(1)
+    fireEvent.click(all[0] as HTMLElement)
+    const textarea = screen.getByLabelText('改写后的规则') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '全所函件统一控制在 800 字以内' } })
+
+    // 未勾确认 → 不能提交
+    await waitFor(() => expect(submitButton().disabled).toBe(true))
+    expect(apiMock.promoteMemory).not.toHaveBeenCalled()
+
+    // 勾上确认 → 可以提交，且带上 acknowledgedFirmWide
+    fireEvent.click(ack)
+    await waitFor(() => expect(submitButton().disabled).toBe(false))
+    fireEvent.click(submitButton())
+    await waitFor(() =>
+      expect(apiMock.promoteMemory).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'law_firm', acknowledgedFirmWide: true }),
+      ),
+    )
+  })

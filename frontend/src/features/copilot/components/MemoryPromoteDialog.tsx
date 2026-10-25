@@ -89,6 +89,8 @@ export function MemoryPromoteDialog({
   const [selected, setSelected] = useState<string[]>([])
   const [content, setContent] = useState('')
   const [kind, setKind] = useState<MemoryKind>('procedure')
+  // 律所层影响全所，需显式确认（与后端 acknowledged_firm_wide 对应）
+  const [firmAck, setFirmAck] = useState(false)
 
   // useMemo 稳定引用：否则每次渲染都是新数组，下游 useEffect 的依赖恒变
   const curatableTeams = useMemo(() => scopes?.teams.filter((t) => t.can_curate) ?? [], [scopes])
@@ -118,6 +120,11 @@ export function MemoryPromoteDialog({
     if (target === 'law_firm' && !LAW_FIRM_KINDS.includes(kind)) setKind('procedure')
   }, [target, kind])
 
+  // 离开律所层就清掉确认，避免「在团队层勾过、切到律所层后忘了」这种假确认
+  useEffect(() => {
+    if (target !== 'law_firm') setFirmAck(false)
+  }, [target])
+
   const candidatesQuery = useQuery({
     queryKey: ['copilot', 'memory', 'candidates', target, teamId],
     queryFn: () =>
@@ -137,6 +144,7 @@ export function MemoryPromoteDialog({
         kind,
         scope: target,
         teamId: target === 'team' ? (teamId ?? undefined) : undefined,
+        acknowledgedFirmWide: target === 'law_firm' ? firmAck : false,
       }),
     onSuccess: onPromoted,
   })
@@ -160,7 +168,9 @@ export function MemoryPromoteDialog({
             ? '不能原样提升，请改写成可复用的规则（脱敏）'
             : draftPii.length > 0
               ? `内容仍含敏感信息：${draftPii.join('、')}`
-              : ''
+              : target === 'law_firm' && !firmAck
+                ? '请先确认该规则将对全所所有律师生效'
+                : ''
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -310,9 +320,20 @@ export function MemoryPromoteDialog({
                 </p>
               )}
               {target === 'law_firm' && (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  律所层只接受「惯例」或「偏好」——具体事实不属于全所规范。
-                </p>
+                <>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    律所层只接受「惯例」或「偏好」——具体事实不属于全所规范。
+                  </p>
+                  <label className="flex cursor-pointer items-start gap-1.5 text-[11px] leading-relaxed text-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-3 w-3 flex-none"
+                      checked={firmAck}
+                      onChange={(e) => setFirmAck(e.target.checked)}
+                    />
+                    <span>我确认：这条规则将对**全所所有律师**的 AI 助手生效</span>
+                  </label>
+                </>
               )}
             </div>
           </div>
