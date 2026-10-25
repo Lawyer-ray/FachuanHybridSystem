@@ -474,24 +474,31 @@ _OPEN_WORLD_TOOLS = frozenset(
 )
 
 
-def _tool_annotations(name: str) -> ToolAnnotations | None:
+def _tool_annotations(name: str) -> ToolAnnotations:
     """按工具名推导 MCP 行为提示。销毁前缀或 HIGH/CRITICAL(递交/外发/
     归档确认等不可逆外部动作)标 destructive;LOW(读/无副作用计算)标
     readOnly;幂等前缀的写工具补 idempotentHint(重试安全,客户端可用于
     网络失败后的自动重试决策);开放世界工具补 openWorldHint(可与
-    readOnly 并存——搜网不修改本地环境)。全部 hint 可组合,无一命中才
-    返回 None(省 payload)。"""
+    readOnly 并存——搜网不修改本地环境)。全部 hint 可组合。
+
+    非销毁写(幂等/普通)必须**显式** ``destructive_hint=False``:
+    MCP 规范(2025-11-25)对未声明 hint 的缺省是「assume worst」——
+    destructiveHint 缺省按 true 理解,规范客户端会把 create_contract
+    这类普通写当销毁型动作加确认拦截。官方 reference server 也是全量
+    显式(含 false 值)。pi 侧逐键解析缺失即 false 不受影响,显式化
+    的代价仅 ~3KB(对照剥 schema title 省下的 36KB),换取规范语义
+    正确。openWorld 的缺省 true 刻意不逐工具补 false——409 个 ×24B
+    ≈10KB 只防「客户端误以为会外发数据」这一低危误读,pi 不受影响,
+    体量纪律优先。"""
     level = classify_risk(name)
     idempotent = name.startswith(_IDEMPOTENT_PREFIXES)
     open_world = name in _OPEN_WORLD_TOOLS
     destructive = name.startswith(_DESTRUCTIVE_PREFIXES) or level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
     read_only = not destructive and level == RiskLevel.LOW
-    if not (idempotent or open_world or destructive or read_only):
-        return None
     return ToolAnnotations(
         idempotent_hint=True if idempotent else None,
         open_world_hint=True if open_world else None,
-        destructive_hint=True if destructive else None,
+        destructive_hint=True if destructive else (False if not read_only else None),
         read_only_hint=True if read_only else None,
     )
 

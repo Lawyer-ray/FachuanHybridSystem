@@ -62,7 +62,7 @@ make mcp-status    # 进程/日志
 | 并发身份 | `test_identity_concurrency.py` | 16 线程×50 轮屏障交错 800 请求零串号;RequestAuthMiddleware ContextVar 隔离 + `_headers()` 现读 + 刷新持锁 |
 | 路由遮蔽 | `tests/ci/unit/core/test_route_shadowing.py` | 源级(apps/**/api/*.py)+运行时(Django resolver 全局注册序)双扫描:后注册字面量路由被先注册参数路由吞掉(同方法=永不可达/异方法=恒 405)。4 处旧案已修;新增字面量路由必须放在同前缀参数路由之前 |
 | HTTP 方法纪律 | `tests/ci/unit/core/test_http_method_discipline.py` | GET 处理函数禁写语义调用(否则 MCP 只读分级从根失真);内置扫描器自证(POST 侧须命中 30+) |
-| ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint`/`idempotentHint` 从审批分层权威表(approval.classify_risk)机械推导,`openWorldHint` 按工具白名单(真正发起外部交互的 5 个:web_search/fetch_url/capability_search/check_law_references/create_research_task——本地任务读取/LLM 网关/受控解析后端刻意不标);注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);线上四分 409=226 只读+69 销毁/高危+77 幂等写+37 普通写;幂等=同参重复终态不变(update_/save_/sync_/move_/delete_,客户端重试安全),create_/toggle_/confirm_ 刻意不标;hint 可组合(web_search=readOnly+openWorld) |
+| ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint`/`idempotentHint` 从审批分层权威表(approval.classify_risk)机械推导,`openWorldHint` 按工具白名单(真正发起外部交互的 5 个:web_search/fetch_url/capability_search/check_law_references/create_research_task——本地任务读取/LLM 网关/受控解析后端刻意不标);注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);**409 工具全部带标注**:223 只读+69 销毁/高危+117 非销毁写(77 幂等+37 普通+3 开放世界写)。非销毁写**显式** `destructiveHint:false`——MCP 规范对未声明 hint 按「assume worst」缺省(destructive 缺省=true),不显式则规范客户端会把 create_case 当销毁型加确认拦截(三十四轮对照官方 reference server 全量显式做法补齐,实测仅 +2.8KB;openWorld 缺省 true 刻意不逐工具补 false——409×24B≈10KB 只防低危误读,体量纪律优先);幂等=同参重复终态不变(update_/save_/sync_/move_/delete_,客户端重试安全),create_/toggle_/confirm_ 刻意不标;hint 可组合(web_search=readOnly+openWorld) |
 | 工具名规范 | `test_server_registration.py::TestMcpSpecNameCompliance` | 名字必须 ASCII `[A-Za-z0-9_-]` 且 1-128 字符(MCP spec 硬性要求)——`isidentifier()` 放行 Unicode 标识符(如中文工具名),部分客户端会拒收,注册面前置拦截 |
 | 列表信封化 | `test_tool_shaping.py` | 裸 list 返回被 SDK 逐项拆成独立文本块、**空列表变零内容块**——列表工具统一 `list_result()` 包 `{total, items}`;翻页用 limit+1 探测法,`truncated=True` 时 total 是下界 | 
 | 默认体量 ≤20KB | 无门禁(需线上数据) | pi 对工具输出 20KB 起腰斩(中段截断+文件指针),**默认参数的调用必须留在截断线内**——新列表工具按「20KB ÷ 实测均条体积」定默认 limit;`get_case` 默认剥 logs、`search_cases` 套投影同此理 |
@@ -85,5 +85,5 @@ make mcp-status    # 进程/日志
 
 ## 已知规模事实（灰度决策依据）
 
-- 409 工具 `tools/list` ≈ 217KB ≈ **7.5 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。注册后统一剥离 schema 冗余自动 title(919 参数 ≈ 20KB 零信息量,`server.py:_slim_registered_tool_schemas`,253KB→217KB)。
+- 409 工具 `tools/list` 原始 JSON-RPC 响应 **≈277KB ≈ 9 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。测量口径(三十四轮钉死,旧「217KB」系方法不可复现的过期数):initialize→tools/list 的响应体 UTF-8 字节数。成分分解:**docstring 工具描述 ≈103KB(最大头)**、裸 schema(参数名/类型/结构)≈144KB、annotations ≈18.6KB(其中显式 destructive:false 2.8KB)、参数级 Field 描述 ≈10.2KB(135 处)、enum 列表 ≈1.4KB。若未来需要压体量,docstring 是第一杠杆(deferred/codemode 灰度见下),schema 参数描述是买来的调用准确率,不建议省。注册后统一剥离 schema 冗余自动 title(919 参数 ≈ 20KB 零信息量,`server.py:_slim_registered_tool_schemas`,当时 253KB→217KB)。
 - 灰度开关 `FACHUAN_MCP_EXPOSURE`(deferred/codemode/hidden)与 per-tool `toolExposure` 混合面备选见 `apps/agent/pi/shared_mcp.py` 注释;deferred 的代价是 OpenAI 兼容网关丢 prompt cache(pi #10940)。

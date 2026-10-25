@@ -55,9 +55,9 @@ def test_no_bare_mcp_tool_registration_remains() -> None:
         ("get_case", True, None),
         ("calculate_lpr_interest", True, None),  # 无副作用计算刻意 LOW
         ("chat_with_context", True, None),
-        ("create_case", None, None),  # MEDIUM 普通写 → 不带标注
-        ("rename_material_group", None, None),
-        ("reorder_archive_materials", None, None),
+        ("create_case", None, False),  # MEDIUM 普通写 → 显式非销毁(规范缺省=assume destructive)
+        ("rename_material_group", None, False),
+        ("reorder_archive_materials", None, False),
         ("delete_case", None, True),  # 销毁前缀
         ("clear_cache", None, True),
         ("execute_court_filing", None, True),  # HIGH 递交类
@@ -67,12 +67,30 @@ def test_no_bare_mcp_tool_registration_remains() -> None:
 def test_annotation_matches_risk_tier(name: str, expect_read_only: bool, expect_destructive: bool) -> None:
     derive, _ = _tool_annotations_from_source()
     ann = derive(name)
-    if expect_read_only is None and expect_destructive is None:
-        assert ann is None, f"{name} 应为 MEDIUM 普通写(不带标注),得到 {ann}"
-        return
     assert ann is not None, f"{name} 应带标注(classify_risk={classify_risk(name)})"
     assert ann.read_only_hint == expect_read_only
     assert ann.destructive_hint == expect_destructive
+
+
+def test_spec_default_alignment_non_destructive_writes() -> None:
+    """规范缺省对齐:非销毁写必须**显式** ``destructive_hint=False``。
+
+    MCP 规范(2025-11-25)对未声明的 hint 按「assume worst」缺省——
+    destructiveHint 缺省即 true。若普通写回到「不带标注」,规范客户端
+    会把 create_case 这类动作当销毁型加确认拦截(三十四轮对照官方
+    reference server 全量显式的做法补齐;openWorld 缺省 true 刻意
+    不逐工具补 false——体量纪律,见 server.py 注释)。"""
+    from mcp_server.server import _tool_annotations
+
+    for name in ("create_case", "update_case", "create_contract", "rename_material_group", "add_case_party"):
+        ann = _tool_annotations(name)
+        assert ann is not None and ann.destructive_hint is False, f"{name} 应显式 destructive=False: {ann}"
+    # 只读工具不带 destructive(规范注明 readOnly=true 时该键无意义,省体量)
+    ann = _tool_annotations("list_cases")
+    assert ann is not None and ann.read_only_hint is True and ann.destructive_hint is None
+    # 销毁型保持 True
+    ann = _tool_annotations("delete_case")
+    assert ann is not None and ann.destructive_hint is True
 
 
 def test_every_registered_tool_name_derives_consistently() -> None:
@@ -97,15 +115,17 @@ def test_every_registered_tool_name_derives_consistently() -> None:
             assert ann is not None and ann.read_only_hint is True, f"{name} (LOW) 应标 readOnly"
             assert not ann.idempotent_hint, f"{name} 只读工具不需要 idempotentHint(无意义)"
         elif idem:
-            # 幂等 MEDIUM 写:idempotentHint=True,其余 hint 不带
+            # 幂等 MEDIUM 写:idempotentHint=True + 显式非销毁
             assert ann is not None and ann.idempotent_hint is True, f"{name} (MEDIUM,幂等前缀) 应标 idempotent"
-            assert ann.destructive_hint is None and ann.read_only_hint is None, f"{name} 幂等写不应带 destructive/readOnly: {ann}"
+            assert ann.destructive_hint is False, f"{name} 幂等非销毁写必须显式 destructive=False: {ann}"
+            assert ann.read_only_hint is None, f"{name} 写工具不应带 readOnly: {ann}"
         else:
-            # 非幂等 MEDIUM:至多 openWorld(外部交互但非销毁非只读),否则无标注
-            extras = [k for k in ("idempotent_hint", "destructive_hint", "read_only_hint") if getattr(ann, k, None)]
-            assert not extras, f"{name} ({level}) 非幂等 MEDIUM 不应带 {extras},得到 {ann}"
-            if ann is not None:
-                assert ann.open_world_hint is True, f"{name} 带标注但不是 openWorld: {ann}"
+            # 非幂等 MEDIUM:显式 destructive_hint=False(规范缺省=assume destructive)+至多 openWorld
+            assert ann is not None, f"{name} ({level}) 写工具必须有 annotations"
+            assert ann.destructive_hint is False, f"{name} 非销毁写必须显式 destructive=False: {ann}"
+            assert not ann.idempotent_hint and ann.read_only_hint is None, f"{name} 普通写不应带 idempotent/readOnly: {ann}"
+            if ann.open_world_hint is not None:
+                assert ann.open_world_hint is True, f"{name} openWorld 只有 True 一种取值: {ann}"
 
 
 def test_idempotent_policy_semantics() -> None:
