@@ -92,5 +92,29 @@ def test_field_description_plumbing_canary() -> None:
     assert props.get("minimum") == 2, f"约束未传导: {props}"
 
 
+def _has_title(node: object) -> bool:
+    if isinstance(node, dict):
+        return "title" in node or any(_has_title(v) for v in node.values())
+    if isinstance(node, list):
+        return any(_has_title(i) for i in node)
+    return False
+
+
+def test_registered_schemas_carry_no_redundant_titles() -> None:
+    """注册后瘦身通道必须生效:inputSchema 里的自动 title 全部剥离。
+
+    pydantic 给每个参数生成与参数名同义的 title("case_type"→"Case Type"),
+    919 个 ≈ 20KB 零信息上下文税。server.py 末尾 ``_slim_registered_tool_schemas``
+    在全部注册后统一剥;本测试防两类回退:①通道被删/没跑到(_titles 出现在
+    线上 schema);②SDK 升级把 parameters 改成不可变/重新生成。"""
+    import mcp_server.server as srv
+
+    tools = srv.mcp._tool_manager.list_tools()  # type: ignore[attr-defined]
+    assert len(tools) >= 400, f"注册表异常: {len(tools)}(瘦身通道可能跑在注册完成前)"
+    offenders = [t.name for t in tools if _has_title(t.parameters)]
+    assert not offenders, f"{len(offenders)} 个工具的 schema 仍带冗余 title: {offenders[:5]}"
+    assert srv._SLIMMED_TITLES >= 900, f"剥离量 {srv._SLIMMED_TITLES} 异常(应 ≈919+顶层)"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

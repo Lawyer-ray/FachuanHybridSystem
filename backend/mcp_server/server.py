@@ -1156,3 +1156,36 @@ _t(list_doc_converter_jobs)
 _t(create_doc_converter_job)
 _t(list_litigation_sessions)
 _t(list_pending_court_document_tasks)
+
+
+# ---------------------------------------------------------------------------
+# 注册后统一瘦身:剥离 inputSchema 里的冗余自动 title
+# ---------------------------------------------------------------------------
+# pydantic 给每个参数生成与参数名同义的 title("case_type"→"Case Type"),
+# 919 个参数 ≈ 20KB,占 tools/list 253KB 的 8%——零信息量,纯上下文税
+# (direct 模式下常驻会话)。description(Annotated+Field)保留,title 全剥。
+# 在所有 _t 注册完成后跑一遍;Tool.parameters 在 add_tool 时一次性生成,
+# 原地改 dict 即持久。新增工具无需关心——这里统一处理。
+def _strip_schema_titles(node: dict[str, Any] | list[Any]) -> int:
+    """递归剥离 schema 节点里的 title 键,返回剥掉的数量(0=已是净的)。"""
+    stripped = 0
+    if isinstance(node, dict):
+        if "title" in node:
+            del node["title"]
+            stripped += 1
+        for value in node.values():
+            stripped += _strip_schema_titles(value)
+    elif isinstance(node, list):
+        for item in node:
+            stripped += _strip_schema_titles(item)
+    return stripped
+
+
+def _slim_registered_tool_schemas() -> int:
+    total = 0
+    for tool in mcp._tool_manager.list_tools():  # SDK 内部注册表,门禁测试钉死其行为
+        total += _strip_schema_titles(tool.parameters)
+    return total
+
+
+_SLIMMED_TITLES = _slim_registered_tool_schemas()

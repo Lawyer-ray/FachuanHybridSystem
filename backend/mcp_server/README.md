@@ -85,5 +85,5 @@ make mcp-status    # 进程/日志
 
 ## 已知规模事实（灰度决策依据）
 
-- 409 工具 `tools/list` ≈ 257KB ≈ **8.8 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。
+- 409 工具 `tools/list` ≈ 217KB ≈ **7.5 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。注册后统一剥离 schema 冗余自动 title(919 参数 ≈ 20KB 零信息量,`server.py:_slim_registered_tool_schemas`,253KB→217KB)。
 - 灰度开关 `FACHUAN_MCP_EXPOSURE`(deferred/codemode/hidden)与 per-tool `toolExposure` 混合面备选见 `apps/agent/pi/shared_mcp.py` 注释;deferred 的代价是 OpenAI 兼容网关丢 prompt cache(pi #10940)。
