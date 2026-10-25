@@ -412,6 +412,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
         ``empty_content``     抓到了但正文为空
         ``invalid_url``       不是合法 http(s) 地址
         ``blocked_target``    目标（或重定向跳板）属于内网/本机段,SSRF 防护拒绝
+        ``too_many_redirects`` 重定向超过 5 跳(疑似环/恶意跳板链)
         ``empty_pdf``         PDF 能打开但无文字——多半是扫描件,需要 OCR
         ``pdf_parse_error``   PDF 损坏/加密,解析器打不开
         ``pdf_no_parser``     目标是 PDF 但环境缺 PDF 解析器
@@ -461,6 +462,14 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                     current = str(httpx.URL(current).join(location))
                     continue
                 break
+            else:
+                # 5 跳预算自然耗尽:最后一跳仍是重定向(疑似跳板链/重定向环)
+                return {
+                    "ok": False,
+                    "url": target,
+                    "reason": "too_many_redirects",
+                    "message": "重定向超过 5 跳,已停止跟随(疑似重定向环或恶意跳板链)",
+                }
             html = _decode_body(response)
 
             # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
@@ -505,6 +514,15 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             "url": target,
             "reason": "http_error",
             "message": f"HTTP {response.status_code}",
+        }
+    if 300 <= response.status_code < 400:
+        # 走到这里说明 3xx 但没带 Location(上面 break 出来的)——把重定向
+        # 页壳当正文解析会误诊成 javascript_required,不如直说。
+        return {
+            "ok": False,
+            "url": target,
+            "reason": "http_error",
+            "message": f"HTTP {response.status_code} 重定向但未提供跳转目标，无法继续",
         }
 
     # 二进制文档判定:content-type 说它是,或字节形态就是(PDF 魔数 / ZIP 内

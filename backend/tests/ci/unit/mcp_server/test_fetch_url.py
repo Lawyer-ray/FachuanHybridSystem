@@ -699,6 +699,39 @@ class TestRedirectFallback:
         assert result["ok"] is False
         assert result["reason"] in {"javascript_required", "antispider"}
 
+    def test_redirect_chain_exhaustion_reported_honestly(self, fake_http: Any) -> None:
+        """5 跳预算耗尽时如实报 too_many_redirects——旧逻辑会把最后一跳的
+        重定向页壳当正文解析,误诊成 javascript_required 或输出壳子乱码。"""
+        instance = fake_http.return_value.__enter__.return_value
+
+        def redirect_response(hop: int) -> httpx.Response:
+            return httpx.Response(
+                302,
+                headers={"location": f"https://example.com/r{hop}"},
+                request=httpx.Request("GET", f"https://example.com/r{hop - 1}"),
+            )
+
+        instance.get.side_effect = [redirect_response(i) for i in range(1, 8)]
+
+        result = _module().fetch_url("https://example.com/entry")
+
+        assert result["ok"] is False
+        assert result["reason"] == "too_many_redirects"
+        assert "5 跳" in result["message"]
+
+    def test_redirect_without_location_is_http_error(self, fake_http: Any) -> None:
+        """302 但无 Location:直说「重定向未提供跳转目标」,不当正文解析。"""
+        _set_response(
+            fake_http,
+            httpx.Response(302, request=httpx.Request("GET", "https://example.com/stuck")),
+        )
+
+        result = _module().fetch_url("https://example.com/stuck")
+
+        assert result["ok"] is False
+        assert result["reason"] == "http_error"
+        assert "未提供跳转目标" in result["message"]
+
 
 class TestSSRFProtection:
     """SSRF 拦截（2026-10-25 审计）——工具跑在后端同机进程,模型可以让它抓
