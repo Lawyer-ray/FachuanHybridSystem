@@ -29,9 +29,9 @@ from inspect import getsource
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # noqa: E402 复用 _rest_call_of
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from test_output_contract import _rest_call_of  # noqa: E402
+from test_output_contract import _rest_call_of
 
 #: LOW 级但用写方法的工具豁免表(每条都有「确实无持久化」的核验依据)。
 _LOW_POST_ALLOWLIST: dict[str, str] = {
@@ -46,6 +46,7 @@ _LOW_POST_ALLOWLIST: dict[str, str] = {
     "validate_id_card": "身份证校验,纯函数",
     "validate_folder_structure": "目录树校验,只读",
     "check_law_references": "法条核验,只读检索",
+    "verify_citations": "法条/案号核查,只读检索(backing service 经 grep 确认无 .save/.create/update)",
     "chat_with_context": "LLM 对话,无持久化",
     "test_model_connection": "LLM 连通测试,无持久化",
     "capability_search": "能力检索,只读",

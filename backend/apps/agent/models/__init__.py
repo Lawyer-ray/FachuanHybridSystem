@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from .agent import AgentApproval, AgentApprovalPolicy, AgentAttachment, AgentMessage, AgentRun, AgentSession
 from .memory import AgentMemory, content_hash_of
+from .question import AgentQuestion
+from .subtask import AgentSubtask
 
 __all__ = [
     "AgentApproval",
@@ -11,7 +13,9 @@ __all__ = [
     "AgentAttachment",
     "AgentMemory",
     "AgentMessage",
+    "AgentQuestion",
     "AgentRun",
     "AgentSession",
+    "AgentSubtask",
     "content_hash_of",
 ]

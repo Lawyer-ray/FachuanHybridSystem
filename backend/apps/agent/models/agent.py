@@ -65,6 +65,10 @@ class AgentSession(models.Model):
         CASE = "case", "案件内"
         CONTRACT = "contract", "合同内"
         TASK = "task", "任务式（后台）"
+        #: 子 agent 会话：主会话派出的只读调研任务。单独标一个 origin
+        #: 而不是复用 task，因为它们的可见性完全不同——子会话不该出现在
+        #: 律师的会话列表里（否则一次调研能刷出三条无头会话）。
+        SUBTASK = "subtask", "子任务（子 agent）"
 
     session_id = models.UUIDField(
         default=uuid.uuid4,

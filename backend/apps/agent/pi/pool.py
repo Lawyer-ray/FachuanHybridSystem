@@ -154,6 +154,7 @@ class PiProcessPool:
         session_env: dict[str, str] | None = None,
         model: str | None = None,
         session_id: str | None = None,
+        tool_selection: str | None = None,
     ) -> AsyncIterator[PiRpcSession]:
         """构造一个 pi 会话，退出时销毁进程并清理临时目录。
 
@@ -221,6 +222,7 @@ class PiProcessPool:
                         extra_env=env,
                         session_dir=session_dir,
                         session_id=session_id,
+                        tool_selection=tool_selection,
                     )
                     await session.start()
                     yield session

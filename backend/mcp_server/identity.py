@@ -28,6 +28,21 @@ from typing import Any
 #: 当前 HTTP 请求的 Authorization 头原文（无则空串）
 request_authorization: ContextVar[str] = ContextVar("fachuan_request_authorization", default="")
 
+#: 当前 HTTP 请求携带的会话标识（来自 ``X-Fachuan-Session``）。
+#:
+#: 为什么需要它：``ask_user`` 要把提问推到**对的** SSE 通道，而 MCP 进程
+#: 服务所有律师的所有会话。pi 每请求起一个进程，``chat_service`` 已把
+#: ``FACHUAN_SESSION_ID`` 注入子进程 env，``mcp.json`` 再用 header 把它带过来。
+request_session_id: ContextVar[str] = ContextVar("fachuan_request_session_id", default="")
+
+
+SESSION_HEADER = "x-fachuan-session"
+
+
+def current_session_id() -> str:
+    """当前会话标识（无则空串）。"""
+    return request_session_id.get().strip()
+
 
 def passthrough_authorization() -> str:
     """返回可直接用于上游请求的 Authorization 值；无有效 Bearer 时为空串。"""
@@ -48,5 +63,6 @@ class RequestAuthMiddleware:
             for name, value in scope.get("headers") or []:
                 if name == b"authorization":
                     request_authorization.set(value.decode("latin-1"))
-                    break
+                elif name == SESSION_HEADER.encode():
+                    request_session_id.set(value.decode("latin-1"))
         await self._app(scope, receive, send)

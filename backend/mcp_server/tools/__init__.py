@@ -348,6 +348,7 @@ from mcp_server.tools.legal_research import (
     download_research_result,
     get_research_task,
     list_research_results,
+    verify_citations,
 )
 
 # 条件导入：信息中转站
@@ -389,6 +390,7 @@ from apps.workflow.mcp.workflow_tools import (
     update_workflow_template,
 )
 from mcp_server.tools.core import (
+    ask_user,
     chat_with_context,
     confirm_memories,
     create_doc_converter_job,
@@ -396,6 +398,7 @@ from mcp_server.tools.core import (
     delete_schedule,
     delete_system_config,
     delete_task,
+    dispatch_research,
     forget_memory,
     get_agent_skill,
     get_async_task_status,
@@ -674,6 +677,7 @@ __all__ = [
     "download_research_result",
     "download_all_research_results",
     "check_law_references",
+    "verify_citations",
     # 自动化
     "submit_court_sms",
     "list_court_sms",
@@ -898,6 +902,8 @@ __all__ = [
     "start_workflow_from_steps",
     # ===== 新增能力（身份/期限/解析/任务统一状态）=====
     "get_current_user",
+    "ask_user",
+    "dispatch_research",
     "get_server_time",
     "get_agent_skill",
     "read_agent_attachment",

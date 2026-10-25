@@ -19,6 +19,7 @@ from mcp_server.tools import (
     add_contract_party,
     analyze_template,
     approve_workflow_step,
+    ask_user,
     assign_lawyer,
     assign_sms_case,
     auto_namer_process_by_path,
@@ -122,6 +123,7 @@ from mcp_server.tools import (
     delete_workflow_template,
     detect_orientation,
     detect_single_page_orientation,
+    dispatch_research,
     doc_converter_health_check,
     download_all_research_results,
     download_archive_item,
@@ -412,6 +414,7 @@ from mcp_server.tools import (
     upload_invoices,
     validate_folder_structure,
     validate_id_card,
+    verify_citations,
     warm_up_cache,
     web_search,
 )
@@ -832,6 +835,7 @@ _t(list_research_results)
 _t(download_research_result)
 _t(download_all_research_results)
 _t(check_law_references)
+_t(verify_citations)
 
 # 自动化 - 法院短信
 _t(submit_court_sms)
@@ -1222,6 +1226,8 @@ _t(get_server_time)
 
 # 专项技能指引：场景化操作说明按需供给（AGENTS.md 只保留路由，省上下文）
 _t(get_agent_skill)
+_t(ask_user)
+_t(dispatch_research)
 
 # 记忆：个人 / 团队 / 律所三级跨会话记忆（注入快照由 pi 扩展拉取，
 # 模型只负责「写」「查」「删」三类主动动作）

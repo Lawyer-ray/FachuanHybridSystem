@@ -111,9 +111,10 @@ def test_no_unregistered_tools() -> None:
 def test_registration_count_matches_registry() -> None:
     """注册总数与线上工具面一致,防止注册面意外缩水。"""
     registered = _registered_names()
-    assert len(registered) == 415, (
-        f"注册工具数 {len(registered)} != 409。新增/删除工具时同步更新该基线数"
-        "（2026-10-25: 410→409→415, 删除 auto_namer_process 后新增 6 个记忆工具）"
+    assert len(registered) == 418, (
+        f"注册工具数 {len(registered)} != 418。新增/删除工具时同步更新该基线数"
+        "（2026-10-25: 410→409→415，删除 auto_namer_process 后新增 6 个记忆工具；"
+        "再新增 ask_user 提问工具 → 416；子 agent 调研 + 引用核查 → 418）"
         "（本测试防的是「注册面静默缩水」,正常增删改数字即可）。"
     )
 

@@ -151,6 +151,28 @@ class ApprovalDecideIn(Schema):
     reason: str = ""
 
 
+class QuestionAnswerItem(Schema):
+    """单个问题的回答。
+
+    按 ``id`` 回填而不是下标：前端可能只答一部分或顺序错乱，按 id 对齐
+    才不会出现「答的是第 2 题被当成第 1 题」的静默错位——法律场景里
+    问错一次比不问更糟。
+    """
+
+    id: str
+    selections: list[str] = []
+    text: str = ""
+    comment: str = ""
+
+
+class QuestionAnswerIn(Schema):
+    """前端提交提问回答。"""
+
+    answers: list[QuestionAnswerItem] = []
+    #: 律师主动跳过（与「超时没看到」不同，要如实区分）
+    skipped: bool = False
+
+
 class TaskIn(Schema):
     """提交后台任务。"""
 
@@ -1160,7 +1182,81 @@ async def submit_approval_decision(  # pragma: no cover
     return {"success": ok, "approved": payload.approved}
 
 
+@router.post("/question/{question_id}/answer")
+async def submit_question_answer(  # pragma: no cover
+    request: Any,
+    question_id: str,
+    payload: QuestionAnswerIn,
+) -> dict[str, Any]:
+    """前端提交提问回答（仅会话所有者或超级用户）。
+
+    ``success=False`` 不一定是错误：等待方可能已超时（律师过了 5 分钟才点
+    提交）。此时答案仍被记录，但模型已经按假设继续了——前端应提示「回答已
+    记录，但本轮已继续」，而不是当成失败重试。
+    """
+    from ..models import AgentQuestion
+    from ..services.question import submit_answer
+
+    user = _current_user(request)
+    record = await AgentQuestion.objects.filter(question_id=question_id).select_related("session").afirst()
+    if record is None:
+        return {"success": False, "error": "提问不存在"}
+    if not _may_answer(user, record):
+        return {"success": False, "error": "无权回答该提问"}
+
+    found = await submit_answer(
+        question_id=question_id,
+        answers=[item.model_dump() for item in payload.answers],
+        skipped=payload.skipped,
+    )
+    return {
+        "success": found,
+        "accepted": True,
+        "note": "" if found else "回答已记录，但本轮对话已按超时继续",
+    }
+
+
+@router.get("/questions/pending", response=list[dict[str, Any]])
+async def list_pending_questions(request: Any) -> list[dict[str, Any]]:  # pragma: no cover
+    """当前律师待回答的提问（重开会话时补拉，避免错过）。"""
+    from ..models import AgentQuestion
+
+    user = _current_user(request)
+    if user is None:
+        return []
+    rows = [
+        row
+        async for row in AgentQuestion.objects.filter(
+            user_id=user.pk, status=AgentQuestion.Status.PENDING
+        ).select_related("session")[:20]
+    ]
+    return [
+        {
+            "question_id": str(row.question_id),
+            "session_id": str(row.session.session_id) if row.session else "",
+            "questions": row.questions,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in rows
+    ]
+
+
+def _may_answer(user: Any, record: Any) -> bool:
+    """提问归属判定：会话所有者或超级用户（与审批同口径）。"""
+    if user is not None and getattr(user, "is_superuser", False):
+        return True
+    owner_id = getattr(record.session, "user_id", None) if record.session is not None else None
+    if owner_id is None:
+        owner_id = getattr(record, "user_id", None)
+    return user is not None and owner_id is not None and int(owner_id) == int(user.pk)
+
+
 def _may_decide(user: Any, record: AgentApproval) -> bool:
+    """审批归属判定：会话所有者或超级用户；无主会话仅超级用户。"""
+    if user is not None and getattr(user, "is_superuser", False):
+        return True
+    owner_id = getattr(record.session, "user_id", None) if record.session is not None else None
+    return user is not None and owner_id is not None and int(owner_id) == int(user.pk)
     """审批归属判定：会话所有者或超级用户；无主会话仅超级用户。"""
     if user is not None and getattr(user, "is_superuser", False):
         return True

@@ -215,6 +215,7 @@ async def stream_chat(
     session: AgentSession,
     user_message: str,
     user_id: int | None = None,
+    tool_selection: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """跑一轮对话，产出 SSE 事件。
 
@@ -313,7 +314,12 @@ async def stream_chat(
                 "agent": "pi",
                 "position": waiting + 1,
             }
-        async with pool.acquire(session_env=session_env, model=model, session_id=session_id) as pi_session:
+        async with pool.acquire(
+            session_env=session_env,
+            model=model,
+            session_id=session_id,
+            tool_selection=tool_selection,
+        ) as pi_session:
             # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。
             # 不用「两个 get() task + asyncio.wait」—那个写法在 yield 让出控制权后
             # 容易丢掉已取出的事件（实测表现为只有 activity、无 delta）。

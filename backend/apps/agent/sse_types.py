@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -95,6 +95,15 @@ class UsageEvent(BaseModel):
     cache_write_tokens: int = 0
 
 
+class QuestionRequestEvent(BaseModel):
+    """模型向律师提问（不是审批：超时不阻断，模型按假设继续）。"""
+
+    type: Literal["question_request"]
+    question_id: str
+    questions: list[dict[str, Any]] = []
+    timeout_seconds: int = 180
+
+
 class ErrorEvent(BaseModel):
     """流内错误（已翻译成人话）"""
 
@@ -152,6 +161,12 @@ export type AgentStreamEvent =
       input_tokens: number
       cache_read_tokens: number
       cache_write_tokens: number
+    }
+  | {
+      type: 'question_request'
+      question_id: string
+      questions: Array<Record<string, unknown>>
+      timeout_seconds: number
     }
   | { type: 'error'; message: string }
   | { type: 'done'; session_id: string }

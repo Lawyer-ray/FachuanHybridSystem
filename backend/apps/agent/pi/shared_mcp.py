@@ -399,7 +399,15 @@ def _build_server_entry(resolved: McpEndpoint, user_token_env: str) -> dict[str,
         return {
             "type": "streamable-http",
             "url": resolved.url,
-            "headers": {"Authorization": f"Bearer ${{{user_token_env}}}"},
+            "headers": {
+                "Authorization": f"Bearer ${{{user_token_env}}}",
+                # 会话标识：``ask_user`` 要靠它把提问推回对的 SSE 通道。
+                # pi 支持 mcp.json header 里的环境变量展开，值由
+                # ``chat_service`` 注入 pi 子进程 env（FACHUAN_SESSION_ID）。
+                # 缺失时展开为空串，``ask_user`` 会返回 no_channel 而不是报错
+                # （提问不是闸门，问不到就让模型按假设继续）。
+                "X-Fachuan-Session": "${FACHUAN_SESSION_ID}",
+            },
             # pi 默认 exposure=codemode：MCP 工具不声明给模型（只能经
             # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
             # done」。法穿场景是模型直接挑工具，默认 direct 全量声明；

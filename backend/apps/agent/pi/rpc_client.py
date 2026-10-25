@@ -38,6 +38,10 @@ MEMORY_EXTENSION_ENV = "FACHUAN_PI_MEMORY_EXTENSION"
 #: 不可见字符扫描。缺失时只告警不阻断——它是质量增强，不是安全闸门
 #: （真正的安全闸门是审批 extension，那个 fail-closed）。
 TOOL_RESULT_GUARD_ENV = "FACHUAN_PI_TOOL_RESULT_GUARD_EXTENSION"
+#: 压缩接管 extension（可选）：把 pi 的 LLM 自由摘要换成确定性编译，
+#: 保住案号/当事人/金额/期限/引用台账。缺失时回退 pi 默认摘要——压缩是
+#: 增强能力，不能因为文件缺失就让会话不可用。
+COMPACTION_EXTENSION_ENV = "FACHUAN_PI_COMPACTION_EXTENSION"
 #: 只向模型声明法穿 MCP 工具。pi 默认还带 read/bash/edit/write 四个内置工具，
 #: 它们能以 Django 进程的权限读写文件、执行命令，且不在审批清单内——
 #: 一段藏在工具输出里的提示注入就能免审批执行 bash。按 cli.md，``--tools``
@@ -112,6 +116,14 @@ def default_memory_extension() -> str:
     return str(Path(__file__).resolve().parent / "memory-inject.ts")
 
 
+def default_compaction_extension() -> str:
+    """本 app 内置的压缩接管 extension 路径。"""
+    configured = os.environ.get(COMPACTION_EXTENSION_ENV, "").strip()
+    if configured:
+        return configured
+    return str(Path(__file__).resolve().parent / "compaction-takeover.ts")
+
+
 def default_tool_result_guard_extension() -> str:
     """本 app 内置的工具结果守卫 extension 路径。"""
     configured = os.environ.get(TOOL_RESULT_GUARD_ENV, "").strip()
@@ -132,6 +144,7 @@ def resolve_extensions(primary: str | None = None) -> list[str]:
     optional = (
         ("记忆注入", default_memory_extension()),
         ("工具结果守卫", default_tool_result_guard_extension()),
+        ("压缩接管", default_compaction_extension()),
     )
     for label, path in optional:
         if not path:
@@ -195,12 +208,18 @@ class PiRpcSession:
         command_timeout: float = 30.0,
         session_dir: str | None = None,
         session_id: str | None = None,
+        tool_selection: str | None = None,
     ) -> None:
         self._cwd = cwd
         self._session_dir = session_dir
         self._session_id = session_id
         self._model = model
         self._provider = provider
+        #: 工具面选择（``--tools``）。``None`` 用全量业务工具；
+        #: 子 agent 传只读白名单（见 services/subtask.readonly_tool_selection）。
+        #: 作为构造参数而不是全局常量：子 agent 与主会话必须能在同一进程内
+        #: 并发存在，全局常量会让两边互相覆盖。
+        self._tool_selection = tool_selection or TOOL_SELECTION
         self._extension = extension_path if extension_path is not None else default_approval_extension()
         self._extra_env = extra_env or {}
         self._command_timeout = command_timeout
@@ -230,7 +249,7 @@ class PiRpcSession:
             "rpc",
             "--approve",
             "--tools",
-            TOOL_SELECTION,
+            self._tool_selection,
         ]
         # 多个 --extension：审批网关 + 记忆注入。pi 支持重复传该参数。
         for extension in resolve_extensions(self._extension):

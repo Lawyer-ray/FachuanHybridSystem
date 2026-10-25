@@ -1,5 +1,6 @@
 """类案检索域 tools 导出"""
 
+from mcp_server.tools.legal_research.citation_check import verify_citations
 from mcp_server.tools.legal_research.legal_research import (
     capability_search,
     check_law_references,
@@ -18,4 +19,5 @@ __all__ = [
     "download_research_result",
     "download_all_research_results",
     "check_law_references",
+    "verify_citations",
 ]

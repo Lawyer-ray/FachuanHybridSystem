@@ -91,7 +91,25 @@ def test_write_pi_config_carries_token_header(tmp_path: object, monkeypatch: pyt
     config_path = write_pi_config(tmp_path)  # type: ignore[arg-type]
     server = json.loads(config_path.read_text(encoding="utf-8"))["mcpServers"]["fachuan"]
     assert server["type"] == "streamable-http"
-    assert server["headers"] == {"Authorization": f"Bearer ${{{USER_TOKEN_ENV}}}"}
+    # 断言真实意图（令牌以 env 引用而非明文），而不是 headers 的精确字典——
+    # 后续会给 MCP 加更多透传头（如 X-Fachuan-Session），锁死字典会误报。
+    assert server["headers"]["Authorization"] == f"Bearer ${{{USER_TOKEN_ENV}}}", (
+        "律师身份头必须是 env 引用，不得写明文 token"
+    )
+    # 身份令牌绝不能以明文形式落盘
+    assert "Bearer ey" not in config_path.read_text(encoding="utf-8")
+
+
+def test_write_pi_config_carries_session_header(tmp_path: object, monkeypatch: pytest.MonkeyPatch) -> None:
+    """会话标识头要传给 MCP —— ``ask_user`` 靠它把提问推回对的 SSE 通道。"""
+    from apps.agent.pi.shared_mcp import write_pi_config
+
+    monkeypatch.delenv("FACHUAN_MCP_SHARED", raising=False)
+    config_path = write_pi_config(tmp_path)  # type: ignore[arg-type]
+    server = json.loads(config_path.read_text(encoding="utf-8"))["mcpServers"]["fachuan"]
+    assert server["headers"].get("X-Fachuan-Session") == "${FACHUAN_SESSION_ID}", (
+        "缺 X-Fachuan-Session，ask_user 将拿不到会话上下文（只能返回 no_channel）"
+    )
 
 
 def test_write_pi_mcp_config_stdio_has_no_header(tmp_path: object, monkeypatch: pytest.MonkeyPatch) -> None:

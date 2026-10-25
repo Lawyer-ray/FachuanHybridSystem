@@ -10,6 +10,7 @@ from mcp_server.tools.core.agent_memory import (
     restore_memory,
 )
 from mcp_server.tools.core.agent_skills import get_agent_skill
+from mcp_server.tools.core.ask_user import ask_user
 from mcp_server.tools.core.dashboard import get_dashboard_stats
 from mcp_server.tools.core.identity import get_current_user, get_server_time
 from mcp_server.tools.core.llm_service import (
@@ -20,6 +21,7 @@ from mcp_server.tools.core.llm_service import (
     test_model_connection,
 )
 from mcp_server.tools.core.search import global_search
+from mcp_server.tools.core.subtask import dispatch_research
 from mcp_server.tools.core.system_config import (
     create_system_config,
     delete_system_config,
@@ -72,6 +74,10 @@ __all__ = [
     # 身份与时间
     "get_current_user",
     "get_server_time",
+    # 向律师提问（澄清缺失信息，不是审批）
+    "ask_user",
+    # 子 agent 只读调研
+    "dispatch_research",
     # 记忆（个人 / 团队 / 律所）
     "remember",
     "recall_memory",
