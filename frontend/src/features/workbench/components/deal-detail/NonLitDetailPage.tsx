@@ -10,6 +10,8 @@ import { ServiceItemStream } from './ServiceItemStream'
 import { useServiceItems } from './use-service-items'
 import { listFolderEntries } from '../../api'
 import { TermBar } from './TermBar'
+import { ResizeHandle } from './ResizeHandle'
+import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { Card, DetailError } from './ui'
 
@@ -28,6 +30,26 @@ export function NonLitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { valid, d, deal, deadlines, contacts, money, next } = useDealDetailPage(id)
   const [searchParams, setSearchParams] = useSearchParams()
+  /**
+   * 预览栏宽度：可拖拽、记住偏好。
+   *
+   * 预览时右栏装的是 OnlyOffice，A4 正文在 600px 以下就开始缩字；而「多宽才够」
+   * 因人的屏幕、系统缩放、阅读习惯而异。写死断点只能猜折中值，交给用户自己拖。
+   */
+  const panel = useResizablePanel({
+    storageKey: 'fachuan:nonlit:preview-width',
+    defaultWidth: 720,
+    min: 360,
+    maxRatio: 0.68,
+  })
+  const {
+    width: panelWidth,
+    dragging: panelDragging,
+    containerRef: panelContainerRef,
+    onPointerDown: panelPointerDown,
+    setWidth: panelSetWidth,
+  } = panel
+
   /** 用户手动指定的事项源目录（null = 自动识别「办案」） */
   const [manualSource, setManualSource] = useState<string | null>(null)
   /** 今天（yyyy-mm-dd）：服务期条与「今天」高亮共用，跨天刷新时只改这一处 */
@@ -108,18 +130,18 @@ export function NonLitDetailPage() {
           右栏 = 合同要素 + 合同文件夹 + 预览。
           事项与文件夹不再是两套东西——文件夹是「交付物放在哪」，事项是
           「哪天为什么产生了它」，左栏看节奏、右栏取文件。 */}
+      {/* 有预览时用 flex + 可拖分隔条：右栏装 OnlyOffice，宽度需求因人因屏而异，
+          写死断点只能猜折中值。无预览时退回固定右栏（事实卡内容紧实，拖了没意义）。 */}
       <div
+        ref={panelContainerRef}
         className={
-          'grid items-start gap-[18px] max-[1100px]:grid-cols-1 ' +
-          (picked
-            ? // 预览时右栏吃更多宽度：OnlyOffice 渲染 A4 需要横向空间，
-              // 宽屏下给它 900 而不是卡在 760，正文才不用缩到看不清
-              'grid-cols-[minmax(0,1fr)_minmax(520px,760px)] min-[1900px]:grid-cols-[minmax(0,1fr)_minmax(720px,900px)] min-[2400px]:grid-cols-[minmax(0,1fr)_minmax(820px,1040px)]'
-            : 'grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px] min-[2400px]:grid-cols-[minmax(0,1fr)_440px]')
+          picked
+            ? 'flex items-start gap-0 max-[1100px]:flex-col max-[1100px]:gap-[18px]'
+            : 'grid items-start gap-[18px] max-[1100px]:grid-cols-1 grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px] min-[2400px]:grid-cols-[minmax(0,1fr)_440px]'
         }
       >
         {/* 左：服务事项流（本年度） */}
-        <div className="min-w-0 space-y-[18px]">
+        <div className="min-w-0 flex-1 space-y-[18px]">
           <ServiceItemStream
             items={serviceItems}
             sourceSubpath={svc.sourceSubpath}
@@ -154,8 +176,20 @@ export function NonLitDetailPage() {
           )}
         </div>
 
+        {picked && (
+          <ResizeHandle
+            dragging={panelDragging}
+            onPointerDown={panelPointerDown}
+            onKeyAdjust={(dir) => panelSetWidth((w) => Math.max(320, w + dir * 40))}
+            label="调整预览栏宽度"
+          />
+        )}
+
         {/* 右：预览（选中时置顶）+ 合同要素/文件夹/事实卡 */}
-        <div className="min-w-0 space-y-[18px]">
+        <div
+          className="min-w-0 space-y-[18px]"
+          style={picked ? { width: panelWidth, flex: 'none' } : undefined}
+        >
           {picked && (
             <div className="sticky top-[70px] flex h-[calc(100vh-100px)] min-h-[520px] flex-col">
               <FilePreviewCard

@@ -10,6 +10,8 @@ import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { FilePreviewCard } from './FilePreviewCard'
 import { ContractFileOverlays } from './ContractFileOverlays'
+import { ResizeHandle } from './ResizeHandle'
+import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { DetailError } from './ui'
 
@@ -27,6 +29,20 @@ export function DealDetailPage() {
    */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
   const { valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
+  /** 预览栏宽度：可拖拽、记住偏好（与非诉页同一套 hook，各记各的 key） */
+  const panel = useResizablePanel({
+    storageKey: 'fachuan:deal:preview-width',
+    defaultWidth: 720,
+    min: 360,
+    maxRatio: 0.68,
+  })
+  const {
+    width: panelWidth,
+    dragging: panelDragging,
+    containerRef: panelContainerRef,
+    onPointerDown: panelPointerDown,
+    setWidth: panelSetWidth,
+  } = panel
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
   /**
@@ -88,15 +104,18 @@ export function DealDetailPage() {
           对话区、页头也不放按钮，避免与导航栏入口重复 */}
       {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
           渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。 */}
+      {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
+          渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。
+          有预览时用 flex + 可拖分隔条，宽度交给用户，写死断点只能猜折中值。 */}
       <div
+        ref={panelContainerRef}
         className={
-          'grid items-start gap-[18px] max-[1024px]:grid-cols-1 ' +
-          (picked
-            ? 'grid-cols-[minmax(0,1fr)_minmax(520px,780px)]'
-            : 'grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]')
+          picked
+            ? 'flex items-start gap-0 max-[1024px]:flex-col max-[1024px]:gap-[18px]'
+            : 'grid items-start gap-[18px] max-[1024px]:grid-cols-1 grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
         }
       >
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
               {d.casesError} ·{' '}
@@ -141,6 +160,19 @@ export function DealDetailPage() {
           )}
         </div>
 
+        {picked && (
+          <ResizeHandle
+            dragging={panelDragging}
+            onPointerDown={panelPointerDown}
+            onKeyAdjust={(dir) => panelSetWidth((w) => Math.max(320, w + dir * 40))}
+            label="调整预览栏宽度"
+          />
+        )}
+
+        <div
+          className="min-w-0"
+          style={picked ? { width: panelWidth, flex: 'none' } : undefined}
+        >
         <DetailRail
           deadlines={deadlines}
           today={d.today}
@@ -173,6 +205,7 @@ export function DealDetailPage() {
             ) : null
           }
         />
+        </div>
       </div>
 
       <ContractFileOverlays
