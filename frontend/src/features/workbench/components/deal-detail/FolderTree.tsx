@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, FileSearch, FileText, FolderClosed, FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
+import { ChevronRight, FileSearch, FolderClosed, FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { withDownloadTicket } from '@/lib/download-ticket'
@@ -18,6 +18,7 @@ import {
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import { stripEntryParens } from './detail-domain'
 import { DeleteConfirm, TreeContextMenu, type TreeMenuItem } from './folder-tree-menu'
+import { FileKindBadge } from './FileKindBadge'
 import { EntryInput } from './folder-tree-ui'
 import { fmtSize, type NodeActions, type TreeCtx } from './folder-tree-types'
 import { FOLDER_REF_MIME } from '@/lib/folder-ref'
@@ -55,6 +56,7 @@ export function FolderTree({
   title,
   onReviewFile,
   onOpenFile,
+  selectedSubpath,
 }: {
   kind: FolderOwnerKind
   ownerId: number
@@ -71,6 +73,8 @@ export function FolderTree({
    * 交给调用方渲染 OnlyOffice 预览；不传则保留旧行为（兼容案件页）。
    */
   onOpenFile?: (f: { subpath: string; name: string }) => void
+  /** 当前预览中的 subpath（行高亮用） */
+  selectedSubpath?: string | null
 }) {
   const qc = useQueryClient()
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -105,8 +109,9 @@ export function FolderTree({
       openMenu: (e, entry) => setMenu({ x: e.clientX, y: e.clientY, ...entry }),
       onReviewFile,
       onOpenFile,
+      selectedSubpath,
     }),
-    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn, onReviewFile, onOpenFile],
+    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn, onReviewFile, onOpenFile, selectedSubpath],
   )
 
   const invalidate = () => {
@@ -511,8 +516,16 @@ function FileRow({
     <div
       role="button"
       tabIndex={0}
-      className="group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors hover:bg-secondary"
+      className={
+        'group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors ' +
+        // 选中态与 hover 分开：律师常要「看着预览、在列表里点下一份」，
+        // 光靠 hover 无法表达「当前正在看的就是这份」
+        (ctx.selectedSubpath === file.subpath
+          ? 'bg-foreground/[0.07] shadow-[inset_2px_0_0_var(--color-foreground)]'
+          : 'hover:bg-secondary')
+      }
       style={{ paddingLeft: 20 }}
+      aria-current={ctx.selectedSubpath === file.subpath ? 'true' : undefined}
       title={'预览 ' + file.name}
       onClick={() => void preview()}
       draggable
@@ -538,8 +551,8 @@ function FileRow({
         ctx.openMenu(e, { subpath: file.subpath, name: file.name, isFolder: false })
       }}
     >
-      <FileText className="size-[15px] flex-none text-muted-foreground/70" />
-      <span className="min-w-0 flex-1 truncate text-[13px]" title={file.name}>
+      <FileKindBadge name={file.name} />
+      <span className="min-w-0 flex-1 truncate text-[12.5px]" title={file.name}>
         {stripEntryParens(file.name)}
       </span>
       {/* 日期/大小 hover 时让位给浮层按钮（绝对定位，不参与布局） */}

@@ -23,6 +23,7 @@ export function DetailRail({
   moneyRows,
   onAddDue,
   onAddPayment,
+  showFolder = true,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -32,6 +33,14 @@ export function DetailRail({
   moneyRows: Array<[string, string]>
   onAddDue: () => void
   onAddPayment: () => void
+  /**
+   * 是否渲染合同文件夹树。
+   *
+   * 非诉页传 false：那份文件夹是左栏的主角（独占整栏、可展开预览），
+   * 右栏再画一棵同样的树就是同屏两份同样的内容，且 320px 高度下几乎没法用。
+   * 诉讼页保持 true——左栏是案件程序链，文件夹作次要信息放右栏合适。
+   */
+  showFolder?: boolean
 }) {
   const copy = (text: string) => {
     void copyText(text).then(() => toast.success('已复制'))
@@ -142,11 +151,13 @@ export function DetailRail({
       <RailPayments deal={deal} onAdd={onAddPayment} />
       <RailSupps deal={deal} />
 
-      {/* 合同文件夹：绑定目录的树形浏览（拆分比 Finder 顺手）；标题行自带「新建文件夹」，
-          未绑定时树内提示 */}
-      <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
-        <FolderTree kind="contract" ownerId={deal.id} maxH="max-h-[320px]" title="合同文件夹" />
-      </div>
+      {/* 合同文件夹：绑定目录的树形浏览；标题行自带「新建文件夹」，未绑定时树内提示。
+          非诉页不渲染（那份树在左栏独占，见 NonLitDetailPage）。 */}
+      {showFolder && (
+        <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
+          <FolderTree kind="contract" ownerId={deal.id} maxH="max-h-[320px]" title="合同文件夹" />
+        </div>
+      )}
 
       <RailFacts deal={deal} />
     </Card>

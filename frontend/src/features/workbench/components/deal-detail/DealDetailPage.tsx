@@ -18,7 +18,7 @@ import { DetailError } from './ui'
  */
 export function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { contractId, valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
+  const { valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
 
@@ -57,11 +57,6 @@ export function DealDetailPage() {
   if (d.error || !deal) {
     return <DetailError error={d.error ?? '委托不存在'} onRetry={() => d.refetch()} />
   }
-  if (!deal.lit) {
-    // 非诉详情页已就位（/projects/:id/nonlit）：直达诉讼路由的非诉委托直接转过去
-    return <Navigate to={`/projects/${contractId}/nonlit`} replace />
-  }
-
   return (
     <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader

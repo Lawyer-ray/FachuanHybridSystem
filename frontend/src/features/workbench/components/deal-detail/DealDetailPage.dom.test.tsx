@@ -330,11 +330,16 @@ describe('DealDetailPage 加载与页头', () => {
     expect(screen.getByText('重试')).toBeTruthy()
   })
 
-  it('非诉委托：不渲染诉讼骨架，重定向到非诉详情路由', async () => {
+  it('非诉委托不再由本页重定向（分流已上移到 ProjectDetailPage）', async () => {
+    // 旧实现里 DealDetailPage 会把非诉委托悄悄转到 /nonlit，用户在地址栏看到
+    // URL 自己变了。现在分流统一由 `/projects/:id` 的 ProjectDetailPage 按
+    // deal.lit 决定渲染哪一栏；本页只剩「无效 id 回列表」一种跳转。
+    // 所以此处断言：非诉委托不会再被转到 /nonlit（stub 不出现）。
     getContractMock.mockResolvedValueOnce(makeContract({ case_type: 'advisor', case_type_label: '常年法律顾问' }))
     setupUi()
-    expect(await screen.findByText('nonlit-stub')).toBeTruthy()
-    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+    // 给路由一次跳转的机会后确认没有发生
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.queryByText('nonlit-stub')).toBeNull()
   })
 })
 

@@ -8,12 +8,7 @@ import { AppNavbar } from '@/components/shared/AppNavbar'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePageLazy, preloadHomePage } from '@/features/home'
-import {
-  DealDetailPageLazy,
-  NonLitDetailPageLazy,
-  preloadWorkbenchPage,
-  WorkbenchPageLazy,
-} from '@/features/workbench'
+import { preloadWorkbenchPage, ProjectDetailPageLazy, WorkbenchPageLazy } from '@/features/workbench'
 import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
 import { ReviewWorkbenchPageLazy } from '@/features/contract-review'
 
@@ -293,10 +288,9 @@ export default function App() {
           {/* 项目主页：合同大行流 + 详情抽屉。路由用 projects 而非 cases——本页是
               合同与案件融合展示，单说合同或案件都不准确；cases 在后端已明确指案件。 */}
           <Route path="/projects" element={<WorkbenchPageLazy />} />
-          {/* 争议解决详情页：一页一委托（:id = 委托合同 id），合同与案件链在页内融合呈现 */}
-          <Route path="/projects/:id" element={<DealDetailPageLazy />} />
-          {/* 非诉（常法/专项）详情页：同 :id = 委托合同 id，右栏与争议解决页共用，左栏换成合同文件夹 */}
-          <Route path="/projects/:id/nonlit" element={<NonLitDetailPageLazy />} />
+          {/* 项目详情：一条 URL（:id = 委托合同 id），按 deal.lit 分流左栏——
+              诉讼走案件程序链、非诉走合同文件夹。不再用 /nonlit 后缀暴露分类词。 */}
+          <Route path="/projects/:id" element={<ProjectDetailPageLazy />} />
           {/* 合同复审工作台（发起审查后跳入；参数与 ReviewWorkbenchPage 的 useParams 对齐） */}
           <Route path="/projects/:id/review/:taskId" element={<ReviewWorkbenchPageLazy />} />
           {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}

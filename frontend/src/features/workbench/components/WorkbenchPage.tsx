@@ -39,11 +39,10 @@ export function WorkbenchPage() {
     return () => window.clearTimeout(t)
   }, [dataReady])
 
-  /** 左键行 / → / 抽屉「详情 →」：争议解决与非诉各进各的详情页（:id 同为委托合同 id） */
+  /** 左键行 / → / 抽屉「详情 →」：统一进 `/projects/:id`，页内按 lit 分流左栏 */
   const openDetail = useCallback(
     (deal: WorkbenchDeal) => {
-      if (deal.lit) void navigate('/projects/' + deal.id)
-      else void navigate(`/projects/${deal.id}/nonlit`)
+      void navigate('/projects/' + deal.id)
     },
     [navigate],
   )

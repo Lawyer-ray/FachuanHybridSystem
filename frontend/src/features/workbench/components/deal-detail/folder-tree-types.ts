@@ -29,6 +29,8 @@ export interface TreeCtx {
   onReviewFile?: (f: { subpath: string; name: string }) => void
   /** 点文件行时的回调；不传则由行自己下载（兼容未接预览的页面） */
   onOpenFile?: (f: { subpath: string; name: string }) => void
+  /** 当前正在预览的 subpath——列表行据此高亮（让你知道「看的就是这份」） */
+  selectedSubpath?: string | null
 }
 
 /** 管理动作（FolderTree 的 mutations 下发） */

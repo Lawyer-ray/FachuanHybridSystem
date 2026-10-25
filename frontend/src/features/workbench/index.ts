@@ -31,3 +31,18 @@ export const preloadNonLitDetailPage = () => import('./components/deal-detail/No
 export const NonLitDetailPageLazy = lazy(() =>
   preloadNonLitDetailPage().then((m) => ({ default: m.NonLitDetailPage })),
 )
+
+/**
+ * 项目详情分发：`/projects/:id` 一条 URL，按 `deal.lit` 决定渲染哪一栏。
+ *
+ * **为什么不再用 `/nonlit` 后缀**：`nonlit` 是 non-litigation 的缩写，属实现
+ * 分类而非用户概念——律师只知道「这是个顾问项目」，不会想「这是 nonlit」。
+ * 更要紧的是旧实现有隐藏重定向（直达 `/projects/:id` 的非诉委托会被悄悄
+ * 转到 `/projects/:id/nonlit`），用户看到 URL 变了却不知道为什么。
+ *
+ * 分流依据 `lit` 来自合同 `case_type`（civil/criminal/advisor…）的派生，与
+ * 左栏内容严格对应：有法院程序 → 案件程序链；无 → 合同文件夹。
+ */
+export const ProjectDetailPageLazy = lazy(() =>
+  import('./components/deal-detail/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })),
+)

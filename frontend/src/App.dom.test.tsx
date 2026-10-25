@@ -52,10 +52,11 @@ vi.mock('@/features/workbench', async () => {
   return {
     WorkbenchPageLazy: lazy(() => stubs.casesChunk.promise),
     preloadWorkbenchPage: stubs.preloadWorkbenchPage,
-    DealDetailPageLazy: lazy(() => Promise.resolve({ default: () => <main>deal-detail-page</main> })),
-    preloadDealDetailPage: vi.fn(() => Promise.resolve()),
-    NonLitDetailPageLazy: lazy(() => Promise.resolve({ default: () => <main>nonlit-detail-page</main> })),
-    preloadNonLitDetailPage: vi.fn(() => Promise.resolve()),
+    // /projects/:id 现在走 ProjectDetailPage（按 deal.lit 分流），
+    // 旧的 DealDetailPageLazy / NonLitDetailPageLazy 已不再从 App 引用
+    ProjectDetailPageLazy: lazy(() =>
+      Promise.resolve({ default: () => <main>project-detail-page</main> }),
+    ),
   }
 })
 vi.mock('@/features/material-prep', () => ({ DeskPage: () => <main>desk-page</main> }))

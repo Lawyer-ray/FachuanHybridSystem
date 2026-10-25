@@ -8,6 +8,7 @@ import { folderFileUrl } from '../../api'
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { FilePreview } from './FilePreview'
+import { FilePreviewCard } from './FilePreviewCard'
 import { FolderTree } from './FolderTree'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { Card, DetailError } from './ui'
@@ -38,6 +39,11 @@ export function NonLitDetailPage() {
    * 两边都容易踩坑。
    */
   const [searchParams, setSearchParams] = useSearchParams()
+  /** 右栏页内预览的文件（null = 未选中）。与 ?file=（整页编辑器）分开：
+   *  页内预览是高频「看一眼」，不该污染 URL 也不该留下历史记录。 */
+  const [picked, setPicked] = useState<
+    { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
+  >(null)
   const previewFile = useMemo(() => {
     const subpath = searchParams.get('file')
     if (!subpath) return null
@@ -48,15 +54,30 @@ export function NonLitDetailPage() {
     return { subpath, name, mtime }
   }, [searchParams])
 
+  /**
+   * 点文件行 = 在右栏就地展开预览（选中态驱动），不离开当前页。
+   *
+   * 律师看合同常要对照右栏的期限/当事人/收费——整页跳走或弹窗遮住都会让
+   * 对照失效。真要改才升级到整页编辑器（见 openEditor）。
+   */
   const openPreview = useCallback(
-    (f: { subpath: string; name: string; mtime?: number }) => {
+    (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
+      setPicked(f)
+    },
+    [],
+  )
+
+  /** 从页内预览升级到整页编辑器（可改可存），并带上 mtime 做乐观锁 */
+  const openEditor = useCallback(
+    (f: { subpath: string; name: string }) => {
       const next = new URLSearchParams(searchParams)
       next.set('file', f.subpath)
-      if (f.mtime !== undefined) next.set('mtime', String(f.mtime))
+      const mtime = picked?.mtime
+      if (mtime !== undefined) next.set('mtime', String(mtime))
       else next.delete('mtime')
       setSearchParams(next)
     },
-    [searchParams, setSearchParams],
+    [searchParams, setSearchParams, picked],
   )
 
   const closePreview = useCallback(() => {
@@ -113,14 +134,15 @@ export function NonLitDetailPage() {
             <div className="flex items-center gap-2 border-b border-border-light px-[18px] py-[13px]">
               <span className="text-[12.5px] font-[650]">合同文件夹</span>
               <span className="text-[11px] text-muted-foreground">
-                客户送回审的合同按日期归档在这里
+                点一份在右栏预览 · 双击或「打开编辑器」改
               </span>
             </div>
             <div className="px-[18px] py-3">
               <FolderTree
                 kind="contract"
                 ownerId={deal.id}
-                maxH="max-h-[520px]"
+                maxH="max-h-[620px]"
+                selectedSubpath={picked?.subpath ?? null}
                 onOpenFile={openPreview}
                 onReviewFile={(f) => setReviewTarget(f)}
               />
@@ -143,8 +165,20 @@ export function NonLitDetailPage() {
           )}
         </div>
 
-        {/* 右：与诉讼详情页完全同一套（都是合同层面的事实） */}
-        <div className="min-w-0">
+        {/* 右：页内预览（选中文件时置顶）+ 与诉讼页共用的合同事实卡。
+            showFolder=false：文件夹是左栏主角，右栏不再画第二棵同样的树。 */}
+        <div className="min-w-0 space-y-[18px]">
+          {picked && (
+            <FilePreviewCard
+              kind="contract"
+              ownerId={deal.id}
+              file={picked}
+              onClose={() => setPicked(null)}
+              onOpenEditor={openEditor}
+              onReview={(f) => setReviewTarget(f)}
+            />
+          )}
+
           <DetailRail
             deadlines={deadlines}
             today={d.today}
@@ -152,6 +186,7 @@ export function NonLitDetailPage() {
             team={deal.team ?? []}
             deal={deal}
             moneyRows={money}
+            showFolder={false}
             onAddDue={() => soonToast('新增期限')}
             onAddPayment={() => soonToast('记收款')}
           />
