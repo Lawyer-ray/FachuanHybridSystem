@@ -523,6 +523,64 @@ class TestPdfSupport:
         assert "外部网页抓取内容" in result["text"]
 
 
+class TestEncodingFallback:
+    """编码兜底(2026-10-25 审计五十七轮)——老政务/法院站点常只在 meta 里
+    声明 gb2312 而响应头不带 charset,httpx 按 utf-8 硬解出 U+FFFD 乱码
+    还当 ok=true 交付。头缺失时嗅探 meta;GB 系别名升 gb18030(超集)。"""
+
+    @staticmethod
+    def _gb_response(body_html: str, gb_codec: str = "gb2312") -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=body_html.encode(gb_codec),
+            headers={"content-type": "text/html"},  # 刻意不带 charset
+            request=httpx.Request("GET", "https://gov.example/x.html"),
+        )
+
+    def test_meta_gb2312_decodes_chinese(self, fake_http: Any) -> None:
+        html = (
+            "<html><head><meta http-equiv='Content-Type' content='text/html; charset=gb2312'></head>"
+            "<body>最高人民法院公报正文内容测试</body></html>"
+        )
+        _set_response(fake_http, self._gb_response(html))
+
+        result = _module().fetch_url("https://gov.example/x.html")
+
+        assert result["ok"] is True
+        assert "最高人民法院" in result["text"]
+        assert "�" not in result["text"]
+
+    def test_gbk_only_char_survives_via_gb18030_upgrade(self, fake_http: Any) -> None:
+        """meta 写 gb2312 但正文含 GBK 扩展字(人名生僻字如「镕」)——严格
+        gb2312 解不出该字,升 gb18030 后完整。字节按 GBK 落盘(页面作者存
+        成 GBK 却声明 gb2312,正是这类站点的真实形态)。"""
+        html = "<html><head><meta charset='gb2312'></head><body>委托代理人镕某,正文内容测试。</body></html>"
+        _set_response(fake_http, self._gb_response(html, gb_codec="gbk"))
+
+        result = _module().fetch_url("https://gov.example/x.html")
+
+        assert result["ok"] is True
+        assert "镕" in result["text"]
+
+    def test_unknown_meta_charset_falls_back_safely(self, fake_http: Any) -> None:
+        """meta 编码名不认识时退回默认解码——解码问题绝不能变成异常。"""
+        html = "<html><head><meta charset='x-imaginary-9'></head><body>whatever body</body></html>"
+        _set_response(
+            fake_http,
+            httpx.Response(
+                200,
+                content=html.encode("utf-8"),
+                headers={"content-type": "text/html"},
+                request=httpx.Request("GET", "https://gov.example/y.html"),
+            ),
+        )
+
+        result = _module().fetch_url("https://gov.example/y.html")
+
+        assert result["ok"] is True
+        assert "whatever body" in result["text"]
+
+
 class TestRedirectFallback:
     def test_redirect_target_failure_still_reports(self, fake_http: Any) -> None:
         """解析到真实地址但抓取失败时，不能静默当成成功。"""

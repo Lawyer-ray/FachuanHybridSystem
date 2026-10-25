@@ -123,6 +123,34 @@ _ANTISPIDER_MARKERS = (
     "请完成验证",
 )
 
+#: HTML meta 声明的 charset(只嗅探 <head> 前若干字节)
+_META_CHARSET = re.compile(r"""charset\s*=\s*["']?([a-zA-Z0-9_-]+)""", re.IGNORECASE)
+
+#: GB 系别名统一升到 gb18030(超集)——页面写 gb2312 但实际含 GBK 扩展字
+# (人名生僻字常见)时,严格 gb2312 会出替换符。
+_CHARSET_ALIASES = {"gb2312": "gb18030", "gbk": "gb18030"}
+
+
+def _decode_body(response: httpx.Response) -> str:
+    """响应正文解码:HTTP 头 charset 优先,缺失时嗅探 HTML meta 声明。
+
+    老政务/法院站点常态是头里只写 ``text/html``、编码藏在 meta 里——
+    httpx 此时按 utf-8 硬解,中文全成 U+FFFD 乱码还当成功交付。嗅探失败
+    或编码名不认识则退回 ``response.text``,绝不因解码抛错。
+    """
+    if response.charset_encoding:  # 头里真实声明了 charset(.encoding 永远非空,会回落默认 utf-8)
+        return response.text
+    head = response.content[:2048].decode("ascii", errors="ignore")
+    match = _META_CHARSET.search(head)
+    if match:
+        charset = _CHARSET_ALIASES.get(match.group(1).lower(), match.group(1).lower())
+        try:
+            return response.content.decode(charset, errors="replace")
+        except LookupError:
+            logger.info("meta 声明了未知编码 %s,退回默认解码", match.group(1))
+    return response.text
+
+
 #: 正文容器候选（按优先级）
 _CONTENT_SELECTORS = (
     "article",
@@ -378,7 +406,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                     current = str(httpx.URL(current).join(location))
                     continue
                 break
-            html = response.text
+            html = _decode_body(response)
 
             # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
             real_url = _resolve_sogou_redirect(html)
@@ -392,7 +420,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                     }
                 try:
                     response = http.get(real_url, headers=_HEADERS)
-                    html = response.text
+                    html = _decode_body(response)
                     current = real_url
                 except httpx.HTTPError as exc:
                     logger.info("解析到真实地址但抓取失败 %s: %s", real_url, exc)
