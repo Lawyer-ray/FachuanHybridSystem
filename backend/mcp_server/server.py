@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 import logging
 import time
 from typing import Any
@@ -533,6 +534,23 @@ def _log_tool_duration(name: str, started: float) -> None:
         logger.info("tool %s %.0fms", name, elapsed_ms)
 
 
+#: 宿主 pi 对工具输出按 20480 字节拦腰截断(2026-10-25 实测定案)。返回体
+#: 序列化后接近/超过该线的工具,模型实际收到的是截断数据——此处只告警
+#: 不截断(dict 截断会破坏 JSON 语义),让静默截断在共享 MCP 日志里可见,
+#: 后续按日志逐工具收敛(下载类已由 client.download 闸门在源头拦)。
+_TRUNCATION_WARN_BYTES = 19_000
+
+
+def _warn_tool_result_size(name: str, result: Any) -> None:
+    """返回体超截断线时记 WARNING(2026-10-25 审计六十二轮)。"""
+    try:
+        size = len(json.dumps(result, ensure_ascii=False, default=str))
+    except (TypeError, ValueError):  # pragma: no cover - 不可序列化对象的兜底
+        size = len(str(result))
+    if size >= _TRUNCATION_WARN_BYTES:
+        logger.warning("tool %s 返回 %d 字节,超出 pi 截断线 20480——模型只会收到截断数据", name, size)
+
+
 def _t(func: Any) -> Any:
     """409 个工具的统一注册装饰器(替代裸 ``mcp.tool()``)。
 
@@ -542,7 +560,8 @@ def _t(func: Any) -> Any:
     走 ToolError 才能直达模型供其自纠(2026-10-25 审计:list_folder_files
     空参调用的引导文案被吞成裸错误名)。
 
-    另记每次调用耗时(见 ``_log_tool_duration``),成功失败都记。
+    另记每次调用耗时(见 ``_log_tool_duration``)、返回体超截断线告警
+    (见 ``_warn_tool_result_size``),成功失败都记。
     """
     name = getattr(func, "__name__", "")
 
@@ -552,11 +571,13 @@ def _t(func: Any) -> Any:
         async def _aw(*args: Any, **kwargs: Any) -> Any:
             started = time.monotonic()
             try:
-                return await func(*args, **kwargs)
+                result = await func(*args, **kwargs)
             except ValueError as exc:
                 raise FachuanApiError(str(exc)) from exc
             finally:
                 _log_tool_duration(name, started)
+            _warn_tool_result_size(name, result)
+            return result
 
         target: Any = _aw
     else:
@@ -565,11 +586,13 @@ def _t(func: Any) -> Any:
         def _sw(*args: Any, **kwargs: Any) -> Any:
             started = time.monotonic()
             try:
-                return func(*args, **kwargs)
+                result = func(*args, **kwargs)
             except ValueError as exc:
                 raise FachuanApiError(str(exc)) from exc
             finally:
                 _log_tool_duration(name, started)
+            _warn_tool_result_size(name, result)
+            return result
 
         target = _sw
 

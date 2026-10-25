@@ -105,3 +105,45 @@ class TestLoggingConfigEntry:
         assert entry["level"] == "INFO"
         assert entry["propagate"] is False
         assert "console" in entry["handlers"]
+
+
+class TestResultSizeWarning:
+    """返回体超 pi 截断线(20480)告警(2026-10-25 审计六十二轮)。
+
+    pi 会拦腰截断超线输出且模型无感知;下载族已有 client.download 源头闸门,
+    其余工具在 ``_t`` 统一层把静默截断变成日志可见,后续按日志逐工具收敛。
+    """
+
+    def test_oversized_result_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        mod = _server_module()
+        big = {"data": "x" * 25_000}
+
+        with caplog.at_level("WARNING", logger="mcp_server.server"):
+            mod._warn_tool_result_size("big_tool", big)
+
+        assert any("big_tool" in r.message and "截断" in r.message and r.levelname == "WARNING" for r in caplog.records)
+
+    def test_normal_result_stays_silent(self, caplog: pytest.LogCaptureFixture) -> None:
+        mod = _server_module()
+
+        with caplog.at_level("WARNING", logger="mcp_server.server"):
+            mod._warn_tool_result_size("small_tool", {"ok": True})
+
+        assert not any("截断" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_wrapper_emits_size_warning_for_big_result(self, caplog: pytest.LogCaptureFixture) -> None:
+        """_t 包裹层对大返回体照常透传结果并告警(不影响返回值)。"""
+
+        async def big_tool() -> dict[str, str]:
+            return {"data": "y" * 24_000}
+
+        mod = _server_module()
+        with mock.patch.object(mod.mcp, "tool", return_value=lambda f: f):
+            wrapped = mod._t(big_tool)
+
+        with caplog.at_level("WARNING", logger="mcp_server.server"):
+            result = await wrapped()
+
+        assert len(result["data"]) == 24_000
+        assert any("big_tool" in r.message and "截断" in r.message for r in caplog.records)
