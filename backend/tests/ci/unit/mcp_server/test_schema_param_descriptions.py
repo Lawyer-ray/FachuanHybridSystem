@@ -116,5 +116,56 @@ def test_registered_schemas_carry_no_redundant_titles() -> None:
     assert srv._SLIMMED_TITLES >= 900, f"剥离量 {srv._SLIMMED_TITLES} 异常(应 ≈919+顶层)"
 
 
+def _schema_enums(prop: dict) -> set[str]:
+    """收集参数 schema 节点里全部 enum 值(直接/anyOf 分支/list 的 items 内)。"""
+    values: set[str] = set()
+    if "enum" in prop:
+        values.update(prop["enum"])
+    for branch in prop.get("anyOf", []):
+        if "enum" in branch:
+            values.update(branch["enum"])
+        items = branch.get("items")
+        if isinstance(items, dict) and "enum" in items:
+            values.update(items["enum"])
+    items = prop.get("items")
+    if isinstance(items, dict) and "enum" in items:
+        values.update(items["enum"])
+    return values
+
+
+def test_schema_enums_match_model_choices() -> None:
+    """schema 级 enum(Literal)必须与模型 TextChoices 逐值同步。
+
+    枚举陷阱的根治层:模型选值时只见合法集(小写 fee_mode 在调用前就被
+    挡住)。代价是双份口径——后端 TextChoices 加值而 Literal 不跟,schema
+    会把新值挡在外面;本测试用权威表逐值对账,drift 即红灯。"""
+    from apps.contracts.models.contract import ContractStatus, FeeMode
+    from apps.core.models.enums import CaseStage, CaseStatus, CaseType, SimpleCaseType
+    from mcp_server.tools.cases.cases import list_cases
+    from mcp_server.tools.contracts.contracts import create_contract, list_contracts
+
+    authoritative: dict[tuple[str, str], set[str]] = {
+        ("list_cases", "case_type"): set(SimpleCaseType.values),
+        ("list_cases", "status"): set(CaseStatus.values),
+        ("list_contracts", "case_type"): set(CaseType.values),
+        ("list_contracts", "status"): set(ContractStatus.values),
+        ("list_contracts", "fee_mode"): set(FeeMode.values),
+        ("create_contract", "case_type"): set(CaseType.values),
+        ("create_contract", "status"): set(ContractStatus.values),
+        ("create_contract", "fee_mode"): set(FeeMode.values),
+        ("create_contract", "representation_stages"): set(CaseStage.values),
+    }
+    schemas = {
+        "list_cases": _schema_of(list_cases),
+        "list_contracts": _schema_of(list_contracts),
+        "create_contract": _schema_of(create_contract),
+    }
+    for (tool, param), expected in authoritative.items():
+        prop = schemas[tool]["properties"][param]
+        got = _schema_enums(prop)
+        assert got, f"{tool}.{param} 的 schema 没有 enum(Literal 丢失?)"
+        assert got == expected, f"{tool}.{param} enum 与 TextChoices 漂移: 多 {got - expected} / 少 {expected - got}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

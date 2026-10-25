@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -10,13 +10,19 @@ from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
 from mcp_server.tools.core.projection import CASE_LIST_FIELDS, project_list
 
+#: 枚举取值与 apps.core.models.enums 的 TextChoices 同源(测试逐值对账,
+#: 后端加值不同步会红灯)——schema 级 enum 让模型在选值时就看到合法集,
+#: 而不是 filter 静默空列表。
+_SimpleCaseTypeL = Literal["civil", "administrative", "criminal", "execution", "bankruptcy"]
+_CaseStatusL = Literal["active", "closed"]
+
 
 def list_cases(
     case_type: Annotated[
-        str | None,
+        _SimpleCaseTypeL | None,
         Field(description="按案件类型筛选:civil 民事 / administrative 行政 / criminal 刑事 / execution 申请执行 / bankruptcy 破产"),
     ] = None,
-    status: Annotated[str | None, Field(description="按状态筛选(如 active / closed)")] = None,
+    status: Annotated[_CaseStatusL | None, Field(description="按状态筛选(active 在办 / closed 已结案)")] = None,
     case_number: Annotated[str | None, Field(description="按案号精确/模糊查询")] = None,
     contract_id: Annotated[int | None, Field(description="按所属合同筛选")] = None,
     limit: Annotated[int, Field(description="最多返回条数(默认 40,上限 2000;投影后约 0.4KB/条,默认调用应留在 20KB 截断线内)", ge=1, le=2000)] = 40,

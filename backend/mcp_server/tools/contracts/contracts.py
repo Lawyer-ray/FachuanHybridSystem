@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -10,15 +10,44 @@ from mcp_server.client import FachuanApiError, client
 from mcp_server.tool_shaping import list_result
 from mcp_server.tools.core.projection import CONTRACT_LIST_FIELDS, project_page
 
+#: 枚举 Literal 与模型 TextChoices 同源(测试逐值对账,后端加值不同步
+#: 即红灯)。schema 级 enum 是枚举陷阱的根治:模型选值时只见合法集,
+#: 小写 fee_mode/中文代理阶段在调用前就被挡住,不再靠 filter 静默
+#: 空列表或 ValidationException 事后报错。
+_CaseTypeL = Literal["civil", "criminal", "administrative", "labor", "intl", "special", "advisor"]
+_ContractStatusL = Literal["unsigned", "active", "archived"]
+_FeeModeL = Literal["FIXED", "SEMI_RISK", "FULL_RISK", "CUSTOM"]
+_CaseStageL = Literal[
+    "first_trial",
+    "second_trial",
+    "enforcement",
+    "labor_arbitration",
+    "administrative_review",
+    "private_prosecution",
+    "investigation",
+    "prosecution_review",
+    "retrial_first",
+    "retrial_second",
+    "apply_retrial",
+    "rehearing_first",
+    "rehearing_second",
+    "review",
+    "death_penalty_review",
+    "petition",
+    "apply_protest",
+    "petition_protest",
+]
+
 
 def list_contracts(
     case_type: Annotated[
-        str | None, Field(description="按案件类型筛选(civil/criminal/administrative/labor/intl/special/advisor)")
+        _CaseTypeL | None,
+        Field(description="按案件类型筛选(civil/criminal/administrative/labor/intl/special/advisor)"),
     ] = None,
-    status: Annotated[str | None, Field(description="按合同状态筛选(unsigned 未签约/active 在办/archived 已归档)")] = None,
+    status: Annotated[_ContractStatusL | None, Field(description="按合同状态筛选(unsigned 未签约/active 在办/archived 已归档)")] = None,
     search: Annotated[str | None, Field(description="按合同名称模糊搜索")] = None,
     fee_mode: Annotated[
-        str | None,
+        _FeeModeL | None,
         Field(description="按收费方式筛选(大写:FIXED 固定/SEMI_RISK 半风险/FULL_RISK 全风险/CUSTOM 自定义)"),
     ] = None,
     is_filed: Annotated[bool | None, Field(description="按是否已建档筛选")] = None,
@@ -78,14 +107,14 @@ def get_contract(contract_id: int) -> dict[str, Any]:
 def create_contract(
     name: Annotated[str, Field(description="合同名称")],
     case_type: Annotated[
-        str,
+        _CaseTypeL,
         Field(description="案件类型(英文键):civil 民商事 / criminal 刑事 / administrative 行政 / labor 劳动仲裁 / intl 商事仲裁 / special 专项服务 / advisor 常法顾问"),
     ],
     lawyer_ids: Annotated[list[int], Field(description="律师 ID 列表,第一个为主办律师")],
-    status: Annotated[str | None, Field(description="合同状态(unsigned 未签约/active 在办/archived 已归档),新建一般留空")] = None,
+    status: Annotated[_ContractStatusL | None, Field(description="合同状态(unsigned 未签约/active 在办/archived 已归档),新建一般留空")] = None,
     fixed_amount: Annotated[float | None, Field(description="固定代理费金额;FIXED/SEMI_RISK 模式必填(>0)", gt=0)] = None,
     fee_mode: Annotated[
-        str | None,
+        _FeeModeL | None,
         Field(
             description=(
                 "收费方式(大写枚举,写错值会绕过金额校验静默落库):"
@@ -97,13 +126,13 @@ def create_contract(
     risk_rate: Annotated[float | None, Field(description="风险代理比例(SEMI_RISK/FULL_RISK 必填,>0)", gt=0)] = None,
     custom_terms: Annotated[str | None, Field(description="自定义条款文本,CUSTOM 模式必填")] = None,
     representation_stages: Annotated[
-        list[str] | None,
+        list[_CaseStageL] | None,
         Field(
             description=(
                 "代理阶段(英文键,中文值必被拒):first_trial 一审/second_trial 二审/enforcement 执行/"
                 "labor_arbitration 劳动仲裁/administrative_review 行政复议/private_prosecution 自诉/"
-                "investigation 侦查/prosecution_review 审查起诉/retrial_first/retrial_second 重审;"
-                "仅民商事/刑事/行政/劳动/商事仲裁类合同适用"
+                "investigation 侦查/prosecution_review 审查起诉/retrial_first/retrial_second 重审等"
+                "(完整 18 值见 schema enum);仅民商事/刑事/行政/劳动/商事仲裁类合同适用"
             )
         ),
     ] = None,
