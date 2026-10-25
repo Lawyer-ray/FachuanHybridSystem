@@ -41,7 +41,7 @@ describe('buildTermTimeline', () => {
   })
 
   it('事项落在对应比例位置', () => {
-    const t = buildTermTimeline({ ...BASE, today: '2026-07-02', eventDates: ['2026-01-01', '2026-12-31'] })!
+    const t = buildTermTimeline({ ...BASE, today: '2026-07-02', events: ['2026-01-01', '2026-12-31'] })!
     expect(t.ticks).toHaveLength(2)
     expect(t.ticks[0]!.ratio).toBeCloseTo(0, 3)
     expect(t.ticks[1]!.ratio).toBeCloseTo(1, 3)
@@ -51,7 +51,7 @@ describe('buildTermTimeline', () => {
     const t = buildTermTimeline({
       ...BASE,
       today: '2026-07-02',
-      eventDates: ['2025-12-31', '2027-01-01', '2026-06-01'],
+      events: ['2025-12-31', '2027-01-01', '2026-06-01'],
     })!
     expect(t.ticks).toHaveLength(1)
   })
@@ -60,7 +60,7 @@ describe('buildTermTimeline', () => {
     const t = buildTermTimeline({
       ...BASE,
       today: '2026-07-02',
-      eventDates: ['2026-03-05', '2026-03-05', '2026-03-05', '2026-08-01'],
+      events: ['2026-03-05', '2026-03-05', '2026-03-05', '2026-08-01'],
     })!
     expect(t.ticks).toHaveLength(2)
     expect(t.ticks[0]!.count).toBe(3)
@@ -71,19 +71,19 @@ describe('buildTermTimeline', () => {
     const t = buildTermTimeline({
       ...BASE,
       today: '2026-07-02',
-      eventDates: ['2026-09-01', '2026-02-01', '2026-05-01'],
+      events: ['2026-09-01', '2026-02-01', '2026-05-01'],
     })!
     const ratios = t.ticks.map((x) => x.ratio)
     expect([...ratios].sort((a, b) => a - b)).toEqual(ratios)
   })
 
   it('标记「今天」那一根刻度', () => {
-    const t = buildTermTimeline({ ...BASE, today: '2026-07-02', eventDates: ['2026-07-02'] })!
+    const t = buildTermTimeline({ ...BASE, today: '2026-07-02', events: ['2026-07-02'] })!
     expect(t.ticks[0]!.today).toBe(true)
   })
 
   it('非法日期事项被忽略而不是崩', () => {
-    const t = buildTermTimeline({ ...BASE, today: '2026-07-02', eventDates: ['not-a-date', ''] })!
+    const t = buildTermTimeline({ ...BASE, today: '2026-07-02', events: ['not-a-date', ''] })!
     expect(t.ticks).toHaveLength(0)
   })
 
@@ -106,5 +106,42 @@ describe('termHeadline / termTone', () => {
     expect(termTone(mk('2026-03-01'))).toBe('normal')
     expect(termTone(mk('2026-12-20'))).toBe('warn')
     expect(termTone(mk('2027-01-05'))).toBe('over')
+  })
+
+  it('事项带标题时按天聚合到 titles（供悬浮提示）', () => {
+    const t = buildTermTimeline({
+      ...BASE,
+      today: '2026-07-02',
+      events: [
+        { date: '2026-06-09', title: '租赁合同' },
+        { date: '2026-06-09', title: '交接清单' },
+        { date: '2026-08-01', title: '排污许可证' },
+      ],
+    })!
+    expect(t.ticks).toHaveLength(2)
+    expect(t.ticks[0]!.date).toBe('2026-06-09')
+    expect(t.ticks[0]!.count).toBe(2)
+    expect(t.ticks[0]!.titles).toEqual(['租赁合同', '交接清单'])
+    expect(t.ticks[1]!.titles).toEqual(['排污许可证'])
+  })
+
+  it('无标题事项仍占一个刻度（不能被吞掉）', () => {
+    const t = buildTermTimeline({
+      ...BASE,
+      today: '2026-07-02',
+      events: [{ date: '2026-06-09' }],
+    })!
+    expect(t.ticks).toHaveLength(1)
+    expect(t.ticks[0]!.count).toBe(1)
+    expect(t.ticks[0]!.titles).toEqual([])
+  })
+
+  it('纯日期字符串与对象混用都能画刻度', () => {
+    const t = buildTermTimeline({
+      ...BASE,
+      today: '2026-07-02',
+      events: ['2026-03-01', { date: '2026-05-01', title: '审查合同' }],
+    })!
+    expect(t.ticks).toHaveLength(2)
   })
 })

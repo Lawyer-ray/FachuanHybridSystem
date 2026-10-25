@@ -15,18 +15,18 @@ export function TermBar({
   from,
   to,
   today,
-  eventDates,
+  events,
 }: {
   from: string
   to: string
   /** 今天（yyyy-mm-dd）：由页面传，便于测试与跨天刷新 */
   today: string
-  /** 事项日期（yyyy-mm-dd），画成轴上的刻度 */
-  eventDates?: string[]
+  /** 轴上事项：日期 + 标题（标题用于悬浮提示「这天发生了什么」） */
+  events?: Array<string | { date: string; title?: string }>
 }) {
   const t = useMemo(
-    () => buildTermTimeline({ from, to, today, eventDates }),
-    [from, to, today, eventDates],
+    () => buildTermTimeline({ from, to, today, events }),
+    [from, to, today, events],
   )
   if (!t) return null
 
@@ -35,6 +35,8 @@ export function TermBar({
     tone === 'over' ? 'bg-status-red' : tone === 'warn' ? 'bg-status-yellow' : 'bg-foreground/70'
   const headCls =
     tone === 'over' ? 'text-status-red' : tone === 'warn' ? 'text-status-yellow' : 'text-foreground'
+  /** 轴上一共多少项事项（同一天的合并了刻度，但计数要按实际事项数） */
+  const totalItems = t.ticks.reduce((sum, x) => sum + x.count, 0)
 
   return (
     <div className="rounded-[12px] border border-border bg-card px-5 pb-4 pt-3.5 shadow-sm">
@@ -81,7 +83,7 @@ export function TermBar({
               (tick.today ? 'bg-status-red' : 'bg-foreground/45')
             }
             style={{ left: `${tick.ratio * 100}%` }}
-            title={`${tick.count} 项事项`}
+            title={tickTooltip(tick)}
           />
         ))}
 
@@ -97,10 +99,29 @@ export function TermBar({
       <div className="relative mt-1.5 flex justify-between text-[11px] tabular-nums text-muted-foreground/70">
         <span>{t.start}</span>
         {t.ticks.length > 0 && (
-          <span className="text-muted-foreground">{t.ticks.length} 个服务日</span>
+          <span className="text-muted-foreground">
+            {/* 原写「N 个服务日」有歧义：这是「有事项的天数」，不是服务期天数 */}
+            {t.ticks.length} 天有事项 · 共 {totalItems} 项
+          </span>
         )}
         <span>{t.end}</span>
       </div>
     </div>
   )
+}
+
+/**
+ * 刻度的悬浮文案：`2026-06-09 · 租赁合同、交接清单`。
+ *
+ * 律师看轴上的点只能知道「那天有事」，看不出「什么事」——而后者才是他要在
+ * 服务期里回看的。用原生 title 而不是自绘浮层：刻度只有 7px，自绘容易在
+ * 轴两端被裁掉，原生提示由浏览器负责定位。
+ */
+function tickTooltip(tick: { date: string; count: number; titles: string[] }): string {
+  const head = `${tick.date} · ${tick.count} 项`
+  if (tick.titles.length === 0) return head
+  // 最多列 5 条，再多就折成「等 N 项」，避免提示框长到遮住页面
+  const shown = tick.titles.slice(0, 5).join('、')
+  const more = tick.titles.length > 5 ? ` 等 ${tick.titles.length} 项` : ''
+  return `${head}\n${shown}${more}`
 }

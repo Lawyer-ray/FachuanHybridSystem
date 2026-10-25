@@ -15,7 +15,17 @@ export interface TermTick {
   ratio: number
   /** 该刻度对应的事项数 */
   count: number
+  /** 日期 yyyy-mm-dd（同一刻度的所有事项都在这一天） */
+  date: string
+  /** 该刻度上的事项标题（悬浮时告诉律师「这天发生了什么」） */
+  titles: string[]
   today: boolean
+}
+
+/** 轴上的一个事件：日期必填，标题用于悬浮提示 */
+export interface TermEvent {
+  date: string
+  title?: string
 }
 
 export interface TermTimeline {
@@ -59,15 +69,18 @@ export function buildTermTimeline({
   from,
   to,
   today,
-  eventDates = [],
+  events = [],
   warnRatio = 0.2,
 }: {
   from: string
   to: string
   /** 今天（yyyy-mm-dd），由调用方传入便于测试 */
   today: string
-  /** 事项发生日（yyyy-mm-dd）；轴外的自动丢弃 */
-  eventDates?: string[]
+  /**
+   * 轴上的事项。传字符串（只有日期）或对象（日期 + 标题）。
+   * 标题只用于悬浮提示，不传也能画刻度。
+   */
+  events?: Array<string | TermEvent>
   /** 最后多少比例进入预警区，默认 20% */
   warnRatio?: number
 }): TermTimeline | null {
@@ -81,19 +94,27 @@ export function buildTermTimeline({
   const progress = Math.min(1, Math.max(0, (nowMs - startMs) / total))
   const daysLeft = Math.round((endMs - nowMs) / DAY)
 
-  // 按天聚合：同一天多个事项合成一根，count 表示当天密度
-  const byDay = new Map<string, number>()
-  for (const raw of eventDates) {
-    const ms = toMs(raw)
+  // 按天聚合：同一天多个事项合成一根，count 表示当天密度，titles 用于悬浮
+  const byDay = new Map<string, string[]>()
+  for (const raw of events) {
+    const date = typeof raw === 'string' ? raw : raw.date
+    const title = typeof raw === 'string' ? '' : (raw.title ?? '')
+    const ms = toMs(date)
     if (ms === null || ms < startMs || ms > endMs) continue
     const key = fmt(ms)
-    byDay.set(key, (byDay.get(key) ?? 0) + 1)
+    const list = byDay.get(key) ?? []
+    // 没标题也要占位（每条事项各占一格），否则同一天的多条无标题事项会塌成 1 条；
+    // 用空串占位、后面 filter 掉，计数仍按真实条数算。
+    list.push(title)
+    byDay.set(key, list)
   }
   const todayKey = today
   const ticks: TermTick[] = [...byDay.entries()]
-    .map(([day, count]) => ({
+    .map(([day, titles]) => ({
       ratio: (toMs(day)! - startMs) / total,
-      count,
+      count: titles.length,
+      date: day,
+      titles: titles.filter(Boolean),
       today: day === todayKey,
     }))
     .sort((a, b) => a.ratio - b.ratio)

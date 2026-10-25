@@ -95,7 +95,12 @@ export function NonLitDetailPage() {
           常法页最该回答「还剩多久、这一年忙不忙」，纯日期文字要读两遍才反应过来。 */}
       {deal.from && deal.to && (
         <div className="mb-[18px]">
-          <TermBar from={deal.from} to={deal.to} today={todayStr} eventDates={serviceItems.map((i) => i.date)} />
+          <TermBar
+            from={deal.from}
+            to={deal.to}
+            today={todayStr}
+            events={serviceItems.map((i) => ({ date: i.date, title: i.title }))}
+          />
         </div>
       )}
 
