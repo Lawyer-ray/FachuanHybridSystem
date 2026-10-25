@@ -332,6 +332,35 @@ class TestHandleError:
         http.get.return_value = _make_response(200, json_data={"ok": True})
         assert c.get("/ping") == {"ok": True}
 
+    def test_429_reports_retry_after_header(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        """限流翻译(2026-10-25 审计七十二轮):REST 层专门回传 Retry-After 头,
+        工具层必须把它翻译成等待指引——模型不知道是限流就会立即原样重试。"""
+        c, http = fc
+        resp = httpx.Response(
+            429,
+            headers={"retry-after": "37"},
+            json={"detail": "请求过于频繁"},
+            request=httpx.Request("GET", f"{REAL_BASE}/items"),
+        )
+        http.get.return_value = resp
+        with pytest.raises(FachuanApiError) as exc_info:
+            c.get("/items")
+        msg = str(exc_info.value)
+        assert "429" in msg and "37 秒" in msg
+        assert "限流" in msg and "不是故障" in msg
+
+    def test_429_without_header_gives_generic_wait(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        c, http = fc
+        resp = httpx.Response(
+            429,
+            json={"detail": "请求过于频繁"},
+            request=httpx.Request("GET", f"{REAL_BASE}/items"),
+        )
+        http.get.return_value = resp
+        with pytest.raises(FachuanApiError) as exc_info:
+            c.get("/items")
+        assert "30-60 秒" in str(exc_info.value)
+
 
 class TestDownloadError:
     """Download method error paths."""

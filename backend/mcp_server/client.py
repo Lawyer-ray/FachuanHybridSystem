@@ -277,6 +277,24 @@ class FachuanClient:
 
     @staticmethod
     def _handle(resp: httpx.Response) -> Any:
+        if resp.status_code == 429:
+            # REST 层限流专门回传 Retry-After 头(handlers.py 的
+            # handle_rate_limit_exception),此前与普通错误混报会把它丢掉——
+            # 模型不知道这是限流、等多久、立即重试只会继续 429。
+            retry_after = resp.headers.get("retry-after", "")
+            if retry_after.isdigit():
+                wait_hint = f"建议等待 {retry_after} 秒后再试"
+            else:
+                wait_hint = "响应未说明等待时长,建议 30-60 秒后再试"
+            try:
+                where = f"{resp.request.method} {resp.request.url.path}"
+            except RuntimeError:  # pragma: no cover - 未绑定请求的裸响应
+                where = ""
+            raise FachuanApiError(
+                f"HTTP 429 触发限流: {where}。"
+                f"{wait_hint}——这是速率限制不是故障,立即原样重试只会继续 429;"
+                "高频列表/检索类操作请降低调用频率或改用更大分页。"
+            )
         if not resp.is_success:
             try:
                 detail = resp.json()
