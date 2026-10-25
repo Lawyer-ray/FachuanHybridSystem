@@ -118,7 +118,7 @@ def _empty_results_message(html: str) -> str:
     )
 
 
-def _do_search(query: str, max_results: int, region: str) -> str:
+def _do_search(query: str, max_results: int) -> str:
     """同步执行搜索（在线程池中运行）。
 
     限流/网络错误一律转成**给模型看的自然语言**，不抛异常：
@@ -162,14 +162,12 @@ def _do_search(query: str, max_results: int, region: str) -> str:
 async def web_search(
     query: str,
     max_results: int = 5,
-    region: str = "cn-zh",
 ) -> str:
     """联网搜索互联网获取最新信息。适用于查询实时新闻、最新法规、行业动态。
 
     Args:
         query: 搜索关键词（建议用中文或英文关键词，简洁明了）。
         max_results: 最大返回结果数量，默认 5 条，上限 10。
-        region: 保留参数，当前固定使用中文搜狗，传值不影响行为。
 
     Returns:
         包裹注入防护标注的搜索结果（标题 + 链接 + 摘要）。标注提醒：
@@ -191,4 +189,4 @@ async def web_search(
     max_results = min(max(max_results, 1), 10)
 
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _do_search, query, max_results, region)
+    return await loop.run_in_executor(None, _do_search, query, max_results)

@@ -114,7 +114,7 @@ class TestWebSearchRateLimitFailsFast:
         now = time.monotonic()
         module._last_requests[:] = [now - 1] * module._RATE_LIMIT
 
-        message = module._do_search("测试", 5, "cn-zh")
+        message = module._do_search("测试", 5)
 
         assert isinstance(message, str)
         assert "频繁" in message
@@ -154,7 +154,7 @@ class TestSearchResultInjectionMarking:
         with mock.patch.object(module.httpx, "Client") as patched:
             patched.return_value.__enter__.return_value.get.return_value = response
 
-            result = module._do_search("测试", 5, "cn-zh")
+            result = module._do_search("测试", 5)
 
         assert result.startswith(module._WRAPPER_HEADER)
         assert result.endswith(module._WRAPPER_FOOTER)
@@ -168,7 +168,7 @@ class TestSearchResultInjectionMarking:
         now = time.monotonic()
         module._last_requests[:] = [now - 1] * module._RATE_LIMIT
 
-        message = module._do_search("测试", 5, "cn-zh")
+        message = module._do_search("测试", 5)
 
         assert module._WRAPPER_HEADER not in message
 
@@ -198,7 +198,7 @@ class TestEmptyResultsHonesty:
         )
         with mock.patch.object(module.httpx, "Client") as patched:
             patched.return_value.__enter__.return_value.get.return_value = response
-            return module._do_search("测试", 5, "cn-zh")
+            return module._do_search("测试", 5)
 
     def test_antispider_page_reported_as_blocked(self) -> None:
         message = self._search_with_html("<html><body>请输入下方验证码完成安全验证</body></html>")
