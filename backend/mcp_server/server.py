@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import logging
+import time
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -509,6 +511,28 @@ def _tool_annotations(name: str) -> ToolAnnotations:
     )
 
 
+#: 工具单次调用超过该毫秒数升 WARNING——pi 侧总超时 200s,30s 以上的调用
+#: 律师侧已经能明确感到「卡住了」,值得在日志里一眼可见(而非 grep INFO)。
+_SLOW_TOOL_MS = 30_000
+
+logger = logging.getLogger(__name__)
+
+
+def _log_tool_duration(name: str, started: float) -> None:
+    """每次工具调用记一行耗时(成功失败都记,2026-10-25 审计五十一轮)。
+
+    此前单工具耗时无处可查:AgentRun 只有 run 级聚合、消息表只有调用
+    时刻、共享 MCP 日志只有 HTTP 级 ``POST /mcp``——「AI 很慢」排障只能
+    靠猜。配套 ``mcp_server`` logger 单独配 INFO(logging.py),否则 root
+    的 WARNING 级会把 INFO 全吞。超 ``_SLOW_TOOL_MS`` 升 WARNING。
+    """
+    elapsed_ms = (time.monotonic() - started) * 1000
+    if elapsed_ms >= _SLOW_TOOL_MS:
+        logger.warning("SLOW tool %s %.0fms", name, elapsed_ms)
+    else:
+        logger.info("tool %s %.0fms", name, elapsed_ms)
+
+
 def _t(func: Any) -> Any:
     """409 个工具的统一注册装饰器(替代裸 ``mcp.tool()``)。
 
@@ -517,29 +541,39 @@ def _t(func: Any) -> Any:
     参数校验文案(如「case_id/contract_id 至多传一个」「未知的 kind」)必须
     走 ToolError 才能直达模型供其自纠(2026-10-25 审计:list_folder_files
     空参调用的引导文案被吞成裸错误名)。
+
+    另记每次调用耗时(见 ``_log_tool_duration``),成功失败都记。
     """
+    name = getattr(func, "__name__", "")
+
     if asyncio.iscoroutinefunction(func):
 
         @functools.wraps(func)
         async def _aw(*args: Any, **kwargs: Any) -> Any:
+            started = time.monotonic()
             try:
                 return await func(*args, **kwargs)
             except ValueError as exc:
                 raise FachuanApiError(str(exc)) from exc
+            finally:
+                _log_tool_duration(name, started)
 
         target: Any = _aw
     else:
 
         @functools.wraps(func)
         def _sw(*args: Any, **kwargs: Any) -> Any:
+            started = time.monotonic()
             try:
                 return func(*args, **kwargs)
             except ValueError as exc:
                 raise FachuanApiError(str(exc)) from exc
+            finally:
+                _log_tool_duration(name, started)
 
         target = _sw
 
-    return mcp.tool(annotations=_tool_annotations(getattr(func, "__name__", "")))(target)
+    return mcp.tool(annotations=_tool_annotations(name))(target)
 
 
 # 案件
