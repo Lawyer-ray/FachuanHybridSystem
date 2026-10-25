@@ -77,6 +77,34 @@ class ReviewTask(models.Model):
         verbose_name="选中的处理步骤",
         help_text="用户选择执行的步骤列表",
     )
+    # 客户特别交代：律师在发起审查时写的诉求（「一定要压工期」等）。
+    # 这是审查方向的来源之一，必须进 prompt——否则律师写了也白写。
+    client_note = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="客户特别交代",
+        help_text="律师填写的自由文本诉求，拼进审查 prompt",
+    )
+    client_demands = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="客户诉求要点",
+        help_text="抽屉里勾选的 chips，结构化留存便于统计",
+    )
+    # 我方单位全名：party_a/party_b 只是文档里的位置，不代表「我方」。
+    # 合同里我方在乙方时，靠位置判方向会整批审反。
+    our_client_name = models.CharField(
+        max_length=256,
+        blank=True,
+        default="",
+        verbose_name="我方单位全名",
+    )
+    stance_basis = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="立场判断依据",
+        help_text="AI 为什么认为我方是这个立场，供律师核对",
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

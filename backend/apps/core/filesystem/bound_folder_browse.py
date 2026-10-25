@@ -18,13 +18,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shutil
-from datetime import datetime
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar
 
-from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.filesystem.path_validator import FolderPathValidator
 
 logger = logging.getLogger("apps.core.filesystem")
@@ -187,6 +188,122 @@ class BoundFolderBrowseService:
 
         logger.info("bound_folder_upload", extra={"owner_id": owner_id, "subpath": subpath, "count": len(saved)})
         return {"saved": saved}
+
+    def save_file_content(
+        self,
+        *,
+        owner_id: int,
+        subpath: str,
+        data: bytes,
+        expect_mtime: float | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, Any]:
+        """原地覆写绑定文件夹内的已有文件（编辑器保存）。
+
+        **与 save_uploads 的区别**：那个是「同名自动加序号、不覆盖」（拖拽上传
+        不能误盖旧稿）；这里是明确的「覆盖这一份」，不能加序号——加序号就变成
+        另存为，律师看到的还是旧内容。
+
+        **不保留备份**：产品决定（客户原稿覆盖即覆盖）。备份带在 `_历史/` 下
+        会让目录变脏，而真正的版本追溯是审查链路的 `DocumentVersion` 干的活。
+
+        **乐观锁**：`expect_mtime` 是打开时文件的 mtime。两人同开同一份时，
+        后保存的一方 mtime 已经变了，直接覆写会静默丢掉前一个人的修改。
+        不一致就报 409，让前端提示「文件已被他人修改」。
+        """
+        root, _ = self._checked_root(
+            owner_id=owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+        target = self._resolve_subpath(root, subpath)
+        if not target.exists():
+            raise NotFoundError(message="文件不存在，无法保存", code="FOLDER_NOT_FOUND")
+        if target.is_dir():
+            raise ValidationException(message="目标是文件夹，不能写入", errors={"subpath": subpath})
+        if len(data) > self.MAX_UPLOAD_BYTES:
+            raise ValidationException(
+                message=f"文件超过上限 {self.MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+                errors={"subpath": subpath},
+            )
+
+        if expect_mtime is not None:
+            actual = target.stat().st_mtime
+            # 1 秒容差：不同文件系统的 mtime 精度不同（ext4 纳秒 / HFS+ 秒），
+            # 严格相等会误报冲突
+            if abs(actual - expect_mtime) > 1.0:
+                raise ConflictError(
+                    message="文件已被他人修改，请重新打开后再保存",
+                    code="FILE_MODIFIED",
+                    errors={"mtime": actual, "expect": expect_mtime},
+                )
+
+        # 原子替换：先写临时文件再 os.replace，避免写一半断电/异常留下半截文档
+        tmp = target.with_name(target.name + f".tmp{os.getpid()}")
+        try:
+            with open(tmp, "wb") as out:
+                out.write(data)
+            os.replace(tmp, target)
+        finally:
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)
+
+        logger.info(
+            "bound_folder_overwrite",
+            extra={"owner_id": owner_id, "subpath": subpath, "size": len(data)},
+        )
+        return {
+            "subpath": subpath,
+            "name": target.name,
+            "size": len(data),
+            "modified_at": datetime.fromtimestamp(target.stat().st_mtime, tz=UTC).isoformat(),
+        }
+
+    def save_new_file(
+        self,
+        *,
+        owner_id: int,
+        subpath: str,
+        name: str,
+        data: bytes,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, Any]:
+        """在 `subpath` 所在目录另存为新文件（同名自动加序号，不覆盖）。
+
+        `subpath` 指向**源文件**（用来定位目录），`name` 是新文件名。
+        走 `_unique_destination` 与上传同一套同名去重逻辑。
+        """
+        root, _ = self._checked_root(
+            owner_id=owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+        src = self._resolve_subpath(root, subpath)
+        if src.is_dir():
+            raise ValidationException(message="目标是文件夹，不能另存", errors={"subpath": subpath})
+        target_dir = src.parent
+        clean = self._validator.sanitize_file_name(self._clean_entry_name(name))
+        if len(data) > self.MAX_UPLOAD_BYTES:
+            raise ValidationException(
+                message=f"文件超过上限 {self.MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+                errors={"name": clean},
+            )
+
+        dest = self._unique_destination(target_dir, clean)
+        tmp = dest.with_name(dest.name + f".tmp{os.getpid()}")
+        try:
+            with open(tmp, "wb") as out:
+                out.write(data)
+            os.replace(tmp, dest)
+        finally:
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)
+
+        logger.info(
+            "bound_folder_save_as",
+            extra={"owner_id": owner_id, "src": subpath, "dest": self._subpath_of(root, dest)},
+        )
+        return {"subpath": self._subpath_of(root, dest), "name": dest.name, "size": len(data)}
 
     def rename(
         self,

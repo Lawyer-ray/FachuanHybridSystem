@@ -137,6 +137,59 @@ export async function uploadFolderFiles(
     .json<{ saved: Array<{ name: string; subpath: string }> }>()
 }
 
+/**
+ * 原地保存（覆盖写）。
+ *
+ * 与 `uploadFolderFiles` 语义**相反**：上传是「不覆盖、同名加序号」，
+ * 这里是明确的「覆盖这一份」。加序号就变成另存为，律师看到的还是旧内容。
+ *
+ * `expectMtime` 做乐观锁：两人同开时后保存的一方会拿到 409，前端提示
+ * 「文件已被他人修改」，不静默丢掉前一个人的修改。
+ */
+export async function saveFolderFile(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  data: Blob,
+  expectMtime?: number,
+): Promise<{ subpath: string; name: string; size: number; modified_at?: string }> {
+  const form = new FormData()
+  form.append('file', data, fileNameOf(subpath))
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-save', {
+      searchParams: {
+        subpath,
+        ...(expectMtime !== undefined ? { expect_mtime: String(expectMtime) } : {}),
+      },
+      body: form,
+      timeout: UPLOAD_TIMEOUT_MS,
+    })
+    .json()
+}
+
+/** 另存为新文件（同目录、同名自动加序号、不动原文件） */
+export async function saveFolderFileAs(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  name: string,
+  data: Blob,
+): Promise<{ subpath: string; name: string; size: number }> {
+  const form = new FormData()
+  form.append('file', data, name)
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-save-as', {
+      searchParams: { subpath, name },
+      body: form,
+      timeout: UPLOAD_TIMEOUT_MS,
+    })
+    .json()
+}
+
+function fileNameOf(subpath: string): string {
+  return subpath.split('/').pop() || 'document.docx'
+}
+
 /** 单文件预览直链（预览前经 withDownloadTicket 换一次性票据再 window.open） */
 export function folderFileUrl(kind: FolderOwnerKind, ownerId: number, subpath: string): string {
   return (

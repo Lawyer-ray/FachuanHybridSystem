@@ -39,6 +39,14 @@ function loadApiJs(docserverUrl: string): Promise<void> {
 
 interface EditorInstance {
   destroyEditor?: () => void
+  /** DS 官方：把当前编辑内容存为指定格式的 Blob。用于「保存 / 另存为」。 */
+  downloadAs?: (format: string) => Promise<Blob>
+}
+
+/** 供调用方持有的编辑器句柄（取内容、触发保存） */
+export interface OfficeEditorHandle {
+  /** 导出当前编辑内容为 docx 字节；编辑器未就绪返回 null */
+  getDocxBlob: () => Promise<Blob | null>
 }
 
 export function OfficeView({
@@ -46,12 +54,20 @@ export function OfficeView({
   fileName,
   mode = 'review',
   version = '',
+  onEditorReady,
 }: {
   /** 站内下载路径（后端会为 DS 签发可重复使用的 HMAC 签名代理地址） */
   fileUrl: string
   fileName: string
   mode?: EditorMode
   version?: string
+  /**
+   * 编辑器就绪时交出句柄，供父级取内容（保存 / 另存为）。
+   *
+   * 只在本层拿得到 DS 实例（DocEditor 在这一层创建），因此必须往外递，
+   * 否则父级只能猜字节。传 null 表示编辑器已销毁。
+   */
+  onEditorReady?: (handle: OfficeEditorHandle | null) => void
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<EditorInstance | null>(null)
@@ -108,7 +124,22 @@ export function OfficeView({
           events: {
             onDocumentReady: () => {
               if (deadTimer) clearTimeout(deadTimer)
-              if (!cancelled) setState('ready')
+              if (!cancelled) {
+                setState('ready')
+                // 交出句柄：父级保存时调 downloadAs('docx') 取当前内容。
+                // 用 ref 里的实例而不是闭包捕获，避免重挂后指向已销毁的旧实例。
+                onEditorReady?.({
+                  getDocxBlob: async () => {
+                    const inst = editorRef.current
+                    if (!inst?.downloadAs) return null
+                    try {
+                      return await inst.downloadAs('docx')
+                    } catch {
+                      return null
+                    }
+                  },
+                })
+              }
             },
             onError: (_event: unknown, data: unknown) => {
               if (cancelled) return
@@ -146,6 +177,8 @@ export function OfficeView({
       if (deadTimer) clearTimeout(deadTimer)
       const inst = editorRef.current
       editorRef.current = null
+      // 告诉父级句柄失效：否则它在编辑器已销毁后调 downloadAs 会静默失败
+      onEditorReady?.(null)
       if (inst?.destroyEditor) {
         try {
           inst.destroyEditor()
@@ -154,6 +187,9 @@ export function OfficeView({
         }
       }
     }
+    // onEditorReady 有意不入依赖：调用方常传内联箭头，入依赖会让 effect
+    // 每次渲染都重挂编辑器（画布反复重建）。它只是回调出口，换了也不需要重挂。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileUrl, fileName, mode, version, attempt, placeId])
 
   return (

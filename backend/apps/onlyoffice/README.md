@@ -273,8 +273,9 @@ docker exec onlyoffice printenv JWT_SECRET
 docker exec onlyoffice rm -rf /var/lib/onlyoffice/documentserver/App_Data/cache/files/data/*
 
 # ── 容器回连宿主是否通（DS 取文件/回写的命门）──
+#    期望拿到 422 / 403（= 连上了、参数被拒）；若报 "could not connect" 才是回连不通
 docker exec onlyoffice curl -s -o /dev/null -w '%{http_code}\n' \
-  http://host.docker.internal:8002/api/v1/onlyoffice/file
+  "http://host.docker.internal:8002/api/v1/onlyoffice/file?src=/api/&sig=x"
 
 # ── 字体 ──
 docker exec onlyoffice fc-list :lang=zh file | head
@@ -285,7 +286,7 @@ docker exec onlyoffice documentserver-generate-allfonts.sh   # 全量重建索�
 #    last_callback_status / last_saved_at / prev_output_file
 #    后端日志关键词：'OnlyOffice 回调'、'保存回写完成'、'验签失败'、'代理拒绝越权'
 
-# ── 镜像 tag 是否存在 ──
+# ── 镜像 tag 是否存在（Docker Hub 需代理时加 -x http://127.0.0.1:7897）──
 docker manifest inspect onlyoffice/documentserver:<tag> >/dev/null && echo 存在 || echo 不存在
 ```
 

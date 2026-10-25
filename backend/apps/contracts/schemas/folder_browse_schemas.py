@@ -56,3 +56,24 @@ class ContractFolderPathIn(Schema):
     """删除入参：subpath 定位要移入回收目录的条目。"""
 
     subpath: str
+
+
+class ContractFolderSaveIn(Schema):
+    """原地保存入参：subpath 定位文件，expect_mtime 做乐观锁。
+
+    content 走 multipart 字段 `file`（二进制不能塞 JSON），mtime 走表单字段。
+    单独定 schema 只为说明语义边界：这是**覆盖写**，与上传的「不覆盖」相反。
+    """
+
+    subpath: str
+    # 打开时该文件的 mtime（秒）。缺省不校验——只在明确要防并发时传。
+    expect_mtime: float | None = None
+
+
+class ContractFolderSaveOut(Schema):
+    """保存结果：新 subpath/文件名/大小/mtime（前端据此更新状态）。"""
+
+    subpath: str
+    name: str
+    size: int = 0
+    modified_at: str | None = None

@@ -84,6 +84,7 @@ class ContractQueryService:
         search: str | None,
         fee_mode: str | None,
         is_filed: bool | None,
+        party: str | None = None,
     ) -> QuerySet[Contract, Contract]:
         if case_type:
             qs = qs.filter(case_type=case_type)
@@ -95,6 +96,11 @@ class ContractQueryService:
             qs = qs.filter(is_filed=is_filed)
         if search:
             qs = qs.filter(name__icontains=search)
+        if party:
+            # 按当事人姓名查合同：材料预处理/合同审查时「这份合同属于哪个委托」的
+            # 唯一可靠锚点——这类合同由客户与第三方签订，没有案号也没有 OA 编号，
+            # 只能靠当事人名称匹配。distinct 防多当事人命中重复行。
+            qs = qs.filter(contract_parties__client__name__icontains=party).distinct()
         return qs
 
     def list_contracts(
@@ -135,6 +141,7 @@ class ContractQueryService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         slim: bool = False,
+        party: str | None = None,
         include_facets: bool = True,
     ) -> dict[str, Any]:
         """分页列表（服务端分页，前端不再全量拉）。
@@ -155,7 +162,13 @@ class ContractQueryService:
             .order_by(F("_abs_days").asc(nulls_last=True), "-id")
         )
         qs = self._apply_list_filters(
-            qs, case_type=case_type, status=status, search=search, fee_mode=fee_mode, is_filed=is_filed
+            qs,
+            case_type=case_type,
+            status=status,
+            search=search,
+            fee_mode=fee_mode,
+            is_filed=is_filed,
+            party=party,
         )
         qs = self.access_policy.filter_queryset(
             qs=qs,

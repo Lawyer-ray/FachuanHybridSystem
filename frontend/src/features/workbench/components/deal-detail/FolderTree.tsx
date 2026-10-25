@@ -54,6 +54,7 @@ export function FolderTree({
   maxH = '',
   title,
   onReviewFile,
+  onOpenFile,
 }: {
   kind: FolderOwnerKind
   ownerId: number
@@ -62,6 +63,14 @@ export function FolderTree({
   title?: string
   /** 传入时文件行 hover 显「AI 审查」按钮（非诉详情页的合同回审入口） */
   onReviewFile?: (f: { subpath: string; name: string }) => void
+  /**
+   * 传入时点文件行 = 打开预览（而不是下载）。
+   *
+   * 以前 onClick 直接 `window.open(下载地址)`——浏览器没有 docx 渲染器，
+   * 点开必然变成下载，律师想「看一眼」得先存盘再开 Word。传了本回调就
+   * 交给调用方渲染 OnlyOffice 预览；不传则保留旧行为（兼容案件页）。
+   */
+  onOpenFile?: (f: { subpath: string; name: string }) => void
 }) {
   const qc = useQueryClient()
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -95,8 +104,9 @@ export function FolderTree({
       setDropOn,
       openMenu: (e, entry) => setMenu({ x: e.clientX, y: e.clientY, ...entry }),
       onReviewFile,
+      onOpenFile,
     }),
-    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn, onReviewFile],
+    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn, onReviewFile, onOpenFile],
   )
 
   const invalidate = () => {
@@ -465,6 +475,12 @@ function FileRow({
   const deletingThis = ctx.deleting?.subpath === file.subpath
 
   const preview = async () => {
+    // 有预览通道就交给调用方（OnlyOffice 渲染）；否则退回下载。
+    // 浏览器没 docx 渲染器，`window.open` 对 .docx 必然变成下载。
+    if (ctx.onOpenFile) {
+      ctx.onOpenFile({ subpath: file.subpath, name: file.name })
+      return
+    }
     window.open(await withDownloadTicket(folderFileUrl(ctx.kind, ctx.ownerId, file.subpath)), '_blank', 'noopener')
   }
 

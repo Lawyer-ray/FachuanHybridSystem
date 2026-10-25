@@ -178,7 +178,7 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
 }
 
 const lawyers: LawyerListItem[] = [
-  { id: 1, real_name: '黄某', phone: '138', license_no: '144****', law_firm_name: '某律所' },
+  { id: 1, real_name: '黄崧', phone: '138', license_no: '1440120', law_firm_name: '某律所' },
 ]
 
 function setupUi(path = '/projects/7') {
@@ -223,7 +223,7 @@ beforeEach(() => {
       logs: [
         {
           id: 11, case: 2, content: '二审立案', actor: 1, created_at: '2026-03-05T10:00:00+08:00', updated_at: '2026-03-05T10:00:00+08:00',
-          actor_detail: { id: 1, username: 'zhou', real_name: '周某' }, attachments: [], reminders: [],
+          actor_detail: { id: 1, username: 'zhou', real_name: '周明' }, attachments: [], reminders: [],
         },
         {
           id: 10, case: 2, content: '收到上诉状', actor: 1, created_at: '2026-02-02T09:00:00+08:00', updated_at: '2026-02-02T09:00:00+08:00',

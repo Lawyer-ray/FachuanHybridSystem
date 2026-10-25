@@ -20,6 +20,7 @@ from apps.contracts.schemas.folder_browse_schemas import (
     ContractFolderEntriesOut,
     ContractFolderEntryNameIn,
     ContractFolderPathIn,
+    ContractFolderSaveOut,
 )
 from apps.core.http.download import content_disposition
 from apps.core.security import get_request_access_context
@@ -85,6 +86,71 @@ async def upload_contract_folder_files(request: HttpRequest, contract_id: int, s
     """拖拽 / 多文件上传到 subpath 目录（multipart 字段名 files，同名自动加序号）。"""
     files = request.FILES.getlist("files") if hasattr(request, "FILES") else []
     return await _call_service("save_uploads", request, contract_id, subpath=subpath, files=files)
+
+
+@router.post("/{contract_id}/folder-save", response=ContractFolderSaveOut)
+async def save_contract_folder_file(
+    request: HttpRequest,
+    contract_id: int,
+    subpath: str,
+    expect_mtime: float | None = None,
+) -> Any:
+    """原地覆盖保存（编辑器 Ctrl+S）。
+
+    **与 folder-upload 相反**：上传是「不覆盖、同名加序号」；这里是明确的
+    覆盖这一份。`expect_mtime` 做乐观锁：与磁盘实际 mtime 不一致就 409，
+    避免两人同开时静默丢掉前一个人的修改。
+
+    不保留备份（产品决定）：覆盖即覆盖，版本追溯走审查链路的
+    `DocumentVersion`，不靠磁盘上的 `_历史/`。
+    """
+    data = await _read_single_upload(request)
+    return await _call_service(
+        "save_file_content",
+        request,
+        contract_id,
+        subpath=subpath,
+        data=data,
+        expect_mtime=expect_mtime,
+    )
+
+
+@router.post("/{contract_id}/folder-save-as", response=ContractFolderSaveOut)
+async def save_contract_folder_file_as(
+    request: HttpRequest,
+    contract_id: int,
+    subpath: str,
+    name: str,
+) -> Any:
+    """另存为新文件（同目录，同名自动加序号，不覆盖）。
+
+    `subpath` 定位源文件（用来找目录），`name` 是新文件名（前端默认给
+    `原名[修订版]V1_日期.docx`）。
+    """
+    data = await _read_single_upload(request)
+    return await _call_service("save_new_file", request, contract_id, subpath=subpath, name=name, data=data)
+
+
+async def _read_single_upload(request: HttpRequest) -> bytes:
+    """取 multipart 里的单个文件字节（字段名 `file`）。
+
+    要求 multipart 而不是 JSON：docx 是二进制，base64 塞 JSON 会白白膨胀 33%，
+    且大文件会把整个请求体读进内存两次。
+    """
+    from asgiref.sync import sync_to_async
+
+    from apps.core.exceptions import ValidationException
+
+    files = request.FILES.getlist("file") if hasattr(request, "FILES") else []
+    if not files:
+        raise ValidationException(message="未收到文件内容", errors={"file": "空"})
+    f = files[0]
+
+    def _read() -> bytes:
+        f.seek(0)
+        return f.read()
+
+    return await sync_to_async(_read, thread_sensitive=True)()
 
 
 @router.post("/{contract_id}/folder-rename")

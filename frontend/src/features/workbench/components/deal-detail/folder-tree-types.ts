@@ -27,6 +27,8 @@ export interface TreeCtx {
   openMenu: (e: MouseEvent, entry: { subpath: string; name: string; isFolder: boolean }) => void
   /** 传入时文件行 hover 显「AI 审查」按钮（非诉详情页的合同回审入口；不传则无此按钮） */
   onReviewFile?: (f: { subpath: string; name: string }) => void
+  /** 点文件行时的回调；不传则由行自己下载（兼容未接预览的页面） */
+  onOpenFile?: (f: { subpath: string; name: string }) => void
 }
 
 /** 管理动作（FolderTree 的 mutations 下发） */

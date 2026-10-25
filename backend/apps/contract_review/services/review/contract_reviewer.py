@@ -176,10 +176,14 @@ class ContractReviewer:  # pragma: no cover
         party_a: str,
         party_b: str,
         model_name: str = "",
+        client_note: str = "",
+        client_demands: list[str] | None = None,
     ) -> list[ReviewResult]:
         """将合同全文和代表方信息发送给 LLM，返回修改建议"""
         text = "\n".join(f"[段落{i}] {p}" for i, p in enumerate(paragraphs))
-        prompt = _build_revision_prompt(text, represented_party, party_a, party_b)
+        prompt = _build_revision_prompt(
+            text, represented_party, party_a, party_b, client_note=client_note, client_demands=client_demands
+        )
         try:
             resp = self._llm.complete(
                 prompt=prompt,
@@ -245,13 +249,34 @@ def _try_fix_truncated_json(text: str) -> list[dict[str, object]] | None:  # pra
 
 
 # ↓↓ 由 ContractReviewer 下沉的模块级纯函数（四层架构静态方法棘轮）
-def _build_revision_prompt(text: str, represented_party: str, party_a: str, party_b: str) -> str:  # pragma: no cover
+def _build_revision_prompt(  # pragma: no cover
+    text: str,
+    represented_party: str,
+    party_a: str,
+    party_b: str,
+    client_note: str = "",
+    client_demands: list[str] | None = None,
+) -> str:
     party_label = _PARTY_LABELS.get(represented_party, "甲方")
     party_name = party_a if represented_party == "party_a" else party_b
+
+    # 客户交代必须进 prompt：律师写了「一定要压工期」，模型却不知道，
+    # 就会把工期条款当作普通条款放过，重跑几次都拉不回方向。
+    demand_lines: list[str] = []
+    for d in client_demands or []:
+        if d.strip():
+            demand_lines.append(f"- {d.strip()}")
+    if (client_note or "").strip():
+        demand_lines.append(f"- {client_note.strip()}")
+    demand_block = ""
+    if demand_lines:
+        demand_block = "## 客户特别交代（必顶优先满足，相关条款必须给出修改建议）\n" + "\n".join(demand_lines) + "\n\n"
+
     return (
         f"请作为一名具有多年经验的合同法律顾问，代表{party_label}（{party_name}）的利益，"
         "对以下合同进行全面审查，找出需要修改的条款，输出精确的修改建议。\n"
         f"甲方：{party_a}，乙方：{party_b}\n\n"
+        f"{demand_block}"
         f"{_REVIEW_FRAMEWORK}\n"
         "## 输出要求\n"
         "- 不要修改错别字或语法问题（已有专门检查）\n"

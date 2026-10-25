@@ -1,14 +1,13 @@
 """DS 取文件代理的 service 层（从 API 层下沉）。
 
 API 层只做参数提取与响应映射；用户解析、站内路径白名单、跨 service
-取文件都在这里。权限口径与 contract_review 的 review_api._check_task_access
-一致：任务属主或超管。
+取文件都在这里。放行哪些业务路径、怎么取文件、谁能看，统一由
+`domain_registry` 声明——本模块不再写死某个业务域。
 """
 
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 from uuid import UUID
 
@@ -17,16 +16,16 @@ from django.http import FileResponse
 
 logger = logging.getLogger(__name__)
 
-# DS 取文件走代理时唯一放行的业务路径（与 editor-config 支持面一致）
-_CONTRACT_REVIEW_RE = re.compile(r"^/api/v1/contract-review/([0-9a-f-]{36})/(download|download-original)")
-
 
 def parse_contract_review_path(path: str) -> tuple[UUID, str] | None:
-    """识别 contract-review 下载路径，返回 (task_id, download|download-original)。"""
-    m = _CONTRACT_REVIEW_RE.match(path)
-    if not m:
-        return None
-    return UUID(m.group(1)), m.group(2)
+    """兼容旧调用点：识别 contract-review 下载路径。
+
+    保留此函数仅为存量 import；新代码请用 domain_registry.domain_for_path。
+    """
+    from .domain_registry import get_domain
+
+    domain = get_domain("contract_review")
+    return domain.parse_path(path) if domain else None
 
 
 def resolve_user(uid: str) -> Any:
@@ -40,21 +39,30 @@ def resolve_user(uid: str) -> Any:
 def fetch_internal_file(path: str, user: Any) -> FileResponse | None:
     """按签名里的用户身份读取站内文件；不支持/无权/业务失败返回 None。
 
-    权限复用各业务 service 的判定（与 REST 端点同口径），代理不放宽任何权限。
+    权限口径由业务域统一声明（属主或超管）；`resolve_for_proxy` 类业务域
+    （如 contract_folder）自己走原端点的 ACL，代理不放宽任何权限。
     """
-    from apps.contract_review.services.wiring import get_review_service
+    from .domain_registry import domain_for_path, is_owner_or_admin
 
-    parsed = parse_contract_review_path(path)
-    if parsed is None:
+    hit = domain_for_path(path)
+    if hit is None:
         logger.warning("OnlyOffice 代理不支持该路径: %s", path)
         return None
-    task_id, which = parsed
+    domain, owner_id, rest = hit
+
+    if domain.resolve_for_proxy is not None:
+        fpath = domain.resolve_for_proxy(user, owner_id, rest)
+        if fpath is None:
+            logger.warning("OnlyOffice 代理取文件失败: path=%s user=%s", path, getattr(user, "pk", None))
+            return None
+        return FileResponse(fpath.open("rb"), as_attachment=True, filename=fpath.name)
+
+    from apps.contract_review.services.wiring import get_review_service
 
     svc = get_review_service()
-    task = svc.get_task_status(task_id)
-    # 与 review_api._check_task_access 同口径：任务属主或超管
-    if not (user.is_superuser or getattr(task, "user_id", None) == user.pk):
+    task = svc.get_task_status(owner_id)
+    if not is_owner_or_admin(user, domain.get_owner_id(task)):
         logger.warning("OnlyOffice 代理拒绝越权取文件: path=%s user=%s", path, user.pk)
         return None
-    fpath = svc.get_result_file(task_id) if which == "download" else svc.get_original_file(task_id)
+    fpath = domain.resolve_file(svc, owner_id, rest)
     return FileResponse(fpath.open("rb"), as_attachment=True, filename=fpath.name)

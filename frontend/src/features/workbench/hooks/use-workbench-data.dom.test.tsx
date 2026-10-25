@@ -71,7 +71,7 @@ const lawyers: LawyerListItem[] = [
     real_name: '张律师',
     phone: '138****0000',
     license_no: '13700...',
-    law_firm_name: '某律所',
+    law_firm_name: '发川律所',
   },
 ]
 

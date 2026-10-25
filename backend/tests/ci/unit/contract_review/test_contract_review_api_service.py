@@ -1038,6 +1038,10 @@ class TestProcessReview:
             "generate_output_filename": MagicMock(return_value="测试合同_out.docx"),
             "ContractReviewer": MagicMock(return_value=reviewer_instance),
             "default_storage": MagicMock(**{"save.return_value": "contract_review_outputs/测试合同_out.docx"}),
+            # 清单落库会摸真 DB，而本类验证的是「流水线编排」（失败怎么标记、
+            # error_message 怎么留痕），不是持久化内部；落库行为由
+            # test_review_revision_persist 单测覆盖。
+            "_persist_revisions": MagicMock(return_value=0),
         }
 
     def test_process_review_parallel_all_failed_marks_failed(self):

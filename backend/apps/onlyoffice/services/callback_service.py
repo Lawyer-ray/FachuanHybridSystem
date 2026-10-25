@@ -91,17 +91,19 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
 
     返回 False 时调用方应答 {"error": 1} 让 DS 重试。
     """
-    from apps.contract_review.services.wiring import get_review_service
+    from .domain_registry import get_domain
 
-    if session.task_type != "contract_review":
+    domain = get_domain(session.task_type)
+    if domain is None:
         logger.warning("保存回写暂不支持业务域: %s", session.task_type)
         return False
     try:
         data = _download_edited_docx(url)
-        svc = get_review_service()
         new_saved_version = _doc_saved_version(session.task_id) + 1
         old_output = _current_output_file(session.task_id)
-        saved_name = svc.adopt_edited_output(session.task_id, data, version_tag=new_saved_version)
+        # 落盘目标交给业务域钩子（新增业务域不用改本函数）：
+        # review 域改任务产物、folder 域覆写原文件
+        saved_name = domain.adopt_edited(session, data, new_saved_version)
     except Exception:
         logger.warning("OnlyOffice 保存回写失败（DS 会重试）: key=%s", session.document_key, exc_info=True)
         return False

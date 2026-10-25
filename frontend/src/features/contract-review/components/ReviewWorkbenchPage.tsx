@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { OfficeView } from '@/components/shared/onlyoffice/OfficeView'
 import { cn } from '@/lib/utils'
-import { getTaskStatus } from '../api'
+import { getContentVersion, getTaskStatus, listVersions } from '../api'
 import { RevisionList } from '../components/RevisionList'
+import { VersionChainButton, VersionChainPanel } from '../components/VersionChainPanel'
 import { progressText, revisedFileName } from '../domain'
 import { useRevisions } from '../hooks/use-revisions'
-import type { ReviewEditorMode, ReviewRevision } from '../types'
+import type { DocumentVersion, ReviewEditorMode, ReviewRevision } from '../types'
 
 /**
  * 合同复审工作台。
@@ -27,6 +28,63 @@ export function ReviewWorkbenchPage() {
   const [mode, setMode] = useState<ReviewEditorMode>('review')
   /** DS 顶栏文件名：优先任务产物真名（与 /download 返回的文件一致，自带 .docx） */
   const [fileName, setFileName] = useState('合同（法穿SI修订）.docx')
+  /**
+   * 文档内容版本（喂给 OfficeView 的 version）。
+   *
+   * 以前这里拼的是 `taskId:acceptedCount`——每采纳一条就变，于是 OfficeView
+   * 把 DS 画布整篇销毁重建（首次 5–15 秒）。律师逐条过 30 处建议就要等 30 次。
+   *
+   * 真正该重建的时机只有「文档内容变了」：即编辑器保存回写（人工改动 /
+   * 插件写入修订后保存）导致 saved_version 递增。采纳只改 DB 状态、不写
+   * docx，不该动画布。
+   */
+  const [contentVersion, setContentVersion] = useState('')
+
+  /** 版本链：右侧面板显示「改过几轮、每轮谁改的、从哪版改出来」 */
+  const [showVersions, setShowVersions] = useState(false)
+  const [versions, setVersions] = useState<DocumentVersion[]>([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [versionsError, setVersionsError] = useState<string | null>(null)
+
+  const loadVersions = useCallback(async () => {
+    if (!taskId) return
+    setVersionsLoading(true)
+    setVersionsError(null)
+    try {
+      const chain = await listVersions(taskId)
+      setVersions(chain.items)
+    } catch (e) {
+      setVersionsError(e instanceof Error ? e.message : '加载版本链失败')
+    } finally {
+      setVersionsLoading(false)
+    }
+  }, [taskId])
+
+  // 面板打才拉：版本链不是高频信息，不值得进首屏关键路径
+  useEffect(() => {
+    if (showVersions) void loadVersions()
+  }, [showVersions, loadVersions])
+
+  /**
+   * 拉一次内容版本。
+   *
+   * 不轮询：只有「可能在文档里落痕」的动作（写入AI修订 / 强制保存）之后才需要重查，
+   * 常态下每 2 秒一次请求只是白烧带宽。需要时由下方回调主动调 refresh，
+   * 另外首挂与切换任务时拉一次拿到当前值。
+   */
+  const refreshContentVersion = useCallback(async () => {
+    if (!taskId) return
+    try {
+      const cv = await getContentVersion(taskId)
+      setContentVersion(cv.content_version)
+    } catch {
+      // 版本取不到不阻断阅读：OfficeView 仍能用空版本挂载，只是不会自动重建
+    }
+  }, [taskId])
+
+  useEffect(() => {
+    void refreshContentVersion()
+  }, [refreshContentVersion])
 
   useEffect(() => {
     if (!taskId) return
@@ -44,7 +102,6 @@ export function ReviewWorkbenchPage() {
   }, [taskId])
 
   const total = items.length
-  const acceptedCount = useMemo(() => items.filter((r) => r.status === 'accepted').length, [items])
 
   /** 定位：跳到文档对应处。当前由编辑器侧完成（DS 内建查找），这里只做提示。 */
   const locate = useCallback((rev: ReviewRevision) => {
@@ -112,6 +169,7 @@ export function ReviewWorkbenchPage() {
               {m === 'review' ? '锁定修订' : m === 'view' ? '只读' : '完全编辑'}
             </button>
           ))}
+          <VersionChainButton count={versions.length} onClick={() => setShowVersions((v) => !v)} />
           <button
             type="button"
             className="ml-1 h-[31px] rounded-[8px] border border-foreground bg-foreground px-3.5 text-[12.5px] font-semibold text-background transition-opacity hover:opacity-85"
@@ -148,19 +206,41 @@ export function ReviewWorkbenchPage() {
             fileUrl={`/api/v1/contract-review/${encodeURIComponent(taskId)}/download`}
             fileName={fileName}
             mode={mode}
-            version={`${taskId}:${acceptedCount}`}
+            version={contentVersion}
           />
         </div>
 
-        {/* 右：AI 对话占位（后续接 copilot 域的 chat 组件） */}
-        <aside className="min-h-0 border-l border-border-light p-3.5 max-[1200px]:hidden">
-          <p className="text-[12px] font-semibold">法穿 AI 助手</p>
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
-            选中原文（或在文档里右键）→ 下指令 → 以修订插入；也可以直接问我。
-          </p>
-          <div className="mt-3 rounded-[8px] border border-border-light bg-secondary/60 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-            对话组件将复用 copilot 域的同一套流式实现，避免两套 UI 分叉。
-          </div>
+        {/* 右：版本链 / AI 对话。版本链展开时占据右栏（同一块地方不并排挤） */}
+        <aside className="flex min-h-0 flex-col border-l border-border-light max-[1200px]:hidden">
+          {showVersions ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex flex-none items-center justify-between border-b border-border-light px-3.5 py-2.5">
+                <span className="text-[12px] font-semibold">版本链</span>
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => setShowVersions(false)}
+                >
+                  收起
+                </button>
+              </div>
+              <VersionChainPanel
+                items={versions}
+                isLoading={versionsLoading}
+                error={versionsError}
+              />
+            </div>
+          ) : (
+            <div className="p-3.5">
+              <p className="text-[12px] font-semibold">法穿 AI 助手</p>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
+                选中原文（或在文档里右键）→ 下指令 → 以修订插入；也可以直接问我。
+              </p>
+              <div className="mt-3 rounded-[8px] border border-border-light bg-secondary/60 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                对话组件将复用 copilot 域的同一套流式实现，避免两套 UI 分叉。
+              </div>
+            </div>
+          )}
         </aside>
       </div>
     </main>
