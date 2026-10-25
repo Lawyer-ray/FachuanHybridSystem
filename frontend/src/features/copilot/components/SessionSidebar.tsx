@@ -22,9 +22,10 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Briefcase, ChevronRight, Clock3, MessageSquare, Pencil, Plus, Scale, Trash2, X } from 'lucide-react'
+import { Brain, Briefcase, ChevronRight, Clock3, MessageSquare, Pencil, Plus, Scale, Trash2, X } from 'lucide-react'
 
 import { deleteSession, getUsageSummary, listSessions, renameSession } from '../api'
+import { MemoryDrawer } from './MemoryDrawer'
 import { groupSessions, taskBadge } from '../domain'
 import { useRailResize } from '../hooks/use-rail-resize'
 import { useCopilot } from '../store'
@@ -305,6 +306,8 @@ export function SessionSidebar({
   const sessions = sessionsQuery.data ?? []
   const groups = groupSessions(sessions)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  // 记忆抽屉：入口在侧边栏底部（与用量摘要同区，属「关于这个助手」的一组）
+  const [memoryOpen, setMemoryOpen] = useState(false)
   /** 当前项目所在分组的 key（无 context 时为 null = 通用/任务视图） */
   const currentGroupKey = context
     ? `${context.origin}:${context.refId}`
@@ -410,6 +413,19 @@ export function SessionSidebar({
           )
         })}
       </div>
+
+      <div className="flex-none border-t border-border px-2 py-1.5">
+        <button
+          type="button"
+          className="flex w-full items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
+          onClick={() => setMemoryOpen(true)}
+        >
+          <Brain className="h-3.5 w-3.5 opacity-70" />
+          助手记忆
+        </button>
+      </div>
+
+      <MemoryDrawer open={memoryOpen} onOpenChange={setMemoryOpen} />
 
       <UsageFooter />
 
