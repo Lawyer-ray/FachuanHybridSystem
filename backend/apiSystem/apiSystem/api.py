@@ -224,6 +224,11 @@ def _register_app_routers() -> None:
     api_v1.add_router("/enterprise-data", enterprise_data_router, auth=JWTOrSessionAuth(), tags=["企业数据查询"])
     api_v1.add_router("/reminders", reminders_router)
     api_v1.add_router("/inbox", inbox_router)
+    # 客户上传链接公开端点：无登录，token（X-Upload-Token 头）即凭证，
+    # 端点各自 auth=None + 限流（见 apps/message_hub/api/public_upload_api.py）
+    from apps.message_hub.api.public_upload_api import router as public_upload_router
+
+    api_v1.add_router("/public", public_upload_router, tags=["客户上传链接"])
     api_v1.add_router("/chat-records", chat_records_router, tags=["梳理聊天记录"])
     # router 自带 JWTOrSessionAuth；/file 与 /callback 端点在自身装饰器上 auth=None
     api_v1.add_router("/onlyoffice", onlyoffice_router)

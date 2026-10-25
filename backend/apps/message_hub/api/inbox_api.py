@@ -74,7 +74,10 @@ def list_messages(  # pragma: no cover
     if source_id is not None:
         qs = qs.filter(source_id=source_id)
     if source_type is not None:
-        qs = qs.filter(source__source_type=source_type)
+        # 逗号分隔多值（如 "manual_upload,client_upload"）：材料预处理桌面
+        # 同时收律师手动包与客户链接包；单值用法完全兼容
+        types = [s.strip() for s in source_type.split(",") if s.strip()]
+        qs = qs.filter(source__source_type__in=types)
     if has_attachments is not None:
         qs = qs.filter(has_attachments=has_attachments)
     if search:

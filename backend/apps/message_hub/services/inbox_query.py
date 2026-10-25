@@ -10,8 +10,14 @@ from apps.message_hub.models import InboxMessage, MessageSource
 
 
 def get_base_queryset() -> QuerySet[InboxMessage]:  # pragma: no cover
-    """获取收件箱消息基础查询集（含 source、credential 与上传人关联）。"""
-    return InboxMessage.objects.select_related("source", "source__credential", "uploaded_by").order_by("-received_at")
+    """获取收件箱消息基础查询集（含 source、credential、上传人与客户链接关联）。"""
+    return InboxMessage.objects.select_related(
+        "source",
+        "source__credential",
+        "uploaded_by",
+        "upload_link",
+        "upload_link__contract",
+    ).order_by("-received_at")
 
 
 def get_message_or_none(pk: int) -> InboxMessage | None:

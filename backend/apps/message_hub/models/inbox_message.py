@@ -52,6 +52,15 @@ class InboxMessage(models.Model):
         related_name="uploaded_inbox_messages",
         verbose_name="上传人",
     )
+    # 客户链接上传的包指向来源链接（归属=链接创建律师，项目绑定徽标/归案预选用）
+    upload_link = models.ForeignKey(
+        "message_hub.ClientUploadLink",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="messages",
+        verbose_name="来源上传链接",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="入库时间")
 

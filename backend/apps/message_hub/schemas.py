@@ -60,6 +60,11 @@ class InboxMessageOut(SchemaMixin, Schema):
     mats: int = 0
     types: list[str] = []
     compose: str = ""
+    # 客户链接上传的包：来源链接与项目绑定徽标（归案弹窗预选用）
+    upload_link_id: int | None = None
+    upload_link_title: str = ""
+    upload_contract_id: int | None = None
+    upload_contract_name: str = ""
 
     @staticmethod
     def resolve_status(obj: InboxMessage) -> str:
@@ -168,6 +173,24 @@ class InboxMessageOut(SchemaMixin, Schema):
     def resolve_created_at(obj: InboxMessage) -> str:
         return SchemaMixin._resolve_datetime_iso(obj.created_at) or ""
 
+    @staticmethod
+    def resolve_upload_link_id(obj: InboxMessage) -> int | None:
+        return obj.upload_link_id if obj.upload_link_id else None
+
+    @staticmethod
+    def resolve_upload_link_title(obj: InboxMessage) -> str:
+        return str(obj.upload_link.title) if obj.upload_link else ""
+
+    @staticmethod
+    def resolve_upload_contract_id(obj: InboxMessage) -> int | None:
+        return obj.upload_link.contract_id if obj.upload_link and obj.upload_link.contract_id else None
+
+    @staticmethod
+    def resolve_upload_contract_name(obj: InboxMessage) -> str:
+        if not obj.upload_link or not obj.upload_link.contract:
+            return ""
+        return str(obj.upload_link.contract.name)
+
 
 class InboxMessageDetailOut(InboxMessageOut):
     """收件箱消息详情（含正文和附件详情）。"""
@@ -184,3 +207,99 @@ class InboxMessageDetailOut(InboxMessageOut):
     @staticmethod
     def resolve_draft_state(obj: InboxMessage) -> dict[str, Any]:
         return obj.draft_state or {}
+
+
+# ---------------------------------------------------------------------------
+# 客户上传链接
+# ---------------------------------------------------------------------------
+
+
+class UploadLinkCreateIn(Schema):
+    """创建链接入参。"""
+
+    title: str
+    note: str = ""
+    client_name: str = ""
+    contract_id: int | None = None
+    expires_days: int = 30
+
+
+class UploadLinkOut(SchemaMixin, Schema):
+    """客户上传链接（律师端列表行；token 明文绝不在此出现）。"""
+
+    id: int
+    title: str
+    note: str
+    client_name: str
+    contract_id: int | None = None
+    contract_name: str = ""
+    status: str
+    state: str
+    expires_at: str
+    created_at: str
+    pack_count: int
+    used_bytes: int
+    quota_total_bytes: int
+    quota_max_packs: int
+    last_uploaded_at: str | None = None
+
+    @staticmethod
+    def resolve_state(obj: Any) -> str:
+        from apps.message_hub.services.client_upload_service import link_state
+
+        return link_state(obj)
+
+    @staticmethod
+    def resolve_contract_id(obj: Any) -> int | None:
+        return obj.contract_id if obj.contract_id else None
+
+    @staticmethod
+    def resolve_contract_name(obj: Any) -> str:
+        return str(obj.contract.name) if obj.contract else ""
+
+    @staticmethod
+    def resolve_expires_at(obj: Any) -> str:
+        return SchemaMixin._resolve_datetime_iso(obj.expires_at) or ""
+
+    @staticmethod
+    def resolve_created_at(obj: Any) -> str:
+        return SchemaMixin._resolve_datetime_iso(obj.created_at) or ""
+
+    @staticmethod
+    def resolve_last_uploaded_at(obj: Any) -> str | None:
+        if not obj.last_uploaded_at:
+            return None
+        return SchemaMixin._resolve_datetime_iso(obj.last_uploaded_at)
+
+
+class UploadLinkCreatedOut(UploadLinkOut):
+    """创建 / 轮换响应：附带 token 明文（仅此一次，前端即时组装分享 URL）。"""
+
+    token: str
+
+
+class PublicLinkInfoOut(Schema):
+    """公开链接信息（token 持有者可见；不含律师端统计细节）。"""
+
+    title: str
+    note: str
+    client_name: str
+    lawyer_name: str
+    contract_name: str = ""
+    state: str
+    expires_at: str
+    remaining_bytes: int
+
+
+class PublicUploadFileOut(Schema):
+    """公开侧文件条目（仅文件名与大小）。"""
+
+    filename: str
+    size: int
+
+
+class PublicUploadOut(Schema):
+    """公开上传响应：本批已收文件与剩余额度。"""
+
+    files: list[PublicUploadFileOut]
+    remaining_bytes: int
