@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tool_shaping import list_result
@@ -10,14 +12,17 @@ from mcp_server.tools.core.projection import CASE_LIST_FIELDS, project_list
 
 
 def list_cases(
-    case_type: str | None = None,
-    status: str | None = None,
-    case_number: str | None = None,
-    contract_id: int | None = None,
-    limit: int = 40,
-    offset: int = 0,
-    fields: list[str] | None = None,
-    full: bool = False,
+    case_type: Annotated[
+        str | None,
+        Field(description="按案件类型筛选:civil 民事 / administrative 行政 / criminal 刑事 / execution 申请执行 / bankruptcy 破产"),
+    ] = None,
+    status: Annotated[str | None, Field(description="按状态筛选(如 active / closed)")] = None,
+    case_number: Annotated[str | None, Field(description="按案号精确/模糊查询")] = None,
+    contract_id: Annotated[int | None, Field(description="按所属合同筛选")] = None,
+    limit: Annotated[int, Field(description="最多返回条数(默认 40,上限 2000;投影后约 0.4KB/条,默认调用应留在 20KB 截断线内)", ge=1, le=2000)] = 40,
+    offset: Annotated[int, Field(description="跳过前 offset 条再取——truncated=true 时续取翻页用(第 N 页传 offset=N×limit)", ge=0)] = 0,
+    fields: Annotated[list[str] | None, Field(description="只返回这些字段;不传用默认 14 字段精简投影")] = None,
+    full: Annotated[bool, Field(description="True 时返回后端完整结构(含当事人、日志等全部嵌套,体量大)")] = False,
 ) -> dict[str, Any]:
     """查询案件列表。
 
@@ -59,7 +64,12 @@ def list_cases(
     return list_result(project_list(rows, fields, CASE_LIST_FIELDS, full=full), limit=limit)
 
 
-def search_cases(q: str, limit: int = 10, offset: int = 0, fields: list[str] | None = None) -> dict[str, Any]:
+def search_cases(
+    q: Annotated[str, Field(description="搜索关键词(案件名/当事人姓名/案号)")],
+    limit: Annotated[int, Field(description="最多返回条数(默认 10)", ge=1)] = 10,
+    offset: Annotated[int, Field(description="跳过前 offset 条再取——续取翻页用", ge=0)] = 0,
+    fields: Annotated[list[str] | None, Field(description="只返回这些字段;不传用默认投影")] = None,
+) -> dict[str, Any]:
     """按关键词搜索案件，支持案件名称、当事人姓名等模糊搜索。
 
     搜索端点返回**未投影的全量嵌套 DTO**（实测 ~12.5KB/条——含当事人/日志

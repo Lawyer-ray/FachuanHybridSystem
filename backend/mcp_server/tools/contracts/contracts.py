@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import FachuanApiError, client
 from mcp_server.tool_shaping import list_result
@@ -10,15 +12,20 @@ from mcp_server.tools.core.projection import CONTRACT_LIST_FIELDS, project_page
 
 
 def list_contracts(
-    case_type: str | None = None,
-    status: str | None = None,
-    search: str | None = None,
-    fee_mode: str | None = None,
-    is_filed: bool | None = None,
-    page: int = 1,
-    page_size: int = 20,
-    fields: list[str] | None = None,
-    full: bool = False,
+    case_type: Annotated[
+        str | None, Field(description="按案件类型筛选(civil/criminal/administrative/labor/intl/special/advisor)")
+    ] = None,
+    status: Annotated[str | None, Field(description="按合同状态筛选(unsigned 未签约/active 在办/archived 已归档)")] = None,
+    search: Annotated[str | None, Field(description="按合同名称模糊搜索")] = None,
+    fee_mode: Annotated[
+        str | None,
+        Field(description="按收费方式筛选(大写:FIXED 固定/SEMI_RISK 半风险/FULL_RISK 全风险/CUSTOM 自定义)"),
+    ] = None,
+    is_filed: Annotated[bool | None, Field(description="按是否已建档筛选")] = None,
+    page: Annotated[int, Field(description="页码,从 1 开始(本工具用 page 翻页,不用 offset)", ge=1)] = 1,
+    page_size: Annotated[int, Field(description="每页条数(默认 20,上限 200)", ge=1, le=200)] = 20,
+    fields: Annotated[list[str] | None, Field(description="只返回这些字段(如 [\"id\",\"name\",\"status\",\"fixed_amount\"]);不传用默认 17 字段投影")] = None,
+    full: Annotated[bool, Field(description="True 返回完整结构(含全部嵌套,体量大),仅在需要当事人/收款明细时用")] = False,
 ) -> dict[str, Any]:
     """查询合同列表（服务端分页）。
 
@@ -69,21 +76,43 @@ def get_contract(contract_id: int) -> dict[str, Any]:
 
 
 def create_contract(
-    name: str,
-    case_type: str,
-    lawyer_ids: list[int],
-    status: str | None = None,
-    fixed_amount: float | None = None,
-    fee_mode: str | None = None,
-    risk_rate: float | None = None,
-    custom_terms: str | None = None,
-    representation_stages: list[str] | None = None,
-    specified_date: str | None = None,
-    start_date: str | None = None,
-    end_date: str | None = None,
-    parties: list[dict[str, Any]] | None = None,
-    payments: list[dict[str, Any]] | None = None,
-    confirm_finance: bool = False,
+    name: Annotated[str, Field(description="合同名称")],
+    case_type: Annotated[
+        str,
+        Field(description="案件类型(英文键):civil 民商事 / criminal 刑事 / administrative 行政 / labor 劳动仲裁 / intl 商事仲裁 / special 专项服务 / advisor 常法顾问"),
+    ],
+    lawyer_ids: Annotated[list[int], Field(description="律师 ID 列表,第一个为主办律师")],
+    status: Annotated[str | None, Field(description="合同状态(unsigned 未签约/active 在办/archived 已归档),新建一般留空")] = None,
+    fixed_amount: Annotated[float | None, Field(description="固定代理费金额;FIXED/SEMI_RISK 模式必填(>0)", gt=0)] = None,
+    fee_mode: Annotated[
+        str | None,
+        Field(
+            description=(
+                "收费方式(大写枚举,写错值会绕过金额校验静默落库):"
+                "FIXED 固定(需 fixed_amount>0)/SEMI_RISK 半风险(需 fixed_amount>0 且 risk_rate>0)/"
+                "FULL_RISK 全风险(需 risk_rate>0)/CUSTOM 自定义(需 custom_terms)"
+            )
+        ),
+    ] = None,
+    risk_rate: Annotated[float | None, Field(description="风险代理比例(SEMI_RISK/FULL_RISK 必填,>0)", gt=0)] = None,
+    custom_terms: Annotated[str | None, Field(description="自定义条款文本,CUSTOM 模式必填")] = None,
+    representation_stages: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "代理阶段(英文键,中文值必被拒):first_trial 一审/second_trial 二审/enforcement 执行/"
+                "labor_arbitration 劳动仲裁/administrative_review 行政复议/private_prosecution 自诉/"
+                "investigation 侦查/prosecution_review 审查起诉/retrial_first/retrial_second 重审;"
+                "仅民商事/刑事/行政/劳动/商事仲裁类合同适用"
+            )
+        ),
+    ] = None,
+    specified_date: Annotated[str | None, Field(description="关键日期,YYYY-MM-DD")] = None,
+    start_date: Annotated[str | None, Field(description="起始日期,YYYY-MM-DD")] = None,
+    end_date: Annotated[str | None, Field(description="结案日期,YYYY-MM-DD")] = None,
+    parties: Annotated[list[dict[str, Any]] | None, Field(description="当事人列表(每项含身份与客户信息);合同当事人是后续立案、文书生成的数据源,缺省则合同下无当事人")] = None,
+    payments: Annotated[list[dict[str, Any]] | None, Field(description="收款记录列表,创建时一并写入")] = None,
+    confirm_finance: Annotated[bool, Field(description="是否确认财务变动(与 payments 一起决定是否落财务)")] = False,
 ) -> dict[str, Any]:
     """创建新合同。
 
