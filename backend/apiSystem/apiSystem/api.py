@@ -305,6 +305,13 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/agent", agent_router, tags=["Agent"])
 
+    # Agent 记忆工具面(mcp_server agent_memory)的后端端点:工具调
+    # /agent/memory/*,router 不注册则 5 个工具运行时静默 404(契约门禁
+    # test_rest_path_contract / test_output_contract 报红即此因)。
+    from apps.agent.api.memory_api import router as agent_memory_router
+
+    api_v1.add_router("/agent/memory", agent_memory_router)
+
     from apps.doc_converter.api import router as doc_converter_router
 
     api_v1.add_router("/doc-converter", doc_converter_router, auth=JWTOrSessionAuth(), tags=["DOC 转 DOCX"])
