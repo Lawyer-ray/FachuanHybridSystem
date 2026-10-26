@@ -60,6 +60,10 @@ _SELF_ASSEMBLED_OUTPUT = frozenset(
         "get_async_task_status",
         # 本地生成，不打 REST
         "get_server_time",
+        # 拉全量列表后在本地做关键词过滤/排序，返回 {memories, note}
+        "recall_memory",
+        # 拉全量后按 status=pending 重新包装为 {pending: [...]}
+        "list_pending_memories",
     }
 )
 
@@ -252,6 +256,12 @@ def test_output_contract_matches_backend(openapi: dict[str, Any], registered_too
         if payload is None:
             continue
 
+        # 信封化工具(源码含 list_result( 标记):SDK 会把裸 list 逐项拆成
+        # 独立 TextContent、空列表变成零内容块,故统一包 {total, items}。
+        # 这里把后端响应同样包一层再校验,items 形状仍受契约约束。
+        if "list_result(" in segment:
+            payload = {"total": len(payload) if isinstance(payload, list) else 1, "items": payload}
+
         checked += 1
         try:
             tool.fn_metadata.convert_result(payload)
@@ -293,6 +303,44 @@ def test_binary_download_tools_use_download(registered_tools: dict[str, Any]) ->
 
     assert not offenders, "以下 download_* 工具用 client.get/post 请求二进制端点，会因 resp.json() 崩溃：" + ", ".join(
         sorted(offenders)
+    )
+
+
+#: 发了 REST 请求但 _rest_call_of 静态识别不了的合法形态(动态分发/多端点
+#: 聚合)。新增豁免必须写明原因——它们**不受路径/参数契约保护**,改其请求
+#: 构造时须人工对照 OpenAPI。
+_DYNAMIC_CALL_ALLOWLIST = {
+    # 按 kind 从 _KINDS 模板表动态取路径(template.format),静态匹配器看不到
+    "get_async_task_status",
+    # 目录树聚合(多端点+本地组装),返回 list[TextContent] 多块设计
+    "list_folder_files",
+}
+
+
+def test_requesting_tools_are_contract_visible(registered_tools: dict[str, Any]) -> None:
+    """发 REST 请求的工具必须能被 _rest_call_of 识别——否则路径/参数/
+    输出三张契约全部对它失明,契约漂移无人报错(2026-10-25 审计十一轮)。
+
+    409 工具实测:未识别的 8 个里 6 个是纯本地/外部工具(不发 REST),
+    2 个走登记豁免。本门禁把「新增发请求工具但模式没被识别」变成红灯。
+    """
+    sources = {name: segment for name, _file, segment in _iter_tool_functions()}
+    offenders: list[str] = []
+    for name, tool in sorted(registered_tools.items()):
+        segment = sources.get(name)
+        if segment is None or name in _DYNAMIC_CALL_ALLOWLIST:
+            continue
+        makes_request = any(
+            f"client.{method}(" in segment
+            for method in ("get", "post", "put", "patch", "delete", "upload", "download", "request")
+        )
+        if makes_request and _rest_call_of(segment) is None:
+            offenders.append(name)
+
+    assert not offenders, (
+        "以下工具发 REST 请求但 _rest_call_of 识别不了(三张契约全部失明),"
+        "若是动态分发/聚合形态请登记 _DYNAMIC_CALL_ALLOWLIST 并写明原因: "
+        + ", ".join(offenders)
     )
 
 
@@ -349,6 +397,12 @@ def test_required_params_are_exposed(openapi: dict[str, Any], registered_tools: 
             required_body = list(body_schema["required"])
 
         missing_query = [item for item in required_query if item not in accepted and not has_var_kwargs]
+        # query 参数与 body 同口径：允许源码里显式映射（如 `q` → 更语义化的
+        # `query` 参数：params={"q": query}）。工具面对模型的参数名应当语义化，
+        # 不能让模型去猜 `q` 是什么意思；只要源码里写死了该 key 就算已暴露。
+        missing_query = [
+            item for item in missing_query if not (f'"{item}"' in segment or f"'{item}'" in segment)
+        ]
         # body 必填字段允许两种暴露方式：同名参数，或源码里写死了该 JSON key
         # （如 `target_item_code` 参数 → json={"target_code": target_item_code}）
         missing_body: list[str] = []

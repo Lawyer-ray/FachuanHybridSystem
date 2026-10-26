@@ -206,7 +206,7 @@ function setupNav() {
           <Routes>
             <Route path="/" element={<div>home-page</div>} />
             <Route path="/material-prep" element={<div>desk-page</div>} />
-            <Route path="/cases" element={<NeverReadyPage />} />
+            <Route path="/projects" element={<NeverReadyPage />} />
           </Routes>
         </Suspense>
       </MemoryRouter>
@@ -223,7 +223,7 @@ describe('AppNavbar 导航入口：预取与乐观高亮', () => {
     fireEvent.mouseEnter(screen.getByRole('link', { name: '材料预处理' }))
     expect(onPrefetch).toHaveBeenCalledWith('/material-prep')
     fireEvent.focus(screen.getByRole('link', { name: '办案' }))
-    expect(onPrefetch).toHaveBeenCalledWith('/cases')
+    expect(onPrefetch).toHaveBeenCalledWith('/projects')
   })
 
   it('点击导航入口：路由跳转并高亮目标，原入口取消高亮', async () => {

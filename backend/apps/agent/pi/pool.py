@@ -154,6 +154,8 @@ class PiProcessPool:
         session_env: dict[str, str] | None = None,
         model: str | None = None,
         session_id: str | None = None,
+        tool_selection: str | None = None,
+        skill_paths: list[str] | None = None,
     ) -> AsyncIterator[PiRpcSession]:
         """构造一个 pi 会话，退出时销毁进程并清理临时目录。
 
@@ -162,6 +164,9 @@ class PiProcessPool:
             model: 本请求使用的模型；缺省用池配置里的模型。按请求传入使
                 Admin 修改 LLMProvider 默认模型后立即生效（``--model`` 与
                 models.json 同源，不会失配）。
+            skill_paths: 本会话注入的 Agent Skills 目录（``--skill``）。
+                ``None`` 表示不注入任何技能（配合 rpc_client 恒定的
+                ``--no-skills``，宿主机用户级技能不会混进来）。
 
         三条纪律：
 
@@ -187,6 +192,20 @@ class PiProcessPool:
         try:
             async with self._slot():
                 try:
+                    # 自愈共享 MCP：原实现只在进程池首次创建时拉一次，
+                    # 之后 MCP 崩了就「所有会话无工具直到 Django 重启」。
+                    # 每次拿到执行位都 ensure 一把（幂等，端口在就秒回）；
+                    # 新拉实例等到 ready 再放行 pi 连接（冷启动 ~6s）。
+                    # ensure 失败只降级（无工具但能对话），下次 acquire 重试。
+                    if self._config.mcp_endpoint is not None:
+                        from asgiref.sync import sync_to_async
+
+                        from .shared_mcp import ensure_shared_server
+
+                        with contextlib.suppress(OSError):
+                            await sync_to_async(ensure_shared_server, thread_sensitive=False)(
+                                self._config.mcp_endpoint, wait_ready=True
+                            )
                     # write_pi_config 会读数据库（LLMProvider），放线程里跑，
                     # 否则 async 上下文抛 SynchronousOnlyOperation。
                     from asgiref.sync import sync_to_async
@@ -207,6 +226,8 @@ class PiProcessPool:
                         extra_env=env,
                         session_dir=session_dir,
                         session_id=session_id,
+                        tool_selection=tool_selection,
+                        skill_paths=skill_paths,
                     )
                     await session.start()
                     yield session

@@ -5,21 +5,23 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from mcp_server.client import client
+from mcp_server.client import FachuanApiError, client
 
 
 def submit_court_sms(
     content: str,
     received_at: str | None = None,
-    sender: str | None = None,
 ) -> dict[str, Any]:
-    """提交法院短信。content 为短信内容；received_at 为接收时间（ISO格式）；sender 为发件人号码。"""
+    """提交一条法院短信进入解析流水线（状态查询用 list_court_sms）。
+
+    content 为短信全文；received_at 为接收时间（ISO 格式，缺省取当前）。
+    端点只接受这两个字段——法院短信的发件人号码系统不落库,传了会被
+    静默忽略（2026-10-25 移除该假参数）。
+    """
     payload: dict[str, Any] = {"content": content}
     if received_at:
         payload["received_at"] = received_at
-    if sender:
-        payload["sender"] = sender
-    return client.post("/automation/court-sms", json=payload)  # type: ignore[return-value]
+    return client.post("/automation/court-sms", json=payload)  # type: ignore[no-any-return]
 
 
 def list_court_sms(
@@ -32,8 +34,11 @@ def list_court_sms(
     """查询法院短信列表。
 
     Args:
-        status: 处理状态（pending / processing / completed / failed）。
-        sms_type: 短信类型。
+        status: 处理状态，取值：pending / parsing / downloading / download_failed /
+            matching / pending_manual（待人工处理）/ renaming / notifying /
+            completed / failed。
+        sms_type: 短信类型（document_delivery 文书送达 / info_notification
+            信息通知 / filing_notification 立案通知）。
         has_case: True 只查已关联案件的。
         date_from / date_to: 接收时间范围（YYYY-MM-DD）。
 
@@ -53,9 +58,9 @@ def list_court_sms(
         params["date_from"] = date_from
     if date_to:
         params["date_to"] = date_to
-    payload: dict[str, Any] = client.get("/automation/court-sms", params=params)  # type: ignore[assignment]
+    payload: dict[str, Any] = client.get("/automation/court-sms", params=params)
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
-        raise RuntimeError(
+        raise FachuanApiError(
             f"/automation/court-sms 返回了非分页结构: {type(payload).__name__}；后端契约可能已变更，请检查"
         )
     return payload
@@ -63,21 +68,21 @@ def list_court_sms(
 
 def get_court_sms_detail(sms_id: int) -> dict[str, Any]:
     """查询单条法院短信的处理详情，包含解析结果和关联案件信息。"""
-    return client.get(f"/automation/court-sms/{sms_id}")  # type: ignore[return-value]
+    return client.get(f"/automation/court-sms/{sms_id}")  # type: ignore[no-any-return]
 
 
 def assign_sms_case(sms_id: int, case_id: int) -> dict[str, Any]:
     """手动为法院短信指定关联案件（自动匹配失败时使用）。"""
-    return client.post(f"/automation/court-sms/{sms_id}/assign-case", json={"case_id": case_id})  # type: ignore[return-value]
+    return client.post(f"/automation/court-sms/{sms_id}/assign-case", json={"case_id": case_id})  # type: ignore[no-any-return]
 
 
 def retry_sms_processing(sms_id: int) -> dict[str, Any]:
     """重新处理法院短信。已绑定案件的保留关联，仅重新执行下载/重命名/通知；未绑定的重新执行完整流程。"""
-    return client.post(f"/automation/court-sms/{sms_id}/retry", json={})  # type: ignore[return-value]
+    return client.post(f"/automation/court-sms/{sms_id}/retry", json={})  # type: ignore[no-any-return]
 
 
 def delete_court_sms(sms_id: int) -> None:
-    """删除法院短信记录。此操作不可逆。"""
+    """删除法院短信记录——硬删除,不可恢复。"""
     client.delete(f"/automation/court-sms/{sms_id}")
 
 
@@ -87,6 +92,10 @@ def download_sms_documents(sms_id: int) -> dict[str, Any]:
     返回 ``{filename, content_type, data_base64}``，与 ``download_sms_document``
     一致。早前用 ``client.get`` 请求该端点并声明 ``list[dict]``——后端是
     ``FileResponse`` 二进制流，``resp.json()`` 必然抛异常，工具永久不可用。
+
+    体积预期：整包 ZIP 通常超过 15KB 的 b64 返回上限（超限会被拒绝并说明
+    替代路径）；批量文书请引导用户在前端下载,模型侧优先用
+    download_sms_document 取单件。
     """
     content, filename, content_type = client.download(f"/automation/court-sms/{sms_id}/documents/download-all")
     return {

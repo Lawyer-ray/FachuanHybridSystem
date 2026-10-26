@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_case_numbers(case_id: int) -> list[dict[str, Any]]:
-    """查询指定案件的所有案号记录。"""
-    return client.get("/cases/case-numbers", params={"case_id": case_id})  # type: ignore[return-value]
+def list_case_numbers(case_id: int) -> dict[str, Any]:
+    """查询案件的所有案号记录（一审/二审/执行等可多个）。"""
+    return list_result(client.get("/cases/case-numbers", params={"case_id": case_id}))
 
 
 def create_case_number(case_id: int, number: str, remarks: str | None = None) -> dict[str, Any]:
@@ -17,24 +18,30 @@ def create_case_number(case_id: int, number: str, remarks: str | None = None) ->
     payload: dict[str, Any] = {"case_id": case_id, "number": number}
     if remarks:
         payload["remarks"] = remarks
-    return client.post("/cases/case-numbers", json=payload)  # type: ignore[return-value]
+    return client.post("/cases/case-numbers", json=payload)  # type: ignore[no-any-return]
 
 
 def get_case_number(number_id: int) -> dict[str, Any]:
-    """获取单个案号详情。"""
-    return client.get(f"/cases/case-numbers/{number_id}")  # type: ignore[return-value]
+    """获取单条案号记录详情（案号字符串、备注）。"""
+    return client.get(f"/cases/case-numbers/{number_id}")  # type: ignore[no-any-return]
 
 
 def update_case_number(number_id: int, number: str | None = None, remarks: str | None = None) -> dict[str, Any]:
-    """更新案号信息。只传需要修改的字段。"""
+    """更新案号或备注。只传需要修改的字段。
+
+    Args:
+        number_id: 案号记录 ID(见案件的案号列表)。
+        number: 案号文本(如 (20XX)粤01民初某某号)。
+        remarks: 备注。
+    """
     payload: dict[str, Any] = {}
     if number is not None:
         payload["number"] = number
     if remarks is not None:
         payload["remarks"] = remarks
-    return client.put(f"/cases/case-numbers/{number_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/cases/case-numbers/{number_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_case_number(number_id: int) -> None:
-    """删除案号记录。"""
+    """删除一条案号记录——硬删除,不可恢复（不影响案件本身）。"""
     client.delete(f"/cases/case-numbers/{number_id}")

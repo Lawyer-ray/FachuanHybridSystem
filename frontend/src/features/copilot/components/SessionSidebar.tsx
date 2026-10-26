@@ -1,9 +1,16 @@
 /**
  * 会话列表：新对话 / 切换 / 行内重命名 / 删除（确认后执行）。
  *
- * 全局模式按**业务范围分组**（类 IDE 项目分组：委托/案件各一组，后台任务
- * 与通用对话兜底组），组头可折叠、超 5 条折叠显示「显示更多」；业务范围
- * 模式（context）列表天然只含单一范围，保持平铺不分。
+ * 布局照 ZCode 侧边栏：**始终展示全部会话，按项目（业务范围）分组**——
+ * 一个项目 = 一个文件夹，会话平铺在它下面，组头可折叠、超 5 条显示
+ * 「显示更多」。进项目页（context 有值）时不是把列表过滤成只剩本项目，
+ * 而是该项目分组自动展开并高亮，其余项目仍在（律师常要在几个委托间
+ * 来回跳）；此时「新对话」落进当前项目——send 用 store.context 建会话，
+ * 归属天然正确。
+ *
+ * 历史教训：早先 context 模式直接按 scope 查后端、只列单一范围，等于进
+ * 了项目就看不到别的项目会话，切换必须退出页面，与「项目=文件夹」的
+ * 心智模型不符。
  *
  * 两种形态共用本组件（variant）：
  * - rail：md+ 常驻窄栏（面板双栏布局的左列），无关闭钮、无滑入动画；
@@ -15,10 +22,12 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Briefcase, ChevronRight, Clock3, MessageSquare, Pencil, Plus, Scale, Trash2, X } from 'lucide-react'
+import { Brain, Briefcase, ChevronRight, Clock3, MessageSquare, Pencil, Plus, Scale, Trash2, X } from 'lucide-react'
 
 import { deleteSession, getUsageSummary, listSessions, renameSession } from '../api'
+import { MemoryDrawer } from './MemoryDrawer'
 import { groupSessions, taskBadge } from '../domain'
+import { useRailResize } from '../hooks/use-rail-resize'
 import { useCopilot } from '../store'
 import type { AgentSession, SessionGroup } from '../types'
 import {
@@ -96,8 +105,10 @@ function SessionRow({
       role="button"
       tabIndex={0}
       aria-current={active ? 'true' : undefined}
-      className={`group flex cursor-pointer items-center gap-2 rounded-[8px] px-2 py-2 text-[13px] transition-colors ${
-        active ? 'bg-secondary text-foreground' : 'text-secondary-foreground hover:bg-secondary/60'
+      className={`group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-1.5 pr-1.5 pl-2 text-[12.5px] transition-colors ${
+        active
+          ? 'bg-secondary font-medium text-foreground'
+          : 'text-secondary-foreground hover:bg-secondary/50'
       }`}
       onClick={onSwitch}
       onKeyDown={(e) => {
@@ -108,7 +119,7 @@ function SessionRow({
         }
       }}
     >
-      <MessageSquare className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+      <MessageSquare className={`h-3 w-3 flex-none ${active ? 'text-foreground/70' : 'text-muted-foreground/70'}`} />
       <span className="min-w-0 flex-1 truncate">{session.title || '未命名对话'}</span>
       {badge && (
         <span
@@ -179,6 +190,7 @@ function UsageFooter() {
 function SessionGroupBlock({
   group,
   collapsed,
+  current,
   onToggleCollapsed,
   compact,
   sessionId,
@@ -187,6 +199,8 @@ function SessionGroupBlock({
 }: {
   group: SessionGroup
   collapsed: boolean
+  /** 当前项目分组：组头加粗高亮，让律师一眼看到身在哪个委托 */
+  current: boolean
   onToggleCollapsed: () => void
   compact: boolean
   sessionId: string | null
@@ -199,24 +213,41 @@ function SessionGroupBlock({
   const hidden = group.sessions.length - visible.length
   const Icon = GROUP_ICON[group.kind]
   return (
-    <section aria-label={`会话分组 ${group.label}`}>
+    <section aria-label={`会话分组 ${group.label}`} className="mb-1.5">
+      {/* 组头 = 文件夹层：小字号 + 重字重 + 浅缩进，与下层会话行拉开层级；
+          当前项目在左缘加一条实心强调条，和「你正站在这个委托里」对应 */}
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-left text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+        className={`relative flex w-full items-center gap-1.5 rounded-[7px] py-1.5 pr-2 pl-2.5 text-left transition-colors hover:bg-secondary/70 ${
+          current ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
         onClick={onToggleCollapsed}
         aria-expanded={!collapsed}
+        aria-current={current ? 'true' : undefined}
       >
+        {current && (
+          <span aria-hidden className="absolute top-1.5 bottom-1.5 left-0 w-[2.5px] rounded-full bg-foreground" />
+        )}
         <ChevronRight
-          className={`h-3 w-3 flex-none transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}
+          className={`h-3 w-3 flex-none opacity-60 transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}
         />
-        <Icon className="h-3.5 w-3.5 flex-none" />
-        <span className="min-w-0 flex-1 truncate" title={group.label}>
+        <Icon className={`h-3.5 w-3.5 flex-none ${current ? 'opacity-100' : 'opacity-70'}`} />
+        <span
+          className={`min-w-0 flex-1 truncate text-[12px] tracking-[0.01em] ${current ? 'font-[650]' : 'font-medium'}`}
+          title={group.label}
+        >
           {group.label}
         </span>
-        <span className="flex-none tabular-nums opacity-70">{group.sessions.length}</span>
+        {group.sessions.length > 1 && (
+          <span className="flex-none rounded-[5px] bg-foreground/5 px-1.5 py-px text-[10.5px] leading-4 tabular-nums text-muted-foreground">
+            {group.sessions.length}
+          </span>
+        )}
       </button>
       {!collapsed && (
-        <div className="mt-0.5">
+        /* 会话区整体右移，并在左缘画一条贯通引导线：文件挂在文件夹下面，
+           层级靠「缩进 + 引导线」表达，而不是只靠图标区分 */
+        <div className="relative mt-0.5 mb-1 ml-[13px] space-y-px border-l border-border/70 pl-2">
           {visible.map((s) => (
             <SessionRow
               key={s.session_id}
@@ -230,7 +261,7 @@ function SessionGroupBlock({
           {hidden > 0 && (
             <button
               type="button"
-              className="w-full rounded-[6px] px-2 py-1.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="w-full rounded-[6px] px-1.5 py-1.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
               onClick={() => setExpanded(true)}
             >
               显示更多（{hidden}）
@@ -245,21 +276,25 @@ function SessionGroupBlock({
 export function SessionSidebar({
   variant,
   onClose,
+  panelWidth = 0,
 }: {
   variant: 'rail' | 'overlay'
   onClose?: () => void
+  /** 所属面板宽度（rail 形态用它钳制侧栏可拖上限，保证对话区留够宽度） */
+  panelWidth?: number
 }) {
   const sessionId = useCopilot((s) => s.sessionId)
   const context = useCopilot((s) => s.context)
   const switchSession = useCopilot((s) => s.switchSession)
   const queryClient = useQueryClient()
   const [confirmTarget, setConfirmTarget] = useState<AgentSession | null>(null)
+  const { width: railWidth, setRailRef, onHandlePointerDown } = useRailResize(panelWidth)
 
-  const scopeKey = context ? `${context.origin}:${context.refId}` : 'all'
-  const scope = context ? { origin: context.origin, refId: context.refId } : undefined
+  // 始终拉全量（后端按 updated_at 降序 + 注水 scope_name），侧栏按项目分组。
+  // 不再按 scope 过滤：过滤后别的项目会话就消失了，与「项目=文件夹」不符。
   const sessionsQuery = useQuery({
-    queryKey: ['copilot', 'sessions', scopeKey],
-    queryFn: () => listSessions(50, scope),
+    queryKey: ['copilot', 'sessions', 'all'],
+    queryFn: () => listSessions(100),
     refetchOnMount: 'always',
     retry: false,
     // 有排队/运行中的后台任务时轮询：状态落到 succeeded/failed 即停
@@ -269,9 +304,14 @@ export function SessionSidebar({
     },
   })
   const sessions = sessionsQuery.data ?? []
-  /** 分组只在全局模式做：context 模式列表天然是单一范围，分组反而多一层噪音 */
-  const groups = context ? [] : groupSessions(sessions)
+  const groups = groupSessions(sessions)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  // 记忆抽屉：入口在侧边栏底部（与用量摘要同区，属「关于这个助手」的一组）
+  const [memoryOpen, setMemoryOpen] = useState(false)
+  /** 当前项目所在分组的 key（无 context 时为 null = 通用/任务视图） */
+  const currentGroupKey = context
+    ? `${context.origin}:${context.refId}`
+    : null
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteSession(id),
@@ -284,13 +324,30 @@ export function SessionSidebar({
     },
   })
 
-  const rootClass =
-    variant === 'rail'
-      ? 'flex w-[180px] flex-none flex-col border-r border-border bg-card'
-      : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200'
+  const isRail = variant === 'rail'
+  const rootClass = isRail
+    ? 'relative flex flex-none flex-col border-r border-border bg-card'
+    : 'absolute inset-0 z-20 flex animate-in slide-in-from-left flex-col border-r border-border bg-card duration-200'
 
   return (
-    <div className={rootClass}>
+    <div
+      className={rootClass}
+      ref={isRail ? setRailRef : undefined}
+      // rail 宽度走 CSS 变量：拖动中直改它，不触发整树重渲染
+      style={isRail ? ({ '--copilot-rail-w': `${railWidth}px`, width: 'var(--copilot-rail-w)' } as React.CSSProperties) : undefined}
+    >
+      {isRail && (
+        /* 右缘拖宽把手：默认 180px 时客户全称被截成（委托方全称被截断），
+           隔着几个项目分不清；拖宽即可读全名（宽度持久化） */
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整会话列表宽度"
+          className="absolute top-0 right-0 bottom-0 z-30 w-1.5 translate-x-1/2 cursor-col-resize touch-none transition-colors hover:bg-foreground/20"
+          onPointerDown={onHandlePointerDown}
+          data-testid="copilot-rail-handle"
+        />
+      )}
       <header className="flex h-10 flex-none items-center gap-2 border-b border-border px-3">
         <span className="text-[12.5px] font-semibold text-foreground">对话</span>
         {variant === 'overlay' && (
@@ -320,47 +377,55 @@ export function SessionSidebar({
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-1.5 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2">
         {sessionsQuery.isLoading && (
           <p className="py-4 text-center text-[12px] text-muted-foreground">加载中…</p>
         )}
         {!sessionsQuery.isLoading && sessions.length === 0 && (
           <p className="py-4 text-center text-[12px] text-muted-foreground">
-            {context ? `「${context.title}」还没有 AI 会话` : '暂无历史会话'}
+            {context ? `「${context.title}」还没有 AI 会话，问一句就会出现在这里` : '暂无历史会话'}
           </p>
         )}
-        {context
-          ? sessions.map((s) => (
-              <SessionRow
-                key={s.session_id}
-                session={s}
-                active={s.session_id === sessionId}
-                compact={variant === 'rail'}
-                onRequestDelete={() => setConfirmTarget(s)}
-                onSwitch={() => {
-                  if (s.session_id !== sessionId) void switchSession(s.session_id)
-                  onClose?.()
-                }}
-              />
-            ))
-          : groups.map((g) => (
-              <SessionGroupBlock
-                key={g.key}
-                group={g}
-                collapsed={Boolean(collapsedGroups[g.key])}
-                onToggleCollapsed={() =>
-                  setCollapsedGroups((prev) => ({ ...prev, [g.key]: !prev[g.key] }))
-                }
-                compact={variant === 'rail'}
-                sessionId={sessionId}
-                onRequestDelete={setConfirmTarget}
-                onSwitch={(s) => {
-                  if (s.session_id !== sessionId) void switchSession(s.session_id)
-                  onClose?.()
-                }}
-              />
-            ))}
+        {groups.map((g, i) => {
+          // 默认展开规则：当前项目 + 最高位的那个分组展开，其余项目收起——
+          // 照 ZCode「只展开你正在干活/最近用的文件夹，其余是收起的项目行」。
+          // 通用对话/后台任务没有项目归属，不作折叠（它们不是「项目」，
+          // 藏起来只会让人以为历史丢了）。
+          const isCurrent = g.key === currentGroupKey
+          const ungrouped = g.kind === 'chat' || g.kind === 'task'
+          const defaultCollapsed = !ungrouped && !isCurrent && i > 0
+          const collapsed = collapsedGroups[g.key] ?? defaultCollapsed
+          return (
+            <SessionGroupBlock
+              key={g.key}
+              group={g}
+              collapsed={collapsed}
+              current={isCurrent}
+              onToggleCollapsed={() => setCollapsedGroups((prev) => ({ ...prev, [g.key]: !collapsed }))}
+              compact={variant === 'rail'}
+              sessionId={sessionId}
+              onRequestDelete={setConfirmTarget}
+              onSwitch={(s) => {
+                if (s.session_id !== sessionId) void switchSession(s.session_id)
+                onClose?.()
+              }}
+            />
+          )
+        })}
       </div>
+
+      <div className="flex-none border-t border-border px-2 py-1.5">
+        <button
+          type="button"
+          className="flex w-full items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-secondary/70 hover:text-foreground"
+          onClick={() => setMemoryOpen(true)}
+        >
+          <Brain className="h-3.5 w-3.5 opacity-70" />
+          助手记忆
+        </button>
+      </div>
+
+      <MemoryDrawer open={memoryOpen} onOpenChange={setMemoryOpen} />
 
       <UsageFooter />
 

@@ -20,6 +20,30 @@ from apps.agent.services import approval as approval_mod
 
 TEST_PASSWORD = "x-test-12345678"  # pragma: allowlist secret
 
+#: 等待审批落库的上限（秒）。比固定 sleep 长：首次用例要建 DB 连接池 +
+#: 查用户策略 + 查会话 + create，实测在本机冷启动下需要 ~550ms。
+_LANDING_TIMEOUT = 5.0
+
+
+async def _wait_approval_landed(session: AgentSession) -> AgentApproval | None:
+    """等到审批记录落库（轮询条件，而不是睡固定时长）。
+
+    为什么不能用 ``sleep(0.15)``：那是一份「本机当前恰好够快」的假设。
+    实测首次用例落库要 ~550ms（建连接池 + 策略查询 + 会话查询 + create），
+    固定短睡会让断言随机失败，且失败信息（record is None）看起来像
+    「审批没落库」这个业务 bug——而真相是测试自己赌错了时间。
+
+    轮询「条件成立」则在快机和慢机上都正确，且不弱化任何断言：
+    超时后仍然返回 None，断言照旧会报错。
+    """
+    deadline = asyncio.get_running_loop().time() + _LANDING_TIMEOUT
+    while asyncio.get_running_loop().time() < deadline:
+        record = await AgentApproval.objects.filter(session=session).afirst()
+        if record is not None:
+            return record
+        await asyncio.sleep(0.02)
+    return None
+
 
 class TestOriginAndScoping:
     @pytest.mark.django_db(transaction=True)
@@ -109,11 +133,9 @@ class TestOfflineApproval:
                 offline_timeout=5.0,
             )
         )
-        # 让等待方登记并落库
-        await asyncio.sleep(0.15)
-
-        record = await AgentApproval.objects.filter(session=session).afirst()
-        assert record is not None
+        # 等审批落库（轮询条件；冷启动下需 ~550ms，固定 sleep 会误报）
+        record = await _wait_approval_landed(session)
+        assert record is not None, "审批记录未落库（等待超时）"
         assert record.status == AgentApproval.Status.PENDING, "无订阅者时不应直接 rejected"
 
         # 用户回来点同意 → 工具继续执行
@@ -140,9 +162,8 @@ class TestOfflineApproval:
                 offline_timeout=5.0,
             )
         )
-        await asyncio.sleep(0.15)
-        record = await AgentApproval.objects.filter(session=session).afirst()
-        assert record is not None
+        record = await _wait_approval_landed(session)
+        assert record is not None, "审批记录未落库（等待超时）"
         await approval_mod.decide_approval(str(record.approval_id), False)
         approved, _, _reason = await asyncio.wait_for(task, timeout=5.0)
         assert approved is False

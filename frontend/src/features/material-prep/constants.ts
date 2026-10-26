@@ -46,6 +46,9 @@ export const FIELD_LIB: InfoField[] = [
 
 export const MANUAL_SOURCE_TYPE = 'manual_upload'
 
+/** 桌面材料包列表的来源过滤：律师手动包 + 客户链接包（后端支持逗号分隔多值） */
+export const PACK_SOURCE_TYPES = 'manual_upload,client_upload'
+
 /** 阅读器退场动画时长（对应 material-prep.css `.mp-reader.closing` 的 0.24s） */
 export const READER_CLOSE_MS = 240
 /** 卡片离场动画播完后移除 leaving 标记的等待（`.mp-packet.leave-*` 0.46s + 缓冲） */

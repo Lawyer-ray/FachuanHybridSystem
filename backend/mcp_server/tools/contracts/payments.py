@@ -16,17 +16,17 @@ def create_payment(
     UNINVOICED/INVOICED_PARTIAL/INVOICED_FULL）、invoiced_amount（已开票金额，float，
     ≥0，默认 0）、note（备注字符串）、confirm（bool，必填为 True，否则后端拒绝）。"""
     payload: dict[str, Any] = {"contract_id": contract_id, **payment_data}
-    return client.post("/contracts/finance/payments", json=payload)  # type: ignore[return-value]
+    return client.post("/contracts/finance/payments", json=payload)  # type: ignore[no-any-return]
 
 
 def update_payment(
     payment_id: int,
     payment_data: dict[str, Any],
 ) -> dict[str, Any]:
-    """更新收款记录。只传需要修改的字段。"""
-    return client.put(f"/contracts/finance/payments/{payment_id}", json=payment_data)  # type: ignore[return-value]
+    """更新收款记录（金额/日期/开票状态等）。只传需要修改的字段;金额字段触发审批。"""
+    return client.put(f"/contracts/finance/payments/{payment_id}", json=payment_data)  # type: ignore[no-any-return]
 
 
 def delete_payment(payment_id: int) -> None:
-    """删除指定收款记录。此操作不可逆。"""
+    """删除一条收款记录——硬删除,不可恢复（影响财务统计）。"""
     client.delete(f"/contracts/finance/payments/{payment_id}")

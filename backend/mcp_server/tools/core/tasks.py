@@ -60,7 +60,7 @@ def get_async_task_status(kind: str, task_id: str) -> dict[str, Any]:
     if template is None:
         raise ValueError(f"未知的 kind={kind!r}；支持: {', '.join(sorted(_KINDS))}")
 
-    raw: dict[str, Any] = client.get(template.format(task_id=task_id))  # type: ignore[assignment]
+    raw: dict[str, Any] = client.get(template.format(task_id=task_id))
     if not isinstance(raw, dict):
         raw = {"data": raw}
 
@@ -89,35 +89,43 @@ def list_doc_converter_jobs(page: int = 1, page_size: int = 20) -> dict[str, Any
         page: 页码，从 1 开始。
         page_size: 每页条数，默认 20。
     """
-    return client.get(  # type: ignore[return-value]
+    return client.get(  # type: ignore[no-any-return]
         "/doc-converter/jobs",
         params={"page": max(1, page), "page_size": max(1, min(page_size, 200))},
     )
 
 
-def create_doc_converter_job(files: list[dict[str, Any]], **options: Any) -> dict[str, Any]:
+def create_doc_converter_job(files: list[dict[str, Any]]) -> dict[str, Any]:
     """创建 DOC→DOCX 转换任务。
 
     Args:
         files: 待转换文件列表，每项含 ``filename`` 与 ``content_base64``。
-        options: 其余转换选项原样透传给后端。
 
     Notes:
         文件以 base64 传入；后端按 multipart 接收，这里逐条解码后上传。
+        端点只收文件列表,无其他选项字段（旧版的 ``options`` 参数从未被
+        端点读取,已移除）。
     """
     import base64
 
-    encoded = []
-    for item in files:
-        filename = str(item.get("filename") or "upload.doc")
-        content = base64.b64decode(str(item.get("content_base64") or ""))
-        encoded.append({"filename": filename, "content": content})
-
-    # 后端是 multipart 端点；用 upload 逐字段拼接
-    files_payload = {
-        f"file_{index}": (item["filename"], item["content"], "application/msword") for index, item in enumerate(encoded)
-    }
-    return client.upload("/doc-converter/jobs", files=files_payload, data={k: str(v) for k, v in options.items()})  # type: ignore[no-any-return]
+    # 端点声明 files: list[UploadedFile] = File(...)——多文件必须用
+    # **同名字段 files 重复**传递(httpx files 列表形态)。早前用
+    # file_0/file_1 逐个编号,端点拿不到 files 字段,每次调用必 422
+    # ``Field required: files``(2026-10-25 修复)。
+    files_payload: list[tuple[str, tuple[str, bytes, str]]] = [
+        (
+            "files",
+            (
+                str(item.get("filename") or "upload.doc"),
+                base64.b64decode(str(item.get("content_base64") or "")),
+                "application/msword",
+            ),
+        )
+        for item in files
+    ]
+    return client.upload(  # type: ignore[no-any-return]
+        "/doc-converter/jobs", files=files_payload
+    )
 
 
 def list_litigation_sessions(
@@ -139,7 +147,7 @@ def list_litigation_sessions(
         params["case_id"] = case_id
     if status:
         params["status"] = status
-    return client.get("/litigation/sessions", params=params)  # type: ignore[return-value]
+    return client.get("/litigation/sessions", params=params)  # type: ignore[no-any-return]
 
 
 def list_pending_court_document_tasks(limit: int = 50) -> dict[str, Any]:
@@ -148,7 +156,7 @@ def list_pending_court_document_tasks(limit: int = 50) -> dict[str, Any]:
     Args:
         limit: 最多返回条数，默认 50。
     """
-    return client.get(  # type: ignore[return-value]
+    return client.get(  # type: ignore[no-any-return]
         "/document-recognition/court-document/tasks/pending",
         params={"limit": max(1, limit)},
     )

@@ -64,7 +64,9 @@ def list_lpr_rates(  # pragma: no cover
 
     rate_service = LPRRateService()
     items = rate_service.get_rate_history(start_date=start_date, end_date=end_date, limit=limit)
-    total = len(items)
+    # total 用无界计数——先 limit 再 len(items) 会把 total 钉在 limit 上,
+    # 前端分页与 MCP 工具的翻页判断都会误判「没有更多了」
+    total = len(rate_service.get_rate_history(start_date=start_date, end_date=end_date))
 
     return LPRRateListResponse(
         items=[

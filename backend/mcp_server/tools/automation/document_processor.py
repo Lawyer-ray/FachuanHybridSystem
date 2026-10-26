@@ -10,7 +10,14 @@ from mcp_server.client import client
 def process_document(
     file_path: str, kind: str | None = None, limit: int | None = None, preview_page: int | None = None
 ) -> dict[str, Any]:
-    """处理文档，返回图片 URL 和文本摘要。"""
+    """解析文档（PDF/图片等）,返回可浏览的图片 URL 与文本摘要——大文档预览入口。
+
+    Args:
+        file_path: 服务器上的文档路径(如归档材料/附件的 media 路径)。
+        kind: 处理种类(如 pdf / docx / image;省略由后端按扩展名判断)。
+        limit: 最多处理多少页。
+        preview_page: 只预览指定页(1 起)。
+    """
     params: dict[str, Any] = {"file_path": file_path}
     if kind is not None:
         params["kind"] = kind
@@ -18,7 +25,7 @@ def process_document(
         params["limit"] = limit
     if preview_page is not None:
         params["preview_page"] = preview_page
-    return client.post("/automation/document-processor/process", params=params, json={})  # type: ignore[return-value]
+    return client.post("/automation/document-processor/process", params=params, json={})  # type: ignore[no-any-return]
 
 
 def process_document_by_path(

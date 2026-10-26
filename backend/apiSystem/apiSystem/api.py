@@ -201,6 +201,7 @@ def _register_app_routers() -> None:
     from apps.litigation_ai.api.litigation_api import router as litigation_router
     from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
     from apps.message_hub.api import router as inbox_router
+    from apps.onlyoffice.api.onlyoffice_api import router as onlyoffice_router
     from apps.organization.api import router as organization_router
     from apps.pdf_splitting.api import router as pdf_splitting_router
     from apps.reminders.api import router as reminders_router
@@ -223,7 +224,14 @@ def _register_app_routers() -> None:
     api_v1.add_router("/enterprise-data", enterprise_data_router, auth=JWTOrSessionAuth(), tags=["企业数据查询"])
     api_v1.add_router("/reminders", reminders_router)
     api_v1.add_router("/inbox", inbox_router)
+    # 客户上传链接公开端点：无登录，token（X-Upload-Token 头）即凭证，
+    # 端点各自 auth=None + 限流（见 apps/message_hub/api/public_upload_api.py）
+    from apps.message_hub.api.public_upload_api import router as public_upload_router
+
+    api_v1.add_router("/public", public_upload_router, tags=["客户上传链接"])
     api_v1.add_router("/chat-records", chat_records_router, tags=["梳理聊天记录"])
+    # router 自带 JWTOrSessionAuth；/file 与 /callback 端点在自身装饰器上 auth=None
+    api_v1.add_router("/onlyoffice", onlyoffice_router)
 
     from apps.express_query.api import router as express_query_router
 
@@ -305,6 +313,13 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/agent", agent_router, tags=["Agent"])
 
+    # Agent 记忆工具面(mcp_server agent_memory)的后端端点:工具调
+    # /agent/memory/*,router 不注册则 5 个工具运行时静默 404(契约门禁
+    # test_rest_path_contract / test_output_contract 报红即此因)。
+    from apps.agent.api.memory_api import router as agent_memory_router
+
+    api_v1.add_router("/agent/memory", agent_memory_router)
+
     from apps.doc_converter.api import router as doc_converter_router
 
     api_v1.add_router("/doc-converter", doc_converter_router, auth=JWTOrSessionAuth(), tags=["DOC 转 DOCX"])
@@ -321,10 +336,6 @@ def _register_app_routers() -> None:
     from apps.workflow.api.workflow_api import router as workflow_router
 
     api_v1.add_router("/workflow", workflow_router, auth=JWTOrSessionAuth(), tags=["工作流引擎"])
-
-    from apps.docspace.api import router as docspace_router
-
-    api_v1.add_router("/docspace", docspace_router, auth=JWTOrSessionAuth(), tags=["DocSpace 文档"])
 
 
 # 防止 uvicorn reload 导致重复注册 - 在 api_v1 对象上设置标志

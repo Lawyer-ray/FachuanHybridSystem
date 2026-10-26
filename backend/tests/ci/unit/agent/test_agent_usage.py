@@ -47,6 +47,160 @@ class TestAgentRunModel:
         assert {"agent_run_user_idx", "agent_run_session_idx", "agent_run_status_idx"} <= names
 
 
+@pytest.mark.django_db
+class TestCacheTokens:
+    """缓存 token 账目（本轮改造核心）。
+
+    法穿的核心设计之一是「AGENTS.md 逐轮字节稳定 → 命中 provider prompt
+    cache」。改造前账上完全看不到它有没有生效（``input_tokens`` 只装未命中
+    部分），这两列就是那个缺失的仪表盘。
+
+    口径已经定得很死，测试就是守这个口径不被后来人「顺手改成更直观的算法」：
+
+    - ``cacheRead`` **不计**入成本（它是重读的累计前缀，计进去会虚高数倍）
+    - ``cacheWrite`` **计**入成本（它是真实计费的，且通常比普通输入更贵）
+    """
+
+    def test_defaults_to_zero(self) -> None:
+        """历史行与新行默认都是 0——不用 null 以免所有查询多一层空值分支。"""
+        run = AgentRun.objects.create(session=_make_session(), model="m")
+        assert run.cache_read_tokens == 0
+        assert run.cache_write_tokens == 0
+
+    def test_total_excludes_cache_read(self) -> None:
+        """总计**不含** cacheRead，但**含** cacheWrite。"""
+        run = _run(
+            _make_session(),
+            input_tokens=100,
+            output_tokens=20,
+            cache_read_tokens=5000,
+            cache_write_tokens=300,
+        )
+        assert run.total_tokens == 100 + 20 + 300
+        assert run.total_tokens != 100 + 20 + 300 + 5000, "cacheRead 被误计入成本口径"
+
+    def test_hit_rate_formula(self) -> None:
+        """命中率 = cacheRead / (input + cacheRead + cacheWrite)。"""
+        run = _run(
+            _make_session(),
+            input_tokens=100,
+            output_tokens=999,  # output 不参与命中率
+            cache_read_tokens=800,
+            cache_write_tokens=100,
+        )
+        # 800 / (100 + 800 + 100) = 0.8
+        assert run.cache_hit_rate == 0.8
+
+    def test_hit_rate_zero_when_no_input(self) -> None:
+        """什么都没有时返回 0.0 而不是除零。"""
+        run = AgentRun.objects.create(session=_make_session(), model="m")
+        assert run.cache_hit_rate == 0.0
+
+    def test_hit_rate_full_cache(self) -> None:
+        """纯命中（没新 input、没写入）时是 1.0。"""
+        run = _run(_make_session(), input_tokens=0, output_tokens=10, cache_read_tokens=900)
+        assert run.cache_hit_rate == 1.0
+
+    def test_hit_rate_no_cache_at_all_is_zero(self) -> None:
+        """有 input 但完全没命中 → 0.0（这时是真的没命中，不是没数据）。"""
+        run = _run(_make_session(), input_tokens=500, output_tokens=10)
+        assert run.cache_hit_rate == 0.0
+
+
+@pytest.mark.django_db(transaction=True)
+class TestCacheTokenWiring:
+    """链路：bridge 解析 pi 的 cacheRead/cacheWrite → chat_service 累加 → 落库。
+
+    2026-10-25 真机 fixture（``tests/ci/fixtures/agent/*.jsonl``）实测 pi 的
+    usage 字段就是 camelCase 的 ``cacheRead`` / ``cacheWrite``。如果哪天上游
+    改成 snake_case，这里会红灯。
+    """
+
+    def test_bridge_emits_cache_fields(self) -> None:
+        from apps.agent.pi.bridge import translate_all
+        from apps.agent.pi.rpc_client import PiEvent
+
+        record = {
+            "type": "message_end",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "好的"}],
+                "usage": {
+                    "input": 100,
+                    "output": 20,
+                    "cacheRead": 5000,
+                    "cacheWrite": 300,
+                },
+            },
+        }
+        events = translate_all(PiEvent("event", record))
+        usage = [e for e in events if e.get("type") == "usage"]
+        assert usage, f"没有产出 usage 事件: {events}"
+        assert usage[-1]["cache_read_tokens"] == 5000
+        assert usage[-1]["cache_write_tokens"] == 300
+
+    def test_bridge_missing_cache_fields_default_zero(self) -> None:
+        """旧版 pi / 某些 provider 不上报缓存字段时给 0，不能 KeyError。"""
+        from apps.agent.pi.bridge import translate_all
+        from apps.agent.pi.rpc_client import PiEvent
+
+        record = {
+            "type": "message_end",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "好"}],
+                "usage": {"input": 10, "output": 2},
+            },
+        }
+        events = translate_all(PiEvent("event", record))
+        usage = [e for e in events if e.get("type") == "usage"]
+        assert usage
+        assert usage[-1]["cache_read_tokens"] == 0
+        assert usage[-1]["cache_write_tokens"] == 0
+
+    def test_summarize_totals_cache_and_hit_rate(self) -> None:
+        from apps.agent.services.usage_stats import summarize
+
+        session = _make_session()
+        _run(session, input_tokens=100, output_tokens=10, cache_read_tokens=800, cache_write_tokens=100)
+        _run(session, input_tokens=100, output_tokens=10, cache_read_tokens=200, cache_write_tokens=0)
+
+        summary = summarize(days=30)
+        assert summary.cache_read_tokens == 1000
+        assert summary.cache_write_tokens == 100
+        # 1000 / (200 + 1000 + 100) = 0.7692...
+        assert summary.cache_hit_rate == pytest.approx(0.7692, abs=1e-3)
+        # 成本口径：input + output + cacheWrite，不含 cacheRead
+        assert summary.total_tokens == 200 + 20 + 100
+
+    def test_by_model_reports_hit_rate(self) -> None:
+        from apps.agent.services.usage_stats import by_model
+
+        session = _make_session()
+        _run(session, model="cheap", input_tokens=100, cache_read_tokens=900, cache_write_tokens=0)
+        _run(session, model="pricey", input_tokens=1000, cache_read_tokens=0, cache_write_tokens=0)
+
+        rows = {row["model"]: row for row in by_model(days=30)}
+        assert rows["cheap"]["cache_hit_rate"] == 0.9
+        assert rows["pricey"]["cache_hit_rate"] == 0.0
+        assert rows["cheap"]["cache_read_tokens"] == 900
+
+    def test_admin_hit_rate_shows_dash_when_no_data(self) -> None:
+        """Admin 对「没上报数据」显示 ``—`` 而不是 ``0%``。
+
+        后者会被误读成「缓存完全没命中」，而真相是「这一轮没上报缓存字段」
+        ——两个结论后续动作完全不同（前者要查前缀漂移，后者只需等升级）。
+        """
+        from apps.agent.admin import AgentRunAdmin
+
+        admin_view = AgentRunAdmin(AgentRun, None)  # type: ignore[arg-type]
+        blank = AgentRun.objects.create(session=_make_session(), model="m")
+        assert admin_view.cache_hit_rate_display(blank) == "—"
+
+        cached = _run(_make_session(), input_tokens=100, cache_read_tokens=900)
+        assert admin_view.cache_hit_rate_display(cached) == "90.0%"
+
+
 @pytest.mark.django_db(transaction=True)
 class TestRecordRun:
     """stream_chat 的 _record_run：三态判定 + 字段落库。

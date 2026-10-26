@@ -93,3 +93,17 @@ class IReviewService(Protocol):
             原始文件路径
         """
         ...
+
+    def adopt_edited_output(self, task_id: UUID, data: bytes, *, version_tag: int) -> str:
+        """
+        收养 OnlyOffice 保存回写的编辑产物（律师画布内编辑落盘为新产物）
+
+        Args:
+            task_id: 任务 ID
+            data: DS 回调 url 指向的编辑后文档字节
+            version_tag: 保存轮次（用于产物文件名与 document key 轮换）
+
+        Returns:
+            新产物的落库相对路径
+        """
+        ...

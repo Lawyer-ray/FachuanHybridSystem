@@ -26,15 +26,17 @@ async def list_contacts(  # pragma: no cover
     case_id: int | None = None,
     stage: str | None = None,
     limit: int = 1000,
+    offset: int = 0,
 ) -> list[CaseContactOut]:
     service = _get_contact_service()
     ctx = extract_request_context(request)
     bounded_limit = max(1, min(limit, 2000))
+    bounded_offset = max(0, offset)
 
     @sync_to_async
     def _fetch() -> list[dict]:
         qs = service.list_contacts(case_id=case_id, stage=stage, user=ctx.user)
-        return [CaseContactOut.from_orm(c).model_dump() for c in qs[:bounded_limit]]
+        return [CaseContactOut.from_orm(c).model_dump() for c in qs[bounded_offset : bounded_offset + bounded_limit]]
 
     return await _fetch()  # type: ignore[return-value]
 

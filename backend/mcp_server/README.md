@@ -1,0 +1,89 @@
+# mcp_server —— 法穿 AI Copilot 的工具面
+
+> 409 个 MCP 工具（2026-10-25），streamable-http :8011 共享一份常驻进程，
+> 服务 `apps/agent` 的 pi 会话；也可 stdio 单进程跑（开发/手工）。
+
+## 架构速览
+
+```
+pi 会话(每律师一个) ──Bearer 当前律师token──▶ RequestAuthMiddleware(ASGI)
+                                                    │ ContextVar 存 Authorization
+                                                    ▼
+                                        FastMCP(MCPServer "法穿SI Copilot")
+                                                    │ 409 工具(server.py 注册)
+                    ┌───────────────────────────────┼──────────────────────┐
+                    ▼                               ▼                      ▼
+            REST 透传型工具(绝大多数)         直接 ORM 工具(workflow 15 个)  纯本地工具
+            client.py → 后端 REST API          apps/workflow/mcp/          get_server_time 等
+            (透传 Bearer,以律师身份)           (_resolve_mcp_access 重建身份)
+```
+
+## 关键机制（都有单测守护）
+
+| 机制 | 文件 | 要点 |
+|---|---|---|
+| 身份透传 | `identity.py` | ASGI 中间件把 Authorization 头存 ContextVar;`client._headers()` 优先透传 → 工具以**当前律师**身份调 REST(归属过滤/权限/审计与本人登录一致)。无透传(stdio)回退服务账号。双律师并发实测无串扰 |
+| 错误直达模型 | `client.py` | `FachuanApiError(ToolError)`:非 2xx 的 HTTP 状态 + 后端 detail 完整回传(is_error=true),模型可自纠;消息保持 `"HTTP <status>:"` 前缀(agent_attachments 分类依赖) |
+| 传输层翻译 | `client.py` | `_guard_transport` 把超时/断连翻成 `FachuanTransportError`(可读原因+重试指引);GET 幂等自动重试一次(传输故障/502/503/504),非幂等方法不重试 |
+| 下载闸门 | `client.py` | `download()` 1MB 上限(env `FACHUAN_MCP_MAX_DOWNLOAD_MB`),防 base64 挤爆会话上下文;所有 b64encode 输出必须经它(`TestClientAbstractionBoundary` 禁止 `client._http` 直连) |
+| LLM 链路超时 | `tools/documents/*.py` | 生成类工具 client 侧 `timeout=180`;**pi 侧 mcp.json `timeout: 200` 必须更大**(`apps/agent/pi/shared_mcp.py`,双端失配则 180 作废)。同步阻塞的长 IO 端点同口径 180(`test_slow_tool_timeouts.py` 登记制门禁:/lpr/calculate、/lpr/sync、威科检索/法规核查、**企业数据 provider 链 10 处**(enterprise_data 8+client 预填 2——qichacha provider 单次最长 30+30s,降级串行再试一家可到 ~120s;f-string 路径按前缀登记);submit_task 异步即返的端点不登记) |
+| workflow 身份链 | `apps/workflow/mcp/workflow_tools.py` | 直 ORM 工具用 `_resolve_mcp_access` 从 ContextVar Bearer 重建律师+org_access;`_mcp_guard_run_access` 补 run 案件访问校验;模板管理 `_require_admin` fail-closed;`server.py:_workflow_tool` 统一剥离 user 参数 + 把 BusinessException/DoesNotExist 翻成 ToolError + **进出各 `close_old_connections()`**(共享进程没有 HTTP 请求周期,不回收则 PG 重启后全部 workflow 工具持续 OperationalError 直到 MCP 重启;temporal worker 同病同治) |
+| 审批联动 | `apps/agent/services/approval.py` | pi 侧按工具名模式(delete/send_/submit_/confirm_/**approve_**/…)判高危;MCP 工具面新增删除类工具会被 `delete` 模式自动覆盖,新增其他危险前缀需同步双表 |
+
+## 运维
+
+```bash
+make mcp           # 重启共享 MCP + 工具面核对(改了 mcp_server/** 后必须)
+make mcp-verify    # 只核对线上工具面 vs 代码注册表
+make mcp-status    # 进程/日志
+```
+
+**改了工具代码不重启 = 模型拿到的仍是旧工具面,且无任何报错**（详见根 CLAUDE.md 避坑指南）。
+
+## 工具注册纪律
+
+- 新工具写在 `tools/<域>/`,在 `tools/__init__.py` re-export,在 `server.py` `mcp.tool()(...)` 注册——**三处缺一都会静默丢工具**(`tests/ci/unit/mcp_server/test_tool_registration.py` 与 `test_server_registration.py` 会拦)。
+- 直接 ORM 的工具(不经 REST)放 `apps/<域>/mcp/`,注册时用 `_workflow_tool` 包装(参数剥离+异常翻译),并**必须**处理身份(ContextVar Bearer → 律师),否则退化为服务账号语义。
+- `**kwargs`/`**extra` 形参会被 FastMCP 编译成必填 object 参数,禁用;可选聚合参数用 `dict | None`。
+
+## 测试金字塔（tests/ci/unit/mcp_server/）
+
+| 层 | 文件 | 覆盖 |
+|---|---|---|
+| 注册完整性 | `test_tool_registration.py` / `test_server_registration.py` | 定义↔注册对账、基线 409、docstring/注解、白名单防退化 |
+| 路径契约 | `test_rest_path_contract.py` | AST 全扫 client 调用 vs OpenAPI,防 REST 路径漂移 |
+| 参数契约 | `test_rest_param_contract.py` | 工具转发的参数必须被端点声明——ninja 静默忽略未声明参数=「从未生效」的假参数(两轮审计共 17 处实锤,含 create_lawyer/update_lawyer/update_doc_converter 三个「从未成功过」的 multipart 形状错拼);收集器覆盖字面量/变量字典/f-string 路径(含 /api/v1 前缀)/内联与 anyOf schema;裸 payload 端点 allowlist 禁止新增 |
+| 投影契约 | `test_projection_fields.py` | 默认投影列出的字段必须存在于 API items schema——project 按键挑选不报错,列了不存在的字段=模型点名要也静默落空 |
+| docstring 枚举值 | 无自动门禁(review 把关) | 文档宣称的取值必须对照模型 TextChoices——filter 对错值静默空列表、裸 CharField 对错值静默落库(2026-10-25 审计 13 处:case_type 假枚举/fee_mode 小写绕过金额校验/中文代理阶段必炸/running≠in_progress/site_name 死路示例) |
+| 失败语义 | `test_error_semantics.py` | 双闸:①公共工具函数禁止 `except Exception` 吞异常返回伪正常(enterprise_data 8 处旧案;要吞须在 `_SWALLOW_ALLOWLIST` 登记理由——批量部分失败聚合/页图降级等 6 处已登记,键=文件:函数名,行号锚一天漂三次后已改函数锚);②业务失败禁止 return 单键 `{"error": ...}` 假装成功(workflow 17 处旧案,全改抛 FachuanApiError)。与 MCP 2025-11-25 规范口径一致:API 失败/入参校验/业务逻辑错误都应走 `isError: true` 并携带可自纠反馈 |
+| 审批对齐 | `test_approval_alignment.py` | LOW(直接执行+readOnlyHint)工具的 REST 调用必须 GET,否则须在带理由豁免表(纯计算/内存生成/admin 只读 28 项);readOnlyHint⇔LOW 双向一致;豁免表无僵尸条件。2026-10-25 审计:convert_document/analyze_template/parse_document 三个 POST-但真写工具误判 LOW 已升中 |
+| 参数文档 | `test_param_documentation.py` | ≥3 参工具的 docstring 对参数零提及即红灯——SDK 把整个 docstring 当描述,schema 只有名+类型,零提及=模型瞎猜(23 处已补 Args 段) |
+| schema 参数描述 | `test_schema_param_descriptions.py` | 进阶层:docstring Args 在工具描述里,而模型**选参数值时看 inputSchema**(pi 原样透传)——`Annotated[..., Field(description=..., ge=..., le=...)]` 把描述+数值约束送进 schema 本体;枚举陷阱参数再进一步用 `Literal[...]` 让 **enum 直接进 schema**(选值时只见合法集,小写 fee_mode 调用前即挡)。已迁移 20 工具 133/919 参数(含 workflow 5 工具,经 `_workflow_tool` 注册的需注意注解在原函数命名空间解析——server.py 已内置 `get_type_hints(include_extras=True)` 预解析,别退回字符串注解);渐进推进,新增工具直接写 Annotated+Field 不走补课;三重钉死:覆盖率/数值约束/SDK 传导金丝雀(mcp 1.x→2.x 已搬过目录,再变即红灯)+ enum 与模型 TextChoices 逐值对账(drift 即红灯,与审批双表同模式) |
+| 并发身份 | `test_identity_concurrency.py` | 16 线程×50 轮屏障交错 800 请求零串号;RequestAuthMiddleware ContextVar 隔离 + `_headers()` 现读 + 刷新持锁 |
+| 路由遮蔽 | `tests/ci/unit/core/test_route_shadowing.py` | 源级(apps/**/api/*.py)+运行时(Django resolver 全局注册序)双扫描:后注册字面量路由被先注册参数路由吞掉(同方法=永不可达/异方法=恒 405)。4 处旧案已修;新增字面量路由必须放在同前缀参数路由之前 |
+| HTTP 方法纪律 | `tests/ci/unit/core/test_http_method_discipline.py` | GET 处理函数禁写语义调用(否则 MCP 只读分级从根失真);内置扫描器自证(POST 侧须命中 30+) |
+| ToolAnnotations | `test_tool_annotations.py` | `readOnlyHint`/`destructiveHint`/`idempotentHint` 从审批分层权威表(approval.classify_risk)机械推导,`openWorldHint` 按工具白名单(真正发起外部交互的 5 个:web_search/fetch_url/capability_search/check_law_references/create_research_task——本地任务读取/LLM 网关/受控解析后端刻意不标);注册统一走 `_t` 装饰器——禁裸 `mcp.tool()`(绕过 `_t` 即绕过推导);**409 工具全部带标注**:223 只读+69 销毁/高危+117 非销毁写(77 幂等+37 普通+3 开放世界写)。非销毁写**显式** `destructiveHint:false`——MCP 规范对未声明 hint 按「assume worst」缺省(destructive 缺省=true),不显式则规范客户端会把 create_case 当销毁型加确认拦截(三十四轮对照官方 reference server 全量显式做法补齐,实测仅 +2.8KB;openWorld 缺省 true 刻意不逐工具补 false——409×24B≈10KB 只防低危误读,体量纪律优先);幂等=同参重复终态不变(update_/save_/sync_/move_/delete_,客户端重试安全),create_/toggle_/confirm_ 刻意不标;hint 可组合(web_search=readOnly+openWorld) |
+| 工具名规范 | `test_server_registration.py::TestMcpSpecNameCompliance` | 名字必须 ASCII `[A-Za-z0-9_-]` 且 1-128 字符(MCP spec 硬性要求)——`isidentifier()` 放行 Unicode 标识符(如中文工具名),部分客户端会拒收,注册面前置拦截 |
+| 列表信封化 | `test_tool_shaping.py` | 裸 list 返回被 SDK 逐项拆成独立文本块、**空列表变零内容块**——列表工具统一 `list_result()` 包 `{total, items}`;翻页用 limit+1 探测法,`truncated=True` 时 total 是下界 | 
+| 默认体量 ≤20KB | 无门禁(需线上数据) | pi 对工具输出 20KB 起腰斩(中段截断+文件指针),**默认参数的调用必须留在截断线内**——新列表工具按「20KB ÷ 实测均条体积」定默认 limit;`get_case` 默认剥 logs、`search_cases` 套投影同此理 |
+| 客户端行为 | `test_client.py` | token 刷新、错误信封、传输韧性、下载闸门、巨型列表护栏、抽象边界 |
+| 工具行为 | `test_new_tools.py` / `test_agent_attachments.py` / `test_fetch_url.py`(含 SSRF 拦截) / … | 重组型工具的真实逻辑 |
+
+跑法:`DB_NAME=test_fachuan_dev .venv/bin/pytest tests/ci/unit/mcp_server/ -q --reuse-db`(严禁不带 DB_NAME)。
+
+## 并发与审计（2026-10-25 验证）
+
+- **事件循环不阻塞**：工具几乎全是同步 `def`,MCPServer 对同步函数走
+  `anyio.to_thread.run_sync`(worker 线程);唯一 async 工具 `web_search` 已把
+  阻塞的 httpx 调用 `run_in_executor` 委派。一个 180s 的 LLM 工具不会卡住其他会话。
+- **每次工具调用都有审计痕**:pi 侧 `tool_result` 事件逐条落 `AgentMessage`
+  (role=TOOL,工具名+结果[:8000]+时间);完整参数在 pi session 文件
+  (`FACHUAN_AGENT_HOME`);高危另有 `AgentApproval.tool_args`。
+  MEDIUM 级「静默留痕」的承诺由此兑现,不依赖 logs/api.log 轮转。
+- **审批 extension 每请求新进程加载**:pi 进程每请求一造(见 `pool.py`),
+  不复用——approval-gate.ts 的模式表更新后,下一个请求立即生效,无存量进程窗口。
+
+## 已知规模事实（灰度决策依据）
+
+- 409 工具 `tools/list` 原始 JSON-RPC 响应 **≈277KB ≈ 9 万 token** 常驻上下文(direct 模式),靠 prompt cache 摊薄。测量口径(三十四轮钉死,旧「217KB」系方法不可复现的过期数):initialize→tools/list 的响应体 UTF-8 字节数。成分分解:**docstring 工具描述 ≈103KB(最大头)**、裸 schema(参数名/类型/结构)≈144KB、annotations ≈18.6KB(其中显式 destructive:false 2.8KB)、参数级 Field 描述 ≈10.2KB(135 处)、enum 列表 ≈1.4KB。若未来需要压体量,docstring 是第一杠杆(deferred/codemode 灰度见下),schema 参数描述是买来的调用准确率,不建议省。注册后统一剥离 schema 冗余自动 title(919 参数 ≈ 20KB 零信息量,`server.py:_slim_registered_tool_schemas`,当时 253KB→217KB)。
+- 灰度开关 `FACHUAN_MCP_EXPOSURE`(deferred/codemode/hidden)与 per-tool `toolExposure` 混合面备选见 `apps/agent/pi/shared_mcp.py` 注释;deferred 的代价是 OpenAI 兼容网关丢 prompt cache(pi #10940)。

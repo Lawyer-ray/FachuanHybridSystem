@@ -5,18 +5,12 @@
  * mock 边界：../../api 四个接口（合同 / 律师 / 按合同案件 / 按案件提醒）。
  * 覆盖：加载态、主标题=合同名 + 页头 meta、程序链按收案日期排序 + stepper 虚节点「执行」、
  * 案件节（案号 chip / 诉讼地位行 / 日志升序）、右栏期限三源合流（今日红 + 已完成剔除）、
- * 右栏档案（当事人 / 收款 / 合同要素全在 sticky 卡里，左列只有案件）、非诉委托给开发中提示、合同加载失败给错误 + 返回、非法 id 重定向。
+ * 右栏档案（当事人 / 收款 / 合同要素全在 sticky 卡里，左列只有案件）、非诉委托重定向到非诉路由、合同加载失败给错误 + 返回、非法 id 重定向。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-// 右栏「AI 助手」tab 懒加载 copilot 域：mock 掉整域（动态 import 同样被拦截），
-// 只留一个可断言的占位——真实嵌入面板有专属 dom 测试
-vi.mock('@/features/copilot', () => ({
-  CopilotEmbed: () => <div data-testid="copilot-embed">嵌入面板</div>,
-}))
 
 vi.mock('../../api', () => ({
   getContract: vi.fn(),
@@ -128,8 +122,8 @@ function makeContract(over: Partial<ContractListItem> = {}): ContractListItem {
       { id: 1, contract: 7, client: 1, role: 'principal', role_label: '委托人', client_detail: clientLite(1, '某银行', true) },
       { id: 2, contract: 7, client: 2, role: 'opponent', role_label: '对方当事人', client_detail: clientLite(2, '某公司', false) },
     ],
-    assignments: [{ id: 1, lawyer_id: 1, lawyer_name: '黄崧', is_primary: true, order: 0 }],
-    primary_lawyer: { id: 1, username: 'hs', real_name: '黄崧', phone: '138', law_firm_name: '某律所' },
+    assignments: [{ id: 1, lawyer_id: 1, lawyer_name: '黄某', is_primary: true, order: 0 }],
+    primary_lawyer: { id: 1, username: 'hs', real_name: '黄某', phone: '138', law_firm_name: '某律所' },
     reminders: [
       {
         id: 1,
@@ -184,17 +178,19 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
 }
 
 const lawyers: LawyerListItem[] = [
-  { id: 1, username: 'hs', real_name: '黄崧', phone: '138', license_no: '1440120', law_firm_detail: { id: 1, name: '某律所' } },
+  { id: 1, real_name: '黄某', phone: '138', license_no: '144****', law_firm_name: '某律所' },
 ]
 
-function setupUi(path = '/cases/7') {
+function setupUi(path = '/projects/7') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path="/cases" element={<div>cases-list</div>} />
-          <Route path="/cases/:id" element={<DealDetailPage />} />
+          <Route path="/projects" element={<div>projects-list</div>} />
+          <Route path="/projects/:id" element={<DealDetailPage />} />
+          {/* 非诉路由用 stub：只验证诉讼页对非诉委托的重定向，不引入 NonLitDetailPage 真身 */}
+          <Route path="/projects/:id/nonlit" element={<div>nonlit-stub</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -227,11 +223,11 @@ beforeEach(() => {
       logs: [
         {
           id: 11, case: 2, content: '二审立案', actor: 1, created_at: '2026-03-05T10:00:00+08:00', updated_at: '2026-03-05T10:00:00+08:00',
-          actor_detail: { id: 1, username: 'zm', real_name: '周明' }, attachments: [], reminders: [],
+          actor_detail: { id: 1, username: 'zhou', real_name: '周明' }, attachments: [], reminders: [],
         },
         {
           id: 10, case: 2, content: '收到上诉状', actor: 1, created_at: '2026-02-02T09:00:00+08:00', updated_at: '2026-02-02T09:00:00+08:00',
-          actor_detail: { id: 1, username: 'hs', real_name: '黄崧' },
+          actor_detail: { id: 1, username: 'hs', real_name: '黄某' },
           attachments: [{ id: 1, log: 10, file_path: 'a.pdf', media_url: null, uploaded_at: '2026-02-02T09:00:00+08:00', original_filename: 'a.pdf' }],
           reminders: [
             {
@@ -274,14 +270,35 @@ beforeEach(() => {
   )
 })
 
-// jsdom 未实现 window.matchMedia：替身默认全 false（窄屏），单个用例内
-// set('(min-width: 1280px)', true) 切宽屏来展开 AI 工作区
+// jsdom 未实现 window.matchMedia：页面布局已不依赖断点，替身仅保证调用不抛错
 const media = installMatchMediaStub()
 
 afterEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   media.reset()
+})
+
+describe('DealDetailPage 助手上下文绑定', () => {
+  it('进页即把全局助手绑到本委托（导航栏助手才知道自己是本项目的助手）', async () => {
+    const store = await import('@/features/copilot/store')
+    store.useCopilot.setState({ context: null })
+    setupUi()
+    await waitFor(() => expect(store.useCopilot.getState().context).not.toBeNull())
+    const ctx = store.useCopilot.getState().context!
+    expect(ctx.origin).toBe('contract')
+    expect(ctx.refId).toBe(7)
+    expect(ctx.title).toBe('某银行与某公司金融借款合同纠纷诉讼委托合同')
+  })
+
+  it('离开本页后解除绑定，助手不再以为停在该委托', async () => {
+    const store = await import('@/features/copilot/store')
+    store.useCopilot.setState({ context: null })
+    const { unmount } = setupUi()
+    await waitFor(() => expect(store.useCopilot.getState().context).not.toBeNull())
+    unmount()
+    await waitFor(() => expect(store.useCopilot.getState().context).toBeNull())
+  })
 })
 
 describe('DealDetailPage 加载与页头', () => {
@@ -300,24 +317,29 @@ describe('DealDetailPage 加载与页头', () => {
   })
 
   it('非法 id 直接重定向回办案主页，不发请求', async () => {
-    setupUi('/cases/abc')
-    expect(await screen.findByText('cases-list')).toBeTruthy()
+    setupUi('/projects/abc')
+    expect(await screen.findByText('projects-list')).toBeTruthy()
     expect(getContractMock).not.toHaveBeenCalled()
   })
 
-  it('合同加载失败：错误文案（errMessage 透传可读 message）+ 重试 + 返回办案', async () => {
+  it('合同加载失败：错误文案（errMessage 透传可读 message）+ 重试 + 返回列表', async () => {
     getContractMock.mockRejectedValueOnce(new Error('boom'))
     setupUi()
     expect(await screen.findByText(/boom/)).toBeTruthy()
-    expect(screen.getByText('返回办案')).toBeTruthy()
+    expect(screen.getByText('返回列表')).toBeTruthy()
     expect(screen.getByText('重试')).toBeTruthy()
   })
 
-  it('非诉委托：不渲染诉讼骨架，给设计中提示与返回入口', async () => {
+  it('非诉委托不再由本页重定向（分流已上移到 ProjectDetailPage）', async () => {
+    // 旧实现里 DealDetailPage 会把非诉委托悄悄转到 /nonlit，用户在地址栏看到
+    // URL 自己变了。现在分流统一由 `/projects/:id` 的 ProjectDetailPage 按
+    // deal.lit 决定渲染哪一栏；本页只剩「无效 id 回列表」一种跳转。
+    // 所以此处断言：非诉委托不会再被转到 /nonlit（stub 不出现）。
     getContractMock.mockResolvedValueOnce(makeContract({ case_type: 'advisor', case_type_label: '常年法律顾问' }))
     setupUi()
-    expect(await screen.findByText(/非诉详情页正在设计中/)).toBeTruthy()
-    expect(screen.queryByRole('heading', { level: 1 })).toBeNull()
+    // 给路由一次跳转的机会后确认没有发生
+    await new Promise((r) => setTimeout(r, 30))
+    expect(screen.queryByText('nonlit-stub')).toBeNull()
   })
 })
 
@@ -445,7 +467,7 @@ describe('DealDetailPage 右栏与档案', () => {
     await screen.findByText('梁某')
     expect(screen.getByText('法院联系人')).toBeTruthy()
     expect(screen.getAllByText('佛山市中级人民法院').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText(/执业证号 1440120/)).toBeTruthy()
+    expect(screen.getByText(/执业证号 144\*\*\*\*/)).toBeTruthy()
     expect(screen.getByText('标的额')).toBeTruthy()
     expect(screen.getByText('¥50,000 · 半风险')).toBeTruthy()
     // 风险比例只在「涉案与收费」出现一次：右栏「合同要素」去掉了同卡重复的收费方式/风险比例/代理阶段
@@ -517,52 +539,16 @@ describe('DealDetailPage：占位动作按钮', () => {
     }
   })
 
-  it('窄屏页头「AI 助手」按钮回落全局浮层（派发启动事件并带委托上下文）', async () => {
-    setupUi()
-    await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
-
-    const btn = Array.from(document.querySelectorAll('button')).find((b) =>
-      (b.textContent ?? '').includes('AI 助手'),
-    )
-    expect(btn).toBeTruthy()
-
-    const launched = vi.fn()
-    window.addEventListener('copilot:launch', launched)
-    fireEvent.click(btn!)
-    window.removeEventListener('copilot:launch', launched)
-    expect(launched).toHaveBeenCalledTimes(1)
-    const detail = (launched.mock.calls[0]?.[0] as CustomEvent).detail as Record<string, unknown>
-    expect(detail.origin).toBe('contract')
-    expect(typeof detail.refId).toBe('number')
-  })
-
-  it('宽屏页头「AI 助手」展开专属工作区（页面第三列，不再弹浮层），再点收起', async () => {
+  it('页头不放 AI 助手入口（只在导航栏），也不挂嵌入对话区与拖拽把手', async () => {
     media.set('(min-width: 1280px)', true)
     setupUi()
     await waitFor(() => expect(document.body.textContent).toContain('某银行与某公司'))
 
-    // 初始收起：只有委托档案（两列），工作区未挂载
-    expect(document.querySelector('[data-testid="copilot-embed"]')).toBeNull()
-    expect(document.querySelector('[role="separator"][aria-label="调整 AI 工作区宽度"]')).toBeNull()
-
-    const headerBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+    const aiBtns = Array.from(document.querySelectorAll('button')).filter((b) =>
       (b.textContent ?? '').includes('AI 助手'),
     )
-    expect(headerBtn).toBeTruthy()
-
-    const launched = vi.fn()
-    window.addEventListener('copilot:launch', launched)
-    fireEvent.click(headerBtn!)
-    window.removeEventListener('copilot:launch', launched)
-
-    // 展开专属工作区而非派发浮层启动事件
-    expect(launched).not.toHaveBeenCalled()
-    await waitFor(() => expect(document.querySelector('[data-testid="copilot-embed"]')).not.toBeNull())
-    expect(document.querySelector('[role="separator"][aria-label="调整 AI 工作区宽度"]')).not.toBeNull()
-
-    // 再点收起
-    fireEvent.click(headerBtn!)
-    await waitFor(() => expect(document.querySelector('[data-testid="copilot-embed"]')).toBeNull())
+    expect(aiBtns).toHaveLength(0)
+    expect(document.querySelector('[role="separator"][aria-label="调整 AI 工作区宽度"]')).toBeNull()
   })
 
   it('右栏「记收款」可点（占位提示，不抛错）', async () => {

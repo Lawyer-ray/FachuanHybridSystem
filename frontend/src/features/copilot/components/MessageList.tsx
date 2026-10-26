@@ -46,14 +46,22 @@ function ToolRow({ message }: { message: ChatMessage }) {
 
 function ThinkingBlock({ message }: { message: ChatMessage }) {
   const thinking = message.thinking ?? ''
-  if (!thinking) return null
-  // 思考中自动展开（让用户看到实时推理），思考结束（正文已开始）自动收起，
-  // 但保留手动展开能力。用 details + open 受控会打断用户手动操作，
-  // 所以只用 defaultOpen 决定初始态。
   const thinkingNow = !message.thinkingDone
+  // 思考结束自动收起：<details open> 是**静态属性**，只在挂载时生效——
+  // 思考中以 open=true 挂载后，prop 变 false 也不会收起，于是正文开始后
+  // 那片 396 字的思考内容继续占着 max-h-56，读起来就是一大块空白。
+  // 改为受控：用 state 跟踪「用户是否手动改过」，没改过就跟随思考状态。
+  const [userToggled, setUserToggled] = useState<boolean | null>(null)
+  const open = userToggled ?? thinkingNow
+  useEffect(() => {
+    // 思考结束的那一刻清掉手动状态，回落到自动收起
+    if (message.thinkingDone) setUserToggled((v) => (v === null ? v : null))
+  }, [message.thinkingDone])
+  if (!thinking) return null
   return (
     <details
-      open={thinkingNow}
+      open={open}
+      onToggle={(e) => setUserToggled(e.currentTarget.open)}
       className="mb-1.5 rounded-[10px] border border-dashed border-border bg-secondary/30 px-2.5 py-1.5"
     >
       <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
@@ -127,8 +135,11 @@ function Bubble({ message }: { message: ChatMessage }) {
     const refs = message.refs ?? []
     const pageHint = message.pageHint
     const bizHint = message.bizHint
+    // ml-auto：外层 flex-col 默认 stretch 会把这一行拉满整行，气泡于是贴左，
+    // 右侧再空出 12%——观感就是「两边都空着一大块」。靠右是 IM 惯例，
+    // 也让用户消息与左侧 AI 回答形成清晰的对位。
     return (
-      <div className="flex max-w-[88%] items-end gap-1.5">
+      <div className="ml-auto flex max-w-[88%] items-end gap-1.5">
         <div className="flex min-w-0 flex-1 flex-col items-end gap-1">
           {bizHint && (
             <span
@@ -254,9 +265,21 @@ export function MessageList() {
 
   return (
     <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
-      {/* 内容限宽居中（max-w-3xl）：面板拉宽/聚焦满屏时阅读行宽仍舒适，
-          两侧留白对称——ChatGPT/Claude 满宽对话的同一做法；窄面板不受影响 */}
-      <div className="mx-auto w-full max-w-3xl">
+      {/* 内容限宽居中：避免超宽屏一行长到难读，但同时别把面板里的可用宽度
+          白白让出去。原先写死 max-w-3xl（768px）是按「全屏对话页」定的，可这里是
+          **侧边栏面板**——面板拉到 1200px 时两侧各空 200px 以上，纯亏。
+          改成 max-w-6xl（1152px）：默认 600 与常见拉宽（≤1150）
+          都不产生留白，只有真拉到屏幕级才留白，且那时行宽也确实需要约束。
+          empty 分支要撑满（h-full + flex）才能让欢迎页垂直居中：本层是
+          CopilotWelcome 唯一的「高度来源」，不给高度它的 h-full 就塌成
+          内容高、justify-center 无处可居（欢迎页贴顶、下面大片空白）。 */}
+      <div
+        className={
+          empty
+            ? 'mx-auto flex h-full w-full max-w-6xl flex-col'
+            : 'mx-auto w-full max-w-6xl'
+        }
+      >
       {empty && <CopilotWelcome />}
       {loadingHistory && (
         <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>

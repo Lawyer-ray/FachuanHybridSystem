@@ -58,11 +58,16 @@ async def list_clients(  # pragma: no cover
     is_our_client: bool | None = None,
     search: str | None = None,
     limit: int = 1000,
+    offset: int = 0,
 ) -> list[ClientOut]:
-    """获取客户列表（前端做客户端分页；limit 防全量序列化，默认 1000、上限 2000）"""
+    """获取客户列表（前端做客户端分页；limit 防全量序列化，默认 1000、上限 2000）
+
+    offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。
+    """
     facade = _get_query_facade()
     user = getattr(request, "auth", None) or extract_request_context(request).user
     bounded_limit = max(1, min(limit, 2000))
+    bounded_offset = max(0, offset)
 
     @sync_to_async
     def _fetch() -> list[dict]:
@@ -75,7 +80,7 @@ async def list_clients(  # pragma: no cover
         # Materialize queryset AND trigger schema resolution inside sync context
         # so that lazy relationships (identity_docs) are accessed synchronously.
         # 限额只切 API 出口：facade.list_clients 被 /parties/search 共用，不下沉。
-        return [ClientOut.from_orm(c).model_dump() for c in qs[:bounded_limit]]
+        return [ClientOut.from_orm(c).model_dump() for c in qs[bounded_offset : bounded_offset + bounded_limit]]
 
     return cast(list[ClientOut], await _fetch())
 

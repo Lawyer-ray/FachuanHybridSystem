@@ -2,7 +2,6 @@
 
 from mcp_server.tools.automation import (
     assign_sms_case,
-    auto_namer_process,
     auto_namer_process_by_path,
     cleanup_resources,
     clear_cache,
@@ -349,6 +348,7 @@ from mcp_server.tools.legal_research import (
     download_research_result,
     get_research_task,
     list_research_results,
+    verify_citations,
 )
 
 # 条件导入：信息中转站
@@ -390,12 +390,16 @@ from apps.workflow.mcp.workflow_tools import (
     update_workflow_template,
 )
 from mcp_server.tools.core import (
+    ask_user,
     chat_with_context,
+    confirm_memories,
     create_doc_converter_job,
     create_system_config,
     delete_schedule,
     delete_system_config,
     delete_task,
+    dispatch_research,
+    forget_memory,
     get_agent_skill,
     get_async_task_status,
     get_conversation_history,
@@ -409,11 +413,15 @@ from mcp_server.tools.core import (
     list_failed_tasks,
     list_litigation_sessions,
     list_pending_court_document_tasks,
+    list_pending_memories,
     list_queued_tasks,
     list_scheduled_tasks,
     list_system_configs,
     patch_system_config,
     read_agent_attachment,
+    recall_memory,
+    remember,
+    restore_memory,
     resubmit_task,
     sync_prompt_templates,
     test_model_connection,
@@ -669,6 +677,7 @@ __all__ = [
     "download_research_result",
     "download_all_research_results",
     "check_law_references",
+    "verify_citations",
     # 自动化
     "submit_court_sms",
     "list_court_sms",
@@ -680,7 +689,6 @@ __all__ = [
     "download_sms_document",
     "get_captcha_image",
     "submit_captcha_answer",
-    "auto_namer_process",
     "auto_namer_process_by_path",
     # 性能监控
     "health_check",
@@ -894,9 +902,17 @@ __all__ = [
     "start_workflow_from_steps",
     # ===== 新增能力（身份/期限/解析/任务统一状态）=====
     "get_current_user",
+    "ask_user",
+    "dispatch_research",
     "get_server_time",
     "get_agent_skill",
     "read_agent_attachment",
+    "remember",
+    "recall_memory",
+    "forget_memory",
+    "restore_memory",
+    "list_pending_memories",
+    "confirm_memories",
     "get_async_task_status",
     "list_doc_converter_jobs",
     "create_doc_converter_job",

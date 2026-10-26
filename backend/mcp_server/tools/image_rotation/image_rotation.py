@@ -59,11 +59,14 @@ def export_rotated_pdf(
 
 def export_rotated_images(
     images: list[dict[str, str]],
-    format: str = "png",
     paper_size: str = "A4",
 ) -> dict[str, Any]:
-    """将旋转后的图片导出为图片文件。images: [{filename, data, rotation}]。format: png/jpg。"""
+    """将旋转后的图片导出为图片文件（PNG）。images: [{filename, data, rotation}]。paper_size: A4 / original。
+
+    历史版本的 format 参数从未生效（REST ``/export`` 不读该字段）,
+    2026-10-25 参数级契约审计后移除。
+    """
     return client.post(  # type: ignore[no-any-return]
         "/image-rotation/export",
-        json={"images": images, "format": format, "paper_size": paper_size},
+        json={"images": images, "paper_size": paper_size},
     )

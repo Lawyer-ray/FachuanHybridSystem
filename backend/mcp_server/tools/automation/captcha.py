@@ -20,4 +20,4 @@ def get_captcha_image(task_id: str) -> dict[str, Any]:
 
 def submit_captcha_answer(task_id: str, answer: str) -> dict[str, Any]:
     """提交验证码答案。answer 为识别出的验证码文本。"""
-    return client.post(f"/automation/captcha/manual/{task_id}/answer", json={"answer": answer})  # type: ignore[return-value]
+    return client.post(f"/automation/captcha/manual/{task_id}/answer", json={"answer": answer})  # type: ignore[no-any-return]

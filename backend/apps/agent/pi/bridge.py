@@ -270,6 +270,15 @@ def translate_all(
     if etype in ("agent_start", "turn_start", "step_start"):
         return [{"type": "activity", "status": "thinking", "agent": agent}]
 
+    # ── 上下文压缩（自动压缩的进行/完成）───────────────────────────────────
+    # 不透传这两条，自动压缩就是「无声失忆」：律师只看到 AI 突然不记得
+    # 之前聊过的内容，没有任何解释。phase=end 时 chat_service 还会落一条
+    # 审计消息（Django 消息表是回放权威）。
+    if etype == "compaction_start":
+        return [{"type": "compaction", "phase": "start"}]
+    if etype == "compaction_end":
+        return [{"type": "compaction", "phase": "end"}]
+
     if etype == "error":
         return [{"type": "error", "message": str(event.raw.get("message") or "pi 运行错误")}]
 
@@ -303,6 +312,12 @@ def _translate_message_end(
         # 前端会看不到工具在执行——两件事都要发。
         # usage 是 pi 的精确计数（Usage.output 等），前端用来收尾展示真实
         # token 数与平均速度（流式期间的实时速度只能估算）。
+        #
+        # cacheRead / cacheWrite 也要透出：法穿把「AGENTS.md 逐轮字节稳定 →
+        # 命中 prompt cache」当核心设计，但改造前账上完全看不到它有没有生效
+        # （input_tokens 只装未命中部分）。真机 fixture
+        # ``tests/ci/fixtures/agent/*.jsonl`` 实测这两个字段存在（camelCase）。
+        # 前端用 cache_hit_rate = cacheRead/(input+cacheRead+cacheWrite) 显示。
         usage = message.get("usage")
         if isinstance(usage, dict) and isinstance(usage.get("output"), int | float):
             events.append(
@@ -310,6 +325,8 @@ def _translate_message_end(
                     "type": "usage",
                     "output_tokens": int(usage["output"]),
                     "input_tokens": int(usage.get("input") or 0),
+                    "cache_read_tokens": int(usage.get("cacheRead") or 0),
+                    "cache_write_tokens": int(usage.get("cacheWrite") or 0),
                 }
             )
         return events

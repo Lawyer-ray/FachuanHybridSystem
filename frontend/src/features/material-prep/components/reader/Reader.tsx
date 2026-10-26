@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { useReader } from '../../store'
 import { countUnclassified, isAutoSegName, matLabel } from '../../draft'
 import { useMediaQuery } from '@/hooks/use-media'
+import { ReviewLaunchDrawer } from '@/features/contract-review'
+import { fetchAttachmentBytes } from '../../api'
+import type { DraftState } from '../../types'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
 import { FixedReader, ReaderError, ReaderLoading } from './ReaderChrome'
@@ -63,6 +67,11 @@ export function Reader() {
 
   const st = useReader.getState()
 
+  // 归案之后的下一个动作是「发起审查」——不接这一步，归案就是条死路：
+  // draft_state 里只多了个 assign 字段，律师回到卡片墙不知道下一步做什么。
+  const navigate = useNavigate()
+  const [launchFile, setLaunchFile] = useState<string | null>(null)
+
   useReaderKeys()
   // ⌘/Ctrl + 滚轮（含触控板捏合）缩放画布，挂在中栏滚动容器上
   useWheelZoom(flowWrapEl, zoom)
@@ -80,6 +89,7 @@ export function Reader() {
     setMetaOpen(false)
     setRenameMat(null)
     setAssignOpen(false)
+    setLaunchFile(null)
   }, [openId, setAssignOpen])
 
   // 框选取字必须看得见页面 —— 抽屉让开
@@ -315,6 +325,15 @@ export function Reader() {
           setAssignOpen(false)
           st.setAssign(assign)
           toast('已归案')
+          // 归案后直接进发起审查：docx 才能审，其余格式在审查页里说清楚
+          const target = draft.mats.find((m) => /\.docx$/i.test(m.n))
+          if (target) {
+            setLaunchFile(target.n)
+            return
+          }
+          toast.info('材料包里没有 .docx：审查流水线只处理 Word 文档', {
+            description: 'PDF / 图片请先转成 docx，或到合同文件夹里对 docx 发起审查',
+          })
           st.close()
         }}
         deleteTarget={deleteTarget}
@@ -325,6 +344,48 @@ export function Reader() {
         renameMat={renameMat}
         onRenameMatClose={() => setRenameMat(null)}
       />
+
+      {/* 归案 → 发起审查。抽屉自己负责上传 + 确认立场，完成后通知跳复审台。 */}
+      {launchFile && detail && (
+        <ReviewLaunchDrawer
+          open
+          fileName={launchFile}
+          loadFile={() => loadDocxBytes(detail.id, draft, launchFile)}
+          parties={draft.infos.reduce<Record<string, string>>((acc, info, i) => {
+            if (info.v?.trim()) acc[`party_${'abcd'[i] ?? 'a'}`] = info.v.trim()
+            return acc
+          }, {})}
+          onClose={() => {
+            setLaunchFile(null)
+            st.close()
+          }}
+          onStarted={(taskId) => {
+            setLaunchFile(null)
+            st.close()
+            // 材料归属里的案件/合同 id 才是项目的锚点；没归到项目就在预处页停下来
+            const projectId = detail.draft_state?.assign?.caseId
+            if (projectId) {
+              toast.success('审查已启动', { description: '正在打开复审工作台…' })
+              void navigate(`/projects/${projectId}/review/${taskId}`)
+              return
+            }
+            toast.success('审查已启动', {
+              description: '材料尚未归属到具体项目，请到项目下查看复审工作台',
+            })
+          }}
+        />
+      )}
     </FixedReader>
   )
+}
+
+/** 从材料包里取 docx 字节（审查流水线只吃 docx，需带鉴权）。 */
+async function loadDocxBytes(
+  messageId: number,
+  draft: DraftState,
+  fileName: string,
+): Promise<ArrayBuffer> {
+  const mat = draft.mats.find((m) => m.n === fileName)
+  if (!mat) throw new Error('材料包里找不到该文件')
+  return fetchAttachmentBytes(messageId, mat.partIndex)
 }

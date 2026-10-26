@@ -99,11 +99,16 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
         }),
       }))
     },
-    onUsage: (outputTokens) => {
+    onUsage: (usage) => {
       set((s) => ({
         turnStats: {
           ...s.turnStats,
-          exactTokens: (s.turnStats.exactTokens ?? 0) + outputTokens,
+          // exactTokens 只算输出：上一代 UI 用它展示「生成速度」，混进输入
+          // 会让速度虚高数倍。输入侧成本看 input/cache 两个字段。
+          exactTokens: (s.turnStats.exactTokens ?? 0) + usage.outputTokens,
+          inputTokens: (s.turnStats.inputTokens ?? 0) + usage.inputTokens,
+          cacheReadTokens: (s.turnStats.cacheReadTokens ?? 0) + usage.cacheReadTokens,
+          cacheWriteTokens: (s.turnStats.cacheWriteTokens ?? 0) + usage.cacheWriteTokens,
         },
       }))
     },
@@ -126,14 +131,24 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
     onQueued: (position) => {
       set({ queuePosition: Math.max(1, position) })
     },
+    onCompaction: (phase) => {
+      // start→end 之间 Composer 底栏显示「正在压缩上下文…」；
+      // 结束不额外弹提示——水位条本身会随 done 事件下降，那就是最直白的交代
+      set({ compacting: phase === 'start' })
+    },
     onProgress: clearQueueBanner,
     onError: (message) => {
       set({ lastError: message })
       finishAssistant()
     },
-    onDone: () => {
+    onDone: (context) => {
       finishAssistant()
-      set((s) => ({ turnStats: { ...s.turnStats, doneAt: Date.now() }, queuedSteers: [] }))
+      set((s) => ({
+        turnStats: { ...s.turnStats, doneAt: Date.now() },
+        queuedSteers: [],
+        // done 带水位才写：不带（旧后端/未上报）保持原值，别把已知水位冲成 null
+        ...(context ? { contextUsage: { used: context.used, total: context.total } } : {}),
+      }))
     },
   }
 

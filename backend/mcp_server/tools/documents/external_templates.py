@@ -6,24 +6,31 @@ import base64
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def analyze_template(template_id: int) -> dict[str, Any]:
     """触发或重新触发 LLM 分析外部模板。"""
-    return client.post(f"/documents/external-templates/{template_id}/analyze", json={})  # type: ignore[return-value]
+    return client.post(f"/documents/external-templates/{template_id}/analyze", json={})  # type: ignore[no-any-return]
 
 
 def confirm_mappings(template_id: int) -> dict[str, Any]:
-    """确认模板字段映射。"""
-    return client.post(f"/documents/external-templates/{template_id}/confirm")  # type: ignore[return-value]
+    """确认外部模板的字段映射（分析→预览→确认 后模板才可用）。"""
+    return client.post(f"/documents/external-templates/{template_id}/confirm")  # type: ignore[no-any-return]
 
 
 def preview_fill(template_id: int, case_id: int, party_id: int | None = None) -> dict[str, Any]:
-    """预览模板填充结果。"""
+    """预览外部模板的填充结果（用真实数据试填,不落盘）。
+
+    Args:
+        template_id: 外部模板 ID(经 analyze_template 分析过的)。
+        case_id: 提供填充数据的案件 ID。
+        party_id: 可选,当事人 ID——多当事人模板时指定用哪一方数据。
+    """
     params: dict[str, Any] = {"case_id": case_id}
     if party_id is not None:
         params["party_id"] = party_id
-    return client.get(f"/documents/external-templates/{template_id}/preview", params=params)  # type: ignore[return-value]
+    return client.get(f"/documents/external-templates/{template_id}/preview", params=params)  # type: ignore[no-any-return]
 
 
 def match_templates(case_id: int | None = None, source_name: str | None = None) -> dict[str, Any]:
@@ -37,7 +44,7 @@ def match_templates(case_id: int | None = None, source_name: str | None = None) 
         params["case_id"] = case_id
     if source_name is not None:
         params["source_name"] = source_name
-    return client.get("/documents/external-templates/match", params=params)  # type: ignore[return-value]
+    return client.get("/documents/external-templates/match", params=params)  # type: ignore[no-any-return]
 
 
 def get_custom_fields(template_id: int) -> dict[str, Any]:
@@ -45,7 +52,7 @@ def get_custom_fields(template_id: int) -> dict[str, Any]:
 
     返回 ``{template_id, fields}``，字段清单在 ``fields`` 里。
     """
-    return client.get(f"/documents/external-templates/{template_id}/custom-fields")  # type: ignore[return-value]
+    return client.get(f"/documents/external-templates/{template_id}/custom-fields")  # type: ignore[no-any-return]
 
 
 def get_fill_history(case_id: int | None = None, template_id: int | None = None) -> dict[str, Any]:
@@ -59,22 +66,22 @@ def get_fill_history(case_id: int | None = None, template_id: int | None = None)
         params["case_id"] = case_id
     if template_id is not None:
         params["template_id"] = template_id
-    return client.get("/documents/external-templates/history", params=params)  # type: ignore[return-value]
+    return client.get("/documents/external-templates/history", params=params)  # type: ignore[no-any-return]
 
 
 def get_statistics() -> dict[str, Any]:
-    """获取当前律所的模板使用统计。"""
-    return client.get("/documents/external-templates/statistics")  # type: ignore[return-value]
+    """获取本律所的外部模板使用统计。"""
+    return client.get("/documents/external-templates/statistics")  # type: ignore[no-any-return]
 
 
 def get_preview_html(template_id: int) -> dict[str, Any]:
     """将 docx 模板转换为 HTML 用于浏览器预览。"""
-    return client.get(f"/documents/external-templates/{template_id}/preview-html")  # type: ignore[return-value]
+    return client.get(f"/documents/external-templates/{template_id}/preview-html")  # type: ignore[no-any-return]
 
 
-def list_mappings(template_id: int) -> list[dict[str, Any]]:
-    """列出模板的所有字段映射。"""
-    return client.get(f"/documents/external-templates/{template_id}/mappings")  # type: ignore[return-value]
+def list_mappings(template_id: int) -> dict[str, Any]:
+    """列出外部模板的全部字段映射。"""
+    return list_result(client.get(f"/documents/external-templates/{template_id}/mappings"))
 
 
 def create_mapping(
@@ -84,8 +91,12 @@ def create_mapping(
     position_description: str = "",
     fill_type: str = "text",
 ) -> dict[str, Any]:
-    """手动创建新的字段映射。"""
-    return client.post(
+    """手动创建字段映射（LLM 分析不准时人工补正）。
+
+    fill_type 取值：``text`` 文本替换（默认）/ ``checkbox`` 勾选复选框 /
+    ``delete_inapplicable`` 删除不适用项。
+    """
+    return client.post(  # type: ignore[no-any-return]
         f"/documents/external-templates/{template_id}/mappings",
         json={
             "position_locator": position_locator,
@@ -93,16 +104,16 @@ def create_mapping(
             "position_description": position_description,
             "fill_type": fill_type,
         },
-    )  # type: ignore[return-value]
+    )
 
 
-def update_mapping(mapping_id: int, **fields: Any) -> dict[str, Any]:
-    """更新已有字段映射。"""
-    return client.put(f"/documents/external-templates/mappings/{mapping_id}", json=fields)  # type: ignore[return-value]
+def update_mapping(mapping_id: int, fields: dict[str, Any] | None = None) -> dict[str, Any]:
+    """更新字段映射。只传需要修改的字段。"""
+    return client.put(f"/documents/external-templates/mappings/{mapping_id}", json=fields or {})  # type: ignore[no-any-return]
 
 
 def delete_mapping(mapping_id: int) -> None:
-    """删除字段映射。"""
+    """删除字段映射——模板对应字段将不再自动填充。"""
     client.delete(f"/documents/external-templates/mappings/{mapping_id}")
 
 
@@ -133,4 +144,4 @@ def fill_templates(
         payload["party_ids"] = party_ids
     if custom_values:
         payload["custom_values"] = custom_values
-    return client.post("/documents/external-templates/fill", json=payload)  # type: ignore[return-value]
+    return client.post("/documents/external-templates/fill", json=payload)  # type: ignore[no-any-return]

@@ -89,6 +89,22 @@ def list_sources(request: Any) -> list[MessageSource]:  # pragma: no cover
     return list(visible_sources_qs(_request_user(request)))
 
 
+@router.post("/sources/sync-all")
+def sync_all_sources(request: Any) -> dict[str, Any]:
+    """同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。
+
+    必须注册在 ``/sources/{source_id}`` 参数路由**之前**：ninja 的 URL 正则
+    按注册顺序匹配且默认 str 参数——字面量路由放后面会被参数路由吞掉,
+    POST 到这里就变成 405 Method Not Allowed(2026-10-25 MCP 审计实测)。
+    """
+    from apps.message_hub.services.inbox_access import visible_sources_qs
+
+    sources = list(visible_sources_qs(_request_user(request)).filter(is_enabled=True))
+    for source in sources:
+        submit_task("apps.message_hub.tasks.sync_source_by_id", source.pk)
+    return {"success": True, "message": f"已提交 {len(sources)} 个同步任务"}
+
+
 @router.get("/sources/{source_id}", response=MessageSourceOut)
 def get_source(request: Any, source_id: int) -> MessageSource:  # pragma: no cover
     from django.http import Http404
@@ -204,14 +220,3 @@ def sync_source(request: Any, source_id: int) -> dict[str, Any]:  # pragma: no c
     _ensure_source_manageable(request, source)
     submit_task("apps.message_hub.tasks.sync_source_by_id", source_id)
     return {"success": True, "message": "同步任务已提交"}
-
-
-@router.post("/sources/sync-all")
-def sync_all_sources(request: Any) -> dict[str, Any]:
-    """同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。"""
-    from apps.message_hub.services.inbox_access import visible_sources_qs
-
-    sources = list(visible_sources_qs(_request_user(request)).filter(is_enabled=True))
-    for source in sources:
-        submit_task("apps.message_hub.tasks.sync_source_by_id", source.pk)
-    return {"success": True, "message": f"已提交 {len(sources)} 个同步任务"}

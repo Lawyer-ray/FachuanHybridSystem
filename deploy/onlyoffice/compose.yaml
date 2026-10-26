@@ -1,0 +1,39 @@
+# OnlyOffice Document Server —— 开发环境（OrbStack / Apple Silicon）
+#
+# 源文件：本仓库 deploy/onlyoffice/compose.yaml
+# 运行目录：~/onlyoffice-dev/（改动后同步过去再 up -d）
+#
+# 升级 = 改下面这行 image 的 tag（走 PR，可 review / 可回滚）。
+# 升级流程与验收清单见 backend/apps/onlyoffice/README.md 第四节。
+#   注意：10.0 在 Docker Hub 不存在（10.x 未发布镜像），当前用 9.4.0.1。
+#   Docker Hub 无该 tag 时 `docker compose pull` 会直接失败，先查：
+#   docker manifest inspect onlyoffice/documentserver:<tag>
+#
+# JWT_SECRET 必须与后端 SystemConfig 的 ONLYOFFICE_JWT_SECRET 一致，
+# 否则编辑器打开即白屏 / 回调全部验签失败（apps/onlyoffice/config.py）。
+
+services:
+  onlyoffice:
+    image: onlyoffice/documentserver:9.4.0.1
+    container_name: onlyoffice
+    restart: unless-stopped
+    ports:
+      - "9980:80"
+    environment:
+      - JWT_ENABLED=true
+      - JWT_SECRET=${ONLYOFFICE_JWT_SECRET}
+    volumes:
+      # DS 转换缓存 + 日志。升级跨版本时必须删掉 data 卷（只删 _data，不动 _log）：
+      # 残留的旧缓存文件会被新版本解析失败，表现为旧内容 / 空白画布 / 转换报错。
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_log:/var/log/onlyoffice
+      # 只放支持中文的字体（当前 14 个）。全量同步本机字体（388 个）会让纯西文
+      # Arial 抢占默认字体解析，中文全变豆腐问号（2026-10-01 实测）。
+      - ./fonts:/usr/share/fonts/custom:ro
+    extra_hosts:
+      # DS 容器回连宿主取文件 + 回写回调的命门（对应 ONLYOFFICE_INTERNAL_URL）
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  onlyoffice_data:
+  onlyoffice_log:

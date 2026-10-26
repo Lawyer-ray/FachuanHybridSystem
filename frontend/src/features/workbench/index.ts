@@ -16,10 +16,33 @@ export const WorkbenchPageLazy = lazy(() =>
   preloadWorkbenchPage().then((m) => ({ default: m.WorkbenchPage })),
 )
 
-/** 争议解决详情页 chunk 加载器（/cases/:id；与列表页共享 domain/api，公共代码由构建器自动拆共用块） */
+/** 争议解决详情页 chunk 加载器（/projects/:id；与列表页共享 domain/api，公共代码由构建器自动拆共用块） */
 export const preloadDealDetailPage = () => import('./components/deal-detail/DealDetailPage')
 
 /** 争议解决详情页（懒加载组件，消费方需包 Suspense） */
 export const DealDetailPageLazy = lazy(() =>
   preloadDealDetailPage().then((m) => ({ default: m.DealDetailPage })),
+)
+
+/** 非诉（常法/专项）详情页 chunk 加载器（由 ProjectDetailPage 在 /projects/:id 内按 lit 选用，无独立路由） */
+export const preloadNonLitDetailPage = () => import('./components/deal-detail/NonLitDetailPage')
+
+/** 非诉详情页（懒加载组件，消费方需包 Suspense） */
+export const NonLitDetailPageLazy = lazy(() =>
+  preloadNonLitDetailPage().then((m) => ({ default: m.NonLitDetailPage })),
+)
+
+/**
+ * 项目详情分发：`/projects/:id` 一条 URL，按 `deal.lit` 决定渲染哪一栏。
+ *
+ * **为什么不再用 `/nonlit` 后缀**：`nonlit` 是 non-litigation 的缩写，属实现
+ * 分类而非用户概念——律师只知道「这是个顾问项目」，不会想「这是 nonlit」。
+ * 更要紧的是旧实现有隐藏重定向（直达 `/projects/:id` 的非诉委托会被悄悄
+ * 转到 `/projects/:id/nonlit`），用户看到 URL 变了却不知道为什么。
+ *
+ * 分流依据 `lit` 来自合同 `case_type`（civil/criminal/advisor…）的派生，与
+ * 左栏内容严格对应：有法院程序 → 案件程序链；无 → 合同文件夹。
+ */
+export const ProjectDetailPageLazy = lazy(() =>
+  import('./components/deal-detail/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })),
 )

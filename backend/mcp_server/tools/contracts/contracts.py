@@ -2,22 +2,59 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from mcp_server.client import client
+from pydantic import Field
+
+from mcp_server.client import FachuanApiError, client
+from mcp_server.tool_shaping import list_result
 from mcp_server.tools.core.projection import CONTRACT_LIST_FIELDS, project_page
+
+#: 枚举 Literal 与模型 TextChoices 同源(测试逐值对账,后端加值不同步
+#: 即红灯)。schema 级 enum 是枚举陷阱的根治:模型选值时只见合法集,
+#: 小写 fee_mode/中文代理阶段在调用前就被挡住,不再靠 filter 静默
+#: 空列表或 ValidationException 事后报错。
+_CaseTypeL = Literal["civil", "criminal", "administrative", "labor", "intl", "special", "advisor"]
+_ContractStatusL = Literal["unsigned", "active", "archived"]
+_FeeModeL = Literal["FIXED", "SEMI_RISK", "FULL_RISK", "CUSTOM"]
+_CaseStageL = Literal[
+    "first_trial",
+    "second_trial",
+    "enforcement",
+    "labor_arbitration",
+    "administrative_review",
+    "private_prosecution",
+    "investigation",
+    "prosecution_review",
+    "retrial_first",
+    "retrial_second",
+    "apply_retrial",
+    "rehearing_first",
+    "rehearing_second",
+    "review",
+    "death_penalty_review",
+    "petition",
+    "apply_protest",
+    "petition_protest",
+]
 
 
 def list_contracts(
-    case_type: str | None = None,
-    status: str | None = None,
-    search: str | None = None,
-    fee_mode: str | None = None,
-    is_filed: bool | None = None,
-    page: int = 1,
-    page_size: int = 20,
-    fields: list[str] | None = None,
-    full: bool = False,
+    case_type: Annotated[
+        _CaseTypeL | None,
+        Field(description="按案件类型筛选(civil/criminal/administrative/labor/intl/special/advisor)"),
+    ] = None,
+    status: Annotated[_ContractStatusL | None, Field(description="按合同状态筛选(unsigned 未签约/active 在办/archived 已归档)")] = None,
+    search: Annotated[str | None, Field(description="按合同名称模糊搜索")] = None,
+    fee_mode: Annotated[
+        _FeeModeL | None,
+        Field(description="按收费方式筛选(大写:FIXED 固定/SEMI_RISK 半风险/FULL_RISK 全风险/CUSTOM 自定义)"),
+    ] = None,
+    is_filed: Annotated[bool | None, Field(description="按是否已建档筛选")] = None,
+    page: Annotated[int, Field(description="页码,从 1 开始(本工具用 page 翻页,不用 offset)", ge=1)] = 1,
+    page_size: Annotated[int, Field(description="每页条数(默认 20,上限 200)", ge=1, le=200)] = 20,
+    fields: Annotated[list[str] | None, Field(description="只返回这些字段(如 [\"id\",\"name\",\"status\",\"fixed_amount\"]);不传用默认 17 字段投影")] = None,
+    full: Annotated[bool, Field(description="True 返回完整结构(含全部嵌套,体量大),仅在需要当事人/收款明细时用")] = False,
 ) -> dict[str, Any]:
     """查询合同列表（服务端分页）。
 
@@ -26,10 +63,11 @@ def list_contracts(
     一次序列化约 22 万 token，模型读不完只能从截断处人工统计。
 
     Args:
-        case_type: 按案件类型筛选。
-        status: 按合同状态筛选。
+        case_type: 按案件类型筛选（civil/criminal/administrative/labor/intl/special/advisor）。
+        status: 按合同状态筛选（unsigned / active / archived）。
         search: 按合同名称模糊搜索。
-        fee_mode: 按收费方式筛选（``fixed`` / ``risk``）。
+        fee_mode: 按收费方式筛选（**大写**：``FIXED`` 固定 / ``SEMI_RISK``
+            半风险 / ``FULL_RISK`` 全风险 / ``CUSTOM`` 自定义）。
         is_filed: 按是否已建档筛选。
         page: 页码，从 1 开始。
         page_size: 每页条数，默认 20，上限 200。
@@ -53,9 +91,9 @@ def list_contracts(
         params["fee_mode"] = fee_mode
     if is_filed is not None:
         params["is_filed"] = is_filed
-    payload: dict[str, Any] = client.get("/contracts/contracts", params=params)  # type: ignore[assignment]
+    payload: dict[str, Any] = client.get("/contracts/contracts", params=params)
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
-        raise RuntimeError(
+        raise FachuanApiError(
             f"/contracts/contracts 返回了非分页结构: {type(payload).__name__}；后端契约可能已变更，请检查"
         )
     return project_page(payload, fields, CONTRACT_LIST_FIELDS, full=full)
@@ -63,38 +101,73 @@ def list_contracts(
 
 def get_contract(contract_id: int) -> dict[str, Any]:
     """获取单个合同的详细信息，包含关联案件、当事人、律师指派、付款记录等。"""
-    return client.get(f"/contracts/contracts/{contract_id}")  # type: ignore[return-value]
+    return client.get(f"/contracts/contracts/{contract_id}")  # type: ignore[no-any-return]
 
 
 def create_contract(
-    name: str,
-    case_type: str,
-    lawyer_ids: list[int],
-    status: str | None = None,
-    fixed_amount: float | None = None,
-    fee_mode: str | None = None,
-    risk_rate: float | None = None,
-    custom_terms: str | None = None,
-    representation_stages: list[str] | None = None,
-    specified_date: str | None = None,
-    start_date: str | None = None,
-    end_date: str | None = None,
-    parties: list[dict[str, Any]] | None = None,
-    payments: list[dict[str, Any]] | None = None,
-    confirm_finance: bool = False,
+    name: Annotated[str, Field(description="合同名称")],
+    case_type: Annotated[
+        _CaseTypeL,
+        Field(description="案件类型(英文键):civil 民商事 / criminal 刑事 / administrative 行政 / labor 劳动仲裁 / intl 商事仲裁 / special 专项服务 / advisor 常法顾问"),
+    ],
+    lawyer_ids: Annotated[list[int], Field(description="律师 ID 列表,第一个为主办律师")],
+    status: Annotated[_ContractStatusL | None, Field(description="合同状态(unsigned 未签约/active 在办/archived 已归档),新建一般留空")] = None,
+    fixed_amount: Annotated[float | None, Field(description="固定代理费金额;FIXED/SEMI_RISK 模式必填(>0)", gt=0)] = None,
+    fee_mode: Annotated[
+        _FeeModeL | None,
+        Field(
+            description=(
+                "收费方式(大写枚举,写错值会绕过金额校验静默落库):"
+                "FIXED 固定(需 fixed_amount>0)/SEMI_RISK 半风险(需 fixed_amount>0 且 risk_rate>0)/"
+                "FULL_RISK 全风险(需 risk_rate>0)/CUSTOM 自定义(需 custom_terms)"
+            )
+        ),
+    ] = None,
+    risk_rate: Annotated[float | None, Field(description="风险代理比例(SEMI_RISK/FULL_RISK 必填,>0)", gt=0)] = None,
+    custom_terms: Annotated[str | None, Field(description="自定义条款文本,CUSTOM 模式必填")] = None,
+    representation_stages: Annotated[
+        list[_CaseStageL] | None,
+        Field(
+            description=(
+                "代理阶段(英文键,中文值必被拒):first_trial 一审/second_trial 二审/enforcement 执行/"
+                "labor_arbitration 劳动仲裁/administrative_review 行政复议/private_prosecution 自诉/"
+                "investigation 侦查/prosecution_review 审查起诉/retrial_first/retrial_second 重审等"
+                "(完整 18 值见 schema enum);仅民商事/刑事/行政/劳动/商事仲裁类合同适用"
+            )
+        ),
+    ] = None,
+    specified_date: Annotated[str | None, Field(description="关键日期,YYYY-MM-DD")] = None,
+    start_date: Annotated[str | None, Field(description="起始日期,YYYY-MM-DD")] = None,
+    end_date: Annotated[str | None, Field(description="结案日期,YYYY-MM-DD")] = None,
+    parties: Annotated[list[dict[str, Any]] | None, Field(description="当事人列表(每项含身份与客户信息);合同当事人是后续立案、文书生成的数据源,缺省则合同下无当事人")] = None,
+    payments: Annotated[list[dict[str, Any]] | None, Field(description="收款记录列表,创建时一并写入")] = None,
+    confirm_finance: Annotated[bool, Field(description="是否确认财务变动(与 payments 一起决定是否落财务)")] = False,
 ) -> dict[str, Any]:
     """创建新合同。
 
     Args:
         name: 合同名称。
-        case_type: 案件类型（同案件类型枚举）。
+        case_type: 案件类型（英文键）：``civil`` 民商事 / ``criminal`` 刑事 /
+            ``administrative`` 行政 / ``labor`` 劳动仲裁 / ``intl`` 商事仲裁 /
+            ``special`` 专项服务 / ``advisor`` 常法顾问。
         lawyer_ids: 律师 ID 列表，**第一个为主办律师**。
-        status: 合同状态。
+        status: 合同状态（unsigned 未签约 / active 在办 / archived 已归档，
+            新建一般留空默认未签约）。
         fixed_amount: 固定代理费金额。
-        fee_mode: 收费方式，``fixed``（固定）或 ``risk``（风险代理）。
-        risk_rate: 风险代理比例（fee_mode=risk 时使用）。
+        fee_mode: 收费方式（**大写枚举，写错值会绕过金额校验静默落库**）：
+            ``FIXED`` 固定（需 fixed_amount>0）/ ``SEMI_RISK`` 半风险
+            （需 fixed_amount>0 且 risk_rate>0）/ ``FULL_RISK`` 全风险
+            （需 risk_rate>0）/ ``CUSTOM`` 自定义（需 custom_terms）。
+        risk_rate: 风险代理比例（SEMI_RISK/FULL_RISK 时必填）。
         custom_terms: 自定义条款文本。
-        representation_stages: 代理阶段列表（如 ["一审", "二审"]）。
+        representation_stages: 代理阶段列表，取**英文键**（中文会被
+            ValidationException 拒绝）：``first_trial`` 一审 /
+            ``second_trial`` 二审 / ``enforcement`` 执行 /
+            ``labor_arbitration`` 劳动仲裁 / ``administrative_review``
+            行政复议 / ``private_prosecution`` 自诉 / ``investigation``
+            侦查 / ``prosecution_review`` 审查起诉 / ``retrial_first`` /
+            ``retrial_second`` 重审。仅民商事/刑事/行政/劳动/商事仲裁
+            类合同适用。
         specified_date / start_date / end_date: 关键日期（YYYY-MM-DD）。
         parties: 当事人列表，每项含身份与客户信息；合同当事人是后续
             立案、文书生成的数据源，缺省则合同下无当事人。
@@ -139,7 +212,7 @@ def create_contract(
     params: dict[str, Any] = {}
     if confirm_finance:
         params["confirm_finance"] = confirm_finance
-    return client.post("/contracts/contracts", json=body, params=params)  # type: ignore[return-value]
+    return client.post("/contracts/contracts", json=body, params=params)  # type: ignore[no-any-return]
 
 
 def create_contract_with_cases(
@@ -148,7 +221,7 @@ def create_contract_with_cases(
 ) -> dict[str, Any]:
     """创建合同并同时关联案件。contract_data 为合同字段（name、case_type、lawyer_ids 等）；cases 为案件列表（每项含 case_type、client_name 等）。"""
     payload: dict[str, Any] = {**contract_data, "cases": cases}
-    return client.post("/contracts/contracts/full", json=payload)  # type: ignore[return-value]
+    return client.post("/contracts/contracts/full", json=payload)  # type: ignore[no-any-return]
 
 
 def update_contract(
@@ -163,34 +236,37 @@ def update_contract(
         params["sync_cases"] = sync_cases
     if confirm_finance:
         params["confirm_finance"] = confirm_finance
-    return client.put(
+    return client.put(  # type: ignore[no-any-return]
         f"/contracts/contracts/{contract_id}",
         json=contract_data,
         params=params,
-    )  # type: ignore[return-value]
+    )
 
 
 def delete_contract(contract_id: int) -> None:
-    """删除指定合同。此操作不可逆。"""
+    """删除合同——硬删除,不可恢复。
+
+    合同下存在案件时后端会**拒绝删除**（Case 外键 PROTECT,防静默抹掉
+    案件数据）,需先处理案件。删除前确认收款/归档记录已不需要。高危操作,需人工审批。"""
     client.delete(f"/contracts/contracts/{contract_id}")
 
 
 def update_contract_lawyers(
     contract_id: int,
     lawyer_ids: list[int],
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """更新合同的律师指派。lawyer_ids 第一个为主办律师。
 
     后端 ``response=list[ContractAssignmentOut]``，返回更新后的指派列表。
     """
     payload: dict[str, Any] = {"lawyer_ids": lawyer_ids}
-    return client.put(f"/contracts/contracts/{contract_id}/lawyers", json=payload)  # type: ignore[return-value]
+    return list_result(client.put(f"/contracts/contracts/{contract_id}/lawyers", json=payload))
 
 
-def get_contract_all_parties(contract_id: int) -> list[dict[str, Any]]:
+def get_contract_all_parties(contract_id: int) -> dict[str, Any]:
     """获取合同全部当事人信息，包含原告、被告、第三人等分组。
 
     后端 ``response=list[ContractPartySourceOut]``，返回扁平数组（每条带
     当事人方向字段），不是按原告/被告分组的对象。
     """
-    return client.get(f"/contracts/contracts/{contract_id}/all-parties")  # type: ignore[return-value]
+    return list_result(client.get(f"/contracts/contracts/{contract_id}/all-parties"))

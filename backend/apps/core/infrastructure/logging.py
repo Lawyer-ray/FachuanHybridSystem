@@ -451,6 +451,16 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
                 "level": "WARNING",
                 "propagate": False,
             },
+            # 共享 MCP 进程的工具调用耗时日志(每次调用一行 INFO,>30s 升
+            # WARNING)。单独配置而非走 root:root 级别是 WARNING,不配这里
+            # 的话 mcp_server.* 的 INFO 会被整层吞掉。该 logger 只在
+            # ``python -m mcp_server`` 进程里有流量,Django 后端进程里是
+            # 休眠条目,零开销;console → stderr → 共享 MCP 日志文件。
+            "mcp_server": {
+                "handlers": ["console", "console_error", "file_error"],
+                "level": _safe_get_config("logging.mcp_level", "INFO"),
+                "propagate": False,
+            },
             # Gunicorn 日志（Docker 生产环境）
             "gunicorn.error": {
                 "handlers": ["console", "console_error"],

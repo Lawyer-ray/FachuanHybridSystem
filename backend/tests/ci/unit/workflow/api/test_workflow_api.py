@@ -23,6 +23,7 @@ from apps.workflow.api.workflow_api import (
     start_workflow_api,
     update_template,
 )
+from mcp_server.client import FachuanApiError
 
 # ── start_workflow_api ────────────────────────────────────────────────────────
 
@@ -136,7 +137,7 @@ async def test_approve_workflow_api_error():
         patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock),
         patch("apps.workflow.api.workflow_api.approve_workflow_step", new_callable=AsyncMock) as mock_approve,
     ):
-        mock_approve.return_value = {"error": "not found"}
+        mock_approve.side_effect = FachuanApiError("not found")
         with pytest.raises(HttpError):
             await approve_workflow_api(MagicMock(), run_id=1, payload=payload)
 
@@ -164,7 +165,7 @@ async def test_cancel_workflow_api_error():
         patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock),
         patch("apps.workflow.api.workflow_api.cancel_workflow", new_callable=AsyncMock) as mock_cancel,
     ):
-        mock_cancel.return_value = {"error": "not found"}
+        mock_cancel.side_effect = FachuanApiError("not found")
         with pytest.raises(HttpError):
             await cancel_workflow_api(MagicMock(), run_id=1)
 
@@ -192,7 +193,7 @@ async def test_delete_workflow_api_error():
         patch("apps.workflow.api.workflow_api._require_run_case_access", new_callable=AsyncMock),
         patch("apps.workflow.api.workflow_api.delete_workflow_run", new_callable=AsyncMock) as mock_delete,
     ):
-        mock_delete.return_value = {"error": "not found"}
+        mock_delete.side_effect = FachuanApiError("not found")
         with pytest.raises(HttpError):
             await delete_workflow_api(MagicMock(), run_id=1)
 

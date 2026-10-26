@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronRight, FileText, FolderClosed, FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
+import { ChevronRight, FileSearch, FolderClosed, FolderPlus, Loader2, Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { withDownloadTicket } from '@/lib/download-ticket'
@@ -18,6 +18,7 @@ import {
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import { stripEntryParens } from './detail-domain'
 import { DeleteConfirm, TreeContextMenu, type TreeMenuItem } from './folder-tree-menu'
+import { FileKindBadge } from './FileKindBadge'
 import { EntryInput } from './folder-tree-ui'
 import { fmtSize, type NodeActions, type TreeCtx } from './folder-tree-types'
 import { FOLDER_REF_MIME } from '@/lib/folder-ref'
@@ -53,12 +54,27 @@ export function FolderTree({
   ownerId,
   maxH = '',
   title,
+  onReviewFile,
+  onOpenFile,
+  selectedSubpath,
 }: {
   kind: FolderOwnerKind
   ownerId: number
   maxH?: string
   /** 传入时渲染节标题行（右栏用，让「新建文件夹」与标题同行） */
   title?: string
+  /** 传入时文件行 hover 显「AI 审查」按钮（非诉详情页的合同回审入口） */
+  onReviewFile?: (f: { subpath: string; name: string }) => void
+  /**
+   * 传入时点文件行 = 打开预览（而不是下载）。
+   *
+   * 以前 onClick 直接 `window.open(下载地址)`——浏览器没有 docx 渲染器，
+   * 点开必然变成下载，律师想「看一眼」得先存盘再开 Word。传了本回调就
+   * 交给调用方渲染 OnlyOffice 预览；不传则保留旧行为（兼容案件页）。
+   */
+  onOpenFile?: (f: { subpath: string; name: string }) => void
+  /** 当前预览中的 subpath（行高亮用） */
+  selectedSubpath?: string | null
 }) {
   const qc = useQueryClient()
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -91,8 +107,11 @@ export function FolderTree({
       dropOn,
       setDropOn,
       openMenu: (e, entry) => setMenu({ x: e.clientX, y: e.clientY, ...entry }),
+      onReviewFile,
+      onOpenFile,
+      selectedSubpath,
     }),
-    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn],
+    [kind, ownerId, open, creatingIn, renaming, deleting, dropOn, onReviewFile, onOpenFile, selectedSubpath],
   )
 
   const invalidate = () => {
@@ -461,6 +480,12 @@ function FileRow({
   const deletingThis = ctx.deleting?.subpath === file.subpath
 
   const preview = async () => {
+    // 有预览通道就交给调用方（OnlyOffice 渲染）；否则退回下载。
+    // 浏览器没 docx 渲染器，`window.open` 对 .docx 必然变成下载。
+    if (ctx.onOpenFile) {
+      ctx.onOpenFile({ subpath: file.subpath, name: file.name })
+      return
+    }
     window.open(await withDownloadTicket(folderFileUrl(ctx.kind, ctx.ownerId, file.subpath)), '_blank', 'noopener')
   }
 
@@ -491,8 +516,16 @@ function FileRow({
     <div
       role="button"
       tabIndex={0}
-      className="group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors hover:bg-secondary"
+      className={
+        'group relative flex cursor-pointer items-center gap-1.5 rounded-[7px] py-[5px] pr-1 transition-colors ' +
+        // 选中态与 hover 分开：律师常要「看着预览、在列表里点下一份」，
+        // 光靠 hover 无法表达「当前正在看的就是这份」
+        (ctx.selectedSubpath === file.subpath
+          ? 'bg-foreground/[0.07] shadow-[inset_2px_0_0_var(--color-foreground)]'
+          : 'hover:bg-secondary')
+      }
       style={{ paddingLeft: 20 }}
+      aria-current={ctx.selectedSubpath === file.subpath ? 'true' : undefined}
       title={'预览 ' + file.name}
       onClick={() => void preview()}
       draggable
@@ -518,8 +551,8 @@ function FileRow({
         ctx.openMenu(e, { subpath: file.subpath, name: file.name, isFolder: false })
       }}
     >
-      <FileText className="size-[15px] flex-none text-muted-foreground/70" />
-      <span className="min-w-0 flex-1 truncate text-[13px]" title={file.name}>
+      <FileKindBadge name={file.name} />
+      <span className="min-w-0 flex-1 truncate text-[12.5px]" title={file.name}>
         {stripEntryParens(file.name)}
       </span>
       {/* 日期/大小 hover 时让位给浮层按钮（绝对定位，不参与布局） */}
@@ -528,6 +561,19 @@ function FileRow({
         {file.size > 0 && ' · ' + fmtSize(file.size)}
       </span>
       <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center rounded-[6px] bg-secondary px-0.5 group-hover:flex">
+        {ctx.onReviewFile && (
+          <button
+            type="button"
+            title="AI 审查此文件"
+            className="cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              ctx.onReviewFile?.({ subpath: file.subpath, name: file.name })
+            }}
+          >
+            <FileSearch className="size-3.5" />
+          </button>
+        )}
         <button
           type="button"
           title="重命名"

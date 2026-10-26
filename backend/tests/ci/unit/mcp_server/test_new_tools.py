@@ -96,10 +96,11 @@ class TestUpcomingDeadlines:
 
     def test_raises_on_unexpected_shape(self, fake_client: Any) -> None:
         """后端形状变了要显式报错，不能静默返回空列表骗模型。"""
+        from mcp_server.client import FachuanApiError
         from mcp_server.tools.reminders.deadlines import list_upcoming_deadlines
 
         fake_client.get.return_value = {"items": [], "total": 0}
-        with pytest.raises(RuntimeError, match="非数组结构"):
+        with pytest.raises(FachuanApiError, match="非数组结构"):
             list_upcoming_deadlines(days=7)
 
 

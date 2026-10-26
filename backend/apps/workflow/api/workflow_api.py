@@ -74,13 +74,33 @@ async def list_workflows_api(
     """查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）
 
     安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。
+
+    `status` 在 HTTP 层是自由字符串（query 参数），服务层要的是字面量联合类型。
+    这里做一次白名单校验：非法值直接 400 而不是静默返回空列表——后者会让调用方
+    以为「确实没有该状态的工作流」，把参数写错掩盖成业务事实。
     """
+    from apps.core.exceptions import ValidationException
     from apps.core.security import get_request_access_context
+
+    _VALID_STATUSES = (
+        "running",
+        "waiting_human",
+        "waiting_event",
+        "completed",
+        "failed",
+        "cancelled",
+        "timed_out",
+    )
+    if status is not None and status not in _VALID_STATUSES:
+        raise ValidationException(
+            message=f"status 取值非法：{status}",
+            errors={"status": "、".join(_VALID_STATUSES)},
+        )
 
     ctx = get_request_access_context(request)
     return await list_workflows(
         case_id,
-        status,
+        status,  # type: ignore[arg-type]  # 上面已按白名单收窄
         limit=limit,
         user=ctx.user,
         org_access=ctx.org_access,
@@ -95,6 +115,23 @@ async def get_workflow_detail_api(request: Any, run_id: int) -> dict[str, Any]:
     return await get_workflow_detail(run_id)
 
 
+async def _run_or_http_error(coro: Any) -> dict[str, Any]:
+    """运行 MCP 工具协程,业务失败(FachuanApiError)翻译回 REST 400。
+
+    工具层 2026-10-25 二十轮起改抛 FachuanApiError(MCP isError 语义);
+    REST 侧不捕获会变 500,此处维持旧契约(400 + 文案)。
+    """
+    from ninja.errors import HttpError
+
+    from mcp_server.client import FachuanApiError
+
+    try:
+        result: dict[str, Any] = await coro
+    except FachuanApiError as exc:
+        raise HttpError(400, str(exc)) from exc
+    return result
+
+
 @router.post("/runs/{run_id}/approve")
 async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn) -> dict[str, Any]:
     """审批诉讼工作流步骤
@@ -103,41 +140,28 @@ async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn
     acted_by/acted_at（approve_workflow_step 内部落库）。
     """
     await _require_run_case_access(request, run_id)
-    result = await approve_workflow_step(
-        run_id,
-        payload.approved,
-        payload.comment,
-        user=get_request_user(request),
+    return await _run_or_http_error(
+        approve_workflow_step(
+            run_id,
+            payload.approved,
+            payload.comment,
+            user=get_request_user(request),
+        )
     )
-    if "error" in result:
-        from ninja.errors import HttpError
-
-        raise HttpError(400, result["error"])
-    return result
 
 
 @router.post("/runs/{run_id}/cancel")
 async def cancel_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
     """取消诉讼工作流"""
     await _require_run_case_access(request, run_id)
-    result = await cancel_workflow(run_id)
-    if "error" in result:
-        from ninja.errors import HttpError
-
-        raise HttpError(400, result["error"])
-    return result
+    return await _run_or_http_error(cancel_workflow(run_id))
 
 
 @router.delete("/runs/{run_id}")
 async def delete_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
     """删除诉讼工作流"""
     await _require_run_case_access(request, run_id)
-    result = await delete_workflow_run(run_id)
-    if "error" in result:
-        from ninja.errors import HttpError
-
-        raise HttpError(400, result["error"])
-    return result
+    return await _run_or_http_error(delete_workflow_run(run_id))
 
 
 # ── 步骤注册表 ────────────────────────────────────────────────────────────────

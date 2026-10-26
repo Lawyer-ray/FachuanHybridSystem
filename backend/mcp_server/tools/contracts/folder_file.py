@@ -21,9 +21,10 @@ read_agent_attachment」两条链路各自明确，互不猜测。目录引用
 from __future__ import annotations
 
 import base64
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ImageContent, TextContent
+from pydantic import Field
 
 from mcp_server.client import client
 
@@ -44,15 +45,15 @@ from ..core.agent_attachments import (
 
 
 def read_folder_file(
-    subpath: str,
-    contract_id: int | None = None,
-    case_id: int | None = None,
-    max_length: int = DEFAULT_MAX_LENGTH,
-    start: int = 0,
-    pages: str | list[int] | None = None,
-    dpi: int = DEFAULT_DPI,
-    format: str = DEFAULT_FORMAT,
-    max_pages: int = MAX_PAGES_CEILING,
+    subpath: Annotated[str, Field(description="绑定根下的相对路径(posix),如 1-一审/2-立案材料/起诉状.pdf——来自消息里的 [已引用文件：…] 引用")],
+    contract_id: Annotated[int | None, Field(description="消息里引用的合同 ID(合同绑定文件夹);与 case_id 二选一", ge=1)] = None,
+    case_id: Annotated[int | None, Field(description="消息里引用的案件 ID(案件绑定文件夹);与 contract_id 二选一", ge=1)] = None,
+    max_length: Annotated[int, Field(description="文本路径本次返回的正文上限(字符),默认 20000,钳制 [100,100000]", ge=100, le=100000)] = DEFAULT_MAX_LENGTH,
+    start: Annotated[int, Field(description="从正文的第几个字符开始读(分段读长材料用)", ge=0)] = 0,
+    pages: Annotated[str | list[int] | None, Field(description='要出图的页(1 起):"all"、"1-3,5" 或页码数组;默认前 3 页;显式给出时优先按图像路径返回')] = None,
+    dpi: Annotated[int, Field(description="页图渲染分辨率,默认 150,钳制 [72,300]", ge=72, le=300)] = DEFAULT_DPI,
+    format: Annotated[Literal["png", "jpeg"], Field(description="页图格式:png(默认)/jpeg")] = DEFAULT_FORMAT,
+    max_pages: Annotated[int, Field(description="单次最多返回多少页图,默认且最多 10", ge=1, le=MAX_PAGES_CEILING)] = MAX_PAGES_CEILING,
 ) -> list[TextContent | ImageContent]:
     """读取合同绑定文件夹内某个文件的正文；文字层不可用时返回原件页图（非 OCR）。
 
@@ -92,7 +93,9 @@ def read_folder_file(
     return _read_file_via_source(
         ref_id=_display_ref(owner_kind, owner_id, normalized_subpath),
         load_content=lambda notices: _load_folder_content(owner_kind, owner_id, normalized_subpath, notices),
-        fetch_pages=lambda **kw: _render_folder_pages(owner_kind=owner_kind, owner_id=owner_id, subpath=normalized_subpath, **kw),
+        fetch_pages=lambda **kw: _render_folder_pages(
+            owner_kind=owner_kind, owner_id=owner_id, subpath=normalized_subpath, **kw
+        ),
         max_length=max_length,
         start=start,
         pages=pages,
@@ -160,6 +163,7 @@ def _render_folder_pages(
         return [], [], local_notices, ""
     return _consume_pages_response(response, local_notices, image_format=image_format)
 
+
 def list_folder_files(
     subpath: str = "",
     contract_id: int | None = None,
@@ -182,7 +186,8 @@ def list_folder_files(
     if (contract_id is None) == (case_id is None):
         raise ValueError("contract_id 与 case_id 必须二选一（来自消息里的目录引用）")
     owner_kind = "case" if case_id is not None else "contract"
-    owner_id = int(case_id if case_id is not None else contract_id)
+    # 异或守卫保证二者恰有其一非 None,mypy 穿不透该模式;int() 兼容引用传 str id
+    owner_id = int(case_id if case_id is not None else contract_id)  # type: ignore[arg-type]
     path = f"/{'cases' if owner_kind == 'case' else 'contracts'}/{owner_id}/folder-entries"
     info = client.get(path, params={"subpath": subpath} if subpath else {})
     folders = info.get("folders") or []

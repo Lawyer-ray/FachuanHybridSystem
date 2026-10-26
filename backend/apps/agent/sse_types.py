@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -78,11 +78,41 @@ class ApprovalRequestEvent(BaseModel):
 
 
 class UsageEvent(BaseModel):
-    """token 用量（pi 精确计数）"""
+    """token 用量（pi 精确计数）。
+
+    ``cache_read_tokens`` / ``cache_write_tokens`` 是 2026-10-25 新增：
+    法穿把「AGENTS.md 逐轮字节稳定 → 命中 provider prompt cache」当核心设计，
+    但之前账上看不到它到底生效没（``input_tokens`` 只装未命中部分）。
+    前端可用 ``cache_read/(input+cache_read+cache_write)`` 算命中率。
+
+    两个 cache 字段带默认 0：旧版 pi / 某些 provider 不上报时不至于断流。
+    """
 
     type: Literal["usage"]
     output_tokens: int
     input_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+
+
+class QuestionRequestEvent(BaseModel):
+    """模型向律师提问（不是审批：超时不阻断，模型按假设继续）。"""
+
+    type: Literal["question_request"]
+    question_id: str
+    questions: list[dict[str, Any]] = []
+    timeout_seconds: int = 180
+
+
+class CompactionEvent(BaseModel):
+    """上下文压缩进行中（pi 自动压缩或手动压缩触发）。
+
+    ``phase="start"``：压缩开始（前端可显示「正在压缩上下文…」）；
+    ``phase="end"``：压缩完成（历史已被摘要替代，前端提示「已压缩」）。
+    """
+
+    type: Literal["compaction"]
+    phase: Literal["start", "end"]
 
 
 class ErrorEvent(BaseModel):
@@ -93,10 +123,18 @@ class ErrorEvent(BaseModel):
 
 
 class DoneEvent(BaseModel):
-    """流结束"""
+    """流结束。
+
+    ``context_*`` 两个字段（2026-10-25 新增）来自 pi 的 ``get_session_stats``
+    （本轮结束后、进程关闭前取一次）：律师需要看到会话上下文水位，
+    否则自动压缩「无声发生」、模型突然失忆却没有任何解释。
+    拿不到（旧数据 / pi 异常）时为 ``None``，前端隐藏水位显示即可。
+    """
 
     type: Literal["done"]
     session_id: str
+    context_used_tokens: int | None = None
+    context_total_tokens: int | None = None
 
 
 AgentStreamEvent = (
@@ -108,6 +146,8 @@ AgentStreamEvent = (
     | ToolResultEvent
     | ApprovalRequestEvent
     | UsageEvent
+    | QuestionRequestEvent
+    | CompactionEvent
     | ErrorEvent
     | DoneEvent
 )
@@ -136,9 +176,22 @@ export type AgentStreamEvent =
       risk_level?: string
       needs_second_confirmation?: boolean
     }
-  | { type: 'usage'; output_tokens: number; input_tokens?: number }
+  | {
+      type: 'usage'
+      output_tokens: number
+      input_tokens: number
+      cache_read_tokens: number
+      cache_write_tokens: number
+    }
+  | {
+      type: 'question_request'
+      question_id: string
+      questions: Array<Record<string, unknown>>
+      timeout_seconds: number
+    }
   | { type: 'error'; message: string }
-  | { type: 'done'; session_id: string }
+  | { type: 'compaction'; phase: 'start' | 'end' }
+  | { type: 'done'; session_id: string; context_used_tokens?: number; context_total_tokens?: number }
 """
 
 
@@ -159,6 +212,8 @@ if __name__ == "__main__":
             ToolResultEvent,
             ApprovalRequestEvent,
             UsageEvent,
+            QuestionRequestEvent,
+            CompactionEvent,
             ErrorEvent,
             DoneEvent,
         ]

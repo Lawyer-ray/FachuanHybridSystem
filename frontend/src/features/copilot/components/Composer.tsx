@@ -7,14 +7,21 @@
  *   已插话的文本以「已插话 N 条」提示，可整体撤回（DELETE /queue）
  * - 后台模式（时钟开关）：提交后立即返回，任务在后台跑完写入会话通知
  *
+ * `/` 打头时弹命令菜单（技能补全 `/skill:名字 ` + 内置命令），交互态在
+ * use-slash-menu；底栏显示会话上下文水位（done 事件 / stats 接口回填）。
+ *
  * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  */
 
 import { useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowUp, Clock, Folder, FolderOpen, Paperclip, Square, Undo2, X } from 'lucide-react'
 
+import { fetchAgentSkills } from '../api'
 import { formatFileSize } from '../domain'
+import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useCopilot } from '../store'
+import { SlashMenu } from './SlashMenu'
 import { TurnStatsView } from './TurnStatsView'
 
 export function Composer() {
@@ -25,6 +32,11 @@ export function Composer() {
   const pendingFiles = useCopilot((s) => s.pendingFiles)
   const pendingRefs = useCopilot((s) => s.pendingRefs)
   const uploading = useCopilot((s) => s.uploadingAttachments)
+  const contextUsage = useCopilot((s) => s.contextUsage)
+  const compacting = useCopilot((s) => s.compacting)
+  const compactContext = useCopilot((s) => s.compactContext)
+  const sessionId = useCopilot((s) => s.sessionId)
+  const messageCount = useCopilot((s) => s.messages.length)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
   const removeAttachmentFile = useCopilot((s) => s.removeAttachmentFile)
   const removeFolderRef = useCopilot((s) => s.removeFolderRef)
@@ -35,6 +47,31 @@ export function Composer() {
   const submitTask = useCopilot((s) => s.submitTask)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 技能清单（`/` 菜单数据源）：菜单打开才被消费，失败静默降级为「只有内置命令」
+  const skillsQuery = useQuery({
+    queryKey: ['agent-skills'],
+    queryFn: () => fetchAgentSkills(),
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  const skills = skillsQuery.data?.skills ?? []
+
+  const slash = useSlashMenu({
+    text,
+    skills,
+    hasSession: Boolean(sessionId && messageCount > 0),
+    onSkill: (name) => {
+      setText(`/skill:${name} `)
+      textareaRef.current?.focus()
+    },
+    onCommand: (id) => {
+      if (id === 'compact') {
+        setText('')
+        void compactContext()
+      }
+    },
+  })
 
   const submit = () => {
     const value = text.trim()
@@ -69,8 +106,17 @@ export function Composer() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      // 菜单开着时 Enter 是「选中菜单项」不是「发送」；其余菜单键同理短路
+      if (slash.onKeyDown(e)) {
+        e.preventDefault()
+        return
+      }
       e.preventDefault()
       submit()
+      return
+    }
+    if (slash.onKeyDown(e)) {
+      e.preventDefault()
     }
   }
 
@@ -90,8 +136,8 @@ export function Composer() {
 
   return (
     <div className="flex-none border-t border-border p-2.5">
-      {/* 内容限宽居中：与消息栏同宽对齐（面板拉宽时两侧留白对称） */}
-      <div className="mx-auto w-full max-w-3xl">
+      {/* 内容限宽居中：与消息栏同宽对齐（两边都走 max-w-6xl，宽度一致不错位） */}
+      <div className="mx-auto w-full max-w-6xl">
       {(pendingRefs.length > 0 || pendingFiles.length > 0) && (
         <div className="mb-1.5 flex flex-wrap gap-1.5">
           {pendingRefs.map((ref, i) => (
@@ -148,7 +194,15 @@ export function Composer() {
           </button>
         </div>
       )}
-      <div className="flex items-end gap-2 rounded-[14px] border border-border bg-background px-2.5 py-1.5 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-foreground/30 focus-within:ring-4 focus-within:ring-foreground/10">
+      <div className="relative flex items-end gap-2 rounded-[14px] border border-border bg-background px-2.5 py-1.5 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-foreground/30 focus-within:ring-4 focus-within:ring-foreground/10">
+        {slash.open && (
+          <SlashMenu
+            items={slash.items}
+            selectedIndex={slash.index}
+            onHover={slash.setIndex}
+            onSelect={(item) => slash.apply(item)}
+          />
+        )}
         <button
           type="button"
           className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors disabled:opacity-40 ${
@@ -226,8 +280,20 @@ export function Composer() {
       </div>
       <p className="mt-1.5 flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
         <span className="min-w-0 flex-1 truncate">
-          {bgMode ? '后台任务跑完会写入会话通知；高危操作会等你回来审批。' : 'AI 回答仅供参考，法律判断需由律师复核。'}
+          {compacting
+            ? '正在压缩上下文…'
+            : bgMode
+              ? '后台任务跑完会写入会话通知；高危操作会等你回来审批。'
+              : 'AI 回答仅供参考，法律判断需由律师复核。'}
         </span>
+        {contextUsage.used !== null && contextUsage.total && contextUsage.total > 0 && !compacting && (
+          <span
+            className={`flex-none tabular-nums ${contextUsage.used / contextUsage.total >= 0.8 ? 'text-amber-600 dark:text-amber-400' : ''}`}
+            title={`上下文窗口占用：${contextUsage.used} / ${contextUsage.total} tokens；用 / 压缩命令可手动释放`}
+          >
+            上下文 {Math.round((contextUsage.used / contextUsage.total) * 100)}%
+          </span>
+        )}
         <TurnStatsView />
       </p>
       </div>

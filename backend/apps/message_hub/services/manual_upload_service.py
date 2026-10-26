@@ -122,6 +122,44 @@ def get_or_create_manual_source() -> MessageSource:
     return source
 
 
+def save_upload_files_as_metas(
+    files: list[Any],
+    *,
+    rel_dir: str,
+    start_index: int = 0,
+) -> list[dict[str, Any]]:
+    """把 UploadedFile 列表按收件箱暂存协议落盘，返回 attachments_meta 条目。
+
+    收件箱两类上传（律师手动 / 客户链接）共用同一存储协议：显示名保留相对
+    路径（压缩包展开的「子目录/文件.pdf」），落盘仅取 basename——part_index
+    前缀已保证唯一，目录结构不进存储树。start_index 供追加场景接着现有
+    part_index 排。
+    """
+    metas: list[dict[str, Any]] = []
+    for offset, uploaded in enumerate(files):
+        part_index = start_index + offset
+        display_name = str(uploaded.name) or f"attachment_{part_index}"
+        storage_name = Path(display_name).name
+        rel_path = f"{rel_dir}/{part_index}_{storage_name}"
+        # 兼容中文 / 回车文件名，default_storage.save 会再做一次安全清洗
+        saved = default_storage.save(rel_path, uploaded)
+        meta: dict[str, Any] = {
+            "filename": display_name,
+            "original_filename": display_name,
+            "custom_filename": "",
+            "content_type": getattr(uploaded, "content_type", None) or "application/octet-stream",
+            "size": uploaded.size,
+            "part_index": part_index,
+            "local_path": saved,
+        }
+        expanded_from = str(getattr(uploaded, "expanded_from", "") or "")
+        if expanded_from:
+            meta["expanded_from"] = expanded_from
+        metas.append(meta)
+        uploaded.seek(0)
+    return metas
+
+
 def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any = None) -> InboxMessage:
     """把前端上传的文件落盘为一条收件箱消息，返回消息实例。
 
@@ -143,30 +181,8 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
             errors={"files": "压缩包内没有可用的文件"},
         )
     source = get_or_create_manual_source()
-    attachment_metas: list[dict[str, Any]] = []
     ts = timezone.localtime().strftime("%Y%m%d%H%M%S")
-    for part_index, uploaded in enumerate(files):
-        # 显示名保留相对路径（压缩包展开的「子目录/文件.pdf」），落盘仅取
-        # basename——part_index 前缀已保证唯一，目录结构不进存储树
-        display_name = str(uploaded.name) or f"attachment_{part_index}"
-        storage_name = Path(display_name).name
-        rel_path = f"message_hub/manual/{source.pk}/{ts}/{part_index}_{storage_name}"
-        # 兼容中文 / 回车文件名，default_storage.save 会再做一次安全清洗
-        saved = default_storage.save(rel_path, uploaded)
-        meta: dict[str, Any] = {
-            "filename": display_name,
-            "original_filename": display_name,
-            "custom_filename": "",
-            "content_type": getattr(uploaded, "content_type", None) or "application/octet-stream",
-            "size": uploaded.size,
-            "part_index": part_index,
-            "local_path": saved,
-        }
-        expanded_from = str(getattr(uploaded, "expanded_from", "") or "")
-        if expanded_from:
-            meta["expanded_from"] = expanded_from
-        attachment_metas.append(meta)
-        uploaded.seek(0)
+    attachment_metas = save_upload_files_as_metas(files, rel_dir=f"message_hub/manual/{source.pk}/{ts}")
     # 上传即算好 PDF 页数，前端打开材料包无需下载整包数页数
     fill_page_counts(attachment_metas)
 
@@ -212,26 +228,12 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
         metas = list(locked.attachments_meta or [])
         last_pi = max((int(a.get("part_index", -1)) for a in metas), default=-1)
         ts = timezone.localtime().strftime("%Y%m%d%H%M%S")
-        for idx, uploaded in enumerate(files):
-            pi = last_pi + 1 + idx
-            display_name = str(uploaded.name) or f"attachment_{pi}"
-            storage_name = Path(display_name).name
-            rel_path = f"message_hub/manual/{locked.source_id}/{ts}/{pi}_{storage_name}"
-            saved = default_storage.save(rel_path, uploaded)
-            meta: dict[str, Any] = {
-                "filename": display_name,
-                "original_filename": display_name,
-                "custom_filename": "",
-                "content_type": getattr(uploaded, "content_type", None) or "application/octet-stream",
-                "size": uploaded.size,
-                "part_index": pi,
-                "local_path": saved,
-            }
-            expanded_from = str(getattr(uploaded, "expanded_from", "") or "")
-            if expanded_from:
-                meta["expanded_from"] = expanded_from
-            metas.append(meta)
-            uploaded.seek(0)
+        new_metas = save_upload_files_as_metas(
+            files,
+            rel_dir=f"message_hub/manual/{locked.source_id}/{ts}",
+            start_index=last_pi + 1,
+        )
+        metas.extend(new_metas)
         fill_page_counts(metas)
         locked.attachments_meta = metas
         locked.has_attachments = bool(metas)

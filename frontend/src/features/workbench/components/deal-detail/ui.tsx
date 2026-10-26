@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router'
 
 import type { MetaPart, StepState } from './detail-domain'
 
@@ -158,5 +159,22 @@ export function MetaLine({ parts, className = '' }: { parts: MetaPart[]; classNa
         </span>
       ))}
     </div>
+  )
+}
+
+/** 详情页错误态（争议解决 / 非诉共用）：错误信息 + 重试 + 返回列表 */
+export function DetailError({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <main className="app-page-enter mx-auto max-w-lg px-6 pt-[80px]">
+      <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-center text-sm text-destructive">
+        {error}
+        <button type="button" className="ml-3 cursor-pointer underline underline-offset-3" onClick={onRetry}>
+          重试
+        </button>
+        <Link to="/projects" className="ml-3 cursor-pointer underline underline-offset-3">
+          返回列表
+        </Link>
+      </div>
+    </main>
   )
 }

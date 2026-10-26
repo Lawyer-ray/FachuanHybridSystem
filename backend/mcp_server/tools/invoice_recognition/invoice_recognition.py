@@ -8,50 +8,35 @@ from typing import Any
 from mcp_server.client import client
 
 
-def _build_invoice_files(files: list[dict[str, str]]) -> dict[str, Any]:
+def _build_invoice_files(files: list[dict[str, str]]) -> list[tuple[str, tuple[str, bytes, str]]]:
     """将 [{base64, filename}] 转为 httpx files 格式（多文件同字段名）。"""
-    result = []
+    result: list[tuple[str, tuple[str, bytes, str]]] = []
     for f in files:
         file_bytes = base64.b64decode(f["base64"])
         filename = f.get("filename", "invoice.pdf")
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "pdf"
         mime = "application/pdf" if ext == "pdf" else f"image/{ext}"
         result.append(("files", (filename, file_bytes, mime)))
-    return result  # type: ignore[return-value]
+    return result
 
 
 def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:
-    """快速识别发票（不创建任务）。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。返回识别结果列表。"""
-    file_list = _build_invoice_files(files)
-    resp = client._http.post(
+    """快速识别发票（不创建任务）。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。返回含识别结果的对象。"""
+    # 统一走 client.upload:错误信封(FachuanApiError)与传输层异常翻译
+    # (FachuanTransportError)由 client 管——此前直接 client._http.post 且
+    # 引用了未 import 的 FachuanApiError,非 2xx 时会 NameError。
+    return client.upload(  # type: ignore[no-any-return]
         "/invoice-recognition/quick-recognize",
-        headers=client._headers(),
-        files=file_list,
+        files=_build_invoice_files(files),
     )
-    if not resp.is_success:
-        try:
-            detail = resp.json()
-        except Exception:
-            detail = resp.text
-        raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
-    return resp.json()  # type: ignore[no-any-return]
 
 
 def upload_invoices(task_id: int, files: list[dict[str, str]]) -> dict[str, Any]:
     """上传发票文件到指定任务并自动识别。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。"""
-    file_list = _build_invoice_files(files)
-    resp = client._http.post(
+    return client.upload(  # type: ignore[no-any-return]
         f"/invoice-recognition/{task_id}/upload",
-        headers=client._headers(),
-        files=file_list,
+        files=_build_invoice_files(files),
     )
-    if not resp.is_success:
-        try:
-            detail = resp.json()
-        except Exception:
-            detail = resp.text
-        raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
-    return resp.json()  # type: ignore[no-any-return]
 
 
 def get_invoice_task_status(task_id: int, include_raw_text: bool = False) -> dict[str, Any]:
@@ -75,7 +60,10 @@ def download_invoices(
     invoice_id: int | None = None,
     category: str | None = None,
 ) -> dict[str, Any]:
-    """下载发票文件。scope: single（单张）/category（按类别）/all（全部）；fmt: pdf/zip；scope=single 时需传 invoice_id；scope=category 时需传 category。返回 {filename, content_type, data_base64}。"""
+    """下载发票文件。scope: single（单张）/category（按类别）/all（全部）；fmt: pdf/zip；scope=single 时需传 invoice_id；scope=category 时需传 category。返回 {filename, content_type, data_base64}。
+
+    体积预期：zip 打包（scope=all/category）通常超过 15KB 的 b64 返回上限
+    （超限会被拒绝并说明替代路径）；批量发票请引导用户在前端下载。"""
     params: dict[str, Any] = {"scope": scope, "fmt": fmt}
     if invoice_id is not None:
         params["invoice_id"] = invoice_id

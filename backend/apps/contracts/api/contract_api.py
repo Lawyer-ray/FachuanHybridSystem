@@ -82,6 +82,8 @@ async def list_contracts(  # pragma: no cover
     fee_mode: str | None = None,
     is_filed: bool | None = None,
     slim: bool = False,
+    party: str | None = None,
+    include_facets: bool = True,
     page: int = 1,
     page_size: int = 50,
 ) -> Any:
@@ -93,6 +95,12 @@ async def list_contracts(  # pragma: no cover
     - page 默认 1（旧「不传 page 返回全量裸数组」口径已下线，前端消费方
       均显式传 page）；page_size 上限 500，需要大结果集的消费方显式传。
     - slim=true 剔除归档材料清单等重负载字段
+    - include_facets=false 跳过 facets 的四次全表聚合（只回 total/items，
+      三个 *_counts 为空）。facets 是全库口径、与页码无关，翻页时应传 false
+      并复用已有计数，避免每翻一页多扫四遍全表。
+    - party=名称片段：按**当事人姓名**匹配（匹配 client.name，非合同名）。
+      材料预处理识别出「这份合同属于哪个委托」时用它——客户送审的合同
+      由客户与第三方签订，无案号、无 OA 编号，当事人名称是唯一可靠锚点。
 
     Requirements: 6.1, 6.2, 6.3
     """
@@ -113,6 +121,8 @@ async def list_contracts(  # pragma: no cover
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
             slim=slim,
+            party=party,
+            include_facets=include_facets,
         )
         return {
             "items": [_serialize_contract(c, slim=slim) for c in data["items"]],

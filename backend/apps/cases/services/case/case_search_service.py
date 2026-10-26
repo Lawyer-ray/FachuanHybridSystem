@@ -63,6 +63,7 @@ class CaseSearchService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        offset: int = 0,
     ) -> list[Case]:
         if not query or not query.strip():
             return []
@@ -86,7 +87,8 @@ class CaseSearchService:
         qs = qs.filter(search_conditions).distinct()
 
         qs = self.access_policy.filter_queryset(qs, user=user, org_access=org_access, perm_open_access=perm_open_access)
-        return list(qs[:limit])
+        bounded_offset = max(0, offset)
+        return list(qs[bounded_offset : bounded_offset + limit])
 
     def search_cases_ctx(self, *, ctx: AccessContext, query: str, limit: int = 10) -> list[Case]:
         return self.search_cases(

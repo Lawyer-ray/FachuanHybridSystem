@@ -8,7 +8,7 @@ interface DealRowProps {
   deal: WorkbenchDeal
   /** 右键行 / 👁 按钮：打开详情抽屉 */
   onOpenSheet: (deal: WorkbenchDeal) => void
-  /** 左键行 / → 按钮：争议解决进详情页，非诉由父级提示开发中 */
+  /** 左键行 / → 按钮：进项目详情页（单条 `/projects/:id`，诉讼/非诉由页内按 lit 选左栏） */
   onOpenDetail: (deal: WorkbenchDeal) => void
 }
 
@@ -114,7 +114,7 @@ export const DealRow = memo(function DealRow({ deal, onOpenSheet, onOpenDetail }
         </button>
         <button
           type="button"
-          title={deal.lit ? '打开详情' : '打开详情（开发中）'}
+          title="打开详情"
           aria-label="打开详情"
           className="flex size-[27px] items-center justify-center rounded-[8px] text-muted-foreground/70 opacity-40 transition-all hover:bg-foreground hover:text-background hover:opacity-100 group-hover:opacity-100"
           onClick={(e) => {

@@ -28,7 +28,7 @@ from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limi
 from apps.core.security import get_request_access_context
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentSession
+from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentRun, AgentSession
 from ..pi.rpc_client import PiError
 from ..services.approval import classify_risk, decide_approval, get_approval_for_decision
 from ..services.approval import list_approvals as list_approval_records
@@ -151,6 +151,28 @@ class ApprovalDecideIn(Schema):
     reason: str = ""
 
 
+class QuestionAnswerItem(Schema):
+    """单个问题的回答。
+
+    按 ``id`` 回填而不是下标：前端可能只答一部分或顺序错乱，按 id 对齐
+    才不会出现「答的是第 2 题被当成第 1 题」的静默错位——法律场景里
+    问错一次比不问更糟。
+    """
+
+    id: str
+    selections: list[str] = []
+    text: str = ""
+    comment: str = ""
+
+
+class QuestionAnswerIn(Schema):
+    """前端提交提问回答。"""
+
+    answers: list[QuestionAnswerItem] = []
+    #: 律师主动跳过（与「超时没看到」不同，要如实区分）
+    skipped: bool = False
+
+
 class TaskIn(Schema):
     """提交后台任务。"""
 
@@ -199,6 +221,14 @@ class UsageOut(Schema):
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    #: 缓存命中 / 写入 token。命中率见 ``cache_hit_rate``。
+    #:
+    #: 为什么单列：这是验证「AGENTS.md 逐轮字节稳定 → 命中 prompt cache」
+    #: 是否生效的唯一仪表。低于预期就说明有东西在每轮改写系统提示词前缀。
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    #: 输入侧缓存命中率（0.0–1.0）。法穿前端用它判断“这轮是不是冷缓存”。
+    cache_hit_rate: float = 0.0
     tool_calls: int
     avg_duration_ms: int
     error_rate: float
@@ -665,6 +695,128 @@ async def clear_session_queue(request: Any, session_id: str) -> Any:  # pragma: 
         raise HttpError(404, "会话不存在")
     messages = await clear_queue_session(session_id=session_id)
     return ClearQueueOut(success=True, messages=messages)
+
+
+# ── 技能（`/` 命令菜单数据源；消息以 `/skill:名字 参数` 触发，pi 展开全文）────
+
+
+class SkillOut(Schema):
+    """技能清单项。``description`` 来自 SKILL.md frontmatter。"""
+
+    name: str
+    description: str
+    enabled: bool
+
+
+class SkillListOut(Schema):
+    skills: list[SkillOut]
+
+
+class SkillToggleIn(Schema):
+    enabled: bool
+
+
+class SkillToggleOut(Schema):
+    name: str
+    enabled: bool
+
+
+@router.get("/skills", response=SkillListOut)
+async def list_skills(request: Any) -> SkillListOut:  # pragma: no cover
+    """当前律师可见的技能清单（偏好只记差异，缺省全启用）。"""
+    from ..services import skill_service
+
+    skills = await sync_to_async(skill_service.skills_for_user, thread_sensitive=True)(_user_id(request) or 0)
+    return SkillListOut(skills=[SkillOut(**item) for item in skills])
+
+
+@router.patch("/skills/{skill_name}", response=SkillToggleOut)
+async def toggle_skill(request: Any, skill_name: str, payload: SkillToggleIn) -> SkillToggleOut:  # pragma: no cover
+    """启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。"""
+    from ..services import skill_service
+
+    try:
+        result = await sync_to_async(skill_service.set_skill_enabled, thread_sensitive=True)(
+            _user_id(request) or 0, skill_name, payload.enabled
+        )
+    except ValueError as exc:
+        raise HttpError(404, str(exc)) from exc
+    return SkillToggleOut(name=str(result["name"]), enabled=bool(result["enabled"]))
+
+
+# ── 会话统计与手动压缩 ───────────────────────────────────────────────────────
+
+
+class SessionStatsOut(Schema):
+    """会话累计用量与上下文水位（最新一轮 AgentRun 的快照）。
+
+    水位 nullable：旧轮数据 / pi 未上报时是 None，前端隐藏水位显示，
+    不把「不知道」伪装成「上下文是空的」。
+    """
+
+    output_tokens: int
+    input_tokens: int
+    cache_read_tokens: int
+    cache_write_tokens: int
+    context_used_tokens: int | None = None
+    context_total_tokens: int | None = None
+    context_percent: float | None = None
+
+
+@router.get("/sessions/{session_id}/stats", response=SessionStatsOut)
+async def get_session_stats(request: Any, session_id: str) -> SessionStatsOut:  # pragma: no cover
+    """会话 token 用量与上下文水位（读库即可，不起 pi 进程）。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    from ..services.stats import latest_run_for_session
+
+    latest = await latest_run_for_session(session)
+    if latest is None:
+        return SessionStatsOut(output_tokens=0, input_tokens=0, cache_read_tokens=0, cache_write_tokens=0)
+    percent: float | None = None
+    if latest.context_used_tokens is not None and latest.context_total_tokens:
+        percent = round(latest.context_used_tokens / latest.context_total_tokens * 100, 1)
+    return SessionStatsOut(
+        output_tokens=latest.output_tokens,
+        input_tokens=latest.input_tokens,
+        cache_read_tokens=latest.cache_read_tokens,
+        cache_write_tokens=latest.cache_write_tokens,
+        context_used_tokens=latest.context_used_tokens,
+        context_total_tokens=latest.context_total_tokens,
+        context_percent=percent,
+    )
+
+
+class CompactOut(Schema):
+    """手动压缩回执。``compacted=False`` 表示无历史可压（幂等成功，不报错）。"""
+
+    compacted: bool
+    context_used_tokens: int | None = None
+    context_total_tokens: int | None = None
+
+
+@router.post("/sessions/{session_id}/compact", response=CompactOut)
+async def compact_session_context(request: Any, session_id: str) -> CompactOut:  # pragma: no cover
+    """手动压缩会话上下文（同步执行：起 pi 续写 session 文件，压缩完才返回）。
+
+    摘要与自动压缩同源（``compaction-takeover`` 确定性编译，保案号/当事人/
+    金额/期限锚点）。进程池忙时 429，pi 故障 502——都不吞。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    from ..services.compact_service import CompactBusyError, CompactNotNeededError, compact_session
+
+    try:
+        return CompactOut(**await compact_session(session=session, user_id=_user_id(request)))
+    except CompactNotNeededError:
+        return CompactOut(compacted=False)
+    except CompactBusyError as exc:
+        raise HttpError(429, str(exc)) from exc
+    except PiError as exc:
+        logger.error("手动压缩失败 session=%s: %s", session_id, exc)
+        raise HttpError(502, "压缩失败，请稍后再试（详见服务端日志）") from exc
 
 
 # ── 附件（拖拽/选择上传，服务端提取正文，base64 不进模型上下文）────
@@ -1152,7 +1304,80 @@ async def submit_approval_decision(  # pragma: no cover
     return {"success": ok, "approved": payload.approved}
 
 
+@router.post("/question/{question_id}/answer")
+async def submit_question_answer(  # pragma: no cover
+    request: Any,
+    question_id: str,
+    payload: QuestionAnswerIn,
+) -> dict[str, Any]:
+    """前端提交提问回答（仅会话所有者或超级用户）。
+
+    ``success=False`` 不一定是错误：等待方可能已超时（律师过了 5 分钟才点
+    提交）。此时答案仍被记录，但模型已经按假设继续了——前端应提示「回答已
+    记录，但本轮已继续」，而不是当成失败重试。
+    """
+    from ..models import AgentQuestion
+    from ..services.question import submit_answer
+
+    user = _current_user(request)
+    from ..services.question import get_question_by_id
+
+    record = await get_question_by_id(question_id)
+    if record is None:
+        return {"success": False, "error": "提问不存在"}
+    if not _may_answer(user, record):
+        return {"success": False, "error": "无权回答该提问"}
+
+    found = await submit_answer(
+        question_id=question_id,
+        answers=[item.model_dump() for item in payload.answers],
+        skipped=payload.skipped,
+    )
+    return {
+        "success": found,
+        "accepted": True,
+        "note": "" if found else "回答已记录，但本轮对话已按超时继续",
+    }
+
+
+@router.get("/questions/pending", response=list[dict[str, Any]])
+async def list_pending_questions(request: Any) -> list[dict[str, Any]]:  # pragma: no cover
+    """当前律师待回答的提问（重开会话时补拉，避免错过）。"""
+    from ..models import AgentQuestion
+
+    user = _current_user(request)
+    if user is None:
+        return []
+    from ..services.question import list_pending_questions_for_user
+
+    rows = await list_pending_questions_for_user(user.pk, limit=20)
+    return [
+        {
+            "question_id": str(row.question_id),
+            "session_id": str(row.session.session_id) if row.session else "",
+            "questions": row.questions,
+            "created_at": row.created_at.isoformat(),
+        }
+        for row in rows
+    ]
+
+
+def _may_answer(user: Any, record: Any) -> bool:
+    """提问归属判定：会话所有者或超级用户（与审批同口径）。"""
+    if user is not None and getattr(user, "is_superuser", False):
+        return True
+    owner_id = getattr(record.session, "user_id", None) if record.session is not None else None
+    if owner_id is None:
+        owner_id = getattr(record, "user_id", None)
+    return user is not None and owner_id is not None and int(owner_id) == int(user.pk)
+
+
 def _may_decide(user: Any, record: AgentApproval) -> bool:
+    """审批归属判定：会话所有者或超级用户；无主会话仅超级用户。"""
+    if user is not None and getattr(user, "is_superuser", False):
+        return True
+    owner_id = getattr(record.session, "user_id", None) if record.session is not None else None
+    return user is not None and owner_id is not None and int(owner_id) == int(user.pk)
     """审批归属判定：会话所有者或超级用户；无主会话仅超级用户。"""
     if user is not None and getattr(user, "is_superuser", False):
         return True
@@ -1199,6 +1424,9 @@ def _to_usage(summary: UsageSummary) -> UsageOut:
         input_tokens=summary.input_tokens,
         output_tokens=summary.output_tokens,
         total_tokens=summary.total_tokens,
+        cache_read_tokens=summary.cache_read_tokens,
+        cache_write_tokens=summary.cache_write_tokens,
+        cache_hit_rate=summary.cache_hit_rate,
         tool_calls=summary.tool_calls,
         avg_duration_ms=summary.avg_duration_ms,
         error_rate=summary.error_rate,

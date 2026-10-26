@@ -150,12 +150,67 @@ def _install_runtime_db_guard() -> None:
                 "这会导致该库的表被 flush 清空。请用 DB_NAME=test_fachuan_dev 重跑。",
                 returncode=3,
             )
+        _warn_stale_tables(connection)
 
     connection_created.connect(_guard, dispatch_uid="fachuan_test_db_runtime_guard")
     # 若连接在函数注册前就已建立（settings 已加载），立即补检一次
     with contextlib.suppress(Exception):
         if connection.connection is not None:
             _guard(sender=None, connection=connection)
+
+
+#: 僵尸表检测只跑一次：连接池/多 test database 都会反复触发 connection_created
+_stale_tables_checked = False
+
+
+def _warn_stale_tables(connection: Any) -> None:
+    """复用测试库里有「当前模型已不存在」的僵尸表时，给出点名告警。
+
+    2026-10-25 事故：早期实验 app（copilot_studio、docserver）删码后表残留在
+    ``--reuse-db`` 的测试库里。flush 只截断当前模型的表，僵尸表的外键（如
+    ``copilot_studio_scenariosession → organization_lawyer``）让**每个**测试的
+    teardown 都报 ``NotSupportedError: cannot truncate a table referenced in a
+    foreign key constraint``，同时数据在用例间泄漏——表现为大量无关用例的
+    统计断言失败（error_rate 0.2941 ≠ 0.5 这类污染值），极难归因。
+
+    只告警不中止：僵尸表不一定挡住所有测试（FK 不被引用时 flush 照常），
+    中止会把「部分可跑」变成「全部不可跑」。告警里直接给清理命令。
+
+    时机陷阱：pytest-django 建库阶段的首连是 **postgres 维护连接**
+    （``current_database()=postgres``，settings NAME 却已是测试库名），必须
+    按「实际连上的库 == settings 指名的测试库」判定后才检查，否则查错库、
+    还会把只跑一次的机会浪费在维护连接上。
+    """
+    global _stale_tables_checked
+    if _stale_tables_checked:
+        return
+    try:
+        with connection.cursor() as cursor:
+            current = str(cursor.execute("SELECT current_database()").fetchone()[0])
+            name = str(connection.settings_dict.get("NAME", "") or "")
+            if current != name or not _is_safe_test_db_name(name):
+                return  # 维护连接/别名不符：不检查，也不消耗唯一机会
+            db_tables = {
+                str(r[0])
+                for r in cursor.execute("SELECT tablename FROM pg_tables WHERE schemaname='public'").fetchall()
+            } - {"django_migrations"}
+            model_tables = set(connection.introspection.django_table_names(only_existing=True))
+            stale = sorted(db_tables - model_tables)
+    except Exception:
+        return  # 检测自身失败不设标志，下次连接重试（首连可能发生在迁移建表前）
+    _stale_tables_checked = True
+    if stale:
+        import warnings
+
+        warnings.warn(
+            "复用测试库中存在当前模型已不存在的僵尸表: "
+            + ", ".join(stale)
+            + "。它们的外键会让每个用例的 teardown flush 报 NotSupportedError，"
+            "并让数据在用例间泄漏（表现为无关用例断言失败）。清理（仅对测试库执行）:\n"
+            f"  DROP TABLE {', '.join(stale)} CASCADE;",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 @pytest.fixture(autouse=True)

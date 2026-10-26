@@ -92,12 +92,13 @@ describe('案件与律师只读列表', () => {
     expect(api.get).toHaveBeenCalledWith('cases', { searchParams: { contract_id: '15' } })
   })
 
-  it('listLawyers：GET organization/lawyers 直通', async () => {
+  it('listLawyers：GET organization/lawyers?slim=true（只要映射用的四个字段）', async () => {
     const api = client('/api/v1/organization')
-    const rows = [{ id: 1, name: '李律师' }]
+    const rows = [{ id: 1, real_name: '李律师', phone: null, license_no: null, law_firm_name: '某律所' }]
     api.get.mockReturnValueOnce(respond(rows))
     await expect(listLawyers()).resolves.toBe(rows)
-    expect(api.get).toHaveBeenCalledWith('lawyers')
+    // slim 省掉 500 人 ×2 个文件签 URL + 律所嵌套对象
+    expect(api.get).toHaveBeenCalledWith('lawyers', { searchParams: { slim: 'true' } })
   })
 })
 
@@ -173,7 +174,7 @@ describe('文件夹接口：写操作路径', () => {
   })
 
   it('copyFolderEntry 走 folder-copy', async () => {
-    client('/api/v1/cases').post.mockReturnValue(respond({})) 
+    client('/api/v1/cases').post.mockReturnValue(respond({}))
     await copyFolderEntry('case', 1, 'dir/a.pdf', 'dest')
     expect(client('/api/v1/cases').post).toHaveBeenCalledWith('1/folder-copy', {
       json: { subpath: 'dir/a.pdf', dest_subpath: 'dest' },

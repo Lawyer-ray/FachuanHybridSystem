@@ -12,26 +12,26 @@ def list_system_configs() -> dict[str, Any]:
 
     返回 ``{groups}``（后端 ``SystemConfigListOut``），配置按分组组织。
     """
-    return client.get("/config/system-configs")  # type: ignore[return-value]
+    return client.get("/config/system-configs")  # type: ignore[no-any-return]
 
 
 def update_system_configs(category: str, updates: dict[str, str]) -> dict[str, Any]:
-    """批量更新系统配置项，不存在则自动创建。"""
-    return client.put("/config/system-configs", json={"category": category, "updates": updates})  # type: ignore[return-value]
+    """批量更新某分组下的系统配置（不存在则创建;管理员;密钥类脱敏回显）。"""
+    return client.put("/config/system-configs", json={"category": category, "updates": updates})  # type: ignore[no-any-return]
 
 
 def create_system_config(key: str, value: str, category: str = "general", description: str = "") -> dict[str, Any]:
     """创建系统配置项（key 已存在则返回 409）。"""
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         "/config/system-configs", json={"key": key, "value": value, "category": category, "description": description}
-    )  # type: ignore[return-value]
+    )
 
 
-def patch_system_config(key: str, **fields: Any) -> dict[str, Any]:
-    """部分更新单个配置项的属性。"""
-    return client.patch(f"/config/system-configs/{key}", json=fields)  # type: ignore[return-value]
+def patch_system_config(key: str, fields: dict[str, Any] | None = None) -> dict[str, Any]:
+    """部分更新单个配置项的属性（如描述/启用状态）。"""
+    return client.patch(f"/config/system-configs/{key}", json=fields or {})  # type: ignore[no-any-return]
 
 
 def delete_system_config(key: str) -> dict[str, Any]:
-    """删除系统配置项。返回后端删除结果。"""
+    """删除系统配置项——管理员;删错会影响依赖该配置的功能。"""
     return client.delete(f"/config/system-configs/{key}")  # type: ignore[no-any-return]

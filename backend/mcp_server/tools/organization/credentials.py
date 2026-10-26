@@ -2,37 +2,47 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
 def list_credentials(
-    lawyer_id: int | None = None,
-    lawyer_name: str | None = None,
-) -> list[dict[str, Any]]:
+    lawyer_id: Annotated[int | None, Field(description="按律师 ID 筛选", ge=1)] = None,
+    lawyer_name: Annotated[str | None, Field(description="按律师姓名筛选")] = None,
+) -> dict[str, Any]:
     """查询账号凭证列表。可按律师 ID（lawyer_id）或律师姓名（lawyer_name）筛选。"""
     params: dict[str, Any] = {}
     if lawyer_id is not None:
         params["lawyer_id"] = lawyer_id
     if lawyer_name:
         params["lawyer_name"] = lawyer_name
-    return client.get("/organization/credentials", params=params)  # type: ignore[return-value]
+    return list_result(client.get("/organization/credentials", params=params))
 
 
-def get_credential(cred_id: int) -> dict[str, Any]:
-    """获取单个账号凭证的详细信息。"""
-    return client.get(f"/organization/credentials/{cred_id}")  # type: ignore[return-value]
+def get_credential(credential_id: int) -> dict[str, Any]:
+    """获取单个账号凭证详情（站点、账号;密码不回显）。"""
+    return client.get(f"/organization/credentials/{credential_id}")  # type: ignore[no-any-return]
 
 
 def create_credential(
-    lawyer_id: int,
-    site_name: str,
-    account: str,
-    password: str,
-    url: str | None = None,
+    lawyer_id: Annotated[int, Field(description="关联律师 ID", ge=1)],
+    site_name: Annotated[str, Field(description="站点/系统**注册名**,必须与目标系统完全一致(如 一张网/威科先行/wkxx/163邮箱);OA 站点以 list_oa_configs 的 oa_system_name 为准,勿猜")],
+    account: Annotated[str, Field(description="登录账号")],
+    password: Annotated[str, Field(description="登录密码")],
+    url: Annotated[str | None, Field(description="站点地址(可选)")] = None,
 ) -> dict[str, Any]:
-    """创建账号凭证。lawyer_id 关联律师；site_name 为系统名称（如 jczd、gsxt）；account 和 password 为登录凭据。"""
+    """创建账号凭证。lawyer_id 关联律师；account 和 password 为登录凭据。
+
+    site_name 必须与目标系统的**注册名完全一致**——OA 立案/盖章/归档、
+    威科检索等自动化流程都按它精确匹配凭证，写别名会导致流程报
+    「未找到匹配凭证」。已在用的取值示例：一张网、威科先行、wkxx、
+    国家企业信用信息公示系统、163邮箱、微信公众号后台（律所 OA 站点
+    以 ``list_oa_configs`` 返回的 ``oa_system_name`` 为准，勿凭记忆猜）。
+    """
     payload: dict[str, Any] = {
         "lawyer_id": lawyer_id,
         "site_name": site_name,
@@ -41,17 +51,25 @@ def create_credential(
     }
     if url:
         payload["url"] = url
-    return client.post("/organization/credentials", json=payload)  # type: ignore[return-value]
+    return client.post("/organization/credentials", json=payload)  # type: ignore[no-any-return]
 
 
 def update_credential(
-    cred_id: int,
-    site_name: str | None = None,
-    url: str | None = None,
-    account: str | None = None,
-    password: str | None = None,
+    credential_id: Annotated[int, Field(description="凭证 ID", ge=1)],
+    site_name: Annotated[str | None, Field(description="站点/系统注册名(改名慎重——自动化流程按它匹配凭证)")] = None,
+    url: Annotated[str | None, Field(description="站点地址")] = None,
+    account: Annotated[str | None, Field(description="登录账号")] = None,
+    password: Annotated[str | None, Field(description="密码(敏感——只在确需改密时传)")] = None,
 ) -> dict[str, Any]:
-    """更新账号凭证。只传需要修改的字段。"""
+    """更新账号凭证（改密码/账号）。只传需要修改的字段。
+
+    Args:
+        credential_id: 凭证 ID。
+        site_name: 站点/系统名称(如 一张网/威科先行/OA)。
+        url: 站点地址。
+        account: 账号。
+        password: 密码(敏感——只在确需改密时传)。
+    """
     payload: dict[str, Any] = {}
     if site_name is not None:
         payload["site_name"] = site_name
@@ -61,9 +79,9 @@ def update_credential(
         payload["account"] = account
     if password is not None:
         payload["password"] = password
-    return client.put(f"/organization/credentials/{cred_id}", json=payload)  # type: ignore[return-value]
+    return client.put(f"/organization/credentials/{credential_id}", json=payload)  # type: ignore[no-any-return]
 
 
-def delete_credential(cred_id: int) -> None:
-    """删除指定账号凭证。此操作不可逆。"""
-    client.delete(f"/organization/credentials/{cred_id}")
+def delete_credential(credential_id: int) -> None:
+    """删除账号凭证——硬删除,不可恢复;依赖它的自动化任务将无法登录。"""
+    client.delete(f"/organization/credentials/{credential_id}")

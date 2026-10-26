@@ -62,17 +62,23 @@ export type ReminderOut = Schemas['ReminderOut']
 
 /* ============ 后端投影：/api/v1/organization/lawyers ============ */
 
-/** 律师行（生成物 LawyerOut 的消费投影）。后端已修复 OpenAPI 组件名冲突
- *  （此前 contracts.LawyerOut 与 organization.LawyerOut 同名互踩，生成物缺
- *  license_no / law_firm_detail）；仅取本页消费字段，id 按 ModelSchema
- *  口径覆写为必有（列表行运行时必有）。 */
-export type LawyerListItem = Omit<
-  Pick<
-    Schemas['LawyerOut'],
-    'id' | 'username' | 'real_name' | 'phone' | 'license_no' | 'law_firm_detail'
-  >,
-  'id'
-> & { id: number }
+/**
+ * 律师行（GET /organization/lawyers?slim=true 的消费投影）。
+ *
+ * 本域只做「lawyer_id → 人名/电话/执业证/律所名」映射，所以列表页拉的是
+ * 后端瘦身版：只回这四个字段，律所名平铺成 law_firm_name（不再是嵌套的
+ * law_firm_detail 全对象），也不含 avatar_url / license_pdf_url 两个文件
+ * 签 URL——全量 500 人时省掉 1000 次存储签名。
+ *
+ * 生成物里还没有 LawyerSlimOut（openapi 是快照），这里显式声明形状。
+ */
+export interface LawyerListItem {
+  id: number
+  real_name: string | null
+  phone: string | null
+  license_no: string | null
+  law_firm_name: string | null
+}
 
 /* ============ 前端域模型（buildDeals 合并产物） ============ */
 
@@ -113,7 +119,7 @@ export type FolderEntries = {
   path_display: string
   subpath: string
   parent_subpath: string
-  folders: Array<{ name: string; subpath: string }>
+  folders: Array<{ name: string; subpath: string; file_count?: number }>
   files: Array<{ name: string; subpath: string; size: number; modified_at: string }>
 }
 

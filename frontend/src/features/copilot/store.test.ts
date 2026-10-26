@@ -122,6 +122,49 @@ describe('copilot store：发送与流式转录', () => {
     expect(turnStats.doneAt).not.toBeNull()
   })
 
+  it('usage 带 cache 字段时累加进 turnStats（旧格式向后兼容）', async () => {
+    // 2026-10-25：后端开始上报 cacheRead/cacheWrite。这是验证「提示词前缀
+    // 稳定 → 命中 prompt cache」的唯一手段，前端必须能拿到。
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"好"}\n\n',
+        // 一轮内多段 assistant 各报一次，必须累加
+        'data: {"type":"usage","output_tokens":5,"input_tokens":100,"cache_read_tokens":800,"cache_write_tokens":50}\n\n',
+        'data: {"type":"usage","output_tokens":3,"input_tokens":20,"cache_read_tokens":900,"cache_write_tokens":0}\n\n',
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('查一下')
+
+    const { turnStats } = useCopilot.getState()
+    // exactTokens 仍只算输出（用于展示生成速度，混进输入会虚高）
+    expect(turnStats.exactTokens).toBe(8)
+    expect(turnStats.inputTokens).toBe(120)
+    expect(turnStats.cacheReadTokens).toBe(1700)
+    expect(turnStats.cacheWriteTokens).toBe(50)
+  })
+
+  it('usage 缺 cache 字段时按 0 处理（旧后端/某些 provider 不上报）', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"好"}\n\n',
+        'data: {"type":"usage","output_tokens":7,"input_tokens":120}\n\n',
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('打个招呼')
+
+    const { turnStats } = useCopilot.getState()
+    expect(turnStats.exactTokens).toBe(7)
+    expect(turnStats.inputTokens).toBe(120)
+    expect(turnStats.cacheReadTokens).toBe(0)
+    expect(turnStats.cacheWriteTokens).toBe(0)
+  })
+
   it('tool_call/tool_result 归并为工具行，approval_request 进审批卡', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
     vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
@@ -278,5 +321,34 @@ describe('copilot store：发送与流式转录', () => {
     expect(useCopilot.getState().sessionId).toBe('s-existing')
     // 消息不得被推进用户未选择的会话
     expect(useCopilot.getState().messages).toEqual([])
+  })
+
+  it('刷新后恢复历史：同 id 但 messages 为空时必须真的去拉（回归）', async () => {
+    // 模拟刷新：store 从 localStorage 恢复 sessionId，但 messages 还是空的
+    useCopilot.setState({ sessionId: 's-restored', messages: [], loadingHistory: false, streaming: false })
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([
+      { message_id: 1, role: 'user', content: '你谁啊', created_at: '', metadata: {} },
+      { message_id: 2, role: 'assistant', content: '我是助手', created_at: '', metadata: {} },
+    ] as AgentHistoryMessage[])
+
+    // 面板挂载时正是这样调：id 与当前 sessionId 相同
+    await useCopilot.getState().switchSession('s-restored')
+
+    // 修复前这里被提前 return 短路，fetchHistory 一次都没调
+    expect(copilotApi.fetchHistory).toHaveBeenCalledWith('s-restored')
+    expect(useCopilot.getState().messages).toHaveLength(2)
+    expect(useCopilot.getState().messages[0]?.content).toBe('你谁啊')
+  })
+
+  it('已就绪的同会话不重复拉取（切回来不闪、不重复请求）', async () => {
+    useCopilot.setState({
+      sessionId: 's-ready',
+      messages: [{ id: 'm1', role: 'user', content: '在的' }],
+      loadingHistory: false,
+      streaming: false,
+    })
+    vi.mocked(copilotApi.fetchHistory).mockClear()
+    await useCopilot.getState().switchSession('s-ready')
+    expect(copilotApi.fetchHistory).not.toHaveBeenCalled()
   })
 })

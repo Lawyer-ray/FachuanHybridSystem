@@ -29,7 +29,7 @@ from typing import Any
 
 from django.utils import timezone
 
-from mcp_server.client import client
+from mcp_server.client import FachuanApiError, client
 
 
 def _parse_iso_date(value: str, field: str) -> date:
@@ -82,10 +82,10 @@ def list_upcoming_deadlines(
     today = timezone.localdate()
     window_end = today + timedelta(days=max(0, days))
 
-    rows: list[dict[str, Any]] = client.get("/reminders/list", params={})  # type: ignore[assignment]
+    rows: list[dict[str, Any]] = client.get("/reminders/list", params={})
     if not isinstance(rows, list):
         # 后端形状变化时明确报错，不要静默返回空列表骗模型
-        raise RuntimeError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
+        raise FachuanApiError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
 
     items: list[dict[str, Any]] = []
     for row in rows:
@@ -151,9 +151,9 @@ def list_reminders_by_target(
     if case_log_id is not None:
         params["case_log_id"] = case_log_id
 
-    rows: list[dict[str, Any]] = client.get("/reminders/list", params=params)  # type: ignore[assignment]
+    rows: list[dict[str, Any]] = client.get("/reminders/list", params=params)
     if not isinstance(rows, list):
-        raise RuntimeError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
+        raise FachuanApiError(f"/reminders/list 返回了非数组结构: {type(rows).__name__}")
 
     items = [
         _deadline_brief(row)
@@ -179,7 +179,7 @@ def get_reminder_calendar(year: int = 0, month: int = 0) -> dict[str, Any]:
         params["year"] = year
     if month:
         params["month"] = month
-    return client.get("/reminders/calendar", params=params)  # type: ignore[return-value]
+    return client.get("/reminders/calendar", params=params)  # type: ignore[no-any-return]
 
 
 def complete_reminders(reminder_ids: list[int], is_completed: bool = True) -> dict[str, Any]:
@@ -189,7 +189,7 @@ def complete_reminders(reminder_ids: list[int], is_completed: bool = True) -> di
         reminder_ids: 提醒 ID 列表。
         is_completed: True 标记完成，False 取消完成。
     """
-    return client.post(  # type: ignore[return-value]
+    return client.post(  # type: ignore[no-any-return]
         "/reminders/complete",
         json={"reminder_ids": reminder_ids, "is_completed": is_completed},
     )
@@ -201,4 +201,4 @@ def delete_reminders(reminder_ids: list[int]) -> dict[str, Any]:
     Args:
         reminder_ids: 提醒 ID 列表。
     """
-    return client.post("/reminders/delete", json={"reminder_ids": reminder_ids})  # type: ignore[return-value]
+    return client.post("/reminders/delete", json={"reminder_ids": reminder_ids})  # type: ignore[no-any-return]

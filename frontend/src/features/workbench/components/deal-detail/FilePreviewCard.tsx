@@ -1,0 +1,189 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Download, FileSearch, Loader2, Save, X } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
+import { withDownloadTicket } from '@/lib/download-ticket'
+import { folderFileUrl, type FolderOwnerKind } from '../../api'
+import { FileKindChip } from './FileKindBadge'
+import { fmtSize } from './folder-tree-types'
+
+/**
+ * 右栏文档卡：**docx 直接可编辑，原地改原地存**，不跳页。
+ *
+ * **为什么不跳整页编辑器**：律师看合同几乎总要先对照左栏的服务事项、右栏的
+ * 期限/当事人；跳走就断了对照。实测在 4K 屏上右栏拉宽后编辑体验与整页无差别，
+ * 而「原地」省掉的是一次路由往返和一次上下文重建。
+ *
+ * **只读兜底**：pdf / 图片等不可编辑格式仍走 `view`，避免 OnlyOffice 把它们
+ * 当可改文档打开（改完也存不回去）。
+ */
+export function FilePreviewCard({
+  kind,
+  ownerId,
+  file,
+  onClose,
+  onSaved,
+  onReview,
+}: {
+  kind: FolderOwnerKind
+  ownerId: number
+  file: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }
+  onClose: () => void
+  /** 保存成功后回调（父级据此刷新列表的 mtime/大小） */
+  onSaved?: () => void
+  /** 「AI 审查」——仅 docx（流水线只吃 docx） */
+  onReview?: (f: { subpath: string; name: string }) => void
+}) {
+  const [downloading, setDownloading] = useState(false)
+  const [busy, setBusy] = useState<'save' | null>(null)
+  const [ready, setReady] = useState(false)
+  const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
+  const isDocx = /\.docx$/i.test(file.name)
+
+  /** 编辑器句柄：保存时用 downloadAs 取当前内容 */
+  const editorRef = useRef<OfficeEditorHandle | null>(null)
+
+  /**
+   * 触发保存。
+   *
+   * 走 DS 自己的 forcesave：编辑器把当前内容推回 callbackUrl，后端
+   * `adopt_edited` 覆写到原文件。**不是**外层取字节再上传——社区版没有
+   * `downloadAs`，取不到内容；而 forcesave 这条链路是真通的。
+   *
+   * 代价：没有即时成功反馈（落盘发生在回调里）。所以提示语是「正在保存」，
+   * 并短暂延迟后再让父级刷新列表。
+   */
+  const requestSave = useCallback((): boolean => {
+    const h = editorRef.current
+    if (!h) return false
+    return h.requestSave()
+  }, [])
+
+  const save = useCallback(() => {
+    if (busy || !isDocx) return
+    setBusy('save')
+    try {
+      if (!requestSave()) {
+        toast.error('编辑器尚未就绪，请稍后重试')
+        return
+      }
+      toast.success('已提交保存', { description: '文档服务器正在写回原文件' })
+      // 落盘发生在 DS 回调里（通常 1–3 秒），延迟刷新才能读到新 mtime
+      window.setTimeout(() => onSaved?.(), 2500)
+    } finally {
+      setBusy(null)
+    }
+  }, [busy, isDocx, requestSave, onSaved])
+
+  const download = useCallback(async () => {
+    setDownloading(true)
+    try {
+      // 票据一次性：每次下载现换，不能缓存复用
+      const url = await withDownloadTicket(fileUrl)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = file.name
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } finally {
+      setDownloading(false)
+    }
+  }, [fileUrl, file.name])
+
+  // ⌘S 保存：律师的肌肉记忆，在编辑器里按一直是这个动作
+  const saveRef = useRef(save)
+  useEffect(() => {
+    saveRef.current = save
+  }, [save])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        if (isDocx && ready) void saveRef.current()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [isDocx, ready])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-border bg-card">
+      {/* 头部：类型 + 文件名 + 操作 + 关闭 */}
+      <div className="flex items-center gap-2 border-b border-border-light px-3 py-2">
+        <FileKindChip name={file.name} />
+        <span className="min-w-0 flex-1 truncate text-[12.5px] font-[620]" title={file.name}>
+          {file.name}
+        </span>
+
+        {isDocx && (
+          <>
+            <button
+              type="button"
+              onClick={save}
+              disabled={!ready || busy !== null}
+              className="inline-flex h-[26px] flex-none items-center gap-1 rounded-[6px] bg-foreground px-2.5 text-[11.5px] font-semibold text-background transition-opacity hover:opacity-85 disabled:opacity-50"
+              title="保存到原文件（⌘S）"
+            >
+              {busy === 'save' ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
+              保存
+            </button>
+          </>
+        )}
+
+        {onReview && isDocx && (
+          <button
+            type="button"
+            onClick={() => onReview({ subpath: file.subpath, name: file.name })}
+            className="inline-flex h-[26px] flex-none items-center gap-1 rounded-[6px] border border-border bg-card px-2 text-[11.5px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary"
+          >
+            <FileSearch className="size-3" />
+            AI 审查
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => void download()}
+          disabled={downloading}
+          aria-label="下载"
+          title="下载到本地"
+          className="grid size-6 flex-none place-items-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
+        >
+          {downloading ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3.5" />}
+        </button>
+
+        <button
+          type="button"
+          aria-label="收起"
+          onClick={onClose}
+          className="grid size-6 flex-none place-items-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      {/* 画布：吃掉剩余高度，docx 直接进编辑态 */}
+      <div className="min-h-0 flex-1 bg-[#f6f6f7]">
+        <OfficeView
+          fileUrl={fileUrl}
+          fileName={file.name}
+          mode={isDocx ? 'edit' : 'view'}
+          onEditorReady={(h) => {
+            editorRef.current = h
+            setReady(!!h)
+          }}
+        />
+      </div>
+
+      {/* 底部：元信息 + 可编辑提示 */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-light px-3 py-1.5 text-[11px] text-muted-foreground">
+        {file.modified_at && <span className="tabular-nums">{file.modified_at.slice(0, 10)}</span>}
+        {file.size ? <span>· {fmtSize(file.size)}</span> : null}
+        {isDocx && <span className="ml-auto">{ready ? '可直接编辑 · ⌘S 保存到原文件' : '正在打开文档…'}</span>}
+      </div>
+    </div>
+  )
+}

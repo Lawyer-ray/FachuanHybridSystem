@@ -14,7 +14,7 @@ def create_preservation_quote(
     credential_id: int,
 ) -> dict[str, Any]:
     """创建财产保全担保费询价任务。preserve_amount 为保全金额；corp_id 为法院/企业ID；category_id 为分类ID；credential_id 为账号凭证ID。"""
-    return client.post(
+    return client.post(  # type: ignore[no-any-return]
         "/automation/preservation-quotes",
         json={
             "preserve_amount": preserve_amount,
@@ -22,7 +22,7 @@ def create_preservation_quote(
             "category_id": category_id,
             "credential_id": credential_id,
         },
-    )  # type: ignore[return-value]
+    )
 
 
 def list_preservation_quotes(
@@ -34,19 +34,19 @@ def list_preservation_quotes(
     params: dict[str, Any] = {"page": page, "page_size": page_size}
     if status:
         params["status"] = status
-    return client.get("/automation/preservation-quotes", params=params)  # type: ignore[return-value]
+    return client.get("/automation/preservation-quotes", params=params)  # type: ignore[no-any-return]
 
 
 def get_preservation_quote(quote_id: int) -> dict[str, Any]:
     """获取询价任务详情，包含所有保险公司的报价记录。"""
-    return client.get(f"/automation/preservation-quotes/{quote_id}")  # type: ignore[return-value]
+    return client.get(f"/automation/preservation-quotes/{quote_id}")  # type: ignore[no-any-return]
 
 
 def execute_preservation_quote(quote_id: int) -> dict[str, Any]:
     """执行询价任务，并发查询所有保险公司报价。返回执行结果统计。"""
-    return client.post(f"/automation/preservation-quotes/{quote_id}/execute", json={})  # type: ignore[return-value]
+    return client.post(f"/automation/preservation-quotes/{quote_id}/execute", json={})  # type: ignore[no-any-return]
 
 
 def retry_preservation_quote(quote_id: int) -> dict[str, Any]:
-    """重试失败的询价任务。"""
-    return client.post(f"/automation/preservation-quotes/{quote_id}/retry", json={})  # type: ignore[return-value]
+    """重试失败的保全询价任务（重新向保险公司询价）。"""
+    return client.post(f"/automation/preservation-quotes/{quote_id}/retry", json={})  # type: ignore[no-any-return]

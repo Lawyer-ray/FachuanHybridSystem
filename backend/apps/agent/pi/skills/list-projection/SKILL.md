@@ -16,5 +16,7 @@ description: 列表、汇总、统计类查询的投影与分页纪律。当用�
 
 ## 分页与截断
 
-- 看到 `truncated: true` 或 `total` 大于返回条数时，用 `page` / 更窄的筛选条件
-  继续取，**不要**基于被截断的结果做统计。
+- 看到 `truncated: true` 或 `total` 大于返回条数时，优先用 `offset` 续取
+  （第 N 页传 `offset=N×limit`，支持的工具：list_cases / list_clients /
+  list_contacts / list_inbox_messages / list_case_logs 等），或换更窄的筛选
+  条件；`list_contracts` 用 `page`。**不要**基于被截断的结果做统计。

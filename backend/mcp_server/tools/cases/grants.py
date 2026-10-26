@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_grants(case_id: int) -> list[dict[str, Any]]:
-    """查询案件的访问权限列表。"""
-    return client.get("/cases/grants", params={"case_id": case_id})  # type: ignore[return-value]
+def list_grants(case_id: int) -> dict[str, Any]:
+    """查询案件的访问授权列表（哪些律师被授予了该案件的访问权）。"""
+    return list_result(client.get("/cases/grants", params={"case_id": case_id}))
 
 
 def create_grant(case_id: int, grantee_id: int) -> dict[str, Any]:
@@ -27,18 +28,23 @@ def create_grant(case_id: int, grantee_id: int) -> dict[str, Any]:
 
 
 def get_grant(grant_id: int) -> dict[str, Any]:
-    """获取单条案件访问权限详情。"""
-    return client.get(f"/cases/grants/{grant_id}")  # type: ignore[return-value]
+    """获取单条访问授权详情（被授权律师、权限范围）。"""
+    return client.get(f"/cases/grants/{grant_id}")  # type: ignore[no-any-return]
 
 
-def update_grant(grant_id: int, permission_level: str | None = None) -> dict[str, Any]:
-    """更新案件访问权限。只传需要修改的字段。"""
+def update_grant(grant_id: int, grantee_id: int | None = None) -> dict[str, Any]:
+    """更新访问授权（改被授权律师）。只传需要修改的字段。
+
+    授权粒度是「可见/不可见」,没有权限分级——旧签名的
+    ``permission_level`` 参数从未生效（端点 schema 只声明
+    case_id/grantee_id,2026-10-25 移除）。
+    """
     payload: dict[str, Any] = {}
-    if permission_level is not None:
-        payload["permission_level"] = permission_level
-    return client.put(f"/cases/grants/{grant_id}", json=payload)  # type: ignore[return-value]
+    if grantee_id is not None:
+        payload["grantee_id"] = grantee_id
+    return client.put(f"/cases/grants/{grant_id}", json=payload)  # type: ignore[no-any-return]
 
 
 def delete_grant(grant_id: int) -> None:
-    """删除案件访问权限。"""
+    """撤销某律师对该案件的访问授权——硬删除,不可恢复。"""
     client.delete(f"/cases/grants/{grant_id}")

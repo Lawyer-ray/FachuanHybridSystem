@@ -57,6 +57,7 @@ def list_messages(  # pragma: no cover
     has_attachments: bool | None = None,
     search: str | None = None,
     limit: int = 500,
+    offset: int = 0,
 ) -> Any:
     """收件箱消息列表（limit 截取前 N 条；收件箱持续增长，服务端兜底默认 500，
     需要更大结果集的消费方显式传 limit——不传即全量的旧行为会让「打开收件箱」
@@ -64,15 +65,19 @@ def list_messages(  # pragma: no cover
 
     安全审计（2026Q4 M-6）：``limit<=0`` 时原先不做切片 → 全表序列化
     （含 N+1 的 draft_state resolver），用户上传大量材料包后可自我放大为 DoS。
-    此处把 limit 收敛到 [1, 1000]。
+    此处把 limit 收敛到 [1, 1000]。offset（默认 0）供 MCP 信封续取。
     """
     limit = max(1, min(limit, 1000))
+    bounded_offset = max(0, offset)
     qs = _get_base_queryset(request)
 
     if source_id is not None:
         qs = qs.filter(source_id=source_id)
     if source_type is not None:
-        qs = qs.filter(source__source_type=source_type)
+        # 逗号分隔多值（如 "manual_upload,client_upload"）：材料预处理桌面
+        # 同时收律师手动包与客户链接包；单值用法完全兼容
+        types = [s.strip() for s in source_type.split(",") if s.strip()]
+        qs = qs.filter(source__source_type__in=types)
     if has_attachments is not None:
         qs = qs.filter(has_attachments=has_attachments)
     if search:
@@ -81,7 +86,7 @@ def list_messages(  # pragma: no cover
         qs = qs.filter(Q(subject__icontains=search) | Q(sender__icontains=search) | Q(body_text__icontains=search))
 
     if limit > 0:
-        qs = qs[:limit]
+        qs = qs[bounded_offset : bounded_offset + limit]
 
     return qs
 

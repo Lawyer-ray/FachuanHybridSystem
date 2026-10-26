@@ -29,7 +29,7 @@ def list_case_folder_entries(case_id: int, subpath: str = "") -> dict[str, Any]:
     params: dict[str, Any] = {}
     if subpath:
         params["subpath"] = subpath
-    return client.get(f"/cases/{case_id}/folder-entries", params=params)  # type: ignore[return-value]
+    return client.get(f"/cases/{case_id}/folder-entries", params=params)  # type: ignore[no-any-return]
 
 
 def list_contract_folder_entries(contract_id: int, subpath: str = "") -> dict[str, Any]:
@@ -45,4 +45,4 @@ def list_contract_folder_entries(contract_id: int, subpath: str = "") -> dict[st
     params: dict[str, Any] = {}
     if subpath:
         params["subpath"] = subpath
-    return client.get(f"/contracts/{contract_id}/folder-entries", params=params)  # type: ignore[return-value]
+    return client.get(f"/contracts/{contract_id}/folder-entries", params=params)  # type: ignore[no-any-return]

@@ -136,6 +136,25 @@ beforeEach(() => {
   ui.drop = null
 })
 
+describe('DeskPage：加载态布局', () => {
+  it('loading 占位与空态同构（虚线容器 + 水平垂直居中），不贴左', () => {
+    hookMock.useMaterialPacks.mockReturnValue({ data: undefined, isLoading: true, error: null })
+    hookMock.useCreatePack.mockReturnValue({ mutateAsync: vi.fn(async () => ({})) })
+    hookMock.useJudgePack.mockReturnValue({ mutateAsync: vi.fn(async () => ({})) })
+    hookMock.useDeletePack.mockReturnValue({ mutateAsync: vi.fn(async () => ({})), isPending: false })
+    const { container } = render(<DeskPage />)
+    // 文案与 spinner 同在一个占位块里（React 把二者作为同一 div 的子节点）
+    // 取「最小」的那个含该文案的 div——外层包裹 div 也含这段文字
+    const box = Array.from(container.querySelectorAll('div'))
+      .filter((d) => (d.textContent ?? '').includes('加载材料包'))
+      .sort((a, b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length)[0]!
+    expect(box.className).toContain('justify-center')
+    expect(box.className).toContain('items-center')
+    // 与 PackGrid 空态同一视觉语言（虚线卡片框架，而非裸 div）
+    expect(box.className).toContain('border-dashed')
+  })
+})
+
 describe('DeskPage：页签过滤与计数', () => {
   it('默认显示 todo 页签的包', () => {
     setup([pack(1, 'todo'), pack(2, 'done'), pack(3, 'todo')])

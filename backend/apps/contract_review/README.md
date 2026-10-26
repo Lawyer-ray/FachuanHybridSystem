@@ -20,7 +20,7 @@ contract_review/
 ├── repositories/review_task_repository.py
 ├── schemas/                       # review_schemas / format_schemas
 ├── api/
-│   ├── review_api.py              # 审查路由（6 端点）
+│   ├── review_api.py              # 审查路由（8 端点）
 │   └── format_api.py              # 格式规范化路由（2 端点）
 ├── services/
 │   ├── review/                    # ReviewService 编排 + ContractReviewer + PartyIdentifier + TypoChecker
@@ -33,7 +33,23 @@ contract_review/
 
 ## 数据模型
 
-- `ReviewTask` — 审查任务（UUID 主键、四方当事人、状态机 uploaded→parties_identified→confirmed→processing→completed/failed、selected_steps、review_report、reviewer_name、model_name）
+- `ReviewTask` — 审查任务（UUID 主键、四方当事人、状态机 uploaded→parties_identified→confirmed→processing→completed/failed、selected_steps、review_report、reviewer_name、model_name、**client_note / client_demands / our_client_name / stance_basis**）
+- `ReviewRevision` — 审查修订条目（律师决策的载体：kind / severity / title / original / suggested / reason / paragraph_index + status / reject_reason / decided_at）
+- `DocumentVersion` — 文档版本链节点（kind=original/ai/lawyer/client、parent 指向改自的那版、task 内单调 version_no）
+
+**为什么清单要单独落库**：docx 里的 Track Changes 是产物，没有等级、依据、驳回理由，也没有「律师已决策」这个状态。复审台左栏消费的是这张表。
+
+**重跑语义**：`_persist_revisions` 只删 `pending` 行，`accepted`/`rejected` 一律保留——律师的判断不能因为 AI 重跑一次就被抹掉。
+
+**采纳不改文档**：`resolve` 只改状态；文档侧的修订痕迹由 OnlyOffice 编辑器写入（前端驱动）。后端不碰 docx 产物，避免与编辑器互相覆盖。
+
+**人工修订回流**：编辑器保存（DS status=2/6）时，`docx_revision_reader` 解析产物里的 `w:ins`/`w:del`，把它们以 `kind=manual` 落成清单条目——律师手工改的内容原本左栏看不见。解析会跳过作者等于 `reviewer_name` 的痕迹（那是 AI 自己写的，清单里已有一份）。
+
+**版本链**：每次产出（流水线跑完 / 编辑器保存）追加一个 `DocumentVersion` 节点，`parent` 指向改自的那版。以前版本只活在文件名（`[修订版]V1_日期`）里，改名就断链、排序只对同一天有效。
+
+**内容版本 vs 清单版本**：`content-version` 只看 `EditorSession.saved_version`（= 文档内容真的变了），`revisions` 看 `acceptedCount`。前端画布重建跟前者——逐条采纳不应整篇重载。
+
+**业务域扩展**：`apps/onlyoffice/services/domain_registry.py` 声明业务域（路径正则 / 取文件钩子 / 保存回写钩子 / 属主判定）。新增起诉状等业务域只需 `register_domain`，不必改 file_proxy / callback_service。
 - `FormatNormalize` — ReviewTask 代理模型（Admin「格式调整」独立菜单入口）
 - `FormatNormalizeDetail` — 格式调整详情（方法 poi/python/auto、版本、批注 JSON、处理日志；当前仅实现 python 路径）
 
@@ -44,7 +60,11 @@ contract_review/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/upload` | 上传合同并识别当事人/标题（限流 TASK） |
-| POST | `/{task_id}/confirm-party` | 确认代表方 + 步骤 + 修订人，触发异步审查 |
+| POST | `/{task_id}/confirm-party` | 确认代表方 + 步骤 + 修订人 + **客户交代**，触发异步审查 |
+| GET | `/{task_id}/revisions` | 结构化修订清单（含待决策/已采纳/已驳回计数） |
+| POST | `/{task_id}/revisions/{revision_id}/resolve` | 单条决策：`accept` / `reject`（可带理由）/ `reset` |
+| GET | `/{task_id}/content-version` | 文档内容版本（画布该不该重建：只有保存回写后才变） |
+| GET | `/{task_id}/versions` | 文档版本链（客户来稿 → AI 修订版 → 律师编辑版 …） |
 | GET | `/{task_id}/status` | 任务状态 / 当前步骤 |
 | GET | `/{task_id}/download`、`/download-original` | 下载审查结果 / 原文件（限流 EXPORT） |
 | GET | `/models` | 可用 LLM 模型列表 |

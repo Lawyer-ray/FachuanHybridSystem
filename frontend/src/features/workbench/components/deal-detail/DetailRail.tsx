@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
 import { copyText } from '@/lib/clipboard'
@@ -23,6 +24,12 @@ export function DetailRail({
   moneyRows,
   onAddDue,
   onAddPayment,
+  showFolder = true,
+  onOpenFile,
+  onReviewFile,
+  folderPreview,
+  folderOwnerId,
+  folderSelectedSubpath,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -32,6 +39,24 @@ export function DetailRail({
   moneyRows: Array<[string, string]>
   onAddDue: () => void
   onAddPayment: () => void
+  /**
+   * 是否渲染合同文件夹树。
+   *
+   * 非诉页传 false：那份文件夹是左栏的主角（独占整栏、可展开预览），
+   * 右栏再画一棵同样的树就是同屏两份同样的内容，且 320px 高度下几乎没法用。
+   * 诉讼页保持 true——左栏是案件程序链，文件夹作次要信息放右栏合适。
+   */
+  showFolder?: boolean
+  /** 点文件夹里的文件 → 由本组件就地展开预览（诉讼页走这条路） */
+  onOpenFile?: (f: { subpath: string; name: string; size?: number; modified_at?: string }) => void
+  /** 「AI 审查」入口（仅 docx） */
+  onReviewFile?: (f: { subpath: string; name: string }) => void
+  /** 渲染在文件夹树上方的预览卡（由调用方给出，保持本组件不依赖 OnlyOffice） */
+  folderPreview?: ReactNode
+  /** 文件夹绑定的合同 id（默认用 deal.id；独立传是为了让调用方能绑定到别的委托） */
+  folderOwnerId?: number
+  /** 当前预览中的 subpath：让树里那一行高亮，知道「看的就是这份」 */
+  folderSelectedSubpath?: string | null
 }) {
   const copy = (text: string) => {
     void copyText(text).then(() => toast.success('已复制'))
@@ -142,11 +167,22 @@ export function DetailRail({
       <RailPayments deal={deal} onAdd={onAddPayment} />
       <RailSupps deal={deal} />
 
-      {/* 合同文件夹：绑定目录的树形浏览（拆分比 Finder 顺手）；标题行自带「新建文件夹」，
-          未绑定时树内提示 */}
-      <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
-        <FolderTree kind="contract" ownerId={deal.id} maxH="max-h-[320px]" title="合同文件夹" />
-      </div>
+      {/* 合同文件夹：绑定目录的树形浏览；标题行自带「新建文件夹」，未绑定时树内提示。
+          非诉页不渲染（那份树在左栏独占，见 NonLitDetailPage）。 */}
+      {showFolder && (
+        <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
+          {folderPreview}
+          <FolderTree
+            kind="contract"
+            ownerId={folderOwnerId ?? deal.id}
+            maxH="max-h-[420px]"
+            title="合同文件夹"
+            selectedSubpath={folderSelectedSubpath ?? null}
+            onOpenFile={onOpenFile}
+            onReviewFile={onReviewFile}
+          />
+        </div>
+      )}
 
       <RailFacts deal={deal} />
     </Card>

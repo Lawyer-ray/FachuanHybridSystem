@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { FileText, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
+import { FolderKanban, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 import { CATEGORY_ORDER, runSearch } from '../api'
+import { orderProjectHits, projectRoute } from '../domain'
 import type { CategoryKey, Hit } from '../types'
+import { ProjectHits } from './ProjectHits'
 
 /**
  * 全局检索（⌘K）。
@@ -21,19 +23,21 @@ const EMPTY_HITS: Hit[] = []
 /**
  * 各类别 → 展示名 / 图标 / 点击后的去处。
  *
- * to 只对**已存在**的路由给出（目前只有 /material-prep/:id）。
- * 案件 / 当事人 / 合同这些页还没做，若硬链过去会命中 App.tsx 的通配
- * 重定向、静默跳回首页——比明确说"还没做"更糟。所以它们不给 to，
- * 点选时由调用方弹提示。
+ * to 只对**已存在**的路由给出；返回 undefined 的类别（当事人 / 法院短信 /
+ * 联系人）点选时由调用方弹提示——硬链到不存在的页会命中 App.tsx 的通配
+ * 重定向、静默跳回首页，比明确说"还没做"更糟。
+ *
+ * projects（项目 = 委托合同，案件挂在合同下）：合同与案件融合展示，
+ * 跳转分流见 domain.projectRoute（诉讼 /projects/:id、非诉 /projects/:id/nonlit、
+ * 案件带 #case-<id> 锚点滚到该案）。
  *
  * clients 对外叫「当事人」：后端 Client 表装的是所有当事人（我方 + 对方），
  * 叫「客户」会让人以为只有我方委托人。
  */
-const CATEGORIES: Record<CategoryKey, { label: string; icon: typeof Users; to?: (id: number) => string }> = {
-  cases: { label: '案件', icon: FileText },
+const CATEGORIES: Record<CategoryKey, { label: string; icon: typeof Users; to?: (hit: Hit) => string | undefined }> = {
+  projects: { label: '项目', icon: FolderKanban, to: (h) => projectRoute(h) },
   clients: { label: '当事人', icon: Users },
-  contracts: { label: '合同', icon: FileText },
-  inbox: { label: '收件箱', icon: Mail, to: (id) => `/material-prep/${id}` },
+  inbox: { label: '收件箱', icon: Mail, to: (h) => `/material-prep/${h.id}` },
   court_sms: { label: '法院短信', icon: Landmark },
   contacts: { label: '联系人', icon: Paperclip },
 }
@@ -109,11 +113,13 @@ export function GlobalSearch({
     return m
   }, [hits])
 
-  /** 按当前筛选过滤后的结果；↑↓ / Enter 都以它为准 */
-  const flat = useMemo(
-    () => (activeCat === 'all' ? hits : hits.filter((h) => h.category === activeCat)),
-    [hits, activeCat],
-  )
+  /** 按当前筛选过滤后的结果；↑↓ / Enter 都以它为准。
+   *  projects 段重排成「组头行 → 案件行」的视觉顺序（合同命中在前、其案件紧随），
+   *  键盘光标序与分组渲染序一致；其余类别保持后端顺序垫后。 */
+  const flat = useMemo(() => {
+    const base = activeCat === 'all' ? hits : hits.filter((h) => h.category === activeCat)
+    return activeCat === 'projects' || activeCat === 'all' ? orderProjectHits(base) : base
+  }, [hits, activeCat])
 
   const groups = useMemo(() => {
     const m = new Map<string, Hit[]>()
@@ -129,9 +135,10 @@ export function GlobalSearch({
     // 后端 category 与前端注册表可能不同步（后端新增类别前端还没配），查不到按未实现处理
     const meta = CATEGORIES[hit.category as CategoryKey]
     onOpenChange(false)
+    const to = meta?.to?.(hit)
     // 已建页的类别：无论鼠标点还是键盘回车都真正跳转（此前键盘回车只关面板不跳）
-    if (meta?.to) {
-      void navigate(meta.to(hit.id))
+    if (to) {
+      void navigate(to)
       return
     }
     onPickUnavailable?.(meta?.label ?? hit.category)
@@ -169,7 +176,7 @@ export function GlobalSearch({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="搜案件 / 当事人 / 合同 / 收件箱 / 法院短信 / 联系人"
+            placeholder="搜项目 / 当事人 / 收件箱 / 法院短信 / 联系人"
             className="h-12 flex-1 border-none bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground"
           />
           {/* 常驻占位不塌陷：若用 {isFetching && ...} 条件渲染，出现/消失会把输入框宽度
@@ -224,13 +231,26 @@ export function GlobalSearch({
           {CATEGORY_ORDER.filter((c) => groups.has(c)).map((cat) => {
             const meta = CATEGORIES[cat]
             const Icon = meta.icon
-            const hits = groups.get(cat) ?? []
+            const catHits = groups.get(cat) ?? []
+            // projects 单独走分组渲染（合同作组头、案件挂其下），与其余平铺类别不同构
+            if (cat === 'projects') {
+              return (
+                <ProjectHits
+                  key={cat}
+                  hits={catHits}
+                  flat={flat}
+                  cursor={cursor}
+                  onOpenChange={onOpenChange}
+                  pick={pick}
+                />
+              )
+            }
             return (
               <div key={cat} className="mb-1.5 last:mb-0">
                 <div className="px-2 py-1 text-[10.5px] font-semibold text-muted-foreground">{meta.label}</div>
-                {hits.map((h) => {
+                {catHits.map((h) => {
                   const idx = flat.indexOf(h)
-                  const to = meta.to?.(h.id)
+                  const to = meta.to?.(h)
                   const Row = (
                     <>
                       <Icon className="h-3.5 w-3.5 flex-none text-muted-foreground" />

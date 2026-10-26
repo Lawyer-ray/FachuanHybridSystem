@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.workflow.models import WorkflowRun, WorkflowTemplate
+from mcp_server.client import FachuanApiError
+
+_SUPERUSER = SimpleNamespace(id=1, is_authenticated=True, is_superuser=True)
 
 
 # Helper to mock the ORM on real model classes
@@ -277,9 +281,8 @@ async def test_approve_workflow_step_not_found():
     with patch.object(WorkflowRun, "objects") as MockObjs:
         MockObjs.select_related.return_value.aget = AsyncMock(side_effect=WorkflowRun.DoesNotExist("nope"))
 
-        result = await approve_workflow_step(999, approved=True)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="不存在"):
+            await approve_workflow_step(999, approved=True)
 
 
 @pytest.mark.asyncio
@@ -294,9 +297,8 @@ async def test_approve_workflow_step_wrong_status():
         # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
         MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
-        result = await approve_workflow_step(1, approved=True)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError):
+            await approve_workflow_step(1, approved=True)
 
 
 @pytest.mark.asyncio
@@ -316,10 +318,8 @@ async def test_approve_workflow_step_temporal_failure():
         # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
         MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
-        result = await approve_workflow_step(1, approved=True)
-
-    assert "error" in result
-    assert "Temporal" in result["error"]
+        with pytest.raises(FachuanApiError, match="Temporal"):
+            await approve_workflow_step(1, approved=True)
 
 
 @pytest.mark.asyncio
@@ -426,10 +426,8 @@ async def test_approve_rejects_unknown_signal_key():
         # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
         MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
-        result = await approve_workflow_step(1, approved=True)
-
-    assert "error" in result
-    assert "my_custom_signal" in result["error"]
+        with pytest.raises(FachuanApiError, match="my_custom_signal"):
+            await approve_workflow_step(1, approved=True)
     mock_handle.signal.assert_not_awaited()
     mock_run.asave.assert_not_awaited()
     assert mock_run.status == "waiting_human"
@@ -455,10 +453,8 @@ async def test_approve_rejects_signal_unsupported_by_workflow():
         # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
         MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
-        result = await approve_workflow_step(1, approved=True)
-
-    assert "error" in result
-    assert "gate_approved" in result["error"]
+        with pytest.raises(FachuanApiError, match="gate_approved"):
+            await approve_workflow_step(1, approved=True)
     mock_handle.signal.assert_not_awaited()
     mock_run.asave.assert_not_awaited()
 
@@ -482,10 +478,8 @@ async def test_approve_rejects_step_not_in_template():
         # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
         MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
-        result = await approve_workflow_step(1, approved=True)
-
-    assert "error" in result
-    assert "ghost_step" in result["error"]
+        with pytest.raises(FachuanApiError, match="ghost_step"):
+            await approve_workflow_step(1, approved=True)
     mock_handle.signal.assert_not_awaited()
     mock_run.asave.assert_not_awaited()
 
@@ -506,9 +500,8 @@ async def test_approve_rejects_empty_steps_schema():
         # 条件更新走 WorkflowRun.objects.filter(...).aupdate(...)（非 run.asave）
         MockObjs.filter.return_value.aupdate = AsyncMock(return_value=1)
 
-        result = await approve_workflow_step(1, approved=True)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError):
+            await approve_workflow_step(1, approved=True)
     mock_handle.signal.assert_not_awaited()
     mock_run.asave.assert_not_awaited()
 
@@ -548,9 +541,8 @@ async def test_cancel_workflow_not_found():
     with patch.object(WorkflowRun, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowRun.DoesNotExist("nope"))
 
-        result = await cancel_workflow(999)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="不存在"):
+            await cancel_workflow(999)
 
 
 @pytest.mark.asyncio
@@ -570,9 +562,8 @@ async def test_cancel_workflow_temporal_failure():
     ):
         MockObjs.aget = AsyncMock(return_value=mock_run)
 
-        result = await cancel_workflow(1)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="Temporal 取消失败"):
+            await cancel_workflow(1)
 
 
 # ── delete_workflow_run ───────────────────────────────────────────────────────
@@ -614,9 +605,8 @@ async def test_delete_workflow_run_not_found():
     with patch.object(WorkflowRun, "objects") as MockObjs:
         MockObjs.select_related.return_value.aget = AsyncMock(side_effect=WorkflowRun.DoesNotExist("nope"))
 
-        result = await delete_workflow_run(999)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="不存在"):
+            await delete_workflow_run(999)
 
 
 @pytest.mark.asyncio
@@ -647,7 +637,10 @@ async def test_get_step_registry():
     from apps.workflow.mcp.workflow_tools import get_step_registry
 
     result = await get_step_registry()
-    assert isinstance(result, list)
+    # 238b1c15 起信封化
+    assert isinstance(result, dict)
+    assert result["total"] >= 1
+    assert isinstance(result["items"], list)
 
 
 @pytest.mark.asyncio
@@ -655,7 +648,9 @@ async def test_get_step_registry_flat():
     from apps.workflow.mcp.workflow_tools import get_step_registry_flat
 
     result = await get_step_registry_flat()
-    assert isinstance(result, list)
+    assert isinstance(result, dict)
+    assert result["total"] >= 1
+    assert isinstance(result["items"], list)
 
 
 # ── create_workflow_template ──────────────────────────────────────────────────
@@ -678,6 +673,7 @@ async def test_create_workflow_template_success():
         result = await create_workflow_template(
             name="Test",
             steps=[{"id": "s1", "name": "Step 1", "type": "activity"}],
+            user=_SUPERUSER,
         )
 
     assert result["template_id"] == 1
@@ -705,7 +701,7 @@ async def test_create_workflow_template_slug_collision():
         MockObjs.filter.return_value.aexists = mock_exists
         MockObjs.acreate = AsyncMock(return_value=mock_template)
 
-        result = await create_workflow_template(name="Test", steps=[])
+        result = await create_workflow_template(name="Test", steps=[], user=_SUPERUSER)
 
     assert result["slug"] == "test-1"
 
@@ -728,6 +724,7 @@ async def test_create_workflow_template_with_explicit_slug():
             steps=[],
             slug="my-slug",
             category="preservation",
+            user=_SUPERUSER,
         )
 
     assert result["slug"] == "my-slug"
@@ -744,9 +741,8 @@ async def test_update_workflow_template_not_found():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowTemplate.DoesNotExist("nope"))
 
-        result = await update_workflow_template(999, name="New Name")
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="不存在"):
+            await update_workflow_template(999, name="New Name", user=_SUPERUSER)
 
 
 @pytest.mark.asyncio
@@ -759,9 +755,8 @@ async def test_update_workflow_template_no_fields():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_template)
 
-        result = await update_workflow_template(1)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="没有要更新的字段"):
+            await update_workflow_template(1, user=_SUPERUSER)
 
 
 @pytest.mark.asyncio
@@ -778,7 +773,7 @@ async def test_update_workflow_template_update_name():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_template)
 
-        result = await update_workflow_template(1, name="New Name")
+        result = await update_workflow_template(1, name="New Name", user=_SUPERUSER)
 
     assert result["name"] == "New Name"
     assert "name" in result["updated_fields"]
@@ -801,6 +796,7 @@ async def test_update_workflow_template_update_steps():
         result = await update_workflow_template(
             1,
             steps=[{"id": "s1", "name": "Step 1", "type": "activity"}],
+            user=_SUPERUSER,
         )
 
     assert "steps_schema" in result["updated_fields"]
@@ -821,7 +817,7 @@ async def test_update_workflow_template_deactivate():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_template)
 
-        result = await update_workflow_template(1, is_active=False)
+        result = await update_workflow_template(1, is_active=False, user=_SUPERUSER)
 
     assert "is_active" in result["updated_fields"]
 
@@ -855,7 +851,10 @@ async def test_list_workflow_templates():
 
         result = await list_workflow_templates(category="litigation", is_active=True)
 
-    assert isinstance(result, list)
+    # 238b1c15 起信封化:裸 list 已是 SDK 扁平化反模式
+    assert isinstance(result, dict)
+    assert result["total"] >= 1
+    assert isinstance(result["items"], list)
 
 
 # ── get_workflow_template ─────────────────────────────────────────────────────
@@ -868,9 +867,8 @@ async def test_get_workflow_template_not_found():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowTemplate.DoesNotExist("nope"))
 
-        result = await get_workflow_template(999)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="不存在"):
+            await get_workflow_template(999)
 
 
 @pytest.mark.asyncio
@@ -908,9 +906,8 @@ async def test_delete_workflow_template_not_found():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowTemplate.DoesNotExist("nope"))
 
-        result = await delete_workflow_template(999)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="不存在"):
+            await delete_workflow_template(999, user=_SUPERUSER)
 
 
 @pytest.mark.asyncio
@@ -925,7 +922,7 @@ async def test_delete_workflow_template_success():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(return_value=mock_t)
 
-        result = await delete_workflow_template(1)
+        result = await delete_workflow_template(1, user=_SUPERUSER)
 
     assert "已删除" in result["message"]
 
@@ -940,9 +937,8 @@ async def test_duplicate_workflow_template_not_found():
     with patch.object(WorkflowTemplate, "objects") as MockObjs:
         MockObjs.aget = AsyncMock(side_effect=WorkflowTemplate.DoesNotExist("nope"))
 
-        result = await duplicate_workflow_template(999)
-
-    assert "error" in result
+        with pytest.raises(FachuanApiError, match="不存在"):
+            await duplicate_workflow_template(999, user=_SUPERUSER)
 
 
 @pytest.mark.asyncio
@@ -968,7 +964,7 @@ async def test_duplicate_workflow_template_success():
         MockObjs.filter.return_value.aexists = AsyncMock(return_value=False)
         MockObjs.acreate = AsyncMock(return_value=mock_new)
 
-        result = await duplicate_workflow_template(1)
+        result = await duplicate_workflow_template(1, user=_SUPERUSER)
 
     assert result["source_template_id"] == 1
 
@@ -999,6 +995,6 @@ async def test_duplicate_workflow_template_with_new_name():
         MockObjs.filter.return_value.aexists = AsyncMock(return_value=False)
         MockObjs.acreate = AsyncMock(return_value=mock_new)
 
-        result = await duplicate_workflow_template(1, new_name="Custom Name")
+        result = await duplicate_workflow_template(1, new_name="Custom Name", user=_SUPERUSER)
 
     assert result["name"] == "Custom Name"

@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     "apps.chat_records",  # 6.0 聊天记录梳理
     "apps.litigation_ai",  # 6.1 AI 诉讼文书生成
     "apps.contract_review",  # 6.2 合同审查
+    "apps.onlyoffice",  # 6.25 OnlyOffice 文档编辑器（合同复审工作台画布）
     "apps.finance",  # 6.3.1 金融工具(LPR计算器)
     "apps.oa_filing",  # 6.4 OA立案
     "apps.legal_research",  # 6.5 案例检索（法律数据源）
@@ -113,7 +114,6 @@ INSTALLED_APPS = [
     "apps.doc_converter",  # 6.71 DOC 批量转 DOCX
     "apps.agent",  # 6.85 Agent 运行时（pi）
     "apps.workflow",  # 6.9 工作流引擎（Temporal 集成）
-    "apps.docspace",  # 6.95 DocSpace 云文档
     "apps.core",  # 7. 核心系统
     "apps.cloud_storage",  # 7.0 云存储（自 core 拆分的独立 app，表名钉死 core_cloudstorageaccount）
     "apps.social_auth",  # 7.1 社交登录
@@ -593,9 +593,6 @@ ZNSZJ_ENABLED = (os.environ.get("ZNSZJ_ENABLED", "True") or "").lower() not in (
 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED = (
     os.environ.get("LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED", "False") or ""
 ).lower() in ("true", "1", "yes")
-
-# 是否启用 OnlyOffice DocSpace 云文档编辑（默认关闭）
-DOCSPACE_ENABLED = (os.environ.get("DOCSPACE_ENABLED", "False") or "").lower() in ("true", "1", "yes")
 
 # ============================================================
 # Django Q 配置

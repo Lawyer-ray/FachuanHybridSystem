@@ -225,6 +225,26 @@ describe('FolderTree：文件交互', () => {
     container.remove()
   })
 
+  it('传入 onOpenFile 时点行交给预览，不再 window.open 下载', async () => {
+    // 浏览器没有 docx 渲染器，window.open(下载地址) 对 .docx 必然变下载。
+    // 传了 onOpenFile 就必须走预览通道（OnlyOffice），不能再去下载。
+    const openSpy = vi.fn()
+    vi.stubGlobal('open', openSpy)
+    const onOpenFile = vi.fn()
+    apiMock.listFolderEntries.mockResolvedValue(entries([], ['a.docx']))
+
+    const { container } = renderTree({ onOpenFile })
+    const row = await waitFor(() =>
+      within(container).getByText('a.docx').closest('[role="button"]') as HTMLElement,
+    )
+    fireEvent.click(row)
+
+    await waitFor(() => expect(onOpenFile).toHaveBeenCalledWith({ subpath: 'a.docx', name: 'a.docx' }))
+    expect(openSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+    container.remove()
+  })
+
   it('右键文件弹出菜单，含重命名与删除', async () => {
     apiMock.listFolderEntries.mockResolvedValue(entries([], ['a.pdf']))
     const { container } = renderTree()

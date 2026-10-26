@@ -8,8 +8,9 @@ import { AppNavbar } from '@/components/shared/AppNavbar'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePageLazy, preloadHomePage } from '@/features/home'
-import { DealDetailPageLazy, preloadWorkbenchPage, WorkbenchPageLazy } from '@/features/workbench'
+import { preloadWorkbenchPage, ProjectDetailPageLazy, WorkbenchPageLazy } from '@/features/workbench'
 import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
+import { ReviewWorkbenchPageLazy } from '@/features/contract-review'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
@@ -20,6 +21,10 @@ const DeskPage = lazy(() => preloadDeskPage().then((m) => ({ default: m.DeskPage
 // 收起面板不卸载状态（流式收发在 store，见 features/copilot）。
 const CopilotPanelLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.CopilotPanel })))
 const PanelBackdropLazy = lazy(() => import('@/features/copilot').then((m) => ({ default: m.PanelBackdrop })))
+
+// 客户上传单页（公开）：律师生成 /u/{token} 链接一对一发给客户，免登录上传。
+// 独立轻量 chunk（不带 pdfjs 等重依赖），放 RequireAuth 之外与 /login 平级。
+const ClientUploadPageLazy = lazy(() => import('@/features/client-upload').then((m) => ({ default: m.ClientUploadPage })))
 
 const COPILOT_OPEN_KEY = 'copilot:open'
 const COPILOT_DOCK_KEY = 'copilot:dock'
@@ -32,7 +37,7 @@ const COPILOT_DOCK_KEY = 'copilot:dock'
 const ROUTE_PRELOADERS: Record<string, () => Promise<unknown>> = {
   '/': preloadHomePage,
   '/material-prep': preloadDeskPage,
-  '/cases': preloadWorkbenchPage,
+  '/projects': preloadWorkbenchPage,
 }
 
 function preloadRoute(to: string) {
@@ -272,6 +277,15 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         {/* 社交登录回调：飞书/微信授权后由后端 302 到此，用一次性码换 JWT */}
         <Route path="/social-callback" element={<SocialCallbackPage />} />
+        {/* 客户材料上传（公开）：链接即凭证，不进 RequireAuth */}
+        <Route
+          path="/u/:token"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <ClientUploadPageLazy />
+            </Suspense>
+          }
+        />
         <Route
           element={
             <RequireAuth>
@@ -284,10 +298,14 @@ export default function App() {
           <Route path="/material-prep" element={<DeskPage />} />
           {/* 详情页：/material-prep/:id —— 可刷新、可分享、支持前进后退 */}
           <Route path="/material-prep/:id" element={<DeskPage />} />
-          {/* 办案主页：合同大行流 + 详情抽屉（/cases 对齐后端 cases 域） */}
-          <Route path="/cases" element={<WorkbenchPageLazy />} />
-          {/* 争议解决详情页：一页一委托（:id = 委托合同 id），合同与案件链在页内融合呈现 */}
-          <Route path="/cases/:id" element={<DealDetailPageLazy />} />
+          {/* 项目主页：合同大行流 + 详情抽屉。路由用 projects 而非 cases——本页是
+              合同与案件融合展示，单说合同或案件都不准确；cases 在后端已明确指案件。 */}
+          <Route path="/projects" element={<WorkbenchPageLazy />} />
+          {/* 项目详情：一条 URL（:id = 委托合同 id），按 deal.lit 分流左栏——
+              诉讼走案件程序链、非诉走合同文件夹。不再用 /nonlit 后缀暴露分类词。 */}
+          <Route path="/projects/:id" element={<ProjectDetailPageLazy />} />
+          {/* 合同复审工作台（发起审查后跳入；参数与 ReviewWorkbenchPage 的 useParams 对齐） */}
+          <Route path="/projects/:id/review/:taskId" element={<ReviewWorkbenchPageLazy />} />
           {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
           <Route path="/settings/bindings" element={<BindingsPageLazy />} />
         </Route>

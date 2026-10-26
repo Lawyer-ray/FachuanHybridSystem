@@ -50,6 +50,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   loadingHistory: false,
   lastError: null,
   turnStats: EMPTY_STATS,
+  contextUsage: { used: null, total: null },
+  compacting: false,
   queuePosition: null,
   queuedSteers: [],
   steering: false,
@@ -94,6 +96,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   },
 
   enterContext: async (context) => {
+    // 幂等：已在同一业务范围（详情页每次数据刷新都会重进）不重置对话。
+    // 页面进入时自动绑定（不再依赖用户点按钮）后，这条短路是必须的——
+    // 否则任何一次 effect 重跑都会把用户正在进行的会话清成空白新对话。
+    const cur = get().context
+    if (cur?.origin === context.origin && cur.refId === context.refId) {
+      if (cur.title !== context.title) set({ context })
+      return
+    }
     if (get().streaming) get().stop()
     set({ context })
     await get().switchSession(null)
@@ -107,14 +117,24 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   switchSession: async (id) => {
     const prev = get()
-    // 同会话且视图已就绪：不重复拉取、不播切换动画（stop 后的重拉 streaming 仍为 true，放行）
-    if (id === prev.sessionId && !prev.streaming && (id !== null || prev.messages.length === 0)) return
+    // 同会话且**视图已就绪**才跳过：不重复拉取、不播切换动画
+    // （stop 后的重拉 streaming 仍为 true，放行）。
+    //
+    // 原条件 `(id !== null || prev.messages.length === 0)` 在 id 非空时恒真，
+    // 等于「同 id 就跳过」——刷新页面后 store 从 localStorage 恢复了 sessionId
+    // 但 messages 还是空数组，面板挂载时调 switchSession(同一个 id) 被直接
+    // return，历史永远不加载，表现为「侧栏选中着会话、主区域却是欢迎页，
+    // 发了消息才突然出现旧内容」。就绪的判据是「已有正文」而不是「id 相同」。
+    const hasView = prev.messages.length > 0 || prev.loadingHistory
+    if (id === prev.sessionId && !prev.streaming && (id === null || hasView)) return
     get().stop()
     withViewTransition(() => {
-      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [] })
+      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [], contextUsage: { used: null, total: null } })
     })
     storeSession(id)
     if (!id) return
+    // 会话打开即拉一次水位（done 事件会在每轮结束后刷新）
+    void get().refreshContextUsage()
     try {
       const rows = await copilotApi.fetchHistory(id)
       // 等待期间用户可能又切走了：只回填仍是当前会话的结果
@@ -392,6 +412,40 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     }
   },
 
+  setContextUsage: (used, total) => {
+    set({ contextUsage: { used, total } })
+  },
+
+  refreshContextUsage: async () => {
+    const id = get().sessionId
+    if (!id) return
+    try {
+      const stats = await copilotApi.fetchSessionStats(id)
+      // 等待期间可能切走：只回填仍是当前会话的水位
+      if (get().sessionId === id) {
+        set({ contextUsage: { used: stats.context_used_tokens, total: stats.context_total_tokens } })
+      }
+    } catch {
+      // 静默：水位是增强信息，拉不到只是不显示
+    }
+  },
+
+  compactContext: async () => {
+    const id = get().sessionId
+    if (!id || get().compacting || get().streaming) return
+    set({ compacting: true, lastError: null })
+    try {
+      const receipt = await copilotApi.compactSession(id)
+      set({ contextUsage: { used: receipt.context_used_tokens, total: receipt.context_total_tokens } })
+      if (!receipt.compacted) set({ lastError: '会话还没有对话历史，无需压缩' })
+    } catch (err) {
+      const status = err instanceof HTTPError ? err.response.status : 0
+      set({ lastError: status === 429 ? '当前使用人数较多，请稍后再试' : '压缩失败，请稍后再试' })
+    } finally {
+      set({ compacting: false })
+    }
+  },
+
   reset: () => {
     get().stop()
     set({
@@ -402,6 +456,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       loadingHistory: false,
       lastError: null,
       turnStats: { ...EMPTY_STATS },
+      contextUsage: { used: null, total: null },
+      compacting: false,
       queuePosition: null,
       queuedSteers: [],
       steering: false,

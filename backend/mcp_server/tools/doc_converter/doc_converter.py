@@ -8,17 +8,20 @@ from mcp_server.client import client
 
 
 def get_conversion_progress(job_id: str) -> dict[str, Any]:
-    """查询文档转换任务进度。"""
-    return client.get(f"/doc-converter/jobs/{job_id}")  # type: ignore[return-value]
+    """查询文档转换任务进度（提交转换后轮询用）。"""
+    return client.get(f"/doc-converter/jobs/{job_id}")  # type: ignore[no-any-return]
 
 
 def cancel_conversion_job(job_id: str) -> dict[str, Any]:
     """取消进行中的文档转换任务。"""
-    return client.post(f"/doc-converter/jobs/{job_id}/cancel", json={})  # type: ignore[return-value]
+    return client.post(f"/doc-converter/jobs/{job_id}/cancel", json={})  # type: ignore[no-any-return]
 
 
 def download_converted_files(job_id: str) -> dict[str, Any]:
-    """下载转换后的文件（ZIP）。返回 {filename, content_type, data_base64}。"""
+    """下载转换后的文件（ZIP）。返回 {filename, content_type, data_base64}。
+
+    体积预期：整包 ZIP 通常超过 15KB 的 b64 返回上限（超限会被拒绝并说明
+    替代路径）；批量文件请引导用户在前端下载。"""
     import base64
 
     content, filename, content_type = client.download(f"/doc-converter/jobs/{job_id}/download")
@@ -26,13 +29,13 @@ def download_converted_files(job_id: str) -> dict[str, Any]:
 
 
 def delete_conversion_job(job_id: str) -> None:
-    """删除转换任务及其关联文件。"""
+    """删除转换任务及其关联文件——不可恢复。"""
     client.delete(f"/doc-converter/jobs/{job_id}")
 
 
 def doc_converter_health_check() -> dict[str, Any]:
-    """检查 LibreOffice 服务是否可用。"""
-    return client.get("/doc-converter/health")  # type: ignore[return-value]
+    """检查 LibreOffice 转换服务是否可用——转换失败时先查这里。"""
+    return client.get("/doc-converter/health")  # type: ignore[no-any-return]
 
 
 def save_to_directory(job_id: str, target_dir: str) -> dict[str, Any]:

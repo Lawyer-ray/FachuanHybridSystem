@@ -7,11 +7,6 @@ from typing import Any
 from mcp_server.client import client
 
 
-def auto_namer_process(file_path: str) -> dict[str, Any]:
-    """对文件执行自动命名。file_path 为文件路径。"""
-    return client.post("/automation/auto-namer/process", json={"file_path": file_path})  # type: ignore[return-value]
-
-
 def auto_namer_process_by_path(
     file_path: str,
     prompt: str | None = None,
@@ -40,4 +35,5 @@ def auto_namer_process_by_path(
         payload["limit"] = limit
     if preview_page is not None:
         payload["preview_page"] = preview_page
-    return client.post("/automation/auto-namer/process-by-path", json=payload)  # type: ignore[no-any-return]
+    # LLM 逐文件命名,批量目录耗时随 limit 增长——与 LLM 链路工具同口径 180s。
+    return client.post("/automation/auto-namer/process-by-path", json=payload, timeout=180)  # type: ignore[no-any-return]

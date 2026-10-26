@@ -2,8 +2,8 @@
  * search api 拉平分组单测（node 环境即可）。
  *
  * mock 只打 HTTP 客户端工厂（@/lib/api 的 createApiClient）。
- * runSearch 的防抖不在本层（消费方 GlobalSearch 自理），可测的是
- * 「按 CATEGORY_ORDER 固定顺序把各类命中拉平成统一 Hit 列表」与请求参数。
+ * 可测的是「合同+案件融合成 projects 类、按固定顺序拉平成统一 Hit 列表」
+ * 与请求参数；防抖不在本层（消费方 GlobalSearch 自理）。
  */
 import { describe, expect, it, vi } from 'vitest'
 
@@ -22,14 +22,23 @@ function respond(body: unknown) {
 }
 
 describe('runSearch 分组拉平', () => {
-  it('按 CATEGORY_ORDER 固定顺序拉平（后端 key 乱序/多余不影响输出顺序）', async () => {
+  it('合同+案件融合为 projects（合同命中在前），其余类别按固定顺序垫后；未知类别丢弃', async () => {
     getMock.mockResolvedValueOnce(
       respond({
         // 响应里顺序与固定顺序相反，且带未知类别 key
         contacts: [{ id: 7, title: '联系人-王五', subtitle: '' }],
         court_sms: [{ id: 6, title: '法院短信', subtitle: '' }],
-        contracts: [{ id: 3, title: '合同-王五', subtitle: '' }],
-        cases: [{ id: 1, title: '案件-王五', subtitle: '在办' }],
+        contracts: [{ id: 3, title: '王五委托合同', subtitle: '', case_type: 'civil' }],
+        cases: [
+          {
+            id: 11,
+            title: '王五一审案',
+            subtitle: '(2026)粤01民初1号', // privacy-allow 虚构案号
+            case_type: 'civil',
+            contract_id: 3,
+            contract_name: '王五委托合同',
+          },
+        ],
         clients: [{ id: 2, title: '客户-王五', subtitle: '' }],
         inbox: [{ id: 4, title: '收件箱', subtitle: '' }],
         unknown_entity: [{ id: 99, title: '不该出现', subtitle: '' }],
@@ -37,13 +46,22 @@ describe('runSearch 分组拉平', () => {
     )
     const hits = await runSearch('王五')
     expect(hits.map((h) => h.category)).toEqual([
-      'cases',
+      'projects',
+      'projects',
       'clients',
-      'contracts',
       'inbox',
       'court_sms',
       'contacts',
     ])
+    // 合同命中是项目行、案件命中挂项目下并透传合同字段（前端按此分组与路由分流）
+    expect(hits[0]).toMatchObject({ kind: 'contract', id: 3, case_type: 'civil' })
+    expect(hits[1]).toMatchObject({
+      kind: 'case',
+      id: 11,
+      contract_id: 3,
+      contract_name: '王五委托合同',
+      case_type: 'civil',
+    })
     // 未知类别被丢弃
     expect(hits.some((h) => h.id === 99)).toBe(false)
   })
@@ -59,8 +77,8 @@ describe('runSearch 分组拉平', () => {
     )
     const hits = await runSearch('案件')
     expect(hits).toEqual([
-      { category: 'cases', id: 11, title: '案件A', subtitle: '在办', side: '' },
-      { category: 'cases', id: 12, title: '案件B', subtitle: '已结案', side: '' },
+      { category: 'projects', kind: 'case', id: 11, title: '案件A', subtitle: '在办', side: '', case_type: '', contract_id: null, contract_name: '' },
+      { category: 'projects', kind: 'case', id: 12, title: '案件B', subtitle: '已结案', side: '', case_type: '', contract_id: null, contract_name: '' },
     ])
   })
 
@@ -92,7 +110,7 @@ describe('runSearch 分组拉平', () => {
     expect(getMock).toHaveBeenCalledWith('', { searchParams: { q: '送达', limit: 8 } })
   })
 
-  it('CATEGORY_ORDER 覆盖六类实体且为首导出的固定顺序', () => {
-    expect(CATEGORY_ORDER).toEqual(['cases', 'clients', 'contracts', 'inbox', 'court_sms', 'contacts'])
+  it('CATEGORY_ORDER 覆盖五类展示类别且 projects 在首', () => {
+    expect(CATEGORY_ORDER).toEqual(['projects', 'clients', 'inbox', 'court_sms', 'contacts'])
   })
 })

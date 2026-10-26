@@ -26,7 +26,7 @@ interface DealSheetProps {
 
 /**
  * 合同详情抽屉（办案主页唯一浮层）：九节全字段，空节不渲染。
- * 「详情 →」= 详情页（争议解决）/ 开发中提示（非诉）；当事人/律师行内可复制。
+ * 「详情 →」= 各自详情页（争议解决 / 非诉同 onOpenDetail 分流）；当事人/律师行内可复制。
  * 头部只放类型/状态/OA 编号——日期类信息统一在「合同要素」一节，不在头部重复。
  */
 export function DealSheet({ deal, open, onOpenChange, onOpenDetail }: DealSheetProps) {
@@ -262,7 +262,6 @@ export function DealSheet({ deal, open, onOpenChange, onOpenDetail }: DealSheetP
                     </div>
                     <div className="mt-0.5 text-[10.5px] text-muted-foreground/70">
                       {cases.length} 个案件 · {stages.map((s) => s.stage).join(' → ')}
-                      {!deal.lit && ' · 个案详情开发中'}
                     </div>
                   </>
                 )}

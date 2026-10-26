@@ -3,17 +3,33 @@
 from __future__ import annotations
 
 import base64
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from pydantic import Field
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
+
+#: 与 apps/documents/models/choices 的 TextChoices 逐值对账(门禁 test_schema_param_descriptions)。
+_DocTemplateTypeL = Literal["contract", "case", "archive"]  # DocumentTemplateType
+_DocCaseTypeL = Literal["civil", "administrative", "criminal", "execution", "bankruptcy", "all"]  # DocumentCaseType
 
 
 def list_document_templates(
-    template_type: str | None = None,
-    case_type: str | None = None,
-    is_active: bool | None = None,
-) -> list[dict[str, Any]]:
-    """获取文件模板列表，支持按类型/案件类型/启用状态过滤。"""
+    template_type: Annotated[_DocTemplateTypeL | None, Field(description="过滤:contract 合同/case 案件/archive 归档模板")] = None,
+    case_type: Annotated[_DocCaseTypeL | None, Field(description="过滤案件类型(all=通用)")] = None,
+    is_active: Annotated[bool | None, Field(description="过滤启用状态")] = None,
+    limit: Annotated[int, Field(description="返回条数上限(模板条目 ~1.2KB/条,默认 15 留在 20KB 截断线内)", ge=1, le=100)] = 15,
+) -> dict[str, Any]:
+    """获取文件模板列表，支持按类型/案件类型/启用状态过滤。
+    模板条目含字段配置,实测 ~1.2KB/条,默认截前 15 条留在 pi 20KB 截断线内
+    （``total`` 是完整条数,要看更多显式调大 limit）。
+
+    template_type: contract 合同文件模板 / case 案件文件模板 /
+        archive 归档文件模板。
+    case_type: 案件类型过滤（civil/administrative/criminal/execution/
+        bankruptcy/all 通用）。
+    """
     params: dict[str, Any] = {}
     if template_type:
         params["template_type"] = template_type
@@ -21,26 +37,60 @@ def list_document_templates(
         params["case_type"] = case_type
     if is_active is not None:
         params["is_active"] = is_active
-    return client.get("/documents/templates", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/documents/templates", params=params), limit=limit)
 
 
 def get_document_template(template_id: int) -> dict[str, Any]:
-    """获取文件模板详情。"""
+    """获取文书模板详情（含占位符定义）。"""
     return client.get(f"/documents/templates/{template_id}")  # type: ignore[no-any-return]
 
 
 def create_document_template(
-    name: str,
-    template_type: str,
-    case_type: str = "",
-    content: str = "",
+    name: Annotated[str, Field(description="模板名称")],
+    template_type: Annotated[_DocTemplateTypeL, Field(description="contract 合同文件模板/case 案件文件模板/archive 归档文件模板")],
+    contract_sub_type: Annotated[str | None, Field(description="合同子类型(template_type=contract 时生效)")] = None,
+    case_sub_type: Annotated[str | None, Field(description="案件子类型(template_type=case 时生效)")] = None,
+    archive_sub_type: Annotated[str | None, Field(description="归档子类型(template_type=archive 时生效)")] = None,
+    file_path: Annotated[str | None, Field(description="模板 docx 的存储路径——正文来自文件不是内联文本;新模板先落文件再登记,缺省则暂无正文")] = None,
+    case_types: Annotated[list[_DocCaseTypeL] | None, Field(description="适用案件类型列表(all=通用)")] = None,
+    case_stages: Annotated[list[str] | None, Field(description="适用案件阶段列表(英文键,如 first_trial/second_trial;见 CaseStage 18 值)")] = None,
+    contract_types: Annotated[list[str] | None, Field(description="适用合同子类型列表")] = None,
+    is_active: Annotated[bool, Field(description="是否启用(默认 True)")] = True,
 ) -> dict[str, Any]:
-    """创建文件模板。"""
-    payload: dict[str, Any] = {"name": name, "template_type": template_type}
-    if case_type:
-        payload["case_type"] = case_type
-    if content:
-        payload["content"] = content
+    """登记文书模板元数据（模板正文是已上传的 docx 文件）。
+
+    Args:
+        name: 模板名称。
+        template_type: contract 合同文件模板 / case 案件文件模板 /
+            archive 归档文件模板。
+        contract_sub_type / case_sub_type / archive_sub_type: 对应类型的
+            子类型（template_type 决定哪个生效）。
+        file_path: 模板 docx 的存储路径——**模板正文来自文件,不是内联
+            文本**;新模板应先落文件再登记。缺省则模板暂无正文。
+        case_types: 适用案件类型列表（civil/administrative/criminal/
+            execution/bankruptcy/all）。
+        case_stages: 适用案件阶段列表（first_trial/second_trial/…英文键）。
+        contract_types: 适用合同子类型列表。
+        is_active: 是否启用,默认 True。
+
+    2026-10-25 修复:旧签名的 ``case_type``（单数）与 ``content``（内联
+    正文）从未生效——端点 ``DocumentTemplateIn`` 没有这两个字段。
+    """
+    payload: dict[str, Any] = {"name": name, "template_type": template_type, "is_active": is_active}
+    if contract_sub_type:
+        payload["contract_sub_type"] = contract_sub_type
+    if case_sub_type:
+        payload["case_sub_type"] = case_sub_type
+    if archive_sub_type:
+        payload["archive_sub_type"] = archive_sub_type
+    if file_path:
+        payload["file_path"] = file_path
+    if case_types is not None:
+        payload["case_types"] = case_types
+    if case_stages is not None:
+        payload["case_stages"] = case_stages
+    if contract_types is not None:
+        payload["contract_types"] = contract_types
     return client.post("/documents/templates", json=payload)  # type: ignore[no-any-return]
 
 
@@ -48,8 +98,11 @@ def list_folder_templates(
     template_type: str | None = None,
     case_type: str | None = None,
     is_active: bool | None = None,
-) -> list[dict[str, Any]]:
-    """获取文件夹模板列表。"""
+    limit: int = 4,
+) -> dict[str, Any]:
+    """获取文件夹模板列表（新案件的目录结构模板）。条目含整棵目录树,
+    实测 ~4.2KB/条,默认截前 4 条留在 pi 20KB 截断线内（``total`` 是完整
+    条数,要看更多显式调大 limit）。"""
     params: dict[str, Any] = {}
     if template_type:
         params["template_type"] = template_type
@@ -57,15 +110,15 @@ def list_folder_templates(
         params["case_type"] = case_type
     if is_active is not None:
         params["is_active"] = is_active
-    return client.get("/documents/folder-templates", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/documents/folder-templates", params=params), limit=limit)
 
 
-def list_placeholders(is_active: bool | None = None) -> list[dict[str, Any]]:
-    """获取替换词列表。"""
+def list_placeholders(is_active: bool | None = None) -> dict[str, Any]:
+    """获取替换词（占位符）列表——文书生成的变量字典。"""
     params: dict[str, Any] = {}
     if is_active is not None:
         params["is_active"] = is_active
-    return client.get("/documents/placeholders", params=params)  # type: ignore[no-any-return]
+    return list_result(client.get("/documents/placeholders", params=params))
 
 
 def preview_placeholders(
@@ -80,7 +133,7 @@ def preview_placeholders(
 
 
 def preview_contract_context(contract_id: int) -> dict[str, Any]:
-    """预览合同占位符上下文数据。"""
+    """预览合同文书的占位符上下文（生成前核对数据会填成什么）。"""
     return client.get(f"/documents/contracts/{contract_id}/preview")  # type: ignore[no-any-return]
 
 

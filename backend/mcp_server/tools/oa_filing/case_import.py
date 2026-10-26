@@ -11,20 +11,20 @@ from mcp_server.client import client
 def trigger_case_import(file_base64: str, filename: str) -> dict[str, Any]:
     """上传 Excel 文件触发 OA 案件导入预览。file_base64 为 Excel 文件的 base64 编码。返回 session_id 用于查询进度。"""
     file_bytes = base64.b64decode(file_base64)
-    return client.upload(
+    return client.upload(  # type: ignore[no-any-return]
         "/case-import",
         files={"file": (filename, file_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
-    )  # type: ignore[return-value]
+    )
 
 
 def get_case_import_session(session_id: int) -> dict[str, Any]:
-    """查询案件导入会话状态。status: pending/running/completed/failed。"""
-    return client.get(f"/case-import/{session_id}")  # type: ignore[return-value]
+    """查询案件导入会话状态。status: pending/in_progress/completed/failed/cancelled。"""
+    return client.get(f"/case-import/{session_id}")  # type: ignore[no-any-return]
 
 
 def get_case_import_preview(session_id: int) -> dict[str, Any]:
     """获取案件导入预览结果，包含匹配/未匹配的案件列表。"""
-    return client.get(f"/case-import/{session_id}/preview")  # type: ignore[return-value]
+    return client.get(f"/case-import/{session_id}/preview")  # type: ignore[no-any-return]
 
 
 def execute_case_import(
@@ -37,9 +37,9 @@ def execute_case_import(
         "case_nos": case_nos,
         "matched_case_nos": matched_case_nos or [],
     }
-    return client.post(f"/case-import/{session_id}/execute", json=payload)  # type: ignore[return-value]
+    return client.post(f"/case-import/{session_id}/execute", json=payload)  # type: ignore[no-any-return]
 
 
 def batch_create_cases(session_id: int, cases: list[dict[str, Any]]) -> dict[str, Any]:
     """从导入会话批量创建案件。cases 为案件列表，每项包含 case_no 等字段。"""
-    return client.post(f"/case-import/{session_id}/batch-create", json={"cases": cases})  # type: ignore[return-value]
+    return client.post(f"/case-import/{session_id}/batch-create", json={"cases": cases})  # type: ignore[no-any-return]

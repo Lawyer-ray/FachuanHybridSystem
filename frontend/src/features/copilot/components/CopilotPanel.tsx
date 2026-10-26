@@ -319,7 +319,7 @@ export function CopilotPanel({
         </header>
 
         <div className="relative flex min-h-0 flex-1">
-          {railVisible && <SessionSidebar variant="rail" />}
+          {railVisible && <SessionSidebar variant="rail" panelWidth={width} />}
           {listOverlayOpen && (
             <SessionSidebar variant="overlay" onClose={() => setListOverlayOpen(false)} />
           )}

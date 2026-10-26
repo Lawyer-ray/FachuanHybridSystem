@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import File, Router
@@ -13,7 +15,7 @@ from ninja.files import UploadedFile
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.organization.api.utils_api import get_request_user
 from apps.organization.dtos import LawyerCreateDTO, LawyerListFiltersDTO, LawyerUpdateDTO
-from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
+from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerSlimOut, LawyerUpdateIn
 from apps.organization.services import LawyerService
 
 router = Router(auth=JWTOrSessionAuth())
@@ -27,18 +29,28 @@ def _get_lawyer_service() -> LawyerService:
 _lawyer_service = _get_lawyer_service()
 
 
-@router.get("/lawyers", response=list[LawyerOut])
+@router.get("/lawyers", response=list[LawyerOut] | list[LawyerSlimOut])
 async def list_lawyers(  # pragma: no cover
     request: HttpRequest,
     search: str | None = None,
     law_firm_id: int | None = None,
-) -> list[LawyerOut]:
+    slim: bool = False,
+) -> Any:
+    """律师列表。
+
+    - slim=true 只回 id/real_name/phone/license_no/law_firm_name——列表页做
+      「lawyer_id → 人名电话执业证」映射就够，不需要文件签 URL 与律所嵌套对象。
+      全量 500 人时省掉 1000 次存储签名 + 嵌套 DTO 构建。
+    """
     # 显式放开 service 层默认 page_size=20 的截断：前端办案页需要全量律师
     # （量级=律所人数，几十~几百），此前只拿前 20 条导致执业证号/律所补不全
     filters = LawyerListFiltersDTO(search=search, law_firm_id=law_firm_id)
-    return await sync_to_async(
+    rows = await sync_to_async(
         lambda: list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request), page_size=500))
-    )()  # type: ignore[return-value]
+    )()
+    if not slim:
+        return rows
+    return [LawyerSlimOut.from_orm(r) for r in rows]
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)

@@ -27,6 +27,9 @@ export async function listContractsPage(opts: {
   cat?: string
   fee?: string
   q?: string
+  /** 是否要 facets 计数（默认 true）。翻页时传 false：facets 是全库口径，
+   *  与页码无关，逐页重算是 4 次白扫全表。 */
+  includeFacets?: boolean
 }): Promise<ContractPageResponse> {
   return contractsApi
     .get('contracts', {
@@ -38,6 +41,7 @@ export async function listContractsPage(opts: {
         ...(opts.cat ? { case_type: opts.cat } : {}),
         ...(opts.fee ? { fee_mode: opts.fee } : {}),
         ...(opts.q ? { search: opts.q } : {}),
+        ...(opts.includeFacets === false ? { include_facets: 'false' } : {}),
       },
     })
     .json<ContractPageResponse>()
@@ -50,7 +54,7 @@ export async function listCasesByContract(contractId: number): Promise<CaseListI
 }
 
 /**
- * 单份合同（详情页直达 /cases/:id 时列表缓存不一定在）。端点返回全量 ContractOut，
+ * 单份合同（详情页直达 /projects/:id 时列表缓存不一定在）。端点返回全量 ContractOut，
  * 本页消费口径与列表行一致（representation_stages 运行时为中文标签数组、id 必有），
  * 多出的 finalized_materials 不消费，按 ContractListItem 投影即可复用 buildDeals。
  */
@@ -67,8 +71,13 @@ export async function listRemindersByCase(caseId: number): Promise<ReminderOut[]
   return remindersApi.get('list', { searchParams: { case_id: String(caseId) } }).json<ReminderOut[]>()
 }
 
+/**
+ * 律师列表：slim=true 只取 id/real_name/phone/license_no/law_firm_name——
+ * 本域只做「lawyer_id → 人名/电话/执业证/律所名」映射，不需要文件签 URL
+ * 和律所嵌套对象（全量 500 人时那是 1000 次多余签名 + 嵌套 DTO 构建）。
+ */
 export async function listLawyers(): Promise<LawyerListItem[]> {
-  return organizationApi.get('lawyers').json<LawyerListItem[]>()
+  return organizationApi.get('lawyers', { searchParams: { slim: 'true' } }).json<LawyerListItem[]>()
 }
 
 /* ============ 绑定文件夹（案件卡「文件夹视图」+ 右栏「合同文件夹」树共用） ============ */
@@ -126,6 +135,59 @@ export async function uploadFolderFiles(
       timeout: UPLOAD_TIMEOUT_MS,
     })
     .json<{ saved: Array<{ name: string; subpath: string }> }>()
+}
+
+/**
+ * 原地保存（覆盖写）。
+ *
+ * 与 `uploadFolderFiles` 语义**相反**：上传是「不覆盖、同名加序号」，
+ * 这里是明确的「覆盖这一份」。加序号就变成另存为，律师看到的还是旧内容。
+ *
+ * `expectMtime` 做乐观锁：两人同开时后保存的一方会拿到 409，前端提示
+ * 「文件已被他人修改」，不静默丢掉前一个人的修改。
+ */
+export async function saveFolderFile(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  data: Blob,
+  expectMtime?: number,
+): Promise<{ subpath: string; name: string; size: number; modified_at?: string }> {
+  const form = new FormData()
+  form.append('file', data, fileNameOf(subpath))
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-save', {
+      searchParams: {
+        subpath,
+        ...(expectMtime !== undefined ? { expect_mtime: String(expectMtime) } : {}),
+      },
+      body: form,
+      timeout: UPLOAD_TIMEOUT_MS,
+    })
+    .json()
+}
+
+/** 另存为新文件（同目录、同名自动加序号、不动原文件） */
+export async function saveFolderFileAs(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  name: string,
+  data: Blob,
+): Promise<{ subpath: string; name: string; size: number }> {
+  const form = new FormData()
+  form.append('file', data, name)
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-save-as', {
+      searchParams: { subpath, name },
+      body: form,
+      timeout: UPLOAD_TIMEOUT_MS,
+    })
+    .json()
+}
+
+function fileNameOf(subpath: string): string {
+  return subpath.split('/').pop() || 'document.docx'
 }
 
 /** 单文件预览直链（预览前经 withDownloadTicket 换一次性票据再 window.open） */

@@ -104,6 +104,7 @@ class CaseQueryService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        offset: int = 0,
     ) -> list[Case]:
         """综合搜索案件（案号、名称、当事人）。"""
         return self._search_service.search_cases(
@@ -112,6 +113,7 @@ class CaseQueryService(PermissionMixin):
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
+            offset=offset,
         )
 
     def search_cases_ctx(self, *, ctx: SecurityAccessContext, query: str, limit: int = 10) -> list[Case]:

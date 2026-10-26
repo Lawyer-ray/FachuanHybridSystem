@@ -250,6 +250,18 @@ vi.mock('./reader-ops', () => ({
   buildMetaOps: () => ({}),
   selDetailOf: () => ({ count: 1, cross: false }),
 }))
+// Reader 现在用 navigate 跳复审台（归案 → 发起审查），且会拉附件字节。
+// 本文件验证的是分支编排，不是路由与网络，按 DeskPage.dom.test 的惯例打桩。
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>()
+  return { ...actual, useNavigate: () => vi.fn() }
+})
+vi.mock('../../api', () => ({ fetchAttachmentBytes: vi.fn() }))
+// 发起审查抽屉属 contract-review 域，这里只关心它是否被打开
+vi.mock('@/features/contract-review', () => ({
+  ReviewLaunchDrawer: (p: { open: boolean; fileName: string }) =>
+    p.open ? <div data-testid="launch-drawer">{p.fileName}</div> : null,
+}))
 
 import { Reader } from './Reader'
 
@@ -724,10 +736,32 @@ describe('Reader：弹窗回调连线', () => {
     container.remove()
   })
 
-  it('确认归案：写 assign、提示并关闭阅读器', () => {
+  it('确认归案：写 assign，并在有 docx 时直接进「发起审查」而不是关掉阅读器', () => {
+    storeMock.draft = {
+      mats: [
+        { partIndex: 0, n: '合同.docx', k: 'office', pages: 3 },
+        { partIndex: 1, n: '图纸.pdf', k: 'pdf', pages: 2 },
+      ],
+      segs: [{ id: 's1', t: 'other', fn: 'seg1', refs: [{ mi: 0, p: 0 }], manual: false }],
+      infos: [],
+    }
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('确认归案'))
+
     expect(storeMock.setAssignOpen).toHaveBeenCalledWith(false)
+    expect(storeMock.setAssign).toHaveBeenCalledWith({ target: 'new' })
+    // 归案不该是死路：docx 存在 → 打开发起审查抽屉
+    expect(screen.getByTestId('launch-drawer').textContent).toBe('合同.docx')
+    expect(storeMock.close).not.toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('确认归案：材料包里只有 PDF 时不开抽屉，提示后关闭', () => {
+    const { container } = render(<Reader />)
+    fireEvent.click(screen.getByText('确认归案'))
+
+    // DRAFT 只有 a.pdf：审查流水线只吃 docx，不应假装能审
+    expect(screen.queryByTestId('launch-drawer')).toBeNull()
     expect(storeMock.close).toHaveBeenCalled()
     container.remove()
   })

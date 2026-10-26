@@ -59,8 +59,9 @@ async def search_cases(  # pragma: no cover
     request: HttpRequest,
     q: str,
     limit: int | None = 10,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """搜索案件"""
+    """搜索案件(offset 供 MCP 信封 truncated=true 时续取,不传行为不变)"""
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
@@ -69,6 +70,7 @@ async def search_cases(  # pragma: no cover
             service.search_cases(
                 query=q,
                 limit=limit,  # type: ignore[arg-type]
+                offset=offset,
                 user=ctx.user,
                 org_access=ctx.org_access,
                 perm_open_access=ctx.perm_open_access,
@@ -87,6 +89,7 @@ async def list_cases(  # pragma: no cover
     case_number: str | None = None,
     contract_id: int | None = None,
     limit: int | None = None,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """获取案件列表（contract_id 可按合同过滤，供前端详情按需加载）
 
@@ -94,6 +97,7 @@ async def list_cases(  # pragma: no cover
     - 显式传 limit 时按它截断，上限 2000（向后兼容，上限内任意 limit 均生效）；
     - 未传 limit 时应用默认上限 200——含带过滤参数的宽过滤（如 status=active），
       防止单请求全表序列化。窄过滤消费方（contract_id 明细）结果集远小于 200，不受影响。
+    - offset（默认 0）供 MCP 信封 truncated=true 时续取；不传行为不变。
     """
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
@@ -101,6 +105,7 @@ async def list_cases(  # pragma: no cover
         effective_limit: int | None = max(1, min(limit, CASES_MAX_LIMIT))
     else:
         effective_limit = CASES_DEFAULT_LIMIT
+    bounded_offset = max(0, offset)
 
     def _do() -> list[dict[str, Any]]:
         if case_number:
@@ -121,10 +126,42 @@ async def list_cases(  # pragma: no cover
                 org_access=ctx.org_access,
                 perm_open_access=ctx.perm_open_access,
             )
-            raw = list(qs[:effective_limit]) if effective_limit is not None else list(qs)
+            sliced = qs[bounded_offset : bounded_offset + effective_limit] if effective_limit is not None else qs
+            raw = list(sliced)
         return [_serialize_case(c) for c in raw]
 
     return await sync_to_async(_do)()
+
+
+@router.post("/cases/full")
+async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dict[str, Any]:  # pragma: no cover
+    """创建完整案件（包含当事人、指派、日志）"""
+    service = _get_case_mutation_facade()
+    ctx = extract_request_context(request)
+    actor_id = getattr(ctx.user, "id", None) if ctx.user else None
+
+    data: dict[str, Any] = {
+        "case": payload.case.model_dump(),
+        "parties": [p.model_dump() for p in payload.parties] if payload.parties else [],
+        "assignments": [a.model_dump() for a in payload.assignments] if payload.assignments else [],
+        "logs": [log.model_dump() for log in payload.logs] if payload.logs else [],
+        "supervising_authorities": (
+            [s.model_dump() for s in payload.supervising_authorities] if payload.supervising_authorities else []
+        ),
+    }
+
+    def _create_full() -> dict[str, Any]:
+        result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
+        return CaseFullOut(
+            case=CaseOut.from_orm(result["case"]),
+            parties=result["parties"],
+            assignments=result["assignments"],
+            logs=result["logs"],
+            case_numbers=[],
+            supervising_authorities=result.get("supervising_authorities", []),
+        ).model_dump(by_alias=True, mode="json")
+
+    return await sync_to_async(_create_full)()
 
 
 @router.get("/cases/{case_id}")
@@ -193,34 +230,3 @@ async def delete_case(request: HttpRequest, case_id: int) -> dict[str, bool]:  #
     )
 
     return {"success": True}
-
-
-@router.post("/cases/full")
-async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dict[str, Any]:  # pragma: no cover
-    """创建完整案件（包含当事人、指派、日志）"""
-    service = _get_case_mutation_facade()
-    ctx = extract_request_context(request)
-    actor_id = getattr(ctx.user, "id", None) if ctx.user else None
-
-    data: dict[str, Any] = {
-        "case": payload.case.model_dump(),
-        "parties": [p.model_dump() for p in payload.parties] if payload.parties else [],
-        "assignments": [a.model_dump() for a in payload.assignments] if payload.assignments else [],
-        "logs": [log.model_dump() for log in payload.logs] if payload.logs else [],
-        "supervising_authorities": (
-            [s.model_dump() for s in payload.supervising_authorities] if payload.supervising_authorities else []
-        ),
-    }
-
-    def _create_full() -> dict[str, Any]:
-        result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
-        return CaseFullOut(
-            case=CaseOut.from_orm(result["case"]),
-            parties=result["parties"],
-            assignments=result["assignments"],
-            logs=result["logs"],
-            case_numbers=[],
-            supervising_authorities=result.get("supervising_authorities", []),
-        ).model_dump(by_alias=True, mode="json")
-
-    return await sync_to_async(_create_full)()

@@ -137,6 +137,14 @@ test = [
 
 [tool.uv]
 default-groups = ["dev", "test"]
+# 传递依赖的安全下限（pip-audit 门禁要求）。
+# virtualenv 由 pre-commit 引入（仅开发期用），21.14.9 修了 6 个 CVE（激活脚本
+# 命令注入、pyvenv.cfg 行边界注入等）；不约束的话 uv 会锁到 21.13.0。
+constraint-dependencies = [
+    "virtualenv>=21.14.9",  # pre-commit 引入；修 6 个 CVE（激活脚本注入等）
+    "filelock>=4.2.1",      # huggingface-hub / virtualenv 引入；修 3 个 CVE
+    "certifi>=2026.10.19",  # HTTPS 根证书包（运行时依赖）；修 PYSEC-2026-4320
+]
 
 [tool.isort]
 profile = "black"

@@ -55,7 +55,6 @@ ignore = [
     "SIM401", # 使用 dict.get() 替代条件表达式：部分场景条件表达式语义更明确
     "UP028",  # 使用 yield from 替代 yield in for 循环：部分场景 for 循环更易读
     "UP042",  # 使用 str | int 替代 Union[str, int]：兼容旧版类型注解风格
-    "F821",   # 未定义的名称：TYPE_CHECKING 块中的前向引用和动态属性有合理用法
     "C901",   # 函数复杂度过高：历史遗留复杂业务逻辑，逐步重构中
     "B904",   # except 块中 raise 缺少 from：历史遗留代码，逐步修复中
     "B905",   # zip() 缺少 strict 参数：历史遗留代码
@@ -73,6 +72,8 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
+"apps/image_rotation/services/orientation/onnx_service.py" = ["F821"]  # 字符串注解引用函数内 import 的 ort
+"tests/**" = ["F821"]  # 测试文件常见 TYPE_CHECKING/fixture 内 import 引用(11 处既有模式,不强行统一);生产代码 F821 已启用并清零
 "tests/**/*.py" = ["S101", "B017", "B018", "RUF006", "S102", "B011", "RUF015", "RUF034", "F601", "S604"]
 "conftest.py" = ["S101"]
 "docs/**/*.py" = ["S101"]

@@ -53,20 +53,37 @@ logger = logging.getLogger(__name__)
 #: - ``delete`` / ``remove_`` / ``destroy``：一切删除操作
 #: - ``send_`` / ``submit_`` / ``upload_`` / ``file_``：对外发出、递交、上传（不可撤回）
 #: - ``confirm_``：如 confirm_archive（OA 归档确认）
+#: - ``approve_``：如 approve_workflow_step——工作流 gate 的**人工确认动作本身**。
+#:   模型低危直调它 = 模型替人批准自己发起的工作流,gate 的 HUMAN-in-the-loop
+#:   语义被绕空。定为高危后:模型发起 → 律师看到审批卡 → 人点同意 → 信号才发出,
+#:   正好还原「等 human signal」的设计本意(2026-10-25 审计)。
+#: - ``execute_`` / ``trigger_`` / ``batch_``：外部副作用与批量写(2026-10-25 审计
+#:   补入)。此前 ``execute_court_filing``(向法院递交立案)、``trigger_oa_filing``
+#:   (OA 立案提交)、``execute_guarantee``/``execute_preservation_quote``(外部担保
+#:   接口)、``batch_create_cases``/``batch_create_clients``(批量建档案)全被判 LOW
+#:   直接执行——「递交法院」本是本清单的立项目标场景。``trigger_case_import``/
+#:   ``trigger_client_import`` 虽只是上传解析,但与 ``upload_`` 同级语义(文件已
+#:   离开本系统控制),一并拦。
 #: - ``clear_all`` / ``reset_and_``：批量清空 / 重置
-#: 刻意**不**拦 ``create_`` / ``update_``（常规业务写由各域服务层归属校验兜底，
-#: 逐笔审批会让 agent 不可用）与 ``sync_`` / ``export_`` / ``download_``（拉取导出，无破坏性）。
+#: 刻意**不**拦 ``create_`` / ``update_``（常规业务写由各域服务层归属校验兜底,
+#: 逐笔审批会让 agent 不可用）与 ``export_`` / ``download_``（拉取导出,无破坏性）。
+#: ``sync_`` 不进高危但已列入 WRITE_PREFIXES（中级留痕,见下）。
 DANGER_PATTERNS: tuple[str, ...] = (
     "delete",
     "remove_",
     "destroy",
+    "forget_",
     "send_",
     "submit_",
     "upload_",
     "file_",
     "confirm_",
+    "approve_",
     "clear_all",
     "reset_and_",
+    "execute_",
+    "trigger_",
+    "batch_",
 )
 
 #: 已知无需审批的例外（按工具名后缀登记；新增例外必须写明理由）。
@@ -74,6 +91,18 @@ APPROVAL_EXEMPT_SUFFIXES: frozenset[str] = frozenset()
 
 #: 紧急级：批量清空 / 重置 / 跨范围破坏。审批时必须二次确认（读一遍工具名再点）。
 CRITICAL_PATTERNS: tuple[str, ...] = (
+    "clear_all",
+    "reset_and_",
+    "delete_all",
+    "bulk_delete",
+)
+
+#: 硬拒绝级：不允许由模型自主发起，extension 侧直接 ``block``（不进审批、
+#: 不挂离线 pending）。与 ``CRITICAL_PATTERNS`` 的差别是——紧急级是"问两遍"，
+#: 硬拒绝是"根本不问，直接不允许"。两者当前取值相同，但语义与后续策略
+#: 演进方向不同（以后可能放宽紧急级阈值，但硬拒绝永不放宽）。
+#: 与 ``approval-gate.ts`` 的 ``HARD_DENY_PATTERNS`` 逐项同步（parity 测试守）。
+HARD_DENY_PATTERNS: tuple[str, ...] = (
     "clear_all",
     "reset_and_",
     "delete_all",
@@ -103,8 +132,64 @@ SENSITIVE_ARG_MARKERS: tuple[str, ...] = (
     "state",
 )
 
-#: 「业务写」前缀：本身不算高危，但要拿参数做进一步判定。
-WRITE_PREFIXES: tuple[str, ...] = ("create_", "update_", "set_", "patch_", "add_")
+#: 「业务写」前缀：本身不算高危，但要拿参数做进一步判定（中级 = 静默放行 +
+#: logger 留痕，无审批摩擦；带敏感参数则升高危）。
+#: 2026-10-25 审计补入 8 个前缀——它们此前被判 LOW（连留痕都没有）：
+#: ``generate_``（文书/归档产物落库）、``save_``（配置/排序/写盘）、``move_``、
+#: ``sync_``（拉取入库）、``start_``（扫描/工作流启动）、``retry_``、
+#: ``assign_``（案件指派）、``learn_``（规则学习）。读类（get_/list_ 等）不受影响。
+WRITE_PREFIXES: tuple[str, ...] = (
+    "create_",
+    "update_",
+    "set_",
+    "patch_",
+    "add_",
+    "generate_",
+    "save_",
+    "move_",
+    "sync_",
+    "start_",
+    "retry_",
+    "assign_",
+    "learn_",
+    # 2026-10-25 二轮：AST 全扫 195 个实际发写请求的工具,50 个连中级留痕
+    # 都没有（改名/重排/绑定/开关/取消/产出文件类）。中级=静默放行+审计
+    # 日志,零摩擦,只补「不留痕」这个洞;纯计算类（calculate_/mortgage_/
+    # check_/chat_/validate_/detect_/parse_/suggest_ 等）刻意保持 LOW。
+    "ensure_",
+    "bind_",
+    "rename_",
+    "reorder_",
+    "toggle_",
+    "merge_",
+    "complete_",
+    "cancel_",
+    "export_",
+    "extract_",
+    "process_",
+    "normalize_",
+    "fill_",
+    "scale_",
+    "clear_",
+    "reset_",
+    "cleanup_",
+    "unified_",
+    # 2026-10-25 晨间审计(十九轮)：readOnlyHint↔写方法对账,三个 POST 但真写的
+    # 工具此前判 LOW(零留痕+readOnlyHint):convert_document(每次转换落
+    # DocConvertRecord+产物文件)、analyze_template(改模板状态/指纹+建
+    # FieldMapping)、parse_document(存上传文件+建 DocumentParsingTask+派后台)。
+    # parse_ 其余两员(parse_client_text/parse_reminders_from_text)纯内存解析,
+    # 故用完整名精确圈定而非 parse_ 前缀。
+    "convert_",
+    "analyze_",
+    "parse_document",
+    # 2026-10-25 记忆：``remember`` / ``restore_memory`` 是写入但工具名不含
+    # 常规写前缀，此前被判 LOW（连留痕都没有）。记忆会直接影响后续所有
+    # 会话的输出，写入必须有审计痕迹。删除侧走 ``forget_``（已入 DANGER，
+    # 需人工审批）——模型不能静默抹掉律师的记忆。
+    "remember",
+    "restore_memory",
+)
 
 DEFAULT_TIMEOUT = 300.0
 #: 紧急级审批的等待上限（比常规长：这种操作值得让用户想清楚）。
@@ -157,20 +242,54 @@ def _has_sensitive_arg(tool_args: dict[str, Any] | None) -> str:
     return ""
 
 
-def classify_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> RiskLevel:
+def classify_risk(
+    tool_name: str,
+    tool_args: dict[str, Any] | None = None,
+    annotations: dict[str, Any] | None = None,
+) -> RiskLevel:
     """判定一次工具调用的风险等级。
 
     判定顺序（先命中的赢）：
 
-    1. 豁免后缀 → 低
+    0. 豁免后缀 → 低（工具名以 ``_preview`` 这类结尾，永不需要审批）
+    1. ``HARD_DENY_PATTERNS``（批量清空 / delete_all）→ 紧急（extension 侧硬拒）
     2. ``CRITICAL_PATTERNS``（批量清空 / 重置 / delete_all）→ 紧急
     3. ``DANGER_PATTERNS``（删除 / 外发 / 递交 / 上传 / 归档确认）→ 高
     4. 写类工具且参数带敏感字段（金额 / 期限 / 状态）→ 高
     5. 其他写类工具 → 中（静默执行，留审计标记）
     6. 其余（读类）→ 低
+    7. **与 MCP ``annotations`` 取较大者**（声明优先，补名字黑名单的漏）
+
+    Args:
+        tool_name: 工具全名（``mcp__fachuan__delete_case``）或短名。
+        tool_args: 工具入参，用于参数级敏感字段判定。
+        annotations: MCP 工具注解（``read_only_hint`` / ``destructive_hint`` /
+            ``open_world_hint``）。服务端从 ``mcp_server`` 注册表懒加载；
+            显式传入时以传入值为准（测试用）。
+
+    为什么需要 annotations 这层：法穿 415 个工具全部带注解
+    （实测 225 只读 / 119 写 / 71 破坏性），但名字黑名单只覆盖其中一部分
+    —— ``mortgage_default_calculate``、``analyze_template`` 这类不含常规写
+    前缀的工具，光看名字会被判低。名字黑名单保留作兵底（它还能捕获
+    注解写错的工具），两层取较大者。
     """
     if any(tool_name.endswith(suffix) for suffix in APPROVAL_EXEMPT_SUFFIXES):
         return RiskLevel.LOW
+    by_name = _classify_by_name(tool_name, tool_args)
+    hints = annotations if annotations is not None else load_tool_annotations(tool_name)
+    if hints is None:
+        # 取不到注解（未声明 / 注解表加载失败）→ **退回纯名字判定**。
+        # 不能在这里保守升级：那会让 158 个读类工具全变成「中级留痕」，
+        # 直接把 agent 的日常读操作淹没在审计噪声里（parity 测试会红灯）。
+        # 注解是「补漏」而不是「兵底」，兵底是名字黑名单本身。
+        return by_name
+    return _worse(by_name, _classify_by_annotations(hints, by_name))
+
+
+def _classify_by_name(tool_name: str, tool_args: dict[str, Any] | None) -> RiskLevel:
+    """纯名字 + 参数判定（兵底；extension 侧 ``classifyByName`` 与它同序）。"""
+    if any(pattern in tool_name for pattern in HARD_DENY_PATTERNS):
+        return RiskLevel.CRITICAL
     if any(pattern in tool_name for pattern in CRITICAL_PATTERNS):
         return RiskLevel.CRITICAL
     if any(pattern in tool_name for pattern in DANGER_PATTERNS):
@@ -181,6 +300,144 @@ def classify_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> Ri
             return RiskLevel.HIGH
         return RiskLevel.MEDIUM
     return RiskLevel.LOW
+
+
+_RISK_ORDER: dict[str, int] = {
+    RiskLevel.LOW: 0,
+    RiskLevel.MEDIUM: 1,
+    RiskLevel.HIGH: 2,
+    RiskLevel.CRITICAL: 3,
+}
+
+
+def _worse(a: RiskLevel, b: RiskLevel) -> RiskLevel:
+    """取两个风险等级中较高者（extension 侧 ``worse`` 与它同义）。"""
+    return a if _RISK_ORDER[a] >= _RISK_ORDER[b] else b
+
+
+def _classify_by_annotations(
+    annotations: dict[str, Any],
+    by_name: RiskLevel,
+) -> RiskLevel:
+    """从 MCP 注解推导风险下限（与名字判定取较大者）。
+
+    映射口径（保守，宁可多问不可少问）：
+
+    - ``read_only_hint`` 为真 → 不动（读类就是读类）
+    - ``destructive_hint`` 为真 → 至少高
+    - 非只读且 ``open_world_hint`` 为真 → 至少高（会外发到公网/第三方）
+    - 非只读（其余）→ 至少中（留痕，不打扰）
+
+    调用方已保证 ``annotations`` 非空；显式声明为只读但名字命中黑名单时
+    仍取名字判定（两层取较大者，防注解写错）。
+    """
+    if annotations.get("read_only_hint") is True or annotations.get("readOnlyHint") is True:
+        return by_name
+    destructive = annotations.get("destructive_hint") is True or annotations.get("destructiveHint") is True
+    open_world = annotations.get("open_world_hint") is True or annotations.get("openWorldHint") is True
+    if destructive or open_world:
+        return _worse(by_name, RiskLevel.HIGH)
+    return _worse(by_name, RiskLevel.MEDIUM)
+
+
+def _list_mcp_tools(mcp: Any) -> list[Any]:
+    """调 ``mcp.list_tools()``，兼容「已在事件循环内」与「循环外」两种上下文。
+
+    为什么不自接 ``asyncio.run``：审批有可能在 async 路径下被调（
+    ``request_approval`` 本身是 async），那时 ``asyncio.run`` 会抛
+    ``RuntimeError: asyncio.run() cannot be called from a running event loop``。
+    早期版本把这个异常当「注解读不到」静默降级，导致 158 个读类工具全被
+    判成「中级留痕」——静默失败比报错难查得多。这里分三种情况处理。
+    为什么只在无循环时用单独线程：``list_tools`` 是同步完成的内存读取
+    （读已注册的工具表），不碰网络，开线程只是为了避免嵌套循环。
+    """
+    coro_factory = mcp.list_tools
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro_factory())
+    # 已在事件循环内：交给独立线程跑一个新循环，避免嵌套。
+    import threading
+
+    result: list[Any] = []
+    error: list[BaseException] = []
+
+    def _runner() -> None:
+        try:
+            result.extend(asyncio.run(coro_factory()))
+        except BaseException as exc:
+            error.append(exc)
+
+    thread = threading.Thread(target=_runner, name="mcp-annotation-loader", daemon=True)
+    thread.start()
+    thread.join(timeout=10)
+    if thread.is_alive():
+        raise TimeoutError("读取 MCP 工具表超时（10s）")
+    if error:
+        raise error[0]
+    return result
+
+
+#: 注解表缓存（模块级懒加载一次）。
+#: 注意：这里**不用 ``lru_cache``**——它会在并发首次调用时把「加载中/失败的
+#: 空表」一起记下来，导致同进程内先后调用拿到不一致结果（实测：第一个工具
+#: 拿到注解、后续全 ``None``）。审批是安全路径，宁可多读一次也不能读出两套答案。
+_ANNOTATION_TABLE: dict[str, dict[str, Any] | None] | None = None
+
+
+def _reset_annotation_cache() -> None:
+    """清缓存（供测试与热加载用）。
+
+    为什么需要公开一个重置口：``mcp_server`` 的工具注册表在某些测试场景下会
+    被重新导入/重建，旧快照就陈旧了。生产路径不会调它。
+    """
+    global _ANNOTATION_TABLE
+    _ANNOTATION_TABLE = None
+
+
+def _annotation_table() -> dict[str, dict[str, Any] | None]:
+    """工具短名 → MCP 注解字典（进程内懒加载一次，失败时返回空表）。
+
+    ``mcp_server`` 是共享常驻进程，本进程（Django）导入它会多加载一份注册表。
+    只在**首次需要时**读一次；加载失败不抛错——服务端二次判定退回纯名字
+    黑名单，与改造前行为一致（不会因为注解表读不到就放行）。
+
+    返回 ``None`` 表示该工具**没有声明**注解；空表（加载失败）与「全部未声明」
+    由 ``load_tool_annotations`` 区分（空表时直接回 ``None``）。
+    """
+    global _ANNOTATION_TABLE
+    if _ANNOTATION_TABLE is not None:
+        return _ANNOTATION_TABLE
+    try:
+        from mcp_server.server import mcp
+
+        tools = _list_mcp_tools(mcp)
+    except Exception as exc:
+        logger.warning("读取 MCP 工具注解失败，审批退回纯名字判定: %s", exc)
+        _ANNOTATION_TABLE = {}
+        return _ANNOTATION_TABLE
+    table: dict[str, dict[str, Any] | None] = {}
+    for tool in tools:
+        hints = getattr(tool, "annotations", None)
+        if hints is None:
+            table[tool.name] = None
+            continue
+        table[tool.name] = {
+            "read_only_hint": getattr(hints, "read_only_hint", None),
+            "destructive_hint": getattr(hints, "destructive_hint", None),
+            "open_world_hint": getattr(hints, "open_world_hint", None),
+        }
+    _ANNOTATION_TABLE = table
+    return table
+
+
+def load_tool_annotations(tool_name: str) -> dict[str, Any] | None:
+    """按工具全名/短名取 MCP 注解（取不到返回 ``None``）。"""
+    table = _annotation_table()
+    if not table:
+        return None
+    short_name = tool_name.rsplit("__", 1)[-1]
+    return table.get(short_name)
 
 
 def is_high_risk(tool_name: str, tool_args: dict[str, Any] | None = None) -> bool:
@@ -251,7 +508,9 @@ def _write_decision(approval_id: str, approved: bool) -> None:
     try:
         cache.set(f"{DECISION_KEY_PREFIX}{approval_id}", "1" if approved else "0", DECISION_TTL)
     except Exception:
-        logger.debug("写入审批决定失败: %s", approval_id, exc_info=True)
+        # CLAUDE.md 标准:失败会让用户看到「审批了但工具没执行」的无法解释结果,
+        # 必须高于 debug——跨 worker 决定丢失正是这一步要防的事故。
+        logger.warning("写入审批决定失败(跨 worker 等待者将读不到结果): %s", approval_id, exc_info=True)
 
 
 def _write_waiter_heartbeat(approval_id: str, timeout_seconds: float) -> None:
@@ -267,7 +526,8 @@ def _write_waiter_heartbeat(approval_id: str, timeout_seconds: float) -> None:
             max(int(timeout_seconds * 1.5), 60),
         )
     except Exception:
-        logger.debug("写 waiter 心跳失败: %s", approval_id, exc_info=True)
+        # 心跳写失败会让「无人在线挂起等离线审批」的判定失真,同上不低于 warning。
+        logger.warning("写 waiter 心跳失败(离线审批挂起判定将失真): %s", approval_id, exc_info=True)
 
 
 def _waiter_is_alive(approval_id: str) -> bool:
@@ -443,7 +703,8 @@ async def request_approval(
         try:
             session = await AgentSession.objects.filter(session_id=session_id).afirst()
         except Exception:
-            logger.debug("按 session_id 查会话失败: %s", session_id, exc_info=True)
+            # 审批记录将丢失会话关联(审计断链),不是可无感降级的失败。
+            logger.warning("按 session_id 查会话失败(审批记录将缺会话关联): %s", session_id, exc_info=True)
 
     record = await AgentApproval.objects.acreate(
         approval_id=uuid.UUID(approval_id),

@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import base64
-import re
 from typing import Any
-from urllib.parse import unquote
 
 from mcp_server.client import client
 
 
 def list_doc_convert_types() -> dict[str, Any]:
     """获取支持的文书类型列表（mbid），按类别分组。需要系统启用 ZNSZJ_ENABLED。"""
-    return client.get("/doc-convert/mbid-list")  # type: ignore[return-value]
+    return client.get("/doc-convert/mbid-list")  # type: ignore[no-any-return]
 
 
 def convert_document(file_base64: str, filename: str, mbid: str) -> dict[str, Any]:
@@ -26,34 +24,19 @@ def convert_document(file_base64: str, filename: str, mbid: str) -> dict[str, An
     }
     mime = mime_map.get(ext, "application/octet-stream")
 
-    # convert 是 POST multipart + 返回二进制，直接操作底层 httpx
-    resp = client._http.post(
+    # multipart 上传 + 二进制返回,统一走 client.download:享受 1MB 输出
+    # 闸门(base64 不挤爆会话上下文)、传输层异常翻译(FachuanTransportError)
+    # 与 Content-Disposition 解析——此前直接 client._http.post 三者全绕过。
+    # LibreOffice 同步转换,大文书(目录/表格)冷启动可超 60s 默认超时。
+    content, out_filename, content_type = client.download(
         "/doc-convert/convert",
-        headers=client._headers(),
+        method="POST",
         files={"file": (filename, file_bytes, mime)},
         data={"mbid": mbid},
+        timeout=180,
     )
-    if not resp.is_success:
-        try:
-            detail = resp.json()
-        except Exception:
-            detail = resp.text
-        raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
-
-    content_type = resp.headers.get("content-type", "application/octet-stream")
-    disposition = resp.headers.get("content-disposition", "")
-    out_filename = "converted.docx"
-    if disposition:
-        m = re.search(r"filename\*=UTF-8''([^;]+)", disposition)
-        if m:
-            out_filename = unquote(m.group(1))
-        else:
-            m2 = re.search(r'filename="?([^";]+)"?', disposition)
-            if m2:
-                out_filename = m2.group(1).strip()
-
     return {
         "filename": out_filename,
         "content_type": content_type,
-        "data_base64": base64.b64encode(resp.content).decode(),
+        "data_base64": base64.b64encode(content).decode("ascii"),
     }

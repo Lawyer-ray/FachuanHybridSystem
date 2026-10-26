@@ -5,16 +5,17 @@ from __future__ import annotations
 from typing import Any
 
 from mcp_server.client import client
+from mcp_server.tool_shaping import list_result
 
 
-def list_supplementary_agreements(contract_id: int) -> list[dict[str, Any]]:
-    """查询指定合同的补充协议列表。"""
-    return client.get(f"/contracts/contracts/{contract_id}/supplementary-agreements")  # type: ignore[return-value]
+def list_supplementary_agreements(contract_id: int) -> dict[str, Any]:
+    """查询合同的补充协议列表（按主合同归组）。"""
+    return list_result(client.get(f"/contracts/contracts/{contract_id}/supplementary-agreements"))
 
 
 def get_supplementary_agreement(agreement_id: int) -> dict[str, Any]:
-    """获取单个补充协议的详细信息。"""
-    return client.get(f"/contracts/supplementary-agreements/{agreement_id}")  # type: ignore[return-value]
+    """获取单个补充协议详情（条款内容、签署状态）。"""
+    return client.get(f"/contracts/supplementary-agreements/{agreement_id}")  # type: ignore[no-any-return]
 
 
 def create_supplementary_agreement(contract_id: int, agreement_data: dict[str, Any]) -> dict[str, Any]:
@@ -33,9 +34,9 @@ def update_supplementary_agreement(
     agreement_data: dict[str, Any],
 ) -> dict[str, Any]:
     """更新补充协议。只传需要修改的字段。"""
-    return client.put(f"/contracts/supplementary-agreements/{agreement_id}", json=agreement_data)  # type: ignore[return-value]
+    return client.put(f"/contracts/supplementary-agreements/{agreement_id}", json=agreement_data)  # type: ignore[no-any-return]
 
 
 def delete_supplementary_agreement(agreement_id: int) -> None:
-    """删除指定补充协议。此操作不可逆。"""
+    """删除补充协议——硬删除,不可恢复（主合同不受影响）。"""
     client.delete(f"/contracts/supplementary-agreements/{agreement_id}")

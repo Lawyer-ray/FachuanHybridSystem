@@ -43,9 +43,18 @@ def _parse_all_from_init() -> list[str]:
 
 
 def _parse_registered_from_server() -> set[str]:
-    """Extract function names passed to mcp.tool()() in server.py."""
+    """Extract function names passed to mcp.tool()() in server.py.
+
+    支持两种形态:``mcp.tool()(fn)`` 直接注册,与 ``mcp.tool()(_workflow_tool(fn))``
+    包装(参数剥离 + 业务异常翻译),取内层函数名。"""
     source = _SERVER_PY.read_text()
-    return set(re.findall(r"mcp\.tool\(\)\((\w+)\)", source))
+    # 2026-10-25 起统一注册口为 ``_t(fn)``(带 ToolAnnotations 推导);
+    # 兼容识别旧形态 mcp.tool()(fn),绕过 _t 的注册也能被对账。
+    direct = re.findall(r"(?<!\w)_t\((\w+)\)", source)
+    wrapped = re.findall(r"(?<!\w)_t\(_\w+\((\w+)\)\)", source)
+    legacy_direct = re.findall(r"mcp\.tool\(\)\((\w+)\)", source)
+    legacy_wrapped = re.findall(r"mcp\.tool\(\)\(_\w+\((\w+)\)\)", source)
+    return set(direct) | set(wrapped) | set(legacy_direct) | set(legacy_wrapped)
 
 
 def _parse_imports_from_server() -> set[str]:
@@ -183,6 +192,114 @@ class TestAllListSnapshot:
             assert name.isidentifier(), f"Invalid identifier in __all__: {name!r}"
 
 
+class TestMcpSpecNameCompliance:
+    """MCP 规范对工具名的硬性要求（2025-11-25 spec, Tools 一节）：
+
+    - 长度 1-128 字符
+    - 字符集仅限 ASCII 的 ``A-Za-z0-9_-``（大小写敏感、必须全局唯一）
+
+    注意 ``isidentifier()`` 放得过宽：Unicode 标识符（如中文工具名）能通过
+    Python 语法检查，但违反 MCP 字符集——部分客户端（规范化/匹配逻辑）
+    会拒收。此处在注册面提前拦截。"""
+
+    def test_names_ascii_charset(self):
+        bad = [n for n in _ALL_TOOLS if not re.fullmatch(r"[A-Za-z0-9_-]+", n)]
+        assert not bad, (
+            f"Tool names with characters outside MCP charset [A-Za-z0-9_-]: {bad[:5]}. "
+            "MCP spec requires ASCII-only tool names."
+        )
+
+    def test_names_length_within_spec(self):
+        over = [n for n in _ALL_TOOLS if not 1 <= len(n) <= 128]
+        assert not over, (
+            f"Tool names exceeding MCP spec limit (1-128 chars): "
+            f"{[(n, len(n)) for n in over][:5]}"
+        )
+
+
+class TestSignatureHygiene:
+    """签名结构卫生门禁(2026-10-25 审计七轮,409 工具基线全零)。
+
+    - ``**kwargs`` 会让输入 schema 退化成任意属性透传,ninja 静默忽略未知
+      参数——这正是 REST 参数契约审计修掉的 17 处「假参数」模式的**结构性
+      后门**,禁绝。
+    - 可变默认参数(list/dict/set)是经典 Python 共享状态炸弹。
+    - docstring Args 节里写了签名不存在的「幽灵参数」= 纯文档噪音,
+      模型按文档传参必被 ninja 静默丢弃。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _load_module(self):
+        self.tools = _get_tools_module()
+
+    def test_no_var_positional_or_keyword_params(self):
+        offenders: list[str] = []
+        for name in _available_tools():
+            for param in inspect.signature(getattr(self.tools, name)).parameters.values():
+                if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                    offenders.append(f"{name}({param.name})")
+        assert not offenders, (
+            f"Tools with *args/**kwargs params: {offenders}. var-keyword 会把输入 "
+            "schema 退化成任意属性透传,REST 静默忽略未知参数=假参数后门。"
+        )
+
+    def test_no_mutable_default_args(self):
+        offenders: list[str] = []
+        for name in _available_tools():
+            for pname, param in inspect.signature(getattr(self.tools, name)).parameters.items():
+                if param.default is not inspect.Parameter.empty and isinstance(
+                    param.default, (list, dict, set)
+                ):
+                    offenders.append(f"{name}({pname}={type(param.default).__name__})")
+        assert not offenders, f"Tools with mutable default args: {offenders}"
+
+    def test_docstring_args_mention_no_ghost_params(self):
+        """Google 风格 Args: 节的参数名必须存在于签名(SDK 把整个 docstring
+        原样作为工具描述,文档里的幽灵参数模型会照着传)。"""
+        offenders: list[str] = []
+        for name in _available_tools():
+            fn = getattr(self.tools, name)
+            doc = inspect.getdoc(fn) or ""
+            # 原写法 `(?:\s+.+\n?)+?` 里 `\s+` 与 `.` 大量重叠，长 docstring 上
+            # 会指数级回溯（CodeQL py/redos）；而且它的结束前瞻 `(?=^\s*\S|\Z)`
+            # 中 `\s*` 可跨行，实际在第一行的首个非空白字符处就满足——只捕获到
+            # 第一个参数，后面全漏。本测试因此长期是假绿。
+            #
+            # 改成按行扫描：线性，且真的把整个 Args 节收进来。
+            lines = doc.splitlines()
+            start = next((i for i, ln in enumerate(lines) if ln.strip() == "Args:"), None)
+            if start is None:
+                continue
+            body_lines: list[str] = []
+            for ln in lines[start + 1 :]:
+                if ln.strip() and not ln[:1].isspace():
+                    break
+                body_lines.append(ln)
+            body = "\n".join(body_lines)
+            if not body.strip():
+                continue
+            sig_params = set(inspect.signature(fn).parameters) - {"request", "ctx"}
+            # 只认「参数级别」的行：真正的参数名总在 Args 节的最小缩进层，
+            # 更深的缩进是续行说明（如 steps 下的 `示例: [...]`）。
+            # 不区分的话，`示例:` 会被当成幽灵参数（误报）。
+            indents = [
+                len(ln) - len(ln.lstrip()) for ln in body.splitlines() if ln.strip()
+            ]
+            base = min(indents) if indents else 0
+            param_re = re.compile(rf"^\s{{{base}}}(\w+)\s*[:(]")
+            ghosts = [
+                m.group(1)
+                for ln in body.splitlines()
+                if (m := param_re.match(ln)) and m.group(1) not in sig_params
+            ]
+            if ghosts:
+                offenders.append(f"{name}: {ghosts}")
+        assert not offenders, (
+            f"Docstring Args 节引用了签名不存在的参数: {offenders}. "
+            "模型按文档传参会被 REST 静默忽略。"
+        )
+
+
 class TestCallableAndMetadata:
     """Verify every tool function is callable and has MCP-required metadata."""
 
@@ -224,18 +341,9 @@ class TestServerRegistration:
     # Functions exported in __all__ but not imported/registered in server.py.
     # These are exposed for programmatic use (e.g. other modules import them
     # directly from mcp_server.tools) but are not top-level MCP tools.
-    KNOWN_UNREGISTERED = {
-        "create_workflow_template",
-        "delete_workflow_run",
-        "delete_workflow_template",
-        "duplicate_workflow_template",
-        "get_step_registry",
-        "get_step_registry_flat",
-        "get_workflow_template",
-        "list_workflow_templates",
-        "start_workflow_from_steps",
-        "update_workflow_template",
-    }
+    # 2026-10-25 清空:workflow 模板管理 10 工具已补注册(权限链就绪:
+    # _require_admin 与 _mcp_guard_run_access,见 workflow_tools.py)。
+    KNOWN_UNREGISTERED: set[str] = set()
 
     def test_all_functions_imported_in_server(self):
         """Every name in __all__ should appear in server.py's import block."""

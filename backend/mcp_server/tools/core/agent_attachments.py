@@ -50,9 +50,10 @@ import base64
 import json
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any, Final, Literal
 
 from mcp.types import ImageContent, TextContent
+from pydantic import Field
 
 from mcp_server.client import client
 from mcp_server.tools.documents.parsing import content_type_for
@@ -77,7 +78,7 @@ DPI_CEILING = 300
 #: 文字层短于此长度视为「没有可用文字层」（扫描件常残留页码/水印几个字）
 MIN_TEXT_CHARS = 50
 
-DEFAULT_FORMAT = "png"
+DEFAULT_FORMAT: Final[Literal["png", "jpeg"]] = "png"
 _IMAGE_MIMES = {"png": "image/png", "jpeg": "image/jpeg"}
 
 #: attachment_id 为 UUID（消息里的附件引用原样携带）
@@ -113,13 +114,13 @@ _FINAL_RENDER_ERRORS = frozenset(
 
 
 def read_agent_attachment(
-    attachment_id: str,
-    max_length: int = DEFAULT_MAX_LENGTH,
-    start: int = 0,
-    pages: str | list[int] | None = None,
-    dpi: int = DEFAULT_DPI,
-    format: str = DEFAULT_FORMAT,
-    max_pages: int = MAX_PAGES_CEILING,
+    attachment_id: Annotated[str, Field(description="附件 ID(用户消息里 attachment_id=… 的值)")],
+    max_length: Annotated[int, Field(description="最多返回字符数(默认 20000)", ge=100, le=200000)] = DEFAULT_MAX_LENGTH,
+    start: Annotated[int, Field(description="从第几个字符续读(truncated=true 时用它分段)", ge=0)] = 0,
+    pages: Annotated[str | list[int] | None, Field(description="只读指定页(如 \"1-3\" 或 [1,5]),不填读全部/默认前几页")] = None,
+    dpi: Annotated[int, Field(description="页图渲染 DPI(72-300,默认 150)", ge=72, le=300)] = DEFAULT_DPI,
+    format: Annotated[Literal["png", "jpeg"], Field(description="页图格式(默认 png)")] = DEFAULT_FORMAT,
+    max_pages: Annotated[int, Field(description="页图模式最多返回页数(上限 10)", ge=1, le=MAX_PAGES_CEILING)] = MAX_PAGES_CEILING,
 ) -> list[TextContent | ImageContent]:
     """读取一个对话附件的正文；文字层不可用时返回原件页图（非 OCR）。
 

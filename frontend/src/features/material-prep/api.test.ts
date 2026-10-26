@@ -36,18 +36,24 @@ vi.mock('@/lib/api', () => ({
 
 import {
   appendPackFiles,
+  buildShareUrl,
   clearBytesCache,
   createPdfSplitJob,
+  createUploadLink,
   deletePack,
   fetchAttachmentBytes,
   getPackDetail,
   getPdfSplitJob,
   listMaterialPacks,
+  listUploadLinks,
   ocrImage,
   renamePack,
+  revokeUploadLink,
+  rotateUploadLink,
   saveDraft,
   searchCases,
   searchClients,
+  searchContracts,
   setPackStatusRemote,
   uploadPack,
 } from './api'
@@ -76,12 +82,12 @@ beforeEach(() => {
 })
 
 describe('收件箱资源封装', () => {
-  it('listMaterialPacks：固定 manual_upload + has_attachments + limit 查询参数（收件箱里筛出材料包）', async () => {
+  it('listMaterialPacks：固定来源（手动+客户链接）+ has_attachments + limit 查询参数（收件箱里筛出材料包）', async () => {
     const inbox = client('/api/v1/inbox')
     inbox.get.mockReturnValueOnce(respond([]))
     await listMaterialPacks()
     expect(inbox.get).toHaveBeenCalledWith('messages', {
-      searchParams: { source_type: 'manual_upload', has_attachments: 'true', limit: '500' },
+      searchParams: { source_type: 'manual_upload,client_upload', has_attachments: 'true', limit: '500' },
     })
   })
 
@@ -262,5 +268,46 @@ describe('PDF 拆分任务', () => {
     pdfSplit.get.mockReturnValueOnce(respond(payload))
     await expect(getPdfSplitJob('job-1')).resolves.toBe(payload)
     expect(pdfSplit.get).toHaveBeenCalledWith('jobs/job-1')
+  })
+})
+
+describe('客户上传链接封装', () => {
+  it('createUploadLink 走 POST upload-links，载荷透传', async () => {
+    const inbox = client('/api/v1/inbox')
+    inbox.post.mockReturnValueOnce(respond({ id: 1, token: 'tok' }))
+    const payload = { title: '张三材料', note: '说明', client_name: '张三', contract_id: 9, expires_days: 30 }
+    await createUploadLink(payload)
+    expect(inbox.post).toHaveBeenCalledWith('upload-links', { json: payload })
+  })
+
+  it('listUploadLinks / revoke / rotate 拼对路径与方法', async () => {
+    const inbox = client('/api/v1/inbox')
+    inbox.get.mockReturnValueOnce(respond([]))
+    await listUploadLinks()
+    expect(inbox.get).toHaveBeenCalledWith('upload-links')
+    inbox.post.mockReturnValueOnce(respond({ id: 1 }))
+    await revokeUploadLink(3)
+    expect(inbox.post).toHaveBeenCalledWith('upload-links/3/revoke')
+    inbox.post.mockReturnValueOnce(respond({ id: 1, token: 'new' }))
+    await rotateUploadLink(3)
+    expect(inbox.post).toHaveBeenCalledWith('upload-links/3/rotate')
+  })
+
+  it('searchContracts：空关键字不打请求；有关键字带 slim + 关 facets 的最小载荷', async () => {
+    const contracts = client('/api/v1/contracts')
+    await expect(searchContracts('   ')).resolves.toEqual([])
+    expect(contracts.get).not.toHaveBeenCalled()
+    contracts.get.mockReturnValueOnce(respond({ items: [{ id: 9, name: '合同', filing_number: null }] }))
+    await expect(searchContracts('合同')).resolves.toHaveLength(1)
+    expect(contracts.get).toHaveBeenCalledWith('contracts', {
+      searchParams: { search: '合同', slim: 'true', include_facets: 'false', page: '1', page_size: '10' },
+      signal: undefined,
+    })
+  })
+
+  it('buildShareUrl 用当前 origin 拼 /u/:token', () => {
+    vi.stubGlobal('window', { location: { origin: 'https://app.example' } })
+    expect(buildShareUrl('abc123')).toBe('https://app.example/u/abc123')
+    vi.unstubAllGlobals()
   })
 })

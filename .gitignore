@@ -101,7 +101,6 @@ backend/apiSystem/.coverage
 # Test output (generated docx files from LLM contract tests)
 backend/test_output/
 # Coverage reports (Jest/Istanbul)
-frontend_2026/coverage/
 # detect-secrets temporary artifact
 *.secrets.baseline.new
 .secrets.baseline
@@ -162,11 +161,6 @@ backend/apps/models/
 MacOS_FC/
 
 # Frontend: track source, ignore dependencies/build/env files
-frontend_2026/node_modules/
-frontend_2026/dist/
-frontend_2026/dist-ssr/
-frontend_2026/.env
-frontend_2026/.env.*
 backend/deploy/*
 !backend/deploy/docker/
 backend/deploy/docker/*
@@ -235,6 +229,24 @@ backend/bilibili_screenshot.png
 !backend/apps/**/static/**/*.png
 /assets/videos/ggbond-competition-20260128.mp4
 
+# 表格与 Office 文档（业务数据，普遍含真实当事人/员工信息，不入库）
+# 需要入库的表格请放 backend/apps/**/static/ 或用 .example 后缀。
+*.xlsx
+*.xls
+*.csv
+*.docx
+*.doc
+# 例外：测试夹具与模板（虚构数据）
+!backend/tests/**/*.docx
+!scripts/fixtures/*.docx
+!**/*.example.xlsx
+
+# Office / WPS / macOS 打开文件时生成的临时锁文件（會与实体文件并列出现）
+#   ~$xxx.xlsx  .~xxx.xlsx  ._xxx  （*~ 已覆盖部分场景，这里补全）
+~$*
+.~*
+._*
+
 # docs 目录（个人分析文档，不公开；不要对白名单文件开放跟踪）
 docs/
 
@@ -294,9 +306,6 @@ rfcs/
 playwright-report/
 backend/tests/e2e/state.json
 backend/tests/e2e/test-results/
-frontend_2026/e2e/state.json
-frontend_2026/e2e/test-results/
-frontend_2026/e2e/playwright-report/
 
 # Claude Code
 .claude/
@@ -365,8 +374,6 @@ skills/**/draft_log.txt
 # frontend（新一代前端，收录 README 与后续代码；设计稿与原型不入库）
 frontend/design/
 frontend/prototype/
-# frontend_2026（原 frontend，已移出仓库，本地维护）
-frontend_2026/
 
 # AI 助手工作目录（项目记忆等，不入库）
 .workbuddy-ai/
@@ -380,4 +387,9 @@ frontend_2026/
 .zcodeignore
 
 # 公网栈部署配置（本机专属：绝对路径/域名，不入库；文件保留在本地供 launchd 使用）
-/deploy/
+/deploy/*
+# 例外：OnlyOffice Document Server 编排要入库（镜像 tag = 代码变更，需 PR review/回滚）。
+# 注意：不能用 `/deploy/` —— 目录级排除后 git 不会进该目录，`!` 例外规则无法生效。
+!/deploy/onlyoffice/
+/deploy/onlyoffice/.env
+/deploy/onlyoffice/fonts/

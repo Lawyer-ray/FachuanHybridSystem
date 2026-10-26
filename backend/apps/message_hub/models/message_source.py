@@ -12,6 +12,7 @@ class SourceType(models.TextChoices):
     MANUAL_UPLOAD = "manual_upload", "前端手动上传"
     COURT_INBOX = "court_inbox", "一张网收件箱"
     COURT_SCHEDULE = "court_schedule", "一张网庭审日程"
+    CLIENT_UPLOAD = "client_upload", "客户链接上传"
 
 
 class SyncStatus(models.TextChoices):

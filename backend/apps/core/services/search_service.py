@@ -19,6 +19,12 @@ class SearchResultItem:
     subtitle: str = ""
     # 仅当事人（clients）有值：ours=我方 / opposing=对方（取 Client.is_our_client）；其他类别为空串
     side: str = ""
+    # 合同类型代码（contracts / cases 两类填充，对应 core.models.enums.CaseType）：
+    # 前端按诉讼/非诉分流 /projects/:id 或 /projects/:id/nonlit
+    case_type: str = ""
+    # 仅 cases 填充：所属委托合同（= 项目）的 id 与名称——项目语义下案件挂在合同分组下
+    contract_id: int | None = None
+    contract_name: str = ""
 
 
 def search_clients(
@@ -60,14 +66,26 @@ def search_cases(
     )
     # 行级归属过滤：律师只能搜到本人/团队被分配或显式授权的案件
     qs = CaseAccessPolicy().filter_queryset(qs, user, org_access)
-    qs = qs.prefetch_related("case_numbers").order_by("-created_at", "-id").distinct()[:limit]
+    qs = (
+        qs.prefetch_related("case_numbers").select_related("contract").order_by("-created_at", "-id").distinct()[:limit]
+    )
     results: list[SearchResultItem] = []
     for c in qs:
         case_number = ""
         numbers = list(c.case_numbers.all())
         if numbers:
             case_number = numbers[0].number
-        results.append(SearchResultItem(id=c.id, title=c.name or "", subtitle=case_number))
+        results.append(
+            SearchResultItem(
+                id=c.id,
+                title=c.name or "",
+                subtitle=case_number,
+                # 案件挂在委托合同（项目）下：带上合同 id/名称/类型，前端按项目分组并跳合同详情页
+                contract_id=c.contract_id,
+                contract_name=(c.contract.name or "") if c.contract else "",
+                case_type=c.contract.case_type if c.contract else "",
+            )
+        )
     return results
 
 
@@ -81,7 +99,8 @@ def search_contracts(
     # 行级归属过滤：与合同列表同口径
     qs = ContractAccessPolicy().filter_queryset(qs, user, org_access)
     qs = qs.order_by("-created_at", "-id").distinct()[:limit]
-    return [SearchResultItem(id=c.id, title=c.name or "", subtitle="") for c in qs]
+    # case_type 供前端判诉讼/非诉并分流 /projects/:id 或 /projects/:id/nonlit
+    return [SearchResultItem(id=c.id, title=c.name or "", subtitle="", case_type=c.case_type) for c in qs]
 
 
 def search_inbox(q: str, limit: int) -> list[SearchResultItem]:

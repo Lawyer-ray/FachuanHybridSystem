@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json as _json
+import logging
 import time
 from unittest import mock
 
@@ -11,7 +12,7 @@ import pytest
 
 from mcp_server import client as client_mod
 from mcp_server import config as config_mod
-from mcp_server.client import FachuanClient
+from mcp_server.client import FachuanApiError, FachuanClient
 
 
 @pytest.fixture(autouse=True)
@@ -305,7 +306,7 @@ class TestHandleError:
     def test_400_raises_runtime_error_with_json_detail(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         http.get.return_value = _make_response(400, json_data={"detail": "bad input"})
-        with pytest.raises(RuntimeError, match=r"HTTP 400.*bad input"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 400.*bad input"):
             c.get("/items")
 
     def test_500_raises_runtime_error_with_text_fallback(self, fc: tuple[FachuanClient, mock.MagicMock]):
@@ -318,7 +319,7 @@ class TestHandleError:
             request=httpx.Request("GET", REAL_BASE),
         )
         http.get.return_value = resp_without_json
-        with pytest.raises(RuntimeError, match=r"HTTP 500.*Internal Server Error"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 500.*Internal Server Error"):
             c.get("/items")
 
     def test_204_returns_none(self, fc: tuple[FachuanClient, mock.MagicMock]):
@@ -331,6 +332,35 @@ class TestHandleError:
         http.get.return_value = _make_response(200, json_data={"ok": True})
         assert c.get("/ping") == {"ok": True}
 
+    def test_429_reports_retry_after_header(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        """限流翻译(2026-10-25 审计七十二轮):REST 层专门回传 Retry-After 头,
+        工具层必须把它翻译成等待指引——模型不知道是限流就会立即原样重试。"""
+        c, http = fc
+        resp = httpx.Response(
+            429,
+            headers={"retry-after": "37"},
+            json={"detail": "请求过于频繁"},
+            request=httpx.Request("GET", f"{REAL_BASE}/items"),
+        )
+        http.get.return_value = resp
+        with pytest.raises(FachuanApiError) as exc_info:
+            c.get("/items")
+        msg = str(exc_info.value)
+        assert "429" in msg and "37 秒" in msg
+        assert "限流" in msg and "不是故障" in msg
+
+    def test_429_without_header_gives_generic_wait(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        c, http = fc
+        resp = httpx.Response(
+            429,
+            json={"detail": "请求过于频繁"},
+            request=httpx.Request("GET", f"{REAL_BASE}/items"),
+        )
+        http.get.return_value = resp
+        with pytest.raises(FachuanApiError) as exc_info:
+            c.get("/items")
+        assert "30-60 秒" in str(exc_info.value)
+
 
 class TestDownloadError:
     """Download method error paths."""
@@ -338,8 +368,8 @@ class TestDownloadError:
     def test_download_non_success_raises_runtime_error(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         resp = _make_response(404, json_data={"detail": "not found"})
-        http.get.return_value = resp
-        with pytest.raises(RuntimeError, match=r"HTTP 404"):
+        http.request.return_value = resp
+        with pytest.raises(FachuanApiError, match=r"HTTP 404"):
             c.download("/files/missing")
 
 
@@ -402,7 +432,7 @@ class TestDownload:
     def test_download_returns_content_and_defaults(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
         body = b"\x89PNG\r\n"
-        http.get.return_value = self._make_download_response(body)
+        http.request.return_value = self._make_download_response(body)
 
         data, fname, ctype = c.download("/files/img.png")
 
@@ -416,7 +446,7 @@ class TestDownload:
 
         encoded_name = quote("测试文件.pdf")
         disposition = f"attachment; filename*=UTF-8''{encoded_name}"
-        http.get.return_value = self._make_download_response(
+        http.request.return_value = self._make_download_response(
             b"%PDF", headers={"content-disposition": disposition, "content-type": "application/pdf"}
         )
 
@@ -427,7 +457,7 @@ class TestDownload:
 
     def test_download_parses_filename_quoted(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
-        http.get.return_value = self._make_download_response(
+        http.request.return_value = self._make_download_response(
             b"data",
             headers={"content-disposition": 'attachment; filename="report.xlsx"'},
         )
@@ -438,7 +468,7 @@ class TestDownload:
 
     def test_download_parses_filename_unquoted(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
-        http.get.return_value = self._make_download_response(
+        http.request.return_value = self._make_download_response(
             b"data",
             headers={"content-disposition": "attachment; filename=report.xlsx"},
         )
@@ -453,7 +483,7 @@ class TestDownload:
 
         encoded = quote("中文.xlsx")
         disposition = f"attachment; filename=\"fallback.xlsx\"; filename*=UTF-8''{encoded}"
-        http.get.return_value = self._make_download_response(b"data", headers={"content-disposition": disposition})
+        http.request.return_value = self._make_download_response(b"data", headers={"content-disposition": disposition})
 
         _, fname, _ = c.download("/files/x")
 
@@ -461,13 +491,104 @@ class TestDownload:
 
     def test_download_raises_on_error_status(self, fc: tuple[FachuanClient, mock.MagicMock]):
         c, http = fc
-        http.get.return_value = httpx.Response(
+        http.request.return_value = httpx.Response(
             status_code=500,
             content=b"Server Error",
             request=httpx.Request("GET", REAL_BASE),
         )
-        with pytest.raises(RuntimeError, match=r"HTTP 500"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 500"):
             c.download("/files/bad")
+
+    def test_download_defaults_to_get_request(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"data")
+
+        c.download("/files/x")
+
+        args, kwargs = http.request.call_args
+        assert args[0] == "GET"
+        assert args[1] == "/files/x"
+        assert "method" not in kwargs
+
+    def test_download_post_with_json_reaches_wire(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        """method="POST" + json= 必须原样到达 wire。
+
+        回归测试：旧实现写死 ``self._http.get(path, **kwargs)``，httpx 的
+        ``.get()`` 不接受 method/json —— authorization/preservation/litigation
+        共 9 个下载工具一调用就 TypeError，且静态契约测试全绿（它只校验
+        意图，不校验 client 这一层）。
+        """
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"%PDF", headers={"content-type": "application/pdf"})
+
+        data, _, ctype = c.download(
+            "/documents/cases/1/litigation/complaint/download", method="POST", json={"overwrite": True}
+        )
+
+        assert data == b"%PDF"
+        assert ctype == "application/pdf"
+        args, kwargs = http.request.call_args
+        assert args[0] == "POST"
+        assert args[1] == "/documents/cases/1/litigation/complaint/download"
+        assert kwargs["json"] == {"overwrite": True}
+
+    def test_download_normalizes_lowercase_method(self, fc: tuple[FachuanClient, mock.MagicMock]):
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"data")
+
+        c.download("/files/x", method="post")
+
+        assert http.request.call_args.args[0] == "POST"
+
+    def test_download_rejects_oversized_file_with_alternatives(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """超限文件必须拦截,错误里带文件名、大小与替代方案(防挤爆会话)。"""
+        from mcp_server import client as client_mod
+
+        c, http = fc
+        big = b"x" * (client_mod.MAX_DOWNLOAD_BYTES + 1)
+        http.request.return_value = self._make_download_response(
+            big, headers={"content-disposition": 'attachment; filename="merged-archive.pdf"'}
+        )
+        with pytest.raises(FachuanApiError) as excinfo:
+            c.download("/contracts/1/archive/download")
+        msg = str(excinfo.value)
+        assert "merged-archive.pdf" in msg
+        assert "替代方案" in msg and "extract-text" in msg, "要教模型走替代路,不是单纯拒绝"
+
+    def test_download_allows_within_limit(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """限内文件正常返回,闸门不误伤。"""
+        from mcp_server import client as client_mod
+
+        c, http = fc
+        ok = b"y" * max(1024, client_mod.MAX_DOWNLOAD_BYTES - 1)
+        http.request.return_value = self._make_download_response(ok)
+        data, _, _ = c.download("/files/ok")
+        assert data == ok
+
+    def test_download_limit_is_configurable(
+        self, fc: tuple[FachuanClient, mock.MagicMock], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """上限可通过 env/属性调整(不同模型上下文规格不同)。"""
+        from mcp_server import client as client_mod
+
+        monkeypatch.setattr(client_mod, "MAX_DOWNLOAD_BYTES", 16)
+        c, http = fc
+        http.request.return_value = self._make_download_response(b"z" * 17)
+        with pytest.raises(FachuanApiError, match="文件过大"):
+            c.download("/files/strict")
+
+    def test_download_default_gate_matches_pi_truncation_line(self) -> None:
+        """默认闸门必须落在 pi 截断线(20480 字节)换算的安全区内——base64
+        膨胀 4/3 倍,原始字节上限 ≈ 15360。改成 1MB 这类大值会重新打开
+        「闸门放行 + pi 截断 = 模型收到损坏 base64」的静默腐败区间。"""
+        import base64
+
+        from mcp_server import client as client_mod
+
+        limit = client_mod.MAX_DOWNLOAD_BYTES
+        assert 1024 <= limit <= 15360, f"默认闸门 {limit} 超出 pi 截断安全区"
+        # 限内最大文件 base64 后必须整体塞得进 20480 字节
+        assert len(base64.b64encode(b"x" * limit)) + 200 < 20480
 
 
 # ===================================================================
@@ -499,7 +620,7 @@ class TestHandleStatic:
             content=b"not json",
             request=httpx.Request("POST", REAL_BASE),
         )
-        with pytest.raises(RuntimeError, match=r"HTTP 422.*not json"):
+        with pytest.raises(FachuanApiError, match=r"HTTP 422.*not json"):
             FachuanClient._handle(resp)
 
     def test_handle_204_returns_none(self):
@@ -509,3 +630,233 @@ class TestHandleStatic:
     def test_handle_200_returns_json(self):
         resp = _make_response(200, json_data={"key": "val"})
         assert FachuanClient._handle(resp) == {"key": "val"}
+
+
+# ===================================================================
+# 9. 错误可达性（MCP 规范：预期失败必须带详情回传模型）
+# ===================================================================
+
+
+class TestErrorVisibility:
+    """FachuanApiError 必须继承 ToolError。
+
+    MCP SDK 对非 ToolError 异常包成 UnexpectedToolError——客户端只看得到
+    "Error executing tool <name>"，一行细节都不出网，模型无法自纠重试
+    （2026-10-25 E2E 实测）。继承关系就是「错误详情可达模型」的全部机关，
+    断掉它等于把所有工具的报错重新变回黑盒。
+    """
+
+    def test_is_tool_error_subclass(self) -> None:
+        from mcp.server.mcpserver.exceptions import ToolError
+
+        assert issubclass(FachuanApiError, ToolError)
+
+    def test_http_error_message_format_preserved(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """消息保持 "HTTP <status>: <detail>" 前缀——agent_attachments
+        的 _classify_http_error 按此正则分类 401/403/404/413。"""
+        import re
+
+        c, http = fc
+        http.get.return_value = _make_response(403, json_data={"detail": "forbidden"})
+        with pytest.raises(FachuanApiError) as excinfo:
+            c.get("/x")
+        assert re.match(r"HTTP 403:", str(excinfo.value))
+        assert "forbidden" in str(excinfo.value)
+
+
+# ===================================================================
+# 10. 传输层韧性（超时/断连翻译 + GET 单次重试）
+# ===================================================================
+
+
+class TestTransportResilience:
+    """_guard_transport + GET 重试。
+
+    httpx 超时/断连不是 ToolError 子类，直接冒泡会被 SDK 包成
+    UnexpectedToolError 黑盒（模型看不到原因、不知道能否重试）。必须
+    翻译成 FachuanTransportError（FachuanApiError 子类）——错误详情出网，
+    且类型本身标记「暂时性、GET 可安全重试」。
+    """
+
+    def test_transport_error_is_api_error_subclass(self) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        assert issubclass(FachuanTransportError, FachuanApiError)
+
+    def test_timeout_wrapped_as_transport_error(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.get.side_effect = httpx.ReadTimeout("read timed out")
+        with mock.patch.object(client_mod.time, "sleep"):
+            with pytest.raises(FachuanTransportError, match="超时") as excinfo:
+                c.get("/cases")
+        # 链上保留原始异常，排查时不丢根因
+        assert isinstance(excinfo.value.__cause__, httpx.ReadTimeout)
+
+    def test_connect_error_wrapped(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.post.side_effect = httpx.ConnectError("connection refused")
+        with pytest.raises(FachuanTransportError, match="不可达"):
+            c.post("/cases", json={})
+
+    def test_get_retries_once_then_succeeds(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """GET 幂等：传输故障自动重试一次后成功，调用方无感。"""
+        c, http = fc
+        http.get.side_effect = [
+            httpx.ConnectError("boom"),
+            _make_response(200, json_data={"id": 1}),
+        ]
+        with mock.patch.object(client_mod.time, "sleep") as sleep_mock:
+            assert c.get("/cases/1") == {"id": 1}
+        sleep_mock.assert_called_once_with(0.5)
+        assert http.get.call_count == 2
+
+    def test_get_retries_on_502_response(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """网关类 5xx 响应同样重试一次。"""
+        c, http = fc
+        http.get.side_effect = [
+            _make_response(502, text="bad gateway"),
+            _make_response(200, json_data={"ok": True}),
+        ]
+        with mock.patch.object(client_mod.time, "sleep"):
+            assert c.get("/cases/1") == {"ok": True}
+        assert http.get.call_count == 2
+
+    def test_get_fails_after_second_transparent_failure(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """重试只做一次：第二次仍失败要把翻译后的错误抛给模型。"""
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.get.side_effect = httpx.ConnectError("still down")
+        with mock.patch.object(client_mod.time, "sleep"):
+            with pytest.raises(FachuanTransportError):
+                c.get("/cases")
+        assert http.get.call_count == 2
+
+    def test_post_does_not_retry_transport_error(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """POST 非幂等：断连后不能自动重发（请求可能已生效，重发=重复创建）。"""
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.post.side_effect = httpx.ConnectError("boom")
+        with pytest.raises(FachuanTransportError):
+            c.post("/cases", json={"name": "x"})
+        assert http.post.call_count == 1
+
+    def test_get_does_not_retry_4xx(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        c, http = fc
+        http.get.return_value = _make_response(404, json_data={"detail": "not found"})
+        with pytest.raises(FachuanApiError, match="HTTP 404"):
+            c.get("/cases/999")
+        assert http.get.call_count == 1
+
+    def test_download_timeout_wrapped(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        from mcp_server.client import FachuanTransportError
+
+        c, http = fc
+        http.request.side_effect = httpx.ReadTimeout("slow generation")
+        with pytest.raises(FachuanTransportError, match="POST"):
+            c.download("/documents/cases/1/litigation/complaint/download", method="POST", json={})
+
+
+class TestBulkListGuard:
+    """巨型列表可见性护栏（2026-10-25 审计）。
+
+    REST 端点的默认 limit 面向前端（clients 1000 / inbox 500——前端表格
+    客户端分页没问题），经 MCP 直达模型上下文就是几百 KB 炸弹。护栏
+    **只告警不截断**（截断会让模型误以为看到了全量）——把无界工具暴露
+    到日志，提示维护者补 limit 参数转发。
+    """
+
+    def test_bulk_list_logs_warning_and_passes_through(
+        self, fc: tuple[FachuanClient, mock.MagicMock], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        c, http = fc
+        bulk = [{"id": i} for i in range(301)]
+        http.get.return_value = _make_response(200, json_data=bulk)
+        with caplog.at_level(logging.WARNING, logger="mcp_server.client"):
+            out = c.get("/client/clients", params={"limit": 2000})
+        assert out == bulk  # 数据原样透传,绝不静默截断
+        assert any("响应列表过大" in r.message for r in caplog.records)
+
+    def test_normal_list_no_warning(
+        self, fc: tuple[FachuanClient, mock.MagicMock], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        c, http = fc
+        http.get.return_value = _make_response(200, json_data=[{"id": 1}, {"id": 2}])
+        with caplog.at_level(logging.WARNING, logger="mcp_server.client"):
+            assert c.get("/cases") == [{"id": 1}, {"id": 2}]
+        assert not any("响应列表过大" in r.message for r in caplog.records)
+
+    def test_non_list_payload_no_warning(
+        self, fc: tuple[FachuanClient, mock.MagicMock], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        c, http = fc
+        http.post.return_value = _make_response(200, json_data={"items": list(range(1000)), "total": 1000})
+        with caplog.at_level(logging.WARNING, logger="mcp_server.client"):
+            c.post("/cases", json={})
+        # 分页壳里的长 items 不算——那是端点自己设计的分页结构,不是裸数组
+        assert not any("响应列表过大" in r.message for r in caplog.records)
+
+
+# ===================================================================
+# 11. 抽象边界:工具层不得绕过 client 的闸门/翻译/解析
+# ===================================================================
+
+
+class TestClientAbstractionBoundary:
+    """禁止工具层直接访问 client 的私有 HTTP 成员。
+
+    ``client._http`` / ``client._headers`` 直连会同时绕过三道防线:
+    1MB 下载闸门(base64 挤爆上下文)、传输层异常翻译
+    (FachuanTransportError)、Content-Disposition 解析;还会丢失统一的
+    错误信封(本类抓到过 invoice_recognition 引用未 import 的
+    FachuanApiError——非 2xx 时 NameError,ruff/测试三层都没拦住)。
+    需要二进制返回走 ``client.download``(支持 method/files/data),
+    JSON 返回走 ``client.upload``(支持同字段多文件列表)。
+    """
+
+    def test_no_private_http_access_in_tools(self) -> None:
+        from pathlib import Path
+
+        tools_root = Path(client_mod.__file__).resolve().parent / "tools"
+        offenders = []
+        for path in sorted(tools_root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            for lineno, line in enumerate(path.read_text().splitlines(), 1):
+                stripped = line.lstrip()
+                if stripped.startswith("#"):
+                    continue  # 注释里提及(历史说明)不算违规
+                if "client._http" in line or "client._headers" in line or "client._handle" in line:
+                    offenders.append(f"{path.relative_to(tools_root)}:{lineno}")
+        assert not offenders, (
+            f"工具层直接访问 client 私有成员(绕过闸门/翻译/统一错误信封): {offenders};"
+            "二进制返回用 client.download,JSON 上传用 client.upload"
+        )
+
+    def test_upload_accepts_multi_file_list(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """upload 支持同字段多文件(list of tuples)——发票识别等场景。"""
+        c, http = fc
+        http.post.return_value = _make_response(200, json_data={"results": [1, 2]})
+        files = [("files", ("a.pdf", b"x", "application/pdf")), ("files", ("b.png", b"y", "image/png"))]
+        assert c.upload("/invoice-recognition/quick-recognize", files=files) == {"results": [1, 2]}
+        http.post.assert_called_once()
+
+    def test_download_supports_multipart_post(self, fc: tuple[FachuanClient, mock.MagicMock]) -> None:
+        """download 支持 files= multipart(要素式转换:上传 docx 返回二进制)。"""
+        c, http = fc
+        http.request.return_value = _make_response(
+            200,
+            content=b"PK\x03\x04converted",
+            headers={"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+        )
+        content, filename, _ct = c.download(
+            "/doc-convert/convert", method="POST", files={"file": ("a.docx", b"doc", "application/msword")}
+        )
+        assert content.startswith(b"PK")
+        assert filename == "download"  # 无 disposition 时的兜底名
+        http.request.assert_called_once()
