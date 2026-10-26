@@ -165,6 +165,40 @@ function AppShell() {
   }
   const copilotDocked = copilotOpen && copilotDock && isXlUp
 
+  /**
+   * 详情页（合同／案件作业页）在宽屏下默认并排，不让面板盖在内容上。
+   *
+   * 详情页的工作形态是「左看案件、右改合同、侧边调 AI」，三者要能同时看到，
+   * 悬浮覆盖会把右栏的合同文件盖住一半。
+   *
+   * 仍尊重用户偏好：`copilotDock` 一旦被用户显式切过（无论开还是关）就以它为准，
+   * 这里只在「用户从未改过 dock 偏好」时默认并排。用 localStorage 是否已存在
+   * 该键来判断，不另存一份状态。
+   */
+  const FORCE_DOCK_ROUTES = /^\/projects\/[^/]+/
+  const dockPrefExplicit = (() => {
+    try {
+      return localStorage.getItem(COPILOT_DOCK_KEY) !== null
+    } catch {
+      return false
+    }
+  })()
+  const detailDocked = copilotOpen && FORCE_DOCK_ROUTES.test(location.pathname) && isXlUp && !dockPrefExplicit
+  const effectiveDocked = copilotDocked || detailDocked
+
+  /**
+   * 详情页（合同 / 案件作业页）的 AI 助手不弹遮罩。
+   *
+   * **为什么**：详情页的工作形态是「左边看案件、右边改合同、中间调 AI」，
+   * 三者必须能同时点击。遮罩是 `fixed inset-x-0 bottom-0 z-[90]` 的整块覆盖层，
+   * 在非 dock 模式下它会盖住整个内容区——律师去点右栏的合同文件，实际点到的是
+   * 遮罩，于是触发 onClose 把刚打开的助手收掉。表现为「点合同助手就缩回去了」。
+   *
+   * 非 dock（窄屏 / 未开并排）时本应让出空间，但详情页宁可让面板悬浮也不要遮罩，
+   * 否则页面根本不可操作。压暗层次靠面板自身的阴影维持。
+   */
+  const suppressCopilotBackdrop = effectiveDocked || /^\/projects\/[^/]+/.test(location.pathname)
+
   // ⌘K 全局检索面板开关：状态收在壳层（与 copilotOpen 同层），⌘K 快捷键、
   // 导航栏检索按钮、弹窗自身关闭（Esc / 点遮罩 / 选中跳转）三条路径都汇到这里。
   const [searchOpen, setSearchOpen] = useState(false)
@@ -242,7 +276,7 @@ function AppShell() {
       />
       {copilotMounted && (
         <Suspense fallback={null}>
-          <PanelBackdropLazy open={copilotOpen && !copilotDocked} onClose={toggleCopilot} />
+          <PanelBackdropLazy open={copilotOpen && !suppressCopilotBackdrop} onClose={toggleCopilot} />
         </Suspense>
       )}
       {copilotMounted && (
@@ -251,14 +285,14 @@ function AppShell() {
             open={copilotOpen}
             onClose={toggleCopilot}
             dockCapable={isXlUp}
-            docked={copilotDocked}
+            docked={effectiveDocked}
             onDockToggle={toggleCopilotDock}
           />
         </Suspense>
       )}
       <div
         className="transition-[padding-right] duration-200"
-        style={copilotDocked ? { paddingRight: 'var(--copilot-w-app, 0px)' } : undefined}
+        style={effectiveDocked ? { paddingRight: 'var(--copilot-w-app, 0px)' } : undefined}
       >
         <PageErrorBoundary>
           <Suspense fallback={<RouteFallback />}>

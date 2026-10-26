@@ -77,7 +77,7 @@ const idleWindow = window as unknown as {
   cancelIdleCallback?: (id: number) => void
 }
 
-function setupApp({ idleFiresNow }: { idleFiresNow: boolean }) {
+function setupApp({ idleFiresNow, route = '/' }: { idleFiresNow: boolean; route?: string }) {
   // jsdom 无 requestIdleCallback；按用例需要让空闲回调立刻执行或永不执行
   idleWindow.requestIdleCallback = (cb) => {
     if (idleFiresNow) cb()
@@ -87,7 +87,7 @@ function setupApp({ idleFiresNow }: { idleFiresNow: boolean }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={[route]}>
         <App />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -239,6 +239,19 @@ describe('AppShell：AI 助手面板开关', () => {
     fireEvent.keyDown(window, { key: 'j' })
     await new Promise((r) => setTimeout(r, 30))
     expect(localStorage.getItem('copilot:open')).toBeNull()
+  })
+
+  it('详情页不渲染压暗遮罩：否则点右栏合同会点到遮罩把助手收回去', async () => {
+    localStorage.setItem('copilot:open', '1')
+    // 详情页路由 + 宽屏（matchMedia 替身固定 matches:false，即窄屏）：
+    // 即便没开 dock，详情页也必须屏蔽遮罩，否则整个内容区不可点。
+    setupApp({ idleFiresNow: false, route: '/projects/393' })
+    await waitFor(() => expect(header()).toBeTruthy())
+    // 遮罩是 aria-hidden 的覆盖层；详情页里它不该出现
+    await waitFor(() => {
+      const backdrop = document.querySelector('[aria-hidden="true"].fixed')
+      expect(backdrop).toBeNull()
+    })
   })
 
   it('localStorage 读取抛错时回落收起态（不崩）', async () => {
