@@ -32,7 +32,7 @@ from docx.document import Document as DocumentType
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.filesystem.bound_folder_browse import BoundFolderBrowseService
 
-from ..formatting.docx_revision_tool import DocxRevisionTool, enable_track_changes
+from ..formatting.docx_revision_tool import DocxRevisionTool, enable_track_changes, visible_text
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,10 @@ def _normalize(s: str) -> str:
 def locate_paragraph(doc: DocumentType, selection: str) -> Any | None:
     """在所有段落里找包含选区原文的那一段。
 
+    匹配用**现行文本**（visible_text：直接 run + 修订插入，不含已删内容），
+    与编辑器/解析端看到的「接受修订后」文本同口径——python-docx 的
+    para.text 看不见 w:ins，已改过一次的段落会永远定位失败。
+
     先用逐字 `in`（最可靠），失败再用归一化比对（应对编辑器与 python-docx
     在空白字符上的差异）。命中多段时取第一段——选区的字面内容在合同里重复
     并不常见，真有重复也应该由律师把选区拉长到唯一。
@@ -57,20 +61,20 @@ def locate_paragraph(doc: DocumentType, selection: str) -> Any | None:
     if not selection:
         return None
     for para in doc.paragraphs:
-        if selection in para.text:
+        if selection in visible_text(para):
             return para
     norm_sel = _normalize(selection)
     if not norm_sel:
         return None
     for para in doc.paragraphs:
-        if norm_sel in _normalize(para.text):
+        if norm_sel in _normalize(visible_text(para)):
             return para
     # 表格单元格里的条款同样是正文（付款方式、违约金常见于表格）
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
-                    if selection in para.text or norm_sel in _normalize(para.text):
+                    if selection in visible_text(para) or norm_sel in _normalize(visible_text(para)):
                         return para
     return None
 

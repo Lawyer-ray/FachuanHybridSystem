@@ -62,6 +62,7 @@ def _load_paragraph_context(contract_id: int, subpath: str, selection: str, user
     from docx import Document
 
     from apps.contract_review.services.review.direct_edit_service import locate_paragraph
+    from apps.contract_review.services.review.direct_editor import compute_context
     from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
 
     try:
@@ -77,9 +78,10 @@ def _load_paragraph_context(contract_id: int, subpath: str, selection: str, user
         para = locate_paragraph(doc, selection)
         if para is None:
             return "", ""
-        from apps.contract_review.services.review.direct_editor import compute_context
+        # 现行文本口径（含修订插入）：模型与编辑器看到的是同一份文本
+        from apps.contract_review.services.formatting.docx_revision_tool import visible_text
 
-        return compute_context(para.text, selection)
+        return compute_context(visible_text(para), selection)
     except Exception:
         logger.warning(
             "划词直改：取上下文失败（不影响改写）contract=%s subpath=%s", contract_id, subpath, exc_info=True

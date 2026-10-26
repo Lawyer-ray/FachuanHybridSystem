@@ -217,3 +217,89 @@ class TestDocxRevisionTool:
         assert _find_span("A  B C", "AB C") == (0, 6)
         assert _find_span("A  B C", "zzz") is None
         assert _find_span("A  B C", "   ") is None
+
+    def _revised_para(self):
+        """先落一次修订的段落：直接 run + w:del + w:ins 混排。
+
+        真实事故（2026-10-26 第二跳）：第一轮改写落盘后，段落现行文本住在
+        w:ins 里，python-docx 的 paragraph.runs/text 看不见——第二轮改写
+        「文档中已找不到这段原文」。此夹具复刻该状态。
+        """
+        from docx import Document
+
+        doc = Document()
+        para = doc.add_paragraph()
+        para.add_run("第一句。")
+        para.add_run("第二句")
+        tool = DocxRevisionTool()
+        assert tool.apply_revision(para, "第二句", "改后的第二句") is True
+        para.add_run("第三句。")
+        return para
+
+    def test_visible_text_includes_ins_and_excludes_del(self):
+        """现行文本口径：修订插入是正文、已删内容不是。"""
+        from apps.contract_review.services.formatting.docx_revision_tool import visible_text
+
+        para = self._revised_para()
+        assert visible_text(para) == "第一句。改后的第二句第三句。"
+        # python-docx 原生口径看不见 ins ——这正是旧 bug 的根源
+        assert para.text == "第一句。第三句。"
+
+    def test_apply_revision_on_ins_resident_text(self):
+        """改写住在 w:ins 里的现行文本：撤回旧 ins（不留删除痕迹）、落新 ins。"""
+        from docx.oxml.ns import qn
+
+        from apps.contract_review.services.formatting.docx_revision_tool import visible_text
+
+        para = self._revised_para()
+        assert DocxRevisionTool().apply_revision(para, "改后的第二句", "再度改写的第二句") is True
+        assert visible_text(para) == "第一句。再度改写的第二句第三句。"
+        # 旧 ins 被撤回而不是包进 del（未接受的插入不留删除痕迹）；
+        # 第一轮的 del 保留原样
+        dts = [t.text for t in para._element.iter(qn("w:delText"))]
+        assert dts == ["第二句"]
+        # ins 里的每个 w:t 文本
+        ins_texts = [t.text for t in para._element.iter(qn("w:ins")) for t in t.iter(qn("w:t"))]
+        assert ins_texts == ["再度改写的第二句"]
+
+    def test_apply_revision_spanning_direct_and_ins(self):
+        """选区横跨直接 run 与 ins（第一句。+ 改后的第二句）：两半都按各自语义处理。"""
+        from docx.oxml.ns import qn
+
+        from apps.contract_review.services.formatting.docx_revision_tool import visible_text
+
+        para = self._revised_para()
+        assert DocxRevisionTool().apply_revision(para, "第一句。改后的第二句", "开篇两句合并") is True
+        assert visible_text(para) == "开篇两句合并第三句。"
+        # 直接 run 的「第一句。」进 del；ins 部分被撤回
+        dts = [t.text for t in para._element.iter(qn("w:delText"))]
+        assert "第一句。" in dts and "改后的第二句" not in dts
+
+    def test_apply_revision_partial_ins_keeps_remainder_as_ins(self):
+        """区间只吃掉 ins 的一部分：残余仍待在 ins 里，不降级成普通文本。"""
+        from docx.oxml.ns import qn
+
+        from apps.contract_review.services.formatting.docx_revision_tool import visible_text
+
+        para = self._revised_para()
+        # 只改 ins 文本的前半「改后的」
+        assert DocxRevisionTool().apply_revision(para, "改后的", "调整后的") is True
+        assert visible_text(para) == "第一句。调整后的第二句第三句。"
+        # 残余「第二句」必须仍住在某个 w:ins 里
+        ins_texts = [t.text for t in para._element.iter(qn("w:ins")) for t in t.iter(qn("w:t"))]
+        assert "调整后的" in ins_texts and "第二句" in ins_texts
+        # 无嵌套修订容器
+        for child in para._element:
+            tag = child.tag.split("}")[1]
+            if tag in ("ins", "del"):
+                assert not [c for c in child if c.tag.endswith("}ins") or c.tag.endswith("}del")]
+
+    def test_apply_revision_del_text_never_matches(self):
+        """已删除内容（delText）不参与匹配：改「第二句」不能再命中删除线里的旧文。"""
+        from apps.contract_review.services.formatting.docx_revision_tool import visible_text
+
+        para = self._revised_para()
+        # 现行文本里没有「第二句」裸词（只有「改后的第二句」整体在 ins、
+        # 「第二句」在 del 里）——要求改「第二句」应改到 ins 内的那份
+        assert DocxRevisionTool().apply_revision(para, "第二句", "新句") is True
+        assert "新句" in visible_text(para)

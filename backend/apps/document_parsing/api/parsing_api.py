@@ -39,6 +39,13 @@ def _get_task_dispatch_service() -> DocumentParsingTaskDispatchService:
     return DocumentParsingTaskDispatchService()
 
 
+def _is_word_document(file_name: str | None) -> bool:
+    """Word 文档（docx/doc）判定——本地后端原生抽取，无需云平台异步转换。"""
+    if not file_name:
+        return False
+    return file_name.lower().endswith((".docx", ".doc"))
+
+
 def _needs_async(backend: str) -> bool:
     """判断是否需要异步执行。
 
@@ -220,6 +227,12 @@ async def extract_text(
 
         # 参数解析：multipart 调用从 request.POST 读取，JSON 调用从 body 读取。
         backend = _form_str(request, "backend", body.backend if body else "auto")
+        # auto + Word 文档分流到本地后端：PyMuPDF 原生打开 docx，同步返回
+        # 「接受修订后」的现行文本；云平台（mineru/textin）对 docx 走异步
+        # 转换，同步路径只能返回空文本——模型读合同读了个空，改写定位必然
+        # 失败。显式指定 backend 的调用不受影响。
+        if backend == "auto" and _is_word_document(file.name):
+            backend = "local"
         max_length = _form_int(request, "max_length", body.max_length if body else None)
 
         # --- 异步路径 ---
