@@ -19,7 +19,7 @@ const casesApi = createApiClient({ prefix: '/api/v1/cases' })
 const organizationApi = createApiClient({ prefix: '/api/v1/organization' })
 const remindersApi = createApiClient({ prefix: '/api/v1/reminders' })
 
-/** 分页拉取合同（服务端分页 + facets 全库计数；搜索/筛选随行，排序后端固定「离今天最近」） */
+/** 分页拉取合同（服务端分页 + facets 全库计数；搜索/筛选随行，排序后端固定 id 倒序） */
 export async function listContractsPage(opts: {
   page: number
   pageSize?: number

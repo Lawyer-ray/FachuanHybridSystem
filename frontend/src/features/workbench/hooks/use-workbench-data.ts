@@ -46,7 +46,7 @@ export interface WorkbenchData {
 
 /**
  * 办案主页列表数据：服务端分页（每页 50）+ facets 全库计数。
- * 筛选/搜索全部下推后端（排序后端固定「离今天最近」）；律师表独立缓存。
+ * 筛选/搜索全部下推后端（排序后端固定 id 倒序）；律师表独立缓存。
  * 案件明细不随列表加载——抽屉打开时按合同 ID 按需拉（useContractCases）。
  */
 export function useWorkbenchData(filter: WorkbenchFilter, page: number): WorkbenchData {

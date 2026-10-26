@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.db.models import Count, DecimalField, F, IntegerField, OuterRef, QuerySet, Subquery, Sum
-from django.db.models.expressions import RawSQL
+from django.db.models import Count, DecimalField, IntegerField, OuterRef, QuerySet, Subquery, Sum
 
 from apps.cases.models import Case
 from apps.contracts.models import Contract, ContractPayment
@@ -146,7 +145,12 @@ class ContractQueryService:
     ) -> dict[str, Any]:
         """分页列表（服务端分页，前端不再全量拉）。
 
-        排序沿用办案主页口径「离今天最近」：|end_date - 今天| 升序、无到期沉底。
+        排序固定 `-id`（最新建的在前），与 list_contracts 同口径、与 DB 主键顺序一致。
+        历史：曾用「离今天最近」ABS(end_date - CURRENT_DATE) 升序，已下线——绝对值
+        把「已过期」与「快到期」混排（过期最久的反而能排到未过期合同前面），且
+        76/104 条在办合同 end_date 为空、被 NULLS LAST 整体沉到有日期那批之后，
+        前 28 行是可疑规则、其后退化成 id 倒序，用户侧观感即「排序不对」。
+        到期紧迫度是前端按 daysLeft 自行呈现的东西，不该由列表顺序承载。
         facets 计数固定全库口径（与旧客户端筛选行为一致）。
         slim=True 时 queryset 不预取归档材料/收款记录（序列化侧同步跳过）。
 
@@ -156,11 +160,7 @@ class ContractQueryService:
         再跑一次 access_policy 的 OR JOIN）。前端首屏/改筛选时传 True，翻页传
         False 并复用已有计数。默认 True 保持既有调用方行为不变。
         """
-        qs = (
-            self.get_contract_queryset(slim=slim)
-            .annotate(_abs_days=RawSQL("ABS(end_date - CURRENT_DATE)", []))
-            .order_by(F("_abs_days").asc(nulls_last=True), "-id")
-        )
+        qs = self.get_contract_queryset(slim=slim).order_by("-id")
         qs = self._apply_list_filters(
             qs,
             case_type=case_type,

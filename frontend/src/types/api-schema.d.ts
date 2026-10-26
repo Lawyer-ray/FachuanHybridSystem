@@ -2449,7 +2449,7 @@ export interface paths {
          * List Contracts
          * @description 获取合同列表（服务端分页 + 全库 facets 计数），返回
          *     {items, total, page, page_size, status_counts, cat_counts, fee_counts}；
-         *     排序固定「离今天最近」（|end_date - 今天| 升序、无到期沉底）。
+         *     排序固定 `-id`（最新建的在前）。
          *
          *     - page 默认 1（旧「不传 page 返回全量裸数组」口径已下线，前端消费方
          *       均显式传 page）；page_size 上限 500，需要大结果集的消费方显式传。
