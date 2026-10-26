@@ -34,6 +34,10 @@ logger = logging.getLogger(__name__)
 # 详见 `deploy/onlyoffice/plugins/fachuan-rewrite/plugin.js` 顶部注释。
 FACHUAN_REWRITE_PLUGIN_GUID = "asc.{A67B4C8F-1F2A-4B6E-9C3D-5E8F7A2B1D04}"
 
+# 插件目录名（与 deploy/onlyoffice/plugins/ 下的子目录、容器内
+# sdkjs-plugins/ 下的目录名必须一致）。改目录就要同时改这里和 compose 挂载。
+FACHUAN_REWRITE_PLUGIN_DIR = "fachuan-rewrite"
+
 # 预处理阶段：纯只读（改是复审工作台的事）。官方语义：edit/review/comment
 # 均为 false 时即使 mode=edit 也只进查看器，没有修订与批注入口。
 PERMISSIONS_VIEW: dict[str, bool] = {
@@ -183,6 +187,10 @@ def build_editor_config(
     # 划词直改的核心入口：插件必须在文档就绪前 autostart，否则宿主页
     # 收不到 `ready` 握手，选区 / 改写全链路都不通。
     #
+    # **autostart 与 pluginsData 必须成对**：只给 autostart 时 DS 不知道去哪
+    # 取 config.json，插件不会加载，且**无任何报错**（症状：右键菜单里没有
+    # 我们的入口，只有 DS 自带的 AI✨）。原型就是两者都给的。
+    #
     # 只在可编辑/可审阅的模式挂：view（纯只读）下插件无从落笔，
     # 挂上去只会让律师看到一个用不了的入口。
     if mode in ("review", "edit") and doc_type == "word":
@@ -191,6 +199,13 @@ def build_editor_config(
         if FACHUAN_REWRITE_PLUGIN_GUID not in autostart:
             autostart.append(FACHUAN_REWRITE_PLUGIN_GUID)
         merged["autostart"] = autostart
+
+        # config 由 DS 自己托管（compose 把插件目录挂进 sdkjs-plugins），
+        # 所以地址用 DS 的公网可达前缀拼。浏览器能访问 docserver_url，
+        # DS 自己服务自己托管的静态文件也不需要回连宿主。
+        merged["pluginsData"] = [
+            f"{cfg.docserver_url.rstrip('/')}/sdkjs-plugins/{FACHUAN_REWRITE_PLUGIN_DIR}/config.json"
+        ]
         editor_config["plugins"] = merged
 
     config: dict[str, Any] = {

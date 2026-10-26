@@ -13,13 +13,14 @@
  * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  */
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowUp, Clock, Folder, FolderOpen, Paperclip, Square, Undo2, X } from 'lucide-react'
 
 import { fetchAgentSkills } from '../api'
 import { formatFileSize } from '../domain'
 import { useSlashMenu } from '../hooks/use-slash-menu'
+import { COPILOT_PREFILL_EVENT } from '../launch'
 import { useCopilot } from '../store'
 import { SlashMenu } from './SlashMenu'
 import { TurnStatsView } from './TurnStatsView'
@@ -47,6 +48,30 @@ export function Composer() {
   const submitTask = useCopilot((s) => s.submitTask)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * 接收「选区预填」：编辑器里框选一段后，把带引用的指令模板放进输入框。
+   *
+   * 用事件而不是 store：输入框文本是本地草稿 state（用户正在打字时不该被全局状态
+   * 覆盖），只需要一次性的「塞一段文字」。
+   */
+  useEffect(() => {
+    function onPrefill(e: Event) {
+      const d = (e as CustomEvent<{ text?: string }>).detail
+      const t = d?.text?.trim()
+      if (!t) return
+      // 追加而不是覆盖：律师可能已经写了半句，别把他打的字冲掉
+      setText((prev) => (prev.trim() ? `${prev.trim()}\n${t}` : t))
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      })
+    }
+    window.addEventListener(COPILOT_PREFILL_EVENT, onPrefill)
+    return () => window.removeEventListener(COPILOT_PREFILL_EVENT, onPrefill)
+  }, [])
 
   // 技能清单（`/` 菜单数据源）：菜单打开才被消费，失败静默降级为「只有内置命令」
   const skillsQuery = useQuery({

@@ -38,3 +38,31 @@ export function takePendingLaunchContext(): CopilotLaunchContext | null {
   pending = null
   return ctx
 }
+
+/**
+ * 选区预填事件：把编辑器里的选区（含前后文）塞进 AI 输入框。
+ *
+ * **为什么不走 store**：Composer 的输入框文本是组件本地 state（用户正在打字
+ * 的草稿，被流式重渲染打断就丢字），放进 store 会变成「受控状态」，
+ * 每次 keystroke 都过一遍全局订阅。这里只需要一次性的「塞一段文字进去」，
+ * 自定义事件足够，且 Composer 不在场时自然无副作用。
+ */
+export const COPILOT_PREFILL_EVENT = 'copilot:prefill'
+
+export interface CopilotPrefillDetail {
+  /** 要写入输入框的文本（通常是一句带引用的指令模板） */
+  text: string
+}
+
+/** 把一段文本塞进 AI 助手输入框（面板未打开时先打开）
+ *
+ * 传空字符串是合法的：只把面板打开、不写任何内容（用于「按钮点下去就要有反应」）。
+ */
+export function prefillCopilot(text: string, context?: CopilotLaunchContext): void {
+  openCopilot(context)
+  if (!text.trim()) return
+  // 面板是懒加载 chunk：刚挂载时 Composer 还没订阅事件，下一帧再发
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent<CopilotPrefillDetail>(COPILOT_PREFILL_EVENT, { detail: { text } }))
+  }, 120)
+}

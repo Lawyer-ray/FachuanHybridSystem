@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, FileSearch, Loader2, Save, X } from 'lucide-react'
+import { Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
+import { prefillCopilot } from '@/features/copilot/launch'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
@@ -67,6 +68,29 @@ export function FilePreviewCard({
     if (!h) return false
     return h.requestSave()
   }, [])
+
+  /**
+   * 「AI 改写」按钮：把编辑器当前选区送进右侧常驻助手。
+   *
+   * 选区只能由插件桥取（DS 内核上下文），这里发 `get-selection` 让插件读一次。
+   * 插件回的 `selection` 消息会走 onPluginMessage 里的同一段逻辑，
+   * 所以两条入口（按钮 / 框选自动）最终行为完全一致。
+   */
+  const rewriteSelection = useCallback(() => {
+    const h = editorRef.current
+    if (!h) {
+      toast.error('编辑器尚未就绪，请稍后重试')
+      return
+    }
+    // 先直接打开助手：即使插件桥没握手，律师也能在对话框里贴文字，
+    // 而不是点了按钮没任何反馈。
+    prefillCopilot('', {
+      origin: 'contract',
+      refId: ownerId,
+      title: file.name.replace(/\.docx$/i, ''),
+    })
+    h.sendToPlugin('get-selection')
+  }, [file.name, ownerId])
 
   const save = useCallback(() => {
     if (busy || !isDocx) return
@@ -152,6 +176,26 @@ export function FilePreviewCard({
           </button>
         )}
 
+        {/*
+          「AI 改写」：常驻且**永远可见**的入口。
+
+          为什么不只依赖框选自动触发：插件桥是幕后桥（无 UI），bridge 握手失败时
+          界面上没有任何可点的地方，律师只能干看着——这个按钮是兵底。
+          点它 → 读当前选区 → 调起右侧助手；没选区则提示先框选。
+        */}
+        {isDocx && (
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => void rewriteSelection()}
+            className="inline-flex h-[26px] flex-none items-center gap-1 rounded-[6px] border border-border bg-card px-2 text-[11.5px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+            title="框选条款后点这里，或在文档里框选后右键「✦ AI 改写」"
+          >
+            <Sparkles className="size-3" />
+            AI 改写
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => void download()}
@@ -184,18 +228,25 @@ export function FilePreviewCard({
             setReady(!!h)
           }}
           onPluginMessage={(m: PluginBridgeMessage) => {
-            // 只关心「选区」：插件在律师框选后推送，宿主把它变成对话框里的 chip。
+            // 只关心「选区」：插件在律师框选后推送，宿主把它变成指令。
             // 其余类型（ready/inserted/applied）由上层按需处理，这里不转发。
             if (m.type !== 'selection') return
             const sel = m.text.trim()
-            if (!sel || !onSelection || kind !== 'contract') return
-            onSelection({
-              contractId: ownerId,
-              subpath: file.subpath,
-              text: sel,
-              before: '',
-              after: '',
+            if (!sel || kind !== 'contract') return
+
+            // 主路径：直接调起右侧常驻 AI 助手，把选区写成引用块塞进输入框。
+            // 律师再补一句「违约金降到 10%」就成了一次完整请求。
+            //
+            // 为什么不弹自定义对话框：助手本来就是常驻的，再开一个浮层等于
+            // 多一层窗叠窗；而且选区进助手还能带上合同上下文与历史会话。
+            const hint = `请按我的要求改写下面这一段（保持法律文书语体，只改这一段）：\n\n> ${sel.replace(/\n/g, '\n> ')}\n\n修改要求：`
+            prefillCopilot(hint, {
+              origin: 'contract',
+              refId: ownerId,
+              title: file.name.replace(/\.docx$/i, ''),
             })
+            // 备选路径：上层若想弹自己对话框，仍能收到回调
+            onSelection?.({ contractId: ownerId, subpath: file.subpath, text: sel, before: '', after: '' })
           }}
         />
       </div>
