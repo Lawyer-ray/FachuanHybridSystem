@@ -118,6 +118,9 @@ const WRITE_PREFIXES: readonly string[] = [
   "toggle_",
   "merge_",
   "complete_",
+  // 改写合同：框选一段后按指令重新措辞并写回原文件。不带写前缀会被判
+  // LOW=只读，而它实际会改律师的合同文件（与后端同步，单测守护）。
+  "rewrite_",
   "cancel_",
   "export_",
   "extract_",
