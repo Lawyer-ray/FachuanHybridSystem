@@ -26,7 +26,6 @@ import { FilePreviewCard } from './FilePreviewCard'
 
 function setup(over: Partial<Parameters<typeof FilePreviewCard>[0]> = {}) {
   const onClose = vi.fn()
-  const onOpenEditor = vi.fn()
   const onReview = vi.fn()
   render(
     <FilePreviewCard
@@ -34,12 +33,11 @@ function setup(over: Partial<Parameters<typeof FilePreviewCard>[0]> = {}) {
       ownerId={318}
       file={{ subpath: '1-合同/a.docx', name: '顾问合同.docx', size: 882000, modified_at: '2026-05-12T00:00:00Z' }}
       onClose={onClose}
-      onOpenEditor={onOpenEditor}
       onReview={onReview}
       {...over}
     />,
   )
-  return { onClose, onOpenEditor, onReview }
+  return { onClose, onReview }
 }
 
 beforeEach(() => {
@@ -48,10 +46,10 @@ beforeEach(() => {
 })
 
 describe('FilePreviewCard', () => {
-  it('页内渲染只读画布（不改文档，改动走整页编辑器）', () => {
+  it('docx 走编辑态；pdf 等不可编辑格式仍只读', () => {
     setup()
     const view = screen.getByTestId('office-view')
-    expect(view.getAttribute('data-mode')).toBe('view')
+    expect(view.getAttribute('data-mode')).toBe('edit')
     expect(view.getAttribute('data-url')).toBe(
       '/api/v1/contracts/318/folder-file?subpath=1-%E5%90%88%E5%90%8C%2Fa.docx',
     )
@@ -63,10 +61,10 @@ describe('FilePreviewCard', () => {
     expect(screen.getByText(/KB|MB/)).toBeTruthy()
   })
 
-  it('「打开编辑器」升级到整页', () => {
-    const { onOpenEditor } = setup()
-    fireEvent.click(screen.getByRole('button', { name: /打开编辑器/ }))
-    expect(onOpenEditor).toHaveBeenCalledWith({ subpath: '1-合同/a.docx', name: '顾问合同.docx' })
+  it('docx 直接进编辑态（不再跳整页），并提供保存', () => {
+    setup()
+    expect(screen.getByTestId('office-view').getAttribute('data-mode')).toBe('edit')
+    expect(screen.getByRole('button', { name: /保存/ })).toBeTruthy()
   })
 
   it('docx 才有「AI 审查」', () => {
@@ -82,8 +80,15 @@ describe('FilePreviewCard', () => {
 
   it('收起按钮回调 onClose', () => {
     const { onClose } = setup()
-    fireEvent.click(screen.getByRole('button', { name: '收起预览' }))
+    fireEvent.click(screen.getByRole('button', { name: '收起' }))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('非 docx 不给保存/另存为（改完存不回去，别给假按钮）', () => {
+    setup({ file: { subpath: 'a.pdf', name: '发票.pdf' } })
+    expect(screen.getByTestId('office-view').getAttribute('data-mode')).toBe('view')
+    expect(screen.queryByRole('button', { name: /保存/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /另存为/ })).toBeNull()
   })
 
   it('下载时现换一次性票据', async () => {

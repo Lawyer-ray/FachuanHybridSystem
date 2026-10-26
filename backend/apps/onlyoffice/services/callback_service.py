@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid5
 
 import httpx
 from django.db import transaction
@@ -32,13 +32,30 @@ logger = logging.getLogger(__name__)
 
 # DS 侧文档体积上限（docx 编辑版不会更大；防御异常回调塞大文件）
 _MAX_SAVE_BYTES = 100 * 1024 * 1024
+
+# 从路径派生会话 id 的命名空间（固定值，改了会与存量会话对不上）
+_SESSION_NS = UUID("6f1b0c2e-7a41-5d8e-9b3c-2f4a6d8e0c11")
 _DOWNLOAD_TIMEOUT = 60.0
 
 
-def _doc_saved_version(task_id: UUID) -> int:
-    """文档级保存轮次：该 task 所有用户会话的 max(saved_version)。"""
-    agg = EditorSession.objects.filter(task_type="contract_review", task_id=task_id).aggregate(m=Max("saved_version"))
+def _doc_saved_version(task_id: UUID, task_type: str = "contract_review") -> int:
+    """文档级保存轮次：同一业务域同一任务，所有用户会话的 max(saved_version)。
+
+    `task_type` 必须带：合同文件夹（`contract_folder`）与审查任务可能算出同一个
+    UUID（folder 是从路径派生的），不带域就会把两边的轮次混在一起。
+    """
+    agg = EditorSession.objects.filter(task_type=task_type, task_id=task_id).aggregate(m=Max("saved_version"))
     return int(agg["m"] or 0)
+
+
+def session_id_for_path(source_path: str) -> UUID:
+    """为「没有业务 task_id」的业务域（合同文件夹）派生稳定 UUID。
+
+    `EditorSession.task_id` 是 UUIDField，而 folder 的主键是自增 int。用一个
+    从路径派生的 uuid5 既能落进现有表结构，又保证「同一路径永远同一 id」——
+    否则每次签配置都算新 id，会话查不到、保存回调全失败。
+    """
+    return uuid5(_SESSION_NS, source_path)
 
 
 def get_or_refresh_session(
@@ -47,6 +64,7 @@ def get_or_refresh_session(
     user: Any,
     source_path: str,
     version: str,
+    task_type: str = "contract_review",
 ) -> tuple[EditorSession, str]:
     """取（或建）该用户的会话，并按文档级 saved_version 算出本次生效的 key。
 
@@ -55,10 +73,10 @@ def get_or_refresh_session(
     实时协同的前提（同 key = 同一编辑会话，两名律师同开一份合同能互相
     看到修订）；保存回写后文档级版本 +1，下次签发自然换 key。
     """
-    session = EditorSession.objects.filter(task_type="contract_review", task_id=task_id, user=user).first()
+    session = EditorSession.objects.filter(task_type=task_type, task_id=task_id, user=user).first()
     if session is None:
-        session = EditorSession(task_type="contract_review", task_id=task_id, user=user)
-    document_key = make_document_key(source_path, version, _doc_saved_version(task_id))
+        session = EditorSession(task_type=task_type, task_id=task_id, user=user)
+    document_key = make_document_key(source_path, version, _doc_saved_version(task_id, task_type))
     if session.source_path != source_path or session.version != version or session.document_key != document_key:
         session.source_path = source_path
         session.version = version
@@ -100,7 +118,7 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
     try:
         data = _download_edited_docx(url)
         new_saved_version = _doc_saved_version(session.task_id) + 1
-        old_output = _current_output_file(session.task_id)
+        old_output = _current_output_file(session.task_id, session.task_type)
         # 落盘目标交给业务域钩子（新增业务域不用改本函数）：
         # review 域改任务产物、folder 域覆写原文件
         saved_name = domain.adopt_edited(session, data, new_saved_version)
@@ -125,8 +143,15 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
     return True
 
 
-def _current_output_file(task_id: UUID) -> str:
-    """读取任务当前产物路径（留档用）；任务缺失不阻断保存流程。"""
+def _current_output_file(task_id: UUID, task_type: str = "contract_review") -> str:
+    """读取任务当前产物路径（留档用）；任务缺失/不适用不阻断保存流程。
+
+    只有 `contract_review` 有「旧产物」概念（adopt_edited_output 会另存新文件名）。
+    合同文件夹是**原地覆写**，没有旧产物可留档，直接返回空。
+    """
+    if task_type != "contract_review":
+        return ""
+
     from apps.contract_review.services.wiring import get_review_service
 
     try:

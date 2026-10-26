@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate, useParams, useSearchParams } from 'react-router'
+import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
@@ -22,7 +22,6 @@ import { DetailError } from './ui'
  */
 export function DealDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [searchParams, setSearchParams] = useSearchParams()
   /**
    * 正在发起审查的文件（null = 抽屉关闭）。
    * 诉讼页的合同也要能走 AI 审查——起诉状/和解协议同样是「AI 出建议、律师逐条决策」。
@@ -196,13 +195,7 @@ export function DealDetailPage() {
                   ownerId={deal.id}
                   file={picked}
                   onClose={() => setPicked(null)}
-                  onOpenEditor={(f) => {
-                    const next = new URLSearchParams(searchParams)
-                    next.set('file', f.subpath)
-                    if (picked?.mtime !== undefined) next.set('mtime', String(picked.mtime))
-                    else next.delete('mtime')
-                    setSearchParams(next)
-                  }}
+                  onSaved={() => void d.refetch()}
                   onReview={(f) => setReviewTarget(f)}
                 />
               </div>

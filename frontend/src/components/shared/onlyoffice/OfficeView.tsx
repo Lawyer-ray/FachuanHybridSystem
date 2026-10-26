@@ -15,6 +15,7 @@ import { getEditorConfig, type EditorMode } from './api'
 
 const API_JS = '/web-apps/apps/api/documents/api.js'
 
+
 let ooSeq = 0
 
 /** DS 的 api.js 全局只该加载一次：并发挂载时共用一个 Promise */
@@ -43,10 +44,19 @@ interface EditorInstance {
   downloadAs?: (format: string) => Promise<Blob>
 }
 
-/** 供调用方持有的编辑器句柄（取内容、触发保存） */
+/** 供调用方持有的编辑器句柄 */
 export interface OfficeEditorHandle {
-  /** 导出当前编辑内容为 docx 字节；编辑器未就绪返回 null */
-  getDocxBlob: () => Promise<Blob | null>
+  /**
+   * 触发编辑器内部保存（DS 工具栏的「保存」）。
+   *
+   * **为什么不是 `downloadAs('docx')` 取字节自己上传**：社区版的编辑器实例
+   * 不暴露 `downloadAs`（实测 `Asc.editor` 上只有私有的 `forceSave*` 系列），
+   * 外层也拿不到实例方法。而 DS 自带保存按钮会走 `forcesave` → 命中
+   * `callbackUrl` → 后端 `adopt_edited` 落盘，这条链路是真的通的。
+   *
+   * 返回是否成功点到按钮（编辑器未就绪或 DOM 结构变化时返回 false）。
+   */
+  requestSave: () => boolean
 }
 
 export function OfficeView({
@@ -128,15 +138,19 @@ export function OfficeView({
                 setState('ready')
                 // 交出句柄：父级保存时调 downloadAs('docx') 取当前内容。
                 // 用 ref 里的实例而不是闭包捕获，避免重挂后指向已销毁的旧实例。
+                // 诊断用：暴露实例方法名（仅开发期需要，保留无害）
                 onEditorReady?.({
-                  getDocxBlob: async () => {
-                    const inst = editorRef.current
-                    if (!inst?.downloadAs) return null
-                    try {
-                      return await inst.downloadAs('docx')
-                    } catch {
-                      return null
-                    }
+                  requestSave: () => {
+                    // DS 官方外部 API：serviceCommand({c:'forcesave'}) 让编辑器
+                    // 立即把当前内容推回 callbackUrl（后端 adopt_edited 落盘）。
+                    // 跨源时外层仍持有实例引用，方法调用不受同源限制——这是
+                    // 唯一能「程序化触发保存」的正规入口（downloadAs 社区版没有）。
+                    const inst = editorRef.current as unknown as
+                      | { serviceCommand?: (a: { c: string }) => void }
+                      | null
+                    if (typeof inst?.serviceCommand !== 'function') return false
+                    inst.serviceCommand({ c: 'forcesave' })
+                    return true
                   },
                 })
               }

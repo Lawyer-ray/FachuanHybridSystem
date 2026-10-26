@@ -4,13 +4,7 @@ import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
 import { withDownloadTicket } from '@/lib/download-ticket'
-import { defaultSaveAsName } from './save-as-name'
-import {
-  folderFileUrl,
-  saveFolderFile,
-  saveFolderFileAs,
-  type FolderOwnerKind,
-} from '../../api'
+import { folderFileUrl, type FolderOwnerKind } from '../../api'
 
 /**
  * 合同文件夹里单个文件的预览 / 编辑视图（整页，不是抽屉）。
@@ -46,62 +40,33 @@ export function FilePreview({
   const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const editorRef = useRef<OfficeEditorHandle | null>(null)
   const [ready, setReady] = useState(false)
-  const [busy, setBusy] = useState<'save' | 'save-as' | 'download' | null>(null)
-  /** 打开时的 mtime，保存时带上做乐观锁 */
-  const openedMtime = file.mtime
+  const [busy, setBusy] = useState<'save' | 'download' | null>(null)
   const isDocx = /\.docx$/i.test(file.name)
 
-  const getBytes = useCallback(async (): Promise<Blob | null> => {
+  /**
+   * 触发保存（DS forcesave → 回调落盘）。
+   *
+   * 不走「取字节再上传」：社区版没有 `downloadAs`，外层拿不到内容。
+   */
+  const requestSave = useCallback((): boolean => {
     const h = editorRef.current
-    if (!h) return null
-    return h.getDocxBlob()
+    return h ? h.requestSave() : false
   }, [])
 
-  const save = useCallback(async () => {
+  const save = useCallback(() => {
     if (busy) return
     setBusy('save')
     try {
-      const blob = await getBytes()
-      if (!blob) {
+      if (!requestSave()) {
         toast.error('编辑器尚未就绪，请稍后重试')
         return
       }
-      await saveFolderFile(kind, ownerId, file.subpath, blob, openedMtime)
-      toast.success('已保存到原文件', { description: file.name })
-      onSaved?.()
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '保存失败'
-      // 409 = mtime 不一致（别人改过），要说清楚而不是笼统「失败」
-      toast.error(msg.includes('409') || msg.includes('他人修改') ? '文件已被他人修改' : msg, {
-        description: msg.includes('409') || msg.includes('他人修改') ? '请返回重新打开后再改' : undefined,
-      })
+      toast.success('已提交保存', { description: '文档服务器正在写回原文件' })
+      window.setTimeout(() => onSaved?.(), 2500)
     } finally {
       setBusy(null)
     }
-  }, [busy, getBytes, kind, ownerId, file.subpath, file.name, openedMtime, onSaved])
-
-  const saveAs = useCallback(async () => {
-    if (busy) return
-    const suggested = defaultSaveAsName(file.name)
-    const name = window.prompt('另存为（同目录，不会覆盖原文件）', suggested)
-    if (!name || !name.trim()) return
-
-    setBusy('save-as')
-    try {
-      const blob = await getBytes()
-      if (!blob) {
-        toast.error('编辑器尚未就绪，请稍后重试')
-        return
-      }
-      const out = await saveFolderFileAs(kind, ownerId, file.subpath, name.trim(), blob)
-      toast.success('已另存为 ' + out.name)
-      onSaved?.()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '另存失败')
-    } finally {
-      setBusy(null)
-    }
-  }, [busy, getBytes, kind, ownerId, file.subpath, file.name, onSaved])
+  }, [busy, requestSave, onSaved])
 
   const download = useCallback(async () => {
     setBusy('download')
@@ -164,26 +129,16 @@ export function FilePreview({
         </div>
 
         {isDocx && (
-          <>
-            <button
-              type="button"
-              onClick={() => void saveAs()}
-              disabled={!ready || busy !== null}
-              className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] border border-border bg-card px-2.5 text-[12px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary disabled:opacity-50"
-            >
-              {busy === 'save-as' ? <Loader2 className="size-3.5 animate-spin" /> : null}
-              另存为
-            </button>
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={!ready || busy !== null}
-              className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-semibold text-background transition-opacity hover:opacity-85 disabled:opacity-50"
-            >
-              {busy === 'save' ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-              保存
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={save}
+            disabled={!ready || busy !== null}
+            className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-semibold text-background transition-opacity hover:opacity-85 disabled:opacity-50"
+            title="保存到原文件（⌘S）"
+          >
+            <Save className="size-3.5" />
+            保存
+          </button>
         )}
 
         <button

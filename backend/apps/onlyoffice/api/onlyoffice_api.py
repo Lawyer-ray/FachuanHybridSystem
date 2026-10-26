@@ -32,6 +32,7 @@ from ..services.callback_service import (
     load_session_by_key,
     note_unknown_key,
     record_callback_status,
+    session_id_for_path,
 )
 from ..services.file_proxy import fetch_internal_file, parse_contract_review_path, resolve_user
 from ..services.signing import (
@@ -93,11 +94,28 @@ async def get_editor_config(  # pragma: no cover
     # document key 只用「原始路径 + version + saved_version」做哈希——
     # 签名参数含时间戳，混进 key 就是每次签发 key 必变（缓存失效 + 协同断裂）。
     document_key = make_document_key(file_url, version, 0)
-    parsed = parse_contract_review_path(file_url)
-    if parsed is not None:
-        _, document_key = await sync_to_async(get_or_refresh_session)(
-            task_id=parsed[0], user=user, source_path=file_url, version=version
-        )
+
+    # 凡注册过的业务域都要建会话：保存回写靠「回调里的 key → 会话 → source_path」
+    # 反解落盘目标，没会话就只能回 error 1（DS 报「未知 document key」，
+    # 表现为点了保存文件纹丝不动）。
+    from ..services.domain_registry import domain_for_path
+
+    hit = domain_for_path(file_url)
+    if hit is not None:
+        domain, owner, _rest = hit
+        if domain.key == "contract_review":
+            _, document_key = await sync_to_async(get_or_refresh_session)(
+                task_id=owner, user=user, source_path=file_url, version=version
+            )
+        else:
+            # folder 等没有业务 task_id 的域：从路径派生稳定 id
+            _, document_key = await sync_to_async(get_or_refresh_session)(
+                task_id=session_id_for_path(file_url),
+                user=user,
+                source_path=file_url,
+                version=version,
+                task_type=domain.key,
+            )
 
     token = sign_file_token(cfg.jwt_secret, file_url, user_id)
     signed_path = "/api/v1/onlyoffice/file?src=" + quote(file_url, safe="") + "&sig=" + token

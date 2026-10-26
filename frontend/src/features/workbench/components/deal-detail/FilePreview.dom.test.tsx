@@ -10,7 +10,7 @@
  * - 「另存为」默认 `原名[修订版]V1_<今天>.docx`，不动原文件；
  * - 「AI 审查」只在 docx 出现（流水线只吃 docx）。
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
@@ -21,7 +21,7 @@ vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
     onEditorReady?: (h: unknown) => void
   }) => {
     // 立即交出句柄，模拟「编辑器就绪」
-    p.onEditorReady?.({ getDocxBlob: () => Promise.resolve(new Blob(['docx-bytes'])) })
+    p.onEditorReady?.({ requestSave: requestSaveMock })
     return (
       <div data-testid="office-view" data-url={p.fileUrl} data-mode={p.mode}>
         {p.fileName}
@@ -35,16 +35,7 @@ vi.mock('@/lib/download-ticket', () => ({
   withDownloadTicket: (p: string) => ticketMock(p) as Promise<string>,
 }))
 
-const saveMock = vi.hoisted(() => vi.fn())
-const saveAsMock = vi.hoisted(() => vi.fn())
-vi.mock('../../api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../api')>()
-  return {
-    ...actual,
-    saveFolderFile: (...a: unknown[]) => saveMock(...a) as Promise<unknown>,
-    saveFolderFileAs: (...a: unknown[]) => saveAsMock(...a) as Promise<unknown>,
-  }
-})
+const requestSaveMock = vi.hoisted(() => vi.fn(() => true))
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
@@ -73,11 +64,9 @@ function setup(over: Partial<Parameters<typeof FilePreview>[0]> = {}) {
 
 beforeEach(() => {
   ticketMock.mockReset()
-  saveMock.mockReset()
-  saveAsMock.mockReset()
+  requestSaveMock.mockReset()
+  requestSaveMock.mockReturnValue(true)
   ticketMock.mockResolvedValue('/x?ticket=t1')
-  saveMock.mockResolvedValue({ subpath: '1-合同/a.docx', name: '顾问合同.docx', size: 10 })
-  saveAsMock.mockResolvedValue({ subpath: '1-合同/b.docx', name: 'b.docx', size: 10 })
 })
 
 describe('FilePreview', () => {
@@ -98,53 +87,17 @@ describe('FilePreview', () => {
     expect(screen.queryByRole('button', { name: /AI 审查/ })).toBeNull()
   })
 
-  it('保存：覆盖原文件并带上打开时的 mtime（乐观锁）', async () => {
-    const { onSaved } = setup()
-    fireEvent.click(screen.getByRole('button', { name: /保存/ }))
-
-    await waitFor(() => expect(saveMock).toHaveBeenCalled())
-    const [kind, ownerId, subpath, blob, mtime] = saveMock.mock.calls[0] ?? []
-    expect(kind).toBe('contract')
-    expect(ownerId).toBe(318)
-    expect(subpath).toBe('1-合同/a.docx')
-    expect(blob).toBeInstanceOf(Blob)
-    // mtime 必须传：两人同开时靠它防静默覆盖
-    expect(mtime).toBe(1700000000)
-    await waitFor(() => expect(onSaved).toHaveBeenCalled())
-  })
-
-  it('另存为：默认名带 [修订版]V1 与今天日期，且不动原文件', async () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('顾问合同[修订版]V1_20261025.docx')
-    const { onSaved } = setup()
-
-    fireEvent.click(screen.getByRole('button', { name: /另存为/ }))
-
-    await waitFor(() => expect(saveAsMock).toHaveBeenCalled())
-    const [kind, ownerId, subpath, name] = saveAsMock.mock.calls[0] ?? []
-    expect(kind).toBe('contract')
-    expect(ownerId).toBe(318)
-    // subpath 指向源文件（后端据它定位目录），不是新名字
-    expect(subpath).toBe('1-合同/a.docx')
-    expect(name).toBe('顾问合同[修订版]V1_20261025.docx')
-
-    // 默认值也要符合约定
-    expect(promptSpy).toHaveBeenCalledWith(expect.any(String), defaultSaveAsName('顾问合同.docx'))
-    await waitFor(() => expect(onSaved).toHaveBeenCalled())
-    promptSpy.mockRestore()
-  })
-
-  it('另存为取消时不发请求', () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null)
+  it('保存：走 DS forcesave（不取字节自己上传）', () => {
     setup()
-    fireEvent.click(screen.getByRole('button', { name: /另存为/ }))
-    expect(saveAsMock).not.toHaveBeenCalled()
-    promptSpy.mockRestore()
+    fireEvent.click(screen.getByRole('button', { name: /保存/ }))
+    // 落盘发生在 DS 回调里，页面只负责触发与延迟刷新
+    expect(requestSaveMock).toHaveBeenCalled()
   })
 
-  it('⌘S 触发保存（律师的肌肉记忆）', async () => {
+  it('⌘S 触发保存（律师的肌肉记忆）', () => {
     setup()
     fireEvent.keyDown(document, { key: 's', metaKey: true })
-    await waitFor(() => expect(saveMock).toHaveBeenCalled())
+    expect(requestSaveMock).toHaveBeenCalled()
   })
 
   it('返回按钮与 Esc 都回调 onBack', () => {

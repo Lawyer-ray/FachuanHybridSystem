@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Navigate, useParams, useSearchParams } from 'react-router'
+import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
 import { DetailHeader } from './DetailHeader'
@@ -29,7 +29,6 @@ import { Card, DetailError } from './ui'
 export function NonLitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { valid, d, deal, deadlines, contacts, money, next } = useDealDetailPage(id)
-  const [searchParams, setSearchParams] = useSearchParams()
 
   /** 用户手动指定的事项源目录（null = 自动识别「办案」） */
   const [manualSource, setManualSource] = useState<string | null>(null)
@@ -81,20 +80,6 @@ export function NonLitDetailPage() {
     [],
   )
 
-  /**
-   * 升级到整页编辑器：写 `?file=`（可刷新/分享），并带上打开时的 mtime 做乐观锁。
-   * 页内预览本身不写 URL——高频「看一眼」不该在浏览历史里堆记录。
-   */
-  const openEditor = useCallback(
-    (f: { subpath: string; name: string }) => {
-      const next = new URLSearchParams(searchParams)
-      next.set('file', f.subpath)
-      if (picked?.mtime !== undefined) next.set('mtime', String(picked.mtime))
-      else next.delete('mtime')
-      setSearchParams(next)
-    },
-    [searchParams, setSearchParams, picked],
-  )
   // 非诉页同样把全局助手绑到该委托（欢迎页专属文案 / 新会话带 contract_id 归属）
   useDealCopilotContext(deal, '非诉项目详情')
 
@@ -222,7 +207,7 @@ export function NonLitDetailPage() {
                 ownerId={deal.id}
                 file={picked}
                 onClose={() => setPicked(null)}
-                onOpenEditor={openEditor}
+                onSaved={() => void d.refetch()}
                 onReview={(f) => setReviewTarget(f)}
               />
             </div>
