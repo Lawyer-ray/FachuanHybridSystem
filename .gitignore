@@ -229,6 +229,24 @@ backend/bilibili_screenshot.png
 !backend/apps/**/static/**/*.png
 /assets/videos/ggbond-competition-20260128.mp4
 
+# 表格与 Office 文档（业务数据，普遍含真实当事人/员工信息，不入库）
+# 需要入库的表格请放 backend/apps/**/static/ 或用 .example 后缀。
+*.xlsx
+*.xls
+*.csv
+*.docx
+*.doc
+# 例外：测试夹具与模板（虚构数据）
+!backend/tests/**/*.docx
+!scripts/fixtures/*.docx
+!**/*.example.xlsx
+
+# Office / WPS / macOS 打开文件时生成的临时锁文件（會与实体文件并列出现）
+#   ~$xxx.xlsx  .~xxx.xlsx  ._xxx  （*~ 已覆盖部分场景，这里补全）
+~$*
+.~*
+._*
+
 # docs 目录（个人分析文档，不公开；不要对白名单文件开放跟踪）
 docs/
 
