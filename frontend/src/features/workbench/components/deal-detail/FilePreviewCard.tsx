@@ -8,6 +8,7 @@ import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
 import { fmtSize } from './folder-tree-types'
+import { useFileRewriteNonce } from './use-rewrite-refresh'
 
 /**
  * 右栏文档卡：**docx 直接可编辑，原地改原地存**，不跳页。
@@ -41,6 +42,9 @@ export function FilePreviewCard({
   const [ready, setReady] = useState(false)
   const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const isDocx = /\.docx$/i.test(file.name)
+  // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布（DS 才会
+  // 拉到已覆写的内容，修订痕迹可见）；未被覆写保持空串不动存量 key 口径
+  const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
 
   /** 编辑器句柄：保存时用 downloadAs 取当前内容 */
   const editorRef = useRef<OfficeEditorHandle | null>(null)
@@ -215,6 +219,7 @@ export function FilePreviewCard({
           fileUrl={fileUrl}
           fileName={file.name}
           mode={isDocx ? 'edit' : 'view'}
+          version={rewriteNonce ? String(rewriteNonce) : ''}
           onEditorReady={(h) => {
             editorRef.current = h
             setReady(!!h)

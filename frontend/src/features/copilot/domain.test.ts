@@ -13,6 +13,7 @@ import {
   splitPageHintLine,
   buildSelectionQuoteBlock,
   normalizeSelectionText,
+  parseFileRewrite,
   splitQuoteBlock,
   splitRefBlocks,
   shortToolName,
@@ -341,5 +342,36 @@ describe('框选引用块（豆包式引用）', () => {
     expect(m?.quote?.text).toBe(quote.text)
     expect(m?.content).toBe('这段条款什么意思？')
     expect(m?.bizHint).toContain('测试')
+  })
+})
+
+
+describe('AI 改写落盘信号（parseFileRewrite）', () => {
+  /** 线上真实回包形状（AgentMessage 实测）：pretty JSON + mcp 前缀工具名 */
+  const applied = JSON.stringify({
+    applied: true,
+    contract_id: 393,
+    subpath: '1-律师资料/1-合同/专项合同.docx',
+    name: '专项合同.docx',
+    reason: '',
+  })
+
+  it('识别 mcp__fachuan__rewrite_folder_file 的成功结果（含 contract_id）', () => {
+    const r = parseFileRewrite('mcp__fachuan__rewrite_folder_file', applied)
+    expect(r).toEqual({ contractId: 393, subpath: '1-律师资料/1-合同/专项合同.docx', name: '专项合同.docx' })
+  })
+
+  it('applied=false（定位失败）不是落盘信号', () => {
+    const failed = JSON.stringify({ applied: false, contract_id: 393, subpath: 'x.docx', name: 'x.docx', reason: '找不到了' })
+    expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', failed)).toBeNull()
+  })
+
+  it('is_error / 其它工具 / 坏 JSON / 缺 contract_id 一律 null（宁可不刷新）', () => {
+    expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', applied, true)).toBeNull()
+    expect(parseFileRewrite('mcp__fachuan__read_folder_file', applied)).toBeNull()
+    expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', '{"applied": true, "subpath":')).toBeNull()
+    // 旧后端没有 contract_id 字段：没有定向刷新的依据，宁可不动
+    expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', '{"applied": true, "subpath": "a.docx"}')).toBeNull()
+    expect(parseFileRewrite(undefined, applied)).toBeNull()
   })
 })

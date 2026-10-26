@@ -156,8 +156,28 @@ class DirectEditService:
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
+        self._bump_editor_doc_key(owner_id=owner_id, subpath=subpath)
         logger.info("划词直改已落盘: owner=%s subpath=%s 长度 %d→%d", owner_id, subpath, len(selection), len(suggested))
         return {"applied": True, "subpath": subpath, "name": Path(subpath).name, "reason": ""}
+
+    @staticmethod
+    def _bump_editor_doc_key(*, owner_id: int, subpath: str) -> None:
+        """覆写后轮换 OnlyOffice 文档 key（打开中的编辑器画布才能拿到新内容）。
+
+        source_path 必须与前端签配置用的 file_url 逐字一致（`folderFileUrl` 的
+        口径：`/api/v1/contracts/{id}/folder-file?subpath=<encodeURIComponent>`），
+        同一路径才派生出同一 task_id，才轮换到正确文档的版本。失败只记
+        warning：修订已经落盘，画布刷新是增强不是前提，不该让改写报错。
+        """
+        from urllib.parse import quote
+
+        from apps.onlyoffice.services.callback_service import bump_external_write
+
+        try:
+            source_path = f"/api/v1/contracts/{owner_id}/folder-file?subpath={quote(subpath, safe='')}"
+            bump_external_write(source_path, task_type="contract_folder")
+        except Exception:
+            logger.warning("划词直改后轮换编辑器文档 key 失败（不影响已落盘的修订）", exc_info=True)
 
     @staticmethod
     def _browse() -> Any:

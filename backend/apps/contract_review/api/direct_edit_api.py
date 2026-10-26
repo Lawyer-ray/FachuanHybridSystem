@@ -130,4 +130,7 @@ async def apply_edit(request: HttpRequest, payload: DirectEditApplyIn) -> dict[s
         org_access=getattr(user, "org_access", None),
         perm_open_access=False,
     )
+    # 回传合同 id：MCP 工具结果原样透传到前端，编辑器据「哪份合同哪个文件
+    # 被覆写」定向刷新画布（contract_id 入参本身不在 service 返回里）
+    result["contract_id"] = payload.contract_id
     return result

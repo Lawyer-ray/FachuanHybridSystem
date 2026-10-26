@@ -153,6 +153,48 @@ export function splitQuoteBlock(content: string): { quote: SelectionQuote | null
   return { quote, body: kept.join('\n').replace(/^\n+|\n+$/g, '') }
 }
 
+/** rewrite_folder_file 落盘成功的信号（后端 apply 结果里能带出的字段） */
+export interface FileRewriteSignal {
+  /** 被覆写的合同 id */
+  contractId: number
+  /** 绑定根下的相对路径 */
+  subpath: string
+  /** 文件名 */
+  name: string
+}
+
+/**
+ * 从 tool_result 事件里识别「AI 已把修订写回文件夹文件」。
+ *
+ * 后端 apply 成功返回 `{"applied": true, "contract_id": N, "subpath": …,
+ * "name": …}`（MCP 工具名带 `mcp__fachuan__` 前缀，结尾匹配即可）。
+ * 结果字符串可能被 SSE 截断（bridge 限 2000 字符）——JSON.parse 失败、
+ * applied 不为 true、缺 contract_id/subpath 一律返回 null：**宁可不刷新，
+ * 也不能误刷新**（误刷新会把正在编辑的画布无谓重载）。
+ */
+export function parseFileRewrite(toolName: string | undefined, resultText: string, isError = false): FileRewriteSignal | null {
+  if (isError || !toolName || !toolName.endsWith('rewrite_folder_file')) return null
+  try {
+    const parsed = JSON.parse(resultText) as {
+      applied?: unknown
+      contract_id?: unknown
+      subpath?: unknown
+      name?: unknown
+    }
+    if (parsed.applied !== true) return null
+    const contractId = Number(parsed.contract_id)
+    const subpath = typeof parsed.subpath === 'string' ? parsed.subpath : ''
+    if (!Number.isInteger(contractId) || contractId <= 0 || !subpath) return null
+    return {
+      contractId,
+      subpath,
+      name: typeof parsed.name === 'string' && parsed.name ? parsed.name : subpath.split('/').pop() || subpath,
+    }
+  } catch {
+    return null
+  }
+}
+
 /** 把 user 消息开头的页面锚点行拆出来；无锚点原样返回 */
 export function splitPageHintLine(content: string): { pageHint: string | null; body: string } {
   const lines = content.split('\n')

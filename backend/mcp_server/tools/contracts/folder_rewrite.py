@@ -37,8 +37,16 @@ def rewrite_folder_file(
         str, Field(description="要替换的**原文片段**,必须与文档中逐字一致(可从 read_folder_file 取到的正文里复制)")
     ],
     replacement: Annotated[str, Field(description="改写后的完整替换文本。保留法律文书语体;只给这一段正文,不要带解释")],
-    contract_id: Annotated[int | None, Field(description="合同 ID(合同绑定文件夹);与 case_id 二选一", ge=1)] = None,
-    case_id: Annotated[int | None, Field(description="案件 ID(案件绑定文件夹);与 contract_id 二选一", ge=1)] = None,
+    contract_id: Annotated[
+        int | None, Field(description="合同 ID(合同绑定文件夹);来自 [已引用文件：…] 引用里的 contract_id", ge=1)
+    ] = None,
+    case_id: Annotated[
+        int | None,
+        Field(
+            description="案件 ID;**暂不支持**——落盘端点当前只认合同绑定文件夹,传了会直接报错,保留参数位是为了案件域接入",
+            ge=1,
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """把文档里的一段原文替换为改写文本，**以 Word 修订痕迹写回原文件**。
 
@@ -52,22 +60,26 @@ def rewrite_folder_file(
             请缩小到段内。
         replacement: 改写后的完整文本。只给这一段正文，不要夹带「改写如下」之类的说明。
         contract_id: 合同 ID（合同绑定文件夹）。
-        case_id: 案件 ID（案件绑定文件夹）。与 contract_id 二选一。
+        case_id: 案件绑定文件夹**暂不支持**划词直改，传了会直接报错。
 
     Returns:
-        `{"applied": true, "subpath": ..., "name": ...}` 表示已写入；
+        `{"applied": true, "contract_id": ..., "subpath": ..., "name": ...}` 表示已写入
+        （前端据此刷新打开中的编辑器画布）；
         `{"applied": false, "reason": "..."}` 表示定位失败（原文已变/跨段），
         此时**文件未被修改**，可按 reason 提示律师重新框选。
 
     Raises:
-        ValueError: contract_id/case_id 未给或非正整数，或 original/replacement 为空。
+        ValueError: contract_id 未给或非正整数、传了 case_id（暂不支持），或
+            original/replacement 为空。
     """
-    if (contract_id is None) == (case_id is None):
-        raise ValueError("contract_id 与 case_id 必须二选一（来自消息里的文件夹引用）")
-    owner_kind = "case" if case_id is not None else "contract"
-    owner_id = case_id if case_id is not None else contract_id
-    if not isinstance(owner_id, int) or isinstance(owner_id, bool) or owner_id <= 0:
-        raise ValueError(f"归属 ID 应为正整数（来自消息里的文件夹引用），收到：{owner_id!r}")
+    # 案件域必须显式拒绝：落盘端点只认 contract_id，若把 case_id 当
+    # contract_id 发出去，会写进**同编号的另一份合同**——错绑定的静默写坏
+    if case_id is not None:
+        raise ValueError("划词直改暂不支持案件绑定文件夹（case_id），只支持合同（contract_id）")
+    if contract_id is None:
+        raise ValueError("必须提供 contract_id（来自消息里的 [已引用文件：…] 引用）")
+    if isinstance(contract_id, bool) or not isinstance(contract_id, int) or contract_id <= 0:
+        raise ValueError(f"contract_id 应为正整数（来自消息里的文件夹引用），收到：{contract_id!r}")
     if not (subpath or "").strip():
         raise ValueError("subpath 不能为空（来自消息里的文件夹引用）")
     if not (original or "").strip():
@@ -80,7 +92,7 @@ def rewrite_folder_file(
     result: dict[str, Any] = client.post(
         "/contract-review/direct-edit/apply",
         json={
-            "contract_id": owner_id,
+            "contract_id": contract_id,
             "subpath": subpath.strip(),
             "selection": original,
             "suggested": replacement,

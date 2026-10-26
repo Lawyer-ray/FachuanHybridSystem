@@ -58,6 +58,26 @@ def session_id_for_path(source_path: str) -> UUID:
     return uuid5(_SESSION_NS, source_path)
 
 
+def bump_external_write(source_path: str, task_type: str = "contract_folder") -> int:
+    """文档在编辑器之外被覆写（如 AI 划词直改落盘）后轮换文档 key。
+
+    DS 按 document.key 缓存文档内容，不轮换的话已打开/重开的编辑器拿到的
+    都是旧缓存——「AI 说已改好、画布却没有任何改动痕迹」正是缺这一步。
+    与保存回写同一口径：把文档级 saved_version 抬到 max+1（key 由
+    max(saved_version) 聚合而来，抬任意一条会话即可，这里统一抬全部）。
+
+    返回推进后的版本号；该文档从没人打开过（无会话）返回 0——下次签配置
+    本来就会取到覆写后的新内容，无需轮换。
+    """
+    task_id = session_id_for_path(source_path)
+    new_saved_version = _doc_saved_version(task_id, task_type) + 1
+    updated = EditorSession.objects.filter(task_type=task_type, task_id=task_id).update(saved_version=new_saved_version)
+    if not updated:
+        return 0
+    logger.info("外部覆写后轮换文档 key: task_type=%s task=%s saved_version=%d", task_type, task_id, new_saved_version)
+    return new_saved_version
+
+
 def get_or_refresh_session(
     *,
     task_id: UUID,

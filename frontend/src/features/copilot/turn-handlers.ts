@@ -7,7 +7,8 @@
  * - finishAssistant 收尾助手气泡（流读尽与 done 双路径都要能调，幂等）
  */
 
-import { estimateTokens, nextLocalId } from './domain'
+import { estimateTokens, nextLocalId, parseFileRewrite } from './domain'
+import { FILE_REWRITTEN_EVENT } from './launch'
 import type { StreamHandlers } from './streaming'
 import type { useCopilot } from './store'
 
@@ -98,6 +99,13 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
           return byId || lastEmpty ? { ...m, content: String(event.result ?? '') } : m
         }),
       }))
+      // AI 把修订写回文件夹文件（rewrite_folder_file 落盘成功）：广播给正
+      // 打开该文件的编辑器画布——不刷新的话 DS 一直显示旧缓存，律师看到
+      // 的就是「AI 说改好了、画布却没有改动痕迹」
+      const rewrite = parseFileRewrite(event.name, String(event.result ?? ''), event.is_error === true)
+      if (rewrite) {
+        window.dispatchEvent(new CustomEvent(FILE_REWRITTEN_EVENT, { detail: rewrite }))
+      }
     },
     onUsage: (usage) => {
       set((s) => ({

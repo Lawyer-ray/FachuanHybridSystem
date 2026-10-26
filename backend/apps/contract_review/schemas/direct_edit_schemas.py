@@ -50,6 +50,8 @@ class DirectEditApplyIn(Schema):
 
 class DirectEditApplyOut(Schema):
     applied: bool
+    contract_id: int = 0
+    """改的是哪份合同——MCP 结果原样透传给前端，编辑器据此定向刷新画布"""
     subpath: str
     name: str = ""
     reason: str = ""

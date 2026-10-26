@@ -15,8 +15,9 @@
  */
 
 // domain 是纯函数模块（无 React/store 依赖），引它不破坏本文件的懒 chunk
-// 边界（见文件头注释）；SelectionQuote 为 type-only，编译期擦除。
+// 边界（见文件头注释）；类型均为 type-only，编译期擦除。
 import { normalizeSelectionText } from './domain'
+import type { FileRewriteSignal } from './domain'
 import type { SelectionQuote } from './types'
 
 export interface CopilotLaunchContext {
@@ -105,3 +106,16 @@ export function takePendingQuote(): SelectionQuote | null {
 export function clearPendingQuote(): void {
   pendingSelectionQuote = null
 }
+
+/**
+ * 「AI 已把修订写回文件夹文件」事件：流式处理器（turn-handlers）在
+ * tool_result 里识别到 rewrite_folder_file 落盘成功时派发，workbench 的
+ * 编辑器刷新钩子（use-rewrite-refresh）消费——正在打开该文件的画布据此
+ * 重签配置、换 document key，DS 才会重新拉已覆写的文件（修订痕迹可见）。
+ *
+ * 与 quote/prefill 的差异：这是 **copilot → 其它 feature** 的单向广播，
+ * 没有 pending 兜底（消费方不在场 = 没有画布需要刷新，丢了反而正确）。
+ */
+export const FILE_REWRITTEN_EVENT = 'fachuan:file-rewritten'
+
+export type FileRewrittenDetail = FileRewriteSignal
