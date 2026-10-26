@@ -10,9 +10,9 @@
  * 主题仍守中性灰阶：渐变只用 primary 的同色系深浅，不做彩色渐变。
  */
 
-import { ChevronDown, FileText, Folder, Paperclip, X } from 'lucide-react'
+import { ChevronDown, FileText, Folder, Paperclip, Quote, X } from 'lucide-react'
 
-import type { RefOwnerKind } from '../types'
+import type { RefOwnerKind, SelectionQuote } from '../types'
 
 /** 引用来源的最小形状：SentRefMeta 与 FolderRefDraft 都满足（ownerId 等多出的字段无妨） */
 export interface QuoteSource {
@@ -137,5 +137,68 @@ export function QuoteChip({
         <X className="h-3 w-3" />
       </button>
     </span>
+  )
+}
+
+/** 选段引用的图标位：引号在 tint 圆角方块里，与文件引用的图标语言同构 */
+function QuoteMark({ size = 'md' }: { size?: 'md' | 'sm' }) {
+  const box = size === 'md' ? 'h-[26px] w-[26px] rounded-[8px]' : 'h-[22px] w-[22px] rounded-[7px]'
+  const icon = size === 'md' ? 'h-[15px] w-[15px]' : 'h-[13px] w-[13px]'
+  return (
+    <span className={`flex ${box} flex-none items-center justify-center bg-primary/10 text-primary`}>
+      <Quote className={icon} />
+    </span>
+  )
+}
+
+/**
+ * 输入框上方的选段引用条（豆包式）：律师在编辑器里框选一段后挂在这里，
+ * 输入框保持空白供自由提问；引用随消息发出。与「把模板文字灌进输入框」的
+ * 旧做法不同——引用是结构化状态，不是草稿文本。
+ */
+export function SelectionQuoteBar({ quote, onRemove }: { quote: SelectionQuote; onRemove: () => void }) {
+  return (
+    <div className="relative flex w-full items-start gap-2 rounded-[10px] border border-border bg-secondary/40 py-1.5 pr-1 pl-3 shadow-sm">
+      <QuoteStrip />
+      <QuoteMark />
+      <span className="min-w-0 flex-1 py-px" title={quote.text}>
+        <span className="line-clamp-2 block text-[12px] leading-[1.55] font-[520] text-foreground">{quote.text}</span>
+        <span className="mt-px block truncate text-[10.5px] text-muted-foreground">
+          已引用 · {quote.name}
+        </span>
+      </span>
+      <button
+        type="button"
+        className="flex h-5 w-5 flex-none items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
+        aria-label="移除引用选段"
+        title="移除引用（不影响编辑器里的选中）"
+        onClick={onRemove}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+/** 已发送消息里的选段引用卡（历史回放，静态展示） */
+export function SelectionQuoteCard({ quote }: { quote: SelectionQuote }) {
+  return (
+    <div
+      className="relative w-fit max-w-full rounded-[10px] border border-border bg-card py-1.5 pr-2.5 pl-3 shadow-sm"
+      title={`${quote.kind === 'case' ? '案件' : '合同'}文件 ${quote.subpath} 的选段`}
+    >
+      <QuoteStrip />
+      <span className="flex min-w-0 items-start gap-2">
+        <QuoteMark />
+        <span className="min-w-0 py-px">
+          <span className="line-clamp-3 block text-left text-[12px] leading-[1.55] font-[520] text-foreground">
+            {quote.text}
+          </span>
+          <span className="mt-px block truncate text-left text-[10.5px] text-muted-foreground">
+            {quote.name} · {quote.subpath}
+          </span>
+        </span>
+      </span>
+    </div>
   )
 }

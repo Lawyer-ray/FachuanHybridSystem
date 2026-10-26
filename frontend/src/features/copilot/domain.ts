@@ -3,7 +3,7 @@
  * 全部为纯函数，vitest 直接覆盖（node 环境，无 DOM）。
  */
 
-import type { AgentHistoryMessage, AgentSession, AgentSkill, AgentStreamEvent, ChatMessage, PendingApproval, PendingApprovalItem, SentRefMeta, SessionGroup, SlashMenuItem } from './types'
+import type { AgentHistoryMessage, AgentSession, AgentSkill, AgentStreamEvent, ChatMessage, FolderRefDraft, PendingApproval, PendingApprovalItem, SelectionQuote, SentRefMeta, SessionGroup, SlashMenuItem } from './types'
 
 let localIdSeed = 0
 /** 本地气泡 id（历史消息沿用后端 message_id，流式期间的本地消息用递增 id） */
@@ -93,6 +93,66 @@ const PAGE_HINT_RE = /^\[当前页面：(.+?)\]$/
  *  归属锚点，含委托/案件名与 id，模型据此直达对应绑定文件夹与数据 */
 const BIZ_HINT_RE = /^\[当前业务：(.+?)\]$/
 
+/**
+ * 框选引用块（豆包式引用的出站形态）：
+ * `[已引用选段："…" (contract_id=N, subpath="…")]`
+ *
+ * 引号里的文本在构建时把 `"` 全量替换成 `”`（见 buildSelectionQuoteBlock），
+ * 保证闭引号唯一、正则可以无歧义地非贪婪匹配回来。
+ */
+const SENT_QUOTE_RE = /^\[已引用选段："(.+?)" \((contract_id|case_id)=(\d+), subpath="(.+?)"\)\]$/
+
+/** 框选文本进引用块前的整形：换行归一、限长（太长对齐卡片显示与块内文本） */
+export function normalizeSelectionText(raw: string, cap = 400): string {
+  const oneLine = raw.replace(/\s*\n\s*/g, ' ').trim()
+  return oneLine.length > cap ? oneLine.slice(0, cap) + '……' : oneLine
+}
+
+/** 构建框选引用块（发送侧；与 SENT_QUOTE_RE 严格互逆） */
+export function buildSelectionQuoteBlock(q: SelectionQuote): string {
+  const idKey = q.kind === 'case' ? 'case_id' : 'contract_id'
+  const text = normalizeSelectionText(q.text).replace(/"/g, '”')
+  return `[已引用选段："${text}" (${idKey}=${q.ownerId}, subpath="${q.subpath}")]`
+}
+
+/**
+ * 空正文发送时的默认指令：只带引用/附件/选段也能发，但模型需要一句话知道
+ * 律师要什么。措辞按「引用了什么」选——目录引用是浏览梳理，文件引用是
+ * 分析，附件是分析，选段是结合原文件分析。
+ */
+export function defaultOutgoingPrompt(
+  refs: FolderRefDraft[],
+  fileCount: number,
+  quote: SelectionQuote | null,
+): string {
+  if (refs.length > 0) {
+    return refs.every((r) => r.isFolder) ? '请浏览我引用的目录并梳理其中的材料。' : '请分析我引用的文件。'
+  }
+  if (fileCount > 0) return '请分析我上传的附件。'
+  if (quote) return '请结合原文件，分析我引用的这段内容。'
+  return ''
+}
+
+/** 把 user 消息里的框选引用块拆出来（历史回放与本地发送同一解析） */
+export function splitQuoteBlock(content: string): { quote: SelectionQuote | null; body: string } {
+  const kept: string[] = []
+  let quote: SelectionQuote | null = null
+  for (const line of content.split('\n')) {
+    const m = SENT_QUOTE_RE.exec(line.trim())
+    if (m?.[1] && m[2] && m[3] && m[4] && !quote) {
+      quote = {
+        text: m[1],
+        kind: m[2] === 'case_id' ? 'case' : 'contract',
+        ownerId: Number(m[3]),
+        subpath: m[4],
+        name: m[4].split('/').pop() || m[4],
+      }
+    } else kept.push(line)
+  }
+  if (!quote) return { quote: null, body: content }
+  return { quote, body: kept.join('\n').replace(/^\n+|\n+$/g, '') }
+}
+
 /** 把 user 消息开头的页面锚点行拆出来；无锚点原样返回 */
 export function splitPageHintLine(content: string): { pageHint: string | null; body: string } {
   const lines = content.split('\n')
@@ -128,13 +188,15 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
     const hintSplit = row.role === 'user' ? splitPageHintLine(row.content) : null
     const bizSplit = row.role === 'user' ? splitBizHintLine(hintSplit?.body ?? row.content) : null
     const refsSplit = row.role === 'user' ? splitRefBlocks(bizSplit?.body ?? row.content) : null
+    const quoteSplit = row.role === 'user' ? splitQuoteBlock(refsSplit?.body ?? row.content) : null
     return {
       id: `db-${row.message_id}`,
       role: row.role,
-      content: row.role === 'tool' ? row.content.slice(0, 2000) : (refsSplit?.body ?? row.content),
+      content: row.role === 'tool' ? row.content.slice(0, 2000) : (quoteSplit?.body ?? row.content),
       pageHint: hintSplit?.pageHint ?? undefined,
       bizHint: bizSplit?.bizHint ?? undefined,
       refs: refsSplit?.refs.length ? refsSplit.refs : undefined,
+      quote: quoteSplit?.quote ?? undefined,
       toolName: row.tool_name || undefined,
       truncated: row.metadata?.truncated === true || undefined,
     }

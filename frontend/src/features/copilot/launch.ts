@@ -4,14 +4,20 @@
  * **为什么是独立入口而不是从 index.ts re-export**：index.ts 静态引着
  * CopilotPanel（App.tsx 靠 `import('@/features/copilot')` 把整个 copilot 域
  * 拆成懒 chunk）。任何 feature 若从 index 引 openCopilot，会把面板及其依赖
- * （react-markdown 等）拖进使用方 chunk，破坏懒加载边界。本文件零依赖、
- * 不 import store，跨域引入它代价为零——这是有意的架构豁免，勿改回 index。
+ * （react-markdown 等）拖进使用方 chunk，破坏懒加载边界。本文件不 import
+ * store / 组件，只引 domain 纯函数（type-only + 无 React 依赖），跨域引入
+ * 它代价为零——这是有意的架构豁免，勿改回 index。
  *
  * 链路：openCopilot(ctx) 记下 pending 上下文 → 派发 window 事件 →
  * AppShell 收到开面板；CopilotPanel 挂载/已挂载时读取事件与 pending，
  * 把上下文写进 store（enterContext）。面板 chunk 未加载的竞态由
  * takePendingLaunchContext 兜底（挂载后即取走）。
  */
+
+// domain 是纯函数模块（无 React/store 依赖），引它不破坏本文件的懒 chunk
+// 边界（见文件头注释）；SelectionQuote 为 type-only，编译期擦除。
+import { normalizeSelectionText } from './domain'
+import type { SelectionQuote } from './types'
 
 export interface CopilotLaunchContext {
   /** 业务入口：case（案件内）/ contract（合同/委托内） */
@@ -65,4 +71,37 @@ export function prefillCopilot(text: string, context?: CopilotLaunchContext): vo
   window.setTimeout(() => {
     window.dispatchEvent(new CustomEvent<CopilotPrefillDetail>(COPILOT_PREFILL_EVENT, { detail: { text } }))
   }, 120)
+}
+
+/**
+ * 框选引用事件（豆包式引用）：编辑器里选中一段文本后，引用挂到输入框上方
+ * 的引用卡（store 的 pendingQuote），输入框保持空白供律师自由提问——
+ * 不是把「请按我的要求改写…」模板灌进输入框（旧做法，律师实际不想被打草稿）。
+ *
+ * 与 prefill 的关键差异：引用是**结构化状态**（随消息出站、回放成卡），
+ * 必须进 store；而事件只是「面板可能还没挂载」时的传输手段。挂载竞态由
+ * takePendingQuote 兜底（Composer 挂载后即取走）。
+ */
+export const COPILOT_QUOTE_EVENT = 'copilot:selection-quote'
+
+let pendingSelectionQuote: SelectionQuote | null = null
+
+/** 打开助手面板并把一段选区设为输入框上方的引用卡 */
+export function quoteCopilot(quote: SelectionQuote, context?: CopilotLaunchContext): void {
+  // 展示侧先做归一（换行压平、限长）；出站块的整形在 domain.buildSelectionQuoteBlock
+  pendingSelectionQuote = { ...quote, text: normalizeSelectionText(quote.text) }
+  openCopilot(context)
+  window.dispatchEvent(new CustomEvent<SelectionQuote>(COPILOT_QUOTE_EVENT, { detail: pendingSelectionQuote }))
+}
+
+/** Composer 挂载时取走尚未消费的选区引用（chunk 加载竞态的兜底），取后即清 */
+export function takePendingQuote(): SelectionQuote | null {
+  const q = pendingSelectionQuote
+  pendingSelectionQuote = null
+  return q
+}
+
+/** 清掉未消费的选区引用（消费方在事件/兜底两条路径取走时调用，防重复挂卡） */
+export function clearPendingQuote(): void {
+  pendingSelectionQuote = null
 }

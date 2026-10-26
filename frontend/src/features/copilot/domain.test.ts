@@ -11,6 +11,9 @@ import {
   groupSessions,
   splitBizHintLine,
   splitPageHintLine,
+  buildSelectionQuoteBlock,
+  normalizeSelectionText,
+  splitQuoteBlock,
   splitRefBlocks,
   shortToolName,
   takeSseFrames,
@@ -282,5 +285,61 @@ describe('slash 菜单（build/filter/query）', () => {
     expect(slashMenuQuery('/dead')).toBe('dead')
     expect(slashMenuQuery('你好')).toBeNull()
     expect(slashMenuQuery('/第一行\n第二行')).toBeNull()
+  })
+})
+
+
+describe('框选引用块（豆包式引用）', () => {
+  const quote = {
+    kind: 'contract' as const,
+    ownerId: 393,
+    subpath: '1-律师资料/1-合同/专项合同.docx',
+    name: '专项合同.docx',
+    text: '甲方拟就与对方拖欠货款之事宜，委托乙方提供专项法律服务。',
+  }
+
+  it('构建与拆解严格互逆（round-trip）', () => {
+    const block = buildSelectionQuoteBlock(quote)
+    const { quote: parsed, body } = splitQuoteBlock(`请解释这段。\n${block}`)
+    // 引用块不在首行也要能拆出来（与 refs 同口径的逐行扫描）
+    expect(parsed?.text).toBe(quote.text)
+    expect(parsed?.kind).toBe('contract')
+    expect(parsed?.ownerId).toBe(393)
+    expect(parsed?.subpath).toBe(quote.subpath)
+    expect(body).toBe('请解释这段。')
+  })
+
+  it('引号被归一成全角，不会破坏块的闭引号', () => {
+    const q = { ...quote, text: '他说"不合格"应更换' }
+    const block = buildSelectionQuoteBlock(q)
+    const { quote: parsed } = splitQuoteBlock(block)
+    expect(parsed?.text).toBe('他说”不合格”应更换')
+  })
+
+  it('换行归一为空格、超长截断（400 + 省略号）', () => {
+    expect(normalizeSelectionText('第一行\n  第二行')).toBe('第一行 第二行')
+    const long = '甲'.repeat(500)
+    expect(normalizeSelectionText(long)).toHaveLength(402)
+    expect(normalizeSelectionText(long).endsWith('……')).toBe(true)
+  })
+
+  it('无引用块的消息原样返回（quote=null）', () => {
+    const { quote: q, body } = splitQuoteBlock('普通消息正文')
+    expect(q).toBeNull()
+    expect(body).toBe('普通消息正文')
+  })
+
+  it('历史回放：quote 从块还原到消息字段、正文不残留块文本', () => {
+    const rows = [
+      {
+        message_id: 1,
+        role: 'user' as const,
+        content: `[当前业务：本委托「测试」 contract_id=393]\n${buildSelectionQuoteBlock(quote)}\n这段条款什么意思？`,
+      },
+    ]
+    const m = historyToMessages(rows as never)[0]
+    expect(m?.quote?.text).toBe(quote.text)
+    expect(m?.content).toBe('这段条款什么意思？')
+    expect(m?.bizHint).toContain('测试')
   })
 })

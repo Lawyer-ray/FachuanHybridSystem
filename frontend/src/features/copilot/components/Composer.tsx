@@ -19,13 +19,15 @@ import { ArrowUp, Clock, Mic, Paperclip, Square, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchAgentSkills } from '../api'
-import { formatFileSize } from '../domain'
+import { defaultOutgoingPrompt } from '../domain'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
-import { COPILOT_PREFILL_EVENT } from '../launch'
+import { COPILOT_PREFILL_EVENT, COPILOT_QUOTE_EVENT, clearPendingQuote, takePendingQuote } from '../launch'
 import { useCopilot } from '../store'
+import type { SelectionQuote } from '../types'
 import { ComposerFooter } from './ComposerFooter'
-import { QuoteChip } from './RefQuote'
+import { ComposerQuote } from './ComposerQuote'
+import { PendingChips } from './PendingChips'
 import { SlashMenu } from './SlashMenu'
 
 export function Composer() {
@@ -35,13 +37,13 @@ export function Composer() {
   const queuedSteers = useCopilot((s) => s.queuedSteers)
   const pendingFiles = useCopilot((s) => s.pendingFiles)
   const pendingRefs = useCopilot((s) => s.pendingRefs)
+  const pendingQuote = useCopilot((s) => s.pendingQuote)
+  const setPendingQuote = useCopilot((s) => s.setPendingQuote)
   const uploading = useCopilot((s) => s.uploadingAttachments)
   const compactContext = useCopilot((s) => s.compactContext)
   const sessionId = useCopilot((s) => s.sessionId)
   const messageCount = useCopilot((s) => s.messages.length)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
-  const removeAttachmentFile = useCopilot((s) => s.removeAttachmentFile)
-  const removeFolderRef = useCopilot((s) => s.removeFolderRef)
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
@@ -67,7 +69,27 @@ export function Composer() {
   }, [speech.error])
 
   /**
-   * 接收「选区预填」：编辑器里框选一段后，把带引用的指令模板放进输入框。
+   * 框选引用（豆包式）：编辑器里选中一段 → 引用挂到输入框上方（进 store 的
+   * pendingQuote），输入框保持空白。事件覆盖「面板已挂载」的常态；刚开面板
+   * 时 Composer 还没订阅，靠挂载后的 takePendingQuote 兜底（两条路径都取
+   * 后即清，不会重复挂卡）。
+   */
+  useEffect(() => {
+    function onQuote(e: Event) {
+      const q = (e as CustomEvent<SelectionQuote>).detail
+      if (q?.text) setPendingQuote(q)
+      clearPendingQuote()
+    }
+    window.addEventListener(COPILOT_QUOTE_EVENT, onQuote)
+    const missed = takePendingQuote()
+    if (missed?.text) setPendingQuote(missed)
+    return () => window.removeEventListener(COPILOT_QUOTE_EVENT, onQuote)
+    // setPendingQuote 是 zustand 稳定引用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /**
+   * 接收「选区预填」：把一段文字追加进输入框草稿（引用文件按钮 / 旧入口用）。
    *
    * 用事件而不是 store：输入框文本是本地草稿 state（用户正在打字时不该被全局状态
    * 覆盖），只需要一次性的「塞一段文字」。
@@ -121,7 +143,7 @@ export function Composer() {
     // 「复活」回已清空的输入框
     if (speech.listening) speech.stop(true)
     const value = text.trim()
-    if (!value && pendingFiles.length === 0 && pendingRefs.length === 0) return
+    if (!value && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote) return
     if (uploading) return
     if (streaming) {
       // 运行中插话：不改写当前输出，在工具调用后、下次模型调用前生效
@@ -138,13 +160,7 @@ export function Composer() {
     // 先清空正文腾出输入位；早失败（建会话/附件上传失败）时回填，别让
     // 用户重打一遍。期间用户又输入了新内容则不打扰（只补空）。
     setText('')
-    const outgoing =
-      value ||
-      (pendingRefs.length > 0
-        ? pendingRefs.every((r) => r.isFolder)
-          ? '请浏览我引用的目录并梳理其中的材料。'
-          : '请分析我引用的文件。'
-        : '请分析我上传的附件。')
+    const outgoing = value || defaultOutgoingPrompt(pendingRefs, pendingFiles.length, pendingQuote)
     void send(outgoing, (sent) => {
       if (!sent) setText((prev) => (prev.trim() ? prev : outgoing))
     })
@@ -186,28 +202,27 @@ export function Composer() {
     <div className="flex-none border-t border-border p-2.5">
       {/* 内容限宽居中：与消息栏同宽对齐（两边都走 max-w-6xl，宽度一致不错位） */}
       <div className="mx-auto w-full max-w-6xl">
-      {(pendingRefs.length > 0 || pendingFiles.length > 0) && (
-        <div className="mb-1.5 flex flex-wrap gap-1.5">
-          {pendingRefs.map((ref, i) => (
-            <QuoteChip
-              key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
-              source={ref}
-              onRemove={() => removeFolderRef(i)}
-              removeLabel={`移除引用 ${ref.name}`}
-            />
-          ))}
-          {pendingFiles.map((file, i) => (
-            <QuoteChip
-              key={`${file.name}-${i}`}
-              source={{ kind: 'contract', subpath: file.name, name: file.name }}
-              meta={formatFileSize(file.size)}
-              icon="attachment"
-              onRemove={() => removeAttachmentFile(i)}
-              removeLabel={`移除附件 ${file.name}`}
-            />
-          ))}
-        </div>
+      {/* 框选引用（豆包式）：编辑器选区挂成引用条，输入框保持空白；
+          快捷 pills 一键补指令，发送时引用块随消息出站 */}
+      {pendingQuote && (
+        <ComposerQuote
+          quote={pendingQuote}
+          onRemove={() => setPendingQuote(null)}
+          onPickPrompt={(prompt) => {
+            // 直接替换：点 pill 是明确动作，别把两条指令拼在一起；
+            // 光标落末尾（改写类 prompt 后面正是律师要补的要求）
+            setText(prompt)
+            requestAnimationFrame(() => {
+              const el = textareaRef.current
+              if (!el) return
+              el.focus()
+              el.setSelectionRange(el.value.length, el.value.length)
+              autoGrow()
+            })
+          }}
+        />
       )}
+      <PendingChips />
       {streaming && queuedSteers.length > 0 && (
         <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11.5px] text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">已插话 {queuedSteers.length} 条，将在本轮生效</span>
@@ -321,7 +336,7 @@ export function Composer() {
             type="button"
             className="copilot-send flex h-7 w-7 flex-none items-center justify-center rounded-full disabled:opacity-30 disabled:shadow-none"
             onClick={submit}
-            disabled={uploading || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0)}
+            disabled={uploading || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote)}
             aria-label={bgMode ? '提交后台任务' : '发送'}
             title={uploading ? '附件上传中…' : undefined}
           >

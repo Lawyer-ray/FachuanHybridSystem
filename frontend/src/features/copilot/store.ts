@@ -14,6 +14,7 @@ import { create } from 'zustand'
 import * as copilotApi from './api'
 import {
   APPROVAL_OFFLINE_WINDOW_S,
+  buildSelectionQuoteBlock,
   historyToMessages,
   isExpiredOfflineItem,
   nextLocalId,
@@ -21,6 +22,7 @@ import {
   splitAttachmentFiles,
   splitBizHintLine,
   splitPageHintLine,
+  splitQuoteBlock,
   splitRefBlocks,
 } from './domain'
 import { resetUploadReceipts, uploadAttachmentsAndCompose } from './outgoing'
@@ -58,6 +60,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   context: null,
   pendingFiles: [],
   pendingRefs: [],
+  pendingQuote: null,
   pageHint: null,
   lastPageHintSent: null,
   uploadingAttachments: false,
@@ -88,6 +91,11 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   removeFolderRef: (index) => {
     set((s) => ({ pendingRefs: s.pendingRefs.filter((_, i) => i !== index) }))
+  },
+
+  /** 框选引用（豆包式）：新选区直接覆盖旧的——律师的意图就是「换成这段」 */
+  setPendingQuote: (quote) => {
+    set({ pendingQuote: quote })
   },
 
   setPageHint: (hint) => {
@@ -175,6 +183,11 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       outgoingText = `[当前页面：${pre.pageHint}]\n${trimmed}`
       set({ lastPageHintSent: pre.pageHint })
     }
+    // 框选引用（豆包式）：引用块单独成行缀在锚点后，模型据此可结合原文件
+    // （含 contract_id + subpath）回答；回放时由 splitQuoteBlock 还原成卡
+    if (pre.pendingQuote) {
+      outgoingText = `${buildSelectionQuoteBlock(pre.pendingQuote)}\n${outgoingText}`
+    }
 
     // 本轮发送归属哪个会话：await 期间用户可能切会话/开新对话，
     // 迟到结果必须丢弃，否则会覆盖用户刚选中的会话并把消息推进去
@@ -217,13 +230,15 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       return
     }
     if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ pendingFiles: [], pendingRefs: [] })
+    if (pre.pendingQuote) set({ pendingQuote: null })
     const composed = outgoing.composed
 
     const assistantId = nextLocalId()
     // 与历史回放同一解析：本地即时渲染也把页面/业务锚点、引用块还原成 chip，两侧不漂移
     const { pageHint, body: noHint } = splitPageHintLine(composed)
     const { bizHint, body: noBiz } = splitBizHintLine(noHint)
-    const { refs, body } = splitRefBlocks(noBiz)
+    const { refs, body: noRefs } = splitRefBlocks(noBiz)
+    const { quote, body } = splitQuoteBlock(noRefs)
     set((s) => ({
       messages: [
         ...s.messages,
@@ -234,6 +249,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
           ...(pageHint ? { pageHint } : {}),
           ...(bizHint ? { bizHint } : {}),
           ...(refs.length ? { refs } : {}),
+          ...(quote ? { quote } : {}),
         },
         { id: assistantId, role: 'assistant', content: '', streaming: true },
       ],
@@ -464,6 +480,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       context: null,
       pendingFiles: [],
       pendingRefs: [],
+      pendingQuote: null,
       uploadingAttachments: false,
       draggingFiles: false,
     })

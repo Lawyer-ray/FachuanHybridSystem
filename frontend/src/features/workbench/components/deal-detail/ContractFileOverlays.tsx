@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 
-import { DirectEditDialog, ReviewLaunchDrawer } from '@/features/contract-review'
+import { ReviewLaunchDrawer } from '@/features/contract-review'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl } from '../../api'
 import { FilePreview } from './FilePreview'
@@ -14,6 +14,8 @@ import { FilePreview } from './FilePreview'
  * 接好了「AI 审查」而诉讼页根本没接，就是因为这段代码长在页面里。
  *
  * 页面负责持有状态（`reviewTarget` 由页面自己 useState），这里只负责渲染与跳转。
+ * （编辑器框选的「划词」不再有对话框出口：选区直接进 AI 助手成引用卡，
+ * 见 FilePreviewCard 的 onPluginMessage / copilot launch.ts 的 quoteCopilot。）
  */
 export function ContractFileOverlays({
   ownerId,
@@ -21,8 +23,6 @@ export function ContractFileOverlays({
   reviewTarget,
   onReviewClose,
   onReviewStart,
-  selection,
-  onSelectionClose,
 }: {
   ownerId: number
   /** 委托人名称：作为「我方立场」的默认展示名 */
@@ -37,14 +37,6 @@ export function ContractFileOverlays({
    * 测试并行）下会互相覆盖，且违反 React 数据流（谁改的、什么时候改的看不出来）。
    */
   onReviewStart: (f: { subpath: string; name: string }) => void
-  /**
-   * 律师在编辑器里框选的条款（由插件桥回传）；null = 不渲染直改对话框。
-   *
-   * 与 `reviewTarget` 并列放在这一层，是因为两者的**入口相反**：
-   * 审查是律师主动点「AI 审查」按钮发起，直改是律师在文档里框完就自动弹出。
-   */
-  selection?: { text: string; subpath: string } | null
-  onSelectionClose?: () => void
 }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -119,22 +111,4 @@ export function ContractFileOverlays({
       }}
     />
   )
-
-  if (selection) {
-    // 解构参数在闭包里收窄会丢（TS18049）：显式标注以固化类型
-    const sel = selection as { text: string; subpath: string }
-    return (
-      <DirectEditDialog
-        selection={sel.text}
-        contractId={ownerId}
-        subpath={sel.subpath}
-        onClose={() => onSelectionClose?.()}
-        onApplied={() => {
-          // 后端已把修订写进原文件，但 DS 画布还持有旧内容：
-          // 发事件让详情页重取文件列表 / 换 version 重建编辑器。
-          window.dispatchEvent(new CustomEvent('fachuan:folder-changed', { detail: { ownerId } }))
-        }}
-      />
-    )
-  }
 }

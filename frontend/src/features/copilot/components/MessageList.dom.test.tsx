@@ -310,3 +310,26 @@ describe('MessageList：豆包式引用卡', () => {
     expect(screen.getByText('发票.pdf')).toBeTruthy()
   })
 })
+
+
+describe('MessageList：框选引用卡', () => {
+  it('user 消息的选段引用渲染成卡：引文 + 文件来源，正文不残留块', () => {
+    renderWithMessages([
+      {
+        id: 'u20',
+        role: 'user',
+        content: '这段条款什么意思？',
+        quote: {
+          kind: 'contract',
+          ownerId: 393,
+          subpath: '1-律师资料/1-合同/专项合同.docx',
+          name: '专项合同.docx',
+          text: '甲方拟就与对方拖欠货款之事宜，委托乙方提供专项法律服务。',
+        },
+      } as ChatMessage,
+    ])
+    expect(screen.getByText(/甲方拟就与对方拖欠货款之事宜/)).toBeTruthy()
+    expect(screen.getByText(/专项合同\.docx · 1-律师资料/)).toBeTruthy()
+    expect(screen.getByText('这段条款什么意思？')).toBeTruthy()
+  })
+})

@@ -3,7 +3,7 @@ import { Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
-import { prefillCopilot } from '@/features/copilot/launch'
+import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
@@ -26,7 +26,6 @@ export function FilePreviewCard({
   onClose,
   onSaved,
   onReview,
-  onSelection,
 }: {
   kind: FolderOwnerKind
   ownerId: number
@@ -36,13 +35,6 @@ export function FilePreviewCard({
   onSaved?: () => void
   /** 「AI 审查」——仅 docx（流水线只吃 docx） */
   onReview?: (f: { subpath: string; name: string }) => void
-  /**
-   * 律师在编辑器里框选了条款（法穿 AI 改写插件回传）。
-   *
-   * 选区只在 DS 内核里存在，外部拿不到，所以这条消息必须由插件桥送来；
-   * 拿到后交给上层渲染「选区 chip + 输入要求」的对话框。
-   */
-  onSelection?: (sel: { contractId: number; subpath: string; text: string; before: string; after: string }) => void
 }) {
   const [downloading, setDownloading] = useState(false)
   const [busy, setBusy] = useState<'save' | null>(null)
@@ -234,19 +226,24 @@ export function FilePreviewCard({
             const sel = m.text.trim()
             if (!sel || kind !== 'contract') return
 
-            // 主路径：直接调起右侧常驻 AI 助手，把选区写成引用块塞进输入框。
-            // 律师再补一句「违约金降到 10%」就成了一次完整请求。
-            //
-            // 为什么不弹自定义对话框：助手本来就是常驻的，再开一个浮层等于
-            // 多一层窗叠窗；而且选区进助手还能带上合同上下文与历史会话。
-            const hint = `请按我的要求改写下面这一段（保持法律文书语体，只改这一段）：\n\n> ${sel.replace(/\n/g, '\n> ')}\n\n修改要求：`
-            prefillCopilot(hint, {
-              origin: 'contract',
-              refId: ownerId,
-              title: file.name.replace(/\.docx$/i, ''),
-            })
-            // 备选路径：上层若想弹自己对话框，仍能收到回调
-            onSelection?.({ contractId: ownerId, subpath: file.subpath, text: sel, before: '', after: '' })
+            // 豆包式引用（不灌模板文字、不弹对话框）：选区挂成输入框上方的
+            // 引用卡，输入框保持空白，律师自由提问或点快捷 pills。旧做法把
+            // 「请按我的要求改写……修改要求：」整段塞进输入框，等于替律师
+            // 打了一半草稿，他还得先删改才能问别的。
+            quoteCopilot(
+              {
+                kind: 'contract',
+                ownerId,
+                subpath: file.subpath,
+                name: file.name,
+                text: sel,
+              },
+              {
+                origin: 'contract',
+                refId: ownerId,
+                title: file.name.replace(/\.docx$/i, ''),
+              },
+            )
           }}
         />
       </div>

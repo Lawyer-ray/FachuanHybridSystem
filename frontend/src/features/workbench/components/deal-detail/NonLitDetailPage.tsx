@@ -41,8 +41,6 @@ export function NonLitDetailPage() {
   }, [])
   /** 正在发起审查的文件（null = 抽屉关闭） */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
-  /** 律师在编辑器里框选的条款（插件桥回传）；有值就弹划词直改对话框 */
-  const [selection, setSelection] = useState<{ text: string; subpath: string } | null>(null)
   /** 右栏页内预览的文件（null = 未选中）；高频「看一眼」不写 URL、不堆历史 */
   const [picked, setPicked] = useState<
     { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
@@ -163,7 +161,6 @@ export function NonLitDetailPage() {
                 onClose={() => setPicked(null)}
                 onSaved={() => void d.refetch()}
                 onReview={(f) => setReviewTarget(f)}
-                onSelection={setSelection}
               />
             </div>
           </div>
@@ -250,8 +247,7 @@ export function NonLitDetailPage() {
                   onClose={() => setPicked(null)}
                   onSaved={() => void d.refetch()}
                   onReview={(f) => setReviewTarget(f)}
-                  onSelection={setSelection}
-                />
+                  />
               </div>
             )}
 
@@ -283,8 +279,6 @@ export function NonLitDetailPage() {
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
         onReviewStart={(f) => setReviewTarget(f)}
-        selection={selection}
-        onSelectionClose={() => setSelection(null)}
       />
     </main>
   )

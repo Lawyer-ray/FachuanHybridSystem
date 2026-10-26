@@ -23,7 +23,7 @@ import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
 import { CopilotWelcome } from './CopilotWelcome'
-import { RefQuoteCard } from './RefQuote'
+import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
 import { UserAvatar } from './UserAvatar'
 
 function ToolRow({ message }: { message: ChatMessage }) {
@@ -134,6 +134,7 @@ function Bubble({ message }: { message: ChatMessage }) {
 
   if (message.role === 'user') {
     const refs = message.refs ?? []
+    const quote = message.quote
     const pageHint = message.pageHint
     const bizHint = message.bizHint
     // ml-auto：外层 flex-col 默认 stretch 会把这一行拉满整行，气泡于是贴左，
@@ -160,12 +161,17 @@ function Bubble({ message }: { message: ChatMessage }) {
               <span className="max-w-52 truncate">{pageHint}</span>
             </span>
           )}
+          {quote && (
+            <div className="flex max-w-full flex-col items-end">
+              <SelectionQuoteCard quote={quote} />
+            </div>
+          )}
           {refs.length > 0 && (
             <div className="flex max-w-full flex-col items-end">
               <RefQuoteCard refs={refs} />
             </div>
           )}
-          {(message.content.trim() || (refs.length === 0 && !pageHint && !bizHint)) && (
+          {(message.content.trim() || (refs.length === 0 && !quote && !pageHint && !bizHint)) && (
             <div className="max-w-full rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background">
               {message.content}
             </div>
