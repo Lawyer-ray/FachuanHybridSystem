@@ -18,8 +18,15 @@ import type { OfficeEditorHandle, PluginBridgeMessage } from '@/components/share
 
 import { registerLiveRewriteApply } from './use-rewrite-refresh'
 
-/** 插件桥自身 3s 无内核回调会报错回传；这里多留一倍余量兜底 */
-const APPLY_TIMEOUT_MS = 6000
+/**
+ * 等插件回执的上限。
+ *
+ * **必须 >= plugin.js 的 COMMAND_TIMEOUT_MS（当前 8s）+ 1s 余量**：插件自己会
+ * 在 8s 报超时并回一条 `applied{ok:false}`，前端若先超时就会把它当成
+ * 「插件没反应」提前降级成换 key 重建画布（= 整页刷一下）。两边对齐后，
+ * 永远是插件先给结论，前端只在桥彻底失联时才自己超时。
+ */
+const APPLY_TIMEOUT_MS = 10000
 
 export function useLiveRewriteApply({ enabled, key }: {
   /** docx 才注册：插件只在 word 的 edit/review 态 autostart */

@@ -105,11 +105,28 @@ curl -s http://127.0.0.1:9980/healthcheck     # true
 - 且**没有任何报错日志**（曾经给挂载加 `:ro`，DS 启动时 `gzip: Read-only file system`
   被淹没在日志里，排查了很久）
 
-改了插件源码要重压：
+### 更隐蔽的一种：`.gz` 存在但**是旧的**
+
+`gzip -k` 不覆盖已存在的 `.gz`；`docker cp plugin.js` 也不会顺手重压。结果就是
+**源文件新、`.gz` 旧**，nginx 优先回 `.gz`，DS 跑的还是旧插件——而且：
+
+- `docker exec grep 新代码 plugin.js` **能搜到**（误导性极强：你会以为已经生效）
+- 只能用 `curl` 看**实际下发**的那份才能发现
+
+真机踩过：`plugin.js` 已 17243 字节，下发的 `Content-Length` 仍是旧值 3899。
+排查时先看这个（`Last-Modified` 应是刚改的时间）：
+
+```bash
+curl -s -H 'Accept-Encoding: gzip' -D - -o /tmp/p.js \
+  http://127.0.0.1:9980/sdkjs-plugins/fachuan-rewrite/plugin.js | grep -iE 'content-length|last-modified'
+grep -c '你在新代码里加的标记' /tmp/p.js    # 期望 >= 1
+```
+
+改插件后**必须** `rm -f *.gz` 再重压（用 `-f` 强制覆盖），不能只靠 `-k`：
 
 ```bash
 cd ~/onlyoffice-dev/plugins/fachuan-rewrite
-for f in config.json index.html plugin.js; do gzip -9 -kf "$f"; done
+for f in config.json index.html plugin.js; do rm -f "$f.gz"; gzip -9 -k "$f"; done
 docker compose restart onlyoffice      # DS 不热加载插件注册表
 ```
 
@@ -120,4 +137,41 @@ for f in config.json index.html plugin.js; do
   curl -s -H 'Accept-Encoding: gzip' -o /dev/null -w "$f %{http_code} %{size_download}\n" \
     http://127.0.0.1:9980/sdkjs-plugins/fachuan-rewrite/$f
 done
+```
+
+## 就地落修订（apply-revision）的定位策略
+
+AI 直改走两条路：**优先**经插件桥在当前画布里就地写修订（不重载）；
+就地失败才降级为换 document key 重建画布。重建意味着 5–15 秒白屏，
+体感上就是「**AI 改完之后整页刷一下**」，所以降低就地失败率是体验的关键。
+
+插件内核侧的 `__find` 不是单纯 `doc.Search(anchor)`，而是**四层降级**
+（`WordAdapter.apply` 里，注释有完整说明）：
+
+| 层 | 手段 | 治什么 |
+|---|---|---|
+| 1 | `doc.Search(raw)` | 干净原文 |
+| 2 | 逐元素 `GetText` 包含 | 跨 run 但同段 |
+| 3 | 归一化包含（去空白/零宽、NFKC 全半角折叠） | 空格多余/丢失、全角标点 |
+| 4 | 取开头 40 字再匹配 | 原文尾部被模型顺手改写 |
+
+两条**实测红线**（写错过，排查了很久）：
+
+1. **`ApiRange` 没有 `SetStart`/`SetEnd`**——实测 `typeof` 均为 `undefined`，
+   真实 API 是 **`SetStartPos` / `SetEndPos`**。照着想当然写会让归一化层
+   **恒假且不报错**（永远落到最后一层失败）。
+2. **`Asc.scope` 只能传字符串**，对象会静默丢失（统一 `JSON.stringify`）。
+
+插件超时 `COMMAND_TIMEOUT_MS = 8000`，前端 `APPLY_TIMEOUT_MS = 10000`（
+`use-live-rewrite-apply.ts`）——**前端必须比插件长**，否则插件还没回结论
+前端就先超时降级，白白多一次重建。
+
+就地成功与否可直接验证（不依赖肉眼）：
+
+```js
+// 在页面里统计 DocEditor 构造次数：>1 说明画布被重建了
+// 并盯 fachuan-plugin 的 applied 消息：{ok:true, how:'normalized'}
+window.addEventListener('message', e => {
+  if (e.data && e.data.source === 'fachuan-plugin') console.log(e.data.type, e.data.result)
+})
 ```

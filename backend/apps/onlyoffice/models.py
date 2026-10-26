@@ -41,6 +41,14 @@ class EditorSession(models.Model):
         blank=True,
         default="",
     )
+    external_write_seq = models.IntegerField(
+        # AI 划词直改等「编辑器之外的写」每发生一次 +1。
+        # 保存回调拿到的画布内容若是这个序号之前画的，就**不能**回写——
+        # 那会把 AI 刚落的修订整篇盖掉（真机踩过：AI 说改好了，律师
+        # 关掉编辑器后磁盘上又变回旧文）。
+        "外部写入代次（编辑器之外的覆写次数）",
+        default=0,
+    )
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
     updated_at = models.DateTimeField("更新时间", auto_now=True)
 

@@ -39,15 +39,95 @@
     try { return (window.Asc.plugin.info && window.Asc.plugin.info.editorType) || "word"; } catch (e) { return "word" }
   }
 
-  /* 在每个 callCommand 内注入的工具函数（字符串模板，避免闭包丢失） */
+  /* 在每个 callCommand 内注入的工具函数（字符串模板，避免闭包丢失）
+
+     ★ 为什么不能只做 doc.Search(anchor)
+     ---------------------------------------------------------------
+     合同正文几乎从不落在单个 run 里：排版、拼写检查、修订边界都会把一句话
+     切成十几个 run，夹带空格/零宽字符/全半角差异。精确子串匹配在真机上
+     失败率很高，一旦失败前端就只能换 key 重建画布（="整个页面刷一下"）。
+     所以这里按「由严到宽」四层降级，全都在内核里完成，不产生额外往返：
+       1) doc.Search(anchor)                     —— 内核原生（支持简单通配）
+       2) 逐元素 GetText 包含                    —— 跨 run 但同段的整段文本
+       3) 归一化后包含（去空白/零宽、全半角折叠）  —— 空格丢失/多余、全角标点
+       4) 首尾截断后再搜（前 40/后 40 字）        —— 原文被局部改过但锚点仍可用
+     ★ 红线：任何一层都不改变「找到才落笔」的语义 —— 找不到就返回 ok:false，
+       绝不在模糊位置瞎替换（法律文书容不得错位改字）。
+  */
   var KERNEL_HELPERS = [
+    "function __norm(s) {",
+    "  if (s === null || s === undefined) return '';",
+    "  s = String(s);",
+    "  try { s = s.normalize('NFKC'); } catch (e) {}",
+    "  return s.replace(/[\\s\\u200b\\u200c\\u200d\\uFEFF\\u00a0]/g, '');",
+    "}",
+    "function __selectRange(el, needleRaw) {",
+    /* 在元素内部按「归一化偏移」反推原始偏移，选中该段（跨 run 也成立） */
+    "  try {",
+    "    var full = el.GetText ? el.GetText() : '';",
+    "    if (!full) return false;",
+    "    var needle = __norm(needleRaw);",
+    "    if (!needle) return false;",
+    /* 建立 原始下标 <-> 归一化下标 的映射（只对保留字符计数） */
+    "    var map = [], i;",
+    "    for (i = 0; i < full.length; i++) {",
+    "      var ch = full.charAt(i);",
+    "      var nch = __norm(ch);",
+    "      if (nch) { map.push(i); }",
+    "    }",
+    "    var normFull = __norm(full);",
+    "    var k = normFull.indexOf(needle);",
+    "    if (k < 0) return false;",
+    "    var start = map[k];",
+    "    var endIdx = k + needle.length - 1;",
+    "    var end = map[endIdx];",
+    "    if (start === undefined || end === undefined) return false;",
+    "    var range = el.GetRange ? el.GetRange() : null;",
+    "    if (!range) return false;",
+    /* DS 的 ApiRange **没有** SetStart/SetEnd（实测 typeof 为 undefined），
+       真实 API 是 SetStartPos/SetEndPos（真机探测确认存在）。写成前者会
+       恒假——这正是归一化层一直静默不生效的原因。 */
+    "    if (typeof range.SetStartPos === 'function' && typeof range.SetEndPos === 'function') {",
+    "      range.SetStartPos(start);",
+    "      range.SetEndPos(end + 1);",
+    "      if (typeof range.Select === 'function') range.Select();",
+    "      return true;",
+    "    }",
+    "  } catch (e) {}",
+    "  return false;",
+    "}",
     "function __find(doc, anchor) {",
-    "  var rs = doc.Search(anchor);",
-    "  if (rs && rs.length) { rs[0].Select(); return { ok: true, how: 'search', n: rs.length }; }",
+    "  var raw = anchor === null || anchor === undefined ? '' : String(anchor);",
+    "  if (!__norm(raw)) return { ok: false, how: 'empty' };",
+    /* 1) 内核原生搜索 */
+    "  try { var rs = doc.Search(raw); if (rs && rs.length) { rs[0].Select(); return { ok: true, how: 'search', n: rs.length }; } } catch (e) {}",
+    /* 2) 逐元素整段包含 */
     "  var n = doc.GetElementsCount();",
-    "  for (var i = 0; i < n; i++) {",
-    "    var el = doc.GetElement(i);",
-    "    try { if (el.GetText && el.GetText().indexOf(anchor) >= 0) { el.GetRange().Select(); return { ok: true, how: 'element' }; } } catch (e) {}",
+    "  var i, el;",
+    "  for (i = 0; i < n; i++) {",
+    "    el = doc.GetElement(i);",
+    "    try { if (el.GetText && el.GetText().indexOf(raw) >= 0) { el.GetRange().Select(); return { ok: true, how: 'element' }; } } catch (e) {}",
+    "  }",
+    /* 3) 归一化包含（去空白 / 全半角折叠） */
+    "  for (i = 0; i < n; i++) {",
+    "    el = doc.GetElement(i);",
+    "    try { if (__selectRange(el, raw)) return { ok: true, how: 'normalized' }; } catch (e) {}",
+    "  }",
+    /* 4) 首尾截断（原文被局部改过，但开头/结尾仍能钉住位置） */
+    "  var normRaw = __norm(raw);",
+    "  var probes = [];",
+    /* 截断只取开头：结尾常被模型顺手补全/改写，拿它钉位置反而更不稳。
+       40 字足以唯一锚定一句话，且比整段更容易在脏文本里命中。 */
+    "  if (normRaw.length > 24) { probes.push(raw.slice(0, 40)); }",
+    "  for (var p = 0; p < probes.length; p++) {",
+    "    var pr = probes[p];",
+    "    if (!__norm(pr)) continue;",
+    /* 先走归一化（跨 run / 带空格也能中），再退回内核 Search */
+    "    for (i = 0; i < n; i++) {",
+    "      el = doc.GetElement(i);",
+    "      try { if (__selectRange(el, pr)) return { ok: true, how: 'partial' }; } catch (e) {}",
+    "    }",
+    "    try { var rs2 = doc.Search(pr); if (rs2 && rs2.length === 1) { rs2[0].Select(); return { ok: true, how: 'partial-search', n: 1 }; } } catch (e) {}",
     "  }",
     "  return { ok: false, how: 'none' };",
     "}"
@@ -59,6 +139,16 @@
     return new Function(KERNEL_HELPERS + "\ntry {\n" + lines.join("\n") + "\n} catch (e) { return { ok: false, reason: String(e.message || e) }; }");
     /* eslint-enable no-new-func */
   }
+
+  /* 在适配器定义前声明：runWithCallback 的兜底超时
+
+     为什么从 3s 抬到 8s：__find 的归一化降级层要遍历全部元素（十页合同
+     量级很大），3s 会把「其实正在成功定位」误报成超时；而一旦误报 ok:false，
+     前端就会换 key 重建画布（= 整页刷一下）。宁可多等几秒弹「正在写入」,
+     也不要把可成功的修改器变成一次重载。
+     前端 use-live-rewrite-apply 的 APPLY_TIMEOUT_MS 必须 >= 本值 + 1s 余量。
+  */
+  var COMMAND_TIMEOUT_MS = 8000;
 
   var ADAPTERS = {
 
@@ -178,9 +268,9 @@
       if (!finished) post({ type: kind, result: { ok: false, reason: String(e.message || e) }, id: payload && payload.id });
       return;
     }
-    setTimeout(function () {                         /* 兜底：3s 无回调则报错，避免「一直转」 */
+    setTimeout(function () {                         /* 兜底：超时则报错，避免「一直转」 */
       if (!finished) { finished = true; post({ type: kind, result: { ok: false, reason: "内核无响应（超时）" }, id: payload && payload.id }) }
-    }, 3000);
+    }, COMMAND_TIMEOUT_MS);
   }
 
   /* ---------- 选区 ---------- */

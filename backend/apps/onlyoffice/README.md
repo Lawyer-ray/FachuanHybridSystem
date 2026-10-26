@@ -83,6 +83,28 @@ DS 在独立容器里，带不了 `Authorization` 头，且会**重试**（首�
 - 落盘后轮换 key：`saved_version + 1` → 下次签发新 key，否则 DS 继续用缓存旧内容；
 - 旧产物路径留在 `EditorSession.prev_output_file`（物理文件保留，可手工恢复）。
 
+### 过期画布的保存必须丢弃（AI 直改的数据丢失防线）
+
+`status=2/6` 交回来的是**编辑器内存里的画布内容**，不是你磁盘上的文件。AI 划词直改走后端
+直接改 docx（`direct_edit_service`），磁盘变了、画布还是旧的；一旦这份旧画布被回写，
+AI 刚落的 `w:ins`/`w:del` 就被整篇静默覆盖。真机现象：
+
+```
+AI 说「已改好，可在审阅里看到修订」
+→ 关掉编辑器再打开，又变回旧文
+```
+
+防线：`EditorSession.external_write_seq`（外写代次）。
+
+- `bump_external_write()`（AI 落盘后调）抬文档级代次；
+- 签发新 key 时把该会话的代次对齐到文档级（新画布 = 新内容）；
+- `stale_canvas_reason()` 在回写前比对：**文档级代次 > 会话代次** = 画布是外写之前加载的；
+- 命中则**丢弃这次保存**并 `return True`（应答成功）。
+
+最后一点容易写错：这里必须回成功而非 `{"error": 1}`。DS 重试交回来的还是同一份旧画布，
+`error 1` 只会无限循环；丢掉这一次保存才是正确结果。回归测试：
+`tests/ci/unit/onlyoffice/test_stale_canvas_guard.py`。
+
 **document key 规则**（`make_document_key`）：`sha256(source_path | version | saved_version)[:32]`。
 
 - key 标识**文档版本**：同文件同版本对所有用户算出同一 key —— 这是 DS 实时协同的前提；
@@ -257,6 +279,7 @@ ls ~/Downloads/Coding/AI/onlyoffice-dev/fonts/  # 宿主侧清单
 | 每次打开都重新转换、两人协同互相看不见 | 签名参数混进了 `document.key`（`sig` 含时间戳）。key 只用 `source_path|version|saved_version` |
 | 改了内容但看到旧版 | 保存后没轮换 key，或 DS 缓存没清 |
 | 工作台挂一天，修订没落盘 | 没开 `customization.forcesave`；默认只在最后一人关闭 10s 后才回调 |
+| **AI 说改好了，重开文档又变回旧文** | 编辑器旧画布把 AI 落盘的内容盖了。看 `EditorSession.external_write_seq` 与日志「忽略过期画布的保存回调」；机制见「③ 保存回写」 |
 | **WPS/Word 里满是修订，OnlyOffice 画布干净得更新文档一样** | 没给 `customization.review.reviewDisplay: "markup"`。DS 默认 `"original"` = 按修订前原文渲染，已有 `w:ins`/`w:del` **一律不画**。
 注意 `trackChanges` 是**录制**开关（我敲字要不要留痕），不是**显示**开关（文件里已有痕迹要不要画），两者不可互替。
 先用 `unzip -p x.docx word/document.xml \| grep -c '<w:ins \|'` 确认文件真带痕迹，再查 config。 |

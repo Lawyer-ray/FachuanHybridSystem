@@ -22,7 +22,7 @@ from uuid import UUID, uuid5
 
 import httpx
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import F, Max
 from django.utils import timezone
 
 from ..models import EditorSession
@@ -36,6 +36,16 @@ _MAX_SAVE_BYTES = 100 * 1024 * 1024
 # 从路径派生会话 id 的命名空间（固定值，改了会与存量会话对不上）
 _SESSION_NS = UUID("6f1b0c2e-7a41-5d8e-9b3c-2f4a6d8e0c11")
 _DOWNLOAD_TIMEOUT = 60.0
+
+
+def _doc_external_seq(task_id: UUID, task_type: str = "contract_review") -> int:
+    """文档级外部写入代次（同一业务域同一任务取 max）。
+
+    与 `_doc_saved_version` 同构：外写是**文档级**事件（AI 改的是盘上那份文件），
+    两个律师同时开着同一份文件时，任一方触发的外部写入都会让两边的画布同时过期。
+    """
+    agg = EditorSession.objects.filter(task_type=task_type, task_id=task_id).aggregate(m=Max("external_write_seq"))
+    return int(agg["m"] or 0)
 
 
 def _doc_saved_version(task_id: UUID, task_type: str = "contract_review") -> int:
@@ -71,7 +81,12 @@ def bump_external_write(source_path: str, task_type: str = "contract_folder") ->
     """
     task_id = session_id_for_path(source_path)
     new_saved_version = _doc_saved_version(task_id, task_type) + 1
-    updated = EditorSession.objects.filter(task_type=task_type, task_id=task_id).update(saved_version=new_saved_version)
+    # 代次先抬：保存回调据此判断「这份画布是外部写入之前画的」，
+    # 从而拒绝拿旧内容覆写掉 AI 刚落的修订（见 stale_canvas_reason）。
+    # F() 原子自增，避免多 worker 并发外部写时丢计数。
+    updated = EditorSession.objects.filter(task_type=task_type, task_id=task_id).update(
+        saved_version=new_saved_version, external_write_seq=F("external_write_seq") + 1
+    )
     if not updated:
         return 0
     logger.info("外部覆写后轮换文档 key: task_type=%s task=%s saved_version=%d", task_type, task_id, new_saved_version)
@@ -101,6 +116,10 @@ def get_or_refresh_session(
         session.source_path = source_path
         session.version = version
         session.document_key = document_key
+        # 新签发的 key 意味着浏览器会（重新）向 DS 拉一份**当下磁盘**的内容，
+        # 所以该会话看到的外写代次应该跟文档级对齐——不对齐的话，
+        # 每次保存都会被 stale_canvas_reason 判成「旧画布」而丢掉。
+        session.external_write_seq = _doc_external_seq(task_id, task_type)
         session.save()
     return session, document_key
 
@@ -124,6 +143,23 @@ def _download_edited_docx(url: str) -> bytes:
     return resp.content
 
 
+def stale_canvas_reason(session: EditorSession) -> str:
+    """保存回调若会把外部写入盖掉，返回原因文案；否则返回空串。
+
+    **为什么必须拦**：DS 的 forcesave/关闭回调交回的是**编辑器内存里的画布内容**。
+    AI 划词直改走后端直接改 docx（`direct_edit_service`），磁盘已经变了、画布还是
+    旧的；一旦这份旧画布被回写，AI 刚落的 `w:ins`/`w:del` 就被整篇静默覆盖——
+    真机表现为「AI 说改好了，关掉编辑器再打开又变回旧文」。
+
+    判据：文档级外写代次 > 该会话签发 key 时记下的代次，说明画布是外写**之前**
+    加载的，属于过期内容。
+    """
+    doc_seq = _doc_external_seq(session.task_id, session.task_type)
+    if doc_seq <= int(session.external_write_seq or 0):
+        return ""
+    return "文档已被 AI 改写（磁盘内容新于当前画布），本次保存已忽略以免覆盖修订；请关闭并重新打开文档后再编辑"
+
+
 def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
     """处理 status=2/6：下载编辑产物 → 落回业务实体 → 轮换 key。
 
@@ -135,6 +171,19 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
     if domain is None:
         logger.warning("保存回写暂不支持业务域: %s", session.task_type)
         return False
+    # 先判「画布是否已落后于磁盘」：AI 划词直改直写 docx 并抬了外写代次，
+    # 这份画布若还是旧代次签发的，回写就是拿旧内容盖掉 AI 刚落的修订。
+    # 返回 True 而非 False 是故意的：不让落盘、也不让 DS 重试——重试还是
+    # 同一份旧内容，只会无限循环；丢掉这一次保存才是正确结果。
+    stale = stale_canvas_reason(session)
+    if stale:
+        logger.warning(
+            "忽略过期画布的保存回调（外部写入比画布新）: task=%s key=%s",
+            session.task_id,
+            session.document_key,
+        )
+        record_callback_status(session, status)
+        return True
     try:
         data = _download_edited_docx(url)
         new_saved_version = _doc_saved_version(session.task_id) + 1
@@ -152,6 +201,8 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
         session.document_key = make_document_key(session.source_path, session.version, new_saved_version)
         session.last_callback_status = status
         session.last_saved_at = timezone.now()
+        # 本次保存已经与磁盘对齐，代次跟上，后续保存不再被当成旧画布
+        session.external_write_seq = _doc_external_seq(session.task_id, session.task_type)
         session.save()
     logger.info(
         "OnlyOffice 保存回写完成: task=%s v%d -> %s（旧产物留档 %s）",
