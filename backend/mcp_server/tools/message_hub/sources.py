@@ -23,7 +23,7 @@ def get_message_source(source_id: int) -> dict[str, Any]:
 def create_message_source(
     display_name: Annotated[str, Field(description="来源显示名称")],
     source_type: Annotated[
-        Literal["imap", "manual_upload", "court_inbox", "court_schedule"],
+        Literal["imap", "manual_upload", "court_inbox", "court_schedule", "client_upload"],
         Field(description="来源类型:imap IMAP 邮箱(没有 email 这个值)/manual_upload 前端手动上传/court_inbox 一张网收件箱/court_schedule 一张网庭审日程"),
     ],
     credential_id: Annotated[int, Field(description="关联 Organization 的账号凭证 ID", ge=1)],
@@ -39,7 +39,12 @@ def create_message_source(
 
     source_type 取值（**没有 ``email`` 这个值**,邮箱收件是 ``imap``）:
     ``imap`` IMAP 邮箱 / ``manual_upload`` 前端手动上传 /
-    ``court_inbox`` 一张网收件箱 / ``court_schedule`` 一张网庭审日程。
+    ``court_inbox`` 一张网收件箱 / ``court_schedule`` 一张网庭审日程 /
+    ``client_upload`` 客户链接上传。
+
+    ``client_upload`` 由系统在首次使用客户上传链接时自动创建，**一般不需要
+    手动建**；列在这里是为了 schema 与 `SourceType` 保持同源（模型加值而工具
+    漏加，调用方会收到「取值非法」却看不出该传什么）。
     """
     payload: dict[str, Any] = {
         "display_name": display_name,

@@ -178,7 +178,7 @@ function makeCase(over: Partial<CaseListItem> = {}): CaseListItem {
 }
 
 const lawyers: LawyerListItem[] = [
-  { id: 1, real_name: '黄崧', phone: '138', license_no: '1440120', law_firm_name: '某律所' },
+  { id: 1, real_name: '黄某', phone: '138', license_no: '144****', law_firm_name: '某律所' },
 ]
 
 function setupUi(path = '/projects/7') {

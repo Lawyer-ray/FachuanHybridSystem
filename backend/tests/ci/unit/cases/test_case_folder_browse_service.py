@@ -92,7 +92,9 @@ class TestListEntriesAndResolveFile:
 
         assert out["browsable"] is True
         assert out["subpath"] == "" and out["parent_subpath"] == ""
-        assert out["folders"] == [{"name": "2-邮件往来", "subpath": "2-邮件往来"}]
+        # file_count 是 2026-10 新增字段（常法页据它判「事项是否已交付」）：
+        # 该子目录下没有直接文件（只有更深一层的 2026.09.29 目录），故为 0
+        assert out["folders"] == [{"name": "2-邮件往来", "subpath": "2-邮件往来", "file_count": 0}]
         assert [f["name"] for f in out["files"]] == ["root-note.txt"]
         assert out["files"][0]["subpath"] == "root-note.txt"
         assert out["files"][0]["size"] == 2

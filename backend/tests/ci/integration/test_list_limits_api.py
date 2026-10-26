@@ -83,7 +83,8 @@ class TestCasesLimit:
         ):
             facade.return_value.list_cases.return_value = qs
             result = await case_api.list_cases(request)
-        assert qs.slices == [slice(200)]
+        # 带 offset 后切片显式写成 [offset : offset+limit]，语义与旧 qs[:200] 等价
+        assert qs.slices == [slice(0, 200)]
         assert result == []
 
 
