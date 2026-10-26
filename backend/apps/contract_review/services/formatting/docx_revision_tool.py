@@ -38,7 +38,7 @@ class DocxRevisionTool:
         author: str | None = None,
     ) -> bool:
         """在段落中定位原文，插入 <w:del> 和 <w:ins> 修订标记。
-        先尝试单 run 匹配，失败则尝试跨 run 匹配。
+        先尝试单 run 匹配，失败则跨 run 匹配（空白容忍，见 _find_span）。
         """
         author = author or AUTHOR
         date = datetime.now(tz=_CST).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -49,17 +49,13 @@ class DocxRevisionTool:
                 self._apply_single_run(paragraph, run, original, replacement, author, date)
                 return True
 
-        # 跨 run 匹配：拼接段落全文查找
-        full_text = paragraph.text
-        if original not in full_text:
-            # 尝试去空格匹配
-            normalized = original.replace(" ", "").replace("\u3000", "")
-            normalized_full = full_text.replace(" ", "").replace("\u3000", "")
-            if normalized not in normalized_full:
-                logger.warning("未在段落中找到原文: %s", original[:60])
-                return False
+        # 跨 run 匹配：拼接段落全文查找。模板空位（下划线空格）与编辑器
+        # 复制会把连续空格折叠或展开，精确比对必然误判「找不到」——统一走
+        # 空白容忍的 _find_span（真实内容不同才算找不到）
+        if _find_span(paragraph.text, original) is None:
+            logger.warning("未在段落中找到原文: %s", original[:60])
+            return False
 
-        # 跨 run 匹配
         return self._apply_cross_run(paragraph, original, replacement, author, date)
 
     def _apply_single_run(
@@ -119,11 +115,11 @@ class DocxRevisionTool:
             pos += length
 
         full_text = "".join(r.text for r in runs)
-        idx = full_text.find(original)
-        if idx < 0:
+        span = _find_span(full_text, original)
+        if span is None:
             return False
 
-        end_idx = idx + len(original)
+        idx, end_idx = span
 
         # 找到覆盖 [idx, end_idx) 的 run 范围
         first_run = last_run = -1
@@ -160,10 +156,12 @@ class DocxRevisionTool:
 
         # 插入新元素（insert_pos 已在移除前记录）
 
+        # 删除痕迹必须写文档**实际**区间文本：空白容忍匹配下选区与原文的
+        # 空白可能不一致，照抄 original 会让 del 内容与被删 run 对不上账
         elements: list[etree._Element] = []
         if prefix:
             elements.append(_make_run(prefix, ref_elem))
-        elements.append(_create_del(original, author, date, ref_elem))
+        elements.append(_create_del(full_text[idx:end_idx], author, date, ref_elem))
         elements.append(_create_ins(replacement, author, date, ref_elem))
         if suffix:
             elements.append(_make_run(suffix, ref_elem))
@@ -207,6 +205,35 @@ def _make_run(text: str, source_run: etree._Element, tag: str = "w:t") -> etree.
     t.text = text
     r.append(t)
     return r
+
+
+def _find_span(text: str, needle: str) -> tuple[int, int] | None:
+    """在 text 里为 needle 找落笔区间 [start, end)，空白完全容忍。
+
+    模板空位（下划线空格）与编辑器复制的选区在空白上天然不一致：下划线
+    空位是两个空格、选区只剩一个甚至没有；反过来选区带空格、原文没有也
+    有。精确 find 只是快路径，失败后按「去空白等价」匹配，并把区间映射回
+    原文本坐标——返回的 [start, end) 始终切在真实字符上，删除痕迹用文档
+    实际文本，不吃亏不越界。找不到（真实内容不同）返回 None。
+    """
+    i = text.find(needle)
+    if i >= 0:
+        return i, i + len(needle)
+    stripped_needle = "".join(needle.split())
+    if not stripped_needle:
+        return None
+    stripped_chars: list[str] = []
+    orig_idx: list[int] = []
+    for pos, ch in enumerate(text):
+        if not ch.isspace():
+            stripped_chars.append(ch)
+            orig_idx.append(pos)
+    j = "".join(stripped_chars).find(stripped_needle)
+    if j < 0:
+        return None
+    start = orig_idx[j]
+    end = orig_idx[j + len(stripped_needle) - 1] + 1
+    return start, end
 
 
 # ↓↓ 由 DocxRevisionTool 下沉的模块级纯函数（四层架构静态方法棘轮）
