@@ -8,6 +8,7 @@ import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
 import { fmtSize } from './folder-tree-types'
+import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
 /**
@@ -45,6 +46,13 @@ export function FilePreviewCard({
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布（DS 才会
   // 拉到已覆写的内容，修订痕迹可见）；未被覆写保持空串不动存量 key 口径
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
+  // 就地落修订通道：AI 覆写成功时优先走插件桥在当前画布里直接长出修订
+  // 痕迹（免整页重载），失败才轮到上面的 nonce 重载。仅合同 docx——直改
+  // 落盘端点只认合同绑定文件夹
+  const liveApply = useLiveRewriteApply({
+    enabled: isDocx && kind === 'contract',
+    key: `contract:${ownerId}:${file.subpath}`,
+  })
 
   /** 编辑器句柄：保存时用 downloadAs 取当前内容 */
   const editorRef = useRef<OfficeEditorHandle | null>(null)
@@ -223,6 +231,7 @@ export function FilePreviewCard({
           onEditorReady={(h) => {
             editorRef.current = h
             setReady(!!h)
+            liveApply.onEditorReady(h)
           }}
           onPluginMessage={(m: PluginBridgeMessage) => {
             // 只关心「选区」：插件在律师框选后推送，宿主把它变成指令。

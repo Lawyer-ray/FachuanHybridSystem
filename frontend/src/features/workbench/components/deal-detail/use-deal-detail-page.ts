@@ -1,5 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
+
+import { openCopilot } from '@/features/copilot/launch'
 
 import {
   buildDeadlines,
@@ -43,11 +45,17 @@ export const soonToast = (what: string) => toast.info(what + '正在开发中')
  * 详情页共用的助手上下文绑定：进页把全局助手绑到该委托（欢迎页变本委托
  * 专属文案、快捷任务带归属、新会话自动注入 contract_id 锚点），离页退出。
  * 非诉页此前只有 setPageHint 没绑上下文——助手在非诉详情页里当通用对话。
+ *
+ * 进页同时**自动弹出**助手面板并沿用该委托最近的会话（store.enterContext
+ * 负责）；「新对话」只能由律师主动点。
  */
 export function useDealCopilotContext(
   deal: { id: number; client: string } | null | undefined,
   pageHintLabel: string,
 ) {
+  /** 已自动弹出过的委托：数据刷新重跑 effect 不重复弹——律师手动收起后
+   *  就保持收起，切到别的委托再进来才重新弹 */
+  const openedForRef = useRef<number | null>(null)
   useEffect(() => {
     if (!deal) return
     let cancelled = false
@@ -57,6 +65,10 @@ export function useDealCopilotContext(
       st.setPageHint(`${pageHintLabel} · ${deal.client}（contract_id=${deal.id}）`)
       void st.enterContext({ origin: 'contract', refId: deal.id, title: deal.client })
     })
+    if (openedForRef.current !== deal.id) {
+      openedForRef.current = deal.id
+      openCopilot({ origin: 'contract', refId: deal.id, title: deal.client })
+    }
     return () => {
       cancelled = true
       void import('@/features/copilot/store').then((m) => {

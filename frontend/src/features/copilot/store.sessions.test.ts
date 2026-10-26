@@ -217,17 +217,58 @@ describe('copilot store：后台任务', () => {
 })
 
 describe('copilot store：业务上下文', () => {
-  it('enterContext 记录上下文并回到新对话；exitContext 清除', async () => {
+  it('enterContext 沿用该范围最近的会话（列表第一条）；exitContext 清除', async () => {
     vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
-    useCopilot.setState({ sessionId: 's-1', messages: [{ id: '1', role: 'user', content: 'x' }] })
+    vi.mocked(copilotApi.listSessions).mockResolvedValue([session])
+    useCopilot.setState({ sessionId: 's-other', messages: [{ id: '1', role: 'user', content: 'x' }] })
 
     await useCopilot.getState().enterContext({ origin: 'contract', refId: 386, title: '张三委托' })
+    expect(copilotApi.listSessions).toHaveBeenCalledWith(1, { origin: 'contract', refId: 386 })
     expect(useCopilot.getState().context).toEqual({ origin: 'contract', refId: 386, title: '张三委托' })
-    expect(useCopilot.getState().sessionId).toBeNull()
-    expect(useCopilot.getState().messages).toEqual([])
+    expect(useCopilot.getState().sessionId).toBe('s-1')
 
     await useCopilot.getState().exitContext()
     expect(useCopilot.getState().context).toBeNull()
+  })
+
+  it('该范围没有历史会话：落空白新对话', async () => {
+    vi.mocked(copilotApi.listSessions).mockResolvedValue([])
+    await useCopilot.getState().enterContext({ origin: 'contract', refId: 386, title: '张三委托' })
+    expect(useCopilot.getState().sessionId).toBeNull()
+  })
+
+  it('最近会话拉取失败：按无历史处理（空白），不阻塞进页', async () => {
+    vi.mocked(copilotApi.listSessions).mockRejectedValue(new Error('boom'))
+    await useCopilot.getState().enterContext({ origin: 'case', refId: 12, title: '某案' })
+    expect(useCopilot.getState().sessionId).toBeNull()
+    expect(useCopilot.getState().context).toEqual({ origin: 'case', refId: 12, title: '某案' })
+  })
+
+  it('拉取期间律师点了「新对话」：迟到的自动恢复不得覆盖', async () => {
+    let resolveList: (v: AgentSession[]) => void = () => {}
+    vi.mocked(copilotApi.listSessions).mockReturnValue(
+      new Promise<AgentSession[]>((r) => {
+        resolveList = r
+      }),
+    )
+    const entering = useCopilot.getState().enterContext({ origin: 'contract', refId: 386, title: '张三委托' })
+    // 拉取在途时用户主动开了新对话
+    await useCopilot.getState().switchSession(null)
+    resolveList([session])
+    await entering
+
+    expect(useCopilot.getState().sessionId).toBeNull()
+  })
+
+  it('同一范围重进（数据刷新）：幂等短路，不重置对话', async () => {
+    vi.mocked(copilotApi.listSessions).mockResolvedValue([session])
+    vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
+    await useCopilot.getState().enterContext({ origin: 'contract', refId: 386, title: '张三委托' })
+    vi.clearAllMocks()
+
+    await useCopilot.getState().enterContext({ origin: 'contract', refId: 386, title: '标题更新' })
+    expect(copilotApi.listSessions).not.toHaveBeenCalled()
+    expect(useCopilot.getState().sessionId).toBe('s-1')
   })
 
   it('上下文内发消息：新会话带 origin/contract_id 归属', async () => {

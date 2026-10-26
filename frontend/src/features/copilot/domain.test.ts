@@ -14,6 +14,7 @@ import {
   buildSelectionQuoteBlock,
   normalizeSelectionText,
   parseFileRewrite,
+  extractRewriteArgs,
   splitQuoteBlock,
   splitRefBlocks,
   shortToolName,
@@ -373,5 +374,39 @@ describe('AI 改写落盘信号（parseFileRewrite）', () => {
     // 旧后端没有 contract_id 字段：没有定向刷新的依据，宁可不动
     expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', '{"applied": true, "subpath": "a.docx"}')).toBeNull()
     expect(parseFileRewrite(undefined, applied)).toBeNull()
+  })
+
+  it('带调用参数时透传 original/replacement（画布内就地落修订用）', () => {
+    const r = parseFileRewrite('mcp__fachuan__rewrite_folder_file', applied, false, {
+      original: '甲方拟就与对方之事宜',
+      replacement: '鉴于甲方因经营调整拟停止生产经营',
+    })
+    expect(r).toMatchObject({
+      contractId: 393,
+      original: '甲方拟就与对方之事宜',
+      replacement: '鉴于甲方因经营调整拟停止生产经营',
+    })
+  })
+
+  it('缺参数时信号仍然有效（只是退回换 key 重载）', () => {
+    const r = parseFileRewrite('mcp__fachuan__rewrite_folder_file', applied)
+    expect(r?.original).toBeUndefined()
+    expect(r?.replacement).toBeUndefined()
+  })
+})
+
+describe('rewrite 调用参数提取（extractRewriteArgs）', () => {
+  it('对象与 JSON 字符串两种形状都能取到原文/改写全文', () => {
+    const args = { original: '原文段落', replacement: '改写段落' }
+    expect(extractRewriteArgs(args)).toEqual(args)
+    expect(extractRewriteArgs(JSON.stringify(args))).toEqual(args)
+  })
+
+  it('形状不对 / 字段缺失 / 空白文本一律 null（宁缺勿错）', () => {
+    expect(extractRewriteArgs(undefined)).toBeNull()
+    expect(extractRewriteArgs('不是 JSON')).toBeNull()
+    expect(extractRewriteArgs({ original: '只有原文' })).toBeNull()
+    expect(extractRewriteArgs({ original: '原文', replacement: '   ' })).toBeNull()
+    expect(extractRewriteArgs({ original: 1, replacement: 2 })).toBeNull()
   })
 })

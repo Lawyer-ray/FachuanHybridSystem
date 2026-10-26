@@ -44,6 +44,16 @@ const EMPTY_STATS: CopilotState['turnStats'] = {
 /** 在途流的中止句柄（模块级，随 store 生命周期） */
 let controller: AbortController | null = null
 
+/**
+ * 会话动作纪元：任何切换/新建会话都 +1。
+ *
+ * enterContext 的「自动恢复最近会话」要 await 一次列表拉取，期间律师可能
+ * 已动了手（点新对话/切会话/发消息建会话）。只比 sessionId 挡不住
+ * 「null → 点新对话 → 还是 null」这条隐形路径，所以按**动作次数**计：
+ * 拉取回来发现纪元变了，就是有人动过，迟到的自动恢复让位。
+ */
+let sessionEpoch = 0
+
 export const useCopilot = create<CopilotState>((set, get) => ({
   sessionId: readStoredSession(),
   messages: [],
@@ -114,7 +124,23 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     }
     if (get().streaming) get().stop()
     set({ context })
-    await get().switchSession(null)
+    // 沿用该业务范围**最近**的会话（列表按 updated_at 降序，第一条即最近），
+    // 没有历史会话才落空白新对话——「进项目 = 接着上次聊」，开新对话只能
+    // 由律师主动点「新对话」。拉取失败按无历史处理，不阻塞进页。
+    const epochAtFetch = sessionEpoch
+    let resumeId: string | null
+    try {
+      const latest = await copilotApi.listSessions(1, { origin: context.origin, refId: context.refId })
+      resumeId = latest[0]?.session_id ?? null
+    } catch {
+      resumeId = null
+    }
+    // await 期间律师动过会话（点新对话/切会话/发消息建会话，见 sessionEpoch）
+    // 或范围又被切走（快速跳页）：用户动作优先，迟到的自动恢复不得覆盖。
+    const now = get().context
+    if (now?.origin !== context.origin || now?.refId !== context.refId) return
+    if (sessionEpoch !== epochAtFetch) return
+    await get().switchSession(resumeId)
   },
 
   exitContext: async () => {
@@ -124,6 +150,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   },
 
   switchSession: async (id) => {
+    sessionEpoch += 1
     const prev = get()
     // 同会话且**视图已就绪**才跳过：不重复拉取、不播切换动画
     // （stop 后的重拉 streaming 仍为 true，放行）。
@@ -206,6 +233,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
         onQueued?.(false)
         return
       }
+      sessionEpoch += 1
       set({ sessionId })
       storeSession(sessionId)
     }
@@ -464,6 +492,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   reset: () => {
     get().stop()
+    sessionEpoch += 1
     set({
       sessionId: null,
       messages: [],

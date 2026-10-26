@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
+import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
 /**
@@ -45,6 +46,11 @@ export function FilePreview({
   const isDocx = /\.docx$/i.test(file.name)
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布，修订痕迹才可见
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
+  // 就地落修订通道（合同 docx）：AI 覆写成功时免重载直接在画布里长出修订
+  const liveApply = useLiveRewriteApply({
+    enabled: isDocx && kind === 'contract',
+    key: `contract:${ownerId}:${file.subpath}`,
+  })
 
   /**
    * 触发保存（DS forcesave → 回调落盘）。
@@ -176,6 +182,7 @@ export function FilePreview({
           onEditorReady={(h) => {
             editorRef.current = h
             setReady(!!h)
+            liveApply.onEditorReady(h)
           }}
         />
       </div>

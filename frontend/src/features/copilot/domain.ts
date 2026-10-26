@@ -161,6 +161,32 @@ export interface FileRewriteSignal {
   subpath: string
   /** 文件名 */
   name: string
+  /**
+   * 原文片段 / 改写全文（来自 tool_call 的 arguments，非 apply 结果）。
+   *
+   * tool_result 的 result 在 SSE 里被截到 2000 字读不回全文，调用参数
+   * 却完整到达。带上这对字段时，打开中的画布可**就地**落修订（插件桥
+   * apply-revision），免掉整页重载；缺失则回退换 key 重载。
+   */
+  original?: string
+  replacement?: string
+}
+
+/** rewrite_folder_file 调用参数里提取原文/改写全文；形状不对或为空返回 null（宁缺勿错） */
+export function extractRewriteArgs(args: unknown): { original: string; replacement: string } | null {
+  let parsed: unknown = args
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed)
+    } catch {
+      return null
+    }
+  }
+  if (!parsed || typeof parsed !== 'object') return null
+  const { original, replacement } = parsed as Record<string, unknown>
+  if (typeof original !== 'string' || typeof replacement !== 'string') return null
+  if (!original.trim() || !replacement.trim()) return null
+  return { original, replacement }
 }
 
 /**
@@ -171,8 +197,16 @@ export interface FileRewriteSignal {
  * 结果字符串可能被 SSE 截断（bridge 限 2000 字符）——JSON.parse 失败、
  * applied 不为 true、缺 contract_id/subpath 一律返回 null：**宁可不刷新，
  * 也不能误刷新**（误刷新会把正在编辑的画布无谓重载）。
+ *
+ * `args` 是同一次调用的 tool_call 参数（原文/改写全文的唯一完整来源），
+ * 用于画布内就地落修订；缺了也能用，只是退回整页重载。
  */
-export function parseFileRewrite(toolName: string | undefined, resultText: string, isError = false): FileRewriteSignal | null {
+export function parseFileRewrite(
+  toolName: string | undefined,
+  resultText: string,
+  isError = false,
+  args?: { original: string; replacement: string } | null,
+): FileRewriteSignal | null {
   if (isError || !toolName || !toolName.endsWith('rewrite_folder_file')) return null
   try {
     const parsed = JSON.parse(resultText) as {
@@ -189,6 +223,7 @@ export function parseFileRewrite(toolName: string | undefined, resultText: strin
       contractId,
       subpath,
       name: typeof parsed.name === 'string' && parsed.name ? parsed.name : subpath.split('/').pop() || subpath,
+      ...(args ? { original: args.original, replacement: args.replacement } : {}),
     }
   } catch {
     return null
