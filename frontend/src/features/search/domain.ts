@@ -1,5 +1,3 @@
-import { isLitigationType } from '@/lib/case-type'
-
 import type { Hit } from './types'
 
 /**
@@ -64,13 +62,18 @@ export function orderProjectHits(hits: Hit[]): Hit[] {
   return [...ordered, ...orphans, ...rest]
 }
 
-/** 项目行 / 案件行的跳转目标；无合同的案件无处可去返回 undefined（按未建页处理） */
+/**
+ * 项目行 / 案件行的跳转目标；无合同的案件无处可去返回 undefined（按未建页处理）。
+ *
+ * **不按诉讼/非诉分流**：详情页已收敛为单条 URL `/projects/:id`，由
+ * `ProjectDetailPage` 按 `deal.lit` 在页内选左栏（案件程序链 / 合同文件夹），
+ * 不再存在 `/projects/:id/nonlit` 路由。此处若再拼 `/nonlit`，非诉命中会直接
+ * 撞到 App.tsx 的通配重定向、静默跳回首页——实测事故是某常法顾问客户
+ * （case_type=advisor）搜到后点进去落回首页。所以这里恒返回不带后缀的详情页。 // privacy-allow
+ */
 export function projectRoute(hit: Hit): string | undefined {
-  if (hit.kind === 'contract') {
-    return isLitigationType(hit.case_type) ? `/projects/${hit.id}` : `/projects/${hit.id}/nonlit`
-  }
+  if (hit.kind === 'contract') return `/projects/${hit.id}`
   if (hit.contract_id == null) return undefined
-  if (!isLitigationType(hit.case_type)) return `/projects/${hit.contract_id}/nonlit`
   // 诉讼详情页案件节有 case-<id> 锚点（CaseSection），hash 让浏览器原生滚到该案
   return `/projects/${hit.contract_id}#case-${hit.id}`
 }

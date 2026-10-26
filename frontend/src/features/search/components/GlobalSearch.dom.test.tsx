@@ -59,6 +59,9 @@ function setupUi(open = true) {
           <Route path="/material-prep/:id" element={<div>material-reader-page</div>} />
           <Route path="/projects/:id/nonlit" element={<LocationProbe label="nonlit" />} />
           <Route path="/projects/:id" element={<LocationProbe label="lit" />} />
+          {/* 通配重定向：真实 App.tsx 就是这么配的。非诉命中曾拼出 /nonlit 落进来，
+              看不出错（跳回首页就完事）——留着它才能锁住「不得生成不存在的路由」。 */}
+          <Route path="*" element={<LocationProbe label="wildcard" />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -227,12 +230,16 @@ describe('GlobalSearch 项目路由分流', () => {
     expect(await screen.findByText('lit:/projects/3')).toBeTruthy()
   })
 
-  it('非诉合同命中点击：跳 /projects/:id/nonlit', async () => {
+  it('非诉合同命中点击：也跳单条 /projects/:id（不再拼 /nonlit，那条路由已不存在）', async () => {
+    // 回归：常法顾问（case_type=advisor）旧实现跳 /projects/<id>/nonlit // privacy-allow
+    // → 命中 App.tsx 通配重定向 → 静默跳回首页，用户以为“搜索坏了”。
     runSearchMock.mockResolvedValue([makeProject('contract', 4, '赵六常年法律顾问合同', { case_type: 'advisor' })])
     setupUi(true)
     fireEvent.change(input(), { target: { value: '赵六' } })
     fireEvent.click(await screen.findByText('赵六常年法律顾问合同'))
-    expect(await screen.findByText('nonlit:/projects/4/nonlit')).toBeTruthy()
+    expect(await screen.findByText('lit:/projects/4')).toBeTruthy()
+    // 绝不能落到通配（回首页）
+    expect(screen.queryByText(/^wildcard:/)).toBeNull()
   })
 
   it('案件命中点击：跳所属合同项目页并带 #case-<id> 锚点', async () => {
