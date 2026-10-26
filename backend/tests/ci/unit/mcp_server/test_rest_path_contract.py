@@ -207,7 +207,14 @@ def _mismatches(calls: list[RestCall], index: dict[tuple[str, ...], set[str]]) -
 # 插件提供的端点前缀。`plugins/` 不入库（私有代码/submodule），CI 里装不到，
 # 于是 apiSystem 用 try/except ImportError 跳过了这些 router —— 端点不存在是
 # **环境差异**而非「工具写错路径」。不排除的话这条测试在 CI 上必然失败。
-_PLUGIN_PATH_PREFIXES = ("/court-filing", "/court-guarantee")
+_PLUGIN_PATH_PREFIXES = (
+    "/court-filing",
+    "/court-guarantee",
+    # 同属 plugins/court_automation，挂在真的 /automation 前缀下
+    # （apps/automation/api/__init__.py 里同样 try/except ImportError 条件注册）。
+    # 只剔这个具体子路径，不能剔整个 /automation——那是应用自己的路由。
+    "/automation/preservation-quotes",
+)
 
 
 def test_all_tool_rest_paths_exist_in_backend(
