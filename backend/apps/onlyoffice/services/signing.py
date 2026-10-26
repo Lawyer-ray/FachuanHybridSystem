@@ -175,12 +175,31 @@ def build_editor_config(
             # 律师把工作台一直挂着就永远没有保存回调，修订落不了盘。
             "forcesave": True,
             "uiTheme": "theme-classic-light",
+            # 已存在的修订痕迹（w:ins / w:del）**是否显示**由 reviewDisplay 决定，
+            # 不是由 trackChanges 决定——这是两件不同的事：
+            #   trackChanges  = 我现在敲字要不要留痕（录制）
+            #   reviewDisplay = 文档里**已有**的痕迹要不要画出来（回放）
+            # DS 默认 `reviewDisplay: 'original'`（见 api.js 注释），即按「修订前的
+            # 原文」渲染，画布上**看不到任何删除线/下划线/批注框**。症状极具迷惑性：
+            # WPS/Word 打开同一份 docx 满是修订，OnlyOffice 画布干干净净，看着像
+            # 「AI 没改成」——真机 A/B 实测（同一 docx，只改 reviewDisplay）：默认形态
+            # 审阅面板不出现，改 markup 后「审查更改」面板立刻出现。
+            # 因此**所有模式**都必须显式给 markup：律师打开就是要看改了什么，
+            # 藏起来等于预览失真。view 模式也适用——只读不等于可以隐瞒修订。
+            # showReviewChanges 让「审阅」工具的修订视图开关处于展开态（与 markup 配套）。
+            "review": {
+                "reviewDisplay": "markup",
+                "showReviewChanges": True,
+            },
         },
     }
     if mode == "review":
         # trackChanges 覆盖 permissions.review：强制当前用户处于修订模式，
         # 是比纯 permissions 更强的「锁定修订」（官方 customization.review）。
-        editor_config["customization"]["review"] = {"trackChanges": True}
+        # 注意保留上面已设的 reviewDisplay / showReviewChanges，只补 trackChanges。
+        review = dict(editor_config["customization"]["review"])
+        review["trackChanges"] = True
+        editor_config["customization"]["review"] = review
     if plugins:
         editor_config["plugins"] = plugins
 

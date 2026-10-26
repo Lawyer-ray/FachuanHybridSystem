@@ -49,12 +49,18 @@ token 放 config 根、覆盖全部字段）。签名必须后端做——浏览
   | 前端 mode | permissions 组合 | 效果 |
   |---|---|---|
   | `view` | `edit/review/comment` 全 false | 查看器 |
-  | `review` | `review/comment` true + `customization.review.trackChanges` | 锁定修订（只能留痕不能直接改正文） |
-  | `edit` | `edit/review/comment` 全 true | 完全编辑 |
+  | `review` | `review/comment` true + `customization.review.trackChanges` | 锁定修订（只能留痕不能直接改正文） |  | `edit` | `edit/review/comment` 全 true | 完全编辑 |
 
 - `copy: true`（律师要复制条款）、`chat: false`（内置协作聊天会让文本过 DS，法律保密场景不放开）。
 - `customization.forcesave: true`：默认保存只在「最后一个用户关闭文档」时回调，工作台一直挂着
   就永远不落盘。
+- `customization.review.reviewDisplay: "markup"`（**三种模式都给**）：控制**已有**修订痕迹
+  （`w:ins`/`w:del`/批注框）要不要画出来。DS 默认 `"original"`（按修订前原文渲染），
+  于是 WPS/Word 里满篇修订的同一份 docx 在 OnlyOffice 画布上**干干净净**——看着像
+  「AI 根本没改成」。`trackChanges` 是**录制**开关（我敲字要不要留痕），
+  `reviewDisplay` 是**回放**开关（文件里已有的痕迹要不要显示），两者不可互替；
+  `showReviewChanges: true` 让审阅工具的修订视图默认展开。回归测试：
+  `tests/ci/unit/onlyoffice/test_editor_config_revisions.py`。
 
 **② DS 取文件**（`services/file_proxy.py` + `api/onlyoffice_api.py::serve_file`）
 
@@ -131,6 +137,7 @@ DS 每次升小版本都可能动这些语义，升级前对照官方 Release No
 | `config.token` 整体签名（HS256，放根） | `signing.build_editor_config` | 签名载荷格式是否变化 |
 | `permissions.edit/review/comment/download/print/copy/chat` | `signing.PERMISSIONS_*` | 键名或默认值变更 |
 | `customization.review.trackChanges` | `signing`（review 模式） | 是否仍是锁定修订的强保证 |
+| `customization.review.reviewDisplay` / `showReviewChanges` | `signing`（**全模式**） | 默认值是否仍为 `original`（隐藏已有修订）；改成 `markup` 才能回放 `w:ins`/`w:del` |
 | `customization.forcesave` | `signing` | forcesave 触发条件、status 值 |
 | `document.key` / `fileType` / `documentType` | `signing._DOC_TYPE` | 支持格式清单、未知后缀行为 |
 | callback `status` 0/1/2/3/4/6/7 | `callback_service` | 2/6 的 `url` 语义、重试规则 |
@@ -250,6 +257,9 @@ ls ~/Downloads/Coding/AI/onlyoffice-dev/fonts/  # 宿主侧清单
 | 每次打开都重新转换、两人协同互相看不见 | 签名参数混进了 `document.key`（`sig` 含时间戳）。key 只用 `source_path|version|saved_version` |
 | 改了内容但看到旧版 | 保存后没轮换 key，或 DS 缓存没清 |
 | 工作台挂一天，修订没落盘 | 没开 `customization.forcesave`；默认只在最后一人关闭 10s 后才回调 |
+| **WPS/Word 里满是修订，OnlyOffice 画布干净得更新文档一样** | 没给 `customization.review.reviewDisplay: "markup"`。DS 默认 `"original"` = 按修订前原文渲染，已有 `w:ins`/`w:del` **一律不画**。
+注意 `trackChanges` 是**录制**开关（我敲字要不要留痕），不是**显示**开关（文件里已有痕迹要不要画），两者不可互替。
+先用 `unzip -p x.docx word/document.xml \| grep -c '<w:ins \|'` 确认文件真带痕迹，再查 config。 |
 | 「点了没反应、不报错」（插件场景） | `callCommand` 第二参必须传 `false`，传 `true` 会销毁插件 iframe |
 | `Asc.scope` 只能传字符串 | 传对象时回调静默丢失，统一 `Asc.scope.key = JSON.stringify(payload)` |
 | `host.docker.internal` 不可达 | 依赖 compose 的 `extra_hosts: host.docker.internal:host-gateway`；OrbStack 默认支持，失败时回落 LAN IP 排障 |
