@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
+import { useMediaQuery } from '@/hooks/use-media'
+
 import { DetailHeader } from './DetailHeader'
 import { DetailRail } from './DetailRail'
 import { ContractFileOverlays } from './ContractFileOverlays'
@@ -69,6 +71,19 @@ export function NonLitDetailPage() {
     setWidth: panelSetWidth,
   } = panel
   /**
+   * 「文档对照」形态：合同预览与并排 AI 助手**同开**、页面净宽被挤到竖排阈值
+   * （1100px）以下时触发——宽屏（≥1280，详情页助手恒并排让位）下净宽缩水
+   * 只有助手并排一种成因。此时三栏（事项流 / 事实卡 / 文档）不可能同时摊开，
+   * 硬塞会把事实卡挤成逐字竖排（实测左栏仅 78px）。让位策略：
+   * - 事实卡（期限/当事人/…/合同要素，即右栏 DetailRail）整体隐藏——要看得
+   *   收起助手或文档，空间立刻还给它们；
+   * - 文档置顶全宽、紧贴助手（律师此时的注意力就是「左看文档右问 AI」）；
+   * - 事项流沉底，滚动可达。
+   * 净宽充裕（大屏或助手未开）时不触发，仍是「事项流 + 事实卡 + 可拖预览栏」。
+   */
+  const dockableViewport = useMediaQuery('(min-width: 1280px)')
+  const focusDoc = Boolean(picked) && panelStacked && dockableViewport
+  /**
    * 服务事项：直接从合同文件夹的「办案」目录读（目录名 = 事项名 + 日期）。
    * 找不到「办案」时由页面提示手动指定，不静默扫全盘。
    */
@@ -122,15 +137,38 @@ export function NonLitDetailPage() {
           事项与文件夹不再是两套东西——文件夹是「交付物放在哪」，事项是
           「哪天为什么产生了它」，左栏看节奏、右栏取文件。 */}
       {/* 有预览时用 flex + 可拖分隔条：右栏装 OnlyOffice，宽度需求因人因屏而异，
-          写死断点只能猜折中值。无预览时退回固定右栏（事实卡内容紧实，拖了没意义）。 */}
+          写死断点只能猜折中值。无预览时退回固定右栏（事实卡内容紧实，拖了没意义）。
+          横/竖排由 panelStacked（容器净宽）决定而非视口媒体查询——并排 AI 助手
+          会让位掉数百像素净宽，视口量不到它（破版实测见上方「文档对照」注释）。 */}
       <div
         ref={panelContainerRef}
         className={
           picked
-            ? 'flex items-start gap-[8px] max-[1100px]:flex-col max-[1100px]:gap-[18px]'
-            : 'grid items-start gap-[18px] max-[1100px]:grid-cols-1 grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px] min-[2400px]:grid-cols-[minmax(0,1fr)_440px]'
+            ? panelStacked
+              ? 'flex flex-col gap-[18px]'
+              : 'flex items-start gap-[8px]'
+            : panelStacked
+              ? 'grid grid-cols-1 items-start gap-[18px]'
+              : 'grid items-start gap-[18px] grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px] min-[2400px]:grid-cols-[minmax(0,1fr)_440px]'
         }
       >
+        {/* 文档对照形态：文档列提前到最前（紧贴右侧助手），事项流沉底 */}
+        {focusDoc && picked && (
+          <div className="min-w-0">
+            <div className="sticky top-[70px] flex h-[calc(100vh-100px)] min-h-[520px] flex-col">
+              <FilePreviewCard
+                kind="contract"
+                ownerId={deal.id}
+                file={picked}
+                onClose={() => setPicked(null)}
+                onSaved={() => void d.refetch()}
+                onReview={(f) => setReviewTarget(f)}
+                onSelection={setSelection}
+              />
+            </div>
+          </div>
+        )}
+
         {/* 左：服务事项流（本年度） */}
         <div className="min-w-0 flex-1 space-y-[18px]">
           <ServiceItemStream
@@ -167,8 +205,8 @@ export function NonLitDetailPage() {
           )}
 
           {/* 预览开启时事实卡落在左栏底部：右栏留给 OnlyOffice 一栏到底，
-              两栏各自滚动互不干扰 */}
-          {picked && (
+              两栏各自滚动互不干扰。文档对照形态下整体隐藏（见 focusDoc 注释）。 */}
+          {picked && !focusDoc && (
             <DetailRail
               deadlines={deadlines}
               today={d.today}
@@ -187,7 +225,7 @@ export function NonLitDetailPage() {
           )}
         </div>
 
-        {picked && (
+        {picked && !focusDoc && (
           <ResizeHandle
             dragging={panelDragging}
             hidden={panelStacked}
@@ -198,43 +236,45 @@ export function NonLitDetailPage() {
         )}
 
         {/* 右：预览（选中时置顶）/ 未预览时放事实卡 */}
-        <div
-          className="min-w-0 space-y-[18px]"
-          style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
-        >
-          {picked && (
-            <div className="sticky top-[70px] flex h-[calc(100vh-100px)] min-h-[520px] flex-col">
-              <FilePreviewCard
-                kind="contract"
-                ownerId={deal.id}
-                file={picked}
-                onClose={() => setPicked(null)}
-                onSaved={() => void d.refetch()}
-                onReview={(f) => setReviewTarget(f)}
-                onSelection={setSelection}
-              />
-            </div>
-          )}
+        {!focusDoc && (
+          <div
+            className="min-w-0 space-y-[18px]"
+            style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
+          >
+            {picked && (
+              <div className="sticky top-[70px] flex h-[calc(100vh-100px)] min-h-[520px] flex-col">
+                <FilePreviewCard
+                  kind="contract"
+                  ownerId={deal.id}
+                  file={picked}
+                  onClose={() => setPicked(null)}
+                  onSaved={() => void d.refetch()}
+                  onReview={(f) => setReviewTarget(f)}
+                  onSelection={setSelection}
+                />
+              </div>
+            )}
 
-          {/* 未预览时右栏就是事实卡（期限/当事人/收费/合同文件夹） */}
-          {!picked && (
-            <DetailRail
-              deadlines={deadlines}
-              today={d.today}
-              contactGroups={contacts}
-              team={deal.team ?? []}
-              deal={deal}
-              moneyRows={money}
-              showFolder
-              folderOwnerId={deal.id}
-              folderSelectedSubpath={null}
-              onOpenFile={openPreview}
-              onReviewFile={(f) => setReviewTarget(f)}
-              onAddDue={() => soonToast('新增期限')}
-              onAddPayment={() => soonToast('记收款')}
-            />
-          )}
-        </div>
+            {/* 未预览时右栏就是事实卡（期限/当事人/收费/合同文件夹） */}
+            {!picked && (
+              <DetailRail
+                deadlines={deadlines}
+                today={d.today}
+                contactGroups={contacts}
+                team={deal.team ?? []}
+                deal={deal}
+                moneyRows={money}
+                showFolder
+                folderOwnerId={deal.id}
+                folderSelectedSubpath={null}
+                onOpenFile={openPreview}
+                onReviewFile={(f) => setReviewTarget(f)}
+                onAddDue={() => soonToast('新增期限')}
+                onAddPayment={() => soonToast('记收款')}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <ContractFileOverlays

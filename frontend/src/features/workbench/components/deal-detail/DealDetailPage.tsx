@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
+import { useMediaQuery } from '@/hooks/use-media'
+
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
@@ -62,6 +64,14 @@ export function DealDetailPage() {
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
 
+  /**
+   * 「文档对照」形态（与非诉页同一判定，详见 NonLitDetailPage 同名注释）：
+   * 合同预览与并排 AI 助手同开、净宽不足时，右栏只留「预览 + 合同文件夹」，
+   * 期限/当事人/…/合同要素等档案节整体隐藏，且文档列提前到最前紧贴助手。
+   */
+  const dockableViewport = useMediaQuery('(min-width: 1280px)')
+  const focusDoc = Boolean(picked) && panelStacked && dockableViewport
+
   /* 创建类动作本轮先占位（样式定稿后接表单）：记日志 / 新增期限 / 新建下一程序案件 / 记收款 */
   const soon = useCallback((what: string) => soonToast(what), [])
   const onAddLog = useCallback(() => soon('记办案日志'), [soon])
@@ -107,18 +117,54 @@ export function DealDetailPage() {
       {/* AI 助手入口只在导航栏（全局侧边栏 CopilotPanel，⌘J 同效）：页面内既不挂
           对话区、页头也不放按钮，避免与导航栏入口重复 */}
       {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
-          渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。 */}
-      {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
           渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。
-          有预览时用 flex + 可拖分隔条，宽度交给用户，写死断点只能猜折中值。 */}
+          有预览时用 flex + 可拖分隔条，宽度交给用户，写死断点只能猜折中值。
+          横/竖排由 panelStacked（容器净宽）决定而非视口媒体查询——并排 AI 助手
+          会让位掉数百像素净宽，视口量不到它（详见「文档对照」注释）。 */}
       <div
         ref={panelContainerRef}
         className={
           picked
-            ? 'flex items-start gap-[8px] max-[1024px]:flex-col max-[1024px]:gap-[18px]'
-            : 'grid items-start gap-[18px] max-[1024px]:grid-cols-1 grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
+            ? panelStacked
+              ? 'flex flex-col gap-[18px]'
+              : 'flex items-start gap-[8px]'
+            : panelStacked
+              ? 'grid grid-cols-1 items-start gap-[18px]'
+              : 'grid items-start gap-[18px] grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
         }
       >
+        {/* 文档对照形态：文档列（右栏卡里的预览）提前到最前，案件程序链沉底 */}
+        {focusDoc && picked && (
+          <div className="min-w-0">
+            <DetailRail
+              deadlines={deadlines}
+              today={d.today}
+              contactGroups={contacts}
+              team={deal.team}
+              deal={deal}
+              moneyRows={money}
+              onAddDue={onAddDue}
+              onAddPayment={onAddPayment}
+              onOpenFile={setPicked}
+              onReviewFile={(f) => setReviewTarget(f)}
+              factsHidden
+              folderPreview={
+                <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
+                  <FilePreviewCard
+                    kind="contract"
+                    ownerId={deal.id}
+                    file={picked}
+                    onClose={() => setPicked(null)}
+                    onSaved={() => void d.refetch()}
+                    onReview={(f) => setReviewTarget(f)}
+                    onSelection={setSelection}
+                  />
+                </div>
+              }
+            />
+          </div>
+        )}
+
         <div className="min-w-0 flex-1">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
@@ -164,7 +210,7 @@ export function DealDetailPage() {
           )}
         </div>
 
-        {picked && (
+        {picked && !focusDoc && (
           <ResizeHandle
             dragging={panelDragging}
             hidden={panelStacked}
@@ -174,38 +220,40 @@ export function DealDetailPage() {
           />
         )}
 
-        <div
-          className="min-w-0"
-          style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
-        >
-        <DetailRail
-          deadlines={deadlines}
-          today={d.today}
-          contactGroups={contacts}
-          team={deal.team}
-          deal={deal}
-          moneyRows={money}
-          onAddDue={onAddDue}
-          onAddPayment={onAddPayment}
-          onOpenFile={setPicked}
-          onReviewFile={(f) => setReviewTarget(f)}
-          folderPreview={
-            picked ? (
-              <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
-                <FilePreviewCard
-                  kind="contract"
-                  ownerId={deal.id}
-                  file={picked}
-                  onClose={() => setPicked(null)}
-                  onSaved={() => void d.refetch()}
-                  onReview={(f) => setReviewTarget(f)}
-                  onSelection={setSelection}
-                />
-              </div>
-            ) : null
-          }
-        />
-        </div>
+        {!focusDoc && (
+          <div
+            className="min-w-0"
+            style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
+          >
+            <DetailRail
+              deadlines={deadlines}
+              today={d.today}
+              contactGroups={contacts}
+              team={deal.team}
+              deal={deal}
+              moneyRows={money}
+              onAddDue={onAddDue}
+              onAddPayment={onAddPayment}
+              onOpenFile={setPicked}
+              onReviewFile={(f) => setReviewTarget(f)}
+              folderPreview={
+                picked ? (
+                  <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
+                    <FilePreviewCard
+                      kind="contract"
+                      ownerId={deal.id}
+                      file={picked}
+                      onClose={() => setPicked(null)}
+                      onSaved={() => void d.refetch()}
+                      onReview={(f) => setReviewTarget(f)}
+                      onSelection={setSelection}
+                    />
+                  </div>
+                ) : null
+              }
+            />
+          </div>
+        )}
       </div>
 
       <ContractFileOverlays

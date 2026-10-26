@@ -208,5 +208,12 @@ export function useResizablePanel({
     containerRef,
     onPointerDown,
     setWidth,
+    /**
+     * 容器实测宽度（ResizeObserver，含并排 AI 面板让位后的净宽；未挂载为 null）。
+     * 页面用它驱动自己的横/竖排（见 NonLitDetailPage 的「文档对照」说明）——
+     * 视口媒体查询量不到 AI 面板吃掉的宽度，量错了就会出现「预览栏横排自然宽、
+     * 左栏被挤成逐字竖排」的破版。
+     */
+    containerWidth,
   }
 }

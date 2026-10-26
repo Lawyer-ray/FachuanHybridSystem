@@ -30,6 +30,7 @@ export function DetailRail({
   folderPreview,
   folderOwnerId,
   folderSelectedSubpath,
+  factsHidden = false,
 }: {
   deadlines: Deadline[]
   today: Date
@@ -57,6 +58,12 @@ export function DetailRail({
   folderOwnerId?: number
   /** 当前预览中的 subpath：让树里那一行高亮，知道「看的就是这份」 */
   folderSelectedSubpath?: string | null
+  /**
+   * 「文档对照」形态：只渲染文件夹树与 folderPreview，档案节（期限/当事人/
+   * 律师/收费/收款/补充协议/合同要素）全部隐藏。合同预览与并排 AI 助手同开、
+   * 页面净宽不足时由详情页置起——三栏塞不下时档案先让位，收起助手即恢复。
+   */
+  factsHidden?: boolean
 }) {
   const copy = (text: string) => {
     void copyText(text).then(() => toast.success('已复制'))
@@ -64,47 +71,52 @@ export function DetailRail({
 
   return (
     <Card>
-      <RailSection
-        title="期限"
-        action={
-          <RailAction onClick={onAddDue}>＋ 新增</RailAction>
-        }
-      >
-        {deadlines.length === 0 ? (
-          <div className="text-xs text-muted-foreground/70">暂无未来期限</div>
-        ) : (
-          deadlines.map((d) => (
-            <div key={d.key} className="grid grid-cols-[14px_1fr] py-1.5">
-              <span className="relative">
-                <span
-                  className={
-                    'absolute top-[6px] rounded-full ' + (d.today ? 'left-[2.5px] size-[8px] bg-status-red' : 'left-[3px] size-[7px] bg-border')
-                  }
-                />
-              </span>
-              <span className="min-w-0 pl-[7px]">
-                <span className={'block text-[12.5px] leading-[1.5] ' + (d.today ? 'font-[640] text-status-red' : 'text-secondary-foreground')}>
-                  {d.typeLabel && (
-                    <span className="mr-[5px] rounded-[5px] border border-border-light bg-secondary px-[5px] align-[-1px] text-[10px] font-[620] text-secondary-foreground">
-                      {d.typeLabel}
-                    </span>
-                  )}
-                  {d.content}
+      {/* 文档对照形态（factsHidden）：档案节整体不渲染，只留文件夹树与预览。
+          各节都判一遍而不是整段抽组件，是为了让「first:border-t-0」作用到
+          真正的第一个子节点——抽成条件包裹后 first: 语义就失真了。 */}
+      {!factsHidden && (
+        <RailSection
+          title="期限"
+          action={
+            <RailAction onClick={onAddDue}>＋ 新增</RailAction>
+          }
+        >
+          {deadlines.length === 0 ? (
+            <div className="text-xs text-muted-foreground/70">暂无未来期限</div>
+          ) : (
+            deadlines.map((d) => (
+              <div key={d.key} className="grid grid-cols-[14px_1fr] py-1.5">
+                <span className="relative">
+                  <span
+                    className={
+                      'absolute top-[6px] rounded-full ' + (d.today ? 'left-[2.5px] size-[8px] bg-status-red' : 'left-[3px] size-[7px] bg-border')
+                    }
+                  />
                 </span>
-                <span className="mt-px block text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums">
-                  {dueLabel(d.due, today)}
-                  {d.today ? ' · 今天' : ''}
-                  <b className="ml-2 font-[620] text-muted-foreground">{d.scope}</b>
+                <span className="min-w-0 pl-[7px]">
+                  <span className={'block text-[12.5px] leading-[1.5] ' + (d.today ? 'font-[640] text-status-red' : 'text-secondary-foreground')}>
+                    {d.typeLabel && (
+                      <span className="mr-[5px] rounded-[5px] border border-border-light bg-secondary px-[5px] align-[-1px] text-[10px] font-[620] text-secondary-foreground">
+                        {d.typeLabel}
+                      </span>
+                    )}
+                    {d.content}
+                  </span>
+                  <span className="mt-px block text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums">
+                    {dueLabel(d.due, today)}
+                    {d.today ? ' · 今天' : ''}
+                    <b className="ml-2 font-[620] text-muted-foreground">{d.scope}</b>
+                  </span>
                 </span>
-              </span>
-            </div>
-          ))
-        )}
-      </RailSection>
+              </div>
+            ))
+          )}
+        </RailSection>
+      )}
 
-      <RailParties deal={deal} />
+      {!factsHidden && <RailParties deal={deal} />}
 
-      {contactGroups.length > 0 && (
+      {!factsHidden && contactGroups.length > 0 && (
         <RailSection title="法院联系人">
           {contactGroups.map((g) => (
             <div key={g.group}>
@@ -129,7 +141,7 @@ export function DetailRail({
         </RailSection>
       )}
 
-      {team.length > 0 && (
+      {!factsHidden && team.length > 0 && (
         <RailSection title="律师">
           {team.map((t) => (
             <div key={t.name + '|' + t.license} className="py-1">
@@ -156,7 +168,7 @@ export function DetailRail({
         </RailSection>
       )}
 
-      {moneyRows.length > 0 && (
+      {!factsHidden && moneyRows.length > 0 && (
         <RailSection title="涉案与收费">
           {moneyRows.map(([k, v]) => (
             <KV key={k} k={k} v={v} kw={56} />
@@ -164,13 +176,13 @@ export function DetailRail({
         </RailSection>
       )}
 
-      <RailPayments deal={deal} onAdd={onAddPayment} />
-      <RailSupps deal={deal} />
+      {!factsHidden && <RailPayments deal={deal} onAdd={onAddPayment} />}
+      {!factsHidden && <RailSupps deal={deal} />}
 
       {/* 合同文件夹：绑定目录的树形浏览；标题行自带「新建文件夹」，未绑定时树内提示。
           非诉页不渲染（那份树在左栏独占，见 NonLitDetailPage）。 */}
       {showFolder && (
-        <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px]">
+        <div className="border-t border-border-light px-[18px] pt-3.5 pb-[15px] first:border-t-0 first:pt-[15px]">
           {folderPreview}
           <FolderTree
             kind="contract"
@@ -184,7 +196,7 @@ export function DetailRail({
         </div>
       )}
 
-      <RailFacts deal={deal} />
+      {!factsHidden && <RailFacts deal={deal} />}
     </Card>
   )
 }
