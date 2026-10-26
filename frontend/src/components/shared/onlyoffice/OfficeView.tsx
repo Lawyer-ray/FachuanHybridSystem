@@ -57,6 +57,26 @@ export interface OfficeEditorHandle {
    * 返回是否成功点到按钮（编辑器未就绪或 DOM 结构变化时返回 false）。
    */
   requestSave: () => boolean
+  /** 向文档内核发一条命令（划词直改走这条路，协议见 deploy/onlyoffice/plugins 里 plugin.js） */
+  sendToPlugin: (action: string, text?: string, payload?: Record<string, unknown>) => void
+}
+
+/** 插件桥回传的消息（口径与 plugin.js 的 post({type:...}) 完全一致） */
+export type PluginBridgeMessage =
+  | { type: 'ready'; editorType?: string; supported?: boolean }
+  | { type: 'selection'; text: string; explicit?: boolean }
+  | { type: 'inserted'; text?: string; error?: string }
+  | { type: 'located'; found?: boolean; result?: { ok: boolean } }
+  | { type: 'applied'; result?: { ok: boolean; reason?: string; how?: string } }
+  | { type: 'done'; error?: string }
+  | { type: 'hello'; editorType?: string; supported?: boolean }
+
+/** 发往插件的消息（页面 → 桥） */
+interface PluginBridgeOutgoing {
+  source: 'fachuan-page'
+  action: string
+  text?: string
+  payload?: Record<string, unknown>
 }
 
 export function OfficeView({
@@ -65,6 +85,7 @@ export function OfficeView({
   mode = 'review',
   version = '',
   onEditorReady,
+  onPluginMessage,
 }: {
   /** 站内下载路径（后端会为 DS 签发可重复使用的 HMAC 签名代理地址） */
   fileUrl: string
@@ -78,9 +99,20 @@ export function OfficeView({
    * 否则父级只能猜字节。传 null 表示编辑器已销毁。
    */
   onEditorReady?: (handle: OfficeEditorHandle | null) => void
+  /**
+   * 法穿 AI 改写插件的消息（选区、插入结果、定位结果…）。
+   *
+   * 插件是 DS iframe 里的**幕后桥**（无 UI），它通过
+   * `window.parent.parent.postMessage` 把事件发到宿主页——这条链路已由
+   * 原型真机验证（见 deploy/onlyoffice/plugins/fachuan-rewrite/plugin.js）。
+   * 为什么必须绕桥：选区只存在于 DS 内核上下文，外部 React 拿不到。
+   */
+  onPluginMessage?: (msg: PluginBridgeMessage) => void
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<EditorInstance | null>(null)
+  /** 插件的 window（用于回发命令）。桥握手时从 e.source 取。 */
+  const pluginWinRef = useRef<Window | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'disabled'>('loading')
   const [reason, setReason] = useState('')
   /** 挂载轮次：DS 首挂偶发「无报错但 iframe 不创建」，换 key 重挂即好 */
@@ -92,6 +124,29 @@ export function OfficeView({
   const sigRef = useRef('')
   /** 挂载点 DOM id：DS 官方签名是 DocEditor(placeholderId, config)，传元素在部分版本静默失败 */
   const placeId = useMemo(() => `oo-${++ooSeq}`, [])
+
+  /**
+   * 插件桥监听（页面 ← 桥）。
+   *
+   * 只认 `source: 'fachuan-plugin'` 的消息：DS 的 iframe 与插件 iframe 都会往
+   * 本窗口 postMessage，不做来源过滤就会把 DS 自己的内部消息当成选区处理。
+   *
+   * 挂载在组件级别（而非编辑器 effect 内部）：桥可能在 `onDocumentReady`
+   * 之后才握手（DS 先建画布再启插件），跟着编辑器重挂会漏掉握手消息。
+   */
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const d = e.data as (PluginBridgeMessage & { source?: string }) | null
+      if (!d || d.source !== 'fachuan-plugin') return
+      // 首次握手时记住插件窗口，后续 sendToPlugin 才有地方发
+      if (d.type === 'ready' || d.type === 'hello') pluginWinRef.current = e.source as Window
+      onPluginMessage?.(d)
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+    // onPluginMessage 同 onEditorReady：只是回调出口，换函数不需要重装监听
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -151,6 +206,16 @@ export function OfficeView({
                     if (typeof inst?.serviceCommand !== 'function') return false
                     inst.serviceCommand({ c: 'forcesave' })
                     return true
+                  },
+                  sendToPlugin: (action, text, payload) => {
+                    // 桥尚未握手（plugin 未 autostart / 未加载完）时静默丢弃：
+                    // 上层据此提示「编辑器桥未就绪」，不要把异常浮到调用方。
+                    const win = pluginWinRef.current
+                    if (!win) return
+                    const msg: PluginBridgeOutgoing = { source: 'fachuan-page', action }
+                    if (typeof text === 'string') msg.text = text
+                    if (payload) msg.payload = payload
+                    win.postMessage(msg, '*')
                   },
                 })
               }

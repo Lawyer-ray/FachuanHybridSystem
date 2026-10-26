@@ -19,3 +19,4 @@ export const ReviewWorkbenchPageLazy = lazy(() =>
 export { useRevisions } from './hooks/use-revisions'
 export * from './types'
 export { ReviewLaunchDrawer } from './components/ReviewLaunchDrawer'
+export { DirectEditDialog } from './components/DirectEditDialog'

@@ -1,5 +1,13 @@
 import { createApiClient } from '@/lib/api'
-import type { ContentVersion, ResolveAction, ResolveResult, RevisionList, VersionChain } from './types'
+import type {
+  ContentVersion,
+  DirectEditApplyResult,
+  DirectEditSuggestResult,
+  ResolveAction,
+  ResolveResult,
+  RevisionList,
+  VersionChain,
+} from './types'
 
 /**
  * 合同审查（/api/v1/contract-review）。
@@ -116,4 +124,50 @@ export async function confirmParty(
   return reviewApi()
     .post(`${encodeURIComponent(taskId)}/confirm-party`, { json: payload })
     .json<ReviewTaskStatus>()
+}
+
+/* ============================================================
+ * 划词直改（/api/v1/contract-review/direct-edit）
+ *
+ * 与上面的「任务式审查」不是同一套逻辑：没有 task_id、没有立场、
+ * 没有全篇扫描与评估报告。律师框选一段 + 说一句要求 → 出候选 → 采纳落痕。
+ * ============================================================ */
+
+
+/**
+ * 生成 2~3 条改写候选。**零副作用**：不写文件、不建任务。
+ *
+ * 之所以跟 apply 拆成两次请求：律师要能反复「换个说法再生成」，
+ * 而文件在明确采纳之前必须原封不动。
+ */
+export async function suggestDirectEdit(payload: {
+  contract_id: number
+  subpath: string
+  selection: string
+  instruction: string
+  model_name?: string
+}): Promise<DirectEditSuggestResult> {
+  const res: DirectEditSuggestResult = await reviewApi()
+    .post('direct-edit/suggest', { json: payload })
+    .json<DirectEditSuggestResult>()
+  return res
+}
+
+
+/**
+ * 采纳一条候选：后端用 DocxRevisionTool 写成 `<w:del>`/`<w:ins>` 并覆写原文件。
+ *
+ * `applied=false` 不是错误，是「选区原文在文档里已找不到」（被前一次改动
+ * 破坏），调用方应提示律师重新框选，而不是弹报错。
+ */
+export async function applyDirectEdit(payload: {
+  contract_id: number
+  subpath: string
+  selection: string
+  suggested: string
+}): Promise<DirectEditApplyResult> {
+  const res: DirectEditApplyResult = await reviewApi()
+    .post('direct-edit/apply', { json: payload })
+    .json<DirectEditApplyResult>()
+  return res
 }

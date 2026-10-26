@@ -259,6 +259,13 @@ def _register_app_routers() -> None:
     from apps.contract_review.api.format_api import router as format_normalize_router
 
     api_v1.add_router("/contract-review/format", format_normalize_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
+
+    # 划词直改：框选一段 + 说一句要求 → 出候选 → 采纳落成 Word 修订。
+    # 与 /contract-review 的「任务式审查」不是同一套逻辑（无立场、无全篇扫、无报告），
+    # 所以单独挂一个前缀，避免被误以为要传 task_id。
+    from apps.contract_review.api.direct_edit_api import router as direct_edit_router
+
+    api_v1.add_router("/contract-review/direct-edit", direct_edit_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
     api_v1.add_router("/legal-research", legal_research_router, auth=JWTOrSessionAuth(), tags=["案例检索"])
 
     from apps.document_parsing.api import router as document_parsing_router

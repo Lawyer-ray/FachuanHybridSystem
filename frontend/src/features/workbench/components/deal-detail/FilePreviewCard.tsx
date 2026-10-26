@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, FileSearch, Loader2, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
+import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
@@ -25,6 +25,7 @@ export function FilePreviewCard({
   onClose,
   onSaved,
   onReview,
+  onSelection,
 }: {
   kind: FolderOwnerKind
   ownerId: number
@@ -34,6 +35,13 @@ export function FilePreviewCard({
   onSaved?: () => void
   /** 「AI 审查」——仅 docx（流水线只吃 docx） */
   onReview?: (f: { subpath: string; name: string }) => void
+  /**
+   * 律师在编辑器里框选了条款（法穿 AI 改写插件回传）。
+   *
+   * 选区只在 DS 内核里存在，外部拿不到，所以这条消息必须由插件桥送来；
+   * 拿到后交给上层渲染「选区 chip + 输入要求」的对话框。
+   */
+  onSelection?: (sel: { contractId: number; subpath: string; text: string; before: string; after: string }) => void
 }) {
   const [downloading, setDownloading] = useState(false)
   const [busy, setBusy] = useState<'save' | null>(null)
@@ -174,6 +182,20 @@ export function FilePreviewCard({
           onEditorReady={(h) => {
             editorRef.current = h
             setReady(!!h)
+          }}
+          onPluginMessage={(m: PluginBridgeMessage) => {
+            // 只关心「选区」：插件在律师框选后推送，宿主把它变成对话框里的 chip。
+            // 其余类型（ready/inserted/applied）由上层按需处理，这里不转发。
+            if (m.type !== 'selection') return
+            const sel = m.text.trim()
+            if (!sel || !onSelection || kind !== 'contract') return
+            onSelection({
+              contractId: ownerId,
+              subpath: file.subpath,
+              text: sel,
+              before: '',
+              after: '',
+            })
           }}
         />
       </div>

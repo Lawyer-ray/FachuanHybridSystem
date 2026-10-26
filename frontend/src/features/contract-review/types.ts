@@ -95,3 +95,29 @@ export interface VersionChain {
   total: number
   items: DocumentVersion[]
 }
+
+/* ============================================================
+ * 划词直改（direct-edit）
+ *
+ * 注意与上面「任务式审查」的类型区分：这里没有 task_id、没有等级、
+ * 没有 revision 决策流。一次改写就是「选区 + 指令 → 若干候选 → 挑一条」。
+ * ============================================================ */
+
+/** 一条改写候选 */
+export interface DirectEditCandidate {
+  suggested: string
+  reason: string
+}
+
+export interface DirectEditSuggestResult {
+  candidates: DirectEditCandidate[]
+  context_before: string
+  context_after: string
+}
+
+export interface DirectEditApplyResult {
+  applied: boolean
+  subpath: string
+  name: string
+  reason: string
+}

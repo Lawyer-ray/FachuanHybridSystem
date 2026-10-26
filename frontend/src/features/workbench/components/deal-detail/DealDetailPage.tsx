@@ -27,6 +27,8 @@ export function DealDetailPage() {
    * 诉讼页的合同也要能走 AI 审查——起诉状/和解协议同样是「AI 出建议、律师逐条决策」。
    */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
+  /** 律师在编辑器里框选的条款（插件桥回传）；有值就弹划词直改对话框 */
+  const [selection, setSelection] = useState<{ text: string; subpath: string } | null>(null)
   const { valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
@@ -197,6 +199,7 @@ export function DealDetailPage() {
                   onClose={() => setPicked(null)}
                   onSaved={() => void d.refetch()}
                   onReview={(f) => setReviewTarget(f)}
+                  onSelection={setSelection}
                 />
               </div>
             ) : null
@@ -211,6 +214,8 @@ export function DealDetailPage() {
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
         onReviewStart={(f) => setReviewTarget(f)}
+        selection={selection}
+        onSelectionClose={() => setSelection(null)}
       />
     </main>
   )

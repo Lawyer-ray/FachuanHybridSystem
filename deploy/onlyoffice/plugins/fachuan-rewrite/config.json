@@ -1,0 +1,30 @@
+{
+  "name": "法穿 AI 改写",
+  "nameLocale": {
+    "zh-CN": "法穿 AI 改写",
+    "en": "Fachuan AI Rewrite"
+  },
+  "guid": "asc.{A67B4C8F-1F2A-4B6E-9C3D-5E8F7A2B1D04}",
+  "offered": "Fachuan SI",
+  "version": "1.1.0",
+  "minVersion": "7.0.0",
+  "variations": [
+    {
+      "description": "框选合同条款，说一句怎么改，AI 给出多条候选，采纳后以 Word 修订痕迹插入。",
+      "descriptionLocale": {
+        "en": "Select a contract clause, say how to change it, and let AI produce candidates. Accepting one inserts native Word tracked changes."
+      },
+      "url": "index.html",
+      "isViewer": false,
+      "EditorsSupport": ["word"],
+      "isVisual": false,
+      "isModal": false,
+      "isSystem": false,
+      "initDataType": "none",
+      "isUpdateOleOnResize": false,
+      "buttons": [],
+      "events": ["onContextMenuClick", "onSelectionChanged", "onClick"],
+      "StoreLinks": []
+    }
+  ]
+}

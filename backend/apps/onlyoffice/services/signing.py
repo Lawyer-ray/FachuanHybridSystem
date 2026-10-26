@@ -22,6 +22,18 @@ from ..config import OnlyOfficeConfig, build_file_url
 
 logger = logging.getLogger(__name__)
 
+# 法穿 AI 改写插件（幕后桥）的 GUID。
+#
+# 插件本体放在 DS 容器的 `sdkjs-plugins/fachuan-rewrite/`（见
+# `deploy/onlyoffice/compose.yaml` 的 volumes），由 DS 自己托管并自动发现；
+# 所以这里**只给 guid 做 autostart**，不需要 pluginsData（那是让 DS 去远程拉
+# config.json 的路子，跨源、要额外托管，容器内本地文件更干净）。
+#
+# 配套的两条红线（原型真机验证过，改回去就是「点了没反应且不报错」）：
+# 1. `callCommand` 第二参必须 false；2. `Asc.scope` 只能传字符串。
+# 详见 `deploy/onlyoffice/plugins/fachuan-rewrite/plugin.js` 顶部注释。
+FACHUAN_REWRITE_PLUGIN_GUID = "asc.{A67B4C8F-1F2A-4B6E-9C3D-5E8F7A2B1D04}"
+
 # 预处理阶段：纯只读（改是复审工作台的事）。官方语义：edit/review/comment
 # 均为 false 时即使 mode=edit 也只进查看器，没有修订与批注入口。
 PERMISSIONS_VIEW: dict[str, bool] = {
@@ -167,6 +179,19 @@ def build_editor_config(
         editor_config["customization"]["review"] = {"trackChanges": True}
     if plugins:
         editor_config["plugins"] = plugins
+
+    # 划词直改的核心入口：插件必须在文档就绪前 autostart，否则宿主页
+    # 收不到 `ready` 握手，选区 / 改写全链路都不通。
+    #
+    # 只在可编辑/可审阅的模式挂：view（纯只读）下插件无从落笔，
+    # 挂上去只会让律师看到一个用不了的入口。
+    if mode in ("review", "edit") and doc_type == "word":
+        merged = dict(editor_config.get("plugins") or {})
+        autostart = list(merged.get("autostart") or [])
+        if FACHUAN_REWRITE_PLUGIN_GUID not in autostart:
+            autostart.append(FACHUAN_REWRITE_PLUGIN_GUID)
+        merged["autostart"] = autostart
+        editor_config["plugins"] = merged
 
     config: dict[str, Any] = {
         "documentType": doc_type,
