@@ -320,8 +320,12 @@ backend/tests/e2e/test-results/
 # 误生成的嵌套 backend 目录（detect-secrets 等工具在错误目录运行的产物）
 backend/backend/
 
-# 误生成的 ~ 目录
+# 误生成的 ~ 目录（根目录与嵌套的都要拦：调库/脚本写错路径时会在各级 cwd 下现造一个）
 /~/
+**/~/
+# 误生成的一次性脚本产物（如 mock_done.py 没写成、把它标准错误重定向进了 mock.log）
+/mock.log
+/mock_done.py
 backend/cookies.txt
 videos/
 .handbook/
