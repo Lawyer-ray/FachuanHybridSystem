@@ -71,9 +71,10 @@ describe('orderProjectHits 键盘序', () => {
 })
 
 describe('projectRoute 路由分流', () => {
-  it('诉讼合同 → /projects/:id；非诉合同 → /projects/:id/nonlit', () => {
+  it('诉讼/非诉合同都走单条 /projects/:id（详情页内部按 lit 选左栏，不再有 /nonlit）', () => {
     expect(projectRoute(hit('projects', 3, { kind: 'contract', case_type: 'civil' }))).toBe('/projects/3')
-    expect(projectRoute(hit('projects', 4, { kind: 'contract', case_type: 'advisor' }))).toBe('/projects/4/nonlit')
+    // 回归：advisor（常法顾问）曾拼出 /projects/4/nonlit，撞通配重定向跳回首页
+    expect(projectRoute(hit('projects', 4, { kind: 'contract', case_type: 'advisor' }))).toBe('/projects/4')
   })
 
   it('案件 → 所属合同的项目页，诉讼带 #case-<id> 锚点滚到该案，非诉不带', () => {
@@ -82,7 +83,16 @@ describe('projectRoute 路由分流', () => {
     ).toBe('/projects/5#case-11')
     expect(
       projectRoute(hit('projects', 21, { kind: 'case', contract_id: 9, case_type: 'special' })),
-    ).toBe('/projects/9/nonlit')
+    ).toBe('/projects/9#case-21')
+  })
+
+  it('生成的路由不带 /nonlit 后缀（该路由已不存在，带后缀必然落到通配 → 首页）', () => {
+    const all = [
+      projectRoute(hit('projects', 1, { kind: 'contract', case_type: 'advisor' })),
+      projectRoute(hit('projects', 2, { kind: 'contract', case_type: 'special' })),
+      projectRoute(hit('projects', 3, { kind: 'case', contract_id: 7, case_type: 'advisor' })),
+    ]
+    for (const r of all) expect(r).not.toContain('/nonlit')
   })
 
   it('无合同的案件无处可去 → undefined（按未建页处理）', () => {

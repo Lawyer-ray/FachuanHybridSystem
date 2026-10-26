@@ -28,8 +28,11 @@ const EMPTY_HITS: Hit[] = []
  * 重定向、静默跳回首页，比明确说"还没做"更糟。
  *
  * projects（项目 = 委托合同，案件挂在合同下）：合同与案件融合展示，
- * 跳转分流见 domain.projectRoute（诉讼 /projects/:id、非诉 /projects/:id/nonlit、
- * 案件带 #case-<id> 锚点滚到该案）。
+ * 跳转一律走 domain.projectRoute（单条 `/projects/:id`，诉讼/非诉由详情页
+ * 内部按 lit 选左栏；案件带 #case-<id> 锚点滚到该案）。
+ *
+ * 注：不要在这里按诉讼/非诉拼不同 URL——`/projects/:id/nonlit` 已不存在，
+ * 拼出来会落到 App.tsx 的 `*` 通配重定向、静默跳回首页。
  *
  * clients 对外叫「当事人」：后端 Client 表装的是所有当事人（我方 + 对方），
  * 叫「客户」会让人以为只有我方委托人。
