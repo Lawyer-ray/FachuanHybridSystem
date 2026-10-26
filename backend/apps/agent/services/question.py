@@ -131,6 +131,28 @@ def _clear_answer(question_id: str) -> None:
         pass
 
 
+async def get_question_by_id(question_id: str) -> Any:
+    """按 question_id 取提问记录（带 session）；不存在返回 None。
+
+    放在 service 层：结构门禁要求 apps/*/api/ 不直连 ORM。
+    """
+    from apps.agent.models.question import AgentQuestion
+
+    return await AgentQuestion.objects.filter(question_id=question_id).select_related("session").afirst()
+
+
+async def list_pending_questions_for_user(user_id: int, limit: int = 20) -> list[Any]:
+    """某用户待回答的提问（最新在前，最多 limit 条）。"""
+    from apps.agent.models.question import AgentQuestion
+
+    return [
+        row
+        async for row in AgentQuestion.objects.filter(
+            user_id=user_id, status=AgentQuestion.Status.PENDING
+        ).select_related("session")[:limit]
+    ]
+
+
 def normalize_questions(raw: Any) -> list[dict[str, Any]]:
     """校验并归一化模型提交的问题列表。
 

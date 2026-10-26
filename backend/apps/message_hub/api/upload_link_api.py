@@ -18,13 +18,10 @@ router = Router()
 
 
 def _get_owned_link(request: HttpRequest, link_id: int) -> ClientUploadLink:
-    """取链接并校验归属：仅创建人与管理员可操作（不存在/无权统一 404）。"""
-    link = ClientUploadLink.objects.select_related("created_by", "contract").filter(pk=link_id).first()
-    if link is None:
-        raise NotFoundError(f"上传链接 {link_id} 不存在")
-    if link.created_by_id != getattr(request.user, "id", None) and not is_admin_user(request.user):
-        raise NotFoundError(f"上传链接 {link_id} 不存在")
-    return link
+    """取链接并校验归属（实现与 ACL 规则都在 service 层）。"""
+    from apps.message_hub.services.client_upload_service import get_owned_link
+
+    return get_owned_link(link_id=link_id, user=request.user)
 
 
 @router.post("/upload-links", response={201: UploadLinkCreatedOut})

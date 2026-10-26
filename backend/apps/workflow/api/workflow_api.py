@@ -74,13 +74,33 @@ async def list_workflows_api(
     """查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）
 
     安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。
+
+    `status` 在 HTTP 层是自由字符串（query 参数），服务层要的是字面量联合类型。
+    这里做一次白名单校验：非法值直接 400 而不是静默返回空列表——后者会让调用方
+    以为「确实没有该状态的工作流」，把参数写错掩盖成业务事实。
     """
+    from apps.core.exceptions import ValidationException
     from apps.core.security import get_request_access_context
+
+    _VALID_STATUSES = (
+        "running",
+        "waiting_human",
+        "waiting_event",
+        "completed",
+        "failed",
+        "cancelled",
+        "timed_out",
+    )
+    if status is not None and status not in _VALID_STATUSES:
+        raise ValidationException(
+            message=f"status 取值非法：{status}",
+            errors={"status": "、".join(_VALID_STATUSES)},
+        )
 
     ctx = get_request_access_context(request)
     return await list_workflows(
         case_id,
-        status,
+        status,  # type: ignore[arg-type]  # 上面已按白名单收窄
         limit=limit,
         user=ctx.user,
         org_access=ctx.org_access,

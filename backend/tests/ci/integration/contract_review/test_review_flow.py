@@ -219,6 +219,9 @@ class TestAccessControl:
         c.defaults["HTTP_AUTHORIZATION"] = f"Bearer {RefreshToken.for_user(other).access_token}"
         r = c.get(f"/api/v1/contract-review/{t.id}/revisions")
         assert r.status_code == 403
+        # 403 必须真的不泄露数据：响应体里不能出现任何修订内容
+        assert "items" not in r.content.decode("utf-8", "ignore")
+        assert REVIEWS[0].original not in r.content.decode("utf-8", "ignore")
 
     def test_other_user_cannot_resolve(self, user: Any) -> None:
         from ninja_jwt.tokens import RefreshToken
@@ -245,12 +248,16 @@ class TestAccessControl:
     def test_missing_revision_is_404(self, api_client: Client, task: ReviewTask) -> None:
         import uuid
 
+        before = ReviewRevision.objects.filter(task=task, status=RevisionStatus.PENDING).count()
+
         r = api_client.post(
             f"/api/v1/contract-review/{task.id}/revisions/{uuid.uuid4()}/resolve",
             data={"action": "accept"},
             content_type="application/json",
         )
         assert r.status_code == 404
+        # 404 不能悄悄改到别的条目：待决策数必须不变
+        assert ReviewRevision.objects.filter(task=task, status=RevisionStatus.PENDING).count() == before
 
 
 class TestUploadEndpoint:

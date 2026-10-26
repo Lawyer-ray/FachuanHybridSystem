@@ -70,7 +70,10 @@ def test_skills_toggle_rejects_unknown_and_illegal() -> None:
 
 @pytest.mark.django_db
 def test_skills_require_auth(api_client: Any) -> None:
-    assert api_client.get("/api/v1/agent/skills").status_code in (401, 403)
+    r = api_client.get("/api/v1/agent/skills")
+    assert r.status_code in (401, 403)
+    # 未鉴权不能泄露技能清单（技能名本身会暴露内部能力面）
+    assert "skills" not in r.content.decode("utf-8", "ignore")
 
 
 # ===================================================================
@@ -121,7 +124,10 @@ def test_stats_session_ownership() -> None:
     owner, _ = _make_user("stats-owner")
     other, other_client = _make_user("stats-other")
     session = _make_session(owner)
-    assert other_client.get(f"/api/v1/agent/sessions/{session.session_id}/stats").status_code == 404
+    r = other_client.get(f"/api/v1/agent/sessions/{session.session_id}/stats")
+    assert r.status_code == 404
+    # 别人的会话按「不存在」处理，响应里不能带出 token 用量等实际情况
+    assert "output_tokens" not in r.content.decode("utf-8", "ignore")
 
 
 # ===================================================================
@@ -172,6 +178,9 @@ def test_compact_busy_maps_to_429(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(svc, "compact_session", fake_compact)
     resp = client.post(f"/api/v1/agent/sessions/{session.session_id}/compact")
     assert resp.status_code == 429
+    # 429 必须带上可读原因：只给状态码，前端只能显示「出错了」
+    body = resp.content.decode("utf-8", "ignore")
+    assert "较多" in body or "稍后" in body
 
 
 @pytest.mark.django_db

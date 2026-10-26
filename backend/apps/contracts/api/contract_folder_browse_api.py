@@ -148,7 +148,10 @@ async def _read_single_upload(request: HttpRequest) -> bytes:
 
     def _read() -> bytes:
         f.seek(0)
-        return f.read()
+        # Django 的 UploadedFile.read() 返回 Any：显式收敛成 bytes，
+        # 否则 mypy 的 no-any-return 会在 API 层全线报错
+        data: bytes = f.read()
+        return data
 
     return await sync_to_async(_read, thread_sensitive=True)()
 

@@ -769,7 +769,9 @@ async def get_session_stats(request: Any, session_id: str) -> SessionStatsOut:  
     session = await get_session_record(session_id=session_id, user_id=_user_id(request))
     if session is None:
         raise HttpError(404, "会话不存在")
-    latest = await AgentRun.objects.filter(session=session).order_by("-id").afirst()
+    from ..services.stats import latest_run_for_session
+
+    latest = await latest_run_for_session(session)
     if latest is None:
         return SessionStatsOut(output_tokens=0, input_tokens=0, cache_read_tokens=0, cache_write_tokens=0)
     percent: float | None = None
@@ -1318,7 +1320,9 @@ async def submit_question_answer(  # pragma: no cover
     from ..services.question import submit_answer
 
     user = _current_user(request)
-    record = await AgentQuestion.objects.filter(question_id=question_id).select_related("session").afirst()
+    from ..services.question import get_question_by_id
+
+    record = await get_question_by_id(question_id)
     if record is None:
         return {"success": False, "error": "提问不存在"}
     if not _may_answer(user, record):
@@ -1344,12 +1348,9 @@ async def list_pending_questions(request: Any) -> list[dict[str, Any]]:  # pragm
     user = _current_user(request)
     if user is None:
         return []
-    rows = [
-        row
-        async for row in AgentQuestion.objects.filter(
-            user_id=user.pk, status=AgentQuestion.Status.PENDING
-        ).select_related("session")[:20]
-    ]
+    from ..services.question import list_pending_questions_for_user
+
+    rows = await list_pending_questions_for_user(user.pk, limit=20)
     return [
         {
             "question_id": str(row.question_id),

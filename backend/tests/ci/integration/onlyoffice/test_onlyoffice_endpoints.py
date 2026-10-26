@@ -189,6 +189,10 @@ class TestEditorConfigEndpoint:
             {"file_url": "/api/v1/x/download", "file_name": "a.docx"},
         )
         assert r.status_code == 401
+        # 未鉴权不能拿到签名配置：响应里不该出现 DS 的 JWT 或回调地址
+        body = r.content.decode("utf-8", "ignore")
+        assert "callbackUrl" not in body
+        assert "docserver_url" not in body
 
 
 class TestFileProxyEndpoint:
@@ -224,12 +228,14 @@ class TestFileProxyEndpoint:
         src = f"/api/v1/contract-review/{task_with_result.id}/download"
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": "1.9999999999.deadbeef"})
         assert r.status_code == 403
+        assert b"PK" != r.content[:2]
 
     def test_rejects_expired_token(self, cfg_ready: Any, task_with_result: Any, user: Any) -> None:
         src = f"/api/v1/contract-review/{task_with_result.id}/download"
         sig = sign_file_token(SECRET, src, str(user.pk), ttl_seconds=-1)
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 403
+        assert b"PK" != r.content[:2]
 
     def test_rejects_external_url(self, cfg_ready: Any) -> None:
         """开放代理防护：只允许站内 /api/ 路径。"""
@@ -237,6 +243,8 @@ class TestFileProxyEndpoint:
         sig = sign_file_token(SECRET, src, "1")
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 403
+        # 拒绝必须真的不吐文件：状态码对但正文带文档内容等于没拦住
+        assert b"PK" != r.content[:2]
 
     def test_rejects_scheme_in_path(self, cfg_ready: Any) -> None:
         """路径校验通过、验签也通过，但 uid 指向的用户不存在 → 403。
@@ -250,6 +258,8 @@ class TestFileProxyEndpoint:
         sig = sign_file_token(SECRET, src, "1")
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 403
+        # 越权必须真的不吐文件
+        assert b"PK" != r.content[:2]
 
     def test_other_users_task_is_forbidden(self, cfg_ready: Any, task_with_result: Any) -> None:
         """签名合法但用户无权访问该任务 → 不返回文件。"""
@@ -260,6 +270,8 @@ class TestFileProxyEndpoint:
         sig = sign_file_token(SECRET, src, str(other.pk))
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 404
+        # 越权与不存在同样回 404，且都不能吐出文件字节
+        assert b"PK" != r.content[:2], "越权用户拿到了别人的合同"
 
 
 class TestCallbackEndpoint:
@@ -313,6 +325,8 @@ class TestCallbackEndpoint:
             content_type="application/json",
         )
         assert r.status_code == 200
+        # 免鉴权只意味着「能进」，仍须按协议回 {error: 0}——否则 DS 会重试
+        assert r.json() == {"error": 0}
 
 
 class TestSaveCallback:

@@ -108,6 +108,24 @@ def create_upload_link(
     return link, token
 
 
+def get_owned_link(*, link_id: int, user: Any) -> ClientUploadLink:
+    """取链接并校验归属：仅创建人与管理员可操作（不存在/无权统一 404）。
+
+    放在 service 层而不是 API 层：结构门禁要求 apps/*/api/ 不直连 ORM，
+    且「归谁所有」属于业务规则，不该散落在路由里。
+    不存在与无权返回**同一个** 404——区分开就等于告诉攻击者「这个 id 存在」。
+    """
+    from apps.core.exceptions import NotFoundError
+    from apps.core.security.admin_access import is_admin_user
+
+    link = ClientUploadLink.objects.select_related("created_by", "contract").filter(pk=link_id).first()
+    if link is None:
+        raise NotFoundError(f"上传链接 {link_id} 不存在")
+    if link.created_by_id != getattr(user, "id", None) and not is_admin_user(user):
+        raise NotFoundError(f"上传链接 {link_id} 不存在")
+    return link
+
+
 def resolve_link_by_token(token: str) -> ClientUploadLink | None:
     """按 token 哈希取链接；无效 token 与不存在同形（None）。"""
     cleaned = (token or "").strip()

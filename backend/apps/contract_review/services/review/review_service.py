@@ -327,6 +327,129 @@ class ReviewService:  # pragma: no cover
             raise ContractReviewError("原始文件不存在")
         return path
 
+    # ── 复审台读取类端点（ORM 一律留在 service 层）───────────────
+    #
+    # API 层只做参数提取与响应映射：结构门禁要求 apps/*/api/ 下零 `.objects.`
+    # 调用，ORM 必须下沉到这里。
+
+    def get_task_or_none(self, task_id: uuid.UUID) -> ReviewTask | None:
+        """按 id 取审查任务；不存在返回 None（由 API 层决定回 404 还是空值）。"""
+        return ReviewTask.objects.filter(id=task_id).first()
+
+    def list_revisions(self, task_id: uuid.UUID) -> dict[str, object]:
+        """结构化修订清单 + 计数。
+
+        计数在后端算：前端自己数容易与列表不一致（筛选/分页后更是如此）。
+        """
+        from django.db.models import Count, Q
+
+        from apps.contract_review.models.review_revision import ReviewRevision, RevisionStatus
+        from apps.core.exceptions import NotFoundError
+
+        task = self.get_task_or_none(task_id)
+        if task is None:
+            raise NotFoundError("审查任务不存在")
+
+        qs = ReviewRevision.objects.filter(task=task).order_by("ordinal", "created_at")
+        counts = qs.aggregate(
+            total=Count("id"),
+            pending=Count("id", filter=Q(status=RevisionStatus.PENDING)),
+            accepted=Count("id", filter=Q(status=RevisionStatus.ACCEPTED)),
+            rejected=Count("id", filter=Q(status=RevisionStatus.REJECTED)),
+        )
+        return {
+            "task_id": task.id,
+            "total": counts["total"] or 0,
+            "pending": counts["pending"] or 0,
+            "accepted": counts["accepted"] or 0,
+            "rejected": counts["rejected"] or 0,
+            "items": [
+                {
+                    "id": r.id,
+                    "ordinal": r.ordinal,
+                    "kind": r.kind,
+                    "severity": r.severity,
+                    "title": r.title,
+                    "original": r.original,
+                    "suggested": r.suggested,
+                    "reason": r.reason,
+                    "paragraph_index": r.paragraph_index,
+                    "status": r.status,
+                    "reject_reason": r.reject_reason,
+                    "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+                }
+                for r in qs
+            ],
+        }
+
+    def resolve_revision(
+        self, task_id: uuid.UUID, revision_id: uuid.UUID, action: str, reason: str = ""
+    ) -> dict[str, object]:
+        """律师对单条建议做决策（accept / reject / reset）。
+
+        **只改状态，不碰 docx**：文档侧的修订痕迹由 OnlyOffice 编辑器写入
+        （前端驱动）。后端改产物会与编辑器互相覆盖。
+        """
+        from django.utils import timezone
+
+        from apps.contract_review.models.review_revision import ReviewRevision, RevisionStatus
+        from apps.core.exceptions import NotFoundError
+
+        task = self.get_task_or_none(task_id)
+        if task is None:
+            raise NotFoundError("审查任务不存在")
+
+        try:
+            rev = ReviewRevision.objects.get(id=revision_id, task=task)
+        except ReviewRevision.DoesNotExist as exc:
+            # 不属于该任务的 revision 一律 404，不泄露「存在但无权」
+            raise NotFoundError("修订条目不存在") from exc
+
+        if action == "accept":
+            rev.status = RevisionStatus.ACCEPTED
+            rev.reject_reason = ""
+            rev.decided_at = timezone.now()
+        elif action == "reject":
+            rev.status = RevisionStatus.REJECTED
+            rev.reject_reason = reason or ""
+            rev.decided_at = timezone.now()
+        else:  # reset
+            rev.status = RevisionStatus.PENDING
+            rev.reject_reason = ""
+            rev.decided_at = None
+        rev.save(update_fields=["status", "reject_reason", "decided_at", "updated_at"])
+
+        pending = ReviewRevision.objects.filter(task=task, status=RevisionStatus.PENDING).count()
+        return {"revision_id": rev.id, "status": rev.status, "pending": pending}
+
+    def get_content_version(self, task_id: uuid.UUID) -> dict[str, object]:
+        """文档内容版本：画布该不该重载。
+
+        真实信号是 `EditorSession.saved_version`——只有保存回写（DS status=2/6）
+        落盘后才 +1，即「文档内容真的变了」。采纳只改 DB 状态、不写 docx，
+        不该触发画布重建。
+        """
+        from django.db.models import Max
+
+        from apps.onlyoffice.models import EditorSession
+
+        task = self.get_task_or_none(task_id)
+        if task is None:
+            return {"content_version": "", "saved_version": 0, "output_file": ""}
+
+        agg = EditorSession.objects.filter(task_type="contract_review", task_id=task_id).aggregate(
+            m=Max("saved_version")
+        )
+        saved = int(agg["m"] or 0)
+        output = str(task.output_file or "")
+        # 同时含轮次与产物名：任一变化都换 key（产物名每次保存都不同），
+        # 任一不变则缓存命中。
+        return {
+            "content_version": f"{saved}:{output}",
+            "saved_version": saved,
+            "output_file": output,
+        }
+
     def adopt_edited_output(self, task_id: uuid.UUID, data: bytes, *, version_tag: int) -> str:
         """收养 OnlyOffice 保存回写的编辑产物（律师画布内编辑落盘）。
 

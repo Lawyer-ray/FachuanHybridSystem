@@ -131,6 +131,8 @@ class TestVersionEndpoint:
 
         r = api_client.get(f"/api/v1/contract-review/{uuid.uuid4()}/versions")
         assert r.status_code == 404
+        # 404 不能返回空链假装成功：响应里不该有 items 字段
+        assert "items" not in r.content.decode("utf-8", "ignore")
 
     def test_other_user_forbidden(self, task: ReviewTask) -> None:
         from django.test import Client
@@ -144,3 +146,5 @@ class TestVersionEndpoint:
         c.defaults["HTTP_AUTHORIZATION"] = f"Bearer {RefreshToken.for_user(other).access_token}"
         r = c.get(f"/api/v1/contract-review/{task.id}/versions")
         assert r.status_code == 403
+        # 403 必须真的不泄露：别人看不到这条链上的任何文件名
+        assert "u.docx" not in r.content.decode("utf-8", "ignore")

@@ -90,7 +90,8 @@ class BoundFolderBrowseService:
         if not target.exists() or not target.is_dir():
             raise NotFoundError(message="子文件夹不存在", code="FOLDER_NOT_FOUND")
 
-        folders: list[dict[str, str]] = []
+        # 值类型是 str | int：file_count 是数字，其余是路径/名称
+        folders: list[dict[str, Any]] = []
         files: list[dict[str, Any]] = []
         for child in sorted(target.iterdir(), key=lambda p: p.name):
             if child.name.startswith("."):

@@ -161,56 +161,24 @@ def download_original(request: HttpRequest, task_id: UUID) -> FileResponse | Htt
 
 @router.get("/{task_id}/revisions", response=RevisionListOut)
 def list_revisions(request: HttpRequest, task_id: UUID) -> Any:  # pragma: no cover
-    """取某次审查的结构化修订清单（复审台左栏）.\n
+    """取某次审查的结构化修订清单（复审台左栏）。
+
     为什么不是直接读 docx 的 Track Changes：痕迹里没有等级、依据、驳回理由，
     也没有「律师已决策」这个状态。清单是决策载体，docx 是产物。
+
+    ORM 查询在 service 层（结构门禁：API 层不得直连 ORM）。
     """
-    from django.db.models import Count, Q
+    svc = _get_review_service()
+    task = svc.get_task_or_none(task_id)
+    if task is None:
+        from apps.core.exceptions import NotFoundError
 
-    from apps.contract_review.models.review_revision import ReviewRevision, RevisionStatus
-    from apps.contract_review.models.review_task import ReviewTask
-    from apps.core.exceptions import NotFoundError
-
-    try:
-        task = ReviewTask.objects.get(id=task_id)
-    except ReviewTask.DoesNotExist as exc:
-        raise NotFoundError("审查任务不存在") from exc
+        raise NotFoundError("审查任务不存在")
     if not _check_task_access(task, request.user):
         from django.http import HttpResponseForbidden
 
         return HttpResponseForbidden("无权访问此任务")
-
-    qs = ReviewRevision.objects.filter(task=task).order_by("ordinal", "created_at")
-    counts = qs.aggregate(
-        total=Count("id"),
-        pending=Count("id", filter=Q(status=RevisionStatus.PENDING)),
-        accepted=Count("id", filter=Q(status=RevisionStatus.ACCEPTED)),
-        rejected=Count("id", filter=Q(status=RevisionStatus.REJECTED)),
-    )
-    return {
-        "task_id": task.id,
-        "total": counts["total"] or 0,
-        "pending": counts["pending"] or 0,
-        "accepted": counts["accepted"] or 0,
-        "rejected": counts["rejected"] or 0,
-        "items": [
-            {
-                "id": r.id,
-                "ordinal": r.ordinal,
-                "kind": r.kind,
-                "severity": r.severity,
-                "title": r.title,
-                "original": r.original,
-                "suggested": r.suggested,
-                "reason": r.reason,
-                "paragraph_index": r.paragraph_index,
-                "status": r.status,
-                "reject_reason": r.reject_reason,
-                "decided_at": r.decided_at.isoformat() if r.decided_at else None,
-            }
-            for r in qs
-        ],
-    }
+    return svc.list_revisions(task_id)
 
 
 @router.post("/{task_id}/revisions/{revision_id}/resolve", response=ResolveRevisionOut)
@@ -218,50 +186,23 @@ def list_revisions(request: HttpRequest, task_id: UUID) -> Any:  # pragma: no co
 def resolve_revision(
     request: HttpRequest, task_id: UUID, revision_id: UUID, payload: ResolveRevisionIn
 ) -> Any:  # pragma: no cover
-    """律师对单条建议做决策（采纳 / 驳回 / 撤销）.
+    """律师对单条建议做决策（采纳 / 驳回 / 撤销）。
 
     **只改状态，不改文档**：采纳后文档侧的修订痕迹由 OnlyOffice 编辑器写入
-    （前端驱动）。后端不碰 docx——同一份产物可能同时被编辑器持有，
+    （前端驱动）。后端不碰 docx 产物——同一份产物可能同时被编辑器持有，
     两边都写会互相覆盖。
     """
-    from django.utils import timezone
+    svc = _get_review_service()
+    task = svc.get_task_or_none(task_id)
+    if task is None:
+        from apps.core.exceptions import NotFoundError
 
-    from apps.contract_review.models.review_revision import ReviewRevision, RevisionStatus
-    from apps.contract_review.models.review_task import ReviewTask
-    from apps.core.exceptions import NotFoundError
-
-    try:
-        task = ReviewTask.objects.get(id=task_id)
-    except ReviewTask.DoesNotExist as exc:
-        raise NotFoundError("审查任务不存在") from exc
+        raise NotFoundError("审查任务不存在")
     if not _check_task_access(task, request.user):
         from django.http import HttpResponseForbidden
 
         return HttpResponseForbidden("无权访问此任务")
-
-    try:
-        rev = ReviewRevision.objects.get(id=revision_id, task=task)
-    except ReviewRevision.DoesNotExist as exc:
-        # 不属于该任务的 revision 一律 404，不泄露「存在但无权」
-        raise NotFoundError("修订条目不存在") from exc
-
-    action = payload.action
-    if action == "accept":
-        rev.status = RevisionStatus.ACCEPTED
-        rev.reject_reason = ""
-        rev.decided_at = timezone.now()
-    elif action == "reject":
-        rev.status = RevisionStatus.REJECTED
-        rev.reject_reason = payload.reason or ""
-        rev.decided_at = timezone.now()
-    else:  # reset
-        rev.status = RevisionStatus.PENDING
-        rev.reject_reason = ""
-        rev.decided_at = None
-    rev.save(update_fields=["status", "reject_reason", "decided_at", "updated_at"])
-
-    pending = ReviewRevision.objects.filter(task=task, status=RevisionStatus.PENDING).count()
-    return {"revision_id": rev.id, "status": rev.status, "pending": pending}
+    return svc.resolve_revision(task_id, revision_id, payload.action, payload.reason or "")
 
 
 @router.get("/{task_id}/content-version", response=ContentVersionOut)
@@ -271,34 +212,16 @@ def get_content_version(request: HttpRequest, task_id: UUID) -> Any:  # pragma: 
     旧做法是前端自己拼 `version = taskId:acceptedCount`，采纳一次就变 →
     整篇重建 DS 画布（5–15 秒）。律师逐条过一份 30 处建议的合同时，
     每点一次采纳都在等重载。
-
-    真实信号在 `EditorSession.saved_version`：只有保存回写（DS status=2/6）
-    落盘后才 +1，也就是**文档内容真的变了**。采纳只改 DB 状态、不写 docx，
-    不该触发重建。
     """
-    from django.db.models import Max
-
-    from apps.contract_review.models.review_task import ReviewTask
-    from apps.onlyoffice.models import EditorSession
-
-    task = ReviewTask.objects.filter(id=task_id).first()
+    svc = _get_review_service()
+    task = svc.get_task_or_none(task_id)
     if task is None:
         return {"content_version": "", "saved_version": 0, "output_file": ""}
     if not _check_task_access(task, request.user):
         from django.http import HttpResponseForbidden
 
         return HttpResponseForbidden("无权访问此任务")
-
-    agg = EditorSession.objects.filter(task_type="contract_review", task_id=task_id).aggregate(m=Max("saved_version"))
-    saved = int(agg["m"] or 0)
-    output = str(task.output_file or "")
-    # 同时含轮次与产物名：任一变化都换 key（产物名每次保存都不同），
-    # 任一不变则缓存命中。
-    return {
-        "content_version": f"{saved}:{output}",
-        "saved_version": saved,
-        "output_file": output,
-    }
+    return svc.get_content_version(task_id)
 
 
 @router.get("/{task_id}/versions", response=VersionChainOut)
@@ -308,13 +231,12 @@ def get_versions(request: HttpRequest, task_id: UUID) -> Any:  # pragma: no cove
     以前版本信息只活在文件名（`[修订版]V1_日期`）：改个名就断链，
     排序也只对同一天有效。这里把它变成真实关系（parent 指向改自的那版）。
     """
-    from apps.contract_review.models.review_task import ReviewTask
     from apps.contract_review.services.review.version_chain import list_versions
+    from apps.core.exceptions import NotFoundError
 
-    task = ReviewTask.objects.filter(id=task_id).first()
+    svc = _get_review_service()
+    task = svc.get_task_or_none(task_id)
     if task is None:
-        from apps.core.exceptions import NotFoundError
-
         raise NotFoundError("审查任务不存在")
     if not _check_task_access(task, request.user):
         from django.http import HttpResponseForbidden

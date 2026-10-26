@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from django.core.cache import cache
@@ -280,3 +281,6 @@ def test_upload_rejects_disallowed_type(authenticated_client, law_firm, tmp_path
     f = SimpleUploadedFile("可疑脚本.exe", b"MZ...", content_type="application/octet-stream")
     up = _upload(token, authenticated_client, [f])
     assert up.status_code == 400
+    # 拒绝必须真的没落盘：可执行文件不能出现在材料目录里
+    saved = list(Path(settings.MEDIA_ROOT).rglob("*.exe"))
+    assert saved == [], f"被拒的上传却已写入磁盘: {saved}"
