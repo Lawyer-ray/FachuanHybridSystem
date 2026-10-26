@@ -80,9 +80,7 @@ class TestContractFolderFileResolution:
 
         from apps.contracts.services.contract.integrations import folder_browse_service as mod
 
-        monkeypatch.setattr(
-            mod.ContractFolderBrowseService, "resolve_file", lambda _self, **_kw: f, raising=False
-        )
+        monkeypatch.setattr(mod.ContractFolderBrowseService, "resolve_file", lambda _self, **_kw: f, raising=False)
         assert domain.resolve_for_proxy(object(), 318, "a.docx") == f
 
 

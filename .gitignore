@@ -397,3 +397,9 @@ frontend/prototype/
 !/deploy/onlyoffice/
 /deploy/onlyoffice/.env
 /deploy/onlyoffice/fonts/
+# 插件目录的 .gz 是 DS 启动时**自己**生成的产物（documentserver-static-gzip.sh
+# 的 `gzip -kf9`），不入库：入库反而会带来「源文件新、.gz 旧」的静默故障
+# （详见 deploy/onlyoffice/README.md）。
+/deploy/onlyoffice/plugins/*/*.gz
+# e2e 自检脚本每次运行现生成的 docx 夹具（运行完会自己删，防手滑漏删后误入库）
+/backend/apps/onlyoffice/tests/fixtures/_inplace_probe.docx

@@ -93,50 +93,43 @@ curl -s http://127.0.0.1:9980/healthcheck     # true
 
 **不入库**：`.env`（真密钥）、`fonts/`（体积大 + 授权受限）。
 
-## 插件目录的 `.gz` 必须随文件一起同步
+## 插件目录的 `.gz` 是 DS 生成的产物，**不要入库**
 
-`plugins/fachuan-rewrite/` 下除了源文件，还有 `config.json.gz` / `index.html.gz` /
-`plugin.js.gz`——**不是构建产物，是必需文件**，必须与源文件一同提交、一同同步到运行目录。
+`plugins/fachuan-rewrite/` 下只有 `config.json` / `index.html` / `plugin.js` 三个源文件入库。
+同目录的 `*.gz` 由 **DS 容器自己生成**：`/var/www/onlyoffice/documentserver` 启动时执行
+`documentserver-static-gzip.sh`，它对 `sdkjs-plugins` 下的 js/json/html 跑
+`gzip -kf9`（`-f` = **强制覆盖**），供 nginx `gzip_static` 使用。
 
-原因：DS 对自己的静态资源走 nginx `gzip_static`，只在**镜像构建时**预压缩。我们后挂进去
-的目录它不会再压一遍，缺 `.gz` 时表现为：
+所以：**改了源文件，重启容器即可**，不需要手工重压：
 
-- 编辑器弹「**The connection is too slow, some of the components could not be loaded**」
-- 且**没有任何报错日志**（曾经给挂载加 `:ro`，DS 启动时 `gzip: Read-only file system`
-  被淹没在日志里，排查了很久）
+```bash
+cd ~/onlyoffice-dev           # 实际挂载目录（见 compose 的 ./plugins/...）
+docker compose restart onlyoffice    # DS 不热加载插件注册表
+```
 
-### 更隐蔽的一种：`.gz` 存在但**是旧的**
+### 曾经踩过的两个坑（都与 `.gz` 有关）
 
-`gzip -k` 不覆盖已存在的 `.gz`；`docker cp plugin.js` 也不会顺手重压。结果就是
-**源文件新、`.gz` 旧**，nginx 优先回 `.gz`，DS 跑的还是旧插件——而且：
+**坑一：挂载加 `:ro`** —— DS 的 gzip 预压缩写不进去（`gzip: Read-only file system`
+被淹没在日志里），`.gz` 一个都不生成，插件加载**静默失败**。compose 里已注释说明，别再加 `:ro`。
 
-- `docker exec grep 新代码 plugin.js` **能搜到**（误导性极强：你会以为已经生效）
-- 只能用 `curl` 看**实际下发**的那份才能发现
+**坑二（更隐蔽）：把 `.gz` 提交进仓库** —— 一旦入库，它就成了「源文件的过期副本」：
+git 里 `plugin.js` 是新的、`plugin.js.gz` 还是旧的，谁在别处部署都会拿到**旧插件**，
+而且症状极难定位：
 
-真机踩过：`plugin.js` 已 17243 字节，下发的 `Content-Length` 仍是旧值 3899。
-排查时先看这个（`Last-Modified` 应是刚改的时间）：
+- `docker exec grep 新代码 plugin.js` **能搜到**（误导性极强：以为已生效）
+- 只有看**实际下发**的字节才发现不对
+
+真机踩过：`plugin.js` 已 17243 字节，下发的 `Content-Length` 仍是旧值 3899，
+于是 apply-revision 一直停在最脆的「精确子串匹配」层，AI 改完就降级成整页重载。
+
+因此 `.gitignore` 已排除 `deploy/onlyoffice/plugins/*/*.gz`。**排查任何「改了插件没反应」，
+第一步都是核对实际下发的那一份**：
 
 ```bash
 curl -s -H 'Accept-Encoding: gzip' -D - -o /tmp/p.js \
   http://127.0.0.1:9980/sdkjs-plugins/fachuan-rewrite/plugin.js | grep -iE 'content-length|last-modified'
-grep -c '你在新代码里加的标记' /tmp/p.js    # 期望 >= 1
-```
-
-改插件后**必须** `rm -f *.gz` 再重压（用 `-f` 强制覆盖），不能只靠 `-k`：
-
-```bash
-cd ~/onlyoffice-dev/plugins/fachuan-rewrite
-for f in config.json index.html plugin.js; do rm -f "$f.gz"; gzip -9 -k "$f"; done
-docker compose restart onlyoffice      # DS 不热加载插件注册表
-```
-
-验证（三项均 200 且 gzip 取到的字节数接近 `.gz` 大小才算通）：
-
-```bash
-for f in config.json index.html plugin.js; do
-  curl -s -H 'Accept-Encoding: gzip' -o /dev/null -w "$f %{http_code} %{size_download}\n" \
-    http://127.0.0.1:9980/sdkjs-plugins/fachuan-rewrite/$f
-done
+wc -c < /tmp/p.js                                   # 应等于源文件字节数
+grep -c '你在新代码里加的标记' /tmp/p.js              # 期望 >= 1
 ```
 
 ## 就地落修订（apply-revision）的定位策略
