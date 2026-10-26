@@ -24,9 +24,9 @@ import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
 import { COPILOT_PREFILL_EVENT } from '../launch'
 import { useCopilot } from '../store'
+import { ComposerFooter } from './ComposerFooter'
 import { QuoteChip } from './RefQuote'
 import { SlashMenu } from './SlashMenu'
-import { TurnStatsView } from './TurnStatsView'
 
 export function Composer() {
   const [text, setText] = useState('')
@@ -36,8 +36,6 @@ export function Composer() {
   const pendingFiles = useCopilot((s) => s.pendingFiles)
   const pendingRefs = useCopilot((s) => s.pendingRefs)
   const uploading = useCopilot((s) => s.uploadingAttachments)
-  const contextUsage = useCopilot((s) => s.contextUsage)
-  const compacting = useCopilot((s) => s.compacting)
   const compactContext = useCopilot((s) => s.compactContext)
   const sessionId = useCopilot((s) => s.sessionId)
   const messageCount = useCopilot((s) => s.messages.length)
@@ -331,24 +329,7 @@ export function Composer() {
           </button>
         )}
       </div>
-      <p className="mt-1.5 flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
-        <span className="min-w-0 flex-1 truncate">
-          {compacting
-            ? '正在压缩上下文…'
-            : bgMode
-              ? '后台任务跑完会写入会话通知；高危操作会等你回来审批。'
-              : 'AI 回答仅供参考，法律判断需由律师复核。'}
-        </span>
-        {contextUsage.used !== null && contextUsage.total && contextUsage.total > 0 && !compacting && (
-          <span
-            className={`flex-none tabular-nums ${contextUsage.used / contextUsage.total >= 0.8 ? 'text-amber-600 dark:text-amber-400' : ''}`}
-            title={`上下文窗口占用：${contextUsage.used} / ${contextUsage.total} tokens；用 / 压缩命令可手动释放`}
-          >
-            上下文 {Math.round((contextUsage.used / contextUsage.total) * 100)}%
-          </span>
-        )}
-        <TurnStatsView />
-      </p>
+      <ComposerFooter bgMode={bgMode} />
       </div>
     </div>
   )
