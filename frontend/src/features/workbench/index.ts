@@ -24,7 +24,7 @@ export const DealDetailPageLazy = lazy(() =>
   preloadDealDetailPage().then((m) => ({ default: m.DealDetailPage })),
 )
 
-/** 非诉（常法/专项）详情页 chunk 加载器（/projects/:id/nonlit；右栏复用争议解决页，只换左栏） */
+/** 非诉（常法/专项）详情页 chunk 加载器（由 ProjectDetailPage 在 /projects/:id 内按 lit 选用，无独立路由） */
 export const preloadNonLitDetailPage = () => import('./components/deal-detail/NonLitDetailPage')
 
 /** 非诉详情页（懒加载组件，消费方需包 Suspense） */
