@@ -204,6 +204,12 @@ def _mismatches(calls: list[RestCall], index: dict[tuple[str, ...], set[str]]) -
     return failures
 
 
+# 插件提供的端点前缀。`plugins/` 不入库（私有代码/submodule），CI 里装不到，
+# 于是 apiSystem 用 try/except ImportError 跳过了这些 router —— 端点不存在是
+# **环境差异**而非「工具写错路径」。不排除的话这条测试在 CI 上必然失败。
+_PLUGIN_PATH_PREFIXES = ("/court-filing", "/court-guarantee")
+
+
 def test_all_tool_rest_paths_exist_in_backend(
     extraction: Extraction, openapi_index: dict[tuple[str, ...], set[str]]
 ) -> None:
@@ -212,6 +218,15 @@ def test_all_tool_rest_paths_exist_in_backend(
     assert len(comparable) >= _MIN_COMPARABLE_CALLS, (
         f"可比对调用仅 {len(comparable)} 条（护栏 {_MIN_COMPARABLE_CALLS}），疑似 AST 扫描失效"
     )
+    # 插件端点：装不上就跳过（本地有插件时照常硬校验）
+    plugin_prefixes = tuple(pre.strip("/") for pre in _PLUGIN_PATH_PREFIXES)
+    plugin_installed = any(
+        any(str(seg).startswith(plugin_prefixes) for seg in path) for path in openapi_index
+    )
+    if not plugin_installed:
+        comparable = [
+            c for c in comparable if not str(c.template).startswith(_PLUGIN_PATH_PREFIXES)
+        ]
     failures = _mismatches(comparable, openapi_index)
     assert not failures, "MCP 工具引用了后端不存在的端点（运行时静默 404）:\n" + "\n".join(f"  - {f}" for f in failures)
 
