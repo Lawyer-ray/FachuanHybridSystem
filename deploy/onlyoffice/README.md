@@ -88,6 +88,36 @@ curl -s http://127.0.0.1:9980/healthcheck     # true
 |---|---|
 | `compose.yaml` | DS 编排（镜像 tag 锁版本、JWT、端口、字体挂载、回连宿主） |
 | `.env.example` | 密钥模板（`ONLYOFFICE_JWT_SECRET`），复制成 `.env` 后填值 |
+| `plugins/fachuan-rewrite/` | 法穿 AI 改写插件（幕后桥）：划词直改的选区通道 |
 | `README.md` | 本文件 |
 
 **不入库**：`.env`（真密钥）、`fonts/`（体积大 + 授权受限）。
+
+## 插件目录的 `.gz` 必须随文件一起同步
+
+`plugins/fachuan-rewrite/` 下除了源文件，还有 `config.json.gz` / `index.html.gz` /
+`plugin.js.gz`——**不是构建产物，是必需文件**，必须与源文件一同提交、一同同步到运行目录。
+
+原因：DS 对自己的静态资源走 nginx `gzip_static`，只在**镜像构建时**预压缩。我们后挂进去
+的目录它不会再压一遍，缺 `.gz` 时表现为：
+
+- 编辑器弹「**The connection is too slow, some of the components could not be loaded**」
+- 且**没有任何报错日志**（曾经给挂载加 `:ro`，DS 启动时 `gzip: Read-only file system`
+  被淹没在日志里，排查了很久）
+
+改了插件源码要重压：
+
+```bash
+cd ~/onlyoffice-dev/plugins/fachuan-rewrite
+for f in config.json index.html plugin.js; do gzip -9 -kf "$f"; done
+docker compose restart onlyoffice      # DS 不热加载插件注册表
+```
+
+验证（三项均 200 且 gzip 取到的字节数接近 `.gz` 大小才算通）：
+
+```bash
+for f in config.json index.html plugin.js; do
+  curl -s -H 'Accept-Encoding: gzip' -o /dev/null -w "$f %{http_code} %{size_download}\n" \
+    http://127.0.0.1:9980/sdkjs-plugins/fachuan-rewrite/$f
+done
+```
