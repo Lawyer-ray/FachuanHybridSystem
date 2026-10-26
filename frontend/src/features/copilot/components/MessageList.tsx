@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Brain, Briefcase, Check, Copy, Folder, FolderOpen, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
+import { Brain, Briefcase, Check, Copy, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
@@ -23,6 +23,7 @@ import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
 import { CopilotWelcome } from './CopilotWelcome'
+import { RefQuoteCard } from './RefQuote'
 import { UserAvatar } from './UserAvatar'
 
 function ToolRow({ message }: { message: ChatMessage }) {
@@ -160,17 +161,8 @@ function Bubble({ message }: { message: ChatMessage }) {
             </span>
           )}
           {refs.length > 0 && (
-            <div className="flex max-w-full flex-wrap justify-end gap-1">
-              {refs.map((ref) => (
-                <span
-                  key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
-                  className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                  title={`${ref.kind === 'case' ? '案件' : '合同'} ${ref.ownerId} · ${ref.subpath}${ref.isFolder ? '（目录引用）' : '（引用原文件）'}`}
-                >
-                  {ref.isFolder ? <Folder className="h-3 w-3 flex-none text-foreground" /> : <FolderOpen className="h-3 w-3 flex-none text-foreground" />}
-                  <span className="max-w-52 truncate">{ref.subpath}{ref.isFolder ? '/' : ''}</span>
-                </span>
-              ))}
+            <div className="flex max-w-full flex-col items-end">
+              <RefQuoteCard refs={refs} />
             </div>
           )}
           {(message.content.trim() || (refs.length === 0 && !pageHint && !bizHint)) && (

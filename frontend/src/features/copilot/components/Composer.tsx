@@ -15,13 +15,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUp, Clock, Folder, FolderOpen, Paperclip, Square, Undo2, X } from 'lucide-react'
+import { ArrowUp, Clock, Paperclip, Square, Undo2 } from 'lucide-react'
 
 import { fetchAgentSkills } from '../api'
 import { formatFileSize } from '../domain'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { COPILOT_PREFILL_EVENT } from '../launch'
 import { useCopilot } from '../store'
+import { QuoteChip } from './RefQuote'
 import { SlashMenu } from './SlashMenu'
 import { TurnStatsView } from './TurnStatsView'
 
@@ -166,41 +167,22 @@ export function Composer() {
       {(pendingRefs.length > 0 || pendingFiles.length > 0) && (
         <div className="mb-1.5 flex flex-wrap gap-1.5">
           {pendingRefs.map((ref, i) => (
-            <span
+            <QuoteChip
               key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
-              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-primary/10 px-1.5 py-0.5 text-[11.5px] text-foreground"
-              title={`${ref.kind === 'case' ? '案件' : '合同'} ${ref.ownerId} · ${ref.subpath}${ref.isFolder ? '（目录引用：AI 会先列出目录内容再按需读取）' : '（引用原文件，发送时由 AI 直接读取）'}`}
-            >
-              {ref.isFolder ? <Folder className="h-3 w-3 flex-none text-primary" /> : <FolderOpen className="h-3 w-3 flex-none text-primary" />}
-              <span className="max-w-52 truncate">{ref.subpath}{ref.isFolder ? '/' : ''}</span>
-              <button
-                type="button"
-                className="flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
-                aria-label={`移除引用 ${ref.name}`}
-                onClick={() => removeFolderRef(i)}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
+              source={ref}
+              onRemove={() => removeFolderRef(i)}
+              removeLabel={`移除引用 ${ref.name}`}
+            />
           ))}
           {pendingFiles.map((file, i) => (
-            <span
+            <QuoteChip
               key={`${file.name}-${i}`}
-              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-secondary/60 px-1.5 py-0.5 text-[11.5px] text-secondary-foreground"
-              title={`${file.name} · ${formatFileSize(file.size)}`}
-            >
-              <Paperclip className="h-3 w-3 flex-none text-muted-foreground" />
-              <span className="max-w-44 truncate">{file.name}</span>
-              <span className="flex-none text-muted-foreground">{formatFileSize(file.size)}</span>
-              <button
-                type="button"
-                className="flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
-                aria-label={`移除附件 ${file.name}`}
-                onClick={() => removeAttachmentFile(i)}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
+              source={{ kind: 'contract', subpath: file.name, name: file.name }}
+              meta={formatFileSize(file.size)}
+              icon="attachment"
+              onRemove={() => removeAttachmentFile(i)}
+              removeLabel={`移除附件 ${file.name}`}
+            />
           ))}
         </div>
       )}
