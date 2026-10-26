@@ -81,8 +81,9 @@ def bump_external_write(source_path: str, task_type: str = "contract_folder") ->
     """
     task_id = session_id_for_path(source_path)
     new_saved_version = _doc_saved_version(task_id, task_type) + 1
-    # 代次先抬：保存回调据此判断「这份画布是外部写入之前画的」，
-    # 从而拒绝拿旧内容覆写掉 AI 刚落的修订（见 stale_canvas_reason）。
+    # **只抬文档级计数器**，绝不能动 canvas_seq：
+    # canvas_seq 记的是「这份画布是按第几代签发的」，一旦跟着涨，
+    # stale 判据就恒为 False（守门人变死代码，AI 的修订照样被旧画布盖掉）。
     # F() 原子自增，避免多 worker 并发外部写时丢计数。
     updated = EditorSession.objects.filter(task_type=task_type, task_id=task_id).update(
         saved_version=new_saved_version, external_write_seq=F("external_write_seq") + 1
@@ -117,9 +118,10 @@ def get_or_refresh_session(
         session.version = version
         session.document_key = document_key
         # 新签发的 key 意味着浏览器会（重新）向 DS 拉一份**当下磁盘**的内容，
-        # 所以该会话看到的外写代次应该跟文档级对齐——不对齐的话，
-        # 每次保存都会被 stale_canvas_reason 判成「旧画布」而丢掉。
-        session.external_write_seq = _doc_external_seq(task_id, task_type)
+        # 所以把画布代次快照对齐到文档级——这是**登记**，不是「跟着计数器涨」：
+        # 此后 external_write_seq 再涨，本会话的 canvas_seq 就落在后面了，
+        # stale 判据才能生效。
+        session.canvas_seq = _doc_external_seq(task_id, task_type)
         session.save()
     return session, document_key
 
@@ -155,7 +157,9 @@ def stale_canvas_reason(session: EditorSession) -> str:
     加载的，属于过期内容。
     """
     doc_seq = _doc_external_seq(session.task_id, session.task_type)
-    if doc_seq <= int(session.external_write_seq or 0):
+    # 比的是「文档现在第几代」vs「这份画布签发时的代次快照」。
+    # 不能用 external_write_seq（它和 doc_seq 永远相等，判据会恒假）。
+    if doc_seq <= int(session.canvas_seq or 0):
         return ""
     return "文档已被 AI 改写（磁盘内容新于当前画布），本次保存已忽略以免覆盖修订；请关闭并重新打开文档后再编辑"
 
@@ -201,8 +205,9 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
         session.document_key = make_document_key(session.source_path, session.version, new_saved_version)
         session.last_callback_status = status
         session.last_saved_at = timezone.now()
-        # 本次保存已经与磁盘对齐，代次跟上，后续保存不再被当成旧画布
-        session.external_write_seq = _doc_external_seq(session.task_id, session.task_type)
+        # 本次落盘成功 = 磁盘与这份画布已一致：把快照推到文档级，
+        # 之后自己的保存不会再被当成旧画布（而别人的旧画布仍然会被拦）。
+        session.canvas_seq = _doc_external_seq(session.task_id, session.task_type)
         session.save()
     logger.info(
         "OnlyOffice 保存回写完成: task=%s v%d -> %s（旧产物留档 %s）",

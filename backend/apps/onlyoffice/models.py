@@ -42,11 +42,24 @@ class EditorSession(models.Model):
         default="",
     )
     external_write_seq = models.IntegerField(
-        # AI 划词直改等「编辑器之外的写」每发生一次 +1。
-        # 保存回调拿到的画布内容若是这个序号之前画的，就**不能**回写——
-        # 那会把 AI 刚落的修订整篇盖掉（真机踩过：AI 说改好了，律师
-        # 关掉编辑器后磁盘上又变回旧文）。
-        "外部写入代次（编辑器之外的覆写次数）",
+        # 文档级**计数器**：AI 划词直改等「编辑器之外的写」每发生一次 +1。
+        # 同一文档的所有会话行一起被抬（抬的是「文档现在处于第几代」）。
+        "外部写入代次（文档级计数器，编辑器之外的覆写次数）",
+        default=0,
+    )
+    canvas_seq = models.IntegerField(
+        # 该会话**签发当前 document_key 时**看到的 external_write_seq 快照。
+        #
+        # **为什么不直接拿 external_write_seq 比**（真机踩过，这里写错过一版）：
+        # bump 会把 external_write_seq 在同一次 update 里抬到**所有行**上，
+        # 包括保存回调即将 load 出来的那一行；于是「文档级 max」与
+        # 「会话值」永远相等，stale 判据恒为 False，守门人变成死代码。
+        #
+        # 拆开之后语义才成立：
+        #   external_write_seq = 文档现在第几代（会涨）
+        #   canvas_seq         = 这份画布是按第几代签发的（不涨，只在新 key 时重设）
+        # 回调时若 external_write_seq > canvas_seq，画布就是旧的。
+        "该会话签发 key 时的外写代次快照（不随外部写推进）",
         default=0,
     )
     created_at = models.DateTimeField("创建时间", auto_now_add=True)

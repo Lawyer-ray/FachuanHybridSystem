@@ -94,16 +94,38 @@ AI 说「已改好，可在审阅里看到修订」
 → 关掉编辑器再打开，又变回旧文
 ```
 
-防线：`EditorSession.external_write_seq`（外写代次）。
+防线：**两个字段，职责必须分开**（写错过一版，下面是血泪）。
 
-- `bump_external_write()`（AI 落盘后调）抬文档级代次；
-- 签发新 key 时把该会话的代次对齐到文档级（新画布 = 新内容）；
-- `stale_canvas_reason()` 在回写前比对：**文档级代次 > 会话代次** = 画布是外写之前加载的；
+| 字段 | 含义 | 会随外部写增长？ |
+|---|---|---|
+| `external_write_seq` | 文档现在处于第几代（文档级计数器） | **会**（bump 时 +1） |
+| `canvas_seq` | 这份画布是**按第几代**签发的（快照） | **不会**（只在签发新 key 时重设） |
+
+- `bump_external_write()`（AI 落盘后调）只抬 `external_write_seq`；
+- 签发新 key / 回写成功时把 `canvas_seq` **登记**为当时的文档级值；
+- `stale_canvas_reason()` 比对：`external_write_seq(文档级 max) > canvas_seq` = 画布旧了；
 - 命中则**丢弃这次保存**并 `return True`（应答成功）。
 
-最后一点容易写错：这里必须回成功而非 `{"error": 1}`。DS 重试交回来的还是同一份旧画布，
-`error 1` 只会无限循环；丢掉这一次保存才是正确结果。回归测试：
-`tests/ci/unit/onlyoffice/test_stale_canvas_guard.py`。
+### 为什么不能用单个字段（守卫曾因此变成死代码）
+
+第一版拿「文档级 max(external_write_seq)」去比「会话自己的 external_write_seq」。
+问题在于 `bump_external_write` 用的是 `UPDATE ... external_write_seq = F(...) + 1`，
+**把同一行的这个字段也抬了**，于是两边永远相等 → 判据恒假 → 守卫从未生效，
+AI 的修订照样被旧画布覆盖。
+
+更坑的是当时单测拿的是**未刷新的内存对象**（还是 bump 前的旧值），所以一直是绿的。
+DS 回调实际走 `load_session_by_key()` **从库里重新取**，取到的已经是抬过的值。
+所以回归测试现在**一律通过 `load_session_by_key()` 取会话**，并额外断言
+`refresh_from_db()` 后也判过期：`tests/ci/unit/onlyoffice/test_stale_canvas_guard.py`。
+
+### 两道防线叠加（别只依赖其中一道）
+
+1. **旧 key 解析不到**：换 key 会把该行的 `document_key` 改写成新值，老 key 在库里
+   不复存在 → `load_session_by_key` 返 `None` → 回调直接 `{"error": 1}`（fail-closed）；
+2. **stale 判据**：多用户场景下 key 可能仍是同一个（协同共用），这时靠代次比对拦。
+
+最后一点容易写错：命中 stale 时必须回**成功**而非 `{"error": 1}`。DS 重试交回来的
+还是同一份旧画布，`error 1` 只会无限循环；丢掉这一次保存才是正确结果。
 
 **document key 规则**（`make_document_key`）：`sha256(source_path | version | saved_version)[:32]`。
 
@@ -279,7 +301,7 @@ ls ~/Downloads/Coding/AI/onlyoffice-dev/fonts/  # 宿主侧清单
 | 每次打开都重新转换、两人协同互相看不见 | 签名参数混进了 `document.key`（`sig` 含时间戳）。key 只用 `source_path|version|saved_version` |
 | 改了内容但看到旧版 | 保存后没轮换 key，或 DS 缓存没清 |
 | 工作台挂一天，修订没落盘 | 没开 `customization.forcesave`；默认只在最后一人关闭 10s 后才回调 |
-| **AI 说改好了，重开文档又变回旧文** | 编辑器旧画布把 AI 落盘的内容盖了。看 `EditorSession.external_write_seq` 与日志「忽略过期画布的保存回调」；机制见「③ 保存回写」 |
+| **AI 说改好了，重开文档又变回旧文** | 编辑器旧画布把 AI 落盘的内容盖了。看 `EditorSession.external_write_seq`（计数器）与 `canvas_seq`（画布快照）是否分离、日志「忽略过期画布的保存回调」；机制见「③ 保存回写」 |
 | **WPS/Word 里满是修订，OnlyOffice 画布干净得更新文档一样** | 没给 `customization.review.reviewDisplay: "markup"`。DS 默认 `"original"` = 按修订前原文渲染，已有 `w:ins`/`w:del` **一律不画**。
 注意 `trackChanges` 是**录制**开关（我敲字要不要留痕），不是**显示**开关（文件里已有痕迹要不要画），两者不可互替。
 先用 `unzip -p x.docx word/document.xml \| grep -c '<w:ins \|'` 确认文件真带痕迹，再查 config。 |
