@@ -15,11 +15,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUp, Clock, Paperclip, Square, Undo2 } from 'lucide-react'
+import { ArrowUp, Clock, Mic, Paperclip, Square, Undo2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { fetchAgentSkills } from '../api'
 import { formatFileSize } from '../domain'
 import { useSlashMenu } from '../hooks/use-slash-menu'
+import { useSpeechInput } from '../hooks/use-speech-input'
 import { COPILOT_PREFILL_EVENT } from '../launch'
 import { useCopilot } from '../store'
 import { QuoteChip } from './RefQuote'
@@ -49,6 +51,22 @@ export function Composer() {
   const submitTask = useCopilot((s) => s.submitTask)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * 语音听写（Chrome/Edge 原生，zh-CN）：说出的内容实时追加进输入框草稿。
+   * onText 每次带上 autoGrow——语音进来也要长个儿，不能等用户敲键才撑高。
+   */
+  const speech = useSpeechInput({
+    onText: (t) => {
+      setText(t)
+      requestAnimationFrame(autoGrow)
+    },
+  })
+
+  // 权限拒绝这类用户必须知道原因的失败，弹一次 toast（悬停 title 太隐蔽）
+  useEffect(() => {
+    if (speech.error) toast.error('语音输入失败', { description: speech.error })
+  }, [speech.error])
 
   /**
    * 接收「选区预填」：编辑器里框选一段后，把带引用的指令模板放进输入框。
@@ -100,6 +118,10 @@ export function Composer() {
   })
 
   const submit = () => {
+    // 听写中直接发送：静默停止（草稿里已含说到的最后一个字，interim 每次
+    // onresult 都实时 emit 进了输入框），停止后再 emit 会把发掉的内容
+    // 「复活」回已清空的输入框
+    if (speech.listening) speech.stop(true)
     const value = text.trim()
     if (!value && pendingFiles.length === 0 && pendingRefs.length === 0) return
     if (uploading) return
@@ -154,11 +176,13 @@ export function Composer() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }
 
-  const placeholder = streaming
-    ? '插话补充指令，Enter 送达当前对话…'
-    : bgMode
-      ? '后台运行：提交后可关闭页面，跑完会在会话里通知你…'
-      : '问点什么…'
+  const placeholder = speech.listening
+    ? '正在听写…说完点麦克风结束，可手动修改后发送'
+    : streaming
+      ? '插话补充指令，Enter 送达当前对话…'
+      : bgMode
+        ? '后台运行：提交后可关闭页面，跑完会在会话里通知你…'
+        : '问点什么…'
 
   return (
     <div className="flex-none border-t border-border p-2.5">
@@ -250,6 +274,26 @@ export function Composer() {
             e.target.value = ''
           }}
         />
+        {speech.supported && (
+          <button
+            type="button"
+            className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors ${
+              speech.listening
+                ? 'bg-destructive/10 text-destructive'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+            }`}
+            onClick={() => (speech.listening ? speech.stop() : speech.start(text))}
+            aria-label={speech.listening ? '停止语音输入' : '语音输入'}
+            aria-pressed={speech.listening}
+            title={
+              speech.listening
+                ? '正在听写，点击结束（内容已实时进入输入框，可随口修改后发送）'
+                : '语音输入：中文听写，内容实时进入输入框'
+            }
+          >
+            <Mic className={`h-4 w-4 ${speech.listening ? 'animate-pulse' : ''}`} />
+          </button>
+        )}
         <textarea
           ref={textareaRef}
           value={text}
@@ -257,6 +301,8 @@ export function Composer() {
           placeholder={placeholder}
           className="max-h-30 min-h-6 flex-1 resize-none bg-transparent text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
           onChange={(e) => {
+            // 听写中手动改字：以编辑后的全文为新基线，后续听写在其后追加
+            if (speech.listening) speech.rebase(e.target.value)
             setText(e.target.value)
             autoGrow()
           }}
