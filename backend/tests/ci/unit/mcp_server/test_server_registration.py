@@ -260,13 +260,37 @@ class TestSignatureHygiene:
         for name in _available_tools():
             fn = getattr(self.tools, name)
             doc = inspect.getdoc(fn) or ""
-            m = re.search(r"^\s*Args:\s*\n((?:\s+.+\n?)+?)(?=^\s*\S|\Z)", doc, re.M)
-            if not m:
+            # 原写法 `(?:\s+.+\n?)+?` 里 `\s+` 与 `.` 大量重叠，长 docstring 上
+            # 会指数级回溯（CodeQL py/redos）；而且它的结束前瞻 `(?=^\s*\S|\Z)`
+            # 中 `\s*` 可跨行，实际在第一行的首个非空白字符处就满足——只捕获到
+            # 第一个参数，后面全漏。本测试因此长期是假绿。
+            #
+            # 改成按行扫描：线性，且真的把整个 Args 节收进来。
+            lines = doc.splitlines()
+            start = next((i for i, ln in enumerate(lines) if ln.strip() == "Args:"), None)
+            if start is None:
+                continue
+            body_lines: list[str] = []
+            for ln in lines[start + 1 :]:
+                if ln.strip() and not ln[:1].isspace():
+                    break
+                body_lines.append(ln)
+            body = "\n".join(body_lines)
+            if not body.strip():
                 continue
             sig_params = set(inspect.signature(fn).parameters) - {"request", "ctx"}
+            # 只认「参数级别」的行：真正的参数名总在 Args 节的最小缩进层，
+            # 更深的缩进是续行说明（如 steps 下的 `示例: [...]`）。
+            # 不区分的话，`示例:` 会被当成幽灵参数（误报）。
+            indents = [
+                len(ln) - len(ln.lstrip()) for ln in body.splitlines() if ln.strip()
+            ]
+            base = min(indents) if indents else 0
+            param_re = re.compile(rf"^\s{{{base}}}(\w+)\s*[:(]")
             ghosts = [
-                g for g in re.findall(r"^\s{4,}(\w+)\s*[:(]", m.group(1), re.M)
-                if g not in sig_params
+                m.group(1)
+                for ln in body.splitlines()
+                if (m := param_re.match(ln)) and m.group(1) not in sig_params
             ]
             if ghosts:
                 offenders.append(f"{name}: {ghosts}")
