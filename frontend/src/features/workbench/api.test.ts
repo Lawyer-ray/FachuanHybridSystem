@@ -113,6 +113,7 @@ import {
   getContract,
   listFolderEntries,
   listRemindersByCase,
+  registerFolderSaveAsIntent,
   renameFolderEntry,
   uploadFolderFiles,
 } from './api'
@@ -216,6 +217,26 @@ describe('文件夹接口：上传与预览直链', () => {
 
   it('folderFileUrl 合同类走 contracts 段', () => {
     expect(folderFileUrl('contract', 9, 'x.pdf')).toContain('/api/v1/contracts/9/folder-file')
+  })
+})
+
+describe('另存为意图登记（只登记，不发字节）', () => {
+  it('走 contracts/{id}/folder-save-as-intent，JSON 带 subpath + name', async () => {
+    client('/api/v1/contracts').post.mockReturnValue(
+      respond({ registered: true, name: 'a[修订版]V1_20261027.docx', subpath: '1-合同/a.docx' }),
+    )
+    await registerFolderSaveAsIntent('contract', 318, '1-合同/a.docx', 'a[修订版]V1_20261027.docx')
+    expect(client('/api/v1/contracts').post).toHaveBeenCalledWith('318/folder-save-as-intent', {
+      json: { subpath: '1-合同/a.docx', name: 'a[修订版]V1_20261027.docx' },
+    })
+  })
+
+  it('返回后端清洗后的实际文件名（可能与入参不同，提示语要用它）', async () => {
+    client('/api/v1/contracts').post.mockReturnValue(
+      respond({ registered: true, name: 'a[修订版]V1_20261027_1.docx', subpath: '1-合同/a.docx' }),
+    )
+    const res = await registerFolderSaveAsIntent('contract', 318, '1-合同/a.docx', 'x.docx')
+    expect(res.name).toBe('a[修订版]V1_20261027_1.docx')
   })
 })
 

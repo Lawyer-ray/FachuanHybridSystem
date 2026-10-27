@@ -6,11 +6,12 @@
  * 浏览器没有 docx 渲染器，`window.open(下载地址)` 对 .docx 必然落盘。
  *
  * 现在点行 = 就地 OnlyOffice，并且：
- * - 「保存」覆盖原文件，带 mtime 乐观锁；
- * - 「另存为」默认 `原名[修订版]V1_<今天>.docx`，不动原文件；
+ * - 「保存」原地覆盖原文件（DS forcesave 回调落盘，不做 mtime 校验）；
+ * - 「另存为」先登记一次性意图再 forcesave，默认 `原名[修订版]V1_<今天>.docx`，
+ *   原文件不动；只对合同文件夹的 docx 开放；
  * - 「AI 审查」只在 docx 出现（流水线只吃 docx）。
  */
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -38,9 +39,18 @@ vi.mock('@/lib/download-ticket', () => ({
 
 const requestSaveMock = vi.hoisted(() => vi.fn(() => true))
 
+// 意图登记接口：另存为走它（不发文件字节，只登记「下次保存写成这个名字」）
+const intentMock = vi.hoisted(() => vi.fn())
+vi.mock('../../api', async (orig) => {
+  const actual = await orig<typeof import('../../api')>()
+  return { ...actual, registerFolderSaveAsIntent: intentMock }
+})
+
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
+
+import { toast } from 'sonner'
 
 import { FilePreview } from './FilePreview'
 import { defaultSaveAsName } from './save-as-name'
@@ -72,6 +82,12 @@ beforeEach(() => {
   requestSaveMock.mockReset()
   requestSaveMock.mockReturnValue(true)
   ticketMock.mockResolvedValue('/x?ticket=t1')
+  intentMock.mockReset()
+  intentMock.mockImplementation((_kind: string, _id: number, subpath: string, name: string) =>
+    Promise.resolve({ registered: true, name, subpath }),
+  )
+  vi.mocked(toast.success).mockClear()
+  vi.mocked(toast.error).mockClear()
 })
 
 describe('FilePreview', () => {
@@ -84,12 +100,46 @@ describe('FilePreview', () => {
     )
   })
 
-  it('非 docx 只读，且不给保存/另存为/AI 审查', () => {
+  it('非 docx 只读，且不给保存/另存为/AI 审查（改完存不回去，别给假按钮）', () => {
     setup({ file: { subpath: 'a.pdf', name: '发票.pdf' } })
     expect(screen.getByTestId('office-view').getAttribute('data-mode')).toBe('view')
     expect(screen.queryByRole('button', { name: /保存/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /另存为/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /AI 审查/ })).toBeNull()
+  })
+
+  it('docx 才给「另存为」（与保存同在 docx 分支）', () => {
+    setup()
+    expect(screen.getByRole('button', { name: /另存为/ })).toBeTruthy()
+  })
+
+  it('案件文件夹的 docx 不给「另存为」（cases 没有 folder-save-as 系列端点）', () => {
+    setup({ kind: 'case', ownerId: 399, file: { subpath: '2-诉状/起诉状.docx', name: '起诉状.docx' } })
+    // 保存仍给：案件文件夹的原地保存走 cases 通道，后端有对应回调落盘
+    expect(screen.getByRole('button', { name: /保存/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /另存为/ })).toBeNull()
+  })
+
+  it('另存为：先登记意图（默认名字），再触发 DS 保存', async () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /另存为/ }))
+    await waitFor(() => expect(requestSaveMock).toHaveBeenCalledTimes(1))
+    const [kind, ownerId, subpath, name] = intentMock.mock.calls[0]!
+    expect(kind).toBe('contract')
+    expect(ownerId).toBe(318)
+    // subpath 传已解码一次的原文（与 folderFileUrl 同一口径），不许多 encode
+    expect(subpath).toBe('1-合同/a.docx')
+    expect(name).toMatch(/^顾问合同\[修订版\]V1_\d{8}\.docx$/)
+    expect(vi.mocked(toast.success)).toHaveBeenCalled()
+  })
+
+  it('另存为登记失败：报错且**不**触发保存（否则会把原稿原地覆盖）', async () => {
+    intentMock.mockRejectedValueOnce(new Error('boom'))
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /另存为/ }))
+    await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalled())
+    expect(requestSaveMock).not.toHaveBeenCalled()
+    expect(vi.mocked(toast.success)).not.toHaveBeenCalled()
   })
 
   it('保存：走 DS forcesave（不取字节自己上传）', () => {

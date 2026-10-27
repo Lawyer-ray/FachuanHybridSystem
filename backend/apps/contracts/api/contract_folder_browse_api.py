@@ -20,6 +20,8 @@ from apps.contracts.schemas.folder_browse_schemas import (
     ContractFolderEntriesOut,
     ContractFolderEntryNameIn,
     ContractFolderPathIn,
+    ContractFolderSaveAsIntentIn,
+    ContractFolderSaveAsIntentOut,
     ContractFolderSaveOut,
 )
 from apps.core.http.download import content_disposition
@@ -129,6 +131,67 @@ async def save_contract_folder_file_as(
     """
     data = await _read_single_upload(request)
     return await _call_service("save_new_file", request, contract_id, subpath=subpath, name=name, data=data)
+
+
+@router.post("/{contract_id}/folder-save-as-intent", response=ContractFolderSaveAsIntentOut)
+async def register_contract_folder_save_as_intent(
+    request: HttpRequest,
+    contract_id: int,
+    data: ContractFolderSaveAsIntentIn,
+) -> Any:
+    """登记「下次保存要另存为新文件」的一次性意图（**不写文件**）。
+
+    为什么需要这个端点（而不是像 folder-save-as 那样直接传字节）：社区版
+    OnlyOffice 不暴露 downloadAs（`Asc.editor` 上只有私有 `forceSave*`），
+    浏览器拿不到编辑后的文档字节——字节只存在于 DS 那边，只能等 DS 回调
+    （status=2/6 带 url）时由后端下载。所以前端只能提前把「另存为」这个
+    决定登记到编辑器会话上，保存回调落盘时（domain_registry._adopt_edited）
+    据此改走 save_new_file，原文件不动。
+
+    **权限口径与 folder-save 完全一致**：走同一个 `_call_service`
+    （ContractFolderBrowseService.resolve_file → ContractAccessPolicy），
+    不自建第二套判断。
+
+    `name` 过与 save_new_file **同一串**清洗（`_clean_entry_name` →
+    `sanitize_file_name`），不信任前端传的名字：这里不落盘、但名字会被落进
+    会话、最终成为磁盘上的路径部件，脏名字（`../`、绝对路径、控制字符）
+    必须在这一步就拒掉，而不是等到回调时才失败（那时错误对用户不可见）。
+
+    **不校 mtime**：意图与控制台保存的时机无关，只要文件当下存在、可访问即可。
+    """
+    from apps.core.exceptions import NotFoundError
+
+    service = _get_folder_browse_service()
+    ctx = get_request_access_context(request)
+    # 定位源文件走 resolve_file：ACL 与「文件是否存在」都在里面完成，
+    # 不自建一套判断（否则权限口径早晚与 folder-save 漂移）。
+    await sync_to_async(service.resolve_file)(
+        owner_id=contract_id,
+        subpath=data.subpath,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+    clean_name = service._validator.sanitize_file_name(service._clean_entry_name(data.name))
+
+    # source_path 必须与前端签配置时用的 file_url **逐字一致**（folderFileUrl 口径：
+    # `/api/v1/contracts/{id}/folder-file?subpath=<encodeURIComponent>`）。
+    # 前端传给本端点的 subpath 是**已解码一次**的原文，回拼时要重新 quote 一次
+    # ——多一次少一次都会导致会话查不到（表现为「明明开着却报未打开」）。
+    from urllib.parse import quote
+
+    source_path = f"/api/v1/contracts/{contract_id}/folder-file?subpath={quote(data.subpath, safe='')}"
+
+    from apps.onlyoffice.services.callback_service import register_save_as_intent
+
+    await sync_to_async(register_save_as_intent)(
+        task_type="contract_folder",
+        user=ctx.user,
+        source_path=source_path,
+        name=clean_name,
+    )
+    return {"registered": True, "name": clean_name, "subpath": data.subpath}
 
 
 async def _read_single_upload(request: HttpRequest) -> bytes:

@@ -199,6 +199,35 @@ export function folderFileUrl(kind: FolderOwnerKind, ownerId: number, subpath: s
   )
 }
 
+/**
+ * 登记「下一次保存另存为 name」的一次性意图（**不发文件字节**）。
+ *
+ * 为什么不是「取字节上传」：社区版 OnlyOffice 不暴露 `downloadAs`，编辑后的
+ * 字节只存在于 DS 那边，浏览器拿不到。所以前端只能先把「另存为这个名字」的
+ * 决定登记到编辑器会话上，再由 `requestSave()` 触发 DS forcesave，后端回调
+ * 落盘时按意图写新文件、原文件不动。
+ *
+ * **只有合同文件夹有该端点**（cases 侧没有 folder-save-as-intent），调用方
+ * 必须先按 `kind === 'contract'` 把关——这里不兜底成 no-op，否则「按钮点了没
+ * 反应」这种假成功比 404 更难排查。
+ *
+ * `subpath` 传**已解码一次**的原文（与 `folderFileUrl` 同一口径）：后端回拼
+ * source_path 时要按这个口径重新 quote，用来匹配两条编辑器会话。前端若多
+ * encode 一次，后端就查不到会话，表现为「明明开着却报未打开」。
+ *
+ * 返回的 `name` 是后端清洗后的**实际**文件名（可能与入参不同），提示语用它。
+ */
+export async function registerFolderSaveAsIntent(
+  kind: FolderOwnerKind,
+  ownerId: number,
+  subpath: string,
+  name: string,
+): Promise<{ registered: boolean; name: string; subpath: string }> {
+  return folderApi(kind)
+    .post(String(ownerId) + '/folder-save-as-intent', { json: { subpath, name } })
+    .json()
+}
+
 /** 复制文件/文件夹到目标目录（同名自动加序号，不覆盖） */
 export async function copyFolderEntry(
   kind: FolderOwnerKind,

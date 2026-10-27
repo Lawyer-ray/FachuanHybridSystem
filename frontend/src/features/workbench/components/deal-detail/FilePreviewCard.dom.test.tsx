@@ -10,18 +10,37 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const requestSaveMock = vi.hoisted(() => vi.fn(() => true))
+
 vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
-  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string }) => (
-    <div data-testid="office-view" data-url={p.fileUrl} data-mode={p.mode}>
-      {p.fileName}
-    </div>
-  ),
+  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string; onEditorReady?: (h: unknown) => void }) => {
+    // 立即交出句柄，模拟「编辑器就绪」（另存为要点到 requestSave）
+    p.onEditorReady?.({ requestSave: requestSaveMock })
+    return (
+      <div data-testid="office-view" data-url={p.fileUrl} data-mode={p.mode}>
+        {p.fileName}
+      </div>
+    )
+  },
+}))
+
+// 意图登记接口：另存为走它（不发文件字节，只登记「下次保存写成这个名字」）
+const intentMock = vi.hoisted(() => vi.fn())
+vi.mock('../../api', async (orig) => {
+  const actual = await orig<typeof import('../../api')>()
+  return { ...actual, registerFolderSaveAsIntent: intentMock }
+})
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
 
 const ticketMock = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/download-ticket', () => ({
   withDownloadTicket: (p: string) => ticketMock(p) as Promise<string>,
 }))
+
+import { toast } from 'sonner'
 
 import { FilePreviewCard } from './FilePreviewCard'
 
@@ -48,6 +67,14 @@ function setup(over: Partial<Parameters<typeof FilePreviewCard>[0]> = {}) {
 beforeEach(() => {
   ticketMock.mockReset()
   ticketMock.mockResolvedValue('/x?ticket=t1')
+  requestSaveMock.mockReset()
+  requestSaveMock.mockReturnValue(true)
+  intentMock.mockReset()
+  intentMock.mockImplementation((_kind: string, _id: number, subpath: string, name: string) =>
+    Promise.resolve({ registered: true, name, subpath }),
+  )
+  vi.mocked(toast.success).mockClear()
+  vi.mocked(toast.error).mockClear()
 })
 
 describe('FilePreviewCard', () => {
@@ -113,6 +140,39 @@ describe('FilePreviewCard', () => {
     expect(screen.getByTestId('office-view').getAttribute('data-mode')).toBe('view')
     expect(screen.queryByRole('button', { name: /保存/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /另存为/ })).toBeNull()
+  })
+
+  it('docx 才给「另存为」', () => {
+    setup()
+    expect(screen.getByRole('button', { name: /另存为/ })).toBeTruthy()
+  })
+
+  it('案件文件夹的 docx 不给「另存为」（cases 没有 folder-save-as 系列端点）', () => {
+    setup({ kind: 'case', ownerId: 399, file: { subpath: '2-诉状/起诉状.docx', name: '起诉状.docx' } })
+    expect(screen.getByRole('button', { name: /保存/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /另存为/ })).toBeNull()
+  })
+
+  it('另存为：先登记意图（默认名字），再触发 DS 保存', async () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /另存为/ }))
+    await waitFor(() => expect(requestSaveMock).toHaveBeenCalledTimes(1))
+    const [kind, ownerId, subpath, name] = intentMock.mock.calls[0]!
+    expect(kind).toBe('contract')
+    expect(ownerId).toBe(318)
+    // subpath 传已解码一次的原文（与 folderFileUrl 同一口径），不许多 encode
+    expect(subpath).toBe('1-合同/a.docx')
+    expect(name).toMatch(/^顾问合同\[修订版\]V1_\d{8}\.docx$/)
+    expect(vi.mocked(toast.success)).toHaveBeenCalled()
+  })
+
+  it('另存为登记失败：报错且**不**触发保存（否则会把原稿原地覆盖）', async () => {
+    intentMock.mockRejectedValueOnce(new Error('boom'))
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /另存为/ }))
+    await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalled())
+    expect(requestSaveMock).not.toHaveBeenCalled()
+    expect(vi.mocked(toast.success)).not.toHaveBeenCalled()
   })
 
   it('下载时现换一次性票据', async () => {

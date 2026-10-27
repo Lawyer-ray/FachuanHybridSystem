@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Download, FileSearch, Loader2, Save } from 'lucide-react'
+import { ArrowLeft, CopyPlus, Download, FileSearch, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
@@ -8,6 +8,7 @@ import { downloadUrl } from '@/lib/download'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
+import { canSaveAs, intentSubpath, useSaveAs } from './use-save-as'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
@@ -19,8 +20,13 @@ import { useFileRewriteNonce } from './use-rewrite-refresh'
  * 压在列表上很脏，像报错弹层而不是浏览文档。现在顶栏返回、中间整块给文档。
  *
  * **原地改、原地存**：律师看到错字想直接改，不必走一整轮 AI 审查。
- * - 保存：覆盖原文件（`saveFolderFile`），带 mtime 乐观锁防并发覆盖；
- * - 另存为：默认 `原名[修订版]V1_<今天>.docx`，不动原文件。
+ * - 保存：**原地覆盖**原文件——走 DS `forcesave` 回调落盘，后端
+ *   `adopt_edited` 直接覆写，**不做 mtime 校验**（这次保存就是当前会话
+ *   产生的，校验只会在「编辑器开着时文件被外部改」的少见场景误报，见后端
+ *   domain_registry 注释）；
+ * - 另存为：默认 `原名[修订版]V1_<今天>.docx`，写**新文件**、原文件不动。
+ *   字节同样只在 DS 那边（社区版没有 `downloadAs`），所以顺序是「先登记
+ *   一次性意图 → 再 forcesave」，回调按意图写新名字。
  *
  * 两条路都**不保留备份**（产品决定）：覆盖即覆盖，版本追溯走审查链路的
  * `DocumentVersion`，不靠磁盘上的历史目录。
@@ -45,9 +51,11 @@ export function FilePreview({
   const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const editorRef = useRef<OfficeEditorHandle | null>(null)
   const [ready, setReady] = useState(false)
-  const [busy, setBusy] = useState<'save' | 'download' | null>(null)
+  const [busy, setBusy] = useState<'save' | 'saveAs' | 'download' | null>(null)
   const qc = useQueryClient()
   const isDocx = /\.docx$/i.test(file.name)
+  // 另存为只对合同文件夹的 docx 开放（cases 没有 folder-save-as 系列端点）
+  const saveAsEnabled = canSaveAs(kind, file.name)
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布，修订痕迹才可见
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
   // 就地落修订通道（合同/案件 docx 通用）：AI 覆写成功时免重载直接在画布里长出修订
@@ -85,6 +93,28 @@ export function FilePreview({
       setBusy(null)
     }
   }, [busy, requestSave, onSaved, qc, kind, ownerId])
+
+  /** 另存为：登记意图 → forcesave（登记失败不保存，否则会把原稿覆盖） */
+  const runSaveAs = useSaveAs({
+    kind,
+    ownerId,
+    file: { subpath: intentSubpath(kind, ownerId, file.subpath), name: file.name },
+    requestSave,
+    onSaved,
+    enabled: saveAsEnabled,
+    locked: busy !== null,
+  })
+  const saveAs = useCallback(() => {
+    if (busy) return
+    setBusy('saveAs')
+    try {
+      // 编排本身是异步的（登记接口往返），这里只占住按钮防连点；
+      // 错误由 useSaveAs 内部 toast 处理，不在 UI 层重复提示
+      void runSaveAs().finally(() => setBusy(null))
+    } catch {
+      setBusy(null)
+    }
+  }, [busy, runSaveAs])
 
   const download = useCallback(async () => {
     setBusy('download')
@@ -150,6 +180,19 @@ export function FilePreview({
           >
             <Save className="size-3.5" />
             保存
+          </button>
+        )}
+
+        {saveAsEnabled && (
+          <button
+            type="button"
+            onClick={saveAs}
+            disabled={!ready || busy !== null}
+            className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] border border-border bg-card px-2.5 text-[12px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+            title="另存为新文件（原名[修订版]V1_今天.docx），原文件不动"
+          >
+            {busy === 'saveAs' ? <Loader2 className="size-3.5 animate-spin" /> : <CopyPlus className="size-3.5" />}
+            另存为
           </button>
         )}
 

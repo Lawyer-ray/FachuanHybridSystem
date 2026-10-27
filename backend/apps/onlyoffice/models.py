@@ -68,6 +68,23 @@ class EditorSession(models.Model):
         "该会话签发 key 时的外写代次快照（不随外部写推进）",
         default=0,
     )
+    pending_save_as_name = models.CharField(
+        # **一次性**意图：非空 = 下一次保存回写要另存为这个名字，为空 = 原地覆盖。
+        #
+        # 为什么意图必须存在服务端、而不是前端直接把字节交给某个「另存为」端点：
+        # 社区版 DS 不暴露 downloadAs，`Asc.editor` 上只有私有的 forceSave*，
+        # 浏览器拿不到编辑后的文档字节——字节只存在于 DS 那边，只能等 DS 回调
+        # （status=2/6 带 url）时由后端下载。于是「另存」这个决定必须提前登记到
+        # 会话上，让落盘的那一刻（domain_registry._adopt_edited）知道写哪儿。
+        #
+        # **只有成功落盘才清空**（见 _adopt_edited）：DS 在回调返回 error 1 时会
+        # 重试，若失败就先把意图清掉，重试那一次就降级成「原地覆盖」——
+        # 律师点的是另存，结果原稿被改，属于不可逆的数据损害。
+        "下次保存回写要另存为的文件名（一次性意图，落盘成功后清空）",
+        max_length=255,
+        blank=True,
+        default="",
+    )
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
     updated_at = models.DateTimeField("更新时间", auto_now=True)
 
