@@ -7,8 +7,8 @@ from collections.abc import Callable
 from typing import Any
 
 from apps.core.exceptions import MessageSendException
-from apps.core.models.enums import ChatPlatform
 from apps.core.exceptions.error_codes import MESSAGE_SEND_FAILED
+from apps.core.models.enums import ChatPlatform
 
 from .provider_facade import ChatProviderFacade
 from .recreate_policy import ChatRecreatePolicy

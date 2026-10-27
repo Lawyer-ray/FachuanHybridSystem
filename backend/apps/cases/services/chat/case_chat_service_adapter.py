@@ -9,8 +9,8 @@ import logging
 from typing import Any
 
 from apps.core.exceptions import BusinessException, NotFoundError
-from apps.core.interfaces import ICaseChatService
 from apps.core.exceptions.error_codes import MESSAGE_SEND_FAILED, SYSTEM_ERROR
+from apps.core.interfaces import ICaseChatService
 
 from .case_chat_service import CaseChatService
 

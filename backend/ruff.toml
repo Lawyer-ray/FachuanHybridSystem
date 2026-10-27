@@ -3,6 +3,10 @@ line-length = 120
 extend-exclude = [
     "migrations",
     ".venv",
+    # 文档不归 format 管：ruff format 会把 *.md 里的 ```python 代码块当源码重排，
+    # 把 README 中对齐的示例（如 pdf_splitting/README.md）压成单空格；
+    # 而 CI / pre-commit 的 ruff-format 钩子只作用于 \.py$，两条链路会持续互相打脸。
+    "*.md",
 ]
 
 [lint]

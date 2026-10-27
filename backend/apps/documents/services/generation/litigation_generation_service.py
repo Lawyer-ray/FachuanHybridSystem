@@ -16,10 +16,10 @@ from datetime import date
 from typing import Any, cast
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 from apps.core.interfaces import ServiceLocator
 from apps.core.utils.path import Path
 from apps.documents.storage import get_docx_templates_root
-from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 from .litigation_context_builder import LitigationContextBuilder
 from .litigation_llm_generator import LitigationLLMGenerator
