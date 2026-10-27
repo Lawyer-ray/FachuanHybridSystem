@@ -69,6 +69,68 @@ class TestScheduleQueryService:
         assert count == 0
 
 
+# ── task_queue_query.cluster_status（设置页·系统状态）──
+
+
+class TestClusterStatus:
+    @pytest.mark.django_db
+    def test_non_redis_broker_clusters_none(self):
+        """非 redis broker：clusters=None（无法探测）且不算错误。"""
+        with patch("apps.core.tasking.redis_queue.is_redis_broker", return_value=False):
+            data = task_queue_query.cluster_status()
+        assert data["clusters"] is None
+        assert data["broker_error"] is None
+        assert data["queue_depth"] == 0
+
+    @pytest.mark.django_db
+    def test_redis_probe_error_degrades(self):
+        """redis 连不上：clusters=None + broker_error 带异常摘要，不抛 500。"""
+        with (
+            patch("apps.core.tasking.redis_queue.is_redis_broker", return_value=True),
+            patch(
+                "apps.core.tasking.redis_queue._get_redis_connection",
+                side_effect=ConnectionError("redis down"),
+            ),
+        ):
+            data = task_queue_query.cluster_status()
+        assert data["clusters"] is None
+        assert "redis down" in (data["broker_error"] or "")
+
+    @pytest.mark.django_db
+    def test_heartbeat_keys_dedup_by_cluster_name(self):
+        """心跳键按集群名去重：同名集群多进程只算 1 个，跨名即多集群。"""
+        conn = MagicMock()
+        conn.scan_iter.return_value = [
+            b"django_q:default-abc12345:cluster:123",
+            b"django_q:default-abc12345:cluster:456",
+            b"django_q:zombie-deadbeef:cluster:789",
+        ]
+        with (
+            patch("apps.core.tasking.redis_queue.is_redis_broker", return_value=True),
+            patch("apps.core.tasking.redis_queue._get_redis_connection", return_value=conn),
+        ):
+            data = task_queue_query.cluster_status()
+        assert data["clusters"] == 2
+
+    @pytest.mark.django_db
+    def test_today_counts_and_last_run_times(self):
+        """今日成败计数与最近一次成功/失败时间来自 Task 表。"""
+        from django.utils import timezone
+        from django_q.models import Task
+
+        now = timezone.now()
+        Task.objects.create(id="ok-1", func="math.floor", started=now, stopped=now, success=True)
+        Task.objects.create(id="bad-1", func="math.floor", started=now, stopped=now, success=False)
+
+        with patch("apps.core.tasking.redis_queue.is_redis_broker", return_value=False):
+            data = task_queue_query.cluster_status()
+
+        assert data["succeeded_today"] == 1
+        assert data["failed_today"] == 1
+        assert data["last_success_at"] is not None
+        assert data["last_failed_at"] is not None
+
+
 # ── task_queue_query module-level functions ──
 
 

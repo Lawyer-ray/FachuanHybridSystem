@@ -6,11 +6,12 @@ import { hasToken } from '@/lib/token'
 import { useMediaQuery } from '@/hooks/use-media'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
+import { LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePageLazy, preloadHomePage } from '@/features/home'
 import { preloadWorkbenchPage, ProjectDetailPageLazy, WorkbenchPageLazy } from '@/features/workbench'
 import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
 import { ReviewWorkbenchPageLazy } from '@/features/contract-review'
+import { SettingsPageLazy } from '@/features/settings'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
@@ -67,6 +68,12 @@ function RouteFallback() {
       <Loader2 className="h-4 w-4 animate-spin" /> 正在加载…
     </div>
   )
+}
+
+/** /settings/bindings → /settings：账号绑定页并入设置页后的旧路径前转（保留 query） */
+function LegacyBindingsRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/settings${search}`} replace />
 }
 
 /**
@@ -343,8 +350,11 @@ export default function App() {
           <Route path="/projects/:id" element={<ProjectDetailPageLazy />} />
           {/* 合同复审工作台（发起审查后跳入；参数与 ReviewWorkbenchPage 的 useParams 对齐） */}
           <Route path="/projects/:id/review/:taskId" element={<ReviewWorkbenchPageLazy />} />
-          {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
-          <Route path="/settings/bindings" element={<BindingsPageLazy />} />
+          {/* 设置：系统状态 + 账号绑定 */}
+          <Route path="/settings" element={<SettingsPageLazy />} />
+          {/* 旧路径迁移：账号绑定已并入设置页。保留 query 前转（bound= 绑定成功
+              标记由设置页里的绑定面板消费，丢了就不弹成功提示） */}
+          <Route path="/settings/bindings" element={<LegacyBindingsRedirect />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

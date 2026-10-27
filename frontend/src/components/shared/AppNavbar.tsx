@@ -227,7 +227,7 @@ export function AppNavbar({
             {user?.username || '我的账号'}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => { void navigate('/settings/bindings') }}>账号绑定</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { void navigate('/settings') }}>设置</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
             <LogOut className="h-3.5 w-3.5" />

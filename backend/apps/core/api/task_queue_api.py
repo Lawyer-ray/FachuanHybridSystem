@@ -179,3 +179,37 @@ def resubmit_task(request: HttpRequest, task_id: str) -> dict[str, Any]:  # prag
     if new_id is None:
         return {"error": "任务不存在"}
     return {"new_task_id": new_id}
+
+
+class ClusterStatusOut(Schema):
+    """集群活性聚合（设置页·系统状态）。"""
+
+    clusters: int | None = None
+    queue_depth: int = 0
+    succeeded_today: int = 0
+    failed_today: int = 0
+    last_success_at: str | None = None
+    last_failed_at: str | None = None
+    broker_error: str | None = None
+
+
+@router.get("/cluster-status", response=ClusterStatusOut)
+def get_cluster_status(request: HttpRequest) -> Any:  # pragma: no cover
+    """Django-Q 集群活性聚合。
+
+    与上面的任务明细端点不同，这里**不做** ``ensure_admin_request``：返回的是
+    聚合数字（集群心跳数 / 队列深度 / 今日成败计数），不含任务载荷；律师在
+    设置页看系统状态也需要它，路由层挂的 JWTOrSessionAuth 已够。
+    """
+    from apps.core.tasking.task_queue_query import cluster_status
+
+    data = cluster_status()
+    return ClusterStatusOut(
+        clusters=data["clusters"],
+        queue_depth=data["queue_depth"],
+        succeeded_today=data["succeeded_today"],
+        failed_today=data["failed_today"],
+        last_success_at=_fmt_dt(data["last_success_at"]),
+        last_failed_at=_fmt_dt(data["last_failed_at"]),
+        broker_error=data["broker_error"],
+    )
