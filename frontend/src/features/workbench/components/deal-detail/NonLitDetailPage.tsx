@@ -12,6 +12,7 @@ import { ServiceItemStream } from './ServiceItemStream'
 import { useServiceItems } from './use-service-items'
 import { listFolderEntries } from '../../api'
 import { TermBar } from './TermBar'
+import { PaymentDialog } from './PaymentDialog'
 import { ResizeHandle } from './ResizeHandle'
 import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
@@ -39,6 +40,8 @@ export function NonLitDetailPage() {
     const n = new Date()
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
   }, [])
+  /** 记收款弹窗（粘贴到账短信 / 拖发票） */
+  const [payOpen, setPayOpen] = useState(false)
   /** 正在发起审查的文件（null = 抽屉关闭） */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
   /** 右栏页内预览的文件（null = 未选中）；高频「看一眼」不写 URL、不堆历史 */
@@ -217,7 +220,7 @@ export function NonLitDetailPage() {
               onOpenFile={openPreview}
               onReviewFile={(f) => setReviewTarget(f)}
               onAddDue={() => soonToast('新增期限')}
-              onAddPayment={() => soonToast('记收款')}
+              onAddPayment={() => setPayOpen(true)}
             />
           )}
         </div>
@@ -266,7 +269,7 @@ export function NonLitDetailPage() {
                 onOpenFile={openPreview}
                 onReviewFile={(f) => setReviewTarget(f)}
                 onAddDue={() => soonToast('新增期限')}
-                onAddPayment={() => soonToast('记收款')}
+                onAddPayment={() => setPayOpen(true)}
               />
             )}
           </div>
@@ -279,6 +282,15 @@ export function NonLitDetailPage() {
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
         onReviewStart={(f) => setReviewTarget(f)}
+      />
+
+      <PaymentDialog
+        open={payOpen}
+        contractId={deal.id}
+        fixedAmount={deal.amountNum}
+        receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
+        onClose={() => setPayOpen(false)}
+        onSaved={() => void d.refetch()}
       />
     </main>
   )

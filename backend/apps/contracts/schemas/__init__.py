@@ -53,6 +53,13 @@ from .lawyer_schemas import CaseOut, ContractLawyerOut
 from .party_schemas import ContractPartyIn, ContractPartyOut, ContractPartySourceOut
 
 # Payment Schemas
+from .payment_enhance_schemas import (
+    ContractPaymentParseIn,
+    ContractPaymentParseOut,
+    InvoiceOut,
+    InvoiceUploadFailure,
+    InvoiceUploadOut,
+)
 from .payment_schemas import (
     ContractPaymentIn,
     ContractPaymentOut,
@@ -88,6 +95,11 @@ __all__ = [
     "ContractPaymentIn",
     "ContractPaymentOut",
     "ContractPaymentUpdate",
+    "ContractPaymentParseIn",
+    "ContractPaymentParseOut",
+    "InvoiceOut",
+    "InvoiceUploadFailure",
+    "InvoiceUploadOut",
     "FinanceStatsItem",
     "FinanceStatsOut",
     # Supplementary Agreement

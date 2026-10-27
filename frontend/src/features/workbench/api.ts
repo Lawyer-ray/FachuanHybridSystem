@@ -215,3 +215,73 @@ export async function deleteFolderEntry(kind: FolderOwnerKind, ownerId: number, 
     .post(String(ownerId) + '/folder-delete', { json: { subpath } })
     .json<{ subpath: string; name: string }>()
 }
+
+/* ============ 记收款：到账短信识别 + 发票拖拽（后端 contractpayment_enhance_api） ============ */
+
+/** 到账短信解析草稿：识别不出的字段为空，由表单让人补 */
+export interface PaymentParseDraft {
+  amount: string | null
+  received_at: string | null
+  payer: string
+  note: string
+  hints: string[]
+}
+
+/** 发票（GET/POST 同一个投影） */
+export interface PaymentInvoice {
+  id: number
+  payment_id: number
+  original_filename: string
+  display_filename: string
+  file_url: string
+  invoice_code: string
+  invoice_number: string
+  invoice_date: string | null
+  amount: string | null
+  tax_amount: string | null
+  total_amount: string | null
+  seller_name: string
+  buyer_name: string
+  uploaded_at: string
+}
+
+/** 批量上传结果：成功逐张返回，失败逐张带原因 */
+export interface InvoiceUploadResult {
+  saved: PaymentInvoice[]
+  failed: Array<{ filename: string; reason: string }>
+  invoice_status: string
+  invoice_status_label: string
+  invoiced_amount: string
+  duplicated_count: number
+}
+
+/** 粘贴的到账短信/截图文字 → 收款草稿（只解析，不落库） */
+export async function parsePaymentText(text: string): Promise<PaymentParseDraft> {
+  return contractsApi.post('finance/payments/parse-text', { json: { text } }).json<PaymentParseDraft>()
+}
+
+/** 某条收款下的发票列表（contract_id 参与行级鉴权，必须传） */
+export async function listPaymentInvoices(paymentId: number, contractId: number): Promise<PaymentInvoice[]> {
+  return contractsApi
+    .get(`finance/payments/${paymentId}/invoices`, { searchParams: { contract_id: String(contractId) } })
+    .json<PaymentInvoice[]>()
+}
+
+/**
+ * 拖进来的发票：逐张识别 + 落盘 + 回填开票金额。
+ *
+ * 一次 multipart 传多张，后端逐张独立成败（一张坏文件不拖垮整批），
+ * 所以错误处理在返回值里而不在 catch 里。
+ */
+export async function uploadPaymentInvoices(paymentId: number, files: File[]): Promise<InvoiceUploadResult> {
+  const form = new FormData()
+  for (const f of files) form.append('files', f, f.name)
+  return contractsApi
+    .post(`finance/payments/${paymentId}/invoices`, { body: form, timeout: UPLOAD_TIMEOUT_MS })
+    .json<InvoiceUploadResult>()
+}
+
+/** 删除发票（media 文件同删，开票金额由后端重算） */
+export async function deletePaymentInvoice(invoiceId: number): Promise<{ success: boolean }> {
+  return contractsApi.delete(`finance/invoices/${invoiceId}`).json<{ success: boolean }>()
+}

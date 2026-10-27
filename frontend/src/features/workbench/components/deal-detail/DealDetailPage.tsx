@@ -15,6 +15,7 @@ import { ContractFileOverlays } from './ContractFileOverlays'
 import { ResizeHandle } from './ResizeHandle'
 import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
+import { PaymentDialog } from './PaymentDialog'
 import { DetailError } from './ui'
 
 /**
@@ -70,12 +71,15 @@ export function DealDetailPage() {
   const dockableViewport = useMediaQuery('(min-width: 1280px)')
   const focusDoc = Boolean(picked) && panelStacked && dockableViewport
 
-  /* 创建类动作本轮先占位（样式定稿后接表单）：记日志 / 新增期限 / 新建下一程序案件 / 记收款 */
+  /* 创建类动作：记日志 / 新增期限 / 新建下一程序案件仍占位；记收款已接真实表单 */
   const soon = useCallback((what: string) => soonToast(what), [])
   const onAddLog = useCallback(() => soon('记办案日志'), [soon])
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
-  const onAddPayment = useCallback(() => soon('记收款'), [soon])
+
+  /** 记收款弹窗：粘贴到账短信 / 拖发票进来（见 PaymentDialog） */
+  const [payOpen, setPayOpen] = useState(false)
+  const onAddPayment = useCallback(() => setPayOpen(true), [])
 
   // 本页就是「这个委托」——把全局助手绑到该委托的业务上下文（详见 use-deal-detail-page）
   useDealCopilotContext(deal, '委托详情')
@@ -258,6 +262,16 @@ export function DealDetailPage() {
         reviewTarget={reviewTarget}
         onReviewClose={() => setReviewTarget(null)}
         onReviewStart={(f) => setReviewTarget(f)}
+      />
+
+      {/* 记收款：粘贴到账短信 / 拖发票。保存后刷新合同，右栏收款节即时更新 */}
+      <PaymentDialog
+        open={payOpen}
+        contractId={deal.id}
+        fixedAmount={deal.amountNum}
+        receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
+        onClose={() => setPayOpen(false)}
+        onSaved={() => void d.refetch()}
       />
     </main>
   )
