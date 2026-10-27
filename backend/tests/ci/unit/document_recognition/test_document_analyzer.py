@@ -142,3 +142,47 @@ class TestDegradedRecognition:
 
         assert info["case_number"] == "（2024）粤0604民初123号"
         assert isinstance(info["court_time"], datetime)
+
+
+class TestAllBackendsBlackout:
+    """LLM 全后端不可用熔断：窗口内后续文书跳过 LLM 直接降级（防逐后端×Key 轮询风暴）。"""
+
+    def setup_method(self) -> None:
+        from apps.document_recognition.services import document_analyzer as mod
+
+        mod._blackout_until = 0.0
+
+    def teardown_method(self) -> None:
+        from apps.document_recognition.services import document_analyzer as mod
+
+        mod._blackout_until = 0.0
+
+    def test_all_backends_unavailable_triggers_blackout(self) -> None:
+        from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+        llm = MagicMock()
+        llm.chat.side_effect = LLMBackendUnavailableError()
+
+        outcome = analyze_document("第一份文书内容", llm_service=llm)
+
+        assert outcome.analysis is None
+        assert outcome.error == "llm_all_backends_unavailable"
+        # 熔断窗口内第二份文书不再打 LLM，直接降级
+        outcome2 = analyze_document("第二份文书内容", llm_service=llm)
+        assert outcome2.analysis is None
+        assert outcome2.error == "llm_blackout"
+        assert llm.chat.call_count == 1
+
+    def test_network_error_does_not_trigger_blackout(self) -> None:
+        from apps.core.llm.exceptions import LLMNetworkError
+
+        llm = MagicMock()
+        llm.chat.side_effect = LLMNetworkError("refused")
+
+        first = analyze_document("第一份文书内容", llm_service=llm)
+        second = analyze_document("第二份文书内容", llm_service=llm)
+
+        # 网络/超时类错误可能只是抖动，不熔断：两份都真实尝试过
+        assert first.error is not None and first.error.startswith("llm_unavailable")
+        assert second.error is not None and second.error.startswith("llm_unavailable")
+        assert llm.chat.call_count == 2

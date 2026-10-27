@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { useReader } from '../../store'
 import { countUnclassified, isAutoSegName, matLabel } from '../../draft'
-import { useMediaQuery } from '@/hooks/use-media'
 import { ReviewLaunchDrawer } from '@/features/contract-review'
 import { fetchAttachmentBytes } from '../../api'
 import type { DraftState } from '../../types'
@@ -17,7 +16,7 @@ import { Flow } from './Flow'
 import { MetaPanel } from './MetaPanel'
 import { useReaderOcr } from './use-ocr'
 import { useAutoSplit } from './use-auto-split'
-import { useElementWidth } from '../../hooks/use-element-width'
+import { useElementWidth } from '@/hooks/use-element-width'
 import { useReaderKeys } from './use-reader-keys'
 import { useReaderWidths } from './use-reader-widths'
 import { useWheelZoom } from './use-wheel-zoom'
@@ -49,7 +48,11 @@ export function Reader() {
   const [railOpen, setRailOpen] = useState(false)
   const [metaOpen, setMetaOpen] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
-  const narrow = useMediaQuery('(max-width:1100px)')
+  // 窄屏形态按**阅读器自身净宽**判定（≤1100 抽屉化）：并排 AI 助手会让位掉
+  // 数百像素，视口断点量不到它，宽屏标识配窄屏实际宽度会三栏挤成缝。
+  // 首帧宽度未测得（0）先按宽屏渲染，测得后一个断点内翻转一次。
+  const [readerRef, readerW] = useElementWidth<HTMLDivElement>()
+  const narrow = readerW > 0 && readerW <= 1100
   const [flowWrapRef, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
   const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
   const autoSplit = useAutoSplit()
@@ -186,7 +189,7 @@ export function Reader() {
   }
 
   return (
-    <FixedReader closing={closing}>
+    <FixedReader closing={closing} rootRef={readerRef}>
       <ReaderTopBar
         title={detail.subject || '材料包'}
         subtitle={subtitle}
@@ -198,8 +201,8 @@ export function Reader() {
         onRename={() => setRenaming(true)}
       />
 
-      {/* <1100（抽屉布局 / 手机）：工具组独立一行，放不下就横滚 */}
-      <div className="min-[1100px]:hidden">
+      {/* 窄于 1100（抽屉布局 / 手机，按阅读器净宽）：工具组独立一行，放不下就横滚 */}
+      <div className="hidden @max-[1100px]:block">
         <ReaderToolbar {...toolbarProps} narrow={narrow} />
       </div>
 
@@ -224,10 +227,12 @@ export function Reader() {
       {/* 三栏主体 */}
       <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
         {narrow && (railOpen || metaOpen) && (
-          // 窄屏遮罩：仅 pointer 点按关闭，键盘用户走面板内显式关闭（aria-hidden 不入 tab 序）
+          // 窄屏遮罩：仅 pointer 点按关闭，键盘用户走面板内显式关闭（aria-hidden 不入 tab 序）。
+          // absolute 相对三栏主体行（relative）：阅读器右缘已为并排助手收进来，
+          // fixed 会把遮罩铺满整个视口、连助手底下的区域也压暗
           <div
             aria-hidden
-            className="fixed inset-0 z-30 bg-black/20"
+            className="absolute inset-0 z-30 bg-black/20"
             onClick={() => {
               setRailOpen(false)
               setMetaOpen(false)

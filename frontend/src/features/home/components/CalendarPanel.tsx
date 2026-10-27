@@ -5,6 +5,7 @@ import { WEEKDAYS } from '../constants'
 import type { CalendarEvent, CalendarStats } from '../api'
 import { buildMonthGrid } from '../domain'
 import { BTN, BTN_ICON, PANEL } from '../ui'
+import { useElementWidth } from '@/hooks/use-element-width'
 import { useMediaQuery } from '@/hooks/use-media'
 import { cn } from '@/lib/utils'
 import { DayCell } from './DayCell'
@@ -59,12 +60,12 @@ export function CalendarPanel({
   useEffect(() => {
     setSelected((prev) => (prev <= today ? today : prev))
   }, [today])
-  // 每格最多行数（超出折叠成「+N 更多」）按视口断点自适应：≥2400 → 5、≥1600 → 4、否则 3。
-  // matchMedia 只在跨断点时通知，替代原先「每次 resize 重算 + 120ms 防抖」——
-  // 断点内拖动窗口不再触发任何重渲染，防抖也随之不再需要。
-  const ultraWide = useMediaQuery('(min-width: 2400px)')
-  const wide = useMediaQuery('(min-width: 1600px)')
-  const maxRows = ultraWide ? 5 : wide ? 4 : 3
+  // 每格最多行数（超出折叠成「+N 更多」）按**面板实测宽度**自适应：≥1900 → 5、
+  // ≥1150 → 4、否则 3（阈值由旧视口断点 2400/1600 扣除页边距与右栏换算而来）。
+  // 不用视口 matchMedia：AI 助手并排让位后面板净宽比视口窄数百像素，
+  // 视口量不到它，会在窄日历里硬塞 4/5 行。宽度未测得（首帧/测试）按 3 行。
+  const [sectionRef, sectionWidth] = useElementWidth<HTMLElement>()
+  const maxRows = sectionWidth >= 1900 ? 5 : sectionWidth >= 1150 ? 4 : 3
   // 手机断点（与本页 max-[760px]: 的 Tailwind 类一致）：格子只有 ~50px 宽，事件行
   // 放不下也点不准，点按一律开当日抽屉看全文；桌面端才区分「点空白新增 / 点事件开详情」
   const isMobile = useMediaQuery('(max-width: 760px)')
@@ -77,7 +78,7 @@ export function CalendarPanel({
   }
 
   return (
-    <section className={PANEL}>
+    <section ref={sectionRef} className={PANEL}>
       {/* 头部：月份导航 + 统计 */}
       <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-4">
         <button type="button" className={BTN_ICON} onClick={() => onShiftMonth(-1)} title="上个月" aria-label="上个月">

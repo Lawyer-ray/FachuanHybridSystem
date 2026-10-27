@@ -33,7 +33,9 @@ export function ToolDock() {
         <b className="text-[13.5px] font-semibold">快捷工具</b>
         <span className="text-[11px] text-muted-foreground">收案 · 文书 · 解析，不用进后台</span>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {/* 列数按本栏容器净宽（外层左栏 @container）：四卡并排要 ~1100 净宽，
+          否则卡片内的输入/按钮被压竖排；双栏 560 起步（≈ 旧视口 md 扣边距） */}
+      <div className="grid grid-cols-1 gap-3 @min-[560px]:grid-cols-2 @min-[1100px]:grid-cols-4">
         <CourtSmsCard />
         <DocConvertCard />
         <DocConverterCard />

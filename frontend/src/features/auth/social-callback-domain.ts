@@ -28,7 +28,7 @@ export function resolveCallbackError(error: string | null): string {
 /**
  * 在站内路径上追加查询参数，保留原有 query。
  *
- * 回调页拿到的是 redirect=/settings/bindings，而绑定成功的标记（bound=feishu）
+ * 回调页拿到的是 redirect=/settings，而绑定成功的标记（bound=feishu）
  * 得一起带给落地页，否则落地页无法区分「刚绑定成功」和「直接进来看看」。
  */
 export function withQuery(path: string, params: Record<string, string>): string {

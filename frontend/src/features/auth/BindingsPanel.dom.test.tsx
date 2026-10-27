@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
- * BindingsPage（账号绑定设置页）组件渲染单测（jsdom）。
+ * BindingsPanel（账号绑定面板，设置页内嵌）组件渲染单测（jsdom）。
  *
  * mock 边界：./social-api（socialBindingsApi 四个方法）、sonner（toast 断言）。
- * 导航栏由 AppShell 常驻，页面本身不再渲染。覆盖：加载/失败重载、三种行形态
+ * 面板挂载在 /settings 下测试。覆盖：加载/失败重载、三种行形态
  * （已绑定/可绑定/未开放）、空目录、解绑确认流程（成功 toast + 失败 toast）、
  * bound 回调参数清理（一次性提示）、绑定弹窗打开。
  */
@@ -32,7 +32,7 @@ vi.mock('sonner', () => {
 import { socialBindingsApi, type BoundAccount, type SocialProviderInfo } from './social-api'
 import { toast } from 'sonner'
 
-import { BindingsPage } from './BindingsPage'
+import { BindingsPanel } from './BindingsPanel'
 
 const listMock = vi.mocked(socialBindingsApi.list)
 const catalogMock = vi.mocked(socialBindingsApi.catalog)
@@ -72,7 +72,7 @@ function LocProbe() {
   return null
 }
 
-function setupUi(initialEntry = '/settings/bindings') {
+function setupUi(initialEntry = '/settings') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -81,7 +81,7 @@ function setupUi(initialEntry = '/settings/bindings') {
       <MemoryRouter initialEntries={[initialEntry]}>
         <LocProbe />
         <Routes>
-          <Route path="/settings/bindings" element={<BindingsPage />} />
+          <Route path="/settings" element={<BindingsPanel />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -100,7 +100,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('BindingsPage 加载与错误态', () => {
+describe('BindingsPanel 加载与错误态', () => {
   it('加载中：展示加载文案，不出列表行', () => {
     listMock.mockReturnValue(new Promise(() => {}))
     setupUi()
@@ -125,7 +125,7 @@ describe('BindingsPage 加载与错误态', () => {
   })
 })
 
-describe('BindingsPage 行渲染三种形态', () => {
+describe('BindingsPanel 行渲染三种形态', () => {
   it('已绑定：显示账号与绑定时间 + 解绑按钮；未绑定可用：给绑定按钮；未配置：灰态无按钮', async () => {
     setupUi()
     expect(await screen.findByText('飞书')).toBeTruthy()
@@ -149,7 +149,7 @@ describe('BindingsPage 行渲染三种形态', () => {
   })
 })
 
-describe('BindingsPage 解绑流程', () => {
+describe('BindingsPanel 解绑流程', () => {
   it('点解绑先弹确认框；确认后调 unbind 并 toast 成功', async () => {
     setupUi()
     await screen.findByText('飞书')
@@ -177,7 +177,7 @@ describe('BindingsPage 解绑流程', () => {
   })
 })
 
-describe('BindingsPage 绑定入口与回调参数', () => {
+describe('BindingsPanel 绑定入口与回调参数', () => {
   it('点绑定打开绑定弹窗（redirect 型展示对应平台名）', async () => {
     setupUi()
     await screen.findByText('GitHub')
@@ -186,13 +186,13 @@ describe('BindingsPage 绑定入口与回调参数', () => {
   })
 
   it('回调带 bound 参数：一次性成功提示 + replace 清掉参数', async () => {
-    setupUi('/settings/bindings?bound=feishu')
+    setupUi('/settings?bound=feishu')
     await waitFor(() =>
       expect(vi.mocked(toast.success)).toHaveBeenCalledWith('绑定成功，现在可以用它登录了'),
     )
     await waitFor(() => {
       const last = locHistory.at(-1)
-      expect(last?.pathname).toBe('/settings/bindings')
+      expect(last?.pathname).toBe('/settings')
       expect(last?.search).toBe('')
     })
   })

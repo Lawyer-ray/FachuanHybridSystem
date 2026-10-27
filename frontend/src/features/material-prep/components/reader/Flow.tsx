@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type CSSProperties, type ComponentProps } from 'react'
 import { Scissors } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
-import { useElementWidth } from '../../hooks/use-element-width'
+import { useElementWidth } from '@/hooks/use-element-width'
 import type { DraftState, OcrPending, PageKey } from '../../types'
 import { selKeyOf } from '../../draft'
 import { COL_GAP, effectiveCols, fitPageWidth, rowWidth } from './layout'

@@ -208,7 +208,7 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
     <>
       <div
         className={cn(
-          'flex h-[42px] min-w-[320px] max-w-[480px] flex-1 items-center gap-[7px] rounded-[11px] border border-input bg-card py-0 pr-[5px] pl-[13px] shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors focus-within:border-ring/40 md:ml-auto',
+          'flex h-[42px] min-w-[320px] max-w-[480px] flex-1 items-center gap-[7px] rounded-[11px] border border-input bg-card py-0 pr-[5px] pl-[13px] shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors focus-within:border-ring/40 @min-[700px]:ml-auto',
           dragOver && 'border-ring/60 bg-secondary/60',
         )}
         onDragOver={(e) => {

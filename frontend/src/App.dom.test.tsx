@@ -36,9 +36,11 @@ vi.mock('@/lib/token', () => ({ hasToken: () => true }))
 vi.mock('@/features/auth', () => ({
   LoginPage: () => <div>login-page</div>,
   SocialCallbackPage: () => <div>social-callback</div>,
-  BindingsPageLazy: () => <div>bindings-page</div>,
   useAuth: (sel: (s: unknown) => unknown) =>
     sel({ user: { id: 1, username: '张律师' }, setUser: vi.fn(), logout: vi.fn() }),
+}))
+vi.mock('@/features/settings', () => ({
+  SettingsPageLazy: () => <div>settings-page</div>,
 }))
 vi.mock('@/features/home', async () => {
   const { lazy } = await import('react')

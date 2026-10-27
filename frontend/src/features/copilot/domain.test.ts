@@ -359,7 +359,30 @@ describe('AI 改写落盘信号（parseFileRewrite）', () => {
 
   it('识别 mcp__fachuan__rewrite_folder_file 的成功结果（含 contract_id）', () => {
     const r = parseFileRewrite('mcp__fachuan__rewrite_folder_file', applied)
-    expect(r).toEqual({ contractId: 393, subpath: '1-律师资料/1-合同/专项合同.docx', name: '专项合同.docx' })
+    expect(r).toEqual({
+      kind: 'contract',
+      ownerId: 393,
+      subpath: '1-律师资料/1-合同/专项合同.docx',
+      name: '专项合同.docx',
+    })
+  })
+
+  it('案件直改回包（case_id）同样识别，kind=case', () => {
+    const caseApplied = JSON.stringify({
+      applied: true,
+      contract_id: 0,
+      case_id: 399,
+      subpath: '2-诉状/起诉状.docx',
+      name: '起诉状.docx',
+      reason: '',
+    })
+    const r = parseFileRewrite('mcp__fachuan__rewrite_folder_file', caseApplied)
+    expect(r).toEqual({
+      kind: 'case',
+      ownerId: 399,
+      subpath: '2-诉状/起诉状.docx',
+      name: '起诉状.docx',
+    })
   })
 
   it('applied=false（定位失败）不是落盘信号', () => {
@@ -367,11 +390,11 @@ describe('AI 改写落盘信号（parseFileRewrite）', () => {
     expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', failed)).toBeNull()
   })
 
-  it('is_error / 其它工具 / 坏 JSON / 缺 contract_id 一律 null（宁可不刷新）', () => {
+  it('is_error / 其它工具 / 坏 JSON / 缺归属 id 一律 null（宁可不刷新）', () => {
     expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', applied, true)).toBeNull()
     expect(parseFileRewrite('mcp__fachuan__read_folder_file', applied)).toBeNull()
     expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', '{"applied": true, "subpath":')).toBeNull()
-    // 旧后端没有 contract_id 字段：没有定向刷新的依据，宁可不动
+    // 旧后端没有归属 id 字段：没有定向刷新的依据，宁可不动
     expect(parseFileRewrite('mcp__fachuan__rewrite_folder_file', '{"applied": true, "subpath": "a.docx"}')).toBeNull()
     expect(parseFileRewrite(undefined, applied)).toBeNull()
   })
@@ -382,7 +405,8 @@ describe('AI 改写落盘信号（parseFileRewrite）', () => {
       replacement: '鉴于甲方因经营调整拟停止生产经营',
     })
     expect(r).toMatchObject({
-      contractId: 393,
+      kind: 'contract',
+      ownerId: 393,
       original: '甲方拟就与对方之事宜',
       replacement: '鉴于甲方因经营调整拟停止生产经营',
     })

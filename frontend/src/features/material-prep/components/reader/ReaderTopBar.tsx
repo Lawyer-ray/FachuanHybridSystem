@@ -41,7 +41,7 @@ export function ReaderTopBar({
         aria-label="返回材料预处理列表"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span className="hidden min-[1100px]:inline">材料预处理</span>
+        <span className="hidden @min-[1100px]:inline">材料预处理</span>
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">

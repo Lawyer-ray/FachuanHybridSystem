@@ -1,8 +1,9 @@
 /**
- * 个人设置 · 账号绑定。
+ * 账号绑定面板（设置页内嵌）。
  *
  * 登录只放行「已绑定」的社交身份（不自动建号），所以这里是社交账号接入系统
  * 的唯一入口：先用账号密码登录，再在这里绑定平台账号。
+ * 页面壳（main / 标题）由设置页提供，本组件只负责绑定区块本身。
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -38,7 +39,7 @@ function boundAtText(iso: string): string {
   return Number.isNaN(date.getTime()) ? '' : `绑定于 ${date.toLocaleDateString('zh-CN')}`
 }
 
-export function BindingsPage() {
+export function BindingsPanel() {
   const queryClient = useQueryClient()
   const location = useLocation()
   const navigate = useNavigate()
@@ -90,10 +91,9 @@ export function BindingsPage() {
 
   return (
     <>
-      {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上，换页重挂才播一次 */}
-      <main className="app-page-enter mx-auto max-w-[720px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em]">账号绑定</h1>
-        <p className="mt-2 text-[12.5px] leading-[1.8] text-muted-foreground">
+      <section>
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em]">账号绑定</h2>
+        <p className="mt-1.5 text-[12.5px] leading-[1.8] text-muted-foreground">
           绑定后即可在登录页用对应平台直接登录，无需输入密码。未绑定的社交账号无法登录，
           系统不会自动为其创建律师账号。
         </p>
@@ -179,7 +179,7 @@ export function BindingsPage() {
         </p>
 
         <PasskeySection />
-      </main>
+      </section>
 
       <BindProviderDialog
         provider={bindingProvider}

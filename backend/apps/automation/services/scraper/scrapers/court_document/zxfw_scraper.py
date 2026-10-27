@@ -40,6 +40,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
 
     特点:
     - 支持三级下载策略(直接 API → API 拦截 → 页面点击)
+    - 纯 API 模式直接 API 失败后，按需懒创建浏览器上下文再走降级策略，用完即关
     - Playwright 未安装时仅使用纯 API 策略
     - 自动提取 URL 参数(sdbh, qdbh, sdsin)
     - 批量下载多个文书
@@ -48,6 +49,36 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
 
     # 一张网优先走纯 API，不强制要求浏览器
     requires_browser = False
+
+    def _ensure_browser_context(self) -> bool:  # pragma: no cover
+        """确保浏览器上下文可用，返回是否由本次调用新建。
+
+        纯 API 模式（requires_browser=False）下任务链路不会预建浏览器，
+        直接 API 失败后需要在这里按需创建，否则拦截/页面点击两条降级
+        策略会因 self.page is None 直接死路。
+        """
+        if self.page is not None:
+            return False
+        logger.info("纯 API 模式无浏览器上下文，按需创建浏览器用于降级策略")
+        context = self.browser_service.create_context(use_anti_detection=True)
+        self.context = context
+        self.page = context.new_page()
+        return True
+
+    def _close_browser_context(self) -> None:  # pragma: no cover
+        """关闭 _ensure_browser_context 自建的浏览器资源（共享上下文不动）。"""
+        try:
+            if self.page is not None:
+                self.page.close()
+            if self.context is not None:
+                self.context.close()
+            logger.info("降级策略自建浏览器上下文已关闭")
+        except Exception as e:
+            logger.warning("关闭降级策略浏览器上下文失败: %s", e)
+        finally:
+            # mixin 声明为非可选 Page，但运行时与 BaseScraper 一致允许 None
+            self.page = None  # type: ignore[assignment]
+            self.context = None
 
     def run(self) -> dict[str, Any]:
         """执行文书下载任务"""
@@ -79,7 +110,9 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
         except Exception as e:
             direct_api_error = e
             logger.warning(
-                "直接 API 调用失败%s",
+                "直接 API 调用失败(%s: %s)%s",
+                type(e).__name__,
+                e,
                 "，尝试 Playwright 拦截方式" if playwright_available else "，且 Playwright 未安装，无法降级",
                 extra={
                     "operation_type": "direct_api_failed",
@@ -102,89 +135,97 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
                 },
             )
 
-        # ========== 第二优先级:Playwright 拦截 API ==========
-        api_intercept_error: Exception | None = None
+        # ========== 纯 API 模式无浏览器：按需创建，用完在 finally 关闭 ==========
+        browser_created_here = self._ensure_browser_context()
         try:
-            logger.info(
-                "尝试使用 Playwright API 拦截方式",
-                extra={"operation_type": "api_intercept_attempt", "timestamp": time.time(), "url": self.task.url},
-            )
-            result = self._download_via_api_intercept_with_navigation(download_dir)
-            result["method"] = "api_intercept"
-            result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
-            logger.info(
-                "Playwright API 拦截成功",
-                extra={
-                    "operation_type": "api_intercept_success",
-                    "timestamp": time.time(),
-                    "document_count": result.get("document_count", 0),
-                    "downloaded_count": result.get("downloaded_count", 0),
-                },
-            )
-            return result
-        except Exception as e:
-            api_intercept_error = e
-            logger.warning(
-                "Playwright API 拦截失败,回退到传统方式",
-                extra={
-                    "operation_type": "api_intercept_failed",
-                    "timestamp": time.time(),
-                    "error": str(e),
-                    "error_type": type(e).__name__,
-                },
-            )
+            # ========== 第二优先级:Playwright 拦截 API ==========
+            api_intercept_error: Exception | None = None
+            try:
+                logger.info(
+                    "尝试使用 Playwright API 拦截方式",
+                    extra={"operation_type": "api_intercept_attempt", "timestamp": time.time(), "url": self.task.url},
+                )
+                result = self._download_via_api_intercept_with_navigation(download_dir)
+                result["method"] = "api_intercept"
+                result["direct_api_error"] = {
+                    "type": type(direct_api_error).__name__,
+                    "message": str(direct_api_error),
+                }
+                logger.info(
+                    "Playwright API 拦截成功",
+                    extra={
+                        "operation_type": "api_intercept_success",
+                        "timestamp": time.time(),
+                        "document_count": result.get("document_count", 0),
+                        "downloaded_count": result.get("downloaded_count", 0),
+                    },
+                )
+                return result
+            except Exception as e:
+                api_intercept_error = e
+                logger.warning(
+                    "Playwright API 拦截失败(%s: %s)，回退到传统方式",
+                    type(e).__name__,
+                    e,
+                    extra={
+                        "operation_type": "api_intercept_failed",
+                        "timestamp": time.time(),
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    },
+                )
 
-        # ========== 第三优先级:传统页面点击 ==========
-        try:
-            logger.info(
-                "使用回退机制:传统页面点击下载",
-                extra={"operation_type": "fallback_attempt", "timestamp": time.time()},
-            )
-            result = self._download_via_fallback()
-            result["method"] = "fallback"
-            result["direct_api_error"] = {"type": type(direct_api_error).__name__, "message": str(direct_api_error)}
-            result["api_intercept_error"] = {
-                "type": type(api_intercept_error).__name__,
-                "message": str(api_intercept_error),
-            }
-            logger.info(
-                "回退机制执行成功",
-                extra={
-                    "operation_type": "fallback_success",
-                    "timestamp": time.time(),
-                    "downloaded_count": result.get("downloaded_count", 0),
-                },
-            )
-            return result
-        except Exception as fallback_error:
-            logger.error(
-                "所有下载方式均失败",
-                extra={
-                    "operation_type": "all_methods_failed",
-                    "timestamp": time.time(),
-                    "direct_api_error": str(direct_api_error),
-                    "api_intercept_error": str(api_intercept_error),
-                    "fallback_error": str(fallback_error),
-                },
-                exc_info=True,
-            )
-            from apps.core.exceptions import ExternalServiceError
+            # ========== 第三优先级:传统页面点击 ==========
+            try:
+                logger.info(
+                    "使用回退机制:传统页面点击下载",
+                    extra={"operation_type": "fallback_attempt", "timestamp": time.time()},
+                )
+                result = self._download_via_fallback()
+                result["method"] = "fallback"
+                result["direct_api_error"] = {
+                    "type": type(direct_api_error).__name__,
+                    "message": str(direct_api_error),
+                }
+                result["api_intercept_error"] = {
+                    "type": type(api_intercept_error).__name__,
+                    "message": str(api_intercept_error),
+                }
+                logger.info(
+                    "回退机制执行成功",
+                    extra={
+                        "operation_type": "fallback_success",
+                        "timestamp": time.time(),
+                        "downloaded_count": result.get("downloaded_count", 0),
+                    },
+                )
+                return result
+            except Exception as fallback_error:
+                logger.error(
+                    "所有下载方式均失败",
+                    extra={
+                        "operation_type": "all_methods_failed",
+                        "timestamp": time.time(),
+                        "direct_api_error": str(direct_api_error),
+                        "api_intercept_error": str(api_intercept_error),
+                        "fallback_error": str(fallback_error),
+                    },
+                    exc_info=True,
+                )
+                from apps.core.exceptions import ExternalServiceError
 
-            browser_initialized = getattr(self, "page", None) is not None
-            raise ExternalServiceError(
-                message="所有下载方式均失败",
-                code="DOWNLOAD_ALL_METHODS_FAILED",
-                errors={
-                    "url": self.task.url,
-                    "browser_initialized": browser_initialized,
-                    "direct_api_error": str(direct_api_error),
-                    "api_intercept_error": str(api_intercept_error),
-                    "fallback_error": str(fallback_error),
-                    "hint": (
-                        "直接 API 失败且未创建浏览器上下文(requires_browser=False)时，"
-                        "Playwright 拦截/页面点击两种回退策略因缺少页面而不可用。"
-                        "若送达文书需要浏览器渲染后才能获取，请在具备浏览器上下文的任务类型下重试，"
-                        "或确认该送达链接的文书类型是否被 API 下载逻辑支持。"
-                    ),
-                },
-            ) from fallback_error
+                browser_initialized = getattr(self, "page", None) is not None
+                raise ExternalServiceError(
+                    message="所有下载方式均失败",
+                    code="DOWNLOAD_ALL_METHODS_FAILED",
+                    errors={
+                        "url": self.task.url,
+                        "browser_initialized": browser_initialized,
+                        "direct_api_error": str(direct_api_error),
+                        "api_intercept_error": str(api_intercept_error),
+                        "fallback_error": str(fallback_error),
+                    },
+                ) from fallback_error
+        finally:
+            if browser_created_here:
+                self._close_browser_context()

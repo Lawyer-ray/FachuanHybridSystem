@@ -55,6 +55,52 @@ def get_last_run_times(names: list[str]) -> dict[str, datetime]:
     return last_runs
 
 
+def cluster_status() -> dict[str, Any]:
+    """Django-Q 集群活性聚合（设置页·系统状态卡片消费，只读）。
+
+    - ``clusters``：redis 心跳键按集群名去重的数量（心跳 TTL 3s，键在 = 心跳在）。
+      0 = 没有集群在跑；>1 = 多棵进程树抢同一 broker（僵尸集群，成因与清剿
+      手法见 backend/CLAUDE.md「Django-Q 队列与僵尸集群防范」）。
+    - ``queue_depth``：OrmQ 待消费条数。
+    - ``succeeded_today`` / ``failed_today``：本地今日成败计数。
+    - ``last_success_at`` / ``last_failed_at``：最近一次成功 / 失败时间。
+    - ``broker_error``：redis 探测失败时的异常摘要；非 redis broker 或探测失败时
+      ``clusters`` 为 None——前端显示「无法探测」而不是误报成 0（无集群）。
+    """
+    from django.utils import timezone
+
+    from apps.core.tasking.redis_queue import _get_redis_connection, is_redis_broker
+
+    today = timezone.localdate()
+    last_success = Task.objects.filter(success=True).order_by("-stopped").values_list("stopped", flat=True).first()
+    last_failure = Task.objects.filter(success=False).order_by("-stopped").values_list("stopped", flat=True).first()
+
+    clusters: int | None = None
+    broker_error: str | None = None
+    try:
+        if is_redis_broker():
+            conn = _get_redis_connection()
+            names: set[str] = set()
+            for key in conn.scan_iter(match="django_q:*:cluster:*", count=200):
+                parts = (key.decode() if isinstance(key, bytes) else str(key)).split(":")
+                # 键形如 django_q:<集群名>:cluster:<pid>；同一集群多进程只算一个名字
+                if len(parts) >= 4 and parts[2] == "cluster":
+                    names.add(parts[1])
+            clusters = len(names)
+    except Exception as exc:  # 状态页不允许因 redis 探测失败整体 500：降级为 clusters=None
+        broker_error = str(exc)
+
+    return {
+        "clusters": clusters,
+        "queue_depth": OrmQ.objects.count(),
+        "succeeded_today": Task.objects.filter(success=True, stopped__date=today).count(),
+        "failed_today": Task.objects.filter(success=False, stopped__date=today).count(),
+        "last_success_at": last_success,
+        "last_failed_at": last_failure,
+        "broker_error": broker_error,
+    }
+
+
 def delete_task(task_id: str) -> int:
     """删除任务，返回删除数量。"""
     deleted, _ = Task.objects.filter(id=task_id).delete()

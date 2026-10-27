@@ -397,6 +397,11 @@ class TestCollectLawyerPhoneTail6Candidates:
 
 
 class TestCreateDownloadTask:
+    @staticmethod
+    def _no_active_existing_task(MockScraperTask) -> None:
+        """新增的同 URL 活跃任务去重：默认未命中（命中复用行为见 test_zxfw_robustness_fixes.py）。"""
+        MockScraperTask.objects.filter.return_value.order_by.return_value.first.return_value = None
+
     @patch(f"{_MOD}.ScraperTask")
     @patch(f"{_MOD}.submit_task")
     def test_no_download_links(self, mock_submit, MockScraperTask):
@@ -412,6 +417,7 @@ class TestCreateDownloadTask:
     def test_playwright_required_but_not_available(self, mock_submit, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        self._no_active_existing_task(MockScraperTask)
         mixin = SMSDownloadMixin()
         sms = _make_sms(download_links=["https://dzsd.hbfy.gov.cn/sfsddz"], content="test")
         # Set the mock returned by objects.create to have the correct status
@@ -428,6 +434,7 @@ class TestCreateDownloadTask:
     def test_zxfw_url_no_playwright_needed(self, mock_submit, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        self._no_active_existing_task(MockScraperTask)
         mixin = SMSDownloadMixin()
         sms = _make_sms(download_links=["https://zxfw.court.gov.cn/portal"])
         with patch.object(SMSDownloadMixin, "_is_playwright_available", return_value=False):
@@ -440,6 +447,7 @@ class TestCreateDownloadTask:
     def test_jysd_injects_lawyer_phones(self, mock_submit, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        self._no_active_existing_task(MockScraperTask)
         mixin = SMSDownloadMixin()
         mixin._collect_lawyer_phones = MagicMock(return_value=["00000000000"])
         mixin._collect_lawyer_phone_tail6_candidates = MagicMock(return_value=[])
@@ -457,6 +465,7 @@ class TestCreateDownloadTask:
     def test_sfdw_injects_verification_code(self, mock_submit, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        self._no_active_existing_task(MockScraperTask)
         mixin = SMSDownloadMixin()
         mixin._collect_lawyer_phone_tail6_candidates = MagicMock(return_value=[])
         sms = _make_sms(
@@ -474,6 +483,7 @@ class TestCreateDownloadTask:
     def test_sfdw_injects_manual_tail6(self, mock_submit, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        self._no_active_existing_task(MockScraperTask)
         mixin = SMSDownloadMixin()
         mixin._collect_lawyer_phone_tail6_candidates = MagicMock(return_value=[])
         sms = _make_sms(
@@ -491,6 +501,7 @@ class TestCreateDownloadTask:
     def test_sfdw_injects_tail6_candidates(self, mock_submit, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        self._no_active_existing_task(MockScraperTask)
         mixin = SMSDownloadMixin()
         mixin._collect_lawyer_phone_tail6_candidates = MagicMock(return_value=["111111", "222222"])
         sms = _make_sms(
@@ -736,11 +747,14 @@ class TestHandleSmsDownloadFailed:
         assert result is True  # returns True = continue (skip retry logic)
         mock_submit.assert_called_once()
 
+    @patch(f"{_MOD}.ScraperTask")
     @patch("apps.core.tasking.ScheduleQueryService")
     @patch(f"{_MOD}.submit_task")
-    def test_downloading_retries(self, mock_submit, MockSchedule):
+    def test_downloading_retries(self, mock_submit, MockSchedule, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        # 任务终态 FAILED（无任务级自重试）才触发 SMS 级重试
+        MockScraperTask.objects.filter.return_value.first.return_value = _make_task(status="failed")
         mixin = SMSDownloadMixin()
         task = _make_task(status="failed", error_message="timeout")
         sms = _make_sms(status="downloading", retry_count=0)
@@ -749,10 +763,12 @@ class TestHandleSmsDownloadFailed:
         assert sms.status == "download_failed"
         MockSchedule.return_value.create_once_schedule.assert_called_once()
 
+    @patch(f"{_MOD}.ScraperTask")
     @patch(f"{_MOD}.submit_task")
-    def test_max_retries_marks_failed(self, mock_submit):
+    def test_max_retries_marks_failed(self, mock_submit, MockScraperTask):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
+        MockScraperTask.objects.filter.return_value.first.return_value = _make_task(status="failed")
         mixin = SMSDownloadMixin()
         task = _make_task(status="failed", error_message="timeout")
         sms = _make_sms(status="downloading", retry_count=3)

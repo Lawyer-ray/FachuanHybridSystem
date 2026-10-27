@@ -40,6 +40,8 @@ export function CaseSection({
   ambiguous,
   highlighted,
   onAddLog,
+  onOpenFile,
+  selectedSubpath,
 }: {
   c: DealCase
   /** 同阶段多案（如按被告分立）时节标题带案名才分得清 */
@@ -47,6 +49,16 @@ export function CaseSection({
   /** stepper 跳转后的短暂高亮环 */
   highlighted: boolean
   onAddLog: () => void
+  /**
+   * 点文件行 = 打开 OnlyOffice 预览（而不是 window.open 下载）。
+   *
+   * 案件文件是诉讼项目的文件主体（起诉状/证据/判决书），以前只能下载——
+   * 浏览器没有 docx 渲染器，`window.open` 必然落到本地磁盘。预览画布由
+   * 详情页统一持有（右栏，与合同文件同一套 FilePreviewCard）。
+   */
+  onOpenFile?: (f: { subpath: string; name: string; size?: number; modified_at?: string }) => void
+  /** 当前预览中的 subpath（属于本案件时行高亮，知道「看的就是这份」） */
+  selectedSubpath?: string | null
 }) {
   const legGroups = legalStatusGroups(c)
   const entries = timelineEntries(c)
@@ -122,7 +134,12 @@ export function CaseSection({
 
       {view === 'folder' && binding ? (
         <div className="px-5 pt-2 pb-4 max-[680px]:px-3.5">
-          <FolderTree kind="case" ownerId={c.id} />
+          <FolderTree
+            kind="case"
+            ownerId={c.id}
+            onOpenFile={onOpenFile}
+            selectedSubpath={selectedSubpath ?? null}
+          />
         </div>
       ) : (
         <div className="px-5 pt-3.5 pb-1.5 max-[680px]:px-3.5">

@@ -120,7 +120,7 @@ export function NonLitDetailPage() {
   // 预览走整页替换（不开遮罩）：看合同需要宽度，半透明黑遮罩压在列表上又脏。
   // 由 URL 的 ?file= 驱动，刷新 / 后退 / 分享都能回到同一份。
   return (
-    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
+    <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
       <DetailHeader deal={deal} onAddDue={() => soonToast('新增期限')} onAddLog={() => soonToast('记办案日志')} />
 
       {/* 服务期条：与下方服务事项流联动（事项按日落在轴上）。
@@ -153,7 +153,7 @@ export function NonLitDetailPage() {
               : 'flex items-start gap-[8px]'
             : panelStacked
               ? 'grid grid-cols-1 items-start gap-[18px]'
-              : 'grid items-start gap-[18px] grid-cols-[minmax(0,1fr)_360px] min-[1900px]:grid-cols-[minmax(0,1fr)_400px] min-[2400px]:grid-cols-[minmax(0,1fr)_440px]'
+              : 'grid items-start gap-[18px] grid-cols-[minmax(0,1fr)_360px] @min-[1760px]:grid-cols-[minmax(0,1fr)_400px] @min-[2200px]:grid-cols-[minmax(0,1fr)_440px]'
         }
       >
         {/* 文档对照形态：文档列提前到最前（紧贴右侧助手），事项流沉底 */}

@@ -47,8 +47,11 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         task.key_time = recognition.key_time
         task.confidence = recognition.confidence
         task.extraction_method = recognition.extraction_method
-        task.llm_model = recognition.llm_model
-        task.llm_backend = recognition.llm_backend
+        # LLM 全挂降级关键词+正则时 model/backend 为 None，但两列是 NOT NULL 的
+        # CharField（blank=True 只允许空串），裸写 None 会炸整次落库（2026-10-27
+        # 任务 #21：识别成功却因 NotNullViolation 被记为失败）
+        task.llm_model = recognition.llm_model or ""
+        task.llm_backend = recognition.llm_backend or ""
         task.llm_latency_ms = recognition.llm_latency_ms
         task.degraded = recognition.degraded
         # raw_text 已收紧为 NOT NULL default=""，空文本用空串表示（None 会炸库写入）
@@ -94,10 +97,21 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
     except Exception as exc:
         logger.error("文书识别任务 #%s 失败: %s", task_id, exc, exc_info=True)
 
-        task.status = DocumentRecognitionStatus.FAILED
-        task.error_message = str(exc)
-        task.finished_at = timezone.now()
-        task.save(update_fields=["status", "error_message", "finished_at"])
+        # 失败落库自身也可能失败（数据库抖动/字段约束），兜一层避免把异常抛回
+        # django-q 导致任务无结果残留；保存失败时至少留有 error 日志
+        try:
+            task.status = DocumentRecognitionStatus.FAILED
+            task.error_message = str(exc)
+            task.finished_at = timezone.now()
+            task.save(update_fields=["status", "error_message", "finished_at"])
+        except Exception as save_exc:
+            logger.error(
+                "文书识别任务 #%s 失败状态落库亦失败: %s",
+                task_id,
+                save_exc,
+                extra={"original_error": str(exc)},
+                exc_info=True,
+            )
 
         return {"task_id": task_id, "status": "failed", "error": str(exc)}
 

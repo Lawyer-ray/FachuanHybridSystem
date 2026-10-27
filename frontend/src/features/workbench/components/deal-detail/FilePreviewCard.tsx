@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -6,6 +7,7 @@ import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@
 import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
+import { workbenchKeys } from '../../hooks/use-workbench-data'
 import { FileKindChip } from './FileKindBadge'
 import { fmtSize } from './folder-tree-types'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
@@ -41,17 +43,18 @@ export function FilePreviewCard({
   const [downloading, setDownloading] = useState(false)
   const [busy, setBusy] = useState<'save' | null>(null)
   const [ready, setReady] = useState(false)
+  const qc = useQueryClient()
   const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const isDocx = /\.docx$/i.test(file.name)
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布（DS 才会
   // 拉到已覆写的内容，修订痕迹可见）；未被覆写保持空串不动存量 key 口径
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
   // 就地落修订通道：AI 覆写成功时优先走插件桥在当前画布里直接长出修订
-  // 痕迹（免整页重载），失败才轮到上面的 nonce 重载。仅合同 docx——直改
-  // 落盘端点只认合同绑定文件夹
+  // 痕迹（免整页重载），失败才轮到上面的 nonce 重载。合同与案件的 docx
+  // 都注册（rewrite_folder_file 已支持两个绑定文件夹）
   const liveApply = useLiveRewriteApply({
-    enabled: isDocx && kind === 'contract',
-    key: `contract:${ownerId}:${file.subpath}`,
+    enabled: isDocx,
+    key: `${kind}:${ownerId}:${file.subpath}`,
   })
 
   /** 编辑器句柄：保存时用 downloadAs 取当前内容 */
@@ -79,6 +82,9 @@ export function FilePreviewCard({
    * 选区只能由插件桥取（DS 内核上下文），这里发 `get-selection` 让插件读一次。
    * 插件回的 `selection` 消息会走 onPluginMessage 里的同一段逻辑，
    * 所以两条入口（按钮 / 框选自动）最终行为完全一致。
+   *
+   * 助手上下文随 kind 走（合同文件进合同会话、案件文件进案件会话）；
+   * 框选提问与 AI 落笔直改（rewrite_folder_file）对两类文件都开放。
    */
   const rewriteSelection = useCallback(() => {
     const h = editorRef.current
@@ -89,12 +95,12 @@ export function FilePreviewCard({
     // 先直接打开助手：即使插件桥没握手，律师也能在对话框里贴文字，
     // 而不是点了按钮没任何反馈。
     prefillCopilot('', {
-      origin: 'contract',
+      origin: kind === 'case' ? 'case' : 'contract',
       refId: ownerId,
       title: file.name.replace(/\.docx$/i, ''),
     })
     h.sendToPlugin('get-selection')
-  }, [file.name, ownerId])
+  }, [file.name, kind, ownerId])
 
   const save = useCallback(() => {
     if (busy || !isDocx) return
@@ -105,12 +111,17 @@ export function FilePreviewCard({
         return
       }
       toast.success('已提交保存', { description: '文档服务器正在写回原文件' })
-      // 落盘发生在 DS 回调里（通常 1–3 秒），延迟刷新才能读到新 mtime
-      window.setTimeout(() => onSaved?.(), 2500)
+      // 落盘发生在 DS 回调里（通常 1–3 秒），延迟刷新才能读到新 mtime。
+      // 两路都刷：文件夹树（react-query 缓存 60s，不主动失效就一直旧）+
+      // 父级详情（onSaved 刷新大小/日期等业务数据）
+      window.setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: workbenchKeys.folderEntries(kind, ownerId) })
+        onSaved?.()
+      }, 2500)
     } finally {
       setBusy(null)
     }
-  }, [busy, isDocx, requestSave, onSaved])
+  }, [busy, isDocx, requestSave, onSaved, qc, kind, ownerId])
 
   const download = useCallback(async () => {
     setDownloading(true)
@@ -238,22 +249,23 @@ export function FilePreviewCard({
             // 其余类型（ready/inserted/applied）由上层按需处理，这里不转发。
             if (m.type !== 'selection') return
             const sel = m.text.trim()
-            if (!sel || kind !== 'contract') return
+            if (!sel) return
 
             // 豆包式引用（不灌模板文字、不弹对话框）：选区挂成输入框上方的
             // 引用卡，输入框保持空白，律师自由提问或点快捷 pills。旧做法把
             // 「请按我的要求改写……修改要求：」整段塞进输入框，等于替律师
-            // 打了一半草稿，他还得先删改才能问别的。
+            // 打了一半草稿，他还得先删改才能问别的。kind 与 RefOwnerKind
+            // 同构（contract/case），案件文书同样能框选提问与 AI 直改。
             quoteCopilot(
               {
-                kind: 'contract',
+                kind,
                 ownerId,
                 subpath: file.subpath,
                 name: file.name,
                 text: sel,
               },
               {
-                origin: 'contract',
+                origin: kind === 'case' ? 'case' : 'contract',
                 refId: ownerId,
                 title: file.name.replace(/\.docx$/i, ''),
               },

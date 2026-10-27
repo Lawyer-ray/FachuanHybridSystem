@@ -5,8 +5,10 @@ import { effectiveCols, maxColsAllowed } from './layout'
  * 阅读器列宽与抽屉样式派生：
  *   - maxCols：当前容器宽度下最多能并排几列
  *   - effCols：用户选择 cols 与 maxCols 的较小值
- *   - railWrapCls / metaWrapCls：左右抽屉在窄屏（fixed 抽屉）与宽屏（inline）两套 class
+ *   - railWrapCls / metaWrapCls：左右抽屉在窄屏（absolute 覆盖抽屉）与宽屏（inline）两套 class
  * 列数口径统一走 layout.ts 的 effectiveCols，和 Flow 内部同一套数学。
+ * 抽屉用 absolute（相对三栏主体行）而非 fixed：阅读器右缘会为并排 AI 助手
+ * 收进来，fixed 定位到视口会把右抽屉画到助手底下去。
  */
 export function useReaderWidths(params: {
   cols: number
@@ -22,13 +24,13 @@ export function useReaderWidths(params: {
 
   const railWrapCls = narrow
     ? cn(
-        'fixed inset-y-0 left-0 z-40 w-[268px] overflow-y-auto border-r border-border bg-card transition-transform duration-300',
+        'absolute inset-y-0 left-0 z-40 w-[268px] overflow-y-auto border-r border-border bg-card transition-transform duration-300',
         railOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
       )
     : 'h-full flex-none'
   const metaWrapCls = narrow
     ? cn(
-        'fixed inset-y-0 right-0 z-40 w-[296px] overflow-y-auto border-l border-border bg-card transition-transform duration-300',
+        'absolute inset-y-0 right-0 z-40 w-[296px] overflow-y-auto border-l border-border bg-card transition-transform duration-300',
         metaOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full',
       )
     : 'h-full flex-none'

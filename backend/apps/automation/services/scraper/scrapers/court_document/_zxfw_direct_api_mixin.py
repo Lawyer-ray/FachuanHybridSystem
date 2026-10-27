@@ -39,8 +39,14 @@ class ZxfwDirectApiMixin:  # pragma: no cover
             logger.error("解析 URL 参数失败: %s", e)
             return None
 
+    # 列表接口对新生成的送达首次请求可能极慢（实测超 30s，之后 <1s），保留单次
+    # 30s 超时但做运行内重试，避免偶发慢响应直接判死并落入浏览器降级
+    _LIST_API_TIMEOUT_S = 30.0
+    _LIST_API_ATTEMPTS = 3
+    _LIST_API_RETRY_DELAYS_S = (3.0, 8.0)
+
     def _fetch_documents_via_direct_api(self, params: dict[str, str]) -> list[dict[str, Any]]:  # pragma: no cover
-        """直接调用法院 API 获取文书列表（无需浏览器）"""
+        """直接调用法院 API 获取文书列表（无需浏览器，含运行内重试）"""
         import httpx
 
         api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
@@ -62,21 +68,42 @@ class ZxfwDirectApiMixin:  # pragma: no cover
         }
         payload = {"sdbh": params.get("sdbh"), "qdbh": params.get("qdbh"), "sdsin": params.get("sdsin")}
         logger.info("直接调用 API: %s, payload: %s", api_url, payload)
-        start_time = time.time()
-        with httpx.Client(headers=headers, timeout=30.0) as client:
-            response = client.post(api_url, json=payload)
-            response.raise_for_status()
-            api_data = response.json()
-            response_time = (time.time() - start_time) * 1000
-            logger.info(
-                "API 响应成功",
-                extra={
-                    "operation_type": "direct_api_response",
-                    "timestamp": time.time(),
-                    "status_code": response.status_code,
-                    "response_time_ms": response_time,
-                },
-            )
+        last_error: Exception | None = None
+        api_data: dict[str, Any] | None = None
+        for attempt in range(1, self._LIST_API_ATTEMPTS + 1):
+            start_time = time.time()
+            try:
+                with httpx.Client(headers=headers, timeout=self._LIST_API_TIMEOUT_S) as client:
+                    response = client.post(api_url, json=payload)
+                    response.raise_for_status()
+                    api_data = response.json()
+                response_time = (time.time() - start_time) * 1000
+                logger.info(
+                    "API 响应成功",
+                    extra={
+                        "operation_type": "direct_api_response",
+                        "timestamp": time.time(),
+                        "status_code": response.status_code,
+                        "response_time_ms": response_time,
+                        "attempt": attempt,
+                    },
+                )
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < self._LIST_API_ATTEMPTS:
+                    delay = self._LIST_API_RETRY_DELAYS_S[min(attempt - 1, len(self._LIST_API_RETRY_DELAYS_S) - 1)]
+                    logger.warning(
+                        "直接 API 第 %s/%s 次调用失败(%s: %s)，%.1f 秒后重试",
+                        attempt,
+                        self._LIST_API_ATTEMPTS,
+                        type(e).__name__,
+                        e,
+                        delay,
+                    )
+                    time.sleep(delay)
+        if api_data is None:
+            raise ValueError(f"直接 API 连续 {self._LIST_API_ATTEMPTS} 次调用失败: {last_error}")
         if not isinstance(api_data, dict) or api_data.get("code") != 200:
             raise ValueError(f"API 响应错误: code={api_data.get('code')}, msg={api_data.get('msg')}")
         documents = api_data.get("data", [])

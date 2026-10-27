@@ -7,6 +7,7 @@
  * 真要改才升级到整页编辑器。
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
@@ -27,15 +28,19 @@ import { FilePreviewCard } from './FilePreviewCard'
 function setup(over: Partial<Parameters<typeof FilePreviewCard>[0]> = {}) {
   const onClose = vi.fn()
   const onReview = vi.fn()
+  // 保存成功后组件会 invalidate 文件夹树缓存，测试里也要有 Provider
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   render(
-    <FilePreviewCard
-      kind="contract"
-      ownerId={318}
-      file={{ subpath: '1-合同/a.docx', name: '顾问合同.docx', size: 882000, modified_at: '2026-05-12T00:00:00Z' }}
-      onClose={onClose}
-      onReview={onReview}
-      {...over}
-    />,
+    <QueryClientProvider client={qc}>
+      <FilePreviewCard
+        kind="contract"
+        ownerId={318}
+        file={{ subpath: '1-合同/a.docx', name: '顾问合同.docx', size: 882000, modified_at: '2026-05-12T00:00:00Z' }}
+        onClose={onClose}
+        onReview={onReview}
+        {...over}
+      />
+    </QueryClientProvider>,
   )
   return { onClose, onReview }
 }
@@ -53,6 +58,25 @@ describe('FilePreviewCard', () => {
     expect(view.getAttribute('data-url')).toBe(
       '/api/v1/contracts/318/folder-file?subpath=1-%E5%90%88%E5%90%8C%2Fa.docx',
     )
+  })
+
+  it('案件文件同样走 OnlyOffice（URL 落在 /cases/ 通道），AI 审查入口不给', () => {
+    // 诉讼项目的文件主体在案件绑定文件夹：同一个预览卡，kind=case 时
+    // 取文件/保存回写走案件通道（后端 OnlyOffice 域注册表按路径分发）。
+    // AI 审查流水线只吃合同文件夹：调用方（DealDetailPage）不传 onReview。
+    const { onReview } = setup({
+      kind: 'case',
+      ownerId: 399,
+      file: { subpath: '2-诉状/起诉状.docx', name: '起诉状.docx' },
+      onReview: undefined,
+    })
+    const view = screen.getByTestId('office-view')
+    expect(view.getAttribute('data-mode')).toBe('edit')
+    expect(view.getAttribute('data-url')).toBe(
+      '/api/v1/cases/399/folder-file?subpath=2-%E8%AF%89%E7%8A%B6%2F%E8%B5%B7%E8%AF%89%E7%8A%B6.docx',
+    )
+    expect(screen.queryByRole('button', { name: /AI 审查/ })).toBeNull()
+    expect(onReview).not.toHaveBeenCalled()
   })
 
   it('显示元信息（日期与大小）', () => {

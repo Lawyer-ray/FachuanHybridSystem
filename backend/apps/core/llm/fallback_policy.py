@@ -44,7 +44,10 @@ def _handle_call_error(name: str, e: Exception, fallback: bool, errors: list[Any
     errors.append((name, e))
     if isinstance(e, _RETRIABLE_ERRORS):
         logger.warning(
-            "后端调用失败,尝试下一个",
+            "后端调用失败,尝试下一个: backend=%s, %s: %.200s",
+            name,
+            type(e).__name__,
+            e,
             extra={"backend": name, "error": str(e), "error_type": type(e).__name__},
         )
         if not fallback:
@@ -140,7 +143,12 @@ class LLMFallbackPolicy:
                 attempt += 1
                 delay = self.backoff_base * (self.backoff_factor ** (attempt - 1))
                 logger.warning(
-                    "后端调用失败,退避后重试",
+                    "后端调用失败,退避后重试: backend=%s, attempt=%s, delay=%.1fs, %s: %.200s",
+                    name,
+                    attempt,
+                    delay,
+                    type(e).__name__,
+                    e,
                     extra={"backend": name, "error": str(e), "attempt": attempt, "delay_sec": delay},
                 )
                 self.sleep(delay)
@@ -207,7 +215,12 @@ class LLMFallbackPolicy:
                 attempt += 1
                 delay = self.backoff_base * (self.backoff_factor ** (attempt - 1))
                 logger.warning(
-                    "后端调用失败,退避后重试",
+                    "后端调用失败,退避后重试: backend=%s, attempt=%s, delay=%.1fs, %s: %.200s",
+                    name,
+                    attempt,
+                    delay,
+                    type(e).__name__,
+                    e,
                     extra={"backend": name, "error": str(e), "attempt": attempt, "delay_sec": delay},
                 )
                 await asyncio.sleep(delay)

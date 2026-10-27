@@ -57,8 +57,10 @@ vi.mock('../../draft', () => ({
 }))
 const mediaMock = vi.hoisted(() => ({ narrow: false }))
 vi.mock('@/hooks/use-media', () => ({ useMediaQuery: () => mediaMock.narrow }))
-vi.mock('../../hooks/use-element-width', () => ({
-  useElementWidth: () => [vi.fn(), 900, document.createElement('div')],
+// 窄屏形态改由阅读器实测净宽驱动（Reader 内 useElementWidth）：mock 按窄屏
+// 开关给 900（≤1100 抽屉化）/ 1400（宽屏三栏），与旧 useMediaQuery 语义对齐
+vi.mock('@/hooks/use-element-width', () => ({
+  useElementWidth: () => [vi.fn(), mediaMock.narrow ? 900 : 1400, document.createElement('div')],
 }))
 
 // 子组件全部打桩，避免连带 pdfjs 与真实交互
@@ -642,10 +644,10 @@ describe('Reader：窄屏遮罩', () => {
   it('narrow 且打开左栏时出现遮罩，点击收起两侧栏', () => {
     mediaMock.narrow = true
     const { container } = render(<Reader />)
-    // 点「切左栏」打开左栏 → 遮罩出现
+    // 点「切左栏」打开左栏 → 遮罩出现（absolute 相对三栏主体行，见 Reader 注释）
     fireEvent.click(screen.getByText('切左栏'))
 
-    const mask = container.querySelector('.fixed.inset-0.z-30')
+    const mask = container.querySelector('.absolute.inset-0.z-30')
     expect(mask).toBeTruthy()
     fireEvent.click(mask as HTMLElement)
     mediaMock.narrow = false
@@ -656,7 +658,7 @@ describe('Reader：窄屏遮罩', () => {
     mediaMock.narrow = false
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('切左栏'))
-    expect(container.querySelector('.fixed.inset-0.z-30')).toBeNull()
+    expect(container.querySelector('.absolute.inset-0.z-30')).toBeNull()
     container.remove()
   })
 })

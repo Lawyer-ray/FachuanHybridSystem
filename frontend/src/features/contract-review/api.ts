@@ -133,6 +133,9 @@ export async function confirmParty(
  * 没有全篇扫描与评估报告。律师框选一段 + 说一句要求 → 出候选 → 采纳落痕。
  * ============================================================ */
 
+/** 归属二选一：文件在合同绑定文件夹（contract_id）还是案件绑定文件夹（case_id） */
+export type DirectEditOwner = { contract_id: number; case_id?: never } | { case_id: number; contract_id?: never }
+
 
 /**
  * 生成 2~3 条改写候选。**零副作用**：不写文件、不建任务。
@@ -140,13 +143,14 @@ export async function confirmParty(
  * 之所以跟 apply 拆成两次请求：律师要能反复「换个说法再生成」，
  * 而文件在明确采纳之前必须原封不动。
  */
-export async function suggestDirectEdit(payload: {
-  contract_id: number
-  subpath: string
-  selection: string
-  instruction: string
-  model_name?: string
-}): Promise<DirectEditSuggestResult> {
+export async function suggestDirectEdit(
+  payload: DirectEditOwner & {
+    subpath: string
+    selection: string
+    instruction: string
+    model_name?: string
+  },
+): Promise<DirectEditSuggestResult> {
   const res: DirectEditSuggestResult = await reviewApi()
     .post('direct-edit/suggest', { json: payload })
     .json<DirectEditSuggestResult>()
@@ -160,12 +164,13 @@ export async function suggestDirectEdit(payload: {
  * `applied=false` 不是错误，是「选区原文在文档里已找不到」（被前一次改动
  * 破坏），调用方应提示律师重新框选，而不是弹报错。
  */
-export async function applyDirectEdit(payload: {
-  contract_id: number
-  subpath: string
-  selection: string
-  suggested: string
-}): Promise<DirectEditApplyResult> {
+export async function applyDirectEdit(
+  payload: DirectEditOwner & {
+    subpath: string
+    selection: string
+    suggested: string
+  },
+): Promise<DirectEditApplyResult> {
   const res: DirectEditApplyResult = await reviewApi()
     .post('direct-edit/apply', { json: payload })
     .json<DirectEditApplyResult>()

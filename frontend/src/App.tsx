@@ -6,11 +6,12 @@ import { hasToken } from '@/lib/token'
 import { useMediaQuery } from '@/hooks/use-media'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { ErrorBoundary, PageErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { BindingsPageLazy, LoginPage, SocialCallbackPage } from '@/features/auth'
+import { LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePageLazy, preloadHomePage } from '@/features/home'
 import { preloadWorkbenchPage, ProjectDetailPageLazy, WorkbenchPageLazy } from '@/features/workbench'
 import { COPILOT_LAUNCH_EVENT } from '@/features/copilot/launch'
 import { ReviewWorkbenchPageLazy } from '@/features/contract-review'
+import { SettingsPageLazy } from '@/features/settings'
 
 // 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
 // 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
@@ -67,6 +68,12 @@ function RouteFallback() {
       <Loader2 className="h-4 w-4 animate-spin" /> 正在加载…
     </div>
   )
+}
+
+/** /settings/bindings → /settings：账号绑定页并入设置页后的旧路径前转（保留 query） */
+function LegacyBindingsRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/settings${search}`} replace />
 }
 
 /**
@@ -143,13 +150,15 @@ function AppShell() {
 
   // 并排模式：宽屏（≥1280）下面板不再悬浮覆盖，主内容区让出右侧等宽
   // padding（--copilot-w-app 由面板的 resize hook 同步），页面与 AI 可同屏
-  // 对照——合同详情页的文件夹树可直接拖文件进 AI 输入区。偏好跨会话记忆，
-  // 窄屏回落悬浮 + 遮罩（面板 header 的切换按钮也只在宽屏出现）。
+  // 对照——合同详情页的文件夹树可直接拖文件进 AI 输入区。**默认并排**：
+  // 悬浮会盖住右侧内容且页面无从感知、无法自适应，并排让位后页面按容器
+  // 净宽重排（各页布局用容器查询，见 HomePage / ReviewWorkbenchPage）。
+  // 窄屏回落悬浮（面板 w-full / sm 定宽覆盖），偏好跨会话记忆。
   const [copilotDock, setCopilotDock] = useState(() => {
     try {
-      return localStorage.getItem(COPILOT_DOCK_KEY) === '1'
+      return localStorage.getItem(COPILOT_DOCK_KEY) !== '0'
     } catch {
-      return false
+      return true
     }
   })
   const isXlUp = useMediaQuery('(min-width: 1280px)')
@@ -284,7 +293,16 @@ function AppShell() {
       )}
       <div
         className="transition-[padding-right] duration-200"
-        style={effectiveDocked ? { paddingRight: 'var(--copilot-w-app, 0px)' } : undefined}
+        style={
+          effectiveDocked
+            ? ({
+                paddingRight: 'var(--copilot-w-app, 0px)',
+                // 并排让位的净宽对 fixed 定位的全屏层（材料预处理阅读器）同样生效：
+                // 它们不吃父级 padding，只能用 CSS 变量把自己的右缘收进来。
+                '--copilot-docked-w': 'var(--copilot-w-app, 0px)',
+              } as React.CSSProperties)
+            : undefined
+        }
       >
         <PageErrorBoundary>
           <Suspense fallback={<RouteFallback />}>
@@ -332,8 +350,11 @@ export default function App() {
           <Route path="/projects/:id" element={<ProjectDetailPageLazy />} />
           {/* 合同复审工作台（发起审查后跳入；参数与 ReviewWorkbenchPage 的 useParams 对齐） */}
           <Route path="/projects/:id/review/:taskId" element={<ReviewWorkbenchPageLazy />} />
-          {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
-          <Route path="/settings/bindings" element={<BindingsPageLazy />} />
+          {/* 设置：系统状态 + 账号绑定 */}
+          <Route path="/settings" element={<SettingsPageLazy />} />
+          {/* 旧路径迁移：账号绑定已并入设置页。保留 query 前转（bound= 绑定成功
+              标记由设置页里的绑定面板消费，丢了就不弹成功提示） */}
+          <Route path="/settings/bindings" element={<LegacyBindingsRedirect />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

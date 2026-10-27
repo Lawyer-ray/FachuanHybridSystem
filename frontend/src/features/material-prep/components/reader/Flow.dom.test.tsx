@@ -14,7 +14,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // 布局数学用真实实现，保证 cols/页宽口径与生产一致
-vi.mock('../../hooks/use-element-width', () => ({
+vi.mock('@/hooks/use-element-width', () => ({
   useElementWidth: () => [vi.fn(), 900, document.createElement('div')],
 }))
 vi.mock('../../draft', async (importOriginal) => {

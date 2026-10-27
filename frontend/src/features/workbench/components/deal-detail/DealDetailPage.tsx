@@ -18,6 +18,23 @@ import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-
 import { PaymentDialog } from './PaymentDialog'
 import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { DetailError } from './ui'
+import type { FolderOwnerKind } from '../../api'
+
+/**
+ * 正在预览的文件：诉讼页有两个文件来源——右栏的合同文件夹（kind=contract）
+ * 与案件卡里的案件文件夹（kind=case，诉讼项目的文件主体）。预览画布同一套
+ * （FilePreviewCard + OnlyOffice），kind/ownerId 决定取文件与保存回写走哪条通道
+ * （后端 OnlyOffice 域注册表按路径前缀分发：/contracts/ 与 /cases/）。
+ */
+type PickedFile = {
+  kind: FolderOwnerKind
+  ownerId: number
+  subpath: string
+  name: string
+  size?: number
+  modified_at?: string
+  mtime?: number
+}
 
 /**
  * 52 号定则：过去在时间轴（案件节日志按日叙事），未来在右栏（期限只在这里预警）。
@@ -35,14 +52,26 @@ export function DealDetailPage() {
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
   /**
-   * 合同文件夹里正在预览的文件（null = 未选中）。
+   * 正在预览的文件（null = 未选中）。
    *
-   * 诉讼页的文件夹在右栏（左栏是案件程序链），所以预览也在右栏就地展开：
-   * 律师核对合同原文时要对照同一栏的期限/当事人，跳走或弹窗都会让对照失效。
+   * 预览在右栏就地展开（案件文件夹的树在左栏案件卡里）：律师核对原文时要
+   * 对照同一栏的期限/当事人，跳走或弹窗都会让对照失效。合同文件与案件文件
+   * 共用这块画布（见 PickedFile 注释），AI 审查入口只对合同文件开放——审查
+   * 流水线从合同文件夹取文件。
    */
-  const [picked, setPicked] = useState<
-    { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number } | null
-  >(null)
+  const [picked, setPicked] = useState<PickedFile | null>(null)
+  /** 合同文件夹的文件 → 预览（右栏合同文件夹树） */
+  const openContractFile = useCallback(
+    (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
+      setPicked({ ...f, kind: 'contract', ownerId: deal?.id ?? 0 })
+    },
+    [deal?.id],
+  )
+  /** 案件文件夹的文件 → 预览（左栏案件卡；ownerId 是案件 id）。柯里化：案件 id 在 map 里 */
+  const openCaseFile =
+    (caseId: number) => (f: { subpath: string; name: string; size?: number; modified_at?: string; mtime?: number }) => {
+      setPicked({ ...f, kind: 'case', ownerId: caseId })
+    }
 
   /** 预览栏宽度：可拖拽、记住偏好（与非诉页同一套 hook，各记各的 key） */
   const panel = useResizablePanel({
@@ -153,18 +182,18 @@ export function DealDetailPage() {
               onAddDue={onAddDue}
               onAddPayment={onAddPayment}
               onOpenInvoices={onOpenInvoices}
-              onOpenFile={setPicked}
+              onOpenFile={openContractFile}
               onReviewFile={(f) => setReviewTarget(f)}
               factsHidden
               folderPreview={
                 <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
                   <FilePreviewCard
-                    kind="contract"
-                    ownerId={deal.id}
+                    kind={picked.kind}
+                    ownerId={picked.ownerId}
                     file={picked}
                     onClose={() => setPicked(null)}
                     onSaved={() => void d.refetch()}
-                    onReview={(f) => setReviewTarget(f)}
+                    onReview={picked.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
                   />
                 </div>
               }
@@ -205,6 +234,8 @@ export function DealDetailPage() {
                     ambiguous={ambiguous.has(c.proc)}
                     highlighted={hl === c.id}
                     onAddLog={onAddLog}
+                    onOpenFile={openCaseFile(c.id)}
+                    selectedSubpath={picked?.kind === 'case' && picked.ownerId === c.id ? picked.subpath : null}
                   />
                 </div>
               ))}
@@ -242,18 +273,18 @@ export function DealDetailPage() {
               onAddDue={onAddDue}
               onAddPayment={onAddPayment}
               onOpenInvoices={onOpenInvoices}
-              onOpenFile={setPicked}
+              onOpenFile={openContractFile}
               onReviewFile={(f) => setReviewTarget(f)}
               folderPreview={
                 picked ? (
                   <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
                     <FilePreviewCard
-                      kind="contract"
-                      ownerId={deal.id}
+                      kind={picked.kind}
+                      ownerId={picked.ownerId}
                       file={picked}
                       onClose={() => setPicked(null)}
                       onSaved={() => void d.refetch()}
-                      onReview={(f) => setReviewTarget(f)}
+                      onReview={picked.kind === 'contract' ? (f) => setReviewTarget(f) : undefined}
                       />
                   </div>
                 ) : null

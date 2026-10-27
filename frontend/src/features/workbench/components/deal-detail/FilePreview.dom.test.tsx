@@ -11,6 +11,7 @@
  * - 「AI 审查」只在 docx 出现（流水线只吃 docx）。
  */
 import { fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
@@ -48,16 +49,20 @@ function setup(over: Partial<Parameters<typeof FilePreview>[0]> = {}) {
   const onBack = vi.fn()
   const onReview = vi.fn()
   const onSaved = vi.fn()
+  // 保存成功后组件会 invalidate 文件夹树缓存，测试里也要有 Provider
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   render(
-    <FilePreview
-      kind="contract"
-      ownerId={318}
-      file={{ subpath: '1-合同/a.docx', name: '顾问合同.docx', mtime: 1700000000 }}
-      onBack={onBack}
-      onReview={onReview}
-      onSaved={onSaved}
-      {...over}
-    />,
+    <QueryClientProvider client={qc}>
+      <FilePreview
+        kind="contract"
+        ownerId={318}
+        file={{ subpath: '1-合同/a.docx', name: '顾问合同.docx', mtime: 1700000000 }}
+        onBack={onBack}
+        onReview={onReview}
+        onSaved={onSaved}
+        {...over}
+      />
+    </QueryClientProvider>,
   )
   return { onBack, onReview, onSaved }
 }

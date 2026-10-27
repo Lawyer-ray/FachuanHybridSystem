@@ -75,7 +75,7 @@ function setupUi({ searchOpen = false }: { searchOpen?: boolean } = {}) {
         <Routes>
           <Route path="/" element={null} />
           <Route path="/login" element={<div>login-page</div>} />
-          <Route path="/settings/bindings" element={<div>bindings-page</div>} />
+          <Route path="/settings" element={<div>bindings-page</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -174,10 +174,10 @@ describe('AppNavbar 用户菜单与登出', () => {
     expect(screen.queryByText('login-page')).toBeNull()
   })
 
-  it('菜单「账号绑定」跳转 /settings/bindings', async () => {
+  it('菜单「设置」跳转 /settings', async () => {
     setupUi()
     openUserMenu()
-    fireEvent.click(await screen.findByText('账号绑定', { selector: '[role="menuitem"]' }))
+    fireEvent.click(await screen.findByText('设置', { selector: '[role="menuitem"]' }))
     expect(await screen.findByText('bindings-page')).toBeTruthy()
   })
 })

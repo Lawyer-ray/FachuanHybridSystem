@@ -81,7 +81,7 @@ export function SegmentHeader({
       ) : null}
 
       {/* 页区间（原型 rg） */}
-      <span className="hidden flex-none text-[11.5px] tabular-nums text-muted-foreground lg:inline">{rangeText}</span>
+      <span className="hidden flex-none text-[11.5px] tabular-nums text-muted-foreground @min-[1024px]:inline">{rangeText}</span>
 
       {/* 并入上一份：首段没有上一份，不渲染（灰按钮是给「永远点不了」的动作留座 */}
       {si > 0 && (
