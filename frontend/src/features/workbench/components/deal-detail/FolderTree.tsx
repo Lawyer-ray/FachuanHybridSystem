@@ -408,7 +408,14 @@ function FolderRow({
             e.stopPropagation()
             ctx.setDropOn(folder.subpath)
           }}
-          onDragLeave={() => ctx.setDropOn(null)}
+          onDragLeave={(e) => {
+            // 拖动在行内子元素（箭头/图标/名字/悬浮按钮间）之间移动时，浏览器会从子元素冒泡出
+            // dragleave：直接清空会让高亮环每帧闪一次。relatedTarget 仍在行内 = 没真离开。
+            // relatedTarget 为 null（拖出浏览器窗口）按真离开处理，否则高亮会卡住。
+            const next = e.relatedTarget as Node | null
+            if (next && e.currentTarget.contains(next)) return
+            ctx.setDropOn(null)
+          }}
           onDrop={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -438,8 +445,10 @@ function FolderRow({
               className="cursor-pointer rounded p-0.5 text-muted-foreground/70 transition-colors hover:text-foreground"
               onClick={(e) => {
                 e.stopPropagation()
+                // 创建输入框只在 isOpen 时渲染：对已展开的文件夹 toggle 等于收起，
+                // 输入框会落在收起子树里完全看不见。所以只在未展开时展开。
+                if (!ctx.open.has(folder.subpath)) ctx.toggle(folder.subpath)
                 ctx.setCreatingIn(folder.subpath)
-                ctx.toggle(folder.subpath)
               }}
             >
               <Plus className="size-3.5" />

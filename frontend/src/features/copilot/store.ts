@@ -14,6 +14,7 @@ import { create } from 'zustand'
 import * as copilotApi from './api'
 import {
   APPROVAL_OFFLINE_WINDOW_S,
+  buildBizHintBlock,
   buildSelectionQuoteBlock,
   historyToMessages,
   isExpiredOfflineItem,
@@ -74,6 +75,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   pageHint: null,
   lastPageHintSent: null,
   uploadingAttachments: false,
+  sending: false,
   draggingFiles: false,
   noMoreHistory: false,
   loadingOlder: false,
@@ -189,11 +191,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   send: async (text, onQueued) => {
     const trimmed = text.trim()
-    if (!trimmed || get().streaming || get().uploadingAttachments) {
+    if (!trimmed || get().streaming || get().uploadingAttachments || get().sending) {
       onQueued?.(false)
       return
     }
-    set({ lastError: null })
+    // 锁贯穿全程：建会话/上传附件的每个 await 期间，Composer 的发送、回形针、
+    // 后台模式三个按钮都靠它置忙——漏清一处就是永久锁，所以只在真正入列
+    // 与每个早退分支上清
+    set({ lastError: null, sending: true })
 
     // 锚点注入（模型据此知道自己服务谁、用户在哪个页面）：
     // - 业务范围内（详情页工作区/浮层 context）：每轮注入归属锚点——pi 的
@@ -203,9 +208,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const pre = get()
     let outgoingText = trimmed
     if (pre.context) {
-      const unit = pre.context.origin === 'case' ? '本案' : '本委托'
-      const idKey = pre.context.origin === 'case' ? 'case_id' : 'contract_id'
-      outgoingText = `[当前业务：${unit}「${pre.context.title}」 ${idKey}=${pre.context.refId}]\n${trimmed}`
+      outgoingText = buildBizHintBlock(pre.context, trimmed)
     } else if (pre.pageHint && pre.pageHint !== pre.lastPageHintSent) {
       outgoingText = `[当前页面：${pre.pageHint}]\n${trimmed}`
       set({ lastPageHintSent: pre.pageHint })
@@ -224,12 +227,13 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       try {
         sessionId = (await copilotApi.createSession('', get().context ?? undefined)).session_id
       } catch {
-        set({ lastError: '创建会话失败，请稍后重试' })
+        set({ lastError: '创建会话失败，请稍后重试', sending: false })
         onQueued?.(false)
         return
       }
       // createSession 在途期间用户已切走：不占用新会话，也不污染当前视图
       if (get().sessionId !== startedSessionId) {
+        set({ sending: false })
         onQueued?.(false)
         return
       }
@@ -247,13 +251,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     const outgoing = await uploadAttachmentsAndCompose(sessionId, outgoingText, pendingFiles, pendingRefs)
     set({ uploadingAttachments: false })
     if (outgoing === null) {
-      set({ lastError: '附件/引用准备失败，请重试（已保留，重试不会重复上传）' })
+      set({ lastError: '附件/引用准备失败，请重试（已保留，重试不会重复上传）', sending: false })
       onQueued?.(false)
       return
     }
     // 附件上传在途期间用户可能切走：迟到结果丢弃（chips 保留，回执已缓存，
     // 下次发送不重复上传），不把消息推进新选中的会话
     if (get().sessionId !== sessionId) {
+      set({ sending: false })
       onQueued?.(false)
       return
     }
@@ -283,6 +288,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       ],
       approvals: [],
       streaming: true,
+      // 消息已入列、流已开：置忙交给 streaming，sending 在此解除
+      sending: false,
       queuePosition: null,
       queuedSteers: [],
       turnStats: { ...EMPTY_STATS, samples: [] },
@@ -511,6 +518,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       pendingRefs: [],
       pendingQuote: null,
       uploadingAttachments: false,
+      sending: false,
       draggingFiles: false,
     })
     resetUploadReceipts()

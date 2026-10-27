@@ -1,15 +1,34 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { OfficeView } from '@/components/shared/onlyoffice/OfficeView'
+import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { getContentVersion, getTaskStatus, listVersions } from '../api'
 import { RevisionList } from '../components/RevisionList'
 import { VersionChainButton, VersionChainPanel } from '../components/VersionChainPanel'
 import { progressText, revisedFileName } from '../domain'
 import { useRevisions } from '../hooks/use-revisions'
-import type { DocumentVersion, ReviewEditorMode, ReviewRevision } from '../types'
+import type { ReviewEditorMode, ReviewRevision } from '../types'
+
+/** 本页 query key 工厂（修订清单的键在 use-revisions 里，同一前缀 contract-review） */
+const reviewPageKeys = {
+  versions: (taskId: string | null) => ['contract-review', 'versions', taskId] as const,
+  contentVersion: (taskId: string | null) => ['contract-review', 'content-version', taskId] as const,
+  taskStatus: (taskId: string | null) => ['contract-review', 'task-status', taskId] as const,
+}
 
 /**
  * 合同复审工作台。
@@ -26,8 +45,6 @@ export function ReviewWorkbenchPage() {
   const navigate = useNavigate()
   const { items, isLoading, error, busyId, pendingCount, decide } = useRevisions(taskId ?? null)
   const [mode, setMode] = useState<ReviewEditorMode>('review')
-  /** DS 顶栏文件名：优先任务产物真名（与 /download 返回的文件一致，自带 .docx） */
-  const [fileName, setFileName] = useState('合同（法穿SI修订）.docx')
   /**
    * 文档内容版本（喂给 OfficeView 的 version）。
    *
@@ -37,69 +54,42 @@ export function ReviewWorkbenchPage() {
    * 真正该重建的时机只有「文档内容变了」：即编辑器保存回写（人工改动 /
    * 插件写入修订后保存）导致 saved_version 递增。采纳只改 DB 状态、不写
    * docx，不该动画布。
+   *
+   * 不轮询：只有「可能在文档里落痕」的动作（写入AI修订 / 强制保存）之后才需要重查，
+   * 常态下每 2 秒一次请求只是白烧带宽。首挂与切换任务时拉一次拿到当前值，
+   * 之后由 contentVersionQuery.refetch 按需重查。
    */
-  const [contentVersion, setContentVersion] = useState('')
+  const contentVersionQuery = useQuery({
+    queryKey: reviewPageKeys.contentVersion(taskId ?? null),
+    queryFn: ({ signal }) => getContentVersion(taskId as string, signal),
+    enabled: taskId != null,
+    // 版本取不到不阻断阅读：OfficeView 仍能用空版本挂载，只是不会自动重建
+    retry: false,
+  })
+  const contentVersion = contentVersionQuery.data?.content_version ?? ''
 
   /** 版本链：右侧面板显示「改过几轮、每轮谁改的、从哪版改出来」 */
   const [showVersions, setShowVersions] = useState(false)
-  const [versions, setVersions] = useState<DocumentVersion[]>([])
-  const [versionsLoading, setVersionsLoading] = useState(false)
-  const [versionsError, setVersionsError] = useState<string | null>(null)
+  // 面板打才拉（enabled）：版本链不是高频信息，不值得进首屏关键路径
+  const versionsQuery = useQuery({
+    queryKey: reviewPageKeys.versions(taskId ?? null),
+    queryFn: ({ signal }) => listVersions(taskId as string, signal),
+    enabled: taskId != null && showVersions,
+  })
+  const versions = versionsQuery.data?.items ?? []
+  const versionsLoading = versionsQuery.isPending && showVersions
+  const versionsError = versionsQuery.error ? errMessage(versionsQuery.error, '加载版本链失败') : null
 
-  const loadVersions = useCallback(async () => {
-    if (!taskId) return
-    setVersionsLoading(true)
-    setVersionsError(null)
-    try {
-      const chain = await listVersions(taskId)
-      setVersions(chain.items)
-    } catch (e) {
-      setVersionsError(e instanceof Error ? e.message : '加载版本链失败')
-    } finally {
-      setVersionsLoading(false)
-    }
-  }, [taskId])
-
-  // 面板打才拉：版本链不是高频信息，不值得进首屏关键路径
-  useEffect(() => {
-    if (showVersions) void loadVersions()
-  }, [showVersions, loadVersions])
-
-  /**
-   * 拉一次内容版本。
-   *
-   * 不轮询：只有「可能在文档里落痕」的动作（写入AI修订 / 强制保存）之后才需要重查，
-   * 常态下每 2 秒一次请求只是白烧带宽。需要时由下方回调主动调 refresh，
-   * 另外首挂与切换任务时拉一次拿到当前值。
-   */
-  const refreshContentVersion = useCallback(async () => {
-    if (!taskId) return
-    try {
-      const cv = await getContentVersion(taskId)
-      setContentVersion(cv.content_version)
-    } catch {
-      // 版本取不到不阻断阅读：OfficeView 仍能用空版本挂载，只是不会自动重建
-    }
-  }, [taskId])
-
-  useEffect(() => {
-    void refreshContentVersion()
-  }, [refreshContentVersion])
-
-  useEffect(() => {
-    if (!taskId) return
-    let cancelled = false
-    void getTaskStatus(taskId)
-      .then((task) => {
-        if (!cancelled && task.output_filename) setFileName(task.output_filename)
-      })
-      .catch(() => {
-        // 文件名只影响 DS 标题展示，取不到时沿用兜底名，不打断复审
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [taskId])
+  /** DS 顶栏文件名：优先任务产物真名（与 /download 返回的文件一致，自带 .docx） */
+  const taskStatusQuery = useQuery({
+    queryKey: reviewPageKeys.taskStatus(taskId ?? null),
+    queryFn: ({ signal }) => getTaskStatus(taskId as string, signal),
+    enabled: taskId != null,
+    // 文件名只影响 DS 标题展示：取不到就沿用兜底名，不重试也不打断复审
+    retry: false,
+    select: (task) => task.output_filename,
+  })
+  const fileName = taskStatusQuery.data || '合同（法穿SI修订）.docx'
 
   const total = items.length
 
@@ -117,17 +107,27 @@ export function ReviewWorkbenchPage() {
     [decide],
   )
 
-  const finalize = useCallback(() => {
-    if (pendingCount > 0) {
-      const ok = window.confirm(
-        `还有 ${pendingCount} 处建议未决策，未决策的不会写入文档。\n仍要保存定稿吗？`,
-      )
-      if (!ok) return
-    }
+  /**
+   * 未决策的建议不会写入文档，所以还有 pending 时必须二次确认；
+   * 全部决策完就没有可丢的东西，不必再拦一道。
+   * 确认用全站统一的 AlertDialog（window.confirm 在 OnlyOffice 画布内会被
+   * 浏览器的「阻止此页面创建更多对话框」吞掉，且样式与其他确认框不一致）。
+   */
+  const [confirmFinalize, setConfirmFinalize] = useState(false)
+
+  const saveFinalCopy = useCallback(() => {
     toast.success('已保存定稿', {
       description: revisedFileName('合同.docx'),
     })
-  }, [pendingCount])
+  }, [])
+
+  const finalize = useCallback(() => {
+    if (pendingCount > 0) {
+      setConfirmFinalize(true)
+      return
+    }
+    saveFinalCopy()
+  }, [pendingCount, saveFinalCopy])
 
   if (!taskId) {
     return <CenterHint text="缺少审查任务 ID" />
@@ -245,6 +245,21 @@ export function ReviewWorkbenchPage() {
           )}
         </aside>
       </div>
+
+      <AlertDialog open={confirmFinalize} onOpenChange={setConfirmFinalize}>
+        <AlertDialogContent className="max-w-[360px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>还有 {pendingCount} 处建议未决策</AlertDialogTitle>
+            <AlertDialogDescription>
+              未决策的建议不会写入文档。仍要保存定稿吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>继续审阅</AlertDialogCancel>
+            <AlertDialogAction onClick={saveFinalCopy}>保存定稿</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

@@ -9,6 +9,7 @@
  * - 分段后端为规则引擎时提示质量降级
  * - openId 变化（用户切走）→ 不回写 store
  * - 卸载后取消 → 不弹错误
+ * - 连点重入 → 旧循环过期退出，只留一个任务流、一次提示、一次回写
  */
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -202,6 +203,40 @@ describe('useAutoSplit：竞态与生命周期', () => {
       await result.current.run()
     })
     await waitFor(() => expect(result.current.running).toBe(false))
+    expect(result.current.progress).toBe('')
+  })
+})
+
+describe('useAutoSplit：重入', () => {
+  it('同帧连点两次：旧 run 过期，只有一个任务流与一次回写', async () => {
+    const { update } = setup()
+    // 第一个任务的轮询挂住，制造「第一次还没跑完就又点了一次」的窗口
+    let release: (v: unknown) => void = () => {}
+    apiMock.getPdfSplitJob.mockReturnValueOnce(
+      new Promise((res) => {
+        release = res as (v: unknown) => void
+      }),
+    )
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      const first = result.current.run()
+      // 不等第一次结束（running 还没渲染回按钮），直接再点
+      const second = result.current.run()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+      release({ status: 'completed', segments: [{ p: 0 }], summary: { segment_backend: 'llm' } })
+      await Promise.all([first, second])
+    })
+
+    // 两个任务都提交了（旧循环在 await 提交里、发现过期前拦不住），但旧循环过期后
+    // 不再回写 store、不再弹提示：只有一次回写
+    expect(apiMock.createPdfSplitJob).toHaveBeenCalledTimes(2)
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(toast.success).toHaveBeenCalledTimes(1)
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(result.current.running).toBe(false)
     expect(result.current.progress).toBe('')
   })
 })

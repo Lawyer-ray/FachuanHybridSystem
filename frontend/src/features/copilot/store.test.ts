@@ -84,11 +84,11 @@ describe('copilot store：页面感知注入', () => {
     st.setPageHint('委托详情 · 某银行（contract_id=8）')
     await st.send('范围内的消息')
     const last = vi.mocked(copilotApi.openMessageStream).mock.calls[2]?.[1]
-    expect(last).toBe('[当前业务：本委托「某银行」 contract_id=8]\n范围内的消息')
+    expect(last).toBe('[当前业务：本委托“某银行” contract_id=8]\n范围内的消息')
     expect(last).not.toContain('当前页面')
-    // 本地气泡：归属锚点折叠成 bizHint 字段、正文干净
+    // 本地气泡：归属锚点折叠成结构化 bizHint（与 historyToMessages 同一结构）、正文干净
     const user = useCopilot.getState().messages.at(-2)
-    expect(user?.bizHint).toBe('本委托「某银行」 contract_id=8')
+    expect(user?.bizHint).toEqual({ kind: 'contract', title: '某银行', refId: 8 })
     expect(user?.content).toBe('范围内的消息')
   })
 })

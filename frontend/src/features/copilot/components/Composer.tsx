@@ -40,6 +40,9 @@ export function Composer() {
   const pendingQuote = useCopilot((s) => s.pendingQuote)
   const setPendingQuote = useCopilot((s) => s.setPendingQuote)
   const uploading = useCopilot((s) => s.uploadingAttachments)
+  // 发送全过程在途（建会话/上传附件期间）：与 uploading 一起置忙，堵住
+  // 「上传完成 → 消息入列」这段两者都为 false 的窗口里的二次提交
+  const sending = useCopilot((s) => s.sending)
   const compactContext = useCopilot((s) => s.compactContext)
   const sessionId = useCopilot((s) => s.sessionId)
   const messageCount = useCopilot((s) => s.messages.length)
@@ -144,7 +147,7 @@ export function Composer() {
     if (speech.listening) speech.stop(true)
     const value = text.trim()
     if (!value && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote) return
-    if (uploading) return
+    if (uploading || sending) return
     if (streaming) {
       // 运行中插话：不改写当前输出，在工具调用后、下次模型调用前生效
       void steer(value)
@@ -253,7 +256,7 @@ export function Composer() {
             bgMode ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
           }`}
           onClick={() => setBgMode((v) => !v)}
-          disabled={streaming || pendingFiles.length > 0 || pendingRefs.length > 0}
+          disabled={streaming || pendingFiles.length > 0 || pendingRefs.length > 0 || sending}
           aria-label={bgMode ? '关闭后台运行模式' : '切换为后台运行'}
           aria-pressed={bgMode}
           title={
@@ -270,7 +273,7 @@ export function Composer() {
           type="button"
           className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40"
           onClick={() => fileInputRef.current?.click()}
-          disabled={streaming || uploading}
+          disabled={streaming || uploading || sending}
           aria-label="添加附件"
           title="添加附件（PDF / Word / 图片 / 文本，≤20MB；也可直接拖入面板）"
         >
@@ -336,7 +339,7 @@ export function Composer() {
             type="button"
             className="copilot-send flex h-7 w-7 flex-none items-center justify-center rounded-full disabled:opacity-30 disabled:shadow-none"
             onClick={submit}
-            disabled={uploading || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote)}
+            disabled={uploading || sending || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote)}
             aria-label={bgMode ? '提交后台任务' : '发送'}
             title={uploading ? '附件上传中…' : undefined}
           >

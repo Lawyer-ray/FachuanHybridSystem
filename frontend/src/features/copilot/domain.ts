@@ -3,7 +3,7 @@
  * 全部为纯函数，vitest 直接覆盖（node 环境，无 DOM）。
  */
 
-import type { AgentHistoryMessage, AgentSession, AgentSkill, AgentStreamEvent, ChatMessage, FolderRefDraft, PendingApproval, PendingApprovalItem, SelectionQuote, SentRefMeta, SessionGroup, SlashMenuItem } from './types'
+import type { AgentHistoryMessage, AgentSession, AgentSkill, AgentStreamEvent, BizHint, ChatMessage, FolderRefDraft, PendingApproval, PendingApprovalItem, SelectionQuote, SentRefMeta, SessionGroup, SlashMenuItem } from './types'
 
 let localIdSeed = 0
 /** 本地气泡 id（历史消息沿用后端 message_id，流式期间的本地消息用递增 id） */
@@ -89,9 +89,15 @@ export function splitRefBlocks(content: string): { refs: SentRefMeta[]; body: st
 /** 「[当前页面：xxx]」行——通用模式下 send 注入的页面锚点，回放折叠为 chip */
 const PAGE_HINT_RE = /^\[当前页面：(.+?)\]$/
 
-/** 「[当前业务：xxx]」行——业务范围（详情页工作区/浮层 context）下 send 注入的
- *  归属锚点，含委托/案件名与 id，模型据此直达对应绑定文件夹与数据 */
-const BIZ_HINT_RE = /^\[当前业务：(.+?)\]$/
+/**
+ * 「[当前业务：本委托「xx」 contract_id=N]」行——业务范围（详情页工作区/浮层
+ * context）下 send 注入的归属锚点，模型据此直达对应绑定文件夹与数据。
+ *
+ * 与 buildBizHintBlock 严格互逆：标题里的引号在构建时归一成「“”」，
+ * 保证闭引号唯一（否则标题自带 `」` 时非贪婪匹配会切在错的位置，
+ * 尾部的 contract_id 就成了标题的一部分）。
+ */
+const BIZ_HINT_RE = /^\[当前业务：(本委托|本案)“(.+?)” (contract_id|case_id)=(\d+)\]$/
 
 /**
  * 框选引用块（豆包式引用的出站形态）：
@@ -249,13 +255,48 @@ export function splitPageHintLine(content: string): { pageHint: string | null; b
   return { pageHint: m[1], body: lines.slice(1).join('\n').replace(/^\n+/, '') }
 }
 
+/**
+ * 归属锚点的规范化（构建与解析共用，保证互逆）：标尺只保留落库的 `kind`，
+ * 单位词与 id 键名都由它派生，不额外存一份可漂移的副本。
+ */
+export function bizHintFromContext(context: { origin: 'case' | 'contract'; refId: number; title: string }): BizHint {
+  return { kind: context.origin, title: context.title.trim(), refId: context.refId }
+}
+
+/** 标题进锚点前的整形：换行归一成空格（锚点必须单行），引号归一成「“”」
+ *
+ * 为什么要归引号：锚点靠 `“…”` 定界标题，标题自带 `「`/`」`（如
+ * `「示例甲方」专项案`）时 `(.+?)` 会在第一个 `」` 停住，剩下的 `…」 contract_id=393`
+ * 全被当成标题，唯一的机器可读归属 id 就丢了。归一后闭引号唯一，
+ * 游标（向模型发的原文）里的标题也只是显示用，换这对弯引号零损失。
+ */
+export function normalizeBizHintTitle(raw: string): string {
+  return raw.replace(/\s*\n\s*/g, ' ').trim().replace(/「/g, '“').replace(/」/g, '”')
+}
+
+/** 构建业务归属锚点行（发送侧；与 BIZ_HINT_RE 严格互逆） */
+export function buildBizHintBlock(context: { origin: 'case' | 'contract'; refId: number; title: string }, text: string): string {
+  const hint = bizHintFromContext(context)
+  const unit = hint.kind === 'case' ? '本案' : '本委托'
+  const idKey = hint.kind === 'case' ? 'case_id' : 'contract_id'
+  return `[当前业务：${unit}“${normalizeBizHintTitle(hint.title)}” ${idKey}=${hint.refId}]\n${text}`
+}
+
 /** 把 user 消息开头的业务锚点行拆出来（与页面锚点同构）；无锚点原样返回 */
-export function splitBizHintLine(content: string): { bizHint: string | null; body: string } {
+export function splitBizHintLine(content: string): { bizHint: BizHint | null; body: string } {
   const lines = content.split('\n')
   const first = lines[0]?.trim() ?? ''
   const m = BIZ_HINT_RE.exec(first)
-  if (!m?.[1]) return { bizHint: null, body: content }
-  return { bizHint: m[1], body: lines.slice(1).join('\n').replace(/^\n+/, '') }
+  if (!m?.[1] || !m[2] || !m[3] || !m[4]) return { bizHint: null, body: content }
+  return {
+    bizHint: { kind: m[3] === 'case_id' ? 'case' : 'contract', title: m[2], refId: Number(m[4]) },
+    body: lines.slice(1).join('\n').replace(/^\n+/, ''),
+  }
+}
+
+/** 归属锚点的展示三段：单位 · 名称 · #id（id 单独成段，不再被整串截断吃掉） */
+export function bizHintParts(hint: BizHint): { unit: string; title: string; ref: string } {
+  return { unit: hint.kind === 'case' ? '本案' : '本委托', title: hint.title, ref: `#${hint.refId}` }
 }
 
 /**
