@@ -68,6 +68,38 @@ class SavedInvoice:
     folder_skipped_reason: str = ""
 
 
+# ── 模块级工具函数（原类内 @staticmethod，遵循 Service 层禁用 @staticmethod 约定）──
+
+
+def _contract_name(contract_id: int) -> str:
+    """先开票路径取合同名称（鉴权已过，合同必然存在；名称即括号命名的素材）。"""
+    from apps.contracts.models import Contract
+
+    return str(Contract.objects.filter(pk=contract_id).values_list("name", flat=True).first() or "")
+
+
+def _clip_utf8(text: str, *, max_bytes: int) -> str:
+    """按 UTF-8 字节数截断（不切多字节字符中间）：macOS 文件名上限按字节计。"""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+    return encoded[:max_bytes].decode("utf-8", errors="ignore")
+
+
+def _sweep_stale_copies(temp_root: Path) -> None:
+    """清扫 24 小时前留下的发票临时副本（落板文件要等用户粘贴，只能事后清）。"""
+    import shutil
+    import time
+
+    cutoff = time.time() - 24 * 3600
+    for old in temp_root.glob("fachuan-invoice-*"):
+        try:
+            if old.stat().st_mtime < cutoff:
+                shutil.rmtree(old, ignore_errors=True)
+        except OSError:
+            continue
+
+
 class InvoiceFileService:
     """发票落库：挂某条收款（先付款后开票）或挂合同（先开票后付款）。"""
 
@@ -117,7 +149,7 @@ class InvoiceFileService:
             self.ensure_contract_access(
                 contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access
             )
-            contract_name = self._contract_name(contract_id)
+            contract_name = _contract_name(contract_id)
         self._validate_file(uploaded_file)
 
         # InvoiceUploadService.save_invoice_file 返回的是**已建好的 Invoice 对象**
@@ -225,6 +257,24 @@ class InvoiceFileService:
         if unlinked_only:
             qs = qs.filter(payment__isnull=True)
         return list(qs.order_by("-uploaded_at", "-id"))
+
+    def payment_invoice_state(self, payment_id: int) -> dict[str, str]:
+        """某笔收款当前的开票状态与金额（上传响应就地刷新收款行用）。
+
+        ORM 查询留在 Service 层——API 层出现 Model.objects 会撞四层架构门禁。
+        """
+        from apps.contracts.models import ContractPayment
+        from apps.core.exceptions import NotFoundError
+
+        try:
+            payment = ContractPayment.objects.get(pk=payment_id)
+        except ContractPayment.DoesNotExist:
+            raise NotFoundError(message="收款记录不存在", code="PAYMENT_NOT_FOUND") from None
+        return {
+            "invoice_status": payment.invoice_status,
+            "invoice_status_label": payment.get_invoice_status_display(),
+            "invoiced_amount": str(payment.invoiced_amount),
+        }
 
     @transaction.atomic
     def attach_invoice(
@@ -342,26 +392,12 @@ class InvoiceFileService:
         staging = Path(tempfile.mkdtemp(prefix="fachuan-invoice-"))
         target = staging / display_name
         target.write_bytes(Path(self._media_abs(invoice.file_path)).read_bytes())
-        self._sweep_stale_copies(staging.parent)
+        _sweep_stale_copies(staging.parent)
 
         copied = MacClipboardFileService().copy_file_paths([target])
         if copied == 0:
             logger.warning("invoice_clipboard_write_failed", extra={"invoice_id": invoice_id, "name": display_name})
         return copied
-
-    @staticmethod
-    def _sweep_stale_copies(temp_root: Path) -> None:
-        """清扫 24 小时前留下的发票临时副本（落板文件要等用户粘贴，只能事后清）。"""
-        import shutil
-        import time
-
-        cutoff = time.time() - 24 * 3600
-        for old in temp_root.glob("fachuan-invoice-*"):
-            try:
-                if old.stat().st_mtime < cutoff:
-                    shutil.rmtree(old, ignore_errors=True)
-            except OSError:
-                continue
 
     # ------------------------------------------------------------------ 鉴权
 
@@ -390,13 +426,6 @@ class InvoiceFileService:
             perm_open_access=perm_open_access,
         )
         return payment
-
-    @staticmethod
-    def _contract_name(contract_id: int) -> str:
-        """先开票路径取合同名称（鉴权已过，合同必然存在；名称即括号命名的素材）。"""
-        from apps.contracts.models import Contract
-
-        return str(Contract.objects.filter(pk=contract_id).values_list("name", flat=True).first() or "")
 
     def ensure_contract_access(
         self,
@@ -567,18 +596,10 @@ class InvoiceFileService:
         无区分度）。
         """
         base = self._safe_part(contract_name, limit=100) or self._safe_part(seller, limit=60)
-        head = f"发票（{self._clip_utf8(base, max_bytes=210)}）" if base else "发票"
+        head = f"发票（{_clip_utf8(base, max_bytes=210)}）" if base else "发票"
         tail = inv_date.strftime("%Y%m%d") + "开具" if inv_date else ""
         stem = "_".join(p for p in (head, tail) if p)
         return f"{stem}{ext or '.pdf'}"
-
-    @staticmethod
-    def _clip_utf8(text: str, *, max_bytes: int) -> str:
-        """按 UTF-8 字节数截断（不切多字节字符中间）：macOS 文件名上限按字节计。"""
-        encoded = text.encode("utf-8")
-        if len(encoded) <= max_bytes:
-            return text
-        return encoded[:max_bytes].decode("utf-8", errors="ignore")
 
     @classmethod
     def _safe_part(cls, raw: str, *, limit: int) -> str:

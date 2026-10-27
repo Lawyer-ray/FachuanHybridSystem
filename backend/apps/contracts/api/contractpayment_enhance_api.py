@@ -237,7 +237,11 @@ async def _upload_invoices(
         duplicated += 1 if result.duplicated else 0
         saved.append(_saved_out(result, payment_id=payment_id))
 
-    status = await sync_to_async(_payment_invoice_state)(payment_id) if payment_id else {"": ""}
+    status = (
+        await sync_to_async(service.payment_invoice_state, thread_sensitive=True)(payment_id)
+        if payment_id
+        else {"": ""}
+    )
     return InvoiceUploadOut(
         saved=saved,
         failed=failed,
@@ -268,17 +272,6 @@ def _build_recognizer() -> Any:
         return result.data
 
     return recognize
-
-
-def _payment_invoice_state(payment_id: int) -> dict[str, str]:
-    from apps.contracts.models import ContractPayment
-
-    payment = ContractPayment.objects.get(pk=payment_id)
-    return {
-        "invoice_status": payment.invoice_status,
-        "invoice_status_label": payment.get_invoice_status_display(),
-        "invoiced_amount": str(payment.invoiced_amount),
-    }
 
 
 def _invoice_out(invoice: Any) -> InvoiceOut:

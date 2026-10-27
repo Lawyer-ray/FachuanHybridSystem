@@ -66,6 +66,62 @@ def _md_groups(m: re.Match[str]) -> tuple[int, int]:
     return int(m.group(1)), int(day)
 
 
+# ── 模块级工具函数（原类内 @staticmethod，遵循 Service 层禁用 @staticmethod 约定）──
+
+
+def _to_decimal(raw: str) -> Decimal | None:
+    try:
+        return Decimal(raw.replace(",", "").replace("，", "")).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _extract_fee_label(text: str) -> str:
+    m = _FEE_LABEL.search(text)
+    if not m:
+        return ""
+    fee = m.group("fee").strip()
+    return "" if _CHANNEL_WORD.match(fee) else fee
+
+
+def _strip_transaction_boilerplate(text: str, *, payer: str) -> str:
+    """把「【行】付款人10月15日17时5分向贵公司4501账户XXX存入人民币9000元」剥成 XXX。
+
+    只对**前缀**做剥除、不动尾部：反过来做会把金额拆成 `人民币元` 这种碎片
+    （`人民币12,500.00` 先被数字规则搞成 `人民币,.`）。
+    """
+    out = _BANK_PREFIX.sub("", re.sub(r"\s+", " ", text)).strip()
+    if payer and out.startswith(payer):
+        out = out[len(payer) :]
+    # 前缀剥离：至「日 + 时间」为止
+    out = re.sub(
+        r"^(?:于|在)?\s*\d{1,2}\s*月\s*\d{1,2}\s*日\s*(?:\d{1,2}\s*[时:：]\s*\d{1,2}\s*分?)?",
+        "",
+        out,
+    )
+    out = re.sub(r"^(?:于|在)?\s*\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?\s*", "", out)
+    out = re.sub(r"^.{0,6}?(?:向|给)(?:贵公司|我司|本公司|您|本单位)", "", out)
+    out = re.sub(
+        r"^(?:\d{2,}(?:账户|帐号|卡号)?)?\s*"
+        r"(?:电子汇入|行内转账|跨行转账|转账|汇款|汇入|到账|存入|转入)?\s*(?:存入|转入|汇款)?",
+        "",
+        out,
+    )
+    out = re.sub(r"^\d{2,}(?:账户|帐号|卡号)?", "", out)
+    out = re.sub(r"^(?:人民币|RMB|[¥￥])?\s*[0-9][0-9,，]*(?:\.[0-9]{1,2})?\s*元?", "", out)
+    out = re.sub(r"^(?:存入|转入|汇款|到账|入账|电子汇入|汇入|转账)", "", out)
+    out = out.strip(" 　，,。.；;（）()、：【】[]")
+    # 剩下的若仍是「备注：xxx」这种命名摘要，取冒号后的内容
+    labeled = re.match(r"^(?:备注|用途|摘要|附言|留言)\s*[:：]\s*(?P<x>.+)$", out)
+    if labeled:
+        out = labeled.group("x").strip(" 　，,。.；;")
+    return "" if len(out) <= 1 else out
+
+
+def _clean_party(raw: str) -> str:
+    return raw.strip(" 　，,。.、：:；;【】[]()（）")
+
+
 # 付款人：A向贵公司/我司…存入；收到 A 转入；显式「付款人：A」
 _PAYER_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
@@ -158,18 +214,11 @@ class PaymentSmsParser:
     def _parse_amount(self, text: str) -> Decimal | None:
         for pattern in _AMOUNT_PATTERNS:
             for m in pattern.finditer(text):
-                value = self._to_decimal(m.group(1))
+                value = _to_decimal(m.group(1))
                 # 0 元与上百亿的值只可能是误命中（账号、流水号）
                 if value is not None and 0 < value < Decimal("1e10"):
                     return value
         return None
-
-    @staticmethod
-    def _to_decimal(raw: str) -> Decimal | None:
-        try:
-            return Decimal(raw.replace(",", "").replace("，", "")).quantize(Decimal("0.01"))
-        except (InvalidOperation, ValueError):
-            return None
 
     def _parse_date(self, text: str, today: date) -> date | None:
         m = _DATE_FULL.search(text)
@@ -205,7 +254,7 @@ class PaymentSmsParser:
             m = pattern.search(body)
             if not m:
                 continue
-            payer = self._clean_party(m.group("payer"))
+            payer = _clean_party(m.group("payer"))
             if payer and not payer.startswith(("贵公司", "您", "我")) and not payer[0].isdigit():
                 return payer[: self._PAYER_MAX]
 
@@ -230,57 +279,11 @@ class PaymentSmsParser:
             if memo:
                 return self._strip_payer(memo, payer)
 
-        fee = self._extract_fee_label(text)
+        fee = _extract_fee_label(text)
         if fee:
             return fee
 
-        return self._strip_transaction_boilerplate(text, payer=payer)
-
-    @staticmethod
-    def _extract_fee_label(text: str) -> str:
-        m = _FEE_LABEL.search(text)
-        if not m:
-            return ""
-        fee = m.group("fee").strip()
-        return "" if _CHANNEL_WORD.match(fee) else fee
-
-    @staticmethod
-    def _strip_transaction_boilerplate(text: str, *, payer: str) -> str:
-        """把「【行】付款人10月15日17时5分向贵公司4501账户XXX存入人民币9000元」剥成 XXX。
-
-        只对**前缀**做剥除、不动尾部：反过来做会把金额拆成 `人民币元` 这种碎片
-        （`人民币12,500.00` 先被数字规则搞成 `人民币,.`）。
-        """
-        out = _BANK_PREFIX.sub("", re.sub(r"\s+", " ", text)).strip()
-        if payer and out.startswith(payer):
-            out = out[len(payer) :]
-        # 前缀剥离：至「日 + 时间」为止
-        out = re.sub(
-            r"^(?:于|在)?\s*\d{1,2}\s*月\s*\d{1,2}\s*日\s*(?:\d{1,2}\s*[时:：]\s*\d{1,2}\s*分?)?",
-            "",
-            out,
-        )
-        out = re.sub(r"^(?:于|在)?\s*\d{4}\s*[-/年]\s*\d{1,2}\s*[-/月]\s*\d{1,2}\s*日?\s*", "", out)
-        out = re.sub(r"^.{0,6}?(?:向|给)(?:贵公司|我司|本公司|您|本单位)", "", out)
-        out = re.sub(
-            r"^(?:\d{2,}(?:账户|帐号|卡号)?)?\s*"
-            r"(?:电子汇入|行内转账|跨行转账|转账|汇款|汇入|到账|存入|转入)?\s*(?:存入|转入|汇款)?",
-            "",
-            out,
-        )
-        out = re.sub(r"^\d{2,}(?:账户|帐号|卡号)?", "", out)
-        out = re.sub(r"^(?:人民币|RMB|[¥￥])?\s*[0-9][0-9,，]*(?:\.[0-9]{1,2})?\s*元?", "", out)
-        out = re.sub(r"^(?:存入|转入|汇款|到账|入账|电子汇入|汇入|转账)", "", out)
-        out = out.strip(" 　，,。.；;（）()、：【】[]")
-        # 剩下的若仍是「备注：xxx」这种命名摘要，取冒号后的内容
-        labeled = re.match(r"^(?:备注|用途|摘要|附言|留言)\s*[:：]\s*(?P<x>.+)$", out)
-        if labeled:
-            out = labeled.group("x").strip(" 　，,。.；;")
-        return "" if len(out) <= 1 else out
-
-    @staticmethod
-    def _clean_party(raw: str) -> str:
-        return raw.strip(" 　，,。.、：:；;【】[]()（）")
+        return _strip_transaction_boilerplate(text, payer=payer)
 
     def _strip_payer(self, note: str, payer: str) -> str:
         """备注里去掉重复的付款人名（事后读备注不需要再念一遍汇款人）。"""
