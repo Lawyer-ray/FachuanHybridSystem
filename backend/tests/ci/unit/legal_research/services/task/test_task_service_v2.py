@@ -283,6 +283,9 @@ class TestDispatchTask:
 
 
 class TestResetTask:
+    # reset_task_for_dispatch 包在 transaction.atomic() 里（删结果 + 重置字段同事务），
+    # 需要真实 DB 连接；测试本身仍用 MagicMock 任务对象，不落库。
+    @pytest.mark.django_db
     @patch("apps.legal_research.services.task.service.LLMConfig")
     def test_resets_fields(self, mock_llm) -> None:
         from apps.legal_research.services.task.service import LegalResearchTaskService
