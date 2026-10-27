@@ -258,6 +258,6 @@ def _save_as_material(
         )
         return material
 
-    except Exception as e:
+    except Exception:
         logger.exception("保存归档文书材料失败: %s", filename)
         return None

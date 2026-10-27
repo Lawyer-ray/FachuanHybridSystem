@@ -37,7 +37,9 @@ class BasePlaceholderService(ABC):
         return self.placeholder_keys.copy()
 
     def get_placeholder_metadata(self) -> dict[str, dict[str, Any]]:
-        return {k: dict[str, Any](v) for k, v in (self.placeholder_metadata or {}).items()}
+        # 不要写成 `dict[str, Any](v)`：那是把泛型别名当函数调用，当前 Python 能跑但
+        # 属未定义行为（typing 别名并非构造器），语义上也应是「浅拷一份 dict」。
+        return {k: dict(v) for k, v in (self.placeholder_metadata or {}).items()}
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}({self.name})"

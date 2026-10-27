@@ -178,7 +178,7 @@ class SupervisionCardExtractor:
             new_doc.close()
 
             return buffer.getvalue()
-        except Exception as e:
+        except Exception:
             logger.exception("提取PDF页面失败: page=%d", page_number)
             return None
         finally:
@@ -278,6 +278,6 @@ class SupervisionCardExtractor:
                 )
                 return material
 
-        except Exception as e:
+        except Exception:
             logger.exception("保存监督卡材料失败")
             return None
