@@ -7,11 +7,15 @@
 
 存储组织分两段，各自解决不同的检索需求：
 
-1. **media 仓库**（`contracts/invoices/{payment_id}/`）：权威副本，
-   `Invoice.file_path` 指向它，前端预览/下载走这里（带下载票据鉴权）。
-2. **合同文件夹**（绑定目录下的 `发票/日期_销售方_金额.pdf`）：律师在 Finder 里
-   翻合同目录时能直接看到发票原件。命名带日期/销售方/金额，是为了让同一个目录里
-   几十张发票天然按时间排好、一眼看出是谁开的。
+1. **media 仓库**（`contracts/invoices/{payment_id}/`，未关联收款的挂
+   `contracts/invoices/c{contract_id}/`）：权威副本，`Invoice.file_path` 指向它，
+   前端预览/下载走这里（带下载票据鉴权）。
+2. **合同文件夹**（绑定目录下发票目录里的 `发票（合同名称）_YYYYMMDD开具.pdf`）：
+   律师在 Finder 里翻合同目录时能直接看到发票原件。命名沿用律所既有手工习惯
+   （`发票（佛山市某某公司执行某某公司买卖合同纠纷一案）_20261016开具.pdf`，
+   括号里是合同/案件名称——律师按案找票，名称是检索键），日期在后让同目录
+   几十张票天然按时间排好。发票目录不固定在顶层——律所模板多为 `1-律师资料/3-发票`，
+   所以先在两层内找名字以「发票」结尾的目录，找不到再在顶层建 `发票/`。
 
 第二段是「锦上添花」：合同未绑定文件夹 / 云存储绑定 / 目录不可达时静默跳过并
 在返回值里说明原因，不影响开票记账本身。
@@ -28,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from django.db import transaction
+from django.db.models import Q
 
 from apps.core.exceptions import ValidationException
 
@@ -55,6 +60,8 @@ class SavedInvoice:
     buyer_name: str
     #: 是否按「同号发票已存在」判为重复（重复时**不**重复计开票金额）
     duplicated: bool
+    #: 括号命名用的合同名称（响应重算 display_filename 时免二次查库）
+    contract_name: str = ""
     #: 合同文件夹里落到的相对路径（未落则空串）
     folder_subpath: str = ""
     #: 落文件夹被跳过/失败的原因（空串 = 没跳过）
@@ -62,11 +69,11 @@ class SavedInvoice:
 
 
 class InvoiceFileService:
-    """把识别后的发票文件与结构化字段一次性写进某条收款记录。"""
+    """发票落库：挂某条收款（先付款后开票）或挂合同（先开票后付款）。"""
 
     ALLOWED_EXTENSIONS: tuple[str, ...] = (".pdf", ".jpg", ".jpeg", ".png")
     MAX_SIZE_BYTES = 20 * 1024 * 1024
-    #: 合同文件夹下的发票子目录名（中文名让律师一眼看懂）
+    #: 合同文件夹里发票目录的名字特征（`发票` / `3-发票` / `1-律师资料/3-发票`）
     FOLDER_NAME = "发票"
     _ILLEGAL_NAME_CHARS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
@@ -76,7 +83,8 @@ class InvoiceFileService:
     def save_invoice(
         self,
         *,
-        payment_id: int,
+        payment_id: int | None = None,
+        contract_id: int | None = None,
         uploaded_file: Any,
         parsed: Any | None = None,
         user: Any | None = None,
@@ -84,7 +92,11 @@ class InvoiceFileService:
         perm_open_access: bool = False,
         to_contract_folder: bool = True,
     ) -> SavedInvoice:
-        """保存一张发票并回填收款的开票金额。
+        """保存一张发票。挂靠二选一：
+
+        - `payment_id`：直接核销到某笔收款（先付款后开票），保存后回填开票金额；
+        - `contract_id`：**先开票后付款**——票先挂合同名下，不动任何收款的
+          开票金额，等钱到账记收款后走 :meth:`attach_invoice` 关联。
 
         `parsed` 是 invoice_recognition 的 ``ParsedInvoice``（可为 None：纯上传不识别）。
         识别字段只作为**建议值**写入，律师可在前端改动后再提交。
@@ -92,13 +104,28 @@ class InvoiceFileService:
         from apps.contracts.admin.wiring_admin import get_invoice_upload_service
         from apps.contracts.models import Invoice
 
-        payment = self._load_payment(payment_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
+        if payment_id is not None:
+            payment = self._load_payment(
+                payment_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+            )
+            contract_id = payment.contract_id
+            contract_name = str(payment.contract.name or "")
+        else:
+            if contract_id is None:
+                raise ValidationException(message="payment_id 与 contract_id 必须给一个", code="INVOICE_NO_OWNER")
+            payment = None
+            self.ensure_contract_access(
+                contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+            )
+            contract_name = self._contract_name(contract_id)
         self._validate_file(uploaded_file)
 
         # InvoiceUploadService.save_invoice_file 返回的是**已建好的 Invoice 对象**
         # （它内部就做了 Invoice.objects.create）。这里只能拿它补识别字段，
         # 再自己 create 一次会撞上 uniq_invoice_payment_file_path 并产生孤儿记录。
-        invoice = get_invoice_upload_service().save_invoice_file(uploaded_file, payment_id)
+        invoice = get_invoice_upload_service().save_invoice_file(
+            uploaded_file, payment_id=payment_id, contract_id=None if payment_id is not None else contract_id
+        )
         file_path = invoice.file_path
         original_filename = invoice.original_filename
 
@@ -111,9 +138,11 @@ class InvoiceFileService:
         number = str(getattr(parsed, "invoice_number", "") or "")
         code = str(getattr(parsed, "invoice_code", "") or "")
 
-        duplicated = (
-            bool(number)
-            and Invoice.objects.filter(payment__contract_id=payment.contract_id, invoice_number=number).exists()
+        duplicated = bool(number) and (
+            Invoice.objects.filter(
+                Q(payment__contract_id=contract_id, invoice_number=number)
+                | Q(contract_id=contract_id, invoice_number=number)
+            ).exists()
         )
 
         # 识别字段回填到刚建的那条 Invoice（只写回有值的字段，不覆盖上传原值）
@@ -123,6 +152,8 @@ class InvoiceFileService:
         invoice.amount = amount
         invoice.tax_amount = tax_amount
         invoice.total_amount = total_amount
+        invoice.seller_name = self._safe_part(seller, limit=120)
+        invoice.buyer_name = self._safe_part(buyer, limit=120)
         invoice.save(
             update_fields=[
                 "invoice_code",
@@ -131,19 +162,20 @@ class InvoiceFileService:
                 "amount",
                 "tax_amount",
                 "total_amount",
+                "seller_name",
+                "buyer_name",
             ]
         )
 
-        if total_amount is not None and not duplicated:
+        if payment is not None and total_amount is not None and not duplicated:
             self._recompute_invoiced_amount(payment)
 
         folder_subpath, skipped = "", ""
         if to_contract_folder:
             folder_subpath, skipped = self._mirror_to_contract_folder(
-                contract_id=payment.contract_id,
+                contract_id=contract_id,
+                contract_name=contract_name,
                 invoice=invoice,
-                amount=total_amount,
-                seller=seller,
                 inv_date=inv_date,
                 user=user,
                 org_access=org_access,
@@ -154,7 +186,10 @@ class InvoiceFileService:
             id=invoice.id,
             original_filename=original_filename,
             stored_filename=self.display_filename(
-                amount=total_amount, seller=seller, inv_date=inv_date, ext=self._ext(file_path)
+                contract_name=contract_name,
+                seller=seller,
+                inv_date=inv_date,
+                ext=self._ext(file_path),
             ),
             file_path=file_path,
             file_url=f"{self._media_url()}{file_path}",
@@ -167,18 +202,65 @@ class InvoiceFileService:
             seller_name=seller,
             buyer_name=buyer,
             duplicated=duplicated,
+            contract_name=contract_name,
             folder_subpath=folder_subpath,
             folder_skipped_reason=skipped,
         )
 
-    def list_invoices(self, contract_id: int, *, payment_ids: list[int] | None = None) -> list[Any]:
-        """合同（或其下若干收款）的发票，uploaded_at 倒序扁平列表。"""
+    def list_invoices(
+        self, contract_id: int, *, payment_ids: list[int] | None = None, unlinked_only: bool = False
+    ) -> list[Any]:
+        """合同（或其下若干收款）的发票，uploaded_at 倒序扁平列表。
+
+        未关联收款的发票（先开票后付款挂在合同名下）也在其中；
+        `unlinked_only=True` 只取这部分。
+        """
         from apps.contracts.models import Invoice
 
-        qs = Invoice.objects.filter(payment__contract_id=contract_id).select_related("payment")
+        qs = Invoice.objects.filter(Q(payment__contract_id=contract_id) | Q(contract_id=contract_id)).select_related(
+            "payment__contract", "contract"
+        )
         if payment_ids:
             qs = qs.filter(payment_id__in=payment_ids)
+        if unlinked_only:
+            qs = qs.filter(payment__isnull=True)
         return list(qs.order_by("-uploaded_at", "-id"))
+
+    @transaction.atomic
+    def attach_invoice(
+        self,
+        *,
+        invoice_id: int,
+        payment_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> tuple[Any, Any]:
+        """把「先开票」的合同挂靠发票关联到一笔收款（钱到账后的核销动作）。
+
+        返回 ``(invoice, payment)``；跨合同、已关联别的收款都拒绝——财务数据
+        宁可让人重传，不可错挂。
+        """
+        from apps.contracts.models import Invoice
+        from apps.core.exceptions import NotFoundError
+
+        try:
+            invoice = Invoice.objects.select_related("payment__contract", "contract").get(pk=invoice_id)
+        except Invoice.DoesNotExist:
+            raise NotFoundError(message="发票不存在", code="INVOICE_NOT_FOUND") from None
+
+        if invoice.payment_id is not None:
+            raise ValidationException(message="该发票已关联收款，先解除关联才能改挂", code="INVOICE_ALREADY_ATTACHED")
+
+        payment = self._load_payment(payment_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
+        if invoice.contract_id != payment.contract_id:
+            raise ValidationException(message="发票与收款不属于同一合同", code="INVOICE_CONTRACT_MISMATCH")
+
+        invoice.payment = payment
+        invoice.contract = None
+        invoice.save(update_fields=["payment", "contract"])
+        self._recompute_invoiced_amount(payment)
+        return invoice, payment
 
     @transaction.atomic
     def delete_invoice(
@@ -199,18 +281,89 @@ class InvoiceFileService:
         from apps.core.exceptions import NotFoundError
 
         try:
-            invoice = Invoice.objects.select_related("payment").get(pk=invoice_id)
+            invoice = Invoice.objects.select_related("payment__contract", "contract").get(pk=invoice_id)
         except Invoice.DoesNotExist:
             raise NotFoundError(message="发票不存在", code="INVOICE_NOT_FOUND") from None
 
-        payment = self._load_payment(
-            invoice.payment_id, user=user, org_access=org_access, perm_open_access=perm_open_access
-        )
+        if invoice.payment_id is not None:
+            payment = self._load_payment(
+                invoice.payment_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+            )
+        else:
+            payment = None
+            self.ensure_contract_access(
+                invoice.contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+            )
         get_invoice_upload_service().delete_invoice(invoice.id)
-        self._recompute_invoiced_amount(payment)
+        if payment is not None:
+            self._recompute_invoiced_amount(payment)
         return {"success": True}
 
-    # ------------------------------------------------------------------ 内部
+    def copy_file_to_clipboard(
+        self,
+        *,
+        invoice_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> int:
+        """把发票以**重命名后**的文件名复制到 macOS 系统剪贴板（同 Finder ⌘C）。
+
+        media 仓库存的是 UUID 文件名，直接落板粘出去名字面目全非；这里把字节
+        复制到临时目录、按 `发票（合同名称）_YYYYMMDD开具.pdf` 命名后落板，
+        律师在微信对话框 ⌘V 粘出的就是可直发的文件。临时文件必须**留存**到
+        粘贴之后（pasteboard 持有的是 file-url），只顺手清扫超过 24h 的旧副本。
+        非 macOS / 无 pyobjc 由调用方先行判断（同 court-sms 口径）。
+        """
+        import tempfile
+
+        from apps.contracts.models import Invoice
+        from apps.core.services.mac_clipboard_service import MacClipboardFileService
+
+        try:
+            invoice = Invoice.objects.select_related("payment__contract", "contract").get(pk=invoice_id)
+        except Invoice.DoesNotExist:
+            from apps.core.exceptions import NotFoundError
+
+            raise NotFoundError(message="发票不存在", code="INVOICE_NOT_FOUND") from None
+
+        # chk_invoice_payment_xor_contract：收款/合同恰好一条有值，断言给 mypy 看
+        contract = invoice.payment.contract if invoice.payment is not None else invoice.contract
+        assert contract is not None
+        self.ensure_contract_access(contract.pk, user=user, org_access=org_access, perm_open_access=perm_open_access)
+
+        display_name = self.display_filename(
+            contract_name=str(contract.name or ""),
+            seller=str(invoice.seller_name or ""),
+            inv_date=invoice.invoice_date,
+            ext=self._ext(invoice.file_path),
+        )
+
+        staging = Path(tempfile.mkdtemp(prefix="fachuan-invoice-"))
+        target = staging / display_name
+        target.write_bytes(Path(self._media_abs(invoice.file_path)).read_bytes())
+        self._sweep_stale_copies(staging.parent)
+
+        copied = MacClipboardFileService().copy_file_paths([target])
+        if copied == 0:
+            logger.warning("invoice_clipboard_write_failed", extra={"invoice_id": invoice_id, "name": display_name})
+        return copied
+
+    @staticmethod
+    def _sweep_stale_copies(temp_root: Path) -> None:
+        """清扫 24 小时前留下的发票临时副本（落板文件要等用户粘贴，只能事后清）。"""
+        import shutil
+        import time
+
+        cutoff = time.time() - 24 * 3600
+        for old in temp_root.glob("fachuan-invoice-*"):
+            try:
+                if old.stat().st_mtime < cutoff:
+                    shutil.rmtree(old, ignore_errors=True)
+            except OSError:
+                continue
+
+    # ------------------------------------------------------------------ 鉴权
 
     def _load_payment(
         self,
@@ -222,7 +375,6 @@ class InvoiceFileService:
     ) -> Any:
         """取收款并做**合同行级**鉴权（发票跟着收款走，鉴权口径必须与收款一致）。"""
         from apps.contracts.models import ContractPayment
-        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
         from apps.core.exceptions import NotFoundError
 
         try:
@@ -230,6 +382,7 @@ class InvoiceFileService:
         except ContractPayment.DoesNotExist:
             raise NotFoundError(message="收款记录不存在", code="PAYMENT_NOT_FOUND") from None
 
+        ContractAccessPolicy = self._access_policy()
         ContractAccessPolicy().ensure_access(
             contract_id=payment.contract_id,
             user=user,
@@ -237,6 +390,39 @@ class InvoiceFileService:
             perm_open_access=perm_open_access,
         )
         return payment
+
+    @staticmethod
+    def _contract_name(contract_id: int) -> str:
+        """先开票路径取合同名称（鉴权已过，合同必然存在；名称即括号命名的素材）。"""
+        from apps.contracts.models import Contract
+
+        return str(Contract.objects.filter(pk=contract_id).values_list("name", flat=True).first() or "")
+
+    def ensure_contract_access(
+        self,
+        contract_id: int | None,
+        *,
+        user: Any | None,
+        org_access: dict[str, Any] | None,
+        perm_open_access: bool,
+    ) -> None:
+        """先开票路径的合同行级鉴权（与收款口径一致）。"""
+        from apps.core.exceptions import NotFoundError
+
+        if contract_id is None:
+            raise NotFoundError(message="发票未挂靠任何合同", code="INVOICE_NO_CONTRACT") from None
+        ContractAccessPolicy = self._access_policy()
+        ContractAccessPolicy().ensure_access(
+            contract_id=contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+
+    @staticmethod
+    def _access_policy() -> Any:
+        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+        return ContractAccessPolicy
+
+    # ------------------------------------------------------------------ 内部
 
     def _validate_file(self, uploaded_file: Any) -> None:
         name = str(getattr(uploaded_file, "name", "") or "")
@@ -286,44 +472,43 @@ class InvoiceFileService:
         self,
         *,
         contract_id: int,
+        contract_name: str,
         invoice: Any,
-        amount: Decimal | None,
-        seller: str,
         inv_date: date | None,
         user: Any | None,
         org_access: dict[str, Any] | None,
         perm_open_access: bool,
     ) -> tuple[str, str]:
-        """把发票复制到合同绑定文件夹的 `发票/` 下（失败只记录原因，不抛）。"""
+        """把发票复制到合同绑定文件夹的发票目录下（失败只记录原因，不抛）。
+
+        发票目录不固定在顶层：律所模板多为 `1-律师资料/3-发票`，先在两层目录内
+        找名字以「发票」结尾的目录（`发票` / `3-发票` 都认），没有才在顶层建 `发票/`。
+        """
         from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
 
         service = ContractFolderBrowseService()
-        access = {
+        access: dict[str, Any] = {
             "user": user,
             "org_access": org_access,
             "perm_open_access": perm_open_access,
         }
 
         try:
-            root = service.list_entries(owner_id=contract_id, subpath="", **access)
+            subpath = self._locate_invoice_dir(service, contract_id, access)
         except Exception as exc:  # 未绑定 / 云存储 / 目录不可达：都不是开票失败
             logger.info("invoice_folder_mirror_skipped", extra={"contract_id": contract_id, "reason": str(exc)})
             return "", self._skip_reason(exc)
 
-        if not any(f.get("name") == self.FOLDER_NAME for f in (root.get("folders") or [])):
-            try:
-                service.mkdir(owner_id=contract_id, subpath="", name=self.FOLDER_NAME, **access)
-            except Exception as exc:
-                # 并发下另一张发票已建好同名目录 → 视为已存在，继续写文件
-                logger.info("invoice_folder_mkdir_skipped", extra={"reason": str(exc)})
-
         display_name = self.display_filename(
-            amount=amount, seller=seller, inv_date=inv_date, ext=self._ext(invoice.file_path)
+            contract_name=contract_name,
+            seller=str(invoice.seller_name or ""),
+            inv_date=inv_date,
+            ext=self._ext(invoice.file_path),
         )
         try:
             saved = service.save_upload_bytes(
                 owner_id=contract_id,
-                subpath=self.FOLDER_NAME,
+                subpath=subpath,
                 filename=display_name,
                 data=Path(self._media_abs(invoice.file_path)).read_bytes(),
                 **access,
@@ -334,23 +519,66 @@ class InvoiceFileService:
 
         return str(saved.get("subpath") or ""), ""
 
-    def display_filename(self, *, amount: Decimal | None, seller: str, inv_date: date | None, ext: str) -> str:
-        """`20260915_广东省中山市香山公证处_100000元.pdf`：日期在前 → 目录天然按时间排。"""
-        parts: list[str] = []
-        if inv_date:
-            parts.append(inv_date.strftime("%Y%m%d"))
-        if seller:
-            parts.append(self._safe_part(seller, limit=40))
-        if amount is not None:
-            parts.append(self._short_amount(amount) + "元")
-        stem = "_".join(p for p in parts if p) or "发票"
+    def _locate_invoice_dir(self, service: Any, contract_id: int, access: dict[str, Any]) -> str:
+        """在绑定文件夹两层内找发票目录；找不到就在顶层建 `发票/`。返回子目录 subpath。"""
+        root = service.list_entries(owner_id=contract_id, subpath="", **access)
+
+        def _dirs(entries: dict[str, Any]) -> list[dict[str, Any]]:
+            return [f for f in (entries.get("folders") or []) if isinstance(f, dict) and f.get("name")]
+
+        l1_dirs = _dirs(root)
+        for folder in l1_dirs:
+            if self._is_invoice_dir(str(folder["name"])):
+                return str(folder.get("subpath") or folder["name"])
+
+        # 第二层：`1-律师资料/3-发票` 这类嵌套
+        for folder in l1_dirs:
+            try:
+                entries = service.list_entries(
+                    owner_id=contract_id, subpath=str(folder.get("subpath") or folder["name"]), **access
+                )
+            except Exception as exc:
+                logger.info("invoice_folder_walk_skipped", extra={"folder": str(folder["name"]), "reason": str(exc)})
+                continue
+            for sub in _dirs(entries):
+                if self._is_invoice_dir(str(sub["name"])):
+                    return str(sub.get("subpath") or f"{folder['name']}/{sub['name']}")
+
+        try:
+            service.mkdir(owner_id=contract_id, subpath="", name=self.FOLDER_NAME, **access)
+        except Exception as exc:
+            # 并发下另一张发票已建好同名目录 → 视为已存在，继续写文件
+            logger.info("invoice_folder_mkdir_skipped", extra={"reason": str(exc)})
+        return self.FOLDER_NAME
+
+    @classmethod
+    def _is_invoice_dir(cls, name: str) -> bool:
+        """`发票` / `3-发票` 认；`发票领取台账` 这类记录性目录不误认（要求以「发票」结尾）。"""
+        cleaned = name.strip()
+        return cleaned.endswith(cls.FOLDER_NAME) and len(cleaned) <= 12
+
+    def display_filename(self, *, contract_name: str, inv_date: date | None, ext: str, seller: str = "") -> str:
+        """`发票（{合同名称}）_YYYYMMDD开具.pdf`——沿用律所手工命名习惯。
+
+        括号里是**合同/案件名称**（律师按案找票，名称才是检索键；销售方在数电票
+        里常与购买方串行、识别不稳，且跨案件无区分度）。合同名按 UTF-8 字节截断，
+        保证整名不超 macOS 255 字节文件名上限。名称缺失时退销售方，再退「发票」。
+        开票日期识别不出则省略日期段；金额不进文件名（窗口里几十个 ¥9,000
+        无区分度）。
+        """
+        base = self._safe_part(contract_name, limit=100) or self._safe_part(seller, limit=60)
+        head = f"发票（{self._clip_utf8(base, max_bytes=210)}）" if base else "发票"
+        tail = inv_date.strftime("%Y%m%d") + "开具" if inv_date else ""
+        stem = "_".join(p for p in (head, tail) if p)
         return f"{stem}{ext or '.pdf'}"
 
     @staticmethod
-    def _short_amount(amount: Decimal) -> str:
-        """100000.00 → 100000；1234.50 → 1234.5（文件名不需要补零）。"""
-        text = format(amount.normalize(), "f")
-        return text.rstrip("0").rstrip(".") if "." in text else text
+    def _clip_utf8(text: str, *, max_bytes: int) -> str:
+        """按 UTF-8 字节数截断（不切多字节字符中间）：macOS 文件名上限按字节计。"""
+        encoded = text.encode("utf-8")
+        if len(encoded) <= max_bytes:
+            return text
+        return encoded[:max_bytes].decode("utf-8", errors="ignore")
 
     @classmethod
     def _safe_part(cls, raw: str, *, limit: int) -> str:

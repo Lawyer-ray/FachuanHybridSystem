@@ -12,7 +12,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../api', () => ({
+// 真实导出全量保留（contractInvoiceKeys 这类纯常量照用），只覆写会发请求的函数
+vi.mock('../../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api')>()),
   getContract: vi.fn(),
   listLawyers: vi.fn(),
   listCasesByContract: vi.fn(),
@@ -24,12 +26,14 @@ vi.mock('../../api', () => ({
   uploadFolderFiles: vi.fn(),
   copyFolderEntry: vi.fn(),
   deleteFolderEntry: vi.fn(),
+  listContractInvoices: vi.fn().mockResolvedValue([]),
 }))
 
 import {
   getCaseFolderBinding,
   getContract,
   listCasesByContract,
+  listContractInvoices,
   listFolderEntries,
   listLawyers,
   listRemindersByCase,
@@ -137,7 +141,7 @@ function makeContract(over: Partial<ContractListItem> = {}): ContractListItem {
       },
     ],
     payments: [
-      { id: 1, contract: 7, amount: '50000', received_at: '2025-03-15', note: '前期律师费', invoice_status: 'issued', invoice_status_label: '已开票' } as ContractListItem['payments'][number],
+      { id: 1, contract: 7, amount: '50000', received_at: '2025-03-15', note: '前期律师费', invoice_status: 'INVOICED_FULL', invoice_status_label: '已开票' } as ContractListItem['payments'][number],
     ],
     client_payment_records: [],
     supplementary_agreements: [],
@@ -474,14 +478,18 @@ describe('DealDetailPage 右栏与档案', () => {
     expect(screen.getAllByText('8%')).toHaveLength(1)
   })
 
-  it('合同层面的档案全在右栏卡：当事人（我方在前 + 角色）、收款（含记收款入口）、合同要素；左列不再有档案卡', async () => {
+  it('合同层面的档案全在右栏卡：当事人（我方在前 + 角色）、收费一节（统计条 + 收款 + 记收款/传发票入口）、合同要素；左列不再有档案卡', async () => {
     setupUi()
     await screen.findByText('当事人 · 2')
     expect(screen.getByText('委托人')).toBeTruthy()
     expect(screen.getByText('对方当事人')).toBeTruthy()
-    expect(screen.getByText('收款 · 1 笔')).toBeTruthy()
-    expect(screen.getByText(/前期律师费/)).toBeTruthy()
+    // 「收费」一节：统计条 + 逐笔收款 + 两个入口（先付款后开票 / 先开票后付款）
+    const fee = screen.getByText('收费', { selector: 'h4' }).closest('div')!.parentElement!
+    expect(within(fee).getAllByText(/前期律师费/).length).toBeGreaterThan(0)
     expect(screen.getByText('＋ 记收款')).toBeTruthy()
+    expect(screen.getByText('＋ 传发票')).toBeTruthy()
+    expect(screen.getAllByText('已收')).toBeTruthy()
+    expect(screen.getAllByText('已开票')).toBeTruthy()
     const facts = screen.getByText('合同要素').closest('div')!.parentElement!
     expect(within(facts).queryByText('收费方式')).toBeNull()
     expect(within(facts).queryByText('代理阶段')).toBeNull()
@@ -492,7 +500,57 @@ describe('DealDetailPage 右栏与档案', () => {
     const rail = screen.getByText('期限').closest('section')!
     expect(rail.contains(screen.getByText('当事人 · 2'))).toBe(true)
     expect(rail.contains(screen.getByText('合同要素'))).toBe(true)
-    expect(rail.contains(screen.getByText('收款 · 1 笔'))).toBe(true)
+    expect(rail.contains(screen.getByText('＋ 记收款'))).toBe(true)
+  })
+
+  it('收费节钱票分开：收款行带开票状态徽标，发票行列重命名文件 + 待核销标记 + 复制文件按钮', async () => {
+    vi.mocked(listContractInvoices).mockResolvedValueOnce([
+      {
+        id: 11,
+        payment_id: 1,
+        original_filename: 'a.pdf',
+        display_filename: '发票（某银行与某公司金融借款合同纠纷诉讼委托合同）_20260315开具.pdf',
+        file_url: '/media/contracts/invoices/1/a.pdf',
+        invoice_code: '',
+        invoice_number: '24442000000123456789',
+        invoice_date: '2026-03-15',
+        amount: null,
+        tax_amount: null,
+        total_amount: '50000.00',
+        seller_name: '',
+        buyer_name: '',
+        uploaded_at: '2026-03-16T00:00:00Z',
+      },
+      {
+        id: 12,
+        payment_id: null,
+        original_filename: 'b.pdf',
+        display_filename: '发票（某银行与某公司金融借款合同纠纷诉讼委托合同）_20260401开具.pdf',
+        file_url: '/media/contracts/invoices/c7/b.pdf',
+        invoice_code: '',
+        invoice_number: '24442000000987654321',
+        invoice_date: '2026-04-01',
+        amount: null,
+        tax_amount: null,
+        total_amount: '20000.00',
+        seller_name: '',
+        buyer_name: '',
+        uploaded_at: '2026-04-02T00:00:00Z',
+      },
+    ])
+    setupUi()
+    // 收款线：金额 + 开票状态徽标（绿=已开票）+ 备注（「已开票」在统计格与徽标出现多处）
+    const invoicedTexts = await screen.findAllByText('已开票')
+    expect(invoicedTexts.length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('前期律师费')).toBeTruthy()
+    // 发票线：重命名文件名原样可见；未核销的票带「待核销」；每行有复制文件按钮
+    const invoiceName = await screen.findByText(/发票（某银行.*20260401开具\.pdf/)
+    expect(screen.getAllByTitle(/复制文件/).length).toBe(2) // 每张发票一个复制按钮
+    const fee = screen.getByText('收费', { selector: 'h4' }).closest('div')!.parentElement!
+    expect(within(fee).getByText('待核销 1 张')).toBeTruthy() // 小节计数（右栏眉头）
+    expect(within(fee).getAllByText('待核销', { exact: true }).length).toBe(1) // 行内徽标
+    expect(within(fee).getAllByText('¥50000.00').length).toBeGreaterThan(0)
+    expect(invoiceName).toBeTruthy()
   })
 
   it('有律所 ID 的 OA 地址：OA 编号渲染为新标签页链接（含 javascript: 伪协议兜到 #）', async () => {

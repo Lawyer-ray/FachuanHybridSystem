@@ -16,6 +16,7 @@ import { ResizeHandle } from './ResizeHandle'
 import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { PaymentDialog } from './PaymentDialog'
+import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { DetailError } from './ui'
 
 /**
@@ -80,6 +81,10 @@ export function DealDetailPage() {
   /** 记收款弹窗：粘贴到账短信 / 拖发票进来（见 PaymentDialog） */
   const [payOpen, setPayOpen] = useState(false)
   const onAddPayment = useCallback(() => setPayOpen(true), [])
+
+  /** 传发票弹窗：先开票后付款的入口（票挂合同名下，见 InvoicePoolDialog） */
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
+  const onOpenInvoices = useCallback(() => setInvoiceOpen(true), [])
 
   // 本页就是「这个委托」——把全局助手绑到该委托的业务上下文（详见 use-deal-detail-page）
   useDealCopilotContext(deal, '委托详情')
@@ -147,6 +152,7 @@ export function DealDetailPage() {
               moneyRows={money}
               onAddDue={onAddDue}
               onAddPayment={onAddPayment}
+              onOpenInvoices={onOpenInvoices}
               onOpenFile={setPicked}
               onReviewFile={(f) => setReviewTarget(f)}
               factsHidden
@@ -235,6 +241,7 @@ export function DealDetailPage() {
               moneyRows={money}
               onAddDue={onAddDue}
               onAddPayment={onAddPayment}
+              onOpenInvoices={onOpenInvoices}
               onOpenFile={setPicked}
               onReviewFile={(f) => setReviewTarget(f)}
               folderPreview={
@@ -264,7 +271,7 @@ export function DealDetailPage() {
         onReviewStart={(f) => setReviewTarget(f)}
       />
 
-      {/* 记收款：粘贴到账短信 / 拖发票。保存后刷新合同，右栏收款节即时更新 */}
+      {/* 记收款：粘贴到账短信 / 拖发票。保存后刷新合同，右栏收费节即时更新 */}
       <PaymentDialog
         open={payOpen}
         contractId={deal.id}
@@ -273,6 +280,9 @@ export function DealDetailPage() {
         onClose={() => setPayOpen(false)}
         onSaved={() => void d.refetch()}
       />
+
+      {/* 先开票后付款：票挂合同名下；关闭即失效待核销缓存，右栏计数同步 */}
+      <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
     </main>
   )
 }

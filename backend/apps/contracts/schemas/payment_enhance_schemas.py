@@ -1,4 +1,4 @@
-"""收款记账增强 Schemas：到账短信识别草稿 / 发票上传结果。"""
+"""收款记账增强 Schemas：到账短信识别草稿 / 发票上传与核销结果。"""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ __all__: list[str] = [
     "InvoiceOut",
     "InvoiceUploadOut",
     "InvoiceUploadFailure",
+    "InvoiceAttachIn",
+    "InvoiceAttachOut",
+    "InvoiceCopyOut",
 ]
 
 
@@ -31,13 +34,20 @@ class ContractPaymentParseOut(Schema):
     hints: list[str] = []
 
 
+class InvoiceAttachIn(Schema):
+    """把「先开票」的合同挂靠发票关联到一笔收款。"""
+
+    payment_id: int
+
+
 class InvoiceOut(Schema):
     """一张发票（收款详情展示 + 上传后返回）。"""
 
     id: int
-    payment_id: int
+    #: None = 先开票后付款，还挂在合同名下未核销
+    payment_id: int | None = None
     original_filename: str
-    #: 归一化展示名（日期_销售方_金额），与合同文件夹里的文件名一致
+    #: 归一化展示名（发票（合同名称）_YYYYMMDD开具），与合同文件夹里的文件名一致
     display_filename: str
     #: media 相对路径（前端换下载票据后预览/下载）
     file_url: str
@@ -52,6 +62,24 @@ class InvoiceOut(Schema):
     uploaded_at: str = ""
 
 
+class InvoiceAttachOut(Schema):
+    """关联结果：发票 + 该收款最新的开票状态与金额。"""
+
+    invoice: InvoiceOut
+    invoice_status: str = ""
+    invoice_status_label: str = ""
+    invoiced_amount: str = ""
+
+
+class InvoiceCopyOut(Schema):
+    """复制发票文件到系统剪贴板的结果（口径与法院短信文书 copy-to-clipboard 一致）。"""
+
+    success: bool
+    copied: int = 0
+    #: unsupported = 后端非 macOS / 无 pyobjc；其余为落板失败原因
+    reason: str | None = None
+
+
 class InvoiceUploadFailure(Schema):
     filename: str
     reason: str
@@ -62,7 +90,8 @@ class InvoiceUploadOut(Schema):
 
     saved: list[InvoiceOut] = []
     failed: list[InvoiceUploadFailure] = []
-    #: 落库后该收款的最新开票状态与金额（前端据此就地刷新收款行，不必重拉整个合同）
+    #: 落库后该收款的最新开票状态与金额（前端据此就地刷新收款行，不必重拉整个合同）；
+    #: 合同级上传（先开票）没有收款可算，三项为空串
     invoice_status: str = ""
     invoice_status_label: str = ""
     invoiced_amount: str = ""

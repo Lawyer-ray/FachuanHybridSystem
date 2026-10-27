@@ -5,14 +5,16 @@ import { copyText } from '@/lib/clipboard'
 import type { DealContact, DealTeamMember, WorkbenchDeal } from '../../types'
 import type { Deadline } from './detail-domain'
 import { dueLabel } from './detail-domain'
-import { RailFacts, RailParties, RailPayments, RailSupps } from './RailArchive'
+import { RailFacts, RailParties, RailSupps } from './RailArchive'
+import { RailFees } from './RailFees'
 import { FolderTree } from './FolderTree'
-import { Card, CopyText, KV, RailAction, RailSection } from './ui'
+import { Card, CopyText, RailAction, RailSection } from './ui'
 
 /**
- * 右栏合同卡：期限（未来预警，红色只给「今天」）· 当事人 · 法院联系人 · 律师 · 涉案与收费 ·
- * 收款 · 补充协议 · 合同要素。合同层面的信息全在这张卡里，左列只放案件程序链。
- * 不做 sticky：卡片常比视口高，钉住就得卡内滚动，收款/合同要素会被裁在看不见的地方；
+ * 右栏合同卡：期限（未来预警，红色只给「今天」）· 当事人 · 法院联系人 · 律师 ·
+ * 收费（统计条 + 逐笔收款）· 补充协议 · 合同要素。合同层面的信息全在这张卡里，
+ * 左列只放案件程序链。
+ * 不做 sticky：卡片常比视口高，钉住就得卡内滚动，收费/合同要素会被裁在看不见的地方；
  * 随页面流动才能一眼看全。
  */
 export function DetailRail({
@@ -24,6 +26,7 @@ export function DetailRail({
   moneyRows,
   onAddDue,
   onAddPayment,
+  onOpenInvoices,
   showFolder = true,
   onOpenFile,
   onReviewFile,
@@ -40,6 +43,8 @@ export function DetailRail({
   moneyRows: Array<[string, string]>
   onAddDue: () => void
   onAddPayment: () => void
+  /** 打开发票弹窗（先开票后付款的入口：传票到合同 + 管理待核销） */
+  onOpenInvoices: () => void
   /**
    * 是否渲染合同文件夹树。
    *
@@ -168,15 +173,11 @@ export function DetailRail({
         </RailSection>
       )}
 
-      {!factsHidden && moneyRows.length > 0 && (
-        <RailSection title="涉案与收费">
-          {moneyRows.map(([k, v]) => (
-            <KV key={k} k={k} v={v} kw={56} />
-          ))}
-        </RailSection>
+      {/* 收费一节统一呈现：费用事实 + 已收/已开票/未收统计 + 逐笔收款。
+          此前「涉案与收费」与「收款」两张节紧挨着、已收款金额出现两遍。 */}
+      {!factsHidden && (
+        <RailFees deal={deal} moneyRows={moneyRows} onAddPayment={onAddPayment} onOpenInvoices={onOpenInvoices} />
       )}
-
-      {!factsHidden && <RailPayments deal={deal} onAdd={onAddPayment} />}
       {!factsHidden && <RailSupps deal={deal} />}
 
       {/* 合同文件夹：绑定目录的树形浏览；标题行自带「新建文件夹」，未绑定时树内提示。

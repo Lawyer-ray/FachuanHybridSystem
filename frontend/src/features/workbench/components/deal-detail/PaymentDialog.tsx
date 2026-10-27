@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { Loader2, Sparkles, Upload, X } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { Loader2, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -7,17 +7,19 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { errMessage } from '@/lib/errors'
-import { parsePaymentText, uploadPaymentInvoices, type PaymentInvoice } from '../../api'
-import { EMPTY_FORM, formFromDraft, remainingLabel, validateForm, type PaymentForm } from './payment-form'
+import { parsePaymentText } from '../../api'
+import { EMPTY_FORM, formFromDraft, parseAmount, remainingLabel, validateForm, type PaymentForm } from './payment-form'
+import { PaymentInvoiceZone } from './PaymentInvoiceZone'
 
 /**
- * 记收款弹窗：两个入口合一，都是律师真实的工作流。
+ * 记收款弹窗：律师真实工作流的两个入口合一。
  *
  * 1. **粘一段银行到账短信** → 点「识别」→ 金额/日期/付款人/用途自动填好，人核对后保存。
- * 2. **拖发票进来** → 逐张识别落盘，自动回填开票金额与开票状态。
+ * 2. **发票随时能进来**（见 PaymentInvoiceZone）：钱没到也能先传——票挂合同名下，
+ *    保存收款后一键核销；或保存后直接拖票挂这笔收款。
  *
- * 顺序是刻意的：先「记这笔钱进来了」，再「把票归到这个合同」。发票区在收款
- * 保存后禁用——`Invoice` 必须挂在某条 `ContractPayment` 上，没落收款就无处可挂。
+ * 顺序是刻意的：先「记这笔钱进来了」，再「把票核销到这笔钱」。发票区在收款
+ * 保存前也**不再禁用**——先开票后付款与先付款后开票都顺。
  */
 export function PaymentDialog({
   open,
@@ -44,11 +46,8 @@ export function PaymentDialog({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /** 收款保存后的 id：发票区只有拿到它才可用 */
+  /** 收款保存后的 id：拿到它，发票区就从「挂合同」切换到「挂这笔收款」 */
   const [paymentId, setPaymentId] = useState<number | null>(null)
-  const [invoices, setInvoices] = useState<PaymentInvoice[]>([])
-  const [uploading, setUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement | null>(null)
 
   const reset = useCallback(() => {
     setRaw('')
@@ -56,7 +55,6 @@ export function PaymentDialog({
     setHints([])
     setError(null)
     setPaymentId(null)
-    setInvoices([])
   }, [])
 
   const close = useCallback(() => {
@@ -94,38 +92,13 @@ export function PaymentDialog({
       const { savePayment } = await import('./payment-save')
       const saved = await savePayment(contractId, form)
       setPaymentId(saved.id)
-      setInvoices(saved.invoices)
-      // 收款已落库：立刻刷新合同，律师不必等发票传完才看到这笔钱
+      // 收款已落库：立刻刷新合同，律师不必等发票核销完才看到这笔钱
       onSaved()
       toast.success('收款已记录')
     } catch (e) {
       setError(errMessage(e, '保存失败，请重试'))
     } finally {
       setSaving(false)
-    }
-  }
-
-  const doUpload = async (files: File[]) => {
-    if (!paymentId || files.length === 0) return
-    setUploading(true)
-    setError(null)
-    try {
-      const result = await uploadPaymentInvoices(paymentId, files)
-      setInvoices((prev) => [...result.saved, ...prev])
-      if (result.failed.length) {
-        setError(result.failed.map((f) => `${f.filename}：${f.reason}`).join('；'))
-      }
-      if (result.duplicated_count > 0) {
-        toast.warning(`${result.duplicated_count} 张发票号已存在，未重复计入开票金额`)
-      }
-      if (result.saved.length) {
-        toast.success(`已识别并保存 ${result.saved.length} 张发票`)
-        onSaved()
-      }
-    } catch (e) {
-      setError(errMessage(e, '发票上传失败，请重试'))
-    } finally {
-      setUploading(false)
     }
   }
 
@@ -198,7 +171,7 @@ export function PaymentDialog({
             <Input
               value={form.invoicedAmount}
               onChange={(e) => setField('invoicedAmount', e.target.value)}
-              placeholder="未开票留空"
+              placeholder="先开过票可不填，保存后关联"
               inputMode="decimal"
               className="tabular-nums"
               disabled={paymentId != null}
@@ -224,67 +197,13 @@ export function PaymentDialog({
           </label>
         </section>
 
-        {/* ③ 拖发票进来 */}
-        <section className="pt-4">
-          <div className="mb-1.5 flex items-baseline gap-2">
-            <span className="text-[12px] font-[650]">发票</span>
-            <span className="text-[11px] text-muted-foreground">
-              {paymentId == null ? '先保存收款，再拖发票进来' : '拖入或点击上传，自动识别并归档到合同文件夹'}
-            </span>
-          </div>
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => paymentId != null && fileRef.current?.click()}
-            onKeyDown={(e) => e.key === 'Enter' && paymentId != null && fileRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault()
-              if (paymentId != null) e.currentTarget.dataset.drag = '1'
-            }}
-            onDragLeave={(e) => delete e.currentTarget.dataset.drag}
-            onDrop={(e) => {
-              e.preventDefault()
-              delete e.currentTarget.dataset.drag
-              const files = Array.from(e.dataTransfer.files)
-              if (files.length) void doUpload(files)
-            }}
-            className={
-              'flex flex-col items-center gap-1 rounded-[10px] border border-dashed py-5 text-[12px] transition-colors ' +
-              (paymentId == null
-                ? 'cursor-not-allowed border-border bg-secondary/30 text-muted-foreground/60'
-                : 'cursor-pointer border-border hover:border-ring/50 hover:bg-secondary/40 data-[drag]:border-foreground data-[drag]:bg-secondary')
-            }
-          >
-            {uploading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : <Upload className="size-4 text-muted-foreground" />}
-            <span>{uploading ? '正在识别发票…' : '把发票拖到这里，或点击选择'}</span>
-            <span className="text-[10.5px] text-muted-foreground/70">支持 PDF / JPG / PNG，单张 ≤ 20MB</span>
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            accept=".pdf,.jpg,.jpeg,.png"
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? [])
-              e.target.value = ''
-              if (files.length) void doUpload(files)
-            }}
-          />
-
-          {invoices.length > 0 && (
-            <ul className="mt-2 flex flex-col gap-1">
-              {invoices.map((inv) => (
-                <li key={inv.id} className="flex items-baseline gap-2 rounded-[6px] bg-secondary/50 px-2 py-1 text-[11.5px]">
-                  <span className="min-w-0 flex-1 truncate" title={inv.display_filename}>
-                    {inv.display_filename}
-                  </span>
-                  <span className="font-[620] tabular-nums">{inv.total_amount ? '¥' + inv.total_amount : '金额未识别'}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {/* ③ 发票：保存前挂合同（先开票），保存后挂这笔收款 + 一键核销 */}
+        <PaymentInvoiceZone
+          contractId={contractId}
+          paymentId={paymentId}
+          paymentAmount={parseAmount(form.amount)}
+          onChanged={onSaved}
+        />
 
         {error && (
           <div className="mt-3 flex items-start gap-1.5 rounded-[8px] bg-status-red/8 px-2.5 py-2 text-[11.5px] text-status-red">

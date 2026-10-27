@@ -383,15 +383,29 @@ export function moneyRows(deal: WorkbenchDeal, ordered: DealCase[]): Array<[stri
   const fee: [string, string] = deal.amount
     ? ['律师费', deal.amount + (deal.fee ? ' · ' + deal.fee : '')]
     : ['收费方式', deal.fee]
+  // 已收/未收不在这组 KV 里：与下方收款列表同卡的「已收 · 已开票 · 未收」
+  // 统计条呈现（见 feeStats），避免同一张卡上金额出现两遍。
   const rows: Array<[string, string]> = [
     ['标的额', target ?? ''],
     ['保全金额', preserv ?? ''],
     fee,
     ['风险比例', deal.riskRate != null && deal.riskRate !== '' ? deal.riskRate + '%' : ''],
-    ['已收款', deal.totalReceived ?? ''],
-    ['未收款', deal.unpaid ?? ''],
   ]
   return rows.filter(([, v]) => !!v)
+}
+
+/**
+ * 收费统计条三格：已收 / 已开票 / 未收。
+ *
+ * 已收、已开票是「已经发生的钱」，0 也要显式给出（¥0 与「没显示」对财务含义不同）；
+ * 未收依赖合同固定金额（风险代理没有「未收」概念），没有就整格不渲染。
+ */
+export function feeStats(deal: WorkbenchDeal): { received: string; invoiced: string; unpaid: string | null } {
+  return {
+    received: deal.totalReceived ?? '¥0',
+    invoiced: deal.totalInvoiced ?? '¥0',
+    unpaid: deal.unpaid,
+  }
 }
 
 /** 与右栏其他节重复的合同要素：收费方式/风险比例已在「涉案与收费」，代理阶段就是 stepper */

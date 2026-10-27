@@ -13,6 +13,7 @@ import { useServiceItems } from './use-service-items'
 import { listFolderEntries } from '../../api'
 import { TermBar } from './TermBar'
 import { PaymentDialog } from './PaymentDialog'
+import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { ResizeHandle } from './ResizeHandle'
 import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
@@ -42,6 +43,8 @@ export function NonLitDetailPage() {
   }, [])
   /** 记收款弹窗（粘贴到账短信 / 拖发票） */
   const [payOpen, setPayOpen] = useState(false)
+  /** 传发票弹窗（先开票后付款：票挂合同名下待核销） */
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
   /** 正在发起审查的文件（null = 抽屉关闭） */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
   /** 右栏页内预览的文件（null = 未选中）；高频「看一眼」不写 URL、不堆历史 */
@@ -221,6 +224,7 @@ export function NonLitDetailPage() {
               onReviewFile={(f) => setReviewTarget(f)}
               onAddDue={() => soonToast('新增期限')}
               onAddPayment={() => setPayOpen(true)}
+              onOpenInvoices={() => setInvoiceOpen(true)}
             />
           )}
         </div>
@@ -270,6 +274,7 @@ export function NonLitDetailPage() {
                 onReviewFile={(f) => setReviewTarget(f)}
                 onAddDue={() => soonToast('新增期限')}
                 onAddPayment={() => setPayOpen(true)}
+                onOpenInvoices={() => setInvoiceOpen(true)}
               />
             )}
           </div>
@@ -292,6 +297,8 @@ export function NonLitDetailPage() {
         onClose={() => setPayOpen(false)}
         onSaved={() => void d.refetch()}
       />
+
+      <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
     </main>
   )
 }

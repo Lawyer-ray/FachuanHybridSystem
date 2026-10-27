@@ -11,6 +11,7 @@ import {shortDocName, splitLinkText,
   crumbName,
   contactGroups,
   dueLabel,
+  feeStats,
   headerMetaParts,
   legalStatusGroups,
   moneyRows,
@@ -428,20 +429,30 @@ describe('右栏', () => {
     ])
   })
 
-  it('moneyRows：标的/保全取链上首个有值案件，费用拼收费方式，空值不出行', () => {
+  it('moneyRows：标的/保全取链上首个有值案件，费用拼收费方式，空值不出行；已收/未收移交给统计条', () => {
     const rows = moneyRows(makeDeal(), [makeCase({ target: null }), makeCase({ id: 2, target: 3200000, preserv: 1600000 })])
     expect(rows).toEqual([
       ['标的额', '¥3,200,000'],
       ['保全金额', '¥1,600,000'],
       ['律师费', '¥50,000 · 半风险'],
       ['风险比例', '8%'],
-      ['已收款', '¥50,000'],
     ])
     expect(moneyRows(makeDeal({ amount: null, fee: '', riskRate: null, totalReceived: null }), [])).toEqual([])
     // 没填金额只有收费方式：标签改「收费方式」，不把方式冒充成律师费数值
     expect(moneyRows(makeDeal({ amount: null, fee: '固定收费', riskRate: null, totalReceived: null }), [])).toEqual([
       ['收费方式', '固定收费'],
     ])
+  })
+
+  it('feeStats：已收/已开票为 0 也显式给 ¥0（0 与没显示对财务含义不同）；未收依赖合同额', () => {
+    expect(feeStats(makeDeal())).toEqual({ received: '¥50,000', invoiced: '¥0', unpaid: null })
+    expect(feeStats(makeDeal({ unpaid: '¥50,000' }))).toEqual({
+      received: '¥50,000',
+      invoiced: '¥0',
+      unpaid: '¥50,000',
+    })
+    // 无任何收款：已收也是显式 ¥0
+    expect(feeStats(makeDeal({ totalReceived: null }))).toEqual({ received: '¥0', invoiced: '¥0', unpaid: null })
   })
 
   it('railFacts：抽屉同款要素去掉同卡重复的收费方式 / 风险比例 / 代理阶段，其余保留', () => {

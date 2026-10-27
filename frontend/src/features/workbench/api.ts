@@ -1,4 +1,6 @@
 import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
+import type { components } from '@/types/api-schema'
+
 import type {
   CaseFolderBindingInfo,
   CaseListItem,
@@ -227,10 +229,10 @@ export interface PaymentParseDraft {
   hints: string[]
 }
 
-/** 发票（GET/POST 同一个投影） */
+/** 发票（GET/POST 同一个投影）。payment_id 为 null = 先开票后付款，挂在合同名下待核销 */
 export interface PaymentInvoice {
   id: number
-  payment_id: number
+  payment_id: number | null
   original_filename: string
   display_filename: string
   file_url: string
@@ -284,4 +286,54 @@ export async function uploadPaymentInvoices(paymentId: number, files: File[]): P
 /** 删除发票（media 文件同删，开票金额由后端重算） */
 export async function deletePaymentInvoice(invoiceId: number): Promise<{ success: boolean }> {
   return contractsApi.delete(`finance/invoices/${invoiceId}`).json<{ success: boolean }>()
+}
+
+/** 合同发票缓存 key（右栏待核销计数 / 记收款弹窗的池列表共用，上传/关联后按此失效） */
+export const contractInvoiceKeys = {
+  all: (contractId: number) => ['contract-invoices', contractId] as const,
+  unlinked: (contractId: number) => ['contract-invoices', contractId, 'unlinked'] as const,
+}
+
+/** 合同发票列表：已核销 + 先开票挂合同的；unlinked 只看待核销 */
+export async function listContractInvoices(contractId: number, unlinked = false): Promise<PaymentInvoice[]> {
+  return contractsApi
+    .get(`finance/contracts/${contractId}/invoices`, {
+      searchParams: unlinked ? { unlinked: 'true' } : {},
+    })
+    .json<PaymentInvoice[]>()
+}
+
+/** 先开票后付款：票传到合同名下（不动开票金额），钱到账记完收款再 attach */
+export async function uploadContractInvoices(contractId: number, files: File[]): Promise<InvoiceUploadResult> {
+  const form = new FormData()
+  for (const f of files) form.append('files', f, f.name)
+  return contractsApi
+    .post(`finance/contracts/${contractId}/invoices`, { body: form, timeout: UPLOAD_TIMEOUT_MS })
+    .json<InvoiceUploadResult>()
+}
+
+/** 把合同挂靠发票核销到一笔收款（返回该收款最新开票状态，就地刷新用） */
+export async function attachPaymentInvoice(
+  invoiceId: number,
+  paymentId: number,
+): Promise<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }> {
+  return contractsApi
+    .post(`finance/invoices/${invoiceId}/attach`, { json: { payment_id: paymentId } })
+    .json<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }>()
+}
+
+/**
+ * 复制**重命名后**的发票文件到系统剪贴板（后端 NSPasteboard 落板，同 Finder ⌘C）。
+ *
+ * 微信对话框直接 ⌘V 粘出文件本体。后端非 macOS / 无 pyobjc 时 success=false
+ * 且 reason=unsupported，调用方降级复制文件名（口径同法院短信文书）。
+ */
+export async function copyInvoiceToClipboard(
+  invoiceId: number,
+): Promise<{ success: boolean; copied: number; reason: string | null }> {
+  const res = await contractsApi
+    .post(`finance/invoices/${invoiceId}/copy-to-clipboard`)
+    .json<components['schemas']['InvoiceCopyOut'] & { message?: string }>()
+  if (res.success === undefined && res.message) throw new Error(res.message)
+  return { success: res.success === true, copied: Number(res.copied ?? 0), reason: res.reason ?? null }
 }
