@@ -36,3 +36,11 @@ class EvidenceChunk(models.Model):
                 name="uniq_evidencechunk_item_page_start",
             ),
         ]
+
+    def __str__(self) -> str:
+        pages = (
+            f"p{self.page_start}"
+            if self.page_start is not None and self.page_end in (None, self.page_start)
+            else f"p{self.page_start}-{self.page_end}"
+        )
+        return f"证据片段 #{self.pk} ({pages})"

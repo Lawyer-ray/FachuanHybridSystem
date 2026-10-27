@@ -78,6 +78,9 @@ class LitigationSession(models.Model):
     def session_id_short(self) -> str:
         return str(self.session_id)[:8]
 
+    def __str__(self) -> str:
+        return f"{self.get_session_type_display()} #{self.session_id_short}"
+
     @property
     def litigation_goal(self) -> str:
         return str((self.metadata or {}).get("litigation_goal", ""))
