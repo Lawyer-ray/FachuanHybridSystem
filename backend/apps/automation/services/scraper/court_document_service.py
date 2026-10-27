@@ -64,8 +64,9 @@ class CourtDocumentService:
                 errors={"scraper_task_id": scraper_task_id},
             ) from e
 
-        # 验证必需字段
-        required_fields = ["c_sdbh", "c_stbh", "wjlj", "c_wsbh", "c_wsmc", "c_fybh", "c_fymc", "c_wjgs", "dt_cjsj"]
+        # 验证必需字段（dt_cjsj 不在内：一张网 getWsListBySdbhNew 响应已不含该字段，
+        # 缺失时回落当前时间，避免下载成功但落库必失败）
+        required_fields = ["c_sdbh", "c_stbh", "wjlj", "c_wsbh", "c_wsmc", "c_fybh", "c_fymc", "c_wjgs"]
 
         missing_fields = [field for field in required_fields if field not in api_data]
         if missing_fields:
@@ -77,8 +78,8 @@ class CourtDocumentService:
                 errors={"missing_fields": missing_fields},
             )
 
-        # 解析创建时间
-        dt_cjsj = api_data["dt_cjsj"]
+        # 解析创建时间（缺失/空值回落当前时间）
+        dt_cjsj = api_data.get("dt_cjsj") or None
         if isinstance(dt_cjsj, str):
             try:
                 # 尝试解析 ISO 格式
@@ -87,6 +88,10 @@ class CourtDocumentService:
                 # 如果解析失败，使用当前时间
                 logger.warning("无法解析时间格式: %s，使用当前时间", dt_cjsj)
                 dt_cjsj = timezone.now()
+        if not isinstance(dt_cjsj, datetime):
+            if dt_cjsj is not None:
+                logger.warning("dt_cjsj 非字符串(%s)，使用当前时间", type(dt_cjsj).__name__)
+            dt_cjsj = timezone.now()
 
         # 创建或获取文书记录（处理唯一约束冲突）
         try:

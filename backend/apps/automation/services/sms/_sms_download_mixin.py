@@ -184,6 +184,33 @@ class SMSDownloadMixin:
         try:
             download_url = sms.download_links[0]
 
+            # 去重防御：同短信同 URL 已有活跃任务（含任务级自重试翻回 PENDING 的）
+            # 时直接复用，不再新建。SMS 级重试与任务级重试并发触发时（状态翻回
+            # PENDING 与 SMS 重试排程存在竞态），避免重复下载同一送达。
+            active_statuses = [
+                ScraperTaskStatus.PENDING,
+                ScraperTaskStatus.RUNNING,
+                ScraperTaskStatus.WAITING_FOR_CAPTCHA,
+            ]
+            existing_task = (
+                ScraperTask.objects.filter(
+                    task_type=ScraperTaskType.COURT_DOCUMENT,
+                    url=download_url,
+                    status__in=active_statuses,
+                    config__court_sms_id=sms.id,
+                )
+                .order_by("-created_at")
+                .first()
+            )
+            if existing_task is not None:
+                logger.info(
+                    "短信 %s 已有活跃下载任务 Task ID=%s（状态 %s），复用不再新建",
+                    sms.id,
+                    existing_task.id,
+                    existing_task.status,
+                )
+                return existing_task
+
             # 检查该 URL 是否需要 Playwright，若需要但未安装则直接标记失败
             platform_name = self._get_required_platform_name(download_url)
             if platform_name and not self._is_playwright_available():
@@ -416,6 +443,20 @@ class SMSDownloadMixin:
             )
             logger.info("下载失败后继续处理任务: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
             return True
+
+        # 任务级自重试已接管时交还给它：BaseScraper.execute 失败先落 FAILED（触发本
+        # hook），execute_scraper_task 随即将任务翻回 PENDING 并排程指数退避重试。
+        # 此处以最新库内状态为准——若任务仍会自重试，就不叠加 SMS 级重试，
+        # 否则两层重试并发会重复创建下载任务、重复下载同一送达（2026-10-27 实发）。
+        fresh_task = ScraperTask.objects.filter(pk=scraper_task.pk).first()
+        if fresh_task is not None and fresh_task.status != ScraperTaskStatus.FAILED:
+            logger.info(
+                "下载任务 %s 已回到 %s 状态（任务级自重试已排程），等待其自行重试，不触发 SMS 级重试: SMS ID=%s",
+                scraper_task.id,
+                fresh_task.status,
+                sms.id,
+            )
+            return False
 
         sms.status = CourtSMSStatus.DOWNLOAD_FAILED
         sms.error_message = scraper_task.error_message or "下载任务失败"
