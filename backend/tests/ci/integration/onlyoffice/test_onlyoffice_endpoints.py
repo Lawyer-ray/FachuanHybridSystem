@@ -194,6 +194,41 @@ class TestEditorConfigEndpoint:
         assert "callbackUrl" not in body
         assert "docserver_url" not in body
 
+    def test_long_encoded_folder_file_url_survives_session_upsert(
+        self, api_client: Client, cfg_ready: Any, user: Any
+    ) -> None:
+        """回归（2026-10-27 真机 500）：长中文文件名的 folder-file 路径必须能建会话。
+
+        contract_folder 域把整条 URL 存进 EditorSession.source_path；subpath 是
+        URL 编码后的中文案由名（1 汉字 ≈ 9 ASCII），案由级文件名轻松超 500。
+        放宽前 session.save() 抛 StringDataRightTruncation → editor-config 500 →
+        前端「文档打开失败」。
+        """
+        from urllib.parse import quote
+
+        from apps.onlyoffice.models import EditorSession
+
+        # 虚构当事人：只借「案由级长文件名」的形态，不带真实案件信息
+        real_name = (
+            "1-民商事合同（甲公司诉乙公司、丙公司、丁公司及第三人戊公司"
+            "建设工程施工合同纠纷执行异议之诉一案测试用超长文件名）V2_20261020.docx"
+        )
+        file_url = f"/api/v1/contracts/386/folder-file?subpath={quote(real_name)}"
+        assert len(file_url) > 500, "回归前提：编码后路径必须真的超旧上限"
+
+        r = api_client.get(
+            "/api/v1/onlyoffice/editor-config",
+            {"file_url": file_url, "file_name": real_name, "mode": "view"},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["enabled"] is True, body.get("reason")
+
+        # 会话已建且存的是全量路径（保存回写靠它反解 subpath）
+        session = EditorSession.objects.filter(task_type="contract_folder", source_path=file_url, user=user).first()
+        assert session is not None
+        assert len(session.document_key) == 32
+
 
 class TestFileProxyEndpoint:
     """GET /onlyoffice/file —— DS 取文件代理"""
@@ -228,14 +263,14 @@ class TestFileProxyEndpoint:
         src = f"/api/v1/contract-review/{task_with_result.id}/download"
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": "1.9999999999.deadbeef"})
         assert r.status_code == 403
-        assert b"PK" != r.content[:2]
+        assert r.content[:2] != b"PK"
 
     def test_rejects_expired_token(self, cfg_ready: Any, task_with_result: Any, user: Any) -> None:
         src = f"/api/v1/contract-review/{task_with_result.id}/download"
         sig = sign_file_token(SECRET, src, str(user.pk), ttl_seconds=-1)
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 403
-        assert b"PK" != r.content[:2]
+        assert r.content[:2] != b"PK"
 
     def test_rejects_external_url(self, cfg_ready: Any) -> None:
         """开放代理防护：只允许站内 /api/ 路径。"""
@@ -244,7 +279,7 @@ class TestFileProxyEndpoint:
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 403
         # 拒绝必须真的不吐文件：状态码对但正文带文档内容等于没拦住
-        assert b"PK" != r.content[:2]
+        assert r.content[:2] != b"PK"
 
     def test_rejects_scheme_in_path(self, cfg_ready: Any) -> None:
         """路径校验通过、验签也通过，但 uid 指向的用户不存在 → 403。
@@ -259,7 +294,7 @@ class TestFileProxyEndpoint:
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 403
         # 越权必须真的不吐文件
-        assert b"PK" != r.content[:2]
+        assert r.content[:2] != b"PK"
 
     def test_other_users_task_is_forbidden(self, cfg_ready: Any, task_with_result: Any) -> None:
         """签名合法但用户无权访问该任务 → 不返回文件。"""
@@ -271,7 +306,7 @@ class TestFileProxyEndpoint:
         r = Client().get("/api/v1/onlyoffice/file", {"src": src, "sig": sig})
         assert r.status_code == 404
         # 越权与不存在同样回 404，且都不能吐出文件字节
-        assert b"PK" != r.content[:2], "越权用户拿到了别人的合同"
+        assert r.content[:2] != b"PK", "越权用户拿到了别人的合同"
 
 
 class TestCallbackEndpoint:

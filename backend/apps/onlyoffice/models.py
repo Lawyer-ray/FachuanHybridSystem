@@ -30,7 +30,13 @@ class EditorSession(models.Model):
     task_type = models.CharField("业务域", max_length=32, default="contract_review", db_index=True)
     task_id = models.UUIDField("业务任务 ID")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="签发用户")
-    source_path = models.CharField("原始站内路径（key 哈希原料，不含签名参数）", max_length=500)
+    source_path = models.CharField(
+        # folder 域的 subpath 是整条 URL 编码后的长中文文件名（1 个汉字 ≈ 9 个
+        # ASCII 字符，案由级文件名轻松超 500），必须存全量——保存回写靠它反解
+        # 落盘目标（见 domain_registry._adopt_edited），存哈希就解不回来了。
+        "原始站内路径（key 哈希原料，不含签名参数）",
+        max_length=2000,
+    )
     version = models.CharField("调用方传入的内容版本标识", max_length=200, blank=True, default="")
     saved_version = models.IntegerField("保存回写轮次", default=0)
     last_callback_status = models.IntegerField("最近一次 DS 回调状态码", default=0)
