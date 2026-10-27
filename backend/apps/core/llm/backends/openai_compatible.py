@@ -367,11 +367,23 @@ class OpenAICompatibleBackend:
                 errors={"detail": str(error)},
             ) from error
         if isinstance(error, (openai.APIConnectionError, httpx.ConnectError)):
-            logger.warning("%s 网络连接失败", provider_name, extra={"base_url": base_url, "error": str(error)})
+            logger.warning(
+                "%s 网络连接失败: base_url=%s, %.200s",
+                provider_name,
+                base_url,
+                error,
+                extra={"base_url": base_url, "error": str(error)},
+            )
             raise LLMNetworkError(message="LLM 网络连接失败", errors={"detail": str(error)}) from error
         if isinstance(error, (openai.APIError, openai.APIStatusError)):
             status_code = getattr(error, "status_code", None)
-            logger.warning("%s API 错误", provider_name, extra={"status_code": status_code, "error": str(error)})
+            logger.warning(
+                "%s API 错误: status=%s, %.200s",
+                provider_name,
+                status_code,
+                error,
+                extra={"status_code": status_code, "error": str(error)},
+            )
             raise LLMAPIError(
                 message=f"LLM API 调用错误: {error!s}",
                 status_code=status_code,
@@ -461,7 +473,10 @@ class OpenAICompatibleBackend:
                 pool.release(idx, success=False, model=used_model)
                 last_error = error
                 logger.warning(
-                    "OpenAI-compatible Key 调用失败，切换下一个 Key",
+                    "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
+                    provider.name,
+                    type(error).__name__,
+                    error,
                     extra={"provider": provider.name, "error_type": type(error).__name__},
                 )
         self._raise_no_key_available(last_error, request_timeout, provider.base_url)
@@ -541,7 +556,10 @@ class OpenAICompatibleBackend:
                 pool.release(idx, success=False, model=used_model)
                 last_error = error
                 logger.warning(
-                    "OpenAI-compatible Key 调用失败，切换下一个 Key",
+                    "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
+                    provider.name,
+                    type(error).__name__,
+                    error,
                     extra={"provider": provider.name, "error_type": type(error).__name__},
                 )
         self._raise_no_key_available(last_error, request_timeout, provider.base_url)

@@ -14,13 +14,14 @@ LLM 不指定 backend/model，由统一 LLM 层按「默认后端 + AI 平台默
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
+from apps.core.llm.exceptions import LLMBackendUnavailableError, LLMNetworkError, LLMTimeoutError
 from apps.core.llm.structured_output import StructuredValidationError, json_schema_instructions, retry_structured
 
 logger = logging.getLogger("apps.document_recognition")
@@ -30,6 +31,12 @@ MAX_ANALYSIS_CHARS = 4000
 
 # LLM 分析整体预算（秒）：网关默认 timeout 120s，这里收紧到单任务 90s
 ANALYSIS_TIMEOUT_SECONDS = 90.0
+
+# 全后端不可用熔断（秒）：LLM_ALL_BACKENDS_UNAVAILABLE 意味着逐后端×逐 Key 已
+# 轮询一整圈（律所网关挂掉时单次要烧数分钟）。熔断窗口内后续文书直接走降级
+# 路径不再打 LLM，窗口过期后自动放行重试。进程内状态，各 worker 独立熔断。
+LLM_BLACKOUT_SECONDS = float(os.environ.get("DOCUMENT_LLM_BLACKOUT_SECONDS", "300") or "300")
+_blackout_until = 0.0
 
 
 class ExtractedDateEvent(BaseModel):
@@ -124,6 +131,12 @@ def analyze_document(
     if not text or not text.strip():
         return DocumentAnalysisOutcome(analysis=None, error="empty_text")
 
+    global _blackout_until
+    if time.monotonic() < _blackout_until:
+        remaining = int(_blackout_until - time.monotonic())
+        logger.info("LLM 全后端熔断窗口内，跳过 LLM 分析直接降级（剩余 %ss）", remaining)
+        return DocumentAnalysisOutcome(analysis=None, error="llm_blackout")
+
     truncated = text[:MAX_ANALYSIS_CHARS]
     prompt = ANALYSIS_PROMPT.format(
         schema_instructions=json_schema_instructions(CourtDocumentAnalysis),
@@ -167,6 +180,22 @@ def analyze_document(
             backend=captured["backend"],
             latency_ms=int((time.monotonic() - started) * 1000),
             error=f"llm_unavailable: {type(e).__name__}",
+        )
+    except LLMBackendUnavailableError as e:
+        # 所有后端×Key 已轮询一整圈仍不可用（如律所网关整机挂掉）：进入熔断窗口，
+        # 窗口内后续文书不再重复烧整轮轮询，直接降级；窗口过期自动恢复尝试
+        _blackout_until = time.monotonic() + LLM_BLACKOUT_SECONDS
+        logger.warning(
+            "文书分析 LLM 全部后端不可用，降级为关键词+正则路径，且未来 %ss 内跳过 LLM 直连: %s",
+            int(LLM_BLACKOUT_SECONDS),
+            e,
+        )
+        return DocumentAnalysisOutcome(
+            analysis=None,
+            model=captured["model"],
+            backend=captured["backend"],
+            latency_ms=int((time.monotonic() - started) * 1000),
+            error="llm_all_backends_unavailable",
         )
     except StructuredValidationError as e:
         logger.warning("文书分析输出重试后仍无法解析，将降级为关键词+正则路径: %s", e)

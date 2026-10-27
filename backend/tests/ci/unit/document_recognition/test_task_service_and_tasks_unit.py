@@ -166,6 +166,9 @@ def _recognition_response(
     case_number: str = "（2026）粤0604民初1号",
     binding: BindingResult | None = None,
     date_candidates: list[dict[str, Any]] | None = None,
+    llm_model: str | None = "glm-4v",
+    llm_backend: str | None = "openai_compatible",
+    degraded: bool = False,
 ) -> Any:
     from apps.document_recognition.services.data_classes import RecognitionResponse
 
@@ -179,10 +182,10 @@ def _recognition_response(
         raw_text="（2026）粤0604民初1号传票正文",
         confidence=0.95,
         extraction_method="pdf_direct",
-        llm_model="glm-4v",
-        llm_backend="openai_compatible",
+        llm_model=llm_model,
+        llm_backend=llm_backend,
         llm_latency_ms=120,
-        degraded=False,
+        degraded=degraded,
     )
     return RecognitionResponse(
         recognition=recognition,
@@ -205,6 +208,36 @@ class TestExecuteDocumentRecognitionTask:
         from apps.document_recognition.tasks import execute_document_recognition_task
 
         assert execute_document_recognition_task(999999) is None
+
+    def test_degraded_flow_persists_with_empty_llm_fields(self) -> None:
+        """LLM 全挂降级关键词+正则时 llm_model/llm_backend 为 None——必须以空串
+        落库为 SUCCESS，而不是 NotNullViolation 把成功识别记成失败（任务 #21 事故）。"""
+        task = _task()
+        service = MagicMock()
+        service.recognize_document.return_value = _recognition_response(llm_model=None, llm_backend=None, degraded=True)
+        with patch("apps.document_recognition.tasks._send_recognition_notification"):
+            result = self._execute(task, service)
+
+        task.refresh_from_db()
+        assert result is not None and result["status"] == "success"
+        assert task.status == DocumentRecognitionStatus.SUCCESS
+        assert task.llm_model == ""
+        assert task.llm_backend == ""
+        assert task.degraded is True
+
+    def test_failure_status_save_error_contained(self) -> None:
+        """识别失败后落 FAILED 状态自身再抛错时不得向外传播（兜住 django-q 任务）。"""
+        task = _task()
+        service = MagicMock()
+        service.recognize_document.side_effect = RuntimeError("识别崩溃")
+
+        from apps.document_recognition.models import DocumentRecognitionTask as TaskModel
+
+        with patch.object(TaskModel, "save", side_effect=[None, RuntimeError("db down")]):
+            result = self._execute(task, service)
+
+        assert result is not None and result["status"] == "failed"
+        assert "识别崩溃" in result["error"]
 
     def test_success_flow_updates_all_fields(self) -> None:
         task = _task()
