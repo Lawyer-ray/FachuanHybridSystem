@@ -4,8 +4,8 @@
 Document Server（下称 **DS**）渲染与编辑，修订痕迹（`w:ins`/`w:del`）与批注
 由 DS 原生呈现；律师改完保存，DS 回调把编辑产物落回业务实体。
 
-与之并列的是 [`apps/docspace`](../docspace/README.md)（OnlyOffice **DocSpace 云版**，
-走 REST 2.0 + web_url 跳转）——两者不是同一套东西，别混。
+> 曾有并列的云版集成 `apps/docspace`（OnlyOffice DocSpace REST 2.0），已随
+> #576 整体下线，勿再引用。
 
 ## 目录
 
