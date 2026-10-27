@@ -149,6 +149,9 @@ class TestSaveAsIntentEndpoint:
         )
 
         assert resp.status_code == 404, resp.content
+        # 只验状态码不够：这条路径的真正风险是「文件不存在却把意图登记上了」，
+        # 那会让下一次保存悄悄把原稿改名成 NEW_NAME。断言会话未被写入。
+        assert _session_of(contract.id).pending_save_as_name == ""
 
 
 class TestEndpointIsRegistered:
