@@ -9,6 +9,7 @@ from __future__ import annotations
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 
@@ -22,8 +23,8 @@ class SessionDTO:
     document_type: str
     status: str
     metadata: dict[str, Any]
-    created_at: Any
-    updated_at: Any
+    created_at: datetime
+    updated_at: datetime
 
 
 @dataclass
@@ -33,4 +34,4 @@ class MessageDTO:
     role: str
     content: str
     metadata: dict[str, Any]
-    created_at: Any
+    created_at: datetime

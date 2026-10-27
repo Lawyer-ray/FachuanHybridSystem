@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from django.http import HttpRequest
 from ninja import Router, Schema
 
-from apps.core.security.admin_access import is_admin_user
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.express_query.services.task_service import list_visible_tasks
 
@@ -21,8 +21,8 @@ class ExpressQueryTaskOut(Schema):
     carrier_type: str
     tracking_number: str
     result_pdf: str | None = None
-    created_at: Any
-    updated_at: Any
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 @router.get("/tasks", response=list[ExpressQueryTaskOut])

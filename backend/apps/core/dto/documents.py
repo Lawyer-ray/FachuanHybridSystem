@@ -1,6 +1,7 @@
 """Module for documents."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 
@@ -26,7 +27,7 @@ class DocumentTemplateDTO:
 class GenerationTaskDTO:
     id: int
     status: str
-    created_at: Any
+    created_at: datetime
     created_by_id: int | None = None
     document_name: str | None = None
     document_url: str | None = None

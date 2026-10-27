@@ -1,6 +1,7 @@
 """Module for conversation."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 
@@ -12,6 +13,6 @@ class ConversationHistoryDTO:
     role: str
     content: str
     metadata: dict[str, Any]
-    created_at: Any
+    created_at: datetime
     litigation_session_id: int | None = None
     step: str = ""
