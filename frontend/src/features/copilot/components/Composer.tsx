@@ -13,16 +13,22 @@
  * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  */
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUp, Clock, Folder, FolderOpen, Paperclip, Square, Undo2, X } from 'lucide-react'
+import { ArrowUp, Clock, Mic, Paperclip, Square, Undo2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { fetchAgentSkills } from '../api'
-import { formatFileSize } from '../domain'
+import { defaultOutgoingPrompt } from '../domain'
 import { useSlashMenu } from '../hooks/use-slash-menu'
+import { useSpeechInput } from '../hooks/use-speech-input'
+import { COPILOT_PREFILL_EVENT, COPILOT_QUOTE_EVENT, clearPendingQuote, takePendingQuote } from '../launch'
 import { useCopilot } from '../store'
+import type { SelectionQuote } from '../types'
+import { ComposerFooter } from './ComposerFooter'
+import { ComposerQuote } from './ComposerQuote'
+import { PendingChips } from './PendingChips'
 import { SlashMenu } from './SlashMenu'
-import { TurnStatsView } from './TurnStatsView'
 
 export function Composer() {
   const [text, setText] = useState('')
@@ -31,15 +37,13 @@ export function Composer() {
   const queuedSteers = useCopilot((s) => s.queuedSteers)
   const pendingFiles = useCopilot((s) => s.pendingFiles)
   const pendingRefs = useCopilot((s) => s.pendingRefs)
+  const pendingQuote = useCopilot((s) => s.pendingQuote)
+  const setPendingQuote = useCopilot((s) => s.setPendingQuote)
   const uploading = useCopilot((s) => s.uploadingAttachments)
-  const contextUsage = useCopilot((s) => s.contextUsage)
-  const compacting = useCopilot((s) => s.compacting)
   const compactContext = useCopilot((s) => s.compactContext)
   const sessionId = useCopilot((s) => s.sessionId)
   const messageCount = useCopilot((s) => s.messages.length)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
-  const removeAttachmentFile = useCopilot((s) => s.removeAttachmentFile)
-  const removeFolderRef = useCopilot((s) => s.removeFolderRef)
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
@@ -47,6 +51,66 @@ export function Composer() {
   const submitTask = useCopilot((s) => s.submitTask)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * 语音听写（Chrome/Edge 原生，zh-CN）：说出的内容实时追加进输入框草稿。
+   * onText 每次带上 autoGrow——语音进来也要长个儿，不能等用户敲键才撑高。
+   */
+  const speech = useSpeechInput({
+    onText: (t) => {
+      setText(t)
+      requestAnimationFrame(autoGrow)
+    },
+  })
+
+  // 权限拒绝这类用户必须知道原因的失败，弹一次 toast（悬停 title 太隐蔽）
+  useEffect(() => {
+    if (speech.error) toast.error('语音输入失败', { description: speech.error })
+  }, [speech.error])
+
+  /**
+   * 框选引用（豆包式）：编辑器里选中一段 → 引用挂到输入框上方（进 store 的
+   * pendingQuote），输入框保持空白。事件覆盖「面板已挂载」的常态；刚开面板
+   * 时 Composer 还没订阅，靠挂载后的 takePendingQuote 兜底（两条路径都取
+   * 后即清，不会重复挂卡）。
+   */
+  useEffect(() => {
+    function onQuote(e: Event) {
+      const q = (e as CustomEvent<SelectionQuote>).detail
+      if (q?.text) setPendingQuote(q)
+      clearPendingQuote()
+    }
+    window.addEventListener(COPILOT_QUOTE_EVENT, onQuote)
+    const missed = takePendingQuote()
+    if (missed?.text) setPendingQuote(missed)
+    return () => window.removeEventListener(COPILOT_QUOTE_EVENT, onQuote)
+    // setPendingQuote 是 zustand 稳定引用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /**
+   * 接收「选区预填」：把一段文字追加进输入框草稿（引用文件按钮 / 旧入口用）。
+   *
+   * 用事件而不是 store：输入框文本是本地草稿 state（用户正在打字时不该被全局状态
+   * 覆盖），只需要一次性的「塞一段文字」。
+   */
+  useEffect(() => {
+    function onPrefill(e: Event) {
+      const d = (e as CustomEvent<{ text?: string }>).detail
+      const t = d?.text?.trim()
+      if (!t) return
+      // 追加而不是覆盖：律师可能已经写了半句，别把他打的字冲掉
+      setText((prev) => (prev.trim() ? `${prev.trim()}\n${t}` : t))
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      })
+    }
+    window.addEventListener(COPILOT_PREFILL_EVENT, onPrefill)
+    return () => window.removeEventListener(COPILOT_PREFILL_EVENT, onPrefill)
+  }, [])
 
   // 技能清单（`/` 菜单数据源）：菜单打开才被消费，失败静默降级为「只有内置命令」
   const skillsQuery = useQuery({
@@ -74,8 +138,12 @@ export function Composer() {
   })
 
   const submit = () => {
+    // 听写中直接发送：静默停止（草稿里已含说到的最后一个字，interim 每次
+    // onresult 都实时 emit 进了输入框），停止后再 emit 会把发掉的内容
+    // 「复活」回已清空的输入框
+    if (speech.listening) speech.stop(true)
     const value = text.trim()
-    if (!value && pendingFiles.length === 0 && pendingRefs.length === 0) return
+    if (!value && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote) return
     if (uploading) return
     if (streaming) {
       // 运行中插话：不改写当前输出，在工具调用后、下次模型调用前生效
@@ -92,13 +160,7 @@ export function Composer() {
     // 先清空正文腾出输入位；早失败（建会话/附件上传失败）时回填，别让
     // 用户重打一遍。期间用户又输入了新内容则不打扰（只补空）。
     setText('')
-    const outgoing =
-      value ||
-      (pendingRefs.length > 0
-        ? pendingRefs.every((r) => r.isFolder)
-          ? '请浏览我引用的目录并梳理其中的材料。'
-          : '请分析我引用的文件。'
-        : '请分析我上传的附件。')
+    const outgoing = value || defaultOutgoingPrompt(pendingRefs, pendingFiles.length, pendingQuote)
     void send(outgoing, (sent) => {
       if (!sent) setText((prev) => (prev.trim() ? prev : outgoing))
     })
@@ -128,57 +190,39 @@ export function Composer() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }
 
-  const placeholder = streaming
-    ? '插话补充指令，Enter 送达当前对话…'
-    : bgMode
-      ? '后台运行：提交后可关闭页面，跑完会在会话里通知你…'
-      : '问点什么…'
+  const placeholder = speech.listening
+    ? '正在听写…说完点麦克风结束，可手动修改后发送'
+    : streaming
+      ? '插话补充指令，Enter 送达当前对话…'
+      : bgMode
+        ? '后台运行：提交后可关闭页面，跑完会在会话里通知你…'
+        : '问点什么…'
 
   return (
     <div className="flex-none border-t border-border p-2.5">
       {/* 内容限宽居中：与消息栏同宽对齐（两边都走 max-w-6xl，宽度一致不错位） */}
       <div className="mx-auto w-full max-w-6xl">
-      {(pendingRefs.length > 0 || pendingFiles.length > 0) && (
-        <div className="mb-1.5 flex flex-wrap gap-1.5">
-          {pendingRefs.map((ref, i) => (
-            <span
-              key={`${ref.kind}-${ref.ownerId}-${ref.subpath}`}
-              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-primary/10 px-1.5 py-0.5 text-[11.5px] text-foreground"
-              title={`${ref.kind === 'case' ? '案件' : '合同'} ${ref.ownerId} · ${ref.subpath}${ref.isFolder ? '（目录引用：AI 会先列出目录内容再按需读取）' : '（引用原文件，发送时由 AI 直接读取）'}`}
-            >
-              {ref.isFolder ? <Folder className="h-3 w-3 flex-none text-primary" /> : <FolderOpen className="h-3 w-3 flex-none text-primary" />}
-              <span className="max-w-52 truncate">{ref.subpath}{ref.isFolder ? '/' : ''}</span>
-              <button
-                type="button"
-                className="flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
-                aria-label={`移除引用 ${ref.name}`}
-                onClick={() => removeFolderRef(i)}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-          {pendingFiles.map((file, i) => (
-            <span
-              key={`${file.name}-${i}`}
-              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-secondary/60 px-1.5 py-0.5 text-[11.5px] text-secondary-foreground"
-              title={`${file.name} · ${formatFileSize(file.size)}`}
-            >
-              <Paperclip className="h-3 w-3 flex-none text-muted-foreground" />
-              <span className="max-w-44 truncate">{file.name}</span>
-              <span className="flex-none text-muted-foreground">{formatFileSize(file.size)}</span>
-              <button
-                type="button"
-                className="flex h-4 w-4 flex-none items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-card hover:text-destructive"
-                aria-label={`移除附件 ${file.name}`}
-                onClick={() => removeAttachmentFile(i)}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-        </div>
+      {/* 框选引用（豆包式）：编辑器选区挂成引用条，输入框保持空白；
+          快捷 pills 一键补指令，发送时引用块随消息出站 */}
+      {pendingQuote && (
+        <ComposerQuote
+          quote={pendingQuote}
+          onRemove={() => setPendingQuote(null)}
+          onPickPrompt={(prompt) => {
+            // 直接替换：点 pill 是明确动作，别把两条指令拼在一起；
+            // 光标落末尾（改写类 prompt 后面正是律师要补的要求）
+            setText(prompt)
+            requestAnimationFrame(() => {
+              const el = textareaRef.current
+              if (!el) return
+              el.focus()
+              el.setSelectionRange(el.value.length, el.value.length)
+              autoGrow()
+            })
+          }}
+        />
       )}
+      <PendingChips />
       {streaming && queuedSteers.length > 0 && (
         <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[11.5px] text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">已插话 {queuedSteers.length} 条，将在本轮生效</span>
@@ -243,6 +287,26 @@ export function Composer() {
             e.target.value = ''
           }}
         />
+        {speech.supported && (
+          <button
+            type="button"
+            className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors ${
+              speech.listening
+                ? 'bg-destructive/10 text-destructive'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+            }`}
+            onClick={() => (speech.listening ? speech.stop() : speech.start(text))}
+            aria-label={speech.listening ? '停止语音输入' : '语音输入'}
+            aria-pressed={speech.listening}
+            title={
+              speech.listening
+                ? '正在听写，点击结束（内容已实时进入输入框，可随口修改后发送）'
+                : '语音输入：中文听写，内容实时进入输入框'
+            }
+          >
+            <Mic className={`h-4 w-4 ${speech.listening ? 'animate-pulse' : ''}`} />
+          </button>
+        )}
         <textarea
           ref={textareaRef}
           value={text}
@@ -250,6 +314,8 @@ export function Composer() {
           placeholder={placeholder}
           className="max-h-30 min-h-6 flex-1 resize-none bg-transparent text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
           onChange={(e) => {
+            // 听写中手动改字：以编辑后的全文为新基线，后续听写在其后追加
+            if (speech.listening) speech.rebase(e.target.value)
             setText(e.target.value)
             autoGrow()
           }}
@@ -270,7 +336,7 @@ export function Composer() {
             type="button"
             className="copilot-send flex h-7 w-7 flex-none items-center justify-center rounded-full disabled:opacity-30 disabled:shadow-none"
             onClick={submit}
-            disabled={uploading || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0)}
+            disabled={uploading || (!text.trim() && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote)}
             aria-label={bgMode ? '提交后台任务' : '发送'}
             title={uploading ? '附件上传中…' : undefined}
           >
@@ -278,24 +344,7 @@ export function Composer() {
           </button>
         )}
       </div>
-      <p className="mt-1.5 flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
-        <span className="min-w-0 flex-1 truncate">
-          {compacting
-            ? '正在压缩上下文…'
-            : bgMode
-              ? '后台任务跑完会写入会话通知；高危操作会等你回来审批。'
-              : 'AI 回答仅供参考，法律判断需由律师复核。'}
-        </span>
-        {contextUsage.used !== null && contextUsage.total && contextUsage.total > 0 && !compacting && (
-          <span
-            className={`flex-none tabular-nums ${contextUsage.used / contextUsage.total >= 0.8 ? 'text-amber-600 dark:text-amber-400' : ''}`}
-            title={`上下文窗口占用：${contextUsage.used} / ${contextUsage.total} tokens；用 / 压缩命令可手动释放`}
-          >
-            上下文 {Math.round((contextUsage.used / contextUsage.total) * 100)}%
-          </span>
-        )}
-        <TurnStatsView />
-      </p>
+      <ComposerFooter bgMode={bgMode} />
       </div>
     </div>
   )

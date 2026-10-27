@@ -6775,7 +6775,7 @@
             }
           }
         },
-        "description": "获取合同列表（服务端分页 + 全库 facets 计数），返回\n{items, total, page, page_size, status_counts, cat_counts, fee_counts}；\n排序固定「离今天最近」（|end_date - 今天| 升序、无到期沉底）。\n\n- page 默认 1（旧「不传 page 返回全量裸数组」口径已下线，前端消费方\n  均显式传 page）；page_size 上限 500，需要大结果集的消费方显式传。\n- slim=true 剔除归档材料清单等重负载字段\n- include_facets=false 跳过 facets 的四次全表聚合（只回 total/items，\n  三个 *_counts 为空）。facets 是全库口径、与页码无关，翻页时应传 false\n  并复用已有计数，避免每翻一页多扫四遍全表。\n- party=名称片段：按**当事人姓名**匹配（匹配 client.name，非合同名）。\n  材料预处理识别出「这份合同属于哪个委托」时用它——客户送审的合同\n  由客户与第三方签订，无案号、无 OA 编号，当事人名称是唯一可靠锚点。\n\nRequirements: 6.1, 6.2, 6.3",
+        "description": "获取合同列表（服务端分页 + 全库 facets 计数），返回\n{items, total, page, page_size, status_counts, cat_counts, fee_counts}；\n排序固定 `-id`（最新建的在前）。\n\n- page 默认 1（旧「不传 page 返回全量裸数组」口径已下线，前端消费方\n  均显式传 page）；page_size 上限 500，需要大结果集的消费方显式传。\n- slim=true 剔除归档材料清单等重负载字段\n- include_facets=false 跳过 facets 的四次全表聚合（只回 total/items，\n  三个 *_counts 为空）。facets 是全库口径、与页码无关，翻页时应传 false\n  并复用已有计数，避免每翻一页多扫四遍全表。\n- party=名称片段：按**当事人姓名**匹配（匹配 client.name，非合同名）。\n  材料预处理识别出「这份合同属于哪个委托」时用它——客户送审的合同\n  由客户与第三方签订，无案号、无 OA 编号，当事人名称是唯一可靠锚点。\n\nRequirements: 6.1, 6.2, 6.3",
         "tags": [
           "合同管理"
         ],
@@ -7218,6 +7218,384 @@
         "description": "移除合同当事人。",
         "tags": [
           "合同管理"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/finance/payments/parse-text": {
+      "post": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_parse_payment_text",
+        "summary": "Parse Payment Text",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractPaymentParseOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把粘贴的到账短信/转账截图文字解析成收款草稿。\n\n**只解析不落库**：金额错一位是财务事故，必须先让人在表单里核对。前端拿到草稿\n后预填「记收款」表单，律师改完再走既有的 `POST /finance/payments`。",
+        "tags": [
+          "合同收款"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractPaymentParseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/finance/payments/{payment_id}/invoices": {
+      "get": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_list_payment_invoices",
+        "summary": "List Payment Invoices",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "schema": {
+              "title": "Payment Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvoiceOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "某条收款记录下的发票（`contract_id` 必传：发票鉴权口径跟着合同行级 ACL 走）。",
+        "tags": [
+          "合同收款"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_upload_payment_invoices",
+        "summary": "Upload Payment Invoices",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "schema": {
+              "title": "Payment Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceUploadOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "上传发票到某笔收款：逐张识别 → 落盘 → 建 Invoice → 重算开票金额 → 复制进合同文件夹。\n\n**逐张独立成败**：一张坏文件不能让另外九张白传（律师一次拖十几张是常态）。\n失败项进 `failed[]` 并带原因，成功的照常记账。",
+        "tags": [
+          "合同收款"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "files": {
+                    "items": {
+                      "format": "binary",
+                      "type": "string"
+                    },
+                    "title": "Files",
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "files"
+                ],
+                "title": "FileParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/finance/contracts/{contract_id}/invoices": {
+      "get": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_list_contract_invoices",
+        "summary": "List Contract Invoices",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "unlinked",
+            "schema": {
+              "default": false,
+              "title": "Unlinked",
+              "type": "boolean"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvoiceOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "合同发票列表：已核销的 + 先开票挂合同的。`?unlinked=true` 只看待核销。",
+        "tags": [
+          "合同收款"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_upload_contract_invoices",
+        "summary": "Upload Contract Invoices",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceUploadOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "**先开票后付款**：票先挂合同名下，不动开票金额。\n\n钱到账、记完收款后，前端会把这些票列出来让律师一键关联\n（`POST /finance/invoices/{id}/attach`）。逐张独立成败，口径与收款上传一致。",
+        "tags": [
+          "合同收款"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "files": {
+                    "items": {
+                      "format": "binary",
+                      "type": "string"
+                    },
+                    "title": "Files",
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "files"
+                ],
+                "title": "FileParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/finance/invoices/{invoice_id}/attach": {
+      "post": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_attach_invoice",
+        "summary": "Attach Invoice",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "schema": {
+              "title": "Invoice Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceAttachOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把合同挂靠的发票核销到一笔收款（钱到账后的动作），并重算该收款开票金额。",
+        "tags": [
+          "合同收款"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceAttachIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/finance/invoices/{invoice_id}": {
+      "delete": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_delete_payment_invoice",
+        "summary": "Delete Payment Invoice",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "schema": {
+              "title": "Invoice Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "删除发票并重算开票金额（media 文件同删；合同文件夹里的副本保留）。",
+        "tags": [
+          "合同收款"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contracts/finance/invoices/{invoice_id}/copy-to-clipboard": {
+      "post": {
+        "operationId": "apps_contracts_api_contractpayment_enhance_api_copy_invoice_to_clipboard",
+        "summary": "Copy Invoice To Clipboard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "schema": {
+              "title": "Invoice Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceCopyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把**重命名后**的发票复制到系统剪贴板（同 Finder ⌘C，微信 ⌘V 直接粘出文件）。\n\n与法院短信文书同一套后端落板链路（NSPasteboard file-url）；后端非 macOS /\n无 pyobjc 时返回 unsupported，前端降级复制文件名。",
+        "tags": [
+          "合同收款"
         ],
         "security": [
           {
@@ -19997,7 +20375,7 @@
             }
           }
         },
-        "description": "取某次审查的结构化修订清单（复审台左栏）.\n\n为什么不是直接读 docx 的 Track Changes：痕迹里没有等级、依据、驳回理由，\n也没有「律师已决策」这个状态。清单是决策载体，docx 是产物。",
+        "description": "取某次审查的结构化修订清单（复审台左栏）。\n\n为什么不是直接读 docx 的 Track Changes：痕迹里没有等级、依据、驳回理由，\n也没有「律师已决策」这个状态。清单是决策载体，docx 是产物。\n\nORM 查询在 service 层（结构门禁：API 层不得直连 ORM）。",
         "tags": [
           "合同审查"
         ],
@@ -20046,7 +20424,7 @@
             }
           }
         },
-        "description": "律师对单条建议做决策（采纳 / 驳回 / 撤销）.\n\n**只改状态，不改文档**：采纳后文档侧的修订痕迹由 OnlyOffice 编辑器写入\n（前端驱动）。后端不碰 docx——同一份产物可能同时被编辑器持有，\n两边都写会互相覆盖。",
+        "description": "律师对单条建议做决策（采纳 / 驳回 / 撤销）。\n\n**只改状态，不改文档**：采纳后文档侧的修订痕迹由 OnlyOffice 编辑器写入\n（前端驱动）。后端不碰 docx 产物——同一份产物可能同时被编辑器持有，\n两边都写会互相覆盖。",
         "tags": [
           "合同审查"
         ],
@@ -20095,7 +20473,7 @@
             }
           }
         },
-        "description": "文档内容版本：告诉复审台「画布该不该重载」。\n\n旧做法是前端自己拼 `version = taskId:acceptedCount`，采纳一次就变 →\n整篇重建 DS 画布（5–15 秒）。律师逐条过一份 30 处建议的合同时，\n每点一次采纳都在等重载。\n\n真实信号在 `EditorSession.saved_version`：只有保存回写（DS status=2/6）\n落盘后才 +1，也就是**文档内容真的变了**。采纳只改 DB 状态、不写 docx，\n不该触发重建。",
+        "description": "文档内容版本：告诉复审台「画布该不该重载」。\n\n旧做法是前端自己拼 `version = taskId:acceptedCount`，采纳一次就变 →\n整篇重建 DS 画布（5–15 秒）。律师逐条过一份 30 处建议的合同时，\n每点一次采纳都在等重载。",
         "tags": [
           "合同审查"
         ],
@@ -20228,6 +20606,82 @@
         "tags": [
           "合同审查"
         ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contract-review/direct-edit/suggest": {
+      "post": {
+        "operationId": "apps_contract_review_api_direct_edit_api_suggest_edit",
+        "summary": "Suggest Edit",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectEditSuggestOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "按律师的要求，为框选的这一段生成 2~3 条改写候选（不改文件）。",
+        "tags": [
+          "合同审查"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectEditSuggestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contract-review/direct-edit/apply": {
+      "post": {
+        "operationId": "apps_contract_review_api_direct_edit_api_apply_edit",
+        "summary": "Apply Edit",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectEditApplyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "采纳一条候选：写成 Word 修订痕迹（`<w:del>` + `<w:ins>`）并覆写原文件。\n\n定位失败返回 `applied=false` 而不是报错——「选中的原文已被改过」是律师\n常见操作结果，前端要能提示「重新框选」，而不是弹 500。",
+        "tags": [
+          "合同审查"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectEditApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -25484,7 +25938,7 @@
             "description": "OK"
           }
         },
-        "description": "查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）\n\n安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。",
+        "description": "查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）\n\n安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。\n\n`status` 在 HTTP 层是自由字符串（query 参数），服务层要的是字面量联合类型。\n这里做一次白名单校验：非法值直接 400 而不是静默返回空列表——后者会让调用方\n以为「确实没有该状态的工作流」，把参数写错掩盖成业务事实。",
         "tags": [
           "工作流引擎"
         ],
@@ -34011,6 +34465,309 @@
           "source"
         ],
         "title": "ContractPartySourceOut",
+        "type": "object"
+      },
+      "ContractPaymentParseOut": {
+        "description": "解析草稿。**识别不出的字段一律为空**，前端展示「未识别，请手填」。",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "received_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received At"
+          },
+          "payer": {
+            "default": "",
+            "title": "Payer",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "hints": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Hints",
+            "type": "array"
+          }
+        },
+        "title": "ContractPaymentParseOut",
+        "type": "object"
+      },
+      "ContractPaymentParseIn": {
+        "description": "粘贴的到账短信 / 转账截图文字。",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ContractPaymentParseIn",
+        "type": "object"
+      },
+      "InvoiceOut": {
+        "description": "一张发票（收款详情展示 + 上传后返回）。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "payment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Id"
+          },
+          "original_filename": {
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "display_filename": {
+            "title": "Display Filename",
+            "type": "string"
+          },
+          "file_url": {
+            "title": "File Url",
+            "type": "string"
+          },
+          "invoice_code": {
+            "default": "",
+            "title": "Invoice Code",
+            "type": "string"
+          },
+          "invoice_number": {
+            "default": "",
+            "title": "Invoice Number",
+            "type": "string"
+          },
+          "invoice_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Date"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "tax_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Amount"
+          },
+          "total_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Amount"
+          },
+          "seller_name": {
+            "default": "",
+            "title": "Seller Name",
+            "type": "string"
+          },
+          "buyer_name": {
+            "default": "",
+            "title": "Buyer Name",
+            "type": "string"
+          },
+          "uploaded_at": {
+            "default": "",
+            "title": "Uploaded At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "original_filename",
+          "display_filename",
+          "file_url"
+        ],
+        "title": "InvoiceOut",
+        "type": "object"
+      },
+      "InvoiceUploadFailure": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "reason"
+        ],
+        "title": "InvoiceUploadFailure",
+        "type": "object"
+      },
+      "InvoiceUploadOut": {
+        "description": "批量上传结果：成功的逐张返回，失败的逐张说明原因（一张坏文件不拖垮整批）。",
+        "properties": {
+          "saved": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/InvoiceOut"
+            },
+            "title": "Saved",
+            "type": "array"
+          },
+          "failed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/InvoiceUploadFailure"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "invoice_status": {
+            "default": "",
+            "title": "Invoice Status",
+            "type": "string"
+          },
+          "invoice_status_label": {
+            "default": "",
+            "title": "Invoice Status Label",
+            "type": "string"
+          },
+          "invoiced_amount": {
+            "default": "",
+            "title": "Invoiced Amount",
+            "type": "string"
+          },
+          "duplicated_count": {
+            "default": 0,
+            "title": "Duplicated Count",
+            "type": "integer"
+          }
+        },
+        "title": "InvoiceUploadOut",
+        "type": "object"
+      },
+      "InvoiceAttachOut": {
+        "description": "关联结果：发票 + 该收款最新的开票状态与金额。",
+        "properties": {
+          "invoice": {
+            "$ref": "#/components/schemas/InvoiceOut"
+          },
+          "invoice_status": {
+            "default": "",
+            "title": "Invoice Status",
+            "type": "string"
+          },
+          "invoice_status_label": {
+            "default": "",
+            "title": "Invoice Status Label",
+            "type": "string"
+          },
+          "invoiced_amount": {
+            "default": "",
+            "title": "Invoiced Amount",
+            "type": "string"
+          }
+        },
+        "required": [
+          "invoice"
+        ],
+        "title": "InvoiceAttachOut",
+        "type": "object"
+      },
+      "InvoiceAttachIn": {
+        "description": "把「先开票」的合同挂靠发票关联到一笔收款。",
+        "properties": {
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "payment_id"
+        ],
+        "title": "InvoiceAttachIn",
+        "type": "object"
+      },
+      "InvoiceCopyOut": {
+        "description": "复制发票文件到系统剪贴板的结果（口径与法院短信文书 copy-to-clipboard 一致）。",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "copied": {
+            "default": 0,
+            "title": "Copied",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "InvoiceCopyOut",
         "type": "object"
       },
       "ContractPaymentUpdate": {
@@ -43968,6 +44725,146 @@
           "task_id"
         ],
         "title": "FormatNormalizeIn",
+        "type": "object"
+      },
+      "DirectEditCandidateOut": {
+        "properties": {
+          "suggested": {
+            "title": "Suggested",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suggested"
+        ],
+        "title": "DirectEditCandidateOut",
+        "type": "object"
+      },
+      "DirectEditSuggestOut": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DirectEditCandidateOut"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "context_before": {
+            "default": "",
+            "title": "Context Before",
+            "type": "string"
+          },
+          "context_after": {
+            "default": "",
+            "title": "Context After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidates"
+        ],
+        "title": "DirectEditSuggestOut",
+        "type": "object"
+      },
+      "DirectEditSuggestIn": {
+        "description": "请求改写候选。不写盘、不建任务。",
+        "properties": {
+          "contract_id": {
+            "title": "Contract Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "selection": {
+            "title": "Selection",
+            "type": "string"
+          },
+          "instruction": {
+            "title": "Instruction",
+            "type": "string"
+          },
+          "model_name": {
+            "default": "",
+            "title": "Model Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_id",
+          "subpath",
+          "selection",
+          "instruction"
+        ],
+        "title": "DirectEditSuggestIn",
+        "type": "object"
+      },
+      "DirectEditApplyOut": {
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "contract_id": {
+            "default": 0,
+            "title": "Contract Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "applied",
+          "subpath"
+        ],
+        "title": "DirectEditApplyOut",
+        "type": "object"
+      },
+      "DirectEditApplyIn": {
+        "description": "采纳某一条候选：写成 Word 修订痕迹并覆写原文件。",
+        "properties": {
+          "contract_id": {
+            "title": "Contract Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "selection": {
+            "title": "Selection",
+            "type": "string"
+          },
+          "suggested": {
+            "title": "Suggested",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_id",
+          "subpath",
+          "selection",
+          "suggested"
+        ],
+        "title": "DirectEditApplyIn",
         "type": "object"
       },
       "LegalResearchCreateOut": {

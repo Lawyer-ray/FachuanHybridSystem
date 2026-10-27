@@ -30,6 +30,19 @@ services:
       # 只放支持中文的字体（当前 14 个）。全量同步本机字体（388 个）会让纯西文
       # Arial 抢占默认字体解析，中文全变豆腐问号（2026-10-01 实测）。
       - ./fonts:/usr/share/fonts/custom:ro
+      # 法穿 AI 改写插件（幕后桥）：直接落进 DS 的插件目录，由 DS 自己托管。
+      # 为什么不让 Django 托管：插件的 index.html / plugin.js 由 DS 框架注入加载，
+      # 走容器本地文件既无跨源问题、也不需插件地址配置，重建容器后自动生效。
+      #
+      # **不能加 `:ro`**（实测）：DS 启动时会对自己托管的静态资源做 gzip 预压缩
+      # （生成 index.html.gz / config.json.gz / plugin.js.gz 供 nginx gzip_static 使用）。
+      # 只读挂载会让它报 `gzip: ... Read-only file system`，.gz 一个都不生成——
+      # 插件加载**静默失败**，界面上看不到任何报错，只是没反应。
+      # 同理也不加 `:ro` 之外的权限限制：容器内需对插件目录 chown ds:ds。
+      #
+      # 插件改动后（plugin.js / config.json），DS 不热加载注册表，必须重启容器：
+      #   cd ~/onlyoffice-dev && docker compose restart onlyoffice
+      - ./plugins/fachuan-rewrite:/var/www/onlyoffice/documentserver/sdkjs-plugins/fachuan-rewrite
     extra_hosts:
       # DS 容器回连宿主取文件 + 回写回调的命门（对应 ONLYOFFICE_INTERNAL_URL）
       - "host.docker.internal:host-gateway"

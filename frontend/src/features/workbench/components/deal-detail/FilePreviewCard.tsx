@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, FileSearch, Loader2, Save, X } from 'lucide-react'
+import { Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
+import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
+import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
 import { fmtSize } from './folder-tree-types'
+import { useLiveRewriteApply } from './use-live-rewrite-apply'
+import { useFileRewriteNonce } from './use-rewrite-refresh'
 
 /**
  * 右栏文档卡：**docx 直接可编辑，原地改原地存**，不跳页。
@@ -40,6 +43,16 @@ export function FilePreviewCard({
   const [ready, setReady] = useState(false)
   const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const isDocx = /\.docx$/i.test(file.name)
+  // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布（DS 才会
+  // 拉到已覆写的内容，修订痕迹可见）；未被覆写保持空串不动存量 key 口径
+  const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
+  // 就地落修订通道：AI 覆写成功时优先走插件桥在当前画布里直接长出修订
+  // 痕迹（免整页重载），失败才轮到上面的 nonce 重载。仅合同 docx——直改
+  // 落盘端点只认合同绑定文件夹
+  const liveApply = useLiveRewriteApply({
+    enabled: isDocx && kind === 'contract',
+    key: `contract:${ownerId}:${file.subpath}`,
+  })
 
   /** 编辑器句柄：保存时用 downloadAs 取当前内容 */
   const editorRef = useRef<OfficeEditorHandle | null>(null)
@@ -59,6 +72,29 @@ export function FilePreviewCard({
     if (!h) return false
     return h.requestSave()
   }, [])
+
+  /**
+   * 「AI 改写」按钮：把编辑器当前选区送进右侧常驻助手。
+   *
+   * 选区只能由插件桥取（DS 内核上下文），这里发 `get-selection` 让插件读一次。
+   * 插件回的 `selection` 消息会走 onPluginMessage 里的同一段逻辑，
+   * 所以两条入口（按钮 / 框选自动）最终行为完全一致。
+   */
+  const rewriteSelection = useCallback(() => {
+    const h = editorRef.current
+    if (!h) {
+      toast.error('编辑器尚未就绪，请稍后重试')
+      return
+    }
+    // 先直接打开助手：即使插件桥没握手，律师也能在对话框里贴文字，
+    // 而不是点了按钮没任何反馈。
+    prefillCopilot('', {
+      origin: 'contract',
+      refId: ownerId,
+      title: file.name.replace(/\.docx$/i, ''),
+    })
+    h.sendToPlugin('get-selection')
+  }, [file.name, ownerId])
 
   const save = useCallback(() => {
     if (busy || !isDocx) return
@@ -144,6 +180,26 @@ export function FilePreviewCard({
           </button>
         )}
 
+        {/*
+          「AI 改写」：常驻且**永远可见**的入口。
+
+          为什么不只依赖框选自动触发：插件桥是幕后桥（无 UI），bridge 握手失败时
+          界面上没有任何可点的地方，律师只能干看着——这个按钮是兵底。
+          点它 → 读当前选区 → 调起右侧助手；没选区则提示先框选。
+        */}
+        {isDocx && (
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => void rewriteSelection()}
+            className="inline-flex h-[26px] flex-none items-center gap-1 rounded-[6px] border border-border bg-card px-2 text-[11.5px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+            title="框选条款后点这里，或在文档里框选后右键「✦ AI 改写」"
+          >
+            <Sparkles className="size-3" />
+            AI 改写
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => void download()}
@@ -171,9 +227,37 @@ export function FilePreviewCard({
           fileUrl={fileUrl}
           fileName={file.name}
           mode={isDocx ? 'edit' : 'view'}
+          version={rewriteNonce ? String(rewriteNonce) : ''}
           onEditorReady={(h) => {
             editorRef.current = h
             setReady(!!h)
+            liveApply.onEditorReady(h)
+          }}
+          onPluginMessage={(m: PluginBridgeMessage) => {
+            // 只关心「选区」：插件在律师框选后推送，宿主把它变成指令。
+            // 其余类型（ready/inserted/applied）由上层按需处理，这里不转发。
+            if (m.type !== 'selection') return
+            const sel = m.text.trim()
+            if (!sel || kind !== 'contract') return
+
+            // 豆包式引用（不灌模板文字、不弹对话框）：选区挂成输入框上方的
+            // 引用卡，输入框保持空白，律师自由提问或点快捷 pills。旧做法把
+            // 「请按我的要求改写……修改要求：」整段塞进输入框，等于替律师
+            // 打了一半草稿，他还得先删改才能问别的。
+            quoteCopilot(
+              {
+                kind: 'contract',
+                ownerId,
+                subpath: file.subpath,
+                name: file.name,
+                text: sel,
+              },
+              {
+                origin: 'contract',
+                refId: ownerId,
+                title: file.name.replace(/\.docx$/i, ''),
+              },
+            )
           }}
         />
       </div>

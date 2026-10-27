@@ -1,13 +1,15 @@
-import { dealPayRows, fmtCNDate, partyCopyText } from '../../domain'
+import { fmtCNDate, partyCopyText } from '../../domain'
 import { safeHttpUrl } from '@/lib/url'
 import type { WorkbenchDeal } from '../../types'
 import { CopyButton } from '../DealSheetParts'
 import { railFacts, railParties } from './detail-domain'
-import { KV, RailAction, RailSection } from './ui'
+import { KV, RailSection } from './ui'
 
 /**
- * 右栏里合同层面的档案节：当事人 / 收款 / 补充协议 / 合同要素。
- * 左列只放案件本身（程序链），合同的事全在右栏这张卡里；空节不渲染，收款例外（「＋ 记收款」要有落点）。
+ * 右栏里合同层面的档案节：当事人 / 收费 / 补充协议 / 合同要素。
+ * 左列只放案件本身（程序链），合同的事全在右栏这张卡里；空节不渲染，
+ * 收费例外（「＋ 记收款 / ＋ 传发票」要有落点，统计条也始终有意义）。
+ * 收费节本体在 RailFees（钱与票两条线分开，见其注释）。
  */
 
 export function RailParties({ deal }: { deal: WorkbenchDeal }) {
@@ -44,29 +46,10 @@ export function RailParties({ deal }: { deal: WorkbenchDeal }) {
   )
 }
 
-export function RailPayments({ deal, onAdd }: { deal: WorkbenchDeal; onAdd: () => void }) {
-  const rows = dealPayRows(deal)
-  return (
-    <RailSection
-      title={rows.length ? '收款 · ' + rows.length + ' 笔' : '收款'}
-      action={<RailAction onClick={onAdd}>＋ 记收款</RailAction>}
-    >
-      {rows.length === 0 ? (
-        <div className="text-xs text-muted-foreground/70">还没有收款记录</div>
-      ) : (
-        rows.map((p) => (
-          <div key={p.when + '|' + p.money + '|' + p.note} className="border-b border-border-light py-[6px] last:border-b-0">
-            <div className="flex items-baseline gap-2 text-[13px]">
-              <b className="font-[680] tabular-nums">{p.money}</b>
-              <span className="ml-auto text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">{p.when}</span>
-            </div>
-            {p.note && <div className="mt-px text-[11px] text-muted-foreground">{p.note}</div>}
-          </div>
-        ))
-      )}
-    </RailSection>
-  )
-}
+/**
+ * 统一的「收费」节在 RailFees.tsx：费用事实 + 已收/已开票/未收统计 + 收款线 + 发票线
+ * （钱与票分开，先付款后开票 / 先开票后付款两种顺序都有入口）。
+ */
 
 export function RailSupps({ deal }: { deal: WorkbenchDeal }) {
   if (deal.supps.length === 0) return null

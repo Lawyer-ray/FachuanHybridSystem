@@ -14,6 +14,8 @@ import { FilePreview } from './FilePreview'
  * 接好了「AI 审查」而诉讼页根本没接，就是因为这段代码长在页面里。
  *
  * 页面负责持有状态（`reviewTarget` 由页面自己 useState），这里只负责渲染与跳转。
+ * （编辑器框选的「划词」不再有对话框出口：选区直接进 AI 助手成引用卡，
+ * 见 FilePreviewCard 的 onPluginMessage / copilot launch.ts 的 quoteCopilot。）
  */
 export function ContractFileOverlays({
   ownerId,

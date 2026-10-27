@@ -2449,7 +2449,7 @@ export interface paths {
          * List Contracts
          * @description 获取合同列表（服务端分页 + 全库 facets 计数），返回
          *     {items, total, page, page_size, status_counts, cat_counts, fee_counts}；
-         *     排序固定「离今天最近」（|end_date - 今天| 升序、无到期沉底）。
+         *     排序固定 `-id`（最新建的在前）。
          *
          *     - page 默认 1（旧「不传 page 返回全量裸数组」口径已下线，前端消费方
          *       均显式传 page）；page_size 上限 500，需要大结果集的消费方显式传。
@@ -2583,6 +2583,146 @@ export interface paths {
          * @description 移除合同当事人。
          */
         delete: operations["apps_contracts_api_contract_api_remove_contract_party"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/payments/parse-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse Payment Text
+         * @description 把粘贴的到账短信/转账截图文字解析成收款草稿。
+         *
+         *     **只解析不落库**：金额错一位是财务事故，必须先让人在表单里核对。前端拿到草稿
+         *     后预填「记收款」表单，律师改完再走既有的 `POST /finance/payments`。
+         */
+        post: operations["apps_contracts_api_contractpayment_enhance_api_parse_payment_text"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/payments/{payment_id}/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Payment Invoices
+         * @description 某条收款记录下的发票（`contract_id` 必传：发票鉴权口径跟着合同行级 ACL 走）。
+         */
+        get: operations["apps_contracts_api_contractpayment_enhance_api_list_payment_invoices"];
+        put?: never;
+        /**
+         * Upload Payment Invoices
+         * @description 上传发票到某笔收款：逐张识别 → 落盘 → 建 Invoice → 重算开票金额 → 复制进合同文件夹。
+         *
+         *     **逐张独立成败**：一张坏文件不能让另外九张白传（律师一次拖十几张是常态）。
+         *     失败项进 `failed[]` 并带原因，成功的照常记账。
+         */
+        post: operations["apps_contracts_api_contractpayment_enhance_api_upload_payment_invoices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/contracts/{contract_id}/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Contract Invoices
+         * @description 合同发票列表：已核销的 + 先开票挂合同的。`?unlinked=true` 只看待核销。
+         */
+        get: operations["apps_contracts_api_contractpayment_enhance_api_list_contract_invoices"];
+        put?: never;
+        /**
+         * Upload Contract Invoices
+         * @description **先开票后付款**：票先挂合同名下，不动开票金额。
+         *
+         *     钱到账、记完收款后，前端会把这些票列出来让律师一键关联
+         *     （`POST /finance/invoices/{id}/attach`）。逐张独立成败，口径与收款上传一致。
+         */
+        post: operations["apps_contracts_api_contractpayment_enhance_api_upload_contract_invoices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoices/{invoice_id}/attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach Invoice
+         * @description 把合同挂靠的发票核销到一笔收款（钱到账后的动作），并重算该收款开票金额。
+         */
+        post: operations["apps_contracts_api_contractpayment_enhance_api_attach_invoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Payment Invoice
+         * @description 删除发票并重算开票金额（media 文件同删；合同文件夹里的副本保留）。
+         */
+        delete: operations["apps_contracts_api_contractpayment_enhance_api_delete_payment_invoice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoices/{invoice_id}/copy-to-clipboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Invoice To Clipboard
+         * @description 把**重命名后**的发票复制到系统剪贴板（同 Finder ⌘C，微信 ⌘V 直接粘出文件）。
+         *
+         *     与法院短信文书同一套后端落板链路（NSPasteboard file-url）；后端非 macOS /
+         *     无 pyobjc 时返回 unsupported，前端降级复制文件名。
+         */
+        post: operations["apps_contracts_api_contractpayment_enhance_api_copy_invoice_to_clipboard"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7963,10 +8103,12 @@ export interface paths {
         };
         /**
          * List Revisions
-         * @description 取某次审查的结构化修订清单（复审台左栏）.
+         * @description 取某次审查的结构化修订清单（复审台左栏）。
          *
          *     为什么不是直接读 docx 的 Track Changes：痕迹里没有等级、依据、驳回理由，
          *     也没有「律师已决策」这个状态。清单是决策载体，docx 是产物。
+         *
+         *     ORM 查询在 service 层（结构门禁：API 层不得直连 ORM）。
          */
         get: operations["apps_contract_review_api_review_api_list_revisions"];
         put?: never;
@@ -7988,10 +8130,10 @@ export interface paths {
         put?: never;
         /**
          * Resolve Revision
-         * @description 律师对单条建议做决策（采纳 / 驳回 / 撤销）.
+         * @description 律师对单条建议做决策（采纳 / 驳回 / 撤销）。
          *
          *     **只改状态，不改文档**：采纳后文档侧的修订痕迹由 OnlyOffice 编辑器写入
-         *     （前端驱动）。后端不碰 docx——同一份产物可能同时被编辑器持有，
+         *     （前端驱动）。后端不碰 docx 产物——同一份产物可能同时被编辑器持有，
          *     两边都写会互相覆盖。
          */
         post: operations["apps_contract_review_api_review_api_resolve_revision"];
@@ -8015,10 +8157,6 @@ export interface paths {
          *     旧做法是前端自己拼 `version = taskId:acceptedCount`，采纳一次就变 →
          *     整篇重建 DS 画布（5–15 秒）。律师逐条过一份 30 处建议的合同时，
          *     每点一次采纳都在等重载。
-         *
-         *     真实信号在 `EditorSession.saved_version`：只有保存回写（DS status=2/6）
-         *     落盘后才 +1，也就是**文档内容真的变了**。采纳只改 DB 状态、不写 docx，
-         *     不该触发重建。
          */
         get: operations["apps_contract_review_api_review_api_get_content_version"];
         put?: never;
@@ -8103,6 +8241,49 @@ export interface paths {
         get: operations["apps_contract_review_api_format_api_download_normalized"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contract-review/direct-edit/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Edit
+         * @description 按律师的要求，为框选的这一段生成 2~3 条改写候选（不改文件）。
+         */
+        post: operations["apps_contract_review_api_direct_edit_api_suggest_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contract-review/direct-edit/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Edit
+         * @description 采纳一条候选：写成 Word 修订痕迹（`<w:del>` + `<w:ins>`）并覆写原文件。
+         *
+         *     定位失败返回 `applied=false` 而不是报错——「选中的原文已被改过」是律师
+         *     常见操作结果，前端要能提示「重新框选」，而不是弹 500。
+         */
+        post: operations["apps_contract_review_api_direct_edit_api_apply_edit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10737,6 +10918,10 @@ export interface paths {
          * @description 查询诉讼工作流列表（标准信封 items/total/page/page_size/total_pages；limit cap 100）
          *
          *     安全审计 IDOR：按当前用户可见案件过滤（与 run 详情/审批/取消同口径）。
+         *
+         *     `status` 在 HTTP 层是自由字符串（query 参数），服务层要的是字面量联合类型。
+         *     这里做一次白名单校验：非法值直接 400 而不是静默返回空列表——后者会让调用方
+         *     以为「确实没有该状态的工作流」，把参数写错掩盖成业务事实。
          */
         get: operations["apps_workflow_api_workflow_api_list_workflows_api"];
         put?: never;
@@ -13941,6 +14126,176 @@ export interface components {
             source: string;
             /** Role */
             role?: string | null;
+        };
+        /**
+         * ContractPaymentParseOut
+         * @description 解析草稿。**识别不出的字段一律为空**，前端展示「未识别，请手填」。
+         */
+        ContractPaymentParseOut: {
+            /** Amount */
+            amount?: string | null;
+            /** Received At */
+            received_at?: string | null;
+            /**
+             * Payer
+             * @default
+             */
+            payer: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Hints
+             * @default []
+             */
+            hints: string[];
+        };
+        /**
+         * ContractPaymentParseIn
+         * @description 粘贴的到账短信 / 转账截图文字。
+         */
+        ContractPaymentParseIn: {
+            /** Text */
+            text: string;
+        };
+        /**
+         * InvoiceOut
+         * @description 一张发票（收款详情展示 + 上传后返回）。
+         */
+        InvoiceOut: {
+            /** Id */
+            id: number;
+            /** Payment Id */
+            payment_id?: number | null;
+            /** Original Filename */
+            original_filename: string;
+            /** Display Filename */
+            display_filename: string;
+            /** File Url */
+            file_url: string;
+            /**
+             * Invoice Code
+             * @default
+             */
+            invoice_code: string;
+            /**
+             * Invoice Number
+             * @default
+             */
+            invoice_number: string;
+            /** Invoice Date */
+            invoice_date?: string | null;
+            /** Amount */
+            amount?: string | null;
+            /** Tax Amount */
+            tax_amount?: string | null;
+            /** Total Amount */
+            total_amount?: string | null;
+            /**
+             * Seller Name
+             * @default
+             */
+            seller_name: string;
+            /**
+             * Buyer Name
+             * @default
+             */
+            buyer_name: string;
+            /**
+             * Uploaded At
+             * @default
+             */
+            uploaded_at: string;
+        };
+        /** InvoiceUploadFailure */
+        InvoiceUploadFailure: {
+            /** Filename */
+            filename: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * InvoiceUploadOut
+         * @description 批量上传结果：成功的逐张返回，失败的逐张说明原因（一张坏文件不拖垮整批）。
+         */
+        InvoiceUploadOut: {
+            /**
+             * Saved
+             * @default []
+             */
+            saved: components["schemas"]["InvoiceOut"][];
+            /**
+             * Failed
+             * @default []
+             */
+            failed: components["schemas"]["InvoiceUploadFailure"][];
+            /**
+             * Invoice Status
+             * @default
+             */
+            invoice_status: string;
+            /**
+             * Invoice Status Label
+             * @default
+             */
+            invoice_status_label: string;
+            /**
+             * Invoiced Amount
+             * @default
+             */
+            invoiced_amount: string;
+            /**
+             * Duplicated Count
+             * @default 0
+             */
+            duplicated_count: number;
+        };
+        /**
+         * InvoiceAttachOut
+         * @description 关联结果：发票 + 该收款最新的开票状态与金额。
+         */
+        InvoiceAttachOut: {
+            invoice: components["schemas"]["InvoiceOut"];
+            /**
+             * Invoice Status
+             * @default
+             */
+            invoice_status: string;
+            /**
+             * Invoice Status Label
+             * @default
+             */
+            invoice_status_label: string;
+            /**
+             * Invoiced Amount
+             * @default
+             */
+            invoiced_amount: string;
+        };
+        /**
+         * InvoiceAttachIn
+         * @description 把「先开票」的合同挂靠发票关联到一笔收款。
+         */
+        InvoiceAttachIn: {
+            /** Payment Id */
+            payment_id: number;
+        };
+        /**
+         * InvoiceCopyOut
+         * @description 复制发票文件到系统剪贴板的结果（口径与法院短信文书 copy-to-clipboard 一致）。
+         */
+        InvoiceCopyOut: {
+            /** Success */
+            success: boolean;
+            /**
+             * Copied
+             * @default 0
+             */
+            copied: number;
+            /** Reason */
+            reason?: string | null;
         };
         /** ContractPaymentUpdate */
         ContractPaymentUpdate: {
@@ -18814,6 +19169,86 @@ export interface components {
             task_id: string;
             /** Reference File */
             reference_file?: string | null;
+        };
+        /** DirectEditCandidateOut */
+        DirectEditCandidateOut: {
+            /** Suggested */
+            suggested: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** DirectEditSuggestOut */
+        DirectEditSuggestOut: {
+            /** Candidates */
+            candidates: components["schemas"]["DirectEditCandidateOut"][];
+            /**
+             * Context Before
+             * @default
+             */
+            context_before: string;
+            /**
+             * Context After
+             * @default
+             */
+            context_after: string;
+        };
+        /**
+         * DirectEditSuggestIn
+         * @description 请求改写候选。不写盘、不建任务。
+         */
+        DirectEditSuggestIn: {
+            /** Contract Id */
+            contract_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Selection */
+            selection: string;
+            /** Instruction */
+            instruction: string;
+            /**
+             * Model Name
+             * @default
+             */
+            model_name: string;
+        };
+        /** DirectEditApplyOut */
+        DirectEditApplyOut: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Contract Id
+             * @default 0
+             */
+            contract_id: number;
+            /** Subpath */
+            subpath: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * DirectEditApplyIn
+         * @description 采纳某一条候选：写成 Word 修订痕迹并覆写原文件。
+         */
+        DirectEditApplyIn: {
+            /** Contract Id */
+            contract_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Selection */
+            selection: string;
+            /** Suggested */
+            suggested: string;
         };
         /** LegalResearchCreateOut */
         LegalResearchCreateOut: {
@@ -26149,6 +26584,204 @@ export interface operations {
             };
         };
     };
+    apps_contracts_api_contractpayment_enhance_api_parse_payment_text: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractPaymentParseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractPaymentParseOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_list_payment_invoices: {
+        parameters: {
+            query: {
+                contract_id: number;
+            };
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"][];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_upload_payment_invoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Files */
+                    files: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceUploadOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_list_contract_invoices: {
+        parameters: {
+            query?: {
+                unlinked?: boolean;
+            };
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"][];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_upload_contract_invoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Files */
+                    files: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceUploadOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_attach_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceAttachIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceAttachOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_delete_payment_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_copy_invoice_to_clipboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceCopyOut"];
+                };
+            };
+        };
+    };
     apps_contracts_api_contractpayment_api_list_payments: {
         parameters: {
             query?: {
@@ -33408,6 +34041,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_contract_review_api_direct_edit_api_suggest_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectEditSuggestIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectEditSuggestOut"];
+                };
+            };
+        };
+    };
+    apps_contract_review_api_direct_edit_api_apply_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectEditApplyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectEditApplyOut"];
+                };
             };
         };
     };

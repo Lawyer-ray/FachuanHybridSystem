@@ -227,6 +227,7 @@ from mcp_server.tools.contracts import (
     remove_contract_party,
     reorder_archive_materials,
     reset_and_resync_case_materials,
+    rewrite_folder_file,
     scale_to_a4,
     start_contract_scan,
     sync_case_materials,
@@ -601,6 +602,7 @@ __all__ = [
     "list_cloud_storage_accounts",
     "list_folder_files",
     "read_folder_file",
+    "rewrite_folder_file",
     # 合同归档
     "learn_archive_rules",
     "get_archive_checklist",

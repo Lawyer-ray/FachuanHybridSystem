@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
+import { useMediaQuery } from '@/hooks/use-media'
+
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
 import { CaseSection, NextStageRow } from './CaseSection'
 import { ChainStepper } from './ChainStepper'
@@ -13,6 +15,8 @@ import { ContractFileOverlays } from './ContractFileOverlays'
 import { ResizeHandle } from './ResizeHandle'
 import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
+import { PaymentDialog } from './PaymentDialog'
+import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { DetailError } from './ui'
 
 /**
@@ -60,12 +64,27 @@ export function DealDetailPage() {
   const steps = useMemo(() => chainSteps(plan), [plan])
   const ambiguous = useMemo(() => ambiguousStages(plan), [plan])
 
-  /* 创建类动作本轮先占位（样式定稿后接表单）：记日志 / 新增期限 / 新建下一程序案件 / 记收款 */
+  /**
+   * 「文档对照」形态（与非诉页同一判定，详见 NonLitDetailPage 同名注释）：
+   * 合同预览与并排 AI 助手同开、净宽不足时，右栏只留「预览 + 合同文件夹」，
+   * 期限/当事人/…/合同要素等档案节整体隐藏，且文档列提前到最前紧贴助手。
+   */
+  const dockableViewport = useMediaQuery('(min-width: 1280px)')
+  const focusDoc = Boolean(picked) && panelStacked && dockableViewport
+
+  /* 创建类动作：记日志 / 新增期限 / 新建下一程序案件仍占位；记收款已接真实表单 */
   const soon = useCallback((what: string) => soonToast(what), [])
   const onAddLog = useCallback(() => soon('记办案日志'), [soon])
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
-  const onAddPayment = useCallback(() => soon('记收款'), [soon])
+
+  /** 记收款弹窗：粘贴到账短信 / 拖发票进来（见 PaymentDialog） */
+  const [payOpen, setPayOpen] = useState(false)
+  const onAddPayment = useCallback(() => setPayOpen(true), [])
+
+  /** 传发票弹窗：先开票后付款的入口（票挂合同名下，见 InvoicePoolDialog） */
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
+  const onOpenInvoices = useCallback(() => setInvoiceOpen(true), [])
 
   // 本页就是「这个委托」——把全局助手绑到该委托的业务上下文（详见 use-deal-detail-page）
   useDealCopilotContext(deal, '委托详情')
@@ -105,18 +124,54 @@ export function DealDetailPage() {
       {/* AI 助手入口只在导航栏（全局侧边栏 CopilotPanel，⌘J 同效）：页面内既不挂
           对话区、页头也不放按钮，避免与导航栏入口重复 */}
       {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
-          渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。 */}
-      {/* 与诉讼页一致：一旦在预览合同就扩宽右栏，让 OnlyOffice 有足够宽度
           渲染 A4 正文（窄栏里只看得到半行字，等于没预览）。
-          有预览时用 flex + 可拖分隔条，宽度交给用户，写死断点只能猜折中值。 */}
+          有预览时用 flex + 可拖分隔条，宽度交给用户，写死断点只能猜折中值。
+          横/竖排由 panelStacked（容器净宽）决定而非视口媒体查询——并排 AI 助手
+          会让位掉数百像素净宽，视口量不到它（详见「文档对照」注释）。 */}
       <div
         ref={panelContainerRef}
         className={
           picked
-            ? 'flex items-start gap-[8px] max-[1024px]:flex-col max-[1024px]:gap-[18px]'
-            : 'grid items-start gap-[18px] max-[1024px]:grid-cols-1 grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
+            ? panelStacked
+              ? 'flex flex-col gap-[18px]'
+              : 'flex items-start gap-[8px]'
+            : panelStacked
+              ? 'grid grid-cols-1 items-start gap-[18px]'
+              : 'grid items-start gap-[18px] grid-cols-[minmax(0,1fr)_400px] min-[1900px]:grid-cols-[minmax(0,1fr)_440px] min-[2400px]:grid-cols-[minmax(0,1fr)_480px]'
         }
       >
+        {/* 文档对照形态：文档列（右栏卡里的预览）提前到最前，案件程序链沉底 */}
+        {focusDoc && picked && (
+          <div className="min-w-0">
+            <DetailRail
+              deadlines={deadlines}
+              today={d.today}
+              contactGroups={contacts}
+              team={deal.team}
+              deal={deal}
+              moneyRows={money}
+              onAddDue={onAddDue}
+              onAddPayment={onAddPayment}
+              onOpenInvoices={onOpenInvoices}
+              onOpenFile={setPicked}
+              onReviewFile={(f) => setReviewTarget(f)}
+              factsHidden
+              folderPreview={
+                <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
+                  <FilePreviewCard
+                    kind="contract"
+                    ownerId={deal.id}
+                    file={picked}
+                    onClose={() => setPicked(null)}
+                    onSaved={() => void d.refetch()}
+                    onReview={(f) => setReviewTarget(f)}
+                  />
+                </div>
+              }
+            />
+          </div>
+        )}
+
         <div className="min-w-0 flex-1">
           {d.casesError ? (
             <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
@@ -162,7 +217,7 @@ export function DealDetailPage() {
           )}
         </div>
 
-        {picked && (
+        {picked && !focusDoc && (
           <ResizeHandle
             dragging={panelDragging}
             hidden={panelStacked}
@@ -172,37 +227,40 @@ export function DealDetailPage() {
           />
         )}
 
-        <div
-          className="min-w-0"
-          style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
-        >
-        <DetailRail
-          deadlines={deadlines}
-          today={d.today}
-          contactGroups={contacts}
-          team={deal.team}
-          deal={deal}
-          moneyRows={money}
-          onAddDue={onAddDue}
-          onAddPayment={onAddPayment}
-          onOpenFile={setPicked}
-          onReviewFile={(f) => setReviewTarget(f)}
-          folderPreview={
-            picked ? (
-              <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
-                <FilePreviewCard
-                  kind="contract"
-                  ownerId={deal.id}
-                  file={picked}
-                  onClose={() => setPicked(null)}
-                  onSaved={() => void d.refetch()}
-                  onReview={(f) => setReviewTarget(f)}
-                />
-              </div>
-            ) : null
-          }
-        />
-        </div>
+        {!focusDoc && (
+          <div
+            className="min-w-0"
+            style={picked && panelEffectiveWidth ? { width: panelEffectiveWidth, flex: 'none' } : undefined}
+          >
+            <DetailRail
+              deadlines={deadlines}
+              today={d.today}
+              contactGroups={contacts}
+              team={deal.team}
+              deal={deal}
+              moneyRows={money}
+              onAddDue={onAddDue}
+              onAddPayment={onAddPayment}
+              onOpenInvoices={onOpenInvoices}
+              onOpenFile={setPicked}
+              onReviewFile={(f) => setReviewTarget(f)}
+              folderPreview={
+                picked ? (
+                  <div className="mb-2.5 flex h-[min(70vh,720px)] min-h-[420px] flex-col">
+                    <FilePreviewCard
+                      kind="contract"
+                      ownerId={deal.id}
+                      file={picked}
+                      onClose={() => setPicked(null)}
+                      onSaved={() => void d.refetch()}
+                      onReview={(f) => setReviewTarget(f)}
+                      />
+                  </div>
+                ) : null
+              }
+            />
+          </div>
+        )}
       </div>
 
       <ContractFileOverlays
@@ -212,6 +270,19 @@ export function DealDetailPage() {
         onReviewClose={() => setReviewTarget(null)}
         onReviewStart={(f) => setReviewTarget(f)}
       />
+
+      {/* 记收款：粘贴到账短信 / 拖发票。保存后刷新合同，右栏收费节即时更新 */}
+      <PaymentDialog
+        open={payOpen}
+        contractId={deal.id}
+        fixedAmount={deal.amountNum}
+        receivedAmount={Number(deal.totalReceived?.replace(/[^\d.]/g, '') || 0)}
+        onClose={() => setPayOpen(false)}
+        onSaved={() => void d.refetch()}
+      />
+
+      {/* 先开票后付款：票挂合同名下；关闭即失效待核销缓存，右栏计数同步 */}
+      <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
     </main>
   )
 }

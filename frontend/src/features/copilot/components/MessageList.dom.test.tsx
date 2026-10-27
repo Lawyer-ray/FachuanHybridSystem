@@ -273,3 +273,63 @@ describe('MessageList：排队提示与复制（P0 批次）', () => {
     expect(screen.queryByRole('button', { name: '复制回答' })).toBeNull()
   })
 })
+
+describe('MessageList：豆包式引用卡', () => {
+  const ref = (name: string, subpath: string) =>
+    ({ kind: 'contract', ownerId: 393, subpath, name }) as ChatMessage['refs'] extends (infer T)[] | undefined ? T : never
+
+  it('单引用：静态卡渲染文件名与来源路径，不再是裸 chip', () => {
+    renderWithMessages([
+      { id: 'u10', role: 'user', content: '看看这份', refs: [ref('专项合同.docx', '1-律师资料/1-合同/专项合同.docx')] },
+    ])
+    expect(screen.getByText('专项合同.docx')).toBeTruthy()
+    expect(screen.getByText(/1-律师资料\/1-合同\/专项合同\.docx/)).toBeTruthy()
+  })
+
+  it('多引用：折叠卡带「共 N 个」徽标，展开列出全部来源', () => {
+    renderWithMessages([
+      {
+        id: 'u11',
+        role: 'user',
+        content: '对比这两份',
+        refs: [
+          ref('专项合同.docx', '1-律师资料/1-合同/专项合同.docx'),
+          ref('补充协议.docx', '2-补充协议/补充协议.docx'),
+          ref('发票.pdf', '3-发票/发票.pdf'),
+        ],
+      },
+    ])
+    expect(screen.getByText('共 3 个')).toBeTruthy()
+    // 收起时后两个来源不在摘要里（details 内容 jsdom 不做显示裁剪，按 open 态断言）
+    const details = document.querySelector('details') as HTMLDetailsElement
+    expect(details.open).toBe(false)
+    const summary = details.querySelector('summary') as HTMLElement
+    summary.click()
+    expect(details.open).toBe(true)
+    expect(screen.getByText('补充协议.docx')).toBeTruthy()
+    expect(screen.getByText('发票.pdf')).toBeTruthy()
+  })
+})
+
+
+describe('MessageList：框选引用卡', () => {
+  it('user 消息的选段引用渲染成卡：引文 + 文件来源，正文不残留块', () => {
+    renderWithMessages([
+      {
+        id: 'u20',
+        role: 'user',
+        content: '这段条款什么意思？',
+        quote: {
+          kind: 'contract',
+          ownerId: 393,
+          subpath: '1-律师资料/1-合同/专项合同.docx',
+          name: '专项合同.docx',
+          text: '甲方拟就与对方拖欠货款之事宜，委托乙方提供专项法律服务。',
+        },
+      } as ChatMessage,
+    ])
+    expect(screen.getByText(/甲方拟就与对方拖欠货款之事宜/)).toBeTruthy()
+    expect(screen.getByText(/专项合同\.docx · 1-律师资料/)).toBeTruthy()
+    expect(screen.getByText('这段条款什么意思？')).toBeTruthy()
+  })
+})

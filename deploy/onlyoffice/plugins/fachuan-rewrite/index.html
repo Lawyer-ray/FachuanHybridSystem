@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>法穿 AI 改写 · 桥</title>
+<!--
+  幕后桥插件（isVisual:false）——无 UI，只负责「文档内核 ↔ 法穿页面」的 postMessage 协议。
+
+  ## 为什么是幕后桥，而不是 DS 的插件面板
+  DS 的插件面板只能停靠编辑器左侧，塞不下「候选卡片 + 对话」这种布局。
+  原型（frontend/prototype/2026.10.01-合同修改原型讨论）验证过的做法是：
+  插件退成无 UI 的桥，全部界面由宿主页面自己渲染——位置、宽度、交互都自由。
+
+  ## 为什么显式引 DS 的 plugins.js
+  不引的话 window.Asc 不存在，`Asc.plugin` 全哑，表现为「插件装上了但毫无反应」。
+  host 必须写 DS 的绝对地址：插件 HTML 由 DS 托管，注入点是 DS 容器。
+-->
+<script src="http://127.0.0.1:9980/sdkjs-plugins/v1/plugins.js"></script>
+<script src="plugin.js"></script>
+</head>
+<body></body>
+</html>

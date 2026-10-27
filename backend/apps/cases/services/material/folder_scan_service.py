@@ -24,7 +24,7 @@ from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 logger = logging.getLogger(__name__)
 
 
-# ── 模块级工具函数（原类内 @staticmethod，遵循 Service 层禁用 @staticmethod 约定）──
+# ── 模块级工具函数（原类内静态方法；Service 层禁用静态方法装饰器，纯函数一律下沉）──
 
 
 def _ensure_case_exists(case_id: int) -> None:

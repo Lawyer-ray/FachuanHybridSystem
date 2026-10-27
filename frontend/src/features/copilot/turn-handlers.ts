@@ -7,7 +7,8 @@
  * - finishAssistant 收尾助手气泡（流读尽与 done 双路径都要能调，幂等）
  */
 
-import { estimateTokens, nextLocalId } from './domain'
+import { estimateTokens, extractRewriteArgs, nextLocalId, parseFileRewrite } from './domain'
+import { FILE_REWRITTEN_EVENT } from './launch'
 import type { StreamHandlers } from './streaming'
 import type { useCopilot } from './store'
 
@@ -17,6 +18,14 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
   handlers: StreamHandlers
   finishAssistant: () => void
 } {
+  /** rewrite_folder_file 各调用的参数（key = tool_call_id）。
+   *
+   * 原文/改写全文只在这里完整到达：tool_result 的 result 被 SSE 截到
+   * 2000 字，靠它读不回正文。落盘成功时把这对字段带进 file-rewritten
+   * 事件，打开中的画布就能就地落修订（免整页重载）。轮结束即随闭包
+   * 回收，无跨轮泄漏。 */
+  const rewriteArgsById = new Map<string, { original: string; replacement: string }>()
+
   const appendAssistant = (chunk: string) => {
     if (!chunk) return
     set((s) => ({
@@ -67,6 +76,11 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
       })
     },
     onToolCall: (event) => {
+      // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）
+      if (event.tool_call_id && event.name?.endsWith('rewrite_folder_file')) {
+        const extracted = extractRewriteArgs(event.arguments)
+        if (extracted) rewriteArgsById.set(event.tool_call_id, extracted)
+      }
       // pi 对同一工具调用可能发多条 message_end（arguments 渐进完整），
       // 以 tool_call_id 去重：已有则原行保留，没有才追加
       set((s) => {
@@ -98,6 +112,15 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
           return byId || lastEmpty ? { ...m, content: String(event.result ?? '') } : m
         }),
       }))
+      // AI 把修订写回文件夹文件（rewrite_folder_file 落盘成功）：广播给正
+      // 打开该文件的编辑器画布。带 original/replacement（来自同次调用的参
+      // 数）时画布优先**就地落修订**（插件桥），失败或缺参才换 key 重载
+      const rewriteArgs = event.tool_call_id ? rewriteArgsById.get(event.tool_call_id) : undefined
+      if (event.tool_call_id) rewriteArgsById.delete(event.tool_call_id)
+      const rewrite = parseFileRewrite(event.name, String(event.result ?? ''), event.is_error === true, rewriteArgs)
+      if (rewrite) {
+        window.dispatchEvent(new CustomEvent(FILE_REWRITTEN_EVENT, { detail: rewrite }))
+      }
     },
     onUsage: (usage) => {
       set((s) => ({

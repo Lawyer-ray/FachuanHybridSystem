@@ -14,6 +14,7 @@ import { create } from 'zustand'
 import * as copilotApi from './api'
 import {
   APPROVAL_OFFLINE_WINDOW_S,
+  buildSelectionQuoteBlock,
   historyToMessages,
   isExpiredOfflineItem,
   nextLocalId,
@@ -21,6 +22,7 @@ import {
   splitAttachmentFiles,
   splitBizHintLine,
   splitPageHintLine,
+  splitQuoteBlock,
   splitRefBlocks,
 } from './domain'
 import { resetUploadReceipts, uploadAttachmentsAndCompose } from './outgoing'
@@ -42,6 +44,16 @@ const EMPTY_STATS: CopilotState['turnStats'] = {
 /** 在途流的中止句柄（模块级，随 store 生命周期） */
 let controller: AbortController | null = null
 
+/**
+ * 会话动作纪元：任何切换/新建会话都 +1。
+ *
+ * enterContext 的「自动恢复最近会话」要 await 一次列表拉取，期间律师可能
+ * 已动了手（点新对话/切会话/发消息建会话）。只比 sessionId 挡不住
+ * 「null → 点新对话 → 还是 null」这条隐形路径，所以按**动作次数**计：
+ * 拉取回来发现纪元变了，就是有人动过，迟到的自动恢复让位。
+ */
+let sessionEpoch = 0
+
 export const useCopilot = create<CopilotState>((set, get) => ({
   sessionId: readStoredSession(),
   messages: [],
@@ -58,6 +70,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   context: null,
   pendingFiles: [],
   pendingRefs: [],
+  pendingQuote: null,
   pageHint: null,
   lastPageHintSent: null,
   uploadingAttachments: false,
@@ -90,6 +103,11 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     set((s) => ({ pendingRefs: s.pendingRefs.filter((_, i) => i !== index) }))
   },
 
+  /** 框选引用（豆包式）：新选区直接覆盖旧的——律师的意图就是「换成这段」 */
+  setPendingQuote: (quote) => {
+    set({ pendingQuote: quote })
+  },
+
   setPageHint: (hint) => {
     if (get().pageHint === hint) return
     set({ pageHint: hint })
@@ -106,7 +124,23 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     }
     if (get().streaming) get().stop()
     set({ context })
-    await get().switchSession(null)
+    // 沿用该业务范围**最近**的会话（列表按 updated_at 降序，第一条即最近），
+    // 没有历史会话才落空白新对话——「进项目 = 接着上次聊」，开新对话只能
+    // 由律师主动点「新对话」。拉取失败按无历史处理，不阻塞进页。
+    const epochAtFetch = sessionEpoch
+    let resumeId: string | null
+    try {
+      const latest = await copilotApi.listSessions(1, { origin: context.origin, refId: context.refId })
+      resumeId = latest[0]?.session_id ?? null
+    } catch {
+      resumeId = null
+    }
+    // await 期间律师动过会话（点新对话/切会话/发消息建会话，见 sessionEpoch）
+    // 或范围又被切走（快速跳页）：用户动作优先，迟到的自动恢复不得覆盖。
+    const now = get().context
+    if (now?.origin !== context.origin || now?.refId !== context.refId) return
+    if (sessionEpoch !== epochAtFetch) return
+    await get().switchSession(resumeId)
   },
 
   exitContext: async () => {
@@ -116,6 +150,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   },
 
   switchSession: async (id) => {
+    sessionEpoch += 1
     const prev = get()
     // 同会话且**视图已就绪**才跳过：不重复拉取、不播切换动画
     // （stop 后的重拉 streaming 仍为 true，放行）。
@@ -175,6 +210,11 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       outgoingText = `[当前页面：${pre.pageHint}]\n${trimmed}`
       set({ lastPageHintSent: pre.pageHint })
     }
+    // 框选引用（豆包式）：引用块单独成行缀在锚点后，模型据此可结合原文件
+    // （含 contract_id + subpath）回答；回放时由 splitQuoteBlock 还原成卡
+    if (pre.pendingQuote) {
+      outgoingText = `${buildSelectionQuoteBlock(pre.pendingQuote)}\n${outgoingText}`
+    }
 
     // 本轮发送归属哪个会话：await 期间用户可能切会话/开新对话，
     // 迟到结果必须丢弃，否则会覆盖用户刚选中的会话并把消息推进去
@@ -193,6 +233,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
         onQueued?.(false)
         return
       }
+      sessionEpoch += 1
       set({ sessionId })
       storeSession(sessionId)
     }
@@ -217,13 +258,15 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       return
     }
     if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ pendingFiles: [], pendingRefs: [] })
+    if (pre.pendingQuote) set({ pendingQuote: null })
     const composed = outgoing.composed
 
     const assistantId = nextLocalId()
     // 与历史回放同一解析：本地即时渲染也把页面/业务锚点、引用块还原成 chip，两侧不漂移
     const { pageHint, body: noHint } = splitPageHintLine(composed)
     const { bizHint, body: noBiz } = splitBizHintLine(noHint)
-    const { refs, body } = splitRefBlocks(noBiz)
+    const { refs, body: noRefs } = splitRefBlocks(noBiz)
+    const { quote, body } = splitQuoteBlock(noRefs)
     set((s) => ({
       messages: [
         ...s.messages,
@@ -234,6 +277,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
           ...(pageHint ? { pageHint } : {}),
           ...(bizHint ? { bizHint } : {}),
           ...(refs.length ? { refs } : {}),
+          ...(quote ? { quote } : {}),
         },
         { id: assistantId, role: 'assistant', content: '', streaming: true },
       ],
@@ -448,6 +492,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
 
   reset: () => {
     get().stop()
+    sessionEpoch += 1
     set({
       sessionId: null,
       messages: [],
@@ -464,6 +509,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       context: null,
       pendingFiles: [],
       pendingRefs: [],
+      pendingQuote: null,
       uploadingAttachments: false,
       draggingFiles: false,
     })

@@ -88,12 +88,28 @@ export interface SentRefMeta {
   isFolder?: boolean
 }
 
+/**
+ * 框选引用（豆包式）：律师在 OnlyOffice 里选中一段文本后，引用以卡片挂在
+ * 输入框上方（不是把模板文字灌进输入框），随下一条消息以
+ * 「[已引用选段：…]」块发出。发送前草稿与已发送回放共用一个形状。
+ */
+export interface SelectionQuote {
+  kind: RefOwnerKind
+  ownerId: number
+  subpath: string
+  name: string
+  /** 选中的文本（换行已归一为空格、限长截断） */
+  text: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
   content: string
   /** user 消息里的文件夹引用（从「[已引用文件：…]」块解析，气泡上方重放为 chip） */
   refs?: SentRefMeta[]
+  /** user 消息里的框选引用（从「[已引用选段：…]」块解析，气泡上方重放为引用卡） */
+  quote?: SelectionQuote
   /** 通用模式下注入的页面锚点（从「[当前页面：…]」块解析，气泡上方重放为 chip） */
   pageHint?: string
   /** 业务范围（详情页工作区/浮层 context）下注入的归属锚点（从「[当前业务：…]」块解析） */
@@ -280,6 +296,10 @@ export interface CopilotState {
   pendingFiles: File[]
   /** 待发送的文件夹引用（从合同目录树拖入；随下一条消息落库并引用） */
   pendingRefs: FolderRefDraft[]
+  /** 待发送的框选引用（编辑器选区进来后挂在输入框上方，随下一条消息发出） */
+  pendingQuote: SelectionQuote | null
+  /** 设置/清除待发送的框选引用（新选区直接覆盖旧的） */
+  setPendingQuote: (quote: SelectionQuote | null) => void
   /** 通用模式的页面感知：用户当前所在页面的描述（详情页会写更精确值覆盖），send 注入 */
   pageHint: string | null
   /** 上一条已注入的页面描述：页面没变不重复注入，历史不刷屏 */

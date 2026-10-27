@@ -163,7 +163,33 @@ function AppShell() {
       return !v
     })
   }
-  const copilotDocked = copilotOpen && copilotDock && isXlUp
+  /**
+   * 详情页（合同／案件作业页）在宽屏下**总是并排**。
+   *
+   * 详情页的工作形态是「左看案件、右改合同、侧边调 AI」，三者必须同时可见。
+   * 悬浮模式下即使不弹遮罩，面板也会盖住右栏的合同——而合同正是要对照着改的
+   * 对象，盖住就等于废了右栏。
+   *
+   * **不看用户偏好**：之前试过「用户显式切过 dock 就尊重偏好」，结果是一旦点过
+   * 那个切换按钮，详情页就永远退回悬浮、又盖住合同，用户还得再点一次。
+   * 详情页的布局是确定的（三栏并置），不该用全局偏好去覆盖它。
+   */
+  const onDetailRoute = /^\/projects\/[^/]+/.test(location.pathname)
+  const effectiveDocked = copilotOpen && isXlUp && (onDetailRoute || copilotDock)
+
+  /**
+   * AI 助手**永不渲染压暗遮罩**。
+   *
+   * 它是常驻侧边栏，不是模态对话框——遮罩的存在只会造成两个问题：
+   * 1. 点页面任何地方（包括右栏的合同文件）都会先命中遮罩，触发 onClose
+   *    把刚打开的助手收回去，表现为「点合同助手就缩回去了」；
+   * 2. 律师看不到被遮的合同内容，而这恰好是他要对照着改的对象。
+   *
+   * 历史：曾经用 `copilotDocked || /^\/projects\//` 做豁免，但豁免条件本身
+   * 就是拿“哪些页面不该被遮”去猜“哪些页面不需要遮”——而答案是**全都不需要**。
+   * 收起走面板自己的关闭按钮与 ⌘J，不靠点遮罩。
+   */
+  const copilotBackdropEnabled = false
 
   // ⌘K 全局检索面板开关：状态收在壳层（与 copilotOpen 同层），⌘K 快捷键、
   // 导航栏检索按钮、弹窗自身关闭（Esc / 点遮罩 / 选中跳转）三条路径都汇到这里。
@@ -240,9 +266,9 @@ function AppShell() {
         searchOpen={searchOpen}
         onSearchOpenChange={setSearchOpen}
       />
-      {copilotMounted && (
+      {copilotBackdropEnabled && copilotMounted && (
         <Suspense fallback={null}>
-          <PanelBackdropLazy open={copilotOpen && !copilotDocked} onClose={toggleCopilot} />
+          <PanelBackdropLazy open={copilotOpen} onClose={toggleCopilot} />
         </Suspense>
       )}
       {copilotMounted && (
@@ -251,14 +277,14 @@ function AppShell() {
             open={copilotOpen}
             onClose={toggleCopilot}
             dockCapable={isXlUp}
-            docked={copilotDocked}
+            docked={effectiveDocked}
             onDockToggle={toggleCopilotDock}
           />
         </Suspense>
       )}
       <div
         className="transition-[padding-right] duration-200"
-        style={copilotDocked ? { paddingRight: 'var(--copilot-w-app, 0px)' } : undefined}
+        style={effectiveDocked ? { paddingRight: 'var(--copilot-w-app, 0px)' } : undefined}
       >
         <PageErrorBoundary>
           <Suspense fallback={<RouteFallback />}>

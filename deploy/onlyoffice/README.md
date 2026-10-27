@@ -88,6 +88,83 @@ curl -s http://127.0.0.1:9980/healthcheck     # true
 |---|---|
 | `compose.yaml` | DS 编排（镜像 tag 锁版本、JWT、端口、字体挂载、回连宿主） |
 | `.env.example` | 密钥模板（`ONLYOFFICE_JWT_SECRET`），复制成 `.env` 后填值 |
+| `plugins/fachuan-rewrite/` | 法穿 AI 改写插件（幕后桥）：划词直改的选区通道 |
 | `README.md` | 本文件 |
 
 **不入库**：`.env`（真密钥）、`fonts/`（体积大 + 授权受限）。
+
+## 插件目录的 `.gz` 是 DS 生成的产物，**不要入库**
+
+`plugins/fachuan-rewrite/` 下只有 `config.json` / `index.html` / `plugin.js` 三个源文件入库。
+同目录的 `*.gz` 由 **DS 容器自己生成**：`/var/www/onlyoffice/documentserver` 启动时执行
+`documentserver-static-gzip.sh`，它对 `sdkjs-plugins` 下的 js/json/html 跑
+`gzip -kf9`（`-f` = **强制覆盖**），供 nginx `gzip_static` 使用。
+
+所以：**改了源文件，重启容器即可**，不需要手工重压：
+
+```bash
+cd ~/onlyoffice-dev           # 实际挂载目录（见 compose 的 ./plugins/...）
+docker compose restart onlyoffice    # DS 不热加载插件注册表
+```
+
+### 曾经踩过的两个坑（都与 `.gz` 有关）
+
+**坑一：挂载加 `:ro`** —— DS 的 gzip 预压缩写不进去（`gzip: Read-only file system`
+被淹没在日志里），`.gz` 一个都不生成，插件加载**静默失败**。compose 里已注释说明，别再加 `:ro`。
+
+**坑二（更隐蔽）：把 `.gz` 提交进仓库** —— 一旦入库，它就成了「源文件的过期副本」：
+git 里 `plugin.js` 是新的、`plugin.js.gz` 还是旧的，谁在别处部署都会拿到**旧插件**，
+而且症状极难定位：
+
+- `docker exec grep 新代码 plugin.js` **能搜到**（误导性极强：以为已生效）
+- 只有看**实际下发**的字节才发现不对
+
+真机踩过：`plugin.js` 已 17243 字节，下发的 `Content-Length` 仍是旧值 3899，
+于是 apply-revision 一直停在最脆的「精确子串匹配」层，AI 改完就降级成整页重载。
+
+因此 `.gitignore` 已排除 `deploy/onlyoffice/plugins/*/*.gz`。**排查任何「改了插件没反应」，
+第一步都是核对实际下发的那一份**：
+
+```bash
+curl -s -H 'Accept-Encoding: gzip' -D - -o /tmp/p.js \
+  http://127.0.0.1:9980/sdkjs-plugins/fachuan-rewrite/plugin.js | grep -iE 'content-length|last-modified'
+wc -c < /tmp/p.js                                   # 应等于源文件字节数
+grep -c '你在新代码里加的标记' /tmp/p.js              # 期望 >= 1
+```
+
+## 就地落修订（apply-revision）的定位策略
+
+AI 直改走两条路：**优先**经插件桥在当前画布里就地写修订（不重载）；
+就地失败才降级为换 document key 重建画布。重建意味着 5–15 秒白屏，
+体感上就是「**AI 改完之后整页刷一下**」，所以降低就地失败率是体验的关键。
+
+插件内核侧的 `__find` 不是单纯 `doc.Search(anchor)`，而是**四层降级**
+（`WordAdapter.apply` 里，注释有完整说明）：
+
+| 层 | 手段 | 治什么 |
+|---|---|---|
+| 1 | `doc.Search(raw)` | 干净原文 |
+| 2 | 逐元素 `GetText` 包含 | 跨 run 但同段 |
+| 3 | 归一化包含（去空白/零宽、NFKC 全半角折叠） | 空格多余/丢失、全角标点 |
+| 4 | 取开头 40 字再匹配 | 原文尾部被模型顺手改写 |
+
+两条**实测红线**（写错过，排查了很久）：
+
+1. **`ApiRange` 没有 `SetStart`/`SetEnd`**——实测 `typeof` 均为 `undefined`，
+   真实 API 是 **`SetStartPos` / `SetEndPos`**。照着想当然写会让归一化层
+   **恒假且不报错**（永远落到最后一层失败）。
+2. **`Asc.scope` 只能传字符串**，对象会静默丢失（统一 `JSON.stringify`）。
+
+插件超时 `COMMAND_TIMEOUT_MS = 8000`，前端 `APPLY_TIMEOUT_MS = 10000`（
+`use-live-rewrite-apply.ts`）——**前端必须比插件长**，否则插件还没回结论
+前端就先超时降级，白白多一次重建。
+
+就地成功与否可直接验证（不依赖肉眼）：
+
+```js
+// 在页面里统计 DocEditor 构造次数：>1 说明画布被重建了
+// 并盯 fachuan-plugin 的 applied 消息：{ok:true, how:'normalized'}
+window.addEventListener('message', e => {
+  if (e.data && e.data.source === 'fachuan-plugin') console.log(e.data.type, e.data.result)
+})
+```

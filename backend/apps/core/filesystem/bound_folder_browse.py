@@ -212,6 +212,47 @@ class BoundFolderBrowseService:
         logger.info("bound_folder_upload", extra={"owner_id": owner_id, "subpath": subpath, "count": len(saved)})
         return {"saved": saved}
 
+    def save_upload_bytes(
+        self,
+        *,
+        owner_id: int,
+        subpath: str,
+        filename: str,
+        data: bytes,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, str]:
+        """把**已在内存里的字节**写到 ``subpath`` 目录（同名自动加序号）。
+
+        与 ``save_uploads`` 的区别只在入参形态：那个吃 Django 上传流（拖拽进浏览器），
+        这个吃 bytes（系统内部已落过盘、需要镜像一份到绑定目录的场景，如发票副本）。
+        不要在外面自己拼路径或 ``open(wb)``——路径收敛、文件名清洗、同名错开的口径
+        必须只有一份。
+        """
+        if len(data) > self.MAX_UPLOAD_BYTES:
+            raise ValidationException(
+                message=f"单个文件超过上限 {self.MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+                errors={"files": filename},
+            )
+        root, _ = self._checked_root(
+            owner_id=owner_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+        target_dir = self._resolve_subpath(root, subpath)
+        if not target_dir.exists() or not target_dir.is_dir():
+            raise NotFoundError(message="目标文件夹不存在", code="FOLDER_NOT_FOUND")
+
+        clean = self._validator.sanitize_file_name(filename or "")
+        dest = self._unique_destination(target_dir, clean)
+        with open(dest, "wb") as out:
+            out.write(data)
+
+        logger.info(
+            "bound_folder_save_bytes",
+            extra={"owner_id": owner_id, "subpath": subpath, "entry_name": dest.name, "size": len(data)},
+        )
+        return {"name": dest.name, "subpath": self._subpath_of(root, dest)}
+
     def save_file_content(
         self,
         *,

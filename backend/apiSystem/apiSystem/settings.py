@@ -232,6 +232,13 @@ def _get_env_str(name: str, default: str = "", *, allow_empty: bool = False) -> 
     return value
 
 
+# 时区：定义在 DATABASES 之前，因为下面两个分支的 DATABASES[*]["TIME_ZONE"] 由它派生。
+# 日期字段（DateField）语义全部是「本地日历日」，DB 侧算日期必须用同一时区，
+# 否则 CURRENT_DATE / date_trunc 之类会在跨日窗口与 Django 的 timezone.localdate()
+# 差一天（UTC 与 Asia/Shanghai 差 8 小时，即每天 00:00-08:00 都不一致）。
+TIME_ZONE = "Asia/Shanghai"
+USE_TZ = True
+
 if DB_ENGINE in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
     db_name = DATABASE_PATH if DATABASE_PATH else BASE_DIR / "db.sqlite3"
     DATABASES = {
@@ -245,7 +252,8 @@ if DB_ENGINE in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
                 "timeout": 20,
             },
             "ATOMIC_REQUESTS": False,
-            "TIME_ZONE": None,
+            # 与 PG 分支同口径：DB 侧日期解释跟随 TIME_ZONE（None 会被 Django 当成 UTC）
+            "TIME_ZONE": TIME_ZONE,
         }
     }
 elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"):
@@ -310,6 +318,18 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
         _pg_options["pool"] = {"min_size": _pool_min, "max_size": _pool_max, "timeout": 10}
         _conn_max_age = 0  # pool 接管连接生命周期，持久连接必须关闭
 
+    # 会话时区：**必须**用 DATABASES[*]["TIME_ZONE"]，不能用 OPTIONS 的 -c timezone。
+    # Django 的 PG 后端会读 settings_dict["TIME_ZONE"]（不是 settings.TIME_ZONE）：
+    # 值为 None 就当成 "UTC"，并在每条连接建立后主动执行 SET TIME ZONE 'UTC'
+    # （django/db/backends/base/base.py::timezone_name + postgresql/base.py::_configure_timezone）。
+    # 所以光在 OPTIONS 里加 -c timezone=Asia/Shanghai 会被这行 SET 直接覆盖——实测无效。
+    #
+    # 不设的后果：DB 侧 CURRENT_DATE / now()::date / date_trunc('day', ...) 按 UTC 算，
+    # 而 Python 侧 timezone.localdate() 按 Asia/Shanghai 算，每天 00:00-08:00 差一天，
+    # 「今日到期」「今日新增」类统计与提醒在凌晨集体错位，且白天无法复现。
+    # 带时区的时间戳（timestamptz）仍按 UTC 存储，这里只改「日期解释」的参照时区。
+    # env DB_TIME_ZONE 可覆盖（多地域部署用）。
+    _db_time_zone = (os.environ.get("DB_TIME_ZONE", "") or "").strip() or TIME_ZONE
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -321,6 +341,7 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
             "CONN_MAX_AGE": _conn_max_age,
             "CONN_HEALTH_CHECKS": not _use_pool,
             "OPTIONS": _pg_options,
+            "TIME_ZONE": _db_time_zone,
         }
     }
 elif DB_ENGINE in ("mysql", "django.db.backends.mysql"):
@@ -408,11 +429,7 @@ LOCALE_PATHS = [
     BASE_DIR / "locale",
 ]
 
-TIME_ZONE = "Asia/Shanghai"
-
 USE_I18N = True
-
-USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/

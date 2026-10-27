@@ -49,12 +49,18 @@ token 放 config 根、覆盖全部字段）。签名必须后端做——浏览
   | 前端 mode | permissions 组合 | 效果 |
   |---|---|---|
   | `view` | `edit/review/comment` 全 false | 查看器 |
-  | `review` | `review/comment` true + `customization.review.trackChanges` | 锁定修订（只能留痕不能直接改正文） |
-  | `edit` | `edit/review/comment` 全 true | 完全编辑 |
+  | `review` | `review/comment` true + `customization.review.trackChanges` | 锁定修订（只能留痕不能直接改正文） |  | `edit` | `edit/review/comment` 全 true | 完全编辑 |
 
 - `copy: true`（律师要复制条款）、`chat: false`（内置协作聊天会让文本过 DS，法律保密场景不放开）。
 - `customization.forcesave: true`：默认保存只在「最后一个用户关闭文档」时回调，工作台一直挂着
   就永远不落盘。
+- `customization.review.reviewDisplay: "markup"`（**三种模式都给**）：控制**已有**修订痕迹
+  （`w:ins`/`w:del`/批注框）要不要画出来。DS 默认 `"original"`（按修订前原文渲染），
+  于是 WPS/Word 里满篇修订的同一份 docx 在 OnlyOffice 画布上**干干净净**——看着像
+  「AI 根本没改成」。`trackChanges` 是**录制**开关（我敲字要不要留痕），
+  `reviewDisplay` 是**回放**开关（文件里已有的痕迹要不要显示），两者不可互替；
+  `showReviewChanges: true` 让审阅工具的修订视图默认展开。回归测试：
+  `tests/ci/unit/onlyoffice/test_editor_config_revisions.py`。
 
 **② DS 取文件**（`services/file_proxy.py` + `api/onlyoffice_api.py::serve_file`）
 
@@ -76,6 +82,50 @@ DS 在独立容器里，带不了 `Authorization` 头，且会**重试**（首�
   `status=2/6` 必须持有效签名；
 - 落盘后轮换 key：`saved_version + 1` → 下次签发新 key，否则 DS 继续用缓存旧内容；
 - 旧产物路径留在 `EditorSession.prev_output_file`（物理文件保留，可手工恢复）。
+
+### 过期画布的保存必须丢弃（AI 直改的数据丢失防线）
+
+`status=2/6` 交回来的是**编辑器内存里的画布内容**，不是你磁盘上的文件。AI 划词直改走后端
+直接改 docx（`direct_edit_service`），磁盘变了、画布还是旧的；一旦这份旧画布被回写，
+AI 刚落的 `w:ins`/`w:del` 就被整篇静默覆盖。真机现象：
+
+```
+AI 说「已改好，可在审阅里看到修订」
+→ 关掉编辑器再打开，又变回旧文
+```
+
+防线：**两个字段，职责必须分开**（写错过一版，下面是血泪）。
+
+| 字段 | 含义 | 会随外部写增长？ |
+|---|---|---|
+| `external_write_seq` | 文档现在处于第几代（文档级计数器） | **会**（bump 时 +1） |
+| `canvas_seq` | 这份画布是**按第几代**签发的（快照） | **不会**（只在签发新 key 时重设） |
+
+- `bump_external_write()`（AI 落盘后调）只抬 `external_write_seq`；
+- 签发新 key / 回写成功时把 `canvas_seq` **登记**为当时的文档级值；
+- `stale_canvas_reason()` 比对：`external_write_seq(文档级 max) > canvas_seq` = 画布旧了；
+- 命中则**丢弃这次保存**并 `return True`（应答成功）。
+
+### 为什么不能用单个字段（守卫曾因此变成死代码）
+
+第一版拿「文档级 max(external_write_seq)」去比「会话自己的 external_write_seq」。
+问题在于 `bump_external_write` 用的是 `UPDATE ... external_write_seq = F(...) + 1`，
+**把同一行的这个字段也抬了**，于是两边永远相等 → 判据恒假 → 守卫从未生效，
+AI 的修订照样被旧画布覆盖。
+
+更坑的是当时单测拿的是**未刷新的内存对象**（还是 bump 前的旧值），所以一直是绿的。
+DS 回调实际走 `load_session_by_key()` **从库里重新取**，取到的已经是抬过的值。
+所以回归测试现在**一律通过 `load_session_by_key()` 取会话**，并额外断言
+`refresh_from_db()` 后也判过期：`tests/ci/unit/onlyoffice/test_stale_canvas_guard.py`。
+
+### 两道防线叠加（别只依赖其中一道）
+
+1. **旧 key 解析不到**：换 key 会把该行的 `document_key` 改写成新值，老 key 在库里
+   不复存在 → `load_session_by_key` 返 `None` → 回调直接 `{"error": 1}`（fail-closed）；
+2. **stale 判据**：多用户场景下 key 可能仍是同一个（协同共用），这时靠代次比对拦。
+
+最后一点容易写错：命中 stale 时必须回**成功**而非 `{"error": 1}`。DS 重试交回来的
+还是同一份旧画布，`error 1` 只会无限循环；丢掉这一次保存才是正确结果。
 
 **document key 规则**（`make_document_key`）：`sha256(source_path | version | saved_version)[:32]`。
 
@@ -131,6 +181,7 @@ DS 每次升小版本都可能动这些语义，升级前对照官方 Release No
 | `config.token` 整体签名（HS256，放根） | `signing.build_editor_config` | 签名载荷格式是否变化 |
 | `permissions.edit/review/comment/download/print/copy/chat` | `signing.PERMISSIONS_*` | 键名或默认值变更 |
 | `customization.review.trackChanges` | `signing`（review 模式） | 是否仍是锁定修订的强保证 |
+| `customization.review.reviewDisplay` / `showReviewChanges` | `signing`（**全模式**） | 默认值是否仍为 `original`（隐藏已有修订）；改成 `markup` 才能回放 `w:ins`/`w:del` |
 | `customization.forcesave` | `signing` | forcesave 触发条件、status 值 |
 | `document.key` / `fileType` / `documentType` | `signing._DOC_TYPE` | 支持格式清单、未知后缀行为 |
 | callback `status` 0/1/2/3/4/6/7 | `callback_service` | 2/6 的 `url` 语义、重试规则 |
@@ -250,6 +301,10 @@ ls ~/Downloads/Coding/AI/onlyoffice-dev/fonts/  # 宿主侧清单
 | 每次打开都重新转换、两人协同互相看不见 | 签名参数混进了 `document.key`（`sig` 含时间戳）。key 只用 `source_path|version|saved_version` |
 | 改了内容但看到旧版 | 保存后没轮换 key，或 DS 缓存没清 |
 | 工作台挂一天，修订没落盘 | 没开 `customization.forcesave`；默认只在最后一人关闭 10s 后才回调 |
+| **AI 说改好了，重开文档又变回旧文** | 编辑器旧画布把 AI 落盘的内容盖了。看 `EditorSession.external_write_seq`（计数器）与 `canvas_seq`（画布快照）是否分离、日志「忽略过期画布的保存回调」；机制见「③ 保存回写」 |
+| **WPS/Word 里满是修订，OnlyOffice 画布干净得更新文档一样** | 没给 `customization.review.reviewDisplay: "markup"`。DS 默认 `"original"` = 按修订前原文渲染，已有 `w:ins`/`w:del` **一律不画**。
+注意 `trackChanges` 是**录制**开关（我敲字要不要留痕），不是**显示**开关（文件里已有痕迹要不要画），两者不可互替。
+先用 `unzip -p x.docx word/document.xml \| grep -c '<w:ins \|'` 确认文件真带痕迹，再查 config。 |
 | 「点了没反应、不报错」（插件场景） | `callCommand` 第二参必须传 `false`，传 `true` 会销毁插件 iframe |
 | `Asc.scope` 只能传字符串 | 传对象时回调静默丢失，统一 `Asc.scope.key = JSON.stringify(payload)` |
 | `host.docker.internal` 不可达 | 依赖 compose 的 `extra_hosts: host.docker.internal:host-gateway`；OrbStack 默认支持，失败时回落 LAN IP 排障 |

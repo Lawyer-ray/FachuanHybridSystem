@@ -163,6 +163,10 @@ WRITE_PREFIXES: tuple[str, ...] = (
     "toggle_",
     "merge_",
     "complete_",
+    # 改写字：框选一段→按指令重新措辞，写回原文件（以修订痕迹）。
+    # 不带写前缀就会被判 LOW=只读，模型改文件不经任何留痕，
+    # 而它实际会改律师的合同文件——必须按写工具对待。
+    "rewrite_",
     "cancel_",
     "export_",
     "extract_",

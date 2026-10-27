@@ -22,6 +22,22 @@ from ..config import OnlyOfficeConfig, build_file_url
 
 logger = logging.getLogger(__name__)
 
+# 法穿 AI 改写插件（幕后桥）的 GUID。
+#
+# 插件本体放在 DS 容器的 `sdkjs-plugins/fachuan-rewrite/`（见
+# `deploy/onlyoffice/compose.yaml` 的 volumes），由 DS 自己托管并自动发现；
+# 所以这里**只给 guid 做 autostart**，不需要 pluginsData（那是让 DS 去远程拉
+# config.json 的路子，跨源、要额外托管，容器内本地文件更干净）。
+#
+# 配套的两条红线（原型真机验证过，改回去就是「点了没反应且不报错」）：
+# 1. `callCommand` 第二参必须 false；2. `Asc.scope` 只能传字符串。
+# 详见 `deploy/onlyoffice/plugins/fachuan-rewrite/plugin.js` 顶部注释。
+FACHUAN_REWRITE_PLUGIN_GUID = "asc.{A67B4C8F-1F2A-4B6E-9C3D-5E8F7A2B1D04}"
+
+# 插件目录名（与 deploy/onlyoffice/plugins/ 下的子目录、容器内
+# sdkjs-plugins/ 下的目录名必须一致）。改目录就要同时改这里和 compose 挂载。
+FACHUAN_REWRITE_PLUGIN_DIR = "fachuan-rewrite"
+
 # 预处理阶段：纯只读（改是复审工作台的事）。官方语义：edit/review/comment
 # 均为 false 时即使 mode=edit 也只进查看器，没有修订与批注入口。
 PERMISSIONS_VIEW: dict[str, bool] = {
@@ -159,14 +175,57 @@ def build_editor_config(
             # 律师把工作台一直挂着就永远没有保存回调，修订落不了盘。
             "forcesave": True,
             "uiTheme": "theme-classic-light",
+            # 已存在的修订痕迹（w:ins / w:del）**是否显示**由 reviewDisplay 决定，
+            # 不是由 trackChanges 决定——这是两件不同的事：
+            #   trackChanges  = 我现在敲字要不要留痕（录制）
+            #   reviewDisplay = 文档里**已有**的痕迹要不要画出来（回放）
+            # DS 默认 `reviewDisplay: 'original'`（见 api.js 注释），即按「修订前的
+            # 原文」渲染，画布上**看不到任何删除线/下划线/批注框**。症状极具迷惑性：
+            # WPS/Word 打开同一份 docx 满是修订，OnlyOffice 画布干干净净，看着像
+            # 「AI 没改成」——真机 A/B 实测（同一 docx，只改 reviewDisplay）：默认形态
+            # 审阅面板不出现，改 markup 后「审查更改」面板立刻出现。
+            # 因此**所有模式**都必须显式给 markup：律师打开就是要看改了什么，
+            # 藏起来等于预览失真。view 模式也适用——只读不等于可以隐瞒修订。
+            # showReviewChanges 让「审阅」工具的修订视图开关处于展开态（与 markup 配套）。
+            "review": {
+                "reviewDisplay": "markup",
+                "showReviewChanges": True,
+            },
         },
     }
     if mode == "review":
         # trackChanges 覆盖 permissions.review：强制当前用户处于修订模式，
         # 是比纯 permissions 更强的「锁定修订」（官方 customization.review）。
-        editor_config["customization"]["review"] = {"trackChanges": True}
+        # 注意保留上面已设的 reviewDisplay / showReviewChanges，只补 trackChanges。
+        review = dict(editor_config["customization"]["review"])
+        review["trackChanges"] = True
+        editor_config["customization"]["review"] = review
     if plugins:
         editor_config["plugins"] = plugins
+
+    # 划词直改的核心入口：插件必须在文档就绪前 autostart，否则宿主页
+    # 收不到 `ready` 握手，选区 / 改写全链路都不通。
+    #
+    # **autostart 与 pluginsData 必须成对**：只给 autostart 时 DS 不知道去哪
+    # 取 config.json，插件不会加载，且**无任何报错**（症状：右键菜单里没有
+    # 我们的入口，只有 DS 自带的 AI✨）。原型就是两者都给的。
+    #
+    # 只在可编辑/可审阅的模式挂：view（纯只读）下插件无从落笔，
+    # 挂上去只会让律师看到一个用不了的入口。
+    if mode in ("review", "edit") and doc_type == "word":
+        merged = dict(editor_config.get("plugins") or {})
+        autostart = list(merged.get("autostart") or [])
+        if FACHUAN_REWRITE_PLUGIN_GUID not in autostart:
+            autostart.append(FACHUAN_REWRITE_PLUGIN_GUID)
+        merged["autostart"] = autostart
+
+        # config 由 DS 自己托管（compose 把插件目录挂进 sdkjs-plugins），
+        # 所以地址用 DS 的公网可达前缀拼。浏览器能访问 docserver_url，
+        # DS 自己服务自己托管的静态文件也不需要回连宿主。
+        merged["pluginsData"] = [
+            f"{cfg.docserver_url.rstrip('/')}/sdkjs-plugins/{FACHUAN_REWRITE_PLUGIN_DIR}/config.json"
+        ]
+        editor_config["plugins"] = merged
 
     config: dict[str, Any] = {
         "documentType": doc_type,

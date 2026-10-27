@@ -44,7 +44,9 @@ class InvoiceAdminForm(forms.ModelForm[Invoice]):  # pragma: no cover
             from apps.contracts.admin.wiring_admin import get_invoice_upload_service
 
             svc = get_invoice_upload_service()
-            payment_id: int = instance.payment_id or self.instance.payment_id
+            # Invoice.payment 现可为空（先开票挂合同的票也进同一张表）；本 inline 挂在
+            # 收款页下，二者至少其一有值，取或即可
+            payment_id: int | None = instance.payment_id or self.instance.payment_id
             saved = svc.save_invoice_file(uploaded_file, payment_id)
             instance.file_path = saved.file_path
             instance.original_filename = saved.original_filename

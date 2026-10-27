@@ -11,6 +11,7 @@ import {shortDocName, splitLinkText,
   crumbName,
   contactGroups,
   dueLabel,
+  feeStats,
   headerMetaParts,
   legalStatusGroups,
   moneyRows,
@@ -361,19 +362,19 @@ describe('案件节', () => {
     expect(merged.attN).toBe(3)
   })
 
-  it('stripEntryParens：只隐藏长案件名括号，短括号（当事人/年份/备注）保留', () => {
-    // 长描述型（≥12 字）→ 隐藏，卡片已标明案件
+  it('stripEntryParens：括号内容一律隐藏（长案件名/当事人/年份都不留），退化情形回原名', () => {
+    // 长描述型 → 隐藏，卡片已标明案件
     expect(stripEntryParens('民事裁定书（张某诉某公司买卖合同纠纷一案）_20260929收.pdf')).toBe(
       '民事裁定书_20260929收.pdf',
     )
     // 嵌套括号（案件名里嵌公司名括号）配平后整体隐藏
     expect(stripEntryParens('账户确认书（张某诉某公司买卖合同纠纷（二审）一案）V1.pdf')).toBe('账户确认书V1.pdf')
-    // 短括号是区分信息，必须保留：当事人、年份案号、备注
-    expect(stripEntryParens('通知书（王某执行案）_20260414收.pdf')).toBe('通知书（王某执行案）_20260414收.pdf')
-    expect(stripEntryParens('（20XX）粤0000执保1号民事裁定书.pdf')).toBe('（20XX）粤0000执保1号民事裁定书.pdf')
-    expect(stripEntryParens('2-授权委托书（张某）（某醉驾一案）V1.pdf')).toBe('2-授权委托书（张某）（某醉驾一案）V1.pdf')
-    expect(stripEntryParens('【发票】某甲（个人）_20251023.pdf')).toBe('【发票】某甲（个人）_20251023.pdf')
-    // 整名都在括号里 / 括号不配对 → 退回原名
+    // 短括号同样隐藏：当事人、年份案号、备注（全名看 tooltip / 预览面板）
+    expect(stripEntryParens('通知书（王某执行案）_20260414收.pdf')).toBe('通知书_20260414收.pdf')
+    expect(stripEntryParens('（20XX）粤0000执保1号民事裁定书.pdf')).toBe('粤0000执保1号民事裁定书.pdf')
+    expect(stripEntryParens('2-授权委托书（张某）（某醉驾一案）V1.pdf')).toBe('2-授权委托书V1.pdf')
+    expect(stripEntryParens('【发票】某甲（个人）_20251023.pdf')).toBe('【发票】某甲_20251023.pdf')
+    // 整名都在括号里 / 括号不配对 / 隐藏后只剩扩展名 → 退回原名
     expect(stripEntryParens('（张某诉某公司买卖合同纠纷一案）.pdf')).toBe('（张某诉某公司买卖合同纠纷一案）.pdf')
     expect(stripEntryParens('说明（未闭合.pdf')).toBe('说明（未闭合.pdf')
   })
@@ -428,20 +429,30 @@ describe('右栏', () => {
     ])
   })
 
-  it('moneyRows：标的/保全取链上首个有值案件，费用拼收费方式，空值不出行', () => {
+  it('moneyRows：标的/保全取链上首个有值案件，费用拼收费方式，空值不出行；已收/未收移交给统计条', () => {
     const rows = moneyRows(makeDeal(), [makeCase({ target: null }), makeCase({ id: 2, target: 3200000, preserv: 1600000 })])
     expect(rows).toEqual([
       ['标的额', '¥3,200,000'],
       ['保全金额', '¥1,600,000'],
       ['律师费', '¥50,000 · 半风险'],
       ['风险比例', '8%'],
-      ['已收款', '¥50,000'],
     ])
     expect(moneyRows(makeDeal({ amount: null, fee: '', riskRate: null, totalReceived: null }), [])).toEqual([])
     // 没填金额只有收费方式：标签改「收费方式」，不把方式冒充成律师费数值
     expect(moneyRows(makeDeal({ amount: null, fee: '固定收费', riskRate: null, totalReceived: null }), [])).toEqual([
       ['收费方式', '固定收费'],
     ])
+  })
+
+  it('feeStats：已收/已开票为 0 也显式给 ¥0（0 与没显示对财务含义不同）；未收依赖合同额', () => {
+    expect(feeStats(makeDeal())).toEqual({ received: '¥50,000', invoiced: '¥0', unpaid: null })
+    expect(feeStats(makeDeal({ unpaid: '¥50,000' }))).toEqual({
+      received: '¥50,000',
+      invoiced: '¥0',
+      unpaid: '¥50,000',
+    })
+    // 无任何收款：已收也是显式 ¥0
+    expect(feeStats(makeDeal({ totalReceived: null }))).toEqual({ received: '¥0', invoiced: '¥0', unpaid: null })
   })
 
   it('railFacts：抽屉同款要素去掉同卡重复的收费方式 / 风险比例 / 代理阶段，其余保留', () => {

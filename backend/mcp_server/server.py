@@ -356,6 +356,7 @@ from mcp_server.tools import (
     restore_memory,
     resubmit_task,
     retry_sms_processing,
+    rewrite_folder_file,
     save_archive_overrides,
     save_group_order,
     save_to_directory,
@@ -1243,6 +1244,7 @@ _t(read_agent_attachment)
 # 绑定文件夹引用：拖拽引用型，读原文件（不复制，路径即归属）
 _t(list_folder_files)
 _t(read_folder_file)
+_t(rewrite_folder_file)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项
 _t(list_upcoming_deadlines)
