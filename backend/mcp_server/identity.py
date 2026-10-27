@@ -25,6 +25,8 @@ from __future__ import annotations
 from contextvars import ContextVar
 from typing import Any
 
+from .config import require_request_auth
+
 #: 当前 HTTP 请求的 Authorization 头原文（无则空串）
 request_authorization: ContextVar[str] = ContextVar("fachuan_request_authorization", default="")
 
@@ -53,16 +55,81 @@ def passthrough_authorization() -> str:
 
 
 class RequestAuthMiddleware:
-    """纯 ASGI 中间件：把 Authorization 头写进 ContextVar（仅 http 请求）。"""
+    """纯 ASGI 中间件：把 Authorization 头写进 ContextVar，并在 HTTP 模式强制鉴权。
+
+    ## 安全边界（2026-10-28 审计实测）
+
+    本服务在 streamable-http 模式下绑 ``127.0.0.1:8011`` 常驻，一份进程服务全所。
+    早期实现只写 ContextVar、不做任何校验：无 ``Authorization`` 头的请求会静默回退
+    到 ``config.USERNAME/PASSWORD`` 换来的**服务账号（超管）** token。实测（无任何
+    凭证）：
+
+    ```
+    POST /mcp {"method":"initialize"}              → 200
+    POST /mcp {"method":"tools/call","list_cases"} → 返回真实客户案件
+    ```
+
+    即本机任意进程（其他用户 shell / 被 XSS 的前端 / 恶意依赖脚本 / 其他 agent
+    会话）都能绕过 JWT、租户隔离与审批读到全所数据。
+
+    因此 HTTP 模式下：**缺 Bearer 或不是合法 Bearer 一律 401**，不再回退。
+    身份只能来自每个请求自带的 Authorization 头。
+    """
 
     def __init__(self, app: Any) -> None:
         self._app = app
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        if scope.get("type") == "http":
-            for name, value in scope.get("headers") or []:
-                if name == b"authorization":
-                    request_authorization.set(value.decode("latin-1"))
-                elif name == SESSION_HEADER.encode():
-                    request_session_id.set(value.decode("latin-1"))
+        if scope.get("type") != "http":
+            await self._app(scope, receive, send)
+            return
+
+        raw_auth = ""
+        for name, value in scope.get("headers") or []:
+            if name == b"authorization":
+                raw_auth = value.decode("latin-1")
+            elif name == SESSION_HEADER.encode():
+                request_session_id.set(value.decode("latin-1"))
+
+        request_authorization.set(raw_auth)
+
+        if require_request_auth() and not _is_valid_bearer(raw_auth):
+            await _send_401(send)
+            return
+
         await self._app(scope, receive, send)
+
+
+def _is_valid_bearer(value: str) -> bool:
+    """是否为形如 ``Bearer <token>`` 的有效值。"""
+    text = value.strip()
+    return text.lower().startswith("bearer") and len(text) > len("bearer ")
+
+
+async def _send_401(send: Any) -> None:
+    """返回 401（JSON-RPC 风格 body，兼容 MCP 客户端错误展示）。"""
+    import json
+
+    body = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32001,
+                "message": "未认证：共享 MCP 要求每个请求携带 Authorization: Bearer <token>",
+            },
+            "id": None,
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [
+                (b"content-type", b"application/json; charset=utf-8"),
+                (b"content-length", str(len(body)).encode()),
+                (b"www-authenticate", b'Bearer realm="fachuan-mcp"'),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})

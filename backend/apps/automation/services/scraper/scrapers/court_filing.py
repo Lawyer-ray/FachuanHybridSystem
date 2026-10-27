@@ -1,6 +1,23 @@
+"""法院自动立案爬虫 —— 插件缺失时的**显式失败**占位。
+
+## 为什么是「显式失败」而不是「脚手架实现」
+
+本文件曾被写成一个「看起来能跑」的脚手架：`_login` / `_fill_case_info` /
+`_upload_files` 的实现体只有 `logger.info`，从不真正登录、填表、提交，
+`_run()` 却返回 ``{"message": "立案提交成功（需根据实际网站完善逻辑）"}``。
+
+BaseScraper 会据 `_run()` 没抛异常就把任务状态置为 ``SUCCESS``，
+于是**律师看到「立案成功」而实际什么也没提交** —— 诉讼期限风险，是法律业务里
+代价最高的一类错误。
+
+真实立案实现在 ``plugins.court_automation.filing.playwright_filing.service.CourtZxfwFilingService``
+（插件，私有子仓库）。本类只在插件不可用时被 ``scrapers/__init__.py`` 兜底导入，
+所以它唯一的正确职责是：**立刻失败并说清原因**，绝不产出伪造的成功结果。
+
+2026-10-28 审计修订：删除全部假实现，改为 fail-closed。
 """
-法院自动立案爬虫
-"""
+
+from __future__ import annotations
 
 import logging
 from typing import Any
@@ -9,111 +26,28 @@ from .base import BaseScraper
 
 logger = logging.getLogger("apps.automation")
 
+_PLUGIN_HINT = (
+    "法院立案功能需要 plugins.court_automation 插件（私有子模块），当前环境未安装或导入失败。"
+    "请确认："
+    "1) backend/plugins 子模块已初始化（git submodule update --init backend/plugins）；"
+    "2) 插件内 court_automation/filing/playwright_filing 可正常 import。"
+    "在此之前立案任务无法执行——本占位实现不会假装成功。"
+)
+
 
 class CourtFilingScraper(BaseScraper):  # pragma: no cover
-    """
-    法院自动立案爬虫
+    """插件缺失时的兜底类：任何执行尝试都抛出明确错误（不伪造成功）。"""
 
-    登录法院网站，自动填写立案信息并上传文件
-    """
+    def _run(self) -> dict[str, Any]:
+        """直接失败：没有真实立案实现时不允许产出成功结果。"""
+        from apps.core.exceptions import BusinessException
 
-    def _run(self) -> dict[str, Any]:  # pragma: no cover
-        """
-        执行自动立案任务
-
-        Returns:
-            包含立案结果的字典
-        """
-        logger.info("执行自动立案...")
-
-        # 获取配置
-        config = self.task.config
-        username = config.get("username")
-        password = config.get("password")
-
-        if not username or not password:
-            raise ValueError("缺少登录凭证：username 和 password")
-
-        # 导航到登录页面
-        self.navigate_to_url()
-
-        # TODO: 根据具体法院网站实现登录和立案逻辑
-        # 以下是通用流程示例
-
-        # 1. 登录
-        self._login(username, password)
-
-        # 2. 导航到立案页面
-        # self.page.click('a[href*="filing"]')
-
-        # 3. 填写案件信息
-        if self.task.case:
-            self._fill_case_info()
-
-        # 4. 上传文件
-        file_paths = config.get("file_paths", [])
-        if file_paths:
-            self._upload_files(file_paths)
-
-        # 5. 提交立案
-        # self.page.click('button[type="submit"]')
-
-        # 6. 等待结果
-        # self.wait_for_selector('.success-message')
-
-        # 截图保存结果
-        screenshot_path = self.screenshot("filing_result")
-
-        return {
-            "case_id": self.task.case_id if self.task.case else None,
-            "screenshot": screenshot_path,
-            "message": "立案提交成功（需根据实际网站完善逻辑）",
-        }
-
-    def _login(self, username: str, password: str) -> None:  # pragma: no cover
-        """
-        登录法院网站
-
-        Args:
-            username: 用户名
-            password: 密码
-        """
-        logger.info("登录用户: %s", username)
-
-        # TODO: 根据实际网站调整选择器
-        # 示例：
-        # self.page.fill('input[name="username"]', username)
-        # self.page.fill('input[name="password"]', password)
-        # self.page.click('button[type="submit"]')
-        # self.page.wait_for_load_state("networkidle")
-
-        logger.info("登录成功")
-
-    def _fill_case_info(self) -> None:  # pragma: no cover
-        """填写案件信息"""
-        case = self.task.case
-        logger.info("填写案件信息: %s", case.name if case else "N/A")
-
-        # TODO: 根据实际网站调整字段映射
-        # 示例：
-        # self.page.fill('input[name="case_name"]', case.name)
-        # self.page.fill('input[name="cause_of_action"]', case.cause_of_action or '')
-        # self.page.fill('input[name="target_amount"]', str(case.target_amount or ''))
-
-        logger.info("案件信息填写完成")
-
-    def _upload_files(self, file_paths: list[Any]) -> None:
-        """
-        上传文件
-
-        Args:
-            file_paths: 文件路径列表
-        """
-        logger.info("上传 %s 个文件", len(file_paths))
-
-        # TODO: 根据实际网站调整上传逻辑
-        # 示例：
-        # for file_path in file_paths:
-        #     self.page.set_input_files('input[type="file"]', file_path)
-
-        logger.info("文件上传完成")
+        logger.error(
+            "法院立案插件缺失，任务 %s 拒绝执行（fail-closed，不产出伪造成功）",
+            getattr(self.task, "id", None),
+        )
+        raise BusinessException(
+            message="法院立案插件未安装，无法执行立案",
+            code="COURT_FILING_PLUGIN_MISSING",
+            errors={"hint": _PLUGIN_HINT},
+        )

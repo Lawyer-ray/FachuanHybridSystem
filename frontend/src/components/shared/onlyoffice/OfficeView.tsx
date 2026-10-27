@@ -113,6 +113,18 @@ export function OfficeView({
   const editorRef = useRef<EditorInstance | null>(null)
   /** 插件的 window（用于回发命令）。桥握手时从 e.source 取。 */
   const pluginWinRef = useRef<Window | null>(null)
+  /**
+   * 可信 origin（DS 的 origin）。
+   *
+   * 安全（2026-10-28 审计）：插件桥此前只认消息体里的 `source: 'fachuan-plugin'`，
+   * 而那是**攻击者可随意填写**的字符串；随后 sendToPlugin 用
+   * `postMessage(msg, '*')` 把选中的合同/案卷文本发给被劫持的 pluginWinRef，
+   * 反向可伪造 selection 把攻击者文本注入「划词直改」链路 → 进 AI 改写与文档落盘。
+   *
+   * 现在收/发都按 DS 的 origin 白名单校验：`e.origin` 不在白名单直接丢弃，
+   * 回发时用该 origin 作 targetOrigin（而非 '*'）。
+   */
+  const trustedOriginRef = useRef<string>('')
   const [state, setState] = useState<'loading' | 'ready' | 'error' | 'disabled'>('loading')
   const [reason, setReason] = useState('')
   /** 挂载轮次：DS 首挂偶发「无报错但 iframe 不创建」，换 key 重挂即好 */
@@ -138,6 +150,10 @@ export function OfficeView({
     function onMessage(e: MessageEvent) {
       const d = e.data as (PluginBridgeMessage & { source?: string }) | null
       if (!d || d.source !== 'fachuan-plugin') return
+      // origin 白名单：DS 未就绪时白名单为空 → 一律丢弃（不信任"先到的第一条"）。
+      // 消息体的 source 字段是调用方可随意填的，只有 e.origin 才是浏览器背书的事实。
+      const trusted = trustedOriginRef.current
+      if (!trusted || e.origin !== trusted) return
       // 首次握手时记住插件窗口，后续 sendToPlugin 才有地方发
       if (d.type === 'ready' || d.type === 'hello') pluginWinRef.current = e.source as Window
       onPluginMessage?.(d)
@@ -166,6 +182,13 @@ export function OfficeView({
           setState('disabled')
           setReason(payload.reason || 'OnlyOffice 未启用')
           return
+        }
+
+        // 记录 DS 的 origin 作为插件桥白名单（docserver_url 形如 http://127.0.0.1:9980）
+        try {
+          trustedOriginRef.current = new URL(payload.docserver_url).origin
+        } catch {
+          trustedOriginRef.current = ''
         }
 
         await loadApiJs(payload.docserver_url)
@@ -212,10 +235,13 @@ export function OfficeView({
                     // 上层据此提示「编辑器桥未就绪」，不要把异常浮到调用方。
                     const win = pluginWinRef.current
                     if (!win) return
+                    // 没有可信 origin 就不发（宁可不发，也不能用 '*' 把正文广播出去）
+                    const targetOrigin = trustedOriginRef.current
+                    if (!targetOrigin) return
                     const msg: PluginBridgeOutgoing = { source: 'fachuan-page', action }
                     if (typeof text === 'string') msg.text = text
                     if (payload) msg.payload = payload
-                    win.postMessage(msg, '*')
+                    win.postMessage(msg, targetOrigin)
                   },
                 })
               }

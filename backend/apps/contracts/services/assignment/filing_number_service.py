@@ -117,7 +117,7 @@ class FilingNumberService:
             created_year=created_year,
         )
 
-    def _get_next_contract_sequence(self, year: int) -> int:  # pragma: no cover
+    def _get_next_contract_sequence(self, year: int, *, _lock_held: bool = False) -> int:  # pragma: no cover
         """
         获取合同的下一个序号(并发安全)
 
@@ -137,29 +137,87 @@ class FilingNumberService:
         """
         from apps.contracts.models import Contract
 
+        # 调用方已在外层拿到锁时就不要再开新事务：pg_advisory_xact_lock 是
+        # **事务级**的，内层 atomic() 退出即释放，锁就白拿了（这正是原实现的
+        # bug——取号在 A 事务加锁、写回在 B 事务执行）。
+        if _lock_held:
+            return self._scan_max_sequence(Contract, year)
+
         with transaction.atomic():
-            if connection.vendor == "postgresql":
-                with connection.cursor() as cursor:
-                    # 事务级咨询锁：并发建档串行化（Django 聚合查询会丢弃
-                    # select_for_update，行级锁对聚合无效）
-                    cursor.execute("SELECT pg_advisory_xact_lock(%s)", [_CONTRACT_FILING_SEQUENCE_LOCK_KEY])
+            self._acquire_filing_lock()
+            return self._scan_max_sequence(Contract, year)
 
-            # 取当年已用最大序号而非 count：删除中间序号也不会与存量冲突
-            max_seq = 0
-            for filing_number in (
-                Contract.objects.filter(filing_number__startswith=f"{year}_", filing_number__isnull=False)
-                .exclude(filing_number="")
-                .values_list("filing_number", flat=True)
-            ):
-                parts = str(filing_number).split("_")
-                if not parts[-1].isdigit():
-                    # 脏数据防御：后缀不是纯数字（如手工录入的编号）时跳过
-                    continue
-                value = int(parts[-1])
-                if value > max_seq:
-                    max_seq = value
+    @staticmethod
+    def _acquire_filing_lock() -> None:
+        """获取合同建档序号的 PostgreSQL 事务级咨询锁（非 PG 环境为 no-op）。"""
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                # 事务级咨询锁：并发建档串行化（Django 聚合查询会丢弃
+                # select_for_update，行级锁对聚合无效）
+                cursor.execute("SELECT pg_advisory_xact_lock(%s)", [_CONTRACT_FILING_SEQUENCE_LOCK_KEY])
 
-            return max_seq + 1
+    @staticmethod
+    def _scan_max_sequence(contract_model: Any, year: int) -> int:
+        """取当年已用最大序号 + 1。"""
+        max_seq = 0
+        for filing_number in (
+            contract_model.objects.filter(filing_number__startswith=f"{year}_", filing_number__isnull=False)
+            .exclude(filing_number="")
+            .values_list("filing_number", flat=True)
+        ):
+            parts = str(filing_number).split("_")
+            if not parts[-1].isdigit():
+                # 脏数据防御：后缀不是纯数字（如手工录入的编号）时跳过
+                continue
+            value = int(parts[-1])
+            if value > max_seq:
+                max_seq = value
+        return max_seq + 1
+
+    def assign_filing_number(self, contract: Any, *, created_year: int | None = None) -> Any:
+        """为合同分配并**落库**建档编号（锁覆盖取号 + 写回，并发安全）。
+
+        这是唯一推荐的入口。原 `generate_contract_filing_number` +
+        调用方自己 `contract.save()` 的用法在并发下必撞唯一约束：
+        取号时加的 `pg_advisory_xact_lock` 是事务级的，生成方法返回时其
+        `atomic()` 已提交、锁已释放，真正的 UPDATE 发生在之后另一个事务里，
+        两个请求可以拿到同一个序号。
+
+        返回合同实际保存后的 `filing_number`。
+        """
+        from django.utils import timezone
+
+        year = created_year
+        if year is None:
+            specified = getattr(contract, "specified_date", None)
+            year = specified.year if specified else timezone.localdate().year
+
+        with transaction.atomic():
+            # 锁在整个事务内有效：读最大序号 → 写回 contract，中间不会插进别人
+            self._acquire_filing_lock()
+            # 拿到锁后重读一次，避免用调用方手里过期的 filing_number
+            fresh = type(contract).objects.filter(pk=contract.pk).values("filing_number").first()
+            existing = (fresh or {}).get("filing_number")
+            if existing:
+                contract.filing_number = existing
+                return existing
+
+            sequence = self._get_next_contract_sequence(year, _lock_held=True)
+            case_type_label = self._format_case_type_label(contract.case_type)
+            filing_number = f"{year}_{case_type_label}_HT_{sequence}"
+
+            contract.filing_number = filing_number
+            contract.save(update_fields=["filing_number"])
+
+        logger.info(
+            "分配合同建档编号成功",
+            extra={
+                "contract_id": contract.pk,
+                "filing_number": filing_number,
+                "action": "assign_contract_filing_number",
+            },
+        )
+        return filing_number
 
     def _format_case_type_label(self, case_type: str) -> Any:
         """

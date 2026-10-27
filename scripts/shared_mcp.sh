@@ -163,11 +163,36 @@ def registry_tools() -> list[str]:
     return sorted(t.name for t in asyncio.run(mcp.list_tools()))
 
 
+def _ops_token() -> str:
+    """为本机运维核对铸一个 token。
+
+    共享 MCP 在 HTTP 模式下强制每请求带 Authorization（不允许回退服务账号，
+    否则任意本机进程可越权读全所数据）。核对脚本属本机运维动作，用 .env 里
+    的 FACHUAN_USERNAME/PASSWORD（服务账号）走 /token/pair 换 access token。
+    """
+    import httpx
+
+    from mcp_server import config as mcp_config
+
+    resp = httpx.post(
+        f"{mcp_config.BASE_URL}/token/pair",
+        json={"username": mcp_config.USERNAME, "password": mcp_config.PASSWORD},
+        timeout=30,
+        trust_env=False,
+    )
+    resp.raise_for_status()
+    return str(resp.json()["access"])
+
+
 async def live_tools() -> list[str]:
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
-    async with streamable_http_client(URL) as streams:
+    import httpx2
+
+    token = _ops_token()
+    http_client = httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"})
+    async with http_client, streamable_http_client(URL, http_client=http_client) as streams:
         read, write = streams[0], streams[1]
         async with ClientSession(read, write) as session:
             await session.initialize()
