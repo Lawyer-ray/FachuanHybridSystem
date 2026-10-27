@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 
 import { ReviewLaunchDrawer } from '@/features/contract-review'
+import { projectReview } from '@/app/paths'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl } from '../../api'
 import { FilePreview } from './FilePreview'
@@ -107,7 +108,7 @@ export function ContractFileOverlays({
       onClose={onReviewClose}
       onStarted={(taskId) => {
         onReviewClose()
-        void navigate(`/projects/${ownerId}/review/${taskId}`)
+        void navigate(projectReview(ownerId, taskId))
       }}
     />
   )

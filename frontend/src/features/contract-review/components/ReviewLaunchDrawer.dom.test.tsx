@@ -11,6 +11,7 @@
  * 为什么必须先识别：合同可能四方、我方也可能是乙方或丙方（代表客户股东
  * 去审尤其如此）。先给「甲方/乙方」两个空标签让人选，等于让他猜。
  */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -42,21 +43,39 @@ function uploaded(parties: Record<string, string> = FOUR_PARTIES) {
   return { task_id: 'task-1', status: 'parties_identified', contract_title: '设备销售合同', parties }
 }
 
+/**
+ * 抽屉的「上传 + 识别」阶段由 react-query mutation 承载（旧实现是 useEffect +
+ * runningRef 守卫），所以渲染必须包一层 QueryClientProvider——与 use-revisions
+ * 测试同一套路。retry 关掉，否则失败用例要等退避。
+ */
 function setup(over: Partial<Parameters<typeof ReviewLaunchDrawer>[0]> = {}) {
   const onStarted = vi.fn()
   const onClose = vi.fn()
   const loadFile = vi.fn().mockResolvedValue(new ArrayBuffer(8))
-  render(
-    <ReviewLaunchDrawer
-      open
-      fileName="设备销售合同.docx"
-      loadFile={loadFile}
-      onClose={onClose}
-      onStarted={onStarted}
-      {...over}
-    />,
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const ui = (props: Partial<Parameters<typeof ReviewLaunchDrawer>[0]>) => (
+    <QueryClientProvider client={queryClient}>
+      <ReviewLaunchDrawer
+        open
+        fileName="设备销售合同.docx"
+        loadFile={loadFile}
+        onClose={onClose}
+        onStarted={onStarted}
+        {...props}
+      />
+    </QueryClientProvider>
   )
-  return { onStarted, onClose, loadFile }
+  const { rerender } = render(ui(over))
+  return {
+    onStarted,
+    onClose,
+    loadFile,
+    queryClient,
+    /** 模拟同一个抽屉里换了文件（调用方原地换 fileName，不卸载抽屉） */
+    rerenderWith: (props: Partial<Parameters<typeof ReviewLaunchDrawer>[0]>) => rerender(ui({ ...over, ...props })),
+  }
 }
 
 beforeEach(() => {
@@ -183,5 +202,49 @@ describe('ReviewLaunchDrawer · 提交', () => {
     const { onClose } = setup()
     fireEvent.click(screen.getByRole('button', { name: '取消' }))
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+describe('ReviewLaunchDrawer · 模态语义', () => {
+  it('抽屉是 role=dialog + aria-modal，标题可被辅助技术读到', async () => {
+    setup()
+    const dialog = screen.getByRole('dialog', { name: '发起审查' })
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    await waitFor(() => expect(screen.getByText('甲方')).toBeTruthy())
+  })
+
+  it('Esc 关闭抽屉', async () => {
+    const { onClose } = setup()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('Tab 到末尾后回到抽屉内第一个可聚焦元素（焦点不跑到背后页面）', async () => {
+    setup()
+    await waitFor(() => expect(screen.getByText('甲方')).toBeTruthy())
+    const dialog = screen.getByRole('dialog')
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), textarea'))
+    const last = focusables[focusables.length - 1]!
+    last.focus()
+    fireEvent.keyDown(window, { key: 'Tab' })
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    expect(document.activeElement).toBe(focusables[0])
+  })
+})
+
+describe('ReviewLaunchDrawer · 换文件必须重新识别', () => {
+  it('同一抽屉换 fileName 后重新上传，而不是沿用上一份合同的识别结果', async () => {
+    // 旧实现：runningRef 只在错误分支复位，成功路径永不复位 —— 换文件后静默不重传
+    uploadMock
+      .mockResolvedValueOnce(uploaded({ party_a: '旧合同甲方有限公司', party_b: '旧合同乙方有限公司' }))
+      .mockResolvedValueOnce(uploaded({ party_a: '新合同甲方有限公司', party_b: '新合同乙方有限公司' }))
+
+    const { rerenderWith } = setup()
+    await waitFor(() => expect(screen.getByText('旧合同甲方有限公司')).toBeTruthy())
+
+    rerenderWith({ fileName: '另一份合同.docx' })
+    await waitFor(() => expect(screen.getByText('新合同甲方有限公司')).toBeTruthy())
+    expect(screen.queryByText('旧合同甲方有限公司')).toBeNull()
+    expect(uploadMock).toHaveBeenCalledTimes(2)
   })
 })
