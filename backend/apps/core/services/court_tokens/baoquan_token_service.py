@@ -47,7 +47,7 @@ class BaoquanTokenService:  # pragma: no cover
             token_prefix=self._BAOQUAN_TOKEN_PREFIX,
         )
         if token_info:
-            logger.info(f"✅ 找到现有有效保全 Token: {token_info.account}")
+            logger.info("✅ 找到现有有效保全 Token: %s", token_info.account)
             return token_info.token
 
         logger.info("无现有有效保全 Token,将自动获取")
@@ -65,7 +65,7 @@ class BaoquanTokenService:  # pragma: no cover
         password: str,
         credential_id: int | None = None,
     ) -> str:
-        logger.info(f"使用账号 {account} 登录获取保全系统 Token")
+        logger.info("使用账号 %s 登录获取保全系统 Token", account)
 
         # ── 优先尝试HTTP 直接登录（插件可用时）──
         # 插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
@@ -83,7 +83,7 @@ class BaoquanTokenService:  # pragma: no cover
                 expires_in=3600,
                 credential_id=credential_id,
             )
-            logger.info(f"✅ 保全 Token 已保存(HTTP 快路径): {account}")
+            logger.info("✅ 保全 Token 已保存(HTTP 快路径): %s", account)
             return http_token
 
         # ── 回退: Playwright 浏览器流程 ──
@@ -129,7 +129,7 @@ class BaoquanTokenService:  # pragma: no cover
             expires_in=3600,
             credential_id=credential_id,
         )
-        logger.info(f"✅ 保全 Token 已保存: {account}")
+        logger.info("✅ 保全 Token 已保存: %s", account)
         return token
 
     async def _try_http_baoquan_token(self, account: str, password: str) -> str | None:  # pragma: no cover

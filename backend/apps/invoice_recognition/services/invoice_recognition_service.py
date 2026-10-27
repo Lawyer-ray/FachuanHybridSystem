@@ -190,12 +190,7 @@ class InvoiceRecognitionService:
                 record.save(update_fields=["is_duplicate", "duplicate_of_id"])
 
             except Exception as exc:
-                logger.error(
-                    "发票识别失败: %s, 文件: %s",
-                    exc,
-                    getattr(file, "name", "unknown"),
-                    exc_info=True,
-                )
+                logger.exception("发票识别失败: %s, 文件: %s", exc, getattr(file, "name", "unknown"))
                 if record is not None:
                     record.status = InvoiceRecordStatus.FAILED
                     record.save(update_fields=["status"])

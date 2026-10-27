@@ -33,7 +33,7 @@ def _mark_entry_failure(entry: str, sms_id: int | str, error: BaseException) -> 
             )
         )
     except Exception:
-        logger.error("法院短信任务入口失败落库失败: entry=%s, SMS ID=%s", entry, sms_id, exc_info=True)
+        logger.exception("法院短信任务入口失败落库失败: entry=%s, SMS ID=%s", entry, sms_id)
         return
     if updated:
         logger.error("法院短信任务入口失败已落库: entry=%s, SMS ID=%s, 错误: %s", entry, sms_id, error)

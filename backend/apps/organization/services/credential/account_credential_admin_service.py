@@ -176,14 +176,13 @@ class AccountCredentialAdminService:
                     result = future.result()
                 except Exception as e:
                     credential = futures[future]
-                    logger.error(
+                    logger.exception(
                         "并发登录任务异常",
                         extra={
                             "credential_id": credential.id,
                             "account": credential.account,
                             "error": str(e),
                         },
-                        exc_info=True,
                     )
                     result = LoginResult(success=False, duration=0, error_message=str(e))
                 results.append(result)
@@ -266,7 +265,7 @@ class AccountCredentialAdminService:
             end_time = timezone.now()
             duration = (end_time - start_time).total_seconds()
 
-            logger.error(
+            logger.exception(
                 "批量登录失败",
                 extra={
                     "admin_user": admin_user,
@@ -275,7 +274,6 @@ class AccountCredentialAdminService:
                     "error": str(e),
                     "duration": duration,
                 },
-                exc_info=True,
             )
 
             return self._finish_login(

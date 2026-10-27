@@ -98,7 +98,7 @@ def export_chat_record_task(task_id: str) -> Any:  # pragma: no cover
 
         return {"task_id": task_id, "status": "success", "export_type": task.export_type}
     except Exception as e:
-        logger.error("导出失败", extra={"task_id": task_id, "error": str(e)}, exc_info=True)
+        logger.exception("导出失败", extra={"task_id": task_id, "error": str(e)})
         export_task_svc.update_export_progress(
             task_id=task_id,
             status=ExportStatus.FAILED,
@@ -329,7 +329,7 @@ def extract_recording_frames_task(  # pragma: no cover
         )
         return {"recording_id": recording_id, "status": "success"}
     except Exception as e:
-        logger.error("录屏抽帧失败", extra={"recording_id": recording_id, "error": str(e)}, exc_info=True)
+        logger.exception("录屏抽帧失败", extra={"recording_id": recording_id, "error": str(e)})
         facade.update_extract_progress(
             recording_id=recording_id,
             status=ExtractStatus.FAILED,

@@ -47,7 +47,7 @@ def get_category_configs(category: str) -> dict[str, Any]:
         result: dict[str, Any] = service.get_category_configs(category)
         return result
     except Exception as e:
-        logger.debug(f"从 SystemConfig 批量获取 {category} 配置失败: {e}")
+        logger.debug("从 SystemConfig 批量获取 %s 配置失败: %s", category, e)
         return {}
 
 
@@ -88,7 +88,7 @@ def get_system_config_value(key: str, default: Any | None = None) -> Any:
         service = SystemConfigService()
         return service.get_value(key, default=default if default is not None else "")
     except Exception as e:
-        logger.debug(f"从 SystemConfig 获取配置 {key} 失败: {e}")
+        logger.debug("从 SystemConfig 获取配置 %s 失败: %s", key, e)
         return default
 
 

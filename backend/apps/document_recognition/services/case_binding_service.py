@@ -86,7 +86,8 @@ class CaseBindingService:
             return cases[0].id
         except Exception as e:
             logger.error(
-                f"查找案件失败：{e}",
+                "查找案件失败：%s",
+                e,
                 extra={"action": "find_case_by_number", "case_number": case_number, "error": str(e)},
             )
             return None
@@ -235,7 +236,8 @@ class CaseBindingService:
             return BindingResult.failure_result(message=str(e), error_code=CASE_NOT_FOUND)
         except Exception as e:
             logger.error(
-                f"绑定失败：{e}",
+                "绑定失败：%s",
+                e,
                 extra={
                     "action": "bind_document_to_case",
                     "case_id": case_id,

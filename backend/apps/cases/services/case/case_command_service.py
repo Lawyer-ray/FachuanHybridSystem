@@ -150,12 +150,11 @@ class CaseCommandService(PermissionMixin):
                 case.save(update_fields=["filing_number"])
         except Exception as e:
             case.filing_number = None
-            logger.error(
+            logger.exception(
                 "案件 %s 建案时生成建档编号失败（编号留空，可在 admin 保存时自愈）: %s",
                 case.id,
                 e,
                 extra={"case_id": case.id, "action": "create_case_fill_filing_number"},
-                exc_info=True,
             )
 
     @transaction.atomic

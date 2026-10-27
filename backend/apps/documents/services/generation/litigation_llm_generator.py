@@ -66,18 +66,14 @@ class LitigationLLMGenerator:
             logger.info("起诉状生成成功")
             return result
         except (ValidationError, StructuredValidationError) as e:
-            logger.error(
-                "起诉状结构验证失败",
-                extra={"error": str(e), "error_type": "ValidationError"},
-                exc_info=True,
-            )
+            logger.exception("起诉状结构验证失败", extra={"error": str(e), "error_type": "ValidationError"})
             raise ValidationException(
                 message="起诉状结构验证失败:%(e)s" % {"e": e},
                 code="COMPLAINT_VALIDATION_FAILED",
                 errors={"detail": str(e)},
             ) from e
         except Exception as e:
-            logger.error("起诉状生成失败", extra={"error": str(e), "error_type": type(e).__name__}, exc_info=True)
+            logger.exception("起诉状生成失败", extra={"error": str(e), "error_type": type(e).__name__})
             if isinstance(e, ValidationException):
                 raise
             raise ValidationException(
@@ -94,18 +90,14 @@ class LitigationLLMGenerator:
             logger.info("答辩状生成成功")
             return result
         except (ValidationError, StructuredValidationError) as e:
-            logger.error(
-                "答辩状结构验证失败",
-                extra={"error": str(e), "error_type": "ValidationError"},
-                exc_info=True,
-            )
+            logger.exception("答辩状结构验证失败", extra={"error": str(e), "error_type": "ValidationError"})
             raise ValidationException(
                 message="答辩状结构验证失败:%(e)s" % {"e": e},
                 code="DEFENSE_VALIDATION_FAILED",
                 errors={"detail": str(e)},
             ) from e
         except Exception as e:
-            logger.error("答辩状生成失败", extra={"error": str(e), "error_type": type(e).__name__}, exc_info=True)
+            logger.exception("答辩状生成失败", extra={"error": str(e), "error_type": type(e).__name__})
             if isinstance(e, ValidationException):
                 raise
             raise ValidationException(

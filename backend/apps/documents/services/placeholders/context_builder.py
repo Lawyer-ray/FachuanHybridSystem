@@ -65,7 +65,7 @@ class EnhancedContextBuilder:
                     context.update(owned_result)
                     logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(owned_result))
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "占位符服务执行失败: %s",
                     service.name,
                     extra={
@@ -73,7 +73,6 @@ class EnhancedContextBuilder:
                         "error": str(e),
                         "context_keys": list(context_data.keys()),
                     },
-                    exc_info=True,
                 )
                 context.update(self._owned_result(service, dict.fromkeys(service_keys, PLACEHOLDER_FALLBACK_VALUE)))
                 # 继续执行其他服务,不中断整个流程
@@ -156,7 +155,7 @@ class EnhancedContextBuilder:
             if isinstance(e, ValidationException):
                 raise
 
-            logger.error("构建合同上下文失败: %s", e, extra={"contract_id": contract_id}, exc_info=True)
+            logger.exception("构建合同上下文失败: %s", e, extra={"contract_id": contract_id})
             raise ValidationException(
                 message="构建合同上下文失败",
                 code="CONTEXT_BUILD_ERROR",

@@ -79,7 +79,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):  # pragma: no c
             formset.save_m2m()
 
         except Exception as e:
-            logger.error("保存过程出错", extra={"error": str(e)}, exc_info=True)
+            logger.exception("保存过程出错", extra={"error": str(e)})
             messages.error(request, "保存过程出错: %(e)s" % {"e": e})
             raise
 
@@ -102,7 +102,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):  # pragma: no c
             try:
                 obj.save()
             except Exception as e:
-                logger.error("保存失败", extra={"error": str(e)}, exc_info=True)
+                logger.exception("保存失败", extra={"error": str(e)})
                 messages.error(request, "保存失败: %(e)s" % {"e": e})
                 raise
         return max_order

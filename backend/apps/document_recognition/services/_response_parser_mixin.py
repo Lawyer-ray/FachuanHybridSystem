@@ -25,7 +25,7 @@ class ResponseParserMixin:
             content = response["message"]["content"]
             parsed = self._extract_json_from_response(content)
             if parsed is None:
-                logger.warning(f"无法从响应中提取 JSON: {content[:200]}")
+                logger.warning("无法从响应中提取 JSON: %s", content[:200])
                 return result
             case_number = parsed.get("case_number")
             if case_number and case_number.lower() != "null":
@@ -35,7 +35,7 @@ class ResponseParserMixin:
                 result["court_time"] = self._parse_datetime(court_time)
             return result
         except Exception as e:
-            logger.warning(f"解析传票响应失败: {e!s}")
+            logger.warning("解析传票响应失败: %s", e)
             return result
 
     def _parse_execution_response(self, response: dict[str, Any]) -> dict[str, Any]:
@@ -48,7 +48,7 @@ class ResponseParserMixin:
             content = response["message"]["content"]
             parsed = self._extract_json_from_response(content)
             if parsed is None:
-                logger.warning(f"无法从响应中提取 JSON: {content[:200]}")
+                logger.warning("无法从响应中提取 JSON: %s", content[:200])
                 return result
             case_number = parsed.get("case_number")
             if case_number and case_number.lower() != "null":
@@ -58,7 +58,7 @@ class ResponseParserMixin:
                 result["preservation_deadline"] = self._parse_date(deadline)
             return result
         except Exception as e:
-            logger.warning(f"解析执行裁定书响应失败: {e!s}")
+            logger.warning("解析执行裁定书响应失败: %s", e)
             return result
 
     def _extract_json_from_response(self, content: str) -> dict[str, Any] | None:
@@ -126,7 +126,7 @@ class ResponseParserMixin:
                 return datetime(year, month, day, hour, minute)
             except ValueError:
                 pass
-        logger.warning(f"无法解析日期时间: {datetime_str}")
+        logger.warning("无法解析日期时间: %s", datetime_str)
         return None
 
     def _parse_date(self, date_str: str) -> datetime | None:
@@ -148,5 +148,5 @@ class ResponseParserMixin:
                 return datetime(year, month, day)
             except ValueError:
                 pass
-        logger.warning(f"无法解析日期: {date_str}")
+        logger.warning("无法解析日期: %s", date_str)
         return None

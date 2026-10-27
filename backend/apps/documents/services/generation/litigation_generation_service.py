@@ -371,7 +371,7 @@ class LitigationGenerationService:
             return rendered_content
 
         except Exception as e:
-            logger.error("模板渲染失败: %s", e, exc_info=True)
+            logger.exception("模板渲染失败: %s", e)
             raise ValidationException(
                 message="模板渲染失败: %(e)s" % {"e": e}, code=TEMPLATE_RENDER_ERROR, errors={"error": str(e)}
             ) from e

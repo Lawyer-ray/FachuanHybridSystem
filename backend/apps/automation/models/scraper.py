@@ -139,10 +139,9 @@ class ScraperTask(LifecycleModel):
                 task_id,
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "❌ 提交下载完成信号处理任务失败: Task ID=%s, 错误: %s",
                 self.id,
                 e,
                 extra={"action": "download_signal_submit_failed", "task_id": self.id, "error": str(e)},
-                exc_info=True,
             )

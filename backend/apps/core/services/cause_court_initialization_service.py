@@ -170,7 +170,7 @@ class CauseCourtInitializationService:  # pragma: no cover
 
         # 3. 收集所有案由编码(用于检测废弃的案由)
         api_codes = self._collect_cause_codes(all_cause_items)
-        logger.info(f"API 返回 {len(api_codes)} 个案由编码")
+        logger.info("API 返回 %s 个案由编码", len(api_codes))
 
         # 4. 导入数据到数据库
         result = await sync_to_async(self._import_causes_to_db)(all_cause_items)
@@ -180,8 +180,12 @@ class CauseCourtInitializationService:  # pragma: no cover
         result = result + deprecate_result
 
         logger.info(
-            f"案由数据初始化完成: 新增 {result.created}, 更新 {result.updated}, "
-            f"废弃 {result.deprecated}, 删除 {result.deleted}, 失败 {result.failed}"
+            "案由数据初始化完成: 新增 %s, 更新 %s, 废弃 %s, 删除 %s, 失败 %s",
+            result.created,
+            result.updated,
+            result.deprecated,
+            result.deleted,
+            result.failed,
         )
 
         return result
@@ -226,7 +230,7 @@ class CauseCourtInitializationService:  # pragma: no cover
             token_prefix="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9",
         )
         if token_info:
-            logger.info(f"✅ 找到现有有效一张网 Token: {token_info.account}")
+            logger.info("✅ 找到现有有效一张网 Token: %s", token_info.account)
             return token_info.token
 
         # 3. 如果没有有效 Token,需要登录获取
@@ -272,7 +276,7 @@ class CauseCourtInitializationService:  # pragma: no cover
         account = credential.account
         password = credential.password
 
-        logger.info(f"使用账号 {account} 登录获取一张网 Token")
+        logger.info("使用账号 %s 登录获取一张网 Token", account)
 
         def _do_login() -> str | None:  # pragma: no cover
             """同步执行登录"""
@@ -311,7 +315,7 @@ class CauseCourtInitializationService:  # pragma: no cover
             expires_in=3600,  # 一张网 Token 有效期 1 小时
         )
 
-        logger.info(f"✅ 一张网 Token 已保存: {account}")
+        logger.info("✅ 一张网 Token 已保存: %s", account)
         return token
 
     async def _get_token(
@@ -395,10 +399,10 @@ class CauseCourtInitializationService:  # pragma: no cover
 
             if created:
                 result.created += 1
-                logger.debug(f"创建案由: {item.code} - {item.name}")
+                logger.debug("创建案由: %s - %s", item.code, item.name)
             else:
                 result.updated += 1
-                logger.debug(f"更新案由: {item.code} - {item.name}")
+                logger.debug("更新案由: %s - %s", item.code, item.name)
 
             # 递归处理子级
             for child_item in item.children:
@@ -448,12 +452,12 @@ class CauseCourtInitializationService:  # pragma: no cover
                     cause.save()
                     result.deprecated += 1
                     result.warnings.append(f"案由 {cause.code} ({cause.name}) 已废弃,但保留因有关联模板")
-                    logger.info(f"标记案由为废弃: {cause.code} - {cause.name}")
+                    logger.info("标记案由为废弃: %s - %s", cause.code, cause.name)
                 else:
                     # 无关联模板,物理删除
                     cause.delete()
                     result.deleted += 1
-                    logger.info(f"删除案由: {cause.code} - {cause.name}")
+                    logger.info("删除案由: %s - %s", cause.code, cause.name)
 
             except Exception as e:
                 result.failed += 1
@@ -511,7 +515,7 @@ class CauseCourtInitializationService:  # pragma: no cover
 
         # 4. 收集所有法院编码(用于检测删除的法院)
         api_codes = self._collect_court_codes(court_items)
-        logger.info(f"API 返回 {len(api_codes)} 个法院编码")
+        logger.info("API 返回 %s 个法院编码", len(api_codes))
 
         # 5. 导入数据到数据库
         result = await sync_to_async(self._import_courts_to_db)(court_items)
@@ -521,8 +525,11 @@ class CauseCourtInitializationService:  # pragma: no cover
         result = result + delete_result
 
         logger.info(
-            f"法院数据初始化完成: 新增 {result.created}, 更新 {result.updated}, "
-            f"删除 {result.deleted}, 失败 {result.failed}"
+            "法院数据初始化完成: 新增 %s, 更新 %s, 删除 %s, 失败 %s",
+            result.created,
+            result.updated,
+            result.deleted,
+            result.failed,
         )
 
         return result
@@ -597,10 +604,10 @@ class CauseCourtInitializationService:  # pragma: no cover
 
             if created:
                 result.created += 1
-                logger.debug(f"创建法院: {item.code} - {item.name}")
+                logger.debug("创建法院: %s - %s", item.code, item.name)
             else:
                 result.updated += 1
-                logger.debug(f"更新法院: {item.code} - {item.name}")
+                logger.debug("更新法院: %s - %s", item.code, item.name)
 
             # 递归处理子级
             for child_item in item.children:
@@ -639,7 +646,7 @@ class CauseCourtInitializationService:  # pragma: no cover
             try:
                 court.delete()
                 result.deleted += 1
-                logger.info(f"删除法院: {court.code} - {court.name}")
+                logger.info("删除法院: %s - %s", court.code, court.name)
             except Exception as e:
                 result.failed += 1
                 error_msg = f"删除法院 {court.code} 失败: {e}"

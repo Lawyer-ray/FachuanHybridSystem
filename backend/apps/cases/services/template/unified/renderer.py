@@ -35,9 +35,8 @@ class DocxRenderer:
             buffer.seek(0)
             return buffer.getvalue()
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "模板渲染失败",
-                exc_info=True,
                 extra={
                     "template_path": str(template_path),
                     "error": str(e),

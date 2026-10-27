@@ -47,7 +47,7 @@ async def _crawl_source_async(source_id: int, limit: int | None) -> dict[str, An
         logger.info("[劳动仲裁] 来源 %s 爬取完成: %s", source_id, stats)
         return stats
     except Exception as exc:
-        logger.error("[劳动仲裁] 来源 %s 爬取失败: %s", source_id, exc, exc_info=True)
+        logger.exception("[劳动仲裁] 来源 %s 爬取失败: %s", source_id, exc)
         source.last_crawl_at = timezone.now()
         source.last_crawl_status = "failed"
         source.last_crawl_summary = {"error": str(exc)[:2000]}

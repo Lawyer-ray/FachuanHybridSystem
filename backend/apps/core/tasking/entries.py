@@ -38,7 +38,7 @@ def run_task(
     try:
         return fn(*(args or []), **(kwargs or {}))
     except Exception as e:
-        logger.error(
+        logger.exception(
             "task_failed",
             extra={
                 "target": target,
@@ -48,6 +48,5 @@ def run_task(
                 "error": str(e),
                 **(task_ctx.extra or {}),
             },
-            exc_info=True,
         )
         raise

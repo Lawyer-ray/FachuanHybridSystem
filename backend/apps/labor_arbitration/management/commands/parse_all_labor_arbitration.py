@@ -147,7 +147,7 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.ERROR(f"  [{idx}/{total}] ✗ doc_id={doc_id}: {result.get('error')}"))
             except Exception as exc:
                 failed += 1
-                logger.error("[劳动仲裁] 前台解析 doc_id=%s 失败: %s", doc_id, exc, exc_info=True)
+                logger.exception("[劳动仲裁] 前台解析 doc_id=%s 失败: %s", doc_id, exc)
                 self.stdout.write(self.style.ERROR(f"  [{idx}/{total}] ✗ doc_id={doc_id}: {exc}"))
 
             # 进度提示

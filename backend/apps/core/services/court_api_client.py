@@ -174,11 +174,11 @@ class CourtApiClient:
                             errors={"response": str(data)[:500]},
                         )
 
-                    logger.info(f"成功获取{case_type}案由数据")
+                    logger.info("成功获取%s案由数据", case_type)
                     return cast(dict[str, Any], data)
 
                 except httpx.TimeoutException:
-                    logger.warning(f"{case_type}案由 API 请求超时,第 {attempt + 1} 次重试")
+                    logger.warning("%s案由 API 请求超时,第 %s 次重试", case_type, attempt + 1)
                     if attempt == self.MAX_RETRIES - 1:
                         raise ValidationException(
                             message=f"{case_type}案由 API 请求超时",
@@ -195,7 +195,7 @@ class CourtApiClient:
                     except (AttributeError, UnicodeDecodeError):
                         response_text = "<无法读取响应体>"
 
-                    logger.error(f"{case_type}案由 API 请求失败: HTTP {e.response.status_code}")
+                    logger.error("%s案由 API 请求失败: HTTP %s", case_type, e.response.status_code)
                     raise ValidationException(
                         message=f"{case_type}案由 API 请求失败: HTTP {e.response.status_code}",
                         errors={
@@ -206,7 +206,7 @@ class CourtApiClient:
                     ) from None
 
                 except httpx.RequestError as e:
-                    logger.error(f"{case_type}案由 API 请求错误: {e}")
+                    logger.error("%s案由 API 请求错误: %s", case_type, e)
                     raise ValidationException(
                         message=f"{case_type}案由 API 请求错误: {e}",
                         errors={"url": self.CAUSE_API_URL, "lbs": lbs},
@@ -237,9 +237,9 @@ class CourtApiClient:
         for (lbs, case_type), response in zip(self.LBS_TYPE_MAP.items(), results):
             causes = self.parse_cause_response(response, lbs, case_type)
             all_causes.extend(causes)
-            logger.info(f"{case_type}案由获取完成,共 {len(causes)} 条顶级记录")
+            logger.info("%s案由获取完成,共 %s 条顶级记录", case_type, len(causes))
 
-        logger.info(f"所有案由获取完成,共 {len(all_causes)} 条顶级记录")
+        logger.info("所有案由获取完成,共 %s 条顶级记录", len(all_causes))
         return all_causes
 
     async def fetch_courts(self, token: str) -> dict[str, Any]:  # pragma: no cover
@@ -283,7 +283,7 @@ class CourtApiClient:
                     return cast(dict[str, Any], data)
 
                 except httpx.TimeoutException:
-                    logger.warning(f"法院 API 请求超时,第 {attempt + 1} 次重试")
+                    logger.warning("法院 API 请求超时,第 %s 次重试", attempt + 1)
                     if attempt == self.MAX_RETRIES - 1:
                         raise ValidationException(
                             message="法院 API 请求超时",
@@ -294,7 +294,7 @@ class CourtApiClient:
                     await asyncio.sleep(self.RETRY_DELAY)
 
                 except httpx.HTTPStatusError as e:
-                    logger.error(f"法院 API 请求失败: {e.response.status_code}")
+                    logger.error("法院 API 请求失败: %s", e.response.status_code)
                     raise ValidationException(
                         message=f"法院 API 请求失败: HTTP {e.response.status_code}",
                         errors={
@@ -304,7 +304,7 @@ class CourtApiClient:
                     ) from e
 
                 except httpx.RequestError as e:
-                    logger.error(f"法院 API 请求错误: {e}")
+                    logger.error("法院 API 请求错误: %s", e)
                     raise ValidationException(
                         message=f"法院 API 请求错误: {e}",
                         errors={"url": self.COURT_API_URL},
@@ -346,7 +346,7 @@ class CourtApiClient:
             data_list = inner_data.get(lbs, []) if isinstance(inner_data, dict) else []
 
             if not data_list:
-                logger.warning(f"案由响应中未找到 data.data.{lbs} 字段")
+                logger.warning("案由响应中未找到 data.data.%s 字段", lbs)
                 return []
 
             # 获取需要跳过的根节点名称
@@ -361,7 +361,7 @@ class CourtApiClient:
 
                 # 完全排除的节点(包括其子节点)
                 if item_name in excluded_names:
-                    logger.info(f"排除节点 '{item_name}' 及其所有子节点")
+                    logger.info("排除节点 '%s' 及其所有子节点", item_name)
                     continue
 
                 if item_name in wrapper_names:
@@ -371,22 +371,22 @@ class CourtApiClient:
                     filtered_children = [c for c in children if c.get("name", "") not in excluded_names]
                     excluded_count = len(children) - len(filtered_children)
                     if excluded_count > 0:
-                        logger.info(f"从 '{item_name}' 的子节点中排除了 {excluded_count} 个节点")
+                        logger.info("从 '%s' 的子节点中排除了 %s 个节点", item_name, excluded_count)
                     actual_data_list.extend(filtered_children)
-                    logger.info(f"跳过包装层 '{item_name}',取其 {len(filtered_children)} 个子节点")
+                    logger.info("跳过包装层 '%s',取其 %s 个子节点", item_name, len(filtered_children))
                 else:
                     # 不是包装层,直接使用
                     actual_data_list.append(item)
 
             if not actual_data_list:
-                logger.warning(f"{case_type}案由解析后数据为空")
+                logger.warning("%s案由解析后数据为空", case_type)
                 return []
 
             result = self._parse_cause_items(actual_data_list, case_type, level=1)
             return result
 
         except (KeyError, TypeError) as e:
-            logger.error(f"解析{case_type}案由响应失败: {e}")
+            logger.error("解析%s案由响应失败: %s", case_type, e)
             raise ValidationException(
                 message=f"解析{case_type}案由响应失败: {e}",
                 errors={"response": str(response_data)[:500]},
@@ -434,11 +434,11 @@ class CourtApiClient:
                 return []
 
             result = self._parse_court_items(court_list, level=1)
-            logger.info(f"解析法院数据完成,共 {len(result)} 条顶级记录")
+            logger.info("解析法院数据完成,共 %s 条顶级记录", len(result))
             return result
 
         except (KeyError, TypeError) as e:
-            logger.error(f"解析法院响应失败: {e}")
+            logger.error("解析法院响应失败: %s", e)
             raise ValidationException(
                 message=f"解析法院响应失败: {e}",
                 errors={"response": response_data},

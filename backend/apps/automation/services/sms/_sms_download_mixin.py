@@ -408,12 +408,11 @@ class SMSDownloadMixin:
                     if self._handle_sms_download_failed(sms, scraper_task):
                         continue
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "❌ 处理下载完成信号失败: Task ID=%s, 错误: %s",
                 scraper_task.id,
                 e,
                 extra={"action": "download_signal_failed", "task_id": scraper_task.id, "error": str(e)},
-                exc_info=True,
             )
 
     def _handle_sms_download_success(self, sms: CourtSMS, scraper_task: ScraperTask) -> None:  # pragma: no cover

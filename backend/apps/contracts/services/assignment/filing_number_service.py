@@ -83,7 +83,7 @@ class FilingNumberService:
         except ValidationException:
             raise
         except Exception as e:
-            logger.error("生成合同建档编号失败: %s", e, extra={"contract_id": contract_id}, exc_info=True)
+            logger.exception("生成合同建档编号失败: %s", e, extra={"contract_id": contract_id})
             raise ConflictError(
                 message="建档编号生成失败", code=FILING_NUMBER_GENERATION_FAILED, errors={"detail": str(e)}
             ) from e

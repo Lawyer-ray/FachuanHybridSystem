@@ -90,7 +90,7 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
             result = scraper.execute()
             logger.info("任务 %s 执行完成: %s", task_id, result)
         except Exception as e:
-            logger.error("任务 %s 执行异常: %s", task_id, e, exc_info=True)
+            logger.exception("任务 %s 执行异常: %s", task_id, e)
 
             # 并发防御：Django-Q 重投递与恢复服务可能并发处理同一任务，
             # 读改写 retry_count 会互相覆盖导致计数丢失。先刷新拿最新计数
@@ -255,7 +255,7 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
             logger.info("询价任务 #%s 记录已不存在（可能已被删除），跳过", quote_id)
             return {"quote_id": quote_id, "status": "skipped", "message": "记录已删除"}
 
-        logger.error("❌ 询价任务 #%s 执行失败: %s", quote_id, e, exc_info=True)
+        logger.exception("❌ 询价任务 #%s 执行失败: %s", quote_id, e)
 
         try:
             quote = PreservationQuote.objects.get(id=quote_id)

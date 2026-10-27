@@ -43,14 +43,16 @@ def _handle_stream_error(
     errors.append((name, e))
     if isinstance(e, _RETRIABLE_ERRORS):
         logger.warning(
-            f"后端 {log_prefix} 调用失败,尝试下一个",
+            "后端 %s 调用失败,尝试下一个",
+            log_prefix,
             extra={"backend": name, "error": str(e), "error_type": type(e).__name__},
         )
         if not fallback:
             raise
     else:
         logger.warning(
-            f"后端 {log_prefix} 调用发生未知错误",
+            "后端 %s 调用发生未知错误",
+            log_prefix,
             extra={"backend": name, "error": str(e), "error_type": type(e).__name__},
         )
         if not fallback:

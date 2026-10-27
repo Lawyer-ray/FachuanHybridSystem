@@ -95,7 +95,7 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         return {"task_id": task_id, "status": "success", "document_type": task.document_type}
 
     except Exception as exc:
-        logger.error("文书识别任务 #%s 失败: %s", task_id, exc, exc_info=True)
+        logger.exception("文书识别任务 #%s 失败: %s", task_id, exc)
 
         # 失败落库自身也可能失败（数据库抖动/字段约束），兜一层避免把异常抛回
         # django-q 导致任务无结果残留；保存失败时至少留有 error 日志
@@ -105,12 +105,8 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
             task.finished_at = timezone.now()
             task.save(update_fields=["status", "error_message", "finished_at"])
         except Exception as save_exc:
-            logger.error(
-                "文书识别任务 #%s 失败状态落库亦失败: %s",
-                task_id,
-                save_exc,
-                extra={"original_error": str(exc)},
-                exc_info=True,
+            logger.exception(
+                "文书识别任务 #%s 失败状态落库亦失败: %s", task_id, save_exc, extra={"original_error": str(exc)}
             )
 
         return {"task_id": task_id, "status": "failed", "error": str(exc)}
@@ -162,7 +158,7 @@ def _send_recognition_notification(task: Any, result: Any) -> None:
         )
 
     except Exception as exc:
-        logger.error("发送文书识别通知异常: task_id=%s, error=%s", task.id, exc, exc_info=True)
+        logger.exception("发送文书识别通知异常: task_id=%s, error=%s", task.id, exc)
         task.notification_sent = False
         task.notification_error = str(exc)
         task.save(update_fields=["notification_sent", "notification_error"])

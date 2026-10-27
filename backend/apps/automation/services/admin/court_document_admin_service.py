@@ -125,7 +125,7 @@ class CourtDocumentAdminService:
             return result
 
         except Exception as e:
-            self.logger.error(
+            self.logger.exception(
                 "批量删除文书失败",
                 extra={
                     "action": "batch_delete_documents",
@@ -133,7 +133,6 @@ class CourtDocumentAdminService:
                     "delete_files": delete_files,
                     "error": str(e),
                 },
-                exc_info=True,
             )
             raise BusinessException(
                 message="批量删除文书失败", code="BATCH_DELETE_FAILED", errors={"error": str(e)}
@@ -253,9 +252,7 @@ class CourtDocumentAdminService:
             return result
 
         except Exception as e:
-            self.logger.error(
-                "获取文书统计数据失败", extra={"action": "get_document_statistics", "error": str(e)}, exc_info=True
-            )
+            self.logger.exception("获取文书统计数据失败", extra={"action": "get_document_statistics", "error": str(e)})
             raise BusinessException(
                 message="获取文书统计数据失败", code="GET_DOCUMENT_STATS_FAILED", errors={"error": str(e)}
             ) from e
@@ -304,10 +301,9 @@ class CourtDocumentAdminService:
             return result
 
         except Exception as e:
-            self.logger.error(
+            self.logger.exception(
                 "重试失败下载任务失败",
                 extra={"action": "retry_failed_downloads", "document_ids": document_ids, "error": str(e)},
-                exc_info=True,
             )
             raise BusinessException(
                 message="重试失败下载任务失败", code="RETRY_FAILED_DOWNLOADS_FAILED", errors={"error": str(e)}
@@ -371,9 +367,7 @@ class CourtDocumentAdminService:
             return result
 
         except (OSError, ValueError) as e:
-            self.logger.error(
-                "清理孤立文件失败", extra={"action": "cleanup_orphaned_files", "error": str(e)}, exc_info=True
-            )
+            self.logger.exception("清理孤立文件失败", extra={"action": "cleanup_orphaned_files", "error": str(e)})
             raise BusinessException(
                 message="清理孤立文件失败", code="CLEANUP_ORPHANED_FILES_FAILED", errors={"error": str(e)}
             ) from e
@@ -429,10 +423,8 @@ class CourtDocumentAdminService:
             return result
 
         except Exception as e:
-            self.logger.error(
-                "获取下载进度失败",
-                extra={"action": "get_download_progress", "task_id": task_id, "error": str(e)},
-                exc_info=True,
+            self.logger.exception(
+                "获取下载进度失败", extra={"action": "get_download_progress", "task_id": task_id, "error": str(e)}
             )
             raise BusinessException(
                 message="获取下载进度失败", code="GET_DOWNLOAD_PROGRESS_FAILED", errors={"error": str(e)}

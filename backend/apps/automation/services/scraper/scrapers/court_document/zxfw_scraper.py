@@ -201,7 +201,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
                 )
                 return result
             except Exception as fallback_error:
-                logger.error(
+                logger.exception(
                     "所有下载方式均失败",
                     extra={
                         "operation_type": "all_methods_failed",
@@ -210,7 +210,6 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
                         "api_intercept_error": str(api_intercept_error),
                         "fallback_error": str(fallback_error),
                     },
-                    exc_info=True,
                 )
                 from apps.core.exceptions import ExternalServiceError
 

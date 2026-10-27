@@ -182,7 +182,7 @@ class DocumentClassifier:
             result = self._extract_json_from_response(content)
 
             if result is None:
-                logger.warning(f"无法从响应中提取 JSON: {content[:200]}")
+                logger.warning("无法从响应中提取 JSON: %s", content[:200])
                 return DocumentType.OTHER, 0.0
 
             # 提取类型
@@ -196,12 +196,12 @@ class DocumentClassifier:
             # 记录判断理由
             reason = result.get("reason", "")
             if reason:
-                logger.debug(f"分类理由: {reason}")
+                logger.debug("分类理由: %s", reason)
 
             return doc_type, confidence
 
         except (TypeError, ValueError) as e:
-            logger.warning(f"解析分类响应失败: {e!s}")
+            logger.warning("解析分类响应失败: %s", e)
             return DocumentType.OTHER, 0.0
 
     def _extract_json_from_response(self, content: str) -> dict[str, Any] | None:

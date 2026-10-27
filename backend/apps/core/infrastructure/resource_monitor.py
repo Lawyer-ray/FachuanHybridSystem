@@ -128,7 +128,7 @@ class ResourceMonitor:
                 timestamp=timezone.now(),
             )
         except (OSError, ValueError, RuntimeError) as e:
-            logger.error(f"Failed to get resource usage: {e}")
+            logger.error("Failed to get resource usage: %s", e)
             return None
 
     def check_resource_health(self) -> dict[str, Any]:

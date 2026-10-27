@@ -359,8 +359,11 @@ class CaseNumberExtractorService:
             )
 
             logger.info(
-                f"案号同步完成: SMS ID={sms_id}, {'成功写入' if success_count else '无新案号需要写入'}"
-                + (f" {success_count} 个案号" if success_count else "")
+                "案号同步完成: SMS ID=%s, %s",
+                sms_id,
+                "成功写入"
+                if success_count
+                else "无新案号需要写入" + (f" {success_count} 个案号" if success_count else ""),
             )
             return success_count
 

@@ -105,15 +105,15 @@ class AutomationServiceAdapter(IAutomationService):
             # 重新抛出验证错误
             raise
         except Exception as e:
-            logger.error(
-                f"❌ 创建Token获取历史记录失败: {e}",
+            logger.exception(
+                "❌ 创建Token获取历史记录失败: %s",
+                e,
                 extra={
                     "action": "create_token_acquisition_history_failed",
                     "error_type": type(e).__name__,
                     "error_message": str(e),
                     "history_data": history_data,
                 },
-                exc_info=True,
             )
             raise ValidationException(
                 message=f"创建Token获取历史记录失败: {e!s}",

@@ -61,11 +61,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                 self._cleanup_before_delete([obj.id])
                 super().delete_model(request, obj)  # type: ignore[misc]
         except IntegrityError:
-            logger.error(
-                "Admin 删除案件失败：存在未清理的外键引用",
-                extra={"case_id": obj.id},
-                exc_info=True,
-            )
+            logger.exception("Admin 删除案件失败：存在未清理的外键引用", extra={"case_id": obj.id})
             messages.error(request, "删除失败：仍有数据引用该案件，请先处理关联数据（详情见服务器日志）")
 
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:  # pragma: no cover
@@ -76,11 +72,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                 self._cleanup_before_delete(case_ids)
                 super().delete_queryset(request, queryset)  # type: ignore[misc]
         except IntegrityError:
-            logger.error(
-                "Admin 批量删除案件失败：存在未清理的外键引用",
-                extra={"case_ids": case_ids},
-                exc_info=True,
-            )
+            logger.exception("Admin 批量删除案件失败：存在未清理的外键引用", extra={"case_ids": case_ids})
             messages.error(request, "批量删除失败：仍有数据引用部分案件，请先处理关联数据（详情见服务器日志）")
 
     def save_model(  # pragma: no cover
@@ -100,7 +92,10 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                 old_current_stage = old_obj.current_stage
                 old_contract_id = getattr(old_obj, "contract_id", None)
             except Case.DoesNotExist:
-                logger.warning("读取案件旧值失败（已忽略，案件可能已被并发删除）: case_id=%s", obj.pk, exc_info=True)
+                logger.warning(
+                    "读取案件旧值失败（已忽略，案件可能已被并发删除）: case_id=%s",
+                    obj.pk,
+                )
 
         super().save_model(request, obj, form, change)  # type: ignore[misc]
 
@@ -121,13 +116,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                     },
                 )
         except Exception as e:
-            logger.error(
-                "处理案件 %s 建档编号失败: %s",
-                obj.id,
-                e,
-                extra={"case_id": obj.id},
-                exc_info=True,
-            )
+            logger.exception("处理案件 %s 建档编号失败: %s", obj.id, e, extra={"case_id": obj.id})
             messages.error(request, "处理建档编号失败: %s" % str(e))
 
         case_type_changed = old_case_type != obj.case_type
@@ -147,13 +136,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                     },
                 )
             except Exception as e:
-                logger.error(
-                    "同步案件 %s 模板绑定失败: %s",
-                    obj.id,
-                    e,
-                    extra={"case_id": obj.id},
-                    exc_info=True,
-                )
+                logger.exception("同步案件 %s 模板绑定失败: %s", obj.id, e, extra={"case_id": obj.id})
                 messages.warning(request, "同步模板绑定失败: %s" % str(e))
 
         new_contract_id = getattr(obj, "contract_id", None)
@@ -167,13 +150,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
                     perm_open_access=True,
                 )
             except Exception as e:
-                logger.error(
-                    "同步案件 %s 的律师指派失败: %s",
-                    obj.id,
-                    e,
-                    extra={"case_id": obj.id},
-                    exc_info=True,
-                )
+                logger.exception("同步案件 %s 的律师指派失败: %s", obj.id, e, extra={"case_id": obj.id})
                 messages.error(request, "同步律师指派失败: %s" % str(e))
 
     @transaction.atomic

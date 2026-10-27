@@ -67,7 +67,9 @@ class ContractSaveMixin(_ContractSaveMixinBase):  # pragma: no cover
             if filing_number:
                 obj.filing_number = filing_number
                 logger.info(
-                    f"合同 {obj.id} 建档编号已处理: {filing_number}",
+                    "合同 %s 建档编号已处理: %s",
+                    obj.id,
+                    filing_number,
                     extra={
                         "contract_id": obj.id,
                         "filing_number": filing_number,
@@ -75,11 +77,7 @@ class ContractSaveMixin(_ContractSaveMixinBase):  # pragma: no cover
                     },
                 )
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(
-                f"处理合同 {obj.id} 建档编号失败: {e!s}",
-                extra={"contract_id": obj.id},
-                exc_info=True,
-            )
+            logger.exception("处理合同 %s 建档编号失败: %s", obj.id, e, extra={"contract_id": obj.id})
             messages.error(request, "处理建档编号失败: %(err)s" % {"err": e})
 
         # 合同状态变更联动：已归档 → 自动结案关联案件
@@ -110,11 +108,7 @@ class ContractSaveMixin(_ContractSaveMixinBase):  # pragma: no cover
                             "合同状态已变更，%(count)d 个关联案件已自动结案" % {"count": closed_count},
                         )
                 except (BusinessException, RuntimeError, Exception) as e:
-                    logger.error(
-                        f"合同 {obj.id} 状态联动结案失败: {e!s}",
-                        extra={"contract_id": obj.id},
-                        exc_info=True,
-                    )
+                    logger.exception("合同 %s 状态联动结案失败: %s", obj.id, e, extra={"contract_id": obj.id})
                     messages.warning(request, "关联案件自动结案失败: %(err)s" % {"err": e})
 
     def save_related(self, request: Any, form: Any, formsets: Any, change: bool) -> None:  # pragma: no cover
@@ -128,10 +122,8 @@ class ContractSaveMixin(_ContractSaveMixinBase):  # pragma: no cover
             action_service = _get_contract_admin_action_service()
             action_service.sync_case_assignments_from_contract(contract.id, user=getattr(request, "user", None))
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(
-                f"同步合同 {contract.id} 关联案件的律师指派失败: {e!s}",
-                extra={"contract_id": contract.id},
-                exc_info=True,
+            logger.exception(
+                "同步合同 %s 关联案件的律师指派失败: %s", contract.id, e, extra={"contract_id": contract.id}
             )
             messages.error(request, "同步关联案件律师指派失败: %(err)s" % {"err": e})
 

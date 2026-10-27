@@ -127,7 +127,7 @@ class BaseScraper:
             # 更新为失败状态
             self.task.status = ScraperTaskStatus.FAILED
             self.task.error_message = str(e)
-            logger.error("任务 %s 执行失败: %s", self.task.id, e, exc_info=True)
+            logger.exception("任务 %s 执行失败: %s", self.task.id, e)
             raise
 
         finally:

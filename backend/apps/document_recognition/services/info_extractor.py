@@ -81,12 +81,12 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
 
         regex_case_number = self._extract_case_number_by_regex(truncated_text)
         if regex_case_number:
-            logger.info(f"正则成功提取案号: {regex_case_number}")
+            logger.info("正则成功提取案号: %s", regex_case_number)
 
         regex_datetimes = self._extract_datetime_by_regex(truncated_text)
-        logger.info(f"正则提取到 {len(regex_datetimes)} 个时间候选")
+        logger.info("正则提取到 %s 个时间候选", len(regex_datetimes))
         for dt, matched_text, score in regex_datetimes:
-            logger.info(f"  - {dt} (原文: {matched_text}, 得分: {score})")
+            logger.info("  - %s (原文: %s, 得分: %s)", dt, matched_text, score)
 
         llm_case_number: str | None = None
         llm_datetime: datetime | None = None
@@ -97,15 +97,17 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
             if raw_case_number and raw_case_number.lower() != "null":
                 llm_case_number = self._normalize_case_number(raw_case_number)
                 if not regex_case_number:
-                    logger.info(f"LLM 提取到案号: {llm_case_number}")
+                    logger.info("LLM 提取到案号: %s", llm_case_number)
                 elif llm_case_number != regex_case_number:
-                    logger.warning(f"案号交叉校验不一致，以正则为准: 正则={regex_case_number}, LLM={llm_case_number}")
+                    logger.warning(
+                        "案号交叉校验不一致，以正则为准: 正则=%s, LLM=%s", regex_case_number, llm_case_number
+                    )
             llm_datetime = self._parse_datetime(analysis.court_time or "") if analysis.court_time else None
             if llm_datetime:
-                logger.info(f"LLM 提取到时间: {llm_datetime}")
+                logger.info("LLM 提取到时间: %s", llm_datetime)
 
         best_datetime, extraction_method = self._select_best_datetime(regex_datetimes, llm_datetime)
-        logger.info(f"最终选择时间: {best_datetime}, 方法: {extraction_method}")
+        logger.info("最终选择时间: %s, 方法: %s", best_datetime, extraction_method)
 
         final_case_number = regex_case_number if regex_case_number else llm_case_number
         case_number_source = "regex" if regex_case_number else ("llm" if llm_case_number else None)
@@ -152,7 +154,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
 
         regex_case_number = self._extract_case_number_by_regex(truncated_text)
         if regex_case_number:
-            logger.info(f"正则成功提取案号: {regex_case_number}")
+            logger.info("正则成功提取案号: %s", regex_case_number)
 
         final_case_number = regex_case_number
         preservation_deadline: datetime | None = None
@@ -163,11 +165,11 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 raw_case_number = (analysis.case_number or "").strip()
                 if raw_case_number and raw_case_number.lower() != "null":
                     final_case_number = self._normalize_case_number(raw_case_number)
-                    logger.info(f"LLM 提取到案号: {final_case_number}")
+                    logger.info("LLM 提取到案号: %s", final_case_number)
             if analysis.court_time:
                 preservation_deadline = self._parse_date(analysis.court_time)
                 if preservation_deadline:
-                    logger.info(f"LLM 提取到保全到期时间: {preservation_deadline}")
+                    logger.info("LLM 提取到保全到期时间: %s", preservation_deadline)
 
         logger.info(
             "执行裁定书信息提取完成",

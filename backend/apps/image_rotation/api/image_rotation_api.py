@@ -97,7 +97,7 @@ async def extract_pdf_fast(request: HttpRequest) -> dict[str, Any]:  # pragma: n
             await sync_to_async(service.extract_pages)(data, filename),
         )
     except Exception as exc:
-        logger.error("extract_pdf_fast 失败: %s", exc, exc_info=True)
+        logger.exception("extract_pdf_fast 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -121,7 +121,7 @@ async def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pr
     except Exception as exc:
         # 检测失败不能回退成 {rotation: 0}：那等于谎报「确认无需旋转」，
         # 错误会静默固化进导出产物。交给全局异常体系返回真实失败。
-        logger.error("detect_page_orientation 失败: %s", exc, exc_info=True)
+        logger.exception("detect_page_orientation 失败: %s", exc)
         from apps.core.exceptions import ExternalServiceError
 
         raise ExternalServiceError(
@@ -157,7 +157,7 @@ async def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma:
                 result["filename"] = img.get("filename", "")
                 return result
             except Exception as exc:
-                logger.error("detect_orientation 失败: %s", exc, exc_info=True)
+                logger.exception("detect_orientation 失败: %s", exc)
                 return {
                     "filename": img.get("filename", ""),
                     "rotation": 0,
@@ -205,7 +205,7 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
                     "raw_texts": text_result.raw_texts,
                 }
             except Exception as exc:
-                logger.error("extract_text 失败: %s", exc, exc_info=True)
+                logger.exception("extract_text 失败: %s", exc)
                 return {
                     "filename": img.get("filename", ""),
                     "ocr_text": "",
@@ -257,7 +257,7 @@ async def suggest_rename(request: HttpRequest) -> dict[str, Any]:  # pragma: no 
             ],
         }
     except Exception as exc:
-        logger.error("suggest_rename 失败: %s", exc, exc_info=True)
+        logger.exception("suggest_rename 失败: %s", exc)
         return {"success": False, "message": str(exc), "suggestions": []}
 
 
@@ -280,7 +280,7 @@ async def export_pdf(request: HttpRequest) -> dict[str, Any]:  # pragma: no cove
                 await asyncio.to_thread(_get_rotation_service().export_as_pdf, pages, paper_size),
             )
         except Exception as exc:
-            logger.error("export_pdf 失败: %s", exc, exc_info=True)
+            logger.exception("export_pdf 失败: %s", exc)
             return {"success": False, "message": str(exc)}
 
 
@@ -315,7 +315,7 @@ async def _handle_multipart_export_pdf_async(request: HttpRequest) -> dict[str, 
             await asyncio.to_thread(_get_rotation_service().export_as_pdf, pages, paper_size),
         )
     except Exception as exc:
-        logger.error("multipart export-pdf 失败: %s", exc, exc_info=True)
+        logger.exception("multipart export-pdf 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -336,7 +336,7 @@ def export_images(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
         try:
             return cast(dict[str, Any], _get_rotation_service().export_images(images, paper_size, rename_map))
         except Exception as exc:
-            logger.error("export_images 失败: %s", exc, exc_info=True)
+            logger.exception("export_images 失败: %s", exc)
             return {"success": False, "message": str(exc)}
 
 
@@ -372,7 +372,7 @@ def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
 
         return cast(dict[str, Any], _get_rotation_service().export_images(images, paper_size, rename_map))
     except Exception as exc:
-        logger.error("multipart 导出失败: %s", exc, exc_info=True)
+        logger.exception("multipart 导出失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -444,7 +444,7 @@ def create_job(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
         page_ids = [str(p.id) for p in job.pages.all()]
         return {"success": True, "job_id": str(job.id), "display_name": job.name or "未命名任务", "page_ids": page_ids}
     except Exception as exc:
-        logger.error("create_job 失败: %s", exc, exc_info=True)
+        logger.exception("create_job 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -461,7 +461,7 @@ def list_jobs(request: HttpRequest, page: int = 1, page_size: int = 20) -> dict[
             "total_pages": result["total_pages"],
         }
     except Exception as exc:
-        logger.error("list_jobs 失败: %s", exc, exc_info=True)
+        logger.exception("list_jobs 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -480,7 +480,7 @@ def get_job_detail(request: HttpRequest, job_id: str) -> dict[str, Any]:  # prag
             "pages": [_serialize_page(p) for p in pages],
         }
     except Exception as exc:
-        logger.error("get_job_detail 失败: %s", exc, exc_info=True)
+        logger.exception("get_job_detail 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -499,7 +499,7 @@ async def run_job_ocr(request: HttpRequest, job_id: str) -> dict[str, Any]:  # p
             "pages": pages_data,
         }
     except Exception as exc:
-        logger.error("run_job_ocr 失败: %s", exc, exc_info=True)
+        logger.exception("run_job_ocr 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -534,7 +534,7 @@ def update_job_pages(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pr
 
         return {"success": True}
     except Exception as exc:
-        logger.error("update_job_pages 失败: %s", exc, exc_info=True)
+        logger.exception("update_job_pages 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -565,7 +565,7 @@ def save_export_url(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pra
             job.save(update_fields=["export_pdf_url", "updated_at"])
         return {"success": True}
     except Exception as exc:
-        logger.error("save_export_url 失败: %s", exc, exc_info=True)
+        logger.exception("save_export_url 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
@@ -620,7 +620,7 @@ def update_job_name(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pra
         job.save(update_fields=["name", "updated_at"])
         return {"success": True, "display_name": job.name or "未命名任务"}
     except Exception as exc:
-        logger.error("update_job_name 失败: %s", exc, exc_info=True)
+        logger.exception("update_job_name 失败: %s", exc)
         return {"success": False, "message": str(exc)}
 
 
