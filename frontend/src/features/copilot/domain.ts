@@ -155,8 +155,10 @@ export function splitQuoteBlock(content: string): { quote: SelectionQuote | null
 
 /** rewrite_folder_file 落盘成功的信号（后端 apply 结果里能带出的字段） */
 export interface FileRewriteSignal {
-  /** 被覆写的合同 id */
-  contractId: number
+  /** 被覆写文件的归属：合同绑定文件夹 / 案件绑定文件夹 */
+  kind: 'contract' | 'case'
+  /** 被覆写的合同或案件 id */
+  ownerId: number
   /** 绑定根下的相对路径 */
   subpath: string
   /** 文件名 */
@@ -193,10 +195,11 @@ export function extractRewriteArgs(args: unknown): { original: string; replaceme
  * 从 tool_result 事件里识别「AI 已把修订写回文件夹文件」。
  *
  * 后端 apply 成功返回 `{"applied": true, "contract_id": N, "subpath": …,
- * "name": …}`（MCP 工具名带 `mcp__fachuan__` 前缀，结尾匹配即可）。
- * 结果字符串可能被 SSE 截断（bridge 限 2000 字符）——JSON.parse 失败、
- * applied 不为 true、缺 contract_id/subpath 一律返回 null：**宁可不刷新，
- * 也不能误刷新**（误刷新会把正在编辑的画布无谓重载）。
+ * "name": …}`（合同直改）或带 `case_id`（案件直改）——MCP 工具名带
+ * `mcp__fachuan__` 前缀，结尾匹配即可。结果字符串可能被 SSE 截断（bridge
+ * 限 2000 字符）——JSON.parse 失败、applied 不为 true、缺归属 id/subpath
+ * 一律返回 null：**宁可不刷新，也不能误刷新**（误刷新会把正在编辑的画布
+ * 无谓重载）。
  *
  * `args` 是同一次调用的 tool_call 参数（原文/改写全文的唯一完整来源），
  * 用于画布内就地落修订；缺了也能用，只是退回整页重载。
@@ -212,15 +215,22 @@ export function parseFileRewrite(
     const parsed = JSON.parse(resultText) as {
       applied?: unknown
       contract_id?: unknown
+      case_id?: unknown
       subpath?: unknown
       name?: unknown
     }
     if (parsed.applied !== true) return null
+    // 归属 id 二选一：合同直改回 contract_id，案件直改回 case_id
     const contractId = Number(parsed.contract_id)
+    const caseId = Number(parsed.case_id)
+    const hasContract = Number.isInteger(contractId) && contractId > 0
+    const hasCase = Number.isInteger(caseId) && caseId > 0
     const subpath = typeof parsed.subpath === 'string' ? parsed.subpath : ''
-    if (!Number.isInteger(contractId) || contractId <= 0 || !subpath) return null
+    if (subpath === '' || (!hasContract && !hasCase)) return null
+    const kind: 'contract' | 'case' = hasCase && !hasContract ? 'case' : 'contract'
     return {
-      contractId,
+      kind,
+      ownerId: kind === 'case' ? caseId : contractId,
       subpath,
       name: typeof parsed.name === 'string' && parsed.name ? parsed.name : subpath.split('/').pop() || subpath,
       ...(args ? { original: args.original, replacement: args.replacement } : {}),

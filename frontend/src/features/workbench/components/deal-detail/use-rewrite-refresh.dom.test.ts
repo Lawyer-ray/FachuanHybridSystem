@@ -28,13 +28,14 @@ import { registerLiveRewriteApply, useFileRewriteNonce } from './use-rewrite-ref
 let seq = 0
 function newFile() {
   seq += 1
-  const subpath = `case-${seq}/a.docx`
+  const subpath = `f-${seq}/a.docx`
   return { subpath, key: `contract:393:${subpath}` }
 }
 
 function rewriteOf(subpath: string) {
   return {
-    contractId: 393,
+    kind: 'contract' as const,
+    ownerId: 393,
     subpath,
     name: 'a.docx',
     original: '经协商，甲方愿意聘用乙方',
@@ -118,7 +119,7 @@ describe('AI 直改刷新决策', () => {
     const live = vi.fn().mockResolvedValue(true)
     const off = registerLiveRewriteApply(f.key, live)
 
-    emitRewrite({ contractId: 393, subpath: f.subpath, name: 'a.docx' })
+    emitRewrite({ kind: 'contract', ownerId: 393, subpath: f.subpath, name: 'a.docx' })
     await flush()
 
     expect(live).not.toHaveBeenCalled()
@@ -166,11 +167,37 @@ describe('AI 直改刷新决策', () => {
     off()
   })
 
-  it('非法事件（缺 contractId/subpath）被忽略，不推进 nonce', async () => {
+  it('非法事件（缺 ownerId/subpath）被忽略，不推进 nonce', async () => {
     const f = newFile()
     const before = nonceOf(f.subpath)
     emitRewrite({ name: 'x' })
     await flush()
     expect(nonceOf(f.subpath)).toBe(before)
+  })
+
+  it('案件文件（kind=case）的直改走 case 命名空间，与合同 key 不串味', async () => {
+    // 案件直改回包的信号 kind=case：nonce 与就地通道都落在 case:{id}: 前缀下，
+    // 与画布挂载侧 useFileRewriteNonce('case', …) / useLiveRewriteApply 同口径
+    seq += 1
+    const subpath = `f-${seq}/起诉状.docx`
+    const before = renderHook(() => useFileRewriteNonce('case', 399, subpath)).result.current
+    const contractBefore = nonceOf(subpath) // 同 subpath 的合同侧计数不应被案件事件推动
+    const live = vi.fn().mockResolvedValue(true)
+    const off = registerLiveRewriteApply(`case:399:${subpath}`, live)
+
+    emitRewrite({
+      kind: 'case',
+      ownerId: 399,
+      subpath,
+      name: '起诉状.docx',
+      original: '请求判令被告支付货款',
+      replacement: '请求判令被告立即支付全部货款及利息',
+    })
+    await flush()
+
+    expect(live).toHaveBeenCalledOnce()
+    expect(renderHook(() => useFileRewriteNonce('case', 399, subpath)).result.current).toBe(before)
+    expect(nonceOf(subpath)).toBe(contractBefore)
+    off()
   })
 })

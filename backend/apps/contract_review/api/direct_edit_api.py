@@ -51,7 +51,22 @@ def _get_apply_service() -> Any:  # pragma: no cover
     return get_direct_edit_service()
 
 
-def _load_paragraph_context(contract_id: int, subpath: str, selection: str, user: Any) -> tuple[str, str]:
+def _resolve_target(contract_id: int | None, case_id: int | None) -> tuple[str, int]:
+    """`contract_id` / `case_id` 二选一 → (kind, owner_id)。
+
+    两个都给或都不给直接 422：直改的落盘目标必须唯一，猜一个就是写错文件。
+    """
+    from apps.core.exceptions import ValidationException
+
+    if (contract_id is None) == (case_id is None):
+        raise ValidationException(message="contract_id 与 case_id 必须二选一", errors={"contract_id": contract_id})
+    if case_id is not None:
+        return "case", case_id
+    assert contract_id is not None
+    return "contract", contract_id
+
+
+def _load_paragraph_context(kind: str, owner_id: int, subpath: str, selection: str, user: Any) -> tuple[str, str]:
     """取选区所在段落，切出前后文给模型。
 
     失败一律返回空上下文：上下文是「让改写更贴合语境」的加分项，
@@ -61,14 +76,13 @@ def _load_paragraph_context(contract_id: int, subpath: str, selection: str, user
 
     from docx import Document
 
-    from apps.contract_review.services.review.direct_edit_service import locate_paragraph
+    from apps.contract_review.services.review.direct_edit_service import _browse, locate_paragraph
     from apps.contract_review.services.review.direct_editor import compute_context
-    from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
 
     try:
-        browse = ContractFolderBrowseService()
+        browse = _browse(kind)
         path = browse.resolve_file(
-            owner_id=contract_id,
+            owner_id=owner_id,
             subpath=subpath,
             user=user,
             org_access=getattr(user, "org_access", None),
@@ -84,7 +98,7 @@ def _load_paragraph_context(contract_id: int, subpath: str, selection: str, user
         return compute_context(visible_text(para), selection)
     except Exception:
         logger.warning(
-            "划词直改：取上下文失败（不影响改写）contract=%s subpath=%s", contract_id, subpath, exc_info=True
+            "划词直改：取上下文失败（不影响改写）kind=%s owner=%s subpath=%s", kind, owner_id, subpath, exc_info=True
         )
         return "", ""
 
@@ -94,9 +108,10 @@ def _load_paragraph_context(contract_id: int, subpath: str, selection: str, user
 async def suggest_edit(request: HttpRequest, payload: DirectEditSuggestIn) -> dict[str, Any]:
     """按律师的要求，为框选的这一段生成 2~3 条改写候选（不改文件）。"""
     user = request.user
+    kind, owner_id = _resolve_target(payload.contract_id, payload.case_id)
     # 取上下文要先过 ACL（resolve_file 内部校验），所以放在线程池里跑同步 IO
     ctx_before, ctx_after = await sync_to_async(_load_paragraph_context, thread_sensitive=True)(
-        payload.contract_id, payload.subpath, payload.selection, user
+        kind, owner_id, payload.subpath, payload.selection, user
     )
     svc = _get_suggest_service()
     candidates = await sync_to_async(svc.suggest, thread_sensitive=True)(
@@ -122,17 +137,20 @@ async def apply_edit(request: HttpRequest, payload: DirectEditApplyIn) -> dict[s
     常见操作结果，前端要能提示「重新框选」，而不是弹 500。
     """
     user = request.user
+    kind, owner_id = _resolve_target(payload.contract_id, payload.case_id)
     svc = _get_apply_service()
     result: dict[str, Any] = await sync_to_async(svc.apply, thread_sensitive=True)(
-        owner_id=payload.contract_id,
+        owner_id=owner_id,
         subpath=payload.subpath,
         selection=payload.selection,
         suggested=payload.suggested,
         user=user,
         org_access=getattr(user, "org_access", None),
         perm_open_access=False,
+        kind=kind,
     )
-    # 回传合同 id：MCP 工具结果原样透传到前端，编辑器据「哪份合同哪个文件
-    # 被覆写」定向刷新画布（contract_id 入参本身不在 service 返回里）
-    result["contract_id"] = payload.contract_id
+    # 回传归属 id：MCP 工具结果原样透传到前端，编辑器据「哪份合同/案件的
+    # 哪个文件被覆写」定向刷新画布（入参 id 本身不在 service 返回里）
+    result["contract_id"] = payload.contract_id or 0
+    result["case_id"] = payload.case_id or 0
     return result

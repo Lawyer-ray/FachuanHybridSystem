@@ -50,10 +50,10 @@ export function FilePreviewCard({
   // 拉到已覆写的内容，修订痕迹可见）；未被覆写保持空串不动存量 key 口径
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
   // 就地落修订通道：AI 覆写成功时优先走插件桥在当前画布里直接长出修订
-  // 痕迹（免整页重载），失败才轮到上面的 nonce 重载。仅合同 docx——直改
-  // 落盘端点目前只认合同绑定文件夹
+  // 痕迹（免整页重载），失败才轮到上面的 nonce 重载。合同与案件的 docx
+  // 都注册（rewrite_folder_file 已支持两个绑定文件夹）
   const liveApply = useLiveRewriteApply({
-    enabled: isDocx && kind === 'contract',
+    enabled: isDocx,
     key: `${kind}:${ownerId}:${file.subpath}`,
   })
 
@@ -84,9 +84,7 @@ export function FilePreviewCard({
    * 所以两条入口（按钮 / 框选自动）最终行为完全一致。
    *
    * 助手上下文随 kind 走（合同文件进合同会话、案件文件进案件会话）；
-   * 框选提问对两类文件都有价值。注意 AI **落笔直改**仍只支持合同文件
-   * （rewrite_folder_file 工具显式拒绝 case_id），案件文件里 AI 会改为
-   * 在对话里给改法，由律师自己落笔。
+   * 框选提问与 AI 落笔直改（rewrite_folder_file）对两类文件都开放。
    */
   const rewriteSelection = useCallback(() => {
     const h = editorRef.current
@@ -257,7 +255,7 @@ export function FilePreviewCard({
             // 引用卡，输入框保持空白，律师自由提问或点快捷 pills。旧做法把
             // 「请按我的要求改写……修改要求：」整段塞进输入框，等于替律师
             // 打了一半草稿，他还得先删改才能问别的。kind 与 RefOwnerKind
-            // 同构（contract/case），案件文书同样能框选提问（AI 直改仍限合同）。
+            // 同构（contract/case），案件文书同样能框选提问与 AI 直改。
             quoteCopilot(
               {
                 kind,

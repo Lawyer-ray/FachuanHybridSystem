@@ -59,7 +59,7 @@ function enqueueRewrite(detail: FileRewrittenDetail): void {
 }
 
 async function handleRewrite(d: FileRewrittenDetail): Promise<void> {
-  const key = `contract:${d.contractId}:${d.subpath}`
+  const key = `${d.kind}:${d.ownerId}:${d.subpath}`
   const { original, replacement } = d
   const live = original && replacement ? liveAppliers.get(key) : undefined
   if (live && original && replacement) {
@@ -80,9 +80,9 @@ async function handleRewrite(d: FileRewrittenDetail): Promise<void> {
 if (typeof window !== 'undefined') {
   window.addEventListener(FILE_REWRITTEN_EVENT, (e) => {
     const d = (e as CustomEvent<FileRewrittenDetail>).detail
-    if (!d || !Number.isFinite(d.contractId) || !d.subpath) return
-    // 落盘端点只认合同；kind 固定 'contract'，与 FilePreviewCard 传入的
-    // key 口径一致（案件文件的 nonce 永远是 0，本来也没有直改通道）
+    if (!d || !Number.isFinite(d.ownerId) || !d.subpath) return
+    // 合同与案件的直改都从这里走：kind 决定 nonce 的 key（与画布挂载侧
+    // `useFileRewriteNonce(kind, ownerId, subpath)` 同口径）
     enqueueRewrite(d)
   })
 }

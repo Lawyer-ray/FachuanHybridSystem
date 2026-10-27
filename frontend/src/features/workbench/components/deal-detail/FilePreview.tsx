@@ -49,9 +49,9 @@ export function FilePreview({
   const isDocx = /\.docx$/i.test(file.name)
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布，修订痕迹才可见
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
-  // 就地落修订通道（合同 docx）：AI 覆写成功时免重载直接在画布里长出修订
+  // 就地落修订通道（合同/案件 docx 通用）：AI 覆写成功时免重载直接在画布里长出修订
   const liveApply = useLiveRewriteApply({
-    enabled: isDocx && kind === 'contract',
+    enabled: isDocx,
     key: `${kind}:${ownerId}:${file.subpath}`,
   })
 
