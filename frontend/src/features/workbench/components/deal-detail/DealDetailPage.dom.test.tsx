@@ -29,6 +29,15 @@ vi.mock('../../api', async (importOriginal) => ({
   listContractInvoices: vi.fn().mockResolvedValue([]),
 }))
 
+// OnlyOffice 画布不走真 DS：只断言挂载参数（URL 落在哪个业务通道）
+vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
+  OfficeView: (p: { fileUrl: string; fileName: string; mode?: string }) => (
+    <div data-testid="office-view" data-url={p.fileUrl} data-mode={p.mode}>
+      {p.fileName}
+    </div>
+  ),
+}))
+
 import {
   getCaseFolderBinding,
   getContract,
@@ -277,6 +286,16 @@ beforeEach(() => {
 // jsdom 未实现 window.matchMedia：页面布局已不依赖断点，替身仅保证调用不抛错
 const media = installMatchMediaStub()
 
+// jsdom 也没有 ResizeObserver：预览栏（useResizablePanel）挂载即建观察，桩掉即可
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+)
+
 afterEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
@@ -439,6 +458,32 @@ describe('DealDetailPage 程序链与案件节', () => {
     const sec2 = document.getElementById('case-2')!
     fireEvent.click(within(sec2).getByRole('button', { name: '日志' }))
     await screen.findByText('收到上诉状')
+  })
+
+  it('点案件文件夹里的文件 → 右栏 OnlyOffice 预览（不再 window.open 下载）；AI 审查不出现（流水线只吃合同文件）', async () => {
+    bindingMock.mockResolvedValue({
+      id: 1, case_id: 1, folder_path: '/Users/x/新工作/案件', folder_path_display: '/Users/x/新工作/案件',
+      storage_type: 'local', is_accessible: true,
+    })
+    entriesMock.mockResolvedValue({
+      browsable: true, message: null, path_display: '/Users/x/新工作/案件', subpath: '', parent_subpath: '',
+      folders: [],
+      files: [{ name: '起诉状.docx', subpath: '起诉状.docx', size: 2048, modified_at: '2026-09-29T10:00:00' }],
+    })
+    setupUi()
+    await screen.findAllByText('起诉状.docx') // 等案件卡的文件夹视图渲染出来
+    const sec1 = document.getElementById('case-1')!
+    fireEvent.click(within(sec1).getByText('起诉状.docx'))
+
+    // 预览画布出现在右栏，取文件走案件通道（后端 OnlyOffice 域注册表按 /cases/ 前缀分发）
+    const view = await screen.findByTestId('office-view')
+    expect(view.getAttribute('data-mode')).toBe('edit')
+    expect(view.getAttribute('data-url')).toBe(
+      '/api/v1/cases/1/folder-file?subpath=%E8%B5%B7%E8%AF%89%E7%8A%B6.docx',
+    )
+    // 案件文件不给 AI 审查入口（审查流水线从合同文件夹取文件）。精确匹配
+    // 预览卡头部按钮：右栏合同树的 hover 按钮名是「AI 审查此文件」，不在本断言范围
+    expect(screen.queryByRole('button', { name: /^AI 审查$/ })).toBeNull()
   })
 
   it('stepper 点击滚到对应案件节', async () => {

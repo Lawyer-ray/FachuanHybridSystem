@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Download, FileSearch, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
+import { workbenchKeys } from '../../hooks/use-workbench-data'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
@@ -43,13 +45,14 @@ export function FilePreview({
   const editorRef = useRef<OfficeEditorHandle | null>(null)
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState<'save' | 'download' | null>(null)
+  const qc = useQueryClient()
   const isDocx = /\.docx$/i.test(file.name)
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布，修订痕迹才可见
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
   // 就地落修订通道（合同 docx）：AI 覆写成功时免重载直接在画布里长出修订
   const liveApply = useLiveRewriteApply({
     enabled: isDocx && kind === 'contract',
-    key: `contract:${ownerId}:${file.subpath}`,
+    key: `${kind}:${ownerId}:${file.subpath}`,
   })
 
   /**
@@ -71,11 +74,16 @@ export function FilePreview({
         return
       }
       toast.success('已提交保存', { description: '文档服务器正在写回原文件' })
-      window.setTimeout(() => onSaved?.(), 2500)
+      // 落盘在 DS 回调里（1–3 秒）：文件夹树缓存 60s 不主动失效会一直旧，
+      // 这里与 onSaved（父级刷新业务数据）一起延迟刷新
+      window.setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: workbenchKeys.folderEntries(kind, ownerId) })
+        onSaved?.()
+      }, 2500)
     } finally {
       setBusy(null)
     }
-  }, [busy, requestSave, onSaved])
+  }, [busy, requestSave, onSaved, qc, kind, ownerId])
 
   const download = useCallback(async () => {
     setBusy('download')

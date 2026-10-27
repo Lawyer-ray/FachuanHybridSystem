@@ -104,43 +104,49 @@ def _contract_review_domain() -> OODomain:
     )
 
 
-def _contract_folder_domain() -> OODomain:
-    """合同绑定文件夹里的单个文件（客户来件、发票、监督卡…）。
+def _bound_folder_domain(
+    *,
+    key: str,
+    path_pattern: str,
+    label: str,
+    make_service: Callable[[], Any],
+) -> OODomain:
+    """绑定文件夹域的通用构造（合同 contract_folder / 案件 case_folder 共用）。
 
-    **为什么要它**：以前文件夹里的 docx 只能下载——浏览器没有 docx 渲染器，
-    `window.open` 结果必然落到本地磁盘。要让律师直接看到内容（甚至就地改、
-    跟 AI 对话），就得让 DS 能拉这个文件，而 DS 容器带不上 Authorization，
-    只能走 `/onlyoffice/file?src=&sig=` 代理。代理只放行注册表里的路径。
+    **为什么抽工厂**：两个域的接入面完全同构——DS 取文件走
+    `resolve_for_proxy`（复用对应 browse service 的行级 ACL，代理不放宽权限），
+    保存回写从 `session.source_path` 反解 owner + subpath 后原地覆写。差别只有
+    路径前缀（/contracts/ vs /cases/）与 browse service 类；各写一份必然漂移
+    （contract_folder 先接、case_folder 照抄时最容易抄漏回写细节）。
 
-    **保存回写**：决定「原地改、原地存」后，DS 的 status=2/6 回调必须真的
-    写回磁盘。会话里记了 `source_path`（即 `/api/v1/contracts/{id}/folder-file
-    ?subpath=...`），从这里解出 subpath 再覆写——不回写就等于编辑器假保存。
+    **subpath 双层编码**：前端 `folderFileUrl` 先 encodeURIComponent 一次，
+    `/onlyoffice/file` 的 `src` 参数又包一层。DS 只解开外层，后端拿到的仍是
+    `%E5%90%88...` 字面百分号串，直接拼路径必然 404（编辑器报「文档打开失败」），
+    两处都要 unquote 一次还原真实文件名。
     """
 
     def _resolve(_svc: Any, owner_id: Any, which: str) -> Any:
         # which 就是 subpath 原文（URL 里已 urlencode，Django 已解码）
-        raise RuntimeError(f"contract_folder 取文件必须走 subpath：{which}")
+        raise RuntimeError(f"{key} 取文件必须走 subpath：{which}")
 
     def _adopt_edited(session: Any, data: bytes, version_tag: int) -> Any:
         """DS 保存回写：把编辑产物覆写回原文件（原地保存，不留备份）。
 
-        从 `session.source_path` 反解 contract_id + subpath，而不是另外存字段：
+        从 `session.source_path` 反解 owner_id + subpath，而不是另外存字段：
         落盘目标必须与「当初打开的是哪一份」严格一致，多存一份副本就可能
         指向别处。解析失败就报错让 DS 重试，绝不猜。
         """
         from urllib.parse import unquote
 
-        from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
-
         parsed = domain_for_path(session.source_path or "")
-        if parsed is None or parsed[0].key != "contract_folder":
+        if parsed is None or parsed[0].key != key:
             raise RuntimeError(f"无法从会话反解文件夹路径: {session.source_path}")
-        contract_id = parsed[1]
+        owner_id = parsed[1]
         subpath = unquote(parsed[2])
 
         owner = getattr(session, "user", None)
-        ContractFolderBrowseService().save_file_content(
-            owner_id=contract_id,
+        make_service().save_file_content(
+            owner_id=owner_id,
             subpath=subpath,
             data=data,
             # 回写不校验 mtime：这次保存就是当前会话产生的，校验只会
@@ -150,49 +156,83 @@ def _contract_folder_domain() -> OODomain:
             org_access=getattr(owner, "org_access", None),
             perm_open_access=False,
         )
-        logger.info("文件夹文件已回写: contract=%s subpath=%s v%d", contract_id, subpath, version_tag)
-        return f"{contract_id}:{subpath}"
+        logger.info("文件夹文件已回写: %s=%s subpath=%s v%d", label, owner_id, subpath, version_tag)
+        return f"{owner_id}:{subpath}"
 
-    def _resolve_proxy(user: Any, contract_id: int, subpath: str) -> Any:
+    def _resolve_proxy(user: Any, owner_id: int, subpath: str) -> Any:
         """按签名用户身份解析文件夹里的文件（权限口径与 REST 端点一致）。
 
-        不自己判 ACL：直接调 folder_browse_service.resolve_file，它内部走
-        ContractAccessPolicy——代理绝不能比 REST 端点宽松。
-
-        **subpath 要手动解码**：它经过了两层 URL 编码——前端
-        `folderFileUrl` 先 encodeURIComponent 一次，`/onlyoffice/file` 的
-        `src` 参数又包了一层。DS 只解开外层，所以后端拿到的仍是
-        `%E5%90%88...` 这种字面百分号串，直接拿去拼路径必然 404
-        （表现为编辑器报「文档打开失败」）。这里解一次还原成真实文件名。
+        不自己判 ACL：直接调 browse service 的 resolve_file，它内部走各自的
+        行级 ACL（合同 ContractAccessPolicy / 案件 CaseAccessPolicy）——
+        代理绝不能比 REST 端点宽松。
         """
         from urllib.parse import unquote
 
-        from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
-
         real_subpath = unquote(subpath)
         try:
-            return ContractFolderBrowseService().resolve_file(
-                owner_id=contract_id,
+            return make_service().resolve_file(
+                owner_id=owner_id,
                 user=user,
                 org_access=getattr(user, "org_access", None),
                 perm_open_access=False,
                 subpath=real_subpath,
             )
         except Exception:
-            logger.warning(
-                "OnlyOffice 代理取文件夹文件失败: contract=%s subpath=%s", contract_id, subpath, exc_info=True
-            )
+            logger.warning("OnlyOffice 代理取文件夹文件失败: %s=%s subpath=%s", label, owner_id, subpath, exc_info=True)
             return None
 
     return OODomain(
-        key="contract_folder",
+        key=key,
         # 第 2 组捕获 subpath 原文（Django 已在解析 query 时解码一次）
-        path_pattern=r"^/api/v1/contracts/(\d+)/folder-file\?(?:.*?&)?subpath=([^&]*)",
+        path_pattern=path_pattern,
         cast_id=int,
-        get_owner_id=lambda contract: getattr(contract, "owner_id", None),
+        get_owner_id=lambda owner: getattr(owner, "owner_id", None),
         resolve_file=_resolve,
         adopt_edited=_adopt_edited,
         resolve_for_proxy=_resolve_proxy,
+    )
+
+
+def _contract_folder_domain() -> OODomain:
+    """合同绑定文件夹里的单个文件（客户来件、发票、监督卡…）。
+
+    以前文件夹里的 docx 只能下载——浏览器没有 docx 渲染器，`window.open`
+    结果必然落到本地磁盘。注册进代理白名单后 DS 能拉这个文件，律师直接
+    看内容（甚至就地改），保存回写覆写原文件（见 `_bound_folder_domain`）。
+    """
+
+    def _make() -> Any:
+        from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
+
+        return ContractFolderBrowseService()
+
+    return _bound_folder_domain(
+        key="contract_folder",
+        path_pattern=r"^/api/v1/contracts/(\d+)/folder-file\?(?:.*?&)?subpath=([^&]*)",
+        label="contract",
+        make_service=_make,
+    )
+
+
+def _case_folder_domain() -> OODomain:
+    """案件绑定文件夹里的单个文件（起诉状、证据、判决书…）——诉讼项目的文件主体。
+
+    **为什么要它**：诉讼详情页（DealDetailPage）的合同常常没绑文件夹，文件
+    全在案件绑定目录里；只注册 contract_folder 时这些 docx 点开仍是「下载」
+    老逻辑。行为与合同域完全一致（预览 / 就地编辑 / 保存回写原地覆写），
+    ACL 走 CaseAccessPolicy（在 CaseFolderBrowseService 内，与 REST 端点同口径）。
+    """
+
+    def _make() -> Any:
+        from apps.cases.services.material.case_folder_browse_service import CaseFolderBrowseService
+
+        return CaseFolderBrowseService()
+
+    return _bound_folder_domain(
+        key="case_folder",
+        path_pattern=r"^/api/v1/cases/(\d+)/folder-file\?(?:.*?&)?subpath=([^&]*)",
+        label="case",
+        make_service=_make,
     )
 
 
@@ -233,6 +273,7 @@ def _bootstrap() -> None:
     """内置业务域。新业务域在这里注册（或在自己的 apps.ready 里 register_domain）。"""
     register_domain(_contract_review_domain())
     register_domain(_contract_folder_domain())
+    register_domain(_case_folder_domain())
 
 
 _bootstrap()

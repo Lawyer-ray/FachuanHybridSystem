@@ -371,5 +371,8 @@ onlyoffice/
 | POST | `/callback` | DS 回调签名 | DS 状态回调；status=2/6 落盘并轮换 key |
 | GET | `/file` | HMAC 签名 | DS 回源取文件代理（`?src=&sig=`，可重复访问） |
 
-> `/editor-config` 与 `/file` 的路径白名单目前**只放行** `/api/v1/contract-review/{id}/download*`。
-> 其它业务域接入时，两处要同时加分支（`_CONTRACT_REVIEW_RE` 与 `handle_save_callback` 的 `task_type`）。
+> `/editor-config` 与 `/file` 的路径白名单由 `services/domain_registry.py` 的业务域
+> 注册表决定：`contract_review`（复审产物）、`contract_folder`（合同绑定文件夹）、
+> `case_folder`（案件绑定文件夹，2026-10 起诉讼详情页的案件文件走这里）。
+> 新业务域接入只需在注册表加一条（取文件/保存回写/权限钩子随域声明），
+> 三处调用点（config 签发、文件代理、保存回调）自动支持。
