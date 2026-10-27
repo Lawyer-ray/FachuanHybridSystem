@@ -79,6 +79,67 @@ def locate_paragraph(doc: DocumentType, selection: str) -> Any | None:
     return None
 
 
+# ── 模块级工具函数（原类内静态方法；Service 层禁用静态方法装饰器，纯函数一律下沉）──
+
+
+def _bump_editor_doc_key(*, owner_id: int, subpath: str) -> None:
+    """覆写后轮换 OnlyOffice 文档 key（打开中的编辑器画布才能拿到新内容）。
+
+    source_path 必须与前端签配置用的 file_url 逐字一致（`folderFileUrl` 的
+    口径：`/api/v1/contracts/{id}/folder-file?subpath=<encodeURIComponent>`），
+    同一路径才派生出同一 task_id，才轮换到正确文档的版本。失败只记
+    warning：修订已经落盘，画布刷新是增强不是前提，不该让改写报错。
+    """
+    from urllib.parse import quote
+
+    from apps.onlyoffice.services.callback_service import bump_external_write
+
+    try:
+        source_path = f"/api/v1/contracts/{owner_id}/folder-file?subpath={quote(subpath, safe='')}"
+        bump_external_write(source_path, task_type="contract_folder")
+    except Exception:
+        logger.warning("划词直改后轮换编辑器文档 key 失败（不影响已落盘的修订）", exc_info=True)
+
+
+def _browse() -> Any:
+    """合同绑定文件夹的服务（带合同行级 ACL 与 ContractFolderBinding 解析）。
+
+    不用基类 `BoundFolderBrowseService`：它只做路径解析，没有合同 ACL，
+    也没有 `_local_root` 的绑定解析——直接拿它会让「律师 A 能改律师 B
+    的合同文件夹」变成可能。
+    """
+    from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
+
+    return ContractFolderBrowseService()
+
+
+def _read_bytes(
+    browse: BoundFolderBrowseService,
+    *,
+    owner_id: int,
+    subpath: str,
+    user: Any | None,
+    org_access: dict[str, Any] | None,
+    perm_open_access: bool,
+) -> bytes:
+    """取原文件字节。走 browse 的权限校验，不自己拼路径。"""
+    try:
+        path = browse.resolve_file(
+            owner_id=owner_id,
+            subpath=subpath,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
+    except NotFoundError:
+        raise
+    except Exception as exc:
+        # 权限不足等：统一收敛成 NotFound，不泄露「存在但无权」
+        logger.warning("划词直改读取源文件失败 owner=%s subpath=%s: %s", owner_id, subpath, exc)
+        raise NotFoundError(message="文件不存在或无权访问", code="FOLDER_NOT_FOUND") from exc
+    return Path(path).read_bytes()
+
+
 class DirectEditService:
     """读取文件夹 docx → 应用一条修订 → 原子覆写。"""
 
@@ -109,8 +170,8 @@ class DirectEditService:
         if not subpath.lower().endswith(".docx"):
             raise ValidationException(message="只有 .docx 支持带修订痕迹的直改", errors={"subpath": subpath})
 
-        browse = self._browse()
-        source = self._read_bytes(
+        browse = _browse()
+        source = _read_bytes(
             browse,
             owner_id=owner_id,
             subpath=subpath,
@@ -160,67 +221,9 @@ class DirectEditService:
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
-        self._bump_editor_doc_key(owner_id=owner_id, subpath=subpath)
+        _bump_editor_doc_key(owner_id=owner_id, subpath=subpath)
         logger.info("划词直改已落盘: owner=%s subpath=%s 长度 %d→%d", owner_id, subpath, len(selection), len(suggested))
         return {"applied": True, "subpath": subpath, "name": Path(subpath).name, "reason": ""}
-
-    @staticmethod
-    def _bump_editor_doc_key(*, owner_id: int, subpath: str) -> None:
-        """覆写后轮换 OnlyOffice 文档 key（打开中的编辑器画布才能拿到新内容）。
-
-        source_path 必须与前端签配置用的 file_url 逐字一致（`folderFileUrl` 的
-        口径：`/api/v1/contracts/{id}/folder-file?subpath=<encodeURIComponent>`），
-        同一路径才派生出同一 task_id，才轮换到正确文档的版本。失败只记
-        warning：修订已经落盘，画布刷新是增强不是前提，不该让改写报错。
-        """
-        from urllib.parse import quote
-
-        from apps.onlyoffice.services.callback_service import bump_external_write
-
-        try:
-            source_path = f"/api/v1/contracts/{owner_id}/folder-file?subpath={quote(subpath, safe='')}"
-            bump_external_write(source_path, task_type="contract_folder")
-        except Exception:
-            logger.warning("划词直改后轮换编辑器文档 key 失败（不影响已落盘的修订）", exc_info=True)
-
-    @staticmethod
-    def _browse() -> Any:
-        """合同绑定文件夹的服务（带合同行级 ACL 与 ContractFolderBinding 解析）。
-
-        不用基类 `BoundFolderBrowseService`：它只做路径解析，没有合同 ACL，
-        也没有 `_local_root` 的绑定解析——直接拿它会让「律师 A 能改律师 B
-        的合同文件夹」变成可能。
-        """
-        from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
-
-        return ContractFolderBrowseService()
-
-    @staticmethod
-    def _read_bytes(
-        browse: BoundFolderBrowseService,
-        *,
-        owner_id: int,
-        subpath: str,
-        user: Any | None,
-        org_access: dict[str, Any] | None,
-        perm_open_access: bool,
-    ) -> bytes:
-        """取原文件字节。走 browse 的权限校验，不自己拼路径。"""
-        try:
-            path = browse.resolve_file(
-                owner_id=owner_id,
-                subpath=subpath,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
-            )
-        except NotFoundError:
-            raise
-        except Exception as exc:
-            # 权限不足等：统一收敛成 NotFound，不泄露「存在但无权」
-            logger.warning("划词直改读取源文件失败 owner=%s subpath=%s: %s", owner_id, subpath, exc)
-            raise NotFoundError(message="文件不存在或无权访问", code="FOLDER_NOT_FOUND") from exc
-        return Path(path).read_bytes()
 
 
 def get_direct_edit_service() -> DirectEditService:

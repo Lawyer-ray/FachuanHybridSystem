@@ -66,7 +66,7 @@ def _md_groups(m: re.Match[str]) -> tuple[int, int]:
     return int(m.group(1)), int(day)
 
 
-# ── 模块级工具函数（原类内 @staticmethod，遵循 Service 层禁用 @staticmethod 约定）──
+# ── 模块级工具函数（原类内静态方法；Service 层禁用静态方法装饰器，纯函数一律下沉）──
 
 
 def _to_decimal(raw: str) -> Decimal | None:

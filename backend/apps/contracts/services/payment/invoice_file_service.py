@@ -68,7 +68,7 @@ class SavedInvoice:
     folder_skipped_reason: str = ""
 
 
-# ── 模块级工具函数（原类内 @staticmethod，遵循 Service 层禁用 @staticmethod 约定）──
+# ── 模块级工具函数（原类内静态方法；Service 层禁用静态方法装饰器，纯函数一律下沉）──
 
 
 def _contract_name(contract_id: int) -> str:
@@ -98,6 +98,52 @@ def _sweep_stale_copies(temp_root: Path) -> None:
                 shutil.rmtree(old, ignore_errors=True)
         except OSError:
             continue
+
+
+def _access_policy() -> Any:
+    from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+    return ContractAccessPolicy
+
+
+def _ext(name: str) -> str:
+    idx = name.rfind(".")
+    return name[idx:].lower() if idx >= 0 else ""
+
+
+def _as_decimal(value: Any) -> Decimal | None:
+    if value in (None, ""):
+        return None
+    try:
+        return Decimal(str(value)).quantize(Decimal("0.01"))
+    except Exception:
+        return None
+
+
+def _as_date(value: Any) -> date | None:
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value.strip():
+        from django.utils.dateparse import parse_date
+
+        return parse_date(value.strip()[:10])
+    return None
+
+
+def _skip_reason(exc: Exception) -> str:
+    return str(getattr(exc, "message", "") or exc or "无法写入合同文件夹")
+
+
+def _media_url() -> str:
+    from django.conf import settings
+
+    return str(settings.MEDIA_URL)
+
+
+def _media_abs(rel_path: str) -> str:
+    from django.conf import settings
+
+    return str(Path(settings.MEDIA_ROOT) / rel_path)
 
 
 class InvoiceFileService:
@@ -163,10 +209,10 @@ class InvoiceFileService:
 
         seller = str(getattr(parsed, "seller_name", "") or "")
         buyer = str(getattr(parsed, "buyer_name", "") or "")
-        inv_date = self._as_date(getattr(parsed, "invoice_date", None))
-        amount = self._as_decimal(getattr(parsed, "amount", None))
-        tax_amount = self._as_decimal(getattr(parsed, "tax_amount", None))
-        total_amount = self._as_decimal(getattr(parsed, "total_amount", None))
+        inv_date = _as_date(getattr(parsed, "invoice_date", None))
+        amount = _as_decimal(getattr(parsed, "amount", None))
+        tax_amount = _as_decimal(getattr(parsed, "tax_amount", None))
+        total_amount = _as_decimal(getattr(parsed, "total_amount", None))
         number = str(getattr(parsed, "invoice_number", "") or "")
         code = str(getattr(parsed, "invoice_code", "") or "")
 
@@ -221,10 +267,10 @@ class InvoiceFileService:
                 contract_name=contract_name,
                 seller=seller,
                 inv_date=inv_date,
-                ext=self._ext(file_path),
+                ext=_ext(file_path),
             ),
             file_path=file_path,
-            file_url=f"{self._media_url()}{file_path}",
+            file_url=f"{_media_url()}{file_path}",
             invoice_code=code,
             invoice_number=number,
             invoice_date=inv_date,
@@ -386,12 +432,12 @@ class InvoiceFileService:
             contract_name=str(contract.name or ""),
             seller=str(invoice.seller_name or ""),
             inv_date=invoice.invoice_date,
-            ext=self._ext(invoice.file_path),
+            ext=_ext(invoice.file_path),
         )
 
         staging = Path(tempfile.mkdtemp(prefix="fachuan-invoice-"))
         target = staging / display_name
-        target.write_bytes(Path(self._media_abs(invoice.file_path)).read_bytes())
+        target.write_bytes(Path(_media_abs(invoice.file_path)).read_bytes())
         _sweep_stale_copies(staging.parent)
 
         copied = MacClipboardFileService().copy_file_paths([target])
@@ -418,7 +464,7 @@ class InvoiceFileService:
         except ContractPayment.DoesNotExist:
             raise NotFoundError(message="收款记录不存在", code="PAYMENT_NOT_FOUND") from None
 
-        ContractAccessPolicy = self._access_policy()
+        ContractAccessPolicy = _access_policy()
         ContractAccessPolicy().ensure_access(
             contract_id=payment.contract_id,
             user=user,
@@ -440,22 +486,16 @@ class InvoiceFileService:
 
         if contract_id is None:
             raise NotFoundError(message="发票未挂靠任何合同", code="INVOICE_NO_CONTRACT") from None
-        ContractAccessPolicy = self._access_policy()
+        ContractAccessPolicy = _access_policy()
         ContractAccessPolicy().ensure_access(
             contract_id=contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
-
-    @staticmethod
-    def _access_policy() -> Any:
-        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
-
-        return ContractAccessPolicy
 
     # ------------------------------------------------------------------ 内部
 
     def _validate_file(self, uploaded_file: Any) -> None:
         name = str(getattr(uploaded_file, "name", "") or "")
-        ext = self._ext(name)
+        ext = _ext(name)
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValidationException(
                 message=f"不支持的发票格式：{ext or name}",
@@ -526,25 +566,25 @@ class InvoiceFileService:
             subpath = self._locate_invoice_dir(service, contract_id, access)
         except Exception as exc:  # 未绑定 / 云存储 / 目录不可达：都不是开票失败
             logger.info("invoice_folder_mirror_skipped", extra={"contract_id": contract_id, "reason": str(exc)})
-            return "", self._skip_reason(exc)
+            return "", _skip_reason(exc)
 
         display_name = self.display_filename(
             contract_name=contract_name,
             seller=str(invoice.seller_name or ""),
             inv_date=inv_date,
-            ext=self._ext(invoice.file_path),
+            ext=_ext(invoice.file_path),
         )
         try:
             saved = service.save_upload_bytes(
                 owner_id=contract_id,
                 subpath=subpath,
                 filename=display_name,
-                data=Path(self._media_abs(invoice.file_path)).read_bytes(),
+                data=Path(_media_abs(invoice.file_path)).read_bytes(),
                 **access,
             )
         except Exception as exc:
             logger.warning("invoice_folder_mirror_failed", exc_info=True)
-            return "", self._skip_reason(exc)
+            return "", _skip_reason(exc)
 
         return str(saved.get("subpath") or ""), ""
 
@@ -605,43 +645,3 @@ class InvoiceFileService:
     def _safe_part(cls, raw: str, *, limit: int) -> str:
         cleaned = cls._ILLEGAL_NAME_CHARS.sub("", raw).strip(" .")
         return cleaned[:limit] or ""
-
-    @staticmethod
-    def _ext(name: str) -> str:
-        idx = name.rfind(".")
-        return name[idx:].lower() if idx >= 0 else ""
-
-    @staticmethod
-    def _as_decimal(value: Any) -> Decimal | None:
-        if value in (None, ""):
-            return None
-        try:
-            return Decimal(str(value)).quantize(Decimal("0.01"))
-        except Exception:
-            return None
-
-    @staticmethod
-    def _as_date(value: Any) -> date | None:
-        if isinstance(value, date):
-            return value
-        if isinstance(value, str) and value.strip():
-            from django.utils.dateparse import parse_date
-
-            return parse_date(value.strip()[:10])
-        return None
-
-    @staticmethod
-    def _skip_reason(exc: Exception) -> str:
-        return str(getattr(exc, "message", "") or exc or "无法写入合同文件夹")
-
-    @staticmethod
-    def _media_url() -> str:
-        from django.conf import settings
-
-        return str(settings.MEDIA_URL)
-
-    @staticmethod
-    def _media_abs(rel_path: str) -> str:
-        from django.conf import settings
-
-        return str(Path(settings.MEDIA_ROOT) / rel_path)
