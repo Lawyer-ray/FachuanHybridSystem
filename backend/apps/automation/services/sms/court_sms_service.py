@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
@@ -415,7 +415,6 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             sms.status = CourtSMSStatus.PENDING
             sms.error_message = ""
-            sms.retry_count += 1
             sms.scraper_task = None
             sms.notification_results = None
             if has_manual_case:
@@ -424,7 +423,11 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             else:
                 sms.case = None
                 sms.case_log = None
+            # retry_count 用 F() 原子自增：并发点两次「重试」时，读改写会互相覆盖
+            # 导致计数丢失（审计轨迹对不上）。同 scraping_tasks.py 的口径。
+            sms.retry_count = F("retry_count") + 1
             sms.save()
+            sms.refresh_from_db(fields=["retry_count"])
 
             logger.info(
                 "重置短信状态成功: SMS ID=%s, 重试次数=%s, 保留案件关联=%s", sms_id, sms.retry_count, has_manual_case

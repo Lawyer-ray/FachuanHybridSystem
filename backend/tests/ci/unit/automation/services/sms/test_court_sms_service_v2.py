@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from django.db.models import F
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
@@ -520,8 +521,13 @@ class TestRetryProcessing:
 
         result = svc.retry_processing(1)
         assert sms_obj.status == "pending"
-        assert sms_obj.retry_count == 1
+        # retry_count 改为 F() 原子自增（并发点两次不丢计数），mock 对象上
+        # F 表达式不会求值，所以断言“是 F 表达式”+“save 被调用”。
+        # 真实自增效果由 tests/ci/unit/automation/services/sms/
+        # test_court_sms_retry_atomic.py 在 DB 上验证。
+        assert sms_obj.retry_count == F("retry_count") + 1
         sms_obj.save.assert_called_once()
+        sms_obj.refresh_from_db.assert_called_once_with(fields=["retry_count"])
 
     @patch(f"{_MOD}.CourtSMS")
     @patch(f"{_MOD}.SMSParserService")
