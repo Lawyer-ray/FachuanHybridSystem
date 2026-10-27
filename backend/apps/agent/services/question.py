@@ -128,7 +128,9 @@ def _clear_answer(question_id: str) -> None:
     try:
         cache.delete(f"{ANSWER_KEY_PREFIX}{question_id}")
     except Exception:
-        pass
+        # 答案键残留会让同一问题被重复作答/串答案，用户可见；
+        # 按根 CLAUDE.md 标准取 warning。
+        logger.warning("清除提问答案键失败 question_id=%s", question_id, exc_info=True)
 
 
 async def get_question_by_id(question_id: str) -> Any:

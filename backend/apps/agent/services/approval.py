@@ -555,7 +555,9 @@ def _clear_waiter_heartbeat(approval_id: str) -> None:
     try:
         cache.delete(f"{WAITER_KEY_PREFIX}{approval_id}")
     except Exception:
-        pass
+        # 审批链路不得 debug 吞错（见 tests/ci/unit/agent/test_approval_log_levels.py）：
+        # 心跳键残留会让离线挂起判定失真，属用户可见的无法解释结果。
+        logger.warning("清除审批心跳键失败 approval_id=%s", approval_id, exc_info=True)
 
 
 def _read_decision(approval_id: str) -> bool | None:
