@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { BTN, BTN_PRIMARY, ROW_BTN } from '../../../ui'
 import { FlowNotice } from '../dialog/TaskFlowDialog'
 import { badgeOf } from './badges'
@@ -90,9 +91,9 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
               {isError ? (
                 <HistoryError error={errMessage(error, '历史任务加载失败')} onRetry={() => void refetch()} />
               ) : isLoading ? (
-                <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
+                <LoadingBlock text="正在加载…" />
               ) : items.length === 0 ? (
-                <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">还没有转换任务</div>
+                <EmptyBlock>还没有转换任务</EmptyBlock>
               ) : (
                 items.map((it) => <JobRow key={it.id} item={it} onPick={() => setPickedId(it.id)} />)
               )}
@@ -132,7 +133,7 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
               {jobIsError ? (
                 <HistoryError error={errMessage(jobError, '任务详情加载失败')} onRetry={() => void refetchJob()} />
               ) : jobLoading || !job ? (
-                <div className="py-8 text-center text-[12px] text-muted-foreground">正在载入记录…</div>
+                <LoadingBlock text="正在载入记录…" className="px-0" />
               ) : job.done > 0 ? (
                 <div className="flex flex-col gap-2">
                   {okItems.map((it) => (

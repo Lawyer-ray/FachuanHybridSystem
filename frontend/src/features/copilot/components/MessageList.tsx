@@ -16,6 +16,8 @@ import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 
 import { useAuth } from '@/features/auth'
+import { LoadingBlock } from '@/components/shared/AsyncState'
+import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
 import '../copilot.css'
 import { bizHintParts, shortToolName } from '../domain'
@@ -106,26 +108,18 @@ function RateButtons({ messageId, rating }: { messageId: number; rating?: 'up' |
   )
 }
 
-/** 复制助手回答的 Markdown 源码（hover 浮现；无剪贴板环境静默忽略） */
+/** 复制助手回答的 Markdown 源码（hover 浮现） */
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
+  // 必须走 useCopyFeedback：内网 http 部署下 navigator.clipboard 不存在，
+  // 手写调用只会静默失败（点了没任何反馈），它内部带 execCommand 兜底。
+  const { copied, copy } = useCopyFeedback({ resetMs: 1500 })
   return (
     <button
       type="button"
       className="absolute top-0 right-0 flex h-6 w-6 items-center justify-center rounded-[6px] bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
       aria-label="复制回答"
       title="复制 Markdown 源码"
-      onClick={() => {
-        navigator.clipboard
-          ?.writeText(text)
-          .then(() => setCopied(true))
-          .catch(() => {})
-      }}
+      onClick={() => void copy(text)}
     >
       {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
     </button>
@@ -289,9 +283,7 @@ export function MessageList() {
         }
       >
       {empty && <CopilotWelcome />}
-      {loadingHistory && (
-        <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
-      )}
+      {loadingHistory && <LoadingBlock text="正在加载历史…" className="py-6" />}
       {!loadingHistory && !noMoreHistory && messages.length >= 200 && (
         <div className="mb-2 flex justify-center">
           <button

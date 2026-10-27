@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
+import { EmptyBlock } from '@/components/shared/AsyncState'
 import { copyText } from '@/lib/clipboard'
 import type { DealContact, DealTeamMember, WorkbenchDeal } from '../../types'
 import type { Deadline } from './detail-domain'
@@ -87,7 +88,10 @@ export function DetailRail({
           }
         >
           {deadlines.length === 0 ? (
-            <div className="text-xs text-muted-foreground/70">暂无未来期限</div>
+            /* 节内空态：共享件的居中内边距在 320px 右栏里太高，压成一行小字 */
+            <EmptyBlock className="justify-start px-0 py-0 text-left text-xs text-muted-foreground/70">
+              暂无未来期限
+            </EmptyBlock>
           ) : (
             deadlines.map((d) => (
               <div key={d.key} className="grid grid-cols-[14px_1fr] py-1.5">

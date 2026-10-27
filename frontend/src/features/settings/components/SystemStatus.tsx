@@ -6,8 +6,9 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { CheckCircle2, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { StatusBadge, type Tone } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
 import {
@@ -21,20 +22,28 @@ import {
 
 type CardState = 'loading' | 'ok' | 'warn' | 'error' | 'unknown'
 
+/**
+ * 卡片状态 → 徽章档位（色板取 tokens，见 shared/status-badge）。
+ *
+ * 此前这里是两组平行的颜色 map（圆点一组、文字一组），同一语义在两处手抄，
+ * 改色时必然漏一处；且「状态标签」本质就是一枚徽章，圆点+彩色文字的拼法
+ * 全站只有本页在用。loading / unknown 共用 neutral，靠左侧圆点区分。
+ */
+const STATE_TONE: Record<CardState, Tone> = {
+  loading: 'neutral',
+  ok: 'green',
+  warn: 'yellow',
+  error: 'red',
+  unknown: 'neutral',
+}
+
+/** 圆点：只有「加载中」需要脉冲动效，其余实心 */
 const STATE_DOT: Record<CardState, string> = {
   loading: 'bg-muted-foreground/40 animate-pulse',
   ok: 'bg-status-green',
   warn: 'bg-status-yellow',
   error: 'bg-status-red',
   unknown: 'bg-muted-foreground',
-}
-
-const STATE_TEXT: Record<CardState, string> = {
-  loading: 'text-muted-foreground',
-  ok: 'text-status-green',
-  warn: 'text-status-yellow',
-  error: 'text-status-red',
-  unknown: 'text-muted-foreground',
 }
 
 function StatusCard({
@@ -53,7 +62,9 @@ function StatusCard({
       <div className="flex items-center gap-2">
         <span className={`size-2 flex-none rounded-full ${STATE_DOT[state]}`} />
         <span className="text-[13px] font-semibold">{title}</span>
-        <span className={`ml-auto text-[11.5px] font-medium ${STATE_TEXT[state]}`}>{stateText}</span>
+        <StatusBadge tone={STATE_TONE[state]} className="ml-auto text-[11.5px]">
+          {stateText}
+        </StatusBadge>
       </div>
       {children ? <div className="mt-3 space-y-1.5 text-[12px] leading-[1.7] text-muted-foreground">{children}</div> : null}
     </div>
@@ -201,11 +212,17 @@ function LlmCard() {
             </Button>
           </div>
           {testConn.data ? (
-            <p className={`text-[11.5px] ${testConn.data.ok ? 'text-status-green' : 'text-status-red'}`}>
+            /* 探测结论本身就是一枚状态徽章：ok / 不可达直接映射到绿 / 红档 */
+            <StatusBadge tone={testConn.data.ok ? 'green' : 'red'} className="text-[11.5px]">
+              {testConn.data.ok ? (
+                <CheckCircle2 className="mr-1 size-3" />
+              ) : (
+                <XCircle className="mr-1 size-3" />
+              )}
               {testConn.data.ok
                 ? `连接成功：${testConn.data.model ?? ''}（${testConn.data.backend ?? ''}）`
                 : testConn.data.error || '连接失败'}
-            </p>
+            </StatusBadge>
           ) : null}
         </>
       )}

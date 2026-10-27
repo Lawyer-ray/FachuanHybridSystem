@@ -18,6 +18,8 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Brain, Check, Plus, Sparkles, Trash2, X } from 'lucide-react'
 
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
+
 import {
   confirmMemories,
   createMemory,
@@ -320,11 +322,11 @@ function MemoryGroup({
         <span className="ml-1.5 font-normal text-muted-foreground">{items.length}</span>
       </h3>
       {loading && items.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">加载中…</p>
+        <LoadingBlock size="sm" className="justify-start py-2" />
       ) : items.length === 0 ? (
-        <p className="text-[12px] leading-relaxed text-muted-foreground">
+        <EmptyBlock className="items-start py-2 text-left leading-relaxed">
           还没有记忆。在上方输入，或直接对助手说「记住…」。
-        </p>
+        </EmptyBlock>
       ) : (
         <ul className="space-y-1">
           {items.map((memory) => (

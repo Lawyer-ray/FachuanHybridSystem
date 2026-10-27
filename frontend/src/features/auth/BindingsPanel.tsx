@@ -9,19 +9,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router'
 import { parseISO } from 'date-fns'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { errMessage } from '@/lib/errors'
 import { socialBindingsApi, type BoundAccount, type SocialProviderInfo } from './social-api'
 import { BINDINGS_KEY, CATALOG_KEY } from './constants'
@@ -99,32 +90,24 @@ export function BindingsPanel() {
         </p>
 
         <div className="mt-5 overflow-hidden rounded-xl border bg-card">
-          {loading && (
-            <div className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              正在加载…
-            </div>
-          )}
+          {loading && <LoadingBlock text="正在加载…" size="sm" className="py-10" />}
 
           {!loading && failed && (
-            <div className="flex flex-col items-center gap-3 py-10">
-              <p className="text-[12.5px] text-muted-foreground">加载绑定信息失败，请检查网络后重试</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void bindingsQuery.refetch()
-                  void catalogQuery.refetch()
-                }}
-              >
-                重新加载
-              </Button>
-            </div>
+            <ErrorBlock
+              // 原行为是固定文案（不暴漏接口错误）：传 null 让它无条件回 fallback。
+              // 普通 Error 的 message（如 mock 里的 '500'）没有信息量，漏给用户反而误导
+              error={null}
+              fallback="加载绑定信息失败，请检查网络后重试"
+              retryText="重新加载"
+              onRetry={() => {
+                void bindingsQuery.refetch()
+                void catalogQuery.refetch()
+              }}
+            />
           )}
 
           {!loading && !failed && rows.length === 0 && (
-            <p className="py-10 text-center text-[12.5px] text-muted-foreground">暂无可绑定的登录方式</p>
+            <EmptyBlock className="py-10">暂无可绑定的登录方式</EmptyBlock>
           )}
 
           {!loading &&
@@ -188,31 +171,19 @@ export function BindingsPanel() {
         }}
       />
 
-      <AlertDialog
+      <ConfirmDialog
         open={unbindTarget !== null}
         onOpenChange={(open) => {
           if (!open) setUnbindTarget(null)
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认解绑{unbindTarget?.provider ?? ''}？</AlertDialogTitle>
-            <AlertDialogDescription>
-              解绑后该账号将无法登录本系统，需要重新绑定。账号密码登录不受影响。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (unbindTarget) unbind.mutate(unbindTarget.provider)
-              }}
-            >
-              解绑
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={`确认解绑${unbindTarget?.provider ?? ''}？`}
+        description="解绑后该账号将无法登录本系统，需要重新绑定。账号密码登录不受影响。"
+        confirmText="解绑"
+        pending={unbind.isPending}
+        onConfirm={() => {
+          if (unbindTarget) unbind.mutate(unbindTarget.provider)
+        }}
+      />
     </>
   )
 }

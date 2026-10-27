@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 
+import { formatBytes } from '@/lib/format'
 import type { FolderOwnerKind } from '../../api'
 
 /** 绑定文件夹树的共享类型与小工具（与组件分开，满足 react-refresh 仅导出组件的约束）。 */
@@ -41,9 +42,12 @@ export interface NodeActions {
   deleteEntry: (subpath: string) => void
 }
 
-/** 文件大小短格式（B / KB / MB） */
-export function fmtSize(n: number): string {
-  if (n < 1024) return n + ' B'
-  if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB'
-  return (n / 1024 / 1024).toFixed(1) + ' MB'
-}
+/**
+ * 文件大小短格式。
+ *
+ * 口径统一到 lib/format 的 formatBytes（此前本地那份漏了 GB 档，大文件会显示成
+ * 「512000.0 MB」）。这里只保留 fmtSize 这个名字给同目录的 FolderTree /
+ * FilePreviewCard，避免改调用点、也避免重命名文件——注意运行时函数放在
+ * `*-types.ts` 里本身就是归属问题（该文件只应导出类型，函数应迁出到独立模块）。
+ */
+export const fmtSize = formatBytes

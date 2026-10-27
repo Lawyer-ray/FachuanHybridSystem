@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { ROW_BTN } from '../../../ui'
 import { badgeOf } from './badges'
 import { HistoryError } from './HistoryError'
@@ -49,7 +50,7 @@ function Row({ item, onDeleted }: { item: ConvertRecordItem; onDeleted: () => vo
       toast.success('已删除该条转换记录')
       onDeleted()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '删除失败，请稍后重试')
+      toast.error(errMessage(e, '删除失败，请稍后重试'))
     } finally {
       setBusy(false)
       setArmed(false)
@@ -163,11 +164,9 @@ export function ConvertHistoryDialog({ open, onOpenChange }: { open: boolean; on
           {isError ? (
             <HistoryError error={errMessage(error, '历史记录加载失败')} onRetry={() => void refetch()} />
           ) : isLoading ? (
-            <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
+            <LoadingBlock text="正在加载…" />
           ) : items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">
-              这个筛选下没有记录（历史自本功能上线起保留）
-            </div>
+            <EmptyBlock>这个筛选下没有记录（历史自本功能上线起保留）</EmptyBlock>
           ) : (
             items.map((it) => (
               <Row key={it.id} item={it} onDeleted={() => void queryClient.invalidateQueries({ queryKey: convertHistoryKeys.all })} />

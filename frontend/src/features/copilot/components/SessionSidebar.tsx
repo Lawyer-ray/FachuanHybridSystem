@@ -30,16 +30,9 @@ import { groupSessions, taskBadge } from '../domain'
 import { useRailResize } from '../hooks/use-rail-resize'
 import { useCopilot } from '../store'
 import type { AgentSession, SessionGroup } from '../types'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 
 /** 组头图标：委托=公文包 / 案件=天平 / 任务=时钟 / 通用=对话 */
@@ -122,12 +115,9 @@ function SessionRow({
       <MessageSquare className={`h-3 w-3 flex-none ${active ? 'text-foreground/70' : 'text-muted-foreground/70'}`} />
       <span className="min-w-0 flex-1 truncate">{session.title || '未命名对话'}</span>
       {badge && (
-        <span
-          className={`flex-none rounded-[4px] px-1 py-px text-[10px] leading-4 ${badge.cls}`}
-          title={`后台任务：${badge.label}`}
-        >
+        <StatusBadge tone={badge.tone} size="xs" className="flex-none" title={`后台任务：${badge.label}`}>
           {badge.label}
-        </span>
+        </StatusBadge>
       )}
       {!compact && (
         <span className="flex-none text-[11px] text-muted-foreground">
@@ -378,13 +368,11 @@ export function SessionSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2">
-        {sessionsQuery.isLoading && (
-          <p className="py-4 text-center text-[12px] text-muted-foreground">加载中…</p>
-        )}
+        {sessionsQuery.isLoading && <LoadingBlock className="py-4" />}
         {!sessionsQuery.isLoading && sessions.length === 0 && (
-          <p className="py-4 text-center text-[12px] text-muted-foreground">
+          <EmptyBlock className="py-4">
             {context ? `「${context.title}」还没有 AI 会话，问一句就会出现在这里` : '暂无历史会话'}
-          </p>
+          </EmptyBlock>
         )}
         {groups.map((g, i) => {
           // 默认展开规则：当前项目 + 最高位的那个分组展开，其余项目收起——
@@ -429,28 +417,19 @@ export function SessionSidebar({
 
       <UsageFooter />
 
-      <AlertDialog open={confirmTarget !== null} onOpenChange={(v) => !v && setConfirmTarget(null)}>
-        <AlertDialogContent className="max-w-[340px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>删除该对话？</AlertDialogTitle>
-            <AlertDialogDescription>
-              「{confirmTarget?.title || '未命名对话'}」的消息记录将一并删除，删除后无法恢复。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={() => {
-                if (confirmTarget) deleteMutation.mutate(confirmTarget.session_id)
-                setConfirmTarget(null)
-              }}
-            >
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onOpenChange={(v) => !v && setConfirmTarget(null)}
+        title="删除该对话？"
+        description={`「${confirmTarget?.title || '未命名对话'}」的消息记录将一并删除，删除后无法恢复。`}
+        confirmText="删除"
+        tone="destructive"
+        pending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (confirmTarget) deleteMutation.mutate(confirmTarget.session_id)
+          setConfirmTarget(null)
+        }}
+      />
     </div>
   )
 }

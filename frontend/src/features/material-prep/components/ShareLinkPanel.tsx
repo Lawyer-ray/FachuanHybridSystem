@@ -5,8 +5,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Link2, Loader2, Plus, RefreshCw } from 'lucide-react'
+import { Link2, Plus, RefreshCw } from 'lucide-react'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
+import { formatBytes } from '@/lib/format'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { listUploadLinks, revokeUploadLink, rotateUploadLink, type UploadLinkRow } from '../api'
+import { errMessage } from '@/lib/errors'
+import { buildShareUrl, listUploadLinks, revokeUploadLink, rotateUploadLink, type UploadLinkRow } from '../api'
 import { ShareLinkDialog, ShareUrlBox } from './ShareLinkDialog'
 
 const STATE_LABEL: Record<string, string> = {
@@ -22,12 +26,6 @@ const STATE_LABEL: Record<string, string> = {
   expired: '已过期',
   revoked: '已作废',
   full: '已收满',
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)}GB`
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`
-  return `${Math.max(1, Math.round(bytes / 1024))}KB`
 }
 
 function formatExpiry(iso: string): string {
@@ -72,10 +70,11 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
   const rotate = (id: number) => {
     rotateUploadLink(id)
       .then((created) => {
-        setRotatedUrl(`${window.location.origin}/u/${created.token}`)
+        // 必须走 api.buildShareUrl：手抄 `/u/<token>` 一旦路由改名就会静默发出 404 链接
+        setRotatedUrl(buildShareUrl(created.token))
         reload()
       })
-      .catch((e: unknown) => toast.error(e instanceof Error ? e.message : '换发失败'))
+      .catch((e: unknown) => toast.error(errMessage(e, '换发失败')))
   }
 
   return (
@@ -91,11 +90,9 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
 
           <div className="max-h-[60vh] space-y-2 overflow-auto py-1">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-secondary-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> 加载中…
-              </div>
+              <LoadingBlock className="py-10 text-sm text-secondary-foreground" />
             ) : rows.length === 0 ? (
-              <p className="py-10 text-center text-sm text-secondary-foreground">还没有生成过链接</p>
+              <EmptyBlock className="py-10 text-sm text-secondary-foreground">还没有生成过链接</EmptyBlock>
             ) : (
               rows.map((row) => {
                 const isOpen = row.state === 'open'
@@ -103,13 +100,11 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
                   <div key={row.id} className="rounded-lg border px-3 py-2.5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.title}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${
-                          isOpen ? 'bg-emerald-500/10 text-emerald-700' : 'bg-secondary text-secondary-foreground'
-                        }`}
-                      >
+                      {/* 状态色走 StatusBadge 的 token（emerald 是 Tailwind 默认调色板，
+                          暗色下不跟 --status-green 走） */}
+                      <StatusBadge tone={isOpen ? 'green' : 'neutral'} className="rounded-full px-2">
                         {STATE_LABEL[row.state] ?? row.state}
-                      </span>
+                      </StatusBadge>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {[row.client_name, row.contract_name, `已收 ${row.pack_count} 包 / ${formatBytes(row.used_bytes)}`, `${formatExpiry(row.expires_at)} 到期`]

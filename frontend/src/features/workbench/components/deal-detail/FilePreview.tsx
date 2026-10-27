@@ -4,6 +4,7 @@ import { ArrowLeft, Download, FileSearch, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
+import { downloadUrl } from '@/lib/download'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
@@ -90,13 +91,7 @@ export function FilePreview({
     try {
       // 票据是一次性的：每次下载都要现换，不能缓存复用
       const url = await withDownloadTicket(fileUrl)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = file.name
-      a.rel = 'noopener'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      downloadUrl(url, file.name)
     } finally {
       setBusy(null)
     }

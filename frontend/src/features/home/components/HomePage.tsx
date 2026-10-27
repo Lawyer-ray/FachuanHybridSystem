@@ -16,6 +16,7 @@ import { useMediaQuery } from '@/hooks/use-media'
 import { useToday } from '@/hooks/use-today'
 import { todayKey } from '@/lib/date'
 import { errMessage } from '@/lib/errors'
+import { ErrorBlock } from '@/components/shared/AsyncState'
 import { InboxCard, QuickAdd } from './SideCards'
 import { TodayCard } from './TodayCard'
 import { AddReminderDialog } from './AddReminderDialog'
@@ -231,17 +232,15 @@ export function HomePage() {
           {/* 左：日历 + 工具。@container 让 ToolDock / 日历密度按本栏宽度自适应 */}
           <div className="@container min-w-0">
             {viewQuery.isError ? (
-              /* 视图月拉取失败：整块日历换错误条（占位旧数据/空格子都会被误读成「没安排」） */
-              <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-[90px] text-center text-sm text-destructive">
-                {errMessage(viewQuery.error, '日历加载失败')}
-                <button
-                  type="button"
-                  className="ml-3 cursor-pointer underline underline-offset-3"
-                  onClick={() => void viewQuery.refetch()}
-                >
-                  重试
-                </button>
-              </div>
+              /* 视图月拉取失败：整块日历换错误条（占位旧数据/空格子都会被误读成「没安排」）。
+                 竖直留白与日历卡相当，避免错误条把下方工具坞顶上去了 */
+              <ErrorBlock
+                error={viewQuery.error}
+                fallback="日历加载失败"
+                retryText="重试"
+                onRetry={() => void viewQuery.refetch()}
+                className="rounded-[14px] px-5 py-[90px] text-sm"
+              />
             ) : (
               <CalendarPanel
                 today={today}

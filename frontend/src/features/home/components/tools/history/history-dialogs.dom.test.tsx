@@ -169,7 +169,7 @@ describe('ConverterHistoryDialog：列表视图', () => {
   it('加载中显示提示', () => {
     apiMock.listConverterJobs.mockReturnValue(new Promise(() => {}))
     const { unmount } = render(wrap(<ConverterHistoryDialog open onOpenChange={vi.fn()} />))
-    expect(screen.getByText('正在加载…')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain('正在加载…')
     unmount()
   })
 

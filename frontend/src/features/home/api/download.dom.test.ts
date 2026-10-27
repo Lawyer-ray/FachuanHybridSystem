@@ -21,7 +21,8 @@ describe('triggerDownload', () => {
       const clicked = clickSpy.mock.instances[0] as unknown as HTMLAnchorElement
       expect(clicked).toBeInstanceOf(HTMLAnchorElement)
       expect(clicked.getAttribute('href')).toBe('/api/v1/doc-convert/records/1/download?ticket=TK')
-      expect(clicked.download).toBe('')
+      // 不传 filename → 不设 download 属性（浏览器读到空串），文件名交由响应头决定
+      expect(clicked.getAttribute('download')).toBeNull()
       // 函数返回后临时节点已清理，body 不残留
       expect(document.querySelector('a[href*="doc-convert"]')).toBeNull()
     } finally {

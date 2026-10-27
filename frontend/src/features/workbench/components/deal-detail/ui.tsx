@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 
+import { ErrorBlock } from '@/components/shared/AsyncState'
 import type { MetaPart, StepState } from './detail-domain'
 
 /**
@@ -166,12 +167,13 @@ export function MetaLine({ parts, className = '' }: { parts: MetaPart[]; classNa
 export function DetailError({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <main className="app-page-enter mx-auto max-w-lg px-6 pt-[80px]">
-      <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-center text-sm text-destructive">
-        {error}
-        <button type="button" className="ml-3 cursor-pointer underline underline-offset-3" onClick={onRetry}>
-          重试
-        </button>
-        <Link to="/projects" className="ml-3 cursor-pointer underline underline-offset-3">
+      {/* 色块/描边交给 ErrorBlock；「返回列表」不是重试，放不进它的动作槽，
+          所以留在块外一行，与错误块保持竖直居中对齐。
+          error 本来就是一句中文（调用方的 errMessage / 「委托不存在」），
+          fallback 传同一句才能保证文案不变——ErrorBlock 只认带 message 的 Error。 */}
+      <ErrorBlock error={error} fallback={error} onRetry={onRetry} retryText="重试" className="px-5 py-4 text-sm" />
+      <div className="mt-2 text-center text-sm">
+        <Link to="/projects" className="cursor-pointer underline underline-offset-3">
           返回列表
         </Link>
       </div>

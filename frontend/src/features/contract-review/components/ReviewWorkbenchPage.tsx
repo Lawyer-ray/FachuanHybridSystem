@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { OfficeView } from '@/components/shared/onlyoffice/OfficeView'
+import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { getContentVersion, getTaskStatus, listVersions } from '../api'
@@ -181,9 +182,12 @@ export function ReviewWorkbenchPage() {
       </div>
 
       {error && (
-        <div className="mb-2 rounded-[8px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
-          {error}
-        </div>
+        <ErrorBlock
+          error={error}
+          // error 已是 errMessage 抽好的中文：直接回显，不再二次抽取（原样报错，不加新交互）
+          fallback={error}
+          className="mb-2 px-3 py-2 text-left text-[11.5px]"
+        />
       )}
 
       {/* 三栏。断点全部走容器查询（本路由在宽屏恒并排 AI 助手，视口断点
@@ -193,10 +197,7 @@ export function ReviewWorkbenchPage() {
         {/* 左：建议清单 */}
         <aside className="min-h-0 border-r border-border-light @max-[850px]:hidden">
           {isLoading ? (
-            <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              加载中…
-            </div>
+            <LoadingBlock className="h-full" />
           ) : (
             <RevisionList items={items} busyId={busyId} onDecide={onDecide} onLocate={locate} />
           )}

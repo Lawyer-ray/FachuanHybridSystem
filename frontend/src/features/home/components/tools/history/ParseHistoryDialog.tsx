@@ -7,6 +7,7 @@ import { getParseRecord, listParseRecords, parseHistoryKeys } from '../../../api
 import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { BTN, BTN_PRIMARY } from '../../../ui'
 import { FlowNotice } from '../dialog/TaskFlowDialog'
 import { copyOutcome, downloadOutcome } from '../doc-parse-outcome'
@@ -121,9 +122,9 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
               {isError ? (
                 <HistoryError error={errMessage(error, '历史记录加载失败')} onRetry={() => void refetch()} />
               ) : isLoading ? (
-                <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
+                <LoadingBlock text="正在加载…" />
               ) : items.length === 0 ? (
-                <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">这个筛选下没有记录</div>
+                <EmptyBlock>这个筛选下没有记录</EmptyBlock>
               ) : (
                 items.map((it) => (
                   <button
@@ -198,7 +199,7 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
               {detailIsError ? (
                 <HistoryError error={errMessage(detailError, '记录详情加载失败')} onRetry={() => void refetchDetail()} />
               ) : detailLoading || !detail ? (
-                <div className="py-8 text-center text-[12px] text-muted-foreground">正在载入记录…</div>
+                <LoadingBlock text="正在载入记录…" className="px-0" />
               ) : ok && outcome ? (
                 <pre className="min-h-0 overflow-auto rounded-[10px] border border-border bg-background px-3 py-2.5 text-[11.5px] leading-[1.7] whitespace-pre-wrap break-all">
                   {outcome.markdown || outcome.text || '（解析结果为空）'}

@@ -6,7 +6,7 @@
  * 内容分区各自独立成组件。
  */
 import { Suspense } from 'react'
-import { Loader2 } from 'lucide-react'
+import { LoadingBlock } from '@/components/shared/AsyncState'
 import { BindingsPanelLazy } from '@/features/auth'
 import { SystemStatus } from './SystemStatus'
 
@@ -26,14 +26,8 @@ export function SettingsPage() {
       </section>
 
       <section className="mt-8">
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              正在加载…
-            </div>
-          }
-        >
+        {/* chunk 下载中：与页内其它加载态同构，只把字号压到本页的 12.5px 档 */}
+        <Suspense fallback={<LoadingBlock text="正在加载…" className="py-10 text-[12.5px]" />}>
           <BindingsPanelLazy />
         </Suspense>
       </section>

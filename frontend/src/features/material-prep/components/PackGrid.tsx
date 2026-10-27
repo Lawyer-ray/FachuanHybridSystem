@@ -6,6 +6,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import { EmptyBlock } from '@/components/shared/AsyncState'
 import { cn } from '@/lib/utils'
 import { PackCard } from './PackCard'
 import type { InboxMessage, PackStatus } from '../types'
@@ -102,9 +103,11 @@ export function PackGrid({
         )}
 
         {packs.length === 0 && tab !== 'todo' && (
-          <div className="col-span-full flex flex-col items-center gap-2 rounded-[13px] border border-dashed border-zinc-300 py-16 text-sm text-secondary-foreground">
+          /* 跨满整行（col-span-full）与虚线框留在调用点：这是网格里的占位格，
+             共享件只管居中与灰字 */
+          <EmptyBlock className="col-span-full rounded-[13px] border border-dashed border-zinc-300 py-16 text-sm text-secondary-foreground">
             这里还没有{tab === 'done' ? '已归案' : '归档'}的材料包
-          </div>
+          </EmptyBlock>
         )}
       </div>
       <div ref={ringRef} className="mp-ring" />

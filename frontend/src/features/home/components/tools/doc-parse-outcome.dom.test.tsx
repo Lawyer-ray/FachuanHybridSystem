@@ -5,6 +5,7 @@
  * outcomeText / copyOutcome 已在 doc-parse-outcome.test.ts（node）覆盖；
  * 本文件只补下载分支：Blob MIME、扩展名（md/txt）、点击后清理与 URL 撤销。
  */
+import { waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('sonner', () => ({
@@ -37,7 +38,7 @@ describe('downloadOutcome（前端本地合成下载）', () => {
     delete urlCtor.revokeObjectURL
   })
 
-  it('markdown 内容：text/markdown Blob + .md 文件名，点击后撤销 URL', () => {
+  it('markdown 内容：text/markdown Blob + .md 文件名，点击后撤销 URL', async () => {
     downloadOutcome({ markdown: '# 标题', text: '' }, '解析结果')
     expect(createObjectURL).toHaveBeenCalledTimes(1)
     const blob = createObjectURL.mock.calls[0]![0] as Blob
@@ -46,7 +47,9 @@ describe('downloadOutcome（前端本地合成下载）', () => {
     const anchor = clickSpy.mock.instances[0] as unknown as HTMLAnchorElement
     expect(anchor.getAttribute('href')).toBe('blob:dl-0')
     expect(anchor.download).toBe('解析结果.md')
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:dl-0')
+    // 回收延到下一个宏任务（Firefox 的 a.click() 异步派发，同步 revoke 会下空文件）——
+    // 下载走 lib/download 的 saveBlob 后，revoke 不再是同步发生的
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:dl-0'))
     // 临时锚点已清理
     expect(document.querySelector('a[download]')).toBeNull()
   })

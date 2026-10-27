@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ErrorBlock } from '@/components/shared/AsyncState'
+import { errMessage } from '@/lib/errors'
 import { confirmParty, uploadContract } from '../api'
 import { partyLabel, recommendParty, type PartyKey } from '../domain'
 
@@ -139,7 +141,7 @@ export function ReviewLaunchDrawer({
         setPhase('ready')
       } catch (e) {
         if (cancelled) return
-        setErr(e instanceof Error ? e.message : '读取合同失败')
+        setErr(errMessage(e, '读取合同失败'))
         setPhase('error')
         runningRef.current = false // 允许重开抽屉重试
       }
@@ -208,7 +210,7 @@ export function ReviewLaunchDrawer({
       })
       onStarted(taskId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : '发起审查失败')
+      setErr(errMessage(e, '发起审查失败'))
     } finally {
       setBusy(false)
     }
@@ -238,9 +240,7 @@ export function ReviewLaunchDrawer({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4.5">
           {err && (
-            <div className="my-3 rounded-[8px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
-              {err}
-            </div>
+            <ErrorBlock error={err} fallback={err} className="my-3 px-3 py-2 text-left text-[11.5px]" />
           )}
 
           {/* ① 立场：决定全部建议方向，必须选 */}
@@ -262,9 +262,13 @@ export function ReviewLaunchDrawer({
             )}
 
             {phase === 'error' && (
-              <div className="rounded-[8px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
-                读取合同失败，无法识别当事人。请关闭后重试。
-              </div>
+              <ErrorBlock
+                // 静态文案没有「错误对象」可抽：fallback 直接给全文（errMessage 收到
+                // 非 object 会回 fallback，所以不能只传 error）
+                error={null}
+                fallback="读取合同失败，无法识别当事人。请关闭后重试。"
+                className="px-3 py-2 text-left text-[11.5px]"
+              />
             )}
 
             {phase === 'ready' && (

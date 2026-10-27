@@ -3,6 +3,8 @@
  * 全部为纯函数，vitest 直接覆盖（node 环境，无 DOM）。
  */
 
+import type { Tone } from '@/components/shared/status-badge'
+
 import type { AgentHistoryMessage, AgentSession, AgentSkill, AgentStreamEvent, BizHint, ChatMessage, FolderRefDraft, PendingApproval, PendingApprovalItem, SelectionQuote, SentRefMeta, SessionGroup, SlashMenuItem } from './types'
 
 let localIdSeed = 0
@@ -388,19 +390,25 @@ export function approvalWindowSec(riskLevel?: string, offline?: boolean): number
   return riskLevel === 'critical' ? APPROVAL_CRITICAL_WINDOW_S : APPROVAL_WINDOW_S
 }
 
-/** 任务式会话状态 → 侧边栏徽标（label + 样式）；非任务态返回 null */
-export function taskBadge(state: string | undefined): { label: string; cls: string } | null {
+/**
+ * 任务式会话状态 → 侧边栏徽标（label + 语义色档）；非任务态返回 null。
+ *
+ * 返回 Tone 而非硬编码 class：之前写的是 tailwind 原始色（amber/blue/emerald），
+ * 淡色主题下可读、暗色下与其它状态色不一致；统一走 StatusBadge 的 --status-* 令牌后，
+ * 同一「排队/运行/完成」语义在历史列表、设置页也是同一档颜色。
+ */
+export function taskBadge(state: string | undefined): { label: string; tone: Tone } | null {
   switch (state) {
     case 'queued':
-      return { label: '排队中', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' }
+      return { label: '排队中', tone: 'yellow' }
     case 'running':
-      return { label: '运行中', cls: 'bg-blue-500/15 text-blue-700 dark:text-blue-400' }
+      return { label: '运行中', tone: 'blue' }
     case 'succeeded':
-      return { label: '已完成', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' }
+      return { label: '已完成', tone: 'green' }
     case 'failed':
-      return { label: '失败', cls: 'bg-destructive/10 text-destructive' }
+      return { label: '失败', tone: 'red' }
     case 'cancelled':
-      return { label: '已取消', cls: 'bg-secondary text-muted-foreground' }
+      return { label: '已取消', tone: 'neutral' }
     default:
       return null
   }

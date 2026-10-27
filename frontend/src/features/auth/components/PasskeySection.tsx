@@ -14,6 +14,7 @@ import { KeyRound, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -147,31 +148,23 @@ export function PasskeySection() {
         凭据按注册时的域名隔离：本机用 localhost 注册的密钥，换用其他域名访问时需重新添加。
       </p>
 
-      {credentialsQuery.isLoading && (
-        <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border bg-card py-8 text-[12.5px] text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          正在加载…
-        </div>
-      )}
+      {credentialsQuery.isLoading && <LoadingBlock text="正在加载…" size="sm" className="mt-4 rounded-xl border bg-card py-8" />}
 
       {credentialsQuery.isError && (
-        <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border bg-card py-8">
-          <p className="text-[12.5px] text-muted-foreground">加载通行密钥失败，请检查网络后重试</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void credentialsQuery.refetch()}
-          >
-            重新加载
-          </Button>
-        </div>
+        <ErrorBlock
+          // 原行为是固定文案，不暴漏接口错误：传 null 让它无条件回 fallback
+          error={null}
+          fallback="加载通行密钥失败，请检查网络后重试"
+          retryText="重新加载"
+          onRetry={() => void credentialsQuery.refetch()}
+          className="mt-4 rounded-xl bg-card py-8"
+        />
       )}
 
       {!credentialsQuery.isLoading && !credentialsQuery.isError && rows.length === 0 && (
-        <div className="mt-4 rounded-xl border bg-card px-5 py-8 text-center text-[12.5px] text-muted-foreground">
+        <EmptyBlock className="mt-4 rounded-xl border bg-card px-5 py-8">
           {supported ? '还没有通行密钥，点右上角「添加通行密钥」用本设备创建' : '当前浏览器不支持通行密钥'}
-        </div>
+        </EmptyBlock>
       )}
 
       {!credentialsQuery.isLoading && !credentialsQuery.isError && rows.length > 0 && (

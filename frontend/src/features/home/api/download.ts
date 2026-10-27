@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/lib/api'
+import { downloadUrl } from '@/lib/download'
 
 /**
  * 带鉴权的链接助手统一上提 lib/token（media 鉴权启用后 /media/ 直链同源同认证）。
@@ -9,7 +9,7 @@ import { API_BASE_URL } from '@/lib/api'
 export { withAuthToken } from '@/lib/token'
 
 /** 下载直链用的 API 根（相对路径 /api/v1 或宿主注入的绝对地址） */
-export { API_BASE_URL }
+export { API_BASE_URL } from '@/lib/api'
 
 /**
  * 触发浏览器下载：后端 FileResponse 带 as_attachment，文件名由响应头给出。
@@ -19,10 +19,7 @@ export { API_BASE_URL }
  */
 export async function triggerDownload(urlWithAuth: string | (() => Promise<string>)) {
   const url = typeof urlWithAuth === 'function' ? await urlWithAuth() : urlWithAuth
-  const a = document.createElement('a')
-  a.href = url
-  a.download = ''
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
+  // 走 lib/download 的统一入口：不传 filename = 不设 download 属性，文件名交给
+  // 响应头 Content-Disposition（与手写的那几行建的 <a> 行为一致）
+  downloadUrl(url)
 }

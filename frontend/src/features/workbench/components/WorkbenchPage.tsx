@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Loader2 } from 'lucide-react'
 
+import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { useWorkbenchData } from '../hooks/use-workbench-data'
 import type { WorkbenchDeal, WorkbenchFilter } from '../types'
 import { DealRow } from './DealRow'
@@ -81,17 +81,18 @@ export function WorkbenchPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center gap-2 py-[90px] text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            正在加载项目数据…
-          </div>
+          <LoadingBlock text="正在加载项目数据…" className="py-[90px]" />
         ) : error ? (
-          <div className="mx-auto mt-10 max-w-lg rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-center text-sm text-destructive">
-            {error}
-            <button type="button" className="ml-3 underline underline-offset-3" onClick={() => refetch()}>
-              重试
-            </button>
-          </div>
+          /* hook 已把错误收成一句中文（errMessage），交给 ErrorBlock 时
+             fallback 也传同一句：ErrorBlock 只对「有 message 的 Error」透出
+             message，其他一律回 fallback。只换实现来源，文案必须原样 */
+          <ErrorBlock
+            error={error}
+            fallback={error}
+            onRetry={() => refetch()}
+            retryText="重试"
+            className="mx-auto mt-10 max-w-lg px-5 py-4 text-sm"
+          />
         ) : deals.length === 0 ? (
           emptyIsNoData ? (
             <div className="py-[90px] text-center text-[13px] text-muted-foreground">还没有项目数据</div>

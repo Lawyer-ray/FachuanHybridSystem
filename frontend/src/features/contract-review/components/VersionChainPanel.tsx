@@ -1,5 +1,6 @@
-import { GitBranch, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { GitBranch } from 'lucide-react'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { StatusBadge, type Tone } from '@/components/shared/status-badge'
 import type { DocumentVersion, VersionKind } from '../types'
 
 /**
@@ -13,11 +14,15 @@ import type { DocumentVersion, VersionKind } from '../types'
  * 现在先把「有过哪几版」讲清楚，比让律师去翻文件夹靠文件名猜强。
  */
 
-const KIND_TONE: Record<VersionKind, string> = {
-  original: 'bg-secondary text-secondary-foreground',
-  ai: 'bg-status-blue/12 text-status-blue',
-  lawyer: 'bg-status-green/12 text-status-green',
-  client: 'bg-status-yellow/15 text-status-yellow',
+/**
+ * 版本来源 → 语义色档。用 Tone 而非各写一套 class：同一「谁改的」语义
+ * （客户=待处理黄 / AI=进行中蓝 / 律师=完成绿）在别的列表里也是同一档色彩。
+ */
+const KIND_TONE: Record<VersionKind, Tone> = {
+  original: 'neutral',
+  ai: 'blue',
+  lawyer: 'green',
+  client: 'yellow',
 }
 
 export function VersionChainPanel({
@@ -30,22 +35,17 @@ export function VersionChainPanel({
   error: string | null
 }) {
   if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 px-3.5 py-3 text-[11.5px] text-muted-foreground">
-        <Loader2 className="size-3.5 animate-spin" />
-        加载版本链…
-      </div>
-    )
+    return <LoadingBlock text="加载版本链…" size="sm" className="justify-start px-3.5 py-3" />
   }
   if (error) {
     return <div className="px-3.5 py-3 text-[11.5px] text-destructive">{error}</div>
   }
   if (items.length === 0) {
     return (
-      <div className="px-3.5 py-3 text-[11.5px] leading-relaxed text-muted-foreground">
+      <EmptyBlock className="items-start px-3.5 py-3 text-left leading-relaxed">
         还没有版本记录。审查跑完后会在这里出现「客户来稿 → AI 修订版」；
         你在编辑器里保存一次，就会多一个「律师编辑版」。
-      </div>
+      </EmptyBlock>
     )
   }
 
@@ -61,14 +61,9 @@ export function VersionChainPanel({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <span className="text-[12px] font-[620]">V{v.version_no}</span>
-              <span
-                className={cn(
-                  'rounded-[5px] px-1.5 py-[1px] text-[10px] font-medium',
-                  KIND_TONE[v.kind] ?? 'bg-secondary text-secondary-foreground',
-                )}
-              >
+              <StatusBadge tone={KIND_TONE[v.kind] ?? 'neutral'} size="xs">
                 {v.kind_label}
-              </span>
+              </StatusBadge>
               {v.author && <span className="truncate text-[10.5px] text-muted-foreground">{v.author}</span>}
             </div>
             <p className="mt-0.5 truncate text-[11px] text-secondary-foreground" title={v.file_name}>

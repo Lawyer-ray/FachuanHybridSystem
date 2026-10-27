@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Loader2, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { errMessage } from '@/lib/errors'
 import { applyDirectEdit, suggestDirectEdit } from '../api'
 import type { DirectEditCandidate } from '../types'
 import { DirectEditCandidates } from './DirectEditCandidates'
@@ -55,7 +56,7 @@ export function DirectEditDialog({
       setCandidates(res.candidates)
       if (!res.candidates.length) toast.error('AI 没有给出可用的改法，换个说法再试')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '生成改法失败')
+      toast.error(errMessage(err, '生成改法失败'))
     } finally {
       setSuggesting(false)
     }
@@ -75,7 +76,7 @@ export function DirectEditDialog({
         onApplied()
         onClose()
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : '写入失败')
+        toast.error(errMessage(err, '写入失败'))
       } finally {
         setBusyIndex(null)
       }

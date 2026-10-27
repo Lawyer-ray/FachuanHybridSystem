@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
 import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
+import { downloadUrl } from '@/lib/download'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
@@ -128,13 +129,7 @@ export function FilePreviewCard({
     try {
       // 票据一次性：每次下载现换，不能缓存复用
       const url = await withDownloadTicket(fileUrl)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = file.name
-      a.rel = 'noopener'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      downloadUrl(url, file.name)
     } finally {
       setDownloading(false)
     }

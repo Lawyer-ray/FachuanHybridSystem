@@ -80,10 +80,11 @@ describe('ParseHistoryDialog：列表三态', () => {
     unmount()
   })
 
-  it('加载中显示提示', () => {
+  it('加载中显示提示（AsyncState 的 role=status 块）', () => {
     apiMock.listParseRecords.mockReturnValue(new Promise(() => {}))
     const { unmount } = renderDialog()
-    expect(screen.getByText('正在加载…')).toBeTruthy()
+    const status = screen.getByRole('status')
+    expect(status.textContent).toContain('正在加载…')
     unmount()
   })
 

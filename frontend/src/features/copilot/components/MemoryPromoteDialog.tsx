@@ -34,6 +34,7 @@ import {
   type PromoteCandidate,
 } from '../memory-api'
 import { Button } from '@/components/ui/button'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import {
   Dialog,
   DialogContent,
@@ -216,11 +217,11 @@ export function MemoryPromoteDialog({
 
             <div className="min-h-0 flex-1 overflow-y-auto rounded-[10px] border border-border">
               {candidatesQuery.isLoading ? (
-                <p className="p-3 text-[12px] text-muted-foreground">加载中…</p>
+                <LoadingBlock size="sm" className="py-4" />
               ) : candidates.length === 0 ? (
-                <p className="p-3 text-[12px] leading-relaxed text-muted-foreground">
+                <EmptyBlock className="items-start px-3 py-4 text-left leading-relaxed">
                   暂无可提炼的成员记忆。等成员积累了一些偏好后，这里会按使用频次列出候选。
-                </p>
+                </EmptyBlock>
               ) : (
                 <ul className="divide-y divide-border">
                   {candidates.map((candidate) => {
