@@ -63,9 +63,7 @@ class SupervisionCardExtractor:
 
         return {"found": False, "page_number": None, "material_id": None, "error": "未在合同PDF末尾检测到监督卡"}
 
-    def _try_extract_from_material(
-        self, material: Any, contract: Any
-    ) -> dict[str, Any] | None:  # pragma: no cover  # type: ignore[no-untyped-def]
+    def _try_extract_from_material(self, material: Any, contract: Any) -> dict[str, Any] | None:  # pragma: no cover
         """尝试从单个材料中检测并提取监督卡，成功返回结果 dict，失败返回 None。"""
         file_path = material.file_path
         if not file_path:
