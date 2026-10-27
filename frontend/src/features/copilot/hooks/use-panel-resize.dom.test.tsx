@@ -184,6 +184,76 @@ describe('usePanelResize：拖拽', () => {
     node.remove()
   })
 
+  it('pointercancel 也收尾：提交宽度并复位 userSelect（触摸被系统手势打断）', () => {
+    // 触摸/笔拖拽被系统手势打断时浏览器只发 pointercancel，不补 pointerup。
+    // 漏掉它则页面永久停在 userSelect: none（此后整页选不中文字）。
+    const { result } = renderHook(() => usePanelResize(true))
+    const node = document.createElement('aside')
+    document.body.appendChild(node)
+    act(() => {
+      result.current.setPanelRef(node)
+    })
+
+    act(() => {
+      result.current.onHandlePointerDown(pointer('pointerdown', 1000) as never)
+    })
+    act(() => {
+      window.dispatchEvent(pointer('pointermove', 800))
+    })
+    expect(node.style.getPropertyValue('--copilot-w')).toBe('800px')
+
+    act(() => {
+      window.dispatchEvent(pointer('pointercancel', 800))
+    })
+    expect(result.current.width).toBe(800)
+    expect(document.body.style.userSelect).toBe('')
+    node.remove()
+  })
+
+  it('拖拽结束把 userSelect 还原成原值而不是清空（不抹掉页面上已设的内联样式）', () => {
+    document.body.style.userSelect = 'text'
+    const { result } = renderHook(() => usePanelResize(true))
+
+    act(() => {
+      result.current.onHandlePointerDown(pointer('pointerdown', 1000) as never)
+    })
+    expect(document.body.style.userSelect).toBe('none')
+
+    act(() => {
+      window.dispatchEvent(pointer('pointerup', 1000))
+    })
+    expect(document.body.style.userSelect).toBe('text')
+    document.body.style.userSelect = ''
+  })
+
+  it('卸载时收尾进行中的拖拽：userSelect 不残留', () => {
+    const { result, unmount } = renderHook(() => usePanelResize(true))
+    act(() => {
+      result.current.onHandlePointerDown(pointer('pointerdown', 1000) as never)
+    })
+    expect(document.body.style.userSelect).toBe('none')
+
+    unmount()
+    expect(document.body.style.userSelect).toBe('')
+  })
+
+  it('拖拽期间 iframe（OnlyOffice 预览等）不接收指针事件，结束后恢复', () => {
+    const frame = document.createElement('iframe')
+    document.body.appendChild(frame)
+    const { result } = renderHook(() => usePanelResize(true))
+
+    act(() => {
+      result.current.onHandlePointerDown(pointer('pointerdown', 1000) as never)
+    })
+    expect(frame.style.pointerEvents).toBe('none')
+
+    act(() => {
+      window.dispatchEvent(pointer('pointerup', 1000))
+    })
+    expect(frame.style.pointerEvents).toBe('')
+    frame.remove()
+  })
+
   it('未移动直接松手：不写 localStorage', () => {
     const { result } = renderHook(() => usePanelResize(true))
     const node = document.createElement('aside')

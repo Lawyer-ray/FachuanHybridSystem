@@ -23,7 +23,9 @@ export function CaseAssignPicker({
   // 空关键词 = 后端返回在办案件列表，正好作为初始候选（挂载即查），
   // 所以 minLength 传 0（防抖值首帧等于初值，初始加载仍然直发）；
   // 之后的输入停 250ms 才检索，上一请求由 query 的 signal 自动中止，无响应竞态。
-  const { keyword: kw, setKeyword: setKw, data: results = [], isFetching: searching } = useTypeaheadSearch<CaseSearchItem[]>({
+  // searching 用 hook 的 isSearching：isFetching 在 keepPreviousData 下恒真，
+  // 直接当 loading 会让输入框里的转圈永远不停
+  const { keyword: kw, setKeyword: setKw, data: results = [], isSearching: searching } = useTypeaheadSearch<CaseSearchItem[]>({
     queryKey: (dk) => ['court-sms-case-search', dk],
     queryFn: ({ keyword, signal }) => searchCasesForBinding(keyword, { limit: 10, signal }),
     minLength: 0,

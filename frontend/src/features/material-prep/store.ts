@@ -54,8 +54,9 @@ interface ReaderState {
   lastAnchor: number
   /** OCR 框选取字：当前待确认的框（民警未确认前由面板接管） */
   ocrPending: OcrPending | null
-  /** 归案归属弹窗。放 store 是为了让全局键位（use-reader-keys 的 Esc 逐级退出）
-   *  能感知这层「最上面的模态」，否则按 Esc 会连阅读器一起关掉。 */
+  /** 归案归属弹窗的开关。仍在 store 里（不退回 ReaderDialogs 局部 state）：换包
+   *  /重开时要随 openId 一并复位，且阅读器内其他模块也用得到这个「是否开着」的信号。
+   *  Esc 不再靠它：AssignModal 已改成 Radix Dialog，Esc 由 Radix 自己处理。 */
   assignOpen: boolean
 
   open: (id: number) => Promise<void>

@@ -79,7 +79,6 @@ export function DealDetailPage() {
     defaultWidth: 720,
     min: 360,
     maxRatio: 0.78,
-    layoutKey: picked ? 'split' : 'stacked',
   })
   const {
     effectiveWidth: panelEffectiveWidth,

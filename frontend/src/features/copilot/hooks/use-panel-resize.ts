@@ -8,9 +8,14 @@
  * 宽度同时镜像到 <html> 的 `--copilot-w-app`：AppShell 的并排模式用它给
  * 主内容区让出 padding-right（面板在壳层懒挂载，挂载即同步；拖动中同步
  * 保证让位与面板变宽同帧，松手提交 state 后由 effect 兜底）。
+ *
+ * 拖拽的 window 监听与页面外壳（禁选中 / 光标 / iframe 不接指针）交给
+ * `beginDrag`；**拖动中直改 CSS 变量、不走 React 的设计不变**。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { beginDrag } from '@/lib/drag-listeners'
 
 const WIDTH_KEY = 'copilot:width'
 const MIN_WIDTH = 420
@@ -52,6 +57,9 @@ export function usePanelResize(isSmUp: boolean): PanelResize {
   const panelRef = useRef<HTMLElement | null>(null)
 
   const drag = useRef<{ startX: number; startWidth: number; targetWidth?: number } | null>(null)
+  /** 卸载时它收尾正在进行的拖拽（见 onHandlePointerDown 的清理安排） */
+  const endDragRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => endDragRef.current?.(), [])
 
   // 挂载与宽度提交时同步到 <html>（拖动中的高频同步在 onMove 里直改）
   useEffect(() => {
@@ -66,9 +74,10 @@ export function usePanelResize(isSmUp: boolean): PanelResize {
     (e: React.PointerEvent) => {
       if (e.button !== 0) return
       e.preventDefault()
+      // 上一次拖拽若没收到收尾事件（极端情况），先把它结束了再开新的
+      endDragRef.current?.()
       drag.current = { startX: e.clientX, startWidth: width }
-      document.body.style.userSelect = 'none'
-      const onMove = (ev: PointerEvent) => {
+      const onMove = (ev: MouseEvent) => {
         const state = drag.current
         if (!state) return
         const next = clampWidth(state.startWidth + (state.startX - ev.clientX))
@@ -78,23 +87,26 @@ export function usePanelResize(isSmUp: boolean): PanelResize {
         // 松手前先本地记住目标值（up 时可能拿不到中间态）
         state.targetWidth = next
       }
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        document.body.style.userSelect = ''
-        const target = drag.current?.targetWidth
-        drag.current = null
-        if (typeof target === 'number' && target !== width) {
-          setWidth(target)
-          try {
-            localStorage.setItem(WIDTH_KEY, String(target))
-          } catch {
-            /* 忽略持久化失败 */
+      // 收尾：pointerup / pointercancel / 组件卸载都走这里（幂等，最终只有一次生效）。
+      // 必须收 pointercancel——触摸设备被系统手势打断时浏览器只发它，漏掉则页面
+      // 永久停在 userSelect: none（此后整页选不中文字）。
+      endDragRef.current = beginDrag(
+        onMove,
+        () => {
+          endDragRef.current = null
+          const target = drag.current?.targetWidth
+          drag.current = null
+          if (typeof target === 'number' && target !== width) {
+            setWidth(target)
+            try {
+              localStorage.setItem(WIDTH_KEY, String(target))
+            } catch {
+              /* 忽略持久化失败 */
+            }
           }
-        }
-      }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+        },
+        { blockIframes: true },
+      )
     },
     [width],
   )

@@ -8,10 +8,12 @@
  * 与 use-panel-resize 同模式：拖动中直改 rail 元素的 `--copilot-rail-w`
  * CSS 变量（高频 pointermove 不经 React 协调），松手才提交 state 并持久化
  * localStorage；宽度钳制在 [MIN, 面板宽 - 对话区最小宽度]，保证右侧对话区
- * 永远还剩可读宽度。
+ * 永远还剩可读宽度。监听与页面外壳同 use-panel-resize，交给 `beginDrag`。
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+import { beginDrag } from '@/lib/drag-listeners'
 
 const RAIL_WIDTH_KEY = 'copilot:rail-width'
 /** 下限=原固定宽度；上限靠面板宽度动态钳制 */
@@ -44,6 +46,9 @@ interface RailResize {
 export function useRailResize(panelWidth: number): RailResize {
   const [width, setWidth] = useState(readStoredWidth)
   const railRef = useRef<HTMLElement | null>(null)
+  /** 卸载时它收尾正在进行的拖拽 */
+  const endDragRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => endDragRef.current?.(), [])
 
   const clamp = useCallback(
     (px: number) => {
@@ -64,30 +69,33 @@ export function useRailResize(panelWidth: number): RailResize {
     (e: React.PointerEvent) => {
       if (e.button !== 0) return
       e.preventDefault()
+      // 上一次拖拽若没收到收尾事件（极端情况），先把它结束了再开新的
+      endDragRef.current?.()
       const startX = e.clientX
       const startWidth = clamp(width)
-      document.body.style.userSelect = 'none'
       let target = startWidth
-      const onMove = (ev: PointerEvent) => {
+      const onMove = (ev: MouseEvent) => {
         // 侧栏在左，向右拖变宽
         target = clamp(startWidth + (ev.clientX - startX))
         railRef.current?.style.setProperty('--copilot-rail-w', `${target}px`)
       }
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        document.body.style.userSelect = ''
-        if (target !== width) {
-          setWidth(target)
-          try {
-            localStorage.setItem(RAIL_WIDTH_KEY, String(target))
-          } catch {
-            /* 忽略持久化失败 */
+      // 收尾：pointerup / pointercancel / 卸载都走这里。必须收 pointercancel，
+      // 否则触摸设备被系统手势打断时页面永久停在 userSelect: none。
+      endDragRef.current = beginDrag(
+        onMove,
+        () => {
+          endDragRef.current = null
+          if (target !== width) {
+            setWidth(target)
+            try {
+              localStorage.setItem(RAIL_WIDTH_KEY, String(target))
+            } catch {
+              /* 忽略持久化失败 */
+            }
           }
-        }
-      }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+        },
+        { blockIframes: true },
+      )
     },
     [width, clamp],
   )
