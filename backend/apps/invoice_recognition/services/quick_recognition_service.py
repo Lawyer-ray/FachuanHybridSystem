@@ -106,12 +106,7 @@ class QuickRecognitionService:
             )
 
         except Exception as exc:
-            logger.error(
-                "文件识别失败: %s, 文件: %s",
-                exc,
-                filename,
-                exc_info=True,
-            )
+            logger.exception("文件识别失败: %s, 文件: %s", exc, filename)
             return RecognitionResult(
                 filename=filename,
                 success=False,

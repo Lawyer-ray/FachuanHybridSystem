@@ -150,6 +150,9 @@ class CaseFilingNumberSequence(models.Model):
 
         # year 已 unique=True，自带唯一索引
 
+    def __str__(self) -> str:
+        return f"{self.year}（下一个序号 {self.next_value}）"
+
 
 class ExecutionYearDays(models.IntegerChoices):
     """利息计算年基准天数（数据库值不变，仅枚举化）"""

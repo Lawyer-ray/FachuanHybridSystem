@@ -12,9 +12,9 @@ from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import ContractDTO, ICaseService, LawyerDTO
 from apps.core.security.access_context import AccessContext
 
+from .contract_service import ContractService
 from .query.contract_details_assembler import ContractDetailsAssembler
 from .query.contract_dto_assembler import ContractDtoAssembler
-from .contract_service import ContractService
 
 logger = logging.getLogger("apps.contracts")
 

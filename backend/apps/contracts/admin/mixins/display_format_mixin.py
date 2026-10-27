@@ -131,7 +131,7 @@ class ContractDisplayFormatMixin:  # pragma: no cover
             display_service = _get_contract_display_service()
             return display_service.get_matched_document_template(obj)
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error("获取合同 %s 匹配模板失败: %s", obj.id, e, exc_info=True)
+            logger.exception("获取合同 %s 匹配模板失败: %s", obj.id, e)
             return "查询失败"
 
     @admin.display(description="匹配的文件夹模板")
@@ -147,5 +147,5 @@ class ContractDisplayFormatMixin:  # pragma: no cover
             display_service = _get_contract_display_service()
             return display_service.get_matched_folder_templates(obj)
         except (BusinessException, RuntimeError, Exception) as e:
-            logger.error("获取合同 %s 匹配文件夹模板失败: %s", obj.id, e, exc_info=True)
+            logger.exception("获取合同 %s 匹配文件夹模板失败: %s", obj.id, e)
             return "查询失败"

@@ -38,8 +38,8 @@ def build_account_selection_strategy() -> IAccountSelectionStrategy:
 
 
 def build_auto_login_service() -> IAutoLoginService:
-    from plugins.court_automation.token.auto_login_service import AutoLoginService
     from apps.automation.usecases.token.auto_login_usecase import RetryConfig
+    from plugins.court_automation.token.auto_login_service import AutoLoginService
 
     return AutoLoginService(
         retry_config=RetryConfig(),  # type: ignore[arg-type]

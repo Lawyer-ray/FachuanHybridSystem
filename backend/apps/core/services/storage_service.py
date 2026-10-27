@@ -362,6 +362,11 @@ def save_uploaded_file(
         raise ValidationException(
             message="MEDIA_ROOT 未配置", code="MEDIA_ROOT_NOT_CONFIGURED", errors={"MEDIA_ROOT": "未配置"}
         )
+    # rel_dir 落盘前必须校验收敛在 MEDIA_ROOT 内：本函数是「存上传文件」的公共入口，
+    # 现在所有调用方传的都是硬编码字面量，但一旦将来某个调用方把用户可控值
+    # （如归档子目录、前端上传路径）透传进来，不校验就会变成路径穿越写任意目录。
+    # 复用已有的 _realpath_within_media_root 口径（折叠 .. / 解析符号链接 / 前缀校验）。
+    _realpath_within_media_root(rel_dir)
     base_dir = Path(media_root) / rel_dir
     base_dir.mkdir(parents=True, exist_ok=True)
 

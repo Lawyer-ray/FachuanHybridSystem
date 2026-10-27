@@ -312,7 +312,9 @@ class _RedisGate:
             try:
                 client.decr(self._key)
             except Exception:
-                pass
+                # best-effort 释放并发槽位：Redis 抖动不应中断调用方，
+                # 但要留痕——否则槽位泄漏表现为「后面全部排队超时」，无从查起。
+                logger.debug("释放并发槽位失败 key=%s", self._key, exc_info=True)
 
 
 def _try_redis_slot(size: int) -> _RedisGate | None:

@@ -43,7 +43,7 @@ class InvoiceUploadService:
                 use_uuid_name=True,
             )
         except Exception:
-            logger.error("发票文件保存失败 payment_id=%s contract_id=%s", payment_id, contract_id, exc_info=True)
+            logger.exception("发票文件保存失败 payment_id=%s contract_id=%s", payment_id, contract_id)
             raise
 
         return Invoice.objects.create(
@@ -94,4 +94,4 @@ class InvoiceUploadService:
         try:
             storage.delete_media_file(file_path)
         except Exception:
-            logger.error("删除发票物理文件失败: %s", file_path, exc_info=True)
+            logger.exception("删除发票物理文件失败: %s", file_path)

@@ -87,7 +87,7 @@ class IdCardUtils:
                 day = id_number[10:12]
                 return f"{year}年{month}月{day}日"
         except (ValueError, IndexError) as e:
-            logger.warning(f"解析身份证出生日期失败: {e}")
+            logger.warning("解析身份证出生日期失败: %s", e)
 
         return None
 
@@ -110,7 +110,7 @@ class IdCardUtils:
             gender_digit = int(id_number[-2]) if len(id_number) == 18 else int(id_number[-1])
             return "男" if gender_digit % 2 == 1 else "女"
         except (ValueError, IndexError) as e:
-            logger.warning(f"解析身份证性别失败: {e}")
+            logger.warning("解析身份证性别失败: %s", e)
 
         return None
 
@@ -149,7 +149,7 @@ class IdCardUtils:
 
             return age
         except (ValueError, IndexError) as e:
-            logger.warning(f"计算年龄失败: {e}")
+            logger.warning("计算年龄失败: %s", e)
 
         return None
 

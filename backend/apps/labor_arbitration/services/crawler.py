@@ -154,7 +154,7 @@ class FoshanLaborAwardCrawler:
         except IntegrityError:
             self.stats["skipped"] += 1
         except Exception as exc:
-            logger.error("[劳动仲裁] 抓取详情失败 %s: %s", detail_url, exc, exc_info=True)
+            logger.exception("[劳动仲裁] 抓取详情失败 %s: %s", detail_url, exc)
             self.stats["failed"] += 1
             self._mark_failed(art, existing, str(exc)[:2000])
 

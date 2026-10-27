@@ -87,7 +87,7 @@ class PasswordResetService:
                 return False, "邮件发送失败，请稍后再试或联系管理员"
 
         except (ValueError, TypeError, Lawyer.DoesNotExist) as e:
-            logger.error("请求密码重置失败: %s", e, exc_info=True)
+            logger.exception("请求密码重置失败: %s", e)
             return False, "系统错误，请稍后再试"
 
     @classmethod
@@ -117,7 +117,7 @@ class PasswordResetService:
             return True, user, "Token 有效"
 
         except (ValueError, TypeError, UnicodeDecodeError, Lawyer.DoesNotExist) as e:
-            logger.error("验证 token 失败: %s", e, exc_info=True)
+            logger.exception("验证 token 失败: %s", e)
             return False, None, "无效的重置链接"
 
     @classmethod
@@ -155,7 +155,7 @@ class PasswordResetService:
             return True, "密码重置成功"
 
         except (ValueError, TypeError) as e:
-            logger.error("重置密码失败: %s", e, exc_info=True)
+            logger.exception("重置密码失败: %s", e)
             return False, "系统错误，请稍后再试"
 
     @classmethod

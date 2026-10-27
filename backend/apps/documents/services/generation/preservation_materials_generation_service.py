@@ -310,7 +310,7 @@ class PreservationMaterialsGenerationService:
             buffer.seek(0)
             return buffer.getvalue()
         except Exception as e:
-            logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
+            logger.exception("模板渲染失败", extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
                 message="模板渲染失败: %(e)s" % {"e": e}, code=TEMPLATE_RENDER_ERROR, errors={"error": str(e)}
             ) from e

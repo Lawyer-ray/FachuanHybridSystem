@@ -65,7 +65,7 @@ class ExporterService:
             return {"success": True, "zip_url": url}
 
         except (OSError, ValueError) as e:
-            logger.error("ZIP 导出失败: %s", e, exc_info=True)
+            logger.exception("ZIP 导出失败: %s", e)
             return {"success": False, "message": str(e)}
 
     def _write_month_group(self, zf: zipfile.ZipFile, group: MonthGroup) -> None:

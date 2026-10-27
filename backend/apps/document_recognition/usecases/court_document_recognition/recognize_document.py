@@ -56,7 +56,7 @@ class RecognizeCourtDocumentUsecase:
         except (ValidationException, ServiceUnavailableError, RecognitionTimeoutError):
             raise
         except Exception:
-            logger.error("文书识别失败", extra={"action": "recognize_document", "file_path": file_path}, exc_info=True)
+            logger.exception("文书识别失败", extra={"action": "recognize_document", "file_path": file_path})
             raise
 
     def _empty_response(self, file_path: Any, extraction_result: Any) -> RecognitionResponse:

@@ -111,7 +111,7 @@ class ConfigNotificationManager:
             else:
                 listener.on_config_changed(key, old_value, new_value)
         except Exception as e:
-            logger.error(f"配置变更通知失败 (key={key}, listener={listener.__class__.__name__}): {e}")
+            logger.error("配置变更通知失败 (key=%s, listener=%s): %s", key, listener.__class__.__name__, e)
 
     def notify_reload(self) -> None:
         with self._lock:
@@ -126,7 +126,7 @@ class ConfigNotificationManager:
                 if hasattr(listener, "on_config_reloaded"):
                     listener.on_config_reloaded()
             except Exception as e:
-                logger.error(f"配置重载通知失败 (listener={listener.__class__.__name__}): {e}")
+                logger.error("配置重载通知失败 (listener=%s): %s", listener.__class__.__name__, e)
 
     def get_event_history(self, limit: int | None = None) -> list[ConfigChangeEvent]:
         with self._lock:

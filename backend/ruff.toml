@@ -3,10 +3,14 @@ line-length = 120
 extend-exclude = [
     "migrations",
     ".venv",
+    # 文档不归 format 管：ruff format 会把 *.md 里的 ```python 代码块当源码重排，
+    # 把 README 中对齐的示例（如 pdf_splitting/README.md）压成单空格；
+    # 而 CI / pre-commit 的 ruff-format 钩子只作用于 \.py$，两条链路会持续互相打脸。
+    "*.md",
 ]
 
 [lint]
-select = ["E", "F", "W", "B", "C4", "SIM", "TID", "C90", "UP", "RUF", "S"]
+select = ["E", "F", "W", "B", "C4", "SIM", "TID", "C90", "UP", "RUF", "S", "G"]
 ignore = [
     "B005",   # 不使用 .strip() 作为 str.startswith/endswith 参数：项目中存在合理用法
     "B007",   # 循环变量未在循环体中使用：部分场景仅需迭代次数

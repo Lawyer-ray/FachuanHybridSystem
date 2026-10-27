@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -70,13 +71,28 @@ def locate_paragraph(doc: DocumentType, selection: str) -> Any | None:
         if norm_sel in _normalize(visible_text(para)):
             return para
     # 表格单元格里的条款同样是正文（付款方式、违约金常见于表格）
+    return _locate_in_tables(doc, selection, norm_sel)
+
+
+def _locate_in_tables(doc: DocumentType, selection: str, norm_sel: str) -> Any | None:
+    """在表格单元格里定位选区，命中返回该段落。
+
+    从文档中抽出「单元格段落」扁平序列后再逐个比对，避免 for>for>for>for 四层嵌套
+    （backend/CLAUDE.md 硬性红线：for 嵌套不得超过 3 层）。
+    """
+    for para in _iter_table_paragraphs(doc):
+        text = visible_text(para)
+        if selection in text or norm_sel in _normalize(text):
+            return para
+    return None
+
+
+def _iter_table_paragraphs(doc: DocumentType) -> Iterator[Any]:
+    """扁平遍历文档所有表格单元格内的段落。"""
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                for para in cell.paragraphs:
-                    if selection in visible_text(para) or norm_sel in _normalize(visible_text(para)):
-                        return para
-    return None
+                yield from cell.paragraphs
 
 
 # ── 模块级工具函数（原类内静态方法；Service 层禁用静态方法装饰器，纯函数一律下沉）──

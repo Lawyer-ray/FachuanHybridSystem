@@ -81,7 +81,7 @@ class ContractDisplayService:
                 self.template_cache.set_document_templates(contract.case_type, templates)
             return templates
         except Exception as e:
-            logger.error("查询合同 %s 的文书模板列表失败: %s", contract.pk, e, exc_info=True)
+            logger.exception("查询合同 %s 的文书模板列表失败: %s", contract.pk, e)
             return []
 
     def get_matched_folder_templates_list(self, contract: Contract) -> list[dict[str, Any]]:  # pragma: no cover
@@ -95,7 +95,7 @@ class ContractDisplayService:
                 self.template_cache.set_folder_templates(contract.case_type, templates)
             return templates
         except Exception as e:
-            logger.error("查询合同 %s 的文件夹模板列表失败: %s", contract.pk, e, exc_info=True)
+            logger.exception("查询合同 %s 的文件夹模板列表失败: %s", contract.pk, e)
             return []
 
     def get_matched_document_template(self, contract: Contract) -> str:  # pragma: no cover
@@ -131,7 +131,7 @@ class ContractDisplayService:
             return result
 
         except Exception as e:
-            logger.error("查询合同 %s 的文书模板失败: %s", contract.pk, e, exc_info=True)
+            logger.exception("查询合同 %s 的文书模板失败: %s", contract.pk, e)
             return "查询失败"
 
     def get_matched_folder_templates(self, contract: Contract) -> str:  # pragma: no cover
@@ -162,7 +162,7 @@ class ContractDisplayService:
             return result
 
         except Exception as e:
-            logger.error("查询合同 %s 的文件夹模板失败: %s", contract.pk, e, exc_info=True)
+            logger.exception("查询合同 %s 的文件夹模板失败: %s", contract.pk, e)
             return "查询失败"
 
     def has_matched_templates(self, contract: Contract) -> bool:  # pragma: no cover
@@ -195,7 +195,7 @@ class ContractDisplayService:
             return has_both
 
         except Exception as e:
-            logger.error("检查合同 %s 的模板失败: %s", contract.pk, e, exc_info=True)
+            logger.exception("检查合同 %s 的模板失败: %s", contract.pk, e)
             return False
 
     def batch_get_template_info(self, contracts: list[Contract]) -> dict[int, dict[str, Any]]:  # pragma: no cover
@@ -226,7 +226,7 @@ class ContractDisplayService:
             logger.info("批量获取 %d 个合同的模板信息完成,涉及 %d 种案件类型", len(contracts), len(case_types))
 
         except Exception as e:
-            logger.error("批量获取模板信息失败: %s", e, exc_info=True)
+            logger.exception("批量获取模板信息失败: %s", e)
             for contract in contracts:
                 result[contract.id] = {
                     "document_template": "查询失败",
@@ -262,7 +262,7 @@ class ContractDisplayService:
                 "has_templates": check_result.get("has_folder", False) and check_result.get("has_document", False),
             }
         except Exception as e:
-            logger.error("批量查询案件类型 %s 的模板失败: %s", case_type, e, exc_info=True)
+            logger.exception("批量查询案件类型 %s 的模板失败: %s", case_type, e)
             return {
                 "document_template": "查询失败",
                 "folder_template": "查询失败",

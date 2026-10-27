@@ -442,7 +442,9 @@ class InvoiceFileService:
 
         copied = MacClipboardFileService().copy_file_paths([target])
         if copied == 0:
-            logger.warning("invoice_clipboard_write_failed", extra={"invoice_id": invoice_id, "name": display_name})
+            logger.warning(
+                "invoice_clipboard_write_failed", extra={"invoice_id": invoice_id, "display_name": display_name}
+            )
         return copied
 
     # ------------------------------------------------------------------ 鉴权

@@ -63,7 +63,7 @@ class ClientPaymentImageService:
         except ValidationException:
             raise
         except Exception as e:
-            logger.error("图片上传失败: %s", str(e), exc_info=True)
+            logger.exception("图片上传失败: %s", str(e))
             raise ValidationException("图片上传失败") from e
 
     def delete_image(self, image_path: str) -> None:
@@ -83,7 +83,7 @@ class ClientPaymentImageService:
             else:
                 logger.warning("删除回款凭证失败（文件可能不存在）: path=%s", image_path)
         except Exception as e:
-            logger.error("删除回款凭证异常: path=%s, error=%s", image_path, str(e), exc_info=True)
+            logger.exception("删除回款凭证异常: path=%s, error=%s", image_path, str(e))
 
     def get_image_url(self, image_path: str) -> str:
         """

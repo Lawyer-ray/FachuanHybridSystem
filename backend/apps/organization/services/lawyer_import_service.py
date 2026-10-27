@@ -10,6 +10,24 @@ from apps.organization.models.team import TeamType
 logger = logging.getLogger("apps.organization")
 
 
+def get_or_create_law_firm(name: str) -> tuple[LawFirm, bool]:
+    """按名称取/建律所，并发安全。
+
+    `name` 已加 unique=True：两个进程同时 get_or_create 同名律所时，后插入的一方
+    会撞唯一约束抛 IntegrityError（get_or_create 只在"自己插入失败后重查"的窗口内
+    兜底，事务隔离级别下仍可能冒泡）。这里显式捕获并重查，把并发从报错降级为
+    "拿到对端刚建好的那一行"。
+    """
+    from django.db import IntegrityError, transaction
+
+    try:
+        with transaction.atomic():
+            return LawFirm.objects.get_or_create(name=name)
+    except IntegrityError:
+        # 唯一约束冲突 = 另一端已插入同名律所，直接取回来
+        return LawFirm.objects.get(name=name), False
+
+
 class LawyerImportService:
     """Handle JSON import business rules for Lawyer admin import."""
 
@@ -56,7 +74,7 @@ class LawyerImportService:
             update_fields.append("license_pdf")
 
         if not existing.law_firm and item.get("law_firm"):
-            existing.law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
+            existing.law_firm, _ = get_or_create_law_firm(item["law_firm"])
             update_fields.append("law_firm")
 
         if update_fields:
@@ -69,7 +87,7 @@ class LawyerImportService:
     def _create_lawyer(self, *, item: dict[str, Any]) -> Lawyer:
         law_firm: LawFirm | None = None
         if item.get("law_firm"):
-            law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
+            law_firm, _ = get_or_create_law_firm(item["law_firm"])
 
         password = item.get("password") or secrets.token_urlsafe(16)
         lawyer = cast(
@@ -107,7 +125,7 @@ class LawyerImportService:
             if t_name in existing_lt_names:
                 continue
             t_firm_name = None if isinstance(t, str) else t.get("law_firm")
-            t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else existing.law_firm
+            t_firm = get_or_create_law_firm(t_firm_name)[0] if t_firm_name else existing.law_firm
             # 查找键必须含 law_firm：Team 有 (law_firm, team_type, name) 唯一约束，
             # 缺失会跨律所误命中或创建出违反约束的重复团队
             team, _ = Team.objects.get_or_create(name=t_name, team_type=TeamType.LAWYER, law_firm=cast(LawFirm, t_firm))
@@ -151,7 +169,7 @@ class LawyerImportService:
         for t in item["lawyer_teams"]:
             t_name = t if isinstance(t, str) else t.get("name", "")
             t_firm_name = None if isinstance(t, str) else t.get("law_firm")
-            t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else law_firm
+            t_firm = get_or_create_law_firm(t_firm_name)[0] if t_firm_name else law_firm
             # 查找键必须含 law_firm，理由同 _merge_lawyer_teams
             team, _ = Team.objects.get_or_create(
                 name=t_name,

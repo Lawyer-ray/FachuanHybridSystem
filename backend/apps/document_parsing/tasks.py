@@ -94,7 +94,7 @@ def execute_parse_document(
         }
 
     except Exception as exc:
-        logger.error("后台文档解析失败: %s", exc, exc_info=True)
+        logger.exception("后台文档解析失败: %s", exc)
         return {
             "success": False,
             "error": str(exc),
@@ -135,7 +135,7 @@ def execute_extract_text(
         }
 
     except Exception as exc:
-        logger.error("后台文本提取失败: %s", exc, exc_info=True)
+        logger.exception("后台文本提取失败: %s", exc)
         return {
             "success": False,
             "text": "",

@@ -374,7 +374,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         except EvidenceList.DoesNotExist:
             raise Http404("证据清单不存在") from None
         except Exception as e:
-            logger.error("导出失败", extra={"pk": pk, "error": str(e)}, exc_info=True)
+            logger.exception("导出失败", extra={"pk": pk, "error": str(e)})
             raise Http404("导出失败: %(e)s" % {"e": e}) from e
 
     def download_pdf_view(self, request: Any, pk: int) -> Any:  # pragma: no cover

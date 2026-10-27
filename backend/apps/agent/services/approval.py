@@ -535,7 +535,13 @@ def _write_waiter_heartbeat(approval_id: str, timeout_seconds: float) -> None:
 
 
 def _waiter_is_alive(approval_id: str) -> bool:
-    """P2-4：waiter 心跳键是否存在（不存在 = 等待进程已死）。"""
+    """P2-4：waiter 心跳键是否存在（不存在 = 等待进程已死）。
+
+    查不到/查失败时返回 True（保守认为活着）——宁可让前端少报一个
+    「可能已失效」，也不要误报把仍然有效的审批标成失效。代价是 Redis 故障时
+    waiter_dead 恒为 False，因此必须留日志（根 CLAUDE.md：用户可见的
+    无法解释结果至少 warning）。
+    """
     if not redis_cache_enabled():
         return True  # 无 Redis 时无法判定，保守认为活着
     from django.core.cache import cache
@@ -543,6 +549,8 @@ def _waiter_is_alive(approval_id: str) -> bool:
     try:
         return cache.get(f"{WAITER_KEY_PREFIX}{approval_id}") is not None
     except Exception:
+        # Redis 抖动期间 waiter_dead 会恒为 False（审批卡片不提示失效），留痕便于对账。
+        logger.warning("读取 waiter 心跳失败(waiter_dead 判定失真): %s", approval_id, exc_info=True)
         return True
 
 
@@ -555,7 +563,9 @@ def _clear_waiter_heartbeat(approval_id: str) -> None:
     try:
         cache.delete(f"{WAITER_KEY_PREFIX}{approval_id}")
     except Exception:
-        pass
+        # 审批链路不得 debug 吞错（见 tests/ci/unit/agent/test_approval_log_levels.py）：
+        # 心跳键残留会让离线挂起判定失真，属用户可见的无法解释结果。
+        logger.warning("清除审批心跳键失败 approval_id=%s", approval_id, exc_info=True)
 
 
 def _read_decision(approval_id: str) -> bool | None:

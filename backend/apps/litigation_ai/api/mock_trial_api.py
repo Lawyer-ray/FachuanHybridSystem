@@ -200,5 +200,5 @@ async def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma
             content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     except Exception as e:
-        logger.error("导出报告失败: %s", e, exc_info=True)
+        logger.exception("导出报告失败: %s", e)
         return Status(500, {"message": f"导出失败: {e}"})

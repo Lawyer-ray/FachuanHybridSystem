@@ -365,7 +365,7 @@ class CourtDocumentRecognitionService:
         except (ValidationException, ServiceUnavailableError, RecognitionTimeoutError):
             raise
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "文书识别失败: %s",
                 e,
                 extra={
@@ -374,7 +374,6 @@ class CourtDocumentRecognitionService:
                     "error_type": type(e).__name__,
                     "error": str(e),
                 },
-                exc_info=True,
             )
             raise
 
@@ -447,11 +446,10 @@ class CourtDocumentRecognitionService:
         except (ValidationException, ServiceUnavailableError, RecognitionTimeoutError):
             raise
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "文本识别失败: %s",
                 e,
                 extra={"action": "recognize_document_from_text", "error_type": type(e).__name__, "error": str(e)},
-                exc_info=True,
             )
             raise
 

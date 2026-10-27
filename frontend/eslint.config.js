@@ -8,7 +8,10 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // api-schema.d.ts 是 openapi-typescript 生成物（3 万+ 行），不参与 lint；
   // 再生成流程见 src/types/README.md
-  globalIgnores(['dist', 'src/types/api-schema.d.ts']),
+  // prototype/ 是原型草稿（含一次性 Playwright 脚本与讨论用 plugin.js），
+  // 不是产线代码：里面有顶层 return 的脚本片段，按产线语法检查必然报
+  // Parsing error。它也不该被 review/门禁拖住，因此整体排除。
+  globalIgnores(['dist', 'src/types/api-schema.d.ts', 'prototype']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

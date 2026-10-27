@@ -123,6 +123,6 @@ class TestService:
             result["message"] = f"登录失败: {e!s}"
             result["error"] = traceback.format_exc()
             result["logs"].append(f"❌ 错误: {e!s}")
-            logger.error("测试登录失败: %s", e, exc_info=True)
+            logger.exception("测试登录失败: %s", e)
 
         return result

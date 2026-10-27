@@ -35,5 +35,5 @@ class MaterialService:
             result: bool = storage.delete_media_file(file_path)
             return result
         except Exception:
-            logger.error("删除归档材料文件失败: %s", file_path, exc_info=True)
+            logger.exception("删除归档材料文件失败: %s", file_path)
             return False

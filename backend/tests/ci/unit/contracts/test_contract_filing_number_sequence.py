@@ -45,3 +45,53 @@ class TestContractFilingSequence:
         svc = FilingNumberService()
 
         assert svc._get_next_contract_sequence(2026) == 8
+
+
+@pytest.mark.django_db(transaction=True)
+class TestAssignFilingNumberLockCoverage:
+    """assign_filing_number：锁必须覆盖「取号 + 写回」全程。
+
+    原实现（generate_* 内部 atomic 取号 → 返回后调用方另起事务 save）
+    在并发下会让两个请求拿到同一序号并撞 unique=True。本组用例锁定新语义。
+    """
+
+    def test_assign_persists_and_skips_when_already_set(self) -> None:
+        svc = FilingNumberService()
+        contract = ContractFactory(filing_number=None, case_type="civil")
+
+        first = svc.assign_filing_number(contract, created_year=2031)
+
+        assert first == "2031_民商事_HT_1"
+        contract.refresh_from_db()
+        assert contract.filing_number == first
+
+        # 已有编号时不重新分配（幂等）
+        again = svc.assign_filing_number(contract, created_year=2031)
+        assert again == first
+
+    def test_concurrent_assign_yields_distinct_numbers(self) -> None:
+        """20 个线程并发分配：不得出现重复编号，也不得抛唯一约束错。"""
+        import threading
+
+        svc = FilingNumberService()
+        contracts = [ContractFactory(filing_number=None, case_type="civil") for _ in range(20)]
+        results: list[str] = []
+        errors: list[BaseException] = []
+        barrier = threading.Barrier(len(contracts))
+
+        def _worker(c) -> None:
+            barrier.wait()  # 尽量同时冲进去，放大并发窗口
+            try:
+                results.append(svc.assign_filing_number(c, created_year=2032))
+            except BaseException as exc:  # noqa: BLE001 - 测试要捕获任何异常
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_worker, args=(c,)) for c in contracts]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"并发分配抛异常（锁未覆盖写回时会撞 unique）: {errors[:3]}"
+        assert len(results) == len(contracts)
+        assert len(set(results)) == len(results), f"出现重复编号: {sorted(results)}"

@@ -54,7 +54,7 @@ async def quick_recognize(  # pragma: no cover
 
         results = await _recognize()
     except Exception as exc:
-        logger.error("快速识别失败: %s", exc, exc_info=True)
+        logger.exception("快速识别失败: %s", exc)
         raise HttpError(500, "服务器内部错误")
 
     results_data: list[dict[str, Any]] = []

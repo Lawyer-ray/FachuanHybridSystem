@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
@@ -342,13 +342,23 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 logger.error("案件绑定创建失败: SMS ID=%s", sms_id)
                 return sms
 
-            task_id = submit_task(
-                "apps.automation.workers.court_sms_tasks.process_sms_from_renaming",
-                sms.id,
-                task_name=f"court_sms_continue_{sms.id}",
-            )
+            # 入队必须等事务提交后再发：本方法整体在 @transaction.atomic 里，
+            # 若在此期间就把任务推给 worker，worker 可能在事务未提交前就读 DB，
+            # 看到的还是旧 status（甚至读不到刚建的 case binding），导致
+            # 「手动指定案件后处理失败」这种偶发、极难复现的问题。
+            # on_commit 保证只在事务真正落库后才入队；事务回滚则任务压根不发，
+            # 不会出现「DB 回滚但任务已跑」的脏状态。
+            sms_id_for_task = sms.id
 
-            logger.info("触发后续处理任务: SMS ID=%s, Task ID=%s", sms.id, task_id)
+            def _enqueue_continue_processing() -> None:
+                task_id = submit_task(
+                    "apps.automation.workers.court_sms_tasks.process_sms_from_renaming",
+                    sms_id_for_task,
+                    task_name=f"court_sms_continue_{sms_id_for_task}",
+                )
+                logger.info("触发后续处理任务: SMS ID=%s, Task ID=%s", sms_id_for_task, task_id)
+
+            transaction.on_commit(_enqueue_continue_processing)
 
             return sms
 
@@ -405,7 +415,6 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             sms.status = CourtSMSStatus.PENDING
             sms.error_message = ""
-            sms.retry_count += 1
             sms.scraper_task = None
             sms.notification_results = None
             if has_manual_case:
@@ -414,7 +423,11 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             else:
                 sms.case = None
                 sms.case_log = None
+            # retry_count 用 F() 原子自增：并发点两次「重试」时，读改写会互相覆盖
+            # 导致计数丢失（审计轨迹对不上）。同 scraping_tasks.py 的口径。
+            sms.retry_count = F("retry_count") + 1
             sms.save()
+            sms.refresh_from_db(fields=["retry_count"])
 
             logger.info(
                 "重置短信状态成功: SMS ID=%s, 重试次数=%s, 保留案件关联=%s", sms_id, sms.retry_count, has_manual_case

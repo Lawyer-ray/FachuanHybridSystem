@@ -134,7 +134,7 @@ class TemplateAdminDisplayMixin:
             else:
                 return format_html('<span title="所有占位符: {}">{}</span>', all_placeholders_text, len(placeholders))
         except Exception as e:
-            logger.error("提取占位符失败 - 模板ID: %s, 错误: %s", obj.id, e, exc_info=True)
+            logger.exception("提取占位符失败 - 模板ID: %s, 错误: %s", obj.id, e)
             return format_html('<span style="color: #c62828;" title="{}">错误</span>', str(e))
 
     @admin.display(description="占位符列表")

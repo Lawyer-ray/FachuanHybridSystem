@@ -20,7 +20,7 @@ dependencies = [
     "uvicorn[standard]==0.54.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
-    "valkey==6.1.1",
+    "valkey==6.2.0",
     # --- 数据库 ---
     "psycopg[binary,pool]==3.3.6",
     # --- HTTP 客户端 ---
@@ -36,10 +36,10 @@ dependencies = [
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",
-    "reportlab==5.0.1",
+    "reportlab==5.1.0",
     "pdfplumber==0.11.10",
-    "pikepdf==10.16.0",
-    "pymupdf==1.28.2",
+    "pikepdf==10.17.0",
+    "pymupdf==2.0",
     "openpyxl==3.1.5",
     "xlrd>=2.0.1",
     # --- 图像处理 ---
@@ -52,11 +52,11 @@ dependencies = [
     "onnxruntime>=1.28.0",
     "ddddocr>=1.6.0",
     # --- 浏览器自动化 ---
-    "playwright==1.63.0",
+    "playwright==1.64.1",
     "cloakbrowser>=0.5.4",
     # --- 数据处理 ---
-    "pandas==3.0.6",
-    "pydantic==2.14.0",
+    "pandas==3.1.0",
+    "pydantic==2.14.1",
     "pydantic-ai>=2.26.0",
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
@@ -99,13 +99,15 @@ dependencies = [
     "xparse-client>=0.3.0",
     "bleach>=6.4.0",
     "webauthn>=3.0.1",
+    "authlib>=1.9.1",
+    "dnspython>=2.9.0",
 ]
 
 [dependency-groups]
 dev = [
     # --- 代码格式化 ---
     "isort==9.0.2",
-    "ruff==0.17.0",
+    "ruff==0.17.2",
     # --- 类型检查 ---
     "mypy==2.4.0",
     "django-stubs==6.1.2",
@@ -116,7 +118,7 @@ dev = [
     "detect-secrets==1.5.0",
     "pip-audit==2.10.1",
     # --- Pre-commit ---
-    "pre-commit==4.6.2",
+    "pre-commit==4.7.0",
 ]
 test = [
     # --- 测试框架 ---
@@ -127,7 +129,7 @@ test = [
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
-    "hypothesis==6.169.0",
+    "hypothesis==6.170.9",
     # --- 测试工厂 ---
     "factory-boy==3.3.3",
     # --- Temporal workflow 测试 ---

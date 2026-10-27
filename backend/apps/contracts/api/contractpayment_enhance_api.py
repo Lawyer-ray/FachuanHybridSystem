@@ -230,7 +230,7 @@ async def _upload_invoices(
             failed.append(InvoiceUploadFailure(filename=filename, reason=str(exc.message)))
             continue
         except Exception:
-            logger.error("invoice_upload_failed", extra={"invoice_file": filename}, exc_info=True)
+            logger.exception("invoice_upload_failed", extra={"invoice_file": filename})
             failed.append(InvoiceUploadFailure(filename=filename, reason="保存失败，请重试"))
             continue
 

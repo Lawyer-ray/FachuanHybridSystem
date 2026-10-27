@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from django.apps import apps as django_apps
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
@@ -98,6 +99,22 @@ class LegalResearchTaskService:  # pragma: no cover
         task: LegalResearchTask,
         pending_message: str | None = None,
         clear_results: bool = False,
+    ) -> None:
+        # 先删结果再重置任务必须同事务：若 save() 失败，结果已删而任务仍显示
+        # 「已完成」，用户会看到空结果集而无法察觉。
+        with transaction.atomic():
+            self._reset_task_fields(
+                task=task,
+                pending_message=pending_message,
+                clear_results=clear_results,
+            )
+
+    def _reset_task_fields(
+        self,
+        *,
+        task: LegalResearchTask,
+        pending_message: str | None,
+        clear_results: bool,
     ) -> None:
         if clear_results:
             LegalResearchResult.objects.filter(task=task).delete()

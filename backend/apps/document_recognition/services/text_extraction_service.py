@@ -145,14 +145,14 @@ class TextExtractionService:
         if text and text.strip():
             # 删除所有空格后再返回
             cleaned_text = _remove_all_spaces(text)
-            logger.info(f"PDF 直接提取成功: {file_path}, 原始字数: {len(text)}, 清理后字数: {len(cleaned_text)}")
+            logger.info("PDF 直接提取成功: %s, 原始字数: %s, 清理后字数: %s", file_path, len(text), len(cleaned_text))
             return TextExtractionResult(text=cleaned_text, extraction_method="pdf_direct", success=True)
 
         # 直接提取失败：先 VLM 视觉转写（vision_model 已配置时），失败再本地 OCR
         vlm_result = self._extract_pdf_with_vlm(file_path, max_pages=max_pages)
         if vlm_result.success:
             return vlm_result
-        logger.info(f"PDF 视觉转写不可用或失败，降级到本地 OCR: {file_path}")
+        logger.info("PDF 视觉转写不可用或失败，降级到本地 OCR: %s", file_path)
         return self._extract_pdf_with_ocr(file_path, max_pages=max_pages)
 
     def _extract_pdf_text_direct(self, file_path: str, max_pages: int | None = None) -> str:
@@ -172,7 +172,7 @@ class TextExtractionService:
 
             return extract_pdf_text(file_path, limit=self._text_limit, max_pages=max_pages)
         except Exception as e:
-            logger.warning(f"PDF 直接提取异常: {e}")
+            logger.warning("PDF 直接提取异常: %s", e)
             return ""
 
     def _extract_pdf_with_vlm(self, file_path: str, max_pages: int | None = None) -> TextExtractionResult:
@@ -196,13 +196,13 @@ class TextExtractionService:
                 if self._text_limit and len(cleaned_text) > self._text_limit:
                     cleaned_text = cleaned_text[: self._text_limit]
                 logger.info(
-                    f"PDF VLM 视觉转写成功: {file_path}, 原始字数: {len(text)}, 清理后字数: {len(cleaned_text)}"
+                    "PDF VLM 视觉转写成功: %s, 原始字数: %s, 清理后字数: %s", file_path, len(text), len(cleaned_text)
                 )
                 return TextExtractionResult(text=cleaned_text, extraction_method="vlm", success=True)
-            logger.warning(f"PDF VLM 视觉转写结果为空: {file_path}")
+            logger.warning("PDF VLM 视觉转写结果为空: %s", file_path)
             return TextExtractionResult(text="", extraction_method="vlm", success=False)
         except Exception as e:
-            logger.warning(f"PDF VLM 视觉转写异常，降级本地 OCR: {e}")
+            logger.warning("PDF VLM 视觉转写异常，降级本地 OCR: %s", e)
             return TextExtractionResult(text="", extraction_method="vlm", success=False)
 
     def _recognize_local(self, image_path: str) -> str:  # pragma: no cover -- 引擎阶梯路由
@@ -213,7 +213,7 @@ class TextExtractionService:
             if is_mac_vision_available():
                 return MacVisionOCREngine().recognize(image_path)
         except Exception as e:
-            logger.warning(f"macOS Vision OCR 失败，回退 RapidOCR: {e}")
+            logger.warning("macOS Vision OCR 失败，回退 RapidOCR: %s", e)
 
         from apps.core.interfaces import ServiceLocator
 
@@ -244,13 +244,15 @@ class TextExtractionService:
                 if self._text_limit and len(cleaned_text) > self._text_limit:
                     cleaned_text = cleaned_text[: self._text_limit]
 
-                logger.info(f"PDF OCR 提取成功: {file_path}, 原始字数: {len(text)}, 清理后字数: {len(cleaned_text)}")
+                logger.info(
+                    "PDF OCR 提取成功: %s, 原始字数: %s, 清理后字数: %s", file_path, len(text), len(cleaned_text)
+                )
                 return TextExtractionResult(text=cleaned_text, extraction_method="ocr", success=True)
 
-            logger.warning(f"PDF OCR 提取失败，无法识别文字: {file_path}")
+            logger.warning("PDF OCR 提取失败，无法识别文字: %s", file_path)
             return TextExtractionResult(text="", extraction_method="ocr", success=False)
         except Exception as e:
-            logger.error(f"PDF OCR 提取异常: {e}")
+            logger.error("PDF OCR 提取异常: %s", e)
             return TextExtractionResult(text="", extraction_method="ocr", success=False)
 
     def _ocr_pdf_pages(self, file_path: str, max_pages: int | None = None) -> str:  # pragma: no cover
@@ -333,12 +335,15 @@ class TextExtractionService:
                     if self._text_limit and len(cleaned_text) > self._text_limit:
                         cleaned_text = cleaned_text[: self._text_limit]
                     logger.info(
-                        f"图片 VLM 视觉转写成功: {file_path}, 原始字数: {len(text)}, 清理后字数: {len(cleaned_text)}"
+                        "图片 VLM 视觉转写成功: %s, 原始字数: %s, 清理后字数: %s",
+                        file_path,
+                        len(text),
+                        len(cleaned_text),
                     )
                     return TextExtractionResult(text=cleaned_text, extraction_method="vlm", success=True)
-                logger.warning(f"图片 VLM 视觉转写结果为空: {file_path}")
+                logger.warning("图片 VLM 视觉转写结果为空: %s", file_path)
             except Exception as e:
-                logger.warning(f"图片 VLM 视觉转写异常，降级本地 OCR: {e}")
+                logger.warning("图片 VLM 视觉转写异常，降级本地 OCR: %s", e)
 
         # 2. 本地 OCR（macOS Vision → RapidOCR）
         try:
@@ -352,13 +357,15 @@ class TextExtractionService:
                 if self._text_limit and len(cleaned_text) > self._text_limit:
                     cleaned_text = cleaned_text[: self._text_limit]
 
-                logger.info(f"图片 OCR 提取成功: {file_path}, 原始字数: {len(text)}, 清理后字数: {len(cleaned_text)}")
+                logger.info(
+                    "图片 OCR 提取成功: %s, 原始字数: %s, 清理后字数: %s", file_path, len(text), len(cleaned_text)
+                )
                 return TextExtractionResult(text=cleaned_text, extraction_method="ocr", success=True)
 
-            logger.warning(f"图片 OCR 提取失败，无法识别文字: {file_path}")
+            logger.warning("图片 OCR 提取失败，无法识别文字: %s", file_path)
             return TextExtractionResult(text="", extraction_method="ocr", success=False)
         except Exception as e:
-            logger.error(f"图片 OCR 提取异常: {e}")
+            logger.error("图片 OCR 提取异常: %s", e)
             return TextExtractionResult(text="", extraction_method="ocr", success=False)
 
     def is_supported_format(self, file_path: str) -> bool:

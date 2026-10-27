@@ -236,14 +236,13 @@ class SessionLifecycleService:
                     cursor.execute("PRAGMA foreign_key_check")
                     violations = cursor.fetchall() or []
 
-            logger.error(
+            logger.exception(
                 "删除会话失败:外键约束阻止删除",
                 extra={
                     "session_id": str(session.session_id),
                     "case_id": session.case_id,
                     "fk_violations": violations[:20],
                 },
-                exc_info=True,
             )
             raise
 

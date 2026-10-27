@@ -78,11 +78,7 @@ class CaseFilingNumberService:
         except ConflictError:
             raise
         except Exception as e:
-            logger.error(
-                "生成案件建档编号失败",
-                extra={"case_id": case_id, "error": str(e)},
-                exc_info=True,
-            )
+            logger.exception("生成案件建档编号失败", extra={"case_id": case_id, "error": str(e)})
             # 原始异常只进日志，不随 API 错误外泄内部细节
             raise ConflictError(
                 message="建档编号生成失败",

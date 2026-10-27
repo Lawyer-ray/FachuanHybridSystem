@@ -736,12 +736,17 @@ def _enrich_feedback_suggestion_cloud(suggestion: dict[str, str], folder_path: s
     try:
         children = provider.list_directory(folder_path)
     except Exception:
+        # 列目录失败会让整个反馈信号为空（下游只看到「无样本」而非「读取失败」），
+        # 必须留痕，否则无从区分「目录真为空」和「provider 挂了」。
+        logger.warning("列举反馈目录失败 folder=%s", folder_path, exc_info=True)
         return
     pdfs = [child for child in children if not child.is_dir and child.name.lower().endswith(".pdf")]
     for child in sorted(pdfs, key=lambda x: x.name)[:_FEEDBACK_MAX_PDFS]:
         try:
             file_bytes = provider.read_file(child.path)
         except Exception:
+            # 单个 PDF 读失败不应中断整批反馈采样，但要在日志里数得出来。
+            logger.debug("读取反馈 PDF 失败 path=%s", child.path, exc_info=True)
             continue
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp.write(file_bytes)

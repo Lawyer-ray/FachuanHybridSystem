@@ -69,7 +69,7 @@ class DatetimeExtractionMixin:
             year, month, day = int(groups[0]), int(groups[1]), int(groups[2])
             am_pm, hour, minute = groups[3], int(groups[4]), int(groups[5])
             if am_pm not in ("上午", "下午"):
-                logger.debug(f"无效的上午/下午标识: {am_pm}, 跳过匹配: {matched_text}")
+                logger.debug("无效的上午/下午标识: %s, 跳过匹配: %s", am_pm, matched_text)
                 return None
             if am_pm == "下午" and hour < 12:
                 hour += 12
@@ -79,13 +79,13 @@ class DatetimeExtractionMixin:
             year, month, day = int(groups[0]), int(groups[1]), int(groups[2])
             hour, minute = int(groups[3]), int(groups[4])
         else:
-            logger.debug(f"未知的分组数量: {len(groups)}, 跳过匹配: {matched_text}")
+            logger.debug("未知的分组数量: %s, 跳过匹配: %s", len(groups), matched_text)
             return None
         if not (1 <= month <= 12 and 1 <= day <= 31 and 0 <= hour <= 23 and 0 <= minute <= 59):
-            logger.debug(f"日期时间无效: {matched_text}")
+            logger.debug("日期时间无效: %s", matched_text)
             return None
         if not (2020 <= year <= 2030):
-            logger.debug(f"年份不合理: {year}, 跳过匹配: {matched_text}")
+            logger.debug("年份不合理: %s, 跳过匹配: %s", year, matched_text)
             return None
         return datetime(year, month, day, hour, minute)
 
@@ -104,9 +104,9 @@ class DatetimeExtractionMixin:
                     context_score = self._calculate_context_score(text, match.start())
                     if not any(abs((dt - existing[0]).total_seconds()) < 60 for existing in results):
                         results.append((dt, matched_text, context_score))
-                        logger.debug(f"正则提取到时间: {dt}, 原文: {matched_text}, 上下文得分: {context_score}")
+                        logger.debug("正则提取到时间: %s, 原文: %s, 上下文得分: %s", dt, matched_text, context_score)
                 except (ValueError, IndexError) as e:
-                    logger.debug(f"解析日期时间失败: {match.group(0)}, 错误: {e}")
+                    logger.debug("解析日期时间失败: %s, 错误: %s", match.group(0), e)
                     continue
         return results
 
@@ -232,8 +232,13 @@ class DatetimeExtractionMixin:
                 }
             )
             logger.debug(
-                f"正则候选: {dt}, 上下文={context_score}, 合理性={validity_score}({validity_reason}), "
-                f"综合={combined_score:.1f}, 有效={is_valid}"
+                "正则候选: %s, 上下文=%s, 合理性=%s(%s), 综合=%.1f, 有效=%s",
+                dt,
+                context_score,
+                validity_score,
+                validity_reason,
+                combined_score,
+                is_valid,
             )
         return validated
 
@@ -249,18 +254,20 @@ class DatetimeExtractionMixin:
         date_diff = abs((best_regex_dt.date() - ollama_datetime.date()).days)
         time_diff = abs((best_regex_dt - ollama_datetime).total_seconds())
         if date_diff == 0 and time_diff < 3600:
-            logger.info(f"正则和Ollama结果一致: {best_regex_dt}")
+            logger.info("正则和Ollama结果一致: %s", best_regex_dt)
             return best_regex_dt, "regex+ollama(一致)"
         if date_diff == 0:
-            logger.warning(f"时间冲突: 正则={best_regex_dt}, Ollama={ollama_datetime}, 时间差={time_diff}秒")
+            logger.warning("时间冲突: 正则=%s, Ollama=%s, 时间差=%s秒", best_regex_dt, ollama_datetime, time_diff)
             if best_regex_combined >= 40:
                 return best_regex_dt, f"regex(score={best_regex_combined:.0f},时间冲突)"
             return ollama_datetime, f"ollama(validity={ollama_validity_score},时间冲突,正则得分低)"
-        logger.warning(f"日期冲突: 正则={best_regex_dt.date()}, Ollama={ollama_datetime.date()}, 差异={date_diff}天")
+        logger.warning(
+            "日期冲突: 正则=%s, Ollama=%s, 差异=%s天", best_regex_dt.date(), ollama_datetime.date(), date_diff
+        )
         for result in valid_regex_results[1:]:
             result_dt = cast(datetime, result["datetime"])
             if abs((result_dt.date() - ollama_datetime.date()).days) == 0:
-                logger.info(f"找到与Ollama一致的备选正则结果: {result['datetime']}")
+                logger.info("找到与Ollama一致的备选正则结果: %s", result["datetime"])
                 return result_dt, f"regex(score={result['combined_score']:.0f},与ollama一致)"
         if best_regex_combined >= 60:
             return best_regex_dt, f"regex(score={best_regex_combined:.0f},日期冲突)"
@@ -290,21 +297,25 @@ class DatetimeExtractionMixin:
                 ollama_datetime
             )
             logger.debug(
-                f"Ollama候选: {ollama_datetime},"
-                f" 合理性={ollama_validity_score}({ollama_validity_reason}), 有效={ollama_valid}"
+                "Ollama候选: %s, 合理性=%s(%s), 有效=%s",
+                ollama_datetime,
+                ollama_validity_score,
+                ollama_validity_reason,
+                ollama_valid,
             )
         if not valid_regex_results:
             if ollama_datetime and ollama_valid:
-                logger.info(f"仅使用 Ollama 结果: {ollama_datetime} (合理性={ollama_validity_score})")
+                logger.info("仅使用 Ollama 结果: %s (合理性=%s)", ollama_datetime, ollama_validity_score)
                 return ollama_datetime, f"ollama(validity={ollama_validity_score})"
             if ollama_datetime:
-                logger.warning(f"Ollama 结果合理性较低: {ollama_datetime} ({ollama_validity_reason})")
+                logger.warning("Ollama 结果合理性较低: %s (%s)", ollama_datetime, ollama_validity_reason)
                 return ollama_datetime, f"ollama(低合理性:{ollama_validity_reason})"
             if validated_regex_results:
                 best_invalid = max(validated_regex_results, key=lambda x: float(x["combined_score"]))
                 logger.warning(
-                    f"所有正则结果合理性较低，使用最佳候选:"
-                    f" {best_invalid['datetime']} ({best_invalid['validity_reason']})"
+                    "所有正则结果合理性较低，使用最佳候选: %s (%s)",
+                    best_invalid["datetime"],
+                    best_invalid["validity_reason"],
                 )
                 return (
                     cast(datetime, best_invalid["datetime"]),
@@ -315,7 +326,7 @@ class DatetimeExtractionMixin:
         best_regex_dt = cast(datetime, best_regex["datetime"])
         best_regex_combined = float(best_regex["combined_score"])
         if not ollama_datetime or not ollama_valid:
-            logger.info(f"使用正则结果: {best_regex_dt}, 综合得分={best_regex_combined:.1f}")
+            logger.info("使用正则结果: %s, 综合得分=%.1f", best_regex_dt, best_regex_combined)
             return best_regex_dt, f"regex(score={best_regex_combined:.0f})"
         return self._select_best_from_conflict(
             best_regex_dt, best_regex_combined, ollama_datetime, ollama_validity_score, valid_regex_results

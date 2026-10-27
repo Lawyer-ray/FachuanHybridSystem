@@ -67,5 +67,5 @@ class SupervisingAuthorityService(BasePlaceholderService):
             return ""
 
         except Exception as e:
-            logger.error("查询审理机构失败: %s", e, exc_info=True)
+            logger.exception("查询审理机构失败: %s", e)
             return ""

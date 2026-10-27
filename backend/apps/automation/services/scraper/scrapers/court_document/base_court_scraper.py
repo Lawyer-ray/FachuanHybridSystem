@@ -326,7 +326,7 @@ class BaseCourtDocumentScraper(BaseScraper):
 
         except Exception as e:
             # 捕获所有异常,记录详细日志,但不抛出
-            logger.error(
+            logger.exception(
                 "保存文书记录到数据库失败: %s",
                 e,
                 extra={
@@ -336,7 +336,6 @@ class BaseCourtDocumentScraper(BaseScraper):
                     "download_result": download_result,
                     "error": str(e),
                 },
-                exc_info=True,
             )
             return None
 

@@ -185,5 +185,5 @@ class DocumentGeneratorService:  # pragma: no cover
         relative_path = get_generated_document_storage().save_for_case(
             case_id=case_id, filename=filename, content=doc_bytes
         )
-        logger.info("文档已保存", extra={"filename": filename, "relative_path": relative_path})
+        logger.info("文档已保存", extra={"file_name": filename, "relative_path": relative_path})
         return relative_path

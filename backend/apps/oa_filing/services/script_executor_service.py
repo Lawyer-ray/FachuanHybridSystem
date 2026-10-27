@@ -340,7 +340,7 @@ class ScriptExecutorService:
                     adapter = create_adapter(site_name, str(credential.account), str(credential.password))
                     await getattr(adapter, method_name)(credential, *args)
                 except Exception:
-                    logger.error("打开 OA 页面失败: %s", method_name, exc_info=True)
+                    logger.exception("打开 OA 页面失败: %s", method_name)
                     return
                 await adapter.wait_open_browsers_closed()
                 logger.info("OA 半自动浏览器已关闭，资源已回收: %s", method_name)

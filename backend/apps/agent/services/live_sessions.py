@@ -111,7 +111,10 @@ def register_live_route(session_id: str, worker_id: str) -> None:
         try:
             client.set(f"{LIVE_ROUTE_PREFIX}{session_id}", worker_id, ex=LIVE_ROUTE_TTL)
         except Exception:
-            pass
+            # 路由表写失败 → 该会话的 steer 请求可能落到别的 worker，
+            # 用户侧看到「插话没生效」。按根 CLAUDE.md 标准属用户可见的无法解释
+            # 结果，必须 ≥ warning（同 approval.py 的门禁口径）。
+            logger.warning("注册会话路由失败 session_id=%s", session_id, exc_info=True)
 
 
 def unregister_live_route(session_id: str) -> None:
@@ -121,7 +124,9 @@ def unregister_live_route(session_id: str) -> None:
         try:
             client.delete(f"{LIVE_ROUTE_PREFIX}{session_id}")
         except Exception:
-            pass
+            # 删失败会在 TTL 内留下陈旧路由，期间 steer 可能被投到已结束的会话；
+            # 同属用户可见异常，按根 CLAUDE.md 标准取 warning。
+            logger.warning("注销会话路由失败 session_id=%s", session_id, exc_info=True)
 
 
 def get_live_worker(session_id: str) -> str | None:

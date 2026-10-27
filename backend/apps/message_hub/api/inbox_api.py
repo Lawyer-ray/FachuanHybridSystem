@@ -259,6 +259,9 @@ def _normalize_ocr_blocks(result: Any, width: int, height: int) -> list[OcrBlock
         try:
             pts = [[float(p[0]), float(p[1])] for p in box]
         except Exception:
+            # 单个 OCR 框坐标畸形只跳过该框（OCR 输出常有不规则结构），
+            # 留 debug 便于发现上游格式变化。
+            logger.debug("OCR 框坐标解析失败，跳过 index=%s", i, exc_info=True)
             continue
         if not pts:
             continue

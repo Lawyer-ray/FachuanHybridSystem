@@ -13,7 +13,7 @@ import zipfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.enums import CaseType
@@ -503,6 +503,219 @@ class FolderGenerationService:
         zip_content, zip_filename, error = self.generate_folder_with_documents(contract_id)
         return zip_content, zip_filename, self._last_extract_path, error
 
+    def _render_legal_rep_certificate(
+        self,
+        case: Any,
+        template: Any,
+        file_location: str,
+        folder_path: str,
+        documents: list[tuple[str, bytes, str]],
+        failed_templates: list[str],
+    ) -> None:
+        """法定代表人身份证明书：每个我方法人各生成一份（无我方法人则跳过）。"""
+        from apps.client.models import Client
+        from apps.documents.services.generation.authorization_material_generation_service import (
+            AuthorizationMaterialGenerationService,
+        )
+        from apps.documents.services.generation.pipeline import DocxRenderer
+
+        our_legal_entities = list(
+            case.parties.select_related("client")
+            .filter(client__is_our_client=True, client__client_type=Client.LEGAL)
+            .select_related("client")
+        )
+        if not our_legal_entities:
+            logger.info(
+                "案件文件夹 - 跳过法定代表人身份证明书（我方无法人）",
+                extra={"case_id": case.id, "template_name": template.name},
+            )
+            return
+
+        for party in our_legal_entities:
+            try:
+                # 使用与单独点击"法定代表人身份证明书"相同的上下文构建逻辑
+                auth_service = AuthorizationMaterialGenerationService()
+                client_context = auth_service._build_context(case=case, client=party.client)
+                content = DocxRenderer().render(file_location, client_context)
+                # 使用与单独点击"法定代表人身份证明书"相同的文件名生成逻辑
+                # 日期使用今日日期
+                from django.utils import timezone
+
+                date_str = timezone.localtime().strftime("%Y%m%d")
+                filename = (
+                    FilenameTemplateService.render_generated_doc(
+                        doc_type="法定代表人身份证明书", case_name=party.client.name, version="1", date=date_str
+                    )
+                    + ".docx"
+                )
+                documents.append((folder_path, content, filename))
+                logger.info(
+                    "案件文件夹 - 法定代表人身份证明书已生成: %s → %s",
+                    party.client.name,
+                    folder_path,
+                    extra={"case_id": case.id, "client": party.client.name},
+                )
+            except Exception as e:
+                logger.warning(
+                    "案件文件夹 - 法定代表人身份证明书渲染异常: %s - %s",
+                    party.client.name,
+                    e,
+                    extra={"client": party.client.name, "error": str(e)},
+                )
+
+    def _render_power_of_attorney(
+        self,
+        case: Any,
+        template: Any,
+        file_location: str,
+        folder_path: str,
+        documents: list[tuple[str, bytes, str]],
+    ) -> None:
+        """授权委托书：用 AuthorizationMaterialGenerationService 的 PowerOfAttorney 上下文渲染。"""
+        from apps.documents.services.generation.authorization_material_generation_service import (
+            AuthorizationMaterialGenerationService,
+        )
+        from apps.documents.services.generation.pipeline import DocxRenderer
+
+        our_parties = [
+            p
+            for p in case.parties.select_related("client").all()
+            if getattr(getattr(p, "client", None), "is_our_client", False)
+        ]
+        if not our_parties:
+            logger.info(
+                "案件文件夹 - 跳过授权委托书（无我方当事人）",
+                extra={"case_id": case.id, "template_name": template.name},
+            )
+            return
+
+        try:
+            auth_service = AuthorizationMaterialGenerationService()
+            # _build_power_of_attorney_context 在调用 EnhancedContextBuilder 之前就把
+            # selected_clients 放入 context_data，保证 PowerOfAttorneyPlaceholderService 能读到
+            ctx = auth_service._build_power_of_attorney_context(
+                case=case,
+                selected_clients=[p.client for p in our_parties],
+            )
+            content = DocxRenderer().render(file_location, ctx)
+            # 使用与单独点击"授权委托书"相同的文件名生成逻辑
+            filename = auth_service._build_power_of_attorney_filename(
+                case=case,
+                selected_clients=[p.client for p in our_parties],
+            )
+            documents.append((folder_path, content, filename))
+            logger.info(
+                "案件文件夹 - 授权委托书已生成: %s",
+                folder_path,
+                extra={"case_id": case.id, "template_name": template.name, "client_count": len(our_parties)},
+            )
+        except Exception as e:
+            logger.warning(
+                "案件文件夹 - 授权委托书渲染异常: %s - %s",
+                template.name,
+                e,
+                extra={"template_name": template.name, "error": str(e)},
+            )
+
+    def _render_authority_letter(
+        self,
+        case: Any,
+        template: Any,
+        file_location: str,
+        folder_path: str,
+        documents: list[tuple[str, bytes, str]],
+    ) -> None:
+        """所函：用 AuthorizationMaterialGenerationService 的上下文与文件名逻辑渲染。"""
+        from apps.documents.services.generation.authorization_material_generation_service import (
+            AuthorizationMaterialGenerationService,
+        )
+        from apps.documents.services.generation.pipeline import DocxRenderer
+
+        try:
+            auth_service = AuthorizationMaterialGenerationService()
+            # 先渲染模板（使用与单独点击"所函"相同的上下文构建逻辑）
+            ctx = auth_service._build_context(case=case)
+            content = DocxRenderer().render(file_location, ctx)
+            # 使用与单独点击"所函"相同的文件名生成逻辑
+            filename = auth_service._build_authority_letter_filename(
+                case_name=case.name or "案件",
+            )
+            documents.append((folder_path, content, filename))
+            logger.info(
+                "案件文件夹 - 所函已生成: %s",
+                folder_path,
+                extra={"case_id": case.id, "template_name": template.name},
+            )
+            return
+        except Exception as e:
+            logger.warning(
+                "案件文件夹 - 所函渲染异常: %s - %s",
+                template.name,
+                e,
+                extra={"template_name": template.name, "error": str(e)},
+            )
+
+    def _render_default_document(
+        self,
+        case: Any,
+        template: Any,
+        file_location: str,
+        folder_path: str,
+        context: Any,
+        documents: list[tuple[str, bytes, str]],
+        failed_templates: list[str],
+    ) -> None:
+        """默认文书：用统一案件上下文渲染，文件名走 FilenameTemplateService。"""
+        from apps.documents.services.generation.pipeline import DocxRenderer
+
+        try:
+            content = DocxRenderer().render(file_location, context)
+            # 生成文件名：模板名称(案件名称)V1_日期.docx
+            # 日期优先使用 specified_date，否则使用今日日期
+            from django.utils import timezone
+
+            if case.specified_date:
+                date_str = case.specified_date.strftime("%Y%m%d")
+            else:
+                date_str = timezone.localtime().strftime("%Y%m%d")
+            case_name = case.name or "案件"
+            filename = (
+                FilenameTemplateService.render_generated_doc(
+                    doc_type=template.name, case_name=case_name, version="1", date=date_str
+                )
+                + ".docx"
+            )
+            documents.append((folder_path, content, filename))
+            logger.info(
+                "案件文件夹 - 文书生成成功: %s → %s",
+                template.name,
+                folder_path,
+                extra={"case_id": case.id, "template_name": template.name, "folder_path": folder_path},
+            )
+        except Exception as e:
+            logger.warning(
+                "案件文件夹 - 文书渲染异常: %s - %s",
+                template.name,
+                e,
+                extra={"template_name": template.name, "error": str(e)},
+            )
+            failed_templates.append(f"{template.name}({e})")
+
+    # 按模板名前缀分发的特殊渲染器（backend/CLAUDE.md：长 if/elif 链改 dict dispatch）。
+    # 命中即用专用上下文/文件名逻辑，未命中走默认渲染。
+    _SPECIAL_RENDERERS: ClassVar[tuple[tuple[str, str], ...]] = (
+        ("法定代表人身份证明书", "_render_legal_rep_certificate"),
+        ("授权委托书", "_render_power_of_attorney"),
+        ("所函", "_render_authority_letter"),
+    )
+
+    def _pick_render_handler(self, template_name: str) -> Any | None:
+        """按模板名匹配特殊渲染器；无匹配返回 None（调用方走默认渲染）。"""
+        for keyword, method_name in self._SPECIAL_RENDERERS:
+            if keyword in template_name:
+                return getattr(self, method_name)
+        return None
+
     def generate_case_folder_with_documents(
         self,
         case: Any,
@@ -575,170 +788,25 @@ class FolderGenerationService:
             if folder_path.startswith(f"{root_folder_name}/"):
                 folder_path = folder_path[len(f"{root_folder_name}/") :]
 
-            # 法定代表人身份证明书：每个我方法人各生成一份
-            if "法定代表人身份证明书" in template.name:
-                from apps.client.models import Client
-                from apps.documents.services.generation.authorization_material_generation_service import (
-                    AuthorizationMaterialGenerationService,
+            handler = self._pick_render_handler(template.name)
+            if handler is not None:
+                handler(
+                    case=case,
+                    template=template,
+                    file_location=file_location,
+                    folder_path=folder_path,
+                    documents=documents,
                 )
-
-                our_legal_entities = list(
-                    case.parties.select_related("client")
-                    .filter(client__is_our_client=True, client__client_type=Client.LEGAL)
-                    .select_related("client")
-                )
-                if not our_legal_entities:
-                    logger.info(
-                        "案件文件夹 - 跳过法定代表人身份证明书（我方无法人）",
-                        extra={"case_id": case.id, "template_name": template.name},
-                    )
-                    continue
-
-                for party in our_legal_entities:
-                    try:
-                        # 使用与单独点击"法定代表人身份证明书"相同的上下文构建逻辑
-                        auth_service = AuthorizationMaterialGenerationService()
-                        client_context = auth_service._build_context(case=case, client=party.client)
-                        content = DocxRenderer().render(file_location, client_context)
-                        # 使用与单独点击"法定代表人身份证明书"相同的文件名生成逻辑
-                        # 日期使用今日日期
-                        from django.utils import timezone
-
-                        date_str = timezone.localtime().strftime("%Y%m%d")
-                        filename = (
-                            FilenameTemplateService.render_generated_doc(
-                                doc_type="法定代表人身份证明书", case_name=party.client.name, version="1", date=date_str
-                            )
-                            + ".docx"
-                        )
-                        documents.append((folder_path, content, filename))
-                        logger.info(
-                            "案件文件夹 - 法定代表人身份证明书已生成: %s → %s",
-                            party.client.name,
-                            folder_path,
-                            extra={"case_id": case.id, "client": party.client.name},
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "案件文件夹 - 法定代表人身份证明书渲染异常: %s - %s",
-                            party.client.name,
-                            e,
-                            extra={"client": party.client.name, "error": str(e)},
-                        )
                 continue
-
-            # 授权委托书：使用 AuthorizationMaterialGenerationService 的 _build_power_of_attorney_context
-            # 构建上下文（包含 selected_clients），然后用绑定的模板文件渲染
-            if "授权委托书" in template.name:
-                from apps.documents.services.generation.authorization_material_generation_service import (
-                    AuthorizationMaterialGenerationService,
-                )
-                from apps.documents.services.generation.pipeline import DocxRenderer
-
-                our_parties = [
-                    p
-                    for p in case.parties.select_related("client").all()
-                    if getattr(getattr(p, "client", None), "is_our_client", False)
-                ]
-                if not our_parties:
-                    logger.info(
-                        "案件文件夹 - 跳过授权委托书（无我方当事人）",
-                        extra={"case_id": case.id, "template_name": template.name},
-                    )
-                    continue
-
-                try:
-                    auth_service = AuthorizationMaterialGenerationService()
-                    # _build_power_of_attorney_context 在调用 EnhancedContextBuilder 之前就把
-                    # selected_clients 放入 context_data，保证 PowerOfAttorneyPlaceholderService 能读到
-                    ctx = auth_service._build_power_of_attorney_context(
-                        case=case,
-                        selected_clients=[p.client for p in our_parties],
-                    )
-                    content = DocxRenderer().render(file_location, ctx)
-                    # 使用与单独点击"授权委托书"相同的文件名生成逻辑
-                    filename = auth_service._build_power_of_attorney_filename(
-                        case=case,
-                        selected_clients=[p.client for p in our_parties],
-                    )
-                    documents.append((folder_path, content, filename))
-                    logger.info(
-                        "案件文件夹 - 授权委托书已生成: %s",
-                        folder_path,
-                        extra={"case_id": case.id, "template_name": template.name, "client_count": len(our_parties)},
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "案件文件夹 - 授权委托书渲染异常: %s - %s",
-                        template.name,
-                        e,
-                        extra={"template_name": template.name, "error": str(e)},
-                    )
-                continue
-
-            # 所函：使用 AuthorizationMaterialGenerationService 的文件名生成逻辑
-            if "所函" in template.name:
-                from apps.documents.services.generation.authorization_material_generation_service import (
-                    AuthorizationMaterialGenerationService,
-                )
-
-                try:
-                    auth_service = AuthorizationMaterialGenerationService()
-                    # 先渲染模板（使用与单独点击"所函"相同的上下文构建逻辑）
-                    ctx = auth_service._build_context(case=case)
-                    content = DocxRenderer().render(file_location, ctx)
-                    # 使用与单独点击"所函"相同的文件名生成逻辑
-                    filename = auth_service._build_authority_letter_filename(
-                        case_name=case.name or "案件",
-                    )
-                    documents.append((folder_path, content, filename))
-                    logger.info(
-                        "案件文件夹 - 所函已生成: %s",
-                        folder_path,
-                        extra={"case_id": case.id, "template_name": template.name},
-                    )
-                    continue
-                except Exception as e:
-                    logger.warning(
-                        "案件文件夹 - 所函渲染异常: %s - %s",
-                        template.name,
-                        e,
-                        extra={"template_name": template.name, "error": str(e)},
-                    )
-                    continue
-
-            try:
-                content = DocxRenderer().render(file_location, context)
-                # 生成文件名：模板名称(案件名称)V1_日期.docx
-                # 日期优先使用 specified_date，否则使用今日日期
-                from django.utils import timezone
-
-                if case.specified_date:
-                    date_str = case.specified_date.strftime("%Y%m%d")
-                else:
-                    date_str = timezone.localtime().strftime("%Y%m%d")
-                case_name = case.name or "案件"
-                filename = (
-                    FilenameTemplateService.render_generated_doc(
-                        doc_type=template.name, case_name=case_name, version="1", date=date_str
-                    )
-                    + ".docx"
-                )
-                documents.append((folder_path, content, filename))
-                logger.info(
-                    "案件文件夹 - 文书生成成功: %s → %s",
-                    template.name,
-                    folder_path,
-                    extra={"case_id": case.id, "template_name": template.name, "folder_path": folder_path},
-                )
-            except Exception as e:
-                logger.warning(
-                    "案件文件夹 - 文书渲染异常: %s - %s",
-                    template.name,
-                    e,
-                    extra={"template_name": template.name, "error": str(e)},
-                )
-                failed_templates.append(f"{template.name}({e})")
+            self._render_default_document(
+                case=case,
+                template=template,
+                file_location=file_location,
+                folder_path=folder_path,
+                context=context,
+                documents=documents,
+                failed_templates=failed_templates,
+            )
 
         # 全部绑定文书渲染失败时不应产出"空壳"成功 ZIP，直接报错；
         # 部分失败保留 warning + 失败清单（成功文书与特殊材料照常打包）

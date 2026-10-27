@@ -178,6 +178,10 @@ class CaseLogAttachment(models.Model):
                 self.original_filename = Path(name).name
         super().save(*args, **kwargs)
 
+    def __str__(self) -> str:
+        label = self.original_filename or Path(self.file.name or "").name
+        return label or f"附件 #{self.pk}"
+
 
 class CaseLogVersion(models.Model):
     id: int

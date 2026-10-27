@@ -93,7 +93,7 @@ class ZxfwInterceptMixin:
                         },
                     )
                 except Exception as e:
-                    logger.error(
+                    logger.exception(
                         "解析 API 响应失败: %s",
                         e,
                         extra={
@@ -101,7 +101,6 @@ class ZxfwInterceptMixin:
                             "timestamp": time.time(),
                             "error": str(e),
                         },
-                        exc_info=True,
                     )
 
         try:
@@ -133,11 +132,10 @@ class ZxfwInterceptMixin:
                         },
                     )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "API 拦截过程出错: %s",
                 e,
                 extra={"operation_type": "api_intercept_error", "timestamp": time.time(), "error": str(e)},
-                exc_info=True,
             )
         finally:
             try:

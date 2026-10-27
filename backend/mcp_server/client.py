@@ -14,6 +14,7 @@ import httpx
 from mcp.server.mcpserver.exceptions import ToolError
 
 from . import config
+from .config import http_transport_enabled
 from .identity import passthrough_authorization
 
 logger = logging.getLogger(__name__)
@@ -122,12 +123,24 @@ class FachuanClient:
                 self._refresh()
 
     def _headers(self) -> dict[str, str]:
-        # agent 场景（streamable-http）：优先透传请求头里「当前律师」的
-        # Authorization，工具即以该律师身份调上游——归属过滤、权限、审计
-        # 与本人登录一致；无透传（stdio/手工）才用服务账号。
+        # agent 场景（streamable-http）：只能透传请求头里「当前律师」的
+        # Authorization——工具即以该律师身份调上游，归属过滤、权限、审计
+        # 与本人登录一致。
+        #
+        # 安全红线（2026-10-28 审计实测）：HTTP 模式下**绝不**回退到
+        # config.USERNAME/PASSWORD 换来的服务账号（超管）。早期无条件回退，
+        # 导致无凭证的本机任意进程都能以超管身份读全所数据（已实测复现）。
+        # HTTP 模式由 RequestAuthMiddleware 先拦住无 Bearer 的请求；即便抢到
+        # 这里（如 REQUEST_AUTH 被显式关闭调优），也直接报错而不是悄悄升权。
         passthrough = passthrough_authorization()
         if passthrough:
             return {"Authorization": passthrough}
+        if http_transport_enabled():
+            raise FachuanApiError(
+                "共享 MCP 未收到调用方身份：HTTP 模式禁止回退到服务账号（超管）。"
+                "请确保请求携带 Authorization: Bearer <律师 token>。"
+            )
+        # stdio 模式（每 pi 一进程，手工/脚本场景）：用服务账号
         self._ensure_token()
         return {"Authorization": f"Bearer {self._access_token}"}
 

@@ -194,7 +194,7 @@ class ContractAdminService:
             has_contract_template = contract_template_display not in ["无匹配模板", "查询失败"]
             contract_templates_list = self.display_service.get_matched_document_templates_list(contract)
         except Exception as exc:
-            logger.error("检查合同 %s 的文书模板失败: %s", contract.pk, exc, exc_info=True)
+            logger.exception("检查合同 %s 的文书模板失败: %s", contract.pk, exc)
             has_contract_template = False
             contract_template_display = "查询失败"
             contract_templates_list = []
@@ -204,7 +204,7 @@ class ContractAdminService:
             has_folder_template = folder_template_display not in ["无匹配模板", "查询失败"]
             folder_templates_list = self.display_service.get_matched_folder_templates_list(contract)
         except Exception as exc:
-            logger.error("检查合同 %s 的文件夹模板失败: %s", contract.pk, exc, exc_info=True)
+            logger.exception("检查合同 %s 的文件夹模板失败: %s", contract.pk, exc)
             has_folder_template = False
             folder_template_display = "查询失败"
             folder_templates_list = []

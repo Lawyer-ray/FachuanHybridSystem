@@ -105,7 +105,7 @@ def parse_arbitration_document(doc: ArbitrationDocument, backend: str) -> dict[s
         )
         return {"success": True, "doc_id": doc.id, "pages": len(images)}
     except Exception as exc:
-        logger.error("[劳动仲裁] 解析文档 %s 失败: %s", doc.id, exc, exc_info=True)
+        logger.exception("[劳动仲裁] 解析文档 %s 失败: %s", doc.id, exc)
         doc.parse_status = ParseStatus.FAILED
         doc.parse_error = str(exc)[:2000]
         doc.save(update_fields=["parse_status", "parse_error"])

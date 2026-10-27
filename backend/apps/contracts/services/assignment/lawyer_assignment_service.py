@@ -201,7 +201,7 @@ class LawyerAssignmentService:
             extra={
                 "contract_id": contract_id,
                 "lawyer_id": lawyer_id,
-                "created": created,
+                "was_created": created,
                 "action": "set_primary_lawyer",
             },
         )

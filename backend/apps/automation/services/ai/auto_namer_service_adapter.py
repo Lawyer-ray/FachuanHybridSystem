@@ -102,15 +102,15 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                 raise Exception("AI服务返回格式异常")
 
         except Exception as e:
-            logger.error(
-                f"文件名生成失败: {e}",
+            logger.exception(
+                "文件名生成失败: %s",
+                e,
                 extra={
                     "action": "generate_filename_failed",
                     "content_length": len(document_content) if document_content else 0,
                     "model": model,
                     "error": str(e),
                 },
-                exc_info=True,
             )
 
             if isinstance(e, ValidationException):
@@ -148,7 +148,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                 "开始处理文档并生成命名",
                 extra={
                     "action": "process_document_for_naming_start",
-                    "filename": uploaded_file.name if hasattr(uploaded_file, "name") else None,
+                    "file_name": uploaded_file.name if hasattr(uploaded_file, "name") else None,
                     "model": model,
                 },
             )
@@ -197,7 +197,8 @@ class AutoNamerServiceAdapter(IAutoNamerService):
 
             except Exception as ai_error:
                 logger.warning(
-                    f"AI命名生成失败，但文档处理成功: {ai_error}",
+                    "AI命名生成失败，但文档处理成功: %s",
+                    ai_error,
                     extra={
                         "action": "process_document_for_naming_partial_success",
                         "text_length": len(text_content),
@@ -214,14 +215,14 @@ class AutoNamerServiceAdapter(IAutoNamerService):
                 }
 
         except Exception as e:
-            logger.error(
-                f"文档处理和命名生成失败: {e}",
+            logger.exception(
+                "文档处理和命名生成失败: %s",
+                e,
                 extra={
                     "action": "process_document_for_naming_failed",
-                    "filename": uploaded_file.name if hasattr(uploaded_file, "name") else None,
+                    "file_name": uploaded_file.name if hasattr(uploaded_file, "name") else None,
                     "error": str(e),
                 },
-                exc_info=True,
             )
 
             if isinstance(e, (ValidationException, BusinessException)):

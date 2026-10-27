@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any
 
-from apps.legal_research.models import LegalResearchSearchMode, LegalResearchTask
+from apps.legal_research.models import LegalResearchTask
 from apps.legal_research.services.executor_components import (
     ExecutorCacheMixin,
     ExecutorFeedbackMixin,
@@ -23,13 +23,11 @@ from apps.legal_research.services.executor_components.feedback_mixin import (
 from apps.legal_research.services.executor_components.policy_mixin import (
     AdaptiveThresholdPolicy,
     DualReviewPolicy,
-    _build_adaptive_threshold_policy,
     _build_adaptive_threshold_suffix,
-    _build_dual_review_policy,
     _maybe_decay_min_similarity_threshold,
-    _resolve_effective_min_similarity,
 )
 from apps.legal_research.services.executor_components.result_persistence import _extract_similarity_metadata
+from apps.legal_research.services.executor_components.run_config import build_run_config
 from apps.legal_research.services.executor_components.scoring_mixin import _should_rerank
 from apps.legal_research.services.executor_components.task_lifecycle import (
     _acquire_task,
@@ -73,29 +71,27 @@ class LegalResearchExecutor(  # pragma: no cover
             similarity = CaseSimilarityService(tuning=tuning)
         except TypeError:
             similarity = CaseSimilarityService()
-        search_mode = str(
-            getattr(task, "search_mode", LegalResearchSearchMode.EXPANDED) or LegalResearchSearchMode.EXPANDED
-        )
-        single_search_mode = search_mode.strip().lower() == LegalResearchSearchMode.SINGLE
-        query_variant_enabled = bool(getattr(tuning, "query_variant_enabled", True))
-        query_variant_max_count = max(0, int(getattr(tuning, "query_variant_max_count", self.QUERY_VARIANT_MAX)))
-        query_variant_model = str(getattr(tuning, "query_variant_model", "") or "").strip()
-        detail_cache_ttl_seconds = max(
-            60, int(getattr(tuning, "detail_cache_ttl_seconds", self.DETAIL_CACHE_TTL_SECONDS))
-        )
-        feedback_query_limit = max(0, int(tuning.feedback_query_limit))
-        feedback_min_terms = max(1, int(tuning.feedback_min_terms))
-        feedback_min_score_floor = max(0.0, min(1.0, float(tuning.feedback_min_score_floor)))
-        feedback_score_margin = max(0.01, min(0.6, float(tuning.feedback_score_margin)))
-        dual_review_policy = _build_dual_review_policy(tuning=tuning)
-        min_similarity_threshold = _resolve_effective_min_similarity(
-            requested_min_similarity=task.min_similarity_score,
+        # 检索策略快照：读配置 + 归一化 + 夹取范围统一在 build_run_config 里做，
+        # 这里只把快照展开成局部名（下游 13 处引用保持原样，最小化改动面）。
+        run_config = build_run_config(
+            task=task,
             tuning=tuning,
+            query_variant_max=self.QUERY_VARIANT_MAX,
+            detail_cache_ttl_default=self.DETAIL_CACHE_TTL_SECONDS,
         )
-        adaptive_threshold_policy = _build_adaptive_threshold_policy(
-            baseline_min_similarity=min_similarity_threshold,
-            tuning=tuning,
-        )
+        search_mode = run_config.search_mode
+        single_search_mode = run_config.single_search_mode
+        query_variant_enabled = run_config.query_variant_enabled
+        query_variant_max_count = run_config.query_variant_max_count
+        query_variant_model = run_config.query_variant_model
+        detail_cache_ttl_seconds = run_config.detail_cache_ttl_seconds
+        feedback_query_limit = run_config.feedback_query_limit
+        feedback_min_terms = run_config.feedback_min_terms
+        feedback_min_score_floor = run_config.feedback_min_score_floor
+        feedback_score_margin = run_config.feedback_score_margin
+        dual_review_policy = run_config.dual_review_policy
+        min_similarity_threshold = run_config.min_similarity_threshold
+        adaptive_threshold_policy = run_config.adaptive_threshold_policy
         effective_min_similarity_threshold = min_similarity_threshold
         adaptive_checkpoint_scanned = 0
         adaptive_checkpoint_matched = 0

@@ -22,13 +22,8 @@ class ContractFilingNumberWorkflow:
         else:
             created_year = timezone.localdate().year
 
-        filing_number = self.filing_number_service.generate_contract_filing_number(
-            contract_id=contract.id,
-            case_type=contract.case_type,
-            created_year=created_year,
-        )
-
-        contract.filing_number = filing_number
-        contract.save(update_fields=["filing_number"])
-
-        return filing_number
+        # 必须走 assign_filing_number：它把「取号 + 写回」放进同一个事务，
+        # pg_advisory_xact_lock 才真正覆盖到 UPDATE。原实现先调
+        # generate_*(内部 atomic 已提交、锁已释放) 再在外部 save()，
+        # 并发建档会拿到同一序号并撞 unique=True。
+        return self.filing_number_service.assign_filing_number(contract, created_year=created_year)

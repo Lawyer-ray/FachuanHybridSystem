@@ -68,7 +68,7 @@ def execute_express_query_task(task_id: int) -> None:  # pragma: no cover
         _execute_browser_query(task)
 
     except Exception as exc:
-        logger.error("快递查询任务执行失败", extra={"task_id": task_id, "error": str(exc)}, exc_info=True)
+        logger.exception("快递查询任务执行失败", extra={"task_id": task_id, "error": str(exc)})
         task.status = ExpressQueryTaskStatus.FAILED
         task.error_message = str(exc)
         task.finished_at = timezone.now()
@@ -101,7 +101,7 @@ def execute_manual_express_query_task(task_id: int) -> None:  # pragma: no cover
         _execute_browser_query(task)
 
     except Exception as exc:
-        logger.error("手动输入快递查询任务执行失败", extra={"task_id": task_id, "error": str(exc)}, exc_info=True)
+        logger.exception("手动输入快递查询任务执行失败", extra={"task_id": task_id, "error": str(exc)})
         task.status = ExpressQueryTaskStatus.FAILED
         task.error_message = str(exc)
         task.finished_at = timezone.now()

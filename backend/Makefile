@@ -320,8 +320,13 @@ lint: ## 全量代码检查 apps/
 lint-full: lint ## 全量代码检查（lint 别名）
 
 format: ## 格式化代码（black 已退役，统一 ruff format；line-length=120 沿用 ruff.toml）
+	# *.md 在 ruff.toml 的 extend-exclude 里排除了：ruff format 会把 README 里的 ```python
+	# 代码块当源码重排（把对齐示例压成单空格），而 CI / pre-commit 的 ruff-format
+	# 钩子只作用于 \.py$。若不排除，make format 会持续把文档改坏而 CI 却看不见。
 	$(PYTHON) -m ruff format apps --config ruff.toml
-	$(PYTHON) -m isort apps
+	# isort 参数必须与 .pre-commit-config.yaml 的 isort 钩子完全一致（--profile=black --line-length=120），
+	# 否则两条链路对同一个 import 块的排序结论不同，会遇到「本地 format 完 pre-commit 又改回去」。
+	$(PYTHON) -m isort apps --profile=black --line-length=120
 
 typecheck-ratchet: ## 类型检查（仅棘轮路径）
 	PYTHONPATH=apiSystem:. $(PYTHON) -m mypy \
