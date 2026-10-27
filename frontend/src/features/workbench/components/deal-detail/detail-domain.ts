@@ -206,15 +206,13 @@ export interface TimelineEntry {
   n: number
 }
 
-/** 只隐藏「长描述型」括号：案件名在卡片上已有，留着只是冗长；短括号常是区分信息（当事人/年份/备注），必须保留 */
-const LONG_PAREN_THRESHOLD = 12
-
 /**
- * 文件名展示形：隐藏括号内冗长的案件背景描述。
+ * 文件名展示形：括号内内容一律隐藏（案件背景、当事人、年份都不留——
+ * 案件名在卡片上已有，全名悬停 tooltip / 预览面板可见）。
  * 「告知书（张某诉某公司买卖合同纠纷一案）_收.pdf」→「告知书_收.pdf」；
- * 「通知书（王某执行案）」「(2026)粤…号」「【发票】某某（个人）」等短括号原样保留——
- * 删掉会让同名文件失去区分度。整名都在括号里时退回原名。
- * 扫描而非正则：案件名里常嵌公司名括号（如「诉某公司（广东）分公司」），需配平。
+ * 「通知书（王某执行案）」→「通知书」。整名都在括号里、或隐藏后只剩
+ * 扩展名时退回原名。扫描而非正则：案件名里常嵌公司名括号（如
+ * 「诉某公司（广东）分公司」），需配平。
  */
 export function stripEntryParens(name: string): string {
   let out = ''
@@ -239,8 +237,6 @@ export function stripEntryParens(name: string): string {
       out += name.slice(i) // 括号不配对：余下原样保留
       break
     }
-    const inner = name.slice(i + 1, j - 1)
-    out += inner.trim().length >= LONG_PAREN_THRESHOLD ? '' : name.slice(i, j)
     i = j
   }
   const stripped = out.replace(/\s{2,}/g, ' ').trim()
