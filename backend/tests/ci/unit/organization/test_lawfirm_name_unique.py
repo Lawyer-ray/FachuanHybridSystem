@@ -55,7 +55,9 @@ def _fake_apps(rows: list[tuple[int, str]]) -> MagicMock:
 
 
 def test_no_duplicates_passes() -> None:
-    assert_no_duplicate_law_firm_names(_fake_apps([(1, "甲所"), (2, "乙所")]), None)
+    """无重复时应正常返回（不抛异常），用返回值断言而非空跑。"""
+    result = assert_no_duplicate_law_firm_names(_fake_apps([(1, "甲所"), (2, "乙所")]), None)
+    assert result is None
 
 
 def test_duplicates_raise_with_actionable_detail() -> None:

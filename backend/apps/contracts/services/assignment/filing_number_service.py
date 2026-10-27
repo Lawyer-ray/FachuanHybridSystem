@@ -17,6 +17,36 @@ logger = logging.getLogger("apps.contracts")
 _CONTRACT_FILING_SEQUENCE_LOCK_KEY = 8_801_001
 
 
+def _acquire_filing_lock() -> None:
+    """获取合同建档序号的 PostgreSQL 事务级咨询锁（非 PG 环境为 no-op）。
+
+    四层架构规范：Service 层禁用 @staticmethod，纯函数一律下沉到模块级。
+    """
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            # 事务级咨询锁：并发建档串行化（Django 聚合查询会丢弃
+            # select_for_update，行级锁对聚合无效）
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [_CONTRACT_FILING_SEQUENCE_LOCK_KEY])
+
+
+def _scan_max_sequence(contract_model: Any, year: int) -> int:
+    """取当年已用最大序号 + 1。"""
+    max_seq = 0
+    for filing_number in (
+        contract_model.objects.filter(filing_number__startswith=f"{year}_", filing_number__isnull=False)
+        .exclude(filing_number="")
+        .values_list("filing_number", flat=True)
+    ):
+        parts = str(filing_number).split("_")
+        if not parts[-1].isdigit():
+            # 脏数据防御：后缀不是纯数字（如手工录入的编号）时跳过
+            continue
+        value = int(parts[-1])
+        if value > max_seq:
+            max_seq = value
+    return max_seq + 1
+
+
 class FilingNumberService:
     """
     建档编号生成服务
@@ -141,38 +171,11 @@ class FilingNumberService:
         # **事务级**的，内层 atomic() 退出即释放，锁就白拿了（这正是原实现的
         # bug——取号在 A 事务加锁、写回在 B 事务执行）。
         if _lock_held:
-            return self._scan_max_sequence(Contract, year)
+            return _scan_max_sequence(Contract, year)
 
         with transaction.atomic():
-            self._acquire_filing_lock()
-            return self._scan_max_sequence(Contract, year)
-
-    @staticmethod
-    def _acquire_filing_lock() -> None:
-        """获取合同建档序号的 PostgreSQL 事务级咨询锁（非 PG 环境为 no-op）。"""
-        if connection.vendor == "postgresql":
-            with connection.cursor() as cursor:
-                # 事务级咨询锁：并发建档串行化（Django 聚合查询会丢弃
-                # select_for_update，行级锁对聚合无效）
-                cursor.execute("SELECT pg_advisory_xact_lock(%s)", [_CONTRACT_FILING_SEQUENCE_LOCK_KEY])
-
-    @staticmethod
-    def _scan_max_sequence(contract_model: Any, year: int) -> int:
-        """取当年已用最大序号 + 1。"""
-        max_seq = 0
-        for filing_number in (
-            contract_model.objects.filter(filing_number__startswith=f"{year}_", filing_number__isnull=False)
-            .exclude(filing_number="")
-            .values_list("filing_number", flat=True)
-        ):
-            parts = str(filing_number).split("_")
-            if not parts[-1].isdigit():
-                # 脏数据防御：后缀不是纯数字（如手工录入的编号）时跳过
-                continue
-            value = int(parts[-1])
-            if value > max_seq:
-                max_seq = value
-        return max_seq + 1
+            _acquire_filing_lock()
+            return _scan_max_sequence(Contract, year)
 
     def assign_filing_number(self, contract: Any, *, created_year: int | None = None) -> Any:
         """为合同分配并**落库**建档编号（锁覆盖取号 + 写回，并发安全）。
@@ -194,7 +197,7 @@ class FilingNumberService:
 
         with transaction.atomic():
             # 锁在整个事务内有效：读最大序号 → 写回 contract，中间不会插进别人
-            self._acquire_filing_lock()
+            _acquire_filing_lock()
             # 拿到锁后重读一次，避免用调用方手里过期的 filing_number
             fresh = type(contract).objects.filter(pk=contract.pk).values("filing_number").first()
             existing = (fresh or {}).get("filing_number")

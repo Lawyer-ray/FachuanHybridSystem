@@ -99,6 +99,8 @@ dependencies = [
     "xparse-client>=0.3.0",
     "bleach>=6.4.0",
     "webauthn>=3.0.1",
+    "authlib>=1.9.1",
+    "dnspython>=2.9.0",
 ]
 
 [dependency-groups]
