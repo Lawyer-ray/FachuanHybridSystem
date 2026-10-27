@@ -149,7 +149,7 @@ DS 回调实际走 `load_session_by_key()` **从库里重新取**，取到的已
 三项缺一即 `enabled=False`，前端显示「OnlyOffice 未启用」。
 种子迁移：`apps/core/migrations/0037_seed_onlyoffice_config.py`。
 
-> 早期蓝图 `docs/new-plans/si-copilot-demo-plan.md` 里的 `ONLYOFFICE_DS_URL` /
+> 早期蓝图 `docs/04-计划/活跃/si-copilot-demo-plan.md` 里的 `ONLYOFFICE_DS_URL` /
 > `ONLYOFFICE_DS_JWT_SECRET` / `ONLYOFFICE_DS_CALLBACK_BASE` 是**未落地的旧命名**，按那个配会直接失败。
 
 `JWT_SECRET` 长度 < 32 字节会告警一次（每个不同值报一次，不刷屏）。
