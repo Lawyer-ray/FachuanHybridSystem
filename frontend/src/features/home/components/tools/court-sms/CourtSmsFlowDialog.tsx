@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 
+import { errMessage } from '@/lib/errors'
+
 import { courtSmsDownloadAllUrl, triggerDownload, type CourtSmsDetail } from '../../../api'
 import { BTN, BTN_DANGER, BTN_PRIMARY } from '../../../ui'
 import { FlowNotice, TaskFlowDialog, type FlowTone } from '../dialog/TaskFlowDialog'
@@ -103,7 +105,7 @@ export function CourtSmsFlowDialog({
       toast.success('已停止并删除该短信处理任务')
       onOpenChange(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '停止任务失败，请稍后重试')
+      toast.error(errMessage(e, '停止任务失败，请稍后重试'))
     } finally {
       setAbortBusy(false)
       setAbortArmed(false)
@@ -125,7 +127,7 @@ export function CourtSmsFlowDialog({
     try {
       await flow.retry()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '重试失败，请稍后重试')
+      toast.error(errMessage(e, '重试失败，请稍后重试'))
     }
   }
 
@@ -182,7 +184,7 @@ export function CourtSmsFlowDialog({
             try {
               await flow.assignCase(caseId)
             } catch (e) {
-              toast.error(e instanceof Error ? e.message : '指定案件失败，请重试')
+              toast.error(errMessage(e, '指定案件失败，请重试'))
             }
           }}
         />

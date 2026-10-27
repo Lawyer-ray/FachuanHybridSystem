@@ -1,23 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob } from '../../api'
 import { applyAutoSplit, canAutoSplitMat } from '../../draft'
 import { useReader } from '../../store'
+import type { PdfSplitSegmentSuggestion } from '../../types'
+import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 
 const POLL_DELAY_MS = 2000
 const POLL_LIMIT = 420
 
+/** 单个 PDF 的云端拆分结果：mi 定位材料，segmentBackend 用于提示分段质量来源 */
+interface AutoSplitResult {
+  mi: number
+  segments: PdfSplitSegmentSuggestion[]
+  segmentBackend: string
+}
+
+/**
+ * 自动分段编排：提交云端拆分任务 → 轮询到终态 → 回写草稿。
+ *
+ * 重入与卸载走 usePollSession 的会话号守卫：run() 一开始就签发新会话，
+ * 旧循环在下一个自检点退出。以前的 cancelled ref 只在卸载置位——连点两次
+ * 会跑起两个循环，两个云端任务、两条 setProgress 流互相覆盖，回写顺序不定。
+ * 工具条按钮的 disabled 只挡得住「已渲染成 running」之后的点击，
+ * 挡不住同一帧/双击的这种重入。
+ */
 export function useAutoSplit() {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
-  // 卸载后取消：轮询每 2s 一次、最长约 14 分钟，组件卸载了就别再打请求
-  const cancelled = useRef(false)
-  useEffect(() => {
-    cancelled.current = false
-    return () => {
-      cancelled.current = true
-    }
-  }, [])
+  const pollSession = usePollSession()
 
   const run = async () => {
     const { openId, draft } = useReader.getState()
@@ -36,6 +47,8 @@ export function useAutoSplit() {
       return
     }
 
+    // 先开新会话再置 running：同帧重入的第二个 run 从这里开始，第一个循环立刻过期
+    const lease = pollSession.begin()
     setRunning(true)
     setProgress(`正在提交 ${targets.length} 个 PDF`)
     try {
@@ -49,18 +62,27 @@ export function useAutoSplit() {
           return { mi, jobId: await createPdfSplitJob(file) }
         }),
       )
+      const settled: PromiseSettledResult<AutoSplitResult>[] = []
       let finished = 0
-      const settled = await Promise.allSettled(
-        jobs.map(async ({ mi, jobId }) => {
-          const result = await pollJob(jobId, () => cancelled.current)
+      for (const { mi, jobId } of jobs) {
+        // 串行轮询：过期会话（连点重入 / 卸载）在这里就退出，不再产生新请求
+        if (lease.isStale()) break
+        try {
+          const result = await pollJob(jobId, lease)
+          if (lease.isStale()) break
           finished += 1
           setProgress(`云端识别完成 ${finished}/${jobs.length}`)
-          return { mi, segments: result.segments, segmentBackend: result.summary?.segment_backend ?? '' }
-        }),
-      )
+          settled.push({
+            status: 'fulfilled',
+            value: { mi, segments: result.segments, segmentBackend: segmentBackendOf(result) },
+          })
+        } catch (error) {
+          settled.push({ status: 'rejected', reason: error })
+        }
+      }
 
-      // 轮询期间组件可能已卸载（关掉阅读器）：不再回写 store
-      if (cancelled.current) return
+      // 轮询期间可能已卸载（关掉阅读器）或重入：不再回写 store、不再弹提示
+      if (lease.isStale()) return
       const results = settled.flatMap((item) => (item.status === 'fulfilled' ? [item.value] : []))
       const failures = settled.filter((item) => item.status === 'rejected')
       if (results.length === 0) {
@@ -85,27 +107,36 @@ export function useAutoSplit() {
         toast.success(`云端识别完成（${backendNote}），已将 ${count} 个候选分段写入草稿；未识别材料仍需人工归类`)
       }
     } catch (error) {
-      // 组件已卸载（关掉阅读器）导致的取消：静默返回，不弹错误
-      if (cancelled.current) return
+      // 组件已卸载（关掉阅读器）或这次 run 已被新 run 取代：静默返回，不弹错误
+      if (lease.isStale()) return
       toast.error(error instanceof Error ? error.message : '云端材料识别失败')
     } finally {
-      setRunning(false)
-      setProgress('')
+      // 过期会话不得复位：新会话正在跑，复位会让按钮可点、进度条消失
+      if (!lease.isStale()) {
+        setRunning(false)
+        setProgress('')
+      }
     }
   }
 
   return { run, running, progress }
 }
 
-async function pollJob(jobId: string, isCancelled: () => boolean) {
+/** 分段来源标记：summary 是自由字典，取不到就当规则引擎（保守，不谎报 AI 分段） */
+function segmentBackendOf(job: { summary: Record<string, unknown> }): string {
+  const backend = job.summary.segment_backend
+  return typeof backend === 'string' ? backend : ''
+}
+
+async function pollJob(jobId: string, lease: PollLease) {
   for (let attempt = 0; attempt < POLL_LIMIT; attempt++) {
-    if (isCancelled()) throw new Error('已取消')
+    if (lease.isStale()) throw new Error('已取消')
     const job = await getPdfSplitJob(jobId)
     if (job.status === 'review_required' || job.status === 'completed') return job
     if (job.status === 'failed' || job.status === 'cancelled') {
       throw new Error(job.error_message || `PDF 拆分任务${job.status === 'failed' ? '失败' : '已取消'}`)
     }
-    await new Promise((resolve) => window.setTimeout(resolve, POLL_DELAY_MS))
+    await lease.sleep(POLL_DELAY_MS)
   }
   throw new Error('云端识别等待超时，请稍后重试')
 }

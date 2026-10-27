@@ -1,5 +1,6 @@
 import { toast } from 'sonner'
 
+import { saveBlob } from '@/lib/download'
 import { copyText } from '@/lib/clipboard'
 
 import type { ParseOutcome } from '../../api'
@@ -23,14 +24,7 @@ export function downloadOutcome(o: Pick<ParseOutcome, 'markdown' | 'text'> | nul
     return
   }
   const mime = isMd ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
-  const url = URL.createObjectURL(new Blob([text], { type: mime }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${baseName}.${isMd ? 'md' : 'txt'}`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  saveBlob(new Blob([text], { type: mime }), `${baseName}.${isMd ? 'md' : 'txt'}`)
 }
 
 export async function copyOutcome(o: Pick<ParseOutcome, 'markdown' | 'text'> | null) {

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileText, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { EmptyBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
 import { fmtCNDate, fmtMoney } from '../../domain'
 import {
@@ -128,7 +129,9 @@ export function RailFees({
       {/* 收款：逐笔的钱（开票状态跟钱走，票按收款核销） */}
       <Subhead title="收款" count={deal.payments.length + deal.payRecords.length} />
       {deal.payments.length + deal.payRecords.length === 0 ? (
-        <div className="py-1 text-xs text-muted-foreground/70">还没有收款记录</div>
+        <EmptyBlock className="justify-start px-0 py-1 text-left text-xs text-muted-foreground/70">
+          还没有收款记录
+        </EmptyBlock>
       ) : (
         <>
           {deal.payments.map((p) => (

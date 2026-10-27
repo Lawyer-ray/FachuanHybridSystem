@@ -99,6 +99,49 @@ describe('copilot store：附件', () => {
     expect(useCopilot.getState().lastError).toContain('准备失败')
     expect(useCopilot.getState().pendingFiles).toEqual([file])
     expect(useCopilot.getState().streaming).toBe(false)
+    // 早退必须清锁，否则一次上传失败就把发送钮永久置忙
+    expect(useCopilot.getState().sending).toBe(false)
+  })
+
+  it('上传在途时 send 不可重入：sending 置位、第二次 send 不触发第二次开流', async () => {
+    // 回归 P1-4：uploadingAttachments 在 await 后立刻置 false，而消息入列在
+    // 其后、streaming 仍是 false——三个按钮同时解锁，二次提交会把同一批附件
+    // 再传一遍并往转录里慂两条消息。sending 必须贯穿到消息入列
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    let releaseUpload: () => void = () => {}
+    vi.mocked(copilotApi.uploadAttachment).mockImplementation(
+      (_sid, file) =>
+        new Promise((resolve) => {
+          releaseUpload = () =>
+            resolve({ attachment_id: `att-${file.name}`, filename: file.name, size: file.size, mime: 'text/plain' })
+        }),
+    )
+    vi.mocked(copilotApi.openMessageStream).mockImplementation(() =>
+      Promise.resolve(sseResponse(['data: {"type":"done"}\n\n'])),
+    )
+    useCopilot.setState({ pendingFiles: [makeFile('笔记.txt', 8)] })
+
+    const first = useCopilot.getState().send('帮我看看')
+    // 上传 promise 未 resolve：锁必须在位（此时 streaming 还是 false）
+    await vi.waitFor(() => expect(copilotApi.uploadAttachment).toHaveBeenCalled())
+    expect(useCopilot.getState().sending).toBe(true)
+    expect(useCopilot.getState().streaming).toBe(false)
+
+    // 第二次提交：直接退回，onQueued(false)（Composer 据此回填正文）
+    const onQueued = vi.fn()
+    await useCopilot.getState().send('帮我看看', onQueued)
+    expect(onQueued).toHaveBeenCalledWith(false)
+    expect(copilotApi.uploadAttachment).toHaveBeenCalledTimes(1)
+    expect(copilotApi.openMessageStream).not.toHaveBeenCalled()
+
+    // 放行上传：第一次发送正常入列开流，只产出一对 user/assistant 气泡
+    releaseUpload()
+    await first
+    expect(copilotApi.openMessageStream).toHaveBeenCalledTimes(1)
+    expect(useCopilot.getState().messages.map((m) => m.role)).toEqual(['user', 'assistant'])
+    // 交给 streaming 后锁已解除，本轮结束后可再次发送
+    expect(useCopilot.getState().sending).toBe(false)
+    expect(useCopilot.getState().streaming).toBe(false)
   })
 })
 

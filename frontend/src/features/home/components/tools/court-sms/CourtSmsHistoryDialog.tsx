@@ -7,21 +7,22 @@ import { courtSmsHistoryKeys, listCourtSms, type CourtSmsGroup, type CourtSmsLis
 import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { StatusBadge, type Tone } from '@/components/shared/status-badge'
 import { HistoryError } from '../history/HistoryError'
 import { HistoryPager } from '../history/HistoryParts'
 import { SMS_STATUS_LABEL } from './stages'
 
-/** 状态 → 徽章配色（需处理类显眼，进行中蓝，完成绿）。
- *  不复用 history/badges.ts：本弹窗有 pending_manual（黄）/ download_failed（红）
- *  两个本域状态，共用映射会把它们落到蓝色兜底，视觉口径就变了。 */
-const STATUS_BADGE: Record<string, string> = {
-  completed: 'border-status-green/40 bg-status-green-bg text-status-green',
-  pending_manual: 'border-status-yellow/50 bg-status-yellow-bg text-status-yellow',
-  failed: 'border-status-red/40 bg-status-red-bg text-status-red',
-  download_failed: 'border-status-red/40 bg-status-red-bg text-status-red',
+/** 状态 → 色档（需处理类显眼，进行中蓝，完成绿）。
+ *  基础映射与 history/badges.ts 一致（completed 绿 / failed 红），只对本域特有的两个
+ *  状态做**局部覆盖**：pending_manual（待人工处理 → 黄）、download_failed（下载失败 → 红）。
+ *  不直接复用 history 的 badgeOf：它没这两个键，会落到蓝色兜底，视觉口径就变了。 */
+const STATUS_TONE_OVERRIDE: Record<string, Tone> = {
+  pending_manual: 'yellow',
+  download_failed: 'red',
 }
-const badgeOf = (status: string) =>
-  STATUS_BADGE[status] ?? 'border-status-blue/40 bg-status-blue-bg text-status-blue'
+const STATUS_TONE: Record<string, Tone> = { completed: 'green', failed: 'red', ...STATUS_TONE_OVERRIDE }
+const toneOf = (status: string): Tone => STATUS_TONE[status] ?? 'blue'
 
 const GROUPS: { value: CourtSmsGroup; label: string }[] = [
   { value: 'needs_action', label: '需处理' },
@@ -38,14 +39,9 @@ function Row({ item, onPick }: { item: CourtSmsListItem; onPick: (id: number) =>
       onClick={() => onPick(item.id)}
       className="flex w-full items-start gap-2.5 border-b border-border px-4 py-2.5 text-left transition-colors last:border-b-0 hover:bg-secondary/60"
     >
-      <span
-        className={cn(
-          'mt-[2px] flex-none rounded-[6px] border px-1.5 py-[1px] text-[10px] font-semibold whitespace-nowrap',
-          badgeOf(item.status),
-        )}
-      >
+      <StatusBadge tone={toneOf(item.status)} className="mt-[2px]">
         {SMS_STATUS_LABEL[item.status] ?? item.status}
-      </span>
+      </StatusBadge>
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 text-[12px] leading-snug text-foreground">{item.content}</span>
         <span className="mt-1 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
@@ -135,9 +131,9 @@ export function CourtSmsHistoryDialog({
           {isError ? (
             <HistoryError error={errMessage(error, '历史短信加载失败')} onRetry={() => void refetch()} />
           ) : isLoading ? (
-            <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">正在加载…</div>
+            <LoadingBlock text="正在加载…" />
           ) : items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[12px] text-muted-foreground">这个筛选下没有记录</div>
+            <EmptyBlock>这个筛选下没有记录</EmptyBlock>
           ) : (
             items.map((it) => <Row key={it.id} item={it} onPick={onPick} />)
           )}

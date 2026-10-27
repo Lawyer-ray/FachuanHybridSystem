@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
+import { CopyPlus, Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
 import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
+import { downloadUrl } from '@/lib/download'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { folderFileUrl, type FolderOwnerKind } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 import { FileKindChip } from './FileKindBadge'
 import { fmtSize } from './folder-tree-types'
+import { canSaveAs, intentSubpath, useSaveAs } from './use-save-as'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
@@ -41,11 +43,13 @@ export function FilePreviewCard({
   onReview?: (f: { subpath: string; name: string }) => void
 }) {
   const [downloading, setDownloading] = useState(false)
-  const [busy, setBusy] = useState<'save' | null>(null)
+  const [busy, setBusy] = useState<'save' | 'saveAs' | null>(null)
   const [ready, setReady] = useState(false)
   const qc = useQueryClient()
   const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const isDocx = /\.docx$/i.test(file.name)
+  // 另存为只对合同文件夹的 docx 开放（cases 没有 folder-save-as 系列端点）
+  const saveAsEnabled = canSaveAs(kind, file.name)
   // AI 直改覆写该文件的次数：>0 时作为 version 换 key 重载画布（DS 才会
   // 拉到已覆写的内容，修订痕迹可见）；未被覆写保持空串不动存量 key 口径
   const rewriteNonce = useFileRewriteNonce(kind, ownerId, file.subpath)
@@ -123,18 +127,33 @@ export function FilePreviewCard({
     }
   }, [busy, isDocx, requestSave, onSaved, qc, kind, ownerId])
 
+  /** 另存为：登记意图 → forcesave（登记失败不保存，否则会把原稿覆盖） */
+  const runSaveAs = useSaveAs({
+    kind,
+    ownerId,
+    file: { subpath: intentSubpath(kind, ownerId, file.subpath), name: file.name },
+    requestSave,
+    onSaved,
+    enabled: saveAsEnabled,
+    locked: busy !== null,
+  })
+  const saveAs = useCallback(() => {
+    if (busy || !saveAsEnabled) return
+    setBusy('saveAs')
+    try {
+      // 登记接口是异步往返：先占住按钮防连点，错误由 useSaveAs 内部提示
+      void runSaveAs().finally(() => setBusy(null))
+    } catch {
+      setBusy(null)
+    }
+  }, [busy, saveAsEnabled, runSaveAs])
+
   const download = useCallback(async () => {
     setDownloading(true)
     try {
       // 票据一次性：每次下载现换，不能缓存复用
       const url = await withDownloadTicket(fileUrl)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = file.name
-      a.rel = 'noopener'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
+      downloadUrl(url, file.name)
     } finally {
       setDownloading(false)
     }
@@ -177,6 +196,19 @@ export function FilePreviewCard({
               {busy === 'save' ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
               保存
             </button>
+
+            {saveAsEnabled && (
+              <button
+                type="button"
+                onClick={saveAs}
+                disabled={!ready || busy !== null}
+                className="inline-flex h-[26px] flex-none items-center gap-1 rounded-[6px] border border-border bg-card px-2 text-[11.5px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                title="另存为新文件（原名[修订版]V1_今天.docx），原文件不动"
+              >
+                {busy === 'saveAs' ? <Loader2 className="size-3 animate-spin" /> : <CopyPlus className="size-3" />}
+                另存为
+              </button>
+            )}
           </>
         )}
 

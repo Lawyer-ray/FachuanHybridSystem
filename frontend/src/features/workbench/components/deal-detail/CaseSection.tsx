@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { EmptyBlock } from '@/components/shared/AsyncState'
 import { withDownloadTicket } from '@/lib/download-ticket'
 import { getCaseFolderBinding } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
@@ -144,7 +145,9 @@ export function CaseSection({
       ) : (
         <div className="px-5 pt-3.5 pb-1.5 max-[680px]:px-3.5">
           {entries.length === 0 ? (
-            <div className="py-2 text-xs text-muted-foreground/70">还没有办案日志</div>
+            <EmptyBlock className="justify-start px-0 py-2 text-left text-xs text-muted-foreground/70">
+              还没有办案日志
+            </EmptyBlock>
           ) : (
             entries.map((e, i) => (
               <div

@@ -49,6 +49,16 @@ function refreshSucceeds(access = 'new-acc', refresh?: string) {
   kyMocks.post.mockImplementation(() => Object.assign(p, { json: () => p }) as never)
 }
 
+/**
+ * 替换 window.location 为可探桩（jsdom 下 location.href 赋值不导航也难断言）。
+ * 只保留 api.ts 用到的 pathname / href / reload。
+ */
+function stubLocation(pathname: string) {
+  const loc = { pathname, href: `http://localhost${pathname}`, reload: vi.fn() }
+  Object.defineProperty(window, 'location', { configurable: true, writable: true, value: loc })
+  return loc
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
@@ -175,6 +185,31 @@ describe('beforeRequest：Bearer 注入', () => {
       vi.useRealTimers()
     }
   })
+
+  it('等待超时且对端刷新失败（refresh 未变）：本 tab 不再自己刷，按会话过期处理（P1-1）', async () => {
+    vi.useFakeTimers()
+    try {
+      localStorage.setItem(REFRESH_LEASE_KEY, String(Date.now()))
+      // 对端刷新失败的真实表现：refresh 还是旧的（已被对端消费、服务端已拉黑），
+      // access 也没换。注意不能把 shouldRefreshToken mock 成 false——那样即使
+      // 旧代码也看不出问题（旧 bug 只有在 refresh 确实临期时才会踩到）
+      tokenMocks.getAccessToken.mockReturnValue('stale-acc')
+      tokenMocks.getRefreshToken.mockReturnValue('ref-old')
+      tokenMocks.shouldRefreshToken.mockReturnValue(true)
+      createApiClient()
+
+      const request = new Request('http://localhost/api/v1/cases')
+      const pending = hooksOf().beforeRequest[0]!({ request })
+      await vi.advanceTimersByTimeAsync(3_000)
+      await pending
+
+      // 关键断言：一次 /token/refresh 都不能发（发了就是拿已拉黑的旧 refresh 自毁）
+      expect(kyMocks.post).not.toHaveBeenCalled()
+      expect(request.headers.get('Authorization')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('单飞刷新（并发 401 共享一次 /token/refresh）', () => {
@@ -198,6 +233,13 @@ describe('单飞刷新（并发 401 共享一次 /token/refresh）', () => {
 describe('afterResponse：401 重试矩阵', () => {
   function responseOf(status: number) {
     return new Response(null, { status })
+  }
+
+  /** 刷新必定失败的桩（惰性拒绝，避免悬挂 unhandled rejection） */
+  function refreshFails() {
+    kyMocks.post.mockImplementation((() => ({
+      json: () => Promise.reject(new Error('refresh boom')),
+    })) as never)
   }
 
   it('非 401 直通', async () => {
@@ -229,9 +271,7 @@ describe('afterResponse：401 重试矩阵', () => {
   it('401 但刷新失败：抛 Session expired（跳转 /login 由 location 赋值承担）', async () => {
     tokenMocks.getAccessToken.mockReturnValue(null)
     tokenMocks.getRefreshToken.mockReturnValue('ref-1')
-    kyMocks.post.mockImplementation((() => ({
-      json: () => Promise.reject(new Error('refresh boom')),
-    })) as never)
+    refreshFails()
     createApiClient()
     const hooks = hooksOf()
 
@@ -244,6 +284,64 @@ describe('afterResponse：401 重试矩阵', () => {
     ).rejects.toThrow('Session expired')
     expect(kyMocks.retry).not.toHaveBeenCalled()
     expect(tokenMocks.clearTokens).toHaveBeenCalled()
+  })
+
+  it('刷新失败且已在 /login：用 reload 而非 href 赋值（P1-2 卡死修复）', async () => {
+    const loc = stubLocation('/login')
+    tokenMocks.getAccessToken.mockReturnValue(null)
+    tokenMocks.getRefreshToken.mockReturnValue('ref-1')
+    refreshFails()
+    createApiClient()
+
+    await expect(
+      hooksOf().afterResponse[0]!({
+        request: new Request('http://localhost/api/v1/cases'),
+        response: responseOf(401),
+        retryCount: 0,
+      }),
+    ).rejects.toThrow('Session expired')
+
+    // 同路径 href 赋值既不导航也不刷新，用户会卡死在登录页
+    expect(loc.reload).toHaveBeenCalledTimes(1)
+    expect(loc.href).toBe('http://localhost/login')
+  })
+
+  it('刷新失败且在 /social-callback：同样 reload，不重定向进回调页（否则循环兑换）', async () => {
+    const loc = stubLocation('/social-callback')
+    tokenMocks.getAccessToken.mockReturnValue(null)
+    tokenMocks.getRefreshToken.mockReturnValue('ref-1')
+    refreshFails()
+    createApiClient()
+
+    await expect(
+      hooksOf().afterResponse[0]!({
+        request: new Request('http://localhost/api/v1/cases'),
+        response: responseOf(401),
+        retryCount: 0,
+      }),
+    ).rejects.toThrow('Session expired')
+
+    expect(loc.reload).toHaveBeenCalledTimes(1)
+    expect(loc.href).toBe('http://localhost/social-callback')
+  })
+
+  it('刷新失败且在业务页：仍走 href 重定向到 /login', async () => {
+    const loc = stubLocation('/projects')
+    tokenMocks.getAccessToken.mockReturnValue(null)
+    tokenMocks.getRefreshToken.mockReturnValue('ref-1')
+    refreshFails()
+    createApiClient()
+
+    await expect(
+      hooksOf().afterResponse[0]!({
+        request: new Request('http://localhost/api/v1/cases'),
+        response: responseOf(401),
+        retryCount: 0,
+      }),
+    ).rejects.toThrow('Session expired')
+
+    expect(loc.reload).not.toHaveBeenCalled()
+    expect(loc.href).toBe('/login')
   })
 
   it('token 端点自身 401：不刷新（防止刷新风暴），响应原样返回', async () => {

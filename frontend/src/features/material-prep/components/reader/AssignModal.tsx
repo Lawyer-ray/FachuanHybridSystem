@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { Loader2, Search, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
 import { searchCases } from '../../api'
 import type { AssignInfo, CaseRow, InfoField } from '../../types'
@@ -9,15 +10,6 @@ import { cn } from '@/lib/utils'
 
 type Target = 'existing' | 'new'
 type ContractOpt = 'has' | 'none'
-
-/** 弹窗内可聚焦元素（按 Tab 顺序）；每次按键实时查询，适配切 tab 增删的输入 */
-function focusablesOf(root: HTMLElement): HTMLElement[] {
-  return Array.from(
-    root.querySelectorAll<HTMLElement>(
-      'input, textarea, button, select, [tabindex]:not([tabindex="-1"])',
-    ),
-  ).filter((el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null)
-}
 
 export function AssignModal({
   open,
@@ -51,7 +43,7 @@ export function AssignModal({
     keyword: q,
     setKeyword: setQ,
     data: searched = [],
-    isFetching: loading,
+    isSearching: loading,
     error,
   } = useTypeaheadSearch<CaseRow[]>({
     queryKey: (kw) => ['mp-case-search', kw],
@@ -79,51 +71,9 @@ export function AssignModal({
     })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Esc 关闭本弹窗（capture 阶段拦截）。本弹窗是手写 DOM 层，不在 Radix
-  // DismissableLayer 体系内：搜索框又 autoFocus，焦点落在 input 上时
-  // use-reader-keys 的输入框守卫会直接吞掉 Esc。这里在 capture 阶段拦下并
-  // stopPropagation，既保证弹窗内任何焦点位置按 Esc 都能关闭，又不会落进
-  // use-reader-keys 的冒泡监听把整个阅读器关掉。
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      e.preventDefault()
-      e.stopPropagation()
-      onCancel()
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [open, onCancel])
-
-  // 焦点陷阱：本弹窗是手写 DOM 层、不在 Radix Dialog 体系内，Tab 必须圈在
-  // 弹窗内循环，否则键盘用户会聚焦到被遮住的背景内容上
-  const panelRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const panel = panelRef.current
-    if (!panel) return
-    // 打开即聚焦：优先输入框（搜索框），没有再落到首个可交互元素
-    const list = focusablesOf(panel)
-    ;(list.find((el) => el.tagName === 'INPUT') ?? list[0])?.focus()
-    const onTab = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return
-      const list = focusablesOf(panel)
-      if (!list.length) return
-      const first = list[0]!
-      const last = list[list.length - 1]!
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-    panel.addEventListener('keydown', onTab)
-    return () => panel.removeEventListener('keydown', onTab)
-  }, [open])
-
+  // Esc / 遮罩点击 / 焦点陷阱 / 焦点归还 / 背景滚动锁全部交给 Radix Dialog。
+  // 注意：Radix 的 Esc 只作用于它自己的 DismissableLayer，不会触发
+  // use-reader-keys 的冒泡监听，所以 Esc 只会关这一个弹窗，不会连阅读器一起关。
   if (!open) return null
 
   const why =
@@ -165,21 +115,15 @@ export function AssignModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} aria-hidden />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="assign-modal-title"
-        className="relative flex max-h-[86vh] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent
+        aria-describedby={undefined}
+        className="flex max-h-[86vh] w-full max-w-[620px] flex-col gap-0 rounded-2xl border-border bg-card p-0 shadow-2xl"
       >
-        {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h3 id="assign-modal-title" className="text-[15px] font-semibold">材料归属</h3>
-          <button onClick={onCancel} aria-label="关闭" className="grid h-8 w-8 place-items-center rounded-lg text-secondary-foreground hover:bg-secondary">
-            <X className="h-4 w-4" />
-          </button>
+        {/* 头部：关闭按钮复用 DialogContent 自带的右上角 DialogClose（比手写头部按钮
+            少一份重复实现），标题纯展示、不再附加入口 */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-4 pr-12">
+          <DialogTitle id="assign-modal-title" className="text-[15px] font-semibold">材料归属</DialogTitle>
         </div>
 
         <div className="px-5 py-2 text-[12.5px] text-muted-foreground">
@@ -298,7 +242,7 @@ export function AssignModal({
             确认并继续
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

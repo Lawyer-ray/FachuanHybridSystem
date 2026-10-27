@@ -126,6 +126,51 @@ def get_or_refresh_session(
     return session, document_key
 
 
+def find_session_for_source(*, task_type: str, user: Any, source_path: str) -> EditorSession | None:
+    """按「业务域 + 用户 + 源路径」找该用户当前打开着的那条会话。
+
+    匹配口径必须是 `source_path` **逐字相等**：`task_id` 是路径派生的 uuid5，
+    而派生入口有两处（签发配置 `/onlyoffice/editor-config` 与划词直改
+    `direct_edit_service._bump_editor_doc_key`），两处只要有一处 quote 口径
+    不同就派生出不同 id——按 id 查会「明明开着却找不到」。路径是唯一的共同语言。
+
+    同一个用户 + 同一份文件只有一行（unique 约束），多行只可能是脏数据，
+    取最近更新的那条。
+    """
+    if not source_path:
+        return None
+    return (
+        EditorSession.objects.filter(task_type=task_type, user=user, source_path=source_path)
+        .order_by("-updated_at")
+        .first()
+    )
+
+
+def register_save_as_intent(*, task_type: str, user: Any, source_path: str, name: str) -> EditorSession:
+    """登记一次性「下次保存要另存为 name」意图（只记意图，不写文件）。
+
+    为什么不在这一步写文件：编辑后的字节只在 DS 那边（社区版没有 downloadAs），
+    这里能拿到的只有磁盘上的旧内容。写出去只会得到一个「内容没变的新文件」。
+    真正的落盘在 DS 回调里（见 `handle_save_callback`）。
+
+    找不到会话抛 NotFoundError 而不是静默返回：意图没地方存，前端必须提示
+    「请先打开文档」；静默吞掉的结果是律师以为会另存，结果一保存把原稿盖了。
+    """
+    from apps.core.exceptions import NotFoundError
+
+    session = find_session_for_source(task_type=task_type, user=user, source_path=source_path)
+    if session is None:
+        raise NotFoundError(
+            message="未找到该文档的编辑会话，请先在 OnlyOffice 中打开文档再执行另存为",
+            code="EDITOR_SESSION_NOT_FOUND",
+            errors={"source_path": source_path},
+        )
+    session.pending_save_as_name = name
+    session.save(update_fields=["pending_save_as_name", "updated_at"])
+    logger.info("已登记编辑器另存意图: task_type=%s task=%s name=%s", task_type, session.task_id, name)
+    return session
+
+
 def load_session_by_key(key: str) -> EditorSession | None:
     """按回调里的 key 找会话。
 
@@ -179,6 +224,11 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
     # 这份画布若还是旧代次签发的，回写就是拿旧内容盖掉 AI 刚落的修订。
     # 返回 True 而非 False 是故意的：不让落盘、也不让 DS 重试——重试还是
     # 同一份旧内容，只会无限循环；丢掉这一次保存才是正确结果。
+    #
+    # **意图保留**：这里不碰 pending_save_as_name。什么都没落盘，用户的
+    # 「我要另存」意愿仍然成立，律师重开文档后再保存就应该真的另存。
+    # 这里选择保留而非清空是安全的：stale 分支的 next-save 只会是重开后的
+    # 新画布（新画布本身已经用上了磁盘上的 AI 修订），另存不会盖掉任何东西。
     stale = stale_canvas_reason(session)
     if stale:
         logger.warning(
@@ -193,10 +243,15 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
         new_saved_version = _doc_saved_version(session.task_id) + 1
         old_output = _current_output_file(session.task_id, session.task_type)
         # 落盘目标交给业务域钩子（新增业务域不用改本函数）：
-        # review 域改任务产物、folder 域覆写原文件
+        # review 域改任务产物、folder 域覆写原文件（或按一次性意图另存，
+        # 意图由钩子在**成功落盘后**自行清空——失败时绝不能清，否则 DS
+        # 重试那一次就降级成原地覆盖，把原稿改了）
         saved_name = domain.adopt_edited(session, data, new_saved_version)
     except Exception:
         logger.warning("OnlyOffice 保存回写失败（DS 会重试）: key=%s", session.document_key, exc_info=True)
+        # 内存对象可能已被钩子改了一半（如另存失败前已清意图），
+        # 回库里读一遍，避免后续 save() 把错误状态写回数据库
+        session.refresh_from_db(fields=["pending_save_as_name"])
         return False
 
     with transaction.atomic():
@@ -208,7 +263,21 @@ def handle_save_callback(session: EditorSession, url: str, status: int) -> bool:
         # 本次落盘成功 = 磁盘与这份画布已一致：把快照推到文档级，
         # 之后自己的保存不会再被当成旧画布（而别人的旧画布仍然会被拦）。
         session.canvas_seq = _doc_external_seq(session.task_id, session.task_type)
-        session.save()
+        # 意图是否已清由业务域钩子决定（另存成功才清、原地覆盖域恒为空串）；
+        # 这里显式带上字段，是因为上面用的是整行 save()，若内存对象与库里
+        # 不一致（失败分支 refresh 过），不带就可能把旧值写回去
+        session.save(
+            update_fields=[
+                "prev_output_file",
+                "saved_version",
+                "document_key",
+                "last_callback_status",
+                "last_saved_at",
+                "canvas_seq",
+                "pending_save_as_name",
+                "updated_at",
+            ]
+        )
     logger.info(
         "OnlyOffice 保存回写完成: task=%s v%d -> %s（旧产物留档 %s）",
         session.task_id,

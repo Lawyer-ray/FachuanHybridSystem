@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 
+import { beginDrag } from '@/lib/drag-listeners'
 import { DEFAULT_SPLIT_PCT, DIALOG_WIDTH_KEY, MAX_SPLIT_PCT, MIN_DIALOG_WIDTH, MIN_SPLIT_PCT, SPLIT_PCT_KEY } from '../constants'
 
 const clampSplit = (pct: number) => Math.min(MAX_SPLIT_PCT, Math.max(MIN_SPLIT_PCT, pct))
@@ -22,18 +23,9 @@ export function initialDialogWidth(
   return saved >= MIN_DIALOG_WIDTH ? saved : null
 }
 
-/** 拖拽基建：全局 mousemove/mouseup + body 列光标/禁选中，返回清理函数。 */
+/** 拖拽基建：window 监听 + body 列光标/禁选中，返回清理函数（细节见 beginDrag）。 */
 function attachDragListeners(onMove: (e: MouseEvent) => void, onUp: () => void): () => void {
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-  document.body.style.userSelect = 'none'
-  document.body.style.cursor = 'col-resize'
-  return () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    document.body.style.userSelect = ''
-    document.body.style.cursor = ''
-  }
+  return beginDrag(onMove, onUp)
 }
 
 /**

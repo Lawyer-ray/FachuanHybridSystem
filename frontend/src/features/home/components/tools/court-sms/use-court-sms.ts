@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { errMessage } from '@/lib/errors'
+
 import {
   abortCourtSmsTask,
   assignCourtSmsCase,
@@ -162,7 +164,7 @@ export function useCourtSms(): UseCourtSmsResult {
           smsId: null,
           detail: null,
           stage: 0,
-          submitError: e instanceof Error ? e.message : '短信提交失败，请稍后重试',
+          submitError: errMessage(e, '短信提交失败，请稍后重试'),
           actionBusy: false,
         })
         return false

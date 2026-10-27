@@ -22,9 +22,11 @@ function reviewApi() {
   return _reviewApi
 }
 
-/** 取某次审查的修订清单（按 ordinal 排序，含律师已做的决策） */
-export async function listRevisions(taskId: string): Promise<RevisionList> {
-  return reviewApi().get(`${encodeURIComponent(taskId)}/revisions`).json<RevisionList>()
+/** 取某次审查的修订清单（按 ordinal 排序，含律师已做的决策）。signal 供 react-query 取消 */
+export async function listRevisions(taskId: string, signal?: AbortSignal): Promise<RevisionList> {
+  return reviewApi()
+    .get(`${encodeURIComponent(taskId)}/revisions`, { signal })
+    .json<RevisionList>()
 }
 
 /**
@@ -56,8 +58,8 @@ export interface ReviewTaskStatus {
   output_filename?: string | null
 }
 
-export async function getTaskStatus(taskId: string): Promise<ReviewTaskStatus> {
-  return reviewApi().get(`${encodeURIComponent(taskId)}/status`).json<ReviewTaskStatus>()
+export async function getTaskStatus(taskId: string, signal?: AbortSignal): Promise<ReviewTaskStatus> {
+  return reviewApi().get(`${encodeURIComponent(taskId)}/status`, { signal }).json<ReviewTaskStatus>()
 }
 
 /**
@@ -66,16 +68,16 @@ export async function getTaskStatus(taskId: string): Promise<ReviewTaskStatus> {
  * 复审台用它决定画布该不该重建：律师逐条采纳时不应重载（采纳只改 DB
  * 状态、不写 docx）；只有编辑器保存回写后才重载成最新内容。
  */
-export async function getContentVersion(taskId: string): Promise<ContentVersion> {
+export async function getContentVersion(taskId: string, signal?: AbortSignal): Promise<ContentVersion> {
   return reviewApi()
-    .get(`${encodeURIComponent(taskId)}/content-version`)
+    .get(`${encodeURIComponent(taskId)}/content-version`, { signal })
     .json<ContentVersion>()
 }
 
-/** 取该任务的文档版本链（客户来稿 → AI 修订版 → 律师编辑版 …） */
-export async function listVersions(taskId: string): Promise<VersionChain> {
+/** 取该任务的文档版本链（客户来稿 → AI 修订版 → 律师编辑版 …）。signal 供 react-query 取消 */
+export async function listVersions(taskId: string, signal?: AbortSignal): Promise<VersionChain> {
   return reviewApi()
-    .get(`${encodeURIComponent(taskId)}/versions`)
+    .get(`${encodeURIComponent(taskId)}/versions`, { signal })
     .json<VersionChain>()
 }
 

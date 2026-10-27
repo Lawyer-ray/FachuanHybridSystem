@@ -9,16 +9,18 @@
  *   未标注语言的块不高亮）；hover 显示复制按钮（复制 Markdown 源码）
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Brain, Briefcase, Check, Copy, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 
 import { useAuth } from '@/features/auth'
+import { LoadingBlock } from '@/components/shared/AsyncState'
+import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
 import '../copilot.css'
-import { shortToolName } from '../domain'
+import { bizHintParts, shortToolName } from '../domain'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
@@ -26,7 +28,11 @@ import { CopilotWelcome } from './CopilotWelcome'
 import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
 import { UserAvatar } from './UserAvatar'
 
-function ToolRow({ message }: { message: ChatMessage }) {
+// 三个气泡组件必须 memo：流式每个 delta 都 set({messages: s.messages.map(…)})
+// 造出新数组 + 新消息对象，不 memo 的话每条历史气泡的 Markdown 树都要重算
+// （200 条历史 × 几百个 delta）。props 只有 message 一个引用，未变的消息
+// 走浅比较 bail out。
+const ToolRow = memo(function ToolRow({ message }: { message: ChatMessage }) {
   const name = shortToolName(message.toolName)
   return (
     <details className="group rounded-[10px] border border-border bg-secondary/40 px-2.5 py-1.5">
@@ -43,9 +49,9 @@ function ToolRow({ message }: { message: ChatMessage }) {
       )}
     </details>
   )
-}
+})
 
-function ThinkingBlock({ message }: { message: ChatMessage }) {
+const ThinkingBlock = memo(function ThinkingBlock({ message }: { message: ChatMessage }) {
   const thinking = message.thinking ?? ''
   const thinkingNow = !message.thinkingDone
   // 思考结束自动收起：<details open> 是**静态属性**，只在挂载时生效——
@@ -77,7 +83,7 @@ function ThinkingBlock({ message }: { message: ChatMessage }) {
       </pre>
     </details>
   )
-}
+})
 
 /** 点赞/点踩（P1-9b）：乐观更新在 store，失败自动回滚 */
 function RateButtons({ messageId, rating }: { messageId: number; rating?: 'up' | 'down' }) {
@@ -102,33 +108,25 @@ function RateButtons({ messageId, rating }: { messageId: number; rating?: 'up' |
   )
 }
 
-/** 复制助手回答的 Markdown 源码（hover 浮现；无剪贴板环境静默忽略） */
+/** 复制助手回答的 Markdown 源码（hover 浮现） */
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
+  // 必须走 useCopyFeedback：内网 http 部署下 navigator.clipboard 不存在，
+  // 手写调用只会静默失败（点了没任何反馈），它内部带 execCommand 兜底。
+  const { copied, copy } = useCopyFeedback({ resetMs: 1500 })
   return (
     <button
       type="button"
       className="absolute top-0 right-0 flex h-6 w-6 items-center justify-center rounded-[6px] bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
       aria-label="复制回答"
       title="复制 Markdown 源码"
-      onClick={() => {
-        navigator.clipboard
-          ?.writeText(text)
-          .then(() => setCopied(true))
-          .catch(() => {})
-      }}
+      onClick={() => void copy(text)}
     >
       {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
     </button>
   )
 }
 
-function Bubble({ message }: { message: ChatMessage }) {
+const Bubble = memo(function Bubble({ message }: { message: ChatMessage }) {
   const user = useAuth((s) => s.user)
   if (message.role === 'tool') return <ToolRow message={message} />
 
@@ -137,19 +135,25 @@ function Bubble({ message }: { message: ChatMessage }) {
     const quote = message.quote
     const pageHint = message.pageHint
     const bizHint = message.bizHint
+    const biz = bizHint ? bizHintParts(bizHint) : null
     // ml-auto：外层 flex-col 默认 stretch 会把这一行拉满整行，气泡于是贴左，
     // 右侧再空出 12%——观感就是「两边都空着一大块」。靠右是 IM 惯例，
     // 也让用户消息与左侧 AI 回答形成清晰的对位。
     return (
       <div className="ml-auto flex max-w-[88%] items-end gap-1.5">
         <div className="flex min-w-0 flex-1 flex-col items-end gap-1">
-          {bizHint && (
+          {biz && bizHint && (
             <span
               className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
-              title={`本条消息归属：${bizHint}（AI 据此直达对应案件/合同的数据）`}
+              title={`本条消息归属：${biz.unit}「${bizHint.title}」 ${biz.ref}（AI 据此直达对应案件/合同的数据）`}
             >
               <Briefcase className="h-3 w-3 flex-none text-foreground" />
-              <span className="max-w-52 truncate">{bizHint}</span>
+              {/* 三段渲染而不是整串 truncate：id 是唯一的机器可读归属信息，
+                  截断会把它吃掉。长标题只压中间段，尾部 #id 永不可隐藏 */}
+              <span className="truncate">
+                {biz.unit} · {biz.title}
+              </span>
+              <span className="flex-none tabular-nums text-foreground">{biz.ref}</span>
             </span>
           )}
           {pageHint && (
@@ -216,7 +220,7 @@ function Bubble({ message }: { message: ChatMessage }) {
       )}
     </div>
   )
-}
+})
 
 /** 排队提示条：池满时显示名次（position 含自己，「前方 N 人」= N-1） */
 function QueueBanner({ position }: { position: number }) {
@@ -279,9 +283,7 @@ export function MessageList() {
         }
       >
       {empty && <CopilotWelcome />}
-      {loadingHistory && (
-        <p className="py-6 text-center text-[12px] text-muted-foreground">正在加载历史…</p>
-      )}
+      {loadingHistory && <LoadingBlock text="正在加载历史…" className="py-6" />}
       {!loadingHistory && !noMoreHistory && messages.length >= 200 && (
         <div className="mb-2 flex justify-center">
           <button

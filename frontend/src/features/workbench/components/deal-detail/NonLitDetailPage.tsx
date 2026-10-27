@@ -64,7 +64,6 @@ export function NonLitDetailPage() {
     min: 360,
     // 事实卡已经移到左栏，右栏可以更宽——0.78 在 1440 屏给到 ~1090
     maxRatio: 0.78,
-    layoutKey: picked ? 'split' : 'stacked',
   })
   const {
     effectiveWidth: panelEffectiveWidth,

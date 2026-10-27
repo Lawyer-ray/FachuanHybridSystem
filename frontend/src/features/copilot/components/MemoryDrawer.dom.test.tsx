@@ -27,7 +27,7 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock('../memory-api', () => apiMock)
 
-import { MemoryDrawer } from './MemoryDrawer'
+import { MemoryDrawer } from './memory/MemoryDrawer'
 
 function memory(overrides: Record<string, unknown> = {}) {
   return {

@@ -130,11 +130,31 @@ def _bound_folder_domain(
         raise RuntimeError(f"{key} 取文件必须走 subpath：{which}")
 
     def _adopt_edited(session: Any, data: bytes, version_tag: int) -> Any:
-        """DS 保存回写：把编辑产物覆写回原文件（原地保存，不留备份）。
+        """DS 保存回写：把编辑产物写回文件夹。
 
         从 `session.source_path` 反解 owner_id + subpath，而不是另外存字段：
         落盘目标必须与「当初打开的是哪一份」严格一致，多存一份副本就可能
         指向别处。解析失败就报错让 DS 重试，绝不猜。
+
+        **两条路**：
+        - `session.pending_save_as_name` 为空 → 原地覆写原文件（不留备份）；
+        - 非空 → 另存为新文件（同目录，同名自动加序号），**原文件不动**。
+
+        **意图是一次性的：只有成功落盘才清空**。三个失败分支（解析失败、
+        原地覆写抛错、另存抛错）一律不清——DS 在回调回 error 1 时会在几秒后
+        重试，若失败时就先把意图清了，重试那一次就降级成「原地覆写」，
+        律师点的是另存而原稿被改，属于不可逆损害。
+
+        原地覆写那条路本身有更硬的保障：另存意图在 service 层已经被
+        `sanitize_file_name` 清洗过（见 register_save_as_intent 的调用方），
+        这里不重复清洗；但万一意图被外部写脏成空串之外的空格串，`strip()`
+        后为空就当没有意图处理（绝不把「空白名」当成另存目标）。
+
+        单人隔离：两人同开同一份时各有独立的 EditorSession 行（`user` 外键
+        区分，unique 约束是 task_type + task_id + user），意图天然不串。
+        注意落盘的是 DS 协同会话内容（同 key），谁触发保存都写同一份内容；
+        有意图的那一方生效，没意图的那一方仍是原地覆盖——这正是各自点击时
+        的语义。
         """
         from urllib.parse import unquote
 
@@ -145,7 +165,29 @@ def _bound_folder_domain(
         subpath = unquote(parsed[2])
 
         owner = getattr(session, "user", None)
-        make_service().save_file_content(
+        save_as_name = str(getattr(session, "pending_save_as_name", "") or "").strip()
+        svc = make_service()
+
+        if save_as_name:
+            result = svc.save_new_file(
+                owner_id=owner_id,
+                subpath=subpath,
+                name=save_as_name,
+                data=data,
+                user=owner,
+                org_access=getattr(owner, "org_access", None),
+                perm_open_access=False,
+            )
+            # 同名已存在时 service 会加 `_1` 序号，返回的才是真实落盘路径
+            new_subpath = str((result or {}).get("subpath") or "")
+            if not new_subpath:
+                # 落盘了却拿不到目标路径 = 无法回给上层只能算失败，宁可让 DS 重试
+                raise RuntimeError(f"另存后未返回目标路径: {save_as_name}")
+            session.pending_save_as_name = ""
+            logger.info("文件夹文件已另存: %s=%s 源=%s 新=%s v%d", label, owner_id, subpath, new_subpath, version_tag)
+            return f"{owner_id}:{new_subpath}"
+
+        svc.save_file_content(
             owner_id=owner_id,
             subpath=subpath,
             data=data,

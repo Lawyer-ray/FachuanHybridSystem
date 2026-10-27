@@ -49,6 +49,14 @@ function entries(folders: string[] = [], files: string[] = []) {
   }
 }
 
+/** 手写 dragleave：jsdom 没有 DragEvent，target/relatedTarget 只能补在事件对象上 */
+function dragLeaveEvent(on: Element, relatedTarget: Node | null) {
+  const ev = new Event('dragleave', { bubbles: true })
+  Object.defineProperty(ev, 'target', { value: on, configurable: true })
+  Object.defineProperty(ev, 'relatedTarget', { value: relatedTarget, configurable: true })
+  return ev
+}
+
 function renderTree(props: Partial<Parameters<typeof FolderTree>[0]> = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   const wrap = ({ children }: { children: ReactNode }) => (
@@ -650,6 +658,50 @@ describe('FolderTree：文件夹行展开折叠', () => {
     fireEvent(row, leave)
 
     // 不抛错即可
+    container.remove()
+  })
+})
+
+describe('FolderTree：文件夹行交互回归（P1-6 / P1-7）', () => {
+  it('已展开的文件夹上点「新建子文件夹」不再收起（输入框仍在）', async () => {
+    // toggle 对已展开的文件夹 = 收起，创建输入框会落进收起子树里彻底看不见
+    apiMock.listFolderEntries.mockImplementation(async (_k, _id, sp: string) =>
+      sp === '' ? entries(['dir']) : entries(),
+    )
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    fireEvent.click(within(container).getByText('dir'))
+    await waitFor(() => expect(within(container).getByText('（空）')).toBeTruthy())
+
+    fireEvent.click(within(container).getByTitle('新建子文件夹'))
+
+    // 展开态没丢：子层仍在渲染（创建态只是让「（空）」让位），输入框在里面
+    await waitFor(() => expect(container.querySelector('input[placeholder="新文件夹名"]')).toBeTruthy())
+    container.remove()
+  })
+
+  it('拖过行内子元素时高亮不丢，拖出窗口才清空', async () => {
+    // 鼠标在行内子元素之间移动会冒泡 dragleave：无脑清空会让高亮环逐帧闪。
+    // jsdom 没有 DragEvent，relatedTarget/target 只能手写到事件对象上。
+    apiMock.listFolderEntries.mockResolvedValue(entries(['dir']))
+    const { container } = renderTree()
+    await waitFor(() => expect(within(container).getByText('dir')).toBeTruthy())
+
+    const row = within(container).getByText('dir').closest('[role="button"]') as HTMLElement
+    const chevron = row.querySelector('svg') as SVGElement
+
+    fireEvent.dragOver(row, { dataTransfer: { files: [] } })
+    expect(row.className).toContain('ring-1')
+
+    // 从行内名字移到行内箭头：relatedTarget 仍在本行 → 不算离开，高亮保持
+    const inside = dragLeaveEvent(within(container).getByText('dir'), chevron)
+    fireEvent(within(container).getByText('dir'), inside)
+    expect(row.className).toContain('ring-1')
+
+    // relatedTarget 为 null（拖出浏览器窗口）→ 真离开，高亮清空
+    fireEvent(row, dragLeaveEvent(row, null))
+    expect(row.className).not.toContain('ring-1')
     container.remove()
   })
 })

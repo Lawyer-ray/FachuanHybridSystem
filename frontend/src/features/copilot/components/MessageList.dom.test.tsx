@@ -4,12 +4,23 @@
  * assistant 气泡按 Markdown 输出（strong/list/table/code），user 气泡保持纯文本。
  * store 直接 setState 注入转录，不 mock 网络。
  */
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useCopilot } from '../store'
 import { MessageList } from './MessageList'
 import type { ChatMessage } from '../types'
+
+/**
+ * ReactMarkdown 渲染计数（P1-3 回归用）：mock 掉它并转发给真实实现，
+ * 用调用次数直接度量「历史气泡是否被重渲染」。hoisted：vi.mock 工厂先于 import 执行。
+ */
+const markdownSpy = vi.hoisted(() => vi.fn())
+vi.mock('react-markdown', async () => {
+  const actual = await vi.importActual<typeof import('react-markdown')>('react-markdown')
+  markdownSpy.mockImplementation(actual.default)
+  return { ...actual, default: markdownSpy }
+})
 
 function renderWithMessages(messages: ChatMessage[]) {
   useCopilot.setState({ messages, streaming: false, loadingHistory: false, approvals: [], lastError: null })
@@ -55,6 +66,33 @@ describe('MessageList Markdown 渲染', () => {
   it('原始 HTML 不被执行（react-markdown 默认转义）', () => {
     renderWithMessages([{ id: 'a3', role: 'assistant', content: '<img src=x onerror=alert(1)>_hi' }])
     expect(document.querySelector('img')).toBeNull()
+  })
+})
+
+describe('MessageList：流式重渲染（P1-3）', () => {
+  it('只更新最后一条消息时，历史气泡不重渲染', () => {
+    // 回归 P1-3：每个 delta 都 set({messages: s.messages.map(…)}),
+    // 未 memo 的 Bubble 会让全部历史气泡的 Markdown 树重建
+    const history: ChatMessage[] = [
+      { id: 'a21', role: 'assistant', content: '第一条历史回答' },
+      { id: 'a22', role: 'assistant', content: '第二条历史回答' },
+      { id: 'a23', role: 'assistant', content: '正文', streaming: true },
+    ]
+    renderWithMessages(history)
+    expect(markdownSpy).toHaveBeenCalledTimes(3)
+
+    markdownSpy.mockClear()
+    // 模拟一个 delta：新数组 + 只换最后一条对象，其余引用不变
+    act(() => {
+      useCopilot.setState({
+        messages: [history[0]!, history[1]!, { ...history[2]!, content: '正文…又长了' }],
+      })
+    })
+
+    // 只有流式那条重算 Markdown，两条历史气泡按引用相等 bail out
+    expect(markdownSpy).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('第一条历史回答')).toBeTruthy()
+    expect(screen.getByText('正文…又长了')).toBeTruthy()
   })
 })
 
@@ -271,6 +309,39 @@ describe('MessageList：排队提示与复制（P0 批次）', () => {
     })
     render(<MessageList />)
     expect(screen.queryByRole('button', { name: '复制回答' })).toBeNull()
+  })
+})
+
+describe('MessageList：业务归属 chip（P1-5）', () => {
+  it('三段渲染：长标题被截断，但 #id 单独成段完整保留', () => {
+    const { container } = renderWithMessages([
+      {
+        id: 'u30',
+        role: 'user',
+        content: '梳理材料',
+        bizHint: { kind: 'contract', title: '示例甲方专项法律服务合同（二期）', refId: 393 },
+      },
+    ])
+    expect(screen.getByText(/本委托 · 示例甲方/)).toBeTruthy()
+    // id 不再被整串 truncate 吃掉
+    const ref = screen.getByText('#393')
+    expect(ref.className).toContain('flex-none')
+    expect(ref.className).not.toContain('truncate')
+    // 旧口径的整串 chip 已不存在
+    expect(container.textContent).not.toContain('contract_id=')
+  })
+
+  it('案件范围用「本案」单位词', () => {
+    renderWithMessages([
+      {
+        id: 'u31',
+        role: 'user',
+        content: '梳理材料',
+        bizHint: { kind: 'case', title: '某公司诉某银行案', refId: 217 },
+      },
+    ])
+    expect(screen.getByText(/本案 · 某公司诉某银行案/)).toBeTruthy()
+    expect(screen.getByText('#217')).toBeTruthy()
   })
 })
 

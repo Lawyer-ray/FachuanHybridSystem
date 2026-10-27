@@ -8,17 +8,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { CheckCircle2, FilePlus2, Loader2, UploadCloud } from 'lucide-react'
+import { LoadingBlock } from '@/components/shared/AsyncState'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { formatBytes } from '@/lib/format'
+import { errMessage } from '@/lib/errors'
 import { getLinkInfo, listUploadedFiles, uploadFiles } from '../api'
 import { ACCEPT_ATTR, CLOSED_STATE_TEXT, type LinkState, type PublicFileItem, type PublicLinkInfo } from '../types'
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)}GB`
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)}KB`
-  return `${bytes}B`
-}
 
 function stateHint(state: LinkState): string {
   if (state === 'open') return ''
@@ -84,7 +80,7 @@ export function ClientUploadPage() {
       setFiles([])
       setRemark('')
     } catch (e) {
-      setError(e instanceof Error ? e.message : '上传失败，请重试')
+      setError(errMessage(e, '上传失败，请重试'))
     } finally {
       setBusy(false)
     }
@@ -101,8 +97,8 @@ export function ClientUploadPage() {
 
   if (!info) {
     return (
-      <main className="flex min-h-dvh items-center justify-center gap-2 text-sm text-secondary-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> 正在打开…
+      <main className="flex min-h-dvh items-center justify-center">
+        <LoadingBlock text="正在打开…" className="py-0 text-secondary-foreground" />
       </main>
     )
   }
@@ -160,7 +156,7 @@ export function ClientUploadPage() {
                 <li key={`${f.name}:${f.size}`} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm">
                   <span className="min-w-0 truncate">{f.name}</span>
                   <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                    {formatSize(f.size)}
+                    {formatBytes(f.size)}
                     <button
                       type="button"
                       className="text-secondary-foreground hover:text-foreground"
@@ -197,7 +193,7 @@ export function ClientUploadPage() {
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
           {doneCount != null && (
-            <p className="mt-3 flex items-center gap-1.5 text-sm text-emerald-600">
+            <p className="mt-3 flex items-center gap-1.5 text-sm text-status-green">
               <CheckCircle2 className="h-4 w-4" /> 已提交 {doneCount} 份材料，律师收到后会与您联系
             </p>
           )}
@@ -214,7 +210,7 @@ export function ClientUploadPage() {
                 {uploaded.map((item, i) => (
                   <li key={`${item.filename}:${item.size}:${i}`} className="flex items-center justify-between gap-3 rounded-lg bg-secondary/60 px-3 py-2 text-sm">
                     <span className="min-w-0 truncate">{item.filename}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatSize(item.size)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(item.size)}</span>
                   </li>
                 ))}
               </ul>
@@ -222,7 +218,7 @@ export function ClientUploadPage() {
           )}
 
           <footer className="mt-10 text-center text-xs text-muted-foreground">
-            本链接由律师一对一发送，请勿转发他人 · 剩余容量 {formatSize(info.remaining_bytes)}
+            本链接由律师一对一发送，请勿转发他人 · 剩余容量 {formatBytes(info.remaining_bytes)}
           </footer>
         </>
       )}

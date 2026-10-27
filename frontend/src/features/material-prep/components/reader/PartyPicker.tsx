@@ -36,8 +36,10 @@ export function PartyPicker({
   const tagSet = useMemo(() => new Set(tags), [tags])
 
   // 检索走 typeahead hook：输入停 250ms 才请求（queryKey 带我方/对方维度）；
-  // raw 值管下拉开关（打字即展开），防抖值管真正打后端
-  const { keyword: q, setKeyword: setQ, data: searched = [], isFetching: loading } = useTypeaheadSearch<ClientHit[]>({
+  // raw 值管下拉开关（打字即展开），防抖值管真正打后端。
+  // loading 用 hook 的 isSearching：isFetching 在 keepPreviousData 下恒真，
+  // 用它会让「检索中…」把候选列表永久顶掉
+  const { keyword: q, setKeyword: setQ, data: searched = [], isSearching: loading } = useTypeaheadSearch<ClientHit[]>({
     queryKey: (kw) => ['mp-party-search', kw, isOurClient],
     queryFn: ({ keyword, signal }) => searchClients(keyword, isOurClient, signal),
   })

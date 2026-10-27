@@ -1,8 +1,19 @@
 import { Check, MapPin, X } from 'lucide-react'
 import { useState } from 'react'
+import { EmptyBlock } from '@/components/shared/AsyncState'
+import { StatusBadge, type Tone } from '@/components/shared/status-badge'
 import { cn } from '@/lib/utils'
 import { bucketRevisions, countBySeverity, severityLabel } from '../domain'
-import type { ReviewRevision } from '../types'
+import type { ReviewRevision, RevisionSeverity } from '../types'
+
+/** 严重度 → 颜色档：高=红（先看）/ 中=黄 / 低=蓝，与版本链、侧栏徽章同一套色 */
+const SEVERITY_TONE: Record<RevisionSeverity, Tone> = {
+  high: 'red',
+  medium: 'yellow',
+  low: 'blue',
+  // 无严重度为后端缺字段，走中性灰（徽章本身不渲染，此值只为类型闭合）
+  '': 'neutral',
+}
 
 /**
  * 左栏：AI 建议清单。
@@ -51,9 +62,9 @@ export function RevisionList({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <SectionLabel text={`待决策 · ${pending.length}`} />
         {pending.length === 0 ? (
-          <p className="px-3.5 py-3 text-[11.5px] leading-relaxed text-muted-foreground">
+          <EmptyBlock className="items-start px-3.5 py-3 text-left leading-relaxed">
             全部建议已处理完 —— 可以在右侧继续用对话调整，或直接定稿。
-          </p>
+          </EmptyBlock>
         ) : (
           pending.map((rev) => (
             <Row
@@ -134,16 +145,9 @@ function Row({
     >
       <div className="flex items-baseline gap-1.5">
         {sev && (
-          <span
-            className={cn(
-              'flex-none rounded-[4px] px-[5px] text-[9.5px] font-bold leading-[15px]',
-              rev.severity === 'high' && 'bg-status-red-bg text-status-red',
-              rev.severity === 'medium' && 'bg-status-yellow-bg text-status-yellow',
-              rev.severity === 'low' && 'bg-status-blue-bg text-status-blue',
-            )}
-          >
+          <StatusBadge tone={SEVERITY_TONE[rev.severity]} size="xs" className="flex-none font-bold">
             {sev}
-          </span>
+          </StatusBadge>
         )}
         <span className={cn('text-[12.5px] font-semibold', done && 'line-through')}>
           {rev.title || rev.original.slice(0, 20)}

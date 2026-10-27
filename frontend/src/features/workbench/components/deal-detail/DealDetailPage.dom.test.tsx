@@ -451,7 +451,7 @@ describe('DealDetailPage 程序链与案件节', () => {
     })
     setupUi()
     await screen.findAllByText('2-邮件往来') // 两个案件卡各一份 + 右栏合同文件夹树一份
-    expect(screen.getAllByText('起诉状.pdf').length).toBe(3)
+    await waitFor(() => expect(screen.getAllByText('起诉状.pdf').length).toBe(3))
     expect(screen.getByText('合同文件夹')).toBeTruthy() // 右栏节标题
     expect(screen.queryByText('收到上诉状')).toBeNull() // 默认不在日志视图
 
@@ -471,8 +471,12 @@ describe('DealDetailPage 程序链与案件节', () => {
       files: [{ name: '起诉状.docx', subpath: '起诉状.docx', size: 2048, modified_at: '2026-09-29T10:00:00' }],
     })
     setupUi()
-    await screen.findAllByText('起诉状.docx') // 等案件卡的文件夹视图渲染出来
-    const sec1 = document.getElementById('case-1')!
+    // 等案件卡的文件夹视图渲染出来（binding + 目录条目都是异步的，会出现多轮重渲）
+    const sec1 = await waitFor(() => {
+      const el = document.getElementById('case-1')
+      if (!el || !within(el).queryByText('起诉状.docx')) throw new Error('case-1 folder view not ready')
+      return el
+    })
     fireEvent.click(within(sec1).getByText('起诉状.docx'))
 
     // 预览画布出现在右栏，取文件走案件通道（后端 OnlyOffice 域注册表按 /cases/ 前缀分发）

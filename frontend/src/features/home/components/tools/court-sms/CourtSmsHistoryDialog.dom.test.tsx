@@ -70,10 +70,10 @@ describe('CourtSmsHistoryDialog：请求时机', () => {
 })
 
 describe('CourtSmsHistoryDialog：列表三态', () => {
-  it('加载中显示提示', () => {
+  it('加载中显示提示（AsyncState 的 role=status 块）', () => {
     apiMock.listCourtSms.mockReturnValue(new Promise(() => {}))
     const { unmount } = renderDialog()
-    expect(screen.getByText('正在加载…')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain('正在加载…')
     unmount()
   })
 
@@ -120,6 +120,21 @@ describe('CourtSmsHistoryDialog：行渲染', () => {
     const { container } = renderDialog()
     await waitFor(() => expect(screen.getByText('短信内容 1')).toBeTruthy())
     expect(document.body.textContent).toContain('weird_state')
+    container.remove()
+  })
+
+  it('本域两个特有状态落到局部覆盖色档（pending_manual 黄 / download_failed 红），而非蓝色兜底', async () => {
+    apiMock.listCourtSms.mockResolvedValue({
+      items: [item(1, { status: 'pending_manual' }), item(2, { status: 'download_failed' })],
+      count: 2,
+    })
+    const { container } = renderDialog()
+    await waitFor(() => expect(screen.getByText('短信内容 1')).toBeTruthy())
+
+    const toneClsOf = (text: string) =>
+      screen.getByText(text).closest('span')?.className ?? ''
+    expect(toneClsOf('待人工处理')).toContain('status-yellow')
+    expect(toneClsOf('下载失败')).toContain('status-red')
     container.remove()
   })
 

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
+import { errMessage } from '@/lib/errors'
 
 import { converterHistoryKeys, createConverterJob, getConverterJob, type ConverterJob } from '../../api'
 
@@ -96,7 +97,7 @@ export function useConverterJob(): UseConverterJobResult {
         await poll(id, lease)
       } catch (e) {
         if (lease.isStale()) return
-        setError(e instanceof Error ? e.message : '提交转换任务失败')
+        setError(errMessage(e, '提交转换任务失败'))
         setPhase('error')
       }
     },

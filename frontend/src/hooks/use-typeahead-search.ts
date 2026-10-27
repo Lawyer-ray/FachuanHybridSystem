@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { useDebouncedValue } from './use-debounced-value'
 
@@ -33,13 +33,31 @@ export interface UseTypeaheadSearchOptions<T> {
   staleTime?: number
 }
 
-/** UseQueryResult 是辨析联合类型（interface 不能 extends），用交叉类型扩展 */
-export type TypeaheadSearch<T> = UseQueryResult<T, Error> & {
+/**
+ * 对外只暴露被消费的 query 字段：返回值靠 useMemo 稳引用，无法把 useQuery 的整个
+ * 结果（trackResult 的 Proxy，每次渲染新建）摊进来，所以不 extends UseQueryResult
+ * ——那会要求这里把 20 多个派生字段逐个补齐。缺的字段由调用方用这三个基本量派生。
+ */
+export interface TypeaheadSearch<T> {
+  /** 检索结果（placeholderData 期间是上一屏数据） */
+  data: T | undefined
+  error: Error | null
+  /** data 是上一屏的占位数据（真结果还没回来） */
+  isPlaceholderData: boolean
   /** 输入框的 raw 值（即时响应，未防抖） */
   keyword: string
   setKeyword: React.Dispatch<React.SetStateAction<string>>
   /** trim + 防抖后的关键词（进 queryKey 的那个值） */
   debounced: string
+  /**
+   * 「正在检索」的展示信号，**用它而不是 isFetching**。
+   *
+   * 本 hook 开了 placeholderData: keepPreviousData：翻词时上一份数据被当作
+   * placeholder 交付，此时 isPlaceholderData 恒为真、isFetching 也恒为真，
+   * 直接拿 isFetching 当 loading 会让「搜索中…」永远挂着（条件渲染里表现为
+   * 候选列表永远出不来）。扣掉 placeholder 那一帧才是用户真正在等的请求。
+   */
+  isSearching: boolean
 }
 
 export function useTypeaheadSearch<T>(opts: UseTypeaheadSearchOptions<T>): TypeaheadSearch<T> {
@@ -53,5 +71,27 @@ export function useTypeaheadSearch<T>(opts: UseTypeaheadSearchOptions<T>): Typea
     staleTime: opts.staleTime ?? 30_000,
     placeholderData: keepPreviousData,
   })
-  return { keyword, setKeyword, debounced, ...query }
+  const { data, error, isPlaceholderData, isFetching } = query
+
+  // 引用稳定：每次渲染新建对象字面量会让返回值恒变，调用方一旦把它放进
+  // useEffect / useMemo 依赖就会每次重跑。
+  //
+  // 依赖刻意只列解构出来的基本量（data / error / 两个布尔 + hook 自己的 state），
+  // 不列 query 本身：useQuery 返回的是 trackResult 的 Proxy，每个渲染基本都是新对象，
+  // 拿它当依赖会让 useMemo 每次失效，稳引用白做。下面拼的对象也只放被消费的字段，
+  // 不再 `...query` 展开（那会把 Proxy 上的字段重新摊进来，同样失去稳定性）。
+  // 缺失的 query 字段（isPending / isLoading / isError 等）由调用方自行派生。
+  return useMemo(
+    () => ({
+      data,
+      error,
+      isPlaceholderData,
+      isSearching: isFetching && !isPlaceholderData,
+      keyword,
+      setKeyword,
+      debounced,
+    }),
+    // setKeyword 来自 useState，引用恒定，不必列进依赖；其余都是返回值实际读到的值
+    [data, error, isPlaceholderData, isFetching, keyword, debounced],
+  )
 }

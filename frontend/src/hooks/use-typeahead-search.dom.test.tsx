@@ -110,4 +110,31 @@ describe('useTypeaheadSearch', () => {
     rerender({ enabled: true })
     await waitFor(() => expect(searchMock).toHaveBeenCalledExactlyOnceWith('abc', expect.any(AbortSignal)))
   })
+
+  it('isSearching 扣掉 keepPreviousData 的 placeholder 帧（isFetching 不能直接当检索中）', async () => {
+    // mock 按调用序号返回：第 1 次立即成功（铺上一屏数据），第 2 次永不返回（请求悬挂）
+    searchMock.mockImplementationOnce(() => Promise.resolve(['第一屏']))
+    searchMock.mockImplementation(() => new Promise<string[]>(() => {}))
+
+    const { result } = renderSearch({ debounceMs: 10 })
+    act(() => result.current.setKeyword('a'))
+    await waitFor(() => expect(result.current.data).toEqual(['第一屏']))
+
+    // 翻第二个词：上一屏以 placeholder 交付、请求在飞，正是 isFetching 恒真的处境
+    act(() => result.current.setKeyword('ab'))
+    await act(async () => {
+      await sleep(50) // 越过 10ms 防抖，让悬挂请求真正发出
+    })
+    await waitFor(() => expect(result.current.isPlaceholderData).toBe(true))
+    // 关键断言：此时对外的 isSearching 必须是假，否则「搜索中…」永不消失
+    expect(result.current.isSearching).toBe(false)
+  })
+
+  it('输入没变时重复 rerender 返回同一个对象（可安全放进依赖数组）', () => {
+    searchMock.mockResolvedValue([])
+    const { result, rerender } = renderSearch()
+    const first = result.current
+    rerender()
+    expect(result.current).toBe(first)
+  })
 })

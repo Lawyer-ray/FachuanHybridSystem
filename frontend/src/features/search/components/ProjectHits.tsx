@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { FileText, FolderKanban } from 'lucide-react'
 
+import { BADGE_TONE_CLS } from '@/components/shared/status-badge'
 import { isLitigationType } from '@/lib/case-type'
 import { cn } from '@/lib/utils'
 import { groupProjects, projectRoute } from '../domain'
@@ -23,13 +24,18 @@ const rowCls = (active: boolean, asButton: boolean) =>
     asButton && 'text-secondary-foreground',
   )
 
-/** 非诉小标签：诉讼是常态不标，只让少数派跳出来 */
+/**
+ * 面板内小标签的共用形状：与 ProjectHits 的「非诉」、GlobalSearch 的「我方/对方」同款
+ * （圆角 5px + 10px 字）。色由调用方给：实底=选中（ours）、描边=未选（非诉 / opposing）。
+ */
+export const PANEL_BADGE_CLS = 'flex-none rounded-[5px] px-[5px] py-px text-[10px] leading-[1.5] whitespace-nowrap'
+
+/**
+ * 非诉小标签：诉讼是常态不标，只让少数派跳出来。
+ * 取 SideBadge 的**非选中态**（描边 + 灰字）——它逐字重复了那套样式，收敛到这里。
+ */
 function NonLitBadge() {
-  return (
-    <span className="flex-none rounded-[5px] border border-border px-[5px] py-px text-[10px] leading-[1.5] whitespace-nowrap text-muted-foreground">
-      非诉
-    </span>
-  )
+  return <span className={cn(PANEL_BADGE_CLS, BADGE_TONE_CLS.neutral)}>非诉</span>
 }
 
 export function ProjectHits({

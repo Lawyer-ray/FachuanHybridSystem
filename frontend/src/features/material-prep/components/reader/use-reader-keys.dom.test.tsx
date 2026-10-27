@@ -3,15 +3,17 @@
  * useReaderKeys 键位测试（jsdom）。
  *
  * Esc 的逐级退出顺序是本模块最容易退化的一段：
- * 归案弹窗 → OCR 待确认 → 选页模式 → 有选页 → 取字态 → 关闭阅读器。
- * 顺序错了就会「弹窗开着按 Esc 把整个阅读器关掉」。
+ * OCR 待确认 → 选页模式 → 有选页 → 取字态 → 关闭阅读器。
+ * 顺序错了就会「关一层把整个阅读器一起关掉」。
+ *
+ * 归案弹窗（AssignModal）已改成 Radix Dialog，Esc 由 Radix 自己处理，
+ * 本 hook 只负责在事件已被上层消费（defaultPrevented）时让路。
  */
 import { renderHook } from '@testing-library/react'
 import { act } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
-  assignOpen: false,
   ocrPending: null as unknown,
   selMode: false,
   selPages: [] as number[],
@@ -22,12 +24,10 @@ const state = vi.hoisted(() => ({
 vi.mock('../../store', () => ({
   useReader: {
     getState: () => ({
-      assignOpen: state.assignOpen,
       ocrPending: state.ocrPending,
       selMode: state.selMode,
       selPages: state.selPages,
       pickInfo: state.pickInfo,
-      setAssignOpen: () => state.calls.push('setAssignOpen'),
       setOcrPending: () => state.calls.push('setOcrPending'),
       setPickInfo: () => state.calls.push('setPickInfo'),
       clearSel: () => state.calls.push('clearSel'),
@@ -48,7 +48,6 @@ function press(key: string, target?: HTMLElement) {
 }
 
 beforeEach(() => {
-  state.assignOpen = false
   state.ocrPending = null
   state.selMode = false
   state.selPages = []
@@ -57,13 +56,16 @@ beforeEach(() => {
 })
 
 describe('useReaderKeys / Esc 逐级退出', () => {
-  it('归案弹窗开启时：只关弹窗，不关阅读器', () => {
-    state.assignOpen = true
+  it('Esc 已被上层弹层（Radix Dialog）消费时让路，不越级关阅读器', () => {
+    // Radix DismissableLayer 在 document capture 阶段就 preventDefault，
+    // 本 hook 看到 defaultPrevented 必须直接返回——否则弹窗关一次、这里再关一次
     renderHook(() => useReaderKeys())
     act(() => {
-      press('Escape')
+      const e = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true })
+      e.preventDefault()
+      window.dispatchEvent(e)
     })
-    expect(state.calls).toEqual(['setAssignOpen'])
+    expect(state.calls).toEqual([])
   })
 
   it('OCR 待确认：清待确认并复位取字态', () => {

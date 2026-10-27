@@ -102,6 +102,22 @@ export interface SelectionQuote {
   text: string
 }
 
+/**
+ * 业务归属锚点（详情页工作区/浮层 context 下每轮注入的 `[当前业务：…]` 块）。
+ *
+ * 出站构建（domain.buildBizHintBlock）与历史回放解析（domain.splitBizHintLine）
+ * 产出的都是这个形状——两侧不得漂移。展示层按三段渲染（单位/名称/#id），
+ * 不再把整串交给 `truncate`（那会把唯一的机器可读归属 id 截掉）。
+ */
+export interface BizHint {
+  /** 业务范围：合同（委托）还是案件 */
+  kind: RefOwnerKind
+  /** 委托/案件名（标题里的 `「」` 已归一为 `“”`） */
+  title: string
+  /** 合同 id / 案件 id */
+  refId: number
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
@@ -113,7 +129,7 @@ export interface ChatMessage {
   /** 通用模式下注入的页面锚点（从「[当前页面：…]」块解析，气泡上方重放为 chip） */
   pageHint?: string
   /** 业务范围（详情页工作区/浮层 context）下注入的归属锚点（从「[当前业务：…]」块解析） */
-  bizHint?: string
+  bizHint?: BizHint
   /** tool 消息的工具名（tool_call 与 tool_result 的归并键） */
   toolName?: string
   toolCallId?: string
@@ -308,6 +324,15 @@ export interface CopilotState {
   setPageHint: (hint: string) => void
   /** 附件上传在途（发送按钮置忙，防止重复提交） */
   uploadingAttachments: boolean
+  /**
+   * 一次 send 的全过程在途（进入即置位，消息真正入列才清除）。
+   *
+   * 光靠 uploadingAttachments 不够：上传完成到消息入列之间它已被置回 false，
+   * 而 streaming 还是 false，三个按钮同时解锁 → 二次 send 会重复上传同一批
+   * 附件并把两条消息推进转录。所以用这个标志贯穿「建会话 → 上传附件 →
+   * 消息入列」全程。
+   */
+  sending: boolean
   /** 拖拽文件悬停中（面板渲染投放离焦高亮） */
   draggingFiles: boolean
   /** 拖拽/选择加入待发附件（前端预检不过的拒绝并提示） */

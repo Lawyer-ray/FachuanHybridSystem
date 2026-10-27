@@ -142,13 +142,27 @@ async function refreshWithLease(): Promise<string> {
 
 /**
  * 刷新 access token（跨 tab 协调）：其他 tab 持新鲜租约时等它完成并共享
- * 新 token；等不到信号（3s 超时）或新 token 仍不可用时，自行重试一次。
+ * 新 token。
+ *
+ * 返回 null 表示「本 tab 不应再自己刷」——由调用方走会话过期路径。
+ *
+ * 等不到信号（3s 超时）时**必须先确认 refresh 真的被换过**：对端若刷新失败
+ * （没写新 token）而本 tab 直接 refreshWithLease()，用的就是已被对端消费、
+ * 服务端已拉黑的旧 refresh（BLACKLIST_AFTER_ROTATION），必然失败 → clearTokens()
+ * → 用户被静默踢出登录。旧版注释承诺「共享对端结果」，漏的正是这个失败分支。
  */
-async function refreshAccessToken(): Promise<string> {
+async function refreshAccessToken(): Promise<string | null> {
   if (isLeaseFresh(localStorage.getItem(REFRESH_LEASE_KEY))) {
+    const refreshBefore = getRefreshToken()
     await waitForRefreshDoneSignal()
-    const shared = getAccessToken()
-    if (shared && !shouldRefreshToken()) return shared
+    // refresh 变了＝对端真的刷新成功（轮换后新 refresh 已落库），共享其 access
+    if (getRefreshToken() !== refreshBefore) {
+      const shared = getAccessToken()
+      if (shared) return shared
+    }
+    // refresh 未变：对端没刷成功（或没开轮换的部署无法分辨）→ 不能拿旧 refresh
+    // 再刷一次，交给调用方按会话过期处理
+    return null
   }
   return refreshWithLease()
 }
@@ -192,6 +206,33 @@ async function getValidAccessToken(): Promise<string | null> {
 }
 
 /**
+ * 是否为「登录相关」路由：/login（登录页）与 /social-callback（授权回调页）。
+ *
+ * 401 刷新失败时不能再往里跳：
+ * - 已在 /login：给同一个相对路径赋值既不导航也不刷新，resetAllClientState
+ *   又是 fire-and-forget，用户会卡死在登录页；
+ * - /social-callback：该页本身正在用一次性码换 token，重定向进去就是死循环。
+ * 故这两种情况改用 reload（重新拉入口，拿到干净的匿名态）。
+ */
+function isLoginRoute(pathname: string): boolean {
+  return pathname === '/login' || pathname === '/social-callback'
+}
+
+/**
+ * 会话已失效：清客户端状态并离开当前页面。
+ *
+ * 已在登录相关路由时用 reload——同路径赋值等于什么都不做，用户没有任何恢复手段
+ * （main.tsx 的 retry 把 SessionExpiredError 视为不重试，也不会再弹出错提示）。
+ */
+function kickToLogin(): void {
+  if (isLoginRoute(window.location.pathname)) {
+    window.location.reload()
+    return
+  }
+  window.location.href = '/login'
+}
+
+/**
  * 创建带 JWT 认证的 API 客户端
  */
 export function createApiClient(options?: Options): KyInstance {
@@ -217,7 +258,7 @@ export function createApiClient(options?: Options): KyInstance {
             if (!newToken) {
               // 与主动退出共用清理（否则换人登录会读到上一账号的材料草稿/阅读器恢复点）
               void resetAllClientState(() => queryCacheCleaner?.())
-              window.location.href = '/login'
+              kickToLogin()
               throw new SessionExpiredError()
             }
             const retryRequest = new Request(request, {

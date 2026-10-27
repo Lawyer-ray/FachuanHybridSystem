@@ -65,8 +65,10 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
 
   // 关键字联想：输入停 250ms 才请求、空关键词不发（minLength 默认 1）、
   // 上一请求由 signal 自动中止（无响应竞态）。
+  // searching 取 hook 的 isSearching（已扣掉 keepPreviousData 的 placeholder 帧），
+  // 不能直接用 isFetching —— 后者恒真，输入框会一直显示「搜索中…」。
   // 选中 picked 后隐藏候选列表，展示 picked 行
-  const { keyword: kw, setKeyword: setKw, data: searched = [], isFetching: searching } = useTypeaheadSearch<TargetOption[]>({
+  const { keyword: kw, setKeyword: setKw, data: searched = [], isSearching: searching } = useTypeaheadSearch<TargetOption[]>({
     queryKey: (dk) => ['reminder-target-options', dk],
     queryFn: ({ keyword, signal }) => searchTargetOptions(keyword, signal),
     enabled: day != null && !picked,
@@ -194,6 +196,8 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
                   className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
                   value={kw}
                   onChange={(e) => {
+                    // 重新输入即展开候选：这一下同时作废「点候选收起」与「点了兜底层」
+                    // 两种隐藏态，所以两处都必须在这里复位（不是多余的重复）
                     setOptionsHidden(false)
                     setKw(e.target.value)
                   }}

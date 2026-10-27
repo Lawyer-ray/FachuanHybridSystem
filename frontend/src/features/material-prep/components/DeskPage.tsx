@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
 import { PACK_LEAVE_REMOVAL_MS } from '../constants'
@@ -209,16 +209,17 @@ export function DeskPage() {
 
         {isLoading ? (
           /* 与 PackGrid 的空态同构：列表区占位而非整页 loading——页签仍在，
-             所以居中要相对卡片区，不能贴左（原先只有 flex items-center，
-             缺 justify-center，spinner 孤零零挂在左上角，也和空态/错误态
-             的容器语言不一致） */
-          <div className="flex flex-col items-center justify-center gap-2 rounded-[13px] border border-dashed border-zinc-300 py-16 text-sm text-secondary-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            加载材料包…
-          </div>
+             所以居中要相对卡片区（LoadingBlock 自带 justify-center）。
+             虚线框靠调用点补：加载态与空态要共用一个框，看起来是同块区域换内容 */
+          <LoadingBlock text="加载材料包…" className="rounded-[13px] border border-dashed border-zinc-300 py-16" />
         ) : error ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
-            无法加载材料包：{error instanceof Error ? error.message : '未知错误'}
+          /* 前缀「无法加载材料包：」留在调用点的原因：ErrorBlock 只把 error 的
+             message 原样倒出，而这里要说明白是哪块数据挂了。
+             fallback 取「未知错误」——旧实现就在 message 缺失时显示它，
+             不改文案。 */
+          <div className="space-y-1.5">
+            <p className="text-sm text-destructive">无法加载材料包：</p>
+            <ErrorBlock error={error} fallback="未知错误" className="px-4 py-6 text-sm" />
           </div>
         ) : (
           <PackGrid

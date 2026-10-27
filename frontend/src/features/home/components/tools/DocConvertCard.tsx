@@ -11,21 +11,10 @@ import { TemplateCombobox } from './TemplateCombobox'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
 import { HistoryButton } from './history/HistoryParts'
 import { ConvertHistoryDialog } from './history/ConvertHistoryDialog'
+import { saveBlob } from '@/lib/download'
 import { errMessage } from '@/lib/errors'
 
 type Phase = 'idle' | 'running' | 'success' | 'error'
-
-/** blob 现生成现释放的下载（同一结果可反复下载） */
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
 
 /**
  * 要素式转换：提交后弹窗跟进——转换中给动画与提示，完成后可直接下载
@@ -65,8 +54,9 @@ export function DocConvertCard() {
       const res = await convertDocument(mbid, file)
       setResult(res)
       setPhase('success')
-      // 转换完成顺手落一份到下载目录；弹窗里保留重下入口
-      downloadBlob(res.blob, res.filename)
+      // 转换完成顺手落一份到下载目录；弹窗里保留重下入口（同一 blob 可反复下载，
+      // 每次 saveBlob 各自建/收一份 ObjectURL）
+      saveBlob(res.blob, res.filename)
     } catch (e) {
       setError(errMessage(e, '要素式转换失败，请检查文件格式'))
       setPhase('error')
@@ -127,7 +117,7 @@ export function DocConvertCard() {
         footer={
           <>
             {phase === 'success' && result && (
-              <button type="button" className={BTN_PRIMARY} onClick={() => downloadBlob(result.blob, result.filename)}>
+              <button type="button" className={BTN_PRIMARY} onClick={() => saveBlob(result.blob, result.filename)}>
                 <FileDown className="h-3.5 w-3.5" />
                 下载要素式文书
               </button>

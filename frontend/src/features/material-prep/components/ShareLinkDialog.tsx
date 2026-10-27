@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 import { Check, Copy, Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { errMessage } from '@/lib/errors'
 import { buildShareUrl, createUploadLink, searchContracts, type ContractHit } from '../api'
 
 const EXPIRES_OPTIONS = [
@@ -108,24 +110,27 @@ function ContractPicker({
   )
 }
 
-/** 复制框：一行 URL + 复制按钮（成功后图标打勾反馈） */
+/**
+ * 复制框：一行 URL + 复制按钮（成功后图标打勾反馈）。
+ *
+ * 必须走 useCopyFeedback（内部是 lib/clipboard 的 copyText，带非安全上下文的
+ * execCommand 兜底）：此前直接调 navigator.clipboard.writeText 且没有可选链，
+ * 内网 http 部署下 navigator.clipboard 是 undefined，点按钮直接抛 TypeError，
+ * 连 .catch 都走不到——用户看不到任何反馈。复位定时器也由 hook 统一清理。
+ */
 export function ShareUrlBox({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false)
+  const { copied, copy: copyWithFeedback } = useCopyFeedback()
   const copy = () => {
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-        setCopied(true)
-        toast.success('已复制链接')
-        setTimeout(() => setCopied(false), 2000)
-      })
-      .catch(() => toast.error('复制失败，请手动选择复制'))
+    void copyWithFeedback(url).then((ok) => {
+      if (ok) toast.success('已复制链接')
+      else toast.error('复制失败，请手动选择复制')
+    })
   }
   return (
     <div className="flex items-center gap-2">
       <Input readOnly value={url} className="font-mono text-xs" onFocus={(e) => e.target.select()} />
       <Button type="button" size="sm" variant="outline" onClick={copy}>
-        {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+        {copied ? <Check className="h-4 w-4 text-status-green" /> : <Copy className="h-4 w-4" />}
         复制
       </Button>
     </div>
@@ -168,7 +173,7 @@ export function ShareLinkDialog({ open, onOpenChange, onCreated }: { open: boole
         onCreated?.()
       })
       .catch((e: unknown) => {
-        toast.error(e instanceof Error ? e.message : '创建失败，请重试')
+        toast.error(errMessage(e, '创建失败，请重试'))
       })
       .finally(() => setBusy(false))
   }

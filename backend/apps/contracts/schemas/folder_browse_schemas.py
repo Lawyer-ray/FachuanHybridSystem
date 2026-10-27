@@ -11,6 +11,10 @@ __all__: list[str] = [
     "ContractFolderEntryNameIn",
     "ContractFolderCopyIn",
     "ContractFolderPathIn",
+    "ContractFolderSaveIn",
+    "ContractFolderSaveOut",
+    "ContractFolderSaveAsIntentIn",
+    "ContractFolderSaveAsIntentOut",
 ]
 
 
@@ -79,3 +83,33 @@ class ContractFolderSaveOut(Schema):
     name: str
     size: int = 0
     modified_at: str | None = None
+
+
+class ContractFolderSaveAsIntentIn(Schema):
+    """登记「下次保存要另存为」意图的入参。
+
+    **不是写文件接口**：编辑后的字节只在 OnlyOffice 那边（社区版不暴露
+    downloadAs），这里只把「另存为新名字」这个决定记到编辑器会话上，
+    真正的落盘由 DS 保存回调完成。
+    """
+
+    subpath: str
+    """源文件在绑定根下的相对路径（用来反查是哪一份会话）"""
+
+    name: str
+    """新文件名（前端默认给 `原名[修订版]V1_日期.docx`；后端会再清洗一遍）"""
+
+
+class ContractFolderSaveAsIntentOut(Schema):
+    """登记结果。
+
+    `registered=False` 不走这条路（找不到会话直接抛 404）；保留字段是为了
+    前端能统一处理，将来若要支持「会话存在但已被其它保存消费」之类状态不用改契约。
+    """
+
+    registered: bool = True
+    name: str
+    """实际登记的文件名（已清洗，可能与入参不同）"""
+
+    subpath: str
+    """源文件路径（回显，方便前端核对是哪一份）"""

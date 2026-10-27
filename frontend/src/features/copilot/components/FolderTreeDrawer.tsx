@@ -8,11 +8,32 @@
  */
 
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, X } from 'lucide-react'
 
+import { LoadingBlock } from '@/components/shared/AsyncState'
+import { errMessage } from '@/lib/errors'
+
 import { fetchContractFolderEntries } from '../api'
 import { FOLDER_REF_MIME } from '../types'
+
+/**
+ * 树形缩进：每层 14px。子层起点 +8（带图标行）/ +20（文件行图标）由调用方叠加。
+ *
+ * 四个「不可展开」分支（加载中/不可达/未绑定/空目录）共享同一缩进，
+ * 否则并列的子目录会因分支不同而左右跳一格。
+ */
+const INDENT_STEP = 14
+
+/** 不可展开时的占位行：缩进对齐到当前层，字色灰、不嵌套入子层 */
+function LevelNote({ depth, children }: { depth: number; children: ReactNode }) {
+  return (
+    <p className="px-2 py-1 text-[11.5px] text-muted-foreground" style={{ paddingLeft: depth * INDENT_STEP + 8 }}>
+      {children}
+    </p>
+  )
+}
 
 function Level({
   contractId,
@@ -35,33 +56,26 @@ function Level({
   })
 
   if (query.isPending) {
+    // LoadingBlock 不带缩进槽（它的 px/py 是页面级块口径），外面套一层保持树层级
     return (
-      <p className="px-2 py-1 text-[11.5px] text-muted-foreground" style={{ paddingLeft: depth * 14 + 8 }}>
-        加载中…
-      </p>
+      <LevelNote depth={depth}>
+        <LoadingBlock size="sm" className="justify-start py-1" />
+      </LevelNote>
     )
   }
   if (query.isError || !query.data) {
     return (
-      <p className="px-2 py-1 text-[11.5px] text-muted-foreground" style={{ paddingLeft: depth * 14 + 8 }}>
-        目录不可达（{query.error instanceof Error ? query.error.message : '未知原因'}）
-      </p>
+      <LevelNote depth={depth}>
+        目录不可达（{errMessage(query.error, '未知原因')}）
+      </LevelNote>
     )
   }
   const entries = query.data
   if (!entries.browsable) {
-    return (
-      <p className="px-2 py-1 text-[11.5px] text-muted-foreground" style={{ paddingLeft: depth * 14 + 8 }}>
-        {entries.message ?? '该合同未绑定文件夹'}
-      </p>
-    )
+    return <LevelNote depth={depth}>{entries.message ?? '该合同未绑定文件夹'}</LevelNote>
   }
   if (entries.folders.length === 0 && entries.files.length === 0) {
-    return (
-      <p className="px-2 py-1 text-[11.5px] text-muted-foreground" style={{ paddingLeft: depth * 14 + 8 }}>
-        （空目录）
-      </p>
-    )
+    return <LevelNote depth={depth}>（空目录）</LevelNote>
   }
 
   return (
@@ -73,7 +87,7 @@ function Level({
             <button
               type="button"
               className="flex w-full items-center gap-1 rounded-[6px] py-1 pr-1.5 text-left text-[12px] text-foreground transition-colors hover:bg-secondary"
-              style={{ paddingLeft: depth * 14 + 2 }}
+              style={{ paddingLeft: depth * INDENT_STEP + 2 }}
               onClick={() => toggle(folder.subpath)}
               aria-expanded={open}
               draggable
@@ -122,7 +136,7 @@ function Level({
             e.dataTransfer.effectAllowed = 'copyLink'
           }}
           className="flex cursor-grab items-center gap-1 rounded-[6px] py-1 pr-1.5 text-[12px] text-foreground transition-colors hover:bg-secondary active:cursor-grabbing"
-          style={{ paddingLeft: depth * 14 + 20 }}
+          style={{ paddingLeft: depth * INDENT_STEP + 20 }}
           title={`${file.subpath} · 拖到输入区引用`}
         >
           <FileText className="h-3.5 w-3.5 flex-none text-muted-foreground" />

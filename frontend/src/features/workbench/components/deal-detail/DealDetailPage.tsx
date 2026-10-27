@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router'
-import { Loader2 } from 'lucide-react'
 
+import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { useMediaQuery } from '@/hooks/use-media'
 
 import { ambiguousStages, chainSteps, chainSummary } from './detail-domain'
@@ -17,7 +17,7 @@ import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { PaymentDialog } from './PaymentDialog'
 import { InvoicePoolDialog } from './InvoicePoolDialog'
-import { DetailError } from './ui'
+import { Card, DetailError } from './ui'
 import type { FolderOwnerKind } from '../../api'
 
 /**
@@ -79,7 +79,6 @@ export function DealDetailPage() {
     defaultWidth: 720,
     min: 360,
     maxRatio: 0.78,
-    layoutKey: picked ? 'split' : 'stacked',
   })
   const {
     effectiveWidth: panelEffectiveWidth,
@@ -130,12 +129,7 @@ export function DealDetailPage() {
 
   if (!valid) return <Navigate to="/projects" replace />
   if (d.isLoading) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-[90px] text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        正在加载委托…
-      </div>
-    )
+    return <LoadingBlock text="正在加载委托…" className="py-[90px]" />
   }
   if (d.error || !deal) {
     return <DetailError error={d.error ?? '委托不存在'} onRetry={() => d.refetch()} />
@@ -203,16 +197,19 @@ export function DealDetailPage() {
 
         <div className="min-w-0 flex-1">
           {d.casesError ? (
-            <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-5 py-4 text-sm text-destructive">
-              {d.casesError} ·{' '}
-              <button type="button" className="cursor-pointer underline underline-offset-3" onClick={() => d.refetch()}>
-                重试
-              </button>
-            </div>
+            /* 案件列表错不能当空列表：律师会读成「本案没有程序」 */
+            <ErrorBlock
+              error={d.casesError}
+              onRetry={() => d.refetch()}
+              retryText="重试"
+              className="px-5 py-4 text-sm"
+            />
           ) : plan.length === 0 ? (
-            <div className="rounded-[12px] border border-border bg-card px-5 py-8 text-center text-[13px] text-muted-foreground shadow-sm">
-              合同没有勾选代理阶段，也还没有立案的程序
-            </div>
+            <Card>
+              <EmptyBlock className="px-5 py-8 text-[13px] text-muted-foreground">
+                合同没有勾选代理阶段，也还没有立案的程序
+              </EmptyBlock>
+            </Card>
           ) : (
             /* 超宽屏瀑布流两列：卡片高度本就不同，columns 顺次填充不留 grid 行对齐的空格子。
                仅两案及以上才分栏——单案分栏会让卡片只占半宽、右侧留白反而更空 */

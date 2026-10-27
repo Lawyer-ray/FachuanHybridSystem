@@ -120,6 +120,47 @@ describe('useSplitDrag', () => {
     div.remove()
   })
 
+  it('拖拽结束把光标还原成原值而不是清空（不抹掉页面上已设的内联样式）', () => {
+    // 旧实现硬复位 cursor: ''，拖拽前元素上已有的光标样式会被抹掉
+    document.body.style.cursor = 'progress'
+    const { result } = renderHook(() => useSplitDrag())
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    ;(result.current[2] as { current: HTMLDivElement | null }).current = div
+
+    act(() => {
+      result.current[1]()
+    })
+    expect(document.body.style.cursor).toBe('col-resize')
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'))
+    })
+    expect(document.body.style.cursor).toBe('progress')
+    document.body.style.cursor = ''
+    div.remove()
+  })
+
+  it('pointercancel 也结束拖拽并复位样式（触摸被系统手势打断）', () => {
+    const { result } = renderHook(() => useSplitDrag())
+    const div = document.createElement('div')
+    document.body.appendChild(div)
+    ;(result.current[2] as { current: HTMLDivElement | null }).current = div
+
+    act(() => {
+      result.current[1]()
+    })
+    expect(result.current[3]).toBe(true)
+
+    act(() => {
+      window.dispatchEvent(new Event('pointercancel'))
+    })
+    expect(result.current[3]).toBe(false)
+    expect(document.body.style.cursor).toBe('')
+    expect(document.body.style.userSelect).toBe('')
+    div.remove()
+  })
+
   it('拖拽中移动鼠标按容器宽度换算百分比并夹在范围内', () => {
     const { result } = renderHook(() => useSplitDrag())
     const div = document.createElement('div')

@@ -1,6 +1,7 @@
 import { ChevronRight, FileText, Plus } from 'lucide-react'
 import { useState } from 'react'
 
+import { EmptyBlock } from '@/components/shared/AsyncState'
 import { FileKindBadge } from './FileKindBadge'
 
 /**
@@ -233,7 +234,7 @@ export function ServiceItemStream({
       </div>
 
       {items.length === 0 ? (
-        <div className="px-5 py-6 text-center text-[12.5px] leading-relaxed text-muted-foreground">
+        <EmptyBlock className="px-5 py-6 text-[12.5px] leading-relaxed">
           {isLoading ? (
             '正在读取事项目录…'
           ) : sourceSubpath ? (
@@ -245,7 +246,7 @@ export function ServiceItemStream({
               在上方下拉里指定一个事项目录，或在合同文件夹里新建「3-办案」。
             </>
           )}
-        </div>
+        </EmptyBlock>
       ) : (
         <table className="mt-1 w-full table-fixed border-collapse text-[13px]">
           <thead>

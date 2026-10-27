@@ -5,6 +5,9 @@ export const PBTN = SMALL_OUTLINE_BTN
 /** .pbtn 激活态（on） */
 export const PBTN_ON = 'bg-secondary text-foreground border-zinc-300'
 
+/** 阅读器「追加材料」文件选择的接受类型（与后端可解析的格式对齐：PDF / Office / 图片 / 视频） */
+export const READER_FILE_ACCEPT = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.heic,.mp4,.mov'
+
 /** 阅读器放大/缩小边界与步长 */
 export const ZOOM_MIN = 0.6
 export const ZOOM_MAX = 2.2

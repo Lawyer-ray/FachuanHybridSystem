@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router'
 import { FolderKanban, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { EmptyBlock } from '@/components/shared/AsyncState'
+import { BADGE_TONE_CLS } from '@/components/shared/status-badge'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 import { CATEGORY_ORDER, runSearch } from '../api'
 import { orderProjectHits, projectRoute } from '../domain'
 import type { CategoryKey, Hit } from '../types'
-import { ProjectHits } from './ProjectHits'
+import { PANEL_BADGE_CLS, ProjectHits } from './ProjectHits'
 
 /**
  * 全局检索（⌘K）。
@@ -19,6 +21,9 @@ import { ProjectHits } from './ProjectHits'
 
 /** 空结果集：固定引用，避免每次渲染都是新数组导致下游 useMemo 抖动 */
 const EMPTY_HITS: Hit[] = []
+
+/** 两类引导态文案的排版：只覆盖间距与字号，居中/灰色由 EmptyBlock 定 */
+const HINT_CLS = 'px-3 py-8 text-[12.5px]'
 
 /**
  * 各类别 → 展示名 / 图标 / 点击后的去处。
@@ -101,10 +106,9 @@ export function GlobalSearch({
   // 两者错开就会闪（新关键词 + 旧结果同时在场）。
   // 删空关键词时同样只显示引导文案，不残留旧结果/旧标签。
   const searching = debounced.length > 0
-  const hits = useMemo(() => {
-    if (!searching) return EMPTY_HITS
-    return data ?? EMPTY_HITS
-  }, [data, searching])
+  // 不包 useMemo：两个操作数本身就是常量（EMPTY_HITS 固定引用）或 react-query 的
+  // 稳定 data 引用，memo 只多一层依赖比较，起不到省渲染的作用
+  const hits = searching ? (data ?? EMPTY_HITS) : EMPTY_HITS
 
   // 新结果回来 / 切换筛选时把光标移回第一项（跟着 debounced，不跟 trimmed）
   useEffect(() => setCursor(0), [debounced, activeCat])
@@ -221,15 +225,9 @@ export function GlobalSearch({
 
         {/* 结果 */}
         <div className="max-h-[52vh] overflow-y-auto px-2 py-2">
-          {!searching && (
-            <div className="px-3 py-8 text-center text-[12.5px] text-muted-foreground">
-              输入关键词开始搜索
-            </div>
-          )}
+          {!searching && <EmptyBlock className={HINT_CLS}>输入关键词开始搜索</EmptyBlock>}
           {searching && flat.length === 0 && !isFetching && (
-            <div className="px-3 py-8 text-center text-[12.5px] text-muted-foreground">
-              没有匹配「{trimmed}」的结果
-            </div>
+            <EmptyBlock className={HINT_CLS}>没有匹配「{trimmed}」的结果</EmptyBlock>
           )}
           {CATEGORY_ORDER.filter((c) => groups.has(c)).map((cat) => {
             const meta = CATEGORIES[cat]
@@ -310,13 +308,14 @@ export function GlobalSearch({
 /**
  * 当事人我方/对方徽章：我方实底、对方描边——同一面板里筛选标签已用「实底=选中 /
  * 描边=未选」这套视觉词汇，复用它让「我方」一眼跳出来，又不引入新颜色。
+ * 形状取 ProjectHits 的 PANEL_BADGE_CLS，描边色取 BADGE_TONE_CLS.neutral（与「非诉」同款）。
  */
 function SideBadge({ side }: { side: 'ours' | 'opposing' }) {
   return (
     <span
       className={cn(
-        'flex-none rounded-[5px] px-[5px] py-px text-[10px] leading-[1.5] whitespace-nowrap',
-        side === 'ours' ? 'bg-foreground text-background' : 'border border-border text-muted-foreground',
+        PANEL_BADGE_CLS,
+        side === 'ours' ? 'bg-foreground text-background' : BADGE_TONE_CLS.neutral,
       )}
     >
       {SIDE_LABEL[side]}

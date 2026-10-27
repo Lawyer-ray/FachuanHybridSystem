@@ -28,7 +28,7 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock('../memory-api', () => apiMock)
 
-import { MemoryPromoteDialog } from './MemoryPromoteDialog'
+import { MemoryPromoteDialog } from './memory/MemoryPromoteDialog'
 
 const TEAM_SCOPES = {
   law_firm: { id: 1, can_curate: true },

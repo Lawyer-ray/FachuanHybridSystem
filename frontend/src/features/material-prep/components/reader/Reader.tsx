@@ -1,203 +1,66 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
-import { toast } from 'sonner'
-import { useReader } from '../../store'
-import { countUnclassified, isAutoSegName, matLabel } from '../../draft'
+import { countUnclassified, matLabel } from '../../draft'
 import { ReviewLaunchDrawer } from '@/features/contract-review'
-import { fetchAttachmentBytes } from '../../api'
-import type { DraftState } from '../../types'
+import { FixedReader, ReaderError, ReaderLoading } from './ReaderChrome'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
-import { FixedReader, ReaderError, ReaderLoading } from './ReaderChrome'
-import { HintBar } from './HintBar'
-import { SelectionBar } from './SelectionBar'
-import { Rail } from './Rail'
-import { Flow } from './Flow'
-import { MetaPanel } from './MetaPanel'
-import { useReaderOcr } from './use-ocr'
-import { useAutoSplit } from './use-auto-split'
-import { useElementWidth } from '@/hooks/use-element-width'
-import { useReaderKeys } from './use-reader-keys'
-import { useReaderWidths } from './use-reader-widths'
-import { useWheelZoom } from './use-wheel-zoom'
-import { buildFlowOps, buildMetaOps, selDetailOf } from './reader-ops'
+import { ReaderBody } from './ReaderBody'
 import { ReaderDialogs } from './ReaderDialogs'
-import { useReaderActions } from './use-reader-actions'
+import { loadDocxBytes, partiesOf } from './use-assign-launch'
+import { useReaderScreen } from './use-reader-screen'
+import { READER_FILE_ACCEPT } from './ui'
 
-/** 阅读器：阅读器顶层编排。状态、loading/error 分支、三栏布局组合，
- *  具体的 ops / 键位 / 列宽 / 弹窗各自下沉到子模块。 */
+/**
+ * 阅读器：阅读器顶层编排。状态、loading/error 分支、三栏布局组合，
+ * 具体的 ops / 键位 / 列宽 / 弹窗各自下沉到子模块。
+ *
+ * 本文件只剩「早返回 + 布局骨架」：20 多个 hook 调用与 props 装配都在
+ * use-reader-screen（store 字段在 use-reader-store-fields 按 selector 一次取齐）。
+ */
 export function Reader() {
-  // 按字段 selector 订阅，避免 store 任一字段变化触发 Reader 整树重渲染
-  const openId = useReader((s) => s.openId)
-  const detail = useReader((s) => s.detail)
-  const draft = useReader((s) => s.draft)
-  const status = useReader((s) => s.status)
-  const closing = useReader((s) => s.closing)
-  const pickInfo = useReader((s) => s.pickInfo)
-  const zoom = useReader((s) => s.zoom)
-  const cols = useReader((s) => s.cols)
-  const selMode = useReader((s) => s.selMode)
-  const selPages = useReader((s) => s.selPages)
-  const ocrPending = useReader((s) => s.ocrPending)
-  const assignOpen = useReader((s) => s.assignOpen)
-  const setAssignOpen = useReader((s) => s.setAssignOpen)
-  const error = useReader((s) => s.error)
-  // 待重命名的源文件（左栏重命名入口打开），null = 关闭
-  const [renameMat, setRenameMat] = useState<{ mi: number; initial: string } | null>(null)
-  const [renaming, setRenaming] = useState(false)
-  const [railOpen, setRailOpen] = useState(false)
-  const [metaOpen, setMetaOpen] = useState(false)
-  const addInputRef = useRef<HTMLInputElement>(null)
-  // 窄屏形态按**阅读器自身净宽**判定（≤1100 抽屉化）：并排 AI 助手会让位掉
-  // 数百像素，视口断点量不到它，宽屏标识配窄屏实际宽度会三栏挤成缝。
-  // 首帧宽度未测得（0）先按宽屏渲染，测得后一个断点内翻转一次。
-  const [readerRef, readerW] = useElementWidth<HTMLDivElement>()
-  const narrow = readerW > 0 && readerW <= 1100
-  const [flowWrapRef, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
-  const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
-  const autoSplit = useAutoSplit()
+  // 逐个解构而不是用 screen.xxx：React Compiler 的 ref 规则会把「含 useRef 的自定义
+  // hook 返回值」整体视作 ref 对象，经对象属性读任何字段都会被判成访问 ref。
   const {
-    focusedSeg,
-    focusSeg,
-    deleteTarget,
-    setDeleteTarget,
-    zoomIn,
-    zoomOut,
-    onResetSegments,
-    onReject,
-    confirmDelete,
-  } = useReaderActions(draft)
-
-  const st = useReader.getState()
-
-  // 归案之后的下一个动作是「发起审查」——不接这一步，归案就是条死路：
-  // draft_state 里只多了个 assign 字段，律师回到卡片墙不知道下一步做什么。
-  const navigate = useNavigate()
-  const [launchFile, setLaunchFile] = useState<string | null>(null)
-
-  useReaderKeys()
-  // ⌘/Ctrl + 滚轮（含触控板捏合）缩放画布，挂在中栏滚动容器上
-  useWheelZoom(flowWrapEl, zoom)
-
-  const { maxCols: maxColsAllowed, effCols, railWrapCls, metaWrapCls } = useReaderWidths({
-    cols,
-    flowWrapW,
+    data,
+    meta,
+    store,
+    actions,
+    launch,
+    readerRef,
     narrow,
-    railOpen,
-    metaOpen,
-  })
-
-  useEffect(() => {
-    setRailOpen(false)
-    setMetaOpen(false)
-    setRenameMat(null)
-    setAssignOpen(false)
-    setLaunchFile(null)
-  }, [openId, setAssignOpen])
-
-  // 框选取字必须看得见页面 —— 抽屉让开
-  useEffect(() => {
-    if (pickInfo >= 0) {
-      setRailOpen(false)
-      setMetaOpen(false)
-    }
-  }, [pickInfo])
-
-  // ops 稳定化：让 Flow → PageCell 的 memo 真正命中（st.update / pickPage 都是稳定引用）。
-  // 放 early return 之前（不依赖 draft），符合 Rules of Hooks
-  const flowOps = useMemo(() => buildFlowOps(st.update, pickPage), [st.update, pickPage])
-  const metaOps = useMemo(() => buildMetaOps(st.update, st.removeInfo), [st.update, st.removeInfo])
-  // 同理：内联箭头会让 Flow 的 cellPropsOf 依赖每次 render 变化，PageCell memo 全失效
-  // ——直接 selector 取 store 里的稳定函数引用（zustand action 引用恒不变）
-  const onToggleSel = useReader((s) => s.toggleSel)
+    toolbarProps,
+    bodyProps,
+    pickField,
+    ocrOk,
+    showAssign,
+    renaming,
+    setRenaming,
+    renameMat,
+    setRenameMat,
+    setAddInputRef,
+    launchFile,
+  } = useReaderScreen()
+  const { draft, detail, openId, ocrPending } = data
 
   if (!openId || !detail) return null
-
-  const close = () => st.close()
-
-  if (status === 'loading' || !draft) {
-    return <ReaderLoading />
-  }
-
-  if (status === 'error') {
-    return <ReaderError error={error} onBack={close} />
-  }
+  if (meta.status === 'loading' || !draft) return <ReaderLoading />
+  if (meta.status === 'error') return <ReaderError error={meta.error} onBack={store.close} />
 
   const unclassified = countUnclassified(draft)
-  const allClassified = draft.segs.length > 0 && unclassified === 0
   const pages = draft.mats.reduce((s, m) => s + m.pages, 0)
-  const selDetail = selDetailOf(draft, selPages)
   // 副标题只说必要信息：页数 + 产出份数；源文件数只在多源时出现（单源是常态，不是属性）
   const subtitle = `${pages} 页 · ${draft.segs.length} 份材料${draft.mats.length > 1 ? ` · ${draft.mats.length} 个源文件` : ''}`
-
-  const changeCols = () => {
-    // 窗口不够宽就点不动（列数按钮已禁用）
-    if (maxColsAllowed <= 1) return
-    // 原型行为：在「1 列」和「当前窗口上限」之间循环，而不是写死上到 3
-    const next = effCols >= maxColsAllowed ? 1 : effCols + 1
-    st.setCols(next)
-    // 多列时收起侧栏，让页面更宽敞
-    if (next > 1) {
-      setRailOpen(false)
-      setMetaOpen(false)
-    }
-  }
-
-  // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
-  //（未归类 = 没类型且名字还是默认名；改名或右键选类型都算处理过）
-  const handleAssign = () => {
-    if (!allClassified) {
-      const first = draft.segs.findIndex((s) => !s.t && isAutoSegName(draft, s))
-      if (first >= 0) focusSeg(first)
-      toast.info(`还有 ${unclassified} 份没命名 —— 双击左栏改名，或右键选类型`)
-      return
-    }
-    setAssignOpen(true)
-  }
-
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
-  // 取字目标字段：HintBar 提示与 OCR 确认面板共用同一表达式，只算一遍
-  const pickField = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
-
-  // 工具组同一份配置渲染两处：≥1100 内联进顶栏（单行合一，narrow=false），
-  // <1100 独立一行（narrow 跟随断点）；两组只在 narrow / inline 上不同，其余完全同源
-  const toolbarProps = {
-    railOpen,
-    metaOpen,
-    onToggleRail: () => {
-      setRailOpen((v) => !v)
-      setMetaOpen(false)
-    },
-    onToggleMeta: () => {
-      setMetaOpen((v) => !v)
-      setRailOpen(false)
-    },
-    selMode,
-    onToggleSelMode: () => st.toggleSelMode(),
-    onAddFiles: () => addInputRef.current?.click(),
-    zoomVal: Math.round(zoom * 100),
-    onZoomIn: zoomIn,
-    onZoomOut: zoomOut,
-    onZoomReset: () => st.setZoom(1),
-    cols: effCols,
-    colsDisabled: maxColsAllowed <= 1,
-    onChangeCols: changeCols,
-    onResetSegments,
-    onAutoSplit: () => void autoSplit.run(),
-    autoSplitRunning: autoSplit.running,
-    autoSplitProgress: autoSplit.progress,
-  }
 
   return (
-    <FixedReader closing={closing} rootRef={readerRef}>
+    <FixedReader closing={meta.closing} rootRef={readerRef}>
       <ReaderTopBar
         title={detail.subject || '材料包'}
         subtitle={subtitle}
         unclassified={unclassified}
         tools={<ReaderToolbar {...toolbarProps} narrow={false} inline />}
-        onBack={close}
-        onReject={onReject}
-        onAssign={handleAssign}
+        onBack={store.close}
+        onReject={actions.onReject}
+        onAssign={toolbarProps.handleAssign}
         onRename={() => setRenaming(true)}
       />
 
@@ -206,105 +69,18 @@ export function Reader() {
         <ReaderToolbar {...toolbarProps} narrow={narrow} />
       </div>
 
-      {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc）。退出按钮与 Esc 同口径
-          （use-reader-keys）：取字态清掉待确认 OCR 与取字目标；选页态清选区并退出模式 */}
-      {(pickInfo >= 0 || selMode) && (
-        <HintBar
-          mode={pickInfo >= 0 ? 'pick' : 'sel'}
-          field={pickField}
-          onExit={() => {
-            if (pickInfo >= 0) {
-              st.setOcrPending(null)
-              st.setPickInfo(-1)
-              return
-            }
-            st.clearSel()
-            st.toggleSelMode()
-          }}
-        />
-      )}
+      <ReaderBody {...bodyProps} />
 
-      {/* 三栏主体 */}
-      <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
-        {narrow && (railOpen || metaOpen) && (
-          // 窄屏遮罩：仅 pointer 点按关闭，键盘用户走面板内显式关闭（aria-hidden 不入 tab 序）。
-          // absolute 相对三栏主体行（relative）：阅读器右缘已为并排助手收进来，
-          // fixed 会把遮罩铺满整个视口、连助手底下的区域也压暗
-          <div
-            aria-hidden
-            className="absolute inset-0 z-30 bg-black/20"
-            onClick={() => {
-              setRailOpen(false)
-              setMetaOpen(false)
-            }}
-          />
-        )}
-
-        {/* 左栏常驻：「源文件 → 段」的目录是这页的使用习惯，单源单段也不收
-            （曾按"内容页流首屏可见"收起过，用户反馈不符合习惯，改回） */}
-        <div className={railWrapCls}>
-          <Rail
-            draft={draft}
-            onFocusSeg={focusSeg}
-            onRenameMat={(mi) => {
-              const m = draft.mats[mi]!
-              setRenameMat({ mi, initial: m.customName || m.n })
-            }}
-            onRenameSeg={flowOps.renameSeg}
-            onSetSegType={flowOps.setSegType}
-            onMergeSeg={flowOps.mergeSeg}
-            onMergeSegs={flowOps.mergeSegs}
-            onMoveSeg={flowOps.moveSeg}
-          />
-        </div>
-
-        <div ref={flowWrapRef} className="relative min-w-0 flex-1 overflow-auto">
-          <Flow
-            draft={draft}
-            messageId={openId}
-            pickInfo={pickInfo}
-            focusedSeg={focusedSeg}
-            zoom={zoom}
-            cols={effCols}
-            selMode={selMode}
-            selPages={selPages}
-            ocrPending={ocrPending}
-            onOp={flowOps}
-            onToggleSel={onToggleSel}
-            onOcrBox={onOcrBox}
-            onRequestDelete={(picked) => setDeleteTarget(picked)}
-          />
-        </div>
-
-        <div className={metaWrapCls}>
-          <MetaPanel
-            draft={draft}
-            pickInfo={pickInfo}
-            onSetPickInfo={(i) => st.setPickInfo(i)}
-            ops={metaOps}
-          />
-        </div>
-      </div>
-
-      {/* 选页汇总条 */}
-      {selPages.length > 0 && (
-        <SelectionBar
-          count={selDetail.count}
-          cross={selDetail.cross}
-          onClear={() => st.clearSel()}
-          onApply={() => st.applySel()}
-        />
-      )}
-
-      {/* 追加材料文件选择 */}
+      {/* 追加材料文件选择（input 隐藏，由工具组的「追加」触发） */}
       <input
-        ref={addInputRef}
+        ref={setAddInputRef}
         type="file"
         multiple
-        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.heic,.mp4,.mov"
+        accept={READER_FILE_ACCEPT}
         className="hidden"
         onChange={(e) => {
-          if (e.target.files && e.target.files.length) void st.appendFiles(Array.from(e.target.files))
+          // 追加（不是替换）：多选后整体交给 store；input 复位以便再次选同一文件
+          if (e.target.files?.length) void store.appendFiles(Array.from(e.target.files))
           e.target.value = ''
         }}
       />
@@ -316,34 +92,21 @@ export function Reader() {
         ocrFrom={ocrFrom}
         ocrTo={pickField}
         onOcrText={(v) => {
-          if (ocrPending) st.setOcrPending({ ...ocrPending, text: v })
+          if (ocrPending) store.setOcrPending({ ...ocrPending, text: v })
         }}
-        onOcrRedo={() => st.setOcrPending(null)}
+        onOcrRedo={() => store.setOcrPending(null)}
+        // 取消取字：清掉待确认 OCR 并复位取字目标（与 HintBar 的退出、Esc 同一口径）
         onOcrCancel={() => {
-          st.setOcrPending(null)
-          st.setPickInfo(-1)
+          store.setOcrPending(null)
+          store.setPickInfo(-1)
         }}
         onOcrOk={ocrOk}
-        showAssign={assignOpen}
-        onAssignCancel={() => setAssignOpen(false)}
-        onAssignConfirm={(assign) => {
-          setAssignOpen(false)
-          st.setAssign(assign)
-          toast('已归案')
-          // 归案后直接进发起审查：docx 才能审，其余格式在审查页里说清楚
-          const target = draft.mats.find((m) => /\.docx$/i.test(m.n))
-          if (target) {
-            setLaunchFile(target.n)
-            return
-          }
-          toast.info('材料包里没有 .docx：审查流水线只处理 Word 文档', {
-            description: 'PDF / 图片请先转成 docx，或到合同文件夹里对 docx 发起审查',
-          })
-          st.close()
-        }}
-        deleteTarget={deleteTarget}
-        onDeleteCancel={() => setDeleteTarget(null)}
-        onDeleteConfirm={confirmDelete}
+        showAssign={showAssign}
+        onAssignCancel={() => store.setAssignOpen(false)}
+        onAssignConfirm={launch.onAssignConfirm}
+        deleteTarget={actions.deleteTarget}
+        onDeleteCancel={() => actions.setDeleteTarget(null)}
+        onDeleteConfirm={actions.confirmDelete}
         renaming={renaming}
         onRenamingChange={setRenaming}
         renameMat={renameMat}
@@ -351,46 +114,16 @@ export function Reader() {
       />
 
       {/* 归案 → 发起审查。抽屉自己负责上传 + 确认立场，完成后通知跳复审台。 */}
-      {launchFile && detail && (
+      {launchFile && (
         <ReviewLaunchDrawer
           open
           fileName={launchFile}
           loadFile={() => loadDocxBytes(detail.id, draft, launchFile)}
-          parties={draft.infos.reduce<Record<string, string>>((acc, info, i) => {
-            if (info.v?.trim()) acc[`party_${'abcd'[i] ?? 'a'}`] = info.v.trim()
-            return acc
-          }, {})}
-          onClose={() => {
-            setLaunchFile(null)
-            st.close()
-          }}
-          onStarted={(taskId) => {
-            setLaunchFile(null)
-            st.close()
-            // 材料归属里的案件/合同 id 才是项目的锚点；没归到项目就在预处页停下来
-            const projectId = detail.draft_state?.assign?.caseId
-            if (projectId) {
-              toast.success('审查已启动', { description: '正在打开复审工作台…' })
-              void navigate(`/projects/${projectId}/review/${taskId}`)
-              return
-            }
-            toast.success('审查已启动', {
-              description: '材料尚未归属到具体项目，请到项目下查看复审工作台',
-            })
-          }}
+          parties={partiesOf(draft)}
+          onClose={launch.onCloseDrawer}
+          onStarted={launch.onStarted}
         />
       )}
     </FixedReader>
   )
-}
-
-/** 从材料包里取 docx 字节（审查流水线只吃 docx，需带鉴权）。 */
-async function loadDocxBytes(
-  messageId: number,
-  draft: DraftState,
-  fileName: string,
-): Promise<ArrayBuffer> {
-  const mat = draft.mats.find((m) => m.n === fileName)
-  if (!mat) throw new Error('材料包里找不到该文件')
-  return fetchAttachmentBytes(messageId, mat.partIndex)
 }

@@ -35,7 +35,9 @@ export function CaseBindingSection({ task, onBound }: Props) {
 
   // 搜索：输入停 250ms 才请求，至少 2 字符才查（minLength=2，与旧防抖版一致）；
   // 上一请求由 signal 自动中止，无响应竞态
-  const { keyword: kw, setKeyword: setKw, data: searched = [], isFetching: searching } = useTypeaheadSearch<CaseSearchItem[]>({
+  // searching 用 hook 的 isSearching：isFetching 在 keepPreviousData 下恒真，
+  // 直接当 loading 会让输入框里的转圈永远不停
+  const { keyword: kw, setKeyword: setKw, data: searched = [], isSearching: searching } = useTypeaheadSearch<CaseSearchItem[]>({
     queryKey: (dk) => ['doc-recognition-case-search', dk],
     queryFn: ({ keyword, signal }) => searchCasesForBinding(keyword, { signal }),
     enabled: !isBound,
