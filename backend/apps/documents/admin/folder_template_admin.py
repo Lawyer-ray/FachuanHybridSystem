@@ -6,6 +6,7 @@ Requirements: 6.1, 6.7
 
 import json
 import logging
+from functools import lru_cache
 from typing import Any
 
 from django import forms
@@ -33,6 +34,25 @@ def _get_admin_service() -> Any:
     from apps.documents.services.template.folder_template.admin_service import FolderTemplateAdminService
 
     return FolderTemplateAdminService()
+
+
+@lru_cache(maxsize=1)
+def _slot_vocabulary() -> tuple[dict[str, str], dict[str, str]]:
+    """返回（槽位 key→标签、key→分类）词表。
+
+    changelist 的 ``slots_provided_display`` 每行都会调用，而词表是**全表常量**：
+    原实现每行跑两次全表查询（get_slot_label_map 的 all() +
+    values_list("key","category")），N 行就变成 2N 次查询。词表进程内缓存，
+    一次查询同时拿到两列。
+    注意：必定为新写槽位时需重启进程（admin 场景可接受）。
+    """
+    from apps.documents.models import FolderSlot
+
+    slots = list(FolderSlot.objects.all())
+    # 标签口径必须与 FolderSlot.__str__ 一致（名称 (key) · 短分类），否则预览树与列表徽标会不一致
+    labels = {slot.key: str(slot) for slot in slots}
+    key_to_cat = {slot.key: slot.category for slot in slots}
+    return labels, key_to_cat
 
 
 class MultiSelectWidget(forms.CheckboxSelectMultiple):  # pragma: no cover
@@ -428,9 +448,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
 
         from django.utils.html import format_html
 
-        from apps.documents.models import FolderSlot
         from apps.documents.models.choices import FolderSlotCategory
-        from apps.documents.services.template.folder_template.admin_service import get_slot_label_map
 
         kinds: list[str] = []
         seen: set[str] = set()
@@ -449,8 +467,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
         if not kinds:
             return format_html('<span style="color: #999;">—</span>')
 
-        labels = get_slot_label_map()
-        key_to_cat = dict(FolderSlot.objects.values_list("key", "category"))
+        labels, key_to_cat = _slot_vocabulary()
         cat_counter = Counter(key_to_cat.get(kind, "") for kind in kinds)
 
         summary = "　".join(
