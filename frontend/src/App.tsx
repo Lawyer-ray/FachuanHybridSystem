@@ -143,13 +143,15 @@ function AppShell() {
 
   // 并排模式：宽屏（≥1280）下面板不再悬浮覆盖，主内容区让出右侧等宽
   // padding（--copilot-w-app 由面板的 resize hook 同步），页面与 AI 可同屏
-  // 对照——合同详情页的文件夹树可直接拖文件进 AI 输入区。偏好跨会话记忆，
-  // 窄屏回落悬浮 + 遮罩（面板 header 的切换按钮也只在宽屏出现）。
+  // 对照——合同详情页的文件夹树可直接拖文件进 AI 输入区。**默认并排**：
+  // 悬浮会盖住右侧内容且页面无从感知、无法自适应，并排让位后页面按容器
+  // 净宽重排（各页布局用容器查询，见 HomePage / ReviewWorkbenchPage）。
+  // 窄屏回落悬浮（面板 w-full / sm 定宽覆盖），偏好跨会话记忆。
   const [copilotDock, setCopilotDock] = useState(() => {
     try {
-      return localStorage.getItem(COPILOT_DOCK_KEY) === '1'
+      return localStorage.getItem(COPILOT_DOCK_KEY) !== '0'
     } catch {
-      return false
+      return true
     }
   })
   const isXlUp = useMediaQuery('(min-width: 1280px)')
@@ -284,7 +286,16 @@ function AppShell() {
       )}
       <div
         className="transition-[padding-right] duration-200"
-        style={effectiveDocked ? { paddingRight: 'var(--copilot-w-app, 0px)' } : undefined}
+        style={
+          effectiveDocked
+            ? ({
+                paddingRight: 'var(--copilot-w-app, 0px)',
+                // 并排让位的净宽对 fixed 定位的全屏层（材料预处理阅读器）同样生效：
+                // 它们不吃父级 padding，只能用 CSS 变量把自己的右缘收进来。
+                '--copilot-docked-w': 'var(--copilot-w-app, 0px)',
+              } as React.CSSProperties)
+            : undefined
+        }
       >
         <PageErrorBoundary>
           <Suspense fallback={<RouteFallback />}>

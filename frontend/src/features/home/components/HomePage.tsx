@@ -187,8 +187,10 @@ export function HomePage() {
 
   return (
     <>
-      {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上，换页重挂才播一次 */}
-      <main className="app-page-enter mx-auto max-w-[1920px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
+      {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上，换页重挂才播一次。
+          @container：布局断点改量 main 的净宽——AI 助手并排让位（padding-right）
+          后视口断点量不到被吃掉的宽度，会把日历挤成窄条（详见 AppShell 并排注释） */}
+      <main className="app-page-enter @container mx-auto max-w-[1920px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
         {/* 问候 + 快速记一笔 */}
         <div className="mb-5 flex flex-wrap items-end gap-[18px]">
           <div className="min-w-0">
@@ -223,9 +225,11 @@ export function HomePage() {
           <QuickAdd onAdded={invalidateCalendar} />
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          {/* 左：日历 + 工具 */}
-          <div className="min-w-0">
+        {/* 双栏阈值按容器净宽（1200 ≈ 旧视口 xl 1280 扣页边距）：助手让位后
+            净宽不足即回落单栏，日历占满、右栏下移，不再被挤成窄条 */}
+        <div className="grid grid-cols-1 items-start gap-6 @min-[1200px]:grid-cols-[minmax(0,1fr)_340px]">
+          {/* 左：日历 + 工具。@container 让 ToolDock / 日历密度按本栏宽度自适应 */}
+          <div className="@container min-w-0">
             {viewQuery.isError ? (
               /* 视图月拉取失败：整块日历换错误条（占位旧数据/空格子都会被误读成「没安排」） */
               <div className="rounded-[14px] border border-destructive/30 bg-destructive/5 px-5 py-[90px] text-center text-sm text-destructive">

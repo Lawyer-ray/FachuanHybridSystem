@@ -134,13 +134,15 @@ export function ReaderToolbar({
   )
 
   if (inline) {
-    // 嵌入顶栏：只输出按钮组，justify-end 让它们靠向右侧的 不接/归案
-    return <div className="hidden min-[1100px]:flex min-w-0 flex-1 items-center justify-end gap-2 text-[12.5px]">{tools}</div>
+    // 嵌入顶栏：只输出按钮组，justify-end 让它们靠向右侧的 不接/归案。
+    // 显隐按阅读器净宽（FixedReader @container）：并排 AI 助手让位后阅读器
+    // 实际只有几百像素宽，视口断点会让工具组在顶栏里挤成一团
+    return <div className="hidden @min-[1100px]:flex min-w-0 flex-1 items-center justify-end gap-2 text-[12.5px]">{tools}</div>
   }
 
   return (
     // 外层只负责边框底色与手机端右缘渐变（渐变得挂在不滚动的层上，否则跟着内容一起滚走）
-    <div className="relative flex-none border-b border-border bg-card min-[1100px]:hidden max-[760px]:after:pointer-events-none max-[760px]:after:absolute max-[760px]:after:inset-y-0 max-[760px]:after:right-0 max-[760px]:after:w-8 max-[760px]:after:bg-gradient-to-l max-[760px]:after:from-card max-[760px]:after:to-transparent">
+    <div className="relative flex-none border-b border-border bg-card hidden @max-[1100px]:block max-[760px]:after:pointer-events-none max-[760px]:after:absolute max-[760px]:after:inset-y-0 max-[760px]:after:right-0 max-[760px]:after:w-8 max-[760px]:after:bg-gradient-to-l max-[760px]:after:from-card max-[760px]:after:to-transparent">
       <div className="mp-rd-toolbar text-[12.5px]">{tools}</div>
     </div>
   )

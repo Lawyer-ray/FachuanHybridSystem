@@ -123,7 +123,7 @@ export function Rail({
     )
 
   return (
-    <aside className="flex h-full w-[232px] flex-none flex-col gap-3 overflow-y-auto border-r border-border bg-card p-3 xl:w-[268px]">
+    <aside className="flex h-full w-[232px] flex-none flex-col gap-3 overflow-y-auto border-r border-border bg-card p-3 @min-[1280px]:w-[268px]">
       <h4 className="px-1 text-sm font-medium">
         材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
       </h4>

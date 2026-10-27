@@ -134,7 +134,7 @@ export function ReviewWorkbenchPage() {
   }
 
   return (
-    <main className="app-page-enter mx-auto flex h-[calc(100vh-56px)] max-w-[1600px] flex-col px-[22px] pb-4 pt-3">
+    <main className="app-page-enter @container mx-auto flex h-[calc(100vh-56px)] max-w-[1600px] flex-col px-[22px] pb-4 pt-3">
       {/* 页头 */}
       <div className="flex flex-none items-center gap-3 pb-2.5">
         <button
@@ -186,10 +186,12 @@ export function ReviewWorkbenchPage() {
         </div>
       )}
 
-      {/* 三栏 */}
-      <div className="grid min-h-0 flex-1 grid-cols-[290px_minmax(0,1fr)_320px] overflow-hidden rounded-[12px] border border-border bg-card shadow-sm max-[1200px]:grid-cols-[260px_minmax(0,1fr)] max-[900px]:grid-cols-1">
+      {/* 三栏。断点全部走容器查询（本路由在宽屏恒并排 AI 助手，视口断点
+          量不到被吃掉的几百像素，三栏会挤成一条条窄缝）：
+          ≥1150 三栏（≈ 旧视口 1200 扣页边距）／≥850 建议清单+画布／再窄只留画布 */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-[12px] border border-border bg-card shadow-sm @min-[850px]:grid-cols-[260px_minmax(0,1fr)] @min-[1150px]:grid-cols-[290px_minmax(0,1fr)_320px]">
         {/* 左：建议清单 */}
-        <aside className="min-h-0 border-r border-border-light max-[900px]:hidden">
+        <aside className="min-h-0 border-r border-border-light @max-[850px]:hidden">
           {isLoading ? (
             <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
@@ -211,7 +213,7 @@ export function ReviewWorkbenchPage() {
         </div>
 
         {/* 右：版本链 / AI 对话。版本链展开时占据右栏（同一块地方不并排挤） */}
-        <aside className="flex min-h-0 flex-col border-l border-border-light max-[1200px]:hidden">
+        <aside className="flex min-h-0 flex-col border-l border-border-light @max-[1150px]:hidden">
           {showVersions ? (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex flex-none items-center justify-between border-b border-border-light px-3.5 py-2.5">
