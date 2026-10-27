@@ -133,7 +133,13 @@ export function PaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
-      <DialogContent className="max-h-[88vh] max-w-[620px] gap-0 overflow-y-auto p-6">
+      {/* grid-cols-[minmax(0,1fr)]：DialogContent 是单列 auto grid，识别结果那行
+          truncate 文本（nowrap）的 min-content 会把列撑到 658px，整个弹窗横向
+          溢出、footer 被顶出可视区（表现为「识别后 UI 错乱、保存按钮够不着」）。
+          minmax(0,…) 把列的 min 钳到 0，截断才真正生效。
+          sm:max-w-[620px]：必须带 sm: 前缀才能覆盖基类的 sm:max-w-lg(512px)，
+          裸 max-w-[620px] 会被 sm: 变体压制，弹窗一直偏窄。 */}
+      <DialogContent className="max-h-[88vh] grid-cols-[minmax(0,1fr)] gap-0 overflow-y-auto p-6 sm:max-w-[620px]">
         <DialogHeader className="pb-3">
           <DialogTitle className="text-[15px]">记收款</DialogTitle>
         </DialogHeader>
