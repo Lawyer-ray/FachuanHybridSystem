@@ -55,6 +55,7 @@ def list_messages(  # pragma: no cover
     source_id: int | None = None,
     source_type: str | None = None,
     has_attachments: bool | None = None,
+    unread_only: bool = False,
     search: str | None = None,
     limit: int = 500,
     offset: int = 0,
@@ -80,6 +81,8 @@ def list_messages(  # pragma: no cover
         qs = qs.filter(source__source_type__in=types)
     if has_attachments is not None:
         qs = qs.filter(has_attachments=has_attachments)
+    if unread_only:
+        qs = qs.filter(read_at__isnull=True)
     if search:
         from django.db.models import Q
 
@@ -155,6 +158,62 @@ def delete_message(request: HttpRequest, message_id: int) -> dict[str, Any]:  # 
     msg = _get_message_or_404(request, message_id)
     delete_manual_message(msg)
     return {"ok": True, "message_id": message_id}
+
+
+# ---------------------------------------------------------------------------
+# 已读态 / 转材料包（收件箱页）
+# ---------------------------------------------------------------------------
+
+
+class ReadStateIn(Schema):
+    read: bool = True
+
+
+class ReadStateOut(MessageAckOut):
+    is_read: bool = False
+    read_at: str | None = None
+
+
+@router.post("/messages/{message_id}/read", response=ReadStateOut)
+def set_read_state(request: HttpRequest, message_id: int, payload: ReadStateIn) -> dict[str, Any]:
+    """标记已读 / 未读。幂等：重复置已读不刷新首次阅读时间。"""
+    from django.utils import timezone
+
+    from apps.core.api.schemas import SchemaMixin
+
+    msg = _get_message_or_404(request, message_id)
+    if payload.read and msg.read_at is None:
+        msg.read_at = timezone.now()
+        msg.save(update_fields=["read_at"])
+    elif not payload.read and msg.read_at is not None:
+        msg.read_at = None
+        msg.save(update_fields=["read_at"])
+    return {
+        "ok": True,
+        "message_id": msg.pk,
+        "is_read": msg.read_at is not None,
+        "read_at": SchemaMixin._resolve_datetime_iso(msg.read_at) if msg.read_at else None,
+    }
+
+
+class ConvertOut(Schema):
+    ok: bool
+    message_id: int
+    """生成的（或已存在的）材料包消息 id，前端据此直接跳 /material-prep/:id"""
+    pack_id: int
+
+
+@router.post("/messages/{message_id}/convert", response=ConvertOut)
+def convert_message(request: HttpRequest, message_id: int) -> dict[str, Any]:
+    """把外部来源消息（一张网 / IMAP / 短信）的附件转成一个材料包。
+
+    幂等：同一消息已有 converted_message 时直接返回那个包（不重复搬运字节）。
+    """
+    from apps.message_hub.services.inbox_convert_service import convert_to_material_pack
+
+    msg = _get_message_or_404(request, message_id)
+    pack = convert_to_material_pack(msg, uploaded_by=request.user)
+    return {"ok": True, "message_id": msg.pk, "pack_id": pack.pk}
 
 
 @router.get("/messages/{message_id}/attachments/{part_index}/download")

@@ -78,6 +78,14 @@ class Case(models.Model):
         related_name="next_cases",
         verbose_name=_("前序案件"),
     )
+    yz_wid = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name=_("一张网ID"),
+        help_text=_("全国法院一张网案件标识（ajbh），用于从一张网同步案号与审判组织成员"),
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 

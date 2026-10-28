@@ -157,6 +157,13 @@ export function AppNavbar({
       >
         <NavLink to="/" label="首页" active={navPath === '/'} onSelect={selectNav} onPrefetch={onPrefetch} />
         <NavLink
+          to="/inbox"
+          label="收件箱"
+          active={navPath.startsWith('/inbox')}
+          onSelect={selectNav}
+          onPrefetch={onPrefetch}
+        />
+        <NavLink
           to="/material-prep"
           label="材料预处理"
           active={navPath.startsWith('/material-prep')}

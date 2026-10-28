@@ -18,6 +18,8 @@ export const ROUTES = {
   /** 客户材料上传（公开，链接即凭证） */
   clientUpload: '/u/:token',
   home: '/',
+  /** 收件箱：消息流入总入口（法院送达 / 邮箱 / 短信 / 材料包） */
+  inbox: '/inbox',
   materialPrep: '/material-prep',
   materialPrepDetail: '/material-prep/:id',
   projects: '/projects',
@@ -41,6 +43,11 @@ export function publicUpload(token: string): string {
 /** 材料预处理页（不带具体材料包） */
 export function materialPrep(): string {
   return ROUTES.materialPrep
+}
+
+/** 收件箱页（消息流入总入口） */
+export function inboxPath(): string {
+  return ROUTES.inbox
 }
 
 /** 材料包详情：可刷新、可分享、支持前进后退 */

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { History, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { TOOL_ENDPOINT } from '../../constants'
 import { BTN_PRIMARY, FIELD } from '../../ui'
 import { Spinner, ToolShell } from './shared'
 import { CourtSmsFlowDialog } from './court-sms/CourtSmsFlowDialog'
@@ -66,7 +65,6 @@ export function CourtSmsCard() {
     <ToolShell
       icon={<MessageSquare className="h-3.5 w-3.5" />}
       title="收法院短信"
-      endpoint={TOOL_ENDPOINT.courtSms}
       headerExtra={
         <button
           type="button"

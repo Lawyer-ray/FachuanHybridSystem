@@ -17,6 +17,7 @@ import {
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { CardHead } from './CardHead'
+import { inboxPath } from '@/app/paths'
 
 /* ============================================================ 收件箱流入 */
 
@@ -46,7 +47,11 @@ export function InboxCard({ onOpen }: InboxProps) {
 
   return (
     <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="收件箱" count={isError ? '' : data.length ? `${data.length} 条` : ''} />
+      <CardHead
+        title="收件箱"
+        count={isError ? '' : data.length ? `${data.length} 条` : ''}
+        moreHref={inboxPath()}
+      />
       <div className="px-2.5 pt-1.5 pb-2.5">
         {isError && (
           /* 失败与空收件箱必须分得开：否则服务端故障会被读成「没有新消息」 */

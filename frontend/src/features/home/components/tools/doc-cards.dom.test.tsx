@@ -25,7 +25,6 @@ const apiMock = vi.hoisted(() => ({
   CONVERT_TEMPLATES_KEY: ['convert-templates'],
   CONVERT_HISTORY_KEY: ['convert-history'],
   PARSE_HISTORY_KEY: ['parse-history'],
-  TOOL_ENDPOINT: { docConvert: '/e1', docConverter: '/e2', docParse: '/e3' },
 }))
 
 vi.mock('../../api', async (importOriginal) => {

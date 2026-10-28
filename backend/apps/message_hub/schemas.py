@@ -60,11 +60,30 @@ class InboxMessageOut(SchemaMixin, Schema):
     mats: int = 0
     types: list[str] = []
     compose: str = ""
+    # 已读态（收件箱页用）：read_at 为 null 即未读；前端只消费布尔，保留时间戳供调试/排序
+    is_read: bool = False
+    read_at: str | None = None
+    # 转换链路：非 manual_upload 消息「转材料包」后指向生成的材料包
+    converted_message_id: int | None = None
     # 客户链接上传的包：来源链接与项目绑定徽标（归案弹窗预选用）
     upload_link_id: int | None = None
     upload_link_title: str = ""
     upload_contract_id: int | None = None
     upload_contract_name: str = ""
+
+    @staticmethod
+    def resolve_is_read(obj: InboxMessage) -> bool:
+        return obj.read_at is not None
+
+    @staticmethod
+    def resolve_read_at(obj: InboxMessage) -> str | None:
+        if obj.read_at is None:
+            return None
+        return SchemaMixin._resolve_datetime_iso(obj.read_at)
+
+    @staticmethod
+    def resolve_converted_message_id(obj: InboxMessage) -> int | None:
+        return obj.converted_message_id if obj.converted_message_id else None
 
     @staticmethod
     def resolve_status(obj: InboxMessage) -> str:

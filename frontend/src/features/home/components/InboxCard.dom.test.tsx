@@ -11,6 +11,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiMock = vi.hoisted(() => ({
@@ -31,9 +32,14 @@ vi.mock('@/features/document-recognition', () => ({
 
 import { InboxCard } from './SideCards'
 
+// CardHead 现在带「查看全部」用的是 react-router 的 Link，渲染必须包 Router
 function wrap(children: ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
+  )
 }
 
 function item(id: number, over: Record<string, unknown> = {}) {

@@ -12,6 +12,7 @@ import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { EventContextMenu } from './EventContextMenu'
 import { EventDetailDialog } from './EventDetailDialog'
 import { ToolDock } from './ToolDock'
+import { inboxPath } from '@/app/paths'
 import { useMediaQuery } from '@/hooks/use-media'
 import { useToday } from '@/hooks/use-today'
 import { todayKey } from '@/lib/date'
@@ -161,15 +162,22 @@ export function HomePage() {
     [navigate],
   )
 
+  // 非材料包来源（法院送达 / 邮箱 / 短信）→ 进收件箱页看详情。
+  // 此前这里弹「详情页正在开发中」——收件箱页上线后那个提示就是假话，
+  // 且它是律师点得最多的一条路径（法院文书比材料包多两个数量级）。
+  const goInbox = useCallback(() => {
+    void navigate(inboxPath())
+  }, [navigate])
+
   const handleInboxOpen = useCallback(
     (item: InboxItem) => {
       if (item.kind === 'mat') {
         goPack(item.id)
         return
       }
-      toast.info(`${item.title} —— 详情页正在开发中`)
+      goInbox()
     },
-    [goPack],
+    [goPack, goInbox],
   )
 
   const shiftMonth = useCallback((delta: number) => {

@@ -216,6 +216,7 @@ class CaseAdmin(
                     "filing_number",
                     "effective_date",
                     "specified_date",
+                    "yz_wid",
                 ),
             },
         ),

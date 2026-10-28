@@ -137,7 +137,7 @@ describe('shared', () => {
 
   it('ToolShell：无 onDropFiles 时不注册拖放（不显示高亮层）', () => {
     const { container } = render(
-      <ToolShell icon={<i />} title="工具" endpoint="/api/x">
+      <ToolShell icon={<i />} title="工具">
         <span>内容</span>
       </ToolShell>,
     )
@@ -149,7 +149,7 @@ describe('shared', () => {
   it('ToolShell：拖入匹配后缀的文件时回调收到文件', () => {
     const onDropFiles = vi.fn()
     const { container } = render(
-      <ToolShell icon={<i />} title="工具" endpoint="/api/x" dropAccept=".doc,.docx" onDropFiles={onDropFiles}>
+      <ToolShell icon={<i />} title="工具" dropAccept=".doc,.docx" onDropFiles={onDropFiles}>
         <span>内容</span>
       </ToolShell>,
     )
@@ -163,7 +163,7 @@ describe('shared', () => {
   it('ToolShell：全部后缀不匹配时提示且不回调', () => {
     const onDropFiles = vi.fn()
     const { container } = render(
-      <ToolShell icon={<i />} title="工具" endpoint="/api/x" dropAccept=".doc" onDropFiles={onDropFiles}>
+      <ToolShell icon={<i />} title="工具" dropAccept=".doc" onDropFiles={onDropFiles}>
         <span>内容</span>
       </ToolShell>,
     )
@@ -177,7 +177,7 @@ describe('shared', () => {
   it('ToolShell：无文件拖入时不触发任何回调', () => {
     const onDropFiles = vi.fn()
     const { container } = render(
-      <ToolShell icon={<i />} title="工具" endpoint="/api/x" dropAccept=".doc" onDropFiles={onDropFiles}>
+      <ToolShell icon={<i />} title="工具" dropAccept=".doc" onDropFiles={onDropFiles}>
         <span>内容</span>
       </ToolShell>,
     )

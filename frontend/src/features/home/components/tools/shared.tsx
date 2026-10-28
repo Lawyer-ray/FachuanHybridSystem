@@ -62,13 +62,12 @@ function useCardDrop(accept: string | undefined, onDropFiles: ((files: File[]) =
   return { dragOver, cardDragProps: handlers }
 }
 
-/** 工具卡外壳：图标 + 标题 + 后端端点注释 + 内容区。
+/** 工具卡外壳：图标 + 标题 + 内容区。
  *  headerExtra 放头部右侧小入口；给 dropAccept + onDropFiles 即成为拖放目标，
  *  拖文件悬停时整卡高亮（浏览器默认「丢上来就打开文件」由 ToolDock 全局拦截）。 */
 export function ToolShell({
   icon,
   title,
-  endpoint,
   headerExtra,
   dropAccept,
   onDropFiles,
@@ -76,7 +75,6 @@ export function ToolShell({
 }: {
   icon: ReactNode
   title: string
-  endpoint: string
   headerExtra?: ReactNode
   dropAccept?: string
   onDropFiles?: (files: File[]) => void
@@ -104,9 +102,6 @@ export function ToolShell({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[12.5px] leading-[1.2] font-semibold">{title}</div>
-          <div className="mt-[2px] truncate font-mono text-[9px] text-muted-foreground" title={endpoint}>
-            {endpoint}
-          </div>
         </div>
         {headerExtra}
       </div>

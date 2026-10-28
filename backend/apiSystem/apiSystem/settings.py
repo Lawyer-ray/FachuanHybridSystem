@@ -439,6 +439,17 @@ STATIC_URL = "static/"
 # 静态文件收集目录（Docker 部署需要）
 STATIC_ROOT = os.environ.get("STATIC_ROOT", BASE_DIR / "staticfiles")
 
+# 插件自己的静态资源（展示/交互逻辑归属插件，宿主只 <script src> 引用）。
+# 与 _TEMPLATE_DIRS 同思路：插件未安装时不注册，避免 Django W004 警告。
+STATICFILES_DIRS: list[str] = []
+try:
+    from plugins import has_court_case_sync_plugin  # type: ignore[attr-defined]
+
+    if has_court_case_sync_plugin():
+        STATICFILES_DIRS.append(os.path.join(BASE_DIR, "..", "plugins", "court_automation", "static"))
+except ImportError:
+    pass
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

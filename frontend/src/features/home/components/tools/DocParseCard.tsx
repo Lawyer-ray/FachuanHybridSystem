@@ -3,7 +3,6 @@ import { Copy, FileDown, FileSearch } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { PARSE_BACKENDS, type ParseBackend } from '../../api'
-import { TOOL_ENDPOINT } from '../../constants'
 import { BTN, BTN_PRIMARY, FIELD } from '../../ui'
 import { FilePicker, Spinner, ToolShell } from './shared'
 import { FlowNotice, TaskFlowDialog } from './dialog/TaskFlowDialog'
@@ -74,7 +73,6 @@ export function DocParseCard() {
     <ToolShell
       icon={<FileSearch className="h-3.5 w-3.5" />}
       title="文档解析"
-      endpoint={TOOL_ENDPOINT.docParse}
       headerExtra={<HistoryButton title="历史解析记录" onClick={() => setHistoryOpen(true)} />}
       dropAccept={acceptOf(backend)}
       onDropFiles={(fs) => pick(fs[0] ?? null)}

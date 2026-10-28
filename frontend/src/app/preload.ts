@@ -20,6 +20,11 @@ import { ROUTES } from './paths'
 const preloadDeskPage = () => import('@/features/material-prep')
 export const DeskPageLazy = lazy(() => preloadDeskPage().then((m) => ({ default: m.DeskPage })))
 
+// 收件箱页：独立轻量 chunk（只依赖 react-query + ky，不背 pdfjs）。
+// 与材料预处理分开拆，是因为从收件箱点进材料包时才需要 pdfjs。
+const preloadInboxPage = () => import('@/features/inbox')
+export const InboxPageLazy = lazy(() => preloadInboxPage().then((m) => ({ default: m.InboxPage })))
+
 // AI 助手面板懒加载：只在首次展开时加载 copilot 域；挂壳层、跨路由常驻，
 // 收起面板不卸载状态（流式收发在 store，见 features/copilot）。
 export const CopilotPanelLazy = lazy(() =>
@@ -42,6 +47,7 @@ export const ClientUploadPageLazy = lazy(() =>
  */
 const ROUTE_PRELOADERS: Record<string, () => Promise<unknown>> = {
   [ROUTES.home]: preloadHomePage,
+  [ROUTES.inbox]: preloadInboxPage,
   [ROUTES.materialPrep]: preloadDeskPage,
   [ROUTES.projects]: preloadWorkbenchPage,
 }
