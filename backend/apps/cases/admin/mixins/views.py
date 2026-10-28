@@ -7,7 +7,7 @@ import logging
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, HttpResponse
@@ -39,6 +39,20 @@ def _has_court_filing_plugin() -> bool:
         return has_court_automation_plugin()  # type: ignore[no-any-return]
     except ImportError:
         return False
+
+
+def _get_case_sync_integration() -> Any:
+    """取「一张网案件同步」插件的 admin 集成层；插件未安装时返回 None。
+
+    一张网（登录、协议、字段解析、落库）全部由 plugins 承载，宿主只拿一个
+    钩子对象：追加 URL、注入模板上下文。插件缺失时案件编辑页退化为原样。
+    """
+    try:
+        from plugins.court_automation.case_sync import admin_integration
+
+        return admin_integration
+    except ImportError:
+        return None
 
 
 def _resolve_confined_temp_path(temp_file_path: str) -> Path | None:
@@ -189,6 +203,10 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 name="cases_case_email_folder_import",
             ),
         ]
+        # 「一张网同步」端点由插件提供（协议/登录/落库都在 plugins 内）
+        case_sync = _get_case_sync_integration()
+        if case_sync is not None and case_sync.is_available():
+            custom_urls.extend(case_sync.get_urls(self))
         return custom_urls + urls
 
     def _ensure_case_access(self, request: HttpRequest, case: Case | None, *, case_id: int | None = None) -> None:
@@ -449,6 +467,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
             if extra_context is None:
                 extra_context = {}
             extra_context["has_folder_binding"] = has_binding
+            extra_context.update(self._build_case_sync_context(int(object_id)))
 
         response = super().changeform_view(request, object_id, form_url, extra_context)  # type: ignore[misc]
 
@@ -456,6 +475,16 @@ class CaseAdminViewsMixin:  # pragma: no cover
             self._log_post_response(response)
 
         return response  # type: ignore[no-any-return]
+
+    def _build_case_sync_context(self, case_id: int) -> dict[str, object]:  # pragma: no cover
+        """「一张网ID + 同步」区块的模板上下文（全部来自插件）。"""
+        case_sync = _get_case_sync_integration()
+        if case_sync is None or not case_sync.is_available():
+            return {"has_yizhangwang_plugin": False, "yizhangwang_case_space_url": ""}
+
+        case = Case.objects.filter(pk=case_id).only("id", "yz_wid").first()
+        context = case_sync.get_context(case)
+        return dict(context)
 
     @staticmethod
     def _check_folder_binding(case_id: int) -> bool:  # pragma: no cover

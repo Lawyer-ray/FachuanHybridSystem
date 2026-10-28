@@ -220,6 +220,12 @@ class CaseAdmin(
             },
         ),
         (
+            _("一张网"),
+            {
+                "fields": ("yz_wid",),
+            },
+        ),
+        (
             _("案件关联"),
             {
                 "classes": ("collapse",),

@@ -8,6 +8,10 @@
 <script src="{% static 'cases/js/litigation_fee.js' %}"></script>
 <link rel="stylesheet" href="{% static 'cases/css/case_folder_browser.css' %}">
 <script src="{% static 'cases/js/case_folder_browser.js' %}"></script>
+{% if has_yizhangwang_plugin %}
+<link rel="stylesheet" href="{% static 'court_automation/css/yizhangwang_sync.css' %}">
+<script src="{% static 'court_automation/js/yizhangwang_sync.js' %}" defer></script>
+{% endif %}
 <style>
 .inline-group .tabular td { font-size: 0.8125rem; }
 [x-cloak] { display: none !important; }
@@ -239,6 +243,13 @@
 {{ block.super }}
 
 {% if original %}
+<!-- 一张网同步：端点与交互均来自 plugins.court_automation.case_sync，宿主只放配置容器 -->
+{% if has_yizhangwang_plugin %}
+<div id="yz-sync-config"
+     data-sync-url="{% url 'admin:cases_case_yizhangwang_sync' original.pk %}"
+     data-sync-label="同步"
+     hidden></div>
+{% endif %}
 <!-- 文件夹绑定组件 -->
 {% with folder_browser_component="caseFolderBrowser" folder_browser_entity_pk=original.pk %}
 {% include "admin/core/includes/folder_binding_widget.html" %}
