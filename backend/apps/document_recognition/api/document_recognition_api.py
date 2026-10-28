@@ -14,6 +14,7 @@ from urllib.parse import quote
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.utils import timezone
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
@@ -28,6 +29,39 @@ router = Router(tags=["法院文书识别"])
 
 # 支持的文件格式
 SUPPORTED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
+
+# 任务疑似僵死的阈值（秒）。
+#
+# 正常识别 1-3 秒；即使 LLM 慢到 90 秒也能在 timeout=600 的 q 任务里跑完。
+# 取 180 秒：足够覆盖“网关抖动 + 重试”，又能在真的卡住时比前端 10 分钟硬
+# 超时早得多地告知用户。教训（2026-10-28）：本机 Clash 把内网网关当成外网
+# 走代理，LLM 持续 502 重试，单次识别实测 439 秒，而界面全程只显示“识别中”。
+STALLED_THRESHOLD_SECONDS = 180
+
+
+def _elapsed_seconds(task: Any) -> int | None:
+    """任务已耗时（秒）。未开始返回 None；已结束用 finished_at 锁定。"""
+    start = getattr(task, "started_at", None) or getattr(task, "created_at", None)
+    if start is None:
+        return None
+    end = getattr(task, "finished_at", None)
+    # timezone-aware 与 naive 都可能出现（旧数据），统一按 aware 算
+    try:
+        delta = (end or timezone.now()) - start
+    except TypeError:  # naive/aware 混用
+        delta = (end or timezone.now()).replace(tzinfo=None) - start.replace(tzinfo=None)
+    return max(0, int(delta.total_seconds()))
+
+
+def _is_stalled(task: Any) -> bool:
+    """processing 且已耗时超过阈值 → 疑似僵死。
+
+    只对 processing 判：pending 是正常排队，success/failed 是终态。
+    """
+    if task.status != "processing":
+        return False
+    elapsed = _elapsed_seconds(task)
+    return elapsed is not None and elapsed >= STALLED_THRESHOLD_SECONDS
 
 
 def _validate_file_format(file: UploadedFile) -> str:
@@ -193,6 +227,18 @@ class TaskStatusResponseSchema(BaseModel):
     error_message: str | None = None
     created_at: str
     finished_at: str | None = None
+    started_at: str | None = Field(
+        None,
+        description="任务被 worker 拉起的时刻；processing 但 started_at 为空 = 还排着没跑",
+    )
+    elapsed_seconds: int | None = Field(
+        None,
+        description="已耗时（成功用 finished_at，未结束用当前时间）。前端据此显示时长并判定僵死",
+    )
+    stalled: bool = Field(
+        False,
+        description="任务疑似僵死：processing 且已耗时超过阈值。前端据此提前给重试出口而不是干等满 10 分钟",
+    )
 
 
 class DateConfirmItemInSchema(BaseModel):
@@ -417,6 +463,62 @@ def _load_pipeline_prebinding(
     return {"case_id": sms.case_id, "case_log_id": sms.case_log_id}
 
 
+@router.post("/court-document/task/{task_id}/retry", response=TaskStatusResponseSchema)
+async def retry_task(request: Any, task_id: int) -> TaskStatusResponseSchema:  # pragma: no cover
+    """重跑一次识别任务（同一个已上传文件，不重新上传）。
+
+    为什么需要它（2026-10-28 教训）：识别可能因外部因长期挂起或失败
+    （当时是代理把内网 LLM 网关当外网，持续 502 重试，单次耗时 439 秒），
+    而用户手里只剩“失败/卡死”——原来只能关闭弹窗重新传文件，
+    白丢一次上传，也看不出问题到底出在哪。
+
+    只允许重跑 failed / 疑似僵死的 processing 任务：
+    - success：结果已落库，重跑会覆盖用户可能已确认的日期候选，拒绝；
+    - pending / 正常 processing：它还在正常跑或者排着，重跑会产生双跑，拒绝。
+
+    重跑复用同一个 task 行与同一个已存文件（execute_document_recognition_task
+    按 task_id 重新执行），所以不会在库里堆垃圾任务、也不重传字节。
+    """
+    from apps.core.tasking import submit_task
+    from apps.document_recognition.models import DocumentRecognitionStatus
+
+    def _do() -> int:
+        task = _get_task_service().get_task(task_id, select_case=True, user=get_request_user(request))
+
+        if task.status == DocumentRecognitionStatus.SUCCESS:
+            raise ValidationException(
+                message="该任务已识别成功，无需重跑",
+                code="TASK_ALREADY_SUCCESS",
+                errors={},
+            )
+        # failed 或 processing-但疑似僵死 → 可重跑；其余（pending / 正常 processing）拒绝
+        if task.status == DocumentRecognitionStatus.PROCESSING and not _is_stalled(task):
+            raise ValidationException(
+                message="任务正在识别中，请等待完成",
+                code="TASK_STILL_RUNNING",
+                errors={},
+            )
+
+        # 重置为 pending：worker 拉起时会自己置回 processing
+        task.status = DocumentRecognitionStatus.PENDING
+        task.error_message = None
+        task.started_at = None
+        task.finished_at = None
+        task.save(update_fields=["status", "error_message", "started_at", "finished_at"])
+
+        submit_task(
+            "apps.document_recognition.tasks.execute_document_recognition_task",
+            task.id,
+            task_name=f"document_recognition_{task.id}_retry",
+            timeout=600,
+        )
+        return task.id
+
+    await sync_to_async(_do)()
+    # 回读一次：让前端直接拿到重置后的状态，不必自己猜
+    return await get_task_status(request, task_id)
+
+
 @router.get("/court-document/task/{task_id}", response=TaskStatusResponseSchema)
 async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:  # pragma: no cover
     """
@@ -478,6 +580,9 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
         return TaskStatusResponseSchema(
             task_id=task.id,
             status=task.status,
+            started_at=task.started_at.isoformat() if task.started_at else None,
+            elapsed_seconds=_elapsed_seconds(task),
+            stalled=_is_stalled(task),
             file_path=task.renamed_file_path or task.file_path,
             file_url=_file_media_url(task.renamed_file_path or task.file_path),
             recognition=recognition,

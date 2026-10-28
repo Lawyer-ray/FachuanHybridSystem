@@ -1,5 +1,6 @@
-import { Check, FileText } from 'lucide-react'
+import { Check, FileText, Loader2, RotateCw } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 import '../document-recognition.css'
@@ -9,13 +10,21 @@ interface Props {
   phase: 'submitting' | 'polling'
   fileName: string
   hint: string
+  /** 已等待秒数（传 0 或省略则不显示计时） */
+  elapsedSeconds?: number
+  /** 等待感受分级：slow/stalled 时会改变色调并亮出重试 */
+  level?: 'normal' | 'slow' | 'stalled'
+  /** 疑似卡住时给的重试出口；undefined = 不显示 */
+  onRetry?: () => void
+  retrying?: boolean
 }
 
 const STEPS = ['上传文件', '识别中', '人工确认'] as const
 
 /** 识别进行中的等待态：堆叠纸张扫描场景 + 三步流光进度。 */
-export function RecognitionProgress({ phase, fileName, hint }: Props) {
+export function RecognitionProgress({ phase, fileName, hint, elapsedSeconds, level = 'normal', onRetry, retrying }: Props) {
   const activeStep = phase === 'submitting' ? 0 : 1
+  const stalled = level === 'stalled'
   return (
     <div className="flex animate-in fade-in flex-col items-center justify-center gap-7 py-10">
       {/* 堆叠双纸张 + 扫描线 */}
@@ -76,9 +85,32 @@ export function RecognitionProgress({ phase, fileName, hint }: Props) {
       </div>
 
       <span className="flex items-center gap-2 text-[12px] text-muted-foreground">
-        <span className="dr-pulse-dot h-1.5 w-1.5 rounded-full bg-status-blue" />
+        <span
+          className={cn(
+            'dr-pulse-dot h-1.5 w-1.5 rounded-full',
+            // 卡住时转成警示色：让「看起来在跑」和「其实已经卡住」视觉上能区分
+            stalled ? 'bg-status-red' : level === 'slow' ? 'bg-status-yellow' : 'bg-status-blue',
+          )}
+        />
         {hint}
       </span>
+
+      {/* 计时与重试：默认只在偏慢/卡住时出现，不让正常路径多一堆噪声 */}
+      {(level !== 'normal' || onRetry) && (
+        <div className="flex flex-col items-center gap-2">
+          {elapsedSeconds != null && elapsedSeconds > 0 && (
+            <span className="text-[11.5px] tabular-nums text-muted-foreground">
+              已等待 {elapsedSeconds} 秒
+            </span>
+          )}
+          {onRetry && (
+            <Button variant="outline" size="sm" disabled={retrying} onClick={onRetry}>
+              {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+              重试识别
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

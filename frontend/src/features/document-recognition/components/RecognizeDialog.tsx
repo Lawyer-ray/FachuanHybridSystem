@@ -40,7 +40,7 @@ interface Props {
  */
 export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConfirmText }: Props) {
   const isFileMode = file !== null
-  const { phase, hint, error, task, submit, refresh, reset } = useRecognize()
+  const { phase, hint, error, task, progress, submit, retry, canRetry, retrying, refresh, reset } = useRecognize()
   const submittedFile = useRef<File | null>(null)
 
   // 文件模式：open 时提交一次（同一文件不重复提交）
@@ -128,17 +128,32 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
               phase={phase === 'submitting' ? 'submitting' : 'polling'}
               fileName={file?.name ?? '文书'}
               hint={hint}
+              elapsedSeconds={progress.elapsedSeconds}
+              level={progress.level}
+              onRetry={canRetry && !retrying ? () => void retry() : undefined}
+              retrying={retrying}
             />
           </div>
         )}
 
         {showError && (
-          <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 px-6">
             <TriangleAlert className="h-6 w-6 text-status-red" />
-            <span className="text-[12.5px] text-muted-foreground">{error}</span>
-            <Button variant="outline" size="sm" onClick={onClose}>
-              关闭
-            </Button>
+            <span className="max-w-[380px] text-center text-[12.5px] text-muted-foreground">{error}</span>
+            <div className="flex items-center gap-2">
+              {canRetry && (
+                <Button size="sm" disabled={retrying} onClick={() => void retry()}>
+                  {retrying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  重试识别
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={onClose}>
+                关闭
+              </Button>
+            </div>
+            {canRetry && (
+              <span className="text-[11px] text-muted-foreground">重试不会重新上传，直接用已保存的文书再跑一次</span>
+            )}
           </div>
         )}
 
