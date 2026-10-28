@@ -9,7 +9,6 @@ import {
   triggerDownload,
   type ConverterJob,
 } from '../../api'
-import { TOOL_ENDPOINT } from '../../constants'
 import { copyText } from '@/lib/clipboard'
 import { BTN, BTN_PRIMARY, ROW_BTN } from '../../ui'
 import { FilePicker, Spinner, ToolShell } from './shared'
@@ -86,7 +85,6 @@ export function DocConverterCard() {
     <ToolShell
       icon={<FileType2 className="h-3.5 w-3.5" />}
       title="DOC 转 DOCX"
-      endpoint={TOOL_ENDPOINT.docConverter}
       headerExtra={<HistoryButton title="历史转换任务" onClick={() => setHistoryOpen(true)} />}
       dropAccept=".doc"
       onDropFiles={setFiles}

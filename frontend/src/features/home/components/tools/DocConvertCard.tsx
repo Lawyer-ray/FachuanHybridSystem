@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { CONVERT_TEMPLATES_KEY, convertDocument, listConvertTemplates, type ConvertResult } from '../../api'
-import { TOOL_ENDPOINT } from '../../constants'
 import { BTN, BTN_PRIMARY } from '../../ui'
 import { FilePicker, Spinner, ToolShell } from './shared'
 import { TemplateCombobox } from './TemplateCombobox'
@@ -67,7 +66,6 @@ export function DocConvertCard() {
     <ToolShell
       icon={<FileText className="h-3.5 w-3.5" />}
       title="要素式转换"
-      endpoint={TOOL_ENDPOINT.docConvert}
       headerExtra={<HistoryButton title="历史转换记录" onClick={() => setHistoryOpen(true)} />}
       dropAccept=".doc,.docx,.pdf"
       onDropFiles={(fs) => setFile(fs[0] ?? null)}

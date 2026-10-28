@@ -25,13 +25,5 @@ export const KIND_ROW: Record<string, string> = {
   follow: 'text-foreground',
 }
 
-/** 快捷工具展示用的端点注释（与后端真实路径一致，便于核对） */
-export const TOOL_ENDPOINT = {
-  courtSms: 'POST /automation/court-sms',
-  docConvert: 'POST /doc-convert/convert',
-  docConverter: 'POST /doc-converter/jobs',
-  docParse: 'POST /document-parsing/parse',
-} as const
-
 /** 周一起始的星期标题 */
 export const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'] as const
