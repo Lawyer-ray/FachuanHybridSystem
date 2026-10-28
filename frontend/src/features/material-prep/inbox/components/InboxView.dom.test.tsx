@@ -33,6 +33,15 @@ vi.mock('../api', async (importOriginal) => {
 })
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
 
+// 下载票据与下载触发都是跨模块副作用（换票要发请求、downloadUrl 要操作 DOM），
+// 在这里打桩以断言「确实换票了」——这正是曾经漏掉、导致 401 的那一步。
+const dlMock = vi.hoisted(() => ({
+  withDownloadTicket: vi.fn(async (u: string) => `${u}?ticket=TICKET123`),
+  downloadUrl: vi.fn(),
+}))
+vi.mock('@/lib/download-ticket', () => ({ withDownloadTicket: dlMock.withDownloadTicket }))
+vi.mock('@/lib/download', () => ({ downloadUrl: dlMock.downloadUrl }))
+
 import { InboxView } from './InboxView'
 import type { InboxRow } from '../types'
 
@@ -79,6 +88,9 @@ function wrap(node: ReactNode) {
 }
 
 beforeEach(() => {
+  dlMock.withDownloadTicket.mockClear()
+  dlMock.withDownloadTicket.mockImplementation(async (u: string) => `${u}?ticket=TICKET123`)
+  dlMock.downloadUrl.mockClear()
   apiMock.listInbox.mockReset()
   apiMock.getInboxMessage.mockReset()
   apiMock.setReadState.mockReset().mockResolvedValue({ ok: true, message_id: 1, is_read: true, read_at: '' })
@@ -143,6 +155,49 @@ describe('InboxView', () => {
     })
     // 跳转后落到材料预处理路由
     expect(await screen.findByText('材料预处理页')).toBeTruthy()
+  })
+
+  // 回归：附件预览/下载曾用裸 <a href> 打开后端端点，浏览器带不上 JWT、
+  // 后端又刻意不收 ?token=，导致任何账号都是 401（「用自己的账号下载自己的
+  // 一张网材料也失败」，与权限无关）。必须经一次性下载票据换 ?ticket=。
+  it('预览附件：先换下载票据，再带 ticket 开新标签', async () => {
+    const openSpy = vi.fn()
+    vi.stubGlobal('open', openSpy)
+    apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true })])
+    wrap(<InboxView />)
+    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    fireEvent.click(await screen.findByRole('button', { name: '预览附件' }))
+
+    await waitFor(() => expect(dlMock.withDownloadTicket).toHaveBeenCalled())
+    // 换票的入参必须是 preview 端点，且不含任何 JWT
+    const arg = dlMock.withDownloadTicket.mock.calls[0]?.[0] as string
+    expect(arg).toBe('/api/v1/inbox/messages/1/attachments/0/preview')
+    await waitFor(() => expect(openSpy).toHaveBeenCalled())
+    expect(String(openSpy.mock.calls[0]?.[0])).toContain('ticket=TICKET123')
+    vi.unstubAllGlobals()
+  })
+
+  it('下载附件：先换下载票据，再以带 ticket 的 URL 触发下载', async () => {
+    apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true })])
+    wrap(<InboxView />)
+    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    fireEvent.click(await screen.findByRole('button', { name: '下载附件' }))
+
+    await waitFor(() => expect(dlMock.withDownloadTicket).toHaveBeenCalled())
+    expect(dlMock.withDownloadTicket.mock.calls[0]?.[0]).toBe(
+      '/api/v1/inbox/messages/1/attachments/0/download',
+    )
+    await waitFor(() => expect(dlMock.downloadUrl).toHaveBeenCalled())
+    expect(String(dlMock.downloadUrl.mock.calls[0]?.[0])).toContain('ticket=TICKET123')
+  })
+
+  it('附件按钮不再渲染裸 <a href> 指向受保护端点（否则必然 401）', async () => {
+    apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true })])
+    wrap(<InboxView />)
+    fireEvent.click(await screen.findByText(/执保XXXX号/))
+    await screen.findByRole('button', { name: '预览附件' })
+    const links = Array.from(document.querySelectorAll('a[href*="/attachments/"]'))
+    expect(links).toHaveLength(0)
   })
 
   it('无附件的通知类消息不给转材料包按钮，并说明原因', async () => {

@@ -8,9 +8,10 @@ import { LoadingBlock, ErrorBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { materialPrepDetail } from '@/app/paths'
-import { attachmentUrl, getInboxMessage } from '../api'
+import { getInboxMessage } from '../api'
 import { SOURCE_BADGE, SOURCE_LABEL } from '../constants'
 import { useConvertToPack } from '../hooks/use-inbox'
+import { useAttachmentOpener } from '../hooks/use-attachment-opener'
 import { canConvert, isPackSource, packIdOf, type InboxDetail, type InboxRow } from '../types'
 
 /**
@@ -155,6 +156,7 @@ export function MessageDrawer({
 function MessageBody({ detail }: { detail: InboxDetail }) {
   const hasText = Boolean(detail.body_text?.trim())
   const attachments = detail.attachments ?? []
+  const open = useAttachmentOpener(detail.id)
 
   return (
     <div className="space-y-4">
@@ -170,24 +172,34 @@ function MessageBody({ detail }: { detail: InboxDetail }) {
                 <span className="min-w-0 flex-1 truncate text-[12px]" title={att.filename}>
                   {att.custom_filename?.trim() || att.original_filename || att.filename}
                 </span>
-                <a
-                  href={attachmentUrl(detail.id, att.part_index, true)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex h-6 w-6 flex-none items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                <button
+                  type="button"
+                  onClick={() => void open.run(att.part_index, 'preview')}
+                  disabled={open.pending?.partIndex === att.part_index}
+                  className="flex h-6 w-6 flex-none items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
                   aria-label="预览附件"
                   title="预览"
                 >
-                  <Eye className="h-3.5 w-3.5" />
-                </a>
-                <a
-                  href={attachmentUrl(detail.id, att.part_index, false)}
-                  className="flex h-6 w-6 flex-none items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  {open.pending?.partIndex === att.part_index && open.pending.kind === 'preview' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void open.run(att.part_index, 'download')}
+                  disabled={open.pending?.partIndex === att.part_index}
+                  className="flex h-6 w-6 flex-none items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50"
                   aria-label="下载附件"
                   title="下载"
                 >
-                  <Download className="h-3.5 w-3.5" />
-                </a>
+                  {open.pending?.partIndex === att.part_index && open.pending.kind === 'download' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                </button>
               </li>
             ))}
           </ul>
