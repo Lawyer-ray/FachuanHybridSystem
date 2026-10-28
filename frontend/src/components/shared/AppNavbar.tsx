@@ -7,6 +7,7 @@ import { useAuth, type User as AuthUser } from '@/features/auth'
 import { api } from '@/lib/api'
 import { resetAllClientState } from '@/lib/reset-client-state'
 import { Button } from '@/components/ui/button'
+import { BrandMark } from '@/components/shared/BrandMark'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -143,11 +144,10 @@ export function AppNavbar({
         <Menu className="h-[18px] w-[18px]" />
       </button>
 
-      {/* 品牌：产品名（点击回首页） */}
+      {/* 品牌：产品名（点击回首页）。字标统一由 BrandMark 出，客户上传页也用它，
+          保证对外门面与登录后的观感一致 */}
       <Link to="/" className="flex flex-none items-center pr-1.5 no-underline">
-        <span className="text-[14px] font-bold whitespace-nowrap tracking-[-0.01em] text-foreground">
-          法穿 <span className="text-[12.5px] font-medium text-muted-foreground">SI Copilot</span>
-        </span>
+        <BrandMark />
       </Link>
 
       <nav

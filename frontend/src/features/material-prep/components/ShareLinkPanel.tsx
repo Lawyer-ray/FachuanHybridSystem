@@ -3,7 +3,7 @@
  * 换发与创建一样只显示一次新明文（旧链接立即失效）。
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Link2, Plus, RefreshCw } from 'lucide-react'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
@@ -37,6 +37,13 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
   const [rows, setRows] = useState<UploadLinkRow[]>([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
+  /** 新建链接成功后得到的新 URL（只显示一次）。
+   *  从子弹窗上提到父层的原因：子弹窗关闭后这个结果仍需留在面板里给用户看，
+   *  而子弹窗自身卸载会丢掉它的内部 state。 */
+  const [createdUrl, setCreatedUrl] = useState<string | null>(null)
+  /** 是否正从「新建」弹窗返回面板。返回时不能清 createdUrl，否则刚生成的链接
+   *  会一闪而过（面板重开 effect 会把它抹掉）。 */
+  const returningFromCreate = useRef(false)
   /** 换发后的新链接 URL（只显示一次） */
   const [rotatedUrl, setRotatedUrl] = useState<string | null>(null)
   /** 待作废确认的链接（简单二次确认，不另开弹窗） */
@@ -51,11 +58,16 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
   }, [])
 
   useEffect(() => {
-    if (open) {
-      setRotatedUrl(null)
-      setConfirmingId(null)
-      reload()
+    if (!open) return
+    // 用户主动打开面板 → 清掉上一次的结果；从新建弹窗返回 → 保留刚生成的链接
+    if (returningFromCreate.current) {
+      returningFromCreate.current = false
+    } else {
+      setCreatedUrl(null)
     }
+    setRotatedUrl(null)
+    setConfirmingId(null)
+    reload()
   }, [open, reload])
 
   const revoke = (id: number) => {
@@ -139,22 +151,48 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
             )}
           </div>
 
-          {rotatedUrl && (
+          {(rotatedUrl || createdUrl) && (
             <div className="space-y-1.5 rounded-lg border border-amber-300/60 bg-amber-500/5 px-3 py-2.5">
-              <p className="text-xs text-amber-700">旧链接已失效，新链接只显示这一次：</p>
-              <ShareUrlBox url={rotatedUrl} />
+              <p className="text-xs text-amber-700">
+                {createdUrl ? '链接已生成，只显示这一次：' : '旧链接已失效，新链接只显示这一次：'}
+              </p>
+              <ShareUrlBox url={(createdUrl ?? rotatedUrl)!} />
+              <p className="text-[11px] text-muted-foreground">
+                有效期 30 天。客户传的材料包会出现在「预处理」桌面（来源：客户链接上传）。
+              </p>
             </div>
           )}
 
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setCreating(true)}>
+            <Button
+              size="sm"
+              onClick={() => {
+                // 关闭本面板、只留一个新建弹窗：两个 Dialog 叠在一起会让用户以为卡了
+                onOpenChange(false)
+                setCreating(true)
+              }}
+            >
               <Plus className="h-4 w-4" /> 新建链接
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <ShareLinkDialog open={creating} onOpenChange={setCreating} onCreated={reload} />
+      <ShareLinkDialog
+        open={creating}
+        onOpenChange={(v) => {
+          setCreating(v)
+          // 新建弹窗关闭后回面板（链接已生成时尤其需要：用户还得复制/换发）
+          if (!v) {
+            returningFromCreate.current = true
+            onOpenChange(true)
+          }
+        }}
+        onCreated={(url) => {
+          setCreatedUrl(url)
+          reload()
+        }}
+      />
     </>
   )
 }

@@ -137,14 +137,22 @@ export function ShareUrlBox({ url }: { url: string }) {
   )
 }
 
-export function ShareLinkDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated?: () => void }) {
+export function ShareLinkDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  /** 创建成功回调，带新链接明文；由父层展示（弹窗自开即关，不叠第二层窗口） */
+  onCreated?: (url: string) => void
+}) {
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   const [note, setNote] = useState('')
   const [contract, setContract] = useState<ContractHit | null>(null)
   const [expiresDays, setExpiresDays] = useState(30)
   const [busy, setBusy] = useState(false)
-  const [resultUrl, setResultUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -153,7 +161,6 @@ export function ShareLinkDialog({ open, onOpenChange, onCreated }: { open: boole
       setNote('')
       setContract(null)
       setExpiresDays(30)
-      setResultUrl(null)
       setBusy(false)
     }
   }, [open])
@@ -169,8 +176,10 @@ export function ShareLinkDialog({ open, onOpenChange, onCreated }: { open: boole
       expires_days: expiresDays,
     })
       .then((created) => {
-        setResultUrl(buildShareUrl(created.token))
-        onCreated?.()
+        const url = buildShareUrl(created.token)
+        // 交回父层展示：本弹窗随即关闭，全程只有一个窗口
+        onCreated?.(url)
+        onOpenChange(false)
       })
       .catch((e: unknown) => {
         toast.error(errMessage(e, '创建失败，请重试'))
@@ -182,23 +191,13 @@ export function ShareLinkDialog({ open, onOpenChange, onCreated }: { open: boole
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{resultUrl ? '链接已生成' : '向客户收取材料'}</DialogTitle>
+          <DialogTitle>向客户收取材料</DialogTitle>
           <DialogDescription>
-            {resultUrl
-              ? '把链接通过微信/短信发给客户，客户打开即可免登录上传。链接明文只显示这一次，关闭后可「换发新链接」。'
-              : '生成一个一次性上传链接发给客户；可绑定项目，客户传来的材料包会自动归属到您名下。'}
+            生成一个一次性上传链接发给客户；可绑定项目，客户传来的材料包会自动归属到您名下。
           </DialogDescription>
         </DialogHeader>
 
-        {resultUrl ? (
-          <div className="space-y-4 py-2">
-            <ShareUrlBox url={resultUrl} />
-            <p className="text-xs text-muted-foreground">
-              有效期 {expiresDays} 天{contract ? ` · 已绑定项目「${contract.name}」` : ''}。客户传的材料包会出现在「材料预处理」桌面（来源：客户链接上传）。
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3 py-2">
+        <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">标题 *</label>
               <Input value={title} autoFocus maxLength={200} placeholder="如：张三·买卖合同纠纷·证据材料" onChange={(e) => setTitle(e.target.value)} />
@@ -231,23 +230,16 @@ export function ShareLinkDialog({ open, onOpenChange, onCreated }: { open: boole
               <label className="text-sm font-medium">给客户的说明</label>
               <Textarea value={note} maxLength={500} placeholder="选填，展示在客户上传页，如：请上传合同原件与微信聊天记录" onChange={(e) => setNote(e.target.value)} />
             </div>
-          </div>
-        )}
+        </div>
 
         <DialogFooter>
-          {resultUrl ? (
-            <Button onClick={() => onOpenChange(false)}>完成</Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-                取消
-              </Button>
-              <Button onClick={submit} disabled={!title.trim() || busy}>
-                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                生成链接
-              </Button>
-            </>
-          )}
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+            取消
+          </Button>
+          <Button onClick={submit} disabled={!title.trim() || busy}>
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            生成链接
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

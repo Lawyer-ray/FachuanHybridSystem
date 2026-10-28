@@ -512,7 +512,9 @@ async def retry_task(request: Any, task_id: int) -> TaskStatusResponseSchema:  #
             task_name=f"document_recognition_{task.id}_retry",
             timeout=600,
         )
-        return task.id
+        # task.id 在 ORM 上仍是 Any（get_task 返回 Any），显式 int() 收窄，
+        # 否则 mypy 报 no-any-return
+        return int(task.id)
 
     await sync_to_async(_do)()
     # 回读一次：让前端直接拿到重置后的状态，不必自己猜
