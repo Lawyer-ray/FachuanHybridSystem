@@ -23,6 +23,11 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock('../api', () => ({ ...apiMock }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
+// 就地展开的内容组件：真实实现会拉入收件箱域（含 pdfjs 依赖链）。
+// 本文件只验「展开/收起」交互，内容渲染不在职责内。
+vi.mock('@/features/material-prep', () => ({
+  InboxMessageContent: ({ row }: { row: { id: number } }) => <div>展开内容 {row.id}</div>,
+}))
 vi.mock('@/features/document-recognition', () => ({
   preloadRecognizeDialog: vi.fn(),
   fileRejectReason: () => null,
@@ -51,6 +56,15 @@ function item(id: number, over: Record<string, unknown> = {}) {
     who: '张三',
     at: '10:00',
     hot: false,
+    packId: null,
+    canConvert: false,
+    row: {
+      id,
+      source_type: 'court_sms',
+      source_name: '法院短信',
+      has_attachments: false,
+      converted_message_id: null,
+    },
     ...over,
   }
 }
@@ -63,13 +77,13 @@ beforeEach(() => {
 describe('InboxCard：三态', () => {
   it('加载中显示载入提示', () => {
     apiMock.listInbox.mockReturnValue(new Promise(() => {}))
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
     expect(screen.getByText('正在载入…')).toBeTruthy()
     unmount()
   })
 
   it('空收件箱显示空态而非错误', async () => {
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
     await waitFor(() => expect(screen.getByText('收件箱是空的')).toBeTruthy())
     expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
     unmount()
@@ -77,7 +91,7 @@ describe('InboxCard：三态', () => {
 
   it('加载失败显示错误文案与重试按钮，且不显示空态', async () => {
     apiMock.listInbox.mockRejectedValue(new Error('网关异常'))
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
 
     await waitFor(() => expect(screen.getByText('网关异常')).toBeTruthy())
     expect(screen.getByRole('button', { name: '重试' })).toBeTruthy()
@@ -87,7 +101,7 @@ describe('InboxCard：三态', () => {
 
   it('点重试重新请求', async () => {
     apiMock.listInbox.mockRejectedValueOnce(new Error('异常')).mockResolvedValue([])
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
 
     await waitFor(() => expect(screen.getByRole('button', { name: '重试' })).toBeTruthy())
     const before = apiMock.listInbox.mock.calls.length
@@ -100,7 +114,7 @@ describe('InboxCard：三态', () => {
 describe('InboxCard：列表', () => {
   it('渲染标题、来源与人名', async () => {
     apiMock.listInbox.mockResolvedValue([item(1)])
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
 
     await waitFor(() => expect(screen.getByText('消息 1')).toBeTruthy())
     expect(screen.getByText(/法院短信 · 张三/)).toBeTruthy()
@@ -109,27 +123,63 @@ describe('InboxCard：列表', () => {
 
   it('计数丸显示条数', async () => {
     apiMock.listInbox.mockResolvedValue([item(1), item(2)])
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
 
     await waitFor(() => expect(screen.getByText('2 条')).toBeTruthy())
     unmount()
   })
 
-  it('点某行回调 onOpen 并带原始条目', async () => {
+  it('点非材料包类行就地展开，不回调 onOpen（不再平转收件箱列表）', async () => {
     const onOpen = vi.fn()
     const row = item(7)
     apiMock.listInbox.mockResolvedValue([row])
-    const { unmount } = render(wrap(<InboxCard onOpen={onOpen} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={onOpen} onOpenPack={vi.fn()} />))
 
     const btn = await waitFor(() => screen.getByText('消息 7').closest('button') as HTMLElement)
     fireEvent.click(btn)
+    // 不跳页：onOpen 不该被调用，改为就地渲染详情
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(await waitFor(() => screen.getByText('展开内容 7'))).toBeTruthy()
+    expect(btn.getAttribute('aria-expanded')).toBe('true')
+    unmount()
+  })
+
+  it('同时只展开一条，再点自己收起（手风琴）', async () => {
+    apiMock.listInbox.mockResolvedValue([item(1), item(2)])
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
+
+    const b1 = await waitFor(() => screen.getByText('消息 1').closest('button') as HTMLElement)
+    const b2 = screen.getByText('消息 2').closest('button') as HTMLElement
+    fireEvent.click(b1)
+    expect(await waitFor(() => screen.getByText('展开内容 1'))).toBeTruthy()
+
+    // 展开另一条 → 前一条自动收起
+    fireEvent.click(b2)
+    expect(await waitFor(() => screen.getByText('展开内容 2'))).toBeTruthy()
+    expect(screen.queryByText('展开内容 1')).toBeNull()
+
+    // 再点自己 → 收起
+    fireEvent.click(b2)
+    await waitFor(() => expect(screen.queryByText('展开内容 2')).toBeNull())
+    unmount()
+  })
+
+  it('材料包类（packId 非空）直接回调 onOpen，不就地展开', async () => {
+    const onOpen = vi.fn()
+    const row = item(9, { kind: 'mat', packId: 9, title: '材料包 9' })
+    apiMock.listInbox.mockResolvedValue([row])
+    const { unmount } = render(wrap(<InboxCard onOpen={onOpen} onOpenPack={vi.fn()} />))
+
+    const btn = await waitFor(() => screen.getByText('材料包 9').closest('button') as HTMLElement)
+    fireEvent.click(btn)
     expect(onOpen).toHaveBeenCalledWith(row)
+    expect(screen.queryByText('展开内容 9')).toBeNull()
     unmount()
   })
 
   it('hot 条目带红色强调（与普通条目区分）', async () => {
     apiMock.listInbox.mockResolvedValue([item(1, { hot: true }), item(2, { hot: false })])
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
 
     await waitFor(() => expect(screen.getByText('消息 1')).toBeTruthy())
     const hotIcon = screen.getByText('消息 1').closest('button')!.querySelector('div')
@@ -139,7 +189,7 @@ describe('InboxCard：列表', () => {
 
   it('错误态不显示计数丸', async () => {
     apiMock.listInbox.mockRejectedValue(new Error('失败'))
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
 
     await waitFor(() => expect(screen.getByText('失败')).toBeTruthy())
     expect(screen.queryByText(/条$/)).toBeNull()
@@ -152,7 +202,7 @@ describe('InboxCard：列表', () => {
 describe('InboxCard：不同 kind 的图标', () => {
   it('sms 类型渲染法院图标', async () => {
     apiMock.listInbox.mockResolvedValue([item(1, { kind: 'sms' })])
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
     await waitFor(() => expect(screen.getByText('消息 1')).toBeTruthy())
     expect(document.querySelector('svg')).toBeTruthy()
     unmount()
@@ -160,7 +210,7 @@ describe('InboxCard：不同 kind 的图标', () => {
 
   it('mail 类型渲染邮件图标', async () => {
     apiMock.listInbox.mockResolvedValue([item(2, { kind: 'mail', title: '邮件消息' })])
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
     await waitFor(() => expect(screen.getByText('邮件消息')).toBeTruthy())
     expect(document.querySelector('svg')).toBeTruthy()
     unmount()
@@ -168,7 +218,7 @@ describe('InboxCard：不同 kind 的图标', () => {
 
   it('其他类型（mat）渲染回形针图标', async () => {
     apiMock.listInbox.mockResolvedValue([item(3, { kind: 'mat', title: '材料包消息' })])
-    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} />))
+    const { unmount } = render(wrap(<InboxCard onOpen={vi.fn()} onOpenPack={vi.fn()} />))
     await waitFor(() => expect(screen.getByText('材料包消息')).toBeTruthy())
     expect(document.querySelector('svg')).toBeTruthy()
     unmount()

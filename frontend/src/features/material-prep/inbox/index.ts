@@ -6,6 +6,11 @@
  * 从 `@/features/material-prep` 取需要的东西，不穿透到本目录。
  */
 export { InboxView } from './components/InboxView'
+/** 单条消息的可读内容（正文 + 附件 + 进材料预处理/转包动作）。
+ *  首页收件箱卡的「就地展开」消费它，与收件箱页的抽屉共用同一份实现，
+ *  尤其是附件必须走一次性下载票据那条路径，不能各写一份。 */
+export { MessageContent } from './components/MessageContent'
+export type { MessageContentRow } from './components/MessageContent'
 export { INBOX_LIST_KEY, listInbox, getInboxMessage, setReadState, convertToPack } from './api'
 export { INBOX_SOURCE_TABS, SOURCE_LABEL } from './constants'
 export { groupByTime, countUnread, filterRows } from './domain'

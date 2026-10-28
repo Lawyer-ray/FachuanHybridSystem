@@ -7,8 +7,15 @@
  */
 
 import type { components } from '@/types/api-schema'
+import type { InboxMessageOut } from './api/inbox'
 
-/** 待处理流入项（来自收件箱 /inbox/messages） */
+/**
+ * 待处理流入项（来自收件箱 /inbox/messages）。
+ *
+ * 点行行为由 `packId` 决定：非空 → 直接进阅读器（材料包 / 已转过）；
+ * 为空 → 就地展开读详情。「转材料包」只对「有附件 + 非材料包来源」有意义，
+ * 判定口径由 `canConvert` 带出（与收件箱页 types.ts 同源）。
+ */
 export interface InboxItem {
   id: number
   kind: 'sms' | 'mat' | 'mail'
@@ -18,6 +25,13 @@ export interface InboxItem {
   at: string
   /** 是否紧急（法院短信）——用于图标的红色强调 */
   hot: boolean
+  /** 已转成的材料包 id：点行直接进阅读器（来源是材料包或早转过） */
+  packId: number | null
+  /** 有附件且尚未转材料包：展开后给「转材料包并打开」 */
+  canConvert: boolean
+  /** 原始后端行（只带就地展开需要的字段）。上面那排字段是展示投影，
+   *  不能拿来拼回一条行——转包/下载判定要看 source_type、converted_message_id。 */
+  row: InboxMessageOut
 }
 
 /** 快捷工具：要素式转换的文书模板项（GET /doc-convert/mbid-list 的行，生成物 MbidItem） */

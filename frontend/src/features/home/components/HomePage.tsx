@@ -12,7 +12,7 @@ import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { EventContextMenu } from './EventContextMenu'
 import { EventDetailDialog } from './EventDetailDialog'
 import { ToolDock } from './ToolDock'
-import { inboxPath } from '@/app/paths'
+import { materialPrepDetail } from '@/app/paths'
 import { useMediaQuery } from '@/hooks/use-media'
 import { useToday } from '@/hooks/use-today'
 import { todayKey } from '@/lib/date'
@@ -151,33 +151,30 @@ export function HomePage() {
     if (isMobile) setSheetDay(key)
   }, [isMobile])
 
-  // 待处理里的材料包 → 跳到材料预处理详情。
+  // 材料包 / 已转过的消息 → 直接进材料预处理的详情页。
   // 用 navigate 做 SPA 跳转，别用 window.location.assign（那是整页刷新，
   // 既丢状态也播不了过渡动画）。
   const navigate = useNavigate()
   const goPack = useCallback(
     (id: number) => {
-      void navigate(`/material-prep/${id}`)
+      void navigate(materialPrepDetail(id))
     },
     [navigate],
   )
 
-  // 非材料包来源（法院送达 / 邮箱 / 短信）→ 进收件箱页看详情。
-  // 此前这里弹「详情页正在开发中」——收件箱页上线后那个提示就是假话，
-  // 且它是律师点得最多的一条路径（法院文书比材料包多两个数量级）。
-  const goInbox = useCallback(() => {
-    void navigate(inboxPath())
-  }, [navigate])
-
+  /* 收件箱点行：**不再跳收件箱列表**。
+   *
+   * 只有材料包（含早转过的消息）直接进阅读器——那时进去就是要看文档。
+   * 其余全部就地展开（由 InboxCard 自己管展开态）：一张网告知书、判决书送达、
+   * 邮件绝大多数是纯通知，读正文/下附件在侧栏里一步就能完成；而此前一律平转到
+   * /material-prep，用户以为在看详情，落地却是一屏 300+ 条同质消息，还得靠标题
+   * 再找一遍——法院送达里五条都叫「Attached Image」时根本无法区分。
+   * 要横向浏览时走「查看全部」（CardHead 的 moreHref）。 */
   const handleInboxOpen = useCallback(
     (item: InboxItem) => {
-      if (item.kind === 'mat') {
-        goPack(item.id)
-        return
-      }
-      goInbox()
+      if (item.packId != null) goPack(item.packId)
     },
-    [goPack, goInbox],
+    [goPack],
   )
 
   const shiftMonth = useCallback((delta: number) => {
@@ -278,7 +275,7 @@ export function HomePage() {
               onOpenEvent={handleOpenEvent}
               onToggleComplete={handleToggleComplete}
             />
-            <InboxCard onOpen={handleInboxOpen} />
+            <InboxCard onOpen={handleInboxOpen} onOpenPack={goPack} />
           </div>
         </div>
       </main>

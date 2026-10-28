@@ -54,6 +54,8 @@ function msg(id: number, sourceType: string, sourceName: string, receivedAt: str
     received_at: receivedAt,
     has_attachments: true,
     attachment_count: 1,
+    is_read: false,
+    converted_message_id: null,
     segs: 0,
     named: 0,
     pages: 0,

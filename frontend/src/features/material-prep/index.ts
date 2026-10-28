@@ -22,3 +22,13 @@ export function resetMaterialPrepState(): Promise<void> {
  * 经此出口复用（Pick 投影见 features/home/api/inbox.ts），避免两份手抄漂移。
  */
 export type { InboxMessage } from './types'
+
+/**
+ * 单条收件箱消息的就地详情（正文 + 附件 + 进材料预处理/转材料包）。
+ *
+ * 首页收件箱卡的「点一行就地展开」消费它：那里的消息就是 InboxMessageOut，
+ * 与收件箱页的行同形，因此直接复用 `InboxRow`，不另设一套投影类型。
+ * 抽屉外壳（MessageDrawer）不对外——首页展开是手风琴，不是滑出抽屉。
+ */
+export { MessageContent as InboxMessageContent } from './inbox'
+export type { MessageContentRow } from './inbox'
