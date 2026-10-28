@@ -207,10 +207,10 @@ export function AppNavbar({
       <button
         type="button"
         className="flex h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3.5 text-[12.5px] font-semibold whitespace-nowrap text-background transition-opacity hover:opacity-85"
-        onClick={() => notify('新建案件：可先把材料上传到「材料预处理」归案')}
+        onClick={() => notify('新建项目：可先把材料上传到「材料预处理」归案')}
       >
         <Plus className="h-3 w-3" strokeWidth={2.5} />
-        新建案件
+        新建项目
       </button>
 
       {/* 用户区：点头像开菜单；退出走确认弹窗——不能点一下就登出 */}

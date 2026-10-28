@@ -135,10 +135,10 @@ describe('AppNavbar 渲染与全局检索', () => {
     expect(apiGetMock).not.toHaveBeenCalled()
   })
 
-  it('新建案件：走 onNotify 提示回调', () => {
+  it('新建项目：走 onNotify 提示回调', () => {
     setupUi()
-    fireEvent.click(screen.getByRole('button', { name: /新建案件/ }))
-    expect(onNotify).toHaveBeenCalledWith('新建案件：可先把材料上传到「材料预处理」归案')
+    fireEvent.click(screen.getByRole('button', { name: /新建项目/ }))
+    expect(onNotify).toHaveBeenCalledWith('新建项目：可先把材料上传到「材料预处理」归案')
   })
 })
 
