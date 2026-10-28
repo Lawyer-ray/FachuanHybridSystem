@@ -3510,6 +3510,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contracts/{contract_id}/folder-save-as-intent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Contract Folder Save As Intent
+         * @description 登记「下次保存要另存为新文件」的一次性意图（**不写文件**）。
+         *
+         *     为什么需要这个端点（而不是像 folder-save-as 那样直接传字节）：社区版
+         *     OnlyOffice 不暴露 downloadAs（`Asc.editor` 上只有私有 `forceSave*`），
+         *     浏览器拿不到编辑后的文档字节——字节只存在于 DS 那边，只能等 DS 回调
+         *     （status=2/6 带 url）时由后端下载。所以前端只能提前把「另存为」这个
+         *     决定登记到编辑器会话上，保存回调落盘时（domain_registry._adopt_edited）
+         *     据此改走 save_new_file，原文件不动。
+         *
+         *     **权限口径与 folder-save 完全一致**：走同一个 `_call_service`
+         *     （ContractFolderBrowseService.resolve_file → ContractAccessPolicy），
+         *     不自建第二套判断。
+         *
+         *     `name` 过与 save_new_file **同一串**清洗（`_clean_entry_name` →
+         *     `sanitize_file_name`），不信任前端传的名字：这里不落盘、但名字会被落进
+         *     会话、最终成为磁盘上的路径部件，脏名字（`../`、绝对路径、控制字符）
+         *     必须在这一步就拒掉，而不是等到回调时才失败（那时错误对用户不可见）。
+         *
+         *     **不校 mtime**：意图与控制台保存的时机无关，只要文件当下存在、可访问即可。
+         */
+        post: operations["apps_contracts_api_contract_folder_browse_api_register_contract_folder_save_as_intent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contracts/{contract_id}/folder-rename": {
         parameters: {
             query?: never;
@@ -5880,6 +5918,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox/messages/{message_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Read State
+         * @description 标记已读 / 未读。幂等：重复置已读不刷新首次阅读时间。
+         */
+        post: operations["apps_message_hub_api_inbox_api_set_read_state"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{message_id}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert Message
+         * @description 把外部来源消息（一张网 / IMAP / 短信）的附件转成一个材料包。
+         *
+         *     幂等：同一消息已有 converted_message 时直接返回那个包（不重复搬运字节）。
+         */
+        post: operations["apps_message_hub_api_inbox_api_convert_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inbox/messages/{message_id}/attachments/{part_index}/download": {
         parameters: {
             query?: never;
@@ -6665,6 +6745,30 @@ export interface paths {
          * @description 重新提交失败的任务
          */
         post: operations["apps_core_api_task_queue_api_resubmit_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-queue/cluster-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cluster Status
+         * @description Django-Q 集群活性聚合。
+         *
+         *     与上面的任务明细端点不同，这里**不做** ``ensure_admin_request``：返回的是
+         *     聚合数字（集群心跳数 / 队列深度 / 今日成败计数），不含任务载荷；律师在
+         *     设置页看系统状态也需要它，路由层挂的 JWTOrSessionAuth 已够。
+         */
+        get: operations["apps_core_api_task_queue_api_get_cluster_status"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -15024,6 +15128,38 @@ export interface components {
             modified_at?: string | null;
         };
         /**
+         * ContractFolderSaveAsIntentOut
+         * @description 登记结果。
+         *
+         *     `registered=False` 不走这条路（找不到会话直接抛 404）；保留字段是为了
+         *     前端能统一处理，将来若要支持「会话存在但已被其它保存消费」之类状态不用改契约。
+         */
+        ContractFolderSaveAsIntentOut: {
+            /**
+             * Registered
+             * @default true
+             */
+            registered: boolean;
+            /** Name */
+            name: string;
+            /** Subpath */
+            subpath: string;
+        };
+        /**
+         * ContractFolderSaveAsIntentIn
+         * @description 登记「下次保存要另存为」意图的入参。
+         *
+         *     **不是写文件接口**：编辑后的字节只在 OnlyOffice 那边（社区版不暴露
+         *     downloadAs），这里只把「另存为新名字」这个决定记到编辑器会话上，
+         *     真正的落盘由 DS 保存回调完成。
+         */
+        ContractFolderSaveAsIntentIn: {
+            /** Subpath */
+            subpath: string;
+            /** Name */
+            name: string;
+        };
+        /**
          * ContractFolderCopyIn
          * @description 复制入参：subpath 为复制源，dest_subpath 为目标目录（空 = 绑定根）。
          */
@@ -17328,6 +17464,15 @@ export interface components {
              * @default
              */
             compose: string;
+            /**
+             * Is Read
+             * @default false
+             */
+            is_read: boolean;
+            /** Read At */
+            read_at?: string | null;
+            /** Converted Message Id */
+            converted_message_id?: number | null;
             /** Upload Link Id */
             upload_link_id?: number | null;
             /**
@@ -17429,6 +17574,15 @@ export interface components {
              * @default
              */
             compose: string;
+            /**
+             * Is Read
+             * @default false
+             */
+            is_read: boolean;
+            /** Read At */
+            read_at?: string | null;
+            /** Converted Message Id */
+            converted_message_id?: number | null;
             /** Upload Link Id */
             upload_link_id?: number | null;
             /**
@@ -17496,6 +17650,37 @@ export interface components {
             ok: boolean;
             /** Message Id */
             message_id: number;
+        };
+        /** ReadStateOut */
+        ReadStateOut: {
+            /** Ok */
+            ok: boolean;
+            /** Message Id */
+            message_id: number;
+            /**
+             * Is Read
+             * @default false
+             */
+            is_read: boolean;
+            /** Read At */
+            read_at?: string | null;
+        };
+        /** ReadStateIn */
+        ReadStateIn: {
+            /**
+             * Read
+             * @default true
+             */
+            read: boolean;
+        };
+        /** ConvertOut */
+        ConvertOut: {
+            /** Ok */
+            ok: boolean;
+            /** Message Id */
+            message_id: number;
+            /** Pack Id */
+            pack_id: number;
         };
         /** OcrBlockOut */
         OcrBlockOut: {
@@ -17999,9 +18184,9 @@ export interface components {
             /** Result Pdf */
             result_pdf?: string | null;
             /** Created At */
-            created_at: unknown;
+            created_at?: string | null;
             /** Updated At */
-            updated_at: unknown;
+            updated_at?: string | null;
         };
         /** QueuedTaskOut */
         QueuedTaskOut: {
@@ -18051,6 +18236,35 @@ export interface components {
             last_run?: string | null;
             /** Success */
             success?: boolean | null;
+        };
+        /**
+         * ClusterStatusOut
+         * @description 集群活性聚合（设置页·系统状态）。
+         */
+        ClusterStatusOut: {
+            /** Clusters */
+            clusters?: number | null;
+            /**
+             * Queue Depth
+             * @default 0
+             */
+            queue_depth: number;
+            /**
+             * Succeeded Today
+             * @default 0
+             */
+            succeeded_today: number;
+            /**
+             * Failed Today
+             * @default 0
+             */
+            failed_today: number;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Last Failed At */
+            last_failed_at?: string | null;
+            /** Broker Error */
+            broker_error?: string | null;
         };
         /**
          * DocumentTemplateOut
@@ -19201,7 +19415,9 @@ export interface components {
          */
         DirectEditSuggestIn: {
             /** Contract Id */
-            contract_id: number;
+            contract_id?: number | null;
+            /** Case Id */
+            case_id?: number | null;
             /** Subpath */
             subpath: string;
             /** Selection */
@@ -19223,6 +19439,11 @@ export interface components {
              * @default 0
              */
             contract_id: number;
+            /**
+             * Case Id
+             * @default 0
+             */
+            case_id: number;
             /** Subpath */
             subpath: string;
             /**
@@ -19242,7 +19463,9 @@ export interface components {
          */
         DirectEditApplyIn: {
             /** Contract Id */
-            contract_id: number;
+            contract_id?: number | null;
+            /** Case Id */
+            case_id?: number | null;
             /** Subpath */
             subpath: string;
             /** Selection */
@@ -27774,6 +27997,32 @@ export interface operations {
             };
         };
     };
+    apps_contracts_api_contract_folder_browse_api_register_contract_folder_save_as_intent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractFolderSaveAsIntentIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFolderSaveAsIntentOut"];
+                };
+            };
+        };
+    };
     apps_contracts_api_contract_folder_browse_api_rename_contract_folder_entry: {
         parameters: {
             query?: never;
@@ -30490,6 +30739,7 @@ export interface operations {
                 source_id?: number | null;
                 source_type?: string | null;
                 has_attachments?: boolean | null;
+                unread_only?: boolean;
                 search?: string | null;
                 limit?: number;
                 offset?: number;
@@ -30631,6 +30881,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageAckOut"];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_inbox_api_set_read_state: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadStateIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadStateOut"];
+                };
+            };
+        };
+    };
+    apps_message_hub_api_inbox_api_convert_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConvertOut"];
                 };
             };
         };
@@ -31788,6 +32086,26 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_core_api_task_queue_api_get_cluster_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterStatusOut"];
+                };
             };
         };
     };

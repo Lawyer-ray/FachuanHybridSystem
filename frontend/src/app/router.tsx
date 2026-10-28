@@ -10,6 +10,7 @@ import {
   ClientUploadPageLazy,
   DeskPageLazy,
   HomePageLazy,
+  InboxPageLazy,
   ProjectDetailPageLazy,
   ReviewWorkbenchPageLazy,
   SettingsPageLazy,
@@ -67,6 +68,9 @@ export function AppRouter() {
         >
           {/* 首页 · 今日工作台（home 域含工具坞弹窗全家桶，懒加载拆出首屏包） */}
           <Route path={ROUTES.home} element={<HomePageLazy />} />
+          {/* 收件箱：消息流入总入口（法院送达 / 邮箱 / 短信 / 材料包）。
+              与材料预处理的关系是「上一跳」——有附件的消息在这里一键转材料包。 */}
+          <Route path={ROUTES.inbox} element={lazyPage(<InboxPageLazy />)} />
           <Route path={ROUTES.materialPrep} element={<DeskPageLazy />} />
           {/* 详情页：/material-prep/:id —— 可刷新、可分享、支持前进后退 */}
           <Route path={ROUTES.materialPrepDetail} element={<DeskPageLazy />} />

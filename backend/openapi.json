@@ -9529,6 +9529,54 @@
         ]
       }
     },
+    "/api/v1/contracts/{contract_id}/folder-save-as-intent": {
+      "post": {
+        "operationId": "apps_contracts_api_contract_folder_browse_api_register_contract_folder_save_as_intent",
+        "summary": "Register Contract Folder Save As Intent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "schema": {
+              "title": "Contract Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractFolderSaveAsIntentOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "登记「下次保存要另存为新文件」的一次性意图（**不写文件**）。\n\n为什么需要这个端点（而不是像 folder-save-as 那样直接传字节）：社区版\nOnlyOffice 不暴露 downloadAs（`Asc.editor` 上只有私有 `forceSave*`），\n浏览器拿不到编辑后的文档字节——字节只存在于 DS 那边，只能等 DS 回调\n（status=2/6 带 url）时由后端下载。所以前端只能提前把「另存为」这个\n决定登记到编辑器会话上，保存回调落盘时（domain_registry._adopt_edited）\n据此改走 save_new_file，原文件不动。\n\n**权限口径与 folder-save 完全一致**：走同一个 `_call_service`\n（ContractFolderBrowseService.resolve_file → ContractAccessPolicy），\n不自建第二套判断。\n\n`name` 过与 save_new_file **同一串**清洗（`_clean_entry_name` →\n`sanitize_file_name`），不信任前端传的名字：这里不落盘、但名字会被落进\n会话、最终成为磁盘上的路径部件，脏名字（`../`、绝对路径、控制字符）\n必须在这一步就拒掉，而不是等到回调时才失败（那时错误对用户不可见）。\n\n**不校 mtime**：意图与控制台保存的时机无关，只要文件当下存在、可访问即可。",
+        "tags": [
+          "合同文件夹浏览"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractFolderSaveAsIntentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/contracts/{contract_id}/folder-rename": {
       "post": {
         "operationId": "apps_contracts_api_contract_folder_browse_api_rename_contract_folder_entry",
@@ -14623,6 +14671,16 @@
           },
           {
             "in": "query",
+            "name": "unread_only",
+            "schema": {
+              "default": false,
+              "title": "Unread Only",
+              "type": "boolean"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
             "name": "search",
             "schema": {
               "anyOf": [
@@ -14882,6 +14940,92 @@
           }
         },
         "description": "删除收件箱消息（材料包）：先清理附件物理文件，再删 DB 记录（破坏性，前端需二次确认）。",
+        "tags": [
+          "收件箱"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inbox/messages/{message_id}/read": {
+      "post": {
+        "operationId": "apps_message_hub_api_inbox_api_set_read_state",
+        "summary": "Set Read State",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadStateOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "标记已读 / 未读。幂等：重复置已读不刷新首次阅读时间。",
+        "tags": [
+          "收件箱"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadStateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inbox/messages/{message_id}/convert": {
+      "post": {
+        "operationId": "apps_message_hub_api_inbox_api_convert_message",
+        "summary": "Convert Message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConvertOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把外部来源消息（一张网 / IMAP / 短信）的附件转成一个材料包。\n\n幂等：同一消息已有 converted_message 时直接返回那个包（不重复搬运字节）。",
         "tags": [
           "收件箱"
         ],
@@ -16787,6 +16931,34 @@
           }
         },
         "description": "重新提交失败的任务",
+        "tags": [
+          "任务队列"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/task-queue/cluster-status": {
+      "get": {
+        "operationId": "apps_core_api_task_queue_api_get_cluster_status",
+        "summary": "Get Cluster Status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterStatusOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "Django-Q 集群活性聚合。\n\n与上面的任务明细端点不同，这里**不做** ``ensure_admin_request``：返回的是\n聚合数字（集群心跳数 / 队列深度 / 今日成败计数），不含任务载荷；律师在\n设置页看系统状态也需要它，路由层挂的 JWTOrSessionAuth 已够。",
         "tags": [
           "任务队列"
         ],
@@ -36053,6 +36225,49 @@
         "title": "ContractFolderSaveOut",
         "type": "object"
       },
+      "ContractFolderSaveAsIntentOut": {
+        "description": "登记结果。\n\n`registered=False` 不走这条路（找不到会话直接抛 404）；保留字段是为了\n前端能统一处理，将来若要支持「会话存在但已被其它保存消费」之类状态不用改契约。",
+        "properties": {
+          "registered": {
+            "default": true,
+            "title": "Registered",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "subpath"
+        ],
+        "title": "ContractFolderSaveAsIntentOut",
+        "type": "object"
+      },
+      "ContractFolderSaveAsIntentIn": {
+        "description": "登记「下次保存要另存为」意图的入参。\n\n**不是写文件接口**：编辑后的字节只在 OnlyOffice 那边（社区版不暴露\ndownloadAs），这里只把「另存为新名字」这个决定记到编辑器会话上，\n真正的落盘由 DS 保存回调完成。",
+        "properties": {
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subpath",
+          "name"
+        ],
+        "title": "ContractFolderSaveAsIntentIn",
+        "type": "object"
+      },
       "ContractFolderCopyIn": {
         "description": "复制入参：subpath 为复制源，dest_subpath 为目标目录（空 = 绑定根）。",
         "properties": {
@@ -40590,6 +40805,33 @@
             "title": "Compose",
             "type": "string"
           },
+          "is_read": {
+            "default": false,
+            "title": "Is Read",
+            "type": "boolean"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "converted_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Converted Message Id"
+          },
           "upload_link_id": {
             "anyOf": [
               {
@@ -40809,6 +41051,33 @@
             "title": "Compose",
             "type": "string"
           },
+          "is_read": {
+            "default": false,
+            "title": "Is Read",
+            "type": "boolean"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "converted_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Converted Message Id"
+          },
           "upload_link_id": {
             "anyOf": [
               {
@@ -40947,6 +41216,74 @@
           "message_id"
         ],
         "title": "MessageAckOut",
+        "type": "object"
+      },
+      "ReadStateOut": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "is_read": {
+            "default": false,
+            "title": "Is Read",
+            "type": "boolean"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          }
+        },
+        "required": [
+          "ok",
+          "message_id"
+        ],
+        "title": "ReadStateOut",
+        "type": "object"
+      },
+      "ReadStateIn": {
+        "properties": {
+          "read": {
+            "default": true,
+            "title": "Read",
+            "type": "boolean"
+          }
+        },
+        "title": "ReadStateIn",
+        "type": "object"
+      },
+      "ConvertOut": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ok",
+          "message_id",
+          "pack_id"
+        ],
+        "title": "ConvertOut",
         "type": "object"
       },
       "OcrBlockOut": {
@@ -42270,9 +42607,27 @@
             "title": "Result Pdf"
           },
           "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Created At"
           },
           "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Updated At"
           }
         },
@@ -42281,9 +42636,7 @@
           "title",
           "status",
           "carrier_type",
-          "tracking_number",
-          "created_at",
-          "updated_at"
+          "tracking_number"
         ],
         "title": "ExpressQueryTaskOut",
         "type": "object"
@@ -42426,6 +42779,72 @@
           "repeats"
         ],
         "title": "ScheduleOut",
+        "type": "object"
+      },
+      "ClusterStatusOut": {
+        "description": "集群活性聚合（设置页·系统状态）。",
+        "properties": {
+          "clusters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clusters"
+          },
+          "queue_depth": {
+            "default": 0,
+            "title": "Queue Depth",
+            "type": "integer"
+          },
+          "succeeded_today": {
+            "default": 0,
+            "title": "Succeeded Today",
+            "type": "integer"
+          },
+          "failed_today": {
+            "default": 0,
+            "title": "Failed Today",
+            "type": "integer"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_failed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failed At"
+          },
+          "broker_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Broker Error"
+          }
+        },
+        "title": "ClusterStatusOut",
         "type": "object"
       },
       "DocumentTemplateOut": {
@@ -44775,8 +45194,26 @@
         "description": "请求改写候选。不写盘、不建任务。",
         "properties": {
           "contract_id": {
-            "title": "Contract Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
           },
           "subpath": {
             "title": "Subpath",
@@ -44797,7 +45234,6 @@
           }
         },
         "required": [
-          "contract_id",
           "subpath",
           "selection",
           "instruction"
@@ -44814,6 +45250,11 @@
           "contract_id": {
             "default": 0,
             "title": "Contract Id",
+            "type": "integer"
+          },
+          "case_id": {
+            "default": 0,
+            "title": "Case Id",
             "type": "integer"
           },
           "subpath": {
@@ -44842,8 +45283,26 @@
         "description": "采纳某一条候选：写成 Word 修订痕迹并覆写原文件。",
         "properties": {
           "contract_id": {
-            "title": "Contract Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
           },
           "subpath": {
             "title": "Subpath",
@@ -44859,7 +45318,6 @@
           }
         },
         "required": [
-          "contract_id",
           "subpath",
           "selection",
           "suggested"

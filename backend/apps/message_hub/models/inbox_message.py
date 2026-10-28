@@ -64,6 +64,23 @@ class InboxMessage(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="入库时间")
 
+    # 读过时间（null = 未读）。放在模型字段而不是 draft_state JSON 里，原因：
+    # draft_state 的语义由材料预处理（前端）定义，且只有 manual_upload 会写；
+    # 收件箱 338 条里绝大多数来自一张网 / IMAP，若把已读塞进 draft_state，
+    # 那两类永远读不到自己的已读态，未读计数也就恒等于总量。见 migrations/0017。
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name="首次阅读时间")
+
+    # 是否已「转材料包」：非 manual_upload 消息经转换链路生成 manual_upload 后，
+    # 原消息指向新包。收件箱据此展示「已转」并直达材料预处理，避免重复转换。
+    converted_message = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="converted_from",
+        verbose_name="转换生成的材料包",
+    )
+
     class Meta:
         verbose_name = "收件箱消息"
         verbose_name_plural = "收件箱消息"
@@ -79,6 +96,13 @@ class InboxMessage(models.Model):
             GinIndex(fields=["subject"], name="inbox_msg_subject_trgm", opclasses=["gin_trgm_ops"]),
             GinIndex(fields=["sender"], name="inbox_msg_sender_trgm", opclasses=["gin_trgm_ops"]),
             GinIndex(fields=["body_text"], name="inbox_msg_body_trgm", opclasses=["gin_trgm_ops"]),
+            # 未读筛选（read_at IS NULL）与收件箱默认视图：部分索引只收未读行，
+            # 随读过的消息增长不膨胀
+            models.Index(
+                fields=["-received_at"],
+                name="inbox_msg_unread_recent",
+                condition=models.Q(read_at__isnull=True),
+            ),
         ]
 
     def get_public_attachments_meta(self) -> list[dict[str, Any]]:

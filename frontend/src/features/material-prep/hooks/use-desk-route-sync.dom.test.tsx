@@ -44,6 +44,7 @@ function makeDetail(id: number): InboxMessageDetail {
     attachment_count: 1,
     uploaded_by_id: null,
     uploaded_by_name: '',
+    is_read: true,
     upload_link_id: null,
     upload_link_title: '',
     upload_contract_id: null,

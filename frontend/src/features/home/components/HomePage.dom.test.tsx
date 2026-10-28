@@ -291,11 +291,10 @@ describe('HomePage：收件箱派发', () => {
     unmount()
   })
 
-  it('非材料包类给「详情页开发中」提示', async () => {
+  it('非材料包类跳收件箱页（不再弹「开发中」假提示）', async () => {
     const { unmount } = render(wrap(<HomePage />))
     fireEvent.click(screen.getByText('打开短信'))
-    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('开发中'))
-    expect(navMock.navigate).not.toHaveBeenCalled()
+    expect(navMock.navigate).toHaveBeenCalledWith('/inbox')
     unmount()
   })
 })
