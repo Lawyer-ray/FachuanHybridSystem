@@ -6237,6 +6237,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox/upload-links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Link
+         * @description 删除链接记录（从列表里消失）。
+         *
+         *     与「作废」的区别：作废只改状态（客户链接失效，但记录留着可审计），
+         *     删除是彻底不显示。两者都保留 —— 已作废的堆多了需要能清掉。
+         *
+         *     **权限：仅创建人本人或管理员**。归属校验走 ``get_owned_link``（与作废/换发
+         *     同一口径），非本人且非管理员一律 **404**（不区分「不存在」与「无权限」，
+         *     避免泄露 id 存在性）。
+         *
+         *     已收材料包不受影响：``InboxMessage.upload_link`` 是 ``on_delete=SET_NULL``，
+         *     删链接只是把包的来源指针置空，材料本体与归属关系全部保留。
+         */
+        delete: operations["apps_message_hub_api_upload_link_api_delete_link"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/material-link": {
         parameters: {
             query?: never;
@@ -31357,6 +31387,26 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UploadLinkCreatedOut"];
                 };
+            };
+        };
+    };
+    apps_message_hub_api_upload_link_api_delete_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

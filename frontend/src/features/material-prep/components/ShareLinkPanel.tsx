@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Info, Link2, Plus, RefreshCw } from 'lucide-react'
+import { Info, Link2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { errMessage } from '@/lib/errors'
-import { buildShareUrl, listUploadLinks, revokeUploadLink, rotateUploadLink, type UploadLinkRow } from '../api'
+import { buildShareUrl, deleteUploadLink, listUploadLinks, revokeUploadLink, rotateUploadLink, type UploadLinkRow } from '../api'
 import { ShareLinkDialog, ShareUrlBox } from './ShareLinkDialog'
 
 const STATE_LABEL: Record<string, string> = {
@@ -67,6 +67,8 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
   const [rotatingId, setRotatingId] = useState<number | null>(null)
   /** 待确认作废的行 */
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  /** 待确认删除的行（彻底删除，比作废更重） */
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -86,6 +88,7 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
     setRotated(null)
     setRotatingId(null)
     setConfirmingId(null)
+    setDeletingId(null)
     reload()
   }, [open, reload])
 
@@ -96,6 +99,23 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
         reload()
       })
       .catch(() => toast.error('作废失败，请重试'))
+  }
+
+  const remove = (row: UploadLinkRow) => {
+    deleteUploadLink(row.id)
+      .then(() => {
+        toast(`已删除「${row.title}」`)
+        setDeletingId(null)
+        // 删掉的行如果刚好是换发结果那张，把结果也清掉，避免悬空的提示
+        if (rotated?.id === row.id) setRotated(null)
+        reload()
+      })
+      .catch((e: unknown) => {
+        setDeletingId(null)
+        // 后端对非本人/非管理员一律 404：这里给明确文案，不说「出错了」让人猜
+        const status = (e as { response?: { status?: number } })?.response?.status
+        toast.error(status === 404 ? '无权删除该链接（仅创建人或管理员可删）' : errMessage(e, '删除失败'))
+      })
   }
 
   const rotate = (row: UploadLinkRow) => {
@@ -144,6 +164,7 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
                 const isOpen = row.state === 'open'
                 const isRotating = rotatingId === row.id
                 const isVoiding = confirmingId === row.id
+                const isDeleting = deletingId === row.id
                 const justRotated = rotated?.id === row.id
                 return (
                   <div
@@ -171,9 +192,26 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
                         .join(' · ')}
                     </p>
 
-                    {/* 操作区：三种状态互斥，永远只出现一组按钮，避免多行时点错 */}
+                    {/* 操作区：确认态互斥，永远只出现一组按钮，避免多行时点错 */}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {!isOpen ? null : isVoiding ? (
+                      {isDeleting ? (
+                        <>
+                          <span className="text-xs text-muted-foreground">
+                            删除后<b>「{row.title}」</b>将不再出现在列表里（已收材料包会保留），确定？
+                          </span>
+                          <Button variant="destructive" size="sm" onClick={() => remove(row)}>
+                            确认删除
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setDeletingId(null)}>
+                            取消
+                          </Button>
+                        </>
+                      ) : !isOpen ? (
+                        /* 已失效/已作废的行：只剩「删除」可做（作废过的不必再作废） */
+                        <Button variant="ghost" size="sm" onClick={() => setDeletingId(row.id)}>
+                          <Trash2 className="h-3.5 w-3.5" /> 删除
+                        </Button>
+                      ) : isVoiding ? (
                         <>
                           <span className="text-xs text-muted-foreground">作废后客户手里的链接立即失效，确定？</span>
                           <Button
@@ -209,6 +247,9 @@ export function ShareLinkPanel({ open, onOpenChange }: { open: boolean; onOpenCh
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => setConfirmingId(row.id)}>
                             作废
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setDeletingId(row.id)}>
+                            <Trash2 className="h-3.5 w-3.5" /> 删除
                           </Button>
                         </>
                       )}

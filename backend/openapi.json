@@ -15660,6 +15660,37 @@
         ]
       }
     },
+    "/api/v1/inbox/upload-links/{link_id}": {
+      "delete": {
+        "operationId": "apps_message_hub_api_upload_link_api_delete_link",
+        "summary": "Delete Link",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "link_id",
+            "schema": {
+              "title": "Link Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "description": "删除链接记录（从列表里消失）。\n\n与「作废」的区别：作废只改状态（客户链接失效，但记录留着可审计），\n删除是彻底不显示。两者都保留 —— 已作废的堆多了需要能清掉。\n\n**权限：仅创建人本人或管理员**。归属校验走 ``get_owned_link``（与作废/换发\n同一口径），非本人且非管理员一律 **404**（不区分「不存在」与「无权限」，\n避免泄露 id 存在性）。\n\n已收材料包不受影响：``InboxMessage.upload_link`` 是 ``on_delete=SET_NULL``，\n删链接只是把包的来源指针置空，材料本体与归属关系全部保留。",
+        "tags": [
+          "客户上传链接"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/public/material-link": {
       "get": {
         "operationId": "apps_message_hub_api_public_upload_api_get_link_info",

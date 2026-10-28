@@ -157,6 +157,29 @@ def revoke_upload_link(link: ClientUploadLink) -> ClientUploadLink:
     return link
 
 
+def delete_upload_link(link: ClientUploadLink) -> None:
+    """彻底删除链接记录（从列表里消失，而不只是标为已作废）。
+
+    与作废的区别：作废是「留下痕迹，客户手里的链接失效」，删除是「这条记录
+    不再出现」。两者都要用，所以同时保留。
+
+    安全性：
+    - 已收材料包不会被连带删掉 —— ``InboxMessage.upload_link`` 是
+      ``on_delete=SET_NULL``，删链接只会把包的「来源链接」指针置空，材料本体、
+      归属律师、已归案关系全部保留。
+    - 归属校验在调用方经 ``get_owned_link`` 完成（仅创建人 / 管理员，否则 404）。
+
+    先置为 REVOKED 再删：万一删除失败，链接也已经是不可用状态，不会出现
+    「没删掉但客户还能继续上传」的中间态。
+    """
+    link_id = link.pk
+    if link.status != UploadLinkStatus.REVOKED:
+        link.status = UploadLinkStatus.REVOKED
+        link.save(update_fields=["status", "updated_at"])
+    link.delete()
+    logger.info("删除客户上传链接 id=%s", link_id)
+
+
 def rotate_upload_link(link: ClientUploadLink) -> str:
     """换发新 token（旧 token 立即失效），返回新明文——只此一次。"""
     token = secrets.token_urlsafe(TOKEN_RANDOM_BYTES)
