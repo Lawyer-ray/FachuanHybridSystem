@@ -144,8 +144,8 @@ export function ShareLinkDialog({
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  /** 创建成功回调，带新链接明文；由父层展示（弹窗自开即关，不叠第二层窗口） */
-  onCreated?: (url: string) => void
+  /** 创建成功回调，带新链接明文与标题；由父层展示（弹窗关闭，不叠第二层窗口） */
+  onCreated?: (url: string, title: string) => void
 }) {
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
@@ -178,7 +178,7 @@ export function ShareLinkDialog({
       .then((created) => {
         const url = buildShareUrl(created.token)
         // 交回父层展示：本弹窗随即关闭，全程只有一个窗口
-        onCreated?.(url)
+        onCreated?.(url, title.trim())
         onOpenChange(false)
       })
       .catch((e: unknown) => {
