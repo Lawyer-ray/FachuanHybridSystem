@@ -3,7 +3,7 @@ import { ArrowLeft, Copy, FileDown } from 'lucide-react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
-import { getParseRecord, listParseRecords, parseHistoryKeys } from '../../../api'
+import { getParseRecord, listParseRecords, parseHistoryKeys, type ParseBlock, type ParseCoverage } from '../../../api'
 import { cn } from '@/lib/utils'
 import { errMessage } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -14,6 +14,7 @@ import { copyOutcome, downloadOutcome } from '../doc-parse-outcome'
 import { badgeOf } from './badges'
 import { HistoryError } from './HistoryError'
 import { HistoryHeader, HistoryPager } from './HistoryParts'
+import { BlockReviewPanel } from '../review/BlockReviewPanel'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: '待处理',
@@ -27,6 +28,70 @@ const GROUPS = [
   { value: 'completed', label: '已完成' },
   { value: 'failed', label: '失败' },
 ] as const
+
+/**
+ * 历史详情的结果展示：有块时给「逐块复核 / 全文」双切，无块时直出全文。
+ *
+ * 与 DocParseCard 的 ResultTabs 分开实现而不抽共用：两者数据源字段名不同
+ * （这里直接拿落库的 blocks，那边拿 ParseOutcome），形状差异靠参数化抵消
+ * 会把两边都弄成一层薄封装；宁可留两处，等下个消费方出现再收。
+ */
+function HistoryResultTabs({
+  markdown,
+  text,
+  blocks,
+  coverage,
+}: {
+  markdown: string
+  text: string
+  blocks: ParseBlock[] | null
+  coverage: ParseCoverage | null
+}) {
+  const hasBlocks = !!blocks && blocks.length > 0
+  const [view, setView] = useState<'text' | 'blocks'>('text')
+
+  if (!hasBlocks) {
+    return (
+      <pre className="min-h-0 overflow-auto rounded-[10px] border border-border bg-background px-3 py-2.5 text-[11.5px] leading-[1.7] whitespace-pre-wrap break-all">
+        {markdown || text || '（解析结果为空）'}
+      </pre>
+    )
+  }
+
+  return (
+    <div className="flex min-h-0 flex-col gap-2">
+      <div className="flex flex-none items-center gap-1">
+        {(
+          [
+            { key: 'blocks', label: '逐块复核' },
+            { key: 'text', label: '全文' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setView(t.key)}
+            className={cn(
+              'rounded-[7px] px-2.5 py-[4px] text-[11px] font-medium transition-colors',
+              view === t.key
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {view === 'text' ? (
+        <pre className="min-h-0 overflow-auto rounded-[10px] border border-border bg-background px-3 py-2.5 text-[11.5px] leading-[1.7] whitespace-pre-wrap break-all">
+          {markdown || text || '（解析结果为空）'}
+        </pre>
+      ) : (
+        <BlockReviewPanel blocks={blocks} coverage={coverage} />
+      )}
+    </div>
+  )
+}
 
 /**
  * 文档解析历史弹窗：同一弹窗内「列表 ⇄ 详情」切换（不叠第二层弹窗）——
@@ -201,9 +266,12 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
               ) : detailLoading || !detail ? (
                 <LoadingBlock text="正在载入记录…" className="px-0" />
               ) : ok && outcome ? (
-                <pre className="min-h-0 overflow-auto rounded-[10px] border border-border bg-background px-3 py-2.5 text-[11.5px] leading-[1.7] whitespace-pre-wrap break-all">
-                  {outcome.markdown || outcome.text || '（解析结果为空）'}
-                </pre>
+                <HistoryResultTabs
+                  markdown={outcome.markdown}
+                  text={outcome.text}
+                  blocks={detail.blocks ?? null}
+                  coverage={null}
+                />
               ) : (
                 <FlowNotice kind="error">{detail.error_message || '该次解析失败'}</FlowNotice>
               )}

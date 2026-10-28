@@ -19989,6 +19989,32 @@ export interface components {
             credential_id: number;
         };
         /**
+         * ParseCoverageOut
+         * @description 后端块级能力位（“这个后端能提供什么”）
+         */
+        ParseCoverageOut: {
+            /**
+             * Has Blocks
+             * @default false
+             */
+            has_blocks: boolean;
+            /**
+             * Has Bbox
+             * @default false
+             */
+            has_bbox: boolean;
+            /**
+             * Has Confidence
+             * @default false
+             */
+            has_confidence: boolean;
+            /**
+             * Has Page Geometry
+             * @default false
+             */
+            has_page_geometry: boolean;
+        };
+        /**
          * ParseDocumentResponse
          * @description 文档解析响应
          */
@@ -20012,8 +20038,43 @@ export interface components {
             } | null;
             /** Parse Method */
             parse_method?: string | null;
+            /** Blocks */
+            blocks?: components["schemas"]["ParseMemoryBlockOut"][] | null;
+            coverage?: components["schemas"]["ParseCoverageOut"] | null;
             /** Error */
             error?: string | null;
+        };
+        /**
+         * ParseMemoryBlockOut
+         * @description 块级结构（复核/质检用）
+         *
+         *     ``confidence`` 为 None 有确切语义：**未评估**（后端无此能力或判定模型未运行），
+         *     不能当作 0 处理——0 表示评估过且很可能是错的，两者处置完全不同。
+         */
+        ParseMemoryBlockOut: {
+            /** Type */
+            type: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Page No */
+            page_no?: number | null;
+            /** Bbox */
+            bbox?: unknown;
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Needs Review
+             * @default false
+             */
+            needs_review: boolean;
+            /**
+             * Review Reason
+             * @default
+             */
+            review_reason: string;
         };
         /**
          * ParseDocumentRequest
@@ -20160,6 +20221,8 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+            /** Blocks */
+            blocks?: components["schemas"]["ParseMemoryBlockOut"][] | null;
             /** Created At */
             created_at?: string | null;
             /** Completed At */
