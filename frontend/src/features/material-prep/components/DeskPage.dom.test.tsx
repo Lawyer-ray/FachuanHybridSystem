@@ -11,6 +11,7 @@
  * - 卸载时清掉离场定时器
  */
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hookMock = vi.hoisted(() => ({
@@ -18,10 +19,14 @@ const hookMock = vi.hoisted(() => ({
   useCreatePack: vi.fn(),
   useJudgePack: vi.fn(),
   useDeletePack: vi.fn(),
+  useInboxCounts: vi.fn(() => 0),
 }))
 const storeMock = vi.hoisted(() => ({ open: vi.fn(), openId: null as number | null }))
 
 vi.mock('../hooks/use-inbox', () => hookMock)
+// 收件箱角标走的是 inbox 子域的 hooks（不是 ../hooks/use-inbox），单独打桩：
+// 不打桩它会去要 QueryClient，而这些用例只验证 DeskPage 自己的编排逻辑。
+vi.mock('../inbox/hooks/use-inbox', () => ({ useInboxCounts: hookMock.useInboxCounts }))
 vi.mock('../store', () => ({
   useReader: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),
 }))
@@ -39,23 +44,32 @@ vi.mock('../material-prep.css', () => ({}))
 
 // 子组件打桩
 const ui = vi.hoisted(() => ({
-  tabs: null as null | { tab: string; counts: Record<string, number>; onChange: (t: string) => void },
+  tabs: null as null | {
+    stage: string
+    counts: Record<string, number>
+    setStage: (t: string) => void
+  },
   grid: null as null | { packs: Array<{ id: number }>; leaving: Record<number, string> },
   gridCbs: null as null | Record<string, (...a: unknown[]) => void>,
   drop: null as null | { onFiles: (f: FileList | null) => Promise<void>; uploading: boolean; dragging: boolean },
 }))
 vi.mock('./DeskTabs', () => ({
-  DeskTabs: (p: { tab: string; counts: Record<string, number>; setTab: (t: string) => void }) => {
-    ui.tabs = p as unknown as { tab: string; counts: Record<string, number>; onChange: (t: string) => void }
+  DeskTabs: (p: { stage: string; counts: Record<string, number>; setStage: (t: string) => void }) => {
+    ui.tabs = p as unknown as { stage: string; counts: Record<string, number>; setStage: (t: string) => void }
     return (
       <div>
         TABS
-        <button type="button" onClick={() => p.setTab('done')}>切到已归案</button>
-        <button type="button" onClick={() => p.setTab('filed')}>切到归档</button>
+        <button type="button" onClick={() => p.setStage('inbox')}>切到收件箱</button>
+        <button type="button" onClick={() => p.setStage('todo')}>切到待处理</button>
+        <button type="button" onClick={() => p.setStage('done')}>切到已归案</button>
+        <button type="button" onClick={() => p.setStage('filed')}>切到归档</button>
       </div>
     )
   },
 }))
+// 收件箱阶段的主区域：本文件只验证 DeskPage 的阶段编排，收件箱自身由
+// InboxView.dom.test 覆盖，这里打桩成可识别的标记。
+vi.mock('../inbox', () => ({ InboxView: () => <div>INBOX-VIEW</div> }))
 vi.mock('./PackGrid', () => ({
   PackGrid: (p: Record<string, unknown>) => {
     ui.grid = p as unknown as { packs: Array<{ id: number }>; leaving: Record<number, string> }
@@ -129,8 +143,22 @@ function setup(packs: unknown[] | null, over: { create?: unknown; judge?: unknow
   return { createMutate: (over.create as never) ?? mutateAsync, judgeMutate: (over.judge as never) ?? mutateAsync }
 }
 
+/**
+ * 统一渲染入口：DeskPage 的阶段状态存在 URL（?stage=），必须包在 Router 里。
+ * 缺省 ``/material-prep?stage=todo`` —— 绝大多数用例验证的是材料包网格，
+ * 而页面真实缺省阶段是「收件箱」（见 stages.ts），用例显式指明更清楚。
+ */
+function renderDesk(path = '/material-prep?stage=todo') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <DeskPage />
+    </MemoryRouter>,
+  )
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  hookMock.useInboxCounts.mockReturnValue(0)
   ui.tabs = null
   ui.grid = null
   ui.drop = null
@@ -142,7 +170,7 @@ describe('DeskPage：加载态布局', () => {
     hookMock.useCreatePack.mockReturnValue({ mutateAsync: vi.fn(async () => ({})) })
     hookMock.useJudgePack.mockReturnValue({ mutateAsync: vi.fn(async () => ({})) })
     hookMock.useDeletePack.mockReturnValue({ mutateAsync: vi.fn(async () => ({})), isPending: false })
-    const { container } = render(<DeskPage />)
+    const { container } = renderDesk()
     // 文案与 spinner 同在一个占位块里（React 把二者作为同一 div 的子节点）
     // 取「最小」的那个含该文案的 div——外层包裹 div 也含这段文字
     const box = Array.from(container.querySelectorAll('div'))
@@ -158,21 +186,22 @@ describe('DeskPage：加载态布局', () => {
 describe('DeskPage：页签过滤与计数', () => {
   it('默认显示 todo 页签的包', () => {
     setup([pack(1, 'todo'), pack(2, 'done'), pack(3, 'todo')])
-    const { unmount } = render(<DeskPage />)
+    const { unmount } = renderDesk()
     expect(ui.grid!.packs.map((p) => p.id)).toEqual([1, 3])
     unmount()
   })
 
   it('三个页签各自计数', () => {
     setup([pack(1, 'todo'), pack(2, 'done'), pack(3, 'done'), pack(4, 'filed')])
-    const { unmount } = render(<DeskPage />)
-    expect(ui.tabs!.counts).toEqual({ todo: 1, done: 2, filed: 1 })
+    const { unmount } = renderDesk()
+    // inbox 是流水线第一段，与三个材料包状态同在一级页签上，故计数一并出现
+    expect(ui.tabs!.counts).toEqual({ inbox: 0, todo: 1, done: 2, filed: 1 })
     unmount()
   })
 
   it('切页签后显示对应状态的包', async () => {
     setup([pack(1, 'todo'), pack(2, 'done')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     act(() => {
       getByText('切到已归案').click()
@@ -183,8 +212,8 @@ describe('DeskPage：页签过滤与计数', () => {
 
   it('数据为 null 时不崩且计数为 0', () => {
     setup(null)
-    const { unmount } = render(<DeskPage />)
-    expect(ui.tabs!.counts).toEqual({ todo: 0, done: 0, filed: 0 })
+    const { unmount } = renderDesk()
+    expect(ui.tabs!.counts).toEqual({ inbox: 0, todo: 0, done: 0, filed: 0 })
     unmount()
   })
 })
@@ -192,7 +221,7 @@ describe('DeskPage：页签过滤与计数', () => {
 describe('DeskPage：上传', () => {
   it('上传成功提示份数', async () => {
     setup([])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('模拟上传').click()
@@ -204,7 +233,7 @@ describe('DeskPage：上传', () => {
 
   it('上传失败提示且不抛错', async () => {
     setup([], { create: vi.fn(async () => { throw new Error('boom') }) })
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('模拟上传').click()
@@ -216,7 +245,7 @@ describe('DeskPage：上传', () => {
 
   it('空文件列表不触发上传', async () => {
     const { createMutate } = setup([])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('上传空').click()
@@ -230,7 +259,7 @@ describe('DeskPage：上传', () => {
 describe('DeskPage：judge 离场', () => {
   it('归案成功：卡片进入 leaving 并从列表移除', async () => {
     const { judgeMutate } = setup([pack(1, 'todo')])
-    const { unmount } = render(<DeskPage />)
+    const { unmount } = renderDesk()
 
     // 直接调 judgeVoid 的等价入口不存在，改由 PackGrid 触发不可行
     // —— 这里验证 leaving 初值为空即可，judge 路径由下方 hook 级测试覆盖
@@ -245,7 +274,7 @@ describe('DeskPage：judge 离场', () => {
 describe('DeskPage：openAt 与不接', () => {
   it('打开第 0 个：调用 openPack 并 SPA 跳转', async () => {
     setup([pack(5, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('打开第0个').click()
@@ -257,7 +286,7 @@ describe('DeskPage：openAt 与不接', () => {
 
   it('不接：以 filed 调 judge 并提示归档留痕', async () => {
     const { judgeMutate } = setup([pack(1, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('不接').click()
@@ -270,7 +299,7 @@ describe('DeskPage：openAt 与不接', () => {
 
   it('judge 失败：提示状态更新失败', async () => {
     setup([pack(1, 'todo')], { judge: vi.fn(async () => { throw new Error('boom') }) })
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('不接').click()
@@ -284,7 +313,7 @@ describe('DeskPage：openAt 与不接', () => {
 describe('DeskPage：通过弹窗归案', () => {
   it('确认归案以 done 调 judge', async () => {
     const { judgeMutate } = setup([pack(1, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('确认归案').click()
@@ -298,7 +327,7 @@ describe('DeskPage：通过弹窗归案', () => {
 describe('DeskPage：删除', () => {
   it('确认删除：成功后提示并清空目标', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     // 先点「删」设目标，再点弹窗确认
     fireEvent.click(getByText('删'))
@@ -312,7 +341,7 @@ describe('DeskPage：删除', () => {
 
   it('无删除目标时确认是 no-op', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('确认删除').click()
@@ -335,7 +364,7 @@ describe('DeskPage：拖放层级计数', () => {
 
   it('拖入文件时进入 dragging 态（DropLayer 收到 dragging=true）', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, container } = render(<DeskPage />)
+    const { unmount, container } = renderDesk()
     await waitFor(() => expect(ui.drop).toBeTruthy())
 
     const root = container.firstElementChild as HTMLElement
@@ -348,7 +377,7 @@ describe('DeskPage：拖放层级计数', () => {
 
   it('非文件拖入不进入 dragging 态', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, container } = render(<DeskPage />)
+    const { unmount, container } = renderDesk()
     await waitFor(() => expect(ui.drop).toBeTruthy())
 
     const root = container.firstElementChild as HTMLElement
@@ -360,7 +389,7 @@ describe('DeskPage：拖放层级计数', () => {
 
   it('dragLeave 逐层递减，归零才取消 dragging', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, container } = render(<DeskPage />)
+    const { unmount, container } = renderDesk()
     await waitFor(() => expect(ui.drop).toBeTruthy())
 
     const root = container.firstElementChild as HTMLElement
@@ -380,7 +409,7 @@ describe('DeskPage：重复 judge 防重入', () => {
   it('同一 pack 连续两次 judge：第二次被 leaving 守卫拦下', async () => {
     const judgeMutate = vi.fn(async () => ({}))
     setup([pack(1, 'todo')], { judge: judgeMutate })
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     // 第一次点「不接」→ 进入 leaving
     await act(async () => {
@@ -402,7 +431,7 @@ describe('DeskPage：重复 judge 防重入', () => {
 describe('DeskPage：删除目标与选择文件', () => {
   it('点「删」设置删除目标后弹窗收到该目标', async () => {
     setup([pack(3, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     fireEvent.click(getByText('删'))
     await waitFor(() => expect(dialogs.props!.deleteTarget).toBeTruthy())
@@ -411,7 +440,7 @@ describe('DeskPage：删除目标与选择文件', () => {
 
   it('点「改名」设置重命名目标', async () => {
     setup([pack(4, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     fireEvent.click(getByText('改名'))
     await waitFor(() => expect(dialogs.props!.renameTarget).toBeTruthy())
@@ -420,7 +449,7 @@ describe('DeskPage：删除目标与选择文件', () => {
 
   it('点「接」设置归案目标后弹窗收到该目标', async () => {
     setup([pack(5, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     fireEvent.click(getByText('接'))
     await waitFor(() => expect(dialogs.props!.assigning).toBeTruthy())
@@ -440,7 +469,7 @@ describe('DeskPage：拖放上传与 dragOver', () => {
 
   it('drop 触发上传并清空 dragging', async () => {
     const { createMutate } = setup([pack(1, 'todo')])
-    const { unmount, container } = render(<DeskPage />)
+    const { unmount, container } = renderDesk()
     await waitFor(() => expect(ui.drop).toBeTruthy())
 
     const root = container.firstElementChild as HTMLElement
@@ -454,7 +483,7 @@ describe('DeskPage：拖放上传与 dragOver', () => {
 
   it('dragOver 文件时 preventDefault 并设置 dropEffect=copy', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, container } = render(<DeskPage />)
+    const { unmount, container } = renderDesk()
     await waitFor(() => expect(ui.drop).toBeTruthy())
 
     const root = container.firstElementChild as HTMLElement
@@ -469,7 +498,7 @@ describe('DeskPage：拖放上传与 dragOver', () => {
 
   it('dragOver 非文件时不做处理', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, container } = render(<DeskPage />)
+    const { unmount, container } = renderDesk()
     await waitFor(() => expect(ui.drop).toBeTruthy())
 
     const root = container.firstElementChild as HTMLElement
@@ -490,14 +519,14 @@ describe('DeskPage：拖放上传与 dragOver', () => {
 describe('DeskPage：选文件与对话框取消', () => {
   it('点「选文件」不抛错（onPickFiles 连线存在）', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
     expect(() => fireEvent.click(getByText('选文件'))).not.toThrow()
     unmount()
   })
 
   it('对话框取消回调各自清空目标', async () => {
     setup([pack(1, 'todo')])
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     // 先设目标再取消
     fireEvent.click(getByText('删'))
@@ -523,7 +552,7 @@ describe('DeskPage：离场定时器清理', () => {
     vi.useFakeTimers()
     const judgeMutate = vi.fn(async () => ({}))
     setup([pack(1, 'todo')], { judge: judgeMutate })
-    const { unmount, getByText } = render(<DeskPage />)
+    const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('不接').click()
@@ -535,6 +564,44 @@ describe('DeskPage：离场定时器清理', () => {
     })
     expect(ui.grid!.leaving).toEqual({})
     vi.useRealTimers()
+    unmount()
+  })
+})
+
+describe('DeskPage：阶段（收件箱与材料包同页）', () => {
+  it('缺省即收件箱阶段：主区域渲染收件箱视图，不渲染材料包网格', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText, queryByText } = renderDesk('/material-prep')
+    expect(getByText('INBOX-VIEW')).toBeTruthy()
+    // 网格未被渲染 —— 收件箱是漏斗第一段，尚未进入材料包阶段
+    expect(queryByText(/^GRID:/)).toBeNull()
+    expect(ui.tabs!.stage).toBe('inbox')
+    unmount()
+  })
+
+  it('?stage=todo 时进入材料包阶段：渲染网格、不渲染收件箱视图', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText, queryByText } = renderDesk('/material-prep?stage=todo')
+    expect(queryByText('INBOX-VIEW')).toBeNull()
+    expect(getByText('GRID:1')).toBeTruthy()
+    unmount()
+  })
+
+  it('非法 stage 值回落收件箱（不因脏 URL 白屏）', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText } = renderDesk('/material-prep?stage=%3Cscript%3E')
+    expect(getByText('INBOX-VIEW')).toBeTruthy()
+    expect(ui.tabs!.stage).toBe('inbox')
+    unmount()
+  })
+
+  it('上传成功后从收件箱阶段切到「待处理」（新包落在那里）', async () => {
+    setup([])
+    const { unmount, getByText, queryByText } = renderDesk('/material-prep')
+    expect(getByText('INBOX-VIEW')).toBeTruthy()
+    fireEvent.click(getByText('模拟上传'))
+    await waitFor(() => expect(ui.tabs!.stage).toBe('todo'))
+    expect(queryByText('INBOX-VIEW')).toBeNull()
     unmount()
   })
 })

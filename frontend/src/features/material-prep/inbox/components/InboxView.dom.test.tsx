@@ -33,7 +33,7 @@ vi.mock('../api', async (importOriginal) => {
 })
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
 
-import { InboxPage } from './InboxPage'
+import { InboxView } from './InboxView'
 import type { InboxRow } from '../types'
 
 function row(over: Partial<InboxRow> & { id: number }): InboxRow {
@@ -94,17 +94,18 @@ beforeEach(() => {
   })
 })
 
-describe('InboxPage', () => {
-  it('渲染收件箱标题与消息行', async () => {
+describe('InboxView', () => {
+  it('渲染消息行（页面标题与阶段页签由 DeskPage 提供，不归本视图）', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
-    wrap(<InboxPage />)
-    expect(await screen.findByRole('heading', { name: '收件箱' })).toBeTruthy()
+    wrap(<InboxView />)
     expect(await screen.findByText(/执保XXXX号/)).toBeTruthy()
+    // 来源筛选条在（缩略确认这是列表本体而不是空壳）
+    expect(screen.getByRole('button', { name: '邮箱' })).toBeTruthy()
   })
 
   it('切换来源档位会用对应 source_type 重新取数', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     await screen.findByText(/执保XXXX号/)
     fireEvent.click(screen.getByRole('button', { name: '邮箱' }))
     await waitFor(() => {
@@ -114,7 +115,7 @@ describe('InboxPage', () => {
 
   it('点开一行 → 抽屉出现并标记已读', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     fireEvent.click(await screen.findByText(/执保XXXX号/))
     expect(await screen.findByRole('dialog', { name: '消息详情' })).toBeTruthy()
     // 未读消息点开即标已读
@@ -125,7 +126,7 @@ describe('InboxPage', () => {
 
   it('已读的消息点开不重复发标记请求', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, is_read: true })])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     fireEvent.click(await screen.findByText(/执保XXXX号/))
     await screen.findByRole('dialog', { name: '消息详情' })
     expect(apiMock.setReadState).not.toHaveBeenCalled()
@@ -133,7 +134,7 @@ describe('InboxPage', () => {
 
   it('抽屉内转材料包 → 跳材料预处理详情（闭环）', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: true, converted_message_id: null })])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     fireEvent.click(await screen.findByText(/执保XXXX号/))
     const btn = await screen.findByRole('button', { name: /转材料包并打开/ })
     fireEvent.click(btn)
@@ -146,7 +147,7 @@ describe('InboxPage', () => {
 
   it('无附件的通知类消息不给转材料包按钮，并说明原因', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, has_attachments: false, attachment_count: 0 })])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     fireEvent.click(await screen.findByText(/执保XXXX号/))
     await screen.findByRole('dialog', { name: '消息详情' })
     expect(screen.queryByRole('button', { name: /转材料包/ })).toBeNull()
@@ -155,7 +156,7 @@ describe('InboxPage', () => {
 
   it('已转过材料包的消息直接给「打开已转的材料包」', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1, converted_message_id: 42 })])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     fireEvent.click(await screen.findByText(/执保XXXX号/))
     expect(await screen.findByRole('button', { name: /打开已转的材料包/ })).toBeTruthy()
   })
@@ -164,14 +165,14 @@ describe('InboxPage', () => {
     apiMock.listInbox.mockResolvedValue([
       row({ id: 5, source_type: 'manual_upload', source_name: '前端材料预处理上传', subject: '手动上传材料' }),
     ])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     fireEvent.click(await screen.findByText('手动上传材料'))
     expect(await screen.findByRole('button', { name: /打开材料预处理/ })).toBeTruthy()
   })
 
   it('未读筛选开关会用 unreadOnly 重新取数', async () => {
     apiMock.listInbox.mockResolvedValue([row({ id: 1 })])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     await screen.findByText(/执保XXXX号/)
     fireEvent.click(screen.getByRole('button', { name: /未读/ }))
     await waitFor(() => {
@@ -181,7 +182,7 @@ describe('InboxPage', () => {
 
   it('空列表按筛选条件给不同空态文案', async () => {
     apiMock.listInbox.mockResolvedValue([])
-    wrap(<InboxPage />)
+    wrap(<InboxView />)
     expect(await screen.findByText('收件箱是空的')).toBeTruthy()
   })
 })

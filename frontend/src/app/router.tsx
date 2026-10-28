@@ -10,7 +10,6 @@ import {
   ClientUploadPageLazy,
   DeskPageLazy,
   HomePageLazy,
-  InboxPageLazy,
   ProjectDetailPageLazy,
   ReviewWorkbenchPageLazy,
   SettingsPageLazy,
@@ -45,6 +44,14 @@ function LegacyBindingsRedirect() {
   return <Navigate to={`${settings()}${search}`} replace />
 }
 
+/**
+ * 旧收件箱路径 → 预处理页。收件箱现在是该页的默认阶段，故丢掉 search 也不会
+ * 落错阶段（?stage=todo 之类的旧链接仍会由 materialPrep 的解析器兼容）。
+ */
+function LegacyInboxRedirect() {
+  return <Navigate to={ROUTES.materialPrep} replace />
+}
+
 /** 懒加载页统一包一层 RouteFallback（fallback 由 Suspense 兜） */
 function lazyPage(node: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{node}</Suspense>
@@ -68,9 +75,9 @@ export function AppRouter() {
         >
           {/* 首页 · 今日工作台（home 域含工具坞弹窗全家桶，懒加载拆出首屏包） */}
           <Route path={ROUTES.home} element={<HomePageLazy />} />
-          {/* 收件箱：消息流入总入口（法院送达 / 邮箱 / 短信 / 材料包）。
-              与材料预处理的关系是「上一跳」——有附件的消息在这里一键转材料包。 */}
-          <Route path={ROUTES.inbox} element={lazyPage(<InboxPageLazy />)} />
+          {/* 收件箱已并入预处理页的「收件箱」阶段（流水线第一段）。旧路径保留
+              前转：收件箱正是该页的默认阶段，故不需要透传 query 也不会落错。 */}
+          <Route path={ROUTES.inbox} element={<LegacyInboxRedirect />} />
           <Route path={ROUTES.materialPrep} element={<DeskPageLazy />} />
           {/* 详情页：/material-prep/:id —— 可刷新、可分享、支持前进后退 */}
           <Route path={ROUTES.materialPrepDetail} element={<DeskPageLazy />} />

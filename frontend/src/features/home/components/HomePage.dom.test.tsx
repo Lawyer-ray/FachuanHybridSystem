@@ -291,10 +291,11 @@ describe('HomePage：收件箱派发', () => {
     unmount()
   })
 
-  it('非材料包类跳收件箱页（不再弹「开发中」假提示）', async () => {
+  it('非材料包类跳收件箱阶段（收件箱已并入预处理页，不再弹「开发中」假提示）', async () => {
     const { unmount } = render(wrap(<HomePage />))
     fireEvent.click(screen.getByText('打开短信'))
-    expect(navMock.navigate).toHaveBeenCalledWith('/inbox')
+    // 收件箱是预处理页的默认阶段，因此前转到 /material-prep 即落在收件箱列表
+    expect(navMock.navigate).toHaveBeenCalledWith('/material-prep')
     unmount()
   })
 })

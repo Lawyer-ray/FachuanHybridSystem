@@ -10,16 +10,16 @@ import { MessageDrawer } from './MessageDrawer'
 import type { InboxRow, InboxSourceFilter } from '../types'
 
 /**
- * 收件箱页（/inbox）。
+ * 收件箱视图 —— 预处理页「收件箱」阶段的主区域。
  *
- * 定位：**消息流入的总入口**。首页右栏那张卡只展示最近 6 条，处理不了
- * 几百条历史消息；本页给完整列表 + 筛选 + 搜索 + 详情，以及「进材料预处理」
- * 的入口——这是材料预处理之前那一步真正缺的东西。
+ * 定位：**消息流入的总入口**，也就是整条漏斗的第一段（`收件箱 → 拆包 → 归案`）。
+ * 它是 DeskPage 内的一个视图，不是独立页面：外壳（stage 页签、上传动作、
+ * 拖放层）都由 DeskPage 提供，这里只负责列表主体与详情抽屉。
  *
  * 页面只编排：筛选/搜索/抽屉开关是本地 useState，取数走 react-query，
  * 分组与未读计数在 domain.ts（纯函数，可单测）。
  */
-export function InboxPage() {
+export function InboxView() {
   const navigate = useNavigate()
   const [source, setSource] = useState<InboxSourceFilter>('all')
   const [search, setSearch] = useState('')
@@ -61,39 +61,29 @@ export function InboxPage() {
   }, [])
 
   return (
-    <div className="relative flex min-h-[calc(100dvh-var(--app-navbar-h))] flex-col">
-      <main className="app-page-enter mx-auto flex w-full max-w-[1080px] min-h-0 flex-1 flex-col px-7 pt-6 pb-8">
-        <header className="mb-3 flex items-baseline gap-2.5">
-          <h1 className="text-[16px] font-semibold">收件箱</h1>
-          <span className="rounded-[99px] border border-border bg-secondary px-2 py-px text-[11px] font-semibold text-muted-foreground">
-            {rows.length} 条
-          </span>
-          <span className="text-[11.5px] text-muted-foreground">
-            法院送达 · 邮箱 · 短信 · 材料包，都在这里
-          </span>
-        </header>
-
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,.02)]">
-          <InboxList
-            rows={rows}
-            isLoading={list.isLoading}
-            error={list.error}
-            onRetry={() => void list.refetch()}
-            source={source}
-            onSourceChange={setSource}
-            search={search}
-            onSearchChange={setSearch}
-            unreadOnly={unreadOnly}
-            onUnreadOnlyChange={setUnreadOnly}
-            unreadCount={unreadCount}
-            activeId={active?.id ?? null}
-            convertingId={null}
-            onSelect={handleSelect}
-          />
-        </div>
-      </main>
+    <>
+      {/* 列表容器：与材料包网格共用同一张卡片的视觉语言（圆角 + 描边 + 极轻阴影），
+          让两个阶段切换时主区域"框"不跳动 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,.02)]">
+        <InboxList
+          rows={rows}
+          isLoading={list.isLoading}
+          error={list.error}
+          onRetry={() => void list.refetch()}
+          source={source}
+          onSourceChange={setSource}
+          search={search}
+          onSearchChange={setSearch}
+          unreadOnly={unreadOnly}
+          onUnreadOnlyChange={setUnreadOnly}
+          unreadCount={unreadCount}
+          activeId={active?.id ?? null}
+          convertingId={null}
+          onSelect={handleSelect}
+        />
+      </div>
 
       {active && <MessageDrawer row={active} onClose={closeDrawer} onConverted={goPack} />}
-    </div>
+    </>
   )
 }
