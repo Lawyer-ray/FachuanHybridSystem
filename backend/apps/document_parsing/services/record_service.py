@@ -72,6 +72,7 @@ class DocumentParsingRecordService:
             "text": task.text or "",
             "markdown": task.markdown or None,
             "metadata": task.metadata or {},
+            "blocks": task.blocks or None,
             "created_at": task.created_at,
             "completed_at": task.completed_at,
         }

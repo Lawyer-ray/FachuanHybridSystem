@@ -14,6 +14,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.document_parsing.models import DocumentParsingTask
+from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument
+from apps.document_parsing.services.block_builder import attach_blocks
 from apps.document_parsing.tasks import document_parsing_hook, execute_extract_text, execute_parse_document
 
 
@@ -59,6 +61,40 @@ class TestHookEdgeBranches:
 
 
 class TestExecuteParseDocument:
+    def test_serializes_blocks_and_coverage(self) -> None:
+        """块级结构与能力位必须透传到 Q 任务结果，否则异步路径落库拿不到。"""
+        parsed = ParsedDocument(
+            text="甲方向乙方采购",
+            markdown="甲方向乙方采购",
+            metadata={},
+            parse_method="textin",
+            layout={
+                "page_count": 1,
+                "pages": [
+                    {
+                        "page_no": 1,
+                        "width": 100,
+                        "height": 200,
+                        "blocks": [
+                            {"type": "NarrativeText", "text": "甲方向乙方采购", "bbox": [0, 0, 10, 10]},
+                            {"type": "Footer", "text": "第 1 页", "bbox": [0, 190, 10, 200]},
+                        ],
+                    }
+                ],
+            },
+        )
+        attach_blocks(parsed)
+        parser = MagicMock()
+        parser.parse_document = MagicMock(return_value=parsed)
+
+        with patch("apps.document_parsing.services.get_document_parser", return_value=parser):
+            result = execute_parse_document("/tmp/x.pdf", "pdf", "textin", True, False, True)
+
+        assert result["blocks"][0]["type"] == "text"
+        assert result["blocks"][1]["type"] == "footer"
+        assert result["coverage"]["has_blocks"] is True
+        assert result["coverage"]["has_bbox"] is True
+
     def test_success_returns_result_dict(self) -> None:
         parsed = SimpleNamespace(text="全文", markdown="# md", metadata={"pages": 3}, parse_method="mineru")
         parser = MagicMock()
@@ -75,6 +111,13 @@ class TestExecuteParseDocument:
             "markdown": "# md",
             "metadata": {"pages": 3},
             "parse_method": "mineru",
+            "blocks": [],
+            "coverage": {
+                "has_blocks": False,
+                "has_bbox": False,
+                "has_confidence": False,
+                "has_page_geometry": False,
+            },
         }
         kwargs = parser.parse_document.call_args.kwargs
         assert kwargs["file_path"] == "/tmp/x.pdf"

@@ -41,6 +41,13 @@ class DocumentParsingTask(models.Model):
     text = models.TextField("纯文本", blank=True)
     markdown = models.TextField("Markdown", blank=True)
     metadata = models.JSONField("元数据", default=dict, blank=True)
+    blocks = models.JSONField(
+        "块级结构",
+        default=list,
+        blank=True,
+        help_text="块级结构（含 bbox / confidence / needs_review），供质检与人工复核；"
+        "加此字段之前的历史记录为空列表，且无法回溯（需重新解析）",
+    )
     error_message = models.TextField("错误信息", blank=True)
     created_by = models.ForeignKey(
         "organization.Lawyer",
@@ -78,15 +85,28 @@ class DocumentParsingTask(models.Model):
         self.status = self.Status.PROCESSING
         self.save(update_fields=["status"])
 
-    def mark_completed(self, text: str, markdown: str, metadata: dict, backend_used: str) -> None:
-        """标记为完成"""
+    def mark_completed(
+        self,
+        text: str,
+        markdown: str,
+        metadata: dict,
+        backend_used: str,
+        blocks: list | None = None,
+    ) -> None:
+        """标记为完成
+
+        Args:
+            blocks: 块级结构（可 JSON 化字典列表）；None / 缺省表示后端未提供，
+                存空列表而不是 None——JSONField 统一空值形态，避免前端三态判断。
+        """
         self.status = self.Status.COMPLETED
         self.text = text
         self.markdown = markdown
         self.metadata = metadata
         self.backend_used = backend_used
+        self.blocks = blocks or []
         self.completed_at = timezone.now()
-        self.save(update_fields=["status", "text", "markdown", "metadata", "backend_used", "completed_at"])
+        self.save(update_fields=["status", "text", "markdown", "metadata", "backend_used", "blocks", "completed_at"])
 
     def mark_failed(self, error_message: str) -> None:
         """标记为失败"""

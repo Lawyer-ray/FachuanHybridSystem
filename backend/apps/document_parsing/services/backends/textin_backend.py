@@ -35,6 +35,7 @@ from apps.document_parsing.services.backends._page_artifacts import (
     collect_header_texts,
     strip_markdown_emphasis,
 )
+from apps.document_parsing.services.block_builder import attach_blocks
 from apps.document_parsing.services.credential_pool import CredentialPool, get_credential_pool
 
 logger = logging.getLogger(__name__)
@@ -480,13 +481,15 @@ class TextinBackend:
         }
         layout = self._build_page_layout(elements=elements, pages=pages, page_count=parsed_metadata["page_count"])
 
-        return ParsedDocument(
-            text=text,
-            markdown=md_output,
-            images=None,  # TextinParse 当前不导出本地图片文件
-            metadata=parsed_metadata,
-            parse_method="textin",
-            layout=layout,
+        return attach_blocks(
+            ParsedDocument(
+                text=text,
+                markdown=md_output,
+                images=None,  # TextinParse 当前不导出本地图片文件
+                metadata=parsed_metadata,
+                parse_method="textin",
+                layout=layout,
+            )
         )
 
     def _build_page_layout(self, *, elements: list[Any], pages: list[Any], page_count: Any) -> dict[str, Any]:

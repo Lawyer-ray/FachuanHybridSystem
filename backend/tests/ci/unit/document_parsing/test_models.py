@@ -80,6 +80,26 @@ class TestDocumentParsingTask:
         assert task.completed_at is not None
         assert task.completed_at >= before
 
+    def test_mark_completed_persists_blocks(self) -> None:
+        """块级结构要落库，否则复核界面（刷新/重进）看不到哪些块需人工看。"""
+        task = self._make_task()
+        blocks = [
+            {"type": "text", "text": "甲方向乙方采购", "confidence": 0.97, "needs_review": False},
+            {"type": "text", "text": "金额 12,300 元", "confidence": 0.31, "needs_review": True},
+        ]
+        task.mark_completed(text="t", markdown="m", metadata={}, backend_used="textin", blocks=blocks)
+        task.refresh_from_db()
+        assert task.blocks == blocks
+        # 未评估与判错必须可区分：0.31 不是 None
+        assert task.blocks[1]["confidence"] == 0.31
+
+    def test_mark_completed_defaults_blocks_to_empty_list(self) -> None:
+        """不传 blocks（如 extract-text 路径）存空列表而非 None，前端统一单态。"""
+        task = self._make_task()
+        task.mark_completed(text="t", markdown="", metadata={}, backend_used="textin")
+        task.refresh_from_db()
+        assert task.blocks == []
+
     def test_mark_failed(self) -> None:
         task = self._make_task()
         before = timezone.now()
