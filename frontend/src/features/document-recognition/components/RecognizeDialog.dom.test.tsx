@@ -71,6 +71,9 @@ function makeTask(partial: Partial<TaskOut> = {}): TaskOut {
     error_message: null,
     created_at: '2026-10-01T10:00:00',
     finished_at: null,
+    started_at: null,
+    elapsed_seconds: null,
+    stalled: false,
     ...partial,
   }
 }
@@ -81,7 +84,11 @@ function stubRecognize(over: Partial<ReturnType<typeof useRecognize>> = {}) {
     hint: '',
     error: null,
     task: null,
+    progress: { elapsedSeconds: 0, level: 'normal', backendStalled: false },
     submit: vi.fn(),
+    retry: vi.fn(async () => {}),
+    canRetry: false,
+    retrying: false,
     refresh: vi.fn(async () => {}),
     reset: vi.fn(),
     ...over,

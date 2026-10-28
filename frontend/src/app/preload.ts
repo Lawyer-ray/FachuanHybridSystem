@@ -15,15 +15,11 @@ import { ROUTES } from './paths'
  * 一个没人用的 chunk。放在一个文件里，改漏看得见。
  */
 
-// 材料预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
-// 登录页/首页的首屏包也要背上它。列表页与详情页共用同一 chunk，切换零成本。
+// 预处理整域懒加载：它静态引入 pdfjs-dist（~1MB 级），不拆出去的话
+// 登录页/首页的首屏包也要背上它。列表页、详情页与收件箱阶段共用同一 chunk
+// （收件箱就是该页的一个阶段，不再是独立页面）。
 const preloadDeskPage = () => import('@/features/material-prep')
 export const DeskPageLazy = lazy(() => preloadDeskPage().then((m) => ({ default: m.DeskPage })))
-
-// 收件箱页：独立轻量 chunk（只依赖 react-query + ky，不背 pdfjs）。
-// 与材料预处理分开拆，是因为从收件箱点进材料包时才需要 pdfjs。
-const preloadInboxPage = () => import('@/features/inbox')
-export const InboxPageLazy = lazy(() => preloadInboxPage().then((m) => ({ default: m.InboxPage })))
 
 // AI 助手面板懒加载：只在首次展开时加载 copilot 域；挂壳层、跨路由常驻，
 // 收起面板不卸载状态（流式收发在 store，见 features/copilot）。
@@ -47,9 +43,9 @@ export const ClientUploadPageLazy = lazy(() =>
  */
 const ROUTE_PRELOADERS: Record<string, () => Promise<unknown>> = {
   [ROUTES.home]: preloadHomePage,
-  [ROUTES.inbox]: preloadInboxPage,
-  [ROUTES.materialPrep]: preloadDeskPage,
+  [ROUTES.inbox]: preloadDeskPage,
   [ROUTES.projects]: preloadWorkbenchPage,
+  [ROUTES.materialPrep]: preloadDeskPage,
 }
 
 // 其余页面沿用各 feature 的 lazy 出口（chunk 加载器与预取共用同一个 import()）。

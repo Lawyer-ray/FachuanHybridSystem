@@ -13,6 +13,20 @@ export const RECOGNIZE_POLL_MS = 2_000
 export const RECOGNIZE_MAX_POLLS = 300
 
 /**
+ * 等待感受升级阀值（秒）。
+ *
+ * 正常识别 1-3 秒，含 LLM 分析通常 5-30 秒。
+ * - 超过 10 秒：已经超出典型区间，文案改说「比平时慢」（不吓人但诚实）；
+ * - 超过 60 秒：基本只在出问题时才发生，直接提示可能卡住并亮出重试。
+ *
+ * 后端另有 STALLED_THRESHOLD_SECONDS=180 的权威判定（processing 且耗时超
+ * 阀值 = stalled），前端收到就立刻升级，不等本地计时器追到 60 秒。
+ * 两侧分工：前端管“感受”，后端管“事实”。
+ */
+export const SLOW_HINT_AFTER_SECONDS = 10
+export const STALLED_HINT_AFTER_SECONDS = 60
+
+/**
  * 任务 404 的宽限轮数。django-q worker 摘走任务到落库有 1-3s 空窗期，
  * 期间 GET task 返回 404；连续 15 轮（30s）才认定任务真丢了。
  */

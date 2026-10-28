@@ -19,6 +19,23 @@ export function useInboxList(params: ListInboxParams) {
 }
 
 /**
+ * 收件箱条数（一级页签角标用）。
+ *
+ * 与 InboxView 共用同一个 queryKey（`{}` 无筛选就等于默认全量），因此两者命中
+ * 同一份缓存：页签上的数字和列表里的行数天然一致，不会出现「角标 12、列表 9」。
+ * 收件箱阶段没打开时它也负责把数据先拉回来，切过去就不必再等 loading。
+ */
+export function useInboxCounts(): number {
+  const { data } = useQuery({
+    queryKey: [...INBOX_LIST_KEY, {}],
+    queryFn: () => listInbox({}),
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+  })
+  return data?.length ?? 0
+}
+
+/**
  * 标记已读 / 未读（乐观更新列表缓存）。
  *
  * 为什么乐观：点开一条消息就标已读，若等请求回来再改，未读色条会「卡一下才消失」。

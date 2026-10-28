@@ -12004,6 +12004,44 @@
         ]
       }
     },
+    "/api/v1/document-recognition/court-document/task/{task_id}/retry": {
+      "post": {
+        "operationId": "apps_document_recognition_api_document_recognition_api_retry_task",
+        "summary": "Retry Task",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "schema": {
+              "title": "Task Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStatusResponseSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "重跑一次识别任务（同一个已上传文件，不重新上传）。\n\n为什么需要它（2026-10-28 教训）：识别可能因外部因长期挂起或失败\n（当时是代理把内网 LLM 网关当外网，持续 502 重试，单次耗时 439 秒），\n而用户手里只剩“失败/卡死”——原来只能关闭弹窗重新传文件，\n白丢一次上传，也看不出问题到底出在哪。\n\n只允许重跑 failed / 疑似僵死的 processing 任务：\n- success：结果已落库，重跑会覆盖用户可能已确认的日期候选，拒绝；\n- pending / 正常 processing：它还在正常跑或者排着，重跑会产生双跑，拒绝。\n\n重跑复用同一个 task 行与同一个已存文件（execute_document_recognition_task\n按 task_id 重新执行），所以不会在库里堆垃圾任务、也不重传字节。",
+        "tags": [
+          "法院文书识别"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/document-recognition/court-document/task/{task_id}": {
       "get": {
         "operationId": "apps_document_recognition_api_document_recognition_api_get_task_status",
@@ -15612,6 +15650,37 @@
           }
         },
         "description": "换发新 token（旧 URL 立即失效）；仅生效中的链接可换，已作废请重新创建。",
+        "tags": [
+          "客户上传链接"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/inbox/upload-links/{link_id}": {
+      "delete": {
+        "operationId": "apps_message_hub_api_upload_link_api_delete_link",
+        "summary": "Delete Link",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "link_id",
+            "schema": {
+              "title": "Link Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "description": "删除链接记录（从列表里消失）。\n\n与「作废」的区别：作废只改状态（客户链接失效，但记录留着可审计），\n删除是彻底不显示。两者都保留 —— 已作废的堆多了需要能清掉。\n\n**权限：仅创建人本人或管理员**。归属校验走 ``get_owned_link``（与作废/换发\n同一口径），非本人且非管理员一律 **404**（不区分「不存在」与「无权限」，\n避免泄露 id 存在性）。\n\n已收材料包不受影响：``InboxMessage.upload_link`` 是 ``on_delete=SET_NULL``，\n删链接只是把包的来源指针置空，材料本体与归属关系全部保留。",
         "tags": [
           "客户上传链接"
         ],
@@ -38175,6 +38244,36 @@
               }
             ],
             "title": "Finished At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "任务被 worker 拉起的时刻；processing 但 started_at 为空 = 还排着没跑",
+            "title": "Started At"
+          },
+          "elapsed_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "已耗时（成功用 finished_at，未结束用当前时间）。前端据此显示时长并判定僵死",
+            "title": "Elapsed Seconds"
+          },
+          "stalled": {
+            "default": false,
+            "description": "任务疑似僵死：processing 且已耗时超过阈值。前端据此提前给重试出口而不是干等满 10 分钟",
+            "title": "Stalled",
+            "type": "boolean"
           }
         },
         "required": [

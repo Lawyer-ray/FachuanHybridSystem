@@ -99,13 +99,15 @@ afterEach(() => {
 })
 
 describe('AppNavbar 渲染与全局检索', () => {
-  it('渲染品牌、三个导航入口与检索按钮', () => {
+  it('渲染品牌、三个导航入口（首页/预处理/办案）与检索按钮', () => {
     setupUi()
     expect(screen.getByText('法穿')).toBeTruthy()
     expect(screen.getByText('SI Copilot')).toBeTruthy()
     expect(screen.getByRole('link', { name: '首页' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: '材料预处理' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '预处理' })).toBeTruthy()
     expect(screen.getByRole('link', { name: '办案' })).toBeTruthy()
+    // 收件箱已并入预处理：不应再出现独立的一级入口
+    expect(screen.queryByRole('link', { name: '收件箱' })).toBeNull()
     expect(screen.getByRole('button', { name: /检索/ })).toBeTruthy()
     expect(screen.getByText('张律师')).toBeTruthy()
   })
@@ -135,10 +137,10 @@ describe('AppNavbar 渲染与全局检索', () => {
     expect(apiGetMock).not.toHaveBeenCalled()
   })
 
-  it('新建案件：走 onNotify 提示回调', () => {
+  it('新建项目：走 onNotify 提示回调', () => {
     setupUi()
-    fireEvent.click(screen.getByRole('button', { name: /新建案件/ }))
-    expect(onNotify).toHaveBeenCalledWith('新建案件：可先把材料上传到「材料预处理」归案')
+    fireEvent.click(screen.getByRole('button', { name: /新建项目/ }))
+    expect(onNotify).toHaveBeenCalledWith('新建项目：可先把材料上传到「材料预处理」归案')
   })
 })
 
@@ -220,7 +222,7 @@ const current = (name: string) => screen.getByRole('link', { name }).getAttribut
 describe('AppNavbar 导航入口：预取与乐观高亮', () => {
   it('悬停 / 聚焦导航入口即回调 onPrefetch(目标路径)', () => {
     const { onPrefetch } = setupNav()
-    fireEvent.mouseEnter(screen.getByRole('link', { name: '材料预处理' }))
+    fireEvent.mouseEnter(screen.getByRole('link', { name: '预处理' }))
     expect(onPrefetch).toHaveBeenCalledWith('/material-prep')
     fireEvent.focus(screen.getByRole('link', { name: '办案' }))
     expect(onPrefetch).toHaveBeenCalledWith('/projects')
@@ -229,10 +231,10 @@ describe('AppNavbar 导航入口：预取与乐观高亮', () => {
   it('点击导航入口：路由跳转并高亮目标，原入口取消高亮', async () => {
     setupNav()
     expect(current('首页')).toBe('page')
-    fireEvent.click(screen.getByRole('link', { name: '材料预处理' }))
+    fireEvent.click(screen.getByRole('link', { name: '预处理' }))
     expect(await screen.findByText('desk-page')).toBeTruthy()
     expect(screen.getByText('path:/material-prep')).toBeTruthy()
-    expect(current('材料预处理')).toBe('page')
+    expect(current('预处理')).toBe('page')
     expect(current('首页')).toBeNull()
   })
 
@@ -252,11 +254,11 @@ describe('AppNavbar 导航入口：预取与乐观高亮', () => {
     // 交给浏览器默认行为后，jsdom 会报「navigation not implemented」，与断言无关
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     setupNav()
-    fireEvent.click(screen.getByRole('link', { name: '材料预处理' }), { metaKey: true })
+    fireEvent.click(screen.getByRole('link', { name: '预处理' }), { metaKey: true })
     expect(screen.getByText('home-page')).toBeTruthy()
     expect(screen.getByText('path:/')).toBeTruthy()
     expect(current('首页')).toBe('page')
-    expect(current('材料预处理')).toBeNull()
+    expect(current('预处理')).toBeNull()
     errorSpy.mockRestore()
   })
 })

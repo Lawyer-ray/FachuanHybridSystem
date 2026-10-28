@@ -7,6 +7,7 @@ import { useAuth, type User as AuthUser } from '@/features/auth'
 import { api } from '@/lib/api'
 import { resetAllClientState } from '@/lib/reset-client-state'
 import { Button } from '@/components/ui/button'
+import { BrandMark } from '@/components/shared/BrandMark'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -143,11 +144,10 @@ export function AppNavbar({
         <Menu className="h-[18px] w-[18px]" />
       </button>
 
-      {/* 品牌：产品名（点击回首页） */}
+      {/* 品牌：产品名（点击回首页）。字标统一由 BrandMark 出，客户上传页也用它，
+          保证对外门面与登录后的观感一致 */}
       <Link to="/" className="flex flex-none items-center pr-1.5 no-underline">
-        <span className="text-[14px] font-bold whitespace-nowrap tracking-[-0.01em] text-foreground">
-          法穿 <span className="text-[12.5px] font-medium text-muted-foreground">SI Copilot</span>
-        </span>
+        <BrandMark />
       </Link>
 
       <nav
@@ -156,17 +156,13 @@ export function AppNavbar({
         } md:flex`}
       >
         <NavLink to="/" label="首页" active={navPath === '/'} onSelect={selectNav} onPrefetch={onPrefetch} />
-        <NavLink
-          to="/inbox"
-          label="收件箱"
-          active={navPath.startsWith('/inbox')}
-          onSelect={selectNav}
-          onPrefetch={onPrefetch}
-        />
+        {/* 「收件箱」与「材料预处理」已合并为一个入口：它们是同一条流水线的前后两段
+            （收件箱 → 拆包 → 归案），并排两个按钮看不出先后关系。现在阶段在页内切换，
+            navPath 同时覆盖 /inbox 这个旧前缀，让前转期间不会两个入口都不高亮。 */}
         <NavLink
           to="/material-prep"
-          label="材料预处理"
-          active={navPath.startsWith('/material-prep')}
+          label="预处理"
+          active={navPath.startsWith('/material-prep') || navPath.startsWith('/inbox')}
           onSelect={selectNav}
           onPrefetch={onPrefetch}
         />
@@ -207,10 +203,10 @@ export function AppNavbar({
       <button
         type="button"
         className="flex h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3.5 text-[12.5px] font-semibold whitespace-nowrap text-background transition-opacity hover:opacity-85"
-        onClick={() => notify('新建案件：可先把材料上传到「材料预处理」归案')}
+        onClick={() => notify('新建项目：可先把材料上传到「材料预处理」归案')}
       >
         <Plus className="h-3 w-3" strokeWidth={2.5} />
-        新建案件
+        新建项目
       </button>
 
       {/* 用户区：点头像开菜单；退出走确认弹窗——不能点一下就登出 */}

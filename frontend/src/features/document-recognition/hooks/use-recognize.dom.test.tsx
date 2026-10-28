@@ -16,9 +16,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../api', () => ({
   recognizeFile: vi.fn(),
   getTask: vi.fn(),
+  retryTask: vi.fn(),
 }))
 
-import { getTask, recognizeFile } from '../api'
+import { getTask, recognizeFile, retryTask } from '../api'
 import { RECOGNIZE_POLL_MS } from '../constants'
 import type { TaskOut } from '../types'
 
@@ -27,6 +28,7 @@ import { useRecognize } from './use-recognize'
 // 被 vi.mock 的模块函数经 vi.mocked 拿到带 mock 属性的类型视图
 const recognizeMock = vi.mocked(recognizeFile)
 const getTaskMock = vi.mocked(getTask)
+const retryMock = vi.mocked(retryTask)
 
 const TICK = RECOGNIZE_POLL_MS
 
@@ -47,6 +49,9 @@ function makeTask(partial: Partial<TaskOut>): TaskOut {
     error_message: null,
     created_at: '2026-10-01T10:00:00',
     finished_at: null,
+    started_at: null,
+    elapsed_seconds: null,
+    stalled: false,
     ...partial,
   }
 }
@@ -74,6 +79,13 @@ async function tick(ms = TICK) {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(ms)
   })
+}
+
+/** renderHook + 发起一次 submit（让 taskId 就位），供等待分级/重试用例复用 */
+async function setupAndSubmit() {
+  const { result } = setup()
+  await startSubmit(result)
+  return result
 }
 
 async function flush() {
@@ -301,5 +313,102 @@ describe('useRecognize 重提交竞态回归', () => {
     expect(getTask).toHaveBeenCalledWith(6)
     expect(getTaskMock.mock.calls.filter(([id]) => id === 5).length).toBe(callsWith5)
     expect(result.current.phase).toBe('polling')
+  })
+})
+
+/**
+ * 等待感受与重试出口（2026-10-28 事故回归）。
+ *
+ * 事故：代理把内网 LLM 网关当外网，调用持续 502 重试，单次识别实测 439 秒，
+ * 而界面从第 1 秒到第 439 秒都只显示「识别中…通常 5-30 秒」，且没有任何
+ * 重试出口——用户完全无法判断是还在跑还是已经死了。
+ */
+describe('useRecognize 等待分级与重试', () => {
+  it('正常等待：level=normal，文案保持「通常 5-30 秒」', async () => {
+    recognizeMock.mockResolvedValue({ task_id: 5 } as never)
+    getTaskMock.mockResolvedValue(makeTask({ status: 'processing' }))
+    const result = await setupAndSubmit()
+    expect(result.current.progress.level).toBe('normal')
+    expect(result.current.hint).toBe(HINT_POLLING)
+  })
+
+  it('超过 10 秒：升级为 slow，文案带上真实已等待秒数', async () => {
+    recognizeMock.mockResolvedValue({ task_id: 5 } as never)
+    getTaskMock.mockResolvedValue(makeTask({ status: 'processing' }))
+    const result = await setupAndSubmit()
+
+    // 6 轮 × 2s = 12s > SLOW_HINT_AFTER_SECONDS(10)
+    for (let i = 0; i < 6; i++) await tick()
+
+    expect(result.current.progress.level).toBe('slow')
+    expect(result.current.hint).toContain('已等待')
+    expect(result.current.hint).toContain('比平时慢')
+  })
+
+  it('超过 60 秒：升级为 stalled，亮出重试出口', async () => {
+    recognizeMock.mockResolvedValue({ task_id: 5 } as never)
+    getTaskMock.mockResolvedValue(makeTask({ status: 'processing' }))
+    const result = await setupAndSubmit()
+
+    // 31 轮 × 2s = 62s > STALLED_HINT_AFTER_SECONDS(60)
+    for (let i = 0; i < 31; i++) await tick()
+
+    expect(result.current.progress.level).toBe('stalled')
+    expect(result.current.hint).toContain('可能卡住')
+    // 卡住时即使还在 polling 也允许重试（后端会二次校验是否真僵死）
+    expect(result.current.canRetry).toBe(true)
+  })
+
+  it('后端 stalled 标记立即升级，不等前端计时器追到 60 秒', async () => {
+    recognizeMock.mockResolvedValue({ task_id: 5 } as never)
+    getTaskMock.mockResolvedValue(makeTask({ status: 'processing', stalled: true }))
+    const result = await setupAndSubmit()
+
+    await tick() // 仅 2 秒
+
+    expect(result.current.progress.backendStalled).toBe(true)
+    expect(result.current.progress.level).toBe('stalled')
+    expect(result.current.canRetry).toBe(true)
+  })
+
+  it('failed 时 canRetry=true，retry 复用同一 task_id 且不重新上传', async () => {
+    recognizeMock.mockResolvedValue({ task_id: 5 } as never)
+    getTaskMock.mockResolvedValue(makeTask({ status: 'failed', error_message: 'LLM 后端不可用' }))
+    retryMock.mockResolvedValue(makeTask({ status: 'success' }))
+    const result = await setupAndSubmit()
+
+    expect(result.current.phase).toBe('error')
+    expect(result.current.canRetry).toBe(true)
+
+    const uploadCallsBefore = recognizeMock.mock.calls.length
+    await act(async () => {
+      await result.current.retry()
+    })
+
+    // 关键：重试用 retryTask(5)，绝不重新调 recognizeFile（不重传文件）
+    expect(retryMock).toHaveBeenCalledWith(5)
+    expect(recognizeMock.mock.calls.length).toBe(uploadCallsBefore)
+  })
+
+  it('重试后成功：进入 ready 并清掉等待计时', async () => {
+    recognizeMock.mockResolvedValue({ task_id: 5 } as never)
+    getTaskMock.mockResolvedValue(makeTask({ status: 'failed', error_message: 'boom' }))
+    retryMock.mockResolvedValue(makeTask({ status: 'processing' }))
+    const result = await setupAndSubmit()
+    expect(result.current.phase).toBe('error')
+
+    // 重试 → 回到 processing，再轮询到 success
+    getTaskMock.mockResolvedValue(makeTask({ status: 'success' }))
+    await act(async () => {
+      await result.current.retry()
+    })
+
+    expect(result.current.phase).toBe('ready')
+    expect(result.current.progress.elapsedSeconds).toBe(0)
+  })
+
+  it('未提交过任务时 canRetry 为假（没有 task_id 可重跑）', () => {
+    const { result } = setup()
+    expect(result.current.canRetry).toBe(false)
   })
 })

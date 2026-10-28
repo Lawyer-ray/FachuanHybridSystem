@@ -60,11 +60,14 @@ export async function convertToPack(id: number): Promise<ConvertResult> {
   return inboxApi.post(`messages/${id}/convert`).json<ConvertResult>()
 }
 
-/** 附件下载 / 预览 URL（与 material-prep 的附件端点同一套，附 ticket 走统一下载鉴权）。
+/** 附件下载 / 预览 URL。
  *
- *  用 createApiClient 拼的是相对 `/api/v1/...` 路径；点开链接由浏览器发请求，
- *  鉴权靠 cookie/session（JWT 在 header 里，普通 <a> 带不上），与材料预处理
- *  阅读器内 PDF 的取字节路径不同——那里走 fetchAttachmentBytes 带 token。
+ *  ⚠️ **不能直接当 `<a href>` 用**：本应用的 JWT 在 localStorage，只有 ky 发
+ *  请求时才带 `Authorization`；浏览器导航带不上它，后端 JWTOrSessionAuth 也
+ *  不收 `?token=`（安全审计 2026Q4 M-2）。直接打开此 URL 会得到 401。
+ *
+ *  正确用法：经 `withDownloadTicket()` 换一次性票据后拼 `?ticket=` 再打开
+ *  （见 MessageDrawer 的 openAttachment，以及办案文档的 preview/download）。
  */
 export function attachmentUrl(messageId: number, partIndex: number, inline: boolean): string {
   const kind = inline ? 'preview' : 'download'

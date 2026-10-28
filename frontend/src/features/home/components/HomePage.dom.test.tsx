@@ -73,15 +73,28 @@ vi.mock('./TodayCard', () => ({
   },
 }))
 
-const inboxProps = vi.hoisted(() => ({ onOpen: null as null | ((i: unknown) => void) }))
+const inboxProps = vi.hoisted(() => ({
+  onOpen: null as null | ((i: unknown) => void),
+  onOpenPack: null as null | ((id: number) => void),
+}))
 vi.mock('./SideCards', () => ({
-  InboxCard: (p: { onOpen: (i: unknown) => void }) => {
+  InboxCard: (p: { onOpen: (i: unknown) => void; onOpenPack: (id: number) => void }) => {
     inboxProps.onOpen = p.onOpen
+    inboxProps.onOpenPack = p.onOpenPack
     return (
       <div>
         INBOX
-        <button type="button" onClick={() => p.onOpen({ id: 3, kind: 'mat', title: '材料包' })}>打开材料包</button>
-        <button type="button" onClick={() => p.onOpen({ id: 4, kind: 'sms', title: '短信' })}>打开短信</button>
+        {/* 材料包 / 已转过的消息：packId 非空 → 直接进阅读器 */}
+        <button type="button" onClick={() => p.onOpen({ id: 3, kind: 'mat', packId: 3, title: '材料包' })}>
+          打开材料包
+        </button>
+        {/* 非材料包：packId 为空 → 首页就地展开，不跳页 */}
+        <button type="button" onClick={() => p.onOpen({ id: 4, kind: 'sms', packId: null, title: '短信' })}>
+          打开短信
+        </button>
+        <button type="button" onClick={() => p.onOpenPack(88)}>
+          转包打开
+        </button>
       </div>
     )
   },
@@ -291,10 +304,20 @@ describe('HomePage：收件箱派发', () => {
     unmount()
   })
 
-  it('非材料包类跳收件箱页（不再弹「开发中」假提示）', async () => {
+  it('非材料包类不跳页（就地展开由 InboxCard 自己管）', async () => {
+    navMock.navigate.mockClear()
     const { unmount } = render(wrap(<HomePage />))
     fireEvent.click(screen.getByText('打开短信'))
-    expect(navMock.navigate).toHaveBeenCalledWith('/inbox')
+    // 2026-10 修正：此前这里平转到 /material-prep（一屏同质消息，用户还得再找一遍）
+    expect(navMock.navigate).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('就地展开里「转材料包并打开」走同一条详情跳转', async () => {
+    navMock.navigate.mockClear()
+    const { unmount } = render(wrap(<HomePage />))
+    fireEvent.click(screen.getByText('转包打开'))
+    expect(navMock.navigate).toHaveBeenCalledWith('/material-prep/88')
     unmount()
   })
 })

@@ -4833,6 +4833,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/document-recognition/court-document/task/{task_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Task
+         * @description 重跑一次识别任务（同一个已上传文件，不重新上传）。
+         *
+         *     为什么需要它（2026-10-28 教训）：识别可能因外部因长期挂起或失败
+         *     （当时是代理把内网 LLM 网关当外网，持续 502 重试，单次耗时 439 秒），
+         *     而用户手里只剩“失败/卡死”——原来只能关闭弹窗重新传文件，
+         *     白丢一次上传，也看不出问题到底出在哪。
+         *
+         *     只允许重跑 failed / 疑似僵死的 processing 任务：
+         *     - success：结果已落库，重跑会覆盖用户可能已确认的日期候选，拒绝；
+         *     - pending / 正常 processing：它还在正常跑或者排着，重跑会产生双跑，拒绝。
+         *
+         *     重跑复用同一个 task 行与同一个已存文件（execute_document_recognition_task
+         *     按 task_id 重新执行），所以不会在库里堆垃圾任务、也不重传字节。
+         */
+        post: operations["apps_document_recognition_api_document_recognition_api_retry_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/document-recognition/court-document/task/{task_id}": {
         parameters: {
             query?: never;
@@ -6200,6 +6232,36 @@ export interface paths {
          */
         post: operations["apps_message_hub_api_upload_link_api_rotate_link"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/upload-links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Link
+         * @description 删除链接记录（从列表里消失）。
+         *
+         *     与「作废」的区别：作废只改状态（客户链接失效，但记录留着可审计），
+         *     删除是彻底不显示。两者都保留 —— 已作废的堆多了需要能清掉。
+         *
+         *     **权限：仅创建人本人或管理员**。归属校验走 ``get_owned_link``（与作废/换发
+         *     同一口径），非本人且非管理员一律 **404**（不区分「不存在」与「无权限」，
+         *     避免泄露 id 存在性）。
+         *
+         *     已收材料包不受影响：``InboxMessage.upload_link`` 是 ``on_delete=SET_NULL``，
+         *     删链接只是把包的来源指针置空，材料本体与归属关系全部保留。
+         */
+        delete: operations["apps_message_hub_api_upload_link_api_delete_link"];
         options?: never;
         head?: never;
         patch?: never;
@@ -16301,6 +16363,22 @@ export interface components {
             created_at: string;
             /** Finished At */
             finished_at?: string | null;
+            /**
+             * Started At
+             * @description 任务被 worker 拉起的时刻；processing 但 started_at 为空 = 还排着没跑
+             */
+            started_at?: string | null;
+            /**
+             * Elapsed Seconds
+             * @description 已耗时（成功用 finished_at，未结束用当前时间）。前端据此显示时长并判定僵死
+             */
+            elapsed_seconds?: number | null;
+            /**
+             * Stalled
+             * @description 任务疑似僵死：processing 且已耗时超过阈值。前端据此提前给重试出口而不是干等满 10 分钟
+             * @default false
+             */
+            stalled: boolean;
         };
         /**
          * DateConfirmItemOutSchema
@@ -29394,6 +29472,28 @@ export interface operations {
             };
         };
     };
+    apps_document_recognition_api_document_recognition_api_retry_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskStatusResponseSchema"];
+                };
+            };
+        };
+    };
     apps_document_recognition_api_document_recognition_api_get_task_status: {
         parameters: {
             query?: never;
@@ -31287,6 +31387,26 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UploadLinkCreatedOut"];
                 };
+            };
+        };
+    };
+    apps_message_hub_api_upload_link_api_delete_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

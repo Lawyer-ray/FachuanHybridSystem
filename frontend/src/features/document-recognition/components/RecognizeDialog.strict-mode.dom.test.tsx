@@ -50,6 +50,9 @@ function makeTask(partial: Partial<TaskOut> = {}): TaskOut {
     error_message: null,
     created_at: '2026-10-01T10:00:00',
     finished_at: null,
+    started_at: null,
+    elapsed_seconds: null,
+    stalled: false,
     ...partial,
   }
 }

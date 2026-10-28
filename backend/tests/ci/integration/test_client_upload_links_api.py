@@ -284,3 +284,97 @@ def test_upload_rejects_disallowed_type(authenticated_client, law_firm, tmp_path
     # 拒绝必须真的没落盘：可执行文件不能出现在材料目录里
     saved = list(Path(settings.MEDIA_ROOT).rglob("*.exe"))
     assert saved == [], f"被拒的上传却已写入磁盘: {saved}"
+
+
+# ---------------------------------------------------------------------------
+# 删除链接：仅创建人本人或管理员，非 admin 且非本人一律 404
+# ---------------------------------------------------------------------------
+
+
+def test_delete_own_link_removes_row(authenticated_client, law_firm):
+    """创建人可删除自己的链接，记录从列表消失。"""
+    body, _token = _create_link(authenticated_client)
+
+    resp = authenticated_client.delete(f"/api/v1/inbox/upload-links/{body['id']}")
+    assert resp.status_code == 204, resp.content
+    assert not ClientUploadLink.objects.filter(pk=body["id"]).exists()
+
+    listed = authenticated_client.get("/api/v1/inbox/upload-links").json()
+    assert all(r["id"] != body["id"] for r in listed)
+
+
+def test_delete_other_users_link_is_404(law_firm):
+    """非本人且非管理员：删除返回 404（与「不存在」同形，不泄露 id 存在性）。"""
+    from django.test import Client
+
+    owner = _make_lawyer("del_owner", firm=law_firm)
+    other = _make_lawyer("del_other", firm=law_firm)
+    owner_client = Client()
+    owner_client.force_login(owner)
+    other_client = Client()
+    other_client.force_login(other)
+
+    body, _token = _create_link(owner_client)
+
+    resp = other_client.delete(f"/api/v1/inbox/upload-links/{body['id']}")
+    assert resp.status_code == 404
+    # 关键：别人的删除尝试必须完全没有副作用
+    assert ClientUploadLink.objects.filter(pk=body["id"]).exists()
+
+
+def test_admin_can_delete_any_link(law_firm):
+    """管理员可删除他人创建的链接（与列表全量可见同口径）。"""
+    from django.test import Client
+
+    owner = _make_lawyer("del_owner2", firm=law_firm)
+    admin = _make_lawyer("del_admin", is_admin=True, firm=law_firm)
+    owner_client = Client()
+    owner_client.force_login(owner)
+    admin_client = Client()
+    admin_client.force_login(admin)
+
+    body, _token = _create_link(owner_client)
+
+    resp = admin_client.delete(f"/api/v1/inbox/upload-links/{body['id']}")
+    assert resp.status_code == 204, resp.content
+    assert not ClientUploadLink.objects.filter(pk=body["id"]).exists()
+
+
+def test_delete_link_keeps_received_material_packs(authenticated_client, law_firm, tmp_path, settings):
+    """删除链接不得连带删掉已收材料包（upload_link 是 SET_NULL，只置空来源指针）。"""
+    settings.MEDIA_ROOT = str(tmp_path)
+    try:
+        body, token = _create_link(authenticated_client)
+        f = SimpleUploadedFile("材料.pdf", b"%PDF-1.4 ok", content_type="application/pdf")
+        up = _upload(token, authenticated_client, [f])
+        assert up.status_code in (200, 201), up.content
+
+        pack = InboxMessage.objects.filter(source__source_type=SourceType.CLIENT_UPLOAD).first()
+        assert pack is not None
+        assert pack.upload_link_id == body["id"]
+
+        resp = authenticated_client.delete(f"/api/v1/inbox/upload-links/{body['id']}")
+        assert resp.status_code == 204
+
+        pack.refresh_from_db()
+        # 材料本体还在，只是来源链接指针被置空
+        assert pack.pk is not None
+        assert pack.upload_link_id is None
+    finally:
+        _cleanup_files()
+
+
+def test_delete_missing_link_is_404(authenticated_client, law_firm):
+    """不存在的 id 同样是 404，且不误删任何真实数据。
+
+    除状态码外还断言「库里没有任何链接被顺手删掉」——只验状态码无法发现
+    「返回 404 但其实删错了行」这类更危险的行为。
+    """
+    real, _token = _create_link(authenticated_client)
+    before = ClientUploadLink.objects.count()
+
+    resp = authenticated_client.delete("/api/v1/inbox/upload-links/999999")
+
+    assert resp.status_code == 404
+    assert ClientUploadLink.objects.count() == before, "删除不存在的 id 不应影响任何记录"
+    assert ClientUploadLink.objects.filter(pk=real["id"]).exists()

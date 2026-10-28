@@ -149,11 +149,11 @@ describe('AppShell：导航栏常驻 + 懒加载切页不闪', () => {
     await screen.findByText('home-page')
     const headerBefore = header()
 
-    fireEvent.click(screen.getByRole('link', { name: '材料预处理' }))
+    fireEvent.click(screen.getByRole('link', { name: '预处理' }))
     expect(await screen.findByText('desk-page')).toBeTruthy()
     expect(screen.queryByText('home-page')).toBeNull()
     expect(header()).toBe(headerBefore)
-    expect(current('材料预处理')).toBe('page')
+    expect(current('预处理')).toBe('page')
     expect(current('首页')).toBeNull()
   })
 

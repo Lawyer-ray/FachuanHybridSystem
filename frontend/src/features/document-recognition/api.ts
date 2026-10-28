@@ -28,6 +28,16 @@ export async function getTask(taskId: number): Promise<TaskOut> {
   return documentRecognitionApi.get(`court-document/task/${taskId}`).json<TaskOut>()
 }
 
+/**
+ * 重跑识别（复用同一个已存文件，不重新上传）。
+ *
+ * 后端只允许 failed / 疑似僵死的 processing 重跑；已成功或仍在正常跑的任务
+ * 会返回业务错误（TASK_ALREADY_SUCCESS / TASK_STILL_RUNNING）。
+ */
+export async function retryTask(taskId: number): Promise<TaskOut> {
+  return documentRecognitionApi.post(`court-document/task/${taskId}/retry`).json<TaskOut>()
+}
+
 /** 手动绑定案件 */
 export async function bindTask(taskId: number, caseId: number): Promise<void> {
   await documentRecognitionApi.post(`court-document/task/${taskId}/bind`, { json: { case_id: caseId } })

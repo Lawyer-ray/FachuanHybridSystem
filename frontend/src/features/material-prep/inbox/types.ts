@@ -53,21 +53,32 @@ export interface InboxSourceTab {
  * 单条消息的「可进入材料预处理」判定。
  *
  * manual_upload / client_upload 本身就是材料包 → 直接进阅读器；
- * 其余来源需先走 /convert 把附件搬成材料包。已转过（convertedMessageId 非空）
+ * 其余来源需先走 /convert 把附件搬成材料包。已转过（converted_message_id 非空）
  * 的也直接进，不重复搬运。
+ *
+ * 参数只收三个判定真正需要的字段（`PackJudgement`），不收完整 InboxRow：
+ * 首页收件箱卡用的是一份 Pick 投影（只声明得用到的字段），让这些函数接受
+ * 结构兼容的最小类型，比让调用方 `as` 成一条假完整行安全得多。
  */
-export function packIdOf(row: InboxRow): number | null {
+export interface PackJudgement {
+  id: number
+  source_type: string
+  has_attachments: boolean
+  converted_message_id?: number | null
+}
+
+export function packIdOf(row: PackJudgement): number | null {
   const isPack = row.source_type === 'manual_upload' || row.source_type === 'client_upload'
   if (isPack) return row.id
   return row.converted_message_id ?? null
 }
 
 /** 消息是否属于「已有材料包」（无需转换即可进材料预处理） */
-export function isPackSource(row: InboxRow): boolean {
+export function isPackSource(row: PackJudgement): boolean {
   return row.source_type === 'manual_upload' || row.source_type === 'client_upload'
 }
 
 /** 能否转材料包：有附件 + 非材料包来源 + 尚未转过 */
-export function canConvert(row: InboxRow): boolean {
+export function canConvert(row: PackJudgement): boolean {
   return row.has_attachments && !isPackSource(row) && !row.converted_message_id
 }

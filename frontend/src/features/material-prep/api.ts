@@ -220,6 +220,17 @@ export async function revokeUploadLink(id: number): Promise<UploadLinkRow> {
   return inboxApi.post(`upload-links/${id}/revoke`).json<UploadLinkRow>()
 }
 
+/**
+ * 彻底删除链接（从列表消失）。与作废的区别：作废只改状态、记录留着可审计；
+ * 删除是真的不显示了，用于清理已作废的历史。
+ *
+ * 后端限**创建人本人或管理员**（其余返回 404），已收材料包不受影响
+ * （`InboxMessage.upload_link` 是 SET_NULL，只置空来源指针）。
+ */
+export async function deleteUploadLink(id: number): Promise<void> {
+  await inboxApi.delete(`upload-links/${id}`)
+}
+
 export async function rotateUploadLink(id: number): Promise<UploadLinkCreated> {
   return inboxApi.post(`upload-links/${id}/rotate`).json<UploadLinkCreated>()
 }

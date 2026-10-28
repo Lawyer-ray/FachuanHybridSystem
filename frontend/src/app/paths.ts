@@ -18,7 +18,7 @@ export const ROUTES = {
   /** 客户材料上传（公开，链接即凭证） */
   clientUpload: '/u/:token',
   home: '/',
-  /** 收件箱：消息流入总入口（法院送达 / 邮箱 / 短信 / 材料包） */
+  /** 收件箱：已并入预处理页的「收件箱」阶段；保留路由只做前转 */
   inbox: '/inbox',
   materialPrep: '/material-prep',
   materialPrepDetail: '/material-prep/:id',
@@ -40,14 +40,20 @@ export function publicUpload(token: string): string {
   return `/u/${token}`
 }
 
-/** 材料预处理页（不带具体材料包） */
-export function materialPrep(): string {
-  return ROUTES.materialPrep
+/** 预处理页（不带具体材料包）；`stage` 缺省即收件箱阶段 */
+export function materialPrep(stage?: 'inbox' | 'todo' | 'done' | 'filed'): string {
+  // 收件箱是默认阶段，不写冗余参数，保持 /material-prep 干净
+  return !stage || stage === 'inbox' ? ROUTES.materialPrep : `${ROUTES.materialPrep}?stage=${stage}`
 }
 
-/** 收件箱页（消息流入总入口） */
+/**
+ * 收件箱页 —— **已并入预处理页的「收件箱」阶段**（见 frontend/src/features/material-prep/stages.ts）。
+ *
+ * 保留此函数只为前转：旧书签、控制台里的旧链接、首页收件箱卡的「查看全部」
+ * 都还指向 /inbox。直接返回预处理页地址，让调用点不需要知道重定向的存在。
+ */
 export function inboxPath(): string {
-  return ROUTES.inbox
+  return ROUTES.materialPrep
 }
 
 /** 材料包详情：可刷新、可分享、支持前进后退 */

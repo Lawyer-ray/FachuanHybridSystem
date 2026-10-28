@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
 import { PACK_LEAVE_REMOVAL_MS } from '../constants'
+import { isPackStage, parseStage, type PrepStage } from '../stages'
 import { useDeskKeyboard } from '../hooks/use-desk-keyboard'
 import { useDeskRing } from '../hooks/use-desk-ring'
 import { useDeskRouteSync } from '../hooks/use-desk-route-sync'
@@ -14,14 +15,20 @@ import { DeskDropLayer } from './DeskDropLayer'
 import { DeskDialogs } from './DeskDialogs'
 import { ShareLinkPanel } from './ShareLinkPanel'
 import { Reader } from './reader/Reader'
+import { InboxView } from '../inbox'
+import { useInboxCounts } from '../inbox/hooks/use-inbox'
 import type { InboxMessage, PackStatus } from '../types'
 import '../material-prep.css'
 
 type Tab = PackStatus
 
 /**
- * 材料预处理工作台（DeskPage）：只做顶层状态与编排——
- * 拖拽上传、页签过滤/计数、卡片离场动画、弹窗开关，
+ * 预处理工作台（DeskPage）：整条漏斗的**唯一页面**。
+ *
+ * 一级阶段页签 `收件箱 → 待处理 → 已归案 → 不接归档` 就是流水线顺序，
+ * 收件箱与材料包同页——它们是前后两段而非平级入口（见 stages.ts 的说明）。
+ *
+ * 本组件只做顶层状态与编排——阶段切换、拖拽上传、卡片离场动画、弹窗开关，
  * 具体的网格 / 页签 / 弹窗 / 拖放层各自下沉到子组件，副作用收敛到 hooks。
  */
 export function DeskPage() {
@@ -33,8 +40,26 @@ export function DeskPage() {
   const openPack = useReader((s) => s.open)
   const openId = useReader((s) => s.openId)
 
-  const [tab, setTab] = useState<Tab>('todo')
+  // 阶段入 URL（?stage=todo）：可刷新、可分享、可前进后退。收件箱里的
+  // 「转材料包」闭环也靠它跳到待处理，而不是另写一套页内状态。
+  const [params, setParams] = useSearchParams()
+  const stage = parseStage(params.get('stage'))
+  // 材料包三态页签的当前值（收件箱阶段下沿用上一次的三态，供 PackGrid/键盘导航用）
+  const [packTab, setPackTab] = useState<Tab>('todo')
+  const tab: Tab = isPackStage(stage) ? stage : packTab
+
   const [sel, setSel] = useState(0)
+
+  const setStage = useCallback(
+    (s: PrepStage) => {
+      if (isPackStage(s)) setPackTab(s)
+      setSel(0)
+      // 收件箱是默认阶段：不往 URL 里写冗余参数，保持 /material-prep 干净
+      setParams(s === 'inbox' ? {} : { stage: s }, { replace: true })
+    },
+    [setParams, setPackTab, setSel],
+  )
+
   const [leaving, setLeaving] = useState<Record<number, 'left' | 'right'>>({})
   const [assigning, setAssigning] = useState<InboxMessage | null>(null)
   // 待确认删除的材料包（破坏性操作，右键后先经 AlertDialog 确认）
@@ -78,13 +103,20 @@ export function DeskPage() {
     return c
   }, [packs])
 
+  // 收件箱角标：一级页签上要能和眼前这批消息对上，故复用收件箱列表的取数口径
+  const inboxCount = useInboxCounts()
+  const stageCounts = useMemo<Record<PrepStage, number>>(
+    () => ({ inbox: inboxCount, todo: counts.todo, done: counts.done, filed: counts.filed }),
+    [inboxCount, counts],
+  )
+
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
       setUploading(true)
       try {
         const detail = await createPack.mutateAsync(Array.from(files))
-        setTab('todo')
+        setStage('todo')
         setSel(0)
         // 压缩包会被服务端展开：以响应里的实际附件数为准，别拿输入文件数冒充
         const total = detail?.attachment_count ?? files.length
@@ -97,7 +129,7 @@ export function DeskPage() {
         setDragging(false)
       }
     },
-    [createPack],
+    [createPack, setStage],
   )
 
   const onPickFiles = useCallback(() => fileInputRef.current?.click(), [])
@@ -194,20 +226,21 @@ export function DeskPage() {
     >
       {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上——换页才重挂播一次，
           列表 ↔ 详情（/material-prep/:id）同一实例不重播，阅读器淡入不被叠加 */}
-      <main className="app-page-enter relative px-7 pb-24 pt-6">
+      <main className="app-page-enter relative flex min-h-[calc(100dvh-var(--app-navbar-h)-6rem)] flex-col px-7 pb-24 pt-6">
         <DeskTabs
-          tab={tab}
-          setTab={(t) => {
-            setTab(t)
-            setSel(0)
-          }}
-          counts={counts}
+          stage={stage}
+          setStage={setStage}
+          counts={stageCounts}
           uploading={uploading}
           onPickFiles={onPickFiles}
           onOpenShareLinks={() => setShareLinksOpen(true)}
         />
 
-        {isLoading ? (
+        {!isPackStage(stage) ? (
+          /* 收件箱阶段：主区域交给 InboxView。拖放层仍在外层生效——
+             把文件拖进收件箱页时照旧建包并跳到「待处理」。 */
+          <InboxView />
+        ) : isLoading ? (
           /* 与 PackGrid 的空态同构：列表区占位而非整页 loading——页签仍在，
              所以居中要相对卡片区（LoadingBlock 自带 justify-center）。
              虚线框靠调用点补：加载态与空态要共用一个框，看起来是同块区域换内容 */
