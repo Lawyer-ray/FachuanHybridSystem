@@ -53,6 +53,10 @@ export interface ParseOutcome {
   method: string | null
   error: string | null
   metadata: Record<string, unknown>
+  /** 块级结构（复核用）；null = 后端未提供，空数组 = 提供了但没块 */
+  blocks: ParseBlock[] | null
+  /** 后端块级能力位；null = 老版本后端没声明 */
+  coverage: ParseCoverage | null
 }
 
 /** parse 提交的即时返回：要么是同步结果，要么是待轮询的 task_id（前端归一化形状） */
@@ -91,6 +95,9 @@ export interface ParseDocumentIn {
   returnMarkdown: boolean
 }
 
+export type ParseBlock = components['schemas']['ParseMemoryBlockOut']
+export type ParseCoverage = components['schemas']['ParseCoverageOut']
+
 /** toOutcome 可接受的来源字段（ParseDocumentResponse 的子集；task 端点的 result dict 也按它断言）。
  *  用 type 而非 interface：保留隐式索引签名，task 端点的裸 dict 才能 as 到这里 */
 type OutcomeSource = {
@@ -100,6 +107,33 @@ type OutcomeSource = {
   parse_method?: string | null
   error?: string | null
   metadata?: Record<string, unknown> | null
+  blocks?: ParseBlock[] | null
+  coverage?: ParseCoverage | null
+}
+
+/**
+ * 块数组归一化。
+ *
+ * 只校验「是不是数组」，**不逐块校验字段**：块本来就是后端的可选增强信息，
+ * 一个字段缺失的块仍携带可显示的位置信息，丢掉它比留着更糟。
+ * 但 confidence 的 null 语义必须原样保留（null = 未评估，不等于 0），
+ * 所以这里绝不做 `?? 0` 之类的默认值填充。
+ */
+function toBlocks(src: unknown): ParseBlock[] | null {
+  if (!Array.isArray(src)) return null
+  return src.filter((b): b is ParseBlock => !!b && typeof b === 'object')
+}
+
+/** 能力位归一化：只认后端明确给出的布尔值，其余全按「无能力」处理 */
+function toCoverage(src: unknown): ParseCoverage | null {
+  if (!src || typeof src !== 'object') return null
+  const raw = src as Record<string, unknown>
+  return {
+    has_blocks: raw.has_blocks === true,
+    has_bbox: raw.has_bbox === true,
+    has_confidence: raw.has_confidence === true,
+    has_page_geometry: raw.has_page_geometry === true,
+  }
 }
 
 /** 把后端 result dict（success 时 {success,text,markdown,...}，失败时 {success:false,error}）归一化 */
@@ -112,7 +146,14 @@ function toOutcome(src: OutcomeSource): ParseOutcome {
     method: src.parse_method == null ? null : String(src.parse_method),
     error: ok ? null : src.error == null ? '解析失败' : String(src.error),
     metadata: src.metadata && typeof src.metadata === 'object' ? src.metadata : {},
+    blocks: toBlocks(src.blocks),
+    coverage: toCoverage(src.coverage),
   }
+}
+
+/** 失败结果的最小形状（blocks/coverage 恒为空，避免调用方到处判空） */
+export function failedOutcome(error: string): ParseOutcome {
+  return { ok: false, markdown: '', text: '', method: null, error, metadata: {}, blocks: null, coverage: null }
 }
 
 /**
@@ -136,7 +177,7 @@ export async function parseDocument(file: File, opts: ParseDocumentIn): Promise<
   // 同步路径：success 且无 task_id，markdown/text 直接在顶层
   if (!taskId) {
     if (res.success === false) {
-      return { taskId: null, status, outcome: { ok: false, markdown: '', text: '', method: null, error: res.error == null ? '解析失败' : String(res.error), metadata: {} } }
+      return { taskId: null, status, outcome: failedOutcome(res.error == null ? '解析失败' : String(res.error)) }
     }
     return { taskId: null, status, outcome: toOutcome(res) }
   }

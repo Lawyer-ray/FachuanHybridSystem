@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 
 import {
+  failedOutcome,
   getParseTaskTask,
   parseDocument,
   DOC_PARSE_MAX_POLLS,
@@ -96,14 +97,7 @@ export function useDocParse(): UseDocParseResult {
         if (s.status === 'not_found') {
           notFoundStreak++
           if (notFoundStreak >= NOT_FOUND_GRACE_POLLS) {
-            finish({
-              ok: false,
-              markdown: '',
-              text: '',
-              method: null,
-              error: '解析任务排队后没有执行起来——多为后台 worker 未运行，可到「解析任务」查看',
-              metadata: {},
-            })
+            finish(failedOutcome('解析任务排队后没有执行起来——多为后台 worker 未运行，可到「解析任务」查看'))
             return
           }
           // 仍在宽限期内：任务可能刚被 worker 摘走还没落库，继续等
@@ -118,14 +112,7 @@ export function useDocParse(): UseDocParseResult {
       await lease.sleep(DOC_PARSE_POLL_MS)
     }
     if (lease.isStale()) return
-    finish({
-      ok: false,
-      markdown: '',
-      text: '',
-      method: null,
-      error: '解析超时（超过 5 分钟仍无结果），请到后台「解析任务」查看',
-      metadata: {},
-    })
+    finish(failedOutcome('解析超时（超过 5 分钟仍无结果），请到后台「解析任务」查看'))
   }, [finish])
 
   const submit = useCallback(
@@ -147,14 +134,7 @@ export function useDocParse(): UseDocParseResult {
         finish(sync)
       } catch {
         if (lease.isStale()) return
-        finish({
-          ok: false,
-          markdown: '',
-          text: '',
-          method: null,
-          error: '提交解析失败，请检查文件格式或稍后重试',
-          metadata: {},
-        })
+        finish(failedOutcome('提交解析失败，请检查文件格式或稍后重试'))
       }
     },
     [pollSession, pollTask, finish],

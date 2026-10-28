@@ -46247,6 +46247,33 @@
         "title": "LawVerificationCheckIn",
         "type": "object"
       },
+      "ParseCoverageOut": {
+        "description": "后端块级能力位（“这个后端能提供什么”）",
+        "properties": {
+          "has_blocks": {
+            "default": false,
+            "title": "Has Blocks",
+            "type": "boolean"
+          },
+          "has_bbox": {
+            "default": false,
+            "title": "Has Bbox",
+            "type": "boolean"
+          },
+          "has_confidence": {
+            "default": false,
+            "title": "Has Confidence",
+            "type": "boolean"
+          },
+          "has_page_geometry": {
+            "default": false,
+            "title": "Has Page Geometry",
+            "type": "boolean"
+          }
+        },
+        "title": "ParseCoverageOut",
+        "type": "object"
+      },
       "ParseDocumentResponse": {
         "description": "文档解析响应",
         "properties": {
@@ -46315,6 +46342,30 @@
             ],
             "title": "Parse Method"
           },
+          "blocks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ParseMemoryBlockOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocks"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParseCoverageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "error": {
             "anyOf": [
               {
@@ -46331,6 +46382,60 @@
           "success"
         ],
         "title": "ParseDocumentResponse",
+        "type": "object"
+      },
+      "ParseMemoryBlockOut": {
+        "description": "块级结构（复核/质检用）\n\n``confidence`` 为 None 有确切语义：**未评估**（后端无此能力或判定模型未运行），\n不能当作 0 处理——0 表示评估过且很可能是错的，两者处置完全不同。",
+        "properties": {
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          },
+          "page_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page No"
+          },
+          "bbox": {
+            "title": "Bbox"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "needs_review": {
+            "default": false,
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "review_reason": {
+            "default": "",
+            "title": "Review Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "ParseMemoryBlockOut",
         "type": "object"
       },
       "ParseDocumentRequest": {
@@ -46685,6 +46790,20 @@
               }
             ],
             "title": "Metadata"
+          },
+          "blocks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ParseMemoryBlockOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocks"
           },
           "created_at": {
             "anyOf": [

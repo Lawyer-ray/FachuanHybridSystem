@@ -24,6 +24,7 @@ from apps.document_parsing.services.backends._page_artifacts import (
     collect_header_texts,
     normalize_text,
 )
+from apps.document_parsing.services.block_builder import attach_blocks
 from apps.document_parsing.services.credential_pool import CredentialPool, get_credential_pool
 
 logger = logging.getLogger(__name__)
@@ -483,13 +484,15 @@ class MineruBackend:
                     "page_count": (layout or {}).get("page_count", 0),
                 }
 
-                return ParsedDocument(
-                    text=text,
-                    markdown=markdown,
-                    images=images,
-                    metadata=metadata,
-                    parse_method="mineru",
-                    layout=layout,
+                return attach_blocks(
+                    ParsedDocument(
+                        text=text,
+                        markdown=markdown,
+                        images=images,
+                        metadata=metadata,
+                        parse_method="mineru",
+                        layout=layout,
+                    )
                 )
 
         except zipfile.BadZipFile as e:

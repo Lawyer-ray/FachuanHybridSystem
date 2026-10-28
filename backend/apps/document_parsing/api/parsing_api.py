@@ -18,11 +18,14 @@ from apps.document_parsing.schemas.parsing_schemas import (
     DocumentParsingRecordOut,
     ExtractTextRequest,
     ExtractTextResponse,
+    ParseCoverageOut,
     ParseDocumentRequest,
     ParseDocumentResponse,
+    ParseMemoryBlockOut,
     TaskStatusResponse,
 )
 from apps.document_parsing.services import get_document_parser
+from apps.document_parsing.services.block_builder import block_to_dict
 from apps.document_parsing.services.task_dispatch_service import DocumentParsingTaskDispatchService
 
 logger = logging.getLogger(__name__)
@@ -188,12 +191,18 @@ async def parse_document(
             return_markdown=return_markdown,
         )
 
+        blocks = [block_to_dict(b) for b in (getattr(result, "blocks", None) or [])]
+        coverage = getattr(result, "coverage", None)
         return ParseDocumentResponse(
             success=True,
             text=result.text,
             markdown=result.markdown,
             metadata=result.metadata or {},
             parse_method=result.parse_method,
+            blocks=[ParseMemoryBlockOut(**b) for b in blocks],
+            # 能力位缺失（后端未实现新版 Protocol）时全部按无能力处理，
+            # 而不是假设有——静默假设会让后续裁图/送检拿到空区域。
+            coverage=ParseCoverageOut(**coverage.as_dict()) if coverage is not None else ParseCoverageOut(),
         )
 
     except Exception as e:

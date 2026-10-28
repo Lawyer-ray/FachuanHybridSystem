@@ -68,6 +68,62 @@ describe('parseDocument 提交路径映射', () => {
       method: 'pymupdf',
       error: null,
       metadata: { pages: 3 },
+      blocks: null,
+      coverage: null,
+    })
+  })
+
+  it('块级结构与能力位归一化：confidence=null 必须原样保留（未评估≠0 分）', async () => {
+    postMock.mockResolvedValueOnce(
+      respond({
+        success: true,
+        markdown: 'x',
+        text: 'x',
+        parse_method: 'textin',
+        metadata: {},
+        blocks: [
+          { type: 'text', text: '甲方向乙方采购', confidence: null, needs_review: false },
+          { type: 'text', text: '金额 12,300 元', confidence: 0.31, needs_review: true, review_reason: '低于阈值' },
+          { type: 'table', text: '|a|', confidence: 0, bbox: [1, 2, 3, 4] },
+        ],
+        coverage: { has_blocks: true, has_bbox: true, has_confidence: false, has_page_geometry: true },
+      }),
+    )
+    const r = await parseDocument(new File(['x'], 'a.pdf'), submitOpts('textin'))
+    const blocks = r.outcome?.blocks ?? []
+    expect(blocks).toHaveLength(3)
+    // 关键：null 不被压成 0，0 不被当成 null
+    expect(blocks[0]?.confidence).toBeNull()
+    expect(blocks[1]?.confidence).toBe(0.31)
+    expect(blocks[2]?.confidence).toBe(0)
+    expect(blocks[2]?.bbox).toEqual([1, 2, 3, 4])
+    expect(r.outcome?.coverage).toEqual({
+      has_blocks: true,
+      has_bbox: true,
+      has_confidence: false,
+      has_page_geometry: true,
+    })
+  })
+
+  it('块字段缺失时不当强求：数组里非对象元素被过滤，不报错', async () => {
+    postMock.mockResolvedValueOnce(
+      respond({ success: true, markdown: 'x', text: 'x', metadata: {}, blocks: [null, { type: 'text', text: 'ok' }] }),
+    )
+    const r = await parseDocument(new File(['x'], 'a.pdf'), submitOpts('local'))
+    expect(r.outcome?.blocks).toHaveLength(1)
+    expect(r.outcome?.blocks?.[0]?.text).toBe('ok')
+  })
+
+  it('能力位只认明确 true，其余全为 false', async () => {
+    postMock.mockResolvedValueOnce(
+      respond({ success: true, markdown: 'x', text: 'x', metadata: {}, coverage: { has_blocks: true } }),
+    )
+    const r = await parseDocument(new File(['x'], 'a.pdf'), submitOpts('local'))
+    expect(r.outcome?.coverage).toEqual({
+      has_blocks: true,
+      has_bbox: false,
+      has_confidence: false,
+      has_page_geometry: false,
     })
   })
 

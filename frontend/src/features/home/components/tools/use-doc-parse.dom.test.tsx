@@ -12,14 +12,21 @@ import { act, renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../api', () => ({
-  parseDocument: vi.fn(),
-  getParseTaskTask: vi.fn(),
-  DOC_PARSE_MAX_POLLS: 150,
-  DOC_PARSE_POLL_MS: 2000,
-  // hook 终态会 invalidate 该 key（无需真实查询，仅需形状存在）
-  parseHistoryKeys: { all: ['doc-parse-history'] },
-}))
+// 用 importOriginal 保留纯函数（failedOutcome 等）的真实实现，只桩掉网络调用。
+// 手写工厂整体替换模块会让 hook 依赖的纯函数变成 undefined——新增一个纯函数
+// 就要同步改这里，是个反复出错的耦合点，改为按需覆盖。
+vi.mock('../../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api')>()
+  return {
+    ...actual,
+    parseDocument: vi.fn(),
+    getParseTaskTask: vi.fn(),
+    DOC_PARSE_MAX_POLLS: 150,
+    DOC_PARSE_POLL_MS: 2000,
+    // hook 终态会 invalidate 该 key（无需真实查询，仅需形状存在）
+    parseHistoryKeys: { all: ['doc-parse-history'] },
+  }
+})
 
 import { getParseTaskTask, parseDocument } from '../../api'
 import type { ParseOutcome, ParseTaskStatus } from '../../api'
@@ -33,7 +40,7 @@ const TICK = 2000
 
 /** 构造极简 outcome：ok/error 即可区分来源 */
 function makeOutcome(ok: boolean, error: string | null): ParseOutcome {
-  return { ok, markdown: '', text: '', method: null, error, metadata: {} }
+  return { ok, markdown: '', text: '', method: null, error, metadata: {}, blocks: null, coverage: null }
 }
 
 function makeStatus(taskId: string, status: ParseTaskStatus['status'], outcome: ParseOutcome | null): ParseTaskStatus {

@@ -22,6 +22,44 @@ class ParseDocumentRequest(Schema):
     """是否返回 Markdown 格式"""
 
 
+class ParseMemoryBlockOut(Schema):
+    """块级结构（复核/质检用）
+
+    ``confidence`` 为 None 有确切语义：**未评估**（后端无此能力或判定模型未运行），
+    不能当作 0 处理——0 表示评估过且很可能是错的，两者处置完全不同。
+    """
+
+    type: str
+    """块类型：text / title / table / image / formula / header / footer / unknown"""
+
+    text: str = ""
+    """该块识别文本"""
+
+    page_no: int | None = None
+    """页码（1 起）"""
+
+    bbox: Any = None
+    """原图坐标（各后端坐标系不统一，保留原值）"""
+
+    confidence: float | None = None
+    """可信度 0~1；None = 未评估"""
+
+    needs_review: bool = False
+    """是否需人工复核"""
+
+    review_reason: str = ""
+    """需复核的原因"""
+
+
+class ParseCoverageOut(Schema):
+    """后端块级能力位（“这个后端能提供什么”）"""
+
+    has_blocks: bool = False
+    has_bbox: bool = False
+    has_confidence: bool = False
+    has_page_geometry: bool = False
+
+
 class ParseDocumentResponse(Schema):
     """文档解析响应"""
 
@@ -45,6 +83,12 @@ class ParseDocumentResponse(Schema):
 
     parse_method: str | None = None
     """解析方法"""
+
+    blocks: list[ParseMemoryBlockOut] | None = None
+    """块级结构；None 表示后端未提供（见 coverage.has_blocks）"""
+
+    coverage: ParseCoverageOut | None = None
+    """块级能力位"""
 
     error: str | None = None
     """错误信息（如果失败）"""
@@ -134,6 +178,8 @@ class DocumentParsingRecordDetailOut(Schema):
     text: str
     markdown: str | None = None
     metadata: dict[str, Any] | None = None
+    blocks: list[ParseMemoryBlockOut] | None = None
+    """块级结构；旧记录（加块结构之前）为 None"""
     created_at: datetime | None = None
     completed_at: datetime | None = None
 

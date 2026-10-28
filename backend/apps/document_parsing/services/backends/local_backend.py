@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
+from apps.document_parsing.services.block_builder import attach_blocks
 
 logger = logging.getLogger(__name__)
 
@@ -184,11 +185,14 @@ class LocalBackend:
             # 合并文本
             full_text = "\n".join(texts)
 
-            return ParsedDocument(
-                text=full_text,
-                images=images if images else None,
-                metadata={"page_count": page_count},
-                parse_method="pymupdf",
+            return attach_blocks(
+                ParsedDocument(
+                    text=full_text,
+                    images=images if images else None,
+                    metadata={"page_count": page_count},
+                    parse_method="pymupdf",
+                ),
+                allow_line_fallback=True,
             )
 
         except ImportError:
@@ -213,10 +217,13 @@ class LocalBackend:
 
             text = result.strip() if result else ""
 
-            return ParsedDocument(
-                text=text,
-                metadata={"file_type": "image"},
-                parse_method="rapidocr",
+            return attach_blocks(
+                ParsedDocument(
+                    text=text,
+                    metadata={"file_type": "image"},
+                    parse_method="rapidocr",
+                ),
+                allow_line_fallback=True,
             )
 
         except Exception as e:

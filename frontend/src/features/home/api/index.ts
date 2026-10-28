@@ -51,8 +51,9 @@ export {
   listParseRecords,
   getParseRecord,
   PARSE_BACKENDS,
+  failedOutcome,
   DOC_PARSE_TIMEOUT_MS,
   DOC_PARSE_POLL_MS,
   DOC_PARSE_MAX_POLLS,
 } from './document-parsing'
-export type { ParseBackend, ParseDocumentIn, ParseSubmit, ParseTaskStatus, ParseOutcome, ParseRecordItem, ParseRecordDetail } from './document-parsing'
+export type { ParseBackend, ParseDocumentIn, ParseSubmit, ParseTaskStatus, ParseOutcome, ParseBlock, ParseCoverage, ParseRecordItem, ParseRecordDetail } from './document-parsing'

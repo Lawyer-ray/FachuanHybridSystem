@@ -5,7 +5,27 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from apps.document_parsing.services.block_builder import block_to_dict
+
 logger = logging.getLogger("apps.document_parsing")
+
+
+def _serialize_block(block: Any) -> dict[str, Any]:
+    """块 → 字典；非 ParsedBlock 的鸭子类型对象回退为尽可能保留可序列化字段。"""
+    if isinstance(block, dict):
+        return block
+    try:
+        return block_to_dict(block)
+    except AttributeError:
+        return {"type": str(getattr(block, "type", "unknown")), "text": str(getattr(block, "text", ""))}
+
+
+def _coverage_dict(coverage: Any) -> dict[str, bool]:
+    """能力位字典；缺字段时全 False（不声明即视为无能力）。"""
+    as_dict = getattr(coverage, "as_dict", None)
+    if callable(as_dict):
+        return dict(as_dict())
+    return {"has_blocks": False, "has_bbox": False, "has_confidence": False, "has_page_geometry": False}
 
 
 def document_parsing_hook(task: Any) -> None:
@@ -42,6 +62,7 @@ def document_parsing_hook(task: Any) -> None:
             markdown=result.get("markdown", ""),
             metadata=result.get("metadata", {}),
             backend_used=result.get("parse_method") or result.get("method") or "unknown",
+            blocks=result.get("blocks") or [],
         )
         logger.info("document_parsing_hook: Task(id=%s) 已标记为完成", task_id)
     else:
@@ -91,6 +112,9 @@ def execute_parse_document(
             "markdown": result.markdown,
             "metadata": result.metadata or {},
             "parse_method": result.parse_method,
+            # 块级结构是增强信息：后端未实现时缺字段不应让整次解析失败
+            "blocks": [_serialize_block(b) for b in (getattr(result, "blocks", None) or [])],
+            "coverage": _coverage_dict(getattr(result, "coverage", None)),
         }
 
     except Exception as exc:
