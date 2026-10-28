@@ -8,6 +8,7 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4
 """
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import quote
@@ -39,18 +40,35 @@ SUPPORTED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 STALLED_THRESHOLD_SECONDS = 180
 
 
+def _as_datetime(value: Any) -> datetime | None:
+    """把字段值收窄为 datetime；非 datetime（None / 测试替身）一律当缺失。
+
+    为什么要这层：本模块的集成测试会 `patch` task service 返回 MagicMock，
+    直接调 `.isoformat()` 会抛 AttributeError，接口从 200 变成 500
+    （CI `backend-integration-smoke` 真实踩到）。诊断字段是**附加**信息，
+    拿不到就该退化成 None，绝不能让主接口挂掉。
+    """
+    return value if isinstance(value, datetime) else None
+
+
 def _elapsed_seconds(task: Any) -> int | None:
-    """任务已耗时（秒）。未开始返回 None；已结束用 finished_at 锁定。"""
-    start = getattr(task, "started_at", None) or getattr(task, "created_at", None)
+    """任务已耗时（秒）。时间字段不可用时返回 None（不抛异常）。"""
+    start = _as_datetime(getattr(task, "started_at", None)) or _as_datetime(getattr(task, "created_at", None))
     if start is None:
         return None
-    end = getattr(task, "finished_at", None)
-    # timezone-aware 与 naive 都可能出现（旧数据），统一按 aware 算
+    end = _as_datetime(getattr(task, "finished_at", None)) or timezone.now()
+    # timezone-aware 与 naive 可能混存（旧数据），统一后再算差
     try:
-        delta = (end or timezone.now()) - start
-    except TypeError:  # naive/aware 混用
-        delta = (end or timezone.now()).replace(tzinfo=None) - start.replace(tzinfo=None)
+        delta = end - start
+    except TypeError:
+        delta = end.replace(tzinfo=None) - start.replace(tzinfo=None)
     return max(0, int(delta.total_seconds()))
+
+
+def _started_at_iso(task: Any) -> str | None:
+    """worker 拉起时刻的 ISO 串；取不到（未开始 / 非 datetime）则 None。"""
+    started = _as_datetime(getattr(task, "started_at", None))
+    return started.isoformat() if started else None
 
 
 def _is_stalled(task: Any) -> bool:
@@ -58,7 +76,7 @@ def _is_stalled(task: Any) -> bool:
 
     只对 processing 判：pending 是正常排队，success/failed 是终态。
     """
-    if task.status != "processing":
+    if getattr(task, "status", None) != "processing":
         return False
     elapsed = _elapsed_seconds(task)
     return elapsed is not None and elapsed >= STALLED_THRESHOLD_SECONDS
@@ -582,7 +600,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
         return TaskStatusResponseSchema(
             task_id=task.id,
             status=task.status,
-            started_at=task.started_at.isoformat() if task.started_at else None,
+            started_at=_started_at_iso(task),
             elapsed_seconds=_elapsed_seconds(task),
             stalled=_is_stalled(task),
             file_path=task.renamed_file_path or task.file_path,

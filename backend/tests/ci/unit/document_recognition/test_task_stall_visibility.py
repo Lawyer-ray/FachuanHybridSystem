@@ -77,3 +77,39 @@ class TestIsStalled:
     def test_阈值是180秒(self) -> None:
         # 阈值本身也锁一下：改小会把正常慢识别误报成卡死，改大则失去预警意义
         assert STALLED_THRESHOLD_SECONDS == 180
+
+
+class TestNonDatetimeTolerance:
+    """诊断字段必须「拿不到就退化成 None」，绝不能让主接口 500。
+
+    真实事故：CI `backend-integration-smoke` 里任务 service 被 patch 成 MagicMock，
+    直接 `task.started_at.isoformat()` 抛 AttributeError，接口从 200 变 500。
+    诊断字段是附加信息，不该有这种破坏性。
+    """
+
+    def test_started_at_为_mock_时返回_None_而不抛(self) -> None:
+        from unittest.mock import MagicMock
+
+        from apps.document_recognition.api.document_recognition_api import _started_at_iso
+
+        assert _started_at_iso(SimpleNamespace(started_at=MagicMock())) is None
+
+    def test_elapsed_遇到_mock_时间字段返回_None_而不抛(self) -> None:
+        from unittest.mock import MagicMock
+
+        task = SimpleNamespace(status="processing", started_at=MagicMock(), created_at=MagicMock(), finished_at=None)
+        assert _elapsed_seconds(task) is None
+
+    def test_is_stalled_遇到_mock_时间字段为_False(self) -> None:
+        from unittest.mock import MagicMock
+
+        task = SimpleNamespace(status="processing", started_at=MagicMock(), created_at=MagicMock(), finished_at=None)
+        assert _is_stalled(task) is False
+
+    def test_正常_datetime_仍能算出_iso_与耗时(self) -> None:
+        from apps.document_recognition.api.document_recognition_api import _started_at_iso
+
+        task = _task("processing", started_ago=30)
+        iso = _started_at_iso(task)
+        assert isinstance(iso, str) and iso
+        assert 28 <= (_elapsed_seconds(task) or 0) <= 35
