@@ -216,13 +216,8 @@ class CaseAdmin(
                     "filing_number",
                     "effective_date",
                     "specified_date",
+                    "yz_wid",
                 ),
-            },
-        ),
-        (
-            _("一张网"),
-            {
-                "fields": ("yz_wid",),
             },
         ),
         (

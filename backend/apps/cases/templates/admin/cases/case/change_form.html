@@ -248,6 +248,8 @@
 <div id="yz-sync-config"
      data-sync-url="{% url 'admin:cases_case_yizhangwang_sync' original.pk %}"
      data-sync-label="同步"
+     data-materials-url="{% url 'admin:cases_case_yizhangwang_materials' original.pk %}"
+     data-materials-label="拉取材料"
      hidden></div>
 {% endif %}
 <!-- 文件夹绑定组件 -->
