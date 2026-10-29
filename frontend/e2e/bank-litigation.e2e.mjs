@@ -212,7 +212,7 @@ async function main() {
     log(Boolean(errLine), '要素式转换被拒绝', errLine?.[1] ?? '未见错误提示')
   }
 
-  // ── 5. OA 面板 ──
+  // ── 5. OA 面板（先看状态，6.4 再真提交）──
   await page.click('text=OA 立案')
   await page.waitForTimeout(1200)
   const oaText = await page.textContent('main')
@@ -242,7 +242,32 @@ async function main() {
     log(courtText.includes('未配置一张网'), '缺一张网凭证时前置拦截并说明原因')
   }
 
+  // ── 6.4 OA 立案：真实提交 ──
+  // 与一张网不同，OA 走 SSO 扫码登录（企业微信），完整流程要几十秒到几分钟。
+  // 这里只断言「点下去确实启动了后台任务」，不断言跑完——
+  // 扫码需要人工介入，自动化测试做不到，硬等会偶发超时。
+  await page.click('text=OA 立案')
+  await page.waitForTimeout(1000)
+  const oaBtn = page.locator('button:has-text("在 OA 立案")')
+  if (await oaBtn.isEnabled()) {
+    await oaBtn.click()
+    const started = await page
+      .locator('text=/OA 立案进行中|执行中|已轮询 \\d+ 次|会话状态/')
+      .first()
+      .waitFor({ timeout: 60_000 })
+      .then(() => true)
+      .catch(() => false)
+    log(started, 'OA 立案：提交后进入轮询')
+  } else {
+    const t = await page.textContent('main')
+    log(true, 'OA 立案：前置条件未满足，按钮已禁用（符合预期）',
+      t.match(/未配凭证|案件未关联合同/)?.[0] ?? '')
+  }
+
   // ── 6.5 一张网立案：真实提交 ──
+  // 切回一张网分区（6.4 提交 OA 后停在 OA 面板）。
+  await page.click('text=一张网立案')
+  await page.waitForTimeout(1500)
   // 这一步会真的调后端立案（后台线程跑浏览器自动化）。
   // 断言的是「接口确实被调用且返回了后端原话」，不是「立案成功」——
   // 后者取决于法院账号/材料完整度，不该由前端冒烟测试断言。
