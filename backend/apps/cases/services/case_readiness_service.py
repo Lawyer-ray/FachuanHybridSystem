@@ -39,8 +39,12 @@ REQUIRED_SLOTS: list[tuple[str, str]] = [
 # 关键词 → 槽位。材料文件名/类型名里出现这些词即归入该槽位。
 # 说明：这是**启发式**而非精确匹配——真实材料命名千差万别，
 # 精确匹配会漏；漏判比多判更糟（律师会以为材料齐了）。
+#
+# ⚠️ 关键词要覆盖实际命名习惯，不能只写“标准名”：
+#   《个人购房借款/担保合同》里没有“借款合同”这四个连续字（中间有“/担保”），
+#   只写“借款合同”会漏掉这类最常见的银行合同命名。所以把“借款”单独也保留。
 SLOT_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "contract": ("借款合同", "贷款合同", "主合同", "合同书"),
+    "contract": ("借款合同", "贷款合同", "主合同", "合同书", "授信合同"),
     "iou": ("借据", "放款", "借款凭证", "支付凭证"),
     "stmt": ("还款明细", "交易明细", "对账单", "流水", "还款记录"),
     "coll": ("催收", "催告", "律师函", "通知函"),
@@ -90,18 +94,46 @@ class MaterialStatusService:
         #    文件名在 source_attachment（CaseLogAttachment）的 original_filename 里。
         materials = list(CaseMaterial.objects.filter(case_id=case_id).select_related("type", "source_attachment"))
 
+        # 先把每份材料的可读名算出来，再按「强关键词 → 弱关键词」两轮归位。
+        #
+        # 为什么不能一遗用全部关键词：
+        #   为兼容《个人购房借款/担保合同》而把“借款”收进 contract 后，
+        #   “借款借据”也会命中 contract —— 一张借据被算成“主合同已交”，
+        #   律师就看不到真正缺的是合同本身。
+        #   两轮匹配：先只认强关键词（专指名），剩下的名额再让弱关键词补。
+        names: list[str] = []
+        for m in materials:
+            att = getattr(m, "source_attachment", None)
+            fname = ""
+            if att is not None:
+                fname = getattr(att, "original_filename", "") or getattr(att, "relative_file_path", "")
+            names.append(str(getattr(m, "type_name", "") or "") + " " + str(fname))
+
+        # 弱关键词：单独出现不足以认定该槽位，只在前一轮没命中时兑底
+        WEAK = {
+            "contract": ("借款", "贷款", "授信", "合同"),
+            "iou": ("出账", "提款"),
+            "stmt": ("还本付息",),
+            "coll": ("催款",),
+            "id": ("主体资格", "金融许可证", "户口"),
+            "guarantee": ("抵押", "质押", "担保函"),
+        }
+
         slots: list[dict[str, Any]] = []
         for key, label in REQUIRED_SLOTS:
             kws = SLOT_KEYWORDS.get(key, ())
             matched: list[str] = []
-            for m in materials:
-                fname = ""
-                att = getattr(m, "source_attachment", None)
-                if att is not None:
-                    fname = getattr(att, "original_filename", "") or getattr(att, "relative_file_path", "")
-                haystack = " ".join([str(getattr(m, "type_name", "") or ""), str(fname)])
-                if any(kw in haystack for kw in kws):
-                    matched.append(str(fname).split("/")[-1] or f"材料#{m.id}")
+            for m, hay in zip(materials, names):
+                if any(kw in hay for kw in kws):
+                    short = hay.strip().split("/")[-1]
+                    matched.append(short or f"材料#{m.id}")
+
+            # 强关键词一个都没命中 → 才用弱关键词兑底
+            if not matched:
+                for m, hay in zip(materials, names):
+                    if any(kw in hay for kw in WEAK.get(key, ())):
+                        short = hay.strip().split("/")[-1]
+                        matched.append(short or f"材料#{m.id}")
 
             if not matched:
                 # 担保合同：无保证人的案件视为不适用，不算缺件
@@ -158,7 +190,24 @@ class CaseReadinessService:
     """
 
     # CaseStage 里属于二审及以后的阶段（走答辩条件）
-    APPEAL_STAGES = ("second_trial", "retrial_second", "rehearing_second", "review")
+    #
+    # ⚠️ 为什么既要英文枚举又要中文显示名：
+    #   生产库里 `current_stage` 是**中英文混存**的——枚举值是 first_trial
+    #   （48 件），但早期录入/导入的数据存的是中文「一审」（13 件）、
+    #   「二审」（1 件）。只认英文会让那 14 件真实案件全落进 mode="other"，
+    #   checks 为空、ready 恒 True —— 律师看到「全部通过」但根本没校验过。
+    #   这是**静默假通过**，比报错更危险，所以两种写法都必须认。
+    APPEAL_STAGES = (
+        "second_trial",
+        "retrial_second",
+        "rehearing_second",
+        "review",
+        "二审",
+        "重审二审",
+        "再审二审",
+        "提审",
+    )
+    FILING_STAGES = ("", "first_trial", "filing", "一审", "立案")
 
     def __init__(self) -> None:
         self.material = MaterialStatusService()
@@ -171,7 +220,7 @@ class CaseReadinessService:
         stage = (case.current_stage or "").strip()
         if stage in self.APPEAL_STAGES:
             return self._appeal(case)
-        if stage in ("", "first_trial"):
+        if stage in self.FILING_STAGES:
             return self._filing(case)
         # 其他阶段（执行/仲裁等）暂无专门校验 —— 明确说出来，不要假装通过
         return {
@@ -184,20 +233,37 @@ class CaseReadinessService:
             "ready": True,
         }
 
+    # 当事人诉讼地位的**中英文两套写法**。
+    # 生产库 cases_caseparty.legal_status 同样是混存：
+    #   defendant 73 / plaintiff 45 / 被告 3 …
+    # 只看英文会把 3 个「被告」当成「无被告」，误判主体不适格。
+    PLAINTIFF_STATUSES = ("plaintiff", "orig_plaintiff", "applicant", "appellant", "原告", "申请人", "上诉人")
+    DEFENDANT_STATUSES = (
+        "defendant",
+        "orig_defendant",
+        "respondent",
+        "appellee",
+        "criminal_defendant",
+        "被告",
+        "被申请人",
+        "被上诉人",
+    )
+
     # ── 起诉条件 ──
     def _filing(self, case: Case) -> dict[str, Any]:
         checks: list[dict[str, Any]] = []
 
         # ① 当事人主体适格：有原告且有被告
         parties = list(case.parties.select_related("client").all())
-        has_plaintiff = any((p.legal_status or "").startswith("plaintiff") or p.legal_status == "原告" for p in parties)
-        has_defendant = any("defendant" in (p.legal_status or "") for p in parties)
+        statuses = [(p.legal_status or "").strip() for p in parties]
+        has_plaintiff = any(s in self.PLAINTIFF_STATUSES for s in statuses)
+        has_defendant = any(s in self.DEFENDANT_STATUSES for s in statuses)
         checks.append(
             {
                 "key": "parties",
                 "label": "当事人主体适格",
                 "ok": has_plaintiff and has_defendant,
-                "detail": f"原告 {int(has_plaintiff)} · 被告 {int(has_defendant)} · 共 {len(parties)} 方",
+                "detail": f"原告 {'有' if has_plaintiff else '缺'} · 被告 {'有' if has_defendant else '缺'} · 共 {len(parties)} 方",
                 "field": "Case.parties[].legal_status",
             }
         )
