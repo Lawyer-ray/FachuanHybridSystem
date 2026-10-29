@@ -37,6 +37,24 @@ asean_law_verify      → 一步到位核验一条引用是否成立
 尤其注意 ``credential_missing``：本插件不提供匿名降级。没有 BARLC 账号时
 `FileCount == -2`，正文不可读，此时任何「核验通过」都是假的——宁可整条链路
 失败，也不让 JEV 在无据可依的情况下给出结论。
+
+## 为什么这里吞异常（而非抛 ToolError）
+
+同文件的每个 ``except Exception`` 都把上游失败转成 ``ok=false`` + ``reason``，
+**不是**静默吞掉伪装成正常结果：``ok`` 字段、``reason`` 枚举、``detail`` 原文
+都在，模型能明确知道失败及其原因。之所以不抛 ``FachuanApiError``：
+
+1. ``fetch_url`` 者把它确立为工具面对「外部上游不可达」的失败口径（MCP 规范
+   推荐：可预期的业务/依赖失败用结构化错误结果，异常留给真异常）；
+2. ``credential_missing`` /``login_failed`` 需要模型「停止重试、提示用户去 Admin
+   配置」——抛成异常后模型只能看到一段错误文本，读不到 reason 枚举，会换关键词
+   反复试（模型重试一个没配账号的检索，毫无意义）；
+3. ``asean_law_verify`` 的调用方是 JEV 判断层，它需要区分「规则层没拿到数据」
+   （待重试/待修配置）与「引用不存在」（规则层已判死），结构化 reason 是这个
+   区分的载体。
+
+豁免登记在 ``tests/ci/unit/mcp_server/test_error_semantics.py`` 的
+``_SWALLOW_ALLOWLIST``，新加 ``except`` 同样要在那里写理由。
 """
 
 from __future__ import annotations
@@ -47,8 +65,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def tool_result(**fields: Any) -> dict[str, Any]:
-    """统一的工具返回结构。
+def _tool_result(**fields: Any) -> dict[str, Any]:
+    """统一的工具返回结构（私有 helper，不是工具，故 ``_`` 前缀）。
 
     与 ``fetch_url`` 同构：``ok`` 必须有，失败时带 ``reason`` 与 ``detail``。
     失败绝不返回空结果冒充「查无此法」——那会让模型以为「确实没有这个法律」，
@@ -82,11 +100,11 @@ def asean_law_countries() -> dict[str, Any]:
         from plugins.barlc_asean_law.adapter import get_adapter
 
         countries = get_adapter().list_countries()
-    except Exception as exc:
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         logger.warning("获取 BARLC 国别列表失败: %s", exc)
-        return tool_result(ok=False, reason="upstream_error", detail=str(exc))
+        return _tool_result(ok=False, reason="upstream_error", detail=str(exc))
 
-    return tool_result(
+    return _tool_result(
         ok=True,
         count=len(countries),
         countries=[
@@ -129,11 +147,11 @@ def asean_law_search(
     """
     try:
         adapter, credential = _adapter_and_credential()
-    except Exception as exc:
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         return _credential_failure(exc)
 
     if not str(keyword or "").strip():
-        return tool_result(
+        return _tool_result(
             ok=False,
             reason="empty_keyword",
             detail="检索关键词不能为空。空查询会返回全库数据，请给出具体的法律名称或术语。",
@@ -148,11 +166,11 @@ def asean_law_search(
             page=page,
             page_size=page_size,
         )
-    except Exception as exc:
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         logger.warning("BARLC 检索失败 keyword=%s: %s", keyword, exc)
-        return tool_result(ok=False, reason="search_failed", detail=str(exc))
+        return _tool_result(ok=False, reason="search_failed", detail=str(exc))
 
-    return tool_result(
+    return _tool_result(
         ok=True,
         total=total,
         page=page,
@@ -197,13 +215,13 @@ def asean_law_read(
     """
     try:
         adapter, credential = _adapter_and_credential()
-    except Exception as exc:
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         return _credential_failure(exc)
 
     try:
         detail = adapter.get_detail(credential, sys_id=str(sys_id))
-    except Exception as exc:
-        return tool_result(ok=False, reason="detail_failed", detail=str(exc))
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
+        return _tool_result(ok=False, reason="detail_failed", detail=str(exc))
 
     law_meta = {
         "sys_id": detail.sys_id,
@@ -219,7 +237,7 @@ def asean_law_read(
     }
 
     if not detail.has_fulltext:
-        return tool_result(
+        return _tool_result(
             ok=False,
             reason="no_fulltext",
             detail="该法律在数据库中无可用正文文件，无法读取条文。",
@@ -233,11 +251,11 @@ def asean_law_read(
 
     try:
         sections = adapter.fetch_sections(credential, detail=detail, lang=effective_lang)
-    except Exception as exc:
-        return tool_result(ok=False, reason="fulltext_failed", detail=str(exc), law=law_meta)
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
+        return _tool_result(ok=False, reason="fulltext_failed", detail=str(exc), law=law_meta)
 
     if not sections:
-        return tool_result(
+        return _tool_result(
             ok=False,
             reason="no_sections_parsed",
             detail="正文已取到但未能切分出条款（可能该 PDF 不是条款体例，或语言不在支持范围）。",
@@ -247,21 +265,21 @@ def asean_law_read(
     if str(section_number or "").strip():
         target = adapter.find_section(sections, section_number)
         if target is None:
-            return tool_result(
+            return _tool_result(
                 ok=False,
                 reason="section_not_found",
                 detail=f"该法律正文中不存在第 {section_number} 条（共 {len(sections)} 条）",
                 law=law_meta,
                 available_sections=[item.number for item in sections],
             )
-        return tool_result(
+        return _tool_result(
             ok=True,
             law=law_meta,
             lang=effective_lang,
             section={"number": target.number, "text": target.text},
         )
 
-    return tool_result(
+    return _tool_result(
         ok=True,
         law=law_meta,
         lang=effective_lang,
@@ -311,7 +329,7 @@ def asean_law_verify(
     """
     try:
         adapter, credential = _adapter_and_credential()
-    except Exception as exc:
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         return _credential_failure(exc)
 
     from plugins.barlc_asean_law.verify import CitationRequest, JudicialVerifier
@@ -327,11 +345,11 @@ def asean_law_verify(
                 country_code=country_code or None,
             ),
         )
-    except Exception as exc:
+    except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         logger.warning("引用核验失败 law=%s: %s", law_name, exc)
-        return tool_result(ok=False, reason="verify_failed", detail=str(exc))
+        return _tool_result(ok=False, reason="verify_failed", detail=str(exc))
 
-    return tool_result(
+    return _tool_result(
         ok=True,
         verdict=check.result or "待判定",
         law_title=check.law_title,
@@ -353,11 +371,11 @@ def _credential_failure(exc: Exception) -> dict[str, Any]:
     from plugins.barlc_asean_law.models import BarlcCredentialMissing, BarlcLoginError
 
     if isinstance(exc, BarlcCredentialMissing):
-        return tool_result(ok=False, reason="credential_missing", detail=str(exc))
+        return _tool_result(ok=False, reason="credential_missing", detail=str(exc))
     if isinstance(exc, BarlcLoginError):
-        return tool_result(ok=False, reason="login_failed", detail=str(exc))
+        return _tool_result(ok=False, reason="login_failed", detail=str(exc))
     logger.warning("BARLC 初始化失败: %s", exc)
-    return tool_result(ok=False, reason="init_failed", detail=str(exc))
+    return _tool_result(ok=False, reason="init_failed", detail=str(exc))
 
 
 __all__ = [
