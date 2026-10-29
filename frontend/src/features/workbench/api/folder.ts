@@ -1,14 +1,22 @@
 import { UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
 import type { CaseFolderBindingInfo, FolderEntries } from '../types'
-import { casesApi, contractsApi } from './client'
+import { casesApi, contractFolderApi } from './client'
 
 /* ============ 绑定文件夹（案件卡「文件夹视图」+ 右栏「合同文件夹」树共用） ============ */
 
 export type FolderOwnerKind = 'case' | 'contract'
 
+/**
+ * 文件夹端点所属的客户端（与 `./client` 里分开的两个实例一一对应）。
+ *
+ * 合同文件夹与合同 CRUD **前缀不同名**：folder 端点路径是 `/{contract_id}/…`，
+ * 挂在 `/contracts` 下 → `/api/v1/contracts/{id}/folder-entries`（没有第二个
+ * `contracts` 段）；合同 CRUD 的 `contracts/{id}` 才拼出 `/contracts/contracts/{id}`。
+ * 两者曾共用同一个 `/contracts/contracts` 客户端，实测 folder-entries 404。
+ */
 function folderApi(kind: FolderOwnerKind) {
-  return kind === 'case' ? casesApi : contractsApi
+  return kind === 'case' ? casesApi : contractFolderApi
 }
 
 /** 案件文件夹绑定（未绑定时端点返回 null；404 = 案件不存在/无权） */
@@ -115,9 +123,9 @@ function fileNameOf(subpath: string): string {
 
 /** 单文件预览直链（预览前经 withDownloadTicket 换一次性票据再 window.open） */
 export function folderFileUrl(kind: FolderOwnerKind, ownerId: number, subpath: string): string {
-  return (
-    '/api/v1/' + (kind === 'case' ? 'cases' : 'contracts') + '/' + ownerId + '/folder-file?subpath=' + encodeURIComponent(subpath)
-  )
+  // 合同文件夹预览与 folder-entries 同一前缀（`/contracts/{id}/…`，没有第二个 contracts 段）
+  const base = kind === 'case' ? '/api/v1/cases' : '/api/v1/contracts'
+  return base + '/' + ownerId + '/folder-file?subpath=' + encodeURIComponent(subpath)
 }
 
 /**

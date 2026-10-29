@@ -7,15 +7,17 @@ import { buildTermTimeline, termHeadline, termTone } from './term-timeline'
  *
  * **为什么不该只是两行文字**：常法顾问页面最该回答的问题是「服务期还剩多久、
  * 这一年忙不忙」。`2025-10-22 → 2026-10-21` 这种要读两遍才反应过来；一条
- * 进度条一眼就知道。更重要的是**事项刻度联动**：事项（合同/开庭/期限）按日
- * 落在轴上，刻度密说明那个月忙，空档说明服务空转——律师自己也能看出要不要
- * 催客户。
+ * 进度条一眼就知道。更重要的是**刻度联动**：常法页落的是事项刻度（合同/开庭/
+ * 期限，密说明那个月忙）；专项页落的是**阶段里程碑**（见 milestones 参数）。
  */
 export function TermBar({
   from,
   to,
   today,
   events,
+  milestones,
+  title = '服务期',
+  legend,
 }: {
   from: string
   to: string
@@ -23,11 +25,42 @@ export function TermBar({
   today: string
   /** 轴上事项：日期 + 标题（标题用于悬浮提示「这天发生了什么」） */
   events?: Array<string | { date: string; title?: string }>
+  /**
+   * 阶段里程碑（专项页用）：按顺序落在轴上，已完成=灰实心、当前=黑色粗环、
+   * 未到=虚线空心。专项的轴要回答的是「走到第几阶段」，不是「哪天忙」，
+   * 所以刻度语义与事项刻度**互斥使用**（同一页只传其中一组）。
+   */
+  milestones?: Array<{ date: string; title: string; state: 'ok' | 'doing' | 'todo' }>
+  /** 轴标题（常法=服务期，专项=项目周期） */
+  title?: string
+  /** 轴下方中间的说明位（默认给「N 天有事项 · 共 M 项」） */
+  legend?: string
 }) {
   const t = useMemo(
     () => buildTermTimeline({ from, to, today, events }),
     [from, to, today, events],
   )
+  /**
+   * 里程碑在轴上的比例（落在服务期外不画，避免端点外溢出）。
+   *
+   * 这个 useMemo 必须写在下面 `if (!t) return null` **之前**：早期 return 之后
+   * 再挂 Hook 就是渲染间 Hook 顺序不一致（rules-of-hooks 直接报错）。
+   */
+  const marks = useMemo(() => {
+    if (!milestones || milestones.length === 0) return []
+    const startMs = Date.parse(from)
+    const endMs = Date.parse(to)
+    const span = endMs - startMs
+    if (!(span > 0)) return []
+    return milestones
+      .map((m) => {
+        const ms = Date.parse(m.date)
+        if (Number.isNaN(ms) || ms < startMs || ms > endMs) return null
+        return { ...m, ratio: (ms - startMs) / span }
+      })
+      .filter((m): m is { date: string; title: string; state: 'ok' | 'doing' | 'todo'; ratio: number } => m !== null)
+  }, [milestones, from, to])
+
   if (!t) return null
 
   const tone = termTone(t)
@@ -41,7 +74,7 @@ export function TermBar({
   return (
     <div className="rounded-[12px] border border-border bg-card px-5 pb-4 pt-3.5 shadow-sm">
       <div className="mb-2.5 flex items-baseline gap-2.5">
-        <b className="text-[14px] font-[680] min-[1900px]:text-[15px]">服务期</b>
+        <b className="text-[14px] font-[680] min-[1900px]:text-[15px]">{title}</b>
         <span className="text-[12px] tabular-nums text-muted-foreground">
           {t.start} → {t.end}
         </span>
@@ -53,7 +86,7 @@ export function TermBar({
 
       {/* 轴：底轨 + 已流逝 + 预警区 + 事项刻度 + 今天标记 */}
       <div className="relative h-[8px] rounded-full bg-secondary min-[1900px]:h-[10px] min-[2400px]:h-[12px]" role="img"
-        aria-label={`服务期 ${t.start} 至 ${t.end}，${termHeadline(t.daysLeft)}`}
+        aria-label={`${title} ${t.start} 至 ${t.end}，${termHeadline(t.daysLeft)}`}
       >
         <span
           className={'absolute inset-y-0 left-0 rounded-full ' + fillCls}
@@ -87,6 +120,23 @@ export function TermBar({
           />
         ))}
 
+        {/* 阶段里程碑：专项页的「走到第几阶段」直接画在轴上 */}
+        {marks.map((m) => (
+          <span
+            key={m.title + m.date}
+            className={
+              'absolute top-1/2 size-[13px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-card ' +
+              (m.state === 'ok'
+                ? 'border-[1.5px] border-muted-foreground/60 bg-muted-foreground/60'
+                : m.state === 'doing'
+                  ? 'border-[2.5px] border-foreground'
+                  : 'border-[1.5px] border-dashed border-border')
+            }
+            style={{ left: `${m.ratio * 100}%` }}
+            title={`${m.date} · ${m.title}`}
+          />
+        ))}
+
         {/* 今天：竖线压在轴上，比刻度更醒目 */}
         {t.progress > 0 && t.progress < 1 && (
           <span
@@ -98,11 +148,15 @@ export function TermBar({
 
       <div className="relative mt-1.5 flex justify-between text-[11px] tabular-nums text-muted-foreground/70 min-[1900px]:text-[11.5px]">
         <span>{t.start}</span>
-        {t.ticks.length > 0 && (
-          <span className="text-muted-foreground">
-            {/* 原写「N 个服务日」有歧义：这是「有事项的天数」，不是服务期天数 */}
-            {t.ticks.length} 天有事项 · 共 {totalItems} 项
-          </span>
+        {legend ? (
+          <span className="text-muted-foreground">{legend}</span>
+        ) : (
+          t.ticks.length > 0 && (
+            <span className="text-muted-foreground">
+              {/* 原写「N 个服务日」有歧义：这是「有事项的天数」，不是服务期天数 */}
+              {t.ticks.length} 天有事项 · 共 {totalItems} 项
+            </span>
+          )
         )}
         <span>{t.end}</span>
       </div>

@@ -1,12 +1,22 @@
 /**
  * workbench/api/folder 单测（node 环境）。
  *
- * mock 只打 @/lib/api 的 createApiClient（contracts / cases 两个客户端）；
+ * mock 只打 @/lib/api 的 createApiClient（cases 与合同文件夹两个客户端）；
  * 断言聚焦 folderApi(kind) 的客户端选择、写操作路径、上传超时与 subpath 口径，
  * 以及预览直链的 encodeURIComponent 与「另存为意图登记」（只登记、不发字节）。
+ *
+ * **合同侧客户端前缀是 `/api/v1/contracts`**：合同文件夹端点挂的是
+ * `/{contract_id}/folder-entries`（没有第二个 contracts 段），与合同 CRUD 的
+ * `/api/v1/contracts/contracts/...` 不同——这两条曾写成同一个客户端，导致
+ * folder-entries 实测 404（curl 探活判定）。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+/**
+ * 桩客户端列表。**同前缀可能建两个实例**（合同 CRUD 的 `/api/v1/contracts` 与
+ * 合同文件夹的 `/api/v1/contracts` 是分开建的两个客户端），所以按「调用顺序」
+ * 记录、用 `clientAt(n)` 取，而不是按前缀查唯一实例。
+ */
 const clients = vi.hoisted(() => [] as Array<{
   prefix: string
   get: ReturnType<typeof vi.fn>
@@ -42,6 +52,14 @@ import {
   uploadFolderFiles,
 } from './folder'
 
+/** 按创建顺序取客户端：0 = contractsApi(CRUD)，1 = contractFolderApi(文件夹)，2 = casesApi */
+function clientAt(index: number) {
+  const c = clients[index]
+  if (!c) throw new Error(`客户端 #${index} 未创建`)
+  return c
+}
+
+/** 兼容旧断言：按前缀取第一个（cases 只有实例一个） */
 function client(prefix: string) {
   const c = clients.find((x) => x.prefix === prefix)
   if (!c) throw new Error(`客户端 ${prefix} 未创建`)
@@ -66,12 +84,11 @@ describe('文件夹接口：kind 选择客户端', () => {
     expect(client('/api/v1/cases').get).toHaveBeenCalledWith('9/folder-entries', { searchParams: {} })
   })
 
-  it('kind=contract 走 contracts 客户端', async () => {
-    client('/api/v1/contracts').get.mockReturnValue(respond({ folders: [], files: [] }))
+  it('kind=contract 走合同文件夹客户端（不是合同 CRUD 客户端）', async () => {
+    clientAt(1).get.mockReturnValue(respond({ folders: [], files: [] }))
     await listFolderEntries('contract', 9, 'dir')
-    expect(client('/api/v1/contracts').get).toHaveBeenCalledWith('9/folder-entries', {
-      searchParams: { subpath: 'dir' },
-    })
+    expect(clientAt(1).get).toHaveBeenCalledWith('9/folder-entries', { searchParams: { subpath: 'dir' } })
+    expect(clientAt(0).get).not.toHaveBeenCalled()
   })
 
   it('空 subpath 不带 searchParams.subpath', async () => {
@@ -147,19 +164,15 @@ describe('文件夹接口：上传与预览直链', () => {
 
 describe('另存为意图登记（只登记，不发字节）', () => {
   it('走 contracts/{id}/folder-save-as-intent，JSON 带 subpath + name', async () => {
-    client('/api/v1/contracts').post.mockReturnValue(
-      respond({ registered: true, name: 'a[修订版]V1_20261027.docx', subpath: '1-合同/a.docx' }),
-    )
+    clientAt(1).post.mockReturnValue(respond({ registered: true, name: 'a[修订版]V1_20261027.docx', subpath: '1-合同/a.docx' }))
     await registerFolderSaveAsIntent('contract', 318, '1-合同/a.docx', 'a[修订版]V1_20261027.docx')
-    expect(client('/api/v1/contracts').post).toHaveBeenCalledWith('318/folder-save-as-intent', {
+    expect(clientAt(1).post).toHaveBeenCalledWith('318/folder-save-as-intent', {
       json: { subpath: '1-合同/a.docx', name: 'a[修订版]V1_20261027.docx' },
     })
   })
 
   it('返回后端清洗后的实际文件名（可能与入参不同，提示语要用它）', async () => {
-    client('/api/v1/contracts').post.mockReturnValue(
-      respond({ registered: true, name: 'a[修订版]V1_20261027_1.docx', subpath: '1-合同/a.docx' }),
-    )
+    clientAt(1).post.mockReturnValue(respond({ registered: true, name: 'a[修订版]V1_20261027_1.docx', subpath: '1-合同/a.docx' }))
     const res = await registerFolderSaveAsIntent('contract', 318, '1-合同/a.docx', 'x.docx')
     expect(res.name).toBe('a[修订版]V1_20261027_1.docx')
   })
