@@ -491,6 +491,15 @@ from mcp_server.tools.reminders import (
 )
 from mcp_server.tools.web_search import fetch_url, web_search
 
+# 东盟域外法查明（BARLC）。插件缺失时降级为「工具不存在」，不影响其余 409 个工具
+# 的注册——与 web_search 的 optional 依赖同一处理口径。
+try:
+    from mcp_server.tools.foreign_law import asean_law_countries, asean_law_read, asean_law_search, asean_law_verify
+
+    _HAS_FOREIGN_LAW = True
+except ImportError:  # pragma: no cover - 插件未安装时走此分支
+    _HAS_FOREIGN_LAW = False
+
 __all__ = [
     # 案件
     "list_cases",
@@ -885,6 +894,11 @@ __all__ = [
     # 网络搜索
     "web_search",
     "fetch_url",
+    # 东盟域外法查明
+    "asean_law_countries",
+    "asean_law_search",
+    "asean_law_read",
+    "asean_law_verify",
     # 工作流引擎
     "start_workflow",
     "list_workflows",
