@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 import pytest
@@ -134,8 +135,17 @@ class TestContractModelStages:
     """Contract.clean() 把 validate_stages 挂进模型校验。"""
 
     def test_clean_accepts_valid_tree(self) -> None:
-        contract = ContractFactory(stages=STAGES)
+        """合法树过 clean() 只做校验、不改写：与两个 rejects 用例互为对照。"""
+        contract = ContractFactory(stages=copy.deepcopy(STAGES))
         contract.full_clean()
+
+        # 结构原样保留：clean() 返回的是原树，不是重建/裁剪后的树
+        assert contract.stages == STAGES
+        assert [node["key"] for node in contract.stages] == ["ph_dd", "ph_draft", "ph_register"]
+        # 父子关系与字段值不被顺手归一化（阶段名可改、顺序可调，服务端无更权威默认值）
+        assert contract.stages[1]["children"][0]["deliverables"][0]["planned"] is True
+        assert contract.stages[1]["date"] == ""
+        assert contract.stages[1]["children"][1]["key"] == "ph_draft_2"
 
     def test_clean_rejects_too_deep(self) -> None:
         """contract.clean() 直接把 validate_stages 的 ValidationException 透出。"""

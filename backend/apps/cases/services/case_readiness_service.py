@@ -49,6 +49,33 @@ SLOT_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _has_guarantor(case_id: int) -> bool:
+    """本案是否有保证人／担保人当事人。"""
+    return (
+        CaseParty.objects.filter(case_id=case_id)
+        .filter(
+            Q(legal_status__icontains="guarantor")
+            | Q(legal_status__icontains="担保")
+            | Q(legal_status__in=("guarantor", "third"))
+        )
+        .exists()
+    )
+
+
+def _pack_readiness(case: Case, mode: str, checks: list[dict[str, Any]]) -> dict[str, Any]:
+    """把校验清单汇总成就绪度结果（纯函数，与具体案件无关）。"""
+    passed = sum(1 for c in checks if c["ok"])
+    return {
+        "case_id": case.id,
+        "stage": case.current_stage or "",
+        "mode": mode,
+        "checks": checks,
+        "passed": passed,
+        "total": len(checks),
+        "ready": passed == len(checks),
+    }
+
+
 class MaterialStatusService:
     """材料齐备度：回答「这件能不能递立案」。"""
 
@@ -78,7 +105,7 @@ class MaterialStatusService:
 
             if not matched:
                 # 担保合同：无保证人的案件视为不适用，不算缺件
-                if key == "guarantee" and not self._has_guarantor(case_id):
+                if key == "guarantee" and not _has_guarantor(case_id):
                     slots.append(
                         {
                             "key": key,
@@ -116,19 +143,6 @@ class MaterialStatusService:
             # ready 只看 miss：stale 不阻塞立案（律师可以先递后补）
             "ready": miss_n == 0,
         }
-
-    @staticmethod
-    def _has_guarantor(case_id: int) -> bool:
-        """本案是否有保证人／担保人当事人。"""
-        return (
-            CaseParty.objects.filter(case_id=case_id)
-            .filter(
-                Q(legal_status__icontains="guarantor")
-                | Q(legal_status__icontains="担保")
-                | Q(legal_status__in=("guarantor", "third"))
-            )
-            .exists()
-        )
 
 
 # ───────────────────────── 起诉 / 答辩条件 ─────────────────────────
@@ -240,7 +254,7 @@ class CaseReadinessService:
             }
         )
 
-        return self._pack(case, "filing", checks)
+        return _pack_readiness(case, "filing", checks)
 
     # ── 答辩条件 ──
     def _appeal(self, case: Case) -> dict[str, Any]:
@@ -300,20 +314,7 @@ class CaseReadinessService:
             }
         )
 
-        return self._pack(case, "appeal", checks)
-
-    @staticmethod
-    def _pack(case: Case, mode: str, checks: list[dict[str, Any]]) -> dict[str, Any]:
-        passed = sum(1 for c in checks if c["ok"])
-        return {
-            "case_id": case.id,
-            "stage": case.current_stage or "",
-            "mode": mode,
-            "checks": checks,
-            "passed": passed,
-            "total": len(checks),
-            "ready": passed == len(checks),
-        }
+        return _pack_readiness(case, "appeal", checks)
 
 
 # ───────────────────────── 利益冲突预检 ─────────────────────────
