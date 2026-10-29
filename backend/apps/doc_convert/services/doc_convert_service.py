@@ -7,6 +7,7 @@ from pathlib import Path
 
 from apps.doc_convert.constants import MbidDefinition, get_mbid_by_category, get_mbid_set
 from apps.doc_convert.exceptions import (
+    FileCorruptedError,
     FileTooLargeError,
     InvalidFileTypeError,
     InvalidMbidError,
@@ -72,6 +73,14 @@ class DocConvertService:
             size_mb = size_bytes / (1024 * 1024)
             raise FileTooLargeError(size_mb=size_mb, max_size_mb=MAX_FILE_SIZE_MB)
 
+        # 验证文件内容可解析（扩展名对但内容是坏的，最常见的是改了后缀的文本、
+        # 传输中断的半截文件、加密过的 docx）。
+        #
+        # ⚠️ 必须在调 znszj 之前做：那种文件会让 znszj 侧抛异常，被下面的
+        # `except Exception` 收成 ZnszjUnavailableError（502），
+        # 明明是「你这个文件坏了」却报成「服务挂了」。
+        self._assert_parsable(file_content, filename, suffix)
+
         # 调用 znszj 客户端
         try:
             result = self._client.convert_document(
@@ -89,3 +98,41 @@ class DocConvertService:
             raise ZnszjUnavailableError(detail=str(exc)) from exc
 
         return result
+
+    @staticmethod
+    def _assert_parsable(content: bytes, filename: str, suffix: str) -> None:
+        """文件内容能否被正常打开。打不开抛 FileCorruptedError（400）。
+
+        只做「最轻的一个动作」：docx 走 zipfile 目录、pdf 读 header。
+        不真去解析文档结构——那交给 znszj，这里只负责把明显坏掉的文件挡在外面。
+
+        ═══ 为什么这道校验必须在调 znszj 之前 ═══
+        扩展名对、内容坏（改了后缀的文本、传输中断的半截文件、加密过的 docx）
+        能通过扩展名校验，到 znszj 侧才炸，然后被 `except Exception` 收成
+        ZnszjUnavailableError（502）。502 的语义是「上游服务挂了」——
+        网关会当故障、律师会去报障，而真实原因只是这一个文件打不开。
+        """
+        if not content:
+            raise FileCorruptedError(filename=filename, detail="empty file")
+
+        try:
+            if suffix in (".docx", ".doc"):
+                # .doc 老格式是 OLE2 复合文档，不是 zip；交给 znszj 处理
+                if content[:8].startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+                    return
+                import io
+                import zipfile
+
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    names = zf.namelist()
+                # 合法 docx 必须有 word/document.xml
+                if not any(n.endswith("document.xml") for n in names):
+                    raise FileCorruptedError(filename=filename, detail="no word/document.xml")
+            elif suffix == ".pdf":
+                if not content[:5].startswith(b"%PDF"):
+                    raise FileCorruptedError(filename=filename, detail="bad pdf header")
+        except FileCorruptedError:
+            raise
+        except Exception as exc:
+            # zipfile.BadZipFile / 读取越界等
+            raise FileCorruptedError(filename=filename, detail=str(exc)[:200]) from exc

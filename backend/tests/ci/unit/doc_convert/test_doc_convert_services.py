@@ -9,6 +9,21 @@ import pytest
 from apps.doc_convert.exceptions import FileTooLargeError, InvalidFileTypeError, InvalidMbidError
 
 
+def _docx() -> bytes:
+    """最小合法 docx（zip 内含 word/document.xml）。
+
+    内容校验层会挡掉「扩展名对、内容坏」的输入（见 _assert_parsable 说明），
+    所以测试数据必须是真 zip，不能再用 b"data"。
+    """
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("word/document.xml", "<w:document/>")
+    return buf.getvalue()
+
+
 class TestDocConvertServiceConvertDocument:
     def _make_service(self, client=None):
         from apps.doc_convert.services.doc_convert_service import DocConvertService
@@ -48,7 +63,7 @@ class TestDocConvertServiceConvertDocument:
         mock_client = MagicMock()
         mock_client.convert_document.return_value = b"converted"
         svc = self._make_service(client=mock_client)
-        result = svc.convert_document(file_content=b"data", filename="test.docx", mbid=mbid)
+        result = svc.convert_document(file_content=_docx(), filename="test.docx", mbid=mbid)
         assert result == b"converted"
 
     def test_get_mbid_list(self):

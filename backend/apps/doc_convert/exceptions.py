@@ -11,6 +11,7 @@ ERROR_ZNSZJ_NOT_CONFIGURED = "ZNSZJ_NOT_CONFIGURED"
 ERROR_INVALID_FILE_TYPE = "INVALID_FILE_TYPE"
 ERROR_INVALID_MBID = "INVALID_MBID"
 ERROR_FILE_TOO_LARGE = "FILE_TOO_LARGE"
+ERROR_FILE_CORRUPTED = "FILE_CORRUPTED"
 ERROR_ZNSZJ_UNAVAILABLE = "ZNSZJ_UNAVAILABLE"
 ERROR_ZNSZJ_INVALID_RESPONSE = "ZNSZJ_INVALID_RESPONSE"
 
@@ -69,6 +70,25 @@ class FileTooLargeError(ValidationException):
             message="文件大小超过限制（%(size).2fMB > %(max)dMB）" % {"size": size_mb, "max": max_size_mb},
             code=ERROR_FILE_TOO_LARGE,
             errors={"size_mb": size_mb, "max_size_mb": max_size_mb},
+        )
+
+
+class FileCorruptedError(ValidationException):
+    """文件无法解析（HTTP 400）。
+
+    ═══ 为什么必须与「服务不可用」分开 ═══
+    实测踩过：上传一个损坏的 .docx（扩展名对、但 ZIP 结构是坏的），后端把它
+    归进 ZnszjUnavailableError → **HTTP 502**。502 的语义是「上游服务挂了」，
+    网关/监控会当故障处理，律师也会以为系统坏了去报障；
+    真实原因只是这一个文件本身打不开。
+    文件级问题一律 400 + 明确指出是文件，服务级问题才是 5xx。
+    """
+
+    def __init__(self, *, filename: str, detail: str = "") -> None:
+        super().__init__(
+            message="文件无法打开，可能已损坏或不是有效文档：%(name)s" % {"name": filename},
+            code=ERROR_FILE_CORRUPTED,
+            errors={"filename": filename, "detail": detail},
         )
 
 

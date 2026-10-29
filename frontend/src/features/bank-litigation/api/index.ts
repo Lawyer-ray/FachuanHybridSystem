@@ -27,16 +27,25 @@ import type { components } from '@/types/api-schema'
 export const casesApi = createApiClient({ prefix: '/api/v1/cases' })
 
 /**
- * 案件列表。
+ * ⚠️⚠️ 案件接口的路径**层级不统一**，这三个实测结果必须记住
+ * （client 前缀是 /api/v1/cases，下面写的是拼在前缀后的部分）：
  *
- * ⚠️ 后端路径是 `/cases/cases`（router 前缀 `/cases` + 资源名 `cases`），
- * 不是 `/cases`。当初我在原型里按 `/cases` 调，一律 404 —— 记在这里免得再错。
+ *   'cases'                → /api/v1/cases/cases            200  列表
+ *   `cases/${id}`          → /api/v1/cases/cases/406        200  详情
+ *   `${id}/readiness`      → /api/v1/cases/406/readiness    200  子资源
+ *   `cases/${id}/readiness`→ /api/v1/cases/cases/406/...    404  ✗ 错法
+ *
+ * 也就是说：**列表和详情是双层，子资源是单层**。
+ * 踩过一次：子资源也写成 `cases/${id}/...` → 404，而前端表现是
+ * 「起诉条件校验失败」，看着像业务错误，实际只是 URL 拼错。
  */
+
+/** 案件列表（双层 cases） */
 export async function listCases(): Promise<components['schemas']['CaseOut'][]> {
   return casesApi.get('cases').json<components['schemas']['CaseOut'][]>()
 }
 
-/** 单个案件详情 */
+/** 单个案件详情（双层 cases） */
 export async function getCase(caseId: number): Promise<components['schemas']['CaseOut']> {
   return casesApi.get(`cases/${caseId}`).json<components['schemas']['CaseOut']>()
 }
@@ -46,21 +55,21 @@ export type MaterialStatus =
   components['schemas']['MaterialStatusOut']
 
 export async function getMaterialStatus(caseId: number): Promise<MaterialStatus> {
-  return casesApi.get(`cases/${caseId}/material-status`).json<MaterialStatus>()
+  return casesApi.get(`${caseId}/material-status`).json<MaterialStatus>()
 }
 
 /** 起诉条件 / 答辩条件（按 current_stage 后端自动分流） */
 export type Readiness = components['schemas']['CaseReadinessOut']
 
 export async function getReadiness(caseId: number): Promise<Readiness> {
-  return casesApi.get(`cases/${caseId}/readiness`).json<Readiness>()
+  return casesApi.get(`${caseId}/readiness`).json<Readiness>()
 }
 
 /** 利益冲突预检（red 阻断 / yellow 复核 / neutral 提示） */
 export type ConflictCheck = components['schemas']['ConflictCheckOut']
 
 export async function runConflictCheck(caseId: number): Promise<ConflictCheck> {
-  return casesApi.post(`cases/${caseId}/conflict-check`).json<ConflictCheck>()
+  return casesApi.post(`${caseId}/conflict-check`).json<ConflictCheck>()
 }
 
 // ───────────────────────── 要素式转换 ─────────────────────────
@@ -88,7 +97,14 @@ export async function convertToElemental(file: File, mbid: string): Promise<Blob
   const form = new FormData()
   form.append('file', file)
   form.append('mbid', mbid)
-  const res = await docConvertApi.post('convert', { body: form })
+  const res = await docConvertApi.post('convert', {
+    // ⚠️ ky 的 FormData 走 `body:`，不是 `json:` —— 写成 json 会让 ky
+    // 去序列化 FormData（结果是空 body 或直接抛错），请求发不出去，
+    // 界面永远停在「转换中…」。参考 material-prep 的 uploadPack 写法。
+    body: form,
+    // 转换要过一遍服务端的文档解析，比普通请求慢得多；用上传档的超时。
+    timeout: 120_000,
+  })
   return res.blob()
 }
 
