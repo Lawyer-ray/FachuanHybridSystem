@@ -1,0 +1,387 @@
+"""案件就绪度服务：材料齐备度 / 起诉答辩条件 / 利益冲突预检.
+
+═════ 这三个能力的共同设计原则 ═════
+机器只**发现**与**陈述依据**，不代替律师做判断：
+  · 每个结论都带 `reason` / `detail`，写清「凭什么这么说」
+  · 每条校验都带 `field`，指回所依据的模型字段，便于回溯
+  · 硬阻塞（缺件、确定冲突）与软提示（材料待更新、疑似冲突）分开，
+    前者让 `ready=False`，后者只记录，不挡流程
+
+为什么放在 service 层而不是写在 API 里：
+  这三个判断都要读多张表（Case / CaseParty / Client / CaseMaterial /
+  CaseNumber / Reminder…），写在 API 里会导致每次加一条校验都要改路由文件，
+  也无法被后台任务或 MCP 工具复用。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from django.db.models import Q
+
+from apps.cases.models import Case, CaseMaterial, CaseNumber, CaseParty
+
+# ───────────────────────── 材料齐备度 ─────────────────────────
+
+# 立案必需的材料槽位（key → 中文名）。
+# 为什么要在这里定一份而不是查 CaseMaterialType 表：
+#   类型表是律所可自定义的（每个所的叫法不同），但「哪些是立案必需」是
+#   诉讼法的硬要求，不随所变。两者混在一起会让「缺件判断」跟着所的配置漂。
+REQUIRED_SLOTS: list[tuple[str, str]] = [
+    ("contract", "借款/主合同"),
+    ("iou", "借据或放款凭证"),
+    ("stmt", "还款明细或对账单"),
+    ("coll", "催收记录"),
+    ("id", "当事人身份证明"),
+    ("guarantee", "担保合同"),
+]
+
+# 关键词 → 槽位。材料文件名/类型名里出现这些词即归入该槽位。
+# 说明：这是**启发式**而非精确匹配——真实材料命名千差万别，
+# 精确匹配会漏；漏判比多判更糟（律师会以为材料齐了）。
+SLOT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "contract": ("借款合同", "贷款合同", "主合同", "合同书"),
+    "iou": ("借据", "放款", "借款凭证", "支付凭证"),
+    "stmt": ("还款明细", "交易明细", "对账单", "流水", "还款记录"),
+    "coll": ("催收", "催告", "律师函", "通知函"),
+    "id": ("身份证", "营业执照", "身份证明", "户口"),
+    "guarantee": ("担保合同", "保证合同", "抵押合同", "质押合同"),
+}
+
+
+class MaterialStatusService:
+    """材料齐备度：回答「这件能不能递立案」。"""
+
+    def status_of(self, case_id: int) -> dict[str, Any]:
+        case = Case.objects.filter(id=case_id).first()
+        if case is None:
+            raise ValueError(f"案件不存在: {case_id}")
+
+        # 取本案全部材料的可读名，用于关键词归位。
+        # ⚠️ 字段名要按真实模型来：
+        #    CaseMaterial 没有 file_path / original_name，
+        #    文件名在 source_attachment（CaseLogAttachment）的 original_filename 里。
+        materials = list(CaseMaterial.objects.filter(case_id=case_id).select_related("type", "source_attachment"))
+
+        slots: list[dict[str, Any]] = []
+        for key, label in REQUIRED_SLOTS:
+            kws = SLOT_KEYWORDS.get(key, ())
+            matched: list[str] = []
+            for m in materials:
+                fname = ""
+                att = getattr(m, "source_attachment", None)
+                if att is not None:
+                    fname = getattr(att, "original_filename", "") or getattr(att, "relative_file_path", "")
+                haystack = " ".join([str(getattr(m, "type_name", "") or ""), str(fname)])
+                if any(kw in haystack for kw in kws):
+                    matched.append(str(fname).split("/")[-1] or f"材料#{m.id}")
+
+            if not matched:
+                # 担保合同：无保证人的案件视为不适用，不算缺件
+                if key == "guarantee" and not self._has_guarantor(case_id):
+                    slots.append(
+                        {
+                            "key": key,
+                            "label": label,
+                            "status": "na",
+                            "file_names": [],
+                            "reason": "本案无保证人，无需担保合同",
+                        }
+                    )
+                else:
+                    slots.append(
+                        {
+                            "key": key,
+                            "label": label,
+                            "status": "miss",
+                            "file_names": [],
+                            "reason": f"未找到含「{'/'.join(kws[:2])}」字样的材料",
+                        }
+                    )
+            else:
+                slots.append({"key": key, "label": label, "status": "ok", "file_names": matched, "reason": ""})
+
+        ok_n = sum(1 for s in slots if s["status"] == "ok")
+        need_n = sum(1 for s in slots if s["status"] != "na")
+        miss_n = sum(1 for s in slots if s["status"] == "miss")
+        stale_n = sum(1 for s in slots if s["status"] == "stale")
+
+        return {
+            "case_id": case_id,
+            "slots": slots,
+            "ok_count": ok_n,
+            "need_count": need_n,
+            "missing_count": miss_n,
+            "stale_count": stale_n,
+            # ready 只看 miss：stale 不阻塞立案（律师可以先递后补）
+            "ready": miss_n == 0,
+        }
+
+    @staticmethod
+    def _has_guarantor(case_id: int) -> bool:
+        """本案是否有保证人／担保人当事人。"""
+        return (
+            CaseParty.objects.filter(case_id=case_id)
+            .filter(
+                Q(legal_status__icontains="guarantor")
+                | Q(legal_status__icontains="担保")
+                | Q(legal_status__in=("guarantor", "third"))
+            )
+            .exists()
+        )
+
+
+# ───────────────────────── 起诉 / 答辩条件 ─────────────────────────
+
+
+class CaseReadinessService:
+    """案件就绪度：按当前阶段给不同的一组校验。
+
+    ⚠️ 起诉条件与答辩条件是**两套完全不同的问题**：
+      起诉要问：主体适格吗？管辖对吗？时效过没过？材料齐不齐？
+      答辩要问：上诉理由逐条能否反驳？一审判决有无支撑？答辩期还剩几天？
+    混在一张表里，律师不知道该看哪几行。所以按 `current_stage` 分流。
+    """
+
+    # CaseStage 里属于二审及以后的阶段（走答辩条件）
+    APPEAL_STAGES = ("second_trial", "retrial_second", "rehearing_second", "review")
+
+    def __init__(self) -> None:
+        self.material = MaterialStatusService()
+
+    def readiness_of(self, case_id: int) -> dict[str, Any]:
+        case = Case.objects.filter(id=case_id).first()
+        if case is None:
+            raise ValueError(f"案件不存在: {case_id}")
+
+        stage = (case.current_stage or "").strip()
+        if stage in self.APPEAL_STAGES:
+            return self._appeal(case)
+        if stage in ("", "first_trial"):
+            return self._filing(case)
+        # 其他阶段（执行/仲裁等）暂无专门校验 —— 明确说出来，不要假装通过
+        return {
+            "case_id": case_id,
+            "stage": stage,
+            "mode": "other",
+            "checks": [],
+            "passed": 0,
+            "total": 0,
+            "ready": True,
+        }
+
+    # ── 起诉条件 ──
+    def _filing(self, case: Case) -> dict[str, Any]:
+        checks: list[dict[str, Any]] = []
+
+        # ① 当事人主体适格：有原告且有被告
+        parties = list(case.parties.select_related("client").all())
+        has_plaintiff = any((p.legal_status or "").startswith("plaintiff") or p.legal_status == "原告" for p in parties)
+        has_defendant = any("defendant" in (p.legal_status or "") for p in parties)
+        checks.append(
+            {
+                "key": "parties",
+                "label": "当事人主体适格",
+                "ok": has_plaintiff and has_defendant,
+                "detail": f"原告 {int(has_plaintiff)} · 被告 {int(has_defendant)} · 共 {len(parties)} 方",
+                "field": "Case.parties[].legal_status",
+            }
+        )
+
+        # ② 管辖：有受理法院
+        has_court = bool(case.supervising_authorities.exists())
+        checks.append(
+            {
+                "key": "jurisdiction",
+                "label": "管辖",
+                "ok": has_court,
+                "detail": ("已登记主管机关" if has_court else "未登记主管机关（管辖法院）"),
+                "field": "Case.supervising_authorities[]",
+            }
+        )
+
+        # ③ 诉讼时效：有逾期起算日且在 3 年内
+        #    真实实现应比对 Reminder/利息清单的起算日；这里用 start_date 做保守判断
+        from datetime import date
+
+        years = (date.today() - case.start_date).days / 365 if case.start_date else 0
+        checks.append(
+            {
+                "key": "limitation",
+                "label": "诉讼时效",
+                "ok": years < 3,
+                "detail": f"自收案日 {case.start_date} 起 {years:.1f} 年",
+                "field": "Case.start_date",
+            }
+        )
+
+        # ④ 材料齐备
+        ms = self.material.status_of(case.id)
+        checks.append(
+            {
+                "key": "materials",
+                "label": "材料齐备",
+                "ok": ms["ready"],
+                "detail": f"{ms['ok_count']}/{ms['need_count']} 项齐备"
+                + (f"，缺 {ms['missing_count']} 项" if ms["missing_count"] else ""),
+                "field": "CaseMaterial",
+            }
+        )
+
+        # ⑤ 标的额：必须有值且非负
+        amt = case.target_amount
+        checks.append(
+            {
+                "key": "amount",
+                "label": "涉案金额",
+                "ok": amt is not None and amt >= 0,
+                "detail": f"¥{amt:,.2f}" if amt is not None else "未填写",
+                "field": "Case.target_amount",
+            }
+        )
+
+        return self._pack(case, "filing", checks)
+
+    # ── 答辩条件 ──
+    def _appeal(self, case: Case) -> dict[str, Any]:
+        checks: list[dict[str, Any]] = []
+
+        # ① 前序案件：二审必须挂到一审上（否则案卷关系断裂）
+        prev = case.previous_case
+        checks.append(
+            {
+                "key": "previous",
+                "label": "一审案卷关联",
+                "ok": prev is not None,
+                "detail": (
+                    f"前序：{prev.name}（{prev.filing_number or '无编号'}）"
+                    if prev
+                    else "未挂前序案件——二审是新案件记录，必须指向一审那一件"
+                ),
+                "field": "Case.previous_case",
+            }
+        )
+
+        # ② 二审案号：立案后才有
+        has_number = CaseNumber.objects.filter(case_id=case.id).exists()
+        checks.append(
+            {
+                "key": "case_number",
+                "label": "二审案号",
+                "ok": has_number,
+                "detail": "已登记案号" if has_number else "未登记二审案号（法院尚未出具）",
+                "field": "Case.case_numbers[]",
+            }
+        )
+
+        # ③ 一审判决书：答辩状第一段要引它
+        has_judgment = CaseNumber.objects.filter(case_id=case.id, document_name__icontains="判决").exists() or (
+            prev and CaseNumber.objects.filter(case_id=prev.id, document_name__icontains="判决").exists()
+        )
+        checks.append(
+            {
+                "key": "judgment",
+                "label": "一审判决书",
+                "ok": bool(has_judgment),
+                "detail": "已归档判决书" if has_judgment else "未找到一审判决书（答辩状需引用其认定事实）",
+                "field": "CaseNumber.document_name",
+            }
+        )
+
+        # ④ 材料齐备（答辩材料同样要齐）
+        ms = self.material.status_of(case.id)
+        checks.append(
+            {
+                "key": "materials",
+                "label": "材料齐备",
+                "ok": ms["ready"],
+                "detail": f"{ms['ok_count']}/{ms['need_count']} 项齐备",
+                "field": "CaseMaterial",
+            }
+        )
+
+        return self._pack(case, "appeal", checks)
+
+    @staticmethod
+    def _pack(case: Case, mode: str, checks: list[dict[str, Any]]) -> dict[str, Any]:
+        passed = sum(1 for c in checks if c["ok"])
+        return {
+            "case_id": case.id,
+            "stage": case.current_stage or "",
+            "mode": mode,
+            "checks": checks,
+            "passed": passed,
+            "total": len(checks),
+            "ready": passed == len(checks),
+        }
+
+
+# ───────────────────────── 利益冲突预检 ─────────────────────────
+
+
+class ConflictCheckService:
+    """利益冲突预检：把本案当事人与既有客户/在办案件比对。
+
+    ⚠️ 判定逻辑必须区分三档，不能一律报「冲突」：
+      red     同名 + 证件号相同  → 就是同一个人，且已经在对方阵营 → 必须停
+      yellow  同名但证件号不同   → 可能重名，需人工复核（律所最常见的情形）
+      neutral 无证件号可比对     → 提示数据不全，不是冲突
+    真实产品里这三档的处理完全不同：red 阻断、yellow 要人点「已复核」、
+    neutral 只是提醒补全资料。一律当冲突会让律师对告警脱敏。
+    """
+
+    def check(self, case_id: int) -> dict[str, Any]:
+        case = Case.objects.filter(id=case_id).first()
+        if case is None:
+            raise ValueError(f"案件不存在: {case_id}")
+
+        # 本案的对方当事人（我方客户的对手才可能冲突）
+        parties = list(CaseParty.objects.filter(case_id=case_id).select_related("client").all())
+        if not parties:
+            return {"case_id": case_id, "checked_parties": 0, "hits": [], "blocked": False}
+
+        hits: list[dict[str, Any]] = []
+        for p in parties:
+            client = p.client
+            if client is None:
+                continue
+            name = (client.name or "").strip()
+            if not name:
+                continue
+            id_no = (getattr(client, "id_number", "") or "").strip()
+
+            # 在**其他案件**里找同名当事人（排除本案自身）
+            others = (
+                CaseParty.objects.filter(client__name=name).exclude(case_id=case_id).select_related("client", "case")
+            )
+            for o in others:
+                other_id = (getattr(o.client, "id_number", "") or "").strip()
+                if id_no and other_id:
+                    if id_no == other_id:
+                        level, reason, matched = "red", "同名且证件号相同——同一人出现在另一案件中", True
+                    else:
+                        level, reason, matched = "yellow", "同名但证件号不同——疑似重名，需律师复核", False
+                else:
+                    level, reason, matched = "neutral", "同名但缺少证件号，无法自动判定", False
+                hits.append(
+                    {
+                        "level": level,
+                        "party_name": name,
+                        "legal_status": p.get_legal_status_display()
+                        if hasattr(p, "get_legal_status_display")
+                        else (p.legal_status or ""),
+                        "matched_client_id": getattr(o.client, "id", None),
+                        "matched_client_name": name,
+                        "matched_case_id": o.case_id,
+                        "matched_case_name": getattr(o.case, "name", ""),
+                        "reason": reason,
+                        "id_matched": matched,
+                    }
+                )
+
+        return {
+            "case_id": case_id,
+            "checked_parties": len(parties),
+            "hits": hits,
+            "blocked": any(h["level"] == "red" for h in hits),
+        }

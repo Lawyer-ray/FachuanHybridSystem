@@ -86,6 +86,28 @@ class Case(models.Model):
         verbose_name=_("一张网ID"),
         help_text=_("全国法院一张网案件标识（ajbh），用于从一张网同步案号与审判组织成员"),
     )
+    # 案组：把「同一桩事儿」的多个 Case 串在一起（一审/二审/执行各自是独立 Case）。
+    #
+    # 为什么不用 FK 建 CaseGroup 表：
+    #   绝大多数委托只有一桩事儿，建表+关联会让每次建案都要先建组，成本大于收益；
+    #   group_key 是「同 key 即同组」的约定，单案场景留空即可（全部归到默认组），
+    #   将来若要升级成实体表（需要组级字段如组名审批、组级期限），
+    #   可以用 group_key 做数据迁移的来源，不会白做。
+    group_key = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name=_("案组标识"),
+        help_text=_("同 key 视为同一案组（一案多审级、系列案）。单案留空。"),
+    )
+    group_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("案组名称"),
+        help_text=_("系列案时的子案名，如「某某诉某某买卖合同纠纷」；单案留空。"),
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
