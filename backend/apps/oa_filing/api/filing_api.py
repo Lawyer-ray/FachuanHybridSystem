@@ -8,7 +8,7 @@ from django.http import HttpRequest
 from ninja import File, Router, UploadedFile
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
-from apps.oa_filing.schemas.filing_schemas import ExecuteFilingIn, FilingAttachmentOut, OAConfigOut, SessionOut
+from apps.oa_filing.schemas.filing_schemas import ExecuteFilingIn, FilingAttachmentOut, FilingSessionOut, OAConfigOut
 from apps.oa_filing.services.oa_firm_registry import SUPPORTED_SITES
 
 logger = logging.getLogger("apps.oa_filing.api")
@@ -42,7 +42,7 @@ async def list_configs(request: HttpRequest) -> Any:  # pragma: no cover
     return [{"id": name, "oa_system_name": name, "has_credential": name in user_sites} for name in SUPPORTED_SITES]
 
 
-@router.post("/execute", response=SessionOut)
+@router.post("/execute", response=FilingSessionOut)
 async def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:  # pragma: no cover
     """执行OA立案。"""
     service = _get_executor_service()
@@ -84,7 +84,7 @@ async def stage_filing_attachment(
         raise ValidationException(message="合同文件保存失败，请重试") from None
 
 
-@router.get("/session/{session_id}", response=SessionOut)
+@router.get("/session/{session_id}", response=FilingSessionOut)
 async def get_session(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """查询立案会话状态。"""
     service = _get_executor_service()
