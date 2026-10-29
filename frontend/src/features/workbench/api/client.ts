@@ -11,6 +11,15 @@ import { createApiClient } from '@/lib/api'
  * 之间选一个），各文件自建会多出重复实例。
  */
 export const contractsApi = createApiClient({ prefix: '/api/v1/contracts' })
+/**
+ * 合同文件夹端点（`/api/v1/contracts/{id}/folder-entries|folder-file|…`）。
+ *
+ * 与 `contractsApi` 同为 `/api/v1/contracts` 前缀，但**路径少一段**：folder 侧
+ * 的 router 写的是 `/{contract_id}/…`，CRUD 侧写的是 `/contracts/{id}`；
+ * 于是 CRUD 的完整地址是 `/contracts/contracts/{id}`，folder 的是
+ * `/contracts/{id}/folder-entries`。两个客户端分开建，避免拼错段数。
+ */
+export const contractFolderApi = createApiClient({ prefix: '/api/v1/contracts' })
 export const casesApi = createApiClient({ prefix: '/api/v1/cases' })
 export const organizationApi = createApiClient({ prefix: '/api/v1/organization' })
 export const remindersApi = createApiClient({ prefix: '/api/v1/reminders' })

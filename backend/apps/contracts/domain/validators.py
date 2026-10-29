@@ -170,3 +170,91 @@ def normalize_representation_stages(
             errors={"invalid_stages": sorted(invalid)},
         )
     return rep
+
+
+# ---------------------------------------------------------------------------
+# 非诉专项阶段树（Contract.stages）校验
+# ---------------------------------------------------------------------------
+
+# 阶段树最多 3 级（1 / 1.1 / 1.1.2），与原型的拖动升降级上限一致
+STAGE_MAX_DEPTH = 3
+
+
+def _stage_depth(nodes: Iterable[object]) -> int:
+    """树的实际深度（根层为 1，空树为 0）。"""
+    depth = 0
+    level: list[object] = list(nodes)
+    while level:
+        depth += 1
+        level = [c for node in level if isinstance(node, dict) for c in node.get("children") or []]
+    return depth
+
+
+def _stage_nodes(nodes: Iterable[object]) -> list[dict]:
+    """先序展开全部阶段节点（非 dict 的子项已在上游被拒）。"""
+    out: list[dict] = []
+    level: list[object] = list(nodes)
+    while level:
+        out.extend(node for node in level if isinstance(node, dict))
+        level = [c for node in level if isinstance(node, dict) for c in node.get("children") or []]
+    return out
+
+
+def validate_stages(stages: object) -> list[dict]:
+    """校验非诉专项阶段树，返回节点列表。
+
+    结构由前端定形（键名必须一致，前端已按此实现）：
+
+        {"key": "ph_x", "name": "尽职调查", "acceptance": "《尽调报告》定稿",
+         "templates": ["模板名"], "date": "2026-10-26",
+         "deliverables": [{"date": "", "doc": "《报告》", "ver": "v1",
+                           "state": "ok|doing|todo", "planned": true}],
+         "children": [...]}
+
+    只校验结构不变量（深度 ≤ 3、key 唯一且非空、name 非空），字段值不替前端改写——
+    阶段名可改、顺序可调，服务端没有比前端更权威的默认值。
+
+    Raises:
+        ValidationException: 不是列表 / 超过 3 级 / key 重复或缺失 / name 为空时抛出。
+    """
+    if stages is None:
+        return []
+    if not isinstance(stages, list):
+        raise ValidationException("阶段树必须是数组", code="INVALID_STAGES_TREE")
+    if any(not isinstance(node, dict) for node in stages):
+        raise ValidationException("阶段节点必须是对象", code="INVALID_STAGES_TREE")
+
+    depth = _stage_depth(stages)
+    if depth > STAGE_MAX_DEPTH:
+        raise ValidationException(
+            "阶段树最多 %(max_depth)d 级" % {"max_depth": STAGE_MAX_DEPTH},
+            code="STAGES_TOO_DEEP",
+            errors={"depth": depth, "max_depth": STAGE_MAX_DEPTH},
+        )
+
+    nodes = _stage_nodes(stages)
+    # 先收窄成 str：空 key 已在上一步抛错，后续判重/取值不再面对 Any | None
+    keys = [str(node.get("key") or "") for node in nodes]
+    if not all(keys):
+        raise ValidationException("阶段 key 不能为空", code="INVALID_STAGE_KEY")
+    duplicates = sorted({k for k in keys if keys.count(k) > 1})
+    if duplicates:
+        raise ValidationException(
+            "阶段 key 重复",
+            code="DUPLICATE_STAGE_KEY",
+            errors={"duplicate_keys": duplicates},
+        )
+
+    nameless = [key for key, node in zip(keys, nodes, strict=True) if not _stage_name(node)]
+    if nameless:
+        raise ValidationException(
+            "阶段名称不能为空",
+            code="INVALID_STAGE_NAME",
+            errors={"keys": nameless},
+        )
+    return stages
+
+
+def _stage_name(node: dict) -> str:
+    name = node.get("name")
+    return name.strip() if isinstance(name, str) else ""

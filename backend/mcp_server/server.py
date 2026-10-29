@@ -459,6 +459,15 @@ try:
 except ImportError:
     _HAS_QUOTE = False
 
+# 条件导入：东盟域外法查明（BARLC）
+try:
+    from mcp_server.tools import asean_law_countries, asean_law_read, asean_law_search, asean_law_verify
+
+    _HAS_FOREIGN_LAW = True
+except ImportError:
+    _HAS_FOREIGN_LAW = False
+
+
 mcp = MCPServer("法穿SI Copilot")
 
 # ---------------------------------------------------------------------------
@@ -1112,6 +1121,13 @@ _t(resubmit_task)
 # 网络搜索
 _t(web_search)
 _t(fetch_url)
+
+# 东盟域外法查明（插件缺失时不注册，与网上立案/保全同一处理口径）
+if _HAS_FOREIGN_LAW:
+    _t(asean_law_countries)
+    _t(asean_law_search)
+    _t(asean_law_read)
+    _t(asean_law_verify)
 
 
 # 工作流引擎

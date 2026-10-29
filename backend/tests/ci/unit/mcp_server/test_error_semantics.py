@@ -70,6 +70,21 @@ _SWALLOW_ALLOWLIST: dict[str, str] = {
     "agent_attachments.py:_load_content": "批量部分失败聚合(同 folder_file:_load_folder_content)",
     "agent_attachments.py:_render_pages": "页图渲染降级(同 folder_file:_render_folder_pages)",
     "fetch_url.py:_soup": "解析器回退:BeautifulSoup 失败换兼容模式,不是业务失败",
+    # --- 东盟域外法查明(BARLC,2026-10-26)---
+    # 同一口径:上游(BARLC 服务/凭据)失败转 ``ok=false`` + ``reason`` 枚举返回,
+    # 而不是抛 ToolError。与 enterprise_data 伪正常结果的区别:所有返回都带 ok=false,
+    # 模型看得到失败与 reason(credential_missing/login_failed/search_failed/...),
+    # 没伪装成成功。不抛异常的理由:reason 枚举是调用方(JEV 判断层)区分
+    # 「没拿到数据」与「引用已判死」的载体;抛成一段错误文本后模型读不到枚举,
+    # 会对着一个未配账号反复换关键词重试。详见 asean_law.py 模块 docstring。
+    "asean_law.py:asean_law_countries": "BARLC 国别列表接口失败→ok=false/upstream_error;该接口免登录，失败只影响查国家码，抛异常反而不如让模型看到 reason 后换用法",
+    "asean_law.py:asean_law_search": "取适配器/凭据失败→_credential_failure 区分 credential_missing/login_failed/init_failed;模型需要这个 reason 才知道该停止重试去 Admin 配账号",
+    "asean_law.py:asean_law_search#2": "上游检索报错→ok=false/search_failed(含 detail 原文)；拿不到就是拿不到,绝不能返回空 hits 冒充「查无此法」",
+    "asean_law.py:asean_law_read": "取适配器/凭据失败→_credential_failure(同 search)；无正文可读比抛异常更值得模型知道",
+    "asean_law.py:asean_law_read#2": "取法律详情失败→ok=false/detail_failed；sys_id 可能已失效,模型据此换 search 重找,抛异常则只能盲重试",
+    "asean_law.py:asean_law_read#3": "取正文 PDF/切条款失败→ok=false/fulltext_failed 并回带 law 元数据；「法在但正文腿断了」是有用事实,不能让整次调用变成无信息的异常",
+    "asean_law.py:asean_law_verify": "取适配器/凭据失败→_credential_failure;核验入口必须分清「没凭据无法核验」与「引用不存在」,抛异常会抹平这两者",
+    "asean_law.py:asean_law_verify#2": "规则层核验失败→ok=false/verify_failed；JEV 判断层要据此走「待重试」而不是当成「引用已判死」",
 }
 
 

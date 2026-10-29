@@ -88,6 +88,19 @@ class Contract(models.Model):
         help_text="律所 OA 案件 GUID（keyid），可通过「查询ID」按钮按案号自动获取",
     )
     representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name="代理阶段")
+    stages: Any = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="阶段树",
+        help_text=(
+            "非诉专项（case_type=special）的推进骨架，最多 3 级。节点结构："
+            '{"key":"ph_xxx","name":"尽职调查","acceptance":"《尽调报告》定稿",'
+            '"templates":["模板名"],"date":"2026-10-26",'
+            '"deliverables":[{"date":"","doc":"《报告》","ver":"v1",'
+            '"state":"ok|doing|todo","planned":true}],"children":[...]}. '
+            "key 需全局唯一，name 不能为空。"
+        ),
+    )
     compact_archive: models.BooleanField = models.BooleanField(
         default=False,
         verbose_name="精简视图",
@@ -152,10 +165,14 @@ class Contract(models.Model):
         super().save(*args, **kwargs)
 
     def clean(self) -> None:
-        from apps.contracts.validators import normalize_representation_stages
+        from apps.contracts.validators import normalize_representation_stages, validate_stages
         from apps.core.exceptions import ValidationException
 
         ctype = getattr(self, "case_type", None)
         rep = getattr(self, "representation_stages", None)
         with contextlib.suppress(ValidationException):
             self.representation_stages = normalize_representation_stages(ctype, rep, strict=False)
+
+        # 阶段树结构不变量（深度 ≤ 3、key 唯一、name 非空）。与代理阶段不同，
+        # 这里不吞异常：写坏的树会让详情页整屏画不出来，必须在写入前拦住。
+        self.stages = validate_stages(getattr(self, "stages", None))

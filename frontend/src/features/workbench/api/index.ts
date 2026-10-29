@@ -1,9 +1,9 @@
 /**
  * 办案主页 feature 的后端对接出口。
  *
- * 按资源拆为 contract / folder / invoice 三个子模块，本文件只做 barrel
+ * 按资源拆为 contract / folder / invoice / stages 四个子模块，本文件只做 barrel
  * re-export，消费方继续 `from '../api'` / `from '../../api'` 不变
- * （api/client.ts 是被三者共用的客户端实例，不经 barrel 导出——它不是公开契约）。
+ * （api/client.ts 是被各子模块共用的客户端实例，不经 barrel 导出——它不是公开契约）。
  *
  * 2026-10 拆分缘起：单文件 api.ts 到 368 行越过 frontend/CLAUDE.md 的 350 行
  * 软红线，且合同 / 文件夹 / 发票三组资源混在一个文件里。拆分点是「资源边界」，
@@ -19,3 +19,4 @@
 export * from './contract'
 export * from './folder'
 export * from './invoice'
+export * from './stages'

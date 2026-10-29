@@ -17,6 +17,7 @@ from .contractpayment_api import router as contractpayment_router
 from .contractpayment_enhance_api import router as contractpayment_enhance_router
 from .folder_binding_api import router as folder_binding_router
 from .folder_scan_api import router as folder_scan_router
+from .stages_api import router as stages_router
 from .supplementary_agreement_api import router as supplementary_agreement_router
 
 # 创建模块路由器
@@ -32,5 +33,6 @@ router.add_router("", folder_binding_router, tags=["文件夹绑定"])
 router.add_router("", folder_scan_router, tags=["文件夹自动捕获"])
 router.add_router("", archive_router, tags=["归档材料管理"])
 router.add_router("", contract_folder_browse_router, tags=["合同文件夹浏览"])
+router.add_router("", stages_router, tags=["非诉专项阶段"])
 
 __all__ = ["router"]
