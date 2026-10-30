@@ -66,7 +66,9 @@ export function useDealDetail(contractId: number | null): {
     error: contractQ.error ? errMessage(contractQ.error, '委托加载失败') : null,
     casesError: casesQ.error,
     refetch: () => {
-      void contractQ.refetch()
+      // cancelRefetch: false —— 连续两次写操作（解除→再关联）会连发刷新，
+      // 默认会取消前一次在途请求；取消时机不对就会用旧响应盖掉新数据。
+      void contractQ.refetch({ cancelRefetch: false })
       void casesQ.refetch()
     },
   }

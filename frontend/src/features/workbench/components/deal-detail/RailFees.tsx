@@ -38,11 +38,21 @@ export function RailFees({
   moneyRows,
   onAddPayment,
   onOpenInvoices,
+  onChanged,
 }: {
   deal: WorkbenchDeal
   moneyRows: Array<[string, string]>
   onAddPayment: () => void
   onOpenInvoices: () => void
+  /**
+   * 发票归属/上传成功后通知页面刷新合同。
+   *
+   * 必须回调给页面而不是只 invalidate 本节的发票缓存：开票金额与「已开票」
+   * 统计格来自**合同**数据（deal.totalInvoiced / payment.invoice_status），
+   * 只刷发票列表的话金额会原地不动，看起来像「关联没生效」——
+   * 律师已经因为要手动刷新页面提过一次意见。
+   */
+  onChanged: () => void
 }) {
   const stats = feeStats(deal)
   const qc = useQueryClient()
@@ -70,8 +80,10 @@ export function RailFees({
   const dragging = dragDepth > 0
   const fileRef = useRef<HTMLInputElement | null>(null)
 
+  /** 发票缓存 + 合同（开票金额/统计格/收款徽标）一起刷，缺一个就出现「半新半旧」 */
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: contractInvoiceKeys.all(deal.id) })
+    onChanged()
   }
 
   /** 拖发票到本节：直接传到合同名下（先开票后付款的最短路径） */
