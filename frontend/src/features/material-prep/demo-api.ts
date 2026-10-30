@@ -119,6 +119,75 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
 export const DEMO_TAG = '[演示]'
 
 /**
+ * 演示材料包的标题前缀。用于识别「这包是演示生成的」——
+ * 清理时按它匹配，不碰用户自己上传的材料包。
+ */
+const DEMO_SUBJECT_HINTS = ['银行移交材料', '消费贷批量', '二审收案']
+
+/** 这一包是不是演示生成的（按标题前缀判断，不看 id） */
+function isDemoPack(subject: string | null | undefined): boolean {
+  const s = subject ?? ''
+  return DEMO_SUBJECT_HINTS.some((h) => s.includes(h))
+}
+
+/**
+ * 清空全部演示数据 —— 让「演示」按钮变成**可重复**的动作。
+ *
+ * ═══ 为什么必须重置 ═══
+ * 不重置的话点几次就有几套：5 件同名案件、6 个同名材料包、一堆已拆好的草稿。
+ * 演示现场最怕这个 —— 你点开列表看到 5 个「谭某某」，不知道该讲哪个；
+ * 或者上一轮拆到一半的材料包还躺在「待处理」，状态混在一起。
+ *
+ * 演示的正确语义是：**每次点都从零开始**，律师看到的是干净初始态。
+ *
+ * ═══ 边界 ═══
+ * 只删两类：名字带 `[演示]` 的案件、标题命中演示场景的材料包。
+ * 用户自己的真实案件/材料包一个都不碰 —— 匹配是按名字前缀，
+ * 不是按 id 范围，也不是「清空表」。
+ */
+export async function resetDemoData(): Promise<{ cases: number; packs: number }> {
+  const contractApi = createApiClient({ prefix: '/api/v1/contracts' })
+  const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
+
+  // ① 演示案件（顺带记下它们的合同 id，一起删）
+  const list = await casesApi.get('cases').json<components['schemas']['CaseOut'][]>()
+  const demoCases = list.filter((c) => c.name?.startsWith(DEMO_TAG))
+  const contractIds = new Set<number>()
+  for (const c of demoCases) {
+    if (c.contract_id != null) contractIds.add(Number(c.contract_id))
+    await casesApi.delete(`cases/${Number(c.id)}`).catch(() => {
+      /* 已删 / 无权限都不阻断后续清理 */
+    })
+  }
+
+  // ② 演示合同（案件删掉后合同还在，留着会越积越多）
+  for (const id of contractIds) {
+    await contractApi.delete(`contracts/${id}`).catch(() => {
+      /* 合同可能被别的案件引用，删不掉就留着 */
+    })
+  }
+
+  // ③ 演示材料包（收件箱消息）
+  type Msg = { id: number; subject?: string | null }
+  const raw = await inboxApi
+    .get('messages', { searchParams: { limit: '200', source_type: 'manual_upload' } })
+    .json<Msg[] | { items?: Msg[] }>()
+  const msgs = Array.isArray(raw) ? raw : (raw.items ?? [])
+  let removedPacks = 0
+  for (const m of msgs) {
+    if (!isDemoPack(m.subject)) continue
+    try {
+      await inboxApi.delete(`messages/${Number(m.id)}`)
+      removedPacks += 1
+    } catch {
+      /* 单条删不掉继续删下一条 */
+    }
+  }
+
+  return { cases: demoCases.length, packs: removedPacks }
+}
+
+/**
  * 铺一套演示数据。
  *
  * 顺序有讲究：**先建客户**，因为合同的委托方要引用 client_id。

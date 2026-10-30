@@ -14,7 +14,7 @@ import {
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
-import { DEMO_SCENARIOS, fetchDemoPdf, seedDemoScenario, type DemoScenario } from '../demo-api'
+import { DEMO_SCENARIOS, fetchDemoPdf, resetDemoData, seedDemoScenario, type DemoScenario } from '../demo-api'
 import { uploadPack } from '../api'
 
 /**
@@ -41,11 +41,22 @@ export function DemoButton() {
   async function run(sc: DemoScenario) {
     setBusy(sc.key)
     try {
-      // ① 建数据
+      // ① 先清空上一轮演示 —— 让「演示」可重复，每次都是干净的初始态。
+      //    不清的话点几次就有几套同名案件/材料包，演示现场分不清讲哪个。
+      toast.loading('正在重置演示数据…', { id: 'demo' })
+      const cleared = await resetDemoData()
+      if (cleared.cases || cleared.packs) {
+        toast.loading(
+          `已清理上一轮（${cleared.cases} 件案件 / ${cleared.packs} 个材料包）`,
+          { id: 'demo' },
+        )
+      }
+
+      // ② 建数据
       toast.loading('正在准备演示数据…', { id: 'demo' })
       const { caseId } = await seedDemoScenario(sc)
 
-      // ② 整包 PDF 进收件箱
+      // ③ 整包 PDF 进收件箱
       toast.loading('正在上传演示材料…', { id: 'demo' })
       const file = await fetchDemoPdf(sc)
       // subject 决定材料包卡片上显示什么标题。不传的话后端会给一个
@@ -55,7 +66,7 @@ export function DemoButton() {
       toast.success('演示数据已就绪', { id: 'demo', duration: 4000 })
       setOpen(false)
 
-      // ③ 跳到材料预处理，让律师接着操作（分段 → 归案 → 立案）
+      // ④ 跳到材料预处理，让律师接着操作（分段 → 归案 → 立案）
       //    用 navigate 而不是 window.location：保住 React 状态，切换无闪白。
       void navigate(`/material-prep?stage=todo&demoCase=${caseId}`)
     } catch (e) {
@@ -77,8 +88,8 @@ export function DemoButton() {
           <DialogHeader>
             <DialogTitle>选择演示场景</DialogTitle>
             <DialogDescription>
-              会新建一套演示数据（合同 / 案件 / 当事人）并把整包 PDF 传进收件箱。
-              已有数据不会被改动。
+              每次点击都会**先清空上一轮演示数据**，再新建一套（合同 / 案件 / 当事人）
+              并把整包 PDF 传进收件箱。你已有的真实案件与材料包不会被改动。
             </DialogDescription>
           </DialogHeader>
 
@@ -106,7 +117,8 @@ export function DemoButton() {
           </div>
 
           <p className="mt-1 text-[10.5px] leading-[1.6] text-muted-foreground">
-            演示数据全部虚构（当事人、证件号、地址均为示例）。重复点击会建出多套，互不干扰。
+            演示数据全部虚构（当事人、证件号、地址均为示例）。重复点击会重置到干净初始态，
+            不会越点越多。
           </p>
         </DialogContent>
       </Dialog>
