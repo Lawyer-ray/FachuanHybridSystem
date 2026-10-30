@@ -11,9 +11,13 @@
 把原型里画的那条链路，**在真实前端里做出来并接上真后端**：
 
 ```
-一份委托 → 批量出案 → 起诉条件校验 → 要素式转换
-        → OA 立案 → 一张网立案 → OA 盖章 → OA 归档
+整包 PDF 上传 → 自动分段识别 → 人工复核 → 归案
+            → 起诉条件校验 → 要素式转换
+            → OA 立案 → 一张网立案 → OA 盖章 → OA 归档
 ```
+
+第一步「整包分段」是场景 2 的真正入口 —— 律师拿到的是**一叠混在一起的
+扫描件**，拆不开后面全部无从谈起。
 
 ### 新增前端 feature
 
@@ -29,6 +33,7 @@
 | `components/DocConvertPanel.tsx` | 传统文书 → 要素式文书 |
 | `components/FilingPanels.tsx` | 律所 OA 与一张网两个外部系统入口 |
 | `components/OAActionPanels.tsx` | OA 盖章 / OA 归档（共用面板，先反查再提交） |
+| `components/BundleSplitPanel.tsx` | **整包 PDF → 自动分段 → 归案**（场景 2 入口） |
 | `components/BankLitigationPage.tsx` | 页面装配（列表 / 工作台） |
 
 ### 路由
@@ -36,9 +41,11 @@
 - `/bank-litigation` —— 案件列表
 - `/bank-litigation/:id` —— 指定案件的立案工作台
 
-六个分区（按律师实际推进顺序排，不按功能模块）：
+七个分区（按律师实际推进顺序排，不按功能模块）：
 
-`起诉条件 → 要素式转换 → OA 立案 → 一张网立案 → OA 盖章 → OA 归档`
+`整包分段 → 起诉条件 → 要素式转换 → OA 立案 → 一张网立案 → OA 盖章 → OA 归档`
+
+默认落在「整包分段」—— 这是律师打开案件后的第一个动作。
 
 ---
 
@@ -144,6 +151,9 @@ E2E_USER=<账号> E2E_PASS=<密码> node frontend/e2e/bank-litigation.e2e.mjs
 ✓ OA 归档：文件路径能反查到合同
 ✓ OA 盖章面板已渲染
 ✓ OA 归档面板已渲染
+✓ 整包分段：任务已创建
+✓ 整包分段：识别出多份材料  10 段 / 19 页
+✓ 整包分段：每段都有文件名与类型  担保合同.pdf (loan_contract)
 ✓ 无前端 JS 错误
 ```
 
@@ -201,14 +211,26 @@ backend/.venv/bin/python "frontend/prototype/2026.10.25-银行批量诉讼原型
 脚本末尾会打印 `no=1 → backendId: 421` 这样的映射，同步到
 `js/store.js` 才能让原型也指对案件（E2E 会自动同步）。
 
+### 2.5 造整包 PDF（场景 2 的入口文件）
+
+```bash
+backend/.venv/bin/python "frontend/prototype/2026.10.25-银行批量诉讼原型/scripts/gen-bundle-pdf.py"
+```
+
+生成 19 页整包扫描件（10 份材料按真实卷宗顺序排）。
+
 ### 3. 打开页面
 
 浏览器登录后访问 **`http://localhost:5090/bank-litigation`**
 
-### 4. 走一遍
+### 4. 走一遍（录屏主线）
 
-1. 列表里有 3 件 `[原型演示]` 案件，第一件（待起诉）排最前
-2. 点进去 → **起诉条件**：5 项逐条列出，缺件标红
+1. 列表里有 `[原型演示]` 案件
+2. 点进一件 → **整包分段**（默认分区）
+   → 选择 `mock-out/整包/银行贷款材料包（整包扫描件）.pdf`
+   → 约 10 秒识别出 **10 段**（含 1 段低置信度需复核）
+   → 点「确认并归案」→ 显示「已归案 10 份材料」
+3. 切到 **起诉条件**：材料齐备自动变成 `5/5`
 3. **要素式转换**：选一份 `mock-out/` 里的起诉状 docx → 转换并下载
 4. **OA 立案**：点「在 OA 立案」→ 会弹出 OA 登录页**等你扫码**
 5. **一张网立案**：点「推送到一张网」→ 约 30 秒后显示 `completed`
@@ -259,6 +281,8 @@ frontend/e2e/bank-litigation.e2e.mjs                       E2E 脚本（新）
 ### 提交记录
 
 ```
+2de8ae0a test(e2e): 补整包分段链路，修正分区切换
+af46fe9c feat(bank-litigation): 整包 PDF 自动分段归案 —— 场景 2 的真正起点
 9d270ebe feat(bank-litigation): 补齐 OA 盖章、OA 归档、执行立案切换
 9e1cbb77 test(e2e): 银行批量诉讼全链路端到端脚本
 80b21c25 chore(plugins): 更新 court_automation 子模块指针
