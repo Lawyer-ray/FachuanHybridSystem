@@ -42,7 +42,9 @@ export function useReaderScreen() {
   // 首帧宽度未测得（0）先按宽屏渲染，测得后一个断点内翻转一次。
   const [setReaderRef, readerW] = useElementWidth<HTMLDivElement>()
   const narrow = readerW > 0 && readerW <= 1100
-  const [, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
+  // 中栏滚动容器：宽度测量与滚轮缩放锚点都要它。
+  // ⚠️ 这个 ref 必须真的挂到 DOM 上（此前创建了却没挂，见 ReaderBody 的说明）。
+  const [setFlowWrap, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
   const ocr = useReaderOcr()
   const autoSplit = useAutoSplit()
   const actions = useReaderActions(draft)
@@ -132,6 +134,7 @@ export function useReaderScreen() {
     onClearSel: st.clearSel,
     onApplySel: st.applySel,
     onExitHint,
+    flowWrapRef: setFlowWrap,
   }
 
   return {
