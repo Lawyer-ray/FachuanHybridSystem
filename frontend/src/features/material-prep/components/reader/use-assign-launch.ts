@@ -17,7 +17,9 @@ import type { AssignInfo, DraftState } from '../../types'
  * import fetchAttachmentBytes。
  */
 export function useAssignLaunch(params: {
-  draft: DraftState
+  /** 草稿可能还没就绪（刚上传、后端尚未建出草稿）——调用方会早返回 loading，
+   *  但本 hook 的字段推导仍会执行，所以这里允许 null 并在使用处守卫。 */
+  draft: DraftState | null
   /** 材料归属里的案件/合同 id（项目锚点）；读材料包时还没有归属，所以可为 undefined */
   projectId?: number
   navigate: NavigateFunction
@@ -34,7 +36,7 @@ export function useAssignLaunch(params: {
     setAssign(assign)
     toast('已归案')
     // 归案后直接进发起审查：docx 才能审，其余格式在审查页里说清楚
-    const target = draft.mats.find((m) => /\.docx$/i.test(m.n))
+    const target = draft?.mats.find((m) => /\.docx$/i.test(m.n))
     if (target) {
       setLaunchFile(target.n)
       return

@@ -13,7 +13,6 @@ import { useReaderOcr } from './use-ocr'
 import { useAutoSplit } from './use-auto-split'
 import { useReaderKeys } from './use-reader-keys'
 import { useWheelZoom } from './use-wheel-zoom'
-import type { DraftState } from '../../types'
 
 /**
  * Reader 的全部接线：store 字段、子 hook、派生量与 props 装配都收在这里，
@@ -24,13 +23,19 @@ import type { DraftState } from '../../types'
  * 这个 hook 内部按固定顺序调用**，早返回只发生在 Reader（hooks 之后），
  * 因此 Rules of Hooks 仍然成立。
  *
- * draft 未就绪（未打开 / loading）时按空值兜底：此时 Reader 早早返回
- * loading / null，这里的产物不会被渲染。
+ * ⚠️ draft 未就绪（未打开 / loading / 打开失败）时**本 hook 内部的字段推导
+ * 仍然会执行**——不能假设「Reader 会早返回所以这里安全」。实测踩过：
+ * 打开一个刚上传、草稿还没建出来的材料包时，`selDetailOf(readyDraft, …)`
+ * 直接读 `d.segs` 抛 `Cannot read properties of null`，整个页面被 ErrorBoundary
+ * 接住显示「页面出错了」，用户看到的是白屏。
+ * 所以这里对可能为空的 draft 一律做守卫，下面的委托函数也统一收 null。
  */
 export function useReaderScreen() {
   const st = useReaderStoreFields()
   const { draft, detail, openId, pickInfo, zoom, cols, selMode, selPages, ocrPending } = st
-  const readyDraft = draft as DraftState
+  // 不用 `as DraftState` 强行断言：断言会把「可能是 null」这件事从类型里抹掉，
+  // 而下面的 selDetailOf / buildFlowOps 都真的会读 draft.segs。保留 null 更诚实。
+  const readyDraft = draft ?? null
 
   // 窄屏形态按**阅读器自身净宽**判定（≤1100 抽屉化）：并排 AI 助手会让位掉
   // 数百像素，视口断点量不到它，宽屏标识配窄屏实际宽度会三栏挤成缝。
@@ -90,9 +95,9 @@ export function useReaderScreen() {
     autoSplit,
   })
 
-  const selDetail = selDetailOf(readyDraft, selPages)
+  const selDetail = readyDraft ? selDetailOf(readyDraft, selPages) : { count: 0, cross: false }
   // 取字目标字段：HintBar 提示与 OCR 确认面板共用同一表达式，只算一遍
-  const pickField = pickInfo >= 0 && readyDraft?.infos[pickInfo] ? readyDraft.infos[pickInfo].k : ''
+  const pickField = readyDraft && pickInfo >= 0 && readyDraft.infos[pickInfo] ? readyDraft.infos[pickInfo].k : ''
 
   // 三栏主体的 props 一次拼好再展开（ReaderBody 参数多，逐个平铺会让
   // 「谁提供数据」和「怎么排版」混在一起）

@@ -14,7 +14,8 @@ import type { useAutoSplit } from './use-auto-split'
  * （maxCols / effCols / 未归类数），跟 props 装配天然是一件事。
  */
 export function useReaderToolbarProps(params: {
-  draft: DraftState
+  /** 同 useAssignLaunch：允许 null，使用处守卫 */
+  draft: DraftState | null
   railOpen: boolean
   metaOpen: boolean
   onToggleRail: () => void
@@ -69,9 +70,9 @@ export function useReaderToolbarProps(params: {
   //（未归类 = 没类型且名字还是默认名；改名或右键选类型都算处理过）
   const handleAssign = () => {
     const unclassified = countUnclassified(draft)
-    const allClassified = draft.segs.length > 0 && unclassified === 0
+    const allClassified = (draft?.segs.length ?? 0) > 0 && unclassified === 0
     if (!allClassified) {
-      const first = draft.segs.findIndex((s) => !s.t && isAutoSegName(draft, s))
+      const first = draft ? draft.segs.findIndex((s) => !s.t && isAutoSegName(draft, s)) : -1
       if (first >= 0) onFocusSeg(first)
       toast.info(`还有 ${unclassified} 份没命名 —— 双击左栏改名，或右键选类型`)
       return
