@@ -97,6 +97,20 @@ export async function uploadContractInvoices(contractId: number, files: File[]):
     .json<InvoiceUploadResult>()
 }
 
+/** 某合同下的收款（只需金额，用于发票自动归属时的"只有一笔收款"判定） */
+export interface ContractPaymentBrief {
+  id: number
+  amount: string
+  received_at?: string
+}
+
+/** 合同收款列表（`finance/payments?contract_id=`，按后端 id 倒序） */
+export async function listContractPayments(contractId: number): Promise<ContractPaymentBrief[]> {
+  return contractsApi
+    .get('finance/payments', { searchParams: { contract_id: String(contractId) } })
+    .json<ContractPaymentBrief[]>()
+}
+
 /** 把合同挂靠发票关联到一笔收款（返回该收款最新开票状态，就地刷新用） */
 export async function attachPaymentInvoice(
   invoiceId: number,

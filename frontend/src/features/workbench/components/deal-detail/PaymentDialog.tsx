@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Loader2, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -7,7 +8,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { errMessage } from '@/lib/errors'
-import { parsePaymentText } from '../../api'
+import {
+  attachPaymentInvoice,
+  contractInvoiceKeys,
+  listContractInvoices,
+  listContractPayments,
+  parsePaymentText,
+} from '../../api'
+import { autoAttachTarget, splitByAmountMatch } from './invoice-auto-link'
 import { EMPTY_FORM, formFromDraft, parseAmount, remainingLabel, validateForm, type PaymentForm } from './payment-form'
 import { PaymentInvoiceZone } from './PaymentInvoiceZone'
 
@@ -20,6 +28,10 @@ import { PaymentInvoiceZone } from './PaymentInvoiceZone'
  *
  * 顺序是刻意的：先「记这笔钱进来了」，再「把票挂到这笔钱上」。发票区在收款
  * 保存前也**不再禁用**——先开票后付款与先付款后开票都顺。
+ *
+ * **只有一笔收款时不再要求人点「关联」**：合同下仅此一笔收款，池里待归属的票
+ * 保存后自动挂进去（开票金额当场对上）。多笔收款才交还给人判断；挂错可在
+ * 发票节里解绑重挂。
  */
 export function PaymentDialog({
   open,
@@ -80,6 +92,8 @@ export function PaymentDialog({
     }
   }
 
+  const qc = useQueryClient()
+
   const doSave = async () => {
     const reason = validateForm(form)
     if (reason) {
@@ -95,10 +109,56 @@ export function PaymentDialog({
       // 收款已落库：立刻刷新合同，律师不必等发票关联完才看到这笔钱
       onSaved()
       toast.success('收款已记录')
+      await autoAttachPendingInvoices(saved.id)
     } catch (e) {
       setError(errMessage(e, '保存失败，请重试'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  /**
+   * 只有一笔收款时，把池里待归属的票自动挂给它（律师不必再点一次「关联」）。
+   *
+   * 判定与拆分都在纯函数里（invoice-auto-link.ts），这里只负责调接口和提示；
+   * 任何一步失败都不能影响「收款已记录」这个既成事实，所以整段包在自己的
+   * try 里、失败只提示不抛。
+   */
+  const autoAttachPendingInvoices = async (newPaymentId: number) => {
+    try {
+      const [pool, payments] = await Promise.all([
+        listContractInvoices(contractId, true),
+        listContractPayments(contractId),
+      ])
+      const targetId = autoAttachTarget(payments, pool)
+      if (targetId == null || targetId !== newPaymentId) return
+
+      const attached = []
+      const failed: string[] = []
+      for (const inv of pool) {
+        if (inv.payment_id != null) continue
+        try {
+          await attachPaymentInvoice(inv.id, targetId)
+          attached.push(inv)
+        } catch (e) {
+          failed.push(`${inv.display_filename}：${errMessage(e, '关联失败')}`)
+        }
+      }
+      if (!attached.length && !failed.length) return
+
+      const { amountMismatch } = splitByAmountMatch(attached, parseAmount(form.amount))
+      if (amountMismatch.length === 0 && failed.length === 0) {
+        toast.success(`已自动关联 ${attached.length} 张发票（开票金额已对上）`)
+      } else if (failed.length === 0) {
+        toast.info(`已关联 ${attached.length} 张发票，其中 ${amountMismatch.length} 张金额与收款不同，可核对后调整`)
+      } else {
+        setError(`有 ${failed.length} 张发票未能自动关联：${failed.join('；')}`)
+      }
+      void qc.invalidateQueries({ queryKey: contractInvoiceKeys.all(contractId) })
+      onSaved()
+    } catch (e) {
+      // 自动归属只是省一步，失败退回手动「关联」，不影响收款本身
+      setError(errMessage(e, '自动关联发票失败，请点「关联」手动挂'))
     }
   }
 
