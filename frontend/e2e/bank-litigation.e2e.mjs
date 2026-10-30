@@ -136,6 +136,10 @@ async function main() {
   await page.goto(`${BASE}/bank-litigation/${target.id}`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1500)
 
+  // 工作台默认落在「整包分段」（律师打开案件的第一步），
+  // 要看起诉条件必须先切分区。早先这里没切，断言全落空。
+  await page.click('nav >> text=起诉条件')
+  await page.waitForTimeout(1500)
   const readyText = await page.textContent('main')
   log(/起诉条件/.test(readyText), '起诉条件面板已渲染')
 
@@ -381,6 +385,55 @@ async function main() {
   await page.waitForTimeout(700)
   const archText = await page.textContent('main')
   log(archText.includes('反查合同') && archText.includes('提交归档'), 'OA 归档面板已渲染')
+
+  // ── 6.8 整包 PDF → 自动分段 → 归案（场景 2 的真正起点）──
+  // 这是整条链路的入口：律师拿到的是整包扫描件，拆不开后面全都无从谈起。
+  // 断言到「拆出多段且每段有类型」为止 —— 归案会改数据库，
+  // 交给手工测试或 seed 流程，不在冒烟脚本里做写操作。
+  const bundlePdf = (() => {
+    const dir = `${homedir()}/Downloads/原型演示卷宗`
+    void dir
+    const proto = new URL('../prototype/2026.10.25-银行批量诉讼原型/mock-out/整包/', import.meta.url)
+    try {
+      const f = readdirSync(proto).find((x) => x.endsWith('.pdf'))
+      return f ? decodeURIComponent(`${proto.pathname}${f}`) : ''
+    } catch {
+      return ''
+    }
+  })()
+
+  if (bundlePdf) {
+    const fd = new FormData()
+    fd.append('file', new Blob([readFileSync(bundlePdf)], { type: 'application/pdf' }), '整包.pdf')
+    fd.append('split_mode', 'content_analysis')
+    fd.append('template_key', 'filing_materials_v1')
+    fd.append('ocr_profile', 'balanced')
+    const r = await fetch(`${API}/api/v1/pdf-splitting/jobs`, { method: 'POST', headers: auth, body: fd })
+    const job = await r.json().catch(() => null)
+    log(r.status === 200 && Boolean(job?.job_id), '整包分段：任务已创建')
+
+    let split = null
+    for (let i = 0; i < 60; i++) {
+      await new Promise((res) => setTimeout(res, 2500))
+      const g = await fetch(`${API}/api/v1/pdf-splitting/jobs/${job.job_id}`, { headers: auth })
+      split = await g.json().catch(() => null)
+      if (split?.status === 'review_required' || split?.status === 'completed') break
+      if (split?.status === 'failed') break
+    }
+    const segs2 = split?.segments ?? []
+    log(
+      segs2.length >= 5,
+      '整包分段：识别出多份材料',
+      `${segs2.length} 段 / ${split?.total_pages ?? '?'} 页`,
+    )
+    log(
+      segs2.every((x) => x.filename && x.segment_type),
+      '整包分段：每段都有文件名与类型',
+      segs2[0] ? `${segs2[0].filename} (${segs2[0].segment_type})` : '',
+    )
+  } else {
+    log(false, '整包分段：找不到整包 PDF（先跑 scripts/gen-bundle-pdf.py）')
+  }
 
   // ── 7. 截图存档 ──
   await page.screenshot({ path: '/tmp/e2e-court.png', fullPage: false })
