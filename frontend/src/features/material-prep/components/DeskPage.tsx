@@ -10,7 +10,6 @@ import { useDeskKeyboard } from '../hooks/use-desk-keyboard'
 import { useDeskRing } from '../hooks/use-desk-ring'
 import { useDeskRouteSync } from '../hooks/use-desk-route-sync'
 import { DeskTabs } from './DeskTabs'
-import { DemoReadyBanner } from './DemoReadyBanner'
 import { PackGrid } from './PackGrid'
 import { DeskDropLayer } from './DeskDropLayer'
 import { DeskDialogs } from './DeskDialogs'
@@ -45,14 +44,6 @@ export function DeskPage() {
   // 「转材料包」闭环也靠它跳到待处理，而不是另写一套页内状态。
   const [params, setParams] = useSearchParams()
   const stage = parseStage(params.get('stage'))
-  // 演示按钮铺完数据后会带 ?demoCase=<id> 过来，用于顶部提示条与跳转入口。
-  // 用 Number 而不是 parseInt：'12abc' 会得到 12 悄悄打开另一个案子。
-  const demoCaseId = (() => {
-    const raw = params.get('demoCase')
-    if (!raw) return null
-    const n = Number(raw)
-    return Number.isFinite(n) && n > 0 ? n : null
-  })()
   // 材料包三态页签的当前值（收件箱阶段下沿用上一次的三态，供 PackGrid/键盘导航用）
   const [packTab, setPackTab] = useState<Tab>('todo')
   const tab: Tab = isPackStage(stage) ? stage : packTab
@@ -236,7 +227,6 @@ export function DeskPage() {
       {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上——换页才重挂播一次，
           列表 ↔ 详情（/material-prep/:id）同一实例不重播，阅读器淡入不被叠加 */}
       <main className="app-page-enter relative flex min-h-[calc(100dvh-var(--app-navbar-h)-6rem)] flex-col px-7 pb-24 pt-6">
-        <DemoReadyBanner caseId={demoCaseId} />
         <DeskTabs
           stage={stage}
           setStage={setStage}

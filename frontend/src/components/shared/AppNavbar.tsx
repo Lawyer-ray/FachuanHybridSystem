@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { GlobalSearch } from '@/features/search'
+import { NewProjectDialog } from '@/features/workbench/components/NewProjectDialog'
 
 /**
  * 全局顶层导航（全站唯一一套，由 App 的 AppShell 渲染一次、跨页面常驻）。
@@ -67,6 +68,9 @@ export function AppNavbar({
 }: AppNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
+  // 新建项目对话框：走真实建项目流程（含「从示例开始」模板），
+  // 不再只是一句 toast 占位
+  const [newProjectOpen, setNewProjectOpen] = useState(false)
   const { pathname } = useLocation()
   // 点击导航后、目标页面 chunk 到达前，react-router 的导航 transition 尚未提交，
   // pathname 还停在旧值（React 保住旧页面不退回 fallback）。useOptimistic 让
@@ -203,7 +207,7 @@ export function AppNavbar({
       <button
         type="button"
         className="flex h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3.5 text-[12.5px] font-semibold whitespace-nowrap text-background transition-opacity hover:opacity-85"
-        onClick={() => notify('新建项目：可先把材料上传到「材料预处理」归案')}
+        onClick={() => setNewProjectOpen(true)}
       >
         <Plus className="h-3 w-3" strokeWidth={2.5} />
         新建项目
@@ -264,6 +268,9 @@ export function AppNavbar({
         </DialogContent>
       </Dialog>
 
+      {/* 新建项目：真实建项目流程（空白 / 从示例模板开始）。
+          此前这个按钮只弹一句 toast 占位，等于告诉用户「这里做不了」。 */}
+      <NewProjectDialog open={newProjectOpen} onOpenChange={setNewProjectOpen} />
     </header>
   )
 }
