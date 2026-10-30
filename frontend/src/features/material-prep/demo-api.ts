@@ -38,6 +38,20 @@ export interface DemoScenario {
   targetAmount: string
 }
 
+/**
+ * ═══ 三个场景的共同前提：包里装的是「客户端送来的材料」═══
+ *
+ * 这一点最容易搞错，写在这里免得再错：
+ *   客户/银行送来的整包里**没有起诉状、没有证据清单、没有答辩状、
+ *   没有送达地址确认书** —— 那些都是律所拿到材料之后**自己产出**的。
+ *   起诉状要律师写、证据清单要律师编、答辩状要针对上诉理由逐条拟。
+ *
+ * 真实卷宗可以验证：银行的「证据材料」目录里是合同/凭证/明细/流水/催收，
+ * 而「民事起诉状.docx」放在律所自己的目录里。
+ *
+ * 所以演示按钮传进来的包只含原始材料；起诉状等文书的生成，
+ * 走「要素式转换 / 文书起草」那些下游功能 —— 那才是产品真正的价值点。
+ */
 export const DEMO_SCENARIOS: DemoScenario[] = [
   {
     key: 'consumer_loan',
@@ -65,9 +79,9 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
   },
   {
     key: 'first_trial',
-    title: '一审起诉（房贷单笔）',
-    point: '一份购房借款合同 + 起诉状 + 证据清单，最标准的单笔起诉材料包',
-    file: '/demo-materials/一审起诉材料包（整包扫描件）.pdf',
+    title: '银行移交材料（起诉·房贷单笔）',
+    point: '银行档案里的原始材料：借款合同 / 借据 / 流水 / 催收 / 身份材料',
+    file: '/demo-materials/银行移交材料包（起诉用·整包扫描件）.pdf',
     stage: 'first_trial',
     subject: '金融借款合同纠纷',
     cause: '金融借款合同纠纷',
@@ -84,9 +98,9 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
   },
   {
     key: 'appeal',
-    title: '二审答辩',
-    point: '一审判决书 + 上诉状 + 答辩状 + 庭审笔录 —— 二审要的材料与一审完全不同',
-    file: '/demo-materials/二审答辩材料包（整包扫描件）.pdf',
+    title: '二审收案（对方上诉）',
+    point: '法院送达的一审判决书 + 对方提交的上诉状 + 一审卷宗',
+    file: '/demo-materials/二审收案材料包（整包扫描件）.pdf',
     stage: 'second_trial',
     subject: '金融借款合同纠纷（二审）',
     cause: '金融借款合同纠纷',

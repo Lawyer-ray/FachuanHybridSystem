@@ -50,6 +50,16 @@ class PdfSplitSegmentType(models.TextChoices):
     DELIVERY_NOTE = "delivery_note", "送货单"
     GOODS_RECEIPT = "goods_receipt", "收货单"
     INVOICE = "invoice", "发票"
+    # ── 银行信贷档案类 ──
+    # 抵押房贷案的真实档案远比「合同+借据+流水」多：贷前尽调、抵押评估、
+    # 抵押登记、内部不良监控报告，缺一类就会落 unrecognized。
+    # 实测一份 30 页真实结构的档案，有 5 类材料识别不出。
+    LOAN_APPLICATION = "loan_application", "贷款申请及调查审批材料"
+    COLLATERAL_APPRAISAL = "collateral_appraisal", "抵押物估价报告"
+    MORTGAGE_REGISTRATION = "mortgage_registration", "抵押登记及权属证明"
+    NPL_MONITORING = "npl_monitoring", "不良贷款监控及催收申请"
+    POST_LOAN_INSPECTION = "post_loan_inspection", "贷后检查报告"
+    COLLECTION_RECORD = "collection_record", "催收记录"
     # ── 诉讼程序类文书 ──
     #
     # ⚠️ 这一组是后补的，补之前模型认不出它们：判决书/上诉状/答辩状

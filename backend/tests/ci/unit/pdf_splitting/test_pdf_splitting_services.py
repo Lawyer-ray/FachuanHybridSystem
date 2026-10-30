@@ -56,14 +56,16 @@ class TestTemplateRegistry:
     def test_filing_materials_rules_count(self) -> None:
         from apps.pdf_splitting.services.template_registry import FILING_MATERIALS_V1
 
-        # 23 = 立案材料类 7 条 + 贷款/利息/买卖类 7 条（借款合同、放款凭证、银行流水、
+        # 29 = 立案材料类 7 条 + 贷款/利息/买卖类 7 条（借款合同、放款凭证、银行流水、
         # 利息计算表、送货单、收货单、发票）+ 诉讼程序类 9 条（判决书、裁定书、
-        # 调解书、上诉状、答辩状、再审申请书、执行申请书、庭审笔录、代理词）。
+        # 调解书、上诉状、答辩状、再审申请书、执行申请书、庭审笔录、代理词）
+        # + 银行信贷档案类 6 条（贷款申请、抵押估价、抵押登记、不良监控、
+        # 贷后检查、催收记录）。
         #
         # 后 9 条是补的：拆包是「收到什么拆什么」，不能只认一审起诉的那几类。
         # 补之前二审答辩包整包 5 段只认出 1 段，其余全落 unrecognized。
         # 此断言用于防止规则被误删。
-        assert len(FILING_MATERIALS_V1.rules) == 23
+        assert len(FILING_MATERIALS_V1.rules) == 29
 
     def test_appeal_template_has_own_rules(self) -> None:
         """二审必须有独立模板，不能靠往立案模板里塞类型。

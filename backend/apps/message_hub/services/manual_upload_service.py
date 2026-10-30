@@ -245,10 +245,40 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
     return message
 
 
+def _strip_nul(value: Any) -> Any:
+    """递归去掉字符串里的 NUL（\u0000）。
+
+    ═══ 为什么必须清 ═══
+    PostgreSQL 的 text / jsonb 都**不接受 NUL 字符**，写入直接抛
+    `UntranslatableCharacter: unsupported Unicode escape sequence`，
+    接口回 500「系统错误」。而 NUL 的来源很常见：
+      · OCR 引擎对扫描件空白区域输出的填充字符
+      · 某些 PDF 提取库对断行的处理
+      · 用户从别的系统粘贴的文本
+    草稿里存的是 OCR 识别出的页面文字，一旦带进 NUL，整个材料包的拆分结果
+    **永远存不下来** —— 前端每次自动保存都 500，用户看到「保存失败，请检查
+    后端连接」，其实后端好好的，只是这一个字符写不进库。
+
+    在写库前统一清掉，比在每个 OCR 出口拦一遍可靠：入口只有一个。
+    """
+    if isinstance(value, str):
+        # 只删 NUL，其余控制字符（\n \t 等）保留 —— 它们对展示有意义
+        return value.replace("\x00", "")
+    if isinstance(value, list):
+        return [_strip_nul(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _strip_nul(v) for k, v in value.items()}
+    return value
+
+
 def save_draft(message_id: int, draft: dict[str, Any]) -> InboxMessage:
-    """保存拆分草稿到收件箱消息。"""
+    """保存拆分草稿到收件箱消息。
+
+    写入前清掉 NUL 字符（原因见 _strip_nul 的说明）——不清会让整个草稿
+    保存 500，用户看到的是「保存失败，请检查后端连接」。
+    """
     message = InboxMessage.objects.get(pk=message_id)
-    message.draft_state = draft or {}
+    message.draft_state = _strip_nul(draft) or {}
     message.save(update_fields=["draft_state"])
     return message
 
