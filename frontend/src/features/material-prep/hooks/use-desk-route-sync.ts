@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { materialPrep } from '@/app/paths'
 import { useNavigate, useParams } from 'react-router'
 import { useJudgePack } from './use-inbox'
 import { useReader } from '../store'
@@ -31,7 +32,7 @@ export function useDeskRouteSync() {
   useEffect(() => {
     const open = openId != null
     if (wasOpenRef.current && !open && id != null) {
-      void navigate('/material-prep', { replace: true })
+      void navigate(materialPrep(), { replace: true })
     }
     if (open) wasOpenRef.current = true
   }, [openId, id, navigate])

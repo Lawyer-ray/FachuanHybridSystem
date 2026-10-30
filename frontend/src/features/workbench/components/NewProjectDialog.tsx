@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { FileStack, Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { bankLitigation, materialPrep, projectDetail } from '@/app/paths'
 import { createApiClient } from '@/lib/api'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -62,6 +63,9 @@ export function NewProjectDialog({
       const clientApi = createApiClient({ prefix: '/api/v1/client' })
 
       let caseId: number
+      // 合同 id 与案件 id 是两套独立自增的主键，跳转时必须用对的那个：
+      // `/projects/:id` 要合同 id。这里显式记下来，不在跳转处猜。
+      let contractId: number | null = null
       if (tpl) {
         const r = await createFromTemplate(tpl, {
           projectName: name.trim(),
@@ -71,6 +75,7 @@ export function NewProjectDialog({
           clientApi,
         })
         caseId = r.caseId
+        contractId = r.contractId
       } else {
         // 空白项目：只建合同+案件，别的等用户自己填
         const r = await contractApi
@@ -95,6 +100,7 @@ export function NewProjectDialog({
             },
           })
           .json<{ id?: number }>()
+        contractId = r?.id != null ? Number(r.id) : null
         const list = await caseApi.get('cases').json<{ id?: number; name?: string; contract_id?: number }[]>()
         const hit = list.find((c) => c.contract_id === r?.id)
         if (hit?.id == null) throw new Error('建项目失败：建完案件后查不到')
@@ -114,13 +120,14 @@ export function NewProjectDialog({
         await inboxApi.post('messages/upload', { body: fd, timeout: 300_000 })
         toast.success('项目已创建，示例材料已进「待处理」', { id: 'newproj', duration: 4000 })
         onOpenChange(false)
-        void navigate('/material-prep?stage=todo')
+        void navigate(materialPrep('todo'))
         return
       }
 
       toast.success('项目已创建')
       onOpenChange(false)
-      void navigate(`/projects/${caseId}`)
+      // 有合同跳项目详情（按合同视角）；没合同退回办案工作台（按案件视角）
+      void navigate(contractId != null ? projectDetail(contractId) : bankLitigation(caseId))
     } catch (e) {
       toast.error(`建项目失败：${errMessage(e)}`, { duration: 6000 })
     } finally {

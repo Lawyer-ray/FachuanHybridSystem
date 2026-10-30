@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { projectDetail } from '@/app/paths'
 import { useNavigate, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
@@ -142,7 +143,7 @@ export function ReviewWorkbenchPage() {
           type="button"
           className="inline-flex h-[31px] items-center gap-1.5 rounded-[8px] border border-border bg-card px-2.5 text-[12.5px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary"
           onClick={() => {
-            void navigate(projectId ? `/projects/${projectId}` : '/projects')
+            void navigate(projectDetail(projectId))
           }}
         >
           <ArrowLeft className="size-3.5" />

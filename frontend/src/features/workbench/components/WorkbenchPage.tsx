@@ -1,3 +1,4 @@
+import { projectDetail } from '@/app/paths'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 
@@ -42,7 +43,7 @@ export function WorkbenchPage() {
   /** 左键行 / → / 抽屉「详情 →」：统一进 `/projects/:id`，页内按 lit 分流左栏 */
   const openDetail = useCallback(
     (deal: WorkbenchDeal) => {
-      void navigate('/projects/' + deal.id)
+      void navigate(projectDetail(deal.id))
     },
     [navigate],
   )

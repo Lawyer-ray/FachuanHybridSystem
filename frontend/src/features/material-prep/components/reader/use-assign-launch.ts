@@ -1,7 +1,7 @@
 import type { NavigateFunction } from 'react-router'
 import { toast } from 'sonner'
 
-import { projectReview } from '@/app/paths'
+import { bankLitigation, projectDetail, projectReview } from '@/app/paths'
 import { assignPack, fetchAttachmentBytes } from '../../api'
 import { errMessage } from '@/lib/errors'
 import type { AssignInfo, DraftState } from '../../types'
@@ -98,7 +98,13 @@ export function useAssignLaunch(params: {
       //    我一开始传的是 caseId，打开就报「合同 482 不存在」——
       //    这两个 id 各自独立自增，传错不一定报错、可能打开到别人家的合同。
       //    没有合同（建合同失败）时退回办案详情，按案件视角看。
-      void navigate(r.contractId != null ? `/projects/${r.contractId}` : `/bank-litigation/${r.caseId}`)
+      // 统一走 paths.ts 的构造函数：`/projects/:id` 的 :id 是**委托合同 id**，
+      // 而 `/bank-litigation/:id` 是**案件 id** —— 两套 id 指向不同实体，
+      // 手拼字符串时极易传错（就踩过：把 caseId 当 contractId 传，
+      // 报「合同 482 不存在」）。用有名字的函数，传错时至少读代码能看出来。
+      void navigate(
+        r.contractId != null ? projectDetail(r.contractId) : bankLitigation(r.caseId),
+      )
     } catch (e) {
       toast.error(`归案失败：${errMessage(e)}`, { id: 'assign', duration: 6000 })
     }

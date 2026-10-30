@@ -1,3 +1,4 @@
+import { materialPrepDetail } from '@/app/paths'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { FolderKanban, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
@@ -45,7 +46,7 @@ const HINT_CLS = 'px-3 py-8 text-[12.5px]'
 const CATEGORIES: Record<CategoryKey, { label: string; icon: typeof Users; to?: (hit: Hit) => string | undefined }> = {
   projects: { label: '项目', icon: FolderKanban, to: (h) => projectRoute(h) },
   clients: { label: '当事人', icon: Users },
-  inbox: { label: '收件箱', icon: Mail, to: (h) => `/material-prep/${h.id}` },
+  inbox: { label: '收件箱', icon: Mail, to: (h) => materialPrepDetail(h.id) },
   court_sms: { label: '法院短信', icon: Landmark },
   contacts: { label: '联系人', icon: Paperclip },
 }
