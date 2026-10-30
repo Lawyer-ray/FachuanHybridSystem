@@ -13,7 +13,7 @@ from .payment import ContractPayment
 class Invoice(models.Model):
     """发票文件。
 
-    挂靠二选一：`payment`（已核销到某笔收款）或 `contract`（**先开票后付款**——
+    挂靠二选一：`payment`（已归属到某笔收款）或 `contract`（**先开票后付款**——
     票先到手、钱还没到，挂在合同名下等待日后关联收款）。两条 FK 都可空，
     由 CheckConstraint 保证恰好一条有值；关联收款时 `payment` 置值、`contract`
     清空，media 文件不搬动（`file_path` 只是存储位置，展示名另算）。

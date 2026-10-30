@@ -20,8 +20,8 @@ import { KV, RailAction } from './ui'
 /**
  * 统一的「收费」节：钱与票两条线**分开**呈现——收款是钱到账的事实（金额/日期/
  * 开票状态），发票是票本身（识别归档后的文件，可复制直发客户）。两种顺序都顺：
- * 先收款后开票 → ＋记收款（弹窗里拖票核销）；先开票后收款 → ＋传发票 或把票
- * 直接拖进本节（挂合同待核销，收款后一键关联）。
+ * 先收款后开票 → ＋记收款（弹窗里拖票关联到这笔收款）；先开票后收款 → ＋传发票 或把票
+ * 直接拖进本节（先挂合同名下，收款后一键关联到那笔收款）。
  *
  * 整节是拖放目标：拖票悬停时高亮提示落点（传到合同名下）。
  */
@@ -126,7 +126,7 @@ export function RailFees({
         <StatCell label="未收" value={stats.unpaid ?? '—'} muted={stats.unpaid == null} />
       </div>
 
-      {/* 收款：逐笔的钱（开票状态跟钱走，票按收款核销） */}
+      {/* 收款：逐笔的钱（开票状态跟钱走，票归属到收款） */}
       <Subhead title="收款" count={deal.payments.length + deal.payRecords.length} />
       {deal.payments.length + deal.payRecords.length === 0 ? (
         <EmptyBlock className="justify-start px-0 py-1 text-left text-xs text-muted-foreground/70">
@@ -165,7 +165,7 @@ export function RailFees({
       <Subhead
         title="发票"
         count={invoices.length}
-        extra={unlinkedCount > 0 ? `待核销 ${unlinkedCount} 张` : undefined}
+        extra={unlinkedCount > 0 ? `未关联收款 ${unlinkedCount} 张` : undefined}
       />
       {invoices.length === 0 ? (
         <button
@@ -210,7 +210,7 @@ function StatCell({ label, value, muted = false }: { label: string; value: strin
   )
 }
 
-/** 小节标题（收款/发票两条线各自的眉头）：标题 + 计数 + 右侧补充（待核销） */
+/** 小节标题（收款/发票两条线各自的眉头）：标题 + 计数 + 右侧补充（未关联收款） */
 function Subhead({ title, count, extra }: { title: string; count: number; extra?: string }) {
   return (
     <div className="mt-[13px] mb-[5px] flex items-baseline gap-1.5">
@@ -221,7 +221,7 @@ function Subhead({ title, count, extra }: { title: string; count: number; extra?
   )
 }
 
-/** 开票状态徽标：跟「这笔钱开没开票」走（票按收款核销，状态随核销重算） */
+/** 开票状态徽标：跟「这笔钱开没开票」走（票归属到收款，状态随之重算） */
 function InvoiceStatusBadge({ status, label }: { status: string; label?: string }) {
   const tone =
     status === 'INVOICED_FULL'
@@ -246,7 +246,7 @@ function InvoiceRow({ inv }: { inv: PaymentInvoice }) {
       </span>
       {inv.payment_id == null && (
         <span className="flex-none rounded-[5px] bg-status-yellow/12 px-1.5 py-px text-[10px] font-[620] text-status-yellow">
-          待核销
+          未关联收款
         </span>
       )}
       <span className="flex-none whitespace-nowrap text-muted-foreground tabular-nums" title="价税合计">

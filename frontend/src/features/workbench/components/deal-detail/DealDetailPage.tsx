@@ -309,7 +309,7 @@ export function DealDetailPage() {
         onSaved={() => void d.refetch()}
       />
 
-      {/* 先开票后付款：票挂合同名下；关闭即失效待核销缓存，右栏计数同步 */}
+      {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
     </main>
   )

@@ -307,7 +307,7 @@ def test_upload_invoice_before_payment_lands_on_contract(
 def test_attach_invoice_to_payment_recomputes_amount(
     mock_svc_factory: Any, authenticated_client, contract: Contract, payment: ContractPayment
 ) -> None:
-    """钱到账后把合同挂靠发票核销到收款：开票金额回填、payment_id 有值、contract 清空。"""
+    """钱到账后把合同挂靠发票归属到收款：开票金额回填、payment_id 有值、contract 清空。"""
     mock_svc_factory.return_value = _mock_recognizer(_parsed())
     uploaded = authenticated_client.post(
         f"/api/v1/contracts/finance/contracts/{contract.id}/invoices", {"files": _upload()}
@@ -455,3 +455,22 @@ def test_copy_invoice_to_clipboard_unsupported_off_mac(authenticated_client, con
     assert resp.status_code == 200, resp.content
     body = resp.json()
     assert body["success"] is False and body["reason"] == "unsupported"
+
+
+@pytest.mark.django_db
+def test_copy_invoice_to_clipboard_missing_file_reports_failure(authenticated_client, contract: Contract) -> None:
+    """media 原件丢失：如实返回落板失败（success=false + reason），不能再抛 500。
+
+    真实事故：票记录还在、media 文件被清掉，复制按钮点下去返回「系统错误」，
+    前端 catch 分支又把 busy 卡死，表现成按钮无限转圈。
+    """
+    invoice = Invoice.objects.create(
+        contract=contract, file_path=f"contracts/invoices/c{contract.id}/gone.pdf", original_filename="gone.pdf"
+    )
+    with patch("apps.core.services.mac_clipboard_service.MacClipboardFileService") as clipboard_cls:
+        clipboard_cls.return_value.is_available.return_value = True
+        resp = authenticated_client.post(f"/api/v1/contracts/finance/invoices/{invoice.id}/copy-to-clipboard")
+    assert resp.status_code == 200, resp.content
+    body = resp.json()
+    assert body["success"] is False and body["copied"] == 0
+    assert body["reason"], "缺失文件必须给出可读原因，供前端降级复制文件名"

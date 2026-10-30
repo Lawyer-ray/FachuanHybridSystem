@@ -22,8 +22,8 @@ import {
  *
  * - **先付款后开票**（常规）：保存收款后拖票进来，直接挂这笔收款；
  * - **先开票后付款**：收款还没保存（或还没记）就能拖票——票先挂合同名下，
- *   保存收款后下方列出待核销的票，点「关联」核销到这笔收款；金额与收款
- *   相同的行加「金额吻合」提示，帮律师一眼对上。
+ *   保存收款后下方列出还没归属到具体某笔收款的票，点「关联」把票挂到这笔收款上；
+ *   金额与收款相同的行加「金额吻合」提示，帮律师一眼对上。
  */
 
 const PAYMENT_INVOICES_KEY = (paymentId: number) => ['payment-invoices', paymentId] as const
@@ -35,11 +35,11 @@ export function PaymentInvoiceZone({
   onChanged,
 }: {
   contractId: number
-  /** null = 收款还没保存：此阶段拖票走「先开票」路径（挂合同，不核销） */
+  /** null = 收款还没保存：此阶段拖票走「先开票」路径（挂合同，不归属某笔收款） */
   paymentId: number | null
-  /** 当前收款金额（识别/手填），用于待核销行的金额吻合提示 */
+  /** 当前收款金额（识别/手填），用于未关联行的金额吻合提示 */
   paymentAmount: number | null
-  /** 上传/关联成功：让页面刷新合同（统计条、收款行、待核销计数都跟着变） */
+  /** 上传/关联成功：让页面刷新合同（统计条、收款行、未关联计数都跟着变） */
   onChanged: () => void
 }) {
   const qc = useQueryClient()
@@ -104,7 +104,7 @@ export function PaymentInvoiceZone({
     setError(null)
     try {
       await attachPaymentInvoice(invoice.id, paymentId)
-      toast.success('发票已核销到这笔收款')
+      toast.success('发票已关联到这笔收款')
       refresh()
     } catch (e) {
       setError(errMessage(e, '关联失败，请重试'))
@@ -124,7 +124,7 @@ export function PaymentInvoiceZone({
 
       <InvoiceDropZone
         uploading={uploading}
-        dragHint={saved ? undefined : '上传到合同（待核销）'}
+        dragHint={saved ? undefined : '上传到合同（未归属收款）'}
         onClick={() => fileRef.current?.click()}
         onFiles={(files) => void doUpload(files)}
       />
@@ -146,7 +146,7 @@ export function PaymentInvoiceZone({
       {saved && pool.length > 0 && (
         <div className="mt-3">
           <div className="mb-1 text-[11px] font-[650] text-muted-foreground">
-            合同下待核销的发票 · {pool.length} 张
+            合同下未关联收款的发票 · {pool.length} 张
           </div>
           <ul className="flex flex-col gap-1">
             {pool.map((inv) => (
@@ -207,18 +207,24 @@ export function CopyInvoiceFileButton({ invoiceId, filename }: { invoiceId: numb
   const onClick = async () => {
     if (busy) return
     setBusy(true)
+    // busy 必须在 finally 里收：落板成功走 return 也要清掉，否则图标一直转圈
+    // （曾因 return 前忘记复位，表现成「复制成功了但按钮永远在转」）。
     try {
       const res = await copyInvoiceToClipboard(invoiceId)
       if (res.success && res.copied > 0) {
         toast.success('发票文件已复制，微信对话框直接 ⌘V 粘贴发送')
         return
       }
+      // 落板失败（文件缺失等）：文件名兜底，粘到对话里至少能对上文件
+      const reason = res.reason === 'unsupported' ? '当前环境不支持复制文件本体' : res.reason || '复制文件本体失败'
+      if (await copyText(filename)) toast.info(`${reason}，已复制文件名`)
+      else toast.error('复制失败，请改用下载')
     } catch (e) {
-      toast.error(errMessage(e, '复制失败，已复制文件名'))
+      if (await copyText(filename)) toast.error(`${errMessage(e, '复制文件本体失败')}，已复制文件名`)
+      else toast.error(errMessage(e, '复制失败，请改用下载'))
+    } finally {
+      setBusy(false)
     }
-    // unsupported / 落板失败：文件名兜底（粘到对话里至少能对上文件）
-    if (await copyText(filename)) toast.info('当前环境不支持复制文件本体，已复制文件名')
-    else toast.error('复制失败，请改用下载')
   }
   return (
     <button
@@ -241,7 +247,7 @@ export function InvoiceDropZone({
   onFiles,
 }: {
   uploading: boolean
-  /** 右上角补充说明（如「上传到合同（待核销）」）；不传则不渲染 */
+  /** 右上角补充说明（如「上传到合同（未归属收款）」）；不传则不渲染 */
   dragHint?: string
   /** 紧凑形态：右栏/空态用，高度与文案收一档 */
   compact?: boolean

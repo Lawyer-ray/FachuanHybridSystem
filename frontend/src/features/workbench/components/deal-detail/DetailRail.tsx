@@ -44,7 +44,7 @@ export function DetailRail({
   moneyRows: Array<[string, string]>
   onAddDue: () => void
   onAddPayment: () => void
-  /** 打开发票弹窗（先开票后付款的入口：传票到合同 + 管理待核销） */
+  /** 打开发票弹窗（先开票后付款的入口：传票到合同 + 管理未关联收款的票） */
   onOpenInvoices: () => void
   /**
    * 是否渲染合同文件夹树。

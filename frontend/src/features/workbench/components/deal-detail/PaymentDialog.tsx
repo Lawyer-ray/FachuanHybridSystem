@@ -16,9 +16,9 @@ import { PaymentInvoiceZone } from './PaymentInvoiceZone'
  *
  * 1. **粘一段银行到账短信** → 点「识别」→ 金额/日期/付款人/用途自动填好，人核对后保存。
  * 2. **发票随时能进来**（见 PaymentInvoiceZone）：钱没到也能先传——票挂合同名下，
- *    保存收款后一键核销；或保存后直接拖票挂这笔收款。
+ *    保存收款后一键关联到这笔收款；或保存后直接拖票挂这笔收款。
  *
- * 顺序是刻意的：先「记这笔钱进来了」，再「把票核销到这笔钱」。发票区在收款
+ * 顺序是刻意的：先「记这笔钱进来了」，再「把票挂到这笔钱上」。发票区在收款
  * 保存前也**不再禁用**——先开票后付款与先付款后开票都顺。
  */
 export function PaymentDialog({
@@ -92,7 +92,7 @@ export function PaymentDialog({
       const { savePayment } = await import('./payment-save')
       const saved = await savePayment(contractId, form)
       setPaymentId(saved.id)
-      // 收款已落库：立刻刷新合同，律师不必等发票核销完才看到这笔钱
+      // 收款已落库：立刻刷新合同，律师不必等发票关联完才看到这笔钱
       onSaved()
       toast.success('收款已记录')
     } catch (e) {
@@ -197,7 +197,7 @@ export function PaymentDialog({
           </label>
         </section>
 
-        {/* ③ 发票：保存前挂合同（先开票），保存后挂这笔收款 + 一键核销 */}
+        {/* ③ 发票：保存前挂合同（先开票），保存后挂这笔收款 + 一键关联 */}
         <PaymentInvoiceZone
           contractId={contractId}
           paymentId={paymentId}

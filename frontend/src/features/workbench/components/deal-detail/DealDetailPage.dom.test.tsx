@@ -552,7 +552,7 @@ describe('DealDetailPage 右栏与档案', () => {
     expect(rail.contains(screen.getByText('＋ 记收款'))).toBe(true)
   })
 
-  it('收费节钱票分开：收款行带开票状态徽标，发票行列重命名文件 + 待核销标记 + 复制文件按钮', async () => {
+  it('收费节钱票分开：收款行带开票状态徽标，发票行列重命名文件 + 未关联收款标记 + 复制文件按钮', async () => {
     vi.mocked(listContractInvoices).mockResolvedValueOnce([
       {
         id: 11,
@@ -592,12 +592,12 @@ describe('DealDetailPage 右栏与档案', () => {
     const invoicedTexts = await screen.findAllByText('已开票')
     expect(invoicedTexts.length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('前期律师费')).toBeTruthy()
-    // 发票线：重命名文件名原样可见；未核销的票带「待核销」；每行有复制文件按钮
+    // 发票线：重命名文件名原样可见；尚未归属收款的票带「未关联收款」；每行有复制文件按钮
     const invoiceName = await screen.findByText(/发票（某银行.*20260401开具\.pdf/)
     expect(screen.getAllByTitle(/复制文件/).length).toBe(2) // 每张发票一个复制按钮
     const fee = screen.getByText('收费', { selector: 'h4' }).closest('div')!.parentElement!
-    expect(within(fee).getByText('待核销 1 张')).toBeTruthy() // 小节计数（右栏眉头）
-    expect(within(fee).getAllByText('待核销', { exact: true }).length).toBe(1) // 行内徽标
+    expect(within(fee).getByText('未关联收款 1 张')).toBeTruthy() // 小节计数（右栏眉头）
+    expect(within(fee).getAllByText('未关联收款', { exact: true }).length).toBe(1) // 行内徽标
     expect(within(fee).getAllByText('¥50000.00').length).toBeGreaterThan(0)
     expect(invoiceName).toBeTruthy()
   })
