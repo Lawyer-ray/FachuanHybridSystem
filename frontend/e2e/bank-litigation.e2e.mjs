@@ -435,6 +435,43 @@ async function main() {
     log(false, '整包分段：找不到整包 PDF（先跑 scripts/gen-bundle-pdf.py）')
   }
 
+  // ── 6.9 惠民贷批量场景（消费贷逐笔提款）──
+  // 与单笔房贷的差别在**数量结构**：1 份框架协议 + N 笔提款，每笔三件套。
+  // 能不能一次拆对 N 组、并正确归到同一案件，是批量能力的真考验。
+  const hmPdf = (() => {
+    const dir = new URL('../prototype/2026.10.25-银行批量诉讼原型/mock-out/惠民贷/', import.meta.url)
+    try {
+      const f = readdirSync(dir).find((x) => x.startsWith('1-') && x.endsWith('.pdf'))
+      return f ? decodeURIComponent(`${dir.pathname}${f}`) : ''
+    } catch {
+      return ''
+    }
+  })()
+
+  if (hmPdf) {
+    const fd2 = new FormData()
+    fd2.append('file', new Blob([readFileSync(hmPdf)], { type: 'application/pdf' }), '惠民贷证据.pdf')
+    fd2.append('split_mode', 'content_analysis')
+    fd2.append('template_key', 'filing_materials_v1')
+    fd2.append('ocr_profile', 'balanced')
+    const r2 = await fetch(`${API}/api/v1/pdf-splitting/jobs`, { method: 'POST', headers: auth, body: fd2 })
+    const j2 = await r2.json().catch(() => null)
+
+    let sp = null
+    for (let i = 0; i < 80; i++) {
+      await new Promise((res) => setTimeout(res, 3000))
+      const g = await fetch(`${API}/api/v1/pdf-splitting/jobs/${j2.job_id}`, { headers: auth })
+      sp = await g.json().catch(() => null)
+      if (sp?.status === 'review_required' || sp?.status === 'completed') break
+      if (sp?.status === 'failed') break
+    }
+    const segs3 = sp?.segments ?? []
+    log(segs3.length >= 10, '惠民贷：整包拆出多组材料', `${segs3.length} 段 / ${sp?.total_pages ?? '?'} 页`)
+    // 每笔贷款应拆成「合同 → 凭证 → 明细」三连
+    const triples = segs3.filter((x) => x.segment_type === 'loan_contract').length
+    log(triples >= 3, '惠民贷：多笔贷款各自成段', `${triples} 份贷款合同`)
+  }
+
   // ── 7. 截图存档 ──
   await page.screenshot({ path: '/tmp/e2e-court.png', fullPage: false })
 
