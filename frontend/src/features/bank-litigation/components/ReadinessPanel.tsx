@@ -73,24 +73,28 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
         {r?.checks?.length ? (
           <ul className="flex flex-col gap-1">
             {r.checks.map((c) => (
-              <li key={c.key} className="flex items-start gap-2 text-[12px] leading-[1.6]">
+              /* 两行结构：第一行「图标 + 校验项名」，第二行 detail 缩进对齐。
+                 早先把 label 与 detail 挤在同一行 + truncate，长 detail（如
+                 「未登记主管机关（管辖法院）」）会截断成省略号，而律师最需要
+                 看的就是这句「到底缺什么」。改成换行后一眼能读全，也不会
+                 因为某一条特别长而把后续条目挤出可视区。 */
+              <li key={c.key} className="flex items-start gap-2 text-[12px] leading-[1.55]">
                 {c.ok ? (
-                  <Circle className="mt-[3px] size-3 flex-none fill-current text-muted-foreground/30 text-transparent" />
+                  <Circle className="mt-[4px] size-3 flex-none fill-current text-transparent" />
                 ) : (
                   <AlertTriangle className="mt-[3px] size-3 flex-none text-status-red" />
                 )}
-                <span className={cn('flex-none', c.ok ? 'text-secondary-foreground' : 'font-medium')}>
-                  {c.label}
-                </span>
-                <span
-                  className={cn(
-                    'min-w-0 flex-1 truncate text-[11.5px]',
-                    c.ok ? 'text-muted-foreground' : 'text-status-red',
-                  )}
-                  title={c.detail}
-                >
-                  {c.detail}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <div className={cn(c.ok ? 'text-secondary-foreground' : 'font-medium')}>{c.label}</div>
+                  <div
+                    className={cn(
+                      'mt-0.5 text-[11px] break-words',
+                      c.ok ? 'text-muted-foreground' : 'text-status-red',
+                    )}
+                  >
+                    {c.detail || '—'}
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

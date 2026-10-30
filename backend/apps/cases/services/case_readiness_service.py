@@ -119,21 +119,39 @@ class MaterialStatusService:
             "guarantee": ("抵押", "质押", "担保函"),
         }
 
+        # ═══ 全局分配而非逐槽独立匹配 ═══
+        # 逐槽独立匹配会让同一份材料喂给多个槽位：《借款借据（放款凭证）》同时
+        # 命中 contract 的弱词「借款」和 iou 的强词「借据」，结果主合同槽位被
+        # 借据占掉，律师看到「主合同齐备」而真正缺的是合同本身。
+        # 正确做法是三轮抢占，越专指的越先占，占过的不再给别人：
+        #   第 1 轮  强关键词（"借据"/"还款明细"/"催收"…专指名）
+        #   第 2 轮  弱关键词兜底（"借款"/"合同"…单看不足以认定）
+        #   第 3 轮  仍未命中的才是真缺件
+        #
+        # 只有这样「借据」才能先占住 iou，contract 再去抢别的东西。
+        claimed: set[int] = set()
+        matched_by_key: dict[str, list[str]] = {k: [] for k, _ in REQUIRED_SLOTS}
+
+        def _short(hay: str, mid: int) -> str:
+            return hay.strip().split("/")[-1] or f"材料#{mid}"
+
+        for use_weak in (False, True):
+            for key, _label in REQUIRED_SLOTS:
+                if matched_by_key[key]:
+                    continue  # 上一轮已经命中，不再追加
+                pool = SLOT_KEYWORDS.get(key, ()) if not use_weak else WEAK.get(key, ())
+                for m, hay in zip(materials, names):
+                    if m.id in claimed:
+                        continue
+                    if any(kw in hay for kw in pool):
+                        matched_by_key[key].append(_short(hay, m.id))
+                        claimed.add(m.id)
+                        break  # 一个槽位只认第一份最合适的
+
         slots: list[dict[str, Any]] = []
         for key, label in REQUIRED_SLOTS:
+            matched = matched_by_key[key]
             kws = SLOT_KEYWORDS.get(key, ())
-            matched: list[str] = []
-            for m, hay in zip(materials, names):
-                if any(kw in hay for kw in kws):
-                    short = hay.strip().split("/")[-1]
-                    matched.append(short or f"材料#{m.id}")
-
-            # 强关键词一个都没命中 → 才用弱关键词兑底
-            if not matched:
-                for m, hay in zip(materials, names):
-                    if any(kw in hay for kw in WEAK.get(key, ())):
-                        short = hay.strip().split("/")[-1]
-                        matched.append(short or f"材料#{m.id}")
 
             if not matched:
                 # 担保合同：无保证人的案件视为不适用，不算缺件

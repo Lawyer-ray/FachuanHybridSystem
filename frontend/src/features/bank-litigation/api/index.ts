@@ -243,3 +243,139 @@ export async function getArchiveSession(sessionId: number): Promise<ArchiveSessi
 export async function openContractInOA(payload: OpenOAIn): Promise<{ success: boolean; message: string }> {
   return oaArchiveApi.post('open-oa', { json: payload }).json<{ success: boolean; message: string }>()
 }
+
+// ───────────────────────── 整包 PDF 自动分段 ─────────────────────────
+
+/**
+ * 场景 2 的**真正起点**：律师拿到的是整包扫描件，不是分好的散件。
+ *
+ * 链路：
+ *   上传整包 → POST /pdf-splitting/jobs → 轮询 → 人工复核 → confirm
+ *   → 导出 10 个独立 PDF → 逐个上传到案件 → bind 归案 → 材料齐备度自动算出
+ *
+ * 关键认知：**上传 ≠ 归案**。
+ *   /cases/{id}/materials/upload 只是把文件塞进案件日志（CaseLogAttachment），
+ *   必须再调 /materials/bind 才会变成「材料」（CaseMaterial），
+ *   材料齐备度读到的是后者。少了 bind 这一步，文件传成功了但齐备度永远是 0。
+ */
+export const pdfSplitApi = createApiClient({ prefix: '/api/v1/pdf-splitting' })
+
+export type PdfSplitJob = components['schemas']['PdfSplitJobOut']
+/**
+ * 单个分段。
+ *
+ * ⚠️ 生成物里的名字是 `SegmentOut`（不是直觉上的 PdfSplitSegmentOut）——
+ * 后端 schema 类就叫 SegmentOut。字段：page_start/page_end/segment_type/
+ * segment_label/filename/confidence/review_flag/source_method。
+ */
+export type PdfSplitSegment = components['schemas']['SegmentOut']
+
+/**
+ * 提交自动分段任务。
+ *
+ * `split_mode=content_analysis` 是内容识别拆分（按每页正文判断材料类型）；
+ * 另有 page_split（按页拆）与 manual_split（手工）。
+ * 模板 `filing_materials_v1` 对应立案材料的一套类型（起诉状/证据清单/借款合同…），
+ * 换模板会换整套识别规则，所以这里不暴露成可选项——本场景只处理立案材料。
+ */
+export async function createSplitJob(file: File): Promise<{ job_id: string; status: string }> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('split_mode', 'content_analysis')
+  form.append('template_key', 'filing_materials_v1')
+  form.append('ocr_profile', 'balanced')
+  return pdfSplitApi
+    .post('jobs', { body: form, timeout: 300_000 })
+    .json<{ job_id: string; status: string }>()
+}
+
+/** 查询分段任务（轮询用） */
+export async function getSplitJob(jobId: string): Promise<PdfSplitJob> {
+  return pdfSplitApi.get(`jobs/${jobId}`).json<PdfSplitJob>()
+}
+
+/** 取消分段任务 */
+export async function cancelSplitJob(jobId: string): Promise<{ job_id: string; status: string }> {
+  return pdfSplitApi.post(`jobs/${jobId}/cancel`).json<{ job_id: string; status: string }>()
+}
+
+/** 分段确认提交项（与后端 ConfirmSegmentIn 对齐） */
+export interface ConfirmSegment {
+  id?: number | null
+  order?: number | null
+  page_start: number
+  page_end: number
+  segment_type: string
+  filename: string
+  confidence?: number | null
+  review_flag?: string | null
+  source_method?: string | null
+}
+
+/** 确认分段（人工复核后）→ 后端开始逐个导出 PDF */
+export async function confirmSplitJob(
+  jobId: string,
+  segments: ConfirmSegment[],
+): Promise<{ job_id: string; status: string }> {
+  return pdfSplitApi
+    .post(`jobs/${jobId}/confirm`, { json: { segments }, timeout: 300_000 })
+    .json<{ job_id: string; status: string }>()
+}
+
+/** 下载全部拆分结果（zip） */
+export async function downloadSplitZip(jobId: string): Promise<Blob> {
+  const res = await pdfSplitApi.get(`jobs/${jobId}/download`, { timeout: 300_000 })
+  return res.blob()
+}
+
+// ───────────────────────── 材料归案 ─────────────────────────
+
+/** 材料条款（对齐后端 CaseMaterialBindItemIn） */
+export interface MaterialBindItem {
+  attachment_id: number
+  category: string
+  type_name: string
+  side?: string | null
+  type_id?: number | null
+  party_ids?: number[]
+  supervising_authority_id?: number | null
+}
+
+/**
+ * 把已上传的附件**归案**成材料。
+ *
+ * ⚠️ upload 只是把字节塞进案件日志；bind 才让它成为 CaseMaterial。
+ * 材料齐备度 / 起诉条件 / 一张网立案读的都是 CaseMaterial ——
+ * 只 upload 不 bind，界面会显示「材料齐备 0/6」但文件明明传上去了。
+ */
+export async function bindMaterials(
+  caseId: number,
+  items: MaterialBindItem[],
+): Promise<{ saved_count: number }> {
+  return casesApi.post(`${caseId}/materials/bind`, { json: { items } }).json<{ saved_count: number }>()
+}
+
+/** 上传文件到案件（返回附件 id，供 bind 使用） */
+export async function uploadCaseMaterials(
+  caseId: number,
+  files: File[],
+): Promise<{ log_id: number; attachment_ids: number[] }> {
+  const form = new FormData()
+  // ⚠️ 字段名是 `files`（复数）—— 写 `file` 会静默成功但不真的上传，
+  //    返回 attachment_ids: []，然后 bind 时找不到附件。
+  for (const f of files) form.append('files', f)
+  return casesApi
+    .post(`${caseId}/materials/upload`, { body: form, timeout: 300_000 })
+    .json<{ log_id: number; attachment_ids: number[] }>()
+}
+
+/** 归案候选（已上传但还没变成材料的附件） */
+export interface BindCandidate {
+  attachment_id: number
+  file_name: string
+  uploaded_at: string
+}
+
+export async function listBindCandidates(caseId: number): Promise<BindCandidate[]> {
+  return casesApi.get(`${caseId}/materials/bind-candidates`).json<BindCandidate[]>()
+}

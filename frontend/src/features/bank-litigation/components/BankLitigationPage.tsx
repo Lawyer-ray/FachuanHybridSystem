@@ -9,6 +9,7 @@ import { CaseListPage } from './CaseListPage'
 import { fmtMoney } from '../utils'
 import { CourtFilingPanel, OAFilingPanel } from './FilingPanels'
 import { ReadinessPanel } from './ReadinessPanel'
+import { BundleSplitPanel } from './BundleSplitPanel'
 import { DocConvertPanel } from './DocConvertPanel'
 import { OAArchivePanel, OAStampPanel } from './OAActionPanels'
 import { useCase } from '../hooks/use-cases'
@@ -25,7 +26,7 @@ import { useCase } from '../hooks/use-cases'
  * 从 A 案跳到 B 案时另外三个页面还停在 A，非常容易填错案。
  */
 
-type Section = 'readiness' | 'convert' | 'oa' | 'court' | 'stamp' | 'archive'
+type Section = 'bundle' | 'readiness' | 'convert' | 'oa' | 'court' | 'stamp' | 'archive'
 
 /**
  * 分区顺序 = 场景 2 的实际推进顺序：
@@ -34,6 +35,9 @@ type Section = 'readiness' | 'convert' | 'oa' | 'court' | 'stamp' | 'archive'
  * 不按「功能模块」排，按「律师下一步该做什么」排。
  */
 const SECTIONS: { key: Section; label: string; icon: typeof Gavel }[] = [
+  // 整包分段是**真正的第一步**：律师拿到的是整包扫描件，
+  // 拆不开就没有材料，后面所有校验都无从谈起。
+  { key: 'bundle', label: '整包分段', icon: FileText },
   { key: 'readiness', label: '起诉条件', icon: Gavel },
   { key: 'convert', label: '要素式转换', icon: FileText },
   { key: 'oa', label: 'OA 立案', icon: FileText },
@@ -60,7 +64,8 @@ export function BankLitigationPage({ initialCaseId }: { initialCaseId?: number |
 // ───────────────────────── 案件工作区 ─────────────────────────
 
 function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void }) {
-  const [section, setSection] = useState<Section>('readiness')
+  // 默认落在「整包分段」：这是律师打开案件后的第一个动作。
+  const [section, setSection] = useState<Section>('bundle')
   const c = useCase(caseId)
 
   if (c.loading) {
@@ -130,6 +135,7 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
 
         {/* 右侧内容 */}
         <div className="min-w-0 flex-1">
+          {section === 'bundle' ? <BundleSplitPanel caseId={caseId} /> : null}
           {section === 'readiness' ? <ReadinessPanel caseId={caseId} /> : null}
           {section === 'convert' ? <DocConvertPanel caseId={caseId} /> : null}
           {section === 'oa' ? <OAFilingPanel caseId={caseId} contractId={contractId} /> : null}
