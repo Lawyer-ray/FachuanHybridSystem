@@ -135,7 +135,7 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
 
         {/* 右侧内容 */}
         <div className="min-w-0 flex-1">
-          {section === 'bundle' ? <BundleSplitPanel caseId={caseId} /> : null}
+          {section === 'bundle' ? <BundleSplitPanel caseId={caseId} stage={k.current_stage} /> : null}
           {section === 'readiness' ? <ReadinessPanel caseId={caseId} /> : null}
           {section === 'convert' ? <DocConvertPanel caseId={caseId} /> : null}
           {section === 'oa' ? <OAFilingPanel caseId={caseId} contractId={contractId} /> : null}

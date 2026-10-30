@@ -278,11 +278,24 @@ export type PdfSplitSegment = components['schemas']['SegmentOut']
  * 模板 `filing_materials_v1` 对应立案材料的一套类型（起诉状/证据清单/借款合同…），
  * 换模板会换整套识别规则，所以这里不暴露成可选项——本场景只处理立案材料。
  */
-export async function createSplitJob(file: File): Promise<{ job_id: string; status: string }> {
+/**
+ * 分段模板。**选错模板 = 认不出材料**：
+ *   filing_materials_v1  一审起诉材料（起诉状/证据清单/借款合同/流水…）
+ *   appeal_defense_v1    二审答辩材料（一审判决书/上诉状/答辩状/庭审笔录…）
+ *
+ * ⚠️ 这不是「可选项」，是「必须对上阶段」：把二审包交给一审模板，
+ * 模型会按立案材料的身份预设否定判决书/上诉状，全部回 other（实测 5 段只认 1 段）。
+ */
+export type SplitTemplate = 'filing_materials_v1' | 'appeal_defense_v1'
+
+export async function createSplitJob(
+  file: File,
+  templateKey: SplitTemplate = 'filing_materials_v1',
+): Promise<{ job_id: string; status: string }> {
   const form = new FormData()
   form.append('file', file)
   form.append('split_mode', 'content_analysis')
-  form.append('template_key', 'filing_materials_v1')
+  form.append('template_key', templateKey)
   form.append('ocr_profile', 'balanced')
   return pdfSplitApi
     .post('jobs', { body: form, timeout: 300_000 })

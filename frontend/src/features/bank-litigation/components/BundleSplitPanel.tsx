@@ -24,6 +24,7 @@ import {
   uploadCaseMaterials,
   type PdfSplitJob,
   type PdfSplitSegment,
+  type SplitTemplate,
 } from '../api'
 
 /**
@@ -54,7 +55,11 @@ function segTone(flag: string | null | undefined): Tone {
   return 'neutral'
 }
 
-export function BundleSplitPanel({ caseId }: { caseId: number }) {
+export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: string | null }) {
+  // 模板跟着案件阶段走：二审案必须用二审模板，否则整包里的判决书/上诉状
+  // 会被模型按「立案材料」身份预设否定掉，全落 unrecognized。
+  const isAppeal = /二审|重审二审|再审二审|提审/.test(stage ?? '') || /second_trial|retrial_second|rehearing_second|review/.test(stage ?? '')
+  const template: SplitTemplate = isAppeal ? 'appeal_defense_v1' : 'filing_materials_v1'
   const [phase, setPhase] = useState<Phase>('idle')
   const [job, setJob] = useState<PdfSplitJob | null>(null)
   const [segs, setSegs] = useState<PdfSplitSegment[]>([])
@@ -70,7 +75,7 @@ export function BundleSplitPanel({ caseId }: { caseId: number }) {
     return () => {
       alive.current = false
     }
-  }, [])
+  }, [template])
 
   const reset = useCallback(() => {
     setPhase('idle')
@@ -87,7 +92,7 @@ export function BundleSplitPanel({ caseId }: { caseId: number }) {
     setError(null)
     setProgress('正在上传整包…')
     try {
-      const r = await createSplitJob(file)
+      const r = await createSplitJob(file, template)
       if (!alive.current) return
       setPhase('splitting')
       setProgress('已提交，正在识别页面内容…')
@@ -126,7 +131,7 @@ export function BundleSplitPanel({ caseId }: { caseId: number }) {
       setPhase('failed')
       setError(errMessage(e))
     }
-  }, [])
+  }, [template])
 
   /** 4+5. 确认分段 → 等导出 → 下载 → 逐个上传 → 归案 */
   const confirmAndImport = useCallback(async () => {
@@ -223,10 +228,16 @@ export function BundleSplitPanel({ caseId }: { caseId: number }) {
       {phase === 'idle' ? (
         <div className="flex flex-col items-center gap-2 rounded-[8px] border border-dashed border-zinc-300 px-4 py-8">
           <FileStack className="size-7 text-muted-foreground" />
-          <p className="text-[12.5px] text-secondary-foreground">上传整包 PDF</p>
-          <p className="max-w-[420px] text-center text-[11px] leading-[1.6] text-muted-foreground">
-            律师从银行拿到的一叠扫描件（几十页混在一起）。系统会按每页内容
-            自动拆成单份材料、重命名，再归到本案。
+          <p className="text-[12.5px] text-secondary-foreground">
+            上传{isAppeal ? '二审答辩' : '一审起诉'}整包 PDF
+          </p>
+          <p className="max-w-[440px] text-center text-[11px] leading-[1.6] text-muted-foreground">
+            律师拿到的是一叠扫描件（几十页混在一起）。系统按每页内容自动拆成单份材料、
+            重命名，再归到本案。
+            <span className="mt-1 block text-[10.5px]">
+              当前按「{isAppeal ? '二审答辩材料' : '一审起诉材料'}」识别 ——
+              拆什么材料跟案件阶段走，两套不能混用。
+            </span>
           </p>
           <input
             ref={fileRef}
