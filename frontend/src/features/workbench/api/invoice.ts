@@ -121,6 +121,15 @@ export async function attachPaymentInvoice(
     .json<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }>()
 }
 
+/** 挂错时的补救：把这发票退回合同名下（后端重算原收款的开票金额） */
+export async function detachPaymentInvoice(
+  invoiceId: number,
+): Promise<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }> {
+  return contractsApi
+    .post(`finance/invoices/${invoiceId}/detach`)
+    .json<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }>()
+}
+
 /**
  * 复制**重命名后**的发票文件到系统剪贴板（后端 NSPasteboard 落板，同 Finder ⌘C）。
  *

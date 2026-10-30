@@ -596,8 +596,13 @@ describe('DealDetailPage 右栏与档案', () => {
     const invoiceName = await screen.findByText(/发票（某银行.*20260401开具\.pdf/)
     expect(screen.getAllByTitle(/复制文件/).length).toBe(2) // 每张发票一个复制按钮
     const fee = screen.getByText('收费', { selector: 'h4' }).closest('div')!.parentElement!
-    expect(within(fee).getByText('未关联收款 1 张')).toBeTruthy() // 小节计数（右栏眉头）
-    expect(within(fee).getAllByText('未关联收款', { exact: true }).length).toBe(1) // 行内徽标
+    expect(within(fee).getByText('未关联收款')).toBeTruthy() // 分组眉头（只提示一次，不逐行重复）
+    expect(within(fee).getByText('· 1 张待处理')).toBeTruthy()
+    // 未关联的票必须给得出「关联」按钮——合同只有一笔收款时也要有入口
+    // （曾经只在多笔收款时渲染，结果页面上根本没有可点的按钮）
+    expect(within(fee).getByRole('button', { name: /关联到 ¥50,000 那笔收款/ })).toBeTruthy()
+    // 已归属的单据：单笔收款没有别的去处，不给「改挂」；「解除关联」保留，作为挂错的出口
+    expect(within(fee).getByRole('button', { name: '解除关联' })).toBeTruthy()
     expect(within(fee).getAllByText('¥50000.00').length).toBeGreaterThan(0)
     expect(invoiceName).toBeTruthy()
   })

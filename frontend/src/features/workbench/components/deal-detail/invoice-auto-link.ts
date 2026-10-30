@@ -11,7 +11,12 @@
  * - 一张票挂错要能救回来 —— 见 `groupsForReview`（按收款呈现，可解绑重挂）。
  */
 
-/** 自动归属判定所需的最小发票形状（与 `PaymentInvoice` 结构兼容） */
+/**
+ * 自动归属/分组所需的最小发票形状（`PaymentInvoice` 结构上满足它）。
+ *
+ * 故意只声明用得到的三个字段：排序/分组不该依赖整份发票投影，
+ * 这样纯函数也能被「只有这三列」的场景复用。
+ */
 export interface PoolInvoice {
   id: number
   payment_id: number | null
@@ -70,11 +75,11 @@ export function splitByAmountMatch(attached: PoolInvoice[], paymentAmount: numbe
   return { attached: same, amountMismatch: diff }
 }
 
-/** 一张票在「按收款分组」视图里的归属描述 */
-export interface InvoiceGroup {
+/** 一张票在「按收款分组」视图里的归属描述（发票元素类型跟着入参走） */
+export interface InvoiceGroup<P extends PoolInvoice = PoolInvoice> {
   /** 收款 id；null = 还没归属任何收款 */
   paymentId: number | null
-  invoices: PoolInvoice[]
+  invoices: P[]
 }
 
 /**
@@ -83,9 +88,12 @@ export interface InvoiceGroup {
  * 用途：归属挂错时律师要能看见「这张票挂在哪笔钱下面」，并且当场解绑重挂。
  * 未归属组放在最后是因为它是「待处理」，不是「已完成」。
  */
-export function groupsForReview(invoices: PoolInvoice[], payments: PaymentTarget[]): InvoiceGroup[] {
-  const byPayment = new Map<number, PoolInvoice[]>()
-  const unlinked: PoolInvoice[] = []
+export function groupsForReview<P extends PoolInvoice>(
+  invoices: P[],
+  payments: PaymentTarget[],
+): Array<InvoiceGroup<P>> {
+  const byPayment = new Map<number, P[]>()
+  const unlinked: P[] = []
   for (const inv of invoices) {
     if (inv.payment_id == null) {
       unlinked.push(inv)
@@ -96,7 +104,7 @@ export function groupsForReview(invoices: PoolInvoice[], payments: PaymentTarget
     else byPayment.set(inv.payment_id, [inv])
   }
 
-  const groups: InvoiceGroup[] = [...byPayment.entries()]
+  const groups: Array<InvoiceGroup<P>> = [...byPayment.entries()]
     .map(([paymentId, list]) => ({ paymentId, invoices: list }))
     .sort((a, b) => {
       const aAmt = amountOf(payments.find((p) => p.id === a.paymentId)?.amount)

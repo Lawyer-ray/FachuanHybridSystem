@@ -375,6 +375,44 @@ class InvoiceFileService:
         return invoice, payment
 
     @transaction.atomic
+    def detach_invoice(
+        self,
+        *,
+        invoice_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> tuple[Any, Any | None]:
+        """把已关联收款的发票退回合同名下（挂错时的唯一补救动作）。
+
+        财务口径：退回后立刻重算原收款的开票金额——不然会出现「票已不属于这笔
+        收款，但已开票金额里还算着它」的错账。media 文件不搬动（`file_path` 只是
+        存储位置，展示名另算），原文与合同文件夹里的副本都不受影响。
+
+        返回 ``(invoice, 原收款或 None)``；未关联的发票再解绑是 400（不是静默成功），
+        否则前端无法区分「本来就没挂」和「解绑没生效」。
+        """
+        from apps.contracts.models import Invoice
+        from apps.core.exceptions import NotFoundError
+
+        try:
+            invoice = Invoice.objects.select_related("payment__contract", "contract").get(pk=invoice_id)
+        except Invoice.DoesNotExist:
+            raise NotFoundError(message="发票不存在", code="INVOICE_NOT_FOUND") from None
+
+        if invoice.payment_id is None:
+            raise ValidationException(message="该发票尚未关联收款，无需解除", code="INVOICE_NOT_ATTACHED")
+
+        payment = self._load_payment(
+            invoice.payment_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+        invoice.contract = payment.contract
+        invoice.payment = None
+        invoice.save(update_fields=["payment", "contract"])
+        self._recompute_invoiced_amount(payment)
+        return invoice, payment
+
+    @transaction.atomic
     def delete_invoice(
         self,
         *,

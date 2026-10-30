@@ -136,6 +136,29 @@ async def attach_invoice(request: HttpRequest, invoice_id: int, payload: Invoice
     )
 
 
+@router.post("/finance/invoices/{invoice_id}/detach", response=InvoiceAttachOut)
+async def detach_invoice(request: HttpRequest, invoice_id: int) -> Any:
+    """把已关联收款的发票退回合同名下（挂错时的补救动作），并重算原收款开票金额。
+
+    与 attach 成对：只改归属，不动文件；退回后票回到「未关联收款」，可从右栏
+    发票节重新关到正确的收款。
+    """
+    service = _invoice_service()
+    ctx = await sync_to_async(extract_request_context)(request)
+    invoice, payment = await sync_to_async(service.detach_invoice, thread_sensitive=True)(
+        invoice_id=invoice_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+    return InvoiceAttachOut(
+        invoice=_invoice_out(invoice),
+        invoice_status=payment.invoice_status if payment is not None else "",
+        invoice_status_label=payment.get_invoice_status_display() if payment is not None else "",
+        invoiced_amount=str(payment.invoiced_amount) if payment is not None else "",
+    )
+
+
 @router.delete("/finance/invoices/{invoice_id}")
 async def delete_payment_invoice(request: HttpRequest, invoice_id: int) -> Any:
     """删除发票并重算开票金额（media 文件同删；合同文件夹里的副本保留）。"""

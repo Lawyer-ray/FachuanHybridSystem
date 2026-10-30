@@ -63,7 +63,7 @@ class InvoiceOut(Schema):
 
 
 class InvoiceAttachOut(Schema):
-    """关联结果：发票 + 该收款最新的开票状态与金额。"""
+    """关联 / 解除关联结果：发票 + 涉及的收款最新开票状态与金额。"""
 
     invoice: InvoiceOut
     invoice_status: str = ""

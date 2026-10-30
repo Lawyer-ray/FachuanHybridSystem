@@ -474,3 +474,56 @@ def test_copy_invoice_to_clipboard_missing_file_reports_failure(authenticated_cl
     body = resp.json()
     assert body["success"] is False and body["copied"] == 0
     assert body["reason"], "缺失文件必须给出可读原因，供前端降级复制文件名"
+
+
+@pytest.mark.django_db
+@patch("apps.invoice_recognition.services.wiring.get_quick_recognition_service")
+def test_detach_invoice_returns_to_contract_and_recomputes(
+    mock_svc_factory: Any, authenticated_client, contract: Contract, payment: ContractPayment
+) -> None:
+    """挂错能调整：解除关联 → 票回合同名下、原收款开票金额归零；可再挂到正确收款。"""
+    mock_svc_factory.return_value = _mock_recognizer(_parsed())
+    uploaded = authenticated_client.post(
+        f"/api/v1/contracts/finance/contracts/{contract.id}/invoices", {"files": _upload()}
+    ).json()["saved"][0]
+    authenticated_client.post(
+        f"/api/v1/contracts/finance/invoices/{uploaded['id']}/attach",
+        data={"payment_id": payment.id},
+        content_type="application/json",
+    )
+    payment.refresh_from_db()
+    assert payment.invoiced_amount == Decimal("30000")
+
+    resp = authenticated_client.post(f"/api/v1/contracts/finance/invoices/{uploaded['id']}/detach")
+    assert resp.status_code == 200, resp.content
+    body = resp.json()
+    assert body["invoice"]["payment_id"] is None
+    assert Decimal(body["invoiced_amount"]) == Decimal("0")
+    assert body["invoice_status"] == InvoiceStatus.UNINVOICED
+
+    invoice = Invoice.objects.get(pk=uploaded["id"])
+    assert invoice.payment_id is None
+    assert invoice.contract_id == contract.id  # 退回合同名下，不是变成孤儿
+    payment.refresh_from_db()
+    assert payment.invoiced_amount == Decimal("0")
+    assert payment.invoice_status == InvoiceStatus.UNINVOICED
+
+    # 再挂回正确收款：解除不是单向门
+    resp = authenticated_client.post(
+        f"/api/v1/contracts/finance/invoices/{uploaded['id']}/attach",
+        data={"payment_id": payment.id},
+        content_type="application/json",
+    )
+    assert resp.status_code == 200, resp.content
+    payment.refresh_from_db()
+    assert payment.invoiced_amount == Decimal("30000")
+
+
+@pytest.mark.django_db
+def test_detach_unlinked_invoice_is_rejected(authenticated_client, contract: Contract) -> None:
+    """本来就没挂的票再解绑要报错，而不是静默成功（前端无法区分就无从提示）。"""
+    invoice = Invoice.objects.create(
+        contract=contract, file_path=f"contracts/invoices/c{contract.id}/e.pdf", original_filename="e.pdf"
+    )
+    resp = authenticated_client.post(f"/api/v1/contracts/finance/invoices/{invoice.id}/detach")
+    assert resp.status_code == 400, resp.content
