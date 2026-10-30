@@ -61,7 +61,9 @@ export function DemoButton() {
       const file = await fetchDemoPdf(sc)
       // subject 决定材料包卡片上显示什么标题。不传的话后端会给一个
       // 默认的「前端材料预处理上传材料」—— 演示时看不出这是哪个案子。
-      await uploadPack([file], `${sc.title} · ${file.name}`)
+      // 标题统一加 `[演示]` 前缀：重置时按这个固定标记识别，
+      // 不依赖会变的场景标题（踩过：改标题后旧包清不掉）
+      await uploadPack([file], `[演示] ${sc.title} · ${file.name}`)
 
       toast.success('演示数据已就绪', { id: 'demo', duration: 4000 })
       setOpen(false)

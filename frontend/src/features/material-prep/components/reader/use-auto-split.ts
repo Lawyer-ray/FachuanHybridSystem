@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob } from '../../api'
 import { applyAutoSplit, canAutoSplitMat } from '../../draft'
 import { useReader } from '../../store'
+import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
 import type { PdfSplitSegmentSuggestion } from '../../types'
 import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 
@@ -97,6 +98,32 @@ export function useAutoSplit() {
       for (const result of results) {
         current.update((value) => applyAutoSplit(value, result.mi, result.segments))
       }
+      // ── 自动回填当事人 ──
+      // 分段完成后正文已在草稿里，当事人信息（借款人/银行）也就在里面。
+      // 不回填的话律师得自己翻材料手打一遍右栏那两个框 —— 那正是机器该干的活。
+      // 只填空字段（律师已填/改过的不覆盖），识别不出就留空，不猜。
+      // ⚠️ 必须判空：单测里 store 的 draft 可能是 null，直接 detectParties 会抛
+      //    「Cannot read properties of null」，把整条成功路径带崩（实测挂了 6 个用例）。
+      //    现场不会有 null（阅读器打开着才有这个 hook），但测试环境有。
+      let detected: { our: string; their: string } = { our: '', their: '' }
+      try {
+        const draftNow = useReader.getState().draft
+        if (draftNow) {
+          detected = detectParties(draftNow)
+          if (detected.our || detected.their) {
+            current.update((value) => {
+              const { infos, changed } = applyDetectedParties(value.infos, detected)
+              return changed ? { ...value, infos } : value
+            })
+          }
+        }
+      } catch {
+        // 当事人识别是**附加价值**，失败不能拖垮分段主流程 ——
+        // 分段成功才是主线，识别不到就留空让律师自己填。
+        // 不加这层 try，测试环境里 draft 字段不全就会把整条成功路径带崩
+        // （实测挂了 6 个用例，toast 一个都没弹）。
+      }
+
       const count = results.reduce((sum, item) => sum + item.segments.length, 0)
       // 分段后端可观测：律所 AI 失败会静默降级规则引擎，得让用户知道拿到的是哪种质量
       const llmCount = results.filter((item) => item.segmentBackend === 'llm').length
@@ -104,7 +131,10 @@ export function useAutoSplit() {
       if (failures.length) {
         toast.warning(`${results.length} 个 PDF 已写入草稿（${backendNote}），${failures.length} 个识别失败，可稍后重试`)
       } else {
-        toast.success(`云端识别完成（${backendNote}），已将 ${count} 个候选分段写入草稿；未识别材料仍需人工归类`)
+        const filled = detected.our || detected.their ? '；已自动填入当事人' : ''
+        toast.success(
+          `云端识别完成（${backendNote}），已将 ${count} 个候选分段写入草稿${filled}；未识别材料仍需人工归类`,
+        )
       }
     } catch (error) {
       // 组件已卸载（关掉阅读器）或这次 run 已被新 run 取代：静默返回，不弹错误

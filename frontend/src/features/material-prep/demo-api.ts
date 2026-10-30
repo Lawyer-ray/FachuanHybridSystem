@@ -122,15 +122,20 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
 export const DEMO_TAG = '[演示]'
 
 /**
- * 演示材料包的标题前缀。用于识别「这包是演示生成的」——
- * 清理时按它匹配，不碰用户自己上传的材料包。
+ * 演示材料包的固定标题前缀。
+ *
+ * ⚠️ 一开始我是按「场景标题关键词」匹配（银行移交材料 / 消费贷批量 / 二审收案），
+ *    结果改了场景标题之后，上一轮用旧标题建的包就再也清不掉了 ——
+ *    用户点演示，看到「待处理」里还躺着一个 12/12 已归类的包。
+ *    按会变的东西做匹配，必然漏。
+ *
+ * 现在统一加 `[演示]` 前缀：与案件名同一套标记，标题怎么改都认得出。
  */
-const DEMO_SUBJECT_HINTS = ['银行移交材料', '消费贷批量', '二审收案']
+const DEMO_PACK_PREFIX = '[演示]'
 
-/** 这一包是不是演示生成的（按标题前缀判断，不看 id） */
+/** 这一包是不是演示生成的（看固定前缀，不看 id、不看场景名） */
 function isDemoPack(subject: string | null | undefined): boolean {
-  const s = subject ?? ''
-  return DEMO_SUBJECT_HINTS.some((h) => s.includes(h))
+  return (subject ?? '').startsWith(DEMO_PACK_PREFIX)
 }
 
 /**
