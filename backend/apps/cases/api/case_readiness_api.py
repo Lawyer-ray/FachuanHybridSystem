@@ -46,7 +46,10 @@ def case_material_status(request: HttpRequest, case_id: int) -> Any:  # pragma: 
     律师最常问的是「这件能不能递」，所以单独给 `ready`（只看 miss，stale 不阻塞）。
     """
     get_request_access_context(request)  # 触发鉴权上下文，非法用户直接 401/403
-    return _materials().status_of(case_id)
+    # 槽位按案件当前阶段自动选：一审问「合同/借据/流水/催收」，
+    # 二审问「一审判决书/上诉状/答辩状/一审卷宗」。两套不可混用，
+    # 混了就会出现「二审案缺催收记录」这种律师一眼看穿的错。
+    return _materials().status_of(case_id, mode=_materials().mode_of(case_id))
 
 
 @router.get("/{case_id}/readiness", response=CaseReadinessOut)

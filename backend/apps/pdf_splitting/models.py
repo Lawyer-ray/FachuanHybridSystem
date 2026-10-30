@@ -50,6 +50,22 @@ class PdfSplitSegmentType(models.TextChoices):
     DELIVERY_NOTE = "delivery_note", "送货单"
     GOODS_RECEIPT = "goods_receipt", "收货单"
     INVOICE = "invoice", "发票"
+    # ── 诉讼程序类文书 ──
+    #
+    # ⚠️ 这一组是后补的，补之前模型认不出它们：判决书/上诉状/答辩状
+    # 全部落到 unrecognized，律师看到「未识别材料」而文件名明明是对的。
+    # 根因是原枚举只覆盖了**一审起诉**的材料清单（起诉状/证据清单/借款合同…），
+    # 二审、执行、再审阶段的文书一个都没有。
+    # 拆解是「收到什么拆什么」，不能只认一个阶段。
+    JUDGMENT = "judgment", "判决书"
+    RULING = "ruling", "裁定书"
+    MEDIATION_STATEMENT = "mediation_statement", "调解书"
+    APPEAL_PETITION = "appeal_petition", "上诉状"
+    DEFENSE_STATEMENT = "defense_statement", "答辩状"
+    RETRIAL_APPLICATION = "retrial_application", "再审申请书"
+    ENFORCEMENT_APPLICATION = "enforcement_application", "执行申请书"
+    COURT_RECORD = "court_record", "庭审笔录"
+    AGENT_OPINION = "agent_opinion", "代理词"
     UNRECOGNIZED = "unrecognized", "未识别材料"
 
 

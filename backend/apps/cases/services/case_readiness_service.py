@@ -23,6 +23,30 @@ from apps.cases.models import Case, CaseMaterial, CaseNumber, CaseParty
 
 # ───────────────────────── 材料齐备度 ─────────────────────────
 
+# ── 二审答辩材料槽位 ──
+#
+# ⚠️ 二审答辩与一审起诉要的材料**完全不是一套**，不能共用：
+#   一审问「合同/借据/流水/催收」——那是证明借贷关系与逾期事实；
+#   二审问「一审判决书/上诉状/答辩状/一审卷宗」——那是针对上诉理由逐条反驳。
+# 如果二审还按一审的槽位判，会得到两条荒谬结论：
+#   · 二审案「缺催收记录」——二审根本不举证这个，一审已经举过了；
+#   · 二审案「材料齐备」而手上没有答辩状——真正该交的那份没检查。
+# 实测就是这么错的：二审案被判「2/5 缺 3 项（借据/流水/催收）」，
+# 而律师手上真正缺的是答辩状，报告里一个字没提。
+APPEAL_REQUIRED_SLOTS: list[tuple[str, str]] = [
+    ("judgment", "一审判决书"),
+    ("appeal_petition", "上诉状"),
+    ("defense", "答辩状"),
+    ("first_instance_file", "一审卷宗材料"),
+]
+
+APPEAL_SLOT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "judgment": ("判决书", "判决", "裁定书", "调解书"),
+    "appeal_petition": ("上诉状", "上诉", "上诉理由"),
+    "defense": ("答辩状", "答辩", "答辩意见"),
+    "first_instance_file": ("一审", "原审", "卷宗", "庭审笔录", "证据"),
+}
+
 # 立案必需的材料槽位（key → 中文名）。
 # 为什么要在这里定一份而不是查 CaseMaterialType 表：
 #   类型表是律所可自定义的（每个所的叫法不同），但「哪些是立案必需」是
@@ -83,10 +107,51 @@ def _pack_readiness(case: Case, mode: str, checks: list[dict[str, Any]]) -> dict
 class MaterialStatusService:
     """材料齐备度：回答「这件能不能递立案」。"""
 
-    def status_of(self, case_id: int) -> dict[str, Any]:
+    def mode_of(self, case_id: int) -> str:
+        """按案件当前阶段判断该用哪套材料槽位：appeal / filing。
+
+        与 CaseReadinessService.APPEAL_STAGES 同一口径（含历史中文存量），
+        两处不一致会导致「就绪度说按二审算、材料齐备说按一审算」。
+        """
+        case = Case.objects.filter(id=case_id).only("current_stage").first()
+        if case is None:
+            return "filing"
+        stage = (case.current_stage or "").strip()
+        return "appeal" if stage in CaseReadinessService.APPEAL_STAGES else "filing"
+
+    def status_of(self, case_id: int, *, mode: str = "filing") -> dict[str, Any]:
+        """材料齐备度。
+
+        mode:
+          filing  → 一审起诉要件（合同/借据/流水/催收/身份/担保）
+          appeal  → 二审答辩要件（一审判决书/上诉状/答辩状/一审卷宗）
+
+        两套槽位不可混用，原因见 APPEAL_REQUIRED_SLOTS 的注释。
+        """
         case = Case.objects.filter(id=case_id).first()
         if case is None:
             raise ValueError(f"案件不存在: {case_id}")
+
+        is_appeal = mode == "appeal"
+        slots_def = APPEAL_REQUIRED_SLOTS if is_appeal else REQUIRED_SLOTS
+        slot_kw = APPEAL_SLOT_KEYWORDS if is_appeal else SLOT_KEYWORDS
+        weak_def: dict[str, tuple[str, ...]] = (
+            {
+                "judgment": ("裁判", "生效"),
+                "appeal_petition": (),
+                "defense": ("反驳",),
+                "first_instance_file": ("一审卷",),
+            }
+            if is_appeal
+            else {
+                "contract": ("借款", "贷款", "授信", "合同"),
+                "iou": ("出账", "提款"),
+                "stmt": ("还本付息",),
+                "coll": ("催款",),
+                "id": ("主体资格", "金融许可证", "户口"),
+                "guarantee": ("抵押", "质押", "担保函"),
+            }
+        )
 
         # 取本案全部材料的可读名，用于关键词归位。
         # ⚠️ 字段名要按真实模型来：
@@ -109,15 +174,7 @@ class MaterialStatusService:
                 fname = getattr(att, "original_filename", "") or getattr(att, "relative_file_path", "")
             names.append(str(getattr(m, "type_name", "") or "") + " " + str(fname))
 
-        # 弱关键词：单独出现不足以认定该槽位，只在前一轮没命中时兑底
-        WEAK = {
-            "contract": ("借款", "贷款", "授信", "合同"),
-            "iou": ("出账", "提款"),
-            "stmt": ("还本付息",),
-            "coll": ("催款",),
-            "id": ("主体资格", "金融许可证", "户口"),
-            "guarantee": ("抵押", "质押", "担保函"),
-        }
+        WEAK = weak_def
 
         # ═══ 全局分配而非逐槽独立匹配 ═══
         # 逐槽独立匹配会让同一份材料喂给多个槽位：《借款借据（放款凭证）》同时
@@ -130,16 +187,16 @@ class MaterialStatusService:
         #
         # 只有这样「借据」才能先占住 iou，contract 再去抢别的东西。
         claimed: set[int] = set()
-        matched_by_key: dict[str, list[str]] = {k: [] for k, _ in REQUIRED_SLOTS}
+        matched_by_key: dict[str, list[str]] = {k: [] for k, _ in slots_def}
 
         def _short(hay: str, mid: int) -> str:
             return hay.strip().split("/")[-1] or f"材料#{mid}"
 
         for use_weak in (False, True):
-            for key, _label in REQUIRED_SLOTS:
+            for key, _label in slots_def:
                 if matched_by_key[key]:
                     continue  # 上一轮已经命中，不再追加
-                pool = SLOT_KEYWORDS.get(key, ()) if not use_weak else WEAK.get(key, ())
+                pool = slot_kw.get(key, ()) if not use_weak else WEAK.get(key, ())
                 for m, hay in zip(materials, names):
                     if m.id in claimed:
                         continue
@@ -149,13 +206,13 @@ class MaterialStatusService:
                         break  # 一个槽位只认第一份最合适的
 
         slots: list[dict[str, Any]] = []
-        for key, label in REQUIRED_SLOTS:
+        for key, label in slots_def:
             matched = matched_by_key[key]
-            kws = SLOT_KEYWORDS.get(key, ())
+            kws = slot_kw.get(key, ())
 
             if not matched:
                 # 担保合同：无保证人的案件视为不适用，不算缺件
-                if key == "guarantee" and not _has_guarantor(case_id):
+                if not is_appeal and key == "guarantee" and not _has_guarantor(case_id):
                     slots.append(
                         {
                             "key": key,
@@ -386,8 +443,8 @@ class CaseReadinessService:
             }
         )
 
-        # ④ 材料齐备（答辩材料同样要齐）
-        ms = self.material.status_of(case.id)
+        # ④ 材料齐备 —— 用**二审自己的槽位**，不是一审那套
+        ms = self.material.status_of(case.id, mode="appeal")
         checks.append(
             {
                 "key": "materials",
