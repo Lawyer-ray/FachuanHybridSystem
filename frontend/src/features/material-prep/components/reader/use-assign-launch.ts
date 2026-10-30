@@ -92,8 +92,13 @@ export function useAssignLaunch(params: {
             : '案件已创建，但材料绑定未成功 —— 可到办案详情手动上传',
         duration: 5000,
       })
-      // 归案后跳到该案件，让用户看到结果（此前只弹 toast，用户以为没成）
-      void navigate(`/projects/${r.caseId}`)
+      // 归案后跳到该项目，让用户看到结果（此前只弹 toast，用户以为没成）。
+      //
+      // ⚠️ /projects/:id 的 :id 是**委托合同 id**，不是案件 id（见 paths.ts）。
+      //    我一开始传的是 caseId，打开就报「合同 482 不存在」——
+      //    这两个 id 各自独立自增，传错不一定报错、可能打开到别人家的合同。
+      //    没有合同（建合同失败）时退回办案详情，按案件视角看。
+      void navigate(r.contractId != null ? `/projects/${r.contractId}` : `/bank-litigation/${r.caseId}`)
     } catch (e) {
       toast.error(`归案失败：${errMessage(e)}`, { id: 'assign', duration: 6000 })
     }

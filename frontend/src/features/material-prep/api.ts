@@ -413,6 +413,10 @@ export async function assignPack(opts: {
             case_type: 'civil',
             status: 'active',
             start_date: new Date().toISOString().slice(0, 10),
+            // ⚠️ 必须给代理阶段：不给的话详情页显示
+            //    「合同没有勾选代理阶段，也还没有立案的程序」，
+            //    左栏的程序节点条也画不出来。
+            representation_stages: ['first_trial', 'second_trial', 'enforcement'],
             lawyer_ids: [me],
             fee_mode: 'FIXED',
             fixed_amount: 5000,
