@@ -2,6 +2,7 @@ import { Link2, Loader2, PackagePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { PREP_STAGES, type PrepStage } from '../stages'
+import { DemoButton } from './DemoButton'
 
 /**
  * 预处理页头部：一级阶段页签（收件箱 / 待处理 / 已归案 / 不接归档）+ 右侧全局动作。
@@ -62,6 +63,10 @@ export function DeskTabs({
           <Link2 className="h-4 w-4" />
           客户链接
         </Button>
+        {/* 演示：一键铺好演示数据（建合同/案件/当事人 + 整包 PDF 进收件箱）。
+            放在「新建材料包」左边 —— 两者语义同类（都是往系统送一包材料），
+            演示的这包是准备好的。 */}
+        <DemoButton />
         <Button onClick={onPickFiles} disabled={uploading} size="sm">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
           新建材料包
