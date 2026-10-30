@@ -103,7 +103,7 @@ export function Reader() {
         onOcrOk={ocrOk}
         showAssign={showAssign}
         onAssignCancel={() => store.setAssignOpen(false)}
-        onAssignConfirm={launch.onAssignConfirm}
+        onAssignConfirm={(a) => void launch.onAssignConfirm(a)}
         deleteTarget={actions.deleteTarget}
         onDeleteCancel={() => actions.setDeleteTarget(null)}
         onDeleteConfirm={actions.confirmDelete}

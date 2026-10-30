@@ -70,6 +70,8 @@ export function useReaderScreen() {
 
   const launch = useAssignLaunch({
     draft: readyDraft,
+    // 归案要拿原始附件，必须有消息 id
+    messageId: openId ?? 0,
     // 材料归属里的案件/合同 id 才是项目的锚点；没归到项目就在预处页停下来
     projectId: detail?.draft_state?.assign?.caseId,
     navigate,
