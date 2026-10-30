@@ -20,8 +20,6 @@ import type { components } from '@/types/api-schema'
 
 const casesApi = createApiClient({ prefix: '/api/v1/cases' })
 const clientApi = createApiClient({ prefix: '/api/v1/client' })
-/** 合同+案件一次性创建（后端 ContractWithCasesIn），比连调两个接口稳 */
-const fullContractApi = createApiClient({ prefix: '/api/v1/contracts' })
 
 /** 演示可选的三个场景，与 public/demo-materials/ 下的文件一一对应 */
 export interface DemoScenario {
@@ -33,6 +31,8 @@ export interface DemoScenario {
   stage: string
   subject: string
   cause: string
+  /** 管辖法院（决定一张网立案能否推、起诉条件「管辖」是否通过） */
+  court: string
   plaintiff: { name: string; legalRep: string; address: string }
   defendants: { name: string; idNumber: string; address: string }[]
   targetAmount: string
@@ -59,6 +59,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     point: '一份框架协议 + 5 笔提款，每笔「合同→凭证→明细」三件套 —— 最能体现批量能力',
     file: '/demo-materials/1-第一次提交证据（整包扫描件）.pdf',
     stage: 'first_trial',
+    court: '某某市某某区人民法院',
     subject: '系列借款合同纠纷',
     cause: '金融借款合同纠纷',
     plaintiff: {
@@ -83,6 +84,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     point: '银行档案里的原始材料：借款合同 / 借据 / 流水 / 催收 / 身份材料',
     file: '/demo-materials/银行移交材料包（起诉用·整包扫描件）.pdf',
     stage: 'first_trial',
+    court: '某某市某某区人民法院',
     subject: '金融借款合同纠纷',
     cause: '金融借款合同纠纷',
     plaintiff: {
@@ -102,6 +104,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
     point: '法院送达的一审判决书 + 对方提交的上诉状 + 一审卷宗',
     file: '/demo-materials/二审收案材料包（整包扫描件）.pdf',
     stage: 'second_trial',
+    court: '某某市中级人民法院',
     subject: '金融借款合同纠纷（二审）',
     cause: '金融借款合同纠纷',
     plaintiff: {
@@ -230,65 +233,91 @@ export async function seedDemoScenario(sc: DemoScenario): Promise<{
     if (id) defendantIds.push(id)
   }
 
-  // ② 合同 + 案件（一次建完）
+  // ② 合同（委托关系）
+  const contract = await createContract(sc, me, plaintiffClientId)
+
+  // ③ 案件 —— 用 /cases/cases/full 一次建齐：
+  //    case + parties + assignments + supervising_authorities
+  //
+  // ⚠️ 为什么不再走 /contracts/contracts/full 顺带建案：
+  //    实测那条路径**会丢掉 supervising_authorities**（传了也不落库），
+  //    结果是起诉条件「管辖」判失败、一张网立案面板显示「未登记」，
+  //    演示到那一步就卡住了。而 /cases/cases/full 明确支持这四项。
   const caseName = `${DEMO_TAG} ${sc.defendants.map((d) => d.name.replace(`${DEMO_TAG} `, '')).join('、')}${sc.subject}`
-  const body = {
-    name: `${DEMO_TAG} ${sc.plaintiff.name.replace(`${DEMO_TAG} `, '')}诉讼委托`,
-    case_type: 'civil',
-    status: 'active',
-    start_date: today(),
-    representation_stages: [sc.stage],
-    // ⚠️ 三个都是后端硬校验，缺一个就 422：
-    //    lawyer_ids 空数组 → 「至少需要指派一个律师」
-    //    fee_mode=FIXED 不给 fixed_amount → 「固定收费需填写金额」
-    lawyer_ids: [me],
-    fee_mode: 'FIXED',
-    fixed_amount: 5000,
-    parties: plaintiffClientId ? [{ client_id: plaintiffClientId, role: 'PRINCIPAL' }] : [],
-    cases: [
-      {
-        name: caseName,
-        case_type: 'civil',
-        status: 'active',
-        current_stage: sc.stage,
-        cause_of_action: sc.cause,
-        target_amount: sc.targetAmount,
-        start_date: today(),
-        // 被告挂到案件上（合同的 parties 只记委托方）
-        parties: defendantIds.map((id) => ({ client_id: id, legal_status: 'defendant' })),
+  const parties = [
+    ...(plaintiffClientId ? [{ client_id: plaintiffClientId, legal_status: 'plaintiff' }] : []),
+    ...defendantIds.map((id) => ({ client_id: id, legal_status: 'defendant' })),
+  ]
+
+  const created = await casesApi
+    .post('cases/full', {
+      json: {
+        case: {
+          name: caseName,
+          case_type: 'civil',
+          status: 'active',
+          current_stage: sc.stage,
+          cause_of_action: sc.cause,
+          target_amount: sc.targetAmount,
+        },
+        parties,
+        // 主办律师：不指派的话案件列表显示「未分配」，OA 立案也要求有主办
+        assignments: [{ lawyer_id: me }],
+        // 管辖法院：起诉条件要查它，一张网立案要用它
+        supervising_authorities: [{ name: sc.court, authority_type: 'trial' }],
+        logs: [],
+        case_numbers: [],
       },
-    ],
+    })
+    .json<components['schemas']['CaseOut']>()
+
+  // /cases/cases/full 直接返回 CaseOut（不是 {case: {...}} 包一层）
+  const realName = created?.name ?? caseName
+  let caseId = created?.id != null ? Number(created.id) : null
+
+  // 返回体没给 id 时按名字回查（不猜：查不到就报错，否则后续全对着假 id 调）
+  if (caseId == null) {
+    const list = await casesApi.get('cases').json<components['schemas']['CaseOut'][]>()
+    const hit = list.find((c) => c.name === caseName)
+    if (hit?.id == null) throw new Error('演示数据创建失败：建完案件后查不到（请刷新重试）')
+    caseId = Number(hit.id)
   }
 
-  const created = await fullContractApi
-    .post('contracts/full', { json: body })
-    .json<{ id?: number; case_count?: number }>()
+  return { caseId, contractId: contract?.id ?? null, caseName: realName }
+}
 
-  const contractId = created?.id != null ? Number(created.id) : null
-
-  // ⚠️ 返回体只有 `case_count`，**没有 case id**（实测）。
-  //    所以建完必须按名字回查一次。不猜、不跳过：查不到就报错，
-  //    否则后续所有步骤都会对着一个不存在的 caseId 调接口，
-  //    表现是「案件加载失败」，看不出根因。
-  const list = await casesApi.get('cases').json<components['schemas']['CaseOut'][]>()
-  const hit = list.find((c) => c.name === caseName)
-  if (hit?.id == null) throw new Error('演示数据创建失败：建完案件后查不到（请刷新重试）')
-  const caseId = Number(hit.id)
-  const realName = hit.name ?? caseName
-
-  // ④ 兜底补齐案件的关键字段。
-  //    `/contracts/contracts/full` 建出来的案件实测 **current_stage 为空**
-  //    （只落了 name/case_type/target_amount/parties），而 current_stage 决定
-  //    整包分段用哪个模板、起诉条件走哪套校验 —— 空阶段会让二审案按一审校验。
-  //    所以这里显式补一次 PUT，不依赖 full 接口把每个字段都透传。
-  await ensureCaseFields(caseId, sc)
-
-  // ③ 原告也要挂到案件上 —— 否则一张网立案会判「我方不是原告方」
-  if (plaintiffClientId) {
-    await addCaseParty(caseId, plaintiffClientId, 'plaintiff')
+/** 建合同（失败不阻断：案件可以没有合同，只是 OA 立案用不了） */
+async function createContract(
+  sc: DemoScenario,
+  me: number,
+  plaintiffClientId: number | null,
+): Promise<{ id: number; name: string } | null> {
+  try {
+    const api = createApiClient({ prefix: '/api/v1/contracts' })
+    const name = `${DEMO_TAG} ${sc.plaintiff.name.replace(`${DEMO_TAG} `, '')}诉讼委托`
+    const r = await api
+      .post('contracts/full', {
+        json: {
+          name,
+          case_type: 'civil',
+          status: 'active',
+          start_date: today(),
+          representation_stages: [sc.stage],
+          // 三个都是后端硬校验，缺一个就 422：
+          //   lawyer_ids 空 → 「至少需要指派一个律师」
+          //   fee_mode=FIXED 不给 fixed_amount → 「固定收费需填写金额」
+          lawyer_ids: [me],
+          fee_mode: 'FIXED',
+          fixed_amount: 5000,
+          parties: plaintiffClientId ? [{ client_id: plaintiffClientId, role: 'PRINCIPAL' }] : [],
+          cases: [],
+        },
+      })
+      .json<{ id?: number; name?: string }>()
+    return r?.id ? { id: Number(r.id), name: r.name ?? name } : null
+  } catch {
+    return null
   }
-
-  return { caseId, contractId, caseName: realName }
 }
 
 /**
@@ -366,40 +395,7 @@ async function ensureClient(p: {
   }
 }
 
-/**
- * 确保案件带上 current_stage / cause_of_action 这些「决定后续行为」的字段。
- *
- * 为什么单独一步：full 接口建案时这些字段没有落库（实测 current_stage 为空）。
- * 而 current_stage 是**分段模板与校验规则的分流依据** —— 为空时二审案会按
- * 一审流程走，材料齐备度会去问「催收记录」而不是「答辩状」。
- * 宁可多调一次接口，也不要让演示走到一半才发现阶段丢了。
- */
-async function ensureCaseFields(caseId: number, sc: DemoScenario): Promise<void> {
-  try {
-    await casesApi.put(`cases/${caseId}`, {
-      json: {
-        name: undefined, // 不改名字（PUT 是全量语义，没给的字段后端会保留）
-        current_stage: sc.stage,
-        cause_of_action: sc.cause,
-        target_amount: sc.targetAmount,
-        start_date: today(),
-      },
-    })
-  } catch {
-    /* 补字段失败不阻断：页面会显示「阶段未设」，律师一眼能看出 */
-  }
-}
 
-/** 把客户挂成案件当事人。失败不阻断（页面会如实显示「原告 缺」） */
-async function addCaseParty(caseId: number, clientId: number, legalStatus: string): Promise<void> {
-  try {
-    await casesApi.post('parties', {
-      json: { case_id: caseId, client_id: clientId, legal_status: legalStatus },
-    })
-  } catch {
-    /* 已存在或字段不符都不阻断演示 */
-  }
-}
 
 /** 取演示用整包 PDF：从 public/ 取，不依赖本地文件系统路径 */
 export async function fetchDemoPdf(sc: DemoScenario): Promise<File> {
