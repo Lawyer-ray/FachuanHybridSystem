@@ -19,6 +19,7 @@
 
 import { chromium } from '/Users/huangsong21/node_modules/playwright/index.mjs'
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 
 const BASE = process.env.BASE || 'http://127.0.0.1:5090'
 const API = process.env.API || 'http://127.0.0.1:8002'
@@ -242,6 +243,52 @@ async function main() {
     log(courtText.includes('未配置一张网'), '缺一张网凭证时前置拦截并说明原因')
   }
 
+  // 演示卷宗里的第一份 PDF —— 必须取**已绑定目录**里的文件。
+  //
+  // 踩过：一开始取 mock-out/ 下的 PDF，反查一律 404。
+  // 因为 lookup 是按文件所在目录查 CaseFolderBinding 的，
+  // mock-out 不是任何案件的绑定目录。seed 已把 PDF 复制进
+  // ~/Downloads/原型演示卷宗/<案>/，那里才是绑定目录。
+  const demoFile = await (async () => {
+    // 优先问后端要（从演示案件的文件夹绑定读，永远与库一致）
+    const cases2 = await apiGet('/cases/cases')
+    const demoCase = (cases2.body ?? []).find((c) => c.name?.startsWith('[原型演示]'))
+    if (demoCase) {
+      const r = await fetch(`${API}/api/v1/cases/${demoCase.id}/folder-binding`, { headers: auth })
+      if (r.ok) {
+        const b = await r.json().catch(() => null)
+        const dir = b?.folder_path
+        if (dir) {
+          try {
+            const f = readdirSync(dir).find((x) => x.endsWith('.pdf'))
+            if (f) return `${dir}/${f}`
+          } catch {
+            /* 目录不在本机就跳过 */
+          }
+        }
+      }
+    }
+    // 兜底：直接扫演示卷宗根目录
+    const root = `${homedir()}/Downloads/原型演示卷宗`
+    const stack = [root]
+    while (stack.length) {
+      const dir = stack.pop()
+      let ents = []
+      try {
+        ents = readdirSync(dir, { withFileTypes: true })
+      } catch {
+        continue
+      }
+      for (const e of ents) {
+        const full = `${dir}/${e.name}`
+        if (e.isDirectory()) stack.push(full)
+        else if (e.name.endsWith('.pdf')) return full
+      }
+    }
+    return ''
+  })()
+  log(Boolean(demoFile), '找到演示卷宗文件', demoFile || '（未找到）')
+
   // ── 6.4 OA 立案：真实提交 ──
   // 与一张网不同，OA 走 SSO 扫码登录（企业微信），完整流程要几十秒到几分钟。
   // 这里只断言「点下去确实启动了后台任务」，不断言跑完——
@@ -303,6 +350,37 @@ async function main() {
     log(true, '一张网立案：前置条件未满足，按钮已禁用（符合预期）',
       t.match(/未配置一张网|未登记管辖法院|不是原告方[^。]{0,12}/)?.[0] ?? '')
   }
+
+  // ── 6.6 OA 盖章 / 归档：反查链路 ──
+  // 只验证「反查」这一环（纯查询、无副作用），不真提交：
+  //   真提交会去 OA 搜案号，演示用的案号在真实 OA 里不存在，
+  //   必然 failed —— 那是正确的业务结果，但不该由冒烟测试断言。
+  // 反查通了就说明：文件夹绑定 → 合同 → OA 案号 这条链是好的。
+  for (const [label, path, body] of [
+    ['盖章', '/oa-stamp/lookup', { file_path: demoFile, site_name: '' }],
+    ['归档', '/oa-archive/lookup', { file_paths: [demoFile], site_name: '' }],
+  ]) {
+    const r = await fetch(`${API}/api/v1${path}`, {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json().catch(() => null)
+    const ok = r.status === 200 && d?.contract_id
+    log(ok, `OA${label}：文件路径能反查到合同`,
+      ok ? `contract=${d.contract_id} oa_no=${d.oa_case_number || '(空)'}` : `HTTP ${r.status}`)
+  }
+
+  // ── 6.7 盖章/归档面板 UI ──
+  await page.click('text=OA 盖章')
+  await page.waitForTimeout(700)
+  const stampText = await page.textContent('main')
+  log(stampText.includes('反查合同') && stampText.includes('申请盖章'), 'OA 盖章面板已渲染')
+
+  await page.click('text=OA 归档')
+  await page.waitForTimeout(700)
+  const archText = await page.textContent('main')
+  log(archText.includes('反查合同') && archText.includes('提交归档'), 'OA 归档面板已渲染')
 
   // ── 7. 截图存档 ──
   await page.screenshot({ path: '/tmp/e2e-court.png', fullPage: false })

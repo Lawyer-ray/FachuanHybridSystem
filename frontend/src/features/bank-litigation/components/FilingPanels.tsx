@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { useCaseFilingInfo, useOAConfigs } from '../hooks/use-cases'
 import { useCourtFiling, useOAFiling } from '../hooks/use-auto-run'
 import type { AutoPhase } from '../hooks/use-auto-run'
+import type { FilingEngine, FilingType } from '../types'
 
 /**
  * 立案执行面板 —— 律所 OA 与一张网两个外部系统的入口。
@@ -138,6 +139,14 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
   const info = useCaseFilingInfo(caseId)
   const { state, run, reset } = useCourtFiling()
 
+  /* 立案类型与引擎：后端会给一个建议值（suggested_filing_type / default_filing_engine），
+     但那只是建议 —— 同一件案子可能先起诉后执行，也可能法院插件没装只能走浏览器。
+     所以两个都给用户可改，默认用后端建议。
+     ⚠️ 必须用「用户改过没有」来兜：直接 `useState(info.data?.xxx)` 时，
+     首次渲染 data 还是 null，值会被永久钉在 fallback 上（后端建议形同虚设）。 */
+  const [typeOverride, setTypeOverride] = useState<FilingType | null>(null)
+  const [engineOverride, setEngineOverride] = useState<FilingEngine | null>(null)
+
   if (info.loading) return <LoadingBlock text="正在读取立案信息…" size="sm" />
   if (info.error) {
     return <ErrorBlock error={info.error} fallback="立案信息读取失败" onRetry={info.reload} />
@@ -146,12 +155,26 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
   const i = info.data
   if (!i) return <EmptyBlock>没有可用的立案信息。</EmptyBlock>
 
+  const filingType: FilingType = typeOverride ?? ((i.suggested_filing_type as FilingType) || 'civil')
+  const filingEngine: FilingEngine = engineOverride ?? ((i.default_filing_engine as FilingEngine) || 'api')
+
   const running = state.phase === 'submitting' || state.phase === 'running'
   const blockers: string[] = []
   if (!i.has_court_credential) blockers.push('未配置一张网（法院）账号')
   if (!i.plugin_available) blockers.push('法院立案插件未安装')
   if (!i.our_party_is_plaintiff_side) blockers.push('我方不是原告方，本页只处理起诉立案')
   if (!i.court_name) blockers.push('未登记管辖法院')
+  // 执行立案的前提是有生效裁判文书。后端会在执行时才校验，
+  // 但那时会话已建、浏览器已开，失败得很晚。这里前置提示。
+  //
+  // 判定口径：本案当前阶段已经是执行（说明已经走到这一步），或者
+  // 案件已有登记案号（有一审判决才会立案号）。两者都没有才提示。
+  if (filingType === 'execution') {
+    const alreadyExecution = /执行|enforcement/i.test(i.case_name) || i.court_name != null
+    if (!alreadyExecution) {
+      blockers.push('执行立案需先有生效裁判文书（本案尚未登记案号）')
+    }
+  }
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -167,11 +190,31 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
         <dt className="text-muted-foreground">标的额</dt>
         <dd className="tabular-nums">{i.target_amount ? `¥${i.target_amount}` : '—'}</dd>
         <dt className="text-muted-foreground">立案类型</dt>
-        <dd>
-          {i.suggested_filing_type === 'execution' ? '执行立案' : '民事一审'}
-          <span className="ml-2 text-[11px] text-muted-foreground">
-            （{i.default_filing_engine === 'api' ? '接口引擎' : '浏览器自动化'}）
-          </span>
+        <dd className="flex flex-wrap items-center gap-2">
+          <select
+            value={filingType}
+            onChange={(e) => setTypeOverride(e.target.value as FilingType)}
+            disabled={running}
+            className="h-[24px] rounded-[5px] border border-input bg-background px-1.5 text-[11.5px] outline-none disabled:opacity-60"
+          >
+            <option value="civil">民事一审</option>
+            <option value="execution">执行立案</option>
+          </select>
+          <select
+            value={filingEngine}
+            onChange={(e) => setEngineOverride(e.target.value as FilingEngine)}
+            disabled={running}
+            className="h-[24px] rounded-[5px] border border-input bg-background px-1.5 text-[11.5px] outline-none disabled:opacity-60"
+          >
+            <option value="api">接口引擎</option>
+            <option value="playwright">浏览器自动化</option>
+          </select>
+          {i.suggested_filing_type !== filingType ? (
+            <span className="text-[10.5px] text-status-yellow">
+              已改为「{filingType === 'execution' ? '执行立案' : '民事一审'}」，后端建议是「
+              {i.suggested_filing_type === 'execution' ? '执行立案' : '民事一审'}」
+            </span>
+          ) : null}
         </dd>
       </dl>
 
@@ -197,7 +240,7 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
           disabled={blockers.length > 0 || running}
           onClick={() => {
             reset()
-            void run({ case_id: caseId, filing_type: i.suggested_filing_type, filing_engine: i.default_filing_engine })
+            void run({ case_id: caseId, filing_type: filingType, filing_engine: filingEngine })
           }}
         >
           {running ? <Loader2 className="size-3 animate-spin" /> : <ExternalLink className="size-3" />}

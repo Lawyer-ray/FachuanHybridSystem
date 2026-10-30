@@ -10,6 +10,7 @@ import { fmtMoney } from '../utils'
 import { CourtFilingPanel, OAFilingPanel } from './FilingPanels'
 import { ReadinessPanel } from './ReadinessPanel'
 import { DocConvertPanel } from './DocConvertPanel'
+import { OAArchivePanel, OAStampPanel } from './OAActionPanels'
 import { useCase } from '../hooks/use-cases'
 
 /**
@@ -24,13 +25,21 @@ import { useCase } from '../hooks/use-cases'
  * 从 A 案跳到 B 案时另外三个页面还停在 A，非常容易填错案。
  */
 
-type Section = 'readiness' | 'convert' | 'oa' | 'court'
+type Section = 'readiness' | 'convert' | 'oa' | 'court' | 'stamp' | 'archive'
 
+/**
+ * 分区顺序 = 场景 2 的实际推进顺序：
+ *   能不能立（起诉条件）→ 文书怎么来（要素式转换）→ 在律所 OA 立卷
+ *   → 在法院系统立案 → 材料盖章 → 结案归档
+ * 不按「功能模块」排，按「律师下一步该做什么」排。
+ */
 const SECTIONS: { key: Section; label: string; icon: typeof Gavel }[] = [
   { key: 'readiness', label: '起诉条件', icon: Gavel },
   { key: 'convert', label: '要素式转换', icon: FileText },
   { key: 'oa', label: 'OA 立案', icon: FileText },
   { key: 'court', label: '一张网立案', icon: FileText },
+  { key: 'stamp', label: 'OA 盖章', icon: FileText },
+  { key: 'archive', label: 'OA 归档', icon: FileText },
 ]
 
 export function BankLitigationPage({ initialCaseId }: { initialCaseId?: number | null } = {}) {
@@ -125,6 +134,8 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
           {section === 'convert' ? <DocConvertPanel caseId={caseId} /> : null}
           {section === 'oa' ? <OAFilingPanel caseId={caseId} contractId={contractId} /> : null}
           {section === 'court' ? <CourtFilingPanel caseId={caseId} /> : null}
+          {section === 'stamp' ? <OAStampPanel /> : null}
+          {section === 'archive' ? <OAArchivePanel /> : null}
         </div>
       </div>
     </PageShell>

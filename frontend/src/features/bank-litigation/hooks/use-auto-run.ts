@@ -3,13 +3,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { errMessage } from '@/lib/errors'
 
 import {
+  applyArchive,
+  applyStamp,
   executeCourtFiling,
   executeOAFiling,
+  getArchiveSession,
+  getStampSession,
   getCourtFilingSession,
   getOAFilingSession,
   type ExecuteCourtFilingIn,
   type ExecuteOAFilingIn,
   type OAFilingSession,
+  type StampSessionOut,
+  type ArchiveSessionOut,
 } from '../api'
 
 /** 轮询节奏：2s 一拍，与 court-sms / doc-converter 一致 */
@@ -41,12 +47,10 @@ export interface AutoRunState<TOut> {
   ticks: number
 }
 
-const IDLE = {
-  phase: 'idle' as AutoPhase,
-  session: null,
-  status: '',
-  error: null,
-  ticks: 0,
+/** 初始态工厂。用函数而不是常量：常量 `session: null` 会让 TS 推断成
+ *  `null` 类型，与 `TOut | null` 合并时退化成 `any`，调用点全变 unsafe。 */
+function idleState<TOut>(): AutoRunState<TOut> {
+  return { phase: 'idle', session: null, status: '', error: null, ticks: 0 }
 }
 
 /** 判定会话是否已到终态。后端 status 大小写不统一，统一小写比。 */
@@ -69,12 +73,20 @@ interface SubmitResult {
   status: string
 }
 
+/** useAutoRun 的返回值。显式声明，不靠推断 ——
+ *  两个调用点（OA / 一张网）都用同一形状，推断容易在泛型边界退化成 any。 */
+export interface AutoRun<TOut> {
+  state: AutoRunState<TOut>
+  run: (payload: unknown) => Promise<void>
+  reset: () => void
+}
+
 function useAutoRun<TOut>(
   submit: (payload: unknown) => Promise<SubmitResult>,
   poll: (sessionId: number) => Promise<TOut>,
   readStatus: (s: TOut) => string,
-) {
-  const [state, setState] = useState<AutoRunState<TOut>>(IDLE)
+): AutoRun<TOut> {
+  const [state, setState] = useState<AutoRunState<TOut>>(idleState<TOut>)
   const alive = useRef(true)
 
   useEffect(() => {
@@ -84,11 +96,11 @@ function useAutoRun<TOut>(
     }
   }, [])
 
-  const reset = useCallback(() => setState(IDLE), [])
+  const reset = useCallback(() => setState(idleState<TOut>()), [])
 
   const run = useCallback(
     async (payload: unknown) => {
-      setState({ ...IDLE, phase: 'submitting' })
+      setState({ ...idleState<TOut>(), phase: 'submitting' })
       let sessionId: number
       try {
         // 本 hook 对载荷内容一无所知，只负责把它交给 submit。
@@ -99,13 +111,13 @@ function useAutoRun<TOut>(
         if (sessionId == null) {
           // 后端没给 session：可能是同步完成，也可能直接失败。
           // 不假装成功 —— 把后端的 message 原样抛出。
-          setState({ ...IDLE, phase: 'done', status: r.status })
+          setState({ ...idleState<TOut>(), phase: 'done', status: r.status })
           return
         }
         setState((s) => ({ ...s, phase: 'running', status: r.status }))
       } catch (e) {
         if (!alive.current) return
-        setState({ ...IDLE, phase: 'done', error: errMessage(e) })
+        setState({ ...idleState<TOut>(), phase: 'done', error: errMessage(e) })
         return
       }
 
@@ -151,6 +163,56 @@ export function useOAFiling() {
       return { sessionId: r.id ?? null, status: r.status ?? '' }
     },
     (id) => getOAFilingSession(id),
+    (s) => s.status,
+  )
+}
+
+/**
+ * 盖章 / 归档会话的最小公共形状。
+ *
+ * 为什么需要它：这两个会话结构一致（id/status/error_message），但类型是两个
+ * 不同的生成物。直接写 `useAutoRun<StampSessionOut | ArchiveSessionOut>` 会
+ * 让调用点的条件分支无法收窄；收成结构类型后两边都能赋值。
+ */
+export interface OASessionLike {
+  id: number
+  status: string
+  error_message: string
+}
+
+/**
+ * OA 盖章：提交 → 轮询会话。
+ *
+ * 与 OA 立案的区别在**入参**：立案给 contract_id，盖章给 file_path
+ * （后端按文件路径反查文件夹绑定，再由绑定找合同）。
+ */
+export function useOAStamp(siteName = "") {
+  return useAutoRun<OASessionLike>(
+    async (payload) => {
+      const filePath = payload as string
+      const r: StampSessionOut = await applyStamp({ file_path: filePath, site_name: siteName })
+      return { sessionId: r.id ?? null, status: r.status ?? '' }
+    },
+    async (id): Promise<OASessionLike> => {
+      const r: StampSessionOut = await getStampSession(id)
+      return { id: r.id, status: r.status, error_message: r.error_message }
+    },
+    (s) => s.status,
+  )
+}
+
+/** OA 归档：提交 → 轮询会话（可一次多个文件路径） */
+export function useOAArchive(siteName = "") {
+  return useAutoRun<OASessionLike>(
+    async (payload) => {
+      const filePaths = payload as string[]
+      const r: ArchiveSessionOut = await applyArchive({ file_paths: filePaths, site_name: siteName })
+      return { sessionId: r.id ?? null, status: r.status ?? '' }
+    },
+    async (id): Promise<OASessionLike> => {
+      const r: ArchiveSessionOut = await getArchiveSession(id)
+      return { id: r.id, status: r.status, error_message: r.error_message }
+    },
     (s) => s.status,
   )
 }
