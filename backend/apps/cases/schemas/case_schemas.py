@@ -84,11 +84,65 @@ class CaseOut(ModelSchema):
 
     @staticmethod
     def resolve_parties(obj: Any) -> list:
-        return CaseOut._resolve_list_field(obj, "parties")
+        return CaseOut._as_party_dicts(CaseOut._resolve_list_field(obj, "parties"))
 
     @staticmethod
     def resolve_assignments(obj: Any) -> list:
-        return CaseOut._resolve_list_field(obj, "assignments")
+        return CaseOut._as_assignment_dicts(CaseOut._resolve_list_field(obj, "assignments"))
+
+    # ── 嵌套对象为什么要先转 dict ──
+    #
+    # CasePartyOut / CaseAssignmentOut 是 ModelSchema（ninja 的 ORM → schema 映射），
+    # 它们的 `case` / `client` 外键会被渲染成 `case_id` / `client_id` 这两个整数键。
+    # 而 resolve_* 返回的是**未序列化的 Django 模型实例**，pydantic 拿到实例后
+    # 走的是 model_validate（不是 from_orm），取 `case_id` 时拿不到 ——
+    # 报 5 个 "Field required" 然后接口 500。
+    #
+    # 实测：POST /cases/cases/full 一直 500，日志是
+    #   5 validation errors for CaseFullOut / case.parties.0.case_id Field required
+    # 而 GET /cases/{id} 不炸，因为它走 CaseOut.from_orm（orm_mode 生效）。
+    # 这里显式把实例转成 ModelSchema 期望的 dict，两条路径就一致了。
+    @staticmethod
+    def _as_party_dicts(items: list) -> list:
+        out = []
+        for it in items or []:
+            if isinstance(it, dict):
+                out.append(it)
+                continue
+            d = {
+                "id": getattr(it, "id", None),
+                # ⚠️ 键名是 `case_id` / `client_id`（带 _id 后缀），
+                #    不是 `case` / `client`。ModelSchema 把外键渲染成 `<field>_id`，
+                #    写成 `case` 会继续报 "case_id Field required"——实测踩过。
+                "case_id": getattr(it, "case_id", None),
+                "client_id": getattr(it, "client_id", None),
+                "legal_status": getattr(it, "legal_status", ""),
+            }
+            # client_detail 要的是**完整的 Client 对象**（ClientOut 有 id/name/... 一堆必填），
+            # 只给 client_id 那个整数会让 resolver 拿到 DjangoGetter: 495，
+            # 然后报十几个 "Field required"。这里把关联对象一起传给 resolver。
+            d["client_detail"] = getattr(it, "client", None)
+            d["client"] = getattr(it, "client", None)
+            out.append(d)
+        return out
+
+    @staticmethod
+    def _as_assignment_dicts(items: list) -> list:
+        out = []
+        for it in items or []:
+            if isinstance(it, dict):
+                out.append(it)
+                continue
+            out.append(
+                {
+                    "id": getattr(it, "id", None),
+                    # 同上：键名带 _id 后缀
+                    "case_id": getattr(it, "case_id", None),
+                    "lawyer_id": getattr(it, "lawyer_id", None),
+                    "lawyer_detail": getattr(it, "lawyer", None),
+                }
+            )
+        return out
 
     @staticmethod
     def resolve_logs(obj: Any) -> list:

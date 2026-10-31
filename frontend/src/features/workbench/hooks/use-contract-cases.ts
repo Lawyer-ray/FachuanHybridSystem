@@ -40,7 +40,8 @@ export function useContractCases(contractId: number | null): {
     isLoading: contractId != null && query.isPending,
     error: query.error ? errMessage(query.error, '案件加载失败') : null,
     refetch: () => {
-      void query.refetch()
+      // 与 use-deal-detail 同口径：不取消在途请求，避免旧响应盖新数据
+      void query.refetch({ cancelRefetch: false })
     },
   }
 }

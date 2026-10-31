@@ -23,7 +23,7 @@ class InvoiceUploadService:
     ) -> Invoice:  # pragma: no cover
         """保存发票文件并创建 Invoice 记录。文件保存失败时抛出异常，不创建 DB 记录。
 
-        挂靠二选一：`payment_id`（已核销收款）或 `contract_id`（先开票后付款，
+        挂靠二选一：`payment_id`（已归属收款）或 `contract_id`（先开票后付款，
         票先挂在合同名下）。未关联收款的发票落到 `contracts/invoices/c{合同id}/`，
         日后关联收款时**不搬文件**——`file_path` 只是存储位置。
         """

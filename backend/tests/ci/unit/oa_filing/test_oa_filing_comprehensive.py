@@ -799,9 +799,22 @@ class TestJtnModels:
 
 class TestSchemas:
     def test_filing_schemas_import(self) -> None:
-        from apps.oa_filing.schemas.filing_schemas import SessionOut
+        from apps.oa_filing.schemas.filing_schemas import FilingSessionOut
 
-        assert SessionOut is not None
+        assert FilingSessionOut is not None
+
+    def test_filing_session_schema_keeps_its_own_fields(self) -> None:
+        """立案会话的 schema 必须留在 components 里，不能被 social_auth 的同名类顶掉。
+
+        OpenAPI 的 components.schemas 以**类名**为 key。改名前这里叫 SessionOut，
+        与 social_auth.SessionOut 撞名，导出物里只剩登录票据那一个（success/goto/
+        state/expires_in/message），**没有 id**。前端照契约写就永远拿不到
+        session_id。这条测试盯住类名带领域前缀这件事，别再退回去。
+        """
+        from apps.oa_filing.schemas.filing_schemas import FilingSessionOut
+
+        fields = set(FilingSessionOut.model_fields)
+        assert {"id", "status", "error_message", "created_at"} <= fields
 
     def test_case_import_schemas_import(self) -> None:
         from apps.oa_filing.schemas.case_import_schemas import CaseImportSessionOut

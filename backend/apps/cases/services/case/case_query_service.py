@@ -19,6 +19,29 @@ from .case_search_service import CaseSearchService
 class CaseQueryService(PermissionMixin):
     """案件查询服务，封装所有案件读取业务逻辑。"""
 
+    def get_case_model_with_relations(self, case_id: int) -> Any | None:
+        """按 id 取 Case 模型实例，并预加载序列化所需关联。
+
+        专供「写入后重读」场景（如 create_case_full）：bulk_create 出来的
+        parties/assignments 没有预加载 client/lawyer，直接序列化会 500。
+        预加载清单必须与 GET /cases/{id} 的序列化路径一致，否则两条路径
+        返回的形状会一起跑偏。
+
+        返回模型实例（非 dict），便于调用方复用同一个序列化器。
+        """
+        return (
+            Case.objects.select_related("contract")
+            .prefetch_related(
+                "parties__client",
+                "assignments__lawyer__law_firm",
+                "logs",
+                "case_numbers",
+                "supervising_authorities",
+            )
+            .filter(pk=case_id)
+            .first()
+        )
+
     def __init__(
         self,
         search_service: CaseSearchService | None = None,

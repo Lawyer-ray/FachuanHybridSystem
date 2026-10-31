@@ -27,6 +27,8 @@ vi.mock('../../api', async (importOriginal) => ({
   copyFolderEntry: vi.fn(),
   deleteFolderEntry: vi.fn(),
   listContractInvoices: vi.fn().mockResolvedValue([]),
+  attachPaymentInvoice: vi.fn(),
+  detachPaymentInvoice: vi.fn(),
 }))
 
 // OnlyOffice 画布不走真 DS：只断言挂载参数（URL 落在哪个业务通道）
@@ -39,6 +41,7 @@ vi.mock('@/components/shared/onlyoffice/OfficeView', () => ({
 }))
 
 import {
+  attachPaymentInvoice,
   getCaseFolderBinding,
   getContract,
   listCasesByContract,
@@ -552,7 +555,7 @@ describe('DealDetailPage 右栏与档案', () => {
     expect(rail.contains(screen.getByText('＋ 记收款'))).toBe(true)
   })
 
-  it('收费节钱票分开：收款行带开票状态徽标，发票行列重命名文件 + 待核销标记 + 复制文件按钮', async () => {
+  it('收费节钱票分开：收款行带开票状态徽标，发票行列重命名文件 + 未关联收款标记 + 复制文件按钮', async () => {
     vi.mocked(listContractInvoices).mockResolvedValueOnce([
       {
         id: 11,
@@ -592,14 +595,74 @@ describe('DealDetailPage 右栏与档案', () => {
     const invoicedTexts = await screen.findAllByText('已开票')
     expect(invoicedTexts.length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('前期律师费')).toBeTruthy()
-    // 发票线：重命名文件名原样可见；未核销的票带「待核销」；每行有复制文件按钮
+    // 发票线：重命名文件名原样可见；尚未归属收款的票带「未关联收款」；每行有复制文件按钮
     const invoiceName = await screen.findByText(/发票（某银行.*20260401开具\.pdf/)
     expect(screen.getAllByTitle(/复制文件/).length).toBe(2) // 每张发票一个复制按钮
     const fee = screen.getByText('收费', { selector: 'h4' }).closest('div')!.parentElement!
-    expect(within(fee).getByText('待核销 1 张')).toBeTruthy() // 小节计数（右栏眉头）
-    expect(within(fee).getAllByText('待核销', { exact: true }).length).toBe(1) // 行内徽标
+    expect(within(fee).getByText('未关联收款')).toBeTruthy() // 分组眉头（只提示一次，不逐行重复）
+    expect(within(fee).getByText('· 1 张待处理')).toBeTruthy()
+    // 未关联的票必须给得出「关联」按钮——合同只有一笔收款时也要有入口
+    // （曾经只在多笔收款时渲染，结果页面上根本没有可点的按钮）
+    expect(within(fee).getByRole('button', { name: /关联到 ¥50,000 那笔收款/ })).toBeTruthy()
+    // 已归属的单据：单笔收款没有别的去处，不给「改挂」；「解除关联」保留，作为挂错的出口
+    expect(within(fee).getByRole('button', { name: '解除关联' })).toBeTruthy()
     expect(within(fee).getAllByText('¥50000.00').length).toBeGreaterThan(0)
     expect(invoiceName).toBeTruthy()
+  })
+
+  it('点「关联」后局部刷新：重新拉合同（已开票金额跟着变），不需要手动刷页面', async () => {
+    // 关联前：一张未归属的票、已开票 ¥0
+    vi.mocked(listContractInvoices).mockResolvedValue([
+      {
+        id: 21,
+        payment_id: null,
+        original_filename: 'c.pdf',
+        display_filename: '发票（某银行与某公司金融借款合同纠纷诉讼委托合同）_20260501开具.pdf',
+        file_url: '/media/contracts/invoices/c7/c.pdf',
+        invoice_code: '',
+        invoice_number: '24442000000111222333',
+        invoice_date: '2026-05-01',
+        amount: null,
+        tax_amount: null,
+        total_amount: '50000.00',
+        seller_name: '',
+        buyer_name: '',
+        uploaded_at: '2026-05-02T00:00:00Z',
+      },
+    ])
+    vi.mocked(attachPaymentInvoice).mockResolvedValue({
+      invoice: {} as never,
+      invoice_status: 'INVOICED_FULL',
+      invoice_status_label: '已开票',
+      invoiced_amount: '50000.00',
+    })
+    // 关联成功后合同返回已开票金额与收款状态（后端重算的结果）
+    getContractMock.mockResolvedValueOnce(makeContract())
+    getContractMock.mockResolvedValue(
+      makeContract({
+        total_invoiced: 50000,
+        payments: [
+          {
+            id: 1,
+            contract: 7,
+            amount: '50000',
+            received_at: '2025-03-15',
+            note: '前期律师费',
+            invoice_status: 'INVOICED_FULL',
+            invoice_status_label: '已开票',
+          } as ContractListItem['payments'][number],
+        ],
+      }),
+    )
+    setupUi()
+    const linkButton = await screen.findByRole('button', { name: /关联到 ¥50,000 那笔收款/ })
+    const callsBefore = getContractMock.mock.calls.length
+    fireEvent.click(linkButton)
+
+    // 关联调用打到正确的收款
+    await waitFor(() => expect(attachPaymentInvoice).toHaveBeenCalledWith(21, 1))
+    // 关键：合同被重新拉了一次 —— 只刷发票列表的话这里会是 0，页面就停在「已开票 ¥0」
+    await waitFor(() => expect(getContractMock.mock.calls.length).toBeGreaterThan(callsBefore))
   })
 
   it('有律所 ID 的 OA 地址：OA 编号渲染为新标签页链接（含 javascript: 伪协议兜到 #）', async () => {

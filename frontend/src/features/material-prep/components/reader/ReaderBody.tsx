@@ -44,6 +44,7 @@ export function ReaderBody({
   onClearSel,
   onApplySel,
   onExitHint,
+  flowWrapRef,
 }: {
   draft: DraftState
   messageId: number
@@ -74,6 +75,10 @@ export function ReaderBody({
   onClearSel: () => void
   onApplySel: () => void
   onExitHint: () => void
+  /** 中栏滚动容器的 ref：滚轮缩放要用它算锚点（scrollTop/scrollHeight），
+   *  宽度测量也挂在它上面。此前这个 ref 在 hook 里创建却**从未挂到 DOM**，
+   *  中栏也就没有任何 overflow —— 表现是「永远停在第一页，滚不动」。 */
+  flowWrapRef: (node: HTMLDivElement | null) => void
 }) {
   return (
     <>
@@ -107,7 +112,12 @@ export function ReaderBody({
           />
         </div>
 
-        <div className="relative min-w-0 flex-1">
+        {/* 中栏 = 页面流，**必须自己滚动**。
+            外层 FixedReader 是 fixed 全屏 + flex column，中栏 flex-1 撑满剩余高度；
+            不给 overflow，内容就会溢出到视口外且没有滚动条 ——
+            用户能滚 window（scrollY 会变），但元素位置不动，看起来「卡在第一页」。
+            同时把 ref 挂上：useWheelZoom 靠这个元素的 scrollTop/scrollHeight 算缩放锚点。 */}
+        <div ref={flowWrapRef} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
           <Flow
             draft={draft}
             messageId={messageId}

@@ -14,7 +14,8 @@ import type { useAutoSplit } from './use-auto-split'
  * （maxCols / effCols / 未归类数），跟 props 装配天然是一件事。
  */
 export function useReaderToolbarProps(params: {
-  draft: DraftState
+  /** 同 useAssignLaunch：允许 null，使用处守卫 */
+  draft: DraftState | null
   railOpen: boolean
   metaOpen: boolean
   onToggleRail: () => void
@@ -68,6 +69,12 @@ export function useReaderToolbarProps(params: {
   // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
   //（未归类 = 没类型且名字还是默认名；改名或右键选类型都算处理过）
   const handleAssign = () => {
+    // 没草稿时归案无从谈起（bodyProps.draft 非空已由 Reader 保证，
+    // 但 hook 参数类型允许 null，这里显式守卫）。
+    if (!draft) {
+      toast.info('材料包还在加载，请稍后再试')
+      return
+    }
     const unclassified = countUnclassified(draft)
     const allClassified = draft.segs.length > 0 && unclassified === 0
     if (!allClassified) {

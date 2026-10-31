@@ -14,7 +14,7 @@ export interface PaymentParseDraft {
   hints: string[]
 }
 
-/** 发票（GET/POST 同一个投影）。payment_id 为 null = 先开票后付款，挂在合同名下待核销 */
+/** 发票（GET/POST 同一个投影）。payment_id 为 null = 先开票后付款，挂在合同名下、尚未归属某笔收款 */
 export interface PaymentInvoice {
   id: number
   payment_id: number | null
@@ -73,13 +73,13 @@ export async function deletePaymentInvoice(invoiceId: number): Promise<{ success
   return contractsApi.delete(`finance/invoices/${invoiceId}`).json<{ success: boolean }>()
 }
 
-/** 合同发票缓存 key（右栏待核销计数 / 记收款弹窗的池列表共用，上传/关联后按此失效） */
+/** 合同发票缓存 key（右栏未归属计数 / 记收款弹窗的池列表共用，上传/关联后按此失效） */
 export const contractInvoiceKeys = {
   all: (contractId: number) => ['contract-invoices', contractId] as const,
   unlinked: (contractId: number) => ['contract-invoices', contractId, 'unlinked'] as const,
 }
 
-/** 合同发票列表：已核销 + 先开票挂合同的；unlinked 只看待核销 */
+/** 合同发票列表：已归属收款的 + 先开票挂合同的；unlinked 只看尚未归属收款的 */
 export async function listContractInvoices(contractId: number, unlinked = false): Promise<PaymentInvoice[]> {
   return contractsApi
     .get(`finance/contracts/${contractId}/invoices`, {
@@ -97,13 +97,36 @@ export async function uploadContractInvoices(contractId: number, files: File[]):
     .json<InvoiceUploadResult>()
 }
 
-/** 把合同挂靠发票核销到一笔收款（返回该收款最新开票状态，就地刷新用） */
+/** 某合同下的收款（只需金额，用于发票自动归属时的"只有一笔收款"判定） */
+export interface ContractPaymentBrief {
+  id: number
+  amount: string
+  received_at?: string
+}
+
+/** 合同收款列表（`finance/payments?contract_id=`，按后端 id 倒序） */
+export async function listContractPayments(contractId: number): Promise<ContractPaymentBrief[]> {
+  return contractsApi
+    .get('finance/payments', { searchParams: { contract_id: String(contractId) } })
+    .json<ContractPaymentBrief[]>()
+}
+
+/** 把合同挂靠发票关联到一笔收款（返回该收款最新开票状态，就地刷新用） */
 export async function attachPaymentInvoice(
   invoiceId: number,
   paymentId: number,
 ): Promise<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }> {
   return contractsApi
     .post(`finance/invoices/${invoiceId}/attach`, { json: { payment_id: paymentId } })
+    .json<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }>()
+}
+
+/** 挂错时的补救：把这发票退回合同名下（后端重算原收款的开票金额） */
+export async function detachPaymentInvoice(
+  invoiceId: number,
+): Promise<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }> {
+  return contractsApi
+    .post(`finance/invoices/${invoiceId}/detach`)
     .json<{ invoice: PaymentInvoice; invoice_status: string; invoice_status_label: string; invoiced_amount: string }>()
 }
 

@@ -28,6 +28,10 @@ export const ROUTES = {
   settings: '/settings',
   /** 账号绑定并入设置页后的旧路径，只做前转 */
   legacyBindings: '/settings/bindings',
+  /** 银行批量诉讼（场景 2）：案件列表 + 立案工作台 */
+  bankLitigation: '/bank-litigation',
+  /** 指定案件的立案工作台（`:id` = 案件 id） */
+  bankLitigationCase: '/bank-litigation/:id',
 } as const
 
 /** 登录页（退出登录后跳这里） */
@@ -89,4 +93,14 @@ export function projectReview(projectId: number | string, taskId: string): strin
 /** 设置页（系统状态 + 账号绑定） */
 export function settings(): string {
   return ROUTES.settings
+}
+
+/**
+ * 银行批量诉讼：案件列表（不带 id）或指定案件的立案工作台。
+ *
+ * 传 `undefined` 回落到列表 —— 调用方常拿到「可能没有」的案件 id，
+ * 兜住比拼出 `/bank-litigation/undefined` 强（与 projectDetail 同一取舍）。
+ */
+export function bankLitigation(caseId?: number | string | null): string {
+  return caseId == null ? ROUTES.bankLitigation : `/bank-litigation/${caseId}`
 }

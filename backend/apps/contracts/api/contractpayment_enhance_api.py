@@ -6,8 +6,8 @@
 - `POST   /finance/payments/{id}/invoices`     拖发票进来 → 识别 + 落盘 + 回填开票金额
 - `GET    /finance/payments/{id}/invoices`     某笔收款的发票列表
 - `POST   /finance/contracts/{id}/invoices`    **先开票后付款**：票先挂合同名下（不动开票金额）
-- `GET    /finance/contracts/{id}/invoices`    合同发票列表（含未核销；`?unlinked=1` 只看待核销）
-- `POST   /finance/invoices/{id}/attach`       钱到账后把合同挂靠发票核销到某笔收款
+- `GET    /finance/contracts/{id}/invoices`    合同发票列表（含未归属收款的；`?unlinked=1` 只看未归属收款的）
+- `POST   /finance/invoices/{id}/attach`       钱到账后把合同挂靠发票归属到某笔收款
 - `POST   /finance/invoices/{id}/copy-to-clipboard`  复制重命名后的发票文件到系统剪贴板
 - `DELETE /finance/invoices/{id}`              删发票 + 重算开票金额
 """
@@ -78,7 +78,7 @@ async def list_payment_invoices(request: HttpRequest, payment_id: int, contract_
 
 @router.get("/finance/contracts/{contract_id}/invoices", response=list[InvoiceOut])
 async def list_contract_invoices(request: HttpRequest, contract_id: int, unlinked: bool = False) -> Any:
-    """合同发票列表：已核销的 + 先开票挂合同的。`?unlinked=true` 只看待核销。"""
+    """合同发票列表：已归属收款的 + 先开票挂合同的。`?unlinked=true` 只看未归属收款的。"""
     service = _invoice_service()
     ctx = await sync_to_async(extract_request_context)(request)
     await sync_to_async(service.ensure_contract_access)(
@@ -118,7 +118,7 @@ async def upload_contract_invoices(
 
 @router.post("/finance/invoices/{invoice_id}/attach", response=InvoiceAttachOut)
 async def attach_invoice(request: HttpRequest, invoice_id: int, payload: InvoiceAttachIn) -> Any:
-    """把合同挂靠的发票核销到一笔收款（钱到账后的动作），并重算该收款开票金额。"""
+    """把合同挂靠的发票归属到一笔收款（钱到账后的动作），并重算该收款开票金额。"""
     service = _invoice_service()
     ctx = await sync_to_async(extract_request_context)(request)
     invoice, payment = await sync_to_async(service.attach_invoice, thread_sensitive=True)(
@@ -133,6 +133,29 @@ async def attach_invoice(request: HttpRequest, invoice_id: int, payload: Invoice
         invoice_status=payment.invoice_status,
         invoice_status_label=payment.get_invoice_status_display(),
         invoiced_amount=str(payment.invoiced_amount),
+    )
+
+
+@router.post("/finance/invoices/{invoice_id}/detach", response=InvoiceAttachOut)
+async def detach_invoice(request: HttpRequest, invoice_id: int) -> Any:
+    """把已关联收款的发票退回合同名下（挂错时的补救动作），并重算原收款开票金额。
+
+    与 attach 成对：只改归属，不动文件；退回后票回到「未关联收款」，可从右栏
+    发票节重新关到正确的收款。
+    """
+    service = _invoice_service()
+    ctx = await sync_to_async(extract_request_context)(request)
+    invoice, payment = await sync_to_async(service.detach_invoice, thread_sensitive=True)(
+        invoice_id=invoice_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+    return InvoiceAttachOut(
+        invoice=_invoice_out(invoice),
+        invoice_status=payment.invoice_status if payment is not None else "",
+        invoice_status_label=payment.get_invoice_status_display() if payment is not None else "",
+        invoiced_amount=str(payment.invoiced_amount) if payment is not None else "",
     )
 
 

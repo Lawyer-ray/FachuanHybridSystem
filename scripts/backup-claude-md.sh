@@ -35,13 +35,19 @@ prefix_of() { printf '%s' "${1#/}" | sed "s|/|$SEP_REPL|g"; }
 path_of() { printf '%s' "$1" | sed "s|$SEP_REPL|/|g"; }
 
 discover_sources() {
-  find "$REPO_ROOT" -name 'CLAUDE.md' -type f \
-    -not -path '*/node_modules/*' \
-    -not -path '*/.venv/*' \
-    -not -path '*/.git/*' \
-    -not -path '*/dist/*' \
-    -not -path '*/.claude/*' \
-    2>/dev/null | sort
+  { find "$REPO_ROOT" -name 'CLAUDE.md' -type f \
+      -not -path '*/node_modules/*' \
+      -not -path '*/.venv/*' \
+      -not -path '*/.git/*' \
+      -not -path '*/dist/*' \
+      -not -path '*/.claude/*' \
+      2>/dev/null
+    # harness 叶子（2026-10-30 索引改造）：CLAUDE.md 的细则已拆到 docs/harness/，
+    # 同样不入 git（docs/ 被忽略），必须一并备份，否则丢失后无从恢复。
+    if [ -d "$REPO_ROOT/docs/harness" ]; then
+      find "$REPO_ROOT/docs/harness" -name '*.md' -type f 2>/dev/null
+    fi
+  } | sort
 }
 
 ensure_dir() {

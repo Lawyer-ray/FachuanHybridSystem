@@ -12,8 +12,8 @@ import { CopyInvoiceFileButton, InvoiceDropZone } from './PaymentInvoiceZone'
 /**
  * 合同发票弹窗（右栏「＋ 传发票」）：**先开票后付款**的入口。
  *
- * 钱还没到就能把票传进来挂在合同名下；这里也管理这些待核销的票（删除）。
- * 核销动作不在这做——记完收款，在记收款弹窗里对着金额一键关联更顺手。
+ * 钱还没到就能把票传进来挂在合同名下；这里也管理这些尚未关联收款的票（删除）。
+ * 关联动作不在这做——记完收款，在记收款弹窗里对着金额一键关联更顺手。
  */
 export function InvoicePoolDialog({
   open,
@@ -88,12 +88,12 @@ export function InvoicePoolDialog({
 
         <p className="mb-3 text-[11.5px] leading-[1.6] text-muted-foreground">
           先开票、后收款的流程走这里：票先挂合同名下（不动开票金额），钱到账记完收款后，
-          在记收款弹窗里一键关联核销。
+          在记收款弹窗里一键关联到那笔收款。
         </p>
 
         <InvoiceDropZone
           uploading={uploading}
-          dragHint="上传到合同（待核销）"
+          dragHint="上传到合同（未归属收款）"
           onClick={() => fileRef.current?.click()}
           onFiles={(files) => void doUpload(files)}
         />
@@ -114,7 +114,7 @@ export function InvoicePoolDialog({
 
         {pool.length > 0 && (
           <div className="mt-3">
-            <div className="mb-1 text-[11px] font-[650] text-muted-foreground">待核销 · {pool.length} 张</div>
+            <div className="mb-1 text-[11px] font-[650] text-muted-foreground">未关联收款 · {pool.length} 张</div>
             <ul className="flex flex-col gap-1">
               {pool.map((inv) => (
                 <li key={inv.id} className="flex items-center gap-2 rounded-[6px] bg-secondary/50 px-2 py-1 text-[11.5px]">

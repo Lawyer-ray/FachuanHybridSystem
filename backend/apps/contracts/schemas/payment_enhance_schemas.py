@@ -1,4 +1,4 @@
-"""收款记账增强 Schemas：到账短信识别草稿 / 发票上传与核销结果。"""
+"""收款记账增强 Schemas：到账短信识别草稿 / 发票上传与归属结果。"""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class InvoiceOut(Schema):
     """一张发票（收款详情展示 + 上传后返回）。"""
 
     id: int
-    #: None = 先开票后付款，还挂在合同名下未核销
+    #: None = 先开票后付款，还挂在合同名下、尚未归属某笔收款
     payment_id: int | None = None
     original_filename: str
     #: 归一化展示名（发票（合同名称）_YYYYMMDD开具），与合同文件夹里的文件名一致
@@ -63,7 +63,7 @@ class InvoiceOut(Schema):
 
 
 class InvoiceAttachOut(Schema):
-    """关联结果：发票 + 该收款最新的开票状态与金额。"""
+    """关联 / 解除关联结果：发票 + 涉及的收款最新开票状态与金额。"""
 
     invoice: InvoiceOut
     invoice_status: str = ""

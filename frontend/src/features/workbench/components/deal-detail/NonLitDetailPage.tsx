@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
@@ -18,6 +19,7 @@ import { TermBar } from './TermBar'
 import { PaymentDialog } from './PaymentDialog'
 import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
+import { refetchContractAndCases } from './refetch-contract'
 import { addDeliverable } from './special-phase-crud'
 import { flattenTree, patchPhase, type PhaseNode } from './special-phase-tree'
 import { useDockedViewport, useNetWidth } from './use-net-width'
@@ -42,6 +44,7 @@ import { Card, DetailError, RailSection } from './ui'
 export function NonLitDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { valid, d, deal, deadlines, contacts, money, next } = useDealDetailPage(id)
+  const qc = useQueryClient()
 
   /** 用户手动指定的事项源目录（null = 自动识别「办案」） */
   const [manualSource, setManualSource] = useState<string | null>(null)
@@ -120,6 +123,8 @@ export function NonLitDetailPage() {
     onAddDue: () => soonToast('新增期限'),
     onAddPayment: () => setPayOpen(true),
     onOpenInvoices: () => setInvoiceOpen(true),
+    // 发票关联/解除改了合同的开票金额：刷新合同（统计格、收款徽标、案件卡的钱）
+    onMoneyChanged: () => (deal ? refetchContractAndCases(qc, deal.id) : undefined),
   }
 
   /**

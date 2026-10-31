@@ -221,6 +221,15 @@ vi.mock('./ReaderDialogs', () => ({
     )
   },
 }))
+const assignPackMock = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ caseId: 1, caseName: '测试案', contractId: null, boundCount: 0 }),
+)
+// 归案要真调接口：mock 掉，断言「确实发出了归案请求」；
+// fetchAttachmentBytes 是 Reader 拉附件字节用的，同样打桩。
+vi.mock('../../api', async (orig) => {
+  const actual = await orig<Record<string, unknown>>()
+  return { ...actual, assignPack: assignPackMock, fetchAttachmentBytes: vi.fn() }
+})
 vi.mock('./use-ocr', () => ({ useReaderOcr: () => ({ pickPage: vi.fn(), onOcrBox: vi.fn(), ocrOk: null }) }))
 vi.mock('./use-auto-split', () => ({ useAutoSplit: () => ({ run: vi.fn(), running: false, progress: '' }) }))
 vi.mock('./use-reader-keys', () => ({ useReaderKeys: vi.fn() }))
@@ -258,7 +267,6 @@ vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>()
   return { ...actual, useNavigate: () => vi.fn() }
 })
-vi.mock('../../api', () => ({ fetchAttachmentBytes: vi.fn() }))
 // 发起审查抽屉属 contract-review 域，这里只关心它是否被打开
 vi.mock('@/features/contract-review', () => ({
   ReviewLaunchDrawer: (p: { open: boolean; fileName: string }) =>
@@ -738,33 +746,30 @@ describe('Reader：弹窗回调连线', () => {
     container.remove()
   })
 
-  it('确认归案：写 assign，并在有 docx 时直接进「发起审查」而不是关掉阅读器', () => {
+  it('确认归案：关弹窗 + 落 assign + 真的调归案接口', async () => {
+    // ═══ 这条用例守的是一个曾经的「假归案」═══
+    // 原实现只做 setAssign(assign) + toast('已归案')，一句接口都不调。
+    // 用户点完以为建了案件，列表里什么都没有 —— 因为「办案端据此建案」
+    // 那句注释对应的动作从来没实现。
+    // 现在归案必须真的走 assignPack（建客户/合同/案件 + 绑材料）。
     storeMock.draft = {
-      mats: [
-        { partIndex: 0, n: '合同.docx', k: 'office', pages: 3 },
-        { partIndex: 1, n: '图纸.pdf', k: 'pdf', pages: 2 },
-      ],
-      segs: [{ id: 's1', t: 'other', fn: 'seg1', refs: [{ mi: 0, p: 0 }], manual: false }],
-      infos: [],
+      mats: [{ partIndex: 0, n: '合同.pdf', k: 'pdf', pages: 3 }],
+      segs: [{ id: 's1', t: '借款合同', fn: 'seg1', refs: [{ mi: 0, p: 1 }], manual: false }],
+      infos: [{ k: '委托人', v: '某某银行', src: '', srcRef: null }],
     }
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('确认归案'))
 
     expect(storeMock.setAssignOpen).toHaveBeenCalledWith(false)
-    expect(storeMock.setAssign).toHaveBeenCalledWith({ target: 'new' })
-    // 归案不该是死路：docx 存在 → 打开发起审查抽屉
-    expect(screen.getByTestId('launch-drawer').textContent).toBe('合同.docx')
-    expect(storeMock.close).not.toHaveBeenCalled()
-    container.remove()
-  })
-
-  it('确认归案：材料包里只有 PDF 时不开抽屉，提示后关闭', () => {
-    const { container } = render(<Reader />)
-    fireEvent.click(screen.getByText('确认归案'))
-
-    // DRAFT 只有 a.pdf：审查流水线只吃 docx，不应假装能审
-    expect(screen.queryByTestId('launch-drawer')).toBeNull()
-    expect(storeMock.close).toHaveBeenCalled()
+    // 真归案是异步的：断言接口被调用（assignPack spy 在文件顶部 mock）
+    await vi.waitFor(() => {
+      expect(assignPackMock).toHaveBeenCalled()
+    })
+    // mock.calls[0] 在 noUncheckedIndexedAccess 下是 T | undefined；
+    // 上面 waitFor 已保证至少调用过一次，`!` 把这个事实告诉类型系统。
+    const arg = assignPackMock.mock.calls[0]![0] as { target: string; parties: { our: string } }
+    expect(arg.target).toBe('new')
+    expect(arg.parties.our).toBe('某某银行')
     container.remove()
   })
 

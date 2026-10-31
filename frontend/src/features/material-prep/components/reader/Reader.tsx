@@ -42,8 +42,12 @@ export function Reader() {
   const { draft, detail, openId, ocrPending } = data
 
   if (!openId || !detail) return null
-  if (meta.status === 'loading' || !draft) return <ReaderLoading />
+  if (meta.status === 'loading') return <ReaderLoading />
   if (meta.status === 'error') return <ReaderError error={meta.error} onBack={store.close} />
+  // 草稿未就绪时继续显示骸架，而不是把 null 传给需要 DraftState 的三栏主体。
+  // bodyProps.draft / toolbarProps.draft 的类型都是非空 DraftState
+  // （use-reader-screen.ts 里用 as DraftState 收窄，依赖的就是这个前置判断）。
+  if (!draft) return <ReaderLoading />
 
   const unclassified = countUnclassified(draft)
   const pages = draft.mats.reduce((s, m) => s + m.pages, 0)
@@ -103,7 +107,7 @@ export function Reader() {
         onOcrOk={ocrOk}
         showAssign={showAssign}
         onAssignCancel={() => store.setAssignOpen(false)}
-        onAssignConfirm={launch.onAssignConfirm}
+        onAssignConfirm={(a) => void launch.onAssignConfirm(a)}
         deleteTarget={actions.deleteTarget}
         onDeleteCancel={() => actions.setDeleteTarget(null)}
         onDeleteConfirm={actions.confirmDelete}

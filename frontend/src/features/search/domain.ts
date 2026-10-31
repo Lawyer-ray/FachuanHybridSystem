@@ -1,3 +1,4 @@
+import { projectDetail } from '@/app/paths'
 import type { Hit } from './types'
 
 /**
@@ -72,8 +73,8 @@ export function orderProjectHits(hits: Hit[]): Hit[] {
  * （case_type=advisor）搜到后点进去落回首页。所以这里恒返回不带后缀的详情页。 // privacy-allow
  */
 export function projectRoute(hit: Hit): string | undefined {
-  if (hit.kind === 'contract') return `/projects/${hit.id}`
+  if (hit.kind === 'contract') return projectDetail(hit.id)
   if (hit.contract_id == null) return undefined
   // 诉讼详情页案件节有 case-<id> 锚点（CaseSection），hash 让浏览器原生滚到该案
-  return `/projects/${hit.contract_id}#case-${hit.id}`
+  return `${projectDetail(hit.contract_id)}#case-${hit.id}`
 }

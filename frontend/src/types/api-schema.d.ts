@@ -2181,6 +2181,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cases/{case_id}/material-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Case Material Status
+         * @description 案件材料齐备度。
+         *
+         *     返回每类材料的 ok/stale/miss/na 状态与齐备计数。
+         *     律师最常问的是「这件能不能递」，所以单独给 `ready`（只看 miss，stale 不阻塞）。
+         */
+        get: operations["apps_cases_api_case_readiness_api_case_material_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Case Readiness
+         * @description 案件就绪度（起诉条件 / 答辩条件）。
+         *
+         *     **按 current_stage 给不同的一组校验**：
+         *       一审未立案 → filing 模式（主体/管辖/时效/材料/金额）
+         *       二审及以后 → appeal 模式（前序案件/二审案号/一审判决书/材料）
+         *       其他阶段   → other 模式（暂无专门校验，明确返回空而不是假装通过）
+         */
+        get: operations["apps_cases_api_case_readiness_api_case_readiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/conflict-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Case Conflict Check
+         * @description 利益冲突预检。
+         *
+         *     三档判定（不要一律当冲突，否则律师会对告警脱敏）：
+         *       red     同名且证件号相同 → 同一人在对方阵营，必须停
+         *       yellow  同名但证件号不同 → 疑似重名，需律师复核
+         *       neutral 缺证件号无法判定 → 提示补全资料，不是冲突
+         *     `blocked=True` 表示存在 red 级命中，前端据此阻断后续动作。
+         */
+        post: operations["apps_cases_api_case_readiness_api_case_conflict_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cases/{case_id}/folder-scan": {
         parameters: {
             query?: never;
@@ -3602,6 +3676,30 @@ export interface paths {
          * @description 删除 = 移入绑定根下 _已删除/（带时间戳，可恢复），不做物理删除。
          */
         post: operations["apps_contracts_api_contract_folder_browse_api_delete_contract_folder_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/contracts/{contract_id}/stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Contract Stages
+         * @description 读取非诉专项阶段树，每个节点带推导出的 state（ok / doing / todo）。
+         */
+        get: operations["apps_contracts_api_stages_api_get_contract_stages"];
+        /**
+         * Replace Contract Stages
+         * @description 整树覆盖写阶段树。深度 > 3 / key 重复 / name 为空 → 400。
+         */
+        put: operations["apps_contracts_api_stages_api_replace_contract_stages"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -13294,6 +13392,165 @@ export interface components {
             /** Category */
             category: string;
         };
+        /**
+         * MaterialSlotOut
+         * @description 一类材料的状态。
+         *
+         *     status 语义（与原型 case-draft / reader 的取值一致）：
+         *       ok      材料在，且是最新的
+         *       stale   材料在，但截止日/版本旧了（不阻塞立案，建议先更新）
+         *       miss    真缺件（阻塞立案）
+         *       na      本案不适用（如无保证人则不需要担保合同）
+         */
+        MaterialSlotOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "stale" | "miss" | "na";
+            /**
+             * File Names
+             * @default []
+             */
+            file_names: string[];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * MaterialStatusOut
+         * @description 案件材料齐备度总览（对应原型「本案材料齐备」那一行）。
+         *
+         *     为什么 single 值要单独给：律师最常问的是「这件能不能递」，
+         *     一个布尔判断比 6 个槽位更好用；槽位则回答「还差哪一项」。
+         */
+        MaterialStatusOut: {
+            /** Case Id */
+            case_id: number;
+            /** Slots */
+            slots: components["schemas"]["MaterialSlotOut"][];
+            /** Ok Count */
+            ok_count: number;
+            /** Need Count */
+            need_count: number;
+            /** Missing Count */
+            missing_count: number;
+            /** Stale Count */
+            stale_count: number;
+            /** Ready */
+            ready: boolean;
+        };
+        /**
+         * CaseReadinessOut
+         * @description 案件就绪度（起诉条件 / 答辩条件）。
+         *
+         *     **按 current_stage 给不同的一组**，这是原型 case-draft 页的核心：
+         *       一审未立案 → 起诉条件（主体/管辖/时效/材料/金额/利冲）
+         *       二审        → 答辩条件（上诉理由/一审判决支撑/答辩期限）
+         *     两组问的问题完全不同，混在一张表里律师不知道该看哪几行。
+         */
+        CaseReadinessOut: {
+            /** Case Id */
+            case_id: number;
+            /** Stage */
+            stage: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "filing" | "appeal" | "other";
+            /** Checks */
+            checks: components["schemas"]["ReadinessCheckOut"][];
+            /** Passed */
+            passed: number;
+            /** Total */
+            total: number;
+            /** Ready */
+            ready: boolean;
+        };
+        /**
+         * ReadinessCheckOut
+         * @description 一条条件的校验结果。
+         *
+         *     与「状态徽章」的区别：徽章说「通过/不通过」，这里说**为什么**。
+         *     `field` 给出判定所依据的模型字段，便于律师回溯数据源。
+         */
+        ReadinessCheckOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Ok */
+            ok: boolean;
+            /** Detail */
+            detail: string;
+            /**
+             * Field
+             * @default
+             */
+            field: string;
+        };
+        /** ConflictCheckOut */
+        ConflictCheckOut: {
+            /** Case Id */
+            case_id: number;
+            /** Checked Parties */
+            checked_parties: number;
+            /** Hits */
+            hits: components["schemas"]["ConflictHitOut"][];
+            /** Blocked */
+            blocked: boolean;
+        };
+        /**
+         * ConflictHitOut
+         * @description 一条潜在冲突。
+         *
+         *     level 三档与原型一致：
+         *       red       同名 + 证件号相同 → 确定冲突，必须停
+         *       yellow    同名但证件号不同 → 疑似，需人工复核
+         *       neutral   无证件号可比对 → 提示，通常是历史数据不全
+         */
+        ConflictHitOut: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "red" | "yellow" | "neutral";
+            /** Party Name */
+            party_name: string;
+            /** Legal Status */
+            legal_status: string;
+            /** Matched Client Id */
+            matched_client_id?: number | null;
+            /**
+             * Matched Client Name
+             * @default
+             */
+            matched_client_name: string;
+            /** Matched Case Id */
+            matched_case_id?: number | null;
+            /**
+             * Matched Case Name
+             * @default
+             */
+            matched_case_name: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Id Matched
+             * @default false
+             */
+            id_matched: boolean;
+        };
         /** CaseFolderScanStartOut */
         CaseFolderScanStartOut: {
             /** Session Id */
@@ -15241,6 +15498,38 @@ export interface components {
         ContractFolderPathIn: {
             /** Subpath */
             subpath: string;
+        };
+        /**
+         * ContractStagesOut
+         * @description GET/PUT 响应体。
+         *
+         *     stages 里每个节点带 `state`（ok / doing / todo），由
+         *     `apps.contracts.services.contract.stage_tree.derive_phase_states` 推导后
+         *     合入节点：前端渲染直接读 `node.state`，不必自己再推一遍，也不会出现
+         *     「页面推一套、接口存一套」。存盘时 `state` 会被剥离（见 stages_service），
+         *     它是推导值不是律师编辑的数据。
+         */
+        ContractStagesOut: {
+            /**
+             * Stages
+             * @default []
+             */
+            stages: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * ContractStagesIn
+         * @description PUT 请求体：整棵树覆盖写（阶段改名/调序后由前端提交全量）。
+         */
+        ContractStagesIn: {
+            /**
+             * Stages
+             * @default []
+             */
+            stages: {
+                [key: string]: unknown;
+            }[];
         };
         /** DocumentProcessOut */
         DocumentProcessOut: {
@@ -20237,33 +20526,33 @@ export interface components {
             /** Has Credential */
             has_credential: boolean;
         };
-        /** SessionOut */
-        SessionOut: {
+        /**
+         * FilingSessionOut
+         * @description OA 立案会话（后台线程的执行记录）。
+         *
+         *     ⚠️ 类名必须带 `Filing` 前缀，不能叫 `SessionOut`：
+         *     本项目里 social_auth 也有一个 `SessionOut`（登录票据：success/goto/state/
+         *     expires_in/message）。OpenAPI 的 components.schemas 按**类名**做 key，
+         *     两个同名类只有一个能活下来——实测被 social_auth 那个覆盖了。
+         *     后果是：契约里 oa-filing 的 execute/session 返回值变成 {success, goto,
+         *     state, expires_in, message}，**没有 id**。前端照契约写就永远拿不到
+         *     session_id，只能一直轮询失败；而生成物看起来「有类型」，编译器不会报错，
+         *     属于最难查的一类契约污染。
+         *
+         *     同目录的 ArchiveSessionOut / StampSessionOut 本来就带领域前缀，只有这个漏了。
+         */
+        FilingSessionOut: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Error Message */
+            error_message: string;
             /**
-             * Success
-             * @default true
+             * Created At
+             * Format: date-time
              */
-            success: boolean;
-            /**
-             * Goto
-             * @default
-             */
-            goto: string;
-            /**
-             * State
-             * @default
-             */
-            state: string;
-            /**
-             * Expires In
-             * @default 300
-             */
-            expires_in: number;
-            /**
-             * Message
-             * @default
-             */
-            message: string;
+            created_at: string;
         };
         /** ExecuteFilingIn */
         ExecuteFilingIn: {
@@ -21717,6 +22006,34 @@ export interface components {
              * @default
              */
             resource: string;
+        };
+        /** SessionOut */
+        SessionOut: {
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+            /**
+             * Goto
+             * @default
+             */
+            goto: string;
+            /**
+             * State
+             * @default
+             */
+            state: string;
+            /**
+             * Expires In
+             * @default 300
+             */
+            expires_in: number;
+            /**
+             * Message
+             * @default
+             */
+            message: string;
         };
         /**
          * SessionIn
@@ -26312,6 +26629,72 @@ export interface operations {
             };
         };
     };
+    apps_cases_api_case_readiness_api_case_material_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialStatusOut"];
+                };
+            };
+        };
+    };
+    apps_cases_api_case_readiness_api_case_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseReadinessOut"];
+                };
+            };
+        };
+    };
+    apps_cases_api_case_readiness_api_case_conflict_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConflictCheckOut"];
+                };
+            };
+        };
+    };
     apps_cases_api_folder_scan_api_start_case_scan: {
         parameters: {
             query?: never;
@@ -28233,6 +28616,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_contracts_api_stages_api_get_contract_stages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractStagesOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_stages_api_replace_contract_stages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractStagesIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractStagesOut"];
+                };
             };
         };
     };
@@ -34947,7 +35378,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SessionOut"];
+                    "application/json": components["schemas"]["FilingSessionOut"];
                 };
             };
         };
@@ -35001,7 +35432,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SessionOut"];
+                    "application/json": components["schemas"]["FilingSessionOut"];
                 };
             };
         };

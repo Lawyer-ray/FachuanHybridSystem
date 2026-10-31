@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Navigate, useParams } from 'react-router'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
@@ -16,6 +17,7 @@ import { ResizeHandle } from './ResizeHandle'
 import { useResizablePanel } from './use-resizable-panel'
 import { soonToast, useDealCopilotContext, useDealDetailPage } from './use-deal-detail-page'
 import { PaymentDialog } from './PaymentDialog'
+import { refetchContractAndCases } from './refetch-contract'
 import { InvoicePoolDialog } from './InvoicePoolDialog'
 import { Card, DetailError } from './ui'
 import type { FolderOwnerKind } from '../../api'
@@ -48,7 +50,7 @@ export function DealDetailPage() {
    * 诉讼页的合同也要能走 AI 审查——起诉状/和解协议同样是「AI 出建议、律师逐条决策」。
    */
   const [reviewTarget, setReviewTarget] = useState<{ subpath: string; name: string } | null>(null)
-  const { valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
+  const { contractId, valid, d, deal, plan, ordered, deadlines, contacts, money, next } = useDealDetailPage(id)
   /** stepper 跳转后的短暂高亮环（案件 id） */
   const [hl, setHl] = useState<number | null>(null)
   /**
@@ -108,6 +110,18 @@ export function DealDetailPage() {
 
   /** 记收款弹窗：粘贴到账短信 / 拖发票进来（见 PaymentDialog） */
   const [payOpen, setPayOpen] = useState(false)
+  const queryClient = useQueryClient()
+  /**
+   * 收费节里的写操作（发票关联/解除/上传）完成后刷新合同 + 案件。
+   *
+   * 这些动作改的是**合同**上的开票金额与开票状态（统计格、收款徽标、案件卡的钱
+   * 都由合同数据算出），只刷收费节自己的发票列表会出现「票挂上了、已开票还是
+   * ¥0」的半新半旧状态，律师只能手动刷页面。刷新口径见 refetch-contract.ts。
+   */
+  const onMoneyChanged = useCallback(() => {
+    refetchContractAndCases(queryClient, contractId)
+  }, [queryClient, contractId])
+
   const onAddPayment = useCallback(() => setPayOpen(true), [])
 
   /** 传发票弹窗：先开票后付款的入口（票挂合同名下，见 InvoicePoolDialog） */
@@ -176,6 +190,7 @@ export function DealDetailPage() {
               onAddDue={onAddDue}
               onAddPayment={onAddPayment}
               onOpenInvoices={onOpenInvoices}
+              onMoneyChanged={onMoneyChanged}
               onOpenFile={openContractFile}
               onReviewFile={(f) => setReviewTarget(f)}
               factsHidden
@@ -270,6 +285,7 @@ export function DealDetailPage() {
               onAddDue={onAddDue}
               onAddPayment={onAddPayment}
               onOpenInvoices={onOpenInvoices}
+              onMoneyChanged={onMoneyChanged}
               onOpenFile={openContractFile}
               onReviewFile={(f) => setReviewTarget(f)}
               folderPreview={
@@ -309,7 +325,7 @@ export function DealDetailPage() {
         onSaved={() => void d.refetch()}
       />
 
-      {/* 先开票后付款：票挂合同名下；关闭即失效待核销缓存，右栏计数同步 */}
+      {/* 先开票后付款：票挂合同名下；关闭即失效未关联缓存，右栏计数同步 */}
       <InvoicePoolDialog open={invoiceOpen} contractId={deal.id} onClose={() => setInvoiceOpen(false)} />
     </main>
   )

@@ -510,6 +510,11 @@ FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5090")
 # ============================================================
 
 # 安全的 CORS 默认白名单（仅本地访问）
+#
+# :8080 是原型静态预览端口（frontend/prototype/*/，用 `python3 -m http.server 8080`
+# 起服务）。原型是纯静态页、跨端口直连后端，没有 Vite proxy 兜底，所以必须
+# 显式放行，否则浏览器拦掉预检（症状：fetch 直接 TypeError: Failed to fetch，
+# 后端日志里连请求都看不到）。仅 DEBUG 路径使用本白名单。
 _SAFE_CORS_ORIGINS = [
     "http://localhost:5090",
     "http://localhost:3000",
@@ -517,6 +522,8 @@ _SAFE_CORS_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
 ]
 
 if DEBUG:

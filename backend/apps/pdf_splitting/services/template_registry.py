@@ -139,10 +139,200 @@ FILING_MATERIALS_V1 = TemplateDefinition(
             strong_keywords=("增值税专用发票", "增值税普通发票", "电子发票", "发票联"),
             weak_keywords=("发票号码", "开票日期", "购买方", "销售方", "价税合计"),
         ),
+        # ── 银行信贷档案类 ──
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.LOAN_APPLICATION,
+            label="贷款申请及审批材料",
+            default_filename="贷款申请及调查审批材料",
+            strong_keywords=("个人贷款申请", "贷款申请书", "贷前调查", "贷款审批表"),
+            weak_keywords=("申请人", "征信", "收入证明", "调查结论", "授信"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.COLLATERAL_APPRAISAL,
+            label="抵押物估价报告",
+            default_filename="抵押物估价报告",
+            strong_keywords=("估价报告", "评估报告", "房地产抵押估价", "评估价值"),
+            weak_keywords=("估价对象", "估价方法", "可比实例", "评估总价", "抵押价值"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.MORTGAGE_REGISTRATION,
+            label="抵押登记及权属证明",
+            default_filename="抵押登记证明",
+            strong_keywords=("不动产权证书", "不动产登记证明", "他项权证", "抵押登记"),
+            weak_keywords=("权利人", "不动产单元号", "抵押权", "登记机构", "被担保主债权"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.NPL_MONITORING,
+            label="不良贷款监控报告",
+            default_filename="不良贷款监控及催收申请",
+            strong_keywords=("不良贷款监控", "五级分类", "诉讼催收申请", "不良资产"),
+            weak_keywords=("次级", "可疑", "损失", "逾期期数", "催收情况"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.POST_LOAN_INSPECTION,
+            label="贷后检查报告",
+            default_filename="贷后检查报告",
+            strong_keywords=("贷后检查", "贷后管理报告"),
+            weak_keywords=("检查结论", "资金用途", "经营状况"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.COLLECTION_RECORD,
+            label="催收记录",
+            default_filename="催收记录",
+            strong_keywords=("催收记录", "贷后催收记录表", "催收台账", "催告函"),
+            weak_keywords=("催收日期", "催收方式", "签收", "电话催收", "上门催收"),
+        ),
+        # ── 诉讼程序类文书 ──
+        # 补齐前，判决书/上诉状/答辩状全部落到 unrecognized。
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.JUDGMENT,
+            label="判决书",
+            default_filename="民事判决书",
+            strong_keywords=("民事判决书", "判决书", "本院认为", "判决如下"),
+            weak_keywords=("审判员", "书记员", "人民陪审员", "如不服本判决", "本院查明"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.RULING,
+            label="裁定书",
+            default_filename="民事裁定书",
+            strong_keywords=("民事裁定书", "裁定书", "裁定如下"),
+            weak_keywords=("审判长", "本裁定为终审裁定", "准许", "驳回"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.MEDIATION_STATEMENT,
+            label="调解书",
+            default_filename="民事调解书",
+            strong_keywords=("民事调解书", "调解书", "协议如下"),
+            weak_keywords=("双方当事人自愿达成", "本调解书经双方签收后"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.APPEAL_PETITION,
+            label="上诉状",
+            default_filename="民事上诉状",
+            strong_keywords=("民事上诉状", "上诉状", "上诉请求"),
+            weak_keywords=("上诉人", "被上诉人", "上诉理由", "不服", "提起上诉"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.DEFENSE_STATEMENT,
+            label="答辩状",
+            default_filename="民事答辩状",
+            strong_keywords=("民事答辩状", "答辩状", "答辩意见", "答辩如下"),
+            weak_keywords=("答辩人", "被答辩人", "请求驳回", "维持原判"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.RETRIAL_APPLICATION,
+            label="再审申请书",
+            default_filename="再审申请书",
+            strong_keywords=("再审申请书", "申请再审"),
+            weak_keywords=("再审申请人", "再审请求", "原判决确有错误"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.ENFORCEMENT_APPLICATION,
+            label="执行申请书",
+            default_filename="执行申请书",
+            strong_keywords=("执行申请书", "强制执行申请书", "申请执行书"),
+            weak_keywords=("申请执行人", "被执行人", "执行依据", "申请事项"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.COURT_RECORD,
+            label="庭审笔录",
+            default_filename="庭审笔录",
+            strong_keywords=("庭审笔录", "法庭审理笔录", "询问笔录", "开庭笔录"),
+            weak_keywords=("审判员", "书记员", "现在开庭", "核对当事人身份", "质证"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.AGENT_OPINION,
+            label="代理词",
+            default_filename="代理词",
+            strong_keywords=("代理词", "代理意见"),
+            weak_keywords=("尊敬的审判长", "代理人认为", "综上"),
+        ),
     ),
 )
 
-_REGISTRY = {FILING_MATERIALS_V1.key: FILING_MATERIALS_V1}
+# ══════════════════════════════════════════════════════════
+# 二审答辩材料模板
+# ══════════════════════════════════════════════════════════
+#
+# 为什么必须是**独立模板**而不是往立案模板里加类型：
+#   LLM 的 prompt 会列出「这个模板可用的 type 键名」并问「这段属于哪一类」。
+#   如果把判决书/上诉状塞进「立案材料模板」，模型看到模板名叫 filing_materials
+#   会判断这些不属于立案材料，一律回 other → 全部落 unrecognized。
+#   实测就是这样：补了枚举与规则，段类型仍是 unrecognized。
+#   给二审单独一个模板，模型才知道「在本场景里，判决书是合法的一类」。
+APPEAL_DEFENSE_V1 = TemplateDefinition(
+    key="appeal_defense_v1",
+    version="1",
+    label="二审答辩材料模板 v1",
+    rules=(
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.JUDGMENT,
+            label="一审判决书",
+            default_filename="一审民事判决书",
+            strong_keywords=("民事判决书", "判决书", "判决如下"),
+            weak_keywords=("本院认为", "本院查明", "审判员", "书记员", "如不服本判决"),
+            negative_keywords=("上诉状", "答辩状", "庭审笔录"),
+            continuation_keywords=("本院认为", "判决如下", "审判员", "书记员"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.APPEAL_PETITION,
+            label="上诉状",
+            default_filename="民事上诉状",
+            strong_keywords=("民事上诉状", "上诉状", "上诉请求"),
+            weak_keywords=("上诉人", "被上诉人", "上诉理由", "提起上诉"),
+            negative_keywords=("答辩状", "判决书"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.DEFENSE_STATEMENT,
+            label="答辩状",
+            default_filename="民事答辩状",
+            strong_keywords=("民事答辩状", "答辩状", "答辩意见", "答辩如下"),
+            weak_keywords=("答辩人", "被答辩人", "请求驳回", "维持原判"),
+            negative_keywords=("上诉状", "判决书"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.COURT_RECORD,
+            label="庭审笔录",
+            default_filename="庭审笔录",
+            strong_keywords=("庭审笔录", "法庭审理笔录", "开庭笔录", "询问笔录"),
+            weak_keywords=("现在开庭", "核对当事人身份", "质证", "审判员", "书记员"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.EVIDENCE_LIST,
+            label="一审证据材料",
+            default_filename="一审证据材料",
+            strong_keywords=("证据目录", "证据清单", "证据材料汇编"),
+            weak_keywords=("证明目的", "序号", "证据名称"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.AUTHORIZATION_MATERIALS,
+            label="授权委托材料",
+            default_filename="授权委托材料",
+            strong_keywords=("授权委托书", "授权委托", "所函", "律师事务所函"),
+            weak_keywords=("委托人", "受托人", "代理权限"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
+            label="当事人身份材料",
+            default_filename="当事人身份材料",
+            strong_keywords=("身份证", "营业执照", "法定代表人身份证明"),
+            weak_keywords=("公民身份号码", "统一社会信用代码", "住址"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.DELIVERY_ADDRESS_CONFIRMATION,
+            label="送达地址确认书",
+            default_filename="送达地址确认书",
+            strong_keywords=("送达地址确认书", "送达地址确认"),
+            weak_keywords=("电子送达", "收件人", "确认人"),
+        ),
+    ),
+)
+
+
+_REGISTRY = {
+    FILING_MATERIALS_V1.key: FILING_MATERIALS_V1,
+    APPEAL_DEFENSE_V1.key: APPEAL_DEFENSE_V1,
+}
 
 
 def get_template_definition(template_key: str) -> TemplateDefinition:

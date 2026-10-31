@@ -86,13 +86,29 @@ def _clip_utf8(text: str, *, max_bytes: int) -> str:
     return encoded[:max_bytes].decode("utf-8", errors="ignore")
 
 
+#: 落板暂存根目录（与 doc_converter 同一套思路：固定目录覆盖写）。
+#: file-url 是路径引用，粘贴方按路径读文件，所以副本**不能**放在 mkdtemp 里
+#: 每点一次复制就多一个永久目录（旧实现如此，T 目录里堆满空的
+#: `fachuan-invoice-xxxx`）；固定根目录 + 按发票 id 分目录覆盖写，量小且可控。
+INVOICE_CLIPBOARD_ROOT_NAME = "fachuan-invoice-clipboard"
+
+
+def _clipboard_root() -> Path:
+    """落板暂存根目录（`<tmp>/fachuan-invoice-clipboard`，按需创建）。"""
+    import tempfile
+
+    root = Path(tempfile.gettempdir()) / INVOICE_CLIPBOARD_ROOT_NAME
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def _sweep_stale_copies(temp_root: Path) -> None:
-    """清扫 24 小时前留下的发票临时副本（落板文件要等用户粘贴，只能事后清）。"""
+    """清扫 24 小时前留下的发票暂存子目录（落板文件要等用户粘贴，只能事后清）。"""
     import shutil
     import time
 
     cutoff = time.time() - 24 * 3600
-    for old in temp_root.glob("fachuan-invoice-*"):
+    for old in temp_root.glob("invoice-*"):
         try:
             if old.stat().st_mtime < cutoff:
                 shutil.rmtree(old, ignore_errors=True)
@@ -172,7 +188,7 @@ class InvoiceFileService:
     ) -> SavedInvoice:
         """保存一张发票。挂靠二选一：
 
-        - `payment_id`：直接核销到某笔收款（先付款后开票），保存后回填开票金额；
+        - `payment_id`：直接归属到某笔收款（先付款后开票），保存后回填开票金额；
         - `contract_id`：**先开票后付款**——票先挂合同名下，不动任何收款的
           开票金额，等钱到账记收款后走 :meth:`attach_invoice` 关联。
 
@@ -332,7 +348,7 @@ class InvoiceFileService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> tuple[Any, Any]:
-        """把「先开票」的合同挂靠发票关联到一笔收款（钱到账后的核销动作）。
+        """把「先开票」的合同挂靠发票关联到一笔收款（钱到账后的归属动作）。
 
         返回 ``(invoice, payment)``；跨合同、已关联别的收款都拒绝——财务数据
         宁可让人重传，不可错挂。
@@ -354,6 +370,44 @@ class InvoiceFileService:
 
         invoice.payment = payment
         invoice.contract = None
+        invoice.save(update_fields=["payment", "contract"])
+        self._recompute_invoiced_amount(payment)
+        return invoice, payment
+
+    @transaction.atomic
+    def detach_invoice(
+        self,
+        *,
+        invoice_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> tuple[Any, Any | None]:
+        """把已关联收款的发票退回合同名下（挂错时的唯一补救动作）。
+
+        财务口径：退回后立刻重算原收款的开票金额——不然会出现「票已不属于这笔
+        收款，但已开票金额里还算着它」的错账。media 文件不搬动（`file_path` 只是
+        存储位置，展示名另算），原文与合同文件夹里的副本都不受影响。
+
+        返回 ``(invoice, 原收款或 None)``；未关联的发票再解绑是 400（不是静默成功），
+        否则前端无法区分「本来就没挂」和「解绑没生效」。
+        """
+        from apps.contracts.models import Invoice
+        from apps.core.exceptions import NotFoundError
+
+        try:
+            invoice = Invoice.objects.select_related("payment__contract", "contract").get(pk=invoice_id)
+        except Invoice.DoesNotExist:
+            raise NotFoundError(message="发票不存在", code="INVOICE_NOT_FOUND") from None
+
+        if invoice.payment_id is None:
+            raise ValidationException(message="该发票尚未关联收款，无需解除", code="INVOICE_NOT_ATTACHED")
+
+        payment = self._load_payment(
+            invoice.payment_id, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+        invoice.contract = payment.contract
+        invoice.payment = None
         invoice.save(update_fields=["payment", "contract"])
         self._recompute_invoiced_amount(payment)
         return invoice, payment
@@ -406,12 +460,15 @@ class InvoiceFileService:
         """把发票以**重命名后**的文件名复制到 macOS 系统剪贴板（同 Finder ⌘C）。
 
         media 仓库存的是 UUID 文件名，直接落板粘出去名字面目全非；这里把字节
-        复制到临时目录、按 `发票（合同名称）_YYYYMMDD开具.pdf` 命名后落板，
+        复制到暂存目录、按 `发票（合同名称）_YYYYMMDD开具.pdf` 命名后落板，
         律师在微信对话框 ⌘V 粘出的就是可直发的文件。临时文件必须**留存**到
         粘贴之后（pasteboard 持有的是 file-url），只顺手清扫超过 24h 的旧副本。
         非 macOS / 无 pyobjc 由调用方先行判断（同 court-sms 口径）。
+
+        返回成功落板的数量；media 原件缺失时返回 0（不抛 500）——调用方据此降级
+        复制文件名，比让前端看到「系统错误」有用得多。
         """
-        import tempfile
+        import shutil
 
         from apps.contracts.models import Invoice
         from apps.core.services.mac_clipboard_service import MacClipboardFileService
@@ -435,16 +492,35 @@ class InvoiceFileService:
             ext=_ext(invoice.file_path),
         )
 
-        staging = Path(tempfile.mkdtemp(prefix="fachuan-invoice-"))
+        source = Path(_media_abs(invoice.file_path))
+        if not source.is_file():
+            # 原件丢失（media 被清、迁移未跟）不是「系统错误」，如实报落板失败
+            logger.warning(
+                "invoice_clipboard_source_missing",
+                extra={"invoice_id": invoice_id, "file_path": invoice.file_path},
+            )
+            return 0
+
+        root = _clipboard_root()
+        _sweep_stale_copies(root)
+        # 按发票 id 固定子目录：重复点复制只覆盖同名文件，不再每次 mkdtemp 堆一堆空目录
+        staging = root / f"invoice-{invoice_id}"
+        staging.mkdir(parents=True, exist_ok=True)
         target = staging / display_name
-        target.write_bytes(Path(_media_abs(invoice.file_path)).read_bytes())
-        _sweep_stale_copies(staging.parent)
+        try:
+            shutil.copyfile(source, target)
+        except OSError:
+            logger.warning("invoice_clipboard_stage_failed", exc_info=True, extra={"invoice_id": invoice_id})
+            return 0
 
         copied = MacClipboardFileService().copy_file_paths([target])
         if copied == 0:
             logger.warning(
                 "invoice_clipboard_write_failed", extra={"invoice_id": invoice_id, "display_name": display_name}
             )
+            return 0
+        # 刷新暂存目录 mtime：否则重复复制（只覆盖文件）会让 24h 清扫把刚落的板文件删了
+        target.touch()
         return copied
 
     # ------------------------------------------------------------------ 鉴权

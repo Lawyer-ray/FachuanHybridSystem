@@ -185,6 +185,53 @@ class TestConflictCheck:
         assert result["hits"] == []
 
 
+class TestStageAndStatusEncodingCompat:
+    """`current_stage` / `legal_status` 的中英文混存兼容。
+
+    ═══ 这组测试守的是一个**已上线的真实缺陷** ═══
+    生产库 `cases_case.current_stage` 是混存的：
+        first_trial 48 件 / enforcement 18 件 / 一审 13 件 / second_trial 7 件 / 二审 1 件
+    `cases_caseparty.legal_status` 同样：defendant 73 / plaintiff 45 / 被告 3 …
+    早期实现只认英文枚举，后果是：
+      · 那 13 件「一审」全落进 mode="other"，checks 为空、**ready 恒为 True**
+        —— 律师看到「全部通过」，实际一条都没校验过。静默假通过比报错更危险。
+      · 那 3 个「被告」不被算作被告 → 误判「主体不适格」。
+    """
+
+    def test_chinese_first_trial_uses_filing_checks(self):
+        """存「一审」的一律走起诉条件，不能掉进 other。"""
+        case = CaseFactory(current_stage="一审")
+        result = CaseReadinessService().readiness_of(case.id)
+        assert result["mode"] == "filing"
+        assert result["total"] > 0, "空 checks + ready=True 就是静默假通过"
+
+    def test_chinese_second_trial_uses_appeal_checks(self):
+        """存「二审」的走答辩条件。"""
+        first = CaseFactory(current_stage="一审")
+        appeal = CaseFactory(current_stage="二审", previous_case=first)
+        result = CaseReadinessService().readiness_of(appeal.id)
+        assert result["mode"] == "appeal"
+        assert any(c["key"] == "previous" for c in result["checks"])
+
+    def test_chinese_legal_status_counts_as_plaintiff_and_defendant(self):
+        """「原告/被告」的写法也要被认出来，否则误判主体不适格。"""
+        case = CaseFactory(current_stage="first_trial")
+        CaseParty.objects.create(case=case, client=_client("甲公司"), legal_status="原告")
+        CaseParty.objects.create(case=case, client=_client("乙某"), legal_status="被告")
+
+        result = CaseReadinessService().readiness_of(case.id)
+        parties = next(c for c in result["checks"] if c["key"] == "parties")
+        assert parties["ok"] is True, parties["detail"]
+
+    def test_unknown_stage_is_explicit_not_silently_ready(self):
+        """真正不认识的阶段：允许 mode=other，但必须没有 checks 且 total=0。"""
+        case = CaseFactory(current_stage="执行")
+        result = CaseReadinessService().readiness_of(case.id)
+        assert result["mode"] == "other"
+        assert result["checks"] == []
+        assert result["total"] == 0
+
+
 # ───────────────────────── helpers ─────────────────────────
 
 

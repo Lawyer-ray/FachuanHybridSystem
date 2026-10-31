@@ -36,6 +36,12 @@ export const ClientUploadPageLazy = lazy(() =>
   import('@/features/client-upload').then((m) => ({ default: m.ClientUploadPage })),
 )
 
+// 银行批量诉讼（场景 2）：列表 + 立案工作台同属一个 chunk ——
+// 它们共用同一套 api 层与 hooks，拆两个 chunk 会各自拉一份 api 代码。
+export const BankLitigationPageLazy = lazy(() =>
+  import('@/features/bank-litigation').then((m) => ({ default: m.BankLitigationPage })),
+)
+
 /**
  * 导航入口 → 页面 chunk 加载器。悬停预取（AppNavbar onPrefetch）与登录后的
  * 空闲预载共用；import() 幂等，重复调用只命中浏览器模块缓存。

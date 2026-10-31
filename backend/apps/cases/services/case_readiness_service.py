@@ -23,6 +23,30 @@ from apps.cases.models import Case, CaseMaterial, CaseNumber, CaseParty
 
 # ───────────────────────── 材料齐备度 ─────────────────────────
 
+# ── 二审答辩材料槽位 ──
+#
+# ⚠️ 二审答辩与一审起诉要的材料**完全不是一套**，不能共用：
+#   一审问「合同/借据/流水/催收」——那是证明借贷关系与逾期事实；
+#   二审问「一审判决书/上诉状/答辩状/一审卷宗」——那是针对上诉理由逐条反驳。
+# 如果二审还按一审的槽位判，会得到两条荒谬结论：
+#   · 二审案「缺催收记录」——二审根本不举证这个，一审已经举过了；
+#   · 二审案「材料齐备」而手上没有答辩状——真正该交的那份没检查。
+# 实测就是这么错的：二审案被判「2/5 缺 3 项（借据/流水/催收）」，
+# 而律师手上真正缺的是答辩状，报告里一个字没提。
+APPEAL_REQUIRED_SLOTS: list[tuple[str, str]] = [
+    ("judgment", "一审判决书"),
+    ("appeal_petition", "上诉状"),
+    ("defense", "答辩状"),
+    ("first_instance_file", "一审卷宗材料"),
+]
+
+APPEAL_SLOT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "judgment": ("判决书", "判决", "裁定书", "调解书"),
+    "appeal_petition": ("上诉状", "上诉", "上诉理由"),
+    "defense": ("答辩状", "答辩", "答辩意见"),
+    "first_instance_file": ("一审", "原审", "卷宗", "庭审笔录", "证据"),
+}
+
 # 立案必需的材料槽位（key → 中文名）。
 # 为什么要在这里定一份而不是查 CaseMaterialType 表：
 #   类型表是律所可自定义的（每个所的叫法不同），但「哪些是立案必需」是
@@ -39,10 +63,28 @@ REQUIRED_SLOTS: list[tuple[str, str]] = [
 # 关键词 → 槽位。材料文件名/类型名里出现这些词即归入该槽位。
 # 说明：这是**启发式**而非精确匹配——真实材料命名千差万别，
 # 精确匹配会漏；漏判比多判更糟（律师会以为材料齐了）。
+#
+# ⚠️ 关键词要覆盖实际命名习惯，不能只写“标准名”：
+#   《个人购房借款/担保合同》里没有“借款合同”这四个连续字（中间有“/担保”），
+#   只写“借款合同”会漏掉这类最常见的银行合同命名。所以把“借款”单独也保留。
 SLOT_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "contract": ("借款合同", "贷款合同", "主合同", "合同书"),
-    "iou": ("借据", "放款", "借款凭证", "支付凭证"),
-    "stmt": ("还款明细", "交易明细", "对账单", "流水", "还款记录"),
+    "contract": ("借款合同", "贷款合同", "主合同", "合同书", "授信合同"),
+    "iou": ("借款凭证", "借款借据", "借据", "放款凭证", "支付凭证", "提款凭证"),
+    # ⚠️ 关键词**顺序即优先级**（同一轮里按顺序匹配，先命中先占）。
+    # 把「欠款明细/还款及欠款」放在「流水」前面：
+    # 惠民贷案的还款凭据是各笔《已还款及欠款明细表》，"还款明细" 因中间
+    # 隔着「及欠款」匹配不到；而「放款页面及银行流水」含「流水」能命中。
+    # 若「流水」在前，槽位会显示成流水，律师看不到真正的那几份明细表。
+    "stmt": (
+        "欠款明细",
+        "还款及欠款",
+        "还款明细",
+        "本息明细",
+        "交易明细",
+        "对账单",
+        "还款记录",
+        "流水",
+    ),
     "coll": ("催收", "催告", "律师函", "通知函"),
     "id": ("身份证", "营业执照", "身份证明", "户口"),
     "guarantee": ("担保合同", "保证合同", "抵押合同", "质押合同"),
@@ -79,10 +121,51 @@ def _pack_readiness(case: Case, mode: str, checks: list[dict[str, Any]]) -> dict
 class MaterialStatusService:
     """材料齐备度：回答「这件能不能递立案」。"""
 
-    def status_of(self, case_id: int) -> dict[str, Any]:
+    def mode_of(self, case_id: int) -> str:
+        """按案件当前阶段判断该用哪套材料槽位：appeal / filing。
+
+        与 CaseReadinessService.APPEAL_STAGES 同一口径（含历史中文存量），
+        两处不一致会导致「就绪度说按二审算、材料齐备说按一审算」。
+        """
+        case = Case.objects.filter(id=case_id).only("current_stage").first()
+        if case is None:
+            return "filing"
+        stage = (case.current_stage or "").strip()
+        return "appeal" if stage in CaseReadinessService.APPEAL_STAGES else "filing"
+
+    def status_of(self, case_id: int, *, mode: str = "filing") -> dict[str, Any]:
+        """材料齐备度。
+
+        mode:
+          filing  → 一审起诉要件（合同/借据/流水/催收/身份/担保）
+          appeal  → 二审答辩要件（一审判决书/上诉状/答辩状/一审卷宗）
+
+        两套槽位不可混用，原因见 APPEAL_REQUIRED_SLOTS 的注释。
+        """
         case = Case.objects.filter(id=case_id).first()
         if case is None:
             raise ValueError(f"案件不存在: {case_id}")
+
+        is_appeal = mode == "appeal"
+        slots_def = APPEAL_REQUIRED_SLOTS if is_appeal else REQUIRED_SLOTS
+        slot_kw = APPEAL_SLOT_KEYWORDS if is_appeal else SLOT_KEYWORDS
+        weak_def: dict[str, tuple[str, ...]] = (
+            {
+                "judgment": ("裁判", "生效"),
+                "appeal_petition": (),
+                "defense": ("反驳",),
+                "first_instance_file": ("一审卷",),
+            }
+            if is_appeal
+            else {
+                "contract": ("借款", "贷款", "授信", "合同"),
+                "iou": ("出账", "提款"),
+                "stmt": ("还本付息",),
+                "coll": ("催款",),
+                "id": ("主体资格", "金融许可证", "户口"),
+                "guarantee": ("抵押", "质押", "担保函"),
+            }
+        )
 
         # 取本案全部材料的可读名，用于关键词归位。
         # ⚠️ 字段名要按真实模型来：
@@ -90,22 +173,60 @@ class MaterialStatusService:
         #    文件名在 source_attachment（CaseLogAttachment）的 original_filename 里。
         materials = list(CaseMaterial.objects.filter(case_id=case_id).select_related("type", "source_attachment"))
 
+        # 先把每份材料的可读名算出来，再按「强关键词 → 弱关键词」两轮归位。
+        #
+        # 为什么不能一遗用全部关键词：
+        #   为兼容《个人购房借款/担保合同》而把“借款”收进 contract 后，
+        #   “借款借据”也会命中 contract —— 一张借据被算成“主合同已交”，
+        #   律师就看不到真正缺的是合同本身。
+        #   两轮匹配：先只认强关键词（专指名），剩下的名额再让弱关键词补。
+        names: list[str] = []
+        for m in materials:
+            att = getattr(m, "source_attachment", None)
+            fname = ""
+            if att is not None:
+                fname = getattr(att, "original_filename", "") or getattr(att, "relative_file_path", "")
+            names.append(str(getattr(m, "type_name", "") or "") + " " + str(fname))
+
+        WEAK = weak_def
+
+        # ═══ 全局分配而非逐槽独立匹配 ═══
+        # 逐槽独立匹配会让同一份材料喂给多个槽位：《借款借据（放款凭证）》同时
+        # 命中 contract 的弱词「借款」和 iou 的强词「借据」，结果主合同槽位被
+        # 借据占掉，律师看到「主合同齐备」而真正缺的是合同本身。
+        # 正确做法是三轮抢占，越专指的越先占，占过的不再给别人：
+        #   第 1 轮  强关键词（"借据"/"还款明细"/"催收"…专指名）
+        #   第 2 轮  弱关键词兜底（"借款"/"合同"…单看不足以认定）
+        #   第 3 轮  仍未命中的才是真缺件
+        #
+        # 只有这样「借据」才能先占住 iou，contract 再去抢别的东西。
+        claimed: set[int] = set()
+        matched_by_key: dict[str, list[str]] = {k: [] for k, _ in slots_def}
+
+        def _short(hay: str, mid: int) -> str:
+            return hay.strip().split("/")[-1] or f"材料#{mid}"
+
+        for use_weak in (False, True):
+            for key, _label in slots_def:
+                if matched_by_key[key]:
+                    continue  # 上一轮已经命中，不再追加
+                pool = slot_kw.get(key, ()) if not use_weak else WEAK.get(key, ())
+                for m, hay in zip(materials, names):
+                    if m.id in claimed:
+                        continue
+                    if any(kw in hay for kw in pool):
+                        matched_by_key[key].append(_short(hay, m.id))
+                        claimed.add(m.id)
+                        break  # 一个槽位只认第一份最合适的
+
         slots: list[dict[str, Any]] = []
-        for key, label in REQUIRED_SLOTS:
-            kws = SLOT_KEYWORDS.get(key, ())
-            matched: list[str] = []
-            for m in materials:
-                fname = ""
-                att = getattr(m, "source_attachment", None)
-                if att is not None:
-                    fname = getattr(att, "original_filename", "") or getattr(att, "relative_file_path", "")
-                haystack = " ".join([str(getattr(m, "type_name", "") or ""), str(fname)])
-                if any(kw in haystack for kw in kws):
-                    matched.append(str(fname).split("/")[-1] or f"材料#{m.id}")
+        for key, label in slots_def:
+            matched = matched_by_key[key]
+            kws = slot_kw.get(key, ())
 
             if not matched:
                 # 担保合同：无保证人的案件视为不适用，不算缺件
-                if key == "guarantee" and not _has_guarantor(case_id):
+                if not is_appeal and key == "guarantee" and not _has_guarantor(case_id):
                     slots.append(
                         {
                             "key": key,
@@ -158,7 +279,24 @@ class CaseReadinessService:
     """
 
     # CaseStage 里属于二审及以后的阶段（走答辩条件）
-    APPEAL_STAGES = ("second_trial", "retrial_second", "rehearing_second", "review")
+    #
+    # ⚠️ 为什么既要英文枚举又要中文显示名：
+    #   生产库里 `current_stage` 是**中英文混存**的——枚举值是 first_trial
+    #   （48 件），但早期录入/导入的数据存的是中文「一审」（13 件）、
+    #   「二审」（1 件）。只认英文会让那 14 件真实案件全落进 mode="other"，
+    #   checks 为空、ready 恒 True —— 律师看到「全部通过」但根本没校验过。
+    #   这是**静默假通过**，比报错更危险，所以两种写法都必须认。
+    APPEAL_STAGES = (
+        "second_trial",
+        "retrial_second",
+        "rehearing_second",
+        "review",
+        "二审",
+        "重审二审",
+        "再审二审",
+        "提审",
+    )
+    FILING_STAGES = ("", "first_trial", "filing", "一审", "立案")
 
     def __init__(self) -> None:
         self.material = MaterialStatusService()
@@ -171,7 +309,7 @@ class CaseReadinessService:
         stage = (case.current_stage or "").strip()
         if stage in self.APPEAL_STAGES:
             return self._appeal(case)
-        if stage in ("", "first_trial"):
+        if stage in self.FILING_STAGES:
             return self._filing(case)
         # 其他阶段（执行/仲裁等）暂无专门校验 —— 明确说出来，不要假装通过
         return {
@@ -184,20 +322,37 @@ class CaseReadinessService:
             "ready": True,
         }
 
+    # 当事人诉讼地位的**中英文两套写法**。
+    # 生产库 cases_caseparty.legal_status 同样是混存：
+    #   defendant 73 / plaintiff 45 / 被告 3 …
+    # 只看英文会把 3 个「被告」当成「无被告」，误判主体不适格。
+    PLAINTIFF_STATUSES = ("plaintiff", "orig_plaintiff", "applicant", "appellant", "原告", "申请人", "上诉人")
+    DEFENDANT_STATUSES = (
+        "defendant",
+        "orig_defendant",
+        "respondent",
+        "appellee",
+        "criminal_defendant",
+        "被告",
+        "被申请人",
+        "被上诉人",
+    )
+
     # ── 起诉条件 ──
     def _filing(self, case: Case) -> dict[str, Any]:
         checks: list[dict[str, Any]] = []
 
         # ① 当事人主体适格：有原告且有被告
         parties = list(case.parties.select_related("client").all())
-        has_plaintiff = any((p.legal_status or "").startswith("plaintiff") or p.legal_status == "原告" for p in parties)
-        has_defendant = any("defendant" in (p.legal_status or "") for p in parties)
+        statuses = [(p.legal_status or "").strip() for p in parties]
+        has_plaintiff = any(s in self.PLAINTIFF_STATUSES for s in statuses)
+        has_defendant = any(s in self.DEFENDANT_STATUSES for s in statuses)
         checks.append(
             {
                 "key": "parties",
                 "label": "当事人主体适格",
                 "ok": has_plaintiff and has_defendant,
-                "detail": f"原告 {int(has_plaintiff)} · 被告 {int(has_defendant)} · 共 {len(parties)} 方",
+                "detail": f"原告 {'有' if has_plaintiff else '缺'} · 被告 {'有' if has_defendant else '缺'} · 共 {len(parties)} 方",
                 "field": "Case.parties[].legal_status",
             }
         )
@@ -302,8 +457,8 @@ class CaseReadinessService:
             }
         )
 
-        # ④ 材料齐备（答辩材料同样要齐）
-        ms = self.material.status_of(case.id)
+        # ④ 材料齐备 —— 用**二审自己的槽位**，不是一审那套
+        ms = self.material.status_of(case.id, mode="appeal")
         checks.append(
             {
                 "key": "materials",

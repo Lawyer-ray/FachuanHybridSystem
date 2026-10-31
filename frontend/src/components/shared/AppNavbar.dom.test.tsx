@@ -137,10 +137,14 @@ describe('AppNavbar 渲染与全局检索', () => {
     expect(apiGetMock).not.toHaveBeenCalled()
   })
 
-  it('新建项目：走 onNotify 提示回调', () => {
+  it('新建项目：打开新建对话框（不再是 toast 占位）', async () => {
     setupUi()
     fireEvent.click(screen.getByRole('button', { name: /新建项目/ }))
-    expect(onNotify).toHaveBeenCalledWith('新建项目：可先把材料上传到「材料预处理」归案')
+    // 此前这个按钮只弹一句「可先把材料上传到材料预处理归案」——等于告诉用户这里做不了。
+    // 现在是真对话框：能建空白项目，也能从示例模板开始。
+    expect(await screen.findByText('新建项目', { selector: '[role="dialog"] *' })).toBeTruthy()
+    // 用精确文本：说明段落里也有「从示例开始」四个字，正则匹配会撞到两个
+    expect(screen.getByText('从示例开始（可选）')).toBeTruthy()
   })
 })
 

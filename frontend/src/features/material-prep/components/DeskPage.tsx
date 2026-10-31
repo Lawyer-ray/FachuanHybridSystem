@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { materialPrepDetail } from '@/app/paths'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
@@ -172,7 +173,7 @@ export function DeskPage() {
       const p = visible[index]
       if (p) {
         void openPack(p.id)
-        void navigate(`/material-prep/${p.id}`)
+        void navigate(materialPrepDetail(p.id))
       }
     },
     [visible, openPack, navigate],

@@ -152,14 +152,21 @@ async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dic
 
     def _create_full() -> dict[str, Any]:
         result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
-        return CaseFullOut(
-            case=CaseOut.from_orm(result["case"]),
-            parties=result["parties"],
-            assignments=result["assignments"],
-            logs=result["logs"],
-            case_numbers=[],
-            supervising_authorities=result.get("supervising_authorities", []),
-        ).model_dump(by_alias=True, mode="json")
+        # ⚠️ 这里不能直接 `CaseOut.from_orm(case)` 后把 ORM 列表塞进 CaseFullOut：
+        #    bulk_create 出来的 parties/assignments 没预加载 client/lawyer 关联，
+        #    ModelSchema 取 client_detail 时拿到的是 client_id 整数，会报十几个
+        #    「client_detail.id Field required」然后 500（实测）。
+        #    最稳的做法是**按 case_id 重新查一次**，拿到带 select_related 的对象，
+        #    再走和 GET /cases/{id} 完全相同的序列化路径 —— 两条路径口径一致，
+        #    也就不会出现「创建返回的和查询返回的不一样」。
+        #
+        # 重查下沉到 Service 层（API 层禁止直接 ORM，见 four-layer.md）。
+        fresh = service.get_case_model_with_relations(result["case"].pk)
+        if fresh is None:
+            from apps.core.exceptions import NotFoundError
+
+            raise NotFoundError(message="案件创建后查询失败")
+        return _serialize_case(fresh)
 
     return await sync_to_async(_create_full)()
 

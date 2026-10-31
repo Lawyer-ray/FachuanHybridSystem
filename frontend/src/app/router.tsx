@@ -1,5 +1,5 @@
 import { Suspense, type ReactNode } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
@@ -7,6 +7,7 @@ import { hasToken } from '@/lib/token'
 import { LoginPage, SocialCallbackPage } from '@/features/auth'
 import { AppShell } from './shell/AppShell'
 import {
+  BankLitigationPageLazy,
   ClientUploadPageLazy,
   DeskPageLazy,
   HomePageLazy,
@@ -52,6 +53,19 @@ function LegacyInboxRedirect() {
   return <Navigate to={ROUTES.materialPrep} replace />
 }
 
+/**
+ * 立案工作台（带案件 id）：把 URL 里的 `:id` 解出来交给页面。
+ *
+ * 页面对「id 从哪来」无感 —— 列表模式下它自己 setState，URL 模式下由这里注入。
+ * 用 Number() 而非 parseInt：`parseInt('12abc')` 会得到 12，
+ * 悄悄打开了另一个案子；Number 给 NaN，走「案件不存在」分支。
+ */
+function BankLitigationCaseRoute() {
+  const { id } = useParams()
+  const caseId = Number(id)
+  return <BankLitigationPageLazy initialCaseId={Number.isFinite(caseId) ? caseId : null} />
+}
+
 /** 懒加载页统一包一层 RouteFallback（fallback 由 Suspense 兜） */
 function lazyPage(node: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{node}</Suspense>
@@ -87,6 +101,13 @@ export function AppRouter() {
           {/* 项目详情：一条 URL（:id = 委托合同 id），按 deal.lit 分流左栏——
               诉讼走案件程序链、非诉走合同文件夹。不再用 /nonlit 后缀暴露分类词。 */}
           <Route path={ROUTES.projectDetail} element={<ProjectDetailPageLazy />} />
+          {/* 银行批量诉讼（场景 2）：列表与立案工作台共用同一页组件，
+              `:id` 有值时打开指定案件的工作台。两者必须同一条组件 ——
+              工作台内的四个分区（起诉条件/要素式转换/OA/一张网）都依赖
+              同一个 caseId 状态，拆成两个页面会让「从列表点进 B 案、
+              另一个标签页还停在 A 案」成为可能。 */}
+          <Route path={ROUTES.bankLitigation} element={lazyPage(<BankLitigationPageLazy />)} />
+          <Route path={ROUTES.bankLitigationCase} element={lazyPage(<BankLitigationCaseRoute />)} />
           {/* 合同复审工作台（发起审查后跳入；参数与 ReviewWorkbenchPage 的 useParams 对齐） */}
           <Route path={ROUTES.projectReview} element={<ReviewWorkbenchPageLazy />} />
           {/* 设置：系统状态 + 账号绑定 */}

@@ -1,27 +1,35 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileText, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { EmptyBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
 import { fmtCNDate, fmtMoney } from '../../domain'
 import {
+  attachPaymentInvoice,
   contractInvoiceKeys,
+  detachPaymentInvoice,
   listContractInvoices,
   uploadContractInvoices,
   type PaymentInvoice,
 } from '../../api'
 import type { WorkbenchDeal } from '../../types'
 import { feeStats } from './detail-domain'
-import { CopyInvoiceFileButton } from './PaymentInvoiceZone'
+import { groupsForReview } from './invoice-auto-link'
+import { InvoiceGroupHead, InvoiceRow } from './rail-invoice'
+import { InvoiceStatusBadge, StatCell, Subhead } from './rail-ui'
 import { KV, RailAction } from './ui'
 
 /**
  * 统一的「收费」节：钱与票两条线**分开**呈现——收款是钱到账的事实（金额/日期/
  * 开票状态），发票是票本身（识别归档后的文件，可复制直发客户）。两种顺序都顺：
- * 先收款后开票 → ＋记收款（弹窗里拖票核销）；先开票后收款 → ＋传发票 或把票
- * 直接拖进本节（挂合同待核销，收款后一键关联）。
+ * 先收款后开票 → ＋记收款（弹窗里拖票归属到这笔收款）；先开票后收款 → ＋传发票
+ * 或把票直接拖进本节（先挂合同名下，收款后关联到那笔收款）。
+ *
+ * 发票按**收款分组**显示（见 groupsForReview）：票挂在哪笔钱下面一目了然，
+ * 每行可「关联/改挂」或「解除关联」——挂错不需要重传。未归属的那一组单独放
+ * 最后、整组只提示一次（不再逐行重复黄标签）。
  *
  * 整节是拖放目标：拖票悬停时高亮提示落点（传到合同名下）。
  */
@@ -30,11 +38,21 @@ export function RailFees({
   moneyRows,
   onAddPayment,
   onOpenInvoices,
+  onChanged,
 }: {
   deal: WorkbenchDeal
   moneyRows: Array<[string, string]>
   onAddPayment: () => void
   onOpenInvoices: () => void
+  /**
+   * 发票归属/上传成功后通知页面刷新合同。
+   *
+   * 必须回调给页面而不是只 invalidate 本节的发票缓存：开票金额与「已开票」
+   * 统计格来自**合同**数据（deal.totalInvoiced / payment.invoice_status），
+   * 只刷发票列表的话金额会原地不动，看起来像「关联没生效」——
+   * 律师已经因为要手动刷新页面提过一次意见。
+   */
+  onChanged: () => void
 }) {
   const stats = feeStats(deal)
   const qc = useQueryClient()
@@ -43,13 +61,30 @@ export function RailFees({
     queryFn: () => listContractInvoices(deal.id),
     staleTime: 30_000,
   })
-  const invoices = invoicesQ.data ?? []
+  const invoices = useMemo(() => invoicesQ.data ?? [], [invoicesQ.data])
+  /** 收款行（带 id）才算归属目标：ContractPaymentOut.id 是可空的 */
+  const payTargets = useMemo(
+    () =>
+      deal.payments
+        .filter((p): p is typeof p & { id: number } => p.id != null)
+        .map((p) => ({ id: p.id, amount: fmtMoney(p.amount) ?? '' })),
+    [deal.payments],
+  )
+  const groups = useMemo(() => groupsForReview(invoices, payTargets), [invoices, payTargets])
   const unlinkedCount = invoices.filter((inv) => inv.payment_id == null).length
+  /** 关联/解除关联中的发票 id（行内图标转圈用，同时防重复点击） */
+  const [busyId, setBusyId] = useState<number | null>(null)
 
   const [dragDepth, setDragDepth] = useState(0)
   const [uploading, setUploading] = useState(false)
   const dragging = dragDepth > 0
   const fileRef = useRef<HTMLInputElement | null>(null)
+
+  /** 发票缓存 + 合同（开票金额/统计格/收款徽标）一起刷，缺一个就出现「半新半旧」 */
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: contractInvoiceKeys.all(deal.id) })
+    onChanged()
+  }
 
   /** 拖发票到本节：直接传到合同名下（先开票后付款的最短路径） */
   const onDrop = (e: React.DragEvent) => {
@@ -69,12 +104,47 @@ export function RailFees({
       }
       if (result.saved.length) {
         toast.success(`已识别归档 ${result.saved.length} 张发票`)
-        void qc.invalidateQueries({ queryKey: contractInvoiceKeys.all(deal.id) })
+        refresh()
       }
     } catch (e) {
       toast.error(errMessage(e, '发票上传失败，请重试'))
     } finally {
       setUploading(false)
+    }
+  }
+
+  /**
+   * 关联/改挂到目标收款。后端要求「未关联」才能 attach，所以已关联的票先 detach
+   * 再 attach——两步都在这里，用户只看到一次点击、一次结果提示。
+   */
+  const relink = async (inv: PaymentInvoice, paymentId: number) => {
+    if (busyId != null) return
+    setBusyId(inv.id)
+    try {
+      if (inv.payment_id != null) await detachPaymentInvoice(inv.id)
+      await attachPaymentInvoice(inv.id, paymentId)
+      toast.success(inv.payment_id == null ? '已关联到这笔收款' : '已改挂到这笔收款')
+      refresh()
+    } catch (e) {
+      toast.error(errMessage(e, '关联失败，请重试'))
+      refresh()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  /** 解除关联：票退回合同名下，后端同步重算原收款的开票金额 */
+  const unlink = async (inv: PaymentInvoice) => {
+    if (busyId != null) return
+    setBusyId(inv.id)
+    try {
+      await detachPaymentInvoice(inv.id)
+      toast.success('已解除关联，发票回到未关联收款')
+      refresh()
+    } catch (e) {
+      toast.error(errMessage(e, '解除关联失败，请重试'))
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -126,7 +196,7 @@ export function RailFees({
         <StatCell label="未收" value={stats.unpaid ?? '—'} muted={stats.unpaid == null} />
       </div>
 
-      {/* 收款：逐笔的钱（开票状态跟钱走，票按收款核销） */}
+      {/* 收款：逐笔的钱（开票状态跟钱走，票归属到收款） */}
       <Subhead title="收款" count={deal.payments.length + deal.payRecords.length} />
       {deal.payments.length + deal.payRecords.length === 0 ? (
         <EmptyBlock className="justify-start px-0 py-1 text-left text-xs text-muted-foreground/70">
@@ -161,12 +231,8 @@ export function RailFees({
         </>
       )}
 
-      {/* 发票：票的档案（重命名后的文件可一键复制直发微信） */}
-      <Subhead
-        title="发票"
-        count={invoices.length}
-        extra={unlinkedCount > 0 ? `待核销 ${unlinkedCount} 张` : undefined}
-      />
+      {/* 发票：票的档案（重命名后的文件可一键复制直发微信），按收款分组、行内可改挂 */}
+      <Subhead title="发票" count={invoices.length} />
       {invoices.length === 0 ? (
         <button
           type="button"
@@ -176,11 +242,38 @@ export function RailFees({
           拖入或点击上传发票（自动识别、归档、重命名）
         </button>
       ) : (
-        <ul className="flex flex-col">
-          {invoices.map((inv) => (
-            <InvoiceRow key={inv.id} inv={inv} />
-          ))}
-        </ul>
+        <div className="flex flex-col">
+          {groups.map((group) => {
+            const target = group.paymentId == null ? null : deal.payments.find((p) => p.id === group.paymentId)
+            return (
+              <div key={group.paymentId ?? 'unlinked'} className="mb-1.5 last:mb-0">
+                <InvoiceGroupHead
+                  count={group.invoices.length}
+                  amount={target ? fmtMoney(target.amount) : null}
+                  date={target ? fmtCNDate(target.received_at) : null}
+                  unlinked={group.paymentId == null}
+                />
+                <ul className="flex flex-col">
+                  {group.invoices.map((inv) => (
+                    <InvoiceRow
+                      key={inv.id}
+                      inv={inv}
+                      busy={busyId === inv.id}
+                      payments={payTargets}
+                      onLink={(paymentId) => void relink(inv, paymentId)}
+                      onUnlink={() => void unlink(inv)}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
+          {unlinkedCount > 0 && (
+            <p className="mt-1 text-[10.5px] leading-[1.5] text-muted-foreground/70">
+              「未关联收款」的票不属于任何一笔到账钱，记账上还没算进「已开票」。点行内「关联」挂到对应收款即可。
+            </p>
+          )}
+        </div>
       )}
       <input
         ref={fileRef}
@@ -195,64 +288,5 @@ export function RailFees({
         }}
       />
     </div>
-  )
-}
-
-/** 统计格：灰标签 + 粗体金额；未收不可知（风险代理）时降为一字占位 */
-function StatCell({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
-  return (
-    <div className="flex flex-col items-center gap-px py-[7px]">
-      <span className="text-[10.5px] text-muted-foreground/80">{label}</span>
-      <b className={'text-[13.5px] font-[680] tabular-nums ' + (muted ? 'text-muted-foreground/50' : 'text-secondary-foreground')}>
-        {value}
-      </b>
-    </div>
-  )
-}
-
-/** 小节标题（收款/发票两条线各自的眉头）：标题 + 计数 + 右侧补充（待核销） */
-function Subhead({ title, count, extra }: { title: string; count: number; extra?: string }) {
-  return (
-    <div className="mt-[13px] mb-[5px] flex items-baseline gap-1.5">
-      <span className="text-[11px] font-[650] text-muted-foreground/80">{title}</span>
-      <span className="text-[10.5px] tabular-nums text-muted-foreground/60">· {count}</span>
-      {extra && <span className="ml-auto text-[10.5px] font-[620] text-status-yellow">{extra}</span>}
-    </div>
-  )
-}
-
-/** 开票状态徽标：跟「这笔钱开没开票」走（票按收款核销，状态随核销重算） */
-function InvoiceStatusBadge({ status, label }: { status: string; label?: string }) {
-  const tone =
-    status === 'INVOICED_FULL'
-      ? 'bg-status-green/12 text-status-green'
-      : status === 'INVOICED_PARTIAL'
-        ? 'bg-status-yellow/12 text-status-yellow'
-        : 'bg-secondary text-muted-foreground'
-  return (
-    <span className={'rounded-[5px] px-1.5 py-px text-[10px] font-[620] whitespace-nowrap ' + tone}>
-      {label || '未开票'}
-    </span>
-  )
-}
-
-/** 发票行：重命名后的文件名（hover 全名，日期已含在文件名里）+ 金额 + 复制文件（微信 ⌘V 直发） */
-function InvoiceRow({ inv }: { inv: PaymentInvoice }) {
-  return (
-    <li className="flex items-center gap-1.5 border-b border-border-light py-[5px] text-[11.5px] last:border-b-0">
-      <FileText className="size-3 flex-none text-muted-foreground/60" />
-      <span className="min-w-0 flex-1 truncate" title={inv.display_filename}>
-        {inv.display_filename}
-      </span>
-      {inv.payment_id == null && (
-        <span className="flex-none rounded-[5px] bg-status-yellow/12 px-1.5 py-px text-[10px] font-[620] text-status-yellow">
-          待核销
-        </span>
-      )}
-      <span className="flex-none whitespace-nowrap text-muted-foreground tabular-nums" title="价税合计">
-        {inv.total_amount ? '¥' + inv.total_amount : '—'}
-      </span>
-      <CopyInvoiceFileButton invoiceId={inv.id} filename={inv.display_filename} />
-    </li>
   )
 }

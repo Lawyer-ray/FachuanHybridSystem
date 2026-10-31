@@ -28,6 +28,7 @@ export function DetailRail({
   onAddDue,
   onAddPayment,
   onOpenInvoices,
+  onMoneyChanged,
   showFolder = true,
   onOpenFile,
   onReviewFile,
@@ -44,8 +45,10 @@ export function DetailRail({
   moneyRows: Array<[string, string]>
   onAddDue: () => void
   onAddPayment: () => void
-  /** 打开发票弹窗（先开票后付款的入口：传票到合同 + 管理待核销） */
+  /** 打开发票弹窗（先开票后付款的入口：传票到合同 + 管理未关联收款的票） */
   onOpenInvoices: () => void
+  /** 收费节里的写操作（发票关联/解除/上传）完成后刷新合同：开票金额与统计格都来自合同数据 */
+  onMoneyChanged: () => void
   /**
    * 是否渲染合同文件夹树。
    *
@@ -180,7 +183,13 @@ export function DetailRail({
       {/* 收费一节统一呈现：费用事实 + 已收/已开票/未收统计 + 逐笔收款。
           此前「涉案与收费」与「收款」两张节紧挨着、已收款金额出现两遍。 */}
       {!factsHidden && (
-        <RailFees deal={deal} moneyRows={moneyRows} onAddPayment={onAddPayment} onOpenInvoices={onOpenInvoices} />
+        <RailFees
+          deal={deal}
+          moneyRows={moneyRows}
+          onAddPayment={onAddPayment}
+          onOpenInvoices={onOpenInvoices}
+          onChanged={onMoneyChanged}
+        />
       )}
       {!factsHidden && <RailSupps deal={deal} />}
 
