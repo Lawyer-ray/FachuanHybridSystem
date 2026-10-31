@@ -56,10 +56,12 @@ jobs:
       contents: read
       security-events: read
     env:
-      # 当前 main 基线（2025-10 第二轮清零后）：error+warning 合计 2 条（均为测试文件里的
-      # py/implicit-string-concatenation-in-list 与 py/unnecessary-delete）。
-      # 阈值 = 基线，含义是「不得新增」；清理掉存量后把这里往下调，不要往上调。
-      MAX_OPEN_ALERTS: "2"
+      # 当前 main 基线（2026-10-31 第二轮合入后实测）：error+warning 合计 **0** 条。
+      # 剩下的 6 条全部是 note 级（CodeQL 对 global 读写 / 测试断言看不到导致的误报，
+      # 已就地加注释说明，见 approval.py / document_analyzer.py / onlyoffice/config.py /
+      # conftest.py / mcp_server/server.py）。
+      # 阈值 = 基线，含义是「不得新增」；清理掉存量后把这里往下调，**不要往上调**。
+      MAX_OPEN_ALERTS: "0"
       # 只卡 rule.severity 为这几档的告警；note 故意不在列。
       BLOCKING_SEVERITIES: "error, warning"
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
