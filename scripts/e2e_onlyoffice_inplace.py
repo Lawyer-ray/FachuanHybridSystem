@@ -110,6 +110,8 @@ def get_jwt_secret() -> str:
         if secret:
             return secret
     except Exception:
+        # 取不到 docker secret 属预期内降级（未起容器/无 docker/未注入密钥均会走到这里），
+        # 紧接其后有 SystemConfig 回退路径，故无需记录。勿加日志：E2E 脚本输出需保持干净。
         pass
 
     sys.path.insert(0, str(BACKEND / "apiSystem"))

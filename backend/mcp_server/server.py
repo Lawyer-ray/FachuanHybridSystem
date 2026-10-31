@@ -1325,4 +1325,5 @@ def _slim_registered_tool_schemas() -> int:
     return total
 
 
+#: 剥离计数；赋值本身即副作用（执行瘦身），且门禁测试读它，CodeQL 误报「未使用」，不可删除。
 _SLIMMED_TITLES = _slim_registered_tool_schemas()

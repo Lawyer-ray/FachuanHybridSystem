@@ -15,73 +15,41 @@ from django.utils import timezone
 from apps.core.exceptions import ValidationException
 from apps.core.services.storage_service import delete_media_file
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
+from apps.message_hub.services.archive_extract_service import expand_upload_files
 from apps.message_hub.services.attachment_page_service import fill_page_counts
 from apps.message_hub.services.base import MessageFetcher, resolve_media_attachment_path
+from apps.message_hub.services.upload_policy import (
+    MANUAL_UPLOAD_ALLOWED_EXTENSIONS,
+    MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES,
+    MANUAL_UPLOAD_MAX_SIZE_BYTES,
+    is_archive_filename,
+    is_multipart_filename,
+    validate_manual_upload_file,
+)
+
+# 白名单、大小上限与 validate_manual_upload_file 定义在 upload_policy（与压缩包
+# 展开服务共用，避开 import 环）；此处 re-export 保持历史导入路径可用。
+__all__ = [
+    "MANUAL_SOURCE_DISPLAY_NAME",
+    "MANUAL_UPLOAD_ALLOWED_EXTENSIONS",
+    "MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES",
+    "MANUAL_UPLOAD_MAX_SIZE_BYTES",
+    "ManualUploadFetcher",
+    "append_manual_attachments",
+    "create_manual_message",
+    "delete_manual_message",
+    "get_or_create_manual_source",
+    "is_archive_filename",
+    "is_multipart_filename",
+    "rename_manual_message",
+    "save_draft",
+    "save_upload_files_as_metas",
+    "validate_manual_upload_file",
+]
 
 logger = logging.getLogger("apps.message_hub")
 
 MANUAL_SOURCE_DISPLAY_NAME = "前端材料预处理上传"
-
-# 收件箱手动上传白名单：文档 / 图片 / 压缩包（对齐 document_parsing 等上传口的先例）
-MANUAL_UPLOAD_ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
-    {
-        ".pdf",
-        ".doc",
-        ".docx",
-        ".xls",
-        ".xlsx",
-        ".ppt",
-        ".pptx",
-        ".txt",
-        ".md",
-        ".csv",
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".webp",
-        ".bmp",
-        ".tiff",
-        ".heic",
-        ".zip",
-        ".rar",
-        ".7z",
-    }
-)
-# 单文件上限 50MB（与 document_parsing 上传、合同归档上传的先例一致）；
-# 压缩包单独放宽——律所扫描件整包常见 100–200MB，展开侧自有
-# 200MB/200 条硬上限兜底（archive_extract_service）
-MANUAL_UPLOAD_MAX_SIZE_BYTES = 50 * 1024 * 1024
-MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES = 200 * 1024 * 1024
-
-
-def validate_manual_upload_file(uploaded: Any) -> None:
-    """手动上传附件的类型 / 大小校验（无类型限制时收件箱会沦为任意文件仓库）。"""
-    from apps.message_hub.services.archive_extract_service import is_archive_filename, is_multipart_filename
-
-    name = str(getattr(uploaded, "name", "") or "")
-    if is_multipart_filename(name):
-        raise ValidationException(
-            "分卷压缩包不支持直接上传",
-            code="MULTIPART_ARCHIVE",
-            errors={"files": f"{name} 是分卷压缩包，请先在本地合并成完整压缩包再上传"},
-        )
-    ext = Path(name).suffix.lower()
-    if ext not in MANUAL_UPLOAD_ALLOWED_EXTENSIONS:
-        raise ValidationException(
-            f"不支持的附件格式: {ext or '(无扩展名)'}",
-            code="INVALID_ATTACHMENT_TYPE",
-            errors={"files": f"允许的格式: {', '.join(sorted(MANUAL_UPLOAD_ALLOWED_EXTENSIONS))}"},
-        )
-    size = int(getattr(uploaded, "size", 0) or 0)
-    cap = MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES if is_archive_filename(name) else MANUAL_UPLOAD_MAX_SIZE_BYTES
-    if size > cap:
-        limit = f"{cap // (1024 * 1024)}MB" + ("（压缩包）" if cap != MANUAL_UPLOAD_MAX_SIZE_BYTES else "")
-        raise ValidationException(
-            f"附件过大（单个不能超过 {limit}）",
-            code="ATTACHMENT_TOO_LARGE",
-            errors={"files": f"单个附件不能超过 {limit}"},
-        )
 
 
 class ManualUploadFetcher(MessageFetcher):
@@ -169,8 +137,6 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
     zip/rar/7z 压缩包在这里展开为包内文件（与逐个直传等价，白名单/限额
     同口径；嵌套压缩包不递归）；展开后一个文件都没有视为空包拒绝。
     """
-    from apps.message_hub.services.archive_extract_service import expand_upload_files
-
     # 先整批校验再落盘：中途失败不产生半落盘的孤儿附件
     for uploaded in files:
         validate_manual_upload_file(uploaded)
@@ -211,8 +177,6 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
     新附件沿用与 create_manual_message 相同的落盘协议，part_index 接着现有最大值排，
     不触碰拆分草稿（新素材由前端拉详情后并入 draft_state）。
     """
-    from apps.message_hub.services.archive_extract_service import expand_upload_files
-
     # 先整批校验再落盘：中途失败不产生半落盘的孤儿附件
     for uploaded in files:
         validate_manual_upload_file(uploaded)

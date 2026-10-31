@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 _ZXFW_MOD = "apps.automation.services.scraper.scrapers.court_document._zxfw_direct_api_mixin"
-_ZXFW_SCRAPER_MOD = "apps.automation.services.scraper.scrapers.court_document.zxfw_scraper"
 _COURT_DOC_SVC_MOD = "apps.automation.services.scraper.court_document_service"
 _SMS_MIXIN_MOD = "apps.automation.services.sms._sms_download_mixin"
 

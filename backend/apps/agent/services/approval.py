@@ -391,6 +391,7 @@ def _list_mcp_tools(mcp: Any) -> list[Any]:
 #: 注意：这里**不用 ``lru_cache``**——它会在并发首次调用时把「加载中/失败的
 #: 空表」一起记下来，导致同进程内先后调用拿到不一致结果（实测：第一个工具
 #: 拿到注解、后续全 ``None``）。审批是安全路径，宁可多读一次也不能读出两套答案。
+#: 本模块的读写在函数内经 ``global`` 完成，CodeQL 会误报「未使用」，不可删除。
 _ANNOTATION_TABLE: dict[str, dict[str, Any] | None] | None = None
 
 

@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 _PREFIX = "ONLYOFFICE_"
 _CONFIG_TTL_SECONDS = 60.0
 
+#: 配置 TTL 缓存：(取配置时刻, 配置)；读写均经函数内 ``global``，CodeQL 误报「未使用」，不可删除。
 _config_cache: tuple[float, OnlyOfficeConfig] | None = None
 _config_cache_lock = threading.Lock()
 _weak_secret_warned: set[str] = set()
