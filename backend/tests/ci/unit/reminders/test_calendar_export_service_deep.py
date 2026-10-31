@@ -8,7 +8,8 @@ naive end_at 补时区、case_log 描述、location 防注入（"missing value"�
 
 from __future__ import annotations
 
-from datetime import timedelta
+from calendar import monthrange
+from datetime import datetime, timedelta
 
 import pytest
 from django.utils import timezone
@@ -16,6 +17,26 @@ from django.utils import timezone
 from apps.reminders.models import Reminder
 from apps.reminders.services.calendar_export_service import CalendarExportService, _reminder_to_vevent
 from apps.testing.factories import CaseFactory, CaseLogFactory, ContractFactory
+
+
+def _safe_offset(now: datetime, days: int) -> timedelta:
+    """返回一个不会跨月的偏移量，供两个跨月脆弱的用例用。
+
+    `_query_reminders` 先按 `due_at__date` 的**月份**过滤，所以测试里
+    `now ± N 天` 的写法在月末（如 10-31）会把提醒推到下个月 → 被滤掉 →
+    断言全空（实测：2026-10-31 的 CI 就是这条红的）。
+
+    - 本月剩余天数 > days：用原偏移（原始意图，行为不变）；
+    - 已贴近月末：退化为分钟级偏移，仍能区分「早/晚」与「已过期/未到期」。
+
+    不能用「跳到本月 15 日」代替：`status=overdue/upcoming` 是拿**真实 now**
+    当分水岭的，锚点跳到月中会让两条记录全落在同一侧。
+    """
+    local = timezone.localtime(now)
+    last_day = monthrange(local.year, local.month)[1]
+    if last_day - local.day > days:
+        return timedelta(days=days)
+    return timedelta(minutes=10)
 
 
 def _reminder(**kwargs) -> Reminder:
@@ -102,9 +123,14 @@ class TestQueryReminders:
         assert [r.content for r in log_rows] == ["日志提醒"]
 
     def test_status_filters_overdue_upcoming(self) -> None:
+        # 用「本月内固定锚点」而不是 now±N 天：`_query_reminders` 先按
+        # due_at__date 的**月份**过滤，而测试跑在月末（如 10-31）时，
+        # now+1d 已经落到下个月 → 被月份过滤掉 → upcoming 恒为空。
+        # 实测：2026-10-31 的 CI 因此挂掉（本地也复现）。
         now = timezone.now()
-        _reminder(due_at=now - timedelta(days=1), content="已过期")
-        _reminder(due_at=now + timedelta(days=1), content="未到期")
+        offset = _safe_offset(now, 1)
+        _reminder(due_at=now - offset, content="已过期")
+        _reminder(due_at=now + offset, content="未到期")
 
         svc = CalendarExportService()
         overdue = svc._query_reminders(year=now.year, month=now.month, reminder_type="", scope="all", status="overdue")
@@ -115,8 +141,11 @@ class TestQueryReminders:
         assert [r.content for r in upcoming] == ["未到期"]
 
     def test_result_ordered_by_due_at(self) -> None:
+        # 同上：两条提醒必须**同月**，否则晚的那条会被月份过滤掉，
+        # 断言只剩一条（跨月时必挂）。
         now = timezone.now()
-        _reminder(due_at=now + timedelta(days=2), content="晚")
+        offset = _safe_offset(now, 2)
+        _reminder(due_at=now + offset, content="晚")
         _reminder(due_at=now, content="早")
 
         rows = CalendarExportService()._query_reminders(
