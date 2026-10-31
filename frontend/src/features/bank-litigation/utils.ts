@@ -16,7 +16,7 @@
 export function fmtMoney(v: string | number | null | undefined): string {
   if (v == null) return '—'
   const s = String(v)
-  const [int, dec] = s.split('.')
+  const [int = '', dec] = s.split('.')
   const withComma = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   return dec ? `${withComma}.${dec}` : withComma
 }

@@ -527,3 +527,11 @@ def test_detach_unlinked_invoice_is_rejected(authenticated_client, contract: Con
     )
     resp = authenticated_client.post(f"/api/v1/contracts/finance/invoices/{invoice.id}/detach")
     assert resp.status_code == 400, resp.content
+    # 光看状态码不够：必须确认后端给的是「未关联」这个具体原因，
+    # 而不是随便哪个 400（如权限/参数校验）。前端靠 code 区分提示文案。
+    body = resp.json()
+    assert body.get("code") == "INVOICE_NOT_ATTACHED", body
+    # 副作用：拒绝后发票不能被动过（仍在合同名下，payment 仍为空）。
+    invoice.refresh_from_db()
+    assert invoice.payment_id is None
+    assert invoice.contract_id == contract.id

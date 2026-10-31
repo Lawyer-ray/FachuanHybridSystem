@@ -72,8 +72,13 @@ export function OAFilingPanel({
     )
   }
 
-  const current = list.find((c) => c.oa_system_name === site) ?? list[0]
-  const canRun = Boolean(current.has_credential) && Boolean(contractId) && state.phase !== 'running'
+  /* 显式剔除 undefined：`list[0]` 在 `noUncheckedIndexedAccess` 下是 `T | undefined`，
+     而上面已保证 `list.length > 0`，这里只是把事实告诉类型系统，不改变运行时行为。 */
+  const current = list.find((c) => c.oa_system_name === site) ?? list[0]!
+  const canRun =
+    Boolean(current.has_credential) &&
+    Boolean(contractId) &&
+    state.phase !== 'running'
   const running = state.phase === 'submitting' || state.phase === 'running'
 
   return (

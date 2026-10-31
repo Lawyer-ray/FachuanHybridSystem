@@ -159,20 +159,9 @@ async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dic
         #    最稳的做法是**按 case_id 重新查一次**，拿到带 select_related 的对象，
         #    再走和 GET /cases/{id} 完全相同的序列化路径 —— 两条路径口径一致，
         #    也就不会出现「创建返回的和查询返回的不一样」。
-        from apps.cases.models import Case
-
-        fresh = (
-            Case.objects.select_related("contract")
-            .prefetch_related(
-                "parties__client",
-                "assignments__lawyer__law_firm",
-                "logs",
-                "case_numbers",
-                "supervising_authorities",
-            )
-            .filter(pk=result["case"].pk)
-            .first()
-        )
+        #
+        # 重查下沉到 Service 层（API 层禁止直接 ORM，见 four-layer.md）。
+        fresh = service.get_case_model_with_relations(result["case"].pk)
         if fresh is None:
             from apps.core.exceptions import NotFoundError
 

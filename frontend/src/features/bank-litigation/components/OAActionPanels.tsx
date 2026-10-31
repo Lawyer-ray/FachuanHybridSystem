@@ -81,15 +81,18 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
 
   async function onLookup() {
     if (!list.length) return
+    // `list` 已 filter 掉空行，但 `list[0]` 在 noUncheckedIndexedAccess 下仍是 T | undefined；
+    // 上面已 return 掉空数组，这里把非空事实告诉类型系统。
+    const target = list[0]!
     setLooking(true)
     setLookupErr(null)
     setFound(null)
     reset()
     try {
-      const r = await meta.lookup(list[0])
+      const r = await meta.lookup(target)
       setFound(r)
     } catch (e) {
-      setLookupErr(errMessage(e))
+      setLookupErr(errMessage(e, 'OA 凭证查询失败'))
     } finally {
       setLooking(false)
     }

@@ -129,7 +129,7 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
     } catch (e) {
       if (!alive.current) return
       setPhase('failed')
-      setError(errMessage(e))
+      setError(errMessage(e, '分段任务提交失败'))
     }
   }, [template])
 
@@ -214,7 +214,7 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
     } catch (e) {
       if (!alive.current) return
       setPhase('failed')
-      setError(errMessage(e))
+      setError(errMessage(e, '导入失败'))
     }
   }, [job, segs, caseId])
 
@@ -445,7 +445,11 @@ async function unzipToFiles(zip: Blob): Promise<File[]> {
     if (!data) continue
     // ZIP 里的中文名是 UTF-8（后端用 filename flag 0x800），这里已解好
     const name = e.name.split('/').pop() || e.name
-    out.push(new File([data], name, { type: 'application/pdf' }))
+    // Uint8Array<ArrayBufferLike> 在 TS 6 下不能直接当 BlobPart（SharedArrayBuffer 分支不兼容）。
+    // 拷一份落到独立的 ArrayBuffer，既消掉类型错误，也避免 File 持有一整个 buffer 的视图。
+    const bytes = new Uint8Array(data.length)
+    bytes.set(data)
+    out.push(new File([bytes.buffer], name, { type: 'application/pdf' }))
   }
   return out
 }
@@ -505,7 +509,9 @@ async function inflateEntry(buf: Uint8Array, e: ZipEntry): Promise<Uint8Array | 
 
   try {
     const ds = new DecompressionStream('deflate-raw')
-    const stream = new Blob([raw]).stream().pipeThrough(ds)
+    const bytes = new Uint8Array(raw.length)
+    bytes.set(raw)
+    const stream = new Blob([bytes.buffer]).stream().pipeThrough(ds)
     const out = new Uint8Array(await new Response(stream).arrayBuffer())
     return out
   } catch {

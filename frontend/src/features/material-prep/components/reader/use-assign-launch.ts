@@ -106,7 +106,7 @@ export function useAssignLaunch(params: {
         r.contractId != null ? projectDetail(r.contractId) : bankLitigation(r.caseId),
       )
     } catch (e) {
-      toast.error(`归案失败：${errMessage(e)}`, { id: 'assign', duration: 6000 })
+      toast.error(`归案失败：${errMessage(e, '未知错误')}`, { id: 'assign', duration: 6000 })
     }
   }
 

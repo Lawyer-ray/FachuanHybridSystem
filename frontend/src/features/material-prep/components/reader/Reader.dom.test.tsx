@@ -765,7 +765,9 @@ describe('Reader：弹窗回调连线', () => {
     await vi.waitFor(() => {
       expect(assignPackMock).toHaveBeenCalled()
     })
-    const arg = assignPackMock.mock.calls[0][0] as { target: string; parties: { our: string } }
+    // mock.calls[0] 在 noUncheckedIndexedAccess 下是 T | undefined；
+    // 上面 waitFor 已保证至少调用过一次，`!` 把这个事实告诉类型系统。
+    const arg = assignPackMock.mock.calls[0]![0] as { target: string; parties: { our: string } }
     expect(arg.target).toBe('new')
     expect(arg.parties.our).toBe('某某银行')
     container.remove()

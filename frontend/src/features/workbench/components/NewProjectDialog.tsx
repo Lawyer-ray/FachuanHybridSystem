@@ -129,7 +129,7 @@ export function NewProjectDialog({
       // 有合同跳项目详情（按合同视角）；没合同退回办案工作台（按案件视角）
       void navigate(contractId != null ? projectDetail(contractId) : bankLitigation(caseId))
     } catch (e) {
-      toast.error(`建项目失败：${errMessage(e)}`, { duration: 6000 })
+      toast.error(`建项目失败：${errMessage(e, '未知错误')}`, { duration: 6000 })
     } finally {
       setBusy(false)
     }

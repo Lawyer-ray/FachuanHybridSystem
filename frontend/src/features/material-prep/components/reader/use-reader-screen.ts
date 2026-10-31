@@ -13,6 +13,7 @@ import { useReaderOcr } from './use-ocr'
 import { useAutoSplit } from './use-auto-split'
 import { useReaderKeys } from './use-reader-keys'
 import { useWheelZoom } from './use-wheel-zoom'
+import type { DraftState } from '../../types'
 
 /**
  * Reader 的全部接线：store 字段、子 hook、派生量与 props 装配都收在这里，
@@ -82,6 +83,7 @@ export function useReaderScreen() {
   })
 
   const toolbarProps = useReaderToolbarProps({
+    // 这里不需要断言：hook 参数本身允许 DraftState | null，内部已做守卫。
     draft: readyDraft,
     railOpen: view.railOpen,
     metaOpen: view.metaOpen,
@@ -106,7 +108,9 @@ export function useReaderScreen() {
   // 三栏主体的 props 一次拼好再展开（ReaderBody 参数多，逐个平铺会让
   // 「谁提供数据」和「怎么排版」混在一起）
   const bodyProps = {
-    draft: readyDraft,
+    // 到这里 readyDraft 必非 null（Reader 只在草稿就绪后渲染），
+    // 但类型上是 DraftState | null：显式断言把它收窄，避免下游三栏主体报错。
+    draft: readyDraft as DraftState,
     messageId: openId as number,
     narrow,
     railOpen: view.railOpen,

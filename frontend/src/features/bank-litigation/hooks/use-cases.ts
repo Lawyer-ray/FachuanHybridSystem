@@ -46,7 +46,7 @@ function useLoad<T>(fn: () => Promise<T>, deps: unknown[]): AsyncState<T> & { re
         if (alive) setState({ loading: false, error: null, data: d })
       })
       .catch((e) => {
-        if (alive) setState({ loading: false, error: errMessage(e), data: null })
+        if (alive) setState({ loading: false, error: errMessage(e, '加载失败'), data: null })
       })
     return () => {
       alive = false
@@ -118,7 +118,7 @@ export function useConflictCheck(caseId: number | null) {
       const d = await runConflictCheck(caseId)
       setState({ loading: false, error: null, data: d })
     } catch (e) {
-      setState({ loading: false, error: errMessage(e), data: null })
+      setState({ loading: false, error: errMessage(e, '加载失败'), data: null })
     }
   }
 

@@ -101,7 +101,9 @@ function useAutoRun<TOut>(
   const run = useCallback(
     async (payload: unknown) => {
       setState({ ...idleState<TOut>(), phase: 'submitting' })
-      let sessionId: number
+      // 声明成 number | null：submit 的返回形状是 { sessionId: number | null }，
+      // 下面先判 null 提前 return，赋给 number 会让 TS 拒绝这个赋值本身。
+      let sessionId: number | null
       try {
         // 本 hook 对载荷内容一无所知，只负责把它交给 submit。
         // 用 unknown 而非 never：never 会让调用点的强类型一起被抹掉，
@@ -117,7 +119,7 @@ function useAutoRun<TOut>(
         setState((s) => ({ ...s, phase: 'running', status: r.status }))
       } catch (e) {
         if (!alive.current) return
-        setState({ ...idleState<TOut>(), phase: 'done', error: errMessage(e) })
+        setState({ ...idleState<TOut>(), phase: 'done', error: errMessage(e, '任务提交失败') })
         return
       }
 
@@ -140,7 +142,7 @@ function useAutoRun<TOut>(
           // 连续失败超过宽限才算失败；偶发抖动继续轮询
           if (errors >= MAX_QUERY_ERRORS) {
             if (!alive.current) return
-            setState((prev) => ({ ...prev, phase: 'done', error: errMessage(e) }))
+            setState((prev) => ({ ...prev, phase: 'done', error: errMessage(e, '任务执行失败') }))
             return
           }
         }

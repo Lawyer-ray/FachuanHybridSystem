@@ -114,7 +114,9 @@ function scanLabeled(text: string, labels: string[], exclude: string[]): Hit[] {
       const m = re.exec(line)
       if (!m) continue
 
-      const value = cleanName(m[1])
+      // m[1] 在 noUncheckedIndexedAccess 下是 string | undefined，但正则已有 `(.+)` 捕获组，
+      // 匹配成功时必然存在；`!` 把这个事实告诉类型系统。
+      const value = cleanName(m[1]!)
       if (!value) continue
       // 被排除的角色（内部人员）不作为当事人
       if (exclude.some((e) => value.includes(e)) || exclude.some((e) => label.includes(e))) continue
@@ -146,7 +148,7 @@ function cleanName(raw: string): string {
   // ② 砍掉后面的「字段名：值」—— 一行里常有「借款人：谭某某\u3000身份证号：1101…」
   v = v.replace(/\s+[\u4e00-\u9fa5A-Za-z]{2,8}\s*[:：].*$/, '')
   v = v
-    .split(/[，,；;]/)[0]
+    .split(/[，,；;]/)[0]!
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/[。、：:；;.\s]+$/, '')

@@ -55,7 +55,7 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
       saveBlob(blob, `要素式-${base}.docx`)
       setDone(`已生成并下载：要素式-${base}.docx（${fmtSize(blob.size)}）`)
     } catch (e) {
-      setError(errMessage(e))
+      setError(errMessage(e, '请求失败'))
     } finally {
       setBusy(false)
     }
@@ -153,7 +153,7 @@ function HistoryBlock({ caseId }: { caseId: number }) {
     setState((s) => ({ ...s, loading: true }))
     listConvertRecords()
       .then((d) => alive && setState({ loading: false, data: d, error: null }))
-      .catch((e) => alive && setState({ loading: false, data: null, error: errMessage(e) }))
+      .catch((e) => alive && setState({ loading: false, data: null, error: errMessage(e, '加载失败') }))
     return () => {
       alive = false
     }
@@ -227,7 +227,7 @@ function useTypeList() {
     setS((v) => ({ ...v, loading: true }))
     listMbidTypes()
       .then((d) => alive && setS({ loading: false, data: d, error: null }))
-      .catch((e) => alive && setS({ loading: false, data: null, error: errMessage(e) }))
+      .catch((e) => alive && setS({ loading: false, data: null, error: errMessage(e, '加载失败') }))
     return () => {
       alive = false
     }
