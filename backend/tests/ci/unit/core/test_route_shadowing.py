@@ -20,6 +20,7 @@ ninja 的 URL 正则按**注册顺序**匹配,``{param}`` 默认 ``[^/]+``(str)�
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -145,7 +146,7 @@ def test_runtime_no_literal_route_shadowed():
 def test_runtime_detector_catches_known_shadow(monkeypatch: pytest.MonkeyPatch):
     """检测器自证:喂入十六/十七轮真实故障形态,必须命中(防检测器假绿)。"""
     monkeypatch.setattr(
-        __name__,
+        sys.modules[__name__],
         "_v1_patterns",
         lambda: [
             (r"^inbox/sources/(?P<source_id>[^/]+)\Z", {"GET", "DELETE"}),  # 参数路由在前

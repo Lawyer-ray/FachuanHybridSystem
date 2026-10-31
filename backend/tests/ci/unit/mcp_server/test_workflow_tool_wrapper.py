@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from apps.core.exceptions.common import NotFoundError, PermissionDenied
+from apps.workflow.models import WorkflowTemplate
 
 
 def _load_wrapper() -> Any:
