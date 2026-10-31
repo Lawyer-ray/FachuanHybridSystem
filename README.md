@@ -12,8 +12,7 @@
 </p>
 
 <p align="center">
-  <code>36</code> 个业务模块 · <code>177</code> 个模型 · <code>647</code> 个 API 端点 · <code>423</code> 个 MCP 工具<br>
-  <sub>统计口径见 <a href="#-规模与口径">文末</a>，命令可自行复核</sub>
+  <code>36</code> 个业务模块 · <code>177</code> 个模型 · <code>647</code> 个 API 端点 · <code>423</code> 个 MCP 工具
 </p>
 
 ---
