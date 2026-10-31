@@ -18,7 +18,21 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from plugins.court_automation.filing.helpers import _build_party_payloads
+import pytest
+
+# ⚠️ plugins 是私有子模块，CI 不拉（无权限）。顶层 import 一旦失败，
+# pytest 会在**收集阶段**报 ModuleNotFoundError 并中断整个 unit 任务
+# （实测：2026-10-31 PR #591，53 skipped / 1 error）。
+# 按本仓库既有做法（见 core/test_round8_automation_cases.py）降级为 skip：
+# 有子模块才跑，没有就跳过，不阻断 CI。
+try:
+    from plugins.court_automation.filing.helpers import _build_party_payloads
+
+    _HAS_PLUGIN = True
+except ImportError:
+    _HAS_PLUGIN = False
+
+pytestmark = pytest.mark.skipif(not _HAS_PLUGIN, reason="court_automation plugin 子模块未安装（CI 不拉私有子模块）")
 
 
 def _party(legal_status: str, name: str, *, client_type: str = "natural") -> SimpleNamespace:
