@@ -43,3 +43,124 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
+
+  # 告警数门禁：Security tab 里的存量不会让任何 workflow 变红，所以这里显式卡数。
+  # 只统计 state=open 且 rule.severity 为 error/warning 的告警；note 级一律不卡
+  # （note 占存量绝大多数，全卡等于门禁一上线就全红，等于没上线）。
+  alerts-gate:
+    name: Alerts gate
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: read
+    env:
+      # 当前 main 基线（2025-10 第二轮清零后）：error+warning 合计 2 条（均为测试文件里的
+      # py/implicit-string-concatenation-in-list 与 py/unnecessary-delete）。
+      # 阈值 = 基线，含义是「不得新增」；清理掉存量后把这里往下调，不要往上调。
+      MAX_OPEN_ALERTS: "2"
+      # 只卡 rule.severity 为这几档的告警；note 故意不在列。
+      BLOCKING_SEVERITIES: "error, warning"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Report open CodeQL alerts
+        run: |
+          set -uo pipefail
+
+          # fork PR / 权限受限时 GITHUB_TOKEN 读不到 code-scanning alerts。
+          # 这种情况必须降级成功退出，否则所有 fork PR 都会因为这个门而全红。
+          degrade() {
+            echo "::warning title=CodeQL alerts gate skipped::$1"
+            echo "## CodeQL alerts gate — skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "$1" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            degrade "GITHUB_TOKEN 不可用，跳过告警数校验（不会阻塞本次运行）。"
+          fi
+
+          alerts_file="$(mktemp)"
+          alerts_err="$(mktemp)"
+          # 分页取全（--paginate）；失败时把 HTTP 错误写进 alerts_err 再做判断。
+          if ! gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&per_page=100" \
+              --paginate >"$alerts_file" 2>"$alerts_err"; then
+            degrade "查询 code-scanning alerts 失败（多为 fork PR 上 security-events 权限不足），跳过校验。原始错误：$(tr '\n' ' ' < "$alerts_err")"
+          fi
+
+          if ! command -v jq >/dev/null 2>&1; then
+            degrade "runner 上没有 jq，跳过告警数校验。"
+          fi
+
+          # 阈值必须是非负整数；写错了就降级，否则下面的 [ -gt ] 会变成运行时错误而非门禁失败。
+          case "${MAX_OPEN_ALERTS}" in
+            '' | *[!0-9]*) degrade "MAX_OPEN_ALERTS 不是非负整数（当前：'${MAX_OPEN_ALERTS}'），跳过告警数校验。" ;;
+          esac
+
+          # 只看 state=open（API 已按 state=open 过滤）且 rule.severity 为 error/warning 的告警。
+          # 用 rule.severity 而不是 rule.security_severity_level：后者是 CVSS 分值字符串（如 "8.0"），
+          # 不是 error/warning/note 三档，拿它做等级筛选会把所有告警都漏掉。
+          #
+          # GitHub 把 code-scanning alerts 以「分页数组」返回，gh --paginate 逐页追加成多个
+          # 顶层 JSON 值（不是合并成一个数组）。所以必须用 [inputs] 而不是 -s：-s 只 slurp
+          # 第一个值，多页时会静默丢掉后面所有页。
+          blocking_json="$(jq -n --arg blocking "${BLOCKING_SEVERITIES}" '
+            ( $blocking | split(",") | map(gsub("^\\s+|\\s+$"; "")) ) as $levels
+            | [ inputs | .[] ]
+            | map(
+                . as $a
+                | ($a.rule.severity // "") as $sev
+                # 命中才保留，未命中输出 empty 丢弃元素（比 select 在这里更可控）。
+                | if ($levels | index($sev)) != null
+                  then {
+                      number: $a.number,
+                      rule: $a.rule.id,
+                      severity: $sev,
+                      path: ($a.most_recent_instance.location.path // "?"),
+                      line: ($a.most_recent_instance.location.start_line // 0)
+                    }
+                  else empty
+                  end
+              )
+          ' "$alerts_file" 2>/dev/null)"
+
+          if [ -z "$blocking_json" ]; then
+            degrade "告警列表解析失败或返回结构异常，跳过校验（请人工确认 Security tab）。"
+          fi
+
+          total_open="$(jq -n '[ inputs | .[] ] | length' "$alerts_file")"
+          blocking_count="$(printf '%s' "$blocking_json" | jq 'length')"
+
+          {
+            echo "## CodeQL alerts gate"
+            echo ""
+            echo "- open 告警总数：${total_open}（note 级不参与门禁）"
+            echo "- error/warning 告警数：${blocking_count}"
+            echo "- 阈值 MAX_OPEN_ALERTS：${MAX_OPEN_ALERTS}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$blocking_count" -gt 0 ]; then
+            {
+              echo ""
+              echo "| 编号 | 等级 | 规则 | 文件 | 行号 |"
+              echo "| --- | --- | --- | --- | --- |"
+              printf '%s' "$blocking_json" \
+                | jq -r '.[] | "| \(.number) | \(.severity) | \(.rule) | `\(.path)` | \(.line) |"'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "error/warning 级 open 告警明细："
+            printf '%s' "$blocking_json" \
+              | jq -r '.[] | "  #\(.number) [\(.severity)] \(.rule) — \(.path):\(.line)"'
+          fi
+
+          if [ "$blocking_count" -gt "$MAX_OPEN_ALERTS" ]; then
+            echo "::error title=CodeQL alerts gate::error/warning 级 open 告警 ${blocking_count} 条，超过阈值 ${MAX_OPEN_ALERTS}。请清理后再合入。"
+            exit 1
+          fi
+
+          echo "error/warning 级 open 告警 ${blocking_count} 条，未超过阈值 ${MAX_OPEN_ALERTS}，通过。"

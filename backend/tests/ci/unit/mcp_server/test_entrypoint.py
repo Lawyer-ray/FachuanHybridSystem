@@ -88,7 +88,7 @@ def test_bootstrap_logs_go_to_stderr() -> None:
 _STDIO_SESSION = "\n".join(
     [
         '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25",'
-        '"capabilities":{},"clientInfo":{"name":"purity-probe","version":"0"}}}',
+        + '"capabilities":{},"clientInfo":{"name":"purity-probe","version":"0"}}}',
         '{"jsonrpc":"2.0","method":"notifications/initialized"}',
         '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
     ]

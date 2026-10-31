@@ -116,7 +116,6 @@ def _find_runtime_shadowings() -> list[str]:
         path = _literal_path(rx_i)
         if path is None or not methods_i:
             continue  # 只查带方法的字面量路由
-        probe = re.compile(rx_i.removeprefix("^").removesuffix("\\Z") + r"\Z")
         for j in range(i):
             rx_j, methods_j = pats[j]
             if not methods_j:

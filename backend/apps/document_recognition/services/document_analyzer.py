@@ -36,6 +36,7 @@ ANALYSIS_TIMEOUT_SECONDS = 90.0
 # 轮询一整圈（律所网关挂掉时单次要烧数分钟）。熔断窗口内后续文书直接走降级
 # 路径不再打 LLM，窗口过期后自动放行重试。进程内状态，各 worker 独立熔断。
 LLM_BLACKOUT_SECONDS = float(os.environ.get("DOCUMENT_LLM_BLACKOUT_SECONDS", "300") or "300")
+#: 熔断截止时刻（monotonic 秒）；读写均经函数内 ``global``，CodeQL 误报「未使用」，不可删除。
 _blackout_until = 0.0
 
 

@@ -39,7 +39,6 @@ from __future__ import annotations
 
 import logging
 import mimetypes
-import re
 import shutil
 import subprocess
 import tempfile
@@ -50,10 +49,28 @@ from typing import Any
 from django.core.files.base import File
 
 from apps.core.exceptions import ValidationException
+from apps.message_hub.services.upload_policy import (
+    _MULTIPART_RE,
+    ARCHIVE_EXTENSIONS,
+    is_archive_filename,
+    is_multipart_filename,
+    validate_manual_upload_file,
+)
+
+# is_archive_filename / is_multipart_filename / validate_manual_upload_file 在此
+# re-export：历史调用方按 ``from apps.message_hub.services.archive_extract_service
+# import is_archive_filename`` 这种路径取用（含测试），搬到 upload_policy 后这些
+# 路径必须继续可用。
+__all__ = [
+    "ARCHIVE_EXTENSIONS",
+    "_MULTIPART_RE",
+    "expand_upload_files",
+    "is_archive_filename",
+    "is_multipart_filename",
+    "validate_manual_upload_file",
+]
 
 logger = logging.getLogger("apps.message_hub")
-
-ARCHIVE_EXTENSIONS = frozenset({".zip", ".rar", ".7z"})
 
 #: 单个压缩包展开后的条目数 / 未压缩总量 / 单条大小上限
 MAX_ENTRIES = 200
@@ -63,8 +80,6 @@ MAX_ENTRY_BYTES = 50 * 1024 * 1024
 MAX_COMPRESS_RATIO = 100
 #: 流式复制块大小
 _COPY_CHUNK = 1024 * 1024
-#: 分卷压缩包命名（.part1.rar / .z01 / .zip.001 / .7z.002 / .rar.00x）
-_MULTIPART_RE = re.compile(r"\.part\d+\.rar$|\.zip\.\d+$|\.7z\.\d+$|\.z\d+$|\.r\d+$|\.0\d+$", re.IGNORECASE)
 #: SpooledTemporaryFile 驻内存上限（超过即滚磁盘）
 _SPOOL_MEM_BYTES = 8 * 1024 * 1024
 
@@ -74,15 +89,6 @@ _JUNK_PREFIXES = ("__MACOSX/",)
 
 #: 加密特征（zipfile 的 RuntimeError / bsdtar 的 stderr）
 _ZIP_ENCRYPTED_MARKERS = ("encrypted", "password required", "password")
-
-
-def is_archive_filename(name: str) -> bool:
-    return Path(name).suffix.lower() in ARCHIVE_EXTENSIONS
-
-
-def is_multipart_filename(name: str) -> bool:
-    """分卷压缩包命名（.part1.rar / .z01 / .zip.001 / .7z.002 / .r00 …）。"""
-    return bool(_MULTIPART_RE.search(name))
 
 
 def _sanitize_entry_name(raw: str) -> str | None:
@@ -264,12 +270,10 @@ def _expand_with_bsdtar(tpath: Path, archive_name: str, tmp_dir: Path) -> list[_
 def expand_upload_files(files: list[Any]) -> list[Any]:
     """把上传文件列表中的压缩包展开为包内文件（非压缩包原样保留）。
 
-    展开后的内层文件复用 :func:`validate_manual_upload_file` 的白名单与
-    大小校验（与直传完全同口径）；嵌套压缩包按普通附件保留不递归。
+    展开后的内层文件复用 :func:`upload_policy.validate_manual_upload_file` 的
+    白名单与大小校验（与直传完全同口径）；嵌套压缩包按普通附件保留不递归。
     全部展开后一个文件都没有（空压缩包）由调用方判定报错。
     """
-    from apps.message_hub.services.manual_upload_service import validate_manual_upload_file
-
     expanded: list[Any] = []
     for uploaded in files:
         name = str(getattr(uploaded, "name", "") or "")
