@@ -10,6 +10,7 @@ import { useCaseFilingInfo, useOAConfigs } from '../hooks/use-cases'
 import { useCourtFiling, useOAFiling } from '../hooks/use-auto-run'
 import type { AutoPhase } from '../hooks/use-auto-run'
 import type { FilingEngine, FilingType } from '../types'
+import { fmtMoney } from '../utils'
 
 /**
  * 立案执行面板 —— 律所 OA 与一张网两个外部系统的入口。
@@ -193,7 +194,7 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
         <dt className="text-muted-foreground">被告</dt>
         <dd className="min-w-0 truncate">{i.defendant_name || '—'}</dd>
         <dt className="text-muted-foreground">标的额</dt>
-        <dd className="tabular-nums">{i.target_amount ? `¥${i.target_amount}` : '—'}</dd>
+        <dd className="tabular-nums">{i.target_amount ? `¥${fmtMoney(i.target_amount)}` : '—'}</dd>
         <dt className="text-muted-foreground">立案类型</dt>
         <dd className="flex flex-wrap items-center gap-2">
           <select
@@ -234,10 +235,18 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
         </ul>
       ) : null}
 
-      <p className="text-[11px] leading-[1.65] text-muted-foreground">
-        填报与推送由服务端驱动一张网。**提交前请律师自己核对表单** ——
-        机器填到头，送出去那一下必须人点。
-      </p>
+      {/* 两段话用两个 <p>，不要用 Markdown 的 **粗体** 标记：
+          JSX 文本节点不会渲染 Markdown，写在正文里会原样显示成星号。
+          （这里曾经写成「**提交前请律师自己核对表单**」，界面直接露出 `**`。） */}
+      <div className="flex flex-col gap-1">
+        <p className="text-[11px] leading-[1.65] text-muted-foreground">
+          填报与推送由服务端驱动一张网。
+        </p>
+        <p className="text-[11px] leading-[1.65] text-muted-foreground">
+          <span className="font-medium text-foreground">提交前请律师自己核对表单</span>
+          {' —— 机器填到头，送出去那一下必须人点。'}
+        </p>
+      </div>
 
       <div className="flex items-center gap-2">
         <Button

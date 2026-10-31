@@ -99,7 +99,9 @@ export function MemoryDrawer({ open, onOpenChange }: { open: boolean; onOpenChan
             助手记忆
           </SheetTitle>
           <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-            跨会话生效。AI 会据此调整表达与做法，但**不会**拿它当案件事实——涉及案号、金额、期限仍以系统数据为准。
+            跨会话生效。AI 会据此调整表达与做法，但
+            <strong className="font-medium text-foreground">不会</strong>
+            拿它当案件事实——涉及案号、金额、期限仍以系统数据为准。
           </p>
         </SheetHeader>
 

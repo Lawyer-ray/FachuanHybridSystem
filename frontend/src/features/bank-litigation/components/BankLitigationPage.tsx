@@ -116,16 +116,23 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
     >
       <div className="flex gap-5">
         {/* 左侧分区导航 */}
-        <nav className="flex w-[132px] flex-none flex-col gap-0.5">
+        {/* 左栏分区导航。
+           宽度从 132px 提到 148px：最长项「要素式转换」/「一张网立案」是 6 个字，
+           12.5px 字号 × 6 ≈ 75px 字宽 + px-2.5（两侧 20px）+ 圆角留白，
+           132px 下会被挤成两行（「要素式转/换」），观感像 UI 错乱。
+           同时加 whitespace-nowrap：即使将来再加更长的项，也宁可横向溢出
+           由外层滚动处理，不要在导航里断行。 */}
+        <nav className="flex w-[148px] flex-none flex-col gap-0.5">
           {SECTIONS.map((s) => (
             <button
               key={s.key}
               type="button"
               onClick={() => setSection(s.key)}
               className={
-                section === s.key
+                (section === s.key
                   ? 'rounded-[7px] bg-secondary px-2.5 py-1.5 text-left text-[12.5px] font-medium text-foreground'
-                  : 'rounded-[7px] px-2.5 py-1.5 text-left text-[12.5px] text-secondary-foreground transition-colors hover:bg-secondary/60'
+                  : 'rounded-[7px] px-2.5 py-1.5 text-left text-[12.5px] text-secondary-foreground transition-colors hover:bg-secondary/60') +
+                ' whitespace-nowrap'
               }
             >
               {s.label}
