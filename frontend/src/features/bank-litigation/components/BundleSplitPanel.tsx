@@ -26,6 +26,7 @@ import {
   type PdfSplitSegment,
   type SplitTemplate,
 } from '../api'
+import { SectionTitle, WorkCard } from './ui'
 
 /**
  * 整包 PDF → 自动分段 → 归案（场景 2 的真正起点）。
@@ -224,35 +225,65 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
   return (
     <div className="flex flex-col gap-3">
       <StepBar phase={phase} />
-
       {phase === 'idle' ? (
-        <div className="flex flex-col items-center gap-2 rounded-[8px] border border-dashed border-zinc-300 px-4 py-8">
-          <FileStack className="size-7 text-muted-foreground" />
-          <p className="text-[12.5px] text-secondary-foreground">
-            上传{isAppeal ? '二审答辩' : '一审起诉'}整包 PDF
-          </p>
-          <p className="max-w-[440px] text-center text-[11px] leading-[1.6] text-muted-foreground">
-            律师拿到的是一叠扫描件（几十页混在一起）。系统按每页内容自动拆成单份材料、
-            重命名，再归到本案。
-            <span className="mt-1 block text-[10.5px]">
-              当前按「{isAppeal ? '二审答辩材料' : '一审起诉材料'}」识别 ——
-              拆什么材料跟案件阶段走，两套不能混用。
-            </span>
-          </p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) void start(f)
-              e.target.value = ''
-            }}
-          />
-          <Button size="sm" className="mt-1" onClick={() => fileRef.current?.click()}>
-            <Upload className="size-3.5" /> 选择整包 PDF
-          </Button>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* 上传区：去掉原先那个 800px 宽、只有 3 行字的巨大虚线框 */}
+          <WorkCard className="border-dashed border-zinc-300 bg-secondary/15" padded={false}>
+            <div className="flex flex-col items-center gap-2 px-6 py-9">
+              <div className="flex size-11 items-center justify-center rounded-full bg-secondary">
+                <FileStack className="size-5 text-muted-foreground" />
+              </div>
+              <p className="text-[13.5px] font-medium text-foreground">
+                上传{isAppeal ? '二审答辩' : '一审起诉'}整包 PDF
+              </p>
+              <p className="max-w-[420px] text-center text-[11.5px] leading-[1.65] text-muted-foreground">
+                律师拿到的是一叠扫描件（几十页混在一起）。系统按每页内容自动拆成单份材料、
+                重命名，再归到本案。
+              </p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void start(f)
+                  e.target.value = ''
+                }}
+              />
+              <Button size="sm" className="mt-1" onClick={() => fileRef.current?.click()}>
+                <Upload className="size-3.5" /> 选择整包 PDF
+              </Button>
+            </div>
+          </WorkCard>
+
+          {/* 右栏：当前识别模式 + 风险提示
+              原先这两个信息被迫堆在上传区下方，宽屏上一条长灰字，没人会读。 */}
+          <div className="flex flex-col gap-2.5">
+            <WorkCard>
+              <SectionTitle title="识别模式" />
+              <div className="mt-2 flex items-center gap-2">
+                <StatusBadge tone={isAppeal ? 'yellow' : 'blue'} size="xs">
+                  {isAppeal ? '二审答辩材料' : '一审起诉材料'}
+                </StatusBadge>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-[1.6] text-muted-foreground">
+                拆什么材料跟案件阶段走 —— 两套不能混用。
+              </p>
+            </WorkCard>
+            <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
+                <div className="min-w-0">
+                  <div className="text-[12px] font-medium">分段可能出错</div>
+                  <p className="mt-1 text-[11px] leading-[1.6] text-muted-foreground">
+                    低置信度与未识别的分段会在复核表里标出。归案后它们就是正式卷宗材料，
+                    所以这一步请核对页码与文件名。
+                  </p>
+                </div>
+              </div>
+            </WorkCard>
+          </div>
         </div>
       ) : null}
 

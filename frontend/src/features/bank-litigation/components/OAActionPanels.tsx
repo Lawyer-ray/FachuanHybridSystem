@@ -4,6 +4,7 @@ import { AlertTriangle, Archive, CheckCircle2, Loader2, Search, Stamp } from 'lu
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
+import { KeyValueRow, SectionTitle, WorkCard } from './ui'
 import { cn } from '@/lib/utils'
 
 import { lookupArchiveContract, lookupStampContract, type ArchiveLookupOut, type StampLookupOut } from '../api'
@@ -99,77 +100,88 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-2">
-        <Icon className="size-3.5 text-muted-foreground" />
-        <span className="text-[12.5px] font-medium">{meta.title}</span>
-      </div>
+    <div className="flex flex-col gap-3.5">
+      {/* ══ ① 说明卡 ══ */}
+      <WorkCard>
+        <SectionTitle title={meta.title} hint={meta.hint} />
+      </WorkCard>
 
-      <p className="text-[11px] leading-[1.65] text-muted-foreground">{meta.hint}</p>
+      {/* ══ ② 输入卡 ══ */}
+      <WorkCard>
+        <SectionTitle
+          title="文件路径"
+          hint={kind === 'archive' ? '每行一个，可一次归档多份' : '填一份文件的绝对路径'}
+        />
+        <textarea
+          value={paths}
+          onChange={(e) => {
+            setPaths(e.target.value)
+            setFound(null)
+            setLookupErr(null)
+            reset()
+          }}
+          rows={kind === 'archive' ? 4 : 2}
+          placeholder={
+            kind === 'archive'
+              ? '文件绝对路径，每行一个\n例：/Users/xxx/案件/某某案/判决书.pdf'
+              : '文件绝对路径\n例：/Users/xxx/案件/某某案/起诉状.pdf'
+          }
+          className="mt-2 w-full resize-y rounded-[7px] border border-input bg-background px-2.5 py-2 font-mono text-[11.5px] leading-[1.6] outline-none focus:border-ring/60"
+        />
 
-      <textarea
-        value={paths}
-        onChange={(e) => {
-          setPaths(e.target.value)
-          setFound(null)
-          setLookupErr(null)
-          reset()
-        }}
-        rows={kind === 'archive' ? 4 : 2}
-        placeholder={
-          kind === 'archive'
-            ? '文件绝对路径，每行一个\n例：/Users/xxx/案件/某某案/判决书.pdf'
-            : '文件绝对路径\n例：/Users/xxx/案件/某某案/起诉状.pdf'
-        }
-        className="w-full resize-y rounded-[6px] border border-input bg-background px-2.5 py-2 font-mono text-[11.5px] leading-[1.6] outline-none focus:border-ring/60"
-      />
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="xs" variant="secondary" disabled={!list.length || looking || running} onClick={() => void onLookup()}>
-          {looking ? <Loader2 className="size-3 animate-spin" /> : <Search className="size-3" />}
-          反查合同
-        </Button>
-        <Button
-          size="xs"
-          disabled={!found || running}
-          onClick={() => void run(list)}
-          title={found ? '' : '先反查出合同再提交'}
-        >
-          {running ? <Loader2 className="size-3 animate-spin" /> : <Icon className="size-3" />}
-          {running ? '执行中…' : meta.verb}
-        </Button>
-        <PhaseBadge phase={state.phase} ticks={state.ticks} />
-      </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="secondary" disabled={!list.length || looking || running} onClick={() => void onLookup()}>
+            {looking ? <Loader2 className="size-3.5 animate-spin" /> : <Search className="size-3.5" />}
+            反查合同
+          </Button>
+          <Button
+            size="sm"
+            disabled={!found || running}
+            onClick={() => void run(list)}
+            title={found ? '' : '先反查出合同再提交'}
+          >
+            {running ? <Loader2 className="size-3.5 animate-spin" /> : <Icon className="size-3.5" />}
+            {running ? '执行中…' : meta.verb}
+          </Button>
+          <PhaseBadge phase={state.phase} ticks={state.ticks} />
+          {!found && list.length > 0 && !running ? (
+            <span className="text-[10.5px] text-muted-foreground">先「反查合同」，确认归属后才允许{meta.verb}</span>
+          ) : null}
+        </div>
+      </WorkCard>
 
       {lookupErr ? (
-        <p className="flex items-start gap-1.5 rounded-[6px] border border-status-red/40 bg-status-red-bg px-2.5 py-1.5 text-[11.5px] leading-[1.6] text-status-red">
-          <AlertTriangle className="mt-[2px] size-3 flex-none" />
-          <span>
-            {lookupErr}
-            <span className="mt-1 block text-[10.5px] opacity-80">
-              常见原因：文件不在已绑定的案件/合同文件夹里；路径写错；或这份文件不属于你的案件。
-            </span>
-          </span>
-        </p>
+        <div className="rounded-[10px] border border-status-red/40 bg-status-red-bg px-3.5 py-3">
+          <div className="flex items-center gap-1.5 text-[12px] font-medium text-status-red">
+            <AlertTriangle className="size-3.5 flex-none" /> 反查失败
+          </div>
+          <p className="mt-1 text-[11.5px] leading-[1.6] text-status-red/90">{lookupErr}</p>
+          <p className="mt-1.5 text-[10.5px] leading-[1.6] text-muted-foreground">
+            常见原因：文件不在已绑定的案件/合同文件夹里；路径写错；或这份文件不属于你的案件。
+          </p>
+        </div>
       ) : null}
 
       {found ? (
-        <div className="rounded-[6px] border border-status-green/40 bg-status-green-bg px-2.5 py-1.5">
-          <div className="flex items-center gap-1.5 text-[11.5px] text-status-green">
-            <CheckCircle2 className="size-3" />
-            已识别到合同
+        <WorkCard className="border-status-green/40 bg-status-green-bg/50">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-status-green">
+            <CheckCircle2 className="size-3.5" /> 已识别到合同
           </div>
-          <dl className="mt-1 grid grid-cols-[72px_1fr] gap-x-2 gap-y-0.5 text-[11.5px]">
-            <dt className="text-muted-foreground">合同</dt>
-            <dd className="min-w-0 truncate" title={found.contract_name ?? ''}>
-              {found.contract_name || '—'}
-            </dd>
-            <dt className="text-muted-foreground">OA 案号</dt>
-            <dd className="min-w-0 truncate" title={found.oa_case_number ?? ''}>
-              {found.oa_case_number || '（OA 尚未生成案号）'}
-            </dd>
+          <dl className="mt-2 grid grid-cols-1 gap-x-6 md:grid-cols-2">
+            <div className="divide-y divide-border/60">
+              <KeyValueRow label="合同">
+                <span className="block truncate" title={found.contract_name ?? ''}>
+                  {found.contract_name || '—'}
+                </span>
+              </KeyValueRow>
+              <KeyValueRow label="OA 案号">
+                <span className="block truncate" title={found.oa_case_number ?? ''}>
+                  {found.oa_case_number || '（OA 尚未生成案号）'}
+                </span>
+              </KeyValueRow>
+            </div>
           </dl>
-        </div>
+        </WorkCard>
       ) : null}
 
       {state.status || state.error ? (

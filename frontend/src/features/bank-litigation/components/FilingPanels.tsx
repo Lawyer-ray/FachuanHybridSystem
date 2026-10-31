@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 
 import { useCaseFilingInfo, useOAConfigs } from '../hooks/use-cases'
 import { useCourtFiling, useOAFiling } from '../hooks/use-auto-run'
+import { KeyValueRow, SectionTitle, WorkCard } from './ui'
 import type { AutoPhase } from '../hooks/use-auto-run'
 import type { FilingEngine, FilingType } from '../types'
 import { fmtMoney } from '../utils'
@@ -83,14 +84,18 @@ export function OAFilingPanel({
   const running = state.phase === 'submitting' || state.phase === 'running'
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-3.5">
+      {/* ══ ① OA 站点与凭证 ══ */}
+      <WorkCard>
+        <SectionTitle title="律所 OA" hint="选站点 → 确认凭证 → 发起立案" />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
         <select
           value={current.oa_system_name}
           onChange={(e) => {
             setSite(e.target.value)
             reset()
           }}
+          aria-label="OA 站点"
           className="h-[28px] rounded-[6px] border border-input bg-background px-2 text-[12px] outline-none"
         >
           {list.map((c) => (
@@ -107,19 +112,19 @@ export function OAFilingPanel({
             案件未关联合同
           </StatusBadge>
         ) : null}
-      </div>
+        </div>
+        <p className="mt-2 text-[11px] leading-[1.65] text-muted-foreground">
+          OA 立案会在服务端启动浏览器，用你配置的 OA 账号登录并填报。跑完会回写 OA
+          案号与状态；中途关掉页面不影响后台执行。
+        </p>
+      </WorkCard>
 
-      <p className="text-[11px] leading-[1.65] text-muted-foreground">
-        OA 立案会在服务端启动浏览器，用你配置的 OA 账号登录并填报。跑完会回写 OA
-        案号与状态；中途关掉页面不影响后台执行。
-      </p>
-
-      <div className="flex items-center gap-2">
-        <Button size="xs" disabled={!canRun} onClick={() => void run({ site_name: current.oa_system_name, contract_id: contractId, case_id: caseId })}>
-          {running ? <Loader2 className="size-3 animate-spin" /> : <Play className="size-3" />}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={!canRun} onClick={() => void run({ site_name: current.oa_system_name, contract_id: contractId, case_id: caseId })}>
+          {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
           {running ? 'OA 立案进行中…' : '在 OA 立案'}
         </Button>
-        <StatusBadge tone={PHASE_META[state.phase].tone} size="xs">
+        <StatusBadge tone={PHASE_META[state.phase].tone} size="sm">
           {PHASE_META[state.phase].text}
         </StatusBadge>
         {state.ticks > 0 && running ? (
@@ -183,25 +188,56 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1 text-[12px] leading-[1.65]">
-        <dt className="text-muted-foreground">案由</dt>
-        <dd className="min-w-0 truncate">{i.cause_of_action || '—'}</dd>
-        <dt className="text-muted-foreground">管辖法院</dt>
-        <dd className="min-w-0 truncate">{i.court_name || '（未登记）'}</dd>
-        <dt className="text-muted-foreground">原告</dt>
-        <dd className="min-w-0 truncate">{i.plaintiff_name || '—'}</dd>
-        <dt className="text-muted-foreground">被告</dt>
-        <dd className="min-w-0 truncate">{i.defendant_name || '—'}</dd>
-        <dt className="text-muted-foreground">标的额</dt>
-        <dd className="tabular-nums">{i.target_amount ? `¥${fmtMoney(i.target_amount)}` : '—'}</dd>
-        <dt className="text-muted-foreground">立案类型</dt>
-        <dd className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3.5">
+      {/* ══ ① 案件信息卡：两栏键值 + 立案参数 ══ */}
+      <WorkCard>
+        <SectionTitle title="立案信息" hint="机器已按案件数据填好，提交前请逐项核对" />
+        <dl className="mt-2 grid grid-cols-1 gap-x-6 md:grid-cols-2">
+          <div className="divide-y divide-border/60">
+            <KeyValueRow label="案由">
+              <span className="block truncate" title={i.cause_of_action || ''}>
+                {i.cause_of_action || '—'}
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="管辖法院">
+              <span className="block truncate" title={i.court_name || ''}>
+                {i.court_name || '（未登记）'}
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="标的额">
+              <span className="tabular-nums font-medium">
+                {i.target_amount ? `¥${fmtMoney(i.target_amount)}` : '—'}
+              </span>
+            </KeyValueRow>
+          </div>
+          <div className="divide-y divide-border/60">
+            <KeyValueRow label="原告">
+              <span className="block truncate" title={i.plaintiff_name || ''}>
+                {i.plaintiff_name || '—'}
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="被告">
+              <span className="block truncate" title={i.defendant_name || ''}>
+                {i.defendant_name || '—'}
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="立案类型">
+              <span className="text-[12px]">
+                {filingType === 'execution' ? '执行立案' : '民事一审'}
+              </span>
+            </KeyValueRow>
+          </div>
+        </dl>
+
+        {/* 可改的立案参数单独一行：下拉框比键值行高，挤在 grid 里会把行高拉不齐 */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border/60 pt-2.5">
+          <span className="text-[11px] text-muted-foreground">递交参数</span>
           <select
             value={filingType}
             onChange={(e) => setTypeOverride(e.target.value as FilingType)}
             disabled={running}
-            className="h-[24px] rounded-[5px] border border-input bg-background px-1.5 text-[11.5px] outline-none disabled:opacity-60"
+            aria-label="立案类型"
+            className="h-[26px] rounded-[6px] border border-input bg-background px-2 text-[11.5px] outline-none disabled:opacity-60"
           >
             <option value="civil">民事一审</option>
             <option value="execution">执行立案</option>
@@ -210,7 +246,8 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
             value={filingEngine}
             onChange={(e) => setEngineOverride(e.target.value as FilingEngine)}
             disabled={running}
-            className="h-[24px] rounded-[5px] border border-input bg-background px-1.5 text-[11.5px] outline-none disabled:opacity-60"
+            aria-label="递交引擎"
+            className="h-[26px] rounded-[6px] border border-input bg-background px-2 text-[11.5px] outline-none disabled:opacity-60"
           >
             <option value="api">接口引擎</option>
             <option value="playwright">浏览器自动化</option>
@@ -221,46 +258,58 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
               {i.suggested_filing_type === 'execution' ? '执行立案' : '民事一审'}」
             </span>
           ) : null}
-        </dd>
-      </dl>
+        </div>
+      </WorkCard>
 
+      {/* ══ ② 阻断原因卡（有阻断才出现，没有就不占位）══ */}
       {blockers.length ? (
-        <ul className="flex flex-col gap-1 rounded-[7px] border border-status-red/40 bg-status-red-bg px-2.5 py-1.5">
-          {blockers.map((b) => (
-            <li key={b} className="flex items-start gap-1.5 text-[11.5px] text-status-red">
-              <AlertTriangle className="mt-[2px] size-3 flex-none" />
-              {b}
-            </li>
-          ))}
-        </ul>
+        <div className="rounded-[10px] border border-status-red/40 bg-status-red-bg px-3.5 py-3">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-status-red">
+            <AlertTriangle className="size-3.5 flex-none" />
+            暂不能递交（{blockers.length} 项）
+          </div>
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {blockers.map((b) => (
+              <li key={b} className="flex items-start gap-1.5 text-[11.5px] leading-[1.55] text-status-red/90">
+                <span className="mt-[6px] size-1 flex-none rounded-full bg-status-red/70" />
+                {b}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
-      {/* 两段话用两个 <p>，不要用 Markdown 的 **粗体** 标记：
-          JSX 文本节点不会渲染 Markdown，写在正文里会原样显示成星号。
-          （这里曾经写成「**提交前请律师自己核对表单**」，界面直接露出 `**`。） */}
-      <div className="flex flex-col gap-1">
-        <p className="text-[11px] leading-[1.65] text-muted-foreground">
-          填报与推送由服务端驱动一张网。
-        </p>
-        <p className="text-[11px] leading-[1.65] text-muted-foreground">
-          <span className="font-medium text-foreground">提交前请律师自己核对表单</span>
-          {' —— 机器填到头，送出去那一下必须人点。'}
-        </p>
-      </div>
+      {/* ══ ③ 人工闸门卡：这句是全片重心，必须显眼 ══ */}
+      <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
+        <div className="flex items-start gap-2.5">
+          <div className="mt-[1px] flex size-5 flex-none items-center justify-center rounded-full bg-status-yellow/20 text-[11px] font-semibold text-status-yellow">
+            !
+          </div>
+          <div className="min-w-0">
+            <div className="text-[12.5px] font-semibold text-foreground">提交由律师本人点</div>
+            <p className="mt-1 text-[11.5px] leading-[1.65] text-muted-foreground">
+              填报与推送由服务端驱动一张网。机器填到头，
+              <span className="font-medium text-foreground">送出去那一下必须人点</span>
+              —— 提交即对法院作出意思表示，责任在签字律师。
+            </p>
+          </div>
+        </div>
+      </WorkCard>
 
-      <div className="flex items-center gap-2">
+      {/* ══ ④ 动作区 ══ */}
+      <div className="flex flex-wrap items-center gap-2">
         <Button
-          size="xs"
+          size="sm"
           disabled={blockers.length > 0 || running}
           onClick={() => {
             reset()
             void run({ case_id: caseId, filing_type: filingType, filing_engine: filingEngine })
           }}
         >
-          {running ? <Loader2 className="size-3 animate-spin" /> : <ExternalLink className="size-3" />}
+          {running ? <Loader2 className="size-3.5 animate-spin" /> : <ExternalLink className="size-3.5" />}
           {running ? '一张网立案进行中…' : '推送到一张网'}
         </Button>
-        <StatusBadge tone={PHASE_META[state.phase].tone} size="xs">
+        <StatusBadge tone={PHASE_META[state.phase].tone} size="sm">
           {PHASE_META[state.phase].text}
         </StatusBadge>
         {state.ticks > 0 && running ? (

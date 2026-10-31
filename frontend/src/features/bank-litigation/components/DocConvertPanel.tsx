@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, FileUp, Loader2, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Download, FileUp, Loader2, RefreshCw } from 'lucide-react'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -9,6 +9,7 @@ import { errMessage } from '@/lib/errors'
 import { convertToElemental, listConvertRecords, listMbidTypes } from '../api'
 import { useCase } from '../hooks/use-cases'
 import { suggestMbid } from '../utils'
+import { SectionTitle, WorkCard } from './ui'
 import type { ConvertRecordList, MbidList } from '../api'
 
 /**
@@ -62,10 +63,19 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2.5 rounded-[8px] border border-border bg-card p-3">
-        <div className="flex items-center gap-2">
-          <span className="w-[64px] flex-none text-[11.5px] text-muted-foreground">文书类型</span>
+    <div className="flex flex-col gap-3.5">
+      {/* ══ ① 转换操作卡：步骤化（选类型 → 选文件 → 转换），每步带序号 ══ */}
+      <WorkCard>
+        <SectionTitle title="转换要素式文书" hint="传统起诉状 → 法院要素式示范文本" />
+
+        {/* 第 1 步 */}
+        <div className="mt-3 flex items-start gap-2.5">
+          <span className="mt-[3px] flex size-4 flex-none items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground">
+            1
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] text-muted-foreground">选文书类型（按案由已自动匹配，可改）</div>
+        <div className="mt-1 flex items-center gap-2">
           <select
             value={mbid}
             onChange={(e) => setMbid(e.target.value)}
@@ -82,56 +92,81 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
             ))}
           </select>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="w-[64px] flex-none text-[11.5px] text-muted-foreground">传统起诉状</span>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".docx,.doc,.pdf"
-            hidden
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null)
-              setDone(null)
-              setError(null)
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="flex h-[30px] min-w-0 flex-1 items-center gap-1.5 rounded-[6px] border border-dashed border-zinc-300 px-2.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
-          >
-            <FileUp className="size-3.5 flex-none" />
-            <span className="truncate">{file ? file.name : '选择 .docx / .doc / .pdf（≤20MB）'}</span>
-          </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button size="xs" disabled={!file || busy} onClick={() => void onConvert()}>
-            {busy ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
-            {busy ? '转换中…' : '转换并下载'}
-          </Button>
-          {file ? (
-            <Button size="xs" variant="ghost" onClick={() => { setFile(null); setDone(null); setError(null) }}>
-              清空
-            </Button>
-          ) : null}
+        {/* 第 2 步 */}
+        <div className="mt-3 flex items-start gap-2.5">
+          <span className="mt-[3px] flex size-4 flex-none items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground">
+            2
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] text-muted-foreground">选一份传统起诉状</div>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".docx,.doc,.pdf"
+              hidden
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null)
+                setDone(null)
+                setError(null)
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="mt-1 flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-dashed border-zinc-300 px-2.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+            >
+              <FileUp className="size-3.5 flex-none" />
+              <span className="truncate">{file ? file.name : '选择 .docx / .doc / .pdf（≤20MB）'}</span>
+            </button>
+          </div>
         </div>
 
-        {error ? (
-          <p className="text-[11.5px] leading-[1.6] text-status-red">{error}</p>
-        ) : null}
-        {done ? (
-          <p className="text-[11.5px] leading-[1.6] text-status-green">{done}</p>
-        ) : null}
-      </div>
+        {/* 第 3 步 */}
+        <div className="mt-3 flex items-start gap-2.5">
+          <span className="mt-[3px] flex size-4 flex-none items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground">
+            3
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" disabled={!file || busy} onClick={() => void onConvert()}>
+                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                {busy ? '转换中…' : '转换并下载'}
+              </Button>
+              {file ? (
+                <Button size="sm" variant="ghost" onClick={() => { setFile(null); setDone(null); setError(null) }}>
+                  清空
+                </Button>
+              ) : (
+                <span className="text-[10.5px] text-muted-foreground">先选文件再转换</span>
+              )}
+            </div>
+            {error ? (
+              <p className="mt-1.5 text-[11.5px] leading-[1.6] text-status-red">{error}</p>
+            ) : null}
+            {done ? (
+              <p className="mt-1.5 text-[11.5px] leading-[1.6] text-status-green">{done}</p>
+            ) : null}
+          </div>
+        </div>
+      </WorkCard>
 
-      <p className="text-[11px] leading-[1.65] text-muted-foreground">
-        转换由后端完成：上传传统起诉状 + 文书类型，服务端生成要素式 docx 并回传。
-        前端不参与字段搬运 —— 否则改了后端、前端还在按老规则拼。
-        需要后端开启 <code className="rounded bg-secondary px-1">ZNSZJ_ENABLED</code>，
-        未开启时接口返回 403。
-      </p>
+      {/* ══ ② 前提条件：单独一张提示卡，不再混在操作卡底部当长灰字 ══ */}
+      <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
+          <div className="min-w-0">
+            <div className="text-[12px] font-medium">转换需要后端开启开关</div>
+            <p className="mt-1 text-[11px] leading-[1.65] text-muted-foreground">
+              转换由后端完成：上传传统起诉状 + 文书类型，服务端生成要素式 docx 并回传，前端不做字段搬运。
+              需开启 <code className="rounded bg-secondary px-1 py-[1px] font-mono text-[10.5px]">ZNSZJ_ENABLED</code>，
+              未开启时接口返回 403。
+            </p>
+          </div>
+        </div>
+      </WorkCard>
 
       <HistoryBlock caseId={caseId} />
     </div>
