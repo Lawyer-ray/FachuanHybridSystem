@@ -448,7 +448,10 @@ try:
     if has_court_case_sync_plugin():
         STATICFILES_DIRS.append(os.path.join(BASE_DIR, "..", "plugins", "court_automation", "static"))
 except ImportError:
-    pass
+    # 插件未安装时不注册插件静态目录（属预期分支），但留一条 debug 便于排查路径问题。
+    import logging as _logging
+
+    _logging.getLogger("apiSystem.settings").debug("court_automation 插件不可用，跳过插件静态目录注册")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

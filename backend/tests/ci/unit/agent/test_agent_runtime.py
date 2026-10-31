@@ -695,8 +695,9 @@ class TestPoolAbortWiring:
         )
         try:
             asyncio.run(run())
-        except asyncio.CancelledError:
-            pass
+        except asyncio.CancelledError as exc:
+            # 预期路径：用例自己要验的正是取消处理，吞掉后看 seen 断言。
+            del exc
         finally:
             (
                 pool_module.write_pi_config,

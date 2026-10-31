@@ -231,8 +231,6 @@ def write_pi_config(
     另写一份 ``AGENTS.md``（系统提示词）：pi 无条件读取工作目录的 AGENTS.md
     （与项目信任无关），这是给 agent 注入法穿助手人格的唯一挂载点。
     """
-    import json
-
     from .model_config import write_models_json
     from .user_token import USER_TOKEN_ENV
 
@@ -437,8 +435,6 @@ def _build_server_entry(resolved: McpEndpoint, user_token_env: str) -> dict[str,
 
 def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = None) -> Path:
     """兼容旧名：仅写 MCP 配置（不碰模型），保留供测试/脚本使用。"""
-    import json
-
     from .user_token import USER_TOKEN_ENV
 
     resolved = endpoint or resolve_endpoint()

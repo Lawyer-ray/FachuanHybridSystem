@@ -21,7 +21,7 @@ import logging
 import os
 import re
 import shutil
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar
 

@@ -28,7 +28,7 @@ from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limi
 from apps.core.security import get_request_access_context
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentApproval, AgentAttachment, AgentMessage, AgentRun, AgentSession
+from ..models import AgentApproval, AgentMessage, AgentSession
 from ..pi.rpc_client import PiError
 from ..services.approval import classify_risk, decide_approval, get_approval_for_decision
 from ..services.approval import list_approvals as list_approval_records
@@ -1373,11 +1373,6 @@ def _may_answer(user: Any, record: Any) -> bool:
 
 
 def _may_decide(user: Any, record: AgentApproval) -> bool:
-    """审批归属判定：会话所有者或超级用户；无主会话仅超级用户。"""
-    if user is not None and getattr(user, "is_superuser", False):
-        return True
-    owner_id = getattr(record.session, "user_id", None) if record.session is not None else None
-    return user is not None and owner_id is not None and int(owner_id) == int(user.pk)
     """审批归属判定：会话所有者或超级用户；无主会话仅超级用户。"""
     if user is not None and getattr(user, "is_superuser", False):
         return True

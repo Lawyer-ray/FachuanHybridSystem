@@ -148,8 +148,6 @@ class TestMcpTimeout:
     """
 
     def test_shared_mode_writes_timeout_over_180(self, tmp_path, monkeypatch):
-        import json
-
         from apps.agent.pi import shared_mcp
 
         monkeypatch.setenv("FACHUAN_MCP_SHARED", "1")
@@ -158,8 +156,6 @@ class TestMcpTimeout:
         assert cfg["mcpServers"]["fachuan"]["timeout"] > 180
 
     def test_stdio_mode_writes_timeout_over_180(self, tmp_path, monkeypatch):
-        import json
-
         from apps.agent.pi import shared_mcp
 
         monkeypatch.setenv("FACHUAN_MCP_SHARED", "0")

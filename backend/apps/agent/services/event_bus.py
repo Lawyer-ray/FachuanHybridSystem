@@ -272,7 +272,6 @@ def get_bus() -> EventBus:
 
 _EVENT_STREAM_PREFIX = "agent:sse:stream:"
 _EVENT_STREAM_TTL = 300  # 5 分钟（覆盖重连窗口）
-_EVENT_STREAM_MAX_LEN = 500
 
 
 def _append_to_stream(session_id: str, event: dict[str, Any]) -> None:

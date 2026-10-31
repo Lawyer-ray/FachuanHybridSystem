@@ -23,7 +23,7 @@ from asgiref.sync import sync_to_async
 
 from ..models import AgentMessage, AgentSession
 from ..pi.pool import PoolQueueTimeoutError
-from ..pi.rpc_client import PiError, parse_context_usage
+from ..pi.rpc_client import parse_context_usage
 from .chat_service import _mint_user_token, _session_env, get_pool
 from .session_cleanup import has_pi_session
 

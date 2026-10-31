@@ -41,10 +41,6 @@ import pytest
 _BACKEND = Path(__file__).resolve().parents[4]
 _MCP_DIR = _BACKEND / "mcp_server"
 
-#: 后端必填，但工具签名未暴露、只能靠 ``**kwargs`` / ``payload`` 透传的工具。
-#: 这些工具的返回契约仍然要测，只是不参与「必填参数覆盖」断言。
-_BODY_PASSTHROUGH_ATTRS = frozenset({"payload", "data", "body"})
-
 #: 自己消费后端返回、重新组装输出结构的工具。
 #:
 #: 它们的返回类型与后端端点无关，不能按「原样透传」的口径断言。登记在此

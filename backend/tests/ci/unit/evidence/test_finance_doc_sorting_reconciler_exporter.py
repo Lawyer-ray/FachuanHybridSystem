@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from apps.finance_doc_sorting.services.exporter import _build_filename, _get_ext, _write_image
 from apps.finance_doc_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_UNSIGNED,
     STATEMENT_PARSE_PROMPT,
-    STATUS_MATCHED,
-    STATUS_MISSING,
     STATUS_UNMATCHED,
     DeliveryNote,
     LineItem,
@@ -221,26 +216,18 @@ class TestReconcilerServiceBuildFolderName:
 
 class TestExporterServiceHelpers:
     def test_get_ext_with_extension(self) -> None:
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         assert _get_ext("test.jpg") == ".jpg"
 
     def test_get_ext_no_extension(self) -> None:
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         assert _get_ext("noext") == ".jpg"
 
     def test_get_ext_multiple_dots(self) -> None:
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         assert _get_ext("file.backup.pdf") == ".pdf"
 
     def test_write_image_normal_data(self) -> None:
         import base64
         import io
         import zipfile
-
-        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         data = base64.b64encode(b"fake image data").decode()
         buf = io.BytesIO()
@@ -255,8 +242,6 @@ class TestExporterServiceHelpers:
         import io
         import zipfile
 
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         raw = base64.b64encode(b"image bytes").decode()
         data = f"data:image/jpeg;base64,{raw}"
         buf = io.BytesIO()
@@ -268,8 +253,6 @@ class TestExporterServiceHelpers:
             assert content == b"image bytes"
 
     def test_build_filename_format(self) -> None:
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         fn = _build_filename()
         assert fn.startswith("evidence_sorting_")
         assert fn.endswith(".zip")

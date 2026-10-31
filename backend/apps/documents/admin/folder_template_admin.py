@@ -13,7 +13,6 @@ from django import forms
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path
-from django.utils.html import format_html
 
 from apps.core.exceptions import NotFoundError
 from apps.core.models.enums import LegalStatus

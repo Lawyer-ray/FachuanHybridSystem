@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import base64
-import io
 import json
-import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -21,50 +19,36 @@ from apps.pdf_splitting.services.split.ocr_handler import _chunk_pages
 
 class TestExporterServiceHelpers:
     def test_get_ext_with_dot(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         assert _get_ext("photo.jpg") == ".jpg"
         assert _get_ext("doc.PDF") == ".PDF"
 
     def test_get_ext_no_dot(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         assert _get_ext("noext") == ".jpg"
 
     def test_build_filename(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         result = _build_filename()
         assert result.startswith("evidence_sorting_")
         assert result.endswith(".zip")
 
     def test_ensure_output_dir_no_media_root(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         with patch("django.conf.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = None
             with pytest.raises(RuntimeError, match="MEDIA_ROOT"):
                 _ensure_output_dir()
 
     def test_write_image_valid_base64(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         zf_mock = MagicMock()
         img_b64 = base64.b64encode(b"fake image").decode()
         _write_image(zf_mock, "test/file.jpg", img_b64)
         zf_mock.writestr.assert_called_once()
 
     def test_write_image_with_data_url_prefix(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         zf_mock = MagicMock()
         img_b64 = base64.b64encode(b"fake").decode()
         _write_image(zf_mock, "f.jpg", f"data:image/png;base64,{img_b64}")
         zf_mock.writestr.assert_called_once()
 
     def test_write_image_invalid_base64(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         zf_mock = MagicMock()
         _write_image(zf_mock, "bad.jpg", "!!!invalid!!!")
         zf_mock.writestr.assert_not_called()
@@ -274,33 +258,21 @@ class TestOCRHandlerResolveProfile:
 
 class TestOCRHandlerChunkPages:
     def test_empty(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-
-        handler = OCRHandler()
         result = _chunk_pages(page_numbers=[], chunk_count=3)
         assert result == []
 
     def test_single_chunk(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-
-        handler = OCRHandler()
         result = _chunk_pages(page_numbers=[1, 2, 3], chunk_count=1)
         assert len(result) == 1
         assert result[0] == [1, 2, 3]
 
     def test_multiple_chunks(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-
-        handler = OCRHandler()
         result = _chunk_pages(page_numbers=[1, 2, 3, 4, 5], chunk_count=2)
         assert len(result) == 2
         total = sum(len(c) for c in result)
         assert total == 5
 
     def test_more_chunks_than_pages(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-
-        handler = OCRHandler()
         result = _chunk_pages(page_numbers=[1, 2], chunk_count=10)
         assert len(result) == 2
 

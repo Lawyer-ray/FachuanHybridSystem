@@ -34,7 +34,7 @@ from ..services.callback_service import (
     record_callback_status,
     session_id_for_path,
 )
-from ..services.file_proxy import fetch_internal_file, parse_contract_review_path, resolve_user
+from ..services.file_proxy import fetch_internal_file, resolve_user
 from ..services.signing import (
     build_editor_config,
     decode_callback_token,

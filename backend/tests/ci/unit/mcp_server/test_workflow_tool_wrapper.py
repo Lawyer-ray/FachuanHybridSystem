@@ -123,8 +123,6 @@ async def test_django_does_not_exist_translated() -> None:
     wrap = _load_wrapper()
 
     async def by_slug(template_slug: str, case_id: int) -> dict[str, Any]:
-        from apps.workflow.models import WorkflowTemplate
-
         raise WorkflowTemplate.DoesNotExist("WorkflowTemplate matching query does not exist.")
 
     wrapped = wrap(by_slug)

@@ -76,14 +76,14 @@ class TestAssignFilingNumberLockCoverage:
         svc = FilingNumberService()
         contracts = [ContractFactory(filing_number=None, case_type="civil") for _ in range(20)]
         results: list[str] = []
-        errors: list[BaseException] = []
+        errors: list[Exception] = []
         barrier = threading.Barrier(len(contracts))
 
         def _worker(c) -> None:
             barrier.wait()  # 尽量同时冲进去，放大并发窗口
             try:
                 results.append(svc.assign_filing_number(c, created_year=2032))
-            except BaseException as exc:  # noqa: BLE001 - 测试要捕获任何异常
+            except Exception as exc:  # noqa: BLE001 - 测试要捕获任何异常
                 errors.append(exc)
 
         threads = [threading.Thread(target=_worker, args=(c,)) for c in contracts]

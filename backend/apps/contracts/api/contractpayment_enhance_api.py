@@ -71,7 +71,6 @@ async def parse_payment_text(request: HttpRequest, payload: ContractPaymentParse
 async def list_payment_invoices(request: HttpRequest, payment_id: int, contract_id: int) -> Any:
     """某条收款记录下的发票（`contract_id` 必传：发票鉴权口径跟着合同行级 ACL 走）。"""
     service = _invoice_service()
-    ctx = await sync_to_async(extract_request_context)(request)
     invoices = await sync_to_async(service.list_invoices)(contract_id, payment_ids=[payment_id])
     return [_invoice_out(inv) for inv in invoices]
 

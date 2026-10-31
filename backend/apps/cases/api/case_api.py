@@ -20,7 +20,7 @@ from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.cases.schemas import CaseCreateFull, CaseFullOut, CaseIn, CaseOut, CaseUpdate
+from apps.cases.schemas import CaseCreateFull, CaseIn, CaseOut, CaseUpdate
 from apps.cases.services import CaseService
 from apps.core.dto.request_context import extract_request_context
 
@@ -152,7 +152,7 @@ async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dic
 
     def _create_full() -> dict[str, Any]:
         result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
-        # ⚠️ 这里不能直接 `CaseOut.from_orm(case)` 后把 ORM 列表塞进 CaseFullOut：
+        # ⚠️ 这里不能直接 `CaseOut.from_orm(case)` 后把 ORM 列表塞进完整版输出：
         #    bulk_create 出来的 parties/assignments 没预加载 client/lawyer 关联，
         #    ModelSchema 取 client_detail 时拿到的是 client_id 整数，会报十几个
         #    「client_detail.id Field required」然后 500（实测）。

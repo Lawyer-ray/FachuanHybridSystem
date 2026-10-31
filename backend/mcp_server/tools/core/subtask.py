@@ -25,7 +25,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from mcp_server.identity import current_session_id

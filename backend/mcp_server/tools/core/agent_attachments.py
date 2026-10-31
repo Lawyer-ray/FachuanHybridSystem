@@ -185,7 +185,6 @@ def _read_file_via_source(
     其余编排（文本探针、扫描件回落、分段、限额）完全共用，避免两处漂移。
     """
     image_format = _normalize_format(format)
-    image_format = _normalize_format(format)
     requested_pages = _parse_pages(pages)
     notices: list[str] = []
 

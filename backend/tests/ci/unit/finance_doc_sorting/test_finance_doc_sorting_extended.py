@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import base64
-from unittest.mock import MagicMock
-
-import pytest
 
 from apps.finance_doc_sorting.services.classifier import (
-    _KEYWORDS,
     TYPE_DELIVERY,
     TYPE_OTHER,
     TYPE_RECEIPT,
@@ -19,10 +15,6 @@ from apps.finance_doc_sorting.services.classifier import (
 )
 from apps.finance_doc_sorting.services.exporter import _build_filename, _get_ext, _write_image
 from apps.finance_doc_sorting.services.reconciler import (
-    FOLDER_CONFIRMED,
-    STATUS_MATCHED,
-    STATUS_MISSING,
-    STATUS_UNMATCHED,
     DeliveryNote,
     LineItem,
     MonthGroup,
@@ -244,15 +236,11 @@ class TestExporterService:
         assert ExporterService is not None
 
     def test_get_ext(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         assert _get_ext("test.jpg") == ".jpg"
         assert _get_ext("test.pdf") == ".pdf"
         assert _get_ext("noext") == ".jpg"
 
     def test_build_filename(self):
-        from apps.finance_doc_sorting.services.exporter import ExporterService
-
         filename = _build_filename()
         assert filename.startswith("evidence_sorting_")
         assert filename.endswith(".zip")
@@ -260,8 +248,6 @@ class TestExporterService:
     def test_write_image(self):
         import io
         import zipfile
-
-        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -273,8 +259,6 @@ class TestExporterService:
     def test_write_image_with_prefix(self):
         import io
         import zipfile
-
-        from apps.finance_doc_sorting.services.exporter import ExporterService
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:

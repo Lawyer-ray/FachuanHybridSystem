@@ -611,7 +611,9 @@ def _unlink(path: Path) -> None:
     try:
         path.unlink()
     except OSError:
-        pass
+        # 缓存清理是尽力而为：文件可能已被其他进程（或上一个请求）先删掉。
+        # 这类失败不影响渲染结果，走降级分支正常继续，记 debug 即可。
+        logger.debug("删除渲染缓存文件失败（已忽略）: %s", path, exc_info=True)
 
 
 def cache_root() -> Path:

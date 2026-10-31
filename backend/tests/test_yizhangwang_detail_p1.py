@@ -10,9 +10,7 @@
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
@@ -147,7 +145,6 @@ def test_sync_previous_case_does_not_overwrite_manual_choice(db: Any) -> None:
     from apps.cases.models import Case
 
     manual = Case.objects.create(yz_wid="manual-prev", name="人工选的前序")
-    other = Case.objects.create(yz_wid="ys-ajbh-1", name="一张网认为的前序")
     current = Case.objects.create(yz_wid="aj-new", name="二审案件", previous_case=manual)
 
     note = _sync_previous_case(current, _case_data())

@@ -34,7 +34,7 @@ def _tool_annotations_from_source() -> tuple:
     """直接复用 server.py 的推导逻辑(保持单一实现,不复制算法)。"""
     import importlib
 
-    import mcp_server.server as srv
+    srv = importlib.import_module("mcp_server.server")
 
     importlib.reload(srv)  # 确保 pytest 环境里拿到的是当前源码
     return srv._tool_annotations, srv._DESTRUCTIVE_PREFIXES
