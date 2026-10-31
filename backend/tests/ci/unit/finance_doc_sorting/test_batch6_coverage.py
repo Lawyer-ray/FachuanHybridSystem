@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
-
-import pytest
-
 from apps.finance_doc_sorting.services.reconciler import _normalize_date, _to_float
 
 
@@ -131,7 +126,6 @@ class TestReconcilerService:
         assert result.month == ""
 
     def test_normalize_date(self):
-        svc = self._make_service()
         assert _normalize_date("2023-08-15") == "20230815"
         assert _normalize_date("20230815") == "20230815"
         assert _normalize_date(None) is None
@@ -139,7 +133,6 @@ class TestReconcilerService:
         assert _normalize_date("invalid") is None
 
     def test_to_float(self):
-        svc = self._make_service()
         assert _to_float(1234.56) == 1234.56
         assert _to_float("1,234.56") == 1234.56
         assert _to_float(None) is None

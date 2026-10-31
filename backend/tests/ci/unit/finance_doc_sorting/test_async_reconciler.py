@@ -76,7 +76,7 @@ class TestReconcileAsync:
             {"ocr_text": "stmt3"},
         ]
 
-        result = await svc.reconcile_async(
+        await svc.reconcile_async(
             statements=statements,
             deliveries=[],
             receipts=[],

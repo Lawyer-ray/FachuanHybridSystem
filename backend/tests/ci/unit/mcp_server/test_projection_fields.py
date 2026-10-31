@@ -55,6 +55,7 @@ def _item_props(spec: Any, path_suffix: str, item_keys: tuple[str, ...]) -> set[
                 schema = _resolve_ref(spec, schema.get("items", {}))
             return set(schema.get("properties", {}).keys())
     pytest.fail(f"OpenAPI 里找不到端点 {path_suffix} 的 GET 2xx 数组响应")
+    raise AssertionError("unreachable: pytest.fail 总是抛异常")  # 仅为满足返回类型
 
 
 @pytest.mark.parametrize(("path_suffix", "fields", "item_keys"), _TARGETS)

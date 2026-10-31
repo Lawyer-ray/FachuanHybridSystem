@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import pytest
 
-from apps.cases.models.case import Case
 from apps.cases.models.material import CaseMaterial
 from apps.cases.models.party import CaseParty
 from apps.cases.services.case_readiness_service import CaseReadinessService, ConflictCheckService, MaterialStatusService
@@ -91,6 +90,7 @@ class TestCaseReadiness:
     def test_second_trial_uses_appeal_checks(self):
         """二审走答辩条件：必须挂前序案件、要有判决书。"""
         first = CaseFactory(current_stage="first_trial")
+        del first  # 回归点:二审未挂前序时必须判不通过，不靠前序案件
         appeal = CaseFactory(current_stage="second_trial", previous_case=None)
         result = CaseReadinessService().readiness_of(appeal.id)
 

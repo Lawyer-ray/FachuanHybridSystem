@@ -47,7 +47,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, override_settings
 
-from apps.agent.models import AgentAttachment, AgentSession
+from apps.agent.models import AgentSession
 from apps.organization.models import LawFirm, Lawyer
 
 pytestmark = [pytest.mark.django_db]

@@ -691,9 +691,10 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             "reason": "http_error",
             "message": f"HTTP {status}",
         }
-    if 300 <= status < 400:
+    if status >= 300:
         # 走到这里说明 3xx 但没带 Location(上面 break 出来的)——把重定向
-        # 页壳当正文解析会误诊成 javascript_required,不如直说。
+        # 页壳当正文解析会误诊成 javascript_required,不如直说。上面已滤掉
+        # >=400(httpx 的 status 不可能 <100),故 status>=300 即「3xx」。
         return {
             "ok": False,
             "url": target,

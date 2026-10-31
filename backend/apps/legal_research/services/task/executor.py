@@ -4,7 +4,6 @@ import logging
 import re
 from typing import Any
 
-from apps.legal_research.models import LegalResearchTask
 from apps.legal_research.services.executor_components import (
     ExecutorCacheMixin,
     ExecutorFeedbackMixin,
@@ -79,7 +78,6 @@ class LegalResearchExecutor(  # pragma: no cover
             query_variant_max=self.QUERY_VARIANT_MAX,
             detail_cache_ttl_default=self.DETAIL_CACHE_TTL_SECONDS,
         )
-        search_mode = run_config.search_mode
         single_search_mode = run_config.single_search_mode
         query_variant_enabled = run_config.query_variant_enabled
         query_variant_max_count = run_config.query_variant_max_count

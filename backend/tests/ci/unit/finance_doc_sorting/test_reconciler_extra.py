@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -10,16 +10,12 @@ from apps.finance_doc_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
     FOLDER_DELIVERY_NOT_ENOUGH,
-    FOLDER_MISSING_DELIVERY,
-    FOLDER_NEED_SUPPLEMENT,
     FOLDER_UNSIGNED,
     STATUS_MATCHED,
-    STATUS_MISSING,
     STATUS_UNMATCHED,
     DeliveryNote,
     LineItem,
     MonthGroup,
-    ReconcileResult,
     ReconcilerService,
     StatementInfo,
     _normalize_date,

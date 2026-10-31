@@ -17,8 +17,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from apps.agent.pi.bridge import DeltaTracker, translate_all
 from apps.agent.pi.rpc_client import PiEvent
 

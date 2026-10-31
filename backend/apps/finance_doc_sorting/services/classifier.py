@@ -279,7 +279,8 @@ class ClassifierService:
                     val = float(m.group(1).replace(",", ""))
                     amounts.append(val)
                 except ValueError:
-                    pass
+                    # OCR 文本里的金额片段不保证可解析（如 "1,2,3"），跳过该片段继续扫下一个
+                    logger.debug("金额片段无法解析，已跳过: %r", m.group(1))
         if amounts:
             # 返回最大金额
             best = max(amounts)

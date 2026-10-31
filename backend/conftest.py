@@ -160,7 +160,15 @@ def _install_runtime_db_guard() -> None:
 
 
 #: 僵尸表检测只跑一次：连接池/多 test database 都会反复触发 connection_created
-_stale_tables_checked = False
+_STALE_TABLES_CHECKED: list[bool] = []  # 只有一格：填了即表示已检查过
+
+
+def _stale_tables_checked() -> bool:
+    return bool(_STALE_TABLES_CHECKED)
+
+
+def _mark_stale_tables_checked() -> None:
+    _STALE_TABLES_CHECKED.append(True)
 
 
 def _warn_stale_tables(connection: Any) -> None:
@@ -181,8 +189,7 @@ def _warn_stale_tables(connection: Any) -> None:
     按「实际连上的库 == settings 指名的测试库」判定后才检查，否则查错库、
     还会把只跑一次的机会浪费在维护连接上。
     """
-    global _stale_tables_checked
-    if _stale_tables_checked:
+    if _stale_tables_checked():
         return
     try:
         with connection.cursor() as cursor:
@@ -198,7 +205,7 @@ def _warn_stale_tables(connection: Any) -> None:
             stale = sorted(db_tables - model_tables)
     except Exception:
         return  # 检测自身失败不设标志，下次连接重试（首连可能发生在迁移建表前）
-    _stale_tables_checked = True
+    _mark_stale_tables_checked()
     if stale:
         import warnings
 

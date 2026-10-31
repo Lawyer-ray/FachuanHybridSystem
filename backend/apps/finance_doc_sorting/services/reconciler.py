@@ -361,7 +361,11 @@ class ReconcilerService:
                 if abs(line_item.amount - d_amount) <= tolerance:
                     return True
             except (ValueError, TypeError):
-                pass
+                # 金额无法转 float（OCR 脏数据）：金额这条判据失效，
+                # 直接回落后续的日期判据
+                logger.debug(
+                    "金额比对不可用，回落日期判据: line_item=%r delivery=%r", line_item.amount, delivery.amount
+                )
 
         # 只有日期匹配也算（金额可能 OCR 识别不准）
         if line_item.date and delivery.date and line_item.date == delivery.date:

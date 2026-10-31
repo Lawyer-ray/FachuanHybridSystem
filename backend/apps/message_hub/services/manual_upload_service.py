@@ -15,7 +15,6 @@ from django.utils import timezone
 from apps.core.exceptions import ValidationException
 from apps.core.services.storage_service import delete_media_file
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
-from apps.message_hub.services.archive_extract_service import expand_upload_files
 from apps.message_hub.services.attachment_page_service import fill_page_counts
 from apps.message_hub.services.base import MessageFetcher, resolve_media_attachment_path
 
@@ -170,6 +169,8 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
     zip/rar/7z 压缩包在这里展开为包内文件（与逐个直传等价，白名单/限额
     同口径；嵌套压缩包不递归）；展开后一个文件都没有视为空包拒绝。
     """
+    from apps.message_hub.services.archive_extract_service import expand_upload_files
+
     # 先整批校验再落盘：中途失败不产生半落盘的孤儿附件
     for uploaded in files:
         validate_manual_upload_file(uploaded)
@@ -210,6 +211,8 @@ def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxM
     新附件沿用与 create_manual_message 相同的落盘协议，part_index 接着现有最大值排，
     不触碰拆分草稿（新素材由前端拉详情后并入 draft_state）。
     """
+    from apps.message_hub.services.archive_extract_service import expand_upload_files
+
     # 先整批校验再落盘：中途失败不产生半落盘的孤儿附件
     for uploaded in files:
         validate_manual_upload_file(uploaded)

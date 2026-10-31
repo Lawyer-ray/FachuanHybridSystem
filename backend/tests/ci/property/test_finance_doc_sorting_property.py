@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st

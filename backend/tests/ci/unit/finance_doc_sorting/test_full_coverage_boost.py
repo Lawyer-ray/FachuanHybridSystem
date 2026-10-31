@@ -4,29 +4,20 @@ from __future__ import annotations
 
 import json
 import zipfile
-from decimal import Decimal
 from io import BytesIO
-from typing import Any
-
-import pytest
 
 from apps.finance_doc_sorting.services.classifier import (
     TYPE_DELIVERY,
     TYPE_OTHER,
     TYPE_RECEIPT,
     TYPE_STATEMENT,
-    ClassifiedImage,
     ClassifierService,
-    ClassifyResult,
 )
 from apps.finance_doc_sorting.services.exporter import ExporterService, _build_filename, _get_ext, _write_image
 from apps.finance_doc_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
-    FOLDER_DELIVERY_NOT_ENOUGH,
-    FOLDER_MISSING_DELIVERY,
     FOLDER_UNSIGNED,
-    STATUS_MATCHED,
     STATUS_UNMATCHED,
     DeliveryNote,
     LineItem,

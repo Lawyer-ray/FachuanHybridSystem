@@ -78,7 +78,7 @@ def _calls_to(path: str, prefix: bool = False):
 @pytest.mark.parametrize(
     "endpoint,minimum",
     sorted([*_SLOW_ENDPOINTS.items(), *_SLOW_ENDPOINT_PREFIXES.items()]),
-    ids=lambda v: str(v),
+    ids=str,
 )
 def test_slow_endpoint_calls_carry_raised_timeout(endpoint: str, minimum: int) -> None:
     prefix = endpoint in _SLOW_ENDPOINT_PREFIXES

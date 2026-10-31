@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.db.models import F
@@ -519,7 +519,7 @@ class TestRetryProcessing:
         MockCourtSMS.objects.get.return_value = sms_obj
         mock_submit.return_value = "retry-task"
 
-        result = svc.retry_processing(1)
+        svc.retry_processing(1)
         assert sms_obj.status == "pending"
         # retry_count 改为 F() 原子自增（并发点两次不丢计数），mock 对象上
         # F 表达式不会求值，所以断言“是 F 表达式”+“save 被调用”。

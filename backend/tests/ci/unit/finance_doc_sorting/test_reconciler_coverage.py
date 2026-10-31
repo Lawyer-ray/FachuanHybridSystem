@@ -5,10 +5,7 @@ from __future__ import annotations
 import pytest
 
 from apps.finance_doc_sorting.services.reconciler import (
-    FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
-    FOLDER_DELIVERY_NOT_ENOUGH,
-    FOLDER_MISSING_DELIVERY,
     FOLDER_UNSIGNED,
     STATUS_MATCHED,
     STATUS_UNMATCHED,

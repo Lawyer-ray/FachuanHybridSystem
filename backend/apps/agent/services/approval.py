@@ -378,6 +378,11 @@ def _list_mcp_tools(mcp: Any) -> list[Any]:
     if thread.is_alive():
         raise TimeoutError("读取 MCP 工具表超时（10s）")
     if error:
+        # 有意捕获 BaseException：_runner 跑在独立线程里，asyncio 取消（
+        # CancelledError 自 Python 3.8 起继承 BaseException）与 KeyboardInterrupt
+        # 若不在这里接住，异常会死在子线程中丢失，join 后的调用方就分不清
+        # 「子线程正常返回」与「子线程被中断」——前者会让审批静默退回名字判定，
+        # 后者应原样上抛。故此处保留宽捕获，只负责把异常透传给主线程。
         raise error[0]
     return result
 

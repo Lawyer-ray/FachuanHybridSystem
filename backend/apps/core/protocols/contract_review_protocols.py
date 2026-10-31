@@ -92,7 +92,6 @@ class IReviewService(Protocol):
         Returns:
             原始文件路径
         """
-        ...
 
     def adopt_edited_output(self, task_id: UUID, data: bytes, *, version_tag: int) -> str:
         """

@@ -51,8 +51,9 @@ def _clean_registry() -> Any:
     def _clear() -> None:
         try:
             asyncio.run(registry.clear())
-        except RuntimeError:
-            pass
+        except RuntimeError as exc:
+            # 已有事件循环在跑时 asyncio.run 会拒绝调用，此处无需清理。
+            del exc
 
     _clear()
     yield
