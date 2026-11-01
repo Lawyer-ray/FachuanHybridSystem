@@ -178,3 +178,21 @@ export async function applyDirectEdit(
     .json<DirectEditApplyResult>()
   return res
 }
+
+
+/**
+ * 在**审查任务的产物**上落一处修订痕迹。
+ *
+ * 与 `applyDirectEdit` 的区别只有归属方式：那个要 `contract_id`/`case_id` +
+ * `subpath`（绑定文件夹里的文件），这个要 `task_id`（审查任务的 output_file）。
+ * 修订痕迹的写法两边共用同一套后端实现。
+ */
+export async function applyTaskEdit(payload: {
+  task_id: string
+  selection: string
+  suggested: string
+}): Promise<{ applied: boolean; name: string; reason: string }> {
+  return reviewApi()
+    .post('direct-edit/task/apply', { json: payload })
+    .json<{ applied: boolean; name: string; reason: string }>()
+}

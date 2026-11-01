@@ -32,6 +32,8 @@ from apps.contract_review.schemas.direct_edit_schemas import (
     DirectEditApplyOut,
     DirectEditSuggestIn,
     DirectEditSuggestOut,
+    TaskEditApplyIn,
+    TaskEditApplyOut,
 )
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
@@ -153,4 +155,33 @@ async def apply_edit(request: HttpRequest, payload: DirectEditApplyIn) -> dict[s
     # 哪个文件被覆写」定向刷新画布（入参 id 本身不在 service 返回里）
     result["contract_id"] = payload.contract_id or 0
     result["case_id"] = payload.case_id or 0
+    return result
+
+
+# ───────────────────────── 审查任务的划词直改 ─────────────────────────
+
+
+@router.post("/task/apply", response=TaskEditApplyOut)
+@rate_limit_from_settings("TASK", by_user=True)
+async def apply_task_edit(request: HttpRequest, payload: TaskEditApplyIn) -> dict[str, Any]:
+    """在**审查任务的产物**上落一处修订痕迹。
+
+    为什么需要这个平行端点（而不是复用 `/apply`）：
+    `/apply` 的入参是 `contract_id`/`case_id` + `subpath`，它靠绑定文件夹反查
+    文件并做文件夹 ACL。审查任务的 docx 在 `MEDIA_ROOT/contract_review/output/`，
+    不在任何绑定文件夹里，没有 subpath、也没有文件夹可反查；它的归属判定
+    是任务本身（`ReviewTask.user`）。
+
+    修订逻辑与 `/apply` 共用同一套（`DocxRevisionTool` + `locate_paragraph`），
+    两条路只在「文件从哪来、写回哪去」上不同。
+    """
+    user = getattr(request, "user", None) or getattr(request, "auth", None)
+    from apps.contract_review.services.review.review_task_edit_service import apply_to_task
+
+    result: dict[str, Any] = await sync_to_async(apply_to_task, thread_sensitive=True)(
+        task_id=payload.task_id,
+        selection=payload.selection,
+        suggested=payload.suggested,
+        user=user,
+    )
     return result
