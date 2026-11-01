@@ -26,7 +26,7 @@ import {
   type PdfSplitSegment,
   type SplitTemplate,
 } from '../api'
-import { SectionTitle, WorkCard } from './ui'
+import { SectionTitle, StepItem, WorkCard } from './ui'
 
 /**
  * 整包 PDF → 自动分段 → 归案（场景 2 的真正起点）。
@@ -226,10 +226,10 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
     <div className="flex flex-col gap-3">
       <StepBar phase={phase} />
       {phase === 'idle' ? (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
-          {/* 上传区：去掉原先那个 800px 宽、只有 3 行字的巨大虚线框 */}
-          <WorkCard className="border-dashed border-zinc-300 bg-secondary/15" padded={false}>
-            <div className="flex flex-col items-center gap-2 px-6 py-9">
+        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* 上传区：加大纵向留白，让它成为页面视觉主体（原先只占上半屏） */}
+          <WorkCard className="border-dashed border-zinc-300 bg-secondary/10" padded={false}>
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16">
               <div className="flex size-11 items-center justify-center rounded-full bg-secondary">
                 <FileStack className="size-5 text-muted-foreground" />
               </div>
@@ -257,19 +257,30 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
             </div>
           </WorkCard>
 
-          {/* 右栏：当前识别模式 + 风险提示
-              原先这两个信息被迫堆在上传区下方，宽屏上一条长灰字，没人会读。 */}
-          <div className="flex flex-col gap-2.5">
+          {/* 右栏：识别模式 + 四步流程 + 风险提示
+              原先这些信息被迫堆在上传区下方，宽屏上一条长灰字，没人会读；
+              移到右栏后页面左右平衡，也不再下半屏大片留白。 */}
+          <div className="flex flex-col gap-3.5">
             <WorkCard>
               <SectionTitle title="识别模式" />
-              <div className="mt-2 flex items-center gap-2">
-                <StatusBadge tone={isAppeal ? 'yellow' : 'blue'} size="xs">
+              <div className="mt-2">
+                <StatusBadge tone={isAppeal ? 'yellow' : 'blue'} size="sm">
                   {isAppeal ? '二审答辩材料' : '一审起诉材料'}
                 </StatusBadge>
               </div>
-              <p className="mt-1.5 text-[11px] leading-[1.6] text-muted-foreground">
-                拆什么材料跟案件阶段走 —— 两套不能混用。
+              <p className="mt-2 text-[11px] leading-[1.6] text-muted-foreground">
+                拆什么材料跟案件阶段走 —— 两套不能混用。当前阶段决定了用哪套模板。
               </p>
+            </WorkCard>
+
+            <WorkCard>
+              <SectionTitle title="这一步做什么" />
+              <div className="mt-3">
+                <StepItem index={1} title="上传整包" desc="几十页混在一起的扫描件" state="current" />
+                <StepItem index={2} title="自动分段" desc="按页内容切开并重命名" state="todo" />
+                <StepItem index={3} title="人工复核" desc="核对页码与文件名" state="todo" />
+                <StepItem index={4} title="归入本案" desc="成为正式卷宗材料" state="todo" />
+              </div>
             </WorkCard>
             <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
               <div className="flex items-start gap-2">

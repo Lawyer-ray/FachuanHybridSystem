@@ -130,7 +130,10 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
         />
       </div>
 
-      {/* ══ ③ 法律要件：卡片网格 ══ */}
+      {/* ══ ③④ 双栏：左法律要件，右材料齐备。
+          原来是上下两块单列，1080p 屏上只占上半屏；并排后填满宽度、信息密度翻倍，
+          并且「法律要件 vs 卷宗要件」这个对比关系在版面上也就成立了。 ══ */}
+      <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <WorkCard>
         <SectionTitle
           title={r?.mode === 'appeal' ? '答辩条件' : '起诉条件'}
@@ -149,7 +152,7 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
           }
         />
         {r?.checks?.length ? (
-          <div className="mt-2.5 grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="mt-2.5 grid grid-cols-1 gap-2">
             {r.checks.map((c) => (
               <div
                 key={c.key}
@@ -197,7 +200,6 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
         )}
       </WorkCard>
 
-      {/* ══ ④ 材料槽位：格子墙 ══ */}
       <WorkCard>
         <SectionTitle
           title="材料齐备"
@@ -210,7 +212,7 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
           <p className="mt-2.5 text-[11.5px] text-status-red">{material.error}</p>
         ) : m?.slots?.length ? (
           <>
-            <div className="mt-2.5 grid grid-cols-2 gap-2 lg:grid-cols-3">
+            <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {m.slots.map((s) => {
                 const meta = SLOT_META[s.status ?? 'miss'] ?? SLOT_META.miss
                 const status = s.status ?? 'miss'
@@ -248,6 +250,7 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
           <EmptyBlock>还没有材料，先上传卷宗。</EmptyBlock>
         )}
       </WorkCard>
+      </div>
     </div>
   )
 }

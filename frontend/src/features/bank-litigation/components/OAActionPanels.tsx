@@ -4,7 +4,7 @@ import { AlertTriangle, Archive, CheckCircle2, Loader2, Search, Stamp } from 'lu
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
-import { KeyValueRow, SectionTitle, WorkCard } from './ui'
+import { KeyValueRow, SectionTitle, StepItem, WorkCard } from './ui'
 import { cn } from '@/lib/utils'
 
 import { lookupArchiveContract, lookupStampContract, type ArchiveLookupOut, type StampLookupOut } from '../api'
@@ -100,7 +100,8 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3.5">
+    <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="flex min-w-0 flex-col gap-3.5">
       {/* ══ ① 说明卡 ══ */}
       <WorkCard>
         <SectionTitle title={meta.title} hint={meta.hint} />
@@ -202,6 +203,30 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
           ) : null}
         </div>
       ) : null}
+      </div>
+
+      {/* 右栏：操作要点，避免下半屏全空 */}
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3">
+        <WorkCard>
+          <SectionTitle title="怎么用" />
+          <div className="mt-3">
+            <StepItem index={1} title="填文件绝对路径" desc="在已绑定的文件夹里" state="current" />
+            <StepItem index={2} title="反查合同" desc="按路径找到归属合同" state="todo" />
+            <StepItem index={3} title={meta.verb} desc="服务端在 OA 里执行" state="todo" />
+          </div>
+        </WorkCard>
+        <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
+            <div className="min-w-0">
+              <div className="text-[11.5px] font-medium">必须先反查</div>
+              <p className="mt-1 text-[10.5px] leading-[1.6] text-muted-foreground">
+                反查确认文件属于哪份合同后，{meta.verb}才会启用 —— 避免把 A 案的文件盖到 B 案上。
+              </p>
+            </div>
+          </div>
+        </WorkCard>
+      </div>
     </div>
   )
 }

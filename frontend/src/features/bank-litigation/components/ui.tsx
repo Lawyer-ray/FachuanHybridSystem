@@ -4,17 +4,11 @@
  * ═══ 为什么要单独建这一层 ═══
  * 这块业务原先只有一个「左栏 7 分区 + 右栏内容」的裸壳：每个面板各自写
  * `<div className="flex flex-col gap-2.5">`，没有任何卡片、分区标题或数据块，
- * 于是整页看起来就是**一堆灰字贴在白底上**——尤其在 1400px 以上的宽屏，
- * 内容只占左半边，右半边全是空白，像没做完的原型。
+ * 于是整页看起来就是**一堆灰字贴在白底上**。
  *
- * 抽这四个原子件的理由：
- *   - `WorkCard`     统一卡片气泡感（边框/圆角/内边距），7 个面板共用一份
- *   - `SectionTitle` 统一「标题 + 右侧动作」的行结构，避免每处手写 h3 + flex
- *   - `StatTile`     把「一个数字 + 一句标签」做成块，横向铺满宽屏
- *   - `KeyValueRow`  统一 label/value 的两栏对齐（原先是 dl + 各种手写 grid）
- *
- * 这些只服务本 feature，**不上提到 components/shared**：
- * 别的业务域没有「左栏分区工作台」这种形态，提权会变成幽灵共享。
+ * 抽这一层的第二版（2026-11-01）针对「内容只占上半屏、下面全白」的问题：
+ * 光有卡片边界还不够，**页面必须撑满视口、左右必须分栏**，否则 1080p 屏上
+ * 内容到 419px 就结束，剩下 660px 空白——那才是「不美观」的真实来源。
  */
 
 import type { ReactNode } from 'react'
@@ -35,8 +29,8 @@ export function WorkCard({
   return (
     <section
       className={cn(
-        'rounded-[10px] border border-border bg-card',
-        'shadow-[0_1px_2px_rgba(0,0,0,.03)]',
+        'rounded-[12px] border border-border bg-card',
+        'shadow-[0_1px_2px_rgba(0,0,0,.03),0_8px_24px_-16px_rgba(0,0,0,.10)]',
         padded && 'px-4 py-3.5',
         className,
       )}
@@ -67,17 +61,19 @@ export function SectionTitle({
   )
 }
 
-/** 数字块：大数字 + 标签，用于横向铺开统计（5/5、缺 2、¥99.8万…） */
+/** 数字块：大数字 + 标签，用于横向铺开统（5/5、缺 2、¥99.8万…） */
 export function StatTile({
   label,
   value,
   unit,
   tone = 'neutral',
+  hint,
 }: {
   label: string
   value: ReactNode
   unit?: string
   tone?: 'neutral' | 'green' | 'red' | 'yellow' | 'blue'
+  hint?: string
 }) {
   const toneMap = {
     neutral: 'text-foreground',
@@ -87,12 +83,18 @@ export function StatTile({
     blue: 'text-status-blue',
   } as const
   return (
-    <div className="flex flex-col gap-0.5 rounded-[8px] border border-border bg-secondary/25 px-3 py-2">
-      <span className="text-[10.5px] text-muted-foreground">{label}</span>
-      <span className={cn('flex items-baseline gap-0.5 text-[17px] font-semibold tabular-nums leading-tight', toneMap[tone])}>
+    <div className="flex flex-col gap-1 rounded-[10px] border border-border bg-secondary/20 px-3.5 py-3">
+      <span className="text-[10.5px] font-medium tracking-[.02em] text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          'flex items-baseline gap-0.5 text-[20px] font-semibold tabular-nums leading-none',
+          toneMap[tone],
+        )}
+      >
         {value}
         {unit ? <span className="text-[11px] font-normal text-muted-foreground">{unit}</span> : null}
       </span>
+      {hint ? <span className="truncate text-[10px] text-muted-foreground">{hint}</span> : null}
     </div>
   )
 }
@@ -108,9 +110,57 @@ export function KeyValueRow({
   className?: string
 }) {
   return (
-    <div className={cn('grid grid-cols-[92px_minmax(0,1fr)] items-center gap-x-3 py-[5px]', className)}>
+    <div className={cn('grid grid-cols-[92px_minmax(0,1fr)] items-center gap-x-3 py-[7px]', className)}>
       <dt className="text-[11.5px] text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-[12.5px]">{children}</dd>
+    </div>
+  )
+}
+
+/** 竖排进度关节：用在右栏「当前走到哪」 */
+export function StepItem({
+  index,
+  title,
+  desc,
+  state,
+}: {
+  index: number
+  title: string
+  desc?: string
+  state: 'done' | 'current' | 'todo' | 'blocked'
+}) {
+  const dot =
+    state === 'done'
+      ? 'bg-status-green text-white'
+      : state === 'current'
+        ? 'bg-foreground text-background ring-4 ring-foreground/10'
+        : state === 'blocked'
+          ? 'bg-status-red text-white'
+          : 'bg-secondary text-muted-foreground'
+  return (
+    <div className="flex gap-2.5">
+      <div className="flex flex-none flex-col items-center">
+        <span
+          className={cn(
+            'grid size-[18px] place-items-center rounded-full text-[10px] font-semibold tabular-nums',
+            dot,
+          )}
+        >
+          {state === 'done' ? '✓' : index}
+        </span>
+        <span className="mt-1 w-px flex-1 bg-border last:hidden" />
+      </div>
+      <div className="min-w-0 pb-3.5">
+        <div
+          className={cn(
+            'text-[12px] leading-tight',
+            state === 'todo' ? 'text-muted-foreground' : 'font-medium text-foreground',
+          )}
+        >
+          {title}
+        </div>
+        {desc ? <div className="mt-0.5 text-[10.5px] leading-tight text-muted-foreground">{desc}</div> : null}
+      </div>
     </div>
   )
 }
