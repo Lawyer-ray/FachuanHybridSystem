@@ -25,18 +25,27 @@ export function UnderstandPanel() {
   /* 全量转换：逐份转 markdown，带进度 */
   const convertAll = useStageAction({
     steps: [
-      { text: '个人购房借款担保合同 · 原生PDF 抽取 12,480 字', ms: 620 },
-      { text: '借款借据及放款凭证 · 原生PDF 抽取 860 字', ms: 340 },
-      { text: '还款明细表 · 表格结构还原 84 行', ms: 560 },
-      { text: '催收记录汇总 · OCR 识别（手写批注）', ms: 880 },
-      { text: '借款人身份证 · OCR 识别正反面', ms: 420 },
-      { text: '还款账户流水 · 跨页表格拼接', ms: 700 },
-      { text: '差额补足承诺函 · 落款被印章覆盖，标记需复核', ms: 460 },
-      { text: '抽取关键字段 12 项', ms: 520 },
+      { text: '加载 PDF 解析器', ms: 500, parallel: ['pdf.js worker', 'OCR 引擎', '表格识别模块'] },
+      { text: '个人购房借款担保合同 · 原生 PDF 抽取 12,480 字', ms: 900 },
+      { text: '借款借据及放款凭证 · 原生 PDF 抽取 860 字', ms: 500 },
+      {
+        text: '还款明细表 · 表格结构还原',
+        ms: 1100,
+        retry: { times: 2, delay: 900, reason: '第 5 页跨页断行，表头对齐失败' },
+      },
+      { text: '催收记录汇总 · OCR 识别手写批注', ms: 1400 },
+      { text: '借款人身份证 · OCR 正反面', ms: 700 },
+      { text: '还款账户流水 · 跨页表格拼接', ms: 1000 },
+      {
+        text: '差额补足承诺函 · 落款被印章覆盖',
+        ms: 600,
+        confirm: '这份函件的落款日期被红色印章遮盖，OCR 无法确认签署日期。要保留原图并标记「需人工核对」，还是跳过这份？',
+      },
+      { text: '从正文抽取关键字段', ms: 800, parallel: ['合同条款 8 项', '还款数据 4 项', '当事人信息 3 项'] },
+      { text: '校验字段一致性', ms: 400 },
     ],
     toSummary: () => '6 份全量转换完成，2 份标记需复核（落款遮盖 / 手写批注）',
   })
-
   const totalChars = DEMO_UNDERSTAND_DOCS.reduce((n, d) => n + d.chars, 0)
   const highCount = DEMO_UNDERSTAND_DOCS.filter((d) => d.quality === 'high').length
   const medCount = DEMO_UNDERSTAND_DOCS.filter((d) => d.quality === 'medium').length
@@ -51,6 +60,7 @@ export function UnderstandPanel() {
         state={convertAll}
         execute={() => void convertAll.execute()}
         reset={convertAll.reset}
+        confirm={convertAll.confirm}
       />
 
       <StatStrip className="grid-cols-2 sm:grid-cols-4">

@@ -22,18 +22,22 @@ export function FilingPanel() {
   /* 跑一遍完整校验 */
   const verify = useStageAction({
     steps: [
-      { text: '核对当事人主体适格 · 通过', ms: 360 },
-      { text: '核对管辖法院 · 通过', ms: 300 },
-      { text: '核对诉讼时效 · 未届满', ms: 320 },
-      { text: '比对回款：起诉状 998,670.21 / 立案表单 998,702.06 → 差 31.85 元', ms: 520 },
-      { text: '识别印章：退费确认书未检测到财务章', ms: 480 },
-      { text: '识别签名：授权委托书签名区为空', ms: 460 },
-      { text: '检查要素式起诉状 · 当前仍为传统格式', ms: 340 },
-      { text: '汇总：4 项通过 / 1 项提示 / 2 项不通过', ms: 300 },
+      { text: '加载校验规则', ms: 400 },
+      { text: '核对当事人主体适格 · 通过', ms: 400 },
+      { text: '核对管辖法院 · 通过', ms: 380 },
+      { text: '核对诉讼时效 · 未届满', ms: 400 },
+      {
+        text: '比对三处金额',
+        ms: 900,
+        retry: { times: 1, delay: 800, reason: '立案表单回读超时，重新拉取' },
+      },
+      { text: '识别印章（6 份文书）', ms: 1200, parallel: ['起诉状', '证据清单', '授权委托书', '送达确认书', '退费确认书', '委托证明'] },
+      { text: '识别签名区域', ms: 900 },
+      { text: '检查要素式起诉状', ms: 450 },
+      { text: '汇总校验结果', ms: 350 },
     ],
-    toSummary: () => '校验完成：2 项不通过（金额差 31.85 元、2 份签章），暂不能送法院',
+    toSummary: () => '校验完成：4 项通过 / 1 项提示 / 2 项不通过，暂不能送法院',
   })
-
   /* 一键修系统能自动修的那两项 */
   const autoFix = useStageAction({
     steps: [
@@ -69,6 +73,7 @@ export function FilingPanel() {
         state={verify}
         execute={() => void verify.execute()}
         reset={verify.reset}
+        confirm={verify.confirm}
       />
 
       <StatStrip className="grid-cols-2 sm:grid-cols-4">

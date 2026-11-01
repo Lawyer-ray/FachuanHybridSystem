@@ -24,16 +24,26 @@ export function GapPanel() {
   /* 重新检测缺件：演示时会话可反复触发 */
   const detect = useStageAction({
     steps: [
-      { text: '逐份材料比对必备清单（借贷类 6 项）', ms: 560 },
-      { text: '催收记录：止于 2025-06，缺最近 12 个月 → 硬阻塞', ms: 420 },
-      { text: '抵押物权属证明：未见不动产权证 → 硬阻塞', ms: 400 },
-      { text: '共同借款人身份证明：2 人仅见 1 人 → 硬阻塞', ms: 400 },
-      { text: '还款账户流水：止于 2026-04 → 建议补', ms: 360 },
-      { text: '生成补件清单并推送客户', ms: 480 },
+      { text: '加载借贷类必备清单（6 项）', ms: 400 },
+      { text: '逐份材料比对槽位', ms: 900, parallel: ['合同类', '借据类', '还款类', '催收类', '身份类'] },
+      { text: '催收记录：止于 2025-06，缺最近 12 个月 → 硬阻塞', ms: 500 },
+      { text: '抵押物权属证明：未见不动产权证 → 硬阻塞', ms: 450 },
+      { text: '共同借款人身份证明：2 人仅见 1 人 → 硬阻塞', ms: 450 },
+      { text: '还款账户流水：止于 2026-04 → 建议补', ms: 400 },
+      {
+        text: '生成补件清单',
+        ms: 600,
+        confirm: '共 5 项缺件，其中 3 项硬阻塞。确认全部发给客户，还是先发硬阻塞的 3 项？',
+      },
+      {
+        text: '推送客户（短信 + 邮件）',
+        ms: 800,
+        retry: { times: 1, delay: 1200, reason: '短信网关超时，重试中' },
+      },
+      { text: '同步通知主办律师', ms: 350 },
     ],
     toSummary: () => '发现 5 项缺件（3 项硬阻塞），已通过短信+邮件推送给客户经理',
   })
-
   /* 催办：给还没补的项再发一次 */
   const remind = useStageAction({
     steps: [
@@ -59,6 +69,7 @@ export function GapPanel() {
         state={detect}
         execute={() => void detect.execute()}
         reset={detect.reset}
+        confirm={detect.confirm}
       />
 
       <StatStrip className="grid-cols-2 sm:grid-cols-4">

@@ -21,17 +21,25 @@ export function ReturnedPanel() {
   /* 立刻扫一轮邮箱 */
   const scanNow = useStageAction({
     steps: [
-      { text: '连接 3 个邮箱 · 拉取未读 6 封', ms: 520 },
-      { text: '下载附件 5 份（共 18.2 MB）', ms: 640 },
-      { text: '「Re: 谭某某案 补充材料」→ 案号+当事人名匹配 → 归案', ms: 420 },
-      { text: '「扫描件-不动产权证」→ 文件名关键词匹配 → 归案', ms: 380 },
-      { text: '「（20XX）粤0106民初XXXX号 受理通知书」→ 案号精确匹配 → 回填案号', ms: 400 },
-      { text: '「FW: 律师函签收回执」→ 匹配度 62% 低于阈值 → 放入待处理', ms: 360 },
-      { text: '重跑缺件检测', ms: 480 },
+      { text: '连接 3 个邮箱', ms: 600, parallel: ['一张网收件箱', '行政扫描仪', '客户往来邮箱'] },
+      {
+        text: '拉取新到邮件',
+        ms: 700,
+        retry: { times: 1, delay: 1000, reason: 'IMAP 连接被限流，等待后重试' },
+      },
+      { text: '下载附件 5 份（18.2 MB）', ms: 1100 },
+      { text: '「Re: 谭某某案 补充材料」→ 案号+当事人名匹配 → 归案', ms: 500 },
+      { text: '「扫描件-不动产权证」→ 文件名关键词匹配 → 归案', ms: 450 },
+      { text: '「（20XX）粤0106民初XXXX号 受理通知书」→ 案号精确匹配 → 回填案号', ms: 550 },
+      {
+        text: '「FW: 律师函签收回执」→ 匹配度 62%，低于阈值',
+        ms: 500,
+        confirm: '这封邮件匹配度只有 62%，低于 80% 阈值。要放进「待处理」让人来定，还是按发送人自动归到本案？',
+      },
+      { text: '重跑缺件检测', ms: 700 },
     ],
     toSummary: () => '3 封自动归案、1 封进待处理；缺件从 5 项降到 3 项',
   })
-
   /* 对低匹配度的那封手动指定归属 */
   const assignManual = useStageAction({
     steps: [
@@ -56,6 +64,7 @@ export function ReturnedPanel() {
         state={scanNow}
         execute={() => void scanNow.execute()}
         reset={scanNow.reset}
+        confirm={scanNow.confirm}
       />
 
       <StatStrip className="grid-cols-2 sm:grid-cols-4">

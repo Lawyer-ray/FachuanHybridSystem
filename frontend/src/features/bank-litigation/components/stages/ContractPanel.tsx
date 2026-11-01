@@ -22,30 +22,42 @@ export function ContractPanel() {
   /* ① 生成委托材料 */
   const genDocs = useStageAction({
     steps: [
-      { text: '读取案件数据：当事人 / 案由 / 标的额 / 管辖', ms: 420 },
-      { text: '套用《民事委托代理合同 v3.2》填充 24 个字段', ms: 640 },
-      { text: '生成授权委托书（按当事人自动生成）', ms: 380 },
-      { text: '生成风险告知书', ms: 300 },
-      { text: '生成收费协议（按费率计算）', ms: 340 },
-      { text: '检查必填项：特别授权需律师确认', ms: 320 },
+      { text: '读取案件数据', ms: 500, parallel: ['当事人', '案由与标的', '管辖法院', '收费约定'] },
+      { text: '套用《民事委托代理合同 v3.2》', ms: 900 },
+      { text: '填充 24 个字段', ms: 700 },
+      {
+        text: '生成授权委托书',
+        ms: 600,
+        retry: { times: 1, delay: 800, reason: '共同借款人信息不完整，补齐后重试' },
+      },
+      { text: '生成风险告知书 / 收费协议', ms: 600 },
+      { text: '检查必填项', ms: 500 },
     ],
     toSummary: () => '4 份文书已生成，1 份待补（送达地址确认书需选管辖法院模板）',
   })
-
   /* ② 派机器人去 OA 做利冲检索 —— 这是本页的核心动作 */
   const conflictRun = useStageAction({
     steps: [
-      { text: '启动服务端浏览器', ms: 420 },
-      { text: '登录律所 OA（1,840 ms）', ms: 620 },
-      { text: '检索当事人库：委托人 某某银行某某支行 → 无冲突', ms: 400 },
-      { text: '检索：被告 谭某某 → 无同名记录', ms: 360 },
-      { text: '检索：共同借款人 李某某 → 命中！与在办「离婚案」当事人同人', ms: 560 },
-      { text: '检索：抵押人 某某置业公司 → 历史委托已结案', ms: 340 },
-      { text: '命中红色冲突，已停止建卷，等待律师决定', ms: 400 },
+      { text: '启动服务端浏览器', ms: 700, parallel: ['分配容器', '加载自动化脚本'] },
+      { text: '打开律所 OA 登录页', ms: 800 },
+      {
+        text: '登录 OA',
+        ms: 900,
+        retry: { times: 2, delay: 1500, reason: '登录会话超时，重新认证' },
+      },
+      { text: '进入当事人库检索', ms: 600 },
+      { text: '检索：委托人 某某银行某某支行 → 无冲突', ms: 500 },
+      { text: '检索：被告 谭某某 → 无同名记录', ms: 450 },
+      { text: '检索：共同借款人 李某某 → 命中！', ms: 900 },
+      {
+        text: '命中红色冲突',
+        ms: 600,
+        confirm: '共同借款人李某某与本所在办「离婚案」当事人为同一人（证件号一致）。这属于禁止性冲突，是否终止本次委托？',
+      },
+      { text: '停止建卷，保留利冲结果页快照', ms: 500 },
     ],
     toSummary: () => '命中 1 处红色冲突（李某某），OA 立案已自动阻断',
   })
-
   const red = DEMO_CONFLICT_HITS.filter((h) => h.level === 'red')
   const yellow = DEMO_CONFLICT_HITS.filter((h) => h.level === 'yellow')
   const generated = DEMO_CONTRACT_GEN.filter((d) => d.status === 'generated')
@@ -60,6 +72,7 @@ export function ContractPanel() {
         state={conflictRun}
         execute={() => void conflictRun.execute()}
         reset={conflictRun.reset}
+        confirm={conflictRun.confirm}
       />
 
       <StatStrip className="grid-cols-2 sm:grid-cols-4">

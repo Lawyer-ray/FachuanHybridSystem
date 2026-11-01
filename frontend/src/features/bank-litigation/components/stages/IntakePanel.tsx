@@ -17,14 +17,25 @@ export function IntakePanel() {
   /* 重新拆分：演示时可反复点，展示系统的处理过程 */
   const resplit = useStageAction({
     steps: [
-      { text: '下载整包 · 12.4 MB', ms: 420 },
-      { text: '合并 6 个源文件 → 38 页单 PDF', ms: 380 },
-      { text: '逐页文本提取与版式判断', ms: 760 },
-      { text: '按内容切分并命名', ms: 700 },
-      { text: '识别材料类型并计算置信度', ms: 520 },
-      { text: '归入本案 8 份', ms: 360 },
+      { text: '连接客户上传通道，拉取整包', ms: 600, parallel: ['鉴权客户链接', '查询对象存储'] },
+      { text: '下载 12.4 MB · 6 个源文件', ms: 900 },
+      {
+        text: '合并为单一 PDF',
+        ms: 700,
+        retry: { times: 1, delay: 1100, reason: '还款明细.xlsx 解析超时，重试中' },
+      },
+      { text: '逐页文本提取', ms: 1200, parallel: ['第 1-10 页', '第 11-20 页', '第 21-30 页', '第 31-38 页'] },
+      { text: '版式判断与段落切分', ms: 800 },
+      { text: '按内容切分并命名', ms: 900 },
+      { text: '识别材料类型与置信度', ms: 700 },
+      {
+        text: '核对低置信度项',
+        ms: 500,
+        confirm: '差额补足承诺函置信度 61%（落款被印章遮盖）、手写便签 24%（疑似非案件材料）。确认按「待核对」保留，不自动归入任何类型？',
+      },
+      { text: '归入本案 8 份材料', ms: 400 },
     ],
-    toSummary: () => '识别出 8 份材料，其中 6 份已认准、2 份待人工核对',
+    toSummary: () => '识别出 8 份材料，其中 6 份已认准、2 份标为待核对',
   })
 
   const total = DEMO_INTAKE_SEGMENTS.length
@@ -49,6 +60,7 @@ export function IntakePanel() {
         state={resplit}
         execute={() => void resplit.execute()}
         reset={resplit.reset}
+        confirm={resplit.confirm}
       />
 
       {/* 顶部：这一包材料的状况 */}

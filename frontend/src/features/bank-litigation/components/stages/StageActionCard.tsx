@@ -1,23 +1,27 @@
 /**
- * 阶段执行卡：每个阶段顶部的「主操作」区域。
+ * 阶段执行卡（v2）：进度条 + 日志流 + 中断确认
  *
- * ═══ 为什么放在最上面 ═══
- * 演示时律师打开一个阶段，第一个问题永远是「我现在该干什么」。
- * 所以按钮必须在最显眼的位置，而不是埋在表格下面。
- *
- * 三种呈现：
- *   idle    → 一句「这个阶段做什么」+ 主按钮
- *   running → 进度文案 + 逐行日志（让观众看到系统在干活）
- *   done    → 结果摘要 + 「重新执行」
- *   failed  → 失败原因 + 「重试」
+ * v1 只有「按钮 + 日志」；v2 补上真实系统的三样东西：
+ *   ① **进度条**：百分比 + 条纹动画，让人看到还在动（长任务时最重要）
+ *   ② **重试角标**：某步失败重试时显示「重试 1/2」，像真系统在纠错
+ *   ③ **等待确认**：低头人确认时变黄色卡，按钮换成「确认并继续」
  */
 
-import { CheckCircle2, Loader2, Play, RotateCcw, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Loader2, Play, RotateCcw, ShieldQuestion, XCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
 import type { StageActionState } from './use-stage-action'
 import { ActionButton, InsetBlock, WorkCard } from '../ui'
+
+/** 日志行的配色 */
+const LOG_TONE: Record<string, string> = {
+  info: 'text-secondary-foreground',
+  ok: 'text-status-green',
+  warn: 'text-status-yellow',
+  error: 'text-status-red',
+  sub: 'text-muted-foreground',
+}
 
 export function StageActionCard({
   title,
@@ -26,6 +30,7 @@ export function StageActionCard({
   state,
   execute,
   reset,
+  confirm,
   hint,
 }: {
   title: string
@@ -34,26 +39,38 @@ export function StageActionCard({
   state: StageActionState
   execute: () => void
   reset: () => void
-  /** 按钮旁的补充说明（如「预计 30 秒」） */
+  confirm: () => void
   hint?: string
 }) {
-  const { phase } = state
+  const { phase, percent } = state
+  const active = phase === 'running' || phase === 'awaiting'
 
   return (
     <WorkCard
       className={cn(
-        phase === 'done' && 'border-status-green/40 bg-status-green-bg/30',
-        phase === 'failed' && 'border-status-red/40 bg-status-red-bg/30',
+        phase === 'done' && 'border-status-green/40 bg-status-green-bg/25',
+        phase === 'failed' && 'border-status-red/40 bg-status-red-bg/25',
+        phase === 'awaiting' && 'border-status-yellow/50 bg-status-yellow-bg/30',
       )}
     >
       <div className="flex flex-wrap items-start gap-4">
-        {/* 左：标题与说明 */}
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-[620]">{title}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-[620]">{title}</span>
+            {state.retries > 0 ? (
+              <span className="rounded-[4px] bg-status-yellow-bg px-1.5 py-[1px] text-[9.5px] font-medium text-status-yellow">
+                已重试 {state.retries} 次
+              </span>
+            ) : null}
+            {state.stepIndex > 0 && active ? (
+              <span className="text-[10px] tabular-nums text-muted-foreground">
+                第 {state.stepIndex} 步
+              </span>
+            ) : null}
+          </div>
           <p className="mt-1 max-w-[560px] text-[11.5px] leading-[1.65] text-muted-foreground">{desc}</p>
         </div>
 
-        {/* 右：动作 */}
         <div className="flex flex-none flex-col items-end gap-1.5">
           {phase === 'idle' ? (
             <>
@@ -67,11 +84,20 @@ export function StageActionCard({
           {phase === 'running' ? (
             <>
               <ActionButton dark disabled>
-                <Loader2 className="size-3.5 animate-spin" /> 执行中…
+                <Loader2 className="size-3.5 animate-spin" /> 执行中 {percent}%
               </ActionButton>
-              <span className="max-w-[180px] truncate text-[10px] text-muted-foreground" title={state.progress}>
+              <span className="max-w-[200px] truncate text-[10px] text-muted-foreground" title={state.progress}>
                 {state.progress}
               </span>
+            </>
+          ) : null}
+
+          {phase === 'awaiting' ? (
+            <>
+              <ActionButton dark onClick={confirm}>
+                <ShieldQuestion className="size-3.5" /> 确认并继续
+              </ActionButton>
+              <span className="text-[10px] text-status-yellow">等你确认</span>
             </>
           ) : null}
 
@@ -99,23 +125,50 @@ export function StageActionCard({
         </div>
       </div>
 
-      {/* 执行日志：running/done/failed 时展开 */}
+      {/* 进度条：执行中与完成时都有 */}
+      {active || phase === 'done' ? (
+        <div className="mt-3">
+          <div className="h-[5px] overflow-hidden rounded-full bg-secondary">
+            <div
+              className={cn(
+                'h-full rounded-full transition-[width] duration-300 ease-out',
+                phase === 'done' ? 'bg-status-green' : phase === 'awaiting' ? 'bg-status-yellow' : 'bg-foreground',
+              )}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* 等待确认的提示 */}
+      {phase === 'awaiting' ? (
+        <InsetBlock className="mt-2.5 border-status-yellow/50 bg-status-yellow-bg/60">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
+            <div className="min-w-0">
+              <div className="text-[11.5px] font-medium">需要你确认</div>
+              <p className="mt-0.5 text-[10.5px] leading-[1.6] text-muted-foreground">{state.confirmText}</p>
+            </div>
+          </div>
+        </InsetBlock>
+      ) : null}
+
+      {/* 日志 */}
       {state.log.length > 0 ? (
-        <InsetBlock className="mt-3 bg-secondary/25">
-          <ul className="flex flex-col gap-1">
+        <InsetBlock className="mt-2.5 bg-secondary/25">
+          <ul className="flex max-h-[220px] flex-col gap-[3px] overflow-y-auto">
             {state.log.map((l, i) => (
-              <li key={`${l.at}-${i}`} className="flex items-start gap-2 text-[10.5px] leading-[1.6]">
+              <li key={`${l.at}-${i}`} className="flex items-start gap-2 text-[10.5px] leading-[1.55]">
                 <span className="flex-none tabular-nums text-muted-foreground">{l.at}</span>
-                <span
-                  className={cn(
-                    'min-w-0 flex-1 break-words',
-                    l.ok === false ? 'text-status-red' : l.ok === true ? 'text-status-green' : 'text-secondary-foreground',
-                  )}
-                >
-                  {l.text}
-                </span>
+                <span className={cn('min-w-0 flex-1 break-words', LOG_TONE[l.kind ?? 'info'])}>{l.text}</span>
               </li>
             ))}
+            {phase === 'running' ? (
+              <li className="flex items-center gap-2 text-[10.5px] text-muted-foreground">
+                <Loader2 className="size-2.5 animate-spin" />
+                <span>{state.progress}…</span>
+              </li>
+            ) : null}
           </ul>
         </InsetBlock>
       ) : null}
