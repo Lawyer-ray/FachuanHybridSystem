@@ -1,15 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Download, FileUp, Loader2, RefreshCw } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { AlertTriangle, Download, FileUp, Loader2 } from 'lucide-react'
 
-import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { cn } from '@/lib/utils'
+
+import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
 
-import { convertToElemental, listConvertRecords, listMbidTypes } from '../api'
+import { convertToElemental } from '../api'
 import { useCase } from '../hooks/use-cases'
 import { suggestMbid } from '../utils'
-import { ActionButton, InsetBlock, Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
-import { DEMO_CONVERT_MAPPING } from './demo-data'
-import type { ConvertRecordList, MbidList } from '../api'
+import {
+  ActionButton,
+  InsetBlock,
+  Pill,
+  RailSection,
+  SectionTitle,
+  StatCell,
+  StatStrip,
+  StepItem,
+  WorkCard,
+} from './ui'
+import { HistoryBlock } from './convert/HistoryBlock'
+import { fmtSize, saveBlob, useTypeList } from './convert/convert-utils'
+import {
+  DEMO_CONVERT_MAPPING_DETAIL,
+  DEMO_CONVERT_PREVIEW,
+  DEMO_CONVERT_STATS,
+  DEMO_CONVERT_TEMPLATES,
+} from './demo-data'
+
 
 /**
  * 要素式转换面板 —— 传统起诉状 → 法院要素式示范文本。
@@ -74,6 +93,55 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
         <StatCell label="转换次数" value={recordCount} tone={recordCount > 0 ? 'green' : 'neutral'} />
         <StatCell label="识别来源" value="按案由自动匹配" />
       </StatStrip>
+
+      {/* ══ 转换统计 + 文书类型库：一卡两段铺满内容区宽度 ══ */}
+      <WorkCard padded={false}>
+        <RailSection title="转换统计" action={<Pill tone="green">本月失败 {DEMO_CONVERT_STATS.failed} 次</Pill>}>
+          <StatStrip className="grid-cols-2 sm:grid-cols-4">
+            <StatCell label="累计转换" value={`${DEMO_CONVERT_STATS.total.toLocaleString('en-US')} 次`} />
+            <StatCell label="本月转换" value={`${DEMO_CONVERT_STATS.monthly} 次`} tone="blue" />
+            <StatCell label="平均耗时" value={`${DEMO_CONVERT_STATS.avgMs.toLocaleString('en-US')} ms`} />
+            <StatCell
+              label="失败率"
+              value={`${DEMO_CONVERT_STATS.failRate}%`}
+              tone={DEMO_CONVERT_STATS.failRate > 5 ? 'red' : 'yellow'}
+            />
+          </StatStrip>
+          <p className="mt-2 text-[10.5px] leading-[1.6] text-muted-foreground">
+            失败集中在原文件格式不支持（扫描件无文字层）与后端开关未开两种情况，重试前先确认这两项。
+          </p>
+        </RailSection>
+
+        <RailSection
+          title="文书类型库"
+          action={<span className="text-[10.5px] text-muted-foreground">共 {DEMO_CONVERT_TEMPLATES.length} 类 · 按本月用量排序</span>}
+        >
+          <div className="grid grid-cols-[76px_minmax(0,1fr)_140px_64px_56px] gap-2 border-b border-border-light pb-1 text-[10px] text-muted-foreground">
+            <span>mbid</span>
+            <span>文书名称</span>
+            <span>适用案由</span>
+            <span>模板版本</span>
+            <span className="text-right">本月</span>
+          </div>
+          <ul className="divide-y divide-border-light">
+            {DEMO_CONVERT_TEMPLATES.map((t) => (
+              <li key={t.mbid} className="grid grid-cols-[76px_minmax(0,1fr)_140px_64px_56px] items-center gap-2 py-[6px]">
+                <span className="truncate font-mono text-[10.5px] text-muted-foreground" title={t.mbid}>
+                  {t.mbid}
+                </span>
+                <span className="min-w-0 truncate text-[11.5px]" title={t.name}>
+                  {t.name}
+                </span>
+                <span className="min-w-0 truncate text-[11px] text-muted-foreground" title={t.cause}>
+                  {t.cause}
+                </span>
+                <span className="text-[11px] tabular-nums text-secondary-foreground">{t.version}</span>
+                <span className="text-right text-[11.5px] font-medium tabular-nums">{t.monthly}</span>
+              </li>
+            ))}
+          </ul>
+        </RailSection>
+      </WorkCard>
 
       {/* ══ 左操作 / 右说明：两卡并排 ══ */}
       <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -211,16 +279,32 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
 
           <WorkCard padded={false}>
             <div className="border-b border-border-light px-5 py-3">
-              <SectionTitle title="转换内容" hint="传统字段 → 要素式栏位" />
+              <SectionTitle
+                title="转换内容"
+                hint={`传统字段 → 要素式栏位 · ${DEMO_CONVERT_MAPPING_DETAIL.length} 项`}
+              />
             </div>
             <ul className="divide-y divide-border-light">
-              {DEMO_CONVERT_MAPPING.map((m) => (
-                <li key={m.from} className="flex items-center gap-2 px-5 py-2">
-                  <span className="w-[76px] flex-none text-[11.5px] text-secondary-foreground">{m.from}</span>
-                  <span className="flex-none text-[10px] text-border">→</span>
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={m.to}>
-                    {m.to}
-                  </span>
+              {DEMO_CONVERT_MAPPING_DETAIL.map((m) => (
+                <li key={m.from} className="px-5 py-[7px]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-[64px] flex-none text-[11.5px] text-secondary-foreground">{m.from}</span>
+                    <span className="flex-none text-[10px] text-border">→</span>
+                    <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={m.to}>
+                      {m.to}
+                    </span>
+                    <span
+                      className={cn(
+                        'flex-none text-[9.5px] font-semibold',
+                        m.required ? 'text-status-red' : 'text-muted-foreground/70',
+                      )}
+                    >
+                      {m.required ? '必填' : '选填'}
+                    </span>
+                  </div>
+                  <div className="mt-[3px] truncate pl-[74px] text-[10px] text-muted-foreground" title={m.sample}>
+                    例：{m.sample}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -228,137 +312,54 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
         </div>
       </div>
 
+      {/* ══ 转换前后对比：左传统起诉状摘要 vs 右要素式摘要 ══ */}
+      <WorkCard padded={false}>
+        <div className="border-b border-border-light px-5 py-3">
+          <SectionTitle title="转换前后对比" hint="同一段事实，两种写法 · 预览已脱敏" />
+        </div>
+        <div className="grid grid-cols-1 gap-[18px] px-5 py-3.5 lg:grid-cols-2">
+          {[true, false].map((legacySide) => (
+            <div key={legacySide ? 'legacy' : 'elemental'} className="flex min-w-0 flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-[650] tracking-[0.06em] text-muted-foreground/80">
+                  {legacySide ? '传统起诉状' : '要素式示范文本'}
+                </span>
+                <Pill tone={legacySide ? 'neutral' : 'blue'}>{legacySide ? '原稿' : '转换结果'}</Pill>
+              </div>
+              <ul className="flex flex-col gap-1.5">
+                {DEMO_CONVERT_PREVIEW.map((p) => (
+                  <li key={p.label} className="rounded-[9px] border border-border-light bg-background px-3 py-2">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[10px] font-medium text-muted-foreground">{p.label}</span>
+                      {!p.matched && !legacySide ? (
+                        <span className="text-[9px] font-semibold text-status-blue">要素式新增</span>
+                      ) : null}
+                      {!p.matched && legacySide ? (
+                        <span className="text-[9px] text-muted-foreground/70">原稿无此栏</span>
+                      ) : null}
+                    </div>
+                    <p
+                      className={cn(
+                        'mt-1 whitespace-pre-line text-[11px] leading-[1.65]',
+                        p.matched ? 'text-secondary-foreground' : 'text-muted-foreground/70',
+                      )}
+                    >
+                      {legacySide ? p.legacy : p.elemental}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-border-light px-5 py-2.5 text-[10.5px] leading-[1.6] text-muted-foreground">
+          转换只做<b className="font-medium text-secondary-foreground">栏位重组与格式规整</b>
+          ，不改写事实表述 —— 新增的两栏（利息计算方式、是否同意调解）在传统起诉状里没有对应内容，
+          转换后会留空并标黄，需律师补填后再递交。
+        </div>
+      </WorkCard>
+
       <HistoryBlock caseId={caseId} onCount={setRecordCount} />
     </div>
   )
-}
-
-// ───────────────────────── 历史记录 ─────────────────────────
-
-function HistoryBlock({ caseId, onCount }: { caseId: number; onCount?: (n: number) => void }) {
-  const [state, setState] = useState<{ loading: boolean; data: ConvertRecordList | null; error: string | null }>({
-    loading: true,
-    data: null,
-    error: null,
-  })
-  const [nonce, setNonce] = useState(0)
-
-  useEffect(() => {
-    let alive = true
-    setState((s) => ({ ...s, loading: true }))
-    listConvertRecords()
-      .then((d) => alive && setState({ loading: false, data: d, error: null }))
-      .catch((e) => alive && setState({ loading: false, data: null, error: errMessage(e, '加载失败') }))
-    return () => {
-      alive = false
-    }
-  }, [nonce])
-
-  const items = state.data?.items ?? []
-  // 只展示与本案相关的记录：后端记录里带业务标识，没有就展示全部
-  const related = items.filter((r) => {
-    const anyR = r as unknown as { case_id?: number | null }
-    return anyR.case_id == null || anyR.case_id === caseId
-  })
-
-  // 把条数回传给父级，用于顶部统计格（避免父级再拉一次接口）
-  useEffect(() => {
-    if (!state.loading && !state.error) onCount?.(related.length)
-  }, [state.loading, state.error, related.length, onCount])
-
-  return (
-    <WorkCard padded={false}>
-      <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-        <SectionTitle
-          title="转换记录"
-          hint={`共 ${related.length} 条`}
-          className="w-full"
-          action={
-            <ActionButton sm onClick={() => setNonce((n) => n + 1)}>
-              <RefreshCw className="size-3" /> 刷新
-            </ActionButton>
-          }
-        />
-      </div>
-
-      {state.loading ? (
-        <div className="px-5 py-6">
-          <LoadingBlock text="加载记录…" size="sm" />
-        </div>
-      ) : state.error ? (
-        <p className="px-5 py-6 text-[11.5px] text-status-red">{state.error}</p>
-      ) : related.length ? (
-        <ul className="divide-y divide-border-light">
-          {related.slice(0, 10).map((r) => {
-            const row = r as unknown as {
-              id: number
-              original_name?: string
-              mbid_name?: string
-              created_at?: string
-            }
-            return (
-              <li key={row.id} className="flex items-center gap-3 px-5 py-2.5 text-[11.5px]">
-                <FileUp className="size-3.5 flex-none text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate" title={row.original_name}>
-                  {row.original_name || `记录 #${row.id}`}
-                </span>
-                <Pill tone="neutral">{row.mbid_name || '—'}</Pill>
-                <span className="flex-none tabular-nums text-muted-foreground">
-                  {(row.created_at ?? '').slice(0, 16).replace('T', ' ')}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-      ) : (
-        <div className="px-5 py-8">
-          <EmptyBlock>还没有转换记录。</EmptyBlock>
-        </div>
-      )}
-    </WorkCard>
-  )
-}
-
-// ───────────────────────── 小工具 ─────────────────────────
-
-/** 文书类型列表（只拉一次，页面内共享） */
-function useTypeList() {
-  const [s, setS] = useState<{ loading: boolean; data: MbidList | null; error: string | null }>({
-    loading: true,
-    data: null,
-    error: null,
-  })
-  const [nonce, setNonce] = useState(0)
-
-  useEffect(() => {
-    let alive = true
-    setS((v) => ({ ...v, loading: true }))
-    listMbidTypes()
-      .then((d) => alive && setS({ loading: false, data: d, error: null }))
-      .catch((e) => alive && setS({ loading: false, data: null, error: errMessage(e, '加载失败') }))
-    return () => {
-      alive = false
-    }
-  }, [nonce])
-
-  return { ...s, reload: () => setNonce((n) => n + 1) }
-}
-
-/** 触发浏览器下载。文件名后端已按 content-disposition 给过，这里用调用方拼的名。 */
-function saveBlob(blob: Blob, filename: string) {
-  const href = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = href
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  // 立刻 revoke 会让 Safari 偶发下载空文件
-  setTimeout(() => URL.revokeObjectURL(href), 4000)
-}
-
-function fmtSize(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(2)} MB`
 }

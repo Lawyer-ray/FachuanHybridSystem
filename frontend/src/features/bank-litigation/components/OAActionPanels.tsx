@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
 import { KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
-import { DEMO_STAMP_LOG } from './demo-data'
+import { DEMO_OA_SEAL_RULES, DEMO_OA_SEALS, DEMO_STAMP_BATCHES, DEMO_STAMP_FAILURES, DEMO_STAMP_HISTORY } from './demo-data'
 import { cn } from '@/lib/utils'
 
 import { lookupArchiveContract, lookupStampContract, type ArchiveLookupOut, type StampLookupOut } from '../api'
@@ -193,14 +193,100 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
         </WorkCard>
       ) : null}
 
-      {/* 盖章历史（演示态：真实实现应来自 oa-stamp 会话表） */}
+      {/* ══ 盖章流程（说明这张页在干什么）══ */}
+      {kind === 'stamp' ? (
+        <WorkCard>
+          <SectionTitle title="盖章流程" hint="系统按文件路径反查合同，再到 OA 里走盖章" />
+          <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-0 md:grid-cols-2">
+            <StepItem index={1} title="填文件绝对路径" desc="文件须在已绑定的文件夹里" state="current" />
+            <StepItem index={2} title="反查归属合同" desc="按路径匹配，确认属于哪份委托" state="todo" />
+            <StepItem index={3} title="校验文件与印章" desc="格式、版本、骑缝位置三处校验" state="todo" />
+            <StepItem index={4} title="OA 执行盖章" desc="服务端驱动，完成后回写状态" state="todo" />
+          </div>
+        </WorkCard>
+      ) : null}
+
+      {/* ══ 批量盖章预设 ══ */}
       {kind === 'stamp' ? (
         <WorkCard padded={false}>
           <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-            <SectionTitle title="盖章记录" hint={`最近 ${DEMO_STAMP_LOG.length} 次`} className="w-full" />
+            <SectionTitle title="批量盖章预设" hint="一次盖齐一整套材料" className="w-full" />
           </div>
           <ul className="divide-y divide-border-light">
-            {DEMO_STAMP_LOG.map((r) => (
+            {DEMO_STAMP_BATCHES.map((b) => (
+              <li key={b.name} className="flex items-start gap-3 px-5 py-2.5">
+                <span className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-medium">{b.name}</span>
+                    <Pill tone="blue">{b.seals}</Pill>
+                    <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+                      {b.docs} 份 · {b.pages} 页
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-[10.5px] text-muted-foreground">{b.note}</div>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </WorkCard>
+      ) : null}
+
+      {/* ══ 印章库 ══ */}
+      {kind === 'stamp' ? (
+        <WorkCard padded={false}>
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+            <SectionTitle title="可用印章" hint={`${DEMO_OA_SEALS.filter((x) => x.status === 'available').length} 枚可用`} className="w-full" />
+          </div>
+          <ul className="divide-y divide-border-light">
+            {DEMO_OA_SEALS.map((x) => (
+              <li key={x.name} className="flex items-center gap-3 px-5 py-2.5">
+                <span className="min-w-0 flex-1 truncate text-[12px]" title={x.name}>{x.name}</span>
+                <Pill>{x.kind}</Pill>
+                <span className="w-[60px] flex-none text-[11px] text-muted-foreground">{x.holder}</span>
+                <Pill tone={x.status === 'available' ? 'green' : x.status === 'in-use' ? 'yellow' : 'red'}>
+                  {x.status === 'available' ? '可用' : x.status === 'in-use' ? '使用中' : '已停用'}
+                </Pill>
+                <span className="w-[52px] flex-none text-right text-[11px] tabular-nums text-muted-foreground">
+                  {x.usedThisMonth} 次
+                </span>
+                <span className="w-[82px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
+                  {x.lastUsed}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </WorkCard>
+      ) : null}
+
+      {/* ══ 盖章位置规则 ══ */}
+      {kind === 'stamp' ? (
+        <WorkCard padded={false}>
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+            <SectionTitle title="盖章位置规则" hint="哪类文书盖哪些章、盖在哪" className="w-full" />
+          </div>
+          <ul className="divide-y divide-border-light">
+            {DEMO_OA_SEAL_RULES.map((r) => (
+              <li key={r.docType} className="px-5 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-medium">{r.docType}</span>
+                  <Pill tone="blue">{r.seals}</Pill>
+                  <span className="ml-auto text-[11px] text-muted-foreground">{r.position}</span>
+                </div>
+                <div className="mt-0.5 text-[10.5px] text-muted-foreground">{r.note}</div>
+              </li>
+            ))}
+          </ul>
+        </WorkCard>
+      ) : null}
+
+      {/* ══ 盖章历史 ══ */}
+      {kind === 'stamp' ? (
+        <WorkCard padded={false}>
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+            <SectionTitle title="盖章记录" hint={`最近 ${DEMO_STAMP_HISTORY.length} 次`} className="w-full" />
+          </div>
+          <ul className="divide-y divide-border-light">
+            {DEMO_STAMP_HISTORY.map((r) => (
               <li key={r.fileName + r.at} className="flex items-center gap-3 px-5 py-2.5">
                 <span
                   className={
@@ -211,14 +297,39 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
                 >
                   <span className="text-[9px] font-bold text-white">{r.ok ? '✓' : '✕'}</span>
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[12px]" title={r.fileName}>
-                  {r.fileName}
-                </span>
+                <span className="min-w-0 flex-1 truncate text-[12px]" title={r.fileName}>{r.fileName}</span>
                 <Pill>{r.page}</Pill>
-                <Pill tone={r.ok ? 'green' : 'red'}>{r.ok ? '已盖章' : '失败'}</Pill>
-                <span className="w-[82px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
-                  {r.at}
-                </span>
+                {r.ok ? (
+                  <Pill tone="green">已盖章</Pill>
+                ) : (
+                  <span className="max-w-[180px] truncate text-[10.5px] text-status-red" title={r.reason}>
+                    {r.reason}
+                  </span>
+                )}
+                <span className="w-[64px] flex-none text-right text-[10.5px] text-muted-foreground">{r.by}</span>
+                <span className="w-[82px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">{r.at}</span>
+              </li>
+            ))}
+          </ul>
+        </WorkCard>
+      ) : null}
+
+      {/* ══ 常见失败原因 ══ */}
+      {kind === 'stamp' ? (
+        <WorkCard padded={false}>
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+            <SectionTitle title="常见失败原因" hint="近 30 天" className="w-full" />
+          </div>
+          <ul className="divide-y divide-border-light">
+            {DEMO_STAMP_FAILURES.map((f) => (
+              <li key={f.cause} className="px-5 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-medium">{f.cause}</span>
+                  <Pill>{f.stage}</Pill>
+                  <Pill tone={f.autoRetry ? 'green' : 'yellow'}>{f.autoRetry ? '自动重试' : '需人工'}</Pill>
+                  <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">{f.last30} 次</span>
+                </div>
+                <div className="mt-0.5 text-[10.5px] text-muted-foreground">{f.advice}</div>
               </li>
             ))}
           </ul>
