@@ -8,6 +8,9 @@
 import { AlertTriangle, CheckCircle2, Clock, Mail, MessageSquare, Send } from 'lucide-react'
 
 import { DEMO_GAP_NOTICES, DEMO_GAP_RECEIVED, DEMO_GAP_TEMPLATES } from '../demo-data'
+import { StageActionCard } from './StageActionCard'
+import { useStageAction } from './use-stage-action'
+import { ActionButton } from '../ui'
 import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +21,29 @@ const CHANNEL_ICON: Record<string, typeof Mail> = {
 }
 
 export function GapPanel() {
+  /* 重新检测缺件：演示时会话可反复触发 */
+  const detect = useStageAction({
+    steps: [
+      { text: '逐份材料比对必备清单（借贷类 6 项）', ms: 560 },
+      { text: '催收记录：止于 2025-06，缺最近 12 个月 → 硬阻塞', ms: 420 },
+      { text: '抵押物权属证明：未见不动产权证 → 硬阻塞', ms: 400 },
+      { text: '共同借款人身份证明：2 人仅见 1 人 → 硬阻塞', ms: 400 },
+      { text: '还款账户流水：止于 2026-04 → 建议补', ms: 360 },
+      { text: '生成补件清单并推送客户', ms: 480 },
+    ],
+    toSummary: () => '发现 5 项缺件（3 项硬阻塞），已通过短信+邮件推送给客户经理',
+  })
+
+  /* 催办：给还没补的项再发一次 */
+  const remind = useStageAction({
+    steps: [
+      { text: '统计仍未补齐项：2 项', ms: 320 },
+      { text: '发送催办短信（含免登录上传链接）', ms: 480 },
+      { text: '同步通知主办律师', ms: 280 },
+    ],
+    toSummary: () => '已向客户发送催办提醒，2 项待补',
+  })
+
   const blockers = DEMO_GAP_NOTICES.filter((g) => g.severity === 'blocker')
   const received = DEMO_GAP_NOTICES.filter((g) => g.status === 'received')
   const waiting = DEMO_GAP_NOTICES.filter((g) => g.status !== 'received')
@@ -25,6 +51,16 @@ export function GapPanel() {
 
   return (
     <div className="flex flex-col gap-3.5">
+      <StageActionCard
+        title="重新检测缺件并通知客户"
+        desc="系统拿已转换的正文比对必备清单，缺什么当场列出来。硬阻塞项会随通知一起发出去，客户点短信里的免登录链接就能补。"
+        actionLabel="检测并通知"
+        hint="5 项缺件 · 约 2.7 秒"
+        state={detect}
+        execute={() => void detect.execute()}
+        reset={detect.reset}
+      />
+
       <StatStrip className="grid-cols-2 sm:grid-cols-4">
         <StatCell label="发现缺件" value={`${DEMO_GAP_NOTICES.length} 项`} tone="yellow" />
         <StatCell label="硬阻塞" value={`${blockers.length} 项`} tone="red" />
@@ -173,6 +209,14 @@ export function GapPanel() {
                   抵押物权属证明与共同借款人身份证明未到位，
                   这两项不齐无法确认抵押关系与共同债务，诉讼请求会缺依据。
                 </p>
+                <div className="mt-2">
+                  <ActionButton sm dark disabled={remind.phase === 'running'} onClick={() => void remind.execute()}>
+                    {remind.phase === 'running' ? '发送中…' : '催办这 2 项'}
+                  </ActionButton>
+                </div>
+                {remind.phase === 'done' ? (
+                  <div className="mt-1.5 text-[10.5px] text-status-green">{remind.summary}</div>
+                ) : null}
               </div>
             ) : (
               <div className="rounded-[8px] border border-status-green/40 bg-status-green-bg/60 px-2.5 py-2">

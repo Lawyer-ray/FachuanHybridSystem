@@ -8,10 +8,25 @@
 import { AlertTriangle, CheckCircle2, FileStack, HelpCircle, Upload } from 'lucide-react'
 
 import { DEMO_INTAKE_EVENTS, DEMO_INTAKE_SEGMENTS, DEMO_INTAKE_SOURCES } from '../demo-data'
+import { StageActionCard } from './StageActionCard'
+import { useStageAction } from './use-stage-action'
 import { ActionButton, InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function IntakePanel() {
+  /* 重新拆分：演示时可反复点，展示系统的处理过程 */
+  const resplit = useStageAction({
+    steps: [
+      { text: '下载整包 · 12.4 MB', ms: 420 },
+      { text: '合并 6 个源文件 → 38 页单 PDF', ms: 380 },
+      { text: '逐页文本提取与版式判断', ms: 760 },
+      { text: '按内容切分并命名', ms: 700 },
+      { text: '识别材料类型并计算置信度', ms: 520 },
+      { text: '归入本案 8 份', ms: 360 },
+    ],
+    toSummary: () => '识别出 8 份材料，其中 6 份已认准、2 份待人工核对',
+  })
+
   const total = DEMO_INTAKE_SEGMENTS.length
   const okCount = DEMO_INTAKE_SEGMENTS.filter((s) => s.status === 'ok').length
   const reviewCount = DEMO_INTAKE_SEGMENTS.filter((s) => s.status === 'review').length
@@ -26,6 +41,16 @@ export function IntakePanel() {
 
   return (
     <div className="flex flex-col gap-3.5">
+      <StageActionCard
+        title="重新拆一次这包材料"
+        desc="客户发来的是一叠扫描件（几十页混在一起）。系统按每页内容切成单份、重命名、认类型。认不准的会标出来让人核，不会硬塞进某个类型。"
+        actionLabel="开始拆分"
+        hint="8 份材料 · 约 3 秒"
+        state={resplit}
+        execute={() => void resplit.execute()}
+        reset={resplit.reset}
+      />
+
       {/* 顶部：这一包材料的状况 */}
       <StatStrip className="grid-cols-2 sm:grid-cols-4">
         <StatCell label="总页数" value={`${pages}`} />

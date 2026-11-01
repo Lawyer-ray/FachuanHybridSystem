@@ -12,16 +12,56 @@
 import { AlertTriangle, Bot, CheckCircle2, FileText, ShieldAlert } from 'lucide-react'
 
 import { DEMO_CONFLICT_HITS, DEMO_CONTRACT_GEN, DEMO_CONTRACT_TERMS } from '../demo-data'
+import { StageActionCard } from './StageActionCard'
+import { useStageAction } from './use-stage-action'
+import { ActionButton } from '../ui'
 import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function ContractPanel() {
+  /* ① 生成委托材料 */
+  const genDocs = useStageAction({
+    steps: [
+      { text: '读取案件数据：当事人 / 案由 / 标的额 / 管辖', ms: 420 },
+      { text: '套用《民事委托代理合同 v3.2》填充 24 个字段', ms: 640 },
+      { text: '生成授权委托书（按当事人自动生成）', ms: 380 },
+      { text: '生成风险告知书', ms: 300 },
+      { text: '生成收费协议（按费率计算）', ms: 340 },
+      { text: '检查必填项：特别授权需律师确认', ms: 320 },
+    ],
+    toSummary: () => '4 份文书已生成，1 份待补（送达地址确认书需选管辖法院模板）',
+  })
+
+  /* ② 派机器人去 OA 做利冲检索 —— 这是本页的核心动作 */
+  const conflictRun = useStageAction({
+    steps: [
+      { text: '启动服务端浏览器', ms: 420 },
+      { text: '登录律所 OA（1,840 ms）', ms: 620 },
+      { text: '检索当事人库：委托人 某某银行某某支行 → 无冲突', ms: 400 },
+      { text: '检索：被告 谭某某 → 无同名记录', ms: 360 },
+      { text: '检索：共同借款人 李某某 → 命中！与在办「离婚案」当事人同人', ms: 560 },
+      { text: '检索：抵押人 某某置业公司 → 历史委托已结案', ms: 340 },
+      { text: '命中红色冲突，已停止建卷，等待律师决定', ms: 400 },
+    ],
+    toSummary: () => '命中 1 处红色冲突（李某某），OA 立案已自动阻断',
+  })
+
   const red = DEMO_CONFLICT_HITS.filter((h) => h.level === 'red')
   const yellow = DEMO_CONFLICT_HITS.filter((h) => h.level === 'yellow')
   const generated = DEMO_CONTRACT_GEN.filter((d) => d.status === 'generated')
 
   return (
     <div className="flex flex-col gap-3.5">
+      <StageActionCard
+        title="生成委托材料并做利益冲突检索"
+        desc="先按案件数据把委托合同等文书套出来，再派机器人登录律所 OA 逐方比对当事人库。命中红色冲突就停在利冲页，不继续建卷。"
+        actionLabel="生成文书 + 利冲检索"
+        hint="5 份文书 · 6 方检索 · 约 4 秒"
+        state={conflictRun}
+        execute={() => void conflictRun.execute()}
+        reset={conflictRun.reset}
+      />
+
       <StatStrip className="grid-cols-2 sm:grid-cols-4">
         <StatCell label="已生成文书" value={`${generated.length}/${DEMO_CONTRACT_GEN.length}`} tone="green" />
         <StatCell label="检索主体" value={`${DEMO_CONFLICT_HITS.length} 方`} />
@@ -34,7 +74,16 @@ export function ContractPanel() {
           {/* 生成的文书 */}
           <WorkCard padded={false}>
             <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <SectionTitle title="自动生成的委托材料" hint="按案件数据套模板" className="w-full" />
+              <SectionTitle
+                title="自动生成的委托材料"
+                hint="按案件数据套模板"
+                className="w-full"
+                action={
+                  <ActionButton sm disabled={genDocs.phase === 'running'} onClick={() => void genDocs.execute()}>
+                    {genDocs.phase === 'running' ? '生成中…' : genDocs.phase === 'done' ? '重新生成' : '生成文书'}
+                  </ActionButton>
+                }
+              />
             </div>
             <ul className="divide-y divide-border-light">
               {DEMO_CONTRACT_GEN.map((d) => (

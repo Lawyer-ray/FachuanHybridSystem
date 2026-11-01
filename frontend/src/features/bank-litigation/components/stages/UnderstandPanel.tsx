@@ -9,6 +9,9 @@
 import { FileText } from 'lucide-react'
 
 import { DEMO_UNDERSTAND_DOCS, DEMO_UNDERSTAND_FIELDS, DEMO_UNDERSTAND_ISSUES } from '../demo-data'
+import { StageActionCard } from './StageActionCard'
+import { useStageAction } from './use-stage-action'
+import { ActionButton } from '../ui'
 import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 
 
@@ -19,12 +22,37 @@ const METHOD_HINT: Record<string, string> = {
 }
 
 export function UnderstandPanel() {
+  /* 全量转换：逐份转 markdown，带进度 */
+  const convertAll = useStageAction({
+    steps: [
+      { text: '个人购房借款担保合同 · 原生PDF 抽取 12,480 字', ms: 620 },
+      { text: '借款借据及放款凭证 · 原生PDF 抽取 860 字', ms: 340 },
+      { text: '还款明细表 · 表格结构还原 84 行', ms: 560 },
+      { text: '催收记录汇总 · OCR 识别（手写批注）', ms: 880 },
+      { text: '借款人身份证 · OCR 识别正反面', ms: 420 },
+      { text: '还款账户流水 · 跨页表格拼接', ms: 700 },
+      { text: '差额补足承诺函 · 落款被印章覆盖，标记需复核', ms: 460 },
+      { text: '抽取关键字段 12 项', ms: 520 },
+    ],
+    toSummary: () => '6 份全量转换完成，2 份标记需复核（落款遮盖 / 手写批注）',
+  })
+
   const totalChars = DEMO_UNDERSTAND_DOCS.reduce((n, d) => n + d.chars, 0)
   const highCount = DEMO_UNDERSTAND_DOCS.filter((d) => d.quality === 'high').length
   const medCount = DEMO_UNDERSTAND_DOCS.filter((d) => d.quality === 'medium').length
 
   return (
     <div className="flex flex-col gap-3.5">
+      <StageActionCard
+        title="把这批材料转成可读正文"
+        desc="律师看的、AI 读的、后续抽字段用的，必须是同一份正文。否则会出现「AI 说合同写 5%、律师看是 6%」这种扯不清的事。"
+        actionLabel="全部转换"
+        hint="4 份材料 · 约 5 秒"
+        state={convertAll}
+        execute={() => void convertAll.execute()}
+        reset={convertAll.reset}
+      />
+
       <StatStrip className="grid-cols-2 sm:grid-cols-4">
         <StatCell label="已转换" value={`${DEMO_UNDERSTAND_DOCS.length} 份`} tone="green" />
         <StatCell label="总字数" value={totalChars.toLocaleString()} />
@@ -76,7 +104,12 @@ export function UnderstandPanel() {
                   <div className="flex items-center gap-2">
                     <span className="text-[12px] font-medium">{i.doc}</span>
                     <Pill tone="yellow">需复核</Pill>
-                    <span className="ml-auto text-[10.5px] text-status-green">{i.action}</span>
+                    <span className="ml-auto flex items-center gap-2">
+                      <span className="text-[10.5px] text-status-green">{i.action}</span>
+                      <ActionButton sm title="只重转这一份">
+                        重转
+                      </ActionButton>
+                    </span>
                   </div>
                   <div className="mt-0.5 text-[10.5px] text-muted-foreground">{i.issue}</div>
                   <div className="mt-0.5 text-[10.5px] text-muted-foreground">影响：{i.impact}</div>

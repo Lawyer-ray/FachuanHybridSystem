@@ -12,10 +12,48 @@
 import { AlertTriangle, CheckCircle2, Gavel, XCircle } from 'lucide-react'
 
 import { DEMO_FILING_CHECKS, DEMO_FILING_FIXES, DEMO_SIGN_CHECKS } from '../demo-data'
+import { StageActionCard } from './StageActionCard'
+import { useStageAction } from './use-stage-action'
+import { ActionButton } from '../ui'
 import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function FilingPanel() {
+  /* 跑一遍完整校验 */
+  const verify = useStageAction({
+    steps: [
+      { text: '核对当事人主体适格 · 通过', ms: 360 },
+      { text: '核对管辖法院 · 通过', ms: 300 },
+      { text: '核对诉讼时效 · 未届满', ms: 320 },
+      { text: '比对回款：起诉状 998,670.21 / 立案表单 998,702.06 → 差 31.85 元', ms: 520 },
+      { text: '识别印章：退费确认书未检测到财务章', ms: 480 },
+      { text: '识别签名：授权委托书签名区为空', ms: 460 },
+      { text: '检查要素式起诉状 · 当前仍为传统格式', ms: 340 },
+      { text: '汇总：4 项通过 / 1 项提示 / 2 项不通过', ms: 300 },
+    ],
+    toSummary: () => '校验完成：2 项不通过（金额差 31.85 元、2 份签章），暂不能送法院',
+  })
+
+  /* 一键修系统能自动修的那两项 */
+  const autoFix = useStageAction({
+    steps: [
+      { text: '按起诉状定稿基准重写立案表单标的额', ms: 420 },
+      { text: '重写后回读校验：998,670.21 = 998,670.21', ms: 380 },
+      { text: '调用要素式转换服务', ms: 640 },
+      { text: '生成要素式起诉状 docx', ms: 520 },
+    ],
+    toSummary: () => '已自动修正 2 项：金额对齐、要素式转换完成；剩 2 份签章待人工',
+  })
+
+  /* 通知律师去一张网 */
+  const notify = useStageAction({
+    steps: [
+      { text: '检查硬阻塞：2 份签章未通过', ms: 300 },
+      { text: '按规则不允许通知，已生成补签清单', ms: 420 },
+    ],
+    toSummary: () => '未发送通知：签章未齐时通知律师只会让他白跑一趟',
+  })
+
   const sealOk = DEMO_SIGN_CHECKS.filter((d) => d.sealOk).length
   const signOk = DEMO_SIGN_CHECKS.filter((d) => d.signOk).length
   const blocked = DEMO_SIGN_CHECKS.filter((d) => !d.sealOk || !d.signOk)
@@ -23,6 +61,16 @@ export function FilingPanel() {
 
   return (
     <div className="flex flex-col gap-3.5">
+      <StageActionCard
+        title="核对签字盖章，看能不能送法院"
+        desc="这是送法院前的最后一关：签章不齐、金额对不上都过不去。机器只做检查，通过后通知律师去一张网，提交那一下仍由律师本人点。"
+        actionLabel="开始校验"
+        hint="6 份文书 · 约 3 秒"
+        state={verify}
+        execute={() => void verify.execute()}
+        reset={verify.reset}
+      />
+
       <StatStrip className="grid-cols-2 sm:grid-cols-4">
         <StatCell label="待核对文书" value={`${total} 份`} />
         <StatCell label="盖章齐" value={`${sealOk}/${total}`} tone={sealOk === total ? 'green' : 'yellow'} />
@@ -123,7 +171,16 @@ export function FilingPanel() {
           {/* 不通过的怎么修 */}
           <WorkCard padded={false}>
             <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <SectionTitle title="不通过项怎么修" hint="系统能自动修的会直接修" className="w-full" />
+              <SectionTitle
+                title="不通过项怎么修"
+                hint="系统能自动修的会直接修"
+                className="w-full"
+                action={
+                  <ActionButton sm dark disabled={autoFix.phase === 'running'} onClick={() => void autoFix.execute()}>
+                    {autoFix.phase === 'running' ? '修正中…' : '一键修正可自动项'}
+                  </ActionButton>
+                }
+              />
             </div>
             <ul className="divide-y divide-border-light">
               {DEMO_FILING_FIXES.map((f) => (
@@ -153,8 +210,18 @@ export function FilingPanel() {
               <div className="flex items-start gap-2.5">
                 <Gavel className="mt-[1px] size-3.5 flex-none text-muted-foreground" />
                 <div className="min-w-0">
-                  <div className="text-[12px] font-medium">
-                    {blocked.length ? `还不能通知律师：${blocked.length} 份文书未通过核对` : '可以通知律师去一张网提交了'}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-medium">
+                      {blocked.length ? `还不能通知律师：${blocked.length} 份文书未通过核对` : '可以通知律师去一张网提交了'}
+                    </span>
+                    <span className="ml-auto" />
+                    <ActionButton
+                      sm
+                      disabled={notify.phase === 'running'}
+                      onClick={() => void notify.execute()}
+                    >
+                      {notify.phase === 'running' ? '发送中…' : '通知律师去提交'}
+                    </ActionButton>
                   </div>
                   <div className="mt-0.5 text-[10.5px] leading-[1.6] text-muted-foreground">
                     {blocked.length

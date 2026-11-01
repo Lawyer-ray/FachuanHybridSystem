@@ -11,16 +11,53 @@
 import { CheckCircle2, HelpCircle, Inbox, Mail } from 'lucide-react'
 
 import { DEMO_RETURNED_DIFF, DEMO_RETURNED_MAILS, DEMO_SCAN_BATCHES } from '../demo-data'
+import { StageActionCard } from './StageActionCard'
+import { useStageAction } from './use-stage-action'
+import { ActionButton } from '../ui'
 import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function ReturnedPanel() {
+  /* 立刻扫一轮邮箱 */
+  const scanNow = useStageAction({
+    steps: [
+      { text: '连接 3 个邮箱 · 拉取未读 6 封', ms: 520 },
+      { text: '下载附件 5 份（共 18.2 MB）', ms: 640 },
+      { text: '「Re: 谭某某案 补充材料」→ 案号+当事人名匹配 → 归案', ms: 420 },
+      { text: '「扫描件-不动产权证」→ 文件名关键词匹配 → 归案', ms: 380 },
+      { text: '「（20XX）粤0106民初XXXX号 受理通知书」→ 案号精确匹配 → 回填案号', ms: 400 },
+      { text: '「FW: 律师函签收回执」→ 匹配度 62% 低于阈值 → 放入待处理', ms: 360 },
+      { text: '重跑缺件检测', ms: 480 },
+    ],
+    toSummary: () => '3 封自动归案、1 封进待处理；缺件从 5 项降到 3 项',
+  })
+
+  /* 对低匹配度的那封手动指定归属 */
+  const assignManual = useStageAction({
+    steps: [
+      { text: '读取待处理邮件附件 1 份', ms: 320 },
+      { text: '按发送人「客户 李某某」关联到本案共同借款人', ms: 420 },
+      { text: '归入「送达地址确认书」槽位', ms: 340 },
+    ],
+    toSummary: () => '律师函签收回执已手动归属到本案',
+  })
+
   const auto = DEMO_RETURNED_MAILS.filter((m) => m.action.startsWith('已'))
   const manual = DEMO_RETURNED_MAILS.filter((m) => !m.action.startsWith('已'))
   const attachments = DEMO_RETURNED_MAILS.reduce((n, m) => n + m.attachments, 0)
 
   return (
     <div className="flex flex-col gap-3.5">
+      <StageActionCard
+        title="扫描邮箱，把新到的材料认领回来"
+        desc="客户寄回、行政扫描、法院短信转发都会落到邮箱。系统按案号、当事人名、文件名认案，认出来的自动下载并挂到本案；认不准的进待处理，不硬塞。"
+        actionLabel="立即扫描邮箱"
+        hint="3 个邮箱 · 约 3 秒"
+        state={scanNow}
+        execute={() => void scanNow.execute()}
+        reset={scanNow.reset}
+      />
+
       <StatStrip className="grid-cols-2 sm:grid-cols-4">
         <StatCell label="扫到邮件" value={`${DEMO_RETURNED_MAILS.length} 封`} />
         <StatCell label="附件" value={`${attachments} 份`} />
@@ -142,6 +179,11 @@ export function ReturnedPanel() {
                     <div className="flex flex-none flex-col items-end gap-1">
                       <Pill tone={isAuto ? 'green' : 'yellow'}>{m.matchedCase}</Pill>
                       <span className="text-[10px] tabular-nums text-muted-foreground">{m.at}</span>
+                      {!isAuto ? (
+                        <ActionButton sm onClick={() => void assignManual.execute()}>
+                          指定归属
+                        </ActionButton>
+                      ) : null}
                     </div>
                   </li>
                 )
