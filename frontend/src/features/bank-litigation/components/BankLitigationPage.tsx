@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { ArrowLeft, FileText, Gavel } from 'lucide-react'
+import { FileText, Gavel } from 'lucide-react'
 
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { Button } from '@/components/ui/button'
 
 import { CaseListPage } from './CaseListPage'
 import { fmtMoney } from '../utils'
@@ -202,23 +201,40 @@ function PageShell({
   children: React.ReactNode
 }) {
   return (
-    <main className="app-page-enter flex flex-col gap-4 px-7 pt-6 pb-16">
-      <header className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          {onBack ? (
-            <Button variant="ghost" size="icon-xs" onClick={onBack} aria-label="返回案件列表">
-              <ArrowLeft className="size-3.5" />
-            </Button>
-          ) : null}
-          <h1 className="min-w-0 truncate text-[17px] font-semibold leading-tight" title={title}>
-            {title}
-          </h1>
-        </div>
-        {meta ? (
-          <div className="flex flex-wrap items-center gap-1.5 pl-[30px] text-[11.5px] text-muted-foreground">
-            {meta}
+    /* 容器口径与项目详情页（workbench/deal-detail）完全一致：
+       mx-auto + 30px 边距 + 自 1400px 起的阶梯最大宽度。
+       同一个案子从两个入口进来必须长一个样，否则律师会以为是两个系统。 */
+    <main className="app-page-enter mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] max-[680px]:px-3 max-[680px]:pt-4 flex flex-col gap-[18px]">
+      {/* 页头口径对齐项目详情页（workbench/DetailHeader）：
+          面包屑 → 23px 大标题 → 单行 meta。
+          原先这里是「返回箭头 + 17px 小标题」，和项目详情页完全两个样式，
+          同一个案子从两个入口进来像两个系统。 */}
+      <header>
+        <nav className="mb-3.5 flex items-center gap-[7px] text-[12.5px] text-muted-foreground">
+          <button
+            type="button"
+            onClick={onBack}
+            className="transition-colors hover:text-foreground"
+          >
+            办案
+          </button>
+          <span>/</span>
+          <span className="font-[550] text-foreground">立案工作台</span>
+        </nav>
+
+        <div className="mb-4 flex flex-wrap items-start gap-[18px]">
+          <div className="min-w-0 flex-1">
+            <h1
+              className="text-[23px] leading-[1.4] font-[760] tracking-[-0.022em] break-all max-[680px]:text-[19px]"
+              title={title}
+            >
+              {title}
+            </h1>
+            {meta ? (
+              <div className="mt-1.5 text-[12px] text-muted-foreground">{meta}</div>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </header>
       {children}
     </main>

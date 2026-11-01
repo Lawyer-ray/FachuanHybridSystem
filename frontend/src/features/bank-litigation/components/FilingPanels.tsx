@@ -3,12 +3,11 @@ import { AlertTriangle, ExternalLink, Loader2, Play } from 'lucide-react'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { StatusBadge, type Tone } from '@/components/shared/status-badge'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 import { useCaseFilingInfo, useOAConfigs } from '../hooks/use-cases'
 import { useCourtFiling, useOAFiling } from '../hooks/use-auto-run'
-import { KeyValueRow, SectionTitle, StepItem, WorkCard } from './ui'
+import { ActionButton, KeyValueRow, Pill, SectionTitle, StepItem, WorkCard } from './ui'
 import type { AutoPhase } from '../hooks/use-auto-run'
 import type { FilingEngine, FilingType } from '../types'
 import { fmtMoney } from '../utils'
@@ -34,6 +33,11 @@ const PHASE_META: Record<AutoPhase, { tone: Tone; text: string }> = {
   running: { tone: 'blue', text: '执行中' },
   done: { tone: 'neutral', text: '已结束' },
   timeout: { tone: 'yellow', text: '等待超时' },
+}
+
+/** StatusBadge 的 Tone 含 purple，Pill 不收 —— 进度语气只会用到这五种，窄化一次 */
+function pillTone(t: Tone): 'neutral' | 'green' | 'red' | 'yellow' | 'blue' {
+  return t === 'purple' ? 'neutral' : t
 }
 
 /** 会话状态 → 语气。后端 status 字符串大小写/取值不完全统一，按语义归类。 */
@@ -121,13 +125,13 @@ export function OAFilingPanel({
       </WorkCard>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" disabled={!canRun} onClick={() => void run({ site_name: current.oa_system_name, contract_id: contractId, case_id: caseId })}>
+        <ActionButton dark disabled={!canRun} onClick={() => void run({ site_name: current.oa_system_name, contract_id: contractId, case_id: caseId })}>
           {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
           {running ? 'OA 立案进行中…' : '在 OA 立案'}
-        </Button>
-        <StatusBadge tone={PHASE_META[state.phase].tone} size="sm">
+        </ActionButton>
+        <Pill tone={pillTone(PHASE_META[state.phase].tone)}>
           {PHASE_META[state.phase].text}
-        </StatusBadge>
+        </Pill>
         {state.ticks > 0 && running ? (
           <span className="text-[10.5px] tabular-nums text-muted-foreground">
             已轮询 {state.ticks} 次
@@ -324,21 +328,20 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
 
         {/* ④ 动作区 */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <Button
-            size="default"
-            className="h-9 px-5 text-[13px] font-semibold"
+          <ActionButton
+            dark
             disabled={blockers.length > 0 || running}
             onClick={() => {
               reset()
               void run({ case_id: caseId, filing_type: filingType, filing_engine: filingEngine })
             }}
           >
-            {running ? <Loader2 className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
+            {running ? <Loader2 className="size-3.5 animate-spin" /> : <ExternalLink className="size-3.5" />}
             {running ? '一张网立案进行中…' : '推送到一张网'}
-          </Button>
-          <StatusBadge tone={PHASE_META[state.phase].tone} size="sm">
+          </ActionButton>
+          <Pill tone={pillTone(PHASE_META[state.phase].tone)}>
             {PHASE_META[state.phase].text}
-          </StatusBadge>
+          </Pill>
           {state.ticks > 0 && running ? (
             <span className="text-[10.5px] tabular-nums text-muted-foreground">
               已轮询 {state.ticks} 次
