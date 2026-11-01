@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 import { useCaseFilingInfo, useOAConfigs } from '../hooks/use-cases'
 import { useCourtFiling, useOAFiling } from '../hooks/use-auto-run'
-import { ActionButton, KeyValueRow, Pill, SectionTitle, StepItem, WorkCard } from './ui'
+import { ActionButton, InsetBlock, KeyValueRow, Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
 import type { AutoPhase } from '../hooks/use-auto-run'
 import type { FilingEngine, FilingType } from '../types'
 import { fmtMoney } from '../utils'
@@ -233,7 +233,8 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <WorkCard>
             <SectionTitle title="案件要素" hint="机器按案件数据填好" />
-            <dl className="mt-2">
+            <InsetBlock className="mt-2.5">
+            <dl className="divide-y divide-border-light">
               <KeyValueRow label="案由">
                 <span className="block truncate" title={i.cause_of_action || ''}>
                   {i.cause_of_action || '—'}
@@ -253,11 +254,13 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
                 <span>{filingType === 'execution' ? '执行立案' : '民事一审'}</span>
               </KeyValueRow>
             </dl>
+            </InsetBlock>
           </WorkCard>
 
           <WorkCard>
             <SectionTitle title="当事人" hint="递交前核对身份" />
-            <dl className="mt-2">
+            <InsetBlock className="mt-2.5">
+            <dl className="divide-y divide-border-light">
               <KeyValueRow label="原告">
                 <span className="block truncate" title={i.plaintiff_name || ''}>
                   {i.plaintiff_name || '—'}
@@ -279,6 +282,7 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
                 </Pill>
               </KeyValueRow>
             </dl>
+            </InsetBlock>
           </WorkCard>
         </div>
 
@@ -398,24 +402,16 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
 
         <WorkCard>
           <SectionTitle title="本次递交" />
-          <div className="mt-2.5 flex flex-col gap-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[11.5px] text-muted-foreground">标的额</span>
-              <span className="text-[13px] font-semibold tabular-nums">
-                {i.target_amount ? `¥${fmtMoney(i.target_amount)}` : '—'}
-              </span>
+          <StatStrip className="mt-2.5 grid-cols-2">
+            <StatCell label="标的额" value={i.target_amount ? `¥${fmtMoney(i.target_amount)}` : '—'} />
+            <StatCell label="递交引擎" value={filingEngine === 'api' ? '接口' : '浏览器'} />
+          </StatStrip>
+          <InsetBlock className="mt-2">
+            <div className="text-[10px] text-muted-foreground">管辖法院</div>
+            <div className="mt-0.5 truncate text-[12px]" title={i.court_name || ''}>
+              {i.court_name || '（未登记）'}
             </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[11.5px] text-muted-foreground">递交引擎</span>
-              <span className="text-[12px]">{filingEngine === 'api' ? '接口引擎' : '浏览器自动化'}</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[11.5px] text-muted-foreground">管辖法院</span>
-              <span className="max-w-[180px] truncate text-[12px]" title={i.court_name || ''}>
-                {i.court_name || '（未登记）'}
-              </span>
-            </div>
-          </div>
+          </InsetBlock>
         </WorkCard>
 
         <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">

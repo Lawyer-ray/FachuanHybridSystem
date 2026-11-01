@@ -1,31 +1,29 @@
 /**
  * 案件工作台（bank-litigation）共用 UI 原子件。
  *
- * ═══ 为什么单独建层，以及为什么 v3 要对齐 workbench ═══
- * 这块业务最初只有「左栏 7 分区 + 右栏裸内容」，没有卡片边界（v1）；
- * 加卡片后发现页面只占上半屏（v2）；v3 统一到**项目详情页
- * （workbench/deal-detail/ui.tsx）的视觉语言**：
- *
+ * ═══ 口径来源：`workbench/deal-detail/ui.tsx` ═══
  * 同一个案子既可能从 `/projects/:id` 进（项目详情），也可能从
  * `/bank-litigation/:id` 进（立案工作台）。两条路径如果长两个样，
- * 律师会怀疑是两个系统。所以这里刻意复刻 workbench 的口径：
+ * 律师会怀疑是两个系统。这里按 deal-detail 的**四层视觉手法**复刻：
  *
- *   Card        圆角 12px + border-border + shadow-sm（与 deal-detail 的 Card 完全一致）
- *   ActionButton 主/次两档，27px / 31px 两尺寸（与 deal-detail 的 ActionButton 一致）
- *   Pill/Chip   11px 字、px-2、rounded-6px，等宽数字
- *   页面容器     mx-auto + 30px 边距 + 自 1400px 起的阶梯式最大宽度
+ *   ① 外卡   rounded-12px + border-border + bg-card + shadow-sm
+ *   ② 内嵌块 bg-background（比卡片白底「更白」）+ border-border-light
+ *           —— 用于把一组只读值包成一块（如案卡里的「法院/收案/案由」行）
+ *   ③ 统计格 bg-secondary/30（zinc-100 半透明）+ divide-x divide-border-light
+ *           —— 用于「已收/已开票/未收」这种并排数字
+ *   ④ 分隔线 border-border-light（#f4f4f5，比 border-border #e4e4e7 更淡）
+ *           —— 卡片内部不分多张卡，用一根淡线分段
  *
- * workbench 的这四个件是 `components/deal-detail/ui.tsx` 的域内实现（不满 2 个
- * feature 使用，按规范不能提权到 components/shared）。这里做**同口径的平行实现**
- * 而不是 import 它——跨 feature import 是硬红线，且立案工作台未来可能独立演进。
- * 视觉口径的一致性靠注释与常量对齐来守，不靠共享代码。
+ * workbench 的这四个件是 deal-detail 的域内实现（不满 2 个 feature 使用，
+ * 按规范不能提权到 components/shared）。这里做**同口径的平行实现**，
+ * 视觉一致性靠注释与常量对齐来守（具体值都写在下面）。
  */
 
 import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-/** 统一卡片：与 deal-detail 的 `Card` 完全同口径 */
+/** ① 外卡：与 deal-detail 的 `Card` 完全同口径 */
 export function WorkCard({
   children,
   className,
@@ -48,7 +46,106 @@ export function WorkCard({
   )
 }
 
-/** 分区标题：与 deal-detail 的节标题层级对齐（13px 半粗 + 11px 弱化副标） */
+/**
+ * ② 内嵌块：比卡片白底更「白」的一块只读值区域。
+ *
+ * 为什么需要它：一张卡里全是同样底色 + 同样字号，读者分不出「这是标题」
+ * 还是「这是一组数据」。给一组键值对铺 `bg-background` + 淡边框，
+ * 它就从平面里浮出来了 —— deal-detail 的案卡就是这么处理法院/收案/案由那三行的。
+ */
+export function InsetBlock({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        'rounded-[9px] border border-border-light bg-background px-3 py-2',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * ③ 统计格：并排数字块（已收/已开票/未收 那种）。
+ *
+ * 整块铺 `bg-secondary/30`，中间用 `divide-x + border-light` 分隔，
+ * 外框 `border-light` + `rounded-10px`。比三个独立小卡轻，但比纯文字重得多。
+ */
+export function StatStrip({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        'grid divide-x divide-border-light overflow-hidden rounded-[10px] border border-border-light bg-secondary/30',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** 统计格单元（配合 StatStrip 使用） */
+export function StatCell({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string
+  value: ReactNode
+  tone?: 'neutral' | 'green' | 'red' | 'yellow' | 'blue'
+}) {
+  const map = {
+    neutral: 'text-foreground',
+    green: 'text-status-green',
+    red: 'text-status-red',
+    yellow: 'text-status-yellow',
+    blue: 'text-status-blue',
+  } as const
+  return (
+    <div className="px-3 py-2 text-center">
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className={cn('mt-0.5 text-[14px] font-[620] tabular-nums', map[tone])}>{value}</div>
+    </div>
+  )
+}
+
+/**
+ * ④ 卡内分段：一根淡线把卡片切成几段，不另开卡。
+ *
+ * deal-detail 的右栏就是这么做的（`RailSection`）：整栏一张卡，
+ * 每个语义区块用 `border-t border-border-light` 隔开。
+ */
+export function RailSection({
+  title,
+  action,
+  children,
+  className,
+}: {
+  title?: string
+  action?: ReactNode
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'border-t border-border-light px-[18px] pt-3.5 pb-[15px] first:border-t-0 first:pt-[15px]',
+        className,
+      )}
+    >
+      {title ? (
+        <div className="mb-[9px] flex items-center gap-2">
+          <h4 className="text-[11px] font-[650] tracking-[0.07em] text-muted-foreground/80">{title}</h4>
+          {action ? <span className="ml-auto">{action}</span> : null}
+        </div>
+      ) : null}
+      {children}
+    </div>
+  )
+}
+
+/** 分区标题：与 deal-detail 的节标题层级对齐 */
 export function SectionTitle({
   title,
   hint,
@@ -69,10 +166,7 @@ export function SectionTitle({
   )
 }
 
-/**
- * 主/次动作按钮：与 deal-detail 的 `ActionButton` 同口径
- * （27px sm / 31px 默认；dark 为主动作）
- */
+/** 主/次动作按钮：与 deal-detail 的 `ActionButton` 同口径（27px sm / 31px 默认） */
 export function ActionButton({
   dark,
   sm,
@@ -145,13 +239,7 @@ export function Chip({ children }: { children: ReactNode }) {
   )
 }
 
-/**
- * 数字块：大数字 + 标签。
- *
- * 与 workbench 的 `.tile` 统计格对齐：数值 20px 半粗、标签 10.5px 弱化。
- * 这里不直接复用 Pill，因为统计块需要**强调数值**（5/5、缺 2），
- * 而 Pill 是等权重的状态标签。
- */
+/** 数字块：大数字 + 标签 */
 export function StatTile({
   label,
   value,

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 import { useMaterialStatus, useReadiness } from '../hooks/use-cases'
 import type { SlotStatus } from '../types'
-import { SectionTitle, StatTile, WorkCard } from './ui'
+import { SectionTitle, StatCell, StatStrip, WorkCard } from './ui'
 
 /**
  * 就绪度面板 —— 「这件能不能递」的唯一答案。
@@ -39,10 +39,12 @@ const SLOT_META: Record<SlotStatus, { tone: Tone; text: string }> = {
 
 /** 槽位状态的格子配色（比 StatusBadge 更重，用于格子墙铺底） */
 const SLOT_CELL: Record<SlotStatus, string> = {
-  ok: 'border-status-green/30 bg-status-green-bg/60',
+  // 齐备用「更白的白」（bg-background）+ 淡边框，与 deal-detail 的内嵌块同口径；
+  // 缺件才染色。一屏只有一种告警色，齐备项不该抢注意力。
+  ok: 'border-border-light bg-background',
   miss: 'border-status-red/40 bg-status-red-bg',
   stale: 'border-status-yellow/40 bg-status-yellow-bg',
-  na: 'border-border bg-secondary/30',
+  na: 'border-border-light bg-secondary/40',
 }
 
 export function ReadinessPanel({ caseId }: { caseId: number }) {
@@ -110,25 +112,24 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
       </div>
 
       {/* ══ ② 四个数字块：先把事实摆出来 ══ */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatTile
+      <StatStrip className="grid-cols-2 sm:grid-cols-4">
+        <StatCell
           label="法律要件"
           value={`${r?.passed ?? 0}/${r?.total ?? 0}`}
           tone={r?.ready ? 'green' : 'red'}
         />
-        <StatTile
+        <StatCell
           label="材料缺件"
-          value={m ? m.missing_count : '—'}
-          unit={m && m.missing_count > 0 ? '项' : undefined}
+          value={m ? `${m.missing_count} 项` : '—'}
           tone={m && m.missing_count > 0 ? 'red' : 'green'}
         />
-        <StatTile label="案件阶段" value={r?.stage === 'first_trial' ? '一审' : r?.stage || '—'} />
-        <StatTile
+        <StatCell label="案件阶段" value={r?.stage === 'first_trial' ? '一审' : r?.stage || '—'} />
+        <StatCell
           label="校验模式"
           value={noRule ? '不判断' : r?.mode === 'appeal' ? '答辩条件' : '起诉条件'}
           tone={noRule ? 'yellow' : 'neutral'}
         />
-      </div>
+      </StatStrip>
 
       {/* ══ ③④ 双栏：左法律要件，右材料齐备。
           原来是上下两块单列，1080p 屏上只占上半屏；并排后填满宽度、信息密度翻倍，
@@ -152,14 +153,14 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
           }
         />
         {r?.checks?.length ? (
-          <div className="mt-2.5 grid grid-cols-1 gap-2">
+          <div className="mt-2.5 flex flex-col gap-1.5">
             {r.checks.map((c) => (
               <div
                 key={c.key}
                 className={cn(
-                  'flex items-start gap-2.5 rounded-[8px] border px-3 py-2.5',
+                  'flex items-start gap-2.5 rounded-[9px] border px-3 py-2.5',
                   c.ok
-                    ? 'border-border bg-secondary/20'
+                    ? 'border-border-light bg-background'
                     : 'border-status-red/40 bg-status-red-bg',
                 )}
               >
