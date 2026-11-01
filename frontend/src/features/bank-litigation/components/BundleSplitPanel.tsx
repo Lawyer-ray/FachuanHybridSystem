@@ -26,7 +26,7 @@ import {
   type PdfSplitSegment,
   type SplitTemplate,
 } from '../api'
-import { SectionTitle, StepItem, WorkCard } from './ui'
+import { SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
 
 /**
  * 整包 PDF → 自动分段 → 归案（场景 2 的真正起点）。
@@ -226,7 +226,15 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
     <div className="flex flex-col gap-3">
       <StepBar phase={phase} />
       {phase === 'idle' ? (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex flex-col gap-[18px]">
+        {/* 顶部三格：把「按什么拆、拆完去哪、能不能反悔」先说清 */}
+        <StatStrip className="grid-cols-3">
+          <StatCell label="识别模式" value={isAppeal ? '二审答辩' : '一审起诉'} tone="blue" />
+          <StatCell label="拆分依据" value="按页内容" />
+          <StatCell label="归类方式" value="人工复核" tone="yellow" />
+        </StatStrip>
+
+        <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* 上传区：加大纵向留白，让它成为页面视觉主体（原先只占上半屏） */}
           <WorkCard className="border-dashed border-zinc-300 bg-secondary/10" padded={false}>
             <div className="flex flex-col items-center justify-center gap-3 px-6 py-16">
@@ -295,6 +303,7 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
               </div>
             </WorkCard>
           </div>
+        </div>
         </div>
       ) : null}
 

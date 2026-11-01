@@ -4,7 +4,7 @@ import { AlertTriangle, Archive, CheckCircle2, Loader2, Search, Stamp } from 'lu
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
-import { KeyValueRow, SectionTitle, StepItem, WorkCard } from './ui'
+import { KeyValueRow, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
 import { cn } from '@/lib/utils'
 
 import { lookupArchiveContract, lookupStampContract, type ArchiveLookupOut, type StampLookupOut } from '../api'
@@ -100,6 +100,13 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
   }
 
   return (
+    <div className="flex flex-col gap-[18px]">
+      <StatStrip className="grid-cols-3">
+        <StatCell label="文件路径" value={list.length ? `${list.length} 个` : '未填'} tone={list.length ? 'neutral' : 'yellow'} />
+        <StatCell label="合同归属" value={found ? '已确认' : '未反查'} tone={found ? 'green' : 'neutral'} />
+        <StatCell label="可执行" value={found ? '是' : '否'} tone={found ? 'green' : 'yellow'} />
+      </StatStrip>
+
     <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-3.5">
       {/* ══ ① 说明卡 ══ */}
@@ -227,6 +234,7 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
           </div>
         </WorkCard>
       </div>
+    </div>
     </div>
   )
 }

@@ -88,7 +88,22 @@ export function OAFilingPanel({
   const running = state.phase === 'submitting' || state.phase === 'running'
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="flex flex-col gap-[18px]">
+      <StatStrip className="grid-cols-3">
+        <StatCell label="OA 站点" value={current.oa_system_name} />
+        <StatCell
+          label="凭证状态"
+          value={current.has_credential ? '已配置' : '未配置'}
+          tone={current.has_credential ? 'green' : 'red'}
+        />
+        <StatCell
+          label="关联合同"
+          value={contractId ? '已关联' : '未关联'}
+          tone={contractId ? 'green' : 'red'}
+        />
+      </StatStrip>
+
+      <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-3.5">
       {/* ══ ① OA 站点与凭证 ══ */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -177,6 +192,7 @@ export function OAFilingPanel({
           </div>
         </WorkCard>
       </div>
+    </div>
     </div>
   )
 }

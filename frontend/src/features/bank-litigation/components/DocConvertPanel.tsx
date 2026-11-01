@@ -2,14 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Download, FileUp, Loader2, RefreshCw } from 'lucide-react'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { StatusBadge } from '@/components/shared/status-badge'
-import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
 
 import { convertToElemental, listConvertRecords, listMbidTypes } from '../api'
 import { useCase } from '../hooks/use-cases'
 import { suggestMbid } from '../utils'
-import { SectionTitle, WorkCard } from './ui'
+import { ActionButton, InsetBlock, Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
 import type { ConvertRecordList, MbidList } from '../api'
 
 /**
@@ -32,6 +30,8 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
   const [mbid, setMbid] = useState(() => suggestMbid(kase.data?.cause_of_action))
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
+  /** 转换记录条数（由 HistoryBlock 回传，顶部统计格用） */
+  const [recordCount, setRecordCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -43,6 +43,9 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
 
   const filingTypes = (types.data?.categories ?? []).filter((c) => c.category === '起诉状')
   const options = filingTypes.length ? filingTypes : (types.data?.categories ?? [])
+  /** 当前选中类型的显示名（顶部统计格用） */
+  const currentTypeName =
+    options.flatMap((g) => g.items).find((it) => it.mbid === mbid)?.name ?? mbid
 
   const onConvert = async () => {
     if (!file) return
@@ -63,119 +66,158 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
   }
 
   return (
-    <div className="flex flex-col gap-3.5">
-      {/* ══ ① 转换操作卡：步骤化（选类型 → 选文件 → 转换），每步带序号 ══ */}
-      <WorkCard>
-        <SectionTitle title="转换要素式文书" hint="传统起诉状 → 法院要素式示范文本" />
+    <div className="flex flex-col gap-[18px]">
+      {/* ══ 顶部三格统计：先把「用哪个类型、转了几次、上次什么时候」摆出来 ══ */}
+      <StatStrip className="grid-cols-3">
+        <StatCell label="文书类型" value={currentTypeName || '—'} />
+        <StatCell label="转换次数" value={recordCount} tone={recordCount > 0 ? 'green' : 'neutral'} />
+        <StatCell label="识别来源" value="按案由自动匹配" />
+      </StatStrip>
 
-        {/* 第 1 步 */}
-        <div className="mt-3 flex items-start gap-2.5">
-          <span className="mt-[3px] flex size-4 flex-none items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground">
-            1
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[11px] text-muted-foreground">选文书类型（按案由已自动匹配，可改）</div>
-        <div className="mt-1 flex items-center gap-2">
-          <select
-            value={mbid}
-            onChange={(e) => setMbid(e.target.value)}
-            className="h-[30px] min-w-0 flex-1 rounded-[6px] border border-input bg-background px-2 text-[12px] outline-none"
-          >
-            {options.map((g) => (
-              <optgroup key={g.category} label={g.category}>
-                {g.items.map((it) => (
-                  <option key={it.mbid} value={it.mbid}>
-                    {it.name}（{it.mbid}）
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-          </div>
-        </div>
+      {/* ══ 左操作 / 右说明：两卡并排 ══ */}
+      <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[minmax(0,1fr)_360px]">
+        <WorkCard>
+          <SectionTitle title="转换要素式文书" hint="传统起诉状 → 法院要素式示范文本" />
 
-        {/* 第 2 步 */}
-        <div className="mt-3 flex items-start gap-2.5">
-          <span className="mt-[3px] flex size-4 flex-none items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground">
-            2
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-[11px] text-muted-foreground">选一份传统起诉状</div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".docx,.doc,.pdf"
-              hidden
-              onChange={(e) => {
-                setFile(e.target.files?.[0] ?? null)
-                setDone(null)
-                setError(null)
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="mt-1 flex h-[34px] w-full items-center gap-2 rounded-[7px] border border-dashed border-zinc-300 px-2.5 text-left text-[11.5px] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
-            >
-              <FileUp className="size-3.5 flex-none" />
-              <span className="truncate">{file ? file.name : '选择 .docx / .doc / .pdf（≤20MB）'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 第 3 步 */}
-        <div className="mt-3 flex items-start gap-2.5">
-          <span className="mt-[3px] flex size-4 flex-none items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-muted-foreground">
-            3
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" disabled={!file || busy} onClick={() => void onConvert()}>
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-                {busy ? '转换中…' : '转换并下载'}
-              </Button>
-              {file ? (
-                <Button size="sm" variant="ghost" onClick={() => { setFile(null); setDone(null); setError(null) }}>
-                  清空
-                </Button>
-              ) : (
-                <span className="text-[10.5px] text-muted-foreground">先选文件再转换</span>
-              )}
+          {/* 第 1 步 */}
+          <div className="mt-3.5 flex items-start gap-2.5">
+            <span className="mt-[3px] grid size-[18px] flex-none place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+              1
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11.5px] text-muted-foreground">选文书类型（按案由已自动匹配，可改）</div>
+              <InsetBlock className="mt-1.5">
+                <select
+                  value={mbid}
+                  onChange={(e) => setMbid(e.target.value)}
+                  aria-label="文书类型"
+                  className="w-full bg-transparent text-[12.5px] outline-none"
+                >
+                  {options.map((g) => (
+                    <optgroup key={g.category} label={g.category}>
+                      {g.items.map((it) => (
+                        <option key={it.mbid} value={it.mbid}>
+                          {it.name}（{it.mbid}）
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </InsetBlock>
             </div>
-            {error ? (
-              <p className="mt-1.5 text-[11.5px] leading-[1.6] text-status-red">{error}</p>
-            ) : null}
-            {done ? (
-              <p className="mt-1.5 text-[11.5px] leading-[1.6] text-status-green">{done}</p>
-            ) : null}
           </div>
-        </div>
-      </WorkCard>
 
-      {/* ══ ② 前提条件：单独一张提示卡，不再混在操作卡底部当长灰字 ══ */}
-      <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
-          <div className="min-w-0">
-            <div className="text-[12px] font-medium">转换需要后端开启开关</div>
-            <p className="mt-1 text-[11px] leading-[1.65] text-muted-foreground">
-              转换由后端完成：上传传统起诉状 + 文书类型，服务端生成要素式 docx 并回传，前端不做字段搬运。
-              需开启 <code className="rounded bg-secondary px-1 py-[1px] font-mono text-[10.5px]">ZNSZJ_ENABLED</code>，
-              未开启时接口返回 403。
-            </p>
+          {/* 第 2 步 */}
+          <div className="mt-3.5 flex items-start gap-2.5">
+            <span className="mt-[3px] grid size-[18px] flex-none place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+              2
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11.5px] text-muted-foreground">选一份传统起诉状</div>
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".docx,.doc,.pdf"
+                hidden
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null)
+                  setDone(null)
+                  setError(null)
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="mt-1.5 flex w-full items-center gap-2 rounded-[9px] border border-dashed border-zinc-300 bg-secondary/20 px-3 py-3 text-left text-[11.5px] text-muted-foreground transition-colors hover:border-foreground hover:bg-secondary/40 hover:text-foreground"
+              >
+                <FileUp className="size-4 flex-none" />
+                <span className="min-w-0 truncate">
+                  {file ? `${file.name}（${fmtSize(file.size)}）` : '选择 .docx / .doc / .pdf（≤20MB）'}
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
-      </WorkCard>
 
-      <HistoryBlock caseId={caseId} />
+          {/* 第 3 步 */}
+          <div className="mt-3.5 flex items-start gap-2.5">
+            <span className="mt-[3px] grid size-[18px] flex-none place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+              3
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11.5px] text-muted-foreground">转换并下载要素式 docx</div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <ActionButton dark disabled={!file || busy} onClick={() => void onConvert()}>
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                  {busy ? '转换中…' : '转换并下载'}
+                </ActionButton>
+                {file ? (
+                  <ActionButton
+                    onClick={() => {
+                      setFile(null)
+                      setDone(null)
+                      setError(null)
+                    }}
+                  >
+                    清空
+                  </ActionButton>
+                ) : (
+                  <span className="text-[10.5px] text-muted-foreground">先选文件再转换</span>
+                )}
+              </div>
+              {error ? (
+                <InsetBlock className="mt-2 border-status-red/40 bg-status-red-bg">
+                  <p className="text-[11.5px] leading-[1.6] text-status-red">{error}</p>
+                </InsetBlock>
+              ) : null}
+              {done ? (
+                <InsetBlock className="mt-2 border-status-green/40 bg-status-green-bg">
+                  <p className="text-[11.5px] leading-[1.6] text-status-green">{done}</p>
+                </InsetBlock>
+              ) : null}
+            </div>
+          </div>
+        </WorkCard>
+
+        {/* 右栏：前提条件 + 这一步做什么 */}
+        <div className="flex flex-col gap-[18px]">
+          <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
+              <div className="min-w-0">
+                <div className="text-[12px] font-[620]">转换需要后端开启开关</div>
+                <p className="mt-1.5 text-[11px] leading-[1.7] text-muted-foreground">
+                  转换由后端完成：上传传统起诉状 + 文书类型，服务端生成要素式 docx 并回传，
+                  前端不做字段搬运 —— 否则改了后端、前端还在按老规则拼。
+                </p>
+                <InsetBlock className="mt-2 bg-background/70">
+                  <div className="text-[10px] text-muted-foreground">需要的开关</div>
+                  <code className="mt-0.5 block font-mono text-[11px]">ZNSZJ_ENABLED</code>
+                  <div className="mt-1 text-[10px] text-muted-foreground">未开启时接口返回 403</div>
+                </InsetBlock>
+              </div>
+            </div>
+          </WorkCard>
+
+          <WorkCard>
+            <SectionTitle title="这一步做什么" />
+            <div className="mt-3">
+              <StepItem index={1} title="选对文书类型" desc="按案由自动匹配，可改" state="current" />
+              <StepItem index={2} title="上传传统起诉状" desc="律师已写好的那份" state="todo" />
+              <StepItem index={3} title="服务端转换" desc="生成要素式 docx" state="todo" />
+              <StepItem index={4} title="下载并递交" desc="用于一张网立案" state="todo" />
+            </div>
+          </WorkCard>
+        </div>
+      </div>
+
+      <HistoryBlock caseId={caseId} onCount={setRecordCount} />
     </div>
   )
 }
 
 // ───────────────────────── 历史记录 ─────────────────────────
 
-function HistoryBlock({ caseId }: { caseId: number }) {
+function HistoryBlock({ caseId, onCount }: { caseId: number; onCount?: (n: number) => void }) {
   const [state, setState] = useState<{ loading: boolean; data: ConvertRecordList | null; error: string | null }>({
     loading: true,
     data: null,
@@ -201,22 +243,34 @@ function HistoryBlock({ caseId }: { caseId: number }) {
     return anyR.case_id == null || anyR.case_id === caseId
   })
 
+  // 把条数回传给父级，用于顶部统计格（避免父级再拉一次接口）
+  useEffect(() => {
+    if (!state.loading && !state.error) onCount?.(related.length)
+  }, [state.loading, state.error, related.length, onCount])
+
   return (
-    <section>
-      <h3 className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
-        转换记录
-        <span className="font-normal tabular-nums">{related.length}</span>
-        <Button variant="ghost" size="icon-xs" className="ml-auto" onClick={() => setNonce((n) => n + 1)}>
-          <RefreshCw className="size-3" />
-        </Button>
-      </h3>
+    <WorkCard padded={false}>
+      <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+        <SectionTitle
+          title="转换记录"
+          hint={`共 ${related.length} 条`}
+          className="w-full"
+          action={
+            <ActionButton sm onClick={() => setNonce((n) => n + 1)}>
+              <RefreshCw className="size-3" /> 刷新
+            </ActionButton>
+          }
+        />
+      </div>
 
       {state.loading ? (
-        <LoadingBlock text="加载记录…" size="sm" />
+        <div className="px-5 py-6">
+          <LoadingBlock text="加载记录…" size="sm" />
+        </div>
       ) : state.error ? (
-        <p className="text-[11.5px] text-status-red">{state.error}</p>
+        <p className="px-5 py-6 text-[11.5px] text-status-red">{state.error}</p>
       ) : related.length ? (
-        <ul className="flex flex-col gap-1">
+        <ul className="divide-y divide-border-light">
           {related.slice(0, 10).map((r) => {
             const row = r as unknown as {
               id: number
@@ -225,13 +279,12 @@ function HistoryBlock({ caseId }: { caseId: number }) {
               created_at?: string
             }
             return (
-              <li key={row.id} className="flex items-center gap-2 text-[11.5px]">
+              <li key={row.id} className="flex items-center gap-3 px-5 py-2.5 text-[11.5px]">
+                <FileUp className="size-3.5 flex-none text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate" title={row.original_name}>
                   {row.original_name || `记录 #${row.id}`}
                 </span>
-                <StatusBadge tone="neutral" size="xs">
-                  {row.mbid_name || '—'}
-                </StatusBadge>
+                <Pill tone="neutral">{row.mbid_name || '—'}</Pill>
                 <span className="flex-none tabular-nums text-muted-foreground">
                   {(row.created_at ?? '').slice(0, 16).replace('T', ' ')}
                 </span>
@@ -240,9 +293,11 @@ function HistoryBlock({ caseId }: { caseId: number }) {
           })}
         </ul>
       ) : (
-        <EmptyBlock>还没有转换记录。</EmptyBlock>
+        <div className="px-5 py-8">
+          <EmptyBlock>还没有转换记录。</EmptyBlock>
+        </div>
       )}
-    </section>
+    </WorkCard>
   )
 }
 
