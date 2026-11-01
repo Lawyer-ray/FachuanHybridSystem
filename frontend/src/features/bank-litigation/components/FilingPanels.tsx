@@ -88,12 +88,13 @@ export function OAFilingPanel({
   const running = state.phase === 'submitting' || state.phase === 'running'
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-3.5">
       {/* ══ ① OA 站点与凭证 ══ */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       <WorkCard>
-        <SectionTitle title="律所 OA" hint="选站点 → 确认凭证 → 发起立案" />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <SectionTitle title="OA 站点" hint="凭证状态决定能不能发起" />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
         <select
           value={current.oa_system_name}
           onChange={(e) => {
@@ -118,11 +119,16 @@ export function OAFilingPanel({
           </StatusBadge>
         ) : null}
         </div>
-        <p className="mt-2 text-[11px] leading-[1.65] text-muted-foreground">
-          OA 立案会在服务端启动浏览器，用你配置的 OA 账号登录并填报。跑完会回写 OA
-          案号与状态；中途关掉页面不影响后台执行。
+      </WorkCard>
+
+      <WorkCard>
+        <SectionTitle title="这一步做什么" hint="服务端驱动，不在你的浏览器里跑" />
+        <p className="mt-2 text-[11.5px] leading-[1.7] text-muted-foreground">
+          在服务端启动浏览器，用你配置的 OA 账号登录并填报收案登记。
+          跑完会把所内案号与状态回写到本案；中途关掉页面不影响后台执行。
         </p>
       </WorkCard>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton dark disabled={!canRun} onClick={() => void run({ site_name: current.oa_system_name, contract_id: contractId, case_id: caseId })}>
@@ -219,14 +225,15 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
       {/* ══════ 左列：立案信息 + 阻断 + 动作 ══════ */}
       <div className="flex min-w-0 flex-col gap-3.5">
-        {/* ① 案件信息卡 */}
-        <WorkCard>
-          <SectionTitle title="立案信息" hint="机器已按案件数据填好，提交前请逐项核对" />
-          <dl className="mt-3 grid grid-cols-1 gap-x-8 md:grid-cols-2">
-            <div className="divide-y divide-border/60">
+        {/* ① + ② 两张卡并排：案件要素 / 当事人。
+            原先这些字段挤在一张卡里，白卡覆盖只有屏高 6%~18%，整页像纯文字文档。 */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <WorkCard>
+            <SectionTitle title="案件要素" hint="机器按案件数据填好" />
+            <dl className="mt-2">
               <KeyValueRow label="案由">
                 <span className="block truncate" title={i.cause_of_action || ''}>
                   {i.cause_of_action || '—'}
@@ -242,8 +249,15 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
                   {i.target_amount ? `¥${fmtMoney(i.target_amount)}` : '—'}
                 </span>
               </KeyValueRow>
-            </div>
-            <div className="divide-y divide-border/60">
+              <KeyValueRow label="立案类型">
+                <span>{filingType === 'execution' ? '执行立案' : '民事一审'}</span>
+              </KeyValueRow>
+            </dl>
+          </WorkCard>
+
+          <WorkCard>
+            <SectionTitle title="当事人" hint="递交前核对身份" />
+            <dl className="mt-2">
               <KeyValueRow label="原告">
                 <span className="block truncate" title={i.plaintiff_name || ''}>
                   {i.plaintiff_name || '—'}
@@ -254,14 +268,24 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
                   {i.defendant_name || '—'}
                 </span>
               </KeyValueRow>
-              <KeyValueRow label="立案类型">
-                <span>{filingType === 'execution' ? '执行立案' : '民事一审'}</span>
+              <KeyValueRow label="我方立场">
+                <Pill tone={i.our_party_is_plaintiff_side ? 'green' : 'red'}>
+                  {i.our_party_is_plaintiff_side ? '原告方' : '非原告方'}
+                </Pill>
               </KeyValueRow>
-            </div>
-          </dl>
+              <KeyValueRow label="法院账号">
+                <Pill tone={i.has_court_credential ? 'green' : 'red'}>
+                  {i.has_court_credential ? '已配置' : '未配置'}
+                </Pill>
+              </KeyValueRow>
+            </dl>
+          </WorkCard>
+        </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-            <span className="text-[11px] text-muted-foreground">递交参数</span>
+        {/* ③ 递交参数卡 */}
+        <WorkCard>
+          <SectionTitle title="递交参数" hint="一般不用改，默认取后端建议值" />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <select
               value={filingType}
               onChange={(e) => setTypeOverride(e.target.value as FilingType)}

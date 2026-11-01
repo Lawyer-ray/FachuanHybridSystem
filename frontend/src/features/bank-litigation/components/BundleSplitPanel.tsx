@@ -226,7 +226,7 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
     <div className="flex flex-col gap-3">
       <StepBar phase={phase} />
       {phase === 'idle' ? (
-        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
           {/* 上传区：加大纵向留白，让它成为页面视觉主体（原先只占上半屏） */}
           <WorkCard className="border-dashed border-zinc-300 bg-secondary/10" padded={false}>
             <div className="flex flex-col items-center justify-center gap-3 px-6 py-16">

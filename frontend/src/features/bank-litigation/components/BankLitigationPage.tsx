@@ -10,7 +10,8 @@ import { CourtFilingPanel, OAFilingPanel } from './FilingPanels'
 import { ReadinessPanel } from './ReadinessPanel'
 import { BundleSplitPanel } from './BundleSplitPanel'
 import { DocConvertPanel } from './DocConvertPanel'
-import { OAArchivePanel, OAStampPanel } from './OAActionPanels'
+import { OAStampPanel } from './OAActionPanels'
+import { OAArchivePanel } from './ArchiveChecklistPanel'
 import { useCase } from '../hooks/use-cases'
 
 /**

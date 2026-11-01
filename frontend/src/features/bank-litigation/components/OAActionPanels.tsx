@@ -100,7 +100,7 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-3.5">
       {/* ══ ① 说明卡 ══ */}
       <WorkCard>

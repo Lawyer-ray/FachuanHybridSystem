@@ -133,7 +133,7 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
       {/* ══ ③④ 双栏：左法律要件，右材料齐备。
           原来是上下两块单列，1080p 屏上只占上半屏；并排后填满宽度、信息密度翻倍，
           并且「法律要件 vs 卷宗要件」这个对比关系在版面上也就成立了。 ══ */}
-      <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <WorkCard>
         <SectionTitle
           title={r?.mode === 'appeal' ? '答辩条件' : '起诉条件'}
