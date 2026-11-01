@@ -12,6 +12,7 @@ import { ContractFileOverlays } from './ContractFileOverlays'
 import { ServiceItemStream } from './ServiceItemStream'
 import { PhaseListCard } from './PhaseListCard'
 import { PhaseFoldersCard } from './PhaseFoldersCard'
+import { AdvisorWorkbench, CrossBorderWorkbench, SpecialPhaseWorkbench } from './nonlit-workbench'
 import { useServiceItems } from './use-service-items'
 import { useSpecialPhases } from './use-special-phases'
 import { listFolderEntries } from '../../api'
@@ -80,6 +81,14 @@ export function NonLitDetailPage() {
    */
   const special = useSpecialPhases('contract', deal?.id ?? null)
   const isSpecial = deal?.caseType === 'special'
+  /**
+   * 跨境合同审查（泰国工厂租赁）：项目名带「合同审查」的专项服务走跨境工作台。
+   *
+   * 判据只能是合同名——后端 case_type 只有 special / advisor 两个代码值，
+   * 而跨境审查与关厂清盘在流程上不是一回事（前者是合同正文逐条审 + 外国法核验，
+   * 后者是阶段与交付物）。没有这一层，泰国租赁项目会落到「设计阶段 / 校验交付物」卡上。
+   */
+  const isCrossBorder = isSpecial && (deal?.client ?? '').includes('合同审查')
 
   const openPreview = useCallback((f: PickedFile) => setPicked(f), [])
 
@@ -223,6 +232,25 @@ export function NonLitDetailPage() {
           />
         }
       >
+        {/* 非诉工作台：三个场景各配一组动作（与诉讼线六阶段交互同构） */}
+        {isCrossBorder ? (
+          <div className="mb-[18px]">
+            <CrossBorderWorkbench />
+          </div>
+        ) : isSpecial ? (
+          <div className="mb-[18px]">
+            <SpecialPhaseWorkbench />
+          </div>
+        ) : deal.caseType === 'advisor' ? (
+          <div className="mb-[18px]">
+            <AdvisorWorkbench />
+          </div>
+        ) : (
+          <div className="mb-[18px]">
+            <CrossBorderWorkbench />
+          </div>
+        )}
+
         {isSpecial ? (
           <PhaseListCard
             tree={tree}

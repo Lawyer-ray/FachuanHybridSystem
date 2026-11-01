@@ -50,7 +50,7 @@ export function DetailDrawer({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[80]">
+    <div className="fixed inset-0 z-[80] h-screen w-screen overflow-hidden">
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[1px]" onClick={onClose} aria-hidden />
 
@@ -60,7 +60,7 @@ export function DetailDrawer({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          'absolute inset-y-0 right-0 flex flex-col border-l border-border bg-card shadow-[-8px_0_32px_-12px_rgba(0,0,0,.18)]',
+          'absolute top-0 right-0 bottom-0 flex h-full max-h-screen flex-col border-l border-border bg-card shadow-[-8px_0_32px_-12px_rgba(0,0,0,.18)]',
           'animate-[drawer-in_.2s_cubic-bezier(.16,1,.3,1)]',
         )}
         style={{ width }}

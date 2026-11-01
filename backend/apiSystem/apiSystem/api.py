@@ -197,6 +197,7 @@ def _register_app_routers() -> None:
     from apps.finance_doc_sorting.api import router as finance_doc_sorting_router
     from apps.image_rotation.api import router as image_rotation_router
     from apps.invoice_recognition.api import router as invoice_recognition_router
+    from apps.legal_research.api import foreign_law_router
     from apps.legal_research.api import router as legal_research_router
     from apps.litigation_ai.api.litigation_api import router as litigation_router
     from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
@@ -267,6 +268,11 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/contract-review/direct-edit", direct_edit_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
     api_v1.add_router("/legal-research", legal_research_router, auth=JWTOrSessionAuth(), tags=["案例检索"])
+
+    # 东盟域外法查明（BARLC）：/legal-research/foreign-law/{verify,search,countries}。
+    # 只读端点，router 自带 JWTOrSessionAuth；供前端「核验法条」按钮直调，
+    # 底层即 MCP 的 asean_law_* 工具，出参原样透出。
+    api_v1.add_router("/legal-research/foreign-law", foreign_law_router, auth=JWTOrSessionAuth(), tags=["域外法查明"])
 
     from apps.document_parsing.api import router as document_parsing_router
 

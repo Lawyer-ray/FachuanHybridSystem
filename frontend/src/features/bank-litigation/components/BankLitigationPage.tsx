@@ -151,10 +151,10 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
            宽度 176px + 每一项带副标题：原先只有 7 个裸文字，律师看不出
 «立案前»和«结案后»是两段完全不同的工作，也不知道点进去会看到什么。
            whitespace-nowrap 保留：宁可横向溢出，不要在导航里断行。 */}
-        <nav className="flex w-[168px] flex-none flex-col gap-3">
+        <nav className="sticky top-[76px] flex max-h-[calc(100vh-96px)] w-[168px] flex-none flex-col gap-2 overflow-y-auto pb-4">
           {groupedSections.map(([group, items]) => (
             <div key={group} className="flex flex-col gap-0.5">
-              <div className="mb-0.5 px-2 text-[10px] font-medium tracking-[.06em] text-faint">
+              <div className="mb-1 px-2 text-[9.5px] font-semibold uppercase tracking-[.08em] text-faint">
                 {group}
               </div>
               {items.map((s) => {
@@ -166,11 +166,12 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
                     type="button"
                     onClick={() => setSection(s.key)}
                     title={s.desc}
+                    aria-current={active ? 'page' : undefined}
                     className={
                       (active
-                        ? 'bg-secondary text-foreground'
+                        ? 'bg-secondary font-medium text-foreground shadow-[inset_2px_0_0_0_var(--color-foreground)]'
                         : 'text-secondary-foreground hover:bg-secondary/60') +
-                      ' flex items-start gap-2 rounded-[7px] px-2 py-[7px] text-left transition-colors'
+                      ' flex items-start gap-2 rounded-[7px] px-2 py-[6px] text-left transition-colors'
                     }
                   >
                     <Icon
