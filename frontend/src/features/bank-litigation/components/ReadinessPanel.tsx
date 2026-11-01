@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 import { useMaterialStatus, useReadiness } from '../hooks/use-cases'
 import type { SlotStatus } from '../types'
-import { SectionTitle, StatCell, StatStrip, WorkCard } from './ui'
+import { KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from './ui'
 
 /**
  * 就绪度面板 —— 「这件能不能递」的唯一答案。
@@ -134,7 +134,7 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
       {/* ══ ③④ 双栏：左法律要件，右材料齐备。
           原来是上下两块单列，1080p 屏上只占上半屏；并排后填满宽度、信息密度翻倍，
           并且「法律要件 vs 卷宗要件」这个对比关系在版面上也就成立了。 ══ */}
-      <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
       <WorkCard>
         <SectionTitle
           title={r?.mode === 'appeal' ? '答辩条件' : '起诉条件'}
@@ -201,19 +201,43 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
         )}
       </WorkCard>
 
-      <WorkCard>
-        <SectionTitle
+      {/* 右栏：一卡多段（照 deal-detail 的 DetailRail） */}
+      <WorkCard padded={false}>
+        <RailSection title="本次校验">
+          <StatStrip className="grid-cols-2">
+            <StatCell label="法律要件" value={`${r?.passed ?? 0}/${r?.total ?? 0}`} tone={r?.ready ? 'green' : 'red'} />
+            <StatCell label="材料缺件" value={m ? `${m.missing_count}` : '—'} tone={m && m.missing_count > 0 ? 'red' : 'green'} />
+          </StatStrip>
+          <dl className="mt-2.5">
+            <KeyValueRow label="案件阶段">
+              <span className="text-[12px]">{r?.stage === 'first_trial' ? '一审' : r?.stage || '—'}</span>
+            </KeyValueRow>
+            <KeyValueRow label="校验模式">
+              <span className="text-[12px]">{noRule ? '不判断' : r?.mode === 'appeal' ? '答辩条件' : '起诉条件'}</span>
+            </KeyValueRow>
+            <KeyValueRow label="结论">
+              <Pill tone={r?.ready ? 'green' : 'red'}>{r?.ready ? '可以立案' : `差 ${failed} 项`}</Pill>
+            </KeyValueRow>
+          </dl>
+        </RailSection>
+
+        <RailSection
           title="材料齐备"
-          hint={
-            m ? `${m.ok_count}/${m.need_count} 齐备${m.missing_count > 0 ? ` · 缺 ${m.missing_count}` : ''}` : undefined
+          action={
+            material.loading ? (
+              <Loader2 className="size-3 animate-spin text-muted-foreground" />
+            ) : (
+              <span className="text-[10.5px] tabular-nums text-muted-foreground">
+                {m ? `${m.ok_count}/${m.need_count}` : '—'}
+              </span>
+            )
           }
-          action={material.loading ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : null}
-        />
+        >
         {material.error ? (
           <p className="mt-2.5 text-[11.5px] text-status-red">{material.error}</p>
         ) : m?.slots?.length ? (
           <>
-            <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
               {m.slots.map((s) => {
                 const meta = SLOT_META[s.status ?? 'miss'] ?? SLOT_META.miss
                 const status = s.status ?? 'miss'
@@ -221,7 +245,7 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
                   <div
                     key={s.key}
                     className={cn(
-                      'flex flex-col gap-1 rounded-[8px] border px-3 py-2.5',
+                      'flex flex-col gap-0.5 rounded-[8px] border px-2.5 py-2',
                       SLOT_CELL[status],
                     )}
                   >
@@ -243,13 +267,18 @@ export function ReadinessPanel({ caseId }: { caseId: number }) {
                 )
               })}
             </div>
-            <p className="mt-2.5 text-[10.5px] leading-[1.6] text-muted-foreground">
-              「待更新」不阻塞立案 —— 可以先递后补；「缺件」才是硬阻塞。
-            </p>
           </>
         ) : (
           <EmptyBlock>还没有材料，先上传卷宗。</EmptyBlock>
         )}
+        </RailSection>
+
+        <RailSection title="判定口径">
+          <p className="text-[10.5px] leading-[1.7] text-muted-foreground">
+            「待更新」不阻塞立案 —— 可以先递后补；「缺件」才是硬阻塞。
+            法律要件与卷宗要件都过，才允许推进到一张网递交。
+          </p>
+        </RailSection>
       </WorkCard>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 import { useCaseFilingInfo, useOAConfigs } from '../hooks/use-cases'
 import { useCourtFiling, useOAFiling } from '../hooks/use-auto-run'
-import { ActionButton, InsetBlock, KeyValueRow, Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { ActionButton, InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
 import { DEMO_OA_FILING_LOG } from './demo-data'
 import type { AutoPhase } from '../hooks/use-auto-run'
 import type { FilingEngine, FilingType } from '../types'
@@ -201,30 +201,42 @@ export function OAFilingPanel({
       </WorkCard>
       </div>
 
-      {/* 右栏：进度 + 说明，避免下半屏全空 */}
-      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3">
-        <WorkCard>
-          <SectionTitle title="OA 立案进度" hint="机器跑到哪一格" />
-          <div className="mt-3">
-            <StepItem index={1} title="确认站点凭证" desc={current.has_credential ? '已配置' : '未配置'}
-              state={current.has_credential ? 'done' : 'blocked'} />
-            <StepItem index={2} title="服务端开浏览器" desc="用你的 OA 账号登录" state="todo" />
-            <StepItem index={3} title="填写收案登记" desc="案由/委托人/标的额" state="todo" />
-            <StepItem index={4} title="回写所内案号" desc="落库到本案" state="todo" />
+      {/* 右栏：一卡多段（照 deal-detail 的 DetailRail） */}
+      <WorkCard padded={false} className="xl:sticky xl:top-3">
+        <RailSection title="OA 立案进度">
+          <StepItem index={1} title="确认站点凭证" desc={current.has_credential ? '已配置' : '未配置'}
+            state={current.has_credential ? 'done' : 'blocked'} />
+          <StepItem index={2} title="服务端开浏览器" desc="用你的 OA 账号登录" state="todo" />
+          <StepItem index={3} title="填写收案登记" desc="案由/委托人/标的额" state="todo" />
+          <StepItem index={4} title="回写所内案号" desc="落库到本案" state="todo" />
+        </RailSection>
+
+        <RailSection title="本次立案">
+          <dl>
+            <KeyValueRow label="OA 站点">
+              <span className="block truncate text-[12px]">{current.oa_system_name}</span>
+            </KeyValueRow>
+            <KeyValueRow label="关联合同">
+              <span className="text-[12px]">{contractId ? `#${contractId}` : '未关联'}</span>
+            </KeyValueRow>
+            <KeyValueRow label="发起人">
+              <span className="text-[12px]">主办律师</span>
+            </KeyValueRow>
+            <KeyValueRow label="所内案号">
+              <span className="text-[12px] text-muted-foreground">执行后回填</span>
+            </KeyValueRow>
+          </dl>
+        </RailSection>
+
+        <RailSection title="注意">
+          <div className="rounded-[8px] border border-status-yellow/40 bg-status-yellow-bg/60 px-2.5 py-2">
+            <div className="text-[11px] font-medium">中途关页面不影响执行</div>
+            <p className="mt-0.5 text-[10.5px] leading-[1.6] text-muted-foreground">
+              立案在服务端后台跑，关掉页面它照常进行；回来后刷新即可看到结果。
+            </p>
           </div>
-        </WorkCard>
-        <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
-            <div className="min-w-0">
-              <div className="text-[11.5px] font-medium">中途关页面不影响执行</div>
-              <p className="mt-1 text-[10.5px] leading-[1.6] text-muted-foreground">
-                立案在服务端后台跑，关掉页面它照常进行；回来后刷新即可看到结果。
-              </p>
-            </div>
-          </div>
-        </WorkCard>
-      </div>
+        </RailSection>
+      </WorkCard>
     </div>
     </div>
   )
@@ -427,54 +439,76 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
         </div>
       </div>
 
-      {/* ══════ 右列：递交进度 + 风险提示 ══════ */}
-      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3">
-        <WorkCard>
-          <SectionTitle title="递交进度" hint="四步走到哪" />
-          <div className="mt-3">
-            <StepItem
-              index={1}
-              title="表单填报"
-              desc={blockers.length ? '有阻塞项' : '信息已就绪'}
-              state={blockers.length ? 'blocked' : 'done'}
-            />
-            <StepItem
-              index={2}
-              title="律师核对"
-              desc="提交前逐项确认"
-              state={blockers.length ? 'todo' : 'current'}
-            />
-            <StepItem index={3} title="律师点提交" desc="机器不代点" state="todo" />
-            <StepItem index={4} title="法院受理" desc="受理号回填" state="todo" />
-          </div>
-        </WorkCard>
+      {/* ══════ 右列：照 deal-detail 的 DetailRail —— 整栏一张卡，内部淡线分段 ══════ */}
+      <WorkCard padded={false} className="xl:sticky xl:top-3">
+        {/* 段 1：递交进度 */}
+        <RailSection title="递交进度">
+          <StepItem
+            index={1}
+            title="表单填报"
+            desc={blockers.length ? '有阻塞项' : '信息已就绪'}
+            state={blockers.length ? 'blocked' : 'done'}
+          />
+          <StepItem
+            index={2}
+            title="律师核对"
+            desc="提交前逐项确认"
+            state={blockers.length ? 'todo' : 'current'}
+          />
+          <StepItem index={3} title="律师点提交" desc="机器不代点" state="todo" />
+          <StepItem index={4} title="法院受理" desc="受理号回填" state="todo" />
+        </RailSection>
 
-        <WorkCard>
-          <SectionTitle title="本次递交" />
-          <StatStrip className="mt-2.5 grid-cols-2">
+        {/* 段 2：本次递交 */}
+        <RailSection title="本次递交">
+          <StatStrip className="grid-cols-2">
             <StatCell label="标的额" value={i.target_amount ? `¥${fmtMoney(i.target_amount)}` : '—'} />
             <StatCell label="递交引擎" value={filingEngine === 'api' ? '接口' : '浏览器'} />
           </StatStrip>
-          <InsetBlock className="mt-2">
-            <div className="text-[10px] text-muted-foreground">管辖法院</div>
-            <div className="mt-0.5 truncate text-[12px]" title={i.court_name || ''}>
-              {i.court_name || '（未登记）'}
-            </div>
-          </InsetBlock>
-        </WorkCard>
+          <dl className="mt-2.5">
+            <KeyValueRow label="管辖法院">
+              <span className="block truncate text-[12px]" title={i.court_name || ''}>
+                {i.court_name || '（未登记）'}
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="立案类型">
+              <span className="text-[12px]">{filingType === 'execution' ? '执行立案' : '民事一审'}</span>
+            </KeyValueRow>
+            <KeyValueRow label="递交人">
+              <span className="text-[12px]">主办律师</span>
+            </KeyValueRow>
+          </dl>
+        </RailSection>
 
-        <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
-            <div className="min-w-0">
-              <div className="text-[11.5px] font-medium">提交后不可撤回</div>
-              <p className="mt-1 text-[10.5px] leading-[1.6] text-muted-foreground">
-                误提交只能等法院退回。递交前请确认当事人、法院与金额三项无误。
-              </p>
-            </div>
+        {/* 段 3：案号与凭证 */}
+        <RailSection title="递交凭证">
+          <dl>
+            <KeyValueRow label="法院账号">
+              <Pill tone={i.has_court_credential ? 'green' : 'red'}>
+                {i.has_court_credential ? '已配置' : '未配置'}
+              </Pill>
+            </KeyValueRow>
+            <KeyValueRow label="立案插件">
+              <Pill tone={i.plugin_available ? 'green' : 'red'}>
+                {i.plugin_available ? '已安装' : '未安装'}
+              </Pill>
+            </KeyValueRow>
+            <KeyValueRow label="一张网受理号">
+              <span className="text-[12px] text-muted-foreground">递交后回填</span>
+            </KeyValueRow>
+          </dl>
+        </RailSection>
+
+        {/* 段 4：风险提示 */}
+        <RailSection title="注意">
+          <div className="rounded-[8px] border border-status-yellow/40 bg-status-yellow-bg/60 px-2.5 py-2">
+            <div className="text-[11px] font-medium">提交后不可撤回</div>
+            <p className="mt-0.5 text-[10.5px] leading-[1.6] text-muted-foreground">
+              误提交只能等法院退回。递交前请确认当事人、法院与金额三项无误。
+            </p>
           </div>
-        </WorkCard>
-      </div>
+        </RailSection>
+      </WorkCard>
       <SessionResult error={state.error} status={state.status} phase={state.phase} hint="一张网立案" />
     </div>
   )
