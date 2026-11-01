@@ -1453,3 +1453,807 @@ export const DEMO_FILING_FIXES: FilingFixRow[] = [
   { item: '退费确认书缺盖章', fix: '推送 OA 盖章流程，盖财务章后回传', owner: '行政', eta: '当日', auto: false },
   { item: '要素式起诉状待转换', fix: '用「要素式转换」把传统起诉状转成法院要素式', owner: '系统自动', eta: '1 分钟', auto: true },
 ]
+
+/* ════════════════════════════════════════════════════════════════════
+ * ④ 文书 / ⑥ 校验 的细化交互数据（前缀 DEMO_X3_）
+ * ════════════════════════════════════════════════════════════════════ */
+
+/** ④ 合同条款的可编辑副本：抽屉里逐条改的初值，不回写 DEMO_CONTRACT_TERMS */
+export interface X3TermDraftRow {
+  clause: string
+  value: string
+  /** 律师改过就记一句改了什么，回显「已修改」用 */
+  editedTo?: string
+}
+
+export const DEMO_X3_TERM_DRAFTS: X3TermDraftRow[] = DEMO_CONTRACT_TERMS.map((t) => ({
+  clause: t.clause,
+  value: t.value,
+}))
+
+/** ④ 文书模板下拉（v3.2 / v2.8 / 自定义） */
+export interface X3TemplateOptionRow {
+  id: string
+  name: string
+  /** 自定义模板要带一句说明，免得律师以为系统内置 */
+  note: string
+}
+
+export const DEMO_X3_TEMPLATE_OPTIONS: X3TemplateOptionRow[] = [
+  { id: 'v3.2', name: 'v3.2（应收案件用 · 2026-09 修订）', note: '现行版本' },
+  { id: 'v2.8', name: 'v2.8（风险代理 · 2026-08 归档）', note: '旧版，仅风险代理选它' },
+  { id: 'custom', name: '自定义模板…', note: '上传 .docx 后由管理员审核' },
+]
+
+/** ④ 利冲报告：导出时走一遍进度，最后吐一个 PDF 名 */
+export interface X3ConflictReportRow {
+  title: string
+  value: string
+}
+
+export const DEMO_X3_CONFLICT_REPORT: X3ConflictReportRow[] = [
+  { title: '报告编号', value: 'LCA-20261101-0007' },
+  { title: '检索时间', value: '11-01 10:22 — 10:24' },
+  { title: '检索库', value: '律所 OA 当事人库（在办 + 历史）' },
+  { title: '检索主体', value: '6 方（原告 1 · 被告 2 · 共同借款人 1 · 抵押人 2）' },
+  { title: '红色冲突', value: '1 处 — 李某某（与本所在办「李某某离婚案」同证件号）' },
+  { title: '黄色提示', value: '1 处 — 某某置业公司（历史委托已结案 3 年）' },
+  { title: '结论', value: '存在禁止性冲突，建议终止本次委托或取得双方书面同意' },
+]
+
+/** ④ 机器人执行录像：一帧一屏画面 */
+export interface X3BrowserFrameRow {
+  /** 地址栏里的 URL */
+  url: string
+  /** 这一帧正在做什么 */
+  action: string
+  /** 画面里被点亮的字段 */
+  fields: string[]
+  /** 高亮方式：命中用红，普通推进用蓝 */
+  tone: 'normal' | 'hit'
+}
+
+export const DEMO_X3_BROWSER_FRAMES: X3BrowserFrameRow[] = [
+  {
+    url: 'https://oa.某某律所.com/login',
+    action: '打开律所 OA 登录页',
+    fields: ['账号', '密码'],
+    tone: 'normal',
+  },
+  {
+    url: 'https://oa.某某律所.com/party/search',
+    action: '进入当事人库检索，输入「李某某」',
+    fields: ['检索对象 · 李某某', '证件号 · 44XXXXXXXXXXXX01'],
+    tone: 'normal',
+  },
+  {
+    url: 'https://oa.某某律所.com/party/search?q=李某某',
+    action: '返回 3 条命中，逐条比对证件号',
+    fields: ['命中 1 · 李某某（离婚案 · 在办）', '命中 2 · 李某某（已结案）', '命中 3 · 李某某（同名不同人）'],
+    tone: 'normal',
+  },
+  {
+    url: 'https://oa.某某律所.com/party/search?q=李某某',
+    action: '证件号 44XXXXXXXXXXXX01 完全一致 —— 红色冲突',
+    fields: ['命中 1 · 李某某（离婚案 · 在办）'],
+    tone: 'hit',
+  },
+  {
+    url: 'https://oa.某某律所.com/case/create/blocked',
+    action: '停止建卷，保留利冲结果页快照',
+    fields: ['建卷按钮 · 已置灰', '快照 · conflict-20261101-1024.png'],
+    tone: 'hit',
+  },
+]
+
+/* ───────────────────────── ⑥ 校验 ───────────────────────── */
+
+/** ⑥ 三处金额对比：起诉状 / 立案表单 / 要素式 */
+export interface X3AmountRow {
+  item: string
+  /** 起诉状定稿的金额 */
+  complaint: string
+  /** 一张网立案表单回读的金额 */
+  filingForm: string
+  /** 要素式起诉状里的金额 */
+  elements: string
+  /** 差额定下的口径：不一样才算差异行 */
+  consistent: boolean
+  /** 差异金额 */
+  delta: string
+  /** 点开看到的计算口径 */
+  basis: string
+}
+
+export const DEMO_X3_AMOUNTS: X3AmountRow[] = [
+  {
+    item: '本金',
+    complaint: '¥820,000.00',
+    filingForm: '¥820,000.00',
+    elements: '¥820,000.00',
+    consistent: true,
+    delta: '0.00',
+    basis: '借款合同第一条贷款金额，扣减已还本金后余额',
+  },
+  {
+    item: '利息（截至 2026-10-31）',
+    complaint: '¥96,412.35',
+    filingForm: '¥96,412.35',
+    elements: '¥96,412.35',
+    consistent: true,
+    delta: '0.00',
+    basis: '年利率 4.90%，按合同约定计息方式逐期累加',
+  },
+  {
+    item: '罚息',
+    complaint: '¥71,258.86',
+    filingForm: '¥71,290.71',
+    elements: '¥71,258.86',
+    consistent: false,
+    delta: '31.85',
+    basis: '立案表单重算时用了 365 天口径，起诉状按 360 天口径；差 31.85 元',
+  },
+  {
+    item: '复利',
+    complaint: '¥6,999.00',
+    filingForm: '¥6,999.00',
+    elements: '¥6,999.00',
+    consistent: true,
+    delta: '0.00',
+    basis: '对未付利息按罚息利率计收复利，逐月结算',
+  },
+  {
+    item: '诉讼费（预估）',
+    complaint: '¥4,000.00',
+    filingForm: '¥4,000.00',
+    elements: '¥4,000.00',
+    consistent: true,
+    delta: '0.00',
+    basis: '按争议标的额套《诉讼费用交纳办法》分段累计',
+  },
+  {
+    item: '合计',
+    complaint: '¥998,670.21',
+    filingForm: '¥998,702.06',
+    elements: '¥998,670.21',
+    consistent: false,
+    delta: '31.85',
+    basis: '三处取起诉状定稿为基准；立案表单差 31.85 元来自罚息口径',
+  },
+]
+
+/** ⑥ 一键修正的 diff：before 红删 / after 绿增 */
+export interface X3FixDiffRow {
+  item: string
+  field: string
+  before: string
+  after: string
+}
+
+export const DEMO_X3_FIX_DIFF: X3FixDiffRow[] = [
+  { item: '金额三处不一致', field: '立案表单 · 罚息金额', before: '¥71,290.71', after: '¥71,258.86' },
+  { item: '金额三处不一致', field: '立案表单 · 争议标的总额', before: '¥998,702.06', after: '¥998,670.21' },
+  { item: '金额三处不一致', field: '立案表单 · 诉讼费预交金额', before: '¥4,000.31', after: '¥4,000.00' },
+  { item: '要素式起诉状待转换', field: '起诉状格式', before: '传统格式（4 页）', after: '要素式（3 页 · 法院模板 2026 版）' },
+  { item: '要素式起诉状待转换', field: '要素表字段', before: '未生成', after: '已生成 18 项要素（含借款合意、给付方式）' },
+]
+
+/** ⑥ 通知律师：送达情况 */
+export interface X3NoticeDeliveryRow {
+  channel: string
+  target: string
+  at: string
+  state: 'sent' | 'read' | 'failed'
+}
+
+export const DEMO_X3_NOTICE_DELIVERY: X3NoticeDeliveryRow[] = [
+  { channel: '站内待办', target: '主办律师 黄某某', at: '11-01 15:20', state: 'read' },
+  { channel: '短信', target: '138****XXXX', at: '11-01 15:20', state: 'sent' },
+  { channel: 'AI 助手卡片', target: '工作台 · 待办区', at: '11-01 15:20', state: 'read' },
+]
+
+/* ════════════════════════════════════════════════════════════════════════
+ * X2 · ③ 缺件 / ⑤ 回扫 的细节数据
+ *
+ * 前缀 DEMO_X2_*：只给 GapPanel / ReturnedPanel 用。
+ * 与上面 DEMO_GAP_* / DEMO_RETURNED_* 是同一批演示数据的**下钻层**：
+ * 上面是「一行一条」，这里是「这一行的沟通过程、附件、配置」。
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/** ③ 缺件：按来源分组 */
+export type GapSource = '合同类' | '催收类' | '身份类' | '担保类'
+
+export interface GapNoticeSourceRow {
+  item: string
+  source: GapSource
+}
+
+export const DEMO_X2_GAP_SOURCES: GapNoticeSourceRow[] = [
+  { item: '催收记录（2025 年后）', source: '催收类' },
+  { item: '借款人最新联系方式', source: '身份类' },
+  { item: '抵押物权属证明', source: '担保类' },
+  { item: '共同借款人身份证明', source: '身份类' },
+  { item: '还款账户近半年流水', source: '合同类' },
+]
+
+/** ③ 缺件：一条缺件的完整客户往来时间线 */
+export type GapTimelineKind = 'system' | 'sms' | 'mail' | 'wechat' | 'customer' | 'recognize'
+
+export interface GapTimelineEvent {
+  item: string
+  at: string
+  kind: GapTimelineKind
+  channel: string
+  title: string
+  detail: string
+}
+
+export const DEMO_X2_GAP_TIMELINE: GapTimelineEvent[] = [
+  { item: '催收记录（2025 年后）', at: '10-28 14:02', kind: 'system', channel: '系统', title: '检测到缺件，生成补件清单', detail: '必备清单比对：催收类材料止于 2025-06，缺最近 12 个月' },
+  { item: '催收记录（2025 年后）', at: '10-28 14:02', kind: 'sms', channel: '短信', title: '补件通知已送达', detail: '发送至 138****6621，含免登录上传链接（有效期 15 天）' },
+  { item: '催收记录（2025 年后）', at: '10-28 14:02', kind: 'mail', channel: '邮件', title: '补件通知已送达', detail: 'wangmoumou@某某银行.邮箱，附补件清单 PDF' },
+  { item: '催收记录（2025 年后）', at: '10-28 14:05', kind: 'customer', channel: '客户', title: '客户已读通知', detail: '客户经理 王某某 点开短信链接，进入免登录上传页' },
+  { item: '催收记录（2025 年后）', at: '10-29 17:40', kind: 'system', channel: '系统', title: '发送 1 次催办', detail: '超过 24 小时未上传，自动发送催办短信' },
+  { item: '催收记录（2025 年后）', at: '10-30 09:20', kind: 'customer', channel: '客户', title: '客户上传 2 份材料', detail: '催收记录_补充_2025Q3-Q4.pdf（6 页）、催收记录_补充_说明.txt（1 页）' },
+  { item: '催收记录（2025 年后）', at: '10-30 09:22', kind: 'recognize', channel: '系统', title: '系统识别并归案', detail: '识别到电话催收 7 次、上门 2 次，归入「催收记录」槽位' },
+  { item: '催收记录（2025 年后）', at: '10-30 09:22', kind: 'system', channel: '系统', title: '重跑缺件检测', detail: '该项由「硬阻塞」转为「已补齐」，硬阻塞剩 3 项' },
+
+  { item: '借款人最新联系方式', at: '10-28 14:02', kind: 'system', channel: '系统', title: '检测到缺件，生成补件清单', detail: '合同留存电话已停用，送达地址需更新' },
+  { item: '借款人最新联系方式', at: '10-28 14:03', kind: 'wechat', channel: '微信', title: '补件通知已推送到企业微信', detail: '发送至客户经理 王某某（已读回执 14:06）' },
+  { item: '借款人最新联系方式', at: '10-30 09:18', kind: 'customer', channel: '客户', title: '客户微信发来文本', detail: '客户补充信息.txt —— 新手机号与现住址' },
+  { item: '借款人最新联系方式', at: '10-30 09:22', kind: 'recognize', channel: '系统', title: '系统识别并回填', detail: '手机号 138****XXXX，现住址写入送达地址栏' },
+
+  { item: '抵押物权属证明', at: '10-28 14:02', kind: 'system', channel: '系统', title: '检测到缺件，生成补件清单', detail: '合同约定抵押，但未见不动产权证复印件' },
+  { item: '抵押物权属证明', at: '10-28 14:02', kind: 'sms', channel: '短信', title: '补件通知已送达', detail: '发送至 138****6621（硬阻塞项，单独标红）' },
+  { item: '抵押物权属证明', at: '10-28 14:09', kind: 'customer', channel: '客户', title: '客户已读通知', detail: '客户回复「产权证在抵押人手上，需向其索取」' },
+  { item: '抵押物权属证明', at: '10-29 17:40', kind: 'system', channel: '系统', title: '发送 1 次催办', detail: '仍未见上传，催办短信已发出' },
+  { item: '抵押物权属证明', at: '10-31 10:12', kind: 'customer', channel: '客户', title: '客户反馈进度', detail: '已联系抵押人，预计 11-03 前取得扫描件' },
+
+  { item: '共同借款人身份证明', at: '10-28 14:02', kind: 'system', channel: '系统', title: '检测到缺件，生成补件清单', detail: '合同列明两位借款人，仅见一人身份证' },
+  { item: '共同借款人身份证明', at: '10-28 14:02', kind: 'sms', channel: '短信', title: '补件通知已送达', detail: '发送至 138****6621（硬阻塞项，单独标红）' },
+  { item: '共同借款人身份证明', at: '10-28 14:09', kind: 'customer', channel: '客户', title: '客户已读通知', detail: '客户回复「共同借款人李某某出差，下周回传」' },
+  { item: '共同借款人身份证明', at: '10-30 15:30', kind: 'system', channel: '系统', title: '发送 1 次催办', detail: '仍未见上传，催办短信 + 邮件双通道' },
+  { item: '共同借款人身份证明', at: '11-01 08:50', kind: 'customer', channel: '客户', title: '客户反馈进度', detail: '李某某已拍照，待其本人确认后上传' },
+
+  { item: '还款账户近半年流水', at: '10-30 09:15', kind: 'system', channel: '系统', title: '补录：客户补传后仍缺最近一期', detail: '已有流水止于 2026-04，建议补至起诉前一月' },
+  { item: '还款账户近半年流水', at: '10-30 09:15', kind: 'mail', channel: '邮件', title: '补件通知已送达', detail: 'admin@某某律所.邮箱，仅走邮件（一般项不打扰客户）' },
+  { item: '还款账户近半年流水', at: '10-30 11:02', kind: 'customer', channel: '客户', title: '客户已读通知', detail: '行政 陈某某 已转告客户经理' },
+]
+
+/** ③ 缺件：话术模板初始正文（编辑后在本机内存里回显） */
+export interface GapScriptRow {
+  id: string
+  severity: '硬阻塞' | '一般' | '催办' | '回执'
+  title: string
+  body: string
+}
+
+export const DEMO_X2_GAP_SCRIPTS: GapScriptRow[] = [
+  { id: 'blocker', severity: '硬阻塞', title: '影响立案的缺件', body: '【影响立案的缺件】您好，本案还有 {n} 项材料缺失将无法立案：{list}。请点此链接上传（免登录）：{link}，或直接微信发给经办律师。' },
+  { id: 'normal', severity: '一般', title: '建议补充的材料', body: '【建议补充的材料】您好，以下材料建议补充，不影响先立案：{list}。回复本邮件即可传附件。' },
+  { id: 'urge', severity: '催办', title: '补件催办提醒', body: '【补件催办】您还有 {n} 项材料未补齐，已超 {days} 天。为不影响立案进度，请尽快上传：{link}' },
+  { id: 'receipt', severity: '回执', title: '已收妥确认', body: '【已收妥】您补交的 {n} 份材料已收到并归档，无需再重复提交。感谢配合。' },
+]
+
+/** ⑤ 回扫：邮箱扫描配置 */
+export interface ScanMailboxConfig {
+  addr: string
+  note: string
+  count: number
+  interval: string
+  folder: string
+  whitelist: string
+}
+
+export const DEMO_X2_SCAN_MAILBOXES: ScanMailboxConfig[] = [
+  { addr: 'courts@某某律所.邮箱', note: '一张网收件箱 · 法院送达文书', count: 128, interval: '5 分钟', folder: 'INBOX / 送达文书', whitelist: '*.court.gov.cn、12368 短信转发' },
+  { addr: 'admin@某某律所.邮箱', note: '行政扫描仪自动转发', count: 42, interval: '10 分钟', folder: 'INBOX / scan', whitelist: 'scanner@某某律所.邮箱' },
+  { addr: 'client@某某律所.邮箱', note: '客户往来附件', count: 67, interval: '5 分钟', folder: 'INBOX', whitelist: '已签约客户域 · 共 24 个地址' },
+]
+
+/** ⑤ 回扫：轮询间隔下拉项 */
+export const DEMO_X2_SCAN_INTERVALS = ['1 分钟', '5 分钟', '15 分钟', '1 小时'] as const
+
+/** ⑤ 回扫：备选案件（手动归案时搜到的候选） */
+export interface AssignCandidate {
+  name: string
+  caseNo: string
+  court: string
+  party: string
+  slots: string[]
+}
+
+export const DEMO_X2_ASSIGN_CANDIDATES: AssignCandidate[] = [
+  { name: '谭某某金融借款', caseNo: '（20XX）粤0106民初XXXX号', court: '广州市天河区人民法院', party: '某某银行某某支行 诉 谭某某、李某某', slots: ['律师函签收回执', '送达地址确认书', '催收记录', '还款明细'] },
+  { name: '谭某某金融借款（诉前调解）', caseNo: '（20XX）粤0606民初XXXX号', court: '佛山市禅城区人民法院', party: '某某银行某某支行 诉 谭某某', slots: ['调解笔录', '催收记录', '还款明细'] },
+  { name: '李某某信用卡纠纷', caseNo: '（20XX）粤0106民初XXXX号', court: '广州市天河区人民法院', party: '某某银行某某支行 诉 李某某', slots: ['信用卡对账单', '催收记录'] },
+  { name: '某某贸易公司保证合同纠纷', caseNo: '（20XX）粤0106民初XXXX号', court: '广州市天河区人民法院', party: '某某银行某某支行 诉 某某贸易公司', slots: ['保证合同', '送达地址确认书'] },
+]
+
+/** ⑤ 回扫：邮件附件（可预览） */
+export interface MailAttachment {
+  subject: string
+  name: string
+  size: string
+  kind: 'pdf' | 'image'
+  pages: number
+  slot: string
+}
+
+export const DEMO_X2_MAIL_ATTACHMENTS: MailAttachment[] = [
+  { subject: 'Re: 谭某某案 补充材料', name: '催收记录_补充_2025Q3-Q4.pdf', size: '1.2 MB', kind: 'pdf', pages: 6, slot: '催收记录' },
+  { subject: 'Re: 谭某某案 补充材料', name: '客户补充信息.txt', size: '1.6 MB', kind: 'pdf', pages: 1, slot: '送达地址' },
+  { subject: '扫描件-不动产权证', name: '不动产权证_扫描件.pdf', size: '2.0 MB', kind: 'pdf', pages: 4, slot: '抵押物权属证明' },
+  { subject: '（20XX）粤0106民初XXXX号 受理通知书', name: '受理通知书.jpg', size: '2.4 MB', kind: 'image', pages: 1, slot: '法院文书' },
+  { subject: 'FW: 律师函签收回执', name: '律师函签收回执.pdf', size: '2.8 MB', kind: 'pdf', pages: 2, slot: '律师函签收回执' },
+]
+
+/** ⑤ 回扫：归案日志筛选口径 */
+export type ClaimFilter = '全部' | '自动归案' | '待人工' | '已标记无关'
+
+export const DEMO_X2_CLAIM_FILTERS: ClaimFilter[] = ['全部', '自动归案', '待人工', '已标记无关']
+
+// ═══════════════════════════════════════════════════════════════════════
+// 细节演示数据（DEMO_X1_*）—— ① 收案 / ② 读懂 的「点得开」那一层
+//
+// 上一条线证明「拆得开、转得出」，这一层证明**每一处结论都能点开看依据**：
+//   · 扫描件预览能翻页，并框出「这一句是在哪认出来的」
+//   · 98% 的置信度能展开成 4 个因子，各自带分
+//   · 全文能从渲染视图切到源码/原文对照，关键字段能逐条校对
+// 数据只服务演示，口径与上面同一案件（谭某某金融借款 · 38 页 · 8 份材料）。
+// ═══════════════════════════════════════════════════════════════════════
+
+/** 扫描件预览里「版式行」的类型：用 div 模拟真实扫描件的视觉节奏 */
+export type X1DocLineKind =
+  | 'title' // 居中大标题
+  | 'meta' // 居中编号/日期这类小字
+  | 'heading' // 条款小标题
+  | 'para' // 正文段落
+  | 'field' // 半行字段（金额/期限）
+  | 'table' // 表格行
+  | 'seal' // 印章圆圈
+  | 'sign' // 落款
+
+/** 预览页上被识别到的区域（虚线框标出来） */
+export interface X1PageBox {
+  /** 百分位定位（相对整页宽高），与真实系统的归一化坐标同口径 */
+  top: number
+  left: number
+  width: number
+  height: number
+  label: string
+}
+
+/** 一页扫描件的模拟内容 */
+export interface X1PreviewPage {
+  pageNo: number
+  lines: { kind: X1DocLineKind; text: string }[]
+  boxes: X1PageBox[]
+}
+
+/** ① 收案：每份材料在整包里对应的扫描页（页码与 DEMO_INTAKE_SEGMENTS 连续） */
+export interface X1SegmentPreviewRow {
+  seq: number
+  pages: X1PreviewPage[]
+}
+
+export const DEMO_X1_SEGMENT_PREVIEWS: X1SegmentPreviewRow[] = [
+  {
+    seq: 1,
+    pages: [
+      {
+        pageNo: 1,
+        lines: [
+          { kind: 'title', text: '个人购房借款/担保合同' },
+          { kind: 'meta', text: '合同编号：DEMO202100000001　　　编号：01' },
+          { kind: 'heading', text: '第一条　贷款金额' },
+          { kind: 'para', text: '贷款人根据借款人的申请，向借款人发放个人住房贷款，金额为人民币捌拾贰万元整（¥820,000.00）。' },
+          { kind: 'heading', text: '第二条　贷款期限' },
+          { kind: 'para', text: '贷款期限为 240 个月，自 2019 年 3 月 18 日起至 2039 年 3 月 18 日止。' },
+          { kind: 'field', text: '借款人（签字）：谭某某　　　贷款人（盖章）：某某银行某某支行' },
+          { kind: 'seal', text: '某某银行某某支行 · 合同专用章' },
+        ],
+        boxes: [
+          { top: 5, left: 26, width: 48, height: 8, label: '这里识别到「个人购房借款/担保合同」' },
+          { top: 12, left: 22, width: 56, height: 5, label: '合同编号 DEMO202100000001' },
+        ],
+      },
+      {
+        pageNo: 2,
+        lines: [
+          { kind: 'heading', text: '第四条　贷款利率与计息' },
+          { kind: 'para', text: '本合同项下贷款利率按中国人民银行同期同档次贷款基准利率上浮 5% 执行，即年利率 4.90%。' },
+          { kind: 'table', text: '期次 | 应还日期 | 应还本息 | 实还 | 逾期天数' },
+          { kind: 'table', text: '1 | 2019-04-18 | 5,432.11 | 5,432.11 | 0' },
+          { kind: 'table', text: '2 | 2019-05-18 | 5,432.11 | 5,432.11 | 0' },
+          { kind: 'sign', text: '（本页为合同正文第 2 页，骑缝章压印右侧）' },
+        ],
+        boxes: [{ top: 8, left: 8, width: 60, height: 6, label: '这里识别到「第四条　贷款利率与计息」' }],
+      },
+      {
+        pageNo: 3,
+        lines: [
+          { kind: 'heading', text: '第九条　违约责任' },
+          { kind: 'para', text: '借款人未按期归还贷款本息的，贷款人有权按合同约定利率上浮 50% 计收罚息，并宣布贷款提前到期。' },
+          { kind: 'heading', text: '第十七条　争议解决' },
+          { kind: 'para', text: '因本合同发生的争议，由合同签订地人民法院管辖。合同签订地：广东省佛山市南海区。' },
+          { kind: 'sign', text: '借款人：谭某某　　　共同借款人：李某某　　　日期：2019-03-18' },
+        ],
+        boxes: [{ top: 40, left: 8, width: 62, height: 6, label: '这里识别到管辖约定（签订地法院）' }],
+      },
+    ],
+  },
+  {
+    seq: 2,
+    pages: [
+      {
+        pageNo: 15,
+        lines: [
+          { kind: 'title', text: '借款借据' },
+          { kind: 'meta', text: '借据编号：JJ20190318001' },
+          { kind: 'para', text: '兹借到人民币捌拾贰万元整（¥820,000.00），期限自 2019-03-18 至 2039-03-18。' },
+          { kind: 'field', text: '放款日期：2019-03-18　　　放款账号：6210 **** **** 3321' },
+          { kind: 'seal', text: '某某银行某某支行 · 业务专用章' },
+          { kind: 'sign', text: '借款人（签字）：谭某某' },
+        ],
+        boxes: [
+          { top: 4, left: 30, width: 40, height: 8, label: '这里识别到「借款借据」' },
+          { top: 22, left: 8, width: 40, height: 6, label: '放款金额 ¥820,000.00' },
+        ],
+      },
+      {
+        pageNo: 16,
+        lines: [
+          { kind: 'title', text: '放款凭证（银行留存）' },
+          { kind: 'table', text: '交易日期 | 摘要 | 交易金额 | 对方账号 | 状态' },
+          { kind: 'table', text: '2019-03-18 | 个人住房贷款放款 | 820,000.00 | 6210****3321 | 成功' },
+          { kind: 'sign', text: '经办：某某　　复核：某某　　打印时间：2019-03-18 15:22' },
+        ],
+        boxes: [{ top: 26, left: 6, width: 88, height: 6, label: '这里识别到放款成功流水（820,000.00）' }],
+      },
+    ],
+  },
+  {
+    seq: 3,
+    pages: [
+      {
+        pageNo: 17,
+        lines: [
+          { kind: 'title', text: '个人贷款还款明细表' },
+          { kind: 'meta', text: '账号：6210 **** **** 3321　　共 84 期' },
+          { kind: 'table', text: '期次 | 应还日期 | 应还本息 | 实还 | 逾期天数' },
+          { kind: 'table', text: '1 | 2019-04-18 | 5,432.11 | 5,432.11 | 0' },
+          { kind: 'table', text: '2 | 2019-05-18 | 5,432.11 | 5,432.11 | 0' },
+          { kind: 'table', text: '3 | 2019-06-18 | 5,432.11 | 5,432.11 | 0' },
+          { kind: 'table', text: '… | … | … | … | …' },
+        ],
+        boxes: [{ top: 22, left: 6, width: 88, height: 6, label: '这里识别到表格表头（跨页沿用）' }],
+      },
+      {
+        pageNo: 18,
+        lines: [
+          { kind: 'table', text: '期次 | 应还日期 | 应还本息 | 实还 | 逾期天数' },
+          { kind: 'table', text: '73 | 2025-04-18 | 5,432.11 | 5,432.11 | 0' },
+          { kind: 'table', text: '74 | 2025-05-18 | 5,432.11 | 0.00 | 30' },
+          { kind: 'table', text: '75 | 2025-06-18 | 5,432.11 | 0.00 | 61' },
+          { kind: 'table', text: '… | … | … | … | …' },
+        ],
+        boxes: [{ top: 14, left: 40, width: 34, height: 6, label: '这里识别到首期逾期（2025-05-18 未还）' }],
+      },
+    ],
+  },
+  {
+    seq: 4,
+    pages: [
+      {
+        pageNo: 25,
+        lines: [
+          { kind: 'title', text: '贷款催收记录汇总' },
+          { kind: 'meta', text: '统计区间：2024-06-01 至 2025-06-12' },
+          { kind: 'table', text: '日期 | 方式 | 对象 | 结果 | 经办' },
+          { kind: 'table', text: '2025-06-12 | 电话 | 谭某某 | 未接通 | 某某' },
+          { kind: 'table', text: '2025-05-20 | 上门 | 谭某某 | 家属签收通知 | 某某' },
+          { kind: 'para', text: '手写批注：客户称近期资金紧张，请求延期，未承诺还款时间。' },
+        ],
+        boxes: [
+          { top: 4, left: 26, width: 48, height: 8, label: '这里识别到「贷款催收记录汇总」' },
+          { top: 58, left: 6, width: 70, height: 8, label: '手写批注 OCR 置信度 0.58' },
+        ],
+      },
+      {
+        pageNo: 26,
+        lines: [
+          { kind: 'heading', text: '催收情况小结' },
+          { kind: 'para', text: '自逾期之日起，累计电话催收 11 次、上门催收 3 次、书面催收函 2 份。' },
+          { kind: 'sign', text: '经办客户经理：王某某　　日期：2025-06-12' },
+        ],
+        boxes: [{ top: 14, left: 6, width: 80, height: 6, label: '这里识别到催收次数统计（11 次 / 3 次）' }],
+      },
+    ],
+  },
+  {
+    seq: 5,
+    pages: [
+      {
+        pageNo: 29,
+        lines: [
+          { kind: 'title', text: '中华人民共和国居民身份证' },
+          { kind: 'field', text: '姓名　谭某某　　　性别　男　　　民族　汉' },
+          { kind: 'field', text: '出生　1979 年 X 月 X 日' },
+          { kind: 'field', text: '住址　广东省佛山市南海区某某路 X 号' },
+          { kind: 'field', text: '公民身份号码　4406**********1234' },
+          { kind: 'meta', text: '（正反面复印于同一页）' },
+        ],
+        boxes: [
+          { top: 6, left: 14, width: 62, height: 8, label: '这里识别到「居民身份证」' },
+          { top: 54, left: 14, width: 62, height: 6, label: '公民身份号码（脱敏显示）' },
+        ],
+      },
+    ],
+  },
+  {
+    seq: 6,
+    pages: [
+      {
+        pageNo: 30,
+        lines: [
+          { kind: 'title', text: '差额补足承诺函' },
+          { kind: 'para', text: '致：某某银行某某支行' },
+          { kind: 'para', text: '就谭某某与贵行签订的个人购房借款/担保合同（编号 DEMO202100000001），承诺人自愿为借款人在该合同项下全部债务承担差额补足义务。' },
+          { kind: 'para', text: '本承诺函自承诺人签字并加盖公章之日起生效。' },
+        ],
+        boxes: [{ top: 4, left: 24, width: 50, height: 8, label: '这里识别到「差额补足承诺函」' }],
+      },
+      {
+        pageNo: 31,
+        lines: [
+          { kind: 'para', text: '承诺人（盖章）：某某置业有限公司' },
+          { kind: 'seal', text: '某某置业有限公司 · 公章（压住落款日期）' },
+          { kind: 'sign', text: '法定代表人或授权代表（签字）：＿＿＿＿＿' },
+          { kind: 'sign', text: '日期：2021-03-__（被印章覆盖）' },
+        ],
+        boxes: [
+          { top: 26, left: 34, width: 34, height: 26, label: '印章压住落款日期，签署日无法确认' },
+          { top: 68, left: 8, width: 46, height: 7, label: '这里识别到承诺人名称' },
+        ],
+      },
+    ],
+  },
+  {
+    seq: 7,
+    pages: [
+      {
+        pageNo: 32,
+        lines: [
+          { kind: 'sign', text: '（手写）' },
+          { kind: 'para', text: '小谭：材料先收着，下周把身份证和收入证明补过来。' },
+          { kind: 'para', text: '—— 王' },
+        ],
+        boxes: [{ top: 22, left: 8, width: 60, height: 18, label: '手写体，识别置信度 0.24（疑非案件材料）' }],
+      },
+    ],
+  },
+  {
+    seq: 8,
+    pages: [
+      {
+        pageNo: 33,
+        lines: [
+          { kind: 'title', text: '个人活期账户交易明细' },
+          { kind: 'meta', text: '账号：6210 **** **** 3321　　区间：2025-01-01 至 2026-04-30' },
+          { kind: 'table', text: '日期 | 摘要 | 金额 | 余额' },
+          { kind: 'table', text: '2026-01-18 | 代扣 | -5,432.11 | 1,204.88' },
+          { kind: 'table', text: '2026-02-18 | 代扣失败 | 0.00 | 1,204.88' },
+          { kind: 'table', text: '2026-03-18 | 代扣失败 | 0.00 | 1,204.88' },
+        ],
+        boxes: [{ top: 22, left: 6, width: 88, height: 6, label: '这里识别到表格表头（第 4-5 页会重复）' }],
+      },
+      {
+        pageNo: 34,
+        lines: [
+          { kind: 'table', text: '日期 | 摘要 | 金额 | 余额' },
+          { kind: 'table', text: '2026-04-18 | 代扣失败 | 0.00 | 1,204.88' },
+          { kind: 'para', text: '注：本页表头与上页重复，系统已按表头重新拼表。' },
+        ],
+        boxes: [{ top: 6, left: 6, width: 60, height: 6, label: '跨页重复表头，已自动拼接' }],
+      },
+    ],
+  },
+]
+
+/** 「为什么是这个置信度」的因子：每项带分值，加起来就是那个百分比 */
+export interface X1ConfidenceFactorRow {
+  /** 属于哪一份（对应 DEMO_INTAKE_SEGMENTS.seq） */
+  seq: number
+  label: string
+  /** 该因子在总分里的权重分（与其它因子相加 = round(confidence*100)） */
+  score: number
+  detail: string
+}
+
+export const DEMO_X1_CONFIDENCE_FACTORS: X1ConfidenceFactorRow[] = [
+  { seq: 1, label: '标题关键词匹配度', score: 40, detail: '首行命中「个人购房借款/担保合同」标准表述，与「借款合同」类型模板完全一致' },
+  { seq: 1, label: '版式特征', score: 28, detail: '条款编号连续（第一至第十七条）、首部编号行在、无跨文混排 —— 与建行标准版式一致' },
+  { seq: 1, label: '字体字号', score: 18, detail: '标题 16pt 黑体居中、正文 10.5pt 宋体，符合制式合同排版' },
+  { seq: 1, label: '骑缝章位置', score: 12, detail: 'P1–P14 右侧骑缝章连续完整，说明这 14 页确属同一份文件' },
+
+  { seq: 6, label: '标题关键词匹配度', score: 38, detail: '首行命中「差额补足承诺函」，归入「担保文件」' },
+  { seq: 6, label: '版式特征', score: 15, detail: '篇幅过短（2 页），缺常见条款段落结构，与模板差异较大' },
+  { seq: 6, label: '字体字号', score: 8, detail: '正文为 12pt 宋体（非制式），疑为自行打印后盖章' },
+  { seq: 6, label: '骑缝章位置', score: 0, detail: '未见骑缝章；落款公章压住日期，无法确认签署时间' },
+
+  { seq: 7, label: '标题关键词匹配度', score: 6, detail: '无标题、无编号，仅手写一句话，未命中任何类型模板' },
+  { seq: 7, label: '版式特征', score: 4, detail: '整页手写体，无表格无条款' },
+  { seq: 7, label: '字体字号', score: 9, detail: '非印刷字体，字迹判定为手写（与案件材料惯例不符）' },
+  { seq: 7, label: '骑缝章位置', score: 5, detail: '单页无骑缝，右侧无边距压印' },
+]
+
+/** 追加材料：三种来源（只做 UI，不真拉） */
+export interface X1AppendChannelRow {
+  key: 'link' | 'upload' | 'mail'
+  name: string
+  desc: string
+  detail: string
+  /** 这个渠道现成的待取清单（展示用） */
+  items: string[]
+}
+
+export const DEMO_X1_APPEND_CHANNELS: X1AppendChannelRow[] = [
+  {
+    key: 'link',
+    name: '从客户链接',
+    desc: '客户通过免登录链接上传，链接本身即凭证',
+    detail: '刚刚有一条新上传待拉取',
+    items: ['催收记录_补充_2025Q3-Q4.pdf · 6 页 · 10-30 09:20', '客户补充信息.txt · 1 页 · 10-30 09:22'],
+  },
+  {
+    key: 'upload',
+    name: '从本地上传',
+    desc: '律师自己从电脑选文件，支持 PDF / 图片 / xlsx',
+    detail: '可一次多选，单个 ≤ 50 MB',
+    items: [],
+  },
+  {
+    key: 'mail',
+    name: '从邮箱拉取',
+    desc: '扫指定邮箱的附件，按案号/当事人自动匹配到本案',
+    detail: '近 7 天有 3 封带附件的邮件命中本案',
+    items: ['Re: 谭某某案 补充材料 · 2 个附件 · 11-01 09:12', '扫描件-不动产权证 · 1 个附件 · 11-01 10:05'],
+  },
+]
+
+/** ② 读懂：全文抽屉里「原文对照」右侧的扫描件模拟（每一行对应一句 markdown） */
+export interface X1OriginalCompareRow {
+  /** markdown 侧的文本（与 DEMO_UNDERSTAND_DOCS.excerpt 里的句子对得上） */
+  md: string
+  /** 扫描件侧看起来的样子 */
+  scan: string
+  /** 扫描侧的可信度（OCR 没认清的用 low，画虚线下划线） */
+  fidelity: 'high' | 'low'
+  page: number
+}
+
+export const DEMO_X1_ORIGINAL_COMPARE: Record<string, X1OriginalCompareRow[]> = {
+  个人购房借款担保合同: [
+    { md: '## 个人购房借款/担保合同', scan: '个人购房借款/担保合同', fidelity: 'high', page: 1 },
+    { md: '**合同编号**：DEMO202100000001', scan: '合同编号：DEMO202100000001', fidelity: 'high', page: 1 },
+    { md: '**借款人**：谭某某', scan: '借款人：谭某某', fidelity: 'high', page: 1 },
+    { md: '**贷款人**：某某银行某某支行', scan: '贷款人：某某银行某某支行', fidelity: 'high', page: 1 },
+    { md: '### 第一条 贷款金额', scan: '第一条 贷款金额', fidelity: 'high', page: 1 },
+    { md: '贷款金额为人民币 **820,000.00 元**（大写：捌拾贰万元整）。', scan: '贷款金额为人民币 820,000.00 元（大写：捌拾贰万元整）。', fidelity: 'low', page: 1 },
+  ],
+  借款借据及放款凭证: [
+    { md: '## 借款借据', scan: '借款借据', fidelity: 'high', page: 15 },
+    { md: '兹借到人民币 820,000.00 元，期限自 2019-03-18 至 2039-03-18。', scan: '兹借到人民币 820,000.00 元，期限自 2019-03-18 至 2039-03-18。', fidelity: 'high', page: 15 },
+    { md: '放款日期：2019-03-18　放款账号：6210 **** **** 3321', scan: '放款日期：2019-03-18　放款账号：6210 **** **** 3321', fidelity: 'low', page: 15 },
+  ],
+  '还款明细表（2019-2026）': [
+    { md: '## 还款明细', scan: '个人贷款还款明细表', fidelity: 'high', page: 17 },
+    { md: '| 期次 | 应还日期 | 应还本息 | 实还 | 逾期天数 |', scan: '期次 | 应还日期 | 应还本息 | 实还 | 逾期天数', fidelity: 'high', page: 17 },
+    { md: '| 1 | 2019-04-18 | 5,432.11 | 5,432.11 | 0 |', scan: '1 | 2019-04-18 | 5,432.11 | 5,432.11 | 0', fidelity: 'high', page: 17 },
+    { md: '| 85 | 2026-04-18 | 5,432.11 | 0.00 | 198 |', scan: '85 | 2026-04-18 | 5,432.11 | 0.00 | 198', fidelity: 'low', page: 24 },
+  ],
+  还款账户流水: [
+    { md: '## 账户交易明细', scan: '个人活期账户交易明细', fidelity: 'high', page: 33 },
+    { md: '| 日期 | 摘要 | 金额 | 余额 |', scan: '日期 | 摘要 | 金额 | 余额', fidelity: 'high', page: 33 },
+    { md: '| 2026-01-18 | 代扣 | -5,432.11 | 1,204.88 |', scan: '2026-01-18 | 代扣 | -5,432.11 | 1,204.88', fidelity: 'high', page: 33 },
+    { md: '| 2026-02-18 | 代扣失败 | 0.00 | 1,204.88 |', scan: '2026-02-18 | 代扣失.. | 0.00 | 1,204.88', fidelity: 'low', page: 34 },
+  ],
+}
+
+/** 关键字段的原文出处：抽屉里展示上下文 3 行 */
+export interface X1FieldLocateRow {
+  doc: string
+  field: string
+  page: number
+  /** 原文上下文（3 行，中间那行是命中行） */
+  context: [string, string, string]
+  /** 命中行里被抽中的那段文字（用于高亮） */
+  hit: string
+  /** 机器抽取的口径说明 */
+  rule: string
+}
+
+export const DEMO_X1_FIELD_LOCATES: X1FieldLocateRow[] = [
+  {
+    doc: '借款合同', field: '合同编号', page: 1, hit: 'DEMO202100000001',
+    context: ['个人购房借款/担保合同', '合同编号：DEMO202100000001　　编号：01', '第一条　贷款金额'],
+    rule: '首部「合同编号：」后第一个连续字母数字串',
+  },
+  {
+    doc: '借款合同', field: '借款人', page: 1, hit: '谭某某',
+    context: ['贷款人（盖章）：某某银行某某支行', '借款人（签字）：谭某某', '共同借款人（签字）：李某某'],
+    rule: '当事人栏「借款人（签字）」后的人名，遇「共同借款人」即停',
+  },
+  {
+    doc: '借款合同', field: '贷款金额', page: 1, hit: '820,000.00',
+    context: ['第一条　贷款金额', '贷款金额为人民币 820,000.00 元（大写：捌拾贰万元整）。', '第二条　贷款期限'],
+    rule: '「第一条 贷款金额」段落内的小写金额，须与大写金额互校',
+  },
+  {
+    doc: '借款合同', field: '借款期限', page: 1, hit: '2019-03-18 至 2039-03-18',
+    context: ['第二条　贷款期限', '贷款期限为 240 个月，自 2019 年 3 月 18 日起至 2039 年 3 月 18 日止。', '第三条　还款方式'],
+    rule: '「自…起至…止」两端日期，与 240 个月互校',
+  },
+  {
+    doc: '借款合同', field: '年利率', page: 2, hit: '4.90%',
+    context: ['第四条　贷款利率与计息', '本合同项下贷款利率按基准利率上浮 5% 执行，即年利率 4.90%。', '第五条　还款方式'],
+    rule: '「年利率」后紧跟的百分数；若与本句内其它百分数冲突则降置信度',
+  },
+  {
+    doc: '借款合同', field: '逾期罚息', page: 3, hit: '上浮 50%',
+    context: ['第九条　违约责任', '借款人未按期归还贷款本息的，贷款人有权按合同约定利率上浮 50% 计收罚息。', '第十条　提前到期'],
+    rule: '「违约」「罚息」段落内的上浮比例',
+  },
+  {
+    doc: '借款合同', field: '管辖法院', page: 3, hit: '合同签订地人民法院',
+    context: ['第十七条　争议解决', '因本合同发生的争议，由合同签订地人民法院管辖。合同签订地：广东省佛山市南海区。', '（以下无正文）'],
+    rule: '「争议解决」段落内的管辖表述；「签订地」需另查合同首部比对',
+  },
+  {
+    doc: '还款明细', field: '已还期数', page: 24, hit: '84 期',
+    context: ['还款明细表（第 8 页 / 共 8 页）', '累计还款期数：84 期　　累计实还本息：456,297.24 元', '制表日期：2026-05-06'],
+    rule: '末页汇总行「累计还款期数」，与表格行数交叉验证',
+  },
+  {
+    doc: '还款明细', field: '逾期期数', page: 18, hit: '12 期',
+    context: ['期次 | 应还日期 | 应还本息 | 实还 | 逾期天数', '74 | 2025-05-18 | 5,432.11 | 0.00 | 30', '…（自本期起连续未还）'],
+    rule: '「实还 = 0.00」的行数统计',
+  },
+  {
+    doc: '还款明细', field: '最后还款日', page: 24, hit: '2026-04-18',
+    context: ['期次 | 应还日期 | 应还本息 | 实还 | 逾期天数', '85 | 2026-04-18 | 5,432.11 | 0.00 | 198', '备注：本行为最后一期，尚未到期已提前宣告到期'],
+    rule: '表格末行的「应还日期」',
+  },
+  {
+    doc: '催收记录', field: '催收次数', page: 26, hit: '11 次',
+    context: ['催收情况小结', '自逾期之日起，累计电话催收 11 次、上门催收 3 次、书面催收函 2 份。', '经办客户经理：王某某　　日期：2025-06-12'],
+    rule: '小结段里的次数统计；与明细表逐条计数互校',
+  },
+  {
+    doc: '催收记录', field: '最后催收日', page: 25, hit: '2025-06-12',
+    context: ['日期 | 方式 | 对象 | 结果 | 经办', '2025-06-12 | 电话 | 谭某某 | 未接通 | 某某', '（明细表首行，按日期倒序）'],
+    rule: '明细表首行的日期（表按倒序排列）',
+  },
+]
+
+/** 可切换的转换方法 */
+export interface X1ConvertMethodRow {
+  key: string
+  name: string
+  desc: string
+  /** 这个方法大概要多久 */
+  ms: number
+  /** 对哪类材料效果最好 */
+  best: string
+}
+
+export const DEMO_X1_CONVERT_METHODS: X1ConvertMethodRow[] = [
+  { key: 'native', name: '原生 PDF 文字层', desc: '直接抽取内嵌文字，不做图像识别', ms: 700, best: '电子版生成的 PDF' },
+  { key: 'ocr', name: 'OCR 全文识别', desc: '整页当图片识别，再按版式还原段落', ms: 1500, best: '扫描件、拍照件' },
+  { key: 'table', name: '表格结构还原', desc: '识别表格线，按单元格还原成 markdown 表', ms: 1100, best: '明细表、流水、对账单' },
+  { key: 'ocr-plus', name: 'OCR + 人工校对增强', desc: 'OCR 后再跑一遍印章/手写分离，慢但准', ms: 1900, best: '盖骑缝章、有手写批注的件' },
+]
+
+/** ④ 利冲报告导出的文件名（生成成功后回显） */
+export const DEMO_X3_CONFLICT_REPORT_FILE = 'LCA-20261101-0007 利冲审查报告.pdf'

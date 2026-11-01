@@ -11,17 +11,29 @@
 
 import { AlertTriangle, CheckCircle2, Gavel, XCircle } from 'lucide-react'
 
-import { DEMO_FILING_CHECKS, DEMO_FILING_FIXES, DEMO_SIGN_CHECKS } from '../demo-data'
+import { DEMO_FILING_CHECKS, DEMO_FILING_FIXES, DEMO_SIGN_CHECKS, DEMO_X3_FIX_DIFF } from '../demo-data'
 import { useState } from 'react'
 import { StageActionCard } from './StageActionCard'
-import { DetailDrawer } from './DetailDrawer'
+import { FilingAmountCard } from './FilingAmountCard'
+import { FilingFixPreviewDrawer } from './FilingFixPreviewDrawer'
+import { FilingNotifyCard, type NotifyStage } from './FilingNotifyCard'
+import { SignDrawer } from './FilingSignDrawer'
 import { useStageAction } from './use-stage-action'
 import { ActionButton } from '../ui'
-import { InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from '../ui'
+import { Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
+
+const NOTIFY_STEPS = [
+  { text: '检查硬阻塞：签章是否全部通过', ms: 300 },
+  { text: '生成待办：去一张网核对立案表单', ms: 420 },
+  { text: '推送站内待办 + AI 助手卡片', ms: 380 },
+  { text: '发送短信', ms: 300 },
+]
 
 export function FilingPanel() {
   const [signOpen, setSignOpen] = useState<string | null>(null)
+  /** 一键修正的 diff 预览是否打开 */
+  const [diffOpen, setDiffOpen] = useState(false)
 
   /* 跑一遍完整校验 */
   const verify = useStageAction({
@@ -42,7 +54,7 @@ export function FilingPanel() {
     ],
     toSummary: () => '校验完成：4 项通过 / 1 项提示 / 2 项不通过，暂不能送法院',
   })
-  /* 一键修系统能自动修的那两项 */
+  /* 一键修系统能自动修的那两项（只在 diff 预览确认后才跑） */
   const autoFix = useStageAction({
     steps: [
       { text: '按起诉状定稿基准重写立案表单标的额', ms: 420 },
@@ -54,18 +66,14 @@ export function FilingPanel() {
   })
 
   /* 通知律师去一张网 */
-  const notify = useStageAction({
-    steps: [
-      { text: '检查硬阻塞：2 份签章未通过', ms: 300 },
-      { text: '按规则不允许通知，已生成补签清单', ms: 420 },
-    ],
-    toSummary: () => '未发送通知：签章未齐时通知律师只会让他白跑一趟',
-  })
+  const notify = useStageAction({ steps: NOTIFY_STEPS, toSummary: () => '已送达' })
+  const [notifyStage, setNotifyStage] = useState<NotifyStage>('idle')
 
   const sealOk = DEMO_SIGN_CHECKS.filter((d) => d.sealOk).length
   const signOk = DEMO_SIGN_CHECKS.filter((d) => d.signOk).length
   const blocked = DEMO_SIGN_CHECKS.filter((d) => !d.sealOk || !d.signOk)
   const total = DEMO_SIGN_CHECKS.length
+  const diffCount = DEMO_X3_FIX_DIFF.length
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -93,10 +101,18 @@ export function FilingPanel() {
 
       <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
+          {/* 三处金额对比 */}
+          <FilingAmountCard />
+
           {/* 签字盖章核对表 */}
           <WorkCard padded={false}>
             <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <SectionTitle title="签字盖章核对" hint="机器比对扫描件的印章与签名区域" className="w-full" />
+              <SectionTitle
+                title="签字盖章核对"
+                hint="机器比对扫描件的印章与签名区域 · 可逐份复核"
+                className="w-full"
+                action={<Pill tone={blocked.length ? 'red' : 'green'}>未通过 {blocked.length}</Pill>}
+              />
             </div>
             <ul className="divide-y divide-border-light">
               {DEMO_SIGN_CHECKS.map((d) => {
@@ -186,11 +202,11 @@ export function FilingPanel() {
             <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
               <SectionTitle
                 title="不通过项怎么修"
-                hint="系统能自动修的会直接修"
+                hint="系统能自动修的会先给你看 diff"
                 className="w-full"
                 action={
-                  <ActionButton sm dark disabled={autoFix.phase === 'running'} onClick={() => void autoFix.execute()}>
-                    {autoFix.phase === 'running' ? '修正中…' : '一键修正可自动项'}
+                  <ActionButton sm dark disabled={autoFix.phase === 'running'} onClick={() => setDiffOpen(true)}>
+                    {autoFix.phase === 'running' ? '修正中…' : autoFix.phase === 'done' ? '已修正 · 再看 diff' : '一键修正可自动项'}
                   </ActionButton>
                 }
               />
@@ -201,50 +217,30 @@ export function FilingPanel() {
                   <div className="flex items-center gap-2">
                     <span className="text-[12px] font-medium">{f.item}</span>
                     <Pill tone={f.auto ? 'green' : 'yellow'}>{f.auto ? '系统自动' : '需人工'}</Pill>
+                    {f.auto && autoFix.phase === 'done' ? <Pill tone="blue">已修正</Pill> : null}
                     <span className="ml-auto text-[10px] text-muted-foreground">{f.owner} · {f.eta}</span>
                   </div>
                   <div className="mt-0.5 text-[10.5px] text-muted-foreground">{f.fix}</div>
                 </li>
               ))}
             </ul>
+            {autoFix.phase === 'done' ? (
+              <div className="border-t border-border-light bg-status-green-bg/30 px-5 py-2 text-[10.5px] text-status-green">
+                {autoFix.summary}
+              </div>
+            ) : null}
           </WorkCard>
 
           {/* 报送与通知 */}
-          <WorkCard>
-            <SectionTitle title="校验通过后怎么通知律师" hint="机器只做检查，不代提交" />
-            <div className="mt-3">
-              <StepItem index={1} title="签字盖章全部齐备" desc="机器核对，不齐不通知" state={blocked.length ? 'blocked' : 'done'} />
-              <StepItem index={2} title="推送待办给主办律师" desc="站内通知 + 短信 + AI 助手卡片" state={blocked.length ? 'todo' : 'current'} />
-              <StepItem index={3} title="律师打开一张网核对表单" desc="机器已填好，律师逐项看" state="todo" />
-              <StepItem index={4} title="律师本人点提交" desc="这一步机器不代点，责任在签字律师" state="todo" />
-            </div>
-
-            <InsetBlock className="mt-3">
-              <div className="flex items-start gap-2.5">
-                <Gavel className="mt-[1px] size-3.5 flex-none text-muted-foreground" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium">
-                      {blocked.length ? `还不能通知律师：${blocked.length} 份文书未通过核对` : '可以通知律师去一张网提交了'}
-                    </span>
-                    <span className="ml-auto" />
-                    <ActionButton
-                      sm
-                      disabled={notify.phase === 'running'}
-                      onClick={() => void notify.execute()}
-                    >
-                      {notify.phase === 'running' ? '发送中…' : '通知律师去提交'}
-                    </ActionButton>
-                  </div>
-                  <div className="mt-0.5 text-[10.5px] leading-[1.6] text-muted-foreground">
-                    {blocked.length
-                      ? blocked.map((d) => d.note).join('；')
-                      : '律师会在待办里收到一条「去一张网提交」的提醒，点开即到立案页。'}
-                  </div>
-                </div>
-              </div>
-            </InsetBlock>
-          </WorkCard>
+          <FilingNotifyCard
+            blockedCount={blocked.length}
+            blockedNotes={blocked.map((d) => d.note)}
+            stage={notifyStage}
+            onSend={() => {
+              setNotifyStage('sending')
+              void notify.execute().then(() => setNotifyStage('sent'))
+            }}
+          />
         </div>
 
         <WorkCard padded={false}>
@@ -273,11 +269,32 @@ export function FilingPanel() {
             </div>
           </RailSection>
 
-          <RailSection title="不通过怎么办">
+          <RailSection title="三处金额怎么算一致">
             <div className="flex flex-col gap-1.5 text-[10.5px] leading-[1.6] text-muted-foreground">
-              <div>→ 生成补签清单，通知经办人</div>
-              <div>→ 需重签的文书回到起草阶段</div>
-              <div>→ 重签后自动重跑本页核对</div>
+              <div>→ 起诉状定稿 = 基准，不改</div>
+              <div>→ 立案表单按基准重算，回读比对</div>
+              <div>→ 要素式由起诉状转换，天然同源</div>
+              <div className="text-status-yellow">→ 口径不同（360/365 天）会差几毛几分</div>
+            </div>
+          </RailSection>
+
+          <RailSection title="一键修正会改什么">
+            <div className="rounded-[8px] border border-border-light bg-background px-2.5 py-2">
+              <div className="text-[10.5px] font-medium text-secondary-foreground">
+                {diffCount} 项字段变更，先看 diff 才执行
+              </div>
+              <p className="mt-0.5 text-[10.5px] leading-[1.6] text-muted-foreground">
+                改的是立案表单与要素式，起诉状定稿一张不改。
+                签章那 2 项不在自动范围里。
+              </p>
+            </div>
+          </RailSection>
+
+          <RailSection title="通知是两阶段的">
+            <div className="flex flex-col gap-1.5 text-[10.5px] leading-[1.6] text-muted-foreground">
+              <div>→ 发出 ≠ 送达，送达 ≠ 已读</div>
+              <div>→ 站内待办回「已读」才算律师看到了</div>
+              <div>→ 短信只到「已发送」，没有回执</div>
             </div>
           </RailSection>
 
@@ -296,74 +313,23 @@ export function FilingPanel() {
       </div>
 
       <SignDrawer name={signOpen} onClose={() => setSignOpen(null)} />
+      <FilingFixPreviewDrawer
+        open={diffOpen}
+        running={autoFix.phase === 'running'}
+        onConfirm={() => {
+          setDiffOpen(false)
+          void autoFix.execute()
+        }}
+        onClose={() => setDiffOpen(false)}
+      />
+
+      {/* diff 预览是这一页唯一的「先看再改」 */}
+      <div className="flex items-center gap-2 px-1">
+        <Gavel className="size-3.5 flex-none text-muted-foreground" />
+        <span className="text-[10.5px] text-muted-foreground">
+          机器只做检查与修正建议；{diffCount} 项自动修正必须经律师确认 diff 后才执行。
+        </span>
+      </div>
     </div>
-  )
-}
-
-/** 签章详情：能看识别到的印章/签名区域，可要求重签 */
-function SignDrawer({ name, onClose }: { name: string | null; onClose: () => void }) {
-  const d = name ? DEMO_SIGN_CHECKS.find((x) => x.docName === name) : null
-  const ok = d ? d.sealOk && d.signOk : false
-
-  return (
-    <DetailDrawer
-      open={d != null}
-      onClose={onClose}
-      title={d?.docName ?? ''}
-      subtitle={d ? `需盖：${d.needSeal}${d.needSign !== '—' ? ` · 需签：${d.needSign}` : ''}` : undefined}
-      badge={d ? <Pill tone={ok ? 'green' : 'red'}>{ok ? '已通过' : '未通过'}</Pill> : null}
-      footer={
-        d ? (
-          <>
-            <ActionButton dark onClick={onClose}>
-              标记为已核对
-            </ActionButton>
-            <ActionButton onClick={onClose}>要求重签</ActionButton>
-            <ActionButton onClick={onClose}>推送 OA 盖章</ActionButton>
-          </>
-        ) : null
-      }
-    >
-      {d ? (
-        <div className="flex flex-col gap-3">
-          <dl>
-            <KeyValueRow label="印章识别">
-              <span className={d.sealOk ? 'text-status-green' : 'text-status-red'}>
-                {d.sealOk ? '检测到对应印章' : '未检测到印章'}
-              </span>
-            </KeyValueRow>
-            <KeyValueRow label="签名识别">
-              <span className={d.signOk ? 'text-status-green' : 'text-status-red'}>
-                {d.signOk ? '检测到签名笔迹' : '签名区域为空'}
-              </span>
-            </KeyValueRow>
-            <KeyValueRow label="核对说明">{d.note}</KeyValueRow>
-          </dl>
-
-          <InsetBlock>
-            <div className="text-[10px] text-muted-foreground">印章与签名区域</div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className={`grid aspect-[4/3] place-items-center rounded-[4px] border ${d.sealOk ? 'border-status-green/40 bg-status-green-bg/50' : 'border-status-red/40 bg-status-red-bg/50'}`}>
-                <span className={`text-[10px] ${d.sealOk ? 'text-status-green' : 'text-status-red'}`}>
-                  {d.sealOk ? '印章 ✓' : '无印章'}
-                </span>
-              </div>
-              <div className={`grid aspect-[4/3] place-items-center rounded-[4px] border ${d.signOk ? 'border-status-green/40 bg-status-green-bg/50' : 'border-status-red/40 bg-status-red-bg/50'}`}>
-                <span className={`text-[10px] ${d.signOk ? 'text-status-green' : 'text-status-red'}`}>
-                  {d.signOk ? '签名 ✓' : '无签名'}
-                </span>
-              </div>
-            </div>
-          </InsetBlock>
-
-          {!ok ? (
-            <InsetBlock className="border-status-red/40 bg-status-red-bg/50">
-              <div className="text-[10.5px] font-medium text-status-red">这份不通过</div>
-              <p className="mt-1 text-[10.5px] leading-[1.65] text-muted-foreground">{d.note}</p>
-            </InsetBlock>
-          ) : null}
-        </div>
-      ) : null}
-    </DetailDrawer>
   )
 }

@@ -9,14 +9,26 @@
  * 而冲突本身可能意味着这案子根本不能接。
  */
 
-import { AlertTriangle, Bot, CheckCircle2, FileText, ShieldAlert } from 'lucide-react'
+import { FileText, Video } from 'lucide-react'
 
-import { DEMO_CONFLICT_HITS, DEMO_CONTRACT_GEN, DEMO_CONTRACT_TERMS } from '../demo-data'
+import {
+  DEMO_CONFLICT_HITS,
+  DEMO_CONTRACT_GEN,
+  DEMO_X3_BROWSER_FRAMES,
+  DEMO_X3_CONFLICT_REPORT,
+  DEMO_X3_CONFLICT_REPORT_FILE,
+} from '../demo-data'
 import { useState } from 'react'
 import { StageActionCard } from './StageActionCard'
+import { BotReplayDrawer } from './BotReplayDrawer'
+import { ConflictCard } from './ContractConflictCard'
+import { ContractGenCard, ContractTermsCard, TermEditDrawer } from './ContractTermsCard'
+import { initTermDrafts, pendingTermCount } from './contract-terms'
+import { ContractRail } from './ContractRail'
+import { DocDrawer } from './ContractDocDrawer'
 import { DetailDrawer } from './DetailDrawer'
 import { useStageAction } from './use-stage-action'
-import { ActionButton, InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from '../ui'
+import { ActionButton, InsetBlock, KeyValueRow, Pill, SectionTitle, StepItem, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function ContractPanel() {
@@ -24,6 +36,16 @@ export function ContractPanel() {
   const [docOpen, setDocOpen] = useState<string | null>(null)
   /** 查看的利冲主体 */
   const [hitOpen, setHitOpen] = useState<string | null>(null)
+  /** 正在编辑的条款 */
+  const [termEdit, setTermEdit] = useState<string | null>(null)
+  /** 条款草稿：改过的值只存在这里，不动共享常量 */
+  const [drafts, setDrafts] = useState(initTermDrafts)
+  /** 每份文书选用的模板 */
+  const [templates, setTemplates] = useState<Record<string, string>>({})
+  /** 执行录像 */
+  const [replayOpen, setReplayOpen] = useState(false)
+  /** 利冲报告导出结果（拿到文件名即视为已生成） */
+  const [report, setReport] = useState<string | null>(null)
 
   /* ① 生成委托材料 */
   const genDocs = useStageAction({
@@ -64,9 +86,21 @@ export function ContractPanel() {
     ],
     toSummary: () => '命中 1 处红色冲突（李某某），OA 立案已自动阻断',
   })
+  /* ③ 导出利冲报告：短进度，落一个 PDF */
+  const exportReport = useStageAction({
+    steps: [
+      { text: '汇总 6 方检索记录', ms: 350 },
+      { text: '附上命中快照与证件号比对', ms: 450 },
+      { text: '渲染 PDF 并加律所抬头', ms: 550 },
+    ],
+    toSummary: () => 'LCA-20261101-0007 利冲审查报告.pdf 已生成，可在文书库下载',
+  })
+
   const red = DEMO_CONFLICT_HITS.filter((h) => h.level === 'red')
   const yellow = DEMO_CONFLICT_HITS.filter((h) => h.level === 'yellow')
   const generated = DEMO_CONTRACT_GEN.filter((d) => d.status === 'generated')
+  const pendingTerms = pendingTermCount(drafts)
+  const customTemplates = Object.entries(templates).filter(([, v]) => v !== 'v3.2')
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -81,268 +115,112 @@ export function ContractPanel() {
         confirm={conflictRun.confirm}
       />
 
-      <StatStrip className="grid-cols-2 sm:grid-cols-4">
-        <StatCell label="已生成文书" value={`${generated.length}/${DEMO_CONTRACT_GEN.length}`} tone="green" />
-        <StatCell label="检索主体" value={`${DEMO_CONFLICT_HITS.length} 方`} />
-        <StatCell label="红色冲突" value={`${red.length}`} tone={red.length ? 'red' : 'green'} />
-        <StatCell label="需复核" value={`${yellow.length}`} tone={yellow.length ? 'yellow' : 'green'} />
-      </StatStrip>
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+        <MiniStat label="已生成文书" value={`${generated.length}/${DEMO_CONTRACT_GEN.length}`} tone="green" />
+        <MiniStat label="待定条款" value={`${pendingTerms}`} tone={pendingTerms ? 'yellow' : 'green'} />
+        <MiniStat label="红色冲突" value={`${red.length}`} tone={red.length ? 'red' : 'green'} />
+        <MiniStat label="需复核" value={`${yellow.length}`} tone={yellow.length ? 'yellow' : 'green'} />
+      </div>
 
       <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
-          {/* 生成的文书 */}
-          <WorkCard padded={false}>
-            <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <SectionTitle
-                title="自动生成的委托材料"
-                hint="按案件数据套模板"
-                className="w-full"
-                action={
-                  <ActionButton sm disabled={genDocs.phase === 'running'} onClick={() => void genDocs.execute()}>
-                    {genDocs.phase === 'running' ? '生成中…' : genDocs.phase === 'done' ? '重新生成' : '生成文书'}
-                  </ActionButton>
-                }
-              />
-            </div>
-            <ul className="divide-y divide-border-light">
-              {DEMO_CONTRACT_GEN.map((d) => (
-                <li
-                  key={d.name}
-                  onClick={() => setDocOpen(d.name)}
-                  className="flex cursor-pointer items-center gap-3 px-5 py-2.5 transition-colors hover:bg-secondary/40"
-                >
-                  <FileText className="size-3.5 flex-none text-muted-foreground" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[12.5px] font-medium">{d.name}</span>
-                    <span className="mt-0.5 block text-[10.5px] text-muted-foreground">{d.source}</span>
-                  </span>
-                  <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{d.pages} 页</span>
-                  <Pill tone={d.status === 'generated' ? 'green' : 'yellow'}>
-                    {d.status === 'generated' ? '已生成' : '待生成'}
-                  </Pill>
-                </li>
-              ))}
-            </ul>
-          </WorkCard>
+          <ContractGenCard
+            generating={genDocs.phase === 'running'}
+            onGenerate={() => void genDocs.execute()}
+            templates={templates}
+            onTemplateChange={(name, tpl) => setTemplates((v) => ({ ...v, [name]: tpl }))}
+            onOpenDoc={setDocOpen}
+          />
 
-          {/* 委托合同关键条款（自动填充结果） */}
-          <WorkCard padded={false}>
-            <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <SectionTitle title="委托合同条款自动填充" hint="律师核对后定稿" className="w-full" />
-            </div>
-            <ul className="divide-y divide-border-light">
-              {DEMO_CONTRACT_TERMS.map((t) => (
-                <li key={t.clause} className="flex items-center gap-3 px-5 py-2">
-                  <span className="w-[84px] flex-none text-[11.5px] text-muted-foreground">{t.clause}</span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium" title={t.value}>{t.value}</span>
-                  <span className="w-[150px] flex-none truncate text-[10px] text-muted-foreground" title={t.source}>{t.source}</span>
-                  <span className="w-[56px] flex-none text-right">
-                    <Pill tone={t.filled ? 'green' : 'yellow'}>{t.filled ? '已填' : '待定'}</Pill>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </WorkCard>
+          <ContractTermsCard drafts={drafts} onEdit={setTermEdit} />
 
           {/* 利冲检索 */}
-          <WorkCard padded={false}>
-            <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <ShieldAlert className="size-3.5 flex-none text-muted-foreground" />
-              <SectionTitle title="OA 利益冲突检索" hint="机器人登录 OA 当事人库逐方比对" className="w-full" />
-            </div>
-
-            {red.length > 0 ? (
-              <div className="border-b border-border-light bg-status-red-bg/50 px-5 py-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-red" />
-                  <div className="min-w-0">
-                    <div className="text-[12px] font-semibold text-status-red">
-                      命中 1 处红色冲突 · 已自动阻断立案
-                    </div>
-                    <p className="mt-0.5 text-[10.5px] leading-[1.6] text-status-red/90">
-                      {red[0]!.detail}。同一自然人在对方阵营，按执业规范必须停止。
-                      机器人已停在利冲结果页，未继续建卷。
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <ul className="divide-y divide-border-light">
-              {DEMO_CONFLICT_HITS.map((h, i) => (
-                <li
-                  key={`${h.subject}-${i}`}
-                  onClick={() => setHitOpen(`${h.subject}-${i}`)}
-                  className="flex cursor-pointer items-center gap-3 px-5 py-2.5 transition-colors hover:bg-secondary/40"
-                >
-                  <span
-                    className={cn(
-                      'grid size-4 flex-none place-items-center rounded-full',
-                      h.level === 'red'
-                        ? 'bg-status-red'
-                        : h.level === 'yellow'
-                          ? 'bg-status-yellow'
-                          : 'bg-status-green',
-                    )}
-                  >
-                    {h.level === 'clear' ? (
-                      <CheckCircle2 className="size-2.5 text-white" strokeWidth={3} />
-                    ) : (
-                      <AlertTriangle className="size-2.5 text-white" strokeWidth={3} />
-                    )}
-                  </span>
-                  <span className="w-[140px] flex-none truncate text-[12px]" title={h.subject}>
-                    {h.subject}
-                  </span>
-                  <Pill>{h.role}</Pill>
-                  <span className="min-w-0 flex-1 truncate text-[10.5px] text-muted-foreground" title={h.detail}>
-                    {h.detail}
-                  </span>
-                  <Pill tone={h.level === 'red' ? 'red' : h.level === 'yellow' ? 'yellow' : 'green'}>
-                    {h.level === 'red' ? '冲突' : h.level === 'yellow' ? '复核' : '无冲突'}
-                  </Pill>
-                </li>
-              ))}
-            </ul>
-          </WorkCard>
+          <ConflictCard
+            exportState={{
+              phase: exportReport.phase,
+              percent: exportReport.percent,
+              progress: exportReport.progress,
+              report,
+              onExport: () => {
+                setReport(null)
+                void exportReport.execute().then(() => setReport(DEMO_X3_CONFLICT_REPORT_FILE))
+              },
+            }}
+            onOpenHit={setHitOpen}
+          />
 
           {/* 机器人执行日志 */}
           <WorkCard>
-            <SectionTitle title="机器人执行过程" hint="服务端浏览器自动化" />
+            <SectionTitle
+              title="机器人执行过程"
+              hint="服务端浏览器自动化"
+              action={
+                <ActionButton sm onClick={() => setReplayOpen(true)}>
+                  <Video className="size-3" />
+                  查看执行录像
+                </ActionButton>
+              }
+            />
             <div className="mt-3">
               <StepItem index={1} title="登录律所 OA" desc="用配置账号登录 · 1,840 ms" state="done" />
               <StepItem index={2} title="检索当事人库" desc="6 方逐方比对 · 2,260 ms" state="done" />
               <StepItem index={3} title="命中红色冲突" desc="李某某 与「离婚案」当事人同人" state="blocked" />
               <StepItem index={4} title="停止建卷" desc="等律师决定是否终止委托" state="todo" />
             </div>
+            <div className="mt-2 text-[10px] text-muted-foreground">
+              录像 {DEMO_X3_BROWSER_FRAMES.length} 帧 · 11-01 10:22 — 10:24
+            </div>
           </WorkCard>
         </div>
 
-        <WorkCard padded={false}>
-          <RailSection title="当前卡点">
-            <div className="rounded-[8px] border border-status-red/40 bg-status-red-bg/60 px-2.5 py-2">
-              <div className="text-[11.5px] font-medium text-status-red">利冲未通过，OA 立案已停</div>
-              <p className="mt-0.5 text-[10.5px] leading-[1.6] text-muted-foreground">
-                共同借款人李某某与本所在办离婚案当事人为同一人（证件号一致）。
-                需由主任律师判定是否属于禁止性冲突。
-              </p>
-            </div>
-          </RailSection>
-
-          <RailSection title="先查利冲再看立案">
-            <p className="text-[10.5px] leading-[1.7] text-muted-foreground">
-              利冲必须在建卷之前。先建了卷再发现冲突，撤销要走审批；
-              而冲突本身可能意味着这个委托根本不能接。
-            </p>
-          </RailSection>
-
-          <RailSection title="三档判定">
-            <div className="flex flex-col gap-2">
-              <div>
-                <Pill tone="red">红色</Pill>
-                <div className="mt-1 text-[10.5px] leading-[1.55] text-muted-foreground">
-                  同名且证件号相同 —— 同一人在对方阵营，必须停
-                </div>
-              </div>
-              <div>
-                <Pill tone="yellow">黄色</Pill>
-                <div className="mt-1 text-[10.5px] leading-[1.55] text-muted-foreground">
-                  同名但证件号不同 —— 疑似重名，律师复核
-                </div>
-              </div>
-              <div>
-                <Pill tone="green">无冲突</Pill>
-                <div className="mt-1 text-[10.5px] leading-[1.55] text-muted-foreground">
-                  无命中，或仅历史已结案记录
-                </div>
-              </div>
-            </div>
-          </RailSection>
-
-          <RailSection title="文书什么时候签">
-            <InsetBlock>
-              <div className="flex items-start gap-2">
-                <Bot className="mt-[1px] size-3.5 flex-none text-muted-foreground" />
-                <p className="text-[10.5px] leading-[1.65] text-muted-foreground">
-                  生成的委托合同需要律师核对后定稿，再由当事人签署。
-                  利冲未通过前不建议发出签署。
-                </p>
-              </div>
-            </InsetBlock>
-          </RailSection>
-        </WorkCard>
+        <ContractRail
+          termCount={Object.keys(drafts).length}
+          pendingTerms={pendingTerms}
+          customTemplates={customTemplates}
+        />
       </div>
 
       <DocDrawer name={docOpen} onClose={() => setDocOpen(null)} />
       <ConflictDrawer keyName={hitOpen} onClose={() => setHitOpen(null)} />
+      <TermEditDrawer
+        clause={termEdit}
+        drafts={drafts}
+        onSave={(clause, value) => setDrafts((v) => ({ ...v, [clause]: { value, edited: true } }))}
+        onClose={() => setTermEdit(null)}
+      />
+      <BotReplayDrawer open={replayOpen} onClose={() => setReplayOpen(false)} />
     </div>
   )
 }
 
-/** 委托合同预览：能看条款填充结果，也能改 */
-function DocDrawer({ name, onClose }: { name: string | null; onClose: () => void }) {
-  const doc = name ? DEMO_CONTRACT_GEN.find((d) => d.name === name) : null
-  const terms = name === '民事委托代理合同' ? DEMO_CONTRACT_TERMS : []
-
+/** 统计格：这一版用独立小块，不再依赖 StatStrip 的固定四列 */
+function MiniStat({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string
+  value: string
+  tone?: 'neutral' | 'green' | 'red' | 'yellow'
+}) {
+  const map = {
+    neutral: 'text-foreground',
+    green: 'text-status-green',
+    red: 'text-status-red',
+    yellow: 'text-status-yellow',
+  } as const
   return (
-    <DetailDrawer
-      open={doc != null}
-      onClose={onClose}
-      width={560}
-      title={doc?.name ?? ''}
-      subtitle={doc ? `${doc.pages} 页 · ${doc.source}` : undefined}
-      badge={doc ? <Pill tone={doc.status === 'generated' ? 'green' : 'yellow'}>{doc.status === 'generated' ? '已生成' : '待生成'}</Pill> : null}
-      footer={
-        doc ? (
-          <>
-            <ActionButton dark onClick={onClose}>
-              下载 docx
-            </ActionButton>
-            <ActionButton onClick={onClose}>编辑条款</ActionButton>
-            <ActionButton onClick={onClose}>发给当事人签署</ActionButton>
-          </>
-        ) : null
-      }
-    >
-      {doc ? (
-        <div className="flex flex-col gap-3">
-          <InsetBlock className="bg-secondary/25">
-            <div className="text-[10px] text-muted-foreground">生成方式</div>
-            <p className="mt-1 text-[11px] leading-[1.7] text-secondary-foreground">{doc.source}</p>
-          </InsetBlock>
-
-          {terms.length > 0 ? (
-            <div>
-              <div className="mb-1.5 text-[10.5px] text-muted-foreground">填充的条款</div>
-              <div className="flex flex-col divide-y divide-border-light">
-                {terms.map((t) => (
-                  <div key={t.clause} className="flex items-center gap-2 py-1.5">
-                    <span className="w-[70px] flex-none text-[11px] text-muted-foreground">{t.clause}</span>
-                    <span className="min-w-0 flex-1 truncate text-[11.5px] font-medium" title={t.value}>
-                      {t.value}
-                    </span>
-                    <Pill tone={t.filled ? 'green' : 'yellow'}>{t.filled ? '已填' : '待定'}</Pill>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <InsetBlock>
-            <div className="text-[10px] text-muted-foreground">正文预览</div>
-            <div className="mt-2 grid aspect-[3/4] place-items-center rounded-[4px] border border-border-light bg-secondary/30">
-              <span className="text-[10.5px] text-muted-foreground">（docx 预览）</span>
-            </div>
-          </InsetBlock>
-        </div>
-      ) : null}
-    </DetailDrawer>
+    <div className="rounded-[10px] border border-border-light bg-secondary/30 px-3 py-2 text-center">
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+      <div className={cn('mt-0.5 text-[14px] font-[620] tabular-nums', map[tone])}>{value}</div>
+    </div>
   )
 }
 
 /** 利冲详情：能看到匹配到了什么、怎么办 */
 function ConflictDrawer({ keyName, onClose }: { keyName: string | null; onClose: () => void }) {
   const h = keyName ? DEMO_CONFLICT_HITS.find((x, i) => `${x.subject}-${i}` === keyName) : null
+  const [exported, setExported] = useState<string | null>(null)
 
   return (
     <DetailDrawer
@@ -356,8 +234,8 @@ function ConflictDrawer({ keyName, onClose }: { keyName: string | null; onClose:
       footer={
         h ? (
           <>
-            <ActionButton dark onClick={onClose}>
-              发起冲突审查
+            <ActionButton dark onClick={() => setExported('冲突审查结论-LCA-20261101-0007.pdf')}>
+              导出利冲报告
             </ActionButton>
             <ActionButton onClick={onClose}>标记为已核实</ActionButton>
           </>
@@ -388,6 +266,27 @@ function ConflictDrawer({ keyName, onClose }: { keyName: string | null; onClose:
                 同一自然人在对方阵营，属于禁止性冲突。需由主任律师判定是否终止本次委托，
                 或取得双方书面同意后继续。
               </p>
+            </InsetBlock>
+          ) : null}
+
+          <div>
+            <div className="mb-1.5 text-[10.5px] text-muted-foreground">审查报告会带上这些</div>
+            <dl className="divide-y divide-border-light">
+              {DEMO_X3_CONFLICT_REPORT.map((r) => (
+                <KeyValueRow key={r.title} label={r.title}>
+                  {r.value}
+                </KeyValueRow>
+              ))}
+            </dl>
+          </div>
+
+          {exported ? (
+            <InsetBlock className="border-status-green/40 bg-status-green-bg/40">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-medium text-status-green">
+                <FileText className="size-3" />
+                已生成 PDF
+              </div>
+              <p className="mt-1 text-[10.5px] text-muted-foreground">{exported} · 3 页 · 含命中快照</p>
             </InsetBlock>
           ) : null}
         </div>

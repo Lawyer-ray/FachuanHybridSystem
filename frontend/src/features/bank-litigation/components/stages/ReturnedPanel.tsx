@@ -6,20 +6,56 @@
  * 认出来的自动下载并挂到对应案件。
  *
  * 认不准的不硬塞 —— 低于阈值进「待处理」，让人来定。
+ *
+ * 所以这一屏要能回答四件事：扫的是哪些邮箱、它们怎么配的（能改）；
+ * 扫到的邮件里附件长什么样（能预览）；哪些归上了、哪些没归上（能筛）；
+ * 没归上的怎么手工挂到案子上去（搜案件 → 选槽位 → 确认）。
  */
 
-import { CheckCircle2, HelpCircle, Inbox, Mail } from 'lucide-react'
-
-import { DEMO_RETURNED_DIFF, DEMO_RETURNED_MAILS, DEMO_SCAN_BATCHES } from '../demo-data'
+import { CheckCircle2, FileImage, FileText, HelpCircle, Inbox, Mail, Search, Settings2 } from 'lucide-react'
 import { useState } from 'react'
+
+import {
+  DEMO_RETURNED_DIFF,
+  DEMO_RETURNED_MAILS,
+  DEMO_SCAN_BATCHES,
+  DEMO_X2_ASSIGN_CANDIDATES,
+  DEMO_X2_CLAIM_FILTERS,
+  DEMO_X2_MAIL_ATTACHMENTS,
+  DEMO_X2_SCAN_INTERVALS,
+  DEMO_X2_SCAN_MAILBOXES,
+  type AssignCandidate,
+  type ClaimFilter,
+  type MailAttachment,
+  type ScanMailboxConfig,
+} from '../demo-data'
 import { StageActionCard } from './StageActionCard'
 import { DetailDrawer } from './DetailDrawer'
 import { useStageAction } from './use-stage-action'
 import { ActionButton, InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
+/** 归案日志里一封邮件的筛选口径 */
+type ClaimKind = 'auto' | 'manual' | 'ignored'
+
+function claimKindOf(action: string): ClaimKind {
+  if (action.startsWith('已标记无关')) return 'ignored'
+  if (action.startsWith('已自动') || action.startsWith('已归案')) return 'auto'
+  return 'manual'
+}
+
 export function ReturnedPanel() {
   const [mailOpen, setMailOpen] = useState<string | null>(null)
+  /** 归案日志筛选 */
+  const [claimFilter, setClaimFilter] = useState<ClaimFilter>('全部')
+  /** 正在配置的邮箱地址 */
+  const [configAddr, setConfigAddr] = useState<string | null>(null)
+  /** 已保存的邮箱配置（按地址覆盖默认值） */
+  const [mailboxConfig, setMailboxConfig] = useState<Record<string, ScanMailboxConfig>>({})
+  /** 正在做手动归案的那封邮件 */
+  const [assignSubject, setAssignSubject] = useState<string | null>(null)
+  /** 演示：标记为无关的邮件 */
+  const [ignored, setIgnored] = useState<Set<string>>(new Set())
 
   /* 立刻扫一轮邮箱 */
   const scanNow = useStageAction({
@@ -53,9 +89,22 @@ export function ReturnedPanel() {
     toSummary: () => '律师函签收回执已手动归属到本案',
   })
 
-  const auto = DEMO_RETURNED_MAILS.filter((m) => m.action.startsWith('已'))
-  const manual = DEMO_RETURNED_MAILS.filter((m) => !m.action.startsWith('已'))
-  const attachments = DEMO_RETURNED_MAILS.reduce((n, m) => n + m.attachments, 0)
+  const rows = DEMO_RETURNED_MAILS.map((m) => (ignored.has(m.subject) ? { ...m, action: '已标记无关' } : m))
+  const auto = rows.filter((m) => claimKindOf(m.action) === 'auto')
+  const manual = rows.filter((m) => claimKindOf(m.action) === 'manual')
+  const ignoredCount = rows.filter((m) => claimKindOf(m.action) === 'ignored').length
+  const attachments = rows.reduce((n, m) => n + m.attachments, 0)
+
+  const claimCount = (f: ClaimFilter) =>
+    f === '全部'
+      ? rows.length
+      : rows.filter((m) => claimKindOf(m.action) === (f === '自动归案' ? 'auto' : f === '待人工' ? 'manual' : 'ignored')).length
+  const shownMails =
+    claimFilter === '全部'
+      ? rows
+      : rows.filter(
+          (m) => claimKindOf(m.action) === (claimFilter === '自动归案' ? 'auto' : claimFilter === '待人工' ? 'manual' : 'ignored'),
+        )
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -71,7 +120,7 @@ export function ReturnedPanel() {
       />
 
       <StatStrip className="grid-cols-2 sm:grid-cols-4">
-        <StatCell label="扫到邮件" value={`${DEMO_RETURNED_MAILS.length} 封`} />
+        <StatCell label="扫到邮件" value={`${rows.length} 封`} />
         <StatCell label="附件" value={`${attachments} 份`} />
         <StatCell label="自动归案" value={`${auto.length} 封`} tone="green" />
         <StatCell label="待人工" value={`${manual.length} 封`} tone={manual.length ? 'yellow' : 'green'} />
@@ -79,29 +128,36 @@ export function ReturnedPanel() {
 
       <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
-          {/* 邮箱自动扫描 */}
+          {/* 邮箱自动扫描：每行可改配置 */}
           <WorkCard>
             <SectionTitle title="系统正在扫这些邮箱" hint="每 5 分钟一轮" />
             <div className="mt-2.5 flex flex-col gap-1.5">
-              {[
-                { addr: 'courts@某某律所.邮箱', note: '一张网收件箱 · 法院送达文书', count: 128 },
-                { addr: 'admin@某某律所.邮箱', note: '行政扫描仪自动转发', count: 42 },
-                { addr: 'client@某某律所.邮箱', note: '客户往来附件', count: 67 },
-              ].map((m) => (
-                <InsetBlock key={m.addr}>
-                  <div className="flex items-center gap-2.5">
-                    <Mail className="size-3.5 flex-none text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12px]">{m.addr}</div>
-                      <div className="mt-0.5 text-[10.5px] text-muted-foreground">{m.note}</div>
+              {DEMO_X2_SCAN_MAILBOXES.map((base) => {
+                const m = mailboxConfig[base.addr] ?? base
+                const changed = mailboxConfig[base.addr] != null
+                return (
+                  <InsetBlock key={base.addr}>
+                    <div className="flex items-center gap-2.5">
+                      <Mail className="size-3.5 flex-none text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[12px]">{m.addr}</div>
+                        <div className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
+                          {m.note} · 每 {m.interval} · {m.folder}
+                        </div>
+                      </div>
+                      {changed ? <Pill tone="blue">已改配置</Pill> : null}
+                      <Pill tone="green">监听中</Pill>
+                      <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">
+                        本月 {m.count} 封
+                      </span>
+                      <ActionButton sm title="改轮询间隔 / 文件夹 / 发件人白名单" onClick={() => setConfigAddr(base.addr)}>
+                        <Settings2 className="size-3" />
+                        设置
+                      </ActionButton>
                     </div>
-                    <Pill tone="green">监听中</Pill>
-                    <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">
-                      本月 {m.count} 封
-                    </span>
-                  </div>
-                </InsetBlock>
-              ))}
+                  </InsetBlock>
+                )
+              })}
             </div>
           </WorkCard>
 
@@ -145,15 +201,44 @@ export function ReturnedPanel() {
             </ul>
           </WorkCard>
 
-          {/* 归案结果 */}
+          {/* 归案结果：可筛选 */}
           <WorkCard padded={false}>
             <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
               <Inbox className="size-3.5 flex-none text-muted-foreground" />
               <SectionTitle title="已自动认领并归案" hint="按案号 / 当事人名 / 文件名关键词匹配" className="w-full" />
             </div>
+
+            {/* 归案状态筛选 */}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-border-light bg-secondary/25 px-5 py-2">
+              <span className="text-[10.5px] text-muted-foreground">筛选</span>
+              {DEMO_X2_CLAIM_FILTERS.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={claimFilter === f}
+                  onClick={() => setClaimFilter(f)}
+                  className={cn(
+                    'h-[24px] rounded-[6px] border px-2 text-[11px] transition-colors',
+                    claimFilter === f
+                      ? 'border-foreground bg-foreground font-semibold text-background'
+                      : 'border-border bg-card font-[550] text-secondary-foreground hover:bg-secondary',
+                  )}
+                >
+                  {f}
+                  <span className={cn('ml-1 tabular-nums', claimFilter === f ? 'opacity-70' : 'text-muted-foreground')}>
+                    {claimCount(f)}
+                  </span>
+                </button>
+              ))}
+              {ignoredCount > 0 ? (
+                <span className="ml-auto text-[10px] text-muted-foreground">已标记无关 {ignoredCount} 封</span>
+              ) : null}
+            </div>
+
             <ul className="divide-y divide-border-light">
-              {DEMO_RETURNED_MAILS.map((m) => {
-                const isAuto = m.action.startsWith('已自动') || m.action.startsWith('已归案')
+              {shownMails.map((m) => {
+                const kind = claimKindOf(m.action)
+                const isAuto = kind === 'auto'
                 return (
                   <li
                     key={m.subject}
@@ -163,13 +248,13 @@ export function ReturnedPanel() {
                     <span
                       className={cn(
                         'mt-[3px] grid size-4 flex-none place-items-center rounded-full',
-                        isAuto ? 'bg-status-green' : 'bg-status-yellow',
+                        isAuto ? 'bg-status-green' : kind === 'ignored' ? 'bg-secondary' : 'bg-status-yellow',
                       )}
                     >
                       {isAuto ? (
                         <CheckCircle2 className="size-2.5 text-white" strokeWidth={3} />
                       ) : (
-                        <HelpCircle className="size-2.5 text-white" strokeWidth={3} />
+                        <HelpCircle className={cn('size-2.5', kind === 'ignored' ? 'text-muted-foreground' : 'text-white')} strokeWidth={3} />
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -186,25 +271,34 @@ export function ReturnedPanel() {
                       <div
                         className={cn(
                           'mt-1 text-[10.5px]',
-                          isAuto ? 'text-status-green' : 'text-status-yellow',
+                          isAuto ? 'text-status-green' : kind === 'ignored' ? 'text-muted-foreground' : 'text-status-yellow',
                         )}
                       >
                         {m.action}
                       </div>
                     </div>
                     <div className="flex flex-none flex-col items-end gap-1">
-                      <Pill tone={isAuto ? 'green' : 'yellow'}>{m.matchedCase}</Pill>
+                      <Pill tone={isAuto ? 'green' : kind === 'ignored' ? 'neutral' : 'yellow'}>{m.matchedCase}</Pill>
                       <span className="text-[10px] tabular-nums text-muted-foreground">{m.at}</span>
-                      {!isAuto ? (
-                        <ActionButton sm onClick={() => void assignManual.execute()}>
-                          指定归属
-                        </ActionButton>
+                      {kind === 'manual' ? (
+                        /* 行本身是「打开邮件抽屉」，这里要拦住冒泡，只开归案弹窗 */
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <ActionButton sm onClick={() => setAssignSubject(m.subject)}>
+                            <Search className="size-3" />
+                            指定归属
+                          </ActionButton>
+                        </span>
                       ) : null}
                     </div>
                   </li>
                 )
               })}
             </ul>
+            {shownMails.length === 0 ? (
+              <div className="px-5 py-6 text-center text-[11.5px] text-muted-foreground">
+                「{claimFilter}」下没有邮件
+              </div>
+            ) : null}
           </WorkCard>
         </div>
 
@@ -253,15 +347,57 @@ export function ReturnedPanel() {
         </WorkCard>
       </div>
 
-      <MailDrawer subject={mailOpen} onClose={() => setMailOpen(null)} />
+      <MailDrawer
+        subject={mailOpen}
+        onClose={() => setMailOpen(null)}
+        ignored={ignored}
+        onIgnore={(s) => {
+          setIgnored((prev) => new Set(prev).add(s))
+          setMailOpen(null)
+        }}
+        onAssign={(s) => {
+          setMailOpen(null)
+          setAssignSubject(s)
+        }}
+      />
+
+      <MailboxConfigDrawer
+        addr={configAddr}
+        saved={mailboxConfig}
+        onClose={() => setConfigAddr(null)}
+        onSave={(cfg) => {
+          setMailboxConfig((prev) => ({ ...prev, [cfg.addr]: cfg }))
+          setConfigAddr(null)
+        }}
+      />
+
+      <AssignDrawer
+        subject={assignSubject}
+        onClose={() => setAssignSubject(null)}
+        assign={assignManual}
+      />
     </div>
   )
 }
 
-/** 邮件详情：能看到附件、匹配依据、可改归属 */
-function MailDrawer({ subject, onClose }: { subject: string | null; onClose: () => void }) {
-  const m = subject ? DEMO_RETURNED_MAILS.find((x) => x.subject === subject) : null
-  const isAuto = m ? m.action.startsWith('已') : false
+/** 邮件详情：附件可点开预览、匹配依据、可改归属 */
+function MailDrawer({
+  subject,
+  onClose,
+  ignored,
+  onIgnore,
+  onAssign,
+}: {
+  subject: string | null
+  onClose: () => void
+  ignored: Set<string>
+  onIgnore: (subject: string) => void
+  onAssign: (subject: string) => void
+}) {
+  const raw = subject ? DEMO_RETURNED_MAILS.find((x) => x.subject === subject) : null
+  const m = raw && ignored.has(raw.subject) ? { ...raw, action: '已标记无关' } : raw
+  const kind = m ? claimKindOf(m.action) : 'manual'
+  const files = m ? DEMO_X2_MAIL_ATTACHMENTS.filter((a) => a.subject === m.subject) : []
 
   return (
     <DetailDrawer
@@ -269,15 +405,29 @@ function MailDrawer({ subject, onClose }: { subject: string | null; onClose: () 
       onClose={onClose}
       title={m?.subject ?? ''}
       subtitle={m ? `${m.from} · ${m.attachments} 个附件 · ${m.at}` : undefined}
-      badge={m ? <Pill tone={isAuto ? 'green' : 'yellow'}>{isAuto ? '已自动归案' : '待人工'}</Pill> : null}
+      badge={
+        m ? (
+          <Pill tone={kind === 'auto' ? 'green' : kind === 'ignored' ? 'neutral' : 'yellow'}>
+            {kind === 'auto' ? '已自动归案' : kind === 'ignored' ? '已标记无关' : '待人工'}
+          </Pill>
+        ) : null
+      }
       footer={
         m ? (
           <>
-            <ActionButton dark onClick={onClose}>
-              确认归属
-            </ActionButton>
+            {kind === 'manual' ? (
+              <ActionButton dark onClick={() => onAssign(m.subject)}>
+                指定归属
+              </ActionButton>
+            ) : (
+              <ActionButton dark onClick={onClose}>
+                确认归属
+              </ActionButton>
+            )}
             <ActionButton onClick={onClose}>改归其他案件</ActionButton>
-            <ActionButton onClick={onClose}>标记为无关</ActionButton>
+            <ActionButton onClick={() => onIgnore(m.subject)} disabled={kind === 'ignored'}>
+              标记为无关
+            </ActionButton>
           </>
         ) : null
       }
@@ -292,19 +442,23 @@ function MailDrawer({ subject, onClose }: { subject: string | null; onClose: () 
           </dl>
 
           <InsetBlock>
-            <div className="text-[10px] text-muted-foreground">附件（{m.attachments}）</div>
+            <div className="text-[10px] text-muted-foreground">附件（{m.attachments}）· 点一行看预览</div>
             <div className="mt-1.5 flex flex-col gap-1">
-              {Array.from({ length: m.attachments }).map((_, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px]">
-                  <span className="size-3 rounded-[2px] bg-secondary" />
-                  <span className="min-w-0 flex-1 truncate">附件_{i + 1}.pdf</span>
-                  <span className="text-[10px] text-muted-foreground">{(1.2 + i * 0.4).toFixed(1)} MB</span>
-                </div>
-              ))}
+              {files.length > 0 ? (
+                files.map((f) => <AttachmentRow key={f.name} attachment={f} />)
+              ) : (
+                Array.from({ length: m.attachments }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[11px]">
+                    <span className="size-3 rounded-[2px] bg-secondary" />
+                    <span className="min-w-0 flex-1 truncate">附件_{i + 1}.pdf</span>
+                    <span className="text-[10px] text-muted-foreground">{(1.2 + i * 0.4).toFixed(1)} MB</span>
+                  </div>
+                ))
+              )}
             </div>
           </InsetBlock>
 
-          {!isAuto ? (
+          {kind === 'manual' ? (
             <InsetBlock className="border-status-yellow/40 bg-status-yellow-bg/60">
               <div className="text-[10.5px] font-medium">匹配度低于阈值</div>
               <p className="mt-1 text-[10.5px] leading-[1.65] text-muted-foreground">
@@ -314,6 +468,338 @@ function MailDrawer({ subject, onClose }: { subject: string | null; onClose: () 
           ) : null}
         </div>
       ) : null}
+    </DetailDrawer>
+  )
+}
+
+/** 一个附件：折叠态是一行，点开就地展开预览（图片/PDF 占位） */
+function AttachmentRow({ attachment }: { attachment: MailAttachment }) {
+  const [preview, setPreview] = useState(false)
+  const Icon = attachment.kind === 'image' ? FileImage : FileText
+  return (
+    <div className="rounded-[8px] border border-border-light bg-card">
+      <button
+        type="button"
+        aria-expanded={preview}
+        onClick={() => setPreview((v) => !v)}
+        className="flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors hover:bg-secondary/40"
+      >
+        <Icon className="size-3.5 flex-none text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-[11px]">{attachment.name}</span>
+        <Pill tone="neutral">{attachment.slot}</Pill>
+        <span className="flex-none text-[10px] tabular-nums text-muted-foreground">{attachment.size}</span>
+        <span className="flex-none text-[10px] text-status-blue">{preview ? '收起预览' : '预览'}</span>
+      </button>
+      {preview ? (
+        <div className="border-t border-border-light px-2 py-2">
+          <div className="flex h-[132px] items-center justify-center rounded-[6px] border border-dashed border-border bg-secondary/40">
+            <div className="text-center">
+              <Icon className="mx-auto size-5 text-muted-foreground" />
+              <div className="mt-1 text-[10.5px] text-muted-foreground">
+                {attachment.kind === 'image' ? '图片预览占位' : 'PDF 首页预览占位'}
+              </div>
+              <div className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
+                {attachment.pages} 页 · 第 1 页 / {attachment.pages}
+              </div>
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span>识别结果：{attachment.slot}</span>
+            <span className="ml-auto text-status-blue">下载原件</span>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** 邮箱配置弹窗：轮询间隔 / 文件夹 / 发件人白名单 */
+function MailboxConfigDrawer({
+  addr,
+  onClose,
+  onSave,
+  saved,
+}: {
+  addr: string | null
+  onClose: () => void
+  onSave: (cfg: ScanMailboxConfig) => void
+  /** 已保存过的配置（优先于演示默认值） */
+  saved: Record<string, ScanMailboxConfig>
+}) {
+  const base = addr ? (saved[addr] ?? DEMO_X2_SCAN_MAILBOXES.find((m) => m.addr === addr)) ?? null : null
+  return (
+    <MailboxConfigForm key={base?.addr ?? 'none'} base={base} onClose={onClose} onSave={onSave} />
+  )
+}
+
+function MailboxConfigForm({
+  base,
+  onClose,
+  onSave,
+}: {
+  base: ScanMailboxConfig | null
+  onClose: () => void
+  onSave: (cfg: ScanMailboxConfig) => void
+}) {
+  const [interval, setInterval] = useState(base?.interval ?? '')
+  const [folder, setFolder] = useState(base?.folder ?? '')
+  const [whitelist, setWhitelist] = useState(base?.whitelist ?? '')
+
+  return (
+    <DetailDrawer
+      open={base != null}
+      onClose={onClose}
+      title="邮箱扫描设置"
+      subtitle={base?.addr}
+      badge={<Pill tone="green">监听中</Pill>}
+      width={460}
+      footer={
+        base ? (
+          <>
+            <ActionButton
+              dark
+              onClick={() => onSave({ ...base, interval, folder, whitelist })}
+            >
+              保存配置
+            </ActionButton>
+            <ActionButton onClick={onClose}>取消</ActionButton>
+          </>
+        ) : null
+      }
+    >
+      {base ? (
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="text-[10px] text-muted-foreground" htmlFor="x2-interval">
+              轮询间隔
+            </label>
+            <select
+              id="x2-interval"
+              value={interval}
+              onChange={(e) => setInterval(e.target.value)}
+              className="mt-1 w-full rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:border-foreground"
+            >
+              {DEMO_X2_SCAN_INTERVALS.map((i) => (
+                <option key={i} value={i}>
+                  每 {i}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[10px] text-muted-foreground">法院送达邮箱建议 1 分钟，其他 5 分钟足够。</p>
+          </div>
+
+          <div>
+            <label className="text-[10px] text-muted-foreground" htmlFor="x2-folder">
+              监听文件夹
+            </label>
+            <input
+              id="x2-folder"
+              value={folder}
+              onChange={(e) => setFolder(e.target.value)}
+              className="mt-1 w-full rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:border-foreground"
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">多个用 / 分隔，如 INBOX / 送达文书。</p>
+          </div>
+
+          <div>
+            <label className="text-[10px] text-muted-foreground" htmlFor="x2-whitelist">
+              发件人白名单
+            </label>
+            <textarea
+              id="x2-whitelist"
+              rows={3}
+              value={whitelist}
+              onChange={(e) => setWhitelist(e.target.value)}
+              className="mt-1 w-full resize-y rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-[11px] leading-[1.7] outline-none focus:border-foreground"
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              只处理白名单里的发件人；其余邮件仍会留档，但不自动归案。
+            </p>
+          </div>
+
+          <InsetBlock className="bg-secondary/25">
+            <div className="text-[10px] text-muted-foreground">当前账号</div>
+            <p className="mt-1 text-[11px] leading-[1.7] text-secondary-foreground">
+              {base.note} · 本月已扫 {base.count} 封
+            </p>
+          </InsetBlock>
+        </div>
+      ) : null}
+    </DetailDrawer>
+  )
+}
+
+/** 手动归案弹窗：搜案件 → 选中 → 选归入槽位 → 确认（带进度） */
+function AssignDrawer({
+  subject,
+  onClose,
+  assign,
+}: {
+  subject: string | null
+  onClose: () => void
+  assign: ReturnType<typeof useStageAction<void>>
+}) {
+  const [query, setQuery] = useState('')
+  const [picked, setPicked] = useState<AssignCandidate | null>(null)
+  const [slot, setSlot] = useState('')
+
+  const open = subject != null
+  const candidates = DEMO_X2_ASSIGN_CANDIDATES.filter(
+    (c) => query.trim() === '' || c.name.includes(query.trim()) || c.caseNo.includes(query.trim()),
+  )
+  const running = assign.phase === 'running'
+
+  return (
+    <DetailDrawer
+      open={open}
+      onClose={onClose}
+      title="指定归属"
+      subtitle={subject ?? undefined}
+      badge={assign.phase === 'done' ? <Pill tone="green">已归案</Pill> : <Pill tone="yellow">待人工</Pill>}
+      width={480}
+      footer={
+        <>
+          <ActionButton
+            dark
+            disabled={!picked || slot === '' || running}
+            onClick={() => {
+              if (picked) void assign.execute()
+            }}
+          >
+            {running ? `归案中 ${assign.percent}%` : '确认归案'}
+          </ActionButton>
+          <ActionButton onClick={onClose}>取消</ActionButton>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {/* 第 1 步：搜案件 */}
+        <div>
+          <div className="text-[10px] text-muted-foreground">1. 搜案件名称或案号</div>
+          <input
+            aria-label="搜案件名称或案号"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setPicked(null)
+              setSlot('')
+            }}
+            placeholder="输入案件名称 / 案号 / 当事人"
+            className="mt-1 w-full rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:border-foreground"
+          />
+          <ul className="mt-1.5 max-h-[190px] overflow-y-auto rounded-[8px] border border-border-light">
+            {candidates.map((c) => {
+              const selected = picked?.name === c.name
+              return (
+                <li key={c.name}>
+                  <button
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setPicked(c)
+                      setSlot(c.slots[0] ?? '')
+                    }}
+                    className={cn(
+                      'flex w-full items-start gap-2 px-2.5 py-2 text-left transition-colors hover:bg-secondary/50',
+                      selected && 'bg-secondary',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'mt-[3px] size-3 flex-none rounded-full border',
+                        selected ? 'border-foreground bg-foreground' : 'border-border bg-card',
+                      )}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11.5px] font-medium">{c.name}</span>
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                        {c.caseNo} · {c.court}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{c.party}</span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+            {candidates.length === 0 ? (
+              <li className="px-2.5 py-3 text-center text-[10.5px] text-muted-foreground">没有匹配的案件</li>
+            ) : null}
+          </ul>
+        </div>
+
+        {/* 第 2 步：选槽位 */}
+        <div>
+          <div className="text-[10px] text-muted-foreground">2. 选归入槽位</div>
+          {picked ? (
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {picked.slots.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={slot === s}
+                  onClick={() => setSlot(s)}
+                  className={cn(
+                    'h-[24px] rounded-[6px] border px-2 text-[11px] transition-colors',
+                    slot === s
+                      ? 'border-foreground bg-foreground font-semibold text-background'
+                      : 'border-border bg-card font-[550] text-secondary-foreground hover:bg-secondary',
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-[10.5px] text-muted-foreground">先选一个案件，这里会列出它的槽位</p>
+          )}
+        </div>
+
+        {/* 第 3 步：确认，带进度 */}
+        <div>
+          <div className="text-[10px] text-muted-foreground">3. 确认并归案</div>
+          <InsetBlock className="mt-1">
+            <div className="text-[11px]">
+              {picked && slot ? (
+                <>
+                  「{subject}」→ <span className="font-medium">{picked.name}</span> · {slot}
+                </>
+              ) : (
+                <span className="text-muted-foreground">尚未选齐案件与槽位</span>
+              )}
+            </div>
+            {assign.phase !== 'idle' ? (
+              <div className="mt-2">
+                <div className="h-[5px] overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-[width] duration-200',
+                      assign.phase === 'done' ? 'bg-status-green' : 'bg-foreground',
+                    )}
+                    style={{ width: `${assign.percent}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">
+                    {assign.phase === 'done'
+                      ? `已归入「${picked?.name ?? ''}」· ${slot}，缺件检测已重跑`
+                      : assign.progress || '准备中…'}
+                  </span>
+                  <span className="tabular-nums">{assign.percent}%</span>
+                </div>
+                {assign.log.length > 0 ? (
+                  <ul className="mt-1.5 flex flex-col gap-0.5">
+                    {assign.log.slice(-3).map((l) => (
+                      <li key={`${l.at}-${l.text}`} className="truncate text-[10px] text-muted-foreground">
+                        <span className="tabular-nums opacity-70">{l.at}</span> {l.text}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+          </InsetBlock>
+        </div>
+      </div>
     </DetailDrawer>
   )
 }
