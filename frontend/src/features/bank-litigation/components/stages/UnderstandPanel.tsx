@@ -8,11 +8,13 @@
 
 import { FileText } from 'lucide-react'
 
+import { useState } from 'react'
+
 import { DEMO_UNDERSTAND_DOCS, DEMO_UNDERSTAND_FIELDS, DEMO_UNDERSTAND_ISSUES } from '../demo-data'
+import { ActionButton, InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
+import { DetailDrawer } from './DetailDrawer'
 import { StageActionCard } from './StageActionCard'
 import { useStageAction } from './use-stage-action'
-import { ActionButton } from '../ui'
-import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 
 
 const METHOD_HINT: Record<string, string> = {
@@ -22,6 +24,9 @@ const METHOD_HINT: Record<string, string> = {
 }
 
 export function UnderstandPanel() {
+  /** 正在看全文的那份（null=关闭） */
+  const [viewing, setViewing] = useState<string | null>(null)
+
   /* 全量转换：逐份转 markdown，带进度 */
   const convertAll = useStageAction({
     steps: [
@@ -82,6 +87,9 @@ export function UnderstandPanel() {
                   <Pill tone={d.quality === 'high' ? 'green' : 'yellow'}>
                     {d.quality === 'high' ? '高保真' : '需复核'}
                   </Pill>
+                  <ActionButton sm onClick={() => setViewing(d.fileName)}>
+                    查看全文
+                  </ActionButton>
                 </div>
               </div>
 
@@ -191,6 +199,65 @@ export function UnderstandPanel() {
           </RailSection>
         </WorkCard>
       </div>
+
+      <MarkdownDrawer fileName={viewing} onClose={() => setViewing(null)} />
     </div>
+  )
+}
+
+/** markdown 全文抽屉：能看完整正文，也能换转换方法重转 */
+function MarkdownDrawer({ fileName, onClose }: { fileName: string | null; onClose: () => void }) {
+  const doc = fileName ? DEMO_UNDERSTAND_DOCS.find((d) => d.fileName === fileName) : null
+
+  return (
+    <DetailDrawer
+      open={doc != null}
+      onClose={onClose}
+      width={640}
+      title={doc?.fileName ?? ''}
+      subtitle={doc ? `${doc.type} · ${doc.pages} 页 · ${doc.chars.toLocaleString()} 字` : undefined}
+      badge={doc ? <Pill tone={doc.quality === 'high' ? 'green' : 'yellow'}>{doc.method}</Pill> : null}
+      footer={
+        doc ? (
+          <>
+            <ActionButton dark onClick={onClose}>
+              确认无误
+            </ActionButton>
+            <ActionButton onClick={onClose}>换 OCR 重转</ActionButton>
+            <ActionButton onClick={onClose}>下载 markdown</ActionButton>
+          </>
+        ) : null
+      }
+    >
+      {doc ? (
+        <div className="flex flex-col gap-3">
+          <dl>
+            <KeyValueRow label="转换方法">{doc.method}</KeyValueRow>
+            <KeyValueRow label="提取字数">{doc.chars.toLocaleString()} 字</KeyValueRow>
+            <KeyValueRow label="质量评级">
+              <span className={doc.quality === 'high' ? 'text-status-green' : 'text-status-yellow'}>
+                {doc.quality === 'high' ? '高保真 · 可直接抽取' : '需复核 · 建议对照原图'}
+              </span>
+            </KeyValueRow>
+          </dl>
+
+          <div>
+            <div className="mb-1.5 text-[10.5px] text-muted-foreground">markdown 正文</div>
+            <InsetBlock className="bg-secondary/20">
+              <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap font-mono text-[10.5px] leading-[1.75] text-secondary-foreground">
+                {doc.excerpt}
+              </pre>
+            </InsetBlock>
+          </div>
+
+          <InsetBlock className="border-status-blue/40 bg-status-blue-bg/50">
+            <div className="text-[10.5px] leading-[1.65] text-muted-foreground">
+              后续「缺件检测」「委托合同生成」「起诉条件校验」都读这份正文，
+              与律师看到的完全一致。
+            </div>
+          </InsetBlock>
+        </div>
+      ) : null}
+    </DetailDrawer>
   )
 }

@@ -12,13 +12,17 @@
 import { AlertTriangle, CheckCircle2, Gavel, XCircle } from 'lucide-react'
 
 import { DEMO_FILING_CHECKS, DEMO_FILING_FIXES, DEMO_SIGN_CHECKS } from '../demo-data'
+import { useState } from 'react'
 import { StageActionCard } from './StageActionCard'
+import { DetailDrawer } from './DetailDrawer'
 import { useStageAction } from './use-stage-action'
 import { ActionButton } from '../ui'
-import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from '../ui'
+import { InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function FilingPanel() {
+  const [signOpen, setSignOpen] = useState<string | null>(null)
+
   /* 跑一遍完整校验 */
   const verify = useStageAction({
     steps: [
@@ -98,7 +102,11 @@ export function FilingPanel() {
               {DEMO_SIGN_CHECKS.map((d) => {
                 const ok = d.sealOk && d.signOk
                 return (
-                  <li key={d.docName} className="flex items-start gap-3 px-5 py-3">
+                  <li
+                    key={d.docName}
+                    onClick={() => setSignOpen(d.docName)}
+                    className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-secondary/40"
+                  >
                     <span
                       className={cn(
                         'mt-[3px] grid size-4 flex-none place-items-center rounded-full',
@@ -286,6 +294,76 @@ export function FilingPanel() {
           </RailSection>
         </WorkCard>
       </div>
+
+      <SignDrawer name={signOpen} onClose={() => setSignOpen(null)} />
     </div>
+  )
+}
+
+/** 签章详情：能看识别到的印章/签名区域，可要求重签 */
+function SignDrawer({ name, onClose }: { name: string | null; onClose: () => void }) {
+  const d = name ? DEMO_SIGN_CHECKS.find((x) => x.docName === name) : null
+  const ok = d ? d.sealOk && d.signOk : false
+
+  return (
+    <DetailDrawer
+      open={d != null}
+      onClose={onClose}
+      title={d?.docName ?? ''}
+      subtitle={d ? `需盖：${d.needSeal}${d.needSign !== '—' ? ` · 需签：${d.needSign}` : ''}` : undefined}
+      badge={d ? <Pill tone={ok ? 'green' : 'red'}>{ok ? '已通过' : '未通过'}</Pill> : null}
+      footer={
+        d ? (
+          <>
+            <ActionButton dark onClick={onClose}>
+              标记为已核对
+            </ActionButton>
+            <ActionButton onClick={onClose}>要求重签</ActionButton>
+            <ActionButton onClick={onClose}>推送 OA 盖章</ActionButton>
+          </>
+        ) : null
+      }
+    >
+      {d ? (
+        <div className="flex flex-col gap-3">
+          <dl>
+            <KeyValueRow label="印章识别">
+              <span className={d.sealOk ? 'text-status-green' : 'text-status-red'}>
+                {d.sealOk ? '检测到对应印章' : '未检测到印章'}
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="签名识别">
+              <span className={d.signOk ? 'text-status-green' : 'text-status-red'}>
+                {d.signOk ? '检测到签名笔迹' : '签名区域为空'}
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="核对说明">{d.note}</KeyValueRow>
+          </dl>
+
+          <InsetBlock>
+            <div className="text-[10px] text-muted-foreground">印章与签名区域</div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className={`grid aspect-[4/3] place-items-center rounded-[4px] border ${d.sealOk ? 'border-status-green/40 bg-status-green-bg/50' : 'border-status-red/40 bg-status-red-bg/50'}`}>
+                <span className={`text-[10px] ${d.sealOk ? 'text-status-green' : 'text-status-red'}`}>
+                  {d.sealOk ? '印章 ✓' : '无印章'}
+                </span>
+              </div>
+              <div className={`grid aspect-[4/3] place-items-center rounded-[4px] border ${d.signOk ? 'border-status-green/40 bg-status-green-bg/50' : 'border-status-red/40 bg-status-red-bg/50'}`}>
+                <span className={`text-[10px] ${d.signOk ? 'text-status-green' : 'text-status-red'}`}>
+                  {d.signOk ? '签名 ✓' : '无签名'}
+                </span>
+              </div>
+            </div>
+          </InsetBlock>
+
+          {!ok ? (
+            <InsetBlock className="border-status-red/40 bg-status-red-bg/50">
+              <div className="text-[10.5px] font-medium text-status-red">这份不通过</div>
+              <p className="mt-1 text-[10.5px] leading-[1.65] text-muted-foreground">{d.note}</p>
+            </InsetBlock>
+          ) : null}
+        </div>
+      ) : null}
+    </DetailDrawer>
   )
 }

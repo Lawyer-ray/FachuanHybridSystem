@@ -8,12 +8,19 @@
 import { AlertTriangle, CheckCircle2, FileStack, HelpCircle, Upload } from 'lucide-react'
 
 import { DEMO_INTAKE_EVENTS, DEMO_INTAKE_SEGMENTS, DEMO_INTAKE_SOURCES } from '../demo-data'
+import { useState } from 'react'
 import { StageActionCard } from './StageActionCard'
+import { DetailDrawer } from './DetailDrawer'
 import { useStageAction } from './use-stage-action'
-import { ActionButton, InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
+import { ActionButton, InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function IntakePanel() {
+  /** 点开的那一份材料（null = 抽屉关闭） */
+  const [picked, setPicked] = useState<number | null>(null)
+  /** 已排除的材料 seq（演示：把「手写便签」排除掉） */
+  const [excluded, setExcluded] = useState<Set<number>>(new Set())
+
   /* 重新拆分：演示时可反复点，展示系统的处理过程 */
   const resplit = useStageAction({
     steps: [
@@ -154,7 +161,11 @@ export function IntakePanel() {
             </div>
             <ul className="divide-y divide-border-light">
               {DEMO_INTAKE_SEGMENTS.map((s) => (
-                <li key={s.seq} className="flex items-start gap-3 px-5 py-2.5">
+                <li
+                  key={s.seq}
+                  onClick={() => setPicked(s.seq)}
+                  className="flex cursor-pointer items-start gap-3 px-5 py-2.5 transition-colors hover:bg-secondary/40"
+                >
                   <span
                     className={cn(
                       'mt-[3px] grid size-4 flex-none place-items-center rounded-full',
@@ -247,6 +258,100 @@ export function IntakePanel() {
           </RailSection>
         </WorkCard>
       </div>
+
+      {/* 材料详情抽屉 */}
+      <MaterialDrawer
+        seq={picked}
+        onClose={() => setPicked(null)}
+        excluded={excluded}
+        onExclude={(seq) => {
+          setExcluded((prev) => new Set(prev).add(seq))
+          setPicked(null)
+        }}
+      />
     </div>
+  )
+}
+
+/** 单份材料的详情抽屉：能看到识别依据、页码内容、可排除/重认 */
+function MaterialDrawer({
+  seq,
+  onClose,
+  excluded,
+  onExclude,
+}: {
+  seq: number | null
+  onClose: () => void
+  excluded: Set<number>
+  onExclude: (seq: number) => void
+}) {
+  const seg = seq == null ? null : DEMO_INTAKE_SEGMENTS.find((x) => x.seq === seq)
+  const isExcluded = seg ? excluded.has(seg.seq) : false
+
+  return (
+    <DetailDrawer
+      open={seg != null}
+      onClose={onClose}
+      title={seg?.fileName ?? ''}
+      subtitle={seg ? `${seg.type} · ${seg.pages} · 置信度 ${(seg.confidence * 100).toFixed(0)}%` : undefined}
+      badge={
+        seg ? (
+          <Pill tone={seg.status === 'ok' ? 'green' : seg.status === 'review' ? 'yellow' : 'red'}>
+            {isExcluded ? '已排除' : seg.status === 'ok' ? '已认准' : seg.status === 'review' ? '待核对' : '未识别'}
+          </Pill>
+        ) : null
+      }
+      footer={
+        seg ? (
+          <>
+            <ActionButton dark onClick={onClose}>
+              确认识别结果
+            </ActionButton>
+            <ActionButton onClick={onClose}>重新识别</ActionButton>
+            <ActionButton onClick={() => onExclude(seg.seq)}>排除这份</ActionButton>
+          </>
+        ) : null
+      }
+    >
+      {seg ? (
+        <div className="flex flex-col gap-3">
+          <dl>
+            <KeyValueRow label="页码区间">{seg.pages}</KeyValueRow>
+            <KeyValueRow label="识别类型">{seg.type}</KeyValueRow>
+            <KeyValueRow label="置信度">
+              <span
+                className={
+                  seg.confidence >= 0.9
+                    ? 'text-status-green'
+                    : seg.confidence >= 0.5
+                      ? 'text-status-yellow'
+                      : 'text-status-red'
+                }
+              >
+                {(seg.confidence * 100).toFixed(0)}%
+              </span>
+            </KeyValueRow>
+            <KeyValueRow label="归入槽位">
+              {seg.status === 'ok' ? '1-立案材料' : '待人工指定'}
+            </KeyValueRow>
+          </dl>
+
+          <InsetBlock className="bg-secondary/25">
+            <div className="text-[10px] text-muted-foreground">识别依据</div>
+            <p className="mt-1 text-[11px] leading-[1.7] text-secondary-foreground">{seg.note}</p>
+          </InsetBlock>
+
+          <InsetBlock>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground">第 1 页预览</span>
+              <Pill>{seg.pages}</Pill>
+            </div>
+            <div className="mt-2 grid aspect-[3/4] place-items-center rounded-[4px] border border-border-light bg-secondary/40">
+              <span className="text-[10.5px] text-muted-foreground">（扫描件预览）</span>
+            </div>
+          </InsetBlock>
+        </div>
+      ) : null}
+    </DetailDrawer>
   )
 }

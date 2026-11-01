@@ -11,13 +11,16 @@
 import { CheckCircle2, HelpCircle, Inbox, Mail } from 'lucide-react'
 
 import { DEMO_RETURNED_DIFF, DEMO_RETURNED_MAILS, DEMO_SCAN_BATCHES } from '../demo-data'
+import { useState } from 'react'
 import { StageActionCard } from './StageActionCard'
+import { DetailDrawer } from './DetailDrawer'
 import { useStageAction } from './use-stage-action'
-import { ActionButton } from '../ui'
-import { InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
+import { ActionButton, InsetBlock, KeyValueRow, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
 export function ReturnedPanel() {
+  const [mailOpen, setMailOpen] = useState<string | null>(null)
+
   /* 立刻扫一轮邮箱 */
   const scanNow = useStageAction({
     steps: [
@@ -152,7 +155,11 @@ export function ReturnedPanel() {
               {DEMO_RETURNED_MAILS.map((m) => {
                 const isAuto = m.action.startsWith('已自动') || m.action.startsWith('已归案')
                 return (
-                  <li key={m.subject} className="flex items-start gap-3 px-5 py-3">
+                  <li
+                    key={m.subject}
+                    onClick={() => setMailOpen(m.subject)}
+                    className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-secondary/40"
+                  >
                     <span
                       className={cn(
                         'mt-[3px] grid size-4 flex-none place-items-center rounded-full',
@@ -245,6 +252,68 @@ export function ReturnedPanel() {
           </RailSection>
         </WorkCard>
       </div>
+
+      <MailDrawer subject={mailOpen} onClose={() => setMailOpen(null)} />
     </div>
+  )
+}
+
+/** 邮件详情：能看到附件、匹配依据、可改归属 */
+function MailDrawer({ subject, onClose }: { subject: string | null; onClose: () => void }) {
+  const m = subject ? DEMO_RETURNED_MAILS.find((x) => x.subject === subject) : null
+  const isAuto = m ? m.action.startsWith('已') : false
+
+  return (
+    <DetailDrawer
+      open={m != null}
+      onClose={onClose}
+      title={m?.subject ?? ''}
+      subtitle={m ? `${m.from} · ${m.attachments} 个附件 · ${m.at}` : undefined}
+      badge={m ? <Pill tone={isAuto ? 'green' : 'yellow'}>{isAuto ? '已自动归案' : '待人工'}</Pill> : null}
+      footer={
+        m ? (
+          <>
+            <ActionButton dark onClick={onClose}>
+              确认归属
+            </ActionButton>
+            <ActionButton onClick={onClose}>改归其他案件</ActionButton>
+            <ActionButton onClick={onClose}>标记为无关</ActionButton>
+          </>
+        ) : null
+      }
+    >
+      {m ? (
+        <div className="flex flex-col gap-3">
+          <dl>
+            <KeyValueRow label="发件人">{m.from}</KeyValueRow>
+            <KeyValueRow label="匹配案件">{m.matchedCase}</KeyValueRow>
+            <KeyValueRow label="匹配依据">{m.matchedBy}</KeyValueRow>
+            <KeyValueRow label="处理结果">{m.action}</KeyValueRow>
+          </dl>
+
+          <InsetBlock>
+            <div className="text-[10px] text-muted-foreground">附件（{m.attachments}）</div>
+            <div className="mt-1.5 flex flex-col gap-1">
+              {Array.from({ length: m.attachments }).map((_, i) => (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <span className="size-3 rounded-[2px] bg-secondary" />
+                  <span className="min-w-0 flex-1 truncate">附件_{i + 1}.pdf</span>
+                  <span className="text-[10px] text-muted-foreground">{(1.2 + i * 0.4).toFixed(1)} MB</span>
+                </div>
+              ))}
+            </div>
+          </InsetBlock>
+
+          {!isAuto ? (
+            <InsetBlock className="border-status-yellow/40 bg-status-yellow-bg/60">
+              <div className="text-[10.5px] font-medium">匹配度低于阈值</div>
+              <p className="mt-1 text-[10.5px] leading-[1.65] text-muted-foreground">
+                系统没法确定这封邮件属于哪个案子，放进了待处理。硬塞错案的代价远大于让律师多点一下。
+              </p>
+            </InsetBlock>
+          ) : null}
+        </div>
+      ) : null}
+    </DetailDrawer>
   )
 }
