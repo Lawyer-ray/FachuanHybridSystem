@@ -101,14 +101,14 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-[18px]">
+    <div className="flex flex-col gap-3.5">
       <StatStrip className="grid-cols-3">
         <StatCell label="文件路径" value={list.length ? `${list.length} 个` : '未填'} tone={list.length ? 'neutral' : 'yellow'} />
         <StatCell label="合同归属" value={found ? '已确认' : '未反查'} tone={found ? 'green' : 'neutral'} />
         <StatCell label="可执行" value={found ? '是' : '否'} tone={found ? 'green' : 'yellow'} />
       </StatStrip>
 
-    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="flex min-w-0 flex-col gap-3.5">
       {/* ══ ① 说明卡 ══ */}
       <WorkCard>

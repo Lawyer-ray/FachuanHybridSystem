@@ -86,7 +86,7 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
   }
 
   return (
-    <div className="flex flex-col gap-[18px]">
+    <div className="flex flex-col gap-3.5">
       {/* ══ 顶部三格统计：先把「用哪个类型、转了几次、上次什么时候」摆出来 ══ */}
       <StatStrip className="grid-cols-3">
         <StatCell label="文书类型" value={currentTypeName || '—'} />
@@ -144,7 +144,7 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
       </WorkCard>
 
       {/* ══ 左操作 / 右说明：两卡并排 ══ */}
-      <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 items-start gap-[18px] lg:grid-cols-[minmax(0,1fr)_300px]">
         <WorkCard>
           <SectionTitle title="转换要素式文书" hint="传统起诉状 → 法院要素式示范文本" />
 
@@ -248,7 +248,7 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
         </WorkCard>
 
         {/* 右栏：前提条件 + 这一步做什么 */}
-        <div className="flex flex-col gap-[18px]">
+        <div className="flex flex-col gap-3.5">
           <WorkCard className="border-status-yellow/40 bg-status-yellow-bg/40">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />

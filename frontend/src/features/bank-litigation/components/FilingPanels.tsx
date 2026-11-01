@@ -79,7 +79,7 @@ export function CourtFilingPanel({ caseId }: { caseId: number }) {
   }
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
       {/* ══════ 左列：立案信息 + 阻断 + 动作 + 映射/校验/历史/材料 ══════ */}
       <div className="flex min-w-0 flex-col gap-3.5">
         {/* ① + ② 两张卡并排：案件要素 / 当事人。

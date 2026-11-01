@@ -6,12 +6,16 @@ import { StatusBadge } from '@/components/shared/status-badge'
 
 import { CaseListPage } from './CaseListPage'
 import { fmtMoney } from '../utils'
-import { CourtFilingPanel, OAFilingPanel } from './FilingPanels'
-import { ReadinessPanel } from './ReadinessPanel'
-import { BundleSplitPanel } from './BundleSplitPanel'
+import { CourtFilingPanel } from './FilingPanels'
 import { DocConvertPanel } from './DocConvertPanel'
 import { OAStampPanel } from './OAActionPanels'
 import { OAArchivePanel } from './ArchiveChecklistPanel'
+import { ContractPanel } from './stages/ContractPanel'
+import { FilingPanel } from './stages/FilingPanel'
+import { GapPanel } from './stages/GapPanel'
+import { IntakePanel } from './stages/IntakePanel'
+import { ReturnedPanel } from './stages/ReturnedPanel'
+import { UnderstandPanel } from './stages/UnderstandPanel'
 import { useCase } from '../hooks/use-cases'
 
 /**
@@ -26,25 +30,45 @@ import { useCase } from '../hooks/use-cases'
  * 从 A 案跳到 B 案时另外三个页面还停在 A，非常容易填错案。
  */
 
-type Section = 'bundle' | 'readiness' | 'convert' | 'oa' | 'court' | 'stamp' | 'archive'
+type Section =
+  | 'intake'      // ① 收案：客户发材料 → 自动拆分
+  | 'understand'  // ② 读懂：自动转 markdown
+  | 'gap'         // ③ 缺件：发现遗漏 → 通知客户
+  | 'contract'    // ④ 文书：自动生成委托合同 → OA 利冲 → 立案
+  | 'returned'    // ⑤ 回扫：邮箱/快递扫描件 → 自动归案
+  | 'filing'      // ⑥ 校验：核签字盖章 → 通知律师去一张网
+  | 'court'       // 一张网提交页（从 ⑥ 校验后进入）
+  | 'convert'     // （保留）要素式转换
+  | 'stamp'       // （保留）OA 盖章
+  | 'archive'     // （保留）结案归档
 
 /**
- * 分区顺序 = 场景 2 的实际推进顺序：
- *   能不能立（起诉条件）→ 文书怎么来（要素式转换）→ 在律所 OA 立卷
- *   → 在法院系统立案 → 材料盖章 → 结案归档
- * 不按「功能模块」排，按「律师下一步该做什么」排。
+ * 分区顺序 = **律师办一个案子的真实时间线**，不是功能模块列表。
+ *
+ * 原先的七个分区（整包分段/起诉条件/要素式转换/OA立案/一张网/OA盖章/OA归档）
+ * 是按「系统有哪些功能」排的，律师看不出先后关系，也看不出「一个案件在流动」。
+ *
+ * 现在按实际业务顺序重排：
+ *   ① 收案  客户发来一堆材料 → 系统自动认、拆、命名
+ *   ② 读懂  逐份转 markdown，给 AI 与律师都能读的正文
+ *   ③ 缺件  发现遗漏 → 自动通知客户补什么
+ *   ④ 文书  自动生成委托合同 → 派机器人去 OA 做利冲检索与立案
+ *   ⑤ 回扫  客户寄回、行政扫描、邮箱自动扫到 → 自动归档到本案
+ *   ⑥ 校验  核签字盖章 → 齐了才允许律师去一张网提交
+ *   —— 后接要素式转换 / 盖章 / 归档（与上述主链并行的支线）
  */
 const SECTIONS: { key: Section; label: string; icon: typeof Gavel; group: string; desc: string }[] = [
-  // 整包分段是**真正的第一步**：律师拿到的是整包扫描件，
-  // 拆不开就没有材料，后面所有校验都无从谈起。
-  { key: 'bundle', label: '整包分段', icon: FileText, group: '立案前', desc: '拆包·复核·归案' },
-  { key: 'readiness', label: '起诉条件', icon: Gavel, group: '立案前', desc: '主体·管辖·时效·材料' },
-  { key: 'convert', label: '要素式转换', icon: FileText, group: '立案前', desc: '传统起诉状→要素式' },
-  // 两个外部系统的立案动作。分组的意义：让律师知道「这两步离开法穿了」。
-  { key: 'oa', label: 'OA 立案', icon: FileText, group: '外部系统', desc: '律所 OA 建卷' },
-  { key: 'court', label: '一张网立案', icon: FileText, group: '外部系统', desc: '法院平台递交' },
-  { key: 'stamp', label: 'OA 盖章', icon: FileText, group: '结案后', desc: '文件走盖章流程' },
-  { key: 'archive', label: 'OA 归档', icon: FileText, group: '结案后', desc: '结案材料入档' },
+  { key: 'intake', label: '① 收案', icon: FileText, group: '主链 · 律师视角', desc: '客户材料自动拆分' },
+  { key: 'understand', label: '② 读懂', icon: FileText, group: '主链 · 律师视角', desc: '逐份转 markdown' },
+  { key: 'gap', label: '③ 缺件', icon: Gavel, group: '主链 · 律师视角', desc: '自动通知客户补件' },
+  { key: 'contract', label: '④ 文书', icon: FileText, group: '主链 · 律师视角', desc: '委托合同 + OA 利冲立案' },
+  { key: 'returned', label: '⑤ 回扫', icon: FileText, group: '主链 · 律师视角', desc: '寄回/扫描件自动归案' },
+  { key: 'filing', label: '⑥ 校验', icon: Gavel, group: '主链 · 律师视角', desc: '核签字盖章 → 去一张网' },
+  { key: 'court', label: '一张网提交', icon: Gavel, group: '主链 · 律师视角', desc: '校验通过后由律师点' },
+  // 支线：主链之外的三件事，律师需要时才进
+  { key: 'convert', label: '要素式转换', icon: FileText, group: '支线', desc: '传统起诉状→要素式' },
+  { key: 'stamp', label: 'OA 盖章', icon: FileText, group: '支线', desc: '文件走盖章流程' },
+  { key: 'archive', label: 'OA 归档', icon: FileText, group: '支线', desc: '结案材料入档' },
 ]
 
 export function BankLitigationPage({ initialCaseId }: { initialCaseId?: number | null } = {}) {
@@ -66,7 +90,7 @@ export function BankLitigationPage({ initialCaseId }: { initialCaseId?: number |
 
 function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void }) {
   // 默认落在「整包分段」：这是律师打开案件后的第一个动作。
-  const [section, setSection] = useState<Section>('bundle')
+  const [section, setSection] = useState<Section>('intake')
   const c = useCase(caseId)
 
   if (c.loading) {
@@ -85,7 +109,6 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
   }
 
   const k = c.data
-  const contractId = k.contract_id ?? null
 
   /* 导航分组：SECTIONS 自带 group，这里按首次出现顺序聚合成 [组名, 条目[]] */
   const groupedSections: [string, typeof SECTIONS][] = []
@@ -128,7 +151,7 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
            宽度 176px + 每一项带副标题：原先只有 7 个裸文字，律师看不出
 «立案前»和«结案后»是两段完全不同的工作，也不知道点进去会看到什么。
            whitespace-nowrap 保留：宁可横向溢出，不要在导航里断行。 */}
-        <nav className="flex w-[176px] flex-none flex-col gap-3">
+        <nav className="flex w-[168px] flex-none flex-col gap-3">
           {groupedSections.map(([group, items]) => (
             <div key={group} className="flex flex-col gap-0.5">
               <div className="mb-0.5 px-2 text-[10px] font-medium tracking-[.06em] text-faint">
@@ -174,12 +197,15 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
         {/* 右侧内容：封顶 1100px 并居中偏左。
            原先内容区在 1920px 屏上是 1696px 宽，而表单内容只有两三百字，
           右半边全空——这是「看起来像没做完」的主因。 */}
-        <div className="min-w-0 max-w-[1100px] flex-1">
-          {section === 'bundle' ? <BundleSplitPanel caseId={caseId} stage={k.current_stage} /> : null}
-          {section === 'readiness' ? <ReadinessPanel caseId={caseId} /> : null}
-          {section === 'convert' ? <DocConvertPanel caseId={caseId} /> : null}
-          {section === 'oa' ? <OAFilingPanel caseId={caseId} contractId={contractId} /> : null}
+        <div className="min-w-0 flex-1">
+          {section === 'intake' ? <IntakePanel /> : null}
+          {section === 'understand' ? <UnderstandPanel /> : null}
+          {section === 'gap' ? <GapPanel /> : null}
+          {section === 'contract' ? <ContractPanel /> : null}
+          {section === 'returned' ? <ReturnedPanel /> : null}
+          {section === 'filing' ? <FilingPanel /> : null}
           {section === 'court' ? <CourtFilingPanel caseId={caseId} /> : null}
+          {section === 'convert' ? <DocConvertPanel caseId={caseId} /> : null}
           {section === 'stamp' ? <OAStampPanel /> : null}
           {section === 'archive' ? <OAArchivePanel /> : null}
         </div>
