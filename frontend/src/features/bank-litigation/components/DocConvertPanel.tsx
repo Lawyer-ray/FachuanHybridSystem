@@ -8,6 +8,7 @@ import { convertToElemental, listConvertRecords, listMbidTypes } from '../api'
 import { useCase } from '../hooks/use-cases'
 import { suggestMbid } from '../utils'
 import { ActionButton, InsetBlock, Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { DEMO_CONVERT_MAPPING } from './demo-data'
 import type { ConvertRecordList, MbidList } from '../api'
 
 /**
@@ -206,6 +207,23 @@ export function DocConvertPanel({ caseId }: { caseId: number }) {
               <StepItem index={3} title="服务端转换" desc="生成要素式 docx" state="todo" />
               <StepItem index={4} title="下载并递交" desc="用于一张网立案" state="todo" />
             </div>
+          </WorkCard>
+
+          <WorkCard padded={false}>
+            <div className="border-b border-border-light px-5 py-3">
+              <SectionTitle title="转换内容" hint="传统字段 → 要素式栏位" />
+            </div>
+            <ul className="divide-y divide-border-light">
+              {DEMO_CONVERT_MAPPING.map((m) => (
+                <li key={m.from} className="flex items-center gap-2 px-5 py-2">
+                  <span className="w-[76px] flex-none text-[11.5px] text-secondary-foreground">{m.from}</span>
+                  <span className="flex-none text-[10px] text-border">→</span>
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={m.to}>
+                    {m.to}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </WorkCard>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useCaseFilingInfo, useOAConfigs } from '../hooks/use-cases'
 import { useCourtFiling, useOAFiling } from '../hooks/use-auto-run'
 import { ActionButton, InsetBlock, KeyValueRow, Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { DEMO_OA_FILING_LOG } from './demo-data'
 import type { AutoPhase } from '../hooks/use-auto-run'
 import type { FilingEngine, FilingType } from '../types'
 import { fmtMoney } from '../utils'
@@ -166,6 +167,38 @@ export function OAFilingPanel({
         phase={state.phase}
         hint="OA 立案"
       />
+
+      {/* 执行日志：服务端逐步做了什么（真实实现应来自会话进度事件） */}
+      <WorkCard padded={false}>
+        <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+          <SectionTitle title="执行日志" hint={`最近一次 · 共 ${DEMO_OA_FILING_LOG.length} 步`} className="w-full" />
+        </div>
+        <ul className="divide-y divide-border-light">
+          {DEMO_OA_FILING_LOG.map((l) => (
+            <li key={l.stage} className="flex items-center gap-3 px-5 py-2.5">
+              {l.ok ? (
+                <span className="grid size-4 flex-none place-items-center rounded-full bg-status-green">
+                  <span className="text-[9px] font-bold text-white">✓</span>
+                </span>
+              ) : (
+                <span className="grid size-4 flex-none place-items-center rounded-full bg-status-red">
+                  <span className="text-[9px] font-bold text-white">✕</span>
+                </span>
+              )}
+              <Pill>{l.stage}</Pill>
+              <span className="min-w-0 flex-1 truncate text-[11.5px]" title={l.message}>
+                {l.message}
+              </span>
+              <span className="w-[64px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
+                {l.ms} ms
+              </span>
+              <span className="w-[82px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
+                {l.at}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </WorkCard>
       </div>
 
       {/* 右栏：进度 + 说明，避免下半屏全空 */}

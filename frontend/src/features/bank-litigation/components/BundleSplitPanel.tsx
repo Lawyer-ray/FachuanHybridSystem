@@ -26,7 +26,8 @@ import {
   type PdfSplitSegment,
   type SplitTemplate,
 } from '../api'
-import { SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { DEMO_SPLIT_HISTORY, DEMO_SPLIT_TEMPLATE_TYPES } from './demo-data'
 
 /**
  * 整包 PDF → 自动分段 → 归案（场景 2 的真正起点）。
@@ -302,8 +303,51 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
                 </div>
               </div>
             </WorkCard>
+
+            <WorkCard>
+              <SectionTitle title="识别能力" hint={`本模板支持 ${DEMO_SPLIT_TEMPLATE_TYPES.length} 类材料`} />
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {DEMO_SPLIT_TEMPLATE_TYPES.map((t) => (
+                  <Pill key={t}>{t}</Pill>
+                ))}
+              </div>
+              <p className="mt-2.5 text-[10.5px] leading-[1.6] text-muted-foreground">
+                认不出的页码会标为「未识别」，不会猜成别的类型。
+              </p>
+            </WorkCard>
           </div>
         </div>
+
+        {/* 历史拆分记录：让 idle 态也有信息量（真实实现应来自 pdf-splitting 任务表） */}
+        <WorkCard padded={false}>
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+            <SectionTitle title="拆分记录" hint={`最近 ${DEMO_SPLIT_HISTORY.length} 次`} className="w-full" />
+          </div>
+          <ul className="divide-y divide-border-light">
+            {DEMO_SPLIT_HISTORY.map((r) => (
+              <li key={r.id} className="flex items-center gap-3 px-5 py-2.5">
+                <FileStack className="size-3.5 flex-none text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-[12px]" title={r.fileName}>
+                  {r.fileName}
+                </span>
+                <span className="flex-none text-[11px] tabular-nums text-muted-foreground">
+                  {r.pages} 页 · {r.materials} 份
+                </span>
+                <Pill
+                  tone={r.result === 'confirmed' ? 'green' : r.result === 'review' ? 'yellow' : 'red'}
+                >
+                  {r.result === 'confirmed' ? '已确认' : r.result === 'review' ? '需复核' : '未识别'}
+                </Pill>
+                <span className="w-[68px] flex-none text-right text-[11px] tabular-nums text-muted-foreground">
+                  {r.imported ? `归案 ${r.imported}` : '未归案'}
+                </span>
+                <span className="w-[86px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
+                  {r.at}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </WorkCard>
         </div>
       ) : null}
 

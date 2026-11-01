@@ -4,7 +4,8 @@ import { AlertTriangle, Archive, CheckCircle2, Loader2, Search, Stamp } from 'lu
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
-import { KeyValueRow, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { KeyValueRow, Pill, SectionTitle, StatCell, StatStrip, StepItem, WorkCard } from './ui'
+import { DEMO_STAMP_LOG } from './demo-data'
 import { cn } from '@/lib/utils'
 
 import { lookupArchiveContract, lookupStampContract, type ArchiveLookupOut, type StampLookupOut } from '../api'
@@ -189,6 +190,38 @@ function OAActionPanel({ kind, siteName }: { kind: Kind; siteName?: string }) {
               </KeyValueRow>
             </div>
           </dl>
+        </WorkCard>
+      ) : null}
+
+      {/* 盖章历史（演示态：真实实现应来自 oa-stamp 会话表） */}
+      {kind === 'stamp' ? (
+        <WorkCard padded={false}>
+          <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
+            <SectionTitle title="盖章记录" hint={`最近 ${DEMO_STAMP_LOG.length} 次`} className="w-full" />
+          </div>
+          <ul className="divide-y divide-border-light">
+            {DEMO_STAMP_LOG.map((r) => (
+              <li key={r.fileName + r.at} className="flex items-center gap-3 px-5 py-2.5">
+                <span
+                  className={
+                    r.ok
+                      ? 'grid size-4 flex-none place-items-center rounded-full bg-status-green'
+                      : 'grid size-4 flex-none place-items-center rounded-full bg-status-red'
+                  }
+                >
+                  <span className="text-[9px] font-bold text-white">{r.ok ? '✓' : '✕'}</span>
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[12px]" title={r.fileName}>
+                  {r.fileName}
+                </span>
+                <Pill>{r.page}</Pill>
+                <Pill tone={r.ok ? 'green' : 'red'}>{r.ok ? '已盖章' : '失败'}</Pill>
+                <span className="w-[82px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
+                  {r.at}
+                </span>
+              </li>
+            ))}
+          </ul>
         </WorkCard>
       ) : null}
 
