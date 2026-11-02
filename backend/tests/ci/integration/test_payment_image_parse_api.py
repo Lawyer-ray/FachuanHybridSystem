@@ -98,9 +98,7 @@ def test_amount_mismatch_is_surfaced(mock_read: Any, authenticated_client, contr
 
 @pytest.mark.django_db
 @patch("apps.contracts.services.payment.payment_image_reader.PaymentImageReader.read")
-def test_sms_screenshot_falls_back_to_sms_parser(
-    mock_read: Any, authenticated_client, contract: Contract
-) -> None:
+def test_sms_screenshot_falls_back_to_sms_parser(mock_read: Any, authenticated_client, contract: Contract) -> None:
     """截图里的文本是短信版式（不是回单）时，自动降级到短信解析，字段照样填。"""
     mock_read.return_value = _reader_out(SMS_TEXT, method="ocr")
 
@@ -133,6 +131,15 @@ def test_unreadable_image_returns_empty_draft(mock_read: Any, authenticated_clie
 @pytest.mark.django_db
 def test_unsupported_file_type_is_rejected(authenticated_client, contract: Contract) -> None:
     """非图片/PDF（如误贴的 docx）要 400 拒绝，而不是悄悄当成图片去 OCR。"""
-    bad = SimpleUploadedFile("说明.docx", b"PK\x03\x04", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    bad = SimpleUploadedFile(
+        "说明.docx",
+        b"PK\x03\x04",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
     resp = authenticated_client.post(URL, {"file": bad})
     assert resp.status_code == 400, resp.content
+
+    # 不只看状态码：拒收必须带可读原因，且绝不能落库
+    body = resp.json()
+    assert "图片" in str(body), f"400 响应应说明支持的类型，实际: {body}"
+    assert ContractPayment.objects.count() == 0
