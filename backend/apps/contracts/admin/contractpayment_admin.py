@@ -11,6 +11,7 @@ from simple_history.admin import SimpleHistoryAdmin
 
 from apps.contracts.models import ContractPayment, Invoice, InvoiceStatus
 from apps.core.admin.base import BaseModelAdmin, BaseTabularInline  # 解耦（2026-10-19）：nested_admin 兜底别名上提 core
+from apps.core.admin.filters import date_filter
 
 
 class InvoiceAdminForm(forms.ModelForm[Invoice]):  # pragma: no cover
@@ -132,7 +133,7 @@ class ContractPaymentInline(BaseTabularInline):  # pragma: no cover
 class ContractPaymentAdmin(BaseModelAdmin):  # pragma: no cover
     change_form_template = "admin/contracts/contractpayment/change_form.html"
     list_display = ("id", "contract", "amount", "received_at", "invoice_status", "invoiced_amount")
-    list_filter = ("invoice_status", "received_at")
+    list_filter = ("invoice_status", date_filter("received_at"))
     search_fields = ("contract__name",)
     autocomplete_fields = ("contract",)
     inlines: ClassVar = [InvoiceInline]

@@ -18,6 +18,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.contract_review.models import FormatNormalize, ReviewTask
+from apps.core.admin.filters import date_filter
 from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.services.storage_service import (
@@ -42,7 +43,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "format_action",
     )
-    list_filter = ("status", "created_at")
+    list_filter = ("status", date_filter("created_at"))
     search_fields = ("contract_title",)
 
     # 只读字段

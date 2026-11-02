@@ -8,6 +8,7 @@ from django.http import HttpRequest
 from django.utils.html import format_html
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
+from apps.core.admin.filters import date_filter
 
 
 def _get_property_clue_service() -> Any:
@@ -62,7 +63,7 @@ class PropertyClueAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "updated_at",
     )
-    list_filter = ("clue_type", "created_at")
+    list_filter = ("clue_type", date_filter("created_at"))
     search_fields = ("client__name", "content")
     readonly_fields = ("created_at", "updated_at")
     autocomplete_fields = ("client",)

@@ -11,6 +11,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from apps.core.admin.filters import date_filter
 from apps.core.http.download import content_disposition
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
@@ -54,7 +55,7 @@ class SolutionSectionInline(admin.TabularInline):  # pragma: no cover
 @admin.register(SolutionTask)
 class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ["id", "case_summary_short", "status", "progress", "created_at"]
-    list_filter = ["status", "created_at"]
+    list_filter = ["status", date_filter("created_at")]
     search_fields = ["id", "case_summary", "keyword"]
     ordering = ["-created_at"]
     inlines = [SolutionSectionInline]

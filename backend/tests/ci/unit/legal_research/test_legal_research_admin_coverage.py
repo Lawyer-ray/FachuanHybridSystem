@@ -51,7 +51,7 @@ class TestLegalResearchTaskAdminAttributes:
         admin = _make_admin()
         assert "status" in admin.list_filter
         assert "llm_backend" in admin.list_filter
-        assert "created_at" in admin.list_filter
+        assert _covers_field(admin.list_filter, "created_at")
 
     def test_search_fields(self):
         admin = _make_admin()
@@ -395,3 +395,17 @@ class TestLegalResearchTaskAdminFormConfig:
         form = MagicMock()
         LegalResearchTaskAdmin._attach_search_mode_cleaner(form)
         assert hasattr(form, "clean_search_mode")
+
+
+def _covers_field(list_filter, field_name: str) -> bool:
+    """list_filter 是否覆盖了某个日期字段。
+
+    日期字段现在由 `date_filter(field)` 生成的筛选器承载（自然期间筛选），
+    而不是裸字段名——所以不能再用 `field in list_filter` 判断。
+    """
+    for item in list_filter or []:
+        if item == field_name:
+            return True
+        if getattr(item, "field_name", None) == field_name:
+            return True
+    return False

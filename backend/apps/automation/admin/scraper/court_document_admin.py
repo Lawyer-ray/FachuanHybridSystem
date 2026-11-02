@@ -14,6 +14,7 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus
+from apps.core.admin.filters import date_filter
 
 
 def _get_court_document_admin_service() -> Any:
@@ -60,8 +61,8 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
     list_filter = [
         "download_status",
         "c_fymc",
-        "created_at",
-        "downloaded_at",
+        date_filter("created_at"),
+        date_filter("downloaded_at"),
     ]
 
     search_fields = [

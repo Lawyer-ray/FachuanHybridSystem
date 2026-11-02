@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
+from apps.core.admin.filters import date_filter
 from apps.organization.models import AccountCredential
 
 
@@ -46,7 +47,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
 
     search_fields: ClassVar[tuple[str, ...]] = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
 
-    list_filter = ["site_name", "lawyer", "last_login_success_at", "created_at"]
+    list_filter = ["site_name", "lawyer", date_filter("last_login_success_at"), date_filter("created_at")]
 
     autocomplete_fields: ClassVar[tuple[str, ...]] = ("lawyer",)
 

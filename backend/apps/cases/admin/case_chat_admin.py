@@ -12,6 +12,7 @@ from django.utils.safestring import SafeString
 from apps.cases.admin.base_admin import BaseTabularInline
 from apps.cases.admin.mixins import CaseAdminServiceMixin
 from apps.cases.models import CaseChat
+from apps.core.admin.filters import date_filter
 
 
 @admin.register(CaseChat)
@@ -22,7 +23,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):  # pragma: no cove
     list_select_related = ("case",)
     list_per_page = 50
 
-    list_filter = ("platform", "is_active", "created_at")
+    list_filter = ("platform", "is_active", date_filter("created_at"))
 
     search_fields = ("name", "chat_id", "case__name")
 

@@ -17,6 +17,7 @@ from apps.batch_printing.models import (
     PrintPresetSnapshot,
 )
 from apps.batch_printing.services.wiring import get_rule_service
+from apps.core.admin.filters import date_filter
 
 
 class PrintKeywordRuleAdminForm(forms.ModelForm):  # pragma: no cover
@@ -67,7 +68,7 @@ class BatchPrintingToolAdmin(admin.ModelAdmin):  # pragma: no cover
 @admin.register(PrintPresetSnapshot)
 class PrintPresetSnapshotAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ["printer_name", "preset_name", "last_synced_at", "updated_at"]
-    list_filter = ["printer_name", "last_synced_at"]
+    list_filter = ["printer_name", date_filter("last_synced_at")]
     search_fields = ["printer_name", "preset_name"]
     ordering = ["printer_name", "preset_name"]
     readonly_fields = [
@@ -144,7 +145,7 @@ class BatchPrintJobAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_by",
         "created_at",
     ]
-    list_filter = ["status", "created_at"]
+    list_filter = ["status", date_filter("created_at")]
     search_fields = ["id", "task_id", "error_message"]
     ordering = ["-created_at"]
     inlines = [BatchPrintItemInline]

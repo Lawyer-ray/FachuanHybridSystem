@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.contracts.models import ClientPaymentRecord
+from apps.core.admin.filters import date_filter
 
 if TYPE_CHECKING:
     BaseTabularInline = admin.TabularInline
@@ -146,7 +147,7 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
 
     form = ClientPaymentRecordAdminForm
     list_display = ("id", "contract", "case", "amount", "created_at")
-    list_filter = ("contract", "created_at")
+    list_filter = ("contract", date_filter("created_at"))
     search_fields = ("contract__name", "note")
     autocomplete_fields = ("contract",)
     readonly_fields = ("created_at", "image_preview")

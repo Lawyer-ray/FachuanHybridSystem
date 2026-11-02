@@ -13,6 +13,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
+from apps.core.admin.filters import date_filter
 from apps.document_recognition.models import (
     DateCandidateStatus,
     DateConfirmationStatus,
@@ -129,7 +130,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "binding_success",
         "date_confirmation_status",
         "notification_sent",
-        "created_at",
+        date_filter("created_at"),
     ]
     inlines = [DateCandidateInline]
     search_fields: ClassVar[list[str]] = ["original_filename", "case_number", "case__name"]

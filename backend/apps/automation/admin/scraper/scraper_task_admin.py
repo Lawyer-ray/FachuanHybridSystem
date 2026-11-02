@@ -13,6 +13,7 @@ from django.utils.html import format_html, format_html_join
 from django.utils.safestring import SafeData
 
 from apps.automation.models import ScraperTask
+from apps.core.admin.filters import date_filter
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "duration",
     )
     list_select_related = ("case",)
-    list_filter = ("task_type", "status", "priority", "created_at")
+    list_filter = ("task_type", "status", "priority", date_filter("created_at"))
     search_fields = ("url", "error_message")
     readonly_fields = (
         "created_at",

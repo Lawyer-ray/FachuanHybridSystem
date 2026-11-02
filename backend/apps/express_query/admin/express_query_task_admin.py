@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeData
 
+from apps.core.admin.filters import date_filter
 from apps.core.tasking import submit_task
 from apps.express_query.models import ExpressCarrierType, ExpressQueryTask, ExpressQueryTaskStatus, ExpressQueryTool
 
@@ -187,7 +188,7 @@ class ExpressQueryTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
     )
     list_per_page = 50
-    list_filter = ("status", "carrier_type", "created_at")
+    list_filter = ("status", "carrier_type", date_filter("created_at"))
     search_fields = ("title", "tracking_number", "ocr_text", "error_message")
     readonly_fields = (
         "title",

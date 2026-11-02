@@ -8,14 +8,8 @@ import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 
-from apps.documents.admin.document_template_admin import (
-    DocumentTemplateAdmin,
-    DocumentTemplateForm,
-)
-from apps.documents.admin.template_admin_views_mixin import (
-    _normalize_private_docx_root,
-    _to_django_relative_path,
-)
+from apps.documents.admin.document_template_admin import DocumentTemplateAdmin, DocumentTemplateForm
+from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root, _to_django_relative_path
 from apps.documents.models import DocumentTemplate
 
 User = get_user_model()
@@ -45,7 +39,10 @@ class TestDocumentTemplateAdminAttributes:
     def test_search_fields(self):
         admin = _make_admin()
         assert "name" in admin.search_fields
-        assert "description" in admin.search_fields
+        # 曾经这里断言过 "description"——但该字段早被迁移 0006 从模型删掉，
+        # 等于把 bug 写成了「预期」，于是 CI 全绿、admin 搜索一按就 500。
+        # 搜索项必须是模型真实存在的列。
+        assert "description" not in admin.search_fields
 
     def test_ordering(self):
         admin = _make_admin()

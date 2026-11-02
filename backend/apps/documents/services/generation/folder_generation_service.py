@@ -510,9 +510,15 @@ class FolderGenerationService:
         file_location: str,
         folder_path: str,
         documents: list[tuple[str, bytes, str]],
-        failed_templates: list[str],
     ) -> None:
-        """法定代表人身份证明书：每个我方法人各生成一份（无我方法人则跳过）。"""
+        """法定代表人身份证明书：每个我方法人各生成一份（无我方法人则跳过）。
+
+        签名必须与其它特殊渲染器（授权委托书 / 所函）一致：dispatch 处统一按
+        五参数调用。曾多声明一个 `failed_templates` 而函数体内从未使用，
+        调用即 `TypeError: missing 1 required positional argument`，整个
+        生成案件文件夹 500。要记失败请显式追加并连续一致地改 dispatch，
+        不要单方面加参数。
+        """
         from apps.client.models import Client
         from apps.documents.services.generation.authorization_material_generation_service import (
             AuthorizationMaterialGenerationService,

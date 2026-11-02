@@ -8,6 +8,7 @@ from django.template.response import TemplateResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
+from apps.core.admin.filters import date_filter
 from apps.pdf_splitting.models import PdfSplitJob, PdfSplittingTool
 
 
@@ -57,7 +58,7 @@ class PdfSplitJobAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_by",
         "created_at",
     ]
-    list_filter = ["status", "source_type", "split_mode", "ocr_profile", "template_key", "created_at"]
+    list_filter = ["status", "source_type", "split_mode", "ocr_profile", "template_key", date_filter("created_at")]
     search_fields = ["source_original_name", "source_abs_path", "id"]
     ordering = ["-created_at"]
     readonly_fields = [

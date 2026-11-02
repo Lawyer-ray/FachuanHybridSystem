@@ -112,7 +112,10 @@ class TestDocumentTemplateAdminAttributes:
 
     def test_search_fields(self) -> None:
         assert "name" in DocumentTemplateAdmin.search_fields
-        assert "description" in DocumentTemplateAdmin.search_fields
+        # `description` 早被迁移 0006 从模型删除，搜它必 FieldError 500。
+        # 本仓曾有两份单测把这个 bug 当成「预期」断言（另一处已修），
+        # 所以这里明确断言它**不能**再出现。
+        assert "description" not in DocumentTemplateAdmin.search_fields
 
     def test_ordering(self) -> None:
         assert DocumentTemplateAdmin.ordering == ("-id",)

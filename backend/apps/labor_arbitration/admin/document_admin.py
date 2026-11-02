@@ -13,6 +13,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString, mark_safe
 
+from apps.core.admin.filters import date_filter
 from apps.labor_arbitration.models import ArbitrationDocument
 
 
@@ -33,7 +34,13 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "parse_status",
         "parsed_at",
     )
-    list_filter = ("source", "crawl_status", "parse_status", "publish_date", "publish_datetime")
+    list_filter = (
+        "source",
+        "crawl_status",
+        "parse_status",
+        date_filter("publish_date"),
+        date_filter("publish_datetime"),
+    )
     search_fields = ("title", "case_number", "detail_url", "parsed_text")
     readonly_fields = (
         "source",

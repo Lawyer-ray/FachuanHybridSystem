@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EMPTY_FORM,
   formFromDraft,
+  formFromImageDraft,
   parseAmount,
   remainingLabel,
   toCreatePayload,
@@ -87,6 +88,40 @@ describe('toCreatePayload', () => {
   it('开票金额留空按 0 提交（后端 invoiced_amount 不接受 null）', () => {
     const payload = toCreatePayload(1, { ...EMPTY_FORM, amount: '100', receivedAt: '2026-01-01', invoicedAmount: '  ' })
     expect(payload.invoiced_amount).toBe(0)
+  })
+})
+
+describe('formFromImageDraft（银行回单图片）', () => {
+  const draft = {
+    amount: '25000.00',
+    received_at: '2026-11-02',
+    payer: '佛山市某某铝业有限公司',
+    note: '往来款；付款人：佛山市某某铝业有限公司',
+    hints: [],
+    payee: '北京某某(广州)律师事务所',
+    amount_mismatch: false,
+    is_receipt: true,
+    extraction_method: 'vlm',
+    text: '…',
+  }
+
+  it('回单草稿的备注原样用（回单带「用途」栏，比短信的摘要更有信息量）', () => {
+    const form = formFromImageDraft(draft)
+    expect(form.amount).toBe('25000.00')
+    expect(form.receivedAt).toBe('2026-11-02')
+    expect(form.note).toBe('往来款；付款人：佛山市某某铝业有限公司')
+    expect(form.payer).toBe('佛山市某某铝业有限公司')
+  })
+
+  it('草稿没带备注时退回「付款人：XX」，不让备注空着', () => {
+    const form = formFromImageDraft({ ...draft, note: '' })
+    expect(form.note).toBe('付款人：佛山市某某铝业有限公司')
+  })
+
+  it('金额没认出时留空（绝不填默认值——财务场景默认值等于错账）', () => {
+    const form = formFromImageDraft({ ...draft, amount: null, received_at: null, note: '' })
+    expect(form.amount).toBe('')
+    expect(form.receivedAt).toBe('')
   })
 })
 
