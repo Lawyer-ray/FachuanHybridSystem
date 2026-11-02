@@ -29,7 +29,10 @@ class StoryAnimationAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at_display",
     ]
     list_filter = ["status", "viz_type", "current_stage", "created_at"]
-    search_fields = ["source_title", "source_text", "id__icontains"]
+    # `id__icontains` 是非法写法：admin 的 search_fields 只接受字段路径，**不支持**
+    # ORM lookup 后缀。写成 `id__icontains` 会被当成「关联穿透到名为 icontains 的字段」，
+    # 一搜索就 FieldError 500。要按 ID 搜直接写 `id`（Django 对整型主键走精确匹配）。
+    search_fields = ["source_title", "source_text", "id"]
     ordering = ["-created_at"]
     date_hierarchy = "created_at"
     list_per_page = 20

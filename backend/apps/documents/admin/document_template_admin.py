@@ -354,10 +354,11 @@ class DocumentTemplateAdmin(TemplateAdminViewsMixin, TemplateAdminDisplayMixin, 
         "is_active",
     )
 
-    search_fields = (
-        "name",
-        "description",
-    )
+    # 只搜真实存在的列：`description` 已被 models 迁移 0006
+    # （remove_documenttemplate_description）删除，但这里一直没同步，
+    # 导致 admin 一进搜索（?q=xxx）就 FieldError 500。
+    # 改动 search_fields 前先核 `models.DocumentTemplate` 的字段清单。
+    search_fields = ("name",)
 
     ordering = ("-id",)
 
