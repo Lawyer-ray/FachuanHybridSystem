@@ -318,3 +318,90 @@ class TestGenerateFolderWithDocumentsResult:
         assert filename == "test.zip"
         assert extract_path == "/extracted"
         assert error is None
+
+
+class TestSpecialRendererDispatchContract:
+    """特殊渲染器与 dispatch 调用点的签名契约。
+
+    回归背景（真实 500）：`_render_legal_rep_certificate` 曾多声明一个
+    `failed_templates` 必填参数，而 `generate_case_folder_with_documents` 的
+    dispatch 统一按「case/template/file_location/folder_path/documents」五参数
+    调用 → `TypeError: missing 1 required positional argument: 'failed_templates'`
+    → 整个「生成案件文件夹」接口 500（案件 487 触发）。
+
+    这类 bug 编译器与 mypy 都拦不住（handler 是 `Any` 的动态 getattr），
+    所以用反射把「dispatch 的实际调用形状」固化成契约：任何特殊渲染器只要
+    签名与之不符，测试立刻失败，而不是等到线上点按钮。
+    """
+
+    #: dispatch 处实际传入的关键字参数（与 folder_generation_service 保持一致）
+    DISPATCH_KWARGS = ("case", "template", "file_location", "folder_path", "documents")
+
+    def _handlers(self):
+        svc = FolderGenerationService()
+        return [
+            (keyword, method_name, getattr(svc, method_name))
+            for keyword, method_name in FolderGenerationService._SPECIAL_RENDERERS
+        ]
+
+    def test_every_special_renderer_accepts_dispatch_kwargs(self):
+        import inspect
+
+        for keyword, method_name, handler in self._handlers():
+            sig = inspect.signature(handler)
+            # 去掉 self（getattr 绑定到实例后已经没有 self）
+            accepted = [
+                name for name, p in sig.parameters.items() if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+            ]
+            for kwarg in self.DISPATCH_KWARGS:
+                assert kwarg in accepted, (
+                    f"{method_name}（匹配词「{keyword}」）缺少 dispatch 传入的参数 {kwarg!r}，"
+                    f"实际签名: {list(sig.parameters)}"
+                )
+
+    def test_no_special_renderer_requires_extra_positional_args(self):
+        """除 dispatch 五参数外，不允许再有必填位置参数（否则调用必然 TypeError）。"""
+        import inspect
+
+        for _keyword, method_name, handler in self._handlers():
+            sig = inspect.signature(handler)
+            required_extra = [
+                name
+                for name, p in sig.parameters.items()
+                if p.default is inspect.Parameter.empty
+                and p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+                and name not in self.DISPATCH_KWARGS
+            ]
+            assert not required_extra, (
+                f"{method_name} 有 dispatch 未提供的必填参数 {required_extra}，"
+                "调用时会抛 TypeError（正是案件 487 的 500 根因）"
+            )
+
+    @pytest.mark.parametrize("keyword,method_name", FolderGenerationService._SPECIAL_RENDERERS)
+    def test_handler_callable_with_dispatch_args(self, keyword, method_name):
+        """把 dispatch 的真实调用形状打到真 handler 上，不抛 TypeError 即通过。
+
+        这是对上面两条反射契约的运行时兜底：反射看的是签名文本，这里看的是
+        Python 真的能把五参数递进去。handler 体内部依赖 DB/渲染，所以用
+        MagicMock 让「我方法人」查询返回空 → handler 提前 return，正好只验证
+        调用边界这一件事（案件 487 崩在边界上，不是崩在渲染里）。
+        """
+        svc = FolderGenerationService()
+        handler = getattr(svc, method_name)
+
+        case = MagicMock()
+        case.id = 1
+        empty = []
+        case.parties.select_related.return_value.filter.return_value.select_related.return_value = empty
+        case.parties.select_related.return_value.all.return_value = empty
+
+        documents: list[tuple[str, bytes, str]] = []
+        # 不 expect 异常：缺参数会直接 TypeError
+        handler(
+            case=case,
+            template=MagicMock(name=keyword),
+            file_location="/tmp/x.docx",
+            folder_path="一审/1-立案材料/3-委托材料",
+            documents=documents,
+        )
+        assert documents == []
