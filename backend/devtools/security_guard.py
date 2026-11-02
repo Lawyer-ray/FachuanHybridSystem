@@ -56,6 +56,21 @@ COURT_CASE_NO_PATTERN = re.compile(
 # 内部案号 / OA 合同号：20XX + 2–4 位大写字母 + 3–5 位数字
 INTERNAL_CASE_NO_PATTERN = re.compile(r"(?<![0-9A-Za-z])20\d{2}[A-Z]{2,4}\d{3,5}(?![0-9A-Za-z])")
 # 案名（X诉Y… / X与Y…纠纷），两侧任一是「某」式脱敏即放行
+# 「诉」前面不能是这些字：「三个非诉场景各配一组」里的「非诉」是否定说法
+# （非诉业务 / 非诉线），不是「X诉Y」；「自诉 / 公诉 / 应诉 / 参诉 / 涉诉」同理。
+# 原有的「原告名以上/起/败/胜/申结尾」判断只能挡住「上诉」「起诉」这类，
+# 挡不住「非诉」——它前面是「三个非」，压根没有这些字。
+CASE_NAME_VS_BLOCK_CHARS_BEFORE = "非自公应参涉刑民行"
+# 「诉」后面紧跟的形式：「诉前保全 / 诉调对接 / 诉源治理」是程序名词，不是案名
+CASE_NAME_VS_BLOCK_CHARS_AFTER = "前中后源调裁讼外"
+# 「与」前面不能是这些字：「参与 / 给予 / 赋予 / 授予」里的与是构词成分
+CASE_NAME_WITH_BLOCK_CHARS_BEFORE = "参给赋授赠赋"
+# 「X与执行不当」里的与是介词（对被申请人…执行不当），「执行」后面若直接跟
+# 纠纷 / 仲裁 / 之诉 才是案名
+CASE_NAME_WITH_FALSE_TAIL = re.compile(r"^执行[^纠纷仲裁之诉]")
+
+# 案名正则：不覆盖原有行为是硬要求——`X诉Y纠纷` 在任何位置都照旧识别，
+# 此前只补了「连接词前一字」与「与→执行」两处白名单，没有引入位置定界。
 CASE_NAME_VS_PATTERN = re.compile(
     r"([\u4e00-\u9fa5A-Za-z0-9（）()·]{2,24})诉([\u4e00-\u9fa5（）()·、，,]{2,60}?)(?:一案|纠纷|之诉|仲裁|执行)"
 )
@@ -70,9 +85,21 @@ COMPANY_PATTERN = re.compile(
 # 解析代码里裸写的后缀字面量（"股份有限公司"）会退化成 body=「股份有限」；
 # 文档里「机构名（有限公司 / …」这种枚举写法 body 以标点结尾——都不是公司名
 COMPANY_SUFFIX_ARTIFACT_TAILS = ("有限", "公司", "股份", "集团", "责任", "（", "(", "、", "/", "：", ":")
-# 完整地址链：省…市…区/县/镇/路/村…（只拦全链，单独提「广州市」不拦）
+# 完整地址链：省…市…区/县/镇/路…**且继续到门牌号**。
+#
+# 判定门槛是「门牌级」：到省市区为止属于公开行政区划，不是隐私（LLM 复审提示词
+# B/C 条同口径：「只到省市区一级的地名」放行）；只有再往下落到具体楼栋 / 门牌才
+# 能定位到自然人。此前只判到「区」就报，导致 `签约地：广东省佛山市南海区。`
+# 这种纯辖区表述被拦下——那是合同要素，不是隐私。
+#
+# 注意：LLM 提示词里写的是「精确到街道门牌」，正则口径不能比它严，
+# 否则同一段文本正则拦、大模型放行，两边结论打架。
 ADDRESS_PATTERN = re.compile(
-    r"[\u4e00-\u9fa5]{1,8}(?:省|自治区)[\u4e00-\u9fa5]{1,8}市[\u4e00-\u9fa5]{1,14}(?:区|县|旗|镇|街道|路|村|大道)[\u4e00-\u9fa5\d]{0,25}"
+    r"[\u4e00-\u9fa5]{1,8}(?:省|自治区)[\u4e00-\u9fa5]{1,8}市[\u4e00-\u9fa5]{1,14}(?:区|县|旗|镇|街道)"
+    # 路名与门牌之间几乎总有空格（「南海大道 88 号」），字符类必须放行 \s，
+    # 否则整条地址链在空格处断掉——门牌级地址反而判不出，等于放行真实住址。
+    r"[\u4e00-\u9fa5\s]{0,20}?(?:路|街|巷|道|村|里)"
+    r"[\u4e00-\u9fa5\d\s]{0,10}?(?:\d+\s*号|\d+\s*栋|\d+\s*楼|\d+\s*室|\d+\s*单元)"
 )
 SENSITIVE_LITERAL_ASSIGN_PATTERN = re.compile(
     r"(?i)\b(?:password|passwd|pwd|token|access[_-]?token|refresh[_-]?token|api[_-]?key|secret(?:[_-]?key)?|authorization|cookie|sessionid)\b"
@@ -252,14 +279,89 @@ def _is_anonymized(name: str) -> bool:
     return bool(ANON_NAME_PATTERN.search(name)) or bool(PLACEHOLDER_PATTERN.search(name))
 
 
+# 案名前面常有的定界：引号 / 括号 / 句读 / 冒号 / 行首。真实案名几乎都跟在
+# 这些符号后面；用它把「本案系「张三」这种贪婪前缀切掉。
+_CASE_NAME_TRIM_DELIMS = "「」『』“”\"'（）()《》【】[]、，,。；;：:·| \t"
+
+
+def _trim_case_name_prefix(
+    pattern: re.Pattern[str],
+    content: str,
+    start: int,
+    end: int,
+    plaintiff: str,
+    defendant: str,
+) -> tuple[str, str, int] | None:
+    """把贪婪吃进来的无关前缀切掉，返回 (原告, 被告, 新起点) 或 None（跳过）。
+
+    只在「切完更像案名」时才切，判断依据是**离定界符的距离**：案名起点应紧贴
+    上一个定界符，而不是浮在句子中间。这样位置不定界的原行为不会退化——
+
+      · 引号内的 `本案系「甲某诉乙某纠纷」` → 切出「甲某」，起点紧跟引号
+      · 紧跟行首的 `甲某诉乙某纠纷` → 本就在最左，无需切
+      · `某非诉业务……` 这类词内乱切 → 连接词守卫先拦下，到不了这里
+    """
+    last_delim = max((content.rfind(ch, 0, start) for ch in _CASE_NAME_TRIM_DELIMS), default=-1)
+    # 已经在定界符之后 / 行首：无需切
+    if start - last_delim <= 1 and (last_delim >= 0 or start == 0):
+        return plaintiff, defendant, start
+    if last_delim < 0:
+        return plaintiff, defendant, start
+    trimmed_candidate = content[last_delim + 1 : end]
+    for trimmed in pattern.finditer(trimmed_candidate):
+        if trimmed.start() != 0:
+            continue
+        new_plaintiff = trimmed.group(1)
+        new_defendant = trimmed.group(2)
+        if not new_plaintiff or not new_defendant:
+            continue
+        return new_plaintiff, new_defendant, last_delim + 1
+    # 切不出更贴定界符的案名：保留原样（宁可多报，不可漏报）
+    return plaintiff, defendant, start
+
+
 def _case_name_hit(content: str) -> str | None:
     """X诉Y… / X与Y…纠纷，两侧都不是脱敏名 → 疑似真实案名。"""
     for pattern in (CASE_NAME_VS_PATTERN, CASE_NAME_WITH_PATTERN):
+        already_kept: list[int] = []
         for match in pattern.finditer(content):
             plaintiff, defendant = match.group(1), match.group(2)
+            # 贪婪吃进的无关前缀：真实案名几乎总在引号 / 括号 / 句读之后，或直接
+            # 起于行首。若在原告名内部还能找到一个 `[定界符] + X诉Y` 的更窄切法，
+            # 以更窄的为准——「本案系「张三诉李四…」」的原告应是「张三」，
+            # 不是「本案系「张三」。只在更窄切法**更接近定界符**时切换，
+            # 保证位置不定界的原行为不退化成漏报。
+            trimmed = _trim_case_name_prefix(
+                pattern,
+                content,
+                match.start(),
+                match.end(),
+                plaintiff,
+                defendant,
+            )
+            if trimmed is None:
+                continue
+            plaintiff, defendant, start = trimmed
+            if start in already_kept:
+                continue
+            already_kept.append(start)
             # 「上诉」「起诉」「败诉」里的诉不是案名连接词
             if plaintiff.endswith(("上", "起", "败", "胜", "申")):
                 continue
+            if pattern is CASE_NAME_VS_PATTERN:
+                # 「非诉」「自诉」「公诉」「应诉」「参诉」「涉诉」：不是 X诉Y
+                if plaintiff and plaintiff[-1] in CASE_NAME_VS_BLOCK_CHARS_BEFORE:
+                    continue
+                # 「诉前保全」「诉调对接」：诉 后面不是当事人
+                if defendant and defendant[0] in CASE_NAME_VS_BLOCK_CHARS_AFTER:
+                    continue
+            else:
+                # 「参与 / 给予 / 授予」：与 是构词成分
+                if plaintiff and plaintiff[-1] in CASE_NAME_WITH_BLOCK_CHARS_BEFORE:
+                    continue
+                # 「X与执行不当」：与 后面是介词短语，不是当事人
+                if CASE_NAME_WITH_FALSE_TAIL.match(defendant):
+                    continue
             defendant_head = re.split(r"[、，,]", defendant)[0]
             if not _is_anonymized(plaintiff) and not _is_anonymized(defendant_head):
                 return f"疑似真实案名「{plaintiff}诉{defendant_head}…」，请改为「张某诉某公司」式脱敏"
