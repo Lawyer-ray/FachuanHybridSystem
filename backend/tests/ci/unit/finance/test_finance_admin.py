@@ -49,9 +49,9 @@ class TestFinanceLPRRateAdmin:
         assert "is_auto_synced" in admin_obj.list_display
 
     def test_list_filter(self) -> None:
-        """list_filter 包含 effective_date"""
+        """list_filter 覆盖 effective_date（由 date_filter 承载自然期间筛选）"""
         admin_obj = LPRRateAdmin(LPRRate, AdminSite())
-        assert "effective_date" in admin_obj.list_filter
+        assert _covers_field(admin_obj.list_filter, "effective_date")
 
     def test_ordering(self) -> None:
         """排序应按 effective_date 降序"""
@@ -108,3 +108,17 @@ class TestLPRRateAdminSyncView:
         assert response.status_code == 302
         assert response["Location"] == "../"
         mock_svc.return_value.sync_latest.assert_called_once_with()
+
+
+def _covers_field(list_filter, field_name: str) -> bool:
+    """list_filter 是否覆盖了某个日期字段。
+
+    日期字段现在由 `date_filter(field)` 生成的筛选器承载（自然期间筛选），
+    而不是裸字段名——所以不能再用 `field in list_filter` 判断。
+    """
+    for item in list_filter or []:
+        if item == field_name:
+            return True
+        if getattr(item, "field_name", None) == field_name:
+            return True
+    return False
