@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from ninja import Router
@@ -61,7 +62,11 @@ def _call_foreign_law_tool(
     """
     from mcp_server.tools.foreign_law import asean_law_countries, asean_law_search, asean_law_verify
 
-    tools = {
+    # 给 dict 标注值类型：run_sync_isolated 的参数是 Callable[..., T]，而从
+    # 未标注 dict 取出的函数会被推断成裸 `function` 而报 arg-type（mypy 门禁拦下）。
+    # 三个工具签名各异（countries 无参 / search、verify 各自带关键字参数），
+    # 这里只能按关键字转发，故用 Callable[..., dict[str, Any]] 而非精确签名。
+    tools: dict[str, Callable[..., dict[str, Any]]] = {
         "asean_law_verify": asean_law_verify,
         "asean_law_search": asean_law_search,
         "asean_law_countries": asean_law_countries,
