@@ -22,6 +22,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, CourtSMSType
 from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+from apps.core.admin.filters import date_filter
 
 logger = logging.getLogger("apps.automation")
 
@@ -57,7 +58,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     # 列表筛选器
     list_filter = [
         "status",
-        "received_at",
+        date_filter("received_at", title="接收时间"),
         "scraper_task__status",
     ]
 

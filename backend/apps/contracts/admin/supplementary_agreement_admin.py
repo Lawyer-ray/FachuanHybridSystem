@@ -11,6 +11,7 @@ from django.db.models import Count, QuerySet
 from django.http import HttpRequest
 
 from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
+from apps.core.admin.filters import date_filter
 
 
 class SupplementaryAgreementPartyInline(
@@ -45,7 +46,7 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "updated_at",
     )
-    list_filter = ("created_at", "updated_at")
+    list_filter = (date_filter("created_at"), date_filter("updated_at"))
     search_fields = ("name", "contract__name")
     readonly_fields = ("created_at", "updated_at")
     autocomplete_fields: ClassVar = ["contract"]

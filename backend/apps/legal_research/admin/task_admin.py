@@ -13,6 +13,7 @@ from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
+from apps.core.admin.filters import date_filter
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
@@ -52,7 +53,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "matched_count",
         "created_at",
     ]
-    list_filter: ClassVar[list[str]] = ["status", "llm_backend", "created_at"]
+    list_filter: ClassVar[list[str]] = ["status", "llm_backend", date_filter("created_at")]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",
         "keyword",

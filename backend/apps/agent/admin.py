@@ -12,6 +12,8 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
+from apps.core.admin.filters import date_filter
+
 from .models import AgentApproval, AgentApprovalPolicy, AgentMemory, AgentRun, AgentSession, AgentSkillPreference
 
 
@@ -30,7 +32,7 @@ class AgentRunAdmin(admin.ModelAdmin):
         "tool_calls",
         "duration_ms",
     )
-    list_filter = ("status", "model", "created_at")
+    list_filter = ("status", "model", date_filter("created_at"))
     search_fields = ("model", "user__username", "error_kind")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
@@ -76,7 +78,7 @@ class AgentRunAdmin(admin.ModelAdmin):
 @admin.register(AgentSession)
 class AgentSessionAdmin(admin.ModelAdmin):
     list_display = ("title", "user", "status", "llm_model", "created_at", "updated_at")
-    list_filter = ("status", "created_at")
+    list_filter = ("status", date_filter("created_at"))
     search_fields = ("title", "user__username")
 
 
@@ -85,7 +87,7 @@ class AgentApprovalAdmin(admin.ModelAdmin):
     """高危操作审批的审计视图。"""
 
     list_display = ("created_at", "tool_name", "status", "decided_by", "decided_at")
-    list_filter = ("status", "created_at")
+    list_filter = ("status", date_filter("created_at"))
     search_fields = ("tool_name",)
     date_hierarchy = "created_at"
 
@@ -130,7 +132,7 @@ class AgentMemoryAdmin(admin.ModelAdmin):
     """
 
     list_display = ("created_at", "scope", "kind", "status", "short_content", "hit_count", "created_by")
-    list_filter = ("scope", "kind", "status", "created_at")
+    list_filter = ("scope", "kind", "status", date_filter("created_at"))
     search_fields = ("content", "created_by__username", "created_by__real_name")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)

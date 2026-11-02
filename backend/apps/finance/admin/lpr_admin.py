@@ -18,6 +18,7 @@ from django.template.response import TemplateResponse
 from django.urls import URLPattern, path
 
 from apps.core.admin.base import BaseModelAdmin  # 解耦（2026-10-19）：不再跨 app 引 cases admin 的别名
+from apps.core.admin.filters import date_filter
 from apps.finance.models.lpr_rate import LPRRate
 
 if TYPE_CHECKING:
@@ -43,7 +44,7 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
     )
     list_per_page = 50
     list_filter = (
-        "effective_date",
+        date_filter("effective_date"),
         "is_auto_synced",
     )
     search_fields = (

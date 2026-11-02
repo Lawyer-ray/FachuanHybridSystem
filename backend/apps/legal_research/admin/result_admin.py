@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.contrib import admin
 
+from apps.core.admin.filters import date_filter
 from apps.legal_research.models import LegalResearchResult
 from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
 
@@ -22,7 +23,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
         "has_pdf",
         "created_at",
     ]
-    list_filter = ["created_at"]
+    list_filter = [date_filter("created_at")]
     actions = ["mark_as_relevant", "mark_as_false_positive"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",

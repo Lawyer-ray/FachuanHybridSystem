@@ -20,6 +20,7 @@ from apps.cases.admin.base_admin import (
     get_admin_accessible_case_queryset,
 )
 from apps.cases.models import CaseLog, CaseLogAttachment
+from apps.core.admin.filters import date_filter
 
 
 class CaseLogAttachmentInline(BaseTabularInline):  # pragma: no cover
@@ -44,7 +45,7 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
     list_display = ("id", "case_link", "actor", "reminder_type", "reminder_time", "created_at", "updated_at")
     list_select_related = ("case", "actor")
     list_per_page = 50
-    list_filter = ("created_at",)
+    list_filter = (date_filter("created_at"),)
     search_fields = ("content", "case__name")
     ordering = ("-created_at",)
     autocomplete_fields = ("case", "actor")

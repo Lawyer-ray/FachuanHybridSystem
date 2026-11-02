@@ -14,6 +14,7 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from apps.core.admin.filters import date_filter
 from apps.core.http.download import content_disposition
 from apps.core.services.storage_service import sanitize_upload_filename
 from apps.document_parsing.models import DocumentParsingTask, DocumentParsingTool
@@ -135,7 +136,7 @@ class DocumentParsingTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "completed_at",
     ]
-    list_filter = ["status", "backend_used", "created_at"]
+    list_filter = ["status", "backend_used", date_filter("created_at")]
     search_fields = ["file_name"]
     ordering = ["-created_at"]
     list_per_page = 20

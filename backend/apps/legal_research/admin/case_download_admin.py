@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
+from apps.core.admin.filters import date_filter
 from apps.core.exceptions import ValidationException
 from apps.core.interfaces import ServiceLocator
 from apps.core.services.storage_service import to_media_abs
@@ -77,7 +78,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "action_buttons",
     ]
-    list_filter: ClassVar[list[str]] = ["status", "file_format", "created_at"]
+    list_filter: ClassVar[list[str]] = ["status", "file_format", date_filter("created_at")]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",
         "case_numbers",

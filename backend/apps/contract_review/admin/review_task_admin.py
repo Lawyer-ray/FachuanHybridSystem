@@ -14,6 +14,7 @@ from django.urls import path
 from django.utils.html import format_html
 
 from apps.contract_review.models import ReviewTask, TaskStatus
+from apps.core.admin.filters import date_filter
 from apps.core.exceptions import ValidationException
 from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.http.download import content_disposition
@@ -28,7 +29,7 @@ _PARTY_FIELDS = ("party_a", "party_b", "party_c", "party_d")
 @admin.register(ReviewTask)
 class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("contract_title", "user", "status", "current_step_display", "created_at")
-    list_filter = ("status", "represented_party", "created_at")
+    list_filter = ("status", "represented_party", date_filter("created_at"))
     search_fields = ("contract_title", "party_a", "party_b")
     readonly_fields = (
         "id",

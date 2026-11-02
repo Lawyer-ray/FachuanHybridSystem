@@ -18,6 +18,7 @@ from django.utils.html import format_html, format_html_join
 from django.utils.http import url_has_allowed_host_and_scheme
 from simple_history.admin import SimpleHistoryAdmin
 
+from apps.core.admin.filters import date_filter
 from apps.reminders.services.calendar_providers.mac_provider import get_auth_status
 
 from ..models import Reminder, ReminderType
@@ -64,7 +65,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
         "updated_at",
     )
     list_display_links = ("id", "content")
-    list_filter = ("reminder_type", "is_completed", "created_at")
+    list_filter = ("reminder_type", "is_completed", date_filter("created_at"))
     search_fields = ("content",)
     list_select_related = ("contract", "case", "case_log")
     autocomplete_fields = ["contract", "case", "case_log"]
