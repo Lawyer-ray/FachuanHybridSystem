@@ -25,6 +25,15 @@ import { createApiClient } from '@/lib/api'
 
 const foreignLawApi = createApiClient({ prefix: '/api/v1/legal-research/foreign-law' })
 
+/** 调用轨迹的一步（接入 → 登录 → 检索 → 取正文 → 切条款 → 取原文） */
+export interface ForeignLawTraceStep {
+  name: string
+  detail: string
+  ok: boolean
+  result: string
+  ms: number
+}
+
 /** 核验结果（后端原样返回） */
 export interface ForeignLawVerifyResult {
   ok: boolean
@@ -36,6 +45,10 @@ export interface ForeignLawVerifyResult {
   needs_model_judgement?: boolean
   claim?: string
   detail?: string
+  /** 总耗时（毫秒） */
+  total_ms?: number
+  /** 调用轨迹：看得出系统真的连了 BARLC */
+  trace?: ForeignLawTraceStep[]
 }
 
 /** 一处在合同里出现的泰国法引用 */

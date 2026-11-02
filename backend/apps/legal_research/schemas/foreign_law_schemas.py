@@ -11,6 +11,8 @@ AI 工具面看到的一致，避免两套口径在「核验是否成立」上�
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 # BARLC 国别代码（如 LAWCOUNTRYTG）是 8–20 位大写字母，历史上有带数字后缀的。
@@ -54,6 +56,13 @@ class ForeignLawVerifyOut(BaseModel):
     claim: str = ""
     # 失败时 asean_law_* 回带的结构化原因（reason 枚举 + detail 原文）
     detail: str = ""
+    # 调用轨迹：接入 → 登录 → 检索 → 取正文 → 切条款 → 取原文
+    #
+    # ⚠️ 这两个字段必须在这里声明：Ninja 按 response schema **过滤**返回字典，
+    # 未声明的键会被静默丢掉（不报错、不告警），表现为"后端明明赋了值，
+    # 前端拿不到"。踩过一次。
+    total_ms: int = 0
+    trace: list[dict[str, Any]] = []
 
 
 class ForeignLawSearchHitOut(BaseModel):

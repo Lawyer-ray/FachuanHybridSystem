@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { projectDetail } from '@/app/paths'
 import { useNavigate, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -59,6 +59,15 @@ export function ReviewWorkbenchPage() {
    */
   const [selection, setSelection] = useState('')
   /**
+   * 从左侧建议卡带进右栏的选区与指令。
+   *
+   * 文档里的真实选区只存在于 OnlyOffice 内核，靠插件桥递出来；演示时人工框选
+   * 不稳定，而左栏每条建议本身就带条款原文。点「定位」时把它当选区送进右栏，
+   * AI 立刻能出改法 —— 这条路径不依赖选区桥，也不改文档，只是把上下文搬过去。
+   */
+  const [autoPrompt, setAutoPrompt] = useState<{ text: string; instruction: string; seq: number } | null>(null)
+  const promptSeq = useRef(0)
+  /**
    * 文档内容版本（喂给 OfficeView 的 version）。
    *
    * 以前这里拼的是 `taskId:acceptedCount`——每采纳一条就变，于是 OfficeView
@@ -108,8 +117,15 @@ export function ReviewWorkbenchPage() {
 
   /** 定位：跳到文档对应处。当前由编辑器侧完成（DS 内建查找），这里只做提示。 */
   const locate = useCallback((rev: ReviewRevision) => {
-    const anchor = rev.original.slice(0, 12)
-    toast.info(`在文档中查找：${anchor}…`, { description: '可用 Ctrl/⌘+F 精确定位' })
+    // 带上这一条的原文与依据，右栏据此直接出改法
+    promptSeq.current += 1
+    setAutoPrompt({
+      text: rev.original,
+      instruction: rev.reason
+        ? `按这个依据改写：${rev.reason.slice(0, 120)}`
+        : '按泰国法审查这一条，我方是承租方',
+      seq: promptSeq.current,
+    })
   }, [])
 
   const onDecide = useCallback(
@@ -252,6 +268,7 @@ export function ReviewWorkbenchPage() {
             <ReviewAssistant
               taskId={taskId ?? ''}
               selection={selection}
+              autoPrompt={autoPrompt}
               onApplied={() => void contentVersionQuery.refetch()}
             />
           )}

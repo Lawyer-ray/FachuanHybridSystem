@@ -88,9 +88,20 @@ def verify_foreign_law(request: Any, payload: ForeignLawVerifyIn) -> dict[str, A
 
     请求: ``{"law_name": "民商法典", "section_number": "538",
     "claim": "...", "country_code": "LAWCOUNTRYTG"}``
-    响应: 含 ``verdict`` / ``section_text`` / ``reason`` 的工具原样结构。
+    响应: 含 ``verdict`` / ``section_text`` / ``reason`` 的工具原样结构，
+    另附 ``trace``（调用轨迹）与 ``total_ms``（总耗时）。
+
+    ``trace`` 由结果反推（见 services/foreign_law_trace.build_verify_trace）：
+    MCP 工具内部是同步 HTTP，没有逐帧埋点；重建依据是「结果能说明什么」，
+    所以不会出现过程全绿而最终失败。前端据此把接入→登录→检索→取正文→
+    切条款→取原文逐步展示，让人看得出系统真的连了 BARLC。
     """
-    return _call_foreign_law_tool(
+    import time
+
+    from apps.legal_research.services.foreign_law_trace import build_verify_trace
+
+    t0 = time.perf_counter()
+    result = _call_foreign_law_tool(
         "asean_law_verify",
         {
             "law_name": payload.law_name,
@@ -100,6 +111,21 @@ def verify_foreign_law(request: Any, payload: ForeignLawVerifyIn) -> dict[str, A
         },
         timeout=_VERIFY_TIMEOUT_SECONDS,
     )
+    total_ms = int((time.perf_counter() - t0) * 1000)
+
+    result["total_ms"] = total_ms
+    result["trace"] = build_verify_trace(
+        law_name=payload.law_name,
+        section_number=payload.section_number,
+        country_code=payload.country_code,
+        ok=bool(result.get("ok")),
+        verdict=str(result.get("verdict") or ""),
+        law_title=str(result.get("law_title") or ""),
+        section_text=str(result.get("section_text") or ""),
+        reason=str(result.get("reason") or ""),
+        total_ms=total_ms,
+    )
+    return result
 
 
 @router.get("/search", response=ForeignLawSearchOut)

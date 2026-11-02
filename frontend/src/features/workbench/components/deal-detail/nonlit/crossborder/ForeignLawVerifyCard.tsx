@@ -170,6 +170,44 @@ export function ForeignLawVerifyCard() {
               </div>
             ) : null}
 
+            {/* 调用轨迹：让人看得出系统真的连了 BARLC，不是编的 */}
+            {row.state === 'done' && row.result?.trace?.length ? (
+              <div className="mt-2 rounded-[8px] border border-border-light bg-background px-2.5 py-2">
+                <div className="mb-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span className="font-medium text-foreground">MCP 调用过程</span>
+                  <span className="text-border">·</span>
+                  <span>asean_law_verify</span>
+                  <span className="text-border">·</span>
+                  <span className="tabular-nums">{row.result.total_ms ?? row.ms} ms</span>
+                </div>
+                <ol className="flex flex-col gap-[3px]">
+                  {row.result.trace.map((st, i) => (
+                    <li key={st.name} className="flex items-start gap-2 text-[10.5px] leading-[1.55]">
+                      <span className="w-[14px] flex-none tabular-nums text-muted-foreground">{i + 1}.</span>
+                      {st.ok ? (
+                        <CheckCircle2 className="mt-[2px] size-2.5 flex-none text-status-green" />
+                      ) : (
+                        <XCircle className="mt-[2px] size-2.5 flex-none text-status-red" />
+                      )}
+                      <span className="w-[92px] flex-none text-foreground">{st.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground" title={st.detail}>
+                        {st.detail}
+                      </span>
+                      <span
+                        className={cn(
+                          'w-[110px] flex-none truncate text-right',
+                          st.ok ? 'text-status-green' : 'text-status-red',
+                        )}
+                        title={st.result}
+                      >
+                        {st.result}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
+
             {row.error ? (
               <div className="mt-1.5 text-[10.5px] text-status-red">{row.error}</div>
             ) : null}

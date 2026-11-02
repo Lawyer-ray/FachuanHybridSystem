@@ -35,14 +35,26 @@ type CandidateState = { index: number; item: DirectEditCandidate }
 export function ReviewAssistant({
   taskId,
   selection,
+  autoPrompt,
   onApplied,
 }: {
   taskId: string
   /** 当前选中的原文（来自插件桥）；空串表示没选 */
   selection: string
+  /**
+   * 外部带进来的选区 + 指令（来自左栏「定位」）。
+   *
+   * 为什么需要它：文档里的选区只存在于 OnlyOffice 内核，靠插件桥递出来；
+   * 演示时人工框选不稳定，而左栏每条建议本身就带着条款原文。
+   * 从建议卡进入时，把那段原文直接当作选区，AI 就能立即出改法。
+   * `seq` 递增保证同一条建议重复点也能再次触发。
+   */
+  autoPrompt?: { text: string; instruction: string; seq: number } | null
   /** 落盘成功：父级据此递增内容版本，让 DS 画布重新取文件看到修订 */
   onApplied: () => void
 }) {
+  /** 实际用于改写的选区：外部带入的优先（演示路径），否则用插件桥的 */
+  const effectiveSelection = autoPrompt?.text || selection
   const [instruction, setInstruction] = useState('')
   const [candidates, setCandidates] = useState<CandidateState[]>([])
   const [suggesting, setSuggesting] = useState(false)
@@ -54,15 +66,31 @@ export function ReviewAssistant({
 
   // 选区变更 → 清空候选（旧候选是基于旧选区生成的，绝不能复用）
   useEffect(() => {
-    if (selection !== lastSelectionRef.current) {
-      lastSelectionRef.current = selection
+    if (effectiveSelection !== lastSelectionRef.current) {
+      lastSelectionRef.current = effectiveSelection
       setCandidates([])
     }
-  }, [selection])
+  }, [effectiveSelection])
+
+  /**
+   * 外部带入指令 → 自动填入并立即生成改法。
+   *
+   * 只在 `seq` 变化时触发（同一条建议重复点也会因为 seq 递增而重跑），
+   * 且只跑一次，不会因为 instruction 后续变化反复调接口。
+   * 真正的自动执行在下面 suggest 定义之后的 effect 里（要等 suggest 就绪）。
+   */
+  const lastSeqRef = useRef<number>(-1)
+  const pendingAutoRef = useRef<{ text: string; instruction: string } | null>(null)
+  useEffect(() => {
+    if (!autoPrompt || autoPrompt.seq === lastSeqRef.current) return
+    lastSeqRef.current = autoPrompt.seq
+    setInstruction(autoPrompt.instruction)
+    pendingAutoRef.current = { text: autoPrompt.text, instruction: autoPrompt.instruction }
+  }, [autoPrompt])
 
   const suggest = useCallback(async () => {
     const inst = instruction.trim()
-    if (!selection) {
+    if (!effectiveSelection) {
       toast.error('先在文档里选中一段原文')
       return
     }
@@ -78,7 +106,7 @@ export function ReviewAssistant({
         // 归属只在 apply 落盘时才需要（见下方 applyTaskEdit）
         contract_id: 0,
         subpath: '',
-        selection,
+        selection: effectiveSelection,
         instruction: inst,
       })
       setCandidates(res.candidates.map((item, index) => ({ index, item })))
@@ -88,7 +116,21 @@ export function ReviewAssistant({
     } finally {
       setSuggesting(false)
     }
-  }, [instruction, selection])
+  }, [instruction, effectiveSelection])
+
+  /**
+   * 自动执行：外部带入的指令就绪后立刻跑一次 suggest。
+   *
+   * 依赖 `instruction` 是因为 setInstruction 是异步的，suggest 读的是 state；
+   * 只有 pendingAutoRef 有值时才跑，跑完清空，保证一条建议只自动生成一次。
+   */
+  useEffect(() => {
+    const pending = pendingAutoRef.current
+    if (!pending) return
+    if (instruction !== pending.instruction) return
+    pendingAutoRef.current = null
+    void suggest()
+  }, [instruction, suggest])
 
   const accept = useCallback(
     async (index: number, candidate: DirectEditCandidate) => {
@@ -96,7 +138,7 @@ export function ReviewAssistant({
       try {
         const res = await applyTaskEdit({
           task_id: taskId,
-          selection,
+          selection: effectiveSelection,
           suggested: candidate.suggested,
         })
         if (!res.applied) {
@@ -115,7 +157,7 @@ export function ReviewAssistant({
         setBusyIndex(null)
       }
     },
-    [taskId, onApplied, selection],
+    [taskId, onApplied, effectiveSelection],
   )
 
   return (
@@ -133,14 +175,15 @@ export function ReviewAssistant({
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3">
         {/* ── 选区状态：这一块决定了律师知不知道自己能改哪 ── */}
-        {selection ? (
+        {effectiveSelection ? (
           <div className="rounded-[8px] border border-status-green/40 bg-status-green-bg/50 px-2.5 py-2">
             <div className="flex items-center gap-1.5 text-[10.5px] font-medium text-status-green">
               <span className="size-1.5 rounded-full bg-status-green" />
-              已选中原文 · {selection.length} 字
+              已选中原文 · {effectiveSelection.length} 字
+              {autoPrompt ? <span className="ml-1 text-[9.5px] opacity-70">（来自建议卡）</span> : null}
             </div>
             <p className="mt-1 line-clamp-3 text-[11px] leading-[1.55] text-muted-foreground">
-              {selection}
+              {effectiveSelection}
             </p>
           </div>
         ) : (
@@ -162,7 +205,7 @@ export function ReviewAssistant({
             onChange={(e) => setInstruction(e.target.value)}
             rows={2}
             placeholder={
-              selection
+              effectiveSelection
                 ? '例如：按泰国法审查这一条，我方是承租方'
                 : '先选中原文，再下指令'
             }
@@ -174,7 +217,7 @@ export function ReviewAssistant({
           <div className="mt-1.5 flex items-center gap-1.5">
             <button
               type="button"
-              disabled={suggesting || !selection}
+              disabled={suggesting || !effectiveSelection}
               onClick={() => void suggest()}
               className="inline-flex h-[27px] items-center gap-1 rounded-[6px] border border-foreground bg-foreground px-2.5 text-[11px] font-semibold text-background transition-opacity hover:opacity-85 disabled:opacity-40"
             >

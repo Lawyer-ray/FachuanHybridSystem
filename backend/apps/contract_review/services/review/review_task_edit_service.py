@@ -117,10 +117,37 @@ def apply_to_task(
     doc.save(buf)
     path.write_bytes(buf.getvalue())
 
-    # 触摸 mtime：前端拿 content_version（mtime）判断要不要重建画布，
-    # 不 bump 的话律师采纳后画布不会刷新，看着像没生效
+    # 触摸 mtime
     revised = timezone.now()
     ReviewTask.objects.filter(id=task.id).update(updated_at=revised)
+
+    # ⚠️ 关键：bump EditorSession.saved_version
+    #
+    # 前端画布是否重建，只看 content_version（= saved_version + 产物名），
+    # 而 saved_version 原本只在 DS 保存回写（status=2/6）时才 +1。
+    # 划词直改是**后端直接改 docx**，不走 DS 保存，所以：
+    #   · 文件确实变了
+    #   · 但 content_version 没变
+    #   · 画布不重载
+    #   · 律师看到的还是改前的样子 —— 表现就是「点了插入没反应」
+    #
+    # 这里补一次 +1，让「后端写入」和「编辑器保存」在版本语义上等价。
+    from django.db.models import F
+
+    from apps.onlyoffice.models import EditorSession
+
+    # ⚠️ task.id 是 UUID 对象，而 EditorSession.task_id 是 CharField：
+    # 直接传 UUID 会**匹配不到任何行**（filter 静默返回 0 行，不报错），
+    # 表现就是「文件改了但画布不刷新」。必须转 str。
+    task_key = str(task.id)
+
+    bumped = EditorSession.objects.filter(task_type="contract_review", task_id=task_key).update(
+        saved_version=F("saved_version") + 1
+    )
+    if not bumped:
+        # 编辑器还没打开过（没有会话记录）：建一条并把版本从 1 起，
+        # 否则前端拿到的 content_version 恒为空，画布永远不会重建
+        EditorSession.objects.create(task_type="contract_review", task_id=task_key, saved_version=1)
 
     logger.info(
         "审查任务直改已落盘: task=%s 长度 %d→%d",

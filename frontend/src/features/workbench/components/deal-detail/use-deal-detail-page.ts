@@ -3,6 +3,15 @@ import { toast } from 'sonner'
 
 import { openCopilot } from '@/features/copilot/launch'
 
+/**
+ * 进入合同/案件详情页时是否自动弹出全局 AI 助手。
+ *
+ * 设为 false 的原因：合同复审页（/projects/:id/review/:taskId）右栏本身
+ * 就是「法穿 AI 助手」，全局面板自动弹出会让律师看到两个助手并排，
+ * 不知道该跟哪个说话。要开就自己按 ⌘J。
+ */
+const AUTO_OPEN_COPILOT = false
+
 import {
   buildDeadlines,
   buildStagePlan,
@@ -53,8 +62,13 @@ export function useDealCopilotContext(
   deal: { id: number; client: string } | null | undefined,
   pageHintLabel: string,
 ) {
-  /** 已自动弹出过的委托：数据刷新重跑 effect 不重复弹——律师手动收起后
-   *  就保持收起，切到别的委托再进来才重新弹 */
+  /**
+   * 已自动弹出过的委托：数据刷新重跑 effect 不重复弹——律师手动收起后
+   * 就保持收起，切到别的委托再进来才重新弹。
+   *
+   * ⚠️ 2026-11 起**不再自动弹出**（见下方 AUTO_OPEN_COPILOT）。
+   * 保留这个 ref 是为了以后要恢复「首次进详情自动开」时不用重写逻辑。
+   */
   const openedForRef = useRef<number | null>(null)
   useEffect(() => {
     if (!deal) return
@@ -65,7 +79,10 @@ export function useDealCopilotContext(
       st.setPageHint(`${pageHintLabel} · ${deal.client}（contract_id=${deal.id}）`)
       void st.enterContext({ origin: 'contract', refId: deal.id, title: deal.client })
     })
-    if (openedForRef.current !== deal.id) {
+    // 自动弹出已关闭：合同复审页自己带一个「法穿 AI 助手」右栏，
+    // 全局面板再自动弹出就会出现两个助手并排。
+    // 需要时由律师自己按 ⌘J 或点导航栏的「AI 助手」。
+    if (AUTO_OPEN_COPILOT && openedForRef.current !== deal.id) {
       openedForRef.current = deal.id
       openCopilot({ origin: 'contract', refId: deal.id, title: deal.client })
     }
