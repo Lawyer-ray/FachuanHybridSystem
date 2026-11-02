@@ -2721,7 +2721,7 @@ export interface paths {
         };
         /**
          * List Contract Invoices
-         * @description 合同发票列表：已核销的 + 先开票挂合同的。`?unlinked=true` 只看待核销。
+         * @description 合同发票列表：已归属收款的 + 先开票挂合同的。`?unlinked=true` 只看未归属收款的。
          */
         get: operations["apps_contracts_api_contractpayment_enhance_api_list_contract_invoices"];
         put?: never;
@@ -2750,9 +2750,32 @@ export interface paths {
         put?: never;
         /**
          * Attach Invoice
-         * @description 把合同挂靠的发票核销到一笔收款（钱到账后的动作），并重算该收款开票金额。
+         * @description 把合同挂靠的发票归属到一笔收款（钱到账后的动作），并重算该收款开票金额。
          */
         post: operations["apps_contracts_api_contractpayment_enhance_api_attach_invoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoices/{invoice_id}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detach Invoice
+         * @description 把已关联收款的发票退回合同名下（挂错时的补救动作），并重算原收款开票金额。
+         *
+         *     与 attach 成对：只改归属，不动文件；退回后票回到「未关联收款」，可从右栏
+         *     发票节重新关到正确的收款。
+         */
+        post: operations["apps_contracts_api_contractpayment_enhance_api_detach_invoice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8554,6 +8577,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contract-review/direct-edit/task/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Task Edit
+         * @description 在**审查任务的产物**上落一处修订痕迹。
+         *
+         *     为什么需要这个平行端点（而不是复用 `/apply`）：
+         *     `/apply` 的入参是 `contract_id`/`case_id` + `subpath`，它靠绑定文件夹反查
+         *     文件并做文件夹 ACL。审查任务的 docx 在 `MEDIA_ROOT/contract_review/output/`，
+         *     不在任何绑定文件夹里，没有 subpath、也没有文件夹可反查；它的归属判定
+         *     是任务本身（`ReviewTask.user`）。
+         *
+         *     修订逻辑与 `/apply` 共用同一套（`DocxRevisionTool` + `locate_paragraph`），
+         *     两条路只在「文件从哪来、写回哪去」上不同。
+         */
+        post: operations["apps_contract_review_api_direct_edit_api_apply_task_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/legal-research/tasks": {
         parameters: {
             query?: never;
@@ -8695,6 +8747,78 @@ export interface paths {
          *     ``LawVerificationCheckIn`` 后请求体才被正确识别。
          */
         post: operations["apps_legal_research_api_legal_research_api_check_law_references"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal-research/foreign-law/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Foreign Law
+         * @description 核验一条域外法引用（``asean_law_verify``）。
+         *
+         *     请求: ``{"law_name": "民商法典", "section_number": "538",
+         *     "claim": "...", "country_code": "LAWCOUNTRYTG"}``
+         *     响应: 含 ``verdict`` / ``section_text`` / ``reason`` 的工具原样结构，
+         *     另附 ``trace``（调用轨迹）与 ``total_ms``（总耗时）。
+         *
+         *     ``trace`` 由结果反推（见 services/foreign_law_trace.build_verify_trace）：
+         *     MCP 工具内部是同步 HTTP，没有逐帧埋点；重建依据是「结果能说明什么」，
+         *     所以不会出现过程全绿而最终失败。前端据此把接入→登录→检索→取正文→
+         *     切条款→取原文逐步展示，让人看得出系统真的连了 BARLC。
+         */
+        post: operations["apps_legal_research_api_foreign_law_api_verify_foreign_law"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal-research/foreign-law/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Foreign Law
+         * @description 按关键词检索东盟法律（``asean_law_search``）。
+         *
+         *     响应: ``{"ok": true, "total": N, "hits": [{"sys_id", "title_cn", ...}]}``。
+         */
+        get: operations["apps_legal_research_api_foreign_law_api_search_foreign_law"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal-research/foreign-law/countries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Foreign Law Countries
+         * @description 列出可查明的国家/地区及其 ``country_code``（``asean_law_countries``）。
+         */
+        get: operations["apps_legal_research_api_foreign_law_api_list_foreign_law_countries"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -14677,7 +14801,7 @@ export interface components {
         };
         /**
          * InvoiceAttachOut
-         * @description 关联结果：发票 + 该收款最新的开票状态与金额。
+         * @description 关联 / 解除关联结果：发票 + 涉及的收款最新开票状态与金额。
          */
         InvoiceAttachOut: {
             invoice: components["schemas"]["InvoiceOut"];
@@ -19840,6 +19964,33 @@ export interface components {
             /** Suggested */
             suggested: string;
         };
+        /** TaskEditApplyOut */
+        TaskEditApplyOut: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * TaskEditApplyIn
+         * @description 在审查任务的产物上落一处修订痕迹。
+         */
+        TaskEditApplyIn: {
+            /** Task Id */
+            task_id: string;
+            /** Selection */
+            selection: string;
+            /** Suggested */
+            suggested: string;
+        };
         /** LegalResearchCreateOut */
         LegalResearchCreateOut: {
             /** Task Id */
@@ -20276,6 +20427,197 @@ export interface components {
              * @description 法规检索服务账号的凭证 ID（LawyerCredential 主键）
              */
             credential_id: number;
+        };
+        /**
+         * ForeignLawVerifyOut
+         * @description ``asean_law_verify`` 的返回结构（原样透出）。
+         *
+         *     成功时 ``verdict == "待判定"`` 表示条文已取到，需判定层比对 ``section_text``
+         *     与 ``claim``；``"不存在该引用"`` 是规则层直接判死，不消耗模型调用。
+         */
+        ForeignLawVerifyOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Verdict
+             * @default
+             */
+            verdict: string;
+            /**
+             * Law Title
+             * @default
+             */
+            law_title: string;
+            /**
+             * Section Number
+             * @default
+             */
+            section_number: string;
+            /**
+             * Section Text
+             * @default
+             */
+            section_text: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Needs Model Judgement
+             * @default false
+             */
+            needs_model_judgement: boolean;
+            /**
+             * Claim
+             * @default
+             */
+            claim: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Total Ms
+             * @default 0
+             */
+            total_ms: number;
+            /**
+             * Trace
+             * @default []
+             */
+            trace: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * ForeignLawVerifyIn
+         * @description 核验一条域外法引用。
+         */
+        ForeignLawVerifyIn: {
+            /**
+             * Law Name
+             * @description 被引用的法律名称（中文或英文），如「民商法典」；不要带「泰国」前缀
+             */
+            law_name: string;
+            /**
+             * Section Number
+             * @description 条款号，如 538；留空则只核验法律是否存在
+             * @default
+             */
+            section_number: string;
+            /**
+             * Claim
+             * @description 该引用所要支持的主张；留空则只核验条款是否存在
+             * @default
+             */
+            claim: string;
+            /**
+             * Country Code
+             * @description BARLC 国别代码，如 LAWCOUNTRYTG（泰国）；留空则全东盟检索
+             * @default
+             */
+            country_code: string;
+        };
+        /** ForeignLawSearchHitOut */
+        ForeignLawSearchHitOut: {
+            /** Sys Id */
+            sys_id: string;
+            /**
+             * Title Cn
+             * @default
+             */
+            title_cn: string;
+            /**
+             * Title En
+             * @default
+             */
+            title_en: string;
+            /**
+             * Title Local
+             * @default
+             */
+            title_local: string;
+            /** Publish Date */
+            publish_date?: string | null;
+            /** Effective Date */
+            effective_date?: string | null;
+        };
+        /**
+         * ForeignLawSearchOut
+         * @description ``asean_law_search`` 的返回结构（原样透出）。
+         */
+        ForeignLawSearchOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /** Hits */
+            hits?: components["schemas"]["ForeignLawSearchHitOut"][];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
+        /**
+         * ForeignLawCountriesOut
+         * @description ``asean_law_countries`` 的返回结构（原样透出）。
+         */
+        ForeignLawCountriesOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+            /** Countries */
+            countries?: components["schemas"]["ForeignLawCountryOut"][];
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
+        /** ForeignLawCountryOut */
+        ForeignLawCountryOut: {
+            /** Code */
+            code: string;
+            /**
+             * Name Cn
+             * @default
+             */
+            name_cn: string;
+            /**
+             * Name En
+             * @default
+             */
+            name_en: string;
+            /**
+             * Sys Id
+             * @default 0
+             */
+            sys_id: number;
         };
         /**
          * ParseCoverageOut
@@ -27475,6 +27817,28 @@ export interface operations {
                 "application/json": components["schemas"]["InvoiceAttachIn"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceAttachOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_contractpayment_enhance_api_detach_invoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -35024,6 +35388,30 @@ export interface operations {
             };
         };
     };
+    apps_contract_review_api_direct_edit_api_apply_task_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskEditApplyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEditApplyOut"];
+                };
+            };
+        };
+    };
     apps_legal_research_api_legal_research_api_create_task: {
         parameters: {
             query?: never;
@@ -35205,6 +35593,75 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    apps_legal_research_api_foreign_law_api_verify_foreign_law: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForeignLawVerifyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForeignLawVerifyOut"];
+                };
+            };
+        };
+    };
+    apps_legal_research_api_foreign_law_api_search_foreign_law: {
+        parameters: {
+            query: {
+                keyword: string;
+                country_code?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForeignLawSearchOut"];
+                };
+            };
+        };
+    };
+    apps_legal_research_api_foreign_law_api_list_foreign_law_countries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForeignLawCountriesOut"];
                 };
             };
         };
