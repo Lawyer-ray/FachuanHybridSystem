@@ -3,6 +3,7 @@
 端点都属「记收款」这条链路，并进合同收款 router（前缀 `/api/v1/contracts/finance`）：
 
 - `POST   /finance/payments/parse-text`        粘一段到账短信 → 草稿（不落库）
+- `POST   /finance/payments/parse-image`       粘一张图（银行回单截图 / PDF）→ 草稿（不落库）
 - `POST   /finance/payments/{id}/invoices`     拖发票进来 → 识别 + 落盘 + 回填开票金额
 - `GET    /finance/payments/{id}/invoices`     某笔收款的发票列表
 - `POST   /finance/contracts/{id}/invoices`    **先开票后付款**：票先挂合同名下（不动开票金额）
@@ -34,6 +35,7 @@ from apps.contracts.schemas.payment_enhance_schemas import (
     InvoiceOut,
     InvoiceUploadFailure,
     InvoiceUploadOut,
+    PaymentImageParseOut,
 )
 from apps.core.dto.request_context import extract_request_context
 
@@ -62,6 +64,99 @@ async def parse_payment_text(request: HttpRequest, payload: ContractPaymentParse
         note=parsed.note,
         hints=parsed.hints,
     )
+
+
+@router.post("/finance/payments/parse-image", response=PaymentImageParseOut)
+async def parse_payment_image(request: HttpRequest, file: UploadedFile = File(...)) -> Any:
+    """粘贴一张图（网银电子回单截图 / PDF）→ 收款草稿。
+
+    与 `parse-text` 同一口径：**只解析不落库**，金额必须由人在表单里核对后才保存。
+    律师的真实输入一半是到账短信、另一半是回单截图——只支持文字等于把后一半
+    逼回手抄（抄错一位就是财务事故）。
+
+    识别引擎不另起炉灶：图片走 `TextExtractionService` 的既有阶梯
+    （VLM 视觉转写 → macOS Vision / RapidOCR 本地 OCR，见 `payment_image_reader`），
+    文本拿到后先用 `ReceiptTextParser` 按回单版式解析（能拿到大写金额、分栏
+    付款人/收款人、完整时分），短信版式的文本再交给 `PaymentSmsParser` 兜底。
+    """
+    from apps.contracts.services.payment.payment_image_reader import PaymentImageReader
+    from apps.contracts.services.payment.receipt_fields import ReceiptTextParser
+
+    data = await sync_to_async(file.read)()
+    reader = PaymentImageReader()
+    text = await sync_to_async(reader.read, thread_sensitive=True)(
+        data=data,
+        filename=str(getattr(file, "name", "") or ""),
+        content_type=str(getattr(file, "content_type", "") or ""),
+    )
+
+    receipt = await sync_to_async(ReceiptTextParser().parse)(text.text)
+    sms = await sync_to_async(_parse_as_sms)(text.text) if not receipt.is_receipt else None
+
+    # 回单版式字段优先，缺的用短信解析补（回单没认出的字段，短信规则有时能捡到）
+    amount = receipt.amount if receipt.amount is not None else (sms.amount if sms else None)
+    received_at = receipt.received_at if receipt.received_at is not None else (sms.received_at if sms else None)
+    payer = receipt.payer or (sms.payer if sms else "")
+
+    # 首条 hint 固定说明「文字是怎么读出来的」——识别引擎有三级，律师看结果时
+    # 要能分辨「这是视觉模型转的」还是「本地 OCR 转的」（可信度与错字规律不同）
+    hints: list[str] = [f"文字来源 {_METHOD_LABEL.get(text.method, text.method or '未知')}"]
+    hints.extend(receipt.hints)
+    if receipt.amount_mismatch:
+        hints.append("大写与小写金额不一致，请核对回单原件")
+    if not hints and text.chars:
+        hints.append(f"读到了 {text.chars} 个字符，但没认出金额/日期")
+
+    return PaymentImageParseOut(
+        amount=str(amount) if amount is not None else None,
+        received_at=received_at.isoformat() if received_at else None,
+        payer=payer,
+        note=_compose_note(receipt.purpose, sms.note if sms else "", payer=payer, receipt=receipt.is_receipt),
+        hints=hints,
+        payee=receipt.payee,
+        amount_mismatch=receipt.amount_mismatch,
+        is_receipt=receipt.is_receipt,
+        extraction_method=text.method,
+        text=text.text,
+    )
+
+
+#: 提取方式的人话标签（`extraction_method` 的枚举 → 展示文案）
+_METHOD_LABEL: dict[str, str] = {
+    "pdf_direct": "PDF 文本层",
+    "vlm": "视觉模型",
+    "ocr": "本地 OCR",
+    "empty": "未识别",
+}
+
+
+def _parse_as_sms(text: str) -> Any:
+    """回单版式判定失败时，用短信规则再解析一次（同一份纯函数，无 IO）。"""
+    from apps.contracts.services.payment.payment_sms_parser import PaymentSmsParser
+
+    return PaymentSmsParser().parse(text)
+
+
+def _compose_note(purpose: str, sms_note: str, *, payer: str, receipt: bool) -> str:
+    """备注只装「日后对账时想看的信息」。
+
+    回单：用途（往来款 / 律师费）+ 付款人（`ContractPayment` 没有付款人字段，
+    备注是唯一能存自由文本的地方）；
+    短信：沿用 `PaymentSmsParser` 的摘要口径，同样带上付款人。
+    """
+    parts: list[str] = []
+    if receipt:
+        if purpose:
+            parts.append(purpose)
+        if payer:
+            parts.append(f"付款人：{payer}")
+    else:
+        if payer:
+            parts.append(f"付款人：{payer}")
+        if sms_note and sms_note != payer:
+            parts.append(sms_note)
+    note = "；".join(p for p in parts if p)
+    return note[:255]
 
 
 # --------------------------------------------------------------------- 发票

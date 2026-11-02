@@ -47,6 +47,40 @@ export async function parsePaymentText(text: string): Promise<PaymentParseDraft>
   return contractsApi.post('finance/payments/parse-text', { json: { text } }).json<PaymentParseDraft>()
 }
 
+/**
+ * 粘贴一张图（网银电子回单截图 / PDF）→ 收款草稿（只解析，不落库）。
+ *
+ * 字段形状与 `PaymentParseDraft` 对齐（两个入口共用同一套表单预填），另加四个
+ * 「这张图是什么、认成了什么」的说明字段：回单里的付款/收款分栏、大写金额校验、
+ * 文字来源（视觉模型 / 本地 OCR）都是律师核对时必须看到的。
+ */
+export interface PaymentImageParseDraft extends PaymentParseDraft {
+  /** 收款方（回单上的收款人）。常是自己律所，用来核对「这钱确实打给我们」 */
+  payee: string
+  /** 小写与大写金额对不上——财务场景的强校验信号，必须醒目提示 */
+  amount_mismatch: boolean
+  /** 是否识别为银行回单版式（否则按到账短信解析） */
+  is_receipt: boolean
+  /** 文本提取方式：pdf_direct / vlm / ocr / empty */
+  extraction_method: string
+  /** 提取到的原始文本（律师要核对「它到底读到了什么」时展示） */
+  text: string
+}
+
+/**
+ * 粘贴图片识别：multipart 传 `file` 字段。
+ *
+ * 后端路径 `finance/payments/parse-image` 与 `finance/payments/{payment_id}` 同层，
+ * 注册顺序在前才不会被通配吃掉（见后端 contractpayment_enhance_api 顶注）。
+ */
+export async function parsePaymentImage(file: File): Promise<PaymentImageParseDraft> {
+  const form = new FormData()
+  form.append('file', file, file.name)
+  return contractsApi
+    .post('finance/payments/parse-image', { body: form, timeout: UPLOAD_TIMEOUT_MS })
+    .json<PaymentImageParseDraft>()
+}
+
 /** 某条收款下的发票列表（contract_id 参与行级鉴权，必须传） */
 export async function listPaymentInvoices(paymentId: number, contractId: number): Promise<PaymentInvoice[]> {
   return contractsApi

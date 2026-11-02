@@ -5,7 +5,7 @@
  * 才能在 node 环境里单测，不必渲染整个对话框。
  */
 
-import type { PaymentParseDraft } from '../../api'
+import type { PaymentImageParseDraft, PaymentParseDraft } from '../../api'
 
 /** 记收款表单的本地状态（金额/日期都用 input 的原生字符串形态） */
 export interface PaymentForm {
@@ -46,6 +46,27 @@ export function formFromDraft(d: PaymentParseDraft): PaymentForm {
   return {
     amount: d.amount ?? '',
     // 短信没写日期就不猜：留空让 input 显示 placeholder，而不是偷偷填今天
+    receivedAt: d.received_at ?? '',
+    invoicedAmount: '',
+    note: parts.join('；'),
+    payer: d.payer,
+  }
+}
+
+/**
+ * 回单图片草稿 → 表单初值（与 `formFromDraft` 同口径，多两件事）。
+ *
+ * 1. 备注先放**用途**再放付款人：回单的「用途」栏（律师费 / 往来款）才是对账时
+ *    想看的，短信没有这一栏；
+ * 2. 大小写金额对不上时**仍然填入小写**，但由调用方把冲突提示摆在表单边上
+ *    ——不替律师决定哪个对，只保证他不会看不到。
+ */
+export function formFromImageDraft(d: PaymentImageParseDraft): PaymentForm {
+  const parts: string[] = []
+  if (d.note) parts.push(d.note)
+  else if (d.payer) parts.push(`付款人：${d.payer}`)
+  return {
+    amount: d.amount ?? '',
     receivedAt: d.received_at ?? '',
     invoicedAmount: '',
     note: parts.join('；'),

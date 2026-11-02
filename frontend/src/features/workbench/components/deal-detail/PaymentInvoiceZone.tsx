@@ -238,11 +238,12 @@ export function CopyInvoiceFileButton({ invoiceId, filename }: { invoiceId: numb
   )
 }
 
-/** 拖放/点击上传区（记收款弹窗与合同发票弹窗共用；compact 供右栏窄条用） */
+/** 拖放/点击粘贴上传区（记收款弹窗与合同发票弹窗共用；compact 供右栏窄条用） */
 export function InvoiceDropZone({
   uploading,
   dragHint,
   compact = false,
+  onPasteFiles,
   onClick,
   onFiles,
 }: {
@@ -251,6 +252,8 @@ export function InvoiceDropZone({
   dragHint?: string
   /** 紧凑形态：右栏/空态用，高度与文案收一档 */
   compact?: boolean
+  /** 粘上来的文件（截图/复制的票）。不传则粘贴走浏览器默认行为 */
+  onPasteFiles?: (files: File[]) => void
   onClick: () => void
   onFiles: (files: File[]) => void
 }) {
@@ -271,6 +274,14 @@ export function InvoiceDropZone({
         const files = Array.from(e.dataTransfer.files)
         if (files.length) onFiles(files)
       }}
+      /* 粘贴：FNV 截图后 ⌘V 是律师的真实习惯（比先另存再拖快得多） */
+      onPaste={(e) => {
+        if (!onPasteFiles) return
+        const files = Array.from(e.clipboardData?.files ?? [])
+        if (!files.length) return // 纯文字粘贴：交给浏览器默认行为
+        e.preventDefault()
+        onPasteFiles(files)
+      }}
       className={
         'flex cursor-pointer flex-col items-center gap-1 rounded-[10px] border border-dashed border-border text-[12px] transition-colors hover:border-ring/50 hover:bg-secondary/40 data-[drag]:border-foreground data-[drag]:bg-secondary ' +
         (compact ? 'py-2.5' : 'py-5')
@@ -281,7 +292,11 @@ export function InvoiceDropZone({
         <span>{uploading ? '正在识别发票…' : compact ? '拖入或点击上传发票（自动识别、归档、重命名）' : '把发票拖到这里，或点击选择'}</span>
         {dragHint && <span className="text-[10.5px] text-muted-foreground/70">（{dragHint}）</span>}
       </div>
-      {!compact && <span className="text-[10.5px] text-muted-foreground/70">支持 PDF / JPG / PNG，单张 ≤ 20MB</span>}
+      {!compact && (
+        <span className="text-[10.5px] text-muted-foreground/70">
+          支持 PDF / JPG / PNG，单张 ≤ 20MB{onPasteFiles ? '，也可直接 ⌘V 粘贴截图' : ''}
+        </span>
+      )}
     </div>
   )
 }

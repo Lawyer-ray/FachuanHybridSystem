@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, Sparkles, X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -13,16 +13,28 @@ import {
   contractInvoiceKeys,
   listContractInvoices,
   listContractPayments,
+  parsePaymentImage,
   parsePaymentText,
 } from '../../api'
 import { autoAttachTarget, splitByAmountMatch } from './invoice-auto-link'
-import { EMPTY_FORM, formFromDraft, parseAmount, remainingLabel, validateForm, type PaymentForm } from './payment-form'
+import {
+  EMPTY_FORM,
+  formFromDraft,
+  formFromImageDraft,
+  parseAmount,
+  remainingLabel,
+  validateForm,
+  type PaymentForm,
+} from './payment-form'
 import { PaymentInvoiceZone } from './PaymentInvoiceZone'
+import { PaymentPasteZone } from './PaymentPasteZone'
 
 /**
  * 记收款弹窗：律师真实工作流的两个入口合一。
  *
- * 1. **粘一段银行到账短信** → 点「识别」→ 金额/日期/付款人/用途自动填好，人核对后保存。
+ * 1. **粘到账凭据**（文字与图片同一入口，见 PaymentPasteZone）：银行到账短信
+ *    直接粘文字；**网银电子回单截图直接 ⌘V** → 金额/日期/付款人/用途自动填好，
+ *    人核对后保存。回单版式还会读大写金额并与小写互校，对不上就醒目提示。
  * 2. **发票随时能进来**（见 PaymentInvoiceZone）：钱没到也能先传——票挂合同名下，
  *    保存收款后一键关联到这笔收款；或保存后直接拖票挂这笔收款。
  *
@@ -57,6 +69,10 @@ export function PaymentDialog({
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** 已粘贴/选中的回单图名（仅展示；图片本身不落库，只用来取字段） */
+  const [imageName, setImageName] = useState<string | null>(null)
+  /** 大小写金额冲突：不阻塞保存，但必须让人看见 */
+  const [mismatch, setMismatch] = useState(false)
 
   /** 收款保存后的 id：拿到它，发票区就从「挂合同」切换到「挂这笔收款」 */
   const [paymentId, setPaymentId] = useState<number | null>(null)
@@ -67,6 +83,8 @@ export function PaymentDialog({
     setHints([])
     setError(null)
     setPaymentId(null)
+    setImageName(null)
+    setMismatch(false)
   }, [])
 
   const close = useCallback(() => {
@@ -90,6 +108,43 @@ export function PaymentDialog({
     } finally {
       setParsing(false)
     }
+  }
+
+  /**
+   * 粘贴/选中一张图（回单截图或 PDF）→ 后端读字 → 回填表单。
+   *
+   * 「没认出字」与「链路失败」分开处理：后者是 toast.error（调不通），前者是
+   * 表单上的提示（这张图没读出东西，去手填/重拍）。混在一起会把「服务没通」
+   * 误报成「这张图糊了」，律师会反复重拍。
+   */
+  const doParseImage = async (file: File) => {
+    setParsing(true)
+    setError(null)
+    setImageName(file.name)
+    try {
+      const draft = await parsePaymentImage(file)
+      setForm(formFromImageDraft(draft))
+      setHints(draft.hints)
+      setMismatch(draft.amount_mismatch)
+      // 图里读到的文字也贴回输入框：律师要手改某个字段时，原文就在上面可对照
+      if (draft.text) setRaw(draft.text.slice(0, 2000))
+      if (!draft.amount) {
+        setError(draft.text ? '没认出金额，请手动填写' : '这张图没读出文字，请重拍或手动填写')
+      } else if (draft.amount_mismatch) {
+        toast.warning('回单上的大写与小写金额不一致，请核对原件')
+      }
+    } catch (e) {
+      setImageName(null)
+      toast.error(errMessage(e, '图片识别失败，请改用文字或手动填写'))
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  const clearImage = () => {
+    setImageName(null)
+    setMismatch(false)
+    setHints([])
   }
 
   const qc = useQueryClient()
@@ -177,35 +232,31 @@ export function PaymentDialog({
           <DialogTitle className="text-[15px]">记收款</DialogTitle>
         </DialogHeader>
 
-        {/* ① 粘贴到账短信 */}
-        <section className="border-b border-border-light pb-4">
-          <div className="mb-1.5 flex items-baseline gap-2">
-            <span className="text-[12px] font-[650]">粘贴到账短信</span>
-            <span className="text-[11px] text-muted-foreground">（银行 App 的通知原样粘进来即可）</span>
-          </div>
-          <Textarea
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-            placeholder="【建设银行】某某公司10月15日17时5分向贵公司4501账户律师费存入人民币9000元。"
-            rows={3}
-            className="text-[12.5px]"
-            disabled={paymentId != null}
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => void doParse()} disabled={parsing || !raw.trim() || paymentId != null}>
-              {parsing ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-              识别
-            </Button>
-            {hints.length > 0 && (
-              <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={hints.join(' · ')}>
-                {hints.join(' · ')}
-              </span>
-            )}
-          </div>
-        </section>
+        {/* ① 粘贴到账凭据：短信文字与回单图片同一入口（见 PaymentPasteZone） */}
+        <PaymentPasteZone
+          raw={raw}
+          hints={hints}
+          imageName={imageName}
+          parsing={parsing}
+          disabled={paymentId != null}
+          onRawChange={setRaw}
+          onParseText={() => void doParse()}
+          onPickImage={(f) => void doParseImage(f)}
+          onClearImage={clearImage}
+        />
 
         {/* ② 核对并保存 */}
         <section className="grid grid-cols-2 gap-3 border-b border-border-light py-4">
+          {mismatch && (
+            /* 回单上大写与小写对不上：常见于 OCR 把小写读错一位（回单的大写金额
+               是财务上更可信的一方）。不拦保存，但必须显眼，否则就成了「静默错账」。 */
+            <div className="col-span-2 flex items-start gap-1.5 rounded-[8px] bg-status-yellow/12 px-2.5 py-2 text-[11.5px] text-status-yellow">
+              <span className="mt-px flex-none">⚠</span>
+              <span className="min-w-0 break-words">
+                回单上的大写与小写金额不一致，请对照原件确认金额后再保存。
+              </span>
+            </div>
+          )}
           <label className="flex flex-col gap-1">
             <span className="text-[12px] font-[600]">收款金额 *</span>
             <Input

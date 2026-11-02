@@ -7,6 +7,7 @@ from ninja import Schema
 __all__: list[str] = [
     "ContractPaymentParseIn",
     "ContractPaymentParseOut",
+    "PaymentImageParseOut",
     "InvoiceOut",
     "InvoiceUploadOut",
     "InvoiceUploadFailure",
@@ -32,6 +33,32 @@ class ContractPaymentParseOut(Schema):
     note: str = ""
     #: 识别依据（如「金额 9,000.00」「付款人 伍振川」），前端原样展示
     hints: list[str] = []
+
+
+class PaymentImageParseOut(Schema):
+    """粘贴图片（银行回单截图 / PDF）的识别结果。
+
+    形状刻意与 `ContractPaymentParseOut` 对齐（`amount/received_at/payer/note/hints`），
+    前端两个入口共用同一套表单预填逻辑；额外四个字段说明「这张图是什么、认成了什么」。
+    **识别不出的一律为空**，绝不填默认值。
+    """
+
+    amount: str | None = None
+    received_at: str | None = None
+    payer: str = ""
+    note: str = ""
+    hints: list[str] = []
+
+    #: 收款方（回单上的收款人）。常是自己律所，用于核对「这钱确实打给我们」
+    payee: str = ""
+    #: 小写与大写金额对不上（回单场景的强校验信号，前端需醒目提示）
+    amount_mismatch: bool = False
+    #: 是否识别为银行回单版式（否则按到账短信解析）
+    is_receipt: bool = False
+    #: 文本提取方式：pdf_direct / vlm / ocr / empty
+    extraction_method: str = ""
+    #: 提取到的原始文本（律师要核对「它到底读到了什么」时展示）
+    text: str = ""
 
 
 class InvoiceAttachIn(Schema):
