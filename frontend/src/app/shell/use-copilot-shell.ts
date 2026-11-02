@@ -22,14 +22,16 @@ const COPILOT_DOCK_KEY = 'copilot:dock'
 export function useCopilotShell() {
   const { pathname } = useLocation()
 
-  // AI 助手面板开关：展开状态跨会话记忆（localStorage），首次展开才加载 chunk。
-  const [copilotOpen, setCopilotOpen] = useState(() => {
-    try {
-      return localStorage.getItem(COPILOT_OPEN_KEY) === '1'
-    } catch {
-      return false
-    }
-  })
+  /**
+   * AI 助手面板开关：展开状态跨会话记忆（localStorage），首次展开才加载 chunk。
+   *
+   * ⚠️ 默认收起。
+   * 合同复审页（/projects/:id/review/:taskId）自己带一个「法穿 AI 助手」右栏，
+   * 全局面板再展开就会出现**两个 AI 助手并排**，律师不知道该跟哪个说话。
+   * 所以这里不再从 localStorage 恢复展开态 —— 要开就自己按 ⌘J，
+   * 不复用上一次会话的选择（上次开着不代表这次也要开着）。
+   */
+  const [copilotOpen, setCopilotOpen] = useState(false)
   // 滑出动画期间保持挂载：收起时先播 animate-out，240ms 后再卸载（与面板
   // duration-200 对齐留余量）。重新展开会取消定时器，无缝回到 animate-in。
   // 背景压暗遮罩（PanelBackdrop）同理跟 copilotMounted 走，这样收起时它的

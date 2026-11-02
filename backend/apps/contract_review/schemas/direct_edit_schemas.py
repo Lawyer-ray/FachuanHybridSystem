@@ -65,3 +65,27 @@ class DirectEditApplyOut(Schema):
     name: str = ""
     reason: str = ""
     """applied=False 时的人话原因（定位失败等），可直接展示给律师"""
+
+
+# ───────────────────────── 审查任务的划词直改 ─────────────────────────
+#
+# 与上面三个 Schema 的差别只有一处：归属用 `task_id` 而不是
+# `contract_id`/`case_id` + `subpath`。审查任务的产物在
+# MEDIA_ROOT/contract_review/output/，不属于任何绑定文件夹，
+# 也就没有 subpath 可言。
+
+
+class TaskEditApplyIn(Schema):
+    """在审查任务的产物上落一处修订痕迹。"""
+
+    task_id: str
+    selection: str
+    """必须是编辑器里当前选中的原文"""
+    suggested: str
+
+
+class TaskEditApplyOut(Schema):
+    applied: bool
+    name: str = ""
+    reason: str = ""
+    """applied=False 时的人话原因，可直接展示给律师"""

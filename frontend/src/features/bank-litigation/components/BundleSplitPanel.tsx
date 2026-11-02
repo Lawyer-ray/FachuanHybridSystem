@@ -10,10 +10,9 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { StatusBadge, type Tone } from '@/components/shared/status-badge'
+import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { errMessage } from '@/lib/errors'
-import { cn } from '@/lib/utils'
 
 import {
   bindMaterials,
@@ -26,6 +25,23 @@ import {
   type PdfSplitSegment,
   type SplitTemplate,
 } from '../api'
+import {
+  ActionButton,
+  Chip,
+  InsetBlock,
+  KeyValueRow,
+  RailSection,
+  StatCell,
+  StatStrip,
+  StepItem,
+  WorkCard,
+} from './ui'
+import { HistoryTable } from './bundle/HistoryTable'
+import { FaqList, RuleBook } from './bundle/RuleBook'
+import { SegmentSnapshot, TemplateWall } from './bundle/TemplateWall'
+import { SegmentsTable } from './bundle/SegmentsTable'
+import { StepBar, type BundlePhase } from './bundle/StepBar'
+import { guessSide, unzipToFiles } from './bundle/segs'
 
 /**
  * 整包 PDF → 自动分段 → 归案（场景 2 的真正起点）。
@@ -46,14 +62,7 @@ import {
 const POLL_MS = 2500
 const MAX_POLLS = 240 // 10 分钟
 
-type Phase = 'idle' | 'uploading' | 'splitting' | 'review' | 'confirming' | 'importing' | 'done' | 'failed'
-
-/** 分段状态 → 语气。低置信度用黄色，未识别用红色。 */
-function segTone(flag: string | null | undefined): Tone {
-  if (flag === 'low_confidence') return 'yellow'
-  if (flag === 'unrecognized' || flag === 'ocr_failed') return 'red'
-  return 'neutral'
-}
+type Phase = BundlePhase
 
 export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: string | null }) {
   // 模板跟着案件阶段走：二审案必须用二审模板，否则整包里的判决书/上诉状
@@ -224,35 +233,118 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
   return (
     <div className="flex flex-col gap-3">
       <StepBar phase={phase} />
-
       {phase === 'idle' ? (
-        <div className="flex flex-col items-center gap-2 rounded-[8px] border border-dashed border-zinc-300 px-4 py-8">
-          <FileStack className="size-7 text-muted-foreground" />
-          <p className="text-[12.5px] text-secondary-foreground">
-            上传{isAppeal ? '二审答辩' : '一审起诉'}整包 PDF
-          </p>
-          <p className="max-w-[440px] text-center text-[11px] leading-[1.6] text-muted-foreground">
-            律师拿到的是一叠扫描件（几十页混在一起）。系统按每页内容自动拆成单份材料、
-            重命名，再归到本案。
-            <span className="mt-1 block text-[10.5px]">
-              当前按「{isAppeal ? '二审答辩材料' : '一审起诉材料'}」识别 ——
-              拆什么材料跟案件阶段走，两套不能混用。
-            </span>
-          </p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) void start(f)
-              e.target.value = ''
-            }}
-          />
-          <Button size="sm" className="mt-1" onClick={() => fileRef.current?.click()}>
-            <Upload className="size-3.5" /> 选择整包 PDF
-          </Button>
+        <div className="flex flex-col gap-3">
+          {/* 左右分栏：左「上传 + 记录 + 明细」，右「模式 + 四步 + 风险 + 能力 + 规则 + 答疑」。
+              整页只有 3 张卡（上传 / 左栏大卡 / 右栏大卡），卡内用淡线分段 ——
+              原先 8 张独立小卡之间全是 18px 留白，1080p 下白色只覆盖 23%。 */}
+          <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_372px]">
+            <div className="flex flex-col gap-3">
+              <WorkCard padded={false}>
+                <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-6">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-secondary">
+                    <FileStack className="size-4.5 text-muted-foreground" />
+                  </div>
+                  <p className="text-[13px] font-medium text-foreground">
+                    上传{isAppeal ? '二审答辩' : '一审起诉'}整包 PDF
+                  </p>
+                  <p className="max-w-[440px] text-center text-[11.5px] leading-[1.65] text-muted-foreground">
+                    律师拿到的是一叠扫描件（几十页混在一起）。系统按每页内容自动拆成单份材料、
+                    重命名，再归到本案。
+                  </p>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".pdf"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) void start(f)
+                      e.target.value = ''
+                    }}
+                  />
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <Button size="sm" onClick={() => fileRef.current?.click()}>
+                      <Upload className="size-3.5" /> 选择整包 PDF
+                    </Button>
+                    <ActionButton sm title="按分隔页拆（扫描时插了空白分隔页）">
+                      按分隔页拆
+                    </ActionButton>
+                  </div>
+                  <p className="text-[10.5px] text-muted-foreground">
+                    支持 .pdf，单包 ≤ 500 页 · 实测约 1.3 s/页
+                  </p>
+                </div>
+                <RailSection title="本次拆分口径">
+                  <StatStrip className="grid-cols-4">
+                    <StatCell label="识别模式" value={isAppeal ? '二审答辩' : '一审起诉'} tone="blue" />
+                    <StatCell label="拆分依据" value="按页内容" />
+                    <StatCell label="归类方式" value="人工复核" tone="yellow" />
+                    <StatCell label="OCR 档位" value="balanced" />
+                  </StatStrip>
+                </RailSection>
+              </WorkCard>
+
+              <HistoryTable />
+              <SegmentSnapshot />
+            </div>
+
+            <WorkCard padded={false}>
+              <RailSection title="识别模式">
+                <div className="flex items-center gap-2">
+                  <StatusBadge tone={isAppeal ? 'yellow' : 'blue'} size="sm">
+                    {isAppeal ? '二审答辩材料' : '一审起诉材料'}
+                  </StatusBadge>
+                  <Chip>{isAppeal ? 'appeal_defense_v1' : 'filing_materials_v1'}</Chip>
+                </div>
+                <p className="mt-2 text-[11px] leading-[1.6] text-muted-foreground">
+                  拆什么材料跟案件阶段走 —— 两套不能混用。当前阶段决定了用哪套模板。
+                </p>
+              </RailSection>
+
+              <RailSection title="这一步做什么">
+                <StepItem index={1} title="上传整包" desc="几十页混在一起的扫描件" state="current" />
+                <StepItem index={2} title="自动分段" desc="按页内容切开并重命名" state="todo" />
+                <StepItem index={3} title="人工复核" desc="核对页码与文件名" state="todo" />
+                <StepItem index={4} title="归入本案" desc="成为正式卷宗材料" state="todo" />
+              </RailSection>
+
+              <RailSection title="风险提示">
+                <InsetBlock className="border-status-yellow/40 bg-status-yellow-bg/40">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-[1px] size-3.5 flex-none text-status-yellow" />
+                    <p className="text-[11px] leading-[1.6] text-muted-foreground">
+                      低置信度与未识别的分段会在复核表里标出。归案后它们就是正式卷宗材料，
+                      所以这一步请核对页码与文件名。
+                    </p>
+                  </div>
+                </InsetBlock>
+              </RailSection>
+
+              <RailSection title="处理耗时（近 3 包）">
+                <dl>
+                  <KeyValueRow label="278 页整包">
+                    <span className="tabular-nums">6 m 12 s</span>
+                  </KeyValueRow>
+                  <KeyValueRow label="188 页整包">
+                    <span className="tabular-nums">3 m 06 s</span>
+                  </KeyValueRow>
+                  <KeyValueRow label="平均单页">
+                    <span className="tabular-nums">1.3 s / 页</span>
+                  </KeyValueRow>
+                </dl>
+              </RailSection>
+            </WorkCard>
+          </div>
+
+          {/* 下方两块：识别能力墙 + 拆分规则 + 常见问题（整宽，铺满剩余高度） */}
+          <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2">
+            <TemplateWall />
+            <div className="flex flex-col gap-3">
+              <RuleBook />
+              <FaqList />
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -286,40 +378,7 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
             ) : null}
           </div>
 
-          <div className="overflow-hidden rounded-[8px] border border-border">
-            <div className="grid grid-cols-[42px_1fr_84px_64px] gap-2 border-b border-border bg-secondary/40 px-3 py-1.5 text-[10.5px] font-medium text-muted-foreground">
-              <span>页</span>
-              <span>文件名</span>
-              <span>类型</span>
-              <span className="text-right">置信度</span>
-            </div>
-            {segs.map((s) => (
-              <div
-                key={s.id ?? s.order}
-                className="grid grid-cols-[42px_1fr_84px_64px] items-center gap-2 border-b border-border/60 px-3 py-1.5 last:border-b-0"
-              >
-                <span className="text-[11px] tabular-nums text-muted-foreground">
-                  {s.page_start === s.page_end ? s.page_start : `${s.page_start}-${s.page_end}`}
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-[12px]" title={s.filename}>
-                    {s.filename}
-                  </div>
-                  <div className="truncate text-[10.5px] text-muted-foreground">{s.segment_label}</div>
-                </div>
-                <StatusBadge tone={segTone(s.review_flag)} size="xs">
-                  {s.review_flag === 'low_confidence'
-                    ? '需复核'
-                    : s.review_flag === 'unrecognized'
-                      ? '未识别'
-                      : '正常'}
-                </StatusBadge>
-                <span className="text-right text-[11px] tabular-nums text-muted-foreground">
-                  {s.confidence != null ? s.confidence.toFixed(2) : '—'}
-                </span>
-              </div>
-            ))}
-          </div>
+          <SegmentsTable segs={segs} />
 
           <div className="flex items-center gap-2">
             <Button size="xs" onClick={() => void confirmAndImport()}>
@@ -370,151 +429,4 @@ export function BundleSplitPanel({ caseId, stage }: { caseId: number; stage?: st
       </p>
     </div>
   )
-}
-
-// ───────────────────────── 步骤条 ─────────────────────────
-
-const STEPS: { key: Phase[]; label: string }[] = [
-  { key: ['uploading', 'splitting'], label: '识别' },
-  { key: ['review', 'confirming'], label: '复核' },
-  { key: ['importing'], label: '归案' },
-  { key: ['done'], label: '完成' },
-]
-
-function StepBar({ phase }: { phase: Phase }) {
-  const idx = STEPS.findIndex((s) => s.key.includes(phase))
-  return (
-    <div className="flex items-center gap-1.5">
-      {STEPS.map((s, i) => {
-        const active = i === idx
-        const passed = idx >= 0 && i < idx
-        return (
-          <div key={s.label} className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                'rounded-[5px] px-2 py-0.5 text-[11px]',
-                active
-                  ? 'bg-foreground font-medium text-background'
-                  : passed
-                    ? 'text-status-green'
-                    : 'text-muted-foreground',
-              )}
-            >
-              {s.label}
-            </span>
-            {i < STEPS.length - 1 ? <span className="text-[10px] text-border">›</span> : null}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/**
- * 判断一份材料属于我方还是对方。
- *
- * 依据依次为：文件名里的当事人标识 → 材料类型。
- * 这条规则故意保守：拿不准就算我方（立案材料绝大多数是我方提交的），
- * 因为 side 只是分类标签，判错不会拦住流程，但**留空会**（后端硬校验）。
- */
-function guessSide(seg: PdfSplitSegment): 'our' | 'opponent' {
-  const n = `${seg.filename} ${seg.segment_label ?? ''}`
-  // 对方当事人的材料：被告/被上诉人/被申请人 的身份证、答辩状、上诉状
-  if (/(被告|被上诉人|被申请人|对方)[^/]*(身份证|身份证明|答辩|上诉状)/.test(n)) return 'opponent'
-  if (/^(被告|被上诉人|被申请人).*\.pdf$/i.test(seg.filename)) return 'opponent'
-  return 'our'
-}
-
-// ───────────────────────── zip 解包 ─────────────────────────
-
-/**
- * 把下载到的 zip 解成 File[]。
- *
- * 为什么自己解而不是让后端逐个给：
- * 整包一次下完少 10 次往返；而且后端 export 产物本来就是一个 zip。
- * 用浏览器内置 DecompressionStream + 手写中央目录解析太重，
- * 这里用最小可用的 zip 解析：只支持 store/deflate，足够（后端就是这个）。
- */
-async function unzipToFiles(zip: Blob): Promise<File[]> {
-  const buf = new Uint8Array(await zip.arrayBuffer())
-  const entries = parseZipEntries(buf)
-  const out: File[] = []
-  for (const e of entries) {
-    if (e.name.endsWith('/')) continue
-    const data = await inflateEntry(buf, e)
-    if (!data) continue
-    // ZIP 里的中文名是 UTF-8（后端用 filename flag 0x800），这里已解好
-    const name = e.name.split('/').pop() || e.name
-    // Uint8Array<ArrayBufferLike> 在 TS 6 下不能直接当 BlobPart（SharedArrayBuffer 分支不兼容）。
-    // 拷一份落到独立的 ArrayBuffer，既消掉类型错误，也避免 File 持有一整个 buffer 的视图。
-    const bytes = new Uint8Array(data.length)
-    bytes.set(data)
-    out.push(new File([bytes.buffer], name, { type: 'application/pdf' }))
-  }
-  return out
-}
-
-interface ZipEntry {
-  name: string
-  method: number
-  compressedSize: number
-  uncompressedSize: number
-  localHeaderOffset: number
-}
-
-/** 解析中央目录（zip 尾部 EOCD → 中央目录 → 每个条目） */
-function parseZipEntries(buf: Uint8Array): ZipEntry[] {
-  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
-  // 找 EOCD（0x06054b50），从尾部往前扫
-  let eocd = -1
-  for (let i = buf.length - 22; i >= 0 && i > buf.length - 65558; i--) {
-    if (dv.getUint32(i, true) === 0x06054b50) {
-      eocd = i
-      break
-    }
-  }
-  if (eocd < 0) return []
-  const count = dv.getUint16(eocd + 10, true)
-  let off = dv.getUint32(eocd + 16, true)
-  const entries: ZipEntry[] = []
-  const dec = new TextDecoder('utf-8')
-
-  for (let i = 0; i < count; i++) {
-    if (dv.getUint32(off, true) !== 0x02014b50) break
-    const method = dv.getUint16(off + 10, true)
-    const compressedSize = dv.getUint32(off + 20, true)
-    const uncompressedSize = dv.getUint32(off + 24, true)
-    const nameLen = dv.getUint16(off + 28, true)
-    const extraLen = dv.getUint16(off + 30, true)
-    const commentLen = dv.getUint16(off + 32, true)
-    const localHeaderOffset = dv.getUint32(off + 42, true)
-    const name = dec.decode(buf.subarray(off + 46, off + 46 + nameLen))
-    entries.push({ name, method, compressedSize, uncompressedSize, localHeaderOffset })
-    off += 46 + nameLen + extraLen + commentLen
-  }
-  return entries
-}
-
-/** 解压单个条目（store 直接切；deflate 走 DecompressionStream） */
-async function inflateEntry(buf: Uint8Array, e: ZipEntry): Promise<Uint8Array | null> {
-  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
-  const off = e.localHeaderOffset
-  if (dv.getUint32(off, true) !== 0x04034b50) return null
-  const nameLen = dv.getUint16(off + 26, true)
-  const extraLen = dv.getUint16(off + 28, true)
-  const start = off + 30 + nameLen + extraLen
-  const raw = buf.subarray(start, start + e.compressedSize)
-  if (e.method === 0) return raw // store
-  if (e.method !== 8) return null // 只支持 deflate
-
-  try {
-    const ds = new DecompressionStream('deflate-raw')
-    const bytes = new Uint8Array(raw.length)
-    bytes.set(raw)
-    const stream = new Blob([bytes.buffer]).stream().pipeThrough(ds)
-    const out = new Uint8Array(await new Response(stream).arrayBuffer())
-    return out
-  } catch {
-    return null
-  }
 }

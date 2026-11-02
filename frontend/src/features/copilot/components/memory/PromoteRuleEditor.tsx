@@ -95,7 +95,11 @@ export function PromoteRuleEditor({
                 checked={firmAck}
                 onChange={(e) => onFirmAckChange(e.target.checked)}
               />
-              <span>我确认：这条规则将对**全所所有律师**的 AI 助手生效</span>
+              <span>
+                我确认：这条规则将对
+                <strong className="font-medium">全所所有律师</strong>
+                的 AI 助手生效
+              </span>
             </label>
           </>
         )}

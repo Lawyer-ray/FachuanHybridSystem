@@ -403,3 +403,6 @@ frontend/prototype/
 /deploy/onlyoffice/plugins/*/*.gz
 # e2e 自检脚本每次运行现生成的 docx 夹具（运行完会自己删，防手滑漏删后误入库）
 /backend/apps/onlyoffice/tests/fixtures/_inplace_probe.docx
+
+# PPT Master 生成目录（演讲 PPT 产物：素材/设计稿/SVG/导出文件，不入库）
+projects/

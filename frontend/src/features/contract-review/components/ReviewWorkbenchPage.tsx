@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { projectDetail } from '@/app/paths'
 import { useNavigate, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -14,12 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { OfficeView } from '@/components/shared/onlyoffice/OfficeView'
+import { OfficeView, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { getContentVersion, getTaskStatus, listVersions } from '../api'
 import { RevisionList } from '../components/RevisionList'
+import { ReviewAssistant } from './ReviewAssistant'
 import { VersionChainButton, VersionChainPanel } from '../components/VersionChainPanel'
 import { progressText, revisedFileName } from '../domain'
 import { useRevisions } from '../hooks/use-revisions'
@@ -47,6 +48,25 @@ export function ReviewWorkbenchPage() {
   const navigate = useNavigate()
   const { items, isLoading, error, busyId, pendingCount, decide } = useRevisions(taskId ?? null)
   const [mode, setMode] = useState<ReviewEditorMode>('review')
+  /**
+   * 当前选区（来自 OnlyOffice 插件桥）。
+   *
+   * 选区只存在于 DS 内核上下文，React 侧拿不到，必须由插件通过
+   * `window.parent.parent.postMessage` 递出来。这里只做一件事：收下并交给右栏。
+   *
+   * `explicit` 表示用户主动框选（而非光标移动导致的空选），只有它为真才更新 ——
+   * 否则点一下文档空白就把选区清掉，律师刚框好的条款会消失。
+   */
+  const [selection, setSelection] = useState('')
+  /**
+   * 从左侧建议卡带进右栏的选区与指令。
+   *
+   * 文档里的真实选区只存在于 OnlyOffice 内核，靠插件桥递出来；演示时人工框选
+   * 不稳定，而左栏每条建议本身就带条款原文。点「定位」时把它当选区送进右栏，
+   * AI 立刻能出改法 —— 这条路径不依赖选区桥，也不改文档，只是把上下文搬过去。
+   */
+  const [autoPrompt, setAutoPrompt] = useState<{ text: string; instruction: string; seq: number } | null>(null)
+  const promptSeq = useRef(0)
   /**
    * 文档内容版本（喂给 OfficeView 的 version）。
    *
@@ -97,8 +117,15 @@ export function ReviewWorkbenchPage() {
 
   /** 定位：跳到文档对应处。当前由编辑器侧完成（DS 内建查找），这里只做提示。 */
   const locate = useCallback((rev: ReviewRevision) => {
-    const anchor = rev.original.slice(0, 12)
-    toast.info(`在文档中查找：${anchor}…`, { description: '可用 Ctrl/⌘+F 精确定位' })
+    // 带上这一条的原文与依据，右栏据此直接出改法
+    promptSeq.current += 1
+    setAutoPrompt({
+      text: rev.original,
+      instruction: rev.reason
+        ? `按这个依据改写：${rev.reason.slice(0, 120)}`
+        : '按泰国法审查这一条，我方是承租方',
+      seq: promptSeq.current,
+    })
   }, [])
 
   const onDecide = useCallback(
@@ -211,6 +238,9 @@ export function ReviewWorkbenchPage() {
             fileName={fileName}
             mode={mode}
             version={contentVersion}
+            onPluginMessage={(msg: PluginBridgeMessage) => {
+              if (msg.type === 'selection' && msg.explicit) setSelection(msg.text ?? '')
+            }}
           />
         </div>
 
@@ -235,15 +265,12 @@ export function ReviewWorkbenchPage() {
               />
             </div>
           ) : (
-            <div className="p-3.5">
-              <p className="text-[12px] font-semibold">法穿 AI 助手</p>
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
-                选中原文（或在文档里右键）→ 下指令 → 以修订插入；也可以直接问我。
-              </p>
-              <div className="mt-3 rounded-[8px] border border-border-light bg-secondary/60 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                对话组件将复用 copilot 域的同一套流式实现，避免两套 UI 分叉。
-              </div>
-            </div>
+            <ReviewAssistant
+              taskId={taskId ?? ''}
+              selection={selection}
+              autoPrompt={autoPrompt}
+              onApplied={() => void contentVersionQuery.refetch()}
+            />
           )}
         </aside>
       </div>

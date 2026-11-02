@@ -233,3 +233,25 @@
 @media (prefers-reduced-motion: reduce) {
   .app-page-enter { animation: none; }
 }
+
+/* 右侧详情抽屉滑入（立案工作台的表格行点开看详情） */
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes drawer-in { from { opacity: 1; } to { opacity: 1; } }
+}
+
+/* 翻页/切视图时重放的淡入：附件 key={page} 触发重挂载。
+   幅度只到透明度，避免表格/版式内容位移导致读起来"跳"。 */
+@keyframes page-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.page-fade {
+  animation: page-fade 0.15s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-fade { animation: none; }
+}
