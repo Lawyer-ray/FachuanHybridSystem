@@ -35,9 +35,7 @@ async def list_configs(request: HttpRequest) -> Any:  # pragma: no cover
     lawyer_id = getattr(request.user, "id", None)
     org_service = _get_organization_service()
     user_sites: set[str] = (
-        set(await sync_to_async(org_service.list_sites_for_lawyer, thread_sensitive=False)(int(lawyer_id)))
-        if lawyer_id is not None
-        else set()
+        set(await sync_to_async(org_service.list_sites_for_lawyer)(int(lawyer_id))) if lawyer_id is not None else set()
     )
     return [{"id": name, "oa_system_name": name, "has_credential": name in user_sites} for name in SUPPORTED_SITES]
 
@@ -89,4 +87,7 @@ async def get_session(request: HttpRequest, session_id: int) -> Any:  # pragma: 
     """查询立案会话状态。"""
     service = _get_executor_service()
     # 安全审计 A-04：传入当前用户做会话属主校验
-    return await sync_to_async(service.get_session, thread_sensitive=False)(session_id, request.user)
+    # thread_sensitive 用默认 True：纯短 DB 查询，且本端点被前端每 2s 轮询。
+    # 用 False 会落到 anyio 默认线程池，连接借出线程与请求收尾线程不一致，
+    # 配合 OPTIONS["pool"] 会永久借走连接（2026-11-03 PoolTimeout 事故）。
+    return await sync_to_async(service.get_session)(session_id, request.user)

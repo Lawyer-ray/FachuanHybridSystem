@@ -29,6 +29,31 @@ _CONTRACT_PDF_SUFFIXES = (".pdf", ".docx", ".doc")
 # 本身含"合同"，整路径匹配会把委托材料下的执业证等误判进合同区（实测 373）。
 _ZONE_SEGMENT_PREFIX = "合同"
 _NUMBER_PREFIX_RE = re.compile(r"^[\d]+[\s.\-_]*[\)）]?\s*")
+
+# 当事人（委托人/对方）提供的材料区：其下的「02-合同协议」「合同」等目录放的是
+# **案件标的本身的合同**（如买卖合同、采购框架协议），不是律所与委托人签的
+# 委托代理合同。立案要上传的是后者，因此命中本区的候选一律不当作合同正本。
+# 与 folder_scan_service._GLOBAL_EXCLUDE_DIR_KEYWORDS 的「客户资料」口径保持一致。
+# 实测 445：客户资料/…/02-合同协议/01-采购框架协议.pdf 曾盖掉
+# 1-律师资料/1-合同/1-民商事合同.docx，把标的合同错传成立案附件。
+_CLIENT_MATERIAL_ZONE_KEYWORDS = ("客户资料",)
+
+# 律所自有文书区：委托代理合同的标准位置（文件夹模板「1-律师资料/1-合同」）。
+# 仅用于在多个候选间**排序加权**，不是硬性白名单——客户资料区的文件
+# 依然可能在文件名上命中强关键词（如「框架合同」），需先由上面的区域排除筛掉。
+_FIRM_MATERIAL_ZONE_KEYWORDS = ("律师资料",)
+
+# 立案要上传的是「律所与委托人之间的委托代理关系证明」类合同。
+# 用于在候选内排序时优先，不单独作为白名单。
+_RETAINER_FILENAME_KEYWORDS = (
+    "委托代理合同",
+    "民商事合同",
+    "委托合同",
+    "委托协议",
+    "服务合同",
+    "法律顾问",
+    "专项法律事务",
+)
 # 区域外的强文件名关键词（案名含"合同纠纷"等案由时一律不算，先排除再匹配）
 _STRONG_FILENAME_KEYWORDS = (
     "委托合同",
@@ -192,6 +217,12 @@ def _is_contract_original(filename: str, source_path: str) -> bool:
 
     parent_parts = Path(str(source_path).replace("\\", "/")).parent.parts
     segments = [_NUMBER_PREFIX_RE.sub("", part) for part in parent_parts]
+
+    # 当事人材料区优先排除：那里的「合同」是案件标的的合同，不是委托代理合同。
+    # 必须在合同区判定之前拦下，否则它同样满足「合同区 + 文件名含合同/协议」。
+    if any(seg in _CLIENT_MATERIAL_ZONE_KEYWORDS for seg in segments if seg):
+        return False
+
     in_contract_zone = any(segment.startswith(_ZONE_SEGMENT_PREFIX) for segment in segments if segment)
     if in_contract_zone:
         return "合同" in fn or "协议" in fn
@@ -201,8 +232,27 @@ def _is_contract_original(filename: str, source_path: str) -> bool:
     return any(kw in fn for kw in _STRONG_FILENAME_KEYWORDS)
 
 
+def _retainer_score(item: dict[str, Any]) -> int:
+    """委托代理合同权重：命中委托类关键词 2 分，位于律所文书区 1 分。
+
+    命中可为零（客户送来的无名合同），此时不影响原有排序。
+    """
+    path = item["path"]
+    name = str(path.name).lower()
+    score = 2 if any(kw in name for kw in _RETAINER_FILENAME_KEYWORDS) else 0
+    parts = [_NUMBER_PREFIX_RE.sub("", p) for p in path.parent.parts]
+    if any(seg in _FIRM_MATERIAL_ZONE_KEYWORDS for seg in parts if seg):
+        score += 1
+    return score
+
+
 def _pick_latest_contract_file(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """同名多版本取最新 mtime，跨名称 pdf 优先、再取最新 mtime。"""
+    """选出一个立案附件：先比委托代理合同权重，再 pdf 优先，最后最新 mtime。
+
+    排序键顺序很重要——历史实现是 `(is_pdf, mtime)`，pdf 是**第一优先级**，
+    结果客户送来的采购框架协议 .pdf 会盖过律所自己的委托代理合同 .docx
+    （429 实测）。现在把「是不是委托代理合同」提到最前，pdf 只在同类间拉平。
+    """
     if not candidates:
         return None
     winners: dict[str, dict[str, Any]] = {}
@@ -212,7 +262,7 @@ def _pick_latest_contract_file(candidates: list[dict[str, Any]]) -> dict[str, An
             winners[item["stem_key"]] = item
     ranked = sorted(
         winners.values(),
-        key=lambda item: (item["path"].suffix.lower() == ".pdf", item["mtime"]),
+        key=lambda item: (_retainer_score(item), item["path"].suffix.lower() == ".pdf", item["mtime"]),
         reverse=True,
     )
     return ranked[0]

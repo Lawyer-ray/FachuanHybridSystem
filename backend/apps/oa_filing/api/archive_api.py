@@ -87,7 +87,8 @@ async def get_archive_session(request: HttpRequest, session_id: int) -> Any:
     """查询归档提交状态。"""
     service = _get_task_executor_service()
     # 安全审计 A-04：传入当前用户做会话属主校验
-    return await sync_to_async(service.get_archive_session, thread_sensitive=False)(session_id, request.user)
+    # thread_sensitive 用默认 True：纯短 DB 查询 + 前端轮询，理由同 filing_api.get_session。
+    return await sync_to_async(service.get_archive_session)(session_id, request.user)
 
 
 @router.post("/open-oa")

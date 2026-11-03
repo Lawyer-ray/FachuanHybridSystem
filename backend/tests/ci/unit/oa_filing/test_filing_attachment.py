@@ -160,6 +160,61 @@ class TestIsContractOriginal:
     def test_case_name_filename_outside_zone_rejected(self):
         assert not self._is("民事起诉状（借款合同纠纷一案）.pdf", "/tmp/root/3-执行/民事起诉状.pdf")
 
+    def test_client_material_contract_zone_excluded(self):
+        # 445 真实 bug：客户资料下的「02-合同协议」放的是案件标的的合同
+        # （采购框架协议/保密协议），不是律所与委托人签的委托代理合同。
+        # 修复前它因「合同区 + 文件名含协议」被判为正本并抢走立案附件。
+        assert not self._is(
+            "01-采购框架协议（含采购供货协议+廉洁自律协议）24.11.18.pdf",
+            "/root/2-客户资料/2026.11.02-第一次收到的材料/02-合同协议/01-采购框架协议24.11.18.pdf",
+        )
+
+    def test_client_material_zone_excluded_even_with_strong_keyword(self):
+        # 客户资料下即使文件名命中强关键词（如「框架合同」）也不算正本
+        assert not self._is(
+            "框架合同.pdf",
+            "/root/2-客户资料/一批/02-合同协议/框架合同.pdf",
+        )
+
+    def test_firm_retainer_still_accepted(self):
+        # 修复后律所自己的委托代理合同仍必须被识别（真实 445 路径）
+        assert self._is(
+            "1-民商事合同（张某诉某公司买卖合同纠纷）V2_20261103.docx",
+            "/root/1-律师资料/1-合同/1-民商事合同（张某诉某公司买卖合同纠纷）V2.docx",
+        )
+
+
+class TestRetainerRanking:
+    """445 根因：旧排序把 pdf 当第一优先级，客户送来的标的合同 .pdf
+    会盖过律所自己的委托代理合同 .docx。"""
+
+    @staticmethod
+    def _make(path: str, mtime: float) -> dict:
+        from pathlib import Path
+
+        return {"path": Path(path), "mtime": mtime, "stem_key": Path(path).stem.lower()}
+
+    def test_retainer_docx_beats_client_pdf(self):
+        from apps.oa_filing.services.filing_attachment_service import _pick_latest_contract_file
+
+        retainer = self._make("/root/1-律师资料/1-合同/1-民商事合同（某案）V2.docx", mtime=100.0)
+        client_pdf = self._make("/root/2-客户资料/一批/02-合同协议/01-采购框架协议.pdf", mtime=999.0)
+        assert _pick_latest_contract_file([client_pdf, retainer])["path"].name == retainer["path"].name
+
+    def test_retainer_wins_even_when_pdf_is_newer(self):
+        from apps.oa_filing.services.filing_attachment_service import _pick_latest_contract_file
+
+        retainer = self._make("/root/1-律师资料/1-合同/委托代理合同.pdf", mtime=100.0)
+        other_pdf = self._make("/root/1-律师资料/1-合同/质量保证协议书.pdf", mtime=999.0)
+        assert _pick_latest_contract_file([other_pdf, retainer])["path"].name == "委托代理合同.pdf"
+
+    def test_pdf_priority_kept_when_no_retainer_keyword(self):
+        # 无委托类关键词时保留原有 pdf 优先语义（不让修复改变通用行为）
+        from apps.oa_filing.services.filing_attachment_service import _pick_latest_contract_file
+
+        candidates = [self._make("/tmp/合同.pdf", 100.0), self._make("/tmp/其他合同.docx", 999.0)]
+        assert _pick_latest_contract_file(candidates)["path"].name == "合同.pdf"
+
 
 # ── 本地文件夹收集（临时目录） ─────────────────────────────────────
 

@@ -269,12 +269,22 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
 
     # psycopg3 进程级连接池（Django 5.1+ OPTIONS["pool"]）。
     # - 与 CONN_MAX_AGE 持久连接互斥：启用 pool 时强制 CONN_MAX_AGE=0（连接由池管理）。
-    # - 池是进程内共享的：线程型 ASGI worker 的所有请求线程复用同一组连接，
-    #   比「每线程 CONN_MAX_AGE 各持一条」省连接；但 max_size 会限制并发 DB 线程数。
-    # - 开关 DB_POOL：默认 dev(DEBUG) 开、生产关（生产的并发模型需按部署评估后再开），
-    #   显式 true/false 永远优先；pytest 下强制关（测试库每次重建，池会持有失效连接）。
+    # - 池是进程内共享的，但 **Django 的连接是线程局部的**（connections 是
+    #   thread_critical=True 的对象）：池能省连接的只有「同一条线程内的复用」。
+    #   注意：此前注释写的「线程型 ASGI worker 的所有请求线程复用同一组连接」是错的，
+    #   各线程各持一份 wrapper，跨线程不会共享。
+    #
+    # 开关 DB_POOL：**默认关**（含 dev）。
+    # 历史上默认 dev 开、生产关，2026-11-03 因此炸过一次 PoolTimeout：
+    #   sync_to_async(..., thread_sensitive=False) 会让 ORM 落到 anyio 默认线程池，
+    #   连接借出在 worker 线程、归还却在请求收尾线程（request_finished 在另一条线程
+    #   调 close → pool.putconn），worker 线程那份 wrapper 永不归还 → 池被逐步借空。
+    #   复现脚本：backend/devtools/repro_pool_leak.py（同 8 并发 SELECT 1，
+    #   thread_sensitive=False + 池 = 立刻 PoolTimeout；thread_sensitive=True 正常）。
+    # 因此在「全站 thread_sensitive=False 调用点收敛完毕」之前，这里必须保持关闭。
+    # 显式 DB_POOL=true 仍可开启（自己承担上述风险），pytest 下一律强制关。
     _pool_env = (os.environ.get("DB_POOL", "") or "").strip().lower()
-    _use_pool = (_pool_env in ("true", "1", "yes")) or (_pool_env == "" and DEBUG)
+    _use_pool = _pool_env in ("true", "1", "yes")
     if "pytest" in sys.modules:
         _use_pool = False
 
