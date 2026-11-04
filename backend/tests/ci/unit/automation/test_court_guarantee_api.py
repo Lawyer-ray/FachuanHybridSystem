@@ -120,3 +120,38 @@ def test_build_primary_respondent_property_clue_returns_first_item(monkeypatch) 
     assert result["owner_name"] == "测试企业A"
     assert result["property_type"] == "其他"
     assert result["property_info"] == "支付宝账户：支付宝账号: test_alipay_001"
+
+
+# 案号拆分回归用例的假数据：纯格式样例（粤01/民初/100），非真实案号
+_CASE_NO_FULL_WIDTH = "（2024）粤01民初100号"  # privacy-allow
+_CASE_NO_HALF_WIDTH = "(2023)粤01财保12号"  # privacy-allow
+_CASE_NO_SPACED = "（2024）粤01 民初 100 号"  # privacy-allow
+_CASE_NO_WITH_SUFFIX = "（2024）粤01民初100号之一"  # privacy-allow
+
+
+class TestParseCaseNumber:
+    """案号拆分回归：API 层曾调用已下沉的 Service 静态方法导致 500，改为插件内模块级函数。"""
+
+    def test_full_width_parentheses(self) -> None:
+        assert helpers._parse_case_number(_CASE_NO_FULL_WIDTH) == ("2024", "粤01", "民初", "100")
+
+    def test_half_width_parentheses_and_hao_removed(self) -> None:
+        assert helpers._parse_case_number(_CASE_NO_HALF_WIDTH) == ("2023", "粤01", "财保", "12")
+
+    def test_spaces_between_segments_tolerated(self) -> None:
+        assert helpers._parse_case_number(_CASE_NO_SPACED) == ("2024", "粤01", "民初", "100")
+
+    def test_seq_suffix_after_hao_is_tolerated(self) -> None:
+        # 「之一」这类后缀不影响序号提取
+        assert helpers._parse_case_number(_CASE_NO_WITH_SUFFIX) == ("2024", "粤01", "民初", "100")
+
+    def test_no_match_returns_empty_tuple(self) -> None:
+        assert helpers._parse_case_number("没有案号的文本") == ("", "", "", "")
+        assert helpers._parse_case_number("") == ("", "", "", "")
+        assert helpers._parse_case_number(None) == ("", "", "", "")
+
+    def test_matches_apps_side_implementation(self) -> None:
+        from apps.automation.services.scraper.sites.guarantee.data_mixin import parse_case_number
+
+        for raw in (_CASE_NO_FULL_WIDTH, _CASE_NO_HALF_WIDTH, _CASE_NO_SPACED, "", "无案号"):
+            assert helpers._parse_case_number(raw) == parse_case_number(raw)

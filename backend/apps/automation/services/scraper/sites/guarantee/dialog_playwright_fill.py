@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .base_mixin import _random_wait
+
 logger = logging.getLogger(__name__)
 
 
@@ -245,7 +247,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
             if cascaders.count() > 0:
                 try:
                     cascaders.first.click(force=True, timeout=2000)
-                    self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+                    _random_wait(0.2, 0.4)
                     gd_nodes = self.page.locator(".el-cascader-node__label").filter(has_text="广东")
                     clicked = False
                     if gd_nodes.count() > 0:

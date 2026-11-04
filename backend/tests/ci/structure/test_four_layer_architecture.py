@@ -117,3 +117,84 @@ def test_service_layer_staticmethod_count_within_ratchet() -> None:
         "Prefer instance methods with dependency injection.\n"
         + "\n".join(f"  {path}:{lineno}: {content}" for path, lineno, content in violations[:10])
     )
+
+
+# ── 下沉函数被误当实例方法调用 ───────────────────────────────
+def _scan_sunk_function_called_as_method() -> list[tuple[str, int, str]]:
+    """检出 ``self._foo(...)`` 但 ``_foo`` 在本包内只是模块级函数（类里已无此方法）。
+
+    v27.4.4「Service 层静态方法棘轮」把大量 @staticmethod 下沉为模块级纯函数
+    （如 ``guarantee/base_mixin.py::_random_wait``）。若调用方仍写 ``self._foo(...)``，
+    运行时才炸 AttributeError —— 静态方法棘轮只看是否还有 @staticmethod，
+    看不到这类断链，曾导致「执行担保」接口两次 500。
+
+    判定规则：包内**没有任何类**定义该名字，但**有**同名模块级函数 → 违规。
+
+    以下两种情况不算违规（都已在实际代码中确认是合法写法）：
+    1. 类体内以注解声明的可调用属性，如 ``_response_status: Callable[[Any], int]``；
+    2. 类体内把同名模块级函数显式重新绑定为类属性，如
+       ``_build_docx_response = staticmethod(_build_docx_response)``。
+    同名实例属性（如 ``self._api_error_log``）不在函数集合里，不会误报。
+    """
+    import ast
+
+    violations: list[tuple[str, int, str]] = []
+    if not _APPS_ROOT.is_dir():
+        return violations
+
+    package_dirs = {p.parent for p in _APPS_ROOT.rglob("*.py") if "__pycache__" not in str(p)}
+    for pkg_dir in sorted(package_dirs):
+        py_files = sorted(p for p in pkg_dir.glob("*.py") if p.name != "__init__.py")
+        if len(py_files) < 2:  # 单文件包谈不上「下沉到兄弟模块」
+            continue
+
+        class_methods: set[str] = set()
+        module_funcs: set[str] = set()
+        trees: list[tuple[Path, ast.Module]] = []
+        for py_file in py_files:
+            try:
+                tree = ast.parse(py_file.read_text(encoding="utf-8", errors="ignore"))
+            except SyntaxError:
+                continue
+            trees.append((py_file, tree))
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    module_funcs.add(node.name)
+                elif isinstance(node, ast.ClassDef):
+                    for member in node.body:
+                        if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            class_methods.add(member.name)
+                        elif isinstance(member, ast.AnnAssign) and isinstance(member.target, ast.Name):
+                            # 单独注解声明的类属性（含 Callable[...] 协议声明）
+                            class_methods.add(member.target.id)
+                        elif isinstance(member, ast.Assign):
+                            # ``_foo = staticmethod(_foo)`` 这类显式重新绑定
+                            for tgt in member.targets:
+                                if isinstance(tgt, ast.Name):
+                                    class_methods.add(tgt.id)
+
+        sunk = module_funcs - class_methods
+        if not sunk:
+            continue
+
+        for py_file, tree in trees:
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Attribute):
+                    continue
+                value = node.value
+                if not (isinstance(value, ast.Name) and value.id == "self"):
+                    continue
+                if node.attr in sunk:
+                    violations.append(
+                        (str(py_file.relative_to(_APPS_ROOT)), node.lineno, f"self.{node.attr}（本包内为模块级函数）")
+                    )
+    return violations
+
+
+def test_no_sunk_function_called_as_instance_method() -> None:
+    """下沉到模块级的纯函数必须直接调用，不能写成 self._foo(...)。"""
+    violations = _scan_sunk_function_called_as_method()
+    assert not violations, (
+        f"发现 {len(violations)} 处把模块级函数当实例方法调用（运行时会 AttributeError）：\n"
+        + "\n".join(f"  {path}:{lineno}: {content}" for path, lineno, content in violations[:15])
+    )

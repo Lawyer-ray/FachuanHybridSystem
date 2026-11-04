@@ -14,7 +14,13 @@ from ninja import Form, Query, Router, Schema
 from apps.core.exceptions import NotFoundError
 from apps.core.http.download import content_disposition
 from apps.message_hub.models import InboxMessage
-from apps.message_hub.schemas import InboxMessageDetailOut, InboxMessageOut, MessageAckOut, MessageRenameOut
+from apps.message_hub.schemas import (
+    ContractMatchOut,
+    InboxMessageDetailOut,
+    InboxMessageOut,
+    MessageAckOut,
+    MessageRenameOut,
+)
 from apps.message_hub.services.inbox_access import can_view_message
 
 logger = logging.getLogger("apps.message_hub")
@@ -445,3 +451,20 @@ def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> Fi
     response["Content-Disposition"] = _build_content_disposition(disposition, download_filename)
     response["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+@router.get("/messages/{message_id}/contract-match", response=ContractMatchOut)
+def suggest_contract_match(request: HttpRequest, message_id: int) -> Any:  # pragma: no cover
+    """给出这条邮件可能关联的在办合同候选（一期：只读，不写财务数据）。
+
+    匹配逻辑见 services/contract_match.py 的模块文档：多信号打分 + 阈值，
+    只有案号精确命中才算「确定匹配」，其余交人工。
+    """
+    from apps.message_hub.services.contract_match import suggest_contracts_for_message
+
+    msg = _get_message_or_404(request, message_id)
+    return suggest_contracts_for_message(
+        subject=msg.subject or "",
+        body_text=msg.body_text or "",
+        body_html=msg.body_html or "",
+    )

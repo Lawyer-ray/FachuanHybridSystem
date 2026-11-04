@@ -3,9 +3,11 @@ import { Search, Loader2 } from 'lucide-react'
 import { LoadingBlock, ErrorBlock } from '@/components/shared/AsyncState'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
-import { INBOX_SOURCE_TABS, TIME_GROUP_LABEL, emptyHint } from '../constants'
+import { INBOX_EMPTY_GUIDE, INBOX_SOURCE_TABS, TIME_GROUP_LABEL, emptyHint } from '../constants'
 import { groupByTime } from '../domain'
 import { InboxRowItem } from './InboxRowItem'
+import { SyncButton } from './SyncButton'
+import type { SyncResult } from '../hooks/use-sync-sources'
 import type { InboxRow, InboxSourceFilter } from '../types'
 
 /**
@@ -30,6 +32,7 @@ export function InboxList({
   activeId,
   convertingId,
   onSelect,
+  sync,
 }: {
   rows: InboxRow[]
   isLoading: boolean
@@ -45,9 +48,15 @@ export function InboxList({
   activeId: number | null
   convertingId: number | null
   onSelect: (row: InboxRow) => void
+  /** 同步按钮状态机（由 InboxView 按当前 source 档位创建） */
+  sync: SyncResult
 }) {
   const groups = groupByTime(rows)
-  const isFiltering = Boolean(search.trim()) || unreadOnly || source !== 'all'
+  // 空态指引关心的是「用户是否在主动缩小结果」（搜索 / 只看未读），
+  // 而不是「选了某个档位」——档位就是用户在选通路本身。
+  // 用「档位也算筛选」会把「刚切到法院短信档」误判成「筛选后为空」，
+  // 从而把通路说明降级成通用的「暂无消息」。
+  const narrowed = Boolean(search.trim()) || unreadOnly
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -103,6 +112,10 @@ export function InboxList({
           />
           {isLoading && search && <Loader2 className="h-3 w-3 flex-none animate-spin text-muted-foreground" />}
         </label>
+
+        {/* 同步：作用于当前选中的来源档位。放在筛选条最右端，让「同步范围」与
+            「当前筛选」在视觉上绑定 —— 放顶栏会与筛选状态脱节产生歧义 */}
+        <SyncButton source={source} sync={sync} />
       </div>
 
       {/* 列表 */}
@@ -121,9 +134,7 @@ export function InboxList({
         )}
         {error == null && isLoading && <LoadingBlock text="加载收件箱…" className="py-16" />}
         {error == null && !isLoading && rows.length === 0 && (
-          <div className="px-4 py-16 text-center text-[12.5px] text-muted-foreground">
-            {emptyHint({ unreadOnly, search, allEmpty: !isFiltering })}
-          </div>
+          <InboxEmpty source={source} narrowed={narrowed} unreadOnly={unreadOnly} search={search} />
         )}
         {error == null &&
           groups.map((group) => (
@@ -146,6 +157,60 @@ export function InboxList({
             </section>
           ))}
       </div>
+    </div>
+  )
+}
+
+/**
+ * 空态。
+ *
+ * 两种情况必须分开表达：
+ * - **通路未接入**（INBOX_EMPTY_GUIDE 有该档位的说明）：等多久都不会有数据，
+ *   直接告诉用户去哪看，并给可点的入口。不写「暂无消息」——那会让人反复刷新。
+ * - **筛选后为空**：搜索/未读/档位过滤把结果筛没了，只提示「换个条件」。
+ *
+ * 只在**未筛选**时才展示通路说明：用户正在搜索时给一大块说明会打断他。
+ */
+function InboxEmpty({
+  source,
+  narrowed,
+  unreadOnly,
+  search,
+}: {
+  source: InboxSourceFilter
+  /** 搜索/未读把结果筛没了（不含「选了哪个档位」） */
+  narrowed: boolean
+  unreadOnly: boolean
+  search: string
+}) {
+  const guide = narrowed ? undefined : INBOX_EMPTY_GUIDE[source]
+
+  if (guide) {
+    return (
+      <div className="px-4 py-16 text-center">
+        <p className="text-[13px] font-medium text-foreground">{guide.title}</p>
+        <p className="mx-auto mt-1.5 max-w-[320px] text-[12px] leading-relaxed text-muted-foreground">
+          {guide.description}
+        </p>
+        {guide.href && (
+          <a
+            href={guide.href}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-block rounded-[7px] border border-input bg-background px-3 py-1.5 text-[12px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {guide.linkText ?? '前往查看'} →
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 py-16 text-center text-[12.5px] text-muted-foreground">
+      {/* allEmpty：只有「全部档位 + 没有任何筛选」才是真的收件箱全空；
+          其余情况都只是「这一分类下」为空，文案要区分开 */}
+      {emptyHint({ unreadOnly, search, allEmpty: !narrowed && source === 'all' })}
     </div>
   )
 }

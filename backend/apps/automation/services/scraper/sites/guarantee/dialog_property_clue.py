@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .base_mixin import _random_wait
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,14 +40,14 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                         submit_enter=True,
                     )
                     if not reopened:
-                        self._random_wait(0.3, 0.6)  # type: ignore[attr-defined]
+                        _random_wait(0.3, 0.6)
                         continue
                     self._wait_select_options_ready(candidates=["其他"], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 45000))  # type: ignore[attr-defined]
                     selected = self._choose_dropdown_item("其他")  # type: ignore[attr-defined]
                     if selected:
                         break
                     self._close_popovers()  # type: ignore[attr-defined]
-                    self._random_wait(0.5, 0.8)  # type: ignore[attr-defined]
+                    _random_wait(0.5, 0.8)
                 if selected:
                     updates.append("财产类型=其他")
                     break
@@ -71,7 +73,7 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                         submit_enter=True,
                     )
                     if not reopened:
-                        self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
+                        _random_wait(0.4, 0.8)
                         continue
                     self._wait_select_options_ready(  # type: ignore[attr-defined]
                         candidates=[owner_name], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000)
@@ -82,7 +84,7 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                     if selected:
                         break
                     self._close_popovers()  # type: ignore[attr-defined]
-                    self._random_wait(0.6, 1.0)  # type: ignore[attr-defined]
+                    _random_wait(0.6, 1.0)
                 if selected:
                     updates.append("财产所有人=已选")
                     break
@@ -107,7 +109,7 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                             submit_enter=True,
                         )
                         if not reopened:
-                            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
+                            _random_wait(0.4, 0.8)
                             continue
                         self._wait_select_options_ready(  # type: ignore[attr-defined]
                             candidates=[province_keyword, province_name],
@@ -121,7 +123,7 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
                         if selected:
                             break
                         self._close_popovers()  # type: ignore[attr-defined]
-                        self._random_wait(0.5, 0.9)  # type: ignore[attr-defined]
+                        _random_wait(0.5, 0.9)
                     if selected:
                         updates.append(f"省份={province_name}")
         except (TypeError, ValueError):
@@ -192,9 +194,9 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
             try:
                 self._fill_property_clue_dialog_v15(defaults)
 
-                self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+                _random_wait(0.2, 0.4)
                 self._click_first_enabled_button(["保存", "确定"])  # type: ignore[attr-defined]
-                self._random_wait(0.6, 0.9)  # type: ignore[attr-defined]
+                _random_wait(0.6, 0.9)
 
                 errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
                 has_required_select_error = any(("请选择省份" in err) or ("请选择财产所有人" in err) for err in errors)

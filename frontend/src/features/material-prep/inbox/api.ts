@@ -75,3 +75,60 @@ export function attachmentUrl(messageId: number, partIndex: number, inline: bool
 }
 
 export type { InboxMessageOut }
+
+// ── 来源同步 ──────────────────────────────────────────────
+//
+// 接口在同一个 /api/v1/inbox 域下（sources / sources/sync-all / sources/{id}/sync），
+// 挂载前缀已按后端 openapi.json 核对，不猜。
+
+type MessageSourceOut = components['schemas']['MessageSourceOut']
+
+/** 同步目标的状态判据：后端 SyncStatus 只有 pending/success/failed，没有 running，
+ *  所以「跑完了没有」不能看 last_sync_status，只能看 last_sync_at 是否更新。 */
+export interface SourceSyncSnapshot {
+  id: number
+  last_sync_at: string | null
+  last_sync_status: string
+}
+
+/** GET /inbox/sources —— 消息来源列表（后端已按可见性收敛） */
+export async function listSources(): Promise<MessageSourceOut[]> {
+  return inboxApi.get('sources').json<MessageSourceOut[]>()
+}
+
+/** POST /inbox/sources/sync-all —— 提交全部可见来源的同步任务 */
+export async function syncAllSources(): Promise<{ success: boolean; message: string }> {
+  return inboxApi.post('sources/sync-all').json<{ success: boolean; message: string }>()
+}
+
+/** POST /inbox/sources/{id}/sync —— 提交单个来源的同步任务 */
+export async function syncSource(id: number): Promise<{ success: boolean; message: string }> {
+  return inboxApi.post(`sources/${id}/sync`).json<{ success: boolean; message: string }>()
+}
+
+// ── 邮件 → 在办合同 自动关联候选 ──────────────────────────
+//
+// 一期只读：只给候选与理由，不写任何财务数据。律师看过后自己去合同里关联。
+
+export interface ContractMatchCandidate {
+  contract_id: number
+  contract_name: string
+  score: number
+  reasons: string[]
+  outstanding_amount: string | null
+  fee_mode: string
+  caveat: string
+}
+
+export interface ContractMatchResult {
+  /** confident=有确定匹配（仍需求律师确认）/ suggested=弱候选 / none=无候选 */
+  status: 'confident' | 'suggested' | 'none'
+  candidates: ContractMatchCandidate[]
+  extracted_amounts: string[]
+  extracted_case_numbers: string[]
+}
+
+/** GET /inbox/messages/{id}/contract-match —— 这条邮件可能关联的在办合同 */
+export async function getContractMatch(messageId: number): Promise<ContractMatchResult> {
+  return inboxApi.get(`messages/${messageId}/contract-match`).json<ContractMatchResult>()
+}

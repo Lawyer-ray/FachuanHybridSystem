@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .base_mixin import _random_wait
 from .dialog_field_filling import GuaranteeDialogFieldFillingMixin
 from .dialog_playwright_fill import GuaranteeDialogPlaywrightFillMixin
 from .dialog_property_clue import GuaranteeDialogPropertyClueMixin
@@ -91,7 +92,7 @@ class GuaranteeDialogMixin(  # pragma: no cover
                     opened = self._click_add_button_by_section_keywords(section_keywords)
                 if opened:
                     break
-                self._random_wait(0.5, 0.8)  # type: ignore[attr-defined]
+                _random_wait(0.5, 0.8)
 
             step["opened"] = opened
             if not opened:
@@ -103,7 +104,7 @@ class GuaranteeDialogMixin(  # pragma: no cover
             }""")
             step["table_row_count_before"] = row_count_before
 
-            self._random_wait(0.8, 1.2)  # type: ignore[attr-defined]
+            _random_wait(0.8, 1.2)
             if target in {"applicant", "respondent"}:
                 step["party_type_selected"] = self._choose_party_type_in_dialog(defaults)
             selected = self._fill_dialog_select_fields(defaults, target)
@@ -112,7 +113,7 @@ class GuaranteeDialogMixin(  # pragma: no cover
             playwright_filled = self._fill_dialog_fields_with_playwright(defaults, target)
             step["filled"] = [*selected, *dated, *filled, *playwright_filled]
             step["saved"] = self._click_first_enabled_button(["确定", "保存", "提交", "完成"])  # type: ignore[attr-defined]
-            self._random_wait(0.8, 1.2)  # type: ignore[attr-defined]
+            _random_wait(0.8, 1.2)
 
             dialog_still_open = self.page.evaluate(r"""() => {
                 const layer = document.querySelector('#addSQR');
@@ -132,18 +133,18 @@ class GuaranteeDialogMixin(  # pragma: no cover
                 ("请选择省份" in err) or ("请选择财产所有人" in err) for err in errors
             ):
                 step["property_clue_retry"] = self._retry_property_clue_save_on_province_error(defaults)
-                self._random_wait(0.5, 0.8)  # type: ignore[attr-defined]
+                _random_wait(0.5, 0.8)
                 errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
 
             step["errors"] = errors
             if errors:
                 step["cancelled"] = bool(self._click_first_enabled_button(["取消", "关闭", "返回"]))  # type: ignore[attr-defined]
-                self._random_wait(0.6, 0.9)  # type: ignore[attr-defined]
+                _random_wait(0.6, 0.9)
 
             result["dialogs"].append(step)
 
         result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])  # type: ignore[attr-defined]
-        self._random_wait(2, 3)  # type: ignore[attr-defined]
+        _random_wait(2, 3)
         result["errors_after_next"] = self._get_visible_form_errors()  # type: ignore[attr-defined]
 
         if any("数据库保存时失败" in err for err in result["errors_after_next"]):
@@ -166,9 +167,9 @@ class GuaranteeDialogMixin(  # pragma: no cover
 
             for retry_idx in range(3):
                 self._close_popovers()  # type: ignore[attr-defined]
-                self._random_wait(1.5, 2.5)  # type: ignore[attr-defined]
+                _random_wait(1.5, 2.5)
                 self._click_first_enabled_button(["下一步", "保存并下一步"])  # type: ignore[attr-defined]
-                self._random_wait(2, 3)  # type: ignore[attr-defined]
+                _random_wait(2, 3)
                 retry_errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
                 result.setdefault("retry_errors", []).append(retry_errors)
                 if not any("数据库保存时失败" in err for err in retry_errors):

@@ -237,11 +237,16 @@ export function DeskPage() {
           onOpenShareLinks={() => setShareLinksOpen(true)}
         />
 
-        {!isPackStage(stage) ? (
-          /* 收件箱阶段：主区域交给 InboxView。拖放层仍在外层生效——
-             把文件拖进收件箱页时照旧建包并跳到「待处理」。 */
-          <InboxView />
-        ) : isLoading ? (
+        {/* 阶段切换的淡入：key={stage} 确保换阶段时这层重挂，
+            app-stage-enter 才会重新播一次。不加 key 时 React 复用同一节点，
+            过渡不会触发，表现为主区域内容硬切（2026-11-04 反馈「切换不自然」）。
+            只给主区域而不给整页：页签不该跟着一起淡，它应该保持常驻。 */}
+        <div key={stage} className="app-stage-enter flex min-h-0 flex-1 flex-col">
+          {!isPackStage(stage) ? (
+            /* 收件箱阶段：主区域交给 InboxView。拖放层仍在外层生效——
+               把文件拖进收件箱页时照旧建包并跳到「待处理」。 */
+            <InboxView />
+          ) : isLoading ? (
           /* 与 PackGrid 的空态同构：列表区占位而非整页 loading——页签仍在，
              所以居中要相对卡片区（LoadingBlock 自带 justify-center）。
              虚线框靠调用点补：加载态与空态要共用一个框，看起来是同块区域换内容 */
@@ -255,22 +260,23 @@ export function DeskPage() {
             <p className="text-sm text-destructive">无法加载材料包：</p>
             <ErrorBlock error={error} fallback="未知错误" className="px-4 py-6 text-sm" />
           </div>
-        ) : (
-          <PackGrid
-            gridRef={gridRef}
-            wrapRef={wrapRef}
-            ringRef={ringRef}
-            packs={visible}
-            tab={tab}
-            leaving={leaving}
-            onOpen={openAt}
-            onReject={rejectPack}
-            onAccept={setAssigning}
-            onRename={setRenameTarget}
-            onDelete={setDeleteTarget}
-            onPickFiles={onPickFiles}
-          />
-        )}
+          ) : (
+            <PackGrid
+              gridRef={gridRef}
+              wrapRef={wrapRef}
+              ringRef={ringRef}
+              packs={visible}
+              tab={tab}
+              leaving={leaving}
+              onOpen={openAt}
+              onReject={rejectPack}
+              onAccept={setAssigning}
+              onRename={setRenameTarget}
+              onDelete={setDeleteTarget}
+              onPickFiles={onPickFiles}
+            />
+          )}
+        </div>
       </main>
 
       <DeskDropLayer dragging={dragging} fileInputRef={fileInputRef} onFiles={(fs) => { void handleFiles(fs) }} />

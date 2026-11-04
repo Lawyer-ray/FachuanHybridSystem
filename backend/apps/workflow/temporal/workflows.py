@@ -613,7 +613,7 @@ class DynamicWorkflow:
                 args=(run_id, step_id, step_name, "llm", "success", result),
                 start_to_close_timeout=QUICK_TIMEOUT,
             )
-            return result  # type: ignore[no-any-return]  # type: ignore[no-any-return]
+            return result  # type: ignore[no-any-return]
 
         # ── http: HTTP 请求 ──
         if step_type == "http":

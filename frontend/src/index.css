@@ -234,6 +234,22 @@
   .app-page-enter { animation: none; }
 }
 
+/* 阶段页签切换的过渡（材料预处理页 DeskPage 使用）。
+   与 app-page-enter 的区别：这里只淡入不位移。阶段切换是同一页面内的
+   "换一块内容"，加了位移会像换页，反而更跳；纯淡入足够把硬切磨掉。
+   时长取 0.16s 比换页的 0.22s 更短——局部内容切换应该比整页切换更
+   轻快，慢了会显得拖沓。 */
+@keyframes app-stage-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.app-stage-enter {
+  animation: app-stage-enter 0.16s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-stage-enter { animation: none; }
+}
+
 /* 右侧详情抽屉滑入（立案工作台的表格行点开看详情） */
 @keyframes drawer-in {
   from { opacity: 0; transform: translateX(24px); }

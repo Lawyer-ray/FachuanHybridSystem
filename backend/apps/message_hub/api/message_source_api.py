@@ -99,7 +99,11 @@ def sync_all_sources(request: Any) -> dict[str, Any]:
     """
     from apps.message_hub.services.inbox_access import visible_sources_qs
 
-    sources = list(visible_sources_qs(_request_user(request)).filter(is_enabled=True))
+    # poll_interval_minutes=0 的来源（manual_upload / client_upload）是材料包与
+    # 客户链接上传，没有「拉新邮件」这个动作；同步它们只会白跑一轮 fetcher。
+    # 手动触发本来就应该无视周期（这正是按钮的意义），但「无视」不等于「连
+    # 不该同步的也同步」。
+    sources = list(visible_sources_qs(_request_user(request)).filter(is_enabled=True, poll_interval_minutes__gt=0))
     for source in sources:
         submit_task("apps.message_hub.tasks.sync_source_by_id", source.pk)
     return {"success": True, "message": f"已提交 {len(sources)} 个同步任务"}
