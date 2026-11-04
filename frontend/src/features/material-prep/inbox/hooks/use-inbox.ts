@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { INBOX_LIST_KEY, convertToPack, listInbox, setReadState, type ListInboxParams } from '../api'
 import type { InboxRow } from '../types'
 
@@ -8,6 +8,11 @@ import type { InboxRow } from '../types'
  * staleTime 取 15s 而非全站默认：收件箱是「一小时内有几条新消息」的慢数据，
  * 但比 material-prep 的 30s 更短——法院送达看一眼就想确认有没有新的。
  * 切回窗口不重拉（与首页收件箱卡同口径），避免打断正在读的列表滚动位置。
+ *
+ * placeholderData 取 keepPreviousData：切来源档位会把 source 放进 queryKey，
+ * 新 key 初次请求期间 data 为空会让列表整块闪成 loading。保留上一档的数据
+ * 直到新数据到达，切换才能连续不跳。配合 isPlaceholderData 可以降低透明度
+ * 提示「正在换」，见 InboxView。
  */
 export function useInboxList(params: ListInboxParams) {
   return useQuery({
@@ -15,6 +20,7 @@ export function useInboxList(params: ListInboxParams) {
     queryFn: () => listInbox(params),
     staleTime: 15_000,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   })
 }
 

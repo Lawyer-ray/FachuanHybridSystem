@@ -67,7 +67,6 @@ describe('同步按钮文案跟随档位', () => {
     ['all', '同步全部'],
     ['court_inbox', '同步一张网'],
     ['imap', '同步邮箱'],
-    ['court_sms', '同步短信'],
   ] as const)('%s 档位显示「%s」', (source, expected) => {
     render(wrap(<Harness source={source} />))
     expect(screen.getByRole('button', { name: new RegExp(expected) })).toBeTruthy()
@@ -76,6 +75,14 @@ describe('同步按钮文案跟随档位', () => {
   it('材料包档位置灰且提示原因', () => {
     render(wrap(<Harness source="manual_upload,client_upload" />))
     const btn = screen.getByRole('button', { name: /材料包无需同步/ })
+    expect((btn as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  // 法院短信没有 MessageSource：它是短信转发 / admin 录入进 CourtSMS 表的，
+  // 不存在「拉取」动作，所以这个档位不该有同步按钮。
+  it('法院短信档位置灰且提示「短信无需同步」', () => {
+    render(wrap(<Harness source="court_sms" />))
+    const btn = screen.getByRole('button', { name: /短信无需同步/ })
     expect((btn as HTMLButtonElement).disabled).toBe(true)
   })
 })
@@ -114,6 +121,14 @@ describe('同步按钮的调用目标', () => {
     expect(apiMock.syncSource).not.toHaveBeenCalled()
   })
 
+  it('法院短信档位点击不发任何同步请求', () => {
+    render(wrap(<Harness source="court_sms" />))
+    fireEvent.click(screen.getByRole('button', { name: /短信无需同步/ }))
+
+    expect(apiMock.syncAllSources).not.toHaveBeenCalled()
+    expect(apiMock.syncSource).not.toHaveBeenCalled()
+  })
+
   it('材料包档位点击不发任何同步请求', () => {
     render(wrap(<Harness source="manual_upload,client_upload" />))
     fireEvent.click(screen.getByRole('button', { name: /材料包无需同步/ }))
@@ -140,5 +155,10 @@ describe('档位 → 同步目标映射表', () => {
 
   it('全部档位使用 sync-all 通道', () => {
     expect(INBOX_SYNC_SPEC.all.target).toBe('all')
+  })
+
+  it('法院短信与材料包都没有同步目标', () => {
+    expect(INBOX_SYNC_SPEC.court_sms.target).toBeNull()
+    expect(INBOX_SYNC_SPEC['manual_upload,client_upload'].target).toBeNull()
   })
 })

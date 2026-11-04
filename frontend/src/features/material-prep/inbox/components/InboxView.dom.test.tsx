@@ -19,6 +19,7 @@ const apiMock = vi.hoisted(() => ({
   getInboxMessage: vi.fn(),
   setReadState: vi.fn(),
   convertToPack: vi.fn(),
+  listSources: vi.fn(),
 }))
 
 vi.mock('../api', async (importOriginal) => {
@@ -29,6 +30,7 @@ vi.mock('../api', async (importOriginal) => {
     getInboxMessage: apiMock.getInboxMessage,
     setReadState: apiMock.setReadState,
     convertToPack: apiMock.convertToPack,
+    listSources: apiMock.listSources,
   }
 })
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
@@ -95,6 +97,7 @@ beforeEach(() => {
   apiMock.getInboxMessage.mockReset()
   apiMock.setReadState.mockReset().mockResolvedValue({ ok: true, message_id: 1, is_read: true, read_at: '' })
   apiMock.convertToPack.mockReset().mockResolvedValue({ ok: true, message_id: 1, pack_id: 99 })
+  apiMock.listSources.mockReset().mockResolvedValue([])
   apiMock.getInboxMessage.mockResolvedValue({
     id: 1,
     subject: '（20XX）粤0606执保XXXX号 - 告知书',
@@ -239,5 +242,38 @@ describe('InboxView', () => {
     apiMock.listInbox.mockResolvedValue([])
     wrap(<InboxView />)
     expect(await screen.findByText('收件箱是空的')).toBeTruthy()
+  })
+})
+
+describe('空态区分「暂无消息」与「通路未接入」', () => {
+  it('法院短信档位为空时给出专门的接入说明，而不是「暂无消息」', async () => {
+    apiMock.listInbox.mockResolvedValue([])
+    wrap(<InboxView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '法院短信' }))
+
+    // 关键：不能退化成通用空态文案——那会让用户以为等一等就有数据
+    expect(await screen.findByText('法院短信暂未接入收件箱')).toBeTruthy()
+    expect(screen.queryByText('这一分类下暂无消息')).toBeNull()
+  })
+
+  it('法院短信空态提供前往管理的入口', async () => {
+    apiMock.listInbox.mockResolvedValue([])
+    wrap(<InboxView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '法院短信' }))
+
+    const link = await screen.findByRole('link', { name: /前往法院短信管理/ })
+    expect(link.getAttribute('href')).toContain('/admin/automation/courtsms/')
+  })
+
+  it('邮箱档位为空时仍是通用空态文案（该通路是通的）', async () => {
+    apiMock.listInbox.mockResolvedValue([])
+    wrap(<InboxView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '邮箱' }))
+
+    expect(await screen.findByText('这一分类下暂无消息')).toBeTruthy()
+    expect(screen.queryByText('法院短信暂未接入收件箱')).toBeNull()
   })
 })
