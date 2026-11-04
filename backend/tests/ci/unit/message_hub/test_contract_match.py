@@ -77,13 +77,13 @@ class TestComputeOutstanding:
     """应收余额口径 —— 比余额不比合同总额。"""
 
     def test_fixed_minus_paid(self):
-        contract = _contract(fee_mode="FIXED", fixed_amount=Decimal("30000"), paid_total=Decimal("28000"))
-        outstanding, _ = compute_outstanding(contract, [])
+        contract = _contract(fee_mode="FIXED", fixed_amount=Decimal("30000"))
+        outstanding, _ = compute_outstanding(contract, [], paid_total=Decimal("28000"))
         assert outstanding == Decimal("2000")
 
     def test_fixed_no_payment_yet(self):
-        contract = _contract(fee_mode="FIXED", fixed_amount=Decimal("8000"), paid_total=None)
-        outstanding, _ = compute_outstanding(contract, [])
+        contract = _contract(fee_mode="FIXED", fixed_amount=Decimal("8000"))
+        outstanding, _ = compute_outstanding(contract, [], paid_total=None)
         assert outstanding == Decimal("8000")
 
     def test_fixed_without_amount_is_none(self):
@@ -93,47 +93,46 @@ class TestComputeOutstanding:
         assert "未填固定律师费" in reason
 
     def test_full_risk_uses_target_amount(self):
-        contract = _contract(fee_mode="FULL_RISK", fixed_amount=None, risk_rate=Decimal("8"), paid_total=None)
+        contract = _contract(fee_mode="FULL_RISK", fixed_amount=None, risk_rate=Decimal("8"))
         # 标的额 1,121,783.76 × 8% = 89,742.7008
-        outstanding, _ = compute_outstanding(contract, [Decimal("1121783.76")])
+        outstanding, _ = compute_outstanding(contract, [Decimal("1121783.76")], paid_total=None)
         assert outstanding == Decimal("1121783.76") * Decimal("8") / Decimal("100")
 
     def test_full_risk_without_target_amount_needs_manual(self):
         """全风险合同缺标的额时无法推算，必须落人工而不是瞎猜。"""
-        contract = _contract(fee_mode="FULL_RISK", risk_rate=Decimal("15"), paid_total=None)
-        outstanding, reason = compute_outstanding(contract, [None])
+        contract = _contract(fee_mode="FULL_RISK", risk_rate=Decimal("15"))
+        outstanding, reason = compute_outstanding(contract, [None], paid_total=None)
         assert outstanding is None
         assert "标的额未填" in reason
 
     def test_semi_risk_fixed_plus_risk_part(self):
-        contract = _contract(
-            fee_mode="SEMI_RISK", fixed_amount=Decimal("9000"), risk_rate=Decimal("15"), paid_total=None
-        )
+        contract = _contract(fee_mode="SEMI_RISK", fixed_amount=Decimal("9000"), risk_rate=Decimal("15"))
         # 前期 9000 + 386,963.50 × 15% = 9000 + 58,044.525
-        outstanding, _ = compute_outstanding(contract, [Decimal("386963.50")])
+        outstanding, _ = compute_outstanding(contract, [Decimal("386963.50")], paid_total=None)
         assert outstanding == Decimal("9000") + Decimal("386963.50") * Decimal("15") / Decimal("100")
 
     def test_semi_risk_targets_take_max_across_cases(self):
         """一个合同挂多个案件时，标的额取最大（风险费按大标的算）。"""
-        contract = _contract(fee_mode="SEMI_RISK", fixed_amount=Decimal("0"), risk_rate=Decimal("10"), paid_total=None)
-        outstanding, _ = compute_outstanding(contract, [Decimal("100"), Decimal("500")])
+        contract = _contract(fee_mode="SEMI_RISK", fixed_amount=Decimal("0"), risk_rate=Decimal("10"))
+        outstanding, _ = compute_outstanding(contract, [Decimal("100"), Decimal("500")], paid_total=None)
         assert outstanding == Decimal("50")
 
     def test_custom_needs_manual(self):
-        contract = _contract(fee_mode="CUSTOM", paid_total=None)
-        outstanding, reason = compute_outstanding(contract, [])
+        contract = _contract(fee_mode="CUSTOM")
+        outstanding, reason = compute_outstanding(contract, [], paid_total=None)
         assert outstanding is None
         assert "自定义" in reason
 
     def test_legacy_risk_mode_treated_as_risk(self):
         """脏数据 'risk'（不在枚举里）按风险类处理，并给出明确说明而不是崩。"""
-        contract = _contract(fee_mode="risk", fixed_amount=Decimal("5000"), risk_rate=Decimal("12"), paid_total=None)
-        outstanding, _ = compute_outstanding(contract, [Decimal("1000")])
+        contract = _contract(fee_mode="risk", fixed_amount=Decimal("5000"), risk_rate=Decimal("12"))
+        outstanding, _ = compute_outstanding(contract, [Decimal("1000")], paid_total=None)
         assert outstanding is not None
 
 
 class TestScoreContract:
     def _score(self, *, mail_text, amounts=(), mail_numbers=(), contract_numbers=(), targets=(), parties=(), **ck):
+        paid_total = ck.pop("paid_total", None)
         return score_contract(
             contract=_contract(**ck),
             mail_text=mail_text,
@@ -142,6 +141,7 @@ class TestScoreContract:
             contract_case_numbers=list(contract_numbers),
             case_target_amounts=list(targets),
             party_names=list(parties),
+            paid_total=paid_total,
         )
 
     def test_case_number_hit_reaches_confident(self):

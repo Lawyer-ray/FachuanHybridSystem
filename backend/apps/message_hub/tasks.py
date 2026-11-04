@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import socket
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.core.cache import cache
 from django.utils import timezone
@@ -64,7 +64,7 @@ def sync_source_by_id(source_id: int) -> None:  # pragma: no cover
     logger.info("同步完成: source=%s, 新消息=%d", source.display_name, count)
 
 
-def _is_source_due(*, poll_interval_minutes: int, last_sync_at: object, now: object) -> bool:
+def _is_source_due(*, poll_interval_minutes: int, last_sync_at: datetime | None, now: datetime) -> bool:
     """判断某个来源本轮是否该同步。
 
     - ``poll_interval_minutes <= 0``：不按周期自动轮询（手动上传 / 客户链接这类

@@ -129,12 +129,14 @@ def _to_decimal(value: Any) -> Decimal | None:
         return None
 
 
-def compute_outstanding(contract: Any, case_target_amounts: list[Decimal | None]) -> tuple[Decimal | None, str]:
+def compute_outstanding(
+    contract: Any, case_target_amounts: list[Decimal | None], *, paid_total: Decimal | None = None
+) -> tuple[Decimal | None, str]:
     """算出合同的应收余额，返回 (余额, 说明)。
 
     说明用于前端/日志解释「这个数是怎么来的」，也是匹配失败时给人工看的依据。
     """
-    paid = _to_decimal(getattr(contract, "paid_total", None)) or Decimal("0")
+    paid = _to_decimal(paid_total) or Decimal("0")
     fee_mode = str(getattr(contract, "fee_mode", "") or "")
     fixed = _to_decimal(getattr(contract, "fixed_amount", None))
     rate = _to_decimal(getattr(contract, "risk_rate", None))
@@ -176,6 +178,7 @@ def score_contract(
     contract_case_numbers: list[str],
     case_target_amounts: list[Decimal | None],
     party_names: list[str],
+    paid_total: Decimal | None = None,
 ) -> MatchCandidate:
     """给单个合同打分。纯函数，不碰数据库。"""
     score = Decimal("0")
@@ -202,7 +205,7 @@ def score_contract(
         reasons.append(f"当事人命中 {hit_parties[0]}")
 
     # 4) 金额 vs 应收余额
-    outstanding, explain = compute_outstanding(contract, case_target_amounts)
+    outstanding, explain = compute_outstanding(contract, case_target_amounts, paid_total=paid_total)
     if outstanding is not None and mail_amounts:
         for amt in mail_amounts:
             if amt == outstanding:
@@ -271,8 +274,7 @@ def suggest_contracts_for_message(*, subject: str, body_text: str, body_html: st
     )
     for contract in contracts:
         # 已收合计：应收余额的减项，必须算进来，否则尾款会被判成「对不上」
-        paid = contract.payments.aggregate(total=Sum("amount"))["total"] or Decimal("0")
-        contract.paid_total = paid  # 供 compute_outstanding 读取
+        paid = _to_decimal(contract.payments.aggregate(total=Sum("amount"))["total"])
 
         cases = list(contract.cases.all())
         contract_case_numbers = [str(getattr(c, "case_number", "") or "") for c in cases]
@@ -289,6 +291,7 @@ def suggest_contracts_for_message(*, subject: str, body_text: str, body_html: st
             contract_case_numbers=[n for n in contract_case_numbers if n],
             case_target_amounts=case_target_amounts,
             party_names=[n for n in party_names if n],
+            paid_total=paid,
         )
         if candidate.score > 0:
             candidates.append(candidate)
