@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { toast } from 'sonner'
 
 import { materialPrepDetail } from '@/app/paths'
 import { countUnread } from '../domain'
 import { useSetReadState } from '../hooks/use-inbox'
 import { useInboxList } from '../hooks/use-inbox'
+import { useSyncSources } from '../hooks/use-sync-sources'
 import { InboxList } from './InboxList'
 import { MessageDrawer } from './MessageDrawer'
 import type { InboxRow, InboxSourceFilter } from '../types'
@@ -28,6 +30,20 @@ export function InboxView() {
 
   const list = useInboxList({ source, unreadOnly, search })
   const setRead = useSetReadState()
+  const sync = useSyncSources(source)
+
+  // 同步结束的提示：newCount 非空说明拿到了新增条数；state 回落 background
+  // 说明轮询超时仍在后台跑，两种都要告诉用户，否则点了没反应会被当成坏了
+  const prevSyncState = useRef(sync.state)
+  useEffect(() => {
+    const prev = prevSyncState.current
+    prevSyncState.current = sync.state
+    if (prev === 'syncing' && sync.state === 'idle' && sync.newCount) {
+      toast.success(`同步完成，新增 ${sync.newCount} 条消息`)
+    } else if (prev === 'syncing' && sync.state === 'background') {
+      toast.info('同步仍在后台进行，稍后刷新查看')
+    }
+  }, [sync.state, sync.newCount])
 
   const rows = useMemo(() => list.data ?? [], [list.data])
   // 未读计数按「当前筛选结果的未读」算，不能对全库再发一个请求：
@@ -80,6 +96,7 @@ export function InboxView() {
           activeId={active?.id ?? null}
           convertingId={null}
           onSelect={handleSelect}
+          sync={sync}
         />
       </div>
 

@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils'
 import { INBOX_SOURCE_TABS, TIME_GROUP_LABEL, emptyHint } from '../constants'
 import { groupByTime } from '../domain'
 import { InboxRowItem } from './InboxRowItem'
+import { SyncButton } from './SyncButton'
+import type { SyncResult } from '../hooks/use-sync-sources'
 import type { InboxRow, InboxSourceFilter } from '../types'
 
 /**
@@ -30,6 +32,7 @@ export function InboxList({
   activeId,
   convertingId,
   onSelect,
+  sync,
 }: {
   rows: InboxRow[]
   isLoading: boolean
@@ -45,6 +48,8 @@ export function InboxList({
   activeId: number | null
   convertingId: number | null
   onSelect: (row: InboxRow) => void
+  /** 同步按钮状态机（由 InboxView 按当前 source 档位创建） */
+  sync: SyncResult
 }) {
   const groups = groupByTime(rows)
   const isFiltering = Boolean(search.trim()) || unreadOnly || source !== 'all'
@@ -103,6 +108,10 @@ export function InboxList({
           />
           {isLoading && search && <Loader2 className="h-3 w-3 flex-none animate-spin text-muted-foreground" />}
         </label>
+
+        {/* 同步：作用于当前选中的来源档位。放在筛选条最右端，让「同步范围」与
+            「当前筛选」在视觉上绑定 —— 放顶栏会与筛选状态脱节产生歧义 */}
+        <SyncButton source={source} sync={sync} />
       </div>
 
       {/* 列表 */}

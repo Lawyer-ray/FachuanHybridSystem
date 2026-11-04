@@ -1,4 +1,4 @@
-import type { InboxRow, InboxSourceTab } from './types'
+import type { InboxRow, InboxSourceFilter, InboxSourceTab } from './types'
 
 /**
  * 收件箱页常量。
@@ -61,4 +61,44 @@ export function rowSubtitle(row: InboxRow): string {
   const source = row.source_name?.trim()
   if (who && source && who !== source) return `${who} · ${source}`
   return who || source || ''
+}
+
+// ── 同步按钮 ──────────────────────────────────────────────
+//
+// 同步按钮贴在来源筛选条最右端，作用于**当前选中的档位**——这是它必须待在
+// 那一行的唯一理由。放在顶栏（一级阶段行）会和筛选状态脱节：用户选着「邮箱」
+// 却不知道点顶栏的同步是同步全部还是邮箱，这个歧义一定会变成投诉。
+//
+// court_schedule（开庭排期）不出现在任何具体档位的同步目标里：日程没有
+// 「拉一封新消息」的语义，继续靠后台定时跑。只有「全部」会连带带上它。
+
+/** 同步目标：'all' 走 sync-all 接口，字符串数组走逐个来源接口，null 表示该档位不可同步 */
+export type SyncTarget = 'all' | readonly string[] | null
+
+export interface SyncSpec {
+  /** 按钮文案里「同步」后面的部分；null 表示置灰且不可点（材料包） */
+  label: string | null
+  /** 同步哪些 source_type；'all' 表示全部来源 */
+  target: SyncTarget
+  /** 置灰时给用户看的原因 */
+  disabledReason?: string
+}
+
+/**
+ * 档位 → 同步目标。顺序与 INBOX_SOURCE_TABS 对齐。
+ *
+ * 「全部」用 sync-all 而不是逐个调用：后端已在其内部做了可见性收敛
+ * （安全审计 IDOR 修复），前端逐个调等于重写一遍权限逻辑，还要 N 次请求。
+ * 具体档位才逐个调——因为 sync-all 不支持按 source_type 过滤。
+ */
+export const INBOX_SYNC_SPEC: { [K in InboxSourceFilter]: SyncSpec } = {
+  all: { label: '全部', target: 'all' },
+  court_inbox: { label: '一张网', target: ['court_inbox'] },
+  imap: { label: '邮箱', target: ['imap'] },
+  court_sms: { label: '短信', target: ['court_sms'] },
+  'manual_upload,client_upload': {
+    label: null,
+    target: null,
+    disabledReason: '材料包无需同步',
+  },
 }
