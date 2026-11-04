@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .base_mixin import _random_wait
+
 logger = logging.getLogger("apps.automation")
 
 
@@ -42,13 +44,13 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                     force_reset=refresh_round > 0,
                 )
                 if not reopened:
-                    self._random_wait(1.0, 1.6)  # type: ignore[attr-defined]
+                    _random_wait(1.0, 1.6)
                     continue
 
                 ready = self._wait_court_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS)  # type: ignore[attr-defined]
                 if not ready:
                     self._close_popovers()  # type: ignore[attr-defined]
-                    self._random_wait(1.2, 2.0)  # type: ignore[attr-defined]
+                    _random_wait(1.2, 2.0)
                     continue
 
                 selected_text = str(
@@ -104,10 +106,10 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
 
                 if not selected_text:
                     self._close_popovers()  # type: ignore[attr-defined]
-                    self._random_wait(1.2, 2.0)  # type: ignore[attr-defined]
+                    _random_wait(1.2, 2.0)
                     continue
 
-                self._random_wait(0.8, 1.3)  # type: ignore[attr-defined]
+                _random_wait(0.8, 1.3)
                 input_value = ""
                 try:
                     input_value = (court_input.input_value() or "").strip()
@@ -123,7 +125,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                     return True
 
                 self._close_popovers()  # type: ignore[attr-defined]
-                self._random_wait(1.0, 1.8)  # type: ignore[attr-defined]
+                _random_wait(1.0, 1.8)
 
         logger.warning("court_guarantee_court_not_stable", extra={"target_name": target_name})
         return False
@@ -187,9 +189,9 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                 )
             )
             if selected:
-                self._random_wait(0.6, 1.1)  # type: ignore[attr-defined]
+                _random_wait(0.6, 1.1)
                 return True
-            self._random_wait(1.0, 1.6)  # type: ignore[attr-defined]
+            _random_wait(1.0, 1.6)
 
         return False
 
@@ -201,7 +203,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
             option.click(timeout=3000)
         except Exception:
             option.click(force=True)
-        self._random_wait(0.3, 0.6)  # type: ignore[attr-defined]
+        _random_wait(0.3, 0.6)
         return True
 
     def _fill_case_number(self, case_data: dict[str, Any]) -> dict[str, bool]:  # pragma: no cover
@@ -210,7 +212,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
         case_type_input = self.page.locator("input[placeholder*='案件类型']").first
         if case_type_input.count() > 0:
             case_type_input.click()
-            self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
+            _random_wait(0.4, 0.7)
             result["case_type"] = self._choose_dropdown_item("民事")
             self._close_popovers()  # type: ignore[attr-defined]
 
@@ -218,7 +220,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
         year = str(case_data.get("case_year") or "")
         if year_input.count() > 0 and year:
             year_input.click()
-            self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
+            _random_wait(0.4, 0.7)
             result["year"] = self._choose_dropdown_item(year)
             self._close_popovers()  # type: ignore[attr-defined]
 
@@ -257,12 +259,12 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                 force_reset=attempt > 0,
             )
             if not reopened:
-                self._random_wait(0.6, 1.0)  # type: ignore[attr-defined]
+                _random_wait(0.6, 1.0)
                 continue
 
             if not self._wait_tree_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS):  # type: ignore[attr-defined]
                 self._close_popovers()  # type: ignore[attr-defined]
-                self._random_wait(1.0, 1.6)  # type: ignore[attr-defined]
+                _random_wait(1.0, 1.6)
                 continue
 
             clicked = self.page.evaluate(
@@ -305,7 +307,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
             self._close_popovers()  # type: ignore[attr-defined]
             if bool(clicked):
                 return True
-            self._random_wait(0.8, 1.3)  # type: ignore[attr-defined]
+            _random_wait(0.8, 1.3)
 
         logger.warning(
             "court_guarantee_cause_not_stable", extra={"cause_name": cause_name, "candidates": candidates[:5]}
@@ -323,10 +325,10 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
         for attempt in range(8):
             try:
                 self._close_popovers()  # type: ignore[attr-defined]
-                self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
+                _random_wait(0.4, 0.7)
                 select.click(force=True, timeout=2500)
             except Exception:
-                self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
+                _random_wait(0.4, 0.7)
                 continue
 
             search_input = self.page.locator(".el-select-dropdown input.el-input__inner").first
@@ -345,7 +347,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                 candidates=[preferred_name, *keyword_candidates],
                 timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000),
             )
-            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
+            _random_wait(0.4, 0.8)
 
             chosen_text = str(
                 self.page.evaluate(
@@ -395,7 +397,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                 return chosen_text
 
             self._close_popovers()  # type: ignore[attr-defined]
-            self._random_wait(1.5, 2.5)  # type: ignore[attr-defined]
+            _random_wait(1.5, 2.5)
 
         logger.warning("court_guarantee_insurance_options_not_ready", extra={"preferred_name": preferred_name})
         self._close_popovers()  # type: ignore[attr-defined]
@@ -420,7 +422,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                     continue
                 field.click()
                 field.fill(code)
-                self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+                _random_wait(0.2, 0.4)
                 return True
             except Exception:
                 logger.debug("填写咨询员编号失败（已忽略）", exc_info=True)
@@ -452,7 +454,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
             code,
         )
         if filled:
-            self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+            _random_wait(0.2, 0.4)
         return bool(filled)
 
     def _fill_amount(self, amount: Any) -> bool:  # pragma: no cover
@@ -470,7 +472,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
             return False
         amount_input.click()
         amount_input.fill(raw)
-        self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+        _random_wait(0.2, 0.4)
         return True
 
     def _choose_dropdown_item(self, preferred_text: str) -> bool:  # pragma: no cover
@@ -481,15 +483,15 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                 text = (items.nth(i).inner_text() or "").strip()
                 if preferred and preferred in text:
                     items.nth(i).click(force=True)
-                    self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+                    _random_wait(0.2, 0.4)
                     return True
             for i in range(items.count()):
                 text = (items.nth(i).inner_text() or "").strip()
                 if text:
                     items.nth(i).click(force=True)
-                    self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+                    _random_wait(0.2, 0.4)
                     return True
-            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
+            _random_wait(0.4, 0.8)
         return False
 
     def _reopen_and_search_dropdown_input(  # pragma: no cover
@@ -507,10 +509,10 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
 
         try:
             self._close_popovers()  # type: ignore[attr-defined]
-            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
+            _random_wait(0.4, 0.8)
 
             dropdown_input.click(timeout=open_timeout_ms)
-            self._random_wait(0.6, 1.1)  # type: ignore[attr-defined]
+            _random_wait(0.6, 1.1)
 
             if force_reset:
                 try:
@@ -525,7 +527,7 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                         pass
 
             dropdown_input.fill("")
-            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
+            _random_wait(0.4, 0.8)
             dropdown_input.fill(term)
 
             if submit_enter:

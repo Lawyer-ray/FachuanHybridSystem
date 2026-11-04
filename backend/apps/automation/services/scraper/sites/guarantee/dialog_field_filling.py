@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .base_mixin import _random_wait
+
 
 class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
     """gTwo 对话框中的 select / date / required 字段填充。"""
@@ -114,7 +116,7 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
             }""",
             {"defaults": defaults, "target": target or ""},
         )
-        self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+        _random_wait(0.2, 0.4)
         self._close_popovers()  # type: ignore[attr-defined]
         return [str(item) for item in updates]
 

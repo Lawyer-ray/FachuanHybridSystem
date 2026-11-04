@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .base_mixin import _random_wait
+
 logger = logging.getLogger("apps.automation")
 
 
@@ -16,11 +18,11 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
     def _wait_for_g_two_ready(self, retries: int = 12) -> bool:  # pragma: no cover
         for _ in range(retries):
             if "gTwo" not in self.page.url:
-                self._random_wait(0.3, 0.5)  # type: ignore[attr-defined]
+                _random_wait(0.3, 0.5)
                 continue
             if self.page.locator("xpath=//*[contains(normalize-space(text()),'添加')]").count() > 0:
                 return True
-            self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
+            _random_wait(0.4, 0.7)
         return "gTwo" in self.page.url
 
     def _clear_g_two_existing_data(self, result: dict[str, Any]) -> None:  # pragma: no cover
@@ -49,11 +51,11 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
                 try:
                     if delete_btn.is_visible():
                         delete_btn.click(timeout=3000)
-                        self._random_wait(0.3, 0.5)  # type: ignore[attr-defined]
+                        _random_wait(0.3, 0.5)
                         confirm = self.page.locator(".el-message-box__btns .el-button--primary")
                         if confirm.count() > 0 and confirm.first.is_visible():
                             confirm.first.click(timeout=3000)
-                        self._random_wait(0.3, 0.5)  # type: ignore[attr-defined]
+                        _random_wait(0.3, 0.5)
                 except Exception:
                     break
 
@@ -162,5 +164,5 @@ class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
             }""",
             target_text,
         )
-        self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+        _random_wait(0.2, 0.4)
         return bool(clicked)
