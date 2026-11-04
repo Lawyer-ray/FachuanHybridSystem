@@ -4,17 +4,25 @@ from __future__ import annotations
 
 import logging
 import socket
+from datetime import timedelta
 
 from django.core.cache import cache
+from django.utils import timezone
 
 logger = logging.getLogger("apps.message_hub")
 
 TASK_FUNC = "apps.message_hub.tasks.sync_all_sources"
 TASK_NAME = "message_hub:sync_all_sources"
 
-# 防重叠锁：TTL 略小于 30 分钟调度间隔（调度重叠/延迟时只允许一轮提交）
+# 调度心跳间隔（分钟）。调度器只负责「每分钟看一眼哪些来源到点了」，
+# 真正的拉取频率由每个来源自己的 poll_interval_minutes 决定。
+# 心跳取 1 分钟是为了让各来源的周期误差不超过 1 分钟；
+# 没有来源到点时这一轮只做一次 DB 查询，开销可忽略。
+_SCHEDULE_HEARTBEAT_MINUTES = 1
+
+# 防重叠锁：TTL 略小于心跳间隔（调度重叠/延迟时只允许一轮提交）
 _SYNC_LOCK_KEY = "message_hub:sync_all_sources:lock"
-_SYNC_LOCK_TTL_SECONDS = 25 * 60
+_SYNC_LOCK_TTL_SECONDS = 60
 # 一张网 Playwright 类 fetcher 的单源同步超时（覆盖全局 600s 默认值）
 _COURT_FETCH_TIMEOUT_SECONDS = 1800
 
@@ -56,8 +64,23 @@ def sync_source_by_id(source_id: int) -> None:  # pragma: no cover
     logger.info("同步完成: source=%s, 新消息=%d", source.display_name, count)
 
 
+def _is_source_due(*, poll_interval_minutes: int, last_sync_at: object, now: object) -> bool:
+    """判断某个来源本轮是否该同步。
+
+    - ``poll_interval_minutes <= 0``：不按周期自动轮询（手动上传 / 客户链接这类
+      无「新邮件」概念的来源沿用此约定），一律跳过。
+    - 从未同步过（``last_sync_at`` 为空）：立即同步，避免新建来源要等一整个周期。
+    - 其余情况：距上次同步已满 poll_interval_minutes 才同步。
+    """
+    if poll_interval_minutes <= 0:
+        return False
+    if last_sync_at is None:
+        return True
+    return now - last_sync_at >= timedelta(minutes=poll_interval_minutes)
+
+
 def sync_all_sources(*_args: object) -> None:  # pragma: no cover
-    """为每个启用的消息来源提交独立的同步任务，避免串行阻塞。"""
+    """按各来源自己的轮询周期，为本轮到点的来源提交独立同步任务。"""
     # 抢锁防重叠：上一轮调度未过期时跳过本轮，避免 Playwright 收件箱任务堆积
     if not cache.add(_SYNC_LOCK_KEY, "1", timeout=_SYNC_LOCK_TTL_SECONDS):
         logger.info("上一轮消息同步调度仍在锁周期内，跳过本轮: key=%s", _SYNC_LOCK_KEY)
@@ -65,14 +88,28 @@ def sync_all_sources(*_args: object) -> None:  # pragma: no cover
 
     from apps.message_hub.models import MessageSource, SourceType
 
-    sources = list(MessageSource.objects.filter(is_enabled=True).values_list("id", "source_type"))
-    if not sources:
+    rows = list(
+        MessageSource.objects.filter(is_enabled=True).values_list(
+            "id", "source_type", "poll_interval_minutes", "last_sync_at"
+        )
+    )
+    if not rows:
+        return
+
+    now = timezone.now()
+    due = [
+        (source_id, source_type)
+        for source_id, source_type, poll_interval, last_sync_at in rows
+        if _is_source_due(poll_interval_minutes=poll_interval, last_sync_at=last_sync_at, now=now)
+    ]
+    if not due:
+        logger.debug("本轮无来源到点: 共 %d 个启用来源", len(rows))
         return
 
     from apps.core.tasking import submit_task
 
     court_types = {SourceType.COURT_INBOX, SourceType.COURT_SCHEDULE}
-    for source_id, source_type in sources:
+    for source_id, source_type in due:
         # 一张网收件箱/庭审日程内部为分钟级 Playwright 流程，覆盖全局 600s 默认超时
         timeout = _COURT_FETCH_TIMEOUT_SECONDS if source_type in court_types else None
         submit_task(
@@ -81,11 +118,15 @@ def sync_all_sources(*_args: object) -> None:  # pragma: no cover
             group="message_hub",
             timeout=timeout,
         )
-    logger.info("已为 %d 个消息来源提交同步任务", len(sources))
+    logger.info("已为 %d/%d 个到点来源提交同步任务", len(due), len(rows))
 
 
-def _register_schedule() -> None:
-    """注册定时任务（每30分钟）。"""
+def _register_schedule() -> None:  # pragma: no cover
+    """注册/校正调度心跳任务（每分钟）。
+
+    历史实现只在记录不存在时创建，导致把间隔从 30 分钟调小后旧记录不跟随更新
+    （改了源码却不生效）。这里显式比对 func 与 minutes，任一不符即就地校正。
+    """
     try:
         from apps.core.tasking import ScheduleQueryService
 
@@ -95,12 +136,20 @@ def _register_schedule() -> None:
             schedule_svc.create_interval_schedule(
                 func=TASK_FUNC,
                 name=TASK_NAME,
-                minutes=30,
+                minutes=_SCHEDULE_HEARTBEAT_MINUTES,
             )
-            logger.info("已注册定时任务: %s", TASK_NAME)
-        elif existing.func != TASK_FUNC:
+            logger.info("已注册定时任务: %s（%d 分钟）", TASK_NAME, _SCHEDULE_HEARTBEAT_MINUTES)
+            return
+
+        updates: list[str] = []
+        if existing.func != TASK_FUNC:
             existing.func = TASK_FUNC
-            existing.save(update_fields=["func"])
-            logger.info("已更新定时任务 func 路径: %s → %s", existing.func, TASK_FUNC)
+            updates.append("func")
+        if getattr(existing, "minutes", None) != _SCHEDULE_HEARTBEAT_MINUTES:
+            existing.minutes = _SCHEDULE_HEARTBEAT_MINUTES
+            updates.append("minutes")
+        if updates:
+            existing.save(update_fields=updates)
+            logger.info("已校正定时任务: %s（更新 %s）", TASK_NAME, ", ".join(updates))
     except Exception:
         logger.debug("定时任务注册跳过（未就绪）")
