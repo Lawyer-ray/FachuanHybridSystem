@@ -105,3 +105,30 @@ export async function syncAllSources(): Promise<{ success: boolean; message: str
 export async function syncSource(id: number): Promise<{ success: boolean; message: string }> {
   return inboxApi.post(`sources/${id}/sync`).json<{ success: boolean; message: string }>()
 }
+
+// ── 邮件 → 在办合同 自动关联候选 ──────────────────────────
+//
+// 一期只读：只给候选与理由，不写任何财务数据。律师看过后自己去合同里关联。
+
+export interface ContractMatchCandidate {
+  contract_id: number
+  contract_name: string
+  score: number
+  reasons: string[]
+  outstanding_amount: string | null
+  fee_mode: string
+  caveat: string
+}
+
+export interface ContractMatchResult {
+  /** confident=有确定匹配（仍需求律师确认）/ suggested=弱候选 / none=无候选 */
+  status: 'confident' | 'suggested' | 'none'
+  candidates: ContractMatchCandidate[]
+  extracted_amounts: string[]
+  extracted_case_numbers: string[]
+}
+
+/** GET /inbox/messages/{id}/contract-match —— 这条邮件可能关联的在办合同 */
+export async function getContractMatch(messageId: number): Promise<ContractMatchResult> {
+  return inboxApi.get(`messages/${messageId}/contract-match`).json<ContractMatchResult>()
+}

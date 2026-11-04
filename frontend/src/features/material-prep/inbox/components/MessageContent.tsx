@@ -8,6 +8,8 @@ import { getInboxMessage } from '../api'
 import { useConvertToPack } from '../hooks/use-inbox'
 import { useAttachmentOpener } from '../hooks/use-attachment-opener'
 import { canConvert, isPackSource, packIdOf, type InboxDetail, type PackJudgement } from '../types'
+import { ContractMatchPanel } from './ContractMatchPanel'
+import { MailHtmlBody } from './MailHtmlBody'
 
 /**
  * 内容组件需要的行形状：判定三件套的字段 + 详情查询用的 id。
@@ -64,6 +66,10 @@ export function MessageContent({
       )}
       {detail.data && <MessageBody detail={detail.data} />}
 
+      {/* 邮件才做合同匹配：一张网/短信是法院送达，与「我方在办项目」没有对应关系；
+          材料包本身就是项目的产物，反向匹配没有意义。 */}
+      {row.source_type === 'imap' && detail.data && <ContractMatchPanel messageId={detail.data.id} />}
+
       {/* 动作区：材料包 → 打开；可转 → 转材料包；其余说明为什么没有动作 */}
       <div className="flex items-center gap-2 border-t border-border/60 pt-2.5">
         {packId != null && onOpenPack && (
@@ -103,6 +109,7 @@ export function MessageContent({
 /** 正文 + 附件清单（把详情查询的结果渲染成可读内容） */
 function MessageBody({ detail }: { detail: InboxDetail }) {
   const hasText = Boolean(detail.body_text?.trim())
+  const hasHtml = Boolean(detail.body_html?.trim())
   const attachments = detail.attachments ?? []
   const open = useAttachmentOpener(detail.id)
 
@@ -162,10 +169,16 @@ function MessageBody({ detail }: { detail: InboxDetail }) {
             {detail.body_text}
           </pre>
         </section>
+      ) : hasHtml ? (
+        /* 只有 HTML、没有 text/plain 的邮件（银行到账通知、Outlook 导出件等）
+           以前这里两不沾——hasText 为假、hasHtml 分支又只判「都没有」，
+           结果正文渲染成一片空白。现在只要 HTML 非空就渲染它。 */
+        <section>
+          <h3 className="mb-1.5 text-[11px] font-semibold text-muted-foreground">正文</h3>
+          <MailHtmlBody html={detail.body_html} />
+        </section>
       ) : (
-        !detail.body_html?.trim() && (
-          <p className="py-4 text-center text-[12px] text-muted-foreground">这条消息没有正文内容</p>
-        )
+        <p className="py-4 text-center text-[12px] text-muted-foreground">这条消息没有正文内容</p>
       )}
     </div>
   )

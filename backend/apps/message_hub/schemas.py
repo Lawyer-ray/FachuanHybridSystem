@@ -229,6 +229,39 @@ class InboxMessageDetailOut(InboxMessageOut):
 
 
 # ---------------------------------------------------------------------------
+# 邮件 → 在办合同 自动关联候选
+# ---------------------------------------------------------------------------
+
+
+class ContractMatchCandidateOut(Schema):
+    """一个候选合同 + 匹配理由。"""
+
+    contract_id: int
+    contract_name: str
+    score: float
+    reasons: list[str]
+    outstanding_amount: str | None
+    fee_mode: str
+    caveat: str
+
+
+class ContractMatchOut(Schema):
+    """某条收件箱消息的匹配结果。
+
+    `status` 三态：
+    - ``confident``：有候选达到确定匹配阈值（当前只有案号精确命中能达到），
+      前端可以高亮提示，但**一期仍不自动写入**，需律师点确认。
+    - ``suggested``：有弱候选，列出让人挑。
+    - ``none``：没有候选，等待人工在合同里手动关联。
+    """
+
+    status: str
+    candidates: list[ContractMatchCandidateOut]
+    extracted_amounts: list[str]
+    extracted_case_numbers: list[str]
+
+
+# ---------------------------------------------------------------------------
 # 客户上传链接
 # ---------------------------------------------------------------------------
 
