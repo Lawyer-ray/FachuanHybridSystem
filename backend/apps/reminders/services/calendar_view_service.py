@@ -183,6 +183,30 @@ def _target_of(reminder: Any) -> tuple[str, str]:
     return "", ""
 
 
+def _case_id_of(reminder: Any) -> int | None:
+    """取事件对应的案件 id。
+
+    Reminder 的关联是三选一（CheckConstraint）：contract_id / case_id / case_log_id。
+    只读 reminder.case_id 是不够的——**文书识别链路只写 case_log_id**，
+    reminder.case_id 恒为 None，前端日历「打开案件」按钮就永远是灰的（即使
+    用户本来就能看到那条日志所属的案件）。所以 reminder.case_id 为空时回落到
+    reminder.case_log.case_id，与 _target_of() 判定目标为「案件日志」时的口径一致。
+
+    case_log / case_log.case 都可能为 None（日志未挂案、或对应记录已删），
+    一律用 getattr 兜底返回 None，宁可按钮灰掉也不能抛。
+    """
+    case_id: int | None = getattr(reminder, "case_id", None)
+    if case_id is not None:
+        return case_id
+    case_log: Any = getattr(reminder, "case_log", None)
+    if case_log is None:
+        return None
+    # 读 case_log.case_id 而不是 case_log.case.id：前者是本地列，
+    # 日志未挂案时也不触发额外查询（查询侧已 select_related("case_log__case")）
+    log_case_id: int | None = getattr(case_log, "case_id", None)
+    return log_case_id
+
+
 def to_event_item(
     reminder: Any,
     *,
@@ -230,7 +254,9 @@ def to_event_item(
         hearing_type=_text(metadata.get("hearing_type")),
         target_type=target_type,
         target_name=target_name,
-        case_id=reminder.case_id,
+        # 案件 id 要能回溯到 case_log.case_id：走日志绑定的提醒（文书识别的常态）
+        # 自己不挂 case，只读 reminder.case_id 会让前端「打开案件」永久灰掉
+        case_id=_case_id_of(reminder),
         is_today=due_local.date() == today,
         # 已完成的不再标逾期红——勾掉即视为已处理
         is_overdue=reminder.due_at < now and not is_completed,
@@ -293,7 +319,9 @@ def merge_events(raws: Iterable[_Raw]) -> list[CalendarEventItem]:
             hit.target_name = item.target_name
             hit.target_type = hit.target_type or item.target_type
             hit.title = item.target_name or hit.title
-        if not hit.case_id:
+        # 首条没挂案件的，用后续成员的补上（含 case_log 派生出来的那个 case_id）。
+        # 合并后点「打开案件」只会跳一条详情，所以取第一个能拿到的即可
+        if hit.case_id is None:
             hit.case_id = item.case_id
 
     return merged

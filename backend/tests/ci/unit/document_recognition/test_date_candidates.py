@@ -622,10 +622,11 @@ def _pending_row(row_id: int = 11, reminder_type: str = "hearing", context: str 
     return row
 
 
-def _task(case_log_id: int | None = 5) -> MagicMock:
+def _task(case_log_id: int | None = 5, case_id: int | None = None) -> MagicMock:
     task = MagicMock()
     task.id = 1
     task.case_log_id = case_log_id
+    task.case_id = case_id
     return task
 
 
@@ -740,7 +741,7 @@ class TestConfirmSingleItem:
         assert row.reminder_id == 55
 
     def test_standalone_task_skips_reuse_lookup(self):
-        """未绑定案件（case_log 为空）的任务：不查重，直接建独立提醒。"""
+        """案件与案件日志都为空的任务：不查重，直接建独立提醒。"""
         row = _pending_row()
         reminder_service = MagicMock()
 
@@ -751,6 +752,23 @@ class TestConfirmSingleItem:
         create_kwargs = reminder_service.create_reminder.call_args[1]
         assert create_kwargs["case_log_id"] is None
         assert create_kwargs["metadata"]["task_id"] == 1
+
+    def test_case_bound_without_case_log_falls_back_to_case(self):
+        """案件已绑定但日志未落库：挂案件，不产生三字段全空的孤立提醒。"""
+        row = _pending_row()
+        reminder_service = MagicMock()
+        reminder_service.list_reminders.return_value = []
+        reminder_service.create_reminder.return_value = MagicMock(id=124)
+
+        self._call(
+            _task(case_log_id=None, case_id=88), {"candidate_id": 11, "action": "confirm"}, row, reminder_service
+        )
+
+        create_kwargs = reminder_service.create_reminder.call_args[1]
+        assert create_kwargs["case_id"] == 88
+        assert "case_log_id" not in create_kwargs
+        # 查重域仍以 case_log 为界，回落不查 case 域
+        reminder_service.list_reminders.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

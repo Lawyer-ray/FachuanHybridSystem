@@ -3,7 +3,8 @@
  *
  * mock 只打 HTTP 客户端工厂（@/lib/api 的 createApiClient），断言聚焦：
  * 请求参数构造、响应投影（searchTargetOptions 的 name 拆分 / 白名单收窄、
- * setRemindersCompleted 取 updated）、createReminder 的 target_type → 字段拆开。
+ * setRemindersCompleted 取 updated）、createReminder / updateReminder 的
+ * target_type → 字段拆开，以及 updateReminder 的「不传 = 保持原绑定」。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -38,6 +39,7 @@ import {
   parseReminder,
   searchTargetOptions,
   setRemindersCompleted,
+  updateReminder,
 } from './reminders'
 
 function remindersClient() {
@@ -221,5 +223,68 @@ describe('createReminder（target_type → wire 字段拆开）', () => {
     expect(api.post).toHaveBeenLastCalledWith('create', {
       json: expect.objectContaining({ case_id: null }),
     })
+  })
+})
+
+/** PUT 请求体（updateReminder 的唯一参数） */
+function putBody(api: ReturnType<typeof remindersClient>): Record<string, unknown> {
+  const call = api.put.mock.calls.at(-1) as [string, { json: Record<string, unknown> }]
+  return call[1].json
+}
+
+const UPDATE_BASE = { reminder_type: 'other', content: '缴费', due_at: '2026-10-20T09:00:00' }
+
+const TARGET_KEYS = ['contract_id', 'case_id', 'case_log_id'] as const
+
+function targetKeysIn(body: Record<string, unknown>): string[] {
+  return TARGET_KEYS.filter((k) => k in body)
+}
+
+describe('updateReminder（target_type → wire 字段拆开）', () => {
+  beforeEach(() => {
+    remindersClient().put.mockReturnValue(respond({}))
+  })
+
+  it('PUT /reminders/{id}，contract/case/case_log 各拆成对应 id 字段（只填一个）', async () => {
+    const api = remindersClient()
+
+    await updateReminder(9, { ...UPDATE_BASE, target_type: 'contract', target_id: 11 })
+    expect(api.put).toHaveBeenLastCalledWith('9', { json: expect.objectContaining({ contract_id: 11 }) })
+    expect(targetKeysIn(putBody(api))).toEqual(['contract_id'])
+
+    await updateReminder(9, { ...UPDATE_BASE, target_type: 'case', target_id: 22 })
+    expect(targetKeysIn(putBody(api))).toEqual(['case_id'])
+    expect(putBody(api).case_id).toBe(22)
+
+    await updateReminder(9, { ...UPDATE_BASE, target_type: 'case_log', target_id: 33 })
+    expect(targetKeysIn(putBody(api))).toEqual(['case_log_id'])
+    expect(putBody(api).case_log_id).toBe(33)
+  })
+
+  it('不传 target：请求体不含任何关联字段（exclude_unset 语义 = 保持原绑定）', async () => {
+    const api = remindersClient()
+    await updateReminder(9, UPDATE_BASE)
+    expect(api.put).toHaveBeenCalledWith('9', { json: UPDATE_BASE })
+    expect(targetKeysIn(putBody(api))).toEqual([])
+    // target_type / target_id / clear_target 是前端入参形状，绝不进 wire
+    expect(putBody(api)).not.toHaveProperty('target_type')
+    expect(putBody(api)).not.toHaveProperty('target_id')
+    expect(putBody(api)).not.toHaveProperty('clear_target')
+  })
+
+  it('clear_target：三个关联字段全部显式发 null（显式才能解除绑定）', async () => {
+    const api = remindersClient()
+    await updateReminder(9, { ...UPDATE_BASE, clear_target: true })
+    const body = putBody(api)
+    expect(targetKeysIn(body).sort()).toEqual([...TARGET_KEYS].sort())
+    expect(body).toMatchObject({ contract_id: null, case_id: null, case_log_id: null })
+    expect(body).not.toHaveProperty('clear_target')
+  })
+
+  it('target_type 与 target_id 缺省：对应字段发 null（换绑成「无对象」而非保持旧 id）', async () => {
+    const api = remindersClient()
+    await updateReminder(9, { ...UPDATE_BASE, target_type: 'contract' })
+    expect(putBody(api).contract_id).toBeNull()
+    expect(targetKeysIn(putBody(api))).toEqual(['contract_id'])
   })
 })

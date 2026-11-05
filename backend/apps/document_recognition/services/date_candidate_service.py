@@ -7,8 +7,10 @@
 - 幂等由候选行状态机承担：事务内 ``select_for_update`` 锁行，已 confirmed
   的行直接返回原 reminder_id；**不走** ``upsert_case_log_reminder_internal``
   （它按 case_log+source 定位只取一条，多日期会互相覆盖）。
-- 未绑定案件的任务确认日期 → 创建**独立提醒**（无 case_log，metadata 带
-  task 溯源），记一笔快捕获场景不强制选案。
+- 确认写提醒按优先级取关联锚点：``case_log_id`` → ``case_id`` → 独立提醒
+  （Reminder 的 contract/case/case_log 最多绑一个）。任务已绑定案件但日志尚未
+  落库时挂案件本身，避免产出三字段全空的孤立提醒；两者都无才是独立提醒
+  （快捕获场景不强制选案，metadata 带 task 溯源）。
 - 存量自动写入的旧提醒无 metadata.source：确认前按
   ``(case_log_id, due_at)`` 查重复用，避免同一时间出现双提醒。
 """
@@ -769,7 +771,7 @@ def _confirm_single_item(
         message = "复用了同时间点的既有提醒，未重复创建"
     else:
         reminder = reminder_service.create_reminder(
-            case_log_id=task.case_log_id,
+            **_reminder_binding_kwargs(task),
             reminder_type=reminder_type,
             content=_build_reminder_content(reminder_type, row.context_text),
             due_at=aware_due_at,
@@ -805,11 +807,13 @@ def _confirm_single_item(
     )
 
     logger.info(
-        "日期候选已确认: task_id=%s, candidate_id=%s, reminder_id=%s, standalone=%s",
+        "日期候选已确认: task_id=%s, candidate_id=%s, reminder_id=%s, case_log_id=%s, case_id=%s, standalone=%s",
         task.id,
         candidate_id,
         reminder.id,
-        task.case_log_id is None,
+        task.case_log_id,
+        task.case_id,
+        task.case_log_id is None and task.case_id is None,
     )
     return {
         "candidate_id": candidate_id,
@@ -820,8 +824,31 @@ def _confirm_single_item(
     }
 
 
+def _reminder_binding_kwargs(task: Any) -> dict[str, Any]:
+    """确认写提醒时的关联锚点，按优先级回落（Reminder 三者最多绑一个，故只能选一个）。
+
+    只认 case_log_id 会让「案件已绑定、日志尚未落库」的任务（识别完成到日志创建
+    之间确认日期就是这种时序）产出三个关联字段全空的孤立提醒，日历上显示
+    「未关联案件」且无补救入口。任务已绑定案件时退一步挂案件本身是正确归属。
+    两者都无才是真正的独立提醒（快捕获场景，不强制选案）。
+    """
+    if task.case_log_id is not None:
+        return {"case_log_id": task.case_log_id}
+    if task.case_id is not None:
+        return {"case_id": task.case_id}
+    return {"case_log_id": None}
+
+
 def _find_existing_reminder(reminder_service: Any, task: Any, aware_due_at: datetime) -> Any | None:
-    """按 (case_log_id, due_at) 查重复用（含无 source 的旧自动提醒）；独立提醒无查重域。"""
+    """按 (case_log_id, due_at) 查重复用（含无 source 的旧自动提醒）；独立提醒无查重域。
+
+    查重域刻意不扩到 case_id（属语义变更，会改变「同一时间点是否复用既有提醒」）：
+    该域回收的是「存量自动写入的旧提醒」（按案件日志时间比对），而 case_id 域里
+    混着任务自己确认过的及其它模块建的整案级提醒。放宽后确认日期可能复用一条
+    同刻但来源/语义不同的提醒，候选行会指向不是本功能创建的 reminder（撤销时被
+    NOT_REVOKABLE 拦住，用户无从清理）；且 case_id 级提醒覆盖整案多个时间点，
+    同刻命中概率远高于 case_log。宁可多一条挂在案件上的提醒，也不改语义。
+    """
     if task.case_log_id is None:
         return None
     existing = reminder_service.list_reminders(case_log_id=task.case_log_id)
