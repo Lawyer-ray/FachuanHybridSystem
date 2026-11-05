@@ -534,7 +534,6 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                     dropdown_input.press("Enter", timeout=2000)
                 except Exception:
                     logger.debug("回车提交下拉搜索失败（已忽略）", exc_info=True)
-                    pass
             return True
         except Exception:
             logger.debug("重开并搜索下拉输入框失败（已忽略）", exc_info=True)
