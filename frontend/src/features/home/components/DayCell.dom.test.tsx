@@ -21,6 +21,10 @@ vi.mock('../api-meta', () => ({
   briefLine: () => '',
   cellMetaLines: () => ['09:00', '第三法庭'],
   isKeyKind: (k: string) => k === 'hearing',
+  // 本文件测的是交互/视觉态，标题取值逻辑交给 api-meta 自己的单测；
+  // 这里给直通实现，保持事件行按 e.title 渲染的既有断言不变
+  cardTitle: (e: { title?: string }) => e.title ?? '',
+  cardTargetLine: () => '',
 }))
 vi.mock('../constants', () => ({ KIND_ROW: { hearing: 'kind-hearing' } }))
 

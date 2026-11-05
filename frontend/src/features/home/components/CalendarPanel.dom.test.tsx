@@ -107,10 +107,12 @@ describe('CalendarPanel 手机断点（≤760px）', () => {
   })
 
   it('格子里直接显示事项标题，最多 2 条、余下折叠成 +N', () => {
+    // content 与 title 保持一致：本用例只验「最多 2 条 + 折叠」，
+    // 不掺入标题取值逻辑（cardTitle 对非庭期是 content 优先）
     renderPanel([
-      ev({ id: 1, title: '第一件', member_ids: [1] }),
-      ev({ id: 2, title: '第二件', member_ids: [2], kind: 'meeting' }),
-      ev({ id: 3, title: '第三件', member_ids: [3] }),
+      ev({ id: 1, title: '第一件', content: '第一件', member_ids: [1] }),
+      ev({ id: 2, title: '第二件', content: '第二件', member_ids: [2], kind: 'meeting' }),
+      ev({ id: 3, title: '第三件', content: '第三件', member_ids: [3] }),
     ])
     const cell = screen.getByRole('button', { name: '16 日，3 个安排，点按查看该日安排' })
     const list = within(mobileTitleList(cell))

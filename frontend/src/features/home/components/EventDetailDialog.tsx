@@ -4,6 +4,7 @@ import { Check, ExternalLink, Pencil, Trash2, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { CalendarEvent } from '../api'
 import { formatCN, parseKey } from '../domain'
+import { cardTargetLine, cardTitle } from '../api-meta'
 import { BTN_DANGER } from '../ui'
 import { cn } from '@/lib/utils'
 import { EventEditForm } from './EventEditForm'
@@ -54,8 +55,11 @@ export function EventDetailDialog({ event, onClose, onSaved, onOpenCase, onToggl
   if (event.person) rows.push({ label: '律师', value: event.person })
   if (event.hearing_type) rows.push({ label: '方式', value: event.hearing_type })
   if (event.case_no) rows.push({ label: '案号', value: event.case_no, mono: true })
-  if (event.target_name && event.target_name !== event.title) {
-    rows.push({ label: event.target_type || '关联', value: event.target_name })
+  // 主标题改成行动项优先（cardTitle）后，关联对象名作为归属行单独展示；
+  // 与主标题内容相同的就不重复列
+  const targetLine = cardTargetLine(event)
+  if (targetLine) {
+    rows.push({ label: event.target_type || '关联', value: targetLine })
   }
 
   // 编辑态下点遮罩 / ESC：先退回详情（保护已输入的内容），再点一次才关弹窗
@@ -93,7 +97,7 @@ export function EventDetailDialog({ event, onClose, onSaved, onOpenCase, onToggl
                 !editing && event.is_completed && 'text-muted-foreground line-through',
               )}
             >
-              {editing ? '编辑安排' : event.title}
+              {editing ? '编辑安排' : cardTitle(event)}
             </DialogTitle>
           </div>
           <button

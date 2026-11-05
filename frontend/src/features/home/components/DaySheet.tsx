@@ -3,7 +3,7 @@ import { Check, X } from 'lucide-react'
 import { KIND_BADGE, KIND_LABEL } from '../constants'
 import type { CalendarEvent } from '../api'
 import { formatCN, parseKey } from '../domain'
-import { rangeLabel } from '../api-meta'
+import { cardTargetLine, cardTitle, rangeLabel } from '../api-meta'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -100,7 +100,11 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onToggleCom
                   {e.time}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={cn('block text-[13.5px] font-medium', e.is_completed && 'line-through')}>{e.title}</span>
+                  {/* 主标题行动项优先（cardTitle）；关联对象单列一行，不被长合同名挤掉 */}
+                  <span className={cn('block text-[13.5px] font-medium', e.is_completed && 'line-through')}>{cardTitle(e)}</span>
+                  {cardTargetLine(e) && (
+                    <span className="mt-[2px] block truncate text-[11.5px] text-secondary-foreground">{cardTargetLine(e)}</span>
+                  )}
                   {/* 时段：与开始时刻不同才显示，避免「10:00 · 10:00-12:00」 */}
                   {range && range !== e.time && (
                     <span className="mt-[2px] block text-[11.5px] tabular-nums text-secondary-foreground">{range}</span>

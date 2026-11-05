@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CalendarEvent } from './api'
-import { briefLine, cellMetaLines, isKeyKind, rangeLabel, summaryLine } from './api-meta'
+import { briefLine, cardTargetLine, cardTitle, cellMetaLines, isKeyKind, rangeLabel, summaryLine } from './api-meta'
 
 function ev(p: Partial<CalendarEvent> = {}): CalendarEvent {
   return {
@@ -69,5 +69,49 @@ describe('briefLine / cellMetaLines / rangeLabel', () => {
   it('时段区间原文透传', () => {
     expect(rangeLabel(ev({ time_range: '10:00-12:00' }))).toBe('10:00-12:00')
     expect(rangeLabel(ev({ time_range: '' }))).toBe('')
+  })
+})
+
+describe('cardTitle / cardTargetLine：卡片主标题的行动项优先', () => {
+  // 后端口径 title = target_name or content（关联对象名优先）。这对庭期是对的，
+  // 但对自定义事项 / 期限会让长合同名把真正的行动项挤掉。
+  // 只关心「名字够长」这一件事，不含任何真实主体信息
+  const longContract = '测试用超长合同名称'.repeat(5)
+
+  it('庭期：维持案名优先，不被 content（如「开庭」）覆盖', () => {
+    const e = ev({ kind: 'court', title: longContract, content: '开庭', target_name: longContract })
+    expect(cardTitle(e)).toBe(longContract)
+    // 主标题已是案名，不再重复一行
+    expect(cardTargetLine(e)).toBe('')
+  })
+
+  it('自定义事项：content 优先，让行动项露出来', () => {
+    const e = ev({ kind: 'meeting', title: longContract, content: '债权人会议', target_name: longContract })
+    expect(cardTitle(e)).toBe('债权人会议')
+    // 关联对象降为副标题，避免用户丢失归属信息
+    expect(cardTargetLine(e)).toBe(longContract)
+  })
+
+  it('自定义事项：没有关联对象时直接用 content', () => {
+    const e = ev({ kind: 'meeting', title: '债权人会议', content: '债权人会议', target_name: '' })
+    expect(cardTitle(e)).toBe('债权人会议')
+    expect(cardTargetLine(e)).toBe('')
+  })
+
+  it('content 与 target_name 相同：不重复展示', () => {
+    const e = ev({ kind: 'deadline', title: longContract, content: longContract, target_name: longContract })
+    expect(cardTitle(e)).toBe(longContract)
+    expect(cardTargetLine(e)).toBe('')
+  })
+
+  it('content 为空：退回 title，不显示空白标题', () => {
+    const e = ev({ kind: 'meeting', title: '与客户会谈', content: '', target_name: '某合同' })
+    expect(cardTitle(e)).toBe('与客户会谈')
+    expect(cardTargetLine(e)).toBe('某合同')
+  })
+
+  it('content 只有空白字符：同样退回 title', () => {
+    const e = ev({ kind: 'deadline', title: '提交证据目录', content: '   ', target_name: '' })
+    expect(cardTitle(e)).toBe('提交证据目录')
   })
 })
