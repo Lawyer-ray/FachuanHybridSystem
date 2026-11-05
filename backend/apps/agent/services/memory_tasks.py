@@ -142,6 +142,14 @@ def _register_schedules() -> None:
         svc = ScheduleQueryService()
         # 每日一次：行为推断读的是审批与运行统计，一天一变更已足够。
         name = "agent:derive_behavior_memories"
+        # 历史 bug 留下的脏记录：旧版 create_interval_schedule 把空字符串当位置参数传给
+        # django_q.tasks.schedule，落库成 args="''"，每次触发都报
+        # "takes 0 positional arguments but 1 was given"。schedule_exists 为真时
+        # 不重建，脏记录会永久残留，所以这里先把参数不符的记录删掉再重建。
+        existing = svc.get_schedule_by_name(name)
+        if existing is not None and str(existing.args or "") not in ("", "None"):
+            svc.delete_schedules(name=name)
+            logger.info("已清理参数异常的定时任务: %s", name)
         if not svc.schedule_exists(name):
             svc.create_interval_schedule(
                 func="apps.agent.services.memory_tasks.dispatch_behavior_derivation",

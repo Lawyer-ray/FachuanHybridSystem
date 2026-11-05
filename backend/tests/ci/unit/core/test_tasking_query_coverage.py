@@ -276,3 +276,48 @@ class TestScheduleQueryServiceExtended:
         )
         assert isinstance(result, str)
         assert Schedule.objects.filter(name="int-test").exists()
+
+    @pytest.mark.django_db
+    def test_create_interval_schedule_without_args_passes_none(self, svc: ScheduleQueryService) -> None:
+        """无参任务不得落库任何位置的参数。
+
+        回归：旧实现把空的 ``args`` 字符串作为第二位位置参数传给
+        ``django_q.tasks.schedule(func, *args, **kwargs)``，落库成
+        ``Schedule.args="''"``；触发时调度器 ``ast.literal_eval`` 得到 ``("")``，
+        零参任务就报 ``takes 0 positional arguments but 1 was given``。
+        """
+        import ast
+
+        from django_q.models import Schedule
+
+        svc.create_interval_schedule(
+            func="apps.agent.services.memory_tasks.dispatch_behavior_derivation",
+            name="int-noargs-test",
+            minutes=60,
+        )
+        sched = Schedule.objects.get(name="int-noargs-test")
+        # 空字符串 / None 之外的值都会在触发时变成多余的位置参数
+        assert not sched.args
+        # 与调度器同口径复算，确认展开后是空参数表
+        assert (not sched.args) or ast.literal_eval(sched.args) == ()
+
+    @pytest.mark.django_db
+    def test_create_interval_schedule_args_roundtrip(self, svc: ScheduleQueryService) -> None:
+        """带参任务落库的 args 字符串能被调度器原样还原。"""
+        import ast
+
+        from django_q.models import Schedule
+
+        svc.create_interval_schedule(
+            func="interval.func",
+            name="int-args-test",
+            minutes=10,
+            args="a",
+        )
+        sched = Schedule.objects.get(name="int-args-test")
+        # 落库必须是源码字面量："a" 会被 literal_eval 解析成 ast.Name 而报错
+        assert sched.args == "'a'", f"落库 args 必须是源码字面量，实际={sched.args!r}"
+        args = ast.literal_eval(sched.args)
+        if type(args) is not tuple:  # 与 django_q.scheduler 同一归一化规则
+            args = (args,)
+        assert args == ("a",)

@@ -169,21 +169,45 @@ class ScheduleQueryService:
     ) -> str:
         """创建间隔执行的调度任务。
 
+        ``args`` 是 django-q ``Schedule.args`` 的**源码字符串**（如 ``"1, 'x'"``），
+        空字符串表示无参数。
+
+        **参数必须写回 ``Schedule.args`` 字段**：``django_q.tasks.schedule`` 的签名是
+        ``schedule(func, *args, **kwargs)``，第二位起是**任务函数的位置参数**，
+        既不是 ``Schedule.args`` 字段本身，也不会被自动序列化回该字段。
+        旧实现写 ``schedule(func, args, ...)``：`args=""` 时落库成 `args="''"`，
+        单值 `"a"` 时落库成裸 `args="a"`，两者都不是合法字面量，调度器触发时
+        要么 `literal_eval` 抛错，要么得到 `("")` 把多余位置参数塞进零参任务，
+        报 `takes 0 positional arguments but 1 was given`。
+
+        这里改为直接构造 ``Schedule`` 行，`args` 存调度器看得懂的源码字面量
+        （单值 `"'a'"`，多值 `"'a', 1"`），空参数存 None。
+
         Returns:
             task_id 字符串
         """
-        from django_q.tasks import schedule
+        from django.db import IntegrityError
+        from django_q.models import Schedule
 
-        return str(
-            schedule(
-                func,
-                args,
-                schedule_type="I",
-                minutes=minutes,
-                name=name,
-                repeats=repeats,
-            )
+        if name and Schedule.objects.filter(name=name).exists():
+            raise IntegrityError("A schedule with the same name already exists.")
+
+        if isinstance(args, (list, tuple)):
+            raw = ", ".join(repr(item) for item in args)
+        elif args:
+            # 单个字符串参数也要 repr，否则裸 "a" 会被 literal_eval 当成 ast.Name
+            raw = repr(args)
+        else:
+            raw = ""
+        created = Schedule.objects.create(
+            func=func,
+            args=raw or None,
+            name=name,
+            schedule_type=Schedule.MINUTES,
+            minutes=minutes,
+            repeats=repeats,
         )
+        return str(created.pk)
 
     def create_monthly_schedule(
         self,
