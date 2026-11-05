@@ -2,12 +2,14 @@
 /**
  * EventEditForm 测试（jsdom）。
  *
- * 日历事件的编辑表单：只改类型/内容/日期/时刻，提交走 PUT /reminders/{id}。
+ * 日历事件的编辑表单：改类型/内容/日期/时刻/关联对象，提交走 PUT /reminders/{id}。
  * 核心不变量：
  * - canSave：内容非空 + 日期 YYYY-MM-DD + 时刻 HH:mm + 非 busy
  * - 存量类型不在枚举里时补一个原值 option（防止 select 静默归零）
  * - 提交成功提示并回调 onSaved；失败提示且复位 busy、不回调
  * - 回车在可保存时提交
+ * - 关联对象：已绑定回显、未绑定显示「未关联」、选中后 payload 带 target_type/target_id、
+ *   没动过则 payload 不带任何关联字段（后端 exclude_unset 保持原绑定）
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -20,6 +22,7 @@ const apiMock = vi.hoisted(() => ({
     { value: 'other', label: '其他' },
     { value: 'hearing', label: '开庭' },
   ]),
+  searchTargetOptions: vi.fn(async (): Promise<TargetOption[]> => []),
   REMINDER_TYPES_KEY: ['reminder-types'],
 }))
 
@@ -29,7 +32,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.f
 import { toast } from 'sonner'
 
 import { EventEditForm } from './EventEditForm'
-import type { CalendarEvent } from '../api'
+import type { CalendarEvent, TargetOption } from '../api'
 
 function ev(over: Partial<CalendarEvent> = {}): CalendarEvent {
   return {
@@ -67,6 +70,7 @@ function saveButton(): HTMLButtonElement {
 beforeEach(() => {
   vi.clearAllMocks()
   apiMock.updateReminder.mockResolvedValue(undefined)
+  apiMock.searchTargetOptions.mockResolvedValue([])
 })
 
 describe('EventEditForm：回填与 canSave', () => {
@@ -130,6 +134,96 @@ describe('EventEditForm：类型选项', () => {
     const select = container.querySelector('select') as HTMLSelectElement
     const values = Array.from(select.options).map((o) => o.value)
     expect(values.filter((v) => v === 'hearing')).toHaveLength(1)
+    container.remove()
+  })
+})
+
+describe('EventEditForm：关联对象回显', () => {
+  it('已绑定时回显类型标签与对象名', () => {
+    const { container } = renderForm({
+      event: ev({ target_type: '案件', target_name: '张三诉李四案' }),
+    })
+    expect(container.textContent).toContain('关联对象')
+    expect(container.textContent).toContain('张三诉李四案')
+    // 未点「修改」时就是展示行，不出检索框
+    expect(container.querySelector('[role="combobox"]')).toBeNull()
+    container.remove()
+  })
+
+  it('未绑定时显示「未关联」而不是空白', () => {
+    const { container } = renderForm({ event: ev({ target_type: '', target_name: '' }) })
+    expect(container.textContent).toContain('关联对象')
+    // 类型徽标与名称都退回「未关联」，不留空白；两个 span 各一处
+    expect(screen.getAllByText('未关联')).toHaveLength(2)
+    container.remove()
+  })
+
+  it('未绑定点「选择」展开检索框，输入关键字后展示候选', async () => {
+    apiMock.searchTargetOptions.mockResolvedValue([
+      { id: 1, target_type: 'case', target_type_label: '案件', title: '张三诉李四', hint: '' },
+    ])
+    const { container } = renderForm({ event: ev({ target_type: '', target_name: '' }) })
+
+    fireEvent.click(screen.getByRole('button', { name: '选择' }))
+    const input = container.querySelector('[role="combobox"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '张三' } })
+
+    await waitFor(() => expect(container.textContent).toContain('张三诉李四'), { timeout: 3000 })
+    container.remove()
+  })
+})
+
+describe('EventEditForm：关联对象提交', () => {
+  it('未绑定→选中新关联对象：payload 带 target_type/target_id（拆解交给 api 层）', async () => {
+    apiMock.searchTargetOptions.mockResolvedValue([
+      { id: 7, target_type: 'case', target_type_label: '案件', title: '王五案', hint: '' },
+    ])
+    const { container } = renderForm({ event: ev({ target_type: '', target_name: '' }) })
+
+    fireEvent.click(screen.getByRole('button', { name: '选择' }))
+    const input = container.querySelector('[role="combobox"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '王五' } })
+    await waitFor(() => expect(container.textContent).toContain('王五案'), { timeout: 3000 })
+
+    const option = Array.from(container.querySelectorAll('[role="option"]')).find((o) =>
+      o.textContent?.includes('王五案'),
+    ) as HTMLElement
+    fireEvent.click(option)
+
+    fireEvent.click(saveButton())
+    await waitFor(() =>
+      expect(apiMock.updateReminder).toHaveBeenCalledWith(
+        9,
+        expect.objectContaining({ target_type: 'case', target_id: 7 }),
+      ),
+    )
+    // toast 把换绑结果写清楚，避免「保存了但不知道绑没绑上」
+    expect(toast.success).toHaveBeenCalledWith('已保存 · 案件：王五案')
+    container.remove()
+  })
+
+  it('没动关联对象：payload 不带任何关联字段（保持原绑定）', async () => {
+    const { container } = renderForm({ event: ev({ target_type: '案件', target_name: '张三诉李四案' }) })
+    fireEvent.click(saveButton())
+
+    await waitFor(() => expect(apiMock.updateReminder).toHaveBeenCalled())
+    const payload = apiMock.updateReminder.mock.calls[0]![1]
+    expect(payload).not.toHaveProperty('target_type')
+    expect(payload).not.toHaveProperty('target_id')
+    expect(payload).not.toHaveProperty('clear_target')
+    expect(apiMock.searchTargetOptions).not.toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('点「解除关联」后保存：payload 带 clear_target，toast 说明已解除', async () => {
+    const { container } = renderForm({ event: ev({ target_type: '案件', target_name: '张三诉李四案' }) })
+    fireEvent.click(screen.getByRole('button', { name: '解除关联' }))
+    fireEvent.click(saveButton())
+
+    await waitFor(() =>
+      expect(apiMock.updateReminder).toHaveBeenCalledWith(9, expect.objectContaining({ clear_target: true })),
+    )
+    expect(toast.success).toHaveBeenCalledWith('已保存 · 已解除关联')
     container.remove()
   })
 })

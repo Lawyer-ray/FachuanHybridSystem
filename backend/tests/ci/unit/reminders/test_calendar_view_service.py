@@ -276,6 +276,92 @@ class TestMerging:
         assert events[0].case_id == 377
 
 
+class TestCaseIdFallback:
+    """case_id 取值链：reminder.case_id 优先，为空回落到 case_log.case_id。
+
+    背景：Reminder 关联三选一，文书识别链路只写 case_log_id，reminder.case_id 恒为 None。
+    前端「打开案件」按钮靠 case_id 决定可用性，不回溯日志所属案件就永远是灰的。
+    """
+
+    def test_reminder_case_id_wins(self) -> None:
+        events = normalize(
+            make_reminder(1, due_at="2026-09-24T09:00:00+08:00", case_id=377, case_name="某金融借款纠纷一案"),
+        )
+        assert events[0].case_id == 377
+
+    def test_case_log_derived_case_id_when_reminder_unbound(self) -> None:
+        """只有 case_log_id（文书识别常态）→ 取日志所属案件的 id。"""
+        case_log = SimpleNamespace(id=88, case_id=512, case=SimpleNamespace(id=512, name="某买卖合同纠纷一案"))
+        events = normalize(
+            make_reminder(1, due_at="2026-09-24T09:00:00+08:00", case_log_id=88, case_log=case_log),
+        )
+        assert events[0].case_id == 512
+        # 语义一致：_target_of 判定目标是案件日志，case_id 就是该日志的案件
+        assert events[0].target_type == "案件日志"
+
+    def test_missing_case_log_returns_none(self) -> None:
+        """case_log 为 None（日志已删）→ 返回 None，不崩。"""
+        events = normalize(
+            make_reminder(1, due_at="2026-09-24T09:00:00+08:00", case_log_id=88, case_log=None),
+        )
+        assert events[0].case_id is None
+
+    def test_case_log_without_case_returns_none(self) -> None:
+        """case_log 存在但没挂案（case 为 None）→ 返回 None，不崩。"""
+        case_log = SimpleNamespace(id=88, case_id=None, case=None)
+        events = normalize(
+            make_reminder(1, due_at="2026-09-24T09:00:00+08:00", case_log_id=88, case_log=case_log),
+        )
+        assert events[0].case_id is None
+
+    def test_merged_event_fills_case_id_from_later_member(self) -> None:
+        """合并时首条无 case_id、后续成员靠日志派生出 case_id → 合并后能补上。"""
+        court = {"courtroom": "A 法庭", "time_range": "09:30-10:00"}
+        case_log = SimpleNamespace(id=88, case_id=512, case=SimpleNamespace(id=512, name="某买卖合同纠纷一案"))
+        events = normalize(
+            make_reminder(1, due_at="2026-09-24T09:30:00+08:00", content="明天开庭", metadata=court),
+            make_reminder(
+                2,
+                due_at="2026-09-24T09:30:00+08:00",
+                content="明天开庭",
+                case_log_id=88,
+                case_log=case_log,
+                metadata=court,
+            ),
+        )
+        assert len(events) == 1
+        assert events[0].members == 2
+        assert events[0].case_id == 512
+
+    def test_merged_event_keeps_first_available_case_id(self) -> None:
+        """首条已有 case_id 时不被后续成员覆盖。"""
+        court = {"courtroom": "A 法庭", "time_range": "09:30-10:00"}
+        case_log = SimpleNamespace(id=88, case_id=512, case=SimpleNamespace(id=512, name="另一案"))
+        events = normalize(
+            make_reminder(1, due_at="2026-09-24T09:30:00+08:00", case_id=377, case_name="某案", metadata=court),
+            make_reminder(2, due_at="2026-09-24T09:30:00+08:00", case_log_id=88, case_log=case_log, metadata=court),
+        )
+        assert len(events) == 1
+        assert events[0].case_id == 377
+
+    def test_stub_without_case_log_attr_returns_none(self) -> None:
+        """极简替身连 case_log 属性都没有 → 返回 None，不崩。"""
+        raw = SimpleNamespace(
+            id=1,
+            due_at=datetime(2026, 9, 26, 9, 30, tzinfo=TZ),
+            reminder_type="hearing",
+            content="某案",
+            metadata={},
+            case_id=None,
+            contract_id=None,
+            case_log_id=None,
+            case=None,
+            contract=None,
+        )
+        events = merge_events([to_event_item(raw, today=TODAY, now=NOW, tz=TZ)])
+        assert events[0].case_id is None
+
+
 class TestGrouping:
     def test_group_by_day_keys_are_date_strings(self) -> None:
         events = normalize(

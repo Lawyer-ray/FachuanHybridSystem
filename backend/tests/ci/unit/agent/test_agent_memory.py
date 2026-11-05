@@ -595,3 +595,49 @@ class TestReinforcedAnchor:
         assert memory.reinforced_at is not None, "命中应刷新衰减锚点"
         assert memory.updated_at == original_updated, "命中不是修改，不得动 updated_at"
         assert memory.hit_count == 1
+
+
+@pytest.mark.django_db
+class TestDeriveScheduleRegistration:
+    """行为推断定时任务的注册与自愈。
+
+    回归：``django_q.tasks.schedule(func, args, ...)`` 会把这个字符串当成
+    **任务函数的第一个位置参数**落库成 ``args="''"``，调度器触发时
+    ``literal_eval`` 得到 ``("")``，零参的
+    ``dispatch_behavior_derivation`` 就报
+    ``takes 0 positional arguments but 1 was given`` —— 每日一跑、每次都失败。
+    而 ``schedule_exists`` 守卫为真时不会重建，脏记录会永久残留。
+    """
+
+    SCHEDULE_NAME = "agent:derive_behavior_memories"
+
+    def test_registers_schedule_without_positional_args(self) -> None:
+        from django_q.models import Schedule
+
+        from apps.agent.services.memory_tasks import _register_schedules
+
+        _register_schedules()
+
+        sched = Schedule.objects.get(name=self.SCHEDULE_NAME)
+        assert sched.func == "apps.agent.services.memory_tasks.dispatch_behavior_derivation"
+        assert not sched.args, f"零参任务不得携带位置参数，实际={sched.args!r}"
+
+    def test_cleans_up_dirty_schedule_from_old_bug(self) -> None:
+        from django_q.models import Schedule
+
+        from apps.agent.services.memory_tasks import _register_schedules
+
+        # 复刻旧 bug 落库的脏记录
+        Schedule.objects.create(
+            func="apps.agent.services.memory_tasks.dispatch_behavior_derivation",
+            name=self.SCHEDULE_NAME,
+            args="''",
+            schedule_type=Schedule.MINUTES,
+            minutes=24 * 60,
+        )
+
+        _register_schedules()
+
+        schedules = Schedule.objects.filter(name=self.SCHEDULE_NAME)
+        assert schedules.count() == 1, "脏记录应被替换而不是叠加"
+        assert not schedules.get().args, "重建后必须是无参任务"

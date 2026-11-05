@@ -186,17 +186,44 @@ export async function createReminder(payload: CreateReminderIn): Promise<void> {
 
 /**
  * 编辑安排的字段（PUT /reminders/{id}，后端 exclude_unset 部分更新）。
- * 只收 编辑表单实际暴露的 四项；关联对象（合同/案件绑定）不在日历编辑范围，
- * 不传即保持原绑定。
+ * 除三个必填展示字段外，还可改**关联对象**（合同 / 案件 / 案件日志三选一）。
+ *
+ * 关联对象的状态是**三态**，靠两个可选字段区分：
+ *   - 不传 target_type（且不传 clear_target）→ 请求体不含任何关联字段，后端保持原绑定。
+ *   - 传 target_type + target_id → 换绑到该对象（wire 上拆成 contract_id / case_id / case_log_id 之一）。
+ *   - 传 clear_target: true → 三个 wire 字段全部显式发 null，解除绑定。
+ * 「不传」与「传 null」在 exclude_unset 语义下必须分开表达，所以解除绑定不能省略字段，
+ * 也不能用 target_type=null 表达（那样既发不了 null 又读出「不传」）。
  */
 export interface UpdateReminderIn {
   reminder_type: string
   content: string
   /** ISO 字符串，如 2026-10-22T14:00:00（不带时区，Django 按当前时区解释，同 create） */
   due_at: string
+  /** 关联对象类型；不传 = 保持原绑定，传则必须同时给 target_id */
+  target_type?: TargetType | null
+  target_id?: number | null
+  /** 解除关联（三字段全置 null）；与 target_type 互斥，同时传以 clear_target 为准 */
+  clear_target?: boolean
 }
 
 /** 后端写权限校验失败时（REMINDER_NOT_OWNER）的 403 由调用方 toast 兜底，这里不做特殊分支 */
 export async function updateReminder(reminderId: number, payload: UpdateReminderIn): Promise<void> {
-  await remindersApi.put(String(reminderId), { json: payload })
+  const { target_type, target_id, clear_target, ...rest } = payload
+  // 与 createReminder 同一张穷举表：三个 key 必须写全，拼错编译期就报
+  const fieldByTarget: Record<TargetType, 'contract_id' | 'case_id' | 'case_log_id'> = {
+    contract: 'contract_id',
+    case: 'case_id',
+    case_log: 'case_log_id',
+  }
+  let targetFields: Record<string, number | null> = {}
+  if (clear_target) {
+    // 模型 CheckConstraint 是「最多绑一个」，三个都 null 合法；必须**显式**发 null，
+    // 否则 exclude_unset 会把缺省字段当成「不改」
+    targetFields = { contract_id: null, case_id: null, case_log_id: null }
+  } else if (target_type) {
+    // 只填对应的那一个 id，其余三个保持缺省（后端拿 existing + data 合并后校验互斥）
+    targetFields[fieldByTarget[target_type]] = target_id ?? null
+  }
+  await remindersApi.put(String(reminderId), { json: { ...rest, ...targetFields } })
 }
