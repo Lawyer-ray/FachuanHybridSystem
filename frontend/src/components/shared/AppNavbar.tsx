@@ -252,7 +252,7 @@ export function AppNavbar({
 
       {/* 退出确认：破坏性操作，明确告知后果再执行 */}
       <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
-        <DialogContent className="max-w-[360px]">
+        <DialogContent className="sm:max-w-[360px]">
           <DialogHeader>
             <DialogTitle>确认退出登录？</DialogTitle>
             <DialogDescription>退出后需要重新输入账号密码。当前未保存的编辑会丢失。</DialogDescription>

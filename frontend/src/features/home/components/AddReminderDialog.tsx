@@ -133,7 +133,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
           右侧控件与「保存」按钮被推出视口。minmax(0,…) 把列 min 钳到 0，
           内层 min-w-0 + truncate 才真正生效（同 PaymentDialog 的修法）。
           max-h + overflow-y-auto：内容多/视口矮时内部滚动，不让底部按钮被顶出。*/}
-      <DialogContent className="grid-cols-[minmax(0,1fr)] max-h-[calc(100%-2rem)] overflow-y-auto max-w-[380px]">
+      <DialogContent className="grid-cols-[minmax(0,1fr)] max-h-[calc(100%-2rem)] overflow-y-auto sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle className="text-[15px]">新增安排</DialogTitle>
           <DialogDescription className="mt-0.5 text-[12px] text-muted-foreground">

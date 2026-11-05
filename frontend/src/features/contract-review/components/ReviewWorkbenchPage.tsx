@@ -276,7 +276,7 @@ export function ReviewWorkbenchPage() {
       </div>
 
       <AlertDialog open={confirmFinalize} onOpenChange={setConfirmFinalize}>
-        <AlertDialogContent className="max-w-[360px]">
+        <AlertDialogContent className="max-w-none sm:max-w-[360px]">
           <AlertDialogHeader>
             <AlertDialogTitle>还有 {pendingCount} 处建议未决策</AlertDialogTitle>
             <AlertDialogDescription>

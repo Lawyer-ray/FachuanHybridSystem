@@ -69,7 +69,12 @@ export function EventDetailDialog({ event, onClose, onSaved, onOpenCase, onToggl
 
   return (
     <Dialog open onOpenChange={(open) => !open && handleDialogClose()}>
-      <DialogContent className="max-w-[440px] gap-0 p-0" showCloseButton={false}>
+      {/* grid-cols-[minmax(0,1fr)]：DialogContent 是单列 auto grid，auto 轨道的 min
+          取内容 min-content。标题与「关联对象」字段里都是不可断行的长合同名/
+          案名（truncate = nowrap），不钳住轨道就会把列撑到远超 440px，
+          右侧内容与按钮被推出视口（同 AddReminderDialog 的修法）。
+          max-h + overflow-y-auto：详情行多或视口矮时内部滚动。*/}
+      <DialogContent className="grid-cols-[minmax(0,1fr)] max-h-[calc(100%-2rem)] overflow-y-auto sm:max-w-[440px] gap-0 p-0" showCloseButton={false}>
         {/* 头部：日期时间 + 标题 + 关闭。不显示「庭期」这类类别词——
             所有开庭提醒都是庭期，等于废话；真有混合类型时看详情行也够 */}
         <DialogHeader className="flex-row items-start gap-3 border-b border-border px-5 py-4">
@@ -78,8 +83,17 @@ export function EventDetailDialog({ event, onClose, onSaved, onOpenCase, onToggl
               {formatCN(parseKey(event.day))} {event.time}
               {event.is_today ? ' · 今天' : ''}
             </DialogDescription>
-            <DialogTitle className={cn('mt-1 text-[15px] leading-snug font-semibold', event.is_completed && 'text-muted-foreground line-through')}>
-              {event.title}
+            {/* 编辑态标题固定为「编辑安排」：event.title 的口径是「关联对象名优先」
+                （见 calendar_view_service 的 title=target_name or content），
+                绑了长合同名后标题会被整段合同名占满、撑成多行；
+                编辑时合同名本来就该只出现在「关联对象」字段里。 */}
+            <DialogTitle
+              className={cn(
+                'mt-1 text-[15px] leading-snug font-semibold',
+                !editing && event.is_completed && 'text-muted-foreground line-through',
+              )}
+            >
+              {editing ? '编辑安排' : event.title}
             </DialogTitle>
           </div>
           <button
