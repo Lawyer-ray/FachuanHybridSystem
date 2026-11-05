@@ -271,6 +271,37 @@ describe('AddReminderDialog：各输入 onChange', () => {
     container.remove()
   })
 
+  // 布局回归：长合同名把弹窗撑出视口、右侧控件与保存按钮点不到
+  it('弹窗用 minmax(0,1fr) 钳住 grid 轨道，长标题不会撑破宽度', async () => {
+    const { container } = renderDialog()
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement
+    // DialogContent 是单列 auto grid，auto 轨道的 min 是内容 min-content。
+    // 关联对象选中态是不可断行的长合同名（truncate=nowrap），不钳住轨道就会
+    // 把列撑到远超弹窗宽度，整块内容横向溢出、保存按钮被推出视口。
+    expect(dialog.className).toContain('grid-cols-[minmax(0,1fr)]')
+    // 纵向兜底：内容多/视口矮时内部滚动，不让底部按钮被顶出
+    expect(dialog.className).toContain('max-h-[calc(100%-2rem)]')
+    expect(dialog.className).toContain('overflow-y-auto')
+    container.remove()
+  })
+
+  it('表单控件统一 w-full，不与下方输入框错位', async () => {
+    const { container } = renderDialog()
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement
+    // 类型下拉与两处 input 都要撑满，否则右侧留白、和下面的框不齐
+    const select = dialog.querySelector('select') as HTMLSelectElement
+    expect(select.className).toContain('w-full')
+    const inputs = Array.from(dialog.querySelectorAll('input'))
+    for (const input of inputs) {
+      expect(input.className).toContain('w-full')
+    }
+    container.remove()
+  })
+
   it('Dialog onOpenChange(false) 触发 onClose', async () => {
     const { onClose } = renderDialog()
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy())

@@ -127,7 +127,13 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
 
   return (
     <Dialog open={day != null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[380px]">
+      {/* grid-cols-[minmax(0,1fr)]：DialogContent 是单列 auto grid，auto 轨道的
+          min 是内容 min-content。关联对象选中态那行是不可断行的长合同名
+          （truncate = nowrap），会把列撑到远超 380px，整块内容横向溢出、
+          右侧控件与「保存」按钮被推出视口。minmax(0,…) 把列 min 钳到 0，
+          内层 min-w-0 + truncate 才真正生效（同 PaymentDialog 的修法）。
+          max-h + overflow-y-auto：内容多/视口矮时内部滚动，不让底部按钮被顶出。*/}
+      <DialogContent className="grid-cols-[minmax(0,1fr)] max-h-[calc(100%-2rem)] overflow-y-auto max-w-[380px]">
         <DialogHeader>
           <DialogTitle className="text-[15px]">新增安排</DialogTitle>
           <DialogDescription className="mt-0.5 text-[12px] text-muted-foreground">
@@ -139,7 +145,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-medium">类型</span>
             <select
-              className="h-9 rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
+              className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
@@ -281,7 +287,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-medium">内容</span>
             <input
-              className="h-9 rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
+              className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={(e) => {
@@ -296,7 +302,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-medium">时刻</span>
             <input
-              className="h-9 rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] tabular-nums outline-none focus:border-ring/40"
+              className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] tabular-nums outline-none focus:border-ring/40"
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
