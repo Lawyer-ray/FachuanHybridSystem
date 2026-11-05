@@ -524,7 +524,6 @@ class GuaranteeFormFillingMixin:  # pragma: no cover
                         dropdown_input.press("Backspace", timeout=1200)
                     except Exception:
                         logger.debug("清空下拉输入框失败（已忽略）", exc_info=True)
-                        pass
 
             dropdown_input.fill("")
             _random_wait(0.4, 0.8)
