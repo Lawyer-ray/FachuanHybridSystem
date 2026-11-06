@@ -69,7 +69,8 @@ class TestModelValidationMethod:
     def test_legal_client_accepts_legal_doc_type(self):
         client = _make_client(Client.LEGAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.BUSINESS_LICENSE)
-        doc.validate_doc_type_for_client()  # 不抛
+        # 合法组合不应抛异常
+        assert doc.validate_doc_type_for_client() is None
 
     def test_natural_client_rejects_legal_doc_type(self):
         client = _make_client(Client.NATURAL)
@@ -82,7 +83,8 @@ class TestModelValidationMethod:
         """关键回归：Model.clean() 不再拦这类行，否则 formset 的 DELETE 行会被锁死。"""
         client = _make_client(Client.LEGAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.ID_CARD)
-        doc.full_clean(exclude={"client"})  # 不应抛 ValidationError
+        # 校验下沉到表单层后，Model.full_clean() 不应再因类型不匹配抛错
+        assert doc.full_clean(exclude={"client"}) is None
 
 
 class TestInlineFormsetDeleteNotBlocked:

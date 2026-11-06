@@ -49,7 +49,10 @@ def _file_exists(file_path: str | None) -> bool:
     return (root / file_path).exists()
 
 
-def _is_valid(client_type: str, doc_type: str) -> bool:
+def _is_valid(client_type: str | None, doc_type: str | None) -> bool:
+    """判断证件类型是否适用于主体类型；无法判定时返回 True（不擅自处理）。"""
+    if not client_type or not doc_type:
+        return True
     if client_type == "natural":
         return doc_type in NATURAL_DOC_TYPES
     if client_type in {"legal", "non_legal_org"}:
