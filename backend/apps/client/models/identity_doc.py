@@ -91,15 +91,24 @@ class ClientIdentityDoc(models.Model):
     def media_url(self) -> str | None:
         return resolve_media_url(self.file_path)
 
-    def clean(self) -> None:
-        if self.client:
-            if self.client.client_type == Client.NATURAL and self.doc_type not in self._NATURAL_DOC_TYPES:
-                raise ValidationError({"doc_type": "Invalid doc type for natural person"})
-            if (
-                self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG}
-                and self.doc_type not in self._LEGAL_DOC_TYPES
-            ):
-                raise ValidationError({"doc_type": "Invalid doc type for organization"})
+    def validate_doc_type_for_client(self) -> None:
+        """校验证件类型是否适用于当事人主体类型。
+
+        刻意不命名为 clean()：Django 对 inline formset 的**每一行**（含勾了「删除」的行）
+        都会在 save 之前调 Model.full_clean() → clean()，DELETE 标记只在
+        save_existing_objects() 阶段生效，赶不上校验。若把该校验放在 clean() 里，
+        一行历史脏数据会让整个表单集既存不下去也删不掉（2026-11-06 实爆：client 112 /
+        证件 63，法人主体持 id_card）。因此校验下沉到表单层按需调用，Model 层只提供方法。
+
+        四层架构上 Model 只放字段定义与只读派生，业务校验由 Admin/Service 层发起也符合规范。
+        """
+        if not self.client_id or not self.doc_type:
+            return
+        client = self.client
+        if client.client_type == Client.NATURAL and self.doc_type not in self._NATURAL_DOC_TYPES:
+            raise ValidationError({"doc_type": "Invalid doc type for natural person"})
+        if client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG} and self.doc_type not in self._LEGAL_DOC_TYPES:
+            raise ValidationError({"doc_type": "Invalid doc type for organization"})
 
     class Meta:
         verbose_name = "证件"

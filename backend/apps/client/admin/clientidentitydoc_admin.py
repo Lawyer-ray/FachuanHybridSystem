@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
@@ -39,6 +40,29 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):  # pragma: no c
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields["file_upload"].help_text = "当前文件：" + Path(self.instance.file_path or "").name
+
+    def clean(self) -> Any:
+        """校验证件类型与当事人主体类型匹配。
+
+        校验已从 ClientIdentityDoc.clean() 下沉到表单层（原因见该模型方法 docstring：
+        放在 Model.clean() 会让 inline 的 DELETE 行被锁死）。独立证件管理页不跑 inline
+        表单，所以这里必须显式调用，否则能绕过约束再造脏数据。
+        """
+        cleaned = super().clean() or {}
+        client = cleaned.get("client")
+        doc_type = cleaned.get("doc_type")
+        # 注意：此时自带的 self.instance 还没被 _post_clean 的 construct_instance 回填，
+        # 必须用 cleaned_data 组装一个实例来校验，否则拿到的是旧值（doc_type 为空）而静默跳过。
+        if client is not None and doc_type:
+            instance = self.instance
+            instance.client = client
+            instance.doc_type = doc_type
+            try:
+                instance.validate_doc_type_for_client()
+            except ValidationError as exc:
+                # 抛的是 {"doc_type": ...} 字典形式，field 必须为 None
+                self.add_error(None, exc)
+        return cleaned
 
 
 @admin.register(ClientIdentityDoc)

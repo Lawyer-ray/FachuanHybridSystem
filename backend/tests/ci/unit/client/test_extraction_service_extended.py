@@ -87,25 +87,45 @@ class TestExtractRuleBasedSuccess:
         assert result.confidence == 0.3
 
     @patch.object(IdentityExtractionService, "_ocr_extract", return_value="some text")
-    @patch.object(IdentityExtractionService, "_resolve_doc_type", return_value="id_card")
+    @patch.object(IdentityExtractionService, "_resolve_doc_type", return_value="business_license")
     @patch.object(IdentityExtractionService, "_extract_by_rules", return_value=None)
     @patch.object(IdentityExtractionService, "_llm_extract", return_value={"name": "张三"})
     def test_no_rules_with_model_calls_llm(self, mock_llm, mock_rules, mock_resolve, mock_ocr):
         svc = _make_service()
-        result = svc.extract(b"image", "id_card", model="qwen2.5")
+        result = svc.extract(b"image", "business_license", model="qwen2.5")
         assert result.extraction_method == "ocr_llm"
         assert result.confidence == 0.8
         mock_llm.assert_called_once()
 
     @patch.object(IdentityExtractionService, "_ocr_extract", return_value="some text")
-    @patch.object(IdentityExtractionService, "_resolve_doc_type", return_value="id_card")
-    @patch.object(IdentityExtractionService, "_extract_by_rules", return_value={"name": "张三", "id_number": None})
-    @patch.object(IdentityExtractionService, "_llm_extract", return_value={"name": "张三"})
+    @patch.object(IdentityExtractionService, "_resolve_doc_type", return_value="business_license")
+    @patch.object(IdentityExtractionService, "_extract_by_rules", return_value={"company_name": None})
+    @patch.object(IdentityExtractionService, "_llm_extract", return_value={"company_name": "张三公司"})
     def test_rule_no_key_with_model_fallback_llm(self, mock_llm, mock_rules, mock_resolve, mock_ocr):
         svc = _make_service()
-        result = svc.extract(b"image", "id_card", model="qwen2.5")
+        result = svc.extract(b"image", "business_license", model="qwen2.5")
         assert result.extraction_method == "ocr_llm"
         mock_llm.assert_called_once()
+
+    @patch.object(IdentityExtractionService, "_ocr_extract", return_value="some text")
+    @patch.object(IdentityExtractionService, "_resolve_doc_type", return_value="id_card")
+    @patch.object(
+        IdentityExtractionService,
+        "_extract_by_rules",
+        return_value={"name": "张三", "id_number": "440681199708253000", "expiry_date": "2025-11-07"},
+    )
+    @patch.object(
+        IdentityExtractionService,
+        "_llm_extract",
+        return_value={"name": "张三", "id_number": "440681199708253000", "expiry_date": "2045-11-07"},
+    )
+    def test_id_card_always_runs_llm_for_expiry(self, mock_llm, mock_rules, mock_resolve, mock_ocr):
+        """身份证类即使规则命中身份证号，也必须跑 LLM 交叉校验到期日。"""
+        svc = _make_service()
+        result = svc.extract(b"image", "id_card", model="qwen2.5")
+        assert result.extraction_method == "ocr_regex_llm"
+        mock_llm.assert_called_once()
+        assert result.extracted_data["expiry_date"] == "2045-11-07"
 
 
 class TestExtractExceptionHandling:

@@ -27,7 +27,7 @@ class TestClient:
         assert Client.LEGAL == "legal"
         assert Client.NON_LEGAL_ORG == "non_legal_org"
 
-    def test_clean_legal_with_representative(self):
+    def test_validate_doc_type_legal_with_representative(self):
         """法人类型有法定代表人应通过验证"""
         client = Client(
             name="测试公司",
@@ -36,7 +36,7 @@ class TestClient:
         )
         assert client.clean() is None  # 不应抛异常
 
-    def test_clean_legal_without_representative(self):
+    def test_validate_doc_type_legal_without_representative(self):
         """法人类型没有法定代表人应抛出 ValidationError"""
         client = Client(
             name="测试公司",
@@ -46,7 +46,7 @@ class TestClient:
         with pytest.raises(ValidationError):
             client.clean()
 
-    def test_clean_legal_empty_representative(self):
+    def test_validate_doc_type_legal_empty_representative(self):
         """法人类型法定代表人为空字符串应抛出 ValidationError"""
         client = Client(
             name="测试公司",
@@ -56,7 +56,7 @@ class TestClient:
         with pytest.raises(ValidationError):
             client.clean()
 
-    def test_clean_natural_no_representative_required(self):
+    def test_validate_doc_type_natural_no_representative_required(self):
         """自然人类型不需要法定代表人"""
         client = Client(
             name="张三",
@@ -64,7 +64,7 @@ class TestClient:
         )
         assert client.clean() is None  # 不应抛异常
 
-    def test_clean_non_legal_org_with_representative(self):
+    def test_validate_doc_type_non_legal_org_with_representative(self):
         """非法人组织有负责人应通过验证"""
         client = Client(
             name="合伙企业",
@@ -95,74 +95,74 @@ class TestClientIdentityDoc:
         doc = ClientIdentityDocFactory(client=client, doc_type=ClientIdentityDoc.ID_CARD)
         assert str(doc) == ""
 
-    def test_clean_natural_valid_doc_type(self):
+    def test_validate_doc_type_natural_valid_doc_type(self):
         """自然人使用身份证应通过验证"""
         client = ClientFactory(client_type=Client.NATURAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.ID_CARD, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_natural_passport(self):
+    def test_validate_doc_type_natural_passport(self):
         """自然人使用护照应通过验证"""
         client = ClientFactory(client_type=Client.NATURAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.PASSPORT, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_natural_hk_macao_permit(self):
+    def test_validate_doc_type_natural_hk_macao_permit(self):
         """自然人使用港澳通行证应通过验证"""
         client = ClientFactory(client_type=Client.NATURAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.HK_MACAO_PERMIT, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_natural_residence_permit(self):
+    def test_validate_doc_type_natural_residence_permit(self):
         """自然人使用居住证应通过验证"""
         client = ClientFactory(client_type=Client.NATURAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.RESIDENCE_PERMIT, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_natural_household_register(self):
+    def test_validate_doc_type_natural_household_register(self):
         """自然人使用户口本应通过验证"""
         client = ClientFactory(client_type=Client.NATURAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.HOUSEHOLD_REGISTER, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_natural_invalid_doc_type(self):
+    def test_validate_doc_type_natural_invalid_doc_type(self):
         """自然人使用营业执照应抛出 ValidationError"""
         client = ClientFactory(client_type=Client.NATURAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.BUSINESS_LICENSE, file_path="test.pdf")
         with pytest.raises(ValidationError):
-            doc.clean()
+            doc.validate_doc_type_for_client()
 
-    def test_clean_legal_valid_doc_type(self):
+    def test_validate_doc_type_legal_valid_doc_type(self):
         """法人使用营业执照应通过验证"""
         client = ClientFactory(client_type=Client.LEGAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.BUSINESS_LICENSE, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_legal_rep_id_card(self):
+    def test_validate_doc_type_legal_rep_id_card(self):
         """法人使用法定代表人身份证应通过验证"""
         client = ClientFactory(client_type=Client.LEGAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.LEGAL_REP_ID_CARD, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_legal_invalid_doc_type(self):
+    def test_validate_doc_type_legal_invalid_doc_type(self):
         """法人使用普通身份证应抛出 ValidationError"""
         client = ClientFactory(client_type=Client.LEGAL)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.ID_CARD, file_path="test.pdf")
         with pytest.raises(ValidationError):
-            doc.clean()
+            doc.validate_doc_type_for_client()
 
-    def test_clean_non_legal_org_valid(self):
+    def test_validate_doc_type_non_legal_org_valid(self):
         """非法人组织使用营业执照应通过验证"""
         client = ClientFactory(client_type=Client.NON_LEGAL_ORG)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.BUSINESS_LICENSE, file_path="test.pdf")
-        assert doc.clean() is None
+        assert doc.validate_doc_type_for_client() is None
 
-    def test_clean_non_legal_org_invalid(self):
+    def test_validate_doc_type_non_legal_org_invalid(self):
         """非法人组织使用护照应抛出 ValidationError"""
         client = ClientFactory(client_type=Client.NON_LEGAL_ORG)
         doc = ClientIdentityDoc(client=client, doc_type=ClientIdentityDoc.PASSPORT, file_path="test.pdf")
         with pytest.raises(ValidationError):
-            doc.clean()
+            doc.validate_doc_type_for_client()
 
     def test_doc_type_choices(self):
         choices = dict(ClientIdentityDoc.DOC_TYPE_CHOICES)
