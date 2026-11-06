@@ -2,7 +2,7 @@ import { Check } from 'lucide-react'
 
 import type { CalendarEvent } from '../api'
 import { formatCN, parseKey } from '../domain'
-import { briefLine, cellMetaLines } from '../api-meta'
+import { briefLine, cardTargetLine, cardTitle, cellMetaLines } from '../api-meta'
 import { KIND_ROW } from '../constants'
 import { isKeyKind } from '../api-meta'
 import { cn } from '@/lib/utils'
@@ -104,6 +104,7 @@ export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick
       <div className={cn('flex flex-col gap-[2px]', 'max-[760px]:hidden')}>
         {shown.map((e) => {
           const meta = cellMetaLines(e)
+          const targetLine = cardTargetLine(e)
           return (
             <div
               key={e.id}
@@ -167,7 +168,10 @@ export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick
                   <span className="truncate text-[9px] tabular-nums opacity-55">-{e.time_range.split('-')[1]}</span>
                 )}
               </span>
-              <span className={cn('truncate font-medium leading-tight', e.is_completed && 'line-through')}>{e.title}</span>
+              {/* 主标题用 cardTitle（行动项优先）：后端 title 是「关联对象名优先」，
+                  绑了长合同名后格子里只剩合同名，看不出这条安排要做什么 */}
+              <span className={cn('truncate font-medium leading-tight', e.is_completed && 'line-through')}>{cardTitle(e)}</span>
+              {targetLine && <span className="truncate text-[9.5px] opacity-70">{targetLine}</span>}
               {meta.primary && <span className="truncate text-[9.5px] opacity-75">{meta.primary}</span>}
               {meta.secondary && <span className="truncate text-[9.5px] opacity-60">{meta.secondary}</span>}
             </div>
@@ -190,7 +194,7 @@ export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick
           {events.slice(0, MOBILE_TITLE_ROWS).map((e) => (
             <span key={e.id} className={cn('flex min-w-0 items-center gap-[3px]', e.is_completed && 'opacity-40')}>
               <i className={cn('h-[5px] w-[5px] flex-none rounded-full', isKeyKind(e.kind) ? 'bg-status-red' : 'bg-input')} />
-              <span className={cn('truncate text-[9.5px] leading-[1.3]', e.is_completed && 'line-through')}>{e.title}</span>
+              <span className={cn('truncate text-[9.5px] leading-[1.3]', e.is_completed && 'line-through')}>{cardTitle(e)}</span>
             </span>
           ))}
           {mobileHidden > 0 && <em className="text-[9px] leading-none text-muted-foreground">+{mobileHidden}</em>}
@@ -207,7 +211,7 @@ export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick
           {events.map((e) => (
             <div key={e.id} className={cn('flex items-baseline gap-[7px]', e.is_completed && 'opacity-60')}>
               <span className="w-8 flex-none text-[10px] text-background/60 tabular-nums">{e.time}</span>
-              <span className={cn('truncate font-medium', e.is_completed && 'line-through')}>{e.title}</span>
+              <span className={cn('truncate font-medium', e.is_completed && 'line-through')}>{cardTitle(e)}</span>
               <span className="max-w-[110px] truncate text-[10.5px] text-background/50">{briefLine(e)}</span>
             </div>
           ))}

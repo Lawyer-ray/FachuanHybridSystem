@@ -119,6 +119,38 @@ describe('EventDetailDialog 编辑入口', () => {
     expect(screen.queryByPlaceholderText(/提交证据目录/)).toBeNull()
   })
 
+  // 布局回归：编辑态标题不要被整段合同名占满
+  it('编辑态标题固定为「编辑安排」，不显示关联对象名', () => {
+    // 只关心「标题够长」这一件事，构造一串不含真实主体信息的占位文本
+    const longName = '测试用超长标题'.repeat(8)
+    renderDialog(
+      ev({
+        can_edit: true,
+        // title 的口径是「关联对象名优先」，绑长合同后 title 就是整段合同名
+        title: longName,
+        target_type: '合同',
+        target_name: longName,
+      }),
+    )
+
+    // 详情态照常显示 title
+    expect(screen.getByText(longName)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    // 编辑态：标题换成固定文案，长合同名只留在「关联对象」字段里
+    expect(screen.getByText('编辑安排')).toBeTruthy()
+  })
+
+  it('弹窗用 minmax(0,1fr) 钳住 grid 轨道，长标题不会撑破宽度', () => {
+    renderDialog(ev({ can_edit: true }))
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement
+    expect(dialog.className).toContain('grid-cols-[minmax(0,1fr)]')
+    expect(dialog.className).toContain('max-h-[calc(100%-2rem)]')
+    expect(dialog.className).toContain('overflow-y-auto')
+    // 宽度必须带 sm: 变体，裸 max-w-* 会被基类的 sm:max-w-lg 压制
+    expect(dialog.className).toContain('sm:max-w-[440px]')
+  })
+
   it('保存：经 updateReminder 下发四项字段，成功后回调 onSaved', async () => {
     const { onSaved } = renderDialog(ev({ can_edit: true, content: '旧内容', day: '2026-10-21', time: '09:00' }))
 

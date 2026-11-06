@@ -27,7 +27,7 @@ export function BindProviderDialog({ provider, onOpenChange }: Props) {
   const name = provider?.display_name ?? ''
   return (
     <Dialog open={provider !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[380px]">
+      <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle>绑定{name}</DialogTitle>
           <DialogDescription>

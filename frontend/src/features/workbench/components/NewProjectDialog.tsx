@@ -137,7 +137,7 @@ export function NewProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[620px]">
+      <DialogContent className="sm:max-w-[620px]">
         <DialogHeader>
           <DialogTitle>新建项目</DialogTitle>
           <DialogDescription>可以直接建空白项目，也可以从示例开始 —— 字段会预先填好。</DialogDescription>

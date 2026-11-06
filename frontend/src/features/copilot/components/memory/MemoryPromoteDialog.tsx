@@ -150,7 +150,7 @@ export function MemoryPromoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] max-w-[min(720px,calc(100vw-2rem))] flex-col">
+      <DialogContent className="flex max-h-[85vh] sm:max-w-[min(720px,calc(100vw-2rem))] flex-col">
         <DialogHeader>
           <DialogTitle>提炼为团队/律所规则</DialogTitle>
           <DialogDescription>
