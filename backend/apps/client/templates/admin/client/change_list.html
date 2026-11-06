@@ -27,6 +27,26 @@
 {% block extrahead %}
 {{ block.super }}
 <style>
+    .id-doc-alert {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin: 0 0 12px;
+        padding: 10px 14px;
+        border-radius: 4px;
+        background: var(--fc-error-bg, #fdf2f2);
+        border: 1px solid var(--fc-error-border, #f5c2c2);
+        font-size: 13px;
+    }
+    .id-doc-alert.missing {
+        background: var(--fc-bg-muted, #f8f8f8);
+        border-color: var(--fc-border, #ddd);
+        color: var(--fc-text-secondary, #666);
+    }
+    .id-doc-alert-item.expired { color: #ba2121; font-weight: 700; }
+    .id-doc-alert-item.expiring { color: #b45309; font-weight: 700; }
+    .id-doc-alert-hint { color: var(--fc-text-muted, #888); font-size: 12px; }
     .object-tools {
         display: flex;
         justify-content: flex-end;
@@ -293,6 +313,24 @@
 
 {% block content %}
 <div class="client-admin-container" x-data="clientAdminApp()">
+    {% if id_doc_expired_count or id_doc_expiring_count %}
+    <div class="id-doc-alert">
+        {% if id_doc_expired_count %}
+        <span class="id-doc-alert-item expired">⚠ {{ id_doc_expired_count }} 位当事人证件已过期</span>
+        {% endif %}
+        {% if id_doc_expiring_count %}
+        <span class="id-doc-alert-item expiring">⏳ {{ id_doc_expiring_count }} 位当事人证件 30 天内到期</span>
+        {% endif %}
+        <span class="id-doc-alert-hint">详见列表「证件」列，点击当事人可补传新证件</span>
+    </div>
+    {% endif %}
+    {% if id_doc_missing_count %}
+    <div class="id-doc-alert missing">
+        <span class="id-doc-alert-item">📄 {{ id_doc_missing_count }} 位当事人证件缺失（无文件或无到期日）</span>
+        <span class="id-doc-alert-hint">这些证件无法自动提醒到期，建议补传</span>
+    </div>
+    {% endif %}
+
     {{ block.super }}
 
     <!-- 成功消息提示 -->

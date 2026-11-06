@@ -73,4 +73,22 @@ class ClientAdminFileMixin:
                     "action": "save_and_rename_file",
                 },
             )
+            self._submit_expiry_recognition(doc.pk)
         return file_path
+
+    def _submit_expiry_recognition(self, doc_id: int) -> None:
+        """上传后异步识别到期日期。
+
+        上传是证件信息进入系统的唯一时刻，也只有在此时才有文件可识别，因此
+        到期日必须在这里采集（而不是靠定时任务扫库：历史数据 30 份身份证中仅 1 份
+        有文件，扫也扫不出东西）。识别失败/无平台配置只记日志，绝不阻断上传。
+        """
+        try:
+            from apps.client.adapters.task_service_adapter import TaskServiceAdapter
+
+            TaskServiceAdapter().submit_task(
+                "apps.client.tasks.recognize_expiry_date_task",
+                doc_id,
+            )
+        except Exception:
+            logger.warning("提交证件到期日识别任务失败，跳过", extra={"doc_id": doc_id}, exc_info=True)

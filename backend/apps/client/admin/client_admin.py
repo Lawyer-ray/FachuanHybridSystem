@@ -223,7 +223,7 @@ class ClientAdminForm(forms.ModelForm[Client]):  # pragma: no cover
 
 @admin.register(Client)
 class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
-    list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
+    list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative", "id_doc_status")
     list_per_page = 50
     # 安全审计：id_number 不进 search_fields——身份证号会随搜索词进查询串/访问日志
     search_fields = ("name", "phone")
@@ -413,6 +413,58 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
             messages.SUCCESS,
         )
         return redirect(f"../../{client_id}/change/")
+
+    @admin.display(description="证件", ordering=None)
+    def id_doc_status(self, obj: Client) -> str:
+        """证件到期状态（读时计算，不写库）。
+
+        已过期 → 红；临期 → 橙；无文件/无到期日 → 灰（**这条最重要**：
+        历史上 30 份身份证只有 1 份有文件，不标出来就是假绿灯）。
+        """
+        from apps.client.services.identity_expiry_service import (
+            STATUS_EXPIRED,
+            STATUS_EXPIRING,
+            STATUS_MISSING,
+            aggregate_client_status,
+            witness_today,
+        )
+
+        docs = [(d.expiry_date, bool(d.file_path)) for d in obj.identity_docs.all()]
+        st = aggregate_client_status(docs, witness_today())
+        if st.status == STATUS_EXPIRED:
+            return format_html('<span style="{}">{}</span>', "color:#ba2121;font-weight:600", "⚠ 已过期")
+        if st.status == STATUS_EXPIRING:
+            return format_html('<span style="color:#b45309;font-weight:600">⏳ {} 天后到期</span>', st.days_left)
+        if st.status == STATUS_MISSING:
+            return format_html('<span style="{}">{}</span>', "color:#888", "— 无证件")
+        return format_html('<span style="{}">{}</span>', "color:#197a3d", "✓")
+
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+        """列表页页头注入证件到期汇总，让律师一进页就看到该处理的当事人。"""
+        from apps.client.services.identity_expiry_service import (
+            STATUS_EXPIRED,
+            STATUS_EXPIRING,
+            STATUS_MISSING,
+            aggregate_client_status,
+            summarize_counts,
+            witness_today,
+        )
+
+        today = witness_today()
+        qs = self.get_queryset(request).prefetch_related("identity_docs")
+        statuses = [
+            aggregate_client_status([(d.expiry_date, bool(d.file_path)) for d in c.identity_docs.all()], today)
+            for c in qs
+        ]
+        counts = summarize_counts(statuses)
+        ctx: dict[str, Any] = {
+            "id_doc_expired_count": counts.get(STATUS_EXPIRED, 0),
+            "id_doc_expiring_count": counts.get(STATUS_EXPIRING, 0),
+            "id_doc_missing_count": counts.get(STATUS_MISSING, 0),
+        }
+        if extra_context:
+            ctx.update(extra_context)
+        return super().changelist_view(request, extra_context=ctx)
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Client]:  # pragma: no cover
         return super().get_queryset(request).prefetch_related("identity_docs", "property_clues__attachments")

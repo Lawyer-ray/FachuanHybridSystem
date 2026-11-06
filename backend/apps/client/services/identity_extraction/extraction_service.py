@@ -33,6 +33,10 @@ _MAX_LLM_OCR_LINES = 80
 _ID_NUMBER_LOG_RE = re.compile(r"\d{17}[\dXx]")
 _PII_LOG_MAX_CHARS = 200
 
+# 「有效期限」是**起止区间**的证件类型：到期日是区间末日，正则极易错拿签发日。
+# 此类证件即使规则命中关键字段，也必须同时跑 LLM 交叉校验。
+_DOC_TYPES_WITH_EXPIRY_RANGE = frozenset({"id_card", "legal_rep_id_card"})
+
 
 def _sanitize_pii_for_log(text: str) -> str:
     """日志脱敏：掩码 18 位身份证号并截断（安全审计：OCR/LLM 内容含 PII 禁止明文 INFO）。"""
@@ -105,13 +109,19 @@ class IdentityExtractionService:
 
             # 2. 优先规则提取（身份证场景稳定且低延迟）
             extracted_data = self._extract_by_rules(raw_text, resolved_doc_type)
+            # 提前初始化：规则提取返回 None 时下面的合并分支也要用到
+            needs_llm_for_expiry = resolved_doc_type in _DOC_TYPES_WITH_EXPIRY_RANGE and bool(model)
             if extracted_data is not None:
                 # 判断规则提取是否命中关键字段（元字段不参与判定）
                 data_fields = {k: v for k, v in extracted_data.items() if k not in ("field_confidence",)}
                 key_field_hit = bool(
                     data_fields.get("id_number") or data_fields.get("credit_code") or data_fields.get("company_name")
                 )
-                if key_field_hit or not model:
+                # 身份证类的「有效期限」是起止区间，正则极易把签发日错当当到期日。
+                # 即使正则可命中身份证号，也不能跳过 LLM——实跌 2026-11-06：
+                # 年月日格式/OCR 断行时正则返回 2025-11-07（签发日），真值 2045-11-07，
+                # 会直接造成「已过期」误报。此类证件一律同时跑 LLM 做交叉校验。
+                if (key_field_hit and not needs_llm_for_expiry) or not model:
                     logger.info(
                         "证件识别使用规则提取: requested_doc_type=%s, resolved_doc_type=%s, model=%s, key_field_hit=%s",
                         doc_type,
@@ -149,12 +159,37 @@ class IdentityExtractionService:
                     extraction_method="ocr_regex_partial",
                 )
 
-            extracted_data = self._llm_extract(raw_text, resolved_doc_type, model)
+            llm_data = self._llm_extract(raw_text, resolved_doc_type, model)
+
+            if needs_llm_for_expiry and extracted_data is not None:
+                # 身份证类：以 LLM 为准，正则结果仅用于发现分歧。
+                # 实跌正则会把签发日错当当到期日（2025-11-07 vs 真值 2045-11-07），
+                # 故不一致时保留 LLM 值并告警，便于事后量化正则问题。
+                regex_expiry = (extracted_data or {}).get("expiry_date")
+                llm_expiry = llm_data.get("expiry_date")
+                if regex_expiry != llm_expiry:
+                    logger.warning(
+                        "证件到期日正则与 LLM 不一致，以 LLM 为准: doc_type=%s, regex=%s, llm=%s",
+                        resolved_doc_type,
+                        regex_expiry,
+                        llm_expiry,
+                    )
+                # 其余字段（姓名/地址等）保留正则的高置信结果，只改用 LLM 的到期日
+                merged = dict(extracted_data or {})
+                merged.update({k: v for k, v in llm_data.items() if v not in (None, "")})
+                merged["expiry_date"] = llm_expiry
+                return ExtractionResult(
+                    doc_type=resolved_doc_type,
+                    raw_text=raw_text,
+                    extracted_data=merged,
+                    confidence=0.9,
+                    extraction_method="ocr_regex_llm",
+                )
 
             return ExtractionResult(
                 doc_type=resolved_doc_type,
                 raw_text=raw_text,
-                extracted_data=extracted_data,
+                extracted_data=llm_data,
                 confidence=0.8,
                 extraction_method="ocr_llm",
             )
@@ -785,30 +820,72 @@ class IdentityExtractionService:
         return None
 
     def _extract_expiry_date(self, lines: list[str]) -> str | None:
-        for line in lines:
-            if "长期" in line and ("有效" in line or "期限" in line):
+        """从 OCR 文本行中提取证件到期日。
+
+        身份证的「有效期限」是**起止区间**（如 ``2025.11.07-2045.11.07``），到期日是区间末日。
+
+        历史实现的 bug（2026-11-06 实测）：区间正则匹配失败时直接落到「单日期」分支，
+        取到的是起始日（签发日），导致 2045 年到期的证件被判成 2025 年已过期。
+        触发场景：``年月日`` 格式（``2025年11月07日至2045年11月07日``）、OCR 丢分隔符
+        （``2025.11.072045.11.07``）、OCR 把区间拆成两行。
+
+        修复要点：
+        1. 先把相邻行拼成候选窗口再匹配，消除 OCR 断行影响；
+        2. 区间锚点兼容 ``- ~ 至 到 — –`` 以及「年月日」「./-」混排；
+        3. 同一窗口出现 **多个日期** 时一律取最后一个（到期日在后），只有在明确
+           出现「有效期至/至」且只有一个日期时才当作到期日，其余单日期一律不采信，
+           避免再把签发日当到期日。
+        """
+        # 日期：兼容 2025.11.07 / 2025-11-07 / 2025/11/07 / 2025年11月07日；
+        # 末尾可选的「日」必须吃掉，否则「2025年11月07日至2045年...」里的「日」
+        # 会挡住后面的分隔符，导致区间匹配失败。
+        date_pat = r"(\d{4})[.\-/年]\s*(\d{1,2})[.\-/月]\s*(\d{1,2})\s*日?"
+        # 区间：起始日 + 分隔符 + (结束日 | 长期)
+        range_re = re.compile(date_pat + r"\s*(?:[-~至到—–]|起至)\s*(长期|" + date_pat + r")")
+        marker_re = re.compile(r"有效期(?:限)?至[:：]?\s*" + date_pat)
+
+        def _next_line(lines: list[str], idx: int) -> str:
+            return lines[idx + 1] if idx + 1 < len(lines) else ""
+
+        for i, line in enumerate(lines):
+            window = line
+            # 提前拼接下一行：OCR 常把「2025.11.07-」和「2045.11.07」拆成两行
+            nxt = _next_line(lines, i)
+            if nxt:
+                window = f"{line} {nxt}"
+
+            if "长期" in window and ("有效" in window or "期限" in window):
                 return "2099-12-31"
 
-            range_match = re.search(
-                r"(?:有效期限?|有效期)?[:：]?\s*(\d{4})[.\-/年](\d{1,2})[.\-/月](\d{1,2})\s*(?:[-~至到])\s*(长期|\d{4}[.\-/年]\d{1,2}[.\-/月]\d{1,2})",
-                line,
-            )
+            range_match = range_re.search(window)
             if range_match:
-                end_part = range_match.group(4)
-                if end_part == "长期":
+                end_group = range_match.group(4)
+                if end_group == "长期":
                     return "2099-12-31"
+                return self._format_date_parts(
+                    range_match.group(5),
+                    range_match.group(6),
+                    range_match.group(7),
+                )
 
-                end_date_match = re.search(r"(\d{4})[.\-/年](\d{1,2})[.\-/月](\d{1,2})", end_part)
-                if end_date_match:
+            # 明确「有效期至 X」且窗口内只有这一个日期时才采信
+            marker_match = marker_re.search(window)
+            if marker_match and not range_re.search(window):
+                all_dates = re.findall(date_pat, window)
+                if len(all_dates) == 1:
                     return self._format_date_parts(
-                        end_date_match.group(1),
-                        end_date_match.group(2),
-                        end_date_match.group(3),
+                        marker_match.group(1),
+                        marker_match.group(2),
+                        marker_match.group(3),
                     )
 
-            until_match = re.search(r"(?:有效期限?|有效期至)[:：]?\s*(\d{4})[.\-/年](\d{1,2})[.\-/月](\d{1,2})", line)
-            if until_match:
-                return self._format_date_parts(until_match.group(1), until_match.group(2), until_match.group(3))
+            # 侜底：OCR 把区间分隔符整个吃掉（如 2025.11.072045.11.07）。
+            # 仅在「有效期」字样附近出现 **两个及以上** 完整日期时，取最后一个作到期日。
+            if "有效" in window or "期限" in window:
+                compact = re.findall(r"(\d{4})[.\-/年](\d{1,2})[.\-/月](\d{1,2})", window)
+                if len(compact) >= 2:
+                    y, m, d = compact[-1]
+                    return self._format_date_parts(y, m, d)
 
         return None
 
