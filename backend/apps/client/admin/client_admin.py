@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 from django.apps import apps as django_apps
 from django.contrib import admin, messages
+from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db.models import QuerySet
 from django.forms import ModelForm
@@ -145,6 +146,34 @@ class ClientIdentityDocInlineForm(forms.ModelForm[ClientIdentityDoc]):  # pragma
     class Meta:  # pragma: no cover
         model = ClientIdentityDoc
         fields = ["doc_type", "upload"]
+
+    def clean(self) -> Any:
+        """校验证件类型与主体类型匹配，勾了「删除」的行跳过。
+
+        校验原本在 ClientIdentityDoc.clean() 里，但 Django 对 formset 每一行（含 DELETE 行）
+        都会先跑 Model.clean()，导致一行历史脏数据把整个表单集锁死：既存不下去也删不掉
+        （2026-11-06 实爆）。放到表单层即可精确跳过待删除行。
+        """
+        cleaned = super().clean() or {}
+        if cleaned.get("DELETE"):
+            return cleaned
+        doc_type = cleaned.get("doc_type")
+        if not doc_type:
+            return cleaned
+        # 此时 self.instance 尚未被 _post_clean 的 construct_instance 回填，必须手动赋上，
+        # 否则校验拿到的是旧 doc_type（新建行为空）而静默跳过。
+        instance = self.instance
+        parent_instance: Any = getattr(self, "parent_instance", None)
+        if not instance.client_id and parent_instance is not None:
+            instance.client_id = parent_instance.pk
+        instance.doc_type = doc_type
+        try:
+            instance.validate_doc_type_for_client()
+        except ValidationError as exc:
+            # validate_doc_type_for_client() 抛的是 {"doc_type": ...} 字典形式，
+            # 此时 add_error 的 field 必须为 None（Django 会按字典 key 自行挂到对应字段）。
+            self.add_error(None, exc)
+        return cleaned
 
 
 class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: ignore[type-arg]  # pragma: no cover
