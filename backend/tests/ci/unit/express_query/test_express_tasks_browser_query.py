@@ -131,15 +131,18 @@ class TestExecuteBrowserQueryFailure:
         assert task.status == ExpressQueryTaskStatus.SUCCESS
 
 
-class TestBrowserSessionRetention:
-    """登录态保留：任务结束不得主动关闭浏览器。"""
+class TestBrowserLifetimeIsSelfManaged:
+    """浏览器生命周期由 query_and_save_pdf 内的 async with 自包含。
 
-    def test_tasks_module_no_longer_closes_browser(self) -> None:
-        # 快递查询依赖 EMS/顺丰登录态；关闭浏览器会迫使每个任务重新扫码，
-        # 因此 tasks 模块不应再引用 disconnect_playwright。
+    历史教训：把浏览器实例 / async context manager 跨 asyncio.run() 边界持有，
+    会让收尾的 shutdown_asyncgens 永久阻塞，任务卡在"查询中"直到 600s 超时。
+    """
+
+    def test_tasks_does_not_hold_browser_manager(self) -> None:
+        # tasks 模块不应再自己管理浏览器生命周期
         assert not hasattr(eq_tasks, "disconnect_playwright")
 
-    def test_successful_run_does_not_call_close_browser(self, fake_tmp_pdf: Path) -> None:
+    def test_successful_run_completes(self, fake_tmp_pdf: Path) -> None:
         task = _make_task()
 
         with (
@@ -152,3 +155,15 @@ class TestBrowserSessionRetention:
             _execute_browser_query(task)
 
         assert task.status == ExpressQueryTaskStatus.SUCCESS
+
+    def test_failure_is_recorded(self, fake_tmp_pdf: Path) -> None:
+        task = _make_task()
+
+        with (
+            patch.object(eq_tasks, "ExpressBrowserQueryService") as svc_cls,
+            patch.object(eq_tasks, "default_storage"),
+        ):
+            svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=RuntimeError("boom"))
+
+            with pytest.raises(RuntimeError, match="boom"):
+                _execute_browser_query(task)

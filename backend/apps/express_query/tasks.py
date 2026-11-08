@@ -124,15 +124,13 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
             output_pdf=tmp_pdf_path,
         )
 
-        # 不在任务结束时关闭浏览器：快递查询需要保留 EMS/顺丰登录态，
-        # 关闭窗口能靠 user_data_dir 恢复，但进程内复用可免去重复启动与登录检测。
-        # 注意：协程结束后浏览器上下文会随事件循环销毁，
-        # 但 Cookie 已写入 user_data_dir，下次任务启动仍是已登录状态。
-        async def _run_and_cleanup() -> str:
-            return await coro
-
+        # 浏览器的启动与关闭由 query_and_save_pdf 用 async with 自包含，
+        # 保证在同一个 asyncio.run() 生命周期内完成。
+        # 若把浏览器实例或 async context manager 跨循环持有，
+        # asyncio.run() 收尾的 shutdown_asyncgens 会永久阻塞，任务卡在“查询中”。
+        #
         # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
-        final_url = asyncio.run(_run_and_cleanup())
+        final_url = asyncio.run(coro)
         pdf_content = tmp_pdf_path.read_bytes()
     finally:
         tmp_pdf_path.unlink(missing_ok=True)

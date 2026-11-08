@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from apps.express_query.models import ExpressCarrierType
 
-from .browser_launcher import close_browser, disconnect_playwright, ensure_browser
+from .browser_launcher import EXPRESS_PROFILE, close_browser, disconnect_playwright
 from .ems_query_handler import query_ems
 from .sf_query_handler import query_sf
 
@@ -31,77 +31,99 @@ class ExpressBrowserQueryService:  # pragma: no cover
     async def query_and_save_pdf(
         self, carrier_type: str, tracking_number: str, output_pdf: Path
     ) -> str:  # pragma: no cover
+        """查询快递并输出 PDF。
+
+        浏览器的启动与关闭**必须**落在同一个 ``asyncio.run()`` 生命周期内：
+        ``asyncio.run()`` 收尾会 ``shutdown_asyncgens``，若浏览器实例或
+        async generator 跨循环存活，收尾会永久阻塞（任务卡在「查询中」，
+        直到 worker 600s 超时）。故此处用 ``async with`` 自包含整个流程。
+        """
         output_pdf.parent.mkdir(parents=True, exist_ok=True)
 
-        context = await ensure_browser()
-        page = await context.new_page()
+        from apps.core.services.browser import create_browser_async
 
-        try:
-            if carrier_type == ExpressCarrierType.SF:
-                await query_sf(page, tracking_number)
-            elif carrier_type == ExpressCarrierType.EMS:
-                await query_ems(page, tracking_number)
-            else:
-                raise ValueError(f"Unsupported carrier: {carrier_type}")
+        async with create_browser_async(EXPRESS_PROFILE) as (warmup_page, context):
+            try:
+                await warmup_page.close()
+            except Exception:
+                logger.debug("关闭启动页失败（已忽略）", exc_info=True)
 
-            final_url = str(page.url)
-
-            # EMS 详情页加载较慢，等待完全加载
-            if carrier_type == ExpressCarrierType.EMS:
+            page = await context.new_page()
+            try:
+                return await self._run_query(carrier_type, tracking_number, output_pdf, page)
+            finally:
                 try:
-                    await page.wait_for_load_state("networkidle", timeout=30000)
-                    logger.info("EMS page fully loaded")
+                    await page.close()
+                    logger.info("Closed query result tab")
                 except Exception:
-                    logger.warning("EMS networkidle timeout, proceeding with PDF anyway")
-                await asyncio.sleep(2)
+                    logger.debug("关闭查询结果页失败（已忽略）", exc_info=True)
 
-            # EMS 详情页可能在 PDF 生成前才弹出浮层（如「电话异常反馈」），
-            # 这里做最后一道清理，避免弹窗/遮罩被 page.pdf() 打进 PDF。
-            if carrier_type == ExpressCarrierType.EMS:
-                from .ems_query_handler import _dismiss_ems_overlays
+    async def _run_query(
+        self,
+        carrier_type: str,
+        tracking_number: str,
+        output_pdf: Path,
+        page: Page,
+    ) -> str:
+        """在已就绪的 page 上执行查询并输出 PDF。"""
+        if carrier_type == ExpressCarrierType.SF:
+            await query_sf(page, tracking_number)
+        elif carrier_type == ExpressCarrierType.EMS:
+            await query_ems(page, tracking_number)
+        else:
+            raise ValueError(f"Unsupported carrier: {carrier_type}")
 
-                await _dismiss_ems_overlays(page)
-                await asyncio.sleep(0.3)
+        final_url = str(page.url)
 
-            # 注入日期时间 + URL 页眉
-            from django.utils import timezone
+        # EMS 详情页加载较慢，等待完全加载
+        if carrier_type == ExpressCarrierType.EMS:
+            try:
+                await page.wait_for_load_state("networkidle", timeout=30000)
+                logger.info("EMS page fully loaded")
+            except Exception:
+                logger.warning("EMS networkidle timeout, proceeding with PDF anyway")
+            await asyncio.sleep(2)
 
-            now_str: str = timezone.localtime().strftime("%Y-%m-%d %H:%M:%S")
-            watermark_id: str = "__express_watermark__"
-            await page.evaluate(
-                """([text, url, id]) => {
-                    const div = document.createElement('div');
-                    div.id = id;
-                    div.style.cssText =
-                        'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
-                        'background:rgba(0,0,0,0.75);color:#fff;padding:6px 16px;' +
-                        'font-size:12px;font-family:-apple-system,sans-serif;' +
-                        'display:flex;justify-content:space-between;pointer-events:none;';
-                    div.innerHTML = '<span>' + text + '</span><span style="opacity:0.7;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + url + '</span>';
-                    document.body.appendChild(div);
-                }""",
-                [now_str, final_url, watermark_id],
-            )
+        # EMS 详情页可能在 PDF 生成前才弹出浮层（如「电话异常反馈」），
+        # 这里做最后一道清理，避免弹窗/遮罩被 page.pdf() 打进 PDF。
+        if carrier_type == ExpressCarrierType.EMS:
+            from .ems_query_handler import _dismiss_ems_overlays
+
+            await _dismiss_ems_overlays(page)
             await asyncio.sleep(0.3)
 
-            await page.pdf(
-                path=str(output_pdf),
-                format="A4",
-                print_background=True,
-                margin={"top": "40px", "bottom": "20px", "left": "20px", "right": "20px"},
-            )
+        # 注入日期时间 + URL 页眉
+        from django.utils import timezone
 
-            # 移除页眉
-            await page.evaluate(
-                "(id) => { const el = document.getElementById(id); if (el) el.remove(); }",
-                watermark_id,
-            )
+        now_str: str = timezone.localtime().strftime("%Y-%m-%d %H:%M:%S")
+        watermark_id: str = "__express_watermark__"
+        await page.evaluate(
+            """([text, url, id]) => {
+                const div = document.createElement('div');
+                div.id = id;
+                div.style.cssText =
+                    'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+                    'background:rgba(0,0,0,0.75);color:#fff;padding:6px 16px;' +
+                    'font-size:12px;font-family:-apple-system,sans-serif;' +
+                    'display:flex;justify-content:space-between;pointer-events:none;';
+                div.innerHTML = '<span>' + text + '</span><span style="opacity:0.7;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + url + '</span>';
+                document.body.appendChild(div);
+            }""",
+            [now_str, final_url, watermark_id],
+        )
+        await asyncio.sleep(0.3)
 
-            return final_url
-        finally:
-            try:
-                await page.close()
-                logger.info("Closed query result tab")
-            except Exception:
-                logger.debug("关闭查询结果页失败（已忽略）", exc_info=True)
-                pass
+        await page.pdf(
+            path=str(output_pdf),
+            format="A4",
+            print_background=True,
+            margin={"top": "40px", "bottom": "20px", "left": "20px", "right": "20px"},
+        )
+
+        # 移除页眉
+        await page.evaluate(
+            "(id) => { const el = document.getElementById(id); if (el) el.remove(); }",
+            watermark_id,
+        )
+
+        return final_url
