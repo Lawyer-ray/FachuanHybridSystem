@@ -64,6 +64,8 @@ jobs:
       MAX_OPEN_ALERTS: "0"
       # 只卡 rule.severity 为这几档的告警；note 故意不在列。
       BLOCKING_SEVERITIES: "error, warning"
+      EVENT_NAME: ${{ github.event_name }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Report open CodeQL alerts
@@ -95,6 +97,28 @@ jobs:
             degrade "查询 code-scanning alerts 失败（多为 fork PR 上 security-events 权限不足），跳过校验。原始错误：$(tr '\n' ' ' < "$alerts_err")"
           fi
 
+          # ── PR 事件：只卡「本 PR 自己引入」的告警 ───────────────────────────
+          #
+          # 历史缺陷：本门禁原先不分场景，统一查 `state=open` 全仓告警。而 GitHub 的
+          # open 告警基线是**默认分支（main）**上的存量，于是出现一个悖论：
+          # 「专门去修某条告警」的 PR，因为 main 上那条告警还没合入消失，自己这一关
+          # 永远红——门禁名不副实（注释写的是「不得新增」，行为却是「main 必须已经干净」）。
+          #
+          # 现在按事件分流：
+          #   - pull_request：只统计 most_recent_instance.ref 指向本 PR（refs/pull/N/merge）
+          #     的告警，即「本 PR 的分析新引入的」。main 上的既有存量不归本 PR 负责。
+          #   - push / schedule：保持原语义，卡默认分支存量基线 MAX_OPEN_ALERTS。
+          PR_REF=""
+          if [ "${EVENT_NAME:-}" = "pull_request" ] && [ -n "${PR_NUMBER:-}" ]; then
+            PR_REF="refs/pull/${PR_NUMBER}/merge"
+          fi
+
+          if [ -n "$PR_REF" ]; then
+            echo "事件=pull_request，仅统计本 PR（${PR_REF}）引入的告警；main 存量不计入本门禁。"
+          else
+            echo "事件=${EVENT_NAME:-unknown}，按默认分支存量基线校验（阈值 ${MAX_OPEN_ALERTS}）。"
+          fi
+
           if ! command -v jq >/dev/null 2>&1; then
             degrade "runner 上没有 jq，跳过告警数校验。"
           fi
@@ -111,14 +135,16 @@ jobs:
           # GitHub 把 code-scanning alerts 以「分页数组」返回，gh --paginate 逐页追加成多个
           # 顶层 JSON 值（不是合并成一个数组）。所以必须用 [inputs] 而不是 -s：-s 只 slurp
           # 第一个值，多页时会静默丢掉后面所有页。
-          blocking_json="$(jq -n --arg blocking "${BLOCKING_SEVERITIES}" '
+          blocking_json="$(jq -n --arg blocking "${BLOCKING_SEVERITIES}" --arg pr_ref "$PR_REF" '
             ( $blocking | split(",") | map(gsub("^\\s+|\\s+$"; "")) ) as $levels
             | [ inputs | .[] ]
             | map(
                 . as $a
                 | ($a.rule.severity // "") as $sev
-                # 命中才保留，未命中输出 empty 丢弃元素（比 select 在这里更可控）。
-                | if ($levels | index($sev)) != null
+                # PR 场景：只保留「最近一次实例就落在本 PR ref 上」的告警。
+                | ($a.most_recent_instance.ref // "") as $inst_ref
+                | if ($pr_ref != "" and $inst_ref != $pr_ref) then empty
+                  elif ($levels | index($sev)) != null
                   then {
                       number: $a.number,
                       rule: $a.rule.id,
@@ -135,12 +161,21 @@ jobs:
             degrade "告警列表解析失败或返回结构异常，跳过校验（请人工确认 Security tab）。"
           fi
 
-          total_open="$(jq -n '[ inputs | .[] ] | length' "$alerts_file")"
+          if [ -n "$PR_REF" ]; then
+            total_open="$(jq -n --arg pr_ref "$PR_REF" '[ inputs | .[] | select((.most_recent_instance.ref // "") == $pr_ref) ] | length' "$alerts_file")"
+          else
+            total_open="$(jq -n '[ inputs | .[] ] | length' "$alerts_file")"
+          fi
           blocking_count="$(printf '%s' "$blocking_json" | jq 'length')"
 
           {
             echo "## CodeQL alerts gate"
             echo ""
+            if [ -n "$PR_REF" ]; then
+              echo "- 统计范围：仅本 PR（\`${PR_REF}\`）的分析；main 上的既有存量不计入"
+            else
+              echo "- 统计范围：默认分支存量（全仓 open 告警）"
+            fi
             echo "- open 告警总数：${total_open}（note 级不参与门禁）"
             echo "- error/warning 告警数：${blocking_count}"
             echo "- 阈值 MAX_OPEN_ALERTS：${MAX_OPEN_ALERTS}"
@@ -161,8 +196,16 @@ jobs:
           fi
 
           if [ "$blocking_count" -gt "$MAX_OPEN_ALERTS" ]; then
-            echo "::error title=CodeQL alerts gate::error/warning 级 open 告警 ${blocking_count} 条，超过阈值 ${MAX_OPEN_ALERTS}。请清理后再合入。"
+            if [ -n "$PR_REF" ]; then
+              echo "::error title=CodeQL alerts gate::本 PR 新引入 error/warning 级告警 ${blocking_count} 条，超过阈值 ${MAX_OPEN_ALERTS}。请修复后再合入。"
+            else
+              echo "::error title=CodeQL alerts gate::error/warning 级 open 告警 ${blocking_count} 条，超过阈值 ${MAX_OPEN_ALERTS}。请清理后再合入。"
+            fi
             exit 1
           fi
 
-          echo "error/warning 级 open 告警 ${blocking_count} 条，未超过阈值 ${MAX_OPEN_ALERTS}，通过。"
+          if [ -n "$PR_REF" ]; then
+            echo "本 PR 新引入的 error/warning 级告警 ${blocking_count} 条，未超过阈值 ${MAX_OPEN_ALERTS}，通过。"
+          else
+            echo "error/warning 级 open 告警 ${blocking_count} 条，未超过阈值 ${MAX_OPEN_ALERTS}，通过。"
+          fi
