@@ -53,6 +53,12 @@ backend/venv312/
 local_settings.py
 db.sqlite3
 *.sqlite3
+# SQLite 全系列变体（-shm/-wal 已单列，此处涵盖 *.sqlite / *.db 等）
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+!.mypy_cache/**/*.db
 media/
 staticfiles/
 backend/apiSystem/db.sqlite3
