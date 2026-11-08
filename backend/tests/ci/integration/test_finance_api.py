@@ -13,6 +13,27 @@ from apps.finance.models import LPRRate
 # ===================================================================
 
 
+@pytest.fixture(autouse=True)
+def _no_lpr_auto_sync(monkeypatch):
+    """禁止 LPR 计算接口触发真实浏览器同步（本文件只测 API 契约，不测抓取）。
+
+    背景（CI 偶发红）：`/api/v1/lpr/calculate` 在 rate_mode="lpr" 时会先调
+    `LPRSyncService().sync_if_needed()`，数据“过期”时会启动 CloakBrowser 去
+    下载浏览器二进制并抓官网。本文件造的 2024 年利率相对“今天”必然过期，
+    于是每次跑都会走真实下载——CI 上下载源超时（The read operation timed out）
+    就会把用例卡到 pytest-timeout 60s 自杀，并连带 idle-in-transaction 报错。
+
+    实测同一 PR 连续 3 次绿、第 4 次红，根因是外部网络，不是业务逻辑。
+    抓取链路由 tests/ci/unit/finance/ 下的服务层用例覆盖，这里应该 hermetic。
+    """
+    from apps.finance.services.lpr import LPRSyncService
+
+    def _skip_sync(self):
+        return {"synced": False, "sync_result": None, "error": None}
+
+    monkeypatch.setattr(LPRSyncService, "sync_if_needed", _skip_sync, raising=True)
+
+
 @pytest.mark.django_db
 def test_list_lpr_rates(authenticated_client):
     LPRRate.objects.create(
