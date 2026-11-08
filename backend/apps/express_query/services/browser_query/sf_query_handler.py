@@ -17,22 +17,34 @@ SF_HOME_URL: Final[str] = "https://www.sf-express.com/"
 SF_QUERY_URL: Final[str] = "https://www.sf-express.com/chn/sc/waybill/list"
 
 
-async def query_sf(page: Page, tracking_number: str) -> None:  # pragma: no cover
+class ExpressLoginRequired(Exception):
+    """顺丰未登录，需要人工扫码。上层据此把任务转入「等待登录」。"""
+
+
+async def query_sf(
+    page: Page, tracking_number: str, *, allow_interactive_login: bool = True
+) -> None:  # pragma: no cover
     await page.goto(SF_HOME_URL, wait_until="networkidle")
     await asyncio.sleep(2)
     await _dismiss_sf_overlays(page)
 
-    await click_first(
-        page,
-        [
-            "button:has-text('登录')",
-            "a:has-text('登录')",
-            ".login-btn",
-        ],
-    )
-
-    logger.info("SF page opened, please login in the browser")
-    await _wait_for_sf_login(page)
+    # 先探测：已登录就直接查，没登录时无人值守场景立刻抛，
+    # 避免死等 300 秒占满 worker。
+    if await is_sf_logged_in(page):
+        logger.info("SF user already logged in, skipping login flow")
+    elif not allow_interactive_login:
+        raise ExpressLoginRequired("顺丰未登录，需要律师扫码")
+    else:
+        await click_first(
+            page,
+            [
+                "button:has-text('登录')",
+                "a:has-text('登录')",
+                ".login-btn",
+            ],
+        )
+        logger.info("SF page opened, please login in the browser")
+        await _wait_for_sf_login(page)
 
     await page.goto(SF_QUERY_URL, wait_until="networkidle")
     await asyncio.sleep(3)
@@ -51,6 +63,22 @@ async def query_sf(page: Page, tracking_number: str) -> None:  # pragma: no cove
     await asyncio.sleep(3)
 
     await _open_sf_waybill_detail(page, tracking_number)
+
+
+async def is_sf_logged_in(page: Page) -> bool:  # pragma: no cover
+    """轻量探测顺丰当前是否已登录。"""
+    from .browser_utils import has_any_visible
+
+    user_selectors = ["[class*='user']", "[class*='avatar']", "text=退出登录"]
+    login_selectors = ["button:has-text('登录')", "a:has-text('登录')"]
+
+    try:
+        if await has_any_visible(page, user_selectors):
+            return True
+        return not await has_any_visible(page, login_selectors)
+    except Exception:
+        logger.debug("探测顺丰登录态失败（已忽略）", exc_info=True)
+        return False
 
 
 async def _wait_for_sf_login(page: Page) -> None:  # pragma: no cover

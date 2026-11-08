@@ -107,3 +107,66 @@ class ExpressQueryTask(models.Model):
     def __str__(self) -> str:
         reference = self.tracking_number or self.title or str(self.id)
         return f"{self.status} - {reference}"
+
+
+class ExpressSessionStatus(models.TextChoices):
+    EMPTY = "empty", "未登录"
+    ACTIVE = "active", "已登录"
+    EXPIRED = "expired", "已失效"
+
+
+class ExpressSession(models.Model):
+    """律师在 EMS / 顺丰的扫码登录会话。
+
+    每个 (律师, 承运商) 最多一份，对应磁盘上一个独立的浏览器 profile 目录。
+    登录态载体是浏览器 Cookie（落盘），不是账号密码。
+    """
+
+    id: int
+    lawyer_id: int
+    lawyer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="express_sessions",
+        verbose_name="律师",
+    )
+    carrier_type = models.CharField(
+        max_length=16,
+        choices=ExpressCarrierType.choices,
+        verbose_name="承运商",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=ExpressSessionStatus.choices,
+        default=ExpressSessionStatus.EMPTY,
+        verbose_name="登录状态",
+    )
+    last_login_at = models.DateTimeField(blank=True, null=True, verbose_name="最后扫码时间")
+    last_verified_at = models.DateTimeField(blank=True, null=True, verbose_name="最后确认有效时间")
+    last_error = models.CharField(max_length=255, blank=True, default="", verbose_name="最后错误")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "快递账号会话"
+        verbose_name_plural = "快递账号会话"
+        ordering: ClassVar[list[str]] = ["lawyer_id", "carrier_type"]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            # 一人一承运商最多一份会话
+            models.UniqueConstraint(fields=["lawyer", "carrier_type"], name="uniq_express_session_lawyer_carrier"),
+        ]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["carrier_type", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.lawyer_id}-{self.get_carrier_type_display()}-{self.status}"
+
+    @property
+    def profile_key(self) -> str:
+        """浏览器 profile 目录名：一人一承运商一个目录。"""
+        return f"{self.carrier_type}_{self.lawyer_id}"
+
+    @property
+    def is_ready(self) -> bool:
+        return self.status == ExpressSessionStatus.ACTIVE
