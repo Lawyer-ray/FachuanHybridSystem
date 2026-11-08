@@ -55,6 +55,14 @@ class ExpressBrowserQueryService:  # pragma: no cover
                     logger.warning("EMS networkidle timeout, proceeding with PDF anyway")
                 await asyncio.sleep(2)
 
+            # EMS 详情页可能在 PDF 生成前才弹出浮层（如「电话异常反馈」），
+            # 这里做最后一道清理，避免弹窗/遮罩被 page.pdf() 打进 PDF。
+            if carrier_type == ExpressCarrierType.EMS:
+                from .ems_query_handler import _dismiss_ems_overlays
+
+                await _dismiss_ems_overlays(page)
+                await asyncio.sleep(0.3)
+
             # 注入日期时间 + URL 页眉
             from django.utils import timezone
 

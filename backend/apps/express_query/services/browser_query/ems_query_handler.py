@@ -115,6 +115,125 @@ async def query_ems(page: Page, tracking_number: str) -> None:  # pragma: no cov
     await _open_ems_waybill_detail(page, tracking_number)
 
 
+async def _close_ems_phone_feedback_dialog(page: Page) -> bool:  # pragma: no cover
+    """
+    关闭 EMS 详情页的「电话异常反馈」弹窗。
+
+    这个弹窗只在邮件详情页（express_detail）到达后异步弹出，会盖住物流轨迹，
+    且其关闭按钮不带通用 class，用通用启发式容易漏掉，故单独精确处理。
+    """
+    selectors = [
+        "text=电话异常反馈",
+        "[class*='dialog']:has-text('电话异常反馈')",
+        "[class*='modal']:has-text('电话异常反馈')",
+        "[class*='popup']:has-text('电话异常反馈')",
+    ]
+
+    for selector in selectors:
+        try:
+            if await page.locator(selector).count() == 0:
+                continue
+        except Exception:
+            logger.debug("探测电话异常反馈弹窗失败（已忽略）", exc_info=True)
+            continue
+
+        # 优先点右上角的关闭（× / close 图标），其次点任一关闭类按钮
+        corner_clicked = False
+        try:
+            corner_clicked = await page.evaluate(
+                """() => {
+                    const nodes = Array.from(document.querySelectorAll('body *'));
+                    for (const el of nodes) {
+                        const text = String(el.innerText || el.textContent || '');
+                        if (!text.includes('电话异常反馈')) continue;
+                        // 向上找弹窗容器
+                        let container = el;
+                        for (let depth = 0; depth < 6 && container; depth += 1) {
+                            const rect = container.getBoundingClientRect();
+                            const style = window.getComputedStyle(container);
+                            if (rect.width >= 200 && rect.height >= 100 &&
+                                (style.position === 'fixed' || style.position === 'absolute')) {
+                                const x = rect.right - 16;
+                                const y = rect.top + 16;
+                                const target = document.elementFromPoint(x, y);
+                                if (target instanceof HTMLElement) {
+                                    target.click();
+                                    return true;
+                                }
+                            }
+                            container = container.parentElement;
+                        }
+                    }
+                    return false;
+                }"""
+            )
+        except Exception:
+            logger.debug("点击电话异常反馈弹窗关闭角标失败（已忽略）", exc_info=True)
+            pass
+
+        if corner_clicked:
+            logger.info("  Closed 电话异常反馈 dialog via corner button")
+            await asyncio.sleep(0.6)
+            try:
+                if await page.locator("text=电话异常反馈").count() == 0:
+                    return True
+            except Exception:
+                logger.debug("确认电话异常反馈弹窗是否关闭失败（已忽略）", exc_info=True)
+                pass
+
+        for close_sel in [
+            "button:has-text('关闭')",
+            "span:has-text('关闭')",
+            ".close-btn",
+            ".icon-close",
+            "[class*='close']",
+            "[class*='dialog'] [role='button']",
+        ]:
+            if await click_first(page, [close_sel]):
+                logger.info("  Closed 电话异常反馈 dialog via: %s", close_sel)
+                await asyncio.sleep(0.6)
+                try:
+                    if await page.locator("text=电话异常反馈").count() == 0:
+                        return True
+                except Exception:
+                    logger.debug("确认电话异常反馈弹窗是否关闭失败（已忽略）", exc_info=True)
+                    pass
+
+        # 兜底：弹窗无法通过点击关闭时直接隐藏，避免被 page.pdf() 打进 PDF
+        try:
+            hidden = await page.evaluate(
+                """() => {
+                    let hiddenAny = false;
+                    const nodes = Array.from(document.querySelectorAll('body *'));
+                    for (const el of nodes) {
+                        const text = String(el.innerText || el.textContent || '');
+                        if (!text.includes('电话异常反馈')) continue;
+                        let container = el;
+                        for (let depth = 0; depth < 6 && container; depth += 1) {
+                            const rect = container.getBoundingClientRect();
+                            const style = window.getComputedStyle(container);
+                            if (rect.width >= 200 && rect.height >= 100 &&
+                                (style.position === 'fixed' || style.position === 'absolute')) {
+                                container.style.display = 'none';
+                                hiddenAny = true;
+                                break;
+                            }
+                            container = container.parentElement;
+                        }
+                    }
+                    return hiddenAny;
+                }"""
+            )
+            if hidden:
+                logger.info("  Force-hid 电话异常反馈 dialog (could not close by click)")
+                return True
+        except Exception:
+            logger.debug("强制隐藏电话异常反馈弹窗失败（已忽略）", exc_info=True)
+            pass
+
+    return False
+
+
 async def _dismiss_ems_overlays(page: Page) -> None:  # pragma: no cover
     close_selectors = [
         "button:has-text('知道了')",
@@ -134,6 +253,9 @@ async def _dismiss_ems_overlays(page: Page) -> None:  # pragma: no cover
     ]
 
     logger.info("  Dismissing EMS popups...")
+
+    # 「电话异常反馈」是详情页专有弹窗，先用精确逻辑处理
+    await _close_ems_phone_feedback_dialog(page)
     for _ in range(8):
         closed_any = False
 
@@ -184,15 +306,30 @@ async def _dismiss_ems_overlays(page: Page) -> None:  # pragma: no cover
 
         try:
             await page.evaluate("""() => {
+                    // 关键：page.pdf() 只认 DOM 与样式，不认 pointer-events。
+                    // 想让它不出现在 PDF 里，必须 display:none，单纯禁用点击无效。
                     document.querySelectorAll('[class*="mask"], [class*="overlay"], [class*="modal-bg"]').forEach((element) => {
-                        element.style.pointerEvents = 'none';
+                        element.style.display = 'none';
+                    });
+                    // 顶层大弹窗同样隐藏（只处理 fixed 且 z-index 高的，避免误伤正文）
+                    Array.from(document.querySelectorAll('body *')).forEach((element) => {
+                        const style = window.getComputedStyle(element);
+                        const rect = element.getBoundingClientRect();
+                        if (
+                            style.position === 'fixed' &&
+                            Number(style.zIndex || '0') >= 100 &&
+                            rect.width >= 300 &&
+                            rect.height >= 200
+                        ) {
+                            element.style.display = 'none';
+                        }
                     });
                     document.querySelectorAll('button, a, input, textarea, [role="button"]').forEach((element) => {
                         element.style.pointerEvents = 'auto';
                     });
                 }""")
         except Exception:
-            logger.debug("解除弹窗遮罩失败（已忽略）", exc_info=True)
+            logger.debug("隐藏弹窗遮罩失败（已忽略）", exc_info=True)
             pass
 
         if not closed_any:
@@ -304,6 +441,13 @@ async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:  #
     # ---- 阶段2：展开全部物流轨迹 ----
     # EMS 详情页默认只显示部分轨迹，需要点击"展开全部"等按钮才能显示完整轨迹
     await _ems_expand_all_tracking(page)
+
+    # ---- 阶段3：详情页弹窗清理 ----
+    # 「电话异常反馈」等弹窗是在详情页到达后才异步弹出的，列表页那次清理覆盖不到，
+    # 必须在这里再清一次，否则会被后续 page.pdf() 原样打进 PDF。
+    await _dismiss_ems_overlays(page)
+    await asyncio.sleep(0.5)
+    await _dismiss_ems_overlays(page)
 
 
 async def _ems_expand_all_tracking(page: Page) -> None:  # pragma: no cover
