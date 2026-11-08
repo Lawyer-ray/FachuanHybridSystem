@@ -86,13 +86,18 @@ class TestSessionLock:
     def test_lock_released_on_exception(self, django_user_model) -> None:
         lawyer = django_user_model.objects.create_user(username="lawyer_a", password="x")
         session = get_or_create_session(lawyer, "ems")
+        key = f"express_query:session_lock:{session.id}"
 
         with pytest.raises(RuntimeError):
             with session_lock(session):
                 raise RuntimeError("boom")
 
+        # 异常退出后锁必须已释放，否则后续任务永远拿不到
+        assert cache.get(key) is None
+
+        # 且必须能重新拿到（真正验证可重入，而不是靠一个空 pass 块）
         with session_lock(session):
-            pass
+            assert cache.get(key) is not None
 
     def test_none_session_is_noop(self) -> None:
         # 无会话（无归属律师的历史任务）不加锁：嵌套获取也不应抛错
