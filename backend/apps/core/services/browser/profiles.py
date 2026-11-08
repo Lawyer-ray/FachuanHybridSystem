@@ -119,6 +119,11 @@ class BrowserProfile:  # pragma: no cover
         return args
 
 
+# 浏览器持久化数据根目录（含登录凭证，不入库、不提交）。
+# 放在 backend/data 而非 media：media 可能被清理任务/备份流程处理。
+_BROWSER_DATA_ROOT: Path = Path(__file__).resolve().parents[3] / ".." / "data" / "browser_profiles"
+
+
 # 预定义配置档案
 _PROFILES: dict[str, BrowserProfile] = {
     "default": BrowserProfile(name="default"),
@@ -133,9 +138,15 @@ _PROFILES: dict[str, BrowserProfile] = {
         headless=False,
         anti_detection=False,
     ),
+    # EMS / 顺丰快递查询：必须持久化登录态（Cookie 落盘），否则每个任务都要重新扫码。
+    # 用有头模式 + 持久化 user_data_dir；目录含登录凭证，已在 .gitignore 排除。
     "express": BrowserProfile(
         name="express",
-        cdp_url="http://localhost:9222",
+        headless=False,
+        anti_detection=True,
+        user_data_dir=str(_BROWSER_DATA_ROOT / "express"),
+        timeout=60_000,
+        navigation_timeout=60_000,
     ),
     # 金诚同达 OA 半自动页面（open_page：浏览器留给用户操作，必须有头）。
     # 与 jtn/stamp、jtn/archive 全自动链路的 _HEADED_PROFILE 语义一致。

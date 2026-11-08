@@ -53,6 +53,12 @@ backend/venv312/
 local_settings.py
 db.sqlite3
 *.sqlite3
+# SQLite 全系列变体（-shm/-wal 已单列，此处涵盖 *.sqlite / *.db 等）
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+!.mypy_cache/**/*.db
 media/
 staticfiles/
 backend/apiSystem/db.sqlite3
@@ -258,6 +264,9 @@ backend/apiSystem/db_new.sqlite3
 # 用户上传的媒体文件
 backend/media/
 media/
+
+# 浏览器持久化 profile（含 EMS/顺丰等第三方登录凭证 Cookie，绝不能入库）
+backend/data/browser_profiles/
 
 # API 结构快照（含接口细节，不应公开）
 backend/tests/structure/snapshots/*

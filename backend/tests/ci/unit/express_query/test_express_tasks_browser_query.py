@@ -56,9 +56,6 @@ class TestExecuteBrowserQuerySuccess:
             patch.object(eq_tasks, "default_storage") as storage,
         ):
             svc_cls.return_value.query_and_save_pdf = AsyncMock(return_value="https://track.example/sf")
-            _dp = AsyncMock()
-            patcher = patch.object(eq_tasks, "disconnect_playwright", _dp)
-            patcher.start()
             storage.save.return_value = "express_query/results/11/abcd1234_SF.pdf"
 
             _execute_browser_query(task)
@@ -67,8 +64,6 @@ class TestExecuteBrowserQuerySuccess:
             svc_cls.return_value.query_and_save_pdf.assert_awaited_once_with(
                 carrier_type="sf", tracking_number="SF1234567890123", output_pdf=fake_tmp_pdf
             )
-            _dp.assert_awaited_once()
-
             # PDF 经 default_storage 保存（media 落盘走存储服务，路径不可预测化）
             save_args = storage.save.call_args.args
             rel_path, content_file = save_args
@@ -101,9 +96,6 @@ class TestExecuteBrowserQueryFailure:
             patch.object(eq_tasks, "default_storage") as storage,
         ):
             svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=RuntimeError("login expired"))
-            _dp = AsyncMock()
-            patcher = patch.object(eq_tasks, "disconnect_playwright", _dp)
-            patcher.start()
 
             with pytest.raises(RuntimeError, match="login expired"):
                 _execute_browser_query(task)
@@ -112,7 +104,6 @@ class TestExecuteBrowserQueryFailure:
 
         # 失败也要清理临时文件、断开 Playwright；save 只发生在 querying 预切换
         assert not fake_tmp_pdf.exists()
-        _dp.assert_awaited_once()
         assert task.status == ExpressQueryTaskStatus.QUERYING
         assert task.save.call_args.kwargs["update_fields"] == ["status", "updated_at"]
 
@@ -127,9 +118,6 @@ class TestExecuteBrowserQueryFailure:
                 return "https://track.example/ems"
 
             svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=query_and_save_pdf)
-            _dp = AsyncMock()
-            patcher = patch.object(eq_tasks, "disconnect_playwright", _dp)
-            patcher.start()
 
             def record_save(**kwargs: object) -> None:
                 observed.append(f"save:{task.status}")
@@ -141,3 +129,41 @@ class TestExecuteBrowserQueryFailure:
         assert observed[0] == "save:querying"
         assert observed[1] == "query"
         assert task.status == ExpressQueryTaskStatus.SUCCESS
+
+
+class TestBrowserLifetimeIsSelfManaged:
+    """浏览器生命周期由 query_and_save_pdf 内的 async with 自包含。
+
+    历史教训：把浏览器实例 / async context manager 跨 asyncio.run() 边界持有，
+    会让收尾的 shutdown_asyncgens 永久阻塞，任务卡在"查询中"直到 600s 超时。
+    """
+
+    def test_tasks_does_not_hold_browser_manager(self) -> None:
+        # tasks 模块不应再自己管理浏览器生命周期
+        assert not hasattr(eq_tasks, "disconnect_playwright")
+
+    def test_successful_run_completes(self, fake_tmp_pdf: Path) -> None:
+        task = _make_task()
+
+        with (
+            patch.object(eq_tasks, "ExpressBrowserQueryService") as svc_cls,
+            patch.object(eq_tasks, "default_storage") as storage,
+        ):
+            svc_cls.return_value.query_and_save_pdf = AsyncMock(return_value="https://track.example/sf")
+            storage.save.return_value = "express_query/results/11/abcd1234_SF.pdf"
+
+            _execute_browser_query(task)
+
+        assert task.status == ExpressQueryTaskStatus.SUCCESS
+
+    def test_failure_is_recorded(self, fake_tmp_pdf: Path) -> None:
+        task = _make_task()
+
+        with (
+            patch.object(eq_tasks, "ExpressBrowserQueryService") as svc_cls,
+            patch.object(eq_tasks, "default_storage"),
+        ):
+            svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=RuntimeError("boom"))
+
+            with pytest.raises(RuntimeError, match="boom"):
+                _execute_browser_query(task)

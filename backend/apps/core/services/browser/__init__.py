@@ -98,6 +98,73 @@ def create_browser(  # pragma: no cover
 
 
 @asynccontextmanager
+async def _create_persistent_context_async(  # pragma: no cover
+    profile: BrowserProfile,
+    *,
+    session_id: str | None = None,
+) -> AsyncIterator[tuple[AsyncPage, AsyncBrowserContext]]:
+    """异步启动持久化浏览器上下文（登录态落盘）。
+
+    使用 ``launch_persistent_context_async`` 直接返回 BrowserContext，
+    Cookie / localStorage / IndexedDB 均保存在 ``user_data_dir`` 里。
+
+    Args:
+        profile: 浏览器配置档案
+        session_id: 未配置 user_data_dir 时，用它拼出临时会话目录
+    """
+    import tempfile
+    from pathlib import Path
+
+    from cloakbrowser import launch_persistent_context_async
+
+    from .launcher import ensure_browser_binary
+
+    ensure_browser_binary()
+
+    effective_user_data_dir = profile.user_data_dir
+    if not effective_user_data_dir and session_id:
+        effective_user_data_dir = str(Path(tempfile.gettempdir()) / "fachuan_browser_sessions" / session_id)
+    if not effective_user_data_dir:
+        raise ValueError("持久化上下文需要 user_data_dir 或 session_id（profile=%s）" % profile.name)
+
+    Path(effective_user_data_dir).mkdir(parents=True, exist_ok=True)
+    logger.info(
+        "启动持久化浏览器 (profile=%s, headless=%s, user_data_dir=%s)",
+        profile.name,
+        profile.headless,
+        effective_user_data_dir,
+    )
+
+    launch_kwargs: dict[str, Any] = {
+        "headless": profile.headless,
+        "humanize": profile.anti_detection,
+    }
+    if profile.proxy:
+        launch_kwargs["proxy"] = profile.proxy
+
+    context = await launch_persistent_context_async(
+        user_data_dir=effective_user_data_dir,
+        **launch_kwargs,
+    )
+
+    try:
+        context.set_default_timeout(profile.timeout)
+        context.set_default_navigation_timeout(profile.navigation_timeout)
+
+        page = context.pages[0] if context.pages else await context.new_page()
+        page.on("dialog", lambda d: d.accept())
+
+        await anti_detection.apply_macos_patches_async(page)
+
+        yield page, context
+    finally:
+        try:
+            await context.close()
+        except Exception:
+            logger.debug("关闭持久化浏览器上下文失败（已忽略）", exc_info=True)
+
+
+@asynccontextmanager
 async def create_browser_async(  # pragma: no cover
     profile: str | BrowserProfile = "default",
     *,
@@ -133,6 +200,11 @@ async def create_browser_async(  # pragma: no cover
         from .cdp_connector import connect_cdp_page
 
         async with connect_cdp_page(profile, auto_launch=True) as (page, context):
+            yield page, context
+    elif profile.is_persistent or session_id:
+        # 持久化上下文：Cookie / localStorage 落盘，跨进程、跨任务保留登录态。
+        # 与同步版 launch_browser 的持久化分支保持同一套语义。
+        async with _create_persistent_context_async(profile, session_id=session_id) as (page, context):
             yield page, context
     else:
         # 原生 launch 的异步版本（CloakBrowser）
