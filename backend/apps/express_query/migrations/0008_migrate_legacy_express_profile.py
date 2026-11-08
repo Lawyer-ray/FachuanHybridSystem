@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any
 
 from django.conf import settings
 from django.db import migrations
@@ -23,11 +24,12 @@ LEGACY_DIR_NAME = "express"
 
 def _browser_data_root() -> Path:
     """与 apps.core.services.browser.profiles._BROWSER_DATA_ROOT 保持一致。"""
-    backend_dir = Path(settings.BASE_DIR).parent  # backend/
+    base_dir: str = getattr(settings, "BASE_DIR", ".")
+    backend_dir = Path(base_dir).parent  # backend/
     return backend_dir / "data" / "browser_profiles"
 
 
-def _pick_owner(apps) -> object | None:
+def _pick_owner(apps: Any) -> Any:
     """选择旧登录态的归属律师：历史任务最多者，否则超级管理员。"""
     ExpressQueryTask = apps.get_model("express_query", "ExpressQueryTask")
     Lawyer = apps.get_model("organization", "Lawyer")
@@ -48,7 +50,7 @@ def _pick_owner(apps) -> object | None:
     return Lawyer.objects.filter(is_superuser=True).order_by("id").first() or Lawyer.objects.order_by("id").first()
 
 
-def forwards(apps, schema_editor):  # pragma: no cover
+def forwards(apps: Any, schema_editor: Any) -> None:  # pragma: no cover
     ExpressSession = apps.get_model("express_query", "ExpressSession")
 
     root = _browser_data_root()
@@ -81,7 +83,7 @@ def forwards(apps, schema_editor):  # pragma: no cover
         session.save(update_fields=["status", "last_error"])
 
 
-def backwards(apps, schema_editor):  # pragma: no cover
+def backwards(apps: Any, schema_editor: Any) -> None:  # pragma: no cover
     """回滚只清会话记录，磁盘目录保留（含登录凭证，不擅自删除）。"""
     ExpressSession = apps.get_model("express_query", "ExpressSession")
     ExpressSession.objects.all().delete()

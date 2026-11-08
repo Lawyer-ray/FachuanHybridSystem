@@ -72,13 +72,16 @@ class TestSessionLock:
     def test_lock_released_after_exit(self, django_user_model) -> None:
         lawyer = django_user_model.objects.create_user(username="lawyer_a", password="x")
         session = get_or_create_session(lawyer, "ems")
+        key = f"express_query:session_lock:{session.id}"
 
         with session_lock(session):
-            pass
+            assert cache.get(key) is not None
 
-        # 释放后可再次获取
+        # 退出后锁必须被释放，否则下次任务永远拿不到
+        assert cache.get(key) is None
+
         with session_lock(session):
-            pass
+            assert cache.get(key) is not None
 
     def test_lock_released_on_exception(self, django_user_model) -> None:
         lawyer = django_user_model.objects.create_user(username="lawyer_a", password="x")
@@ -92,8 +95,11 @@ class TestSessionLock:
             pass
 
     def test_none_session_is_noop(self) -> None:
+        # 无会话（无归属律师的历史任务）不加锁：嵌套获取也不应抛错
         with session_lock(None):
-            pass
+            with session_lock(None):
+                entered = True
+        assert entered
 
 
 @pytest.mark.django_db

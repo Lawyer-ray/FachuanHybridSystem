@@ -18,38 +18,38 @@ logger = logging.getLogger("apps.express_query")
 
 @admin.register(ExpressSession)
 class ExpressSessionAdmin(admin.ModelAdmin):  # pragma: no cover
-    list_display: ClassVar[list[str]] = [
+    list_display = (
         "lawyer",
         "carrier_type",
         "status_badge",
         "last_login_at",
         "last_verified_at",
         "last_error_short",
-    ]
-    list_filter: ClassVar[list[str]] = ["carrier_type", "status"]
-    search_fields: ClassVar[list[str]] = ["lawyer__username", "lawyer__first_name", "lawyer__last_name"]
-    readonly_fields: ClassVar[list[str]] = [
+    )
+    list_filter = ("carrier_type", "status")
+    search_fields: ClassVar[tuple[str, ...]] = ("lawyer__username", "lawyer__first_name", "lawyer__last_name")
+    readonly_fields: ClassVar[tuple[str, ...]] = (
         "profile_key_display",
         "last_login_at",
         "last_verified_at",
         "last_error",
         "created_at",
         "updated_at",
-    ]
-    actions: ClassVar[list[str]] = ["action_open_login", "action_mark_expired"]
-    ordering: ClassVar[list[str]] = ["lawyer_id", "carrier_type"]
+    )
+    actions = ("action_open_login", "action_mark_expired")
+    ordering: ClassVar[tuple[str, ...]] = ("lawyer_id", "carrier_type")
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
     @admin.display(description="状态")
     def status_badge(self, obj: ExpressSession) -> str:
-        colors = {
-            ExpressSessionStatus.ACTIVE: "#2e7d32",
-            ExpressSessionStatus.EXPIRED: "#c62828",
-            ExpressSessionStatus.EMPTY: "#757575",
+        colors: dict[str, str] = {
+            ExpressSessionStatus.ACTIVE.value: "#2e7d32",
+            ExpressSessionStatus.EXPIRED.value: "#c62828",
+            ExpressSessionStatus.EMPTY.value: "#757575",
         }
-        color = colors.get(obj.status)  # type: ignore[arg-type]
+        color = colors.get(str(obj.status), "#757575")
         return format_html(
             '<span style="color:#fff;background:{};padding:2px 8px;border-radius:10px;">{}</span>',
             color,
