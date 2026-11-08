@@ -86,13 +86,24 @@ class TestSessionLock:
     def test_lock_released_on_exception(self, django_user_model) -> None:
         lawyer = django_user_model.objects.create_user(username="lawyer_a", password="x")
         session = get_or_create_session(lawyer, "ems")
+        key = f"express_query:session_lock:{session.id}"
 
+        # 用辅助函数抛错（而非裸 raise）：既保持「块内抛异常」的真实语义，
+        # 又避开 CodeQL 对 contextmanager 内 raise 后线性流程的不可达误判。
         with pytest.raises(RuntimeError):
             with session_lock(session):
-                raise RuntimeError("boom")
+                _raise_boom()
 
+        # 异常退出后锁必须已释放，否则后续任务永远拿不到
+        assert cache.get(key) is None
+
+        # 且必须能重新拿到，真正验证可重入（而不是靠一个空 pass 块）
         with session_lock(session):
-            pass
+            assert cache.get(key) is not None
+
+
+def _raise_boom() -> None:
+    raise RuntimeError("boom")
 
     def test_none_session_is_noop(self) -> None:
         # 无会话（无归属律师的历史任务）不加锁：嵌套获取也不应抛错
