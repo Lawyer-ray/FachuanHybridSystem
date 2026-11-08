@@ -96,6 +96,10 @@ class TestSessionLock:
         assert cache.get(key) is None
 
         # 且必须能重新拿到（真正验证可重入，而不是靠一个空 pass 块）
+        self._assert_lock_reacquirable(session, key)
+
+    @staticmethod
+    def _assert_lock_reacquirable(session, key: str) -> None:
         with session_lock(session):
             assert cache.get(key) is not None
 
