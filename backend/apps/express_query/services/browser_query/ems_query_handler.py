@@ -17,7 +17,13 @@ EMS_HOME_URL: Final[str] = "https://www.11183.com.cn/"
 EMS_QUERY_URL: Final[str] = "https://www.11183.com.cn/?to=%2Fquery_express_delivery"
 
 
-async def query_ems(page: Page, tracking_number: str) -> None:  # pragma: no cover
+class ExpressLoginRequired(Exception):
+    """承运商未登录，需要人工扫码。上层据此把任务转入「等待登录」。"""
+
+
+async def query_ems(
+    page: Page, tracking_number: str, *, allow_interactive_login: bool = True
+) -> None:  # pragma: no cover
     """
     EMS 查询主流程：
     1. 用 ?to= 进入（未登录时自动弹登录框）
@@ -55,6 +61,8 @@ async def query_ems(page: Page, tracking_number: str) -> None:  # pragma: no cov
             logger.warning("Failed to click login button")
 
     # ===== 阶段3: 判断是否已登录，否则处理协议 + 等待扫码 =====
+    # allow_interactive_login=False 时（无人值守任务），没登录就立刻抛
+    # ExpressLoginRequired，由上层把任务转入「等待登录」，释放 worker。
     if not await is_ems_dialog_visible(page):
         body_text = ""
         try:
@@ -66,8 +74,12 @@ async def query_ems(page: Page, tracking_number: str) -> None:  # pragma: no cov
         if any(kw in body_text for kw in _logged_in_keywords):
             logger.info("EMS user already logged in, skipping login flow")
         else:
+            if not allow_interactive_login:
+                raise ExpressLoginRequired("EMS 未登录，需要律师扫码")
             logger.info("Starting EMS agreement handling + login wait...")
             await ems_handle_agreement_and_wait(context, page, timeout_seconds=300)
+    elif not allow_interactive_login:
+        raise ExpressLoginRequired("EMS 未登录，需要律师扫码")
     else:
         logger.info("Starting EMS agreement handling + login wait...")
         await ems_handle_agreement_and_wait(context, page, timeout_seconds=300)

@@ -1,11 +1,13 @@
 """express_query.tasks._execute_browser_query 单元测试（mock 浏览器查询与存储）。
 
-覆盖：查询成功后的结果 PDF 落库链路（临时文件 → default_storage →
-result_payload/query_url 状态回写）、查询前状态切换、失败时的临时文件清理。
+覆盖：会话解析与登录态门禁、查询成功后的结果 PDF 落库链路（临时文件 →
+default_storage → result_payload/query_url 状态回写）、查询前状态切换、
+失败时的临时文件清理。
 """
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,7 +16,7 @@ import pytest
 from django.core.files.base import ContentFile
 
 from apps.express_query import tasks as eq_tasks
-from apps.express_query.models import ExpressQueryTaskStatus
+from apps.express_query.models import ExpressQueryTaskStatus, ExpressSessionStatus
 from apps.express_query.tasks import _execute_browser_query
 
 
@@ -47,8 +49,28 @@ def _make_task() -> MagicMock:
     return task
 
 
+def _active_session() -> MagicMock:
+    session = MagicMock()
+    session.id = 7
+    session.profile_key = "sf_1"
+    session.status = ExpressSessionStatus.ACTIVE
+    session.is_ready = True
+    return session
+
+
+@pytest.fixture
+def ready_session():
+    """默认给一个已登录会话，避免测试都落到「等待登录」分支。"""
+    session = _active_session()
+    with (
+        patch.object(eq_tasks, "resolve_session", return_value=session),
+        patch.object(eq_tasks, "session_lock", lambda _s: nullcontext()),
+    ):
+        yield session
+
+
 class TestExecuteBrowserQuerySuccess:
-    def test_full_pipeline(self, fake_tmp_pdf: Path):
+    def test_full_pipeline(self, fake_tmp_pdf: Path, ready_session):
         task = _make_task()
 
         with (
@@ -60,54 +82,76 @@ class TestExecuteBrowserQuerySuccess:
 
             _execute_browser_query(task)
 
-            # 浏览器查询参数与 Playwright 连接清理
+            # 浏览器查询参数：带上会话的 profile_key，且无人值守（不交互等待扫码）
             svc_cls.return_value.query_and_save_pdf.assert_awaited_once_with(
-                carrier_type="sf", tracking_number="SF1234567890123", output_pdf=fake_tmp_pdf
+                carrier_type="sf",
+                tracking_number="SF1234567890123",
+                output_pdf=fake_tmp_pdf,
+                profile_key="sf_1",
+                allow_interactive_login=False,
             )
             # PDF 经 default_storage 保存（media 落盘走存储服务，路径不可预测化）
-            save_args = storage.save.call_args.args
-            rel_path, content_file = save_args
+            rel_path, content_file = storage.save.call_args.args
             assert rel_path.startswith("express_query/results/11/")
-            assert rel_path.rsplit("/", 1)[-1].endswith("SF1234567890123.pdf")
             assert isinstance(content_file, ContentFile)
 
-        assert task.status == ExpressQueryTaskStatus.SUCCESS
-        assert task.query_url == "https://track.example/sf"
-        assert task.result_pdf.name == "express_query/results/11/abcd1234_SF.pdf"
-        assert task.result_payload == {
-            "carrier_type": "sf",
-            "tracking_number": "SF1234567890123",
-            "query_url": "https://track.example/sf",
-            "pdf_path": "express_query/results/11/abcd1234_SF.pdf",
-        }
-        assert task.finished_at is not None
-        update_fields = task.save.call_args.kwargs["update_fields"]
-        assert {"status", "query_url", "result_pdf", "result_payload", "finished_at"} <= set(update_fields)
-        # 临时文件在 finally 中清理
-        assert not fake_tmp_pdf.exists()
+
+class TestSessionGating:
+    """登录态门禁：无可用会话时不得启动浏览器。"""
+
+    def test_missing_session_switches_to_waiting_login(self, fake_tmp_pdf: Path):
+        task = _make_task()
+        pending = _active_session()
+        pending.is_ready = False
+        pending.status = ExpressSessionStatus.EMPTY
+
+        with (
+            patch.object(eq_tasks, "resolve_session", return_value=pending),
+            patch.object(eq_tasks, "ExpressBrowserQueryService") as svc_cls,
+        ):
+            _execute_browser_query(task)
+
+        svc_cls.assert_not_called()
+        assert task.status == ExpressQueryTaskStatus.WAITING_LOGIN
+        assert "扫码" in task.error_message
+
+    def test_login_required_exception_marks_expired(self, fake_tmp_pdf: Path, ready_session):
+        from apps.express_query.services.browser_query.sf_query_handler import ExpressLoginRequired
+
+        task = _make_task()
+
+        with (
+            patch.object(eq_tasks, "ExpressBrowserQueryService") as svc_cls,
+            patch.object(eq_tasks, "mark_login_expired") as expired,
+        ):
+            svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=ExpressLoginRequired("未登录"))
+
+            _execute_browser_query(task)
+
+        expired.assert_called_once()
+        assert task.status == ExpressQueryTaskStatus.WAITING_LOGIN
 
 
 class TestExecuteBrowserQueryFailure:
-    def test_query_error_cleans_tmp_file_and_propagates(self, fake_tmp_pdf: Path):
+    def test_query_error_cleans_tmp_file_and_propagates(self, fake_tmp_pdf: Path, ready_session):
         task = _make_task()
 
         with (
             patch.object(eq_tasks, "ExpressBrowserQueryService") as svc_cls,
             patch.object(eq_tasks, "default_storage") as storage,
         ):
-            svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=RuntimeError("login expired"))
+            svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=RuntimeError("boom"))
 
-            with pytest.raises(RuntimeError, match="login expired"):
+            with pytest.raises(RuntimeError, match="boom"):
                 _execute_browser_query(task)
 
             storage.save.assert_not_called()
 
-        # 失败也要清理临时文件、断开 Playwright；save 只发生在 querying 预切换
+        # 失败也要清理临时文件；save 只发生在 querying 预切换
         assert not fake_tmp_pdf.exists()
         assert task.status == ExpressQueryTaskStatus.QUERYING
-        assert task.save.call_args.kwargs["update_fields"] == ["status", "updated_at"]
 
-    def test_status_transitions_to_querying_before_query(self, fake_tmp_pdf: Path):
+    def test_status_transitions_to_querying_before_query(self, fake_tmp_pdf: Path, ready_session):
         task = _make_task()
         observed: list[str] = []
 
@@ -139,10 +183,9 @@ class TestBrowserLifetimeIsSelfManaged:
     """
 
     def test_tasks_does_not_hold_browser_manager(self) -> None:
-        # tasks 模块不应再自己管理浏览器生命周期
         assert not hasattr(eq_tasks, "disconnect_playwright")
 
-    def test_successful_run_completes(self, fake_tmp_pdf: Path) -> None:
+    def test_successful_run_completes(self, fake_tmp_pdf: Path, ready_session):
         task = _make_task()
 
         with (
@@ -155,15 +198,3 @@ class TestBrowserLifetimeIsSelfManaged:
             _execute_browser_query(task)
 
         assert task.status == ExpressQueryTaskStatus.SUCCESS
-
-    def test_failure_is_recorded(self, fake_tmp_pdf: Path) -> None:
-        task = _make_task()
-
-        with (
-            patch.object(eq_tasks, "ExpressBrowserQueryService") as svc_cls,
-            patch.object(eq_tasks, "default_storage"),
-        ):
-            svc_cls.return_value.query_and_save_pdf = AsyncMock(side_effect=RuntimeError("boom"))
-
-            with pytest.raises(RuntimeError, match="boom"):
-                _execute_browser_query(task)

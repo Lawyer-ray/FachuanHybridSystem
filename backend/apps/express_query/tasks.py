@@ -14,9 +14,19 @@ from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.services.storage_service import sanitize_upload_filename
 from apps.express_query.models import ExpressQueryTask, ExpressQueryTaskStatus
 from apps.express_query.services import ExpressBrowserQueryService, TrackingExtractionService
+from apps.express_query.services.session_service import (
+    SessionUnavailableError,
+    mark_login_expired,
+    mark_verified,
+    resolve_session,
+    session_lock,
+)
 from apps.express_query.services.tracking_extraction_service import truncate_pdf_to_first_page
 
 logger = logging.getLogger("apps.express_query")
+
+#: 无归属律师的历史任务回退到改造前的共享目录
+_LEGACY_PROFILE_KEY: str = "express"
 
 
 def execute_express_query_task(task_id: int) -> None:  # pragma: no cover
@@ -108,7 +118,27 @@ def execute_manual_express_query_task(task_id: int) -> None:  # pragma: no cover
 
 
 def _execute_browser_query(task: ExpressQueryTask) -> None:
-    """执行浏览器查询（公共逻辑）"""
+    """执行浏览器查询（公共逻辑）。
+
+    流程：
+    1. 解析该律师在对应承运商下的扫码会话
+    2. 无可用会话 → 转入「等待登录」并释放 worker（不再死等扫码）
+    3. 有会话 → 加锁串行执行；期间若发现登录失效，同样转「等待登录」
+    """
+    session = resolve_session(task)
+
+    if session is not None and not session.is_ready:
+        logger.info(
+            "会话未登录，任务转入等待登录",
+            extra={"task_id": task.id, "session_id": session.id, "status": session.status},
+        )
+        task.status = ExpressQueryTaskStatus.WAITING_LOGIN
+        task.error_message = "该账号尚未扫码登录，请在「快递账号会话」中完成扫码后重试"
+        task.save(update_fields=["status", "error_message", "updated_at"])
+        return
+
+    profile_key = session.profile_key if session is not None else _LEGACY_PROFILE_KEY
+
     task.status = ExpressQueryTaskStatus.QUERYING
     task.save(update_fields=["status", "updated_at"])
 
@@ -117,11 +147,17 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         tmp_pdf_path = Path(tmp_file.name)
 
     try:
+        from apps.express_query.services.browser_query.ems_query_handler import ExpressLoginRequired as EmsLoginRequired
+        from apps.express_query.services.browser_query.sf_query_handler import ExpressLoginRequired as SfLoginRequired
+
         browser_service = ExpressBrowserQueryService()
         coro = browser_service.query_and_save_pdf(
             carrier_type=task.carrier_type,
             tracking_number=task.tracking_number,
             output_pdf=tmp_pdf_path,
+            profile_key=profile_key,
+            # 无人值守：未登录立刻返回，而不是死等 300s 占满 worker
+            allow_interactive_login=False,
         )
 
         # 浏览器的启动与关闭由 query_and_save_pdf 用 async with 自包含，
@@ -130,7 +166,12 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         # asyncio.run() 收尾的 shutdown_asyncgens 会永久阻塞，任务卡在“查询中”。
         #
         # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
-        final_url = asyncio.run(coro)
+        with session_lock(session):
+            try:
+                final_url = asyncio.run(coro)
+            except (EmsLoginRequired, SfLoginRequired) as exc:
+                _handle_login_required(task, session, str(exc))
+                return
         pdf_content = tmp_pdf_path.read_bytes()
     finally:
         tmp_pdf_path.unlink(missing_ok=True)
@@ -160,3 +201,60 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         ]
     )
     logger.info("快递查询任务执行成功", extra={"task_id": task.id})
+
+
+def _handle_login_required(task: ExpressQueryTask, session: object, reason: str) -> None:
+    """查询中发现未登录：把会话标记失效，任务转「等待登录」。"""
+    if session is not None:
+        mark_login_expired(session, reason)  # type: ignore[arg-type]
+
+    task.status = ExpressQueryTaskStatus.WAITING_LOGIN
+    task.error_message = f"{reason}——请在「快递账号会话」中扫码登录后重试"
+    task.save(update_fields=["status", "error_message", "updated_at"])
+    logger.info("任务转入等待登录", extra={"task_id": task.id, "reason": reason})
+
+
+def open_login_browser_task(lawyer_id: int, carrier_type: str) -> None:  # pragma: no cover
+    """打开有头浏览器，等待律师扫码登录，成功后激活会话。
+
+    这是唯一需要人工参与的环节；扫码完成后会话状态置为 active，
+    后续查询任务即可直接复用该登录态。
+    """
+    from apps.express_query.models import ExpressSession
+    from apps.express_query.services.session_service import mark_login_success
+    from apps.organization.models import Lawyer
+
+    try:
+        lawyer = Lawyer.objects.get(id=lawyer_id)
+    except Lawyer.DoesNotExist:
+        logger.error("扫码任务：律师不存在", extra={"lawyer_id": lawyer_id})
+        return
+
+    session, _ = ExpressSession.objects.get_or_create(
+        lawyer=lawyer,
+        carrier_type=carrier_type,
+    )
+
+    async def _run() -> None:
+        from apps.core.services.browser import create_browser_async
+        from apps.core.services.browser.profiles import get_express_profile
+        from apps.express_query.services.browser_query.ems_auth_handler import (
+            ems_click_login_button,
+            ems_handle_agreement_and_wait,
+        )
+
+        profile = get_express_profile(session.profile_key)
+        async with create_browser_async(profile) as (page, _context):
+            await page.goto("https://www.11183.com.cn/?to=%2Fquery_express_delivery", wait_until="domcontentloaded")
+            await asyncio.sleep(2)
+            await ems_click_login_button(page)
+            await asyncio.sleep(1.5)
+            await ems_handle_agreement_and_wait(_context, page, timeout_seconds=300)
+
+    try:
+        asyncio.run(_run())
+        mark_login_success(session)
+        logger.info("扫码登录成功", extra={"session_id": session.id})
+    except Exception as exc:
+        mark_login_expired(session, str(exc))
+        logger.exception("扫码登录失败", extra={"session_id": session.id})

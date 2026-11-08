@@ -140,6 +140,8 @@ _PROFILES: dict[str, BrowserProfile] = {
     ),
     # EMS / 顺丰快递查询：必须持久化登录态（Cookie 落盘），否则每个任务都要重新扫码。
     # 用有头模式 + 持久化 user_data_dir；目录含登录凭证，已在 .gitignore 排除。
+    # 注：这是多账号改造前的共享目录，现仅作为兼容兵底保留；
+    #    新代码请用 get_express_profile(profile_key) 按会话取独立目录。
     "express": BrowserProfile(
         name="express",
         headless=False,
@@ -209,3 +211,26 @@ def _apply_headless_override(profile: BrowserProfile) -> BrowserProfile:  # prag
 def register_profile(profile: BrowserProfile) -> None:  # pragma: no cover
     """注册自定义配置档案。"""
     _PROFILES[profile.name] = profile
+
+
+def get_express_profile(profile_key: str) -> BrowserProfile:  # pragma: no cover
+    """按会话标识构造快递查询专用的持久化档案。
+
+    每个 (律师, 承运商) 组合一个独立目录，互不干扰：
+    ``backend/data/browser_profiles/<carrier>_<lawyer_id>/``。
+
+    Args:
+        profile_key: 会话目录名，如 ``ems_12`` / ``sf_12``
+    """
+    safe_key = "".join(ch for ch in profile_key if ch.isalnum() or ch in "_-")
+    if not safe_key:
+        raise ValueError("profile_key 不能为空")
+
+    return BrowserProfile(
+        name=f"express_{safe_key}",
+        headless=False,
+        anti_detection=True,
+        user_data_dir=str(_BROWSER_DATA_ROOT / safe_key),
+        timeout=60_000,
+        navigation_timeout=60_000,
+    )

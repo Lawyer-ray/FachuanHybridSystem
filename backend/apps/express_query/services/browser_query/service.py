@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from apps.express_query.models import ExpressCarrierType
 
-from .browser_launcher import EXPRESS_PROFILE, close_browser, disconnect_playwright
+from .browser_launcher import close_browser, disconnect_playwright
 from .ems_query_handler import query_ems
 from .sf_query_handler import query_sf
 
@@ -29,7 +29,13 @@ class ExpressBrowserQueryService:  # pragma: no cover
         await close_browser()
 
     async def query_and_save_pdf(
-        self, carrier_type: str, tracking_number: str, output_pdf: Path
+        self,
+        carrier_type: str,
+        tracking_number: str,
+        output_pdf: Path,
+        profile_key: str,
+        *,
+        allow_interactive_login: bool = True,
     ) -> str:  # pragma: no cover
         """查询快递并输出 PDF。
 
@@ -37,12 +43,20 @@ class ExpressBrowserQueryService:  # pragma: no cover
         ``asyncio.run()`` 收尾会 ``shutdown_asyncgens``，若浏览器实例或
         async generator 跨循环存活，收尾会永久阻塞（任务卡在「查询中」，
         直到 worker 600s 超时）。故此处用 ``async with`` 自包含整个流程。
+
+        Args:
+            profile_key: 会话目录名（如 ``ems_12``），每个律师一份独立登录态
+            allow_interactive_login: 无人值守任务传 False——未登录时立刻抛
+                ``ExpressLoginRequired``，由上层转入「等待登录」而非死等 300s
         """
         output_pdf.parent.mkdir(parents=True, exist_ok=True)
 
         from apps.core.services.browser import create_browser_async
+        from apps.core.services.browser.profiles import get_express_profile
 
-        async with create_browser_async(EXPRESS_PROFILE) as (warmup_page, context):
+        profile = get_express_profile(profile_key)
+
+        async with create_browser_async(profile) as (warmup_page, context):
             try:
                 await warmup_page.close()
             except Exception:
@@ -50,7 +64,13 @@ class ExpressBrowserQueryService:  # pragma: no cover
 
             page = await context.new_page()
             try:
-                return await self._run_query(carrier_type, tracking_number, output_pdf, page)
+                return await self._run_query(
+                    carrier_type,
+                    tracking_number,
+                    output_pdf,
+                    page,
+                    allow_interactive_login=allow_interactive_login,
+                )
             finally:
                 try:
                     await page.close()
@@ -64,12 +84,14 @@ class ExpressBrowserQueryService:  # pragma: no cover
         tracking_number: str,
         output_pdf: Path,
         page: Page,
+        *,
+        allow_interactive_login: bool = True,
     ) -> str:
         """在已就绪的 page 上执行查询并输出 PDF。"""
         if carrier_type == ExpressCarrierType.SF:
-            await query_sf(page, tracking_number)
+            await query_sf(page, tracking_number, allow_interactive_login=allow_interactive_login)
         elif carrier_type == ExpressCarrierType.EMS:
-            await query_ems(page, tracking_number)
+            await query_ems(page, tracking_number, allow_interactive_login=allow_interactive_login)
         else:
             raise ValueError(f"Unsupported carrier: {carrier_type}")
 

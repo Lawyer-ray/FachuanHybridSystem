@@ -476,3 +476,29 @@ async def is_ems_login_window(page: Page, body_text: str) -> bool:  # pragma: no
         "验证码登录",
     )
     return any(kw in body_text for kw in body_keywords)
+
+
+# ===== 登录态探测（多账号会话用）=====
+
+
+async def is_ems_logged_in(page: Page) -> bool:  # pragma: no cover
+    """轻量探测 EMS 当前是否已登录（不发额外网络请求）。
+
+    用于任务开工前判断会话是否可用，避免没登录时死等 300 秒占住 worker。
+    """
+    # 登录弹窗还在 → 肯定没登录
+    try:
+        if await is_ems_dialog_visible(page):
+            return False
+    except Exception:
+        logger.debug("探测 EMS 登录弹窗失败（已忽略）", exc_info=True)
+
+    body = ""
+    try:
+        body = (await page.locator("body").text_content()) or ""
+    except Exception:
+        logger.debug("读取 EMS 页面正文失败（已忽略）", exc_info=True)
+        return False
+
+    logged_in_keywords = ("退出", "我的EMS", "个人中心", "我的快递")
+    return any(kw in body for kw in logged_in_keywords)
