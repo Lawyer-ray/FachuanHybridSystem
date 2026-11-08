@@ -101,10 +101,6 @@ class TestSessionLock:
         with session_lock(session):
             assert cache.get(key) is not None
 
-
-def _raise_boom() -> None:
-    raise RuntimeError("boom")
-
     def test_none_session_is_noop(self) -> None:
         # 无会话（无归属律师的历史任务）不加锁：嵌套获取也不应抛错
         with session_lock(None):
@@ -165,3 +161,13 @@ class TestUniqueConstraint:
 
         with pytest.raises(IntegrityError):
             ExpressSession.objects.create(lawyer=lawyer, carrier_type="ems")
+
+
+def _raise_boom() -> None:
+    """在 session_lock 块内抛异常，用于验证异常路径下锁会被释放。
+
+    单独抽成模块级函数（放在文件末尾，避免插进任何 class 中间）：
+    CodeQL 会把 contextmanager 块内的裸 raise 建模成流程终止，
+    进而把其后的语句误判为 unreachable-statement。
+    """
+    raise RuntimeError("boom")
