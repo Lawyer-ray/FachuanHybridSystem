@@ -216,7 +216,7 @@ make ci-full        # 完整 CI（需 PostgreSQL：+ pytest + 覆盖率）
 | USDT (TRC20) | `TYs89x2uz1Qf7vALBboKcSFsZiP3J5T4h2` |
 | 比特币 | `bc1p39an4kulcgl8celc23zd6yjv3j29uctgkt7szaxlljwjlfsq6eqll7kk8` |
 
-贡献方式与致谢名单见 **[CONTRIBUTING.md](CONTRIBUTING.md)**。
+贡献方式：欢迎提交 PR、提供业务场景与合规可复现的测试素材。
 
 ## 许可证
 
