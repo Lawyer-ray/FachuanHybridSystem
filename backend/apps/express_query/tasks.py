@@ -14,7 +14,6 @@ from apps.core.filesystem.upload_paths import MediaEntity
 from apps.core.services.storage_service import sanitize_upload_filename
 from apps.express_query.models import ExpressQueryTask, ExpressQueryTaskStatus
 from apps.express_query.services import ExpressBrowserQueryService, TrackingExtractionService
-from apps.express_query.services.browser_query.service import disconnect_playwright
 from apps.express_query.services.tracking_extraction_service import truncate_pdf_to_first_page
 
 logger = logging.getLogger("apps.express_query")
@@ -125,14 +124,12 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
             output_pdf=tmp_pdf_path,
         )
 
-        # 在协程内部完成查询后主动关闭 Playwright 连接，避免 asyncio.run() 销毁循环后
-        # Playwright 的 BaseSubprocessTransport.__del__ 触发 "Event loop is closed" 错误
+        # 不在任务结束时关闭浏览器：快递查询需要保留 EMS/顺丰登录态，
+        # 关闭窗口能靠 user_data_dir 恢复，但进程内复用可免去重复启动与登录检测。
+        # 注意：协程结束后浏览器上下文会随事件循环销毁，
+        # 但 Cookie 已写入 user_data_dir，下次任务启动仍是已登录状态。
         async def _run_and_cleanup() -> str:
-            try:
-                result = await coro
-                return result
-            finally:
-                await disconnect_playwright()
+            return await coro
 
         # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
         final_url = asyncio.run(_run_and_cleanup())
