@@ -415,3 +415,6 @@ frontend/prototype/
 
 # PPT Master 生成目录（演讲 PPT 产物：素材/设计稿/SVG/导出文件，不入库）
 projects/
+
+# 贡献与致谢名单（含真实姓名/投资人信息，属本机记录，不入库）
+CONTRIBUTING.md
