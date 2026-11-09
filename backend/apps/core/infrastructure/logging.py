@@ -347,6 +347,11 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
             "sensitive_data": {
                 "()": "apps.core.infrastructure.logging.SensitiveDataFilter",
             },
+            # django-q monitor 的失败日志会把整段 result(traceback) 当消息打一遍，
+            # 叠加本项目 logger 的 exception 栈=同一份堆栈吐两遍。这里压成单行摘要。
+            "task_result": {
+                "()": "apps.core.infrastructure.task_result_logging.TaskResultLogFilter",
+            },
         },
         "handlers": {
             # 控制台输出（Docker 环境下输出到 stdout）
@@ -355,7 +360,7 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
                 "class": "logging.StreamHandler",
                 "stream": sys.stdout,  # 明确指定 stdout
                 "formatter": console_formatter,
-                "filters": ["request_context", "sensitive_data"],
+                "filters": ["request_context", "sensitive_data", "task_result"],
             },
             # 错误输出到 stderr（Docker 环境下便于区分）
             "console_error": {
@@ -363,7 +368,7 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
                 "class": "logging.StreamHandler",
                 "stream": sys.stderr,  # 错误输出到 stderr
                 "formatter": console_formatter,
-                "filters": ["request_context", "sensitive_data"],
+                "filters": ["request_context", "sensitive_data", "task_result"],
             },
             "file_api": {
                 "level": file_level,
@@ -383,6 +388,7 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
                 "backupCount": error_backup_count,
                 "formatter": "verbose",
                 "encoding": "utf-8",
+                # 落盘保留完整 traceback（事后排查要栈），只给终端降噪
                 "filters": ["request_context", "sensitive_data"],
             },
             "file_sql": {

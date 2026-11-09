@@ -145,7 +145,11 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
         if errors:
             tried = ", ".join(host for host, _ in errors)
             if all(isinstance(err, socket.gaierror) for _, err in errors):
-                raise ConnectionError(f"IMAP 主机无法解析（已尝试: {tried}）") from errors[-1][1]
+                # 主机名解析失败=域名填错 / 对方无此主机，本机网络或 TLS 都无罪；
+                # 提示具体动作，避免每次轮询都像「系统崩了」
+                raise ConnectionError(
+                    f"IMAP 主机无法解析（已尝试: {tried}）——请检查该消息来源的 IMAP 主机名/域名是否正确"
+                ) from errors[-1][1]
             raise ConnectionError(f"IMAP 连接失败（已尝试: {tried}）: {errors[-1][1]}") from errors[-1][1]
 
         raise ValueError(f"IMAP 主机配置无效，未找到可用候选主机: candidates={hosts}, account={account}")
