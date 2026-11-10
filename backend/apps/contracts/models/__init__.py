@@ -46,6 +46,9 @@ from .party import ContractAssignment, ContractParty, PartyRole
 # payment.py - 收款相关模型和枚举
 from .payment import ContractPayment, InvoiceStatus
 
+# payment_intake.py - 到账待认领（邮件到账 → 人工确认 → 收款记录）
+from .payment_intake import IntakeStatus, PaymentIntake
+
 # supplementary.py - 补充协议相关模型
 from .supplementary import SupplementaryAgreement, SupplementaryAgreementParty
 
@@ -61,6 +64,9 @@ __all__ = [
     # payment.py
     "ContractPayment",
     "InvoiceStatus",
+    # payment_intake.py
+    "PaymentIntake",
+    "IntakeStatus",
     # finance.py
     "ContractFinanceLog",
     "LogLevel",
