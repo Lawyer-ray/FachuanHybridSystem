@@ -227,8 +227,8 @@ importers:
         specifier: ^3.7.0
         version: 3.7.0
       zustand:
-        specifier: ^5.0.15
-        version: 5.0.15(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.1.0
+        version: 5.1.0(@types/react@19.3.0)(react@19.3.1)
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -2646,8 +2646,8 @@ packages:
   zod@4.6.5:
     resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
 
-  zustand@5.0.15:
-    resolution: {integrity: sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A==}
+  zustand@5.1.0:
+    resolution: {integrity: sha512-ciJZlP48M1PTQbVQq81CGVFxHTLpZNrFjKqwjtCU34AWuXTZT/jrF3p9+fI84Cf1eSCMLapxqBy/SNTfwOBuqA==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@types/react': '>=18.0.0'
@@ -5074,7 +5074,7 @@ snapshots:
 
   zod@4.6.5: {}
 
-  zustand@5.0.15(@types/react@19.3.0)(react@19.3.1):
+  zustand@5.1.0(@types/react@19.3.0)(react@19.3.1):
     optionalDependencies:
       '@types/react': 19.3.0
       react: 19.3.1
