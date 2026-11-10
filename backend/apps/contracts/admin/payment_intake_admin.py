@@ -12,8 +12,8 @@ from typing import Any, ClassVar
 
 from django.contrib import admin
 from django.http import HttpRequest
-from django.utils.html import format_html
-from django.utils.safestring import SafeString, mark_safe
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import SafeString
 
 from apps.contracts.models import IntakeStatus, PaymentIntake
 from apps.core.admin.base import BaseModelAdmin
@@ -77,7 +77,7 @@ class PaymentIntakeAdmin(BaseModelAdmin):  # pragma: no cover
 
     @admin.display(description="状态")
     def status_badge(self, obj: PaymentIntake) -> SafeString:
-        colors = {
+        colors: dict[str, str] = {
             IntakeStatus.PENDING: "#007bff",
             IntakeStatus.CONFIRMED: "#28a745",
             IntakeStatus.REJECTED: "#6c757d",
@@ -97,53 +97,80 @@ class PaymentIntakeAdmin(BaseModelAdmin):  # pragma: no cover
     @admin.display(description="收款记录")
     def payment_link(self, obj: PaymentIntake) -> SafeString:
         if not obj.payment_id:
-            return mark_safe("-")
+            return format_html("-")
         return format_html(
             '<a href="/admin/contracts/contractpayment/{}/change/">{}</a>', obj.payment_id, obj.payment_id
         )
 
     @admin.display(description="匹配快照")
     def match_snapshot_pretty(self, obj: PaymentIntake) -> SafeString:
-        """把候选与被排除线索铺开显示，便于排查"为什么没匹配上"。"""
+        """把候选与被排除线索铺开显示，便于排查"为什么没匹配上"。
+
+        ⚠️ 这里的内容**全部来自邮件解析**（合同名、付款人、银行备注、匹配理由），
+        属于外部可控输入。因此一律走 ``format_html`` 逐项转义，**禁止**用字符串
+        拼接 + ``mark_safe``——那样一封构造过的到账邮件就能在后台管理页打 XSS。
+        """
         snapshot = obj.match_snapshot or {}
         if not snapshot:
-            return mark_safe("<em>无</em>")
-        parts: list[str] = []
+            return format_html("<em>无</em>")
+
+        parts: list[SafeString] = []
+
         parsed = snapshot.get("parsed") or {}
         if parsed:
             parts.append(
-                "<div><strong>解析：</strong>金额 {} / 付款人 {} / 代付方 {}</div>".format(
-                    parsed.get("amount") or "-", parsed.get("payer_name") or "-", parsed.get("on_behalf_of") or "-"
+                format_html(
+                    "<div><strong>解析：</strong>金额 {} / 付款人 {} / 代付方 {}</div>",
+                    parsed.get("amount") or "-",
+                    parsed.get("payer_name") or "-",
+                    parsed.get("on_behalf_of") or "-",
                 )
             )
+
         candidates = snapshot.get("candidates") or []
         if candidates:
-            rows = "".join(
-                '<li>[{}] {:.2f} <a href="/admin/contracts/contract/{}/change/">{}</a> — {}</li>'.format(
+            items = [
+                format_html(
+                    '<li>[{}] {:.2f} <a href="/admin/contracts/contract/{}/change/">{}</a> — {}</li>',
                     c.get("kind", ""),
                     float(c.get("score") or 0),
                     c.get("contract_id", ""),
-                    c.get("contract_name", "")[:40],
-                    ("；".join(c.get("reasons") or []))[:120],
+                    str(c.get("contract_name", ""))[:40],
+                    "；".join(c.get("reasons") or [])[:120],
                 )
                 for c in candidates
+            ]
+            parts.append(
+                format_html(
+                    "<div><strong>候选：</strong><ul style='margin:4px 0 4px 18px'>{}</ul></div>",
+                    format_html_join("", "{}", ((item,) for item in items)),
+                )
             )
-            parts.append(f"<div><strong>候选：</strong><ul style='margin:4px 0 4px 18px'>{rows}</ul></div>")
+
         hints = snapshot.get("excluded_hints") or []
         if hints:
-            rows = "".join(
-                '<li>[{}] <a href="/admin/contracts/contract/{}/change/">{}</a> — {}</li>'.format(
+            hint_items = [
+                format_html(
+                    '<li>[{}] <a href="/admin/contracts/contract/{}/change/">{}</a> — {}</li>',
                     h.get("excluded_by", ""),
                     h.get("contract_id", ""),
-                    h.get("contract_name", "")[:40],
+                    str(h.get("contract_name", ""))[:40],
                     h.get("note", ""),
                 )
                 for h in hints
+            ]
+            parts.append(
+                format_html(
+                    "<div><strong>被排除的线索：</strong><ul style='margin:4px 0 4px 18px'>{}</ul></div>",
+                    format_html_join("", "{}", ((item,) for item in hint_items)),
+                )
             )
-            parts.append(f"<div><strong>被排除的线索：</strong><ul style='margin:4px 0 4px 18px'>{rows}</ul></div>")
+
         if not parts:
-            parts.append(f"<pre>{json.dumps(snapshot, ensure_ascii=False, indent=2)[:2000]}</pre>")
-        return mark_safe("".join(parts))
+            # 兜底：直接把快照按 JSON 展示，同样必须转义
+            parts.append(format_html("<pre>{}</pre>", json.dumps(snapshot, ensure_ascii=False, indent=2)[:2000]))
+
+        return format_html_join("", "{}", ((part,) for part in parts))
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         """禁止后台手工新增：待认领只能由邮件解析产生，手工造会绕过去重键。"""

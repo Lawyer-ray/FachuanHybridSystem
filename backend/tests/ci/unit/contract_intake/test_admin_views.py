@@ -33,7 +33,14 @@ def admin_client(db: object) -> Client:
 class TestOptionsEndpoint:
     def test_requires_login(self) -> None:
         response = Client().get(OPTIONS_URL)
+        # 未登录被 admin 登录墙拦下：302 跳登录页（带 next），或 403 拒绝。
+        # 只断状态码不够——必须确认**没有**返回业务数据（否则等于泄露模型列表）。
         assert response.status_code in (302, 403)
+        if response.status_code == 302:
+            assert "login" in response.headers.get("Location", "")
+        else:
+            assert response.get("Content-Type", "").startswith("text/html")
+            assert b'"models"' not in response.content
 
     def test_returns_model_options(self, admin_client: Client) -> None:
         response = admin_client.get(OPTIONS_URL)
@@ -52,11 +59,20 @@ class TestAnalyzeEndpoint:
     def test_rejects_get(self, admin_client: Client) -> None:
         response = admin_client.get(ANALYZE_URL)
         assert response.status_code == 405
+        # 405 必须带明确的错误体，前端据此提示而不是吞成"未知错误"
+        payload = response.json()
+        assert payload["ok"] is False
+        assert payload["error"] == "Method not allowed"
 
     def test_requires_login(self) -> None:
         upload = SimpleUploadedFile("c.docx", b"x")
         response = Client().post(ANALYZE_URL, {"file": upload})
+        # 未登录不得触发解析：要么跳登录页，要么 403 且不带任何解析结果
         assert response.status_code in (302, 403)
+        if response.status_code == 302:
+            assert "login" in response.headers.get("Location", "")
+        else:
+            assert b'"ok": true' not in response.content
 
     def test_missing_file(self, admin_client: Client) -> None:
         response = admin_client.post(ANALYZE_URL, {})
