@@ -78,6 +78,8 @@ export interface InvoiceActionResult {
   intake_id: number
   status: InvoiceIntakeStatus
   invoice_id: number | null
+  /** 确认后生成的重命名文件名（未确认时为空串） */
+  invoice_display_filename?: string
 }
 
 /** 复制发票文件到系统剪贴板的结果（与项目详情页 copy-to-clipboard 同口径） */

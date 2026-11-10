@@ -6,6 +6,7 @@ import { PANEL } from '@/components/shared/panel-styles'
 import { errMessage } from '@/lib/errors'
 import { useConfirmInvoiceIntake, usePendingInvoices } from '../hooks/use-pending-invoices'
 import type { InvoiceIntake } from '../types'
+import { ConfirmedInvoiceRow, type ConfirmedRow } from './ConfirmedInvoiceRow'
 import { ContractPicker } from './ContractPicker'
 import { InvoiceDetailDialog } from './InvoiceDetailDialog'
 import { InvoiceIntakeRow } from './InvoiceIntakeRow'
@@ -41,7 +42,27 @@ import { InvoiceIntakeRow } from './InvoiceIntakeRow'
  */
 export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
   const { data = [], isLoading, isError, error, refetch } = usePendingInvoices(20)
-  const confirm = useConfirmInvoiceIntake()
+
+  // 刚确认完、本次浏览期间仍要留着的行（供立刻复制那个重命名后的文件）。
+  // **只存内存**：刷新页面即清空 -> 首页只剩真正待办的（用户明确要求）。
+  const [justConfirmed, setJustConfirmed] = useState<ConfirmedRow[]>([])
+  const confirm = useConfirmInvoiceIntake({
+    onConfirmed: ({ intakeId, invoiceId, displayFilename }) => {
+      // 购买方/金额从当前列表里取（确认前那一行还在 data 里）；
+      // 文件名必须用接口返回的（那是后端命名规则的唯一产物）
+      const src = data.find((d) => d.id === intakeId)
+      setJustConfirmed((prev) => [
+        ...prev.filter((r) => r.intakeId !== intakeId),
+        {
+          intakeId,
+          invoiceId,
+          buyerName: src?.buyer_name ?? '',
+          totalAmount: src?.total_amount ?? null,
+          displayFilename,
+        },
+      ])
+    },
+  })
 
   // 详情弹窗的目标行：点「详情」时定住那一行，弹窗里不跟随列表刷新而漂移
   const [detailFor, setDetailFor] = useState<InvoiceIntake | null>(null)
@@ -103,6 +124,13 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
             />
           </div>
         ))}
+
+      {/* 刚确认完的行：留在原地供复制，刷新页面即消失 */}
+      {justConfirmed.map((row) => (
+        <div key={`done-${row.intakeId}`} className="mt-1.5">
+          <ConfirmedInvoiceRow row={row} />
+        </div>
+      ))}
     </div>
   )
 

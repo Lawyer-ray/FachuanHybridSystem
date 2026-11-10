@@ -108,6 +108,9 @@ class ActionOut(Schema):
     intake_id: int
     status: str
     invoice_id: int | None = None
+    #: 确认后生成的重命名文件名。确认完那一行会就地换成「文件名 + 复制」形态，
+    #: 它需要这个名字才能展示与兑底复制——不让前端自己拼命名规则。
+    invoice_display_filename: str = ""
 
 
 class ScanOut(Schema):
@@ -334,12 +337,14 @@ def confirm_endpoint(request: HttpRequest, intake_id: int, payload: ConfirmIn) -
         user=request.user,  # type: ignore[attr-defined]
         note=payload.note,
     )
+    generated = _generated_invoice_facts(intake)
     return {
         "success": True,
         "message": "发票已绑定到项目",
         "intake_id": intake.pk,
         "status": intake.status,
         "invoice_id": intake.invoice_id,
+        "invoice_display_filename": generated["display_filename"],
     }
 
 

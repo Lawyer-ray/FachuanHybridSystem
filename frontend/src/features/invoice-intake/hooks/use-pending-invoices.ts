@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 
 import {
   confirmInvoiceIntake,
-  copyInvoiceToClipboard,
   getPendingInvoiceCount,
   INVOICE_INTAKE_COUNT_KEY,
   INVOICE_INTAKE_PENDING_KEY,
@@ -43,36 +42,30 @@ function useInvalidateInvoices() {
 /**
  * 确认绑定。
  *
- * 成功后必须提示「已绑定到项目」——这是财务动作，用户要明确知道这张票
- * 落到哪个项目上了，而不是只看到列表少了一条。
+ * 成功后不弹 toast action 而是把结果回调给调用方（`onConfirmed`）：确认完最想做
+ * 的下一件事是复制那个重命名后的发票，而「复制」需要一个可见的落点。把刚确认的
+ * 行**就地留在列表里**（换成「文件名 + 复制」形态）比弹一个会消失的 toast 更好用。
+ *
+ * 留下的只是**前端内存态**：刷新页面即消失，不会在库里堆积。
  */
-export function useConfirmInvoiceIntake() {
+export function useConfirmInvoiceIntake(options?: {
+  /** 确认成功：把结果交给调用方渲染“已完成”行 */
+  onConfirmed?: (payload: { intakeId: number; invoiceId: number; displayFilename: string; message: string }) => void
+}) {
   const invalidate = useInvalidateInvoices()
   return useMutation({
     mutationFn: ({ id, contractId, paymentId }: { id: number; contractId?: number; paymentId?: number }) =>
       confirmInvoiceIntake(id, contractId, paymentId),
     onSuccess: (res) => {
       invalidate()
-      // 确认后该行立刻从「待认领」消失（用户要求：处理过的就该走开）。
-      // 但确认完最想做的下一件事是复制那个重命名后的发票，所以把复制入口
-      // 挂在 toast 上——行消失不影响操作，也不占列表位置。
+      toast.success(res.message || '已绑定该项目')
       if (res.invoice_id) {
-        toast.success(res.message || '已绑定该项目', {
-          action: {
-            label: '复制发票',
-            onClick: () => {
-              void copyInvoiceToClipboard(res.invoice_id!)
-                .then((r) => {
-                  if (r.success && r.copied > 0) toast.success('发票已复制，微信对话框直接 ⌘V 粘贴发送')
-                  else toast.error(r.reason || '复制失败，请到项目页手动下载')
-                })
-                .catch(() => toast.error('复制失败，请到项目页手动下载'))
-            },
-          },
-          duration: 12000,
+        options?.onConfirmed?.({
+          intakeId: res.intake_id,
+          invoiceId: res.invoice_id,
+          displayFilename: res.invoice_display_filename ?? '',
+          message: res.message || '已绑定该项目',
         })
-      } else {
-        toast.success(res.message || '已绑定该项目')
       }
     },
     onError: (error) => toast.error(errMessage(error, '确认失败')),
