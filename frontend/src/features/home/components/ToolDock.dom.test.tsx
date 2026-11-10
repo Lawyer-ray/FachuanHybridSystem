@@ -13,7 +13,7 @@ vi.mock('./tools/DocConvertCard', () => ({ DocConvertCard: () => <div>要素式�
 vi.mock('./tools/DocConverterCard', () => ({ DocConverterCard: () => <div>DOC转DOCX卡</div> }))
 vi.mock('./tools/DocParseCard', () => ({ DocParseCard: () => <div>文档解析卡</div> }))
 
-import { CardHead } from './CardHead'
+import { CardHead } from '@/components/shared/CardHead'
 import { ToolDock } from './ToolDock'
 
 describe('CardHead', () => {

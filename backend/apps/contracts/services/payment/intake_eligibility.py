@@ -180,7 +180,7 @@ def excluded_note(reason: str, contract: Any, *, paid_total: Decimal | None = No
         fixed = getattr(contract, "fixed_amount", None)
         paid = paid_total if paid_total is not None else getattr(contract, "paid_total", None)
         if fixed is not None and paid is not None:
-            return f"{label}（{paid}/{fixed}），如需追加收费请先新建合同"
-    if reason == EXCLUDED_CASE_CLOSED:
-        return f"{label}，如需追加收费请先新建合同"
+            return f"{label}（{paid}/{fixed}）"
+    # 刻意**不**在这里写「请先新建合同」之类的指引：系统只如实陈述这个项目
+    # 为何不适合承接这笔钱，要不要另立项目由人自己判断（用户明确要求不引导）。
     return label

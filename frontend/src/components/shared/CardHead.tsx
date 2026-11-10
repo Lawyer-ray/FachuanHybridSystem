@@ -1,7 +1,9 @@
 import { Link } from 'react-router'
 import { ChevronRight } from 'lucide-react'
 
-import { COUNT_PILL } from '../ui'
+/** 面板标题行的小胶囊（计数）—— 只被本组件使用，故就近定义不分发到 feature */
+const COUNT_PILL =
+  'rounded-[99px] border border-border bg-secondary px-[8px] py-[1px] text-[11px] font-semibold text-muted-foreground'
 
 /** 右栏卡片的头部：标题 + 计数小丸（今日卡 / 收件箱共用）。
  *

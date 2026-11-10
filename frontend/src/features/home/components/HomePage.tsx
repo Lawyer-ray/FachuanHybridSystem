@@ -19,6 +19,7 @@ import { todayKey } from '@/lib/date'
 import { errMessage } from '@/lib/errors'
 import { ErrorBlock } from '@/components/shared/AsyncState'
 import { InboxCard, QuickAdd } from './SideCards'
+import { PendingIntakeCard } from '@/features/payment-intake'
 import { TodayCard } from './TodayCard'
 import { AddReminderDialog } from './AddReminderDialog'
 import { DaySheet } from './DaySheet'
@@ -275,6 +276,9 @@ export function HomePage() {
               onOpenEvent={handleOpenEvent}
               onToggleComplete={handleToggleComplete}
             />
+            {/* 待认领款项：钱比消息优先级高，放收件箱之上。
+                常驻渲染（无待办时显示空态）——用户要求每次进首页都能看到它。 */}
+            <PendingIntakeCard />
             <InboxCard onOpen={handleInboxOpen} onOpenPack={goPack} />
           </div>
         </div>
