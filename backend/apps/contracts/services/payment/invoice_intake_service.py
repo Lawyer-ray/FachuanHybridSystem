@@ -42,7 +42,8 @@ def _is_admin(user: Any) -> bool:
 
 def open_count(user: Any) -> int:
     """首页角标：与我相关的待认领发票数。"""
-    return visible_intakes_qs(user).filter(status=InvoiceIntakeStatus.PENDING).count()
+    # visible_intakes_qs 返回 Any（跨模型 QuerySet），count() 需显式收敛成 int
+    return int(visible_intakes_qs(user).filter(status=InvoiceIntakeStatus.PENDING).count())
 
 
 def visible_intakes_qs(user: Any) -> Any:
@@ -65,6 +66,58 @@ def visible_intakes_qs(user: Any) -> Any:
         | Q(suggested_contract_id__in=primary_contract_ids)
         | Q(suggested_contract__assignments__lawyer=user)
     ).distinct()
+
+
+def get_intake_for_user(*, intake_id: int, user: Any) -> InvoiceIntake:
+    """取一条待认领发票（带常用关联），无权即视为不存在。
+
+    ORM 留在 Service 层：API 层出现 ``Model.objects`` 会撞四层架构门禁。
+    无权时抛 NotFound 而不是 PermissionDenied——不泄露记录存在性。
+    """
+    from apps.core.exceptions import NotFoundError
+
+    # visible_intakes_qs 声明为 Any（跨模型 Q 查询），这里显式收敛回模型类型
+    intake: InvoiceIntake | None = (
+        visible_intakes_qs(user)
+        .select_related("suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source")
+        .filter(pk=intake_id)
+        .first()
+    )
+    if intake is None or not can_decide(user, intake):
+        raise NotFoundError(f"待认领发票 {intake_id} 不存在")
+    return intake
+
+
+def generated_invoice_facts(intake: InvoiceIntake) -> dict[str, str]:
+    """确认后那张发票的**展示名 + 文件夹落点**（未确认则两者均空串）。
+
+    展示名走 ``InvoiceFileService.display_filename`` 的同一份命名规则——绝不另拼。
+    合同名取**确认到的**合同（人工改判过时可能与建议合同不同）。
+
+    一次查库同时给两个字段：列表只关心文件名，详情还要落点，分两次查是白花。
+    """
+    blank = {"display_filename": "", "folder_subpath": ""}
+    if intake.invoice_id is None:
+        return blank
+    from pathlib import Path
+
+    from apps.contracts.models import Invoice
+    from apps.contracts.services.payment.invoice_file_service import InvoiceFileService
+
+    invoice = Invoice.objects.filter(pk=intake.invoice_id).select_related("payment__contract", "contract").first()
+    if invoice is None:
+        return blank
+    payment = invoice.payment if invoice.payment_id else None
+    contract = invoice.contract or (payment.contract if payment is not None else None)
+    return {
+        "display_filename": InvoiceFileService().display_filename(
+            contract_name=str(getattr(contract, "name", "") or ""),
+            seller=str(invoice.seller_name or ""),
+            inv_date=invoice.invoice_date,
+            ext=Path(str(invoice.file_path or "")).suffix.lower(),
+        ),
+        "folder_subpath": str(getattr(invoice, "folder_subpath", "") or ""),
+    }
 
 
 def can_decide(user: Any, intake: InvoiceIntake) -> bool:
@@ -301,12 +354,14 @@ def _remove_generated_invoice(intake: InvoiceIntake, user: Any) -> None:
     """删掉确认时生成的发票（含文件夹副本与 media 文件）。"""
     from apps.contracts.models import Invoice
 
-    invoice = Invoice.objects.filter(pk=intake.invoice_id).first()
+    if intake.invoice_id is None:
+        return
+    invoice = Invoice.objects.filter(pk=intake.invoice_id).select_related("payment__contract", "contract").first()
     if invoice is None:
         return
 
-    contract_id = invoice.contract_id or (invoice.payment.contract_id if invoice.payment_id else None)
     payment = invoice.payment if invoice.payment_id else None
+    contract_id = invoice.contract_id or (payment.contract_id if payment is not None else None)
     _remove_folder_copy(contract_id, invoice, user)
     _remove_media_file(invoice)
     invoice.delete()

@@ -94,8 +94,7 @@ def _submit_imap_sync(days: int, user: Any) -> int:
     「拉新邮件」这个动作，同步它们只是白跑一轮 fetcher。
     """
     try:
-        from django_q.tasks import async_task
-
+        from apps.core.tasking import submit_task
         from apps.message_hub.services.inbox_access import visible_sources_qs
 
         qs = visible_sources_qs(user).filter(is_enabled=True, poll_interval_minutes__gt=0)
@@ -105,7 +104,7 @@ def _submit_imap_sync(days: int, user: Any) -> int:
             # 请求并可能被网关/浏览器超时掐断。入队后立即返回，拉回来的邮件由
             # imap_fetcher 自己触发两类扫描（已接好）。
             try:
-                async_task("apps.message_hub.tasks.sync_source_by_id", source.pk, days)
+                submit_task("apps.message_hub.tasks.sync_source_by_id", source.pk, days)
                 count += 1
             except Exception:
                 logger.warning("pending_sync_source_failed", extra={"source_id": source.pk}, exc_info=True)

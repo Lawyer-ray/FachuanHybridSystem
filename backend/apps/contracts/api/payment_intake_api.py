@@ -231,7 +231,7 @@ def sync_pending(request: HttpRequest, days: int = 1) -> Any:  # pragma: no cove
     """
     from apps.contracts.services.payment.pending_sync_service import sync_pending_intakes
 
-    return sync_pending_intakes(days=days, user=request.user)  # type: ignore[attr-defined]
+    return sync_pending_intakes(days=days, user=request.user)
 
 
 @router.post("/rescan", response=ScanOut)

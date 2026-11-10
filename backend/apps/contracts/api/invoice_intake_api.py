@@ -168,41 +168,12 @@ def _payment_options(payment_pick: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _generated_invoice_facts(intake: Any) -> dict[str, str]:
-    """确认后那张发票的**展示名 + 文件夹落点**（未确认则两者均空串）。
-
-    展示名走 ``InvoiceFileService.display_filename`` 的同一份命名规则——绝不在这里
-    另拼。合同名取**确认到的**合同（可能与建议合同不同：人工改判过）。
-
-    一次查库同时给两个字段：列表只关心文件名，详情还要落点，分两次查是白花。
-    """
-    blank = {"display_filename": "", "folder_subpath": ""}
-    if not intake.invoice_id:
-        return blank
-    from pathlib import Path
-
-    from apps.contracts.models import Invoice
-    from apps.contracts.services.payment.invoice_file_service import InvoiceFileService
-
-    invoice = Invoice.objects.filter(pk=intake.invoice_id).select_related("payment__contract", "contract").first()
-    if invoice is None:
-        return blank
-    contract = invoice.contract or (invoice.payment.contract if invoice.payment_id else None)
-    return {
-        "display_filename": InvoiceFileService().display_filename(
-            contract_name=str(getattr(contract, "name", "") or ""),
-            seller=str(invoice.seller_name or ""),
-            inv_date=invoice.invoice_date,
-            ext=Path(str(invoice.file_path or "")).suffix.lower(),
-        ),
-        "folder_subpath": str(getattr(invoice, "folder_subpath", "") or ""),
-    }
-
-
 def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
     snapshot = intake.match_snapshot or {}
     payment_pick = snapshot.get("payment_pick") or {}
-    generated = _generated_invoice_facts(intake)
+    from apps.contracts.services.payment.invoice_intake_service import generated_invoice_facts
+
+    generated = generated_invoice_facts(intake)
     suggested_payment_id = intake.suggested_payment_id
     if suggested_payment_id is None:
         suggested_payment_id = payment_pick.get("suggested_payment_id")
@@ -259,7 +230,7 @@ def list_pending(request: HttpRequest, limit: int = 20) -> list[Any]:  # pragma:
     from apps.contracts.services.payment.invoice_intake_service import visible_intakes_qs
 
     qs = (
-        visible_intakes_qs(request.user)  # type: ignore[attr-defined]
+        visible_intakes_qs(request.user)
         .filter(status=InvoiceIntakeStatus.PENDING)
         .select_related("suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source")
         .order_by("-created_at", "-id")[: max(1, min(limit, MAX_PENDING))]
@@ -272,7 +243,7 @@ def pending_count(request: HttpRequest) -> Any:  # pragma: no cover
     """首页角标（轻量：只 count，不拉快照）。"""
     from apps.contracts.services.payment.invoice_intake_service import open_count
 
-    return {"count": open_count(request.user)}  # type: ignore[attr-defined]
+    return {"count": open_count(request.user)}
 
 
 @router.get("/selectable-contracts")
@@ -312,17 +283,9 @@ def rescan(request: HttpRequest, days: int = 60) -> Any:  # pragma: no cover
 @router.get("/{intake_id}", response=InvoiceIntakeOut)
 def get_intake(request: HttpRequest, intake_id: int) -> Any:  # pragma: no cover
     """详情：完整候选 + 被排除线索 + 备注原文（limit=None 不裁剪候选）。"""
-    from apps.contracts.models import InvoiceIntake
-    from apps.contracts.services.payment.invoice_intake_service import can_decide
-    from apps.core.exceptions import NotFoundError
+    from apps.contracts.services.payment.invoice_intake_service import get_intake_for_user
 
-    intake = (
-        InvoiceIntake.objects.filter(pk=intake_id)
-        .select_related("suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source")
-        .first()
-    )
-    if intake is None or not can_decide(request.user, intake):  # type: ignore[attr-defined]
-        raise NotFoundError(f"待认领发票 {intake_id} 不存在")
+    intake = get_intake_for_user(intake_id=intake_id, user=request.user)
     return _to_out(intake, limit=None)
 
 
@@ -334,10 +297,12 @@ def confirm_endpoint(request: HttpRequest, intake_id: int, payload: ConfirmIn) -
         intake_id=intake_id,
         contract_id=payload.contract_id,
         payment_id=payload.payment_id,
-        user=request.user,  # type: ignore[attr-defined]
+        user=request.user,
         note=payload.note,
     )
-    generated = _generated_invoice_facts(intake)
+    from apps.contracts.services.payment.invoice_intake_service import generated_invoice_facts
+
+    generated = generated_invoice_facts(intake)
     return {
         "success": True,
         "message": "发票已绑定到项目",
@@ -355,7 +320,7 @@ def reject_endpoint(request: HttpRequest, intake_id: int, payload: ReasonIn) -> 
     intake = reject_invoice_intake(
         intake_id=intake_id,
         user=request.user,
-        reason=payload.reason,  # type: ignore[attr-defined]
+        reason=payload.reason,
     )
     return {
         "success": True,
@@ -370,7 +335,7 @@ def reject_endpoint(request: HttpRequest, intake_id: int, payload: ReasonIn) -> 
 def reopen_endpoint(request: HttpRequest, intake_id: int) -> Any:  # pragma: no cover
     from apps.contracts.services.payment.invoice_intake_service import reopen_invoice_intake
 
-    intake = reopen_invoice_intake(intake_id=intake_id, user=request.user)  # type: ignore[attr-defined]
+    intake = reopen_invoice_intake(intake_id=intake_id, user=request.user)
     return {
         "success": True,
         "message": "已撤销，回到待确认",
