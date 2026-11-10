@@ -90,7 +90,7 @@ def _archived_or_unsigned_q() -> Q:
     return Q(status="archived") | Q(status="unsigned")
 
 
-def eligible_contract_qs(*, include_expired: bool = True) -> QuerySet[Contract]:
+def eligible_contract_qs(*, include_expired: bool = True, exclude_fully_paid: bool = True) -> QuerySet[Contract]:
     """返回**可被认领**的在办项目 QuerySet（已挂 ``paid_total`` 注解）。
 
     自动匹配器与前端下拉共用此函数，保证口径一致。
@@ -99,13 +99,22 @@ def eligible_contract_qs(*, include_expired: bool = True) -> QuerySet[Contract]:
         include_expired: 是否包含已过 ``end_date`` 的项目。默认包含——
             顾问合同到期后续费打款是真实场景，排除会漏。调用方（匹配器）
             用 ``caveat`` 提示到期，而不是在这里砍掉。
+        exclude_fully_paid: 是否排除**已收满**的项目。默认 ``True``（到账认领口径）。
+
+            **发票认领必须传 ``False``**：两个业务里"收满"的含义完全相反。
+            到账场景下收满意味着"这笔钱不能再记进这个合同"；发票场景下
+            收满恰恰是**该开票**的时候（钱收齐了才开发票是正常顺序）。
+            误用会让「已收满且未开票」的项目永远匹配不到发票——
+            实测：某非诉专项合同固定金额收满且未开票，就因此被自家同额的
+            发票排除在外（发票认领到底后才发现的问题）。
     """
     from apps.contracts.models import Contract
 
     qs = with_paid_total(Contract.objects.all())
     qs = qs.filter(status="active")
-    # 已收满：用 NOT 包住"收满"条件
-    qs = qs.exclude(fully_paid_q())
+    if exclude_fully_paid:
+        # 已收满：用 NOT 包住"收满"条件
+        qs = qs.exclude(fully_paid_q())
     # 案件全部结案：exclude "有案件且没有在办案件"
     qs = qs.exclude(_case_closed_q())
     if not include_expired:

@@ -9,6 +9,7 @@ from .archive_classification_rule_admin import ArchiveClassificationRuleAdmin
 from .client_payment_admin import ClientPaymentRecordAdmin
 from .contract_admin import ContractAdmin
 from .contractpayment_admin import ContractPaymentAdmin, ContractPaymentInline
+from .invoice_intake_admin import InvoiceIntakeAdmin
 from .payment_intake_admin import PaymentIntakeAdmin
 from .supplementary_agreement_admin import SupplementaryAgreementAdmin
 
@@ -21,6 +22,7 @@ __all__ = [
     "ContractAdmin",
     "ContractPaymentAdmin",
     "ContractPaymentInline",
+    "InvoiceIntakeAdmin",
     "PaymentIntakeAdmin",
     "SupplementaryAgreementAdmin",
 ]

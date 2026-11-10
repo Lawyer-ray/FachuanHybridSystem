@@ -588,6 +588,15 @@ class InvoiceFileService:
                 errors={"file": "文件过大"},
             )
 
+    def recompute_payment_invoicing(self, payment: Any) -> None:
+        """公开入口：外部（如待认领发票撤销）删掉发票后，重算这笔收款的开票状态。
+
+        存在的理由：收款的开票金额是**从发票表推算**出来的派生值，任何绕过本服务
+        删发票的路径（待认领撤销、管理后台批量删）都必须调一次这里，否则收款会
+        停在旧状态一直说「已全额开票」，而实际一张票都没了。
+        """
+        self._recompute_invoiced_amount(payment)
+
     def _recompute_invoiced_amount(self, payment: Any) -> None:
         """按发票合计**全量重算** invoiced_amount 与开票状态（不越过收款金额上限）。
 

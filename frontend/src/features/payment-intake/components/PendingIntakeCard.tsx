@@ -30,7 +30,7 @@ import { ProjectPicker } from './ProjectPicker'
  *
  * 系统**不替人做决定**：只有金额吻合的候选不会预选建议，卡片明确提示需要核对。
  */
-export function PendingIntakeCard() {
+export function PendingIntakeCard({ bare = false }: { bare?: boolean } = {}) {
   const navigate = useNavigate()
   const { data = [], isLoading, isError, error, refetch } = usePendingIntakes(20)
   const confirm = useConfirmIntake()
@@ -40,9 +40,8 @@ export function PendingIntakeCard() {
   const count = data.length
   const subtitle = useMemo(() => (isError ? '' : count ? `${count} 笔` : ''), [count, isError])
 
-  return (
-    <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="待认领款项" count={subtitle} />
+  const body = (
+    <>
       <div className="px-2.5 pt-1.5 pb-2.5">
         {isError && (
           <div className="px-2 py-6 text-center text-[12.5px] text-destructive">
@@ -57,13 +56,20 @@ export function PendingIntakeCard() {
           <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">正在载入…</div>
         )}
 
-        {!isError && !isLoading && count === 0 && (
-          <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
-            <Wallet className="h-4 w-4 text-muted-foreground/50" aria-hidden />
-            <div className="text-[12.5px] text-muted-foreground">暂无待认领款项</div>
-            <div className="text-[10.5px] text-muted-foreground/70">收到银行到账通知后会自动出现在这里</div>
-          </div>
-        )}
+        {!isError && !isLoading && count === 0 &&
+          (bare ? (
+            /* 合成卡里两组合并展示：空态用一行紧凑提示，不再占一块高的空面板 */
+            <div className="flex items-center gap-1.5 px-2 py-2 text-[11.5px] text-muted-foreground">
+              <Wallet className="h-3 w-3 flex-none opacity-50" aria-hidden />
+              暂无待认领款项
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
+              <Wallet className="h-4 w-4 text-muted-foreground/50" aria-hidden />
+              <div className="text-[12.5px] text-muted-foreground">暂无待认领款项</div>
+              <div className="text-[10.5px] text-muted-foreground/70">收到银行到账通知后会自动出现在这里</div>
+            </div>
+          ))}
 
         {!isError &&
           !isLoading &&
@@ -94,6 +100,26 @@ export function PendingIntakeCard() {
           confirm.mutate({ id: intake.id, contractId })
         }}
       />
+    </>
+  )
+
+  // bare：只给内容区，由调用方（首页合并卡）提供外壳与标题。
+  // 默认：自带外壳——单独使用时与改造前完全一致。
+  //
+  // 合成卡里**不写「款项」文字标题**：两类待办并列在同一个卡里，靠左侧色条
+  // （款项=emerald、发票=indigo）与分隔线区分即可；再加两个文字标签只是重复噪声。
+  if (bare) {
+    return (
+      <div className="border-l-2 border-l-emerald-400/70">
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <section className={`${PANEL} overflow-hidden`}>
+      <CardHead title="待认领款项" count={subtitle} />
+      {body}
     </section>
   )
 }

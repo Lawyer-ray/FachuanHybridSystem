@@ -1,7 +1,7 @@
 <h1 align="center">法穿SI Copilot</h1>
 
 <p align="center">
-  <strong>一线执业律师主导研发的法律事务管理系统</strong><br>
+  <strong>一线执业律师主导研发的办案系统</strong><br>
   <sub>开源 · 私有化部署 · 数据自持 · 不是 Demo，是 7×24 跑在生产环境的那一套</sub>
 </p>
 

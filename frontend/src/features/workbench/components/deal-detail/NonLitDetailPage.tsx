@@ -27,6 +27,19 @@ import { useDockedViewport, useNetWidth } from './use-net-width'
 import { Card, DetailError, RailSection } from './ui'
 
 /**
+ * 非诉工作台那一段的纵向栅格。
+ *
+ * 三个工作台组件返回的都是**一串 <Card> 兄弟节点**（Fragment 直接展开），
+ * `DealDocLayout` 的 `space-y-[18px]` 只作用于「本层与相邻层」，管不到本层内部的
+ * 兄弟卡——不在这里补栅格，卡就是贴死的（实测第 2 张 bottom === 第 3 张 top）。
+ *
+ * 用 `flex flex-col gap-[18px]` 而不是 `space-y-*`：本层内可能整段为空（无内容时
+ * 返回 null），space-y 会给「第一个非空子元素」打 margin-top 依赖相邻选择器，
+ * 有子元素条件渲染时容易算错；flex gap 只认实际参与布局的孩子，稳。
+ */
+const NONLIT_STACK = 'flex flex-col gap-[18px] mb-[18px]'
+
+/**
  * 非诉项目详情页。
  *
  * 与争议解决详情页的差别只在**左栏**：诉讼是案件程序链，非诉是合同工作本身。
@@ -232,24 +245,22 @@ export function NonLitDetailPage() {
           />
         }
       >
-        {/* 非诉工作台：三个场景各配一组动作（与诉讼线六阶段交互同构） */}
-        {isCrossBorder ? (
-          <div className="mb-[18px]">
+        {/* 非诉工作台：三个场景各配一组动作（与诉讼线六阶段交互同构）。
+            包一层是因为三个工作台返回的都是一串 <Card>（Fragment 直接展开成一排兄弟），
+            栅格由这一层统一给——**必须写在这里**：`DealDocLayout` 的 space-y 作用在本层
+            与下层之间，管不到本层内部的兄弟卡，漏写就是「推进到下一阶段」与
+            「推进前置校验」两张卡贴死（实测 bottom === top，零间距）。 */}
+        <div className={NONLIT_STACK}>
+          {isCrossBorder ? (
             <CrossBorderWorkbench />
-          </div>
-        ) : isSpecial ? (
-          <div className="mb-[18px]">
+          ) : isSpecial ? (
             <SpecialPhaseWorkbench />
-          </div>
-        ) : deal.caseType === 'advisor' ? (
-          <div className="mb-[18px]">
+          ) : deal.caseType === 'advisor' ? (
             <AdvisorWorkbench />
-          </div>
-        ) : (
-          <div className="mb-[18px]">
+          ) : (
             <CrossBorderWorkbench />
-          </div>
-        )}
+          )}
+        </div>
 
         {isSpecial ? (
           <PhaseListCard

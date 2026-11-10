@@ -50,6 +50,15 @@ class Invoice(models.Model):
         db_index=True,
     )
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    #: 从邮件附件落进合同文件夹时的相对子路径。撤销/重扫时据此**确定性**删除副本，
+    #: 不靠文件名猜测（同名票换版会导致删错文件）
+    folder_subpath = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name="合同文件夹落点",
+        help_text="镜像到合同文件夹的相对子路径，撤销时据此确定性删除副本",
+    )
 
     # 发票识别结果字段（可选）
     invoice_code = models.CharField(max_length=20, blank=True, default="", verbose_name="发票代码")

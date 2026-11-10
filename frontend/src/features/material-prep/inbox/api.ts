@@ -104,11 +104,19 @@ export async function listSources(): Promise<MessageSourceOut[]> {
  *
  * **只影响手动同步**：后台定时任务与首次建源不走这个值（后端传 None 时按来源的
  * sync_since 全量回填），所以「从历史时期完整同步」仍会发生在初次回填。
+ *
+ * 3 天：用户日常节奏是「昨天/前天的通知今天处理」，3 天覆盖周末断档；
+ * 再看更早的用下拉里的 1 天/3 天重跑即可。
  */
-export const DEFAULT_SYNC_WINDOW_DAYS = 7
+export const DEFAULT_SYNC_WINDOW_DAYS = 3
 
-/** 手动同步可选的时间范围（天数）。7 = 默认。 */
-export const SYNC_WINDOW_OPTIONS = [7, 30, 90] as const
+/**
+ * 手动同步可选的时间范围（天数）。3 = 默认。
+ *
+ * 只留 1 与 3：发票/到账通知是「当天或隔天就要处理」的时效件，30/90 天
+ * 既慢又灌入大量无关注销邮件，已被用户明确要求去掉。
+ */
+export const SYNC_WINDOW_OPTIONS = [1, 3] as const
 export type SyncWindowDays = (typeof SYNC_WINDOW_OPTIONS)[number]
 
 /** POST /inbox/sources/sync-all —— 提交全部可见来源的同步任务 */

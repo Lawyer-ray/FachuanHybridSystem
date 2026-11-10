@@ -105,6 +105,16 @@ class RematchOut(Schema):
     failed: int
 
 
+class SyncPendingOut(Schema):
+    """首页「待认领」同步按钮的返回：两类各收了多少条。"""
+
+    days: int
+    payment_created: int
+    invoice_created: int
+    #: 已提交多少个 IMAP 来源的异步同步任务（拉回的新邮件会在后台再入池）
+    sources_submitted: int
+
+
 # ── Helpers ───────────────────────────────────────────────
 
 
@@ -209,6 +219,19 @@ def list_selectable_contracts(request: HttpRequest, search: str = "", limit: int
             }
         )
     return rows
+
+
+@router.post("/sync-pending", response=SyncPendingOut)
+def sync_pending(request: HttpRequest, days: int = 1) -> Any:  # pragma: no cover
+    """首页「待认领」卡的同步按钮：一次把款项 + 发票两类都收进来。
+
+    先补扫已入库邮件（同步、快），再提交 IMAP 异步同步拉新邮件。
+    两步均幂等，重复点不会产生重复记录。详见
+    ``apps.contracts.services.payment.pending_sync_service``。
+    """
+    from apps.contracts.services.payment.pending_sync_service import sync_pending_intakes
+
+    return sync_pending_intakes(days=days, user=request.user)
 
 
 @router.post("/rescan", response=ScanOut)

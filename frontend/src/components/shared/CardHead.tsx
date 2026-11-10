@@ -14,16 +14,26 @@ export function CardHead({
   count,
   moreHref,
   moreLabel = '查看全部',
+  action,
 }: {
   title: string
-  count: string
+  /** 计数小丸文本。省略/空串时**整颗胶囊不渲染**——空胶囊会被误读成「0 条」。
+   *  合并卡（款项+发票）不在这里给数字：两个分组的条数各自列在组标题旁。 */
+  count?: string
   moreHref?: string
   moreLabel?: string
+  /**
+   * 标题行右侧的自定义控件（目前是「待认领」卡的同步按钮）。
+   *
+   * 不给 `moreHref` 时它靠 `ml-auto` 靠右；两者同时给时 `moreHref` 先占位、
+   * action 紧贴其后——调用方自己不要重复给 ml-auto。
+   */
+  action?: React.ReactNode
 }) {
   return (
     <div className="flex items-center gap-2.5 px-4 pt-[15px] pb-1">
       <b className="text-[13.5px] font-semibold">{title}</b>
-      <span className={COUNT_PILL}>{count}</span>
+      {count ? <span className={COUNT_PILL}>{count}</span> : null}
       {moreHref && (
         <Link
           to={moreHref}
@@ -33,6 +43,7 @@ export function CardHead({
           <ChevronRight className="h-3 w-3" aria-hidden />
         </Link>
       )}
+      {action && <span className={moreHref ? 'ml-1 flex-none' : 'ml-auto flex-none'}>{action}</span>}
     </div>
   )
 }

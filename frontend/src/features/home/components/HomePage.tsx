@@ -20,6 +20,10 @@ import { errMessage } from '@/lib/errors'
 import { ErrorBlock } from '@/components/shared/AsyncState'
 import { InboxCard, QuickAdd } from './SideCards'
 import { PendingIntakeCard } from '@/features/payment-intake'
+import { PendingInvoicesCard } from '@/features/invoice-intake'
+import { CardHead } from '@/components/shared/CardHead'
+import { PANEL } from '@/components/shared/panel-styles'
+import { PendingSyncButton } from './PendingSyncButton'
 import { TodayCard } from './TodayCard'
 import { AddReminderDialog } from './AddReminderDialog'
 import { DaySheet } from './DaySheet'
@@ -276,9 +280,20 @@ export function HomePage() {
               onOpenEvent={handleOpenEvent}
               onToggleComplete={handleToggleComplete}
             />
-            {/* 待认领款项：钱比消息优先级高，放收件箱之上。
-                常驻渲染（无待办时显示空态）——用户要求每次进首页都能看到它。 */}
-            <PendingIntakeCard />
+            {/* 待认领（款项 + 发票）：财务给我发了东西、等我确认，比消息优先级高，放收件箱之上。
+
+                **一个外壳两张卡内容**（用户要求"节约空间"）：外层 section + CardHead 由
+                首页提供，两个 feature 各自以 bare 模式只渲染内容区与自己的分组标题。
+                这样两个 feature 互不 import（守住 feature 隔离），视觉上却是一张卡。
+
+                常驻渲染（无待办时显示空态）——用户要求每次进首页都能看到。 */}
+            <section className={`${PANEL} overflow-hidden`}>
+              {/* 同步按钮放卡头右上：卡变空态时这里是唯一能主动拉取新到账/发票的出口，
+                  否则用户只能等后台定时任务或绕去收件箱页点同步。 */}
+              <CardHead title="待认领" action={<PendingSyncButton />} />
+              <PendingIntakeCard bare />
+              <PendingInvoicesCard bare />
+            </section>
             <InboxCard onOpen={handleInboxOpen} onOpenPack={goPack} />
           </div>
         </div>

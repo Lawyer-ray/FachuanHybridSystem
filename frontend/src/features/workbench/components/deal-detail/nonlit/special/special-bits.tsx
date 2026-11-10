@@ -35,10 +35,36 @@ export function TonePill({ children, tone = 'neutral' }: { children: ReactNode; 
   )
 }
 
-/** 块内嵌层（比卡片更白一层） */
-export function Inset({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * 卡片内嵌层（比卡片更白一层）。
+ *
+ * 详情页左栏的卡片是**通栏**渐次堆叠的，AST 里带 border 的子块会给视觉补上
+ * 「浮在页面上」的分隔，但同时把卡内可用宽度又切窄一档；所以原来「条目之间」
+ * 还能再切一层边框时，两个相邻边框之间只剩 6px 间隙，看起来就像卡片挤在一起。
+ * 现在统一成：**卡外靠 18px 栅格间距分隔**，卡内条目只用底色做分区（无边框），
+ * 需要真边框的少数场合显式传 `framed`。
+ */
+export function Inset({
+  children,
+  className,
+  framed = false,
+}: {
+  children: ReactNode
+  className?: string
+  /** 画细边框；默认不画，只保留底色与内边距 */
+  framed?: boolean
+}) {
   return (
-    <div className={cn('rounded-[9px] border border-border-light bg-background px-3 py-2', className)}>{children}</div>
+    <div
+      className={cn(
+        framed
+          ? 'rounded-[9px] border border-border-light bg-background px-3 py-2'
+          : 'rounded-[9px] bg-secondary/35 px-3 py-2',
+        className,
+      )}
+    >
+      {children}
+    </div>
   )
 }
 
