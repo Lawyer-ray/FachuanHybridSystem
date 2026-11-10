@@ -23,6 +23,7 @@ import { PendingIntakeCard } from '@/features/payment-intake'
 import { PendingInvoicesCard } from '@/features/invoice-intake'
 import { CardHead } from '@/components/shared/CardHead'
 import { PANEL } from '@/components/shared/panel-styles'
+import { PendingSyncButton } from './PendingSyncButton'
 import { TodayCard } from './TodayCard'
 import { AddReminderDialog } from './AddReminderDialog'
 import { DaySheet } from './DaySheet'
@@ -287,7 +288,9 @@ export function HomePage() {
 
                 常驻渲染（无待办时显示空态）——用户要求每次进首页都能看到。 */}
             <section className={`${PANEL} overflow-hidden`}>
-              <CardHead title="待认领" />
+              {/* 同步按钮放卡头右上：卡变空态时这里是唯一能主动拉取新到账/发票的出口，
+                  否则用户只能等后台定时任务或绕去收件箱页点同步。 */}
+              <CardHead title="待认领" action={<PendingSyncButton />} />
               <PendingIntakeCard bare />
               <PendingInvoicesCard bare />
             </section>

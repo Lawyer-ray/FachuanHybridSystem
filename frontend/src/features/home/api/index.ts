@@ -57,3 +57,7 @@ export {
   DOC_PARSE_MAX_POLLS,
 } from './document-parsing'
 export type { ParseBackend, ParseDocumentIn, ParseSubmit, ParseTaskStatus, ParseOutcome, ParseBlock, ParseCoverage, ParseRecordItem, ParseRecordDetail } from './document-parsing'
+
+
+export { pendingSyncApi, syncPendingIntakes } from './pending-sync'
+export type { PendingSyncResult } from './pending-sync'
