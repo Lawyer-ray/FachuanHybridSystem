@@ -15,7 +15,7 @@ const REASON_MAX = 30
  * `case_text`（同一个购买方名字出现两次时），而「凭什么是这么想的」应由
  * 信号等级回答，不是分数。
  */
-function topKind(intake: InvoiceIntake) {
+export function topKind(intake: InvoiceIntake) {
   const kinds = intake.candidates.map((c) => c.kind)
   if (kinds.includes('project_code')) return 'project_code' as const
   if (kinds.includes('case_text')) return 'case_text' as const

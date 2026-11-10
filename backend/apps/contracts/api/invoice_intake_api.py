@@ -65,12 +65,17 @@ class InvoiceIntakeOut(Schema):
     #: 确认后生成的重命名文件名（``发票（合同名）_YYYYMMDD开具.pdf``）。
     #: 首页行内要直接展示并可复制，因此随列表一起下发，不让前端再探一次。
     invoice_display_filename: str = ""
+    #: 确认后镜像到合同文件夹的相对落点（未镜像则空串）。详情里展示
+    #: 「文件落在哪」，让律师能自己去 Finder 里找到那份副本。
+    invoice_folder_subpath: str = ""
     decision_note: str = ""
     candidates: list[InvoiceCandidateOut] = []
     excluded_hints: list[InvoiceExcludedHintOut] = []
     inbox_message_id: int
     subject: str
     sender: str
+    #: 附件原始文件名（详情里的「原始文件」块；确认后的展示名另见 invoice_display_filename）
+    original_filename: str = ""
 
 
 class CountOut(Schema):
@@ -137,14 +142,17 @@ def _hints_of(intake: Any) -> list[dict[str, Any]]:
     return list(snapshot.get("excluded_hints") or [])
 
 
-def _display_filename_of(intake: Any) -> str:
-    """确认后那张发票的重命名文件名（未确认则为空串）。
+def _generated_invoice_facts(intake: Any) -> dict[str, str]:
+    """确认后那张发票的**展示名 + 文件夹落点**（未确认则两者均空串）。
 
-    走 InvoiceFileService.display_filename 的同一份命名规则——绝不在这里另拼。
-    合同名取**确认到的**合同（可能与建议合同不同：人工改判过）。
+    展示名走 ``InvoiceFileService.display_filename`` 的同一份命名规则——绝不在这里
+    另拼。合同名取**确认到的**合同（可能与建议合同不同：人工改判过）。
+
+    一次查库同时给两个字段：列表只关心文件名，详情还要落点，分两次查是白花。
     """
+    blank = {"display_filename": "", "folder_subpath": ""}
     if not intake.invoice_id:
-        return ""
+        return blank
     from pathlib import Path
 
     from apps.contracts.models import Invoice
@@ -152,19 +160,23 @@ def _display_filename_of(intake: Any) -> str:
 
     invoice = Invoice.objects.filter(pk=intake.invoice_id).select_related("payment__contract", "contract").first()
     if invoice is None:
-        return ""
+        return blank
     contract = invoice.contract or (invoice.payment.contract if invoice.payment_id else None)
-    return InvoiceFileService().display_filename(
-        contract_name=str(getattr(contract, "name", "") or ""),
-        seller=str(invoice.seller_name or ""),
-        inv_date=invoice.invoice_date,
-        ext=Path(str(invoice.file_path or "")).suffix.lower(),
-    )
+    return {
+        "display_filename": InvoiceFileService().display_filename(
+            contract_name=str(getattr(contract, "name", "") or ""),
+            seller=str(invoice.seller_name or ""),
+            inv_date=invoice.invoice_date,
+            ext=Path(str(invoice.file_path or "")).suffix.lower(),
+        ),
+        "folder_subpath": str(getattr(invoice, "folder_subpath", "") or ""),
+    }
 
 
 def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
     snapshot = intake.match_snapshot or {}
     payment_pick = snapshot.get("payment_pick") or {}
+    generated = _generated_invoice_facts(intake)
     suggested_payment_id = intake.suggested_payment_id
     if suggested_payment_id is None:
         suggested_payment_id = payment_pick.get("suggested_payment_id")
@@ -186,13 +198,15 @@ def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
         "confirmed_contract_name": getattr(intake.confirmed_contract, "name", None),
         "confirmed_payment_id": intake.confirmed_payment_id,
         "invoice_id": intake.invoice_id,
-        "invoice_display_filename": _display_filename_of(intake),
+        "invoice_display_filename": generated["display_filename"],
+        "invoice_folder_subpath": generated["folder_subpath"],
         "decision_note": intake.decision_note,
         "candidates": _candidates_of(intake, limit=limit),
         "excluded_hints": _hints_of(intake),
         "inbox_message_id": intake.inbox_message_id,
         "subject": getattr(intake.inbox_message, "subject", ""),
         "sender": getattr(intake.inbox_message, "sender", ""),
+        "original_filename": intake.original_filename,
     }
 
 

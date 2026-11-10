@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { FileText } from 'lucide-react'
 
 import { CardHead } from '@/components/shared/CardHead'
 import { PANEL } from '@/components/shared/panel-styles'
 import { errMessage } from '@/lib/errors'
 import { useConfirmInvoiceIntake, usePendingInvoices } from '../hooks/use-pending-invoices'
+import type { InvoiceIntake } from '../types'
+import { InvoiceDetailDialog } from './InvoiceDetailDialog'
 import { InvoiceIntakeRow } from './InvoiceIntakeRow'
 
 /**
@@ -39,6 +41,9 @@ import { InvoiceIntakeRow } from './InvoiceIntakeRow'
 export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
   const { data = [], isLoading, isError, error, refetch } = usePendingInvoices(20)
   const confirm = useConfirmInvoiceIntake()
+
+  // 详情弹窗的目标行：点「详情」时定住那一行，弹窗里不跟随列表刷新而漂移
+  const [detailFor, setDetailFor] = useState<InvoiceIntake | null>(null)
 
   const count = data.length
   const subtitle = useMemo(() => (isError ? '' : count ? `${count} 张` : ''), [count, isError])
@@ -91,7 +96,7 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
               // 与匹配信号都已在眼前，多一次弹窗只是重复阅读同一批信息）
               onConfirm={() => confirm.mutate({ id: intake.id })}
               onChange={() => console.warn('invoice-intake: 「换个项目」弹窗尚未接线', intake.id)}
-              onDetail={() => console.warn('invoice-intake: 发票详情弹窗尚未接线', intake.id)}
+              onDetail={() => setDetailFor(intake)}
             />
           </div>
         ))}
@@ -101,11 +106,29 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
   // 合成卡里靠左侧色条（发票=indigo）区分，不再写「发票」文字标签。
   // 上边框只在**本组有内容**时画：本组空态只是一行灰字，再压一条分隔线
   // 会把「没东西」强调成一个小节，反而显乱。
+  // 详情弹窗放在最外层（Dialog 本身是 portal，放哪都能覆盖整页）；
+  // 两种渲染模式共用同一份，避免各写一遍。
+  const detail = (
+    <InvoiceDetailDialog
+      intake={detailFor}
+      open={detailFor != null}
+      onClose={() => setDetailFor(null)}
+      onConfirm={(row) => {
+        setDetailFor(null)
+        confirm.mutate({ id: row.id })
+      }}
+      busy={confirm.isPending}
+    />
+  )
+
   if (bare) {
     return (
-      <div className={`border-l-2 border-l-indigo-400/70 ${count ? 'border-t border-t-border/60' : ''}`}>
-        {content}
-      </div>
+      <>
+        <div className={`border-l-2 border-l-indigo-400/70 ${count ? 'border-t border-t-border/60' : ''}`}>
+          {content}
+        </div>
+        {detail}
+      </>
     )
   }
 
@@ -113,6 +136,7 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
     <section className={`${PANEL} overflow-hidden`}>
       <CardHead title="待认领发票" count={subtitle} />
       {content}
+      {detail}
     </section>
   )
 }
