@@ -110,14 +110,8 @@ def build_lawyer_lookup() -> dict[str, tuple[int, str]]:
     律师姓名可按 ``real_name`` 或 ``username`` 命中；同名只保留第一个，
     让用户在前端下拉里自行确认（不自动创建律师，避免脏数据）。
     """
+    from apps.contracts.services.contract.intake.normalize import normalize_lawyer_name_key
     from apps.organization.models import Lawyer
-
-    def key_of(raw: str) -> str:
-        text = re.sub(r"\s+", "", str(raw or "").strip())
-        for suffix in ("律师",):
-            if text.endswith(suffix) and len(text) > len(suffix):
-                text = text[: -len(suffix)]
-        return text
 
     lookup: dict[str, tuple[int, str]] = {}
     for lawyer_id, real_name, username in Lawyer.objects.values_list("id", "real_name", "username").iterator():
@@ -125,7 +119,7 @@ def build_lawyer_lookup() -> dict[str, tuple[int, str]]:
         if not label:
             continue
         for candidate in (real_name, username):
-            key = key_of(candidate or "")
+            key = normalize_lawyer_name_key(candidate or "")
             if key:
                 lookup.setdefault(key, (lawyer_id, label))
     return lookup

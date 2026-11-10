@@ -304,14 +304,22 @@ class TestCurrentLawyerFallback:
         assert matched[0].is_primary is True
 
     def test_fallback_not_added_when_one_matched(self) -> None:
-        extraction = _extraction(lawyers=[ExtractedLawyer(name="张律师")])
+        """已匹配到系统律师时不得再用登录律师兜底（否则会多出一条指派）。"""
+        extraction = _extraction(lawyers=[ExtractedLawyer(name="张三")])
         draft = normalize_extraction(
             extraction,
-            lawyer_lookup={"张律师": (2, "张律师")},
+            # lookup 的键是 normalize_lawyer_name_key 的结果（无「律师」后缀）
+            lawyer_lookup={"张三": (2, "张三")},
             current_lawyer_id=99,
             current_lawyer_label="他人",
         )
         assert [lw.lawyer_id for lw in draft.lawyers] == [2]
+
+    def test_suffix_stripped_on_lookup(self) -> None:
+        """合同写「张三律师」，库内姓名是「张三」——归一化后必须命中。"""
+        extraction = _extraction(lawyers=[ExtractedLawyer(name="张三律师")])
+        draft = normalize_extraction(extraction, lawyer_lookup={"张三": (7, "张三")})
+        assert draft.lawyers[0].lawyer_id == 7
 
 
 class TestDraftFields:

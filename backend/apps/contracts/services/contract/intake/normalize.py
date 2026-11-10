@@ -710,7 +710,7 @@ def normalize_extraction(
             law_firm=str(lawyer.law_firm or "").strip(),
             is_primary=bool(lawyer.is_primary),
         )
-        key = _normalize_name_key(name)
+        key = normalize_lawyer_name_key(name)
         hit = lawyer_lookup.get(key)
         if hit:
             nl.lawyer_id, nl.lawyer_label = hit[0], hit[1]
@@ -847,13 +847,19 @@ def _is_redundant_terms(custom_terms: str, amount: Decimal | None) -> bool:
     return not has_extra
 
 
-def _normalize_name_key(raw: str) -> str:
-    """姓名比对键：去空白、去「律师」职衔尾缀。"""
+def normalize_lawyer_name_key(raw: str) -> str:
+    """律师姓名比对键：去空白、去「律师」职衔尾缀。
+
+    **唯一实现**：``build_lawyer_lookup`` 建索引和 ``normalize_extraction`` 查索引
+    必须用同一套归一化，否则「张律师」查不到键为「张」的记录（早期两处各写一份，
+    测试里就漂移过一次）。
+    """
     text = str(raw or "").strip()
     text = re.sub(r"\s+", "", text)
-    for suffix in ("律师", "大律师"):
+    for suffix in ("大律师", "律师"):
         if text.endswith(suffix) and len(text) > len(suffix):
             text = text[: -len(suffix)]
+            break
     return text
 
 
