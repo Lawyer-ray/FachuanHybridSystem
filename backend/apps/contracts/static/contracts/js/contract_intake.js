@@ -88,9 +88,6 @@
     // 头部（可点击折叠）
     var header = el("div", { class: "ci-header" });
     header.appendChild(
-      el("span", { class: "ci-header-icon", html: "&#128196;" })
-    );
-    header.appendChild(
       el("span", { class: "ci-header-title", text: "AI 智能导入合同" })
     );
     header.appendChild(
@@ -111,7 +108,6 @@
 
     // 拖拽区
     var drop = el("div", { class: "ci-drop", id: "ci-drop" });
-    drop.appendChild(el("div", { class: "ci-drop-icon", html: "&#8681;" }));
     var dropText = el("div", { class: "ci-drop-text" });
     dropText.appendChild(
       el("strong", { text: "拖拽合同文件到这里，或 " })

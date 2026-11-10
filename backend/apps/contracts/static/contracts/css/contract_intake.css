@@ -28,11 +28,6 @@
   border-bottom: none;
 }
 
-#ci-panel .ci-header-icon {
-  font-size: 15px;
-  line-height: 1;
-}
-
 #ci-panel .ci-header-title {
   font-weight: 600;
   font-size: 13px;
@@ -92,13 +87,6 @@
 #ci-panel .ci-drop-busy {
   opacity: 0.6;
   pointer-events: none;
-}
-
-#ci-panel .ci-drop-icon {
-  font-size: 22px;
-  color: var(--fc-text-muted, #909399);
-  line-height: 1;
-  margin-bottom: 6px;
 }
 
 #ci-panel .ci-drop-text {
