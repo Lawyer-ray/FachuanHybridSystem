@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 
 import {
   confirmInvoiceIntake,
+  copyInvoiceToClipboard,
   getPendingInvoiceCount,
   INVOICE_INTAKE_COUNT_KEY,
   INVOICE_INTAKE_PENDING_KEY,
@@ -52,7 +53,27 @@ export function useConfirmInvoiceIntake() {
       confirmInvoiceIntake(id, contractId, paymentId),
     onSuccess: (res) => {
       invalidate()
-      toast.success(res.message || '已绑定该项目')
+      // 确认后该行立刻从「待认领」消失（用户要求：处理过的就该走开）。
+      // 但确认完最想做的下一件事是复制那个重命名后的发票，所以把复制入口
+      // 挂在 toast 上——行消失不影响操作，也不占列表位置。
+      if (res.invoice_id) {
+        toast.success(res.message || '已绑定该项目', {
+          action: {
+            label: '复制发票',
+            onClick: () => {
+              void copyInvoiceToClipboard(res.invoice_id!)
+                .then((r) => {
+                  if (r.success && r.copied > 0) toast.success('发票已复制，微信对话框直接 ⌘V 粘贴发送')
+                  else toast.error(r.reason || '复制失败，请到项目页手动下载')
+                })
+                .catch(() => toast.error('复制失败，请到项目页手动下载'))
+            },
+          },
+          duration: 12000,
+        })
+      } else {
+        toast.success(res.message || '已绑定该项目')
+      }
     },
     onError: (error) => toast.error(errMessage(error, '确认失败')),
   })

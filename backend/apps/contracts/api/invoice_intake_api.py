@@ -18,14 +18,6 @@ router = Router()
 #: 首页卡片最多展示几条（与到账卡同口径）
 MAX_PENDING = 50
 
-#: 已确认的发票在首页再保留多久（分钟）。
-#:
-#: 留的原因：确认完最想做的事是复制那个重命名后的文件，立刻消失就拿不到了。
-#: 不久留的原因：卡叫「待认领」，堆满已处理项就名不副实。
-#: 10 分钟足够走完“确认 -> 复制 -> 粘贴发送”；超时后自动让位（记录本身仍在，
-#: 只是不再上首页），想看历史走发票台账/项目页。
-CONFIRMED_VISIBLE_MINUTES = 10
-
 
 # ── Schemas ───────────────────────────────────────────────
 
@@ -248,55 +240,27 @@ def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
 
 
 @router.get("/pending", response=list[InvoiceIntakeOut])
-def list_pending(
-    request: HttpRequest, limit: int = 20, include_confirmed: bool = True
-) -> list[Any]:  # pragma: no cover
-    """首页卡片：与我相关的待确认发票。
+def list_pending(request: HttpRequest, limit: int = 20) -> list[Any]:  # pragma: no cover
+    """首页卡片：与我相关的**待确认**发票。
 
-    ## 已确认的为什么还会短暂出现
+    ## 只返回 pending，确认完立刻从这里消失
 
-    点完「确认」行立刻消失的话，用户拿不到重命名后的文件名，也没地方点「复制发票」
-    ——而这正是确认完最想做的下一件事。所以已确认的会再留一小段时间。
+    「待认领」的意思是“还有事等我做”。处理完的东西就不该留在这里——用户已经
+    明确提过一次（“已经处理过的发票为什么还放在前端首页”）。
 
-    ## 但只留一小段时间
-
-    卡叫「待认领」，里面堆满已处理的东西就名不副实了（用户会问“为什么办完的还
-    在这里”）。因此已确认的只在 ``CONFIRMED_VISIBLE_MINUTES`` 内返回，过了窗口
-    自动从首页消失——不需要用户手动清理，也不会无限堆积。
-
-    完整的发票台账将来另设页面；首页只负责“还有什么要我做”和“我刚做完的那件”。
+    曾试过“确认后保留 10 分钟方便复制文件名”，是错的：用界面位置换便利，
+    代价是卡片语义不再诚实。想找回已确认的票，走项目页的收款/发票区，
+    或将来单独的发票台账——不占「待认领」的位置。
     """
-    from datetime import timedelta
-
-    from django.db import models
-    from django.db.models import Q
-    from django.utils import timezone
-
     from apps.contracts.models import InvoiceIntakeStatus
     from apps.contracts.services.payment.invoice_intake_service import visible_intakes_qs
 
-    base = visible_intakes_qs(request.user).select_related(  # type: ignore[attr-defined]
-        "suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source"
+    qs = (
+        visible_intakes_qs(request.user)  # type: ignore[attr-defined]
+        .filter(status=InvoiceIntakeStatus.PENDING)
+        .select_related("suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source")
+        .order_by("-created_at", "-id")[: max(1, min(limit, MAX_PENDING))]
     )
-    if not include_confirmed:
-        qs = base.filter(status=InvoiceIntakeStatus.PENDING)
-    else:
-        fresh_cutoff = timezone.now() - timedelta(minutes=CONFIRMED_VISIBLE_MINUTES)
-        qs = base.filter(
-            Q(status=InvoiceIntakeStatus.PENDING)
-            | Q(status=InvoiceIntakeStatus.CONFIRMED, confirmed_at__gte=fresh_cutoff)
-        )
-    # 待确认永远排在已确认之前（待办优先）。不能直接 order_by("status")：
-    # 字典序里 "confirmed" < "pending"，那样已确认反而排到前面。
-    qs = qs.order_by(
-        models.Case(
-            models.When(status=InvoiceIntakeStatus.PENDING, then=0),
-            default=1,
-            output_field=models.IntegerField(),
-        ),
-        "-created_at",
-        "-id",
-    )[: max(1, min(limit, MAX_PENDING))]
     return [_to_out(intake) for intake in qs]
 
 

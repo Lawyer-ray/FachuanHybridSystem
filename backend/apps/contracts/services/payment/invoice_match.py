@@ -486,7 +486,18 @@ def rank_invoice_candidates(
             candidates.append(candidate)
 
     ranked = rank_candidates(candidates, limit=limit)
-    excluded_hints = collect_excluded_hints(project_codes=codes, buyer_name=buyer_name or "", eligible_ids=eligible_ids)
+
+    # 只有“证据不够硬”时才需要线索来解释。已拿到项目号确定性命中时，
+    # 再罗列同名的归档/结案项目只是噪声（实测：项目号命中某买卖合同案，
+    # 旁边却挂着同一客户的三份已归档案——律师一眼就知道无关，白占地方）。
+    # 款项侧保留线索是因为那边证据本来就弱（只有姓名+金额）；发票侧证据
+    # 强到 1.0 时，多余的解释反而干扰。
+    has_deterministic = any(c.kind == "project_code" for c in ranked)
+    excluded_hints = (
+        []
+        if has_deterministic
+        else collect_excluded_hints(project_codes=codes, buyer_name=buyer_name or "", eligible_ids=eligible_ids)
+    )
 
     return {
         "matcher_version": MATCHER_VERSION,
@@ -508,6 +519,9 @@ def collect_excluded_hints(
     因为 X 排除了"，否则会以为功能没在跑。
 
     无任何证据的已归档项目一律不收：库里有几十份归档合同，全列出来就是噪声。
+
+    ❗ 只在**没有确定性匹配**时才有意义（调用方控制，见 `rank_invoice_candidates`）。
+    项目号已经精确命中时，再挂一堆同名归档案只是干扰。
     """
     if not project_codes and not buyer_name:
         return []

@@ -1,13 +1,9 @@
-import { useState } from 'react'
-import { ArrowRightLeft, Check, Copy, Info, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { ArrowRightLeft, Check, Info } from 'lucide-react'
 
-import { copyInvoiceToClipboard } from '../api'
 import { MATCH_KIND_STYLES, PAYMENT_PICK_LABELS } from '../constants'
 import { amountText, canConfirm, invoiceHeadline } from '../domain'
 import type { InvoiceIntake } from '../types'
 import { ROW_BTN } from '@/components/shared/panel-styles'
-import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 /**
@@ -20,59 +16,6 @@ import { cn } from '@/lib/utils'
  * 被排除的线索（已结案/已归档的项目）单独一行灰底小字：它常是解开疑问的钥匙
  * （例如「为什么这张票匹配不上——那个项目已经结案了」）。
  */
-/**
- * 复制重命名后的发票文件本体（Finder ⌘C 语义，微信里 ⌘V 直接粘出发票）。
- *
- * 为什么不复用项目详情页那个同名组件：它在 `features/workbench` 内部，
- * 跨 feature import 是硬禁止的（见 frontend/index.md「归属与提权硬规则」）。
- * 逻辑很短，各域一份比破例耦合更划算。
- */
-function CopyInvoiceButton({ invoiceId, filename }: { invoiceId: number; filename: string }) {
-  const [busy, setBusy] = useState(false)
-  const onClick = async () => {
-    if (busy) return
-    setBusy(true)
-    // busy 必须在 finally 里复位：成功分支 return 也要清，否则图标一直转圈
-    try {
-      const res = await copyInvoiceToClipboard(invoiceId)
-      if (res.success && res.copied > 0) {
-        toast.success('发票已复制，微信对话框直接 ⌘V 粘贴发送')
-        return
-      }
-      const reason = res.reason === 'unsupported' ? '当前环境不支持复制文件本体' : res.reason || '复制文件本体失败'
-      if (await copyText(filename)) toast.info(`${reason}，已复制文件名`)
-      else toast.error('复制失败，请改用下载')
-    } catch (e) {
-      if (await copyText(filename)) toast.error(`${errMessage(e, '复制文件本体失败')}，已复制文件名`)
-      else toast.error(errMessage(e, '复制失败，请改用下载'))
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => void onClick()}
-      className={ROW_BTN}
-      title={`复制文件（${filename}）`}
-    >
-      {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
-      复制发票
-    </button>
-  )
-}
-
-/** 落板失败时兜底复制文件名（至少能对上文件）。与项目详情页同实现。 */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
-}
-
 export function InvoiceIntakeRow({
   intake,
   busy,
@@ -95,9 +38,6 @@ export function InvoiceIntakeRow({
   const headline = invoiceHeadline(intake)
   const hasSuggestion = intake.suggested_contract_id != null
   const confidence = intake.payment_pick_confidence
-  // 已确认的票在待认领卡里只是「刚做完的残留」（后端 10 分钟内仍返回，供复制），
-  // 它不再是待办：匹配徽标/结论行都不必再出现，改为一个「已绑定」标记。
-  const done = intake.status === 'confirmed' && intake.invoice_id != null
 
   return (
     <div className="rounded-[10px] border border-border bg-card px-2.5 py-2 transition-colors hover:border-zinc-300">
@@ -105,29 +45,22 @@ export function InvoiceIntakeRow({
       <div className="flex items-baseline gap-2">
         <span className="text-[14px] leading-none font-semibold tabular-nums">{amountText(intake)}</span>
         <span className="text-[10.5px] text-muted-foreground">{intake.invoice_date ?? '日期未识别'}</span>
-        {done ? (
-          <span className="ml-auto flex-none rounded-[99px] border border-status-green/30 bg-status-green-bg px-[7px] py-[1px] text-[10px] font-semibold text-status-green">
-            已绑定
+        {style && (
+          <span
+            className={cn(
+              'ml-auto flex-none rounded-[99px] border px-[7px] py-[1px] text-[10px] font-semibold',
+              style.chip,
+            )}
+          >
+            {style.label}
           </span>
-        ) : (
-          style && (
-            <span
-              className={cn(
-                'ml-auto flex-none rounded-[99px] border px-[7px] py-[1px] text-[10px] font-semibold',
-                style.chip,
-              )}
-            >
-              {style.label}
-            </span>
-          )
         )}
       </div>
 
       {/* 第二行：购买方（后端已脱敏，去掉了「（个人）」） */}
       <div className="mt-[3px] truncate text-[11.5px] text-secondary-foreground">{intake.buyer_name || '购买方未识别'}</div>
 
-      {/* 第三行：结论（已确认的不再解释"为什么建议绑它"—— 那已经是既成事实） */}
-      {!done && (
+      {/* 第三行：结论 */}
       <div
         className={cn(
           'mt-[5px] flex items-start gap-1 text-[11.5px] leading-[1.35]',
@@ -141,10 +74,9 @@ export function InvoiceIntakeRow({
         )}
         <span className="min-w-0 break-words">{headline}</span>
       </div>
-      )}
 
       {/* 预选收款的确定性：金额不符是最需要提示的一档，单独染黄 */}
-      {!done && confidence && (
+      {confidence && (
         <div
           className={cn(
             'mt-[2px] truncate pl-4 text-[10.5px]',
@@ -170,27 +102,9 @@ export function InvoiceIntakeRow({
         </div>
       )}
 
-      {/* 已确认：直接给「重命名后的文件名 + 复制」，这是确认完最想做的下一件事 */}
-      {intake.status === 'confirmed' && intake.invoice_id ? (
-        <>
-          <div
-            className="mt-[5px] truncate rounded-[6px] bg-secondary/60 px-1.5 py-[3px] text-[10.5px] text-muted-foreground"
-            title={intake.invoice_display_filename}
-          >
-            📄 {intake.invoice_display_filename || '发票已生成'}
-          </div>
-          <div className="mt-[7px] flex items-center gap-1.5">
-            <CopyInvoiceButton invoiceId={intake.invoice_id} filename={intake.invoice_display_filename} />
-            <button
-              type="button"
-              onClick={onDetail}
-              className="ml-auto rounded-[6px] px-1 py-[2px] text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              详情
-            </button>
-          </div>
-        </>
-      ) : (
+      {/* 动作行。这里**只有待确认态**：确认完该行立刻从「待认领」消失
+          （列表接口只返回 pending），复制入口改挂在确认成功的 toast 上。 */}
+      {(
         <div className="mt-[7px] flex items-center gap-1.5">
           <button
             type="button"
