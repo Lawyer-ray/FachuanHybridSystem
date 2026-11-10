@@ -16,14 +16,16 @@ export function CardHead({
   moreLabel = '查看全部',
 }: {
   title: string
-  count: string
+  /** 计数小丸文本。省略/空串时**整颗胶囊不渲染**——空胶囊会被误读成「0 条」。
+   *  合并卡（款项+发票）不在这里给数字：两个分组的条数各自列在组标题旁。 */
+  count?: string
   moreHref?: string
   moreLabel?: string
 }) {
   return (
     <div className="flex items-center gap-2.5 px-4 pt-[15px] pb-1">
       <b className="text-[13.5px] font-semibold">{title}</b>
-      <span className={COUNT_PILL}>{count}</span>
+      {count ? <span className={COUNT_PILL}>{count}</span> : null}
       {moreHref && (
         <Link
           to={moreHref}

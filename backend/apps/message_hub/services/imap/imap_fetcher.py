@@ -419,6 +419,15 @@ def _trigger_intake_scan(source: MessageSource, uids: list[int]) -> None:  # pra
             created = scan_new_messages(message_ids)
             if created:
                 logger.info("同步后发现到账待认领 %s 笔（source=%s）", created, source.pk)
+            # 发票认领与到账认领互不影响：各自独立 try，一方报错不能拖垮另一方
+            try:
+                from apps.contracts.services.payment.invoice_intake_scanner import scan_new_messages as scan_invoices
+
+                invoice_created = scan_invoices(message_ids)
+                if invoice_created:
+                    logger.info("同步后发现待认领发票 %s 张（source=%s）", invoice_created, source.pk)
+            except Exception:
+                logger.warning("同步后扫描发票失败（不影响邮件同步）: source=%s", source.pk, exc_info=True)
     except Exception:
         logger.warning("同步后扫描到账通知失败（不影响邮件同步）: source=%s", source.pk, exc_info=True)
 

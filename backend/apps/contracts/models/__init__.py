@@ -40,6 +40,9 @@ from .folder_scan_session import ContractFolderScanSession, ContractFolderScanSt
 # invoice.py - 发票相关模型
 from .invoice import Invoice
 
+# invoice_intake.py - 发票待认领（邮件附件 → 人工确认 → 发票记录）
+from .invoice_intake import InvoiceIntake, InvoiceIntakeStatus
+
 # party.py - 当事人相关模型和枚举
 from .party import ContractAssignment, ContractParty, PartyRole
 
@@ -93,6 +96,9 @@ __all__ = [
     "RuleSource",
     # invoice.py
     "Invoice",
+    # invoice_intake.py
+    "InvoiceIntake",
+    "InvoiceIntakeStatus",
     # client_payment.py
     "ClientPaymentRecord",
 ]

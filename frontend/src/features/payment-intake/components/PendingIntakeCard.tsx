@@ -30,7 +30,7 @@ import { ProjectPicker } from './ProjectPicker'
  *
  * 系统**不替人做决定**：只有金额吻合的候选不会预选建议，卡片明确提示需要核对。
  */
-export function PendingIntakeCard() {
+export function PendingIntakeCard({ bare = false }: { bare?: boolean } = {}) {
   const navigate = useNavigate()
   const { data = [], isLoading, isError, error, refetch } = usePendingIntakes(20)
   const confirm = useConfirmIntake()
@@ -40,9 +40,8 @@ export function PendingIntakeCard() {
   const count = data.length
   const subtitle = useMemo(() => (isError ? '' : count ? `${count} 笔` : ''), [count, isError])
 
-  return (
-    <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="待认领款项" count={subtitle} />
+  const body = (
+    <>
       <div className="px-2.5 pt-1.5 pb-2.5">
         {isError && (
           <div className="px-2 py-6 text-center text-[12.5px] text-destructive">
@@ -94,6 +93,24 @@ export function PendingIntakeCard() {
           confirm.mutate({ id: intake.id, contractId })
         }}
       />
+    </>
+  )
+
+  // bare：只给内容区，由调用方（首页合并卡）提供外壳与标题。
+  // 默认：自带外壳——单独使用时与改造前完全一致。
+  if (bare) {
+    return (
+      <div>
+        <div className="mb-1 px-1 text-[11px] font-[650] text-muted-foreground">款项</div>
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <section className={`${PANEL} overflow-hidden`}>
+      <CardHead title="待认领款项" count={subtitle} />
+      {body}
     </section>
   )
 }

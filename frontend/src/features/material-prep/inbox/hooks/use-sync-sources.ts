@@ -44,9 +44,9 @@ export interface SyncResult {
   disabledReason?: string
   /** 本次同步后新增的消息条数；未完成或为 0 时是 null */
   newCount: number | null
-  /** 触发同步；档位不可同步时为空操作。days 省略时用默认窗口（7 天） */
+  /** 触发同步；档位不可同步时为空操作。days 省略时用默认窗口（3 天） */
   run: (days?: SyncWindowDays) => void
-  /** 最近一次同步用的窗口天数，用于在按钮上回显「同步邮箱 · 7天」 */
+  /** 最近一次同步用的窗口天数，用于在按钮上回显「同步邮箱 · 3天」 */
   lastWindowDays: SyncWindowDays
 }
 

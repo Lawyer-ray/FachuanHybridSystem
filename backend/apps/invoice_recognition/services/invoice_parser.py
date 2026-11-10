@@ -21,10 +21,20 @@ class ParsedInvoice:
     seller_name: str = field(default="")
     project_name: str = field(default="")
     category: str = field(default="other")
+    remark: str = field(default="")
+    project_code: str = field(default="")
 
 
 class InvoiceParser:
-    """通过正则表达式和关键词匹配从 OCR/PDF 文本中提取结构化发票字段"""
+    """通过正则表达式和关键词匹配从 OCR/PDF 文本中提取结构化发票字段
+
+    `remark` / `project_code` 用于把发票挂回律所案件：数电票的备注栏里常有
+    `2025GZM0001-某某与某某公司合同纠纷;` 这样的行，`project_code`（GZ 项目号）  # privacy-allow 虚构样例，非真实项目号
+    是律所自己的案件检索键，比购买方名字更可靠。
+
+    本解析器**不碰税号/统一社会信用代码/身份证号**：数电票文本里这些字段与当事人
+    同行出现，但属于敏感个人信息，不做结构化提取，脱敏交给上层。
+    """
 
     _CODE_PATTERN: re.Pattern[str] = re.compile(r"(?:发票代码|No\.)[^\d]*(\d{10,12})")
     _NUMBER_PATTERN: re.Pattern[str] = re.compile(r"(?:发\s*票\s*号\s*码|No\.)[^\d]*(\d{20}|\d{8})(?!\d)")
@@ -34,6 +44,30 @@ class InvoiceParser:
     _DATE_ISO_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
     _AMOUNT_PATTERN: re.Pattern[str] = re.compile(r"合\s*计\s*[¥￥]([\d,]+\.\d{2})\s*[¥￥]([\d,]+\.\d{2})")
     _TOTAL_PATTERN: re.Pattern[str] = re.compile(r"[（(]\s*小写\s*[）)]\s*[¥￥]\s*([\d,]+\.\d{2})")
+
+    #: 备注栏在 pdfplumber 文本里的版式：表格把「备」「注」两个竖排字切成独立行
+    #: （也出现过挤在同一行 `注释`），内容行夹在中间，脚注「复核人/开票人」收尾。
+    _REMARK_LABELS: tuple[str, ...] = ("备", "注", "注释")
+    _REMARK_END_PATTERN: re.Pattern[str] = re.compile(r"复\s*核\s*人|开\s*票\s*人")
+    #: 备注栏里混进来的固定栏位行（地址/开户行），不是律师写的备注内容。
+    _REMARK_NOISE_PREFIXES: tuple[str, ...] = (
+        "销售方地址",
+        "销方地址",
+        "销方开户银行",
+        "销售方开户银行",
+        "购买方地址",
+        "购方地址",
+        "购方开户银行",
+        "购买方开户银行",
+    )
+
+    #: 律所项目号：优先严格形如 2025GZM0001，再放宽字母位数与序号长度。  # privacy-allow 虚构样例，非真实项目号
+    #: 边界必须显式写成「前后不是字母数字」而不能用 `\b`：项目号在备注里常紧贴汉字
+    #: （`备注：2025GZM0001`）或下划线，而 `\b` 把汉字/下划线都当单词字符，会漏抽。  # privacy-allow 虚构样例，非真实项目号
+    _PROJECT_CODE_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(r"(?<![0-9A-Za-z])(\d{4}GZ[A-Z]\d{4})(?![0-9A-Za-z])"),
+        re.compile(r"(?<![0-9A-Za-z])(\d{4}GZ[A-Z]{1,2}\d{3,6})(?![0-9A-Za-z])"),
+    )
 
     _CATEGORY_KEYWORDS: list[tuple[str, str]] = [
         ("增值税专用发票", "vat_special"),
@@ -64,6 +98,8 @@ class InvoiceParser:
         seller_name = self._extract_seller_name(raw_text)
         project_name = self._extract_project_name(raw_text)
         category = self.detect_category(raw_text)
+        remark = self._extract_remark(raw_text)
+        project_code = self._extract_project_code(raw_text, remark=remark)
 
         logger.info(
             "解析发票完成: code=%s, number=%s, category=%s",
@@ -83,6 +119,8 @@ class InvoiceParser:
             seller_name=seller_name,
             project_name=project_name,
             category=category,
+            remark=remark,
+            project_code=project_code,
         )
 
     def detect_category(self, raw_text: str) -> str:
@@ -187,3 +225,53 @@ class InvoiceParser:
     def _extract_project_name(self, text: str) -> str:
         m = self._PROJECT_PATTERN.search(text)
         return m.group(1).strip() if m else ""
+
+    def _extract_remark(self, text: str) -> str:
+        """抽取备注栏原文；抽不到返回空串。
+
+        按内容定位而不是行号：表格切行会让「备」「注」各占一行，只认行号会在别的
+        发票版式上静默错位。这里从标签行开始向下收，遇到「复核人/开票人」停。
+        """
+        lines = [line.strip() for line in text.splitlines()]
+
+        start: int | None = None
+        for index, line in enumerate(lines):
+            if not any(label in line for label in self._REMARK_LABELS):
+                continue
+            # 单字「备」后常紧跟表格里的其它列文字（如「注 销 名称：…」），只看紧邻行
+            neighbour_window = lines[index : index + 2]
+            if any("注" in item for item in neighbour_window) or "注" in line:
+                start = index + 1
+                break
+
+        if start is None:
+            return ""
+
+        kept: list[str] = []
+        for line in lines[start:]:
+            if self._REMARK_END_PATTERN.search(line):
+                break
+            kept.append(self._strip_remark_noise(line))
+
+        return "\n".join(item for item in kept if item).strip()
+
+    def _strip_remark_noise(self, line: str) -> str:
+        """去掉备注区里的空行、纯「备」/「注」标签行和地址开户行等固定栏位行。"""
+        compact = line.strip()
+        if not compact or compact in self._REMARK_LABELS:
+            return ""
+        for prefix in self._REMARK_NOISE_PREFIXES:
+            if compact.startswith(prefix):
+                return ""
+        return compact
+
+    def _extract_project_code(self, text: str, remark: str = "") -> str:
+        """抽取律所项目号；优先在备注里找，没有再全文找。"""
+        for source in (remark, text):
+            if not source:
+                continue
+            for pattern in self._PROJECT_CODE_PATTERNS:
+                m = pattern.search(source)
+                if m:
+                    return m.group(1)
+        return ""
