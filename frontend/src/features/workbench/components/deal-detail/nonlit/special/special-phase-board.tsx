@@ -179,16 +179,25 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
             </TonePill>
           </div>
         </div>
-        <div className="mt-2.5 flex flex-col gap-1.5">
+        <div className="mt-3 flex flex-col gap-2">
           {DEMO_NL1_GATE_RULES.map((r) => (
-            <Inset key={r.id} className={cn(r.ok ? 'border-status-green/35' : 'border-status-yellow/50 bg-status-yellow-bg/25')}>
-              <div className="flex items-center gap-2">
+            /* 校验项之间靠 6px 底色带 + 左侧色条分档，不再各画一圈边框 */
+            <Inset
+              key={r.id}
+              className={cn(
+                'border-l-[3px]',
+                r.ok ? 'border-l-status-green/45' : 'border-l-status-yellow bg-status-yellow-bg/30',
+              )}
+            >
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <TonePill tone={r.ok ? 'green' : 'yellow'}>{r.ok ? '通过' : '未通过'}</TonePill>
                 <span className="text-[12px] font-[550]">{r.label}</span>
-                <span className="ml-auto truncate text-[10.5px] text-muted-foreground">{r.detail}</span>
+                <span className="ml-auto min-w-0 truncate text-[10.5px] text-muted-foreground" title={r.detail}>
+                  {r.detail}
+                </span>
               </div>
               {!r.ok && r.fix ? (
-                <div className="mt-1 text-[10.5px] leading-[1.6] text-status-yellow">怎么办：{r.fix}</div>
+                <div className="mt-1.5 text-[10.5px] leading-[1.65] text-status-yellow">怎么办：{r.fix}</div>
               ) : null}
             </Inset>
           ))}
@@ -211,7 +220,7 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
             打开当前阶段
           </button>
         </div>
-        <div className="mt-2 flex flex-col divide-y divide-border-light rounded-[9px] border border-border-light bg-background">
+        <div className="mt-2.5 flex flex-col overflow-hidden rounded-[9px] border border-border-light bg-background">
           {phases.map((p) => {
             const changed = DEMO_NL1_CHANGE_LOGS.filter((c) => c.phase === p.name).length
             const confirmed = DEMO_NL1_CLIENT_CONFIRMS.filter((c) => c.phase === p.name).length
@@ -220,7 +229,7 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
                 key={p.id}
                 type="button"
                 onClick={() => setOpenPhaseId(p.id)}
-                className="flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-secondary/40"
+                className="flex items-center gap-2.5 border-b border-border-light px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-secondary/40"
               >
                 <span className="w-[26px] flex-none text-[11px] tabular-nums text-muted-foreground">{p.seq}</span>
                 <span className={cn('min-w-0 flex-1 truncate text-[12.5px]', p.status === 'doing' ? 'font-[650]' : 'font-[550]')}>
@@ -246,13 +255,13 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
       {/* 交付物清单 */}
       <Card className="px-[18px] py-[15px]">
         <BlockHead title="交付物清单" hint={`${docs.length} 份 · 点任意一行看版本与预览`} />
-        <div className="flex flex-col divide-y divide-border-light rounded-[9px] border border-border-light bg-background">
+        <div className="mt-2.5 flex flex-col overflow-hidden rounded-[9px] border border-border-light bg-background">
           {docs.map((d) => (
             <button
               key={`${d.phaseId}:${d.name}`}
               type="button"
               onClick={() => setOpenDoc(d)}
-              className="flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-secondary/40"
+              className="flex items-center gap-2.5 border-b border-border-light px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-secondary/40"
             >
               <FileText className="size-3.5 flex-none text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate text-[12.5px] font-[550]" title={d.name}>
@@ -268,7 +277,7 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
             </button>
           ))}
           {docs.length === 0 ? (
-            <div className="px-3 py-3 text-[12px] text-muted-foreground">全部交付物已删除，可从阶段抽屉重新起草</div>
+            <div className="px-3 py-3.5 text-[12px] text-muted-foreground">全部交付物已删除，可从阶段抽屉重新起草</div>
           ) : null}
         </div>
         <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">

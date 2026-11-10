@@ -214,7 +214,7 @@ export function SpecialPhaseWorkbench() {
           <StatCell label="未闭环风险" value={`${openRisk} 条`} tone={openRisk > 0 ? 'yellow' : 'green'} />
         </StatStrip>
 
-        <div className="mt-3 flex flex-col gap-2.5">
+        <div className="mt-3.5 flex flex-col gap-2.5">
           <NonLitActionCard
             title="设计阶段"
             desc="按合同约定的服务范围，把项目拆成若干可验收的阶段。阶段名会派生合同文件夹目录，改名后自动同步。"
@@ -240,7 +240,7 @@ export function SpecialPhaseWorkbench() {
 
         {/* 起草建议 */}
         {draft.phase === 'done' ? (
-          <div className="mt-3">
+          <div className="mt-3.5">
             <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">AI 给出的改进建议</div>
             <div className="flex flex-col gap-1.5">
               {DEMO_DRAFT_SUGGESTIONS.map((s) => (
@@ -259,11 +259,11 @@ export function SpecialPhaseWorkbench() {
         ) : null}
 
         {/* 阶段模板 */}
-        <div className="mt-3">
-          <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">可用的阶段模板</div>
+        <div className="mt-3.5">
+          <div className="mb-2 text-[11px] font-medium text-muted-foreground">可用的阶段模板</div>
           <div className="flex flex-col gap-1.5">
             {DEMO_PHASE_TEMPLATES.map((t) => (
-              <div key={t.name} className="flex items-center gap-2 rounded-[8px] border border-border-light bg-background px-2.5 py-1.5">
+              <div key={t.name} className="flex items-center gap-2 rounded-[8px] bg-secondary/35 px-2.5 py-2">
                 <span className="text-[12px] font-medium">{t.name}</span>
                 <Pill>{t.phases} 阶段</Pill>
                 <span className="min-w-0 flex-1 truncate text-[10.5px] text-muted-foreground">{t.desc}</span>
@@ -284,7 +284,7 @@ export function SpecialPhaseWorkbench() {
       <SpecialRiskCard onAssess={() => void riskAssess.execute()} />
       <Card className="px-[18px] py-[15px]">
         <SectionHead title="风险复评" hint="点风险登记表的「重新评估」触发" />
-        <div className="mt-2.5">
+        <div className="mt-3">
           <NonLitActionCard
             title="风险复评"
             desc="按交付物与客户确认的当前状态重算每条风险的等级与到期日；等级上升的会停下问人，不自动升级。"
@@ -341,16 +341,18 @@ export function CrossBorderWorkbench() {
   const verifiedCount = DEMO_TH_CONTRACT_REVISIONS.filter((r) => r.verified).length
 
   return (
-    <Card className="px-[18px] py-[15px]">
+    /* 这一张是**容器卡**，里面还要塞 7 张子卡：容器自己再画边框就成了三层同心矩形，
+       所以这里按「无边框区段」处理（只用标题分隔），子卡各自是独立的卡。 */
+    <Card className="border-0 bg-transparent px-0 py-0 shadow-none">
       <SectionHead title="跨境合同审查" hint="逐条审 + 外国法核验" />
-      <StatStrip className="mt-3 grid-cols-2 sm:grid-cols-4">
+      <StatStrip className="mt-2.5 grid-cols-2 sm:grid-cols-4">
         <StatCell label="风险条款" value={`${DEMO_TH_CONTRACT_REVISIONS.length}`} />
         <StatCell label="高 / 中 / 低" value={`${highCount}/${midCount}/${lowCount}`} />
         <StatCell label="已挂法条" value={`${verifiedCount}`} tone="green" />
         <StatCell label="核验闸" value={`${DEMO_LAW_GATES.length} 道`} tone="blue" />
       </StatStrip>
 
-      <div className="mt-3 flex flex-col gap-2.5">
+      <div className="mt-3.5 flex flex-col gap-2.5">
         <NonLitActionCard
           title="逐条审查合同"
           desc="按我方立场逐条比对风险点，每处修订都挂外国法依据。挂不上法条的不硬编，标成「需律师判断」。"
@@ -369,8 +371,8 @@ export function CrossBorderWorkbench() {
 
       {/* 核验日志 */}
       {verify.phase === 'done' ? (
-        <div className="mt-3">
-          <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">核验日志</div>
+        <div className="mt-3.5">
+          <div className="mb-2 text-[11px] font-medium text-muted-foreground">核验日志</div>
           <Inset className="bg-secondary/25">
             <ul className="flex flex-col gap-[2px]">
               {DEMO_VERIFY_LOG.map((l) => (
@@ -393,7 +395,7 @@ export function CrossBorderWorkbench() {
 
       {/* 机器跑完之后律师真正要用的四块：双语正文 / 法条依据 / 维度筛选 / 逐条采纳。
           四块共享「当前选中修订」，见 nonlit/crossborder/CrossBorderViews。 */}
-      <div className="mt-3">
+      <div className="mt-3.5">
         <ForeignLawVerifyCard />
       </div>
 
@@ -463,7 +465,7 @@ export function AdvisorWorkbench() {
           <StatCell label="客户评分" value={`${avgScore} 分`} tone="blue" />
         </StatStrip>
 
-        <div className="mt-3 flex flex-col gap-2.5">
+        <div className="mt-3.5 flex flex-col gap-2.5">
           <NonLitActionCard
             title="生成本月服务报告"
             desc="按服务事项汇总工时、交付物与要点，生成可直接发给客户的月度报告。配额快用完时会提示续签。"

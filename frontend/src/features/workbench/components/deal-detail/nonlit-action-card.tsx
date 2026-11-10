@@ -17,10 +17,29 @@ import { cn } from '@/lib/utils'
 import { ActionButton, Card } from './ui'
 import { useNonLitAction } from './use-nonlit-action'
 
-/** 内嵌块：比卡片更白的一层（与诉讼线 InsetBlock 同口径） */
-function InsetBlock({ children, className }: { children: React.ReactNode; className?: string }) {
+/**
+ * 内嵌块：卡片里再分一层（与诉讼线 InsetBlock 同口径）。
+ *
+ * 底色块**不画边框**：执行卡本身已经是一张带边框的卡，块再套边框就成了三层
+ * 同心矩形，相邻块之间只剩 2.5px 白缝，视觉上会糊成一团。需要真边框时传 `framed`。
+ */
+function InsetBlock({
+  children,
+  className,
+  framed = false,
+}: {
+  children: React.ReactNode
+  className?: string
+  framed?: boolean
+}) {
   return (
-    <div className={cn('rounded-[9px] border border-border-light bg-background px-3 py-2', className)}>
+    <div
+      className={cn(
+        'rounded-[9px] px-3 py-2',
+        framed ? 'border border-border-light bg-background' : 'bg-secondary/35',
+        className,
+      )}
+    >
       {children}
     </div>
   )
@@ -53,15 +72,20 @@ export function NonLitActionCard({
   const active = phase === 'running' || phase === 'awaiting'
 
   return (
+    /*
+     * 包里（某张卡的内部）已经有一圈边框，这里就不该再画第二圈：原来「卡里卡」
+     * 双层边框 + 5px 阴影，是这一页看着挤的主因。自报家门用左侧色条 + 浅底。
+     */
     <Card
       className={cn(
-        'px-[18px] py-[15px]',
-        phase === 'done' && 'border-status-green/40 bg-status-green-bg/20',
-        phase === 'failed' && 'border-status-red/40 bg-status-red-bg/20',
-        phase === 'awaiting' && 'border-status-yellow/50 bg-status-yellow-bg/25',
+        'border-0 border-l-[3px] border-l-border px-3.5 py-3 shadow-none',
+        phase === 'idle' && 'bg-secondary/30',
+        phase === 'done' && 'border-l-status-green/60 bg-status-green-bg/20',
+        phase === 'failed' && 'border-l-status-red/60 bg-status-red-bg/20',
+        phase === 'awaiting' && 'border-l-status-yellow bg-status-yellow-bg/25',
       )}
     >
-      <div className="flex flex-wrap items-start gap-4">
+      <div className="flex flex-wrap items-start gap-3.5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-[620]">{title}</span>
@@ -128,7 +152,7 @@ export function NonLitActionCard({
       </div>
 
       {active || phase === 'done' ? (
-        <div className="mt-3">
+        <div className="mt-2.5">
           <div className="h-[5px] overflow-hidden rounded-full bg-secondary">
             <div
               className={cn(

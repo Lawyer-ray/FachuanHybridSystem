@@ -54,22 +54,22 @@ export function CrossBorderViews({ lawVerified }: { lawVerified: boolean }) {
 
   return (
     <>
-      <div className="mt-4">
+      <div className="mt-[18px]">
         <ReviewProgressCard />
       </div>
-      <div className="mt-4">
+      <div className="mt-[18px]">
         <ContractOfficeCard />
       </div>
-      <div className="mt-4">
+      <div className="mt-[18px]">
         <BilingualContractCard focusRev={picked} onPickRev={pick} />
       </div>
-      <div className="mt-4">
+      <div className="mt-[18px]">
         <LawGateCard active={lawVerified} onPickRev={pick} />
       </div>
-      <div className="mt-4">
+      <div className="mt-[18px]">
         <RevisionBoard tabId={tabId} onPickTab={setTabId} picked={picked} onPick={setPicked} />
       </div>
-      <div className="mt-4">
+      <div className="mt-[18px]">
         <RevisionWalkCard
           decided={decided}
           onDecide={(id, verdict) => setDecided((v) => ({ ...v, [id]: verdict }))}

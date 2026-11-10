@@ -59,21 +59,22 @@ export function SpecialRiskCard({
         </button>
       </div>
 
-      <div className="mt-2.5 flex flex-col gap-1.5">
+      <div className="mt-3 flex flex-col overflow-hidden rounded-[9px] border border-border-light bg-background">
         {visible.map((r) => {
           const open = picked === r.id
           return (
             <div
               key={r.id}
               className={cn(
-                'rounded-[9px] border bg-background transition-colors',
-                r.level === '高' && r.status !== '已闭环' ? 'border-status-red/35' : 'border-border-light',
+                'border-b border-border-light transition-colors last:border-b-0',
+                /* 高风险用左侧色条标出来，不再给整行套一圈红边（会与列表外框叠成双线） */
+                r.level === '高' && r.status !== '已闭环' && 'border-l-[3px] border-l-status-red/50',
               )}
             >
               <button
                 type="button"
                 onClick={() => setPicked(open ? null : r.id)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-secondary/35"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-secondary/35"
               >
                 <TonePill tone={LEVEL_TONE[r.level]}>{r.level}</TonePill>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] font-[550]" title={r.risk}>
@@ -84,8 +85,8 @@ export function SpecialRiskCard({
                 <TonePill tone={RISK_STATUS_TONE[r.status]}>{r.status}</TonePill>
               </button>
               {open ? (
-                <div className="border-t border-border-light px-3 py-2">
-                  <div className="grid gap-1.5 sm:grid-cols-2">
+                <div className="border-t border-border-light px-3 py-2.5">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     <Inset>
                       <div className="text-[10px] text-muted-foreground">影响</div>
                       <div className="mt-0.5 text-[11.5px] leading-[1.6]">{r.impact}</div>
@@ -95,7 +96,7 @@ export function SpecialRiskCard({
                       <div className="mt-0.5 text-[11.5px] leading-[1.6]">{r.response}</div>
                     </Inset>
                   </div>
-                  <div className="mt-1.5 flex items-center gap-2">
+                  <div className="mt-2 flex items-center gap-2">
                     <span className="text-[10.5px] text-muted-foreground">
                       责任人 {r.owner} · 到期 {r.due}
                     </span>
@@ -136,7 +137,7 @@ export function SpecialConfirmCard({ records = DEMO_NL1_CLIENT_CONFIRMS }: { rec
         </span>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1">
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         {(['all', '邮件', '会议纪要', '签字页', '微信'] as const).map((c) => (
           <button
             key={c}
@@ -154,7 +155,7 @@ export function SpecialConfirmCard({ records = DEMO_NL1_CLIENT_CONFIRMS }: { rec
         ))}
       </div>
 
-      <div className="mt-2 flex flex-col gap-1.5">
+      <div className="mt-3 flex flex-col gap-2">
         {rows.map((r) => (
           <Inset key={r.id}>
             <div className="flex items-center gap-2">
@@ -170,7 +171,7 @@ export function SpecialConfirmCard({ records = DEMO_NL1_CLIENT_CONFIRMS }: { rec
         {rows.length === 0 ? <EmptyHint>该渠道还没有确认记录</EmptyHint> : null}
       </div>
 
-      <div className="mt-2">
+      <div className="mt-3">
         <BlockHead title="推进纪律" hint="未拿到无保留确认前不推进" />
         <div className="text-[10.5px] leading-[1.6] text-muted-foreground">
           「附条件确认」与「不确认」都不计入阶段完成依据；系统在推进到下一阶段时会把它们挑出来。

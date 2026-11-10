@@ -67,14 +67,14 @@ export function SpecialGanttCard({
         ))}
       </div>
 
-      <div className="mt-1.5 flex flex-col gap-[3px]">
+      <div className="mt-2 flex flex-col">
         {chart.bars.map((bar) => (
           <button
             key={bar.row.phaseId}
             type="button"
             onClick={() => onPickPhase(bar.row.phaseId)}
             title={`${bar.seq} ${bar.name} · ${bar.startDate} 至 ${bar.endDate} · 计划 ${bar.row.planDays} 天`}
-            className="group flex items-center gap-2 rounded-[7px] px-1 py-[3px] text-left transition-colors hover:bg-secondary/45"
+            className="group flex items-center gap-2 rounded-[7px] px-1 py-[5px] text-left transition-colors hover:bg-secondary/45"
           >
             {/* 阶段名（固定宽，条形左边界因此对齐；只显示主线与 3.x 子阶段的首字缩进） */}
             <span className="flex w-[132px] flex-none items-center gap-1 overflow-hidden">
@@ -130,7 +130,7 @@ export function SpecialGanttCard({
         ))}
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
         <Legend cls="bg-foreground" label="已完成" />
         <Legend cls="bg-status-blue" label="进行中" />
         <Legend cls="bg-status-red/70" label="延期部分" />
