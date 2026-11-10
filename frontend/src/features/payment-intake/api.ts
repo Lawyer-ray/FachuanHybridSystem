@@ -4,12 +4,19 @@ import type { Intake, IntakeActionResult, SelectableContract } from './types'
 /**
  * 到账待认领 API 客户端。
  *
- * ⚠️ 前缀**不是** `/api/v1/finance/intake`：后端路由在
- * `contracts/api/__init__.py` 里以 `/finance/intake` 挂在 contracts 路由下，
- * 最终路径是 `/api/v1/contracts/finance/intake/*`。
- * 已用 `curl /api/v1/openapi.json` 核对过（禁止凭印象拼路径）。
+ * ⚠️ 前缀必须写**完整的绝对路径** `/api/v1/...`。
+ *
+ * `createApiClient` 内部是 `{ prefix: API_BASE_URL, ...options }`——传入的
+ * options 在默认值**之后**展开，所以这里给的 prefix 会**整体覆盖** `/api/v1`，
+ * 而不是接在它后面。只写 `/contracts/finance/intake` 会请求到
+ * `http://host/contracts/finance/intake/...`（缺 /api/v1）→ 404，
+ * 表现为首页卡片一直加载不出来。
+ *
+ * 路径来源：后端 `contracts/api/__init__.py` 以 `/finance/intake` 挂在
+ * contracts 路由下，最终 `/api/v1/contracts/finance/intake/*`，
+ * 已用 `curl /api/v1/openapi.json` 核对（禁止凭印象拼路径）。
  */
-export const intakeApi = createApiClient({ prefix: '/contracts/finance/intake' })
+export const intakeApi = createApiClient({ prefix: '/api/v1/contracts/finance/intake' })
 
 /** 待认领列表 query key（首页模块订阅；确认/撤销后 invalidate） */
 export const INTAKE_PENDING_KEY = ['payment-intake-pending'] as const

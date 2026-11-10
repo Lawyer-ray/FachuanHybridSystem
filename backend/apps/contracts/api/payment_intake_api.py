@@ -100,6 +100,11 @@ class ScanOut(Schema):
     days: int
 
 
+class RematchOut(Schema):
+    updated: int
+    failed: int
+
+
 # ── Helpers ───────────────────────────────────────────────
 
 
@@ -215,6 +220,18 @@ def rescan(request: HttpRequest, days: int = 14) -> Any:  # pragma: no cover
     from apps.contracts.services.payment.intake_scanner import scan_since
 
     return scan_since(days=max(1, min(days, 90)))
+
+
+@router.post("/rematch", response=RematchOut)
+def rematch(request: HttpRequest) -> Any:  # pragma: no cover
+    """按当前匹配器逻辑重算所有**待确认**记录的候选快照。
+
+    为什么需要手动触发：match_snapshot 是扫描当时的不可变快照，匹配器改进后
+    存量记录不会自动更新。已确认/已关闭的记录不动——那是审计凭证。
+    """
+    from apps.contracts.services.payment.intake_scanner import rematch_all_pending
+
+    return rematch_all_pending()
 
 
 @router.get("/{intake_id}", response=IntakeOut)

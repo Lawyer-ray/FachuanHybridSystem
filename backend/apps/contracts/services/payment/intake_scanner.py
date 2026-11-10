@@ -203,3 +203,53 @@ def scan_new_messages(message_ids: list[int]) -> int:
         except Exception:
             logger.warning("扫描到账通知失败: message=%s", message.pk, exc_info=True)
     return created
+
+
+def rematch_intake(intake: PaymentIntake) -> bool:
+    """按**当前**匹配器逻辑重算一条待认领的候选快照。
+
+    为什么需要这个：``match_snapshot`` 是扫描当时存下的不可变快照（便于事后追责），
+    所以匹配器改进后（例如案号信号修复、排除规则调整）**存量记录不会自动更新**。
+    没有这个能力，库里会长期留着按旧逻辑算出的结论。
+
+    只重算 ``pending``：``confirmed`` 的快照是"当时系统怎么想 + 人怎么判"的审计
+    凭证，事后改写它等于篡改历史；其余终态（rejected/ignored）同理不动。
+    """
+    if intake.status != IntakeStatus.PENDING:
+        return False
+
+    message = intake.inbox_message
+    snapshot = suggest_contracts_for_transfer(
+        subject=message.subject or "",
+        body_text=message.body_text or "",
+        body_html=message.body_html or "",
+    )
+    candidates = snapshot.get("candidates") or []
+    suggested_id = candidates[0].get("contract_id") if candidates else None
+    # 与 _build_intake 同口径：只有 amount_only 的建议不预选（不暗示人直接点确认）
+    if suggested_id is not None and candidates[0].get("kind") == "amount_only":
+        suggested_id = None
+
+    intake.match_snapshot = snapshot
+    intake.suggested_contract_id = suggested_id
+    intake.save(update_fields=["match_snapshot", "suggested_contract_id", "updated_at"])
+    return True
+
+
+def rematch_all_pending() -> dict[str, int]:
+    """把所有待确认记录的候选快照按当前逻辑重算一遍。
+
+    用途：匹配器升级后刷新存量结论（管理员手动触发）。
+    """
+    updated = 0
+    failed = 0
+    qs = PaymentIntake.objects.filter(status=IntakeStatus.PENDING).select_related("inbox_message")
+    for intake in qs.iterator(chunk_size=50):
+        try:
+            if rematch_intake(intake):
+                updated += 1
+        except Exception:
+            logger.warning("重算待认领匹配失败: intake=%s", intake.pk, exc_info=True)
+            failed += 1
+    logger.info("待认领导致重新匹配完成: updated=%s failed=%s", updated, failed)
+    return {"updated": updated, "failed": failed}
