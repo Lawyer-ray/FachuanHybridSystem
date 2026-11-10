@@ -17,6 +17,7 @@ from .contractpayment_api import router as contractpayment_router
 from .contractpayment_enhance_api import router as contractpayment_enhance_router
 from .folder_binding_api import router as folder_binding_router
 from .folder_scan_api import router as folder_scan_router
+from .payment_intake_api import router as payment_intake_router
 from .stages_api import router as stages_router
 from .supplementary_agreement_api import router as supplementary_agreement_router
 
@@ -28,6 +29,8 @@ router.add_router("", contract_router, tags=["合同管理"])
 router.add_router("", contractpayment_enhance_router, tags=["合同收款"])
 router.add_router("", contractpayment_router, tags=["合同收款"])
 router.add_router("", contractfinance_router, tags=["财务统计"])
+# 到账待认领：路径 /finance/intake/*，与 contractpayment 的 /finance/payments 不冲突
+router.add_router("/finance/intake", payment_intake_router, tags=["到账待认领"])
 router.add_router("", supplementary_agreement_router, tags=["补充协议"])
 router.add_router("", folder_binding_router, tags=["文件夹绑定"])
 router.add_router("", folder_scan_router, tags=["文件夹自动捕获"])

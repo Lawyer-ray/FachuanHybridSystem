@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.utils.timezone import make_aware
 
 from apps.message_hub.models import SyncStatus
-from apps.message_hub.services.base import MessageFetcher, resolve_media_attachment_path
+from apps.message_hub.services.base import MessageFetcher, resolve_media_attachment_path, resolve_sync_since
 
 if TYPE_CHECKING:
     from apps.message_hub.models import MessageSource
@@ -154,7 +154,7 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
 
         raise ValueError(f"IMAP 主机配置无效，未找到可用候选主机: candidates={hosts}, account={account}")
 
-    def fetch_new_messages(self, source: MessageSource) -> int:  # pragma: no cover
+    def fetch_new_messages(self, source: MessageSource, *, window_days: int | None = None) -> int:  # pragma: no cover
         from apps.message_hub.models import InboxMessage
 
         try:
@@ -165,11 +165,19 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
 
         try:
             m.select("INBOX")
-            # 构建搜索条件：SINCE 起始时间 + UID 大于上次同步
-            since_str = source.sync_since.strftime("%d-%b-%Y")
-            criteria = f"SINCE {since_str}"
+            # 搜索条件 = UID 增量 ∩ SINCE 起始时间。
+            #
+            # 两者必须同时成立：
+            # - UID 增量是效率手段（不重复扫已看过的邮件）；
+            # - SINCE 是**安全边界**：last_synced_uid 可能因换库/重建被清零，
+            #   只靠 UID 会退化成"从 sync_since 拉全量"。带上 SINCE 后，
+            #   窗口内的旧邮件依然不会重新入库。
+            since = resolve_sync_since(source, window_days)
+            since_str = since.strftime("%d-%b-%Y")
             if source.last_synced_uid:
-                criteria = f"UID {source.last_synced_uid + 1}:*"
+                criteria = f"UID {source.last_synced_uid + 1}:* SINCE {since_str}"
+            else:
+                criteria = f"SINCE {since_str}"
 
             _, data = m.uid("search", None, criteria)  # type: ignore[arg-type]
             uid_list = data[0].split() if data[0] else []
@@ -180,15 +188,20 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
 
             new_count = 0
             max_uid = source.last_synced_uid or 0
+            # 收集本轮新建的邮件 id，拉完后统一触发到账通知扫描（见下方）
+            new_message_ids: list[int] = []
 
             for uid_bytes in uid_list:
                 uid, created = self._process_single_uid(m, source, uid_bytes)
                 if created:
                     new_count += 1
                 max_uid = max(max_uid, uid)
+                if created:
+                    new_message_ids.append(uid)
 
             source.last_synced_uid = max_uid
             _mark_success(source)
+            _trigger_intake_scan(source, new_message_ids)
             return new_count
 
         finally:
@@ -380,6 +393,34 @@ def _mark_success(source: MessageSource) -> None:
     source.last_sync_status = SyncStatus.SUCCESS
     source.last_sync_error = ""
     source.save(update_fields=["last_sync_at", "last_sync_status", "last_sync_error", "last_synced_uid"])
+
+
+def _trigger_intake_scan(source: MessageSource, uids: list[int]) -> None:  # pragma: no cover
+    """邮件拉取完成后，把新入库的到账通知扫成待认领款项。
+
+    为什么不在这里直接 import 扫描器：contracts 依赖 message_hub，反向依赖会成环。
+    用函数内 import 延迟绑定，且**整段 try 包住**：扫描失败绝不能让邮件同步失败
+    （邮件已入库是主诉求，扫码是附加收益）。
+    """
+    from apps.message_hub.models import SourceType
+
+    if source.source_type != SourceType.IMAP or not uids:
+        return
+    try:
+        from apps.contracts.services.payment.intake_scanner import scan_new_messages
+        from apps.message_hub.models import InboxMessage
+
+        message_ids = list(
+            InboxMessage.objects.filter(source=source, message_id__in=[str(u) for u in uids]).values_list(
+                "id", flat=True
+            )
+        )
+        if message_ids:
+            created = scan_new_messages(message_ids)
+            if created:
+                logger.info("同步后发现到账待认领 %s 笔（source=%s）", created, source.pk)
+    except Exception:
+        logger.warning("同步后扫描到账通知失败（不影响邮件同步）: source=%s", source.pk, exc_info=True)
 
 
 def _mark_failed(source: MessageSource, error: str) -> None:

@@ -9,6 +9,7 @@ from .archive_classification_rule_admin import ArchiveClassificationRuleAdmin
 from .client_payment_admin import ClientPaymentRecordAdmin
 from .contract_admin import ContractAdmin
 from .contractpayment_admin import ContractPaymentAdmin, ContractPaymentInline
+from .payment_intake_admin import PaymentIntakeAdmin
 from .supplementary_agreement_admin import SupplementaryAgreementAdmin
 
 # 所有Admin类通过装饰器自动注册
@@ -20,5 +21,6 @@ __all__ = [
     "ContractAdmin",
     "ContractPaymentAdmin",
     "ContractPaymentInline",
+    "PaymentIntakeAdmin",
     "SupplementaryAgreementAdmin",
 ]

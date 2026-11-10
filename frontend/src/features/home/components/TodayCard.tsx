@@ -5,7 +5,7 @@ import { KIND_BADGE, KIND_LABEL } from '../constants'
 import { isKeyKind, rangeLabel, summaryLine } from '../api-meta'
 import { PANEL } from '../ui'
 import { cn } from '@/lib/utils'
-import { CardHead } from './CardHead'
+import { CardHead } from '@/components/shared/CardHead'
 
 interface TodayProps {
   events: CalendarEvent[]

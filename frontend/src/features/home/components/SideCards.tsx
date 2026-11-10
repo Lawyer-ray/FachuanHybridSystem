@@ -17,7 +17,7 @@ import {
 } from '@/features/document-recognition'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
-import { CardHead } from './CardHead'
+import { CardHead } from '@/components/shared/CardHead'
 import { inboxPath } from '@/app/paths'
 
 /* ============================================================ 收件箱流入 */

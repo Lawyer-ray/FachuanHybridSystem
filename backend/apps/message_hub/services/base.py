@@ -55,10 +55,48 @@ def media_relative_path(abs_path: Path) -> str:
         return str(abs_path)
 
 
+# 前端触发同步时的默认窗口（天）。
+#
+# 背景：同步按钮点一下就要立刻看到新消息，把半年的历史邮件全拉一遍既慢又
+# 污染收件箱（实测某邮箱 290 封里只有 2 封是真正关心的到账通知）。
+# 所以**前端触发的同步**默认只看最近 7 天。
+#
+# 区别于 `None`（后台定时/首次建源）：那时按来源自己的 sync_since 走，
+# 该回填多少回填多少——"从历史时期完整同步"只在无人在场的初次回填时发生。
+DEFAULT_SYNC_WINDOW_DAYS = 7
+
+
+def resolve_sync_since(source: MessageSource, window_days: int | None = None) -> Any:
+    """算出本次拉取的起始时间。
+
+    Args:
+        source: 消息来源（提供 ``sync_since`` 历史全量回填起点）。
+        window_days: 滚动窗口天数。传数字 = 只看最近 N 天；
+            传 ``None`` = 按来源的 ``sync_since``（首次全量回填）。
+
+    两者取**较晚者**：窗口只用来收窄，不会越过来源配置的起点去拉更早的邮件。
+    """
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    base = source.sync_since
+    if window_days is None:
+        return base
+    window_start = timezone.now() - timedelta(days=max(1, window_days))
+    return max(base, window_start)
+
+
 class MessageFetcher(abc.ABC):
     @abc.abstractmethod
-    def fetch_new_messages(self, source: MessageSource) -> int:
-        """拉取新消息，返回新增数量。"""
+    def fetch_new_messages(self, source: MessageSource, *, window_days: int | None = None) -> int:
+        """拉取新消息，返回新增数量。
+
+        Args:
+            source: 消息来源。
+            window_days: 只看最近 N 天（前端同步按钮传此值）；``None`` = 按
+                来源的 ``sync_since`` 全量回填（后台首次同步）。
+        """
         ...
 
     def download_attachment(self, source: MessageSource, message_id: str, part_index: int) -> tuple[bytes, str, str]:

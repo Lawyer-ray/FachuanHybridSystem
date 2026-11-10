@@ -55,7 +55,9 @@ MANUAL_SOURCE_DISPLAY_NAME = "前端材料预处理上传"
 class ManualUploadFetcher(MessageFetcher):
     """手动上传来源不对外拉取，附件已本地落盘，按需读取即可。"""
 
-    def fetch_new_messages(self, source: MessageSource) -> int:  # pragma: no cover
+    def fetch_new_messages(self, source: MessageSource, *, window_days: int | None = None) -> int:  # pragma: no cover
+        # 手动上传没有「拉取」动作（附件已本地落盘），窗口参数对这里无意义，
+        # 接受它只为满足 MessageFetcher 的统一签名。
         return 0
 
     def download_attachment(  # pragma: no cover

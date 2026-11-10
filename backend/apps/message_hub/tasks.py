@@ -50,8 +50,14 @@ def _is_expected_sync_error(exc: Exception) -> bool:
     return any(token in msg for token in expected_tokens)
 
 
-def sync_source_by_id(source_id: int) -> None:  # pragma: no cover
-    """同步单个消息来源，供 django-q async_task 调用。"""
+def sync_source_by_id(source_id: int, window_days: int | None = None) -> None:  # pragma: no cover
+    """同步单个消息来源，供 django-q async_task 调用。
+
+    Args:
+        source_id: 消息来源 id。
+        window_days: 只看最近 N 天。前端手动同步传 ``DEFAULT_SYNC_WINDOW_DAYS``；
+            后台定时同步传 ``None``（按来源 ``sync_since`` 全量回填，仅首次生效）。
+    """
     from apps.message_hub.models import MessageSource
     from apps.message_hub.services import get_fetcher
 
@@ -60,8 +66,8 @@ def sync_source_by_id(source_id: int) -> None:  # pragma: no cover
         logger.info("消息来源 #%s 已不存在，跳过同步", source_id)
         return
     fetcher = get_fetcher(source.source_type)
-    count = fetcher.fetch_new_messages(source)
-    logger.info("同步完成: source=%s, 新消息=%d", source.display_name, count)
+    count = fetcher.fetch_new_messages(source, window_days=window_days)
+    logger.info("同步完成: source=%s, 新消息=%d, window_days=%s", source.display_name, count, window_days)
 
 
 def _is_source_due(*, poll_interval_minutes: int, last_sync_at: datetime | None, now: datetime) -> bool:

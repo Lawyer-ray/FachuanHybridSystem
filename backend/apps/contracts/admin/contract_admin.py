@@ -355,6 +355,17 @@ class ContractAdmin(
                 self.admin_site.admin_view(self.jtn_oa_import_view),
                 name="contracts_contract_jtn_oa_import",
             ),
+            # 拖拽导入合同：上传一份合同（docx/pdf），由 LLM 解析并回填新建表单
+            urlpath(
+                "auto-intake/options/",
+                self.admin_site.admin_view(self.auto_intake_options_view),
+                name="contracts_contract_auto_intake_options",
+            ),
+            urlpath(
+                "auto-intake/analyze/",
+                self.admin_site.admin_view(self.auto_intake_analyze_view),
+                name="contracts_contract_auto_intake_analyze",
+            ),
         ]
         return custom + urls  # type: ignore[no-any-return]
 
@@ -446,6 +457,69 @@ class ContractAdmin(
         payload = get_oa_party_resolution_service().resolve_payload(payload, allow_create=allow_create)
         payload["auto_create_allowed"] = allow_create
         return JsonResponse({"ok": True, "data": payload})
+
+    # ── 拖拽导入合同（LLM 自动分析填充） ──────────────────────────────────
+
+    def auto_intake_options_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
+        """新建合同页初始化：返回可选大模型与上传限制。
+
+        只读用户不应看到 AI 导入入口，因此要求 ``add`` 权限（本视图仅新建页用，
+        无行级对象可校验）。
+        """
+        if not self.has_add_permission(request):
+            return JsonResponse({"ok": False, "error": "无新增合同权限"}, status=403)
+
+        from apps.contracts.services.contract.intake.intake_service import intake_options
+
+        try:
+            data = intake_options()
+        except Exception as exc:
+            logger.exception("读取合同导入选项失败")
+            return JsonResponse({"ok": False, "error": f"读取模型列表失败：{exc}"}, status=500)
+        return JsonResponse({"ok": True, "data": data})
+
+    def auto_intake_analyze_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
+        """接收一份合同文件，调用 LLM 解析并返回待回填草稿。
+
+        刻意**不落业务表**：文件只进 ``MEDIA_ROOT/tmp/contract_intake/``，
+        由既有定时任务按 mtime 清理；草稿由前端回填表单、用户复核后手动保存。
+        """
+        if request.method != "POST":
+            return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+        if not self.has_add_permission(request):
+            return JsonResponse({"ok": False, "error": "无新增合同权限"}, status=403)
+
+        upload = request.FILES.get("file")
+        if upload is None:
+            return JsonResponse({"ok": False, "error": "请选择要导入的合同文件"}, status=400)
+
+        from apps.contracts.services.contract.intake.intake_service import (
+            MAX_UPLOAD_BYTES,
+            ContractIntakeError,
+            analyze_contract,
+            save_temp_upload,
+        )
+
+        if int(getattr(upload, "size", 0) or 0) > MAX_UPLOAD_BYTES:
+            limit_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+            return JsonResponse({"ok": False, "error": f"文件超过 {limit_mb}MB 上限"}, status=400)
+
+        filename = str(getattr(upload, "name", "") or "")
+        model_id = str(request.POST.get("model") or "").strip()
+        temp_path: Any = None
+        try:
+            temp_path = save_temp_upload(upload, filename=filename)
+            # 传 user：我方律所身份决定多律所合同的金额归属，登录律师兼承办人兜底
+            result = analyze_contract(path=temp_path, filename=filename, model_id=model_id, user=request.user)
+        except ContractIntakeError as exc:
+            # 可预期错误（格式不支持 / 无文字层 / LLM 失败）：直接展示给用户
+            return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+        except Exception as exc:
+            # extra 的 key 不能占用 LogRecord 内置属性名（filename/model 会冲突，ruff G101）
+            logger.exception("合同自动分析失败", extra={"upload_name": filename, "llm_model": model_id})
+            return JsonResponse({"ok": False, "error": f"分析失败：{exc}"}, status=500)
+
+        return JsonResponse({"ok": True, "data": result})
 
     def batch_folder_binding_view(self, request: HttpRequest) -> TemplateResponse:  # pragma: no cover
         if not self.has_view_permission(request):

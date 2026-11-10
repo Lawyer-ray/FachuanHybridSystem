@@ -90,7 +90,7 @@ def list_sources(request: Any) -> list[MessageSource]:  # pragma: no cover
 
 
 @router.post("/sources/sync-all")
-def sync_all_sources(request: Any) -> dict[str, Any]:
+def sync_all_sources(request: Any, days: int | None = None) -> dict[str, Any]:
     """同步全部来源（安全审计 IDOR：只提交当前用户可见来源的同步任务）。
 
     必须注册在 ``/sources/{source_id}`` 参数路由**之前**：ninja 的 URL 正则
@@ -104,8 +104,9 @@ def sync_all_sources(request: Any) -> dict[str, Any]:
     # 手动触发本来就应该无视周期（这正是按钮的意义），但「无视」不等于「连
     # 不该同步的也同步」。
     sources = list(visible_sources_qs(_request_user(request)).filter(is_enabled=True, poll_interval_minutes__gt=0))
+    window = _normalize_window_days(days)
     for source in sources:
-        submit_task("apps.message_hub.tasks.sync_source_by_id", source.pk)
+        submit_task("apps.message_hub.tasks.sync_source_by_id", source.pk, window)
     return {"success": True, "message": f"已提交 {len(sources)} 个同步任务"}
 
 
@@ -122,6 +123,21 @@ def get_source(request: Any, source_id: int) -> MessageSource:  # pragma: no cov
     if not can_view_source(_request_user(request), source):
         raise Http404("消息来源不存在")
     return source
+
+
+def _normalize_window_days(days: int | None) -> int | None:
+    """把请求里的 ``days`` 收敛成同步窗口。
+
+    语义（与前端约定一致）：
+    - **省略**（None）= 按来源 ``sync_since`` 全量回填。这只有后台定时任务/首次
+      建源才该用，不提供给前端按钮的默认行为；
+    - 传数字 = 只看最近 N 天。前端手动同步固定传 7。
+
+    上限 365 天，防止误传一个巨大值把邮箱翻个底朝天（那正是本次要解决的问题）。
+    """
+    if days is None:
+        return None
+    return max(1, min(int(days), 365))
 
 
 def _request_user(request: Any) -> Any:
@@ -219,8 +235,8 @@ def delete_source(request: Any, source_id: int) -> tuple[int, None]:  # pragma: 
 
 
 @router.post("/sources/{source_id}/sync")
-def sync_source(request: Any, source_id: int) -> dict[str, Any]:  # pragma: no cover
+def sync_source(request: Any, source_id: int, days: int | None = None) -> dict[str, Any]:  # pragma: no cover
     source = get_object_or_404(MessageSource, pk=source_id)
     _ensure_source_manageable(request, source)
-    submit_task("apps.message_hub.tasks.sync_source_by_id", source_id)
+    submit_task("apps.message_hub.tasks.sync_source_by_id", source_id, _normalize_window_days(days))
     return {"success": True, "message": "同步任务已提交"}

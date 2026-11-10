@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useRef, useState } from 'react'
 
-import { INBOX_LIST_KEY, listInbox, listSources, syncAllSources, syncSource } from '../api'
+import { DEFAULT_SYNC_WINDOW_DAYS, INBOX_LIST_KEY, listInbox, listSources, syncAllSources, syncSource } from '../api'
+import type { SyncWindowDays } from '../api'
 import { INBOX_SYNC_SPEC } from '../constants'
 import type { InboxSourceFilter } from '../types'
 
@@ -43,8 +44,10 @@ export interface SyncResult {
   disabledReason?: string
   /** 本次同步后新增的消息条数；未完成或为 0 时是 null */
   newCount: number | null
-  /** 触发同步；档位不可同步时为空操作 */
-  run: () => void
+  /** 触发同步；档位不可同步时为空操作。days 省略时用默认窗口（7 天） */
+  run: (days?: SyncWindowDays) => void
+  /** 最近一次同步用的窗口天数，用于在按钮上回显「同步邮箱 · 7天」 */
+  lastWindowDays: SyncWindowDays
 }
 
 /** 从来源列表里挑出本次要同步的目标 id */
@@ -63,6 +66,7 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
 
   const [state, setState] = useState<SyncState>('idle')
   const [newCount, setNewCount] = useState<number | null>(null)
+  const [lastWindowDays, setLastWindowDays] = useState<SyncWindowDays>(DEFAULT_SYNC_WINDOW_DAYS)
 
   // state 更新是异步的，重复点击要用同步的 ref 拦
   const runningRef = useRef(false)
@@ -70,11 +74,13 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
   // 先收窄 target：后面闭包里 TS 才能确定它不是 null
   const target = spec.target
 
-  const run = useCallback(() => {
+  const run = useCallback(
+    (days: SyncWindowDays = DEFAULT_SYNC_WINDOW_DAYS) => {
     if (!target || runningRef.current) return
     runningRef.current = true
     setState('syncing')
     setNewCount(null)
+    setLastWindowDays(days)
 
     void (async () => {
       try {
@@ -85,7 +91,7 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
 
         // 2) 提交同步任务
         if (target === 'all') {
-          await syncAllSources()
+          await syncAllSources(days)
         } else {
           const ids = resolveTargetIds(beforeSources, target)
           if (ids.length === 0) {
@@ -93,7 +99,7 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
             setState('idle')
             return
           }
-          await Promise.all(ids.map((id) => syncSource(id)))
+          await Promise.all(ids.map((id) => syncSource(id, days)))
         }
 
         // 3) 轮询到 last_sync_at 变化（或超时）
@@ -132,5 +138,6 @@ export function useSyncSources(source: InboxSourceFilter): SyncResult {
     disabledReason: spec.disabledReason,
     newCount,
     run,
+    lastWindowDays,
   }
 }

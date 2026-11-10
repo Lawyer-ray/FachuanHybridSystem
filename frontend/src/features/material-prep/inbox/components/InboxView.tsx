@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { materialPrepDetail } from '@/app/paths'
 import { countUnread } from '../domain'
 import { useSetReadState } from '../hooks/use-inbox'
+import { getInboxMessage } from '../api'
 import { useInboxList } from '../hooks/use-inbox'
 import { useSyncSources } from '../hooks/use-sync-sources'
 import { InboxList } from './InboxList'
@@ -75,6 +76,68 @@ export function InboxView() {
     // 抽屉里的已读态写到列表后，active 若是旧快照会把「已读」显示回去，故清空
     setActive(null)
   }, [])
+
+  /**
+   * 深链接 `?message=<id>`：自动展开那条消息的抽屉。
+   *
+   * 用途：首页「待认领款项」点「详情」要跳到产生这笔到账的那封原始邮件
+   * （用户要看银行备注全文才知道这笔钱是谁打的）。只有落地页就把对应消息
+   * 展开，这个跳转才成立——否则用户落到 300+ 条同质消息里还得自己找。
+   *
+   * 细节：
+   * - 只在列表**加载完成**后找（加载中 rows 为空，过早查找会把"还没来"误判成"不存在"）；
+   * - 参数用完即从 URL 抹掉，避免关掉抽屉后刷新又被强制弹开；
+   * - 目标消息不在当前筛选结果里时（例如被 source 筛选挡掉）提示一句，
+   *   而不是静默什么都不发生。
+   */
+  const [params, setParams] = useSearchParams()
+  const deepLinkId = useMemo(() => {
+    const raw = params.get('message')
+    if (!raw) return null
+    const id = Number(raw)
+    return Number.isFinite(id) && id > 0 ? id : null
+  }, [params])
+  const deepLinkDone = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (deepLinkId == null || list.isLoading) return
+    if (deepLinkDone.current === deepLinkId) return
+    deepLinkDone.current = deepLinkId
+    const target = rows.find((r) => r.id === deepLinkId)
+    if (target) {
+      handleSelect(target)
+      // 抹掉参数：抽屉打开后 URL 恢复干净，刷新不会被再次强制展开
+      setParams({}, { replace: true })
+      return
+    }
+    if (source !== 'all' || unreadOnly || search) {
+      // 被当前筛选挡住了：先放开筛选再让下一轮 effect 重新找（deepLinkDone 在
+      // 放开筛选前解锁，所以能重进；命中后才最终锁定，不会死循环）
+      setSource('all')
+      setUnreadOnly(false)
+      setSearch('')
+      deepLinkDone.current = null
+      return
+    }
+    // 列表只取最近 200 条，目标消息可能更旧（到账邮件常常在几百条之外）。
+    // 此时按 id 单取——详情接口的字段是列表行的超集，可直接当行用。
+    let cancelled = false
+    void (async () => {
+      try {
+        const detail = await getInboxMessage(deepLinkId)
+        if (cancelled) return
+        handleSelect(detail)
+        setParams({}, { replace: true })
+      } catch {
+        if (cancelled) return
+        toast.info('这条消息可能已被删除')
+        setParams({}, { replace: true })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [deepLinkId, list.isLoading, rows, handleSelect, setParams, source, unreadOnly, search])
 
   return (
     <>

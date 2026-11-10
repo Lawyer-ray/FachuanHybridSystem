@@ -96,14 +96,34 @@ export async function listSources(): Promise<MessageSourceOut[]> {
   return inboxApi.get('sources').json<MessageSourceOut[]>()
 }
 
+/**
+ * 前端手动同步的默认窗口（天）。
+ *
+ * 手动同步的预期是「点一下立刻看到最近的新消息」，不是「把邮箱历史翻一遍」。
+ * 实测某邮箱半年 290 封里只有 2 封是真正关心的到账通知，全量拉取既慢又污染收件箱。
+ *
+ * **只影响手动同步**：后台定时任务与首次建源不走这个值（后端传 None 时按来源的
+ * sync_since 全量回填），所以「从历史时期完整同步」仍会发生在初次回填。
+ */
+export const DEFAULT_SYNC_WINDOW_DAYS = 7
+
+/** 手动同步可选的时间范围（天数）。7 = 默认。 */
+export const SYNC_WINDOW_OPTIONS = [7, 30, 90] as const
+export type SyncWindowDays = (typeof SYNC_WINDOW_OPTIONS)[number]
+
 /** POST /inbox/sources/sync-all —— 提交全部可见来源的同步任务 */
-export async function syncAllSources(): Promise<{ success: boolean; message: string }> {
-  return inboxApi.post('sources/sync-all').json<{ success: boolean; message: string }>()
+export async function syncAllSources(days: SyncWindowDays = DEFAULT_SYNC_WINDOW_DAYS): Promise<{ success: boolean; message: string }> {
+  return inboxApi
+    .post('sources/sync-all', { searchParams: { days: String(days) } })
+    .json<{ success: boolean; message: string }>()
 }
 
 /** POST /inbox/sources/{id}/sync —— 提交单个来源的同步任务 */
-export async function syncSource(id: number): Promise<{ success: boolean; message: string }> {
-  return inboxApi.post(`sources/${id}/sync`).json<{ success: boolean; message: string }>()
+export async function syncSource(
+  id: number,
+  days: SyncWindowDays = DEFAULT_SYNC_WINDOW_DAYS,
+): Promise<{ success: boolean; message: string }> {
+  return inboxApi.post(`sources/${id}/sync`, { searchParams: { days: String(days) } }).json<{ success: boolean; message: string }>()
 }
 
 // ── 邮件 → 在办合同 自动关联候选 ──────────────────────────
