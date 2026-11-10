@@ -95,6 +95,9 @@ export function InvoiceIntakeRow({
   const headline = invoiceHeadline(intake)
   const hasSuggestion = intake.suggested_contract_id != null
   const confidence = intake.payment_pick_confidence
+  // 已确认的票在待认领卡里只是「刚做完的残留」（后端 10 分钟内仍返回，供复制），
+  // 它不再是待办：匹配徽标/结论行都不必再出现，改为一个「已绑定」标记。
+  const done = intake.status === 'confirmed' && intake.invoice_id != null
 
   return (
     <div className="rounded-[10px] border border-border bg-card px-2.5 py-2 transition-colors hover:border-zinc-300">
@@ -102,22 +105,29 @@ export function InvoiceIntakeRow({
       <div className="flex items-baseline gap-2">
         <span className="text-[14px] leading-none font-semibold tabular-nums">{amountText(intake)}</span>
         <span className="text-[10.5px] text-muted-foreground">{intake.invoice_date ?? '日期未识别'}</span>
-        {style && (
-          <span
-            className={cn(
-              'ml-auto flex-none rounded-[99px] border px-[7px] py-[1px] text-[10px] font-semibold',
-              style.chip,
-            )}
-          >
-            {style.label}
+        {done ? (
+          <span className="ml-auto flex-none rounded-[99px] border border-status-green/30 bg-status-green-bg px-[7px] py-[1px] text-[10px] font-semibold text-status-green">
+            已绑定
           </span>
+        ) : (
+          style && (
+            <span
+              className={cn(
+                'ml-auto flex-none rounded-[99px] border px-[7px] py-[1px] text-[10px] font-semibold',
+                style.chip,
+              )}
+            >
+              {style.label}
+            </span>
+          )
         )}
       </div>
 
       {/* 第二行：购买方（后端已脱敏，去掉了「（个人）」） */}
       <div className="mt-[3px] truncate text-[11.5px] text-secondary-foreground">{intake.buyer_name || '购买方未识别'}</div>
 
-      {/* 第三行：结论 */}
+      {/* 第三行：结论（已确认的不再解释"为什么建议绑它"—— 那已经是既成事实） */}
+      {!done && (
       <div
         className={cn(
           'mt-[5px] flex items-start gap-1 text-[11.5px] leading-[1.35]',
@@ -131,9 +141,10 @@ export function InvoiceIntakeRow({
         )}
         <span className="min-w-0 break-words">{headline}</span>
       </div>
+      )}
 
       {/* 预选收款的确定性：金额不符是最需要提示的一档，单独染黄 */}
-      {confidence && (
+      {!done && confidence && (
         <div
           className={cn(
             'mt-[2px] truncate pl-4 text-[10.5px]',

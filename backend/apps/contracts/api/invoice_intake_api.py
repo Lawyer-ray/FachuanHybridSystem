@@ -18,6 +18,14 @@ router = Router()
 #: 首页卡片最多展示几条（与到账卡同口径）
 MAX_PENDING = 50
 
+#: 已确认的发票在首页再保留多久（分钟）。
+#:
+#: 留的原因：确认完最想做的事是复制那个重命名后的文件，立刻消失就拿不到了。
+#: 不久留的原因：卡叫「待认领」，堆满已处理项就名不副实。
+#: 10 分钟足够走完“确认 -> 复制 -> 粘贴发送”；超时后自动让位（记录本身仍在，
+#: 只是不再上首页），想看历史走发票台账/项目页。
+CONFIRMED_VISIBLE_MINUTES = 10
+
 
 # ── Schemas ───────────────────────────────────────────────
 
@@ -245,15 +253,24 @@ def list_pending(
 ) -> list[Any]:  # pragma: no cover
     """首页卡片：与我相关的待确认发票。
 
-    ``include_confirmed`` 默认为真：刚确认的那张必须**留在列表里**，否则点完「确认」
-    行就消失，用户拿不到重命名后的文件名，也没地方点「复制发票」——而这正是确认完
-    最想做的下一件事。已确认行在组件里换成「文件名 + 复制」形态（见 InvoiceIntakeRow）。
+    ## 已确认的为什么还会短暂出现
 
-    已确认只带最近一段（`CONFIRMED_TAIL`），避免历史票据把首页列表撞满；
-    完整台账将来另设页面。
+    点完「确认」行立刻消失的话，用户拿不到重命名后的文件名，也没地方点「复制发票」
+    ——而这正是确认完最想做的下一件事。所以已确认的会再留一小段时间。
+
+    ## 但只留一小段时间
+
+    卡叫「待认领」，里面堆满已处理的东西就名不副实了（用户会问“为什么办完的还
+    在这里”）。因此已确认的只在 ``CONFIRMED_VISIBLE_MINUTES`` 内返回，过了窗口
+    自动从首页消失——不需要用户手动清理，也不会无限堆积。
+
+    完整的发票台账将来另设页面；首页只负责“还有什么要我做”和“我刚做完的那件”。
     """
+    from datetime import timedelta
+
     from django.db import models
     from django.db.models import Q
+    from django.utils import timezone
 
     from apps.contracts.models import InvoiceIntakeStatus
     from apps.contracts.services.payment.invoice_intake_service import visible_intakes_qs
@@ -264,7 +281,11 @@ def list_pending(
     if not include_confirmed:
         qs = base.filter(status=InvoiceIntakeStatus.PENDING)
     else:
-        qs = base.filter(Q(status=InvoiceIntakeStatus.PENDING) | Q(status=InvoiceIntakeStatus.CONFIRMED))
+        fresh_cutoff = timezone.now() - timedelta(minutes=CONFIRMED_VISIBLE_MINUTES)
+        qs = base.filter(
+            Q(status=InvoiceIntakeStatus.PENDING)
+            | Q(status=InvoiceIntakeStatus.CONFIRMED, confirmed_at__gte=fresh_cutoff)
+        )
     # 待确认永远排在已确认之前（待办优先）。不能直接 order_by("status")：
     # 字典序里 "confirmed" < "pending"，那样已确认反而排到前面。
     qs = qs.order_by(

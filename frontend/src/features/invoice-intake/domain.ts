@@ -27,13 +27,16 @@ export function topKind(intake: InvoiceIntake) {
 /**
  * 卡片结论：一句话说清「系统认为这张票该绑哪个项目」。
  *
- * 有建议 → `✓ 确定性匹配：合同名`；没有 → 明说需要人工选择（不给假的确定感）。
+ * 有建议 → `确定性匹配：合同名`；没有 → 明说需要人工选择（不给假的确定感）。
+ *
+ * **不带 ✓ 字符**：调用方已用 Check 图标表达"匹配成功"，文本里再来一个
+ * 就成了「✓ ✓」（实测出现过），图标与文案各管一件事。
  */
 export function invoiceHeadline(intake: InvoiceIntake): string {
   if (intake.suggested_contract_id == null) return '无可匹配的在办项目，需人工选择'
   const kind = topKind(intake)
   const label = kind ? MATCH_KIND_STYLES[kind].label : '系统建议'
-  return `✓ ${label}：${intake.suggested_contract_name ?? '未命名项目'}`
+  return `${label}：${intake.suggested_contract_name ?? '未命名项目'}`
 }
 
 /**

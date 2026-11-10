@@ -49,8 +49,11 @@ function intake(overrides: Partial<InvoiceIntake> = {}): InvoiceIntake {
 }
 
 describe('invoiceHeadline', () => {
-  it('有建议时给出信号标签 + 项目名', () => {
-    expect(invoiceHeadline(intake())).toBe('✓ 确定性匹配：张某与某公司合同纠纷')
+  // 结论文案**不带 ✓ 字符**：行组件已用 Check 图标表达"匹配成功"，
+  // 文本再来一个就成了「✓ ✓」（实测出现过）。图标与文案各管一件事。
+  it('有建议时给出信号标签 + 项目名（不含 ✓，图标由调用方给）', () => {
+    expect(invoiceHeadline(intake())).toBe('确定性匹配：张某与某公司合同纠纷')
+    expect(invoiceHeadline(intake())).not.toContain('✓')
   })
 
   it('按最高信号等级取标签：同时有项目号与当事人匹配时用项目号', () => {
@@ -61,7 +64,7 @@ describe('invoiceHeadline', () => {
         candidate({ kind: 'project_code' }),
       ],
     })
-    expect(invoiceHeadline(row)).toBe('✓ 确定性匹配：张某与某公司合同纠纷')
+    expect(invoiceHeadline(row)).toBe('确定性匹配：张某与某公司合同纠纷')
   })
 
   it('只有案由匹配时用案由标签', () => {
@@ -76,7 +79,7 @@ describe('invoiceHeadline', () => {
 
   it('有建议但无候选时退回「系统建议」，不空标签', () => {
     const row = intake({ candidates: [] })
-    expect(invoiceHeadline(row)).toBe('✓ 系统建议：张某与某公司合同纠纷')
+    expect(invoiceHeadline(row)).toBe('系统建议：张某与某公司合同纠纷')
   })
 
   it('无建议时明说要人工选择', () => {
