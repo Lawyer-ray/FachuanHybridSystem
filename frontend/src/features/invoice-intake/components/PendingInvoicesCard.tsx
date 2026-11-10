@@ -45,8 +45,6 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
 
   const content = (
     <div className="px-2.5 pt-1.5 pb-2.5">
-      {/* 合成卡内部分组：bare 模式下外层没有本组标题，这里补一个 */}
-      {bare && <div className="mb-1 px-1 text-[11px] font-[650] text-muted-foreground">发票</div>}
 
       {isError && (
         <div className="px-2 py-6 text-center text-[12.5px] text-destructive">
@@ -65,13 +63,22 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
         <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">正在载入…</div>
       )}
 
-      {!isError && !isLoading && count === 0 && (
-        <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
-          <FileText className="h-4 w-4 text-muted-foreground/50" aria-hidden />
-          <div className="text-[12.5px] text-muted-foreground">暂无待认领发票</div>
-          <div className="text-[10.5px] text-muted-foreground/70">财务发来发票邮件后会自动出现在这里</div>
-        </div>
-      )}
+      {!isError &&
+        !isLoading &&
+        count === 0 &&
+        (bare ? (
+          /* 合成卡合并展示：空态压成一行，避免两组都空时首页一大块空白 */
+          <div className="flex items-center gap-1.5 px-2 py-2 text-[11.5px] text-muted-foreground">
+            <FileText className="h-3 w-3 flex-none opacity-50" aria-hidden />
+            暂无待认领发票
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1 px-2 py-6 text-center">
+            <FileText className="h-4 w-4 text-muted-foreground/50" aria-hidden />
+            <div className="text-[12.5px] text-muted-foreground">暂无待认领发票</div>
+            <div className="text-[10.5px] text-muted-foreground/70">财务发来发票邮件后会自动出现在这里</div>
+          </div>
+        ))}
 
       {!isError &&
         !isLoading &&
@@ -91,7 +98,16 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
     </div>
   )
 
-  if (bare) return content
+  // 合成卡里靠左侧色条（发票=indigo）区分，不再写「发票」文字标签。
+  // 上边框只在**本组有内容**时画：本组空态只是一行灰字，再压一条分隔线
+  // 会把「没东西」强调成一个小节，反而显乱。
+  if (bare) {
+    return (
+      <div className={`border-l-2 border-l-indigo-400/70 ${count ? 'border-t border-t-border/60' : ''}`}>
+        {content}
+      </div>
+    )
+  }
 
   return (
     <section className={`${PANEL} overflow-hidden`}>
