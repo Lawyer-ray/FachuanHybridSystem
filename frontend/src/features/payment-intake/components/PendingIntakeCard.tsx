@@ -7,7 +7,6 @@ import { PANEL } from '@/components/shared/panel-styles'
 import { errMessage } from '@/lib/errors'
 import { useConfirmIntake, usePendingIntakes } from '../hooks/use-pending-intakes'
 import type { Intake } from '../types'
-import { ConfirmDialog } from './ConfirmDialog'
 import { IntakeRow } from './IntakeRow'
 import { ProjectPicker } from './ProjectPicker'
 
@@ -20,11 +19,14 @@ import { ProjectPicker } from './ProjectPicker'
  * 功能没在跑。所以三种状态都渲染：有数据 / 空态 / 加载失败（失败与空态必须
  * 分得开，否则服务端故障会被读成"没有到账"）。
  *
- * ## 交互路径
+ * ## 交互
  *
- * - **确认**：采纳系统建议（只在有实名命中的建议时可用）→ 二次确认 → 写入收款记录
- * - **换个项目**：搜索选择合格项目 → 二次确认 → 写入该项目的收款记录
- * - **详情**：跳到收件箱里那封原始邮件，看银行备注全文
+ * - **确认**：采纳系统建议，**点了就直接写入收款记录，不再弹二次确认**
+ *   （用户明确要求去掉这一步：卡片上金额、付款人、匹配项目、匹配理由都已在眼前，
+ *   再多一次弹窗只是重复阅读同一批信息）。
+ * - **换个项目**：先搜选项目，选完才写入——这一步本身就是要人做选择，
+ *   所以项目选择弹窗保留（它不是"确认"，是"改判"）。
+ * - **详情**：跳到收件箱里那封原始邮件并展开，看银行备注全文。
  *
  * 系统**不替人做决定**：只有金额吻合的候选不会预选建议，卡片明确提示需要核对。
  */
@@ -34,9 +36,6 @@ export function PendingIntakeCard() {
   const confirm = useConfirmIntake()
 
   const [pickerFor, setPickerFor] = useState<Intake | null>(null)
-  const [confirmFor, setConfirmFor] = useState<{ intake: Intake; contractId?: number; contractName?: string } | null>(
-    null,
-  )
 
   const count = data.length
   const subtitle = useMemo(() => (isError ? '' : count ? `${count} 笔` : ''), [count, isError])
@@ -73,7 +72,8 @@ export function PendingIntakeCard() {
               <IntakeRow
                 intake={intake}
                 busy={confirm.isPending}
-                onConfirm={() => setConfirmFor({ intake })}
+                // 采纳系统建议：直接写入，不再二次确认
+                onConfirm={() => confirm.mutate({ id: intake.id })}
                 onChange={() => setPickerFor(intake)}
                 onDetail={() => void navigate(`/material-prep?message=${intake.inbox_message_id}`)}
               />
@@ -90,23 +90,8 @@ export function PendingIntakeCard() {
           const intake = pickerFor
           if (!intake) return
           setPickerFor(null)
-          // 选完项目还要走一次二次确认：写入财务数据不该两步并一步
-          setConfirmFor({ intake, contractId, contractName: undefined })
-        }}
-      />
-
-      <ConfirmDialog
-        intake={confirmFor?.intake ?? null}
-        contractName={confirmFor?.contractName}
-        open={confirmFor != null}
-        onOpenChange={(open) => !open && setConfirmFor(null)}
-        busy={confirm.isPending}
-        onConfirm={() => {
-          if (!confirmFor) return
-          confirm.mutate(
-            { id: confirmFor.intake.id, contractId: confirmFor.contractId },
-            { onSettled: () => setConfirmFor(null) },
-          )
+          // 改判已由人在弹窗里选定项目，这里同样直接写入
+          confirm.mutate({ id: intake.id, contractId })
         }}
       />
     </section>
