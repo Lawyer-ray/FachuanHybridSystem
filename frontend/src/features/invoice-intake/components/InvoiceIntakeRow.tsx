@@ -159,9 +159,12 @@ export function InvoiceIntakeRow({
       {/* 被排除的线索：一句话灰字，常是理解「为什么没匹配上」的关键 */}
       {(intake.excluded_hints ?? []).length > 0 && (
         <div className="mt-[4px] rounded-[6px] bg-secondary/60 px-1.5 py-[3px] text-[10.5px] text-muted-foreground">
+          {/* 先给「原因」再给合同名：这一块的唯一用途是解释“为什么排除了它”，
+              而合同名往往很长（几十字的案名），单行 truncate 会把原因整个裁掉，
+              变成只剩名字、答非所问（实测如此）。所以排因在前、名字在后并截断。 */}
           {(intake.excluded_hints ?? []).map((h) => (
-            <div key={h.contract_id} className="truncate" title={`${h.contract_name}｜${h.note}`}>
-              ⓘ {h.contract_name}：{h.note}
+            <div key={h.contract_id} className="truncate" title={`${h.note}：${h.contract_name}`}>
+              ⓘ {h.note}：{h.contract_name}
             </div>
           ))}
         </div>
