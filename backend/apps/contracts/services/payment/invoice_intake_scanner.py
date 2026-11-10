@@ -100,6 +100,13 @@ def is_invoice_mail(message: InboxMessage) -> bool:
     return any(_looks_like_invoice_attachment(att) for att in attachments if isinstance(att, dict))
 
 
+def _already_recorded(invoice_number: str) -> bool:
+    """这张票号是不是已经有落账的 Invoice 记录（已绑到收款或合同）。"""
+    from apps.contracts.models import Invoice
+
+    return Invoice.objects.filter(invoice_number=invoice_number).exists()
+
+
 def _build_dedupe_key(message_id: int, part_index: int, invoice_number: str) -> str:
     """幂等键：同封邮件同一附件不重复；拿到号码后同一张票重发也能识别。"""
     raw = f"{message_id}|{part_index}|{invoice_number}"
@@ -173,6 +180,18 @@ def scan_message(message: InboxMessage) -> list[InvoiceIntake]:
 
         dedupe_key = _build_dedupe_key(message.pk, part_index, invoice_number)
         if InvoiceIntake.objects.filter(dedupe_key=dedupe_key).exists():
+            continue
+
+        # 跨表去重：这张票如果**已经落账**（Invoice 里有同号记录），就不再入池。
+        #
+        # 只看 intake 表是不够的：intake 记录可能在确认后被清理（拓数据、改来源、
+        # 手滑删除），而 Invoice 是真正的财务凭证。不查 Invoice 的话，重扫会把
+        # 一张早就处理完的票又变回“待认领”，用户看到的就是“明明确认过了又冒出来”。
+        if invoice_number and _already_recorded(invoice_number):
+            logger.info(
+                "invoice_intake_skip_already_recorded",
+                extra={"invoice_number": invoice_number, "message_id": message.pk},
+            )
             continue
 
         ranking = rank_invoice_candidates(
