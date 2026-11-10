@@ -1,0 +1,324 @@
+/**
+ * 新建合同页「AI 智能导入合同」面板样式。
+ *
+ * 全部颜色走 admin 主题变量（--fc-* / --header-bg 等），保证暗色主题下不刺眼。
+ */
+
+#ci-panel {
+  margin: 0 0 20px;
+  border: 1px solid var(--fc-border, #dcdfe6);
+  border-radius: 6px;
+  background: var(--fc-bg-panel, #fff);
+  overflow: hidden;
+  font-size: 13px;
+}
+
+/* ── 头部 ───────────────────────────────────────────────────────────── */
+
+#ci-panel .ci-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--fc-bg-muted, #f5f7fa);
+  border-bottom: 1px solid var(--fc-border, #dcdfe6);
+}
+
+#ci-panel.ci-collapsed .ci-header {
+  border-bottom: none;
+}
+
+#ci-panel .ci-header-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+#ci-panel .ci-header-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fc-text-primary, #303133);
+}
+
+#ci-panel .ci-header-hint {
+  color: var(--fc-text-muted, #909399);
+  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#ci-panel .ci-toggle {
+  padding: 3px 10px;
+  border: 1px solid var(--fc-border-input, #dcdfe6);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fc-text-muted, #909399);
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+#ci-panel .ci-toggle:hover {
+  color: var(--fc-admin-blue, #409eff);
+  border-color: var(--fc-admin-blue, #409eff);
+}
+
+#ci-panel.ci-collapsed .ci-body {
+  display: none;
+}
+
+/* ── 拖拽区 ─────────────────────────────────────────────────────────── */
+
+#ci-panel .ci-body {
+  padding: 14px;
+}
+
+#ci-panel .ci-drop {
+  border: 2px dashed var(--fc-border, #dcdfe6);
+  border-radius: 6px;
+  padding: 26px 16px;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--fc-bg-surface, #fafbfc);
+}
+
+#ci-panel .ci-drop-active {
+  border-color: var(--fc-admin-blue, #409eff);
+  background: var(--fc-primary-subtle, #ecf5ff);
+}
+
+#ci-panel .ci-drop-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+#ci-panel .ci-drop-icon {
+  font-size: 22px;
+  color: var(--fc-text-muted, #909399);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+#ci-panel .ci-drop-text {
+  color: var(--fc-text-secondary, #606266);
+}
+
+#ci-panel .ci-drop-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--fc-text-muted, #909399);
+}
+
+#ci-panel .ci-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fc-admin-blue, #409eff);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+/* ── 控制行 ─────────────────────────────────────────────────────────── */
+
+#ci-panel .ci-controls {
+  margin-top: 12px;
+}
+
+#ci-panel .ci-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--fc-bg-muted, #f5f7fa);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+#ci-panel .ci-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fc-text-primary, #303133);
+}
+
+#ci-panel .ci-clear-btn {
+  background: none;
+  border: none;
+  color: var(--fc-text-muted, #909399);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+
+#ci-panel .ci-clear-btn:hover {
+  color: var(--fc-danger, #f56c6c);
+}
+
+#ci-panel .ci-model-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#ci-panel .ci-model-label {
+  color: var(--fc-text-secondary, #606266);
+  flex-shrink: 0;
+}
+
+#ci-panel .ci-model-select {
+  min-width: 260px;
+  max-width: 420px;
+  padding: 4px 8px;
+  border: 1px solid var(--fc-border-input, #dcdfe6);
+  border-radius: 4px;
+  background: var(--fc-bg-panel, #fff);
+  color: var(--fc-text-primary, #303133);
+  font-size: 13px;
+}
+
+#ci-panel .ci-analyze-btn {
+  padding: 6px 20px;
+  border: none;
+  border-radius: 4px;
+  background: var(--fc-admin-blue, #409eff);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+#ci-panel .ci-analyze-btn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+#ci-panel .ci-analyze-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── 状态 / 结果 ────────────────────────────────────────────────────── */
+
+#ci-panel .ci-status {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+#ci-panel .ci-status-loading {
+  background: var(--fc-primary-subtle, #ecf5ff);
+  color: var(--fc-admin-blue, #409eff);
+}
+
+#ci-panel .ci-status-error {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+
+#ci-panel .ci-status-warning {
+  background: #fdf6ec;
+  color: #e6a23c;
+}
+
+#ci-panel .ci-result {
+  margin-top: 12px;
+  border: 1px solid var(--fc-border, #dcdfe6);
+  border-radius: 4px;
+  padding: 12px;
+  background: var(--fc-bg-surface, #fafbfc);
+}
+
+#ci-panel .ci-result-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+#ci-panel .ci-result-title {
+  font-weight: 600;
+  color: var(--fc-success, #67c23a);
+}
+
+#ci-panel .ci-result-meta {
+  font-size: 12px;
+  color: var(--fc-text-muted, #909399);
+}
+
+#ci-panel .ci-summary {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  line-height: 1.9;
+}
+
+#ci-panel .ci-summary .ci-warn {
+  color: #e6a23c;
+}
+
+#ci-panel .ci-warnings {
+  background: #fdf6ec;
+  border-left: 3px solid #e6a23c;
+  padding: 8px 12px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+}
+
+#ci-panel .ci-warnings-title {
+  font-weight: 600;
+  color: #e6a23c;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+#ci-panel .ci-warnings ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.8;
+  color: var(--fc-text-secondary, #606266);
+}
+
+#ci-panel .ci-footnote {
+  font-size: 12px;
+  color: var(--fc-text-muted, #909399);
+  border-top: 1px dashed var(--fc-border, #dcdfe6);
+  padding-top: 8px;
+}
+
+/* ── 表单里的 AI 角标 ───────────────────────────────────────────────── */
+
+.ci-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--fc-primary-subtle, #ecf5ff);
+  color: var(--fc-admin-blue, #409eff);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ci-badge.ci-badge-warn {
+  background: #fdf6ec;
+  color: #e6a23c;
+}
+
+.form-row.ci-filled input,
+.form-row.ci-filled select,
+.form-row.ci-filled textarea {
+  background: #f0f9eb;
+}
+
+.form-row.ci-filled.ci-badge-warn input {
+  background: #fdf6ec;
+}
