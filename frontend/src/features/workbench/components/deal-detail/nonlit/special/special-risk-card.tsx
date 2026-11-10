@@ -80,8 +80,13 @@ export function SpecialRiskCard({
                 <span className="min-w-0 flex-1 truncate text-[12.5px] font-[550]" title={r.risk}>
                   {r.risk}
                 </span>
-                <span className="flex-none text-[10.5px] text-muted-foreground">{r.owner}</span>
-                <span className="w-[52px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">{r.due}</span>
+                <span className="flex-none whitespace-nowrap text-[10.5px] text-muted-foreground">{r.owner}</span>
+                {/* 到期日是 YYYY-MM-DD 十位，10.5px tabular 实测需要 87.7px；原来写 52px 必然折成
+                    两行（「2027-01-」/「20」），还会把整行从 34px 撑到 52px。这里按实测宽度给
+                    78px（右对齐后实际占位足够），并锁 whitespace-nowrap 杜绝再次折行。 */}
+                <span className="w-[78px] flex-none whitespace-nowrap text-right text-[10.5px] tabular-nums text-muted-foreground">
+                  {r.due}
+                </span>
                 <TonePill tone={RISK_STATUS_TONE[r.status]}>{r.status}</TonePill>
               </button>
               {open ? (

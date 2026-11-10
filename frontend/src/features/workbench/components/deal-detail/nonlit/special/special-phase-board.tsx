@@ -235,13 +235,15 @@ export function SpecialPhaseBoard({ initialPhaseId, phaseFocus = 0 }: { initialP
                 <span className={cn('min-w-0 flex-1 truncate text-[12.5px]', p.status === 'doing' ? 'font-[650]' : 'font-[550]')}>
                   {p.name}
                 </span>
-                <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">
+                <span className="flex-none whitespace-nowrap text-[10.5px] tabular-nums text-muted-foreground">
                   {p.planStart.slice(5)} → {p.planEnd.slice(5)}
                 </span>
-                <span className="w-[62px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
+                {/* 这几个数字列都锁 nowrap：宽度是固定槽，一旦允许换行就会被折成两行
+                    （「2 份 · 改」/「2」），把整行高度从 34px 撑到 48px。 */}
+                <span className="w-[62px] flex-none whitespace-nowrap text-right text-[10.5px] tabular-nums text-muted-foreground">
                   {p.deliverables.length} 份 · 改 {changed}
                 </span>
-                <span className="w-[52px] flex-none text-right text-[10.5px] tabular-nums text-muted-foreground">
+                <span className="w-[52px] flex-none whitespace-nowrap text-right text-[10.5px] tabular-nums text-muted-foreground">
                   确认 {confirmed}
                 </span>
                 <TonePill tone={STATUS_TONE[p.status]}>{STATUS_TEXT[p.status]}</TonePill>
