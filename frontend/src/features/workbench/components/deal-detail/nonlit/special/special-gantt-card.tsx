@@ -39,15 +39,16 @@ export function SpecialGanttCard({
 
   return (
     <Card className="px-[18px] py-[15px]">
-      <div className="flex items-baseline gap-2">
-        <h3 className="flex items-center gap-1.5 text-[13px] font-[620]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <h3 className="flex flex-none items-center gap-1.5 text-[13px] font-[620]">
           <CalendarClock className="size-3.5 text-muted-foreground" />
           阶段进度甘特
         </h3>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
           {chart.startDate} → {chart.endDate} · 全程 {chart.spanDays} 天
         </span>
-        <div className="ml-auto flex items-center gap-1.5">
+        {/* 三个统计胶囊：空间不够时整体换到下一行，绝不被挤出卡片右边界 */}
+        <div className="flex flex-none items-center gap-1.5">
           <TonePill tone="blue">总计划 {sum.planDays} 天</TonePill>
           <TonePill tone={sum.late > 0 ? 'red' : 'green'}>{sum.late > 0 ? `${sum.late} 条延期` : '无延期'}</TonePill>
           <TonePill tone="neutral">整体 {sum.progress}%</TonePill>
@@ -74,10 +75,10 @@ export function SpecialGanttCard({
             type="button"
             onClick={() => onPickPhase(bar.row.phaseId)}
             title={`${bar.seq} ${bar.name} · ${bar.startDate} 至 ${bar.endDate} · 计划 ${bar.row.planDays} 天`}
-            className="group flex items-center gap-2 rounded-[7px] px-1 py-[5px] text-left transition-colors hover:bg-secondary/45"
+            className="group flex w-full min-w-0 items-center gap-2 rounded-[7px] px-1 py-[5px] text-left transition-colors hover:bg-secondary/45"
           >
             {/* 阶段名（固定宽，条形左边界因此对齐；只显示主线与 3.x 子阶段的首字缩进） */}
-            <span className="flex w-[132px] flex-none items-center gap-1 overflow-hidden">
+            <span className="flex w-[92px] flex-none items-center gap-1 overflow-hidden @min-[520px]:w-[132px]">
               <span className="w-[22px] flex-none text-[10.5px] tabular-nums text-muted-foreground">{bar.seq}</span>
               <span
                 className={cn(
@@ -113,17 +114,23 @@ export function SpecialGanttCard({
               </span>
             </span>
 
-            {/* 右侧读数 */}
-            <span className="flex w-[150px] flex-none items-center gap-1.5">
-              <span className="w-[52px] flex-none text-right text-[10px] tabular-nums text-muted-foreground">
+            {/* 右侧读数。
+                槽宽原来写死 150px，但里面是「52 + 34 + 状态胶囊（内容自适应 62~70）+ 箭头 12 + gap」，
+                实际需求 165~175px；槽 flex-none 不能收缩，超出的部分直接把胶囊顶出卡片右边界
+                （实测溢出 5~13px，card.scrollWidth > clientWidth）。这里按真实需求放到 186px，
+                胶囊仍可收缩并保留 min-w-0，窄栏时才不会再把卡片撑破。 */}
+            <span className="flex w-[132px] flex-none items-center justify-end gap-1.5 @min-[520px]:w-[186px]">
+              <span className="hidden w-[46px] flex-none text-right text-[10px] tabular-nums text-muted-foreground @min-[520px]:block">
                 {bar.row.planDays} 天
               </span>
-              <span className="w-[34px] flex-none text-right text-[10px] tabular-nums font-medium">
+              <span className="w-[32px] flex-none text-right text-[10px] tabular-nums font-medium">
                 {bar.row.progress}%
               </span>
-              <TonePill tone={DRIFT_TONE[bar.drift]}>
-                {bar.row.actualDays === 0 ? '未开工' : DRIFT_TEXT[bar.drift](bar.driftDays)}
-              </TonePill>
+              <span className="min-w-0 flex-none">
+                <TonePill tone={DRIFT_TONE[bar.drift]}>
+                  {bar.row.actualDays === 0 ? '未开工' : DRIFT_TEXT[bar.drift](bar.driftDays)}
+                </TonePill>
+              </span>
               <ChevronRight className="size-3 flex-none text-muted-foreground/50 group-hover:text-foreground" />
             </span>
           </button>
