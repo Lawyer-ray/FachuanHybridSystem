@@ -130,6 +130,67 @@ _LAW_FIRM_MARKERS: tuple[str, ...] = ("律师事务所", "律师事務所", "法
 _MONEY_ARABIC_RE = re.compile(r"(?<!\d)(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?!\d)")
 
 
+#: 「各付」语义标记——出现且能识别出分包方数量时，总额需除以家数取我方份额
+_PER_FIRM_MARKERS: tuple[str, ...] = ("各支付", "各收取", "各享有", "各按", "各为", "分别支付", "各自支付")
+#: 「合计」语义标记
+_TOTAL_MARKERS: tuple[str, ...] = ("共", "合计", "总计", "共计")
+
+
+def split_per_firm_amount(text: str, firm_count: int) -> Decimal | None:
+    """从「各付 X，共 Y」型表述中取出**单家律所份额**。
+
+    这是多律所共同承办合同的常见写法（如「乙方1、2 各支付壹万元整（10000.00），
+    共贰万元整（20000.00）」）。录入人所在律所只收自己那份，合同登记也应该记
+    自己那份——直接取「最大数字」会把合计写进我方合同（实测把 1 万报成 2 万）。
+
+    Args:
+        text: 金额原文表述。
+        firm_count: 合同中的律所家属数（>=2）。
+
+    Returns:
+        单家份额；无可信依据时返回 ``None``，由调用方回退并提示人工确认。
+    """
+    if firm_count < 2 or not text:
+        return None
+    if not any(marker in text for marker in _PER_FIRM_MARKERS):
+        return None
+
+    total, _ = parse_amount(text)
+    if total is None:
+        return None
+
+    # 先枚举原文里所有金额数字。
+    # 关键判据：**原文必须真的存在一个等于 总额÷家数 的数字**。
+    # 只有「各付」字样但没有具体份额数字时（如「各支付律师费，共贰万元」），
+    # 擅自做除法会造出一个合同里根本没有的数字——宁可交给人工。
+    tokens: list[Decimal] = []
+    for match in _MONEY_ARABIC_RE.finditer(text):
+        raw_token = match.group(1).replace(",", "")
+        try:
+            value = Decimal(raw_token)
+        except InvalidOperation:
+            continue
+        if value < 1000 and _has_wan_unit_near(text, raw_token):
+            value = value * 10_000
+        tokens.append(value)
+
+    has_total = any(marker in text for marker in _TOTAL_MARKERS)
+    if not has_total:
+        # 无「合计」字样：数字本身就是各家份额，直接返回（parse_amount 已取最大值）
+        return total.quantize(Decimal("0.01"))
+
+    expected_share = total / Decimal(firm_count)
+    if expected_share != expected_share.to_integral_value():
+        # 除不尽：口径不同（税点/杂费），不猜
+        return None
+
+    if any(token == expected_share for token in tokens):
+        return expected_share.quantize(Decimal("0.01"))
+
+    # 原文没有与估算份额匹配的数字 → 说明「各付」指的不是等额分摊，不猜
+    return None
+
+
 def _has_wan_unit_near(text: str, token: str) -> bool:
     """数字后面紧跟万/亿单位时返回 True（用于「5万元」「0.5万元」这类写法）。"""
     index = text.find(token)
@@ -484,6 +545,9 @@ def normalize_extraction(
     *,
     client_lookup: dict[str, tuple[int, str]] | None = None,
     lawyer_lookup: dict[str, tuple[int, str]] | None = None,
+    our_law_firm: str = "",
+    current_lawyer_id: int | None = None,
+    current_lawyer_label: str = "",
 ) -> ContractDraft:
     """把 LLM 抽取结果归一成 :class:`ContractDraft`。
 
@@ -492,6 +556,10 @@ def normalize_extraction(
         client_lookup: ``{归一化名称或证照号: (client_id, 展示名)}``，用于把当事人
             关联到已有 Client。
         lawyer_lookup: ``{归一化姓名: (lawyer_id, 展示名)}``，用于把律师姓名关联到 Lawyer。
+        our_law_firm: 当前登录律师所属律所名。多律所分收的合同靠它确定本所份额。
+        current_lawyer_id: 当前登录律师 id。合同未写明指派、或写的人不在系统内时，
+            用登录人兜底当承办律师（录入人就是承办人，这比留空更贴近实际）。
+        current_lawyer_label: 当前登录律师展示名。
     """
     client_lookup = client_lookup or {}
     lawyer_lookup = lawyer_lookup or {}
@@ -503,6 +571,10 @@ def normalize_extraction(
     draft.source_quotes = dict(extraction.source_quotes or {})
 
     # ── 1. 当事人：剔除律所 ──
+    # 律所家数既用于当事人剔除，也用于金额份额拆分（各付 X × N 家 = 总额）
+    law_firm_names: list[str] = [
+        str(party.name).strip() for party in extraction.parties if party.is_law_firm or is_law_firm_name(party.name)
+    ]
     kept: list[ExtractedParty] = []
     dropped_firms: list[str] = []
     for party in extraction.parties:
@@ -584,7 +656,17 @@ def normalize_extraction(
             draft.needs_review.append("fixed_amount")
             draft.warnings.append(f"全风险收费但检测到金额「{extraction.amount_text}」，请确认是否应填前期律师费")
         else:
+            amount, share_note = _resolve_our_share(
+                amount=amount,
+                amount_text=extraction.amount_text,
+                our_law_firm=our_law_firm,
+                law_firm_names=law_firm_names,
+                is_total=bool(extraction.amount_is_total),
+            )
             draft.fields["fixed_amount"] = str(amount)
+            if share_note:
+                draft.warnings.append(share_note)
+                draft.needs_review.append("fixed_amount")
     else:
         draft.needs_review.append("fixed_amount")
         if amount_reason:
@@ -618,6 +700,7 @@ def normalize_extraction(
             draft.warnings.append(f"签约日期：{sign_reason}")
 
     # ── 6. 律师 ──
+    # 先保留模型识别的全部律师（含未匹配的），让前端能就「合同写了谁但我们没这人」提示用户
     for lawyer in extraction.lawyers:
         name = str(lawyer.name or "").strip()
         if not name or is_law_firm_name(name):
@@ -633,6 +716,22 @@ def normalize_extraction(
             nl.lawyer_id, nl.lawyer_label = hit[0], hit[1]
             nl.matched = True
         draft.lawyers.append(nl)
+
+    # 用登录律师兜底：合同没列律师、或列的人都不是系统内的律师时，
+    # 录入人本人就是承办人。这比留空更贴近实际（空着必须手填，而手填也是他本人）。
+    if current_lawyer_id and not any(lw.matched for lw in draft.lawyers):
+        label = current_lawyer_label or "当前登录律师"
+        draft.lawyers.append(
+            NormalizedLawyer(
+                name=label,
+                law_firm=our_law_firm,
+                is_primary=True,
+                lawyer_id=current_lawyer_id,
+                lawyer_label=label,
+                matched=True,
+            )
+        )
+        draft.warnings.append(f"合同未写明可识别的承办律师，已默认填为当前登录律师「{label}」，如不属请手工修改")
 
     # ``is_primary`` 是排他语义（合同列表/详情按它认定唯一主办律师）。
     # 模型常把「乙方1、2 各指派 A、B 律师」这类并列指派全标成主办，
@@ -667,6 +766,51 @@ def normalize_extraction(
                 draft.needs_review.append(mapped)
 
     return draft
+
+
+def _resolve_our_share(
+    *,
+    amount: Decimal,
+    amount_text: str,
+    our_law_firm: str,
+    law_firm_names: list[str],
+    is_total: bool,
+) -> tuple[Decimal, str]:
+    """把「合同里的金额」换成本所应收的那一份。
+
+    多律所共同承办的合同（乙方1、乙方2 各收一份）登记时应该记**本所那份**，
+    否则会把别家的收入计到自己账上。判定顺序：
+
+    1. 我方律所无法确定 → 原样返回，但要提示人工核对；
+    2. 合同里只出现一家律所（就是我方）→ 金额就是全款；
+    3. 多家律所且存在「各付 X」表述 → 按家数取份额（除法必须整除）。
+
+    Returns:
+        ``(金额, 提示语)``；提示语非空时前端会把该字段标为待确认。
+    """
+    if not our_law_firm:
+        if len(law_firm_names) >= 2:
+            return amount, "合同由多家律所共同承办，当前账号无所属律所，无法确定本所应收金额，请人工核对"
+        return amount, ""
+
+    if len(law_firm_names) < 2:
+        return amount, ""
+
+    # 模型标了 amount_is_total=false：它声称已按我方份额抄录。
+    # 不直接信——用原文「各付 X，共 Y」做交叉校验：
+    # 若模型的数≈Y（总额），说明它标错了标志位，改用拆出的份额。
+    if not is_total:
+        total_in_text, _ = parse_amount(amount_text)
+        share = split_per_firm_amount(amount_text, len(law_firm_names))
+        if share is not None and total_in_text is not None and amount == total_in_text and share != total_in_text:
+            return share, (f"模型给出的金额是多家律所合计（{total_in_text}），已按「各付」条款改为本所份额；请核对")
+        return amount, ""
+
+    # 模型认为是总额（或未表态）：从原文「各付 X」表述里确定性地拆一笔
+    share = split_per_firm_amount(amount_text, len(law_firm_names))
+    if share is not None:
+        return share, (f"合同由 {len(law_firm_names)} 家律所共同承办，已按「各付」条款拆出本所份额；请核对确认")
+    return amount, f"合同由 {len(law_firm_names)} 家律所共同承办，未能可靠拆出本所份额，请人工核对金额"
 
 
 def _enforce_single_primary(draft: ContractDraft) -> None:

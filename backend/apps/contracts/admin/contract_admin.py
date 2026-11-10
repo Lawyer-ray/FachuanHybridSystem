@@ -509,7 +509,8 @@ class ContractAdmin(
         temp_path: Any = None
         try:
             temp_path = save_temp_upload(upload, filename=filename)
-            result = analyze_contract(path=temp_path, filename=filename, model_id=model_id)
+            # 传 user：我方律所身份决定多律所合同的金额归属，登录律师兼承办人兜底
+            result = analyze_contract(path=temp_path, filename=filename, model_id=model_id, user=request.user)
         except ContractIntakeError as exc:
             # 可预期错误（格式不支持 / 无文字层 / LLM 失败）：直接展示给用户
             return JsonResponse({"ok": False, "error": str(exc)}, status=400)

@@ -207,6 +207,113 @@ class TestClientMatching:
         assert draft.parties[0].client_id is None
 
 
+class TestOurFirmAmountShare:
+    """多律所分收时，合同金额必须是**本所那一份**。
+
+    真实事故：某律师（乙律所）导入一份两家律所「各付壹万、共贰万」的合同，
+    系统把 fixed_amount 填成了 20000（合计），把别家的钱算进了自己账上。
+    """
+
+    SHARED_TEXT = "甲方向乙方1、2各支付律师费人民币壹万元整（10000.00），共贰万元整（20000.00）"
+
+    def _shared(self, **overrides: object) -> ContractExtraction:
+        base: dict[str, object] = {
+            "case_type": "special",
+            "client_name": "某供应链公司",
+            "fee_mode": "FIXED",
+            "amount_text": self.SHARED_TEXT,
+            "parties": [
+                ExtractedParty(name="某供应链公司", role_in_contract="甲方"),
+                ExtractedParty(name="甲律所", role_in_contract="乙方1", is_law_firm=True),
+                ExtractedParty(name="乙律所", role_in_contract="乙方2", is_law_firm=True),
+            ],
+        }
+        base.update(overrides)
+        return ContractExtraction(**base)  # type: ignore[arg-type]
+
+    def test_model_gave_our_share_directly(self) -> None:
+        """模型巳按我方份额填 10000 且标 is_total=false → 原样采纳，不多余告警。"""
+        draft = normalize_extraction(
+            self._shared(amount_text="壹万元整（10000.00）", amount_is_total=False),
+            our_law_firm="乙律所",
+        )
+        assert draft.fields["fixed_amount"] == "10000.00"
+        assert not any("未能可靠拆出" in w for w in draft.warnings)
+
+    def test_model_gave_total_but_flagged_false(self) -> None:
+        """模型错标 is_total=false 却给了合计 → 交叉校验后改成份额。"""
+        draft = normalize_extraction(
+            self._shared(amount_is_total=False),
+            our_law_firm="乙律所",
+        )
+        assert draft.fields["fixed_amount"] == "10000.00"
+
+    def test_model_flagged_total(self) -> None:
+        draft = normalize_extraction(
+            self._shared(amount_is_total=True),
+            our_law_firm="乙律所",
+        )
+        assert draft.fields["fixed_amount"] == "10000.00"
+
+    def test_no_our_firm_keeps_total_and_warns(self) -> None:
+        """无法确定我方律所时不得猜测，保留原值并提示人工。"""
+        draft = normalize_extraction(self._shared(amount_is_total=True), our_law_firm="")
+        assert draft.fields["fixed_amount"] == "20000.00"
+        assert any("无法确定本所应收金额" in w for w in draft.warnings)
+
+    def test_single_firm_keeps_full_amount(self) -> None:
+        """只有一家律所时不能拆：全额就是本所收入。"""
+        extraction = ContractExtraction(
+            case_type="civil",
+            client_name="某公司",
+            fee_mode="FIXED",
+            amount_text=self.SHARED_TEXT,
+            amount_is_total=True,
+            parties=[
+                ExtractedParty(name="某公司", role_in_contract="甲方"),
+                ExtractedParty(name="某律所", role_in_contract="乙方", is_law_firm=True),
+            ],
+        )
+        draft = normalize_extraction(extraction, our_law_firm="某律所")
+        assert draft.fields["fixed_amount"] == "20000.00"
+
+    def test_indivisible_total_is_not_guessed(self) -> None:
+        """总额除不尽家数说明口径不同（税点/杂费），不能造出一个合同里没有的数。"""
+        draft = normalize_extraction(
+            self._shared(amount_text="各支付律师费，共贰万元整（20000.00）", amount_is_total=True),
+            our_law_firm="乙律所",
+        )
+        assert draft.fields["fixed_amount"] == "20000.00"
+        assert any("未能可靠拆出" in w for w in draft.warnings)
+
+
+class TestCurrentLawyerFallback:
+    """合同律师都没匹配到系统账号时，用登录律师兜底——否则指派永远填不进去。"""
+
+    def test_login_lawyer_used_when_none_matched(self) -> None:
+        extraction = _extraction(lawyers=[ExtractedLawyer(name="查无此人")])
+        draft = normalize_extraction(
+            extraction,
+            lawyer_lookup={},
+            current_lawyer_id=2,
+            current_lawyer_label="张律师",
+        )
+        matched = [lw for lw in draft.lawyers if lw.matched]
+        assert len(matched) == 1
+        assert matched[0].lawyer_id == 2
+        assert matched[0].is_primary is True
+
+    def test_fallback_not_added_when_one_matched(self) -> None:
+        extraction = _extraction(lawyers=[ExtractedLawyer(name="张律师")])
+        draft = normalize_extraction(
+            extraction,
+            lawyer_lookup={"张律师": (2, "张律师")},
+            current_lawyer_id=99,
+            current_lawyer_label="他人",
+        )
+        assert [lw.lawyer_id for lw in draft.lawyers] == [2]
+
+
 class TestDraftFields:
     def test_contract_name_includes_client_and_matter(self) -> None:
         extraction = _extraction(matter_summary="税务稽查应对非诉咨询")

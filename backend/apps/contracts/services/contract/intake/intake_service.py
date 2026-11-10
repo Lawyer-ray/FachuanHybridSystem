@@ -131,11 +131,26 @@ def build_lawyer_lookup() -> dict[str, tuple[int, str]]:
     return lookup
 
 
+def resolve_our_law_firm(*, user: Any) -> tuple[str, int | None]:
+    """返回当前登录律师所在律所的 ``(名称, id)``。
+
+    多律所共同承办的合同里，「本同金额是 ¥1 万还是 ¥2 万」完全取决于我方是哪家律所——
+    这是**关键上下文**，必须从登录身份取，不能靠模型猜。
+
+    取不到时返回 ``("", None)``，后续金额归属会退回「合同总额 + 提示人工确认」。
+    """
+    law_firm = getattr(user, "law_firm", None)
+    if law_firm is None:
+        return "", None
+    return str(getattr(law_firm, "name", "") or "").strip(), getattr(law_firm, "id", None)
+
+
 def analyze_contract(
     *,
     path: Path,
     filename: str,
     model_id: str = "",
+    user: Any = None,
 ) -> dict[str, Any]:
     """分析一份已落盘合同，返回可回填表单的草稿字典。
 
@@ -143,6 +158,8 @@ def analyze_contract(
         path: 临时文件路径。
         filename: 原始文件名（决定解析器与展示）。
         model_id: 用户选定的模型；空串走平台默认模型。
+        user: 当前登录律师。用于确定「我方律所」与默认承办律师——
+            这两项对金额归属和律师指派是决定性的，不能交给模型猜。
 
     Returns:
         ``{"draft": {...}, "document": {...}, "model": "..."}``
@@ -155,8 +172,14 @@ def analyze_contract(
     except DocumentSnapshotError as exc:
         raise ContractIntakeError(str(exc)) from exc
 
+    our_firm_name, our_firm_id = resolve_our_law_firm(user=user)
+
     try:
-        extraction: ContractExtraction = extract_contract(snapshot=snapshot, model_id=model_id)
+        extraction: ContractExtraction = extract_contract(
+            snapshot=snapshot,
+            model_id=model_id,
+            our_law_firm=our_firm_name,
+        )
     except ContractExtractionError as exc:
         raise ContractIntakeError(str(exc)) from exc
 
@@ -164,6 +187,8 @@ def analyze_contract(
         extraction,
         client_lookup=build_client_lookup(),
         lawyer_lookup=build_lawyer_lookup(),
+        our_law_firm=our_firm_name,
+        current_lawyer_id=getattr(user, "pk", None),
     )
 
     # 文档层告警与模型层提示合并，前端统一展示

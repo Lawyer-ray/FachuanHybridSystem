@@ -451,40 +451,104 @@
       });
   }
 
-  /** 在内联 formset 里加一行，返回该行的容器 */
-  function addInlineRow(groupId) {
+  /**
+   * 在内联 formset 里加一行，返回该行的容器。
+   *
+   * 本仓库的内联是 **nested_admin**（`djn-add-handler`），不是原存的 Django inline：
+   * - 加行按钮是 `<a class="add-handler djn-add-handler">`，不是 `.add-row a`；
+   * - inline-type 为 `stacked`，行容器是 `.djn-inline-form`（**不是** `tr.form-row`）。
+   * 早期按原存 Django 结构写的选择器在这里永不命中，当事人 / 律师都填不进去。
+   */
+  var INLINE_ROW_SELECTOR = ".djn-inline-form, tr.form-row";
+
+  /** 取内联区里「已实例化」的行（排除空模板） */
+  function realRows(group) {
+    return Array.prototype.filter.call(group.querySelectorAll(INLINE_ROW_SELECTOR), function (row) {
+      return row.innerHTML.indexOf("__prefix__") === -1;
+    });
+  }
+
+  /**
+   * 在内联 formset 里加一行，返回该行的容器。
+   *
+   * 本仓库内联是 **nested_admin**（`djn-add-handler`），不是原生 Django inline：
+   * - 加行按钮是 `<a class="add-handler djn-add-handler">`，不是 `.add-row a`；
+   * - 行容器是 `.djn-inline-form`（**不是** `tr.form-row`）。
+   * 早期按原生 Django 结构写的选择器在这里永不命中，当事人 / 律师都填不进去。
+   *
+   * 用回调而非返回值：nested_admin 走事件委托插入行，DOM 不一定在 click 后同步就绪。
+   */
+  function addInlineRow(groupId, done, attempt) {
+    attempt = attempt || 0;
     var group = document.getElementById(groupId);
-    if (!group) return null;
-    var link = group.querySelector(".add-row a, .add-row > a");
-    if (!link) return null;
+    if (!group) {
+      done(null);
+      return;
+    }
 
-    var before = group.querySelectorAll("tr.form-row, .inline-related");
-    var beforeLast = before.length ? before[before.length - 1] : null;
-    link.click();
-    var after = group.querySelectorAll("tr.form-row, .inline-related");
-    if (!after.length) return null;
-    var added = after[after.length - 1];
-    if (added === beforeLast) return null; // 没加成功
-    return added;
+    var link =
+      group.querySelector("a.djn-add-handler") ||
+      group.querySelector(".add-row a") ||
+      group.querySelector("a.add-handler");
+    if (!link) {
+      done(null);
+      return;
+    }
+
+    var beforeCount = realRows(group).length;
+    if (attempt === 0) link.click();
+
+    var rows = realRows(group);
+    if (rows.length > beforeCount) {
+      done(rows[rows.length - 1]);
+      return;
+    }
+    if (attempt >= 20) {
+      done(null); // ~1s 内没等到新行，放弃
+      return;
+    }
+    window.setTimeout(function () {
+      addInlineRow(groupId, done, attempt + 1);
+    }, 50);
   }
 
-  /** 往内联表里填一行：先加行，再逐字段赋值 */
-  function fillInlineRow(groupId, index, filler) {
-    var row = addInlineRow(groupId);
-    if (!row) return false;
-    filler(row);
-    return true;
-  }
-
-  function fillParties(parties) {
-    if (!parties || !parties.length) return 0;
-    var groupId = "contract_parties-group";
+  /** 逐条往内联区加行并填写（串行，因为每次加行都会改变 DOM） */
+  function fillInlineSequential(groupId, items, filler, onDone) {
+    var index = 0;
     var filled = 0;
 
-    parties.forEach(function (party) {
-      var ok = fillInlineRow(groupId, filled, function (row) {
-        var clientSelect = row.querySelector('select[name*="-client"]');
-        var roleSelect = row.querySelector('select[name*="-role"]');
+    function step() {
+      if (index >= items.length) {
+        onDone(filled);
+        return;
+      }
+      var item = items[index];
+      var position = index;
+      index += 1;
+      addInlineRow(groupId, function (row) {
+        if (row) {
+          filler(row, item, position);
+          filled += 1;
+        }
+        step();
+      });
+    }
+
+    step();
+  }
+
+  function fillParties(parties, onDone) {
+    if (!parties || !parties.length) {
+      onDone(0);
+      return;
+    }
+
+    fillInlineSequential(
+      "contract_parties-group",
+      parties,
+      function (row, party) {
+        var clientSelect = row.querySelector('select[name$="-client"]');
+        var roleSelect = row.querySelector('select[name$="-role"]');
         if (roleSelect && party.suggested_role) {
           roleSelect.value = party.suggested_role;
           roleSelect.dispatchEvent(new Event("change", { bubbles: true }));
@@ -496,24 +560,28 @@
           // 库内没有此人：在客户端留痕，提示用户先建 Client
           clientSelect.setAttribute("data-ci-missing", party.name);
         }
-      });
-      if (ok) filled += 1;
-    });
-
-    return filled;
+      },
+      onDone
+    );
   }
 
-  function fillLawyers(lawyers) {
-    if (!lawyers || !lawyers.length) return 0;
-    var groupId = "contract_assignments-group";
-    var filled = 0;
+  function fillLawyers(lawyers, onDone) {
+    // formset 前缀是 related_name（assignments），不是小写模型名
+    var targets = (lawyers || []).filter(function (lawyer) {
+      return lawyer.matched || lawyer.lawyer_id;
+    });
+    if (!targets.length) {
+      onDone(0);
+      return;
+    }
 
-    lawyers.forEach(function (lawyer, index) {
-      if (!lawyer.matched && !lawyer.lawyer_id) return;
-      var ok = fillInlineRow(groupId, filled, function (row) {
-        var lawyerSelect = row.querySelector('select[name*="-lawyer"]');
-        var primaryInput = row.querySelector('input[name*="-is_primary"]');
-        var orderInput = row.querySelector('input[name*="-order"]');
+    fillInlineSequential(
+      "assignments-group",
+      targets,
+      function (row, lawyer, position) {
+        var lawyerSelect = row.querySelector('select[name$="-lawyer"]');
+        var primaryInput = row.querySelector('input[name$="-is_primary"]');
+        var orderInput = row.querySelector('input[name$="-order"]');
         if (lawyerSelect && lawyer.lawyer_id) {
           selectAutocomplete(lawyerSelect, {
             id: lawyer.lawyer_id,
@@ -521,16 +589,14 @@
           });
         }
         if (primaryInput) {
-          primaryInput.checked = Boolean(lawyer.is_primary) || index === 0;
+          primaryInput.checked = Boolean(lawyer.is_primary) || position === 0;
         }
         if (orderInput) {
-          orderInput.value = String(index);
+          orderInput.value = String(position);
         }
-      });
-      if (ok) filled += 1;
-    });
-
-    return filled;
+      },
+      onDone
+    );
   }
 
   function applyDraft(result) {
@@ -545,19 +611,22 @@
       }
     });
 
-    var partyCount = fillParties(draft.parties || []);
-    var lawyerCount = fillLawyers(draft.lawyers || []);
-
     // 待确认字段打标
     (draft.needs_review || []).forEach(function (key) {
       var input = document.getElementById("id_" + key);
       if (input) markField(input, "warn");
     });
 
-    renderResult(result, {
-      filledFields: filledFields,
-      partyCount: partyCount,
-      lawyerCount: lawyerCount
+    // 内联行是异步插的（nested_admin 走事件委托），先当事人后律师串行填，
+    // 两个都完成后才渲染结果——否则进度会提前报「已填入 0 个当事人」。
+    fillParties(draft.parties || [], function (partyCount) {
+      fillLawyers(draft.lawyers || [], function (lawyerCount) {
+        renderResult(result, {
+          filledFields: filledFields,
+          partyCount: partyCount,
+          lawyerCount: lawyerCount
+        });
+      });
     });
   }
 

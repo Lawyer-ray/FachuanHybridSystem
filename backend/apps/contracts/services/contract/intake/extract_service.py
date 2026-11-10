@@ -49,11 +49,24 @@ _SYSTEM_PROMPT = """\
 7. `confidence` 请如实给出把握度：没把握给低分，比填一个猜测值有用得多。"""
 
 
-def build_user_prompt(snapshot: DocumentSnapshot) -> str:
-    """拼装用户消息：文件名 + 正文 + 输出格式约束。"""
+def build_user_prompt(snapshot: DocumentSnapshot, *, our_law_firm: str = "") -> str:
+    """拼装用户消息：我方律所身份 + 文件名 + 正文 + 输出格式约束。
+
+    **我方律所是决定金额归属的关键上下文**：多律所共同承办的合同常写
+    「甲乙双方各付壹万、共贰万」，而我方合同金额只是自己那一份。不给这个
+    身份，模型只能取合计（实测就把 1 万报成了 2 万）。
+    """
+    firm_line = (
+        f"我方（录入人所属）律所：{our_law_firm}\n"
+        "当合同由多家律所共同承办、费用分别约定时，请把**我方那一份**填进 `amount_text`，"
+        "并把 `amount_is_total` 设为 false；只有合同总价确实就是全案总额时才设 true。\n\n"
+        if our_law_firm
+        else ""
+    )
     return (
         f"文件名：{snapshot.filename}\n"
         f"（文档共 {snapshot.paragraph_count} 段、{snapshot.table_count} 个表格）\n\n"
+        f"{firm_line}"
         "===== 合同正文开始 =====\n"
         f"{snapshot.text}\n"
         "===== 合同正文结束 =====\n\n"
@@ -91,6 +104,7 @@ def extract_contract(
     *,
     snapshot: DocumentSnapshot,
     model_id: str = "",
+    our_law_firm: str = "",
     budget_seconds: float | None = None,
 ) -> ContractExtraction:
     """从文档快照抽取合同字段。
@@ -98,6 +112,8 @@ def extract_contract(
     Args:
         snapshot: 已提取文本的文档快照。
         model_id: 用户选择的模型名；空字符串表示用平台默认模型。
+        our_law_firm: 当前登录律师所属律所名。多律所分收的合同里，
+            它直接决定「我方金额」取哪一个，必须传给模型。
         budget_seconds: 墙钟预算。超时抛 :class:`ContractExtractionError`。
             LLM 后端自身的重试链可能远超单次超时，这里再兜一层总时限，
             避免把 admin 请求拖到浏览器超时。
@@ -108,7 +124,7 @@ def extract_contract(
     Raises:
         ContractExtractionError: 调用失败、超时或输出无法解析成合法结构。
     """
-    prompt = build_user_prompt(snapshot)
+    prompt = build_user_prompt(snapshot, our_law_firm=our_law_firm)
     logger.info(
         "开始合同抽取: file=%s model=%s chars=%d truncated=%s",
         snapshot.filename,
