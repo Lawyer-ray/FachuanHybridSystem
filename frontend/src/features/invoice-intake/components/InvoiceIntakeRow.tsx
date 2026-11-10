@@ -1,9 +1,13 @@
-import { ArrowRightLeft, Check, Info } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRightLeft, Check, Copy, Info, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
+import { copyInvoiceToClipboard } from '../api'
 import { MATCH_KIND_STYLES, PAYMENT_PICK_LABELS } from '../constants'
 import { amountText, canConfirm, invoiceHeadline } from '../domain'
 import type { InvoiceIntake } from '../types'
 import { ROW_BTN } from '@/components/shared/panel-styles'
+import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,6 +20,59 @@ import { cn } from '@/lib/utils'
  * 被排除的线索（已结案/已归档的项目）单独一行灰底小字：它常是解开疑问的钥匙
  * （例如「为什么这张票匹配不上——那个项目已经结案了」）。
  */
+/**
+ * 复制重命名后的发票文件本体（Finder ⌘C 语义，微信里 ⌘V 直接粘出发票）。
+ *
+ * 为什么不复用项目详情页那个同名组件：它在 `features/workbench` 内部，
+ * 跨 feature import 是硬禁止的（见 frontend/index.md「归属与提权硬规则」）。
+ * 逻辑很短，各域一份比破例耦合更划算。
+ */
+function CopyInvoiceButton({ invoiceId, filename }: { invoiceId: number; filename: string }) {
+  const [busy, setBusy] = useState(false)
+  const onClick = async () => {
+    if (busy) return
+    setBusy(true)
+    // busy 必须在 finally 里复位：成功分支 return 也要清，否则图标一直转圈
+    try {
+      const res = await copyInvoiceToClipboard(invoiceId)
+      if (res.success && res.copied > 0) {
+        toast.success('发票已复制，微信对话框直接 ⌘V 粘贴发送')
+        return
+      }
+      const reason = res.reason === 'unsupported' ? '当前环境不支持复制文件本体' : res.reason || '复制文件本体失败'
+      if (await copyText(filename)) toast.info(`${reason}，已复制文件名`)
+      else toast.error('复制失败，请改用下载')
+    } catch (e) {
+      if (await copyText(filename)) toast.error(`${errMessage(e, '复制文件本体失败')}，已复制文件名`)
+      else toast.error(errMessage(e, '复制失败，请改用下载'))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => void onClick()}
+      className={ROW_BTN}
+      title={`复制文件（${filename}）`}
+    >
+      {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
+      复制发票
+    </button>
+  )
+}
+
+/** 落板失败时兜底复制文件名（至少能对上文件）。与项目详情页同实现。 */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function InvoiceIntakeRow({
   intake,
   busy,
@@ -98,30 +155,51 @@ export function InvoiceIntakeRow({
         </div>
       )}
 
-      {/* 动作行 */}
-      <div className="mt-[7px] flex items-center gap-1.5">
-        <button
-          type="button"
-          disabled={busy || !canConfirm(intake)}
-          onClick={onConfirm}
-          className={cn(ROW_BTN, 'font-semibold')}
-          title={hasSuggestion ? '采纳系统建议，绑定到该项目' : '系统未给出可信建议，请选「换个项目」'}
-        >
-          <Check className="h-3 w-3" aria-hidden />
-          确认绑定
-        </button>
-        <button type="button" disabled={busy} onClick={onChange} className={ROW_BTN}>
-          <ArrowRightLeft className="h-3 w-3" aria-hidden />
-          换个项目
-        </button>
-        <button
-          type="button"
-          onClick={onDetail}
-          className="ml-auto rounded-[6px] px-1 py-[2px] text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          详情
-        </button>
-      </div>
+      {/* 已确认：直接给「重命名后的文件名 + 复制」，这是确认完最想做的下一件事 */}
+      {intake.status === 'confirmed' && intake.invoice_id ? (
+        <>
+          <div
+            className="mt-[5px] truncate rounded-[6px] bg-secondary/60 px-1.5 py-[3px] text-[10.5px] text-muted-foreground"
+            title={intake.invoice_display_filename}
+          >
+            📄 {intake.invoice_display_filename || '发票已生成'}
+          </div>
+          <div className="mt-[7px] flex items-center gap-1.5">
+            <CopyInvoiceButton invoiceId={intake.invoice_id} filename={intake.invoice_display_filename} />
+            <button
+              type="button"
+              onClick={onDetail}
+              className="ml-auto rounded-[6px] px-1 py-[2px] text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              详情
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="mt-[7px] flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={busy || !canConfirm(intake)}
+            onClick={onConfirm}
+            className={cn(ROW_BTN, 'font-semibold')}
+            title={hasSuggestion ? '采纳系统建议，绑定到该项目' : '系统未给出可信建议，请选「换个项目」'}
+          >
+            <Check className="h-3 w-3" aria-hidden />
+            确认绑定
+          </button>
+          <button type="button" disabled={busy} onClick={onChange} className={ROW_BTN}>
+            <ArrowRightLeft className="h-3 w-3" aria-hidden />
+            换个项目
+          </button>
+          <button
+            type="button"
+            onClick={onDetail}
+            className="ml-auto rounded-[6px] px-1 py-[2px] text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            详情
+          </button>
+        </div>
+      )}
     </div>
   )
 }

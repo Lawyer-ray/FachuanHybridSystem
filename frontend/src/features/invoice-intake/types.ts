@@ -57,6 +57,9 @@ export interface InvoiceIntake {
   confirmed_contract_name: string | null
   confirmed_payment_id: number | null
   invoice_id: number | null
+  /** 确认后生成的重命名文件名（`发票（合同名）_YYYYMMDD开具.pdf`）；未确认为空串。
+   *  行内直接展示并可复制，不靠前端自己拼——命名规则只有后端一份。 */
+  invoice_display_filename: string
   candidates: InvoiceCandidate[]
   excluded_hints: { contract_id: number; contract_name: string; excluded_by: string; note: string }[]
   inbox_message_id: number
@@ -71,6 +74,13 @@ export interface InvoiceActionResult {
   intake_id: number
   status: InvoiceIntakeStatus
   invoice_id: number | null
+}
+
+/** 复制发票文件到系统剪贴板的结果（与项目详情页 copy-to-clipboard 同口径） */
+export interface InvoiceCopyResult {
+  success: boolean
+  copied: number
+  reason: string
 }
 
 /** 「换个项目」下拉项：复用与款项同名结构 */

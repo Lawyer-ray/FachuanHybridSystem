@@ -37,6 +37,7 @@ function intake(overrides: Partial<InvoiceIntake> = {}): InvoiceIntake {
     confirmed_contract_name: null,
     confirmed_payment_id: null,
     invoice_id: null,
+    invoice_display_filename: '',
     candidates: [candidate()],
     excluded_hints: [],
     inbox_message_id: 10,

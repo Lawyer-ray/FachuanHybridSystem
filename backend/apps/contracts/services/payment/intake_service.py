@@ -260,17 +260,21 @@ def reopen_intake(*, intake_id: int, user: Any) -> PaymentIntake:
     return intake
 
 
-def selectable_contracts(*, search: str = "") -> QuerySet[Any]:
+def selectable_contracts(*, search: str = "", exclude_fully_paid: bool = True) -> QuerySet[Any]:
     """「换个项目」下拉的数据源（未切片的 QuerySet）。
 
     **必须**走 ``eligible_contract_qs``：与自动匹配共用同一套资格规则，
     否则会出现「下拉里能选、但系统永远不推荐」的自相矛盾（设计文档 §7.1）。
 
+    Args:
+        exclude_fully_paid: 发票认领的下拉传 ``False``，与发票匹配器同口径
+            （发票在钱收齐后开是正常顺序，收满不应被隐藏）。
+
     刻意**不在这里切片**：切片后的 QuerySet 不能再 filter/count/get，
     调用方（API 层）才决定取多少条。此前在这里 ``[:limit]`` 导致
     下游任何过滤都抛 "Cannot filter a query once a slice has been taken"。
     """
-    qs = eligible_contract_qs(include_expired=True).order_by("-specified_date")
+    qs = eligible_contract_qs(include_expired=True, exclude_fully_paid=exclude_fully_paid).order_by("-specified_date")
     term = (search or "").strip()
     if term:
         qs = qs.filter(Q(name__icontains=term) | Q(filing_number__icontains=term))

@@ -1,5 +1,5 @@
 import { createApiClient } from '@/lib/api'
-import type { InvoiceActionResult, InvoiceIntake, SelectableContract } from './types'
+import type { InvoiceActionResult, InvoiceCopyResult, InvoiceIntake, SelectableContract } from './types'
 
 /**
  * 发票待认领 API 客户端。
@@ -88,4 +88,16 @@ export async function rescanInvoiceIntakes(
   return invoiceIntakeApi
     .post('rescan', { searchParams: { days: String(days) } })
     .json<{ scanned: number; created: number; skipped: number; days: number }>()
+}
+
+// ── 复制重命名后的发票文件 ────────────────────────────────
+//
+// 这条不在 invoice-intake 前缀下：复用项目详情页既有的发票接口
+// `POST /api/v1/contracts/finance/invoices/{id}/copy-to-clipboard`（已实测存在）。
+// 复制的是**重命名后**的文件本体（Finder ⌘C 语义），微信里 ⌘V 直接粘出发票。
+const invoiceFileApi = createApiClient({ prefix: '/api/v1/contracts/finance' })
+
+/** POST /invoices/{id}/copy-to-clipboard —— 把重命名后的发票文件放进系统剪贴板 */
+export async function copyInvoiceToClipboard(invoiceId: number): Promise<InvoiceCopyResult> {
+  return invoiceFileApi.post(`invoices/${invoiceId}/copy-to-clipboard`).json<InvoiceCopyResult>()
 }

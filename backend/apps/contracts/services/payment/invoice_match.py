@@ -434,6 +434,9 @@ def rank_invoice_candidates(
     资格过滤一律走 ``intake_eligibility.eligible_contract_qs()``——与前端
     「换个项目」下拉共用同一份口径，禁止在这里再写一遍过滤条件。
 
+    注意传的是 ``exclude_fully_paid=False``：发票与到账对「已收满」的判断相反
+    （发票在钱收齐后开是正常顺序），详见该参数的文档。
+
     Args:
         project_code: 已抽取的律所项目号（可能为空）。
         buyer_name: 发票购买方名称。
@@ -455,7 +458,9 @@ def rank_invoice_candidates(
     case_text = "\n".join(part for part in (remark or "", original_filename or "") if part).strip()
 
     eligible = list(
-        eligible_contract_qs()
+        # exclude_fully_paid=False：发票场景里「已收满」不是排除理由而是**强信号**
+        # ——钱收齐了就该开票。沿用到账口径会把「收满且未开票」的项目全部误杀。
+        eligible_contract_qs(exclude_fully_paid=False)
         .prefetch_related("contract_parties__client")
         .only(
             "id",

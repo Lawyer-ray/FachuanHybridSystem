@@ -62,6 +62,9 @@ class InvoiceIntakeOut(Schema):
     confirmed_contract_name: str | None = None
     confirmed_payment_id: int | None = None
     invoice_id: int | None = None
+    #: 确认后生成的重命名文件名（``发票（合同名）_YYYYMMDD开具.pdf``）。
+    #: 首页行内要直接展示并可复制，因此随列表一起下发，不让前端再探一次。
+    invoice_display_filename: str = ""
     decision_note: str = ""
     candidates: list[InvoiceCandidateOut] = []
     excluded_hints: list[InvoiceExcludedHintOut] = []
@@ -134,6 +137,31 @@ def _hints_of(intake: Any) -> list[dict[str, Any]]:
     return list(snapshot.get("excluded_hints") or [])
 
 
+def _display_filename_of(intake: Any) -> str:
+    """确认后那张发票的重命名文件名（未确认则为空串）。
+
+    走 InvoiceFileService.display_filename 的同一份命名规则——绝不在这里另拼。
+    合同名取**确认到的**合同（可能与建议合同不同：人工改判过）。
+    """
+    if not intake.invoice_id:
+        return ""
+    from pathlib import Path
+
+    from apps.contracts.models import Invoice
+    from apps.contracts.services.payment.invoice_file_service import InvoiceFileService
+
+    invoice = Invoice.objects.filter(pk=intake.invoice_id).select_related("payment__contract", "contract").first()
+    if invoice is None:
+        return ""
+    contract = invoice.contract or (invoice.payment.contract if invoice.payment_id else None)
+    return InvoiceFileService().display_filename(
+        contract_name=str(getattr(contract, "name", "") or ""),
+        seller=str(invoice.seller_name or ""),
+        inv_date=invoice.invoice_date,
+        ext=Path(str(invoice.file_path or "")).suffix.lower(),
+    )
+
+
 def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
     snapshot = intake.match_snapshot or {}
     payment_pick = snapshot.get("payment_pick") or {}
@@ -158,6 +186,7 @@ def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
         "confirmed_contract_name": getattr(intake.confirmed_contract, "name", None),
         "confirmed_payment_id": intake.confirmed_payment_id,
         "invoice_id": intake.invoice_id,
+        "invoice_display_filename": _display_filename_of(intake),
         "decision_note": intake.decision_note,
         "candidates": _candidates_of(intake, limit=limit),
         "excluded_hints": _hints_of(intake),
@@ -171,17 +200,42 @@ def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
 
 
 @router.get("/pending", response=list[InvoiceIntakeOut])
-def list_pending(request: HttpRequest, limit: int = 20) -> list[Any]:  # pragma: no cover
-    """首页卡片：与我相关的待确认发票。"""
+def list_pending(
+    request: HttpRequest, limit: int = 20, include_confirmed: bool = True
+) -> list[Any]:  # pragma: no cover
+    """首页卡片：与我相关的待确认发票。
+
+    ``include_confirmed`` 默认为真：刚确认的那张必须**留在列表里**，否则点完「确认」
+    行就消失，用户拿不到重命名后的文件名，也没地方点「复制发票」——而这正是确认完
+    最想做的下一件事。已确认行在组件里换成「文件名 + 复制」形态（见 InvoiceIntakeRow）。
+
+    已确认只带最近一段（`CONFIRMED_TAIL`），避免历史票据把首页列表撞满；
+    完整台账将来另设页面。
+    """
+    from django.db import models
+    from django.db.models import Q
+
     from apps.contracts.models import InvoiceIntakeStatus
     from apps.contracts.services.payment.invoice_intake_service import visible_intakes_qs
 
-    qs = (
-        visible_intakes_qs(request.user)  # type: ignore[attr-defined]
-        .filter(status=InvoiceIntakeStatus.PENDING)
-        .select_related("suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source")
-        .order_by("-created_at", "-id")[: max(1, min(limit, MAX_PENDING))]
+    base = visible_intakes_qs(request.user).select_related(  # type: ignore[attr-defined]
+        "suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source"
     )
+    if not include_confirmed:
+        qs = base.filter(status=InvoiceIntakeStatus.PENDING)
+    else:
+        qs = base.filter(Q(status=InvoiceIntakeStatus.PENDING) | Q(status=InvoiceIntakeStatus.CONFIRMED))
+    # 待确认永远排在已确认之前（待办优先）。不能直接 order_by("status")：
+    # 字典序里 "confirmed" < "pending"，那样已确认反而排到前面。
+    qs = qs.order_by(
+        models.Case(
+            models.When(status=InvoiceIntakeStatus.PENDING, then=0),
+            default=1,
+            output_field=models.IntegerField(),
+        ),
+        "-created_at",
+        "-id",
+    )[: max(1, min(limit, MAX_PENDING))]
     return [_to_out(intake) for intake in qs]
 
 
@@ -202,7 +256,9 @@ def list_selectable_contracts(request: HttpRequest, search: str = "", limit: int
     """
     from apps.contracts.services.payment.intake_service import selectable_contracts
 
-    rows = selectable_contracts(search=search)[: max(1, min(limit, 100))]
+    # exclude_fully_paid=False：与发票匹配器同口径（收满的项目也要能选，
+    # 否则“下拉里选不到、自动也不推”的项目就彻底不能开票了）
+    rows = selectable_contracts(search=search, exclude_fully_paid=False)[: max(1, min(limit, 100))]
     return [
         {
             "id": contract.pk,
