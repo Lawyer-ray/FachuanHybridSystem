@@ -29,12 +29,13 @@ class IntakeStatus(models.TextChoices):
     """待认领款项状态。
 
     与设计文档 §3.2 的状态机一一对应，新增状态必须同步那里的图。
+
+    特意**没有**「待建合同」这类状态：匹配不到合格项目时，系统不引导用户去
+    新建合同，只如实展示「无可匹配的在办项目」并列出手工可选的合格项目，
+    由人自己判断该怎么处理（用户明确要求不引导新建）。
     """
 
     PENDING = "pending", "待确认"
-    # 系统找不到合格在办项目（或明确需要新建合同）。#547 即此类：
-    # 对应的项目已收清，客户额外多付，业务上要另签合同来收这笔钱。
-    AWAITING_CONTRACT = "awaiting_contract", "待建合同"
     CONFIRMED = "confirmed", "已确认"
     REJECTED = "rejected", "非记账事件"
     IGNORED = "ignored", "不需记账"
@@ -139,7 +140,7 @@ class PaymentIntake(models.Model):
     @property
     def is_open(self) -> bool:
         """是否处于待处理态（首页模块据此统计角标）。"""
-        return self.status in (IntakeStatus.PENDING, IntakeStatus.AWAITING_CONTRACT)
+        return self.status == IntakeStatus.PENDING
 
     @property
     def display_payer(self) -> str:

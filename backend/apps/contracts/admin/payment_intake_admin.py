@@ -79,7 +79,6 @@ class PaymentIntakeAdmin(BaseModelAdmin):  # pragma: no cover
     def status_badge(self, obj: PaymentIntake) -> SafeString:
         colors = {
             IntakeStatus.PENDING: "#007bff",
-            IntakeStatus.AWAITING_CONTRACT: "#e85d04",
             IntakeStatus.CONFIRMED: "#28a745",
             IntakeStatus.REJECTED: "#6c757d",
             IntakeStatus.IGNORED: "#6c757d",
