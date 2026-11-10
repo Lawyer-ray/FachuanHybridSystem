@@ -58,6 +58,14 @@ class InvoiceIntakeOut(Schema):
     suggested_contract_id: int | None = None
     suggested_contract_name: str | None = None
     suggested_payment_id: int | None = None
+    #: 预选收款的确定性（exact / amount_mismatch / ambiguous / no_payment），
+    #: 详情里的「收款对照」靠它决定说什么话。
+    payment_pick_confidence: str | None = None
+    payment_pick_note: str = ""
+    #: 该合同下可选的收款列表（详情里做金额对照）。
+    #: ⚠️ 这三个字段曾漏定义：前端行组件直接读 payment_options 并 .find()，
+    #: 拿到 undefined 就崩，表现为「点详情没反应」（整棵子树被 ErrorBoundary 换掉）。
+    payment_options: list[PaymentOptionOut] = []
     confirmed_contract_id: int | None = None
     confirmed_contract_name: str | None = None
     confirmed_payment_id: int | None = None
@@ -142,6 +150,21 @@ def _hints_of(intake: Any) -> list[dict[str, Any]]:
     return list(snapshot.get("excluded_hints") or [])
 
 
+def _payment_options(payment_pick: dict[str, Any]) -> list[dict[str, Any]]:
+    """预选快照里的收款选项 → 响应结构（快照缺字段时给空列表，绝不让前端拿到 None）。"""
+    rows = payment_pick.get("payment_options") or []
+    return [
+        {
+            "id": int(row.get("id") or 0),
+            "amount": str(row.get("amount") or ""),
+            "received_at": str(row.get("received_at") or ""),
+            "note": str(row.get("note") or ""),
+        }
+        for row in rows
+        if isinstance(row, dict) and row.get("id")
+    ]
+
+
 def _generated_invoice_facts(intake: Any) -> dict[str, str]:
     """确认后那张发票的**展示名 + 文件夹落点**（未确认则两者均空串）。
 
@@ -194,6 +217,9 @@ def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
         "suggested_contract_id": intake.suggested_contract_id,
         "suggested_contract_name": getattr(intake.suggested_contract, "name", None),
         "suggested_payment_id": suggested_payment_id,
+        "payment_pick_confidence": payment_pick.get("confidence"),
+        "payment_pick_note": payment_pick.get("note") or "",
+        "payment_options": _payment_options(payment_pick),
         "confirmed_contract_id": intake.confirmed_contract_id,
         "confirmed_contract_name": getattr(intake.confirmed_contract, "name", None),
         "confirmed_payment_id": intake.confirmed_payment_id,

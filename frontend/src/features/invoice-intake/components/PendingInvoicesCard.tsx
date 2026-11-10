@@ -6,6 +6,7 @@ import { PANEL } from '@/components/shared/panel-styles'
 import { errMessage } from '@/lib/errors'
 import { useConfirmInvoiceIntake, usePendingInvoices } from '../hooks/use-pending-invoices'
 import type { InvoiceIntake } from '../types'
+import { ContractPicker } from './ContractPicker'
 import { InvoiceDetailDialog } from './InvoiceDetailDialog'
 import { InvoiceIntakeRow } from './InvoiceIntakeRow'
 
@@ -44,6 +45,8 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
 
   // 详情弹窗的目标行：点「详情」时定住那一行，弹窗里不跟随列表刷新而漂移
   const [detailFor, setDetailFor] = useState<InvoiceIntake | null>(null)
+  // 「换个项目」的目标行：改判需要知道是哪张票
+  const [pickerFor, setPickerFor] = useState<InvoiceIntake | null>(null)
 
   const count = data.length
   const subtitle = useMemo(() => (isError ? '' : count ? `${count} 张` : ''), [count, isError])
@@ -95,7 +98,7 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
               // 采纳系统建议：直接绑定，不再二次确认（金额、购买方、建议项目
               // 与匹配信号都已在眼前，多一次弹窗只是重复阅读同一批信息）
               onConfirm={() => confirm.mutate({ id: intake.id })}
-              onChange={() => console.warn('invoice-intake: 「换个项目」弹窗尚未接线', intake.id)}
+              onChange={() => setPickerFor(intake)}
               onDetail={() => setDetailFor(intake)}
             />
           </div>
@@ -108,6 +111,21 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
   // 会把「没东西」强调成一个小节，反而显乱。
   // 详情弹窗放在最外层（Dialog 本身是 portal，放哪都能覆盖整页）；
   // 两种渲染模式共用同一份，避免各写一遍。
+  const picker = (
+    <ContractPicker
+      open={pickerFor != null}
+      onOpenChange={(v) => !v && setPickerFor(null)}
+      busy={confirm.isPending}
+      onPick={(contractId) => {
+        const row = pickerFor
+        if (!row) return
+        // 改判后**不**带 paymentId：原预选收款是相对原建议合同算的，
+        // 换项目后不再成立，先挂项目名下，收款到项目页再关联。
+        confirm.mutate({ id: row.id, contractId })
+      }}
+    />
+  )
+
   const detail = (
     <InvoiceDetailDialog
       intake={detailFor}
@@ -128,6 +146,7 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
           {content}
         </div>
         {detail}
+        {picker}
       </>
     )
   }
@@ -137,6 +156,7 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
       <CardHead title="待认领发票" count={subtitle} />
       {content}
       {detail}
+      {picker}
     </section>
   )
 }

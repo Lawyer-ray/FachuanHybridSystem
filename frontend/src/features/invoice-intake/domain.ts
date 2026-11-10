@@ -16,7 +16,8 @@ const REASON_MAX = 30
  * 信号等级回答，不是分数。
  */
 export function topKind(intake: InvoiceIntake) {
-  const kinds = intake.candidates.map((c) => c.kind)
+  // 防御性取数：后端 schema 若漏字段，这里崩会让整张卡被 ErrorBoundary 换掉
+  const kinds = (intake.candidates ?? []).map((c) => c.kind)
   if (kinds.includes('project_code')) return 'project_code' as const
   if (kinds.includes('case_text')) return 'case_text' as const
   if (kinds.includes('party_name')) return 'party_name' as const

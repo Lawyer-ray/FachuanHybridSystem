@@ -25,7 +25,9 @@ function amountOf(raw: string | null | undefined): number | null {
 }
 
 export function PaymentCompare({ intake }: { intake: InvoiceIntake }) {
-  const options = intake.payment_options
+  // 防御：后端字段缺失时给空数组。这里曾因 payment_options 未下发而
+  // 直接 .find() 崩溃，整棵详情子树被 ErrorBoundary 换掉=“点详情没反应”。
+  const options = intake.payment_options ?? []
   const picked = options.find((o) => o.id === intake.suggested_payment_id) ?? null
   const invoiceAmount = amountOf(intake.total_amount)
   const confidence = intake.payment_pick_confidence

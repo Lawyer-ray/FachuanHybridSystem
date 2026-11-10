@@ -89,7 +89,8 @@ export function InvoiceIntakeRow({
   onDetail: () => void
 }) {
   // 徽标表达「系统最看重哪一条信号」，取候选里最高等级的那档
-  const kind = intake.candidates.find((c) => c.kind === 'project_code')?.kind ?? intake.candidates[0]?.kind
+  const rows = intake.candidates ?? []
+  const kind = rows.find((c) => c.kind === 'project_code')?.kind ?? rows[0]?.kind
   const style = kind ? MATCH_KIND_STYLES[kind] : null
   const headline = invoiceHeadline(intake)
   const hasSuggestion = intake.suggested_contract_id != null
@@ -145,9 +146,9 @@ export function InvoiceIntakeRow({
       )}
 
       {/* 被排除的线索：一句话灰字，常是理解「为什么没匹配上」的关键 */}
-      {intake.excluded_hints.length > 0 && (
+      {(intake.excluded_hints ?? []).length > 0 && (
         <div className="mt-[4px] rounded-[6px] bg-secondary/60 px-1.5 py-[3px] text-[10.5px] text-muted-foreground">
-          {intake.excluded_hints.map((h) => (
+          {(intake.excluded_hints ?? []).map((h) => (
             <div key={h.contract_id} className="truncate" title={`${h.contract_name}｜${h.note}`}>
               ⓘ {h.contract_name}：{h.note}
             </div>

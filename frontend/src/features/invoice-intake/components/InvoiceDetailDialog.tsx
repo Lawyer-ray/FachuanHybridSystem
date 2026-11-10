@@ -108,9 +108,9 @@ export function InvoiceDetailDialog({
               {intake.suggested_contract_name ?? '无可匹配的在办项目'}
             </span>
           </div>
-          {intake.candidates[0]?.reasons.length ? (
+          {(intake.candidates ?? [])[0]?.reasons?.length ? (
             <ul className="mt-[5px] flex flex-col gap-[2px] pl-3">
-              {intake.candidates[0].reasons.map((r) => (
+              {(intake.candidates ?? [])[0]!.reasons.map((r) => (
                 <li key={r} className="text-[11px] text-secondary-foreground">
                   · {r}
                 </li>
@@ -119,8 +119,8 @@ export function InvoiceDetailDialog({
           ) : (
             <div className="mt-[4px] text-[11px] text-muted-foreground">{invoiceHeadline(intake)}</div>
           )}
-          {intake.candidates[0]?.caveat && (
-            <div className="mt-[4px] text-[10.5px] text-status-yellow">{intake.candidates[0].caveat}</div>
+          {(intake.candidates ?? [])[0]?.caveat && (
+            <div className="mt-[4px] text-[10.5px] text-status-yellow">{(intake.candidates ?? [])[0]!.caveat}</div>
           )}
         </Section>
 
