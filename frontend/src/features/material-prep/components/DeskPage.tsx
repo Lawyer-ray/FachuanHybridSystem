@@ -3,9 +3,10 @@ import { materialPrepDetail } from '@/app/paths'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
+import { errMessage } from '@/lib/errors'
 import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
-import { PACK_LEAVE_REMOVAL_MS } from '../constants'
+import { PACK_LEAVE_REMOVAL_MS, formatMB, uploadSizeCapBytes } from '../constants'
 import { isPackStage, parseStage, type PrepStage } from '../stages'
 import { useDeskKeyboard } from '../hooks/use-desk-keyboard'
 import { useDeskRing } from '../hooks/use-desk-ring'
@@ -114,17 +115,32 @@ export function DeskPage() {
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
+      const list = Array.from(files)
+      // 体积预检：后端对单文件有硬上限（普通 50MB / 压缩包 200MB），超限必被
+      // 400 拒绝。传到一半才被拒既浪费上行带宽又让用户白等，这里提前报。
+      // 逐个提示第一个超限文件即可——一次拖 10 个超限文件时堆 10 条 toast
+      // 只会把提示区刷满，反而看不到具体哪个文件有问题。
+      const oversized = list.find((f) => f.size > uploadSizeCapBytes(f.name))
+      if (oversized) {
+        toast.error(`${oversized.name} 过大（${formatMB(oversized.size)}），单个不能超过 ${formatMB(uploadSizeCapBytes(oversized.name))}`)
+        setDragging(false)
+        return
+      }
       setUploading(true)
       try {
-        const detail = await createPack.mutateAsync(Array.from(files))
+        const detail = await createPack.mutateAsync(list)
         setStage('todo')
         setSel(0)
         // 压缩包会被服务端展开：以响应里的实际附件数为准，别拿输入文件数冒充
-        const total = detail?.attachment_count ?? files.length
-        const hadArchive = Array.from(files).some((f) => /\.(zip|rar|7z)$/i.test(f.name))
+        const total = detail?.attachment_count ?? list.length
+        const hadArchive = list.some((f) => /\.(zip|rar|7z)$/i.test(f.name))
         toast.success(hadArchive ? `压缩包已展开，共收进 ${total} 份材料` : `已收进 ${total} 份材料`)
-      } catch {
-        toast.error('上传失败，请检查后端连接')
+      } catch (e) {
+        // 必须透出后端文案：上传失败的一大类是「附件过大 / 格式不支持」这类
+        // 可自行处理的 400，后端 message 已经写得很具体。以前这里吞掉错误
+        // 一律弹「请检查后端连接」，会让 65MB 的 PDF 被拒时用户以为后端挂了
+        // （实测：一份 65.7MB / 164 页的扫描件超 50MB 上限被拒，看到的却是连接问题）。
+        toast.error(errMessage(e, '上传失败，请重试'))
       } finally {
         setUploading(false)
         setDragging(false)
@@ -143,8 +159,8 @@ export function DeskPage() {
       try {
         await judgePack.mutateAsync({ id: pack.id, status: target })
         toast(target === 'done' ? '已归案' : '已归档留痕，未建案')
-      } catch {
-        toast.error('状态更新失败，请重试')
+      } catch (e) {
+        toast.error(errMessage(e, '状态更新失败，请重试'))
       }
       const t = setTimeout(() => {
         leaveTimersRef.current.delete(t)
@@ -194,7 +210,7 @@ export function DeskPage() {
         toast(`${p.subject} 已删除`)
         setDeleteTarget(null)
       })
-      .catch(() => toast.error('删除失败，请重试'))
+      .catch((e) => toast.error(errMessage(e, '删除失败，请重试')))
   }, [deleteTarget, deletePack])
 
   return (

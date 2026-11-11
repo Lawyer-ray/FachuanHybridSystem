@@ -39,7 +39,19 @@ vi.mock('@/lib/pdf', () => ({
   loadPdfDocument: loadPdfDocumentMock,
 }))
 
+import { HTTPError } from 'ky'
 import { useReader } from './store'
+
+/** 与线上同形的 ky HTTPError（errMessage 只对 HTTPError 走兜底文案，裸 Error 会透出 message） */
+function httpError(status: number, data?: unknown): HTTPError {
+  const err = new HTTPError(
+    new Response(null, { status }),
+    new Request('http://localhost/api/v1/inbox/messages/1/attachments'),
+    {} as never,
+  )
+  err.data = data as never
+  return err
+}
 import type { AttachmentMeta, DraftState, InboxMessageDetail } from './types'
 
 // ---- 夹具 ----
@@ -605,10 +617,21 @@ describe('useReader appendFiles 分支', () => {
 
   it('上传失败：提示追加失败', async () => {
     openPackA()
-    appendPackFilesMock.mockRejectedValue(new Error('网络断了'))
+    appendPackFilesMock.mockRejectedValue(httpError(500))
 
     await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
-    expect(toastMock.error).toHaveBeenCalledWith('追加材料失败，请检查后端连接')
+    expect(toastMock.error).toHaveBeenCalledWith('追加材料失败，请重试')
+  })
+
+  it('上传失败：透出后端文案而不是笼统的重试提示', async () => {
+    openPackA()
+    // 后端 400 经 ky 抛 HTTPError，可读文案在 .data.message 上
+    appendPackFilesMock.mockRejectedValue(
+      httpError(400, { code: 'ATTACHMENT_TOO_LARGE', message: '附件过大（单个不能超过 50MB）', errors: {} }),
+    )
+
+    await useReader.getState().appendFiles([new File(['x'], 'a.pdf')])
+    expect(toastMock.error).toHaveBeenCalledWith('附件过大（单个不能超过 50MB）')
   })
 
   it('没有新增材料：提示且只更新 detail', async () => {

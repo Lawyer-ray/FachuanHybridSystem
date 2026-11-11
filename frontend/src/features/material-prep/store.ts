@@ -309,8 +309,10 @@ export const useReader = create<ReaderState>((set, get) => ({
       set({ detail: updated })
       get().update((d) => appendMatsToDraft(d, fresh))
       toast.success(`已追加 ${fresh.length} 份材料`)
-    } catch {
-      toast.error('追加材料失败，请检查后端连接')
+    } catch (e) {
+      // 同 DeskPage.handleFiles：后端的「附件过大 / 格式不支持」文案必须透出，
+      // 吞成「检查后端连接」会让可自行处理的上传失败看起来像服务故障。
+      toast.error(errMessage(e, '追加材料失败，请重试'))
     }
   },
 }))

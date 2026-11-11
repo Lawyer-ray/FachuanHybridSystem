@@ -104,6 +104,18 @@ vi.mock('./DeskDropLayer', () => ({
           模拟上传
         </button>
         <button type="button" onClick={() => void p.onFiles(null)}>上传空</button>
+        <button
+          type="button"
+          onClick={() => {
+            // 65.7MB：与实测被拒的扫描件同量级（> 50MB 上限；文件名用匿名占位）。
+            // File.size 是 getter，无法用 Object.assign 覆写，直接给最小鸭子类型
+            const big = { name: '某某诉讼材料.pdf', size: 68932820 }
+            const dt = { length: 1, item: () => null, 0: big }
+            void p.onFiles(dt as unknown as FileList)
+          }}
+        >
+          上传超大
+        </button>
       </div>
     )
   },
@@ -128,7 +140,22 @@ vi.mock('./reader/Reader', () => ({ Reader: () => <div>READER</div> }))
 
 import { toast } from 'sonner'
 
+import { HTTPError } from 'ky'
 import { DeskPage } from './DeskPage'
+
+/**
+ * 造一个与线上同形的 ky HTTPError。
+ *
+ * 为什么不能直接 `new Error('boom')`：errMessage 对裸 Error 会取它的 message
+ * 当可读文案（'boom' 就原样弹给用户），而真实失败都来自 ky，HTTPError 无可用
+ * data 时才回落到兜底文案。用裸 Error 测不到兜底分支。
+ */
+function httpError(status: number, data?: unknown): HTTPError {
+  const response = new Response(null, { status })
+  const err = new HTTPError(response, new Request('http://localhost/api/v1/inbox/messages/upload'), {} as never)
+  err.data = data as never
+  return err
+}
 
 function pack(id: number, status: 'todo' | 'done' | 'filed') {
   return { id, status, subject: `pack-${id}` }
@@ -232,14 +259,51 @@ describe('DeskPage：上传', () => {
   })
 
   it('上传失败提示且不抛错', async () => {
-    setup([], { create: vi.fn(async () => { throw new Error('boom') }) })
+    setup([], {
+      create: vi.fn(async () => {
+        throw httpError(500)
+      }),
+    })
     const { unmount, getByText } = renderDesk()
 
     await act(async () => {
       getByText('模拟上传').click()
       await Promise.resolve()
     })
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('上传失败，请检查后端连接'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('上传失败，请重试'))
+    unmount()
+  })
+
+  it('上传失败：透出后端文案而不是笼统的重试提示', async () => {
+    setup([], {
+      create: vi.fn(async () => {
+        // ky 把后端 400 体挂在 HTTPError.data 上
+        throw httpError(400, { code: 'ATTACHMENT_TOO_LARGE', message: '附件过大（单个不能超过 50MB）', errors: {} })
+      }),
+    })
+    const { unmount, getByText } = renderDesk()
+
+    await act(async () => {
+      getByText('模拟上传').click()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('附件过大（单个不能超过 50MB）'))
+    unmount()
+  })
+
+  it('超大文件：本地直接拦住，不发请求', async () => {
+    const { createMutate } = setup([])
+    const { unmount, getByText } = renderDesk()
+
+    await act(async () => {
+      getByText('上传超大').click()
+      await Promise.resolve()
+    })
+    // 关键：白传 65MB 才被后端拒绝是本次修复要避免的浪费
+    expect(createMutate).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('某某诉讼材料.pdf 过大（65.7MB），单个不能超过 50.0MB'),
+    )
     unmount()
   })
 
@@ -298,7 +362,13 @@ describe('DeskPage：openAt 与不接', () => {
   })
 
   it('judge 失败：提示状态更新失败', async () => {
-    setup([pack(1, 'todo')], { judge: vi.fn(async () => { throw new Error('boom') }) })
+    // 真实 API 失败是 ky 的 HTTPError（无可用 data），errMessage 才会回落到兜底文案；
+    // 裸 Error 的 message('boom') 会被上层当成可读文案透出，与线上形状不符
+    setup([pack(1, 'todo')], {
+      judge: vi.fn(async () => {
+        throw httpError(500)
+      }),
+    })
     const { unmount, getByText } = renderDesk()
 
     await act(async () => {
