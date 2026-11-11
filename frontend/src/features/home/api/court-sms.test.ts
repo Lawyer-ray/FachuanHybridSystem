@@ -31,6 +31,7 @@ import {
   getCourtSmsDetail,
   listCourtSms,
   retryCourtSms,
+  uploadCourtSmsMaterials,
 } from './court-sms'
 
 function respond(body: unknown) {
@@ -122,5 +123,71 @@ describe('人工分配 / 重试 / 删除 / 终止', () => {
 
     automationApi.post.mockReturnValueOnce(respond({ success: false }))
     await expect(abortCourtSmsTask(3)).rejects.toThrow('停止任务失败')
+  })
+})
+
+describe('uploadCourtSmsMaterials（客户转交材料）', () => {
+  function pdf(name: string) {
+    return new File(['x'], name, { type: 'application/pdf' })
+  }
+
+  it('multipart 传 files[]，带备注时一并传 content', async () => {
+    automationApi.post.mockReturnValueOnce(
+      respond({ success: true, data: { id: 42, materials: { saved: ['a.pdf'], skipped: [] } } }),
+    )
+
+    const out = await uploadCourtSmsMaterials([pdf('a.pdf')], '客户微信转来的判决书')
+
+    expect(automationApi.post).toHaveBeenCalledTimes(1)
+    const call = automationApi.post.mock.calls[0]!
+    expect(call[0]).toBe('court-sms/upload')
+    const body = (call[1] as { body: FormData }).body
+    expect(body).toBeInstanceOf(FormData)
+    expect(body.getAll('files')).toHaveLength(1)
+    expect(body.get('content')).toBe('客户微信转来的判决书')
+    expect(out).toEqual({ id: 42, materials: { saved: ['a.pdf'], skipped: [] } })
+  })
+
+  it('备注为空白时不传 content（后端按文件名生成占位正文）', async () => {
+    automationApi.post.mockReturnValueOnce(
+      respond({ success: true, data: { id: 43, materials: { saved: ['a.pdf'], skipped: [] } } }),
+    )
+
+    await uploadCourtSmsMaterials([pdf('a.pdf')], '   ')
+
+    const body = (automationApi.post.mock.calls[0]![1] as { body: FormData }).body
+    expect(body.get('content')).toBeNull()
+  })
+
+  it('多文件按拖入顺序追加到同一 files 字段', async () => {
+    automationApi.post.mockReturnValueOnce(
+      respond({ success: true, data: { id: 44, materials: { saved: ['a.pdf', 'b.pdf'], skipped: [] } } }),
+    )
+
+    await uploadCourtSmsMaterials([pdf('a.pdf'), pdf('b.pdf')])
+
+    const body = (automationApi.post.mock.calls[0]![1] as { body: FormData }).body
+    expect(body.getAll('files')).toHaveLength(2)
+  })
+
+  it('materials 缺失时返回 null（短信通道语义），saved/skipped 缺省补齐为空数组', async () => {
+    automationApi.post.mockReturnValueOnce(respond({ success: true, data: { id: 45 } }))
+    await expect(uploadCourtSmsMaterials([pdf('a.pdf')])).resolves.toEqual({ id: 45, materials: null })
+
+    automationApi.post.mockReturnValueOnce(
+      respond({ success: true, data: { id: 46, materials: { saved: ['x.pdf'] } } }),
+    )
+    await expect(uploadCourtSmsMaterials([pdf('x.pdf')])).resolves.toEqual({
+      id: 46,
+      materials: { saved: ['x.pdf'], skipped: [] },
+    })
+  })
+
+  it('success:false 抛后端 message；缺 id 也抛（不拿 undefined 去轮询）', async () => {
+    automationApi.post.mockReturnValueOnce(respond({ success: false, message: '拖入的文件都不受支持' }))
+    await expect(uploadCourtSmsMaterials([pdf('a.pdf')])).rejects.toThrow('拖入的文件都不受支持')
+
+    automationApi.post.mockReturnValueOnce(respond({ success: true, data: {} }))
+    await expect(uploadCourtSmsMaterials([pdf('a.pdf')])).rejects.toThrow('材料提交失败')
   })
 })

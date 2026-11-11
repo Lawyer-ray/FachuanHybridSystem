@@ -12,7 +12,7 @@ import { StageSteps } from '../dialog/StageSteps'
 import { StageStrip } from '../dialog/StageStrip'
 import { CaseAssignPicker } from './CaseAssignPicker'
 import { copyAllDocFiles } from './copy-files'
-import { SMS_STAGES, SMS_STATUS_LABEL } from './stages'
+import { SMS_STATUS_LABEL, stagesFor } from './stages'
 import { SmsSuccessBody } from './SmsSuccessBody'
 import { stageForDisplay, type UseCourtSmsResult } from './use-court-sms'
 
@@ -67,7 +67,10 @@ export function CourtSmsFlowDialog({
 }) {
   const tone = toneOf(flow)
   const detail = flow.detail
-  const steps = stageForDisplay(detail, flow.stage)
+  const isMaterial = flow.source === 'material'
+  // 客户转交通道没有下载环节，步进器用四步表（下标映射见 stages.ts）
+  const stageLabels = stagesFor(flow.source)
+  const steps = stageForDisplay(detail, flow.stage, flow.source)
   const canRetry = flow.smsId !== null && !flow.submitError
   const canAbort = canRetry && (tone === 'running' || tone === 'timeout' || tone === 'error')
   const docs = detail?.documents ?? []
@@ -132,26 +135,57 @@ export function CourtSmsFlowDialog({
   }
 
   const headline: Record<FlowTone, string> = {
-    running: '正在处理法院短信…',
+    running: isMaterial ? '正在处理案件材料…' : '正在处理法院短信…',
     success: '处理完成',
-    error: flow.submitError ? '短信提交失败' : '处理失败',
+    error: flow.submitError ? (isMaterial ? '材料提交失败' : '短信提交失败') : '处理失败',
     manual: '未匹配到案件，需要人工分配',
     timeout: '处理时间较长，后台仍在继续',
   }
   const subline: Record<FlowTone, string | undefined> = {
-    running: detail ? `当前阶段：${SMS_STATUS_LABEL[detail.status] ?? detail.status}` : '已提交，正在排队解析',
-    success: detail?.case ? '文书已自动重命名并归档到案件日志' : '短信已解析完成',
+    running: detail
+      ? `当前阶段：${SMS_STATUS_LABEL[detail.status] ?? detail.status}`
+      : isMaterial
+        ? '材料已入库，正在提取案号与当事人'
+        : '已提交，正在排队解析',
+    success: detail?.case
+      ? '文书已自动重命名并归档到案件日志'
+      : isMaterial
+        ? '材料已处理完成'
+        : '短信已解析完成',
     error: undefined,
-    manual: '短信已解析并下载文书，但无法确定所属案件——从在办案件中选择一个继续完成归档',
-    timeout: '法院文书下载可能较慢；可继续等待，或停止并删除任务后重新提交',
+    manual: isMaterial
+      ? '材料已解析，但无法确定所属案件——从在办案件中选择一个继续完成归档'
+      : '短信已解析并下载文书，但无法确定所属案件——从在办案件中选择一个继续完成归档',
+    timeout: isMaterial
+      ? '材料识别可能较慢；可继续等待，或停止并删除任务后重新提交'
+      : '法院文书下载可能较慢；可继续等待，或停止并删除任务后重新提交',
   }
+
+  // 客户转交通道的入库明细：被跳过的文件（格式不支持/超大/落盘失败）在弹窗里说清楚，
+  // 否则用户以为全部材料都在处理，归档时会发现少了东西。
+  const intake = flow.intake
+  const intakeNotice =
+    intake && (intake.saved.length > 0 || intake.skipped.length > 0) ? (
+      <div className="rounded-[10px] border border-border bg-secondary/40 px-3 py-2 text-[11.5px] leading-relaxed text-muted-foreground">
+        已入库 <span className="font-semibold text-foreground">{intake.saved.length}</span> 件材料
+        {intake.skipped.length > 0 && (
+          <>
+            ，跳过 <span className="font-semibold text-status-yellow">{intake.skipped.length}</span> 件：
+            <span className="break-all">
+              {intake.skipped.map((s) => `${s.name}（${s.reason}）`).join('；')}
+            </span>
+          </>
+        )}
+      </div>
+    ) : null
 
   let body: ReactNode = null
   if (tone === 'running' || tone === 'timeout') {
     const notice = tone === 'running' ? runningNotice(detail) : timeoutNotice(detail)
     body = (
       <div className="flex flex-col gap-2.5">
-        <StageSteps steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
+        <StageSteps steps={stageLabels} current={steps.current} failedAt={steps.failedAt} />
+        {intakeNotice}
         {notice && <FlowNotice kind={notice.kind}>{notice.text}</FlowNotice>}
       </div>
     )
@@ -160,7 +194,8 @@ export function CourtSmsFlowDialog({
   } else if (tone === 'error') {
     body = (
       <div className="flex flex-col gap-2.5">
-        <StageStrip steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
+        <StageStrip steps={stageLabels} current={steps.current} failedAt={steps.failedAt} />
+        {intakeNotice}
         <FlowNotice kind="error">
           {flow.submitError || detail?.error_message || detail?.download_task_error || '处理失败，可重试或稍后到后台查看'}
         </FlowNotice>
@@ -170,7 +205,8 @@ export function CourtSmsFlowDialog({
     body = (
       <div className="flex flex-col gap-3">
         {/* 横向紧凑进度条：竖版步进器太占高，会把案件选择区挤到折叠线以下 */}
-        <StageStrip steps={SMS_STAGES} current={steps.current} failedAt={steps.failedAt} />
+        <StageStrip steps={stageLabels} current={steps.current} failedAt={steps.failedAt} />
+        {intakeNotice}
         {detail.case_numbers.length > 0 && (
           <div className="rounded-[10px] border border-border bg-secondary/40 px-3 py-2 text-[11.5px] leading-relaxed text-muted-foreground">
             短信中解析到案号：<span className="font-semibold text-foreground">{detail.case_numbers.join('、')}</span>
@@ -198,7 +234,7 @@ export function CourtSmsFlowDialog({
       open={open}
       onOpenChange={onOpenChange}
       icon={<MessageSquare className="h-5 w-5" />}
-      title="收法院短信"
+      title={isMaterial ? '客户材料归档' : '收法院短信'}
       tone={tone}
       headline={headline[tone]}
       subline={subline[tone]}

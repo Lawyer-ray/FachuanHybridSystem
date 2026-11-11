@@ -18,7 +18,10 @@ const flowMock = vi.hoisted(() => ({
   stage: 0,
   submitError: null,
   actionBusy: false,
+  source: 'sms' as 'sms' | 'material',
+  intake: null,
   submit: vi.fn(async () => true),
+  submitFiles: vi.fn(async () => true),
   openExisting: vi.fn(),
   assignCase: vi.fn(),
   retry: vi.fn(),
@@ -73,8 +76,29 @@ beforeEach(() => {
   flowMock.phase = 'idle'
   flowMock.outcome = null
   flowMock.smsId = null
+  flowMock.source = 'sms'
+  flowMock.intake = null
   flowMock.submit = vi.fn(async () => true)
+  flowMock.submitFiles = vi.fn(async () => true)
 })
+
+/** 切到「客户材料」页签 */
+function switchToMaterial() {
+  const tab = screen.getByRole('tab', { name: '客户材料' }) as HTMLElement
+  fireEvent.click(tab)
+}
+
+function dropZone() {
+  return screen.getByRole('button', { name: '拖入或点击选择案件材料' }) as HTMLElement
+}
+
+function clickSubmitMaterial() {
+  const btn = Array.from(document.querySelectorAll('button')).find((b) =>
+    /提交材料|处理中/.test(b.textContent ?? ''),
+  ) as HTMLButtonElement
+  fireEvent.click(btn)
+  return btn
+}
 
 describe('CourtSmsCard：提交', () => {
   it('空短信提示且不提交', () => {
@@ -171,6 +195,108 @@ describe('CourtSmsCard：处理中', () => {
     const { unmount } = render(wrap(<CourtSmsCard />))
     expect(screen.queryByText(/· 查看/)).toBeNull()
     expect(screen.getByText(/提交后弹窗跟进全流程/)).toBeTruthy()
+    unmount()
+  })
+})
+
+describe('CourtSmsCard：客户材料模式', () => {
+  it('默认停在法院短信模式，没有拖放区', () => {
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    expect(screen.getByPlaceholderText(/粘贴短信全文/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '拖入或点击选择案件材料' })).toBeNull()
+    unmount()
+  })
+
+  it('切到客户材料：出现拖放区与备注框，不再显示短信输入框', () => {
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    switchToMaterial()
+
+    expect(dropZone()).toBeTruthy()
+    expect(screen.getByPlaceholderText(/客户微信转来的判决书/)).toBeTruthy()
+    expect(screen.queryByPlaceholderText(/粘贴短信全文/)).toBeNull()
+    unmount()
+  })
+
+  it('没有文件时点提交：提示且不调用 submitFiles', () => {
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    switchToMaterial()
+    clickSubmitMaterial()
+
+    expect(toast.info).toHaveBeenCalledWith('先拖入或选择案件材料')
+    expect(flowMock.submitFiles).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('拖入文件后列表可见，提交时把文件交给 submitFiles', async () => {
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    switchToMaterial()
+
+    const file = new File(['x'], '判决书.pdf', { type: 'application/pdf' })
+    fireEvent.drop(dropZone(), { dataTransfer: { files: [file] } })
+
+    expect(screen.getByText('判决书.pdf')).toBeTruthy()
+    clickSubmitMaterial()
+
+    await waitFor(() => expect(flowMock.submitFiles).toHaveBeenCalledTimes(1))
+    const filesArg = (flowMock.submitFiles.mock.calls[0] as unknown as [File[]])[0]!
+    expect(filesArg).toHaveLength(1)
+    expect(filesArg[0]?.name).toBe('判决书.pdf')
+    unmount()
+  })
+
+  it('备注随文件一起提交', async () => {
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    switchToMaterial()
+
+    fireEvent.drop(dropZone(), { dataTransfer: { files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] } })
+    const note = screen.getByPlaceholderText(/客户微信转来的判决书/) as HTMLInputElement
+    fireEvent.change(note, { target: { value: '客户转来' } })
+    clickSubmitMaterial()
+
+    await waitFor(() => expect(flowMock.submitFiles).toHaveBeenCalledWith(expect.any(Array), '客户转来'))
+    unmount()
+  })
+
+  it('提交成功后清空文件列表与备注', async () => {
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    switchToMaterial()
+
+    fireEvent.drop(dropZone(), { dataTransfer: { files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] } })
+    clickSubmitMaterial()
+
+    await waitFor(() => expect(flowMock.submitFiles).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByText('a.pdf')).toBeNull())
+    unmount()
+  })
+
+  it('提交失败保留文件列表（可重试）', async () => {
+    flowMock.submitFiles = vi.fn(async () => false)
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    switchToMaterial()
+
+    fireEvent.drop(dropZone(), { dataTransfer: { files: [new File(['x'], 'b.pdf', { type: 'application/pdf' })] } })
+    clickSubmitMaterial()
+
+    await waitFor(() => expect(flowMock.submitFiles).toHaveBeenCalled())
+    expect(screen.getByText('b.pdf')).toBeTruthy()
+    unmount()
+  })
+
+  it('拖到不支持的文件：提示跳过且不入列', () => {
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    switchToMaterial()
+
+    fireEvent.drop(dropZone(), { dataTransfer: { files: [new File(['x'], '录屏.mov')] } })
+
+    expect(toast.warning).toHaveBeenCalled()
+    expect(screen.queryByText('录屏.mov')).toBeNull()
+    unmount()
+  })
+
+  it('处理中时页签禁用，不能切换来源', () => {
+    flowMock.phase = 'processing'
+    const { unmount } = render(wrap(<CourtSmsCard />))
+    expect((screen.getByRole('tab', { name: '客户材料' }) as HTMLButtonElement).disabled).toBe(true)
     unmount()
   })
 })

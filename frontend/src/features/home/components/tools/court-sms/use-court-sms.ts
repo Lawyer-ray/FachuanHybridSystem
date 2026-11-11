@@ -9,10 +9,20 @@ import {
   getCourtSmsDetail,
   retryCourtSms,
   submitCourtSms,
+  uploadCourtSmsMaterials,
   type CourtSmsDetail,
+  type CourtSmsMaterialIntake,
 } from '../../../api'
 import { HOME_INBOX_KEY, courtSmsHistoryKeys } from '../../../api'
-import { smsStageInfo, SMS_STAGES, type SmsTerminal } from './stages'
+import {
+  failedStageFor,
+  smsStageInfo,
+  stageIndexFor,
+  stageIndexFromRaw,
+  stagesFor,
+  type SmsStageSource,
+  type SmsTerminal,
+} from './stages'
 
 /** 轮询节奏：2s 一拍，与 doc-parse / doc-converter 一致 */
 const POLL_MS = 2000
@@ -23,6 +33,13 @@ const MAX_QUERY_ERRORS = 10
 
 /** 弹窗编排阶段：idle 未提交 / submitting 提交中 / processing 处理中(轮询) / done 终态 / timeout 等待超时 */
 export type SmsPhase = 'idle' | 'submitting' | 'processing' | 'done' | 'timeout'
+
+/**
+ * 本次流程的**材料来源**，只影响文案不改流程：
+ * - ``sms``：法院短信通道（短信原文 → 解析下载链接 → 下载 → 匹配…）
+ * - ``material``：客户转交通道（拖入的文件 → 落盘 → 直进匹配，无下载阶段）
+ */
+export type SmsSource = 'sms' | 'material'
 
 export interface CourtSmsFlowState {
   phase: SmsPhase
@@ -37,10 +54,16 @@ export interface CourtSmsFlowState {
   submitError: string | null
   /** assign / retry 按钮的 busy */
   actionBusy: boolean
+  /** 材料来源（步进器文案/阶段裁剪用） */
+  source: SmsSource
+  /** 客户转交通道的入库明细（saved/skipped），短信通道为 null */
+  intake: CourtSmsMaterialIntake | null
 }
 
 export interface UseCourtSmsResult extends CourtSmsFlowState {
   submit: (content: string) => Promise<boolean>
+  /** 提交客户转交的材料（多文件）；成功返回 true，部分文件被跳过时同时回填入参 intake */
+  submitFiles: (files: File[], note?: string) => Promise<boolean>
   /** 历史记录直接进入跟进态：按 id 拉详情并轮询（终态立即呈现，可继续人工分配/重试/下载） */
   openExisting: (smsId: number) => void
   /** 人工分配案件；成功后回到 processing 继续轮询到终态 */
@@ -71,6 +94,8 @@ export function useCourtSms(): UseCourtSmsResult {
     stage: 0,
     submitError: null,
     actionBusy: false,
+    source: 'sms',
+    intake: null,
   })
   const timer = useRef(0)
   const cancelled = useRef(false)
@@ -137,19 +162,38 @@ export function useCourtSms(): UseCourtSmsResult {
     [invalidateInbox],
   )
 
+  const resetForSubmit = useCallback((source: SmsSource) => {
+    window.clearTimeout(timer.current)
+    maxStage.current = 0
+    setState({
+      phase: 'submitting',
+      outcome: null,
+      smsId: null,
+      detail: null,
+      stage: 0,
+      submitError: null,
+      actionBusy: false,
+      source,
+      intake: null,
+    })
+  }, [])
+
+  const failSubmit = useCallback((message: string) => {
+    setState((s) => ({
+      ...s,
+      phase: 'done',
+      outcome: 'failed',
+      smsId: null,
+      detail: null,
+      stage: 0,
+      submitError: message,
+      actionBusy: false,
+    }))
+  }, [])
+
   const submit = useCallback(
     async (content: string) => {
-      window.clearTimeout(timer.current)
-      maxStage.current = 0
-      setState({
-        phase: 'submitting',
-        outcome: null,
-        smsId: null,
-        detail: null,
-        stage: 0,
-        submitError: null,
-        actionBusy: false,
-      })
+      resetForSubmit('sms')
       try {
         const id = await submitCourtSms(content)
         if (cancelled.current) return false
@@ -158,19 +202,33 @@ export function useCourtSms(): UseCourtSmsResult {
         return true
       } catch (e) {
         if (cancelled.current) return false
-        setState({
-          phase: 'done',
-          outcome: 'failed',
-          smsId: null,
-          detail: null,
-          stage: 0,
-          submitError: errMessage(e, '短信提交失败，请稍后重试'),
-          actionBusy: false,
-        })
+        failSubmit(errMessage(e, '短信提交失败，请稍后重试'))
         return false
       }
     },
-    [poll],
+    [failSubmit, poll, resetForSubmit],
+  )
+
+  /**
+   * 提交客户转交的材料：与 submit 走同一套编排（提交 → 轮询 → 终态），
+   * 仅来源不同。材料入库明细（哪些被跳过）随提交结果交给弹窗展示。
+   */
+  const submitFiles = useCallback(
+    async (files: File[], note?: string) => {
+      resetForSubmit('material')
+      try {
+        const { id, materials } = await uploadCourtSmsMaterials(files, note)
+        if (cancelled.current) return false
+        setState((s) => ({ ...s, phase: 'processing', smsId: id, intake: materials }))
+        void poll(id)
+        return true
+      } catch (e) {
+        if (cancelled.current) return false
+        failSubmit(errMessage(e, '材料提交失败，请稍后重试'))
+        return false
+      }
+    },
+    [failSubmit, poll, resetForSubmit],
   )
 
   const openExisting = useCallback(
@@ -185,6 +243,9 @@ export function useCourtSms(): UseCourtSmsResult {
         stage: 0,
         submitError: null,
         actionBusy: false,
+        // 历史列表进来的记录来源未知，按短信通道文案展示（详情里有无下载链接可见）
+        source: 'sms',
+        intake: null,
       })
       void poll(smsId)
     },
@@ -246,6 +307,8 @@ export function useCourtSms(): UseCourtSmsResult {
       stage: 0,
       submitError: null,
       actionBusy: false,
+      source: 'sms',
+      intake: null,
     })
   }, [])
 
@@ -294,17 +357,30 @@ export function useCourtSms(): UseCourtSmsResult {
     }
   }, [invalidateInbox, poll, state.smsId])
 
-  return { ...state, submit, openExisting, assignCase, retry, resume, abortAndRemove, refresh, reset }
+  return { ...state, submit, submitFiles, openExisting, assignCase, retry, resume, abortAndRemove, refresh, reset }
 }
 
-/** 详情 + 观测最大阶段 → 步进器要用的 (steps 当前下标, failedAt) */
+/** 详情 + 观测最大阶段 → 步进器要用的 (steps 当前下标, failedAt)
+ *
+ * ``source`` 决定阶段表：客户转交通道没有下载环节，用四步表并做下标重映射，
+ * 否则 downloading/matching 会错位到错误的步骤上。
+ * ``maxStage`` 记的是**后端原始下标**（流程里按 smsStageInfo 累计），
+ * 展示时同样经 stageIndexFor 换算。
+ */
 export function stageForDisplay(
   detail: CourtSmsDetail | null,
   maxStage: number,
+  source: SmsStageSource = 'sms',
 ): { current: number; failedAt: number | null } {
+  const total = stagesFor(source).length
   if (!detail) return { current: 0, failedAt: null }
   const info = smsStageInfo(detail.status)
-  if (info.terminal === 'completed') return { current: SMS_STAGES.length, failedAt: null }
-  if (info.failedAt !== null) return { current: info.failedAt, failedAt: info.failedAt }
-  return { current: Math.max(maxStage, info.stage), failedAt: null }
+  if (info.terminal === 'completed') return { current: total, failedAt: null }
+  const failed = failedStageFor(detail.status, source)
+  if (failed !== null) return { current: failed, failedAt: failed }
+  // 阶段只进不退：取「当前状态换算后的阶段」与「观测到的最大阶段」的较大值。
+  // maxStage 记的是后端原始下标，同样经 stageIndexFromRaw 换算。
+  const observed = stageIndexFor(detail.status, source)
+  const remembered = stageIndexFromRaw(maxStage, source)
+  return { current: Math.min(total, Math.max(observed, remembered)), failedAt: null }
 }

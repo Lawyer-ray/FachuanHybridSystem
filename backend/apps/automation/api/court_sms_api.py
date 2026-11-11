@@ -4,6 +4,7 @@
 
 import asyncio
 import io
+import logging
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +13,8 @@ from typing import Any, cast
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import FileResponse, Http404
-from ninja import Form, Router
+from ninja import File, Form, Router
+from ninja.files import UploadedFile
 from ninja.pagination import PageNumberPagination, paginate
 
 from apps.automation.schemas import (
@@ -27,10 +29,13 @@ from apps.automation.schemas import (
     CourtSmsDocumentRenameIn,
     CourtSmsDocumentRenameOut,
     CourtSMSListOut,
+    CourtSMSMaterialIntakeOut,
     CourtSMSSubmitDataOut,
     CourtSMSSubmitIn,
     CourtSMSSubmitOut,
 )
+
+logger = logging.getLogger("apps.automation")
 
 router = Router(tags=["法院短信处理"])
 
@@ -85,7 +90,74 @@ async def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitO
     sms = await sync_to_async(service.submit_sms)(content=payload.content, received_at=payload.received_at)
 
     return CourtSMSSubmitOut(
-        success=True, data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at)
+        success=True,
+        data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at, materials=None),
+    )
+
+
+def _form_optional(request: Any, key: str) -> str:
+    """读一个可选 multipart 字段（缺失返回空串）。
+
+    Ninja 的多 Form 参数会让 pydantic 去为 UploadedFile 生成 schema 而报
+    ``PydanticSchemaGenerationError``，所以除 files 以外的表单字段统一从
+    ``request.POST`` 读取——与本仓 document_parsing 的上传接口同口径。
+    """
+    raw = request.POST.get(key)
+    return str(raw).strip() if raw is not None else ""
+
+
+def _form_optional_datetime(request: Any, key: str) -> datetime | None:
+    """读一个可选 ISO 时间字段，解析失败当未传。"""
+    raw = _form_optional(request, key)
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        logger.warning("忽略无法解析的表单时间字段: %s=%s", key, raw)
+        return None
+
+
+@router.post("/court-sms/upload", response=CourtSMSSubmitOut)
+async def submit_materials(  # pragma: no cover
+    request: Any,
+    files: list[UploadedFile] = File(...),
+) -> CourtSMSSubmitOut:
+    """提交客户转交的案件材料（非法院通道）。
+
+    客户先把材料收下来、再通过微信转给律师，同样需要「解析→匹配案件→重命名
+    归档→群通知」。本接口把拖入的文件落盘并直接写入 CourtSMS.document_file_paths，
+    创建一条与短信通道同构的记录后交给同一个异步处理链路（无下载链接时自动跳过
+    下载阶段）。
+
+    multipart 字段：
+    - ``files``：必填，可多个。扩展名限 PDF / Word / 图片，单文件 50MB 上限。
+    - ``content``：可选备注（如「客户微信转来的判决书」）。留空则由后端生成
+      材料清单作为正文，保证归档副本与后台检索有可读内容。
+    - ``received_at``：可选，ISO 8601 收到时间，默认当前时间。
+
+    部分文件不受支持时不会整批拒绝：可用的照常处理，跳过的在
+    ``data.materials.skipped`` 中逐条回报原因（前端提示用户）。
+    """
+    service = _get_court_sms_service()
+
+    sms = await sync_to_async(service.submit_sms)(
+        content=_form_optional(request, "content"),
+        received_at=_form_optional_datetime(request, "received_at"),
+        materials=list(files),
+    )
+
+    raw_intake = getattr(sms, "material_intake_result", None)
+    intake = CourtSMSMaterialIntakeOut.model_validate(raw_intake) if raw_intake else None
+
+    return CourtSMSSubmitOut(
+        success=True,
+        data=CourtSMSSubmitDataOut(
+            id=sms.id,
+            status=sms.status,
+            created_at=sms.created_at,
+            materials=intake,
+        ),
     )
 
 
@@ -105,7 +177,8 @@ async def submit_sms_form(  # pragma: no cover
     sms = await sync_to_async(service.submit_sms)(content=content, received_at=received_at)
 
     return CourtSMSSubmitOut(
-        success=True, data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at)
+        success=True,
+        data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at, materials=None),
     )
 
 
@@ -243,7 +316,8 @@ async def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:  # p
     sms = await sync_to_async(service.retry_processing)(sms_id)
 
     return CourtSMSSubmitOut(
-        success=True, data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at)
+        success=True,
+        data=CourtSMSSubmitDataOut(id=sms.id, status=sms.status, created_at=sms.created_at, materials=None),
     )
 
 

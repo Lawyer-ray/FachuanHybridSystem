@@ -2685,6 +2685,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contracts/finance/payments/parse-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse Payment Image
+         * @description 粘贴一张图（网银电子回单截图 / PDF）→ 收款草稿。
+         *
+         *     与 `parse-text` 同一口径：**只解析不落库**，金额必须由人在表单里核对后才保存。
+         *     律师的真实输入一半是到账短信、另一半是回单截图——只支持文字等于把后一半
+         *     逼回手抄（抄错一位就是财务事故）。
+         *
+         *     识别引擎不另起炉灶：图片走 `TextExtractionService` 的既有阶梯
+         *     （VLM 视觉转写 → macOS Vision / RapidOCR 本地 OCR，见 `payment_image_reader`），
+         *     文本拿到后先用 `ReceiptTextParser` 按回单版式解析（能拿到大写金额、分栏
+         *     付款人/收款人、完整时分），短信版式的文本再交给 `PaymentSmsParser` 兜底。
+         */
+        post: operations["apps_contracts_api_contractpayment_enhance_api_parse_payment_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contracts/finance/payments/{payment_id}/invoices": {
         parameters: {
             query?: never;
@@ -2897,6 +2926,405 @@ export interface paths {
         get: operations["apps_contracts_api_contractfinance_api_finance_stats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending
+         * @description 首页「待认领款项」模块：与我相关、待确认的到账。
+         *
+         *     按「与我相关」收敛（收件人 / 主办律师 / 管理员），见 intake_service 模块文档。
+         */
+        get: operations["apps_contracts_api_payment_intake_api_list_pending"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/pending/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending Count
+         * @description 首页角标：待确认条数（轻量，不拉全量）。
+         */
+        get: operations["apps_contracts_api_payment_intake_api_pending_count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/selectable-contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Selectable Contracts
+         * @description 「换个项目」下拉数据源：所有**合格**在办项目（与自动匹配同一套资格规则）。
+         *
+         *     不合格（已收满/已归档/案件全结案）的项目不会出现在这里，避免用户选到
+         *     系统永远不推荐的项目。
+         */
+        get: operations["apps_contracts_api_payment_intake_api_list_selectable_contracts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/sync-pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Pending
+         * @description 首页「待认领」卡的同步按钮：一次把款项 + 发票两类都收进来。
+         *
+         *     先补扫已入库邮件（同步、快），再提交 IMAP 异步同步拉新邮件。
+         *     两步均幂等，重复点不会产生重复记录。详见
+         *     ``apps.contracts.services.payment.pending_sync_service``。
+         */
+        post: operations["apps_contracts_api_payment_intake_api_sync_pending"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rescan
+         * @description 手动补扫近 N 天的邮件（默认 14 天）。
+         *
+         *     用户前两周才开始让财务发到账通知，更早的邮件没有到账通知形态的内容。
+         */
+        post: operations["apps_contracts_api_payment_intake_api_rescan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/rematch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rematch
+         * @description 按当前匹配器逻辑重算所有**待确认**记录的候选快照。
+         *
+         *     为什么需要手动触发：match_snapshot 是扫描当时的不可变快照，匹配器改进后
+         *     存量记录不会自动更新。已确认/已关闭的记录不动——那是审计凭证。
+         */
+        post: operations["apps_contracts_api_payment_intake_api_rematch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/{intake_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Intake
+         * @description 详情：完整候选 + 被排除线索 + 银行备注原文。
+         */
+        get: operations["apps_contracts_api_payment_intake_api_get_intake"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/{intake_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Intake Endpoint
+         * @description 确认归属并写入收款记录。
+         *
+         *     ``contract_id`` 省略即采纳系统建议；传入即人工改判。
+         */
+        post: operations["apps_contracts_api_payment_intake_api_confirm_intake_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/{intake_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Intake Endpoint
+         * @description 标记为「非记账事件」。
+         */
+        post: operations["apps_contracts_api_payment_intake_api_reject_intake_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/{intake_id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ignore Intake Endpoint
+         * @description 标记为「不需记账」（往来款/退款）。
+         */
+        post: operations["apps_contracts_api_payment_intake_api_ignore_intake_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/intake/{intake_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen Intake Endpoint
+         * @description 撤销裁定回到待确认（已确认的会同时删除生成的收款记录）。
+         */
+        post: operations["apps_contracts_api_payment_intake_api_reopen_intake_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending
+         * @description 首页卡片：与我相关的**待确认**发票。
+         *
+         *     ## 只返回 pending，确认完立刻从这里消失
+         *
+         *     「待认领」的意思是“还有事等我做”。处理完的东西就不该留在这里——用户已经
+         *     明确提过一次（“已经处理过的发票为什么还放在前端首页”）。
+         *
+         *     曾试过“确认后保留 10 分钟方便复制文件名”，是错的：用界面位置换便利，
+         *     代价是卡片语义不再诚实。想找回已确认的票，走项目页的收款/发票区，
+         *     或将来单独的发票台账——不占「待认领」的位置。
+         */
+        get: operations["apps_contracts_api_invoice_intake_api_list_pending"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/pending/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pending Count
+         * @description 首页角标（轻量：只 count，不拉快照）。
+         */
+        get: operations["apps_contracts_api_invoice_intake_api_pending_count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/selectable-contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Selectable Contracts
+         * @description 「换个项目」下拉数据源。
+         *
+         *     与自动匹配共用同一套资格规则（``intake_eligibility.eligible_contract_qs``）——
+         *     否则会出现"下拉里能选、但自动匹配永远不选"的自相矛盾。
+         */
+        get: operations["apps_contracts_api_invoice_intake_api_list_selectable_contracts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rescan
+         * @description 手动补扫近 N 天邮件（幂等）。
+         */
+        post: operations["apps_contracts_api_invoice_intake_api_rescan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/{intake_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Intake
+         * @description 详情：完整候选 + 被排除线索 + 备注原文（limit=None 不裁剪候选）。
+         */
+        get: operations["apps_contracts_api_invoice_intake_api_get_intake"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/{intake_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Endpoint */
+        post: operations["apps_contracts_api_invoice_intake_api_confirm_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/{intake_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Endpoint */
+        post: operations["apps_contracts_api_invoice_intake_api_reject_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/{intake_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen Endpoint */
+        post: operations["apps_contracts_api_invoice_intake_api_reopen_endpoint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4105,6 +4533,40 @@ export interface paths {
          *     支持短信转发器直接调用，创建记录并触发异步处理
          */
         post: operations["apps_automation_api_court_sms_api_submit_sms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/court-sms/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Materials
+         * @description 提交客户转交的案件材料（非法院通道）。
+         *
+         *     客户先把材料收下来、再通过微信转给律师，同样需要「解析→匹配案件→重命名
+         *     归档→群通知」。本接口把拖入的文件落盘并直接写入 CourtSMS.document_file_paths，
+         *     创建一条与短信通道同构的记录后交给同一个异步处理链路（无下载链接时自动跳过
+         *     下载阶段）。
+         *
+         *     multipart 字段：
+         *     - ``files``：必填，可多个。扩展名限 PDF / Word / 图片，单文件 50MB 上限。
+         *     - ``content``：可选备注（如「客户微信转来的判决书」）。留空则由后端生成
+         *       材料清单作为正文，保证归档副本与后台检索有可读内容。
+         *     - ``received_at``：可选，ISO 8601 收到时间，默认当前时间。
+         *
+         *     部分文件不受支持时不会整批拒绝：可用的照常处理，跳过的在
+         *     ``data.materials.skipped`` 中逐条回报原因（前端提示用户）。
+         */
+        post: operations["apps_automation_api_court_sms_api_submit_materials"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6207,6 +6669,29 @@ export interface paths {
          * @description 重命名附件。留空 custom_filename 则恢复原始文件名。
          */
         post: operations["apps_message_hub_api_inbox_api_rename_attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{message_id}/contract-match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Contract Match
+         * @description 给出这条邮件可能关联的在办合同候选（一期：只读，不写财务数据）。
+         *
+         *     匹配逻辑见 services/contract_match.py 的模块文档：多信号打分 + 阈值，
+         *     只有案号精确命中才算「确定匹配」，其余交人工。
+         */
+        get: operations["apps_message_hub_api_inbox_api_suggest_contract_match"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -14708,6 +15193,60 @@ export interface components {
             text: string;
         };
         /**
+         * PaymentImageParseOut
+         * @description 粘贴图片（银行回单截图 / PDF）的识别结果。
+         *
+         *     形状刻意与 `ContractPaymentParseOut` 对齐（`amount/received_at/payer/note/hints`），
+         *     前端两个入口共用同一套表单预填逻辑；额外四个字段说明「这张图是什么、认成了什么」。
+         *     **识别不出的一律为空**，绝不填默认值。
+         */
+        PaymentImageParseOut: {
+            /** Amount */
+            amount?: string | null;
+            /** Received At */
+            received_at?: string | null;
+            /**
+             * Payer
+             * @default
+             */
+            payer: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Hints
+             * @default []
+             */
+            hints: string[];
+            /**
+             * Payee
+             * @default
+             */
+            payee: string;
+            /**
+             * Amount Mismatch
+             * @default false
+             */
+            amount_mismatch: boolean;
+            /**
+             * Is Receipt
+             * @default false
+             */
+            is_receipt: boolean;
+            /**
+             * Extraction Method
+             * @default
+             */
+            extraction_method: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+        };
+        /**
          * InvoiceOut
          * @description 一张发票（收款详情展示 + 上传后返回）。
          */
@@ -14881,6 +15420,327 @@ export interface components {
             total_received_all: number;
             /** Total Invoiced All */
             total_invoiced_all: number;
+        };
+        /** ExcludedHintOut */
+        ExcludedHintOut: {
+            /** Contract Id */
+            contract_id: number;
+            /** Contract Name */
+            contract_name: string;
+            /** Excluded By */
+            excluded_by: string;
+            /** Note */
+            note: string;
+        };
+        /** IntakeCandidateOut */
+        IntakeCandidateOut: {
+            /** Contract Id */
+            contract_id: number;
+            /** Contract Name */
+            contract_name: string;
+            /** Kind */
+            kind: string;
+            /** Score */
+            score: number;
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
+            /** Outstanding Amount */
+            outstanding_amount?: string | null;
+            /**
+             * Fee Mode
+             * @default
+             */
+            fee_mode: string;
+            /**
+             * Caveat
+             * @default
+             */
+            caveat: string;
+        };
+        /** IntakeOut */
+        IntakeOut: {
+            /** Id */
+            id: number;
+            /** Amount */
+            amount: string;
+            /** Received At */
+            received_at: string;
+            /** Payer Name */
+            payer_name: string;
+            /** On Behalf Of */
+            on_behalf_of: string;
+            /** Display Payer */
+            display_payer: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Bank Remark */
+            bank_remark: string;
+            /** Suggested Contract Id */
+            suggested_contract_id?: number | null;
+            /** Suggested Contract Name */
+            suggested_contract_name?: string | null;
+            /** Confirmed Contract Id */
+            confirmed_contract_id?: number | null;
+            /** Confirmed Contract Name */
+            confirmed_contract_name?: string | null;
+            /** Payment Id */
+            payment_id?: number | null;
+            /**
+             * Decision Note
+             * @default
+             */
+            decision_note: string;
+            /**
+             * Candidates
+             * @default []
+             */
+            candidates: components["schemas"]["IntakeCandidateOut"][];
+            /**
+             * Excluded Hints
+             * @default []
+             */
+            excluded_hints: components["schemas"]["ExcludedHintOut"][];
+            /** Inbox Message Id */
+            inbox_message_id: number;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+            /**
+             * Sender
+             * @default
+             */
+            sender: string;
+        };
+        /** IntakeCountOut */
+        IntakeCountOut: {
+            /** Count */
+            count: number;
+        };
+        /** SelectableContractOut */
+        SelectableContractOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Fee Mode */
+            fee_mode: string;
+            /** Fixed Amount */
+            fixed_amount?: string | null;
+            /** Paid Total */
+            paid_total?: string | null;
+            /** Outstanding Amount */
+            outstanding_amount?: string | null;
+            /**
+             * Expires Note
+             * @default
+             */
+            expires_note: string;
+        };
+        /**
+         * SyncPendingOut
+         * @description 首页「待认领」同步按钮的返回：两类各收了多少条。
+         */
+        SyncPendingOut: {
+            /** Days */
+            days: number;
+            /** Payment Created */
+            payment_created: number;
+            /** Invoice Created */
+            invoice_created: number;
+            /** Sources Submitted */
+            sources_submitted: number;
+        };
+        /** ScanOut */
+        ScanOut: {
+            /** Scanned */
+            scanned: number;
+            /** Created */
+            created: number;
+            /** Days */
+            days: number;
+        };
+        /** RematchOut */
+        RematchOut: {
+            /** Updated */
+            updated: number;
+            /** Failed */
+            failed: number;
+        };
+        /** ActionOut */
+        ActionOut: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+            /** Intake Id */
+            intake_id: number;
+            /** Status */
+            status: string;
+            /** Invoice Id */
+            invoice_id?: number | null;
+            /**
+             * Invoice Display Filename
+             * @default
+             */
+            invoice_display_filename: string;
+        };
+        /** ConfirmIn */
+        ConfirmIn: {
+            /** Contract Id */
+            contract_id?: number | null;
+            /** Payment Id */
+            payment_id?: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** ReasonIn */
+        ReasonIn: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** InvoiceCandidateOut */
+        InvoiceCandidateOut: {
+            /** Contract Id */
+            contract_id: number;
+            /** Contract Name */
+            contract_name: string;
+            /** Kind */
+            kind: string;
+            /** Score */
+            score: number;
+            /**
+             * Reasons
+             * @default []
+             */
+            reasons: string[];
+            /**
+             * Caveat
+             * @default
+             */
+            caveat: string;
+        };
+        /** InvoiceExcludedHintOut */
+        InvoiceExcludedHintOut: {
+            /** Contract Id */
+            contract_id: number;
+            /** Contract Name */
+            contract_name: string;
+            /** Excluded By */
+            excluded_by: string;
+            /** Note */
+            note: string;
+        };
+        /** InvoiceIntakeOut */
+        InvoiceIntakeOut: {
+            /** Id */
+            id: number;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Invoice Date */
+            invoice_date?: string | null;
+            /** Total Amount */
+            total_amount?: string | null;
+            /** Buyer Name */
+            buyer_name: string;
+            /** Project Code */
+            project_code: string;
+            /** Remark */
+            remark: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Suggested Contract Id */
+            suggested_contract_id?: number | null;
+            /** Suggested Contract Name */
+            suggested_contract_name?: string | null;
+            /** Suggested Payment Id */
+            suggested_payment_id?: number | null;
+            /** Payment Pick Confidence */
+            payment_pick_confidence?: string | null;
+            /**
+             * Payment Pick Note
+             * @default
+             */
+            payment_pick_note: string;
+            /**
+             * Payment Options
+             * @default []
+             */
+            payment_options: components["schemas"]["PaymentOptionOut"][];
+            /** Confirmed Contract Id */
+            confirmed_contract_id?: number | null;
+            /** Confirmed Contract Name */
+            confirmed_contract_name?: string | null;
+            /** Confirmed Payment Id */
+            confirmed_payment_id?: number | null;
+            /** Invoice Id */
+            invoice_id?: number | null;
+            /**
+             * Invoice Display Filename
+             * @default
+             */
+            invoice_display_filename: string;
+            /**
+             * Invoice Folder Subpath
+             * @default
+             */
+            invoice_folder_subpath: string;
+            /**
+             * Decision Note
+             * @default
+             */
+            decision_note: string;
+            /**
+             * Candidates
+             * @default []
+             */
+            candidates: components["schemas"]["InvoiceCandidateOut"][];
+            /**
+             * Excluded Hints
+             * @default []
+             */
+            excluded_hints: components["schemas"]["InvoiceExcludedHintOut"][];
+            /** Inbox Message Id */
+            inbox_message_id: number;
+            /** Subject */
+            subject: string;
+            /** Sender */
+            sender: string;
+            /**
+             * Original Filename
+             * @default
+             */
+            original_filename: string;
+        };
+        /** PaymentOptionOut */
+        PaymentOptionOut: {
+            /** Id */
+            id: number;
+            /** Amount */
+            amount: string;
+            /** Received At */
+            received_at: string;
+            /** Note */
+            note: string;
+        };
+        /** CountOut */
+        CountOut: {
+            /** Count */
+            count: number;
         };
         /**
          * SupplementaryAgreementIn
@@ -16095,6 +16955,38 @@ export interface components {
             data?: components["schemas"]["PreservationQuoteSchema"] | null;
         };
         /**
+         * CourtSMSMaterialIntakeOut
+         * @description 客户转交材料入库结果（POST /court-sms/upload 专用）
+         */
+        CourtSMSMaterialIntakeOut: {
+            /**
+             * Saved
+             * @description 已入库的文件名（按拖入顺序）
+             */
+            saved?: string[];
+            /**
+             * Skipped
+             * @description 被跳过的文件及原因
+             */
+            skipped?: components["schemas"]["CourtSMSMaterialSkipOut"][];
+        };
+        /**
+         * CourtSMSMaterialSkipOut
+         * @description 被跳过的材料（格式不支持 / 超限 / 落盘失败）
+         */
+        CourtSMSMaterialSkipOut: {
+            /**
+             * Name
+             * @description 用户拖入时的原始文件名
+             */
+            name: string;
+            /**
+             * Reason
+             * @description 跳过原因（直接展示给用户）
+             */
+            reason: string;
+        };
+        /**
          * CourtSMSSubmitDataOut
          * @description 提交/重试成功后返回的短信记录信息（CourtSMSSubmitOut.data）
          */
@@ -16115,6 +17007,8 @@ export interface components {
              * @description 记录创建时间
              */
             created_at?: string | null;
+            /** @description 客户转交材料入库结果（仅文件通道返回，短信通道为 null） */
+            materials?: components["schemas"]["CourtSMSMaterialIntakeOut"] | null;
         };
         /**
          * CourtSMSSubmitOut
@@ -17057,6 +17951,11 @@ export interface components {
             split_mode: string;
             /** Ocr Profile */
             ocr_profile: string;
+            /**
+             * Layout Mode
+             * @default fast_text
+             */
+            layout_mode: string;
             /** Progress */
             progress: number;
             /** Total Pages */
@@ -17086,11 +17985,42 @@ export interface components {
              * @default
              */
             error_message: string;
+        };
+        /**
+         * PositionedBlockOut
+         * @description 可定位的正文块（识别定位用）。
+         */
+        PositionedBlockOut: {
+            /** Page */
+            page: number;
+            /** Type */
+            type: string;
+            /** Text */
+            text: string;
+            rect: components["schemas"]["PositionedRectOut"];
+            /** Locator */
+            locator?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * PositionedRectOut
+         * @description 块在原页上的归一化矩形（0–1）。前端直接 ``left: x*100%`` 就能画。
+         */
+        PositionedRectOut: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** W */
+            w: number;
+            /** H */
+            h: number;
             /**
-             * Layout Mode
-             * @default fast_text
+             * Approx
+             * @default false
              */
-            layout_mode: string;
+            approx: boolean;
         };
         /** SegmentOut */
         SegmentOut: {
@@ -18223,6 +19153,46 @@ export interface components {
              * @default
              */
             custom_filename: string;
+        };
+        /**
+         * ContractMatchCandidateOut
+         * @description 一个候选合同 + 匹配理由。
+         */
+        ContractMatchCandidateOut: {
+            /** Contract Id */
+            contract_id: number;
+            /** Contract Name */
+            contract_name: string;
+            /** Score */
+            score: number;
+            /** Reasons */
+            reasons: string[];
+            /** Outstanding Amount */
+            outstanding_amount: string | null;
+            /** Fee Mode */
+            fee_mode: string;
+            /** Caveat */
+            caveat: string;
+        };
+        /**
+         * ContractMatchOut
+         * @description 某条收件箱消息的匹配结果。
+         *
+         *     `status` 三态：
+         *     - ``confident``：有候选达到确定匹配阈值（当前只有案号精确命中能达到），
+         *       前端可以高亮提示，但**一期仍不自动写入**，需律师点确认。
+         *     - ``suggested``：有弱候选，列出让人挑。
+         *     - ``none``：没有候选，等待人工在合同里手动关联。
+         */
+        ContractMatchOut: {
+            /** Status */
+            status: string;
+            /** Candidates */
+            candidates: components["schemas"]["ContractMatchCandidateOut"][];
+            /** Extracted Amounts */
+            extracted_amounts: string[];
+            /** Extracted Case Numbers */
+            extracted_case_numbers: string[];
         };
         /** MessageSourceOut */
         MessageSourceOut: {
@@ -23691,42 +24661,6 @@ export interface components {
             /** Token */
             token: string;
         };
-        /**
-         * PositionedRectOut
-         * @description 块在原页上的归一化矩形（0–1）。前端直接 ``left: x*100%`` 就能画。
-         */
-        PositionedRectOut: {
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-            /** W */
-            w: number;
-            /** H */
-            h: number;
-            /**
-             * Approx
-             * @default false
-             */
-            approx: boolean;
-        };
-        /**
-         * PositionedBlockOut
-         * @description 可定位的正文块（识别定位用）。
-         */
-        PositionedBlockOut: {
-            /** Page */
-            page: number;
-            /** Type */
-            type: string;
-            /** Text */
-            text: string;
-            rect: components["schemas"]["PositionedRectOut"];
-            /** Locator */
-            locator?: {
-                [key: string]: unknown;
-            } | null;
-        };
     };
     responses: never;
     parameters: never;
@@ -27743,6 +28677,36 @@ export interface operations {
             };
         };
     };
+    apps_contracts_api_contractpayment_enhance_api_parse_payment_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * File
+                     * Format: binary
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentImageParseOut"];
+                };
+            };
+        };
+    };
     apps_contracts_api_contractpayment_enhance_api_list_payment_invoices: {
         parameters: {
             query: {
@@ -28055,6 +29019,438 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FinanceStatsOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_list_pending: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeOut"][];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_pending_count: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeCountOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_list_selectable_contracts: {
+        parameters: {
+            query?: {
+                search?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelectableContractOut"][];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_sync_pending: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncPendingOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_rescan: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_rematch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RematchOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_get_intake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_confirm_intake_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_reject_intake_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_ignore_intake_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_payment_intake_api_reopen_intake_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_list_pending: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceIntakeOut"][];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_pending_count: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CountOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_list_selectable_contracts: {
+        parameters: {
+            query?: {
+                search?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_rescan: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_get_intake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceIntakeOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_confirm_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_reject_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_reopen_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
                 };
             };
         };
@@ -29407,6 +30803,33 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CourtSMSSubmitIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourtSMSSubmitOut"];
+                };
+            };
+        };
+    };
+    apps_automation_api_court_sms_api_submit_materials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Files */
+                    files: string[];
+                };
             };
         };
         responses: {
@@ -32061,6 +33484,28 @@ export interface operations {
             };
         };
     };
+    apps_message_hub_api_inbox_api_suggest_contract_match: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractMatchOut"];
+                };
+            };
+        };
+    };
     apps_message_hub_api_message_source_api_list_sources: {
         parameters: {
             query?: never;
@@ -32107,7 +33552,9 @@ export interface operations {
     };
     apps_message_hub_api_message_source_api_sync_all_sources: {
         parameters: {
-            query?: never;
+            query?: {
+                days?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -32193,7 +33640,9 @@ export interface operations {
     };
     apps_message_hub_api_message_source_api_sync_source: {
         parameters: {
-            query?: never;
+            query?: {
+                days?: number | null;
+            };
             header?: never;
             path: {
                 source_id: number;

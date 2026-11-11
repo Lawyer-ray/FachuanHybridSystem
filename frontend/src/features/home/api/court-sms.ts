@@ -1,10 +1,12 @@
 import { automationApi } from './tools'
 import { API_BASE_URL, withAuthToken } from './download'
+import { UPLOAD_TIMEOUT_MS } from '@/lib/api'
 import type { components } from '@/types/api-schema'
 
 /**
  * 法院短信处理链路 API（对接后端 apps/automation，路径已按 OpenAPI 核对）：
  *   - 提交     = POST /automation/court-sms                    （返回 { data: { id, status } }）
+ *   - 提交材料 = POST /automation/court-sms/upload             （multipart files[]，客户转交通道）
  *   - 详情     = GET  /automation/court-sms/{id}               （CourtSMSDetailOut，含案件/文书引用）
  *   - 人工分配 = POST /automation/court-sms/{id}/assign-case   （匹配不到案件时手动指定，随后继续处理）
  *   - 重新处理 = POST /automation/court-sms/{id}/retry         （保留手动绑定案件，仅重跑后续流程）
@@ -54,6 +56,49 @@ export async function copyCourtSmsDocsToClipboard(
     .json<components['schemas']['CourtSMSCopyDocsOut'] & { message?: string }>()
   if (res.success === undefined && res.message) throw new Error(res.message)
   return { success: res.success === true, copied: Number(res.copied ?? 0), reason: res.reason ?? null }
+}
+
+/**
+ * 客户转交材料入库明细（后端 CourtSMSMaterialIntakeOut）。
+ * ``saved`` 已落盘并进入处理流程；``skipped`` 是格式不支持/超限的文件及原因，
+ * 用于提交后的用户提示——拿微信导出的 .heic、录屏等混进来是常态。
+ */
+export interface CourtSmsMaterialIntake {
+  saved: string[]
+  skipped: { name: string; reason: string }[]
+}
+
+/**
+ * 提交客户转交的案件材料（客户先收到、再通过微信转给律师的材料）。
+ *
+ * 与「收法院短信」共用同一条后端处理链路（解析→匹配→重命名归档→通知）：
+ * 后端落盘后直接写入 CourtSMS.document_file_paths，无下载链接时自动跳过下载阶段。
+ * 提交后同样用 getCourtSmsDetail 轮询，弹窗步进器完全复用。
+ *
+ * `note` 是可选备注（如「客户微信转来的判决书」）；留空时后端按文件名清单生成正文。
+ */
+export async function uploadCourtSmsMaterials(
+  files: File[],
+  note?: string,
+): Promise<{ id: number; materials: CourtSmsMaterialIntake | null }> {
+  const body = new FormData()
+  for (const f of files) body.append('files', f, f.name)
+  if (note && note.trim()) body.append('content', note.trim())
+
+  const res = await automationApi
+    .post('court-sms/upload', { body, timeout: UPLOAD_TIMEOUT_MS })
+    .json<components['schemas']['CourtSMSSubmitOut'] & { message?: string }>()
+
+  if (res.success === false || typeof res.data?.id !== 'number') {
+    throw new Error(res.message || '材料提交失败')
+  }
+  // 生成物里 saved/skipped 都是可选（default_factory 不改变 OpenAPI 的可选性），
+  // 这里补齐成必有字段，调用方就不用到处写 ?? []
+  const raw = res.data.materials
+  const materials: CourtSmsMaterialIntake | null = raw
+    ? { saved: raw.saved ?? [], skipped: raw.skipped ?? [] }
+    : null
+  return { id: res.data.id, materials }
 }
 
 /** 查询处理详情（轮询用；404 等由调用方 catch） */
