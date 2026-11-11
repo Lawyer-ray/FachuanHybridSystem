@@ -186,14 +186,22 @@ class TestArchiveSizeCap:
 
     def test_archive_and_plain_share_same_cap(self) -> None:
         from apps.message_hub.services.manual_upload_service import validate_manual_upload_file
+        from apps.message_hub.services.upload_policy import (
+            MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES,
+            MANUAL_UPLOAD_MAX_SIZE_BYTES,
+        )
+
+        # 先锁住常量本身相等——这才是「同一把尺子」的直接表达，
+        # 光看两个 800MB 都放行并不能区分 1GB 还是 800MB 以上的任意值。
+        assert MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES == MANUAL_UPLOAD_MAX_SIZE_BYTES
 
         big_zip = SimpleUploadedFile("大包.zip", b"x", content_type="application/zip")
         big_zip.size = 800 * 1024 * 1024  # type: ignore[assignment]
-        validate_manual_upload_file(big_zip)  # 800MB 压缩包 → 放行
+        assert validate_manual_upload_file(big_zip) is None  # 800MB 压缩包 → 放行
 
         big_pdf = SimpleUploadedFile("大.pdf", b"x", content_type="application/pdf")
         big_pdf.size = 800 * 1024 * 1024  # type: ignore[assignment]
-        validate_manual_upload_file(big_pdf)  # 同样 800MB 直传 → 同样放行
+        assert validate_manual_upload_file(big_pdf) is None  # 同样 800MB 直传 → 同样放行
 
     def test_over_cap_rejected_for_both(self) -> None:
         from apps.message_hub.services.manual_upload_service import validate_manual_upload_file

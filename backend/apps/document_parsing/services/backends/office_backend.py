@@ -139,7 +139,7 @@ class OfficeBackend:
                 raw = (para.text or "").strip()
                 if not raw:
                     continue
-                level = self._heading_level(para)
+                level = _heading_level(para)
                 block_type = BLOCK_TYPE_TITLE if level else BLOCK_TYPE_TEXT
                 blocks.append(
                     {
@@ -158,7 +158,7 @@ class OfficeBackend:
                 rows = [[(cell.text or "").strip() for cell in row.cells] for row in table.rows]
                 if not any(any(c for c in row) for row in rows):
                     continue
-                md_table = self._rows_to_markdown(rows)
+                md_table = _rows_to_markdown(rows)
                 blocks.append(
                     {
                         "type": BLOCK_TYPE_TABLE,
@@ -172,7 +172,7 @@ class OfficeBackend:
                 text_lines.extend(" ".join(c for c in row if c) for row in rows if any(row))
                 table_no += 1
 
-        pages = self._paginate_blocks(blocks, text_lines)
+        pages = _paginate_blocks(blocks, text_lines)
         return ParsedDocument(
             text="\n".join(text_lines),
             markdown="\n\n".join(md_lines) if md_lines else None,
@@ -187,36 +187,6 @@ class OfficeBackend:
             parse_method="office_docx",
             layout={"page_count": len(pages), "pages": pages, "bbox_unit": "normalized", "bbox_approx": True},
         )
-
-    @staticmethod
-    def _heading_level(para: Any) -> int:
-        """取标题层级（1-6），非标题返回 0。
-
-        先认样式名（``Heading 1`` / ``标题 1``，中英两套写法都见过），
-        再看大纲级别——WPS 生成的文档常把标题做成普通样式 + 大纲级别。
-        """
-        name = str(getattr(getattr(para, "style", None), "name", "") or "")
-        for token in ("heading", "标题"):
-            if name.lower().startswith(token):
-                digits = display_width_digits(name)
-                if digits:
-                    return max(1, min(digits, 6))
-        # 大纲级别只能从 XML 读：python-docx 的 ParagraphFormat **没有**
-        # outline_level 属性（直接访问会 AttributeError），它存在 pPr/w:outlineLvl。
-        # 注意 w:outlineLvl 是 0 起的（0 = 一级标题）。
-        try:
-            from docx.oxml.ns import qn
-
-            pPr = para._p.pPr
-            node = pPr.find(qn("w:outlineLvl")) if pPr is not None else None
-            raw = node.get(qn("w:val")) if node is not None else None
-            if raw is not None and str(raw).isdigit():
-                level = int(raw)
-                if 0 <= level < 6:
-                    return level + 1
-        except (AttributeError, ValueError, TypeError):
-            pass
-        return 0
 
     # ------------------------------------------------------------------
     # Excel
@@ -233,7 +203,7 @@ class OfficeBackend:
             if not rows:
                 continue
             md_lines.append(f"## {sheet_name}")
-            md_lines.append(self._rows_to_markdown(rows))
+            md_lines.append(_rows_to_markdown(rows))
             for row_no, row in enumerate(rows, start=1):
                 joined = " ".join(c for c in row if c)
                 if not joined:
@@ -248,7 +218,7 @@ class OfficeBackend:
                 )
             md_lines.append("")
 
-        pages = self._paginate_blocks(blocks, text_lines, per_page=_EXCEL_ROWS_PER_LOGICAL_PAGE)
+        pages = _paginate_blocks(blocks, text_lines, per_page=_EXCEL_ROWS_PER_LOGICAL_PAGE)
         return ParsedDocument(
             text="\n".join(text_lines),
             markdown="\n".join(md_lines).strip() or None,
@@ -295,69 +265,14 @@ class OfficeBackend:
             out.append((str(sheet.name), rows))
         return out
 
-    # ------------------------------------------------------------------
-    # 共用
-    # ------------------------------------------------------------------
 
-    @staticmethod
-    def _rows_to_markdown(rows: list[list[str]]) -> str:
-        """行列表 → GFM 表格（首行当表头；列宽取最长行）。"""
-        if not rows:
-            return ""
-        width = max(len(r) for r in rows)
-        norm = [list(r) + [""] * (width - len(r)) for r in rows]
-        header, *body = norm
-        esc = [[c.replace("|", "\\|").replace("\n", " ") for c in r] for r in (header, *body)]
-        head = esc[0]
-        rest = esc[1:]
-        lines = ["| " + " | ".join(head) + " |", "|" + " --- |" * width]
-        lines.extend("| " + " | ".join(r) + " |" for r in rest)
-        return "\n".join(lines)
-
-    @staticmethod
-    def _paginate_blocks(
-        blocks: list[dict[str, Any]],
-        text_lines: list[str],
-        per_page: int = _WORD_LINES_PER_LOGICAL_PAGE,
-    ) -> list[dict[str, Any]]:
-        """把**真实块**按顺序切成"逻辑页"（不能只按文本行切，否则丢掉块结构）。
-
-        以前这里只把 text_lines 按行数和成一个大块，结果每页只有 1 个块，
-        而 ``attach_blocks`` 要求 ≥2 个文本块才认为"块结构可用"，于是
-        Office 文档明明有段落和表格，却被判成 ``coverage.has_blocks=False``、
-        拿不到任何块级定位。现在保留原始块，只做分组。
-
-        矩形为什么是"整页"：Office 没有像素坐标，逐块估算纵坐标只会给出一个
-        **看起来精确、实际是编的**框。宁可给整页框并标 ``bbox_approx=True``，
-        让前端知道"能定位到这一页，但框不代表具体位置"，也不给假精度。
-        真正的精确定位走 ``locator``（段落序 / 行列），那是结构给出的确定信息。
-        """
-        pages: list[dict[str, Any]] = []
-        if not blocks:
-            return pages
-        for start in range(0, len(blocks), per_page):
-            chunk = blocks[start : start + per_page]
-            page_no = len(pages) + 1
-            page_blocks = [
-                {
-                    "type": b.get("type") or BLOCK_TYPE_TEXT,
-                    "text": b.get("text") or "",
-                    "table_body": b.get("table_body"),
-                    # 整页矩形 + 结构 locator 同时下发：前者给"看得到"的锚点，
-                    # 后者给"定位得到"的确定答案
-                    "bbox": [0.0, 0.0, 1.0, 1.0],
-                    "locator": b.get("locator"),
-                }
-                for b in chunk
-            ]
-            pages.append(
-                {
-                    "page_no": page_no,
-                    "text": "\n".join(str(pb["text"]) for pb in page_blocks if pb["text"]),
-                    "blocks": page_blocks,
-                }
-            )
-        return pages
+# ----------------------------------------------------------------------
+# 纯函数（模块级）
+#
+# 四层架构规范：Service 层禁用静态方法，纯函数一律下沉到模块级
+# （见 tests/ci/structure/test_four_layer_architecture.py 的棘轮）。
+# 下面三个函数都不读实例/类状态，故不挂在 OfficeBackend 上。
+# ----------------------------------------------------------------------
 
 
 def display_width_digits(name: str) -> int:
@@ -369,6 +284,96 @@ def display_width_digits(name: str) -> int:
         elif digits:
             break
     return int(digits) if digits.isdigit() else 0
+
+
+def _heading_level(para: Any) -> int:
+    """取标题层级（1-6），非标题返回 0。
+
+    先认样式名（``Heading 1`` / ``标题 1``，中英两套写法都见过），
+    再看大纲级别——WPS 生成的文档常把标题做成普通样式 + 大纲级别。
+    """
+    name = str(getattr(getattr(para, "style", None), "name", "") or "")
+    for token in ("heading", "标题"):
+        if name.lower().startswith(token):
+            digits = display_width_digits(name)
+            if digits:
+                return max(1, min(digits, 6))
+    # 大纲级别只能从 XML 读：python-docx 的 ParagraphFormat **没有**
+    # outline_level 属性（直接访问会 AttributeError），它存在 pPr/w:outlineLvl。
+    # 注意 w:outlineLvl 是 0 起的（0 = 一级标题）。
+    try:
+        from docx.oxml.ns import qn
+
+        pPr = para._p.pPr
+        node = pPr.find(qn("w:outlineLvl")) if pPr is not None else None
+        raw = node.get(qn("w:val")) if node is not None else None
+        if raw is not None and str(raw).isdigit():
+            level = int(raw)
+            if 0 <= level < 6:
+                return level + 1
+    except (AttributeError, ValueError, TypeError):
+        pass
+    return 0
+
+
+def _rows_to_markdown(rows: list[list[str]]) -> str:
+    """行列表 → GFM 表格（首行当表头；列宽取最长行）。"""
+    if not rows:
+        return ""
+    width = max(len(r) for r in rows)
+    norm = [list(r) + [""] * (width - len(r)) for r in rows]
+    header, *body = norm
+    esc = [[c.replace("|", "\\|").replace("\n", " ") for c in r] for r in (header, *body)]
+    head = esc[0]
+    rest = esc[1:]
+    lines = ["| " + " | ".join(head) + " |", "|" + " --- |" * width]
+    lines.extend("| " + " | ".join(r) + " |" for r in rest)
+    return "\n".join(lines)
+
+
+def _paginate_blocks(
+    blocks: list[dict[str, Any]],
+    text_lines: list[str],
+    per_page: int = _WORD_LINES_PER_LOGICAL_PAGE,
+) -> list[dict[str, Any]]:
+    """把**真实块**按顺序切成"逻辑页"（不能只按文本行切，否则丢掉块结构）。
+
+    以前这里只把 text_lines 按行数和成一个大块，结果每页只有 1 个块，
+    而 ``attach_blocks`` 要求 ≥2 个文本块才认为"块结构可用"，于是
+    Office 文档明明有段落和表格，却被判成 ``coverage.has_blocks=False``、
+    拿不到任何块级定位。现在保留原始块，只做分组。
+
+    矩形为什么是"整页"：Office 没有像素坐标，逐块估算纵坐标只会给出一个
+    **看起来精确、实际是编的**框。宁可给整页框并标 ``bbox_approx=True``，
+    让前端知道"能定位到这一页，但框不代表具体位置"，也不给假精度。
+    真正的精确定位走 ``locator``（段落序 / 行列），那是结构给出的确定信息。
+    """
+    pages: list[dict[str, Any]] = []
+    if not blocks:
+        return pages
+    for start in range(0, len(blocks), per_page):
+        chunk = blocks[start : start + per_page]
+        page_no = len(pages) + 1
+        page_blocks = [
+            {
+                "type": b.get("type") or BLOCK_TYPE_TEXT,
+                "text": b.get("text") or "",
+                "table_body": b.get("table_body"),
+                # 整页矩形 + 结构 locator 同时下发：前者给"看得到"的锚点，
+                # 后者给"定位得到"的确定答案
+                "bbox": [0.0, 0.0, 1.0, 1.0],
+                "locator": b.get("locator"),
+            }
+            for b in chunk
+        ]
+        pages.append(
+            {
+                "page_no": page_no,
+                "text": "\n".join(str(pb["text"]) for pb in page_blocks if pb["text"]),
+                "blocks": page_blocks,
+            }
+        )
+    return pages
 
 
 __all__ = ["OfficeBackend", "display_width_digits"]
