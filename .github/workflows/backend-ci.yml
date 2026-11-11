@@ -112,9 +112,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # structure 测试要读 backend/plugins 下的真实文件（诉讼地位单源、
-          # 询价事务边界等守卫），不拉子模块会直接报「找不到 plugins/court_automation」
-          submodules: recursive
 
       - name: Repository hygiene
         run: |
