@@ -82,6 +82,16 @@ function renderGrid(over: Partial<GridProps> = {}) {
 }
 
 describe('PackGrid：卡片与离场', () => {
+  it('内容相对卡片容器有内边距（不能贴边）', () => {
+    // 回归：方案 B 把网格放进一张带边框的卡片后，PackGrid 自身没有任何 padding，
+    // 卡片/列表行直接贴在描边和圆角上——视觉上"边距全没了"。
+    // 收件箱列表一直是 px-4，两边必须一致。
+    const { container, unmount } = renderGrid({ packs: [pack(1)] })
+    const root = container.firstElementChild as HTMLElement
+    expect(root.className).toContain('p-4')
+    unmount()
+  })
+
   it('渲染每张卡并带 data-pack-idx', () => {
     const { container, unmount } = renderGrid({ packs: [pack(1), pack(2)] })
     expect(container.querySelectorAll('[data-pack-idx]')).toHaveLength(2)

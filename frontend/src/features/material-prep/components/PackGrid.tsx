@@ -56,7 +56,7 @@ export function PackGrid({
   onDelete: (pack: InboxMessage) => void
 }) {
   return (
-    <div className="relative" ref={wrapRef}>
+    <div className="relative p-4" ref={wrapRef}>
       <div
         ref={gridRef}
         className={

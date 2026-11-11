@@ -372,7 +372,7 @@ export function DeskPage() {
               两者必须同属一张卡，否则页面上会出现两张上下叠放的黑框。 */}
           <div
             key={stage}
-            className="app-stage-enter flex min-h-0 flex-1 flex-col"
+            className="app-stage-enter flex min-h-0 flex-1 flex-col overflow-y-auto"
           >
             {!isPackStage(stage) ? (
               /* 收件箱阶段：主区域交给 InboxView（受控：筛选值来自本组件的工具栏）。
@@ -392,14 +392,14 @@ export function DeskPage() {
              虚线框靠调用点补：加载态与空态要共用一个框，看起来是同块区域换内容 */
               <LoadingBlock
                 text="加载材料包…"
-                className="rounded-[13px] border border-dashed border-zinc-300 py-16"
+                className="m-4 rounded-[13px] border border-dashed border-zinc-300 py-16"
               />
             ) : error ? (
               /* 前缀「无法加载材料包：」留在调用点的原因：ErrorBlock 只把 error 的
              message 原样倒出，而这里要说明白是哪块数据挂了。
              fallback 取「未知错误」——旧实现就在 message 缺失时显示它，
              不改文案。 */
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 p-4">
                 <p className="text-sm text-destructive">无法加载材料包：</p>
                 <ErrorBlock
                   error={error}
