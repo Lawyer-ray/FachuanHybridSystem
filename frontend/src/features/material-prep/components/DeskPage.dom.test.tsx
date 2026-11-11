@@ -13,7 +13,7 @@
  *   「列表 / 卡片」按阶段记住并透传给 PackGrid
  */
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hookMock = vi.hoisted(() => ({
@@ -208,9 +208,29 @@ function setInboxRows(rows: unknown[]) {
  * 缺省 ``/material-prep?stage=todo`` —— 绝大多数用例验证的是材料包网格，
  * 而页面真实缺省阶段是「收件箱」（见 stages.ts），用例显式指明更清楚。
  */
+/** 最近一次渲染时 router 的 search 串（用于断言 URL 参数是否被保留） */
+const routeProbe = vi.hoisted(() => ({ search: '' }))
+
+/**
+ * 探针：把当前 location.search 记下来。
+ *
+ * 需要它才能断言「切阶段时其它 query 没被抹掉」——DeskPage 自己把 location
+ * 交给 MemoryRouter 管，测试里没有真实地址栏可读。
+ */
+function LocationProbe() {
+  const loc = useLocation()
+  routeProbe.search = loc.search
+  return null
+}
+
+function lastSearch(): string {
+  return routeProbe.search
+}
+
 function renderDesk(path = '/material-prep?stage=todo') {
   return render(
     <MemoryRouter initialEntries={[path]}>
+      <LocationProbe />
       <DeskPage />
     </MemoryRouter>,
   )
@@ -697,6 +717,29 @@ describe('DeskPage：阶段（收件箱与材料包同页）', () => {
     const { unmount, getByText } = renderDesk('/material-prep?stage=%3Cscript%3E')
     expect(getByText('INBOX-VIEW')).toBeTruthy()
     expect(ui.tabs!.stage).toBe('inbox')
+    unmount()
+  })
+
+  it('?stage=todo 直达：默认落在「待处理」而不是被弹回收件箱', () => {
+    // 用户报告的「todo 进不去」现象之一：带 stage 的地址必须能直接落地。
+    setup([pack(1, 'todo')])
+    const { unmount, getByText } = renderDesk('/material-prep?stage=todo')
+    expect(ui.tabs!.stage).toBe('todo')
+    expect(getByText('GRID:1')).toBeTruthy()
+    unmount()
+  })
+
+  it('切换阶段不会抹掉其它 query（深链接 ?message= 不能被吃掉）', async () => {
+    // setParams 传对象是覆盖语义，曾经会把 message 一起清掉。
+    setup([pack(1, 'todo')])
+    const { unmount, getByText } = renderDesk('/material-prep?message=42')
+
+    act(() => {
+      getByText('切到待处理').click()
+    })
+    await waitFor(() => expect(ui.tabs!.stage).toBe('todo'))
+    expect(lastSearch()).toContain('message=42')
+    expect(lastSearch()).toContain('stage=todo')
     unmount()
   })
 

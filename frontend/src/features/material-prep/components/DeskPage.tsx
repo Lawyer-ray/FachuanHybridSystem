@@ -107,8 +107,19 @@ export function DeskPage() {
     (s: PrepStage) => {
       if (isPackStage(s)) setPackTab(s)
       setSel(0)
-      // 收件箱是默认阶段：不往 URL 里写冗余参数，保持 /material-prep 干净
-      setParams(s === "inbox" ? {} : { stage: s }, { replace: true })
+      // 只在**现有参数上**改 stage，不整体替换。
+      // setParams 传对象是覆盖语义：以前直接 setParams({stage:s}) 会把
+      // 深链接的 ?message=<id> 一起抹掉（收件箱打开某条消息的直达能力失效）。
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          // 收件箱是默认阶段：不往 URL 里写冗余参数，保持 /material-prep 干净
+          if (s === 'inbox') next.delete('stage')
+          else next.set('stage', s)
+          return next
+        },
+        { replace: true },
+      )
     },
     [setParams, setPackTab, setSel],
   )

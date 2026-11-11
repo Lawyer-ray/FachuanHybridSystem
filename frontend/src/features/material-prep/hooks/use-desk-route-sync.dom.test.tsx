@@ -73,11 +73,12 @@ function makeDetail(id: number): InboxMessageDetail {
   }
 }
 
-/** 记录路由路径变化（观察回退 navigate 是否发生） */
+/** 记录路由变化（观察回退 navigate 是否发生）。
+ *  必须连 search 一起记：stage 是 query，只看 pathname 会漏掉它是否被保留。 */
 const locHistory: string[] = []
 function LocProbe() {
   const loc = useLocation()
-  locHistory.push(loc.pathname)
+  locHistory.push(`${loc.pathname}${loc.search}`)
   return null
 }
 
@@ -194,6 +195,22 @@ describe('副作用 2：关阅读器回退列表 URL', () => {
     })
     await settle(1)
     expect(locHistory.at(-1)).toBe('/material-prep')
+  })
+
+  it('从「待处理」点进包再关闭：URL 回到 ?stage=todo，而不是被弹回收件箱', async () => {
+    // 用户报告的症状：在待处理页点进一个材料包、关掉阅读器后，
+    // 页面跳回了「收件箱」，看起来像「待处理进不去」。根因是回退时
+    // navigate(materialPrep()) 丢掉了 stage 参数。
+    getDetailMock.mockResolvedValue(makeDetail(5))
+    setup('/material-prep/5?stage=todo')
+    act(() => {
+      useReader.setState({ openId: 5 })
+    })
+    act(() => {
+      useReader.setState({ openId: null })
+    })
+    await settle(1)
+    expect(locHistory.at(-1)).toBe('/material-prep?stage=todo')
   })
 
   it('关闭发生在列表路由（无 id）：不需要回退，URL 保持不动', async () => {
