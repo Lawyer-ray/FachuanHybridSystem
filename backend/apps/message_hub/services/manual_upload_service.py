@@ -129,6 +129,38 @@ def save_upload_files_as_metas(
     return metas
 
 
+def _default_subject_from(metas: list[dict[str, Any]]) -> str:
+    """材料包默认名：取**第一个文件**的显示名（去扩展名）。
+
+    为什么不再用「前端材料预处理上传材料」这类来源名：来源已经由卡片右上角的
+    来源标签（`source_name`）表达了，再把它当标题就是同一句话写两遍，而且
+    律师在一堆材料包里根本分不清谁是谁——「起诉状」比「前端材料预处理上传
+    材料」有用得多。
+
+    细节：
+    - 用 metas[0]（落盘顺序 = 用户选择 / 压缩包展开后的第一个），与列表里
+      第一张缩略图对应，律师能对上号；
+    - 保留 `expanded_from` 场景下的相对路径段？**不保留**：文件名只取 basename，
+      否则标题会变成「子目录/起诉状」这种带路径的怪样子（展示名里保留路径是
+      为了说明来源，不适合当标题）；
+    - 去扩展名：卡片标题旁边已经显示页数/类型，`.pdf` 是冗余噪音；
+    - 兜底：理论上 metas 非空（上游已拒绝空包），仍给一个中性名，避免空字符串
+      标题把卡片撑成空白。
+    """
+    if not metas:
+        return f"{MANUAL_SOURCE_DISPLAY_NAME}材料"
+    raw = str(metas[0].get("filename") or metas[0].get("original_filename") or "").strip()
+    if not raw:
+        return f"{MANUAL_SOURCE_DISPLAY_NAME}材料"
+    # 只取 basename：压缩包展开会带「子目录/文件.pdf」形式的展示名
+    name = raw.replace("\\", "/").rsplit("/", 1)[-1].strip()
+    stem, dot, ext = name.rpartition(".")
+    # 仅当「点号前有名字、扩展名像扩展名」时才去扩展名，避免把「3.5亿」这种切坏
+    if dot and stem and 0 < len(ext) <= 5 and ext.isalnum():
+        name = stem
+    return name[:512] or f"{MANUAL_SOURCE_DISPLAY_NAME}材料"
+
+
 def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any = None) -> InboxMessage:
     """把前端上传的文件落盘为一条收件箱消息，返回消息实例。
 
@@ -155,7 +187,7 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
     # 上传即算好 PDF 页数，前端打开材料包无需下载整包数页数
     fill_page_counts(attachment_metas)
 
-    effective_subject = subject.strip() or f"{MANUAL_SOURCE_DISPLAY_NAME}材料"
+    effective_subject = subject.strip() or _default_subject_from(attachment_metas)
     message = InboxMessage.objects.create(
         source=source,
         message_id=f"manual-{ts}-{uuid4().hex[:8]}",
