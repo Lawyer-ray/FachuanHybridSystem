@@ -6,7 +6,10 @@
  * 三条最容易退化的路径：
  * 1. 档位 → 按钮文案随档位变化（消除「点同步到底同步什么」的歧义）；
  * 2. 档位 → 实际调用的接口/来源集合正确（一张网只同步 court_inbox）；
- * 3. 材料包档位置灰且不发请求（它没有「拉新」语义）。
+ * 3. 短信档位置灰且不发请求（它没有「拉新」语义）。
+ *
+ * 注：材料包档位已移除——材料包升为一级导航（见 ../stages.ts），不再作为
+ * 收件箱的一个来源档位出现，因此这里不再测它。
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -72,12 +75,6 @@ describe('同步按钮文案跟随档位', () => {
     expect(screen.getByRole('button', { name: new RegExp(expected) })).toBeTruthy()
   })
 
-  it('材料包档位置灰且提示原因', () => {
-    render(wrap(<Harness source="manual_upload,client_upload" />))
-    const btn = screen.getByRole('button', { name: /材料包无需同步/ })
-    expect((btn as HTMLButtonElement).disabled).toBe(true)
-  })
-
   // 法院短信没有 MessageSource：它是短信转发 / admin 录入进 CourtSMS 表的，
   // 不存在「拉取」动作，所以这个档位不该有同步按钮。
   it('法院短信档位置灰且提示「短信无需同步」', () => {
@@ -129,9 +126,9 @@ describe('同步按钮的调用目标', () => {
     expect(apiMock.syncSource).not.toHaveBeenCalled()
   })
 
-  it('材料包档位点击不发任何同步请求', () => {
-    render(wrap(<Harness source="manual_upload,client_upload" />))
-    fireEvent.click(screen.getByRole('button', { name: /材料包无需同步/ }))
+  it('短信档位点击不发任何同步请求', () => {
+    render(wrap(<Harness source="court_sms" />))
+    fireEvent.click(screen.getByRole('button', { name: /短信无需同步/ }))
 
     expect(apiMock.syncAllSources).not.toHaveBeenCalled()
     expect(apiMock.syncSource).not.toHaveBeenCalled()
@@ -147,18 +144,16 @@ describe('档位 → 同步目标映射表', () => {
     }
   })
 
-  it('材料包档位没有同步目标且给了置灰原因', () => {
-    const spec = INBOX_SYNC_SPEC['manual_upload,client_upload']
-    expect(spec.target).toBeNull()
-    expect(spec.disabledReason).toBeTruthy()
-  })
-
   it('全部档位使用 sync-all 通道', () => {
     expect(INBOX_SYNC_SPEC.all.target).toBe('all')
   })
 
-  it('法院短信与材料包都没有同步目标', () => {
+  it('法院短信没有同步目标', () => {
     expect(INBOX_SYNC_SPEC.court_sms.target).toBeNull()
-    expect(INBOX_SYNC_SPEC['manual_upload,client_upload'].target).toBeNull()
+  })
+
+  it('材料包不再是收件箱的一个档位（已升为一级导航）', () => {
+    // 若有人把它加回来，同一份材料会在收件箱与「待处理」重复出现
+    expect(INBOX_SYNC_SPEC).not.toHaveProperty('manual_upload,client_upload')
   })
 })

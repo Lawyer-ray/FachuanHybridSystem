@@ -16,7 +16,7 @@ import {
   formatMB,
   uploadSizeCapBytes,
 } from '../constants'
-import { isPackStage, parseStage, type PrepStage } from '../stages'
+import { isPackStage, parseStage, stageToQuery, type PrepStage } from '../stages'
 import { useDeskKeyboard } from '../hooks/use-desk-keyboard'
 import { useDeskRing } from '../hooks/use-desk-ring'
 import { useDeskRouteSync } from '../hooks/use-desk-route-sync'
@@ -114,8 +114,9 @@ export function DeskPage() {
         (prev) => {
           const next = new URLSearchParams(prev)
           // 收件箱是默认阶段：不往 URL 里写冗余参数，保持 /material-prep 干净
-          if (s === 'inbox') next.delete('stage')
-          else next.set('stage', s)
+          const q = stageToQuery(s)
+          if (q == null) next.delete('stage')
+          else next.set('stage', q)
           return next
         },
         { replace: true },

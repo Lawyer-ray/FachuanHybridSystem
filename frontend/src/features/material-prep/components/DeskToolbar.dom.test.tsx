@@ -48,10 +48,12 @@ beforeEach(() => {
 describe('DeskToolbar：收件箱槽位', () => {
   it('渲染来源药丸 / 未读开关 / 搜索框 / 同步按钮', () => {
     renderToolbar('inbox')
-    // 五个来源档位全在（顺序即 INBOX_SOURCE_TABS）
-    for (const label of ['全部', '一张网', '邮箱', '法院短信', '材料包']) {
+    // 四个来源档位全在（顺序即 INBOX_SOURCE_TABS）
+    for (const label of ['全部', '一张网', '邮箱', '法院短信']) {
       expect(screen.getByRole('button', { name: label })).toBeTruthy()
     }
+    // 「材料包」不再是收件箱的来源档位——它已是左侧一级导航的另一支
+    expect(screen.queryByRole('button', { name: '材料包' })).toBeNull()
     expect(screen.getByRole('button', { name: /未读/ })).toBeTruthy()
     expect(screen.getByLabelText('搜索收件箱')).toBeTruthy()
     // 「全部」档位的同步按钮文案是「同步全部」
