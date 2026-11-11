@@ -77,8 +77,8 @@ class TestIsExpectedSyncError:
 class TestSyncSourceById:
     """Test sync_source_by_id task."""
 
-    def test_syncs_single_source(self, db):
-        """Fetches new messages from a single source."""
+    def _run(self, *, window_days: int | None = None) -> tuple[MagicMock, MagicMock]:
+        """跑一次 sync_source_by_id，返回 (source, fetcher) 两个 mock。"""
         from apps.message_hub.tasks import sync_source_by_id
 
         with (
@@ -93,10 +93,30 @@ class TestSyncSourceById:
             mock_fetcher.fetch_new_messages.return_value = 5
             mock_get_fetcher.return_value = mock_fetcher
 
-            # Should not raise
-            sync_source_by_id(1)
+            sync_source_by_id(1, window_days=window_days)
+        return mock_source, mock_fetcher
 
-            mock_fetcher.fetch_new_messages.assert_called_once_with(mock_source)
+    def test_syncs_single_source(self, db):
+        """Fetches new messages from a single source.
+
+        ``window_days`` 是 **keyword-only** 参数（见 ``MessageFetcher.fetch_new_messages``
+        与 ``sync_source_by_id`` 的显式传参）；不传时任务透传 ``None``，
+        含义是「按来源的 sync_since 全量回填」，不是「没传这个参数」。
+        本断言曾停在旧签名 ``fetch_new_messages(source)`` 上，改签名后长期失败。
+        """
+        mock_source, mock_fetcher = self._run(window_days=None)
+
+        mock_fetcher.fetch_new_messages.assert_called_once_with(mock_source, window_days=None)
+
+    def test_passes_window_days_through(self, db):
+        """前端手动同步传的 window_days 必须原样透传给 fetcher。
+
+        这条与上一条分开：``None`` 与一个具体天数走同一行代码，
+        只测 None 的话「参数根本没传下去」也能通过。
+        """
+        mock_source, mock_fetcher = self._run(window_days=7)
+
+        mock_fetcher.fetch_new_messages.assert_called_once_with(mock_source, window_days=7)
 
 
 class TestIsSourceDue:
