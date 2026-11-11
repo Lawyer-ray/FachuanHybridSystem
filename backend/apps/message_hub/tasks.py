@@ -50,13 +50,18 @@ def _is_expected_sync_error(exc: Exception) -> bool:
     return any(token in msg for token in expected_tokens)
 
 
-def sync_source_by_id(source_id: int, window_days: int | None = None) -> None:  # pragma: no cover
+def sync_source_by_id(source_id: int, window_days: int | None = None) -> None:
     """同步单个消息来源，供 django-q async_task 调用。
 
     Args:
         source_id: 消息来源 id。
         window_days: 只看最近 N 天。前端手动同步传 ``DEFAULT_SYNC_WINDOW_DAYS``；
             后台定时同步传 ``None``（按来源 ``sync_since`` 全量回填，仅首次生效）。
+
+    不加 ``pragma: no cover``：重生成本体只有 ORM 查询 + fetcher 调用，
+    fetcher 可 patch，**完全能真跑**。曾经盖着 pragma，于是本函数唯一
+    的守门测试停在旧签名上长期变红也没人发现——分支不可见的代价
+    比“少写几条测试”大得多。
     """
     from apps.message_hub.models import MessageSource
     from apps.message_hub.services import get_fetcher
@@ -85,8 +90,12 @@ def _is_source_due(*, poll_interval_minutes: int, last_sync_at: datetime | None,
     return now - last_sync_at >= timedelta(minutes=poll_interval_minutes)
 
 
-def sync_all_sources(*_args: object) -> None:  # pragma: no cover
-    """按各来源自己的轮询周期，为本轮到点的来源提交独立同步任务。"""
+def sync_all_sources(*_args: object) -> None:
+    """按各来源自己的轮询周期，为本轮到点的来源提交独立同步任务。
+
+    不加 ``pragma: no cover``：只依赖 ORM 查询、缓存锁与 ``submit_task``，
+    三者都可替身，测试能真跑整条派发逻辑（含抢锁与超时选择）。
+    """
     # 抢锁防重叠：上一轮调度未过期时跳过本轮，避免 Playwright 收件箱任务堆积
     if not cache.add(_SYNC_LOCK_KEY, "1", timeout=_SYNC_LOCK_TTL_SECONDS):
         logger.info("上一轮消息同步调度仍在锁周期内，跳过本轮: key=%s", _SYNC_LOCK_KEY)
