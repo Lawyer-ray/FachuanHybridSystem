@@ -65,11 +65,15 @@ export function InboxView({
     [setActive, setRead],
   )
 
-  /** 转成材料包后：直接进材料预处理（这正是「点击后直接进入材料预处理」的闭环） */
+  /** 转成材料包后：直接进材料预处理（这正是「点击后直接进入材料预处理」的闭环）。
+   *
+   * 带上 ?stage=todo：转到的是**材料包**、且刚建出来必然是「待处理」。
+   * 不带 stage 的话详情路由会回落成「收件箱」，打开时先闪一帧收件箱列表。
+   */
   const goPack = useCallback(
     (packId: number) => {
       setActive(null)
-      void navigate(materialPrepDetail(packId))
+      void navigate(`${materialPrepDetail(packId)}?stage=todo`)
     },
     [navigate, setActive],
   )

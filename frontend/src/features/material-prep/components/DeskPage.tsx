@@ -264,12 +264,21 @@ export function DeskPage() {
   const openAt = useCallback(
     (index: number) => {
       const p = visible[index]
-      if (p) {
-        void openPack(p.id)
-        void navigate(materialPrepDetail(p.id))
-      }
+      if (!p) return
+      void openPack(p.id)
+      // 跳详情时必须带上当前 stage。
+      //
+      // 不带会怎样：详情路由（/material-prep/571）没有 ?stage=，DeskPage 里
+      // parseStage(null) 回落成「收件箱」——于是这一帧主区域渲染的是收件箱列表、
+      // 页签也跳到收件箱，紧接着阅读器才盖上来。用户看到的就是
+      // 「闪一下列表再进详情」。
+      //
+      // 用当前 location 的 stage 而不是写死 tab：从「已归案」点开的包，退出时
+      // 也该回「已归案」。
+      const q = stageToQuery(isPackStage(stage) ? stage : tab)
+      void navigate(`${materialPrepDetail(p.id)}${q ? `?stage=${q}` : ''}`)
     },
-    [visible, openPack, navigate],
+    [visible, openPack, navigate, stage, tab],
   )
 
   // 「不接」回调稳定化：内联箭头会透传到 PackCard 打穿 memo

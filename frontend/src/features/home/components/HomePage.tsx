@@ -162,7 +162,9 @@ export function HomePage() {
   const navigate = useNavigate()
   const goPack = useCallback(
     (id: number) => {
-      void navigate(materialPrepDetail(id))
+      // 带 ?stage=todo：目标是材料包详情，不带 stage 时详情路由会回落成
+      // 「收件箱」，打开瞬间先渲染一帧收件箱列表再被阅读器盖住（闪一下）。
+      void navigate(`${materialPrepDetail(id)}?stage=todo`)
     },
     [navigate],
   )

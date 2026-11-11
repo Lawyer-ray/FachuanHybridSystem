@@ -213,6 +213,20 @@ describe('副作用 2：关阅读器回退列表 URL', () => {
     expect(locHistory.at(-1)).toBe('/material-prep?stage=todo')
   })
 
+  it('详情路由带 stage 时不回退也不跳动（打开过程全程停在材料包区段）', async () => {
+    // 这条锁的是「点材料包会闪一下列表」那个 bug 的另一半：
+    // 详情 URL 必须带 ?stage=，否则 DeskPage 里 parseStage(null) 回落成收件箱，
+    // 打开过程中会先渲染一帧收件箱列表再被阅读器盖住——视觉上就是闪一下。
+    getDetailMock.mockResolvedValue(makeDetail(571))
+    setup('/material-prep/571?stage=todo')
+    act(() => {
+      useReader.setState({ openId: 571 })
+    })
+    await settle(2)
+    // 停在详情 URL，且 stage 未被抹掉
+    expect(locHistory.at(-1)).toBe('/material-prep/571?stage=todo')
+  })
+
   it('关闭发生在列表路由（无 id）：不需要回退，URL 保持不动', async () => {
     setup('/material-prep')
     act(() => {

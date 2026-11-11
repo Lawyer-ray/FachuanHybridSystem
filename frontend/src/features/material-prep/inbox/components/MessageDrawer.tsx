@@ -33,7 +33,8 @@ export function MessageDrawer({
 
   const openPack = useCallback(
     (packId: number) => {
-      void navigate(materialPrepDetail(packId))
+      // 同上：转到的是材料包，带 stage=todo 才不会在打开时闪一帧收件箱列表
+      void navigate(`${materialPrepDetail(packId)}?stage=todo`)
       onClose()
     },
     [navigate, onClose],

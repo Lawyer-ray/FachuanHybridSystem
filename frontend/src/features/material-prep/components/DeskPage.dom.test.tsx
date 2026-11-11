@@ -50,11 +50,15 @@ vi.mock('../hooks/use-desk-route-sync', () => ({ useDeskRouteSync: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>()
-  return { ...actual, useNavigate: () => vi.fn() }
+  // 记录跳转目标：openAt 的「详情 URL 必须带 stage」是本次修复的核心，
+  // 其它用例不关心，所以只记录不替换行为（no-op 与原来一致）。
+  return { ...actual, useNavigate: () => navSpy.navigate }
 })
 vi.mock('../material-prep.css', () => ({}))
 
 // 子组件打桩
+const navSpy = vi.hoisted(() => ({ navigate: vi.fn() }))
+
 const ui = vi.hoisted(() => ({
   tabs: null as null | {
     stage: string
@@ -238,6 +242,7 @@ function renderDesk(path = '/material-prep?stage=todo') {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  navSpy.navigate.mockClear()
   hookMock.useInboxCounts.mockReturnValue(0)
   hookMock.useInboxList.mockReturnValue({ data: [], isLoading: false, error: null, refetch: vi.fn() })
   syncMock.useSyncSources.mockReturnValue({
@@ -407,6 +412,22 @@ describe('DeskPage：openAt 与不接', () => {
       await Promise.resolve()
     })
     expect(storeMock.open).toHaveBeenCalledWith(5)
+    unmount()
+  })
+
+  it('从「待处理」打开材料包：跳转详情时带上 stage（否则会闪一下列表）', async () => {
+    // bug：openAt 原先 navigate(materialPrepDetail(id)) 不带 ?stage=，
+    // 详情路由 parseStage(null) 回落成「收件箱」→ 先渲染一帧收件箱列表，
+    // 阅读器才盖上来，用户看到「闪一下列表再进详情」。
+    setup([pack(5, 'todo')])
+    const { unmount, getByText } = renderDesk('/material-prep?stage=todo')
+
+    await act(async () => {
+      getByText('打开第0个').click()
+      await Promise.resolve()
+    })
+    expect(storeMock.open).toHaveBeenCalledWith(5)
+    expect(navSpy.navigate).toHaveBeenCalledWith('/material-prep/5?stage=todo')
     unmount()
   })
 
