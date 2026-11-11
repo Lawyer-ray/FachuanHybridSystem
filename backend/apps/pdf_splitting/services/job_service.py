@@ -37,8 +37,12 @@ _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 class PdfSplitJobService:
-    MAX_FILE_SIZE = 150 * 1024 * 1024
-    MAX_PAGES = 300
+    # 收件箱单文件上限已放宽到 1GB（整卷客户材料），这里必须跟上——否则
+    # 材料包里的文件能传进来、却在自动分段时被拒，白上传一次。
+    # 直连 pdf_splitting 的旧调用方（后台工作台）也跟着放宽，口径统一。
+    MAX_FILE_SIZE = 1024 * 1024 * 1024
+    # 页数：164 页的全彩诉讼卷宗是常态，整卷上报 500 页也不罕见。
+    MAX_PAGES = 1000
 
     def create_job(
         self,

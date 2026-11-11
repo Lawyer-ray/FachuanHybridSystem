@@ -104,3 +104,28 @@ export function appendMatsToDraft(d: DraftState, added: BundleMat[]): DraftState
   })
   return { ...d, mats, segs }
 }
+
+/**
+ * 给某个源素材的段回填正文 Markdown（图片 / Office 等单页材料用）。
+ *
+ * 为什么单独一个函数、而不是复用 applyAutoSplit：图片是**单页**，谈不上「分段」
+ * ——它只有一个整段，需要的是「把这一页的文字填进段里」。applyAutoSplit 的
+ * 语义是「用后端的页区间建议替换该源的整组分段」，套到图片上会要求
+ * covered.size === mat.pages 的完整性校验，语义不符，硬用会把单页材料判成
+ * 「覆盖不全」而整份丢弃。
+ *
+ * 只填 md，不动 pg 区间 / 类型 / 名字：正文是附加信息，段的结构由律师决定。
+ * 已经有人工填写过 md 的段不覆盖（与 applyAutoSplit 保护人工结果同一原则）。
+ */
+export function fillSegmentText(d: DraftState, mi: number, md: string): DraftState {
+  const text = md.trim()
+  if (!text) return d
+  let changed = false
+  const segs = d.segs.map((sg) => {
+    if (sg.refs.length === 0 || !sg.refs.every((r) => r.mi === mi)) return sg
+    if (sg.md) return sg // 已有正文：人工/上次识别的结果不覆盖
+    changed = true
+    return { ...sg, md: text }
+  })
+  return changed ? { ...d, segs } : d
+}

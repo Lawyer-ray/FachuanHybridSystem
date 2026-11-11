@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob } from '../../api'
-import { applyAutoSplit, canAutoSplitMat } from '../../draft'
+import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob, ocrImage } from '../../api'
+import { applyAutoSplit, canAutoSplitMat, fillSegmentText } from '../../draft'
 import { useReader } from '../../store'
 import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
 import type { PdfSplitSegmentSuggestion } from '../../types'
@@ -35,13 +35,25 @@ export function useAutoSplit() {
     const { openId, draft } = useReader.getState()
     if (!openId || !draft || running) return
 
+    // ── 按附件粒度分派取字路径（见 docs/material-prep-dispatch.md）──
+    // 一个材料包里扫描件 / 电子版 / 图片 / Word 混在一起是常态，每类的正确
+    // 路径不同，所以**按 mat 逐个选路**，不能按整包一刀切：
+    //   · pdf   → 云端拆分任务（后端逐页再选文本层 / 云端 / 本地 OCR）
+    //   · photo → 单页取字（RapidOCR），图片本就单页，谈不上分段
+    //   · office → 暂不进自动流程（Word 应走文档解析，见文档第六节）
     const pdfMats = draft.mats
       .map((mat, mi) => ({ mat, mi }))
       .filter(({ mat }) => mat.k === 'pdf')
     const targets = pdfMats.filter(({ mi }) => canAutoSplitMat(draft, mi))
-    if (targets.length === 0) {
-      if (pdfMats.length === 0) {
-        toast.info('材料包里没有 PDF —— 云端识别只支持 PDF，图片 / Word 等请人工归类')
+    const photoTargets = draft.mats
+      .map((mat, mi) => ({ mat, mi }))
+      .filter(({ mat }) => mat.k === 'photo')
+    if (targets.length === 0 && photoTargets.length === 0) {
+      const officeCount = draft.mats.filter((m) => m.k === 'office').length
+      if (pdfMats.length === 0 && officeCount === 0) {
+        toast.info('材料包里没有可自动识别的材料')
+      } else if (officeCount > 0) {
+        toast.info('Word / Excel 暂不参与自动识别，请人工归类')
       } else {
         toast.info('这些 PDF 都已人工拆分或跨源合并，为免覆盖你的操作已跳过；需要重来可点「恢复初始分段」')
       }
@@ -51,7 +63,7 @@ export function useAutoSplit() {
     // 先开新会话再置 running：同帧重入的第二个 run 从这里开始，第一个循环立刻过期
     const lease = pollSession.begin()
     setRunning(true)
-    setProgress(`正在提交 ${targets.length} 个 PDF`)
+    if (targets.length > 0) setProgress(`正在提交 ${targets.length} 个 PDF`)
     try {
       const jobs = await Promise.all(
         targets.map(async ({ mat, mi }) => {
@@ -86,17 +98,39 @@ export function useAutoSplit() {
       if (lease.isStale()) return
       const results = settled.flatMap((item) => (item.status === 'fulfilled' ? [item.value] : []))
       const failures = settled.filter((item) => item.status === 'rejected')
-      if (results.length === 0) {
+
+      // ── 图片：单页取字（与 PDF 分段并行，互不影响）──
+      // 图片不参与「分段」（本就只有一页），它要的是把这一页的文字填进段里。
+      // 单独一轨，避免图片识别失败拖垮 PDF 分段这条主线。
+      const photoTexts: { mi: number; md: string }[] = []
+      let photoFailed = 0
+      for (const { mat, mi } of photoTargets) {
+        if (lease.isStale()) return
+        try {
+          const bytes = await fetchAttachmentBytes(openId, mat.partIndex)
+          const blob = new Blob([bytes], { type: guessImageType(mat.n) })
+          const ocr = await ocrImage(blob)
+          const md = blocksToMarkdown(ocr.blocks)
+          if (md) photoTexts.push({ mi, md })
+        } catch {
+          photoFailed += 1
+        }
+      }
+
+      if (results.length === 0 && photoTexts.length === 0) {
         const failure = failures[0]
         throw failure?.status === 'rejected' && failure.reason instanceof Error
           ? failure.reason
-          : new Error('所有 PDF 识别任务均未完成')
+          : new Error('所有材料的识别任务均未完成')
       }
 
       const current = useReader.getState()
       if (current.openId !== openId) return
       for (const result of results) {
         current.update((value) => applyAutoSplit(value, result.mi, result.segments))
+      }
+      for (const item of photoTexts) {
+        current.update((value) => fillSegmentText(value, item.mi, item.md))
       }
       // ── 自动回填当事人 ──
       // 分段完成后正文已在草稿里，当事人信息（借款人/银行）也就在里面。
@@ -127,15 +161,25 @@ export function useAutoSplit() {
       const count = results.reduce((sum, item) => sum + item.segments.length, 0)
       // 分段后端可观测：律所 AI 失败会静默降级规则引擎，得让用户知道拿到的是哪种质量
       const llmCount = results.filter((item) => item.segmentBackend === 'llm').length
-      const backendNote = llmCount === results.length ? '律所 AI 分段' : llmCount > 0 ? `${llmCount}/${results.length} 律所 AI 分段，其余规则引擎` : '规则引擎分段（律所 AI 不可用）'
-      if (failures.length) {
-        toast.warning(`${results.length} 个 PDF 已写入草稿（${backendNote}），${failures.length} 个识别失败，可稍后重试`)
-      } else {
-        const filled = detected.our || detected.their ? '；已自动填入当事人' : ''
-        toast.success(
-          `云端识别完成（${backendNote}），已将 ${count} 个候选分段写入草稿${filled}；未识别材料仍需人工归类`,
-        )
-      }
+      const backendNote =
+        results.length === 0
+          ? ''
+          : llmCount === results.length
+            ? '律所 AI 分段'
+            : llmCount > 0
+              ? `${llmCount}/${results.length} 律所 AI 分段，其余规则引擎`
+              : '规则引擎分段（律所 AI 不可用）'
+      // 几类材料的结果分开数：混在一起报「完成 N 份」会让律师以为图片也分了段。
+      // 图片只回填正文、不产生分段，这里必须说清楚。
+      const parts: string[] = []
+      if (results.length > 0) parts.push(`${results.length} 个 PDF 已分段（${backendNote}，共 ${count} 段）`)
+      if (photoTexts.length > 0) parts.push(`${photoTexts.length} 张图片已识别正文`)
+      const failedTotal = failures.length + photoFailed
+      const filled = detected.our || detected.their ? '；已自动填入当事人' : ''
+      const tail = failedTotal > 0 ? `；${failedTotal} 份识别失败，可稍后重试` : '；未识别材料仍需人工归类'
+      const message = `${parts.join('，')}${filled}${tail}`
+      if (failedTotal > 0) toast.warning(message)
+      else toast.success(message)
     } catch (error) {
       // 组件已卸载（关掉阅读器）或这次 run 已被新 run 取代：静默返回，不弹错误
       if (lease.isStale()) return
@@ -156,6 +200,30 @@ export function useAutoSplit() {
 function segmentBackendOf(job: { summary: Record<string, unknown> }): string {
   const backend = job.summary.segment_backend
   return typeof backend === 'string' ? backend : ''
+}
+
+/** 由文件名推图片 MIME（后端只存 content_type，缺失时靠它补齐） */
+function guessImageType(name: string): string {
+  const lower = name.toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.bmp')) return 'image/bmp'
+  if (lower.endsWith('.tif') || lower.endsWith('.tiff')) return 'image/tiff'
+  if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic'
+  return 'image/jpeg'
+}
+
+/**
+ * OCR 文字块 → 段落文本。
+ *
+ * 只拼文字、不出 Markdown 表格：框选取字的 blocks 是「矩形 + 文字」，没有
+ * 行列语义，凭空编表格会把本来就散的手机拍照证据认成一堆假表格。行间用
+ * 换行、块间空行，尽量保留阅读顺序（后端按识别顺序返回）。
+ */
+function blocksToMarkdown(blocks: { text?: string }[] | undefined): string {
+  const lines = (blocks ?? []).map((b) => (b.text ?? '').trim()).filter(Boolean)
+  return lines.join('\n')
 }
 
 async function pollJob(jobId: string, lease: PollLease) {

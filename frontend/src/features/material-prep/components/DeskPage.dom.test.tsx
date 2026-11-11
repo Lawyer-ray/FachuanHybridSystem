@@ -107,9 +107,10 @@ vi.mock('./DeskDropLayer', () => ({
         <button
           type="button"
           onClick={() => {
-            // 65.7MB：与实测被拒的扫描件同量级（> 50MB 上限；文件名用匿名占位）。
+            // 1.2GB：超过 1GB 单文件上限（整卷客户材料口径；文件名用匿名占位）。
+            // 不用 65MB 了——那个体积在 1GB 口径下是合法上传，拦住它反而是 bug。
             // File.size 是 getter，无法用 Object.assign 覆写，直接给最小鸭子类型
-            const big = { name: '某某诉讼材料.pdf', size: 68932820 }
+            const big = { name: '某某诉讼材料.pdf', size: Math.round(1.2 * 1024 * 1024 * 1024) }
             const dt = { length: 1, item: () => null, 0: big }
             void p.onFiles(dt as unknown as FileList)
           }}
@@ -302,7 +303,7 @@ describe('DeskPage：上传', () => {
     // 关键：白传 65MB 才被后端拒绝是本次修复要避免的浪费
     expect(createMutate).not.toHaveBeenCalled()
     await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('某某诉讼材料.pdf 过大（65.7MB），单个不能超过 50.0MB'),
+      expect(toast.error).toHaveBeenCalledWith('某某诉讼材料.pdf 过大（1.2GB），单个不能超过 1.0GB'),
     )
     unmount()
   })

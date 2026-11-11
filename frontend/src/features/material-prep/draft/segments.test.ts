@@ -7,6 +7,7 @@ vi.mock('../api', () => ({ fetchAttachmentBytes: vi.fn() }))
 
 import {
   appendMatsToDraft,
+  fillSegmentText,
   mergeSegment,
   moveSegment,
   renameSegment,
@@ -210,5 +211,50 @@ describe('材料包状态与追加', () => {
     expect(d.segs[2]).toMatchObject({ t: '', fn: '补充.pdf', manual: false })
     expect(d.segs[2]!.refs).toEqual([{ mi: 2, p: 1 }, { mi: 2, p: 2 }])
     expect(appendMatsToDraft(d0, [])).toBe(d0)
+  })
+})
+
+describe('fillSegmentText（图片/Office 单页材料回填正文）', () => {
+  function photoDraft(): DraftState {
+    return {
+      mats: [
+        { partIndex: 0, n: 'box.jpg', k: 'photo', pages: 1 },
+        { partIndex: 1, n: '证据.pdf', k: 'pdf', pages: 2 },
+      ],
+      segs: [
+        { id: 'seg-p', t: '', fn: 'box.jpg', refs: [{ mi: 0, p: 1 }], manual: false },
+        { id: 'seg-q', t: '', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: false },
+      ],
+      infos: [],
+    }
+  }
+
+  it('把正文写进该源对应的段', () => {
+    const d = fillSegmentText(photoDraft(), 0, '  送货单 金额 100 元  ')
+    expect(d.segs[0]?.md).toBe('送货单 金额 100 元')
+    // 其他源不受影响
+    expect(d.segs[1]?.md).toBeUndefined()
+  })
+
+  it('不覆盖已有正文（人工/上次识别结果优先）', () => {
+    const base = photoDraft()
+    const withMd: DraftState = { ...base, segs: base.segs.map((s, i) => (i === 0 ? { ...s, md: '律师手改过' } : s)) }
+    const d = fillSegmentText(withMd, 0, 'OCR 又认了一遍')
+    expect(d.segs[0]?.md).toBe('律师手改过')
+  })
+
+  it('空文本不写入', () => {
+    const base = photoDraft()
+    expect(fillSegmentText(base, 0, '   ')).toBe(base)
+  })
+
+  it('跨源合并段不被单源正文污染', () => {
+    const base = photoDraft()
+    // 段同时引用 mi=0 与 mi=1：不是「单独属于该源」，不该被单源文本填
+    const merged: DraftState = {
+      ...base,
+      segs: [{ id: 'seg-m', t: '', fn: '合并', refs: [{ mi: 0, p: 1 }, { mi: 1, p: 1 }], manual: true }],
+    }
+    expect(fillSegmentText(merged, 0, '某段文字')).toBe(merged)
   })
 })

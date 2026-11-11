@@ -43,7 +43,15 @@ from .llm_segment_detector import LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
 from .segment_detector import SegmentDetector
-from .split_models import OCRPageResult, PageDescriptor, SegmentDraft, extract_layout_title
+from .split_models import (
+    MATERIAL_KIND_MIXED_PDF,
+    MATERIAL_KIND_SCANNED_PDF,
+    OCRPageResult,
+    PageDescriptor,
+    SegmentDraft,
+    classify_pdf_material,
+    extract_layout_title,
+)
 
 logger = logging.getLogger("apps.pdf_splitting")
 
@@ -200,6 +208,10 @@ class PageTextExtractor:
         }
         with fitz.open(pdf_path) as doc:
             total_pages = int(doc.page_count)
+            # 抽样判定材料类别（只读首/中/尾几页）：写进 summary 让「这份为什么
+            # 走了云端 / 为什么没坐标」可回溯，也供前端提示用。判定不改变下面
+            # 的逐页决策——逐页才是真相，抽样只是为了给出一个可读标签。
+            stats["material_kind"] = classify_pdf_material(doc, is_effective_text=self._rule_detector.is_effective_text)
             descriptors = self._extract_from_text_layer_or_cache(
                 doc,
                 pdf_hash=pdf_hash,
@@ -384,4 +396,10 @@ class PageTextExtractor:
             "ocr_cloud_cache_profile": stats["cloud_cache_profile"] if cloud_backend else "",
             "ocr_cloud_cache_hit_count": int(max(stats["cloud_cache_hit_count"], 0)),
             "ocr_fallback_reason": stats["cloud_error"] if pending and cloud_backend else "",
+            # 电子版 / 扫描件 / 混合：同一本里混扫描页时逐页各自选路，
+            # 这个标签只说明「整本更像哪类」，不要拿它替代逐页判定。
+            "material_kind": stats.get("material_kind", MATERIAL_KIND_SCANNED_PDF),
+            # 本次是否真的调了云端：false 且有扫描页 → 说明云端没配/不可用，
+            # 走的是本地 OCR（排障时最容易误判成「云端很慢」的就是这个）。
+            "cloud_used": bool(pending and cloud_backend),
         }

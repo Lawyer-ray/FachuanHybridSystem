@@ -49,16 +49,22 @@ export const MANUAL_SOURCE_TYPE = 'manual_upload'
 /**
  * 上传体积上限 —— 必须与后端 `apps/message_hub/services/upload_policy.py` 同步。
  *
- * 前端先拦一道的理由不是「多一道保险」，而是**上传成本**：一份 65MB 的 PDF
- * 传满整条链路才被后端按 50MB 拒掉，用户白等几十秒还要吃掉一次上行带宽。
+ * 前端先拦一道的理由不是「多一道保险」，而是**上传成本**：一份 1.2GB 的卷宗
+ * 传满整条链路才被后端拒掉，用户白等几分钟还要吃掉一次上行带宽。
  * 这里直接按体积提前报错，文案与后端逐字一致，用户不会看到两种说法。
+ *
+ * ⚠️ 1GB 是业务决定（整卷客户材料），比 document_parsing 等工具型上传的
+ *    50MB 宽得多。别拿这里的数字去反推其他上传口的口径。
+ * ⚠️ 大文件耗时：上传超时看 lib/api 的 UPLOAD_TIMEOUT_MS；预览/OCR 不要
+ *    假定文件已完全驻留内存（fetchAttachmentBytes 会缓存整份 bytes）。
  *
  * ⚠️ 改后端 `MANUAL_UPLOAD_MAX_SIZE_BYTES` / `MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES`
  *    时必须同步改这里（前端无法 import Python 常量）。
  */
-export const UPLOAD_MAX_SIZE_BYTES = 50 * 1024 * 1024
-/** 压缩包单独放宽：律所扫描件整包常见 100–200MB，后端展开侧自有硬上限兜底 */
-export const UPLOAD_ARCHIVE_MAX_SIZE_BYTES = 200 * 1024 * 1024
+export const UPLOAD_MAX_SIZE_BYTES = 1024 * 1024 * 1024
+/** 压缩包与单文件同额：整包上传时压缩包本身就是「一个文件」，
+ *  再设一个更小的值只会制造「直传能过、打包反而被拒」的怪事 */
+export const UPLOAD_ARCHIVE_MAX_SIZE_BYTES = 1024 * 1024 * 1024
 /** 可展开的压缩包扩展名（与后端 ARCHIVE_EXTENSIONS 同口径） */
 export const UPLOAD_ARCHIVE_EXTENSIONS = ['.zip', '.rar', '.7z'] as const
 
@@ -70,8 +76,10 @@ export function uploadSizeCapBytes(name: string): number {
     : UPLOAD_MAX_SIZE_BYTES
 }
 
-/** 字节数 → 「65.7MB」这样的展示串（1 位小数，够用户核对） */
+/** 字节数 → 「65.7MB」/「1.0GB」这样的展示串（够用户核对量级） */
 export function formatMB(bytes: number): string {
+  const gb = bytes / (1024 * 1024 * 1024)
+  if (gb >= 1) return `${gb.toFixed(1)}GB`
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
