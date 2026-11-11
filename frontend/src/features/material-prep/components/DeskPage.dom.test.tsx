@@ -9,6 +9,8 @@
  * - 上传成功切到 todo 并提示；失败提示且不切
  * - judge：命中 leaving 时防重入；成功后按目标方向离场并定时清理
  * - 卸载时清掉离场定时器
+ * - 统一工具栏：主区域容器四阶段共用、按阶段出现对应槽位、筛选值透传给 InboxView、
+ *   「列表 / 卡片」按阶段记住并透传给 PackGrid
  */
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
@@ -20,13 +22,23 @@ const hookMock = vi.hoisted(() => ({
   useJudgePack: vi.fn(),
   useDeletePack: vi.fn(),
   useInboxCounts: vi.fn(() => 0),
+  useInboxList: vi.fn(),
 }))
+/**
+ * 工具栏用到的同步状态机单独打桩：真实实现要发包并轮询，而这些用例只关心
+ * 「工具栏出现在哪个阶段、点了会不会调 run」。
+ */
+const syncMock = vi.hoisted(() => ({ useSyncSources: vi.fn() }))
 const storeMock = vi.hoisted(() => ({ open: vi.fn(), openId: null as number | null }))
 
 vi.mock('../hooks/use-inbox', () => hookMock)
 // 收件箱角标走的是 inbox 子域的 hooks（不是 ../hooks/use-inbox），单独打桩：
 // 不打桩它会去要 QueryClient，而这些用例只验证 DeskPage 自己的编排逻辑。
-vi.mock('../inbox/hooks/use-inbox', () => ({ useInboxCounts: hookMock.useInboxCounts }))
+vi.mock('../inbox/hooks/use-inbox', () => ({
+  useInboxCounts: hookMock.useInboxCounts,
+  useInboxList: hookMock.useInboxList,
+}))
+vi.mock('../inbox/hooks/use-sync-sources', () => ({ useSyncSources: syncMock.useSyncSources }))
 vi.mock('../store', () => ({
   useReader: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),
 }))
@@ -49,8 +61,9 @@ const ui = vi.hoisted(() => ({
     counts: Record<string, number>
     setStage: (t: string) => void
   },
-  grid: null as null | { packs: Array<{ id: number }>; leaving: Record<number, string> },
+  grid: null as null | { packs: Array<{ id: number }>; leaving: Record<number, string>; viewMode?: string },
   gridCbs: null as null | Record<string, (...a: unknown[]) => void>,
+  inbox: null as null | Record<string, unknown>,
   drop: null as null | { onFiles: (f: FileList | null) => Promise<void>; uploading: boolean; dragging: boolean },
 }))
 vi.mock('./DeskTabs', () => ({
@@ -69,10 +82,16 @@ vi.mock('./DeskTabs', () => ({
 }))
 // 收件箱阶段的主区域：本文件只验证 DeskPage 的阶段编排，收件箱自身由
 // InboxView.dom.test 覆盖，这里打桩成可识别的标记。
-vi.mock('../inbox', () => ({ InboxView: () => <div>INBOX-VIEW</div> }))
+// 收到的 props 要存下来——工具栏的筛选值是否正确透传，只能从这里断言。
+vi.mock('../inbox', () => ({
+  InboxView: (p: Record<string, unknown>) => {
+    ui.inbox = p
+    return <div>INBOX-VIEW</div>
+  },
+}))
 vi.mock('./PackGrid', () => ({
   PackGrid: (p: Record<string, unknown>) => {
-    ui.grid = p as unknown as { packs: Array<{ id: number }>; leaving: Record<number, string> }
+    ui.grid = p as unknown as { packs: Array<{ id: number }>; leaving: Record<number, string>; viewMode?: string }
     ui.gridCbs = p as unknown as Record<string, (...a: unknown[]) => void>
     const packs = (p.packs as Array<{ id: number }>) ?? []
     return (
@@ -83,7 +102,6 @@ vi.mock('./PackGrid', () => ({
         <button type="button" onClick={() => packs[0] && (p.onAccept as (x: unknown) => void)(packs[0])}>接</button>
         <button type="button" onClick={() => packs[0] && (p.onDelete as (x: unknown) => void)(packs[0])}>删</button>
         <button type="button" onClick={() => packs[0] && (p.onRename as (x: unknown) => void)(packs[0])}>改名</button>
-        <button type="button" onClick={() => (p.onPickFiles as () => void)()}>选文件</button>
       </div>
     )
   },
@@ -171,6 +189,20 @@ function setup(packs: unknown[] | null, over: { create?: unknown; judge?: unknow
   return { createMutate: (over.create as never) ?? mutateAsync, judgeMutate: (over.judge as never) ?? mutateAsync }
 }
 
+/** 收件箱行：只带 countUnread 用得着的 is_read，其余字段与断言无关 */
+function inboxRow(id: number, isRead: boolean) {
+  return { id, is_read: isRead, subject: `msg-${id}` }
+}
+
+/**
+ * 未读数由 DeskPage 自己派生自 useInboxList（参数只含 source + search，**不含
+ * unreadOnly**）。这里给它一份固定的「当前来源档位 + 搜索词下的全量行」——
+ * 注意其中可以含已读行，因为按契约后端此时不受 unread_only 过滤。
+ */
+function setInboxRows(rows: unknown[]) {
+  hookMock.useInboxList.mockReturnValue({ data: rows, isLoading: false, error: null, refetch: vi.fn() })
+}
+
 /**
  * 统一渲染入口：DeskPage 的阶段状态存在 URL（?stage=），必须包在 Router 里。
  * 缺省 ``/material-prep?stage=todo`` —— 绝大多数用例验证的是材料包网格，
@@ -187,8 +219,17 @@ function renderDesk(path = '/material-prep?stage=todo') {
 beforeEach(() => {
   vi.clearAllMocks()
   hookMock.useInboxCounts.mockReturnValue(0)
+  hookMock.useInboxList.mockReturnValue({ data: [], isLoading: false, error: null, refetch: vi.fn() })
+  syncMock.useSyncSources.mockReturnValue({
+    state: 'idle',
+    enabled: true,
+    newCount: null,
+    run: vi.fn(),
+    lastWindowDays: 3,
+  })
   ui.tabs = null
   ui.grid = null
+  ui.inbox = null
   ui.drop = null
 })
 
@@ -585,16 +626,9 @@ describe('DeskPage：拖放上传与 dragOver', () => {
   })
 })
 
-// ============ 选文件 / 对话框取消 / 离场清理（覆盖率补测） ============
+// ============ 对话框取消 / 离场清理（覆盖率补测） ============
 
-describe('DeskPage：选文件与对话框取消', () => {
-  it('点「选文件」不抛错（onPickFiles 连线存在）', async () => {
-    setup([pack(1, 'todo')])
-    const { unmount, getByText } = renderDesk()
-    expect(() => fireEvent.click(getByText('选文件'))).not.toThrow()
-    unmount()
-  })
-
+describe('DeskPage：对话框取消', () => {
   it('对话框取消回调各自清空目标', async () => {
     setup([pack(1, 'todo')])
     const { unmount, getByText } = renderDesk()
@@ -673,6 +707,227 @@ describe('DeskPage：阶段（收件箱与材料包同页）', () => {
     fireEvent.click(getByText('模拟上传'))
     await waitFor(() => expect(ui.tabs!.stage).toBe('todo'))
     expect(queryByText('INBOX-VIEW')).toBeNull()
+    unmount()
+  })
+})
+
+// ============ 统一工具栏（方案 B：一个容器 + 一条工具栏） ============
+
+/** 主区域容器：key={stage} 那层，四阶段共用同一个 DESK_SURFACE_CLASS */
+/**
+ * 取「统一卡片容器」。
+ *
+ * 它现在是**工具栏 + 主区域共用的同一张卡**（工具栏是表头、主区域是卡身），
+ * 不再是 .app-stage-enter 那一层——那层只负责阶段切换的淡入动画。
+ * 用 data-testid 而非类名定位：卡片的视觉类名会调整，测的应该是"哪个元素"
+ * 而不是"它长什么样"。
+ */
+function surfaceOf(container: HTMLElement): HTMLElement | null {
+  return container.querySelector('[data-testid="desk-surface"]')
+}
+
+describe('DeskPage：主区域容器统一', () => {
+  it('收件箱与材料包阶段共用同一个描边卡片容器', () => {
+    setup([pack(1, 'todo')])
+    const inbox = renderDesk('/material-prep')
+    const inboxClass = surfaceOf(inbox.container)!.className
+    inbox.unmount()
+
+    const todo = renderDesk('/material-prep?stage=todo')
+    const todoClass = surfaceOf(todo.container)!.className
+    todo.unmount()
+
+    // 切页签时"框"不能跳走：两个阶段的主区域必须是同一个容器样式
+    expect(inboxClass).toBe(todoClass)
+    expect(todoClass).toContain('rounded-[14px]')
+    expect(todoClass).toContain('border')
+    expect(todoClass).toContain('overflow-hidden')
+  })
+
+  it('页面上只有一张卡片：工具栏与主区域共用同一个容器', () => {
+    // 曾经踩过的坑：工具栏和主区域各自套了一层 DESK_SURFACE_CLASS，
+    // 页面上出现「两张上下叠放的独立卡片」，比统一之前更分裂。
+    // 这里锁住"有且仅有一个描边卡片"，避免同样的错误再犯。
+    setup([pack(1, 'todo')])
+    const { container, unmount } = renderDesk('/material-prep?stage=todo')
+
+    const cards = container.querySelectorAll('[data-testid="desk-surface"]')
+    expect(cards).toHaveLength(1)
+
+    const surface = cards[0]!
+    // 工具栏与主区域都必须是这张卡的后代（而不是各自独立成卡）
+    expect(surface.contains(container.querySelector('[data-testid="desk-toolbar"]'))).toBe(true)
+    expect(surface.contains(container.querySelector('.app-stage-enter'))).toBe(true)
+    unmount()
+  })
+})
+
+describe('DeskPage：工具栏槽位随阶段变化', () => {
+  it('收件箱阶段：工具栏在，显示来源药丸 / 未读 / 搜索 / 同步', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByTestId, getByLabelText, getByRole } = renderDesk('/material-prep')
+
+    const bar = getByTestId('desk-toolbar')
+    expect(bar.getAttribute('data-stage')).toBe('inbox')
+    // 工具栏在页签之下、主区域之外——两个阶段都不消失，才不会「像换了页面」
+    expect(bar.closest('.app-stage-enter')).toBeNull()
+
+    expect(getByRole('button', { name: '邮箱' })).toBeTruthy()
+    expect(getByRole('button', { name: '法院短信' })).toBeTruthy()
+    expect(getByRole('button', { name: /未读/ })).toBeTruthy()
+    expect(getByLabelText('搜索收件箱')).toBeTruthy()
+    expect(getByRole('button', { name: /同步全部/ })).toBeTruthy()
+    // 收件箱是消息流：不提供「列表 / 卡片」切换
+    expect(bar.textContent).not.toContain('卡片')
+    unmount()
+  })
+
+  it('材料包阶段：工具栏在，显示列表/卡片切换，不显示收件箱控件', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByTestId, queryByLabelText, queryByRole } = renderDesk('/material-prep?stage=todo')
+
+    const bar = getByTestId('desk-toolbar')
+    expect(bar.getAttribute('data-stage')).toBe('todo')
+    expect(bar.textContent).toContain('列表')
+    expect(bar.textContent).toContain('卡片')
+    expect(queryByLabelText('搜索收件箱')).toBeNull()
+    expect(queryByRole('button', { name: /未读/ })).toBeNull()
+    expect(queryByRole('button', { name: /同步/ })).toBeNull()
+    unmount()
+  })
+
+  it('工具栏本身不随阶段重挂（阶段切换时仍是同一条）', async () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByText, getByTestId, container } = renderDesk('/material-prep')
+    const before = getByTestId('desk-toolbar')
+
+    act(() => {
+      getByText('切到待处理').click()
+    })
+    await waitFor(() => expect(getByTestId('desk-toolbar').getAttribute('data-stage')).toBe('todo'))
+    // 同一个 DOM 节点（没有 key={stage} 在它身上）→ 切页签时工具栏不闪
+    expect(container.querySelector('[data-testid="desk-toolbar"]')).toBe(before)
+    unmount()
+  })
+})
+
+describe('DeskPage：收件箱筛选上提并透传', () => {
+  it('InboxView 收到受控的筛选 props（未读数不归它）', () => {
+    setup([pack(1, 'todo')])
+    setInboxRows([inboxRow(1, false), inboxRow(2, true), inboxRow(3, false)])
+    const { unmount } = renderDesk('/material-prep')
+
+    expect(ui.inbox).toMatchObject({
+      source: 'all',
+      search: '',
+      unreadOnly: false,
+    })
+    // 未读数不能交给 InboxView：它的 rows 是按 unreadOnly 取的，
+    // 打开「只看未读」后行里没有未读记录，在这里算必然恒为 0。
+    expect(ui.inbox).not.toHaveProperty('unreadCount')
+    expect(typeof (ui.inbox as { onSourceChange: unknown }).onSourceChange).toBe('function')
+    unmount()
+  })
+
+  it('未读数由 DeskPage 算并显示在工具栏药丸上（与未读开关无关）', () => {
+    setup([pack(1, 'todo')])
+    setInboxRows([inboxRow(1, false), inboxRow(2, true), inboxRow(3, false)])
+    const { unmount, getByRole } = renderDesk('/material-prep')
+
+    // 3 行里 2 条未读 → 工具栏「未读」药丸上要显示 2。
+    // 断言渲染结果而非 mock props：数字是给用户看的，直接验它有没有出现。
+    const pill = getByRole('button', { name: /未读/ })
+    expect(pill.textContent).toContain('2')
+    unmount()
+  })
+
+  it('点工具栏药丸 / 未读 / 输入搜索：状态提升到 DeskPage 再回传 InboxView', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByRole, getByLabelText } = renderDesk('/material-prep')
+
+    fireEvent.click(getByRole('button', { name: '邮箱' }))
+    fireEvent.click(getByRole('button', { name: /未读/ }))
+    fireEvent.change(getByLabelText('搜索收件箱'), { target: { value: '执行裁定' } })
+
+    // 筛选值必须落回 DeskPage 再喂给列表主体，否则就是"点了药丸但列表不动"
+    expect(ui.inbox).toMatchObject({ source: 'imap', unreadOnly: true, search: '执行裁定' })
+    unmount()
+  })
+
+  it('未读数取的是当前筛选结果，而不是全库总数', () => {
+    setup([pack(1, 'todo')])
+    hookMock.useInboxCounts.mockReturnValue(99) // 页签角标：全库条数，与未读无关
+    setInboxRows([inboxRow(1, false)]) // 当前筛选下只有 1 条，且未读
+    const { unmount, getByRole } = renderDesk('/material-prep')
+
+    expect(getByRole('button', { name: /未读/ }).textContent).toContain('1')
+    expect(getByRole('button', { name: /未读/ }).textContent).not.toContain('99')
+    unmount()
+  })
+
+  it('未读数不受「只看未读」开关影响（取数参数里不带 unreadOnly）', () => {
+    setup([pack(1, 'todo')])
+    setInboxRows([inboxRow(1, false), inboxRow(2, true)])
+    const { unmount, getByRole } = renderDesk('/material-prep')
+
+    // 开关打开前后：都是同一个数字（这里 1 条未读）
+    expect(getByRole('button', { name: /未读/ }).textContent).toContain('1')
+    fireEvent.click(getByRole('button', { name: /未读/ }))
+    expect(getByRole('button', { name: /未读/ }).textContent).toContain('1')
+
+    // 根因断言：取数参数不得带 unreadOnly——带了就会只拿回未读行，数字自我坍缩
+    for (const call of hookMock.useInboxList.mock.calls) {
+      expect(call[0]).not.toHaveProperty('unreadOnly')
+    }
+    unmount()
+  })
+
+  it('工具栏同步按钮作用在当前档位（同步状态机按档位重建）', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByRole } = renderDesk('/material-prep')
+    fireEvent.click(getByRole('button', { name: '邮箱' }))
+    expect(syncMock.useSyncSources).toHaveBeenLastCalledWith('imap')
+    unmount()
+  })
+})
+
+describe('DeskPage：列表 / 卡片切换', () => {
+  it('材料包阶段默认按 STAGE_DEFAULT_VIEW 传 viewMode（网格 = grid）', () => {
+    setup([pack(1, 'todo')])
+    const { unmount } = renderDesk('/material-prep?stage=todo')
+    expect(ui.grid!.viewMode).toBe('grid')
+    unmount()
+  })
+
+  it('切换成列表后 PackGrid 收到 list', () => {
+    setup([pack(1, 'todo')])
+    const { unmount, getByTitle } = renderDesk('/material-prep?stage=todo')
+
+    fireEvent.click(getByTitle('列表'))
+    expect(ui.grid!.viewMode).toBe('list')
+    unmount()
+  })
+
+  it('切换结果按阶段记住：去别的阶段再切回来仍是上次选的形态', async () => {
+    setup([pack(1, 'todo'), pack(2, 'done')])
+    const { unmount, getByTitle, getByText } = renderDesk('/material-prep?stage=todo')
+
+    fireEvent.click(getByTitle('列表'))
+    expect(ui.grid!.viewMode).toBe('list')
+
+    // 换阶段：已归案仍用缺省（grid）——各阶段互不影响
+    act(() => {
+      getByText('切到已归案').click()
+    })
+    await waitFor(() => expect(ui.grid!.packs.map((p) => p.id)).toEqual([2]))
+    expect(ui.grid!.viewMode).toBe('grid')
+
+    // 切回待处理：用户的选择还在
+    act(() => {
+      getByText('切到待处理').click()
+    })
+    await waitFor(() => expect(ui.grid!.packs.map((p) => p.id)).toEqual([1]))
+    expect(ui.grid!.viewMode).toBe('list')
     unmount()
   })
 })
