@@ -9,9 +9,6 @@ from typing import Any
 class GuaranteeDataMixin:
     """当事人数据归一化与 case number 解析。"""
 
-    DEFAULT_NATURAL_ID_NUMBER: str
-    DEFAULT_LEGAL_ID_NUMBER: str
-
     def _normalize_party_type(self, raw_party_type: Any) -> str:
         value = str(raw_party_type or "").strip().lower()
         if value in {"natural", "person", "individual"}:
@@ -29,18 +26,17 @@ class GuaranteeDataMixin:
         is_property_clue: bool = False,
         property_clue_data: dict[str, Any] | None = None,
     ) -> dict[str, str]:
-        name = str(party.get("name") or "").strip() or "张三"
+        # 缺姓名/证件号/地址一律留空，不填占位值；
+        # 空值由法院表单自身的必填校验暴露（errors_after_next），由人工补全后重跑。
+        name = str(party.get("name") or "").strip()
         party_type = self._normalize_party_type(party.get("party_type") or "natural")
         is_natural = party_type == "natural"
 
         id_number = str(party.get("id_number") or "").strip()
-        if not id_number:
-            id_number = self.DEFAULT_NATURAL_ID_NUMBER if is_natural else self.DEFAULT_LEGAL_ID_NUMBER
+        address = str(party.get("address") or "").strip()
 
-        legal_representative = str(party.get("legal_representative") or "").strip() or "张三"
-        legal_representative_id_number = (
-            str(party.get("legal_representative_id_number") or "").strip() or self.DEFAULT_NATURAL_ID_NUMBER
-        )
+        legal_representative = str(party.get("legal_representative") or "").strip()
+        legal_representative_id_number = str(party.get("legal_representative_id_number") or "").strip()
 
         defaults = {
             "party_type": party_type,
@@ -53,11 +49,11 @@ class GuaranteeDataMixin:
             "telephone_area_code": "",
             "telephone_number": "",
             "telephone_extension": "",
-            "birth_date": "1990-01-01",
-            "age": "36",
-            "gender": "男性",
-            "address": str(party.get("address") or "").strip() or "广东省广州市天河区测试地址1号",
-            "unit_address": str(party.get("address") or "").strip() or "广东省广州市天河区测试地址1号",
+            "birth_date": str(party.get("birth_date") or "").strip(),
+            "age": str(party.get("age") or "").strip(),
+            "gender": str(party.get("gender") or "").strip(),
+            "address": address,
+            "unit_address": address,
             "legal_representative": legal_representative,
             "legal_representative_id_number": legal_representative_id_number,
             "principal": legal_representative,
@@ -86,8 +82,8 @@ class GuaranteeDataMixin:
         return defaults
 
     def _build_agent_dialog_defaults(self, source: dict[str, Any]) -> dict[str, str]:
-        name = str(source.get("name") or "").strip() or "张三"
-        id_number = str(source.get("id_number") or "").strip() or self.DEFAULT_NATURAL_ID_NUMBER
+        name = str(source.get("name") or "").strip()
+        id_number = str(source.get("id_number") or "").strip()
         phone = str(source.get("phone") or "").strip()
         return {
             "party_type": "agent",
@@ -101,7 +97,7 @@ class GuaranteeDataMixin:
             "license_number": str(source.get("license_number") or "").strip(),
             "agent_type": "执业律师",
             "principal_party_name": str(source.get("name") or "").strip() or name,
-            "gender": "男性",
+            "gender": str(source.get("gender") or "").strip(),
         }
 
 

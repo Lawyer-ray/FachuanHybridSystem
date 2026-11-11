@@ -70,29 +70,29 @@ class TestCloudStorageExceptions:
 class TestWebDAVProvider:
     """测试 WebDAVProvider"""
 
-    @patch("apps.cloud_storage.webdav_provider.requests.Session")
-    def test_init(self, mock_session_cls: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_init(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         provider = WebDAVProvider(username="user", app_password="pass", root_path="/myroot")
         assert provider._root == "/myroot"
         assert provider._username == "user"
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_full_path(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_full_path(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
-        mock_requests.Session.return_value = MagicMock()
+        mock_client_cls.return_value = MagicMock()
         provider = WebDAVProvider(username="u", app_password="p", root_path="root")
         assert provider._full_path("") == "/root"
         assert provider._full_path("sub/file.txt") == "/root/sub/file.txt"
         assert provider._full_path("/sub/") == "/root/sub"
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_url_construction(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_url_construction(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
-        mock_requests.Session.return_value = MagicMock()
+        mock_client_cls.return_value = MagicMock()
         provider = WebDAVProvider(
             username="u", app_password="p", root_path="/docs", webdav_url="https://dav.example.com/dav/"
         )
@@ -100,69 +100,69 @@ class TestWebDAVProvider:
         assert url.startswith("https://dav.example.com/dav/")
         assert "file.txt" in url
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_503_raises_rate_limit(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_503_raises_rate_limit(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
-        mock_session = MagicMock()
-        mock_requests.Session.return_value = mock_session
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
 
         mock_response = MagicMock()
         mock_response.status_code = 503
-        mock_session.request.return_value = mock_response
+        mock_client.request.return_value = mock_response
 
         provider = WebDAVProvider(username="u", app_password="p")
         with pytest.raises(CloudStorageRateLimitError):
             provider._request("GET", "test")
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_exists_true(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_exists_true(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
-        mock_session = MagicMock()
-        mock_requests.Session.return_value = mock_session
-        mock_session.request.return_value = MagicMock(status_code=200)
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.request.return_value = MagicMock(status_code=200)
 
         provider = WebDAVProvider(username="u", app_password="p")
         assert provider.exists("file.txt") is True
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_exists_false(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_exists_false(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
-        mock_session = MagicMock()
-        mock_requests.Session.return_value = mock_session
-        mock_session.request.return_value = MagicMock(status_code=404)
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.request.return_value = MagicMock(status_code=404)
 
         provider = WebDAVProvider(username="u", app_password="p")
         assert provider.exists("missing.txt") is False
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_delete_file_success(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_delete_file_success(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
-        mock_session = MagicMock()
-        mock_requests.Session.return_value = mock_session
-        mock_session.request.return_value = MagicMock(status_code=204)
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.request.return_value = MagicMock(status_code=204)
 
         provider = WebDAVProvider(username="u", app_password="p")
         assert provider.delete_file("file.txt") is None
-        assert mock_session.request.call_args.args[0] == "DELETE"
+        assert mock_client.request.call_args.args[0] == "DELETE"
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_delete_file_404_ok(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_delete_file_404_ok(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import WebDAVProvider
 
-        mock_session = MagicMock()
-        mock_requests.Session.return_value = mock_session
-        mock_session.request.return_value = MagicMock(status_code=404)
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.request.return_value = MagicMock(status_code=404)
 
         provider = WebDAVProvider(username="u", app_password="p")
         assert provider.delete_file("missing.txt") is None
-        mock_session.request.assert_called_once()
+        mock_client.request.assert_called_once()
 
-    @patch("apps.cloud_storage.webdav_provider.requests")
-    def test_jianguoyun_alias(self, mock_requests: MagicMock) -> None:
+    @patch("apps.cloud_storage.webdav_provider.httpx.Client")
+    def test_jianguoyun_alias(self, mock_client_cls: MagicMock) -> None:
         from apps.cloud_storage.webdav_provider import JianguoyunProvider, WebDAVProvider
 
         assert JianguoyunProvider is WebDAVProvider

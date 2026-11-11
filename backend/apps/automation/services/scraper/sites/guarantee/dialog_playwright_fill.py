@@ -92,7 +92,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
 
         _fill_first_visible("开始日期", "2020-01-01")
         _fill_first_visible("结束日期", "2099-12-31")
-        _fill_first_visible("选择日期", defaults.get("birth_date") or "1990-01-01")
+        _fill_first_visible("选择日期", defaults.get("birth_date") or "")
         _fill_first_visible("区号", defaults.get("telephone_area_code") or "")
         _fill_first_visible("电话", defaults.get("telephone_number") or "")
         _fill_first_visible("分机号", defaults.get("telephone_extension") or "")
@@ -153,14 +153,15 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
                 "财产所有人",
                 [defaults.get("owner_name") or "", defaults.get("name") or ""],
             )
-            province_value = defaults.get("property_province") or "广东省"
-            _select_dropdown_by_label("房产坐落位置", [province_value.replace("省", ""), province_value])
+            province_value = defaults.get("property_province") or ""
+            if province_value:
+                _select_dropdown_by_label("房产坐落位置", [province_value.replace("省", ""), province_value])
 
             property_updates = self.page.evaluate(
                 r"""(args) => {
                     const ownerName = args.ownerName || '';
-                    const provinceName = args.provinceName || '广东省';
-                    const provinceKeyword = (provinceName || '广东省').replace('省', '');
+                    const provinceName = args.provinceName || '';
+                    const provinceKeyword = provinceName.replace('省', '');
                     const location = args.location || '';
                     const out = { province: false, location: false };
                     const isVisible = (el) => {
@@ -207,7 +208,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
                 }""",
                 {
                     "ownerName": defaults.get("owner_name") or defaults.get("name") or "",
-                    "provinceName": defaults.get("property_province") or "广东省",
+                    "provinceName": defaults.get("property_province") or "",
                     "location": defaults.get("property_location") or "",
                 },
             )
@@ -216,7 +217,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
             if bool((property_updates or {}).get("location")):
                 updates.append(f"具体位置={defaults.get('property_location') or ''}")
 
-            _fill_first_visible("请选择省份", defaults.get("property_province") or "广东省")
+            _fill_first_visible("请选择省份", defaults.get("property_province") or "")
             self.page.evaluate(
                 r"""(province) => {
                     const isVisible = (el) => {
@@ -237,10 +238,11 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
                     const provinceInputs = [...dialog.querySelectorAll('input')]
                         .filter((el) => isVisible(el) && !el.disabled && ((el.placeholder || '').includes('省') || (el.parentElement?.innerText || '').includes('省份')));
                     for (const input of provinceInputs) {
-                        if (!(input.value || '').trim()) setValue(input, province || '广东省');
+                        if (!province) continue;
+                        if (!(input.value || '').trim()) setValue(input, province);
                     }
                 }""",
-                defaults.get("property_province") or "广东省",
+                defaults.get("property_province") or "",
             )
 
             cascaders = self.page.locator(".el-dialog .el-cascader, #addSQR .el-cascader")

@@ -18,8 +18,9 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
 
     def _fill_property_clue_dialog_v15(self, defaults: dict[str, str]) -> list[str]:  # pragma: no cover
         updates: list[str] = []
-        owner_name = str(defaults.get("owner_name") or defaults.get("name") or "张三").strip() or "张三"
-        province_name = str(defaults.get("property_province") or "广东省").strip() or "广东省"
+        # 财产所有人/省份都只用真实数据：为空就跳过该下拉，不填占位值。
+        owner_name = str(defaults.get("owner_name") or defaults.get("name") or "").strip()
+        province_name = str(defaults.get("property_province") or "").strip()
         province_keyword = province_name.replace("省", "")
 
         try:
@@ -59,6 +60,8 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
             owner_inputs = self.page.locator(
                 ".el-dialog input[placeholder='请选择财产所有人'], #addSQR input[placeholder='请选择财产所有人']"
             )
+            if not owner_name:
+                raise ValueError("缺少财产所有人姓名，跳过财产所有人下拉")
             for i in range(owner_inputs.count()):
                 field = owner_inputs.nth(i)
                 if not field.is_visible() or field.is_disabled():
@@ -96,6 +99,8 @@ class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
             province_inputs = self.page.locator(
                 ".el-dialog .fd-sf input.el-input__inner, #addSQR .fd-sf input.el-input__inner"
             )
+            if not province_name:
+                raise ValueError("缺少财产所在省份，跳过省份下拉")
             if province_inputs.count() > 0:
                 field = province_inputs.first
                 if field.is_visible() and not field.is_disabled():

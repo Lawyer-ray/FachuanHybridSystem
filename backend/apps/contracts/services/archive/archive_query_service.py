@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from django.db import transaction
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial
+from apps.core.models.enums import CaseStatus
 from apps.core.services.storage_service import delete_media_file
+
+logger = logging.getLogger("apps.contracts.services.archive")
 
 
 def get_contract_or_none(contract_id: int) -> Contract | None:  # pragma: no cover
@@ -75,3 +79,23 @@ def move_material(material: FinalizedMaterial, target_code: str) -> None:
 def get_materials_for_contract(contract_id: int) -> Any:  # pragma: no cover
     """获取合同的所有归档材料。"""
     return FinalizedMaterial.objects.filter(contract_id=contract_id)
+
+
+def confirm_archive(contract_id: int) -> bool:
+    """确认归档：合同置已归档 + 关联案件结案，两步在同一事务内提交。
+
+    任一写入失败即整体回滚，不会留下「合同已归档但案件未结案」的脏状态。
+    已是 ``closed`` 的案件不重复写入。合同不存在返回 False（无写入、无事务）。
+    """
+    from apps.cases.models import Case
+
+    with transaction.atomic():
+        updated = Contract.objects.filter(pk=contract_id).update(status="archived")
+        if not updated:
+            logger.warning("确认归档失败，合同不存在: contract_id=%s", contract_id)
+            return False
+
+        Case.objects.filter(contract_id=contract_id).exclude(status=CaseStatus.CLOSED).update(status=CaseStatus.CLOSED)
+
+    logger.info("合同已归档: contract_id=%s", contract_id)
+    return True
