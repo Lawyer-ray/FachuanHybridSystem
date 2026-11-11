@@ -33,12 +33,18 @@ type PdfSplitJobPayload = components['schemas']['PdfSplitJobOut']
 /** POST /pdf-splitting/jobs 的响应（生成物 PdfSplitJobSubmitOut） */
 type PdfSplitJobSubmit = components['schemas']['PdfSplitJobSubmitOut']
 
-export async function createPdfSplitJob(file: File): Promise<string> {
+export async function createPdfSplitJob(
+  file: File,
+  opts: { layoutMode?: 'fast_text' | 'layout' } = {},
+): Promise<string> {
   const body = new FormData()
   body.append('file', file, file.name)
   body.append('template_key', 'filing_materials_v1')
   body.append('split_mode', 'content_analysis')
   body.append('ocr_profile', 'accurate')
+  // 版面策略：layout 让电子版 PDF 也上云端拿版面块与坐标（原文坐标对照需要），
+  // 代价是这些页也计费且更慢；默认 fast_text 不调云端。
+  body.append('layout_mode', opts.layoutMode ?? 'fast_text')
   const result = await pdfSplitApi
     .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
     .json<PdfSplitJobSubmit>()

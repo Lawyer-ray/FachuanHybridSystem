@@ -39,6 +39,8 @@ export function ReaderToolbar({
   onAutoSplit,
   autoSplitRunning,
   autoSplitProgress,
+  layoutMode,
+  onLayoutModeChange,
   inline = false,
 }: {
   narrow: boolean
@@ -60,6 +62,9 @@ export function ReaderToolbar({
   onAutoSplit: () => void
   autoSplitRunning: boolean
   autoSplitProgress: string
+  /** 版面策略（补版面 = 电子页也上云端拿坐标，按页计费） */
+  layoutMode: 'fast_text' | 'layout'
+  onLayoutModeChange: (m: 'fast_text' | 'layout') => void
   /** 嵌入顶栏行（≥1100px）：只输出按钮组，不自带容器 */
   inline?: boolean
 }) {
@@ -126,7 +131,15 @@ export function ReaderToolbar({
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[200px]">
+        <DropdownMenuContent align="end" className="min-w-[240px]">
+          {/* 版面策略：决定「自动分段」时电子版 PDF 要不要为坐标而上云端。
+              放在这里而不是工具栏常驻按钮，因为它低频、且直接影响费用。 */}
+          <DropdownMenuItem onSelect={() => onLayoutModeChange('fast_text')}>
+            仅文本层{layoutMode === 'fast_text' ? ' ✓' : ''}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onLayoutModeChange('layout')}>
+            补版面（电子页也上云端，可定位{layoutMode === 'layout' ? ' ✓' : ''}）
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={onResetSegments}>恢复初始分段</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

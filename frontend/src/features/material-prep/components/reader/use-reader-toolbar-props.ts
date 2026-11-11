@@ -105,6 +105,8 @@ export function useReaderToolbarProps(params: {
     onAutoSplit: () => void autoSplit.run(),
     autoSplitRunning: autoSplit.running,
     autoSplitProgress: autoSplit.progress,
+    layoutMode: st.layoutMode,
+    onLayoutModeChange: st.setLayoutMode,
     handleAssign,
   }
 }

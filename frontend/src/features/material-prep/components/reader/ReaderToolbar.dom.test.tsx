@@ -37,6 +37,8 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     onAutoSplit: vi.fn(),
     autoSplitRunning: false,
     autoSplitProgress: '',
+    layoutMode: 'fast_text' as const,
+    onLayoutModeChange: vi.fn(),
     ...over,
   }
 }
@@ -162,6 +164,32 @@ describe('ReaderToolbar：更多操作菜单', () => {
     const item = await screen.findByText('恢复初始分段')
     fireEvent.click(item)
     expect(props.onResetSegments).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('⋯ 菜单里能把版面策略切到「补版面」（会按页计费，故收在菜单里）', async () => {
+    const { props, unmount } = renderToolbar()
+    const trigger = screen.getByRole('button', { name: /更多操作/ })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+    fireEvent.click(trigger)
+
+    const item = await screen.findByText(/补版面/)
+    fireEvent.click(item)
+    expect(props.onLayoutModeChange).toHaveBeenCalledWith('layout')
+    unmount()
+  })
+
+  it('当前策略在菜单里带 ✓ 标记，律师能看出现在是哪一种', async () => {
+    const { unmount } = renderToolbar({ layoutMode: 'layout' })
+    const trigger = screen.getByRole('button', { name: /更多操作/ })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+    fireEvent.click(trigger)
+
+    // 补版面项打勾；仅文本层项不打勾
+    const layoutItem = await screen.findByText(/补版面/)
+    expect(layoutItem.textContent).toContain('✓')
+    const textItem = screen.getByText(/^仅文本层/)
+    expect(textItem.textContent).not.toContain('✓')
     unmount()
   })
 })

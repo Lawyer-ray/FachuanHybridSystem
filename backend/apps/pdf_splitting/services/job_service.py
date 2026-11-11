@@ -20,6 +20,7 @@ from apps.core.services.storage_service import normalize_to_media_rel, sanitize_
 from apps.pdf_splitting.models import (
     PdfSplitJob,
     PdfSplitJobStatus,
+    PdfSplitLayoutMode,
     PdfSplitMode,
     PdfSplitOcrProfile,
     PdfSplitReviewFlag,
@@ -52,6 +53,7 @@ class PdfSplitJobService:
         template_key: str,
         split_mode: str = PdfSplitMode.CONTENT_ANALYSIS,
         ocr_profile: str = PdfSplitOcrProfile.BALANCED,
+        layout_mode: str = PdfSplitLayoutMode.FAST_TEXT,
         created_by: Any | None = None,
     ) -> PdfSplitJob:  # pragma: no cover
         has_file = file is not None
@@ -62,6 +64,7 @@ class PdfSplitJobService:
         template = get_template_definition(template_key)
         mode_key = self._normalize_split_mode(split_mode)
         profile_key = self._normalize_ocr_profile(ocr_profile)
+        layout_key = self._normalize_layout_mode(layout_mode)
         job_id = uuid.uuid4()
         storage = PdfSplitStorage(job_id)
         storage.ensure_dirs()
@@ -93,6 +96,7 @@ class PdfSplitJobService:
                 template_key=template.key,
                 template_version=template.version,
                 ocr_profile=profile_key,
+                layout_mode=layout_key,
                 status=PdfSplitJobStatus.PENDING,
                 total_pages=total_pages,
                 created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
@@ -100,6 +104,7 @@ class PdfSplitJobService:
                     "template_label": template.label,
                     "split_mode": mode_key,
                     "ocr_profile": profile_key,
+                    "layout_mode": layout_key,
                 },
             )
 
@@ -156,6 +161,7 @@ class PdfSplitJobService:
             "status": job.status,
             "split_mode": job.split_mode,
             "ocr_profile": job.ocr_profile,
+            "layout_mode": getattr(job, "layout_mode", PdfSplitLayoutMode.FAST_TEXT),
             "progress": int(job.progress or 0),
             "total_pages": int(job.total_pages or 0),
             "processed_pages": int(job.processed_pages or 0),
@@ -451,6 +457,17 @@ class PdfSplitJobService:
         if profile in valid_profiles:
             return profile
         return PdfSplitOcrProfile.BALANCED
+
+    def _normalize_layout_mode(self, value: str | None) -> str:
+        """版面策略归一化：非法值一律落回 fast_text（不调云端）。
+
+        默认必须是保守的那个——传错了顶多拿不到坐标，不会悄悄烧云端费用。
+        """
+        mode = str(value or "").strip().lower()
+        valid_modes = {choice for choice, _label in PdfSplitLayoutMode.choices}
+        if mode in valid_modes:
+            return mode
+        return PdfSplitLayoutMode.FAST_TEXT
 
     def _normalize_split_mode(self, value: str | None) -> str:
         mode = str(value or "").strip().lower()

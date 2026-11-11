@@ -17086,6 +17086,11 @@ export interface components {
              * @default
              */
             error_message: string;
+            /**
+             * Layout Mode
+             * @default fast_text
+             */
+            layout_mode: string;
         };
         /** SegmentOut */
         SegmentOut: {
@@ -30590,6 +30595,11 @@ export interface operations {
                      * @default balanced
                      */
                     ocr_profile?: string;
+                    /**
+                     * Layout Mode
+                     * @default fast_text
+                     */
+                    layout_mode?: string;
                 };
             };
         };

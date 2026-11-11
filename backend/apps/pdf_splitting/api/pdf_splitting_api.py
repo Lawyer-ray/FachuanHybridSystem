@@ -79,6 +79,8 @@ class PdfSplitJobOut(BaseModel):
     status: str
     split_mode: str
     ocr_profile: str
+    # 版面策略：fast_text（默认，不调云端）/ layout（电子页也上云端拿坐标与表格）
+    layout_mode: str = "fast_text"
     progress: int
     total_pages: int
     processed_pages: int
@@ -121,6 +123,7 @@ def create_pdf_split_job(  # pragma: no cover
     template_key: str = Form("filing_materials_v1"),
     split_mode: str = Form("content_analysis"),
     ocr_profile: str = Form("balanced"),
+    layout_mode: str = Form("fast_text"),
 ) -> PdfSplitJobSubmitOut:
     # 安全审计第4轮：source_path 直读服务器本地文件系统，仅管理员可提交；
     # 文件上传（file）仍对登录用户开放。
@@ -132,6 +135,7 @@ def create_pdf_split_job(  # pragma: no cover
         template_key=template_key,
         split_mode=split_mode,
         ocr_profile=ocr_profile,
+        layout_mode=layout_mode,
         created_by=getattr(request, "user", None),
     )
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
