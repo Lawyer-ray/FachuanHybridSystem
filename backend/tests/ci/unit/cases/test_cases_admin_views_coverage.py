@@ -19,6 +19,13 @@ from apps.cases.admin.mixins.views import (
     _has_court_filing_plugin,
     _log_inline_formset,
 )
+from apps.cases.admin.mixins.views_coercion import (
+    _coerce_optional_bool,
+    _coerce_optional_date,
+    _coerce_optional_decimal,
+    _coerce_optional_int,
+    _coerce_optional_str,
+)
 
 User = get_user_model()
 
@@ -196,76 +203,68 @@ class TestCaseAdminViewsMixinCoerceMethods:
     """测试类型强制转换方法"""
 
     def test_coerce_optional_date_none(self):
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_date(None) is None
+        assert _coerce_optional_date(None) is None
 
     def test_coerce_optional_date_empty(self):
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_date("") is None
+        assert _coerce_optional_date("") is None
 
     def test_coerce_optional_date_valid(self):
-        mixin = CaseAdminViewsMixin()
-        result = mixin._coerce_optional_date("2025-06-01")
+        result = _coerce_optional_date("2025-06-01")
         assert result == date(2025, 6, 1)
 
     def test_coerce_optional_date_invalid(self):
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_date("not-a-date") is None
+        assert _coerce_optional_date("not-a-date") is None
 
     def test_coerce_optional_decimal_none(self):
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_decimal(None) is None
+        assert _coerce_optional_decimal(None) is None
 
     def test_coerce_optional_decimal_empty(self):
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_decimal("") is None
+        assert _coerce_optional_decimal("") is None
 
     def test_coerce_optional_decimal_valid(self):
-        mixin = CaseAdminViewsMixin()
-        result = mixin._coerce_optional_decimal("123.45")
+        result = _coerce_optional_decimal("123.45")
         assert result == Decimal("123.45")
 
     def test_coerce_optional_decimal_invalid(self):
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_decimal("abc") is None
+        assert _coerce_optional_decimal("abc") is None
 
     def test_coerce_optional_bool_none(self):
-        assert CaseAdminViewsMixin._coerce_optional_bool(None) is None
+        assert _coerce_optional_bool(None) is None
 
     def test_coerce_optional_bool_true_values(self):
         for val in ("1", "true", "yes", "on", True):
-            assert CaseAdminViewsMixin._coerce_optional_bool(val) is True
+            assert _coerce_optional_bool(val) is True
 
     def test_coerce_optional_bool_false_values(self):
         for val in ("0", "false", "no", "off", False):
-            assert CaseAdminViewsMixin._coerce_optional_bool(val) is False
+            assert _coerce_optional_bool(val) is False
 
     def test_coerce_optional_bool_empty(self):
-        assert CaseAdminViewsMixin._coerce_optional_bool("") is None
+        assert _coerce_optional_bool("") is None
 
     def test_coerce_optional_bool_invalid(self):
-        assert CaseAdminViewsMixin._coerce_optional_bool("maybe") is None
+        assert _coerce_optional_bool("maybe") is None
 
     def test_coerce_optional_int_none(self):
-        assert CaseAdminViewsMixin._coerce_optional_int(None) is None
+        assert _coerce_optional_int(None) is None
 
     def test_coerce_optional_int_valid(self):
-        assert CaseAdminViewsMixin._coerce_optional_int("42") == 42
+        assert _coerce_optional_int("42") == 42
 
     def test_coerce_optional_int_invalid(self):
-        assert CaseAdminViewsMixin._coerce_optional_int("abc") is None
+        assert _coerce_optional_int("abc") is None
 
     def test_coerce_optional_int_empty(self):
-        assert CaseAdminViewsMixin._coerce_optional_int("") is None
+        assert _coerce_optional_int("") is None
 
     def test_coerce_optional_str_none(self):
-        assert CaseAdminViewsMixin._coerce_optional_str(None) is None
+        assert _coerce_optional_str(None) is None
 
     def test_coerce_optional_str_valid(self):
-        assert CaseAdminViewsMixin._coerce_optional_str("  hello  ") == "hello"
+        assert _coerce_optional_str("  hello  ") == "hello"
 
     def test_coerce_optional_str_empty(self):
-        assert CaseAdminViewsMixin._coerce_optional_str("") is None
+        assert _coerce_optional_str("") is None
 
 
 @pytest.mark.django_db

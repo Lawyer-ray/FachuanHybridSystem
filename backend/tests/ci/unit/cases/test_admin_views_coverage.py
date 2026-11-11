@@ -18,85 +18,177 @@ class TestCaseAdminViewsMixin:
 
     def test_coerce_optional_date_none(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_date(None) is None
-        assert mixin._coerce_optional_date("") is None
+        assert _coerce_optional_date(None) is None
+        assert _coerce_optional_date("") is None
 
     def test_coerce_optional_date_valid(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_date("2025-06-30") == date(2025, 6, 30)
+        assert _coerce_optional_date("2025-06-30") == date(2025, 6, 30)
 
     def test_coerce_optional_date_invalid(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_date("not-a-date") is None
+        assert _coerce_optional_date("not-a-date") is None
 
     def test_coerce_optional_decimal_none(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_decimal(None) is None
+        assert _coerce_optional_decimal(None) is None
 
     def test_coerce_optional_decimal_valid(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_decimal("1234.56") == Decimal("1234.56")
+        assert _coerce_optional_decimal("1234.56") == Decimal("1234.56")
 
     def test_coerce_optional_decimal_invalid(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        mixin = CaseAdminViewsMixin()
-        assert mixin._coerce_optional_decimal("abc") is None
+        assert _coerce_optional_decimal("abc") is None
 
     def test_coerce_optional_bool_none(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_bool(None) is None
+        assert _coerce_optional_bool(None) is None
 
     def test_coerce_optional_bool_true(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_bool(True) is True
-        assert CaseAdminViewsMixin._coerce_optional_bool("true") is True
-        assert CaseAdminViewsMixin._coerce_optional_bool("1") is True
-        assert CaseAdminViewsMixin._coerce_optional_bool("yes") is True
+        assert _coerce_optional_bool(True) is True
+        assert _coerce_optional_bool("true") is True
+        assert _coerce_optional_bool("1") is True
+        assert _coerce_optional_bool("yes") is True
 
     def test_coerce_optional_bool_false(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_bool(False) is False
-        assert CaseAdminViewsMixin._coerce_optional_bool("false") is False
-        assert CaseAdminViewsMixin._coerce_optional_bool("0") is False
+        assert _coerce_optional_bool(False) is False
+        assert _coerce_optional_bool("false") is False
+        assert _coerce_optional_bool("0") is False
 
     def test_coerce_optional_int_none(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_int(None) is None
+        assert _coerce_optional_int(None) is None
 
     def test_coerce_optional_int_valid(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_int("42") == 42
+        assert _coerce_optional_int("42") == 42
 
     def test_coerce_optional_int_invalid(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_int("abc") is None
+        assert _coerce_optional_int("abc") is None
 
     def test_coerce_optional_str_none(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_str(None) is None
+        assert _coerce_optional_str(None) is None
 
     def test_coerce_optional_str_valid(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
+        from apps.cases.admin.mixins.views_coercion import (
+            _coerce_optional_bool,
+            _coerce_optional_date,
+            _coerce_optional_decimal,
+            _coerce_optional_int,
+            _coerce_optional_str,
+        )
 
-        assert CaseAdminViewsMixin._coerce_optional_str("  hello  ") == "hello"
+        assert _coerce_optional_str("  hello  ") == "hello"
 
     def test_get_folder_disabled_reason_v2_no_match(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
@@ -114,7 +206,7 @@ class TestCaseAdminViewsMixin:
     def test_check_folder_binding(self):
         from apps.cases.admin.mixins.views import CaseAdminViewsMixin
 
-        with patch("apps.cases.admin.mixins.views.Case") as MockCase:
+        with patch("apps.cases.admin.mixins.views_detail.Case") as MockCase:
             MockCase.objects.filter.return_value.filter.return_value.exists.return_value = True
             result = CaseAdminViewsMixin._check_folder_binding(1)
             assert result is True
