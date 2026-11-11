@@ -12,12 +12,21 @@
  *
  * 任何一步与后端真实状态不符就非零退出 —— 这个脚本是给人睡的觉兜底的。
  *
+ * ═══ 前置条件（缺一个都跑不起来）═══
+ *   ① playwright 必须可用：本仓库 frontend/package.json **没有**声明 playwright 依赖，
+ *      需要在本机自行 `npm i -g playwright` / `npm i playwright` 安装后才能解析下面的
+ *      bare specifier（脚本刻意不写死任何人的绝对路径）。
+ *   ② 演示用的 mock 卷宗（docx / 整包 PDF / 惠民贷 PDF）与其生成脚本都在
+ *      `frontend/prototype/` 下，而该目录被 `.gitignore` 忽略（.gitignore: frontend/prototype/），
+ *      因此**团队其他人 clone 下来不会有这些夹具**。缺失时脚本会在对应步骤报 ✗
+ *      并继续跑其余步骤，不会提前崩；要完整跑通需拿到原型目录或自备夹具。
+ *
  * 用法：
  *   node frontend/e2e/bank-litigation.e2e.mjs
  *   BASE=http://127.0.0.1:5090 node frontend/e2e/bank-litigation.e2e.mjs
  */
 
-import { chromium } from '/Users/huangsong21/node_modules/playwright/index.mjs'
+import { chromium } from 'playwright'
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 
@@ -58,7 +67,10 @@ function findMockDocx() {
       }
     }
   }
-  throw new Error('找不到 mock 起诉状 docx，请先跑 scripts/gen-mock-docs.py')
+  throw new Error(
+    '找不到 mock 起诉状 docx：夹具目录 frontend/prototype/ 未入库（.gitignore），' +
+      '需要在原型目录下跑 scripts/gen-mock-docs.py 生成',
+  )
 }
 
 async function main() {
@@ -432,7 +444,10 @@ async function main() {
       segs2[0] ? `${segs2[0].filename} (${segs2[0].segment_type})` : '',
     )
   } else {
-    log(false, '整包分段：找不到整包 PDF（先跑 scripts/gen-bundle-pdf.py）')
+    log(
+      false,
+      '整包分段：找不到整包 PDF（夹具在未入库的 frontend/prototype/ 下，需先在原型目录跑 scripts/gen-bundle-pdf.py）',
+    )
   }
 
   // ── 6.9 惠民贷批量场景（消费贷逐笔提款）──
