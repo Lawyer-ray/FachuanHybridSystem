@@ -31,8 +31,9 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     onZoomOut: vi.fn(),
     onZoomReset: vi.fn(),
     cols: 1,
+    maxCols: 3,
+    onSetCols: vi.fn(),
     colsDisabled: false,
-    onChangeCols: vi.fn(),
     onResetSegments: vi.fn(),
     onAutoSplit: vi.fn(),
     autoSplitRunning: false,
@@ -99,37 +100,73 @@ describe('ReaderToolbar：核心按钮', () => {
     unmount()
   })
 
-  it('缩放三件套各自回调', () => {
-    const { props, unmount } = renderToolbar()
-    fireEvent.click(screen.getByRole('button', { name: '缩小画布' }))
-    fireEvent.click(screen.getByRole('button', { name: '放大画布' }))
-    fireEvent.click(screen.getByRole('button', { name: /100%/ }))
+  it('常驻区只有一个视图入口，显示当前倍率', () => {
+    const { unmount } = renderToolbar({ zoomVal: 150, cols: 2 })
+    const btn = screen.getByRole('button', { name: /视图设置：当前 150%，2 列/ })
+    expect(btn.textContent).toContain('150%')
+    // 旧的 −/100%/+ 常驻三件套已收进菜单，不应再出现在常驻区
+    expect(screen.queryByRole('button', { name: '缩小画布' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '放大画布' })).toBeNull()
+    unmount()
+  })
+})
+
+describe('ReaderToolbar：视图菜单（缩放 + 并排列数）', () => {
+  // Radix 下拉由 pointerDown 打开（不是 click），且打开后触发按钮的
+  // aria-haspopup/aria-expanded 会变，所以先抓元素再点。
+  async function openViewMenu(over: Partial<ToolbarProps> = {}) {
+    const utils = renderToolbar(over)
+    const trigger = screen.getByRole('button', { name: /视图设置/ })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    const menu = await screen.findByRole('menu')
+    return Object.assign(utils, { menu })
+  }
+
+  it('− / + 回调缩放', async () => {
+    const { props, menu, unmount } = await openViewMenu()
+    fireEvent.click(within(menu).getByRole('button', { name: '缩小画布' }))
+    fireEvent.click(within(menu).getByRole('button', { name: '放大画布' }))
     expect(props.onZoomOut).toHaveBeenCalled()
     expect(props.onZoomIn).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('重置是明确的菜单项，而非伪装成百分比的按钮', async () => {
+    const { props, menu, unmount } = await openViewMenu({ zoomVal: 150 })
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /恢复到 100%/ }))
     expect(props.onZoomReset).toHaveBeenCalled()
     unmount()
   })
 
-  it('缩放百分比按 zoomVal 渲染', () => {
-    const { unmount } = renderToolbar({ zoomVal: 150 })
-    expect(screen.getByRole('button', { name: /150%/ })).toBeTruthy()
+  it('已在 100% 时重置项禁用', async () => {
+    const { menu, unmount } = await openViewMenu({ zoomVal: 100 })
+    const item = within(menu).getByRole('menuitem', { name: /恢复到 100%/ })
+    expect(item.getAttribute('aria-disabled')).toBe('true')
     unmount()
   })
 
-  it('列数按钮：可用时点击回调', () => {
-    const { props, unmount } = renderToolbar({ cols: 2, colsDisabled: false })
-    const btn = screen.getByRole('button', { name: /并排列数：当前 2 列/ })
-    fireEvent.click(btn)
-    expect(props.onChangeCols).toHaveBeenCalled()
+  it('达到上下限时 − / + 禁用', async () => {
+    const { menu, unmount } = await openViewMenu({ zoomVal: 220 })
+    const plus = within(menu).getByRole('button', { name: '放大画布' }) as HTMLButtonElement
+    expect(plus.disabled).toBe(true)
     unmount()
   })
 
-  it('列数按钮：colsDisabled 时禁用', () => {
-    const { props, unmount } = renderToolbar({ colsDisabled: true })
-    const btn = screen.getByRole('button', { name: /并排列数/ }) as HTMLButtonElement
-    expect(btn.disabled).toBe(true)
-    fireEvent.click(btn)
-    expect(props.onChangeCols).not.toHaveBeenCalled()
+  it('列数按窗口上限逐项列出，点哪列就是哪列（不循环）', async () => {
+    const { props, menu, unmount } = await openViewMenu({ cols: 1, maxCols: 3 })
+    expect(within(menu).getByRole('menuitem', { name: /单页/ })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: /2 列/ })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: /3 列/ })).toBeTruthy()
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /3 列/ }))
+    expect(props.onSetCols).toHaveBeenCalledWith(3)
+    unmount()
+  })
+
+  it('窗口只够一列时只列「单页」并提示原因', async () => {
+    const { menu, unmount } = await openViewMenu({ cols: 1, maxCols: 1, colsDisabled: true })
+    expect(within(menu).getByRole('menuitem', { name: /单页/ })).toBeTruthy()
+    expect(within(menu).queryByRole('menuitem', { name: /2 列/ })).toBeNull()
+    expect(within(menu).getByText(/并排至少每列 360px/)).toBeTruthy()
     unmount()
   })
 })
