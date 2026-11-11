@@ -118,6 +118,24 @@ class TestSyncSourceById:
 
         mock_fetcher.fetch_new_messages.assert_called_once_with(mock_source, window_days=7)
 
+    def test_missing_source_is_skipped_without_fetching(self, db):
+        """来源已被删除时安静跳过，且**不构造 fetcher**。
+
+        不是纯理论分支：``sync_source_by_id`` 是 django-q 异步任务，
+        从入队到执行之间用户可能已经把来源删了。
+
+        这里不用 mock 而走真 ORM（空表）——恰恰是要验证
+        ``filter(pk=...).first()`` 返回 None 的那条真实路径，
+        用 MagicMock 换掉 manager 反而测不到。
+        """
+        from apps.message_hub.tasks import sync_source_by_id
+
+        with patch("apps.message_hub.services.get_fetcher") as mock_get_fetcher:
+            sync_source_by_id(999_999)
+
+        # 来源不存在 → 不该白白构造一个 fetcher（构造本身可能有副作用）
+        mock_get_fetcher.assert_not_called()
+
 
 class TestIsSourceDue:
     """轮询周期判定：每个来源按自己的 poll_interval_minutes 决定是否到点。"""
