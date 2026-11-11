@@ -76,8 +76,16 @@ class TestPartyStatusSingleSource:
         # 第三人一侧也必须有中文
         assert {"第三人"} <= THIRD_SIDE_STATUSES
 
+    @pytest.mark.skipif(
+        not (BACKEND_DIR / "plugins/court_automation/filing/schemas.py").exists(),
+        reason="plugins 子模块未拉取（CI 无跨仓权限），跳过插件侧同一性校验",
+    )
     def test_consumers_share_the_same_object(self) -> None:
-        """B. 消费方必须引用同一对象，而不是各建一份等价副本。"""
+        """B. 消费方必须引用同一对象，而不是各建一份等价副本。
+
+        本条要 import 插件模块验证「是否同一个对象」，plugins 未拉取时无从校验；
+        但 A（权威模块中英文齐备）与 C（不新人自建字面量）仍完整生效。
+        """
         from apps.cases.domain.party_status import DEFENDANT_SIDE_STATUSES, PLAINTIFF_SIDE_STATUSES
 
         # plugins 侧：schemas 用 `_` 前缀别名 re-export，须与权威同一对象

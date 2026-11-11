@@ -37,6 +37,15 @@ BACKEND_DIR = Path(__file__).resolve().parents[3]
 SERVICE_MODULE = "plugins/court_automation/preservation_quote/service.py"
 MIXIN_MODULE = "plugins/court_automation/preservation_quote/execution_mixin.py"
 
+# plugins 是私有子模块（FachuanPlugins），CI 的 GITHUB_TOKEN 没有跨仓权限，
+# 拉不到就只能是空目录。本文件守的是插件内实现，空目录下无从校验，跳过而不是
+# 报错——否则每次 PR 都会因基础设施权限问题假红，久而久之守卫被无视就失效了。
+# 本地装了子模块（git submodule update --init）时照常全量校验。
+requires_plugins = pytest.mark.skipif(
+    not (BACKEND_DIR / SERVICE_MODULE).exists(),
+    reason="plugins 子模块未拉取（CI 无跨仓权限），跳过插件内实现的结构守卫",
+)
+
 
 def _parse_module(relative_path: str) -> ast.Module:
     path = BACKEND_DIR / relative_path
@@ -92,6 +101,7 @@ def _within(node: ast.AST, container: ast.AST) -> bool:
 
 
 @pytest.mark.unit
+@requires_plugins
 class TestQuoteReplaceAtomic:
     """询价结果替换的事务边界守卫。"""
 
