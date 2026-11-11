@@ -16,6 +16,7 @@ import logging
 import re
 from typing import Any
 
+from .bbox import normalize_bbox, resolve_bbox_unit
 from .split_models import PageDescriptor, SegmentDraft
 
 logger = logging.getLogger("apps.pdf_splitting")
@@ -28,8 +29,18 @@ _CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
-def build_segments_markdown(drafts: list[SegmentDraft], pages: list[PageDescriptor]) -> list[dict[str, Any]]:
-    """为每个分段生成 Markdown 描述（order / 页区间 / 正文），与 drafts 顺序一致。"""
+def build_segments_markdown(
+    drafts: list[SegmentDraft],
+    pages: list[PageDescriptor],
+    *,
+    bbox_backend: str | None = None,
+) -> list[dict[str, Any]]:
+    """为每个分段生成 Markdown 描述（order / 页区间 / 正文 / 定坐标块）。
+
+    ``positioned`` 是「识别定位」的数据：每个正文块 + 它在原页上的归一化矩形。
+    前端拿它做"点右栏字段 → 原文绿框"的双向对照。没有坐标的后端（本地 OCR）
+    给空列表，而不是给一堆没框的块让前端白渲染。
+    """
     page_by_no = {page.page_no: page for page in pages}
     results: list[dict[str, Any]] = []
     for draft in drafts:
@@ -41,9 +52,61 @@ def build_segments_markdown(drafts: list[SegmentDraft], pages: list[PageDescript
                 "page_start": draft.page_start,
                 "page_end": draft.page_end,
                 "markdown": build_segment_markdown(title, seg_pages),
+                "positioned": build_positioned_blocks(seg_pages, bbox_backend=bbox_backend),
             }
         )
     return results
+
+
+def build_positioned_blocks(
+    pages: list[PageDescriptor],
+    *,
+    bbox_backend: str | None = None,
+) -> list[dict[str, Any]]:
+    """页 → 可定位块列表（只含能对上坐标的正文块）。
+
+    每个块：``{page, type, text, rect:{x,y,w,h,approx}}``。
+    ``rect`` 统一为 0–1 归一化，前端直接 ``left: x*100%`` 就能画。
+    坐标换算不出来（无页面尺寸 / 后端不给坐标）的块**整条丢弃**：
+    没框的块在前端只能当普通文本展示，那还不如留在 markdown 里。
+    """
+    unit = resolve_bbox_unit(bbox_backend)
+    if unit == "unknown":
+        return []
+    out: list[dict[str, Any]] = []
+    for page in pages:
+        layout = page.layout if isinstance(page.layout, dict) else {}
+        blocks = layout.get("blocks")
+        if not isinstance(blocks, list):
+            continue
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            block_type = str(block.get("type") or "").strip().lower()
+            text = str(block.get("text") or "").strip()
+            if block_type in _NOISE_TYPES or not text:
+                continue
+            rect = normalize_bbox(
+                block.get("bbox"),
+                unit=unit,
+                page_width=layout.get("width"),
+                page_height=layout.get("height"),
+            )
+            if rect is None:
+                continue
+            entry: dict[str, Any] = {
+                "page": page.page_no,
+                "type": block_type or "text",
+                "text": text,
+                "rect": rect,
+            }
+            # Office 的结构定位（段落序 / 行列）一并透出：它对"定位"是确定的，
+            # 而矩形只是整页近似。两者不冲突，前端按需用。
+            locator = block.get("locator")
+            if isinstance(locator, dict):
+                entry["locator"] = locator
+            out.append(entry)
+    return out
 
 
 def build_segment_markdown(title: str, pages: list[PageDescriptor]) -> str:

@@ -24,6 +24,8 @@ class ParserFactory:
         "mineru": "apps.document_parsing.services.backends.mineru_backend.MineruBackend",
         "textin": "apps.document_parsing.services.backends.textin_backend.TextinBackend",
         "local": "apps.document_parsing.services.backends.local_backend.LocalBackend",
+        # Office（docx/xlsx/xls）：本地读 OOXML，毫秒级，无需云服务/DS
+        "office": "apps.document_parsing.services.backends.office_backend.OfficeBackend",
     }
 
 

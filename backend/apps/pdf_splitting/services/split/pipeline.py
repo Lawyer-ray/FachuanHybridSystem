@@ -107,10 +107,13 @@ def analyze_pdf(
         template_key=template_key,
         llm_segment_detector=llm_segment_detector,
     )
+    # 坐标换算依赖后端坐标系（MinerU 千分比 / Textin 绝对坐标），必须在构建
+    # 时就告诉 markdown_builder：事后再猜会算出错位的绿框。
+    bbox_backend = str(extraction_summary.get("ocr_provider") or "")
     return PdfAnalysisOutcome(
         pages=pages,
         drafts=drafts,
-        segments_md=build_segments_markdown(drafts, pages),
+        segments_md=build_segments_markdown(drafts, pages, bbox_backend=bbox_backend),
         summary={**extraction_summary, **segment_summary},
     )
 

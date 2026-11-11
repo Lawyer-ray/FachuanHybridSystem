@@ -90,8 +90,20 @@ PDF 文本层（is_effective_text ≥12 字）
 |---|---|---|---|
 | 扫描 PDF | 抽样页文本层为空 | 云端整本解析 → 本地 OCR 兜底 | 文本 + 版面块 + bbox + md |
 | 电子 PDF | 抽样页文本层有效 | 文本层抽字（快）**+ 可选云端补版面** | 文本；开「补版面」时同扫描件 |
-| 图片 | `k === 'photo'` | 单页云端解析（MinerU/Textin 都支持 jpg/png）→ RapidOCR 兜底 | 文本 + bbox + md |
-| Office | `k === 'office'` | `document_parsing`（MinerU/Textin 原生支持 docx/xlsx/pptx） | 文本 + md（无 bbox，非图像） |
+| 图片 | `k === 'photo'` | RapidOCR 单页取字（前端 `ocrImage`） | 正文（无 bbox） |
+| Office | `k === 'office'` | **`document_parsing` 的 `office` 后端**（本地 python-docx / openpyxl） | 文本 + md + 结构 locator |
+
+### 为什么 Office 不用 OnlyOffice
+
+OnlyOffice Document Server（DS）是**编辑器画布**：渲染给人看、保存时回调。
+拿它抽文本要绕三处：
+1. DS 在独立容器，取文件必经 `/onlyoffice/file` 签名回源 + 容器内转换，比本地读
+   OOXML 慢一到两个数量级；
+2. 它返回**渲染结果**，拿文字还得再 OCR 一遍——而 Word 里的字本来是结构化的，
+   OCR 反而把可靠的字变成可能认错的东西；
+3. 大文件要整份传给 DS（1GB 卷宗场景）纯属浪费。
+
+结论：**OnlyOffice 负责"给人看和改"，`office` 后端负责"给机器读"**，两者不重叠。
 
 ### 关键原则
 
@@ -108,18 +120,26 @@ PDF 文本层（is_effective_text ≥12 字）
 
 本批（分支 `fix/material-prep-upload-error`）已做：
 
+- ✅ **Office 接入**：新增 `office_backend`（docx/xlsx/xls），按文档流顺序输出
+  正文与 GFM 表格，带结构 locator；前端 `parseOfficeFile` + 自动识别第三轨
+- ✅ **识别定位**：新增 `bbox.py` 把 MinerU（千分比）/ Textin（绝对坐标）统一
+  归一化为 0–1 矩形，经 `SegmentOut.positioned` 透出，前端在页卡上画蓝色定位框
+  （`approx=True` 用虚线，表示整页近似框而非精确位置）
+
+
 - ✅ 上传上限提到 1GB（收件箱 / 压缩包 / 压缩包条目 / pdf_splitting 四处同口径）
 - ✅ 附件字节缓存加预算，避免 1GB 文件把标签页内存顶爆
 - ✅ 图片（photo）接入自动识别：单页 OCR 取字回填段正文（`fillSegmentText`）
 - ✅ 抽样判定 `material_kind`（digital / scanned / mixed）写入 summary，选路可回溯
 
-**不在本次范围**（需单独评估）：
+**仍不在范围**（需单独评估）：
 
-- ❌ 图片 / Office 接入自动分段（要动 `document_parsing` 的图片入口与前端
-  `applyAutoSplit` 的分段语义——图片是单页、谈不上「分段」，只产出正文与 bbox）
-- ❌ 电子 PDF 的「云端补版面」开关（要新增 `ocr_profile` 之外的显式参数，
-  并评估成本）
-- ❌ bbox 归一化与前端坐标对照 UI（上一轮调研已列出 4 步路径）
+- ❌ 电子 PDF 的「云端补版面」开关：现在电子版 PDF 仍走纯文本层、拿不到坐标。
+  要开就得新增 `ocr_profile` 之外的显式参数，并评估成本（每份都上云 = 每份都
+  计费 + 数十秒）。**这是「识别定位」对电子版 PDF 还不生效的唯一原因。**
+- ❌ 图片的 bbox：RapidOCR 返回的是框选取字用的块坐标，尚未接入定位渲染。
+- ❌ Office 的精确分页：当前"逻辑页"按块数切，不是排版分页（见 `office_backend`
+  模块注释）。要精确分页得接排版引擎，成本远高于收益。
 
 ## 七、改动前必须确认的事
 

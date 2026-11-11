@@ -19,6 +19,7 @@ const apiMock = vi.hoisted(() => ({
   createPdfSplitJob: vi.fn(),
   getPdfSplitJob: vi.fn(),
   ocrImage: vi.fn(),
+  parseOfficeFile: vi.fn(),
 }))
 const draftMock = vi.hoisted(() => ({
   applyAutoSplit: vi.fn((v: unknown) => ({ ...(v as object), applied: true })),
@@ -46,6 +47,10 @@ function pdfMat(mi: number, name = `m${mi}.pdf`) {
 /** 图片素材：真实域模型的 kind 值是 'photo'（见 draft/resolve 的 detectMaterialKind） */
 function imgMat(mi: number) {
   return { k: 'photo', partIndex: mi, n: `m${mi}.jpg`, customName: '' }
+}
+/** Office 素材（Word / Excel） */
+function officeMat(mi: number) {
+  return { k: 'office', partIndex: mi, n: `m${mi}.docx`, customName: '' }
 }
 
 function setup({ mats = [pdfMat(0)], openId = 1 } = {}) {
@@ -99,6 +104,24 @@ describe('useAutoSplit：提前退出分支', () => {
     const updater = update.mock.calls[0]?.[0] as (v: unknown) => unknown
     updater({ mats: [], segs: [], infos: [] })
     expect(draftMock.fillSegmentText).toHaveBeenCalledWith(expect.anything(), 0, '送货单')
+  })
+
+  it('Word 材料：走 office 解析转正文，不建 PDF 任务', async () => {
+    const { update } = setup({ mats: [officeMat(0)] })
+    apiMock.fetchAttachmentBytes.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    apiMock.parseOfficeFile.mockResolvedValue({ markdown: '## 起诉状\n\n正文', text: '起诉状 正文' })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.parseOfficeFile).toHaveBeenCalled()
+    const updater = update.mock.calls[0]?.[0] as (v: unknown) => unknown
+    updater({ mats: [], segs: [], infos: [] })
+    // 优先回填 Markdown（保留标题层级），而不是退化后的纯文本
+    expect(draftMock.fillSegmentText).toHaveBeenCalledWith(expect.anything(), 0, '## 起诉状\n\n正文')
   })
 
   it('材料包里没有任何可识别内容：提示无可识别材料', async () => {

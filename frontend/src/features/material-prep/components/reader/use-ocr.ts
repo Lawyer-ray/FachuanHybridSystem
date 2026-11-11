@@ -41,7 +41,10 @@ async function runOcr(mi: number, p: number, rect: PageRect) {
       const res = await ocrImage(blob)
       text = res.blocks.map((b) => b.text).filter(Boolean).join(' ')
     } else {
-      toast('Word / Excel 暂不支持逐页取字，已在右栏记下来源页码')
+      // Word / Excel 是缩略图占位、没有可拖框的渲染页，所以框选取字在这里
+      // 天然不适用；但正文已能整体拿到——引导去用「自动识别」而不是让律师
+      // 以为这东西完全没支持（以前只说“暂不支持”，没说那条路能走）。
+      toast('Word / Excel 无法拖框取字；用「自动识别」可一次转出全文与表格')
       s.setOcrPending({ mi, p, rect, text: '', loading: false })
       return
     }

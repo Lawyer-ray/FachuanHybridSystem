@@ -28,6 +28,28 @@ def _require_admin(request: Any) -> None:
     ensure_admin_request(request, message="无权限提交服务器本地路径", code="PERMISSION_DENIED")
 
 
+class PositionedRectOut(BaseModel):
+    """块在原页上的归一化矩形（0–1）。前端直接 ``left: x*100%`` 就能画。"""
+
+    x: float
+    y: float
+    w: float
+    h: float
+    # True = 推出来的近似框（如 Office 整页框），不是原样量出来的
+    approx: bool = False
+
+
+class PositionedBlockOut(BaseModel):
+    """可定位的正文块（识别定位用）。"""
+
+    page: int
+    type: str
+    text: str
+    rect: PositionedRectOut
+    # Office 附带的结构定位（段落序 / 行列），对定位是确定的，矩形只是近似
+    locator: dict[str, Any] | None = None
+
+
 class SegmentOut(BaseModel):
     id: int
     order: int
@@ -42,6 +64,8 @@ class SegmentOut(BaseModel):
     source_method: str
     # 该段正文的 Markdown 重建（版面块优先 / 纯文本兜底）；旧任务无产物时为空串
     content_md: str
+    # 该段正文块 + 坐标（原文坐标索引对照）；无坐标的后端 / 旧任务为空列表
+    positioned: list[PositionedBlockOut] = []
 
 
 class PdfSplitJobOut(BaseModel):

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob, ocrImage } from '../../api'
+import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob, ocrImage, parseOfficeFile } from '../../api'
 import { applyAutoSplit, canAutoSplitMat, fillSegmentText } from '../../draft'
 import { useReader } from '../../store'
 import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
@@ -48,14 +48,16 @@ export function useAutoSplit() {
     const photoTargets = draft.mats
       .map((mat, mi) => ({ mat, mi }))
       .filter(({ mat }) => mat.k === 'photo')
-    if (targets.length === 0 && photoTargets.length === 0) {
-      const officeCount = draft.mats.filter((m) => m.k === 'office').length
-      if (pdfMats.length === 0 && officeCount === 0) {
-        toast.info('材料包里没有可自动识别的材料')
-      } else if (officeCount > 0) {
-        toast.info('Word / Excel 暂不参与自动识别，请人工归类')
-      } else {
+    // Word / Excel：走 document-parsing 的 office 后端（本地 OOXML 解析），
+    // 不是 OnlyOffice——DS 是给人看改的编辑器，抽文本绕远且要再过一遍 OCR。
+    const officeTargets = draft.mats
+      .map((mat, mi) => ({ mat, mi }))
+      .filter(({ mat }) => mat.k === 'office')
+    if (targets.length === 0 && photoTargets.length === 0 && officeTargets.length === 0) {
+      if (pdfMats.length > 0) {
         toast.info('这些 PDF 都已人工拆分或跨源合并，为免覆盖你的操作已跳过；需要重来可点「恢复初始分段」')
+      } else {
+        toast.info('材料包里没有可自动识别的材料')
       }
       return
     }
@@ -117,7 +119,23 @@ export function useAutoSplit() {
         }
       }
 
-      if (results.length === 0 && photoTexts.length === 0) {
+      // ── Word / Excel：单份解析取字（同样单独一轨，不与 PDF 分段互相拖累）──
+      const officeTexts: { mi: number; md: string }[] = []
+      let officeFailed = 0
+      for (const { mat, mi } of officeTargets) {
+        if (lease.isStale()) return
+        try {
+          const bytes = await fetchAttachmentBytes(openId, mat.partIndex)
+          const file = new File([bytes], mat.customName || mat.n)
+          const parsed = await parseOfficeFile(file)
+          const md = parsed.markdown || parsed.text
+          if (md) officeTexts.push({ mi, md })
+        } catch {
+          officeFailed += 1
+        }
+      }
+
+      if (results.length === 0 && photoTexts.length === 0 && officeTexts.length === 0) {
         const failure = failures[0]
         throw failure?.status === 'rejected' && failure.reason instanceof Error
           ? failure.reason
@@ -130,6 +148,9 @@ export function useAutoSplit() {
         current.update((value) => applyAutoSplit(value, result.mi, result.segments))
       }
       for (const item of photoTexts) {
+        current.update((value) => fillSegmentText(value, item.mi, item.md))
+      }
+      for (const item of officeTexts) {
         current.update((value) => fillSegmentText(value, item.mi, item.md))
       }
       // ── 自动回填当事人 ──
@@ -174,7 +195,8 @@ export function useAutoSplit() {
       const parts: string[] = []
       if (results.length > 0) parts.push(`${results.length} 个 PDF 已分段（${backendNote}，共 ${count} 段）`)
       if (photoTexts.length > 0) parts.push(`${photoTexts.length} 张图片已识别正文`)
-      const failedTotal = failures.length + photoFailed
+      if (officeTexts.length > 0) parts.push(`${officeTexts.length} 份 Office 已转正文`)
+      const failedTotal = failures.length + photoFailed + officeFailed
       const filled = detected.our || detected.their ? '；已自动填入当事人' : ''
       const tail = failedTotal > 0 ? `；${failedTotal} 份识别失败，可稍后重试` : '；未识别材料仍需人工归类'
       const message = `${parts.join('，')}${filled}${tail}`

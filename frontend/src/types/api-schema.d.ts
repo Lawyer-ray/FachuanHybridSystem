@@ -17113,6 +17113,11 @@ export interface components {
             source_method: string;
             /** Content Md */
             content_md: string;
+            /**
+             * Positioned
+             * @default []
+             */
+            positioned: components["schemas"]["PositionedBlockOut"][];
         };
         /** ConfirmRequestIn */
         ConfirmRequestIn: {
@@ -23680,6 +23685,42 @@ export interface components {
         TokenVerifyInputSchema: {
             /** Token */
             token: string;
+        };
+        /**
+         * PositionedRectOut
+         * @description 块在原页上的归一化矩形（0–1）。前端直接 ``left: x*100%`` 就能画。
+         */
+        PositionedRectOut: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** W */
+            w: number;
+            /** H */
+            h: number;
+            /**
+             * Approx
+             * @default false
+             */
+            approx: boolean;
+        };
+        /**
+         * PositionedBlockOut
+         * @description 可定位的正文块（识别定位用）。
+         */
+        PositionedBlockOut: {
+            /** Page */
+            page: number;
+            /** Type */
+            type: string;
+            /** Text */
+            text: string;
+            rect: components["schemas"]["PositionedRectOut"];
+            /** Locator */
+            locator?: {
+                [key: string]: unknown;
+            } | null;
         };
     };
     responses: never;

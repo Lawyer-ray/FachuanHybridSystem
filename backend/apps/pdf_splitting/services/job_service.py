@@ -135,9 +135,15 @@ class PdfSplitJobService:
             raise NotFoundError(message="拆解任务不存在", code="PDF_SPLIT_JOB_NOT_FOUND", errors={}) from None
 
     def build_job_payload(self, job: PdfSplitJob) -> dict[str, Any]:
-        md_by_order = load_segments_md(PdfSplitStorage(job.id).segments_md_path)
+        md_path = PdfSplitStorage(job.id).segments_md_path
+        md_by_order = load_segments_md(md_path)
+        pos_by_order = load_segments_positioned(md_path)
         segments = [
-            self._serialize_segment(item, markdown=md_by_order.get(item.order, ""))
+            self._serialize_segment(
+                item,
+                markdown=md_by_order.get(item.order, ""),
+                positioned=pos_by_order.get(item.order, []),
+            )
             for item in job.segments.order_by("order", "id")
         ]
         download_url = ""
@@ -244,7 +250,13 @@ class PdfSplitJobService:
             finished_at=timezone.now(),
         )
 
-    def _serialize_segment(self, segment: PdfSplitSegment, *, markdown: str = "") -> dict[str, Any]:
+    def _serialize_segment(
+        self,
+        segment: PdfSplitSegment,
+        *,
+        markdown: str = "",
+        positioned: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         return {
             "id": segment.id,
             "order": segment.order,
@@ -258,6 +270,8 @@ class PdfSplitJobService:
             "review_flag_label": segment.get_review_flag_display(),
             "source_method": segment.source_method,
             "content_md": markdown,
+            # 该段正文块 + 归一化矩形（识别定位用）；无坐标的后端/旧任务为空表
+            "positioned": positioned or [],
         }
 
     def _normalize_confirmed_segments(self, *, items: list[dict[str, Any]], total_pages: int) -> list[dict[str, Any]]:
@@ -479,4 +493,34 @@ def load_segments_md(path: Path) -> dict[int, str]:
         except (TypeError, ValueError):
             continue
         result[order] = str(item.get("markdown") or "")
+    return result
+
+
+def load_segments_positioned(path: Path) -> dict[int, list[dict[str, Any]]]:
+    """读分段「可定位块」（order → positioned 列表）。
+
+    与 ``load_segments_md`` 同源同文件（``segments_md.json`` 的 ``positioned``
+    字段）：布局与正文来自同一次解析，分两个文件存迟早会对不上。
+    旧任务没有该字段、或产物损坏时一律回空表——前端按「没有坐标」降级处理，
+    不阻断任务详情接口。
+    """
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, list):
+        return {}
+    result: dict[int, list[dict[str, Any]]] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        try:
+            order = int(item.get("order"))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        positioned = item.get("positioned")
+        if isinstance(positioned, list):
+            result[order] = [b for b in positioned if isinstance(b, dict)]
     return result
