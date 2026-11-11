@@ -156,70 +156,69 @@ describe('ReaderToolbar：自动分段', () => {
   })
 })
 
-describe('ReaderToolbar：更多操作菜单', () => {
-  it('⋯ 菜单里能触发「恢复初始分段」', async () => {
-    const { props, unmount } = renderToolbar()
-    const trigger = screen.getByRole('button', { name: /更多操作/ })
+describe('ReaderToolbar：自动分段 split button', () => {
+  /** 打开右侧小三角的设置菜单 */
+  async function openSettings() {
+    const trigger = screen.getByRole('button', { name: /自动分段设置/ })
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
     fireEvent.click(trigger)
+    await screen.findByText(/版面策略/)
+  }
 
-    const item = await screen.findByText('恢复初始分段')
-    fireEvent.click(item)
-    expect(props.onResetSegments).toHaveBeenCalled()
+  it('主按钮直接执行自动分段（不需要先开菜单）', () => {
+    const { props, unmount } = renderToolbar()
+    // 精确匹配主按钮（另有「自动分段设置」按钮，模糊匹配会命中两个）
+    fireEvent.click(screen.getByRole('button', { name: '自动分段' }))
+    expect(props.onAutoSplit).toHaveBeenCalled()
     unmount()
   })
 
-  it('⋯ 菜单里能把版面策略切到「补版面」（会按页计费，故收在菜单里）', async () => {
+  it('设置菜单里能切版面策略到「补版面」', async () => {
     const { props, unmount } = renderToolbar()
-    const trigger = screen.getByRole('button', { name: /更多操作/ })
-    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
-    fireEvent.click(trigger)
-
-    const item = await screen.findByText(/补版面/)
-    fireEvent.click(item)
+    await openSettings()
+    fireEvent.click(screen.getByText('补版面'))
     expect(props.onLayoutModeChange).toHaveBeenCalledWith('layout')
     unmount()
   })
 
-  it('⋯ 菜单里能选解析平台：自动 / 仅 MinerU / 仅 Textin', async () => {
+  it('设置菜单里能选解析平台', async () => {
     const { props, unmount } = renderToolbar()
-    const trigger = screen.getByRole('button', { name: /更多操作/ })
-    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
-    fireEvent.click(trigger)
-
-    // 三个选项都在；锁定值不是"优先"，而是"只用它、失败不降级"
-    expect(await screen.findByText(/自动（失败自动切换）/)).toBeTruthy()
-    expect(screen.getByText(/仅 MinerU/)).toBeTruthy()
-
-    fireEvent.click(screen.getByText(/仅 Textin/))
+    await openSettings()
+    fireEvent.click(screen.getByText('仅 Textin'))
     expect(props.onCloudBackendChange).toHaveBeenCalledWith('textin')
     unmount()
   })
 
-  it('解析平台当前值带 ✓ 标记', async () => {
-    const { unmount } = renderToolbar({ cloudBackend: 'mineru' })
-    const trigger = screen.getByRole('button', { name: /更多操作/ })
-    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
-    fireEvent.click(trigger)
-
-    const mineruItem = await screen.findByText(/仅 MinerU/)
-    expect(mineruItem.textContent).toContain('✓')
-    const autoItem = screen.getByText(/自动（失败自动切换）/)
-    expect(autoItem.textContent).not.toContain('✓')
+  it('设置菜单里能触发「恢复初始分段」', async () => {
+    const { props, unmount } = renderToolbar()
+    await openSettings()
+    fireEvent.click(screen.getByText('恢复初始分段'))
+    expect(props.onResetSegments).toHaveBeenCalled()
     unmount()
   })
 
-  it('当前策略在菜单里带 ✓ 标记，律师能看出现在是哪一种', async () => {
-    const { unmount } = renderToolbar({ layoutMode: 'layout' })
-    const trigger = screen.getByRole('button', { name: /更多操作/ })
-    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
-    fireEvent.click(trigger)
+  it('当前值带 ✓，且每个选项都写明后果（费用/可信度）', async () => {
+    const { unmount } = renderToolbar({ layoutMode: 'layout', cloudBackend: 'mineru' })
+    await openSettings()
 
-    // 补版面项打勾；仅文本层项不打勾
-    const layoutItem = await screen.findByText(/补版面/)
-    expect(layoutItem.textContent).toContain('✓')
-    const textItem = screen.getByText(/^仅文本层/)
-    expect(textItem.textContent).not.toContain('✓')
+    // 勾选只出现在当前值上
+    const layoutItem = screen.getByText('补版面').closest('[role="menuitem"]') as HTMLElement
+    expect(layoutItem.querySelector('svg')).toBeTruthy()
+    const textItem = screen.getByText('仅文本层').closest('[role="menuitem"]') as HTMLElement
+    expect(textItem.querySelector('svg')).toBeNull()
+
+    // 后果文案必须在：这几个选项直接影响计费与结果可信度，
+    // 只写名词用户无从判断
+    expect(screen.getByText(/按页计费/)).toBeTruthy()
+    // 「失败不降级」两个锁定项都有，用 getAllBy 断言至少出现
+    expect(screen.getAllByText(/失败不降级/).length).toBeGreaterThan(0)
+    unmount()
+  })
+
+  it('识别进行中时主按钮与设置入口都禁用（避免改到正在跑的策略）', () => {
+    const { unmount } = renderToolbar({ autoSplitRunning: true })
+    expect((screen.getByRole('button', { name: /识别/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: /自动分段设置/ }) as HTMLButtonElement).disabled).toBe(true)
     unmount()
   })
 })

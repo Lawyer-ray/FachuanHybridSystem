@@ -1,9 +1,11 @@
-import { Loader2, Minus, MoreHorizontal, Plus, Columns3 } from 'lucide-react'
+import { Check, ChevronDown, Loader2, Minus, Plus, Columns3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { PBTN, PBTN_ON } from './ui'
@@ -124,44 +126,81 @@ export function ReaderToolbar({
 
       <span className="h-4 w-px flex-none bg-border max-[760px]:hidden" />
 
-      <Button size="sm" variant="outline" className="flex-none" onClick={onAutoSplit} disabled={autoSplitRunning} title={autoSplitProgress || '调用 MinerU / Textin 逐页识别并生成分段建议'}>
-        {autoSplitRunning && <Loader2 className="h-4 w-4 animate-spin" />}
-        {autoSplitRunning ? autoSplitProgress || '识别中…' : '自动分段'}
-      </Button>
+      {/* 自动分段：**主按钮直接执行**，右侧小三角才开设置。
+          以前设置散在 ⋯ 菜单里，和「恢复初始分段」这种破坏性操作挤在同一串
+          列表里，既难找也不知道它们会改变"下次识别"的行为。改成 split button：
+          点主体 = 立刻跑，点箭头 = 先调参数，语义与位置都对上了。 */}
+      <div className="flex flex-none items-stretch">
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-r-none border-r-0"
+          onClick={onAutoSplit}
+          disabled={autoSplitRunning}
+          title={autoSplitProgress || autoSplitTitle(layoutMode, cloudBackend)}
+        >
+          {autoSplitRunning && <Loader2 className="h-4 w-4 animate-spin" />}
+          {autoSplitRunning ? autoSplitProgress || '识别中…' : '自动分段'}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="自动分段设置"
+              title="自动分段设置：版面策略 / 解析平台"
+              disabled={autoSplitRunning}
+              className="flex w-[26px] items-center justify-center rounded-r-[6px] border border-l-0 border-input text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[260px]">
+            <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+              版面策略
+            </DropdownMenuLabel>
+            <PickItem
+              checked={layoutMode === 'fast_text'}
+              onSelect={() => onLayoutModeChange('fast_text')}
+              label="仅文本层"
+              hint="电子版不上云 · 最快 · 无坐标"
+            />
+            <PickItem
+              checked={layoutMode === 'layout'}
+              onSelect={() => onLayoutModeChange('layout')}
+              label="补版面"
+              hint="电子页也上云 · 可定位 · 按页计费"
+            />
 
-      {/* ⋯：低频 + 有破坏性的「恢复初始分段」收进来防误触 */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button type="button" aria-label="更多操作（恢复初始分段）" title="更多操作：恢复初始分段" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[240px]">
-          {/* 版面策略：决定「自动分段」时电子版 PDF 要不要为坐标而上云端。
-              放在这里而不是工具栏常驻按钮，因为它低频、且直接影响费用。 */}
-          <DropdownMenuItem onSelect={() => onLayoutModeChange('fast_text')}>
-            仅文本层{layoutMode === 'fast_text' ? ' ✓' : ''}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onLayoutModeChange('layout')}>
-            补版面（电子页也上云端，可定位{layoutMode === 'layout' ? ' ✓' : ''}）
-          </DropdownMenuItem>
-          {/* 解析平台：auto 会容灾（首选失败切下一个）；锁定则只用它、失败即失败。
-              锁定不是"优先"，而是"不许换"——选它是为了固定口径做比对。 */}
-          <DropdownMenuItem disabled className="text-[11px] text-muted-foreground">
-            解析平台
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onCloudBackendChange('auto')}>
-            自动（失败自动切换）{cloudBackend === 'auto' ? ' ✓' : ''}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onCloudBackendChange('mineru')}>
-            仅 MinerU{cloudBackend === 'mineru' ? ' ✓' : ''}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onCloudBackendChange('textin')}>
-            仅 Textin{cloudBackend === 'textin' ? ' ✓' : ''}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onResetSegments}>恢复初始分段</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
+              解析平台
+            </DropdownMenuLabel>
+            <PickItem
+              checked={cloudBackend === 'auto'}
+              onSelect={() => onCloudBackendChange('auto')}
+              label="自动"
+              hint="首选失败自动切下一个"
+            />
+            <PickItem
+              checked={cloudBackend === 'mineru'}
+              onSelect={() => onCloudBackendChange('mineru')}
+              label="仅 MinerU"
+              hint="锁定 · 失败不降级"
+            />
+            <PickItem
+              checked={cloudBackend === 'textin'}
+              onSelect={() => onCloudBackendChange('textin')}
+              label="仅 Textin"
+              hint="锁定 · 失败不降级"
+            />
+
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onResetSegments} className="text-[12.5px]">
+              恢复初始分段
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </>
   )
 
@@ -178,4 +217,42 @@ export function ReaderToolbar({
       <div className="mp-rd-toolbar text-[12.5px]">{tools}</div>
     </div>
   )
+}
+
+/**
+ * 设置项：左侧勾选位固定宽度，右侧「标签 + 一句后果」。
+ *
+ * 为什么把后果写出来：这几个选项都**直接影响费用与结果可信度**
+ * （补版面按页计费、锁定平台失败即失败），只写一个名词用户无从判断。
+ * 勾选位用固定宽度而不是「标签后面跟 ✓」，是为了让两行文案左对齐。
+ */
+function PickItem({
+  checked,
+  onSelect,
+  label,
+  hint,
+}: {
+  checked: boolean
+  onSelect: () => void
+  label: string
+  hint: string
+}) {
+  return (
+    <DropdownMenuItem onSelect={onSelect} className="items-start gap-2 py-1.5">
+      <span className="mt-[2px] flex h-3.5 w-3.5 flex-none items-center justify-center">
+        {checked && <Check className="h-3.5 w-3.5" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[12.5px] leading-4">{label}</span>
+        <span className="block text-[11px] leading-4 text-muted-foreground">{hint}</span>
+      </span>
+    </DropdownMenuItem>
+  )
+}
+
+/** 主按钮的悬浮说明：一眼看出这次会用什么策略跑 */
+function autoSplitTitle(layoutMode: 'fast_text' | 'layout', cloudBackend: 'auto' | 'mineru' | 'textin'): string {
+  const layout = layoutMode === 'layout' ? '补版面' : '仅文本层'
+  const backend = cloudBackend === 'auto' ? '自动容灾' : cloudBackend === 'mineru' ? '仅 MinerU' : '仅 Textin'
+  return `逐页识别并生成分段建议（${layout} · ${backend}）· 点右侧箭头可改设置`
 }
