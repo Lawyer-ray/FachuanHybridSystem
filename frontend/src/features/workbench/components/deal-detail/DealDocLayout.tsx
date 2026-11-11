@@ -107,7 +107,15 @@ export function DealDocLayout({
           : COLUMNS_CLS
       }
     >
-      {focusDoc && <div className="min-w-0">{doc}</div>}
+      {/* 状态③（文档通栏）：文档置顶，内容与事实卡都在其下。
+          此前这里只渲染了 doc，rail 整块丢失——注释写的「事实卡在其下」没兑现，
+          宽屏 + 净宽不足时右侧事实卡（期限/当事人/收费/文件夹）彻底不可达。 */}
+      {focusDoc && (
+        <div className="min-w-0 flex flex-col gap-[18px]">
+          {doc}
+          <div className="min-w-0 space-y-[18px]">{rail}</div>
+        </div>
+      )}
 
       <div className="min-w-0 flex-1 space-y-[18px]">
         {children}

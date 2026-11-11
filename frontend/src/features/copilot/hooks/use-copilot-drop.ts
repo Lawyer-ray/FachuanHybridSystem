@@ -57,17 +57,27 @@ export function useCopilotDrop() {
     if (raw) {
       if (!dropAllowed()) return
       try {
-        // 兼容三种 payload 形态：旧 {contractId} / 新 {kind, ownerId}（拖拽源已统一为新形态）
+        // 兼容两种 payload 形态：
+        //   新 {kind, ownerId}（拖拽源已统一为此形态）
+        //   旧 {contractId} / {caseId}（早期拖拽源遗留，或外部插件手拼）
+        // 旧形态本身没有 kind 字段，所以必须由「是哪个 id 字段」反推 kind——
+        // 此前只认 d.kind，旧 payload 会在下面的 kind 守卫处被静默丢弃，
+        // 与本函数注释声称的「兼容」不符（回归用例见 use-copilot-drop.dom.test.tsx）。
         const d = JSON.parse(raw) as Partial<FolderRefDraft> & { contractId?: number; caseId?: number }
-        const ownerId = d.kind === 'case' ? d.caseId ?? d.ownerId : d.contractId ?? d.ownerId
-        if (
-          (d.kind === 'contract' || d.kind === 'case') &&
-          typeof ownerId === 'number' &&
-          typeof d.subpath === 'string' &&
-          d.subpath
-        ) {
+        // 显式 kind 优先；缺失时按 legacy 字段反推，两者都无则判为不可识别
+        const kind =
+          d.kind === 'case' || d.kind === 'contract'
+            ? d.kind
+            : typeof d.caseId === 'number'
+              ? 'case'
+              : typeof d.contractId === 'number'
+                ? 'contract'
+                : null
+        const ownerId =
+          kind === 'case' ? d.caseId ?? d.ownerId : d.contractId ?? d.ownerId
+        if (kind && typeof ownerId === 'number' && typeof d.subpath === 'string' && d.subpath) {
           addFolderRef({
-            kind: d.kind,
+            kind,
             ownerId,
             subpath: d.subpath,
             name: String(d.name ?? ''),

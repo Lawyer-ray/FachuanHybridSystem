@@ -97,6 +97,13 @@ describe('errMessage：与 ky v2 HTTPError 的真实契约', () => {
     expect(errMessage(err, 'fallback', '自定义超时文案')).toBe('自定义超时文案')
   })
 
+  it('裸字符串（catch 里抛出的非 Error）→ 不留原话，统一回落 fallback', () => {
+    // 这是有意的安全口径：catch 路径上的裸字符串可能是任意服务端/运行时内容，
+    // 不能直接铺给用户（court-sms / use-converter-job 都按这个口径测）。
+    // 已归一化的 string 不应再进 errMessage——那是 ErrorBlock 的透传分支负责的。
+    expect(errMessage('字符串错误', 'fallback')).toBe('fallback')
+  })
+
   it('2xx 正常返回（确认测试服务器自身接线无误）', async () => {
     const data = await ky.post(`${base}/ok`, { json: {} }).json<{ ok: boolean }>()
     expect(data.ok).toBe(true)

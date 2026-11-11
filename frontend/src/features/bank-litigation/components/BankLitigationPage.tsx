@@ -100,10 +100,22 @@ function CaseWorkspace({ caseId, onBack }: { caseId: number; onBack: () => void 
       </PageShell>
     )
   }
-  if (c.error || !c.data) {
+  // 失败与「查无此案」是两件事，分开渲染：
+  // 「加载失败」→ 可以重试（网络/5xx），文案交给 errMessage 抽后端原话；
+  // 「案件不存在」→ 重试没有意义（404 / 已归档删除），给回退入口而不是重试按钮。
+  // 此前两者挤在一个分支里用 `c.error ?? '案件不存在'` 兜底，导致 fallback 永不可达，
+  // 且「查无此案」也挂着一个点了也没用的重试按钮。
+  if (c.error) {
     return (
       <PageShell title="案件">
-        <ErrorBlock error={c.error ?? '案件不存在'} fallback="案件加载失败" onRetry={c.reload} />
+        <ErrorBlock error={c.error} fallback="案件加载失败" onRetry={c.reload} />
+      </PageShell>
+    )
+  }
+  if (!c.data) {
+    return (
+      <PageShell title="案件">
+        <ErrorBlock error="案件不存在或已归档" fallback="案件不存在或已归档" onRetry={onBack} retryText="返回案件列表" />
       </PageShell>
     )
   }
