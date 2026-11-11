@@ -17985,6 +17985,11 @@ export interface components {
              * @default
              */
             error_message: string;
+            /**
+             * Cloud Backend
+             * @default auto
+             */
+            cloud_backend: string;
         };
         /**
          * PositionedBlockOut
@@ -32023,6 +32028,11 @@ export interface operations {
                      * @default fast_text
                      */
                     layout_mode?: string;
+                    /**
+                     * Cloud Backend
+                     * @default auto
+                     */
+                    cloud_backend?: string;
                 };
             };
         };

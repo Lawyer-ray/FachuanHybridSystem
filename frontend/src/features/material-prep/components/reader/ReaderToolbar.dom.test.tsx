@@ -39,6 +39,8 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     autoSplitProgress: '',
     layoutMode: 'fast_text' as const,
     onLayoutModeChange: vi.fn(),
+    cloudBackend: 'auto' as const,
+    onCloudBackendChange: vi.fn(),
     ...over,
   }
 }
@@ -176,6 +178,34 @@ describe('ReaderToolbar：更多操作菜单', () => {
     const item = await screen.findByText(/补版面/)
     fireEvent.click(item)
     expect(props.onLayoutModeChange).toHaveBeenCalledWith('layout')
+    unmount()
+  })
+
+  it('⋯ 菜单里能选解析平台：自动 / 仅 MinerU / 仅 Textin', async () => {
+    const { props, unmount } = renderToolbar()
+    const trigger = screen.getByRole('button', { name: /更多操作/ })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+    fireEvent.click(trigger)
+
+    // 三个选项都在；锁定值不是"优先"，而是"只用它、失败不降级"
+    expect(await screen.findByText(/自动（失败自动切换）/)).toBeTruthy()
+    expect(screen.getByText(/仅 MinerU/)).toBeTruthy()
+
+    fireEvent.click(screen.getByText(/仅 Textin/))
+    expect(props.onCloudBackendChange).toHaveBeenCalledWith('textin')
+    unmount()
+  })
+
+  it('解析平台当前值带 ✓ 标记', async () => {
+    const { unmount } = renderToolbar({ cloudBackend: 'mineru' })
+    const trigger = screen.getByRole('button', { name: /更多操作/ })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+    fireEvent.click(trigger)
+
+    const mineruItem = await screen.findByText(/仅 MinerU/)
+    expect(mineruItem.textContent).toContain('✓')
+    const autoItem = screen.getByText(/自动（失败自动切换）/)
+    expect(autoItem.textContent).not.toContain('✓')
     unmount()
   })
 

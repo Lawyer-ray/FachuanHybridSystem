@@ -100,6 +100,8 @@ class PdfSplitService:
                 # 任务上存的版面策略（默认 fast_text）：补版面时电子页也会上云端，
                 # 这样"原文坐标索引对照"对电子版 PDF 同样成立。
                 layout_mode=getattr(job, "layout_mode", "fast_text"),
+                # 平台偏好：auto=容灾；mineru/textin=锁定不降级
+                cloud_backend=getattr(job, "cloud_backend", "auto"),
                 on_progress=on_progress,
                 is_cancelled=is_cancelled,
                 ocr_handler=self._ocr_handler,

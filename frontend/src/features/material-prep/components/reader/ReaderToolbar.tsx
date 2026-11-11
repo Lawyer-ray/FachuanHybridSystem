@@ -41,6 +41,8 @@ export function ReaderToolbar({
   autoSplitProgress,
   layoutMode,
   onLayoutModeChange,
+  cloudBackend,
+  onCloudBackendChange,
   inline = false,
 }: {
   narrow: boolean
@@ -65,6 +67,9 @@ export function ReaderToolbar({
   /** 版面策略（补版面 = 电子页也上云端拿坐标，按页计费） */
   layoutMode: 'fast_text' | 'layout'
   onLayoutModeChange: (m: 'fast_text' | 'layout') => void
+  /** 云端平台偏好：auto=优先+容灾；锁定=只用它，失败不降级 */
+  cloudBackend: 'auto' | 'mineru' | 'textin'
+  onCloudBackendChange: (b: 'auto' | 'mineru' | 'textin') => void
   /** 嵌入顶栏行（≥1100px）：只输出按钮组，不自带容器 */
   inline?: boolean
 }) {
@@ -139,6 +144,20 @@ export function ReaderToolbar({
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => onLayoutModeChange('layout')}>
             补版面（电子页也上云端，可定位{layoutMode === 'layout' ? ' ✓' : ''}）
+          </DropdownMenuItem>
+          {/* 解析平台：auto 会容灾（首选失败切下一个）；锁定则只用它、失败即失败。
+              锁定不是"优先"，而是"不许换"——选它是为了固定口径做比对。 */}
+          <DropdownMenuItem disabled className="text-[11px] text-muted-foreground">
+            解析平台
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onCloudBackendChange('auto')}>
+            自动（失败自动切换）{cloudBackend === 'auto' ? ' ✓' : ''}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onCloudBackendChange('mineru')}>
+            仅 MinerU{cloudBackend === 'mineru' ? ' ✓' : ''}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => onCloudBackendChange('textin')}>
+            仅 Textin{cloudBackend === 'textin' ? ' ✓' : ''}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={onResetSegments}>恢复初始分段</DropdownMenuItem>
         </DropdownMenuContent>

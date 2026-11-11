@@ -107,6 +107,8 @@ export function useReaderToolbarProps(params: {
     autoSplitProgress: autoSplit.progress,
     layoutMode: st.layoutMode,
     onLayoutModeChange: st.setLayoutMode,
+    cloudBackend: st.cloudBackend,
+    onCloudBackendChange: st.setCloudBackend,
     handleAssign,
   }
 }

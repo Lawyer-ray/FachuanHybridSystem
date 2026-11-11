@@ -13542,6 +13542,11 @@
                     "default": "fast_text",
                     "title": "Layout Mode",
                     "type": "string"
+                  },
+                  "cloud_backend": {
+                    "default": "auto",
+                    "title": "Cloud Backend",
+                    "type": "string"
                   }
                 },
                 "title": "MultiPartBodyParams",
@@ -41403,6 +41408,11 @@
           "error_message": {
             "default": "",
             "title": "Error Message",
+            "type": "string"
+          },
+          "cloud_backend": {
+            "default": "auto",
+            "title": "Cloud Backend",
             "type": "string"
           }
         },

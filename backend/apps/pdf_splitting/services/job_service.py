@@ -18,6 +18,7 @@ from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.storage_service import normalize_to_media_rel, sanitize_upload_filename
 from apps.pdf_splitting.models import (
+    PdfSplitCloudBackend,
     PdfSplitJob,
     PdfSplitJobStatus,
     PdfSplitLayoutMode,
@@ -54,6 +55,7 @@ class PdfSplitJobService:
         split_mode: str = PdfSplitMode.CONTENT_ANALYSIS,
         ocr_profile: str = PdfSplitOcrProfile.BALANCED,
         layout_mode: str = PdfSplitLayoutMode.FAST_TEXT,
+        cloud_backend: str = PdfSplitCloudBackend.AUTO,
         created_by: Any | None = None,
     ) -> PdfSplitJob:  # pragma: no cover
         has_file = file is not None
@@ -65,6 +67,7 @@ class PdfSplitJobService:
         mode_key = self._normalize_split_mode(split_mode)
         profile_key = self._normalize_ocr_profile(ocr_profile)
         layout_key = self._normalize_layout_mode(layout_mode)
+        cloud_key = self._normalize_cloud_backend(cloud_backend)
         job_id = uuid.uuid4()
         storage = PdfSplitStorage(job_id)
         storage.ensure_dirs()
@@ -97,6 +100,7 @@ class PdfSplitJobService:
                 template_version=template.version,
                 ocr_profile=profile_key,
                 layout_mode=layout_key,
+                cloud_backend=cloud_key,
                 status=PdfSplitJobStatus.PENDING,
                 total_pages=total_pages,
                 created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
@@ -105,6 +109,7 @@ class PdfSplitJobService:
                     "split_mode": mode_key,
                     "ocr_profile": profile_key,
                     "layout_mode": layout_key,
+                    "cloud_backend": cloud_key,
                 },
             )
 
@@ -162,6 +167,7 @@ class PdfSplitJobService:
             "split_mode": job.split_mode,
             "ocr_profile": job.ocr_profile,
             "layout_mode": getattr(job, "layout_mode", PdfSplitLayoutMode.FAST_TEXT),
+            "cloud_backend": getattr(job, "cloud_backend", PdfSplitCloudBackend.AUTO),
             "progress": int(job.progress or 0),
             "total_pages": int(job.total_pages or 0),
             "processed_pages": int(job.processed_pages or 0),
@@ -457,6 +463,12 @@ class PdfSplitJobService:
         if profile in valid_profiles:
             return profile
         return PdfSplitOcrProfile.BALANCED
+
+    def _normalize_cloud_backend(self, value: str | None) -> str:
+        """平台偏好归一化：非法值一律落回 auto（可容灾、行为最稳）。"""
+        mode = str(value or "").strip().lower()
+        valid = {choice for choice, _label in PdfSplitCloudBackend.choices}
+        return mode if mode in valid else PdfSplitCloudBackend.AUTO
 
     def _normalize_layout_mode(self, value: str | None) -> str:
         """版面策略归一化：非法值一律落回 fast_text（不调云端）。

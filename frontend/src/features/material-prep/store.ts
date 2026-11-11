@@ -52,6 +52,8 @@ interface ReaderState {
    *  为什么放在 store 而不是组件局部 state：它是「这次识别的成本选择」，
    *  换包时要复位、重开同一包时要保留，生命周期与阅读器会话一致。 */
   layoutMode: 'fast_text' | 'layout'
+  /** 云端平台偏好：auto=优先+容灾；mineru/textin=锁定（失败不降级） */
+  cloudBackend: 'auto' | 'mineru' | 'textin'
   /** 选页模式：平时点页面不做任何事，靠 ⌘/⇧ 或此模式 */
   selMode: boolean
   /** 当前选中的页 */
@@ -77,6 +79,8 @@ interface ReaderState {
   setZoom: (z: number) => void
   /** 切换版面策略（影响下一次「自动分段」是否让电子页上云端） */
   setLayoutMode: (m: 'fast_text' | 'layout') => void
+  /** 切换云端平台偏好 */
+  setCloudBackend: (b: 'auto' | 'mineru' | 'textin') => void
   setCols: (n: number) => void
   toggleSelMode: () => void
   /** ⌘/Ctrl 单击切换 / ⇧ 单击选区间（shift=true 用锚点） */
@@ -107,6 +111,7 @@ function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
     cols: 1,
     // 换包/关闭一律复位成不计费的默认值：成本选择不该跨材料包继承
     layoutMode: 'fast_text',
+    cloudBackend: 'auto',
     selMode: false,
     selPages: [],
     lastAnchor: -1,
@@ -127,6 +132,7 @@ export const useReader = create<ReaderState>((set, get) => ({
   zoom: 1,
   cols: 1,
   layoutMode: 'fast_text',
+  cloudBackend: 'auto',
   selMode: false,
   selPages: [],
   lastAnchor: -1,
@@ -214,6 +220,7 @@ export const useReader = create<ReaderState>((set, get) => ({
   },
   setZoom: (z) => set({ zoom: z }),
   setLayoutMode: (m) => set({ layoutMode: m }),
+  setCloudBackend: (b) => set({ cloudBackend: b }),
   setCols: (n) => set({ cols: n }),
   toggleSelMode: () => {
     const next = !get().selMode

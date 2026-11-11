@@ -70,6 +70,7 @@ export function useAutoSplit() {
       // 版面策略在 ReaderState 上（不是 DraftState）：它是本次识别的成本选择，
       // 随会话复位，不落草稿。整批只读一次，避免每个 PDF 各读一遍。
       const layoutMode = useReader.getState().layoutMode
+      const cloudBackend = useReader.getState().cloudBackend
       const jobs = await Promise.all(
         targets.map(async ({ mat, mi }) => {
           const bytes = await fetchAttachmentBytes(openId, mat.partIndex)
@@ -78,7 +79,7 @@ export function useAutoSplit() {
             type: 'application/pdf',
           })
           // 版面策略跟着当前会话走：开了补版面才让电子页上云端拿坐标
-          return { mi, jobId: await createPdfSplitJob(file, { layoutMode }) }
+          return { mi, jobId: await createPdfSplitJob(file, { layoutMode, cloudBackend }) }
         }),
       )
       const settled: PromiseSettledResult<AutoSplitResult>[] = []

@@ -88,6 +88,7 @@ def analyze_pdf(
     template_key: str = "filing_materials_v1",
     ocr_profile: str = "balanced",
     layout_mode: str = LAYOUT_MODE_FAST_TEXT,
+    cloud_backend: str | None = None,
     on_progress: ProgressCallback | None = None,
     is_cancelled: CancelCallback | None = None,
     ocr_handler: Any = None,
@@ -99,6 +100,8 @@ def analyze_pdf(
         pdf_path: PDF 文件路径。
         template_key: 分段模板（建议标签集；默认立案材料 15 类）。
         ocr_profile: OCR 档位 fast / balanced / accurate。
+        cloud_backend: 云端平台偏好。``auto``（默认）按优先级并在失败时切下一个
+            （容灾）；``mineru`` / ``textin`` 锁定单一平台、失败即失败（不降级）。
         layout_mode: 版面策略。``fast_text``（默认）电子页只抽文本层、不调云端；
             ``layout`` 让电子页也上云端拿版面块与坐标（"原文坐标索引对照"需要），
             代价是这些页也要计费且更慢。云端不可用时自动回落文本层并在
@@ -113,7 +116,11 @@ def analyze_pdf(
         is_cancelled=is_cancelled,
     )
     pages, extraction_summary = extractor.extract(
-        pdf_path, ocr_profile=ocr_profile, template_key=template_key, layout_mode=layout_mode
+        pdf_path,
+        ocr_profile=ocr_profile,
+        template_key=template_key,
+        layout_mode=layout_mode,
+        cloud_backend=cloud_backend,
     )
     drafts, segment_summary = detect_segments_with_fallback(
         pages,
@@ -206,10 +213,18 @@ class PageTextExtractor:
         self._is_cancelled = is_cancelled
 
     def extract(
-        self, pdf_path: Path, *, ocr_profile: str, template_key: str, layout_mode: str = LAYOUT_MODE_FAST_TEXT
+        self,
+        pdf_path: Path,
+        *,
+        ocr_profile: str,
+        template_key: str,
+        layout_mode: str = LAYOUT_MODE_FAST_TEXT,
+        cloud_backend: str | None = None,
     ) -> tuple[list[PageDescriptor], dict[str, Any]]:
         runtime_profile = self._ocr_handler.resolve_runtime_profile(ocr_profile)
-        cloud_backend = self._ocr_handler.resolve_cloud_backend()
+        # 候选顺序：auto → 全部平台（可容灾）；锁定 → 只有那一个（不允许降级）
+        cloud_candidates = self._ocr_handler.resolve_cloud_backends(cloud_backend)
+        cloud_backend = cloud_candidates[0] if cloud_candidates else None
         want_layout = layout_mode == LAYOUT_MODE_LAYOUT
         # 缓存档案名带上策略：同一份 PDF 在「仅文本层」下缓存的是纯文本、在
         # 「补版面」下缓存的是带版面块的结果，共用一份档案会互相污染——
@@ -223,6 +238,7 @@ class PageTextExtractor:
         stats = {
             "runtime_profile": runtime_profile,
             "cloud_backend": cloud_backend,
+            "cloud_candidates": cloud_candidates,
             "cloud_cache_profile": cloud_cache_profile,
             "cache_hit_count": 0,
             "cloud_cache_hit_count": 0,
@@ -429,17 +445,46 @@ class PageTextExtractor:
                 )
 
     def _parse_cloud(self, pdf_path: Path, stats: dict[str, Any]) -> dict[int, Any]:
-        backend = stats["cloud_backend"]
-        if not backend:
+        """云端整本解析，按候选顺序**逐个尝试**（容灾）。
+
+        · auto：候选是全部已启用平台（按优先级），首个失败切下一个；
+        · 锁定：候选只有一个，失败即失败——不偷偷降级到用户没选的平台，
+          否则他拿这次结果做的比对/复核会失效，计费也落错地方。
+
+        只有"返回空结果"也算失败：那种情况通常是对端解析出了 0 页，
+        换一个平台重试比直接把空结果当成功更有意义。
+        """
+        candidates: list[str] = stats.get("cloud_candidates") or []
+        if not candidates:
             return {}
-        try:
-            return self._ocr_handler.parse_cloud_pages(pdf_path=pdf_path, backend=backend)
-        except Exception as exc:
-            logger.exception("pdf_split_cloud_ocr_failed", extra={"provider": backend})
-            stats["cloud_error"] = (
-                f"{type(exc).__name__}: {str(exc).replace(pdf_path.as_posix(), '[source PDF]')[:400]}"
-            )
-            return {}
+
+        errors: list[str] = []
+        for index, backend in enumerate(candidates):
+            try:
+                result = self._ocr_handler.parse_cloud_pages(pdf_path=pdf_path, backend=backend)
+            except Exception as exc:
+                logger.exception("pdf_split_cloud_ocr_failed", extra={"provider": backend})
+                errors.append(f"{backend}: {type(exc).__name__}: {str(exc)[:200]}")
+                continue
+            if not result:
+                # 解析成功但一页都没出来：同样视为这次尝试失败，继续下一个
+                logger.warning("pdf_split_cloud_empty", extra={"provider": backend})
+                errors.append(f"{backend}: 返回空结果")
+                continue
+            # 命中：把实际生效的平台记进 stats，summary / 缓存档案都以它为准
+            if index > 0:
+                logger.info(
+                    "云端容灾生效：%s 失败后改用 %s",
+                    " -> ".join(candidates[:index]),
+                    backend,
+                )
+            stats["cloud_backend"] = backend
+            stats["cloud_failover_from"] = candidates[:index]
+            return result
+
+        # 全部候选都失败
+        stats["cloud_error"] = " | ".join(errors).replace(pdf_path.as_posix(), "[source PDF]")[:800] or "云端解析失败"
+        return {}
 
     # ------------------------------------------------------------------
     # 回调与摘要
@@ -478,6 +523,9 @@ class PageTextExtractor:
             "ocr_cache_hit_count": int(max(stats["cache_hit_count"], 0)),
             "ocr_miss_count": int(max(pending, 0)),
             "ocr_provider": cloud_backend or "local",
+            # 实际生效平台与首选不同 = 发生过容灾；把首选链一并记下便于排障
+            "cloud_failover_from": stats.get("cloud_failover_from", []),
+            "cloud_candidates": stats.get("cloud_candidates", []),
             "ocr_cloud_cache_profile": stats["cloud_cache_profile"] if cloud_backend else "",
             "ocr_cloud_cache_hit_count": int(max(stats["cloud_cache_hit_count"], 0)),
             "ocr_fallback_reason": stats["cloud_error"] if pending and cloud_backend else "",

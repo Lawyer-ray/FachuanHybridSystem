@@ -33,9 +33,12 @@ type PdfSplitJobPayload = components['schemas']['PdfSplitJobOut']
 /** POST /pdf-splitting/jobs 的响应（生成物 PdfSplitJobSubmitOut） */
 type PdfSplitJobSubmit = components['schemas']['PdfSplitJobSubmitOut']
 
+/** 云端解析平台偏好：auto=优先+容灾；锁定值=只用它，失败不降级 */
+export type CloudBackend = 'auto' | 'mineru' | 'textin'
+
 export async function createPdfSplitJob(
   file: File,
-  opts: { layoutMode?: 'fast_text' | 'layout' } = {},
+  opts: { layoutMode?: 'fast_text' | 'layout'; cloudBackend?: CloudBackend } = {},
 ): Promise<string> {
   const body = new FormData()
   body.append('file', file, file.name)
@@ -45,6 +48,8 @@ export async function createPdfSplitJob(
   // 版面策略：layout 让电子版 PDF 也上云端拿版面块与坐标（原文坐标对照需要），
   // 代价是这些页也计费且更慢；默认 fast_text 不调云端。
   body.append('layout_mode', opts.layoutMode ?? 'fast_text')
+  // 平台偏好：auto 会自动容灾（首选失败切下一个）；锁定则只用该平台、失败即失败
+  body.append('cloud_backend', opts.cloudBackend ?? 'auto')
   const result = await pdfSplitApi
     .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
     .json<PdfSplitJobSubmit>()
