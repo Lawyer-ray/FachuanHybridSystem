@@ -73,3 +73,40 @@ def cleanup_gsxt_report_task_file(sender: type, **kwargs: Any) -> None:  # pragm
             logger.info("已清理企业信用报告文件", extra={"file_path": str(instance.report_file)})
         except Exception:
             logger.exception("清理企业信用报告失败")
+
+
+@receiver(post_delete, dispatch_uid="cleanup_court_sms_intake_materials")
+def cleanup_court_sms_intake_materials(sender: type, **kwargs: Any) -> None:  # pragma: no cover
+    """删除 CourtSMS 时清理「客户转交材料」落盘的文件。
+
+    法院短信通道的下载原件挂在 ScraperTask / CourtDocument 上，由
+    ``cleanup_court_document_local_file`` 负责；客户转交通道没有下载任务，
+    文件只由 CourtSMS.document_file_paths 引用，不在这里清理就会成为孤儿。
+    已重命名归档到案件文件夹/案件日志的副本是独立拷贝，不受影响。
+    """
+    from .models.court_sms import CourtSMS
+
+    if sender is not CourtSMS:
+        return
+    instance = kwargs["instance"]
+    paths = instance.document_file_paths
+    if not isinstance(paths, list) or not paths:
+        return
+
+    from apps.automation.services.sms.court_sms_document_intake import CourtSMSDocumentIntakeService
+    from apps.core.services.storage_service import delete_media_file
+
+    intake = CourtSMSDocumentIntakeService()
+    # 只删本通道目录下的文件：下载原件由 ScraperTask 信号管，两边不越权
+    doomed = [p for p in paths if isinstance(p, str) and intake._is_intake_path(p)]
+    if not doomed:
+        return
+
+    def _unlink_all() -> None:
+        removed = sum(1 for p in doomed if delete_media_file(p))
+        logger.info(
+            "已清理客户转交材料物理文件",
+            extra={"sms_id": instance.id, "requested": len(doomed), "removed": removed},
+        )
+
+    transaction.on_commit(_unlink_all)

@@ -75,6 +75,37 @@ export function Flow({
     [marksByPage],
   )
 
+  // 每页的识别定位框：云端识别出的正文块位置（seg.blocks → 按 mi:p 归位）。
+  // 与上面的 infos 来源框分开：来源框是"这个字段从哪抄来的"，定位框是
+  // "这一页有哪些被机器认出来的块"，配色与语义都不同，混在一起律师会看晕。
+  const hitsByPage = useMemo(() => {
+    const m = new Map<string, { key: string; rect: PageRect; label: string; approx?: boolean }[]>()
+    segs.forEach((seg) => {
+      // seg.blocks[].page 是**文档内绝对页号**（后端 page.page_no），不是段内序。
+      // 段的 refs 只覆盖自己的页范围，所以要按"段起始页"偏移回段内下标，
+      // 再取该下标对应的 ref（跨源合并段也能对上：refs 顺序即页顺序）。
+      const firstPage = seg.refs[0]?.p ?? 1
+      for (const b of seg.blocks ?? []) {
+        const ref = seg.refs[b.page - firstPage]
+        if (!ref) continue
+        const key = selKeyOf(ref)
+        const list = m.get(key) ?? []
+        list.push({
+          key: `${seg.id}:${b.page}:${list.length}`,
+          rect: b.rect,
+          label: b.text.slice(0, 40),
+          approx: b.rect.approx,
+        })
+        m.set(key, list)
+      }
+    })
+    return m
+  }, [segs])
+  const hitsOf = useCallback(
+    (mi: number, p: number) => hitsByPage.get(selKeyOf({ mi, p })),
+    [hitsByPage],
+  )
+
   const selKeys = useMemo(() => new Set(selPages.map(selKeyOf)), [selPages])
 
   const openMenu = useCallback((e: React.MouseEvent, mi: number, p: number) => {
@@ -94,13 +125,14 @@ export function Flow({
       selModeActive: selMode,
       selected: selKeys.has(`${ref.mi}:${ref.p}`),
       marks: marksOf(ref.mi, ref.p),
+      hits: hitsOf(ref.mi, ref.p),
       ocrRect: ocrPending && ocrPending.mi === ref.mi && ocrPending.p === ref.p ? ocrPending.rect : null,
       onPickPage: picking ? onOp.pickPage : undefined,
       onOcrBox: picking ? onOcrBox : undefined,
       onToggleSel,
       onContextMenu: openMenu,
     }),
-    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu],
+    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu],
   )
 
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false

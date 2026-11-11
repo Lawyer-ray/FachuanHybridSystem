@@ -27,6 +27,16 @@ def _levenshtein_distance(s1: str, s2: str) -> int:
     return prev_row[-1]
 
 
+#: 取字路径判定的材料类别。写进 summary 供排障与前端提示，不用来「换后端」。
+MATERIAL_KIND_DIGITAL_PDF = "digital_pdf"
+MATERIAL_KIND_SCANNED_PDF = "scanned_pdf"
+MATERIAL_KIND_MIXED_PDF = "mixed_pdf"
+
+#: 判定「电子版 / 扫描件」时抽样的页数（首、中、尾）。
+#: 不读全文：判定只是选路，为它把整本扫一遍等于把最贵的 IO 做两遍。
+_TEXT_SAMPLE_PAGES = 3
+
+
 @dataclass
 class PageDescriptor:
     page_no: int
@@ -67,6 +77,51 @@ class OCRPageResult:
     source_method: str
     ocr_failed: bool
     layout: dict[str, Any] | None = None
+
+
+def classify_pdf_material(doc: Any, *, is_effective_text: Any) -> str:
+    """抽样判定一份 PDF 属于电子版 / 扫描件 / 混合。
+
+    只抽首、中、尾至多 ``_TEXT_SAMPLE_PAGES`` 页读文本层，不扫全文——
+    判定只是选路，为它把整本走一遍等于把最贵的 IO 做两遍。
+
+    三档语义：
+      · digital_pdf：抽到的页都有有效文本层 —— 电子版，文本层抽字最准也最便宜
+      · scanned_pdf：抽到的页全无有效文本层 —— 扫描件，必须 OCR / 云端视觉
+      · mixed_pdf：部分有部分没有 —— 同一本里混了扫描页（附件总是扫描件的
+        常态），逐页调度会各自选路，这里只如实标注，不用来一刀切
+
+    Args:
+        doc: 已打开的 PyMuPDF Document。
+        is_effective_text: 判定文本层是否有效的回调用（复用 SegmentDetector 的
+            口径，避免这里再定义一份「多少字算有字」）。
+
+    Returns:
+        上: MATERIAL_KIND_* 之一。总页数为 0 时返回 scanned_pdf（无内容可抽）。
+    """
+    try:
+        total = int(doc.page_count)
+    except (TypeError, ValueError):
+        return MATERIAL_KIND_SCANNED_PDF
+    if total <= 0:
+        return MATERIAL_KIND_SCANNED_PDF
+
+    # 首、中、尾；去重后保持顺序（总页数少时 _TEXT_SAMPLE_PAGES 会重样）
+    indexes = sorted({0, total // 2, total - 1})
+    hits = 0
+    for index in indexes:
+        try:
+            text = doc.load_page(index).get_text("text") or ""
+        except Exception:  # 单页读不出来不能拖垮整份判定
+            continue
+        if is_effective_text(text):
+            hits += 1
+
+    if hits == 0:
+        return MATERIAL_KIND_SCANNED_PDF
+    if hits == len(indexes):
+        return MATERIAL_KIND_DIGITAL_PDF
+    return MATERIAL_KIND_MIXED_PDF
 
 
 # ↓↓ 版面标题提取（纯函数；由 service.py 下沉，pipeline / service 共用）

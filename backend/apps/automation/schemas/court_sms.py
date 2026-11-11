@@ -43,12 +43,29 @@ class CourtSMSSubmitIn(BaseModel):
         return v.strip()
 
 
+class CourtSMSMaterialSkipOut(BaseModel):
+    """被跳过的材料（格式不支持 / 超限 / 落盘失败）"""
+
+    name: str = Field(..., description="用户拖入时的原始文件名")
+    reason: str = Field(..., description="跳过原因（直接展示给用户）")
+
+
+class CourtSMSMaterialIntakeOut(BaseModel):
+    """客户转交材料入库结果（POST /court-sms/upload 专用）"""
+
+    saved: list[str] = Field(default_factory=list, description="已入库的文件名（按拖入顺序）")
+    skipped: list[CourtSMSMaterialSkipOut] = Field(default_factory=list, description="被跳过的文件及原因")
+
+
 class CourtSMSSubmitDataOut(BaseModel):
     """提交/重试成功后返回的短信记录信息（CourtSMSSubmitOut.data）"""
 
     id: int = Field(..., description="短信记录 ID")
     status: str = Field("", description="处理状态（pending 等）")
     created_at: datetime | None = Field(None, description="记录创建时间")
+    materials: CourtSMSMaterialIntakeOut | None = Field(
+        None, description="客户转交材料入库结果（仅文件通道返回，短信通道为 null）"
+    )
 
 
 class CourtSMSSubmitOut(BaseModel):

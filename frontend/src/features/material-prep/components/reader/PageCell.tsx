@@ -21,6 +21,7 @@ export const PageCell = memo(function PageCell({
   selModeActive,
   selected,
   marks = [],
+  hits = [],
   ocrRect,
   onPickPage,
   onOcrBox,
@@ -37,6 +38,9 @@ export const PageCell = memo(function PageCell({
   selModeActive?: boolean
   selected?: boolean
   marks?: { fi: number; rect: PageRect; label: string }[]
+  /** 识别定位框：云端识别出的正文块位置（与 marks 的来源绿框分开配色，
+   *  免得律师分不清"字段出处"和"块位置"） */
+  hits?: { key: string; rect: PageRect; label: string; approx?: boolean }[]
   ocrRect?: PageRect | null
   onPickPage?: (mi: number, p: number) => void
   onOcrBox?: (mi: number, p: number, rect: PageRect) => void
@@ -172,6 +176,23 @@ export const PageCell = memo(function PageCell({
             {m.label}
           </span>
         </div>
+      ))}
+
+      {/* 识别定位：云端识别出的正文块（虚线=整页近似框，不给假精度） */}
+      {hits.map((h) => (
+        <div
+          key={h.key}
+          className={`pointer-events-none absolute rounded-[3px] border border-sky-500/70 ${
+            h.approx ? 'border-dashed' : ''
+          }`}
+          style={{
+            left: `${h.rect.x * 100}%`,
+            top: `${h.rect.y * 100}%`,
+            width: `${h.rect.w * 100}%`,
+            height: `${h.rect.h * 100}%`,
+          }}
+          title={h.label}
+        />
       ))}
 
       {/* OCR 拖出的框 */}

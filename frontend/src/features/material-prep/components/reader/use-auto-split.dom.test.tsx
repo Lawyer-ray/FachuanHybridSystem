@@ -18,10 +18,13 @@ const apiMock = vi.hoisted(() => ({
   fetchAttachmentBytes: vi.fn(),
   createPdfSplitJob: vi.fn(),
   getPdfSplitJob: vi.fn(),
+  ocrImage: vi.fn(),
+  parseOfficeFile: vi.fn(),
 }))
 const draftMock = vi.hoisted(() => ({
   applyAutoSplit: vi.fn((v: unknown) => ({ ...(v as object), applied: true })),
   canAutoSplitMat: vi.fn(),
+  fillSegmentText: vi.fn((v: unknown) => ({ ...(v as object), filled: true })),
 }))
 const storeMock = vi.hoisted(() => ({
   getState: vi.fn(),
@@ -41,8 +44,13 @@ import { useAutoSplit } from './use-auto-split'
 function pdfMat(mi: number, name = `m${mi}.pdf`) {
   return { k: 'pdf', partIndex: mi, n: name, customName: '' }
 }
+/** 图片素材：真实域模型的 kind 值是 'photo'（见 draft/resolve 的 detectMaterialKind） */
 function imgMat(mi: number) {
-  return { k: 'image', partIndex: mi, n: `m${mi}.jpg`, customName: '' }
+  return { k: 'photo', partIndex: mi, n: `m${mi}.jpg`, customName: '' }
+}
+/** Office 素材（Word / Excel） */
+function officeMat(mi: number) {
+  return { k: 'office', partIndex: mi, n: `m${mi}.docx`, customName: '' }
 }
 
 function setup({ mats = [pdfMat(0)], openId = 1 } = {}) {
@@ -77,14 +85,52 @@ describe('useAutoSplit：提前退出分支', () => {
     expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
   })
 
-  it('材料包里没有 PDF：提示只支持 PDF', async () => {
-    setup({ mats: [imgMat(0)] })
+  it('材料包里只有图片：走图片取字，不建 PDF 任务', async () => {
+    // 图片已接入自动识别（见 docs/material-prep-dispatch.md）：不再提示
+    //「只支持 PDF」，而是单页 OCR 取字回填段正文。
+    const { update } = setup({ mats: [imgMat(0)] })
+    apiMock.fetchAttachmentBytes.mockResolvedValue(new ArrayBuffer(8))
+    apiMock.ocrImage.mockResolvedValue({ width: 1, height: 1, blocks: [{ text: '送货单' }] })
+
     const { result } = renderHook(() => useAutoSplit())
     await act(async () => {
       await result.current.run()
     })
-    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('没有 PDF'))
+
     expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.ocrImage).toHaveBeenCalled()
+    // update 收的是 updater 回调，真实 store 会调用它；这里要手动执行才能看到回写，
+    // 否则断言的是 mock 的形参而不是真正写进草稿的内容。
+    const updater = update.mock.calls[0]?.[0] as (v: unknown) => unknown
+    updater({ mats: [], segs: [], infos: [] })
+    expect(draftMock.fillSegmentText).toHaveBeenCalledWith(expect.anything(), 0, '送货单')
+  })
+
+  it('Word 材料：走 office 解析转正文，不建 PDF 任务', async () => {
+    const { update } = setup({ mats: [officeMat(0)] })
+    apiMock.fetchAttachmentBytes.mockResolvedValue(new Uint8Array([1, 2, 3]))
+    apiMock.parseOfficeFile.mockResolvedValue({ markdown: '## 起诉状\n\n正文', text: '起诉状 正文' })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.parseOfficeFile).toHaveBeenCalled()
+    const updater = update.mock.calls[0]?.[0] as (v: unknown) => unknown
+    updater({ mats: [], segs: [], infos: [] })
+    // 优先回填 Markdown（保留标题层级），而不是退化后的纯文本
+    expect(draftMock.fillSegmentText).toHaveBeenCalledWith(expect.anything(), 0, '## 起诉状\n\n正文')
+  })
+
+  it('材料包里没有任何可识别内容：提示无可识别材料', async () => {
+    setup({ mats: [] })
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('没有可自动识别'))
   })
 
   it('PDF 都已被人工拆分：提示跳过原因', async () => {
@@ -146,7 +192,7 @@ describe('useAutoSplit：成功路径', () => {
       await result.current.run()
     })
 
-    expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('1 个识别失败'))
+    expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('1 份识别失败'))
   })
 
   it('全部失败：error 提示首个失败原因', async () => {

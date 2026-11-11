@@ -6,14 +6,17 @@ import type { InboxRow, InboxSourceFilter, InboxSourceTab } from './types'
  *
  * 来源档位的值是后端 source_type 多值串（逗号分隔，list_messages 已支持多值）。
  * 顺序按「律师每天真正要看的优先级」排：法院送达在最前（有开庭/举证期限，
- * 漏了要担责），材料包最后（本身不进收件箱也该在材料预处理页）。
+ * 漏了要担责）。
+ *
+ * **不再有「材料包」档位**：材料包已升为一级导航（见 `../stages.ts`），
+ * 它的三种状态就在那支下面；再在收件箱留一个来源档位属于层级错置，
+ * 还会让同一份上传在两处重复出现。
  */
 export const INBOX_SOURCE_TABS: InboxSourceTab[] = [
   { key: 'all', label: '全部' },
   { key: 'court_inbox', label: '一张网' },
   { key: 'imap', label: '邮箱' },
   { key: 'court_sms', label: '法院短信' },
-  { key: 'manual_upload,client_upload', label: '材料包' },
 ]
 
 /** source_type → 中文来源标签（行内小徽章用；未知来源回原位展示原值） */
@@ -99,11 +102,6 @@ export const INBOX_SYNC_SPEC: { [K in InboxSourceFilter]: SyncSpec } = {
   // 法院短信没有 MessageSource：它是短信转发/admin 录入进 CourtSMS 表的，
   // 不存在「拉取」动作，因此这个档位不该有同步按钮。
   court_sms: { label: null, target: null, disabledReason: '短信无需同步' },
-  'manual_upload,client_upload': {
-    label: null,
-    target: null,
-    disabledReason: '材料包无需同步',
-  },
 }
 
 // ── 空态的专门指引 ────────────────────────────────────────

@@ -31,12 +31,17 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     onZoomOut: vi.fn(),
     onZoomReset: vi.fn(),
     cols: 1,
+    maxCols: 3,
+    onSetCols: vi.fn(),
     colsDisabled: false,
-    onChangeCols: vi.fn(),
     onResetSegments: vi.fn(),
     onAutoSplit: vi.fn(),
     autoSplitRunning: false,
     autoSplitProgress: '',
+    layoutMode: 'fast_text' as const,
+    onLayoutModeChange: vi.fn(),
+    cloudBackend: 'auto' as const,
+    onCloudBackendChange: vi.fn(),
     ...over,
   }
 }
@@ -95,37 +100,73 @@ describe('ReaderToolbar：核心按钮', () => {
     unmount()
   })
 
-  it('缩放三件套各自回调', () => {
-    const { props, unmount } = renderToolbar()
-    fireEvent.click(screen.getByRole('button', { name: '缩小画布' }))
-    fireEvent.click(screen.getByRole('button', { name: '放大画布' }))
-    fireEvent.click(screen.getByRole('button', { name: /100%/ }))
+  it('常驻区只有一个视图入口，显示当前倍率', () => {
+    const { unmount } = renderToolbar({ zoomVal: 150, cols: 2 })
+    const btn = screen.getByRole('button', { name: /视图设置：当前 150%，2 列/ })
+    expect(btn.textContent).toContain('150%')
+    // 旧的 −/100%/+ 常驻三件套已收进菜单，不应再出现在常驻区
+    expect(screen.queryByRole('button', { name: '缩小画布' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '放大画布' })).toBeNull()
+    unmount()
+  })
+})
+
+describe('ReaderToolbar：视图菜单（缩放 + 并排列数）', () => {
+  // Radix 下拉由 pointerDown 打开（不是 click），且打开后触发按钮的
+  // aria-haspopup/aria-expanded 会变，所以先抓元素再点。
+  async function openViewMenu(over: Partial<ToolbarProps> = {}) {
+    const utils = renderToolbar(over)
+    const trigger = screen.getByRole('button', { name: /视图设置/ })
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    const menu = await screen.findByRole('menu')
+    return Object.assign(utils, { menu })
+  }
+
+  it('− / + 回调缩放', async () => {
+    const { props, menu, unmount } = await openViewMenu()
+    fireEvent.click(within(menu).getByRole('button', { name: '缩小画布' }))
+    fireEvent.click(within(menu).getByRole('button', { name: '放大画布' }))
     expect(props.onZoomOut).toHaveBeenCalled()
     expect(props.onZoomIn).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('重置是明确的菜单项，而非伪装成百分比的按钮', async () => {
+    const { props, menu, unmount } = await openViewMenu({ zoomVal: 150 })
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /恢复到 100%/ }))
     expect(props.onZoomReset).toHaveBeenCalled()
     unmount()
   })
 
-  it('缩放百分比按 zoomVal 渲染', () => {
-    const { unmount } = renderToolbar({ zoomVal: 150 })
-    expect(screen.getByRole('button', { name: /150%/ })).toBeTruthy()
+  it('已在 100% 时重置项禁用', async () => {
+    const { menu, unmount } = await openViewMenu({ zoomVal: 100 })
+    const item = within(menu).getByRole('menuitem', { name: /恢复到 100%/ })
+    expect(item.getAttribute('aria-disabled')).toBe('true')
     unmount()
   })
 
-  it('列数按钮：可用时点击回调', () => {
-    const { props, unmount } = renderToolbar({ cols: 2, colsDisabled: false })
-    const btn = screen.getByRole('button', { name: /并排列数：当前 2 列/ })
-    fireEvent.click(btn)
-    expect(props.onChangeCols).toHaveBeenCalled()
+  it('达到上下限时 − / + 禁用', async () => {
+    const { menu, unmount } = await openViewMenu({ zoomVal: 220 })
+    const plus = within(menu).getByRole('button', { name: '放大画布' }) as HTMLButtonElement
+    expect(plus.disabled).toBe(true)
     unmount()
   })
 
-  it('列数按钮：colsDisabled 时禁用', () => {
-    const { props, unmount } = renderToolbar({ colsDisabled: true })
-    const btn = screen.getByRole('button', { name: /并排列数/ }) as HTMLButtonElement
-    expect(btn.disabled).toBe(true)
-    fireEvent.click(btn)
-    expect(props.onChangeCols).not.toHaveBeenCalled()
+  it('列数按窗口上限逐项列出，点哪列就是哪列（不循环）', async () => {
+    const { props, menu, unmount } = await openViewMenu({ cols: 1, maxCols: 3 })
+    expect(within(menu).getByRole('menuitem', { name: /单页/ })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: /2 列/ })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: /3 列/ })).toBeTruthy()
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /3 列/ }))
+    expect(props.onSetCols).toHaveBeenCalledWith(3)
+    unmount()
+  })
+
+  it('窗口只够一列时只列「单页」并提示原因', async () => {
+    const { menu, unmount } = await openViewMenu({ cols: 1, maxCols: 1, colsDisabled: true })
+    expect(within(menu).getByRole('menuitem', { name: /单页/ })).toBeTruthy()
+    expect(within(menu).queryByRole('menuitem', { name: /2 列/ })).toBeNull()
+    expect(within(menu).getByText(/并排至少每列 360px/)).toBeTruthy()
     unmount()
   })
 })
@@ -152,16 +193,69 @@ describe('ReaderToolbar：自动分段', () => {
   })
 })
 
-describe('ReaderToolbar：更多操作菜单', () => {
-  it('⋯ 菜单里能触发「恢复初始分段」', async () => {
-    const { props, unmount } = renderToolbar()
-    const trigger = screen.getByRole('button', { name: /更多操作/ })
+describe('ReaderToolbar：自动分段 split button', () => {
+  /** 打开右侧小三角的设置菜单 */
+  async function openSettings() {
+    const trigger = screen.getByRole('button', { name: /自动分段设置/ })
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
     fireEvent.click(trigger)
+    await screen.findByText(/版面策略/)
+  }
 
-    const item = await screen.findByText('恢复初始分段')
-    fireEvent.click(item)
+  it('主按钮直接执行自动分段（不需要先开菜单）', () => {
+    const { props, unmount } = renderToolbar()
+    // 精确匹配主按钮（另有「自动分段设置」按钮，模糊匹配会命中两个）
+    fireEvent.click(screen.getByRole('button', { name: '自动分段' }))
+    expect(props.onAutoSplit).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('设置菜单里能切版面策略到「补版面」', async () => {
+    const { props, unmount } = renderToolbar()
+    await openSettings()
+    fireEvent.click(screen.getByText('补版面'))
+    expect(props.onLayoutModeChange).toHaveBeenCalledWith('layout')
+    unmount()
+  })
+
+  it('设置菜单里能选解析平台', async () => {
+    const { props, unmount } = renderToolbar()
+    await openSettings()
+    fireEvent.click(screen.getByText('仅 Textin'))
+    expect(props.onCloudBackendChange).toHaveBeenCalledWith('textin')
+    unmount()
+  })
+
+  it('设置菜单里能触发「恢复初始分段」', async () => {
+    const { props, unmount } = renderToolbar()
+    await openSettings()
+    fireEvent.click(screen.getByText('恢复初始分段'))
     expect(props.onResetSegments).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('当前值带 ✓，且每个选项都写明后果（费用/可信度）', async () => {
+    const { unmount } = renderToolbar({ layoutMode: 'layout', cloudBackend: 'mineru' })
+    await openSettings()
+
+    // 勾选只出现在当前值上
+    const layoutItem = screen.getByText('补版面').closest('[role="menuitem"]') as HTMLElement
+    expect(layoutItem.querySelector('svg')).toBeTruthy()
+    const textItem = screen.getByText('仅文本层').closest('[role="menuitem"]') as HTMLElement
+    expect(textItem.querySelector('svg')).toBeNull()
+
+    // 后果文案必须在：这几个选项直接影响计费与结果可信度，
+    // 只写名词用户无从判断
+    expect(screen.getByText(/按页计费/)).toBeTruthy()
+    // 「失败不降级」两个锁定项都有，用 getAllBy 断言至少出现
+    expect(screen.getAllByText(/失败不降级/).length).toBeGreaterThan(0)
+    unmount()
+  })
+
+  it('识别进行中时主按钮与设置入口都禁用（避免改到正在跑的策略）', () => {
+    const { unmount } = renderToolbar({ autoSplitRunning: true })
+    expect((screen.getByRole('button', { name: /识别/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: /自动分段设置/ }) as HTMLButtonElement).disabled).toBe(true)
     unmount()
   })
 })

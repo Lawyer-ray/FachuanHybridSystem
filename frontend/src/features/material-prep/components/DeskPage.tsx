@@ -3,23 +3,42 @@ import { materialPrepDetail } from '@/app/paths'
 import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
-import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
+import { errMessage } from '@/lib/errors'
+import {
+  useMaterialPacks,
+  useCreatePack,
+  useJudgePack,
+  useDeletePack,
+} from '../hooks/use-inbox'
 import { useReader } from '../store'
-import { PACK_LEAVE_REMOVAL_MS } from '../constants'
-import { isPackStage, parseStage, type PrepStage } from '../stages'
+import {
+  PACK_LEAVE_REMOVAL_MS,
+  formatMB,
+  uploadSizeCapBytes,
+} from '../constants'
+import { isPackStage, parseStage, stageToQuery, type PrepStage } from '../stages'
 import { useDeskKeyboard } from '../hooks/use-desk-keyboard'
 import { useDeskRing } from '../hooks/use-desk-ring'
 import { useDeskRouteSync } from '../hooks/use-desk-route-sync'
 import { DeskTabs } from './DeskTabs'
+import { DeskToolbar } from './DeskToolbar'
+import {
+  DESK_SURFACE_CLASS,
+  STAGE_DEFAULT_VIEW,
+  toolbarSlotsFor,
+} from './desk-toolbar-types'
+import type { DeskViewMode } from './desk-toolbar-types'
 import { PackGrid } from './PackGrid'
 import { DeskDropLayer } from './DeskDropLayer'
 import { DeskDialogs } from './DeskDialogs'
 import { ShareLinkPanel } from './ShareLinkPanel'
 import { Reader } from './reader/Reader'
 import { InboxView } from '../inbox'
-import { useInboxCounts } from '../inbox/hooks/use-inbox'
+import { useInboxCounts, useInboxList } from '../inbox/hooks/use-inbox'
+import { countUnread } from '../inbox/domain'
+import type { InboxSourceFilter } from '../inbox/types'
 import type { InboxMessage, PackStatus } from '../types'
-import '../material-prep.css'
+import "../material-prep.css"
 
 type Tab = PackStatus
 
@@ -51,17 +70,62 @@ export function DeskPage() {
 
   const [sel, setSel] = useState(0)
 
+  // ── 统一工具栏的筛选状态 ──────────────────────────────────
+  // 收件箱的筛选以前是 InboxView 内部的本地 state，工具栏上提到本组件后
+  // 必须跟着上提：工具栏与列表主体是兄弟节点，状态留在下面就会出现
+  // 「点了药丸但列表不动」。InboxView 现在是受控组件，只认这里的值。
+  const [source, setSource] = useState<InboxSourceFilter>('all')
+  const [search, setSearch] = useState("")
+  const [unreadOnly, setUnreadOnly] = useState(false)
+
+  // 「未读」药丸上的数字：**当前来源档位 + 搜索词下的未读条数**，与未读开关无关。
+  //
+  // 关键：这里**不传 `unreadOnly`**。它是发给后端的查询参数（unread_only=true），
+  // 传了就会只拿回未读行，数字被自己的开关坍缩——开关一翻，数字跟着抖甚至自指。
+  // 语义上两者本就不同：「要不要只看未读」是筛选意图，「这里有多少未读」是事实。
+  //
+  // 另：不能对全库另发请求——顶栏那个数要和眼前这批消息对得上。
+  const inboxRows = useInboxList({ source, search })
+  const unreadCount = useMemo(
+    () => countUnread(inboxRows.data ?? []),
+    [inboxRows.data],
+  )
+
+  // 「列表 / 卡片」按阶段分别记住用户的切换结果：从「待处理」切到「已归案」
+  // 再切回来，待处理仍然是他上次选的那种排布。只在内存里，不持久化——
+  // 刷新后回到 STAGE_DEFAULT_VIEW 的缺省（消息流用列表、材料包用卡片）。
+  const [viewModes, setViewModes] = useState<
+    Partial<Record<PrepStage, DeskViewMode>>
+  >({})
+  const viewMode: DeskViewMode = viewModes[stage] ?? STAGE_DEFAULT_VIEW[stage]
+  const setViewMode = useCallback(
+    (m: DeskViewMode) => setViewModes((prev) => ({ ...prev, [stage]: m })),
+    [stage],
+  )
+
   const setStage = useCallback(
     (s: PrepStage) => {
       if (isPackStage(s)) setPackTab(s)
       setSel(0)
-      // 收件箱是默认阶段：不往 URL 里写冗余参数，保持 /material-prep 干净
-      setParams(s === 'inbox' ? {} : { stage: s }, { replace: true })
+      // 只在**现有参数上**改 stage，不整体替换。
+      // setParams 传对象是覆盖语义：以前直接 setParams({stage:s}) 会把
+      // 深链接的 ?message=<id> 一起抹掉（收件箱打开某条消息的直达能力失效）。
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          // 收件箱是默认阶段：不往 URL 里写冗余参数，保持 /material-prep 干净
+          const q = stageToQuery(s)
+          if (q == null) next.delete('stage')
+          else next.set('stage', q)
+          return next
+        },
+        { replace: true },
+      )
     },
     [setParams, setPackTab, setSel],
   )
 
-  const [leaving, setLeaving] = useState<Record<number, 'left' | 'right'>>({})
+  const [leaving, setLeaving] = useState<Record<number, "left" | "right">>({})
   const [assigning, setAssigning] = useState<InboxMessage | null>(null)
   // 待确认删除的材料包（破坏性操作，右键后先经 AlertDialog 确认）
   const [deleteTarget, setDeleteTarget] = useState<InboxMessage | null>(null)
@@ -107,24 +171,50 @@ export function DeskPage() {
   // 收件箱角标：一级页签上要能和眼前这批消息对上，故复用收件箱列表的取数口径
   const inboxCount = useInboxCounts()
   const stageCounts = useMemo<Record<PrepStage, number>>(
-    () => ({ inbox: inboxCount, todo: counts.todo, done: counts.done, filed: counts.filed }),
+    () => ({
+      inbox: inboxCount,
+      todo: counts.todo,
+      done: counts.done,
+      filed: counts.filed,
+    }),
     [inboxCount, counts],
   )
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
+      const list = Array.from(files)
+      // 体积预检：后端对单文件有硬上限（普通 50MB / 压缩包 200MB），超限必被
+      // 400 拒绝。传到一半才被拒既浪费上行带宽又让用户白等，这里提前报。
+      // 逐个提示第一个超限文件即可——一次拖 10 个超限文件时堆 10 条 toast
+      // 只会把提示区刷满，反而看不到具体哪个文件有问题。
+      const oversized = list.find((f) => f.size > uploadSizeCapBytes(f.name))
+      if (oversized) {
+        toast.error(
+          `${oversized.name} 过大（${formatMB(oversized.size)}），单个不能超过 ${formatMB(uploadSizeCapBytes(oversized.name))}`,
+        )
+        setDragging(false)
+        return
+      }
       setUploading(true)
       try {
-        const detail = await createPack.mutateAsync(Array.from(files))
+        const detail = await createPack.mutateAsync(list)
         setStage('todo')
         setSel(0)
         // 压缩包会被服务端展开：以响应里的实际附件数为准，别拿输入文件数冒充
-        const total = detail?.attachment_count ?? files.length
-        const hadArchive = Array.from(files).some((f) => /\.(zip|rar|7z)$/i.test(f.name))
-        toast.success(hadArchive ? `压缩包已展开，共收进 ${total} 份材料` : `已收进 ${total} 份材料`)
-      } catch {
-        toast.error('上传失败，请检查后端连接')
+        const total = detail?.attachment_count ?? list.length
+        const hadArchive = list.some((f) => /\.(zip|rar|7z)$/i.test(f.name))
+        toast.success(
+          hadArchive
+            ? `压缩包已展开，共收进 ${total} 份材料`
+            : `已收进 ${total} 份材料`,
+        )
+      } catch (e) {
+        // 必须透出后端文案：上传失败的一大类是「附件过大 / 格式不支持」这类
+        // 可自行处理的 400，后端 message 已经写得很具体。以前这里吞掉错误
+        // 一律弹「请检查后端连接」，会让 65MB 的 PDF 被拒时用户以为后端挂了
+        // （实测：一份 65.7MB / 164 页的扫描件超 50MB 上限被拒，看到的却是连接问题）。
+        toast.error(errMessage(e, "上传失败，请重试"))
       } finally {
         setUploading(false)
         setDragging(false)
@@ -137,14 +227,17 @@ export function DeskPage() {
 
   // 离场动画后移除 leaving 标记（并把卡片从当前列表刷走）
   const judge = useCallback(
-    async (pack: { id: number }, target: 'done' | 'filed') => {
+    async (pack: { id: number }, target: "done" | 'filed') => {
       if (leaving[pack.id]) return
-      setLeaving((prev) => ({ ...prev, [pack.id]: target === 'done' ? 'right' : 'left' }))
+      setLeaving((prev) => ({
+        ...prev,
+        [pack.id]: target === "done" ? "right" : 'left',
+      }))
       try {
         await judgePack.mutateAsync({ id: pack.id, status: target })
-        toast(target === 'done' ? '已归案' : '已归档留痕，未建案')
-      } catch {
-        toast.error('状态更新失败，请重试')
+        toast(target === "done" ? "已归案" : "已归档留痕，未建案")
+      } catch (e) {
+        toast.error(errMessage(e, "状态更新失败，请重试"))
       }
       const t = setTimeout(() => {
         leaveTimersRef.current.delete(t)
@@ -162,7 +255,7 @@ export function DeskPage() {
   // judge 是 async（返回 Promise）；键盘导航 / 弹窗回调期望 void 返回，
   // 统一包一层 fire-and-forget（内部 busy/leaving 守卫防重入，无需等待结果）
   const judgeVoid = useCallback(
-    (pack: { id: number }, target: 'done' | 'filed') => {
+    (pack: { id: number }, target: "done" | 'filed') => {
       void judge(pack, target)
     },
     [judge],
@@ -171,18 +264,40 @@ export function DeskPage() {
   const openAt = useCallback(
     (index: number) => {
       const p = visible[index]
-      if (p) {
-        void openPack(p.id)
-        void navigate(materialPrepDetail(p.id))
-      }
+      if (!p) return
+      void openPack(p.id)
+      // 跳详情时必须带上当前 stage。
+      //
+      // 不带会怎样：详情路由（/material-prep/571）没有 ?stage=，DeskPage 里
+      // parseStage(null) 回落成「收件箱」——于是这一帧主区域渲染的是收件箱列表、
+      // 页签也跳到收件箱，紧接着阅读器才盖上来。用户看到的就是
+      // 「闪一下列表再进详情」。
+      //
+      // 用当前 location 的 stage 而不是写死 tab：从「已归案」点开的包，退出时
+      // 也该回「已归案」。
+      const q = stageToQuery(isPackStage(stage) ? stage : tab)
+      void navigate(`${materialPrepDetail(p.id)}${q ? `?stage=${q}` : ''}`)
     },
-    [visible, openPack, navigate],
+    [visible, openPack, navigate, stage, tab],
   )
 
   // 「不接」回调稳定化：内联箭头会透传到 PackCard 打穿 memo
-  const rejectPack = useCallback((p: InboxMessage) => { void judge(p, 'filed') }, [judge])
+  const rejectPack = useCallback(
+    (p: InboxMessage) => {
+      void judge(p, 'filed')
+    },
+    [judge],
+  )
 
-  useDeskKeyboard({ visible, openId, sel, setSel, openAt, judge: judgeVoid, gridRef })
+  useDeskKeyboard({
+    visible,
+    openId,
+    sel,
+    setSel,
+    openAt,
+    judge: judgeVoid,
+    gridRef,
+  })
   useDeskRing({ sel, visible, tab, gridRef, wrapRef, ringRef })
 
   const confirmDelete = useCallback(() => {
@@ -194,7 +309,7 @@ export function DeskPage() {
         toast(`${p.subject} 已删除`)
         setDeleteTarget(null)
       })
-      .catch(() => toast.error('删除失败，请重试'))
+      .catch((e) => toast.error(errMessage(e, "删除失败，请重试")))
   }, [deleteTarget, deletePack])
 
   return (
@@ -210,7 +325,7 @@ export function DeskPage() {
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes('Files')) return
         e.preventDefault()
-        e.dataTransfer.dropEffect = 'copy'
+        e.dataTransfer.dropEffect = "copy"
       }}
       onDragLeave={() => {
         dragDepth.current -= 1
@@ -237,49 +352,98 @@ export function DeskPage() {
           onOpenShareLinks={() => setShareLinksOpen(true)}
         />
 
-        {/* 阶段切换的淡入：key={stage} 确保换阶段时这层重挂，
-            app-stage-enter 才会重新播一次。不加 key 时 React 复用同一节点，
-            过渡不会触发，表现为主区域内容硬切（2026-11-04 反馈「切换不自然」）。
-            只给主区域而不给整页：页签不该跟着一起淡，它应该保持常驻。 */}
-        <div key={stage} className="app-stage-enter flex min-h-0 flex-1 flex-col">
-          {!isPackStage(stage) ? (
-            /* 收件箱阶段：主区域交给 InboxView。拖放层仍在外层生效——
-               把文件拖进收件箱页时照旧建包并跳到「待处理」。 */
-            <InboxView />
-          ) : isLoading ? (
-          /* 与 PackGrid 的空态同构：列表区占位而非整页 loading——页签仍在，
+        {/* 统一工具栏：阶段切换时它不重挂（在 key={stage} 那层之外），只有槽位变化，
+            这样切页签时是「同一条工具栏换了控件」而不是「换了个页面」。 */}
+        {/* 工具栏与主区域共用**同一个**卡片容器：工具栏是这张卡的表头（自带 border-b），
+            主区域是卡身。以前这里各自套一层 DESK_SURFACE_CLASS，页面上会出现
+            「两张上下叠放的独立卡片」，反而比统一前更分裂。 */}
+        <div data-testid="desk-surface" className={DESK_SURFACE_CLASS}>
+          <DeskToolbar
+            stage={stage}
+            slots={toolbarSlotsFor(stage)}
+            handlers={{
+              source,
+              onSourceChange: setSource,
+              unreadOnly,
+              onUnreadOnlyChange: setUnreadOnly,
+              unreadCount,
+              search,
+              onSearchChange: setSearch,
+              viewMode,
+              onViewModeChange: setViewMode,
+            }}
+          />
+
+          {/* 阶段切换的淡入：key={stage} 确保换阶段时这层重挂，
+              app-stage-enter 才会重新播一次。不加 key 时 React 复用同一节点，
+              过渡不会触发，表现为主区域内容硬切（2026-11-04 反馈「切换不自然」）。
+              只给主区域而不给整页：页签不该跟着一起淡，它应该保持常驻。
+              注意它**在卡片容器内部**：工具栏是卡的表头、这块是卡身，
+              两者必须同属一张卡，否则页面上会出现两张上下叠放的黑框。 */}
+          <div
+            key={stage}
+            className="app-stage-enter flex min-h-0 flex-1 flex-col overflow-y-auto"
+          >
+            {!isPackStage(stage) ? (
+              /* 收件箱阶段：主区域交给 InboxView（受控：筛选值来自本组件的工具栏）。
+               拖放层仍在外层生效——把文件拖进收件箱页时照旧建包并跳到「待处理」。 */
+
+              <InboxView
+                source={source}
+                onSourceChange={setSource}
+                search={search}
+                onSearchChange={setSearch}
+                unreadOnly={unreadOnly}
+                onUnreadOnlyChange={setUnreadOnly}
+              />
+            ) : isLoading ? (
+              /* 与 PackGrid 的空态同构：列表区占位而非整页 loading——页签仍在，
              所以居中要相对卡片区（LoadingBlock 自带 justify-center）。
              虚线框靠调用点补：加载态与空态要共用一个框，看起来是同块区域换内容 */
-          <LoadingBlock text="加载材料包…" className="rounded-[13px] border border-dashed border-zinc-300 py-16" />
-        ) : error ? (
-          /* 前缀「无法加载材料包：」留在调用点的原因：ErrorBlock 只把 error 的
+              <LoadingBlock
+                text="加载材料包…"
+                className="m-4 rounded-[13px] border border-dashed border-zinc-300 py-16"
+              />
+            ) : error ? (
+              /* 前缀「无法加载材料包：」留在调用点的原因：ErrorBlock 只把 error 的
              message 原样倒出，而这里要说明白是哪块数据挂了。
              fallback 取「未知错误」——旧实现就在 message 缺失时显示它，
              不改文案。 */
-          <div className="space-y-1.5">
-            <p className="text-sm text-destructive">无法加载材料包：</p>
-            <ErrorBlock error={error} fallback="未知错误" className="px-4 py-6 text-sm" />
+              <div className="space-y-1.5 p-4">
+                <p className="text-sm text-destructive">无法加载材料包：</p>
+                <ErrorBlock
+                  error={error}
+                  fallback="未知错误"
+                  className="px-4 py-6 text-sm"
+                />
+              </div>
+            ) : (
+              <PackGrid
+                gridRef={gridRef}
+                wrapRef={wrapRef}
+                ringRef={ringRef}
+                packs={visible}
+                tab={tab}
+                leaving={leaving}
+                onOpen={openAt}
+                onReject={rejectPack}
+                onAccept={setAssigning}
+                onRename={setRenameTarget}
+                onDelete={setDeleteTarget}
+                viewMode={viewMode}
+              />
+            )}
           </div>
-          ) : (
-            <PackGrid
-              gridRef={gridRef}
-              wrapRef={wrapRef}
-              ringRef={ringRef}
-              packs={visible}
-              tab={tab}
-              leaving={leaving}
-              onOpen={openAt}
-              onReject={rejectPack}
-              onAccept={setAssigning}
-              onRename={setRenameTarget}
-              onDelete={setDeleteTarget}
-              onPickFiles={onPickFiles}
-            />
-          )}
         </div>
       </main>
 
-      <DeskDropLayer dragging={dragging} fileInputRef={fileInputRef} onFiles={(fs) => { void handleFiles(fs) }} />
+      <DeskDropLayer
+        dragging={dragging}
+        fileInputRef={fileInputRef}
+        onFiles={(fs) => {
+          void handleFiles(fs)
+        }}
+      />
 
       {openId != null && <Reader />}
 

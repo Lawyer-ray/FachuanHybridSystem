@@ -78,7 +78,11 @@ class TestExpandZip:
         assert names == ["内层.zip", "表.pdf"]
 
     def test_too_many_entries_rejected(self) -> None:
-        entries = {f"f{i}.txt": b"x" for i in range(201)}
+        # 从常量推导而非写死 201：条目上限随业务调过（200 → 1000），
+        # 写死数字会让用例在调限后默默变成「正常通过」而不报错。
+        from apps.message_hub.services import archive_extract_service as svc
+
+        entries = {f"f{i}.txt": b"x" for i in range(svc.MAX_ENTRIES + 1)}
         with pytest.raises(ValidationException, match="文件数超过上限"):
             expand_upload_files([_upload("many.zip", _zip_bytes(entries))])
 
@@ -173,22 +177,40 @@ class TestEncryptedAndMultipart:
 
 
 class TestArchiveSizeCap:
-    def test_archive_cap_wider_than_plain_files(self) -> None:
+    """压缩包与直传同一把尺子（1GB）。
+
+    以前压缩包 200MB / 普通文件 50MB，会造出「直传被拒、打包反而能过」的怪事——
+    而整包客户材料正是最常见的上传形态。两者同额后，压缩包不再是绕过通道，
+    也不会出现「打包后被自己的内层校验拒掉」。
+    """
+
+    def test_archive_and_plain_share_same_cap(self) -> None:
         from apps.message_hub.services.manual_upload_service import validate_manual_upload_file
+        from apps.message_hub.services.upload_policy import (
+            MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES,
+            MANUAL_UPLOAD_MAX_SIZE_BYTES,
+        )
+
+        # 先锁住常量本身相等——这才是「同一把尺子」的直接表达，
+        # 光看两个 800MB 都放行并不能区分 1GB 还是 800MB 以上的任意值。
+        assert MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES == MANUAL_UPLOAD_MAX_SIZE_BYTES
 
         big_zip = SimpleUploadedFile("大包.zip", b"x", content_type="application/zip")
-        big_zip.size = 150 * 1024 * 1024  # type: ignore[assignment]
-        validate_manual_upload_file(big_zip)  # 150MB 压缩包 → 放行
-
-        huge_zip = SimpleUploadedFile("超大.zip", b"x", content_type="application/zip")
-        huge_zip.size = 250 * 1024 * 1024  # type: ignore[assignment]
-        with pytest.raises(ValidationException, match="200MB"):
-            validate_manual_upload_file(huge_zip)
+        big_zip.size = 800 * 1024 * 1024  # type: ignore[assignment]
+        assert validate_manual_upload_file(big_zip) is None  # 800MB 压缩包 → 放行
 
         big_pdf = SimpleUploadedFile("大.pdf", b"x", content_type="application/pdf")
-        big_pdf.size = 60 * 1024 * 1024  # type: ignore[assignment]
-        with pytest.raises(ValidationException, match="50MB"):
-            validate_manual_upload_file(big_pdf)
+        big_pdf.size = 800 * 1024 * 1024  # type: ignore[assignment]
+        assert validate_manual_upload_file(big_pdf) is None  # 同样 800MB 直传 → 同样放行
+
+    def test_over_cap_rejected_for_both(self) -> None:
+        from apps.message_hub.services.manual_upload_service import validate_manual_upload_file
+
+        for name, ctype in (("超大.zip", "application/zip"), ("超大.pdf", "application/pdf")):
+            over = SimpleUploadedFile(name, b"x", content_type=ctype)
+            over.size = 1024 * 1024 * 1024 + 1  # type: ignore[assignment]
+            with pytest.raises(ValidationException, match="1024MB"):
+                validate_manual_upload_file(over)
 
 
 @pytest.mark.django_db

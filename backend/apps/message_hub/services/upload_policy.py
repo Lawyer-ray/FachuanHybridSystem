@@ -56,11 +56,21 @@ MANUAL_UPLOAD_ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
         ".7z",
     }
 )
-# 单文件上限 50MB（与 document_parsing 上传、合同归档上传的先例一致）；
-# 压缩包单独放宽——律所扫描件整包常见 100–200MB，展开侧自有
-# 200MB/200 条硬上限兜底
-MANUAL_UPLOAD_MAX_SIZE_BYTES = 50 * 1024 * 1024
-MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES = 200 * 1024 * 1024
+# 单文件上限 1GB。
+#
+# 为什么比 document_parsing / 合同归档的 50MB 宽得多：那些是「工具型上传」
+# （解析单份文档、归档单份合同），而材料预处理收的是**整卷客户材料**——
+# 一份 164 页全彩扫描的诉讼卷宗就到 66MB，客户一次交几十卷是常态。
+# 50MB 时这类材料根本没有入口（连压成 zip 也绕不过，展开侧对每个内层文件
+# 复用同一校验），律师只能先在本地切碎再传，等于把系统该干的活推回给人。
+#
+# 放宽后容量风险不落在内存上：Django 对 multipart 的 FILE 项是流式落盘
+# （DATA_UPLOAD_MAX_MEMORY_SIZE 只管非文件字段），1GB 不会撑爆内存；
+# 真正的成本是磁盘占用与上传耗时，由调用方（进度、超时）兜。
+MANUAL_UPLOAD_MAX_SIZE_BYTES = 1024 * 1024 * 1024
+# 压缩包与单文件同额：整包上传时压缩包本身就是「一个文件」，
+# 再单独设一个更小的值只会制造「直传能过、打包反而被拒」的怪事。
+MANUAL_UPLOAD_ARCHIVE_MAX_SIZE_BYTES = 1024 * 1024 * 1024
 
 
 def is_archive_filename(name: str) -> bool:

@@ -18,8 +18,10 @@ from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.storage_service import normalize_to_media_rel, sanitize_upload_filename
 from apps.pdf_splitting.models import (
+    PdfSplitCloudBackend,
     PdfSplitJob,
     PdfSplitJobStatus,
+    PdfSplitLayoutMode,
     PdfSplitMode,
     PdfSplitOcrProfile,
     PdfSplitReviewFlag,
@@ -37,8 +39,12 @@ _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 class PdfSplitJobService:
-    MAX_FILE_SIZE = 150 * 1024 * 1024
-    MAX_PAGES = 300
+    # 收件箱单文件上限已放宽到 1GB（整卷客户材料），这里必须跟上——否则
+    # 材料包里的文件能传进来、却在自动分段时被拒，白上传一次。
+    # 直连 pdf_splitting 的旧调用方（后台工作台）也跟着放宽，口径统一。
+    MAX_FILE_SIZE = 1024 * 1024 * 1024
+    # 页数：164 页的全彩诉讼卷宗是常态，整卷上报 500 页也不罕见。
+    MAX_PAGES = 1000
 
     def create_job(
         self,
@@ -48,6 +54,8 @@ class PdfSplitJobService:
         template_key: str,
         split_mode: str = PdfSplitMode.CONTENT_ANALYSIS,
         ocr_profile: str = PdfSplitOcrProfile.BALANCED,
+        layout_mode: str = PdfSplitLayoutMode.FAST_TEXT,
+        cloud_backend: str = PdfSplitCloudBackend.AUTO,
         created_by: Any | None = None,
     ) -> PdfSplitJob:  # pragma: no cover
         has_file = file is not None
@@ -58,6 +66,8 @@ class PdfSplitJobService:
         template = get_template_definition(template_key)
         mode_key = self._normalize_split_mode(split_mode)
         profile_key = self._normalize_ocr_profile(ocr_profile)
+        layout_key = self._normalize_layout_mode(layout_mode)
+        cloud_key = self._normalize_cloud_backend(cloud_backend)
         job_id = uuid.uuid4()
         storage = PdfSplitStorage(job_id)
         storage.ensure_dirs()
@@ -89,6 +99,8 @@ class PdfSplitJobService:
                 template_key=template.key,
                 template_version=template.version,
                 ocr_profile=profile_key,
+                layout_mode=layout_key,
+                cloud_backend=cloud_key,
                 status=PdfSplitJobStatus.PENDING,
                 total_pages=total_pages,
                 created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
@@ -96,6 +108,8 @@ class PdfSplitJobService:
                     "template_label": template.label,
                     "split_mode": mode_key,
                     "ocr_profile": profile_key,
+                    "layout_mode": layout_key,
+                    "cloud_backend": cloud_key,
                 },
             )
 
@@ -131,9 +145,15 @@ class PdfSplitJobService:
             raise NotFoundError(message="拆解任务不存在", code="PDF_SPLIT_JOB_NOT_FOUND", errors={}) from None
 
     def build_job_payload(self, job: PdfSplitJob) -> dict[str, Any]:
-        md_by_order = load_segments_md(PdfSplitStorage(job.id).segments_md_path)
+        md_path = PdfSplitStorage(job.id).segments_md_path
+        md_by_order = load_segments_md(md_path)
+        pos_by_order = load_segments_positioned(md_path)
         segments = [
-            self._serialize_segment(item, markdown=md_by_order.get(item.order, ""))
+            self._serialize_segment(
+                item,
+                markdown=md_by_order.get(item.order, ""),
+                positioned=pos_by_order.get(item.order, []),
+            )
             for item in job.segments.order_by("order", "id")
         ]
         download_url = ""
@@ -146,6 +166,8 @@ class PdfSplitJobService:
             "status": job.status,
             "split_mode": job.split_mode,
             "ocr_profile": job.ocr_profile,
+            "layout_mode": getattr(job, "layout_mode", PdfSplitLayoutMode.FAST_TEXT),
+            "cloud_backend": getattr(job, "cloud_backend", PdfSplitCloudBackend.AUTO),
             "progress": int(job.progress or 0),
             "total_pages": int(job.total_pages or 0),
             "processed_pages": int(job.processed_pages or 0),
@@ -240,7 +262,13 @@ class PdfSplitJobService:
             finished_at=timezone.now(),
         )
 
-    def _serialize_segment(self, segment: PdfSplitSegment, *, markdown: str = "") -> dict[str, Any]:
+    def _serialize_segment(
+        self,
+        segment: PdfSplitSegment,
+        *,
+        markdown: str = "",
+        positioned: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         return {
             "id": segment.id,
             "order": segment.order,
@@ -254,6 +282,8 @@ class PdfSplitJobService:
             "review_flag_label": segment.get_review_flag_display(),
             "source_method": segment.source_method,
             "content_md": markdown,
+            # 该段正文块 + 归一化矩形（识别定位用）；无坐标的后端/旧任务为空表
+            "positioned": positioned or [],
         }
 
     def _normalize_confirmed_segments(self, *, items: list[dict[str, Any]], total_pages: int) -> list[dict[str, Any]]:
@@ -434,6 +464,23 @@ class PdfSplitJobService:
             return profile
         return PdfSplitOcrProfile.BALANCED
 
+    def _normalize_cloud_backend(self, value: str | None) -> str:
+        """平台偏好归一化：非法值一律落回 auto（可容灾、行为最稳）。"""
+        mode = str(value or "").strip().lower()
+        valid = {choice for choice, _label in PdfSplitCloudBackend.choices}
+        return mode if mode in valid else PdfSplitCloudBackend.AUTO
+
+    def _normalize_layout_mode(self, value: str | None) -> str:
+        """版面策略归一化：非法值一律落回 fast_text（不调云端）。
+
+        默认必须是保守的那个——传错了顶多拿不到坐标，不会悄悄烧云端费用。
+        """
+        mode = str(value or "").strip().lower()
+        valid_modes = {choice for choice, _label in PdfSplitLayoutMode.choices}
+        if mode in valid_modes:
+            return mode
+        return PdfSplitLayoutMode.FAST_TEXT
+
     def _normalize_split_mode(self, value: str | None) -> str:
         mode = str(value or "").strip().lower()
         valid_modes = {choice for choice, _label in PdfSplitMode.choices}
@@ -475,4 +522,34 @@ def load_segments_md(path: Path) -> dict[int, str]:
         except (TypeError, ValueError):
             continue
         result[order] = str(item.get("markdown") or "")
+    return result
+
+
+def load_segments_positioned(path: Path) -> dict[int, list[dict[str, Any]]]:
+    """读分段「可定位块」（order → positioned 列表）。
+
+    与 ``load_segments_md`` 同源同文件（``segments_md.json`` 的 ``positioned``
+    字段）：布局与正文来自同一次解析，分两个文件存迟早会对不上。
+    旧任务没有该字段、或产物损坏时一律回空表——前端按「没有坐标」降级处理，
+    不阻断任务详情接口。
+    """
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, list):
+        return {}
+    result: dict[int, list[dict[str, Any]]] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        try:
+            order = int(item.get("order"))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        positioned = item.get("positioned")
+        if isinstance(positioned, list):
+            result[order] = [b for b in positioned if isinstance(b, dict)]
     return result

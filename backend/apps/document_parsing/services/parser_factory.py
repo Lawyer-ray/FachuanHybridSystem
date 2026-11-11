@@ -24,6 +24,8 @@ class ParserFactory:
         "mineru": "apps.document_parsing.services.backends.mineru_backend.MineruBackend",
         "textin": "apps.document_parsing.services.backends.textin_backend.TextinBackend",
         "local": "apps.document_parsing.services.backends.local_backend.LocalBackend",
+        # Office（docx/xlsx/xls）：本地读 OOXML，毫秒级，无需云服务/DS
+        "office": "apps.document_parsing.services.backends.office_backend.OfficeBackend",
     }
 
 
@@ -73,7 +75,66 @@ def create_parser(
     return _instantiate(backend_cls, **kwargs)
 
 
+#: 可显式锁定的云端平台（与 _BACKEND_REGISTRY 的键一致）
+CLOUD_BACKEND_CHOICES: tuple[str, ...] = ("mineru", "textin")
+
+#: 自动模式：按优先级挑，失败可切下一个
+AUTO_BACKEND = "auto"
+
+
 # ↓↓ 由 ParserFactory 下沉的模块级纯函数（四层架构静态方法棘轮）
+def resolve_cloud_backends(cloud_backend: str | None = None) -> list[str]:
+    """给出**按尝试顺序**排列的云端平台列表。
+
+    这是「容灾」与「锁定」两种意图的统一入口：
+
+    · ``auto``（默认）：按优先级排序的全部可用平台。调用方从第一个开始试，
+      失败再试下一个 —— 这就是容灾。
+    · ``mineru`` / ``textin``（锁定）：**只返回这一个**。锁定意味着可预期：
+      若允许它偷偷降级到另一个平台，用户拿它做的比对/复核就失去意义，
+      而且计费也会落到他没选的平台上。所以锁定时不提供备选。
+    · 调用方传入的平台若未配置，返回空表 —— 让上层明确报"该平台不可用"，
+      而不是悄悄换成别的（同样是为了可预期）。
+
+    Args:
+        cloud_backend: ``auto`` / ``mineru`` / ``textin``；None 视同 auto。
+
+    Returns:
+        平台类型名列表（按尝试顺序）；空表表示没有可用平台。
+    """
+    want = str(cloud_backend or AUTO_BACKEND).strip().lower()
+
+    providers = ParseProviderService.get_providers()
+    if not providers:
+        return []
+    ordered = sorted(providers, key=lambda p: (p.priority, p.pk))
+
+    if want and want != AUTO_BACKEND:
+        if want not in CLOUD_BACKEND_CHOICES:
+            # 未知值：按 auto 处理而不是静默失败——调用方传脏值时仍能出结果
+            logger.warning("未知的 cloud_backend=%r，按 auto 处理", cloud_backend)
+            want = AUTO_BACKEND
+        else:
+            picked = [str(p.provider_type) for p in ordered if str(p.provider_type) == want]
+            if picked:
+                logger.info("锁定解析平台: %s", want)
+            else:
+                logger.warning("指定的解析平台未启用: %s", want)
+            return picked
+
+    # auto：全部已启用平台，按优先级；去重（同类型配多个平台时只留最先的）
+    seen: set[str] = set()
+    out: list[str] = []
+    for provider in ordered:
+        pt = str(provider.provider_type)
+        if pt in seen:
+            continue
+        seen.add(pt)
+        out.append(pt)
+    logger.info("auto 解析平台尝试顺序: %s", " -> ".join(out) or "(无)")
+    return out
+
+
 def _resolve_auto_backend() -> str:
     """auto 模式：选择优先级最高的启用解析平台；未配置任何平台时回退 local。
 

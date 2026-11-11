@@ -22,6 +22,7 @@ from ._sms_document_mixin import SMSDocumentMixin
 from ._sms_download_mixin import SMSDownloadMixin
 from .case_matcher import CaseMatcher
 from .court_sms_delivery_dedup import build_delivery_event_key, build_lookup_keys
+from .court_sms_document_intake import CourtSMSDocumentIntakeService
 from .sms_parser_service import SMSParserService
 
 if TYPE_CHECKING:
@@ -235,13 +236,27 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         accessible_case_ids = policy.filter_queryset(Case.objects.all(), user, org_access).values("id")
         return qs.filter(Q(case__isnull=True) | Q(case_id__in=accessible_case_ids))
 
-    def submit_sms(self, content: str, received_at: datetime | None = None) -> CourtSMS:  # pragma: no cover
-        """提交短信，创建记录并触发异步处理
+    def submit_sms(
+        self,
+        content: str,
+        received_at: datetime | None = None,
+        materials: list[Any] | None = None,
+    ) -> CourtSMS:  # pragma: no cover
+        """提交短信/客户转交材料，创建记录并触发异步处理
+
+        两条来源共用同一套下游流程（解析→下载→匹配→重命名归档→通知）：
+
+        - **法院短信通道**：``content`` 为短信原文，下载链接由解析阶段产出；
+        - **客户转交通道**：``content`` 可留空，材料由 ``materials``（UploadedFile
+          列表）落盘后直接写入 ``document_file_paths``。无下载链接时流程自动跳过
+          下载阶段进入匹配，重命名/归档/通知与短信通道完全一致。
 
         幂等保护：同一内容短时间内重复提交（转发器重试/重复点击）直接返回
         已有记录，不重复触发处理，避免重复下载/CaseLog/群通知等副作用。
+        客户转交通道的正文是「文件名清单 + 时间戳」，天然不会被误判为重复。
         """
-        if not content or not content.strip():
+        intake = CourtSMSDocumentIntakeService()
+        if (not content or not content.strip()) and not materials:
             raise ValidationException(
                 message="短信内容不能为空", code="EMPTY_SMS_CONTENT", errors={"content": "短信内容不能为空"}
             )
@@ -249,7 +264,16 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         if received_at is None:
             received_at = timezone.now()
 
-        normalized_content = content.strip()
+        normalized_content = (content or "").strip()
+
+        if materials:
+            # 材料清单先算正文，让幂等键覆盖文件集合：同一批材料重复提交会被
+            # 10 分钟窗口拦下，避免重复归档与重复群通知。
+            names = [str(getattr(upload, "name", "") or "（未命名）") for upload in materials]
+            if not normalized_content:
+                normalized_content = intake.build_content_placeholder(names)
+            else:
+                normalized_content = f"{normalized_content}\n\n【客户转交材料】{'、'.join(names)}"
 
         try:
             # 提交前查重：命中窗口内同内容的既有记录则幂等返回
@@ -260,6 +284,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             )
             if duplicate is not None:
                 logger.info("法院短信重复提交，已忽略并返回既有记录: 既有 SMS ID=%s", duplicate.id)
+                duplicate.material_intake_result = None  # type: ignore[attr-defined]
                 return duplicate
 
             sms = CourtSMS.objects.create(
@@ -272,6 +297,21 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             logger.info("创建短信记录成功: ID=%s, 长度=%s", sms.id, len(content))
 
+            if materials:
+                # 先落盘再入队：qcluster 是独立进程，异步任务启动时文件必须已就位，
+                # 否则匹配阶段读不到文书会直接判「无材料」进待人工。
+                intake_result = intake.save_materials(sms.id, materials)
+                logger.info(
+                    "客户转交材料入库: SMS ID=%s, 成功=%s, 跳过=%s",
+                    sms.id,
+                    intake_result["saved"],
+                    intake_result["skipped"],
+                )
+                sms.refresh_from_db(fields=["document_file_paths", "status", "content"])
+                # 入库明细不回写库（它是本次请求的瞬时结果），挂在实例上供
+                # API 层拼进响应；不新增数据库字段，也不污染模型的业务语义。
+                sms.material_intake_result = intake_result  # type: ignore[attr-defined]
+
             task_id = submit_task(
                 "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
@@ -279,6 +319,10 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             )
 
             logger.info("提交异步处理任务: SMS ID=%s, Task ID=%s", sms.id, task_id)
+
+            # 短信通道没有材料明细，显式给 None，保持 getattr 语义一致
+            if not materials:
+                sms.material_intake_result = None  # type: ignore[attr-defined]
 
             return sms
 
@@ -485,7 +529,9 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             if sms.status == CourtSMSStatus.PENDING:
                 sms = self._process_parsing(sms)
 
-            if sms.status == CourtSMSStatus.PARSING:
+            if sms.status in (CourtSMSStatus.PARSING, CourtSMSStatus.MATCHING):
+                # MATCHING 也走这里：客户转交通道建记录即置 MATCHING，没有解析/下载
+                # 两步可走，必须能直接在匹配分支被消费。
                 sms = self._process_downloading_or_matching(sms, process_options=process_options)
 
             if sms.status == CourtSMSStatus.DOWNLOADING:
@@ -560,7 +606,13 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             raise
 
     def _process_parsing(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
-        """处理解析阶段"""
+        """处理解析阶段
+
+        客户转交通道的记录由 ``CourtSMSDocumentIntakeService`` 直接置为 MATCHING
+        （材料已落盘、无需解析正文），永远不进入本方法；而短信通道的记录若被
+        重复投递到本方法（重试队列补投），``retry_processing`` 已把状态重置为
+        PENDING，同样走完整解析。
+        """
         logger.info("开始解析短信: ID=%s", sms.id)
 
         try:
@@ -571,8 +623,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             sms.sms_type = parse_result.sms_type
             sms.download_links = parse_result.download_links
-            sms.case_numbers = parse_result.case_numbers
-            sms.party_names = parse_result.party_names
+            # 客户转交材料没有可解析的短信原文，案号/当事人由匹配阶段的文书抽取补齐。
+            # 解析器对占位清单只会返回空列表，这里只在「本通道来源」上避免把后
+            # 续文书抽取的结果覆盖掉（同一方法可能被重复进入）。
+            if not sms.document_file_paths:
+                sms.case_numbers = parse_result.case_numbers
+                sms.party_names = parse_result.party_names
             sms.save()
 
             logger.info("短信解析完成: ID=%s, 类型=%s", sms.id, parse_result.sms_type)

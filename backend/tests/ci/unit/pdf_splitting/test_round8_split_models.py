@@ -183,3 +183,89 @@ class TestSegmentDetectorFuzzyContainsKeyword:
         found, coeff = sd.fuzzy_contains_keyword("提交了证据清单明细", "证据清单")
         assert found is True
         assert coeff == 1.0
+
+
+# ---------------------------------------------------------------------------
+# classify_pdf_material：混合材料包的取字选路判定
+# ---------------------------------------------------------------------------
+
+
+class _FakePage:
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def get_text(self, _mode: str) -> str:
+        return self._text
+
+
+class _FakeDoc:
+    """只暴露分类函数用到的两个成员，避免为判定去构造真实 PDF。"""
+
+    def __init__(self, texts: list[str]) -> None:
+        self._pages = [_FakePage(t) for t in texts]
+        self.page_count = len(texts)
+        self.loaded: list[int] = []
+
+    def load_page(self, index: int) -> _FakePage:
+        self.loaded.append(index)
+        return self._pages[index]
+
+
+def _effective(value: str) -> bool:
+    """与 SegmentDetector.is_effective_text 同口径：去空白后 >= 12 字。"""
+    return len("".join(value.split())) >= 12
+
+
+class TestClassifyPdfMaterial:
+    def test_all_pages_have_text_layer_is_digital(self) -> None:
+        from apps.pdf_splitting.services.split.split_models import MATERIAL_KIND_DIGITAL_PDF, classify_pdf_material
+
+        doc = _FakeDoc(["这是一份电子版判决书的正文内容"] * 5)
+        assert classify_pdf_material(doc, is_effective_text=_effective) == MATERIAL_KIND_DIGITAL_PDF
+
+    def test_no_page_has_text_layer_is_scanned(self) -> None:
+        from apps.pdf_splitting.services.split.split_models import MATERIAL_KIND_SCANNED_PDF, classify_pdf_material
+
+        # 真实扫描件：文本层为空（164 页全彩卷宗的实测形态）
+        doc = _FakeDoc([""] * 5)
+        assert classify_pdf_material(doc, is_effective_text=_effective) == MATERIAL_KIND_SCANNED_PDF
+
+    def test_some_pages_text_some_blank_is_mixed(self) -> None:
+        from apps.pdf_splitting.services.split.split_models import MATERIAL_KIND_MIXED_PDF, classify_pdf_material
+
+        # 首=电子页，中/尾=扫描页：附件里夹扫描件的常态
+        doc = _FakeDoc(["电子版封面与目录的正文内容", "", ""])
+        assert classify_pdf_material(doc, is_effective_text=_effective) == MATERIAL_KIND_MIXED_PDF
+
+    def test_only_samples_first_middle_last(self) -> None:
+        from apps.pdf_splitting.services.split.split_models import classify_pdf_material
+
+        # 判定只是选路，不能把整本扫一遍（那是把最贵的 IO 做两遍）
+        doc = _FakeDoc(["正文内容够长的一页文字"] * 100)
+        classify_pdf_material(doc, is_effective_text=_effective)
+        assert doc.loaded == [0, 50, 99]
+
+    def test_empty_document_is_scanned_not_crash(self) -> None:
+        from apps.pdf_splitting.services.split.split_models import MATERIAL_KIND_SCANNED_PDF, classify_pdf_material
+
+        assert classify_pdf_material(_FakeDoc([]), is_effective_text=_effective) == MATERIAL_KIND_SCANNED_PDF
+
+    def test_single_page_document_dedupes_sample(self) -> None:
+        from apps.pdf_splitting.services.split.split_models import MATERIAL_KIND_DIGITAL_PDF, classify_pdf_material
+
+        doc = _FakeDoc(["只有一页但文字足够长的正文"])
+        assert classify_pdf_material(doc, is_effective_text=_effective) == MATERIAL_KIND_DIGITAL_PDF
+        assert doc.loaded == [0]
+
+    def test_broken_page_does_not_abort_classification(self) -> None:
+        from apps.pdf_splitting.services.split.split_models import MATERIAL_KIND_SCANNED_PDF, classify_pdf_material
+
+        class _Boom(_FakeDoc):
+            def load_page(self, index: int):  # type: ignore[no-untyped-def]
+                if index == 0:
+                    raise RuntimeError("页损坏")
+                return super().load_page(index)
+
+        # 首页读不出来 → 其余全是空 → 按扫描件处理，不抛异常拖垮整份解析
+        got = classify_pdf_material(_Boom(["", "", ""]), is_effective_text=_effective)
+        assert got == MATERIAL_KIND_SCANNED_PDF

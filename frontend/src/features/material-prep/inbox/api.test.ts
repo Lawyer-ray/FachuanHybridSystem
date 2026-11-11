@@ -45,19 +45,24 @@ beforeEach(() => {
 })
 
 describe('listInbox', () => {
-  it("source='all' 时不传 source_type（传空会被后端过滤成空集）", async () => {
+  it("source='all' 必须显式传「外来来源」白名单，不能省略", async () => {
+    // 这是本模块最关键的一条：省略 source_type 会让后端返回全表，把材料包
+    // （manual_upload / client_upload）也捞进收件箱——那些属于一级导航的另一支，
+    // 同一份材料就会在「收件箱」和「待处理」各出现一次，两个角标互相矛盾。
     const { listInbox: fresh } = await import('./api')
     await fresh()
     const params = paramsOf()
-    expect(params).not.toHaveProperty('source_type')
+    expect(params.source_type).toBe('court_inbox,imap,court_sms,court_schedule')
+    expect(params.source_type).not.toContain('manual_upload')
+    expect(params.source_type).not.toContain('client_upload')
     // 默认仍要带 limit（后端默认 500，前端显式传更小值）
     expect(params.limit).toBe('200')
   })
 
-  it('多值档位原样透传逗号串', async () => {
+  it('单值档位原样透传', async () => {
     const { listInbox: fresh } = await import('./api')
-    await fresh({ source: 'manual_upload,client_upload' })
-    expect(paramsOf().source_type).toBe('manual_upload,client_upload')
+    await fresh({ source: 'imap' })
+    expect(paramsOf().source_type).toBe('imap')
   })
 
   it('单值档位透传', async () => {

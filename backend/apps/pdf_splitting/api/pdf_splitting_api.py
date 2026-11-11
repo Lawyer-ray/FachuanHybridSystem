@@ -28,6 +28,28 @@ def _require_admin(request: Any) -> None:
     ensure_admin_request(request, message="无权限提交服务器本地路径", code="PERMISSION_DENIED")
 
 
+class PositionedRectOut(BaseModel):
+    """块在原页上的归一化矩形（0–1）。前端直接 ``left: x*100%`` 就能画。"""
+
+    x: float
+    y: float
+    w: float
+    h: float
+    # True = 推出来的近似框（如 Office 整页框），不是原样量出来的
+    approx: bool = False
+
+
+class PositionedBlockOut(BaseModel):
+    """可定位的正文块（识别定位用）。"""
+
+    page: int
+    type: str
+    text: str
+    rect: PositionedRectOut
+    # Office 附带的结构定位（段落序 / 行列），对定位是确定的，矩形只是近似
+    locator: dict[str, Any] | None = None
+
+
 class SegmentOut(BaseModel):
     id: int
     order: int
@@ -42,6 +64,8 @@ class SegmentOut(BaseModel):
     source_method: str
     # 该段正文的 Markdown 重建（版面块优先 / 纯文本兜底）；旧任务无产物时为空串
     content_md: str
+    # 该段正文块 + 坐标（原文坐标索引对照）；无坐标的后端 / 旧任务为空列表
+    positioned: list[PositionedBlockOut] = []
 
 
 class PdfSplitJobOut(BaseModel):
@@ -55,6 +79,10 @@ class PdfSplitJobOut(BaseModel):
     status: str
     split_mode: str
     ocr_profile: str
+    # 版面策略：fast_text（默认，不调云端）/ layout（电子页也上云端拿坐标与表格）
+    layout_mode: str = "fast_text"
+    # 解析平台：auto（优先+容灾）/ mineru / textin（锁定，失败不降级）
+    cloud_backend: str = "auto"
     progress: int
     total_pages: int
     processed_pages: int
@@ -97,6 +125,8 @@ def create_pdf_split_job(  # pragma: no cover
     template_key: str = Form("filing_materials_v1"),
     split_mode: str = Form("content_analysis"),
     ocr_profile: str = Form("balanced"),
+    layout_mode: str = Form("fast_text"),
+    cloud_backend: str = Form("auto"),
 ) -> PdfSplitJobSubmitOut:
     # 安全审计第4轮：source_path 直读服务器本地文件系统，仅管理员可提交；
     # 文件上传（file）仍对登录用户开放。
@@ -108,6 +138,8 @@ def create_pdf_split_job(  # pragma: no cover
         template_key=template_key,
         split_mode=split_mode,
         ocr_profile=ocr_profile,
+        layout_mode=layout_mode,
+        cloud_backend=cloud_backend,
         created_by=getattr(request, "user", None),
     )
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)

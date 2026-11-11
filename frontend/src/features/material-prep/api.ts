@@ -33,12 +33,23 @@ type PdfSplitJobPayload = components['schemas']['PdfSplitJobOut']
 /** POST /pdf-splitting/jobs 的响应（生成物 PdfSplitJobSubmitOut） */
 type PdfSplitJobSubmit = components['schemas']['PdfSplitJobSubmitOut']
 
-export async function createPdfSplitJob(file: File): Promise<string> {
+/** 云端解析平台偏好：auto=优先+容灾；锁定值=只用它，失败不降级 */
+export type CloudBackend = 'auto' | 'mineru' | 'textin'
+
+export async function createPdfSplitJob(
+  file: File,
+  opts: { layoutMode?: 'fast_text' | 'layout'; cloudBackend?: CloudBackend } = {},
+): Promise<string> {
   const body = new FormData()
   body.append('file', file, file.name)
   body.append('template_key', 'filing_materials_v1')
   body.append('split_mode', 'content_analysis')
   body.append('ocr_profile', 'accurate')
+  // 版面策略：layout 让电子版 PDF 也上云端拿版面块与坐标（原文坐标对照需要），
+  // 代价是这些页也计费且更慢；默认 fast_text 不调云端。
+  body.append('layout_mode', opts.layoutMode ?? 'fast_text')
+  // 平台偏好：auto 会自动容灾（首选失败切下一个）；锁定则只用该平台、失败即失败
+  body.append('cloud_backend', opts.cloudBackend ?? 'auto')
   const result = await pdfSplitApi
     .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
     .json<PdfSplitJobSubmit>()
@@ -150,6 +161,52 @@ export async function ocrImage(image: Blob): Promise<OcrResult> {
     .json<OcrResult>()
 }
 
+/* ============ Office（Word / Excel）取字 ============ */
+
+const parsingApi = createApiClient({ prefix: '/api/v1/document-parsing' })
+
+/** /document-parsing/parse 的同步响应（生成物 ParseDocumentResponse 的消费子集） */
+type OfficeParseResult = {
+  success?: boolean
+  text?: string | null
+  markdown?: string | null
+  parse_method?: string | null
+  error?: string | null
+}
+
+/**
+ * Word / Excel 转 Markdown + 正文。
+ *
+ * 走后端 `document-parsing` 的 `backend=office`（本地 python-docx / openpyxl），
+ * **不是** OnlyOffice：DS 是给人看和改的编辑器画布，抽文本要绕两跳网络 + 容器
+ * 内转换，而且它返回的是渲染结果、拿文字还得再 OCR 一遍——Word 里的文字本来
+ * 就是结构化的，OCR 反而把可靠的字变成可能认错的东西。详见后端
+ * `apps/document_parsing/services/backends/office_backend.py` 头注释。
+ */
+export async function parseOfficeFile(file: File): Promise<{ markdown: string; text: string }> {
+  // 显式补 content type：后端 storage_service 会校验「MIME 与扩展名一致」，
+  // 而 File.type 可能是空串（从 ArrayBuffer 重建 File 时很常见），空值时
+  // 后端拿到 application/octet-stream 会直接报「文件类型与扩展名不匹配」。
+  const type = file.type || officeMimeOf(file.name)
+  const fd = new FormData()
+  fd.append('file', type ? new File([file], file.name, { type }) : file, file.name)
+  fd.append('backend', 'office')
+  fd.append('return_markdown', 'true')
+  const r = await parsingApi.post('parse', { body: fd, timeout: UPLOAD_TIMEOUT_MS }).json<OfficeParseResult>()
+  if (r.success === false) throw new Error(r.error || 'Office 文档解析失败')
+  return { markdown: (r.markdown ?? '').trim(), text: (r.text ?? '').trim() }
+}
+
+/** Office 扩展名 → MIME（后端按 MIME 校验，必须与 mimetypes 标准值一致） */
+function officeMimeOf(name: string): string {
+  const lower = name.toLowerCase()
+  if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  if (lower.endsWith('.doc')) return 'application/msword'
+  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel'
+  return ''
+}
+
 /** 搜索真实案件（归案 modal 用）；模块级建一次客户端，避免每次检索重复 create */
 const coreApi = createApiClient() // prefix = API_BASE_URL(/api/v1)
 
@@ -159,6 +216,37 @@ export async function searchCases(q: string, signal?: AbortSignal): Promise<Case
 }
 
 const bytesCache = new Map<string, Promise<ArrayBuffer>>()
+
+/**
+ * 字节缓存的总量上限（字节）。
+ *
+ * 为什么要设限：这个 Map 以前是**无限增长**的——每打开一份附件就把整份字节
+ * 永远留住。单文件上限提到 1GB 后，一个「扫描件 + 电子版 + 几张照片」的常规
+ * 材料包很容易把浏览器内存顶爆（标签页直接崩，且崩得毫无迹象）。
+ *
+ * 取下限而非按文件：多份小图片仍能全部命中缓存（便宜），大卷宗超出预算就
+ * 不缓存（重取一次比爆内存好），已缓存的老条目按插入顺序（Map 保序 = 近似
+ * LRU 的 FIFO）剃掉。
+ *
+ * 预算用「条目数 + 估算字节」双限：Promise 未 resolve 时量不到真实长度，
+ * 此时先只数条目；resolve 后再按实际长度计入总量。
+ */
+const BYTES_CACHE_BUDGET = 256 * 1024 * 1024
+/** 单份超过这个体积就不进缓存：留着它会把整份预算吃满，而它本身复用率不高 */
+const BYTES_CACHE_ENTRY_MAX = 64 * 1024 * 1024
+const bytesCacheSizes = new Map<string, number>()
+
+function evictBytesCache(): void {
+  let total = 0
+  for (const size of bytesCacheSizes.values()) total += size
+  // Map 保序：最先插入的就是最久没被读过的（命中不重新插入，故为 FIFO）
+  for (const key of bytesCacheSizes.keys()) {
+    if (total <= BYTES_CACHE_BUDGET && bytesCache.size <= 16) break
+    total -= bytesCacheSizes.get(key) ?? 0
+    bytesCacheSizes.delete(key)
+    bytesCache.delete(key)
+  }
+}
 
 /**
  * 取附件字节（带鉴权），按 messageId:partIndex 缓存。供 PDF.js 渲染、OCR 取字、云端识别上传。
@@ -175,16 +263,29 @@ export function fetchAttachmentBytes(messageId: number, partIndex: number): Prom
   const p = inboxApi
     .get(`messages/${messageId}/attachments/${partIndex}/preview`)
     .then((res) => res.arrayBuffer())
+    .then((buffer) => {
+      // 超大附件不进缓存：留着它会把整份预算吃满，而它本身复用率不高
+      if (buffer.byteLength > BYTES_CACHE_ENTRY_MAX) {
+        bytesCache.delete(key)
+        return buffer
+      }
+      bytesCacheSizes.set(key, buffer.byteLength)
+      evictBytesCache()
+      return buffer
+    })
     .catch((e) => {
       bytesCache.delete(key)
+      bytesCacheSizes.delete(key)
       throw e
     })
   bytesCache.set(key, p)
+  evictBytesCache()
   return p
 }
 
 export function clearBytesCache(): void {
   bytesCache.clear()
+  bytesCacheSizes.clear()
 }
 
 function toFormData(files: File[], subject?: string): FormData {

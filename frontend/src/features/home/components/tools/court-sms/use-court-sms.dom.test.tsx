@@ -18,6 +18,7 @@ vi.mock('../../../api', async (importOriginal) => {
   return {
     ...actual,
     submitCourtSms: vi.fn(),
+    uploadCourtSmsMaterials: vi.fn(),
     getCourtSmsDetail: vi.fn(),
     assignCourtSmsCase: vi.fn(),
     retryCourtSms: vi.fn(),
@@ -33,12 +34,14 @@ import {
   getCourtSmsDetail,
   retryCourtSms,
   submitCourtSms,
+  uploadCourtSmsMaterials,
 } from '../../../api'
 
 import { useCourtSms } from './use-court-sms'
 
 // 被 vi.mock 的模块函数经 vi.mocked 拿到带 mock 属性的类型视图
 const submitMock = vi.mocked(submitCourtSms)
+const uploadMock = vi.mocked(uploadCourtSmsMaterials)
 const getDetailMock = vi.mocked(getCourtSmsDetail)
 const abortMock = vi.mocked(abortCourtSmsTask)
 
@@ -556,6 +559,113 @@ describe('useCourtSms refresh 分支', () => {
       await result.current.refresh()
     })
     expect(result.current.phase).toBe(before)
+  })
+})
+
+describe('useCourtSms 客户材料通道（submitFiles）', () => {
+  it('提交文件：source 切到 material、回填入库明细、source 保持到轮询', async () => {
+    uploadMock.mockResolvedValue({
+      id: 21,
+      materials: { saved: ['判决书.pdf'], skipped: [{ name: 'x.heic', reason: '格式不支持' }] },
+    })
+    getDetailMock.mockResolvedValue(makeDetail('matching'))
+    const { result } = setup()
+
+    let ok: boolean | undefined
+    await act(async () => {
+      ok = await result.current.submitFiles([new File(['x'], '判决书.pdf', { type: 'application/pdf' })])
+    })
+    await flush()
+
+    expect(ok).toBe(true)
+    expect(result.current.source).toBe('material')
+    expect(result.current.smsId).toBe(21)
+    expect(result.current.phase).toBe('processing')
+    expect(result.current.intake).toEqual({
+      saved: ['判决书.pdf'],
+      skipped: [{ name: 'x.heic', reason: '格式不支持' }],
+    })
+    // 无下载链接的通道直接进匹配：后端原始阶段 2
+    expect(result.current.detail?.status).toBe('matching')
+  })
+
+  it('提交文件失败：终态 failed + submitError，source 仍为 material', async () => {
+    uploadMock.mockRejectedValue(new Error('拖入的文件都不受支持'))
+    const { result } = setup()
+
+    let ok: boolean | undefined
+    await act(async () => {
+      ok = await result.current.submitFiles([new File(['x'], 'a.mov')])
+    })
+
+    expect(ok).toBe(false)
+    expect(result.current.phase).toBe('done')
+    expect(result.current.outcome).toBe('failed')
+    expect(result.current.submitError).toContain('不受支持')
+    expect(result.current.source).toBe('material')
+  })
+
+  it('短信通道提交后 source 为 sms 且不带入库明细', async () => {
+    submitMock.mockResolvedValue(5)
+    getDetailMock.mockResolvedValue(makeDetail('parsing'))
+    const { result } = setup()
+
+    await act(async () => {
+      await result.current.submit('【法院】通知')
+    })
+    await flush()
+
+    expect(result.current.source).toBe('sms')
+    expect(result.current.intake).toBeNull()
+  })
+
+  it('reset 后回到 idle 且 source 复位', async () => {
+    uploadMock.mockResolvedValue({ id: 3, materials: { saved: ['a.pdf'], skipped: [] } })
+    getDetailMock.mockResolvedValue(makeDetail('completed'))
+    const { result } = setup()
+
+    await act(async () => {
+      await result.current.submitFiles([new File(['x'], 'a.pdf', { type: 'application/pdf' })])
+    })
+    await flush()
+
+    act(() => result.current.reset())
+
+    expect(result.current.phase).toBe('idle')
+    expect(result.current.source).toBe('sms')
+    expect(result.current.intake).toBeNull()
+  })
+})
+
+describe('stageForDisplay 按来源换算阶段', () => {
+  it('material 通道：matching 落在第 1 步（无下载阶段）', async () => {
+    const { stageForDisplay } = await import('./use-court-sms')
+    const detail = makeDetail('matching')
+
+    expect(stageForDisplay(detail, 2, 'sms').current).toBe(2)
+    expect(stageForDisplay(detail, 2, 'material').current).toBe(1)
+  })
+
+  it('material 通道：completed 走满四步', async () => {
+    const { stageForDisplay } = await import('./use-court-sms')
+
+    expect(stageForDisplay(makeDetail('completed'), 4, 'material').current).toBe(4)
+    expect(stageForDisplay(makeDetail('completed'), 5, 'sms').current).toBe(5)
+  })
+
+  it('material 通道：download_failed 的失败位不会越界', async () => {
+    const { stageForDisplay } = await import('./use-court-sms')
+    const out = stageForDisplay(makeDetail('download_failed'), 1, 'material')
+
+    expect(out.failedAt).toBe(0)
+    expect(out.current).toBeLessThanOrEqual(4)
+  })
+
+  it('观测最大阶段不会让下标超过阶段表长度', async () => {
+    const { stageForDisplay } = await import('./use-court-sms')
+    const out = stageForDisplay(makeDetail('renaming'), 5, 'material')
+
+    expect(out.current).toBeLessThanOrEqual(4)
   })
 })
 

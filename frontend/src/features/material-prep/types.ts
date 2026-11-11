@@ -44,6 +44,9 @@ export interface Segment {
   confidence?: number
   /** 该段正文的 Markdown 重建（云端识别产出，供后续 AI 流程消费）；人工拆分 / 旧任务无 */
   md?: string
+  /** 该段的可定位块（原文坐标索引）；无坐标的后端 / 旧任务为空
+   *  rect 为归一化 0–1，rect.approx 为 true 时代表"整页近似框"而非精确位置 */
+  blocks?: PositionedBlock[]
 }
 
 /** 后端 PDF 拆分接口返回的页段候选。
@@ -59,7 +62,15 @@ export type PdfSplitSegmentSuggestion = Pick<
   | 'confidence'
   | 'review_flag'
   | 'content_md'
->
+> & {
+  // positioned 单独声明成可选：旧任务的 segments_md.json 没有该字段、后端回空数组，
+  // 本域不消费坐标时（如规则引擎分流）也无须传。用独立可选字段而不是 Partial<>，
+  // 因为 Partial<> 会把上面 8 个必填字段也一起变成可选。
+  positioned?: PositionedBlock[]
+}
+
+/** 可定位的正文块（识别定位）：后端已把各家里标系统一成 0–1 矩形 */
+export type PositionedBlock = components['schemas']['PositionedBlockOut']
 
 /** 标来源：页码（可选框选矩形，归一化 0-1） */
 export interface SrcRef {

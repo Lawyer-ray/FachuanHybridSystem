@@ -300,7 +300,8 @@ describe('HomePage：收件箱派发', () => {
   it('材料包类跳到材料预处理详情（SPA 跳转）', async () => {
     const { unmount } = render(wrap(<HomePage />))
     fireEvent.click(screen.getByText('打开材料包'))
-    expect(navMock.navigate).toHaveBeenCalledWith('/material-prep/3')
+    // 带 stage=todo：不带的话详情路由会被解析成「收件箱」，打开时闪一帧收件箱列表
+    expect(navMock.navigate).toHaveBeenCalledWith('/material-prep/3?stage=todo')
     unmount()
   })
 
@@ -317,7 +318,7 @@ describe('HomePage：收件箱派发', () => {
     navMock.navigate.mockClear()
     const { unmount } = render(wrap(<HomePage />))
     fireEvent.click(screen.getByText('转包打开'))
-    expect(navMock.navigate).toHaveBeenCalledWith('/material-prep/88')
+    expect(navMock.navigate).toHaveBeenCalledWith('/material-prep/88?stage=todo')
     unmount()
   })
 })

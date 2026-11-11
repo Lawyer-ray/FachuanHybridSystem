@@ -37,6 +37,8 @@ export function applyAutoSplit(
         reviewFlag: item.review_flag,
         confidence: item.confidence,
         md: item.content_md || undefined,
+        // 原文坐标索引：后端已归一化为 0–1 矩形，直接用于页卡上的绿框
+        blocks: item.positioned?.length ? item.positioned : undefined,
       }
     })
   const covered = new Set(proposed.flatMap((seg) => seg.refs.map((ref) => ref.p)))

@@ -43,7 +43,15 @@ from .llm_segment_detector import LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
 from .segment_detector import SegmentDetector
-from .split_models import OCRPageResult, PageDescriptor, SegmentDraft, extract_layout_title
+from .split_models import (
+    MATERIAL_KIND_MIXED_PDF,
+    MATERIAL_KIND_SCANNED_PDF,
+    OCRPageResult,
+    PageDescriptor,
+    SegmentDraft,
+    classify_pdf_material,
+    extract_layout_title,
+)
 
 logger = logging.getLogger("apps.pdf_splitting")
 
@@ -52,6 +60,12 @@ CancelCallback = Callable[[], bool]
 
 # 取消 / 进度节流：每解析 5 页查一次取消（与旧 analyze_job 的节奏一致）
 _CANCEL_CHECK_EVERY = 5
+
+#: 版面策略取值。与 models.PdfSplitLayoutMode 同值，但这里不 import models：
+#: pipeline 是「无任务耦合」的门面（不建任务、不落库），让它可以被任何域直接调用，
+#: 不该因为一个字符串常量把 ORM 依赖引进来。
+LAYOUT_MODE_FAST_TEXT = "fast_text"
+LAYOUT_MODE_LAYOUT = "layout"
 
 
 class PipelineCancelled(RuntimeError):
@@ -73,6 +87,8 @@ def analyze_pdf(
     *,
     template_key: str = "filing_materials_v1",
     ocr_profile: str = "balanced",
+    layout_mode: str = LAYOUT_MODE_FAST_TEXT,
+    cloud_backend: str | None = None,
     on_progress: ProgressCallback | None = None,
     is_cancelled: CancelCallback | None = None,
     ocr_handler: Any = None,
@@ -84,6 +100,12 @@ def analyze_pdf(
         pdf_path: PDF 文件路径。
         template_key: 分段模板（建议标签集；默认立案材料 15 类）。
         ocr_profile: OCR 档位 fast / balanced / accurate。
+        cloud_backend: 云端平台偏好。``auto``（默认）按优先级并在失败时切下一个
+            （容灾）；``mineru`` / ``textin`` 锁定单一平台、失败即失败（不降级）。
+        layout_mode: 版面策略。``fast_text``（默认）电子页只抽文本层、不调云端；
+            ``layout`` 让电子页也上云端拿版面块与坐标（"原文坐标索引对照"需要），
+            代价是这些页也要计费且更慢。云端不可用时自动回落文本层并在
+            summary.layout_unavailable_reason 说明。
         on_progress: 进度回调 (已解析页数, 总页数)，每解析一页触发一次（节流由调用方决定）。
         is_cancelled: 取消查询回调；返回 True 时抛 PipelineCancelled。
         ocr_handler / llm_segment_detector: 依赖注入口（测试桩）；缺省用真实实现。
@@ -93,16 +115,25 @@ def analyze_pdf(
         on_progress=on_progress,
         is_cancelled=is_cancelled,
     )
-    pages, extraction_summary = extractor.extract(pdf_path, ocr_profile=ocr_profile, template_key=template_key)
+    pages, extraction_summary = extractor.extract(
+        pdf_path,
+        ocr_profile=ocr_profile,
+        template_key=template_key,
+        layout_mode=layout_mode,
+        cloud_backend=cloud_backend,
+    )
     drafts, segment_summary = detect_segments_with_fallback(
         pages,
         template_key=template_key,
         llm_segment_detector=llm_segment_detector,
     )
+    # 坐标换算依赖后端坐标系（MinerU 千分比 / Textin 绝对坐标），必须在构建
+    # 时就告诉 markdown_builder：事后再猜会算出错位的绿框。
+    bbox_backend = str(extraction_summary.get("ocr_provider") or "")
     return PdfAnalysisOutcome(
         pages=pages,
         drafts=drafts,
-        segments_md=build_segments_markdown(drafts, pages),
+        segments_md=build_segments_markdown(drafts, pages, bbox_backend=bbox_backend),
         summary={**extraction_summary, **segment_summary},
     )
 
@@ -182,24 +213,47 @@ class PageTextExtractor:
         self._is_cancelled = is_cancelled
 
     def extract(
-        self, pdf_path: Path, *, ocr_profile: str, template_key: str
+        self,
+        pdf_path: Path,
+        *,
+        ocr_profile: str,
+        template_key: str,
+        layout_mode: str = LAYOUT_MODE_FAST_TEXT,
+        cloud_backend: str | None = None,
     ) -> tuple[list[PageDescriptor], dict[str, Any]]:
         runtime_profile = self._ocr_handler.resolve_runtime_profile(ocr_profile)
-        cloud_backend = self._ocr_handler.resolve_cloud_backend()
-        cloud_cache_profile = f"{runtime_profile.key}_{cloud_backend}_v1" if cloud_backend else runtime_profile.key
+        # 候选顺序：auto → 全部平台（可容灾）；锁定 → 只有那一个（不允许降级）
+        cloud_candidates = self._ocr_handler.resolve_cloud_backends(cloud_backend)
+        cloud_backend = cloud_candidates[0] if cloud_candidates else None
+        want_layout = layout_mode == LAYOUT_MODE_LAYOUT
+        # 缓存档案名带上策略：同一份 PDF 在「仅文本层」下缓存的是纯文本、在
+        # 「补版面」下缓存的是带版面块的结果，共用一份档案会互相污染——
+        # 先开补版面再关掉，第二次拿到的还是带坐标的旧条目，开关形同虚设。
+        cache_suffix = "layout" if want_layout else "text"
+        cloud_cache_profile = (
+            f"{runtime_profile.key}_{cloud_backend}_{cache_suffix}_v2" if cloud_backend else runtime_profile.key
+        )
         pdf_hash = self._ocr_handler.sha256_file(pdf_path)
 
         stats = {
             "runtime_profile": runtime_profile,
             "cloud_backend": cloud_backend,
+            "cloud_candidates": cloud_candidates,
             "cloud_cache_profile": cloud_cache_profile,
             "cache_hit_count": 0,
             "cloud_cache_hit_count": 0,
             "pending_ocr_count": 0,
             "cloud_error": "",
+            "layout_mode": layout_mode,
+            # 补版面但云端不可用：必须让调用方知道「你以为开了、其实没生效」
+            "layout_unavailable_reason": "",
         }
         with fitz.open(pdf_path) as doc:
             total_pages = int(doc.page_count)
+            # 抽样判定材料类别（只读首/中/尾几页）：写进 summary 让「这份为什么
+            # 走了云端 / 为什么没坐标」可回溯，也供前端提示用。判定不改变下面
+            # 的逐页决策——逐页才是真相，抽样只是为了给出一个可读标签。
+            stats["material_kind"] = classify_pdf_material(doc, is_effective_text=self._rule_detector.is_effective_text)
             descriptors = self._extract_from_text_layer_or_cache(
                 doc,
                 pdf_hash=pdf_hash,
@@ -207,6 +261,7 @@ class PageTextExtractor:
                 runtime_profile_key=runtime_profile.key,
                 template_key=template_key,
                 stats=stats,
+                want_layout=want_layout,
             )
             self._resolve_pending_pages(
                 pdf_path, descriptors=descriptors, pdf_hash=pdf_hash, template_key=template_key, stats=stats
@@ -228,8 +283,15 @@ class PageTextExtractor:
         runtime_profile_key: str,
         template_key: str,
         stats: dict[str, Any],
+        want_layout: bool = False,
     ) -> list[PageDescriptor | None]:
-        """第一遍扫描：PDF 自带文本层直接用；否则查 OCR 页缓存。剩余页号留给云端/本地兜底。"""
+        """第一遍扫描：PDF 自带文本层直接用；否则查 OCR 页缓存。剩余页号留给云端/本地兜底。
+
+        ``want_layout`` 改写「文本层优先」这条规则：默认（False）下电子页读到文字
+        就定稿，因为它又快又准——但代价是**拿不到版面块与坐标**（文本层没有
+        bbox/表格结构）。开着补版面时，电子页**故意不定稿**，留给云端去拿版面，
+        这样「原文坐标索引对照」才对电子版 PDF 也生效。成本是这些页也要上云。
+        """
         total_pages = int(doc.page_count)
         descriptors: list[PageDescriptor | None] = [None] * total_pages
         resolved_pages = 0
@@ -239,7 +301,10 @@ class PageTextExtractor:
             page_no = page_index + 1
             page = doc.load_page(page_index)
             direct_text = page.get_text("text") or ""
-            if self._rule_detector.is_effective_text(direct_text):
+            # 补版面模式下不拿文本层定稿：否则这一页永远走不到云端，也就永远
+            # 没有 bbox。注意这里**仍要先读 direct_text**——后面云端失败时
+            # 用它兜底，比让这一页变成空白强。
+            if self._rule_detector.is_effective_text(direct_text) and not want_layout:
                 descriptors[page_index] = build_page_descriptor(
                     page_no=page_no,
                     text=direct_text,
@@ -314,6 +379,12 @@ class PageTextExtractor:
             )
             self._report_progress(self._resolved_count(descriptors), total_pages)
 
+        # 补版面模式的自救：这些页本来有文本层，是为了拿版面才故意没定稿的。
+        # 云端没给出结果时，**先用文本层填回去**再考虑本地 OCR —— 文本层是
+        # 机器真值、零成本、零错字；拿它去喂本地 OCR 等于把可靠的字重新猜一遍。
+        if stats.get("layout_mode") == LAYOUT_MODE_LAYOUT:
+            self._fill_from_text_layer(pdf_path, descriptors=descriptors, pending=pending, template_key=template_key)
+
         local_fallback_pages = [no for no in pending if descriptors[no - 1] is None]
         if not local_fallback_pages:
             return
@@ -339,18 +410,81 @@ class PageTextExtractor:
             )
             self._report_progress(self._resolved_count(descriptors), total_pages)
 
+    def _fill_from_text_layer(
+        self,
+        pdf_path: Path,
+        *,
+        descriptors: list[PageDescriptor | None],
+        pending: list[int],
+        template_key: str,
+    ) -> None:
+        """用 PDF 自带文本层补齐仍未定稿的页（补版面失败时的兜底）。
+
+        只填「文本层有效」的页；扫描页文本层为空，自然留给后面的本地 OCR。
+        产出的块**没有坐标**（文本层没有 bbox），所以 source_method 记成
+        ``text``——与默认路径同源同义，summary 里也就能看出这一页没拿到版面。
+        """
+        targets = [no for no in pending if descriptors[no - 1] is None]
+        if not targets:
+            return
+        with fitz.open(pdf_path) as doc:
+            for page_no in targets:
+                try:
+                    direct_text = doc.load_page(page_no - 1).get_text("text") or ""
+                except Exception:  # 单页读不出来不能拖垮整份
+                    continue
+                if not self._rule_detector.is_effective_text(direct_text):
+                    continue
+                descriptors[page_no - 1] = build_page_descriptor(
+                    page_no=page_no,
+                    text=direct_text,
+                    source_method="text",
+                    ocr_failed=False,
+                    template_key=template_key,
+                    segment_detector=self._rule_detector,
+                )
+
     def _parse_cloud(self, pdf_path: Path, stats: dict[str, Any]) -> dict[int, Any]:
-        backend = stats["cloud_backend"]
-        if not backend:
+        """云端整本解析，按候选顺序**逐个尝试**（容灾）。
+
+        · auto：候选是全部已启用平台（按优先级），首个失败切下一个；
+        · 锁定：候选只有一个，失败即失败——不偷偷降级到用户没选的平台，
+          否则他拿这次结果做的比对/复核会失效，计费也落错地方。
+
+        只有"返回空结果"也算失败：那种情况通常是对端解析出了 0 页，
+        换一个平台重试比直接把空结果当成功更有意义。
+        """
+        candidates: list[str] = stats.get("cloud_candidates") or []
+        if not candidates:
             return {}
-        try:
-            return self._ocr_handler.parse_cloud_pages(pdf_path=pdf_path, backend=backend)
-        except Exception as exc:
-            logger.exception("pdf_split_cloud_ocr_failed", extra={"provider": backend})
-            stats["cloud_error"] = (
-                f"{type(exc).__name__}: {str(exc).replace(pdf_path.as_posix(), '[source PDF]')[:400]}"
-            )
-            return {}
+
+        errors: list[str] = []
+        for index, backend in enumerate(candidates):
+            try:
+                result = self._ocr_handler.parse_cloud_pages(pdf_path=pdf_path, backend=backend)
+            except Exception as exc:
+                logger.exception("pdf_split_cloud_ocr_failed", extra={"provider": backend})
+                errors.append(f"{backend}: {type(exc).__name__}: {str(exc)[:200]}")
+                continue
+            if not result:
+                # 解析成功但一页都没出来：同样视为这次尝试失败，继续下一个
+                logger.warning("pdf_split_cloud_empty", extra={"provider": backend})
+                errors.append(f"{backend}: 返回空结果")
+                continue
+            # 命中：把实际生效的平台记进 stats，summary / 缓存档案都以它为准
+            if index > 0:
+                logger.info(
+                    "云端容灾生效：%s 失败后改用 %s",
+                    " -> ".join(candidates[:index]),
+                    backend,
+                )
+            stats["cloud_backend"] = backend
+            stats["cloud_failover_from"] = candidates[:index]
+            return result
+
+        # 全部候选都失败
+        stats["cloud_error"] = " | ".join(errors).replace(pdf_path.as_posix(), "[source PDF]")[:800] or "云端解析失败"
+        return {}
 
     # ------------------------------------------------------------------
     # 回调与摘要
@@ -373,6 +507,14 @@ class PageTextExtractor:
         runtime_profile = stats["runtime_profile"]
         cloud_backend = stats["cloud_backend"]
         pending = stats["pending_ocr_count"]
+        layout_mode = stats.get("layout_mode", LAYOUT_MODE_FAST_TEXT)
+        # 要了版面却没有云端可用：这是最容易被误当成「开关没生效」的情形。
+        # 必须显式说出来，否则用户开了开关、看到的结果和没开一样，无从判断。
+        layout_unavailable = ""
+        if layout_mode == LAYOUT_MODE_LAYOUT and not cloud_backend:
+            layout_unavailable = "未配置可用的云端解析平台，补版面已回落为仅文本层（无坐标）"
+        elif layout_mode == LAYOUT_MODE_LAYOUT and stats.get("cloud_error"):
+            layout_unavailable = f"云端解析失败，补版面已回落为仅文本层：{stats['cloud_error']}"
         return {
             "ocr_profile": runtime_profile.key,
             "ocr_dpi": runtime_profile.dpi,
@@ -381,7 +523,19 @@ class PageTextExtractor:
             "ocr_cache_hit_count": int(max(stats["cache_hit_count"], 0)),
             "ocr_miss_count": int(max(pending, 0)),
             "ocr_provider": cloud_backend or "local",
+            # 实际生效平台与首选不同 = 发生过容灾；把首选链一并记下便于排障
+            "cloud_failover_from": stats.get("cloud_failover_from", []),
+            "cloud_candidates": stats.get("cloud_candidates", []),
             "ocr_cloud_cache_profile": stats["cloud_cache_profile"] if cloud_backend else "",
             "ocr_cloud_cache_hit_count": int(max(stats["cloud_cache_hit_count"], 0)),
             "ocr_fallback_reason": stats["cloud_error"] if pending and cloud_backend else "",
+            # 电子版 / 扫描件 / 混合：同一本里混扫描页时逐页各自选路，
+            # 这个标签只说明「整本更像哪类」，不要拿它替代逐页判定。
+            "material_kind": stats.get("material_kind", MATERIAL_KIND_SCANNED_PDF),
+            # 本次是否真的调了云端：false 且有扫描页 → 说明云端没配/不可用，
+            # 走的是本地 OCR（排障时最容易误判成「云端很慢」的就是这个）。
+            "cloud_used": bool(pending and cloud_backend),
+            # 版面策略的落地情况（"开了但没生效"必须能从 summary 里看出来）
+            "layout_mode": layout_mode,
+            "layout_unavailable_reason": layout_unavailable,
         }

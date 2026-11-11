@@ -159,7 +159,9 @@ class TestSaveUploadedPdf:
         svc = PdfSplitJobService()
         file = MagicMock()
         file.name = "test.pdf"
-        file.size = 200 * 1024 * 1024  # 200MB
+        # 以常量为准：上限随业务调过（150MB → 1GB），写死 200MB 会在调限后
+        # 变成「合法文件」而让用例失败在一个与意图无关的地方。
+        file.size = PdfSplitJobService.MAX_FILE_SIZE + 1
         with pytest.raises(ValidationException, match="大小"):
             svc._save_uploaded_pdf(file, Path("/tmp/test.pdf"))
 

@@ -3,53 +3,55 @@ import { useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { materialPrepDetail } from '@/app/paths'
-import { countUnread } from '../domain'
 import { useSetReadState } from '../hooks/use-inbox'
 import { getInboxMessage } from '../api'
 import { useInboxList } from '../hooks/use-inbox'
-import { useSyncSources } from '../hooks/use-sync-sources'
 import { InboxList } from './InboxList'
 import { MessageDrawer } from './MessageDrawer'
 import type { InboxRow, InboxSourceFilter } from '../types'
+
+/** 收件箱筛选状态：受控于 DeskPage，与统一工具栏共用同一份真值。 */
+export interface InboxViewProps {
+  source: InboxSourceFilter
+  onSourceChange: (s: InboxSourceFilter) => void
+  search: string
+  onSearchChange: (v: string) => void
+  unreadOnly: boolean
+  onUnreadOnlyChange: (v: boolean) => void
+}
 
 /**
  * 收件箱视图 —— 预处理页「收件箱」阶段的主区域。
  *
  * 定位：**消息流入的总入口**，也就是整条漏斗的第一段（`收件箱 → 拆包 → 归案`）。
- * 它是 DeskPage 内的一个视图，不是独立页面：外壳（stage 页签、上传动作、
- * 拖放层）都由 DeskPage 提供，这里只负责列表主体与详情抽屉。
+ * 它是 DeskPage 内的一个视图，不是独立页面：外壳（阶段页签、统一工具栏、上传动作、
+ * 拖放层、主区域卡片容器）都由 DeskPage 提供，这里只负责列表主体与详情抽屉。
  *
- * 页面只编排：筛选/搜索/抽屉开关是本地 useState，取数走 react-query，
- * 分组与未读计数在 domain.ts（纯函数，可单测）。
+ * 筛选状态（来源档位 / 搜索 / 只看未读）**由父级 DeskPage 受控**：这些控件已上提到
+ * 统一工具栏，四个阶段共用一条；本视图不再持有它们，只负责取数、分组与详情抽屉。
+ *
+ * 同步（含它的状态机与「同步完成/仍在后台」提示）也归工具栏自持：按钮在
+ * DeskToolbar 里，状态机必须与按钮同域，否则工具栏点了同步、本视图这份仍是
+ * idle，提示永远不会触发。
  */
-export function InboxView() {
+export function InboxView({
+  source,
+  onSourceChange,
+  search,
+  onSearchChange,
+  unreadOnly,
+  onUnreadOnlyChange,
+}: InboxViewProps) {
+  // 未读条数不从这里出：本视图的 rows 是按 unreadOnly 取回来的，
+  // 打开「只看未读」后 rows 里没有未读行，在这里算必然恒为 0。
+  // 它由 DeskPage 用「不带 unreadOnly」的口径计算并只用于工具栏显示。
   const navigate = useNavigate()
-  const [source, setSource] = useState<InboxSourceFilter>('all')
-  const [search, setSearch] = useState('')
-  const [unreadOnly, setUnreadOnly] = useState(false)
   const [active, setActive] = useState<InboxRow | null>(null)
 
   const list = useInboxList({ source, unreadOnly, search })
   const setRead = useSetReadState()
-  const sync = useSyncSources(source)
-
-  // 同步结束的提示：newCount 非空说明拿到了新增条数；state 回落 background
-  // 说明轮询超时仍在后台跑，两种都要告诉用户，否则点了没反应会被当成坏了
-  const prevSyncState = useRef(sync.state)
-  useEffect(() => {
-    const prev = prevSyncState.current
-    prevSyncState.current = sync.state
-    if (prev === 'syncing' && sync.state === 'idle' && sync.newCount) {
-      toast.success(`同步完成，新增 ${sync.newCount} 条消息`)
-    } else if (prev === 'syncing' && sync.state === 'background') {
-      toast.info('同步仍在后台进行，稍后刷新查看')
-    }
-  }, [sync.state, sync.newCount])
 
   const rows = useMemo(() => list.data ?? [], [list.data])
-  // 未读计数按「当前筛选结果的未读」算，不能对全库再发一个请求：
-  // 顶栏那个数字要和眼前这批消息对得上
-  const unreadCount = useMemo(() => countUnread(rows), [rows])
 
   /** 点一行：打开抽屉 + 标已读（已读的不重复请求） */
   const handleSelect = useCallback(
@@ -60,22 +62,26 @@ export function InboxView() {
         void setRead.mutate({ id: row.id, read: true })
       }
     },
-    [setRead],
+    [setActive, setRead],
   )
 
-  /** 转成材料包后：直接进材料预处理（这正是「点击后直接进入材料预处理」的闭环） */
+  /** 转成材料包后：直接进材料预处理（这正是「点击后直接进入材料预处理」的闭环）。
+   *
+   * 带上 ?stage=todo：转到的是**材料包**、且刚建出来必然是「待处理」。
+   * 不带 stage 的话详情路由会回落成「收件箱」，打开时先闪一帧收件箱列表。
+   */
   const goPack = useCallback(
     (packId: number) => {
       setActive(null)
-      void navigate(materialPrepDetail(packId))
+      void navigate(`${materialPrepDetail(packId)}?stage=todo`)
     },
-    [navigate],
+    [navigate, setActive],
   )
 
   const closeDrawer = useCallback(() => {
     // 抽屉里的已读态写到列表后，active 若是旧快照会把「已读」显示回去，故清空
     setActive(null)
-  }, [])
+  }, [setActive])
 
   /**
    * 深链接 `?message=<id>`：自动展开那条消息的抽屉。
@@ -87,7 +93,7 @@ export function InboxView() {
    * 细节：
    * - 只在列表**加载完成**后找（加载中 rows 为空，过早查找会把"还没来"误判成"不存在"）；
    * - 参数用完即从 URL 抹掉，避免关掉抽屉后刷新又被强制弹开；
-   * - 目标消息不在当前筛选结果里时（例如被 source 筛选挡掉）提示一句，
+   * - 目标消息不在当前筛选结果里时（例如被 source 筛选挡掉）先放开筛选，
    *   而不是静默什么都不发生。
    */
   const [params, setParams] = useSearchParams()
@@ -111,11 +117,12 @@ export function InboxView() {
       return
     }
     if (source !== 'all' || unreadOnly || search) {
-      // 被当前筛选挡住了：先放开筛选再让下一轮 effect 重新找（deepLinkDone 在
-      // 放开筛选前解锁，所以能重进；命中后才最终锁定，不会死循环）
-      setSource('all')
-      setUnreadOnly(false)
-      setSearch('')
+      // 被当前筛选挡住了：放开筛选（改的是父级状态，工具栏与之一致），
+      // 再让下一轮 effect 重新找（deepLinkDone 在放开筛选前解锁，所以能重进；
+      // 命中后才最终锁定，不会死循环）
+      if (source !== 'all') onSourceChange('all')
+      if (unreadOnly) onUnreadOnlyChange(false)
+      if (search) onSearchChange('')
       deepLinkDone.current = null
       return
     }
@@ -137,29 +144,37 @@ export function InboxView() {
     return () => {
       cancelled = true
     }
-  }, [deepLinkId, list.isLoading, rows, handleSelect, setParams, source, unreadOnly, search])
+  }, [
+    deepLinkId,
+    list.isLoading,
+    rows,
+    handleSelect,
+    setParams,
+    source,
+    unreadOnly,
+    search,
+    onSourceChange,
+    onUnreadOnlyChange,
+    onSearchChange,
+  ])
 
   return (
     <>
-      {/* 列表容器：与材料包网格共用同一张卡片的视觉语言（圆角 + 描边 + 极轻阴影），
-          让两个阶段切换时主区域"框"不跳动 */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,.02)]">
+      {/* 主区域的圆角描边卡片由 DeskPage 的 DESK_SURFACE_CLASS 提供（四阶段共用
+          同一个框，切页签时框不跳），因此这里只做普通 flex 列容器、不再自带
+          边框，否则会叠出双层描边。 */}
+      <div className="flex min-h-0 flex-1 flex-col">
         <InboxList
           rows={rows}
           isLoading={list.isLoading}
           error={list.error}
           onRetry={() => void list.refetch()}
           source={source}
-          onSourceChange={setSource}
           search={search}
-          onSearchChange={setSearch}
           unreadOnly={unreadOnly}
-          onUnreadOnlyChange={setUnreadOnly}
-          unreadCount={unreadCount}
           activeId={active?.id ?? null}
           convertingId={null}
           onSelect={handleSelect}
-          sync={sync}
         />
       </div>
 

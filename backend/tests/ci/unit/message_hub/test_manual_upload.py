@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -23,6 +25,61 @@ def _cleanup(message: InboxMessage) -> None:
         if path is not None and path.exists():
             path.unlink()
     message.delete()
+
+
+@pytest.mark.django_db
+class TestDefaultSubjectFromFirstFile:
+    """材料包默认名 = 第一个文件的显示名（去扩展名）。
+
+    以前是「前端材料预处理上传材料」——来源已经由卡片右上角的来源标签表达，
+    再当标题就是同一句话写两遍，且律师在一堆包里分不清谁是谁。
+    """
+
+    def test_uses_first_file_name_without_extension(self) -> None:
+        from apps.message_hub.services.manual_upload_service import _default_subject_from
+
+        assert _default_subject_from([{"filename": "曾某某诉讼.pdf"}, {"filename": "证据.pdf"}]) == "曾某某诉讼"
+
+    def test_archive_subpath_uses_basename_only(self) -> None:
+        # 压缩包展开的展示名带「子目录/文件.pdf」，标题不该变成带路径的怪样子
+        from apps.message_hub.services.manual_upload_service import _default_subject_from
+
+        assert _default_subject_from([{"filename": "一审/起诉状.PDF"}]) == "起诉状"
+
+    def test_does_not_mangle_names_containing_dots(self) -> None:
+        # 「3.5亿借款合同.docx」只能去掉 .docx，不能把 3.5 当扩展名切掉
+        from apps.message_hub.services.manual_upload_service import _default_subject_from
+
+        assert _default_subject_from([{"filename": "3.5亿借款合同.docx"}]) == "3.5亿借款合同"
+
+    def test_file_without_extension_kept_as_is(self) -> None:
+        from apps.message_hub.services.manual_upload_service import _default_subject_from
+
+        assert _default_subject_from([{"filename": "证据材料"}]) == "证据材料"
+
+    def test_falls_back_when_no_name(self) -> None:
+        from apps.message_hub.services.manual_upload_service import _default_subject_from
+
+        # 不返回空串：空标题会把卡片标题区撑成空白
+        assert _default_subject_from([]) == "前端材料预处理上传材料"
+        assert _default_subject_from([{"filename": ""}]) == "前端材料预处理上传材料"
+
+
+@pytest.mark.django_db
+def test_default_subject_uses_first_file_and_keeps_source_label(tmp_path: Path) -> None:
+    """端到端：默认标题取第一个文件名；来源标签（source_name）保持不变。"""
+    from django.test import override_settings
+
+    from apps.message_hub.services.manual_upload_service import create_manual_message
+
+    with override_settings(MEDIA_ROOT=str(tmp_path)):
+        first = SimpleUploadedFile("民事起诉状.pdf", b"%PDF-1.4 test", content_type="application/pdf")
+        second = SimpleUploadedFile("证据清单.pdf", b"%PDF-1.4 test", content_type="application/pdf")
+        msg = create_manual_message([first, second])
+
+        assert msg.subject == "民事起诉状"
+        # 右上角标签来自来源，不能跟着标题一起变
+        assert msg.source.display_name == "前端材料预处理上传"
 
 
 @pytest.mark.django_db

@@ -22,6 +22,8 @@ from .court_sms import (
     CourtSmsDocumentRenameIn,
     CourtSmsDocumentRenameOut,
     CourtSMSListOut,
+    CourtSMSMaterialIntakeOut,
+    CourtSMSMaterialSkipOut,
     CourtSMSSubmitDataOut,
     CourtSMSSubmitIn,
     CourtSMSSubmitOut,

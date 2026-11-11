@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { materialPrep } from '@/app/paths'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
+import { parseStage } from '../stages'
 import { useJudgePack } from './use-inbox'
 import { useReader } from '../store'
 
@@ -12,6 +13,7 @@ import { useReader } from '../store'
  */
 export function useDeskRouteSync() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams()
   const openId = useReader((s) => s.openId)
   const openPack = useReader((s) => s.open)
@@ -29,13 +31,21 @@ export function useDeskRouteSync() {
   }, [id])
 
   // 2. 关阅读器：从打开态回退到列表 URL，避免 URL 停留在 :id
+  //
+  // ⚠️ 必须保留当前 stage。曾经这里写的是 materialPrep()（返回 /material-prep），
+  // 于从「待处理」点进一个包、再关掉阅读器，URL 会退回首段「收件箱」——
+  // 用户看到的是"待处理页进不去了 / 又跳回收件箱了"。stage 是这个页面的
+  // 状态而非临时筛选，回退时必须原样带回。
   useEffect(() => {
     const open = openId != null
     if (wasOpenRef.current && !open && id != null) {
-      void navigate(materialPrep(), { replace: true })
+      // 用 router 的 location 而不是 window.location：测试跑在 MemoryRouter 下
+      // 没有真实地址栏，读 window 会永远拿到空 query。
+      const current = parseStage(new URLSearchParams(location.search).get('stage'))
+      void navigate(materialPrep(current), { replace: true })
     }
     if (open) wasOpenRef.current = true
-  }, [openId, id, navigate])
+  }, [openId, id, navigate, location.search])
 
   // 3. 关闭阅读器后让列表卡片进度/状态跟上次变化
   useEffect(() => {

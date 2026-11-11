@@ -16,7 +16,6 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
 from apps.automation.services.ocr.ocr_service import OCRService  # 保留直接构造：需要运行时 use_v5 参数控制精度/速度
-from apps.document_parsing.services.parser_factory import _resolve_auto_backend
 from apps.pdf_splitting.models import PdfSplitOcrProfile
 
 from .split_models import OCRPageResult, OCRRuntimeProfile
@@ -72,12 +71,20 @@ def _ocr_pages_worker(
 class OCRHandler:
     """OCR 子系统的入口，封装并行识别、缓存、配置解析。"""
 
-    def resolve_cloud_backend(self) -> str | None:
-        """按文档解析平台优先级选择已启用的云端识别后端。"""
-        from apps.document_parsing.services.parser_factory import ParserFactory
+    def resolve_cloud_backend(self, cloud_backend: str | None = None) -> str | None:
+        """首选云端识别后端（兼容旧调用方；需要容灾顺序请用 resolve_cloud_backends）。"""
+        candidates = self.resolve_cloud_backends(cloud_backend)
+        return candidates[0] if candidates else None
 
-        backend = _resolve_auto_backend()
-        return backend if backend in {"mineru", "textin"} else None
+    def resolve_cloud_backends(self, cloud_backend: str | None = None) -> list[str]:
+        """按尝试顺序给出云端平台列表。
+
+        ``auto`` 返回全部可用平台（首个失败可切下一个 = 容灾）；
+        锁定 mineru / textin 时只返回它本身（不允许偷偷降级）。
+        """
+        from apps.document_parsing.services.parser_factory import resolve_cloud_backends
+
+        return [b for b in resolve_cloud_backends(cloud_backend) if b in {"mineru", "textin"}]
 
     def parse_cloud_pages(self, *, pdf_path: Path, backend: str) -> dict[int, OCRPageResult]:
         """一次解析整份 PDF，并恢复各解析块对应的原始页码。"""

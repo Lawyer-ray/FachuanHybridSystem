@@ -41,7 +41,25 @@ export interface ConvertResult {
  * `pack` 把律师手动包与客户链接包合成一档：对律师而言它们都是「当事人交来的材料」，
  * 没必要在收件箱里分成两行。
  */
-export type InboxSourceFilter = 'all' | 'court_inbox' | 'imap' | 'court_sms' | 'manual_upload,client_upload'
+/**
+ * 收件箱的来源筛选档位。
+ *
+ * **不再包含 manual_upload / client_upload**：材料包已升为一级导航
+ * （见 `../stages.ts`），在收件箱里再留一个「材料包」档位既冗余，
+ * 也会让同一份上传在收件箱与「待处理」里各出现一次、角标互相矛盾。
+ *
+ * 收件箱现在只收「外来」消息：法院送达、邮箱、法院短信。
+ */
+export type InboxSourceFilter = 'all' | 'court_inbox' | 'imap' | 'court_sms'
+
+/**
+ * 收件箱列表请求实际带上的 source_type 值（逗号分隔多值）。
+ *
+ * 为什么 `all` 要显式列出而不是不传：不传 = 后端返回**全部来源**，其中包含
+ * manual_upload / client_upload——那些是「材料包」，属于一级导航的另一支，
+ * 不该混进收件箱（否则同一份材料两处都能看到，两处角标也对不上）。
+ */
+export const INBOX_ONLY_SOURCE_TYPES = 'court_inbox,imap,court_sms,court_schedule'
 
 /** 来源筛选档位定义（顺序即筛选条渲染顺序） */
 export interface InboxSourceTab {

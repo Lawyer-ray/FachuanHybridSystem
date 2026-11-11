@@ -70,8 +70,25 @@ def _needs_async(backend: str) -> bool:
 
 
 # 上传白名单：覆盖解析后端（local/mineru/textin）的核心能力——文档 pdf/docx/doc + 常见图片
-_ALLOWED_UPLOAD_EXTENSIONS = [".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp", ".gif"]
-_MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024
+# Excel 必须在内：office 后端支持 xlsx/xls，白名单漏掉的话前端传 Excel
+# 会直接 400，看着像"不支持 Excel"，实际只是清单没写全。
+_ALLOWED_UPLOAD_EXTENSIONS = [
+    ".pdf",
+    ".docx",
+    ".doc",
+    ".xlsx",
+    ".xls",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".bmp",
+    ".tiff",
+    ".webp",
+    ".gif",
+]
+# 与收件箱口径对齐（1GB）：Office 文件从材料预处理过来，那边放行到 1GB，
+# 这里卡 50MB 会让"传得进材料包、却解析不了"。
+_MAX_UPLOAD_SIZE_BYTES = 1024 * 1024 * 1024
 
 
 def _save_upload(file: UploadedFile) -> tuple[str, Path]:

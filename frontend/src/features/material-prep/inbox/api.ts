@@ -1,6 +1,7 @@
 import { createApiClient } from '@/lib/api'
 import type { components } from '@/types/api-schema'
 import type { InboxRow, InboxSourceFilter, ReadStateResult, ConvertResult } from './types'
+import { INBOX_ONLY_SOURCE_TYPES } from './types'
 
 /**
  * 收件箱页对接的资源（/api/v1/inbox）。
@@ -23,8 +24,14 @@ export const INBOX_PAGE_SIZE = 200
 type InboxMessageOut = components['schemas']['InboxMessageOut']
 
 /** 后端 source_type 多值过滤（逗号分隔，与 material_prep 的 PACK_SOURCE_TYPES 同协议） */
-function sourceTypeParam(filter: InboxSourceFilter): string | undefined {
-  return filter === 'all' ? undefined : filter
+/**
+ * 档位 → 后端 source_type 参数。
+ *
+ * `all` 也必须显式给值（收件箱的全部 = 外来来源，不含材料包）：
+ * 省略参数会让后端返回全表，把材料包一起捞进来。
+ */
+function sourceTypeParam(filter: InboxSourceFilter): string {
+  return filter === 'all' ? INBOX_ONLY_SOURCE_TYPES : filter
 }
 
 export interface ListInboxParams {

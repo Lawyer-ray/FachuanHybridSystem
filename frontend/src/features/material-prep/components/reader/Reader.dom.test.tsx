@@ -86,15 +86,15 @@ vi.mock('./ReaderTopBar', () => ({
   },
 }))
 const toolbarCbs = vi.hoisted(() => ({
-  onChangeCols: null as null | (() => void),
+  onSetCols: null as null | ((n: number) => void),
   onToggleRail: null as null | (() => void),
   onToggleMeta: null as null | (() => void),
   onZoomReset: null as null | (() => void),
   colsDisabled: false,
 }))
 vi.mock('./ReaderToolbar', () => ({
-  ReaderToolbar: (props: { onChangeCols: () => void; onToggleRail: () => void; onToggleMeta: () => void; onZoomReset: () => void; colsDisabled: boolean }) => {
-    toolbarCbs.onChangeCols = props.onChangeCols
+  ReaderToolbar: (props: { onSetCols: (n: number) => void; onToggleRail: () => void; onToggleMeta: () => void; onZoomReset: () => void; colsDisabled: boolean }) => {
+    toolbarCbs.onSetCols = props.onSetCols
     toolbarCbs.onToggleRail = props.onToggleRail
     toolbarCbs.onToggleMeta = props.onToggleMeta
     toolbarCbs.onZoomReset = props.onZoomReset
@@ -102,7 +102,7 @@ vi.mock('./ReaderToolbar', () => ({
     return (
       <div>
         TOOLBAR
-        <button type="button" onClick={() => props.onChangeCols()}>切列数</button>
+        <button type="button" onClick={() => props.onSetCols(2)}>切列数</button>
         <button type="button" onClick={() => props.onToggleRail()}>切左栏</button>
         <button type="button" onClick={() => props.onToggleMeta()}>切右栏</button>
         <button type="button" onClick={() => props.onZoomReset()}>重置缩放</button>
@@ -593,28 +593,22 @@ describe('Reader：左栏与画布回调', () => {
 // ============ 列数切换与追加材料（覆盖率补测） ============
 
 describe('Reader：列数切换', () => {
-  it('窗口上限为 1 时点切列数不动', () => {
-    widthsMock.maxCols = 1
-    widthsMock.effCols = 1
-    const { container } = render(<Reader />)
-    fireEvent.click(screen.getByText('切列数'))
-    // setCols 不应被调用（store 桩里没有 setCols，此处只验证不抛错）
-    container.remove()
-  })
-
-  it('未达上限时列数 +1 并收起两侧栏', () => {
+  it('选多列时写入 store 并收起两侧栏', () => {
     widthsMock.maxCols = 3
     widthsMock.effCols = 1
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('切列数'))
+    expect(storeMock.setCols).toHaveBeenCalledWith(2)
     container.remove()
   })
 
-  it('已达上限时循环回 1 列（不收侧栏）', () => {
-    widthsMock.maxCols = 2
-    widthsMock.effCols = 2
+  it('窗口只够一列时仍按所选写入（上限由菜单列表本身表达）', () => {
+    widthsMock.maxCols = 1
+    widthsMock.effCols = 1
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('切列数'))
+    // 菜单已不列出「2 列」这个选项，走到这里只剩写入，不应抛错
+    expect(storeMock.setCols).toHaveBeenCalledWith(2)
     container.remove()
   })
 })
@@ -693,21 +687,12 @@ describe('Reader：缩放与列数写入 store', () => {
     container.remove()
   })
 
-  it('切列数调用 setCols（未达上限时 +1）', () => {
+  it('选哪列就写哪列（不再循环累加）', () => {
     widthsMock.maxCols = 3
     widthsMock.effCols = 1
     const { container } = render(<Reader />)
     fireEvent.click(screen.getByText('切列数'))
     expect(storeMock.setCols).toHaveBeenCalledWith(2)
-    container.remove()
-  })
-
-  it('已达上限时 setCols 回到 1', () => {
-    widthsMock.maxCols = 2
-    widthsMock.effCols = 2
-    const { container } = render(<Reader />)
-    fireEvent.click(screen.getByText('切列数'))
-    expect(storeMock.setCols).toHaveBeenCalledWith(1)
     container.remove()
   })
 })

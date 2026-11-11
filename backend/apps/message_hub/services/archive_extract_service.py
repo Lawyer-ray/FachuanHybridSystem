@@ -52,6 +52,7 @@ from apps.core.exceptions import ValidationException
 from apps.message_hub.services.upload_policy import (
     _MULTIPART_RE,
     ARCHIVE_EXTENSIONS,
+    MANUAL_UPLOAD_MAX_SIZE_BYTES,
     is_archive_filename,
     is_multipart_filename,
     validate_manual_upload_file,
@@ -72,10 +73,15 @@ __all__ = [
 
 logger = logging.getLogger("apps.message_hub")
 
-#: 单个压缩包展开后的条目数 / 未压缩总量 / 单条大小上限
-MAX_ENTRIES = 200
-MAX_TOTAL_BYTES = 200 * 1024 * 1024
-MAX_ENTRY_BYTES = 50 * 1024 * 1024
+#: 单个压缩包展开后的条目数 / 未压缩总量 / 单条大小上限。
+#:
+#: 单条上限直接引用上传口径（upload_policy），不另设数字：展开后的内层文件
+#: 本来就要再过一遍 validate_manual_upload_file，两处数字一旦不一致就会出现
+#: 「打包能传、解开被拒」或反之的矛盾。总量给 8 份整包额度——一份 1GB 卷宗
+#: 解出十几份百来 MB 的分册是正常业务，200MB 的老值会误杀这类整包。
+MAX_ENTRIES = 1000
+MAX_TOTAL_BYTES = 8 * 1024 * 1024 * 1024
+MAX_ENTRY_BYTES = MANUAL_UPLOAD_MAX_SIZE_BYTES
 #: zip 炸弹防线：未压缩/已压缩 > 该倍数即拒绝
 MAX_COMPRESS_RATIO = 100
 #: 流式复制块大小
@@ -181,7 +187,7 @@ def _expand_zip(tpath: Path, archive_name: str) -> list[_ExtractedFile]:
         _reject(f"{archive_name} 展开后总量超过 {MAX_TOTAL_BYTES // (1024 * 1024)}MB 上限")
     for info in infos:
         if info.file_size > MAX_ENTRY_BYTES:
-            _reject(f"{archive_name} 内 {info.filename} 超过单文件 50MB 上限")
+            _reject(f"{archive_name} 内 {info.filename} 超过单文件 {MAX_ENTRY_BYTES // (1024 * 1024)}MB 上限")
         if info.compress_size > 0 and info.file_size / info.compress_size > MAX_COMPRESS_RATIO:
             _reject(f"{archive_name} 内 {info.filename} 压缩比异常（疑似 zip 炸弹）")
 

@@ -56,16 +56,6 @@ export function useReaderToolbarProps(params: {
   // 新建箭头——否则工具栏 memo 失效
   const st = useReaderStoreFields()
 
-  const changeCols = () => {
-    // 窗口不够宽就点不动（列数按钮已禁用）
-    if (maxColsAllowed <= 1) return
-    // 原型行为：在「1 列」和「当前窗口上限」之间循环，而不是写死上到 3
-    const next = effCols >= maxColsAllowed ? 1 : effCols + 1
-    st.setCols(next)
-    // 多列时收起侧栏，让页面更宽敞
-    if (next > 1) onCollapsePanels()
-  }
-
   // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
   //（未归类 = 没类型且名字还是默认名；改名或右键选类型都算处理过）
   const handleAssign = () => {
@@ -99,12 +89,25 @@ export function useReaderToolbarProps(params: {
     onZoomOut: zoomOut,
     onZoomReset: () => st.setZoom(1),
     cols: effCols,
+    maxCols: maxColsAllowed,
+    // 窗口不够宽时菜单里只剩「单页」并说明原因，所以这里由 maxCols 派生，
+    // 不单独维护一份布尔值（否则两个来源迟早对不上）
     colsDisabled: maxColsAllowed <= 1,
-    onChangeCols: changeCols,
+    // 菜单里点哪列就是哪列（旧的 1→2→3→1 循环在菜单里没有意义：
+    // 三列时循环出的下一项是「1 列」，用户点「2 列」却拿到单页）
+    onSetCols: (n: number) => {
+      st.setCols(n)
+      // 多列时收起侧栏，让页面更宽敞
+      if (n > 1) onCollapsePanels()
+    },
     onResetSegments,
     onAutoSplit: () => void autoSplit.run(),
     autoSplitRunning: autoSplit.running,
     autoSplitProgress: autoSplit.progress,
+    layoutMode: st.layoutMode,
+    onLayoutModeChange: st.setLayoutMode,
+    cloudBackend: st.cloudBackend,
+    onCloudBackendChange: st.setCloudBackend,
     handleAssign,
   }
 }

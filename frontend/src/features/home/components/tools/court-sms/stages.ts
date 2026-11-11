@@ -6,6 +6,46 @@
 /** 弹窗步进器的五个阶段（对齐后端 pipeline：解析→下载→匹配→重命名→通知） */
 export const SMS_STAGES = ['解析短信', '下载文书', '匹配案件', '重命名归档', '发送通知'] as const
 
+/** 客户转交通道没有「下载」环节，也不解析短信正文，步进器只展示四步 */
+export const MATERIAL_STAGES = ['解析材料', '匹配案件', '重命名归档', '发送通知'] as const
+
+/** 阶段列名称（品牌） */
+export type SmsStageSource = 'sms' | 'material'
+
+/** 按来源取步进器标签 */
+export function stagesFor(source: SmsStageSource): readonly string[] {
+  return source === 'material' ? MATERIAL_STAGES : SMS_STAGES
+}
+
+/**
+ * 后端状态 → 当前来源下的阶段下标。
+ *
+ * 两个来源共用同一条后端状态机，但客户转交通道永远不经过 downloading：
+ * 若直接用 SMS 下标（downloading=1）会在四步的 MATERIAL_STAGES 里错位，
+ * 所以这里做一次「跳不跳下载阶段」的映射。
+ */
+export function stageIndexFor(status: string, source: SmsStageSource): number {
+  const info = smsStageInfo(status)
+  if (source === 'sms' || info.stage === 0) return info.stage
+  // material：解析(0) → 匹配(1) → 重命名(2) → 通知(3)，下载阶段整体移除
+  return Math.max(0, info.stage - 1)
+}
+
+/** 把「后端原始阶段下标」换算成当前来源的阶段下标（稳定历史记录 / 兜底展示用） */
+export function stageIndexFromRaw(rawStage: number, source: SmsStageSource): number {
+  if (source === 'sms') return rawStage
+  // material：0 解析保持 0；>=2 的（matching/renaming/notifying）整体左移一位
+  return rawStage <= 1 ? 0 : rawStage - 1
+}
+
+/** 当前来源下「某状态属于第几步」（失败定位用；逻辑同上） */
+export function failedStageFor(status: string, source: SmsStageSource): number | null {
+  const info = smsStageInfo(status)
+  if (info.failedAt === null) return null
+  if (source === 'sms') return info.failedAt
+  return stageIndexFromRaw(info.failedAt, source)
+}
+
 /** 终态语义：completed 成功收尾；failed/download_failed 失败；manual 即 pending_manual 待人工分配案件 */
 export type SmsTerminal = 'completed' | 'failed' | 'manual'
 

@@ -189,14 +189,16 @@ describe('onOcrBox 框选取字', () => {
     expect(useReader.getState().ocrPending).toMatchObject({ text: '甲方 乙方' })
   })
 
-  it('office 路径：明确提示不支持逐页取字，pending 落 loading=false 且零 OCR 请求', async () => {
+  it('office 路径：框选取字不适用，但提示指向可用的「自动识别」，且零 OCR 请求', async () => {
     setState({ openId: 5, draft: makeDraft([mat({ k: 'office', n: '起诉状.docx' })]), pickInfo: 0 })
     const { result } = renderHook(() => useReaderOcr())
     act(() => {
       result.current.onOcrBox(0, 1, RECT)
     })
     await waitFor(() => expect(toastMock).toHaveBeenCalled())
-    expect(toastMock).toHaveBeenCalledWith('Word / Excel 暂不支持逐页取字，已在右栏记下来源页码')
+    // Word/Excel 是占位缩略图、没有可拖框的渲染页，框选天然不适用；
+    // 但正文已能整体转出，提示必须指路，而不是只说"不支持"
+    expect(toastMock).toHaveBeenCalledWith('Word / Excel 无法拖框取字；用「自动识别」可一次转出全文与表格')
     expect(ocrMock).not.toHaveBeenCalled()
     expect(useReader.getState().ocrPending).toEqual({ mi: 0, p: 1, rect: RECT, text: '', loading: false })
   })

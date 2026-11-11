@@ -9,6 +9,7 @@
  *   - 删除安排       = POST /reminders/delete     （批量；仅创建人 / 管理员，按事件 can_delete 显隐）
  *   - 待处理流入     = GET  /inbox/messages        （收件箱，按收到时间倒序）
  *   - 收法院短信     = POST /automation/court-sms
+ *   - 提交客户材料   = POST /automation/court-sms/upload （multipart：files[]，与短信共用后续流程）
  *   - 要素式转换     = POST /doc-convert/convert   （multipart：file + mbid）
  *     模板列表       = GET  /doc-convert/mbid-list
  *   - DOC 转 DOCX   = POST /doc-converter/jobs     （multipart：files[]）
@@ -40,8 +41,9 @@ export {
   courtSmsDocDownloadUrl,
   courtSmsDownloadAllUrl,
   copyCourtSmsDocsToClipboard,
+  uploadCourtSmsMaterials,
 } from './court-sms'
-export type { CourtSmsDetail, CourtSmsListItem, CourtSmsGroup } from './court-sms'
+export type { CourtSmsDetail, CourtSmsListItem, CourtSmsGroup, CourtSmsMaterialIntake } from './court-sms'
 export { withAuthToken, triggerDownload, API_BASE_URL } from './download'
 
 export {

@@ -32,6 +32,7 @@ export {
   setPackStatus,
   setPackAssign,
   appendMatsToDraft,
+  fillSegmentText,
 } from './segments'
 export {
   applyAutoSplit,

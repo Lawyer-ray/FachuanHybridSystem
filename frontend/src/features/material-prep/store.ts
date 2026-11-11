@@ -46,6 +46,14 @@ interface ReaderState {
   zoom: number
   /** 并排列数 */
   cols: number
+  /** 自动分段时的版面策略：
+   *  · fast_text（默认）—— 电子版 PDF 只抽文本层，快且不计费，但没有坐标
+   *  · layout —— 电子版也上云端拿版面块与坐标（原文坐标对照需要），按页计费
+   *  为什么放在 store 而不是组件局部 state：它是「这次识别的成本选择」，
+   *  换包时要复位、重开同一包时要保留，生命周期与阅读器会话一致。 */
+  layoutMode: 'fast_text' | 'layout'
+  /** 云端平台偏好：auto=优先+容灾；mineru/textin=锁定（失败不降级） */
+  cloudBackend: 'auto' | 'mineru' | 'textin'
   /** 选页模式：平时点页面不做任何事，靠 ⌘/⇧ 或此模式 */
   selMode: boolean
   /** 当前选中的页 */
@@ -69,6 +77,10 @@ interface ReaderState {
   /** 删除信息字段（含取字态 pickInfo 下标同步校正） */
   removeInfo: (di: number) => void
   setZoom: (z: number) => void
+  /** 切换版面策略（影响下一次「自动分段」是否让电子页上云端） */
+  setLayoutMode: (m: 'fast_text' | 'layout') => void
+  /** 切换云端平台偏好 */
+  setCloudBackend: (b: 'auto' | 'mineru' | 'textin') => void
   setCols: (n: number) => void
   toggleSelMode: () => void
   /** ⌘/Ctrl 单击切换 / ⇧ 单击选区间（shift=true 用锚点） */
@@ -97,6 +109,9 @@ function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
     pickInfo: -1,
     zoom: 1,
     cols: 1,
+    // 换包/关闭一律复位成不计费的默认值：成本选择不该跨材料包继承
+    layoutMode: 'fast_text',
+    cloudBackend: 'auto',
     selMode: false,
     selPages: [],
     lastAnchor: -1,
@@ -116,6 +131,8 @@ export const useReader = create<ReaderState>((set, get) => ({
   pickInfo: -1,
   zoom: 1,
   cols: 1,
+  layoutMode: 'fast_text',
+  cloudBackend: 'auto',
   selMode: false,
   selPages: [],
   lastAnchor: -1,
@@ -202,6 +219,8 @@ export const useReader = create<ReaderState>((set, get) => ({
     else if (di === pickInfo) set({ pickInfo: -1, selPages: [], ocrPending: null })
   },
   setZoom: (z) => set({ zoom: z }),
+  setLayoutMode: (m) => set({ layoutMode: m }),
+  setCloudBackend: (b) => set({ cloudBackend: b }),
   setCols: (n) => set({ cols: n }),
   toggleSelMode: () => {
     const next = !get().selMode
@@ -309,8 +328,10 @@ export const useReader = create<ReaderState>((set, get) => ({
       set({ detail: updated })
       get().update((d) => appendMatsToDraft(d, fresh))
       toast.success(`已追加 ${fresh.length} 份材料`)
-    } catch {
-      toast.error('追加材料失败，请检查后端连接')
+    } catch (e) {
+      // 同 DeskPage.handleFiles：后端的「附件过大 / 格式不支持」文案必须透出，
+      // 吞成「检查后端连接」会让可自行处理的上传失败看起来像服务故障。
+      toast.error(errMessage(e, '追加材料失败，请重试'))
     }
   },
 }))

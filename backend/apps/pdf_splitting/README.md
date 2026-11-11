@@ -96,6 +96,21 @@ outcome.summary      # 可观测字段（ocr_provider / segment_backend / 降级
 （只解析校验 LLM 输出）。`PdfSplitService.analyze_job` 本身就是这层流水线的
 任务态适配（进度 / 取消回调 + 落库落盘），不要绕过它写第二套编排。
 
+## 混合材料包的取字调度
+
+一个材料包里同时有扫描 PDF、电子版 PDF、图片、Word 时，每类的正确取字路径
+不同（扫描件必须 OCR/云端、电子版走文本层最省、图片单页取字、Word 应走文档
+解析）。调度按**附件粒度**逐份选路，不按整包一刀切——完整设计、现有机制、
+已知缺口与后续切分点见 [`DISPATCH.md`](./DISPATCH.md)。
+
+认读要点：
+- 同一 PDF 内逐页选路（文本层 → 页缓存 → 云端 → 本地 OCR），所以「一本里混了
+  扫描页」已能正确工作
+- `summary.material_kind`（digital_pdf / scanned_pdf / mixed_pdf）来自抽样判定，
+  只作可读标签与排障线索，**不参与**选路
+- `summary.cloud_used` 区分「真的调了云端」与「云端没配、走了本地 OCR」，
+  排障时最容易被误判成「云端很慢」的就是后者
+
 ## 外部集成
 
 - 云端解析：`apps.document_parsing`（mineru / textin，经 ParserFactory）

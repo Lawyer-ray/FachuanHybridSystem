@@ -35,6 +35,34 @@ class PdfSplitOcrProfile(models.TextChoices):
     ACCURATE = "accurate", "高精度"
 
 
+class PdfSplitCloudBackend(models.TextChoices):
+    """云端解析平台偏好。
+
+    AUTO 与两个锁定值的**语义差别不在"优先谁"，而在"失败怎么办"**：
+    · auto   —— 按优先级尝试，失败切下一个（容灾）
+    · 锁定值 —— 只用这一个，失败即失败，不降级
+
+    锁定的价值是可预期：用户选 MinerU 往往是为了固定口径做比对/复核，
+    若偷偷降级到 Textin，结论失效、计费还落在他没选的平台上。
+    """
+
+    AUTO = "auto", "自动（优先 + 失败容灾）"
+    MINERU = "mineru", "仅 MinerU"
+    TEXTIN = "textin", "仅 Textin"
+
+
+class PdfSplitLayoutMode(models.TextChoices):
+    """版面策略：电子版 PDF 要不要为了坐标/表格而上云端。
+
+    为什么单独一个开关而不是并进 ocr_profile：ocr_profile 调的是「认得多准」
+    （DPI / 模型 / 并发），而这个开关决定「走不走云端」，是成本与能力之间的
+    取舍，两件事混在一个枚举里会让「想省钱」和「想认准点」搅在一起。
+    """
+
+    FAST_TEXT = "fast_text", "仅文本层（不调云端）"
+    LAYOUT = "layout", "补版面（电子页也上云端拿坐标/表格）"
+
+
 class PdfSplitSegmentType(models.TextChoices):
     COMPLAINT = "complaint", "起诉状"
     EVIDENCE_LIST = "evidence_list", "证据清单及明细"
@@ -118,6 +146,20 @@ class PdfSplitJob(models.Model):
         choices=PdfSplitOcrProfile.choices,
         default=PdfSplitOcrProfile.BALANCED,
         verbose_name="OCR 档位",
+    )
+    cloud_backend = models.CharField(
+        max_length=16,
+        choices=PdfSplitCloudBackend.choices,
+        default=PdfSplitCloudBackend.AUTO,
+        verbose_name="解析平台",
+    )
+    layout_mode = models.CharField(
+        max_length=16,
+        choices=PdfSplitLayoutMode.choices,
+        # 默认不调云端：电子版 PDF 的文本层本来就够分段用，为了坐标而每份都上云
+        # （计费 + 数十秒）不该是默认行为。需要坐标对照时显式开。
+        default=PdfSplitLayoutMode.FAST_TEXT,
+        verbose_name="版面策略",
     )
     status = models.CharField(
         max_length=32,
