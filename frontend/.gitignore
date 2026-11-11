@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 coverage/
+
+# 本地调试产物：临时脚本/抓包输出与 Playwright 冒烟截图，只在磁盘保留，不入库
+tmpdbg/
+.mp-smoke-shots/
