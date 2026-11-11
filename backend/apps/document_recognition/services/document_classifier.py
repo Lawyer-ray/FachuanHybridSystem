@@ -12,7 +12,7 @@ import logging
 from typing import Any, Callable, cast
 
 from apps.core.interfaces import ServiceLocator
-from apps.core.llm.structured_output import json_schema_instructions
+from apps.core.llm.structured_output import extract_json_text, json_schema_instructions
 
 from .data_classes import DocumentType
 from .document_analyzer import CourtDocumentAnalysis, DocumentAnalysisOutcome
@@ -206,9 +206,10 @@ class DocumentClassifier:
 
     def _extract_json_from_response(self, content: str) -> dict[str, Any] | None:
         """
-        从响应内容中提取 JSON
+        从响应内容中提取 JSON 对象；非对象载荷或解析失败返回 None。
 
-        支持处理包含额外文本的响应。
+        提取逻辑统一走 ``extract_json_text``，这里只保留「必须是 JSON 对象」
+        这层业务约束——调用方随后直接 ``.get(...)``。
 
         Args:
             content: 响应内容
@@ -216,46 +217,13 @@ class DocumentClassifier:
         Returns:
             Optional[dict]: 解析出的 JSON 对象，失败返回 None
         """
-        content = content.strip()
-
-        # 直接尝试解析
-        try:
-            return cast(dict[str, Any] | None, json.loads(content))
-        except json.JSONDecodeError:
-            pass
-
-        # 尝试提取 JSON 块
-        # 查找 { 和 } 的位置
-        start_idx = content.find("{")
-        end_idx = content.rfind("}")
-
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = content[start_idx : end_idx + 1]
-            try:
-                return cast(dict[str, Any] | None, json.loads(json_str))
-            except json.JSONDecodeError:
-                pass
-
-        # 尝试处理 markdown 代码块
-        if "```json" in content:
-            try:
-                json_start = content.index("```json") + 7
-                json_end = content.index("```", json_start)
-                json_str = content[json_start:json_end].strip()
-                return cast(dict[str, Any] | None, json.loads(json_str))
-            except (ValueError, json.JSONDecodeError):
-                pass
-
-        if "```" in content:
-            try:
-                json_start = content.index("```") + 3
-                json_end = content.index("```", json_start)
-                json_str = content[json_start:json_end].strip()
-                return cast(dict[str, Any] | None, json.loads(json_str))
-            except (ValueError, json.JSONDecodeError):
-                pass
-
-        return None
+        snippet = extract_json_text(content)
+        if snippet is None:
+            return None
+        loaded = json.loads(snippet)
+        if not isinstance(loaded, dict):
+            return None
+        return cast(dict[str, Any], loaded)
 
     def _map_type_string(self, type_str: str) -> DocumentType:
         """

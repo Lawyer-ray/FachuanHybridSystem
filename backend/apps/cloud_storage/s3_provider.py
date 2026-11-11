@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
 
 from .protocols import CloudFileInfo
+from .providers_mixin import _RecursiveWalkMixin
 
 logger = logging.getLogger(__name__)
 
 
-class S3Provider:
+class S3Provider(_RecursiveWalkMixin):
     """Read/write files on S3-compatible object storage.
 
     Directories are simulated via key prefixes and trailing-slash marker objects.
@@ -171,12 +171,3 @@ class S3Provider:
             if resp.get("KeyCount", 0) > 0:
                 return CloudFileInfo(name=name, path=path.strip("/"), is_dir=True, size=0, modified_at=0.0)
         return None
-
-    def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
-        children = self.list_directory(path)
-        subdirs = [c.name for c in children if c.is_dir]
-        files = [c for c in children if not c.is_dir]
-        yield (path, subdirs, files)
-        for subdir in subdirs:
-            sub_path = f"{path.rstrip('/')}/{subdir}"
-            yield from self.walk(sub_path)

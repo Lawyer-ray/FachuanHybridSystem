@@ -15,8 +15,10 @@ Covers:
   - generate_case_folder_with_documents (basic, wrap_folder_name)
   - _find_special_folder_paths (identity, attorney, execution, nested)
   - _extract_to_bound_folder_if_exists (no binding, success, exception)
-  - _create_folders_in_zip (basic, empty, no name)
   - _generate_document_filename
+
+注：ZIP 骨架递归建目录测在 ZipPackager（pipeline/packager.py，生产真实路径）。
+FolderGenerationService 上那份重复实现只被自身递归调用，2026-11 已删除。
 """
 
 from __future__ import annotations
@@ -386,24 +388,29 @@ class TestFindSpecialFolderPaths:
 
 
 class TestCreateFoldersInZip:
+    """ZIP 骨架递归建目录（测生产真实路径 ZipPackager）。"""
+
     def test_basic(self) -> None:
-        svc = _make_service()
+        from apps.documents.services.generation.pipeline.packager import ZipPackager
+
         structure = {"name": "root", "children": [{"name": "child", "children": []}]}
         with patch("zipfile.ZipFile") as mock_zip:
-            svc._create_folders_in_zip(mock_zip, structure, "")
+            ZipPackager()._create_folders_in_zip(mock_zip, structure, "")
         # root/, root/child/
         assert mock_zip.writestr.call_count == 2
 
     def test_empty_structure(self) -> None:
-        svc = _make_service()
+        from apps.documents.services.generation.pipeline.packager import ZipPackager
+
         with patch("zipfile.ZipFile") as mock_zip:
-            svc._create_folders_in_zip(mock_zip, {}, "")
+            ZipPackager()._create_folders_in_zip(mock_zip, {}, "")
         mock_zip.writestr.assert_not_called()
 
     def test_no_name(self) -> None:
-        svc = _make_service()
+        from apps.documents.services.generation.pipeline.packager import ZipPackager
+
         with patch("zipfile.ZipFile") as mock_zip:
-            svc._create_folders_in_zip(mock_zip, {"name": "", "children": []}, "")
+            ZipPackager()._create_folders_in_zip(mock_zip, {"name": "", "children": []}, "")
         mock_zip.writestr.assert_not_called()
 
 

@@ -9,7 +9,6 @@ Requirements: 2.1, 2.6, 2.7, 3.1, 4.1
 from __future__ import annotations
 
 import logging
-import zipfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -974,34 +973,10 @@ class FolderGenerationService:
         )
         return service.generate_filename(contract, template)
 
-    def _create_folders_in_zip(self, zip_file: zipfile.ZipFile, structure: dict[str, Any], parent_path: str) -> None:
-        """
-        在ZIP文件中递归创建文件夹结构
-
-        Args:
-            zip_file: ZipFile 对象
-            structure: 文件夹结构
-            parent_path: 父路径
-        """
-        if not structure:
-            return
-
-        # 安全审计（2026-10-19）：骨架节点名来自文件夹模板 structure，可能被恶意配置为
-        # "../x"、绝对路径等形态，进 ZIP 前统一经 safe_arcname 清洗，防解压路径穿越（zip slip）。
-        folder_name = safe_arcname(str(structure.get("name", "") or ""))
-        if not folder_name:
-            return
-
-        # 构建当前文件夹路径
-        current_path = f"{parent_path}/{folder_name}" if parent_path else folder_name
-
-        # 创建文件夹(在ZIP中添加以/结尾的条目)
-        zip_file.writestr(f"{current_path}/", "")
-
-        # 递归处理子文件夹
-        children = structure.get("children", [])
-        for child in children:
-            self._create_folders_in_zip(zip_file, child, current_path)
+    # ZIP 骨架递归建目录的实现已统一到 pipeline/packager.py 的 ZipPackager。
+    # 此处曾有一份逐字重复的 _create_folders_in_zip，但它只被自身递归调用、
+    # 外部零引用（真实打包路径走 ZipPackager），6 个测试在测这份死代码，
+    # 给出虚假安全感。2026-11 删除；若需改 zip slip 清洗逻辑，改 ZipPackager。
 
     def _extract_to_bound_folder_if_exists(self, contract_id: int, zip_content: bytes) -> Any:
         """

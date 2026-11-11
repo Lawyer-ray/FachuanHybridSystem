@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import urllib.parse
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -14,6 +14,7 @@ import httpx
 from asgiref.sync import sync_to_async
 
 from .protocols import CloudFileInfo
+from .providers_mixin import _RecursiveWalkMixin
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +261,7 @@ class OAuthTokenManager:  # pragma: no cover
         raise RuntimeError("授权超时，请重试")
 
 
-class OneDriveProvider:  # pragma: no cover
+class OneDriveProvider(_RecursiveWalkMixin):  # pragma: no cover
     """Read/write files on OneDrive via Microsoft Graph API."""
 
     def __init__(self, access_token: str, root_path: str = "/") -> None:  # pragma: no cover
@@ -424,15 +425,6 @@ class OneDriveProvider:  # pragma: no cover
             size=size,
             modified_at=modified_at,
         )
-
-    def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
-        children = self.list_directory(path)
-        subdirs = [c.name for c in children if c.is_dir]
-        files = [c for c in children if not c.is_dir]
-        yield (path, subdirs, files)
-        for subdir in subdirs:
-            sub_path = f"{path.rstrip('/')}/{subdir}"
-            yield from self.walk(sub_path)
 
     # ── Async protocol implementation ──────────────────────────
 

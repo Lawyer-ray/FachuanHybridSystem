@@ -6,13 +6,14 @@ import asyncio
 import logging
 import threading
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 
 from .protocols import CloudFileInfo
+from .providers_mixin import _RecursiveWalkMixin
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ class _RateLimiter:  # pragma: no cover
                 await asyncio.sleep(delay)
 
 
-class WebDAVProvider:  # pragma: no cover
+class WebDAVProvider(_RecursiveWalkMixin):  # pragma: no cover
     """Read/write files on any WebDAV server.
 
     Uses ``httpx`` + BasicAuth directly for full control over
@@ -347,16 +348,6 @@ class WebDAVProvider:  # pragma: no cover
             if info.name == name:
                 return info
         return None
-
-    def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
-        """Recursively walk directory tree via WebDAV PROPFIND."""
-        children = self.list_directory(path)
-        subdirs = [c.name for c in children if c.is_dir]
-        files = [c for c in children if not c.is_dir]
-        yield (path, subdirs, files)
-        for subdir in subdirs:
-            sub_path = f"{path.rstrip('/')}/{subdir}"
-            yield from self.walk(sub_path)
 
     # ── Async protocol implementation ──────────────────────────
 

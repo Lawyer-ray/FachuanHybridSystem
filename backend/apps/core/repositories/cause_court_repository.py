@@ -69,7 +69,10 @@ class CauseCourtRepository:
             qs = qs.filter(parent_id=parent_id)
         if case_type:
             qs = qs.filter(case_type=case_type)
-        return qs.order_by("name")
+        # 预取父级链：调用方普遍会读 CauseOfAction.full_path，该 property 沿
+        # ``self.parent`` 逐级向上走，未预取时每个案由都会触发额外查询（N+1）。
+        # 实测案由层级最深 4 级，预取 3 层 parent 即可覆盖整条链。
+        return qs.select_related("parent__parent__parent").order_by("name")
 
     def get_parent_ids_with_children(self, cause_ids: list[int]) -> set[int]:
         """批量查询哪些 parent_id 有子节点，避免 N+1 查询。

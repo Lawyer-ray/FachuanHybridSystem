@@ -1074,7 +1074,23 @@ def _validate_credit_code(code: str | None) -> bool:
 
 # ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _parse_llm_json(content: str) -> dict[str, Any]:
-    """从 LLM 输出中提取 JSON 对象，支持多种格式。"""
+    r"""从 LLM 输出中提取 JSON 对象，支持多种格式。
+
+    与权威实现 ``apps.core.llm.structured_output.extract_json_text`` 的差异
+    （2026-11 实测，以下 3 条均使得本函数**有意**保留独立版本）：
+
+    1. **失败语义不同**：本函数在解析不出对象时抛 ``ValueError``，调用方据此
+       转换成 ``LLMExtractionError(_("智能识别结果解析失败，请稍后重试"))``；
+       权威实现返回 ``None``。替换会把异常路径静默改成 `None` 分支。
+    2. **只取非嵌套对象**：最后一步用窄正则 ``\{[^{}]*\}``，嵌套对象
+       （如 ``'x {"a":{"b":1}} y'``）取不到，会抛 ``ValueError``；
+       权威实现能正确取出嵌套对象。这是历史行为，调用方依赖失败走重试文案。
+    3. **围栏优先级高于直接解析**：本函数先试 ```json 块、再试整串直解；
+       权威实现先试整串。同一段文本里两者可能返回不同 JSON。
+
+    结论：需求是「统一到唯一实现」，但这里改就是改业务异常语义与抽取结果，
+    不属于纯去重，故保留并在调用方不变的前提下维持现状。
+    """
     # 1. 尝试从 ```json ... ``` 代码块中提取
     if "```json" in content:
         json_start = content.find("```json") + 7
