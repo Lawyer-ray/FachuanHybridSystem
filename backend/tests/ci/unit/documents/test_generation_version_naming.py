@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 from datetime import date
+from datetime import date as _date
 from unittest.mock import MagicMock, patch
 
 from apps.core.services.filename_template_service import GENERATED_DOC_DEFAULT, FilenameTemplateService
 from apps.documents.services.generation.contract_generation_service import ContractGenerationService
 from apps.documents.services.generation.pipeline.naming import (
+    _today_compact,
     contract_docx_filename,
     find_max_doc_version,
     supplementary_agreement_docx_filename,
@@ -21,7 +23,11 @@ from apps.documents.services.generation.supplementary_agreement_generation_servi
     SupplementaryAgreementGenerationService,
 )
 
-_TODAY = date.today().strftime("%Y%m%d")
+# 与实现同一口径（timezone.localdate，跟随 TIME_ZONE=Asia/Shanghai）。
+# 不能用 date.today()：CI runner 是 UTC，本机是 Asia/Shanghai，
+# 在上海时间 00:00–08:00 之间两者差一天 → 测试造的文件名与实现的探测日期对不上 →
+# 断言 'V1' == 'V2' 偶发失败（main 上真实发生过，只在作业跑过 UTC 16:00 那一刻）。
+_TODAY = _today_compact()
 
 
 def _render_default_template():
@@ -132,3 +138,34 @@ class TestContractGenerationNextVersion:
         (tmp_path / "subdir" / f"聘请合同(王小三案件)V1_{_TODAY}.docx").write_bytes(b"docx")
 
         assert svc._get_next_version(1, "聘请合同", "王小三案件", "contract_documents") == "V2"
+
+
+class TestTodayCompactUsesProjectTimezone:
+    """日期口径必须走 ``timezone.localdate()``，不能是宿主机时区。
+
+    回归锚点（main 上真实偶发红）：CI runner 是 UTC，本机是 Asia/Shanghai。
+    在上海时间 00:00–08:00 之间，宿主机 ``date.today()`` 仍是前一天，而业务侧
+    （``TIME_ZONE = Asia/Shanghai``）已经跨天 → 写入时算的文件名日期与探测时的
+    日期差一天 → ``find_max_doc_version`` 匹配不到 → 版本号恒 ``V1``，
+    断言 ``'V1' == 'V2'`` 失败；作业跑得快就绿、跑得慢就红。
+    """
+
+    def test_uses_localdate_not_host_date(self):
+        """把 localdate 钉死成「明天」，实现必须跟着它走而不是跟着宿主机走。
+
+        这样验的理由：直接 mock timezone.now() 对 date.today() 实现**不敏感**
+        （后者压根不读 timezone），测试会假绿。改成钉 ``localdate`` 后，
+        只有真正调用 ``timezone.localdate()`` 的实现才会返回钉死的值。
+        """
+        from unittest.mock import patch
+
+        with patch("django.utils.timezone.localdate", return_value=_date(2099, 12, 31)):
+            assert _today_compact() == "20991231", (
+                "_today_compact() 没走 timezone.localdate()。若退回 date.today()，"
+                "CI（UTC）在上海时间 00:00–08:00 会与业务日期差一天，导致版本号恒 V1。"
+            )
+
+    def test_agrees_with_localdate(self):
+        from django.utils import timezone
+
+        assert _today_compact() == timezone.localdate().strftime("%Y%m%d")
