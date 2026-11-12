@@ -85,9 +85,78 @@ class InvoiceIntakeOut(Schema):
     #: 附件原始文件名（详情里的「原始文件」块；确认后的展示名另见 invoice_display_filename）
     original_filename: str = ""
 
+    # ── 冲红重开（红字发票）──────────────────────────────
+    #: 是否红票。前端据此禁用「一键确认」并换成冲红重开卡
+    is_red: bool = False
+    #: 被红冲的原蓝票号（红票备注栏「被红冲蓝字数电发票号码」）
+    red_against_number: str = ""
+    #: 红字发票信息确认单编号
+    red_confirmation_no: str = ""
+    #: 被冲销的原发票（原票不在本库时为 None）
+    offset_invoice: OffsetInvoiceOut | None = None
+    #: 我替代了哪条 intake（重开蓝票指向红票）
+    supersedes_intake_id: int | None = None
+    #: 我被哪条 intake 替代（红票指向重开蓝票）
+    superseded_by_intake_id: int | None = None
+    #: 冲红重开组（非红票为 None）；装配见 §5.2
+    reatch_group: RedGroupOut | None = None
+
 
 class CountOut(Schema):
     count: int
+
+
+class OffsetInvoiceOut(Schema):
+    """被红票冲销的那张原发票（红票详情/首页对照用）。"""
+
+    id: int
+    invoice_number: str
+    total_amount: str | None = None
+    contract_id: int | None = None
+    contract_name: str = ""
+    folder_subpath: str = ""
+
+
+class GroupItemOut(Schema):
+    """冲红重开组里的一段（原票 / 红票 / 重开票）。
+
+    两段 id 都可空：原票可能**未落账**（只在 intake 里，甚至完全不在系统里），
+    红票在裁定前也还没有 ``invoice_id``，所以不能用 ``int``。
+    """
+
+    intake_id: int | None = None
+    invoice_id: int | None = None
+    invoice_number: str = ""
+    total_amount: str | None = None
+
+
+class RedGroupOut(Schema):
+    """「原蓝票 → 红票 → 重开蓝票」三态事务的分组事实。
+
+    只在红票上给：前端按 ``group_key`` 把扁平列表折叠成一张卡。
+    """
+
+    group_key: str
+    original: GroupItemOut | None = None
+    red: GroupItemOut
+    reissue: GroupItemOut | None = None
+
+
+class ConfirmRedReenactIn(Schema):
+    """「冲红并确认重开」入参。
+
+    ``new_intake_id`` 省略 = 只冲红不开新票——但那属于误用：真要不重开
+    应走 ``confirm-red-only``（语义不同，审计日志也不一样）。
+    """
+
+    new_intake_id: int | None = None
+    note: str = ""
+    #: 重开金额与被冲金额不等时需显式置 True 才放行，并在财务日志里留痕
+    amount_override: bool = False
+
+
+class ConfirmRedOnlyIn(Schema):
+    note: str = ""
 
 
 class ConfirmIn(Schema):
@@ -168,7 +237,52 @@ def _payment_options(payment_pick: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
+def _offset_invoice_out(intake: Any) -> dict[str, Any] | None:
+    """红票 → 它冲销的那张原发票（未落库或非红票给 None）。"""
+    invoice = getattr(intake, "offset_invoice", None)
+    if invoice is None:
+        return None
+    payment = getattr(invoice, "payment", None)
+    contract = getattr(invoice, "contract", None) or (getattr(payment, "contract", None) if payment else None)
+    return {
+        "id": invoice.pk,
+        "invoice_number": invoice.invoice_number,
+        "total_amount": _decimal_str(invoice.total_amount),
+        "contract_id": getattr(contract, "pk", None),
+        "contract_name": getattr(contract, "name", "") or "",
+        "folder_subpath": str(getattr(invoice, "folder_subpath", "") or ""),
+    }
+
+
+def _group_item_out(item: dict[str, Any] | None) -> dict[str, Any] | None:
+    if item is None:
+        return None
+    return {
+        "intake_id": item.get("intake_id"),
+        "invoice_id": item.get("invoice_id"),
+        "invoice_number": item.get("invoice_number") or "",
+        "total_amount": item.get("total_amount"),
+    }
+
+
+def _red_group_out(group: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Service 给出的组事实 → 响应结构。
+
+    ``red`` 段是契约里唯一的必填段：一条组存在的前提就是「这张是红票」，
+    所以 Service 永远不会给出缺 ``red`` 的组；这里仍做空值兜底，
+    免得一个装配 bug 把整个列表打成 500。
+    """
+    if group is None or group.get("red") is None:
+        return None
+    return {
+        "group_key": group.get("group_key") or "",
+        "original": _group_item_out(group.get("original")),
+        "red": _group_item_out(group.get("red")),
+        "reissue": _group_item_out(group.get("reissue")),
+    }
+
+
+def _to_out(intake: Any, *, limit: int | None = 3, reatch_group: dict[str, Any] | None = None) -> dict[str, Any]:
     snapshot = intake.match_snapshot or {}
     payment_pick = snapshot.get("payment_pick") or {}
     from apps.contracts.services.payment.invoice_intake_service import generated_invoice_facts
@@ -207,6 +321,13 @@ def _to_out(intake: Any, *, limit: int | None = 3) -> dict[str, Any]:
         "subject": getattr(intake.inbox_message, "subject", ""),
         "sender": getattr(intake.inbox_message, "sender", ""),
         "original_filename": intake.original_filename,
+        "is_red": bool(getattr(intake, "is_red", False)),
+        "red_against_number": str(getattr(intake, "red_against_number", "") or ""),
+        "red_confirmation_no": str(getattr(intake, "red_confirmation_no", "") or ""),
+        "offset_invoice": _offset_invoice_out(intake),
+        "supersedes_intake_id": getattr(intake, "supersedes_intake_id", None),
+        "superseded_by_intake_id": getattr(intake, "superseded_by_intake_id", None),
+        "reatch_group": _red_group_out(reatch_group),
     }
 
 
@@ -227,15 +348,26 @@ def list_pending(request: HttpRequest, limit: int = 20) -> list[Any]:  # pragma:
     或将来单独的发票台账——不占「待认领」的位置。
     """
     from apps.contracts.models import InvoiceIntakeStatus
-    from apps.contracts.services.payment.invoice_intake_service import visible_intakes_qs
+    from apps.contracts.services.payment.invoice_intake_service import red_group_facts, visible_intakes_qs
 
-    qs = (
+    qs = list(
         visible_intakes_qs(request.user)
         .filter(status=InvoiceIntakeStatus.PENDING)
-        .select_related("suggested_contract", "confirmed_contract", "inbox_message", "inbox_message__source")
+        .select_related(
+            "suggested_contract",
+            "confirmed_contract",
+            "inbox_message",
+            "inbox_message__source",
+            # 红票两个 FK 必须预取：首页一次 50 行逐行惰性查询会放大成 100 次
+            "offset_invoice",
+            "offset_invoice__contract",
+            "offset_invoice__payment__contract",
+            "supersedes_intake",
+        )
         .order_by("-created_at", "-id")[: max(1, min(limit, MAX_PENDING))]
     )
-    return [_to_out(intake) for intake in qs]
+    groups = red_group_facts(qs)
+    return [_to_out(intake, reatch_group=groups.get(intake.pk)) for intake in qs]
 
 
 @router.get("/pending/count", response=CountOut)
@@ -283,15 +415,32 @@ def rescan(request: HttpRequest, days: int = 60) -> Any:  # pragma: no cover
 @router.get("/{intake_id}", response=InvoiceIntakeOut)
 def get_intake(request: HttpRequest, intake_id: int) -> Any:  # pragma: no cover
     """详情：完整候选 + 被排除线索 + 备注原文（limit=None 不裁剪候选）。"""
-    from apps.contracts.services.payment.invoice_intake_service import get_intake_for_user
+    from apps.contracts.services.payment.invoice_intake_service import get_intake_for_user, red_group_facts
 
     intake = get_intake_for_user(intake_id=intake_id, user=request.user)
-    return _to_out(intake, limit=None)
+    groups = red_group_facts([intake])
+    return _to_out(intake, limit=None, reatch_group=groups.get(intake.pk))
 
 
 @router.post("/{intake_id}/confirm", response=ActionOut)
 def confirm_endpoint(request: HttpRequest, intake_id: int, payload: ConfirmIn) -> Any:  # pragma: no cover
-    from apps.contracts.services.payment.invoice_intake_service import confirm_invoice_intake
+    """确认绑定（蓝票走这里）。
+
+    ## 红票不得从老端点进
+
+    红票的语义是「抵掉一张已存在的票」，不是「新增一笔开票」：走 ``confirm``
+    会生成一张金额为负、没有原票关联的 ``Invoice``，账上就多出一张孤立红票。
+    因此在此硬拦——必须走 ``confirm-red-reenact`` / ``confirm-red-only``。
+    """
+    from apps.contracts.services.payment.invoice_intake_service import confirm_invoice_intake, get_intake_for_user
+    from apps.core.exceptions import ValidationException
+
+    intake = get_intake_for_user(intake_id=intake_id, user=request.user)
+    if intake.is_red:
+        raise ValidationException(
+            "红字发票请使用「冲红重开」或「仅冲红」入口处理，不能直接确认",
+            code="INVOICE_RED_USE_DEDICATED_ENDPOINT",
+        )
 
     intake = confirm_invoice_intake(
         intake_id=intake_id,
@@ -310,6 +459,70 @@ def confirm_endpoint(request: HttpRequest, intake_id: int, payload: ConfirmIn) -
         "status": intake.status,
         "invoice_id": intake.invoice_id,
         "invoice_display_filename": generated["display_filename"],
+    }
+
+
+@router.post("/{intake_id}/confirm-red-reenact", response=ActionOut)
+def confirm_red_reenact_endpoint(  # pragma: no cover
+    request: HttpRequest, intake_id: int, payload: ConfirmRedReenactIn
+) -> Any:
+    """一次裁定完成「冲红 + 重开」：红票冲原票，新蓝票替代原票入账。"""
+    from apps.contracts.services.payment.invoice_intake_service import confirm_red_reenact, generated_invoice_facts
+
+    result = confirm_red_reenact(
+        red_intake_id=intake_id,
+        new_intake_id=payload.new_intake_id,
+        user=request.user,
+        note=payload.note,
+        amount_override=payload.amount_override,
+    )
+    red_intake = result["red_intake"]
+    return {
+        "success": True,
+        "message": "已冲红并确认重开",
+        "intake_id": red_intake.pk,
+        "status": red_intake.status,
+        "invoice_id": red_intake.invoice_id,
+        "invoice_display_filename": generated_invoice_facts(red_intake)["display_filename"],
+    }
+
+
+@router.post("/{intake_id}/confirm-red-only", response=ActionOut)
+def confirm_red_only_endpoint(
+    request: HttpRequest, intake_id: int, payload: ConfirmRedOnlyIn
+) -> Any:  # pragma: no cover
+    """只冲红不重开（客户不要这张票了）。
+
+    与 ``confirm-red-reenact`` 分开一个端点而不是用可选参数区分：两条路径的
+    审计日志动作名、允许的前置条件都不同，混在一个入口里迟早会被误调。
+    """
+    from apps.contracts.services.payment.invoice_intake_service import confirm_red_only, generated_invoice_facts
+
+    result = confirm_red_only(red_intake_id=intake_id, user=request.user, note=payload.note)
+    red_intake = result["red_intake"]
+    return {
+        "success": True,
+        "message": "已冲红（未重开）",
+        "intake_id": red_intake.pk,
+        "status": red_intake.status,
+        "invoice_id": red_intake.invoice_id,
+        "invoice_display_filename": generated_invoice_facts(red_intake)["display_filename"],
+    }
+
+
+@router.post("/{intake_id}/reparse", response=ActionOut)
+def reparse_endpoint(request: HttpRequest, intake_id: int) -> Any:  # pragma: no cover
+    """重解析这张发票（补金额与红票事实，用于历史脏数据修复）。"""
+    from apps.contracts.services.payment.invoice_intake_service import generated_invoice_facts, reparse_invoice_intake
+
+    intake = reparse_invoice_intake(intake_id=intake_id, user=request.user)
+    return {
+        "success": True,
+        "message": "已重新解析",
+        "intake_id": intake.pk,
+        "status": intake.status,
+        "invoice_id": intake.invoice_id,
+        "invoice_display_filename": generated_invoice_facts(intake)["display_filename"],
     }
 
 

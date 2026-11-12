@@ -12,6 +12,18 @@ from ..constants import ARCHIVE_CHECKLIST, CASE_MATERIAL_KEYWORD_MAPPING
 
 logger = logging.getLogger("apps.contracts.archive")
 
+#: 红票文件名尾标（与 ``invoice_file_service.VOIDED_NAME_MARKER`` 同一命名规则）
+VOIDED_NAME_MARKER = "红字开具"
+
+
+def _looks_voided(material: FinalizedMaterial) -> bool:
+    """闸 3（第二个消费端）：作废红票不进归档清单。
+
+    ``download_handler`` 与这里必须**都挡**：只挡一处，另一条路径（清单展示 vs 打包下载）
+    就会漏进一张作废票。判据同那边——只看文件名，不查 ``Invoice``。
+    """
+    return VOIDED_NAME_MARKER in str(material.original_filename or "")
+
 
 def map_contract_materials(
     archive_category: str,
@@ -35,6 +47,9 @@ def map_contract_materials(
         ):
             result.setdefault(contract_code, []).append(m.id)
         elif m.category == MaterialCategory.INVOICE and invoice_code:
+            if _looks_voided(m):
+                # 「收费凭证」只要合法发票：冲红的票及其重开前的旧票都不归档
+                continue
             result.setdefault(invoice_code, []).append(m.id)
 
     return result

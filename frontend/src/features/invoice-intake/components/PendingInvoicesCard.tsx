@@ -4,12 +4,19 @@ import { FileText } from 'lucide-react'
 import { CardHead } from '@/components/shared/CardHead'
 import { PANEL } from '@/components/shared/panel-styles'
 import { errMessage } from '@/lib/errors'
-import { useConfirmInvoiceIntake, usePendingInvoices } from '../hooks/use-pending-invoices'
+import {
+  useConfirmInvoiceIntake,
+  useConfirmRedOnly,
+  useConfirmRedReenact,
+  usePendingInvoices,
+  useReparseIntake,
+} from '../hooks/use-pending-invoices'
+import { pendingBadgeCount, splitByRedGroup } from '../domain'
 import type { InvoiceIntake } from '../types'
 import { ConfirmedInvoiceRow, type ConfirmedRow } from './ConfirmedInvoiceRow'
 import { ContractPicker } from './ContractPicker'
 import { InvoiceDetailDialog } from './InvoiceDetailDialog'
-import { InvoiceIntakeRow } from './InvoiceIntakeRow'
+import { PendingInvoiceList } from './PendingInvoiceList'
 
 /**
  * 首页「待认领发票」模块 —— 财务发来的每一张发票都要律师确认绑定才落账。
@@ -35,10 +42,12 @@ import { InvoiceIntakeRow } from './InvoiceIntakeRow'
  * `bare=true` 只渲染内容区（含自身分组小标题「发票」），不包 section、不渲染
  * CardHead；`bare=false`（默认）就是独立可用的完整卡片。
  *
- * ## 「换个项目」与「详情」留待接线
+ * ## 分组渲染（红票冲红重开）
  *
- * 本阶段只做骨架：两个动作都接在 `onChange` / `onDetail` 上，实际弹窗
- * （项目选择器 + 发票详情）由后续接线实现。行内的「确认绑定」已是完整链路。
+ * 同一组的红票与重开的新蓝票是两条独立 intake，但是**一件事**：按
+ * `reatch_group.group_key` 聚成 `RedReenactCard`（原票/红票/新票三段、一次请求
+ * 完成整组），其余走 `InvoiceIntakeRow`。角标同样按「件事」算——
+ * standalone 行数 + 组数，否则一次冲红重开会让角标从 1 跳到 2。
  */
 export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
   const { data = [], isLoading, isError, error, refetch } = usePendingInvoices(20)
@@ -69,12 +78,17 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
   // 「换个项目」的目标行：改判需要知道是哪张票
   const [pickerFor, setPickerFor] = useState<InvoiceIntake | null>(null)
 
-  const count = data.length
-  const subtitle = useMemo(() => (isError ? '' : count ? `${count} 张` : ''), [count, isError])
+  const redReenact = useConfirmRedReenact()
+  const redOnly = useConfirmRedOnly()
+  const reparse = useReparseIntake()
+  const redBusy = redReenact.isPending || redOnly.isPending || reparse.isPending
+
+  const { groups, standalones } = useMemo(() => splitByRedGroup(data), [data])
+  const count = pendingBadgeCount(groups, standalones)
+  const subtitle = useMemo(() => (isError ? '' : count ? `${count} 件` : ''), [count, isError])
 
   const content = (
     <div className="px-2.5 pt-1.5 pb-2.5">
-
       {isError && (
         <div className="px-2 py-6 text-center text-[12.5px] text-destructive">
           {errMessage(error, '待认领发票加载失败')}
@@ -109,21 +123,20 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
           </div>
         ))}
 
-      {!isError &&
-        !isLoading &&
-        data.map((intake) => (
-          <div key={intake.id} className="mb-1.5 last:mb-0">
-            <InvoiceIntakeRow
-              intake={intake}
-              busy={confirm.isPending}
-              // 采纳系统建议：直接绑定，不再二次确认（金额、购买方、建议项目
-              // 与匹配信号都已在眼前，多一次弹窗只是重复阅读同一批信息）
-              onConfirm={() => confirm.mutate({ id: intake.id })}
-              onChange={() => setPickerFor(intake)}
-              onDetail={() => setDetailFor(intake)}
-            />
-          </div>
-        ))}
+      {!isError && !isLoading && (
+        <PendingInvoiceList
+          groups={groups}
+          standalones={standalones}
+          busy={confirm.isPending}
+          redBusy={redBusy}
+          onConfirmRow={(intake) => confirm.mutate({ id: intake.id })}
+          onChangeRow={setPickerFor}
+          onDetail={setDetailFor}
+          onConfirmReenact={(red, newIntakeId) => redReenact.mutate({ id: red.id, newIntakeId })}
+          onConfirmRedOnly={(red) => redOnly.mutate({ id: red.id })}
+          onReparse={(red) => reparse.mutate(red.id)}
+        />
+      )}
 
       {/* 刚确认完的行：留在原地供复制，刷新页面即消失 */}
       {justConfirmed.map((row) => (
@@ -134,11 +147,8 @@ export function PendingInvoicesCard({ bare = false }: { bare?: boolean } = {}) {
     </div>
   )
 
-  // 合成卡里靠左侧色条（发票=indigo）区分，不再写「发票」文字标签。
-  // 上边框只在**本组有内容**时画：本组空态只是一行灰字，再压一条分隔线
-  // 会把「没东西」强调成一个小节，反而显乱。
-  // 详情弹窗放在最外层（Dialog 本身是 portal，放哪都能覆盖整页）；
-  // 两种渲染模式共用同一份，避免各写一遍。
+  // 合成卡里靠左侧色条（发票=indigo）区分本组；上边框只在本组有内容时画
+  // （空态只是一行灰字，再压一条分隔线会把「没东西」强调成一个小节）。
   const picker = (
     <ContractPicker
       open={pickerFor != null}

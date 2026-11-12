@@ -47,6 +47,13 @@ function intake(over: Partial<InvoiceIntake> = {}): InvoiceIntake {
     inbox_message_id: 10,
     subject: '',
     sender: '',
+    is_red: false,
+    red_against_number: '',
+    red_confirmation_no: '',
+    offset_invoice: null,
+    supersedes_intake_id: null,
+    superseded_by_intake_id: null,
+    reatch_group: null,
     ...over,
   }
 }

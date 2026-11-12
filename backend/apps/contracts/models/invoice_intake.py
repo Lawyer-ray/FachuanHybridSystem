@@ -63,6 +63,14 @@ class InvoiceIntake(models.Model):
     remark = models.TextField(blank=True, default="", verbose_name="备注栏原文")
     project_code = models.CharField(max_length=32, blank=True, default="", db_index=True, verbose_name="律所项目号")
 
+    # 冲红事实：红票 PDF 备注栏印着「被红冲蓝字数电发票号码：<原蓝票号>」。这是红票
+    # 唯一可靠的证据（票面事实，不是价格区间也不是文件名），扫描时原样落库。
+    red_against_number = models.CharField(
+        max_length=32, blank=True, default="", db_index=True, verbose_name="被红冲的原蓝票号"
+    )
+    # 红字发票信息确认单编号：税务侧留痕，不在 UI 主流程展示
+    red_confirmation_no = models.CharField(max_length=64, blank=True, default="", verbose_name="红字发票信息确认单编号")
+
     status = models.CharField(
         max_length=16,
         choices=InvoiceIntakeStatus.choices,
@@ -128,6 +136,27 @@ class InvoiceIntake(models.Model):
     )
     decision_note = models.TextField(blank=True, default="", verbose_name="人工备注")
 
+    # 冲销链：扫描时解析出 red_against_number 且命中本库已有 Invoice 即指向它。
+    # 落库而不是每次查，是因为文件夹镜像 / 开票金额重算 / 撤销回滚三处都要用同一份判定；
+    # 重开蓝票确认后原票号码可能被人工改过，现查会漂。
+    offset_invoice = models.ForeignKey(
+        "contracts.Invoice",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="offset_by_intakes",
+        verbose_name="被冲销的发票记录",
+    )
+    # 重开蓝票 → 它所替代的那条已确认 intake（配对只认红票证据，见扫描层 _refresh_red_links）
+    supersedes_intake = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="superseded_by_intakes",
+        verbose_name="被本条替代的待认领发票",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -139,6 +168,16 @@ class InvoiceIntake(models.Model):
             # 首页/后台按状态取待办，再按创建时间倒序
             models.Index(fields=["status", "created_at"]),
         ]
+
+    @property
+    def is_red(self) -> bool:
+        """红字发票（冲销票）。判据是票面事实，不是状态。
+
+        **刻意不落库**：``red_against_number`` 有值或价税合计为负，任一条成立即红票。
+        存一个布尔位就多一份真相，回填/重解析/人工改金额时必然与这两个事实漂移；
+        派生则永远自洽。
+        """
+        return bool(self.red_against_number) or (self.total_amount is not None and self.total_amount < 0)
 
     def __str__(self) -> str:
         return f"{self.invoice_number or '无号码'} {self.buyer_name or '-'} ({self.status})"

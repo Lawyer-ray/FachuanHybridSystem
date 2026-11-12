@@ -106,10 +106,15 @@ CONFIDENCE_EXACT = "exact"
 CONFIDENCE_AMOUNT_MISMATCH = "amount_mismatch"
 CONFIDENCE_AMBIGUOUS = "ambiguous"
 CONFIDENCE_NO_PAYMENT = "no_payment"
+#: 红票专用两档：红票永远不预选收款，只说明「冲的是哪张票 / 原票不在库里」
+CONFIDENCE_RED_OFFSET = "red_offset"
+CONFIDENCE_RED_UNMATCHED = "red_unmatched"
 
 NOTE_AMOUNT_MISMATCH = "金额与收款不符"
 NOTE_AMBIGUOUS = "多笔收款，请自选"
 NOTE_NO_PAYMENT = "先开票后付款"
+NOTE_RED_OFFSET = "红字发票（冲 {number}）"
+NOTE_RED_UNMATCHED = "红字发票，被冲销的原票不在系统里"
 
 #: 候选上限（待认领详情页够用）
 MAX_CANDIDATES = 5
@@ -220,7 +225,14 @@ def _case_text_key(text: str) -> str:
 # ── 纯函数：收款预选（四级规则，用户已确认） ────────────────
 
 
-def choose_payment(contract_id: int, total_amount: Decimal | None, invoice_date: date | None) -> dict[str, Any]:
+def choose_payment(
+    contract_id: int,
+    total_amount: Decimal | None,
+    invoice_date: date | None,
+    is_red: bool = False,
+    red_against_number: str = "",
+    red_offset_found: bool | None = None,
+) -> dict[str, Any]:
     """在**已定合同**下预选那笔收款。四个分支是用户确认过的规则，不得改。
 
     ① 恰好 1 笔且金额吻合        → 选它，``exact``
@@ -231,6 +243,20 @@ def choose_payment(contract_id: int, total_amount: Decimal | None, invoice_date:
     分支②之所以"明知不符还选"，是因为开票金额与收款金额经常不相等（含税/分期/
     多笔合并开票），让人从零开始选比「选好再改」更费事；``confidence`` 负责把
     这层不确定说清楚。
+
+    ``is_red``：红票**永远不预选收款**。冲销不是一个新的记账动作，它只是把原票
+    抵掉；预选一笔收款会诱导人把红票当新票挂上去（帐上就多一笔支出）。红票也
+    不会报 ``amount_mismatch``——金额没识别或本来就为负，说「金额与收款不符」
+    指错了方向，真实信息是「这是红票」。
+
+    ``red_against_number`` / ``red_offset_found`` 是**扫描层才能知道的两个事实**：
+    红票备注栏里印着的被冲票号，以及该票号是否已在 ``Invoice`` 里命中。
+    本函数是纯判定、不查这两件事（扫一次库只为拼文案不值得，且会让纯函数带 IO）。
+
+    ⚠️ 这两个参数必须由调用方传真实值。历史实现曾试图用「该合同唯一那笔收款
+    已挂的发票号」兜底推导被冲票号，结果**恒为空**（收款上的票号是收款自己的票，
+    不是红票要冲的票），于是所有红票都被判成 ``red_unmatched``，
+    「原票在库、可一键冲红」被误报成「需人工处理」。已改为显式传入。
 
     ``invoice_date`` **不参与判定**：发票日期与到账日期没有可靠的先后关系
     （先开票后付款 / 先付款后补票都真实存在），拿它拉候选只会制造误导。
@@ -253,6 +279,16 @@ def choose_payment(contract_id: int, total_amount: Decimal | None, invoice_date:
         }
         for row in payments
     ]
+
+    if is_red:
+        # 调用方没给「原票是否命中」时，退化为按票号有无判：有票号但无法确认命中，
+        # 仍给 unmatched（宁可让人确认一次，也不要谎称「原票在库」）。
+        found = bool(red_offset_found) if red_offset_found is not None else False
+        return _red_pick(
+            red_against_number=red_against_number.strip() if found else "",
+            payment_options=options,
+            unmatched_number=red_against_number.strip(),
+        )
 
     if not options:
         return {
@@ -279,6 +315,31 @@ def choose_payment(contract_id: int, total_amount: Decimal | None, invoice_date:
         "confidence": CONFIDENCE_EXACT if same_amount else CONFIDENCE_AMOUNT_MISMATCH,
         "note": "" if same_amount else NOTE_AMOUNT_MISMATCH,
         "payment_options": options,
+    }
+
+
+def _red_pick(
+    *, red_against_number: str, payment_options: list[dict[str, Any]], unmatched_number: str = ""
+) -> dict[str, Any]:
+    """红票的预选结果：收款恒为 None，置信度按「原票是否在库」分两档。
+
+    ``red_against_number`` 仅在**原票已在本库命中**时才由调用方给出；
+    未命中时即便票面印了票号，也只是 `red_unmatched`——
+    「票面写着冲 XXX」与「XXX 真的在系统里」是两件事，混淆会让人以为可以一键冲红。
+    未命中时仍把票号写进文案（`unmatched_number`），人能据此去补录原票。
+    """
+    if red_against_number:
+        return {
+            "suggested_payment_id": None,
+            "confidence": CONFIDENCE_RED_OFFSET,
+            "note": NOTE_RED_OFFSET.format(number=red_against_number),
+            "payment_options": payment_options,
+        }
+    return {
+        "suggested_payment_id": None,
+        "confidence": CONFIDENCE_RED_UNMATCHED,
+        "note": (f"红字发票，冲 {unmatched_number}（原票不在系统里）" if unmatched_number else NOTE_RED_UNMATCHED),
+        "payment_options": payment_options,
     }
 
 

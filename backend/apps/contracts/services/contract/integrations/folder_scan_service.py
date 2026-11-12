@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -41,6 +42,20 @@ class ContractFolderScanService:
     # 全局扫描（未指定子文件夹）默认跳过的目录关键词：客户资料是当事人身份材料，
     # 不是归档清单项；需要时在弹窗显式选中该子文件夹单独扫描
     _GLOBAL_EXCLUDE_DIR_KEYWORDS: tuple[str, ...] = ("客户资料",)
+
+    # 任何扫描范围都不进去的目录：`已冲红/` 放的是作废的原票与红票（§3.5 闸 2）。
+    #
+    # 不放进上面那个关键词集：那个只在「未指定子文件夹」时生效（选中 `3-发票`
+    # 单独扫时会被豁免）。作废票不是“默认藏起来”而是“永远不能进归档清单”，
+    # 所以它对所有扫描范围都生效。
+    _ALWAYS_EXCLUDE_DIR_KEYWORDS: tuple[str, ...] = ("已冲红",)
+
+    def _exclude_dir_keywords(self, *, scan_subfolder: str) -> tuple[str, ...]:
+        """按扫描范围给出目录排除关键词（全局扫描要同时躲开两组，子文件夹扫描仍躲作废目录）。"""
+        keywords = self._ALWAYS_EXCLUDE_DIR_KEYWORDS
+        if not scan_subfolder:
+            keywords = keywords + self._GLOBAL_EXCLUDE_DIR_KEYWORDS
+        return keywords
 
     def __init__(self, *, scan_service: BoundFolderScanService | None = None) -> None:
         self._scan_service = scan_service or BoundFolderScanService()
@@ -214,6 +229,8 @@ class ContractFolderScanService:
                 "total_files": int(summary.get("total_files", 0) or 0),
                 "deduped_files": int(summary.get("deduped_files", 0) or 0),
                 "classified_files": int(summary.get("classified_files", 0) or 0),
+                # 闸 2：被判定为作废票（文件名含「红字开具」）因而未勾选的候选数
+                "skipped_voided": int(summary.get("skipped_voided", 0) or 0),
             },
             "candidates": candidates,
             "error_message": session.error_message or "",
@@ -325,7 +342,7 @@ class ContractFolderScanService:
                 domain="contract",
                 progress_callback=_progress,
                 storage_provider=storage_provider,
-                exclude_dir_keywords=self._GLOBAL_EXCLUDE_DIR_KEYWORDS if not scan_scope["scan_subfolder"] else (),
+                exclude_dir_keywords=self._exclude_dir_keywords(scan_subfolder=scan_scope["scan_subfolder"]),
             )
             result["scan_scope"] = scan_scope
 
@@ -333,6 +350,13 @@ class ContractFolderScanService:
             archive_category = get_archive_category(getattr(contract, "case_type", ""))
 
             candidates = result.get("candidates") or []
+            skipped_voided = self._mark_voided_candidates(candidates)
+            if skipped_voided:
+                logger.info(
+                    "folder_scan_skip_voided_dir",
+                    extra={"contract_id": session.contract_id, "skipped_voided": skipped_voided},
+                )
+            result["skipped_voided"] = skipped_voided
             candidates = self._post_processor.post_process_candidates(
                 candidates=candidates,
                 archive_category=archive_category,
@@ -385,6 +409,26 @@ class ContractFolderScanService:
             )
 
     # ── Private helpers ─────────────────────────────────────────────────
+
+    def _mark_voided_candidates(self, candidates: list[dict[str, Any]]) -> int:
+        """闸 2：把作废红票候选标为不可导入，返回命中数。
+
+        目录级的 `已冲红/` 已由 ``_ALWAYS_EXCLUDE_DIR_KEYWORDS`` 挡在扫描外，这里是第二道：
+        历史扫描会话、手工传参、或有人在发票目录根下丢了一份红票副本时，候选里仍可能
+        混进作废票。判据只能是**命名事实**（文件名含「红字开具」）——扫描阶段手里没有
+        ``Invoice`` 记录可查，而这张文件的归属恰恰是本步骤要定的。
+
+        只改候选字典，不删候选：人要能在弹窗里看到“这张被跳过了”，而不是它凭空消失。
+        """
+        skipped = 0
+        for candidate in candidates:
+            if not _looks_voided_filename(str(candidate.get("filename") or "")):
+                continue
+            candidate["selected"] = False
+            candidate["archive_item_code"] = ""
+            candidate["voided_skipped"] = True
+            skipped += 1
+        return skipped
 
     def _ensure_contract_exists(self, contract_id: int) -> None:  # pragma: no cover
         if Contract.objects.filter(id=contract_id).exists():
@@ -593,3 +637,15 @@ def run_contract_folder_scan_task(session_id: str) -> None:  # pragma: no cover
 def _normalize_docx_name(filename: str) -> str:
     """标准化文件名用于关键词匹配。"""
     return re.sub(r"\s+", "", str(filename or "").strip().lower())
+
+
+#: 红票文件名尾标（与 ``invoice_file_service.VOIDED_NAME_MARKER`` 同一命名规则）
+VOIDED_NAME_MARKER = "红字开具"
+
+
+def _looks_voided_filename(filename: str) -> bool:
+    """文件名是不是一张作废红票（含「红字开具」）。
+
+    先 NFKC 归一化再比对，避免全角/兼容字符差异导致漏判。
+    """
+    return VOIDED_NAME_MARKER in unicodedata.normalize("NFKC", str(filename or ""))

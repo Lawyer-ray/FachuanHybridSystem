@@ -54,6 +54,13 @@ function intake(over: Partial<InvoiceIntake> = {}): InvoiceIntake {
     inbox_message_id: 10,
     subject: '',
     sender: '',
+    is_red: false,
+    red_against_number: '',
+    red_confirmation_no: '',
+    offset_invoice: null,
+    supersedes_intake_id: null,
+    superseded_by_intake_id: null,
+    reatch_group: null,
     ...over,
   }
 }
@@ -130,6 +137,42 @@ describe('invoice-intake InvoiceIntakeRow', () => {
     })
     render(<InvoiceIntakeRow intake={row} busy={false} onConfirm={noop} onChange={noop} onDetail={noop} />)
     expect(screen.getByText(/案件已结案：已结案的某施工合同纠纷/)).toBeTruthy()
+  })
+
+  it('红票单独出现：不渲染「确定性匹配」徽标，改渲染红字发票标识，且确认禁用', () => {
+    const row = intake({
+      is_red: true,
+      total_amount: '-40000.00',
+      red_against_number: '264420000368336',
+      offset_invoice: {
+        id: 88,
+        invoice_number: '264420000368336',
+        total_amount: '40000.00',
+        contract_id: 160,
+        contract_name: '张某与某公司合同纠纷',
+        folder_subpath: '合同/发票',
+      },
+    })
+    render(<InvoiceIntakeRow intake={row} busy={false} onConfirm={noop} onChange={noop} onDetail={noop} />)
+
+    // 绿色「确定性匹配」会把红票读成「可以入账」，这是 D5 要杜绝的误读
+    expect(screen.queryByText('确定性匹配')).toBeNull()
+    expect(screen.getByText('红字发票')).toBeTruthy()
+    // 结论行改成「冲销哪张票」
+    expect(screen.getByText('冲销 …368336（¥40,000.00）')).toBeTruthy()
+    // 金额保留负号
+    expect(screen.getByText('¥-40,000.00')).toBeTruthy()
+
+    const btn = screen.getByRole('button', { name: /确认绑定/ }) as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    expect(btn.title).toContain('冲红并确认重开')
+  })
+
+  it('红票金额未识别：占位直说是红票，不是笼统的「金额未识别」', () => {
+    const row = intake({ is_red: true, total_amount: null, red_against_number: '264420000368336', offset_invoice: null })
+    render(<InvoiceIntakeRow intake={row} busy={false} onConfirm={noop} onChange={noop} onDetail={noop} />)
+    expect(screen.getByText('红票金额未识别')).toBeTruthy()
+    expect(screen.getByText('冲销 …368336（原票不在系统里）')).toBeTruthy()
   })
 
   it('busy 时两个绑定按钮都禁用，详情仍可点', () => {

@@ -14,8 +14,19 @@ export type InvoiceIntakeStatus = 'pending' | 'confirmed' | 'rejected'
 /** 匹配信号等级：S1 项目号确定性 > S2 案由文字 > S3 购买方名 */
 export type InvoiceMatchKind = 'project_code' | 'case_text' | 'party_name'
 
-/** 预选收款的确定性 */
-export type PaymentPickConfidence = 'exact' | 'amount_mismatch' | 'ambiguous' | 'no_payment'
+/**
+ * 预选收款的确定性。
+ *
+ * 红票两档单列（后端 `PaymentPickConfidence` 同名常量）：红票的收款永远选不出来
+ * （冲销不是收款），给它一个「金额对上了」的档位等于谎报确定性。
+ */
+export type PaymentPickConfidence =
+  | 'exact'
+  | 'amount_mismatch'
+  | 'ambiguous'
+  | 'no_payment'
+  | 'red_offset'
+  | 'red_unmatched'
 
 /** 系统给出的候选项目 */
 export interface InvoiceCandidate {
@@ -33,6 +44,42 @@ export interface InvoicePaymentOption {
   amount: string
   received_at: string
   note: string
+}
+
+/**
+ * 红票冲销的原票（契约 `OffsetInvoiceOut`）。
+ *
+ * 与下面的 {@link GroupItem} 不同：这一个是**库里的合同发票**（`contracts.Invoice`），
+ * 不是待认领记录——所以只有 `invoice_id` 形态的字段，没有 intake 侧 id。
+ */
+export interface OffsetInvoice {
+  id: number
+  invoice_number: string
+  total_amount: string | null
+  contract_id: number
+  contract_name: string
+  folder_subpath: string
+}
+
+/** 红票组里的一个成员（契约 `GroupItemOut`）：可能还没落成发票，故两个 id 都可空 */
+export interface GroupItem {
+  intake_id: number | null
+  invoice_id: number | null
+  invoice_number: string
+  total_amount: string | null
+}
+
+/**
+ * 冲红重开的三张票（契约 `RedGroupOut`）：原票 → 红票 → 重开的新蓝票。
+ *
+ * 后端按「同号原票 + 冲销关系」聚组下发；`original` 为 null 表示被冲销的原票
+ * 不在系统里（历史票 / 别家开的票），此时只能人工处理，不能一键冲红重开。
+ */
+export interface RedGroup {
+  group_key: string
+  original: GroupItem | null
+  red: GroupItem
+  reissue: GroupItem | null
 }
 
 /** 一条待认领发票 */
@@ -69,6 +116,23 @@ export interface InvoiceIntake {
   sender: string
   /** 附件相对 MEDIA_ROOT 的路径（详情里展示原始文件名与去邮件的入口） */
   original_filename?: string
+
+  // ── 红字发票（红冲）相关：全部由后端按契约下发 ─────────────
+
+  /** 是否红字发票。后端按票面事实判：有被冲票号 **或** 金额为负 */
+  is_red: boolean
+  /** 被红冲的原蓝票号（空串 = 未识别到，不是「没有」） */
+  red_against_number: string
+  /** 红字发票信息确认单编号 */
+  red_confirmation_no: string
+  /** 被冲销的原票（查到了才有；不在系统里为 null） */
+  offset_invoice: OffsetInvoice | null
+  /** 本票冲掉的那条待认领记录 */
+  supersedes_intake_id: number | null
+  /** 冲掉本票的那条待认领记录 */
+  superseded_by_intake_id: number | null
+  /** 冲红重开整组的展开（不在任何组里为 null） */
+  reatch_group: RedGroup | null
 }
 
 /** 操作（确认/驳回/撤销）的返回 */
