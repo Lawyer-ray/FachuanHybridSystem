@@ -392,17 +392,32 @@ class TestRedEndpoints:
 
         不用路由表内省：ninja 的 ``api_v1`` 是嵌套 add_router 装配的，
         子 router 的 path 在挂载前是空串，内省出来的结果不可信。
-        以下按真实请求断言“不是 404”：未认领/未定义路由都对这个前缀答 404。
+
+        这里不只看状态码——只看 ``!= 404`` 无法区分“路由通了但业务未接通”。
+        构造一张**不满足守卫条件**的票（金é为负、无合同、无附件），让请求穿过
+        路由直达 Service 层，然后断言它给出了**业务错误码**：
+        能拿到 Service 抛出的业务码，就证明路由已挂、参数已解析、Service 已接通
+        三件事同时成立（404/405/422 给不出这种东西）。
         """
         intake = _intake(message, invoice_number=RED_NUMBER, total_amount=Decimal("-1.00"))
 
-        for path, payload in (
-            (f"{PREFIX}/{intake.pk}/confirm-red-reenact", {}),
-            (f"{PREFIX}/{intake.pk}/confirm-red-only", {}),
-            (f"{PREFIX}/{intake.pk}/reparse", {}),
+        # 两条冲红端点：先撞“红字发票未匹配到项目”（在 G1 之前），同样是 Service 层业务码
+        for path in (
+            f"{PREFIX}/{intake.pk}/confirm-red-reenact",
+            f"{PREFIX}/{intake.pk}/confirm-red-only",
         ):
-            resp = http.post(path, data=payload, content_type="application/json")
+            resp = http.post(path, data={}, content_type="application/json")
             assert resp.status_code != 404, f"{path} 未注册"
+            body = resp.json()
+            assert body.get("success") is False, (path, body)
+            assert body.get("code") == "INVOICE_INTAKE_NO_CONTRACT", (path, body)
+
+        # reparse 走另一个分支：附件不存在时应报“附件已不在磁盘上”
+        resp = http.post(f"{PREFIX}/{intake.pk}/reparse", data={}, content_type="application/json")
+        assert resp.status_code != 404
+        body = resp.json()
+        assert body.get("success") is False
+        assert body.get("code") == "INVOICE_FILE_MISSING", body
 
 
 # ── 4. 老端点守卫（§5.3）─────────────────────────────────
