@@ -481,6 +481,37 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      # 建库（跑 451 个迁移）必须**独立成一步**，不能混在测试命令里。
+      #
+      # pytest-timeout 2.x 默认 funconly=False：计时**包含 fixture setup**，
+      # `create_test_db` 是 session 级 fixture。本仓库 451 个迁移实测建库 ~55s
+      # （ubuntu-latest 更慢），再跑第一条用例必然撞穿 `--timeout=60`——
+      # 症状是**每条用例都报 `ERROR at setup of … Timeout (>60.0s)`**，
+      # 看上去像“测试坏了”，实际是建库把预算吃光了（main 上的真实故障）。
+      #
+      # 拆开后实测：预建库 + 复用，同一批用例从 ~40s 降到 ~3s。
+      - name: Prepare test database (migrate)
+        env:
+          DJANGO_DEBUG: "1"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          # ⚠️ DB_NAME 必须同时给：把 TEST_DB_NAME 映射到 DB_NAME 的是 conftest.py
+          # 的 pytest_configure，**只在 pytest 会话内生效**。manage.py 不在 pytest
+          # 下，只认 DB_NAME，缺了它会去连默认的 fachuan_dev（CI 里不存在 → 直接挂）。
+          DB_NAME: "fachuan_ci_test"
+          DB_USER: "postgres"
+          DB_PASSWORD: "postgres"  # pragma: allowlist secret
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "5432"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
+          PYTHONPATH: "apiSystem:."
+        # postgres service 已建好空的 fachuan_ci_test，这里直接迁移它
+        run: uv run python apiSystem/manage.py migrate --no-input
+
       - name: Tests (integration smoke)
         env:
           DJANGO_DEBUG: "1"
@@ -488,10 +519,11 @@ jobs:
           TEST_DB_ENGINE: "postgresql"
           TEST_DB_NAME: "fachuan_ci_test"
           TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret  # pragma: allowlist secret
+          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
+        # 库已迁移好，--reuse-db 直接复用；单例 60s 超时回归它本来的语义
         run: uv run pytest -c pytest.ini -o "addopts=--reuse-db --import-mode=importlib -q --tb=short --strict-markers --timeout=60" --no-cov -q tests/ci/integration/
 
   backend-property-smoke:
