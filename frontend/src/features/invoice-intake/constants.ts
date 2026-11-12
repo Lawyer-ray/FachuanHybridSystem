@@ -53,6 +53,28 @@ export const PAYMENT_PICK_LABELS: Record<PaymentPickConfidence, string> = {
   amount_mismatch: '金额与收款不符',
   ambiguous: '多笔收款，请自选',
   no_payment: '先开票后付款',
+  red_offset: '红字发票（冲销原票）',
+  red_unmatched: '红字发票，原票不在系统里',
+}
+
+/**
+ * 红字发票的配色与标签。
+ *
+ * 红票是**作废**信号，绝不能复用绿/黄的匹配色：`status-green` 在红票上会被读成
+ * 「匹配成功」，而这正是 D5 要杜绝的误读。用 `destructive` 语义令牌（暗色模式
+ * 自己会切换），不写死 hex。
+ */
+export const RED_TONE = {
+  label: '红字发票',
+  chip: 'border-destructive/30 bg-destructive/10 text-destructive',
+  tone: 'text-destructive',
+}
+
+/** 冲红重开动作的文案（按钮 / 禁用原因），与后端端点一一对应 */
+export const RED_REENACT_COPY = {
+  confirm: '冲红并确认重开',
+  confirmOnly: '仅冲红',
+  blocked: '原票不在系统里，需人工处理',
 }
 
 /**

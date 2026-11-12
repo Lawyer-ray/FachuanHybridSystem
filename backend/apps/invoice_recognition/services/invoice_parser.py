@@ -23,6 +23,10 @@ class ParsedInvoice:
     category: str = field(default="other")
     remark: str = field(default="")
     project_code: str = field(default="")
+    #: 红票冲销的原蓝票号（备注栏「被红冲蓝字数电发票号码：」），非红票为空串
+    red_against_number: str = field(default="")
+    #: 红字发票信息确认单编号（审计留痕，不进 UI 主流程）
+    red_confirmation_no: str = field(default="")
 
 
 class InvoiceParser:
@@ -42,8 +46,13 @@ class InvoiceParser:
     _PROJECT_PATTERN: re.Pattern[str] = re.compile(r"\*[^*]+\*([^\s\n\r]{2,50})")
     _DATE_CN_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
     _DATE_ISO_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
-    _AMOUNT_PATTERN: re.Pattern[str] = re.compile(r"合\s*计\s*[¥￥]([\d,]+\.\d{2})\s*[¥￥]([\d,]+\.\d{2})")
-    _TOTAL_PATTERN: re.Pattern[str] = re.compile(r"[（(]\s*小写\s*[）)]\s*[¥￥]\s*([\d,]+\.\d{2})")
+    # 金额字符类必须带负号：红字发票的「合计」「价税合计」印成 ``¥-37735.85`` /
+    # ``¥-40000.00``，只认 `[\d,]+` 会把红票的三个金额全抽成 None（D1）。
+    _AMOUNT_PATTERN: re.Pattern[str] = re.compile(r"合\s*计\s*[¥￥]\s*(-?[\d,]+\.\d{2})\s*[¥￥]\s*(-?[\d,]+\.\d{2})")
+    _TOTAL_PATTERN: re.Pattern[str] = re.compile(r"[（(]\s*小写\s*[）)]\s*[¥￥]\s*(-?[\d,]+\.\d{2})")
+    # 红票事实：真实样本印在备注栏 `被红冲蓝字数电发票号码：<20位> 红字发票信息确认单编号：<20位>;`
+    _RED_AGAINST_PATTERN: re.Pattern[str] = re.compile(r"被红冲蓝字数电发票号码[：:]\s*(\d{8,20})")
+    _RED_CONFIRM_PATTERN: re.Pattern[str] = re.compile(r"红字发票信息确认单编号[：:]\s*(\d{8,32})")
 
     #: 备注栏在 pdfplumber 文本里的版式：表格把「备」「注」两个竖排字切成独立行
     #: （也出现过挤在同一行 `注释`），内容行夹在中间，脚注「复核人/开票人」收尾。
@@ -100,12 +109,15 @@ class InvoiceParser:
         category = self.detect_category(raw_text)
         remark = self._extract_remark(raw_text)
         project_code = self._extract_project_code(raw_text, remark=remark)
+        red_against_number = self._extract_red_against_number(raw_text)
+        red_confirmation_no = self._extract_red_confirmation_no(raw_text)
 
         logger.info(
-            "解析发票完成: code=%s, number=%s, category=%s",
+            "解析发票完成: code=%s, number=%s, category=%s, red_against=%s",
             invoice_code,
             invoice_number,
             category,
+            red_against_number,
         )
 
         return ParsedInvoice(
@@ -121,6 +133,8 @@ class InvoiceParser:
             category=category,
             remark=remark,
             project_code=project_code,
+            red_against_number=red_against_number,
+            red_confirmation_no=red_confirmation_no,
         )
 
     def detect_category(self, raw_text: str) -> str:
@@ -198,6 +212,16 @@ class InvoiceParser:
     def _extract_total_amount(self, text: str) -> Decimal | None:
         m = self._TOTAL_PATTERN.search(text)
         return self._parse_decimal(m.group(1)) if m else None
+
+    def _extract_red_against_number(self, text: str) -> str:
+        """红票冲的是哪张蓝票；非红票返回空串。"""
+        m = self._RED_AGAINST_PATTERN.search(text)
+        return m.group(1) if m else ""
+
+    def _extract_red_confirmation_no(self, text: str) -> str:
+        """红字发票信息确认单编号；非红票返回空串。"""
+        m = self._RED_CONFIRM_PATTERN.search(text)
+        return m.group(1) if m else ""
 
     def _extract_buyer_name(self, text: str) -> str:
         for pattern in [

@@ -3,12 +3,15 @@ import { toast } from 'sonner'
 
 import {
   confirmInvoiceIntake,
+  confirmRedOnly,
+  confirmRedReenact,
   getPendingInvoiceCount,
   INVOICE_INTAKE_COUNT_KEY,
   INVOICE_INTAKE_PENDING_KEY,
   listPendingInvoices,
   rejectInvoiceIntake,
   reopenInvoiceIntake,
+  reparseIntake,
 } from '../api'
 import { errMessage } from '@/lib/errors'
 
@@ -81,6 +84,60 @@ export function useRejectInvoiceIntake() {
       toast.success(res.message || '已标记为无关发票')
     },
     onError: (error) => toast.error(errMessage(error, '操作失败')),
+  })
+}
+
+/**
+ * 冲红并确认重开（整组一次请求）。
+ *
+ * 红票**不走** {@link useConfirmInvoiceIntake}：那条路只绑项目、不动原票，
+ * 用在红票上会把「冲销 + 换票」做成一张普通蓝票，账直接错。
+ */
+export function useConfirmRedReenact() {
+  const invalidate = useInvalidateInvoices()
+  return useMutation({
+    mutationFn: ({
+      id,
+      newIntakeId,
+      note = '',
+      amountOverride = false,
+    }: {
+      id: number
+      newIntakeId: number | null
+      note?: string
+      amountOverride?: boolean
+    }) => confirmRedReenact(id, newIntakeId, note, amountOverride),
+    onSuccess: (res) => {
+      invalidate()
+      toast.success(res.message || '已冲红并确认重开')
+    },
+    onError: (error) => toast.error(errMessage(error, '冲红重开失败')),
+  })
+}
+
+/** 仅冲红：原票作废、不重开（卡片里带二次确认后调用） */
+export function useConfirmRedOnly() {
+  const invalidate = useInvalidateInvoices()
+  return useMutation({
+    mutationFn: ({ id, note = '' }: { id: number; note?: string }) => confirmRedOnly(id, note),
+    onSuccess: (res) => {
+      invalidate()
+      toast.success(res.message || '已冲红')
+    },
+    onError: (error) => toast.error(errMessage(error, '冲红失败')),
+  })
+}
+
+/** 重解析：红票金额未识别时唯一的正解（不允许在金额未知时冲红） */
+export function useReparseIntake() {
+  const invalidate = useInvalidateInvoices()
+  return useMutation({
+    mutationFn: (id: number) => reparseIntake(id),
+    onSuccess: (res) => {
+      invalidate()
+      toast.success(res.message || '已重新解析')
+    },
+    onError: (error) => toast.error(errMessage(error, '重解析失败')),
   })
 }
 

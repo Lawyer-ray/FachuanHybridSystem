@@ -81,6 +81,35 @@ export async function reopenInvoiceIntake(id: number): Promise<InvoiceActionResu
   return invoiceIntakeApi.post(`${id}/reopen`).json<InvoiceActionResult>()
 }
 
+/**
+ * POST /{id}/confirm-red-reenact —— 冲红 + 确认重开（整组一次请求）。
+ *
+ * `newIntakeId` 是组内挑中的重开蓝票；`amountOverride` 为真时后端允许
+ * 红票金额与原票不等（人工确认过差额）。红票永远走这条入口，不走 `/confirm`。
+ */
+export async function confirmRedReenact(
+  id: number,
+  newIntakeId: number | null,
+  note = '',
+  amountOverride = false,
+): Promise<InvoiceActionResult> {
+  return invoiceIntakeApi
+    .post(`${id}/confirm-red-reenact`, {
+      json: { new_intake_id: newIntakeId, note, amount_override: amountOverride },
+    })
+    .json<InvoiceActionResult>()
+}
+
+/** POST /{id}/confirm-red-only —— 只冲红，不重开（原票作废、不收新票） */
+export async function confirmRedOnly(id: number, note = ''): Promise<InvoiceActionResult> {
+  return invoiceIntakeApi.post(`${id}/confirm-red-only`, { json: { note } }).json<InvoiceActionResult>()
+}
+
+/** POST /{id}/reparse —— 重解析这张票（红票金额未识别时的唯一正解） */
+export async function reparseIntake(id: number): Promise<InvoiceActionResult> {
+  return invoiceIntakeApi.post(`${id}/reparse`).json<InvoiceActionResult>()
+}
+
 /** POST /rescan —— 手动补扫近 N 天邮件 */
 export async function rescanInvoiceIntakes(
   days = 14,

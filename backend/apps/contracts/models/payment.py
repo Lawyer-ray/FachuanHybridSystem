@@ -15,6 +15,9 @@ class InvoiceStatus(models.TextChoices):
     UNINVOICED = "UNINVOICED", "未开票"
     INVOICED_PARTIAL = "INVOICED_PARTIAL", "部分开票"
     INVOICED_FULL = "INVOICED_FULL", "已开票"
+    # 净额口径下冲红未重开时 invoiced_amount == 0，与「从没开过票」数值相同但业务
+    # 不是一回事：财务主动冲红了。不给它一档，界面就只能把两者混成「未开票」。
+    VOIDED_PENDING_REISSUE = "VOIDED_PENDING_REISSUE", "已冲红待重开"
 
 
 class ContractPayment(models.Model):

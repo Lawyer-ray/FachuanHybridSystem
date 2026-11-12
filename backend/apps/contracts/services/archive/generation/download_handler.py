@@ -15,6 +15,22 @@ from .document_generator import generate_single_archive_document
 
 logger = logging.getLogger("apps.contracts.archive")
 
+#: 红票文件名尾标（与 ``invoice_file_service.VOIDED_NAME_MARKER`` 同一命名规则）
+VOIDED_NAME_MARKER = "红字开具"
+
+
+def _looks_voided(material: FinalizedMaterial) -> bool:
+    """纯兜底：文件名带「红字开具」的归档材料不进卷宗。
+
+    **不查 ``Invoice`` 表**：``FinalizedMaterial`` 只有 ``file_path``，反查不回发票记录，
+    而这条规则的目的正是防住那条弱关联。判据只能是合同文件夹里的**命名事实**——
+    这就是红票文件名必须带「红字开具」的第二重理由（见 ``display_filename``）。
+
+    已进卷宗的历史脏数据不会被这里删掉（只挡新生成的下载/合并），清理由巡检脚本
+    列清单后人工确认。
+    """
+    return VOIDED_NAME_MARKER in str(material.original_filename or "")
+
 
 def download_archive_item(
     contract: Contract,
@@ -75,6 +91,8 @@ def _download_uploaded_item(
             archive_item_code=archive_item_code,
         ).order_by("order", "-uploaded_at")
     )
+    # 闸 3：显式挂到「收费凭证」的红票也不能进卷宗（目录隔离是闸 1，这里是兜脏数据）
+    materials = [m for m in materials if not _looks_voided(m)]
 
     if not materials:
         if "委托" in archive_item_code or _is_item_by_name(contract, archive_item_code, "委托"):
@@ -92,6 +110,8 @@ def _download_uploaded_item(
                     category=MaterialCategory.INVOICE,
                 ).order_by("order", "-uploaded_at")
             )
+            # 闸 3：取「收费凭证」材料时过滤作废红票（文件名「红字开具」）
+            materials = [m for m in materials if not _looks_voided(m)]
 
         if not materials and _is_item_by_name(contract, archive_item_code, "授权"):
             materials = list(

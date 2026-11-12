@@ -11,12 +11,51 @@ import json
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import Q
 from django.http import HttpRequest
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import SafeString
 
-from apps.contracts.models import InvoiceIntake, InvoiceIntakeStatus
+from apps.contracts.models import Invoice, InvoiceIntake, InvoiceIntakeStatus
 from apps.core.admin.base import BaseModelAdmin
+
+
+class RedAgainstMissingFilter(admin.SimpleListFilter):
+    """巡检筛选：「红票但原票不在库」。
+
+    ## 为什么需要这个筛选
+
+    红票的裁定链路要求 ``offset_invoice`` 存在（原票已落账才能冲），否则硬拦。
+    但两种数据会停在“红票在池里、原票却查不到”的半死状态：
+
+    - 客户发来的红票对应的那张蓝票从未经过本系统（纸票/他系统开票）；
+    - 历史数据：扫描层还没写 ``offset_invoice`` 时入池的红票。
+
+    这些票用户点“冲红”只会得到错误，得人工处理。财务需要一份清单把它们捞出来，
+    否则它们会一直躺在待认领里。
+    """
+
+    title = "冲红巡检"
+    parameter_name = "red_offset"
+
+    def lookups(self, request: HttpRequest, model_admin: Any) -> list[tuple[str, str]]:
+        return [
+            ("missing", "红票但原票不在库"),
+            ("red_only", "只看红票"),
+        ]
+
+    def queryset(self, request: HttpRequest, queryset: Any) -> Any:
+        if self.value() == "red_only":
+            return queryset.filter(red_against_number__gt="")
+        if self.value() == "missing":
+            red_number_q = Q(red_against_number__gt="") | Q(total_amount__lt=0)
+            offset_numbers = Invoice.objects.filter(invoice_number__gt="").values("invoice_number")
+            return (
+                queryset.filter(red_number_q)
+                .exclude(offset_invoice__isnull=False)
+                .exclude(red_against_number__in=offset_numbers)
+            )
+        return queryset
 
 
 @admin.register(InvoiceIntake)
@@ -24,6 +63,8 @@ class InvoiceIntakeAdmin(BaseModelAdmin):  # pragma: no cover
     list_display = [
         "id",
         "invoice_number",
+        "is_red",
+        "red_against_number",
         "total_amount",
         "buyer_name",
         "project_code",
@@ -31,7 +72,12 @@ class InvoiceIntakeAdmin(BaseModelAdmin):  # pragma: no cover
         "suggested_contract",
         "created_at",
     ]
-    list_filter: ClassVar = ["status", "invoice_date", "created_at"]
+    list_filter: ClassVar = [
+        "status",
+        "invoice_date",
+        "created_at",
+        RedAgainstMissingFilter,
+    ]
     search_fields: ClassVar = ("invoice_number", "buyer_name", "project_code", "remark", "original_filename")
     autocomplete_fields: ClassVar = (
         "inbox_message",
@@ -45,6 +91,9 @@ class InvoiceIntakeAdmin(BaseModelAdmin):  # pragma: no cover
         "dedupe_key",
         "match_snapshot_pretty",
         "remark",
+        "is_red",
+        "offset_invoice",
+        "supersedes_intake",
         "created_at",
         "updated_at",
     ]
@@ -67,6 +116,19 @@ class InvoiceIntakeAdmin(BaseModelAdmin):  # pragma: no cover
                     "project_code",
                     "remark",
                 )
+            },
+        ),
+        (
+            "冲红信息（只读）",
+            {
+                "fields": (
+                    "is_red",
+                    "red_against_number",
+                    "red_confirmation_no",
+                    "offset_invoice",
+                    "supersedes_intake",
+                ),
+                "description": "红字发票的冲销关系。待认领链路的裁定动作在前端「冲红重开」卡，后台只展示。",
             },
         ),
         ("系统建议（只读）", {"fields": ("suggested_contract", "suggested_payment", "match_snapshot_pretty")}),
@@ -99,6 +161,16 @@ class InvoiceIntakeAdmin(BaseModelAdmin):  # pragma: no cover
             '<span style="background:{};color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">{}</span>',
             color,
             obj.get_status_display(),
+        )
+
+    @admin.display(description="红票", boolean=False)
+    def is_red(self, obj: InvoiceIntake) -> SafeString:
+        """红底徽标。非红票给短横，不用空字符串（空单元格在列表里像“漏了”）。"""
+        if not obj.is_red:
+            return format_html("<span style='color:#adb5bd'>{}</span>", "—")
+        return format_html(
+            '<span style="background:#dc3545;color:#fff;padding:2px 8px;border-radius:10px;font-size:12px">{}</span>',
+            "红字",
         )
 
     @admin.display(description="匹配快照")

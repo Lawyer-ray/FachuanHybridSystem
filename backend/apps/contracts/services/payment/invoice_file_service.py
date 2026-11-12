@@ -19,6 +19,19 @@
 
 第二段是「锦上添花」：合同未绑定文件夹 / 云存储绑定 / 目录不可达时静默跳过并
 在返回值里说明原因，不影响开票记账本身。
+
+## 红字发票（冲销票）的落点分流
+
+红票与重开蓝票常同日同合同（开票日期相同、合同名相同），不改名必然在合同文件夹里
+撞名，所以红票命名尾部换成 `YYYYMMDD红字开具`；落点也换成 `<发票目录>/已冲红/`，
+连同被它冲销的原票一起移进去。
+
+**为什么是目录隔离而不是归档期过滤**：`FinalizedMaterial` 才是归档材料来源，
+只要扫描时看不到作废票，归档天然干净；归档代码里每多一条判断，就多一次将来被
+漏改的机会。「冲红票和旧票新建一个文件夹单独放」是用户拍定的口径。
+
+`已冲红/` 按需创建（没有冲红的项目不该多一个空目录），移入是**移动而非复制**——
+`Invoice.folder_subpath` 是单一可信位置，根目录里不允许再留一份。
 """
 
 from __future__ import annotations
@@ -38,7 +51,13 @@ from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.contracts")
 
-__all__ = ["InvoiceFileService", "SavedInvoice"]
+__all__ = ["InvoiceFileService", "SavedInvoice", "VOIDED_DIR_NAME", "invoice_voided_by", "is_voided"]
+
+#: 冲红隔离目录名（挂在发票目录下）。闸 2（文件夹扫描）与闸 3（归档材料）都按这个名字 /
+#: 文件名里的「红字开具」识别作废票，改这里必须同步改那两处
+VOIDED_DIR_NAME = "已冲红"
+#: 红票文件名的尾部标记（`YYYYMMDD红字开具.pdf`）。归档闸 3 只能靠它判断作废票
+VOIDED_NAME_MARKER = "红字开具"
 
 
 @dataclass(frozen=True)
@@ -162,6 +181,85 @@ def _media_abs(rel_path: str) -> str:
     return str(Path(settings.MEDIA_ROOT) / rel_path)
 
 
+# ── 作废派生（不落库）─────────────────────────────────────────────
+
+
+def _invoice_contract_id(invoice: Any) -> int | None:
+    """发票归属的合同：挂收款时跟收款走，先开票后付款时直接挂合同。"""
+    contract_id = getattr(invoice, "contract_id", None)
+    if contract_id:
+        return int(contract_id)
+    payment = getattr(invoice, "payment", None) if getattr(invoice, "payment_id", None) else None
+    payment_contract_id = getattr(payment, "contract_id", None)
+    return int(payment_contract_id) if payment_contract_id else None
+
+
+def invoice_voided_by(invoice: Any) -> Any | None:
+    """返回冲销这张票的那张**已确认红票** ``Invoice``（没有则 ``None``）。
+
+    判据全部是账务事实，不查任何布尔位：
+
+    1. 存在一条 ``CONFIRMED`` 的 ``InvoiceIntake``，其 ``offset_invoice`` 指向本票；
+    2. 该 intake 自己确实是红票（``is_red``：票面有被冲蓝票号或金额为负）；
+    3. 它落成的那张 ``Invoice`` 存在且金额为负。
+
+    第 2 条故意加“票面有被冲蓝票号”：解析失败的红票可能 ``total_amount`` 为空，
+    这时若只看金额，冲销关系成立但证据不完整；而**金额未知时不允许冲红**（会让
+    账目 ``Sum`` 少一笔负数），所以那种 intake 永远不可能被确认，这里自然排除。
+
+    作废状态不落字段（不加 ``is_void``）：作废是由“同项目存在冲销它的已确认红票”
+    派生的，存一份就有两份真相，而归档安全正是靠这个派生永远自洽。
+    """
+    from apps.contracts.models import Invoice, InvoiceIntake, InvoiceIntakeStatus
+
+    invoice_id = getattr(invoice, "pk", None)
+    if invoice_id is None:
+        return None
+    red_invoice_ids = (
+        InvoiceIntake.objects.filter(
+            status=InvoiceIntakeStatus.CONFIRMED,
+            offset_invoice_id=invoice_id,
+            invoice__isnull=False,
+        )
+        .exclude(red_against_number="")
+        .values_list("invoice_id", flat=True)
+    )
+    found: Any = Invoice.objects.filter(pk__in=list(red_invoice_ids), total_amount__lt=0).order_by("pk").first()
+    return found
+
+
+def is_voided(invoice: Any) -> bool:
+    """是否已被红票冲销（``invoice_voided_by`` 的布尔形式，供 UI/报告直接问）。"""
+    return invoice_voided_by(invoice) is not None
+
+
+def _is_red_facts(*, number: object, total_amount: Decimal | None) -> bool:
+    """红票判据（票面事实）：备注栏有被冲蓝票号，或价税合计为负。
+
+    ``number`` 只认**真字符串**。不能只写 ``if number``：调用方给的可能是一个
+    Mock 属性（单测里 ``parsed`` 常是 MagicMock，未设该字段），而 ``str(Mock)``
+    是一个非空串 ``<MagicMock ...>``——那会把每一张普通蓝票都判成红票
+    （实测：集成测试里票价 ¥30,000 的普通票被命名成「红字开具」）。
+    """
+    if isinstance(number, str) and number.strip():
+        return True
+    return total_amount is not None and total_amount < 0
+
+
+def _invoice_is_red(invoice: Any) -> bool:
+    """已有的 ``Invoice`` 是不是红票。
+
+    既看票面事实（金额为负），也看生成它的 intake 的 ``is_red``：票据被登记为
+    红票却没识别出金额时，文件名仍必须带红字标记，否则与重开蓝票必然撞名。
+    """
+    if getattr(invoice, "total_amount", None) is not None and invoice.total_amount < 0:
+        return True
+    from apps.contracts.models import InvoiceIntake
+
+    intake = InvoiceIntake.objects.filter(invoice_id=invoice.pk).first()
+    return bool(getattr(intake, "is_red", False)) if intake is not None else False
+
+
 class InvoiceFileService:
     """发票落库：挂某条收款（先付款后开票）或挂合同（先开票后付款）。"""
 
@@ -185,6 +283,7 @@ class InvoiceFileService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         to_contract_folder: bool = True,
+        reject_duplicated_number: bool = False,
     ) -> SavedInvoice:
         """保存一张发票。挂靠二选一：
 
@@ -194,6 +293,11 @@ class InvoiceFileService:
 
         `parsed` 是 invoice_recognition 的 ``ParsedInvoice``（可为 None：纯上传不识别）。
         识别字段只作为**建议值**写入，律师可在前端改动后再提交。
+
+        `reject_duplicated_number=True` 把“同号发票已存在”从**提示**升级为**拒收**：
+        待认领确认（``confirm_invoice_intake`` / ``confirm_red_reenact``）走这条，
+        因为那里的同号票几乎必然是“同一张票被确认了两次”；而人手拖文件上传时
+        “重传同一张票覆盖”是真实场景，那条路径保持 ``False``（只提示不拦）。
         """
         from apps.contracts.admin.wiring_admin import get_invoice_upload_service
         from apps.contracts.models import Invoice
@@ -238,6 +342,12 @@ class InvoiceFileService:
                 | Q(contract_id=contract_id, invoice_number=number)
             ).exists()
         )
+        if duplicated and reject_duplicated_number:
+            raise ValidationException(
+                message=f"发票号码 {number} 已在本项目入账，不能重复确认",
+                code="INVOICE_NUMBER_DUPLICATED",
+                errors={"invoice_number": number},
+            )
 
         # 识别字段回填到刚建的那条 Invoice（只写回有值的字段，不覆盖上传原值）
         invoice.invoice_code = code
@@ -248,6 +358,9 @@ class InvoiceFileService:
         invoice.total_amount = total_amount
         invoice.seller_name = self._safe_part(seller, limit=120)
         invoice.buyer_name = self._safe_part(buyer, limit=120)
+        # 不包 ``str()``：包装会把 Mock 属性的 ``<MagicMock ...>`` 变成非空串，
+        # 让类型判断失效。判据自己只认真字符串（见 _is_red_facts）。
+        is_red = _is_red_facts(number=getattr(parsed, "red_against_number", "") or "", total_amount=total_amount)
         invoice.save(
             update_fields=[
                 "invoice_code",
@@ -274,6 +387,7 @@ class InvoiceFileService:
                 user=user,
                 org_access=org_access,
                 perm_open_access=perm_open_access,
+                is_red=is_red,
             )
 
         return SavedInvoice(
@@ -284,6 +398,7 @@ class InvoiceFileService:
                 seller=seller,
                 inv_date=inv_date,
                 ext=_ext(file_path),
+                is_red=is_red,
             ),
             file_path=file_path,
             file_url=f"{_media_url()}{file_path}",
@@ -490,6 +605,7 @@ class InvoiceFileService:
             seller=str(invoice.seller_name or ""),
             inv_date=invoice.invoice_date,
             ext=_ext(invoice.file_path),
+            is_red=_invoice_is_red(invoice),
         )
 
         source = Path(_media_abs(invoice.file_path))
@@ -598,10 +714,18 @@ class InvoiceFileService:
         self._recompute_invoiced_amount(payment)
 
     def _recompute_invoiced_amount(self, payment: Any) -> None:
-        """按发票合计**全量重算** invoiced_amount 与开票状态（不越过收款金额上限）。
+        """按发票合计**全量重算** invoiced_amount 与开票状态。
 
         全量重算而不是增量累加：增删任一发票都能得到同一个正确答案；增量法在并发
         上传两张时会各自基于旧值相加，最终多算一次。
+
+        口径（已定稿）：``invoiced_amount`` 是**净额**（``Sum`` 含红票负数）。上限
+        只对**正数**成立——红票让合计变负是合法的中间态（冲红后尚未重开），用 ``min()``
+        截断会把这个中间态错算成“已全额开票”，而此刻一张有效票都没有；负数放行，
+        最后统一 ``max(0)`` 兜底（模型约束 ``chk_contractpayment_invoiced_nonneg``）。
+
+        净额下“冲红未重开”与“从没开过票”都是 0，必须靠 ``VOIDED_PENDING_REISSUE``
+        区分：财务主动冲红和从没开票是两件事。
         """
         from django.db.models import Sum
 
@@ -611,10 +735,14 @@ class InvoiceFileService:
         invoiced = Decimal(str(total)) if total is not None else Decimal("0")
         payment_amount = Decimal(str(payment.amount))
         # 开票金额不得超过收款金额（模型约束 chk_contractpayment_invoiced_le_amount）
-        invoiced = min(invoiced, payment_amount)
+        if invoiced > 0:
+            invoiced = min(invoiced, payment_amount)
+        invoiced = max(invoiced, Decimal("0"))
 
         if invoiced == 0:
-            status = InvoiceStatus.UNINVOICED
+            status = (
+                InvoiceStatus.VOIDED_PENDING_REISSUE if self._has_confirmed_red(payment) else InvoiceStatus.UNINVOICED
+            )
         elif invoiced < payment_amount:
             status = InvoiceStatus.INVOICED_PARTIAL
         else:
@@ -623,6 +751,17 @@ class InvoiceFileService:
         payment.invoiced_amount = invoiced
         payment.invoice_status = status
         payment.save(update_fields=["invoiced_amount", "invoice_status", "updated_at"])
+
+    def _has_confirmed_red(self, payment: Any) -> bool:
+        """这笔收款名下是否存在红票（金额为负）。
+
+        只看 ``Invoice``：发票记录**只由确认产生**（待认领仍在池子里时一笔都没落），
+        所以“名下有张负额 Invoice”就等于“有张已确认的红票”——不必再回查 intake，
+        也不必管它是手工上传还是待认领确认来的。
+        """
+        from apps.contracts.models import Invoice
+
+        return Invoice.objects.filter(payment_id=payment.id, total_amount__lt=0).exists()
 
     def _mirror_to_contract_folder(
         self,
@@ -634,11 +773,15 @@ class InvoiceFileService:
         user: Any | None,
         org_access: dict[str, Any] | None,
         perm_open_access: bool,
+        is_red: bool = False,
     ) -> tuple[str, str]:
         """把发票复制到合同绑定文件夹的发票目录下（失败只记录原因，不抛）。
 
         发票目录不固定在顶层：律所模板多为 `1-律师资料/3-发票`，先在两层目录内
         找名字以「发票」结尾的目录（`发票` / `3-发票` 都认），没有才在顶层建 `发票/`。
+
+        `is_red=True` 时落到 `<发票目录>/已冲红/`（按需创建）：红票与重开蓝票同日同合同，
+        混在同一层不仅容易看起来像两张有效票，也让归档要额外判断。
         """
         from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
 
@@ -655,11 +798,19 @@ class InvoiceFileService:
             logger.info("invoice_folder_mirror_skipped", extra={"contract_id": contract_id, "reason": str(exc)})
             return "", _skip_reason(exc)
 
+        if is_red:
+            try:
+                subpath = self._ensure_voided_dir(service, contract_id, subpath, access)
+            except Exception as exc:
+                logger.warning("invoice_voided_dir_mkdir_failed", extra={"subpath": subpath}, exc_info=True)
+                return "", _skip_reason(exc)
+
         display_name = self.display_filename(
             contract_name=contract_name,
             seller=str(invoice.seller_name or ""),
             inv_date=inv_date,
             ext=_ext(invoice.file_path),
+            is_red=is_red,
         )
         try:
             saved = service.save_upload_bytes(
@@ -674,6 +825,158 @@ class InvoiceFileService:
             return "", _skip_reason(exc)
 
         return str(saved.get("subpath") or ""), ""
+
+    def _ensure_voided_dir(self, service: Any, contract_id: int, invoice_dir: str, access: dict[str, Any]) -> str:
+        """`<发票目录>/已冲红/` 的 subpath，不存在则建（**按需创建**）。
+
+        空目录在 Finder 里是噪声，也不该污染律所模板目录，所以只在真要写入时建。
+        并发下另一次冲红已建好同名目录时 mkdir 会报“同名项目已存在”，直接当已存在处理。
+        """
+        target = f"{invoice_dir}/{VOIDED_DIR_NAME}" if invoice_dir else VOIDED_DIR_NAME
+        try:
+            entries = service.list_entries(owner_id=contract_id, subpath=invoice_dir, **access)
+        except Exception:
+            entries = {}
+        for folder in entries.get("folders") or []:
+            if isinstance(folder, dict) and str(folder.get("name") or "").strip() == VOIDED_DIR_NAME:
+                return str(folder.get("subpath") or target)
+        try:
+            created = service.mkdir(owner_id=contract_id, subpath=invoice_dir, name=VOIDED_DIR_NAME, **access)
+            return str(created.get("subpath") or target)
+        except Exception:
+            logger.info("invoice_voided_dir_mkdir_skipped", extra={"subpath": target})
+            return target
+
+    @transaction.atomic
+    def move_invoice_to_voided(
+        self,
+        *,
+        invoice_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> str:
+        """把原票移进 `<发票目录>/已冲红/` 并写回 ``folder_subpath``，返回新 subpath。
+
+        **移动而非复制**：原票从发票目录移出，不允许“根目录一份 + 已冲红一份”；
+        ``folder_subpath`` 是撤销时确定位置的唯一依据，不许出现两份。
+        未镜像到合同文件夹（``folder_subpath`` 为空）时返回空串（media 副本仍在）。
+        """
+        return self._relocate_voided(
+            invoice_id, to_voided=True, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+
+    @transaction.atomic
+    def move_invoice_back_from_voided(
+        self,
+        *,
+        invoice_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> str:
+        """撤销时把原票从 `已冲红/` 移回发票目录，并写回 ``folder_subpath``。
+
+        整组撤销必须移回：半截状态（红票删了、原票还在 `已冲红/`）是比错账更难查的
+        东西。不在 `已冲红/` 里时原样返回旧 subpath（幂等，可重入）。
+        """
+        return self._relocate_voided(
+            invoice_id, to_voided=False, user=user, org_access=org_access, perm_open_access=perm_open_access
+        )
+
+    def _relocate_voided(
+        self,
+        invoice_id: int,
+        *,
+        to_voided: bool,
+        user: Any | None,
+        org_access: dict[str, Any] | None,
+        perm_open_access: bool,
+    ) -> str:
+        """冲红目录与发票目录之间的文件搬运（两个公开方法的共用实现）。
+
+        **为什么直接用 pathlib 而不走 ``ContractFolderBrowseService``**：浏览服务只提供
+        ``rename``（同目录改名）/ ``copy_entry`` + ``delete_entry``（两步，中间失败就留下
+        两份或零份）。本动作要求“要么原位要么位置”，而且我们手里已经有绑定根的绝对路径，
+        查一次目录列表就能校验“源在已冲红 / 目标不在已冲红”，然后 ``Path.replace``
+        在同文件系统上一步完成——比“复制 + 软删”少一半失败面。
+
+        ACL 仍走合同行级鉴权（``ensure_contract_access``），路径合法仍用 ``Path.relative_to``
+        校验不越出绑定根（等价于 ``is_within_root``），不新开豁口。
+        """
+        from apps.contracts.models import Invoice
+        from apps.core.exceptions import NotFoundError, ValidationException
+
+        try:
+            invoice = Invoice.objects.select_related("payment__contract", "contract").get(pk=invoice_id)
+        except Invoice.DoesNotExist:
+            raise NotFoundError(message="发票不存在", code="INVOICE_NOT_FOUND") from None
+
+        contract_id = _invoice_contract_id(invoice)
+        self.ensure_contract_access(contract_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
+        subpath = str(getattr(invoice, "folder_subpath", "") or "")
+        if contract_id is None or not subpath:
+            return subpath
+
+        from apps.contracts.services.contract.integrations.folder_browse_service import ContractFolderBrowseService
+
+        access: dict[str, Any] = {"user": user, "org_access": org_access, "perm_open_access": perm_open_access}
+        service = ContractFolderBrowseService()
+        try:
+            root = service._local_root(contract_id)  # 子类钩子，取绑定根是唯一来源
+        except Exception as exc:  # 未绑定 / 云存储 / 目录不可达：不阻断裁定，folder_subpath 保持原值
+            logger.info(
+                "invoice_folder_relocate_root_unreachable",
+                extra={"contract_id": contract_id, "reason": _skip_reason(exc)},
+            )
+            return subpath
+        source = root / subpath
+        if not source.is_file():
+            logger.info(
+                "invoice_folder_relocate_source_missing", extra={"contract_id": contract_id, "subpath": subpath}
+            )
+            return subpath
+
+        # `Path("")` 是 `Path(".")`，直接当父目录会把文件移到 "x.pdf/已冲红/" 这种鬼路径下。
+        # 发票直接落在绑定根时 parent 为空串，这里显式收敛成 root。
+        parent_dir = root / Path(subpath).parent
+        if to_voided:
+            target_dir = parent_dir / VOIDED_DIR_NAME
+            target_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            # 撤回到发票目录：`<发票目录>/已冲红/x.pdf` → `<发票目录>/x.pdf`。
+            # 不在已冲红里时 parent 就是发票目录本身，不动文件（幂等）。
+            in_voided = parent_dir.name == VOIDED_DIR_NAME
+            target_dir = parent_dir.parent if in_voided else parent_dir
+        if not target_dir.is_dir():
+            raise ValidationException(message="发票目录不存在，无法移动发票", errors={"subpath": subpath})
+
+        target = target_dir / source.name
+        if target.is_file() and target.resolve() == source.resolve():
+            return subpath
+        if target.exists():
+            # 同名不同件：加序号，宁可多一个后缀也不覆盖任何一份原件。
+            # 同件（上一轮已移完但 folder_subpath 没落库）时 replace 不会重复写内容。
+            target = service._unique_destination(target_dir, source.name)
+        source.replace(target)  # 同一文件系统内的原子改名（跨目录就是移动）
+
+        try:
+            new_subpath = target.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            raise ValidationException(message="发票移动目标越界", errors={"subpath": subpath}) from None
+
+        Invoice.objects.filter(pk=invoice.pk).update(folder_subpath=new_subpath)
+        logger.info(
+            "invoice_folder_voided_relocated",
+            extra={
+                "contract_id": contract_id,
+                "invoice_id": invoice.pk,
+                "from": subpath,
+                "to": new_subpath,
+                "to_voided": to_voided,
+            },
+        )
+        return new_subpath
 
     def _locate_invoice_dir(self, service: Any, contract_id: int, access: dict[str, Any]) -> str:
         """在绑定文件夹两层内找发票目录；找不到就在顶层建 `发票/`。返回子目录 subpath。"""
@@ -713,7 +1016,9 @@ class InvoiceFileService:
         cleaned = name.strip()
         return cleaned.endswith(cls.FOLDER_NAME) and len(cleaned) <= 12
 
-    def display_filename(self, *, contract_name: str, inv_date: date | None, ext: str, seller: str = "") -> str:
+    def display_filename(
+        self, *, contract_name: str, inv_date: date | None, ext: str, seller: str = "", is_red: bool = False
+    ) -> str:
         """`发票（{合同名称}）_YYYYMMDD开具.pdf`——沿用律所手工命名习惯。
 
         括号里是**合同/案件名称**（律师按案找票，名称才是检索键；销售方在数电票
@@ -721,10 +1026,21 @@ class InvoiceFileService:
         保证整名不超 macOS 255 字节文件名上限。名称缺失时退销售方，再退「发票」。
         开票日期识别不出则省略日期段；金额不进文件名（窗口里几十个 ¥9,000
         无区分度）。
+
+        `is_red=True` 时尾部换成 `YYYYMMDD红字开具`。两条理由都不允许商量：
+
+        1. 同一天的红票与重开蓝票**开票日期相同、合同名相同**，不改就必然在合同
+           文件夹里撞名（`_已删除/` 只能救一次）；
+        2. **归档闸 3 依赖它**：`FinalizedMaterial` 只有 `file_path`，反查不回
+           `Invoice`，兜底判据只能是文件名里的「红字开具」。命名与归档安全因此闭环。
+
+        ⚠ 只对**新建**发票生效，已入库的历史票不被重命名。
         """
         base = self._safe_part(contract_name, limit=100) or self._safe_part(seller, limit=60)
         head = f"发票（{_clip_utf8(base, max_bytes=210)}）" if base else "发票"
-        tail = inv_date.strftime("%Y%m%d") + "开具" if inv_date else ""
+        tail = ""
+        if inv_date:
+            tail = inv_date.strftime("%Y%m%d") + (VOIDED_NAME_MARKER if is_red else "开具")
         stem = "_".join(p for p in (head, tail) if p)
         return f"{stem}{ext or '.pdf'}"
 

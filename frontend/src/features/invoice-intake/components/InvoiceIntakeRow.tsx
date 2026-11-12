@@ -1,7 +1,7 @@
 import { ArrowRightLeft, Check, Info } from 'lucide-react'
 
-import { MATCH_KIND_STYLES, PAYMENT_PICK_LABELS } from '../constants'
-import { amountText, canConfirm, invoiceHeadline } from '../domain'
+import { MATCH_KIND_STYLES, PAYMENT_PICK_LABELS, RED_TONE } from '../constants'
+import { amountText, canConfirm, invoiceHeadline, isRed, redHeadline } from '../domain'
 import type { InvoiceIntake } from '../types'
 import { ROW_BTN } from '@/components/shared/panel-styles'
 import { cn } from '@/lib/utils'
@@ -31,12 +31,16 @@ export function InvoiceIntakeRow({
   onChange: () => void
   onDetail: () => void
 }) {
+  // 红票单独一行时（组不成 RedGroup）也必须一眼看出它是红的：不能沿用
+  // 「确定性匹配 ✓」那一套——那会被读成「这张票匹配成功、可以入账」，
+  // 而红票的语义恰好相反（D5 的核心误读）。
+  const red = isRed(intake)
   // 徽标表达「系统最看重哪一条信号」，取候选里最高等级的那档
   const rows = intake.candidates ?? []
-  const kind = rows.find((c) => c.kind === 'project_code')?.kind ?? rows[0]?.kind
+  const kind = red ? null : (rows.find((c) => c.kind === 'project_code')?.kind ?? rows[0]?.kind)
   const style = kind ? MATCH_KIND_STYLES[kind] : null
-  const headline = invoiceHeadline(intake)
-  const hasSuggestion = intake.suggested_contract_id != null
+  const headline = red ? redHeadline(intake) : invoiceHeadline(intake)
+  const hasSuggestion = !red && intake.suggested_contract_id != null
   const confidence = intake.payment_pick_confidence
 
   return (
@@ -45,14 +49,14 @@ export function InvoiceIntakeRow({
       <div className="flex items-baseline gap-2">
         <span className="text-[14px] leading-none font-semibold tabular-nums">{amountText(intake)}</span>
         <span className="text-[10.5px] text-muted-foreground">{intake.invoice_date ?? '日期未识别'}</span>
-        {style && (
+        {(style || red) && (
           <span
             className={cn(
               'ml-auto flex-none rounded-[99px] border px-[7px] py-[1px] text-[10px] font-semibold',
-              style.chip,
+              red ? RED_TONE.chip : style!.chip,
             )}
           >
-            {style.label}
+            {red ? RED_TONE.label : style!.label}
           </span>
         )}
       </div>
@@ -67,7 +71,9 @@ export function InvoiceIntakeRow({
           hasSuggestion ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
-        {hasSuggestion ? (
+        {red ? (
+          <Info className={cn('mt-[1px] h-3 w-3 flex-none', RED_TONE.tone)} aria-hidden />
+        ) : hasSuggestion ? (
           <Check className="mt-[1px] h-3 w-3 flex-none text-status-green" aria-hidden />
         ) : (
           <Info className="mt-[1px] h-3 w-3 flex-none opacity-50" aria-hidden />
@@ -80,7 +86,11 @@ export function InvoiceIntakeRow({
         <div
           className={cn(
             'mt-[2px] truncate pl-4 text-[10.5px]',
-            confidence === 'amount_mismatch' ? 'text-status-yellow' : 'text-muted-foreground',
+            confidence === 'amount_mismatch'
+              ? 'text-status-yellow'
+              : confidence === 'red_unmatched'
+                ? RED_TONE.tone
+                : 'text-muted-foreground',
           )}
         >
           {PAYMENT_PICK_LABELS[confidence]}
@@ -111,7 +121,13 @@ export function InvoiceIntakeRow({
             disabled={busy || !canConfirm(intake)}
             onClick={onConfirm}
             className={cn(ROW_BTN, 'font-semibold')}
-            title={hasSuggestion ? '采纳系统建议，绑定到该项目' : '系统未给出可信建议，请选「换个项目」'}
+            title={
+              red
+                ? '红字发票不能走普通确认，请用「冲红并确认重开」'
+                : hasSuggestion
+                  ? '采纳系统建议，绑定到该项目'
+                  : '系统未给出可信建议，请选「换个项目」'
+            }
           >
             <Check className="h-3 w-3" aria-hidden />
             确认绑定

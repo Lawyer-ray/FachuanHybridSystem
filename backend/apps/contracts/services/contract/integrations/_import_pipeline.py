@@ -25,6 +25,18 @@ from .quality_card_detector import has_quality_card_on_last_page
 
 logger = logging.getLogger(__name__)
 
+#: 红票文件名尾标（与 ``invoice_file_service.VOIDED_NAME_MARKER`` 同一命名规则）
+VOIDED_NAME_MARKER = "红字开具"
+
+
+def _looks_voided(filename: str) -> bool:
+    """闸 2 的判据：文件名含「红字开具」即作废红票。
+
+    只认命名，不查库：候选来自合同文件夹，此时它还没落成任何 ``Invoice`` 记录，
+    而“这张文件属于哪张票”正是本步骤要定的东西——查库是循环依赖。
+    """
+    return VOIDED_NAME_MARKER in str(filename or "")
+
 
 class ImportPipeline:
     """合同扫描确认导入流水线。"""
@@ -56,11 +68,22 @@ class ImportPipeline:
 
         imported_count = 0
         skipped_dupes = 0
+        skipped_voided = 0
         for item in items:
             if not bool(item.get("selected", True)):
                 continue
 
             source_path = str(item.get("source_path") or "").strip()
+            # 闸 2：作废红票（文件名含「红字开具」）永不导入，即使调用方把它勾上了。
+            # 扫描层已在目录级与候选级各挡一次，这里挡的是“历史会话/手工传参”进来的脏候选，
+            # 它们一旦落成 FinalizedMaterial 就会被打进交付包（一张负数发票交出去是能上投诉的）。
+            if _looks_voided(str(item.get("filename") or PurePosixPath(source_path).name)):
+                skipped_voided += 1
+                logger.info(
+                    "material_voided_skipped",
+                    extra={"contract_id": contract_id, "source_path": source_path},
+                )
+                continue
             if not source_path or source_path not in candidate_map:
                 raise ValidationException(message="候选文件不存在", errors={"source_path": source_path})
 
@@ -204,6 +227,7 @@ class ImportPipeline:
         payload["import_result"] = {
             "imported_count": imported_count,
             "skipped_dupes": skipped_dupes,
+            "skipped_voided": skipped_voided,
             "imported_at": timezone.now().isoformat(),
         }
         payload["confirmed_work_log_suggestions"] = confirmed_logs
@@ -228,6 +252,7 @@ class ImportPipeline:
             "session_id": str(session.id),
             "status": ContractFolderScanStatus.IMPORTED,
             "imported_count": imported_count,
+            "skipped_voided": skipped_voided,
             "work_log_imported": work_log_imported,
         }
 
