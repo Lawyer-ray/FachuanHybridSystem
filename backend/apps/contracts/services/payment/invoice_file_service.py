@@ -233,9 +233,15 @@ def is_voided(invoice: Any) -> bool:
     return invoice_voided_by(invoice) is not None
 
 
-def _is_red_facts(*, number: str, total_amount: Decimal | None) -> bool:
-    """红票判据（票面事实）：备注栏有被冲蓝票号，或价税合计为负。"""
-    if number:
+def _is_red_facts(*, number: object, total_amount: Decimal | None) -> bool:
+    """红票判据（票面事实）：备注栏有被冲蓝票号，或价税合计为负。
+
+    ``number`` 只认**真字符串**。不能只写 ``if number``：调用方给的可能是一个
+    Mock 属性（单测里 ``parsed`` 常是 MagicMock，未设该字段），而 ``str(Mock)``
+    是一个非空串 ``<MagicMock ...>``——那会把每一张普通蓝票都判成红票
+    （实测：集成测试里票价 ¥30,000 的普通票被命名成「红字开具」）。
+    """
+    if isinstance(number, str) and number.strip():
         return True
     return total_amount is not None and total_amount < 0
 
@@ -352,7 +358,9 @@ class InvoiceFileService:
         invoice.total_amount = total_amount
         invoice.seller_name = self._safe_part(seller, limit=120)
         invoice.buyer_name = self._safe_part(buyer, limit=120)
-        is_red = _is_red_facts(number=str(getattr(parsed, "red_against_number", "") or ""), total_amount=total_amount)
+        # 不包 ``str()``：包装会把 Mock 属性的 ``<MagicMock ...>`` 变成非空串，
+        # 让类型判断失效。判据自己只认真字符串（见 _is_red_facts）。
+        is_red = _is_red_facts(number=getattr(parsed, "red_against_number", "") or "", total_amount=total_amount)
         invoice.save(
             update_fields=[
                 "invoice_code",
