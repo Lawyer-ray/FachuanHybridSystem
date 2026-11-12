@@ -80,8 +80,10 @@ def save_temp_upload(uploaded_file: IO[bytes], *, filename: str) -> Path:
             for chunk in iter(lambda: uploaded_file.read(1024 * 1024), b""):
                 handle.write(chunk)
     except OSError as exc:
+        # OSError 的文本带绝对路径、磁盘/权限细节，不能拼进用户可见文案
+        # （CodeQL py/stack-trace-exposure）：详情只进日志，对外给可操作提示
         logger.exception("合同临时文件写入失败")
-        raise ContractIntakeError(f"文件保存失败：{exc}") from exc
+        raise ContractIntakeError("文件保存失败（磁盘或权限问题），请重试或联系管理员") from exc
     return target
 
 

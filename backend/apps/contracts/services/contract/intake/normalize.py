@@ -409,15 +409,15 @@ def parse_amount(raw: str) -> tuple[Decimal | None, str]:
                 value = value * 10_000
             if best is None or value > best:
                 best = value
-        if best is not None and best > 0:
+        # 按取值区间逐一判断：每个区间只在前一个未命中时才可能走到，
+        # 所以后半段无需再重复下界（写了 ``0 < best`` 反而是恒真的冗余比较）。
+        if best is not None:
+            if best == 0:
+                return None, "合同载明律师费为 0，请人工确认"
+            if best < 1:
+                # 0 与 1 之间的值高度可疑（多半是把百分比小数或序号当成了金额）
+                return None, f"金额「{text[:20]}」疑似非律师费，请人工确认"
             return best.quantize(Decimal("0.01")), ""
-        if best is not None and best == 0:
-            return None, "合同载明律师费为 0，请人工确认"
-        if best is not None and 0 < best < 1:
-            # 0 与 1 之间的数值高度可疑（多半是把百分比小数或序号当成了金额）。
-            # 下界必须显式写：上面两个分支已吃掉 >=0 的取值，单写 ``best < 1``
-            # 就是恒真的重复比较（CodeQL py/redundant-comparison）。
-            return None, f"金额「{text[:20]}」疑似非律师费，请人工确认"
 
     # 2) 退回：中文大写换算
     chinese = "".join(ch for ch in text if ch in _CN_DIGITS or ch in _CN_UNITS or ch in _CN_SECTIONS or ch == "整")
