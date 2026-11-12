@@ -370,8 +370,10 @@ class TestConfirmRedReenact:
         blue.refresh_from_db()
         assert red.status == InvoiceIntakeStatus.CONFIRMED
         assert reissue.status == InvoiceIntakeStatus.CONFIRMED
-        # 组内配对落在 supersedes_intake（重开蓝票指回红票）——撤销整组靠这条反向关系
-        assert reissue.supersedes_intake_id == red.pk
+        # 组内配对落在 supersedes_intake，语义统一为「重开蓝票 → 被替代的**原票 intake**」
+        # （与扫描层 _find_supersede_target、装配层 red_group_facts 同一口径）。
+        # 曾写成指向红票，导致装配层按原票反查不到重开票、组卡片缺 reissue 段。
+        assert reissue.supersedes_intake_id == blue.pk
         assert result["red_invoice_id"] == red.invoice_id
         assert result["new_invoice_id"] == reissue.invoice_id
 
@@ -662,7 +664,9 @@ class TestReopenRedGroup:
         assert red.invoice_id is None
         assert reissue.status == InvoiceIntakeStatus.PENDING
         assert reissue.invoice_id is None
-        assert reissue.supersedes_intake_id is None
+        # 配对**保留**：撤销的是“确认”这个动作，不是“这两张票有替代关系”这个事实。
+        # 清掉会让首页从一张组卡片退化成两行，重开票还能被当普通待办再确认一次。
+        assert reissue.supersedes_intake_id == blue.pk
 
         # 红票/重开票的 Invoice 记录已删，原票记录还在
         assert not Invoice.objects.filter(invoice_number__in=[RED_NUMBER, REISSUE_NUMBER]).exists()
@@ -698,12 +702,50 @@ class TestReopenRedGroup:
 
         # 从重开蓝票点撤销 → 走同一组，结果必须与从红票撤销一致（红票那端也要回到 pending）
         reopened = reopen_invoice_intake(intake_id=reissue.pk, user=lawyer)
+        # 返回的是组里的**红票**（无论从哪一端发起，撤销掉的是同一个组）
         assert reopened.pk == red.pk
         red.refresh_from_db()
         reissue.refresh_from_db()
         assert red.status == InvoiceIntakeStatus.PENDING
         assert reissue.status == InvoiceIntakeStatus.PENDING
+        # 配对保留（见 test_reopen_from_red_rolls_back_whole_group 的说明）
+        assert reissue.supersedes_intake_id == blue.pk
         assert not Invoice.objects.filter(invoice_number__in=[RED_NUMBER, REISSUE_NUMBER]).exists()
+
+    def test_group_lookup_is_symmetric(
+        self,
+        media_root: Path,
+        message: InboxMessage,
+        contract: Contract,
+        payment: ContractPayment,
+        folder: Path,
+        lawyer: Lawyer,
+    ) -> None:
+        """从红票与从重开票查到的组必须完全一致。
+
+        回归锚点：曾把 ``supersedes_intake_id``（原票 **intake** 的 pk）直接拿去
+        比对 ``offset_invoice_id``（原票 **Invoice** 的 pk）——两个字段类型不同，
+        从重开票端撤销时会拿错票（实测 93 vs 92），整组回滚只做对一半。
+        """
+        from apps.contracts.services.payment.invoice_intake_service import _red_group_of
+
+        blue = _confirmed_blue(message, contract, payment=payment)
+        red = _intake(message, contract, number=RED_NUMBER, amount="-10000.00", red_against=BLUE_NUMBER)
+        red.offset_invoice = blue.invoice
+        red.save(update_fields=["offset_invoice"])
+        reissue = _intake(message, contract, number=REISSUE_NUMBER, amount="10000.00")
+        confirm_red_reenact(red_intake_id=red.pk, new_intake_id=reissue.pk, user=lawyer)
+
+        red.refresh_from_db()
+        reissue.refresh_from_db()
+        from_red = _red_group_of(red)
+        from_reissue = _red_group_of(reissue)
+
+        assert from_red is not None and from_reissue is not None
+        assert from_red["red"].pk == red.pk
+        assert from_red["reissue"].pk == reissue.pk
+        assert from_reissue["red"].pk == red.pk
+        assert from_reissue["reissue"].pk == reissue.pk
 
 
 # ── 归档闸 3：两个消费者都要挡 ────────────────────────────────────

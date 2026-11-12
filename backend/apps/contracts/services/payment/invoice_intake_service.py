@@ -582,7 +582,14 @@ def confirm_red_reenact(
         red, contract_id=contract_id, payment_id=payment.pk if payment else None, invoice_id=saved_red.id, user=user
     )
     if new is not None and saved_new is not None:
-        new.supersedes_intake_id = red.pk
+        # ``supersedes_intake`` 指向**被替代的原票 intake**，不是红票。
+        #
+        # 全链路只有这一个语义（扫描层 ``_find_supersede_target`` 找的是被红票点名的
+        # 已确认原票；装配层 ``red_group_facts`` 也按原票 intake 反查重开票）。
+        # 曾写成 ``= red.pk``（指向红票），后果是：确认后装配层按原票查不到这条
+        # 重开票 → 组卡片缺 reissue 段；而一个项目里如果**不只一组**冲红重开，
+        # 按红票去配还会把别的组的重开票错配进本组。
+        new.supersedes_intake_id = _original_intake_id_of(red)
         _mark_confirmed(
             new, contract_id=contract_id, payment_id=payment.pk if payment else None, invoice_id=saved_new.id, user=user
         )
@@ -626,7 +633,10 @@ def confirm_red_reenact(
             contract_id,
             "invoice_intake_confirmed",
             user,
-            {"invoice_id": saved_new.id if saved_new else None, "supersedes_intake_id": red.pk},
+            {
+                "invoice_id": saved_new.id if saved_new else None,
+                "supersedes_intake_id": new.supersedes_intake_id,
+            },
         )
 
     logger.info(
@@ -796,24 +806,50 @@ def reopen_invoice_intake(*, intake_id: int, user: Any) -> InvoiceIntake:
     return intake
 
 
+def _original_intake_id_of(red: Any) -> int | None:
+    """红票所冲的那张原票对应的 intake id（找不到返回 ``None``）。
+
+    路径：红票 ``offset_invoice``（已入账的原票发票）→ 生成该发票的 intake。
+    这条链路是“重开票替代了谁”的唯一可靠来源：原票可能早已确认，不在 pending 里。
+    """
+    if getattr(red, "offset_invoice_id", None) is None:
+        return None
+    owner = InvoiceIntake.objects.filter(invoice_id=red.offset_invoice_id).values_list("pk", flat=True).first()
+    return int(owner) if owner is not None else None
+
+
 def _red_group_of(intake: InvoiceIntake) -> dict[str, Any] | None:
     """这条 intake 属于哪个冲红重开组（不在组里则 ``None``）。
 
-    组的键用 ``supersedes_intake`` 的双向关系（不新增字段）：
+    组用 ``supersedes_intake`` 串起，语义统一为「重开蓝票 → 被替代的**原票 intake**」
+    （与扫描层 ``_find_supersede_target``、装配层 ``red_group_facts`` 同一口径）。
 
-    - 重开蓝票 → ``supersedes_intake`` 指向红票；
-    - 红票 → 被某条蓝票 ``supersedes_intake`` 指向（反向关系）。
+    两端都要能成组，否则「从哪一端点撤销」会得到不同结果：
 
-    原票（被冲销的蓝票）的 intake 不自己成组：它只是组内要被恢复的那一端，
-    它的撤销走普通路径。
+    - 从**重开蓝票**点：``supersedes_intake`` 指向原票，要靠原票找红票；
+    - 从**红票**点：要找到把原票标为被替代的那条重开票。
+
+    原票 intake 本身不自己成组：它只是组内要被恢复的那一端（它的撤销走普通路径，
+    否则「撤销原票」会连带删掉另外两张与它无关的票）。
     """
+    # 情形一：intake 自己是重开蓝票（supersedes 指向原票 **intake**）
     if intake.supersedes_intake_id:
-        red = InvoiceIntake.objects.filter(pk=intake.supersedes_intake_id).first()
-        if red is not None:
-            return {"red": red, "reissue": intake}
-    reissue = InvoiceIntake.objects.filter(supersedes_intake_id=intake.pk).first()
-    if reissue is not None:
-        return {"red": intake, "reissue": reissue}
+        # 先把「原票 intake」换成「原票 Invoice」——红票只认 offset_invoice（Invoice FK），
+        # 两个字段类型不同，直接拿 intake id 去比 Invoice id 会拿错票。
+        original_invoice_id = (
+            InvoiceIntake.objects.filter(pk=intake.supersedes_intake_id).values_list("invoice_id", flat=True).first()
+        )
+        if original_invoice_id is not None:
+            red = InvoiceIntake.objects.filter(offset_invoice_id=original_invoice_id).exclude(pk=intake.pk).first()
+            if red is not None:
+                return {"red": red, "reissue": intake}
+
+    # 情形二：intake 自己是红票（看有没有重开票把它的原票标为被替代）
+    original_id = _original_intake_id_of(intake)
+    if original_id is not None:
+        reissue = InvoiceIntake.objects.filter(supersedes_intake_id=original_id).exclude(pk=intake.pk).first()
+        if reissue is not None:
+            return {"red": intake, "reissue": reissue}
     return None
 
 
@@ -838,7 +874,10 @@ def _reopen_red_group(group: dict[str, Any], user: Any) -> InvoiceIntake:
         _restore_invoice_folder_position(offset, contract_id, user)
 
     if reissue is not None:
-        reissue.supersedes_intake_id = None
+        # ``supersedes_intake`` **不能清**：撤销的是“确认”这个动作，不是“这两张票
+        # 有替代关系”这个事实。清掉之后两票都回到 pending，却失去了配对，
+        # 首页会从「一张冲红重开组卡片」退化成「红票一行 + 新票一行」
+        # （重开票还会被当成普通待办，再点一次就多开一张）。
         reissue.status = InvoiceIntakeStatus.PENDING
         reissue.confirmed_contract = None
         reissue.confirmed_payment = None
@@ -846,7 +885,6 @@ def _reopen_red_group(group: dict[str, Any], user: Any) -> InvoiceIntake:
         reissue.confirmed_at = None
         reissue.save(
             update_fields=[
-                "supersedes_intake",
                 "status",
                 "confirmed_contract",
                 "confirmed_payment",
