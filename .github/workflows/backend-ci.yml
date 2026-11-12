@@ -496,6 +496,14 @@ jobs:
           DB_ENGINE: "postgresql"
           TEST_DB_ENGINE: "postgresql"
           TEST_DB_NAME: "fachuan_ci_test"
+          # ⚠️ DB_NAME 必须同时给：把 TEST_DB_NAME 映射到 DB_NAME 的是 conftest.py
+          # 的 pytest_configure，**只在 pytest 会话内生效**。manage.py 不在 pytest
+          # 下，只认 DB_NAME，缺了它会去连默认的 fachuan_dev（CI 里不存在 → 直接挂）。
+          DB_NAME: "fachuan_ci_test"
+          DB_USER: "postgres"
+          DB_PASSWORD: "postgres"  # pragma: allowlist secret
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "5432"
           TEST_DB_USER: "postgres"
           TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret
           TEST_DB_HOST: "127.0.0.1"
