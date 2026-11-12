@@ -13,6 +13,7 @@ import httpx
 from asgiref.sync import sync_to_async
 
 from .protocols import CloudFileInfo
+from .providers_mixin import _RecursiveWalkMixin
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +172,7 @@ class DropboxOAuthTokenManager:  # pragma: no cover
         raise RuntimeError("授权超时，请重试")
 
 
-class DropboxProvider:  # pragma: no cover
+class DropboxProvider(_RecursiveWalkMixin):  # pragma: no cover
     """Read/write files on Dropbox using the official Python SDK."""
 
     def __init__(
@@ -314,12 +315,3 @@ class DropboxProvider:  # pragma: no cover
             size=getattr(meta, "size", 0) or 0,
             modified_at=meta.server_modified.timestamp() if hasattr(meta, "server_modified") else 0.0,
         )
-
-    def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
-        children = self.list_directory(path)
-        subdirs = [c.name for c in children if c.is_dir]
-        files = [c for c in children if not c.is_dir]
-        yield (path, subdirs, files)
-        for subdir in subdirs:
-            sub_path = f"{path.rstrip('/')}/{subdir}"
-            yield from self.walk(sub_path)

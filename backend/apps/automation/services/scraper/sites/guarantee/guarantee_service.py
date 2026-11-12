@@ -28,8 +28,6 @@ class CourtZxfwGuaranteeService(  # pragma: no cover
     GUARANTEE_URL = "https://zxfw.court.gov.cn/yzwbqww/index.html#/CreateGuarantee/applyGuaranteeInformation/gOne"
     MAX_SLOW_WAIT_MS = 180000
     DEFAULT_POLL_MS = 1200
-    DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7715"
-    DEFAULT_LEGAL_ID_NUMBER = "91440101MA59TEST8X"
 
     def __init__(self, page: Page, *, save_debug: bool = False) -> None:  # pragma: no cover
         self.page = page

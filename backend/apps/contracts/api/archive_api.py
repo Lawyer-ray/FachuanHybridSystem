@@ -331,17 +331,9 @@ async def confirm_archive(request: HttpRequest, contract_id: int) -> Any:  # pra
     if not contract:
         return HttpResponse(status=404)
 
-    contract.status = "archived"
-    await sync_to_async(contract.save)(update_fields=["status"])
+    from apps.contracts.services.archive.archive_query_service import confirm_archive as confirm_archive_service
 
-    # 自动结案关联案件
-    cases: list = await sync_to_async(lambda: list(contract.cases.all()))()
-    for case in cases:
-        if case.status != "closed":
-            case.status = "closed"
-            await sync_to_async(case.save)(update_fields=["status"])
-
-    logger.info("合同已归档: contract_id=%s", contract_id)
+    await sync_to_async(confirm_archive_service)(contract_id=contract_id)
     return ConfirmArchiveOut(success=True, message="归档确认成功")
 
 

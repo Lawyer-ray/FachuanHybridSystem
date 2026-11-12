@@ -66,12 +66,13 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
                         continue;
                     }
 
-                    if (label.includes('性别')) {
-                        const male = [...item.querySelectorAll('label, span, div')]
-                            .find((el) => isVisible(el) && norm(el.innerText) === (defaults.gender || '男性'));
-                        if (male) {
-                            male.click();
-                            result.push(`${label}=${defaults.gender || '男性'}`);
+                    const gender = norm(defaults.gender);
+                    if (label.includes('性别') && gender) {
+                        const genderOption = [...item.querySelectorAll('label, span, div')]
+                            .find((el) => isVisible(el) && norm(el.innerText) === gender);
+                        if (genderOption) {
+                            genderOption.click();
+                            result.push(`${label}=${gender}`);
                         }
                     }
 
@@ -99,13 +100,13 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
                         prefer = defaults.agent_type || '执业律师';
                     }
                     if (label.includes('单位性质')) {
-                        prefer = forceEnterpriseUnitNature ? '企业' : (defaults.unit_nature || '企业');
+                        prefer = forceEnterpriseUnitNature ? '企业' : (defaults.unit_nature || '');
                     }
                     if (label.includes('财产类型')) {
-                        prefer = defaults.property_type || '其他';
+                        prefer = defaults.property_type || '';
                     }
                     if (label.includes('房产坐落位置')) {
-                        prefer = (defaults.property_province || '广东省').replace('省', '');
+                        prefer = (defaults.property_province || '').replace('省', '');
                     }
 
                     const selected = pickOption(prefer);
@@ -139,15 +140,17 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
                     input.dispatchEvent(new Event('blur', { bubbles: true }));
                     input.blur();
                 };
+                // 出生日期只填真实值；为空就不填，不回落到伪造生日。
                 const dateMap = [
                     ['开始日期', '2020-01-01'],
                     ['结束日期', '2099-12-31'],
-                    ['选择日期', '1990-01-01'],
+                    ['选择日期', (defaults.birth_date || '').trim()],
                 ];
                 const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')]
                     .filter(isVisible)
                     .slice(-1)[0] || document;
                 for (const [placeholder, value] of dateMap) {
+                    if (!value) continue;
                     const inputs = [...dialog.querySelectorAll(`input[placeholder='${placeholder}']`)].filter((el) => isVisible(el) && !el.disabled);
                     for (const input of inputs) {
                         if ((input.value || '').trim()) continue;
@@ -180,42 +183,44 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
                 };
 
                 const partyType = (defaults.party_type || 'natural').trim();
-                const defaultNaturalId = '110101' + '19900307' + '7719';
-                const naturalId = /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim())
-                    ? (defaults.id_number || '').trim()
-                    : defaultNaturalId;
+                // 证件号留空即不填该字段（下方 `if (!value) continue`），
+                // 让法院表单自身的必填校验暴露问题，绝不填伪造号。
+                const trimValue = (value) => (value || '').trim();
+                const naturalId = /^\d{17}[\dXx]$/.test(trimValue(defaults.id_number))
+                    ? trimValue(defaults.id_number)
+                    : '';
                 const naturalMap = [
-                    [['姓名'], defaults.name || '张三'],
+                    [['姓名'], defaults.name || ''],
                     [['证件号码', '身份证号码'], naturalId],
-                    [['出生日期', '出生年月日'], defaults.birth_date || '1990-01-01'],
-                    [['年龄'], defaults.age || '36'],
-                    [['手机号码'], defaults.phone || '1XX00000000'],
-                    [['经常居住地', '住所地', '地址'], defaults.address || '广东省广州市天河区测试地址1号'],
+                    [['出生日期', '出生年月日'], defaults.birth_date || ''],
+                    [['年龄'], defaults.age || ''],
+                    [['手机号码'], defaults.phone || ''],
+                    [['经常居住地', '住所地', '地址'], defaults.address || ''],
                 ];
                 const legalMap = [
-                    [['单位名称', '名称'], defaults.unit_name || defaults.name || '测试公司'],
-                    [['证照号码', '统一社会信用代码'], defaults.license_number || defaults.id_number || '91440101MA59TEST8X'],
-                    [['法定代表人'], defaults.legal_representative || '张三'],
-                    [['主要负责人'], defaults.principal || defaults.legal_representative || '张三'],
-                    [['手机号码'], defaults.phone || '1XX00000000'],
-                    [['单位地址', '住所地', '地址'], defaults.unit_address || defaults.address || '广东省广州市天河区测试地址1号'],
+                    [['单位名称', '名称'], defaults.unit_name || defaults.name || ''],
+                    [['证照号码', '统一社会信用代码'], defaults.license_number || defaults.id_number || ''],
+                    [['法定代表人'], defaults.legal_representative || ''],
+                    [['主要负责人'], defaults.principal || defaults.legal_representative || ''],
+                    [['手机号码'], defaults.phone || ''],
+                    [['单位地址', '住所地', '地址'], defaults.unit_address || defaults.address || ''],
                 ];
                 const commonMap = [
-                    [['财产所有人'], defaults.owner_name || defaults.name || '张三'],
+                    [['财产所有人'], defaults.owner_name || defaults.name || ''],
                     [['财产信息'], defaults.property_info || ''],
                     [['价值', '财产价值'], defaults.property_value || ''],
                 ];
 
                 const agentMap = [
-                    [['代理人姓名', '姓名'], defaults.name || '张三'],
+                    [['代理人姓名', '姓名'], defaults.name || ''],
                     [['执业证件号码'], defaults.license_number || ''],
-                    [['证件号码', '身份证号码'], defaults.id_number || defaultNaturalId],
-                    [['手机号码'], defaults.phone || '1XX00000000'],
+                    [['证件号码', '身份证号码'], trimValue(defaults.id_number)],
+                    [['手机号码'], defaults.phone || ''],
                     [['代理人所在律所'], defaults.law_firm || ''],
                 ];
 
                 const propertyMap = [
-                    [['财产所有人'], defaults.owner_name || defaults.name || '张三'],
+                    [['财产所有人'], defaults.owner_name || defaults.name || ''],
                     [['房产坐落位置', '具体位置'], defaults.property_location || defaults.property_info || ''],
                     [['房产证号'], defaults.property_cert_no || ''],
                     [['财产信息', '描述'], defaults.property_info || ''],
@@ -228,21 +233,21 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
                 ];
 
                 const fallbackMap = [
-                    [['姓名', '单位名称', '名称', '代理人姓名'], defaults.name || '张三'],
+                    [['姓名', '单位名称', '名称', '代理人姓名'], defaults.name || ''],
                     [['执业证件号码'], defaults.license_number || ''],
-                    [['证件号码', '身份证号码'], /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim()) ? (defaults.id_number || '').trim() : defaultNaturalId],
-                    [['证照号码', '统一社会信用代码'], '91440101MA59TEST8X'],
-                    [['法定代表人', '主要负责人'], defaults.legal_representative || '张三'],
-                    [['手机号码'], defaults.phone || '1XX00000000'],
+                    [['证件号码', '身份证号码'], naturalId],
+                    [['证照号码', '统一社会信用代码'], defaults.license_number || defaults.id_number || ''],
+                    [['法定代表人', '主要负责人'], defaults.legal_representative || ''],
+                    [['手机号码'], defaults.phone || ''],
                     [['代理人所在律所'], defaults.law_firm || ''],
-                    [['出生日期', '出生年月日'], defaults.birth_date || '1990-01-01'],
-                    [['年龄'], defaults.age || '36'],
+                    [['出生日期', '出生年月日'], defaults.birth_date || ''],
+                    [['年龄'], defaults.age || ''],
                     [['经常居住地', '住所地', '单位地址', '地址'], defaults.address || ''],
                     [['房产坐落位置', '具体位置'], defaults.property_location || ''],
                     [['房产证号'], defaults.property_cert_no || ''],
                     [['财产信息'], defaults.property_info || ''],
                     [['价值', '财产价值'], defaults.property_value || ''],
-                    [['财产所有人'], defaults.owner_name || defaults.name || '张三'],
+                    [['财产所有人'], defaults.owner_name || defaults.name || ''],
                 ];
                 const fieldMap = [...dynamicMap, ...fallbackMap];
 

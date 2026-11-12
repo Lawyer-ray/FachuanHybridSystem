@@ -19,6 +19,7 @@ from typing import Any
 
 from django.db.models import Q
 
+from apps.cases.domain.party_status import DEFENDANT_SIDE_STATUSES, PLAINTIFF_SIDE_STATUSES
 from apps.cases.models import Case, CaseMaterial, CaseNumber, CaseParty
 
 # ───────────────────────── 材料齐备度 ─────────────────────────
@@ -322,21 +323,9 @@ class CaseReadinessService:
             "ready": True,
         }
 
-    # 当事人诉讼地位的**中英文两套写法**。
-    # 生产库 cases_caseparty.legal_status 同样是混存：
-    #   defendant 73 / plaintiff 45 / 被告 3 …
-    # 只看英文会把 3 个「被告」当成「无被告」，误判主体不适格。
-    PLAINTIFF_STATUSES = ("plaintiff", "orig_plaintiff", "applicant", "appellant", "原告", "申请人", "上诉人")
-    DEFENDANT_STATUSES = (
-        "defendant",
-        "orig_defendant",
-        "respondent",
-        "appellee",
-        "criminal_defendant",
-        "被告",
-        "被申请人",
-        "被上诉人",
-    )
+    # 当事人诉讼地位取自 apps.cases.domain.party_status（唯一权威）。
+    # 生产库 legal_status 是中英文混存，只看英文会把「被告」当成「无被告」，
+    # 误判主体不适格。此处曾是一份少了「原审原告」的副本，已收敛。
 
     # ── 起诉条件 ──
     def _filing(self, case: Case) -> dict[str, Any]:
@@ -345,8 +334,8 @@ class CaseReadinessService:
         # ① 当事人主体适格：有原告且有被告
         parties = list(case.parties.select_related("client").all())
         statuses = [(p.legal_status or "").strip() for p in parties]
-        has_plaintiff = any(s in self.PLAINTIFF_STATUSES for s in statuses)
-        has_defendant = any(s in self.DEFENDANT_STATUSES for s in statuses)
+        has_plaintiff = any(s in PLAINTIFF_SIDE_STATUSES for s in statuses)
+        has_defendant = any(s in DEFENDANT_SIDE_STATUSES for s in statuses)
         checks.append(
             {
                 "key": "parties",

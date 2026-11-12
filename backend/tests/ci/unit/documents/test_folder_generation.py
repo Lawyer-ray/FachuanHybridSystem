@@ -225,8 +225,17 @@ class TestFindSpecialFolderPaths:
 
 
 class TestCreateFoldersInZip:
+    """ZIP 骨架递归建目录。
+
+    测的是 pipeline/packager.py 的 ZipPackager —— 这是生产真实路径。
+    FolderGenerationService 上曾有一份逐字重复的 _create_folders_in_zip，
+    但只被自身递归调用、外部零引用，2026-11 已删除。
+    """
+
     def setup_method(self):
-        self.service = FolderGenerationService(contract_service=MagicMock())
+        from apps.documents.services.generation.pipeline.packager import ZipPackager
+
+        self.service = ZipPackager()
 
     def test_creates_folders(self):
         import io

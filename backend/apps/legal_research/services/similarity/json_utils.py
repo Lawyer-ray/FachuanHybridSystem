@@ -30,6 +30,22 @@ MIN_EVIDENCE_SPAN_CHARS = 4
 
 
 def extract_json(text: str) -> dict[str, object] | None:
+    r"""从相似度 LLM 响应中提取 JSON 对象；非对象载荷或解析失败返回 ``None``。
+
+    与权威实现 ``apps.core.llm.structured_output.extract_json_text`` 的差异
+    （2026-11 实测，以下 4 类输入会分叉，故本函数**有意**不走权威实现）：
+
+    1. ``'note: use { } braces {"a":1}'`` —— 旧实现 ``None``，权威实现 ``{}``。
+       这是最危险的一条：空 dict 会让上层 ``coerce_score(payload.get("score", 0.0))``
+       直接得出 0 分，并绕过 ``_repair_json_payload`` 的修复路径。
+    2. ``'[{"a":1}]'`` —— 旧实现 ``{"a": 1}``（``\{.*\}`` 正则把数组内的
+       对象“漏”了出来），权威实现 ``None``。
+    3. ``'{"a":1}{"a":2}'`` —— 旧实现 ``None``，权威实现取第一个 ``{"a": 1}``。
+    4. ``'{"a":1} 注意 { }'`` —— 旧实现 ``None``，权威实现 ``{"a": 1}``。
+
+    不替换的原因：第 1 条会造成**静默的错误评分**（噪声被判为解析成功且得 0 分），
+    比解析失败难发现得多；统一实现带来的可读性收益不足以抵消该业务风险。
+    """
     if not text:
         return None
 

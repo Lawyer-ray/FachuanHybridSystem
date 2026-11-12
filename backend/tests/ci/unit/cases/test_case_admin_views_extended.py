@@ -16,6 +16,13 @@ from apps.cases.admin.mixins.views import (
     _has_court_filing_plugin,
     _log_inline_formset,
 )
+from apps.cases.admin.mixins.views_coercion import (
+    _coerce_optional_bool,
+    _coerce_optional_date,
+    _coerce_optional_decimal,
+    _coerce_optional_int,
+    _coerce_optional_str,
+)
 
 # ---------------------------------------------------------------------------
 # Module-level helpers
@@ -94,7 +101,7 @@ class TestCaseAdminViewsMixinDisplays:
         mixin = self._make_mixin()
         obj = MagicMock()
         obj.pk = 42
-        with patch("apps.cases.admin.mixins.views.reverse", return_value="/admin/cases/case/42/change/"):
+        with patch("apps.cases.admin.mixins.views_list_display.reverse", return_value="/admin/cases/case/42/change/"):
             result = mixin.id_link(obj)
             assert "42" in str(result)
 
@@ -103,7 +110,7 @@ class TestCaseAdminViewsMixinDisplays:
         obj = MagicMock()
         obj.pk = 10
         obj.name = "测试案件"
-        with patch("apps.cases.admin.mixins.views.reverse", return_value="/admin/cases/case/10/detail/"):
+        with patch("apps.cases.admin.mixins.views_list_display.reverse", return_value="/admin/cases/case/10/detail/"):
             result = mixin.name_link(obj)
             assert "测试案件" in str(result)
 
@@ -235,82 +242,71 @@ class TestCaseAdminViewsMixinDisplays:
 
 
 class TestCoerceHelpers:
-    def _make_mixin(self):
-        return CaseAdminViewsMixin()
-
     def test_coerce_date_none(self) -> None:
-        mixin = self._make_mixin()
-        assert mixin._coerce_optional_date(None) is None
+        assert _coerce_optional_date(None) is None
 
     def test_coerce_date_empty(self) -> None:
-        mixin = self._make_mixin()
-        assert mixin._coerce_optional_date("") is None
+        assert _coerce_optional_date("") is None
 
     def test_coerce_date_valid(self) -> None:
-        mixin = self._make_mixin()
-        result = mixin._coerce_optional_date("2025-06-01")
+        result = _coerce_optional_date("2025-06-01")
         assert result == date(2025, 6, 1)
 
     def test_coerce_date_invalid(self) -> None:
-        mixin = self._make_mixin()
-        assert mixin._coerce_optional_date("not-a-date") is None
+        assert _coerce_optional_date("not-a-date") is None
 
     def test_coerce_decimal_none(self) -> None:
-        mixin = self._make_mixin()
-        assert mixin._coerce_optional_decimal(None) is None
+        assert _coerce_optional_decimal(None) is None
 
     def test_coerce_decimal_empty(self) -> None:
-        mixin = self._make_mixin()
-        assert mixin._coerce_optional_decimal("") is None
+        assert _coerce_optional_decimal("") is None
 
     def test_coerce_decimal_valid(self) -> None:
-        mixin = self._make_mixin()
-        result = mixin._coerce_optional_decimal("123.45")
+        result = _coerce_optional_decimal("123.45")
         assert result == Decimal("123.45")
 
     def test_coerce_decimal_invalid(self) -> None:
-        mixin = self._make_mixin()
-        assert mixin._coerce_optional_decimal("not-a-number") is None
+        assert _coerce_optional_decimal("not-a-number") is None
 
     def test_coerce_bool_none(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_bool(None) is None
+        assert _coerce_optional_bool(None) is None
 
     def test_coerce_bool_true_values(self) -> None:
         for val in ["1", "true", "True", "yes", "on", True]:
-            result = CaseAdminViewsMixin._coerce_optional_bool(val)
+            result = _coerce_optional_bool(val)
             assert result is True, f"Expected True for {val!r}"
 
     def test_coerce_bool_false_values(self) -> None:
         for val in ["0", "false", "False", "no", "off", False]:
-            result = CaseAdminViewsMixin._coerce_optional_bool(val)
+            result = _coerce_optional_bool(val)
             assert result is False, f"Expected False for {val!r}"
 
     def test_coerce_bool_empty(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_bool("") is None
+        assert _coerce_optional_bool("") is None
 
     def test_coerce_bool_garbage(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_bool("maybe") is None
+        assert _coerce_optional_bool("maybe") is None
 
     def test_coerce_int_none(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_int(None) is None
+        assert _coerce_optional_int(None) is None
 
     def test_coerce_int_valid(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_int("42") == 42
+        assert _coerce_optional_int("42") == 42
 
     def test_coerce_int_invalid(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_int("abc") is None
+        assert _coerce_optional_int("abc") is None
 
     def test_coerce_int_empty(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_int("") is None
+        assert _coerce_optional_int("") is None
 
     def test_coerce_str_none(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_str(None) is None
+        assert _coerce_optional_str(None) is None
 
     def test_coerce_str_valid(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_str(" hello ") == "hello"
+        assert _coerce_optional_str(" hello ") == "hello"
 
     def test_coerce_str_empty(self) -> None:
-        assert CaseAdminViewsMixin._coerce_optional_str("") is None
+        assert _coerce_optional_str("") is None
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +328,7 @@ class TestCaseAdminViewsMixinHelpers:
         assert isinstance(result, bool)
 
     def test_log_post_response_no_context(self) -> None:
-        with patch("apps.cases.admin.mixins.views.logger") as mock_logger:
+        with patch("apps.cases.admin.mixins.views_detail.logger") as mock_logger:
             response = MagicMock()
             response.status_code = 200
             response.context_data = None
@@ -340,7 +336,7 @@ class TestCaseAdminViewsMixinHelpers:
             mock_logger.info.assert_called_once()
 
     def test_log_post_response_with_form_errors(self) -> None:
-        with patch("apps.cases.admin.mixins.views.logger") as mock_logger:
+        with patch("apps.cases.admin.mixins.views_detail.logger") as mock_logger:
             response = MagicMock()
             response.status_code = 200
             form = MagicMock()

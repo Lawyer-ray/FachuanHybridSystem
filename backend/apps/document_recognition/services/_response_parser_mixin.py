@@ -6,6 +6,8 @@ import re
 from datetime import datetime
 from typing import Any, cast
 
+from apps.core.llm.structured_output import extract_json_text
+
 logger = logging.getLogger("apps.document_recognition")
 
 
@@ -62,34 +64,18 @@ class ResponseParserMixin:
             return result
 
     def _extract_json_from_response(self, content: str) -> dict[str, Any] | None:
-        """从响应内容中提取 JSON"""
-        content = content.strip()
-        try:
-            return cast(dict[str, Any], json.loads(content))
-        except json.JSONDecodeError:
-            pass
-        start_idx = content.find("{")
-        end_idx = content.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            try:
-                return cast(dict[str, Any], json.loads(content[start_idx : end_idx + 1]))
-            except json.JSONDecodeError:
-                pass
-        if "```json" in content:
-            try:
-                json_start = content.index("```json") + 7
-                json_end = content.index("```", json_start)
-                return cast(dict[str, Any], json.loads(content[json_start:json_end].strip()))
-            except (ValueError, json.JSONDecodeError):
-                pass
-        if "```" in content:
-            try:
-                json_start = content.index("```") + 3
-                json_end = content.index("```", json_start)
-                return cast(dict[str, Any], json.loads(content[json_start:json_end].strip()))
-            except (ValueError, json.JSONDecodeError):
-                pass
-        return None
+        """从响应内容中提取 JSON 对象；非对象载荷或解析失败返回 None。
+
+        提取逻辑统一走 ``extract_json_text``，这里只保留「必须是 JSON 对象」
+        这层业务约束——调用方随后直接 ``.get(...)``。
+        """
+        snippet = extract_json_text(content)
+        if snippet is None:
+            return None
+        loaded = json.loads(snippet)
+        if not isinstance(loaded, dict):
+            return None
+        return cast(dict[str, Any], loaded)
 
     def _parse_datetime(self, datetime_str: str) -> datetime | None:
         """解析日期时间字符串"""

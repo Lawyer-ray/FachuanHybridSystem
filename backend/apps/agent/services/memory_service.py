@@ -885,6 +885,21 @@ def _call_extractor(transcript: str) -> list[dict[str, Any]]:
 
 
 def _parse_extract_json(raw: str) -> list[dict[str, Any]]:
+    """从记忆抽取响应中解析出一个 JSON 对象数组；任何异常一律返回空列表。
+
+    与权威实现 ``apps.core.llm.structured_output.extract_json_text`` 的差异
+    （2026-11 实测，以下 3 条使得本函数**有意**保留独立版本）：
+
+    1. **载荷类型不同**：这里要的是**顶层数组** ``list[dict]``（不是对象）。
+       权威实现能取数组，但不会做「过滤非 dict 元素」。
+    2. **失败语义不同**：本函数永不抛异常，失败返回 ``[]``；调用方
+       ``_call_extractor`` 的契约是「记忆是增强，不能反噬主流程」。
+    3. **对象输入返回 ``[]``**：输入恰好是单个 JSON 对象时，权威实现返回
+       ``dict``，本函数仍返回 ``[]``（只接受数组）。
+
+    结论：语义不同（list 而非 dict、空列表而非 None），全量替换会改变
+    记忆抽取的降级行为，故保留。
+    """
     text = (raw or "").strip()
     if text.startswith("```"):
         text = re.sub(r"^```[a-zA-Z]*\n?", "", text)

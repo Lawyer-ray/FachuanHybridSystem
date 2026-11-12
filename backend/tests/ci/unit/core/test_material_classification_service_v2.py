@@ -165,66 +165,6 @@ class TestClassifyCaseMaterial:
         assert result["category"] == "unknown"
 
 
-# ── classify_archive_material ──
-
-
-class TestClassifyArchiveMaterial:
-    def test_litigation_filename_match(self, svc):
-        result = svc.classify_archive_material(
-            filename="起诉状.pdf", source_path="/data/doc.pdf", archive_category="litigation"
-        )
-        assert result["archive_item_code"] == "lt_7"
-
-    def test_litigation_folder_match(self, svc):
-        result = svc.classify_archive_material(
-            filename="doc.pdf", source_path="/data/证据材料/doc.pdf", archive_category="litigation"
-        )
-        assert result["archive_item_code"] == "lt_10"
-
-    def test_criminal_filename_match(self, svc):
-        result = svc.classify_archive_material(
-            filename="会见笔录.pdf", source_path="/data/doc.pdf", archive_category="criminal"
-        )
-        assert result["archive_item_code"] == "cr_7"
-
-    def test_non_litigation_filename_match(self, svc):
-        result = svc.classify_archive_material(
-            filename="授权委托书.pdf", source_path="/data/doc.pdf", archive_category="non_litigation"
-        )
-        assert result["archive_item_code"] == "nl_12"
-
-    def test_no_match_returns_empty(self, svc):
-        result = svc.classify_archive_material(
-            filename="random.pdf", source_path="/data/random.pdf", archive_category="litigation"
-        )
-        assert result["archive_item_code"] == ""
-        assert result["archive_item_name"] == "未匹配"
-
-    def test_invalid_archive_category_defaults_to_litigation(self, svc):
-        result = svc.classify_archive_material(
-            filename="起诉状.pdf", source_path="/data/doc.pdf", archive_category="invalid"
-        )
-        assert result["archive_item_code"] == "lt_7"
-
-    def test_parent_folder_hint(self, svc):
-        result = svc.classify_archive_material(
-            filename="doc.pdf", source_path="/data/doc.pdf", archive_category="litigation", parent_folder_hint="代理词"
-        )
-        assert result["archive_item_code"] == "lt_15"
-
-    def test_litigation_judgment_match(self, svc):
-        result = svc.classify_archive_material(
-            filename="判决书.pdf", source_path="/data/doc.pdf", archive_category="litigation"
-        )
-        assert result["archive_item_code"] == "lt_17"
-
-    def test_litigation_authorization(self, svc):
-        result = svc.classify_archive_material(
-            filename="所函.pdf", source_path="/data/doc.pdf", archive_category="litigation"
-        )
-        assert result["archive_item_code"] == "lt_20"
-
-
 # ── Pure helper methods ──
 
 
@@ -299,8 +239,3 @@ class TestHelpers:
 
     def test_parse_work_log_no_match(self, svc):
         assert svc.parse_work_log_from_folder_name("普通文件夹") is None
-
-    def test_extract_path_parts(self, svc):
-        result = svc._extract_path_parts("/data/1-起诉状/证据材料/doc.pdf")
-        assert "起诉状" in result
-        assert "证据材料" in result

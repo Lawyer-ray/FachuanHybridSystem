@@ -10,9 +10,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --noEmit",
     "build:sourcemap": "tsc -b && vite build --sourcemap hidden --outDir dist-sourcemaps --emptyOutDir",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "gen:api": "openapi-typescript ../backend/openapi.json -o src/types/api-schema.d.ts",
     "test:coverage": "vitest run --coverage"

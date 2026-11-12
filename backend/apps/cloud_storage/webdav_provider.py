@@ -6,15 +6,14 @@ import asyncio
 import logging
 import threading
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
-import requests
-from requests.auth import HTTPBasicAuth
 
 from .protocols import CloudFileInfo
+from .providers_mixin import _RecursiveWalkMixin
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +92,10 @@ class _RateLimiter:  # pragma: no cover
                 await asyncio.sleep(delay)
 
 
-class WebDAVProvider:  # pragma: no cover
+class WebDAVProvider(_RecursiveWalkMixin):  # pragma: no cover
     """Read/write files on any WebDAV server.
 
-    Uses ``requests`` + HTTPBasicAuth directly for full control over
+    Uses ``httpx`` + BasicAuth directly for full control over
     PROPFIND / PUT / GET / DELETE / MKCOL operations, avoiding the
     quirks of the ``webdavclient3`` library for edge cases.
     """
@@ -116,11 +115,10 @@ class WebDAVProvider:  # pragma: no cover
         self._password = app_password
         self._webdav_url = (webdav_url or self.DEFAULT_WEBDAV_URL).rstrip("/") + "/"
         self._root = root_path.rstrip("/") or ""
-        self._auth = HTTPBasicAuth(username, app_password)
+        self._auth = httpx.BasicAuth(username, app_password)
         self._limiter = rate_limiter or _RateLimiter()
-        self._session = requests.Session()
-        self._session.auth = self._auth
-        self._session.headers.update({"Accept": "application/json"})
+        # httpx.Client 持有连接池，语义等价于 requests.Session；必须经 close() 释放
+        self._client = httpx.Client(timeout=30, auth=self._auth, headers={"Accept": "application/json"})
         self._async_client: httpx.AsyncClient | None = None
 
     def _get_async_client(self) -> httpx.AsyncClient:
@@ -132,8 +130,9 @@ class WebDAVProvider:  # pragma: no cover
         return self._async_client
 
     def close(self) -> None:
-        """关闭同步 requests.Session。"""
-        self._session.close()
+        """关闭同步 httpx.Client。"""
+        if not self._client.is_closed:
+            self._client.close()
 
     async def aclose(self) -> None:
         """关闭异步 httpx.AsyncClient，防止资源泄漏。"""
@@ -152,10 +151,10 @@ class WebDAVProvider:  # pragma: no cover
     def _url(self, path: str) -> str:
         return self._webdav_url + self._full_path(path).lstrip("/")
 
-    def _request(self, method: str, path: str, **kwargs) -> requests.Response:  # type: ignore[no-untyped-def]
+    def _request(self, method: str, path: str, **kwargs) -> httpx.Response:  # type: ignore[no-untyped-def]
         self._limiter.wait_if_needed()
         url = self._url(path)
-        resp = self._session.request(method, url, timeout=30, **kwargs)
+        resp = self._client.request(method, url, timeout=30, **kwargs)
         if resp.status_code == 503:
             from .exceptions import CloudStorageRateLimitError
 
@@ -192,7 +191,7 @@ class WebDAVProvider:  # pragma: no cover
         # PROPFIND on directories requires trailing slash for Nutstore
         url = self._url(path).rstrip("/") + "/"
         self._limiter.wait_if_needed()
-        resp = self._session.request(
+        resp = self._client.request(
             "PROPFIND",
             url,
             headers={"Depth": "1"},
@@ -313,7 +312,7 @@ class WebDAVProvider:  # pragma: no cover
     def is_dir(self, path: str) -> bool:
         url = self._url(path).rstrip("/") + "/"
         self._limiter.wait_if_needed()
-        resp = self._session.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
+        resp = self._client.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
         if resp.status_code >= 400:
             return False
         from defusedxml import DefusedXmlException, ElementTree
@@ -339,7 +338,7 @@ class WebDAVProvider:  # pragma: no cover
     def get_file_info(self, path: str) -> CloudFileInfo | None:
         url = self._url(path)
         self._limiter.wait_if_needed()
-        resp = self._session.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
+        resp = self._client.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
         if resp.status_code >= 400:
             return None
 
@@ -349,16 +348,6 @@ class WebDAVProvider:  # pragma: no cover
             if info.name == name:
                 return info
         return None
-
-    def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
-        """Recursively walk directory tree via WebDAV PROPFIND."""
-        children = self.list_directory(path)
-        subdirs = [c.name for c in children if c.is_dir]
-        files = [c for c in children if not c.is_dir]
-        yield (path, subdirs, files)
-        for subdir in subdirs:
-            sub_path = f"{path.rstrip('/')}/{subdir}"
-            yield from self.walk(sub_path)
 
     # ── Async protocol implementation ──────────────────────────
 

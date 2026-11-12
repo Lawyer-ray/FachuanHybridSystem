@@ -8,8 +8,7 @@ from apps.automation.services.scraper.sites.guarantee.data_mixin import Guarante
 
 
 class _Svc(GuaranteeDataMixin):
-    DEFAULT_NATURAL_ID_NUMBER = "440102199001011234"
-    DEFAULT_LEGAL_ID_NUMBER = "91440101MA5XXXXXXX"
+    pass
 
 
 def _svc() -> _Svc:
@@ -43,30 +42,71 @@ class TestNormalizePartyType:
 
 
 class TestBuildPartyDialogDefaults:
-    def test_natural_defaults(self) -> None:
+    def test_natural_without_id_number_leaves_id_empty(self) -> None:
         defaults = _svc()._build_party_dialog_defaults(
             {"name": "张三", "party_type": "natural", "phone": "13800000000"}
         )
         assert defaults["party_type"] == "natural"
         assert defaults["name"] == "张三"
-        assert defaults["id_number"] == "440102199001011234"
+        assert defaults["id_number"] == ""
+        assert defaults["license_number"] == ""
         assert defaults["phone"] == "13800000000"
-        assert defaults["legal_representative"] == "张三"
-        assert defaults["gender"] == "男性"
+        assert defaults["gender"] == ""
 
-    def test_empty_name_falls_back(self) -> None:
+    def test_empty_party_leaves_identity_fields_empty(self) -> None:
         defaults = _svc()._build_party_dialog_defaults({})
-        assert defaults["name"] == "张三"
         assert defaults["party_type"] == "natural"
-        assert defaults["id_number"] == "440102199001011234"
-        assert defaults["address"] != ""
+        assert defaults["name"] == ""
+        assert defaults["id_number"] == ""
+        assert defaults["license_number"] == ""
+        assert defaults["legal_representative"] == ""
+        assert defaults["legal_representative_id_number"] == ""
+        assert defaults["address"] == ""
+        assert defaults["unit_address"] == ""
+        assert defaults["gender"] == ""
+        assert defaults["birth_date"] == ""
+        assert defaults["age"] == ""
 
-    def test_legal_party_uses_legal_default_id(self) -> None:
+    def test_provided_personal_fields_kept(self) -> None:
+        defaults = _svc()._build_party_dialog_defaults(
+            {
+                "name": "李四",
+                "id_number": "ID123",
+                "address": "广州市天河区某路1号",
+                "gender": "女性",
+                "birth_date": "1985-06-01",
+                "age": "40",
+            }
+        )
+        assert defaults["address"] == "广州市天河区某路1号"
+        assert defaults["unit_address"] == "广州市天河区某路1号"
+        assert defaults["gender"] == "女性"
+        assert defaults["birth_date"] == "1985-06-01"
+        assert defaults["age"] == "40"
+
+    def test_legal_party_without_id_number_leaves_license_empty(self) -> None:
         defaults = _svc()._build_party_dialog_defaults({"name": "某公司", "party_type": "legal"})
         assert defaults["party_type"] == "legal"
-        assert defaults["id_number"] == "91440101MA5XXXXXXX"
-        assert defaults["license_number"] == "91440101MA5XXXXXXX"
+        assert defaults["unit_name"] == "某公司"
+        assert defaults["id_number"] == ""
+        assert defaults["license_number"] == ""
         assert defaults["unit_nature"] == "企业"
+
+    def test_provided_legal_representative_fields_kept(self) -> None:
+        defaults = _svc()._build_party_dialog_defaults(
+            {
+                "name": "某公司",
+                "party_type": "legal",
+                "id_number": "91440101MA5TEST0X",
+                "legal_representative": "王五",
+                "legal_representative_id_number": "440102199001010000",
+            }
+        )
+        assert defaults["id_number"] == "91440101MA5TEST0X"
+        assert defaults["license_number"] == "91440101MA5TEST0X"
+        assert defaults["legal_representative"] == "王五"
+        assert defaults["legal_representative_id_number"] == "440102199001010000"
+        assert defaults["principal"] == "王五"
 
     def test_provided_id_number_wins(self) -> None:
         defaults = _svc()._build_party_dialog_defaults({"name": "李四", "id_number": "ID123"})
@@ -120,11 +160,12 @@ class TestBuildAgentDialogDefaults:
         assert defaults["agent_type"] == "执业律师"
         assert defaults["principal_party_name"] == "赵律师"
 
-    def test_defaults_for_empty_source(self) -> None:
+    def test_empty_source_leaves_identity_fields_empty(self) -> None:
         defaults = _svc()._build_agent_dialog_defaults({})
-        assert defaults["name"] == "张三"
-        assert defaults["id_number"] == "440102199001011234"
+        assert defaults["name"] == ""
+        assert defaults["id_number"] == ""
         assert defaults["phone"] == ""
+        assert defaults["principal_party_name"] == ""
 
 
 class TestParseCaseNumber:

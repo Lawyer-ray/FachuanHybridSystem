@@ -202,9 +202,10 @@ class TestZipEntriesSanitized:
         assert "root/子目录/绝对路径.txt" in names
 
     def test_folder_generation_service_skeleton_sanitized(self) -> None:
-        from apps.documents.services.generation.folder_generation_service import FolderGenerationService
+        # 测生产真实路径 ZipPackager（FolderGenerationService 上那份重复实现已于 2026-11 删除）
+        from apps.documents.services.generation.pipeline.packager import ZipPackager
 
-        service = FolderGenerationService(contract_service=MagicMock(), folder_binding_service=MagicMock())
+        service = ZipPackager()
         structure = {
             "name": "案件卷",
             "children": [

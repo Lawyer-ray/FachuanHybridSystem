@@ -78,6 +78,10 @@ export function EmptyBlock({
  * error 原样交给 errMessage 抽取文案（ky HTTPError / TimeoutError / 普通 Error
  * 各自取到可读中文），取不到才回 fallback——否则列表查询失败会被渲染成空列表，
  * 用户把服务端故障读成「没有数据」。
+ *
+ * 已是非空字符串时**直接透传**：不少 hook（如 use-cases 的 useLoad）在 catch 里
+ * 已经过了一次 errMessage，往下传的就是消过毒的 string。这里再走一遍 errMessage
+ * 会把已取到的好文案降级成 fallback。
  */
 export function ErrorBlock({
   error,
@@ -100,7 +104,7 @@ export function ErrorBlock({
         className,
       )}
     >
-      {errMessage(error, fallback)}
+      {typeof error === 'string' && error ? error : errMessage(error, fallback)}
       {onRetry ? (
         <button
           type="button"

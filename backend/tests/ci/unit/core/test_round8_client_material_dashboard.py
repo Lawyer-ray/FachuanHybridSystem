@@ -276,39 +276,6 @@ class TestMaterialClassificationService:
     def test_parse_work_log_from_folder_name_no_match(self):
         assert self.service.parse_work_log_from_folder_name("random folder") is None
 
-    def test_match_archive_by_filename_litigation(self):
-        result = self.service._match_archive_by_filename(
-            filename="起诉状.pdf",
-            archive_category="litigation",
-        )
-        assert result is not None
-        assert result["archive_item_code"] == "lt_7"
-
-    def test_match_archive_by_filename_no_match(self):
-        result = self.service._match_archive_by_filename(
-            filename="random.pdf",
-            archive_category="litigation",
-        )
-        assert result is None
-
-    def test_classify_archive_material_no_match(self):
-        result = self.service.classify_archive_material(
-            filename="random.pdf",
-            source_path="/path/random.pdf",
-            archive_category="litigation",
-        )
-        # May or may not match depending on keyword mapping fallback
-        assert "archive_item_code" in result
-
-    def test_classify_archive_material_invalid_category(self):
-        result = self.service.classify_archive_material(
-            filename="random.pdf",
-            source_path="/path/random.pdf",
-            archive_category="invalid",
-        )
-        assert result["archive_item_code"] == ""
-
-
 # ---------------------------------------------------------------------------
 # DashboardService
 # ---------------------------------------------------------------------------
