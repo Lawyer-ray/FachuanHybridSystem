@@ -413,8 +413,10 @@ def parse_amount(raw: str) -> tuple[Decimal | None, str]:
             return best.quantize(Decimal("0.01")), ""
         if best is not None and best == 0:
             return None, "合同载明律师费为 0，请人工确认"
-        if best is not None and best < 1:
-            # 小于 1 的数值高度可疑（多半是把百分比小数或序号当成了金额）
+        if best is not None and 0 < best < 1:
+            # 0 与 1 之间的数值高度可疑（多半是把百分比小数或序号当成了金额）。
+            # 下界必须显式写：上面两个分支已吃掉 >=0 的取值，单写 ``best < 1``
+            # 就是恒真的重复比较（CodeQL py/redundant-comparison）。
             return None, f"金额「{text[:20]}」疑似非律师费，请人工确认"
 
     # 2) 退回：中文大写换算

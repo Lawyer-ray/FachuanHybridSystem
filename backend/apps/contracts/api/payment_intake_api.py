@@ -130,7 +130,6 @@ def _hints_of(intake: Any) -> list[dict[str, Any]]:
 
 def _to_out(intake: Any, *, with_candidates: bool = True, limit: int | None = 3) -> dict[str, Any]:
     message = intake.inbox_message
-    source = getattr(message, "source", None) if message else None
     return {
         "id": intake.pk,
         "amount": str(intake.amount),

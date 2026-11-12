@@ -312,6 +312,9 @@ def _heading_level(para: Any) -> int:
             if 0 <= level < 6:
                 return level + 1
     except (AttributeError, ValueError, TypeError):
+        # 段落没有 pPr / 没有 w:outlineLvl / val 不是数字，都等价于「没声明大纲级别」，
+        # 由下面的 return 0 统一处理（文体样式判定已经先行尝试过）。此处不吞异常
+        # 之外的任何状态，段落对象始终可用。
         pass
     return 0
 

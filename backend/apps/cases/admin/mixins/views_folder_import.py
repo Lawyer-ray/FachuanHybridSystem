@@ -16,12 +16,16 @@ class CaseAdminFolderImportMixin:  # pragma: no cover
     """打开案件绑定文件夹、从文件夹批量导入案件日志。"""
 
     if TYPE_CHECKING:
-        # 由聚合入口 CaseAdminViewsMixin 的其他 mixin / ModelAdmin 提供
+        # 以下成员本 mixin 不拥有，只是声明签名供自身类型标注：
+        # _ensure_case_access 的唯一实现在 CaseAdminDetailViewsMixin，
+        # has_view_permission 来自 ModelAdmin。
         def _ensure_case_access(
             self, request: HttpRequest, case: Case | None, *, case_id: int | None = None
-        ) -> None: ...  # pragma: no cover
+        ) -> None:  # pragma: no cover
+            raise NotImplementedError  # 仅为类型检查声明，运行时由 CaseAdminDetailViewsMixin 提供
 
-        def has_view_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...  # pragma: no cover
+        def has_view_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
+            raise NotImplementedError  # 同上
 
     def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """打开案件绑定的本地文件夹（Finder/资源管理器）"""

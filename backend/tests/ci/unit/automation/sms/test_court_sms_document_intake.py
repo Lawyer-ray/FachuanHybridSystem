@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -114,15 +115,19 @@ class TestSaveMaterials:
         intake = CourtSMSDocumentIntakeService()
 
         intake.save_materials(sms.id, [_pdf()])
-        first_paths = list(sms.document_file_paths) if sms.document_file_paths else []
         sms.refresh_from_db()
         first_paths = list(sms.document_file_paths)
+        assert len(first_paths) == 1
 
-        # 手工把已有路径作为「既有引用」再合并一次，验证去重
-        intake._attach_paths(sms.id, [], [])
+        # 用存储侧返回的相对路径把同一条引用再合并一次：这才是真实重复入参的
+        # 形状（「既有绝对路径」与「新来的相对路径」指向同一文件），并且必须
+        # 真的合并掉一条——早前的版本传空列表，等于断言「空合并不改变列表」，
+        # 去重逻辑一条都没覆盖到。
+        relative_paths = [str(Path(p).relative_to(tmp_path)) for p in first_paths]
+        intake._attach_paths(sms.id, relative_paths, ["判决书.pdf"])
 
         sms.refresh_from_db()
-        assert sms.document_file_paths == first_paths
+        assert list(sms.document_file_paths) == first_paths
 
     def test_raises_when_sms_missing(self, tmp_path, settings):
         from apps.automation.services.sms.court_sms_document_intake import CourtSMSDocumentIntakeService

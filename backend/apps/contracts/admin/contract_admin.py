@@ -473,9 +473,11 @@ class ContractAdmin(
 
         try:
             data = intake_options()
-        except Exception as exc:
+        except Exception:
+            # 非预期异常不回显给客户端（CodeQL py/stack-trace-exposure）：异常详情
+            # （堆栈 / 内部路径）只进服务端日志，客户端只拿到通用提示
             logger.exception("读取合同导入选项失败")
-            return JsonResponse({"ok": False, "error": f"读取模型列表失败：{exc}"}, status=500)
+            return JsonResponse({"ok": False, "error": "读取模型列表失败，请稍后重试或联系管理员"}, status=500)
         return JsonResponse({"ok": True, "data": data})
 
     def auto_intake_analyze_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
@@ -514,10 +516,14 @@ class ContractAdmin(
         except ContractIntakeError as exc:
             # 可预期错误（格式不支持 / 无文字层 / LLM 失败）：直接展示给用户
             return JsonResponse({"ok": False, "error": str(exc)}, status=400)
-        except Exception as exc:
+        except Exception:
+            # 非预期异常不回显给客户端（CodeQL py/stack-trace-exposure）：异常详情
+            # （堆栈 / 内部路径）只进服务端日志，客户端只拿到通用提示。
+            # 注意上面 ContractIntakeError 分支是刻意的：那是我们自己编写的域错误，
+            # 文案本就面向用户，保持原样透传。
             # extra 的 key 不能占用 LogRecord 内置属性名（filename/model 会冲突，ruff G101）
             logger.exception("合同自动分析失败", extra={"upload_name": filename, "llm_model": model_id})
-            return JsonResponse({"ok": False, "error": f"分析失败：{exc}"}, status=500)
+            return JsonResponse({"ok": False, "error": "分析失败，请稍后重试或联系管理员"}, status=500)
 
         return JsonResponse({"ok": True, "data": result})
 
@@ -788,7 +794,8 @@ class ContractAdmin(
                     success += 1
             except Exception as exc:
                 logger.exception("导入合同失败", extra={"index": i, "contract_name": item.get("name", "?")})
-                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
+                # 汇总行只回错误类型名：异常原文可能带堆栈/内部路径，full detail 在服务端日志
+                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__})")
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # pragma: no cover

@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from asgiref.sync import sync_to_async
-from django.conf import settings
 from django.http import FileResponse, Http404
 from ninja import File, Form, Router
 from ninja.files import UploadedFile

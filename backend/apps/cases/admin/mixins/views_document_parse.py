@@ -45,12 +45,16 @@ class CaseAdminDocumentParseMixin:  # pragma: no cover
     """裁判文书解析与执行事项预览相关视图。"""
 
     if TYPE_CHECKING:
-        # 由聚合入口 CaseAdminViewsMixin 的其他 mixin / ModelAdmin 提供
+        # 以下成员本 mixin 不拥有，只是声明签名供自身类型标注：
+        # _ensure_case_access 的唯一实现在 CaseAdminDetailViewsMixin，
+        # has_change_permission 来自 ModelAdmin。
         def _ensure_case_access(
             self, request: HttpRequest, case: Case | None, *, case_id: int | None = None
-        ) -> None: ...  # pragma: no cover
+        ) -> None:  # pragma: no cover
+            raise NotImplementedError  # 仅为类型检查声明，运行时由 CaseAdminDetailViewsMixin 提供
 
-        def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...  # pragma: no cover
+        def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
+            raise NotImplementedError  # 同上
 
     def parse_document_view(self, request: HttpRequest, casenumber_id: int) -> HttpResponse:  # pragma: no cover
         """解析裁判文书，提取案号、文书名称、执行依据主文"""
@@ -77,7 +81,9 @@ class CaseAdminDocumentParseMixin:  # pragma: no cover
                     body = json.loads(request.body)
                     temp_file_path = body.get("temp_file_path")
                 except (json.JSONDecodeError, ValueError):
-                    pass
+                    # 非 JSON 体（表单 POST）是兼容路径：下面统一回退到 request.POST 取值，
+                    # 两者都取不到时再走「临时文件不存在」报错，故此处不必额外处理。
+                    temp_file_path = None
             if not temp_file_path:
                 temp_file_path = request.POST.get("temp_file_path")
 
