@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import logging
-import shutil
 from collections.abc import Callable
 from typing import Any, cast
 

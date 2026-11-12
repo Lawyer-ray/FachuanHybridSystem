@@ -35,7 +35,14 @@ class CaseAdminViewsMixin(  # pragma: no cover
     只做聚合：MRO 顺序与方法来源见 ``CaseAdminListDisplayMixin`` /
     ``CaseAdminDetailViewsMixin`` / ``CaseAdminDocumentParseMixin`` /
     ``CaseAdminFolderImportMixin``，各组之间无同名方法，不存在互相覆盖。
+
+    例外是行级权限校验 ``_ensure_case_access``：唯一实现在
+    ``CaseAdminDetailViewsMixin``，另外两个 mixin 只在 ``TYPE_CHECKING`` 里声明
+    签名（供自身类型标注用），运行时并不定义它。这里显式指向唯一实现，让
+    「谁提供该属性」在聚合入口可见，不依赖 MRO 的隐式先后。
     """
+
+    _ensure_case_access = CaseAdminDetailViewsMixin._ensure_case_access
 
 
 __all__: list[str] = ["CaseAdminViewsMixin"]

@@ -30,7 +30,6 @@ class GuaranteeDataMixin:
         # 空值由法院表单自身的必填校验暴露（errors_after_next），由人工补全后重跑。
         name = str(party.get("name") or "").strip()
         party_type = self._normalize_party_type(party.get("party_type") or "natural")
-        is_natural = party_type == "natural"
 
         id_number = str(party.get("id_number") or "").strip()
         address = str(party.get("address") or "").strip()

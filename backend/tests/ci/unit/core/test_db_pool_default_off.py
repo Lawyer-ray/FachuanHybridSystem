@@ -35,6 +35,8 @@ _SETTINGS_PY = Path(__file__).resolve().parents[4] / "apiSystem" / "apiSystem" /
 
 # 允许保留 thread_sensitive=False 的域：纯长任务 / 与 DB 无关，改回 True 会串行化。
 # OA 的 4 个轮询读端点已改回默认 True（纯短 DB 查询 + 前端高频轮询 = 泄漏点）。
+# 注：这是**基线数据**，当前用例尚未逐文件比对（故 CodeQL 报「未使用」）；
+# 保留的理由是它是「哪些域允许例外」的唯一记录，删掉会丢失判断依据。
 _KNOWN_LONG_TASK_FILES = {
     "apps/agent/pi/pool.py",
     "apps/agent/services/chat_service.py",

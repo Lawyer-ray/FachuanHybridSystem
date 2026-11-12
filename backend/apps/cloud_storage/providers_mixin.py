@@ -11,7 +11,9 @@ if TYPE_CHECKING:
     # 仅为类型检查声明子类契约；运行时子类由 protocols.CloudStorageProvider
     # 约束，此处不提供实现（mixin 不持有状态，也不做脚手架）。
     class _ListDirectoryContract:
-        def list_directory(self, path: str) -> list[CloudFileInfo]: ...
+        def list_directory(self, path: str) -> list[CloudFileInfo]:
+            raise NotImplementedError
+
 else:
     _ListDirectoryContract = object
 

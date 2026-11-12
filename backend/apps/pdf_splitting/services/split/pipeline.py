@@ -44,7 +44,6 @@ from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
 from .segment_detector import SegmentDetector
 from .split_models import (
-    MATERIAL_KIND_MIXED_PDF,
     MATERIAL_KIND_SCANNED_PDF,
     OCRPageResult,
     PageDescriptor,
