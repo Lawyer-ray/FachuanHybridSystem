@@ -91,8 +91,12 @@ def _call_llm(*, prompt: str, model_id: str) -> str:
             caller="contracts.intake.extract",
         )
     except Exception as exc:
+        # 底层异常可能带 HTTP 请求体、模型响应、鉴权头等敏感内容，
+        # 只进服务端日志（logger.exception），用户文案给固定提示。
+        # 若把 {exc} 拼进文案，它会沿 ContractIntakeError → admin JsonResponse
+        # 一路透传到前端（CodeQL py/stack-trace-exposure）。
         logger.exception("合同抽取 LLM 调用失败")
-        raise ContractExtractionError(f"调用大模型失败：{exc}") from exc
+        raise ContractExtractionError("调用大模型失败，请稍后重试或换一个模型") from exc
 
     content = str(getattr(response, "content", "") or "").strip()
     if not content:
