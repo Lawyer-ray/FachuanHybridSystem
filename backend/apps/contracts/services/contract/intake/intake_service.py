@@ -9,6 +9,15 @@
 
 这也是为什么本模块不写任何业务表：用户复核后才点「保存」，
 届时走既有 ``ContractAdmin.save_model``，临时文件不参与。
+
+错误文案卫生约定（硬性，勿破）：
+    ``ContractIntakeError`` 的消息会**原样回显到前端**（admin 里 ``str(exc)``
+    直接进 JsonResponse）。所以链路上任何一环都**不得**把底层异常文本拼进文案：
+    ``OSError`` 带绝对路径、``pymupdf`` / ``python-docx`` 带解析器内部结构、
+    LLM SDK 带 HTTP 请求体与鉴权头片段。一律给固定、可操作的中文提示，
+    底层详情用 ``raise ... from exc`` 保留在异常链里，由上层
+    ``logger.exception`` 记录。破这条会触发 CodeQL py/stack-trace-exposure，
+    也是真实的向外部泄露实现细节。
 """
 
 from __future__ import annotations
