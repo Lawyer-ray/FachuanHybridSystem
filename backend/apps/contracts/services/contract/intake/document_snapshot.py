@@ -120,7 +120,10 @@ def extract_docx_text(path: Path) -> tuple[list[str], int, int]:
     try:
         document = Document(str(path))
     except Exception as exc:  # python-docx 对损坏/加密文件抛多种异常
-        raise DocumentSnapshotError(f"无法读取 Word 文档：{exc}") from exc
+        # 底层异常文本带库内部结构/文件路径，不拼进用户文案（会一路透传到前端
+        # 的 JsonResponse，即 CodeQL py/stack-trace-exposure）。详情靠 from exc
+        # 保留在异常链里，由上层 logger.exception 记录。
+        raise DocumentSnapshotError("无法读取 Word 文档，文件可能已损坏或被密码保护") from exc
 
     lines: list[str] = []
     for paragraph in document.paragraphs:
@@ -155,7 +158,8 @@ def extract_pdf_text(path: Path) -> tuple[list[str], int]:
     try:
         document = pymupdf.open(str(path))
     except Exception as exc:
-        raise DocumentSnapshotError(f"无法读取 PDF：{exc}") from exc
+        # 同上：pymupdf 的异常文本含底层解析细节，不进用户文案
+        raise DocumentSnapshotError("无法读取 PDF，文件可能已损坏") from exc
 
     try:
         if getattr(document, "needs_pass", False):
