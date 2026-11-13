@@ -58,6 +58,11 @@ function renderPanel(infos: unknown[], extra: { pickInfo?: number; o?: ReturnTyp
         pickInfo={extra.pickInfo ?? -1}
         onSetPickInfo={onSetPickInfo}
         ops={o as never}
+        focusedSeg={0}
+        mdOpen={false}
+        onToggleMdOpen={() => {}}
+        focusedBlockKey={null}
+        onLocateBlock={() => {}}
       />,
     ),
   )

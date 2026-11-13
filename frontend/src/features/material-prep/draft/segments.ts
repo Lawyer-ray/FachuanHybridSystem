@@ -129,3 +129,45 @@ export function fillSegmentText(d: DraftState, mi: number, md: string): DraftSta
   })
   return changed ? { ...d, segs } : d
 }
+
+/**
+ * 手改某段的 Markdown 正文。
+ *
+ * 识别不可能全对：表格拍平、标题层级错、页眉页脚混进正文都是常态。
+ * 律师改过之后要能留下来（进草稿、可撤销、随包保存），而不是一刷新就没了。
+ *
+ * 与 `fillSegmentText` 的分工：那个是**填**（只填空段，保护人工结果），
+ * 这个是**改**（人工显式编辑，直接覆盖）。
+ */
+export function setSegmentMarkdown(d: DraftState, si: number, md: string): DraftState {
+  const seg = d.segs[si]
+  if (!seg) return d
+  // 去掉首尾空白后与现值相同就不产生新对象：避免 Undo 栈里塞满「点开又关掉」的空改动
+  const next = md.replace(/\s+$/, '')
+  if ((seg.md ?? '') === next) return d
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, md: next || undefined } : sg))
+  return { ...d, segs }
+}
+
+/**
+ * 删掉某段里的一个定位块（识别出来的框位置画错了）。
+ *
+ * 只删坐标索引，**不动 Markdown 正文**：框画歪不等于文字读错，两件事分开处理。
+ * 律师多半会接着用「标来源」重拖一个框，或者干脆不要这个框。
+ *
+ * key 的规则必须与 `draft/block-keys.ts` 的 `blockKeyOf` 逐字一致
+ * （段 id + 绝对页号 + 同页内序号），否则会删错块。
+ */
+export function removeSegmentBlock(d: DraftState, si: number, blockKey: string): DraftState {
+  const seg = d.segs[si]
+  if (!seg?.blocks?.length) return d
+
+  const next = seg.blocks.filter((b, i) => {
+    const samePageIdx = seg.blocks!.slice(0, i + 1).filter((x) => x.page === b.page).length - 1
+    return `${seg.id}:${b.page}:${samePageIdx}` !== blockKey
+  })
+  if (next.length === seg.blocks.length) return d
+
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, blocks: next.length ? next : undefined } : sg))
+  return { ...d, segs }
+}
