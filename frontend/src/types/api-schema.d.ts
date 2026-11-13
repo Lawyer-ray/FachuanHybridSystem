@@ -3289,8 +3289,80 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm Endpoint */
+        /**
+         * Confirm Endpoint
+         * @description 确认绑定（蓝票走这里）。
+         *
+         *     ## 红票不得从老端点进
+         *
+         *     红票的语义是「抵掉一张已存在的票」，不是「新增一笔开票」：走 ``confirm``
+         *     会生成一张金额为负、没有原票关联的 ``Invoice``，账上就多出一张孤立红票。
+         *     因此在此硬拦——必须走 ``confirm-red-reenact`` / ``confirm-red-only``。
+         */
         post: operations["apps_contracts_api_invoice_intake_api_confirm_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/{intake_id}/confirm-red-reenact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Red Reenact Endpoint
+         * @description 一次裁定完成「冲红 + 重开」：红票冲原票，新蓝票替代原票入账。
+         */
+        post: operations["apps_contracts_api_invoice_intake_api_confirm_red_reenact_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/{intake_id}/confirm-red-only": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Red Only Endpoint
+         * @description 只冲红不重开（客户不要这张票了）。
+         *
+         *     与 ``confirm-red-reenact`` 分开一个端点而不是用可选参数区分：两条路径的
+         *     审计日志动作名、允许的前置条件都不同，混在一个入口里迟早会被误调。
+         */
+        post: operations["apps_contracts_api_invoice_intake_api_confirm_red_only_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contracts/finance/invoice-intake/{intake_id}/reparse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reparse Endpoint
+         * @description 重解析这张发票（补金额与红票事实，用于历史脏数据修复）。
+         */
+        post: operations["apps_contracts_api_invoice_intake_api_reparse_endpoint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15611,6 +15683,26 @@ export interface components {
              */
             reason: string;
         };
+        /**
+         * GroupItemOut
+         * @description 冲红重开组里的一段（原票 / 红票 / 重开票）。
+         *
+         *     两段 id 都可空：原票可能**未落账**（只在 intake 里，甚至完全不在系统里），
+         *     红票在裁定前也还没有 ``invoice_id``，所以不能用 ``int``。
+         */
+        GroupItemOut: {
+            /** Intake Id */
+            intake_id?: number | null;
+            /** Invoice Id */
+            invoice_id?: number | null;
+            /**
+             * Invoice Number
+             * @default
+             */
+            invoice_number: string;
+            /** Total Amount */
+            total_amount?: string | null;
+        };
         /** InvoiceCandidateOut */
         InvoiceCandidateOut: {
             /** Contract Id */
@@ -15725,6 +15817,51 @@ export interface components {
              * @default
              */
             original_filename: string;
+            /**
+             * Is Red
+             * @default false
+             */
+            is_red: boolean;
+            /**
+             * Red Against Number
+             * @default
+             */
+            red_against_number: string;
+            /**
+             * Red Confirmation No
+             * @default
+             */
+            red_confirmation_no: string;
+            offset_invoice?: components["schemas"]["OffsetInvoiceOut"] | null;
+            /** Supersedes Intake Id */
+            supersedes_intake_id?: number | null;
+            /** Superseded By Intake Id */
+            superseded_by_intake_id?: number | null;
+            reatch_group?: components["schemas"]["RedGroupOut"] | null;
+        };
+        /**
+         * OffsetInvoiceOut
+         * @description 被红票冲销的那张原发票（红票详情/首页对照用）。
+         */
+        OffsetInvoiceOut: {
+            /** Id */
+            id: number;
+            /** Invoice Number */
+            invoice_number: string;
+            /** Total Amount */
+            total_amount?: string | null;
+            /** Contract Id */
+            contract_id?: number | null;
+            /**
+             * Contract Name
+             * @default
+             */
+            contract_name: string;
+            /**
+             * Folder Subpath
+             * @default
+             */
+            folder_subpath: string;
         };
         /** PaymentOptionOut */
         PaymentOptionOut: {
@@ -15737,10 +15874,52 @@ export interface components {
             /** Note */
             note: string;
         };
+        /**
+         * RedGroupOut
+         * @description 「原蓝票 → 红票 → 重开蓝票」三态事务的分组事实。
+         *
+         *     只在红票上给：前端按 ``group_key`` 把扁平列表折叠成一张卡。
+         */
+        RedGroupOut: {
+            /** Group Key */
+            group_key: string;
+            original?: components["schemas"]["GroupItemOut"] | null;
+            red: components["schemas"]["GroupItemOut"];
+            reissue?: components["schemas"]["GroupItemOut"] | null;
+        };
         /** CountOut */
         CountOut: {
             /** Count */
             count: number;
+        };
+        /**
+         * ConfirmRedReenactIn
+         * @description 「冲红并确认重开」入参。
+         *
+         *     ``new_intake_id`` 省略 = 只冲红不开新票——但那属于误用：真要不重开
+         *     应走 ``confirm-red-only``（语义不同，审计日志也不一样）。
+         */
+        ConfirmRedReenactIn: {
+            /** New Intake Id */
+            new_intake_id?: number | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Amount Override
+             * @default false
+             */
+            amount_override: boolean;
+        };
+        /** ConfirmRedOnlyIn */
+        ConfirmRedOnlyIn: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
         };
         /**
          * SupplementaryAgreementIn
@@ -17956,6 +18135,11 @@ export interface components {
              * @default fast_text
              */
             layout_mode: string;
+            /**
+             * Cloud Backend
+             * @default auto
+             */
+            cloud_backend: string;
             /** Progress */
             progress: number;
             /** Total Pages */
@@ -17985,11 +18169,12 @@ export interface components {
              * @default
              */
             error_message: string;
-            /**
-             * Cloud Backend
-             * @default auto
-             */
-            cloud_backend: string;
+            /** Heartbeat At */
+            heartbeat_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Stale Seconds */
+            stale_seconds?: number | null;
         };
         /**
          * PositionedBlockOut
@@ -29400,6 +29585,80 @@ export interface operations {
                 "application/json": components["schemas"]["ConfirmIn"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_confirm_red_reenact_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRedReenactIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_confirm_red_only_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRedOnlyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+        };
+    };
+    apps_contracts_api_invoice_intake_api_reparse_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                intake_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {

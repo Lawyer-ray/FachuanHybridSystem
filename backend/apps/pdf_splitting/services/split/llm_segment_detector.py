@@ -88,6 +88,8 @@ class LLMSegmentDetector:
         # 无 django_db 标记的单测会被阻断（照 vlm_ocr_service 的懒加载模式）
         self._llm_service = llm_service
         self._wall_timeout_seconds = wall_timeout_seconds
+        # 懒加载用的锁：分段已改成多批并行，多个线程会同时读 _llm_service
+        self._service_lock = threading.Lock()
 
     def detect(self, pages: list[PageDescriptor], *, template_key: str) -> list[SegmentDraft]:
         if not pages:
@@ -117,11 +119,21 @@ class LLMSegmentDetector:
         return drafts
 
     def _get_llm_service(self) -> Any:
-        if self._llm_service is None:
-            from apps.core.services.wiring import get_llm_service
+        """懒加载 LLM 服务（线程安全）。
 
-            self._llm_service = get_llm_service()
-        return self._llm_service
+        为何要加锁：分段已改为**多批并行**（`segment_batch` 用
+        ThreadPoolExecutor），多个线程可能同时首次进入这里。不加锁的话
+        会各自调一次 `get_llm_service()`——轻则重复建连接，重则拿到两个
+        不同实例导致配置不一致。
+        """
+        if self._llm_service is not None:
+            return self._llm_service
+        with self._service_lock:
+            if self._llm_service is None:
+                from apps.core.services.wiring import get_llm_service
+
+                self._llm_service = get_llm_service()
+            return self._llm_service
 
     def _chat_with_wall(self, *, messages: list[dict[str, Any]], **kwargs: Any) -> Any:
         """带硬时限墙的 LLM 调用：到点抛 LLMSegmentationError，由上层降级规则引擎。

@@ -18,6 +18,24 @@ class PdfSplitJobStatus(models.TextChoices):
     CANCELLED = "cancelled", "已取消"
 
 
+class PdfSplitStage(models.TextChoices):
+    """两阶段任务链的执行阶段。
+
+    为什么拆两段：整条流水线在 164 页实测要 499s+（还没包含分段），而
+    Django-Q 的 worker 超时是 600s，差一点就被杀。拆开后：
+
+        extract（取字）→ 落 pages.json + 逐页 OCR 缓存
+        segment（分段）→ 从 pages.json 读回，跑 LLM/规则分段
+
+    每段各自有 600s 预算，且 extract 的产物已落盘，即使 segment 被杀
+    也不用重跑 OCR（这是最痛的点）。
+    """
+
+    EXTRACT = "extract", "取字"
+    SEGMENT = "segment", "分段"
+    DONE = "done", "完成"
+
+
 class PdfSplitSourceType(models.TextChoices):
     UPLOAD = "upload", "上传文件"
     LOCAL_PATH = "local_path", "本地路径"
@@ -186,6 +204,29 @@ class PdfSplitJob(models.Model):
     export_zip_relpath = models.CharField(max_length=1024, blank=True, default="", verbose_name="导出ZIP路径")
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
+    # ↓↓ 心跳：worker 每处理一批页就刷新一次，用于判别「任务还在跑」还是「worker 已死」。
+    #
+    # 为什么不能复用 updated_at：进度回写走 `QuerySet.update()`，而 `auto_now` 只在
+    # `Model.save()` 时生效——update() 不会更新 updated_at。历史上 therefore 进度页数
+    # 变了而 updated_at 停在创建时刻，看门狗与前端都无法判断死活（某次任务卡在
+    # 135/164 二十余分钟而无人察觉，正是这个缺口）。
+    heartbeat_at = models.DateTimeField(null=True, blank=True, verbose_name="心跳时间")
+    # ↓↓ 自动拯救尝试次数（防无限重排：一次死循环会把队列打满）
+    recovery_attempts = models.PositiveSmallIntegerField(default=0, verbose_name="自动重排次数")
+    # ↓↓ 当前执行阶段（两阶段任务链的分段点）。
+    #
+    # 为什么需要它：整条流水线（云端 OCR → LLM 分段 → 落库）在 164 页的真实
+    # 卷宗上要十几分钟，而 Django-Q 的 worker 超时（DJANGO_Q_TIMEOUT，默认 600s）
+    # 是**整个任务**的阖值——超了就杀进程重生，已跑完的 OCR 白干。
+    #
+    # 拆成两个独立任务后，每个任务各自有 600s 预算；阶段字段让第二个任务
+    # 知道该从哪接，也让前端能说清楚“现在在识别”还是“现在在分段”。
+    stage = models.CharField(
+        max_length=32,
+        choices=PdfSplitStage.choices,
+        default=PdfSplitStage.EXTRACT,
+        verbose_name="执行阶段",
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

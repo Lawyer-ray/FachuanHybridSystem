@@ -22,13 +22,22 @@ from apps.pdf_splitting.models import (
     PdfSplitReviewFlag,
     PdfSplitSegment,
     PdfSplitSegmentType,
+    PdfSplitStage,
 )
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename
 
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
+from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
-from .pipeline import PipelineCancelled, analyze_pdf, build_page_descriptor, detect_segments_with_fallback
+from .pipeline import (
+    PdfAnalysisOutcome,
+    PipelineCancelled,
+    analyze_pdf,
+    build_page_descriptor,
+    detect_segments_with_fallback,
+    extract_pages,
+)
 from .segment_detector import SegmentDetector
 from .split_models import PageDescriptor, SegmentDraft
 
@@ -86,6 +95,9 @@ class PdfSplitService:
             return
 
         def on_progress(resolved_pages: int, total_pages: int) -> None:
+            # 每页都刷心跳（便宜，单列 update），进度写库才节流。
+            # 这样「一页识别两分钟」的慢任务不会在两次进度回写之间被看门狗误判为死。
+            self.touch_heartbeat(job_id=job.id)
             self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
 
         def is_cancelled() -> bool:
@@ -114,6 +126,73 @@ class PdfSplitService:
             )
             return
         self._persist_analysis(job=job, storage=storage, outcome=outcome)
+
+    def extract_stage(self, job: PdfSplitJob) -> tuple[list[Any], dict[str, Any]]:
+        """两阶段任务链 ①：只做取字。
+
+        把任务标成 processing + stage=extract，跑完后返回 pages 供调用方
+        落盘。不在这里写 pages.json：落盘与推进阶段是编排层（tasks.py）的事，
+        本方法保持“纯粹的二作”。
+        """
+        storage = PdfSplitStorage(job.id)
+        storage.ensure_dirs()
+        self._begin_stage(job, PdfSplitStage.EXTRACT)
+
+        def on_progress(resolved_pages: int, total_pages: int) -> None:
+            self.touch_heartbeat(job_id=job.id)
+            self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
+
+        def is_cancelled() -> bool:
+            job.refresh_from_db(fields=["cancel_requested"])
+            return bool(job.cancel_requested)
+
+        return extract_pages(
+            storage.source_pdf_path,
+            template_key=job.template_key,
+            ocr_profile=job.ocr_profile,
+            layout_mode=getattr(job, "layout_mode", "fast_text"),
+            cloud_backend=getattr(job, "cloud_backend", "auto"),
+            on_progress=on_progress,
+            is_cancelled=is_cancelled,
+            ocr_handler=self._ocr_handler,
+        )
+
+    def segment_stage(self, job: PdfSplitJob) -> None:
+        """两阶段任务链 ②：从 pages.json 读回取字结果，只做分段与落库。"""
+        from . import two_stage
+        from .pipeline import PageDescriptor
+
+        storage = PdfSplitStorage(job.id)
+        storage.ensure_dirs()
+        self._begin_stage(job, PdfSplitStage.SEGMENT)
+
+        raw_pages = two_stage.load_pages(storage)
+        if not raw_pages:
+            raise ValueError("取字结果缺失（pages.json 不存在或为空），需重跑取字阶段")
+
+        pages = [PageDescriptor(**item) for item in raw_pages]
+        drafts, segment_summary = detect_segments_with_fallback(pages, template_key=job.template_key)
+
+        bbox_backend = str(getattr(job, "cloud_backend", "") or "")
+        outcome = PdfAnalysisOutcome(
+            pages=pages,
+            drafts=drafts,
+            segments_md=build_segments_markdown(drafts, pages, bbox_backend=bbox_backend),
+            summary=segment_summary,
+        )
+        self._persist_analysis(job=job, storage=storage, outcome=outcome)
+        PdfSplitJob.objects.filter(id=job.id).update(stage=PdfSplitStage.DONE)
+
+    def _begin_stage(self, job: PdfSplitJob, stage: str) -> None:
+        """阶段开始：置 processing + 写阶段 + 刷心跳。"""
+        now = timezone.now()
+        PdfSplitJob.objects.filter(id=job.id).update(
+            status=PdfSplitJobStatus.PROCESSING,
+            stage=stage,
+            error_message="",
+            heartbeat_at=now,
+            updated_at=now,
+        )
 
     def export_job(self, job: PdfSplitJob) -> None:  # pragma: no cover
         storage = PdfSplitStorage(job.id)
@@ -325,15 +404,34 @@ class PdfSplitService:
     def _update_progress(self, *, job_id: Any, resolved_pages: int, total_pages: int) -> None:  # pragma: no cover
         progress = int(resolved_pages * 100 / total_pages) if total_pages else 0
         if resolved_pages % self.PROGRESS_UPDATE_EVERY == 0 or resolved_pages == total_pages:
+            now = timezone.now()
+            # 必须显式写 updated_at / heartbeat_at：`QuerySet.update()` 绕过 `auto_now`，
+            # 不写的话这两个字段永远停在创建时刻，看门狗与前端都无法区分
+            # 「任务在跑」与「worker 已死」。
             PdfSplitJob.objects.filter(id=job_id).update(
                 total_pages=total_pages,
                 processed_pages=resolved_pages,
                 current_page=resolved_pages,
                 progress=progress,
+                updated_at=now,
+                heartbeat_at=now,
             )
 
     def _should_check_cancel(self, marker: int) -> bool:
         return marker % self.CANCEL_CHECK_EVERY == 0
+
+    def touch_heartbeat(self, *, job_id: Any) -> None:  # pragma: no cover
+        """刷新心跳，不改变进度。
+
+        为什么在进度回写之外还需要它：`_update_progress` 每 5 页才写一次库，
+        而单页云端识别在 164 页扫描件上可能长达一两分钟。如果一页识别特别慢
+        （或卡在云端排队），两次进度回写之间会超过看门狗的 `STALE_SECONDS`，
+        把一个**仍在正常工作**的任务误判为死任务。心跳必须比进度更频繁。
+
+        调用方（pipeline 的每页回调）负责调它；这里只负责写库。
+        """
+        now = timezone.now()
+        PdfSplitJob.objects.filter(id=job_id).update(heartbeat_at=now, updated_at=now)
 
 
 # 版面标题提取已下沉 split_models（pipeline / service 共用）；此处保留旧名再导出，

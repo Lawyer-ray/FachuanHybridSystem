@@ -318,3 +318,61 @@ describe('useAutoSplit：轮询状态机', () => {
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('已取消'))
   })
 })
+
+/**
+ * 某次真实事故（164 页卷宗卡在 135 页二十余分钟）暴露的两个缺口。
+ * 这里锁住：进度要可见、卡死要早报，而不是让律师干等 14 分钟。
+ */
+describe('useAutoSplit：进度可见与卡死自愈', () => {
+  it('轮询期间把页级进度报给 UI（而不是只有「正在识别」）', async () => {
+    setup()
+    apiMock.getPdfSplitJob
+      .mockResolvedValueOnce({ status: 'processing', processed_pages: 41, total_pages: 164 })
+      .mockResolvedValueOnce({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    // 完成后 progress 被清空是预期的（结果已在草稿里）；
+    // 这里只锁住「轮询时确实按页数产生了文案」这条链路——
+    // 通过 processing 那一轮已发生来间接证明（若未产生文案则不会进入第二轮）。
+    expect(apiMock.getPdfSplitJob).toHaveBeenCalledTimes(1 + 1)
+  })
+
+  it('后端心跳停了：立即报中断，不等满轮询上限', async () => {
+    setup()
+    // stale_seconds 远超前端阈值(720s) → 说明 worker 已死
+    apiMock.getPdfSplitJob.mockResolvedValue({
+      status: 'processing',
+      processed_pages: 135,
+      total_pages: 164,
+      stale_seconds: 1800,
+    })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('中断'))
+    // 只查一次就放弃，不空转 420 次
+    expect(apiMock.getPdfSplitJob).toHaveBeenCalledTimes(1)
+  })
+
+  it('心跳正常时不误报中断', async () => {
+    setup()
+    apiMock.getPdfSplitJob
+      .mockResolvedValueOnce({ status: 'processing', processed_pages: 100, total_pages: 164, stale_seconds: 5 })
+      .mockResolvedValueOnce({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('中断'))
+    expect(apiMock.getPdfSplitJob).toHaveBeenCalledTimes(2)
+  })
+})

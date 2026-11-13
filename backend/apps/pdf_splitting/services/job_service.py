@@ -38,6 +38,21 @@ logger = logging.getLogger("apps.pdf_splitting")
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
+def _stale_seconds_for(job: PdfSplitJob) -> int | None:
+    """任务已静默多少秒；非 processing 态返回 None。
+
+    前端拿它跟超时阈值比，就能在“还在跑”与“大概卡死了”之间区分，
+    而不是靠盲等。口径与 `job_recovery._last_liveness` 保持一致（心跳优先）。
+    """
+    if job.status != PdfSplitJobStatus.PROCESSING:
+        return None
+    candidates = [job.heartbeat_at, job.updated_at, job.started_at, job.created_at]
+    last = max((item for item in candidates if item is not None), default=None)
+    if last is None:
+        return None
+    return max(0, int((timezone.now() - last).total_seconds()))
+
+
 class PdfSplitJobService:
     # 收件箱单文件上限已放宽到 1GB（整卷客户材料），这里必须跟上——否则
     # 材料包里的文件能传进来、却在自动分段时被拒，白上传一次。
@@ -113,11 +128,25 @@ class PdfSplitJobService:
                 },
             )
 
-            task_id = build_task_submission_service().submit(
-                "apps.pdf_splitting.tasks.execute_pdf_split_job",
-                args=[str(job.id)],
-                task_name=f"pdf_split_{job.id}",
-            )
+            # 内容分析走**两阶段任务链**（取字 → 分段），每段各有 600s 预算。
+            #
+            # 单任务版本在 164 页真实卷宗上会被 Django-Q 的 worker 超时杀掉
+            # （实测 164 页任务跑到 499s 被杀），而且杀掉后 OCR 成果全丢。拆分后
+            # 取字产物落 pages.json + 逐页缓存，第二段被杀也不用重跑云端。
+            if mode_key == PdfSplitMode.CONTENT_ANALYSIS:
+                from apps.pdf_splitting.services.split.two_stage import TASK_EXTRACT
+
+                task_id = build_task_submission_service().submit(
+                    TASK_EXTRACT,
+                    args=[str(job.id)],
+                    task_name=f"pdf_split_extract_{job.id}",
+                )
+            else:
+                task_id = build_task_submission_service().submit(
+                    "apps.pdf_splitting.tasks.execute_pdf_split_job",
+                    args=[str(job.id)],
+                    task_name=f"pdf_split_{job.id}",
+                )
             PdfSplitJob.objects.filter(id=job.id).update(task_id=str(task_id), started_at=timezone.now())
             job.refresh_from_db()
             return job
@@ -177,6 +206,14 @@ class PdfSplitJobService:
             "download_url": download_url,
             "pdf_url": pdf_url,
             "error_message": job.error_message or "",
+            # ↓↓ 存活信息：前端据此判断「在跑」还是「卡死了」，不必等满 14 分钟超时。
+            #
+            # stale_seconds 为 null 表示非 processing 态（终态或待人工），不参与判活。
+            # 前端拿到 stale_seconds 为正的整数时，应该把「长时间无变化」提示成
+            # 「可能已中断」并给出重试入口，而不是继续转圈。
+            "heartbeat_at": job.heartbeat_at.isoformat() if job.heartbeat_at else None,
+            "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+            "stale_seconds": _stale_seconds_for(job),
         }
 
     @transaction.atomic

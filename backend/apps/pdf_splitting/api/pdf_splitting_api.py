@@ -92,6 +92,12 @@ class PdfSplitJobOut(BaseModel):
     download_url: str = ""
     pdf_url: str = ""
     error_message: str = ""
+    # 存活信号（见 services/job_recovery.py）。
+    # stale_seconds 为 null：非 processing 态，无需判活；
+    # 为正整数：已静默这么多秒，前端可据此提示「可能已中断」。
+    heartbeat_at: str | None = None
+    updated_at: str | None = None
+    stale_seconds: int | None = None
 
 
 class PdfSplitJobSubmitOut(BaseModel):

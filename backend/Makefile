@@ -136,7 +136,7 @@ ci-check-full: ## 完整 CI 镜像 + 远端独立 Job（coverage 门槛 + 全量
 	@echo ""
 	@echo "$(GREEN)✅ 完整 CI 镜像 + 扩展检查全部通过!$(NC)"
 
-.PHONY: help install run test migrate pg-ready shell lint clean ci-check ci-check-full qcluster-dev redis-cli redis-status redis-reset
+.PHONY: help install run test migrate pg-ready shell lint clean ci-check ci-check-full qcluster-dev pdf-split-sweep redis-cli redis-status redis-reset
 
 # 默认 Python 和虚拟环境
 VENV_DIR ?= .venv
@@ -396,7 +396,13 @@ qcluster-start: migrate ## 启动 Django-Q 并处理待处理任务（与 Django
 qcluster-dev: migrate ## 启动 Django-Q（文件变化自动重启）
 	@echo "$(GREEN)启动 qcluster-dev: 检测 Python 文件变化后自动重启 qcluster$(NC)"
 	@echo "$(YELLOW)监听目录: $(QCLUSTER_WATCH_PATHS)$(NC)"
+	@echo "$(YELLOW)⚠️  注意：改任何 .py 都会强制重启 worker（正在跑的任务会被中断）。$(NC)"
+	@echo "$(YELLOW)    跑长任务（如大 PDF 拆分）时请改用 'make qcluster'——它不监视文件变化。$(NC)"
+	@echo "$(YELLOW)    被中断的任务会卡在 processing，可用 'make pdf-split-sweep' 自查/拯救。$(NC)"
 	@WATCHFILES_FORCE_POLLING=$(QCLUSTER_DEV_FORCE_POLLING) WATCHFILES_POLL_DELAY_MS=$(QCLUSTER_DEV_POLL_DELAY_MS) OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES $(WATCHFILES) --target-type command --filter python --ignore-paths ".venv,node_modules,.git,__pycache__,media,staticfiles,logs,htmlcov,.pytest_cache" "$(MANAGE) qcluster" $(QCLUSTER_WATCH_PATHS)
+
+pdf-split-sweep: ## 自查并拯救卡死的 PDF 拆分任务（--dry-run 只看不救）
+	$(MANAGE) sweep_stale_pdf_splits $(if $(DRY),--dry-run,)
 
 process-tasks: ## 处理待处理的爬虫任务
 	$(MANAGE) process_pending_tasks

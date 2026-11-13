@@ -10,6 +10,15 @@ import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 const POLL_DELAY_MS = 2000
 const POLL_LIMIT = 420
 
+/**
+ * 后端心跳停多久算「已中断」。
+ *
+ * 与 `backend/apps/pdf_splitting/services/job_recovery.py` 的 `STALE_SECONDS`
+ * 同口径（600s = 10 分钟），但这里放宽到 720s：前端多等两分钟没代价，
+ * 误报「已中断」却会让律师主动打断一个其实还在跑的任务。
+ */
+const STALE_SECONDS_LIMIT = 720
+
 /** 单个 PDF 的云端拆分结果：mi 定位材料，segmentBackend 用于提示分段质量来源 */
 interface AutoSplitResult {
   mi: number
@@ -88,7 +97,7 @@ export function useAutoSplit() {
         // 串行轮询：过期会话（连点重入 / 卸载）在这里就退出，不再产生新请求
         if (lease.isStale()) break
         try {
-          const result = await pollJob(jobId, lease)
+          const result = await pollJob(jobId, lease, setProgress)
           if (lease.isStale()) break
           finished += 1
           setProgress(`云端识别完成 ${finished}/${jobs.length}`)
@@ -253,7 +262,22 @@ function blocksToMarkdown(blocks: { text?: string }[] | undefined): string {
   return lines.join('\n')
 }
 
-async function pollJob(jobId: string, lease: PollLease) {
+/**
+ * 轮询云端拆分任务，并把页级进度报给 UI。
+ *
+ * 三件事以前都没有，导致律师只能干等：
+ *  1. 显示「已识别 X/Y 页」，而不是一个万年不变的转圈；
+ *  2. 停滞检测——后端心跳停了就立刻报「可能已中断」+ 重试入口，
+ *     不再等到 420 次 × 2 秒 = 14 分钟才报超时（真实踩过：164 页卡在
+ *     135 页二十多分钟，律师完全无从判断）；
+ *  3. 把已处理页数作为「有进展」的证据，让等待有确定性。
+ */
+async function pollJob(
+  jobId: string,
+  lease: PollLease,
+  onProgress?: (text: string) => void,
+  staleSecondsLimit = STALE_SECONDS_LIMIT,
+) {
   for (let attempt = 0; attempt < POLL_LIMIT; attempt++) {
     if (lease.isStale()) throw new Error('已取消')
     const job = await getPdfSplitJob(jobId)
@@ -261,6 +285,22 @@ async function pollJob(jobId: string, lease: PollLease) {
     if (job.status === 'failed' || job.status === 'cancelled') {
       throw new Error(job.error_message || `PDF 拆分任务${job.status === 'failed' ? '失败' : '已取消'}`)
     }
+
+    // 页级进度：后端返回 processed_pages / total_pages，直接给律师看确定性
+    if (job.total_pages > 0) {
+      const pct = Math.min(100, Math.round((job.processed_pages / job.total_pages) * 100))
+      onProgress?.(`正在识别 ${job.processed_pages}/${job.total_pages} 页（${pct}%）`)
+    }
+
+    // 停滞检测：后端心跳停了就说明 worker 已死（见 backend job_recovery.py），
+    // 立刻失败并给出可操作的原因，而不是让律师继续盯着一个已经不会动的进度条。
+    if (job.stale_seconds != null && job.stale_seconds > staleSecondsLimit) {
+      throw new Error(
+        `识别进程已中断（${Math.round(job.stale_seconds / 60)} 分钟无响应）。` +
+          '请稍后重试；若反复中断，可先拆分页数再识别。',
+      )
+    }
+
     await lease.sleep(POLL_DELAY_MS)
   }
   throw new Error('云端识别等待超时，请稍后重试')
