@@ -9,6 +9,7 @@ import { isAutoSegName } from '../../draft'
 import { PageCell, type PageRect } from './PageCell'
 import { PageContextMenu } from './PageContextMenu'
 import { SegmentHeader } from './SegmentHeader'
+import { SegmentMarkdown } from './SegmentMarkdown'
 import type { FlowOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 
@@ -55,6 +56,11 @@ export function Flow({
   const pageW = fitPageWidth(flowWidth, nCols, zoom)
   const rowW = rowWidth(pageW, nCols)
   const zwide = rowW > flowWidth
+
+  // Markdown 面板里点了某个定位块 → 原页上把对应的天空蓝框高亮出来。
+  // 只存 key 不存 rect：rect 由 hits 自带，存两份会在重新分段后错位。
+  // 必须声明在 cellPropsOf 之前（后者在 useCallback 里读它，后置会撞 TDZ）。
+  const [focusedBlockKey, setFocusedBlockKey] = useState<string | null>(null)
 
   // 每页的来源绿框：一次性预算成 "mi:p" → marks[]，避免每格每渲染重复 O(N×M)，
   // 也让 PageCell 的 marks prop 在 infos 未变时保持引用稳定（memo 才命中得了）
@@ -131,8 +137,9 @@ export function Flow({
       onOcrBox: picking ? onOcrBox : undefined,
       onToggleSel,
       onContextMenu: openMenu,
+      focusedHitKey: focusedBlockKey,
     }),
-    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu],
+    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey],
   )
 
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false
@@ -171,6 +178,12 @@ export function Flow({
               classified={!!seg.t || !isAutoSegName(draft, seg)}
               onRename={(name) => onOp.renameSeg(si, name)}
               onMerge={() => onOp.mergeSeg(si)}
+            />
+
+            <SegmentMarkdown
+              seg={seg}
+              focusedBlockKey={focusedBlockKey}
+              onFocusBlock={setFocusedBlockKey}
             />
 
             {/* 段开始条只在多源包显示：它标的是「这段从哪个源文件开始」，单源时没有边界可标 */}
