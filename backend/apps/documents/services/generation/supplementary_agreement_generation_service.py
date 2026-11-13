@@ -254,9 +254,11 @@ class SupplementaryAgreementGenerationService:
                 names = [f.name for f in folder_path.iterdir() if f.is_file()]
 
             # 查找已存在的版本号（括号兼容全角/半角，见 naming.find_max_doc_version）
-            from .pipeline.naming import find_max_doc_version
+            from .pipeline.naming import _today_compact, find_max_doc_version
 
-            today_str = date.today().strftime("%Y%m%d")
+            # 日期口径统一走 _today_compact()（timezone.localdate），不用 date.today()：
+            # 后者是宿主机时区，CI(UTC) 与开发机(Asia/Shanghai) 会在凌晨差一天。
+            today_str = _today_compact()
             max_version = find_max_doc_version(
                 names=names, doc_type=agreement_name, case_name=contract_name, date_str=today_str
             )

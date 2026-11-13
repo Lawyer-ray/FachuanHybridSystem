@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from datetime import date
 
 from apps.core.services.filename_template_service import FilenameTemplateService
 
@@ -15,7 +14,22 @@ _CLOSE_PAREN_CLASS = f"[{re.escape(')')}）]"
 
 
 def _today_compact() -> str:
-    return date.today().strftime("%Y%m%d")
+    """生成文件名用的「今天」（``YYYYMMDD``）。
+
+    必须用 ``timezone.localdate()``（跟随 ``TIME_ZONE = Asia/Shanghai``），
+    **不能用 ``date.today()``**：后者取宿主机本地时区，而本机开发环境多为
+    Asia/Shanghai、CI runner 是 UTC。两者在上海时间 00:00–08:00 之间相差一天，
+    后果是「写入时算的日期」与「探测已存文件时算的日期」不一致，
+    ``find_max_doc_version`` 匹配不到同日文件 → ``max_version`` 恒 0 →
+    永远返回 V1，**同日重生成会覆盖旧文件**。
+
+    实测症状（main 上偶发红）：``test_existing_halfwidth_v1_yields_v2``
+    断言 ``'V1' == 'V2'`` 失败，且只在 CI 作业跑过 UTC 16:00
+    （= 上海 00:00）那一刻出现，多数时候全绿。
+    """
+    from django.utils import timezone
+
+    return timezone.localdate().strftime("%Y%m%d")
 
 
 def _normalize_version(version: str) -> str:
