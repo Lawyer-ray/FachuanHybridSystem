@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const apiMock = vi.hoisted(() => ({
   fetchAttachmentBytes: vi.fn(),
   createPdfSplitJob: vi.fn(),
+  findReusablePdfSplitJob: vi.fn(),
   getPdfSplitJob: vi.fn(),
   ocrImage: vi.fn(),
   parseOfficeFile: vi.fn(),
@@ -68,6 +69,8 @@ beforeEach(() => {
   draftMock.canAutoSplitMat.mockReturnValue(true)
   apiMock.fetchAttachmentBytes.mockResolvedValue(new Uint8Array([1, 2, 3]))
   apiMock.createPdfSplitJob.mockResolvedValue('job-1')
+  // 默认：没有可复用任务 → 走新建路径（既有用例的前提）
+  apiMock.findReusablePdfSplitJob.mockResolvedValue(null)
   apiMock.getPdfSplitJob.mockResolvedValue({
     status: 'completed',
     segments: [{ p: 0 }, { p: 1 }],
@@ -374,5 +377,67 @@ describe('useAutoSplit：进度可见与卡死自愈', () => {
 
     expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('中断'))
     expect(apiMock.getPdfSplitJob).toHaveBeenCalledTimes(2)
+  })
+})
+
+/**
+ * 复用已有识别结果：164 页跑一次要 5-10 分钟 + 几十元，
+ * 只要 draft_state 没回写，律师再点一次就会从零重跑。
+ * 命中后端已算好的任务时必须直接拿来用、不发新任务、不轮询。
+ */
+describe('useAutoSplit：复用已有识别结果', () => {
+  it('命中可复用任务时不再创建新任务、也不轮询', async () => {
+    setup()
+    apiMock.findReusablePdfSplitJob.mockResolvedValue({
+      job_id: 'reused-1',
+      status: 'review_required',
+      segments: [{ p: 0 }, { p: 1 }, { p: 2 }],
+      summary: { segment_backend: 'llm' },
+    })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    // 关键：没有重跑，省下整份 OCR + 分段
+    expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.getPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.fetchAttachmentBytes).not.toHaveBeenCalled()
+    // 结果照常回写草稿。
+    // 注意：store.update 是 mock，不会真的执行回调，所以断言「update 被调用」
+    // 而不是「applyAutoSplit 被调用」——后者只有在真实 store 下才会发生。
+    expect(storeMock.getState().update).toHaveBeenCalled()
+  })
+
+  it('没命中（null）时照常新建任务', async () => {
+    setup()
+    apiMock.findReusablePdfSplitJob.mockResolvedValue(null)
+    apiMock.getPdfSplitJob.mockResolvedValue({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(apiMock.createPdfSplitJob).toHaveBeenCalled()
+  })
+
+  it('可复用任务但没有分段（比如失败残留）时不用它', async () => {
+    setup()
+    apiMock.findReusablePdfSplitJob.mockResolvedValue({
+      job_id: 'empty-1',
+      status: 'review_required',
+      segments: [],
+      summary: {},
+    })
+    apiMock.getPdfSplitJob.mockResolvedValue({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(apiMock.createPdfSplitJob).toHaveBeenCalled()
   })
 })

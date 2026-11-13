@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob, ocrImage, parseOfficeFile } from '../../api'
+import {
+  fetchAttachmentBytes,
+  createPdfSplitJob,
+  findReusablePdfSplitJob,
+  getPdfSplitJob,
+  ocrImage,
+  parseOfficeFile,
+} from '../../api'
 import { applyAutoSplit, canAutoSplitMat, fillSegmentText } from '../../draft'
 import { useReader } from '../../store'
 import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
@@ -82,22 +89,35 @@ export function useAutoSplit() {
       const cloudBackend = useReader.getState().cloudBackend
       const jobs = await Promise.all(
         targets.map(async ({ mat, mi }) => {
+          // ① 先查有没有**已经算好**的任务可直接复用。
+          //
+          // 真实痛点：164 页材料跑一次要 5-10 分钟 + 几十元（云端 OCR + LLM 分段），
+          // 但只要 draft_state 没回写（没点过按钮 / 换浏览器），阅读器就拿不到
+          // 结果，一点「自动识别」就从零重跑。这里命中就直接拿 segments。
+          // 匹配口径（文件名 + 页数 + 已出结果）在后端 find_reusable_job 里。
+          const reusable = await findReusablePdfSplitJob(mat.n, mat.pages)
+          if (reusable?.segments?.length) {
+            setProgress(`${mat.n}：复用已有识别结果`)
+            return { mi, jobId: reusable.job_id, reused: true, prefetched: reusable }
+          }
+
           const bytes = await fetchAttachmentBytes(openId, mat.partIndex)
           const filename = mat.customName || mat.n
           const file = new File([bytes], filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`, {
             type: 'application/pdf',
           })
           // 版面策略跟着当前会话走：开了补版面才让电子页上云端拿坐标
-          return { mi, jobId: await createPdfSplitJob(file, { layoutMode, cloudBackend }) }
+          return { mi, jobId: await createPdfSplitJob(file, { layoutMode, cloudBackend }), reused: false, prefetched: null }
         }),
       )
       const settled: PromiseSettledResult<AutoSplitResult>[] = []
       let finished = 0
-      for (const { mi, jobId } of jobs) {
+      for (const { mi, jobId, prefetched } of jobs) {
         // 串行轮询：过期会话（连点重入 / 卸载）在这里就退出，不再产生新请求
         if (lease.isStale()) break
         try {
-          const result = await pollJob(jobId, lease, setProgress)
+          // 复用的任务已经是 review_required/completed，不必再轮询一轮
+          const result = prefetched ?? (await pollJob(jobId, lease, setProgress))
           if (lease.isStale()) break
           finished += 1
           setProgress(`云端识别完成 ${finished}/${jobs.length}`)

@@ -186,6 +186,12 @@ def detect_segments_with_fallback(
         from .segment_batch import detect_in_batches
 
         drafts = detect_in_batches(pages=pages, template_key=template_key, detector=detector)
+        # 续页合并：LLM 会把跨页的同一份材料从中间切开（实测 164 页卷宗里
+        # 一份《个人房产抵押贷款合同》被切成 p116-125 / p126-140 两段）。
+        # 判据是条款序号推进 + 后段首页无标题，详见 segment_merge.py。
+        from .segment_merge import merge_continuation_segments
+
+        drafts = merge_continuation_segments(drafts, {page.page_no: page.text for page in pages})
         return drafts, {"segment_backend": "llm", "segment_llm_fallback_reason": ""}
     except Exception as exc:
         reason = f"{type(exc).__name__}: {str(exc)[:200]}"

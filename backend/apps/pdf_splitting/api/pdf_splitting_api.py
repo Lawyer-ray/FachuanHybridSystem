@@ -151,6 +151,28 @@ def create_pdf_split_job(  # pragma: no cover
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
 
 
+@router.get("/reusable-job", response=PdfSplitJobOut | None)
+def find_reusable_pdf_split_job(
+    request: Any, source_name: str, total_pages: int | None = None
+) -> PdfSplitJobOut | None:  # pragma: no cover
+    """查一份已算好的拆分任务，供前端跳过重跑直接复用。
+
+    典型场景：材料包已识别过（后端有 36 段），但 `draft_state` 没回写——
+    律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。
+    前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。
+
+    返回 null 表示没有可复用的（前端照常新建）。
+    """
+    job = PdfSplitJobService().find_reusable_job(
+        source_name=source_name,
+        total_pages=total_pages,
+        user=_request_user(request),
+    )
+    if job is None:
+        return None
+    return PdfSplitJobOut(**PdfSplitJobService().build_job_payload(job))
+
+
 @router.get("/jobs/{job_id}", response=PdfSplitJobOut)
 def get_pdf_split_job(request: Any, job_id: UUID) -> PdfSplitJobOut:  # pragma: no cover
     job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主

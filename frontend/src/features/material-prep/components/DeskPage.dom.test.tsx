@@ -13,7 +13,7 @@
  *   「列表 / 卡片」按阶段记住并透传给 PackGrid
  */
 import { act, fireEvent, render, waitFor } from '@testing-library/react'
-import { MemoryRouter, useLocation } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hookMock = vi.hoisted(() => ({
@@ -232,10 +232,16 @@ function lastSearch(): string {
 }
 
 function renderDesk(path = '/material-prep?stage=todo') {
+  // 用 <Routes> 包一层：DeskPage 现在靠 useParams().id 判「详情意图」，
+  // 裸挂载在 MemoryRouter 下拿不到参数（useParams 返回空对象），
+  // 那条「首帧不渲染列表」的用例会假失败。
   return render(
     <MemoryRouter initialEntries={[path]}>
       <LocationProbe />
-      <DeskPage />
+      <Routes>
+        <Route path="/material-prep" element={<DeskPage />} />
+        <Route path="/material-prep/:id" element={<DeskPage />} />
+      </Routes>
     </MemoryRouter>,
   )
 }
@@ -969,6 +975,32 @@ describe('DeskPage：列表 / 卡片切换', () => {
 
     fireEvent.click(getByTitle('列表'))
     expect(ui.grid!.viewMode).toBe('list')
+    unmount()
+  })
+
+  /**
+   * 刷新 / 直达详情时「先闪一下列表页」的回归测试。
+   *
+   * 曾经的行为：URL 带 :id 进来，首帧 openId 仍是 null（要等 route-sync 的
+   * effect 异步打开），DeskPage 据此把列表完整渲染一遍；紧接着阅读器才盖上来。
+   * 用户看到的就是「先出现列表页，然后出现详情页」。
+   *
+   * 修法：用 URL 里的 :id 判「详情意图」，首帧就不挂载列表。
+   */
+  it('URL 带 :id 时首帧不渲染列表（避免刷新闪烁）', () => {
+    setup([pack(1, 'todo'), pack(2, 'todo')])
+    const { queryByText, unmount } = renderDesk('/material-prep/576?stage=todo')
+
+    // 列表网格一个节点都不该出现
+    expect(queryByText(/^GRID:/)).toBeNull()
+    unmount()
+  })
+
+  it('无 :id 时列表照常渲染', () => {
+    setup([pack(1, 'todo')])
+    const { getByText, unmount } = renderDesk('/material-prep?stage=todo')
+
+    expect(getByText('GRID:1')).toBeTruthy()
     unmount()
   })
 

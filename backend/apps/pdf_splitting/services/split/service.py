@@ -316,6 +316,22 @@ class PdfSplitService:
         storage.write_json(storage.segments_json_path, [asdict(item) for item in outcome.drafts])
         storage.write_json(storage.segments_md_path, outcome.segments_md)
 
+        # 同名去重：LLM 常把同一类材料切成多段并给同一个名字
+        # （实测一份 164 页卷宗里出现两个「居民户口簿.pdf」、两个
+        # 「个人房产抵押贷款合同.pdf」）。它们确实不是重复——分别是不同
+        # 当事人的户口簿、合同正本与副本——但文件名一样，归案后分不清。
+        #
+        # 以前只在**导出**时调 deduplicate_filename，数据库里仍是重名；
+        # 而前端分段列表、归案建材料、Copilot 读的都是库里的名字，所以
+        # 必须在这里就消歧。
+        seen_names: set[str] = set()
+        deduped = []
+        for item in outcome.drafts:
+            name = item.filename
+            if not name.lower().endswith(".pdf"):
+                name = f"{name}.pdf"
+            deduped.append((item, deduplicate_filename(name, seen_names)))
+
         PdfSplitSegment.objects.filter(job=job).delete()
         PdfSplitSegment.objects.bulk_create(
             [
@@ -325,12 +341,12 @@ class PdfSplitService:
                     page_start=item.page_start,
                     page_end=item.page_end,
                     segment_type=item.segment_type,
-                    filename=item.filename,
+                    filename=name,
                     confidence=item.confidence,
                     source_method=item.source_method,
                     review_flag=item.review_flag,
                 )
-                for item in outcome.drafts
+                for item, name in deduped
             ]
         )
 

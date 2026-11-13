@@ -5724,6 +5724,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pdf-splitting/reusable-job": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find Reusable Pdf Split Job
+         * @description 查一份已算好的拆分任务，供前端跳过重跑直接复用。
+         *
+         *     典型场景：材料包已识别过（后端有 36 段），但 `draft_state` 没回写——
+         *     律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。
+         *     前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。
+         *
+         *     返回 null 表示没有可复用的（前端照常新建）。
+         */
+        get: operations["apps_pdf_splitting_api_pdf_splitting_api_find_reusable_pdf_split_job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pdf-splitting/jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -32303,6 +32329,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PdfSplitJobSubmitOut"];
+                };
+            };
+        };
+    };
+    apps_pdf_splitting_api_pdf_splitting_api_find_reusable_pdf_split_job: {
+        parameters: {
+            query: {
+                source_name: string;
+                total_pages?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PdfSplitJobOut"] | null;
                 };
             };
         };

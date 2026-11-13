@@ -13698,6 +13698,67 @@
         ]
       }
     },
+    "/api/v1/pdf-splitting/reusable-job": {
+      "get": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_find_reusable_pdf_split_job",
+        "summary": "Find Reusable Pdf Split Job",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_name",
+            "schema": {
+              "title": "Source Name",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "total_pages",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Total Pages"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PdfSplitJobOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "查一份已算好的拆分任务，供前端跳过重跑直接复用。\n\n典型场景：材料包已识别过（后端有 36 段），但 `draft_state` 没回写——\n律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。\n前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。\n\n返回 null 表示没有可复用的（前端照常新建）。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/pdf-splitting/jobs/{job_id}": {
       "get": {
         "operationId": "apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_job",

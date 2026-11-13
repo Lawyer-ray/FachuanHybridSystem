@@ -156,6 +156,52 @@ class PdfSplitJobService:
             storage.cleanup()
             raise
 
+    def find_reusable_job(
+        self,
+        *,
+        source_name: str,
+        total_pages: int | None = None,
+        user: Any = None,
+    ) -> PdfSplitJob | None:
+        """找一份**已经算好、可直接复用**的拆分任务。
+
+        ## 为什么需要它
+
+        否则会出现很难接受的浪费：律师已经跑完一次 164 页识别（云端 OCR +
+        LLM 分段，5-10 分钟、几十元），但只要 `draft_state` 没被回写（没点过
+        「自动识别」按钮、或换了浏览器），阅读器就拿不到结果 —— 再点一次
+        就从零重跑，前面的钱和时间全白花。
+
+        ## 匹配口径（三重，宁可找不到也不误用）
+
+        1. `source_original_name` 完全相同（文件名是律师自己的命名习惯，区分度高）；
+        2. `total_pages` 相同（防同名不同件）；
+        3. `status` 属于**已产出结果**的状态（待复核 / 已完成）。
+
+        刻意**不用**文件 hash：拆分任务的 source 是任务目录下的副本，拿它算
+        hash 与材料包附件对不上，还得先下载整份（68MB）才能比——代价比收益大。
+        三重条件已足够保守：同名 + 同页数 + 已出结果。
+
+        Args:
+            source_name: 原始文件名（`attachments_meta[].original_filename`）。
+            total_pages: 页数；传 None 则不校验页数（仅在调用方拿不到页数时）。
+            user: 传入时只看自己创建的任务（与 get_job 口径一致）。
+        """
+        if not source_name:
+            return None
+
+        queryset = PdfSplitJob.objects.filter(
+            source_original_name=source_name,
+            status__in=(PdfSplitJobStatus.REVIEW_REQUIRED, PdfSplitJobStatus.COMPLETED),
+        )
+        if total_pages is not None:
+            queryset = queryset.filter(total_pages=total_pages)
+        if user is not None and getattr(user, "is_authenticated", False) and not getattr(user, "is_superuser", False):
+            queryset = queryset.filter(created_by=user)
+
+        # 取最新的一份：同一文件可能被故意重跑过几次，律师要看的是最终结论
+        return queryset.order_by("-created_at").first()
+
     def get_job(self, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:
         """获取拆解任务。
 
