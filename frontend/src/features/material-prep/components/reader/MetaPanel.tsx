@@ -88,6 +88,7 @@ export function MetaPanel({
         focusedBlockKey={focusedBlockKey}
         onLocateBlock={onLocateBlock}
         onEditMarkdown={(md) => ops.editMarkdown(si, md)}
+        onEditBlock={(key, text) => ops.editBlock(si, key, text)}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}
       />
 

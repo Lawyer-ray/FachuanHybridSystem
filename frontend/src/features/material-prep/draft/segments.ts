@@ -1,5 +1,5 @@
 import { SEGMENT_TYPES } from '../constants'
-import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, Segment } from '../types'
+import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, PositionedBlock, Segment } from '../types'
 import { matLabel, withDefaultNames } from './labels'
 import { initialSegments } from './resolve'
 import { nextSegId } from './seg-id'
@@ -169,5 +169,46 @@ export function removeSegmentBlock(d: DraftState, si: number, blockKey: string):
   if (next.length === seg.blocks.length) return d
 
   const segs = d.segs.map((sg, i) => (i === si ? { ...sg, blocks: next.length ? next : undefined } : sg))
+  return { ...d, segs }
+}
+
+/**
+ * 改某一段里**一行**（一个定位块）的文字，并把改动同步进 Markdown 正文。
+ *
+ * ## 为什么必须同步 md
+ *
+ * `blocks[].text` 与 `seg.md` 是同一批文字的两种视图：前者带坐标给定位用，
+ * 后者是给下游 AI 消费的正文。只改一处会出现「列表里改好了、Markdown 里还是错的」
+ * ——那比不改更糟（人以为已经修好了）。
+ *
+ * ## 怎么定位到 md 里的那一行
+ *
+ * 用原文做替换：把该块**改前的文字**在 md 中第一次出现的位置替换成新文字。
+ * 不用行号——后端拼 md 时做过格式化（表格转 GFM、标题加 #），块文本与 md 的行
+ * 不是一一对应的，按行号改必然错位。原文匹配至少能保证"改的就是这段字"。
+ *
+ * 找不到原文时**只改块、不动 md**：宁可正文保留旧值，也不能乱替换别处的文字。
+ */
+export function setSegmentBlockText(d: DraftState, si: number, blockKey: string, text: string): DraftState {
+  const seg = d.segs[si]
+  if (!seg?.blocks?.length) return d
+
+  let hit: PositionedBlock | undefined
+  const blocks = seg.blocks.map((b, i) => {
+    const samePageIdx = seg.blocks!.slice(0, i + 1).filter((x) => x.page === b.page).length - 1
+    if (`${seg.id}:${b.page}:${samePageIdx}` !== blockKey) return b
+    hit = b
+    return { ...b, text }
+  })
+  if (!hit) return d
+
+  const oldText = hit.text ?? ''
+  let md = seg.md
+  if (md && oldText && oldText !== text) {
+    const at = md.indexOf(oldText)
+    if (at >= 0) md = md.slice(0, at) + text + md.slice(at + oldText.length)
+  }
+
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, blocks, md } : sg))
   return { ...d, segs }
 }

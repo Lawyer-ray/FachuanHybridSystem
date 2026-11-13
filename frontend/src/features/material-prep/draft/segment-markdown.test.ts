@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { blockKeyOf } from './block-keys'
-import { removeSegmentBlock, setSegmentMarkdown } from './segments'
+import { removeSegmentBlock, setSegmentBlockText, setSegmentMarkdown } from './segments'
 import type { DraftState, PositionedBlock, Segment } from '../types'
 
 function seg(over: Partial<Segment> = {}): Segment {
@@ -86,5 +86,43 @@ describe('removeSegmentBlock', () => {
   it('没有块的段不抛', () => {
     const before = draft()
     expect(removeSegmentBlock(before, 0, 's1:1:0')).toBe(before)
+  })
+})
+
+describe('setSegmentBlockText（改一行，同步进正文）', () => {
+  const md = '一、申报主体\n债权人：甲\n债务人：乙'
+
+  it('改块文字的同时把 md 里对应的那段原文换掉', () => {
+    const d = draft({ md, blocks })
+    const key = blockKeyOf(d.segs[0]!, blocks[0]!, 0)
+    const out = setSegmentBlockText(d, 0, key, '债权人：甲某')
+
+    expect(out.segs[0]!.blocks![0]!.text).toBe('债权人：甲某')
+    // md 里「甲」被替换 —— 只改块不改 md 会让「列表改好了、正文还是错的」
+    expect(out.segs[0]!.md).toContain('债权人：甲某')
+    expect(out.segs[0]!.md).not.toMatch(/债权人为?甲(?!某)/)
+  })
+
+  it('md 里找不到该块原文时，只改块、不动正文（不乱替换别处的字）', () => {
+    const d = draft({ md: '完全无关的正文', blocks })
+    const key = blockKeyOf(d.segs[0]!, blocks[0]!, 0)
+    const out = setSegmentBlockText(d, 0, key, '新文字')
+
+    expect(out.segs[0]!.blocks![0]!.text).toBe('新文字')
+    expect(out.segs[0]!.md).toBe('完全无关的正文')
+  })
+
+  it('只改目标那一块，其余块不受影响', () => {
+    const d = draft({ md, blocks })
+    const key = blockKeyOf(d.segs[0]!, blocks[1]!, 1)
+    const out = setSegmentBlockText(d, 0, key, '债务人：乙某')
+
+    expect(out.segs[0]!.blocks![0]!.text).toBe('甲')
+    expect(out.segs[0]!.blocks![1]!.text).toBe('债务人：乙某')
+  })
+
+  it('key 对不上时返回原对象', () => {
+    const before = draft({ md, blocks })
+    expect(setSegmentBlockText(before, 0, 's1:99:0', 'x')).toBe(before)
   })
 })

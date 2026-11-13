@@ -34,6 +34,7 @@ export {
   appendMatsToDraft,
   fillSegmentText,
   setSegmentMarkdown,
+  setSegmentBlockText,
   removeSegmentBlock,
 } from './segments'
 export {

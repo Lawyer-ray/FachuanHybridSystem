@@ -45,10 +45,13 @@ function base(props: Partial<Parameters<typeof SegmentMarkdown>[0]> = {}) {
 }
 
 describe('SegmentMarkdown', () => {
-  it('展开时渲染正文与定位块索引', () => {
+  it('展开时每一行就是正文，不再额外渲染一份完整 <pre>', () => {
     const { container, getByText } = render(<SegmentMarkdown {...base()} />)
-    expect(container.querySelector('pre')?.textContent).toContain('原告提交了转账凭证。')
+    // 列表即正文：文字出现在行内
     expect(getByText('原告提交了转账凭证。')).toBeTruthy()
+    expect(getByText('被告对此不予认可。')).toBeTruthy()
+    // 有定位块时不再有重复的整段渲染
+    expect(container.querySelector('pre')).toBeNull()
   })
 
   it('折叠时不渲染正文，点标题回调切换', () => {
@@ -107,28 +110,28 @@ describe('SegmentMarkdown', () => {
 })
 
 describe('识别错了怎么办', () => {
-  it('点「改正文」进入编辑，保存后回调新内容', () => {
-    const onEditMarkdown = vi.fn()
-    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditMarkdown })} />)
+  it('右键某一行 → 就地变成输入框，回车保存并回调 (key, 新文字)', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
 
-    fireEvent.click(getByText('改正文'))
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
     const ta = container.querySelector('textarea')
     expect(ta).toBeTruthy()
 
-    fireEvent.change(ta!, { target: { value: '我改过的正文' } })
-    fireEvent.click(getByText('保存'))
-    expect(onEditMarkdown).toHaveBeenCalledWith('我改过的正文')
+    fireEvent.change(ta!, { target: { value: '我改过的这一行' } })
+    fireEvent.keyDown(ta!, { key: 'Enter' })
+    expect(onEditBlock).toHaveBeenCalledWith('s1:1:0', '我改过的这一行')
   })
 
-  it('编辑态点取消不回调，回到预览', () => {
-    const onEditMarkdown = vi.fn()
-    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditMarkdown })} />)
+  it('编辑态按 Esc 取消，不回调', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
 
-    fireEvent.click(getByText('改正文'))
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
     fireEvent.change(container.querySelector('textarea')!, { target: { value: '改了但不保存' } })
-    fireEvent.click(getByText('取消'))
+    fireEvent.keyDown(container.querySelector('textarea')!, { key: 'Escape' })
 
-    expect(onEditMarkdown).not.toHaveBeenCalled()
+    expect(onEditBlock).not.toHaveBeenCalled()
     expect(container.querySelector('textarea')).toBeNull()
   })
 
@@ -140,10 +143,12 @@ describe('识别错了怎么办', () => {
     expect(onRemoveBlock).toHaveBeenCalledWith('s1:1:0')
   })
 
-  it('未提供回调时不渲染改正文 / 删框入口（只读场景）', () => {
-    const { queryByText, queryAllByLabelText } = render(<SegmentMarkdown {...base()} />)
-    expect(queryByText('改正文')).toBeNull()
+  it('未提供回调时不渲染删框入口，右键也不进编辑（只读场景）', () => {
+    const { queryAllByLabelText, getByText, container } = render(<SegmentMarkdown {...base()} />)
     expect(queryAllByLabelText('删除这个定位框')).toHaveLength(0)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    expect(container.querySelector('textarea')).toBeNull()
   })
 })
 
