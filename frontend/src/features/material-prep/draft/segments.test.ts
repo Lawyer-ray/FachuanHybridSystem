@@ -14,6 +14,7 @@ import {
   resetSegments,
   setPackAssign,
   setPackStatus,
+  setSegmentMarkdown,
   setSegmentType,
   splitSegment,
 } from './segments'
@@ -175,6 +176,27 @@ describe('段属性操作', () => {
     expect(renameSegment(d0, 0, '   ')).toBe(d0)
     expect(renameSegment(d0, 0, '起诉状.pdf')).toBe(d0)
     expect(renameSegment(d0, -1, 'x')).toBe(d0)
+  })
+})
+
+describe('manualEdit 人工改动痕迹', () => {
+  it('改类型 / 改段名 / 改正文分别置位并记时间，只置位不取消', () => {
+    let d = setSegmentType(fixture(), 0, '答辩状')
+    expect(d.segs[0]!.manualEdit).toMatchObject({ type: true })
+    expect(d.segs[0]!.manualEdit?.at).toEqual(expect.any(String))
+
+    d = renameSegment(d, 0, '我的答辩状.pdf')
+    expect(d.segs[0]!.manualEdit).toMatchObject({ type: true, name: true })
+
+    d = setSegmentMarkdown(d, 0, '律师核过的正文')
+    expect(d.segs[0]!.manualEdit).toMatchObject({ type: true, name: true, md: true })
+  })
+
+  it('内容与现值相同 / 同值类型 / 同名：不算修改，返回原引用', () => {
+    const d0 = fixture()
+    expect(setSegmentType(d0, 0, '起诉状')).toBe(d0)
+    expect(renameSegment(d0, 0, '起诉状.pdf')).toBe(d0)
+    expect(d0.segs[0]!.manualEdit).toBeUndefined()
   })
 })
 

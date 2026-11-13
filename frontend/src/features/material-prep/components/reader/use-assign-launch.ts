@@ -50,6 +50,24 @@ export function useAssignLaunch(params: {
     setAssignOpen(false)
     setAssign(assign)
 
+    // 归案时把每段“换成一份小 PDF”，而界面的段→页范围模型只能表达
+    // 「单个素材内的一段连续页」（partIndex + pageStart..pageEnd）。
+    //
+    // 跨素材合并的段（A1-10 并 B1-6）在这种模型下会**静默丢页**：
+    // 只取 refs[0] 的 mi 与 refs[last] 的 p，实际切出来是 A1-6，
+    // B 那 6 页消失且无任何提示——实测确认。
+    //
+    // 所以 rel-to-fail：宁可拦住归案让律师先拆开，也不能默默丢证据。
+    const badSegs = (draft?.segs ?? []).filter((sg) => !isSingleSourceContiguous(sg.refs))
+    if (badSegs.length > 0) {
+      toast.error('有材料跨了多个源文件，无法直接归案', {
+        id: 'assign',
+        description: `「${badSegs.map((sg) => sg.fn).join('」「')}」跨源合并，请先拆回单源再归案`,
+        duration: 8000,
+      })
+      return
+    }
+
     const segs = (draft?.segs ?? []).map((sg) => ({
       name: sg.t || sg.fn || '未命名材料',
       partIndex: sg.refs[0]?.mi ?? 0,
@@ -81,6 +99,9 @@ export function useAssignLaunch(params: {
         cause: '金融借款合同纠纷',
         parties: { our, their },
         segments: segs,
+        // 来源素材的页数：归案时用它判断「这一段的页范围是否已覆盖整份」，
+        // 覆盖就不必先切页再上传（内容完全一样，省一次往返）。
+        sources: draft?.mats ?? [],
       })
 
       setAssign({ ...assign, caseId: r.caseId, caseTitle: r.caseName })
@@ -149,4 +170,28 @@ export function partiesOf(draft: DraftState): Record<string, string> {
     if (info.v?.trim()) acc[`party_${'abcd'[i] ?? 'a'}`] = info.v.trim()
     return acc
   }, {})
+}
+
+/**
+ * 段的页引用是否「单一素材内的连续页」——这是归案切分的先决条件。
+ *
+ * 为何必须校验：归案把每段换成一份小 PDF，而 `{partIndex, pageStart, pageEnd}`
+ * 这个三字段模型**只能表达一个素材里的一段连续页**。
+ *
+ * 反例（实测出来的真 bug）：A 素材 1-10 页 + B 素材 1-6 页合并成一段，
+ * 归案时取 `refs[0].mi = A`、`refs[last].p = 6` → 切成 **A 的第 1-6 页**，
+ * B 那 6 页凭空消失，而且没有任何提示。证据丢了比切得不好严重得多，
+ * 所以这里 fail-closed：不合法就拒绝归案，让律师先拆开。
+ *
+ * 空 refs 也算不合法（没有页可切）。
+ */
+export function isSingleSourceContiguous(refs: { mi: number; p: number }[]): boolean {
+  if (refs.length === 0) return false
+  const mi = refs[0]!.mi
+  if (!refs.every((ref) => ref.mi === mi)) return false
+  // 页号必须严格递增且相连（1,2,3…），不允许重复或跳页
+  for (let i = 1; i < refs.length; i++) {
+    if (refs[i]!.p !== refs[i - 1]!.p + 1) return false
+  }
+  return true
 }

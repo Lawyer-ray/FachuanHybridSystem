@@ -1,6 +1,13 @@
 import type { DraftState, PdfSplitSegmentSuggestion } from '../types'
-import { applyAutoSplit, canAutoSplitMat, renameMat } from './auto-split'
+import {
+  applyAutoSplit,
+  applyAutoSplitPreservingEdits,
+  canAutoSplitMat,
+  detectAutoSplitConflicts,
+  renameMat,
+} from './auto-split'
 import { applyPageSelection } from './selection'
+import { renameSegment, setSegmentMarkdown, setSegmentType } from './segments'
 
 /** 两个源文件（mi=0/1），mi=0 有整段与另名段，mi=1 有整段——覆盖跟随名/非跟随名/跨源三种段 */
 function fixture(): DraftState {
@@ -175,6 +182,75 @@ describe('applyAutoSplit 云端拆分建议应用', () => {
     // mi=0 换成两段建议，mi=1 的整段保留，顺序按「源序+页序」
     expect(d.segs.map((sg) => sg.fn)).toEqual(['part-1', 'part-2', '证据.pdf'])
     expect(d.segs.flatMap((sg) => sg.refs)).toHaveLength(5)
+  })
+})
+
+describe('detectAutoSplitConflicts 人工改动冲突识别', () => {
+  it('人工改过 md 的段被识别为冲突（md 与段名一起报）', () => {
+    const d = setSegmentMarkdown(singleSourceFixture(), 0, '律师逐字核过的正文')
+    const conflict = detectAutoSplitConflicts(d, 0, [sug(1, 1), sug(2, 3)])
+    expect(conflict).toEqual({
+      mi: 0,
+      edited: [{ si: 0, name: '合并扫描.pdf', what: ['md'] }],
+    })
+  })
+
+  it('改过段名 / 类型同样计为冲突，多个痕迹按 md/name/type 顺序列出', () => {
+    let d = renameSegment(singleSourceFixture(), 0, '我的起诉状')
+    d = setSegmentType(d, 0, '证据')
+    expect(detectAutoSplitConflicts(d, 0, [sug(1, 3)])?.edited).toEqual([
+      { si: 0, name: '我的起诉状', what: ['name', 'type'] },
+    ])
+  })
+
+  it('没人动过的段 / 不允许自动拆分的源 / 空建议：无冲突', () => {
+    expect(detectAutoSplitConflicts(singleSourceFixture(), 0, [sug(1, 3)])).toBeNull()
+    // fixture 的 mi=0 有 manual 段：applyAutoSplit 整份不应用，也就谈不上冲突
+    expect(detectAutoSplitConflicts(fixture(), 0, [sug(1, 3)])).toBeNull()
+    expect(detectAutoSplitConflicts(singleSourceFixture(), 0, [])).toBeNull()
+    expect(detectAutoSplitConflicts(singleSourceFixture(), 9, [sug(1, 3)])).toBeNull()
+  })
+})
+
+describe('applyAutoSplitPreservingEdits 重跑时保留人工正文', () => {
+  it('人工改过 md 的段：新结果按页区间替换结构，旧 md 搬到重叠最多的新段上', () => {
+    const edited = setSegmentMarkdown(singleSourceFixture(), 0, '律师核过的正文')
+    const d = applyAutoSplitPreservingEdits(edited, 0, [
+      sug(1, 1, { segment_label: '起诉状', content_md: 'AI 新正文-1' }),
+      sug(2, 3, { segment_label: '证据', content_md: 'AI 新正文-2' }),
+    ])
+    expect(d.segs).toHaveLength(2)
+    // 旧段 3 页里与新段 2 重叠 2 页、与新段 1 重叠 1 页 → 搬给第 2 段
+    expect(d.segs[0]!.md).toBe('AI 新正文-1')
+    expect(d.segs[1]!.md).toBe('律师核过的正文')
+    // 段名 / 类型仍用识别结果
+    expect(d.segs.map((sg) => sg.t)).toEqual(['起诉状', '证据'])
+  })
+
+  it('没改过的段照常被新结果替换（含正文）', () => {
+    const d = applyAutoSplitPreservingEdits(singleSourceFixture(), 0, [
+      sug(1, 3, { content_md: '云端新正文' }),
+    ])
+    expect(d.segs).toHaveLength(1)
+    expect(d.segs[0]!.md).toBe('云端新正文')
+    expect(d.segs[0]!.refs).toEqual([
+      { mi: 0, p: 1 },
+      { mi: 0, p: 2 },
+      { mi: 0, p: 3 },
+    ])
+  })
+
+  it('只保 md、不整改过的段名；结构仍按建议重排', () => {
+    const renamed = renameSegment(singleSourceFixture(), 0, '我的扫描件')
+    const d = applyAutoSplitPreservingEdits(renamed, 0, [sug(1, 1, { filename: 'part-1.pdf' }), sug(2, 3)])
+    expect(d.segs.map((sg) => sg.fn)).toEqual(['part-1', 'part-2'])
+  })
+
+  it('有 manual 段 / 跨源合并 / 建议不整覆盖：与 applyAutoSplit 一样返回原引用', () => {
+    const d0 = fixture()
+    expect(applyAutoSplitPreservingEdits(d0, 0, [sug(1, 3)])).toBe(d0)
+    const single = singleSourceFixture()
+    expect(applyAutoSplitPreservingEdits(single, 0, [sug(1, 2)])).toBe(single)
   })
 })
 

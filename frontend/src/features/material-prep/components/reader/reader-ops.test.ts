@@ -55,12 +55,24 @@ describe('buildFlowOps（draft 操作接线）', () => {
     // mergeSegs 会消耗 nextSegId 生成新段 id，深比较剥掉 id（顺序与内容仍锁死）
     const stripIds = (x: DraftState) => x.segs.map((s) => ({ fn: s.fn, t: s.t, refs: s.refs, manual: s.manual }))
     const fns = update.mock.calls.map(([fn]) => (fn as (x: DraftState) => DraftState)(d))
-    expect(fns[0]).toEqual(segSetType(d, 0, '借条'))
-    expect(fns[1]).toEqual(segRename(d, 0, '民事起诉状'))
-    expect(fns[2]).toEqual(segMerge(d, 0))
-    expect(fns[3]).toEqual(segSplit(d, 0, 1))
+    // manualEdit.at 是 new Date() 打的时间戳：这里两次调用相隔 1ms，
+    // 直接深比较必然抖（实测 918ms vs 919ms）。时间戳本来就不该被锁死，
+    // 所以只比「改了哪几类」、不比具体时刻。
+    const stripTs = (x: DraftState) => ({
+      ...x,
+      segs: x.segs.map((s) => ({
+        ...s,
+        manualEdit: s.manualEdit
+          ? { md: s.manualEdit.md, name: s.manualEdit.name, type: s.manualEdit.type }
+          : undefined,
+      })),
+    })
+    expect(stripTs(fns[0]!)).toEqual(stripTs(segSetType(d, 0, '借条')))
+    expect(stripTs(fns[1]!)).toEqual(stripTs(segRename(d, 0, '民事起诉状')))
+    expect(stripTs(fns[2]!)).toEqual(stripTs(segMerge(d, 0)))
+    expect(stripTs(fns[3]!)).toEqual(stripTs(segSplit(d, 0, 1)))
     expect(stripIds(fns[4]!)).toEqual(stripIds(segsMerge(d, [1, 0])))
-    expect(fns[5]).toEqual(segMove(d, 1, 0, 'before'))
+    expect(stripTs(fns[5]!)).toEqual(stripTs(segMove(d, 1, 0, 'before')))
 
     ops.pickPage(2, 3)
     expect(pickPage).toHaveBeenCalledWith(2, 3)

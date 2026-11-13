@@ -1,30 +1,28 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { fetchAttachmentBytes, createPdfSplitJob, findReusablePdfSplitJob, ocrImage, parseOfficeFile } from '../../api'
 import {
-  fetchAttachmentBytes,
-  createPdfSplitJob,
-  findReusablePdfSplitJob,
-  getPdfSplitJob,
-  ocrImage,
-  parseOfficeFile,
-} from '../../api'
-import { applyAutoSplit, canAutoSplitMat, fillSegmentText } from '../../draft'
+  applyAutoSplit,
+  applyAutoSplitPreservingEdits,
+  canAutoSplitMat,
+  detectAutoSplitConflicts,
+  fillSegmentText,
+  type AutoSplitConflict,
+} from '../../draft'
 import { useReader } from '../../store'
 import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
-import type { PdfSplitSegmentSuggestion } from '../../types'
-import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
-
-const POLL_DELAY_MS = 2000
-const POLL_LIMIT = 420
+import type { DraftState, PdfSplitSegmentSuggestion } from '../../types'
+import { usePollSession } from '@/hooks/use-poll-session'
+import { blocksToMarkdown, guessImageType, pollJob, segmentBackendOf } from './auto-split-helpers'
 
 /**
- * 后端心跳停多久算「已中断」。
+ * 重跑前冲突询问的三种结果。
  *
- * 与 `backend/apps/pdf_splitting/services/job_recovery.py` 的 `STALE_SECONDS`
- * 同口径（600s = 10 分钟），但这里放宽到 720s：前端多等两分钟没代价，
- * 误报「已中断」却会让律师主动打断一个其实还在跑的任务。
+ * - `keep`：保留律师改过的东西（人工正文搬回新分段）→ `applyAutoSplitPreservingEdits`
+ * - `overwrite`：以 AI 结果为准，改动会被覆盖 → `applyAutoSplit`
+ * - `cancel`：整次重跑不执行
  */
-const STALE_SECONDS_LIMIT = 720
+export type RerunChoice = 'keep' | 'overwrite' | 'cancel'
 
 /** 单个 PDF 的云端拆分结果：mi 定位材料，segmentBackend 用于提示分段质量来源 */
 interface AutoSplitResult {
@@ -45,7 +43,33 @@ interface AutoSplitResult {
 export function useAutoSplit() {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
+  // 重跑前的冲突询问：非 null 时 ReaderDialogs 弹 RerunConfirmDialog，等用户选。
+  // resolve 一直挂在 state 里直到用户点按钮；取消时 resolve('cancel')，整次 run 直接退出。
+  const [pendingConflicts, setPendingConflicts] = useState<{
+    conflicts: AutoSplitConflict[]
+    draft: DraftState
+    resolve: (choice: RerunChoice) => void
+  } | null>(null)
   const pollSession = usePollSession()
+
+  /**
+   * 拿这次重跑的用户选择。
+   *
+   * 冲突**在提交云端任务之前**算：算得到的 `edited` 只依赖当前草稿，跟这次任务会返回
+   * 什么建议无关（`detectAutoSplitConflicts` 只用 suggestions 判空）。放在提交前问，
+   * 律师取消时一个钱不花、一个任务不建。
+   *
+   * 这里用一条临时占位建议骗过那层判空：我们不需要真建议，只需要「有冲突吗」这个答案。
+   * 真建议此刻还没拿到——它正是提交后才会有的东西。
+   */
+  const askRerunChoice = (draftNow: DraftState, targets: { mi: number }[]): Promise<RerunChoice> => {
+    const conflicts = targets
+      .map(({ mi }) => detectAutoSplitConflicts(draftNow, mi, [{ page_start: 1, page_end: 1 } as PdfSplitSegmentSuggestion]))
+      .filter((c): c is AutoSplitConflict => c !== null)
+    // 没人改过：不必打扰，直接按「覆盖」走（与重跑前的旧行为完全一致）
+    if (conflicts.length === 0) return Promise.resolve('overwrite')
+    return new Promise((resolve) => setPendingConflicts({ conflicts, draft: draftNow, resolve }))
+  }
 
   const run = async () => {
     const { openId, draft } = useReader.getState()
@@ -77,6 +101,13 @@ export function useAutoSplit() {
       }
       return
     }
+
+    // ── 重跑前问一次：会不会抹掉律师改过的东西 ──
+    // 必须在 setRunning(true) **之前**：取消时整次 run 不执行，也不能留下 running 残态。
+    const choice = await askRerunChoice(draft, targets)
+    if (choice === 'cancel') return
+    // 等弹窗期间草稿可能被改过（用户不会，但防御重入/切包）：以最新草稿为准
+    if (useReader.getState().openId !== openId) return
 
     // 先开新会话再置 running：同帧重入的第二个 run 从这里开始，第一个循环立刻过期
     const lease = pollSession.begin()
@@ -178,8 +209,11 @@ export function useAutoSplit() {
 
       const current = useReader.getState()
       if (current.openId !== openId) return
+      // 用户在前面的弹窗里选了「保留我的修改」就走保留版：人工正文搬回新分段；
+      // 选「用识别结果覆盖」（或本来就没冲突）就走原版，行为与重跑前完全一致。
+      const applyFor = choice === 'keep' ? applyAutoSplitPreservingEdits : applyAutoSplit
       for (const result of results) {
-        current.update((value) => applyAutoSplit(value, result.mi, result.segments))
+        current.update((value) => applyFor(value, result.mi, result.segments))
       }
       for (const item of photoTexts) {
         current.update((value) => fillSegmentText(value, item.mi, item.md))
@@ -249,79 +283,21 @@ export function useAutoSplit() {
     }
   }
 
-  return { run, running, progress }
-}
-
-/** 分段来源标记：summary 是自由字典，取不到就当规则引擎（保守，不谎报 AI 分段） */
-function segmentBackendOf(job: { summary: Record<string, unknown> }): string {
-  const backend = job.summary.segment_backend
-  return typeof backend === 'string' ? backend : ''
-}
-
-/** 由文件名推图片 MIME（后端只存 content_type，缺失时靠它补齐） */
-function guessImageType(name: string): string {
-  const lower = name.toLowerCase()
-  if (lower.endsWith('.png')) return 'image/png'
-  if (lower.endsWith('.webp')) return 'image/webp'
-  if (lower.endsWith('.gif')) return 'image/gif'
-  if (lower.endsWith('.bmp')) return 'image/bmp'
-  if (lower.endsWith('.tif') || lower.endsWith('.tiff')) return 'image/tiff'
-  if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic'
-  return 'image/jpeg'
-}
-
-/**
- * OCR 文字块 → 段落文本。
- *
- * 只拼文字、不出 Markdown 表格：框选取字的 blocks 是「矩形 + 文字」，没有
- * 行列语义，凭空编表格会把本来就散的手机拍照证据认成一堆假表格。行间用
- * 换行、块间空行，尽量保留阅读顺序（后端按识别顺序返回）。
- */
-function blocksToMarkdown(blocks: { text?: string }[] | undefined): string {
-  const lines = (blocks ?? []).map((b) => (b.text ?? '').trim()).filter(Boolean)
-  return lines.join('\n')
-}
-
-/**
- * 轮询云端拆分任务，并把页级进度报给 UI。
- *
- * 三件事以前都没有，导致律师只能干等：
- *  1. 显示「已识别 X/Y 页」，而不是一个万年不变的转圈；
- *  2. 停滞检测——后端心跳停了就立刻报「可能已中断」+ 重试入口，
- *     不再等到 420 次 × 2 秒 = 14 分钟才报超时（真实踩过：164 页卡在
- *     135 页二十多分钟，律师完全无从判断）；
- *  3. 把已处理页数作为「有进展」的证据，让等待有确定性。
- */
-async function pollJob(
-  jobId: string,
-  lease: PollLease,
-  onProgress?: (text: string) => void,
-  staleSecondsLimit = STALE_SECONDS_LIMIT,
-) {
-  for (let attempt = 0; attempt < POLL_LIMIT; attempt++) {
-    if (lease.isStale()) throw new Error('已取消')
-    const job = await getPdfSplitJob(jobId)
-    if (job.status === 'review_required' || job.status === 'completed') return job
-    if (job.status === 'failed' || job.status === 'cancelled') {
-      throw new Error(job.error_message || `PDF 拆分任务${job.status === 'failed' ? '失败' : '已取消'}`)
-    }
-
-    // 页级进度：后端返回 processed_pages / total_pages，直接给律师看确定性
-    if (job.total_pages > 0) {
-      const pct = Math.min(100, Math.round((job.processed_pages / job.total_pages) * 100))
-      onProgress?.(`正在识别 ${job.processed_pages}/${job.total_pages} 页（${pct}%）`)
-    }
-
-    // 停滞检测：后端心跳停了就说明 worker 已死（见 backend job_recovery.py），
-    // 立刻失败并给出可操作的原因，而不是让律师继续盯着一个已经不会动的进度条。
-    if (job.stale_seconds != null && job.stale_seconds > staleSecondsLimit) {
-      throw new Error(
-        `识别进程已中断（${Math.round(job.stale_seconds / 60)} 分钟无响应）。` +
-          '请稍后重试；若反复中断，可先拆分页数再识别。',
-      )
-    }
-
-    await lease.sleep(POLL_DELAY_MS)
+  // 弹窗的三个出口：选完就关框（resolve 会在 run 里被 await 接走）
+  const answerConflicts = (choice: RerunChoice) => {
+    const pending = pendingConflicts
+    setPendingConflicts(null)
+    pending?.resolve(choice)
   }
-  throw new Error('云端识别等待超时，请稍后重试')
+
+  return {
+    run,
+    running,
+    progress,
+    /** 非 null 时 ReaderDialogs 应弹重跑确认框 */
+    pendingConflicts,
+    onKeepEdits: () => answerConflicts('keep'),
+    onOverwrite: () => answerConflicts('overwrite'),
+    onCancelRerun: () => answerConflicts('cancel'),
+  }
 }

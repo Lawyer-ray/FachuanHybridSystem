@@ -47,6 +47,17 @@ export interface Segment {
   /** 该段的可定位块（原文坐标索引）；无坐标的后端 / 旧任务为空
    *  rect 为归一化 0–1，rect.approx 为 true 时代表"整页近似框"而非精确位置 */
   blocks?: PositionedBlock[]
+  /** 人工动过的痕迹：重跑自动识别时用它判断是否该弹窗询问 */
+  manualEdit?: {
+    /** 改过 Markdown 正文 */
+    md?: boolean
+    /** 改过段名 */
+    name?: boolean
+    /** 改过类型 */
+    type?: boolean
+    /** 最后修改时间（ISO） */
+    at?: string
+  }
 }
 
 /** 后端 PDF 拆分接口返回的页段候选。

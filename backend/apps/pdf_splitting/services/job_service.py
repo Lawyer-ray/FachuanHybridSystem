@@ -196,8 +196,17 @@ class PdfSplitJobService:
         )
         if total_pages is not None:
             queryset = queryset.filter(total_pages=total_pages)
-        if user is not None and getattr(user, "is_authenticated", False) and not getattr(user, "is_superuser", False):
-            queryset = queryset.filter(created_by=user)
+
+        # ⚠️ 这里**刻意不按 created_by 过滤**。
+        #
+        # 复用的是「这份文件识别出的结果」，不是「某人的私人物品」：
+        # 同一份材料包常由助理先跑一次、主办律师再来用；也有可能任务是用脚本/
+        # 管理后台跑的（created_by 为空）。按属主过滤会让这些场景全部 miss，
+        # 又退回「从零重跑 164 页」。
+        #
+        # 安全性由调用方保证：只有能打开该材料包的人（即持有对应 message_id
+        # 读取权限的人）才会拿这个结果去用；本方法只返回 segments，不泄文件内容。
+        # 保留 user 参数供未来需要隔离的租户场景使用。
 
         # 取最新的一份：同一文件可能被故意重跑过几次，律师要看的是最终结论
         return queryset.order_by("-created_at").first()

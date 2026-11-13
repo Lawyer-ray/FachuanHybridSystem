@@ -209,3 +209,85 @@ describe('blockKeyOf', () => {
     expect(blockKeyOf(s, multi[2]!, 2)).toBe('s1:2:1')
   })
 })
+
+/**
+ * 可疑点清单。
+ *
+ * 背景：`findSuspects` 给的是 **markdown 行号**，而面板渲染的是 `blocks`，两者没有
+ * 对应关系（`seg.md` 是后端把标题 + 各页块用空行拼起来的，一个表格块在 md 里展开成
+ * 几十行）。所以这里**不在行内画点**，而是在正文下方给一份清单：每条带命中原文与
+ * 「查看原页」。这组用例锁的就是「清单手法」——指错行比不指更糟。
+ */
+describe('可疑点清单', () => {
+  /** 一段流水正文：D3.00 会被判成金额前缀（high） */
+  const riskyMd = [
+    '# 银行流水',
+    '',
+    '| 交易日期 | 摘要 | 发生额 |',
+    '| --- | --- | --- |',
+    '| 20170301 | 手续费 | D3.00 |',
+  ].join('\n')
+
+  it('没有可疑点时不渲染清单', () => {
+    const { container } = render(<SegmentMarkdown {...base()} />)
+    expect(container.textContent).not.toContain('可疑')
+  })
+
+  it('有可疑点时给段头汇总（总数 + 高危数），并把命中原文与提示列出来', () => {
+    const onLocate = vi.fn()
+    const { container, getByText } = render(
+      <SegmentMarkdown {...base({ seg: seg({ md: riskyMd, blocks }), onLocateBlock: onLocate })} />,
+    )
+
+    expect(getByText(/本段有 \d+ 处可疑/)).toBeTruthy()
+    // 命中原文直接展示：律师一眼就知道是哪个数
+    expect(getByText('D3.00')).toBeTruthy()
+    // 提示文案来自 md-suspects（D/C 前缀那条）
+    expect(container.textContent).toContain('借贷标记')
+  })
+
+  it('「查看原页」用文本匹配定位到包含该片段的块，匹配不到就不给按钮', () => {
+    const onLocate = vi.fn()
+    // 让 D3.00 真的出现在某个 block 的 text 里 → 应该能定位
+    const withHit: PositionedBlock[] = [
+      { page: 2, type: 'table', text: '手续费 D3.00', rect: { x: 0, y: 0, w: 1, h: 1, approx: false } },
+    ]
+    const { getByText } = render(
+      <SegmentMarkdown {...base({ seg: seg({ md: riskyMd, blocks: withHit }), onLocateBlock: onLocate })} />,
+    )
+    fireEvent.click(getByText('查看原页'))
+    expect(onLocate).toHaveBeenCalledWith('s1:2:0')
+  })
+
+  it('命中片段不在任何块里时不显示「查看原页」（不做假跳转）', () => {
+    // 默认 blocks 里没有 D3.00
+    const { queryByText } = render(<SegmentMarkdown {...base({ seg: seg({ md: riskyMd, blocks }) })} />)
+    expect(queryByText('查看原页')).toBeNull()
+  })
+
+  it('超过 5 条默认折叠，点标题展开，再点收起', () => {
+    const rows = Array.from({ length: 8 }, (_, i) => `| 2017030${i + 1} | 代付款 | D${i + 1}.00 |`)
+    const many = [
+      '# 流水',
+      '',
+      '| 交易日期 | 摘要 | 发生额 |',
+      '| --- | --- | --- |',
+      ...rows,
+    ].join('\n')
+
+    const { getByText, queryByText, queryAllByText } = render(
+      <SegmentMarkdown {...base({ seg: seg({ md: many, blocks }) })} />,
+    )
+
+    // 折叠态：只有标题，没有单条
+    expect(getByText(/8 处可疑/)).toBeTruthy()
+    expect(queryByText('展开')).toBeTruthy()
+    expect(queryAllByText(/借贷标记/)).toHaveLength(0)
+
+    fireEvent.click(getByText(/8 处可疑/))
+    expect(queryAllByText(/借贷标记/)).toHaveLength(8)
+
+    fireEvent.click(getByText(/8 处可疑/))
+    expect(queryAllByText(/借贷标记/)).toHaveLength(0)
+  })
+})
