@@ -282,3 +282,55 @@ describe('PageCell 页体懒加载', () => {
     globalThis.IntersectionObserver = original
   })
 })
+
+describe('定位框的百分比基准必须与页面图像一致', () => {
+  /**
+   * 回归背景（真实 bug）：识别定位框曾直接挂在外层页卡上，而页卡除了页面图像
+   * 还含底部页码栏（`py-1.5` + 11px 文字 ≈ 27px）。rect 是相对**图像**的归一化值，
+   * `top: y*100%` 却按**页卡总高**解析 —— 分母不同，框越靠下偏得越多
+   * （实测页高 800px 时底部偏 +24px，框高也被等比放大）。
+   *
+   * 这个错用普通断言看不出来（DOM 结构都能渲染），必须断言**结构关系**：
+   * 定位框与其基准元素必须是同一个父节点的子元素，且该父节点不含页码栏。
+   */
+  it('识别定位框与页体共享同一父层，且页码栏在它之外', () => {
+    const hits = [{ key: 'b1', rect: { x: 0.1, y: 0.5, w: 0.2, h: 0.1 }, label: '正文块' }]
+    const { container } = render(<PageCell messageId={1} mi={0} p={1} mat={mat} hits={hits} />)
+
+    // 定位框：由 style 里的百分比定位识别
+    const hitBox = Array.from(container.querySelectorAll<HTMLElement>('div')).find(
+      (el) => el.style.left === '10%' && el.style.top === '50%',
+    )
+    expect(hitBox).toBeTruthy()
+
+    const layer = hitBox!.parentElement!
+    // 基准层自身必须是定位上下文，否则 absolute 会跑到更外层去
+    expect(layer.className).toContain('relative')
+
+    // 页码栏必须是基准层的**兄弟**（在其外），不能是它的子元素
+    const footer = Array.from(container.querySelectorAll<HTMLElement>('div')).find((el) =>
+      el.className.includes('rounded-b-[7px]'),
+    )
+    expect(footer).toBeTruthy()
+    expect(layer.contains(footer!)).toBe(false)
+    expect(footer!.parentElement).toBe(layer.parentElement)
+  })
+
+  it('采纳后的来源绿框同样锚定在图像区', () => {
+    const marks = [{ fi: 0, rect: { x: 0.2, y: 0.3, w: 0.3, h: 0.05 }, label: '原告' }]
+    const { container } = render(<PageCell messageId={1} mi={0} p={1} mat={mat} marks={marks} />)
+
+    const markBox = Array.from(container.querySelectorAll<HTMLElement>('div')).find(
+      (el) => el.style.left === '20%' && el.style.top === '30%',
+    )
+    expect(markBox).toBeTruthy()
+
+    const layer = markBox!.parentElement!
+    const footer = Array.from(container.querySelectorAll<HTMLElement>('div')).find((el) =>
+      el.className.includes('rounded-b-[7px]'),
+    )
+    expect(footer).toBeTruthy()
+    // 绿框的基准层里不能有页码栏，否则同样按错误总高换算
+    expect(layer.contains(footer!)).toBe(false)
+  })
+})

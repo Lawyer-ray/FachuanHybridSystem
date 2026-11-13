@@ -22,6 +22,7 @@ export const PageCell = memo(function PageCell({
   selected,
   marks = [],
   hits = [],
+  focusedHitKey = null,
   ocrRect,
   onPickPage,
   onOcrBox,
@@ -41,6 +42,8 @@ export const PageCell = memo(function PageCell({
   /** 识别定位框：云端识别出的正文块位置（与 marks 的来源绿框分开配色，
    *  免得律师分不清"字段出处"和"块位置"） */
   hits?: { key: string; rect: PageRect; label: string; approx?: boolean }[]
+  /** 当前被 Markdown 面板选中的块 key：该框加亮，其余淡化（原文对照的视觉锚点） */
+  focusedHitKey?: string | null
   ocrRect?: PageRect | null
   onPickPage?: (mi: number, p: number) => void
   onOcrBox?: (mi: number, p: number, rect: PageRect) => void
@@ -112,7 +115,6 @@ export const PageCell = memo(function PageCell({
 
   return (
     <div
-      ref={boxRef}
       data-mi={mi}
       data-p={p}
       // 选页模式下整页可点选（toggle），补键盘可达；取字（画框）/默认阅读态是
@@ -149,7 +151,83 @@ export const PageCell = memo(function PageCell({
         pickActive && !selected && 'border-amber-300/70 ring-1 ring-amber-300/50',
       )}
     >
-      <PageBody messageId={messageId} p={p} mat={mat} />
+      {/* 图像区：页体 + 全部定位框共用同一个盒子做百分比基准。
+          ⚠️ 定位框**不能**直接挂在外层页卡上：rect 是相对**页面图像**的归一化值，
+          而外层页卡还含底部页码栏（约 27px）。两者分母不同会让框越靠下偏得越多
+          （实测页高 800px 时底部偏 +24px、框高也被等比放大）。 */}
+      <div ref={boxRef} className="relative w-full">
+        <PageBody messageId={messageId} p={p} mat={mat} />
+
+        {/* 来源标注：采纳后的绿框 */}
+        {marks.map((m) => (
+          <div
+            key={m.fi}
+            className="pointer-events-auto absolute rounded-[3px] border-[1.5px] border-green-500/80"
+            style={{
+              left: `${m.rect.x * 100}%`,
+              top: `${m.rect.y * 100}%`,
+              width: `${m.rect.w * 100}%`,
+              height: `${m.rect.h * 100}%`,
+            }}
+          >
+            <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-green-600 px-1 text-[10px] leading-4 text-white">
+              {m.label}
+            </span>
+          </div>
+        ))}
+
+        {/* 识别定位：云端识别出的正文块（虚线=整页近似框，不给假精度） */}
+        {hits.map((h) => {
+          const on = focusedHitKey === h.key
+          // 有选中块时其余框淡化：不同时亮一片，才看得出「这一条对应哪一个框」
+          const dim = focusedHitKey != null && !on
+          return (
+          <div
+            key={h.key}
+            className={`pointer-events-none absolute rounded-[3px] border ${
+              on
+                ? 'border-2 border-sky-600 bg-sky-400/20 shadow-[0_0_0_2px_rgba(2,132,199,0.25)]'
+                : `border border-sky-500/70 ${h.approx ? 'border-dashed' : ''}`
+            } ${dim ? 'opacity-25' : ''}`}
+            style={{
+              left: `${h.rect.x * 100}%`,
+              top: `${h.rect.y * 100}%`,
+              width: `${h.rect.w * 100}%`,
+              height: `${h.rect.h * 100}%`,
+            }}
+            title={h.label}
+          />
+          )
+        })}
+
+        {/* OCR 拖出的框 */}
+        {dragRect && (
+          <div
+            className="pointer-events-none absolute rounded-[3px] border-2 border-blue-500/90 bg-blue-500/10"
+            style={{
+              left: `${dragRect.x * 100}%`,
+              top: `${dragRect.y * 100}%`,
+              width: `${dragRect.w * 100}%`,
+              height: `${dragRect.h * 100}%`,
+            }}
+          />
+        )}
+
+        {/* 待确认的 OCR 框 */}
+        {ocrRect && (
+          <div
+            className="pointer-events-none absolute rounded-[3px] border-2 border-green-500 bg-blue-500/10"
+            style={{
+              left: `${ocrRect.x * 100}%`,
+              top: `${ocrRect.y * 100}%`,
+              width: `${ocrRect.w * 100}%`,
+              height: `${ocrRect.h * 100}%`,
+            }}
+          >
+            <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-zinc-800 px-1 text-[10px] leading-4 text-white opacity-0" />
+          </div>
+        )}
+      </div>
 
       {/* 选页已选：右上角黑圆勾（原型 .rp.picked::after） */}
       {selected && (
@@ -164,54 +242,6 @@ export const PageCell = memo(function PageCell({
           {p} / {mat.pages}
         </span>
       </div>
-
-      {/* 来源标注：采纳后的绿框 */}
-      {marks.map((m) => (
-        <div
-          key={m.fi}
-          className="pointer-events-auto absolute rounded-[3px] border-[1.5px] border-green-500/80"
-          style={{ left: `${m.rect.x * 100}%`, top: `${m.rect.y * 100}%`, width: `${m.rect.w * 100}%`, height: `${m.rect.h * 100}%` }}
-        >
-          <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-green-600 px-1 text-[10px] leading-4 text-white">
-            {m.label}
-          </span>
-        </div>
-      ))}
-
-      {/* 识别定位：云端识别出的正文块（虚线=整页近似框，不给假精度） */}
-      {hits.map((h) => (
-        <div
-          key={h.key}
-          className={`pointer-events-none absolute rounded-[3px] border border-sky-500/70 ${
-            h.approx ? 'border-dashed' : ''
-          }`}
-          style={{
-            left: `${h.rect.x * 100}%`,
-            top: `${h.rect.y * 100}%`,
-            width: `${h.rect.w * 100}%`,
-            height: `${h.rect.h * 100}%`,
-          }}
-          title={h.label}
-        />
-      ))}
-
-      {/* OCR 拖出的框 */}
-      {dragRect && (
-        <div
-          className="pointer-events-none absolute rounded-[3px] border-2 border-blue-500/90 bg-blue-500/10"
-          style={{ left: `${dragRect.x * 100}%`, top: `${dragRect.y * 100}%`, width: `${dragRect.w * 100}%`, height: `${dragRect.h * 100}%` }}
-        />
-      )}
-
-      {/* 待确认的 OCR 框 */}
-      {ocrRect && (
-        <div
-          className="pointer-events-none absolute rounded-[3px] border-2 border-green-500 bg-blue-500/10"
-          style={{ left: `${ocrRect.x * 100}%`, top: `${ocrRect.y * 100}%`, width: `${ocrRect.w * 100}%`, height: `${ocrRect.h * 100}%` }}
-        >
-          <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-zinc-800 px-1 text-[10px] leading-4 text-white opacity-0" />
-        </div>
-      )}
     </div>
   )
 })

@@ -53,3 +53,4 @@ export {
   removePages,
   mergeSegsIntoOne,
 } from './selection'
+export { blockKeyOf } from './block-keys'
