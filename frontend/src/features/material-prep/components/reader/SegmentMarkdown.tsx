@@ -183,26 +183,52 @@ function BlockRow({
   const [draft, setDraft] = useState(text)
 
   if (editing) {
+    // 编辑态：输入框 + **显式的保存/取消按钮**。
+    //
+    // 不用「失焦即保存」——这一行是法律文书正文，改错了下游 AI 会拿错文本跑，
+    // 该由人明确说「我要保存」。失焦保存还有三个实际问题：
+    //   ① 界面上没有任何提示，用户不知道"切走"就等于提交；
+    //   ② 误点别处（想复制文字、想对照原页）就改了库；
+    //   ③ 回车保存会让父级卸载输入框 → 触发 blur → 再提交一次（重复写入）。
+    // 回车 / Esc 作为快捷键保留给熟手，但**不再是唯一入口**。
     return (
-      <div className="flex items-start gap-1">
-        <span className="mt-1 flex-none tabular-nums text-[10.5px] text-muted-foreground">P{page}</span>
-        <textarea
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => onCommitEdit(draft)}
-          onKeyDown={(e) => {
-            // 回车保存、Shift+回车换行：一行一段的粒度上，回车=确认更顺手
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              onCommitEdit(draft)
-            }
-            if (e.key === 'Escape') onCancelEdit()
-          }}
-          spellCheck={false}
-          rows={Math.min(6, Math.max(2, Math.ceil(draft.length / 38)))}
-          className="min-w-0 flex-1 resize-y rounded border border-sky-300 bg-white p-1 font-mono text-[11px] leading-relaxed outline-none focus:ring-1 focus:ring-sky-400"
-        />
+      <div className="flex flex-col gap-1 rounded border border-sky-300 bg-sky-50/40 p-1">
+        <div className="flex items-start gap-1">
+          <span className="mt-1 flex-none tabular-nums text-[10.5px] text-muted-foreground">P{page}</span>
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                onCommitEdit(draft)
+              }
+              if (e.key === 'Escape') onCancelEdit()
+            }}
+            spellCheck={false}
+            rows={Math.min(6, Math.max(2, Math.ceil(draft.length / 38)))}
+            className="min-w-0 flex-1 resize-y rounded border border-sky-300 bg-white p-1 font-mono text-[11px] leading-relaxed outline-none focus:ring-1 focus:ring-sky-400"
+          />
+        </div>
+        <div className="flex items-center gap-1.5 pl-5">
+          <button
+            type="button"
+            onClick={() => onCommitEdit(draft)}
+            className="flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-0.5 text-[10.5px] font-medium text-white hover:bg-zinc-800"
+          >
+            <Check className="h-2.5 w-2.5" aria-hidden />
+            保存
+          </button>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="rounded-md border border-border bg-white px-2 py-0.5 text-[10.5px] hover:bg-secondary"
+          >
+            取消
+          </button>
+          <span className="ml-auto text-[10px] text-muted-foreground">回车保存 · Esc 取消</span>
+        </div>
       </div>
     )
   }

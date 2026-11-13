@@ -123,6 +123,45 @@ describe('识别错了怎么办', () => {
     expect(onEditBlock).toHaveBeenCalledWith('s1:1:0', '我改过的这一行')
   })
 
+  it('编辑态有显式的「保存 / 取消」按钮', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    expect(getByText('保存')).toBeTruthy()
+    expect(getByText('取消')).toBeTruthy()
+
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '改好的行' } })
+    fireEvent.click(getByText('保存'))
+    expect(onEditBlock).toHaveBeenCalledWith('s1:1:0', '改好的行')
+  })
+
+  it('点「取消」放弃改动，必须不写回', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '不要保存我' } })
+    fireEvent.click(getByText('取消'))
+
+    expect(onEditBlock).not.toHaveBeenCalled()
+    expect(container.querySelector('textarea')).toBeNull()
+  })
+
+  it('失焦不自动保存（法律正文不能「切走就提交」）', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    const ta = container.querySelector('textarea')!
+    fireEvent.change(ta, { target: { value: '只是切走了不该保存' } })
+    fireEvent.blur(ta)
+
+    expect(onEditBlock).not.toHaveBeenCalled()
+    // 仍停在编辑态，等用户明确选择
+    expect(container.querySelector('textarea')).toBeTruthy()
+  })
+
   it('编辑态按 Esc 取消，不回调', () => {
     const onEditBlock = vi.fn()
     const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
