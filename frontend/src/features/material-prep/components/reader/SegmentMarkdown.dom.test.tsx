@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 /**
- * 分段 Markdown 面板单测。
+ * 右侧栏「Markdown 正文」面板单测。
  *
  * 回归背景：`seg.md` 一直在产出，但**没有任何 UI 渲染它**——只被识别当事人
  * 和推断文本在后台消费。律师看不到机器读出了什么，整条识别链路是黑盒。
  *
- * 这里锁两件事：
- * 1. 有 md 就能展开看到正文；没有 md 给明确说明而不是空白；
- * 2. 定位块能点，且点出来的 key 与 PageCell 的 hits[].key 同一套（否则高亮对不上）。
+ * 这里锁三件事：
+ * 1. 有 md 就能看到正文；没有 md 给明确说明而不是空白；
+ * 2. **双击**才定位（单击只选中文字，不该跳转）；
+ * 3. 定位块的 key 与 PageCell 的 hits[].key 同一套，否则高亮对不上。
  */
 import { fireEvent, render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
@@ -32,53 +33,161 @@ const blocks: PositionedBlock[] = [
   { page: 1, type: 'paragraph', text: '被告对此不予认可。', rect: { x: 0.1, y: 0.4, w: 0.5, h: 0.05, approx: false } },
 ]
 
+function base(props: Partial<Parameters<typeof SegmentMarkdown>[0]> = {}) {
+  return {
+    seg: seg({ md: '# 证据目录\n\n原告提交了转账凭证。', blocks }),
+    open: true,
+    onToggleOpen: vi.fn(),
+    focusedBlockKey: null,
+    onLocateBlock: vi.fn(),
+    ...props,
+  }
+}
+
 describe('SegmentMarkdown', () => {
-  it('有 md 时默认折叠，展开后能看到正文', () => {
-    const { container, getByText } = render(
-      <SegmentMarkdown seg={seg({ md: '# 证据目录\n\n原告提交了转账凭证。' })} focusedBlockKey={null} onFocusBlock={() => {}} />,
-    )
-
-    // 折叠态不渲染 <pre>
+  it('展开时每一行就是正文，不再额外渲染一份完整 <pre>', () => {
+    const { container, getByText } = render(<SegmentMarkdown {...base()} />)
+    // 列表即正文：文字出现在行内
+    expect(getByText('原告提交了转账凭证。')).toBeTruthy()
+    expect(getByText('被告对此不予认可。')).toBeTruthy()
+    // 有定位块时不再有重复的整段渲染
     expect(container.querySelector('pre')).toBeNull()
+  })
 
+  it('折叠时不渲染正文，点标题回调切换', () => {
+    const onToggleOpen = vi.fn()
+    const { container, getByText } = render(<SegmentMarkdown {...base({ open: false, onToggleOpen })} />)
+    expect(container.querySelector('pre')).toBeNull()
     fireEvent.click(getByText('Markdown 正文'))
-    expect(container.querySelector('pre')?.textContent).toContain('原告提交了转账凭证。')
+    expect(onToggleOpen).toHaveBeenCalled()
   })
 
   it('没有 md 时给出明确说明，不渲染空白面板', () => {
-    const { container } = render(<SegmentMarkdown seg={seg()} focusedBlockKey={null} onFocusBlock={() => {}} />)
-
+    const { container } = render(<SegmentMarkdown {...base({ seg: seg() })} />)
     expect(container.textContent).toContain('该段没有 Markdown 正文')
     expect(container.querySelector('pre')).toBeNull()
   })
 
   it('人工拆分的段不显示任何正文提示（避免噪声）', () => {
-    const { container } = render(
-      <SegmentMarkdown seg={seg({ manual: true })} focusedBlockKey={null} onFocusBlock={() => {}} />,
-    )
+    const { container } = render(<SegmentMarkdown {...base({ seg: seg({ manual: true }) })} />)
     expect(container.textContent).toBe('')
   })
 
-  it('点定位块回调其 key', () => {
-    const onFocus = vi.fn()
-    const s = seg({ md: '正文', blocks })
-    const { getByText } = render(<SegmentMarkdown seg={s} focusedBlockKey={null} onFocusBlock={onFocus} />)
-
-    fireEvent.click(getByText('Markdown 正文'))
-    fireEvent.click(getByText('原告提交了转账凭证。'))
-    expect(onFocus).toHaveBeenCalledWith('s1:1:0')
+  it('seg 为 null 时整块不渲染（右栏其余部分不受影响）', () => {
+    const { container } = render(<SegmentMarkdown {...base({ seg: null })} />)
+    expect(container.textContent).toBe('')
   })
 
-  it('已高亮的块再点一次 → 传 null（取消高亮）', () => {
-    const onFocus = vi.fn()
-    const s = seg({ md: '正文', blocks })
-    const { getByText } = render(
-      <SegmentMarkdown seg={s} focusedBlockKey="s1:1:0" onFocusBlock={onFocus} />,
-    )
+  it('单击不触发定位，双击才定位', () => {
+    const onLocate = vi.fn()
+    const { getByText } = render(<SegmentMarkdown {...base({ onLocateBlock: onLocate })} />)
+    const row = getByText('原告提交了转账凭证。')
 
-    fireEvent.click(getByText('Markdown 正文'))
-    fireEvent.click(getByText('原告提交了转账凭证。'))
-    expect(onFocus).toHaveBeenCalledWith(null)
+    fireEvent.click(row)
+    expect(onLocate).not.toHaveBeenCalled()
+
+    fireEvent.doubleClick(row)
+    expect(onLocate).toHaveBeenCalledWith('s1:1:0')
+  })
+
+  it('已定位的块再双击一次 → 传 null（取消）', () => {
+    const onLocate = vi.fn()
+    const { getByText } = render(
+      <SegmentMarkdown {...base({ focusedBlockKey: 's1:1:0', onLocateBlock: onLocate })} />,
+    )
+    fireEvent.doubleClick(getByText('原告提交了转账凭证。'))
+    expect(onLocate).toHaveBeenCalledWith(null)
+  })
+
+  it('有定位时给出「取消定位」入口', () => {
+    const onLocate = vi.fn()
+    const { getByText } = render(
+      <SegmentMarkdown {...base({ focusedBlockKey: 's1:1:0', onLocateBlock: onLocate })} />,
+    )
+    fireEvent.click(getByText('取消定位'))
+    expect(onLocate).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('识别错了怎么办', () => {
+  it('右键某一行 → 就地变成输入框，回车保存并回调 (key, 新文字)', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    const ta = container.querySelector('textarea')
+    expect(ta).toBeTruthy()
+
+    fireEvent.change(ta!, { target: { value: '我改过的这一行' } })
+    fireEvent.keyDown(ta!, { key: 'Enter' })
+    expect(onEditBlock).toHaveBeenCalledWith('s1:1:0', '我改过的这一行')
+  })
+
+  it('编辑态有显式的「保存 / 取消」按钮', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    expect(getByText('保存')).toBeTruthy()
+    expect(getByText('取消')).toBeTruthy()
+
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '改好的行' } })
+    fireEvent.click(getByText('保存'))
+    expect(onEditBlock).toHaveBeenCalledWith('s1:1:0', '改好的行')
+  })
+
+  it('点「取消」放弃改动，必须不写回', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '不要保存我' } })
+    fireEvent.click(getByText('取消'))
+
+    expect(onEditBlock).not.toHaveBeenCalled()
+    expect(container.querySelector('textarea')).toBeNull()
+  })
+
+  it('失焦不自动保存（法律正文不能「切走就提交」）', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    const ta = container.querySelector('textarea')!
+    fireEvent.change(ta, { target: { value: '只是切走了不该保存' } })
+    fireEvent.blur(ta)
+
+    expect(onEditBlock).not.toHaveBeenCalled()
+    // 仍停在编辑态，等用户明确选择
+    expect(container.querySelector('textarea')).toBeTruthy()
+  })
+
+  it('编辑态按 Esc 取消，不回调', () => {
+    const onEditBlock = vi.fn()
+    const { getByText, container } = render(<SegmentMarkdown {...base({ onEditBlock })} />)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '改了但不保存' } })
+    fireEvent.keyDown(container.querySelector('textarea')!, { key: 'Escape' })
+
+    expect(onEditBlock).not.toHaveBeenCalled()
+    expect(container.querySelector('textarea')).toBeNull()
+  })
+
+  it('删掉画错的定位框，只删框不动正文', () => {
+    const onRemoveBlock = vi.fn()
+    const { getAllByLabelText } = render(<SegmentMarkdown {...base({ onRemoveBlock })} />)
+
+    fireEvent.click(getAllByLabelText('删除这个定位框')[0]!)
+    expect(onRemoveBlock).toHaveBeenCalledWith('s1:1:0')
+  })
+
+  it('未提供回调时不渲染删框入口，右键也不进编辑（只读场景）', () => {
+    const { queryAllByLabelText, getByText, container } = render(<SegmentMarkdown {...base()} />)
+    expect(queryAllByLabelText('删除这个定位框')).toHaveLength(0)
+
+    fireEvent.contextMenu(getByText('原告提交了转账凭证。'))
+    expect(container.querySelector('textarea')).toBeNull()
   })
 })
 

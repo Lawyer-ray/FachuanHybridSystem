@@ -1,5 +1,5 @@
 import { SEGMENT_TYPES } from '../constants'
-import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, Segment } from '../types'
+import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, PositionedBlock, Segment } from '../types'
 import { matLabel, withDefaultNames } from './labels'
 import { initialSegments } from './resolve'
 import { nextSegId } from './seg-id'
@@ -128,4 +128,87 @@ export function fillSegmentText(d: DraftState, mi: number, md: string): DraftSta
     return { ...sg, md: text }
   })
   return changed ? { ...d, segs } : d
+}
+
+/**
+ * 手改某段的 Markdown 正文。
+ *
+ * 识别不可能全对：表格拍平、标题层级错、页眉页脚混进正文都是常态。
+ * 律师改过之后要能留下来（进草稿、可撤销、随包保存），而不是一刷新就没了。
+ *
+ * 与 `fillSegmentText` 的分工：那个是**填**（只填空段，保护人工结果），
+ * 这个是**改**（人工显式编辑，直接覆盖）。
+ */
+export function setSegmentMarkdown(d: DraftState, si: number, md: string): DraftState {
+  const seg = d.segs[si]
+  if (!seg) return d
+  // 去掉首尾空白后与现值相同就不产生新对象：避免 Undo 栈里塞满「点开又关掉」的空改动
+  const next = md.replace(/\s+$/, '')
+  if ((seg.md ?? '') === next) return d
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, md: next || undefined } : sg))
+  return { ...d, segs }
+}
+
+/**
+ * 删掉某段里的一个定位块（识别出来的框位置画错了）。
+ *
+ * 只删坐标索引，**不动 Markdown 正文**：框画歪不等于文字读错，两件事分开处理。
+ * 律师多半会接着用「标来源」重拖一个框，或者干脆不要这个框。
+ *
+ * key 的规则必须与 `draft/block-keys.ts` 的 `blockKeyOf` 逐字一致
+ * （段 id + 绝对页号 + 同页内序号），否则会删错块。
+ */
+export function removeSegmentBlock(d: DraftState, si: number, blockKey: string): DraftState {
+  const seg = d.segs[si]
+  if (!seg?.blocks?.length) return d
+
+  const next = seg.blocks.filter((b, i) => {
+    const samePageIdx = seg.blocks!.slice(0, i + 1).filter((x) => x.page === b.page).length - 1
+    return `${seg.id}:${b.page}:${samePageIdx}` !== blockKey
+  })
+  if (next.length === seg.blocks.length) return d
+
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, blocks: next.length ? next : undefined } : sg))
+  return { ...d, segs }
+}
+
+/**
+ * 改某一段里**一行**（一个定位块）的文字，并把改动同步进 Markdown 正文。
+ *
+ * ## 为什么必须同步 md
+ *
+ * `blocks[].text` 与 `seg.md` 是同一批文字的两种视图：前者带坐标给定位用，
+ * 后者是给下游 AI 消费的正文。只改一处会出现「列表里改好了、Markdown 里还是错的」
+ * ——那比不改更糟（人以为已经修好了）。
+ *
+ * ## 怎么定位到 md 里的那一行
+ *
+ * 用原文做替换：把该块**改前的文字**在 md 中第一次出现的位置替换成新文字。
+ * 不用行号——后端拼 md 时做过格式化（表格转 GFM、标题加 #），块文本与 md 的行
+ * 不是一一对应的，按行号改必然错位。原文匹配至少能保证"改的就是这段字"。
+ *
+ * 找不到原文时**只改块、不动 md**：宁可正文保留旧值，也不能乱替换别处的文字。
+ */
+export function setSegmentBlockText(d: DraftState, si: number, blockKey: string, text: string): DraftState {
+  const seg = d.segs[si]
+  if (!seg?.blocks?.length) return d
+
+  let hit: PositionedBlock | undefined
+  const blocks = seg.blocks.map((b, i) => {
+    const samePageIdx = seg.blocks!.slice(0, i + 1).filter((x) => x.page === b.page).length - 1
+    if (`${seg.id}:${b.page}:${samePageIdx}` !== blockKey) return b
+    hit = b
+    return { ...b, text }
+  })
+  if (!hit) return d
+
+  const oldText = hit.text ?? ''
+  let md = seg.md
+  if (md && oldText && oldText !== text) {
+    const at = md.indexOf(oldText)
+    if (at >= 0) md = md.slice(0, at) + text + md.slice(at + oldText.length)
+  }
+
+  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, blocks, md } : sg))
+  return { ...d, segs }
 }

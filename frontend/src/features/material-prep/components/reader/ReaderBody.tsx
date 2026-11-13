@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react'
+
 import type { DraftState, OcrPending, PageKey } from '../../types'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
@@ -80,6 +82,34 @@ export function ReaderBody({
    *  中栏也就没有任何 overflow —— 表现是「永远停在第一页，滚不动」。 */
   flowWrapRef: (node: HTMLDivElement | null) => void
 }) {
+  // Markdown 面板展开态：右栏自己记，不落草稿（纯阅读偏好）
+  const [mdOpen, setMdOpen] = useState(true)
+  // 当前高亮的定位块；null = 不预先高亮任何框（一进阅读器满屏重点反而看不出对应关系）
+  const [focusedBlockKey, setFocusedBlockKey] = useState<string | null>(null)
+
+  /**
+   * 双击 Markdown 的一条 → 滚到原页 + 高亮那个框。
+   *
+   * 用 data-mi / data-p 找页卡而不用 ref 数组：页数是动态的（切段、追加材料都会变），
+   * 维护一份和页数同步的 ref 数组在每次结构变化后都要重建，容易对不上位。
+   * 页卡本来就带这两个属性（PageCell 上），查一次 DOM 是最直接的真相来源。
+   *
+   * 传 null 只清高亮、不滚动（「取消定位」不该把视线又拽走）。
+   */
+  const onLocateBlock = useCallback((key: string | null) => {
+    setFocusedBlockKey(key)
+    if (!key) return
+    // key 形如 `<segId>:<page>:<idx>`：只用到段内页序来定位，页号在第 2 段
+    const seg = draft.segs.find((s) => key.startsWith(`${s.id}:`))
+    if (!seg) return
+    const pageNo = Number(key.split(':')[1])
+    const firstPage = seg.refs[0]?.p ?? 1
+    const ref = seg.refs[pageNo - firstPage]
+    if (!ref) return
+    const el = document.querySelector<HTMLElement>(`[data-mi="${ref.mi}"][data-p="${ref.p}"]`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [draft.segs])
+
   return (
     <>
       {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc）。退出按钮与 Esc 同口径
@@ -128,6 +158,7 @@ export function ReaderBody({
             selMode={selMode}
             selPages={selPages}
             ocrPending={ocrPending}
+            focusedBlockKey={focusedBlockKey}
             onOp={flowOps}
             onToggleSel={onToggleSel}
             onOcrBox={onOcrBox}
@@ -136,7 +167,18 @@ export function ReaderBody({
         </div>
 
         <div className={metaWrapCls}>
-          <MetaPanel draft={draft} pickInfo={pickInfo} onSetPickInfo={onSetPickInfo} ops={metaOps} />
+          <MetaPanel
+            draft={draft}
+            pickInfo={pickInfo}
+            onSetPickInfo={onSetPickInfo}
+            ops={metaOps}
+            focusedSeg={focusedSeg}
+            mdOpen={mdOpen}
+            onToggleMdOpen={() => setMdOpen((v) => !v)}
+            focusedBlockKey={focusedBlockKey}
+            onLocateBlock={onLocateBlock}
+            narrow={narrow}
+          />
         </div>
       </div>
 

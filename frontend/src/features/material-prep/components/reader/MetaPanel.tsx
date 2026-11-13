@@ -7,6 +7,8 @@ import type { DraftState, InfoField } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
+import { SegmentMarkdown } from './SegmentMarkdown'
+import { useMetaWidth } from './use-meta-width'
 
 /** 字段的 placeholder：把「多个用、分隔」这类提示并进去，不再在标签旁常驻一行小字 */
 function placeholderOf(f: InfoField): string | undefined {
@@ -23,13 +25,31 @@ export function MetaPanel({
   pickInfo,
   onSetPickInfo,
   ops,
+  focusedSeg,
+  mdOpen,
+  onToggleMdOpen,
+  focusedBlockKey,
+  onLocateBlock,
+  narrow = false,
 }: {
   draft: DraftState
   pickInfo: number
   onSetPickInfo: (i: number) => void
   ops: MetaOps
+  /** 当前聚焦的段（Markdown 面板跟着它走，与左栏高亮同一口径） */
+  focusedSeg: number
+  mdOpen: boolean
+  onToggleMdOpen: () => void
+  focusedBlockKey: string | null
+  onLocateBlock: (key: string | null) => void
+  /** 窄屏时右栏是抽屉，宽度由抽屉 CSS 决定，拖拽手柄不渲染 */
+  narrow?: boolean
 }) {
   const [showLib, setShowLib] = useState(false)
+  // 栏宽可拖拽调整，跨会话记在 localStorage（纯显示偏好，不进草稿）
+  const metaWidth = useMetaWidth(narrow)
+  // 段数会变（切/并/删），focus 可能落在越界下标上；锁定到有效段，避免编辑写到别的段
+  const si = Math.min(Math.max(focusedSeg, 0), Math.max(draft.segs.length - 1, 0))
   // armed 记**字段名**而非下标：先 arm 一行、再删掉前面的空值行会让下标整体前移，
   // 按下标比较会让「确认删除」落到别的字段上（误删有内容字段）。f.k 在字段库去重下唯一。
   const [armDel, setArmDel] = useState<string | null>(null)
@@ -37,7 +57,41 @@ export function MetaPanel({
   const libRest = FIELD_LIB.filter((f) => !unavailable.has(f.k))
 
   return (
-    <aside className="flex h-full w-[256px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-card p-3 @min-[1280px]:w-[296px]">
+    <aside
+      className="relative flex h-full flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-card p-3"
+      // 窄屏是抽屉：宽度由抽屉 CSS 固定，不跟随拖拽值（否则会漏出屏幕）
+      style={narrow ? undefined : { width: metaWidth.width }}
+    >
+      {/* 拖拽手柄：贴左缘（右栏靠屏幕右边，把手放右侧不可达）。
+          宽 5px 命中区 + 视觉 1px 线，hover/拖拽时显形提示"可以拖" */}
+      {!narrow && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="拖动调整右侧栏宽度"
+          onPointerDown={metaWidth.onPointerDown}
+          onPointerMove={metaWidth.onPointerMove}
+          onPointerUp={metaWidth.endDrag}
+          onPointerCancel={metaWidth.endDrag}
+          className="group absolute inset-y-0 -left-[3px] z-10 w-[7px] cursor-col-resize touch-none select-none"
+        >
+          <div className="absolute inset-y-0 left-[3px] w-px bg-transparent transition-colors group-hover:bg-sky-400 group-active:bg-sky-500" />
+        </div>
+      )}
+
+      {/* Markdown 正文：与材料信息同栏并排，滚动互不干扰。
+          放在字段卡之前——先看机器读到了什么，再决定填哪些字段。 */}
+      <SegmentMarkdown
+        seg={draft.segs[si] ?? null}
+        open={mdOpen}
+        onToggleOpen={onToggleMdOpen}
+        focusedBlockKey={focusedBlockKey}
+        onLocateBlock={onLocateBlock}
+        onEditMarkdown={(md) => ops.editMarkdown(si, md)}
+        onEditBlock={(key, text) => ops.editBlock(si, key, text)}
+        onRemoveBlock={(key) => ops.removeBlock(si, key)}
+      />
+
       <h4 className="px-1 text-sm font-medium">材料信息</h4>
 
       {draft.infos.length === 0 && (

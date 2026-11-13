@@ -6,6 +6,9 @@ import {
   moveSegment as segMove,
   renameSegment as segRename,
   setSegmentType as segSetType,
+  setSegmentMarkdown as segSetMarkdown,
+  setSegmentBlockText as segSetBlockText,
+  removeSegmentBlock as segRemoveBlock,
   splitSegment as segSplit,
   addInfoField as infoAdd,
   setInfoValue as infoSetValue,
@@ -29,6 +32,12 @@ export interface MetaOps {
   addInfo: (field: InfoField) => void
   removeInfo: (di: number) => void
   setValue: (di: number, v: string) => void
+  /** 手改某段 Markdown 正文（右栏面板里编辑） */
+  editMarkdown: (si: number, md: string) => void
+  /** 改某一行（定位块）文字，同步进 Markdown 正文 */
+  editBlock: (si: number, key: string, text: string) => void
+  /** 删掉某段里一个画错的定位框 */
+  removeBlock: (si: number, key: string) => void
 }
 
 type Update = (fn: (d: DraftState) => DraftState) => void
@@ -65,6 +74,9 @@ export function buildMetaOps(
     addInfo: (field) => update((d) => infoAdd(d, field)),
     removeInfo,
     setValue: (di, v) => update((d) => infoSetValue(d, di, v)),
+    editMarkdown: (si, md) => update((d) => segSetMarkdown(d, si, md)),
+    editBlock: (si, key, text) => update((d) => segSetBlockText(d, si, key, text)),
+    removeBlock: (si, key) => update((d) => segRemoveBlock(d, si, key)),
   }
 }
 
