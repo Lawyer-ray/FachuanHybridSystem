@@ -93,6 +93,8 @@ class TestPageQualitySummary:
             "sparse_pages": [],
             "blank_pages": [],
             "details": {},
+            "doc_hints": {},
+            "doc_missing": {},
         }
 
     def test_空版面列表与None版面都交给判据处理(self) -> None:
@@ -377,9 +379,17 @@ class TestAnalyzePdfWritesSummary:
             llm_segment_detector=_OneShotLLM(),
         )
 
-        # 页面质量：三类分桶与 details 一定存在（哪怕全空），前端凭键判断
+        # 页面质量：三类分桶 + details + doc_hints + doc_missing 一定存在（哪怕全空），
+        # 前端凭键判断是否展示「待补录清单」入口
         quality = outcome.summary["page_quality"]
-        assert set(quality) == {"graphic_pages", "sparse_pages", "blank_pages", "details"}
+        assert set(quality) == {
+            "graphic_pages",
+            "sparse_pages",
+            "blank_pages",
+            "details",
+            "doc_hints",
+            "doc_missing",
+        }
         # 一致性：列表 + 真实总数两个键都在
         assert isinstance(outcome.summary["inconsistencies"], list)
         assert outcome.summary["inconsistency_total"] >= len(outcome.summary["inconsistencies"])

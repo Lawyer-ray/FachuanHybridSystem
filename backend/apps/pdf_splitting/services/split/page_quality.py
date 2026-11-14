@@ -51,6 +51,14 @@ MinerU 遇到大面积图形（宗地图/平面图/表格截图）时会给 tabl
 
 纯函数、无 Django 依赖、只用 stdlib：同一份判定要能被 pipeline、job API、
 前端复核入口反复调用，不能因为调用方没起 Django 就不可用。
+
+## 证件页要说出「这是什么、缺了什么」
+
+只说「内容较少」对律师没用：p23 身份证 45 字、姓名/身份证号/住址全丢，他看到的是
+一句「可能是封面/证件/表单」。所以 sparse / graphic 两类页在判完之后再过一道
+:mod:`doc_type`：认出材料类型（``doc_hint``）并点名缺失的关键字段，替换掉泛泛的
+reason。正常文本页不参与——内容读全了，律师自己看得见，多一句话只会稀释提示。
+判据本身在 ``doc_type.py``（本文件已接近行数红线），这里只做接入。
 """
 
 from __future__ import annotations
@@ -58,6 +66,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
+
+from .doc_type import describe_doc_page, detect_doc_hint
 
 #: 「table 块无内容」的字数上界（不含）。p147 宗地图的 table 块 6 字，
 #: 而真表格 p8 是 587 字、p52 是 10806 字——50 落在这个悬殊的空档中间。
@@ -70,6 +80,10 @@ _GRAPHIC_MAX_CHARS = 60
 #: 「sparse」的上界（不含）。60～200 字是封面、证件、合同首页、表单的实际区间：
 #: 内容真实但不足以自证是什么材料，需要律师核对。
 _SPARSE_MAX_CHARS = 200
+
+#: 认不出材料类型时的 sparse 文案；认得出就换成 ``doc_type.describe_doc_page`` 的
+#: 具体说法（“这页是身份证，但姓名 / 身份证号 / 住址 均未读出”）。
+_SPARSE_REASON = "内容较少，可能是封面/证件/表单，建议核对"
 
 #: 跨页高频的印章/核对套话。**必须先剔除再统计**，否则每一页都能从中读出
 #: 「已核对与原件相符」这种成句中文，图形页的文本启发就永远不成立。
@@ -122,6 +136,9 @@ class PageQuality:
     kind: PageKind
     reason: str
     needs_visual_review: bool
+    #: 认出的材料类型（``id_card`` / ``household`` / ``property_cert`` …），认不出为 None。
+    #: 只在 ``sparse`` / ``graphic`` 时填：正常文本页不需要「这是什么证件」的提示。
+    doc_hint: str | None = None
 
 
 def assess_page_quality(*, page_no: int, text: str, layout: dict | None = None) -> PageQuality:
@@ -144,18 +161,21 @@ def assess_page_quality(*, page_no: int, text: str, layout: dict | None = None) 
     if char_count == 0 and not blocks:
         return PageQuality(page_no, char_count, "blank", "空白页", False)
 
+    # 证件识别只在 sparse / graphic 里用得上（见模块注释）；同步算一次，给两个分支共用。
+    doc_hint = detect_doc_hint(effective)
+
     # 2a) graphic 主判据：有 table 块，但没有一个 table 块装得下内容（<50 字）。
     #     真实数据：p147 宗地图 table 块 6 字；p8 明细表 587 字、p52 流水 10806 字。
     #     「有表格结构、无表格内容」= 大图形被 MinerU 当成了 table 块。
     if table_chars and max(table_chars) < _TABLE_EMPTY_MAX_CHARS:
-        return PageQuality(page_no, char_count, "graphic", _graphic_reason("表格", blocks), True)
+        return _graphic_page(page_no, char_count, "表格", blocks, doc_hint, effective)
 
     # 2b) graphic 备用判据（只在没有 table 块时）：字极少（<60）且凑不出成句的中文。
     #     p148 平面图：image 块 + 46 字图注，中文被数字切断。
     #     为什么不能放宽到 60 字以上：p116 合同首页 71 字、7 个 text 块，同样凑不出
     #     成句中文，但它是真实首页，应当只提示 sparse。
     if not table_chars and char_count < _GRAPHIC_MAX_CHARS and not _has_cn_sentence(effective):
-        return PageQuality(page_no, char_count, "graphic", _graphic_reason("文本", blocks), True)
+        return _graphic_page(page_no, char_count, "文本", blocks, doc_hint, effective)
 
     # 2c) graphic 版面判据（同样只在没有 table 块时）：有 image 块 + 有效字符 <60。
     #     补的是 2b 够不到的形态——p148 平面图 ``[image 0, text 0, text 31, text 15]``，
@@ -174,13 +194,14 @@ def assess_page_quality(*, page_no: int, text: str, layout: dict | None = None) 
         and _has_image_block(blocks)
         and not _has_business_label(effective)
     ):
-        return PageQuality(page_no, char_count, "graphic", _graphic_reason("图片", blocks), True)
+        return _graphic_page(page_no, char_count, "图片", blocks, doc_hint, effective)
 
     # 3) sparse：<200 字。内容是真的，但不足以自证是什么材料——封面、证件
     #    （p23 身份证 45 字）、合同首页（p116 71 字）都落在这里。有字可读，
     #    律师看 Markdown 就能判断，所以不强制翻原图。
     if char_count < _SPARSE_MAX_CHARS:
-        return PageQuality(page_no, char_count, "sparse", "内容较少，可能是封面/证件/表单，建议核对", False)
+        reason = describe_doc_page(doc_hint, effective, char_count=char_count) if doc_hint else _SPARSE_REASON
+        return PageQuality(page_no, char_count, "sparse", reason, False, doc_hint)
 
     # 4) text：>=200 字，按正常文本页处理，不给任何提示。依据是实测：正文页
     #    1000–6000 字与几十字的碎片页之间有明显空档，200 落在空档里，正常页不受打扰。
@@ -242,6 +263,26 @@ def _graphic_reason(basis: str, blocks: list[dict[str, Any]]) -> str:
     if _has_image_block(blocks):
         return f"疑似图形页（图纸/印章/照片，含图片块·判定依据：{basis}），请核对原图"
     return "疑似图形页（图纸/印章/照片），请核对原图"
+
+
+def _graphic_page(
+    page_no: int,
+    char_count: int,
+    basis: str,
+    blocks: list[dict[str, Any]],
+    doc_hint: str | None,
+    text: str,
+) -> PageQuality:
+    """图形页画像：认得出是证件就按证件说（缺哪几个字段），否则给通用图纸文案。
+
+    为什么证件文案要盖过「疑似图形页」：p147 宗地图被标成图形页是**有用**的提示，
+    但同样判成图形页的身份证复印件（p42 满页乱码），律师需要知道的是「身份证号没读到」，
+    而不是「这可能是图纸」。判定 kind 不变，只换一句更具体的 reason。
+    """
+    if doc_hint:
+        reason = describe_doc_page(doc_hint, text, char_count=char_count)
+        return PageQuality(page_no, char_count, "graphic", reason, True, doc_hint)
+    return PageQuality(page_no, char_count, "graphic", _graphic_reason(basis, blocks), True)
 
 
 def _has_cn_sentence(text: str) -> bool:

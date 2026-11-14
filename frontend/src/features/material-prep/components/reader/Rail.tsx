@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { FileText, Image, Layers, PencilLine, ScanText } from 'lucide-react'
+import { FileText, IdCard, Image, Layers, PencilLine, ScanText } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
-import { graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
+import { docHintPagesOf, docTodosOf, graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
 import { useRailWidth } from './use-rail-width'
 
@@ -19,6 +19,7 @@ export function Rail({
   pageQuality = null,
   inconsistencies = [],
   onOpenInconsistencies,
+  onOpenDocTodos,
   onFocusSeg,
   onRenameMat,
   onRenameSeg,
@@ -35,6 +36,8 @@ export function Rail({
   inconsistencies?: Inconsistency[]
   /** 点「不一致」入口打开全本清单；不传则不渲染该入口 */
   onOpenInconsistencies?: () => void
+  /** 点「证件待补录」入口打开全卷清单；不传则不渲染该入口 */
+  onOpenDocTodos?: () => void
   onFocusSeg: (si: number) => void
   onRenameMat: (mi: number) => void
   onRenameSeg: (si: number, name: string) => void
@@ -47,6 +50,8 @@ export function Rail({
 }) {
   const { mats } = draft
   const rail = useRailWidth(wide)
+  // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
+  const docTodoCount = docTodosOf(pageQuality).length
 
   // 每个素材下挂它的段；跨源段归到「跨源合并」一组
   const groups: { mi: number; segs: number[] }[] = []
@@ -79,6 +84,7 @@ export function Rail({
     seg: draft.segs[si]!,
     si,
     graphicPages: graphicPagesOf(draft.segs[si], pageQuality),
+    docHintDocs: docHintPagesOf(draft.segs[si], pageQuality).map((d) => d.doc),
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !!draft.segs[si]!.t || !isAutoSegName(draft, draft.segs[si]!),
@@ -157,20 +163,35 @@ export function Rail({
         <h4 className="px-1 text-sm font-medium">
           材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
         </h4>
-        {/* 跨页不一致入口：偏偏是「同一枚章认错 5 次」这种案子关键处逐页读发现不了，
-            所以给一个常驻入口 + 数字徽标。徽标用灰底（不上彩色语义），0 处时整个入口不渲染。 */}
-        {onOpenInconsistencies && inconsistencies.length > 0 && (
-          <button
-            type="button"
-            data-inconsistency-entry
-            onClick={onOpenInconsistencies}
-            title={`全本 ${inconsistencies.length} 处跨页写法不一致（疑似错字）`}
-            className="ml-auto flex flex-none items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <ScanText className="h-3.5 w-3.5" aria-hidden />
-            <span className="rounded-full bg-secondary px-1 tabular-nums">{inconsistencies.length}</span>
-          </button>
-        )}
+        {/* 两个全局入口并排：都是「逐页读发现不了、但打开就知道去哪翻」的清单。
+            徽标用灰底（不上彩色语义），数字为 0 时整个入口不渲染（不给假入口）。 */}
+        <div className="ml-auto flex flex-none items-center gap-0.5">
+          {onOpenInconsistencies && inconsistencies.length > 0 && (
+            <button
+              type="button"
+              data-inconsistency-entry
+              onClick={onOpenInconsistencies}
+              title={`全本 ${inconsistencies.length} 处跨页写法不一致（疑似错字）`}
+              className="flex flex-none items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <ScanText className="h-3.5 w-3.5" aria-hidden />
+              <span className="rounded-full bg-secondary px-1 tabular-nums">{inconsistencies.length}</span>
+            </button>
+          )}
+          {/* 证件页待补录：律师真正会用的那张清单——打开就知道翻哪几页、该抄什么 */}
+          {onOpenDocTodos && docTodoCount > 0 && (
+            <button
+              type="button"
+              data-doc-todo-entry
+              onClick={onOpenDocTodos}
+              title={`全卷 ${docTodoCount} 页证件材料关键字段未读出`}
+              className="flex flex-none items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <IdCard className="h-3.5 w-3.5" aria-hidden />
+              <span className="rounded-full bg-secondary px-1 tabular-nums">{docTodoCount}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {draft.segs.length === 0 && (

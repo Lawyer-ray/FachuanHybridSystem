@@ -1,4 +1,4 @@
-import type { Inconsistency, PageQuality, Segment } from '../types'
+import type { DocMissing, Inconsistency, PageQuality, Segment } from '../types'
 
 /**
  * 识别质量提示的纯逻辑：页级质量统计 + 跨页不一致清单。
@@ -33,23 +33,56 @@ function numList(v: unknown): number[] {
 export function readPageQuality(raw: unknown): PageQuality | null {
   if (!raw || typeof raw !== 'object') return null
   const src = raw as Record<string, unknown>
-  const detailsRaw = src.details
-  const details: Record<string, string> = {}
-  if (detailsRaw && typeof detailsRaw === 'object') {
-    for (const [page, text] of Object.entries(detailsRaw as Record<string, unknown>)) {
-      if (typeof text === 'string' && text) details[page] = text
-    }
-  }
   const quality: PageQuality = {
     graphic_pages: numList(src.graphic_pages),
     sparse_pages: numList(src.sparse_pages),
     blank_pages: numList(src.blank_pages),
-    details,
+    details: strMap(src.details),
+    doc_hints: strMap(src.doc_hints),
+    doc_missing: readDocMissing(src.doc_missing),
   }
-  // 全空就当没有：让调用方少一层「有没有内容」的判断
+  // 全空就当没有：让调用方少一层「有没有内容」的判断。
+  // doc_missing 也算内容：它可能单独出现（知道缺什么、没给类型码），丢了就整张清单消失。
   const empty =
-    quality.graphic_pages!.length === 0 && quality.sparse_pages!.length === 0 && quality.blank_pages!.length === 0
+    quality.graphic_pages!.length === 0 &&
+    quality.sparse_pages!.length === 0 &&
+    quality.blank_pages!.length === 0 &&
+    Object.keys(quality.doc_hints!).length === 0 &&
+    Object.keys(quality.doc_missing!).length === 0
   return empty ? null : quality
+}
+
+/** `{页号: 字符串}` 的收窄：非字符串 / 空串一律丢（空串等于没提示，留着只添乱） */
+function strMap(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [page, text] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof text === 'string' && text) out[page] = text
+  }
+  return out
+}
+
+/**
+ * `{页号: {doc, missing}}` 的收窄。
+ *
+ * 逐条校验而不是整体 `as`：旧任务没有该键、后端也可能改字段名，一条坏数据不该
+ * 让整张待补录清单消失。
+ *
+ * 注意 `missing: []` **不丢**：后端把它作为「类型认出来了、字段也在，但整页内容
+ * 可疑（如满是乱码）」的信号（见 p42 实测）。里没有字段列表不代表可以放过这一页。
+ */
+function readDocMissing(raw: unknown): Record<string, DocMissing> {
+  const out: Record<string, DocMissing> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [page, item] of Object.entries(raw as Record<string, unknown>)) {
+    if (!item || typeof item !== 'object') continue
+    const r = item as Record<string, unknown>
+    const missing = Array.isArray(r.missing)
+      ? r.missing.filter((x): x is string => typeof x === 'string' && !!x)
+      : []
+    out[page] = { doc: typeof r.doc === 'string' ? r.doc : '', missing }
+  }
+  return out
 }
 
 /**
@@ -114,6 +147,92 @@ export function sparsePagesOf(
   const sparse = new Set(quality?.sparse_pages ?? [])
   if (sparse.size === 0) return []
   return seg.refs.map((r) => r.p).filter((p) => sparse.has(p))
+}
+
+/**
+ * 某段覆盖到的证件页：`{页号: 证件类型码}`，按段内页序（跨源重复页号保留两次）。
+ *
+ * 与 `graphicPagesOf` 同口径——跳转要的是「段里那一页」，不是全局唯一页号。
+ */
+export function docHintPagesOf(
+  seg: Pick<Segment, 'refs'> | null | undefined,
+  quality: PageQuality | null,
+): { page: number; doc: string }[] {
+  if (!seg) return []
+  const hints = quality?.doc_hints
+  if (!hints) return []
+  return seg.refs.flatMap((r) => {
+    const doc = hints[String(r.p)]
+    return doc ? [{ page: r.p, doc }] : []
+  })
+}
+
+/**
+ * 证件类型码 → 中文名。未知码原样显示，不丢信息
+ * （后端将来加 `bank_statement` 之类，前端不改也能看懂是什么）。
+ *
+ * 文案必须与后端 `doc_type._DOC_LABELS` **逐字一致**。同一个证件在提示条里叫「结婚证」、
+ * 在抽屉里叫「婚姻状况证明」，律师会以为是两样材料。两处都改时记得同步——
+ * 这是前端唯一一处复制后端文案的地方，等后端把 label 也透出到 `doc_missing`
+ * 就可以删掉这份常量。
+ */
+export function docTypeLabel(code: string): string {
+  switch (code) {
+    case 'id_card':
+      return '身份证'
+    case 'household':
+      return '户口簿'
+    case 'marriage':
+      return '结婚证'
+    case 'property_cert':
+      return '不动产权证'
+    case 'license':
+      return '营业执照'
+    case 'income_proof':
+      return '收入证明'
+    default:
+      return code
+  }
+}
+
+/** 一页证件材料的待补录条目（清单与提示条共用） */
+export interface DocTodo {
+  page: number
+  /** 证件类型码（原文，供比对用） */
+  doc: string
+  /** 中文类型名（`docTypeLabel`） */
+  label: string
+  /** 未读出的字段名；空数组 = 字段都在但内容可疑 */
+  missing: string[]
+}
+
+/**
+ * 全卷「证件页待补录」清单，按缺失字段数量降序。
+ *
+ * 这是律师真正会用的那张清单：打开就知道该翻哪几页、该抄什么。
+ * 排序用缺失字段数（多的在前）——3 个字段全没读出的身份证比只缺一个编号的
+ * 不动产权证更急；数量相同时按页号，保证顺序稳定、翻卷时不跳来跳去。
+ *
+ * 数据源是 `doc_missing`：后端只把 `doc_hint` 非空的页写进去，所以有 `doc_hints`
+ * 但没进 `doc_missing` 的页（识别得干净、无需补录）不进清单。
+ */
+export function docTodosOf(quality: PageQuality | null): DocTodo[] {
+  if (!quality) return []
+  const hints = quality.doc_hints ?? {}
+  const missings = quality.doc_missing ?? {}
+  const out: DocTodo[] = []
+  for (const [key, entry] of Object.entries(missings)) {
+    const page = Number(key)
+    if (!Number.isFinite(page) || page <= 0) continue
+    const doc = entry.doc || hints[key] || ''
+    out.push({
+      page,
+      doc,
+      label: doc ? docTypeLabel(doc) : '证件页',
+      missing: entry.missing ?? [],
+    })
+  }
+  return out.sort((a, b) => b.missing.length - a.missing.length || a.page - b.page)
 }
 
 /** 段的质量标记（后端 quality_flags）→ 一眼能懂的中文。未知标记原样显示，不丢信息 */

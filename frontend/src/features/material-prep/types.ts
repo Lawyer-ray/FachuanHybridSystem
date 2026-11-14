@@ -126,6 +126,31 @@ export interface PageQuality {
   blank_pages?: number[]
   /** 逐页说明，键是页号字符串（"147": "疑似图形页…"） */
   details?: Record<string, string>
+  /**
+   * 证件页标识：键是页号字符串（"23"），值是证件类型码（`id_card` / `household` /
+   * `marriage` / `property_cert` / `license` / `income_proof`）。旧任务没有该键。
+   *
+   * 与 `graphic_pages` 的区别：「图纸看不出内容」是**没有**内容，
+   * 「证件页关键字段未读出」是**该有的内容在那儿但没读出来**——
+   * 姓名、身份证号、住址是律师必须抄进卷宗的东西，指着「这页是图纸」没用。
+   */
+  doc_hints?: Record<string, string>
+  /**
+   * 证件页未读出的字段（`summary.page_quality.doc_missing`，键=页号）。
+   *
+   * 只有 `doc_hints` 非空的页才出现在这里。`missing` 为空数组不代表「没问题」：
+   * 它表示工程上认得出类型、预期字段也都命中，但整页内容可疑（如满是乱码），
+   * 律师看一眼类型就该去核对原页。
+   */
+  doc_missing?: Record<string, DocMissing>
+}
+
+/** 一页证件材料的缺字段记录（`PageQuality.doc_missing` 的条目） */
+export interface DocMissing {
+  /** 证件类型码（与 `doc_hints` 同口径） */
+  doc?: string
+  /** 未读出的字段名（原样展示，不翻译）；空数组 = 字段都在但内容可疑 */
+  missing?: string[]
 }
 
 /**

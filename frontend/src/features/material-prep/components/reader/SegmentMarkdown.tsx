@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { blockKeyOf } from '../../draft/block-keys'
 import type { Segment } from '../../types'
-import { SegmentQualityHint } from './SegmentQualityHint'
+import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { BlockRow, WholeTextEditor } from './SegmentRow'
 import { SuspectsPanel } from './SuspectsPanel'
 
@@ -56,6 +56,7 @@ export function SegmentMarkdown({
   onEditBlock,
   onRemoveBlock,
   graphicPages = [],
+  docPages = [],
   onGotoPage,
 }: {
   seg: Segment | null
@@ -80,6 +81,8 @@ export function SegmentMarkdown({
   onRemoveBlock?: (key: string) => void
   /** 本段页范围里疑似图纸/照片的页号（来自 summary.page_quality，旧任务为空） */
   graphicPages?: number[]
+  /** 本段覆盖的证件页与各自未读出的字段（`page_quality.doc_hints`，旧任务为空） */
+  docPages?: DocHintPage[]
   /** 点提示条跳原页；不传则提示条不可点（只陈述事实） */
   onGotoPage?: (page: number) => void
 }) {
@@ -143,7 +146,12 @@ export function SegmentMarkdown({
 
       {/* 质量提示紧贴标题之下：正文里的几行零散字符看不出是图纸，这句必须写在
           律师开始读正文之前，而不是读完了再在底部告诉他。 */}
-      <SegmentQualityHint flags={seg.qualityFlags} graphicPages={graphicPages} onGotoPage={onGotoPage} />
+      <SegmentQualityHint
+        flags={seg.qualityFlags}
+        graphicPages={graphicPages}
+        docPages={docPages}
+        onGotoPage={onGotoPage}
+      />
 
       {open && (
         <div className="flex flex-col gap-1">

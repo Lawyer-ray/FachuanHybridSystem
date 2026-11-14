@@ -3,7 +3,7 @@ import { Plus, Trash2, Link2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
-import { graphicPagesOf } from '../../draft'
+import { docHintPagesOf, docTodosOf, graphicPagesOf } from '../../draft'
 import type { DraftState, InfoField, PageQuality } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
@@ -67,6 +67,14 @@ export function MetaPanel({
   const [armDel, setArmDel] = useState<string | null>(null)
   const unavailable = new Set(draft.infos.map((f) => f.k))
   const libRest = FIELD_LIB.filter((f) => !unavailable.has(f.k))
+  // 本段覆盖的证件页：缺字段按页号从 doc_missing 补齐（提示条要说「缺什么」，
+  // 光说「这页是身份证」律师还得自己去核对）。全卷算一次，不按页重复遍历。
+  const todosByPage = new Map(docTodosOf(pageQuality).map((t) => [t.page, t]))
+  const docPages = docHintPagesOf(draft.segs[si], pageQuality).map(({ page, doc }) => ({
+    page,
+    doc,
+    missing: todosByPage.get(page)?.missing,
+  }))
 
   return (
     <aside
@@ -105,6 +113,7 @@ export function MetaPanel({
         onEditBlock={(key, text) => ops.editBlock(si, key, text)}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}
         graphicPages={graphicPagesOf(draft.segs[si], pageQuality)}
+        docPages={docPages}
         onGotoPage={onGotoPage ? (p) => onGotoPage(si, p) : undefined}
       />
 

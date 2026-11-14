@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileImage } from 'lucide-react'
+import { FileImage, IdCard } from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -13,7 +13,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { SEGMENT_TYPES } from '../../constants'
-import { segRangeText } from '../../draft'
+import { docTypeLabel, segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 
@@ -43,6 +43,7 @@ export function RailSegRow({
   selected = false,
   dropPos = null,
   graphicPages = [],
+  docHintDocs = [],
   editing,
   onStartEdit,
   onFocus,
@@ -66,6 +67,8 @@ export function RailSegRow({
   dropPos?: DropPos | null
   /** 本段页范围里疑似图纸/照片的页号（来自 summary.page_quality，旧任务为空） */
   graphicPages?: number[]
+  /** 本段覆盖的证件页类型码（`page_quality.doc_hints`，旧任务为空） */
+  docHintDocs?: string[]
   /** 行内改名由父层持有（右键「重命名」也要打开它） */
   editing: boolean
   onStartEdit: () => void
@@ -178,11 +181,22 @@ export function RailSegRow({
             <span className="min-w-0 flex-1 truncate text-[13px]">{midEllipsis(displayName)}</span>
           )}
           {meta && !editing && <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{meta}</span>}
-          {/* 图形页标记：只给一个极淡的灰图标，不上色、不加文字。
+          {/* 质量标记：只给一个极淡的灰图标，不上色、不加文字。
               左栏是「找材料」的目录，上一版正是因此把彩色类型圆点删掉了；
-              但「这一份里有几页是图纸，正文看不出内容」是律师确实会漏掉的信息，
-              所以留一个**最小干扰**的标记：图标本身不抢视线，说明放 tooltip。 */}
-          {!editing && graphicPages.length > 0 && (
+              但「这一份里有几页是图纸，正文看不出内容」/「这一份里有身份证页，
+              关键字段可能没读出」是律师确实会漏掉的信息，所以留一个**最小干扰**
+              的标记：图标本身不抢视线，说明放 tooltip。
+              证件页优先级高于图纸页：两者都有时只显示证件图标——缺的是必须抄进
+              卷宗的字段，比「这页看不出内容」更该先处理；两个图标并排只会互相稀释。 */}
+          {!editing && docHintDocs.length > 0 ? (
+            <span
+              data-doc-mark
+              className="flex-none text-zinc-400"
+              title={`含${docHintLabels(docHintDocs)}页，关键字段可能未读出`}
+            >
+              <IdCard className="h-3 w-3" aria-hidden />
+            </span>
+          ) : !editing && graphicPages.length > 0 ? (
             <span
               data-graphic-mark
               className="flex-none text-zinc-400"
@@ -190,7 +204,7 @@ export function RailSegRow({
             >
               <FileImage className="h-3 w-3" aria-hidden />
             </span>
-          )}
+          ) : null}
           {!editing && seg.reviewFlag === 'low_confidence' ? (
             <span className="flex-none text-[10px] text-amber-700" title="自动识别置信度低，建议核对">
               复核
@@ -227,6 +241,16 @@ export function RailSegRow({
       </ContextMenuContent>
     </ContextMenu>
   )
+}
+
+/**
+ * 证件类型码列表 → tooltip 里的类型名：去重后拼成「身份证 / 不动产权证」，
+ * 超过两种就只说前两种 + 「等」——tooltip 不是清单，堆太长反而没人看。
+ */
+function docHintLabels(docs: string[]): string {
+  const labels = [...new Set(docs.map(docTypeLabel))]
+  if (labels.length <= 2) return labels.join(' / ')
+  return `${labels.slice(0, 2).join(' / ')} 等${labels.length}类证件`
 }
 
 /** 页区间文案：连续「P5–19」、断续「P3, P7–9」、跨源「跨源」——labels.segRangeText 的本地别名 */

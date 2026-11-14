@@ -29,6 +29,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
+from .doc_type import missing_expected_fields
 from .page_quality import PageQuality, assess_page_quality
 
 #: 逐页判定的 kind → summary 里的分桶键。两者同名，但**显式列出来**：
@@ -45,14 +46,21 @@ def build_page_quality_summary(pages: list[Any]) -> dict[str, Any]:
 
     Returns:
         ``{"graphic_pages": [...], "sparse_pages": [...], "blank_pages": [...],
-        "details": {"147": "疑似图形页（图纸/印章/照片），请核对原图"}}``
+        "details": {"147": "疑似图形页（图纸/印章/照片），请核对原图"},
+        "doc_hints": {"23": "id_card"}}``
 
         ``details`` 只收 ``needs_visual_review`` 为真的页——那是「这一页 Markdown
         不足以自证内容，请翻原图」的页。正常文本页不写进 details，否则 164 页
         全被列一遍，等于没提示。
+
+        ``doc_hints`` 比 ``details`` 宽一档：凡是认得出材料类型的页都列（含 sparse），
+        给前端一个**可选**的「这页是身份证」标签。判据层已经保证只有 sparse / graphic
+        会带 ``doc_hint``，所以这里不必再按 kind 过滤。
     """
     buckets: dict[str, list[int]] = {kind: [] for kind in _KIND_BUCKETS}
     details: dict[str, str] = {}
+    doc_hints: dict[str, str] = {}
+    doc_missing: dict[str, dict[str, Any]] = {}
 
     for page in pages:
         page_no = int(getattr(page, "page_no", 0))
@@ -68,12 +76,28 @@ def build_page_quality_summary(pages: list[Any]) -> dict[str, Any]:
         if quality.needs_visual_review:
             # 文案直接用判据层给的 reason，接入层不再造一套说法
             details[str(page_no)] = quality.reason
+        if quality.doc_hint:
+            doc_hints[str(page_no)] = quality.doc_hint
+            # 结构化透出「该有但没有」的字段名，供前端列「待补录清单」。
+            #
+            # 为什么不复用 details 里那句自然语言：前端要按字段名呈现成列
+            # （「缺：姓名 / 身份证号 / 住址」），从中文句子里正则切字段名
+            # 是脆的 —— 后端改一个字前端就瞎。所以这里给结构化数据。
+            #
+            # missing 为空数组也照样出现：类型认出来了但字段都在时，律师
+            # 仍值得知道「这页是身份证」（p42 那种满是乱码的情况尤其如此）。
+            doc_missing[str(page_no)] = {
+                "doc": quality.doc_hint,
+                "missing": missing_expected_fields(quality.doc_hint, str(getattr(page, "text", "") or "")),
+            }
 
     return {
         "graphic_pages": sorted(buckets["graphic"]),
         "sparse_pages": sorted(buckets["sparse"]),
         "blank_pages": sorted(buckets["blank"]),
         "details": details,
+        "doc_hints": doc_hints,
+        "doc_missing": doc_missing,
     }
 
 

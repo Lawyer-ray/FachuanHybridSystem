@@ -443,3 +443,91 @@ describe('Rail：质量入口与图形页', () => {
     container.remove()
   })
 })
+
+/**
+ * 「证件页待补录」入口：与不一致入口并列的第二个全局清单。
+ * 律师真正会用那张清单——所以入口只在真有数据时出现，不给点开是空的假入口。
+ */
+describe('Rail：证件待补录入口与段行证件标记', () => {
+  const qualityWithDocs = {
+    graphic_pages: [],
+    sparse_pages: [],
+    blank_pages: [],
+    details: {},
+    doc_hints: { '23': 'id_card', '144': 'property_cert' },
+    doc_missing: {
+      '23': { doc: 'id_card', missing: ['姓名', '身份证号', '住址'], note: '' },
+      '144': { doc: 'property_cert', missing: ['不动产单元号'], note: '' },
+    },
+  }
+
+  it('有缺字段的证件页时顶部出现入口，徽标数字等于页数', () => {
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 30 }]),
+      pageQuality: qualityWithDocs as never,
+      onOpenDocTodos: vi.fn(),
+    })
+    const entry = container.querySelector('[data-doc-todo-entry]') as HTMLElement
+    expect(entry).toBeTruthy()
+    expect(entry.textContent).toContain('2')
+    expect(entry.getAttribute('title')).toContain('2 页证件材料关键字段未读出')
+    container.remove()
+  })
+
+  it('点入口回调打开清单', () => {
+    const onOpenDocTodos = vi.fn()
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])]),
+      pageQuality: qualityWithDocs as never,
+      onOpenDocTodos,
+    })
+    fireEvent.click(container.querySelector('[data-doc-todo-entry]')!)
+    expect(onOpenDocTodos).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('旧任务没有 doc_hints 时不渲染入口（不给空清单的假入口）', () => {
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])]),
+      pageQuality: { graphic_pages: [2], sparse_pages: [], blank_pages: [], details: {} },
+      onOpenDocTodos: vi.fn(),
+    })
+    expect(container.querySelector('[data-doc-todo-entry]')).toBeNull()
+    container.remove()
+  })
+
+  it('没有 pageQuality 时也不渲染入口（不崩）', () => {
+    const { container } = renderRail({ onOpenDocTodos: vi.fn() })
+    expect(container.querySelector('[data-doc-todo-entry]')).toBeNull()
+    container.remove()
+  })
+
+  it('只有 doc_hints 但没有任何缺字段时不渲染入口（没有可补录的东西）', () => {
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 23 }])]),
+      pageQuality: { graphic_pages: [], sparse_pages: [], blank_pages: [], details: {}, doc_hints: { '23': 'id_card' } },
+      onOpenDocTodos: vi.fn(),
+    })
+    expect(container.querySelector('[data-doc-todo-entry]')).toBeNull()
+    container.remove()
+  })
+
+  it('段行拿到的是它自己覆盖到的证件页类型', () => {
+    const { container } = renderRail({
+      draft: makeDraft([
+        seg('s1', 'A', [{ mi: 0, p: 23 }]),
+        seg('s2', 'B', [{ mi: 0, p: 144 }]),
+      ], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 164 }]),
+      pageQuality: qualityWithDocs as never,
+    })
+    expect(rowProps[0]!.docHintDocs).toEqual(['id_card'])
+    expect(rowProps[1]!.docHintDocs).toEqual(['property_cert'])
+    container.remove()
+  })
+
+  it('没有 pageQuality 时段行拿到空数组（不崩）', () => {
+    const { container } = renderRail()
+    expect(rowProps[0]!.docHintDocs).toEqual([])
+    container.remove()
+  })
+})

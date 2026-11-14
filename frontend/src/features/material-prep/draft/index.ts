@@ -66,6 +66,10 @@ export {
   sortInconsistencies,
   graphicPagesOf,
   sparsePagesOf,
+  docHintPagesOf,
+  docTypeLabel,
+  docTodosOf,
   qualityFlagLabel,
   pagesText,
 } from './quality'
+export type { DocTodo } from './quality'

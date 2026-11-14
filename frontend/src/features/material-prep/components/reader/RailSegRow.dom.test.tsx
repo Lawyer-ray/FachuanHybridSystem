@@ -291,6 +291,43 @@ describe('RailSegRow：视觉态', () => {
     unmount()
   })
 
+  it('含证件页时图标换成 IdCard，tooltip 给出具体证件类型', () => {
+    const { container, unmount } = renderRow({ docHintDocs: ['id_card'] })
+    const mark = container.querySelector('[data-doc-mark]') as HTMLElement
+    expect(mark).toBeTruthy()
+    expect(mark.getAttribute('title')).toBe('含身份证页，关键字段可能未读出')
+    // 不上彩色：与「删掉彩色圆点」的决定保持一致，只用灰色
+    expect(mark.className).toContain('text-zinc-400')
+    expect(mark.className).not.toContain('amber')
+    unmount()
+  })
+
+  it('多种证件页时 tooltip 列出类型名并去重', () => {
+    const { container, unmount } = renderRow({ docHintDocs: ['id_card', 'id_card', 'property_cert'] })
+    const mark = container.querySelector('[data-doc-mark]') as HTMLElement
+    expect(mark.getAttribute('title')).toBe('含身份证 / 不动产权证页，关键字段可能未读出')
+    unmount()
+  })
+
+  it('证件页与图形页同时存在时只显示证件图标（不两种并列）', () => {
+    const { container, unmount } = renderRow({ docHintDocs: ['id_card'], graphicPages: [147] })
+    expect(container.querySelector('[data-doc-mark]')).toBeTruthy()
+    expect(container.querySelector('[data-graphic-mark]')).toBeNull()
+    unmount()
+  })
+
+  it('没有证件页时不挂证件标记（旧任务无 doc_hints 也不报错）', () => {
+    const { container, unmount } = renderRow({ docHintDocs: [] })
+    expect(container.querySelector('[data-doc-mark]')).toBeNull()
+    unmount()
+  })
+
+  it('改名字时不出证件图标（不让图标挤在输入框旁）', () => {
+    const { container, unmount } = renderRow({ docHintDocs: ['id_card'], editing: true })
+    expect(container.querySelector('[data-doc-mark]')).toBeNull()
+    unmount()
+  })
+
   it('长名字中部省略，保留尾部区分信息', () => {
     const longName = '1-授权委托书某甲某乙某丙某丁V1-P20.pdf'
     const { container, unmount } = renderRow({ seg: seg({ fn: longName }) })

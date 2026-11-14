@@ -8,6 +8,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  docHintPagesOf,
+  docTodosOf,
+  docTypeLabel,
   graphicPagesOf,
   pagesText,
   qualityFlagLabel,
@@ -46,6 +49,47 @@ describe('readPageQuality', () => {
 
   it('三类页全空时返回 null（调用方少一层判断）', () => {
     expect(readPageQuality({ graphic_pages: [], sparse_pages: [], blank_pages: [] })).toBeNull()
+  })
+
+  it('收窄 doc_hints：只留非空字符串，页号键原样保留', () => {
+    const q = readPageQuality({
+      graphic_pages: [],
+      doc_hints: { '23': 'id_card', '42': '', '99': 7 },
+    })
+    expect(q?.doc_hints).toEqual({ '23': 'id_card' })
+  })
+
+  it('只有 doc_hints 也算「有质量数据」，不再返回 null', () => {
+    const q = readPageQuality({ doc_hints: { '23': 'id_card' } })
+    expect(q).not.toBeNull()
+    expect(q?.doc_hints).toEqual({ '23': 'id_card' })
+  })
+
+  it('收窄 doc_missing：坏条目丢掉，missing 里非字符串剔除', () => {
+    const q = readPageQuality({
+      doc_hints: { '23': 'id_card' },
+      doc_missing: {
+        '23': { doc: 'id_card', missing: ['姓名', '', 42, '身份证号'] },
+        '42': { doc: 'id_card', missing: [] }, // 字段都在但内容可疑 → 保留
+        '77': 'oops',
+      },
+    })
+    expect(q?.doc_missing).toEqual({
+      '23': { doc: 'id_card', missing: ['姓名', '身份证号'] },
+      '42': { doc: 'id_card', missing: [] },
+    })
+  })
+
+  it('只有 doc_missing 也算有数据（单独出现时不丢）', () => {
+    const q = readPageQuality({ doc_missing: { '23': { doc: 'id_card', missing: ['姓名'] } } })
+    expect(q).not.toBeNull()
+    expect(q?.doc_missing).toEqual({ '23': { doc: 'id_card', missing: ['姓名'] } })
+  })
+
+  it('旧任务完全没有 doc_hints / doc_missing 时这两个键是空对象，不崩', () => {
+    const q = readPageQuality({ graphic_pages: [1] })
+    expect(q?.doc_hints).toEqual({})
+    expect(q?.doc_missing).toEqual({})
   })
 })
 
@@ -121,6 +165,104 @@ describe('graphicPagesOf / sparsePagesOf', () => {
 
   it('稀疏页单独取（图上的几个字 / 拍糊的一页）', () => {
     expect(sparsePagesOf(seg([[0, 149]]), quality)).toEqual([149])
+  })
+})
+
+describe('docHintPagesOf', () => {
+  const quality = readPageQuality({ doc_hints: { '23': 'id_card', '144': 'property_cert' } })
+
+  it('按段内页序返回覆盖到的证件页，跨源重复页号按位置保留', () => {
+    expect(docHintPagesOf(seg([[0, 22], [0, 23], [0, 144]]), quality)).toEqual([
+      { page: 23, doc: 'id_card' },
+      { page: 144, doc: 'property_cert' },
+    ])
+    expect(docHintPagesOf(seg([[0, 23], [1, 23]]), quality)).toEqual([
+      { page: 23, doc: 'id_card' },
+      { page: 23, doc: 'id_card' },
+    ])
+  })
+
+  it('没有证件数据 / seg 为空时返回空数组', () => {
+    expect(docHintPagesOf(seg([[0, 23]]), null)).toEqual([])
+    expect(docHintPagesOf(null, quality)).toEqual([])
+    // 只有图纸页数据（旧任务）时也返回空
+    expect(docHintPagesOf(seg([[0, 147]]), readPageQuality({ graphic_pages: [147] }))).toEqual([])
+  })
+})
+
+describe('docTypeLabel', () => {
+  it('已知类型码翻成中文，未知码原样显示不丢信息', () => {
+    expect(docTypeLabel('id_card')).toBe('身份证')
+    expect(docTypeLabel('property_cert')).toBe('不动产权证')
+    expect(docTypeLabel('bank_statement')).toBe('bank_statement')
+  })
+
+  /**
+   * 锁住与后端 `doc_type._DOC_LABELS` 逐字一致。
+   *
+   * 漏掉这一条时踩过：「marriage」前端叫「婚姻状况证明」、后端叫「结婚证」——
+   * 同一个证件在两处叫两个名字，律师会以为是两样材料。
+   */
+  it('六个类型码的中文名与后端 _DOC_LABELS 完全一致', () => {
+    expect({
+      id_card: docTypeLabel('id_card'),
+      household: docTypeLabel('household'),
+      marriage: docTypeLabel('marriage'),
+      property_cert: docTypeLabel('property_cert'),
+      license: docTypeLabel('license'),
+      income_proof: docTypeLabel('income_proof'),
+    }).toEqual({
+      id_card: '身份证',
+      household: '户口簿',
+      marriage: '结婚证',
+      property_cert: '不动产权证',
+      license: '营业执照',
+      income_proof: '收入证明',
+    })
+  })
+})
+
+describe('docTodosOf', () => {
+  const quality = readPageQuality({
+    doc_hints: { '23': 'id_card', '42': 'id_card', '144': 'property_cert', '8': 'license' },
+    doc_missing: {
+      '23': { doc: 'id_card', missing: ['姓名', '身份证号', '住址'] },
+      // 字段都在但内容可疑（乱码 / 拍糊）：missing 为空数组，但仍要进清单
+      '42': { doc: 'id_card', missing: [] },
+      '144': { doc: 'property_cert', missing: ['权证号'] },
+      // '8' 有 doc_hint 但不在 doc_missing 里（识别得干净）→ 不进清单
+    },
+  })
+
+  it('按缺失字段数量降序，数量相同按页号', () => {
+    expect(docTodosOf(quality).map((t) => t.page)).toEqual([23, 144, 42])
+  })
+
+  it('每条带页号、证件中文名、缺的字段', () => {
+    const [first, second, third] = docTodosOf(quality)
+    expect(first).toMatchObject({ page: 23, doc: 'id_card', label: '身份证', missing: ['姓名', '身份证号', '住址'] })
+    expect(second).toMatchObject({ page: 144, label: '不动产权证', missing: ['权证号'] })
+    // 字段都在但内容可疑的页仍然进清单，只是 missing 为空数组
+    expect(third).toMatchObject({ page: 42, missing: [] })
+  })
+
+  it('不在 doc_missing 里的证件页不进清单（识别干净，律师无需补录）', () => {
+    expect(docTodosOf(quality).some((t) => t.page === 8)).toBe(false)
+  })
+
+  it('doc_missing 带了类型而 doc_hints 没说时，用 doc_missing 的类型', () => {
+    const q = readPageQuality({ doc_missing: { '5': { doc: 'household', missing: ['姓名'] } } })
+    expect(docTodosOf(q)[0]).toMatchObject({ page: 5, label: '户口簿' })
+  })
+
+  it('类型完全缺失时按「证件页」兜底，不渲染空标签', () => {
+    const q = readPageQuality({ doc_missing: { '5': { missing: ['姓名'] } } })
+    expect(docTodosOf(q)[0]).toMatchObject({ page: 5, doc: '', label: '证件页' })
+  })
+
+  it('旧任务没有数据时返回空清单', () => {
+    expect(docTodosOf(null)).toEqual([])
+    expect(docTodosOf(readPageQuality({ graphic_pages: [147] }))).toEqual([])
   })
 })
 

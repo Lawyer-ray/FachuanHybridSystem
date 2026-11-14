@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
+import { DocTodoDrawer } from './DocTodoDrawer'
 import { InconsistencyDrawer } from './InconsistencyDrawer'
 import { HintBar } from './HintBar'
 import { MetaPanel } from './MetaPanel'
@@ -103,6 +104,8 @@ export function ReaderBody({
   const [editRequestKey, setEditRequestKey] = useState<string | null>(null)
   // 全本不一致清单抽屉（入口在左栏顶部）；属于纯阅读态，不落草稿
   const [inconsistencyOpen, setInconsistencyOpen] = useState(false)
+  // 全卷「证件页待补录」抽屉（入口同样在左栏顶部，与不一致入口并列）
+  const [docTodoOpen, setDocTodoOpen] = useState(false)
 
   /**
    * 双击 Markdown 的一条 → 滚到原页 + 高亮那个框。
@@ -202,6 +205,7 @@ export function ReaderBody({
             pageQuality={pageQuality}
             inconsistencies={inconsistencies}
             onOpenInconsistencies={() => setInconsistencyOpen(true)}
+            onOpenDocTodos={() => setDocTodoOpen(true)}
             onFocusSeg={onFocusSeg}
             onRenameMat={onRenameMat}
             onRenameSeg={flowOps.renameSeg}
@@ -262,6 +266,14 @@ export function ReaderBody({
         open={inconsistencyOpen}
         onOpenChange={setInconsistencyOpen}
         items={inconsistencies}
+        onGotoPage={onGotoAnyPage}
+      />
+
+      {/* 全卷证件页待补录：从左栏证件徽标打开，「查看原页」跳到那一页 */}
+      <DocTodoDrawer
+        open={docTodoOpen}
+        onOpenChange={setDocTodoOpen}
+        pageQuality={pageQuality}
         onGotoPage={onGotoAnyPage}
       />
 

@@ -42,6 +42,20 @@ _ID_CARD_TEXT = "姓名张三 性别男 民族汉\n住址某某省某某市\n公
 #: 200 字以上的正常正文页（合同条款）。
 _BODY_TEXT = "5.4 借款人应在本合同签订后三十日内，向有关登记机关办理抵押登记手续，并将登记证明文件交由贷款人保管。" * 4
 
+#: p23 **实测**形态：45 字，只有标题行 + 印章套话，姓名/身份证号/住址全丢。
+#: 这是本功能要解决的原型——律师看到「内容较少」并不知道身份证号没读出来。
+_P23_OCR_TEXT = "中华人民共和国\n居民身份证\n已核对与原件相符\n经办人：李四"
+
+#: p42 身份证复印件形态：标题行读对了，但字段区被 OCR 认成一串字母乱码
+#: （SINGCMIN / SIEAYOUO / DIEGYCUO），姓名/证号/住址**一个都没对**。
+#: 乱码是虚构的字母串，姓名与证号也是虚构值。
+_P42_GARBLED_TEXT = (
+    "居民身份证复印件 中华人民共和国 居民身份证 "
+    "姓名 张三 性别 男 民族 汉 住址 某某省某某市某某路1号 公民身份号码 110101199001011234 "
+    + "SINGCMIN SIEAYOUO DIEGYCUO "
+    * 4
+)
+
 
 class TestBlank:
     def test_empty_text_without_layout_is_blank(self) -> None:
@@ -164,7 +178,10 @@ class TestSparse:
             layout=_blocks(("image", 0), ("text", 13), ("text", 31)),
         )
         assert quality.kind == "sparse"
-        assert quality.reason == "内容较少，可能是封面/证件/表单，建议核对"
+        # 认得出是身份证就不再给泛泛的「内容较少」：这页剩下的只有标题行，
+        # 姓名/身份证号/住址一个都没读到，提示必须点名这三个字段（见 doc_type.py）。
+        assert quality.doc_hint == "id_card"
+        assert "身份证" in quality.reason
         assert quality.needs_visual_review is False
 
     def test_p41_interview_record_with_image_block(self) -> None:
@@ -257,3 +274,95 @@ class TestContract:
     def test_table_type_is_case_insensitive(self) -> None:
         layout = {"blocks": [{"type": "Table", "text": ""}]}
         assert assess_page_quality(page_no=8, text="宗地图", layout=layout).kind == "graphic"
+
+
+class TestDocHint:
+    """证件识别 + 关键字段缺失：把「内容较少」换成律师看得懂的一句话。
+
+    原痛点（576 实测）：p23 身份证 45 字、姓名/身份证号/住址全丢，律师看到的却是
+    「内容较少，可能是封面/证件/表单」——他不知道自己最关心的身份证号根本没读出来。
+    所以这里锁两件事：**认得出是什么材料**，且**缺的字段被点名**。
+    测试数据一律虚构（张三/李四 + 全 1 结尾的样例号码），不对应任何真实证件。
+    """
+
+    def test_p23_身份证页点名缺哪三个字段(self) -> None:
+        # p23 实况：45 字，只剩标题行 + 印章套话；姓名、身份证号、住址一个都没有
+        quality = assess_page_quality(
+            page_no=23,
+            text=_P23_OCR_TEXT,
+            layout=_blocks(("image", 0), ("text", 13), ("text", 31)),
+        )
+        assert quality.kind == "sparse"
+        assert quality.doc_hint == "id_card"
+        assert "身份证" in quality.reason
+        assert "姓名" in quality.reason
+        assert "身份证号" in quality.reason
+        assert "住址" in quality.reason
+        # 提示里必须有「去翻原图/人工录入」这条动作，否则律师知道缺了也不会补
+        assert "核对原图" in quality.reason or "人工录入" in quality.reason
+
+    def test_p42_乱码身份证复印件也要挂上证件提示(self) -> None:
+        # p42 实况：343 字，正文满是乱码，律师看不清哪里是姓名哪里是证号。
+        # 与 p23 的区别只在于它落进哪一档：只要不是正常文本页，doc_hint 与证件文案都得在，
+        # 否则律师会以为自己在读一份普通文书。
+        quality = assess_page_quality(page_no=42, text=_P42_GARBLED_TEXT)
+        assert quality.kind in {"sparse", "graphic"}
+        assert quality.doc_hint == "id_card"
+        assert "身份证" in quality.reason
+        assert "核对原图" in quality.reason
+
+    def test_身份证字段齐全时只提醒核对不再说均未读出(self) -> None:
+        # 反例：姓名/证号/住址都读到了，不能还说「均未读出」——那是假话
+        quality = assess_page_quality(page_no=24, text=_ID_CARD_TEXT)
+        assert quality.doc_hint == "id_card"
+        assert "均未读出" not in quality.reason
+
+    def test_户口簿与结婚证分别识别(self) -> None:
+        assert assess_page_quality(page_no=60, text="常住人口登记卡\n姓名 王某某").doc_hint == "household"
+        assert assess_page_quality(page_no=61, text="结婚证\n持证人 王某某").doc_hint == "marriage"
+
+    def test_权证缺编号时点名权证号(self) -> None:
+        # 权利人读到了、权证号没读到：提示里只能点名权证号，不能说「权利人也没有」
+        quality = assess_page_quality(page_no=62, text="不动产权证书\n权利人 某某公司")
+        assert quality.doc_hint == "property_cert"
+        assert "权证号" in quality.reason
+        assert "权利人" not in quality.reason.split("但", 1)[-1]
+
+    def test_营业执照与收入证明只识别不给字段清单(self) -> None:
+        license_page = assess_page_quality(page_no=63, text="营业执照\n统一社会信用代码 91AAAA")
+        income_page = assess_page_quality(page_no=64, text="收入证明\n兹证明王某某")
+        assert license_page.doc_hint == "license"
+        assert income_page.doc_hint == "income_proof"
+        # 没登记预期字段的材料只说是什么，不编造缺失清单
+        assert "营业执照" in license_page.reason
+        assert "未读出" not in license_page.reason
+
+    def test_p8真表格不误报doc_hint(self) -> None:
+        # 关键反例：617 字真表格里出现「身份证」类字样也不能挂 doc_hint——
+        # 正常文本页不需要「这是什么证件」的提示，多一句话只会稀释真正的提示
+        text = ("欠款明细 客户姓名 证件号码 " + "金额1234.56元 " * 40) + "身份证复印件存档"
+        quality = assess_page_quality(
+            page_no=8,
+            text=text,
+            layout=_blocks(("table", 587), ("image", 0), ("image", 0), ("text", 7)),
+        )
+        assert quality.kind == "text"
+        assert quality.doc_hint is None
+        assert quality.reason == "正常文本页"
+
+    def test_正常文本页doc_hint为None(self) -> None:
+        # 正文页即使提到「身份证」，也不该挂提示（kind=text）
+        quality = assess_page_quality(page_no=30, text=_BODY_TEXT + "原件与身份证核对无误。")
+        assert quality.kind == "text"
+        assert quality.doc_hint is None
+
+    def test_默认doc_hint为None保持向后兼容(self) -> None:
+        # 老构造方式（不传 doc_hint）必须继续可用：落盘/回放旧产物时用得上
+        quality = PageQuality(page_no=1, char_count=3, kind="sparse", reason="r", needs_visual_review=False)
+        assert quality.doc_hint is None
+
+    def test_认不出的短页给回原来的通用文案(self) -> None:
+        # 反例：封面页没有任何证件关键词，就还是「内容较少」——不能被新文案污染
+        quality = assess_page_quality(page_no=20, text="个人购房借款/担保合同\n某某银行某某支行\n2024年")
+        assert quality.doc_hint is None
+        assert quality.reason == "内容较少，可能是封面/证件/表单，建议核对"
