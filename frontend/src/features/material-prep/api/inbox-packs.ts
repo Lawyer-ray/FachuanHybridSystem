@@ -8,7 +8,6 @@ import { PACK_SOURCE_TYPES } from '../constants'
 import type {
   AssignInfo,
   DraftState,
-  DraftStateToSave,
   InboxMessage,
   InboxMessageDetail,
   PackStatus,
@@ -83,12 +82,10 @@ export type PackStatusPatch = Pick<DraftState, 'status' | 'assign'>
 
 /** 保存拆分草稿（整份 DraftState，或 setPackStatusRemote 的最小打标载荷） */
 export async function saveDraft(id: number, draft: DraftState | PackStatusPatch): Promise<void> {
-  // 回写前剔除**只用于展示**的 pageQuality：它描述的是「这次识别产出了什么」，
-  // 落盘后会和之后的切段 / 删页错位（段可能早已不是识别时的页），重开就变成一句
-  // 与现状不符的假提示。类型上由 DraftStateToSave 保证，这里做运行时剥离。
-  // PackStatusPatch（只打标的小载荷）本就没有该字段，strip 对它无副作用。
-  const { pageQuality: _pageQuality, ...body } = draft as DraftState
-  await inboxApi.put(`messages/${id}/draft`, { json: { draft: body satisfies DraftStateToSave } }).json()
+  // 整份草稿（含 pageQuality）原样回写；最小打标载荷只有 status/assign，本就没有该字段。
+  // 两者都能满足 DraftStateToSave —— 后者已改为完整 DraftState 形状（见 types.ts 注释：
+  // pageQuality 现在要持久化，否则刷新一次提示就没了）。
+  await inboxApi.put(`messages/${id}/draft`, { json: { draft: draft } }).json()
 }
 
 /** 只打标材料包状态（不接归档 / 归案），保留已有 draft_state 的拆分内容 */

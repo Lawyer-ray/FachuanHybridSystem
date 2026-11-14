@@ -7,6 +7,9 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { withPageQuality } from './state'
+import type { PageQuality } from '../types'
+
 import {
   docHintPagesOf,
   docTodosOf,
@@ -277,5 +280,42 @@ describe('qualityFlagLabel / pagesText', () => {
     expect(pagesText([])).toBe('')
     expect(pagesText([147, 148])).toBe('P147–148')
     expect(pagesText([9, 3, 7, 8])).toBe('P3, P7–9')
+  })
+})
+
+/**
+ * pageQuality 必须能落库（v27.16.8 修正）。
+ *
+ * 原先 `DraftStateToSave = Omit<DraftState, 'pageQuality'>`，理由是「落盘后会和
+ * 律师后来的切段错位」。但那个担心代码里已经天然解决——`graphicPagesOf` 是拿
+ * `seg.refs` 与 `quality.*_pages` **实时求交集**，段变了提示跟着变。
+ * 而不落库的代价很实在：**刷新一次提示就没了**，得重新点「自动识别」才看得到，
+ * 而这个功能的意义恰恰是「打开就知道哪页要核对」。
+ */
+describe('pageQuality 持久化契约', () => {
+  it('withPageQuality 产出的字段经过 JSON 往返后完整保留', () => {
+    const quality: PageQuality = {
+      graphic_pages: [147, 148],
+      sparse_pages: [23],
+      blank_pages: [],
+      details: { '147': '疑似图形页' },
+      doc_hints: { '23': 'id_card' },
+      doc_missing: { '23': { doc: 'id_card', missing: ['姓名', '身份证号'] } },
+    }
+    const draft = withPageQuality({ mats: [], segs: [], infos: [] } as never, quality)
+    const roundTripped = JSON.parse(JSON.stringify(draft)) as { pageQuality?: PageQuality }
+
+    expect(roundTripped.pageQuality).toEqual(quality)
+  })
+
+  it('切段后图形页标记跟着段走（证明持久化不会产生错位假提示）', () => {
+    const quality: PageQuality = { graphic_pages: [147, 148] } as PageQuality
+    // 原段覆盖 144-150，含两页图形页
+    const wide = { refs: [144, 145, 146, 147, 148, 149, 150].map((p) => ({ mi: 0, p })) }
+    // 拆一刀：只剩 144-146，图形页被划到另一段
+    const narrow = { refs: [144, 145, 146].map((p) => ({ mi: 0, p })) }
+
+    expect(graphicPagesOf(wide, quality)).toEqual([147, 148])
+    expect(graphicPagesOf(narrow, quality)).toEqual([])
   })
 })

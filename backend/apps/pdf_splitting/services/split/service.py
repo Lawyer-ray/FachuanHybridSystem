@@ -187,8 +187,14 @@ class PdfSplitService:
             segments_md=segments_md,
             summary={
                 **segment_summary,
-                # 取字阶段算好并落盘的页面质量画像（summary 区块 + 逐页画像）
-                **two_stage.load_page_quality(storage),
+                # 取字阶段算好并落盘的页面质量画像。
+                #
+                # ⚠️ 必须嵌一层 `page_quality` 键，**不能 `**` 展开**：
+                # load_page_quality 返回的是 {graphic_pages, sparse_pages, blank_pages,
+                # details, doc_hints, doc_missing}，直接展开会把这些键平铺到 summary
+                # 顶层，而前端读的是 `summary.page_quality.graphic_pages` —— 结果就是
+                # 「后端算出来了、页面上什么也没有」。这个坑真踩过（v27.16.8 首跑）。
+                "page_quality": two_stage.load_page_quality(storage),
                 "inconsistencies": pick_top_inconsistencies(inconsistencies),
                 "inconsistency_total": len(inconsistencies),
             },
