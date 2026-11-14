@@ -161,11 +161,15 @@ class CourtDocumentRecognitionService:
         outcome = self._analysis_cache.get(text)
         return outcome.analysis if outcome is not None else None
 
-    def _build_date_candidates(self, text: str, doc_type: Any) -> list[dict[str, Any]]:
-        """构建多日期候选（LLM key_events + 正则候选合并去重），序列化为 dict 列表。"""
+    def _build_date_candidates(self, text: str, doc_type: Any, received_at: Any | None = None) -> list[dict[str, Any]]:
+        """构建多日期候选（LLM key_events + 正则候选合并去重），序列化为 dict 列表。
+
+        ``received_at`` 是文书的送达/收到时间：法院短信场景传 ``CourtSMS.received_at``，
+        用于「送达之日起 N 日」类期限的起算（见 date_candidate_service）。
+        """
         from .date_candidate_service import build_date_candidates
 
-        drafts = build_date_candidates(text, self._cached_analysis(text), doc_type)
+        drafts = build_date_candidates(text, self._cached_analysis(text), doc_type, received_at=received_at)
         return [draft.to_dict() for draft in drafts]
 
     def _extract_doc_info(self, doc_type: Any, text: str) -> tuple[Any, Any]:
@@ -264,6 +268,7 @@ class CourtDocumentRecognitionService:
         known_case_number: str | None = None,
         known_party_names: list[str] | None = None,
         known_document_type: str | None = None,
+        received_at: Any | None = None,
     ) -> RecognitionResponse:
         """识别文书并绑定案件
 
@@ -278,6 +283,9 @@ class CourtDocumentRecognitionService:
                 上解析的，比单份文书更可信。
             known_party_names: 来源管线已解析出的当事人（可选，当前仅用于日志）
             known_document_type: 来源管线判定的文书类型（可选，仅在分类器认不出时兑底）
+            received_at: 文书送达/收到时间（法院短信 ``CourtSMS.received_at``）。
+                「如不服本判决，可在判决书送达之日起十五日内上诉」的起算点是**送达日**，
+                不是落款日；传入它才能算出正确的上诉期届满日。
 
         Requirements: 4.5, 4.6, 4.7, 6.2, 8.1, 8.2, 8.3, 8.4
         """
@@ -351,7 +359,7 @@ class CourtDocumentRecognitionService:
                     },
                 )
                 case_number = hint_case_number
-            date_candidates = self._build_date_candidates(extraction_result.text, doc_type)
+            date_candidates = self._build_date_candidates(extraction_result.text, doc_type, received_at)
             if key_time is None and date_candidates:
                 # 候选落库时按本地时区 make_aware；key_time 兜底取首选候选，同样补时区
                 key_time = datetime.fromisoformat(date_candidates[0]["due_at"])

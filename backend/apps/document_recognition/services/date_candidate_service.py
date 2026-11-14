@@ -309,13 +309,30 @@ def _match_relative_draft_by_fingerprint(
     return None
 
 
-def _apply_relative_deadline_rules(text: str, drafts: list[DateCandidateDraft]) -> list[DateCandidateDraft]:
+def _apply_relative_deadline_rules(
+    text: str,
+    drafts: list[DateCandidateDraft],
+    *,
+    delivery_date: datetime | None = None,
+) -> list[DateCandidateDraft]:
     """相对期限推算（确定性规则，不依赖 LLM）。
 
     「保全费请你方于收到本通知次日起两日内向本院交纳」这类表述不含日期，
-    LLM 常就近把落款日当事件日。规则以签发/落款日期为锚，按「起算当日
-    不计入、自次日起算」推算届满日 = 锚 + N 天（「次日起两日内」：次日为
-    第 1 天 → 锚 + 2；「（之）日起七日内」→ 锚 + 7）。
+    LLM 常就近把落款日当事件日。按「起算当日不计入、自次日起算」推算届满日
+    = 锚 + N 天（「次日起两日内」：次日为第 1 天 → 锚 + 2；
+    「（之）日起七日内」→ 锚 + 7）。
+
+    **锚点（重要，法律口径）**：
+
+    「如不服本判决，可以在判决书**送达之日起**十五日内上诉」的起算点是**送达日**，
+    不是落款日。法院文书落款日普遍早于实际送达（打印/用印/邮寄需要时间），
+    用落款日当锚会把届满日算得**过早**，律师按这个日期排期会误以为
+    「还剩几天」而实际已过期，或反之白抢时间。
+
+    本系统里 **`CourtSMS.received_at` 就是送达日**（法院短信转发到你手机的
+    时刻即收到日；收发双方均按此口径运营），因此管线模式（法院短信入口）
+    传入 `delivery_date` 时优先用它；拿不到（记一笔独立上传 / 转发队列延迟）
+    才回落落款日——宁可给一个早一点的保守估计，也不凭空编一个日期。
 
     认领分三轮，避免多期限句互相争抢同一条候选（context 精确匹配优先于
     指纹兜底）：1) 原文表述出现在候选 context → 校正该候选；2) 未认领事件
@@ -323,7 +340,11 @@ def _apply_relative_deadline_rules(text: str, drafts: list[DateCandidateDraft]) 
     """
     if not text:
         return drafts
-    anchor = _find_issue_date(text)
+
+    if delivery_date is not None:
+        anchor = datetime.combine(delivery_date.date(), datetime.min.time())
+    else:
+        anchor = _find_issue_date(text)
     if anchor is None:
         return drafts
 
@@ -472,11 +493,17 @@ def build_date_candidates(
     document_type: DocumentType,
     *,
     regex_extractor: Any | None = None,
+    received_at: datetime | None = None,
 ) -> list[DateCandidateDraft]:
     """合并 LLM key_events 与正则候选为去重后的候选列表。
 
     去重键 = (日期时间, 提醒类型)：同值 LLM 优先（source 升级为 merged、
     置信度取 max）；同日不同类型都保留（开庭日与举证截止同日是真实场景）。
+
+    Args:
+        received_at: 文书送达/收到时间（法院短信的 ``CourtSMS.received_at``）。
+            传入时作为「送达之日起 N 日」类期限的起算锚点（见
+            ``_apply_relative_deadline_rules``）；None 则回落到落款日。
     """
     extractor = regex_extractor or _RegexCandidateExtractor()
     default_type = DEFAULT_TYPE_BY_DOCUMENT_TYPE.get(document_type, "other")
@@ -525,7 +552,7 @@ def build_date_candidates(
 
     # 3. 期间结构后处理：起始日剔除、到期日算术校正、相对期限推算、同上下文去重
     drafts_list = _apply_period_rules(text, list(drafts.values()))
-    drafts_list = _apply_relative_deadline_rules(text, drafts_list)
+    drafts_list = _apply_relative_deadline_rules(text, drafts_list, delivery_date=received_at)
 
     # 4. 陈旧候选降置信（改判文书可能含历史日期，折叠而非丢弃）
     today = timezone.localdate()

@@ -238,7 +238,7 @@ class TestSmsHints:
 
         task = MagicMock(source_court_sms_id=999_999)
         hints = _load_pipeline_hints(task)
-        assert hints == {"case_number": None, "party_names": [], "document_type": None}
+        assert hints == {"case_number": None, "party_names": [], "document_type": None, "received_at": None}
 
     def test_hints_empty_without_source(self) -> None:
         from apps.document_recognition.tasks import _load_pipeline_hints

@@ -24,14 +24,19 @@ def _load_pipeline_hints(task: Any) -> dict[str, Any]:
 
     只读一个轻量查询；短信已删/不存在时返回全空，识别照跑（旁线不能因子线缺失而失败）。
     """
-    empty: dict[str, Any] = {"case_number": None, "party_names": [], "document_type": None}
+    empty: dict[str, Any] = {
+        "case_number": None,
+        "party_names": [],
+        "document_type": None,
+        "received_at": None,
+    }
     sms_id = getattr(task, "source_court_sms_id", None)
     if not sms_id:
         return empty
     try:
         from apps.automation.models import CourtSMS
 
-        sms = CourtSMS.objects.filter(id=sms_id).only("case_numbers", "party_names", "sms_type").first()
+        sms = CourtSMS.objects.filter(id=sms_id).only("case_numbers", "party_names", "sms_type", "received_at").first()
     except Exception:  # pragma: no cover - 兜底：读取失败不阻断识别
         logger.warning("读取来源短信解析结果失败，识别改用本文书结果", exc_info=True)
         return empty
@@ -44,6 +49,9 @@ def _load_pipeline_hints(task: Any) -> dict[str, Any]:
         "case_number": str(case_numbers[0]) if case_numbers else None,
         "party_names": party_names,
         "document_type": _SMS_TYPE_TO_DOC_TYPE.get(str(sms.sms_type or "")),
+        # 收到日 = 送达日：法院短信转发到你手机的时刻即收到日，两侧同口径。
+        # 上诉期等「送达之日起 N 日」的期限必须从这里起算，不能用文书落款日。
+        "received_at": sms.received_at,
     }
 
 
@@ -83,6 +91,7 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
             known_case_number=known["case_number"],
             known_party_names=known["party_names"],
             known_document_type=known["document_type"],
+            received_at=known["received_at"],
         )
 
         recognition = result.recognition

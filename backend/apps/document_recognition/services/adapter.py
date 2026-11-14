@@ -37,6 +37,7 @@ class CourtDocumentRecognitionServiceAdapter:
         known_case_number: str | None = None,
         known_party_names: list[str] | None = None,
         known_document_type: str | None = None,
+        received_at: Any | None = None,
     ) -> RecognitionResponse:
         """
         识别文书并绑定案件
@@ -50,6 +51,8 @@ class CourtDocumentRecognitionServiceAdapter:
             known_case_number: 来源管线（法院短信）已解析出的案号（可选，可信度高于本文书）
             known_party_names: 来源管线已解析出的当事人（可选）
             known_document_type: 来源管线判定的文书类型（可选，仅在分类器认不出时兑底）
+            received_at: 文书送达/收到时间（法院短信 ``CourtSMS.received_at``，
+                「送达之日起 N 日」类期限的起算锚点）
 
         Returns:
             RecognitionResponse 对象
@@ -65,6 +68,7 @@ class CourtDocumentRecognitionServiceAdapter:
                 known_case_number=known_case_number,
                 known_party_names=known_party_names,
                 known_document_type=known_document_type,
+                received_at=received_at,
             ),
         )
 

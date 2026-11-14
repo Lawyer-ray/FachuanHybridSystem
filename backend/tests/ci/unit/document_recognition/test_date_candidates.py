@@ -989,3 +989,51 @@ class TestUnexpiredCandidatesOutrankStaleHistory:
         assert [d.reminder_type for d in drafts] == ["hearing", "other"]
         # 过期候选被降置信（STALE_DAYS 规则），因此默认不勾选
         assert drafts[1].confidence <= 0.3
+
+
+# ---------------------------------------------------------------------------
+# 回归：上诉期必须以「送达之日」起算（收到日），不能用文书落款日
+# ---------------------------------------------------------------------------
+
+
+class TestAppealDeadlineAnchoredOnDeliveryDate:
+    """「如不服本判决，可在判决书**送达之日起**十五日内上诉」的起算点是送达日。
+
+    事故（2026-11-14）：某 7 页判决书落款 2026-11-05、短信收到日 2026-11-06，
+    旧逻辑一律拿落款日当锚 → 上诉期算成 11-20，比真实的 11-21 早一天。
+    业务口径：**CourtSMS.received_at 就是送达日**（法院短信转发到手机的时刻），
+    两侧同口径运营，因此管线模式必须用收到日，不能猜落款日。
+    """
+
+    _TEXT = "如不服本判决，可以在判决书送达之日起十五日内，向本院递交上诉状。\n二〇二六年十一月五日"
+
+    def test_delivery_date_used_as_anchor_when_provided(self):
+        drafts = build_date_candidates(
+            self._TEXT,
+            None,
+            DocumentType.OTHER,
+            received_at=datetime(2026, 11, 6, 16, 16),
+        )
+        appeal = [d for d in drafts if d.reminder_type == "appeal_deadline"]
+        assert appeal, "未识别出上诉期"
+        # 收到日 11-06 + 15 天 = 11-21
+        assert appeal[0].due_at.date() == datetime(2026, 11, 21).date()
+
+    def test_falls_back_to_issue_date_without_delivery_date(self):
+        """记一笔独立上传（无收到日）才回落落款日——宁可保守早提醒。"""
+        drafts = build_date_candidates(self._TEXT, None, DocumentType.OTHER, received_at=None)
+        appeal = [d for d in drafts if d.reminder_type == "appeal_deadline"]
+        assert appeal, "未识别出上诉期"
+        # 落款日 11-05 + 15 天 = 11-20
+        assert appeal[0].due_at.date() == datetime(2026, 11, 20).date()
+
+    def test_delivery_later_than_issue_shifts_deadline_later(self):
+        """送达晚于落款（常见）：届满日必须相应顺延，不能按落款算早了。"""
+        drafts = build_date_candidates(
+            self._TEXT,
+            None,
+            DocumentType.OTHER,
+            received_at=datetime(2026, 11, 20, 9, 0),
+        )
+        appeal = [d for d in drafts if d.reminder_type == "appeal_deadline"]
+        assert appeal[0].due_at.date() == datetime(2026, 12, 5).date()
