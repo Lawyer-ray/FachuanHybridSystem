@@ -23,6 +23,11 @@ from apps.document_recognition.services.date_candidate_service import (
     parse_candidate_datetime,
 )
 
+# 含年份的通用占位正文：LLM 日期必须能追溯到年份锚点（见 _has_explicit_year），
+# 用 "text" 这种无年份占位会让所有 LLM 候选被「不猜年份」规则正确拦掉，测不到目标。
+_YEARED_TEXT = "某法院文书（落款：2026年10月10日）"
+
+
 # ---------------------------------------------------------------------------
 # parse_candidate_datetime
 # ---------------------------------------------------------------------------
@@ -80,7 +85,7 @@ class TestBuildDateCandidates:
         )
         analysis = SimpleNamespace(key_events=[_event("2026-10-15 09:30", "hearing", confidence=0.7)])
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert len(drafts) == 1
         merged = drafts[0]
@@ -92,7 +97,7 @@ class TestBuildDateCandidates:
         extractor = _stub_extractor([])
         analysis = SimpleNamespace(key_events=[_event("2026-10-15 09:30", "appeal_deadline", "上诉期届满", 0.9)])
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert len(drafts) == 1
         assert drafts[0].source == "llm"
@@ -114,7 +119,7 @@ class TestBuildDateCandidates:
         )
         analysis = SimpleNamespace(key_events=[_event("2026-10-15 09:30", "hearing")])
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert len(drafts) == 2
         assert {d.reminder_type for d in drafts} == {"hearing", "evidence_deadline"}
@@ -136,7 +141,7 @@ class TestBuildDateCandidates:
             ]
         )
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert [d.reminder_type for d in drafts] == ["hearing", "hearing", "evidence_deadline", "other"]
         assert drafts[0].confidence == 0.95  # 同类型内高置信在前
@@ -149,7 +154,7 @@ class TestBuildDateCandidates:
         ]
         analysis = SimpleNamespace(key_events=events)
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert len(drafts) == MAX_CANDIDATES
         # 截断保留置信度更高的 8 条（其他类型无优先级差异）
@@ -167,7 +172,7 @@ class TestBuildDateCandidates:
             ]
         )
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         by_ctx = {d.context_text: d for d in drafts}
         assert by_ctx["旧日期"].confidence <= 0.3
@@ -178,7 +183,7 @@ class TestBuildDateCandidates:
         extractor = _stub_extractor([])
         analysis = SimpleNamespace(key_events=[_event("2099-10-15 09:30", "bogus_type")])
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert drafts[0].reminder_type == "other"
 
@@ -186,7 +191,7 @@ class TestBuildDateCandidates:
         extractor = _stub_extractor([])
         analysis = SimpleNamespace(key_events=[_event("not a date")])
 
-        drafts = build_date_candidates("text", analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert drafts == []
 
@@ -209,13 +214,13 @@ class TestBuildDateCandidates:
                     }
                 ]
             )
-            drafts = build_date_candidates("text", None, doc_type, regex_extractor=extractor)
+            drafts = build_date_candidates(_YEARED_TEXT, None, doc_type, regex_extractor=extractor)
             assert drafts[0].reminder_type == expected
             assert drafts[0].source == "regex"
 
     def test_analysis_none_or_no_events(self):
         extractor = _stub_extractor([])
-        assert build_date_candidates("text", None, DocumentType.OTHER, regex_extractor=extractor) == []
+        assert build_date_candidates(_YEARED_TEXT, None, DocumentType.OTHER, regex_extractor=extractor) == []
         assert (
             build_date_candidates(
                 "text", SimpleNamespace(key_events=None), DocumentType.OTHER, regex_extractor=extractor
@@ -389,7 +394,12 @@ class TestRelativeDeadlineRules:
         analysis = SimpleNamespace(key_events=[_event("2026-10-15 09:30", "hearing", "开庭", 0.8)])
 
         drafts = build_date_candidates(
-            "收到本通知次日起两日内交纳，无落款日期", analysis, DocumentType.OTHER, regex_extractor=extractor
+            # 含年份（满足「不猜年份」）但没有落款日形态 → _find_issue_date 取不到锚点，
+            # 本用例测的正是「无锚点时规则静默退出」
+            "2026年度通知：收到本通知次日起两日内交纳",
+            analysis,
+            DocumentType.OTHER,
+            regex_extractor=extractor,
         )
 
         assert len(drafts) == 1
@@ -946,6 +956,7 @@ class TestPersistAndRefreshStatus:
             "context_text": "开庭",
             "source": "llm",
             "confidence": 0.9,
+            "anchor_note": "",
         }
 
 
@@ -972,7 +983,7 @@ class TestUnexpiredCandidatesOutrankStaleHistory:
         deadline = _event("2099-12-31 00:00", "appeal_deadline", "上诉期", 0.9)
         analysis = SimpleNamespace(key_events=[*history, deadline])
 
-        drafts = build_date_candidates("text", analysis, DocumentType.OTHER, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.OTHER, regex_extractor=extractor)
 
         types = [d.reminder_type for d in drafts]
         assert "appeal_deadline" in types, "真期限被历史日期挤出了 MAX_CANDIDATES 名额"
@@ -991,7 +1002,7 @@ class TestUnexpiredCandidatesOutrankStaleHistory:
             ]
         )
 
-        drafts = build_date_candidates("text", analysis, DocumentType.OTHER, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.OTHER, regex_extractor=extractor)
 
         assert len(drafts) == 2
         assert [d.reminder_type for d in drafts] == ["hearing", "appeal_deadline"]
@@ -1008,7 +1019,7 @@ class TestUnexpiredCandidatesOutrankStaleHistory:
             ]
         )
 
-        drafts = build_date_candidates("text", analysis, DocumentType.OTHER, regex_extractor=extractor)
+        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.OTHER, regex_extractor=extractor)
 
         assert drafts == []
 
@@ -1059,3 +1070,47 @@ class TestAppealDeadlineAnchoredOnDeliveryDate:
         )
         appeal = [d for d in drafts if d.reminder_type == "appeal_deadline"]
         assert appeal[0].due_at.date() == datetime(2026, 12, 5).date()
+
+
+# ---------------------------------------------------------------------------
+# 回归：无年份的日期不得凭上下文猜年份
+# ---------------------------------------------------------------------------
+
+
+class TestYearlessDateRejected:
+    """原文只写「3月26日」时，LLM 会按文档里出现的年份自行补全。
+
+    事故（2026-11-14，执行裁定书 #285）：「依据…裁定书于**3月26日**冻结了被执行人…账户，
+    上述账户冻结期限为一年」——全篇没有 3月26日 的年份，LLM 补成 2026-03-26，
+    到期日算成 2027-03-26。猜错一年对保全期限是灾难性的（早/晚提醒整整一年）。
+    """
+
+    _TEXT = "本院依据裁定书于3月26日冻结了被执行人账户，上述账户冻结期限为一年。落款：2026年10月10日"
+
+    def test_llm_yearless_date_dropped(self):
+        analysis = SimpleNamespace(
+            key_events=[_event("2026-03-26", "asset_preservation_expires", "于3月26日冻结了被执行人账户", 0.9)]
+        )
+        drafts = build_date_candidates(self._TEXT, analysis, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert drafts == [], f"无年份日期应被丢弃，实际得到 {[d.due_at for d in drafts]}"
+
+    def test_llm_date_with_explicit_year_kept(self):
+        """原文明确写了年份 → 正常采纳（不能因为上一条规则把真日期也杀掉）。"""
+        text = "本院于2027年3月26日冻结了被执行人账户，冻结期限为一年。"
+        analysis = SimpleNamespace(
+            key_events=[_event("2027-03-26", "asset_preservation_expires", "于2027年3月26日冻结", 0.9)]
+        )
+        drafts = build_date_candidates(text, analysis, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert [d.due_at.date() for d in drafts] == [datetime(2027, 3, 26).date()]
+
+    def test_llm_computed_date_not_rejected(self):
+        """LLM 推算出的日期（原文本来就查无此日）不能被无年份规则误杀。"""
+        text = "保全费请你方于收到本通知次日起两日内向本院交纳。落款：2026年10月10日"
+        analysis = SimpleNamespace(
+            key_events=[_event("2026-10-12", "payment_deadline", "收到本通知次日起两日内向本院交纳", 0.9)]
+        )
+        drafts = build_date_candidates(text, analysis, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert any(d.due_at.date() == datetime(2026, 10, 12).date() for d in drafts)

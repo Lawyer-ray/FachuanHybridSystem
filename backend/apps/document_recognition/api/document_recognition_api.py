@@ -796,10 +796,23 @@ async def _load_sms_date_capture_source(request: Any, sms_id: int) -> Any:
 
 
 def _resolved_document_paths(sms: Any) -> list[str]:
-    """短信已归档文书的绝对路径（与详情接口 documents[] 同源、同序，已去重）。"""
-    from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+    """**这条短信自己的**文书绝对路径，供送识别使用（已排除模板类文书）。
 
-    return [ref.file_path for ref in CourtSMSDocumentReferenceService().collect(sms) if ref.file_path]
+    两个必须与详情接口区分开的点：
+
+    1. ``include_case_log_attachments=False``：案件日志会累积同一案件多次送达的全部
+       附件，算进来就会把**别的短信**的判决书当成本短信文书去识别（2026-11-14 实测
+       57/63 条短信被错配成同一份判决书），提取出的上诉期会写进错误的上下文。
+    2. 排除模板类文书（廉政监督卡 / 送达地址确认书 / 退费申请书…）：它们结构固定、
+       从不含期限，送识别只是白烧一次 LLM。
+
+    排除只针对**识别**；详情页仍展示全部文书（律师要看得到）。
+    """
+    from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+    from apps.document_recognition.services.document_template_filter import is_template_document
+
+    refs = CourtSMSDocumentReferenceService().collect(sms, include_case_log_attachments=False)
+    return [ref.file_path for ref in refs if ref.file_path and not is_template_document(ref.display_name)]
 
 
 @router.post("/court-document/sms/{sms_id}/capture-dates", response=DateCaptureOutSchema)

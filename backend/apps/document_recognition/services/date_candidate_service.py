@@ -102,17 +102,24 @@ _RELATIVE_ANCHOR_RE = re.compile(
 # 无锚动作版：期限动词直接跟在「N日内」后，如「7日内付款」「十五日内向本院交纳」
 _RELATIVE_ACTION_RE = re.compile(rf"{_REL_DAYS_GROUP}日内[^，。；;\n]{{0,16}}?(?:交纳|缴纳|缴款|缴费|付款|支付|付清)")
 
-# 起算点是「判决/裁定发生法律效力之日」而非送达/收到之日：**不推算，直接跳过**。
+# 起算点是「判决/裁定发生法律效力之日」而非送达/收到之日：**保留候选，但标注待确认**。
 #
-# 为什么不能算（2026-11-14 定调）：生效日取决于对方是否上诉——送达后 15 日内无人上诉
-# 才生效，而这件事只有书记员能确认。按「送达 + N 天」硬算会给出一个看似精确、
-# 实则可能早/晚半个月的假日期；按「送达 + 上诉期 + N 天」推演又是在替律师做
-# 「假设对方不上诉」的法律判断。两条路都不该走。
+# 口径（2026-11-14 业务定调）：缴费期限这类履行期限**要记**——律师确实要跟进。
+# 但它的起算点是「判决生效之日」，而生效日取决于对方是否上诉（送达后 15 日内无人
+# 上诉才生效），这件事只有书记员能确认。直接按「送达 + N 天」算会给出一个看似精确、
+# 实则可能早半个月的假日期，因此：
 #
-# 律师要记的是上诉期、保全到期、举证期限这类**由送达日/裁定日直接决定**的硬期限，
-# 不是从「生效」二段推演出来的履行期。因此本规则只跳过这类候选，
-# 文书原文里的信息仍可通过识别结果查看。
+#   - 候选**照常保留并进入确认列表**（律师看得到，不会漏）；
+#   - 日期给「送达日 + N 天」作为**最早可能日**（保守，只会提前提醒）；
+#   - 附一句起算点说明，提示律师与书记员确认生效日后自行改期。
+#
+# 即：宁可给一个明确标注「待确认起算点」的保守日期，也不默默丢弃律师需要的期限。
 _EFFECTIVE_FIRST_RE = re.compile(r"(?:发生法律效力|生效|确定法律效力)")
+
+# 前端据此显示提示文案（放在这里做单一来源，前后端不各写一份口径）
+EFFECTIVE_FIRST_NOTE = (
+    "起算点为判决生效之日（送达后 15 日内无人上诉才生效），此处按送达日给的保守日期，请与书记员确认生效日后改期"
+)
 
 # 相对期限的事件类型：按动作动词判（「保全费…交纳」须判 payment 而非被名词「保全」带偏）
 _RELATIVE_EVENT_TYPES: list[tuple[str, tuple[str, ...]]] = [
@@ -268,12 +275,58 @@ def _find_issue_date(text: str) -> datetime | None:
     return valid[-1] if valid else None
 
 
-def _is_effective_first_derived(draft: DateCandidateDraft, text: str) -> bool:
-    """判断候选是否来自「发生法律效力之日起 N 日」这类推演。
+def _has_explicit_year(parsed: datetime, context: str, text: str) -> bool:
+    """该日期**在原文里的对应表述**是否带年份。
 
-    判据：候选的原文上下文（或全文）里含「发生法律效力/生效」，且该候选的类型是
-    履行类（payment/submission）。上诉期、举证期等由送达日直接决定的期限不受影响——
-    它们本来就不该和「生效」混在一句里，真混了也是文书表述问题，保留更安全。
+    只拒绝一种情况：原文确实出现了「M月D日」这种**无年份**的写法，且该日期的
+    年/月/日与候选吻合，同时全文找不到它带年份的写法。此时 LLM 的年份是猜的。
+
+    为什么这样判（而不是要求「日期必须逐字出现」）：LLM 合法地会返回**推算值**——
+    「收到次日起两日内」→ 落款+2 天，那个日期本来就不在原文里。若要求逐字出现，
+    所有相对期限推算都会被误杀。
+
+    实测反例（2026-11-14 执行裁定书 #285）：「依据…裁定书于3月26日冻结了被执行人
+    账户，上述账户冻结期限为一年」——原文无年份，LLM 补成 2026-03-26，
+    到期日算成 2027-03-26，差整整一年。
+    """
+    y, m, d = parsed.year, parsed.month, parsed.day
+    for hay in (context or "", text or ""):
+        if not hay:
+            continue
+        # 带年份的写法命中 → 直接确信
+        for pattern in (
+            rf"{y}\s*年\s*0?{m}\s*月\s*0?{d}\s*日",
+            rf"{y}-0?{m}-0?{d}",
+            rf"{y}/0?{m}/0?{d}",
+        ):
+            if re.search(pattern, hay):
+                return True
+        # 原文出现「M月D日」但前面不是这个年份 → 说明是猜的
+        bare = re.search(rf"(?<!\d)({y}年)?\s*0?{m}\s*月\s*0?{d}\s*日", hay)
+        if bare and not bare.group(1):
+            return False
+    # 走到这里：原文既没有带年份的写法，也没有裸「M月D日」。两种可能：
+    #   a) 合法的相对期限推算（「收到次日起两日内」+ 落款日 → 未来某天）；
+    #   b) LLM 凭上下文编了个年份（「应在查封期限届满前三十日内申请」→ 原文全篇无年份）。
+    # 区分方式：**推算必须有年份锚点**。全文没有任何年份形态 → 无从推算，判 (b)。
+    #
+    # 年份锚点有两种落款形态：阿拉伯「2026年」与中文「二〇二六年 / 二零二六年」
+    # （法院文书用中文数字落款的比例很高，漏了会让合法的相对期限推算全部被误杀）。
+    body = text or ""
+    if re.search(r"(?:19|20)\d{2}\s*[年\-/]", body):
+        return True
+    return bool(re.search(r"[〇零一二三四五六七八九]{4}\s*年", body))
+
+
+def _is_effective_first_derived(draft: DateCandidateDraft, text: str) -> bool:
+    """候选的起算点是否为「发生法律效力之日」（而非送达日）。
+
+    命中者**不丢弃**——它们往往是律师真正要跟进的缴费/履行期限；只是在确认弹窗里
+    加一句「起算点为判决生效之日，请与书记员确认」，避免律师把「送达+10天」当成
+    确定日期排期（真实链条是 送达 → 上诉期届满生效 → 再起算 10 日）。
+
+    判据：候选类型是履行类（payment/submission），且原文上下文（或日期附近窗口，
+    LLM 常只回截断的 context）含「发生法律效力/生效」。
     """
     if draft.reminder_type not in ("payment_deadline", "submission_deadline"):
         return False
@@ -312,11 +365,6 @@ def _iter_relative_deadlines(text: str) -> list[tuple[re.Match[str], int, int, i
             continue
         m = _RELATIVE_ANCHOR_RE.search(sentence) or _RELATIVE_ACTION_RE.search(sentence)
         if m is None:
-            continue
-        # 起算点是「发生法律效力之日」：生效日需与书记员确认（取决于对方是否上诉），
-        # 系统不推算，整句跳过（见 _EFFECTIVE_FIRST_RE 注释）。
-        if _EFFECTIVE_FIRST_RE.search(sentence):
-            logger.info("跳过生效之日起算的期限（生效日需人工确认，不推算）: %s", sentence[:60])
             continue
         days = _parse_cn_number(m.group(1))
         if days is None or not 1 <= days <= 365:
@@ -482,6 +530,10 @@ class DateCandidateDraft:
     context_text: str
     source: str  # llm | regex | merged
     confidence: float
+    # 起算点提示（非空时前端在确认弹窗里显示）。目前只有一种：
+    # "effective_first" = 原文是「本判决发生法律效力之日起 N 日」，日期按送达日+ N 天
+    # 保守给出，真实起算点是判决生效日（需与书记员确认）。
+    anchor_note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -490,6 +542,7 @@ class DateCandidateDraft:
             "context_text": self.context_text,
             "source": self.source,
             "confidence": self.confidence,
+            "anchor_note": self.anchor_note,
         }
 
 
@@ -559,6 +612,17 @@ def build_date_candidates(
         if event_type not in ReminderType.values:
             event_type = "other"
         context = str(getattr(event, "context", "") or "")[:255]
+        # 无年份日期不采纳：原文若只写「3月26日」，LLM 会按文档里出现的年份自行补全，
+        # 猜错一年就让律师跟进错期限（2026-11-14 实测执行裁定书「3月26日冻结一年」
+        # 被补成 2026-03-26，算出的到期日提前了整整一年）。宁可少一条，
+        # 也不给一个看上去确定、实际可能差一年的假日期。
+        if not _has_explicit_year(parsed, context, text):
+            logger.warning(
+                "跳过无年份的 LLM 日期事件（不猜年份）: %s | context=%s",
+                getattr(event, "datetime", None),
+                context[:40],
+            )
+            continue
         drafts[(parsed, event_type)] = DateCandidateDraft(
             due_at=parsed,
             reminder_type=event_type,
@@ -615,10 +679,12 @@ def build_date_candidates(
         kept.append(draft)
     drafts_list = kept
 
-    # 4.5 剔除基于「发生法律效力之日」推算的期限（生效日需与书记员确认，不记录）。
-    # LLM 可能把「本判决发生法律效力之日起十日内支付」直接当成一个未来日期返回，
-    # 规则层已跳过同句，这里再兜一次，避免从 LLM 通道漏进来。
-    drafts_list = [d for d in drafts_list if not _is_effective_first_derived(d, text)]
+    # 4.6 标注「生效之日起算」的履行期限（不丢弃，见 _EFFECTIVE_FIRST_RE 注释）
+    for draft in drafts_list:
+        if _is_effective_first_derived(draft, text):
+            draft.anchor_note = EFFECTIVE_FIRST_NOTE
+            # 起算点不确定 → 降一档，默认不勾，逼律师看一眼
+            draft.confidence = min(draft.confidence, 0.5)
 
     # 5. 名额分配：**未过期候选优先占 MAX_CANDIDATES 名额**。
     # 判决书正文里密布已发生的事实日期（立案/签约/对账/落款），它们不是“提醒”，
