@@ -170,13 +170,25 @@ def recover_job(job: PdfSplitJob) -> str:
     return _requeue(job)
 
 
-def sweep_stale_jobs(*, now: Any = None, limit: int = MAX_RECOVERY_PER_RUN) -> dict[str, Any]:
+def sweep_stale_jobs(
+    *,
+    now: Any = None,
+    stale_seconds: int = STALE_SECONDS,
+    limit: int = MAX_RECOVERY_PER_RUN,
+) -> dict[str, Any]:
     """巡检并拯救卡死任务。返回汇总，供管理命令与测试断言。
+
+    Args:
+        now: 测试注入的当前时刻；缺省用 timezone.now()。
+        stale_seconds: 判死阈值。管理命令的 `--stale-seconds` 走这里——
+            原先本函数没有这个参数，命令传了会在运行时抛 TypeError，
+            也就是说「可调阈值」这个能力其实一直没生效。
+        limit: 单次最多处理几个（防首轮一口气重排打满队列）。
 
     设计为**幂等**：重复调用不会重复重排（重排后 status 变 PENDING，
     不再被 `find_stale_jobs` 选中）。
     """
-    stale = find_stale_jobs(now=now)[:limit]
+    stale = find_stale_jobs(now=now, stale_seconds=stale_seconds)[:limit]
     actions: list[dict[str, Any]] = []
 
     for job in stale:

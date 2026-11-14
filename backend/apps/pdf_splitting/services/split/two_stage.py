@@ -50,10 +50,13 @@ TASK_SEGMENT = "apps.pdf_splitting.tasks.run_segment_stage"
 
 def submit_extract_stage(job: PdfSplitJob) -> str:
     """提交第一阶段（取字）。"""
-    return build_task_submission_service().submit(
-        TASK_EXTRACT,
-        args=[str(job.id)],
-        task_name=f"pdf_split_extract_{job.id}",
+    # submit() 返回 Any（task 后端可替换）：显式 str() 收窄
+    return str(
+        build_task_submission_service().submit(
+            TASK_EXTRACT,
+            args=[str(job.id)],
+            task_name=f"pdf_split_extract_{job.id}",
+        )
     )
 
 
@@ -63,10 +66,12 @@ def submit_segment_stage(job: PdfSplitJob) -> str:
     独立提交是拆链的关键：第一阶段无论成功或失败，第二阶段的 600s 预算
     都是全新的，不会被第一阶段的耗时抵掉。
     """
-    return build_task_submission_service().submit(
-        TASK_SEGMENT,
-        args=[str(job.id)],
-        task_name=f"pdf_split_segment_{job.id}",
+    return str(
+        build_task_submission_service().submit(
+            TASK_SEGMENT,
+            args=[str(job.id)],
+            task_name=f"pdf_split_segment_{job.id}",
+        )
     )
 
 

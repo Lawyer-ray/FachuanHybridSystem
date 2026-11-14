@@ -213,7 +213,8 @@ def _detect_with_retry(
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            return detector.detect(slice_pages, template_key=template_key)
+            # detector 是注入的（Any）：显式收窄避免 no-any-return
+            return list(detector.detect(slice_pages, template_key=template_key))
         except Exception as exc:
             last_error = exc
             if attempt < retries:
@@ -252,7 +253,7 @@ def detect_in_batches(
 
     # 只有一批时不必走合并逻辑（保留原始行为与日志）
     if len(windows) <= 1:
-        return detector.detect(pages, template_key=template_key)
+        return list(detector.detect(pages, template_key=template_key))
 
     def run_one(window: tuple[int, int, int, int]) -> tuple[tuple[int, int, int, int], list[Any], str]:
         """跑一批，返回 (窗口, 已偏移的分段, 路径标识 llm/rule)。"""

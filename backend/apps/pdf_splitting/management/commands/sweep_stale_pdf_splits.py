@@ -65,13 +65,16 @@ class Command(BaseCommand):
             return
 
         result = job_recovery.sweep_stale_jobs(stale_seconds=stale_seconds, limit=limit)
-        if not result["stale_found"]:
+        # sweep_stale_jobs 返回 dict[str, Any]：显式收窄供 mypy 判定
+        stale_found = int(result.get("stale_found") or 0)
+        actions: list[dict[str, Any]] = list(result.get("actions") or [])
+        if not stale_found:
             self.stdout.write(self.style.SUCCESS("没有卡死的任务"))
             return
 
         self.stdout.write(self.style.WARNING(f"发现 {result['stale_found']} 个卡死任务，处理结果:"))
         for item in result["actions"]:
             self.stdout.write(f"  {item['job_id']}  →  {item['action']}")
-        errored = [item for item in result["actions"] if item["action"] == "error"]
+        errored = [item for item in actions if item["action"] == "error"]
         if errored:
             self.stderr.write(self.style.ERROR(f"{len(errored)} 个任务拯救时出错，详见日志"))

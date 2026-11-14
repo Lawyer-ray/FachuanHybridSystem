@@ -189,7 +189,8 @@ def parse_in_batches(
             on_batch_done(ordered, direct)
         if on_progress is not None:
             on_progress(len(direct), len(ordered))
-        return direct
+        # parse_one 是注入的回调（Any）：这里显式收窄，避免 no-any-return
+        return dict(direct)
 
     total = len(set(page_numbers))
     resolved = 0
