@@ -27,6 +27,7 @@ from apps.pdf_splitting.models import (
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename
 
+from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
@@ -173,14 +174,28 @@ class PdfSplitService:
         pages = [PageDescriptor(**item) for item in raw_pages]
         drafts, segment_summary = detect_segments_with_fallback(pages, template_key=job.template_key)
 
+        # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、
+        # 同一份文案），避免「单任务入口有、两阶段入口没有」的劈叉。
+        inconsistencies = detect_inconsistencies(pages)
         bbox_backend = str(getattr(job, "cloud_backend", "") or "")
+        segments_md = attach_quality_flags_to_markdown(
+            build_segments_markdown(drafts, pages, bbox_backend=bbox_backend), inconsistencies
+        )
         outcome = PdfAnalysisOutcome(
             pages=pages,
             drafts=drafts,
-            segments_md=build_segments_markdown(drafts, pages, bbox_backend=bbox_backend),
-            summary=segment_summary,
+            segments_md=segments_md,
+            summary={
+                **segment_summary,
+                # 取字阶段算好并落盘的页面质量画像（summary 区块 + 逐页画像）
+                **two_stage.load_page_quality(storage),
+                "inconsistencies": pick_top_inconsistencies(inconsistencies),
+                "inconsistency_total": len(inconsistencies),
+            },
         )
-        self._persist_analysis(job=job, storage=storage, outcome=outcome)
+        # merge_summary=False：本阶段只产出分段相关字段，不能把取字阶段写下的
+        # ocr_profile / layout_mode / material_kind 抹掉（summary 只增不删）。
+        self._persist_analysis(job=job, storage=storage, outcome=outcome, merge_summary=False)
         PdfSplitJob.objects.filter(id=job.id).update(stage=PdfSplitStage.DONE)
 
     def _begin_stage(self, job: PdfSplitJob, stage: str) -> None:
@@ -310,8 +325,15 @@ class PdfSplitService:
         job: PdfSplitJob,
         storage: PdfSplitStorage,
         outcome: Any,
+        merge_summary: bool = True,
     ) -> None:  # pragma: no cover
-        """把 pipeline 产物落库落盘：pages / segments / segments_md + 任务摘要（含取字与分段的观测字段）。"""
+        """把 pipeline 产物落库落盘：pages / segments / segments_md + 任务摘要（含取字与分段的观测字段）。
+
+        ``merge_summary``：整条流水线跑完（analyze_job）时 True，outcome.summary 就是完整快照；
+        两阶段链路的分段阶段只产出分段相关字段，必须 False——否则会把取字阶段写入并落库的
+        ``ocr_profile`` / ``layout_mode`` / ``material_kind`` 等字段从 summary 里抹掉。
+        summary 只增不删，前端可能还有旧消费方在读这些键。
+        """
         storage.write_json(storage.pages_json_path, [asdict(item) for item in outcome.pages])
         storage.write_json(storage.segments_json_path, [asdict(item) for item in outcome.drafts])
         storage.write_json(storage.segments_md_path, outcome.segments_md)
@@ -350,6 +372,8 @@ class PdfSplitService:
             ]
         )
 
+        # 分段阶段（merge_summary=False）要合入取字阶段已写的键，逐页质量 / 取字参数都靠它保留
+        previous_summary = {} if merge_summary else dict(job.summary_payload or {})
         PdfSplitJob.objects.filter(id=job.id).update(
             status=PdfSplitJobStatus.REVIEW_REQUIRED,
             progress=100,
@@ -357,6 +381,7 @@ class PdfSplitService:
             processed_pages=len(outcome.pages),
             current_page=len(outcome.pages),
             summary_payload={
+                **previous_summary,
                 "split_mode": PdfSplitMode.CONTENT_ANALYSIS,
                 "template_key": job.template_key,
                 "template_version": job.template_version,

@@ -79,6 +79,10 @@ def _pages_payload_path(storage: PdfSplitStorage) -> Path:
     return storage.pages_json_path
 
 
+def _page_quality_payload_path(storage: PdfSplitStorage) -> Path:
+    return storage.page_quality_json_path
+
+
 def save_pages(storage: PdfSplitStorage, pages: list[Any]) -> None:
     """把取字结果落盘（第二阶段与断点续传的输入）。"""
     payload = [asdict(page) if hasattr(page, "__dataclass_fields__") else page for page in pages]
@@ -96,6 +100,28 @@ def load_pages(storage: PdfSplitStorage) -> list[dict[str, Any]]:
         logger.warning("pdf_split_pages_unreadable", extra={"path": str(path)})
         return []
     return raw if isinstance(raw, list) else []
+
+
+def save_page_quality(storage: PdfSplitStorage, payload: dict[str, Any]) -> None:
+    """落盘页面质量画像（summary 区块 + 逐页画像）。
+
+    必须在取字阶段落盘：分段阶段要据此给每段贴 ``quality_flags``，
+    而那时取字结果只剩 pages.json，拿不到逐页判定。
+    """
+    storage.write_json(_page_quality_payload_path(storage), payload)
+
+
+def load_page_quality(storage: PdfSplitStorage) -> dict[str, Any]:
+    """读回页面质量画像；不存在或损坏返回空表（旧任务没这个产物，分段阶段照常跑）。"""
+    path = _page_quality_payload_path(storage)
+    try:
+        if not path.exists():
+            return {}
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        logger.warning("pdf_split_page_quality_unreadable", extra={"path": str(path)})
+        return {}
+    return raw if isinstance(raw, dict) else {}
 
 
 def advance_to_segment_stage(job: PdfSplitJob, *, pages_count: int) -> None:

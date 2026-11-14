@@ -32,9 +32,16 @@ def run_extract_stage(job_id: str) -> None:  # pragma: no cover
             PdfSplitJob.objects.filter(id=job.id).update(status=PdfSplitJobStatus.CANCELLED, finished_at=timezone.now())
             return
 
-        pages, _summary = split_service.extract_stage(job)
+        pages, summary = split_service.extract_stage(job)
         storage = PdfSplitStorage(job.id)
         two_stage.save_pages(storage, pages)
+        # 页面质量画像必须在这里落盘：段级 quality_flags 要到分段阶段才贴得上，
+        # 而那时只剩 pages.json，取不回逐页判定（详见 page_quality_summary 模块注释）。
+        # 判据是启发式，只当提示用：算它出错也不能让取字阶段失败。
+        try:
+            two_stage.save_page_quality(storage, dict(summary.get("page_quality") or {}))
+        except Exception:
+            logger.exception("pdf_split_page_quality_save_failed", extra={"job_id": job_id})
         job.refresh_from_db(fields=["progress", "total_pages"])
         two_stage.advance_to_segment_stage(job, pages_count=len(pages))
     except Exception as exc:

@@ -7,8 +7,12 @@ import {
   canAutoSplitMat,
   detectAutoSplitConflicts,
   fillSegmentText,
+  readInconsistencies,
+  readPageQuality,
+  withPageQuality,
   type AutoSplitConflict,
 } from '../../draft'
+import type { Inconsistency, PageQuality } from '../../types'
 import { useReader } from '../../store'
 import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
 import type { DraftState, PdfSplitSegmentSuggestion } from '../../types'
@@ -24,11 +28,18 @@ import { blocksToMarkdown, guessImageType, pollJob, segmentBackendOf } from './a
  */
 export type RerunChoice = 'keep' | 'overwrite' | 'cancel'
 
-/** 单个 PDF 的云端拆分结果：mi 定位材料，segmentBackend 用于提示分段质量来源 */
+/**
+ * 单个 PDF 的云端拆分结果：mi 定位材料，segmentBackend 用于提示分段质量来源。
+ * 另带两类「机器读到什么」的统计（都可能缺，旧任务 / 后端未算时为空）：
+ *   · page_quality —— 哪几页是图纸/照片、哪几页几乎没字（→ 段行标记 + 正文提示条）
+ *   · inconsistencies —— 同一枚章 / 同一个字段被识别成两种写法（→ 全局清单）
+ */
 interface AutoSplitResult {
   mi: number
   segments: PdfSplitSegmentSuggestion[]
   segmentBackend: string
+  pageQuality: PageQuality | null
+  inconsistencies: Inconsistency[]
 }
 
 /**
@@ -154,7 +165,13 @@ export function useAutoSplit() {
           setProgress(`云端识别完成 ${finished}/${jobs.length}`)
           settled.push({
             status: 'fulfilled',
-            value: { mi, segments: result.segments, segmentBackend: segmentBackendOf(result) },
+            value: {
+              mi,
+              segments: result.segments,
+              segmentBackend: segmentBackendOf(result),
+              pageQuality: readPageQuality(result.summary.page_quality),
+              inconsistencies: readInconsistencies(result.summary.inconsistencies),
+            },
           })
         } catch (error) {
           settled.push({ status: 'rejected', reason: error })
@@ -213,8 +230,11 @@ export function useAutoSplit() {
       // 选「用识别结果覆盖」（或本来就没冲突）就走原版，行为与重跑前完全一致。
       const applyFor = choice === 'keep' ? applyAutoSplitPreservingEdits : applyAutoSplit
       for (const result of results) {
-        current.update((value) => applyFor(value, result.mi, result.segments))
+        // 页级质量跟着同一次识别结果一起落到草稿上（只用于展示，不入库）
+        current.update((value) => withPageQuality(applyFor(value, result.mi, result.segments), result.pageQuality))
       }
+      // 跨页不一致是全本的：多个源的结果合并进同一份清单
+      current.setInconsistencies(results.flatMap((item) => item.inconsistencies))
       for (const item of photoTexts) {
         current.update((value) => fillSegmentText(value, item.mi, item.md))
       }

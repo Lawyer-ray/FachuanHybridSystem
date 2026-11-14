@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { blockKeyOf } from '../../draft/block-keys'
 import type { Segment } from '../../types'
+import { SegmentQualityHint } from './SegmentQualityHint'
 import { BlockRow, WholeTextEditor } from './SegmentRow'
 import { SuspectsPanel } from './SuspectsPanel'
 
@@ -37,6 +38,11 @@ import { SuspectsPanel } from './SuspectsPanel'
  * **为什么不在行内画小圆点**：`findSuspects` 的行号是 markdown 行号，而面板渲染的是
  * `blocks`，两者无对应关系（一个表格块在 md 里展开成几十行），按行号画必然指错行。
  * 标注指错比不标注更糟——律师会连带不信其它正确的标注。详细权衡见 `SuspectsPanel.tsx`。
+ *
+ * ## 质量提示（图纸 / 稀疏页）
+ *
+ * 可疑点是「这几个字可能认错了」，质量提示是「这一段根本看不出内容」——两件事。
+ * 所以提示条放在标题下方（进面板第一眼就看到），而不是混进正文后的可疑点清单。
  */
 export function SegmentMarkdown({
   seg,
@@ -49,6 +55,8 @@ export function SegmentMarkdown({
   onEditMarkdown,
   onEditBlock,
   onRemoveBlock,
+  graphicPages = [],
+  onGotoPage,
 }: {
   seg: Segment | null
   /** 展开态由父级持有（右栏其它块共用同一个折叠开关，避免各自记住状态） */
@@ -70,6 +78,10 @@ export function SegmentMarkdown({
   onEditBlock?: (key: string, text: string) => void
   /** 删掉一个画错的定位框（只删坐标，不动正文） */
   onRemoveBlock?: (key: string) => void
+  /** 本段页范围里疑似图纸/照片的页号（来自 summary.page_quality，旧任务为空） */
+  graphicPages?: number[]
+  /** 点提示条跳原页；不传则提示条不可点（只陈述事实） */
+  onGotoPage?: (page: number) => void
 }) {
   // 正在编辑的那一行的 key；null = 全部只读
   const [editingKey, setEditingKey] = useState<string | null>(null)
@@ -128,6 +140,10 @@ export function SegmentMarkdown({
           {seg.md.length} 字
         </span>
       </button>
+
+      {/* 质量提示紧贴标题之下：正文里的几行零散字符看不出是图纸，这句必须写在
+          律师开始读正文之前，而不是读完了再在底部告诉他。 */}
+      <SegmentQualityHint flags={seg.qualityFlags} graphicPages={graphicPages} onGotoPage={onGotoPage} />
 
       {open && (
         <div className="flex flex-col gap-1">

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { FileText, Image, Layers, PencilLine } from 'lucide-react'
+import { FileText, Image, Layers, PencilLine, ScanText } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
-import type { BundleMat, DraftState } from '../../types'
-import { isAutoSegName, isWholeMat, segMats } from '../../draft'
+import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
+import { graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
 import { useRailWidth } from './use-rail-width'
 
@@ -16,6 +16,9 @@ import { useRailWidth } from './use-rail-width'
  */
 export function Rail({
   draft,
+  pageQuality = null,
+  inconsistencies = [],
+  onOpenInconsistencies,
   onFocusSeg,
   onRenameMat,
   onRenameSeg,
@@ -26,6 +29,12 @@ export function Rail({
   wide = false,
 }: {
   draft: DraftState
+  /** 页级质量统计（旧任务没有）：只用来给段行挂「含图纸」标记 */
+  pageQuality?: PageQuality | null
+  /** 跨页不一致（旧任务为空）：只用来数徽标数字 */
+  inconsistencies?: Inconsistency[]
+  /** 点「不一致」入口打开全本清单；不传则不渲染该入口 */
+  onOpenInconsistencies?: () => void
   onFocusSeg: (si: number) => void
   onRenameMat: (mi: number) => void
   onRenameSeg: (si: number, name: string) => void
@@ -69,6 +78,7 @@ export function Rail({
   const rowProps = (si: number) => ({
     seg: draft.segs[si]!,
     si,
+    graphicPages: graphicPagesOf(draft.segs[si], pageQuality),
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !!draft.segs[si]!.t || !isAutoSegName(draft, draft.segs[si]!),
@@ -143,9 +153,25 @@ export function Rail({
         onPointerCancel={rail.endDrag}
         className="absolute inset-y-0 -right-1 z-20 w-2 cursor-col-resize touch-none hover:bg-foreground/10 active:bg-foreground/20"
       />
-      <h4 className="px-1 text-sm font-medium">
-        材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
-      </h4>
+      <div className="flex items-center gap-1">
+        <h4 className="px-1 text-sm font-medium">
+          材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
+        </h4>
+        {/* 跨页不一致入口：偏偏是「同一枚章认错 5 次」这种案子关键处逐页读发现不了，
+            所以给一个常驻入口 + 数字徽标。徽标用灰底（不上彩色语义），0 处时整个入口不渲染。 */}
+        {onOpenInconsistencies && inconsistencies.length > 0 && (
+          <button
+            type="button"
+            data-inconsistency-entry
+            onClick={onOpenInconsistencies}
+            title={`全本 ${inconsistencies.length} 处跨页写法不一致（疑似错字）`}
+            className="ml-auto flex flex-none items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <ScanText className="h-3.5 w-3.5" aria-hidden />
+            <span className="rounded-full bg-secondary px-1 tabular-nums">{inconsistencies.length}</span>
+          </button>
+        )}
+      </div>
 
       {draft.segs.length === 0 && (
         <p className="px-1 text-xs text-muted-foreground">还没有材料。先点右上角新建材料包。</p>

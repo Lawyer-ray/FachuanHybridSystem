@@ -28,6 +28,7 @@ export function useReaderStoreFields() {
     selPages: useReader((s) => s.selPages),
     ocrPending: useReader((s) => s.ocrPending),
     assignOpen: useReader((s) => s.assignOpen),
+    inconsistencies: useReader((s) => s.inconsistencies),
     error: useReader((s) => s.error),
 
     // 动作（稳定引用）

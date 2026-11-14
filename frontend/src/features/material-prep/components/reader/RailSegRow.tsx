@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FileImage } from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -41,6 +42,7 @@ export function RailSegRow({
   crossGroup = false,
   selected = false,
   dropPos = null,
+  graphicPages = [],
   editing,
   onStartEdit,
   onFocus,
@@ -62,6 +64,8 @@ export function RailSegRow({
   selected?: boolean
   /** 本行正被拖拽悬停的插入位置（上半 / 下半） */
   dropPos?: DropPos | null
+  /** 本段页范围里疑似图纸/照片的页号（来自 summary.page_quality，旧任务为空） */
+  graphicPages?: number[]
   /** 行内改名由父层持有（右键「重命名」也要打开它） */
   editing: boolean
   onStartEdit: () => void
@@ -174,6 +178,19 @@ export function RailSegRow({
             <span className="min-w-0 flex-1 truncate text-[13px]">{midEllipsis(displayName)}</span>
           )}
           {meta && !editing && <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{meta}</span>}
+          {/* 图形页标记：只给一个极淡的灰图标，不上色、不加文字。
+              左栏是「找材料」的目录，上一版正是因此把彩色类型圆点删掉了；
+              但「这一份里有几页是图纸，正文看不出内容」是律师确实会漏掉的信息，
+              所以留一个**最小干扰**的标记：图标本身不抢视线，说明放 tooltip。 */}
+          {!editing && graphicPages.length > 0 && (
+            <span
+              data-graphic-mark
+              className="flex-none text-zinc-400"
+              title={`含 ${graphicPages.length} 页疑似图纸/照片，请核对原图`}
+            >
+              <FileImage className="h-3 w-3" aria-hidden />
+            </span>
+          )}
           {!editing && seg.reviewFlag === 'low_confidence' ? (
             <span className="flex-none text-[10px] text-amber-700" title="自动识别置信度低，建议核对">
               复核

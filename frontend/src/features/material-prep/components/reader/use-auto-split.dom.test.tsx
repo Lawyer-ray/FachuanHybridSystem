@@ -28,6 +28,10 @@ const draftMock = vi.hoisted(() => ({
   canAutoSplitMat: vi.fn(),
   detectAutoSplitConflicts: vi.fn(),
   fillSegmentText: vi.fn((v: unknown) => ({ ...(v as object), filled: true })),
+  // 质量统计的收窄 + 落草稿：真实实现是纯函数，这里只需能穿过去
+  readPageQuality: vi.fn((raw: unknown) => (raw && typeof raw === 'object' ? raw : null)),
+  readInconsistencies: vi.fn((raw: unknown) => (Array.isArray(raw) ? raw : [])),
+  withPageQuality: vi.fn((v: unknown) => v),
 }))
 const storeMock = vi.hoisted(() => ({
   getState: vi.fn(),
@@ -62,6 +66,7 @@ function setup({ mats = [pdfMat(0)], openId = 1 } = {}) {
     openId,
     draft: { mats },
     update,
+    setInconsistencies: vi.fn(),
   })
   return { update }
 }

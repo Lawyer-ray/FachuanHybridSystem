@@ -379,3 +379,67 @@ describe('Rail：多选操作条', () => {
     container.remove()
   })
 })
+
+/**
+ * 质量相关：左栏顶部「跨页不一致」入口 + 段行拿到的图形页。
+ * 两件事都依赖 `summary` 里的统计，旧任务没有——所以「缺数据不显示」本身就是用例。
+ */
+describe('Rail：质量入口与图形页', () => {
+  const inconsistent = {
+    canonical: '罗向文',
+    variant: '罗问文',
+    canonical_count: 178,
+    variant_count: 5,
+    pages: [12],
+    confidence: 'high',
+  }
+
+  it('有不一致时顶部出现入口，徽标数字等于条数', () => {
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 0 }])]),
+      inconsistencies: [inconsistent, { ...inconsistent, variant: '罗文向' }],
+      onOpenInconsistencies: vi.fn(),
+    })
+    const entry = container.querySelector('[data-inconsistency-entry]') as HTMLElement
+    expect(entry).toBeTruthy()
+    expect(entry.textContent).toContain('2')
+    container.remove()
+  })
+
+  it('点入口回调打开清单', () => {
+    const onOpenInconsistencies = vi.fn()
+    const { container } = renderRail({
+      draft: makeDraft([seg('s1', 'A', [{ mi: 0, p: 0 }])]),
+      inconsistencies: [inconsistent],
+      onOpenInconsistencies,
+    })
+    fireEvent.click(container.querySelector('[data-inconsistency-entry]')!)
+    expect(onOpenInconsistencies).toHaveBeenCalled()
+    container.remove()
+  })
+
+  it('旧任务无不一致数据时不渲染入口（不给一个空清单的假入口）', () => {
+    const { container } = renderRail({ onOpenInconsistencies: vi.fn() })
+    expect(container.querySelector('[data-inconsistency-entry]')).toBeNull()
+    container.remove()
+  })
+
+  it('段行拿到的是它自己覆盖到的图形页', () => {
+    const { container } = renderRail({
+      draft: makeDraft([
+        seg('s1', 'A', [{ mi: 0, p: 1 }]),
+        seg('s2', 'B', [{ mi: 0, p: 2 }]),
+      ], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 2 }]),
+      pageQuality: { graphic_pages: [2], sparse_pages: [], blank_pages: [], details: {} },
+    })
+    expect(rowProps[0]!.graphicPages).toEqual([])
+    expect(rowProps[1]!.graphicPages).toEqual([2])
+    container.remove()
+  })
+
+  it('没有 pageQuality 时段行拿到空数组（不崩）', () => {
+    const { container } = renderRail()
+    expect(rowProps[0]!.graphicPages).toEqual([])
+    container.remove()
+  })
+})

@@ -7,7 +7,7 @@
  * - 键盘：Enter/空格跳转、F2 进改名
  * - 双击进改名；改名 Enter 提交、Escape 取消、失焦提交；空名不提交
  * - 拖拽：dragstart 带上 si、dragover 按上下半给 before/after、drop/dragend 回调
- * - 视觉：未分类琥珀色、低置信度「复核」标、插入线位置
+ * - 视觉：未分类琥珀色、低置信度「复核」标、插入线位置、图形页灰图标标记
  * - 名字中部省略（尾部区分信息不能被截掉）
  */
 import { createEvent, fireEvent, render, screen, within } from '@testing-library/react'
@@ -265,6 +265,29 @@ describe('RailSegRow：视觉态', () => {
     const { container, unmount } = renderRow({ dropPos: 'after' })
     const line = container.querySelector('.bg-foreground\\/70') as HTMLElement
     expect(line.className).toContain('-bottom-')
+    unmount()
+  })
+
+  it('覆盖图形页时挂灰图标标记，tooltip 给出页数', () => {
+    const { container, unmount } = renderRow({ graphicPages: [147, 148] })
+    const mark = container.querySelector('[data-graphic-mark]') as HTMLElement
+    expect(mark).toBeTruthy()
+    expect(mark.getAttribute('title')).toContain('含 2 页疑似图纸')
+    // 不上彩色：与「删掉彩色圆点」的决定保持一致，只用灰色
+    expect(mark.className).toContain('text-zinc-400')
+    expect(mark.className).not.toContain('amber')
+    unmount()
+  })
+
+  it('没有图形页时不挂标记（旧任务无 page_quality 也不报错）', () => {
+    const { container, unmount } = renderRow()
+    expect(container.querySelector('[data-graphic-mark]')).toBeNull()
+    unmount()
+  })
+
+  it('改名字时不出图形页标记（不让图标挤在输入框旁）', () => {
+    const { container, unmount } = renderRow({ graphicPages: [147], editing: true })
+    expect(container.querySelector('[data-graphic-mark]')).toBeNull()
     unmount()
   })
 
