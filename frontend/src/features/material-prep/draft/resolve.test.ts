@@ -47,10 +47,19 @@ describe('resolveMats 页数解析', () => {
     expect(mockedFetch).toHaveBeenCalledWith(384, 3)
   })
 
-  it('下载失败：页数回落为 1，不抛错', async () => {
+  it('下载失败：页数回落为 1 并标 pagesUnknown，不抛错', async () => {
+    // pages 保持 1 是为了让初始草稿至少有一段可渲染（0 会产出空 refs 的空段）；
+    // pagesUnknown 才表达「这个 1 是猜的，别拿它做按页切分的判断」。
     mockedFetch.mockRejectedValue(new Error('network'))
     const mats = await resolveMats(detail([pdfAtt()]))
-    expect(mats).toEqual([{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 1 }])
+    expect(mats).toEqual([{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 1, pagesUnknown: true }])
+  })
+
+  it('页数读得出来时不得带 pagesUnknown', async () => {
+    // 标志位只在「真读不出来」时出现，否则会让归案永远走不切页的保守分支
+    const mats = await resolveMats(detail([pdfAtt({ page_count: 12 })]))
+    expect(mats[0]!.pages).toBe(12)
+    expect(mats[0]!.pagesUnknown).toBeUndefined()
   })
 
   it('非 PDF 附件页数恒为 1，且不触发下载', async () => {

@@ -20,6 +20,24 @@ export interface BundleMat {
   customName?: string
   /** 来源压缩包名（该素材是压缩包展开产物时有值，UI 悬浮展示） */
   from?: string
+  /**
+   * `pages` 是不是**真实数出来的**。
+   *
+   * 为何需要这个字段：PDF 页数读不出来时（未回填 page_count、下载/解析失败），
+   * `resolveMat` 兜底给 `pages: 1`。但这个 1 是**猜的**，不是真的只有一页。
+   *
+   * 不给真实页数会让下游误判：归案时 `cases.ts` 用 `pages` 判断「这段是否
+   * 已覆盖整份」，`pages=1` 配上任意 `pageStart=1,pageEnd=1` 的段就被当成
+   * 「覆盖整份」→ 把 68MB 整卷当 1 页材料传上去，且标 `degraded:false` 不提示。
+   *
+   * 不能直接把兜底改成 `pages: 0`：`initialSegments` 里是
+   * `for (p = 1; p <= pages; p++)`，0 会产出 **空 refs 的空段**，阅读器直接挂掉。
+   * 所以保留 `pages: 1`（保证至少有一段），另用本标志告诉消费方
+   * 「这个页数不可信，涉及按页切分的判断请走保守分支」。
+   *
+   * 缺省（undefined）= 页数可信（非 PDF 固定 1 页 / 后端回填 / pdf.js 数出）。
+   */
+  pagesUnknown?: boolean
 }
 
 /** 页坐标：第几个来源素材 + 第几页（1 起） */

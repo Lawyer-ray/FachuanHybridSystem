@@ -111,8 +111,15 @@ async function segmentUploadBlob(
   original: Blob,
   source: BundleMat | undefined,
 ): Promise<{ blob: Blob; degraded: boolean }> {
-  const unknownPageCount = (source?.pages ?? 0) <= 0
-  const coversWholeSource = seg.pageStart === 1 && seg.pageEnd === source?.pages
+  // 页数不可信（读不出来时兜底成 1）→ 不能拿它判「是否覆盖整份」。
+  //
+  // 真实后果（核查实测）：一份 164 页的卷宗，页数读取失败 → `pages: 1`，
+  // 于是任意 `pageStart=1,pageEnd=1` 的段都被判成「覆盖整份」→ 把 68MB
+  // 整卷当 1 页材料上传，而且 degraded:false 不提示。
+  // 现在 pagesUnknown 为真时直接走「不切页」分支（与页数=0 同口径），
+  // 结果与原来一致（整包传）但语义诚实，且不会被误当成真实页数。
+  const unknownPageCount = (source?.pages ?? 0) <= 0 || source?.pagesUnknown === true
+  const coversWholeSource = !unknownPageCount && seg.pageStart === 1 && seg.pageEnd === source?.pages
   if (unknownPageCount || coversWholeSource) return { blob: original, degraded: false }
 
   const cut = await cutSegmentBlob(original, seg.name, seg.pageStart, seg.pageEnd)
