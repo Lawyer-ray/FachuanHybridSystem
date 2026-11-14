@@ -157,13 +157,18 @@ export function sparsePagesOf(
 export function docHintPagesOf(
   seg: Pick<Segment, 'refs'> | null | undefined,
   quality: PageQuality | null,
-): { page: number; doc: string }[] {
+): { page: number; doc: string; missing: string[] }[] {
   if (!seg) return []
   const hints = quality?.doc_hints
   if (!hints) return []
+  const missings = quality?.doc_missing ?? {}
   return seg.refs.flatMap((r) => {
     const doc = hints[String(r.p)]
-    return doc ? [{ page: r.p, doc }] : []
+    if (!doc) return []
+    // 带上该页的缺失字段：调用方要按「有没有缺」分档提示。
+    // 不带的话，只能对「字段都在」的证件页也写「关键字段可能未读出」——那是撒谎，
+    // 律师翻原图发现字段好好的，以后就不信这个提示了。
+    return [{ page: r.p, doc, missing: missings[String(r.p)]?.missing ?? [] }]
   })
 }
 

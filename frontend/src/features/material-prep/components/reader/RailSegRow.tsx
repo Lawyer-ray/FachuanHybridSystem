@@ -43,7 +43,7 @@ export function RailSegRow({
   selected = false,
   dropPos = null,
   graphicPages = [],
-  docHintDocs = [],
+  docHintPages = [],
   editing,
   onStartEdit,
   onFocus,
@@ -68,7 +68,8 @@ export function RailSegRow({
   /** 本段页范围里疑似图纸/照片的页号（来自 summary.page_quality，旧任务为空） */
   graphicPages?: number[]
   /** 本段覆盖的证件页类型码（`page_quality.doc_hints`，旧任务为空） */
-  docHintDocs?: string[]
+  /** 本段覆盖到的证件页（含该页缺失字段）。`missing` 为空 = 字段都在，只是认出类型 */
+  docHintPages?: { page: number; doc: string; missing: string[] }[]
   /** 行内改名由父层持有（右键「重命名」也要打开它） */
   editing: boolean
   onStartEdit: () => void
@@ -188,11 +189,11 @@ export function RailSegRow({
               的标记：图标本身不抢视线，说明放 tooltip。
               证件页优先级高于图纸页：两者都有时只显示证件图标——缺的是必须抄进
               卷宗的字段，比「这页看不出内容」更该先处理；两个图标并排只会互相稀释。 */}
-          {!editing && docHintDocs.length > 0 ? (
+          {!editing && docHintPages.length > 0 ? (
             <span
               data-doc-mark
               className="flex-none text-zinc-400"
-              title={`含${docHintLabels(docHintDocs)}页，关键字段可能未读出`}
+              title={docHintTooltip(docHintPages)}
             >
               <IdCard className="h-3 w-3" aria-hidden />
             </span>
@@ -251,6 +252,26 @@ function docHintLabels(docs: string[]): string {
   const labels = [...new Set(docs.map(docTypeLabel))]
   if (labels.length <= 2) return labels.join(' / ')
   return `${labels.slice(0, 2).join(' / ')} 等${labels.length}类证件`
+}
+
+/**
+ * 证件页的 tooltip：**按「有没有缺字段」分档**，不能一律写「关键字段可能未读出」。
+ *
+ * 实测 p30 结婚证：姓名两个人都读出来了，`missing` 是空数组。若仍提示「可能未读出」，
+ * 律师翻原图发现字段好好地在——**下次就不信这个提示了**。误报会让整个功能失效，
+ * 与之前删掉彩色类型圆点是同一个道理。
+ *
+ * 分档口径：
+ *   · 有缺字段 → 点名缺什么（与右栏提示条、待补录清单保持一致）
+ *   · 无缺字段 → 中性描述「已认出类型，建议核对原图」
+ */
+function docHintTooltip(pages: { page: number; doc: string; missing: string[] }[]): string {
+  const labels = docHintLabels(pages.map((p) => p.doc))
+  const missing = [...new Set(pages.flatMap((p) => p.missing))]
+  if (missing.length > 0) {
+    return `含${labels}页，${missing.slice(0, 3).join(' / ')}未读出，请核对原图`
+  }
+  return `含${labels}页，建议核对原图`
 }
 
 /** 页区间文案：连续「P5–19」、断续「P3, P7–9」、跨源「跨源」——labels.segRangeText 的本地别名 */

@@ -172,16 +172,21 @@ describe('graphicPagesOf / sparsePagesOf', () => {
 })
 
 describe('docHintPagesOf', () => {
-  const quality = readPageQuality({ doc_hints: { '23': 'id_card', '144': 'property_cert' } })
+  const quality = readPageQuality({
+    doc_hints: { '23': 'id_card', '144': 'property_cert' },
+    doc_missing: { '23': { doc: 'id_card', missing: ['姓名', '身份证号'] } },
+  })
 
-  it('按段内页序返回覆盖到的证件页，跨源重复页号按位置保留', () => {
+  it('按段内页序返回覆盖到的证件页，并带上该页缺失字段', () => {
     expect(docHintPagesOf(seg([[0, 22], [0, 23], [0, 144]]), quality)).toEqual([
-      { page: 23, doc: 'id_card' },
-      { page: 144, doc: 'property_cert' },
+      // p23 有缺失字段：调用方据此分档提示
+      { page: 23, doc: 'id_card', missing: ['姓名', '身份证号'] },
+      // p144 没进 doc_missing：missing 给空数组，不臆造
+      { page: 144, doc: 'property_cert', missing: [] },
     ])
     expect(docHintPagesOf(seg([[0, 23], [1, 23]]), quality)).toEqual([
-      { page: 23, doc: 'id_card' },
-      { page: 23, doc: 'id_card' },
+      { page: 23, doc: 'id_card', missing: ['姓名', '身份证号'] },
+      { page: 23, doc: 'id_card', missing: ['姓名', '身份证号'] },
     ])
   })
 
