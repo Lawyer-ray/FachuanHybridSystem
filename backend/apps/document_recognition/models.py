@@ -115,13 +115,13 @@ class DocumentRecognitionTask(models.Model):
         related_name="recognition_tasks",
         verbose_name="来源法院短信",
     )
-    source_document_path: str = models.CharField(max_length=1024, blank=True, default="", verbose_name="来源文书路径")
+    source_document_path = models.CharField(max_length=1024, blank=True, default="", verbose_name="来源文书路径")
     """来源管线送识别的原文件绝对路径（幂等键：同一短信的同一份文书只建一次任务）。
 
     法院短信场景下 file_path 与它相同；独立上传场景为空串。单靠 file_path 不能做幂等：
     重跑（retry）复用同一行，而"重新送识别"走的是新建行。
     """
-    classification_hint: str = models.CharField(max_length=32, blank=True, default="", verbose_name="文书类型提示")
+    classification_hint = models.CharField(max_length=32, blank=True, default="", verbose_name="文书类型提示")
     """来源管线给出的文书类型提示（仅在分类器认不出时兑底，非空即表示用了兜底）。"""
     created_by: Any = models.ForeignKey(
         "organization.Lawyer",
