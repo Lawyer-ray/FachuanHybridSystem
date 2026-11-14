@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from apps.pdf_splitting.services.job_service import load_segments_md
 from apps.pdf_splitting.services.split.markdown_builder import (
     _html_table_to_markdown,
@@ -140,3 +142,86 @@ class TestLoadSegmentsMd:
         non_list = tmp_path / "non_list.json"
         non_list.write_text('{"order": 1}', encoding="utf-8")
         assert load_segments_md(non_list) == {}
+
+
+class TestTableSplitIntoCells:
+    """大表格拆格：一个框罩住十几行时，律师点不中具体某一格。
+
+    真实痛点（p22，68 格表单）：整表 bbox 高 40% 页面，一个框盖住 17 行 × 4 列，
+    想点「*房产证编号」那一格根本点不中。
+    """
+
+    @staticmethod
+    def _html(rows: int, cols: int) -> str:
+        body = "".join("<tr>" + "".join(f"<td>R{r}C{c}</td>" for c in range(cols)) + "</tr>" for r in range(rows))
+        return f"<table>{body}</table>"
+
+    def test_中等表按单元格拆且坐标按行列均分(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        # 6 行 × 4 列 = 24 格，低于 120 的门槛 → 拆格
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "x" * 100, "bbox": [100, 200, 500, 800], "table_body": self._html(6, 4)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+        cells = [b for b in blocks if b["type"] == "table_cell"]
+
+        assert len(cells) == 24
+        # 首格落在表格左上角，末格落在右下角
+        assert cells[0]["rect"]["x"] == pytest.approx(0.1, abs=0.01)
+        assert cells[0]["rect"]["y"] == pytest.approx(0.2, abs=0.01)
+        assert cells[-1]["rect"]["y"] > cells[0]["rect"]["y"]
+        # 均分推算 → 必须标 approx，不谎报精度
+        assert all(c["rect"]["approx"] is True for c in cells)
+
+    def test_长表只拆到行不拆格(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        # 40 行 × 6 列 = 240 格，超过 120 门槛 → 只拆行（流水类）
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(40, 6)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+        rows = [b for b in blocks if b["type"] == "table_row"]
+        cells = [b for b in blocks if b["type"] == "table_cell"]
+
+        assert len(rows) == 40
+        assert cells == []
+        # 每行保留该行全部单元格文字
+        assert rows[0]["text"] == "R0C0 R0C1 R0C2 R0C3 R0C4 R0C5"
+
+    def test_矮表格不拆保持原样(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        # 高度只占 8% 页面 → 低于拆格门槛，拆了反而让绿框密度过高
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "表内容", "bbox": [100, 100, 900, 180], "table_body": self._html(2, 2)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+
+        assert [b["type"] for b in blocks] == ["table"]
+
+    def test_无表格结构时回退整块(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        # table_body 缺失（Textin 之类不给 HTML）→ 拆不出来，保留原整块
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [{"type": "table", "text": "只有纯文本", "bbox": [100, 100, 900, 900]}],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+
+        assert [b["type"] for b in blocks] == ["table"]

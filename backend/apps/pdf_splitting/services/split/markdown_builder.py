@@ -58,6 +58,141 @@ def build_segments_markdown(
     return results
 
 
+#: 拆格门槛：整表高度超过页面这个比例才拆。
+#:
+#: 为什么不是「有 table 就拆」：一两行的小表格拆开没有意义（每个框都很小，
+#: 反而让绿框密度过高、读不清）。实测 152 个 table 块里 114 个高度 >25%，
+#: 那些才是「一个大框罩住十几行」、律师点不中具体某一格的真问题。
+_TABLE_SPLIT_MIN_HEIGHT_RATIO = 0.18
+
+#: 拆成**单元格**的上限：超过就退回「按行拆」。
+#:
+#: 实测 164 页卷宗里，单元格数存在**明显断层**：
+#:   流水类长表  247 / 256 / 274 / 295 / 307×5 / 974 / 1341 / 1627 / 2046
+#:   表单类中等表  65 / 68 / 69 / 80 / 88 / 92
+#: 断层就落在 92 与 247 之间。取 120 做分界，两类都能干净分开。
+#:
+#: 为什么长表只拆到行：逐格拆会把全卷块数从 1147 撑到 6062（5.3 倍），前端渲染
+#: 几千个绝对定位框会明显卡顿；而且流水的单格本身无点击价值——律师要看的是「哪一行」。
+_TABLE_CELL_SPLIT_MAX = 120
+
+#: 拆成**行**的上限：再超过就整体保留。
+#:
+#: 237 行的超长表格拆行意义也不大（每行只有 3px 高，点不中），
+#: 而且块数同样会爆。这类表在卷宗里就是流水，律师靠原文检索而非点框。
+_TABLE_ROW_SPLIT_MAX = 80
+
+
+def _table_cell_count(html: str) -> int:
+    """表格的单元格总数（用于决定拆到格还是拆到行）。"""
+    return sum(len(_CELL_RE.findall(row_html)) for row_html in _TR_RE.findall(html))
+
+
+def _split_table_into_cells(
+    *,
+    page_no: int,
+    rect: dict[str, Any],
+    html: str,
+    unit: str,
+    by_row_only: bool = False,
+) -> list[dict[str, Any]]:
+    """把一个大表格块按行列均分，拆成逐格块。
+
+    ## 为什么可以均分
+
+    MinerU 对表格只给**整表 bbox**，不给逐格坐标。但它在 ``table_body`` 里给了
+    完整的 HTML 结构（行列齐全）。等宽表格按行列数均分整表矩形，落点误差只在
+    半格以内 —— 律师要的是「点中这一格」而不是像素级精确，这个精度够用。
+
+    实测 p22：17 行 × 4 列全部对齐，bbox=[192,154,790,554]，
+    每格约 149.5 × 23.5 px。
+
+    ## 为什么拆格而不是拆行
+
+    律师的痛点是「我要点在『*房产证编号』这一格上，不要框住整张表」。
+    只拆到行仍然要在一行四格里挑，还是点不准。拆到单元格才是真正可点击的粒度。
+
+    ## by_row_only：长表格只拆到行
+
+    超过 ``_TABLE_CELL_SPLIT_MAX`` 格的长表（银行流水类）逐格拆会把块数撑爆
+    （实测全卷 1147 → 6062），且流水的单格本身无点击价值。这类表按行合并成
+    一个块，每行保留该行全部单元格的文字拼接——律师点中「哪一行」就够用了。
+
+    ## 返回空列表的条件（调用方保留原整块）
+
+    - 行/列数算不出来
+    - 行数超过 ``_TABLE_ROW_SPLIT_MAX``
+    - 所有格子文字都为空
+    """
+    rows = _TR_RE.findall(html)
+    if not rows:
+        return []
+
+    parsed: list[list[str]] = []
+    for row_html in rows:
+        cells = [_TAG_RE.sub("", cell).strip() for cell in _CELL_RE.findall(row_html)]
+        if cells:
+            parsed.append(cells)
+    if not parsed:
+        return []
+
+    row_count = len(parsed)
+    col_count = max(len(cells) for cells in parsed)
+    if row_count <= 0 or col_count <= 0 or row_count > _TABLE_ROW_SPLIT_MAX:
+        return []
+
+    x0, y0 = float(rect["x"]), float(rect["y"])
+    total_w, total_h = float(rect["w"]), float(rect["h"])
+    cell_w = total_w / col_count
+    cell_h = total_h / row_count
+
+    out: list[dict[str, Any]] = []
+
+    if by_row_only:
+        # 长表（流水）：一行一个块，文字是该行各格拼起来的
+        for row_index, cells in enumerate(parsed):
+            row_text = " ".join(cell for cell in cells if cell).strip()
+            if not row_text:
+                continue
+            out.append(
+                {
+                    "page": page_no,
+                    "type": "table_row",
+                    "text": row_text,
+                    "rect": {
+                        "x": round(x0, 4),
+                        "y": round(y0 + cell_h * row_index, 4),
+                        "w": round(total_w, 4),
+                        "h": round(cell_h * 0.92, 4),
+                        "approx": True,
+                    },
+                }
+            )
+        return out
+
+    for row_index, cells in enumerate(parsed):
+        for col_index, text in enumerate(cells):
+            if not text:
+                continue
+            out.append(
+                {
+                    "page": page_no,
+                    "type": "table_cell",
+                    "text": text,
+                    "rect": {
+                        "x": round(x0 + cell_w * col_index, 4),
+                        "y": round(y0 + cell_h * row_index, 4),
+                        # 每格留 1px 级的缝：相邻格边框不重叠，律师看得出是两格
+                        "w": round(cell_w * 0.97, 4),
+                        "h": round(cell_h * 0.94, 4),
+                        # 均分推算出来的，不是量出来的 —— 前端画虚线，不谎报精度
+                        "approx": True,
+                    },
+                }
+            )
+    return out
+
+
 def build_positioned_blocks(
     pages: list[PageDescriptor],
     *,
@@ -94,6 +229,21 @@ def build_positioned_blocks(
             )
             if rect is None:
                 continue
+            # 大表格拆成逐格块：一个大框罩住十几行时，律师点不中具体某一格。
+            # 实测 152 个 table 块里 114 个高度 >25% 页面，这是普遍的体验问题。
+            if block_type == "table" and float(rect["h"]) >= _TABLE_SPLIT_MIN_HEIGHT_RATIO:
+                table_html = str(block.get("table_body") or block.get("table_structure") or "")
+                cells = _split_table_into_cells(
+                    page_no=page.page_no,
+                    rect=rect,
+                    html=table_html,
+                    unit=unit,
+                    by_row_only=_table_cell_count(table_html) > _TABLE_CELL_SPLIT_MAX,
+                )
+                if cells:
+                    out.extend(cells)
+                    continue
+
             entry: dict[str, Any] = {
                 "page": page.page_no,
                 "type": block_type or "text",
