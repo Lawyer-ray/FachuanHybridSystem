@@ -58,6 +58,30 @@ DEFAULT_TYPE_BY_DOCUMENT_TYPE: dict[DocumentType, str] = {
 MAX_CANDIDATES = 8
 STALE_DAYS = 180
 
+# 判决书 / 调解书里**只记救济期限**（上诉期、复议期），不记判项给付义务。
+#
+# 口径（业务确认 2026-11-14）：
+#   - 判项写「被告于本判决发生法律效力之日起十日内支付 XX 元」——这是**当事人的**
+#     履行义务，律师不需要在日历上跟进；
+#   - 判决书正文引述的**合同条款**（「《采购单》约定货到 3 日内付款」）同理，一律不记；
+#   - 判决书/调解书里律师真正要跟的是**上诉期**（未上诉则判决生效，影响后续一切）。
+#
+# 唯独例外：如果判项里出现「向**本院**缴纳」（诉讼费由法院收），那是要跟进的缴费，
+# 不属于当事人之间的给付，保留。
+_JUDGMENT_TITLE_RE = re.compile(r"(?:民事|刑事|行政)?(?:判决书|调解书)")
+# 判项给付义务 / 合同条款的典型锚点（当事人之间，判决书里一律不记）：
+#   - 判项：「本判决发生法律效力之日起十日内支付」；
+#   - 合同：「《采购单》约定货到 3 日内付款」「合同约定…日内交付」。
+_PAYMENT_ORDER_RE = re.compile(
+    r"(?:发生法律效力|判决生效|调解书生效|本判决|本调解书"
+    r"|合同约定|约定|协议约定|《[^》]{1,20}》[^。；]{0,20}约定)"
+)
+_REFUSAL_KEEP_RE = re.compile(r"向本院(?:缴纳|交纳|支付|退回)")
+
+# 超出这个天数的「未来日期」视为长期约定（房贷 30 年到期日 / 土地租期等），降置信不默认勾选。
+# 法院文书里真正要跟进的人工期限（上诉/举证/保全/缴费）几乎不会超过 10 年。
+FAR_FUTURE_DAYS = 365 * 10
+
 _DATETIME_FORMATS = ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d")
 
 # 期间表达式：从/自 X 起 至/到 Y（Y 年份允许 5 位——OCR 把 2025 识别成 20254 的高频错）
@@ -122,11 +146,17 @@ EFFECTIVE_FIRST_NOTE = (
 )
 
 # 相对期限的事件类型：按动作动词判（「保全费…交纳」须判 payment 而非被名词「保全」带偏）
+# 顺序有讲究：先匹配到的赢，所以「上诉」必须排在「申请」之前
+# （"如不服本判决…十五日内上诉" 是上诉期；"如不服本裁定…五日内申请复议" 是复议期）。
 _RELATIVE_EVENT_TYPES: list[tuple[str, tuple[str, ...]]] = [
     ("payment_deadline", ("交纳", "缴纳", "缴款", "缴费", "付款", "支付", "付清")),
-    ("submission_deadline", ("补正", "提交材料", "递交材料")),
     ("appeal_deadline", ("上诉",)),
     ("evidence_deadline", ("举证",)),
+    # 「复议」是裁定书特有的救济期限（如「自收到裁定书之日起五日内申请复议」）。
+    # ReminderType 没有复议类，归到 submission_deadline（向法院提交/申请的期限）。
+    # 缺这条会落到 other → 过期后被「纯历史过滤」删掉，律师就完全看不到
+    # 「复议期已过」这个事实（2026-11-14 全量扫描 119 份 PDF 发现）。
+    ("submission_deadline", ("复议", "申请", "补正", "提交材料", "递交材料", "提出异议")),
 ]
 
 _CN_DIGITS: dict[str, int] = {
@@ -419,6 +449,47 @@ def _cn_to_int(value: str) -> int | None:
     return None
 
 
+def _is_judgment_document(text: str) -> bool:
+    """本文书是不是判决书 / 调解书（按文首标题判，可靠且不依赖 LLM）。
+
+    只看开头 400 字——标题在文首；正文里引用别的判决书不会误判。
+    """
+    return bool(_JUDGMENT_TITLE_RE.search((text or "")[:400]))
+
+
+def _is_party_payment_obligation(draft: DateCandidateDraft, text: str) -> bool:
+    """判决书/调解书里的这条候选，是否属于「当事人之间的给付义务」（不该记）。
+
+    口径（业务确认 2026-11-14）：判决书/调解书里律师**只跟救济期限**（上诉期/复议期）。
+    - 判项给付（「被告于本判决生效之日起十日内支付 XX 元」）→ 当事人自己的义务，不记；
+    - 调解书分期付款（「被告定于 2026年6月30日前支付 15000 元」）→ 同上，不记；
+    - 正文引述的合同条款付款期（「《采购单》约定货到 3 日内付款」）→ 不记。
+
+    **唯一例外**：向**本院**缴纳/交纳（诉讼费由法院收取）→ 保留，律师要跟进。
+
+    实现上直接按类型判（而不是解析每条 context 的话术）：在这两类文书里，
+    `payment_deadline` 几乎必然指向当事人间给付；救济期限走的是
+    appeal_deadline / submission_deadline，不受影响。用「向本院」这一个例外兜住
+    诉讼费，比逐个语术匹配更可靠——实测（2026-11-14）调解书里的分期付款有
+    「向原告支付」「被告定于 X 日前支付」「于 X 日前支付」等多套写法，漏一个就漏全部。
+    """
+    if draft.reminder_type not in ("payment_deadline", "submission_deadline"):
+        return False
+    context = draft.context_text or ""
+    if _REFUSAL_KEEP_RE.search(context):
+        return False  # 向本院缴纳诉讼费 → 保留
+    if draft.reminder_type == "payment_deadline":
+        return True
+    # submission_deadline：只剔除明确属于当事人之间的给付/合同约定
+    return bool(_PAYMENT_ORDER_RE.search(context) or _PAY_TO_PARTY_RE.search(context))
+
+
+# 给付给「对方当事人」而非法院（判决书/调解书里当事人的付款义务）
+_PAY_TO_PARTY_RE = re.compile(
+    r"(?:向|给)(?:原告|被告|申请人|被申请人|对方|申请执行人|被执行人)[^。；]{0,6}(?:支付|给付|付清|付款|履行)"
+)
+
+
 def _is_effective_first_derived(draft: DateCandidateDraft, text: str) -> bool:
     """候选的起算点是否为「发生法律效力之日」（而非送达日）。
 
@@ -470,8 +541,54 @@ def _iter_relative_deadlines(text: str) -> list[tuple[re.Match[str], int, int, i
         days = _parse_cn_number(m.group(1))
         if days is None or not 1 <= days <= 365:
             continue
+        # 锚点必须指向**本**文书：跳过他案引用与商业函件
+        if _anchor_points_to_other_matter(sentence, m):
+            logger.info("跳过锚点指向他案/函件的相对期限: %s", sentence[:60])
+            continue
         results.append((m, days, sent_start, sent_len))
     return results
+
+
+# 他案/非本院文书的标识：出现在锚点之前时，说明这个「送达/收到之日起 N 日」讲的
+# 不是本判决/本裁定的期限，而是正文引述的仲裁裁决、另案判决、商业函件。
+_OTHER_MATTER_MARKERS = (
+    "仲裁",
+    "裁决书",
+    "另案",
+    "他案",
+    "本函",
+    "函件",
+    "书面通知",
+    "告知函",
+    "律师函",
+    "合同约定",
+    "协议约定",
+)
+
+
+def _anchor_points_to_other_matter(sentence: str, match: re.Match[str]) -> bool:
+    """该相对期限的锚点是否指向「他案文书/商业函件」而非本文书。
+
+    实测（2026-11-14 全量扫描 119 份 PDF）两类误判：
+
+    1. 判决书正文**引述**仲裁裁决：
+       「某仲裁委员会…作出（20XX）某仲裁字第0000号**仲裁裁决书**，裁决：一、某公司于
+        本**裁决书**送达之日起十日内向某公司支付检测费…」
+       —— 这是别人的裁决义务，本判决实际是「驳回原告诉讼请求」，无任何缴费义务。
+       旧逻辑用本判决落款日当锚，凭空造出一条「11-07 前交检测费」的假期限。
+
+    2. 证据材料里引述**商业函件**：
+       「…公司在收到本函之日起十个工作日内…」「自收到原告的书面通知之日起…」
+       —— 公司法查阅权纠纷的商业往来，不是法院指定的期限。
+
+    判据：锚点之前的紧邻文本里出现他案/函件标识词。本判决自己的期限写的是
+    「如不服本判决，可在**判决书送达之日起**…」，前面不含这些标识。
+    """
+    # 锚点前后都要看：标识词可能在前（「…仲裁裁决书，裁决：一、…于本裁决书送达之日起」）
+    # 也可能在后（「收到本函之日起十五日内作出书面答复」里「本函」就在锚点中间）。
+    # 仍限制在同一句内（sentence 已按句切分），不会跨句误伤本判决自己的期限。
+    window = sentence[max(0, match.start() - 80) : match.end() + 40]
+    return any(marker in window for marker in _OTHER_MATTER_MARKERS)
 
 
 def _match_relative_draft_by_context(
@@ -772,13 +889,33 @@ def build_date_candidates(
     #   - 未来日期（哪怕类型是 other，也可能是尚未归类的期限）；
     #   - 己过期但类型明确的候选（如上诉期已过、保全到期已过）——
     #     律师需要知道“这个已经过了”，审计/追责时用得上，不能默默隐藏。
+    # 保留两个兜底：
+    #   a) 已过期 + other → 叙事时间线，丢弃；
+    #   b) 超过 FAR_FUTURE_DAYS 的 far-future 日期（>10 年）→ 降置信到 0.3 且标 other，
+    #      这类多是别处的长期约定（房贷 30 年到期日、土地租期）被当成本文书期限。
+    #      实测（2026-11-14 全量扫描）：一份银行贷款合同给出 2051-04-25。
+    #      不直接删——如果律师真的要跟进，行还在，只是不默认勾选。
     kept: list[DateCandidateDraft] = []
     for draft in drafts_list:
         past = draft.due_at.date() < today
         if past and draft.reminder_type == "other":
             continue
+        if (draft.due_at.date() - today).days > FAR_FUTURE_DAYS:
+            draft.confidence = min(draft.confidence, 0.3)
         kept.append(draft)
     drafts_list = kept
+
+    # 4.55 判决书 / 调解书：只保留救济期限（上诉期、复议期），剔除判项给付义务
+    # 与正文引述的合同条款付款期（业务口径：那是当事人自己的事，与律师日历无关）。
+    if _is_judgment_document(text):
+        before = len(drafts_list)
+        drafts_list = [d for d in drafts_list if not _is_party_payment_obligation(d, text)]
+        if len(drafts_list) != before:
+            logger.info(
+                "判决书/调解书剔除当事人给付义务期限: %d → %d 条",
+                before,
+                len(drafts_list),
+            )
 
     # 4.6 标注「生效之日起算」的履行期限（不丢弃，见 _EFFECTIVE_FIRST_RE 注释）
     for draft in drafts_list:
