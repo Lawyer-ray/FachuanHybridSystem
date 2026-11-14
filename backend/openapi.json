@@ -13610,6 +13610,58 @@
         ]
       }
     },
+    "/api/v1/pdf-splitting/extract-pages": {
+      "post": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_extract_pdf_pages",
+        "summary": "Extract Pdf Pages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "从上传的 PDF 里按页范围切出一份小 PDF，回字节流。\n\n归案（材料包 → 案件材料）用：后端 CaseMaterial 只认「附件 + 类型名」，\n整包上传会让每份材料都指向同一份完整卷宗（164 页），律师开庭时翻不到\n具体材料。所以先在这里按分段切页，前端再把切好的小 PDF 上传成附件。\n\n入参：file（PDF 上传）+ page_start + page_end（1 起，含两端）。\n出参：application/pdf。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "title": "File",
+                    "type": "string"
+                  },
+                  "page_start": {
+                    "title": "Page Start",
+                    "type": "integer"
+                  },
+                  "page_end": {
+                    "title": "Page End",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "file",
+                  "page_start",
+                  "page_end"
+                ],
+                "title": "MultiPartBodyParams",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/pdf-splitting/jobs": {
       "post": {
         "operationId": "apps_pdf_splitting_api_pdf_splitting_api_create_pdf_split_job",
@@ -42020,6 +42072,14 @@
               "$ref": "#/components/schemas/PositionedBlockOut"
             },
             "title": "Positioned",
+            "type": "array"
+          },
+          "quality_flags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Quality Flags",
             "type": "array"
           }
         },

@@ -331,3 +331,122 @@ describe('页面框双击 → 进入修改', () => {
     expect(onEditRequestHandled).toHaveBeenCalled()
   })
 })
+
+/**
+ * 质量提示条：正文里只有几行零散字符时，律师**看不出那是图纸**。
+ * 提示条必须写在标题下方（开始读正文之前），并且能一步跳回原页。
+ */
+describe('质量提示条（图纸 / 稀疏页）', () => {
+  it('覆盖图形页时显示提示条并给出页数', () => {
+    const { container } = render(<SegmentMarkdown {...base({ graphicPages: [147, 148] })} />)
+    const hint = container.querySelector('[data-quality-hint]') as HTMLElement
+    expect(hint).toBeTruthy()
+    expect(hint.textContent).toContain('本段含 2 页疑似图纸')
+    expect(hint.textContent).toContain('正文可能不完整')
+    expect(hint.textContent).toContain('建议核对原页')
+    // 页号一并给出，律师才知道去翻哪几页
+    expect(hint.textContent).toContain('P147–148')
+  })
+
+  it('提示条在标题之下、正文之上', () => {
+    const { container, getByText } = render(<SegmentMarkdown {...base({ graphicPages: [147] })} />)
+    const hint = container.querySelector('[data-quality-hint]') as HTMLElement
+    const title = getByText('Markdown 正文')
+    // DOCUMENT_POSITION_FOLLOWING：hint 出现在标题之后
+    expect(title.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('点提示条跳到第一个图形页', () => {
+    const onGotoPage = vi.fn()
+    const { container } = render(<SegmentMarkdown {...base({ graphicPages: [147, 148], onGotoPage })} />)
+    fireEvent.click(container.querySelector('[data-quality-hint]')!)
+    expect(onGotoPage).toHaveBeenCalledWith(147)
+  })
+
+  it('没有 onGotoPage 时提示条只陈述、不可点', () => {
+    const { container } = render(<SegmentMarkdown {...base({ graphicPages: [147] })} />)
+    const hint = container.querySelector('[data-quality-hint]') as HTMLElement
+    expect(hint.tagName).not.toBe('BUTTON')
+  })
+
+  it('段带 quality_flags 但无图形页时，按标记文字提示', () => {
+    const { container } = render(
+      <SegmentMarkdown {...base({ seg: seg({ md: '几行字', qualityFlags: ['sparse'] }) })} />,
+    )
+    const hint = container.querySelector('[data-quality-hint]') as HTMLElement
+    expect(hint.textContent).toContain('文字稀疏')
+  })
+
+  it('旧任务没有质量数据时不渲染提示条', () => {
+    const { container } = render(<SegmentMarkdown {...base()} />)
+    expect(container.querySelector('[data-quality-hint]')).toBeNull()
+  })
+})
+
+/**
+ * 证件页提示：「这页是图纸」与「这页是身份证但姓名没读出」不能共用一句话。
+ * 前者是这页本来就没字，后者是该抄进卷宗的字段丢了——混在一起会让人以为
+ * 证件页也跟图纸一样不用管。
+ */
+describe('质量提示条（证件页）', () => {
+  const idCard = { page: 23, doc: 'id_card', missing: ['姓名', '身份证号', '住址'] }
+
+  it('证件页单独成行，逐页说清类型与缺的字段', () => {
+    const { container } = render(<SegmentMarkdown {...base({ docPages: [idCard] })} />)
+    const hint = container.querySelector('[data-doc-hint]') as HTMLElement
+    expect(hint).toBeTruthy()
+    expect(hint.textContent).toContain('P23 身份证')
+    expect(hint.textContent).toContain('缺：姓名 / 身份证号 / 住址')
+    expect(hint.textContent).toContain('建议核对原页')
+    // 不是「疑似图纸」那套文案
+    expect(hint.textContent).not.toContain('疑似图纸')
+  })
+
+  it('证件页与图纸页同时存在时各占一行，证件在前', () => {
+    const { container } = render(<SegmentMarkdown {...base({ docPages: [idCard], graphicPages: [147] })} />)
+    const doc = container.querySelector('[data-doc-hint]') as HTMLElement
+    const graphic = container.querySelector('[data-quality-hint]') as HTMLElement
+    expect(doc).toBeTruthy()
+    expect(graphic).toBeTruthy()
+    expect(graphic.textContent).toContain('疑似图纸')
+    // 证件页排在图纸页之前：先处理「该抄的字段丢了」
+    expect(doc.compareDocumentPosition(graphic) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('点证件提示条跳到那一页（不是第一张图形页）', () => {
+    const onGotoPage = vi.fn()
+    const { container } = render(
+      <SegmentMarkdown {...base({ docPages: [idCard], graphicPages: [147], onGotoPage })} />,
+    )
+    fireEvent.click(container.querySelector('[data-doc-hint]')!)
+    expect(onGotoPage).toHaveBeenCalledWith(23)
+  })
+
+  it('多页证件各自一行；说不出缺哪个字段时说「关键字段可能未读出」', () => {
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({
+          docPages: [idCard, { page: 42, doc: 'id_card', missing: [] }],
+        })}
+      />,
+    )
+    const rows = container.querySelectorAll('[data-doc-hint]')
+    expect(rows).toHaveLength(2)
+    expect(rows[1]!.textContent).toContain('P42 身份证')
+    // 不冒充「缺：」半句话，也不静默省略类型
+    expect(rows[1]!.textContent).toContain('关键字段可能未读出')
+    expect(rows[1]!.textContent).not.toContain('缺：')
+  })
+
+  it('没有 onGotoPage 时证件提示只陈述、不可点', () => {
+    const { container } = render(<SegmentMarkdown {...base({ docPages: [idCard] })} />)
+    const hint = container.querySelector('[data-doc-hint]') as HTMLElement
+    expect(hint.tagName).not.toBe('BUTTON')
+  })
+
+  it('旧任务没有 doc_hints 时不渲染任何提示条（含证件行）', () => {
+    const { container } = render(<SegmentMarkdown {...base({ docPages: [] })} />)
+    expect(container.querySelector('[data-doc-hint]')).toBeNull()
+    expect(container.querySelector('[data-quality-hint]')).toBeNull()
+  })
+})

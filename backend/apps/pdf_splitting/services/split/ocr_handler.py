@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -219,26 +220,37 @@ class OCRHandler:
         return digest.hexdigest()
 
     def read_ocr_cache(self, *, pdf_hash: str, profile_key: str, page_no: int) -> OCRPageResult | None:
-        rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=page_no)
-        if not default_storage.exists(rel_path):
-            return None
-        try:
-            with default_storage.open(rel_path) as f:
-                payload = json.loads(f.read().decode("utf-8"))
-            text = str(payload.get("text") or "")
-            ocr_failed = bool(payload.get("ocr_failed"))
-            return OCRPageResult(
+        cache_dir = _ocr_cache_dir(pdf_hash=pdf_hash, profile_key=profile_key)
+        canonical_name = _ocr_cache_page_filename(page_no=page_no)
+        names = [canonical_name] + [
+            name for name in _ocr_cache_candidate_names(cache_dir=cache_dir, page_no=page_no) if name != canonical_name
+        ]
+        entries: list[_OcrCacheEntry] = []
+        for name in names:
+            entry = _load_ocr_cache_entry(
+                storage=default_storage,
+                rel_path=f"{cache_dir}/{name}",
                 page_no=page_no,
-                text=text,
-                source_method="ocr_cache" if text else "ocr_failed_cache",
-                ocr_failed=ocr_failed,
-                layout=payload.get("layout") if isinstance(payload.get("layout"), dict) else None,
             )
-        except (json.JSONDecodeError, OSError):
-            logger.exception("pdf_split_ocr_cache_read_failed", extra={"cache_file": rel_path})
+            if entry is not None:
+                entries.append(entry)
+        if not entries:
             return None
 
-    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:  # pragma: no cover
+        best = max(entries, key=_ocr_cache_entry_key)
+        best_name = best.name
+        best_result = best.result
+
+        if best_name != canonical_name:
+            _promote_ocr_cache_entry(
+                pdf_hash=pdf_hash,
+                profile_key=profile_key,
+                page_no=page_no,
+                chosen_name=best_name,
+            )
+        return best_result
+
+    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:
         rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
         payload = {
             "text": result.text,
@@ -246,12 +258,164 @@ class OCRHandler:
             "source_method": result.source_method,
             "layout": result.layout,
         }
-        default_storage.save(rel_path, ContentFile(json.dumps(payload, ensure_ascii=False).encode("utf-8")))
+        content = ContentFile(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+        # default_storage.save 遇同名不覆盖而是改名（page_0001_0fm4T2l.json），
+        # 于是一页会攒下几十份残档、固定名那份是哪次写的完全随机。先删再写保证幂等。
+        try:
+            if default_storage.exists(rel_path):
+                default_storage.delete(rel_path)
+            default_storage.save(rel_path, content)
+        except OSError:
+            logger.exception("pdf_split_ocr_cache_write_failed", extra={"cache_file": rel_path})
+            raise
+        _cleanup_ocr_cache_history(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
+
+
+@dataclass(frozen=True)
+class _OcrCacheEntry:
+    """缓存目录里的一个候选文件（可能是固定名，也可能是 `page_0001_xxx.json` 残档）。"""
+
+    name: str
+    result: OCRPageResult
+    modified_at: float
+
+
+def _ocr_cache_entry_key(entry: _OcrCacheEntry) -> tuple[int, int, float]:
+    """排序键：先「没失败」，再「文字量最多」，最后「修改时间最新」。
+
+    内容多少是质量信号，时间不是：实测同页不同次识别文字量差 475 倍（32 vs 15217），
+    一次偶然的失败识别不该盖住之前成功的结果。
+    """
+    return (0 if entry.result.ocr_failed else 1, len(entry.result.text), entry.modified_at)
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _ocr_cache_dir(*, pdf_hash: str, profile_key: str) -> str:
+    return f"pdf_splitting/ocr_cache/{pdf_hash}/{profile_key}"
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _ocr_cache_page_filename(*, page_no: int) -> str:
+    return f"page_{page_no:04d}.json"
 
 
 # ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
 def _ocr_cache_rel_path(*, pdf_hash: str, profile_key: str, page_no: int) -> str:
-    return f"pdf_splitting/ocr_cache/{pdf_hash}/{profile_key}/page_{page_no:04d}.json"
+    cache_dir = _ocr_cache_dir(pdf_hash=pdf_hash, profile_key=profile_key)
+    return f"{cache_dir}/{_ocr_cache_page_filename(page_no=page_no)}"
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _is_ocr_cache_page_name(*, name: str, page_no: int) -> bool:
+    """文件名是否属于第 page_no 页（固定名或 `page_0001_xxxxxxx.json` 残档）。
+
+    必须用完整前缀比对：`page_0001*` 会把 `page_00010.json` 也匹进来，
+    那样第 1 页的清理/读取就会误伤第 10 页。
+    """
+    prefix = f"page_{page_no:04d}"
+    if not name.startswith(prefix):
+        return False
+    if not name.endswith(".json"):
+        return False
+    middle = name[len(prefix) : -len(".json")]
+    return middle == "" or (middle.startswith("_") and len(middle) > 1)
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _list_ocr_cache_files(*, cache_dir: str) -> list[str]:
+    """缓存目录下的文件名列表；存储后端不支持列目录（或返回异常形状）时返回空。"""
+    try:
+        listing = default_storage.listdir(cache_dir)
+        if not isinstance(listing, (tuple, list)) or len(listing) != 2:
+            raise ValueError(f"unexpected listdir result: {listing!r}")
+        _, files = listing
+        return [str(name) for name in files]
+    except (OSError, NotImplementedError, ValueError, TypeError):
+        logger.warning("pdf_split_ocr_cache_list_failed", extra={"cache_dir": cache_dir})
+        return []
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _ocr_cache_candidate_names(*, cache_dir: str, page_no: int) -> list[str]:
+    """该页在缓存目录里的全部候选文件名（固定名 + 历史残档）。"""
+    files = _list_ocr_cache_files(cache_dir=cache_dir)
+    names = [name for name in files if _is_ocr_cache_page_name(name=name, page_no=page_no)]
+    fixed_name = _ocr_cache_page_filename(page_no=page_no)
+    if not names and default_storage.exists(f"{cache_dir}/{fixed_name}"):
+        # 列目录不可用的存储后端：只能退回固定名。
+        return [fixed_name]
+    return names
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _load_ocr_cache_entry(*, storage: Any, rel_path: str, page_no: int) -> _OcrCacheEntry | None:
+    if not storage.exists(rel_path):
+        return None
+    try:
+        with storage.open(rel_path) as f:
+            payload = json.loads(f.read().decode("utf-8"))
+    except (json.JSONDecodeError, OSError):
+        logger.exception("pdf_split_ocr_cache_read_failed", extra={"cache_file": rel_path})
+        return None
+    text = str(payload.get("text") or "")
+    layout = payload.get("layout")
+    result = OCRPageResult(
+        page_no=page_no,
+        text=text,
+        source_method="ocr_cache" if text else "ocr_failed_cache",
+        ocr_failed=bool(payload.get("ocr_failed")),
+        layout=layout if isinstance(layout, dict) else None,
+    )
+    return _OcrCacheEntry(
+        name=rel_path.rsplit("/", 1)[-1],
+        result=result,
+        modified_at=_ocr_cache_entry_mtime(rel_path=rel_path),
+    )
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _ocr_cache_entry_mtime(*, rel_path: str) -> float:
+    """缓存条目的修改时间；存储后端不提供路径时按「最早」处理。"""
+    try:
+        return default_storage.get_modified_time(rel_path).timestamp()
+    except (OSError, NotImplementedError, AttributeError, ValueError):
+        return 0.0
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _promote_ocr_cache_entry(*, pdf_hash: str, profile_key: str, page_no: int, chosen_name: str) -> None:
+    """自愈：把选中的残档回写成固定名，下次读取就不必再扫全量候选。"""
+    cache_dir = _ocr_cache_dir(pdf_hash=pdf_hash, profile_key=profile_key)
+    canonical_name = _ocr_cache_page_filename(page_no=page_no)
+    try:
+        with default_storage.open(f"{cache_dir}/{chosen_name}") as f:
+            raw = f.read()
+        canonical_path = f"{cache_dir}/{canonical_name}"
+        if default_storage.exists(canonical_path):
+            default_storage.delete(canonical_path)
+        default_storage.save(canonical_path, ContentFile(raw))
+    except OSError:
+        logger.exception(
+            "pdf_split_ocr_cache_promote_failed",
+            extra={"cache_file": f"{cache_dir}/{chosen_name}", "page_no": page_no},
+        )
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _cleanup_ocr_cache_history(*, pdf_hash: str, profile_key: str, page_no: int) -> None:
+    """删掉该页的历史残档（`page_0001_xxxxxxx.json`）。失败只记日志，不影响主写入。"""
+    cache_dir = _ocr_cache_dir(pdf_hash=pdf_hash, profile_key=profile_key)
+    fixed_name = _ocr_cache_page_filename(page_no=page_no)
+    for name in _list_ocr_cache_files(cache_dir=cache_dir):
+        if name == fixed_name or not _is_ocr_cache_page_name(name=name, page_no=page_no):
+            continue
+        try:
+            default_storage.delete(f"{cache_dir}/{name}")
+        except OSError:
+            logger.warning(
+                "pdf_split_ocr_cache_stale_delete_failed",
+                extra={"cache_file": f"{cache_dir}/{name}"},
+            )
 
 
 # ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）

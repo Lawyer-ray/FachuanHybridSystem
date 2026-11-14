@@ -50,8 +50,18 @@ class PdfSplitStorage:
 
     @property
     def segments_md_path(self) -> Path:
-        """分段 Markdown 产物（order / 页区间 / 正文），供 API content_md 透出与下游 AI 消费。"""
+        """分段 Markdown 产物（order / 页区间 / 正文 / 段级质量标记），供 API content_md 透出与下游 AI 消费。"""
         return self.analysis_dir / "segments_md.json"
+
+    @property
+    def page_quality_json_path(self) -> Path:
+        """页面质量画像产物（summary 区块 + 逐页画像）。
+
+        单独落盘的理由：这份产物在**取字阶段**算出来，而段级 ``quality_flags``
+        要等到**分段阶段**才贴得上；两个阶段是两个 Django-Q 任务，只靠 job 目录
+        里的文件传递。只写 DB summary 的话分段阶段读不到它。
+        """
+        return self.analysis_dir / "page_quality.json"
 
     @property
     def export_zip_path(self) -> Path:

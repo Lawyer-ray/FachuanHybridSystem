@@ -10,7 +10,7 @@
  */
 
 export { nextSegId, ensureSegIds } from './seg-id'
-export { isEmptyDraft } from './state'
+export { isEmptyDraft, withPageQuality } from './state'
 export { resolveMats, buildInitialDraft } from './resolve'
 export {
   matLabel,
@@ -60,3 +60,16 @@ export {
   mergeSegsIntoOne,
 } from './selection'
 export { blockKeyOf } from './block-keys'
+export {
+  readPageQuality,
+  readInconsistencies,
+  sortInconsistencies,
+  graphicPagesOf,
+  sparsePagesOf,
+  docHintPagesOf,
+  docTypeLabel,
+  docTodosOf,
+  qualityFlagLabel,
+  pagesText,
+} from './quality'
+export type { DocTodo } from './quality'

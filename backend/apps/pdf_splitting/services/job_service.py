@@ -232,11 +232,13 @@ class PdfSplitJobService:
         md_path = PdfSplitStorage(job.id).segments_md_path
         md_by_order = load_segments_md(md_path)
         pos_by_order = load_segments_positioned(md_path)
+        flags_by_order = load_segments_quality_flags(md_path)
         segments = [
             self._serialize_segment(
                 item,
                 markdown=md_by_order.get(item.order, ""),
                 positioned=pos_by_order.get(item.order, []),
+                quality_flags=flags_by_order.get(item.order, []),
             )
             for item in job.segments.order_by("order", "id")
         ]
@@ -360,6 +362,7 @@ class PdfSplitJobService:
         *,
         markdown: str = "",
         positioned: list[dict[str, Any]] | None = None,
+        quality_flags: list[str] | None = None,
     ) -> dict[str, Any]:
         return {
             "id": segment.id,
@@ -376,6 +379,9 @@ class PdfSplitJobService:
             "content_md": markdown,
             # 该段正文块 + 归一化矩形（识别定位用）；无坐标的后端/旧任务为空表
             "positioned": positioned or [],
+            # 该段的识别质量提示（如「疑似错字：受办人（全本 178 次写作「经办人」…）」）；
+            # 旧任务没有该字段，回空表。只是提示，不影响段本身的可用性。
+            "quality_flags": quality_flags or [],
         }
 
     def _normalize_confirmed_segments(self, *, items: list[dict[str, Any]], total_pages: int) -> list[dict[str, Any]]:
@@ -614,6 +620,36 @@ def load_segments_md(path: Path) -> dict[int, str]:
         except (TypeError, ValueError):
             continue
         result[order] = str(item.get("markdown") or "")
+    return result
+
+
+def load_segments_quality_flags(path: Path) -> dict[int, list[str]]:
+    """读分段的质量标记（order → quality_flags）。
+
+    与 ``load_segments_md`` / ``load_segments_positioned`` 同源同文件
+    （``segments_md.json`` 每段条目的 ``quality_flags``）：段级提示与正文出自同一次
+    一致性校对，分文件存迟早会对不上。旧任务没有该字段，或产物损坏时回空表——
+    前端按「这一段没有质量提示」降级，不阻断任务详情接口。
+    """
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, list):
+        return {}
+    result: dict[int, list[str]] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        try:
+            order = int(item.get("order"))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        flags = item.get("quality_flags")
+        if isinstance(flags, list):
+            result[order] = [str(flag) for flag in flags if isinstance(flag, str) and flag]
     return result
 
 

@@ -33,7 +33,7 @@ import type { DraftState } from '../../types'
  */
 export function useReaderScreen() {
   const st = useReaderStoreFields()
-  const { draft, detail, openId, pickInfo, zoom, cols, selMode, selPages, ocrPending } = st
+  const { draft, detail, openId, pickInfo, zoom, cols, selMode, selPages, ocrPending, inconsistencies } = st
   // 不用 `as DraftState` 强行断言：断言会把「可能是 null」这件事从类型里抹掉，
   // 而下面的 selDetailOf / buildFlowOps 都真的会读 draft.segs。保留 null 更诚实。
   const readyDraft = draft ?? null
@@ -111,6 +111,9 @@ export function useReaderScreen() {
     // 到这里 readyDraft 必非 null（Reader 只在草稿就绪后渲染），
     // 但类型上是 DraftState | null：显式断言把它收窄，避免下游三栏主体报错。
     draft: readyDraft as DraftState,
+    // 页级质量统计与跨页不一致都是「机器读到什么」，旧任务里直接是空 / 缺省
+    pageQuality: readyDraft?.pageQuality ?? null,
+    inconsistencies,
     messageId: openId as number,
     narrow,
     railOpen: view.railOpen,

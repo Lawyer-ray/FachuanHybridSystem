@@ -69,6 +69,9 @@ class SegmentOut(BaseModel):
     content_md: str
     # 该段正文块 + 坐标（原文坐标索引对照）；无坐标的后端 / 旧任务为空列表
     positioned: list[PositionedBlockOut] = []
+    # 该段的识别质量提示（跨页一致性校对命中的疑似错字等）。只是提示，不阻塞流程；
+    # 旧任务无该产物时为空列表，前端整块不渲染。
+    quality_flags: list[str] = []
 
 
 class PdfSplitJobOut(BaseModel):

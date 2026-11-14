@@ -26,6 +26,7 @@ import type {
   AssignInfo,
   BundleMat,
   DraftState,
+  Inconsistency,
   InboxMessageDetail,
   OcrPending,
   PackStatus,
@@ -66,6 +67,15 @@ interface ReaderState {
    *  /重开时要随 openId 一并复位，且阅读器内其他模块也用得到这个「是否开着」的信号。
    *  Esc 不再靠它：AssignModal 已改成 Radix Dialog，Esc 由 Radix 自己处理。 */
   assignOpen: boolean
+  /**
+   * 本次识别带回来的全本级统计：跨页不一致清单（`summary.inconsistencies`）。
+   *
+   * 为什么在 store 而不在草稿：草稿记的是「律师怎么分」，这是「机器读到什么」，
+   * 而且同样不落盘。`useAutoSplit` 把 summary 消费掉之后，ReaderBody 还要用它
+   * 渲染全局清单，所以留一个会话级的落点。页级质量（page_quality）则落在
+   * `draft.pageQuality` 上——它要给左栏/右栏按段算页覆盖关系，跟草稿同生命周期更自然。
+   */
+  inconsistencies: Inconsistency[]
 
   open: (id: number) => Promise<void>
   close: () => void
@@ -91,6 +101,8 @@ interface ReaderState {
   deleteSelected: (target?: PageKey[]) => number
   setOcrPending: (p: OcrPending | null) => void
   setAssignOpen: (v: boolean) => void
+  /** 本次识别带回的跨页不一致清单（空数组 = 没发现 / 旧任务没有） */
+  setInconsistencies: (list: Inconsistency[]) => void
   /** 打标材料包状态（不接归档 / 拆分归类完成等） */
   setStatus: (s: PackStatus) => void
   setAssign: (a: AssignInfo) => void
@@ -117,6 +129,8 @@ function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
     lastAnchor: -1,
     ocrPending: null,
     assignOpen: false,
+    // 换包 / 关闭一律清空：上一包的不一致清单套到新包上就是彻头彻尾的假清单
+    inconsistencies: [],
     ...over,
   }
 }
@@ -138,6 +152,7 @@ export const useReader = create<ReaderState>((set, get) => ({
   lastAnchor: -1,
   ocrPending: null,
   assignOpen: false,
+  inconsistencies: [],
 
   open: async (id) => {
     // 切到新包先释放上一个包的 PDF 文档/worker，避免跨包累积占内存；
@@ -276,6 +291,8 @@ export const useReader = create<ReaderState>((set, get) => ({
   setOcrPending: (p) => set({ ocrPending: p }),
 
   setAssignOpen: (v) => set({ assignOpen: v }),
+
+  setInconsistencies: (list) => set({ inconsistencies: list }),
 
   setStatus: (s) => {
     const { openId } = get()

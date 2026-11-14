@@ -65,6 +65,8 @@ export interface Segment {
   /** 该段的可定位块（原文坐标索引）；无坐标的后端 / 旧任务为空
    *  rect 为归一化 0–1，rect.approx 为 true 时代表"整页近似框"而非精确位置 */
   blocks?: PositionedBlock[]
+  /** 本段的质量标记（后端 SegmentOut.quality_flags 的项目）。旧任务 / 人工拆分没有该字段 */
+  qualityFlags?: string[]
   /** 人工动过的痕迹：重跑自动识别时用它判断是否该弹窗询问 */
   manualEdit?: {
     /** 改过 Markdown 正文 */
@@ -92,6 +94,12 @@ export type PdfSplitSegmentSuggestion = Pick<
   | 'review_flag'
   | 'content_md'
 > & {
+  /** 该段的质量标记（如图形页 / 稀疏页）。后端若要扩展新取值，前端按字符串兜底展示 */
+  quality_flags?: string[]
+  /** 全本页级质量统计：哪些页是图纸、哪些页几乎没字。旧任务没有该键 */
+  page_quality?: PageQuality
+  /** 全本跨页文字不一致（同一枚章/同一个字段被识别成两种写法） */
+  inconsistencies?: Inconsistency[]
   // positioned 单独声明成可选：旧任务的 segments_md.json 没有该字段、后端回空数组，
   // 本域不消费坐标时（如规则引擎分流）也无须传。用独立可选字段而不是 Partial<>，
   // 因为 Partial<> 会把上面 8 个必填字段也一起变成可选。
@@ -100,6 +108,69 @@ export type PdfSplitSegmentSuggestion = Pick<
 
 /** 可定位的正文块（识别定位）：后端已把各家里标系统一成 0–1 矩形 */
 export type PositionedBlock = components['schemas']['PositionedBlockOut']
+
+/**
+ * 页级质量统计（`PdfSplitJobOut.summary.page_quality`）。
+ *
+ * 真实痛点：164 页卷宗里 p147 是宗地图、p148 是平面图，OCR 只出 6 个字和 47 个字。
+ * 律师在正文里看到几行零散字符，根本不知道那是图纸——而图纸恰恰是抵押案件的关键证据。
+ *
+ * 后端把三类「正文不可信」的页分开给：图形页（图纸/印章/照片）、稀疏页（字太少）、
+ * 空白页。前端只消费前两类做提示，空白页不打扰律师（删页是另一条交互）。
+ *
+ * 全部字段按可选读取：旧任务的 summary 里没有这个键，缺了不能崩。
+ */
+export interface PageQuality {
+  graphic_pages?: number[]
+  sparse_pages?: number[]
+  blank_pages?: number[]
+  /** 逐页说明，键是页号字符串（"147": "疑似图形页…"） */
+  details?: Record<string, string>
+  /**
+   * 证件页标识：键是页号字符串（"23"），值是证件类型码（`id_card` / `household` /
+   * `marriage` / `property_cert` / `license` / `income_proof`）。旧任务没有该键。
+   *
+   * 与 `graphic_pages` 的区别：「图纸看不出内容」是**没有**内容，
+   * 「证件页关键字段未读出」是**该有的内容在那儿但没读出来**——
+   * 姓名、身份证号、住址是律师必须抄进卷宗的东西，指着「这页是图纸」没用。
+   */
+  doc_hints?: Record<string, string>
+  /**
+   * 证件页未读出的字段（`summary.page_quality.doc_missing`，键=页号）。
+   *
+   * 只有 `doc_hints` 非空的页才出现在这里。`missing` 为空数组不代表「没问题」：
+   * 它表示工程上认得出类型、预期字段也都命中，但整页内容可疑（如满是乱码），
+   * 律师看一眼类型就该去核对原页。
+   */
+  doc_missing?: Record<string, DocMissing>
+}
+
+/** 一页证件材料的缺字段记录（`PageQuality.doc_missing` 的条目） */
+export interface DocMissing {
+  /** 证件类型码（与 `doc_hints` 同口径） */
+  doc?: string
+  /** 未读出的字段名（原样展示，不翻译）；空数组 = 字段都在但内容可疑 */
+  missing?: string[]
+}
+
+/**
+ * 跨页文字不一致（`PdfSplitJobOut.summary.inconsistencies`）。
+ *
+ * 真实痛点：同一枚章被识别 150+ 次，其中 5 次错成「罗问文」（应为「罗向文」）。
+ * 逐页翻不可能发现，所以列成全局清单，按 confidence 把最可疑的排在最前。
+ */
+export interface Inconsistency {
+  /** 出现次数多的那个写法（视为正确写法） */
+  canonical: string
+  /** 出现次数少的那个写法（疑似错字） */
+  variant: string
+  canonical_count: number
+  variant_count: number
+  /** 不一致出现的页号（绝对页号） */
+  pages: number[]
+  /** 置信度：high 排最前；后端可能给空串或其他等级，按 low 兜底排序 */
+  confidence: string
+}
 
 /** 标来源：页码（可选框选矩形，归一化 0-1） */
 export interface SrcRef {
@@ -129,7 +200,17 @@ export interface DraftState {
   status?: PackStatus
   /** 归案信息：绑定到哪个案件/合同（办案模块消费） */
   assign?: AssignInfo
+  /**
+   * 页级质量统计（哪些页是图纸 / 稀疏 / 空白）。
+   *
+   * **只用于展示，不入库**：它描述的是「这次识别产出了什么」，落盘后会与之后的
+   * 切段 / 删页错位。持久化口径见 `DraftStateToSave`（draft-persistence 与 api 剔除该字段）。
+   */
+  pageQuality?: PageQuality
 }
+
+/** 会回写到后端 draft_state 的草稿形状：剔除 "这次识别"才成立的展示型字段 */
+export type DraftStateToSave = Omit<DraftState, 'pageQuality'>
 
 /** 材料包三态分类 */
 export type PackStatus = 'todo' | 'done' | 'filed'

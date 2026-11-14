@@ -3,7 +3,8 @@ import { Plus, Trash2, Link2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
-import type { DraftState, InfoField } from '../../types'
+import { docHintPagesOf, docTodosOf, graphicPagesOf } from '../../draft'
+import type { DraftState, InfoField, PageQuality } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
@@ -22,6 +23,8 @@ function placeholderOf(f: InfoField): string | undefined {
  *  只在一条都没记时作为空态出现，记了第一条它就该让位。 */
 export function MetaPanel({
   draft,
+  pageQuality = null,
+  onGotoPage,
   pickInfo,
   onSetPickInfo,
   ops,
@@ -35,6 +38,10 @@ export function MetaPanel({
   narrow = false,
 }: {
   draft: DraftState
+  /** 页级质量统计（旧任务没有）：用于正文面板顶部的「本段含图纸」提示 */
+  pageQuality?: PageQuality | null
+  /** 从质量提示条跳原页（滚到该页 + 滚到该段） */
+  onGotoPage?: (si: number, p: number) => void
   pickInfo: number
   onSetPickInfo: (i: number) => void
   ops: MetaOps
@@ -60,6 +67,14 @@ export function MetaPanel({
   const [armDel, setArmDel] = useState<string | null>(null)
   const unavailable = new Set(draft.infos.map((f) => f.k))
   const libRest = FIELD_LIB.filter((f) => !unavailable.has(f.k))
+  // 本段覆盖的证件页：缺字段按页号从 doc_missing 补齐（提示条要说「缺什么」，
+  // 光说「这页是身份证」律师还得自己去核对）。全卷算一次，不按页重复遍历。
+  const todosByPage = new Map(docTodosOf(pageQuality).map((t) => [t.page, t]))
+  const docPages = docHintPagesOf(draft.segs[si], pageQuality).map(({ page, doc }) => ({
+    page,
+    doc,
+    missing: todosByPage.get(page)?.missing,
+  }))
 
   return (
     <aside
@@ -97,6 +112,9 @@ export function MetaPanel({
         onEditMarkdown={(md) => ops.editMarkdown(si, md)}
         onEditBlock={(key, text) => ops.editBlock(si, key, text)}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}
+        graphicPages={graphicPagesOf(draft.segs[si], pageQuality)}
+        docPages={docPages}
+        onGotoPage={onGotoPage ? (p) => onGotoPage(si, p) : undefined}
       />
 
       <h4 className="px-1 text-sm font-medium">材料信息</h4>

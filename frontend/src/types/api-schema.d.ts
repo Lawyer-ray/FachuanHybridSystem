@@ -5707,6 +5707,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pdf-splitting/extract-pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Pdf Pages
+         * @description 从上传的 PDF 里按页范围切出一份小 PDF，回字节流。
+         *
+         *     归案（材料包 → 案件材料）用：后端 CaseMaterial 只认「附件 + 类型名」，
+         *     整包上传会让每份材料都指向同一份完整卷宗（164 页），律师开庭时翻不到
+         *     具体材料。所以先在这里按分段切页，前端再把切好的小 PDF 上传成附件。
+         *
+         *     入参：file（PDF 上传）+ page_start + page_end（1 起，含两端）。
+         *     出参：application/pdf。
+         */
+        post: operations["apps_pdf_splitting_api_pdf_splitting_api_extract_pdf_pages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pdf-splitting/jobs": {
         parameters: {
             query?: never;
@@ -18269,6 +18296,11 @@ export interface components {
              * @default []
              */
             positioned: components["schemas"]["PositionedBlockOut"][];
+            /**
+             * Quality Flags
+             * @default []
+             */
+            quality_flags: string[];
         };
         /** ConfirmRequestIn */
         ConfirmRequestIn: {
@@ -32276,6 +32308,38 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UpdateInfoResponseSchema"];
                 };
+            };
+        };
+    };
+    apps_pdf_splitting_api_pdf_splitting_api_extract_pdf_pages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * File
+                     * Format: binary
+                     */
+                    file: string;
+                    /** Page Start */
+                    page_start: number;
+                    /** Page End */
+                    page_end: number;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

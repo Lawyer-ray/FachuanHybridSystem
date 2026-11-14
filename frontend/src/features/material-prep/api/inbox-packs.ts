@@ -5,7 +5,14 @@ import type { components } from '@/types/api-schema'
 // 既有依赖形成 api ↔ draft 环（见 draft/index.ts 头注释）
 import { isEmptyDraft } from '../draft/state'
 import { PACK_SOURCE_TYPES } from '../constants'
-import type { AssignInfo, DraftState, InboxMessage, InboxMessageDetail, PackStatus } from '../types'
+import type {
+  AssignInfo,
+  DraftState,
+  DraftStateToSave,
+  InboxMessage,
+  InboxMessageDetail,
+  PackStatus,
+} from '../types'
 
 /**
  * 材料预处理对接的是后端收件箱（/api/v1/inbox）。
@@ -76,7 +83,12 @@ export type PackStatusPatch = Pick<DraftState, 'status' | 'assign'>
 
 /** 保存拆分草稿（整份 DraftState，或 setPackStatusRemote 的最小打标载荷） */
 export async function saveDraft(id: number, draft: DraftState | PackStatusPatch): Promise<void> {
-  await inboxApi.put(`messages/${id}/draft`, { json: { draft } }).json()
+  // 回写前剔除**只用于展示**的 pageQuality：它描述的是「这次识别产出了什么」，
+  // 落盘后会和之后的切段 / 删页错位（段可能早已不是识别时的页），重开就变成一句
+  // 与现状不符的假提示。类型上由 DraftStateToSave 保证，这里做运行时剥离。
+  // PackStatusPatch（只打标的小载荷）本就没有该字段，strip 对它无副作用。
+  const { pageQuality: _pageQuality, ...body } = draft as DraftState
+  await inboxApi.put(`messages/${id}/draft`, { json: { draft: body satisfies DraftStateToSave } }).json()
 }
 
 /** 只打标材料包状态（不接归档 / 归案），保留已有 draft_state 的拆分内容 */

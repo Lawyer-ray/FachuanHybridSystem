@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react'
 
-import type { DraftState, OcrPending, PageKey } from '../../types'
+import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
+import { DocTodoDrawer } from './DocTodoDrawer'
+import { InconsistencyDrawer } from './InconsistencyDrawer'
 import { HintBar } from './HintBar'
 import { MetaPanel } from './MetaPanel'
 import { Rail } from './Rail'
@@ -18,6 +20,8 @@ import type { buildFlowOps, buildMetaOps } from './reader-ops'
  */
 export function ReaderBody({
   draft,
+  pageQuality = null,
+  inconsistencies = [],
   messageId,
   narrow,
   railOpen,
@@ -49,6 +53,10 @@ export function ReaderBody({
   flowWrapRef,
 }: {
   draft: DraftState
+  /** 页级质量统计（`summary.page_quality`，旧任务为 null） */
+  pageQuality?: PageQuality | null
+  /** 跨页不一致清单（`summary.inconsistencies`，旧任务为空） */
+  inconsistencies?: Inconsistency[]
   messageId: number
   narrow: boolean
   railOpen: boolean
@@ -94,6 +102,10 @@ export function ReaderBody({
    * 所以用一个独立的 key 表达意图，Markdown 侧消费后自行清空。
    */
   const [editRequestKey, setEditRequestKey] = useState<string | null>(null)
+  // 全本不一致清单抽屉（入口在左栏顶部）；属于纯阅读态，不落草稿
+  const [inconsistencyOpen, setInconsistencyOpen] = useState(false)
+  // 全卷「证件页待补录」抽屉（入口同样在左栏顶部，与不一致入口并列）
+  const [docTodoOpen, setDocTodoOpen] = useState(false)
 
   /**
    * 双击 Markdown 的一条 → 滚到原页 + 高亮那个框。
@@ -119,6 +131,40 @@ export function ReaderBody({
     // 右栏若被折叠，展开它——否则「高亮了但看不见」
     setMdOpen(true)
   }, [])
+
+  /**
+   * 质量提示条 → 原页：滚到那一段（段内页卡带有 `data-mi` / `data-p`）。
+   * 用段做跳转而不是全局页表：段的页卡与律师看到的那一段正文是同一个东西，
+   * 跳过去不会让人「知道在第 147 页，却在长列表里找不到」。
+   */
+  const onGotoSegmentPage = useCallback(
+    (si: number, p: number) => {
+      const ref = draft.segs[si]?.refs.find((r) => r.p === p)
+      if (!ref) return
+      onFocusSeg(si)
+      document.querySelector<HTMLElement>(`[data-mi="${ref.mi}"][data-p="${ref.p}"]`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    },
+    [draft.segs, onFocusSeg],
+  )
+
+  /** 不一致清单是**全本视角**，只给了一个页号；按页号在草稿里找它所在的段再跳 */
+  const onGotoAnyPage = useCallback(
+    (p: number) => {
+      // 多源材料包里同一页码可能出现多次（每份 PDF 都从 1 开始），取第一个能定位到的
+      const si = draft.segs.findIndex((s) => s.refs.some((r) => r.p === p))
+      if (si < 0) return
+      const ref = draft.segs[si]!.refs.find((r) => r.p === p)!
+      onFocusSeg(si)
+      document.querySelector<HTMLElement>(`[data-mi="${ref.mi}"][data-p="${ref.p}"]`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    },
+    [draft.segs, onFocusSeg],
+  )
 
   const onLocateBlock = useCallback((key: string | null) => {
     setFocusedBlockKey(key)
@@ -156,6 +202,10 @@ export function ReaderBody({
         <div className={railWrapCls}>
           <Rail
             draft={draft}
+            pageQuality={pageQuality}
+            inconsistencies={inconsistencies}
+            onOpenInconsistencies={() => setInconsistencyOpen(true)}
+            onOpenDocTodos={() => setDocTodoOpen(true)}
             onFocusSeg={onFocusSeg}
             onRenameMat={onRenameMat}
             onRenameSeg={flowOps.renameSeg}
@@ -194,6 +244,8 @@ export function ReaderBody({
         <div className={metaWrapCls}>
           <MetaPanel
             draft={draft}
+            pageQuality={pageQuality}
+            onGotoPage={onGotoSegmentPage}
             pickInfo={pickInfo}
             onSetPickInfo={onSetPickInfo}
             ops={metaOps}
@@ -208,6 +260,22 @@ export function ReaderBody({
           />
         </div>
       </div>
+
+      {/* 全本跨页不一致清单：从左栏徽标打开，点页号直接跳到那一页 */}
+      <InconsistencyDrawer
+        open={inconsistencyOpen}
+        onOpenChange={setInconsistencyOpen}
+        items={inconsistencies}
+        onGotoPage={onGotoAnyPage}
+      />
+
+      {/* 全卷证件页待补录：从左栏证件徽标打开，「查看原页」跳到那一页 */}
+      <DocTodoDrawer
+        open={docTodoOpen}
+        onOpenChange={setDocTodoOpen}
+        pageQuality={pageQuality}
+        onGotoPage={onGotoAnyPage}
+      />
 
       {/* 选页汇总条 */}
       {selPages.length > 0 && (

@@ -39,9 +39,11 @@ import pymupdf as fitz
 
 from apps.pdf_splitting.services.template_registry import get_template_definition
 
+from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
 from .llm_segment_detector import LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
+from .page_quality_summary import build_page_quality_summary
 from .segment_detector import SegmentDetector
 from .split_models import (
     MATERIAL_KIND_SCANNED_PDF,
@@ -104,13 +106,20 @@ def extract_pages(
         on_progress=on_progress,
         is_cancelled=is_cancelled,
     )
-    return extractor.extract(
+    pages, summary = extractor.extract(
         pdf_path,
         ocr_profile=ocr_profile,
         template_key=template_key,
         layout_mode=layout_mode,
         cloud_backend=cloud_backend,
     )
+    # 页面质量画像随取字一起算完并写进 summary：它只被取字结果决定（字数 / 版面块），
+    # 与分段无关。**只写 summary，不拦流程**——判据是启发式，`graphic` / `sparse`
+    # 都只是「这页 Markdown 可能看不全内容，请核对原图」的提示，拦下来会让律师
+    # 遇到「164 页都读出来了任务却说失败」。误报的代价（律师照常读）远小于误拦
+    # （整份卷宗用不成）。
+    summary["page_quality"] = build_page_quality_summary(pages)
+    return pages, summary
 
 
 def analyze_pdf(
@@ -156,15 +165,39 @@ def analyze_pdf(
         template_key=template_key,
         llm_segment_detector=llm_segment_detector,
     )
+    # 分段完成后再做跨页一致性校对：判据要的是「全本哪些短词被写成两种样子」，
+    # 与分段结果无关，放在这里是为了让两条产物（summary 清单 / 段级 flag）出自同一次计算。
+    inconsistencies = detect_inconsistencies(pages)
     # 坐标换算依赖后端坐标系（MinerU 千分比 / Textin 绝对坐标），必须在构建
     # 时就告诉 markdown_builder：事后再猜会算出错位的绿框。
     bbox_backend = str(extraction_summary.get("ocr_provider") or "")
+    segments_md = attach_quality_flags_to_markdown(
+        build_segments_markdown(drafts, pages, bbox_backend=bbox_backend), inconsistencies
+    )
     return PdfAnalysisOutcome(
         pages=pages,
         drafts=drafts,
-        segments_md=build_segments_markdown(drafts, pages, bbox_backend=bbox_backend),
-        summary={**extraction_summary, **segment_summary},
+        segments_md=segments_md,
+        # summary 只增不改：取字 + 分段原有字段全保留，新字段追加在后面
+        summary={
+            **extraction_summary,
+            **segment_summary,
+            **_inconsistency_summary(inconsistencies),
+        },
     )
+
+
+def _inconsistency_summary(inconsistencies: list[Any]) -> dict[str, Any]:
+    """跨页一致性的 summary 字段：只放最可疑的一批 + 真实总数。
+
+    ``inconsistency_total`` 与列表长度分开报：前端要能说出「还有 N 条未显示」。
+    裁条数是**输出体积**的边界（实测一份真实卷宗 1340 条，全量会把 job 详情
+    撑到几 MB），不是对判据结果的业务过滤——过滤会让判据修好后问题仍然不可见。
+    """
+    return {
+        "inconsistencies": pick_top_inconsistencies(inconsistencies),
+        "inconsistency_total": len(inconsistencies),
+    }
 
 
 def detect_segments_with_fallback(
