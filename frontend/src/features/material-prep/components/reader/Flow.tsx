@@ -23,6 +23,7 @@ export function Flow({
   selPages,
   ocrPending,
   focusedBlockKey = null,
+  onActivateHit,
   onOp,
   onToggleSel,
   onOcrBox,
@@ -39,6 +40,8 @@ export function Flow({
   ocrPending: OcrPending | null
   /** 当前高亮的定位块 key（由右侧栏的 Markdown 面板驱动）；null = 全部框常态显示 */
   focusedBlockKey?: string | null
+  /** 双击定位框 → 交给 Markdown 面板高亮并进入修改 */
+  onActivateHit?: (key: string) => void
   onOp: FlowOps
   onToggleSel: (mi: number, p: number, shift: boolean) => void
   onOcrBox: (mi: number, p: number, rect: PageRect) => void
@@ -135,8 +138,9 @@ export function Flow({
       onToggleSel,
       onContextMenu: openMenu,
       focusedHitKey: focusedBlockKey,
+      onActivateHit,
     }),
-    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey],
+    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey, onActivateHit],
   )
 
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false

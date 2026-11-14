@@ -70,7 +70,7 @@ function renderRow(props: Partial<Parameters<typeof RailSegRow>[0]> = {}) {
       whole={false}
       auto={false}
       classified
-      color="#f00"
+
       editing={false}
       {...cbs}
       {...props}

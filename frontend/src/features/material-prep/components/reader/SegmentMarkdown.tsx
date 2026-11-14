@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { blockKeyOf } from '../../draft/block-keys'
@@ -44,6 +44,8 @@ export function SegmentMarkdown({
   onToggleOpen,
   focusedBlockKey,
   onLocateBlock,
+  editRequestKey,
+  onEditRequestHandled,
   onEditMarkdown,
   onEditBlock,
   onRemoveBlock,
@@ -56,6 +58,12 @@ export function SegmentMarkdown({
   focusedBlockKey: string | null
   /** 双击某一条 → 滚到原页并高亮该框（传 null 表示取消） */
   onLocateBlock: (key: string | null) => void
+  /**
+   * 「请对这块进入修改态」的一次性请求（来自页面框双击）。
+   * 消费后要调 `onEditRequestHandled` 清空，否则后续同块高亮会反复弹输入框。
+   */
+  editRequestKey?: string | null
+  onEditRequestHandled?: () => void
   /** 手改正文（识别错字/表格拍平时律师自己修）——没有定位块时的整段编辑 */
   onEditMarkdown?: (md: string) => void
   /** 改某一行（定位块）的文字；同步进 Markdown 正文 */
@@ -65,6 +73,24 @@ export function SegmentMarkdown({
 }) {
   // 正在编辑的那一行的 key；null = 全部只读
   const [editingKey, setEditingKey] = useState<string | null>(null)
+
+  /**
+   * 页面框双击 → 自动进入这一行的修改态。
+   *
+   * 用 effect 而不是在渲染里直接 setEditingKey：渲染期改 state 会触发
+   * React 的重渲染警告，而且这个信号是「事件驱动的副作用」，本就属于 effect。
+   * 消费完立即回调清空，保证一次性语义（否则同一块再高亮会又弹一次输入框）。
+   */
+  useEffect(() => {
+    if (!editRequestKey) return
+    if (!onEditBlock) {
+      // 没有逐块编辑能力（无定位块的段）：退回整段编辑
+      if (onEditMarkdown) setEditingAll(true)
+    } else {
+      setEditingKey(editRequestKey)
+    }
+    onEditRequestHandled?.()
+  }, [editRequestKey, onEditBlock, onEditMarkdown, onEditRequestHandled])
   // 没有定位块时的整段编辑开关
   const [editingAll, setEditingAll] = useState(false)
 

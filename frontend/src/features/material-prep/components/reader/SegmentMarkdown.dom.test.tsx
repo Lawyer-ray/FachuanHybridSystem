@@ -291,3 +291,43 @@ describe('可疑点清单', () => {
     expect(queryAllByText(/借贷标记/)).toHaveLength(0)
   })
 })
+
+/**
+ * 页面框双击 → Markdown 对应那条进入修改态。
+ *
+ * 律师的直觉是「我在原件上看到这行不对，点它就该能就地改」。
+ * 这里锁住：请求到达即进编辑、消费后即清空（否则同块再高亮会反复弹输入框）。
+ */
+describe('页面框双击 → 进入修改', () => {
+  it('editRequestKey 指向某块时，该行直接进入编辑态', () => {
+    const onEditBlock = vi.fn()
+    const onEditRequestHandled = vi.fn()
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({ onEditBlock, editRequestKey: 's1:1:0', onEditRequestHandled })}
+      />,
+    )
+    // 该行渲染成 textarea（编辑态）
+    expect(container.querySelector('textarea')).toBeTruthy()
+    // 一次性语义：消费后必须清空请求
+    expect(onEditRequestHandled).toHaveBeenCalled()
+  })
+
+  it('没有逐块编辑能力（无 blocks）时退回整段编辑', () => {
+    const onEditMarkdown = vi.fn()
+    const onEditRequestHandled = vi.fn()
+    // 无定位块的段（本地 OCR / 旧任务）：只能整段改
+    const b = base()
+    const noBlocks = {
+      ...b,
+      seg: { ...b.seg!, blocks: undefined },
+      editRequestKey: 's1:1:0',
+      onEditRequestHandled,
+      onEditMarkdown,
+      onEditBlock: undefined,
+    }
+    const { container } = render(<SegmentMarkdown {...noBlocks} />)
+    expect(container.querySelector('textarea')).toBeTruthy()
+    expect(onEditRequestHandled).toHaveBeenCalled()
+  })
+})

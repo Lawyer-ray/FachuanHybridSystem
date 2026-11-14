@@ -28,6 +28,7 @@ export const PageCell = memo(function PageCell({
   onOcrBox,
   onToggleSel,
   onContextMenu,
+  onActivateHit,
 }: {
   messageId: number
   mi: number
@@ -44,6 +45,8 @@ export const PageCell = memo(function PageCell({
   hits?: { key: string; rect: PageRect; label: string; approx?: boolean }[]
   /** 当前被 Markdown 面板选中的块 key：该框加亮，其余淡化（原文对照的视觉锚点） */
   focusedHitKey?: string | null
+  /** 双击某个定位框：把这块回传给 Markdown 面板（高亮 + 进入修改） */
+  onActivateHit?: (key: string) => void
   ocrRect?: PageRect | null
   onPickPage?: (mi: number, p: number) => void
   onOcrBox?: (mi: number, p: number, rect: PageRect) => void
@@ -184,7 +187,19 @@ export const PageCell = memo(function PageCell({
           return (
           <div
             key={h.key}
-            className={`pointer-events-none absolute rounded-[3px] border ${
+            role={onActivateHit ? 'button' : undefined}
+            onDoubleClick={
+              onActivateHit
+                ? (e) => {
+                    // 阻止冒泡：否则会触发页面的「记来源/拖框」等单击行为
+                    e.stopPropagation()
+                    onActivateHit(h.key)
+                  }
+                : undefined
+            }
+            className={`absolute rounded-[3px] border ${
+              onActivateHit ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'
+            } ${
               on
                 ? 'border-2 border-sky-600 bg-sky-400/20 shadow-[0_0_0_2px_rgba(2,132,199,0.25)]'
                 : `border border-sky-500/70 ${h.approx ? 'border-dashed' : ''}`
