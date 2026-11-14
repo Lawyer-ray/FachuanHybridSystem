@@ -68,15 +68,29 @@ class TextExtractionService:
     Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
     """
 
+    # 默认全文上限（字符）。**不能用 document_processing 的 DEFAULT_TEXT_LIMIT=1500**：
+    # 那是给预览/摘要场景的默认值，而对法院文书识别来说，
+    # 「如不服本判决，可以在判决书送达之日起十五日内…」这类关键期限
+    # 恰恰写在文末（判决主文之后），截断上半截等于把要提取的日期丢了。
+    #
+    # 实病（2026-11-14，7 页民事判决书）：DEFAULT_TEXT_LIMIT=1500 使提取只拿到
+    # 前 3 页 1381 字，第 7 页的上诉期条款整段丢失 → 日期候选为空 →
+    # 律师看到「未识别到关键日期」而实际文书明明有上诉期。
+    # 同时，`text_limit=None` 一律传下去会被下层当成「用默认值」而不是「不限」，
+    # 所以这里显式给一个大上限（与 documents 域 judgment_pdf_extractor 同口径），
+    # 不靠 None 隐式语义。
+    DEFAULT_TEXT_LIMIT = 200_000
+
     def __init__(self, text_limit: int | None = None, max_pages: int | None = None):
         """
         初始化文本提取服务
 
         Args:
-            text_limit: 文本提取字数限制，None 表示不限制
+            text_limit: 文本提取字数限制；None 表示用本服务的全文上限
+                （``DEFAULT_TEXT_LIMIT``，不是下层预览用的 1500）
             max_pages: 最大提取页数限制，None 表示不限制
         """
-        self._text_limit = text_limit
+        self._text_limit = text_limit if text_limit is not None else self.DEFAULT_TEXT_LIMIT
         self._max_pages = max_pages
 
     def extract_text(self, file_path: str, max_pages: int | None = None) -> TextExtractionResult:

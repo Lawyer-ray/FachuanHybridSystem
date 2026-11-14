@@ -58,6 +58,30 @@ DEFAULT_TYPE_BY_DOCUMENT_TYPE: dict[DocumentType, str] = {
 MAX_CANDIDATES = 8
 STALE_DAYS = 180
 
+# 判决书 / 调解书里**只记救济期限**（上诉期、复议期），不记判项给付义务。
+#
+# 口径（业务确认 2026-11-14）：
+#   - 判项写「被告于本判决发生法律效力之日起十日内支付 XX 元」——这是**当事人的**
+#     履行义务，律师不需要在日历上跟进；
+#   - 判决书正文引述的**合同条款**（「《采购单》约定货到 3 日内付款」）同理，一律不记；
+#   - 判决书/调解书里律师真正要跟的是**上诉期**（未上诉则判决生效，影响后续一切）。
+#
+# 唯独例外：如果判项里出现「向**本院**缴纳」（诉讼费由法院收），那是要跟进的缴费，
+# 不属于当事人之间的给付，保留。
+_JUDGMENT_TITLE_RE = re.compile(r"(?:民事|刑事|行政)?(?:判决书|调解书)")
+# 判项给付义务 / 合同条款的典型锚点（当事人之间，判决书里一律不记）：
+#   - 判项：「本判决发生法律效力之日起十日内支付」；
+#   - 合同：「《采购单》约定货到 3 日内付款」「合同约定…日内交付」。
+_PAYMENT_ORDER_RE = re.compile(
+    r"(?:发生法律效力|判决生效|调解书生效|本判决|本调解书"
+    r"|合同约定|约定|协议约定|《[^》]{1,20}》[^。；]{0,20}约定)"
+)
+_REFUSAL_KEEP_RE = re.compile(r"向本院(?:缴纳|交纳|支付|退回)")
+
+# 超出这个天数的「未来日期」视为长期约定（房贷 30 年到期日 / 土地租期等），降置信不默认勾选。
+# 法院文书里真正要跟进的人工期限（上诉/举证/保全/缴费）几乎不会超过 10 年。
+FAR_FUTURE_DAYS = 365 * 10
+
 _DATETIME_FORMATS = ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d")
 
 # 期间表达式：从/自 X 起 至/到 Y（Y 年份允许 5 位——OCR 把 2025 识别成 20254 的高频错）
@@ -102,12 +126,37 @@ _RELATIVE_ANCHOR_RE = re.compile(
 # 无锚动作版：期限动词直接跟在「N日内」后，如「7日内付款」「十五日内向本院交纳」
 _RELATIVE_ACTION_RE = re.compile(rf"{_REL_DAYS_GROUP}日内[^，。；;\n]{{0,16}}?(?:交纳|缴纳|缴款|缴费|付款|支付|付清)")
 
+# 起算点是「判决/裁定发生法律效力之日」而非送达/收到之日：**保留候选，但标注待确认**。
+#
+# 口径（2026-11-14 业务定调）：缴费期限这类履行期限**要记**——律师确实要跟进。
+# 但它的起算点是「判决生效之日」，而生效日取决于对方是否上诉（送达后 15 日内无人
+# 上诉才生效），这件事只有书记员能确认。直接按「送达 + N 天」算会给出一个看似精确、
+# 实则可能早半个月的假日期，因此：
+#
+#   - 候选**照常保留并进入确认列表**（律师看得到，不会漏）；
+#   - 日期给「送达日 + N 天」作为**最早可能日**（保守，只会提前提醒）；
+#   - 附一句起算点说明，提示律师与书记员确认生效日后自行改期。
+#
+# 即：宁可给一个明确标注「待确认起算点」的保守日期，也不默默丢弃律师需要的期限。
+_EFFECTIVE_FIRST_RE = re.compile(r"(?:发生法律效力|生效|确定法律效力)")
+
+# 前端据此显示提示文案（放在这里做单一来源，前后端不各写一份口径）
+EFFECTIVE_FIRST_NOTE = (
+    "起算点为判决生效之日（送达后 15 日内无人上诉才生效），此处按送达日给的保守日期，请与书记员确认生效日后改期"
+)
+
 # 相对期限的事件类型：按动作动词判（「保全费…交纳」须判 payment 而非被名词「保全」带偏）
+# 顺序有讲究：先匹配到的赢，所以「上诉」必须排在「申请」之前
+# （"如不服本判决…十五日内上诉" 是上诉期；"如不服本裁定…五日内申请复议" 是复议期）。
 _RELATIVE_EVENT_TYPES: list[tuple[str, tuple[str, ...]]] = [
     ("payment_deadline", ("交纳", "缴纳", "缴款", "缴费", "付款", "支付", "付清")),
-    ("submission_deadline", ("补正", "提交材料", "递交材料")),
     ("appeal_deadline", ("上诉",)),
     ("evidence_deadline", ("举证",)),
+    # 「复议」是裁定书特有的救济期限（如「自收到裁定书之日起五日内申请复议」）。
+    # ReminderType 没有复议类，归到 submission_deadline（向法院提交/申请的期限）。
+    # 缺这条会落到 other → 过期后被「纯历史过滤」删掉，律师就完全看不到
+    # 「复议期已过」这个事实（2026-11-14 全量扫描 119 份 PDF 发现）。
+    ("submission_deadline", ("复议", "申请", "补正", "提交材料", "递交材料", "提出异议")),
 ]
 
 _CN_DIGITS: dict[str, int] = {
@@ -256,6 +305,221 @@ def _find_issue_date(text: str) -> datetime | None:
     return valid[-1] if valid else None
 
 
+def _has_explicit_year(parsed: datetime, context: str, text: str) -> bool:
+    """该候选能否追溯到原文里**带年份**的日期表述（逐候选判断，不看全文有没有年份）。
+
+    拒绝的唯一情形：原文出现了裸「M月D日」，其月/日与候选吻合，且该处**没有年份**，
+    同时**整个证据链里找不到带年份的起点**。
+
+    为什么必须逐候选判（2026-11-14 同一份执行裁定书 #285 的教训）：
+
+        本案…依据（20XX）粤0000财保0000号民事裁定书于**2026年9月20日**继续冻结…
+        上述继续冻结期限为**一年**。                        ← 有年份，应算出 2027-09-20
+        现本案进入执行阶段，依据（20XX）粤0000执保0000号…于**3月26日**冻结了…
+        上述账户冻结期限为**一年**。                          ← 无年份，不能猜 2026-03-26
+
+    同一份文书里两种情况并存。先前用「全文有没有年份」做兜底，把上面那条**合法**的
+    保全到期日也一起删掉了（正确结果被误杀），正是这个错误的直接后果。
+
+    合法推算的判定（a→b）：候选日期 C 能由某个带年份的原文日期 A 通过「一年/N日」
+    等确定性运算得到（这里用「A 与 C 相差整年/整月/整日，且 A 在原文明文出现」，
+    以及「A 与 C 同日不同年」两种形态覆盖实务必场景）。
+    """
+    y, m, d = parsed.year, parsed.month, parsed.day
+    anchors = (context or "", text or "")
+
+    # 1) 候选自身带年份 → 确信
+    for hay in anchors:
+        if not hay:
+            continue
+        for pattern in (
+            rf"{y}\s*年\s*0?{m}\s*月\s*0?{d}\s*日",
+            rf"{y}-0?{m}-0?{d}",
+            rf"{y}/0?{m}/0?{d}",
+        ):
+            if re.search(pattern, hay):
+                return True
+
+    # 2) 原文有裸「M月D日」且与候选同日 → 看那一处有没有年份
+    bare_hit_without_year = False
+    for hay in anchors:
+        if not hay:
+            continue
+        for bare in re.finditer(rf"(?<!\d)(\d{{4}}年)?\s*0?{m}\s*月\s*0?{d}\s*日", hay):
+            if bare.group(1):
+                if int(bare.group(1)[:4]) == y:
+                    return True
+            else:
+                bare_hit_without_year = True
+    if bare_hit_without_year:
+        # 原文这一处确实没写年份；只有在「能由某个带年份日期推算得出」时才放行
+        return _derivable_from_year_anchor(parsed, text or "", context or "")
+
+    # 3) 候选本身就是文书落款/签发日（_find_issue_date 取到的锚点）→ 放行。
+    # 落款日是最确定的日期，LLM 把它当一个事件提出来是常见（也常被后续
+    # 「相对期限校正」改写成真正的届满日，见 _apply_relative_deadline_rules）。
+    # 在这里拦掉它会让整条校正链失去入口。
+    issue = _find_issue_date(text or "")
+    if issue is not None and issue.date() == parsed.date():
+        return True
+
+    # 4) 原文既无该日期的带年份写法、也无裸写法（多半是「N 年内/日后」的推算值）
+    return _derivable_from_year_anchor(parsed, text or "", context or "")
+
+
+def _derivable_from_year_anchor(parsed: datetime, text: str, context: str) -> bool:
+    """候选能否由原文中**带年份**的日期按常见期限形态精确推算得出。
+
+    只接受三种可验证的形态（都是法院文书里实际出现的口径）：
+
+    | 形态 | 例子 |
+    |:--|:--|
+    | 锚 + N 年（保全/查封期限为一年） | `2026年9月20日继续冻结…期限为一年` → 2027-09-20 |
+    | 锚 + 整月 | `2026年3月1日…期限六个月` → 2026-09-01 |
+    | 锚 + N 日（N ≤ 90，覆盖举证/上诉/缴费等短期期限） | `2026年10月10日…次日起十五日内` → 2026-10-25 |
+
+    刻意**不做**「只要在三年内就放行」这种粗放判断——那等于没判，会让瞎猜的年份
+    （如把无年份的「3月26日」补成 2026）照样通过。
+    """
+    year_dates: list[datetime] = []
+    for body in (context, text):
+        if not body:
+            continue
+        # 阿拉伯数字形态（2026年9月20日）
+        for m in re.finditer(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", body):
+            try:
+                year_dates.append(datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+            except ValueError:
+                continue
+        # 中文数字落款（二〇二五年十一月十一日）：法院文书用中文数字落款比例很高，
+        # 漏掉会让「落款日 + N 日」这类合法推算全部被误杀
+        for m in re.finditer(
+            r"([〇零一二三四五六七八九]{4})年([一二三四五六七八九十]{1,3})月([一二三四五六七八九十]{1,3})日", body
+        ):
+            year = _parse_cn_digits(m.group(1))
+            month = _cn_to_int(m.group(2))
+            day = _cn_to_int(m.group(3))
+            if year and month and day:
+                try:
+                    year_dates.append(datetime(year, month, day))
+                except ValueError:
+                    continue
+    if not year_dates:
+        return False
+
+    target = datetime(parsed.year, parsed.month, parsed.day)
+    for anchor in year_dates:
+        if target <= anchor:
+            continue
+        # 形态一：+整年（年限为一年的保全/查封到期日）
+        if (target.year - anchor.year) in (1, 2, 3) and (target.month, target.day) == (anchor.month, anchor.day):
+            return True
+        # 形态二：+整月
+        months = (target.year - anchor.year) * 12 + (target.month - anchor.month)
+        if 0 < months <= 24 and target.day == anchor.day:
+            return True
+        # 形态三：+N 日（短期期限）
+        if 0 < (target - anchor).days <= 90:
+            return True
+    return False
+
+
+def _parse_cn_digits(value: str) -> int | None:
+    """「二〇二五」→ 2025（四位中文数字年份）。"""
+    digits = {ch: i for i, ch in enumerate("〇一二三四五六七八九")}
+    if len(value) != 4 or any(ch not in digits for ch in value):
+        return None
+    return int("".join(str(digits[ch]) for ch in value))
+
+
+def _cn_to_int(value: str) -> int | None:
+    """「十一」→ 11、「三」→ 3、「二十」→ 20（1~31 的月/日）。"""
+    digits = {ch: i for i, ch in enumerate("〇一二三四五六七八九")}
+    if not value:
+        return None
+    if value == "十":
+        return 10
+    if "十" in value:
+        left, _, right = value.partition("十")
+        tens = digits.get(left, 1) if left else 1
+        ones = digits.get(right, 0) if right else 0
+        return tens * 10 + ones
+    if len(value) == 1 and value in digits:
+        return digits[value]
+    return None
+
+
+def _is_judgment_document(text: str) -> bool:
+    """本文书是不是判决书 / 调解书（按文首标题判，可靠且不依赖 LLM）。
+
+    只看开头 400 字——标题在文首；正文里引用别的判决书不会误判。
+    """
+    return bool(_JUDGMENT_TITLE_RE.search((text or "")[:400]))
+
+
+def _is_party_payment_obligation(draft: DateCandidateDraft, text: str) -> bool:
+    """判决书/调解书里的这条候选，是否属于「不该记进律师日历」的那类。
+
+    口径（业务确认 2026-11-14）：判决书/调解书里律师**只跟救济期限**。
+
+    **按类型白名单判定**（最不容易漏）：
+
+    | 类型 | 判决书/调解书里 | 理由 |
+    |:--|:--|:--|
+    | `appeal_deadline` 上诉期 | **保留** | 律师最关心的：不上诉则判决生效 |
+    | `submission_deadline` 复议期/提交期限 | **保留** | 裁定书的救济期限（「五日内申请复议」） |
+    | `payment_deadline` 缴费 | 剔除**除**「向本院缴纳」 | 判项给付是当事人的义务；调解书分期付款同理；只有诉讼费由法院收，要跟进 |
+    | `hearing` 开庭 | **剔除** | 判决书里的开庭日都是**已开过的庭**（「本院于X日公开开庭审理」的历史陈述），不是未来要去的庭 |
+    | `asset_preservation_expires` 保全到期 | **保留** | 判决书正文可能载明保全措施与期限，律师要跟进续封 |
+
+    为什么不按话术逐条匹配：实测（2026-11-14）调解书分期付款有「向原告支付」
+    「被告定于 X 日前支付」「于 X 日前支付」多套写法，漏一个就漏全部。
+    按类型判 + 一个明确例外，既覆盖全又不会误伤救济期限。
+    """
+    if draft.reminder_type == "hearing":
+        # 判决书里的开庭日是历史陈述；未来开庭靠传票/开庭通知，不靠判决书
+        return True
+    if draft.reminder_type == "payment_deadline":
+        return not _REFUSAL_KEEP_RE.search(draft.context_text or "")  # 「向本院缴纳」保留
+    if draft.reminder_type == "submission_deadline":
+        # 救济期限（复议）保留；明确属于当事人间给付/合同约定的剔除
+        context = draft.context_text or ""
+        if _REFUSAL_KEEP_RE.search(context):
+            return False
+        return bool(_PAYMENT_ORDER_RE.search(context) or _PAY_TO_PARTY_RE.search(context))
+    return False
+
+
+# 给付给「对方当事人」而非法院（判决书/调解书里当事人的付款义务）
+_PAY_TO_PARTY_RE = re.compile(
+    r"(?:向|给)(?:原告|被告|申请人|被申请人|对方|申请执行人|被执行人)[^。；]{0,6}(?:支付|给付|付清|付款|履行)"
+)
+
+
+def _is_effective_first_derived(draft: DateCandidateDraft, text: str) -> bool:
+    """候选的起算点是否为「发生法律效力之日」（而非送达日）。
+
+    命中者**不丢弃**——它们往往是律师真正要跟进的缴费/履行期限；只是在确认弹窗里
+    加一句「起算点为判决生效之日，请与书记员确认」，避免律师把「送达+10天」当成
+    确定日期排期（真实链条是 送达 → 上诉期届满生效 → 再起算 10 日）。
+
+    判据：候选类型是履行类（payment/submission），且原文上下文（或日期附近窗口，
+    LLM 常只回截断的 context）含「发生法律效力/生效」。
+    """
+    if draft.reminder_type not in ("payment_deadline", "submission_deadline"):
+        return False
+    context = draft.context_text or ""
+    if _EFFECTIVE_FIRST_RE.search(context):
+        return True
+    # LLM 常只回一个截断的 context，回落到「日期附近是否有生效表述」
+    needle = draft.due_at.strftime("%Y-%-m-%-d") if draft.due_at else ""
+    if needle and needle in text:
+        idx = text.find(needle)
+        window = text[max(0, idx - 80) : idx + 80]
+        return bool(_EFFECTIVE_FIRST_RE.search(window))
+    return False
+
+
 def _relative_event_type(context: str) -> str:
     """按动作动词推断相对期限的事件类型（未命中返回 other）。"""
     for reminder_type, verbs in _RELATIVE_EVENT_TYPES:
@@ -283,8 +547,54 @@ def _iter_relative_deadlines(text: str) -> list[tuple[re.Match[str], int, int, i
         days = _parse_cn_number(m.group(1))
         if days is None or not 1 <= days <= 365:
             continue
+        # 锚点必须指向**本**文书：跳过他案引用与商业函件
+        if _anchor_points_to_other_matter(sentence, m):
+            logger.info("跳过锚点指向他案/函件的相对期限: %s", sentence[:60])
+            continue
         results.append((m, days, sent_start, sent_len))
     return results
+
+
+# 他案/非本院文书的标识：出现在锚点之前时，说明这个「送达/收到之日起 N 日」讲的
+# 不是本判决/本裁定的期限，而是正文引述的仲裁裁决、另案判决、商业函件。
+_OTHER_MATTER_MARKERS = (
+    "仲裁",
+    "裁决书",
+    "另案",
+    "他案",
+    "本函",
+    "函件",
+    "书面通知",
+    "告知函",
+    "律师函",
+    "合同约定",
+    "协议约定",
+)
+
+
+def _anchor_points_to_other_matter(sentence: str, match: re.Match[str]) -> bool:
+    """该相对期限的锚点是否指向「他案文书/商业函件」而非本文书。
+
+    实测（2026-11-14 全量扫描 119 份 PDF）两类误判：
+
+    1. 判决书正文**引述**仲裁裁决：
+       「某仲裁委员会…作出（20XX）某仲裁字第0000号**仲裁裁决书**，裁决：一、某公司于
+        本**裁决书**送达之日起十日内向某公司支付检测费…」
+       —— 这是别人的裁决义务，本判决实际是「驳回原告诉讼请求」，无任何缴费义务。
+       旧逻辑用本判决落款日当锚，凭空造出一条「11-07 前交检测费」的假期限。
+
+    2. 证据材料里引述**商业函件**：
+       「…公司在收到本函之日起十个工作日内…」「自收到原告的书面通知之日起…」
+       —— 公司法查阅权纠纷的商业往来，不是法院指定的期限。
+
+    判据：锚点之前的紧邻文本里出现他案/函件标识词。本判决自己的期限写的是
+    「如不服本判决，可在**判决书送达之日起**…」，前面不含这些标识。
+    """
+    # 锚点前后都要看：标识词可能在前（「…仲裁裁决书，裁决：一、…于本裁决书送达之日起」）
+    # 也可能在后（「收到本函之日起十五日内作出书面答复」里「本函」就在锚点中间）。
+    # 仍限制在同一句内（sentence 已按句切分），不会跨句误伤本判决自己的期限。
+    window = sentence[max(0, match.start() - 80) : match.end() + 40]
+    return any(marker in window for marker in _OTHER_MATTER_MARKERS)
 
 
 def _match_relative_draft_by_context(
@@ -309,13 +619,30 @@ def _match_relative_draft_by_fingerprint(
     return None
 
 
-def _apply_relative_deadline_rules(text: str, drafts: list[DateCandidateDraft]) -> list[DateCandidateDraft]:
+def _apply_relative_deadline_rules(
+    text: str,
+    drafts: list[DateCandidateDraft],
+    *,
+    delivery_date: datetime | None = None,
+) -> list[DateCandidateDraft]:
     """相对期限推算（确定性规则，不依赖 LLM）。
 
     「保全费请你方于收到本通知次日起两日内向本院交纳」这类表述不含日期，
-    LLM 常就近把落款日当事件日。规则以签发/落款日期为锚，按「起算当日
-    不计入、自次日起算」推算届满日 = 锚 + N 天（「次日起两日内」：次日为
-    第 1 天 → 锚 + 2；「（之）日起七日内」→ 锚 + 7）。
+    LLM 常就近把落款日当事件日。按「起算当日不计入、自次日起算」推算届满日
+    = 锚 + N 天（「次日起两日内」：次日为第 1 天 → 锚 + 2；
+    「（之）日起七日内」→ 锚 + 7）。
+
+    **锚点（重要，法律口径）**：
+
+    「如不服本判决，可以在判决书**送达之日起**十五日内上诉」的起算点是**送达日**，
+    不是落款日。法院文书落款日普遍早于实际送达（打印/用印/邮寄需要时间），
+    用落款日当锚会把届满日算得**过早**，律师按这个日期排期会误以为
+    「还剩几天」而实际已过期，或反之白抢时间。
+
+    本系统里 **`CourtSMS.received_at` 就是送达日**（法院短信转发到你手机的
+    时刻即收到日；收发双方均按此口径运营），因此管线模式（法院短信入口）
+    传入 `delivery_date` 时优先用它；拿不到（记一笔独立上传 / 转发队列延迟）
+    才回落落款日——宁可给一个早一点的保守估计，也不凭空编一个日期。
 
     认领分三轮，避免多期限句互相争抢同一条候选（context 精确匹配优先于
     指纹兜底）：1) 原文表述出现在候选 context → 校正该候选；2) 未认领事件
@@ -323,7 +650,11 @@ def _apply_relative_deadline_rules(text: str, drafts: list[DateCandidateDraft]) 
     """
     if not text:
         return drafts
-    anchor = _find_issue_date(text)
+
+    if delivery_date is not None:
+        anchor = datetime.combine(delivery_date.date(), datetime.min.time())
+    else:
+        anchor = _find_issue_date(text)
     if anchor is None:
         return drafts
 
@@ -423,6 +754,10 @@ class DateCandidateDraft:
     context_text: str
     source: str  # llm | regex | merged
     confidence: float
+    # 起算点提示（非空时前端在确认弹窗里显示）。目前只有一种：
+    # "effective_first" = 原文是「本判决发生法律效力之日起 N 日」，日期按送达日+ N 天
+    # 保守给出，真实起算点是判决生效日（需与书记员确认）。
+    anchor_note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -431,6 +766,7 @@ class DateCandidateDraft:
             "context_text": self.context_text,
             "source": self.source,
             "confidence": self.confidence,
+            "anchor_note": self.anchor_note,
         }
 
 
@@ -472,11 +808,17 @@ def build_date_candidates(
     document_type: DocumentType,
     *,
     regex_extractor: Any | None = None,
+    received_at: datetime | None = None,
 ) -> list[DateCandidateDraft]:
     """合并 LLM key_events 与正则候选为去重后的候选列表。
 
     去重键 = (日期时间, 提醒类型)：同值 LLM 优先（source 升级为 merged、
     置信度取 max）；同日不同类型都保留（开庭日与举证截止同日是真实场景）。
+
+    Args:
+        received_at: 文书送达/收到时间（法院短信的 ``CourtSMS.received_at``）。
+            传入时作为「送达之日起 N 日」类期限的起算锚点（见
+            ``_apply_relative_deadline_rules``）；None 则回落到落款日。
     """
     extractor = regex_extractor or _RegexCandidateExtractor()
     default_type = DEFAULT_TYPE_BY_DOCUMENT_TYPE.get(document_type, "other")
@@ -494,6 +836,17 @@ def build_date_candidates(
         if event_type not in ReminderType.values:
             event_type = "other"
         context = str(getattr(event, "context", "") or "")[:255]
+        # 无年份日期不采纳：原文若只写「3月26日」，LLM 会按文档里出现的年份自行补全，
+        # 猜错一年就让律师跟进错期限（2026-11-14 实测执行裁定书「3月26日冻结一年」
+        # 被补成 2026-03-26，算出的到期日提前了整整一年）。宁可少一条，
+        # 也不给一个看上去确定、实际可能差一年的假日期。
+        if not _has_explicit_year(parsed, context, text):
+            logger.warning(
+                "跳过无年份的 LLM 日期事件（不猜年份）: %s | context=%s",
+                getattr(event, "datetime", None),
+                context[:40],
+            )
+            continue
         drafts[(parsed, event_type)] = DateCandidateDraft(
             due_at=parsed,
             reminder_type=event_type,
@@ -525,7 +878,7 @@ def build_date_candidates(
 
     # 3. 期间结构后处理：起始日剔除、到期日算术校正、相对期限推算、同上下文去重
     drafts_list = _apply_period_rules(text, list(drafts.values()))
-    drafts_list = _apply_relative_deadline_rules(text, drafts_list)
+    drafts_list = _apply_relative_deadline_rules(text, drafts_list, delivery_date=received_at)
 
     # 4. 陈旧候选降置信（改判文书可能含历史日期，折叠而非丢弃）
     today = timezone.localdate()
@@ -533,9 +886,64 @@ def build_date_candidates(
         if (today - draft.due_at.date()).days > STALE_DAYS:
             draft.confidence = min(draft.confidence, 0.3)
 
+    # 4.4 剔除纯历史事实日期：律师要记的是**尚未到来的期限**。
+    #
+    # 判决书/裁定书正文密集出现已发生的日期：立案日、签约日、对账日、落款日……
+    # 它们不是“关键日期”，只是叙事时间线，放进日历没有意义而且会混淆真正的期限。
+    # 因此：**已过去且类型为 other** 的候选直接丢弃（不返回、不落库）。
+    # 保留例外：
+    #   - 未来日期（哪怕类型是 other，也可能是尚未归类的期限）；
+    #   - 己过期但类型明确的候选（如上诉期已过、保全到期已过）——
+    #     律师需要知道“这个已经过了”，审计/追责时用得上，不能默默隐藏。
+    # 保留两个兜底：
+    #   a) 已过期 + other → 叙事时间线，丢弃；
+    #   b) 超过 FAR_FUTURE_DAYS 的 far-future 日期（>10 年）→ 降置信到 0.3 且标 other，
+    #      这类多是别处的长期约定（房贷 30 年到期日、土地租期）被当成本文书期限。
+    #      实测（2026-11-14 全量扫描）：一份银行贷款合同给出 2051-04-25。
+    #      不直接删——如果律师真的要跟进，行还在，只是不默认勾选。
+    kept: list[DateCandidateDraft] = []
+    for draft in drafts_list:
+        past = draft.due_at.date() < today
+        if past and draft.reminder_type == "other":
+            continue
+        if (draft.due_at.date() - today).days > FAR_FUTURE_DAYS:
+            draft.confidence = min(draft.confidence, 0.3)
+        kept.append(draft)
+    drafts_list = kept
+
+    # 4.55 判决书 / 调解书：只保留救济期限（上诉期、复议期），剔除判项给付义务
+    # 与正文引述的合同条款付款期（业务口径：那是当事人自己的事，与律师日历无关）。
+    if _is_judgment_document(text):
+        before = len(drafts_list)
+        drafts_list = [d for d in drafts_list if not _is_party_payment_obligation(d, text)]
+        if len(drafts_list) != before:
+            logger.info(
+                "判决书/调解书剔除当事人给付义务期限: %d → %d 条",
+                before,
+                len(drafts_list),
+            )
+
+    # 4.6 标注「生效之日起算」的履行期限（不丢弃，见 _EFFECTIVE_FIRST_RE 注释）
+    for draft in drafts_list:
+        if _is_effective_first_derived(draft, text):
+            draft.anchor_note = EFFECTIVE_FIRST_NOTE
+            # 起算点不确定 → 降一档，默认不勾，逼律师看一眼
+            draft.confidence = min(draft.confidence, 0.5)
+
+    # 5. 名额分配：**未过期候选优先占 MAX_CANDIDATES 名额**。
+    # 判决书正文里密布已发生的事实日期（立案/签约/对账/落款），它们不是“提醒”，
+    # 却会把真正的期限（如末页的上诉期）挤出名额——实测 7 页判决书里
+    # 6 条历史日期与 2 条真期限同为候选，旧逻辑靠类型优先级勉强不死，
+    # 一旦历史日期被 LLM 归成 hearing/payment_deadline 就会顶掉真期限。
+    # 过期候选仍然保留（折叠到最后，律师仍可看到并手动勾选），只是不占前排。
     ordered = sorted(
         drafts_list,
-        key=lambda d: (REMINDER_TYPE_PRIORITY.get(d.reminder_type, 99), -d.confidence, d.due_at),
+        key=lambda d: (
+            0 if d.due_at.date() >= today else 1,  # 未过期在前
+            REMINDER_TYPE_PRIORITY.get(d.reminder_type, 99),
+            -d.confidence,
+            d.due_at,
+        ),
     )
     return _dedupe_same_context(ordered)[:MAX_CANDIDATES]
 

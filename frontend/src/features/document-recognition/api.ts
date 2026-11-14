@@ -14,13 +14,50 @@ type TaskSubmitId = Pick<components['schemas']['TaskSubmitResponseSchema'], 'tas
 /** POST court-document/task/{id}/dates/confirm 的响应（生成物 DateConfirmResponseSchema） */
 type DateConfirmResponse = components['schemas']['DateConfirmResponseSchema']
 
-/** 上传文书并提交异步识别，立即返回 task_id */
-export async function recognizeFile(file: File): Promise<TaskSubmitId> {
+/** 上传文书并提交异步识别，立即返回 task_id。
+ *
+ * `sourceCourtSmsId` 走**管线模式**（后端 `source_court_sms_id` 表单字段）：案件与
+ * 案件日志由法院短信侧预绑定，识别只做提取 + 日期候选，不重复建日志/重命名/通知。
+ * 记一笔的独立上传不传，行为不变。 */
+export async function recognizeFile(
+  file: File,
+  opts?: { sourceCourtSmsId?: number },
+): Promise<TaskSubmitId> {
   const body = new FormData()
   body.append('file', file)
+  if (opts?.sourceCourtSmsId != null) body.append('source_court_sms_id', String(opts.sourceCourtSmsId))
   return documentRecognitionApi
     .post('court-document/recognize', { body, timeout: UPLOAD_TIMEOUT_MS })
     .json<components['schemas']['TaskSubmitResponseSchema']>()
+}
+
+/** POST court-document/sms/{id}/capture-dates 的响应（生成物 DateCaptureOutSchema） */
+export type DateCaptureOut = components['schemas']['DateCaptureOutSchema']
+
+/** GET court-document/sms/{id}/capture-status 的响应（生成物 SourceTasksOutSchema） */
+export type SourceTasksOut = components['schemas']['SourceTasksOutSchema']
+
+/**
+ * 把某条法院短信的文书送去「记一笔」识别关键日期（**幂等**）。
+ *
+ * 短信弹窗一打开就自动调一次：已有任务直接复用（不重复烧 LLM），失败的任务
+ * 原地重跑。`force` 只给「重新识别」按钮用（无条件新建任务）。
+ *
+ * 旁线纪律：该接口不改变法院短信（CourtSMS）任何状态，识别失败不影响短信主线。
+ */
+export async function captureCourtSmsDates(smsId: number, opts?: { force?: boolean }): Promise<DateCaptureOut> {
+  return documentRecognitionApi
+    .post(`court-document/sms/${smsId}/capture-dates`, {
+      searchParams: opts?.force ? { force: 'true' } : {},
+      // 建任务要查文件/落库 + 投递队列，给比普通请求宽的窗口（仍远快于识别本身）
+      timeout: 30_000,
+    })
+    .json<DateCaptureOut>()
+}
+
+/** 某条法院短信派生出的识别任务（轮询到识别完成 + 「继续确认」入口） */
+export async function getCourtSmsCaptureStatus(smsId: number): Promise<SourceTasksOut> {
+  return documentRecognitionApi.get(`court-document/sms/${smsId}/capture-status`).json<SourceTasksOut>()
 }
 
 /** 查询任务状态与结果（含日期候选、绑定推荐） */

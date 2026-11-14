@@ -29,7 +29,22 @@ class CourtSMSDocumentReference:  # pragma: no cover
 class CourtSMSDocumentReferenceService:  # pragma: no cover
     """聚合 CourtSMS 文书引用（多来源 + 去重）。"""
 
-    def collect(self, sms: CourtSMS) -> list[CourtSMSDocumentReference]:  # pragma: no cover
+    def collect(
+        self,
+        sms: CourtSMS,
+        *,
+        include_case_log_attachments: bool = True,
+    ) -> list[CourtSMSDocumentReference]:  # pragma: no cover
+        """聚合本短信的文书引用。
+
+        Args:
+            sms: 短信记录
+            include_case_log_attachments: 是否把**案件日志下的全部附件**也算进来。
+                默认 True 仅用于「详情展示」——律师看到同案件的文书是有帮助的。
+                **送识别/送记一笔必须传 False**：案件日志会长期累积同一案件多次送达的
+                全部文书，把别人那条短信的判决书当成这条短信的文书去识别，会把上诉期/
+                缴费期限写进错误的上下文（2026-11-14 实测 57/63 条短信被这样错配）。
+        """
         refs: list[CourtSMSDocumentReference] = []
         seen_paths: set[str] = set()
         seen_names: set[str] = set()
@@ -38,7 +53,8 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         self._collect_from_court_documents(sms, refs, seen_paths, seen_names, seen_digests)
         self._collect_from_sms_paths(sms, refs, seen_paths, seen_names, seen_digests)
         self._collect_from_task_result(sms, refs, seen_paths, seen_names, seen_digests)
-        self._collect_from_case_log_attachments(sms, refs, seen_paths, seen_names, seen_digests)
+        if include_case_log_attachments:
+            self._collect_from_case_log_attachments(sms, refs, seen_paths, seen_names, seen_digests)
 
         return refs
 

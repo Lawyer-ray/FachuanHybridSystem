@@ -13461,6 +13461,92 @@
         ]
       }
     },
+    "/api/v1/document-recognition/court-document/sms/{sms_id}/capture-dates": {
+      "post": {
+        "operationId": "apps_document_recognition_api_document_recognition_api_capture_dates_from_court_sms",
+        "summary": "Capture Dates From Court Sms",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sms_id",
+            "schema": {
+              "title": "Sms Id",
+              "type": "integer"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DateCaptureOutSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "把某条法院短信的文书送去「记一笔」识别关键日期（幂等）。\n\n只产出日期候选，不写入日历——写入必须走 ``/court-document/task/{id}/dates/confirm``\n的人工确认（法律日期错一天的代价不可接受，这是设计底线）。\n\n- ``force=false``（默认）：已有 pending/processing/success 任务直接复用，\n  已有 failed 任务原地重跑——即「打开短信就自动送一次」不会重复烧 LLM。\n- ``force=true``：无条件新建任务（「重新识别」按钮）。\n\n权限：读短信按案件 ACL（与法院短信详情接口同口径），普通律师即可用；\n写入日历的权限由确认接口按案件 ACL 兜底。\n\n**旁线纪律**：本接口不修改 CourtSMS 任何字段，识别失败/超时不会影响\n法院短信主线的状态机。",
+        "tags": [
+          "法院文书识别"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/document-recognition/court-document/sms/{sms_id}/capture-status": {
+      "get": {
+        "operationId": "apps_document_recognition_api_document_recognition_api_get_court_sms_capture_status",
+        "summary": "Get Court Sms Capture Status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sms_id",
+            "schema": {
+              "title": "Sms Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceTasksOutSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "某条法院短信派生出的识别任务列表（轮询 + 「继续确认」入口）。\n\n按任务归属过滤：普通律师只看自己创建的（与短信 ACL 叠加），管理员看全量。\n短信本身无权访问时 404。",
+        "tags": [
+          "法院文书识别"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/document-recognition/court-document/search-cases": {
       "get": {
         "operationId": "apps_document_recognition_api_document_recognition_api_search_cases_for_binding",
@@ -41588,6 +41674,191 @@
           "created_at"
         ],
         "title": "PendingTaskOutSchema",
+        "type": "object"
+      },
+      "DateCaptureItemOutSchema": {
+        "description": "单份文书的送识别结果",
+        "properties": {
+          "document_path": {
+            "default": "",
+            "title": "Document Path",
+            "type": "string"
+          },
+          "document_name": {
+            "default": "",
+            "title": "Document Name",
+            "type": "string"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          },
+          "action": {
+            "default": "",
+            "title": "Action",
+            "type": "string"
+          },
+          "candidate_count": {
+            "default": 0,
+            "title": "Candidate Count",
+            "type": "integer"
+          },
+          "pending_count": {
+            "default": 0,
+            "title": "Pending Count",
+            "type": "integer"
+          },
+          "date_confirmation_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Confirmation Status"
+          },
+          "error_message": {
+            "default": "",
+            "title": "Error Message",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "DateCaptureItemOutSchema",
+        "type": "object"
+      },
+      "DateCaptureOutSchema": {
+        "description": "法院短信送记一笔的结果（逐份文书）",
+        "properties": {
+          "source_court_sms_id": {
+            "title": "Source Court Sms Id",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DateCaptureItemOutSchema"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_court_sms_id"
+        ],
+        "title": "DateCaptureOutSchema",
+        "type": "object"
+      },
+      "SourceTaskOutSchema": {
+        "description": "来源短信派生出的识别任务摘要（轮询 / 「继续确认」入口用）",
+        "properties": {
+          "task_id": {
+            "title": "Task Id",
+            "type": "integer"
+          },
+          "document_path": {
+            "default": "",
+            "title": "Document Path",
+            "type": "string"
+          },
+          "document_name": {
+            "default": "",
+            "title": "Document Name",
+            "type": "string"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          },
+          "error_message": {
+            "default": "",
+            "title": "Error Message",
+            "type": "string"
+          },
+          "classification_hint": {
+            "default": "",
+            "title": "Classification Hint",
+            "type": "string"
+          },
+          "document_type": {
+            "default": "",
+            "title": "Document Type",
+            "type": "string"
+          },
+          "case_number": {
+            "default": "",
+            "title": "Case Number",
+            "type": "string"
+          },
+          "candidate_count": {
+            "default": 0,
+            "title": "Candidate Count",
+            "type": "integer"
+          },
+          "pending_count": {
+            "default": 0,
+            "title": "Pending Count",
+            "type": "integer"
+          },
+          "confirmed_count": {
+            "default": 0,
+            "title": "Confirmed Count",
+            "type": "integer"
+          },
+          "skipped_count": {
+            "default": 0,
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "date_confirmation_status": {
+            "default": "",
+            "title": "Date Confirmation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "title": "SourceTaskOutSchema",
+        "type": "object"
+      },
+      "SourceTasksOutSchema": {
+        "description": "某条法院短派生出的全部识别任务",
+        "properties": {
+          "source_court_sms_id": {
+            "title": "Source Court Sms Id",
+            "type": "integer"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/SourceTaskOutSchema"
+            },
+            "title": "Tasks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_court_sms_id"
+        ],
+        "title": "SourceTasksOutSchema",
         "type": "object"
       },
       "CaseSearchResultSchema": {

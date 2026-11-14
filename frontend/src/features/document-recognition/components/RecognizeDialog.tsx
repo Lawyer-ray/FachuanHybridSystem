@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 
 import { CaseBindingSection } from './CaseBindingSection'
 import { DateCandidateList } from './DateCandidateList'
+import { PipelineBindingChip } from './PipelineBindingChip'
 import { DocumentPreview } from './DocumentPreview'
 import { RecognitionProgress } from './RecognitionProgress'
 import { RecognitionSummary } from './RecognitionSummary'
@@ -26,6 +27,11 @@ interface Props {
   onSaved: () => void
   /** 文件模式：要识别的文书 */
   file: File | null
+  /**
+   * 法院短信旁线：跟进一个后端**已存在**的识别任务（不重传文件）。
+   * 与 `file` 二选一：给了 taskId 就只轮询 + 确认，案件已由短信侧绑定。
+   */
+  taskId?: number | null
   /** 文字模式：/reminders/parse 的候选行 + 创建回调（由 home 注入，避免反向依赖） */
   textRows?: CandidateRow[]
   onConfirmText?: (rows: CandidateRow[]) => Promise<number>
@@ -37,10 +43,15 @@ interface Props {
  * 文件模式：上传 → 轮询识别 → 第 1 步案件绑定（可跳过）→ 第 2 步日期候选
  * 逐条人工确认 → 写入重要日期提醒（绑定了挂案件日志，没绑创建独立提醒）。
  * 文字模式：parse 出的全部候选进同一套确认 UI，逐条走 /reminders/create。
+ *
+ * 法院短信旁线（传 taskId）：跳过上传，直接接管后端已派发的任务。这时案件/日志
+ * 由短信侧绑定，**不展示案件选择**——日期写到哪份日历不能在同一张弹窗里被改成别的。
  */
-export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConfirmText }: Props) {
-  const isFileMode = file !== null
-  const { phase, hint, error, task, progress, submit, retry, canRetry, retrying, refresh, reset } = useRecognize()
+export function RecognizeDialog({ open, onClose, onSaved, file, taskId, textRows, onConfirmText }: Props) {
+  const isAttached = taskId != null
+  const isFileMode = file !== null || isAttached
+  const { phase, hint, error, task, progress, submit, attach, retry, canRetry, retrying, refresh, reset } =
+    useRecognize()
   const submittedFile = useRef<File | null>(null)
 
   // 文件模式：open 时提交一次（同一文件不重复提交）
@@ -49,6 +60,12 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
     submittedFile.current = file
     void submit(file)
   }, [open, file, submit])
+
+  // 旁线：接管已有任务（换短信/换任务号时重新接管，同号不重复开轮询）
+  useEffect(() => {
+    if (!open || taskId == null) return
+    void attach(taskId)
+  }, [open, taskId, attach])
 
   useEffect(() => {
     if (!open) {
@@ -209,14 +226,20 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
                 </StepCard>
               )}
 
+              {/* 旁线（法院短信）不展示案件选择：案件/日志由短信侧绑定，
+                  日期写到哪份日历不能在同一张弹窗里被换掉 */}
               {isFileMode && task && (
-                <StepCard step={1} title="关联案件" muted>
-                  <CaseBindingSection task={task} onBound={refresh} />
+                <StepCard step={isAttached ? undefined : 1} title="关联案件" muted>
+                  {isAttached ? (
+                    <PipelineBindingChip task={task} />
+                  ) : (
+                    <CaseBindingSection task={task} onBound={refresh} />
+                  )}
                 </StepCard>
               )}
 
               <StepCard
-                step={isFileMode ? 2 : undefined}
+                step={isFileMode ? (isAttached ? undefined : 2) : undefined}
                 title={isFileMode ? '确认关键日期' : '确认日期'}
                 trailing={
                   rows.length > 0 ? (

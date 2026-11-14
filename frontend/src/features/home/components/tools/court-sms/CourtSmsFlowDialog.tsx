@@ -1,8 +1,11 @@
 import { Copy, Loader2, MessageSquare, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
+import { calendarKeys } from '../../../api'
+import { preloadRecognizeDialog, RecognizeDialogLazy } from '@/features/document-recognition'
 import { errMessage } from '@/lib/errors'
 
 import { courtSmsDownloadAllUrl, triggerDownload, type CourtSmsDetail } from '../../../api'
@@ -14,6 +17,7 @@ import { CaseAssignPicker } from './CaseAssignPicker'
 import { copyAllDocFiles } from './copy-files'
 import { SMS_STATUS_LABEL, stagesFor } from './stages'
 import { SmsSuccessBody } from './SmsSuccessBody'
+import { useDateCapture } from './use-date-capture'
 import { stageForDisplay, type UseCourtSmsResult } from './use-court-sms'
 
 /** phase/outcome → 弹窗基调 */
@@ -77,6 +81,30 @@ export function CourtSmsFlowDialog({
   const [copyAllBusy, setCopyAllBusy] = useState(false)
   const [abortArmed, setAbortArmed] = useState(false)
   const [abortBusy, setAbortBusy] = useState(false)
+
+  // ---- 记一笔旁线（关键日期）----
+  // 独立于短信主流程：它失败/超时都不会改变上面的 tone/steps；
+  // 弹窗一打开（且短信已处理完）就自动送识别，幂等不重复烧 LLM。
+  const capture = useDateCapture()
+  const queryClient = useQueryClient()
+  const [captureTaskId, setCaptureTaskId] = useState<number | null>(null)
+  const captureSmsId = tone === 'success' && detail ? detail.id : null
+
+  useEffect(() => {
+    if (!open || captureSmsId == null) return
+    preloadRecognizeDialog() // 并行下载确认弹窗 chunk
+    void capture.start(captureSmsId)
+    // capture 的 start 由 usePollSession 保证重入安全；smsId/open 变化才重跑
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, captureSmsId])
+
+  // 弹窗关闭：停掉轮询（状态保留，重开时对一次账）
+  useEffect(() => {
+    if (!open) capture.stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  useEffect(() => () => capture.reset(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 两段确认的自动解除定时器：事件处理器里挂的 setTimeout 组件卸载不会自动取消，
   // 不清理就是泄漏（卸载后还回调 setState），存 ref 在关闭/动作完成/卸载时清掉
@@ -190,7 +218,14 @@ export function CourtSmsFlowDialog({
       </div>
     )
   } else if (tone === 'success' && detail) {
-    body = <SmsSuccessBody detail={detail} />
+    body = (
+      <SmsSuccessBody
+        detail={detail}
+        capture={capture}
+        onOpenTask={setCaptureTaskId}
+        onRetryCapture={() => void capture.restart(detail.id)}
+      />
+    )
   } else if (tone === 'error') {
     body = (
       <div className="flex flex-col gap-2.5">
@@ -280,6 +315,23 @@ export function CourtSmsFlowDialog({
       }
     >
       {body}
+
+      {/* 日期确认弹窗（懒加载）：接管旁线已建好的识别任务，不重传文件；
+          案件已由短信绑定，弹窗内不出案件选择器。写入成功后刷新日历。 */}
+      {captureTaskId != null && (
+        <Suspense fallback={null}>
+          <RecognizeDialogLazy
+            open
+            taskId={captureTaskId}
+            file={null}
+            onClose={() => setCaptureTaskId(null)}
+            onSaved={() => {
+              void queryClient.invalidateQueries({ queryKey: calendarKeys.all })
+              if (captureSmsId != null) void capture.refresh(captureSmsId)
+            }}
+          />
+        </Suspense>
+      )}
     </TaskFlowDialog>
   )
 }

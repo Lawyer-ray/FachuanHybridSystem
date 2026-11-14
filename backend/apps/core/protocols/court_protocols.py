@@ -74,6 +74,10 @@ class ICourtDocumentRecognitionService(Protocol):
         prebound_case_id: int | None = None,
         prebound_case_log_id: int | None = None,
         llm_model: str | None = None,
+        known_case_number: str | None = None,
+        known_party_names: list[str] | None = None,
+        known_document_type: str | None = None,
+        received_at: Any | None = None,
     ) -> Any: ...
 
     def recognize_document_from_text(self, text: str, *, llm_model: str | None = None) -> Any: ...

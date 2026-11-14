@@ -38,6 +38,14 @@ export interface UseRecognizeResult {
   progress: RecognizeProgressInfo
   /** 上传并识别到终态（success/failed） */
   submit: (file: File) => Promise<void>
+  /**
+   * 直接跟进一个**后端已存在**的任务（法院短信旁线用）。
+   *
+   * 与 submit 的区别：不重传文件。法院短信侧持续把文书送去识别，弹窗打开时
+   * 任务可能还在 pending/processing——这里只接管任务号并轮询到终态，已成功
+   * 的直接出结果。若打开时任务已 failed，同样进 error 态供「重试」。
+   */
+  attach: (taskId: number) => Promise<void>
   /** 重跑当前任务（复用已上传文件，不重传） */
   retry: () => Promise<void>
   /** 是否可重试（失败或疑似卡住时） */
@@ -146,6 +154,21 @@ export function useRecognize(): UseRecognizeResult {
     setPhase('error')
   }, [])
 
+  /** 接管后端既有任务：不重传，直接轮询到终态 */
+  const attach = useCallback(
+    async (id: number) => {
+      const lease = pollSession.begin()
+      taskId.current = id
+      setActiveTaskId(id)
+      setTask(null)
+      setError(null)
+      setProgress(IDLE_PROGRESS)
+      setPhase('polling')
+      await poll(id, lease)
+    },
+    [poll, pollSession],
+  )
+
   const submit = useCallback(
     async (file: File) => {
       // 先开新会话再清 state：旧任务正在 await 的轮询从此失效，
@@ -225,7 +248,7 @@ export function useRecognize(): UseRecognizeResult {
   // 失败可重试；疑似卡住也允许（后端会二次校验任务是否真的僵死）
   const canRetry = activeTaskId != null && (phase === 'error' || progress.level === 'stalled')
 
-  return { phase, hint, error, task, progress, submit, retry, canRetry, retrying, refresh, reset }
+  return { phase, hint, error, task, progress, submit, attach, retry, canRetry, retrying, refresh, reset }
 }
 
 /**
