@@ -458,30 +458,36 @@ def _is_judgment_document(text: str) -> bool:
 
 
 def _is_party_payment_obligation(draft: DateCandidateDraft, text: str) -> bool:
-    """判决书/调解书里的这条候选，是否属于「当事人之间的给付义务」（不该记）。
+    """判决书/调解书里的这条候选，是否属于「不该记进律师日历」的那类。
 
-    口径（业务确认 2026-11-14）：判决书/调解书里律师**只跟救济期限**（上诉期/复议期）。
-    - 判项给付（「被告于本判决生效之日起十日内支付 XX 元」）→ 当事人自己的义务，不记；
-    - 调解书分期付款（「被告定于 2026年6月30日前支付 15000 元」）→ 同上，不记；
-    - 正文引述的合同条款付款期（「《采购单》约定货到 3 日内付款」）→ 不记。
+    口径（业务确认 2026-11-14）：判决书/调解书里律师**只跟救济期限**。
 
-    **唯一例外**：向**本院**缴纳/交纳（诉讼费由法院收取）→ 保留，律师要跟进。
+    **按类型白名单判定**（最不容易漏）：
 
-    实现上直接按类型判（而不是解析每条 context 的话术）：在这两类文书里，
-    `payment_deadline` 几乎必然指向当事人间给付；救济期限走的是
-    appeal_deadline / submission_deadline，不受影响。用「向本院」这一个例外兜住
-    诉讼费，比逐个语术匹配更可靠——实测（2026-11-14）调解书里的分期付款有
-    「向原告支付」「被告定于 X 日前支付」「于 X 日前支付」等多套写法，漏一个就漏全部。
+    | 类型 | 判决书/调解书里 | 理由 |
+    |:--|:--|:--|
+    | `appeal_deadline` 上诉期 | **保留** | 律师最关心的：不上诉则判决生效 |
+    | `submission_deadline` 复议期/提交期限 | **保留** | 裁定书的救济期限（「五日内申请复议」） |
+    | `payment_deadline` 缴费 | 剔除**除**「向本院缴纳」 | 判项给付是当事人的义务；调解书分期付款同理；只有诉讼费由法院收，要跟进 |
+    | `hearing` 开庭 | **剔除** | 判决书里的开庭日都是**已开过的庭**（「本院于X日公开开庭审理」的历史陈述），不是未来要去的庭 |
+    | `asset_preservation_expires` 保全到期 | **保留** | 判决书正文可能载明保全措施与期限，律师要跟进续封 |
+
+    为什么不按话术逐条匹配：实测（2026-11-14）调解书分期付款有「向原告支付」
+    「被告定于 X 日前支付」「于 X 日前支付」多套写法，漏一个就漏全部。
+    按类型判 + 一个明确例外，既覆盖全又不会误伤救济期限。
     """
-    if draft.reminder_type not in ("payment_deadline", "submission_deadline"):
-        return False
-    context = draft.context_text or ""
-    if _REFUSAL_KEEP_RE.search(context):
-        return False  # 向本院缴纳诉讼费 → 保留
-    if draft.reminder_type == "payment_deadline":
+    if draft.reminder_type == "hearing":
+        # 判决书里的开庭日是历史陈述；未来开庭靠传票/开庭通知，不靠判决书
         return True
-    # submission_deadline：只剔除明确属于当事人之间的给付/合同约定
-    return bool(_PAYMENT_ORDER_RE.search(context) or _PAY_TO_PARTY_RE.search(context))
+    if draft.reminder_type == "payment_deadline":
+        return not _REFUSAL_KEEP_RE.search(draft.context_text or "")  # 「向本院缴纳」保留
+    if draft.reminder_type == "submission_deadline":
+        # 救济期限（复议）保留；明确属于当事人间给付/合同约定的剔除
+        context = draft.context_text or ""
+        if _REFUSAL_KEEP_RE.search(context):
+            return False
+        return bool(_PAYMENT_ORDER_RE.search(context) or _PAY_TO_PARTY_RE.search(context))
+    return False
 
 
 # 给付给「对方当事人」而非法院（判决书/调解书里当事人的付款义务）

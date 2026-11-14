@@ -1319,3 +1319,47 @@ class TestMediationInstallmentsDropped:
         contexts = " ".join(d.context_text for d in drafts)
         assert "向本院缴纳" in contexts
         assert any(d.reminder_type == "appeal_deadline" for d in drafts)
+
+
+class TestJudgmentHearingDropped:
+    """判决书/调解书里的开庭日不记。
+
+    理由（业务确认 2026-11-14）：判决书里的开庭日都是**已开过的庭**
+    （写在「本院于X日公开开庭进行了审理」的叙述里），不是要去的庭。
+    未来的开庭靠传票/开庭通知，不靠判决书。
+    """
+
+    _TEXT = (
+        "广东省某市人民法院民事判决书\n"
+        "本院于2026年10月19日公开开庭进行了审理，原告到庭参加诉讼。"
+        "如不服本判决，可在判决书送达之日起十五日内上诉。落款：2030年10月28日"
+    )
+
+    def test_hearing_dropped_from_judgment(self):
+        drafts = build_date_candidates(self._TEXT, None, DocumentType.OTHER, regex_extractor=_stub_extractor([]))
+
+        assert all(d.reminder_type != "hearing" for d in drafts), (
+            f"判决书里的历史开庭日不该记录，实际 {[(d.due_at, d.reminder_type) for d in drafts]}"
+        )
+        assert any(d.reminder_type == "appeal_deadline" for d in drafts)
+
+    def test_summons_hearing_still_kept(self):
+        """反守：传票上的开庭时间必须保留（那才是要去的庭）。"""
+        text = "广东省某市人民法院传票\n案号（20XX）粤0000民初0000号\n应到时间 2030年10月19日14时30分"
+        drafts = build_date_candidates(text, None, DocumentType.SUMMONS)
+
+        assert any(d.reminder_type == "hearing" for d in drafts), "传票的开庭时间不该被判决书规则误杀"
+
+    def test_preservation_in_judgment_kept(self):
+        """判决书正文载明的保全到期日保留（律师要跟进续封）。"""
+        text = (
+            "广东省某市人民法院民事判决书\n"
+            "本院已冻结被告账户，冻结期限至2030年12月31日止。"
+            "如不服本判决，可在判决书送达之日起十五日内上诉。落款：2030年10月28日"
+        )
+        analysis = SimpleNamespace(
+            key_events=[_event("2030-12-31 00:00", "asset_preservation_expires", "冻结期限至2030年12月31日止", 0.9)]
+        )
+        drafts = build_date_candidates(text, analysis, DocumentType.OTHER)
+
+        assert any(d.reminder_type == "asset_preservation_expires" for d in drafts), "保全到期日不该被剔除"
