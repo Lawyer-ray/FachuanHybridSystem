@@ -30,6 +30,8 @@ export function MetaPanel({
   onToggleMdOpen,
   focusedBlockKey,
   onLocateBlock,
+  editRequestKey,
+  onEditRequestHandled,
   narrow = false,
 }: {
   draft: DraftState
@@ -42,6 +44,9 @@ export function MetaPanel({
   onToggleMdOpen: () => void
   focusedBlockKey: string | null
   onLocateBlock: (key: string | null) => void
+  /** 页面框双击过来的「进入修改」请求（消费后由调用方清空） */
+  editRequestKey?: string | null
+  onEditRequestHandled?: () => void
   /** 窄屏时右栏是抽屉，宽度由抽屉 CSS 决定，拖拽手柄不渲染 */
   narrow?: boolean
 }) {
@@ -87,6 +92,8 @@ export function MetaPanel({
         onToggleOpen={onToggleMdOpen}
         focusedBlockKey={focusedBlockKey}
         onLocateBlock={onLocateBlock}
+        editRequestKey={editRequestKey}
+        onEditRequestHandled={onEditRequestHandled}
         onEditMarkdown={(md) => ops.editMarkdown(si, md)}
         onEditBlock={(key, text) => ops.editBlock(si, key, text)}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}

@@ -29,3 +29,15 @@ CVE-2026-113725 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active
 
 # ===== 2026-10-21 第四批（virtualenv 同源追加；构建工具链依赖，不进运行时）=====
 CVE-2026-113722 | virtualenv@21.13.0 | Medium | 2026-10-21 | 2026-11-30 | active | 构建工具链（uv/venv 创建），CI 一次性环境，不进运行时镜像；修复 21.14.9
+
+# ===== 2026-11-14 批次（soupsieve 上游新发 3 条 advisory，打挂 main 与各分支 CI）=====
+# 命中面核验：全仓 soupsieve 只被 beautifulsoup4 间接引入，实际调用点仅
+#   mcp_server/tools/web_search/{fetch_url,web_search}.py → 解析抓回的网页/搜索结果。
+# 三条 CVE 全部是「恶意 CSS 选择器导致 CPU/栈耗尽」，而本仓所有选择器都是
+#   fetch_url.py 里的硬编码常量（_NOISE_SELECTORS / _CONTENT_SELECTORS），
+#   不接受用户或模型传入的 selector —— 无可触发的入口。仅在模型「读取」网页时
+#   被动解析 DOM，不对外提供 CSS 查询能力。
+# 复评：beautifulsoup4 上游发布 >=4.15.x 且升级 soupsieve>=3.0 时删除本组豁免。
+CVE-2026-126190 | soupsieve@2.10 | Medium | 2026-11-14 | 2027-02-28 | active | 选择器全为硬编码常量，不接受外部 selector；修复 4.0.0
+CVE-2026-126191 | soupsieve@2.10 | Medium | 2026-11-14 | 2027-02-28 | active | 同上；ReDoS 需攻击者可控的选择器串；修复 3.0.2
+CVE-2026-126193 | soupsieve@2.10 | Medium | 2026-11-14 | 2027-02-28 | active | 同上；无界递归需深层恶意选择器；修复 3.0.2

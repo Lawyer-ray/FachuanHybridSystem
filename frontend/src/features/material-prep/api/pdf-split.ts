@@ -34,6 +34,52 @@ export async function createPdfSplitJob(
   return result.job_id
 }
 
+/**
+ * 从一份 PDF 里按页范围切出小 PDF（POST /pdf-splitting/extract-pages）。
+ *
+ * `pageStart` / `pageEnd` 均为 1 起、含两端。服务端复用导出链本来的切页实现，
+ * 不在前端揣页逻辑（浏览器端也没装 pdf-lib）。
+ *
+ * 主要用于归案：每份案件材料上传的是它自己那几页，而不是整卷 164 页。
+ * 失败直接抛，由调用方决定是否降级为整包上传。
+ */
+export async function extractPdfPages(
+  file: Blob,
+  name: string,
+  pageStart: number,
+  pageEnd: number,
+): Promise<Blob> {
+  const body = new FormData()
+  body.append('file', new File([file], name, { type: 'application/pdf' }))
+  body.append('page_start', String(pageStart))
+  body.append('page_end', String(pageEnd))
+  const res = await pdfSplitApi.post('extract-pages', { body, timeout: UPLOAD_TIMEOUT_MS })
+  return await res.blob()
+}
+
 export async function getPdfSplitJob(jobId: string): Promise<PdfSplitJobPayload> {
   return pdfSplitApi.get(`jobs/${jobId}`).json<PdfSplitJobPayload>()
+}
+
+/**
+ * 查一份**已算好**的拆分任务（按原始文件名 + 页数三重匹配）。
+ *
+ * 为什么需要：律师跑完一次 164 页识别（云端 OCR + LLM 分段，5-10 分钟、几十元）
+ * 后，只要 `draft_state` 没被回写（没点过「自动识别」，或换了浏览器），
+ * 阅读器就拿不到结果；此时再点一次会从零重跑，前面的钱和时间全白花。
+ *
+ * 返回 null 表示没有可复用的，调用方照常新建任务。
+ */
+export async function findReusablePdfSplitJob(
+  sourceName: string,
+  totalPages?: number,
+): Promise<PdfSplitJobPayload | null> {
+  const searchParams: Record<string, string | number> = { source_name: sourceName }
+  if (totalPages != null && totalPages > 0) searchParams.total_pages = totalPages
+  try {
+    return await pdfSplitApi.get('reusable-job', { searchParams }).json<PdfSplitJobPayload | null>()
+  } catch {
+    // 查复用是**优化**，失败不该阻断识别主流程——降级为「没有可复用的」
+    return null
+  }
 }

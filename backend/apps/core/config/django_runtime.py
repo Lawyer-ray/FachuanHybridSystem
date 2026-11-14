@@ -175,24 +175,42 @@ def resolve_perm_open_access(*, is_production: bool) -> bool:
 
 
 def resolve_rate_limit() -> dict[str, int]:
+    """限流阈值。
+
+    ## 为何 upload/export/task/ocr 的阈值放得很宽
+
+    本系统是**本地/内网部署、同一个律所自用**，不存在对外暴露的刷接口场景。
+    原来的 20 次/分钟上传阈值反而误伤了正常业务：材料包归案是一次性传
+    几十个附件（实测 164 页卷宗拆成 36 段 → 36 次上传），第 21 次开始全部
+    429，而且前端静默 continue —— 律师看到「已归案」，实际材料成批缺失。
+
+    所以这几个“天然批量”的端点放到 600/分钟（足够 5 个 100 段级材料包并发），
+    保留其存在只为防止真正的死循环（比如前端 bug 导致的无限重试），
+    不再是业务约束。
+
+    **认证接口保持严格**（5 次/分钟）：那是唯一一个“猜密码”有意义的入口，
+    即使内网也不该放开。
+    """
     return {
-        "DEFAULT_REQUESTS": 100,
+        "DEFAULT_REQUESTS": 600,
         "DEFAULT_WINDOW": 60,
+        # 登录/注册：唯一保留严格限流的入口（防暴力猜密码，内网也适用）
         "AUTH_REQUESTS": 5,
         "AUTH_WINDOW": 60,
-        "UPLOAD_REQUESTS": 20,
+        # 以下四项是天然批量操作：材料包归案 / 批量导出 / 批量建任务 / 多页 OCR
+        "UPLOAD_REQUESTS": 600,
         "UPLOAD_WINDOW": 60,
-        "EXPORT_REQUESTS": 20,
+        "EXPORT_REQUESTS": 600,
         "EXPORT_WINDOW": 60,
-        "OCR_REQUESTS": 10,
+        "OCR_REQUESTS": 600,
         "OCR_WINDOW": 60,
-        "LLM_REQUESTS": 20,
-        "LLM_WINDOW": 60,
-        "LLM_HISTORY_REQUESTS": 60,
-        "LLM_HISTORY_WINDOW": 60,
-        "TASK_REQUESTS": 30,
+        "TASK_REQUESTS": 600,
         "TASK_WINDOW": 60,
-        "ADMIN_REQUESTS": 60,
+        "LLM_REQUESTS": 120,
+        "LLM_WINDOW": 60,
+        "LLM_HISTORY_REQUESTS": 300,
+        "LLM_HISTORY_WINDOW": 60,
+        "ADMIN_REQUESTS": 300,
         "ADMIN_WINDOW": 60,
     }
 

@@ -3,19 +3,24 @@
  *
  * mock 只打 HTTP 客户端工厂（@/lib/api 的 createApiClient）：按 prefix 建出的
  * 客户端（/api/v1 核心、/api/v1/cases、/api/v1/client、/api/v1/contracts、
- * /api/v1/inbox、/api/v1/organization）各自可寻址，断言聚焦「每一步请求了
- * 什么路径 / body」，以及链路的容错语义（合同失败不阻断归案、单份绑定失败
- * 不中断其余分段、取不到律师直接抛错）。端点形状取自后端 OpenAPI，不是猜的。
+ * /api/v1/inbox、/api/v1/organization、/api/v1/pdf-splitting）各自可寻址，
+ * 断言聚焦「每一步请求了什么路径 / body」，以及链路的容错语义（合同失败不阻断
+ * 归案、单份绑定失败不中断其余分段、取不到律师直接抛错、切页失败降级整包上传）。
+ * 端点形状取自后端 OpenAPI，不是猜的。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { clients } = vi.hoisted(() => ({
+const { clients, toastMock } = vi.hoisted(() => ({
   clients: [] as Array<{
     prefix: string
     get: ReturnType<typeof vi.fn>
     post: ReturnType<typeof vi.fn>
   }>,
+  /** 切分降级提示走 toast.warning：归案本身照常成功，只是要说清有几份没切开 */
+  toastMock: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
 }))
+
+vi.mock('sonner', () => ({ toast: toastMock }))
 
 /**
  * 每个 prefix 只建一次桩实例：cases.ts 里 `createApiClient(...)` 写在函数体内
@@ -24,6 +29,8 @@ const { clients } = vi.hoisted(() => ({
  * 按 prefix 复用既符合真实语义（ky 客户端本就该复用），也让断言稳定。
  */
 vi.mock('@/lib/api', () => ({
+  // 切页走 pdf-split 的客户端，会用这个超时常量；mock 里缺导出会被 vitest 直接拦下
+  UPLOAD_TIMEOUT_MS: 300_000,
   createApiClient: (opts?: { prefix?: string }) => {
     const prefix = opts?.prefix ?? '/api/v1'
     const existing = clients.find((x) => x.prefix === prefix)
@@ -54,6 +61,20 @@ function fail(error: Error) {
   const p = Promise.reject(error)
   p.catch(() => {}) // 用例里必然 await / catch，这里只防未处理 rejection 噪音
   return Object.assign(p, { json: () => p })
+}
+
+/** 附件字节桩：区分「原始整包」与「后端切出来的小 PDF」，便于断言传上去的是哪一份 */
+function blobBody(text: string) {
+  return respond({ blob: () => Promise.resolve(new Blob([text])) })
+}
+
+const ORIGINAL_PDF = 'original-164-pages'
+
+/** 读 multipart body 里的文件内容（body 是 FormData，files 字段是 File） */
+async function uploadedFileText(call: unknown[]): Promise<string> {
+  const body = (call[1] as { body: FormData }).body
+  const file = body.get('files') as File
+  return await file.text()
 }
 
 /**
@@ -97,7 +118,8 @@ function stubHappyPath() {
   stubAll('/api/v1/organization', { get: () => respond({ id: 42 }) })
   stubAll('/api/v1/client', { post: () => respond({ id: 5 }) })
   stubAll('/api/v1/contracts', { post: () => respond({ id: 88 }) })
-  stubAll('/api/v1/inbox', { get: () => respond({ blob: () => Promise.resolve(new Blob(['pdf'])) }) })
+  stubAll('/api/v1/inbox', { get: () => blobBody(ORIGINAL_PDF) })
+  stubAll('/api/v1/pdf-splitting', { post: () => respond({ blob: () => Promise.resolve(new Blob(['[2,3]'])) }) })
   stubAll('/api/v1/cases', {
     get: () => respond({ name: '既有案件' }),
     post: (path: string) => {
@@ -112,6 +134,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   stubHappyPath()
 })
+
+/** 取归案里某次切页请求的 body（FormData：file / page_start / page_end） */
+function extractCalls(): FormData[] {
+  return callsOf('/api/v1/pdf-splitting', 'post').map(
+    (c) => (c[1] as { body: FormData }).body,
+  )
+}
 
 describe('searchCases', () => {
   it('空白关键字短路返回 []，不发请求', async () => {
@@ -173,7 +202,13 @@ describe('assignPack：target=new', () => {
       segments: [SEGMENT],
     })
 
-    expect(res).toEqual({ caseId: 3001, caseName: '谭某某借款纠纷', contractId: 88, boundCount: 1 })
+    expect(res).toEqual({
+      caseId: 3001,
+      caseName: '谭某某借款纠纷',
+      contractId: 88,
+      boundCount: 1,
+      unsplitCount: 0,
+    })
 
     // 我方 + 两个对方各建一次客户；含「银行」字样的按法人主体建
     const clientBodies = callsOf('/api/v1/client', 'post').map(
@@ -247,7 +282,7 @@ describe('assignPack：target=new', () => {
     stubAll('/api/v1/inbox', {
       get: () => {
         nth += 1
-        return nth === 1 ? fail(new Error('410')) : respond({ blob: () => Promise.resolve(new Blob(['pdf'])) })
+        return nth === 1 ? fail(new Error('410')) : blobBody(ORIGINAL_PDF)
       },
     })
 
@@ -321,6 +356,125 @@ describe('assignPack：target=new', () => {
   })
 })
 
+describe('assignPack：按分段切页', () => {
+  const SOURCE = { partIndex: 0, n: '卷宗.pdf', k: 'pdf' as const, pages: 10 }
+  const casesPostPaths = () => callsOf('/api/v1/cases', 'post').map((c) => String(c[0]))
+
+  it('分段覆盖整份素材（1..pages）时不切，直接整包上传', async () => {
+    const res = await assignPack({
+      messageId: 9,
+      target: 'existing',
+      caseId: 55,
+      parties: { our: '', their: '' },
+      segments: [{ name: '整卷', partIndex: 0, pageStart: 1, pageEnd: 10 }],
+      sources: [SOURCE],
+    })
+
+    expect(res.unsplitCount).toBe(0)
+    expect(callsOf('/api/v1/pdf-splitting', 'post')).toEqual([])
+    const upload = callsOf('/api/v1/cases', 'post').find((c) => String(c[0]).endsWith('/materials/upload'))!
+    await expect(uploadedFileText(upload)).resolves.toBe(ORIGINAL_PDF)
+  })
+
+  it('部分覆盖时先调切页端点，再上传切好的 PDF', async () => {
+    const res = await assignPack({
+      messageId: 9,
+      target: 'existing',
+      caseId: 55,
+      parties: { our: '', their: '' },
+      segments: [{ name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3 }],
+      sources: [SOURCE],
+    })
+
+    expect(res).toMatchObject({ boundCount: 1, unsplitCount: 0 })
+
+    const [body] = extractCalls()
+    expect(body!.get('page_start')).toBe('2')
+    expect(body!.get('page_end')).toBe('3')
+    expect(body!.get('file')).toBeInstanceOf(File)
+
+    // 上传的是切出来的那份，不是整包
+    const upload = callsOf('/api/v1/cases', 'post').find((c) => String(c[0]).endsWith('/materials/upload'))!
+    await expect(uploadedFileText(upload)).resolves.toBe('[2,3]')
+    expect(casesPostPaths()).toEqual(['55/materials/upload', '55/materials/bind'])
+  })
+
+  it('每段按自己的页范围切，多次分段各切一次', async () => {
+    await assignPack({
+      messageId: 9,
+      target: 'existing',
+      caseId: 55,
+      parties: { our: '', their: '' },
+      segments: [
+        { name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 2 },
+        { name: '证据', partIndex: 0, pageStart: 3, pageEnd: 10 },
+      ],
+      sources: [SOURCE],
+    })
+
+    expect(extractCalls().map((b) => [b.get('page_start'), b.get('page_end')])).toEqual([
+      ['1', '2'],
+      ['3', '10'],
+    ])
+    // 同一份素材只下载一次（切页输入按 partIndex 缓存）
+    expect(callsOf('/api/v1/inbox', 'get')).toHaveLength(1)
+    expect(casesPostPaths().filter((p) => p.endsWith('/materials/bind'))).toHaveLength(2)
+  })
+
+  it('切页失败降级为整包上传：归案不挂，并提示未能切分', async () => {
+    stubAll('/api/v1/pdf-splitting', { post: () => fail(new Error('500')) })
+
+    const res = await assignPack({
+      messageId: 9,
+      target: 'existing',
+      caseId: 55,
+      parties: { our: '', their: '' },
+      segments: [
+        { name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3 },
+        { name: '证据', partIndex: 0, pageStart: 4, pageEnd: 5 },
+      ],
+      sources: [SOURCE],
+    })
+
+    expect(res).toMatchObject({ boundCount: 2, unsplitCount: 2 })
+    const uploads = callsOf('/api/v1/cases', 'post').filter((c) => String(c[0]).endsWith('/materials/upload'))
+    expect(uploads).toHaveLength(2)
+    for (const upload of uploads) {
+      await expect(uploadedFileText(upload)).resolves.toBe(ORIGINAL_PDF)
+    }
+    expect(toastMock.warning).toHaveBeenCalledWith(expect.stringContaining('部分材料未能切分'), {
+      id: 'assign',
+    })
+  })
+
+  it('素材页数未知（图片/Office 转出）时按整包上传，不猜页范围', async () => {
+    const res = await assignPack({
+      messageId: 9,
+      target: 'existing',
+      caseId: 55,
+      parties: { our: '', their: '' },
+      segments: [{ name: '照片证据', partIndex: 0, pageStart: 1, pageEnd: 1 }],
+      sources: [{ partIndex: 0, n: '照片证据.jpg', k: 'photo', pages: 0 }],
+    })
+
+    expect(callsOf('/api/v1/pdf-splitting', 'post')).toEqual([])
+    expect(res).toMatchObject({ boundCount: 1, unsplitCount: 0 })
+  })
+
+  it('全部切分成功时不提示降级', async () => {
+    await assignPack({
+      messageId: 9,
+      target: 'existing',
+      caseId: 55,
+      parties: { our: '', their: '' },
+      segments: [{ name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3 }],
+      sources: [SOURCE],
+    })
+
+    expect(toastMock.warning).not.toHaveBeenCalled()
+  })
+})
+
 describe('assignPack：target=existing', () => {
   it('只取案件名，不建客户与合同，然后逐段绑定到该案件', async () => {
     const res = await assignPack({
@@ -331,7 +485,13 @@ describe('assignPack：target=existing', () => {
       segments: [SEGMENT],
     })
 
-    expect(res).toEqual({ caseId: 55, caseName: '既有案件', contractId: null, boundCount: 1 })
+    expect(res).toEqual({
+      caseId: 55,
+      caseName: '既有案件',
+      contractId: null,
+      boundCount: 1,
+      unsplitCount: 0,
+    })
     expect(callsOf('/api/v1/cases', 'get')).toEqual([['cases/55']])
     expect(callsOf('/api/v1/client', 'post')).toEqual([])
     expect(callsOf('/api/v1/contracts', 'post')).toEqual([])

@@ -168,6 +168,8 @@ export function useReaderScreen() {
     setRenaming: view.setRenaming,
     renameMat: view.renameMat,
     setRenameMat: view.setRenameMat,
+    /** 重跑自动识别前的冲突询问：run() 里挂起，弹窗选完才继续 */
+    autoSplit,
     /** 回调 ref：直接给 <input ref={...}> 用，渲染期不碰 .current */
     setAddInputRef: view.setAddInputRef,
     // 回调 ref：消费端直接 rootRef={readerRef}，渲染期不读 .current

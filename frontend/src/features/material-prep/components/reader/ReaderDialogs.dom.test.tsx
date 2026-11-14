@@ -42,7 +42,13 @@ vi.mock('../RenamePackDialog', () => ({
 import { ReaderDialogs } from './ReaderDialogs'
 import type { DraftState, InboxMessageDetail, OcrPending, PageKey } from '../../types'
 
-const draft = { segs: [{}, {}, {}], infos: [] } as unknown as DraftState
+// mats 不能省：RerunConfirmDialog 用 matLabel(draft.mats, mi) 取材料显示名，
+// 省掉会让「有冲突」那条用例在渲染期抛错（真实 DraftState 一定带 mats）。
+const draft = {
+  mats: [{ partIndex: 0, n: '借款合同.pdf', k: 'pdf', pages: 3 }],
+  segs: [{}, {}, {}],
+  infos: [],
+} as unknown as DraftState
 const detail = { id: 1, subject: '材料包 A' } as unknown as InboxMessageDetail
 const ocrPending: OcrPending = {
   mi: 0,
@@ -73,6 +79,10 @@ function props(over: Partial<Parameters<typeof ReaderDialogs>[0]> = {}) {
     onRenamingChange: vi.fn(),
     renameMat: null,
     onRenameMatClose: vi.fn(),
+    rerunConflicts: null,
+    onRerunKeepEdits: vi.fn(),
+    onRerunOverwrite: vi.fn(),
+    onRerunCancel: vi.fn(),
     ...over,
   }
 }
@@ -118,5 +128,31 @@ describe('ReaderDialogs', () => {
     render(<ReaderDialogs {...props({ renaming: true, renameMat: { mi: 1, initial: '证据.pdf' } })} />)
     expect(screen.getByTestId('rename-pack')).toBeTruthy()
     expect(screen.getByText(/证据\.pdf/)).toBeTruthy()
+  })
+
+  it('rerunConflicts 为 null 时不弹重跑询问框', () => {
+    render(<ReaderDialogs {...props()} />)
+    expect(screen.queryByText(/重跑会覆盖你的修改/)).toBeNull()
+  })
+
+  it('rerunConflicts 有值时弹重跑询问框，并接到三个回调', () => {
+    const onRerunKeepEdits = vi.fn()
+    const onRerunOverwrite = vi.fn()
+    const onRerunCancel = vi.fn()
+    render(
+      <ReaderDialogs
+        {...props({
+          rerunConflicts: [{ mi: 0, edited: [{ si: 0, name: '借款合同', what: ['md'] }] }],
+          onRerunKeepEdits,
+          onRerunOverwrite,
+          onRerunCancel,
+        })}
+      />,
+    )
+
+    expect(screen.getByText(/重跑会覆盖你的修改/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '保留我的修改' }))
+    expect(onRerunKeepEdits).toHaveBeenCalledTimes(1)
+    expect(onRerunOverwrite).not.toHaveBeenCalled()
   })
 })

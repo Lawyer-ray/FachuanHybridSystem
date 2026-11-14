@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { FileText, Image, Layers, PencilLine } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { SEG_COLORS } from '../../constants'
 import type { BundleMat, DraftState } from '../../types'
 import { isAutoSegName, isWholeMat, segMats } from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
+import { useRailWidth } from './use-rail-width'
 
 /**
  * 左栏「源文件 → 段」目录。
@@ -23,6 +23,7 @@ export function Rail({
   onMergeSeg,
   onMergeSegs,
   onMoveSeg,
+  wide = false,
 }: {
   draft: DraftState
   onFocusSeg: (si: number) => void
@@ -32,8 +33,11 @@ export function Rail({
   onMergeSeg: (si: number) => void
   onMergeSegs: (sis: number[]) => void
   onMoveSeg: (si: number, targetSi: number, position: 'before' | 'after') => void
+  /** 宽屏：默认宽用 268（窄屏 232）。仅影响首次默认值，用户拖过之后以存档为准 */
+  wide?: boolean
 }) {
   const { mats } = draft
+  const rail = useRailWidth(wide)
 
   // 每个素材下挂它的段；跨源段归到「跨源合并」一组
   const groups: { mi: number; segs: number[] }[] = []
@@ -68,7 +72,6 @@ export function Rail({
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !!draft.segs[si]!.t || !isAutoSegName(draft, draft.segs[si]!),
-    color: SEG_COLORS[si % SEG_COLORS.length] ?? SEG_COLORS[0],
     selected: sel.includes(si),
     dropPos: drop?.si === si ? drop.pos : null,
     editing: editingSi === si,
@@ -123,7 +126,23 @@ export function Rail({
     )
 
   return (
-    <aside className="flex h-full w-[232px] flex-none flex-col gap-3 overflow-y-auto border-r border-border bg-card p-3 @min-[1280px]:w-[268px]">
+    <aside
+      className="relative flex h-full flex-none flex-col gap-3 overflow-y-auto border-r border-border bg-card p-3"
+      style={{ width: rail.width }}
+    >
+      {/* 拖拽手柄：贴在左栏**右缘**（与中栏的接缝）。放左缘会落到屏幕外不可达。
+          往右拖变宽、往左拖变窄，与视觉直觉一致。 */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="拖动调整材料列表宽度"
+        title="拖动调整宽度"
+        onPointerDown={rail.onPointerDown}
+        onPointerMove={rail.onPointerMove}
+        onPointerUp={rail.endDrag}
+        onPointerCancel={rail.endDrag}
+        className="absolute inset-y-0 -right-1 z-20 w-2 cursor-col-resize touch-none hover:bg-foreground/10 active:bg-foreground/20"
+      />
       <h4 className="px-1 text-sm font-medium">
         材料 <span className="text-xs font-normal text-muted-foreground">{draft.segs.length} 份</span>
       </h4>

@@ -81,6 +81,38 @@ class PdfAnalysisOutcome:
     summary: dict[str, Any] = field(default_factory=dict)
 
 
+def extract_pages(
+    pdf_path: Path,
+    *,
+    template_key: str = "filing_materials_v1",
+    ocr_profile: str = "balanced",
+    layout_mode: str = LAYOUT_MODE_FAST_TEXT,
+    cloud_backend: str | None = None,
+    on_progress: ProgressCallback | None = None,
+    is_cancelled: CancelCallback | None = None,
+    ocr_handler: Any = None,
+) -> tuple[list[PageDescriptor], dict[str, Any]]:
+    """流水线第一阶段：只做取字，不分段。
+
+    单独抽出来的理由：164 页真实卷宗上，取字（云端 OCR + 分批）与分段（LLM）
+    各自就能吃掉大半分钟，合在一起必然撞 Django-Q 的 600s worker 超时。
+    拆成两个独立任务后各自有完整预算，且取字产物落 pages.json，分段被杀
+    也不用重跑 OCR。
+    """
+    extractor = PageTextExtractor(
+        ocr_handler=ocr_handler,
+        on_progress=on_progress,
+        is_cancelled=is_cancelled,
+    )
+    return extractor.extract(
+        pdf_path,
+        ocr_profile=ocr_profile,
+        template_key=template_key,
+        layout_mode=layout_mode,
+        cloud_backend=cloud_backend,
+    )
+
+
 def analyze_pdf(
     pdf_path: Path,
     *,
@@ -109,17 +141,15 @@ def analyze_pdf(
         is_cancelled: 取消查询回调；返回 True 时抛 PipelineCancelled。
         ocr_handler / llm_segment_detector: 依赖注入口（测试桩）；缺省用真实实现。
     """
-    extractor = PageTextExtractor(
-        ocr_handler=ocr_handler,
-        on_progress=on_progress,
-        is_cancelled=is_cancelled,
-    )
-    pages, extraction_summary = extractor.extract(
+    pages, extraction_summary = extract_pages(
         pdf_path,
-        ocr_profile=ocr_profile,
         template_key=template_key,
+        ocr_profile=ocr_profile,
         layout_mode=layout_mode,
         cloud_backend=cloud_backend,
+        on_progress=on_progress,
+        is_cancelled=is_cancelled,
+        ocr_handler=ocr_handler,
     )
     drafts, segment_summary = detect_segments_with_fallback(
         pages,
@@ -150,7 +180,18 @@ def detect_segments_with_fallback(
     """
     detector = llm_segment_detector if llm_segment_detector is not None else LLMSegmentDetector()
     try:
-        drafts = detector.detect(pages, template_key=template_key)
+        # 分批分段：164 页整本一次会让总时长撞上 Django-Q 的 600s worker 超时
+        # 被杀（实测某次 164 页任务跑到 499s 被杀）。分批后单次 LLM 调用缩短到
+        # 1-3 分钟，且死一批也能整轮降级而不会出现半成品。
+        from .segment_batch import detect_in_batches
+
+        drafts = detect_in_batches(pages=pages, template_key=template_key, detector=detector)
+        # 续页合并：LLM 会把跨页的同一份材料从中间切开（实测 164 页卷宗里
+        # 一份《个人房产抵押贷款合同》被切成 p116-125 / p126-140 两段）。
+        # 判据是条款序号推进 + 后段首页无标题，详见 segment_merge.py。
+        from .segment_merge import merge_continuation_segments
+
+        drafts = merge_continuation_segments(drafts, {page.page_no: page.text for page in pages})
         return drafts, {"segment_backend": "llm", "segment_llm_fallback_reason": ""}
     except Exception as exc:
         reason = f"{type(exc).__name__}: {str(exc)[:200]}"
@@ -357,7 +398,18 @@ class PageTextExtractor:
             return
         stats["pending_ocr_count"] = len(pending)
         total_pages = len(descriptors)
-        cloud_results = self._parse_cloud(pdf_path, stats)
+        cloud_results = self._parse_cloud(
+            pdf_path,
+            stats,
+            # 关键：每批完成立即逐页写缓存。这是断点续传的唯一落盘点——
+            # 进程死在半路，已完成的批次仍在缓存里，重跑时先读缓存跳过。
+            on_batch_done=lambda _batch, mapped: self._persist_cloud_batch(
+                pdf_hash=pdf_hash, profile_key=stats["cloud_cache_profile"], batch=mapped
+            ),
+            on_progress=lambda resolved, total: self._report_progress(
+                self._resolved_count(descriptors) + resolved, max(total_pages, total)
+            ),
+        )
 
         for page_no in [no for no in pending if cloud_results.get(no)]:
             self._raise_if_cancelled(page_no)
@@ -443,24 +495,60 @@ class PageTextExtractor:
                     segment_detector=self._rule_detector,
                 )
 
-    def _parse_cloud(self, pdf_path: Path, stats: dict[str, Any]) -> dict[int, Any]:
-        """云端整本解析，按候选顺序**逐个尝试**（容灾）。
+    def _persist_cloud_batch(self, *, pdf_hash: str, profile_key: str, batch: dict[int, Any]) -> None:
+        """一批云端结果立即逐页写缓存（断点续传的落盘点）。
 
-        · auto：候选是全部已启用平台（按优先级），首个失败切下一个；
-        · 锁定：候选只有一个，失败即失败——不偷偷降级到用户没选的平台，
-          否则他拿这次结果做的比对/复核会失效，计费也落错地方。
-
-        只有"返回空结果"也算失败：那种情况通常是对端解析出了 0 页，
-        换一个平台重试比直接把空结果当成功更有意义。
+        为什么在回调里写而不是等全部返回：进程可能在第三批死掉，那时前两批的
+        成果必须已经落盘。写缓存是按页一个小文件，成本极低。
         """
+        for page_no, result in batch.items():
+            if not getattr(result, "text", ""):
+                continue
+            try:
+                self._ocr_handler.write_ocr_cache(pdf_hash=pdf_hash, profile_key=profile_key, result=result)
+            except Exception:
+                # 写缓存失败不能让已解析的页丢掉（内存里的结果仍会进最终产物）
+                logger.exception("pdf_split_cloud_cache_write_failed", extra={"page_no": page_no})
+
+    def _parse_cloud(
+        self,
+        pdf_path: Path,
+        stats: dict[str, Any],
+        *,
+        on_batch_done: Any = None,
+        on_progress: Any = None,
+    ) -> dict[int, Any]:
+        """云端解析，**分批 + 断点续传**，按候选平台逐个尝试（容灾）。
+
+        为什么不整本一次发：164 页的真实卷宗整本解析时长过久，进程中途一死
+        （开发环境的 watchfiles 重启、生产环境的 OOM/部署）就把全部成果归零——
+        实测同一份材料连续两次死在 135/164 且每次都从零开始。分批后每批
+        完成即落盘，断在哪补哪。详见 `cloud_batch.py`。
+
+        容灾语义不变：auto 逐一尝试候选平台，锁定则只试一个。
+        """
+        from .cloud_batch import parse_in_batches
+
         candidates: list[str] = stats.get("cloud_candidates") or []
         if not candidates:
+            return {}
+
+        page_numbers: list[int] = sorted(stats.get("pending_page_numbers") or [])
+        if not page_numbers:
             return {}
 
         errors: list[str] = []
         for index, backend in enumerate(candidates):
             try:
-                result = self._ocr_handler.parse_cloud_pages(pdf_path=pdf_path, backend=backend)
+                result = parse_in_batches(
+                    source_path=pdf_path,
+                    page_numbers=page_numbers,
+                    parse_one=lambda mini_path, _backend=backend: self._ocr_handler.parse_cloud_pages(
+                        pdf_path=mini_path, backend=_backend
+                    ),
+                    on_batch_done=on_batch_done,
+                    on_progress=on_progress,
+                )
             except Exception as exc:
                 logger.exception("pdf_split_cloud_ocr_failed", extra={"provider": backend})
                 errors.append(f"{backend}: {type(exc).__name__}: {str(exc)[:200]}")

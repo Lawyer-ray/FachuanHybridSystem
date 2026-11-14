@@ -60,10 +60,15 @@ export function moveSegment(d: DraftState, si: number, targetSi: number, positio
   return { ...d, segs: rest }
 }
 
+/** 打上「人工改过某字段」的痕迹；只置位不取消——律师改过就是改过，回退也不抹掉 */
+function markManualEdit(seg: Segment, what: 'md' | 'name' | 'type'): Segment {
+  return { ...seg, manualEdit: { ...seg.manualEdit, [what]: true, at: new Date().toISOString() } }
+}
+
 /** 改段类型；仍用默认名的段名字跟着类型走（「起诉状.pdf」），拆完选个类型就不用再改名 */
 export function setSegmentType(d: DraftState, si: number, t: string): DraftState {
   if (si < 0 || si >= d.segs.length || t === d.segs[si]!.t) return d
-  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, t } : sg))
+  const segs = d.segs.map((sg, i) => (i === si ? markManualEdit({ ...sg, t }, 'type') : sg))
   return withDefaultNames({ ...d, segs })
 }
 
@@ -74,7 +79,7 @@ export function renameSegment(d: DraftState, si: number, fn: string): DraftState
   if (!name || name === d.segs[si]!.fn) return d
   const base = name.replace(/\.[^.]+$/, '')
   const matched = SEGMENT_TYPES.find((t) => t === base)
-  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, fn: name, t: matched ?? sg.t } : sg))
+  const segs = d.segs.map((sg, i) => (i === si ? markManualEdit({ ...sg, fn: name, t: matched ?? sg.t }, 'name') : sg))
   return withDefaultNames({ ...d, segs })
 }
 
@@ -145,7 +150,7 @@ export function setSegmentMarkdown(d: DraftState, si: number, md: string): Draft
   // 去掉首尾空白后与现值相同就不产生新对象：避免 Undo 栈里塞满「点开又关掉」的空改动
   const next = md.replace(/\s+$/, '')
   if ((seg.md ?? '') === next) return d
-  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, md: next || undefined } : sg))
+  const segs = d.segs.map((sg, i) => (i === si ? markManualEdit({ ...sg, md: next || undefined }, 'md') : sg))
   return { ...d, segs }
 }
 

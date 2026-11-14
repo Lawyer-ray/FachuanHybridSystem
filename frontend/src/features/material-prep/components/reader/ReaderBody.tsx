@@ -86,6 +86,14 @@ export function ReaderBody({
   const [mdOpen, setMdOpen] = useState(true)
   // 当前高亮的定位块；null = 不预先高亮任何框（一进阅读器满屏重点反而看不出对应关系）
   const [focusedBlockKey, setFocusedBlockKey] = useState<string | null>(null)
+  /**
+   * 「要求 Markdown 面板对这块进入修改态」的一次性信号。
+   *
+   * 为何不能复用 focusedBlockKey：那个既有值也表示「从 Markdown 侧选中了某块」
+   * （那时不该自动弹输入框）。只有「从页面框双击过来」这一条路径要进编辑，
+   * 所以用一个独立的 key 表达意图，Markdown 侧消费后自行清空。
+   */
+  const [editRequestKey, setEditRequestKey] = useState<string | null>(null)
 
   /**
    * 双击 Markdown 的一条 → 滚到原页 + 高亮那个框。
@@ -96,6 +104,22 @@ export function ReaderBody({
    *
    * 传 null 只清高亮、不滚动（「取消定位」不该把视线又拽走）。
    */
+  /**
+   * 双击页面上的定位框 → 高亮 Markdown 对应那条并进入修改态。
+   *
+   * 与 `onLocateBlock` 是**反向**的两条路：
+   *   · onLocateBlock：Markdown → 页面（滚到原页 + 框加亮）
+   *   · onActivateHit ：页面 → Markdown（高亮那条 + 直接可改）
+   * 律师的直觉是「我在原件上看到这行不对，点它就该能就地改」，
+   * 所以这条要走编辑态，而不是只加个高亮。
+   */
+  const onActivateHit = useCallback((key: string) => {
+    setFocusedBlockKey(key)
+    setEditRequestKey(key)
+    // 右栏若被折叠，展开它——否则「高亮了但看不见」
+    setMdOpen(true)
+  }, [])
+
   const onLocateBlock = useCallback((key: string | null) => {
     setFocusedBlockKey(key)
     if (!key) return
@@ -159,6 +183,7 @@ export function ReaderBody({
             selPages={selPages}
             ocrPending={ocrPending}
             focusedBlockKey={focusedBlockKey}
+            onActivateHit={onActivateHit}
             onOp={flowOps}
             onToggleSel={onToggleSel}
             onOcrBox={onOcrBox}
@@ -177,6 +202,8 @@ export function ReaderBody({
             onToggleMdOpen={() => setMdOpen((v) => !v)}
             focusedBlockKey={focusedBlockKey}
             onLocateBlock={onLocateBlock}
+            editRequestKey={editRequestKey}
+            onEditRequestHandled={() => setEditRequestKey(null)}
             narrow={narrow}
           />
         </div>

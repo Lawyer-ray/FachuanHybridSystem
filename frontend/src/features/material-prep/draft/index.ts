@@ -39,9 +39,12 @@ export {
 } from './segments'
 export {
   applyAutoSplit,
+  applyAutoSplitPreservingEdits,
+  detectAutoSplitConflicts,
   canAutoSplitMat,
   renameMat,
 } from './auto-split'
+export type { AutoSplitConflict } from './auto-split'
 export {
   addInfoField,
   removeInfoField,

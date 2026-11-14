@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react'
 import { materialPrepDetail } from '@/app/paths'
-import { useNavigate } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { useMaterialPacks } from '../hooks/use-inbox'
 import { useReader } from '../store'
 import { isPackStage, stageToQuery } from '../stages'
@@ -12,6 +12,7 @@ import { DeskToolbar } from './DeskToolbar'
 import { DESK_SURFACE_CLASS, toolbarSlotsFor } from './desk-toolbar-types'
 import { DeskDropLayer } from './DeskDropLayer'
 import { Reader } from './reader/Reader'
+import { ReaderLoading } from './reader/ReaderChrome'
 import { useInboxCounts } from '../inbox/hooks/use-inbox'
 import type { InboxMessage, PackStatus } from '../types'
 import { useDeskFilters } from './use-desk-filters'
@@ -40,6 +41,9 @@ type Tab = PackStatus
  */
 export function DeskPage() {
   const navigate = useNavigate()
+  // 路由里的 :id。刷新 / 直达 / 前进后退时它比 store 里的 openId **先就位**：
+  // openId 要等 useDeskRouteSync 的 effect 异步打开才变。
+  const { id: routeId } = useParams()
   const { data: packs, isLoading, error } = useMaterialPacks()
   const openPack = useReader((s) => s.open)
   const openId = useReader((s) => s.openId)
@@ -158,6 +162,19 @@ export function DeskPage() {
   })
   useDeskRing({ sel, visible, tab, gridRef, wrapRef, ringRef })
 
+  /**
+   * 是否处于「详情意图」：URL 带 :id，或 store 已打开。
+   *
+   * 为什么不能只看 openId：刷新 / 直达 / 前进后退时，URL 里的 :id 是**首帧就有**的，
+   * 而 openId 要等 useDeskRouteSync 的 effect 异步打开才变。只判 openId 的话，
+   * 首帧会把列表完整渲染一遍，紧接着阅读器盖上来——用户看到的就是
+   * 「先闪一下列表页再进详情」。
+   *
+   * 同理不能只看 routeId：关闭阅读器时 navigate 是异步的，那一瞬 routeId 仍在，
+   * 得靠 openId 的清除来立即反馈。两者取或，两头都不闪。
+   */
+  const detailIntent = routeId != null || openId != null
+
   return (
     // 最小高度撑满导航栏以下的整个视口（--app-navbar-h 与 AppNavbar 同源）：
     // 列表再短，把文件拖到下方空白处也能命中拖放层
@@ -181,6 +198,13 @@ export function DeskPage() {
       {/* 导航栏由 AppShell 常驻；入场过渡挂在 main 上——换页才重挂播一次，
           列表 ↔ 详情（/material-prep/:id）同一实例不重播，阅读器淡入不被叠加 */}
       <main className="app-page-enter relative flex min-h-[calc(100dvh-var(--app-navbar-h)-6rem)] flex-col px-7 pb-24 pt-6">
+        {/* 详情意图下**整块列表不渲染**（不是视觉隐藏）：
+            · 避免刷新时先闪一帧列表；
+            · 少跑一遍 packs 列表的派生计算与大列表渲染；
+            · 阅读器是 FixedReader 覆盖层，列表留在下面只会白白参与布局。
+            条件渲染比 display:none 更彻底：连 hooks 之外的子组件树都不挂载。 */}
+        {!detailIntent && (
+          <>
         <DeskTabs
           stage={stage}
           setStage={setStage}
@@ -236,6 +260,8 @@ export function DeskPage() {
             onDelete={setDeleteTarget}
           />
         </div>
+          </>
+        )}
       </main>
 
       <DeskDropLayer
@@ -246,7 +272,9 @@ export function DeskPage() {
         }}
       />
 
-      {openId != null && <Reader />}
+      {/* 详情意图但阅读器尚未就绪：显示与 ReaderLoading 同形的占位，
+          而不是留一片空白。与 openId 分支共用同一层，避免两个转圈叠在一起。 */}
+      {openId != null ? <Reader /> : detailIntent ? <ReaderLoading /> : null}
 
       <DeskDialogHost
         assigning={assigning}

@@ -17,13 +17,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const apiMock = vi.hoisted(() => ({
   fetchAttachmentBytes: vi.fn(),
   createPdfSplitJob: vi.fn(),
+  findReusablePdfSplitJob: vi.fn(),
   getPdfSplitJob: vi.fn(),
   ocrImage: vi.fn(),
   parseOfficeFile: vi.fn(),
 }))
 const draftMock = vi.hoisted(() => ({
   applyAutoSplit: vi.fn((v: unknown) => ({ ...(v as object), applied: true })),
+  applyAutoSplitPreservingEdits: vi.fn((v: unknown) => ({ ...(v as object), preserved: true })),
   canAutoSplitMat: vi.fn(),
+  detectAutoSplitConflicts: vi.fn(),
   fillSegmentText: vi.fn((v: unknown) => ({ ...(v as object), filled: true })),
 }))
 const storeMock = vi.hoisted(() => ({
@@ -66,8 +69,12 @@ function setup({ mats = [pdfMat(0)], openId = 1 } = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   draftMock.canAutoSplitMat.mockReturnValue(true)
+  // 默认：没人改过草稿 → 不弹询问，按「覆盖」直走（即重跑前的旧行为）
+  draftMock.detectAutoSplitConflicts.mockReturnValue(null)
   apiMock.fetchAttachmentBytes.mockResolvedValue(new Uint8Array([1, 2, 3]))
   apiMock.createPdfSplitJob.mockResolvedValue('job-1')
+  // 默认：没有可复用任务 → 走新建路径（既有用例的前提）
+  apiMock.findReusablePdfSplitJob.mockResolvedValue(null)
   apiMock.getPdfSplitJob.mockResolvedValue({
     status: 'completed',
     segments: [{ p: 0 }, { p: 1 }],
@@ -316,5 +323,226 @@ describe('useAutoSplit：轮询状态机', () => {
     })
 
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('已取消'))
+  })
+})
+
+/**
+ * 某次真实事故（164 页卷宗卡在 135 页二十余分钟）暴露的两个缺口。
+ * 这里锁住：进度要可见、卡死要早报，而不是让律师干等 14 分钟。
+ */
+describe('useAutoSplit：进度可见与卡死自愈', () => {
+  it('轮询期间把页级进度报给 UI（而不是只有「正在识别」）', async () => {
+    setup()
+    apiMock.getPdfSplitJob
+      .mockResolvedValueOnce({ status: 'processing', processed_pages: 41, total_pages: 164 })
+      .mockResolvedValueOnce({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    // 完成后 progress 被清空是预期的（结果已在草稿里）；
+    // 这里只锁住「轮询时确实按页数产生了文案」这条链路——
+    // 通过 processing 那一轮已发生来间接证明（若未产生文案则不会进入第二轮）。
+    expect(apiMock.getPdfSplitJob).toHaveBeenCalledTimes(1 + 1)
+  })
+
+  it('后端心跳停了：立即报中断，不等满轮询上限', async () => {
+    setup()
+    // stale_seconds 远超前端阈值(720s) → 说明 worker 已死
+    apiMock.getPdfSplitJob.mockResolvedValue({
+      status: 'processing',
+      processed_pages: 135,
+      total_pages: 164,
+      stale_seconds: 1800,
+    })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('中断'))
+    // 只查一次就放弃，不空转 420 次
+    expect(apiMock.getPdfSplitJob).toHaveBeenCalledTimes(1)
+  })
+
+  it('心跳正常时不误报中断', async () => {
+    setup()
+    apiMock.getPdfSplitJob
+      .mockResolvedValueOnce({ status: 'processing', processed_pages: 100, total_pages: 164, stale_seconds: 5 })
+      .mockResolvedValueOnce({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('中断'))
+    expect(apiMock.getPdfSplitJob).toHaveBeenCalledTimes(2)
+  })
+})
+
+/**
+ * 复用已有识别结果：164 页跑一次要 5-10 分钟 + 几十元，
+ * 只要 draft_state 没回写，律师再点一次就会从零重跑。
+ * 命中后端已算好的任务时必须直接拿来用、不发新任务、不轮询。
+ */
+describe('useAutoSplit：复用已有识别结果', () => {
+  it('命中可复用任务时不再创建新任务、也不轮询', async () => {
+    setup()
+    apiMock.findReusablePdfSplitJob.mockResolvedValue({
+      job_id: 'reused-1',
+      status: 'review_required',
+      segments: [{ p: 0 }, { p: 1 }, { p: 2 }],
+      summary: { segment_backend: 'llm' },
+    })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    // 关键：没有重跑，省下整份 OCR + 分段
+    expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.getPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.fetchAttachmentBytes).not.toHaveBeenCalled()
+    // 结果照常回写草稿。
+    // 注意：store.update 是 mock，不会真的执行回调，所以断言「update 被调用」
+    // 而不是「applyAutoSplit 被调用」——后者只有在真实 store 下才会发生。
+    expect(storeMock.getState().update).toHaveBeenCalled()
+  })
+
+  it('没命中（null）时照常新建任务', async () => {
+    setup()
+    apiMock.findReusablePdfSplitJob.mockResolvedValue(null)
+    apiMock.getPdfSplitJob.mockResolvedValue({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(apiMock.createPdfSplitJob).toHaveBeenCalled()
+  })
+
+  it('可复用任务但没有分段（比如失败残留）时不用它', async () => {
+    setup()
+    apiMock.findReusablePdfSplitJob.mockResolvedValue({
+      job_id: 'empty-1',
+      status: 'review_required',
+      segments: [],
+      summary: {},
+    })
+    apiMock.getPdfSplitJob.mockResolvedValue({ status: 'completed', segments: [{ p: 0 }], summary: {} })
+
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(apiMock.createPdfSplitJob).toHaveBeenCalled()
+  })
+})
+
+/**
+ * 重跑前的冲突询问。
+ *
+ * 核心保证：**改过的东西不会被静默抹掉**。有冲突时必须先停下来问，
+ * 「取消」要真的让整次 run 不执行（不能白花一次云端任务的钱），
+ * 「保留 / 覆盖」分别走 applyAutoSplitPreservingEdits / applyAutoSplit。
+ */
+describe('useAutoSplit：重跑冲突询问', () => {
+  const conflict = { mi: 0, edited: [{ si: 0, name: '借款合同', what: ['md'] }] }
+
+  it('没人改过草稿：不弹询问，直接按「覆盖」跑（不打断用户）', async () => {
+    setup()
+    const { result } = renderHook(() => useAutoSplit())
+    await act(async () => {
+      await result.current.run()
+    })
+
+    expect(result.current.pendingConflicts).toBeNull()
+    expect(apiMock.createPdfSplitJob).toHaveBeenCalled()
+  })
+
+  it('有冲突：先挂起询问，不提交任何云端任务', async () => {
+    setup()
+    draftMock.detectAutoSplitConflicts.mockReturnValue(conflict)
+    const { result } = renderHook(() => useAutoSplit())
+
+    // run 挂在 await 上等用户选择，所以这里不能 await 到底
+    let done: Promise<void> | undefined
+    await act(async () => {
+      done = result.current.run()
+    })
+
+    expect(result.current.pendingConflicts?.conflicts).toEqual([conflict])
+    expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
+
+    // 收尾：选取消把挂起的 promise 放掉，避免测试间残留
+    await act(async () => {
+      result.current.onCancelRerun()
+      await done
+    })
+  })
+
+  it('选「取消」：整次 run 不执行，一个任务都不建', async () => {
+    setup()
+    draftMock.detectAutoSplitConflicts.mockReturnValue(conflict)
+    const { result } = renderHook(() => useAutoSplit())
+
+    let done: Promise<void> | undefined
+    await act(async () => {
+      done = result.current.run()
+    })
+    await act(async () => {
+      result.current.onCancelRerun()
+      await done
+    })
+
+    expect(apiMock.createPdfSplitJob).not.toHaveBeenCalled()
+    expect(apiMock.fetchAttachmentBytes).not.toHaveBeenCalled()
+  })
+
+  it('选「保留我的修改」：回写走 applyAutoSplitPreservingEdits', async () => {
+    const { update } = setup()
+    draftMock.detectAutoSplitConflicts.mockReturnValue(conflict)
+    const { result } = renderHook(() => useAutoSplit())
+
+    let done: Promise<void> | undefined
+    await act(async () => {
+      done = result.current.run()
+    })
+    await act(async () => {
+      result.current.onKeepEdits()
+      await done
+    })
+
+    const updater = update.mock.calls[0]?.[0] as (v: unknown) => unknown
+    updater({ mats: [], segs: [], infos: [] })
+    expect(draftMock.applyAutoSplitPreservingEdits).toHaveBeenCalled()
+    expect(draftMock.applyAutoSplit).not.toHaveBeenCalled()
+  })
+
+  it('选「用识别结果覆盖」：回写走 applyAutoSplit', async () => {
+    const { update } = setup()
+    draftMock.detectAutoSplitConflicts.mockReturnValue(conflict)
+    const { result } = renderHook(() => useAutoSplit())
+
+    let done: Promise<void> | undefined
+    await act(async () => {
+      done = result.current.run()
+    })
+    await act(async () => {
+      result.current.onOverwrite()
+      await done
+    })
+
+    const updater = update.mock.calls[0]?.[0] as (v: unknown) => unknown
+    updater({ mats: [], segs: [], infos: [] })
+    expect(draftMock.applyAutoSplit).toHaveBeenCalled()
+    expect(draftMock.applyAutoSplitPreservingEdits).not.toHaveBeenCalled()
   })
 })

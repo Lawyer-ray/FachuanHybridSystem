@@ -1,3 +1,4 @@
+import type { MdSuspect } from './md-suspects'
 import type { PositionedBlock, Segment } from '../types'
 
 /**
@@ -23,4 +24,30 @@ export function blockKeyOf(seg: Segment, block: PositionedBlock, index: number):
   const blocks = seg.blocks ?? []
   const samePage = blocks.slice(0, index + 1).filter((b) => b.page === block.page).length - 1
   return `${seg.id}:${block.page}:${samePage}`
+}
+
+/**
+ * 用文本匹配把一条可疑点落到某个 block 上，返回它的 blockKey。
+ *
+ * ## 为什么靠文本而不是行号
+ *
+ * `MdSuspect.lineIndex` 是 **markdown 行号**，而面板渲染的是 `blocks`：`seg.md` 是后端
+ * 把标题 + 各页块用空行拼起来的，一个表格块在 md 里会展开成几十行，两套编号没有对应
+ * 关系。按行号取 block 必然**指错行**。
+ *
+ * ## 匹配口径
+ *
+ * 可疑点命中的片段（`match`，缺省退回整行）出现在哪个 block 的 `text` 里。表格块在
+ * blocks 里是**一个块**（整张表就是它的 text），所以单元格片段能被它命中。
+ *
+ * 找不到返回 null —— 调用方据此不渲染「查看原页」，宁少一个入口也不给假跳转。
+ */
+export function locateKeyOf(seg: Segment, suspect: MdSuspect): string | null {
+  const blocks = seg.blocks ?? []
+  if (blocks.length === 0) return null
+  const needle = (suspect.match || suspect.line).trim()
+  if (!needle) return null
+  const index = blocks.findIndex((b) => (b.text ?? '').includes(needle))
+  if (index < 0) return null
+  return blockKeyOf(seg, blocks[index]!, index)
 }

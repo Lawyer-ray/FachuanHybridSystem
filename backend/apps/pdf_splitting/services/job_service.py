@@ -38,6 +38,21 @@ logger = logging.getLogger("apps.pdf_splitting")
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
+def _stale_seconds_for(job: PdfSplitJob) -> int | None:
+    """任务已静默多少秒；非 processing 态返回 None。
+
+    前端拿它跟超时阈值比，就能在“还在跑”与“大概卡死了”之间区分，
+    而不是靠盲等。口径与 `job_recovery._last_liveness` 保持一致（心跳优先）。
+    """
+    if job.status != PdfSplitJobStatus.PROCESSING:
+        return None
+    candidates = [job.heartbeat_at, job.updated_at, job.started_at, job.created_at]
+    last = max((item for item in candidates if item is not None), default=None)
+    if last is None:
+        return None
+    return max(0, int((timezone.now() - last).total_seconds()))
+
+
 class PdfSplitJobService:
     # 收件箱单文件上限已放宽到 1GB（整卷客户材料），这里必须跟上——否则
     # 材料包里的文件能传进来、却在自动分段时被拒，白上传一次。
@@ -113,11 +128,25 @@ class PdfSplitJobService:
                 },
             )
 
-            task_id = build_task_submission_service().submit(
-                "apps.pdf_splitting.tasks.execute_pdf_split_job",
-                args=[str(job.id)],
-                task_name=f"pdf_split_{job.id}",
-            )
+            # 内容分析走**两阶段任务链**（取字 → 分段），每段各有 600s 预算。
+            #
+            # 单任务版本在 164 页真实卷宗上会被 Django-Q 的 worker 超时杀掉
+            # （实测 164 页任务跑到 499s 被杀），而且杀掉后 OCR 成果全丢。拆分后
+            # 取字产物落 pages.json + 逐页缓存，第二段被杀也不用重跑云端。
+            if mode_key == PdfSplitMode.CONTENT_ANALYSIS:
+                from apps.pdf_splitting.services.split.two_stage import TASK_EXTRACT
+
+                task_id = build_task_submission_service().submit(
+                    TASK_EXTRACT,
+                    args=[str(job.id)],
+                    task_name=f"pdf_split_extract_{job.id}",
+                )
+            else:
+                task_id = build_task_submission_service().submit(
+                    "apps.pdf_splitting.tasks.execute_pdf_split_job",
+                    args=[str(job.id)],
+                    task_name=f"pdf_split_{job.id}",
+                )
             PdfSplitJob.objects.filter(id=job.id).update(task_id=str(task_id), started_at=timezone.now())
             job.refresh_from_db()
             return job
@@ -126,6 +155,61 @@ class PdfSplitJobService:
                 job.delete()
             storage.cleanup()
             raise
+
+    def find_reusable_job(
+        self,
+        *,
+        source_name: str,
+        total_pages: int | None = None,
+        user: Any = None,
+    ) -> PdfSplitJob | None:
+        """找一份**已经算好、可直接复用**的拆分任务。
+
+        ## 为什么需要它
+
+        否则会出现很难接受的浪费：律师已经跑完一次 164 页识别（云端 OCR +
+        LLM 分段，5-10 分钟、几十元），但只要 `draft_state` 没被回写（没点过
+        「自动识别」按钮、或换了浏览器），阅读器就拿不到结果 —— 再点一次
+        就从零重跑，前面的钱和时间全白花。
+
+        ## 匹配口径（三重，宁可找不到也不误用）
+
+        1. `source_original_name` 完全相同（文件名是律师自己的命名习惯，区分度高）；
+        2. `total_pages` 相同（防同名不同件）；
+        3. `status` 属于**已产出结果**的状态（待复核 / 已完成）。
+
+        刻意**不用**文件 hash：拆分任务的 source 是任务目录下的副本，拿它算
+        hash 与材料包附件对不上，还得先下载整份（68MB）才能比——代价比收益大。
+        三重条件已足够保守：同名 + 同页数 + 已出结果。
+
+        Args:
+            source_name: 原始文件名（`attachments_meta[].original_filename`）。
+            total_pages: 页数；传 None 则不校验页数（仅在调用方拿不到页数时）。
+            user: 传入时只看自己创建的任务（与 get_job 口径一致）。
+        """
+        if not source_name:
+            return None
+
+        queryset = PdfSplitJob.objects.filter(
+            source_original_name=source_name,
+            status__in=(PdfSplitJobStatus.REVIEW_REQUIRED, PdfSplitJobStatus.COMPLETED),
+        )
+        if total_pages is not None:
+            queryset = queryset.filter(total_pages=total_pages)
+
+        # ⚠️ 这里**刻意不按 created_by 过滤**。
+        #
+        # 复用的是「这份文件识别出的结果」，不是「某人的私人物品」：
+        # 同一份材料包常由助理先跑一次、主办律师再来用；也有可能任务是用脚本/
+        # 管理后台跑的（created_by 为空）。按属主过滤会让这些场景全部 miss，
+        # 又退回「从零重跑 164 页」。
+        #
+        # 安全性由调用方保证：只有能打开该材料包的人（即持有对应 message_id
+        # 读取权限的人）才会拿这个结果去用；本方法只返回 segments，不泄文件内容。
+        # 保留 user 参数供未来需要隔离的租户场景使用。
+
+        # 取最新的一份：同一文件可能被故意重跑过几次，律师要看的是最终结论
+        return queryset.order_by("-created_at").first()
 
     def get_job(self, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:
         """获取拆解任务。
@@ -177,6 +261,14 @@ class PdfSplitJobService:
             "download_url": download_url,
             "pdf_url": pdf_url,
             "error_message": job.error_message or "",
+            # ↓↓ 存活信息：前端据此判断「在跑」还是「卡死了」，不必等满 14 分钟超时。
+            #
+            # stale_seconds 为 null 表示非 processing 态（终态或待人工），不参与判活。
+            # 前端拿到 stale_seconds 为正的整数时，应该把「长时间无变化」提示成
+            # 「可能已中断」并给出重试入口，而不是继续转圈。
+            "heartbeat_at": job.heartbeat_at.isoformat() if job.heartbeat_at else None,
+            "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+            "stale_seconds": _stale_seconds_for(job),
         }
 
     @transaction.atomic

@@ -38,6 +38,7 @@ export function Reader() {
     setRenameMat,
     setAddInputRef,
     launchFile,
+    autoSplit,
   } = useReaderScreen()
   const { draft, detail, openId, ocrPending } = data
 
@@ -115,6 +116,11 @@ export function Reader() {
         onRenamingChange={setRenaming}
         renameMat={renameMat}
         onRenameMatClose={() => setRenameMat(null)}
+        // 重跑冲突询问：有冲突时 run() 会挂起等这里的选择
+        rerunConflicts={autoSplit.pendingConflicts?.conflicts ?? null}
+        onRerunKeepEdits={autoSplit.onKeepEdits}
+        onRerunOverwrite={autoSplit.onOverwrite}
+        onRerunCancel={autoSplit.onCancelRerun}
       />
 
       {/* 归案 → 发起审查。抽屉自己负责上传 + 确认立场，完成后通知跳复审台。 */}

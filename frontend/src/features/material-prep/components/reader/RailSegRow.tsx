@@ -38,7 +38,6 @@ export function RailSegRow({
   whole,
   auto,
   classified,
-  color,
   crossGroup = false,
   selected = false,
   dropPos = null,
@@ -59,7 +58,6 @@ export function RailSegRow({
   whole: boolean
   auto: boolean
   classified: boolean
-  color: string
   crossGroup?: boolean
   selected?: boolean
   /** 本行正被拖拽悬停的插入位置（上半 / 下半） */
@@ -153,14 +151,10 @@ export function RailSegRow({
               )}
             />
           )}
-          <span
-            className={cn(
-              'h-2 w-2 flex-none rounded-full',
-              seg.t ? '' : 'bg-zinc-400',
-              !seg.t && !classified && 'border border-dashed border-amber-400 bg-transparent',
-            )}
-            style={seg.t ? { background: color } : undefined}
-          />
+          {/* 这里原本是一个按段类型上色的圆点（SEG_COLORS）。已按反馈移除：
+              左栏是「找材料」的目录，不是按类型分类的图表；一圈彩色点只会
+              把视线从「段名」上拽开，而段名才是律师真正在找的东西。
+              类型仍然可见：行内已显示了类型名胶囊，右键菜单也仍是选类型的入口。 */}
           {editing ? (
             <input
               autoFocus

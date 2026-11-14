@@ -40,7 +40,10 @@ async function resolveMat(msg: InboxMessageDetail, att: AttachmentMeta): Promise
     const doc = await loadPdfDocument(`${msg.id}:${att.part_index}`, bytes)
     return { ...base, pages: doc.numPages }
   } catch {
-    return { ...base, pages: 1 }
+    // 页数读不出来：保留 `pages: 1` 让初始草稿至少有一段可渲染
+    //（改成 0 会让 initialSegments 产出空 refs 的空段），
+    // 但打上 pagesUnknown，告知下游「这个 1 是猜的」。
+    return { ...base, pages: 1, pagesUnknown: true }
   }
 }
 

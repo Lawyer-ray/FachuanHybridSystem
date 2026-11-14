@@ -3,12 +3,15 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+import pymupdf as fitz
 from django.http import FileResponse, HttpResponse
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
 
+from apps.core.exceptions import ValidationException
 from apps.pdf_splitting.services import PdfSplitJobService, PdfSplitService
+from apps.pdf_splitting.services.split.export_utils import export_segment_pdf
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 
 router = Router(tags=["PDF 拆解"])
@@ -92,6 +95,12 @@ class PdfSplitJobOut(BaseModel):
     download_url: str = ""
     pdf_url: str = ""
     error_message: str = ""
+    # 存活信号（见 services/job_recovery.py）。
+    # stale_seconds 为 null：非 processing 态，无需判活；
+    # 为正整数：已静默这么多秒，前端可据此提示「可能已中断」。
+    heartbeat_at: str | None = None
+    updated_at: str | None = None
+    stale_seconds: int | None = None
 
 
 class PdfSplitJobSubmitOut(BaseModel):
@@ -115,6 +124,54 @@ class ConfirmSegmentIn(BaseModel):
 
 class ConfirmRequestIn(BaseModel):
     segments: list[ConfirmSegmentIn]
+
+
+@router.post("/extract-pages")
+def extract_pdf_pages(
+    request: Any,
+    file: UploadedFile = File(...),
+    page_start: int = Form(...),
+    page_end: int = Form(...),
+) -> HttpResponse:
+    """从上传的 PDF 里按页范围切出一份小 PDF，回字节流。
+
+    归案（材料包 → 案件材料）用：后端 CaseMaterial 只认「附件 + 类型名」，
+    整包上传会让每份材料都指向同一份完整卷宗（164 页），律师开庭时翻不到
+    具体材料。所以先在这里按分段切页，前端再把切好的小 PDF 上传成附件。
+
+    入参：file（PDF 上传）+ page_start + page_end（1 起，含两端）。
+    出参：application/pdf。
+    """
+    if page_start < 1:
+        raise ValidationException(message="起始页必须从 1 开始", errors={"page_start": page_start})
+    if page_end < page_start:
+        raise ValidationException(message="结束页不能小于起始页", errors={"page_end": page_end})
+    # 大小口径与 /jobs 共用 PdfSplitJobService.MAX_FILE_SIZE，避免两处上限漂移
+    file_size = int(file.size or 0)
+    if file_size <= 0:
+        raise ValidationException(message="上传文件为空", errors={"file": "文件不能为空"})
+    if file_size > PdfSplitJobService.MAX_FILE_SIZE:
+        limit_mb = PdfSplitJobService.MAX_FILE_SIZE // 1024 // 1024
+        raise ValidationException(message="文件大小超过限制", errors={"file": f"文件大小不能超过 {limit_mb}MB"})
+
+    try:
+        with fitz.open(stream=file.read(), filetype="pdf") as source_doc:
+            total_pages = int(source_doc.page_count)
+            if page_end > total_pages:
+                raise ValidationException(
+                    message="页范围超出文件页数",
+                    errors={"page_end": page_end, "total_pages": total_pages},
+                )
+            # 切页逻辑只此一份（export_utils），本端点不重写
+            pdf_bytes = export_segment_pdf(source_doc, page_start, page_end)
+    except ValidationException:
+        raise
+    except (RuntimeError, ValueError):
+        raise ValidationException(message="PDF 无法打开", errors={"file": "PDF 文件损坏或格式不正确"}) from None
+
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="pages_{page_start}-{page_end}.pdf"'
+    return response
 
 
 @router.post("/jobs", response=PdfSplitJobSubmitOut)
@@ -143,6 +200,28 @@ def create_pdf_split_job(  # pragma: no cover
         created_by=getattr(request, "user", None),
     )
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
+
+
+@router.get("/reusable-job", response=PdfSplitJobOut | None)
+def find_reusable_pdf_split_job(
+    request: Any, source_name: str, total_pages: int | None = None
+) -> PdfSplitJobOut | None:  # pragma: no cover
+    """查一份已算好的拆分任务，供前端跳过重跑直接复用。
+
+    典型场景：材料包已识别过（后端有 36 段），但 `draft_state` 没回写——
+    律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。
+    前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。
+
+    返回 null 表示没有可复用的（前端照常新建）。
+    """
+    job = PdfSplitJobService().find_reusable_job(
+        source_name=source_name,
+        total_pages=total_pages,
+        user=_request_user(request),
+    )
+    if job is None:
+        return None
+    return PdfSplitJobOut(**PdfSplitJobService().build_job_payload(job))
 
 
 @router.get("/jobs/{job_id}", response=PdfSplitJobOut)

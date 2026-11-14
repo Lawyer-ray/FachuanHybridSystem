@@ -1,8 +1,11 @@
+import { toast } from 'sonner'
+
 import { createApiClient } from '@/lib/api'
-import type { CaseRow } from '../types'
+import type { BundleMat, CaseRow } from '../types'
 import { clientApi } from './client'
 import { contractsApi } from './contracts'
 import { inboxApi } from './inbox-packs'
+import { extractPdfPages } from './pdf-split'
 
 /**
  * 案件检索 / 建案 / 归案落地（/api/v1/cases）。
@@ -57,15 +60,9 @@ async function uploadSegment(caseId: number, blob: Blob, name: string): Promise<
 }
 
 /**
- * 把一段材料从后端切出来（原始 PDF 的 page_start..page_end）。
+ * 取材料包里某个来源素材的整份原始字节。
  *
- * 用浏览器端 pdf-lib 做不到（没装依赖），这里走后端已有的分段导出：
- * /pdf-splitting/jobs/{job_id}/download 会给整包 zip，但归案时我们手里
- * 只有 draft 的分段信息。
- *
- * 现实做法：**整包上传一次**，按分段页范围在前端做标记。
- * 后端 CaseMaterial 只需要一个附件 + 类型名，页范围是展示层的概念。
- * 所以这里上传原始附件整份，再按分段建多条材料记录指向同一附件。
+ * 归案时拿它当切页的输入；切分失败时也拿它整包兜底上传。
  */
 async function fetchOriginalBlob(messageId: number, partIndex: number): Promise<Blob | null> {
   try {
@@ -77,6 +74,58 @@ async function fetchOriginalBlob(messageId: number, partIndex: number): Promise<
   } catch {
     return null
   }
+}
+
+/** 按页范围切出这一段的 PDF；失败回 null（调用方降级为整包上传） */
+async function cutSegmentBlob(
+  blob: Blob,
+  name: string,
+  pageStart: number,
+  pageEnd: number,
+): Promise<Blob | null> {
+  try {
+    return await extractPdfPages(blob, name, pageStart, pageEnd)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 一个分段该上传哪份字节。
+ *
+ * ═══ 为什么要切 ═══
+ * 后端 CaseMaterial 只认「附件 + 类型名」，所以早先的做法是整包上传一次、
+ * 每段建一条材料记录指向同一附件 —— 结果 36 段材料点开都是**完整的 164 页**，
+ * 律师开庭时找不到具体材料。现在按分段页范围真切，每份材料就是它自己那几页。
+ *
+ * 两个不切的合法例外：
+ * ① 该段恰好覆盖整份素材（1..pages 全部页）—— 切与不切内容完全一样，
+ *    多跑一次切分只换来一次无谓往返，直接上传原始字节；
+ * ② 来源素材是图片/Office 转出（`pages` 未知 / 为 0）—— 页范围不可信，
+ *    宁可整包也不拿错的页号去切。
+ * ②之外切不出来（端点报错、PDF 损坏）也算降级，要计数并提示：
+ * 材料照样绑得上，但律师得知道有几份点开还是整卷。
+ */
+async function segmentUploadBlob(
+  seg: BundledSegment,
+  original: Blob,
+  source: BundleMat | undefined,
+): Promise<{ blob: Blob; degraded: boolean }> {
+  // 页数不可信（读不出来时兜底成 1）→ 不能拿它判「是否覆盖整份」。
+  //
+  // 真实后果（核查实测）：一份 164 页的卷宗，页数读取失败 → `pages: 1`，
+  // 于是任意 `pageStart=1,pageEnd=1` 的段都被判成「覆盖整份」→ 把 68MB
+  // 整卷当 1 页材料上传，而且 degraded:false 不提示。
+  // 现在 pagesUnknown 为真时直接走「不切页」分支（与页数=0 同口径），
+  // 结果与原来一致（整包传）但语义诚实，且不会被误当成真实页数。
+  const unknownPageCount = (source?.pages ?? 0) <= 0 || source?.pagesUnknown === true
+  const coversWholeSource = !unknownPageCount && seg.pageStart === 1 && seg.pageEnd === source?.pages
+  if (unknownPageCount || coversWholeSource) return { blob: original, degraded: false }
+
+  const cut = await cutSegmentBlob(original, seg.name, seg.pageStart, seg.pageEnd)
+  // 切不出来就让这一段退回整包字节：归案照常完成，事后再由调用方提示
+  if (!cut) return { blob: original, degraded: true }
+  return { blob: cut, degraded: false }
 }
 
 /** 建客户（归案生成合同时要用） */
@@ -124,6 +173,16 @@ export interface AssignResult {
   caseName: string
   contractId: number | null
   boundCount: number
+  /** 没能切成独立 PDF（退回整包上传）的分段数；>0 时归案本身仍然成功 */
+  unsplitCount: number
+}
+
+/** 归案要绑的一段材料：段名 + 该段页码（1 起、含两端）+ 页码出自第几个来源素材 */
+interface BundledSegment {
+  name: string
+  partIndex: number
+  pageStart: number
+  pageEnd: number
 }
 
 /**
@@ -134,6 +193,8 @@ export interface AssignResult {
  * @param opts.caseName     target=new 时的案件名
  * @param opts.parties      { our, their } —— 建当事人用
  * @param opts.segments     [{ name, partIndex, pageStart, pageEnd }]
+ * @param opts.sources      材料包的来源素材（BundleMat[]）：给出时按每份素材的
+ *                          `pages` 判断「该段是否覆盖整份」，覆盖就省掉切分往返
  */
 export async function assignPack(opts: {
   messageId: number
@@ -144,7 +205,8 @@ export async function assignPack(opts: {
   cause?: string
   targetAmount?: string
   parties: { our: string; their: string }
-  segments: { name: string; partIndex: number; pageStart: number; pageEnd: number }[]
+  segments: BundledSegment[]
+  sources?: BundleMat[]
 }): Promise<AssignResult> {
   let caseId = opts.caseId ?? 0
   let caseName: string
@@ -220,14 +282,21 @@ export async function assignPack(opts: {
     caseName = c?.name ?? ''
   }
 
-  // ④ 把分段绑成材料
-  //    说明：CaseMaterial 只认「附件 + 类型名」，页范围是展示层概念。
-  //    所以整包附件上传一次，再按分段建多条材料记录指向同一附件 ——
-  //    这与真实业务流程一致（原始扫描件就那一份，分类是律所打的标签）。
+  // ④ 把分段绑成材料：**每段上传它自己那几页的 PDF**
+  //    同一来源素材会被多个分段读到（切页输入），所以按 partIndex 缓存原始字节，
+  //    一份 164 页的卷宗只下载一次。逐段串行处理即可（切分很快），不引并发。
+  const sourceCache = new Map<number, Blob | null>()
+  const sourceByPart = new Map((opts.sources ?? []).map((mat) => [mat.partIndex, mat]))
   let boundCount = 0
+  let unsplitCount = 0
   for (const seg of opts.segments) {
-    const blob = await fetchOriginalBlob(opts.messageId, seg.partIndex)
-    if (!blob) continue
+    if (!sourceCache.has(seg.partIndex)) {
+      sourceCache.set(seg.partIndex, await fetchOriginalBlob(opts.messageId, seg.partIndex))
+    }
+    const original = sourceCache.get(seg.partIndex)
+    if (!original) continue
+    const { blob, degraded } = await segmentUploadBlob(seg, original, sourceByPart.get(seg.partIndex))
+    if (degraded) unsplitCount += 1
     const attId = await uploadSegment(caseId, blob, `${seg.name}.pdf`)
     if (attId == null) continue
     try {
@@ -240,5 +309,11 @@ export async function assignPack(opts: {
     }
   }
 
-  return { caseId, caseName, contractId, boundCount }
+  // 降级是静默的（材料照样绑上），但律师得知道有几份点开还是整卷——
+  // 否则「为什么这份证据也有 164 页」只能靠猜。
+  if (unsplitCount > 0) {
+    toast.warning(`部分材料未能切分（${unsplitCount} 份），已按整包上传`, { id: 'assign' })
+  }
+
+  return { caseId, caseName, contractId, boundCount, unsplitCount }
 }
