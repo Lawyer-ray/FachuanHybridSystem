@@ -209,8 +209,20 @@ export interface DraftState {
   pageQuality?: PageQuality
 }
 
-/** 会回写到后端 draft_state 的草稿形状：剔除 "这次识别"才成立的展示型字段 */
-export type DraftStateToSave = Omit<DraftState, 'pageQuality'>
+/**
+ * 会回写到后端 draft_state 的草稿形状。
+ *
+ * 原先这里 `Omit<DraftState, 'pageQuality'>`——理由是「质量统计是这次识别的附带事实，
+ * 落盘后会和律师后来的切段/合段/删页错位，刷新就变成假提示」。
+ *
+ * 但那个担心代码里已经天然解决了：`graphicPagesOf` / `docHintPagesOf` 都是拿
+ * `seg.refs` 与 `quality.*_pages` **实时求交集**，段变了提示跟着变，不存在错位。
+ * 而不落库的代价很实在——**刷新一次提示就没了**，律师得重新点「自动识别」才看得到，
+ * 而这个功能的意义恰恰是「打开就知道哪页要核对」。
+ *
+ * 所以改回完整形状，pageQuality 随草稿一起持久化。
+ */
+export type DraftStateToSave = DraftState
 
 /** 材料包三态分类 */
 export type PackStatus = 'todo' | 'done' | 'filed'
