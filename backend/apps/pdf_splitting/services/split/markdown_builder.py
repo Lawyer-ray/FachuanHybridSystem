@@ -89,6 +89,16 @@ _ROWSPAN_RE = re.compile(r"rowspan\s*=\s*[\"']?(\d+)", re.IGNORECASE)
 _COLSPAN_RE = re.compile(r"colspan\s*=\s*[\"']?(\d+)", re.IGNORECASE)
 
 
+def _span_value(pattern: re.Pattern[str], attrs: str) -> str:
+    """从标签属性串里取 rowspan/colspan 值；缺失返回 ``"1"``。
+
+    单独抽成函数是为了让 mypy 看清类型：``pattern.search(x) or [0, "1"]`` 把
+    ``Match|None`` 和 ``list`` 混在一起，下标取值会报 Argument 1 has incompatible type。
+    """
+    found = pattern.search(attrs)
+    return found.group(1) if found else "1"
+
+
 def _parse_grid(html: str) -> list[tuple[int, int, int, int, str]]:
     """把 HTML 表格解析成网格占位：``[(row, col, rowspan, colspan, text), ...]``。
 
@@ -123,10 +133,8 @@ def _parse_grid(html: str) -> list[tuple[int, int, int, int, str]]:
         col_cursor = 0
         for match in _CELL_WITH_SPAN_RE.finditer(row_html):
             _tag, attrs, inner = match.group(1), match.group(2), match.group(3)
-            rowspan = int((_ROWSPAN_RE.search(attrs) or [0, "1"])[1])
-            colspan = int((_COLSPAN_RE.search(attrs) or [0, "1"])[1])
-            rowspan = max(1, rowspan)
-            colspan = max(1, colspan)
+            rowspan = max(1, int(_span_value(_ROWSPAN_RE, attrs)))
+            colspan = max(1, int(_span_value(_COLSPAN_RE, attrs)))
 
             # 找到本行第一个未占用的列
             while occupied.get((row_index, col_cursor)):
