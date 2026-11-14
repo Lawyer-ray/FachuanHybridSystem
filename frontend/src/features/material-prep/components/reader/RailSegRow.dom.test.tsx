@@ -291,11 +291,13 @@ describe('RailSegRow：视觉态', () => {
     unmount()
   })
 
-  it('含证件页时图标换成 IdCard，tooltip 给出具体证件类型', () => {
-    const { container, unmount } = renderRow({ docHintDocs: ['id_card'] })
+  it('含证件页且字段缺失时，tooltip 点名缺了什么', () => {
+    const { container, unmount } = renderRow({
+      docHintPages: [{ page: 23, doc: 'id_card', missing: ['姓名', '身份证号'] }],
+    })
     const mark = container.querySelector('[data-doc-mark]') as HTMLElement
     expect(mark).toBeTruthy()
-    expect(mark.getAttribute('title')).toBe('含身份证页，关键字段可能未读出')
+    expect(mark.getAttribute('title')).toBe('含身份证页，姓名 / 身份证号未读出，请核对原图')
     // 不上彩色：与「删掉彩色圆点」的决定保持一致，只用灰色
     expect(mark.className).toContain('text-zinc-400')
     expect(mark.className).not.toContain('amber')
@@ -303,27 +305,50 @@ describe('RailSegRow：视觉态', () => {
   })
 
   it('多种证件页时 tooltip 列出类型名并去重', () => {
-    const { container, unmount } = renderRow({ docHintDocs: ['id_card', 'id_card', 'property_cert'] })
+    const { container, unmount } = renderRow({
+      docHintPages: [
+        { page: 23, doc: 'id_card', missing: ['姓名'] },
+        { page: 24, doc: 'id_card', missing: [] },
+        { page: 144, doc: 'property_cert', missing: ['权证号'] },
+      ],
+    })
     const mark = container.querySelector('[data-doc-mark]') as HTMLElement
-    expect(mark.getAttribute('title')).toBe('含身份证 / 不动产权证页，关键字段可能未读出')
+    // 三种写法去重成两类；缺失字段跨页合并去重
+    expect(mark.getAttribute('title')).toBe('含身份证 / 不动产权证页，姓名 / 权证号未读出，请核对原图')
+    unmount()
+  })
+
+  /**
+   * 关键回归：字段都在时**不能**提示「未读出」。
+   *
+   * 实测 p30 结婚证姓名两个人都读出来了（missing 为空数组），旧文案仍写
+   * 「关键字段可能未读出」——律师翻原图发现字段好好的，以后就不信这个提示了。
+   */
+  it('证件页字段都在时，tooltip 不谎报「未读出」', () => {
+    const { container, unmount } = renderRow({
+      docHintPages: [{ page: 30, doc: 'marriage', missing: [] }],
+    })
+    const mark = container.querySelector('[data-doc-mark]') as HTMLElement
+    expect(mark.getAttribute('title')).toBe('含结婚证页，建议核对原图')
+    expect(mark.getAttribute('title')).not.toContain('未读出')
     unmount()
   })
 
   it('证件页与图形页同时存在时只显示证件图标（不两种并列）', () => {
-    const { container, unmount } = renderRow({ docHintDocs: ['id_card'], graphicPages: [147] })
+    const { container, unmount } = renderRow({ docHintPages: [{ page: 23, doc: 'id_card', missing: [] }], graphicPages: [147] })
     expect(container.querySelector('[data-doc-mark]')).toBeTruthy()
     expect(container.querySelector('[data-graphic-mark]')).toBeNull()
     unmount()
   })
 
   it('没有证件页时不挂证件标记（旧任务无 doc_hints 也不报错）', () => {
-    const { container, unmount } = renderRow({ docHintDocs: [] })
+    const { container, unmount } = renderRow({ docHintPages: [] })
     expect(container.querySelector('[data-doc-mark]')).toBeNull()
     unmount()
   })
 
   it('改名字时不出证件图标（不让图标挤在输入框旁）', () => {
-    const { container, unmount } = renderRow({ docHintDocs: ['id_card'], editing: true })
+    const { container, unmount } = renderRow({ docHintPages: [{ page: 23, doc: 'id_card', missing: ['姓名'] }], editing: true })
     expect(container.querySelector('[data-doc-mark]')).toBeNull()
     unmount()
   })

@@ -520,14 +520,19 @@ describe('Rail：证件待补录入口与段行证件标记', () => {
       ], [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 164 }]),
       pageQuality: qualityWithDocs as never,
     })
-    expect(rowProps[0]!.docHintDocs).toEqual(['id_card'])
-    expect(rowProps[1]!.docHintDocs).toEqual(['property_cert'])
+    // 类型码 + 该页缺失字段一起下推（tooltip 要按「有没有缺」分档）
+    expect(rowProps[0]!.docHintPages).toEqual([
+      { page: 23, doc: 'id_card', missing: ['姓名', '身份证号', '住址'] },
+    ])
+    expect(rowProps[1]!.docHintPages).toEqual([
+      { page: 144, doc: 'property_cert', missing: ['不动产单元号'] },
+    ])
     container.remove()
   })
 
   it('没有 pageQuality 时段行拿到空数组（不崩）', () => {
     const { container } = renderRail()
-    expect(rowProps[0]!.docHintDocs).toEqual([])
+    expect(rowProps[0]!.docHintPages).toEqual([])
     container.remove()
   })
 })

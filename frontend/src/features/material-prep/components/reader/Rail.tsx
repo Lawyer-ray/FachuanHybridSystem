@@ -84,7 +84,7 @@ export function Rail({
     seg: draft.segs[si]!,
     si,
     graphicPages: graphicPagesOf(draft.segs[si], pageQuality),
-    docHintDocs: docHintPagesOf(draft.segs[si], pageQuality).map((d) => d.doc),
+    docHintPages: docHintPagesOf(draft.segs[si], pageQuality),
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !!draft.segs[si]!.t || !isAutoSegName(draft, draft.segs[si]!),
