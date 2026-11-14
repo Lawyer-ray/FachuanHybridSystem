@@ -83,9 +83,132 @@ _TABLE_CELL_SPLIT_MAX = 120
 _TABLE_ROW_SPLIT_MAX = 80
 
 
+#: 单个单元格：捕获 rowspan / colspan 属性值（缺失即 1）
+_CELL_WITH_SPAN_RE = re.compile(r"<t([dh])([^>]*)>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
+_ROWSPAN_RE = re.compile(r"rowspan\s*=\s*[\"']?(\d+)", re.IGNORECASE)
+_COLSPAN_RE = re.compile(r"colspan\s*=\s*[\"']?(\d+)", re.IGNORECASE)
+
+
+def _parse_grid(html: str) -> list[tuple[int, int, int, int, str]]:
+    """把 HTML 表格解析成网格占位：``[(row, col, rowspan, colspan, text), ...]``。
+
+    ## 为什么必须处理 rowspan / colspan
+
+    实测 164 页卷宗里 **82 个表格块有 67 个（82%）带合并单元格**。
+    不带 span 处理就按「行列均分」切，框会整片错位。合并单元格的典型形态：
+
+    ```html
+    <tr><td rowspan="2">照片</td><td colspan="2">结婚申请,符合…</td></tr>
+    <tr><td>登记机关</td><td>…</td></tr>
+    ```
+
+    首行只有 2 个 td，但第二行有 2 个 td，且首行的第二个 td 跨 2 列 ——
+    若直接 `col_count = max(每行td数)`，会算出 2 列、把「结婚申请」那句
+    按 1 列宽去画，实际它横跨 2 列。
+
+    注意：上面这个 p29 结婚证页**整页都不拆**（格子里是照片 + 整页只有 3 行），
+    由 ``_split_is_trustworthy`` 拦下。span 算法仍然必须正确 —— 它对
+    真表单（p22 押品表、p145 不动产权证）是决定框位置的唯一依据。
+
+    ## 算法
+
+    逐行推进，维护每列已占用的行号；遇到 span 就占位并跳过。这是标准 HTML 表格
+    占位算法，与浏览器渲染表格的方式一致。
+    """
+    grid: list[tuple[int, int, int, int, str]] = []
+    #: 占位表：``occupied[(row, col)] = True``
+    occupied: dict[tuple[int, int], bool] = {}
+
+    for row_index, row_html in enumerate(_TR_RE.findall(html)):
+        col_cursor = 0
+        for match in _CELL_WITH_SPAN_RE.finditer(row_html):
+            _tag, attrs, inner = match.group(1), match.group(2), match.group(3)
+            rowspan = int((_ROWSPAN_RE.search(attrs) or [0, "1"])[1])
+            colspan = int((_COLSPAN_RE.search(attrs) or [0, "1"])[1])
+            rowspan = max(1, rowspan)
+            colspan = max(1, colspan)
+
+            # 找到本行第一个未占用的列
+            while occupied.get((row_index, col_cursor)):
+                col_cursor += 1
+
+            text = _TAG_RE.sub("", inner).strip()
+            grid.append((row_index, col_cursor, rowspan, colspan, text))
+            for dr in range(rowspan):
+                for dc in range(colspan):
+                    occupied[(row_index + dr, col_cursor + dc)] = True
+            col_cursor += colspan
+
+    return grid
+
+
+def _grid_col_count(grid: list[tuple[int, int, int, int, str]]) -> int:
+    """网格的真实列数（由最右侧被占用的列 +1 得出，不受 colspan 干扰）。"""
+    return max((col + colspan for _r, col, _rs, colspan, _t in grid), default=0)
+
+
+def _grid_row_count(html: str) -> int:
+    """网格的真实行数（HTML 的 <tr> 数；rowspan 不改变行数，只是格子更高）。"""
+    return len(_TR_RE.findall(html))
+
+
+#: 拆格后**单格**面积的容忍上限（占页面面积比例）。
+#:
+#: 为什么不是「表格大就拆」：均分只有在「表格本身就是页面格局」时才成立。
+#: 实测 p30 结婚证：整页被 MinerU 输出成 3 行 × 2 列的表格（bbox 47-988 × 4-821），
+#: 按行列均分得到 6 个 0.27 × 0.47 的格子 —— 单格就占页面 13%，而真实的
+#: 「姓名/身份证件号」那一栏只占页面窄窄一条。框比目标大一个数量级，等于没框。
+#: 正常表单（p22 押品表 17×4）单格约 1%，差两个数量级，阈值取 4% 分得开。
+_SPLIT_MAX_CELL_AREA_RATIO = 0.04
+
+#: 拆格后**每个有字的格子**的平均字数下限。
+#:
+#: 均分的前提是「表格有完整的行列结构」。整页扫描件被误判成 2-3 行表格时，
+#: 一个格子就装下一整段正文（p30 首行 91 字、p154 首行 88 字、p111 单行 244 字、
+#: p162 首行 74 字）——那是 OCR 把整块正文拍平后的换行，不是表格结构，按行切必然错位。
+#: 真表单每格只装一个字段值（p22 押品表单格 2-6 字，p19 流水单格 4-20 字）。
+#:
+#: 分母用「有字的格子」而不是「全部格子」：表单本来就大量空着
+#: （p22 的 68 格里只有 12 格有字），拿全部格子做分母会把真表单全卡掉。
+_SPLIT_MAX_CHARS_PER_CELL = 45
+
+
 def _table_cell_count(html: str) -> int:
     """表格的单元格总数（用于决定拆到格还是拆到行）。"""
     return sum(len(_CELL_RE.findall(row_html)) for row_html in _TR_RE.findall(html))
+
+
+def _split_is_trustworthy(
+    *,
+    rect: dict[str, Any],
+    html: str,
+    grid: list[tuple[int, int, int, int, str]],
+    row_count: int,
+    col_count: int,
+    by_row_only: bool,
+) -> bool:
+    """按行列均分这块表格，算出来的框能不能拿去给律师看。
+
+    「表格块」不等于「等宽表格」：证件页/图纸页/拍平正文常被 MinerU 归成 table，
+    这类块的 bbox 是**整页**而不是表格本身，行列数也只反映 OCR 的换行，均分必然错位。
+    三条否决条件都来自 164 页真实卷宗的实测（见常量注释），命中任一条就退回整块：
+    **宁可少画一堆框，也不要画一堆指错地方的框。**
+    """
+    if "<img" in html.lower():
+        # 格子里装着照片/印章：这是整页版面，不是表格。实测 p24/25/27/28/29/33/81/158。
+        return False
+    if row_count < 2 and not by_row_only:
+        # 单行拆格：nv 列均分一行文字，横坐标纯属编造（p147 宗地图 [WDZ7] 就 1 行 1 格）。
+        return False
+    cell_count = max(1, row_count * col_count)
+    if float(rect["w"]) * float(rect["h"]) / cell_count > _SPLIT_MAX_CELL_AREA_RATIO:
+        # 单格占比过大 → 整页被当成表格（p30 结婚证），不是能点中的粒度。
+        return False
+    filled = [len(text) for _r, _c, _rs, _cs, text in grid if text]
+    if filled and sum(filled) / len(filled) > _SPLIT_MAX_CHARS_PER_CELL:
+        # 每格塞进一整段正文 → 行列是 OCR 换行拼出来的（p30/p154/p162），不是表格结构。
+        return False
+    return True
 
 
 def _split_table_into_cells(
@@ -123,42 +246,58 @@ def _split_table_into_cells(
     - 行/列数算不出来
     - 行数超过 ``_TABLE_ROW_SPLIT_MAX``
     - 所有格子文字都为空
+    - 均分出来的框**不可信**（整页扫描件被当成表格、格子装的是图片、
+      单行拆格、格子太大或太空）—— 判据见 ``_split_is_trustworthy``
     """
     rows = _TR_RE.findall(html)
     if not rows:
         return []
 
-    parsed: list[list[str]] = []
-    for row_html in rows:
-        cells = [_TAG_RE.sub("", cell).strip() for cell in _CELL_RE.findall(row_html)]
-        if cells:
-            parsed.append(cells)
-    if not parsed:
+    grid = _parse_grid(html)
+    if not grid:
         return []
 
-    row_count = len(parsed)
-    col_count = max(len(cells) for cells in parsed)
+    row_count = _grid_row_count(html)
+    col_count = _grid_col_count(grid)
     if row_count <= 0 or col_count <= 0 or row_count > _TABLE_ROW_SPLIT_MAX:
+        return []
+    # 可信度判定放在**本函数内**而不是交给调用方：拆分入口只有一个，
+    # 任何新增调用方都不应该有机会绕开它去画错位的格子。
+    if not _split_is_trustworthy(
+        rect=rect,
+        html=html,
+        grid=grid,
+        row_count=row_count,
+        col_count=col_count,
+        by_row_only=by_row_only,
+    ):
         return []
 
     x0, y0 = float(rect["x"]), float(rect["y"])
     total_w, total_h = float(rect["w"]), float(rect["h"])
+    # 按**网格**均分，而不是按「每行 td 个数」均分。
+    #
+    # 两者的差别在合并单元格时才显现：p29 结婚证首行 2 个 td（其一 colspan=2），
+    # 第二行 2 个 td —— 「每行 td 数」求出 2 列，实际是 3 列；而「结婚申请…」那一格
+    # 横跨 2 列，按 1 列宽去画就短了一截。网格法用 colspan 累加出真实列位置。
     cell_w = total_w / col_count
     cell_h = total_h / row_count
 
     out: list[dict[str, Any]] = []
 
     if by_row_only:
-        # 长表（流水）：一行一个块，文字是该行各格拼起来的
-        for row_index, cells in enumerate(parsed):
-            row_text = " ".join(cell for cell in cells if cell).strip()
-            if not row_text:
-                continue
+        # 长表（流水）：一行一个块，文字是该行各格拼起来的。
+        # 行矩形按 <tr> 数均分（rowspan 不改变行数，只是格子更高）。
+        by_row: dict[int, list[str]] = {}
+        for row_index, _col, _rs, _cs, text in grid:
+            if text:
+                by_row.setdefault(row_index, []).append(text)
+        for row_index in sorted(by_row):
             out.append(
                 {
                     "page": page_no,
                     "type": "table_row",
-                    "text": row_text,
+                    "text": " ".join(by_row[row_index]).strip(),
                     "rect": {
                         "x": round(x0, 4),
                         "y": round(y0 + cell_h * row_index, 4),
@@ -170,26 +309,27 @@ def _split_table_into_cells(
             )
         return out
 
-    for row_index, cells in enumerate(parsed):
-        for col_index, text in enumerate(cells):
-            if not text:
-                continue
-            out.append(
-                {
-                    "page": page_no,
-                    "type": "table_cell",
-                    "text": text,
-                    "rect": {
-                        "x": round(x0 + cell_w * col_index, 4),
-                        "y": round(y0 + cell_h * row_index, 4),
-                        # 每格留 1px 级的缝：相邻格边框不重叠，律师看得出是两格
-                        "w": round(cell_w * 0.97, 4),
-                        "h": round(cell_h * 0.94, 4),
-                        # 均分推算出来的，不是量出来的 —— 前端画虚线，不谎报精度
-                        "approx": True,
-                    },
-                }
-            )
+    for row_index, col_index, rowspan, colspan, text in grid:
+        if not text:
+            continue
+        # 每格的宽高按 **span 累加**，不是固定单格尺寸：
+        #   colspan=2 的「结婚申请…」应为 2 个 cell_w 宽，画 1 个就短一截。
+        out.append(
+            {
+                "page": page_no,
+                "type": "table_cell",
+                "text": text,
+                "rect": {
+                    "x": round(x0 + cell_w * col_index, 4),
+                    "y": round(y0 + cell_h * row_index, 4),
+                    # 每格留 1px 级的缝：相邻格边框不重叠，律师看得出是两格
+                    "w": round(cell_w * colspan * 0.97, 4),
+                    "h": round(cell_h * rowspan * 0.94, 4),
+                    # 均分推算出来的，不是量出来的 —— 前端画虚线，不谎报精度
+                    "approx": True,
+                },
+            }
+        )
     return out
 
 
@@ -231,8 +371,16 @@ def build_positioned_blocks(
                 continue
             # 大表格拆成逐格块：一个大框罩住十几行时，律师点不中具体某一格。
             # 实测 152 个 table 块里 114 个高度 >25% 页面，这是普遍的体验问题。
+            # 整块保留的**大表格**（不拆或拆不了）：这个矩形是「整块内容的外接框」，
+            # 不是某一块文字的位置。bbox 缺失时更糟——``layout`` 里没有页面尺寸，
+            # 此时整块框是 MinerU 千分比**假定 1000** 推出来的，仍然落在整页尺度上。
+            # 两种情况都要标 approx，前端画虚线而不是谎报「这就是这块字的精确位置」。
+            approx_whole_block = False
             if block_type == "table" and float(rect["h"]) >= _TABLE_SPLIT_MIN_HEIGHT_RATIO:
                 table_html = str(block.get("table_body") or block.get("table_structure") or "")
+                # 可否拆格由 ``_split_table_into_cells`` 自己判（含 <img> / 单行 /
+                # 单格过大或太空 → 返回空列表），这里只负责「拆不了就整块保留」。
+                # 判据集中在拆分入口，避免两处各有一份「什么时候不能拆」的规则漂移。
                 cells = _split_table_into_cells(
                     page_no=page.page_no,
                     rect=rect,
@@ -243,12 +391,13 @@ def build_positioned_blocks(
                 if cells:
                     out.extend(cells)
                     continue
+                approx_whole_block = True
 
             entry: dict[str, Any] = {
                 "page": page.page_no,
                 "type": block_type or "text",
                 "text": text,
-                "rect": rect,
+                "rect": {**rect, "approx": True} if approx_whole_block else rect,
             }
             # Office 的结构定位（段落序 / 行列）一并透出：它对"定位"是确定的，
             # 而矩形只是整页近似。两者不冲突，前端按需用。

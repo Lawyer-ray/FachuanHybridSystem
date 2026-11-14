@@ -225,3 +225,99 @@ class TestTableSplitIntoCells:
         blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
 
         assert [b["type"] for b in blocks] == ["table"]
+
+
+class TestTableSplitTrustworthiness:
+    """整页被误判成表格时不拆格——「框得不准」比「没有框」更糟。
+
+    真实痛点（576 号材料包 p29/p30 结婚证，律师直接指着截图反馈「框不精确」）：
+    这两页**整页就是一张扫描图**，MinerU 把它归成一个占满页面的 table 块，
+    再按行列均分，得到 5 个高度 25%、宽度 46% 的格子 —— 比它要圈的那行字
+    大一个数量级，落在页面上纯属误导。
+
+    p29 与 p30 是同一毛病的两种形态，两条都必须挡住：
+
+    | 页 | HTML 特征 | 靠哪条判据挡下 |
+    |:--|:--|:--|
+    | p29 | 格子里是 ``<img>``（证件照/印章） | 含图片 |
+    | p30 | 纯文字，但 3 行塞下 166 字 | 每格字数过多 |
+
+    如果只挡 ``<img>``（当初的第一版就是这么写的），p30 会继续画 5 个错位框。
+    """
+
+    #: p29 的 table_body：保留真实结构（rowspan + colspan + 两个 <img>），人名脱敏
+    _P29 = (
+        '<table><tr><td rowspan="2"><img src="images/eb8c.jpg"/></td>'
+        '<td colspan="2">结婚申请,符合《中华人民共和国婚姻法》规定,予以登记,发给此证。</td></tr>'
+        '<tr><td>登记机</td><td><img src="images/b0ba.jpg"/></td></tr>'
+        "<tr><td>中华人民共和国民政部监制</td><td>婚姻登记员</td><td>某某</td></tr></table>"
+    )
+
+    #: p30 同形态 table_body：**没有 img**，3 行 6 格塞上百字。
+    #:
+    #: 只保留触发判据的**形态**（每格一整段字段文本，而不是一个字段值），
+    #: 人名与证件号均为仅用于本测试的假数据。
+    _P30 = (
+        "<table>"  # privacy-allow
+        "<tr><td>持证人张某 登记日期 2000年01月01日结婚证字号 J000000000-2000-000000备注</td><td></td></tr>"
+        "<tr><td>姓名 张某 国籍 中国身份证件号 110101190001010000</td><td>性别男出生日期 1900年01月01日</td></tr>"
+        "<tr><td>姓名 李某 国籍 中国身份证件号 110101190001010000</td><td>性别女出生日期 1900年01月01日</td></tr>"
+        "</table>"  # privacy-allow
+    )
+
+    @staticmethod
+    def _blocks(page_no: int, bbox: list[int], body: str) -> list[Any]:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [{"type": "table", "text": "整页表格", "bbox": bbox, "table_body": body}],
+        }
+        return build_positioned_blocks([_page(page_no, layout=layout)], bbox_backend="mineru")
+
+    def test_p29_格子里有图片时整页不拆(self) -> None:
+        blocks = self._blocks(29, [19, 9, 960, 818], self._P29)
+
+        # 只有一个整块，绝不出现 5 个 25%×46% 的格子
+        assert [b["type"] for b in blocks] == ["table"]
+        assert [b for b in blocks if b["type"] == "table_cell"] == []
+
+    def test_p30_每格塞整段正文时不拆(self) -> None:
+        # 这页没有 <img>，只能靠「格子里字数太多」这条判据 —— 正是它当初漏掉的
+        blocks = self._blocks(30, [47, 4, 988, 821], self._P30)
+
+        assert [b["type"] for b in blocks] == ["table"]
+        assert [b for b in blocks if b["type"] == "table_cell"] == []
+
+    def test_退回整块时标_approx_不谎报精确(self) -> None:
+        # 整块框是「整页内容外接框」，不是某块字的精确位置，前端要画虚线
+        assert self._blocks(30, [47, 4, 988, 821], self._P30)[0]["rect"]["approx"] is True
+
+    def test_单行表格不横拆(self) -> None:
+        # p147 宗地图：[WDZ7] 一个格子，拆出来等于把 1 行文字按列数编造横坐标
+        body = "<table><tr><td>[WDZ7]</td></tr></table>"
+        assert self._blocks(147, [27, 8, 960, 818], body)[0]["type"] == "table"
+
+    def test_长正文假表格不拆(self) -> None:
+        # p106 合同正文：35 行 rowspan 全跨成一个大格，不是表格
+        body = (
+            '<table><tr><td rowspan="35" colspan="2">'
+            + "五、甲方决定中途不卖或逾期____天仍未交付房地产时," * 8
+            + "</td></tr></table>"
+        )
+        blocks = self._blocks(106, [35, 34, 929, 797], body)
+        assert [b["type"] for b in blocks] == ["table"]
+
+    def test_真表单仍然拆格(self) -> None:
+        """守住原有能力：判据不能把 p22 押品表这类真表格一起挡掉。
+
+        p22 是本次需求的起点（律师反馈「框得很大」），68 格表单必须照旧拆开。
+        """
+        rows = "".join(f"<tr><td>押品信息</td><td>字段{r}</td><td>输入项</td><td>暂无</td></tr>" for r in range(17))
+        blocks = self._blocks(22, [192, 154, 790, 554], f"<table>{rows}</table>")
+        cells = [b for b in blocks if b["type"] == "table_cell"]
+
+        assert len(cells) == 68
+        # 单格只占页面 1% 量级 —— 这才是「点得中某一格」的粒度
+        assert max(c["rect"]["w"] * c["rect"]["h"] for c in cells) < 0.02
