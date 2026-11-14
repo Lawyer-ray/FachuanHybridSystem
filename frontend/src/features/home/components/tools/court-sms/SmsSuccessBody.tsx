@@ -5,7 +5,9 @@ import { courtSmsDocDownloadUrl, triggerDownload, type CourtSmsDetail } from '..
 import { cn } from '@/lib/utils'
 import { ROW_BTN } from '../../../ui'
 import { copyDocFile } from './copy-files'
+import { DateCaptureSection } from './DateCaptureSection'
 import { SMS_STATUS_LABEL, SMS_TYPE_LABEL } from './stages'
+import type { UseDateCaptureResult } from './use-date-capture'
 
 /** 通知结果摘要：notification_results = { 平台: { success: bool, ... } } */
 function notifySummary(nr: Record<string, unknown> | null): string | null {
@@ -33,7 +35,18 @@ function Field({ label, value }: { label: string; value: string }) {
  * 关联案件 chip + 已重命名文书列表（复制文件 / 下载，重命名后文件名即案件规范名）
  * + 「查看详情」折叠（类型 / 案号 / 当事人 / 通知 / 短信原文）。
  */
-export function SmsSuccessBody({ detail }: { detail: CourtSmsDetail }) {
+export function SmsSuccessBody({
+  detail,
+  capture,
+  onOpenTask,
+  onRetryCapture,
+}: {
+  detail: CourtSmsDetail
+  /** 记一笔旁线（关键日期识别）；未传入时不渲染（如材料通道的降级场景） */
+  capture?: UseDateCaptureResult
+  onOpenTask?: (taskId: number) => void
+  onRetryCapture?: () => void
+}) {
   const [open, setOpen] = useState(false)
   const [copyingIdx, setCopyingIdx] = useState<number | null>(null)
   const docs = detail.documents
@@ -92,6 +105,13 @@ export function SmsSuccessBody({ detail }: { detail: CourtSmsDetail }) {
         <div className="rounded-[10px] border border-border bg-secondary/40 px-3 py-2 text-[11.5px] text-muted-foreground">
           本次短信没有附带可下载文书。
         </div>
+      )}
+
+      {/* 记一笔旁线：文书已归档后，把关键日期识别结果摆在这里。
+          位置刻意放在文书列表下方、详情折叠之上——看完「有哪些文书」
+          紧接着就是「这些文书里有什么日期」。 */}
+      {capture && onOpenTask && onRetryCapture && (
+        <DateCaptureSection capture={capture} onOpenTask={onOpenTask} onRetry={onRetryCapture} />
       )}
 
       <button

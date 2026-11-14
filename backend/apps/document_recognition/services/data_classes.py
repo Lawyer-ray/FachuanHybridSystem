@@ -289,6 +289,8 @@ class RecognitionResponse:
         file_path: 上传文件的保存路径
         date_candidates: 日期候选草稿列表（DateCandidateDraft.to_dict），
             由 worker 落库为 DocumentRecognitionDateCandidate 行
+        classification_hint: 来源管线（法院短信）给出的文书类型提示，
+            落库为 DocumentRecognitionTask.classification_hint，供前端标注「按短信类型推定」
     """
 
     recognition: RecognitionResult
@@ -296,6 +298,7 @@ class RecognitionResponse:
     file_path: str
     date_candidates: list[dict[str, Any]] = field(default_factory=list)
     party_names: list[str] = field(default_factory=list)
+    classification_hint: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典"""

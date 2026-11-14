@@ -36,6 +36,7 @@ class DocumentRecognitionTaskService:
         file_path: str,
         original_filename: str,
         source_court_sms_id: int | None = None,
+        source_document_path: str = "",
         case_id: int | None = None,
         case_log_id: int | None = None,
         llm_model: str | None = None,
@@ -47,6 +48,7 @@ class DocumentRecognitionTaskService:
             file_path: 文件路径
             original_filename: 原始文件名
             source_court_sms_id: 来源法院短信 ID（管线模式：案件已由短信第一轮绑定）
+            source_document_path: 来源管线送识别的原文件路径（幂等键，独立上传留空）
             case_id: 管线预绑定的案件 ID（与 case_log_id 配套，跳过识别期匹配）
             case_log_id: 管线预绑定的案件日志 ID（日期确认的提醒锚点）
             llm_model: 用户指定的识别模型（None 走默认；识别完成后被实际模型覆盖）
@@ -62,6 +64,7 @@ class DocumentRecognitionTaskService:
             original_filename=original_filename,
             status=DocumentRecognitionStatus.PENDING,
             source_court_sms_id=source_court_sms_id,
+            source_document_path=source_document_path or "",
             case_id=case_id,
             case_log_id=case_log_id,
             # llm_model 等字符串字段已收紧为 NOT NULL + default=""，None 走空串
@@ -75,6 +78,7 @@ class DocumentRecognitionTaskService:
             "创建文书识别任务",
             extra={
                 "source_court_sms_id": source_court_sms_id,
+                "source_document_path": source_document_path,
                 "prebound_case_log_id": case_log_id,
                 "llm_model": llm_model,
                 "created_by_id": getattr(created_by, "id", None),

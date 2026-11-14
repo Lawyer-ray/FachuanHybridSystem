@@ -8,6 +8,29 @@
 - 任务列表：`/admin/document_recognition/documentrecognitiontask/`（状态/绑定/通知/确认进度列与筛选，详情含原始文本、联系人/地址、日期候选 inline）
 - 前端「记一笔」QuickAdd 的 📎 上传也走同一套 API（未绑定任务 → 独立提醒）。上传端点支持 `source_court_sms_id` 表单参数走**管线模式预绑定**（法院短信管线二阶段：案件/日志由短信侧建好，识别只做提取+日期候选且不重复通知，状态接口返回 `binding_mode` 区分 standalone/pipeline）。
 
+## 日期捕获旁线（法院短信 → 记一笔）
+
+法院短信弹窗打开一条已完成的短信时，前端自动调本 app 的两个端点把文书送去识别，
+识别只产出候选，**写入日历仍必须律师逐条确认**。
+
+| 端点 | 作用 |
+|---|---|
+| `POST /court-document/sms/{id}/capture-dates` | 送识别（幂等）；`?force=true` 无条件新建任务 |
+| `GET /court-document/sms/{id}/capture-status` | 派生任务列表（轮询 + 「继续确认」入口） |
+
+实现：`services/date_capture_service.py`。
+
+**旁线纪律（改这块前必读）**：
+
+- 本服务**不 import `automation` 模型**——短信侧只递 `DateCaptureSource` 纯数据 DTO，
+  因此识别域的任何失败都不可能改动 `CourtSMS` 状态。有单测守着（`test_capture_never_touches_sms_record`）。
+- 幂等键是 `(source_court_sms_id, source_document_path)`；单靠 `file_path` 不行
+  （`retry` 复用同一行，「重新送」要新建行）。已有 `failed` 任务原地重跑，不堆垃圾行。
+- 管线模式下识别复用短信已算出的结果：**案号优先用短信的**、当事人缺失时回填、
+  文书类型只在分类器认不出（`other`）时兜底。
+- 前端自动触发的时机是「弹窗打开」而非后端 `completed`，重复打开由幂等键吸收，
+  不会重复烧 LLM。
+
 ## 架构
 
 | 层 | 位置 | 职责 |

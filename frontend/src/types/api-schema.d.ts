@@ -5612,6 +5612,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/document-recognition/court-document/sms/{sms_id}/capture-dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capture Dates From Court Sms
+         * @description 把某条法院短信的文书送去「记一笔」识别关键日期（幂等）。
+         *
+         *     只产出日期候选，不写入日历——写入必须走 ``/court-document/task/{id}/dates/confirm``
+         *     的人工确认（法律日期错一天的代价不可接受，这是设计底线）。
+         *
+         *     - ``force=false``（默认）：已有 pending/processing/success 任务直接复用，
+         *       已有 failed 任务原地重跑——即「打开短信就自动送一次」不会重复烧 LLM。
+         *     - ``force=true``：无条件新建任务（「重新识别」按钮）。
+         *
+         *     权限：读短信按案件 ACL（与法院短信详情接口同口径），普通律师即可用；
+         *     写入日历的权限由确认接口按案件 ACL 兜底。
+         *
+         *     **旁线纪律**：本接口不修改 CourtSMS 任何字段，识别失败/超时不会影响
+         *     法院短信主线的状态机。
+         */
+        post: operations["apps_document_recognition_api_document_recognition_api_capture_dates_from_court_sms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-recognition/court-document/sms/{sms_id}/capture-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Court Sms Capture Status
+         * @description 某条法院短信派生出的识别任务列表（轮询 + 「继续确认」入口）。
+         *
+         *     按任务归属过滤：普通律师只看自己创建的（与短信 ACL 叠加），管理员看全量。
+         *     短信本身无权访问时 404。
+         */
+        get: operations["apps_document_recognition_api_document_recognition_api_get_court_sms_capture_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/document-recognition/court-document/search-cases": {
         parameters: {
             query?: never;
@@ -18030,6 +18086,144 @@ export interface components {
             case_name?: string | null;
             /** Created At */
             created_at: string;
+        };
+        /**
+         * DateCaptureItemOutSchema
+         * @description 单份文书的送识别结果
+         */
+        DateCaptureItemOutSchema: {
+            /**
+             * Document Path
+             * @default
+             */
+            document_path: string;
+            /**
+             * Document Name
+             * @default
+             */
+            document_name: string;
+            /** Task Id */
+            task_id?: number | null;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /**
+             * Action
+             * @default
+             */
+            action: string;
+            /**
+             * Candidate Count
+             * @default 0
+             */
+            candidate_count: number;
+            /**
+             * Pending Count
+             * @default 0
+             */
+            pending_count: number;
+            /** Date Confirmation Status */
+            date_confirmation_status?: string | null;
+            /**
+             * Error Message
+             * @default
+             */
+            error_message: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * DateCaptureOutSchema
+         * @description 法院短信送记一笔的结果（逐份文书）
+         */
+        DateCaptureOutSchema: {
+            /** Source Court Sms Id */
+            source_court_sms_id: number;
+            /** Items */
+            items?: components["schemas"]["DateCaptureItemOutSchema"][];
+        };
+        /**
+         * SourceTaskOutSchema
+         * @description 来源短信派生出的识别任务摘要（轮询 / 「继续确认」入口用）
+         */
+        SourceTaskOutSchema: {
+            /** Task Id */
+            task_id: number;
+            /**
+             * Document Path
+             * @default
+             */
+            document_path: string;
+            /**
+             * Document Name
+             * @default
+             */
+            document_name: string;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /**
+             * Error Message
+             * @default
+             */
+            error_message: string;
+            /**
+             * Classification Hint
+             * @default
+             */
+            classification_hint: string;
+            /**
+             * Document Type
+             * @default
+             */
+            document_type: string;
+            /**
+             * Case Number
+             * @default
+             */
+            case_number: string;
+            /**
+             * Candidate Count
+             * @default 0
+             */
+            candidate_count: number;
+            /**
+             * Pending Count
+             * @default 0
+             */
+            pending_count: number;
+            /**
+             * Confirmed Count
+             * @default 0
+             */
+            confirmed_count: number;
+            /**
+             * Skipped Count
+             * @default 0
+             */
+            skipped_count: number;
+            /**
+             * Date Confirmation Status
+             * @default
+             */
+            date_confirmation_status: string;
+        };
+        /**
+         * SourceTasksOutSchema
+         * @description 某条法院短派生出的全部识别任务
+         */
+        SourceTasksOutSchema: {
+            /** Source Court Sms Id */
+            source_court_sms_id: number;
+            /** Tasks */
+            tasks?: components["schemas"]["SourceTaskOutSchema"][];
         };
         /**
          * CaseSearchResultSchema
@@ -32232,6 +32426,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PendingTaskOutSchema"][];
+                };
+            };
+        };
+    };
+    apps_document_recognition_api_document_recognition_api_capture_dates_from_court_sms: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                sms_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateCaptureOutSchema"];
+                };
+            };
+        };
+    };
+    apps_document_recognition_api_document_recognition_api_get_court_sms_capture_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sms_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceTasksOutSchema"];
                 };
             };
         };

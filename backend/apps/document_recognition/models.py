@@ -115,6 +115,14 @@ class DocumentRecognitionTask(models.Model):
         related_name="recognition_tasks",
         verbose_name="来源法院短信",
     )
+    source_document_path: str = models.CharField(max_length=1024, blank=True, default="", verbose_name="来源文书路径")
+    """来源管线送识别的原文件绝对路径（幂等键：同一短信的同一份文书只建一次任务）。
+
+    法院短信场景下 file_path 与它相同；独立上传场景为空串。单靠 file_path 不能做幂等：
+    重跑（retry）复用同一行，而"重新送识别"走的是新建行。
+    """
+    classification_hint: str = models.CharField(max_length=32, blank=True, default="", verbose_name="文书类型提示")
+    """来源管线给出的文书类型提示（仅在分类器认不出时兑底，非空即表示用了兜底）。"""
     created_by: Any = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
@@ -134,6 +142,8 @@ class DocumentRecognitionTask(models.Model):
         # case/case_log 为 FK，建表时（automation/0005 create_model）已自带单列索引
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["status", "-created_at"], name="idx_docrec_status_created"),
+            # 法院短信自动送识别的幂等查询：按 (来源短信, 来源文书路径) 定位存量任务
+            models.Index(fields=["source_court_sms", "source_document_path"], name="idx_docrec_sms_source_path"),
         ]
 
     def __str__(self) -> str:

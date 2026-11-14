@@ -86,6 +86,7 @@ function stubRecognize(over: Partial<ReturnType<typeof useRecognize>> = {}) {
     task: null,
     progress: { elapsedSeconds: 0, level: 'normal', backendStalled: false },
     submit: vi.fn(),
+    attach: vi.fn(async () => {}),
     retry: vi.fn(async () => {}),
     canRetry: false,
     retrying: false,

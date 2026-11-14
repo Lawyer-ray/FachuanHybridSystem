@@ -239,6 +239,8 @@ class CourtDocumentRecognitionService:
 
         case_id, case_name = match
         renamed_file_path = self._rename_document(file_path=file_path, document_type=doc_type, case_name=case_name)
+
+        # 以下保持原样（重命名 + 建日志 + 绑定）
         log_content = self.binding_service.format_log_content(
             document_type=doc_type, case_number=case_number, raw_text=extraction_text, date_count=date_count
         )
@@ -259,6 +261,9 @@ class CourtDocumentRecognitionService:
         prebound_case_id: int | None = None,
         prebound_case_log_id: int | None = None,
         llm_model: str | None = None,
+        known_case_number: str | None = None,
+        known_party_names: list[str] | None = None,
+        known_document_type: str | None = None,
     ) -> RecognitionResponse:
         """识别文书并绑定案件
 
@@ -268,6 +273,11 @@ class CourtDocumentRecognitionService:
             prebound_case_id: 管线预绑定的案件 ID（法院短信入口，可选）
             prebound_case_log_id: 管线预绑定的案件日志 ID（提醒锚点，可选）
             llm_model: 指定识别模型（可选，None 走统一 LLM 层默认）
+            known_case_number: 来源管线（法院短信）已解析出的案号（可选）。
+                命中时直接采用，不再用本文件的匹配结果覆盖——短信侧是在短信正文
+                上解析的，比单份文书更可信。
+            known_party_names: 来源管线已解析出的当事人（可选，当前仅用于日志）
+            known_document_type: 来源管线判定的文书类型（可选，仅在分类器认不出时兑底）
 
         Requirements: 4.5, 4.6, 4.7, 6.2, 8.1, 8.2, 8.3, 8.4
         """
@@ -306,7 +316,41 @@ class CourtDocumentRecognitionService:
                 )
 
             doc_type, confidence = self.classifier.classify(extraction_result.text)
+            # 管线模式：来源（法院短信）已判定过文书类型时，分类器只剩"其它"（认不出来）
+            # 就用来源类型兑底，不把一份传票当"其它"处理。能认出来的一律信分类器
+            # （短信链接里常混着应诉通知书/举证通知等，短信类型只是一个大致口径）。
+            classification_hint = ""
+            hinted_type = str(known_document_type or "").strip()
+            # DocumentType 是 (str, Enum)，取值要过枚举校验（不能直接 .values）
+            if hinted_type and doc_type == DocumentType.OTHER:
+                try:
+                    hinted_doc_type = DocumentType(hinted_type)
+                except ValueError:
+                    hinted_doc_type = None
+                if hinted_doc_type is not None and hinted_doc_type != DocumentType.OTHER:
+                    doc_type = hinted_doc_type
+                    confidence = max(confidence, 0.5)
+                    classification_hint = hinted_type
+                    logger.info(
+                        "分类器未识别文书类型，采用来源管线类型",
+                        extra={"action": "recognize_document", "file_path": file_path, "hint": hinted_type},
+                    )
             case_number, key_time = self._extract_doc_info(doc_type, extraction_result.text)
+            # 管线模式：来源（法院短信）的案号解析更可信，命中即覆盖本文书的提取结果。
+            # 只在「本文书没提取到」或「提取到但不同」时覆盖，并留一条日志便于复盘。
+            hint_case_number = (known_case_number or "").strip()
+            if hint_case_number and hint_case_number != (case_number or ""):
+                logger.info(
+                    "采用来源管线案号覆盖文书提取结果",
+                    extra={
+                        "action": "recognize_document",
+                        "file_path": file_path,
+                        "extracted_case_number": case_number,
+                        "pipeline_case_number": hint_case_number,
+                        "pipeline_party_count": len(known_party_names or []),
+                    },
+                )
+                case_number = hint_case_number
             date_candidates = self._build_date_candidates(extraction_result.text, doc_type)
             if key_time is None and date_candidates:
                 # 候选落库时按本地时区 make_aware；key_time 兜底取首选候选，同样补时区
@@ -360,6 +404,7 @@ class CourtDocumentRecognitionService:
                 file_path=renamed_file_path,
                 date_candidates=date_candidates,
                 party_names=party_names,
+                classification_hint=classification_hint,
             )
 
         except (ValidationException, ServiceUnavailableError, RecognitionTimeoutError):

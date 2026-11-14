@@ -315,6 +315,58 @@ class PendingTaskOutSchema(BaseModel):
 
 
 # ============================================================================
+# 日期捕获旁线 Schemas（法院短信 → 记一笔）
+# ============================================================================
+
+
+class DateCaptureItemOutSchema(BaseModel):
+    """单份文书的送识别结果"""
+
+    document_path: str = ""
+    document_name: str = ""
+    task_id: int | None = None
+    status: str = ""
+    action: str = ""
+    candidate_count: int = 0
+    pending_count: int = 0
+    date_confirmation_status: str | None = None
+    error_message: str = ""
+    reason: str = ""
+
+
+class DateCaptureOutSchema(BaseModel):
+    """法院短信送记一笔的结果（逐份文书）"""
+
+    source_court_sms_id: int
+    items: list[DateCaptureItemOutSchema] = Field(default_factory=list)
+
+
+class SourceTaskOutSchema(BaseModel):
+    """来源短信派生出的识别任务摘要（轮询 / 「继续确认」入口用）"""
+
+    task_id: int
+    document_path: str = ""
+    document_name: str = ""
+    status: str = ""
+    error_message: str = ""
+    classification_hint: str = ""
+    document_type: str = ""
+    case_number: str = ""
+    candidate_count: int = 0
+    pending_count: int = 0
+    confirmed_count: int = 0
+    skipped_count: int = 0
+    date_confirmation_status: str = ""
+
+
+class SourceTasksOutSchema(BaseModel):
+    """某条法院短派生出的全部识别任务"""
+
+    source_court_sms_id: int
+    tasks: list[SourceTaskOutSchema] = Field(default_factory=list)
+
+
+# ============================================================================
 # 手动绑定 Schemas (Requirements: 1.3, 2.3, 3.1)
 # ============================================================================
 
@@ -707,6 +759,101 @@ async def list_pending_tasks(request: Any, limit: int = 10) -> list[PendingTaskO
         )
         for r in raw
     ]
+
+
+# ============================================================================
+# 日期捕获旁线 API（法院短信 → 记一笔）
+# ============================================================================
+
+
+async def _load_sms_date_capture_source(request: Any, sms_id: int) -> Any:
+    """从法院短信取日期捕获上下文（案件/日志/已归档文书路径）。
+
+    读端点口径与法院短信一致：按 CaseAccessPolicy 校验短信所绑案件的访问权
+    （docs/harness 安全审计第4轮口径），未绑案件的公共短信全员可读。
+    短信不存在 / 无权访问 → NotFoundError → 404。
+    """
+    from apps.core.dependencies.business import resolve_request_org_access
+    from apps.core.interfaces import ServiceLocator
+    from apps.document_recognition.services.date_capture_service import DateCaptureSource
+
+    user = get_request_user(request)
+
+    def _do() -> Any:
+        # org_access 的解析会查团队关系（ORM），必须在同步线程里做：
+        # 直接在 async 视图里调会抛 SynchronousOnlyOperation（真实踩到）。
+        org_access = resolve_request_org_access(request, user)
+        service = ServiceLocator.get_court_sms_service()
+        sms = service.get_sms_detail(sms_id, user=user, org_access=org_access)
+        return DateCaptureSource(
+            sms_id=int(sms_id),
+            case_id=getattr(sms, "case_id", None),
+            case_log_id=getattr(sms, "case_log_id", None),
+            document_paths=_resolved_document_paths(sms),
+        )
+
+    return await sync_to_async(_do)(), user
+
+
+def _resolved_document_paths(sms: Any) -> list[str]:
+    """短信已归档文书的绝对路径（与详情接口 documents[] 同源、同序，已去重）。"""
+    from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+
+    return [ref.file_path for ref in CourtSMSDocumentReferenceService().collect(sms) if ref.file_path]
+
+
+@router.post("/court-document/sms/{sms_id}/capture-dates", response=DateCaptureOutSchema)
+async def capture_dates_from_court_sms(
+    request: Any, sms_id: int, force: bool = False
+) -> DateCaptureOutSchema:  # pragma: no cover
+    """把某条法院短信的文书送去「记一笔」识别关键日期（幂等）。
+
+    只产出日期候选，不写入日历——写入必须走 ``/court-document/task/{id}/dates/confirm``
+    的人工确认（法律日期错一天的代价不可接受，这是设计底线）。
+
+    - ``force=false``（默认）：已有 pending/processing/success 任务直接复用，
+      已有 failed 任务原地重跑——即「打开短信就自动送一次」不会重复烧 LLM。
+    - ``force=true``：无条件新建任务（「重新识别」按钮）。
+
+    权限：读短信按案件 ACL（与法院短信详情接口同口径），普通律师即可用；
+    写入日历的权限由确认接口按案件 ACL 兜底。
+
+    **旁线纪律**：本接口不修改 CourtSMS 任何字段，识别失败/超时不会影响
+    法院短信主线的状态机。
+    """
+    from apps.document_recognition.services import date_capture_service
+
+    source, user = await _load_sms_date_capture_source(request, sms_id)
+
+    def _do() -> list[Any]:
+        return date_capture_service.capture_dates_for_source(source, user=user, force=force)
+
+    items = await sync_to_async(_do)()
+    return DateCaptureOutSchema(
+        source_court_sms_id=sms_id,
+        items=[DateCaptureItemOutSchema(**item.__dict__) for item in items],
+    )
+
+
+@router.get("/court-document/sms/{sms_id}/capture-status", response=SourceTasksOutSchema)
+async def get_court_sms_capture_status(request: Any, sms_id: int) -> SourceTasksOutSchema:  # pragma: no cover
+    """某条法院短信派生出的识别任务列表（轮询 + 「继续确认」入口）。
+
+    按任务归属过滤：普通律师只看自己创建的（与短信 ACL 叠加），管理员看全量。
+    短信本身无权访问时 404。
+    """
+    from apps.document_recognition.services import date_capture_service
+
+    _, user = await _load_sms_date_capture_source(request, sms_id)
+
+    def _do() -> list[dict[str, Any]]:
+        return date_capture_service.list_source_tasks(sms_id, user=user)
+
+    rows = await sync_to_async(_do)()
+    return SourceTasksOutSchema(
+        source_court_sms_id=sms_id,
+        tasks=[SourceTaskOutSchema(**row) for row in rows],
+    )
 
 
 # ============================================================================

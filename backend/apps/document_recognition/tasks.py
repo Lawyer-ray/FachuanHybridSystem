@@ -9,6 +9,44 @@ from typing import Any
 logger = logging.getLogger("apps.document_recognition")
 
 
+# 法院短信类型 → 文书识别类型。短信侧只有三档（送达/立案/信息通知），粒度比识别粗，
+# 三档都不指向具体文书形态（传票只是送达附件之一），所以只给 "other"。
+# 由调用方决定：只有分类器也返回 "other"（= 认不出来）时才用这个兑底。
+_SMS_TYPE_TO_DOC_TYPE = {
+    "document_delivery": "other",
+    "filing_notification": "other",
+    "info_notification": "other",
+}
+
+
+def _load_pipeline_hints(task: Any) -> dict[str, Any]:
+    """读来源法院短信已解析出的案号/当事人/类型，供识别复用（管线模式）。
+
+    只读一个轻量查询；短信已删/不存在时返回全空，识别照跑（旁线不能因子线缺失而失败）。
+    """
+    empty: dict[str, Any] = {"case_number": None, "party_names": [], "document_type": None}
+    sms_id = getattr(task, "source_court_sms_id", None)
+    if not sms_id:
+        return empty
+    try:
+        from apps.automation.models import CourtSMS
+
+        sms = CourtSMS.objects.filter(id=sms_id).only("case_numbers", "party_names", "sms_type").first()
+    except Exception:  # pragma: no cover - 兜底：读取失败不阻断识别
+        logger.warning("读取来源短信解析结果失败，识别改用本文书结果", exc_info=True)
+        return empty
+    if sms is None:
+        return empty
+
+    case_numbers = sms.case_numbers if isinstance(sms.case_numbers, list) else []
+    party_names = [str(p).strip() for p in (sms.party_names or []) if str(p).strip()]
+    return {
+        "case_number": str(case_numbers[0]) if case_numbers else None,
+        "party_names": party_names,
+        "document_type": _SMS_TYPE_TO_DOC_TYPE.get(str(sms.sms_type or "")),
+    }
+
+
 def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  # pragma: no cover
     """Execute one document recognition task in Django-Q worker."""
     from django.utils import timezone
@@ -33,12 +71,18 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         # 管线预绑定（法院短信入口）：案件与日志已由来源管线建好，识别只做提取+候选
         prebound_case_log_id = task.case_log_id if task.source_court_sms_id else None
         prebound_case_id = task.case_id if task.source_court_sms_id else None
+        # 来源管线的解析结果回灌（法院短信已在短信正文上算过案号/当事人/类型）：
+        # 案号优先用短信的，类型只在分类器认不出时兑底。短信不存在（已删）时全部为空。
+        known = _load_pipeline_hints(task)
         result = service.recognize_document(
             task.file_path,
             user=None,
             prebound_case_id=prebound_case_id,
             prebound_case_log_id=prebound_case_log_id,
             llm_model=task.llm_model,
+            known_case_number=known["case_number"],
+            known_party_names=known["party_names"],
+            known_document_type=known["document_type"],
         )
 
         recognition = result.recognition
@@ -56,13 +100,17 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
         task.degraded = recognition.degraded
         # raw_text 已收紧为 NOT NULL default=""，空文本用空串表示（None 会炸库写入）
         task.raw_text = recognition.raw_text[:10000] if recognition.raw_text else ""
-        task.party_names = result.party_names
+        task.party_names = result.party_names or known["party_names"]
+        task.classification_hint = getattr(result, "classification_hint", "") or ""
         task.renamed_file_path = result.file_path
 
         if result.binding:
             task.binding_success = result.binding.success
-            task.binding_message = result.binding.message
-            task.binding_error_code = result.binding.error_code
+            # binding_message / binding_error_code 是 NOT NULL 的 CharField：
+            # 成功结果（尤其管线预绑定）的 error_code 为 None，裸写会炸整次落库
+            # （2026-11-14 真实踩到：识别成功却因 NotNullViolation 被记为失败）
+            task.binding_message = result.binding.message or ""
+            task.binding_error_code = result.binding.error_code or ""
             if result.binding.case_id:
                 task.case_id = result.binding.case_id
             if result.binding.case_log_id:

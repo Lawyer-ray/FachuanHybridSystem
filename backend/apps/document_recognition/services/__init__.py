@@ -10,6 +10,7 @@ from .case_binding_service import CaseBindingService
 from .case_matching_service import DocumentCaseMatchingService
 from .data_classes import BindingResult, DocumentType, NotificationResult, RecognitionResponse, RecognitionResult
 from .date_candidate_service import DateCandidateDraft, build_date_candidates, confirm_candidates, revoke_confirmation
+from .date_capture_service import DateCaptureItem, DateCaptureSource, capture_dates_for_source, list_source_tasks
 from .document_classifier import DocumentClassifier
 from .info_extractor import InfoExtractor
 from .notification_service import DocumentRecognitionNotificationService
@@ -48,6 +49,11 @@ __all__ = [
     "build_date_candidates",
     "confirm_candidates",
     "revoke_confirmation",
+    # 日期捕获旁线（法院短信 → 记一笔）
+    "DateCaptureSource",
+    "DateCaptureItem",
+    "capture_dates_for_source",
+    "list_source_tasks",
     # 主服务（协调器）
     "CourtDocumentRecognitionService",
     # ServiceLocator 适配器
