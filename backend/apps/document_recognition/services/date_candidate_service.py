@@ -102,6 +102,18 @@ _RELATIVE_ANCHOR_RE = re.compile(
 # 无锚动作版：期限动词直接跟在「N日内」后，如「7日内付款」「十五日内向本院交纳」
 _RELATIVE_ACTION_RE = re.compile(rf"{_REL_DAYS_GROUP}日内[^，。；;\n]{{0,16}}?(?:交纳|缴纳|缴款|缴费|付款|支付|付清)")
 
+# 起算点是「判决/裁定发生法律效力之日」而非送达/收到之日：**不推算，直接跳过**。
+#
+# 为什么不能算（2026-11-14 定调）：生效日取决于对方是否上诉——送达后 15 日内无人上诉
+# 才生效，而这件事只有书记员能确认。按「送达 + N 天」硬算会给出一个看似精确、
+# 实则可能早/晚半个月的假日期；按「送达 + 上诉期 + N 天」推演又是在替律师做
+# 「假设对方不上诉」的法律判断。两条路都不该走。
+#
+# 律师要记的是上诉期、保全到期、举证期限这类**由送达日/裁定日直接决定**的硬期限，
+# 不是从「生效」二段推演出来的履行期。因此本规则只跳过这类候选，
+# 文书原文里的信息仍可通过识别结果查看。
+_EFFECTIVE_FIRST_RE = re.compile(r"(?:发生法律效力|生效|确定法律效力)")
+
 # 相对期限的事件类型：按动作动词判（「保全费…交纳」须判 payment 而非被名词「保全」带偏）
 _RELATIVE_EVENT_TYPES: list[tuple[str, tuple[str, ...]]] = [
     ("payment_deadline", ("交纳", "缴纳", "缴款", "缴费", "付款", "支付", "付清")),
@@ -256,6 +268,27 @@ def _find_issue_date(text: str) -> datetime | None:
     return valid[-1] if valid else None
 
 
+def _is_effective_first_derived(draft: DateCandidateDraft, text: str) -> bool:
+    """判断候选是否来自「发生法律效力之日起 N 日」这类推演。
+
+    判据：候选的原文上下文（或全文）里含「发生法律效力/生效」，且该候选的类型是
+    履行类（payment/submission）。上诉期、举证期等由送达日直接决定的期限不受影响——
+    它们本来就不该和「生效」混在一句里，真混了也是文书表述问题，保留更安全。
+    """
+    if draft.reminder_type not in ("payment_deadline", "submission_deadline"):
+        return False
+    context = draft.context_text or ""
+    if _EFFECTIVE_FIRST_RE.search(context):
+        return True
+    # LLM 常只回一个截断的 context，回落到「日期附近是否有生效表述」
+    needle = draft.due_at.strftime("%Y-%-m-%-d") if draft.due_at else ""
+    if needle and needle in text:
+        idx = text.find(needle)
+        window = text[max(0, idx - 80) : idx + 80]
+        return bool(_EFFECTIVE_FIRST_RE.search(window))
+    return False
+
+
 def _relative_event_type(context: str) -> str:
     """按动作动词推断相对期限的事件类型（未命中返回 other）。"""
     for reminder_type, verbs in _RELATIVE_EVENT_TYPES:
@@ -279,6 +312,11 @@ def _iter_relative_deadlines(text: str) -> list[tuple[re.Match[str], int, int, i
             continue
         m = _RELATIVE_ANCHOR_RE.search(sentence) or _RELATIVE_ACTION_RE.search(sentence)
         if m is None:
+            continue
+        # 起算点是「发生法律效力之日」：生效日需与书记员确认（取决于对方是否上诉），
+        # 系统不推算，整句跳过（见 _EFFECTIVE_FIRST_RE 注释）。
+        if _EFFECTIVE_FIRST_RE.search(sentence):
+            logger.info("跳过生效之日起算的期限（生效日需人工确认，不推算）: %s", sentence[:60])
             continue
         days = _parse_cn_number(m.group(1))
         if days is None or not 1 <= days <= 365:
@@ -559,6 +597,28 @@ def build_date_candidates(
     for draft in drafts_list:
         if (today - draft.due_at.date()).days > STALE_DAYS:
             draft.confidence = min(draft.confidence, 0.3)
+
+    # 4.4 剔除纯历史事实日期：律师要记的是**尚未到来的期限**。
+    #
+    # 判决书/裁定书正文密集出现已发生的日期：立案日、签约日、对账日、落款日……
+    # 它们不是“关键日期”，只是叙事时间线，放进日历没有意义而且会混淆真正的期限。
+    # 因此：**已过去且类型为 other** 的候选直接丢弃（不返回、不落库）。
+    # 保留例外：
+    #   - 未来日期（哪怕类型是 other，也可能是尚未归类的期限）；
+    #   - 己过期但类型明确的候选（如上诉期已过、保全到期已过）——
+    #     律师需要知道“这个已经过了”，审计/追责时用得上，不能默默隐藏。
+    kept: list[DateCandidateDraft] = []
+    for draft in drafts_list:
+        past = draft.due_at.date() < today
+        if past and draft.reminder_type == "other":
+            continue
+        kept.append(draft)
+    drafts_list = kept
+
+    # 4.5 剔除基于「发生法律效力之日」推算的期限（生效日需与书记员确认，不记录）。
+    # LLM 可能把「本判决发生法律效力之日起十日内支付」直接当成一个未来日期返回，
+    # 规则层已跳过同句，这里再兜一次，避免从 LLM 通道漏进来。
+    drafts_list = [d for d in drafts_list if not _is_effective_first_derived(d, text)]
 
     # 5. 名额分配：**未过期候选优先占 MAX_CANDIDATES 名额**。
     # 判决书正文里密布已发生的事实日期（立案/签约/对账/落款），它们不是“提醒”，
