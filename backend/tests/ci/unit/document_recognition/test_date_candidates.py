@@ -120,14 +120,19 @@ class TestBuildDateCandidates:
         assert {d.reminder_type for d in drafts} == {"hearing", "evidence_deadline"}
 
     def test_ordering_by_type_priority(self):
-        """排序按 REMINDER_TYPE_PRIORITY（开庭最关键），同类型按置信度降序。"""
+        """排序按 REMINDER_TYPE_PRIORITY（开庭最关键），同类型按置信度降序。
+
+        日期一律取**未来**日：排序键第一维是「是否已过期」（未过期优先占名额，
+        见 build_date_candidates 第 5 步），用过去日期会先被那一维排到后面，
+        测不到本用例要守的类型优先级。
+        """
         extractor = _stub_extractor([])
         analysis = SimpleNamespace(
             key_events=[
-                _event("2026-12-01 09:00", "other", "其他", 0.9),
-                _event("2026-11-01 09:00", "evidence_deadline", "", 0.6),
-                _event("2026-10-01 09:00", "hearing", "", 0.8),
-                _event("2026-09-01 09:00", "hearing", "", 0.95),
+                _event("2099-12-01 09:00", "other", "其他", 0.9),
+                _event("2099-11-01 09:00", "evidence_deadline", "", 0.6),
+                _event("2099-10-01 09:00", "hearing", "", 0.8),
+                _event("2099-09-01 09:00", "hearing", "", 0.95),
             ]
         )
 
@@ -138,8 +143,9 @@ class TestBuildDateCandidates:
 
     def test_truncated_to_max_candidates(self):
         extractor = _stub_extractor([])
+        # 未来月份：过期候选会被排到名额之外，测不到 MAX_CANDIDATES 截断
         events = [
-            _event(f"2026-{month:02d}-15 09:00", "other", f"c{month}", 0.5 + month / 100) for month in range(1, 13)
+            _event(f"2099-{month:02d}-15 09:00", "other", f"c{month}", 0.5 + month / 100) for month in range(1, 13)
         ]
         analysis = SimpleNamespace(key_events=events)
 
@@ -936,3 +942,50 @@ class TestPersistAndRefreshStatus:
             "source": "llm",
             "confidence": 0.9,
         }
+
+
+# ---------------------------------------------------------------------------
+# 回归：文末期限必须能占到名额（2026-11-14 7 页判决书上诉期丢失事故）
+# ---------------------------------------------------------------------------
+
+
+class TestUnexpiredCandidatesOutrankStaleHistory:
+    """判决书正文密布已发生的事实日期，真正的期限常写在文末。
+
+    事故现场：7 页民事判决书（3900+ 字）——提取被 DEFAULT_TEXT_LIMIT=1500 截成前 3 页，
+    末页「如不服本判决…十五日内…上诉」整段丢失，候选为空。
+    第二次事故：放开截断后，正文 6 条历史日期与 2 条真期限同为候选，
+    历史日期会把真期限挤出 MAX_CANDIDATES。
+    本类只守「名额分配」这一半；截断那半由 test_text_extraction_service 的全文用例守。
+    """
+
+    def test_expired_history_does_not_crowd_out_real_deadline(self):
+        extractor = _stub_extractor([])
+        # 8 条已过期的历史事实（立案/签约/对账……）——全部抢在真期限之前创建
+        history = [_event(f"2020-{month:02d}-01 00:00", "other", f"历史{month}", 1.0) for month in range(1, 9)]
+        # 1 条真正的未来期限（上诉期）
+        deadline = _event("2099-12-31 00:00", "appeal_deadline", "上诉期", 0.9)
+        analysis = SimpleNamespace(key_events=[*history, deadline])
+
+        drafts = build_date_candidates("text", analysis, DocumentType.OTHER, regex_extractor=extractor)
+
+        types = [d.reminder_type for d in drafts]
+        assert "appeal_deadline" in types, "真期限被历史日期挤出了 MAX_CANDIDATES 名额"
+        assert drafts[0].reminder_type == "appeal_deadline"
+
+    def test_expired_candidates_are_still_returned(self):
+        """过期候选只是排到后排，不做丢弃（律师仍可手动勾选历史日期）。"""
+        extractor = _stub_extractor([])
+        analysis = SimpleNamespace(
+            key_events=[
+                _event("2020-01-01 00:00", "other", "历史", 0.8),
+                _event("2099-01-01 00:00", "hearing", "开庭", 0.8),
+            ]
+        )
+
+        drafts = build_date_candidates("text", analysis, DocumentType.OTHER, regex_extractor=extractor)
+
+        assert len(drafts) == 2
+        assert [d.reminder_type for d in drafts] == ["hearing", "other"]
+        # 过期候选被降置信（STALE_DAYS 规则），因此默认不勾选
+        assert drafts[1].confidence <= 0.3

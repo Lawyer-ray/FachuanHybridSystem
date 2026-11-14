@@ -283,3 +283,55 @@ class TestExtractFromImage:
             with patch.object(svc, "_recognize_local", side_effect=RuntimeError("ocr crash")):
                 result = svc._extract_from_image("/tmp/a.jpg")
         assert result == TextExtractionResult("", "ocr", False)
+
+
+class TestDefaultTextLimitIsFullDocument:
+    """回归：默认字数上限不得沿用 document_processing 的预览默认值（1500）。
+
+    事故（2026-11-14）：7 页民事判决书共 3900+ 字，TextExtractionService()
+    无参实例化 → text_limit=None → 下层 extract_pdf_text(limit=None) 回落到
+    DEFAULT_TEXT_LIMIT=1500 → 只读到前 3 页 1381 字 → 末页
+    「如不服本判决…十五日内…上诉于…」整段丢失 → 日期候选为空。
+
+    这里只断言「默认值被显式传给下层且远大于 1500」，真实 PDF 的端到端
+    验证由 test_capture_extracts_appeal_deadline_from_full_document 守。
+    """
+
+    def test_default_limit_is_full_text_not_preview_limit(self) -> None:
+        from apps.automation.services.document.document_processing import get_doc_config
+
+        preview_limit = get_doc_config()["DEFAULT_TEXT_LIMIT"]
+        svc = TextExtractionService()
+        assert svc._text_limit is not None, "默认必须是显式值，否则下层会回落到预览默认值"
+        assert svc._text_limit > preview_limit, "默认上限必须大于预览用的 DEFAULT_TEXT_LIMIT"
+
+    def test_default_limit_passed_down_to_extract_pdf_text(self, tmp_path: Path) -> None:
+        """无参实例化时，下层收到的 limit 是本服务的全文上限，而不是 None。"""
+        svc = TextExtractionService()
+        with patch("apps.automation.services.document.document_processing.extract_pdf_text") as extract:
+            extract.return_value = "x"
+            svc._extract_pdf_text_direct("/tmp/a.pdf")
+        assert extract.call_args.kwargs["limit"] == TextExtractionService.DEFAULT_TEXT_LIMIT
+
+    def test_spanning_multiple_pages_is_not_truncated(self, tmp_path: Path) -> None:
+        """7 页判决书形态：中文正文（无空格，空格清理不改变长度）总长超 1500 字。"""
+        # 每页 ~550 字的中文正文，共 7 页，末页才是上诉期条款
+        page = "本院认为被告未按约支付租金已构成违约" * 22  # 平文 594 字
+        appeal = "如不服本判决可以在判决书送达之日起十五日内向本院递交上诉状"
+        full = "".join(page for _ in range(6)) + appeal
+        assert len(full) > 1500
+
+        svc = TextExtractionService()
+        captured: dict[str, Any] = {}
+
+        def _fake_extract(path: str, limit: int | None = None, max_pages: int | None = None) -> str:
+            captured["limit"] = limit
+            return full if limit is None else full[:limit]
+
+        with patch("apps.automation.services.document.document_processing.extract_pdf_text", side_effect=_fake_extract):
+            result = svc._extract_pdf_text_direct("/tmp/a.pdf")
+
+        # 显式验证下层真的收到全文上限（而不是 None → 预览默认 1500）
+        assert captured["limit"] == TextExtractionService.DEFAULT_TEXT_LIMIT
+        assert "如不服" in result, "末页的上诉期条款被截断丢了"
+        assert len(result) > 1500

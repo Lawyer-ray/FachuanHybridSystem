@@ -533,9 +533,20 @@ def build_date_candidates(
         if (today - draft.due_at.date()).days > STALE_DAYS:
             draft.confidence = min(draft.confidence, 0.3)
 
+    # 5. 名额分配：**未过期候选优先占 MAX_CANDIDATES 名额**。
+    # 判决书正文里密布已发生的事实日期（立案/签约/对账/落款），它们不是“提醒”，
+    # 却会把真正的期限（如末页的上诉期）挤出名额——实测 7 页判决书里
+    # 6 条历史日期与 2 条真期限同为候选，旧逻辑靠类型优先级勉强不死，
+    # 一旦历史日期被 LLM 归成 hearing/payment_deadline 就会顶掉真期限。
+    # 过期候选仍然保留（折叠到最后，律师仍可看到并手动勾选），只是不占前排。
     ordered = sorted(
         drafts_list,
-        key=lambda d: (REMINDER_TYPE_PRIORITY.get(d.reminder_type, 99), -d.confidence, d.due_at),
+        key=lambda d: (
+            0 if d.due_at.date() >= today else 1,  # 未过期在前
+            REMINDER_TYPE_PRIORITY.get(d.reminder_type, 99),
+            -d.confidence,
+            d.due_at,
+        ),
     )
     return _dedupe_same_context(ordered)[:MAX_CANDIDATES]
 
