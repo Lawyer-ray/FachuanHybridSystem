@@ -28,6 +28,19 @@ from apps.document_recognition.services.date_candidate_service import (
 _YEARED_TEXT = "某法院文书（落款：2026年10月10日）"
 
 
+def _text_with(*dates: str) -> str:
+    """构造「把候选日期明文写进正文」的测试文本。
+
+    本组用例测的是排序/名额/降权/类型兜底等机制，不是年份推断；
+    但「不猜年份」规则要求候选能追溯到带年份的原文，故正文里带上这些日期。
+    """
+    parts = []
+    for d in dates:
+        y, m, day = d.split("-")
+        parts.append(f"{int(y)}年{int(m)}月{int(day)}日")
+    return "；".join(parts) + "（落款：2026年10月10日）"
+
+
 # ---------------------------------------------------------------------------
 # parse_candidate_datetime
 # ---------------------------------------------------------------------------
@@ -141,7 +154,8 @@ class TestBuildDateCandidates:
             ]
         )
 
-        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        text = _text_with("2099-12-01", "2099-11-01", "2099-10-01", "2099-09-01")
+        drafts = build_date_candidates(text, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert [d.reminder_type for d in drafts] == ["hearing", "hearing", "evidence_deadline", "other"]
         assert drafts[0].confidence == 0.95  # 同类型内高置信在前
@@ -154,7 +168,8 @@ class TestBuildDateCandidates:
         ]
         analysis = SimpleNamespace(key_events=events)
 
-        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        text = _text_with(*[f"2099-{month:02d}-15" for month in range(1, 13)])
+        drafts = build_date_candidates(text, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         assert len(drafts) == MAX_CANDIDATES
         # 截断保留置信度更高的 8 条（其他类型无优先级差异）
@@ -172,7 +187,8 @@ class TestBuildDateCandidates:
             ]
         )
 
-        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        text = _text_with(stale.strftime("%Y-%m-%d"), fresh.strftime("%Y-%m-%d"))
+        drafts = build_date_candidates(text, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
 
         by_ctx = {d.context_text: d for d in drafts}
         assert by_ctx["旧日期"].confidence <= 0.3
@@ -183,7 +199,9 @@ class TestBuildDateCandidates:
         extractor = _stub_extractor([])
         analysis = SimpleNamespace(key_events=[_event("2099-10-15 09:30", "bogus_type")])
 
-        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.SUMMONS, regex_extractor=extractor)
+        drafts = build_date_candidates(
+            _text_with("2099-10-15"), analysis, DocumentType.SUMMONS, regex_extractor=extractor
+        )
 
         assert drafts[0].reminder_type == "other"
 
@@ -394,9 +412,13 @@ class TestRelativeDeadlineRules:
         analysis = SimpleNamespace(key_events=[_event("2026-10-15 09:30", "hearing", "开庭", 0.8)])
 
         drafts = build_date_candidates(
-            # 含年份（满足「不猜年份」）但没有落款日形态 → _find_issue_date 取不到锚点，
-            # 本用例测的正是「无锚点时规则静默退出」
-            "2026年度通知：收到本通知次日起两日内交纳",
+            # 正文含候选日期（满足「不猜年份」的证据链）但**没有落款日形态**
+            # （「2026年度通知」不会被 _find_issue_date 当成落款）→ 测的正是
+            # 「无锚点时规则静默退出」
+            # 正文含候选日期（满足「不猜年份」证据链），但「2026年度/2026年10月15日开庭」
+            # 都不构成 _find_issue_date 认的落款形态（它只认「YYYY年M月D日」结尾式落款）
+            # ——本用例测的正是「无锚点时规则静默退出」
+            "2026年10月15日 09:30开庭",
             analysis,
             DocumentType.OTHER,
             regex_extractor=extractor,
@@ -982,8 +1004,9 @@ class TestUnexpiredCandidatesOutrankStaleHistory:
         # 1 条真正的未来期限（上诉期）
         deadline = _event("2099-12-31 00:00", "appeal_deadline", "上诉期", 0.9)
         analysis = SimpleNamespace(key_events=[*history, deadline])
+        text = _text_with(*[f"2020-{m:02d}-01" for m in range(1, 9)], "2099-12-31")
 
-        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.OTHER, regex_extractor=extractor)
+        drafts = build_date_candidates(text, analysis, DocumentType.OTHER, regex_extractor=extractor)
 
         types = [d.reminder_type for d in drafts]
         assert "appeal_deadline" in types, "真期限被历史日期挤出了 MAX_CANDIDATES 名额"
@@ -1002,7 +1025,9 @@ class TestUnexpiredCandidatesOutrankStaleHistory:
             ]
         )
 
-        drafts = build_date_candidates(_YEARED_TEXT, analysis, DocumentType.OTHER, regex_extractor=extractor)
+        drafts = build_date_candidates(
+            _text_with("2020-01-01", "2099-01-01"), analysis, DocumentType.OTHER, regex_extractor=extractor
+        )
 
         assert len(drafts) == 2
         assert [d.reminder_type for d in drafts] == ["hearing", "appeal_deadline"]

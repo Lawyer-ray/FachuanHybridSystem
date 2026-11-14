@@ -276,24 +276,32 @@ def _find_issue_date(text: str) -> datetime | None:
 
 
 def _has_explicit_year(parsed: datetime, context: str, text: str) -> bool:
-    """该日期**在原文里的对应表述**是否带年份。
+    """该候选能否追溯到原文里**带年份**的日期表述（逐候选判断，不看全文有没有年份）。
 
-    只拒绝一种情况：原文确实出现了「M月D日」这种**无年份**的写法，且该日期的
-    年/月/日与候选吻合，同时全文找不到它带年份的写法。此时 LLM 的年份是猜的。
+    拒绝的唯一情形：原文出现了裸「M月D日」，其月/日与候选吻合，且该处**没有年份**，
+    同时**整个证据链里找不到带年份的起点**。
 
-    为什么这样判（而不是要求「日期必须逐字出现」）：LLM 合法地会返回**推算值**——
-    「收到次日起两日内」→ 落款+2 天，那个日期本来就不在原文里。若要求逐字出现，
-    所有相对期限推算都会被误杀。
+    为什么必须逐候选判（2026-11-14 同一份执行裁定书 #285 的教训）：
 
-    实测反例（2026-11-14 执行裁定书 #285）：「依据…裁定书于3月26日冻结了被执行人
-    账户，上述账户冻结期限为一年」——原文无年份，LLM 补成 2026-03-26，
-    到期日算成 2027-03-26，差整整一年。
+        本案…依据（20XX）粤0000财保0000号民事裁定书于**2026年9月20日**继续冻结…
+        上述继续冻结期限为**一年**。                        ← 有年份，应算出 2027-09-20
+        现本案进入执行阶段，依据（20XX）粤0000执保0000号…于**3月26日**冻结了…
+        上述账户冻结期限为**一年**。                          ← 无年份，不能猜 2026-03-26
+
+    同一份文书里两种情况并存。先前用「全文有没有年份」做兜底，把上面那条**合法**的
+    保全到期日也一起删掉了（正确结果被误杀），正是这个错误的直接后果。
+
+    合法推算的判定（a→b）：候选日期 C 能由某个带年份的原文日期 A 通过「一年/N日」
+    等确定性运算得到（这里用「A 与 C 相差整年/整月/整日，且 A 在原文明文出现」，
+    以及「A 与 C 同日不同年」两种形态覆盖实务必场景）。
     """
     y, m, d = parsed.year, parsed.month, parsed.day
-    for hay in (context or "", text or ""):
+    anchors = (context or "", text or "")
+
+    # 1) 候选自身带年份 → 确信
+    for hay in anchors:
         if not hay:
             continue
-        # 带年份的写法命中 → 直接确信
         for pattern in (
             rf"{y}\s*年\s*0?{m}\s*月\s*0?{d}\s*日",
             rf"{y}-0?{m}-0?{d}",
@@ -301,21 +309,114 @@ def _has_explicit_year(parsed: datetime, context: str, text: str) -> bool:
         ):
             if re.search(pattern, hay):
                 return True
-        # 原文出现「M月D日」但前面不是这个年份 → 说明是猜的
-        bare = re.search(rf"(?<!\d)({y}年)?\s*0?{m}\s*月\s*0?{d}\s*日", hay)
-        if bare and not bare.group(1):
-            return False
-    # 走到这里：原文既没有带年份的写法，也没有裸「M月D日」。两种可能：
-    #   a) 合法的相对期限推算（「收到次日起两日内」+ 落款日 → 未来某天）；
-    #   b) LLM 凭上下文编了个年份（「应在查封期限届满前三十日内申请」→ 原文全篇无年份）。
-    # 区分方式：**推算必须有年份锚点**。全文没有任何年份形态 → 无从推算，判 (b)。
-    #
-    # 年份锚点有两种落款形态：阿拉伯「2026年」与中文「二〇二六年 / 二零二六年」
-    # （法院文书用中文数字落款的比例很高，漏了会让合法的相对期限推算全部被误杀）。
-    body = text or ""
-    if re.search(r"(?:19|20)\d{2}\s*[年\-/]", body):
+
+    # 2) 原文有裸「M月D日」且与候选同日 → 看那一处有没有年份
+    bare_hit_without_year = False
+    for hay in anchors:
+        if not hay:
+            continue
+        for bare in re.finditer(rf"(?<!\d)(\d{{4}}年)?\s*0?{m}\s*月\s*0?{d}\s*日", hay):
+            if bare.group(1):
+                if int(bare.group(1)[:4]) == y:
+                    return True
+            else:
+                bare_hit_without_year = True
+    if bare_hit_without_year:
+        # 原文这一处确实没写年份；只有在「能由某个带年份日期推算得出」时才放行
+        return _derivable_from_year_anchor(parsed, text or "", context or "")
+
+    # 3) 候选本身就是文书落款/签发日（_find_issue_date 取到的锚点）→ 放行。
+    # 落款日是最确定的日期，LLM 把它当一个事件提出来是常见（也常被后续
+    # 「相对期限校正」改写成真正的届满日，见 _apply_relative_deadline_rules）。
+    # 在这里拦掉它会让整条校正链失去入口。
+    issue = _find_issue_date(text or "")
+    if issue is not None and issue.date() == parsed.date():
         return True
-    return bool(re.search(r"[〇零一二三四五六七八九]{4}\s*年", body))
+
+    # 4) 原文既无该日期的带年份写法、也无裸写法（多半是「N 年内/日后」的推算值）
+    return _derivable_from_year_anchor(parsed, text or "", context or "")
+
+
+def _derivable_from_year_anchor(parsed: datetime, text: str, context: str) -> bool:
+    """候选能否由原文中**带年份**的日期按常见期限形态精确推算得出。
+
+    只接受三种可验证的形态（都是法院文书里实际出现的口径）：
+
+    | 形态 | 例子 |
+    |:--|:--|
+    | 锚 + N 年（保全/查封期限为一年） | `2026年9月20日继续冻结…期限为一年` → 2027-09-20 |
+    | 锚 + 整月 | `2026年3月1日…期限六个月` → 2026-09-01 |
+    | 锚 + N 日（N ≤ 90，覆盖举证/上诉/缴费等短期期限） | `2026年10月10日…次日起十五日内` → 2026-10-25 |
+
+    刻意**不做**「只要在三年内就放行」这种粗放判断——那等于没判，会让瞎猜的年份
+    （如把无年份的「3月26日」补成 2026）照样通过。
+    """
+    year_dates: list[datetime] = []
+    for body in (context, text):
+        if not body:
+            continue
+        # 阿拉伯数字形态（2026年9月20日）
+        for m in re.finditer(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日", body):
+            try:
+                year_dates.append(datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+            except ValueError:
+                continue
+        # 中文数字落款（二〇二五年十一月十一日）：法院文书用中文数字落款比例很高，
+        # 漏掉会让「落款日 + N 日」这类合法推算全部被误杀
+        for m in re.finditer(
+            r"([〇零一二三四五六七八九]{4})年([一二三四五六七八九十]{1,3})月([一二三四五六七八九十]{1,3})日", body
+        ):
+            year = _parse_cn_digits(m.group(1))
+            month = _cn_to_int(m.group(2))
+            day = _cn_to_int(m.group(3))
+            if year and month and day:
+                try:
+                    year_dates.append(datetime(year, month, day))
+                except ValueError:
+                    continue
+    if not year_dates:
+        return False
+
+    target = datetime(parsed.year, parsed.month, parsed.day)
+    for anchor in year_dates:
+        if target <= anchor:
+            continue
+        # 形态一：+整年（年限为一年的保全/查封到期日）
+        if (target.year - anchor.year) in (1, 2, 3) and (target.month, target.day) == (anchor.month, anchor.day):
+            return True
+        # 形态二：+整月
+        months = (target.year - anchor.year) * 12 + (target.month - anchor.month)
+        if 0 < months <= 24 and target.day == anchor.day:
+            return True
+        # 形态三：+N 日（短期期限）
+        if 0 < (target - anchor).days <= 90:
+            return True
+    return False
+
+
+def _parse_cn_digits(value: str) -> int | None:
+    """「二〇二五」→ 2025（四位中文数字年份）。"""
+    digits = {ch: i for i, ch in enumerate("〇一二三四五六七八九")}
+    if len(value) != 4 or any(ch not in digits for ch in value):
+        return None
+    return int("".join(str(digits[ch]) for ch in value))
+
+
+def _cn_to_int(value: str) -> int | None:
+    """「十一」→ 11、「三」→ 3、「二十」→ 20（1~31 的月/日）。"""
+    digits = {ch: i for i, ch in enumerate("〇一二三四五六七八九")}
+    if not value:
+        return None
+    if value == "十":
+        return 10
+    if "十" in value:
+        left, _, right = value.partition("十")
+        tens = digits.get(left, 1) if left else 1
+        ones = digits.get(right, 0) if right else 0
+        return tens * 10 + ones
+    if len(value) == 1 and value in digits:
+        return digits[value]
+    return None
 
 
 def _is_effective_first_derived(draft: DateCandidateDraft, text: str) -> bool:
