@@ -45,7 +45,17 @@ def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, s
             return int(doc.page_count), None
         finally:
             doc.close()
-    except (TypeError, ValueError) as e:
+    except Exception as e:
+        # 这里刻意用宽捕获，与上面 pikepdf 那一层一致。
+        #
+        # 原本写的是 `except (TypeError, ValueError)`，而实测接不住任何损坏 PDF：
+        #   · pymupdf 2.x 抛 FileDataError —— 继承 **RuntimeError**，不是 ValueError
+        #      （fitz.FileDataError.__mro__ = [FileDataError, RuntimeError, Exception]）
+        #   · pdfplumber 抛 PdfminerException —— 直接继承 Exception
+        # 两个解析库都不是「标准异常层」，逐个列举类型必然漏。而本函数的契约是
+        # 「降级，不行就下一层」，任何解析失败都应降级而不是穿透。
+        # 漏出去的后果很具体：证据上传 / PDF 合并拿不到承诺的 (default, error)，
+        # 一份坏 PDF 就把请求变成 500。
         logger.debug("fitz 读取页数失败: %s", e)
         last_error = e
 
@@ -54,7 +64,9 @@ def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, s
 
         with pdfplumber.open(io.BytesIO(data)) as pdf:
             return len(pdf.pages), None
-    except (TypeError, ValueError) as e:
+    except Exception as e:
+        # 同上。pdfplumber 的 PdfminerException 直接继承 Exception，
+        # 是最后一个降级点——漏出去就等于整个函数失信。
         logger.debug("pdfplumber 读取页数失败: %s", e)
         last_error = e
 
