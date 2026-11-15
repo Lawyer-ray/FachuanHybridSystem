@@ -309,7 +309,8 @@ class PaddleOCRApiEngine:
                 continue
 
             # 统一收敛到 `result`：有外层就剥掉，没有就当它本身就是 result。
-            result = item.get("result") if isinstance(item.get("result"), dict) else item
+            nested = item.get("result")
+            result: dict[str, Any] = nested if isinstance(nested, dict) else item
 
             # 先看它是否带了预期的容器键（ocrResults / layoutParsingResults）。
             # 裸片段（如单独一行 ``{"rec_texts": [...]}``）没有容器结构，直接交给
