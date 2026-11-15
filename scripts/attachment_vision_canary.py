@@ -98,7 +98,7 @@ def render_digits_png(digits: str) -> bytes:
     用 Pillow 画而不是在 PDF 里插文本：文本层会被解析链路提取成文字，
     那样测的就是 OCR/文本层而非视觉通道。PNG 没有任何文本层，模型只能看图。
     """
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
 
     image = Image.new("RGB", (CANVAS_W, CANVAS_H), "white")
     draw = ImageDraw.Draw(image)
@@ -432,10 +432,9 @@ def _persist_probe_attachment(*, png: bytes, digits: str, result: CheckResult) -
     「存储里读回来的字节」，直写会让路径规则（``agent_attachments/YYYY/MM/``）
     与真实链路不一致。
     """
+    from apps.agent.models import AgentAttachment
     from django.core.files.base import ContentFile
     from django.core.files.storage import default_storage
-
-    from apps.agent.models import AgentAttachment
 
     session = _probe_session(result=result)
     if session is None:

@@ -49,9 +49,10 @@ import json
 import os
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 # 本脚本在仓库根 scripts/ 下，backend/ 是它的兄弟目录（不是父目录）。
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -81,7 +82,9 @@ from apps.pdf_splitting.services.split.markdown_builder import (
 )
 from apps.pdf_splitting.services.split.split_models import PageDescriptor
 
-GOLDEN_DIR = BACKEND_ROOT / "tests" / "ci" / "fixtures" / "pdf_splitting" / "golden_pages"
+GOLDEN_DIR = (
+    BACKEND_ROOT / "tests" / "ci" / "fixtures" / "pdf_splitting" / "golden_pages"
+)
 DEFAULT_OUT = Path("/tmp/table_split_experiment.md")
 
 #: Q1 要扫的阈值。两端是行为边界，中间是候选：
@@ -150,9 +153,15 @@ def load_golden_pages() -> list[dict[str, Any]]:
             value = value.strip()
             current[key.strip()] = None if value == "null" else value
     for entry in pages:
-        entry["text"] = (GOLDEN_DIR / f"page_{entry['page']:04d}.txt").read_text(encoding="utf-8")
+        entry["text"] = (GOLDEN_DIR / f"page_{entry['page']:04d}.txt").read_text(
+            encoding="utf-8"
+        )
         table_html = entry.get("table_html")
-        entry["table_html"] = (GOLDEN_DIR / str(table_html)).read_text(encoding="utf-8") if table_html else ""
+        entry["table_html"] = (
+            (GOLDEN_DIR / str(table_html)).read_text(encoding="utf-8")
+            if table_html
+            else ""
+        )
     return pages
 
 
@@ -186,7 +195,9 @@ def page_descriptor_for(gold: dict[str, Any]) -> PageDescriptor:
         top_candidates=[],
         source_method="mineru_ocr",
         ocr_failed=False,
-        layout={"page_no": int(gold["page"]), "blocks": blocks, "text": gold["text"]} if table_block else None,
+        layout={"page_no": int(gold["page"]), "blocks": blocks, "text": gold["text"]}
+        if table_block
+        else None,
     )
 
 
@@ -199,14 +210,20 @@ def page_metrics(gold: dict[str, Any]) -> dict[str, Any]:
     page = page_descriptor_for(gold)
     markdown = build_segment_markdown("golden", [page])
     blocks = build_positioned_blocks([page], bbox_backend="mineru")
-    precision_tally = Counter(str((block.get("rect") or {}).get("precision")) for block in blocks)
+    precision_tally = Counter(
+        str((block.get("rect") or {}).get("precision")) for block in blocks
+    )
     return {
         "page": int(gold["page"]),
         "kind": gold["kind"],
         "cer_raw": char_error_rate(markdown, gold["text"]),
-        "cer_norm": char_error_rate(normalize_for_cer(markdown), normalize_for_cer(gold["text"])),
+        "cer_norm": char_error_rate(
+            normalize_for_cer(markdown), normalize_for_cer(gold["text"])
+        ),
         # 只在真的渲染了表格的页上有意义；无表格页记 None，报告里显示「—」
-        "cell_f1": table_cell_f1(markdown, gold["table_html"]) if gold["table_html"] else None,
+        "cell_f1": table_cell_f1(markdown, gold["table_html"])
+        if gold["table_html"]
+        else None,
         "blocks": len(blocks),
         "cell_blocks": precision_tally.get("cell", 0),
         "precision_tally": precision_tally,
@@ -246,8 +263,12 @@ def cer_drift(sweep: dict[int, list[dict[str, Any]]]) -> list[str]:
     drifts: list[str] = []
     for index, gold in enumerate(next(iter(sweep.values()))):
         page_no = gold["page"]
-        raw_values = {round(sweep[threshold][index]["cer_raw"], 10) for threshold in THRESHOLDS}
-        norm_values = {round(sweep[threshold][index]["cer_norm"], 10) for threshold in THRESHOLDS}
+        raw_values = {
+            round(sweep[threshold][index]["cer_raw"], 10) for threshold in THRESHOLDS
+        }
+        norm_values = {
+            round(sweep[threshold][index]["cer_norm"], 10) for threshold in THRESHOLDS
+        }
         if len(raw_values) > 1 or len(norm_values) > 1:
             drifts.append(
                 f"| p{page_no} | {'/'.join(f'{v:.4f}' for v in sorted(raw_values))} | "
@@ -295,7 +316,10 @@ def table_block_count(pages: list[PageDescriptor]) -> int:
     for page in pages:
         layout = page.layout if isinstance(page.layout, dict) else {}
         for block in layout.get("blocks") or []:
-            if isinstance(block, dict) and str(block.get("type") or "").strip().lower() == "table":
+            if (
+                isinstance(block, dict)
+                and str(block.get("type") or "").strip().lower() == "table"
+            ):
                 count += 1
     return count
 
@@ -311,14 +335,19 @@ def table_row_histogram(pages: list[PageDescriptor]) -> list[str]:
     for page in pages:
         layout = page.layout if isinstance(page.layout, dict) else {}
         for block in layout.get("blocks") or []:
-            if not isinstance(block, dict) or str(block.get("type") or "").lower() != "table":
+            if (
+                not isinstance(block, dict)
+                or str(block.get("type") or "").lower() != "table"
+            ):
                 continue
             html = str(block.get("table_body") or block.get("table_structure") or "")
             buckets[_grid_row_count(html)] += 1
     return [f"| {rows} | {buckets[rows]} |" for rows in sorted(buckets) if rows >= 12]
 
 
-def whole_table_block_reasons(pages: list[PageDescriptor]) -> dict[str, tuple[int, str]]:
+def whole_table_block_reasons(
+    pages: list[PageDescriptor],
+) -> dict[str, tuple[int, str]]:
     """整表保留的表卡在哪条判据上 → ``{原因: (张数, 高于阈值能否救)}``。
 
     为什么不直接读块上的字段：``build_positioned_blocks`` 只透出「没拆」这个结果，
@@ -334,7 +363,10 @@ def whole_table_block_reasons(pages: list[PageDescriptor]) -> dict[str, tuple[in
     for page in pages:
         layout = page.layout if isinstance(page.layout, dict) else {}
         for block in layout.get("blocks") or []:
-            if not isinstance(block, dict) or str(block.get("type") or "").lower() != "table":
+            if (
+                not isinstance(block, dict)
+                or str(block.get("type") or "").lower() != "table"
+            ):
                 continue
             html = str(block.get("table_body") or block.get("table_structure") or "")
             rect = normalize_bbox(block.get("bbox"), unit="permille")
@@ -345,7 +377,11 @@ def whole_table_block_reasons(pages: list[PageDescriptor]) -> dict[str, tuple[in
             else:
                 by_row_only = _table_cell_count(html) > mb._TABLE_CELL_SPLIT_MAX
                 if _split_table_into_cells(
-                    page_no=page.page_no, rect=rect, html=html, unit="permille", by_row_only=by_row_only
+                    page_no=page.page_no,
+                    rect=rect,
+                    html=html,
+                    unit="permille",
+                    by_row_only=by_row_only,
                 ):
                     continue
                 grid = _parse_grid(html)
@@ -353,7 +389,9 @@ def whole_table_block_reasons(pages: list[PageDescriptor]) -> dict[str, tuple[in
                 col_count = _grid_col_count(grid)
                 if (
                     row_count > mb._TABLE_SPLIT_MAX_ROWS
-                    and mb._filled_cell_ratio(grid=grid, row_count=row_count, col_count=col_count)
+                    and mb._filled_cell_ratio(
+                        grid=grid, row_count=row_count, col_count=col_count
+                    )
                     >= mb._FILLED_CELL_RATIO_BYPASS
                 ):
                     key, rescued = (
@@ -390,7 +428,9 @@ def corpus_precision_distribution(pages: list[PageDescriptor]) -> dict[str, Any]
         type_tally.setdefault(block_type, Counter())[precision] += 1
         approx = bool(rect.get("approx"))
         if approx != (precision != "exact"):
-            approx_mismatch.append(f"p{block.get('page')} {block_type} precision={precision} approx={approx}")
+            approx_mismatch.append(
+                f"p{block.get('page')} {block_type} precision={precision} approx={approx}"
+            )
     return {
         "block_count": len(blocks),
         "page_count": len(pages),
@@ -464,8 +504,12 @@ def render_report(
         ]
         for metric, gold in zip(sweep[threshold], golds):
             structure = table_structure(gold)
-            kind = metric["kind"] + (f" {structure['rows']}×{structure['cols']}" if structure else "")
-            f1_text = f"{metric['cell_f1']:.4f}" if metric["cell_f1"] is not None else "—"
+            kind = metric["kind"] + (
+                f" {structure['rows']}×{structure['cols']}" if structure else ""
+            )
+            f1_text = (
+                f"{metric['cell_f1']:.4f}" if metric["cell_f1"] is not None else "—"
+            )
             lines.append(
                 f"| p{metric['page']} | {kind} | {metric['cer_raw']:.4f} | {metric['cer_norm']:.4f} | "
                 f"{f1_text} | {metric['blocks']} | {metric['cell_blocks']} |"
@@ -477,9 +521,11 @@ def render_report(
         lines += [
             "**⚠️ CER 随阈值发生了变化 —— 这是 bug，不是阈值效果。**",
             "",
-            "拆块只产出定位框，正文由 `_page_markdown` / `_block_markdown` 独立生成，"
-            "两条路径在源码里不共享可变状态，所以 CER 对阈值必须完全不敏感。变了就说明"
-            "拆块路径回写到了 block / markdown 数据（例如原地修改 `block['text']`）。",
+            (
+                "拆块只产出定位框，正文由 `_page_markdown` / `_block_markdown` 独立生成，"
+                "两条路径在源码里不共享可变状态，所以 CER 对阈值必须完全不敏感。变了就说明"
+                "拆块路径回写到了 block / markdown 数据（例如原地修改 `block['text']`）。"
+            ),
             "",
             "| 页 | CER(前) 出现过的值 | CER(后) 出现过的值 |",
             "|---|---|---|",
@@ -495,11 +541,15 @@ def render_report(
         lines += [
             "**通过**：8 个阈值 × 7 页，CER 一个字符都没动。",
             "",
-            f"- 归一化前出现过 {len(raw_set)} 个不同的 CER 值（应为 7——每页一个），"
-            f"归一化后 {len(norm_set)} 个（同样应为 7）。",
-            "- 即：阈值只改定位框的数量与位置，**不改正文**。"
-            "这一点本来也只是「理论上应该」，现在有实测兜住了——"
-            "将来谁不小心让拆块逻辑回写正文，这张表会立刻变红。",
+            (
+                f"- 归一化前出现过 {len(raw_set)} 个不同的 CER 值（应为 7——每页一个），"
+                f"归一化后 {len(norm_set)} 个（同样应为 7）。"
+            ),
+            (
+                "- 即：阈值只改定位框的数量与位置，**不改正文**。"
+                "这一点本来也只是「理论上应该」，现在有实测兜住了——"
+                "将来谁不小心让拆块逻辑回写正文，这张表会立刻变红。"
+            ),
         ]
 
     lines += ["", "## Q3：576 全卷（164 页）precision 分布", ""]
@@ -519,8 +569,10 @@ def render_report(
         before_total = total - tally.get("cell", 0)
         before_exact = before_total - raw_table_blocks
         lines += [
-            f"- 页数：{corpus['page_count']}，其中有 layout 的页：{corpus['pages_with_layout']}"
-            f"（其余页是本地 OCR 无坐标，`build_positioned_blocks` 直接跳过，与线上一致）",
+            (
+                f"- 页数：{corpus['page_count']}，其中有 layout 的页：{corpus['pages_with_layout']}"
+                f"（其余页是本地 OCR 无坐标，`build_positioned_blocks` 直接跳过，与线上一致）"
+            ),
             f"- 定位块总数：**{total}**",
             "",
             "| precision | 块数 | 占比 | 含义 |",
@@ -551,7 +603,10 @@ def render_report(
             "",
             "| 场景 | 张数 | 高于阈值能否救 |",
             "|---|---|---|",
-            *[f"| {reason} | {count} | {rescued} |" for reason, (count, rescued) in corpus["blocked_reasons"].items()],
+            *[
+                f"| {reason} | {count} | {rescued} |"
+                for reason, (count, rescued) in corpus["blocked_reasons"].items()
+            ],
             f"| **合计** | **{sum(count for count, _ in corpus['blocked_reasons'].values())}** | — |",
             "",
             "归因要点：",
@@ -582,27 +637,39 @@ def render_report(
             "`exact` = 非表格块数、`cell` = 0、`page` = **拆块前的原始表格块数**。",
             "",
             f'拆块前的原始 `table` 块数（直接数 layout 里的 `type == "table"`）：**{corpus["raw_table_blocks"]}**。',
-            f"改造后这 {corpus['raw_table_blocks']} 个块被展开成 `table_cell` / `table_row` / 整表 `table` 三种，"
-            f"所以块**总数**从改造前的 {before_total} 涨到 {total}——这是「一个整表框变成几十个格框」的必然结果，"
-            "不是重复计数。",
+            (
+                f"改造后这 {corpus['raw_table_blocks']} 个块被展开成 `table_cell` / `table_row` / 整表 `table` 三种，"
+                f"所以块**总数**从改造前的 {before_total} 涨到 {total}——这是「一个整表框变成几十个格框」的必然结果，"
+                "不是重复计数。"
+            ),
         ]
         lines += [
             "",
-            f"- 改造前：`exact` {before_exact}（{_pct(before_exact, before_total)}）、"
-            f"`cell` 0、`page` {raw_table_blocks}（{_pct(raw_table_blocks, before_total)}），共 {before_total} 块",
-            f"- 改造后：`exact` {tally.get('exact', 0)}（{_pct(tally.get('exact', 0), total)}）、"
-            f"`cell` {tally.get('cell', 0)}（{_pct(tally.get('cell', 0), total)}）、"
-            f"`page` {tally.get('page', 0)}（{_pct(tally.get('page', 0), total)}），共 {total} 块",
-            f"- 净变化：{tally.get('cell', 0)} 个块从「一律说整页近似」变成「明确标成半格推算框」；"
-            f"只剩 {tally.get('page', 0)} / {raw_table_blocks} 张表仍是整表框。",
-            f"  按占比说：改造前有 {_pct(raw_table_blocks, before_total)} 的块自称「整页近似」，"
-            f"改造后降到 {_pct(tally.get('page', 0), total)}；自称整页近似的**绝对块数从 "
-            f"{raw_table_blocks} 降到 {tally.get('page', 0)}**。",
+            (
+                f"- 改造前：`exact` {before_exact}（{_pct(before_exact, before_total)}）、"
+                f"`cell` 0、`page` {raw_table_blocks}（{_pct(raw_table_blocks, before_total)}），共 {before_total} 块"
+            ),
+            (
+                f"- 改造后：`exact` {tally.get('exact', 0)}（{_pct(tally.get('exact', 0), total)}）、"
+                f"`cell` {tally.get('cell', 0)}（{_pct(tally.get('cell', 0), total)}）、"
+                f"`page` {tally.get('page', 0)}（{_pct(tally.get('page', 0), total)}），共 {total} 块"
+            ),
+            (
+                f"- 净变化：{tally.get('cell', 0)} 个块从「一律说整页近似」变成「明确标成半格推算框」；"
+                f"只剩 {tally.get('page', 0)} / {raw_table_blocks} 张表仍是整表框。"
+            ),
+            (
+                f"  按占比说：改造前有 {_pct(raw_table_blocks, before_total)} 的块自称「整页近似」，"
+                f"改造后降到 {_pct(tally.get('page', 0), total)}；自称整页近似的**绝对块数从 "
+                f"{raw_table_blocks} 降到 {tally.get('page', 0)}**。"
+            ),
             "",
-            "注意这不是「准确率提升」——`cell` 框本身就是推算的（均分），"
-            "这次改造让它**被标成推算**而不是被冒充成精确位置。真正变好的是「谎报率下降」："
-            "以前所有表格块都说「这是整页近似」、包括那些实际上只是格子里的一个字段；"
-            "现在这些格子被单独标为 `cell`，前端能分开画，律师能看出「这个框是猜的」。",
+            (
+                "注意这不是「准确率提升」——`cell` 框本身就是推算的（均分），"
+                "这次改造让它**被标成推算**而不是被冒充成精确位置。真正变好的是「谎报率下降」："
+                "以前所有表格块都说「这是整页近似」、包括那些实际上只是格子里的一个字段；"
+                "现在这些格子被单独标为 `cell`，前端能分开画，律师能看出「这个框是猜的」。"
+            ),
             "",
             "### `approx` 与 `precision` 自洽性",
             "",
@@ -661,7 +728,9 @@ def render_conclusion(
     for gold in golds:
         index = golds.index(gold)
         structure = table_structure(gold)
-        max_blocks = max(sweep[threshold][index]["cell_blocks"] for threshold in THRESHOLDS)
+        max_blocks = max(
+            sweep[threshold][index]["cell_blocks"] for threshold in THRESHOLDS
+        )
         first = onset[int(gold["page"])]
         shape = f"{structure['rows']}×{structure['cols']}" if structure else "—"
         lines.append(
@@ -669,7 +738,10 @@ def render_conclusion(
             f"{first if first is not None else '从不拆'} | {max_blocks} |"
         )
 
-    cell_counts = {threshold: sum(m["cell_blocks"] for m in sweep[threshold]) for threshold in THRESHOLDS}
+    cell_counts = {
+        threshold: sum(m["cell_blocks"] for m in sweep[threshold])
+        for threshold in THRESHOLDS
+    }
     lines += [
         "",
         "### 结论",
@@ -681,11 +753,16 @@ def render_conclusion(
             else "（8 个阈值 × 7 页，无一例变化）"
         )
         + "。",
-        "   所以「调阈值能提高取字质量」这个假设**不成立**：阈值只决定拆不拆定位框，"
-        "与正文/CER 完全正交。之前把 `_TABLE_SPLIT_MAX_ROWS` 当质量参数来调，方向就错了。",
+        (
+            "   所以「调阈值能提高取字质量」这个假设**不成立**：阈值只决定拆不拆定位框，"
+            "与正文/CER 完全正交。之前把 `_TABLE_SPLIT_MAX_ROWS` 当质量参数来调，方向就错了。"
+        ),
         "",
         "2. **拆框数随阈值单调不增**："
-        + "、".join(f"{threshold}→{cell_counts[threshold]} 个 cell 块" for threshold in THRESHOLDS)
+        + "、".join(
+            f"{threshold}→{cell_counts[threshold]} 个 cell 块"
+            for threshold in THRESHOLDS
+        )
         + "。",
     ]
 
@@ -696,8 +773,10 @@ def render_conclusion(
     c999 = cell_counts.get(999, 0)
     lines += [
         "",
-        f"3. **当前值 12 在实测里的位置**：12 放行 {c12} 个 cell 块，"
-        f"20 放行 {c20} 个，30 放行 {c30} 个，999（无上限）放行 {c999} 个。",
+        (
+            f"3. **当前值 12 在实测里的位置**：12 放行 {c12} 个 cell 块，"
+            f"20 放行 {c20} 个，30 放行 {c30} 个，999（无上限）放行 {c999} 个。"
+        ),
     ]
     if c20 > c12:
         lines.append(
@@ -714,53 +793,75 @@ def render_conclusion(
     lines += [
         "",
         "4. **推荐：维持 12**。理由（按实测的切口逐个说）：",
-        "   - **12→20 的唯一差别是 p22**（68 格）。多 68 个格框听起来是好事，"
-        "但它的代价是把「13~20 行表一律拆格」这个规则放出去：行数一多，"
-        "均分误差就开始超过半格，而 13~20 行正好是「表头/标题行占好几行」的典型尺寸。"
-        "本实验没有真实行坐标，**无法证明那 68 个框都指对了格**——不能验证的改善不能当理由。",
-        "   - **20 以上会把 52 行流水表也拆成行框**：这正是注释里说「第 1 行偏差 72px」的场景，"
-        "拆出来的是「看起来能点、实际指错行」的框，比一个诚实的整表框更坏。",
-        "   - **0 / 3 / 6 / 12 在 golden 上行为完全一样**（都是 4 个整表框）：因为四张表里最小的是 "
-        "p30 的 3×2，而它被 `_split_is_trustworthy` 的「单格面积过大」判据挡掉了（2 列 × 3 行、"
-        "`rect` 是整页框，单格占比远超过 4%），根本走不到行数闸。"
-        "这说明 **12 这个数在本批 golden 上没有任何区分力**，它的依据只能来自全卷行数分布"
-        "与注释里的误差累积估算，不能来自这 7 页。",
-        "   - 80 / 999 等同于关掉这道闸：`_TABLE_ROW_SPLIT_MAX=80` 会成为唯一上限，"
-        "而它的注释自己就说「这是冗余保险」，不该让它变成主力判据。",
-        "   - 往下的 0 / 3 / 6 则是把闸关得太紧：它们与 12 在 golden 上没区别，"
-        "但会把 7~11 行这类「表头 + 几行数据」的小表单也推出拆分范围，白白丢掉可点击粒度。",
-        "   - **若将来要动，正确方向不是改阈值而是改判据**：Q3 显示行数本身在 12~30 区间里"
-        "几乎没有观测值（只有 p22 一张），所以用行数当唯一判据本身就是个弱代理；"
-        "真正决定均分准不准的是「行高齐不齐」，只是现有引擎数据里拿不到真实行高。",
+        (
+            "   - **12→20 的唯一差别是 p22**（68 格）。多 68 个格框听起来是好事，"
+            "但它的代价是把「13~20 行表一律拆格」这个规则放出去：行数一多，"
+            "均分误差就开始超过半格，而 13~20 行正好是「表头/标题行占好几行」的典型尺寸。"
+            "本实验没有真实行坐标，**无法证明那 68 个框都指对了格**——不能验证的改善不能当理由。"
+        ),
+        (
+            "   - **20 以上会把 52 行流水表也拆成行框**：这正是注释里说「第 1 行偏差 72px」的场景，"
+            "拆出来的是「看起来能点、实际指错行」的框，比一个诚实的整表框更坏。"
+        ),
+        (
+            "   - **0 / 3 / 6 / 12 在 golden 上行为完全一样**（都是 4 个整表框）：因为四张表里最小的是 "
+            "p30 的 3×2，而它被 `_split_is_trustworthy` 的「单格面积过大」判据挡掉了（2 列 × 3 行、"
+            "`rect` 是整页框，单格占比远超过 4%），根本走不到行数闸。"
+            "这说明 **12 这个数在本批 golden 上没有任何区分力**，它的依据只能来自全卷行数分布"
+            "与注释里的误差累积估算，不能来自这 7 页。"
+        ),
+        (
+            "   - 80 / 999 等同于关掉这道闸：`_TABLE_ROW_SPLIT_MAX=80` 会成为唯一上限，"
+            "而它的注释自己就说「这是冗余保险」，不该让它变成主力判据。"
+        ),
+        (
+            "   - 往下的 0 / 3 / 6 则是把闸关得太紧：它们与 12 在 golden 上没区别，"
+            "但会把 7~11 行这类「表头 + 几行数据」的小表单也推出拆分范围，白白丢掉可点击粒度。"
+        ),
+        (
+            "   - **若将来要动，正确方向不是改阈值而是改判据**：Q3 显示行数本身在 12~30 区间里"
+            "几乎没有观测值（只有 p22 一张），所以用行数当唯一判据本身就是个弱代理；"
+            "真正决定均分准不准的是「行高齐不齐」，只是现有引擎数据里拿不到真实行高。"
+        ),
         "",
-        "5. **无法验证的部分（诚实交代）**：本实验量不到「拆出来的框到底指没指中真实行/格」。"
-        "golden 与 pages.json 都只有整表 bbox，没有逐行坐标——所以「p22 拆 68 格到底准不准」"
-        "本次回答不了。这也是把推荐停在 12（保守侧）而不是 20 的根本原因。",
+        (
+            "5. **无法验证的部分（诚实交代）**：本实验量不到「拆出来的框到底指没指中真实行/格」。"
+            "golden 与 pages.json 都只有整表 bbox，没有逐行坐标——所以「p22 拆 68 格到底准不准」"
+            "本次回答不了。这也是把推荐停在 12（保守侧）而不是 20 的根本原因。"
+        ),
         "",
-        "6. **真正该改的不是阈值，是「框可不可信」的表达**：本实验测到的唯一实质改善，"
-        "是 Q3 里那批块从「一律 approx=True」变成分档 `exact`/`cell`/`page`。"
-        "阈值调到哪一档都改变不了「推算框就是推算框」，但把它**标出来**"
-        "能让前端画虚线、让律师知道这个框是猜的。",
+        (
+            "6. **真正该改的不是阈值，是「框可不可信」的表达**：本实验测到的唯一实质改善，"
+            "是 Q3 里那批块从「一律 approx=True」变成分档 `exact`/`cell`/`page`。"
+            "阈值调到哪一档都改变不了「推算框就是推算框」，但把它**标出来**"
+            "能让前端画虚线、让律师知道这个框是猜的。"
+        ),
         "",
-        "> 再次强调口径：以上全部基于 `gold_known: false` 的 MinerU 快照，"
-        "只能说明「同一份 golden 上阈值间无差异」，不能说明「阈值 12 的准确率是多少」。",
+        (
+            "> 再次强调口径：以上全部基于 `gold_known: false` 的 MinerU 快照，"
+            "只能说明「同一份 golden 上阈值间无差异」，不能说明「阈值 12 的准确率是多少」。"
+        ),
     ]
     if corpus is not None:
         tally = corpus["precision_tally"]
         lines += [
             "",
-            f"7. **Q3 补充**：全卷 {corpus['block_count']} 个定位块里 `cell` "
-            f"{tally.get('cell', 0)} 个（{_pct(tally.get('cell', 0), corpus['block_count'])}），"
-            f"`page` {tally.get('page', 0)} 个。拆块前的 {corpus['raw_table_blocks']} 张表里，"
-            f"**{corpus['raw_table_blocks'] - tally.get('page', 0)} 张被拆开成格/行框**、"
-            f"只剩 {tally.get('page', 0)} 张保持整表框。即使这样，表格块里仍有 "
-            f"{_pct(tally.get('page', 0), corpus['raw_table_blocks'])} 的表只能给整表框——"
-            "再上调阈值的收益空间本来就小，而且那些收益全是均分误差最大的长表，所以 12 已经足够。",
+            (
+                f"7. **Q3 补充**：全卷 {corpus['block_count']} 个定位块里 `cell` "
+                f"{tally.get('cell', 0)} 个（{_pct(tally.get('cell', 0), corpus['block_count'])}），"
+                f"`page` {tally.get('page', 0)} 个。拆块前的 {corpus['raw_table_blocks']} 张表里，"
+                f"**{corpus['raw_table_blocks'] - tally.get('page', 0)} 张被拆开成格/行框**、"
+                f"只剩 {tally.get('page', 0)} 张保持整表框。即使这样，表格块里仍有 "
+                f"{_pct(tally.get('page', 0), corpus['raw_table_blocks'])} 的表只能给整表框——"
+                "再上调阈值的收益空间本来就小，而且那些收益全是均分误差最大的长表，所以 12 已经足够。"
+            ),
             "",
-            "   **但另一个发现值得看**：13~19 行的表全卷只有 5 张，而且其中几张被可信度判据挡掉；"
-            "真正落在「12→20 区间内且有字可拆」的只有 p22 那张 17 行表。"
-            "换句话说，12 / 20 / 30 这三个候选值在全卷上的差别**只有一张表**。"
-            "这也反向证实了「调阈值不是杠杆」：杠杆在拆得准不准，不在门槛高低。",
+            (
+                "   **但另一个发现值得看**：13~19 行的表全卷只有 5 张，而且其中几张被可信度判据挡掉；"
+                "真正落在「12→20 区间内且有字可拆」的只有 p22 那张 17 行表。"
+                "换句话说，12 / 20 / 30 这三个候选值在全卷上的差别**只有一张表**。"
+                "这也反向证实了「调阈值不是杠杆」：杠杆在拆得准不准，不在门槛高低。"
+            ),
             "",
             "   行数分布见上方「全卷行数分布」表（它由 `_grid_row_count` 对 `pages.json` 逐张表统计，可重跑核对）。",
         ]
