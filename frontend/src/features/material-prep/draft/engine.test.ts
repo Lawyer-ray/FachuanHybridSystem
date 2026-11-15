@@ -31,10 +31,10 @@ function item(over: Partial<EngineDisagreement> = {}): EngineDisagreement {
     kind: 'char',
     severity: 'high',
     variants: [
-      { engine: 'mineru', text: '罗浩瑜' },
-      { engine: 'paddleocr_vl', text: '罗若瑜' },
+      { engine: 'mineru', text: '张三丰' },
+      { engine: 'paddleocr_vl', text: '张四丰' },
     ],
-    context: '卖方：赵六 罗浩瑜',
+    context: '卖方：赵六 张三丰',
     anchor_hit: true,
     similarity: 0.8,
     ...over,
@@ -52,7 +52,7 @@ describe('readEngineDisagreements', () => {
     const out = readEngineDisagreements([
       item(),
       { ...item(), page_no: 0 },
-      { ...item(), variants: [{ engine: 'mineru', text: '罗浩瑜' }] },
+      { ...item(), variants: [{ engine: 'mineru', text: '张三丰' }] },
       { ...item(), variants: 'nope' },
     ])
     expect(out).toHaveLength(1)
@@ -70,9 +70,9 @@ describe('readEngineDisagreements', () => {
       {
         ...item(),
         blocks: [
-          { engine: 'mineru', page_no: 38, text: '罗浩瑜', rect: { x: 0.1, y: 0.2, w: 0.3, h: 0.05 }, block_type: 'text', approx: false },
+          { engine: 'mineru', page_no: 38, text: '张三丰', rect: { x: 0.1, y: 0.2, w: 0.3, h: 0.05 }, block_type: 'text', approx: false },
           // 零面积框画出来看不见，丢弃
-          { engine: 'paddleocr_vl', page_no: 38, text: '罗若瑜', rect: { x: 0.1, y: 0.2, w: 0, h: 0 }, block_type: 'text', approx: false },
+          { engine: 'paddleocr_vl', page_no: 38, text: '张四丰', rect: { x: 0.1, y: 0.2, w: 0, h: 0 }, block_type: 'text', approx: false },
           // 未知引擎丢弃
           { engine: 'magic', page_no: 38, text: 'x', rect: { x: 0, y: 0, w: 1, h: 1 }, block_type: 'text', approx: false },
         ],
@@ -191,7 +191,7 @@ describe('engineBlocksOfPage', () => {
 
 describe('variantTextOf / disagreementKindLabel', () => {
   it('missing 类的空变体原样是空串，由 UI 决定怎么写', () => {
-    expect(variantTextOf(item(), 'paddleocr_vl')).toBe('罗若瑜')
+    expect(variantTextOf(item(), 'paddleocr_vl')).toBe('张四丰')
     expect(variantTextOf(item(), 'textin')).toBe('')
   })
 

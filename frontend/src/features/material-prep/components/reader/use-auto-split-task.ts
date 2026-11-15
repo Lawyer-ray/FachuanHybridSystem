@@ -5,6 +5,10 @@ import type { BundleMat } from '../../types'
 import { usePollSession } from '@/hooks/use-poll-session'
 import { jobSnapshotOf, pollJob, type JobProgressSnapshot } from './auto-split-helpers'
 
+// 本模块对外暴露的 TaskState 里带着 JobProgressSnapshot，转导出一次让消费方
+// （含测试）只从一处取类型，不必知道它最初定义在 auto-split-helpers。
+export type { JobProgressSnapshot }
+
 /**
  * 「现在有没有一份云端拆分任务在跑、跑到哪了」的会话态 + 打开阅读器时的自动接管。
  *

@@ -222,26 +222,26 @@ def test_vl_page_no_follows_result_index() -> None:
 
 
 def test_link_matches_both_engines_by_text_containment() -> None:
-    """一条分歧按文本包含关系挂回两引擎各自的块（真实分歧：罗浩瑜 / 罗若瑜）。"""
+    """一条分歧按文本包含关系挂回两引擎各自的块（真实分歧：张三丰 / 张四丰）。"""
     mineru_blocks = normalize_mineru_blocks(
         [
             _mineru_block("示例机构借款合同", [100, 60, 1100, 130], block_type="title"),
-            _mineru_block("借款人：罗浩瑜", [100, 200, 600, 250]),
+            _mineru_block("借款人：张三丰", [100, 200, 600, 250]),
         ],
         MINERU_PAGE_SIZES,
     )
     vl_blocks = normalize_paddleocr_vl_blocks(
-        [_vl_pruned([{"block_label": "text", "block_content": "借款人：罗若瑜", "block_bbox": [100, 200, 600, 250]}])]
+        [_vl_pruned([{"block_label": "text", "block_content": "借款人：张四丰", "block_bbox": [100, 200, 600, 250]}])]
     )
     disagreement = EngineDisagreement(
         page_no=1,
         kind=KIND_CHAR,
         severity=SEVERITY_HIGH,
         variants=[
-            EngineVariant(engine=ENGINE_MINERU, text="借款人：罗浩瑜"),
-            EngineVariant(engine=ENGINE_PADDLEOCR_VL, text="借款人：罗若瑜"),
+            EngineVariant(engine=ENGINE_MINERU, text="借款人：张三丰"),
+            EngineVariant(engine=ENGINE_PADDLEOCR_VL, text="借款人：张四丰"),
         ],
-        context="借款人：罗浩瑜",
+        context="借款人：张三丰",
         anchor_hit=True,
         similarity=0.85,
     )
@@ -249,9 +249,9 @@ def test_link_matches_both_engines_by_text_containment() -> None:
     linked = link_disagreement_to_blocks(disagreement, {ENGINE_MINERU: mineru_blocks, ENGINE_PADDLEOCR_VL: vl_blocks})
 
     assert linked[ENGINE_MINERU] is not None
-    assert linked[ENGINE_MINERU].text == "借款人：罗浩瑜"
+    assert linked[ENGINE_MINERU].text == "借款人：张三丰"
     assert linked[ENGINE_PADDLEOCR_VL] is not None
-    assert linked[ENGINE_PADDLEOCR_VL].text == "借款人：罗若瑜"
+    assert linked[ENGINE_PADDLEOCR_VL].text == "借款人：张四丰"
 
 
 def test_link_returns_none_when_no_text_match() -> None:
@@ -270,14 +270,14 @@ def test_link_returns_none_when_no_text_match() -> None:
 
 def test_link_returns_none_for_wrong_page_and_short_variant() -> None:
     """页码不符 / 变体过短（<3 字，几乎必然被任意块包含）→ None。"""
-    blocks = normalize_mineru_blocks([_mineru_block("借款人：罗浩瑜", [100, 200, 600, 250])], MINERU_PAGE_SIZES)
+    blocks = normalize_mineru_blocks([_mineru_block("借款人：张三丰", [100, 200, 600, 250])], MINERU_PAGE_SIZES)
 
     wrong_page = EngineDisagreement(
         page_no=2,
         kind=KIND_CHAR,
         severity=SEVERITY_MEDIUM,
-        variants=[EngineVariant(engine=ENGINE_MINERU, text="借款人：罗浩瑜")],
-        context="借款人：罗浩瑜",
+        variants=[EngineVariant(engine=ENGINE_MINERU, text="借款人：张三丰")],
+        context="借款人：张三丰",
     )
     short = EngineDisagreement(
         page_no=1,
@@ -293,16 +293,16 @@ def test_link_returns_none_for_wrong_page_and_short_variant() -> None:
 
 def test_link_missing_variant_keeps_that_engine_none() -> None:
     """missing 类分歧里某引擎变体为空串：该引擎没识别出这段，保持 None（只画另一侧的框）。"""
-    mineru_blocks = normalize_mineru_blocks([_mineru_block("借款人：罗浩瑜", [100, 200, 600, 250])], MINERU_PAGE_SIZES)
+    mineru_blocks = normalize_mineru_blocks([_mineru_block("借款人：张三丰", [100, 200, 600, 250])], MINERU_PAGE_SIZES)
     disagreement = EngineDisagreement(
         page_no=1,
         kind=KIND_MISSING,
         severity=SEVERITY_LOW,
         variants=[
-            EngineVariant(engine=ENGINE_MINERU, text="借款人：罗浩瑜"),
+            EngineVariant(engine=ENGINE_MINERU, text="借款人：张三丰"),
             EngineVariant(engine=ENGINE_PADDLEOCR_VL, text=""),
         ],
-        context="借款人：罗浩瑜",
+        context="借款人：张三丰",
     )
 
     linked = link_disagreement_to_blocks(disagreement, {ENGINE_MINERU: mineru_blocks, ENGINE_PADDLEOCR_VL: []})

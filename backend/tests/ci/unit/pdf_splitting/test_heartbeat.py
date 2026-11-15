@@ -109,12 +109,21 @@ class TestPeriodicHeartbeat:
         assert f"pdf-split-heartbeat-{job.id}" in names
 
     def test_db_error_does_not_break_main_flow(self) -> None:
-        """心跳只是存活信号，写库抖动不能把整份卷宗任务弄失败。"""
+        """心跳只是存活信号，写库抖动不能把整份卷宗任务弄失败。
+
+        光「没抛异常」不能证明它真的在循环重试——那样一个开场即死的线程也会「通过」。
+        所以额外断言它确实被**多次**调用过：错了就记日志继续，而不是错一次就放弃。
+        """
         job = _make_job()
-        with patch.object(heartbeat_module, "touch_heartbeat", side_effect=RuntimeError("db hiccup")):
+        with patch.object(
+            heartbeat_module, "touch_heartbeat", side_effect=RuntimeError("db hiccup")
+        ) as touch:
             with heartbeat_module.periodic_heartbeat(job.id, interval=0.05):
-                time.sleep(0.2)
-        # 没抛异常即通过（异常会从 with 块逃出去让用例失败）
+                time.sleep(0.25)
+
+        # 异常没有从 with 块逃出去（否则这条用例根本到不了这里）
+        # 且线程确实坚持重试（0.25s / 0.05s ≈ 5 次，留余量取 >=2）
+        assert touch.call_count >= 2
 
 
 class TestTouchHeartbeat:

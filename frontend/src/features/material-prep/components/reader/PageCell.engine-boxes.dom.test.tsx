@@ -52,7 +52,7 @@ describe('PageCell 双引擎对照框', () => {
 
   it('MinerU 实线绿、VL 虚线琥珀（5 3）', () => {
     const { container } = render(
-      <PageCell messageId={1} mi={0} p={2} mat={mat} engineBoxes={[group('mineru', '罗浩瑜'), group('paddleocr_vl', '罗若瑜')]} />,
+      <PageCell messageId={1} mi={0} p={2} mat={mat} engineBoxes={[group('mineru', '张三丰'), group('paddleocr_vl', '张四丰')]} />,
     )
     const [primary] = rectsOf(container, 'mineru')
     const [secondary] = rectsOf(container, 'paddleocr_vl')
@@ -102,11 +102,11 @@ describe('PageCell 双引擎对照框', () => {
 
   it('框旁标注引擎短名与文本', () => {
     const { container } = render(
-      <PageCell messageId={1} mi={0} p={2} mat={mat} engineBoxes={[group('mineru', '罗浩瑜'), group('paddleocr_vl', '罗若瑜')]} />,
+      <PageCell messageId={1} mi={0} p={2} mat={mat} engineBoxes={[group('mineru', '张三丰'), group('paddleocr_vl', '张四丰')]} />,
     )
     const text = container.textContent ?? ''
-    expect(text).toContain('MinerU 罗浩瑜')
-    expect(text).toContain('VL 罗若瑜')
+    expect(text).toContain('MinerU 张三丰')
+    expect(text).toContain('VL 张四丰')
   })
 
   it('某引擎没有框时只画另一个（不伪造重合）', () => {

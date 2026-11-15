@@ -2,7 +2,7 @@
 /**
  * 引擎分歧清单（抽屉）单测。
  *
- * 真实痛点：两个引擎在同一页对同一个名字读得不一样（「罗浩瑜 / 罗若瑜」）。
+ * 真实痛点：两个引擎在同一页对同一个名字读得不一样（「张三丰 / 张四丰」）。
  * 这张清单要做到三件事：
  *  1. 两个引擎的文本**并列摆出来**，不排先后、不标「更可能对」——裁决权在律师；
  *  2. 高危在最上面，low（版面切分差异）默认折叠，否则几十条噪声会把真分歧淹掉；
@@ -23,10 +23,10 @@ function item(over: Partial<EngineDisagreement> = {}): EngineDisagreement {
     kind: 'char',
     severity: 'high',
     variants: [
-      { engine: 'mineru', text: '罗浩瑜' },
-      { engine: 'paddleocr_vl', text: '罗若瑜' },
+      { engine: 'mineru', text: '张三丰' },
+      { engine: 'paddleocr_vl', text: '张四丰' },
     ],
-    context: '卖方：赵六 罗浩瑜',
+    context: '卖方：赵六 张三丰',
     anchor_hit: true,
     similarity: 0.8,
     ...over,
@@ -51,8 +51,8 @@ describe('EngineDisagreementDrawer', () => {
     expect(within(row).getByText('MinerU')).toBeTruthy()
     expect(within(row).getByText('PaddleOCR-VL')).toBeTruthy()
     // 两条都摆出来，谁对不由前端说
-    expect(row.textContent).toContain('罗浩瑜')
-    expect(row.textContent).toContain('罗若瑜')
+    expect(row.textContent).toContain('张三丰')
+    expect(row.textContent).toContain('张四丰')
     expect(row.textContent).not.toContain('正确')
   })
 
