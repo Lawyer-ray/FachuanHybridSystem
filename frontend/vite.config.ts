@@ -46,9 +46,31 @@ export default defineConfig({
       // 0 覆盖文件 90 → 1（仅剩 copilot/index.ts 的 2 条桶语句，无测试价值）。
       // 实测 statements 88.69% / lines 90.52% / functions 86.00% / branches 82.63%。
       //
+      // 2026-11-11 第二轮（reader / copilot / home 补测）：
+      // 上一组阈值 87/89/85/81 里最危险的是 functions —— 实测 85.65%，只比门槛高
+      // 0.65pp，任何一个新文件带几条未测函数就会打红 CI（棘轮的本意是拦新债，
+      // 而不是让每次加功能都先欠一批测试）。本轮补的是「便宜且真会被用到」的部分：
+      //   · reader/auto-split-helpers.ts   提示名清洗 / 图片来源判型 / 分段来源标记 /
+      //                                    pollJob 的超时与心跳停止文案（100% 函数覆盖）
+      //   · reader/AutoSplitProgress.tsx   无响应时长的分档文案
+      //   · reader/use-rail-width.ts       左栏拖拽宽度（方向 / 夹取 / 只在 pointerup 落盘）
+      //   · reader/Flow.tsx                定位框越界归位、双框对照、右键菜单删除范围
+      //   · material-prep/api/pdf-split.ts 查复用 / 查在飞任务的失败降级（返回 null 不抛）
+      //   · copilot/store/context-usage.ts 水位回填的切会话守卫、压缩并发闸门、点赞回滚
+      //   · home / document-recognition    待认领同步按钮的结果分档、管线绑定 chip 只读
+      // 实测 statements 89.11% / lines 90.97% / functions 86.17% / branches 83.17%。
+      //
+      // 本次抬阈值按同一条原则（实测值向下取整，再留约 1pp 抖动余量）：
+      //   实测 89.11 / 90.97 / 86.17 / 83.17，floor 为 89 / 90 / 86 / 83
+      //   落盘 88 / 89 / 85 / 82，余量 1.11 / 1.97 / 1.17 / 1.17pp
+      // functions 为什么只到 85 而不是 floor 的 86：86 只剩 0.21pp 余量，
+      // 一次组件拆分（新增的 2 个内联回调未测）就会把 CI 打红，而棘轮该拦的是新债、
+      // 不是正常重构。85 让余量从上一版的 0.65pp 回到 1.17pp——这次补的 31 个函数
+      // 收益全部转成了抗抖空间，再补一轮同步抬上去。
+      //
       // 阈值取实测值向下取整再留约 1pp 抖动余量（拆分/重构会让分母微变，
       // 太贴边会误红）。禁止下调；补到 90 以上再抬。
-      thresholds: { statements: 87, lines: 89, functions: 85, branches: 81 },
+      thresholds: { statements: 88, lines: 89, functions: 85, branches: 82 },
     },
   },
   plugins: [react(), tailwindcss()],

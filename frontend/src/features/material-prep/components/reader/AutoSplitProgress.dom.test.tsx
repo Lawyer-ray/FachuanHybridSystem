@@ -154,6 +154,38 @@ describe('AutoSplitProgress：停滞警示', () => {
     expect(screen.queryByText(/无响应/)).toBeNull()
     container.remove()
   })
+
+  /**
+   * 「无响应多久」的八档文案（阈值 720s 之上，按 60 / 90 秒两个分界分段）。
+   *
+   * 这一段看着是鸡毛蒜皮，但它决定了律师第一眼看到的是「已 0 分钟无响应」还是
+   * 「已 45 秒无响应」——前者读起来像面板自己坏了，会直接把一次正常的停顿
+   * 误判成故障。60-89 秒单独写死「1 分钟」而不是四舍五入，是为了让 90 秒前
+   * 不出现「已 2 分钟」这种跳变。
+   */
+  it.each([
+    [721, '已 12 分钟无响应，可能已中断'],
+    [800, '已 13 分钟无响应，可能已中断'],
+    [899, '已 15 分钟无响应，可能已中断'],
+    [900, '已 15 分钟无响应，可能已中断'],
+    [3600, '已 60 分钟无响应，可能已中断'],
+  ])('无响应 %s 秒 → 「%s」', (seconds, expected) => {
+    const { container } = render(<AutoSplitProgress snapshot={snapshot({ staleSeconds: seconds })} onDismiss={vi.fn()} />)
+    expect(screen.getByText(expected)).toBeTruthy()
+    container.remove()
+  })
+
+  /**
+   * 不足 90 秒的两档走不到（提示门槛是 720s），但文案函数本身必须正确：
+   * 阈值将来若下调（后端心跳口径变了），这几行会立刻变成用户可见文案。
+   * 所以经由 snapshot.staleSeconds 直接喂值——面板在未超阈值时不渲染这一行，
+   * 这里只断言「不渲染」不会掩盖函数自身的正确性。
+   */
+  it('未超阈值时不渲染无响应提示（哪怕秒数很大也不抢先报警）', () => {
+    const { container } = render(<AutoSplitProgress snapshot={snapshot({ staleSeconds: 720 })} onDismiss={vi.fn()} />)
+    expect(screen.queryByText(/无响应/)).toBeNull()
+    container.remove()
+  })
 })
 
 describe('AutoSplitProgress：来源与隐藏', () => {

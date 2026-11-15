@@ -115,9 +115,7 @@ class TestPeriodicHeartbeat:
         所以额外断言它确实被**多次**调用过：错了就记日志继续，而不是错一次就放弃。
         """
         job = _make_job()
-        with patch.object(
-            heartbeat_module, "touch_heartbeat", side_effect=RuntimeError("db hiccup")
-        ) as touch:
+        with patch.object(heartbeat_module, "touch_heartbeat", side_effect=RuntimeError("db hiccup")) as touch:
             with heartbeat_module.periodic_heartbeat(job.id, interval=0.05):
                 time.sleep(0.25)
 

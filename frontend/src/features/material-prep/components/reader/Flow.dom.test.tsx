@@ -23,10 +23,20 @@ vi.mock('../../draft', async (importOriginal) => {
 })
 
 const cellProps = vi.hoisted(() => [] as Array<Record<string, unknown>>)
+const openMenuListeners = vi.hoisted(() => [] as Array<(e: unknown, mi: number, p: number) => void>)
 vi.mock('./PageCell', () => ({
-  PageCell: (p: { mi: number; p: number }) => {
+  PageCell: (p: { mi: number; p: number; onContextMenu?: (e: unknown, mi: number, p: number) => void }) => {
     cellProps.push(p as unknown as Record<string, unknown>)
-    return <div data-testid={'cell-' + String(p.mi) + '-' + String(p.p)}>{'CELL ' + String(p.mi) + ':' + String(p.p)}</div>
+    // 转发右键：菜单的内容（标题 / 删除范围）只在 Flow 里算，桩必须把事件递回去
+    if (p.onContextMenu) openMenuListeners.push(p.onContextMenu)
+    return (
+      <div
+        data-testid={'cell-' + String(p.mi) + '-' + String(p.p)}
+        onContextMenu={(e) => p.onContextMenu?.(e, p.mi, p.p)}
+      >
+        {'CELL ' + String(p.mi) + ':' + String(p.p)}
+      </div>
+    )
   },
 }))
 vi.mock('./SegmentHeader', () => ({
@@ -94,6 +104,7 @@ function renderFlow(props: Partial<Parameters<typeof Flow>[0]> = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   cellProps.length = 0
+  openMenuListeners.length = 0
 })
 
 describe('Flow：分段与页卡', () => {
@@ -344,14 +355,193 @@ describe('Flow：段末尾切分', () => {
   })
 })
 
+// ============ 识别定位框 / 双框对照 / 脏引用（覆盖率补测） ============
+
+function block(page: number, text: string, over: Record<string, unknown> = {}) {
+  return { page, type: 'text', text, rect: { x: 0, y: 0, w: 1, h: 0.1, approx: false, precision: 'exact', ...over } }
+}
+
+describe('Flow：识别定位框（hits）', () => {
+  /**
+   * `seg.blocks[].page` 是**文档内绝对页号**，而段 refs 只覆盖自己那几页。
+   * 按段起始页偏移后落不进 refs 的块必须丢掉：画出去就会出现在邻段页卡上，
+   * 律师点开一段却在别的段看到高亮框，会以为分段错了。
+   */
+  it('块按段起始页偏移归位，段外的页不产生框', () => {
+    const draft = makeDraft({
+      mats: [mat('a.pdf', 5)],
+      segs: [
+        {
+          id: 's1',
+          t: 'other',
+          fn: '第二段',
+          refs: [{ mi: 0, p: 2 }, { mi: 0, p: 3 }],
+          manual: false,
+          blocks: [block(3, '本段第 2 页的块'), block(9, '越界块')],
+        },
+      ],
+    })
+    const { container } = renderFlow({ draft })
+
+    const inRange = cellProps.find((p) => p.mi === 0 && p.p === 3)
+    const outOfRange = cellProps.find((p) => p.mi === 0 && p.p === 2)
+    expect((inRange!.hits as Array<{ label: string }>).map((h) => h.label)).toEqual(['本段第 2 页的块'])
+    expect(outOfRange!.hits).toBeUndefined()
+    container.remove()
+  })
+
+  it('旧草稿缺 precision 时退化成看 approx（不给假精度）', () => {
+    const draft = makeDraft({
+      mats: [mat('a.pdf', 2)],
+      segs: [
+        {
+          id: 's1',
+          t: 'other',
+          fn: '第一份',
+          refs: [{ mi: 0, p: 0 }, { mi: 0, p: 1 }],
+          manual: false,
+          blocks: [block(0, '整页近似', { approx: true, precision: undefined })],
+        },
+      ],
+    })
+    const { container } = renderFlow({ draft })
+    const hits = cellProps.find((p) => p.mi === 0 && p.p === 0)!.hits as Array<{ precision: string }>
+    expect(hits[0]!.precision).toBe('page')
+    container.remove()
+  })
+
+  it('同一页多个块的 key 不撞（高亮靠 key 定位，撞了会同时亮两处）', () => {
+    const draft = makeDraft({
+      mats: [mat('a.pdf', 2)],
+      segs: [
+        {
+          id: 's1',
+          t: 'other',
+          fn: '第一份',
+          refs: [{ mi: 0, p: 0 }, { mi: 0, p: 1 }],
+          manual: false,
+          blocks: [block(0, 'A'), block(0, 'B')],
+        },
+      ],
+    })
+    const { container } = renderFlow({ draft })
+    const hits = cellProps.find((p) => p.mi === 0 && p.p === 0)!.hits as Array<{ key: string }>
+    expect(new Set(hits.map((h) => h.key)).size).toBe(2)
+    container.remove()
+  })
+})
+
+describe('Flow：双框对照（engineFocus）', () => {
+  const disagreement = {
+    page_no: 0,
+    kind: 'char' as const,
+    severity: 'high' as const,
+    variants: [
+      { engine: 'mineru' as const, text: '谭某某' },
+      { engine: 'paddleocr_vl' as const, text: '谭某' },
+    ],
+    context: '借款人：谭某某',
+    anchor_hit: true,
+    similarity: 0.6,
+    blocks: [
+      { engine: 'mineru' as const, page_no: 0, text: '谭某某', rect: { x: 0, y: 0, w: 1, h: 0.1 }, block_type: 'text', approx: false },
+    ],
+  }
+
+  /**
+   * 只画一边就没有「对照」可言，但**一个框都没有的引擎也要保留分组**：
+   * 渲染层会说明「这个引擎没拿到坐标」，律师才知道差异在哪一边，不会以为两框完全重叠。
+   */
+  it('两个引擎都保留分组，没框的那个是空数组', () => {
+    const { container } = renderFlow({ engineFocus: disagreement })
+    const page0 = cellProps.find((p) => p.mi === 0 && p.p === 0)
+    const groups = page0!.engineBoxes as Array<{ variant: { engine: string }; blocks: unknown[] }>
+    expect(groups.map((g) => g.variant.engine)).toEqual(['mineru', 'paddleocr_vl'])
+    expect(groups[0]!.blocks).toHaveLength(1)
+    expect(groups[1]!.blocks).toHaveLength(0)
+    container.remove()
+  })
+
+  it('没有分歧可看时不画任何双框（常态页面不该有额外描边）', () => {
+    const { container } = renderFlow({ engineFocus: null })
+    expect(cellProps.every((p) => p.engineBoxes === null)).toBe(true)
+    container.remove()
+  })
+
+  it('分歧页不在本段 refs 范围内时不画框（否则会画到邻段页卡上）', () => {
+    const { container } = renderFlow({ engineFocus: { ...disagreement, page_no: 40 } })
+    expect(cellProps.every((p) => p.engineBoxes === null)).toBe(true)
+    container.remove()
+  })
+})
+
+describe('Flow：脏引用兜底', () => {
+  /**
+   * 草稿是后端不透明 JSON，历史草稿里可能有指向已删素材的 ref。
+   * `mats[ref.mi]` 为 undefined 时必须跳过而不是崩——一段脏数据不该让整个阅读器白屏。
+   */
+  it('ref 指向不存在的素材时跳过该页、其余照常渲染', () => {
+    const draft = makeDraft({
+      mats: [mat('a.pdf', 2)],
+      segs: [seg('s1', '第一份', [{ mi: 0, p: 0 }, { mi: 9, p: 0 }])],
+    })
+    const { container } = renderFlow({ draft })
+    expect(screen.getByTestId('cell-0-0')).toBeTruthy()
+    expect(screen.queryByTestId('cell-9-0')).toBeNull()
+    // 多列分支同一套守卫
+    container.remove()
+    const multi = renderFlow({ draft, cols: 2 })
+    expect(multi.container.querySelector('[data-testid="cell-9-0"]')).toBeNull()
+    multi.container.remove()
+  })
+
+  it('段 refs 为空时不显示段开始条（没有“从哪份材料开始”可说）', () => {
+    const draft = makeDraft({
+      mats: [mat('a.pdf', 1), mat('b.pdf', 1)],
+      segs: [seg('s1', '空段', [])],
+    })
+    const { container } = renderFlow({ draft })
+    expect(screen.getByText('SEG_HEADER 0 空段')).toBeTruthy()
+    expect(container.textContent).not.toContain('段开始')
+    container.remove()
+  })
+})
+
 // ============ 右键菜单与段头回调（覆盖率补测） ============
 
 describe('Flow：右键菜单与段头回调', () => {
-  it('PageCell 右键打开菜单并显示标题', () => {
-    const { container } = renderFlowWithOp()
-    const cell = container.querySelector('[data-testid^="cell-"]') as HTMLElement
-    // PageCell 桩未转发 onContextMenu，这里通过段头回调间接验证更稳
-    expect(cell).toBeTruthy()
+  it('右键未选中页 → 菜单标题带文件名与页码，删除范围只有这一页', () => {
+    const { container, onRequestDelete } = renderFlowWithOp()
+    fireEvent.contextMenu(screen.getByTestId('cell-0-1'))
+
+    expect(screen.getByText('CTX_MENU a.pdf · 第 1 页 count=1')).toBeTruthy()
+    fireEvent.click(screen.getByText('删除'))
+    // 右键单页就是单删：把整卷误删是这类菜单最容易出的错
+    expect(onRequestDelete).toHaveBeenCalledWith([{ mi: 0, p: 1 }])
+    container.remove()
+  })
+
+  it('右键落在选区内 → 菜单显示选中页数，删除范围是整个选区', () => {
+    const selPages = [
+      { mi: 0, p: 0 },
+      { mi: 0, p: 1 },
+    ]
+    const { container, onRequestDelete } = renderFlowWithOp({ selMode: true, selPages })
+    fireEvent.contextMenu(screen.getByTestId('cell-0-1'))
+
+    expect(screen.getByText('CTX_MENU a.pdf · 第 1 页 count=2')).toBeTruthy()
+    fireEvent.click(screen.getByText('删除'))
+    expect(onRequestDelete).toHaveBeenCalledWith(selPages)
+    container.remove()
+  })
+
+  it('菜单标题优先用律师改过的 customName', () => {
+    const draft = makeDraft({
+      mats: [{ partIndex: 0, n: 'a.pdf', customName: '证据卷.pdf', k: 'pdf', pages: 2 }],
+    })
+    const { container } = renderFlowWithOp({ draft })
+    fireEvent.contextMenu(screen.getByTestId('cell-0-0'))
+    expect(screen.getByText('CTX_MENU 证据卷.pdf · 第 0 页 count=1')).toBeTruthy()
     container.remove()
   })
 

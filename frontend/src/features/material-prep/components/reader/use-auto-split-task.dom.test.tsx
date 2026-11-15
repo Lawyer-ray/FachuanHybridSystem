@@ -25,6 +25,7 @@ import type { BundleMat } from '../../types'
 import {
   beginOwnedAutoSplit,
   clearAutoSplitTask,
+  readAutoSplitTask,
   reportAutoSplitProgress,
   useInflightAutoSplit,
   type JobProgressSnapshot,
@@ -61,24 +62,24 @@ afterEach(() => {
   clearAutoSplitTask()
 })
 
-describe('useInflightAutoSplit：打开阅读器自动接管', () => {
-  /**
-   * 让轮询停在下一份快照上，用例才能断言「对话态此刻长什么样」。
-   *
-   * 不能直接 mock 一个立刻到达终态的响应：接管收尾会把会话态清空，而清空发生在
-   * 微任务里——同一次同步断言只能读到「已清空」，读不到「跑起来过」。所以要按住
-   * 第一份 processing 快照，等断言完再放行。
-   */
-  function holdNextPoll() {
-    let release: (job: Record<string, unknown>) => void = () => {}
-    apiMock.getPdfSplitJob.mockImplementation(
-      () => new Promise((resolve) => {
-        release = resolve
-      }),
-    )
-    return (job: Record<string, unknown>) => release(job)
-  }
+/**
+ * 让轮询停在下一份快照上，用例才能断言「对话态此刻长什么样」。
+ *
+ * 不能直接 mock 一个立刻到达终态的响应：接管收尾会把会话态清空，而清空发生在
+ * 微任务里——同一次同步断言只能读到「已清空」，读不到「跑起来过」。所以要按住
+ * 第一份 processing 快照，等断言完再放行。
+ */
+function holdNextPoll() {
+  let release: (job: Record<string, unknown>) => void = () => {}
+  apiMock.getPdfSplitJob.mockImplementation(
+    () => new Promise((resolve) => {
+      release = resolve
+    }),
+  )
+  return (job: Record<string, unknown>) => release(job)
+}
 
+describe('useInflightAutoSplit：打开阅读器自动接管', () => {
   it('命中进行中的任务时自动接管并上报快照（无需点按钮）', async () => {
     apiMock.findInflightPdfSplitJob.mockResolvedValue({
       job_id: 'job-9',
@@ -309,5 +310,83 @@ describe('pollJob：阶段化进度回调', () => {
     })
     const lease = { isStale: () => false, sleep: () => Promise.resolve() }
     await expect(pollJob('job-6', lease)).rejects.toThrow(/已中断/)
+  })
+})
+
+describe('useInflightAutoSplit：接管时的两个防御分支', () => {
+  /**
+   * 探测失败必须**就地吞掉**并继续看下一份材料。
+   *
+   * 为什么单独测这条：探测只是「看看有没有人在跑」的附加信息，一个网络抖动
+   * 若变成未捕获拒绝，CI 会整批红，开发态还会弹一个与用户操作无关的错。
+   * 而「吞掉」不等于「放弃」——第一份失败不该让第二份的在飞任务接管不到。
+   */
+  it('第一份材料探测抛错 → 继续看下一份，接管到第二份的任务', async () => {
+    apiMock.findInflightPdfSplitJob.mockImplementation((name: string) =>
+      name === '坏链接.pdf'
+        ? Promise.reject(new Error('Network request failed'))
+        : Promise.resolve({
+            job_id: 'job-next',
+            status: 'processing',
+            progress: 10,
+            total_pages: 164,
+            processed_pages: 16,
+            stage: 'extract',
+            stale_seconds: 2,
+          }),
+    )
+    holdNextPoll()
+
+    const { result } = renderHook(() =>
+      useInflightAutoSplit([pdfMat('坏链接.pdf'), pdfMat('卷宗.pdf')], true),
+    )
+
+    await waitFor(() => expect(result.current.task.jobId).toBe('job-next'))
+    expect(apiMock.findInflightPdfSplitJob).toHaveBeenNthCalledWith(1, '坏链接.pdf', 164)
+    expect(apiMock.findInflightPdfSplitJob).toHaveBeenNthCalledWith(2, '卷宗.pdf', 164)
+    expect(result.current.task.snapshot?.sourceName).toBe('卷宗.pdf')
+  })
+
+  /**
+   * 接管来的轮询回调要在 lease 失效后立刻弃写。
+   *
+   * 场景：律师在这份任务还在跑的时候切了材料包（或对战/归案跳走了），
+   * 旧会话已经过期，此时后端刚好回了一份旧快照——若照样 setState，
+   * 浮条会重新亮起来，显示一个已经不存在的任务，还挡着新页面。
+   */
+  it('lease 失效后迟到的快照不写进会话态（切走后浮条不该再亮）', async () => {
+    apiMock.findInflightPdfSplitJob.mockResolvedValue({
+      job_id: 'job-late',
+      status: 'processing',
+      progress: 40,
+      total_pages: 164,
+      processed_pages: 60,
+      stage: 'extract',
+      stale_seconds: 2,
+    })
+    const release = holdNextPoll()
+
+    const hook = renderHook(() => useInflightAutoSplit([pdfMat('卷宗.pdf')], true))
+    await waitFor(() => expect(hook.result.current.task.jobId).toBe('job-late'))
+
+    // 卸载 = 轮询会话失效（usePollSession 的 unmounted 闸门）
+    hook.unmount()
+    release({
+      job_id: 'job-late',
+      status: 'processing',
+      progress: 90,
+      total_pages: 164,
+      processed_pages: 148,
+      stage: 'segment',
+    })
+    // 给迟到回调一拍执行机会
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // 模块级会话态没有被这次迟到回调改写（仍是接管时那份快照）：
+    // 浮条读的就是它，写成 segment/148 页就等于在律师已经切走的页面上重新亮起
+    const task = readAutoSplitTask()
+    expect(task.jobId).toBe('job-late')
+    expect(task.snapshot?.stage).toBe('extract')
+    expect(task.snapshot?.processedPages).toBe(60)
   })
 })
