@@ -130,7 +130,11 @@ export function useInflightAutoSplit(mats: BundleMat[], enabled: boolean) {
     let mounted = true
     void (async () => {
       for (const mat of pdfs) {
-        const job = await findInflightPdfSplitJob(mat.n, mat.pages)
+        // 探测失败必须就地吞掉：它只是「看看有没有人在跑」的附加信息，
+        // 一个网络抖动不该在阅读器里留下一条未捕获拒绝（CI 会因此整批红）。
+        // findInflightPdfSplitJob 内部已有 try/catch，但那是「HTTP 层」的兜底；
+        // 这里再包一层是防止任何上层被替身/换实现后漏出 reject。
+        const job = await findInflightPdfSplitJob(mat.n, mat.pages).catch(() => null)
         // 探完一轮才置位：否则 StrictMode 的第二次 setup 会在第一次的请求还没回来时
         // 又发一遍（两次请求本身无害，但两次 `begin()` 会让先到的轮询立刻过期）
         if (!mounted || state.jobId != null) return
