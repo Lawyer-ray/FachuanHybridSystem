@@ -1,9 +1,16 @@
 name: codeql
 
+# 触发路径必须覆盖**实际会被扫描的所有目录**。
+#
+# 为什么要把 scripts/** 加进来：CodeQL 用的是 `security-and-quality` 套件，扫描范围
+# 是全仓 Python，scripts/ 也在内（历史上就报过 15 条告警）。但触发路径原先只写了
+# backend/**，于是「改了 scripts 里的代码 → 不会重扫 → 旧告警一直挂着 → Alerts gate
+# 一直红」，而修的人看不出为什么改了没反应。扫描范围与触发范围必须一致。
 on:
   pull_request:
     paths:
       - "backend/**"
+      - "scripts/**"
       - ".github/workflows/codeql.yml"
   push:
     branches:
@@ -12,6 +19,7 @@ on:
       - dev
     paths:
       - "backend/**"
+      - "scripts/**"
       - ".github/workflows/codeql.yml"
   schedule:
     - cron: "0 4 * * 0"
