@@ -74,7 +74,9 @@ from apps.pdf_splitting.services.split.markdown_builder import (
 )
 from apps.pdf_splitting.services.split.split_models import PageDescriptor
 
-GOLDEN_DIR = BACKEND_ROOT / "tests" / "ci" / "fixtures" / "pdf_splitting" / "golden_pages"
+GOLDEN_DIR = (
+    BACKEND_ROOT / "tests" / "ci" / "fixtures" / "pdf_splitting" / "golden_pages"
+)
 DEFAULT_OUT = Path("/tmp/eval_baseline.md")
 
 
@@ -96,9 +98,15 @@ def load_golden_pages() -> list[dict[str, Any]]:
             value = value.strip()
             current[key.strip()] = None if value == "null" else value
     for entry in pages:
-        entry["text"] = (GOLDEN_DIR / f"page_{entry['page']:04d}.txt").read_text(encoding="utf-8")
+        entry["text"] = (GOLDEN_DIR / f"page_{entry['page']:04d}.txt").read_text(
+            encoding="utf-8"
+        )
         table_html = entry.get("table_html")
-        entry["table_html"] = (GOLDEN_DIR / str(table_html)).read_text(encoding="utf-8") if table_html else ""
+        entry["table_html"] = (
+            (GOLDEN_DIR / str(table_html)).read_text(encoding="utf-8")
+            if table_html
+            else ""
+        )
     return pages
 
 
@@ -138,7 +146,9 @@ def page_descriptor_for(gold: dict[str, Any]) -> PageDescriptor:
         source_method="mineru_ocr",
         ocr_failed=False,
         # 只有表格页带 layout：源文本还是从 text 取，块只是给表格一条渲染通道
-        layout={"page_no": int(gold["page"]), "blocks": blocks, "text": gold["text"]} if table_block else None,
+        layout={"page_no": int(gold["page"]), "blocks": blocks, "text": gold["text"]}
+        if table_block
+        else None,
     )
 
 
@@ -149,13 +159,22 @@ def table_block_stats(html: str) -> dict[str, Any]:
     grid = _parse_grid(html)
     rows = _grid_row_count(html)
     cols = _grid_col_count(grid)
-    rect = {"x": 0.035, "y": 0.088, "w": 0.945, "h": 0.65, "approx": True, "precision": "page"}
+    rect = {
+        "x": 0.035,
+        "y": 0.088,
+        "w": 0.945,
+        "h": 0.65,
+        "approx": True,
+        "precision": "page",
+    }
     cells = _split_table_into_cells(page_no=1, rect=rect, html=html, unit="permille")
     return {
         "rows": rows,
         "cols": cols,
         "cells": _table_cell_count(html),
-        "filled_ratio": _filled_cell_ratio(grid=grid, row_count=rows, col_count=cols) if rows and cols else 0.0,
+        "filled_ratio": _filled_cell_ratio(grid=grid, row_count=rows, col_count=cols)
+        if rows and cols
+        else 0.0,
         "split_blocks": len(cells),
         "split_kind": (cells[0]["type"] if cells else "whole_table_kept"),
         "over_max_rows": rows > _TABLE_SPLIT_MAX_ROWS,
@@ -169,7 +188,13 @@ def _annotation_discrepancies(golds: list[dict[str, Any]]) -> list[str]:
     注释说 p22 有字率 18%，实测是 100%；注释说拆格门槛挡长表靠稀疏例外，
     实测例外分支根本没被走到。注释与数据不符意味着阈值的前提可能不成立。
     """
-    rows: list[str] = ["", "## 与代码注释不符的实测", "", "| 位置 | 注释怎么说 | 本基线实测 |", "|---|---|---|"]
+    rows: list[str] = [
+        "",
+        "## 与代码注释不符的实测",
+        "",
+        "| 位置 | 注释怎么说 | 本基线实测 |",
+        "|---|---|---|",
+    ]
     for gold in golds:
         html = gold["table_html"]
         if not html:
@@ -232,9 +257,13 @@ def main() -> int:
         markdown_pred = build_segment_markdown("golden", [page])
         text_pred = str(gold["text"])
         md_raw = char_error_rate(markdown_pred, gold["text"])
-        md_norm = char_error_rate(normalize_for_cer(markdown_pred), normalize_for_cer(gold["text"]))
+        md_norm = char_error_rate(
+            normalize_for_cer(markdown_pred), normalize_for_cer(gold["text"])
+        )
         text_raw = char_error_rate(text_pred, gold["text"])
-        text_norm = char_error_rate(normalize_for_cer(text_pred), normalize_for_cer(gold["text"]))
+        text_norm = char_error_rate(
+            normalize_for_cer(text_pred), normalize_for_cer(gold["text"])
+        )
         md_raw_total += md_raw
         md_norm_total += md_norm
         cells += 1
@@ -273,14 +302,22 @@ def main() -> int:
             f"{stats['split_blocks']} | {stats['split_kind']} | {f1:.4f} |"
         )
 
-    lines += ["", "## 定位块（build_positioned_blocks）", "", "| 页 | 块数 | 类型分布 |", "|---|---|---|"]
+    lines += [
+        "",
+        "## 定位块（build_positioned_blocks）",
+        "",
+        "| 页 | 块数 | 类型分布 |",
+        "|---|---|---|",
+    ]
     for gold in golds:
         page = page_descriptor_for(gold)
         blocks = build_positioned_blocks([page], bbox_backend="mineru")
         kinds: dict[str, int] = {}
         for block in blocks:
             kinds[str(block.get("type"))] = kinds.get(str(block.get("type")), 0) + 1
-        lines.append(f"| p{gold['page']} | {len(blocks)} | {json.dumps(kinds, ensure_ascii=False)} |")
+        lines.append(
+            f"| p{gold['page']} | {len(blocks)} | {json.dumps(kinds, ensure_ascii=False)} |"
+        )
 
     lines += _annotation_discrepancies(golds)
     report = "\n".join(lines) + "\n"

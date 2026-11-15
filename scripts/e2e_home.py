@@ -324,7 +324,6 @@ def main() -> int:
 
 def get_auth_jwt() -> str | None:
     """用 Django 内部接口换一个本地开发可用的 JWT 字符串。"""
-    import json
     import subprocess
     from pathlib import Path
 
