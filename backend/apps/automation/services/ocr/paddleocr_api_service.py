@@ -25,17 +25,52 @@ from apps.core.services.system_config_service import SystemConfigService
 
 logger = logging.getLogger(__name__)
 
-# 模型 → API 端点类型映射
-_OCR_ENDPOINT_MODELS = {"pp_ocrv5", "pp_structure_v3"}
-_LAYOUT_ENDPOINT_MODELS = {"paddleocr_vl", "paddleocr_vl_1_5"}
-
-# 模型 → 对应的 SystemConfig URL Key 映射
-_MODEL_URL_KEY_MAP: dict[str, str] = {
-    "pp_ocrv5": "PADDLEOCR_OCR_API_URL",
-    "pp_structure_v3": "PADDLEOCR_OCR_API_URL",
-    "paddleocr_vl": "PADDLEOCR_VL_API_URL",
-    "paddleocr_vl_1_5": "PADDLEOCR_VL15_API_URL",
+# 配置里存的模型键 → PaddleOCR 服务端要求的模型名。
+#
+# ⚠️ 这两者**必须**区分开，否则线上直接报「模型传参错误」(code=10007)：
+# 服务端只认 `PaddleOCR-VL-1.6` 这种带大写的官方模型名，而配置里长期沿用
+# `paddleocr_vl_1_6` 这类小写下划线键（历史命名，改动会动到已落库的配置值）。
+# 所以映射只放在发送前这一处，配置侧保持原键不变。
+_MODEL_API_NAME_MAP: dict[str, str] = {
+    "pp_ocrv5": "PP-OCRv5",
+    "pp_ocrv6": "PP-OCRv6",
+    "pp_structure_v3": "PP-StructureV3",
+    "paddleocr_vl": "PaddleOCR-VL",
+    "paddleocr_vl_1_5": "PaddleOCR-VL-1.5",
+    "paddleocr_vl_1_6": "PaddleOCR-VL-1.6",
 }
+
+# 历史库里混存过两种写法：小写下划线键（paddleocr_vl_1_6）与官方名
+# （PaddleOCR-VL-1.6 / PP-OCRv6）。两者都要能识别，否则老数据会掉进
+# 「不支持的 PaddleOCR 模型」分支或发错名字。归一化函数把两者统一到小写键。
+
+
+def normalize_model_key(raw: str) -> str:
+    """任意写法 → 小写配置键；未知值原样（小写）返回。"""
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    if text in _MODEL_API_NAME_MAP:
+        return text
+    for key, api_name in _MODEL_API_NAME_MAP.items():
+        if text == api_name or text.lower() == api_name.lower():
+            return key
+    return text.lower()
+
+
+# 模型 → API 端点类型映射（键统一为小写配置键）
+_OCR_ENDPOINT_MODELS = {"pp_ocrv5", "pp_ocrv6", "pp_structure_v3"}
+_LAYOUT_ENDPOINT_MODELS = {"paddleocr_vl", "paddleocr_vl_1_5", "paddleocr_vl_1_6"}
+
+# 全部模型统一走 v2 异步 Job API 的单一端点。
+#
+# 历史包袱：早期是「每模型一个 URL」的同步端点（PADDLEOCR_OCR_API_URL /
+# PADDLEOCR_VL_API_URL / PADDLEOCR_VL15_API_URL），那些 aistudio 体验域名已全部
+# 失效（返回 500）。v2 Job API 用同一个 URL + `model` 参数区分产品线。
+_UNIFIED_JOB_API_URL_KEY = "PADDLEOCR_JOB_API_URL"
+
+# 兼容保留：旧配置键仍在库中时不再被读取（迁移 0012 已删除，此处仅防御性兜底）
+_MODEL_URL_KEY_MAP: dict[str, str] = dict.fromkeys(_MODEL_API_NAME_MAP, _UNIFIED_JOB_API_URL_KEY)
 
 # 文件类型：0=PDF, 1=图片
 _FILE_TYPE_PDF = 0
@@ -89,16 +124,20 @@ class PaddleOCRApiEngine:
 
     @property
     def model(self) -> str:
-        """获取当前使用的模型名称"""
-        if self._model:
-            return self._model
-        return str(self._config_service.get_value("PADDLEOCR_API_MODEL", "pp_ocrv5") or "pp_ocrv5")
+        """当前模型的小写配置键（兼容库里的官方名写法）。"""
+        raw = self._model or str(self._config_service.get_value("PADDLEOCR_API_MODEL", "pp_ocrv5") or "pp_ocrv5")
+        return normalize_model_key(raw)
 
     @property
     def api_url(self) -> str:
-        """获取当前模型对应的 API URL"""
-        url_key = _MODEL_URL_KEY_MAP.get(self.model, "PADDLEOCR_OCR_API_URL")
+        """获取 API URL（所有模型共用 v2 Job API 端点）"""
+        url_key = _MODEL_URL_KEY_MAP.get(self.model, _UNIFIED_JOB_API_URL_KEY)
         return str(self._config_service.get_value(url_key, "") or "")
+
+    @property
+    def api_model_name(self) -> str:
+        """配置里的模型键 → 服务端认可的官方模型名（发送给 API 的 `model` 字段）。"""
+        return _MODEL_API_NAME_MAP.get(self.model, self.model)
 
     @property
     def api_token(self) -> str:
@@ -155,16 +194,24 @@ class PaddleOCRApiEngine:
             "Authorization": f"bearer {self.api_token}",
         }
 
-        # multipart/form-data 上传
+        # multipart/form-data 上传。
+        # `model` 必须发官方模型名（如 PaddleOCR-VL-1.6），不能发配置键（paddleocr_vl_1_6），
+        # 否则服务端返回 400「模型传参错误」(code=10007)。
         data = {
-            "model": model,
+            "model": self.api_model_name,
             "optionalPayload": json.dumps(optional_payload),
         }
         files = {
             "file": ("image.jpg", image_bytes, "image/jpeg"),
         }
 
-        logger.info("PaddleOCR API 调用: model=%s, file_type=%s, data_size=%d", model, file_type, len(image_bytes))
+        logger.info(
+            "PaddleOCR API 调用: model=%s (api_name=%s), file_type=%s, data_size=%d",
+            model,
+            self.api_model_name,
+            file_type,
+            len(image_bytes),
+        )
 
         try:
             # 提交 Job
@@ -205,10 +252,13 @@ class PaddleOCRApiEngine:
                     if not jsonl_url:
                         raise RuntimeError("PaddleOCR API 完成但无 jsonUrl")
 
-                    # 下载 JSONL 结果
+                    # 下载结果。
+                    # v2 Job API 的 jsonUrl 返回的是**单行完整 JSON**（`{logId, result:{...}}`），
+                    # 不是每行一条的 JSONL。先按完整 JSON 解，失败再退回 JSONL 逐行解析
+                    # （兼容旧版或将来改回流式的情况）。
                     with httpx.Client(timeout=30) as client:
-                        jsonl_resp = client.get(jsonl_url)
-                    return self._parse_jsonl_response(jsonl_resp.text, model)
+                        result_resp = client.get(jsonl_url)
+                    return self._parse_job_result(result_resp.text, model)
 
                 elif state == "failed":
                     error_msg = poll_data.get("data", {}).get("errorMsg", "未知错误")
@@ -223,8 +273,29 @@ class PaddleOCRApiEngine:
             logger.warning("PaddleOCR API 网络错误: %s", e)
             raise RuntimeError(f"PaddleOCR API 网络错误: {e}") from e
 
+    def _parse_job_result(self, raw_text: str, model: str) -> PaddleOCRApiResult:
+        """解析 Job API 的结果体。
+
+        v2 Job API 实测返回单行完整 JSON：``{"logId": ..., "result": {"ocrResults": [...]}}``
+        （版面类模型是 ``result.layoutParsingResults``）。旧版/流式则可能是 JSONL。
+        两者都支持：先试完整 JSON，失败再按 JSONL 逐行。
+        """
+        text = raw_text.strip()
+        if text.startswith("{"):
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("result"), dict):
+                return self._parse_response(parsed, model)
+        return self._parse_jsonl_response(raw_text, model)
+
     def _parse_jsonl_response(self, jsonl_text: str, model: str) -> PaddleOCRApiResult:
-        """解析 JSONL 格式的 PaddleOCR API 结果。"""
+        """解析 JSONL 格式的 PaddleOCR API 结果。
+
+        每条 line 可能是 ``{"result": {...}}`` 外层包装，也可能是裸的 result，
+        统一取到 ``result`` 再交给 ``_parse_response``，避免两套解析路径漂移。
+        """
         all_texts: list[str] = []
         for line in jsonl_text.strip().split("\n"):
             line = line.strip()
@@ -234,17 +305,34 @@ class PaddleOCRApiEngine:
                 item = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            # OCR 端点：rec_texts
-            rec_texts = item.get("rec_texts", [])
-            if isinstance(rec_texts, list):
-                all_texts.extend(t for t in rec_texts if isinstance(t, str) and t.strip())
+            if not isinstance(item, dict):
                 continue
-            # Layout 端点：从 markdown 或 text 中提取
-            for key in ("markdown", "text", "content"):
-                val = item.get(key)
-                if isinstance(val, str) and val.strip():
-                    all_texts.append(val.strip())
-                    break
+
+            # 统一收敛到 `result`：有外层就剥掉，没有就当它本身就是 result。
+            nested = item.get("result")
+            result: dict[str, Any] = nested if isinstance(nested, dict) else item
+
+            # 先看它是否带了预期的容器键（ocrResults / layoutParsingResults）。
+            # 裸片段（如单独一行 ``{"rec_texts": [...]}``）没有容器结构，直接交给
+            # `_parse_response` 会因找不到容器而返回空文本——历史流式响应里这很常见，
+            # 所以这类行改走通用文本提取。
+            has_container = isinstance(result.get("ocrResults"), list) or isinstance(
+                result.get("layoutParsingResults"), list
+            )
+            if not has_container:
+                # rec_texts 优先按行提取（保持原有顺序语义），否则走通用片段收集。
+                rec_texts = self._collect_rec_texts(result)
+                all_texts.extend(rec_texts if rec_texts else self._collect_text_fragments(result))
+                continue
+
+            try:
+                parsed = self._parse_response({"result": result}, model)
+            except RuntimeError:
+                # 未知 model 类型时退回通用文本提取，不让一行坏数据弄挂整个任务
+                all_texts.extend(self._collect_text_fragments(result))
+                continue
+                continue
+            all_texts.extend(parsed.raw_texts)
 
         merged = "\n".join(all_texts)
         logger.info("PaddleOCR API (JSONL) 识别完成: model=%s, text_len=%d", model, len(merged))
@@ -254,8 +342,8 @@ class PaddleOCRApiEngine:
         """
         解析 API 响应
 
-        PP-OCRv5 / PP-StructureV3: result.ocrResults[].prunedResult
-        PaddleOCR-VL / VL-1.5: result.layoutParsingResults[].markdown.text
+        PP-OCRv5 / PP-OCRv6 / PP-StructureV3: result.ocrResults[].prunedResult
+        PaddleOCR-VL / VL-1.5 / VL-1.6: result.layoutParsingResults[].markdown.text
         """
         result = data.get("result", {})
 
@@ -457,10 +545,17 @@ class PaddleOCRApiEngine:
             )
 
         headers = {"Authorization": f"bearer {self.api_token}"}
-        data = {"model": model, "optionalPayload": json.dumps(optional_payload)}
+        # 同步版同一限制：必须发官方模型名，否则 400「模型传参错误」(code=10007)
+        data = {"model": self.api_model_name, "optionalPayload": json.dumps(optional_payload)}
         files = {"file": ("image.jpg", image_bytes, "image/jpeg")}
 
-        logger.info("PaddleOCR API 异步调用: model=%s, file_type=%s, data_size=%d", model, file_type, len(image_bytes))
+        logger.info(
+            "PaddleOCR API 异步调用: model=%s (api_name=%s), file_type=%s, data_size=%d",
+            model,
+            self.api_model_name,
+            file_type,
+            len(image_bytes),
+        )
 
         try:
             # 提交 Job
@@ -498,7 +593,7 @@ class PaddleOCRApiEngine:
                             raise RuntimeError("PaddleOCR API 完成但无 jsonUrl")
 
                         jsonl_resp = await poll_client.get(jsonl_url)
-                        return self._parse_jsonl_response(jsonl_resp.text, model)
+                        return self._parse_job_result(jsonl_resp.text, model)
 
                     elif state == "failed":
                         error_msg = poll_data.get("data", {}).get("errorMsg", "未知错误")
