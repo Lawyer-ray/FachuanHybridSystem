@@ -19,8 +19,8 @@ function draft(over: Partial<Segment> = {}): DraftState {
 }
 
 const blocks: PositionedBlock[] = [
-  { page: 1, type: 'p', text: '甲', rect: { x: 0, y: 0, w: 1, h: 1, approx: false } },
-  { page: 1, type: 'p', text: '乙', rect: { x: 0, y: 1, w: 1, h: 1, approx: false } },
+  { page: 1, type: 'p', text: '甲', rect: { x: 0, y: 0, w: 1, h: 1, approx: false, precision: 'exact' } },
+  { page: 1, type: 'p', text: '乙', rect: { x: 0, y: 1, w: 1, h: 1, approx: false, precision: 'exact' } },
 ]
 
 describe('setSegmentMarkdown', () => {

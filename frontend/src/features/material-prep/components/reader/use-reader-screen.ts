@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { useElementWidth } from '@/hooks/use-element-width'
+import { setEngineChecked } from '../../draft'
 import { buildFlowOps, buildMetaOps, selDetailOf } from './reader-ops'
 import { useAssignLaunch } from './use-assign-launch'
 import { useReaderStoreFields } from './use-reader-store-fields'
@@ -11,6 +12,7 @@ import { useReaderActions } from './use-reader-actions'
 import { useReaderWidths } from './use-reader-widths'
 import { useReaderOcr } from './use-ocr'
 import { useAutoSplit } from './use-auto-split'
+import { useInflightAutoSplit } from './use-auto-split-task'
 import { useReaderKeys } from './use-reader-keys'
 import { useWheelZoom } from './use-wheel-zoom'
 import type { DraftState } from '../../types'
@@ -48,6 +50,11 @@ export function useReaderScreen() {
   const [setFlowWrap, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
   const ocr = useReaderOcr()
   const autoSplit = useAutoSplit()
+  // 打开阅读器就查一次「有没有别人发起、还在跑的识别任务」，命中则接管轮询并
+  // 在底部进度面板上显示。以前任务只活在本页面内存里：刷新/换设备后界面一片空白，
+  // 而云端那份 164 页卷宗还在烧钱（「幽灵任务」）。
+  // 只在草稿就绪时查：mats 来自草稿，没草稿时页数也是猜的。
+  const inflight = useInflightAutoSplit(readyDraft?.mats ?? [], readyDraft != null)
   const actions = useReaderActions(draft)
   const view = useReaderViewState()
   const onExitHint = useReaderHintExit()
@@ -67,6 +74,13 @@ export function useReaderScreen() {
 
   // ops 稳定化：让 Flow → PageCell 的 memo 真正命中（st.update / pickPage 都是稳定引用）
   const flowOps = useMemo(() => buildFlowOps(st.update, ocr.pickPage), [st.update, ocr.pickPage])
+  // 勾选引擎分歧的「已核对」：走 st.update，与其它草稿编辑同一条持久化路径。
+  // 依赖整个 st 而不只是 st.update：eslint 的 exhaustive-deps 不认 `st.update` 这种
+  // 属性级依赖（它会要求把 st 整个列进去），而 st 每次渲染都是新对象 -- 所以用 useMemo。
+  const toggleEngineChecked = useMemo(
+    () => (key: string, checked: boolean) => st.update((d) => setEngineChecked(d, key, checked)),
+    [st],
+  )
   const metaOps = useMemo(() => buildMetaOps(st.update, st.removeInfo), [st.update, st.removeInfo])
 
   const launch = useAssignLaunch({
@@ -144,6 +158,11 @@ export function useReaderScreen() {
     onApplySel: st.applySel,
     onExitHint,
     flowWrapRef: setFlowWrap,
+    // 「已核对」是律师的判断，落在草稿上随防抖保存落盘，所以走 st.update 而不是组件 state
+    onToggleEngineChecked: toggleEngineChecked,
+    // 自动分段进度面板：隐藏时为空（面板自己不渲染），隐藏后任务仍在后台跑
+    autoSplitTask: inflight.task.hidden ? null : inflight.task,
+    onHideAutoSplit: inflight.hide,
   }
 
   return {

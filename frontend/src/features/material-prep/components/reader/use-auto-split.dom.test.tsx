@@ -32,6 +32,9 @@ const draftMock = vi.hoisted(() => ({
   readPageQuality: vi.fn((raw: unknown) => (raw && typeof raw === 'object' ? raw : null)),
   readInconsistencies: vi.fn((raw: unknown) => (Array.isArray(raw) ? raw : [])),
   withPageQuality: vi.fn((v: unknown) => v),
+  // 双引擎分歧同样只是纯函数：收窄穿过去、落草稿穿过去
+  readEngineDisagreements: vi.fn((raw: unknown) => (Array.isArray(raw) ? raw : [])),
+  withEngineDisagreements: vi.fn((v: unknown) => v),
 }))
 const storeMock = vi.hoisted(() => ({
   getState: vi.fn(),
@@ -60,13 +63,16 @@ function officeMat(mi: number) {
   return { k: 'office', partIndex: mi, n: `m${mi}.docx`, customName: '' }
 }
 
-function setup({ mats = [pdfMat(0)], openId = 1 } = {}) {
+function setup({ mats = [pdfMat(0)], openId = 1, cloudSelection = [] as string[] } = {}) {
   const update = vi.fn()
   storeMock.getState.mockReturnValue({
     openId,
     draft: { mats },
     update,
     setInconsistencies: vi.fn(),
+    // 解析平台的多选集合（空 = 自动容灾）。run() 每次都会读它来算正主 / 比对名单，
+    // 缺了这个键整个 run 会在第一行崩掉，所以所有用例的 store 桩都必须带上。
+    cloudSelection,
   })
   return { update }
 }

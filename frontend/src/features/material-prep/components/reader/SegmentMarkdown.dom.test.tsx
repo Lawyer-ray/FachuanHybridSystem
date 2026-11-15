@@ -29,8 +29,8 @@ function seg(over: Partial<Segment> = {}): Segment {
 }
 
 const blocks: PositionedBlock[] = [
-  { page: 1, type: 'paragraph', text: '原告提交了转账凭证。', rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.05, approx: false } },
-  { page: 1, type: 'paragraph', text: '被告对此不予认可。', rect: { x: 0.1, y: 0.4, w: 0.5, h: 0.05, approx: false } },
+  { page: 1, type: 'paragraph', text: '原告提交了转账凭证。', rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.05, approx: false, precision: 'exact' } },
+  { page: 1, type: 'paragraph', text: '被告对此不予认可。', rect: { x: 0.1, y: 0.4, w: 0.5, h: 0.05, approx: false, precision: 'exact' } },
 ]
 
 function base(props: Partial<Parameters<typeof SegmentMarkdown>[0]> = {}) {
@@ -199,9 +199,9 @@ describe('blockKeyOf', () => {
 
   it('跨页时每页序号从 0 重新开始', () => {
     const multi: PositionedBlock[] = [
-      { page: 1, type: 'p', text: 'a', rect: { x: 0, y: 0, w: 1, h: 1, approx: false } },
-      { page: 2, type: 'p', text: 'b', rect: { x: 0, y: 0, w: 1, h: 1, approx: false } },
-      { page: 2, type: 'p', text: 'c', rect: { x: 0, y: 0, w: 1, h: 1, approx: false } },
+      { page: 1, type: 'p', text: 'a', rect: { x: 0, y: 0, w: 1, h: 1, approx: false, precision: 'exact' } },
+      { page: 2, type: 'p', text: 'b', rect: { x: 0, y: 0, w: 1, h: 1, approx: false, precision: 'exact' } },
+      { page: 2, type: 'p', text: 'c', rect: { x: 0, y: 0, w: 1, h: 1, approx: false, precision: 'exact' } },
     ]
     const s = seg({ blocks: multi })
     expect(blockKeyOf(s, multi[0]!, 0)).toBe('s1:1:0')
@@ -250,7 +250,7 @@ describe('可疑点清单', () => {
     const onLocate = vi.fn()
     // 让 D3.00 真的出现在某个 block 的 text 里 → 应该能定位
     const withHit: PositionedBlock[] = [
-      { page: 2, type: 'table', text: '手续费 D3.00', rect: { x: 0, y: 0, w: 1, h: 1, approx: false } },
+      { page: 2, type: 'table', text: '手续费 D3.00', rect: { x: 0, y: 0, w: 1, h: 1, approx: false, precision: 'exact' } },
     ]
     const { getByText } = render(
       <SegmentMarkdown {...base({ seg: seg({ md: riskyMd, blocks: withHit }), onLocateBlock: onLocate })} />,

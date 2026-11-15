@@ -7,17 +7,27 @@ import {
   canAutoSplitMat,
   detectAutoSplitConflicts,
   fillSegmentText,
+  readEngineDisagreements,
   readInconsistencies,
   readPageQuality,
+  withEngineDisagreements,
   withPageQuality,
   type AutoSplitConflict,
 } from '../../draft'
-import type { Inconsistency, PageQuality } from '../../types'
+import type { EngineDisagreement, Inconsistency, PageQuality } from '../../types'
 import { useReader } from '../../store'
 import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
 import type { DraftState, PdfSplitSegmentSuggestion } from '../../types'
 import { usePollSession } from '@/hooks/use-poll-session'
-import { blocksToMarkdown, guessImageType, pollJob, segmentBackendOf } from './auto-split-helpers'
+import {
+  blocksToMarkdown,
+  guessImageType,
+  pollJob,
+  segmentBackendOf,
+  type JobProgressSnapshot as JobSnapshot,
+} from './auto-split-helpers'
+import { beginOwnedAutoSplit, clearAutoSplitTask, reportAutoSplitProgress } from './use-auto-split-task'
+import { resolveBackendRequest } from './platform-selection'
 
 /**
  * 重跑前冲突询问的三种结果。
@@ -33,6 +43,9 @@ export type RerunChoice = 'keep' | 'overwrite' | 'cancel'
  * 另带两类「机器读到什么」的统计（都可能缺，旧任务 / 后端未算时为空）：
  *   · page_quality —— 哪几页是图纸/照片、哪几页几乎没字（→ 段行标记 + 正文提示条）
  *   · inconsistencies —— 同一枚章 / 同一个字段被识别成两种写法（→ 全局清单）
+ *   · engineDisagreements —— 两个 OCR 引擎在同一处读得不一样（→ 引擎分歧清单 + 双框）
+ *
+ * 双引擎默认关闭，不跑时 `engine_disagreements` 整个键都不存在，收窄后为空数组。
  */
 interface AutoSplitResult {
   mi: number
@@ -40,10 +53,15 @@ interface AutoSplitResult {
   segmentBackend: string
   pageQuality: PageQuality | null
   inconsistencies: Inconsistency[]
+  engineDisagreements: EngineDisagreement[]
 }
 
 /**
  * 自动分段编排：提交云端拆分任务 → 轮询到终态 → 回写草稿。
+ *
+ * 只做编排。「现在有没有任务在跑、跑到哪、要不要接管别人发起的任务」在
+ * use-auto-split-task.ts：那是另一份生命周期（不随 openId 复位、工具条与底部
+ * 浮条都要读），混进来会把本文件顶过规模红线，也让两条入口的边界看不清。
  *
  * 重入与卸载走 usePollSession 的会话号守卫：run() 一开始就签发新会话，
  * 旧循环在下一个自检点退出。以前的 cancelled ref 只在卸载置位——连点两次
@@ -123,12 +141,18 @@ export function useAutoSplit() {
     // 先开新会话再置 running：同帧重入的第二个 run 从这里开始，第一个循环立刻过期
     const lease = pollSession.begin()
     setRunning(true)
+    // 进度面板同步亮起：提交 164 页 PDF 本身就要几十秒，这段时间面板上不能是空白
+    beginOwnedAutoSplit()
     if (targets.length > 0) setProgress(`正在提交 ${targets.length} 个 PDF`)
     try {
       // 版面策略在 ReaderState 上（不是 DraftState）：它是本次识别的成本选择，
       // 随会话复位，不落草稿。整批只读一次，避免每个 PDF 各读一遍。
       const layoutMode = useReader.getState().layoutMode
-      const cloudBackend = useReader.getState().cloudBackend
+      // 勾选的引擎集合整批只算一次：正主（cloud_backend 单值）+ 交叉比对名单
+      // （dual_engines）。两者分开发是因为 cloud_backend 只认单值，塞逗号串会被
+      // 后端当成未知值按 auto 处理（详见 platform-selection.resolveBackendRequest）。
+      const { cloudBackend, dualEngines } = resolveBackendRequest(useReader.getState().cloudSelection)
+      const dualEnginesValue = dualEngines ? dualEngines.join(',') : null
       const jobs = await Promise.all(
         targets.map(async ({ mat, mi }) => {
           // ① 先查有没有**已经算好**的任务可直接复用。
@@ -149,9 +173,20 @@ export function useAutoSplit() {
             type: 'application/pdf',
           })
           // 版面策略跟着当前会话走：开了补版面才让电子页上云端拿坐标
-          return { mi, jobId: await createPdfSplitJob(file, { layoutMode, cloudBackend }), reused: false, prefetched: null }
+          return {
+            mi,
+            jobId: await createPdfSplitJob(file, { layoutMode, cloudBackend, dualEngines: dualEnginesValue }),
+            reused: false,
+            prefetched: null,
+          }
         }),
       )
+      // 进度有两条消费方，形态不同：工具条按钮只要一句文字（它只有一行的宽度），
+      // 底部面板要整份快照（阶段 / 页数 / 耗时 / 心跳）。所以回调里同时喂两处。
+      const onProgress = (text: string, snapshot: JobSnapshot) => {
+        setProgress(text)
+        reportAutoSplitProgress(snapshot)
+      }
       const settled: PromiseSettledResult<AutoSplitResult>[] = []
       let finished = 0
       for (const { mi, jobId, prefetched } of jobs) {
@@ -159,7 +194,7 @@ export function useAutoSplit() {
         if (lease.isStale()) break
         try {
           // 复用的任务已经是 review_required/completed，不必再轮询一轮
-          const result = prefetched ?? (await pollJob(jobId, lease, setProgress))
+          const result = prefetched ?? (await pollJob(jobId, lease, onProgress))
           if (lease.isStale()) break
           finished += 1
           setProgress(`云端识别完成 ${finished}/${jobs.length}`)
@@ -171,6 +206,7 @@ export function useAutoSplit() {
               segmentBackend: segmentBackendOf(result),
               pageQuality: readPageQuality(result.summary.page_quality),
               inconsistencies: readInconsistencies(result.summary.inconsistencies),
+              engineDisagreements: readEngineDisagreements(result.summary.engine_disagreements),
             },
           })
         } catch (error) {
@@ -230,8 +266,14 @@ export function useAutoSplit() {
       // 选「用识别结果覆盖」（或本来就没冲突）就走原版，行为与重跑前完全一致。
       const applyFor = choice === 'keep' ? applyAutoSplitPreservingEdits : applyAutoSplit
       for (const result of results) {
-        // 页级质量跟着同一次识别结果一起落到草稿上（只用于展示，不入库）
-        current.update((value) => withPageQuality(applyFor(value, result.mi, result.segments), result.pageQuality))
+        // 页级质量跟着同一次识别结果一起落到草稿上。
+        // 引擎分歧同路：它也是「这次识别产出了什么」，且要随草稿持久化（抽屉与双框都要读它）
+        current.update((value) =>
+          withEngineDisagreements(
+            withPageQuality(applyFor(value, result.mi, result.segments), result.pageQuality),
+            result.engineDisagreements,
+          ),
+        )
       }
       // 跨页不一致是全本的：多个源的结果合并进同一份清单
       current.setInconsistencies(results.flatMap((item) => item.inconsistencies))
@@ -299,6 +341,9 @@ export function useAutoSplit() {
       if (!lease.isStale()) {
         setRunning(false)
         setProgress('')
+        // 面板同样只在「本会话仍是当前会话」时收起。接管的那个任务用的 lease 已经过期，
+        // 这里绝不会误收别人的面板。
+        clearAutoSplitTask()
       }
     }
   }

@@ -157,8 +157,12 @@ def get_message(request: HttpRequest, message_id: int) -> Any:  # pragma: no cov
 
 
 @router.delete("/messages/{message_id}", response=MessageAckOut)
-def delete_message(request: HttpRequest, message_id: int) -> dict[str, Any]:  # pragma: no cover
-    """删除收件箱消息（材料包）：先清理附件物理文件，再删 DB 记录（破坏性，前端需二次确认）。"""
+def delete_message(request: HttpRequest, message_id: int) -> dict[str, Any]:
+    """删除收件箱消息（材料包）：硬删 DB 记录并清理附件物理文件（破坏性，前端需二次确认）。
+
+    被财务凭证（待认领收款 / 待认领发票）引用的消息会抛 ConflictError → 409，
+    且此时一个附件都不会被删（服务层先校验、后动文件）。
+    """
     from apps.message_hub.services.manual_upload_service import delete_manual_message
 
     msg = _get_message_or_404(request, message_id)

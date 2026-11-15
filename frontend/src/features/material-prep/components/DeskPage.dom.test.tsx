@@ -47,7 +47,19 @@ vi.mock('../hooks/use-desk-ring', () => ({
   useDeskRing: () => ({ ringRef: { current: null }, ringStyle: {} }),
 }))
 vi.mock('../hooks/use-desk-route-sync', () => ({ useDeskRouteSync: vi.fn() }))
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() } }))
+// sonner v2 的 toast 是「可调用对象」：既 `toast('文案')` 也 `toast.error('文案')`。
+// 只做成带方法的普通对象会漏掉前一种用法（删除成功走的就是 `toast(`${subject} 已删除`)`）。
+vi.mock('sonner', () => {
+  const fn = vi.fn()
+  return {
+    toast: Object.assign(fn, {
+      success: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      warning: vi.fn(),
+    }),
+  }
+})
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>()
   // 记录跳转目标：openAt 的「详情 URL 必须带 stage」是本次修复的核心，
@@ -184,13 +196,18 @@ function pack(id: number, status: 'todo' | 'done' | 'filed') {
   return { id, status, subject: `pack-${id}` }
 }
 
-function setup(packs: unknown[] | null, over: { create?: unknown; judge?: unknown } = {}) {
+function setup(packs: unknown[] | null, over: { create?: unknown; judge?: unknown; del?: unknown } = {}) {
   hookMock.useMaterialPacks.mockReturnValue({ data: packs, isLoading: false, error: null })
   const mutateAsync = vi.fn(async () => ({}))
   hookMock.useCreatePack.mockReturnValue({ mutateAsync: (over.create as never) ?? mutateAsync })
   hookMock.useJudgePack.mockReturnValue({ mutateAsync: (over.judge as never) ?? mutateAsync })
-  hookMock.useDeletePack.mockReturnValue({ mutateAsync: vi.fn(async () => ({})), isPending: false })
-  return { createMutate: (over.create as never) ?? mutateAsync, judgeMutate: (over.judge as never) ?? mutateAsync }
+  const deleteMutate = (over.del as never) ?? vi.fn(async () => ({}))
+  hookMock.useDeletePack.mockReturnValue({ mutateAsync: deleteMutate, isPending: false })
+  return {
+    createMutate: (over.create as never) ?? mutateAsync,
+    judgeMutate: (over.judge as never) ?? mutateAsync,
+    deleteMutate: deleteMutate as ReturnType<typeof vi.fn>,
+  }
 }
 
 /** 收件箱行：只带 countUnread 用得着的 is_read，其余字段与断言无关 */
@@ -484,8 +501,8 @@ describe('DeskPage：通过弹窗归案', () => {
 })
 
 describe('DeskPage：删除', () => {
-  it('确认删除：成功后提示并清空目标', async () => {
-    setup([pack(1, 'todo')])
+  it('确认删除：以目标 id 发删除请求、提示并清空目标', async () => {
+    const { deleteMutate } = setup([pack(1, 'todo')])
     const { unmount, getByText } = renderDesk()
 
     // 先点「删」设目标，再点弹窗确认
@@ -494,7 +511,34 @@ describe('DeskPage：删除', () => {
       getByText('确认删除').click()
       await Promise.resolve()
     })
-    await waitFor(() => expect(dialogs.props).toBeTruthy())
+    await waitFor(() => expect(deleteMutate).toHaveBeenCalledWith(1))
+    expect(toast).toHaveBeenCalledWith('pack-1 已删除')
+    expect(toast.error).not.toHaveBeenCalled()
+    // 成功后清空目标：再次确认不会重复发包
+    await act(async () => {
+      getByText('确认删除').click()
+      await Promise.resolve()
+    })
+    expect(deleteMutate).toHaveBeenCalledTimes(1)
+    unmount()
+  })
+
+  it('删除被财务凭证挡住（409）：透出后端原文，而不是笼统的「删除失败」', async () => {
+    // 后端 ConflictError 的 message 必须直达用户：笼统文案会让人以为是网络抖动而反复重试
+    const backendMsg = '该材料包已被待认领的发票记录 2 条引用，不能再删除；请先处理这些凭证'
+    setup([pack(1, 'todo')], {
+      del: vi.fn(async () => {
+        throw httpError(409, { code: 'INBOX_MESSAGE_REFERENCED', message: backendMsg })
+      }),
+    })
+    const { unmount, getByText } = renderDesk()
+
+    fireEvent.click(getByText('删'))
+    await act(async () => {
+      getByText('确认删除').click()
+      await Promise.resolve()
+    })
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(backendMsg))
     unmount()
   })
 

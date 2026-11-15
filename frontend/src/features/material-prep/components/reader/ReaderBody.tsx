@@ -1,15 +1,27 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
+import { disagreementKey, groupBySeverity } from '../../draft'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
 import { DocTodoDrawer } from './DocTodoDrawer'
+import { EngineDisagreementDrawer } from './EngineDisagreementDrawer'
 import { InconsistencyDrawer } from './InconsistencyDrawer'
+import { AutoSplitProgress } from './AutoSplitProgress'
 import { HintBar } from './HintBar'
 import { MetaPanel } from './MetaPanel'
 import { Rail } from './Rail'
 import { SelectionBar } from './SelectionBar'
 import type { buildFlowOps, buildMetaOps } from './reader-ops'
+import type { JobProgressSnapshot } from './auto-split-helpers'
+
+/** 自动分段任务会话态（结构由 use-auto-split-task 定义；这里只要面板用得到的那部分） */
+type AutoSplitTaskView = {
+  jobId: string | null
+  snapshot: JobProgressSnapshot | null
+  /** 本页面亲自发起的任务（接管来的只展示、不回写草稿） */
+  owned: boolean
+}
 
 /**
  * 阅读器三栏主体 + 取字/选页提示条 + 选页汇总条。
@@ -51,6 +63,9 @@ export function ReaderBody({
   onApplySel,
   onExitHint,
   flowWrapRef,
+  onToggleEngineChecked,
+  autoSplitTask = null,
+  onHideAutoSplit,
 }: {
   draft: DraftState
   /** 页级质量统计（`summary.page_quality`，旧任务为 null） */
@@ -89,6 +104,11 @@ export function ReaderBody({
    *  宽度测量也挂在它上面。此前这个 ref 在 hook 里创建却**从未挂到 DOM**，
    *  中栏也就没有任何 overflow —— 表现是「永远停在第一页，滚不动」。 */
   flowWrapRef: (node: HTMLDivElement | null) => void
+  /** 勾/取消一条引擎分歧的「已核对」（落在 draft.engineChecked 上，随草稿保存） */
+  onToggleEngineChecked: (key: string, checked: boolean) => void
+  /** 自动分段任务会话态；null = 没有在跑的任务（或用户点了「不再显示」） */
+  autoSplitTask?: AutoSplitTaskView | null
+  onHideAutoSplit?: () => void
 }) {
   // Markdown 面板展开态：右栏自己记，不落草稿（纯阅读偏好）
   const [mdOpen, setMdOpen] = useState(true)
@@ -106,6 +126,19 @@ export function ReaderBody({
   const [inconsistencyOpen, setInconsistencyOpen] = useState(false)
   // 全卷「证件页待补录」抽屉（入口同样在左栏顶部，与不一致入口并列）
   const [docTodoOpen, setDocTodoOpen] = useState(false)
+  // 双引擎分歧抽屉 + 当前在页面上高亮的那一条
+  //
+  // 高亮态用**分歧键**而不是下标：重新识别后数组会换一批内容，下标会把高亮挂到
+  // 一条不相关的分歧上（乃至越界）。用内容做键，不匹配就自然不高亮。
+  const [engineDrawerOpen, setEngineDrawerOpen] = useState(false)
+  const [engineActiveKey, setEngineActiveKey] = useState<string | null>(null)
+  // 引用稳定：下面 onJumpEngineDisagreement 依赖它，每次渲染新建空数组会让回调恒变
+  const engineDisagreements = useMemo(() => draft.engineDisagreements ?? [], [draft.engineDisagreements])
+  const engineFocus = engineActiveKey
+    ? (engineDisagreements.find((d) => disagreementKey(d) === engineActiveKey) ?? null)
+    : null
+  // 左栏徽标只数未核对的：核完的条目仍然留在清单里置灰可查，但不该再催律师
+  const engineUnchecked = groupBySeverity(engineDisagreements, new Set(draft.engineChecked ?? [])).unchecked
 
   /**
    * 双击 Markdown 的一条 → 滚到原页 + 高亮那个框。
@@ -166,6 +199,21 @@ export function ReaderBody({
     [draft.segs, onFocusSeg],
   )
 
+  /**
+   * 点一条引擎分歧：滚到那一页 + 记住高亮（Flow 据此在该页画两个引擎的框）。
+   *
+   * 与 `onGotoAnyPage` 共用「按页号找段」的口径（多源包里同一页码可能出现多次）。
+   * 抽屉**不关**：律师要一边看清单一边对原件，关掉就得多点一次再打开。
+   */
+  const onJumpEngineDisagreement = useCallback(
+    (pageNo: number) => {
+      const target = engineDisagreements.find((d) => d.page_no === pageNo)
+      if (target) setEngineActiveKey(disagreementKey(target))
+      onGotoAnyPage(pageNo)
+    },
+    [engineDisagreements, onGotoAnyPage],
+  )
+
   const onLocateBlock = useCallback((key: string | null) => {
     setFocusedBlockKey(key)
     if (!key) return
@@ -206,6 +254,8 @@ export function ReaderBody({
             inconsistencies={inconsistencies}
             onOpenInconsistencies={() => setInconsistencyOpen(true)}
             onOpenDocTodos={() => setDocTodoOpen(true)}
+            engineUnchecked={engineUnchecked}
+            onOpenEngineDisagreements={() => setEngineDrawerOpen(true)}
             onFocusSeg={onFocusSeg}
             onRenameMat={onRenameMat}
             onRenameSeg={flowOps.renameSeg}
@@ -233,6 +283,7 @@ export function ReaderBody({
             selPages={selPages}
             ocrPending={ocrPending}
             focusedBlockKey={focusedBlockKey}
+            engineFocus={engineFocus}
             onActivateHit={onActivateHit}
             onOp={flowOps}
             onToggleSel={onToggleSel}
@@ -269,6 +320,17 @@ export function ReaderBody({
         onGotoPage={onGotoAnyPage}
       />
 
+      {/* 双引擎分歧：从左栏徽标打开，点一条跳到那一页并画两个引擎的框 */}
+      <EngineDisagreementDrawer
+        open={engineDrawerOpen}
+        onOpenChange={setEngineDrawerOpen}
+        items={engineDisagreements}
+        checked={draft.engineChecked ?? []}
+        activeKey={engineActiveKey}
+        onJump={onJumpEngineDisagreement}
+        onToggleChecked={onToggleEngineChecked}
+      />
+
       {/* 全卷证件页待补录：从左栏证件徽标打开，「查看原页」跳到那一页 */}
       <DocTodoDrawer
         open={docTodoOpen}
@@ -277,10 +339,38 @@ export function ReaderBody({
         onGotoPage={onGotoAnyPage}
       />
 
+      {/* 自动分段进度：底部浮条，与选页汇总条同一范式（不参与 flex 高度分配，
+          不给中栏的 overflow 加滚动耦合）。没有快照时显示「准备中」——提交 164 页
+          本身要几十秒，那段空白期也得有反馈。 */}
+      {autoSplitTask &&
+        (autoSplitTask.jobId || autoSplitTask.snapshot) && (
+          <AutoSplitProgress
+            snapshot={autoSplitTask.snapshot ?? pendingSnapshot(autoSplitTask.jobId)}
+            onDismiss={onHideAutoSplit ?? (() => {})}
+          />
+        )}
+
       {/* 选页汇总条 */}
       {selPages.length > 0 && (
         <SelectionBar count={selCount} cross={selCross} onClear={onClearSel} onApply={onApplySel} />
       )}
     </>
   )
+}
+
+/** 刚提交、还没轮询到第一份快照时的占位：进度 0、阶段取字、「正在识别文字」 */
+function pendingSnapshot(jobId: string | null): JobProgressSnapshot {
+  return {
+    jobId: jobId ?? '',
+    status: 'pending',
+    stage: '',
+    progressPct: 0,
+    processedPages: 0,
+    totalPages: 0,
+    elapsedSeconds: null,
+    staleSeconds: null,
+    errorMessage: '',
+    dualEngines: '',
+    sourceName: '',
+  }
 }

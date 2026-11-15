@@ -32,6 +32,13 @@ class PdfSplitStage(models.TextChoices):
     """
 
     EXTRACT = "extract", "取字"
+    # 交叉比对：勾了 2 个以上引擎时的额外一遍解析。
+    #
+    # 为什么必须是独立阶段而不是继续叫 extract：这一段在 164 页真实卷宗上要
+    # 跑十几分钟，期间 processed_pages 已经是 164/164、progress=100（取字确实
+    # 做完了），前端看到的就是「100% 假死」。给它一个自己的名字，前端才能说
+    # 「正在交叉比对」而不是盯着一个不动的 100%。
+    CROSS_CHECK = "cross_check", "交叉比对"
     SEGMENT = "segment", "分段"
     DONE = "done", "完成"
 
@@ -67,6 +74,36 @@ class PdfSplitCloudBackend(models.TextChoices):
     AUTO = "auto", "自动（优先 + 失败容灾）"
     MINERU = "mineru", "仅 MinerU"
     TEXTIN = "textin", "仅 Textin"
+
+
+#: 「交叉比对」可用的引擎码。与 `services/split/dual_engine.ENGINE_*` 逐字一致。
+#:
+#: 这三个都是**独立的云端路径**，不是可注册的解析平台：mineru 走
+#: `DocumentParseProvider`，textin 同；paddleocr_vl 走 `PaddleOCRApiEngine`
+#: （`apps/automation/services/ocr/paddleocr_api_service.py`），完全另一套接口。
+#: 所以它们只能当 `dual_engines` 的取值，**不能**当 `cloud_backend` 的取值——
+#: `resolve_cloud_backends()` 永远不该认 `paddleocr_vl`。
+DUAL_ENGINE_CHOICES: tuple[str, ...] = ("mineru", "paddleocr_vl", "textin")
+
+
+def parse_dual_engines(raw: str | None) -> list[str]:
+    """`dual_engines` 取值 → 引擎列表。
+
+    `'mineru,paddleocr_vl'` → `['mineru', 'paddleocr_vl']`；`''` / None → `[]`。
+
+    非法值（不在 `DUAL_ENGINE_CHOICES` 里的）**丢弃**：这个字段是纯新增的
+    多选勾选结果，没有历史脏数据要兼容，认下未知值只会让下游多一条分支。
+
+    去重但保留用户勾选顺序：顺序是语义（第一个为主引擎，`cloud_backend`
+    就是按它选的），排序会把这个信息弄丢。
+    """
+    result: list[str] = []
+    for part in str(raw or "").split(","):
+        engine = part.strip().lower()
+        if not engine or engine not in DUAL_ENGINE_CHOICES or engine in result:
+            continue
+        result.append(engine)
+    return result
 
 
 class PdfSplitLayoutMode(models.TextChoices):
@@ -170,6 +207,20 @@ class PdfSplitJob(models.Model):
         choices=PdfSplitCloudBackend.choices,
         default=PdfSplitCloudBackend.AUTO,
         verbose_name="解析平台",
+    )
+    # ↓↓ 交叉比对的引擎多选（逗号分隔）。`cloud_backend` 仍然是**唯一**决定
+    # 「取字用哪个平台」的字段，本字段只表示「另外还要再跑这几个引擎并比对」。
+    #
+    # 为什么不塞进 cloud_backend：它的取值受 `PdfSplitCloudBackend.choices` 约束，
+    # 而 `paddleocr_vl` 根本不是可注册的解析平台（不在
+    # `DocumentParseProvider.ProviderType` 里），塞进去会让 `resolve_cloud_backends()`
+    # 收到一个它永远不该认的值。两个字段各自表达一件独立的事：
+    # 「取字用谁」（单选、有容灾语义）与「另外再跑谁做比对」（多选、纯附加）。
+    dual_engines = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        verbose_name="交叉比对引擎",
     )
     layout_mode = models.CharField(
         max_length=16,

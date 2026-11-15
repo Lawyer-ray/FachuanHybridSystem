@@ -64,6 +64,16 @@ class PdfSplitStorage:
         return self.analysis_dir / "page_quality.json"
 
     @property
+    def engine_disagreements_json_path(self) -> Path:
+        """双引擎分歧产物（分歧列表 + 严重度计数 + 各引擎运行状态）。
+
+        单独落盘的理由与 ``page_quality.json`` 一样：这份产物在**取字阶段**算出来
+        （双引擎就是取字的一部分），而 summary 要到**分段阶段**才最终写进 DB。
+        两个阶段是两个 Django-Q 任务，只能靠 job 目录里的文件传递。
+        """
+        return self.analysis_dir / "engine_disagreements.json"
+
+    @property
     def export_zip_path(self) -> Path:
         return self.exports_dir / "split_result.zip"
 

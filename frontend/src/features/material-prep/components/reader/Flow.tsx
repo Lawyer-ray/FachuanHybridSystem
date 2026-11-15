@@ -2,11 +2,12 @@ import { useCallback, useMemo, useState, type CSSProperties, type ComponentProps
 import { Scissors } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
 import { useElementWidth } from '@/hooks/use-element-width'
-import type { DraftState, OcrPending, PageKey } from '../../types'
-import { selKeyOf } from '../../draft'
+import type { DraftState, EngineBlockRect, EngineDisagreement, OcrPending, PageKey } from '../../types'
+import { engineBlocksOfPage, selKeyOf } from '../../draft'
 import { COL_GAP, effectiveCols, fitPageWidth, rowWidth } from './layout'
 import { isAutoSegName } from '../../draft'
-import { PageCell, type PageRect } from './PageCell'
+import { PageCell, type EngineBoxGroup, type PageRect } from './PageCell'
+import { rectPrecisionOf, type RectPrecision } from '../../types'
 import { PageContextMenu } from './PageContextMenu'
 import { SegmentHeader } from './SegmentHeader'
 import type { FlowOps } from './reader-ops'
@@ -23,6 +24,7 @@ export function Flow({
   selPages,
   ocrPending,
   focusedBlockKey = null,
+  engineFocus = null,
   onActivateHit,
   onOp,
   onToggleSel,
@@ -40,6 +42,8 @@ export function Flow({
   ocrPending: OcrPending | null
   /** 当前高亮的定位块 key（由右侧栏的 Markdown 面板驱动）；null = 全部框常态显示 */
   focusedBlockKey?: string | null
+  /** 当前被高亮的一条引擎分歧：该页上同时画出两个引擎的框（null = 不画双框） */
+  engineFocus?: EngineDisagreement | null
   /** 双击定位框 → 交给 Markdown 面板高亮并进入修改 */
   onActivateHit?: (key: string) => void
   onOp: FlowOps
@@ -85,7 +89,9 @@ export function Flow({
   // 与上面的 infos 来源框分开：来源框是"这个字段从哪抄来的"，定位框是
   // "这一页有哪些被机器认出来的块"，配色与语义都不同，混在一起律师会看晕。
   const hitsByPage = useMemo(() => {
-    const m = new Map<string, { key: string; rect: PageRect; label: string; approx?: boolean }[]>()
+    // precision 从后端块透传（旧草稿没有该字段，PageCell 会退化成看 approx）。
+    type Hit = { key: string; rect: PageRect; label: string; approx?: boolean; precision?: RectPrecision }
+    const m = new Map<string, Hit[]>()
     segs.forEach((seg) => {
       // seg.blocks[].page 是**文档内绝对页号**（后端 page.page_no），不是段内序。
       // 段的 refs 只覆盖自己的页范围，所以要按"段起始页"偏移回段内下标，
@@ -101,6 +107,9 @@ export function Flow({
           rect: b.rect,
           label: b.text.slice(0, 40),
           approx: b.rect.approx,
+          // 精度透传：PageCell 据此分三档画（实线/虚线/淡虚线）。
+          // 用 rectPrecisionOf 收窄：生成态里 precision 是 string，直接透传会丢类型。
+          precision: rectPrecisionOf(b.rect),
         })
         m.set(key, list)
       }
@@ -110,6 +119,47 @@ export function Flow({
   const hitsOf = useCallback(
     (mi: number, p: number) => hitsByPage.get(selKeyOf({ mi, p })),
     [hitsByPage],
+  )
+
+  /**
+   * 双框对照：把「当前高亮的那一条分歧」解成「每个引擎在这一页上的框」。
+   *
+   * ## 为什么不能只画 MinerU 的框
+   *
+   * 分歧的意义就是「两个引擎指的不是同一处」。只画一边，律师看到的还是一个框，
+   * 无从判断差异在哪。两引擎坐标都接进 UI 是契约的硬要求。
+   *
+   * ## 坐标怎么对齐
+   *
+   * `seg.blocks` 与 `engineDisagreements[].blocks` 同口径（归一化 0-1、相对页面图像），
+   * 所以直接用既有 `hitsByPage` 的解引用方式（段起始页偏移 → ref → mi:p）拿本页框，
+   * 不另建一套坐标系统。引擎**这一处**的文本取自分歧变体，两框重叠时靠它区分。
+   */
+  const engineBoxesByPage = useMemo(() => {
+    const m = new Map<string, EngineBoxGroup[]>()
+    if (!engineFocus) return m
+    const blocks: EngineBlockRect[] = engineFocus.blocks ?? []
+    if (blocks.length === 0) return m
+
+    segs.forEach((seg) => {
+      // 与 hitsByPage 一样：block.page 是文档内绝对页号，要按段起始页偏移回 refs 下标
+      const firstPage = seg.refs[0]?.p ?? 1
+      const ref = seg.refs[engineFocus.page_no - firstPage]
+      if (!ref) return
+      const groups: EngineBoxGroup[] = []
+      for (const variant of engineFocus.variants) {
+        const own = engineBlocksOfPage(seg, engineFocus.page_no, blocks.filter((b) => b.engine === variant.engine))
+        // 一个框都没有的引擎也保留组（渲染层会给「没拿到坐标」的说明），
+        // 否则律师会以为两框完全重叠
+        groups.push({ variant, blocks: own })
+      }
+      m.set(selKeyOf(ref), groups)
+    })
+    return m
+  }, [engineFocus, segs])
+  const engineBoxesOf = useCallback(
+    (mi: number, p: number) => engineBoxesByPage.get(selKeyOf({ mi, p })) ?? null,
+    [engineBoxesByPage],
   )
 
   const selKeys = useMemo(() => new Set(selPages.map(selKeyOf)), [selPages])
@@ -132,6 +182,7 @@ export function Flow({
       selected: selKeys.has(`${ref.mi}:${ref.p}`),
       marks: marksOf(ref.mi, ref.p),
       hits: hitsOf(ref.mi, ref.p),
+      engineBoxes: engineBoxesOf(ref.mi, ref.p),
       ocrRect: ocrPending && ocrPending.mi === ref.mi && ocrPending.p === ref.p ? ocrPending.rect : null,
       onPickPage: picking ? onOp.pickPage : undefined,
       onOcrBox: picking ? onOcrBox : undefined,
@@ -140,7 +191,7 @@ export function Flow({
       focusedHitKey: focusedBlockKey,
       onActivateHit,
     }),
-    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey, onActivateHit],
+    [messageId, mats, singleSource, picking, selMode, selKeys, marksOf, hitsOf, engineBoxesOf, ocrPending, onOp, onOcrBox, onToggleSel, openMenu, focusedBlockKey, onActivateHit],
   )
 
   const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false

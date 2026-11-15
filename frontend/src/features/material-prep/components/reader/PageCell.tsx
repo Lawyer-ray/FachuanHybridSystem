@@ -1,8 +1,10 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { FileText } from 'lucide-react'
-import type { BundleMat } from '../../types'
+import type { BundleMat, RectPrecision } from '../../types'
+import { rectPrecisionOf } from '../../types'
 import { cn } from '@/lib/utils'
 
+import { EngineBoxOverlay, type EngineBoxGroup } from './EngineBoxOverlay'
 import { PdfPageView } from './PdfPageView'
 import { PhotoPageView } from './PhotoPageView'
 import { SkeletonLines } from './SkeletonLines'
@@ -10,6 +12,26 @@ import { resolveDragRect, type PageRect } from './ui'
 
 // 兼容出口：PageRect 类型已随拖框判定迁至 ui.ts，历史导入路径（Flow / use-ocr）保持可用
 export type { PageRect } from './ui'
+// 同理：双引擎覆盖层已拆到 EngineBoxOverlay.tsx，类型仍从本模块可导入
+export type { EngineBoxGroup }
+
+/**
+ * 普通定位框的描边样式（按精度分三档）。
+ *
+ * 以前只有「虚线/实线」两种，而 ``approx`` 同时盖了两种完全不同的不可信程度——
+ * 整页大框（坐标无意义）与表格半格框（左右列对齐、纵向行高不均）画出来一模一样，
+ * 律师无法判断值不值得去核对。三档分开后：
+ *   exact → 实线（可信）
+ *   cell  → 虚线（八九不离十，可去核）
+ *   page  → 虚线 + 更淡（坐标基本无意义，仅提示「这里有内容」）
+ */
+function hitBoxClass(h: { approx?: boolean; precision?: RectPrecision }): string {
+  const precision = h.precision ?? rectPrecisionOf(h)
+  if (precision === 'exact') return 'border border-sky-500/70'
+  if (precision === 'cell') return 'border border-sky-500/60 border-dashed'
+  return 'border border-sky-500/40 border-dashed'
+}
+
 
 export const PageCell = memo(function PageCell({
   messageId,
@@ -22,6 +44,7 @@ export const PageCell = memo(function PageCell({
   selected,
   marks = [],
   hits = [],
+  engineBoxes = null,
   focusedHitKey = null,
   ocrRect,
   onPickPage,
@@ -42,7 +65,11 @@ export const PageCell = memo(function PageCell({
   marks?: { fi: number; rect: PageRect; label: string }[]
   /** 识别定位框：云端识别出的正文块位置（与 marks 的来源绿框分开配色，
    *  免得律师分不清"字段出处"和"块位置"） */
-  hits?: { key: string; rect: PageRect; label: string; approx?: boolean }[]
+  hits?: { key: string; rect: PageRect; label: string; approx?: boolean; precision?: RectPrecision }[]
+  /** 双框对照：高亮一条引擎分歧时，同时画两个引擎的框（null = 没有分歧被高亮）。
+   *  用 SVG 而不是 div 画：虚线描边、半透明填充与「框旁小字」都要精确控制，
+   *  DOM 边框做得到的（border-style: dashed）在不同浏览器上划线长度不一，两份引擎就难分。 */
+  engineBoxes?: EngineBoxGroup[] | null
   /** 当前被 Markdown 面板选中的块 key：该框加亮，其余淡化（原文对照的视觉锚点） */
   focusedHitKey?: string | null
   /** 双击某个定位框：把这块回传给 Markdown 面板（高亮 + 进入修改） */
@@ -202,7 +229,7 @@ export const PageCell = memo(function PageCell({
             } ${
               on
                 ? 'border-2 border-sky-600 bg-sky-400/20 shadow-[0_0_0_2px_rgba(2,132,199,0.25)]'
-                : `border border-sky-500/70 ${h.approx ? 'border-dashed' : ''}`
+                : `${hitBoxClass(h)}`
             } ${dim ? 'opacity-25' : ''}`}
             style={{
               left: `${h.rect.x * 100}%`,
@@ -214,6 +241,11 @@ export const PageCell = memo(function PageCell({
           />
           )
         })}
+
+        {/* 双引擎对照框：实线绿 = MinerU（主），虚线琥珀 = VL（副）。
+            画在 hits 之后、拖框之前：分歧框是律师当前要看的东西，不能被普通定位框
+            盖住；而拖框/待确认框是律师刚画的操作反馈，必须还在最上面。 */}
+        {engineBoxes && <EngineBoxOverlay groups={engineBoxes} />}
 
         {/* OCR 拖出的框 */}
         {dragRect && (

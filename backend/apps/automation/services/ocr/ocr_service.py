@@ -223,6 +223,33 @@ class OCRService:
                 return "\n".join(result.txts)
             return ""
 
+    def recognize_layout(self, image_bytes: bytes) -> Any | None:
+        """返回**完整**的版面解析结果（含印章/照片），不做文字拼接。
+
+        为什么需要单独一个方法：``recognize_bytes`` 只返回拼好的纯文本，版面容器的
+        副产品（``PaddleOCRApiResult.images``）在那一层就被丢掉了。而卷宗里印章的位置
+        与图样本身是证据（“这枚章盖在哪、是什么章”），不能在提取文字时连坐丢掉。
+
+        只有 ``paddleocr_api`` 走云端版面解析时才有 images；本地 RapidOCR 是逐行文本识
+        别，没有版面概念，所以此路径返回 None——调用方据此走“无图”分支，而不是
+        拿到一个带空 images 的假结果。
+
+        Args:
+            image_bytes: 图片字节数据
+
+        Returns:
+            ``PaddleOCRApiResult``（含 ``text`` / ``raw_texts`` / ``images``）；
+            非云端 provider 或调用失败时返回 None。
+        """
+        if self.provider != "paddleocr_api":
+            return None
+        try:
+            return self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)
+        except (OSError, ValueError) as e:
+            # 不在这层降级：调用方要的是版面结果，降级到纯文本会让它误以为拿到了版面。
+            logger.warning("PaddleOCR 版面解析失败: %s", e)
+            return None
+
     def _to_list(self, x: Any) -> list[Any]:
         """将 OCR 结果转换为列表"""
         if x is None:

@@ -135,6 +135,92 @@ class TestDeleteManualMessage:
         assert delete_manual_message(msg) == 0
         assert not InboxMessage.objects.filter(pk=msg.pk).exists()
 
+    def test_row_deleted_before_files(self, monkeypatch) -> None:
+        """删除顺序：DB 行先没，物理文件后清。
+
+        反序会让 delete() 的失败（外键保护 / 异常）留下「文件已删、记录还在」的破包，
+        所以这里断言 delete_media_file 被调用的那一刻行已经不在了。
+        """
+        msg = create_manual_message([SimpleUploadedFile("o.pdf", b"%PDF-1.4 o", content_type="application/pdf")])
+        pk = msg.pk
+        seen: list[bool] = []
+
+        from apps.message_hub.services import manual_upload_service as svc
+
+        real_delete = svc.delete_media_file
+
+        def spy(path: str) -> bool:
+            seen.append(InboxMessage.objects.filter(pk=pk).exists())
+            return real_delete(path)
+
+        monkeypatch.setattr(svc, "delete_media_file", spy)
+        delete_manual_message(msg)
+        assert seen == [False], "物理文件必须在 DB 行删除之后才清理"
+
+    def test_file_cleanup_failure_does_not_undo_delete(self, monkeypatch) -> None:
+        """物理文件清理失败只是残留孤儿文件，回包仍是成功、行仍然删掉。"""
+        msg = create_manual_message([SimpleUploadedFile("w.pdf", b"%PDF-1.4 w", content_type="application/pdf")])
+        pk = msg.pk
+
+        from apps.message_hub.services import manual_upload_service as svc
+
+        monkeypatch.setattr(svc, "delete_media_file", lambda _p: False)
+        assert delete_manual_message(msg) == 0
+        assert not InboxMessage.objects.filter(pk=pk).exists()
+
+    def test_protected_by_payment_intake_keeps_record_and_files(self) -> None:
+        """被财务凭证引用时必须拒绝删除，且**一个物理文件都不能动**。
+
+        回归点：原实现先删附件再 delete()，PROTECT 触发后留下指向空文件的破包。
+        """
+        from datetime import date
+        from decimal import Decimal
+
+        from apps.contracts.models import PaymentIntake
+        from apps.core.exceptions import ConflictError
+
+        upload = SimpleUploadedFile("p.pdf", b"%PDF-1.4 p", content_type="application/pdf")
+        msg = create_manual_message([upload])
+        pk = msg.pk
+        path = resolve_media_attachment_path(str(msg.attachments_meta[0]["local_path"]))
+        PaymentIntake.objects.create(
+            inbox_message=msg,
+            dedupe_key="del-guard-1",
+            amount=Decimal("100"),
+            received_at=date(2026, 1, 1),
+        )
+
+        with pytest.raises(ConflictError) as exc:
+            delete_manual_message(msg)
+        assert "收款" in str(exc.value)
+        assert InboxMessage.objects.filter(pk=pk).exists()
+        assert path is not None and path.exists(), "被拒绝的删除不得留下残缺附件"
+
+        # 清场：先撤掉凭证才能删掉这条消息
+        PaymentIntake.objects.filter(inbox_message_id=pk).delete()
+        _cleanup(InboxMessage.objects.get(pk=pk))
+
+    def test_converting_message_keeps_original_row(self) -> None:
+        """删材料包（转换产物）时，原邮件记录保留，converted_message 置空回到未转。"""
+        from django.utils import timezone
+
+        source = get_or_create_manual_source()
+        original = InboxMessage.objects.create(
+            source=source,
+            message_id="orig-del-1",
+            subject="原邮件",
+            received_at=timezone.now(),
+        )
+        pack = create_manual_message([SimpleUploadedFile("c.pdf", b"%PDF-1.4 c", content_type="application/pdf")])
+        original.converted_message = pack
+        original.save(update_fields=["converted_message"])
+
+        delete_manual_message(pack)
+
+        original.refresh_from_db()
+        assert original.converted_message_id is None, "材料包删掉后原邮件必须回到「未转」，否则收件箱会显示死链"
+        _cleanup(original)
+
 
 class TestSaveDraft:
     def test_empty_draft_normalized(self) -> None:
