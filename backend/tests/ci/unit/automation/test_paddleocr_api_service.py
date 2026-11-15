@@ -63,48 +63,71 @@ class TestEngineProperties:
         assert engine.model == "pp_ocrv5"
 
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
-    def test_api_url_ocr_endpoint(self, mock_cls):
+    def test_api_url_is_unified_job_endpoint_for_ocr_models(self, mock_cls):
+        """OCR 类模型也走统一的 v2 Job API 端点。
+
+        历史机制是「每模型一个 URL」（PADDLEOCR_OCR_API_URL / VL_API_URL / VL15_API_URL），
+        那批 aistudio 体验域名已全部下线（500），现改为单一 JOB_API_URL + model 参数。
+        """
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
 
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": (
-            "http://ocr-api.test" if k == "PADDLEOCR_OCR_API_URL" else "pp_ocrv5"
+            "http://job-api.test" if k == "PADDLEOCR_JOB_API_URL" else "pp_ocrv5"
         )
         mock_cls.return_value = mock_svc
         engine = PaddleOCRApiEngine()
-        assert engine.api_url == "http://ocr-api.test"
+        assert engine.api_url == "http://job-api.test"
 
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
-    def test_api_url_vl_endpoint(self, mock_cls):
+    def test_api_url_is_unified_job_endpoint_for_vl_model(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
 
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": (
             "paddleocr_vl"
             if k == "PADDLEOCR_API_MODEL"
-            else "http://vl-api.test"
-            if k == "PADDLEOCR_VL_API_URL"
+            else "http://job-api.test"
+            if k == "PADDLEOCR_JOB_API_URL"
             else ""
         )
         mock_cls.return_value = mock_svc
         engine = PaddleOCRApiEngine()
-        assert engine.api_url == "http://vl-api.test"
+        assert engine.api_url == "http://job-api.test"
 
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
-    def test_api_url_vl15_endpoint(self, mock_cls):
+    def test_api_url_is_unified_job_endpoint_for_vl15_model(self, mock_cls):
         from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
 
         mock_svc = MagicMock()
         mock_svc.get_value.side_effect = lambda k, d="": (
             "paddleocr_vl_1_5"
             if k == "PADDLEOCR_API_MODEL"
-            else "http://vl15.test"
-            if k == "PADDLEOCR_VL15_API_URL"
+            else "http://job-api.test"
+            if k == "PADDLEOCR_JOB_API_URL"
             else ""
         )
         mock_cls.return_value = mock_svc
         engine = PaddleOCRApiEngine()
-        assert engine.api_url == "http://vl15.test"
+        assert engine.api_url == "http://job-api.test"
+
+    @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
+    def test_dead_legacy_urls_are_never_read(self, mock_cls):
+        """即使库里还残留旧的每模型 URL，也不会被读——防止回滚又把失效地址带回来。"""
+        from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
+        dead = {
+            "PADDLEOCR_OCR_API_URL": "http://dead-ocr.test",
+            "PADDLEOCR_VL_API_URL": "http://dead-vl.test",
+            "PADDLEOCR_VL15_API_URL": "http://dead-vl15.test",
+        }
+        mock_svc = MagicMock()
+        mock_svc.get_value.side_effect = lambda k, d="": (
+            "paddleocr_vl_1_5" if k == "PADDLEOCR_API_MODEL" else dead.get(k, "http://job-api.test")
+        )
+        mock_cls.return_value = mock_svc
+        engine = PaddleOCRApiEngine()
+        assert engine.api_url == "http://job-api.test"
 
     @patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService")
     def test_api_token(self, mock_cls):

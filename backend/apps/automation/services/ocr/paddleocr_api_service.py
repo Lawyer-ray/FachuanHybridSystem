@@ -310,11 +310,26 @@ class PaddleOCRApiEngine:
 
             # 统一收敛到 `result`：有外层就剥掉，没有就当它本身就是 result。
             result = item.get("result") if isinstance(item.get("result"), dict) else item
+
+            # 先看它是否带了预期的容器键（ocrResults / layoutParsingResults）。
+            # 裸片段（如单独一行 ``{"rec_texts": [...]}``）没有容器结构，直接交给
+            # `_parse_response` 会因找不到容器而返回空文本——历史流式响应里这很常见，
+            # 所以这类行改走通用文本提取。
+            has_container = isinstance(result.get("ocrResults"), list) or isinstance(
+                result.get("layoutParsingResults"), list
+            )
+            if not has_container:
+                # rec_texts 优先按行提取（保持原有顺序语义），否则走通用片段收集。
+                rec_texts = self._collect_rec_texts(result)
+                all_texts.extend(rec_texts if rec_texts else self._collect_text_fragments(result))
+                continue
+
             try:
                 parsed = self._parse_response({"result": result}, model)
             except RuntimeError:
                 # 未知 model 类型时退回通用文本提取，不让一行坏数据弄挂整个任务
                 all_texts.extend(self._collect_text_fragments(result))
+                continue
                 continue
             all_texts.extend(parsed.raw_texts)
 
