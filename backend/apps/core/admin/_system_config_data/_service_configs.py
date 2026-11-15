@@ -86,7 +86,7 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "key": "OCR_PROVIDER",
             "category": "ocr",
             "description": "OCR 引擎选择（local=本地 RapidOCR / paddleocr_api=百度 PaddleOCR API）",
-            "value": "local",
+            "value": "paddleocr_api",
             "is_secret": False,
         },
         {
@@ -94,33 +94,20 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "category": "ocr",
             "description": (
                 "PaddleOCR API 模型选择（"
-                "pp_ocrv5=纯文字OCR-适合证件/快递单号/简单文字提取, "
+                "pp_ocrv6=纯文字OCR-快但生僻字易错, "
                 "pp_structure_v3=文档结构化-适合表格/版面分析, "
                 "paddleocr_vl=版面分析+OCR-适合复杂文档/合同, "
-                "paddleocr_vl_1_5=高精度版面分析-适合法律文书/密集排版文档）"
+                "paddleocr_vl_1_5=高精度版面分析-适合法律文书/密集排版文档, "
+                "paddleocr_vl_1_6=最新版-生僻字/印章增强，推荐法律文书使用）"
             ),
-            "value": "pp_ocrv5",
+            "value": "paddleocr_vl_1_6",
             "is_secret": False,
         },
         {
-            "key": "PADDLEOCR_OCR_API_URL",
+            "key": "PADDLEOCR_JOB_API_URL",
             "category": "ocr",
-            "description": "PaddleOCR OCR 接口地址（PP-OCRv5 / PP-StructureV3 共用）",
-            "value": "https://ndvex8b5vcd0teg7.aistudio-app.com/ocr",
-            "is_secret": False,
-        },
-        {
-            "key": "PADDLEOCR_VL_API_URL",
-            "category": "ocr",
-            "description": "PaddleOCR-VL 版面分析接口地址",
-            "value": "https://h8d58fh8mfw84cj4.aistudio-app.com/layout-parsing",
-            "is_secret": False,
-        },
-        {
-            "key": "PADDLEOCR_VL15_API_URL",
-            "category": "ocr",
-            "description": "PaddleOCR-VL-1.5 高精度版面分析接口地址",
-            "value": "https://k4j5n7j1afr2j9p5.aistudio-app.com/layout-parsing",
+            "description": "PaddleOCR v2 异步 Job API 地址（所有模型共用，靠 model 参数区分产品线）",
+            "value": "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs",
             "is_secret": False,
         },
         {

@@ -12,6 +12,26 @@ from apps.core.security.secret_codec import SecretCodec
 
 _MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QCC_MCP_API_KEY"}
 
+#: 枚举型配置：key → ((值, 展示文案), ...)，前台渲染成下拉框而非自由文本框。
+#:
+#: 为什么需要：这些键的合法取值是**封闭集合**（OCR 引擎、模型），自由文本会让人
+#: 手输错一个字就得到运行时 500 或 400（如把 PaddleOCR-VL-1.6 写成 paddleocr_vl16）。
+#: 值一律用小写下划线键（与代码里的模型表一致），展示文案写人话。
+_ENUM_CONFIGS: dict[str, tuple[tuple[str, str], ...]] = {
+    "OCR_PROVIDER": (
+        ("paddleocr_api", "PaddleOCR 云端 API（推荐）"),
+        ("local", "本地 RapidOCR（生僻字易错，仅离线备用）"),
+    ),
+    "PADDLEOCR_API_MODEL": (
+        ("paddleocr_vl_1_6", "PaddleOCR-VL-1.6（最新，生僻字/印章增强，推荐法律文书）"),
+        ("paddleocr_vl_1_5", "PaddleOCR-VL-1.5（高精度版面分析）"),
+        ("paddleocr_vl", "PaddleOCR-VL（版面分析 + OCR）"),
+        ("pp_structure_v3", "PP-StructureV3（文档结构化，表格/版面）"),
+        ("pp_ocrv6", "PP-OCRv6（纯文字 OCR，快但生僻字易错）"),
+        ("pp_ocrv5", "PP-OCRv5（纯文字 OCR，旧版）"),
+    ),
+}
+
 
 class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
     class Meta:  # pragma: no cover
@@ -28,6 +48,23 @@ class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
         instance = self.instance
         if not instance or not instance.pk:
             return
+
+        # 枚举型配置换成下拉框：把自由文本 Textarea 换成 Select。
+        # 必须在 instance 就绪后做——新建页（无 pk）还没有 key，无从判断类型。
+        # secret 优先：敏感值必须保留「留空=不修改」的文本框语义，不能变成下拉枚举。
+        choices = None if instance.is_secret else _ENUM_CONFIGS.get(str(instance.key or ""))
+        if choices:
+            current = str(instance.value or "")
+            # 库里的值若不在此次枚举中（历史遗留值），补一条以免静默丢失。
+            if current and current not in {value for value, _label in choices}:
+                choices = (*choices, (current, f"{current}（当前值，非标准选项）"))
+            self.fields["value"] = forms.ChoiceField(
+                choices=choices,
+                initial=current,
+                required=False,
+                label="值",
+                help_text="从下拉框选择；非法值会导致运行时报错。",
+            )
 
         if instance.is_secret and instance.value:
             # 安全审计：secret 值不再回显明文（原先 try_decrypt 后经 initial 渲染进 HTML），
