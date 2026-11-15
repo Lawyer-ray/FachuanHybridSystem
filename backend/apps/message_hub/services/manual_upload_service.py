@@ -10,9 +10,10 @@ from uuid import uuid4
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.db.models import ProtectedError
 from django.utils import timezone
 
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import ConflictError, ValidationException
 from apps.core.services.storage_service import delete_media_file
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
 from apps.message_hub.services.archive_extract_service import expand_upload_files
@@ -297,19 +298,126 @@ def rename_manual_message(message: InboxMessage, subject: str) -> InboxMessage:
     return message
 
 
-def delete_manual_message(message: InboxMessage) -> int:
-    """硬删一条收件箱消息，并清理其附件物理文件。返回清理的附件数。
+# 财务凭证（待认领收款 / 待认领发票）对 InboxMessage 是 on_delete=PROTECT：
+# 删消息不得静默抹掉凭证来源。此处按 related_name 探测，命中就拒绝删除。
+_PROTECTING_RELATIONS = (
+    ("payment_intakes", "待确认/已认领的收款记录"),
+    ("invoice_intakes", "待认领的发票记录"),
+)
 
-    附件落在 message_hub/manual/ 暂存目录，不走 Material 体系，
-    删除 DB 记录前须先按 local_path 用 delete_media_file() 清掉物理文件，避免留垃圾。
+
+def _assert_no_protected_relations(message: InboxMessage) -> None:
+    """删除前置检查：被财务凭证引用的消息不可删。
+
+    必须在动任何物理文件**之前**跑。原实现是先删附件再 delete()，PROTECT 触发时
+    文件已经没了而记录还在——留下一个指向空文件的破包。
     """
+    blockers: list[str] = []
+    for related_name, label in _PROTECTING_RELATIONS:
+        manager = getattr(message, related_name, None)
+        count = manager.count() if manager is not None else 0
+        if count:
+            blockers.append(f"{label} {count} 条")
+    if blockers:
+        raise ConflictError(
+            message=f"该材料包已被{'、'.join(blockers)}引用，不能再删除；请先处理这些凭证",
+            code="INBOX_MESSAGE_REFERENCED",
+        )
+
+
+def delete_manual_message(message: InboxMessage) -> int:
+    """硬删一条收件箱消息（材料包），并清理其附件物理文件。返回清理的附件数。
+
+    删除顺序刻意是「先删 DB 行，再删物理文件」：
+
+    * 反过来的话，一旦 ``message.delete()`` 被外键挡住或中途异常，文件已经删了、
+      记录还在，用户重开材料包会看到一个指向不存在文件的破包。先把记录删掉，
+      最坏情况只剩孤儿文件（可清理、不影响任何界面）。
+    * DB 删除放在 ``transaction.atomic()`` 里，行与它的反向关系一起提交/回滚。
+
+    附件落在 message_hub/manual/ 暂存目录，不走 Material 体系，所以没有级联清理，
+    必须在这里按 local_path 逐个 delete_media_file()。
+
+    ``converted_message`` 是 SET_NULL 的自引用：删掉材料包后，原邮件记录的
+    ``converted_message_id`` 由数据库置空，收件箱会正确地回到「未转」状态，
+    可以重新转换，无需额外处理。
+
+    除收件箱自身的数据外，还回收 pdf_splitting 侧的派生数据（拆分任务 / 任务目录 /
+    OCR 缓存）。**必须做**：那些数据以「文件名 + 页数」为键且跨材料包存活，不清理的话
+    删完材料包下次上传同名文件，自动分段会直接复用已删材料的结果（详见
+    ``apps.pdf_splitting.services.cleanup_service``）。
+    """
+    _assert_no_protected_relations(message)
+
     metas = message.attachments_meta or []
-    deleted = 0
-    for att in metas:
-        local_path = str(att.get("local_path", "") or "")
-        if local_path and delete_media_file(local_path):
-            deleted += 1
+    local_paths = [str(att.get("local_path", "") or "") for att in metas if isinstance(att, dict)]
+    local_paths = [p for p in local_paths if p]
+
+    # 派生数据的定位信息必须**删除前**取：删完就查不到这份附件叫什么、多少页了
+    split_targets = [
+        (str(att.get("original_filename") or att.get("filename") or ""), att.get("page_count"))
+        for att in metas
+        if isinstance(att, dict)
+    ]
+    split_targets = [(name, pages) for name, pages in split_targets if name]
+
     pk = message.pk
-    message.delete()
-    logger.info("删除收件箱消息 id=%s，清理附件 %d 份", pk, deleted)
+    try:
+        with transaction.atomic():
+            message.delete()
+    except ProtectedError as exc:
+        # 前置检查与此刻之间存在竞态（并发认领）时的兜底：此时文件一个都还没删
+        logger.warning("删除收件箱消息 id=%s 被外键保护拒绝: %s", pk, exc)
+        raise ConflictError(
+            message="该材料包已被财务凭证引用，不能再删除；请先处理这些凭证",
+            code="INBOX_MESSAGE_REFERENCED",
+        ) from exc
+
+    # 记录已经删掉了，后续清理只能尽力而为：失败只记日志，不回滚也不报错
+    deleted = 0
+    for local_path in local_paths:
+        if delete_media_file(local_path):
+            deleted += 1
+        else:
+            logger.warning("收件箱消息 id=%s 删除后残留附件未清理: %s", pk, local_path)
+
+    _purge_derived_split_data(pk, split_targets)
+
+    logger.info("删除收件箱消息 id=%s，清理附件 %d/%d 份", pk, deleted, len(local_paths))
     return deleted
+
+
+def _purge_derived_split_data(
+    message_id: int,
+    targets: list[tuple[str, Any]],
+) -> None:
+    """回收该材料包在 pdf_splitting 侧的派生数据（任务行 / 目录 / OCR 缓存）。
+
+    尽力而为：删材料包本身已经成功，派生数据清不掉不该反过来报错让用户以为没删掉。
+    漏掉的孤儿由 ``purge_orphan_split_jobs`` 兜底。
+    """
+    if not targets:
+        return
+    try:
+        from apps.pdf_splitting.services.cleanup_service import purge_split_jobs_for_attachment
+    except Exception:  # pragma: no cover - 仅在模块导入异常时触发
+        logger.warning("载入拆分数据清理服务失败，跳过派生数据回收", exc_info=True)
+        return
+    for name, pages in targets:
+        try:
+            total_pages = int(pages) if pages is not None else None
+        except (TypeError, ValueError):
+            total_pages = None
+        try:
+            purge_split_jobs_for_attachment(
+                source_name=name,
+                total_pages=total_pages,
+                deleting_message_id=message_id,
+            )
+        except Exception:
+            logger.warning(
+                "回收材料派生数据失败（可留待孤儿回收）: message=%s file=%s",
+                message_id,
+                name,
+                exc_info=True,
+            )

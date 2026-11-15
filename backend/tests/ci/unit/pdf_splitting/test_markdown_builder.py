@@ -156,10 +156,10 @@ class TestTableSplitIntoCells:
         body = "".join("<tr>" + "".join(f"<td>R{r}C{c}</td>" for c in range(cols)) + "</tr>" for r in range(rows))
         return f"<table>{body}</table>"
 
-    def test_中等表按单元格拆且坐标按行列均分(self) -> None:
+    def test_短表按单元格拆且坐标按行列均分(self) -> None:
         from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
 
-        # 6 行 × 4 列 = 24 格，低于 120 的门槛 → 拆格
+        # 6 行 × 4 列 = 24 格，行数与格数都在门槛内 → 拆格
         layout = {
             "width": 1000,
             "height": 1000,
@@ -178,25 +178,25 @@ class TestTableSplitIntoCells:
         # 均分推算 → 必须标 approx，不谎报精度
         assert all(c["rect"]["approx"] is True for c in cells)
 
-    def test_长表只拆到行不拆格(self) -> None:
+    def test_中等表在行数门槛内仍拆到行不拆格(self) -> None:
         from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
 
-        # 40 行 × 6 列 = 240 格，超过 120 门槛 → 只拆行（流水类）
+        # 10 行 × 13 列 = 130 格：行数 ≤ 12 允许拆，但格数 > 120 只拆到行
         layout = {
             "width": 1000,
             "height": 1000,
             "blocks": [
-                {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(40, 6)}
+                {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(10, 13)}
             ],
         }
         blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
         rows = [b for b in blocks if b["type"] == "table_row"]
         cells = [b for b in blocks if b["type"] == "table_cell"]
 
-        assert len(rows) == 40
+        assert len(rows) == 10
         assert cells == []
         # 每行保留该行全部单元格文字
-        assert rows[0]["text"] == "R0C0 R0C1 R0C2 R0C3 R0C4 R0C5"
+        assert rows[0]["text"].startswith("R0C0 R0C1 R0C2")
 
     def test_矮表格不拆保持原样(self) -> None:
         from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
@@ -225,6 +225,60 @@ class TestTableSplitIntoCells:
         blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
 
         assert [b["type"] for b in blocks] == ["table"]
+
+    def test_长表格整表保留并透出行列数(self) -> None:
+        """行数超过门槛时整表一个块——均分坐标是编造的，不能拿去给律师点。
+
+        真实痛点（p62，52 行银行流水）：原实现把表切成 52 个 ``table_row``，
+        律师点中第 37 行实际高亮第 35 行（标题行/表头行更高，误差从头累积）。
+        """
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(52, 6)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(62, layout=layout)], bbox_backend="mineru")
+
+        assert [b["type"] for b in blocks] == ["table"]
+        # 只保留整表真 bbox，不带任何推算出来的行/格
+        assert blocks[0]["rect"]["x"] == pytest.approx(0.1)
+        assert blocks[0]["rect"]["y"] == pytest.approx(0.1)
+        # 结构信息透出：前端靠它告诉律师「这是一张 52 行 × 6 列的表」
+        assert blocks[0]["table_rows"] == 52
+        assert blocks[0]["table_cols"] == 6
+
+    def test_稀疏表行数超标仍拆格(self) -> None:
+        """稀疏表例外：有字格占比 < 30% 时行数多也允许拆。
+
+        空行不承载内容、律师不会去点，且列宽均等，均分误差不叠加到横向。
+        """
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        # 17 行 × 4 列 = 68 格位，只填前 12 格 → 有字率 17.6%，低于 30%
+        rows = "".join(
+            f"<tr>{'<td></td>' * 4}</tr>" if r >= 3 else f"<tr>{'<td>字段</td>' * 4}</tr>" for r in range(17)
+        )
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {
+                    "type": "table",
+                    "text": "x" * 100,
+                    "bbox": [192, 154, 790, 554],
+                    "table_body": f"<table>{rows}</table>",
+                }
+            ],
+        }
+        blocks = build_positioned_blocks([_page(22, layout=layout)], bbox_backend="mineru")
+        cells = [b for b in blocks if b["type"] == "table_cell"]
+
+        assert len(cells) == 12
+        assert all(c["rect"]["precision"] == "cell" for c in cells)
 
 
 class TestTableSplitTrustworthiness:
@@ -309,15 +363,91 @@ class TestTableSplitTrustworthiness:
         blocks = self._blocks(106, [35, 34, 929, 797], body)
         assert [b["type"] for b in blocks] == ["table"]
 
-    def test_真表单仍然拆格(self) -> None:
-        """守住原有能力：判据不能把 p22 押品表这类真表格一起挡掉。
+    def test_行数门槛内的真表单仍然拆格(self) -> None:
+        """守住原有能力：判据不能把短表单一起挡掉。
 
-        p22 是本次需求的起点（律师反馈「框得很大」），68 格表单必须照旧拆开。
+        12 行以内的真表单，律师确实要逐格点，列宽均等时纵向误差也在 1 行内。
         """
-        rows = "".join(f"<tr><td>押品信息</td><td>字段{r}</td><td>输入项</td><td>暂无</td></tr>" for r in range(17))
+        rows = "".join(f"<tr><td>押品信息</td><td>字段{r}</td><td>输入项</td><td>暂无</td></tr>" for r in range(10))
         blocks = self._blocks(22, [192, 154, 790, 554], f"<table>{rows}</table>")
         cells = [b for b in blocks if b["type"] == "table_cell"]
 
-        assert len(cells) == 68
+        assert len(cells) == 40
         # 单格只占页面 1% 量级 —— 这才是「点得中某一格」的粒度
         assert max(c["rect"]["w"] * c["rect"]["h"] for c in cells) < 0.02
+
+
+class TestPrecisionField:
+    """``precision`` 拆开 ``approx`` 混用的两种语义（整页近似 vs 半格误差）。
+
+    ``approx`` 同时表示「整页近似框」与「表格均分的半格误差框」，前端只能
+    按最保守的一种统一处理，于是半格框也被当成整页框弱化。三档分开后，
+    前端才能给 ``exact`` 画实线、``cell`` 画虚线、``page`` 画整页提示。
+    """
+
+    @staticmethod
+    def _html(rows: int, cols: int) -> str:
+        body = "".join("<tr>" + "".join(f"<td>R{r}C{c}</td>" for c in range(cols)) + "</tr>" for r in range(rows))
+        return f"<table>{body}</table>"
+
+    def test_真实bbox的正文块标_exact(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [{"type": "text", "text": "企业信用报告", "bbox": [100, 100, 500, 140]}],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+
+        assert blocks[0]["rect"]["precision"] == "exact"
+        # exact 仍带 approx=False——老前端读 approx 画实线，与 precision 一致
+        assert blocks[0]["rect"]["approx"] is False
+
+    def test_表格拆分行格标_cell(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(6, 4)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+
+        assert all(b["rect"]["precision"] == "cell" for b in blocks)
+        assert all(b["rect"]["approx"] is True for b in blocks)
+
+    def test_整表未拆标_page(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(52, 6)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+
+        assert blocks[0]["rect"]["precision"] == "page"
+        assert blocks[0]["rect"]["approx"] is True
+
+    def test_矮表格整块保留也标_page(self) -> None:
+        """没到拆格高度门槛的矮表格：坐标可信但未拆分，算「整表一个块」。"""
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "表内容", "bbox": [100, 100, 900, 180], "table_body": self._html(2, 2)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+
+        assert blocks[0]["rect"]["precision"] == "page"
+        # 整表未拆才带结构字段：前端据此告诉律师「这是 2 行 × 2 列的表」
+        assert blocks[0]["table_rows"] == 2
+        assert blocks[0]["table_cols"] == 2

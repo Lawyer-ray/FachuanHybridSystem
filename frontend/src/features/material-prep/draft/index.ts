@@ -10,7 +10,7 @@
  */
 
 export { nextSegId, ensureSegIds } from './seg-id'
-export { isEmptyDraft, withPageQuality } from './state'
+export { isEmptyDraft, withPageQuality, withEngineDisagreements, setEngineChecked } from './state'
 export { resolveMats, buildInitialDraft } from './resolve'
 export {
   matLabel,
@@ -73,3 +73,17 @@ export {
   pagesText,
 } from './quality'
 export type { DocTodo } from './quality'
+export {
+  readEngineDisagreements,
+  readEngineBlocks,
+  engineLabel,
+  engineShortLabel,
+  engineBlocksOfPage,
+  disagreementKey,
+  disagreementKindLabel,
+  groupBySeverity,
+  sortDisagreements,
+  variantTextOf,
+} from './engine'
+export { reviewItemsOf, reviewItemId, sortReviewItems, groupByPage } from './review'
+export type { ReviewItem, ReviewItemKind } from './review'

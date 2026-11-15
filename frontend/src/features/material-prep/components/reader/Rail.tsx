@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, IdCard, Image, Layers, PencilLine, ScanText } from 'lucide-react'
+import { FileText, IdCard, Image, Layers, PencilLine, ScanSearch, ScanText } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu'
 import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
 import { docHintPagesOf, docTodosOf, graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
@@ -20,6 +20,8 @@ export function Rail({
   inconsistencies = [],
   onOpenInconsistencies,
   onOpenDocTodos,
+  engineUnchecked = 0,
+  onOpenEngineDisagreements,
   onFocusSeg,
   onRenameMat,
   onRenameSeg,
@@ -38,6 +40,10 @@ export function Rail({
   onOpenInconsistencies?: () => void
   /** 点「证件待补录」入口打开全卷清单；不传则不渲染该入口 */
   onOpenDocTodos?: () => void
+  /** 双引擎分歧中**还没核对**的条数（核完的不再催律师）；0 时入口不渲染 */
+  engineUnchecked?: number
+  /** 点「引擎分歧」入口打开清单；不传则不渲染该入口 */
+  onOpenEngineDisagreements?: () => void
   onFocusSeg: (si: number) => void
   onRenameMat: (mi: number) => void
   onRenameSeg: (si: number, name: string) => void
@@ -189,6 +195,20 @@ export function Rail({
             >
               <IdCard className="h-3.5 w-3.5" aria-hidden />
               <span className="rounded-full bg-secondary px-1 tabular-nums">{docTodoCount}</span>
+            </button>
+          )}
+          {/* 双引擎分歧：与「跨页不一致」是两回事——那是本卷内自相矛盾、这是两个引擎读得不同。
+              徽标数字是**未核对**条数，勾完就减（核完即不再催）；全部勾完入口隐藏。 */}
+          {onOpenEngineDisagreements && engineUnchecked > 0 && (
+            <button
+              type="button"
+              data-engine-disagreement-entry
+              onClick={onOpenEngineDisagreements}
+              title={`${engineUnchecked} 处两个引擎读得不一样，尚待核对`}
+              className="flex flex-none items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <ScanSearch className="h-3.5 w-3.5" aria-hidden />
+              <span className="rounded-full bg-secondary px-1 tabular-nums">{engineUnchecked}</span>
             </button>
           )}
         </div>

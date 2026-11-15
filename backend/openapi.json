@@ -13820,6 +13820,11 @@
                     "default": "auto",
                     "title": "Cloud Backend",
                     "type": "string"
+                  },
+                  "dual_engines": {
+                    "default": "",
+                    "title": "Dual Engines",
+                    "type": "string"
                   }
                 },
                 "title": "MultiPartBodyParams",
@@ -13887,6 +13892,67 @@
           }
         },
         "description": "查一份已算好的拆分任务，供前端跳过重跑直接复用。\n\n典型场景：材料包已识别过（后端有 36 段），但 `draft_state` 没回写——\n律师再点「自动识别」会从零重跑 164 页（几分钟 + 几十元）。\n前端打开阅读器时先调这个：命中就直接拉 segments，miss 才建新任务。\n\n返回 null 表示没有可复用的（前端照常新建）。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pdf-splitting/inflight-job": {
+      "get": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_find_inflight_pdf_split_job",
+        "summary": "Find Inflight Pdf Split Job",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_name",
+            "schema": {
+              "title": "Source Name",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "total_pages",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Total Pages"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PdfSplitJobOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "查一份**正在进行中**的拆分任务，供前端接管轮询。\n\n典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫\n不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前\n那个任务在界面上完全不存在（“幽灵任务”）。\n\n返回 null 表示没有进行中的（前端照常新建）。",
         "tags": [
           "PDF 拆解"
         ],
@@ -16429,7 +16495,7 @@
             }
           }
         },
-        "description": "删除收件箱消息（材料包）：先清理附件物理文件，再删 DB 记录（破坏性，前端需二次确认）。",
+        "description": "删除收件箱消息（材料包）：硬删 DB 记录并清理附件物理文件（破坏性，前端需二次确认）。\n\n被财务凭证（待认领收款 / 待认领发票）引用的消息会抛 ConflictError → 409，\n且此时一个附件都不会被删（服务层先校验、后动文件）。",
         "tags": [
           "收件箱"
         ],
@@ -42121,6 +42187,11 @@
             "title": "Cloud Backend",
             "type": "string"
           },
+          "dual_engines": {
+            "default": "",
+            "title": "Dual Engines",
+            "type": "string"
+          },
           "progress": {
             "title": "Progress",
             "type": "integer"
@@ -42136,6 +42207,44 @@
           "current_page": {
             "title": "Current Page",
             "type": "integer"
+          },
+          "stage": {
+            "default": "extract",
+            "title": "Stage",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "elapsed_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Seconds"
           },
           "summary": {
             "additionalProperties": true,
@@ -42242,6 +42351,28 @@
               }
             ],
             "title": "Locator"
+          },
+          "table_rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Rows"
+          },
+          "table_cols": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Cols"
           }
         },
         "required": [
@@ -42276,6 +42407,11 @@
             "default": false,
             "title": "Approx",
             "type": "boolean"
+          },
+          "precision": {
+            "default": "exact",
+            "title": "Precision",
+            "type": "string"
           }
         },
         "required": [

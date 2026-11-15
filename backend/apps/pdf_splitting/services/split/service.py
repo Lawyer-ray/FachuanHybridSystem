@@ -23,11 +23,14 @@ from apps.pdf_splitting.models import (
     PdfSplitSegment,
     PdfSplitSegmentType,
     PdfSplitStage,
+    parse_dual_engines,
 )
+from apps.pdf_splitting.services.heartbeat import periodic_heartbeat
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename
 
 from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
+from .dual_engine_runner import plan_dual_engine_factories, run_dual_engine
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
 from .markdown_builder import build_segments_markdown
 from .ocr_handler import OCRHandler
@@ -43,6 +46,20 @@ from .segment_detector import SegmentDetector
 from .split_models import PageDescriptor, SegmentDraft
 
 logger = logging.getLogger("apps.pdf_splitting")
+
+
+def _dual_engine_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    """把落盘的双引擎产物展开成 summary 键。
+
+    形状固定（即使没跑双引擎也给空列表 + 三个 0）：前端抽屉直接 ``.map``，
+    不用为「有没有双引擎」写分支；也避免旧任务里这两个键缺失导致的 undefined。
+    """
+    return {
+        "engine_disagreements": list(payload.get("engine_disagreements") or []),
+        "engine_disagree_summary": dict(payload.get("engine_disagree_summary") or {})
+        or {"high": 0, "medium": 0, "low": 0},
+        "dual_engine": dict(payload.get("dual_engine") or {}),
+    }
 
 
 class PdfSplitService:
@@ -147,16 +164,73 @@ class PdfSplitService:
             job.refresh_from_db(fields=["cancel_requested"])
             return bool(job.cancel_requested)
 
-        return extract_pages(
+        pages, summary = extract_pages(
             storage.source_pdf_path,
             template_key=job.template_key,
             ocr_profile=job.ocr_profile,
             layout_mode=getattr(job, "layout_mode", "fast_text"),
+            # 取字用哪个平台：仍然**只看 cloud_backend**（单选 + 容灾语义）。
+            # 交叉比对是另一件事，读的是 `dual_engines`，见下一行之后的
+            # `_run_dual_engine_if_selected`——两条路径互不干扰。
             cloud_backend=getattr(job, "cloud_backend", "auto"),
             on_progress=on_progress,
             is_cancelled=is_cancelled,
             ocr_handler=self._ocr_handler,
         )
+        # 双引擎**不在这里跑**：它要把整本再解析一遍（十几分钟），而本阶段已经
+        # 用掉大半 600s 预算。留在同一次任务里会被 Q_CLUSTER timeout 硬杀进程，
+        # 连 finally 都不执行（详见 two_stage.submit_cross_check_stage）。
+        # 它在 cross_check_stage 里作为独立任务跑，那里有全新预算。
+        return pages, summary
+
+    def cross_check_stage(self, job: PdfSplitJob, pdf_path: Path | None = None) -> dict[str, Any]:
+        """交叉比对阶段：两个引擎各解析一遍整本，产出引擎分歧。
+
+        为什么只剩**一个调用点**：以前它是 `extract_stage` 里的一行内联调用，
+        结果 164 页双引擎把整个任务拖超 600s，Django-Q 直接把 worker 杀了，
+        DB 里只留一个 `stage=cross_check` 的僵尸（无任何 django_q_task 记录）。
+        现在拆成独立任务，本阶段拥有自己的 600s。
+
+        门禁只看 `job.dual_engines`：引擎不足 2 个时 tasks 层不会提交这个任务，
+        但这里仍再判一次——任务可能被看门狗重排、或被人工重提。
+
+        为什么分歧要**另跑一遍**而不是复用取字阶段的云端结果：主路径逐页解析
+        并且只保留最终采纳的那一个平台的文本，堆不成「同一批页、两个引擎、各自
+        全文」的对照矩阵，而分歧判定需要的就是这个矩阵（还要 block 坐标，主路径
+        同样不保留）。代价是勾了双引擎就多付一次云端费用。
+
+        为什么失败不抛异常：分歧是**附加信息**，取字早已成功且已落盘。让一个
+        可选的交叉校验把整份卷宗判失败，是拿主路径给辅助功能陪葬。失败就把
+        空分歧交给分段阶段，任务照常往下走。
+        """
+        engines = parse_dual_engines(getattr(job, "dual_engines", ""))
+        if len(engines) < 2:
+            return {}
+
+        # pdf_path 只在测试里显式传入；生产路径总是走任务目录下那份源文件副本
+        # （任务目录自带 source/original.pdf，不依赖附件是否还在）。
+        if pdf_path is None:
+            pdf_path = PdfSplitStorage(job.id).source_pdf_path
+        self._enter_cross_check(job)
+        try:
+            factories, unavailable = plan_dual_engine_factories(engines)
+            try:
+                # 心跳线程覆盖整个阻塞段。它不能阻止 worker 超时（那要杀进程），
+                # 但能让看门狗分清楚「还活着」与「真死了」，避免误重排。
+                with periodic_heartbeat(job.id):
+                    outcome = run_dual_engine(pdf_path, engine_factories=factories)
+            except Exception:
+                logger.exception("pdf_split_dual_engine_failed", extra={"pdf_path": pdf_path.as_posix()})
+                return {}
+        finally:
+            self._exit_cross_check(job)
+
+        summary = dict(outcome.summary)
+        dual = dict(summary.get("dual_engine") or {})
+        dual["selected"] = engines
+        dual["unavailable"] = unavailable
+        summary["dual_engine"] = dual
+        return summary
 
     def segment_stage(self, job: PdfSplitJob) -> None:
         """两阶段任务链 ②：从 pages.json 读回取字结果，只做分段与落库。"""
@@ -172,7 +246,10 @@ class PdfSplitService:
             raise ValueError("取字结果缺失（pages.json 不存在或为空），需重跑取字阶段")
 
         pages = [PageDescriptor(**item) for item in raw_pages]
-        drafts, segment_summary = detect_segments_with_fallback(pages, template_key=job.template_key)
+        # LLM 分段在 164 页上是 4-8 分钟、全程无回调，必须靠后台心跳撑着，
+        # 否则 `_begin_stage` 写的那一次心跳之后再无声息，看门狗会来杀。
+        with periodic_heartbeat(job.id):
+            drafts, segment_summary = detect_segments_with_fallback(pages, template_key=job.template_key)
 
         # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、
         # 同一份文案），避免「单任务入口有、两阶段入口没有」的劈叉。
@@ -197,12 +274,55 @@ class PdfSplitService:
                 "page_quality": two_stage.load_page_quality(storage),
                 "inconsistencies": pick_top_inconsistencies(inconsistencies),
                 "inconsistency_total": len(inconsistencies),
+                # 双引擎分歧（取字阶段算好并落盘）。键名固定为 engine_disagreements /
+                # engine_disagree_summary，前端 draft.ts 按这两个名字消费。
+                # 没选多引擎时两个键是空列表/空计数——形状固定，前端不用判 None。
+                **_dual_engine_summary(two_stage.load_engine_disagreements(storage)),
             },
         )
         # merge_summary=False：本阶段只产出分段相关字段，不能把取字阶段写下的
         # ocr_profile / layout_mode / material_kind 抹掉（summary 只增不删）。
         self._persist_analysis(job=job, storage=storage, outcome=outcome, merge_summary=False)
         PdfSplitJob.objects.filter(id=job.id).update(stage=PdfSplitStage.DONE)
+
+    def _enter_cross_check(self, job: PdfSplitJob) -> None:
+        """进入交叉比对：确认阶段名、写心跳、把进度压回 90。
+
+        stage 通常已由 `two_stage.advance_to_cross_check_stage` 写好，这里再写一次
+        是幂等的——任务可能被看门狗重排或被人工重提，那些路径下不会先走推进函数。
+
+        为什么 progress 要**回退**到 90（取字那边已经写满 100）：双引擎还没跑，
+        停在 100 就等于骗人说「快完了」。90→99 这一段留给比对本身，律师能看出
+        确实还在动。
+
+        为什么 processed_pages **不回退**：那是取字的真实完成量（164/164），
+        回退会让前端以为取字还没做完，也会污染看门狗/自救重排对「有没有成果」
+        的判据。
+        """
+        now = timezone.now()
+        PdfSplitJob.objects.filter(id=job.id).update(
+            stage=PdfSplitStage.CROSS_CHECK,
+            progress=90,
+            heartbeat_at=now,
+            updated_at=now,
+        )
+
+    def _exit_cross_check(self, job: PdfSplitJob) -> None:
+        """交叉比对收工：进度推到 99、刷一次心跳。
+
+        **刻意不改 stage**：交叉比对现在是一个独立的阶段任务，它的下一步
+        （`two_stage.advance_to_segment_stage`）会把 stage 写成 segment。
+        这里如果像以前那样把 stage 写回 extract，任务链的每一个推进点都会
+        先把阶段倒退一次，前端会看到阶段来回跳。
+
+        进度留 99 而不是 100：后面的分段还没开始，报 100 就是谎报。
+        """
+        now = timezone.now()
+        PdfSplitJob.objects.filter(id=job.id).update(
+            progress=99,
+            heartbeat_at=now,
+            updated_at=now,
+        )
 
     def _begin_stage(self, job: PdfSplitJob, stage: str) -> None:
         """阶段开始：置 processing + 写阶段 + 刷心跳。"""

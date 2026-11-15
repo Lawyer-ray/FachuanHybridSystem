@@ -1,4 +1,4 @@
-import type { DraftState, PageQuality } from '../types'
+import type { DraftState, EngineDisagreement, PageQuality } from '../types'
 
 /**
  * draft_state 的「空占位」判别（store.open 与 api.setPackStatusRemote 共用）。
@@ -26,4 +26,37 @@ export function isEmptyDraft(ds: DraftState | Record<string, never>): ds is Reco
  */
 export function withPageQuality(d: DraftState, quality: PageQuality | null): DraftState {
   return quality ? { ...d, pageQuality: quality } : d
+}
+
+/**
+ * 把双引擎分歧清单落到草稿上；空清单不写入（旧任务 / 单引擎路径的 summary 里没这个键，
+ * 写成 `[]` 只会让「有没有跑过双引擎」这件事故意模糊）。
+ *
+ * 重跑时**清掉旧的已核对记录**：分歧是按内容做键的（`disagreementKey`），新一次识别
+ * 的结果与上一次并非同一批条目，留着旧勾会让律师以为这处已经看过了。
+ */
+export function withEngineDisagreements(
+  d: DraftState,
+  disagreements: EngineDisagreement[],
+): DraftState {
+  if (disagreements.length === 0) {
+    // 没有新分歧时也不硬塞空数组；但旧的分歧/核对记录必须清掉（它们描述的是上一次识别）
+    if (d.engineDisagreements === undefined && d.engineChecked === undefined) return d
+    const { engineDisagreements: _drop, engineChecked: _dropChecked, ...rest } = d
+    return rest
+  }
+  return { ...d, engineDisagreements: disagreements, engineChecked: [] }
+}
+
+/**
+ * 勾选 / 取消「已核对」。
+ *
+ * 只改草稿不动 UI state：核对结论要跨刷新保留（见 `DraftState.engineChecked` 的说明），
+ * 而草稿本身走防抖保存，勾一下就是一次普通编辑。
+ */
+export function setEngineChecked(d: DraftState, key: string, checked: boolean): DraftState {
+  const cur = d.engineChecked ?? []
+  const has = cur.includes(key)
+  if (checked === has) return d
+  return { ...d, engineChecked: checked ? [...cur, key] : cur.filter((k) => k !== key) }
 }

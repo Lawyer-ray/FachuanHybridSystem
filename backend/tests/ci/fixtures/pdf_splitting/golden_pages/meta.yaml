@@ -1,0 +1,48 @@
+# golden 快照清单。gold_known: false 表示这是 MinerU 原始输出、未经人工校对，
+# 只能当「回归基准」用（比 CER 涨跌），不能当「准确率」的分母。
+# 生成方式：从 /tmp/ocr_cache_backup_1794723392/accurate_mineru_text_v2/ 抽页后
+# 把人名/身份证号换成张三丰 / 110101199001011234；替换严格等长，其余字符原样保留。
+pdf_sha256: 55311cad5701e7269c9de1d0ff4248359451ac7781261731f41b2aa3e5bdcd60  # pragma: allowlist secret
+pages:
+  - page: 22
+    kind: 押品表
+    source: mineru_ocr_reference
+    gold_known: false
+    chars: 374
+    table_html: page_0022.table.html
+  - page: 23
+    kind: 身份证
+    source: mineru_ocr_reference
+    gold_known: false
+    chars: 45
+    table_html: null
+  - page: 29
+    kind: 结婚证内页
+    source: mineru_ocr_reference
+    gold_known: false
+    chars: 58
+    table_html: page_0029.table.html
+  - page: 30
+    kind: 结婚证正文
+    source: mineru_ocr_reference
+    gold_known: false
+    chars: 166
+    table_html: page_0030.table.html
+  - page: 31
+    kind: 收入证明
+    source: mineru_ocr_reference
+    gold_known: false
+    chars: 244
+    table_html: null
+  - page: 38
+    kind: 风险告知书
+    source: mineru_ocr_reference
+    gold_known: false
+    chars: 280
+    table_html: null
+  - page: 62
+    kind: 银行流水
+    source: mineru_ocr_reference
+    gold_known: false
+    chars: 3421
+    table_html: page_0062.table.html

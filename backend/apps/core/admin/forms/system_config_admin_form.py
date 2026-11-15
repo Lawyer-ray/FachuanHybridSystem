@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, cast
 
 from django import forms
@@ -10,7 +11,12 @@ from django.core.exceptions import ValidationError
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
 
-_MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QCC_MCP_API_KEY"}
+#: 支持多凭证的配置项（每行一个，调用时自动轮询/切换）。
+#:
+#: PADDLEOCR_API_TOKEN 加入原因：单 Key 有提交排队（实测 10010 队列已满），
+#: 而一份 164 页卷宗串行识别要 80 分钟。多 Key 由凭证池轮询分配才能真并行。
+#: 这些 key 的 secret 属性不变，只是提示文案换掉（"每行一个"而不是"留空不改"）。
+_MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QCC_MCP_API_KEY", "PADDLEOCR_API_TOKEN"}
 
 #: 枚举型配置：key → ((值, 展示文案), ...)，前台渲染成下拉框而非自由文本框。
 #:
@@ -73,9 +79,19 @@ class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
             self.fields["value"].help_text = "留空表示不修改原值（不回显已保存的敏感内容）"
 
         if instance.key in _MULTI_KEY_CONFIGS:
-            self.fields[
-                "value"
-            ].help_text = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动切换可用 Key。"
+            hint = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动轮询切换可用 Key。"
+            # secret 配置不回显明文，用户看不到自己到底存了几个 Key。
+            # 这里只报「已有 N 个」这个计数（不泄露任何片段），
+            # 让他能确认多 Key 是否真的存进去了。
+            if instance.is_secret and instance.value:
+                try:
+                    stored = SecretCodec().try_decrypt(str(instance.value)) or ""
+                except Exception:
+                    stored = ""
+                count = len([part for part in re.split(r"[\r\n,;]+", stored) if part.strip()])
+                if count:
+                    hint += f"（当前已保存 {count} 个 Key；留空提交则保持不变）"
+            self.fields["value"].help_text = hint
 
     def clean(self) -> dict[str, Any]:  # pragma: no cover
         """表单级清洗：secret 值加密落库。

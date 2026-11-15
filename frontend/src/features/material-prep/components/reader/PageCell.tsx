@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { FileText } from 'lucide-react'
-import type { BundleMat } from '../../types'
+import type { BundleMat, EngineBlockRect, EngineName, EngineVariant, RectPrecision } from '../../types'
+import { rectPrecisionOf } from '../../types'
+import { engineShortLabel } from '../../draft'
 import { cn } from '@/lib/utils'
 
 import { PdfPageView } from './PdfPageView'
@@ -10,6 +12,53 @@ import { resolveDragRect, type PageRect } from './ui'
 
 // 兼容出口：PageRect 类型已随拖框判定迁至 ui.ts，历史导入路径（Flow / use-ocr）保持可用
 export type { PageRect } from './ui'
+
+/**
+ * 双框对照的配色与画法（契约【视觉规则】的硬要求）。
+ *
+ * - 主引擎 MinerU = **实线** `#16a34a`（绿）
+ * - 副引擎 VL = **虚线** `#f59e0b`（琥珀），`5 3` 划线样式
+ * - 半透明填充 `fillOpacity 0.12`：两框大面积重叠时仍能两框的边都看见
+ *   （不透明填充会把先画的那个完全盖住，正是要避免的情形）
+ * - `approx`（整页近似框，坐标不可信）统一用更淡的描边：不给假精度
+ */
+const ENGINE_BOX_COLORS: Record<string, string> = {
+  mineru: '#16a34a',
+  paddleocr_vl: '#f59e0b',
+  textin: '#6366f1',
+}
+const ENGINE_BOX_DEFAULT_COLOR = '#71717a'
+/** 主引擎：实线。其余走虚线——契约只点名 MinerU 是主引擎 */
+const PRIMARY_ENGINE: EngineName = 'mineru'
+/** 虚线间隔（契约写死 5 3） */
+const ENGINE_BOX_DASH = '5 3'
+/** 描边宽度用 px 且不随 viewBox 缩放：页面图宽上千像素，按比例算会细成一条看不见的线 */
+const ENGINE_BOX_STROKE = 2
+
+/**
+ * 普通定位框的描边样式（按精度分三档）。
+ *
+ * 以前只有「虚线/实线」两种，而 ``approx`` 同时盖了两种完全不同的不可信程度——
+ * 整页大框（坐标无意义）与表格半格框（左右列对齐、纵向行高不均）画出来一模一样，
+ * 律师无法判断值不值得去核对。三档分开后：
+ *   exact → 实线（可信）
+ *   cell  → 虚线（八九不离十，可去核）
+ *   page  → 虚线 + 更淡（坐标基本无意义，仅提示「这里有内容」）
+ */
+function hitBoxClass(h: { approx?: boolean; precision?: RectPrecision }): string {
+  const precision = h.precision ?? rectPrecisionOf(h)
+  if (precision === 'exact') return 'border border-sky-500/70'
+  if (precision === 'cell') return 'border border-sky-500/60 border-dashed'
+  return 'border border-sky-500/40 border-dashed'
+}
+/** viewBox 的归一化边长：所有坐标乘以它就是 px，不用再量化 */
+const VIEWBOX = 1000
+
+/** 一个引擎在某页上的框 + 该引擎这一处的文本（框旁标注要说清「这个框说的是什么」） */
+export interface EngineBoxGroup {
+  variant: EngineVariant
+  blocks: EngineBlockRect[]
+}
 
 export const PageCell = memo(function PageCell({
   messageId,
@@ -22,6 +71,7 @@ export const PageCell = memo(function PageCell({
   selected,
   marks = [],
   hits = [],
+  engineBoxes = null,
   focusedHitKey = null,
   ocrRect,
   onPickPage,
@@ -42,7 +92,11 @@ export const PageCell = memo(function PageCell({
   marks?: { fi: number; rect: PageRect; label: string }[]
   /** 识别定位框：云端识别出的正文块位置（与 marks 的来源绿框分开配色，
    *  免得律师分不清"字段出处"和"块位置"） */
-  hits?: { key: string; rect: PageRect; label: string; approx?: boolean }[]
+  hits?: { key: string; rect: PageRect; label: string; approx?: boolean; precision?: RectPrecision }[]
+  /** 双框对照：高亮一条引擎分歧时，同时画两个引擎的框（null = 没有分歧被高亮）。
+   *  用 SVG 而不是 div 画：虚线描边、半透明填充与「框旁小字」都要精确控制，
+   *  DOM 边框做得到的（border-style: dashed）在不同浏览器上划线长度不一，两份引擎就难分。 */
+  engineBoxes?: EngineBoxGroup[] | null
   /** 当前被 Markdown 面板选中的块 key：该框加亮，其余淡化（原文对照的视觉锚点） */
   focusedHitKey?: string | null
   /** 双击某个定位框：把这块回传给 Markdown 面板（高亮 + 进入修改） */
@@ -202,7 +256,7 @@ export const PageCell = memo(function PageCell({
             } ${
               on
                 ? 'border-2 border-sky-600 bg-sky-400/20 shadow-[0_0_0_2px_rgba(2,132,199,0.25)]'
-                : `border border-sky-500/70 ${h.approx ? 'border-dashed' : ''}`
+                : `${hitBoxClass(h)}`
             } ${dim ? 'opacity-25' : ''}`}
             style={{
               left: `${h.rect.x * 100}%`,
@@ -214,6 +268,11 @@ export const PageCell = memo(function PageCell({
           />
           )
         })}
+
+        {/* 双引擎对照框：实线绿 = MinerU（主），虚线琥珀 = VL（副）。
+            画在 hits 之后、拖框之前：分歧框是律师当前要看的东西，不能被普通定位框
+            盖住；而拖框/待确认框是律师刚画的操作反馈，必须还在最上面。 */}
+        {engineBoxes && <EngineBoxOverlay groups={engineBoxes} />}
 
         {/* OCR 拖出的框 */}
         {dragRect && (
@@ -313,4 +372,99 @@ function OfficePlaceholder({ mat }: { mat: BundleMat }) {
       </div>
     </div>
   )
+}
+
+/**
+ * 双引擎对照框（SVG 覆盖层，与页图同尺寸、绝对定位铺满）。
+ *
+ * ## 坐标口径
+ *
+ * 复用既有约定：`rect` 是**相对页面图像**归一化的 0-1（`PositionedBlock.rect` 同口径，
+ * 见外层 `boxRef` 容器的注释）。这里把 0-1 乘上 viewBox 边长再交给 SVG，
+ * 而不是另建一套像素换算——页卡宽度随缩放/列数变化，用 px 画会在每次缩放后失准。
+ * `preserveAspectRatio="none"` 让 viewBox 直接拉满容器，于是 `x*100%` 与 `x*VIEWBOX`
+ * 是同一个点，两套口径不会漂移。
+ *
+ * ## 为什么叠在一个 `<svg>` 里而不是每框一个 div
+ *
+ * 两框大面积重叠时，两个独立绝对定位元素的填充会互相遮挡，谁在后谁看得见。
+ * 统一用 `fillOpacity: 0.12` 的半透明填充 + 描边，重叠处颜色自然叠深，
+ * 而两条边都完整可见——这正是「两框重叠时都可见」的实现方式。
+ *
+ * ## 退化情形
+ *
+ * 某引擎这一页一个框都没给（后端没传 block bbox / 该引擎降级失败）时，它那一组
+ * 渲染不出任何 rect，页面上只有另一个引擎的框。这是刻意的：**不伪造一个假框去凑
+ * 成一对**，缺坐标就如实缺着——假框会让律师对着一个不存在的差异下结论。
+ * 坐标不可信（`approx`）的框描边更淡并在小字前加「≈」：宁可看着不确定，也不给假精度。
+ */
+function EngineBoxOverlay({ groups }: { groups: EngineBoxGroup[] }) {
+  // 一条分歧通常只对应一个块，所以按整组判断「本引擎坐标是否可信」。
+  // 一组里混着精确框与近似框时，只要有一个精确框就按精确处理（有精确信息就别放弃它）。
+  const entries = groups.map((g) => {
+    const color = ENGINE_BOX_COLORS[g.variant.engine] ?? ENGINE_BOX_DEFAULT_COLOR
+    const dashed = g.variant.engine !== PRIMARY_ENGINE
+    // 坐标可信度按「最差的那个块」算：一组里只要有一个块是推算的，
+    // 这组框就不能对外声称精确（混合时若按最好算，会给出假精度）。
+    const precisions = g.blocks.map((b) => (b as { precision?: RectPrecision }).precision ?? rectPrecisionOf(b))
+    const approx = precisions.some((p) => p !== 'exact')
+    const veryApprox = precisions.length > 0 && precisions.every((p) => p === 'page')
+    return { group: g, color, dashed, approx, veryApprox }
+  })
+
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      <svg
+        data-engine-box-overlay
+        className="absolute inset-0 h-full w-full"
+        viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        {entries.flatMap(({ group, color, dashed, approx, veryApprox }) =>
+          group.blocks.map((b, i) => {
+            // 三档透明度：精确 1.0 / 推算 0.55 / 整页近似 0.28
+            const stroke = !approx ? 1 : veryApprox ? 0.28 : 0.55
+            return (
+              <g key={`${group.variant.engine}:${i}`} data-engine-box={group.variant.engine}>
+                <rect
+                  x={b.rect.x * VIEWBOX}
+                  y={b.rect.y * VIEWBOX}
+                  width={b.rect.w * VIEWBOX}
+                  height={b.rect.h * VIEWBOX}
+                  fill={color}
+                  fillOpacity={0.12}
+                  stroke={color}
+                  strokeOpacity={stroke}
+                  strokeWidth={ENGINE_BOX_STROKE}
+                  strokeDasharray={dashed ? ENGINE_BOX_DASH : undefined}
+                  rx={2}
+                />
+                {/* 框旁标注：引擎短名 + 这个框对应的文本，律师一眼对上「哪个框是哪个引擎的哪个字」 */}
+                <text
+                  x={b.rect.x * VIEWBOX}
+                  y={b.rect.y * VIEWBOX - 3}
+                  fill={color}
+                  fillOpacity={approx ? 0.7 : 1}
+                  stroke="white"
+                  strokeWidth={2.5}
+                  paintOrder="stroke"
+                  fontSize={11}
+                >
+                  {labelOf(group.variant.engine, b.text, approx)}
+                </text>
+              </g>
+            )
+          }),
+        )}
+      </svg>
+    </div>
+  )
+}
+
+/** 框旁小字：`MinerU 罗浩瑜`；文本过长截断，`approx` 补一个「≈」表示坐标不可信 */
+function labelOf(engine: EngineName, text: string, approx: boolean): string {
+  const body = text.trim().slice(0, 18)
+  const name = engineShortLabel(engine)
+  return `${approx ? '≈' : ''}${name}${body ? ` ${body}` : ''}`
 }

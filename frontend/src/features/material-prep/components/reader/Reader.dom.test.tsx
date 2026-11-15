@@ -54,6 +54,9 @@ vi.mock('../../draft', () => ({
     (d?.segs ?? []).filter((x) => !x.t).length,
   isAutoSegName: () => false,
   matLabel: (m: { n: string }) => m.n,
+  // 引擎分歧相关的两个纯函数：ReaderBody 每次渲染都要调，桩成最小可用行为
+  disagreementKey: (d: { page_no: number; kind: string }) => `${d.page_no}:${d.kind}`,
+  groupBySeverity: (list: unknown[]) => ({ high: [], medium: [], low: [], unchecked: list.length }),
 }))
 const mediaMock = vi.hoisted(() => ({ narrow: false }))
 vi.mock('@/hooks/use-media', () => ({ useMediaQuery: () => mediaMock.narrow }))

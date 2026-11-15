@@ -13,6 +13,21 @@ from apps.document_parsing.exceptions import MineruAPIError, ParsingTimeoutError
 from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
 from apps.document_parsing.services.backends.mineru_backend import MineruBackend
 
+
+def _mock_upload_client(put_response=None):
+    """构造 _put_file_streaming 用的独立 httpx.Client 替身。
+
+    上传现在走**独立客户端**（不是共享工厂）：要按文件体积单独设超时，还要在
+    重试轮换 trust_env。所以测试必须同时 patch `httpx.Client`，否则 PUT 会打真网。
+    """
+    client = MagicMock()
+    client.put.return_value = put_response if put_response is not None else _mock_response(200)
+    ctx = MagicMock()
+    ctx.__enter__.return_value = client
+    ctx.__exit__.return_value = False
+    return ctx, client
+
+
 _PATCH_PREFIX = "apps.document_parsing.services.backends.mineru_backend"
 
 
@@ -168,16 +183,19 @@ class TestUploadFile:
                 },
             },
         )
-        put_resp = _mock_response(200)
         mock_client.post.return_value = batch_resp
-        mock_client.put.return_value = put_resp
+        upload_ctx, upload_client = _mock_upload_client()
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+        with (
+            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=upload_ctx),
+        ):
             batch_id = backend._upload_file(str(pdf))
 
         assert batch_id == "batch-123"
         mock_client.post.assert_called_once()
-        mock_client.put.assert_called_once()
+        # 文件本体走独立客户端流式 PUT（不整包进内存）
+        upload_client.put.assert_called_once()
 
     def test_batch_api_error_code(self, tmp_path: Path) -> None:
         pdf = tmp_path / "test.pdf"
@@ -413,6 +431,110 @@ class TestPollBatchResult:
 # ── _parse_result_zip ────────────────────────────────────────────
 
 
+def _layout_json_sample() -> str:
+    """按实测 MinerU SaaS 结果形状构造 layout.json（page_size + preproc_blocks）。
+
+    文本块的 lines/spans 直接挂在块上；表格块没有 lines，只有子块 ``table_body``
+    里的整表 line + ``span.html``——与真实返回一致。
+    """
+    return json.dumps(
+        {
+            "pdf_info": [
+                {
+                    "page_idx": 0,
+                    "page_size": [612, 1008],
+                    "preproc_blocks": [
+                        {
+                            "type": "text",
+                            "bbox": [128, 90, 408, 119],
+                            "lines": [
+                                {
+                                    "bbox": [128, 90, 408, 119],
+                                    "spans": [{"bbox": [128, 90, 408, 119], "type": "text", "content": "地址：某某路"}],
+                                }
+                            ],
+                        },
+                        {
+                            "type": "table",
+                            "bbox": [22, 89, 600, 744],
+                            "blocks": [
+                                {
+                                    "type": "table_body",
+                                    "bbox": [22, 89, 600, 744],
+                                    "lines": [
+                                        {
+                                            "bbox": [22, 89, 600, 744],
+                                            "spans": [
+                                                {
+                                                    "bbox": [22, 89, 600, 744],
+                                                    "type": "table",
+                                                    "html": "<table><tr><td>1</td></tr></table>",
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        },
+                    ],
+                    "discarded_blocks": [],
+                }
+            ]
+        }
+    )
+
+
+def _model_json_sample() -> str:
+    """按实测 MinerU SaaS 结果形状构造 model.json（二维数组：外层页、内层元素）。
+
+    bbox 是**归一化 0-1**（与 content_list 的千分比不同口径），``text`` 恒为空、
+    ``score`` 恒为 1.0——与真实返回一致，用来验证只靠坐标、不靠文本匹配。
+    第 2 页是表格页，实测 0 个 ocr_text。
+    """
+    return json.dumps(
+        [
+            [
+                {"type": "text", "bbox": [0.209, 0.089, 0.666, 0.118], "text": "地址：某某路 电话：123"},
+                {"type": "text", "bbox": [0.148, 0.237, 0.813, 0.289], "text": "兹证明某某老师…"},
+                {"type": "text", "bbox": [0.519, 0.63, 0.715, 0.687], "text": "已核对与原件相符\n经办人：某某"},
+                {"type": "header", "bbox": [0.212, 0.034, 0.769, 0.087], "text": "页眉"},
+                # 以下 ocr_text 都在数组末尾（实测如此），只给坐标
+                #
+                # 地址块：content 写成一整行（无 \n），但 ocr_text 给了两个**y 区间重叠**的
+                # 框（88-110 与 102-119）。它们不是两行，是同一行的重叠检测。
+                # 同理「1 行 vs 2 框」→ 按红线放弃，不挂 line_boxes。
+                {"type": "ocr_text", "bbox": [0.209, 0.088, 0.666, 0.11], "text": "", "score": 1.0},
+                {"type": "ocr_text", "bbox": [0.21, 0.102, 0.395, 0.119], "text": "", "score": 1.0},
+                # 兹证明块：content 1 行但 ocr_text 2 框（长文本折行），必须放弃。
+                # 两框都落在块 y 范围内（否则第二个会被 y 过滤掉，测不到红线）
+                {"type": "ocr_text", "bbox": [0.149, 0.24, 0.656, 0.262], "text": "", "score": 1.0},
+                {"type": "ocr_text", "bbox": [0.148, 0.265, 0.813, 0.288], "text": "", "score": 1.0},
+                # 已核对块：2 行 2 框，但故意倒序存放，验证按 y 升序还原阅读顺序
+                {"type": "ocr_text", "bbox": [0.521, 0.666, 0.715, 0.687], "text": "", "score": 1.0},
+                {"type": "ocr_text", "bbox": [0.519, 0.63, 0.716, 0.652], "text": "", "score": 1.0},
+            ],
+            [
+                {"type": "header", "bbox": [0.741, 0.026, 0.834, 0.045], "text": "000040"},
+                {"type": "table", "bbox": [0.035, 0.088, 0.98, 0.738], "text": "表格"},
+            ],
+        ]
+    )
+
+
+def _content_list_with_text_blocks() -> str:
+    """与 ``_model_json_sample`` 同页同块的 content_list.json（千分比坐标）。"""
+    return json.dumps(
+        [
+            {"type": "text", "text": "地址：某某路 电话：123", "bbox": [209, 89, 666, 118], "page_idx": 0},
+            {"type": "text", "text": "兹证明某某老师…", "bbox": [148, 237, 813, 289], "page_idx": 0},
+            {"type": "text", "text": "已核对与原件相符\n经办人：某某", "bbox": [519, 630, 715, 687], "page_idx": 0},
+            {"type": "header", "text": "页眉", "bbox": [212, 34, 769, 87], "page_idx": 0},
+            {"type": "header", "text": "000040", "bbox": [741, 26, 834, 45], "page_idx": 1},
+            {"type": "table", "text": "表格", "bbox": [35, 88, 980, 738], "page_idx": 1},
+        ]
+    )
+
+
 class TestParseResultZip:
     def test_with_content_list_json(self) -> None:
         backend = _make_backend()
@@ -438,6 +560,191 @@ class TestParseResultZip:
         assert "第一段" in result.text
         assert "第二段" in result.text
         assert result.parse_method == "mineru"
+
+    def test_layout_json_adds_page_size_and_lines(self) -> None:
+        """layout.json 补上 content_list 缺的页面尺寸与行级 box；表格块行级信息保持为空。"""
+        backend = _make_backend()
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": json.dumps(
+                    [
+                        {"type": "text", "text": "地址：某某路", "bbox": [209, 89, 666, 118], "page_idx": 0},
+                        {"type": "table", "text": "1", "bbox": [35, 88, 980, 738], "page_idx": 0},
+                        # content_list 独有的页眉块（layout.json 放在 discarded_blocks），不参与对齐
+                        {"type": "header", "text": "页眉", "bbox": [212, 34, 769, 87], "page_idx": 0},
+                    ]
+                ),
+                "result/layout.json": _layout_json_sample(),
+                "result/output.md": "地址：某某路",
+            }
+        )
+
+        with _patch_http(MagicMock(), content=zip_bytes):
+            result = backend._parse_result_zip("https://example.com/result.zip")
+
+        assert result.layout is not None
+        page = result.layout["pages"][0]
+        assert page["width"] == 612
+        assert page["height"] == 1008
+
+        text_block, table_block, header_block = page["blocks"]
+        assert text_block["lines"][0]["bbox"] == [128, 90, 408, 119]
+        assert text_block["lines"][0]["spans"][0]["content"] == "地址：某某路"
+        # 表格只有整表 bbox：不把整块 box 冒充行级坐标，html 照常保留
+        assert table_block["lines"] == []
+        assert table_block["html"].startswith("<table>")
+        # 页眉块不消耗 layout.json 的块游标，也不带 lines
+        assert "lines" not in header_block
+
+    def test_missing_layout_json_degrades_to_content_list(self) -> None:
+        """没有 layout.json 时退回原行为：无页面尺寸、无行级信息，主链路文本照常。"""
+        backend = _make_backend()
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": json.dumps(
+                    [{"type": "text", "text": "第一段", "bbox": [209, 89, 666, 118], "page_idx": 0}]
+                ),
+                "result/output.md": "第一段",
+            }
+        )
+
+        with _patch_http(MagicMock(), content=zip_bytes):
+            result = backend._parse_result_zip("https://example.com/result.zip")
+
+        assert "第一段" in result.text
+        page = result.layout["pages"][0]
+        assert "width" not in page
+        assert "lines" not in page["blocks"][0]
+
+    def test_broken_layout_json_degrades_to_content_list(self) -> None:
+        """layout.json 损坏时不能拖垮整次解析，只丢行级增强信息。"""
+        backend = _make_backend()
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": json.dumps(
+                    [{"type": "text", "text": "第一段", "bbox": [209, 89, 666, 118], "page_idx": 0}]
+                ),
+                "result/layout.json": "not json!!!",
+                "result/output.md": "第一段",
+            }
+        )
+
+        with _patch_http(MagicMock(), content=zip_bytes):
+            result = backend._parse_result_zip("https://example.com/result.zip")
+
+        assert "第一段" in result.text
+        assert "width" not in result.layout["pages"][0]
+
+    def test_model_json_attaches_line_boxes_only_when_count_matches(self) -> None:
+        """model.json 的 ocr_text 逐行框：框数=行数才挂，不等就放弃（不编造坐标）。"""
+        backend = _make_backend()
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": _content_list_with_text_blocks(),
+                "result/test_model.json": _model_json_sample(),
+                "result/output.md": "地址：某某路 电话：123",
+            }
+        )
+
+        with _patch_http(MagicMock(), content=zip_bytes):
+            result = backend._parse_result_zip("https://example.com/result.zip")
+
+        page_one, page_two = result.layout["pages"]
+        address_block, long_block, checked_block, header_block = page_one["blocks"]
+
+        # 红线：**框数 != 行数一律放弃**。地址块 content 是 1 行、ocr_text 是 2 框
+        # （且两框 y 区间重叠，本就是同一行的重复检测），不能硬配成「两行」。
+        # 这条与 long_block 同一口径——两者的差别只在文本长短，规则上不是两种情形。
+        assert "line_boxes" not in address_block
+        # 框数(2) != 行数(1)：放弃，不带字段
+        assert "line_boxes" not in long_block
+        # 唯一框数==行数（2 行 2 框）的块：挂上，且倒序存放的 ocr_text
+        # 按 y 升序还原成阅读顺序
+        assert [line["bbox"][1] for line in checked_block["line_boxes"]] == [630, 666]
+        # 页眉不让 ocr_text 消化（实测 ocr_text 不含页眉）
+        assert "line_boxes" not in header_block
+
+        # 表格页实测 0 个 ocr_text：整页不产出逐行框
+        table_block = page_two["blocks"][1]
+        assert "line_boxes" not in table_block
+
+    def test_重叠的同行的框不会被当成两行(self) -> None:
+        """回归：y 区间互相重叠的 ocr_text 是同一行的重复检测，不是两行。
+
+        曾经有一条断言要求「content 1 行 + ocr_text 2 框」也挂上两个 line_boxes——
+        那两个框的 y 区间是 [88,110] 与 [102,119]，**重叠了 8 个单位**。挂上去等于
+        对外宣称这一行文字占了两个不同高度，坐标是假的。红线（框数 != 行数就放弃）
+        必须对它生效，这里把这条语义单独锁住。
+        """
+        backend = _make_backend()
+        with tempfile.TemporaryDirectory() as td:
+            model = Path(td) / "x_model.json"
+            model.write_text(_model_json_sample())
+            lines = backend._parse_model_json_lines(model)
+
+        first, second = lines[1][0]["bbox"], lines[1][1]["bbox"]
+        overlap = min(first[3], second[3]) - max(first[1], second[1])
+        assert overlap > 0, "夹具的前提是两个框 y 区间重叠（同一行的重复检测）"
+
+        # 单行 content + 两个重叠框 → 必须放弃
+        page_blocks = [{"type": "text", "text": "地址：某某路 电话：123", "bbox": [209, 89, 666, 118]}]
+        attached, skipped = backend._attach_ocr_text_lines(page_blocks, lines[1])
+        assert attached == 0
+        assert skipped == 1
+        assert "line_boxes" not in page_blocks[0]
+
+    def test_框数与行数一致时才挂(self) -> None:
+        """正面场景：2 行 content + 2 个不重叠的框 → 挂上，且按 y 升序。"""
+        backend = _make_backend()
+        page_blocks = [
+            {
+                "type": "text",
+                "text": "第一行\n第二行",
+                "bbox": [100, 100, 900, 300],
+            }
+        ]
+        ocr_lines = [
+            {"bbox": [100, 200, 400, 240], "type": "ocr_text"},  # 倒序存放
+            {"bbox": [100, 110, 500, 150], "type": "ocr_text"},
+        ]
+        attached, skipped = backend._attach_ocr_text_lines(page_blocks, ocr_lines)
+        assert (attached, skipped) == (1, 0)
+        assert [b["bbox"][1] for b in page_blocks[0]["line_boxes"]] == [110, 200]
+
+    def test_missing_model_json_keeps_block_level_bbox(self) -> None:
+        """没有 model.json 时退回原行为：只有块级 bbox，不挂 line_boxes。"""
+        backend = _make_backend()
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": _content_list_with_text_blocks(),
+                "result/output.md": "地址：某某路 电话：123",
+            }
+        )
+
+        with _patch_http(MagicMock(), content=zip_bytes):
+            result = backend._parse_result_zip("https://example.com/result.zip")
+
+        assert "地址：某某路" in result.text
+        for page in result.layout["pages"]:
+            for block in page["blocks"]:
+                assert "line_boxes" not in block
+
+    def test_broken_model_json_degrades_to_block_level_bbox(self) -> None:
+        """model.json 损坏时只丢逐行坐标，不影响主链路。"""
+        backend = _make_backend()
+        zip_bytes = _make_zip_bytes(
+            {
+                "result/test_content_list.json": _content_list_with_text_blocks(),
+                "result/test_model.json": "not json!!!",
+                "result/output.md": "地址：某某路 电话：123",
+            }
+        )
+
+        with _patch_http(MagicMock(), content=zip_bytes):
+            result = backend._parse_result_zip("https://example.com/result.zip")
+
+        assert "地址：某某路" in result.text
+        assert "line_boxes" not in result.layout["pages"][0]["blocks"][0]
 
     def test_with_markdown_only(self) -> None:
         backend = _make_backend()
@@ -737,3 +1044,113 @@ class TestParseDocument:
         with patch.object(backend, "_upload_file", side_effect=RuntimeError("unexpected")):
             with pytest.raises(MineruAPIError, match="unexpected"):
                 backend.parse_document(str(pdf))
+
+
+# ── 大文件上传：超时口径 / 流式 / 重试 ───────────────────────────
+#
+# 回归背景：上传曾经用 `self.timeout`（默认 30s）且 `f.read()` 整包进内存。
+# 65MB 卷宗实测 `write operation timed out`，双引擎里 MinerU 这一侧永远没有
+# 结果，只剩 PaddleOCR-VL 单边——比对失去意义。
+
+
+class TestUploadTimeoutBudget:
+    """上传超时必须随体积增长，且各阶段口径不同。"""
+
+    def test_小文件不低于下限(self) -> None:
+        backend = _make_backend()
+        timeout = backend._upload_timeout_for(1024)  # 1KB
+        # 连接/写阶段有小文件底，不至于握个手就被判超时
+        assert timeout.connect == backend.UPLOAD_MIN_TIMEOUT
+        assert timeout.read >= backend.UPLOAD_MIN_TIMEOUT
+
+    def test_大文件超时随体积增长(self) -> None:
+        backend = _make_backend()
+        small = backend._upload_timeout_for(1 * 1024 * 1024)  # 1MB
+        big = backend._upload_timeout_for(65 * 1024 * 1024)  # 65MB
+        assert big.read > small.read, "65MB 必须比 1MB 给更多时间，否则就是本次事故复现"
+        # 30s 是元数据超时，绝不能拿来传 65MB
+        assert big.read > 30 * 10
+
+    def test_超时有上限不会无限挂(self) -> None:
+        backend = _make_backend()
+        huge = backend._upload_timeout_for(10 * 1024 * 1024 * 1024)  # 10GB
+        assert huge.read <= backend.UPLOAD_MAX_TIMEOUT
+
+    def test_显式指定时以指定值为准(self) -> None:
+        backend = MineruBackend(api_key="k", upload_timeout=42)
+        timeout = backend._upload_timeout_for(65 * 1024 * 1024)
+        assert timeout.read == 42
+
+
+class TestUploadStreaming:
+    """文件本体必须流式上传，不能整包读进内存。"""
+
+    def test_传入的是文件句柄而不是整包字节(self, tmp_path: Path) -> None:
+        pdf = tmp_path / "big.pdf"
+        pdf.write_bytes(b"%PDF-1.4" + b"x" * (2 * 1024 * 1024))
+
+        backend = _make_backend()
+        upload_ctx, upload_client = _mock_upload_client()
+
+        with patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=upload_ctx):
+            backend._put_file_streaming("https://oss.example.com/u?sig=1", pdf)
+
+        upload_client.put.assert_called_once()
+        content = upload_client.put.call_args.kwargs["content"]
+        # 关键：传给 httpx 的是可读文件对象，不是 bytes。
+        # 整包 read() 会让 65MB 常驻内存；用句柄 httpx 分块读盘，
+        # 还能据此算出 Content-Length（预签名校验需要）。
+        assert hasattr(content, "read")
+        assert not isinstance(content, (bytes, bytearray))
+
+    def test_重试时重开文件避免传出残缺字节(self, tmp_path: Path) -> None:
+        """一次失败的 PUT 可能已把句柄读空；复用偏移量会传一份残缺内容。"""
+        import httpx
+
+        pdf = tmp_path / "r.pdf"
+        pdf.write_bytes(b"%PDF-1.4 payload")
+
+        backend = _make_backend()
+        calls: list[bool] = []
+
+        def _put(_url, content=None, **_kw):
+            # 每次都必须是尾部为 0（新开的句柄）
+            calls.append(content.tell() == 0)
+            if len(calls) < 2:
+                raise httpx.ConnectError("boom")
+            return _mock_response(200)
+
+        upload_ctx, upload_client = _mock_upload_client()
+        upload_client.put.side_effect = _put
+
+        with (
+            patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=upload_ctx),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
+            backend._put_file_streaming("https://oss.example.com/u?sig=1", pdf)
+
+        assert calls == [True, True], "重试必须重新从文件头开始读"
+
+    def test_重试耗尽后报错而不是静默成功(self, tmp_path: Path) -> None:
+        import httpx
+
+        pdf = tmp_path / "f.pdf"
+        pdf.write_bytes(b"%PDF-1.4")
+
+        backend = _make_backend()
+        upload_ctx, upload_client = _mock_upload_client()
+        upload_client.put.side_effect = httpx.ConnectError("always down")
+
+        with (
+            patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=upload_ctx),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+            pytest.raises(MineruAPIError, match="文件上传失败"),
+        ):
+            backend._put_file_streaming("https://oss.example.com/u?sig=1", pdf)
+
+        assert upload_client.put.call_count == backend.UPLOAD_ATTEMPTS
+
+    def test_文件不存在时给出明确错误(self, tmp_path: Path) -> None:
+        backend = _make_backend()
+        with pytest.raises(MineruAPIError, match="待上传文件不存在"):
+            backend._upload_file(str(tmp_path / "nope.pdf"))

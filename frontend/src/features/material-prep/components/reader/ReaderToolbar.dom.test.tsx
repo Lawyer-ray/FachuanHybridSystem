@@ -7,12 +7,14 @@
  * - inline（嵌入顶栏）只输出按钮组；非 inline 自带容器
  *
  * 各按钮的 on/off 态、禁用态、自动分段的忙碌文案，以及「恢复初始分段」
- * 收在 ⋯ 菜单里防误触。
+ * 收在 ⋯ 菜单里防误触。末尾另有 ReaderBody 的进度面板接线用例（见文件内说明）。
  */
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { ReaderBody } from './ReaderBody'
 import { ReaderToolbar } from './ReaderToolbar'
+import type { CloudSelection } from './platform-selection'
 
 type ToolbarProps = React.ComponentProps<typeof ReaderToolbar>
 
@@ -40,8 +42,8 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     autoSplitProgress: '',
     layoutMode: 'fast_text' as const,
     onLayoutModeChange: vi.fn(),
-    cloudBackend: 'auto' as const,
-    onCloudBackendChange: vi.fn(),
+    cloudSelection: [] as CloudSelection,
+    onToggleCloudEngine: vi.fn(),
     ...over,
   }
 }
@@ -179,10 +181,14 @@ describe('ReaderToolbar：自动分段', () => {
     unmount()
   })
 
-  it('运行中禁用并显示进度文案', () => {
+  it('运行中禁用，按钮只留固定短文案（详细进度在底部面板）', () => {
+    // 按钮以前会把「正在识别 84/164 页（51%）」整句塞进 name，手机构成工具条
+    // （46px 固定高度、横向滚动）会被撑爆。现在进度归底部面板，按钮固定「识别中…」，
+    // 当前页仍挂在 title 上供鼠标悬停查看。
     const { unmount } = renderToolbar({ autoSplitRunning: true, autoSplitProgress: '识别 3/10' })
-    const btn = screen.getByRole('button', { name: /识别 3\/10/ }) as HTMLButtonElement
+    const btn = screen.getByRole('button', { name: /识别中…/ }) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
+    expect(btn.title).toContain('识别 3/10')
     unmount()
   })
 
@@ -218,11 +224,61 @@ describe('ReaderToolbar：自动分段 split button', () => {
     unmount()
   })
 
-  it('设置菜单里能选解析平台', async () => {
+  it('设置菜单里能勾一个引擎（锁定该引擎）', async () => {
     const { props, unmount } = renderToolbar()
     await openSettings()
-    fireEvent.click(screen.getByText('仅 Textin'))
-    expect(props.onCloudBackendChange).toHaveBeenCalledWith('textin')
+    fireEvent.click(screen.getByText('Textin'))
+    expect(props.onToggleCloudEngine).toHaveBeenCalledWith('textin')
+    unmount()
+  })
+
+  it('解析平台是多选：三个引擎都能勾，且 PaddleOCR-VL 在列', async () => {
+    const { unmount } = renderToolbar()
+    await openSettings()
+    for (const name of ['MinerU', 'PaddleOCR-VL', 'Textin']) {
+      expect(screen.getByRole('menuitemcheckbox', { name: new RegExp(name) })).toBeTruthy()
+    }
+    unmount()
+  })
+
+  it('不勾任何引擎时说明「= 自动容灾」，且不出现比对提示', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: [] })
+    await openSettings()
+    expect(screen.getByText(/不勾任何引擎 = 自动容灾/)).toBeTruthy()
+    expect(screen.queryByText(/将交叉比对/)).toBeNull()
+    unmount()
+  })
+
+  it('勾一个时不比对，提示是「锁定」', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['mineru'] })
+    await openSettings()
+    expect(screen.getByText(/只勾一个 = 锁定该引擎/)).toBeTruthy()
+    expect(screen.queryByText(/将交叉比对/)).toBeNull()
+    unmount()
+  })
+
+  it('勾两个及以上时出现「将交叉比对」提示与已选数量', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['mineru', 'paddleocr_vl'] })
+    await openSettings()
+    expect(screen.getByText(/已选 2 个引擎 → 将交叉比对/)).toBeTruthy()
+    unmount()
+  })
+
+  it('勾选状态落在 aria-checked 上（勾了两个引擎 → 两项 checked）', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['mineru', 'paddleocr_vl'] })
+    await openSettings()
+    expect(screen.getByRole('menuitemcheckbox', { name: /MinerU/ }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('menuitemcheckbox', { name: /PaddleOCR-VL/ }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('menuitemcheckbox', { name: /Textin/ }).getAttribute('aria-checked')).toBe('false')
+    unmount()
+  })
+
+  it('多选菜单勾一下不会收起菜单（否则勾第二个要重新打开）', async () => {
+    const { unmount } = renderToolbar()
+    await openSettings()
+    fireEvent.click(screen.getByText('MinerU'))
+    // Radix 默认选中即关闭；多选项必须在 onSelect 里 preventDefault
+    expect(screen.queryByRole('menu')).toBeTruthy()
     unmount()
   })
 
@@ -235,7 +291,7 @@ describe('ReaderToolbar：自动分段 split button', () => {
   })
 
   it('当前值带 ✓，且每个选项都写明后果（费用/可信度）', async () => {
-    const { unmount } = renderToolbar({ layoutMode: 'layout', cloudBackend: 'mineru' })
+    const { unmount } = renderToolbar({ layoutMode: 'layout', cloudSelection: ['mineru'] })
     await openSettings()
 
     // 勾选只出现在当前值上
@@ -282,5 +338,102 @@ describe('ReaderToolbar：inline 分支', () => {
     expect(within(container).getByRole('button', { name: '选页' })).toBeTruthy()
     expect(within(container).getByRole('button', { name: /追加材料/ })).toBeTruthy()
     unmount()
+  })
+})
+
+/**
+ * 进度面板接线（挂在 ReaderBody 的 SelectionBar 旁）。
+ *
+ * 这里只守「有没有挂上去、任务态有没有流到面板」：面板自己的阶段文案 / 进度映射 /
+ * 耗时格式由 AutoSplitProgress.dom.test 覆盖。之所以要用真实 ReaderBody 而不是
+ * 单独测面板——这条 props 链路（use-reader-screen → bodyProps → ReaderBody）是
+ * 新增的，断在中间就没人发现面板永远不会出现。
+ */
+describe('ReaderBody：自动分段进度面板接线', () => {
+  const draft = {
+    mats: [{ partIndex: 0, n: 'a.pdf', k: 'pdf', pages: 2 }],
+    segs: [{ id: 's1', t: 'other', fn: '第一份', refs: [{ mi: 0, p: 0 }], manual: false }],
+    infos: [],
+    engineDisagreements: [],
+    engineChecked: [],
+  } as never
+
+  function renderBody(over: Record<string, unknown> = {}) {
+    return render(
+      <ReaderBody
+        draft={draft}
+        messageId={1}
+        narrow={false}
+        railOpen={false}
+        metaOpen={false}
+        onCollapsePanels={vi.fn()}
+        railWrapCls=""
+        metaWrapCls=""
+        pickInfo={-1}
+        pickField=""
+        selMode={false}
+        selPages={[]}
+        selCount={0}
+        selCross={false}
+        focusedSeg={0}
+        zoom={1}
+        effCols={1}
+        ocrPending={null}
+        flowOps={{ pickPage: vi.fn(), setValue: vi.fn() } as never}
+        metaOps={{} as never}
+        onToggleSel={vi.fn()}
+        onOcrBox={vi.fn() as never}
+        onRequestDelete={vi.fn()}
+        onFocusSeg={vi.fn()}
+        onRenameMat={vi.fn()}
+        onSetPickInfo={vi.fn()}
+        onClearSel={vi.fn()}
+        onApplySel={vi.fn()}
+        onExitHint={vi.fn()}
+        flowWrapRef={vi.fn()}
+        onToggleEngineChecked={vi.fn()}
+        {...over}
+      />,
+    )
+  }
+
+  it('没有在跑的任务时不渲染进度面板', () => {
+    const { container } = renderBody()
+    expect(screen.queryByTestId('auto-split-progress')).toBeNull()
+    container.remove()
+  })
+
+  it('有任务时渲染面板并显示当前阶段', () => {
+    const { container } = renderBody({
+      autoSplitTask: {
+        jobId: 'job-1',
+        owned: false,
+        snapshot: {
+          jobId: 'job-1',
+          status: 'processing',
+          stage: 'cross_check',
+          progressPct: 100,
+          processedPages: 164,
+          totalPages: 164,
+          elapsedSeconds: 400,
+          staleSeconds: 3,
+          errorMessage: '',
+          dualEngines: 'mineru,paddleocr_vl',
+          sourceName: '证据材料.pdf',
+        },
+      },
+      onHideAutoSplit: vi.fn(),
+    })
+    expect(screen.getByTestId('auto-split-progress')).toBeTruthy()
+    expect(screen.getByText(/双引擎交叉比对中/)).toBeTruthy()
+    expect(screen.getByText('已用 6 分 40 秒')).toBeTruthy()
+    container.remove()
+  })
+
+  it('刚提交、还没有快照时也显示面板（提交 164 页要几十秒）', () => {
+    const { container } = renderBody({ autoSplitTask: { jobId: 'job-2', owned: true, snapshot: null } })
+    expect(screen.getByTestId('auto-split-progress')).toBeTruthy()
+    expect(screen.getByText('正在识别文字')).toBeTruthy()
+    container.remove()
   })
 })

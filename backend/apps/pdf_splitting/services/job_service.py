@@ -28,6 +28,8 @@ from apps.pdf_splitting.models import (
     PdfSplitSegment,
     PdfSplitSegmentType,
     PdfSplitSourceType,
+    PdfSplitStage,
+    parse_dual_engines,
 )
 
 from .storage import PdfSplitStorage
@@ -53,6 +55,36 @@ def _stale_seconds_for(job: PdfSplitJob) -> int | None:
     return max(0, int((timezone.now() - last).total_seconds()))
 
 
+#: 已经收工、不该再继续计时的状态。
+_TERMINAL_STATUSES = frozenset(
+    {
+        PdfSplitJobStatus.REVIEW_REQUIRED,
+        PdfSplitJobStatus.COMPLETED,
+        PdfSplitJobStatus.FAILED,
+        PdfSplitJobStatus.CANCELLED,
+    }
+)
+
+
+def _elapsed_seconds_for(job: PdfSplitJob) -> int | None:
+    """任务已经跑了多少秒；拿不到起点返回 None。
+
+    口径分两种，是因为「已经跑了多久」和「一共跑了多久」是两个需求：
+    · 在跑（含 exporting 等未终态）→ now - started_at，前端拿它做实时计时；
+    · 终态 → finished_at - started_at，计时**停下**。若终态时还在按 now 算，
+      刷新页面会看到一个还在涨的「已耗时」，律师会以为任务没结束。
+
+    `finished_at` 缺失的终态（老数据/异常路径没写）退回按 now 计，
+    宁可多算也不要返回 None 让前端整块计时消失。
+    """
+    started = job.started_at
+    if started is None:
+        return None
+    if job.status in _TERMINAL_STATUSES and job.finished_at is not None:
+        return max(0, int((job.finished_at - started).total_seconds()))
+    return max(0, int((timezone.now() - started).total_seconds()))
+
+
 class PdfSplitJobService:
     # 收件箱单文件上限已放宽到 1GB（整卷客户材料），这里必须跟上——否则
     # 材料包里的文件能传进来、却在自动分段时被拒，白上传一次。
@@ -71,6 +103,7 @@ class PdfSplitJobService:
         ocr_profile: str = PdfSplitOcrProfile.BALANCED,
         layout_mode: str = PdfSplitLayoutMode.FAST_TEXT,
         cloud_backend: str = PdfSplitCloudBackend.AUTO,
+        dual_engines: str = "",
         created_by: Any | None = None,
     ) -> PdfSplitJob:  # pragma: no cover
         has_file = file is not None
@@ -83,6 +116,7 @@ class PdfSplitJobService:
         profile_key = self._normalize_ocr_profile(ocr_profile)
         layout_key = self._normalize_layout_mode(layout_mode)
         cloud_key = self._normalize_cloud_backend(cloud_backend)
+        dual_engines_key = self._normalize_dual_engines(dual_engines)
         job_id = uuid.uuid4()
         storage = PdfSplitStorage(job_id)
         storage.ensure_dirs()
@@ -116,6 +150,7 @@ class PdfSplitJobService:
                 ocr_profile=profile_key,
                 layout_mode=layout_key,
                 cloud_backend=cloud_key,
+                dual_engines=dual_engines_key,
                 status=PdfSplitJobStatus.PENDING,
                 total_pages=total_pages,
                 created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
@@ -125,6 +160,7 @@ class PdfSplitJobService:
                     "ocr_profile": profile_key,
                     "layout_mode": layout_key,
                     "cloud_backend": cloud_key,
+                    "dual_engines": dual_engines_key,
                 },
             )
 
@@ -211,6 +247,38 @@ class PdfSplitJobService:
         # 取最新的一份：同一文件可能被故意重跑过几次，律师要看的是最终结论
         return queryset.order_by("-created_at").first()
 
+    def find_inflight_job(self, *, source_name: str, total_pages: int | None = None) -> PdfSplitJob | None:
+        """找一份**正在进行中**的拆分任务，供前端接管轮询。
+
+        ## 为什么需要它
+
+        任务一旦发起就只活在发起页面的内存里：换浏览器、刷新、或者由同事/脚本
+        先点了一次「自动识别」，阅读器打开材料包时毫不知情，会再建一个任务。
+        结果是同一份 164 页卷宗并行跑两遍（钱翻倍），而**先前那个任务在界面上
+        完全不存在**——就是所谓的「幽灵任务」。
+
+        ## 匹配口径（与 `find_reusable_job` 对称，只是状态取反）
+
+        1. `source_original_name` 相同；
+        2. `status` 在 pending / processing（还没出结果的那些）；
+        3. 未发起取消（已按取消的马上就会变成 cancelled，接管它只会白转圈）；
+        4. 传了 `total_pages` 才校验页数（同 `find_reusable_job`）。
+
+        不按 `created_by` 过滤，理由同 `find_reusable_job`：共用的是「这份文件的
+        识别进度」。返回 None 表示没有进行中的任务，调用方照常新建。
+        """
+        if not source_name:
+            return None
+
+        queryset = PdfSplitJob.objects.filter(
+            source_original_name=source_name,
+            status__in=(PdfSplitJobStatus.PENDING, PdfSplitJobStatus.PROCESSING),
+            cancel_requested=False,
+        )
+        if total_pages is not None:
+            queryset = queryset.filter(total_pages=total_pages)
+        return queryset.order_by("-created_at").first()
+
     def get_job(self, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:
         """获取拆解任务。
 
@@ -254,6 +322,7 @@ class PdfSplitJobService:
             "ocr_profile": job.ocr_profile,
             "layout_mode": getattr(job, "layout_mode", PdfSplitLayoutMode.FAST_TEXT),
             "cloud_backend": getattr(job, "cloud_backend", PdfSplitCloudBackend.AUTO),
+            "dual_engines": getattr(job, "dual_engines", ""),
             "progress": int(job.progress or 0),
             "total_pages": int(job.total_pages or 0),
             "processed_pages": int(job.processed_pages or 0),
@@ -263,6 +332,12 @@ class PdfSplitJobService:
             "download_url": download_url,
             "pdf_url": pdf_url,
             "error_message": job.error_message or "",
+            # ↓↓ 阶段与耗时：让前端能把「正在交叉比对」（可能十几分钟）与
+            # 「100% 假死」区分开，并显示一个律师看得懂的已耗时。
+            "stage": job.stage or PdfSplitStage.EXTRACT,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+            "elapsed_seconds": _elapsed_seconds_for(job),
             # ↓↓ 存活信息：前端据此判断「在跑」还是「卡死了」，不必等满 14 分钟超时。
             #
             # stale_seconds 为 null 表示非 processing 态（终态或待人工），不参与判活。
@@ -567,6 +642,14 @@ class PdfSplitJobService:
         mode = str(value or "").strip().lower()
         valid = {choice for choice, _label in PdfSplitCloudBackend.choices}
         return mode if mode in valid else PdfSplitCloudBackend.AUTO
+
+    def _normalize_dual_engines(self, value: str | None) -> str:
+        """交叉比对引擎归一化：去重 + 丢掉非法值，再逗号拼回。
+
+        口径与 `parse_dual_engines` 一致（那个函数负责读，这里负责写）。**空串是
+        正常值**，表示「不跑比对」——不要把它变成某个默认引擎。
+        """
+        return ",".join(parse_dual_engines(value))
 
     def _normalize_layout_mode(self, value: str | None) -> str:
         """版面策略归一化：非法值一律落回 fast_text（不调云端）。

@@ -10,6 +10,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PBTN, PBTN_ON, ZOOM_MAX, ZOOM_MIN } from './ui'
 import { cn } from '@/lib/utils'
+import {
+  CLOUD_ENGINES,
+  cloudEngineLabel,
+  cloudSelectionSummary,
+  crossChecks,
+  type CloudEngine,
+  type CloudSelection,
+} from './platform-selection'
 
 /**
  * 阅读器工具组。
@@ -44,8 +52,8 @@ export function ReaderToolbar({
   autoSplitProgress,
   layoutMode,
   onLayoutModeChange,
-  cloudBackend,
-  onCloudBackendChange,
+  cloudSelection,
+  onToggleCloudEngine,
   inline = false,
 }: {
   narrow: boolean
@@ -73,9 +81,9 @@ export function ReaderToolbar({
   /** 版面策略（补版面 = 电子页也上云端拿坐标，按页计费） */
   layoutMode: 'fast_text' | 'layout'
   onLayoutModeChange: (m: 'fast_text' | 'layout') => void
-  /** 云端平台偏好：auto=优先+容灾；锁定=只用它，失败不降级 */
-  cloudBackend: 'auto' | 'mineru' | 'textin'
-  onCloudBackendChange: (b: 'auto' | 'mineru' | 'textin') => void
+  /** 勾选参与本次识别的云端引擎：空=自动容灾；1 个=锁定；≥2 个=交叉比对 */
+  cloudSelection: CloudSelection
+  onToggleCloudEngine: (e: CloudEngine) => void
   /** 嵌入顶栏行（≥1100px）：只输出按钮组，不自带容器 */
   inline?: boolean
 }) {
@@ -192,10 +200,14 @@ export function ReaderToolbar({
           className="rounded-r-none border-r-0"
           onClick={onAutoSplit}
           disabled={autoSplitRunning}
-          title={autoSplitProgress || autoSplitTitle(layoutMode, cloudBackend)}
+          title={autoSplitProgress || autoSplitTitle(layoutMode, cloudSelection)}
         >
+          {/* 运行中只留固定短文案：详细进度（阶段 / 页数 / 耗时）已经在底部进度面板上，
+              按钮再背长文案会把工具条撑爆——手机 .mp-rd-toolbar 是 46px 固定高度的横向滚动条，
+              一行「正在识别 84/164 页（51%）」直接把它挤成两行或截断。
+              progress 仍留在 title 上：鼠标悬停能看当前页，不占布局。 */}
           {autoSplitRunning && <Loader2 className="h-4 w-4 animate-spin" />}
-          {autoSplitRunning ? autoSplitProgress || '识别中…' : '自动分段'}
+          {autoSplitRunning ? '识别中…' : '自动分段'}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -230,24 +242,36 @@ export function ReaderToolbar({
             <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
               解析平台
             </DropdownMenuLabel>
-            <PickItem
-              checked={cloudBackend === 'auto'}
-              onSelect={() => onCloudBackendChange('auto')}
-              label="自动"
-              hint="首选失败自动切下一个"
-            />
-            <PickItem
-              checked={cloudBackend === 'mineru'}
-              onSelect={() => onCloudBackendChange('mineru')}
-              label="仅 MinerU"
-              hint="锁定 · 失败不降级"
-            />
-            <PickItem
-              checked={cloudBackend === 'textin'}
-              onSelect={() => onCloudBackendChange('textin')}
-              label="仅 Textin"
-              hint="锁定 · 失败不降级"
-            />
+            {/* 多选而不是单选：律师要能自己勾「同时用哪几个引擎」，勾两个就交叉比对。
+                以前只有 auto / 仅 MinerU / 仅 Textin 三个互斥选项，双引擎只能靠运维
+                开环境变量，等于把选择权从用户手里拿走了。
+                「自动容灾」不做成菜单项——它是**没勾任何引擎时的后果**，做成可勾项
+                会和勾选状态互相打架（勾了自动又勾 MinerU 算什么）。 */}
+            {CLOUD_ENGINES.map((e) => (
+              <CheckItem
+                key={e}
+                checked={cloudSelection.includes(e)}
+                onToggle={() => onToggleCloudEngine(e)}
+                label={cloudEngineLabel(e)}
+                hint={cloudSelection.includes(e) && !crossChecks(cloudSelection) ? '锁定 · 失败不降级' : '版面解析 · 可定位'}
+              />
+            ))}
+            {/* 底部说明随勾选数变。三态缺一不可：
+                勾两个时以前这里直接返回 null，于是最需要提示的那一态反而什么都没有——
+                用户看不到「要交叉比对」这个后果，更看不到它会**再付一次云端费用**。 */}
+            {crossChecks(cloudSelection) ? (
+              <p className="px-2 pb-1 pt-0.5 text-[11px] leading-4 text-muted-foreground">
+                已选 {cloudSelection.length} 个引擎 → 将交叉比对（多付一次云端费用）
+              </p>
+            ) : cloudSelection.length === 0 ? (
+              <p className="px-2 pb-1 pt-0.5 text-[11px] leading-4 text-muted-foreground">
+                不勾任何引擎 = 自动容灾（首选失败自动切下一个）
+              </p>
+            ) : (
+              <p className="px-2 pb-1 pt-0.5 text-[11px] leading-4 text-muted-foreground">
+                只勾一个 = 锁定该引擎，不比对 · 再勾一个可交叉比对
+              </p>
+            )}
 
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onResetSegments} className="text-[12.5px]">
@@ -305,9 +329,48 @@ function PickItem({
   )
 }
 
+/**
+ * 多选项：勾选框 + 左侧标签 + 一句后果。
+ *
+ * 与 `PickItem` 的区别只在交互语义（勾选 vs 单选），视觉刻意保持一致——
+ * 同一个菜单里版面策略是单选、解析平台是多选，如果两种勾选位长得不一样，
+ * 用户会以为其中一处坏了。`onSelect` 里 `preventDefault()` 是因为 Radix 的
+ * 菜单项默认「选中即关菜单」：多选要连续勾几个，不能一勾就收起来。
+ */
+function CheckItem({
+  checked,
+  onToggle,
+  label,
+  hint,
+}: {
+  checked: boolean
+  onToggle: () => void
+  label: string
+  hint: string
+}) {
+  return (
+    <DropdownMenuItem
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      onSelect={(e) => {
+        e.preventDefault()
+        onToggle()
+      }}
+      className="items-start gap-2 py-1.5"
+    >
+      <span className="mt-[2px] flex h-3.5 w-3.5 flex-none items-center justify-center">
+        {checked && <Check className="h-3.5 w-3.5" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[12.5px] leading-4">{label}</span>
+        <span className="block text-[11px] leading-4 text-muted-foreground">{hint}</span>
+      </span>
+    </DropdownMenuItem>
+  )
+}
+
 /** 主按钮的悬浮说明：一眼看出这次会用什么策略跑 */
-function autoSplitTitle(layoutMode: 'fast_text' | 'layout', cloudBackend: 'auto' | 'mineru' | 'textin'): string {
+function autoSplitTitle(layoutMode: 'fast_text' | 'layout', cloudSelection: CloudSelection): string {
   const layout = layoutMode === 'layout' ? '补版面' : '仅文本层'
-  const backend = cloudBackend === 'auto' ? '自动容灾' : cloudBackend === 'mineru' ? '仅 MinerU' : '仅 Textin'
-  return `逐页识别并生成分段建议（${layout} · ${backend}）· 点右侧箭头可改设置`
+  return `逐页识别并生成分段建议（${layout} · ${cloudSelectionSummary(cloudSelection)}）· 点右侧箭头可改设置`
 }

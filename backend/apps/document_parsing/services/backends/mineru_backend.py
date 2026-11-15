@@ -18,7 +18,15 @@ from apps.core.filesystem.filesystem_service import ensure_zip_within_limits
 from apps.core.http.httpx_clients import get_sync_http_client
 from apps.core.services.document_parse_provider_service import ParseProviderService
 from apps.document_parsing.exceptions import MineruAPIError, ParsingTimeoutError
-from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
+from apps.document_parsing.protocols.document_parser_protocol import (
+    BLOCK_TYPE_IMAGE,
+    BLOCK_TYPE_TABLE,
+    BLOCK_TYPE_TEXT,
+    NON_BODY_BLOCK_TYPES,
+    ParsedDocument,
+    TextExtractionResult,
+    normalize_block_type,
+)
 from apps.document_parsing.services.backends._page_artifacts import (
     clean_page_artifacts,
     collect_header_texts,
@@ -28,6 +36,19 @@ from apps.document_parsing.services.block_builder import attach_blocks
 from apps.document_parsing.services.credential_pool import CredentialPool, get_credential_pool
 
 logger = logging.getLogger(__name__)
+
+#: 没有行级几何的块类型：MinerU 对它们只给整块 bbox（表格内容装在 span.html 里），
+#: 下游不能当行级坐标用，因此这类块的 ``lines`` 固定为空列表。
+_NO_LINE_LEVEL_BLOCK_TYPES: frozenset[str] = frozenset({BLOCK_TYPE_TABLE, BLOCK_TYPE_IMAGE})
+
+#: model.json 的 bbox 是归一化 0-1，乘这个系数换成千分比 0-1000
+#: （与 content_list 主路径同一口径，见 ``resolve_bbox_unit('mineru') == 'permille'``）。
+_MODEL_JSON_BBOX_SCALE = 1000
+
+#: 判断 ocr_text 行框是否落在 text 块 y 范围 / x 范围重叠时的容差（千分比）。
+#: 两个文件来自不同的版面推理分支，同一条线的上下边界会有几像素级差异，
+#: 不留容差会把真实匹配判成不匹配；留太多又会把邻行吞进来。±5 千分比 ≈ ±0.5% 页高。
+_OCR_LINE_BBOX_TOLERANCE = 5
 
 
 class MineruBackend:
@@ -49,6 +70,21 @@ class MineruBackend:
     POLL_TIMEOUT = 360  # 6 分钟，为解析任务轮询和结果下载预留队列时间
     RESULT_DOWNLOAD_ATTEMPTS = 3
 
+    # 文件上传专用的**每阶段最小超时**（秒）。
+    #
+    # 为什么不能继续用 `self.timeout`（默认 30s）上传：那个值是为**元数据请求**
+    # （申请上传 URL、查询批次状态，都是几百字节的 JSON）定的。拿它去 PUT 一个
+    # 65MB 的卷宗，在普通宽带上要几十秒，实测直接 `write operation timed out`——
+    # 双引擎里 MinerU 这一侧就永远拿不到结果，只剩 PaddleOCR-VL 单边，比对失去意义。
+    #
+    # 用**按体积换算**而不是一个写死的大值：小文件不必白等，大文件也不会因为
+    # 固定上限而装不下。上传时长与体积近似线性，这里留 4 倍余量。
+    UPLOAD_MIN_TIMEOUT = 120  # 小文件也不少于这个值（握手/重定向/TLS 建立）
+    UPLOAD_BYTES_PER_SECOND = 512 * 1024  # 保守估算带宽（512KB/s），越大越宽容
+    UPLOAD_TIMEOUT_SLACK = 4.0  # 给带宽波动/DNS/重定向往返留的倍数
+    UPLOAD_MAX_TIMEOUT = 3600  # 上限：再大就该分片传了，不要让单请求无限挂着
+    UPLOAD_ATTEMPTS = 3
+
     BATCH_RESULTS_URL = "https://mineru.net/api/v4/extract-results/batch"
 
     # 后端能力声明：云端后端含 HTTP 上传 + 轮询，阻塞时间长，需异步执行
@@ -59,14 +95,17 @@ class MineruBackend:
         api_key: str | None = None,
         timeout: int = 30,
         provider: Any = None,
+        upload_timeout: float | None = None,
     ):
         """初始化 MinerU 后端
 
         Args:
             api_key: 显式提供的 API Key（Bearer Token），支持逗号/换行/空格分隔的多 key。
                      仅用于显式覆盖；日常应由「解析平台」管理页配置。
-            timeout: HTTP 请求超时时间（秒）
+            timeout: **元数据请求**的超时时间（秒）。文件上传不走它，见
+                `_upload_timeout_for`——一个大文件用 30s 传是必然失败的。
             provider: DocumentParseProvider 实例；不传时按类型自动选择优先级最高的启用平台。
+            upload_timeout: 显式指定文件上传超时（秒）。不传则按文件体积换算。
         """
         if api_key:
             keys = [k.strip() for k in re.split(r"[,\s\r\n]+", str(api_key)) if k.strip()]
@@ -93,6 +132,9 @@ class MineruBackend:
             provider_name = str(resolved.name)
 
         self.timeout = timeout
+        # None = 按每个文件的体积现算（见 _upload_timeout_for）。
+        # 显式传入时就是个固定上限，主要给测试与特殊部署用。
+        self.upload_timeout = upload_timeout
         self._active_key: str | None = None  # 由 parse_document 设置
         self._provider_name = provider_name
 
@@ -239,67 +281,140 @@ class MineruBackend:
         """获取支持的文件格式"""
         return ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "jpg", "jpeg", "png"]
 
-    def _upload_file(self, file_path: str) -> str:
-        """上传文件到 MinerU，上传后 MinerU 自动创建解析任务
+    def _upload_timeout_for(self, file_size_bytes: int) -> httpx.Timeout:
+        """按文件体积算一个**分阶段**的上传超时。
 
-        Args:
-            file_path: 本地文件路径
+        为什么要分阶段（httpx.Timeout 的四个参数各管一段）而不是一个总数：
+
+        · `connect` / `write` 只需要把请求头和字节流递交给 socket，几乎与文件大小
+          无关，但链路上的一次 TLS 握手或 DNS 解析抖动就可能吃掉十来秒——
+          留 `UPLOAD_MIN_TIMEOUT` 的底；
+        · `read` 是等对方返回状态码。预签名上传的目标是对象存储，大文件时它可能
+          花较久才回 200；这一项必须跟着体积走，否则就是本次事故的复现。
+
+        体积到时间的换算用保守带宽（512KB/s）再乘 4 倍余量：65MB 卷宗算出约
+        520s，而实测常见家用宽带下只需几十秒——宁可多等，也不要再在 30s 上搏一次。
+        """
+        if self.upload_timeout is not None:
+            total = float(self.upload_timeout)
+        else:
+            estimated = file_size_bytes / self.UPLOAD_BYTES_PER_SECOND * self.UPLOAD_TIMEOUT_SLACK
+            total = max(float(self.UPLOAD_MIN_TIMEOUT), estimated)
+            total = min(total, float(self.UPLOAD_MAX_TIMEOUT))
+        return httpx.Timeout(total, connect=self.UPLOAD_MIN_TIMEOUT, write=total, read=total)
+
+    def _request_upload_url(self, file_name: str) -> tuple[str, str]:
+        """申请预签名上传地址，返回 ``(batch_id, upload_url)``。
+
+        这是几百字节的 JSON 往返，用元数据超时（`self.timeout`）就够了；
+        它可能返回 5xx/限流，所以包一层轻量重试。
+        """
+        client = get_sync_http_client()
+        payload = {
+            "files": [{"name": file_name, "data_id": uuid4().hex}],
+            "model_version": self.MODEL_VERSION,
+        }
+        last_error: Exception | None = None
+        for attempt in range(1, self.UPLOAD_ATTEMPTS + 1):
+            try:
+                response = client.post(
+                    self.BATCH_URL,
+                    json=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {self._active_key}",
+                    },
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                result = response.json()
+                logger.debug("batch API 响应: %s", result)
+                if result.get("code") != 0:
+                    raise MineruAPIError(f"获取上传 URL 失败: {result.get('msg', '未知错误')}")
+                urls = result["data"]["file_urls"]
+                if not urls:
+                    raise MineruAPIError("未获取到上传 URL")
+                return str(result["data"]["batch_id"]), str(urls[0])
+            except (httpx.HTTPError, KeyError) as e:
+                last_error = e
+                if attempt == self.UPLOAD_ATTEMPTS:
+                    break
+                logger.warning("获取 MinerU 上传 URL 失败，准备重试 (%d/%d): %s", attempt, self.UPLOAD_ATTEMPTS, e)
+                time.sleep(attempt)
+        raise MineruAPIError(f"HTTP 请求失败: {last_error}") from last_error
+
+    def _put_file_streaming(self, upload_url: str, file_path_obj: Path) -> None:
+        """把文件流式 PUT 到预签名地址。
+
+        两个关键点：
+
+        1. **不整包进内存**。改用 `content=文件句柄` 让 httpx 分块读盘（原来是
+           `f.read()` 把 65MB 一次性拉到内存，并发跑多个引擎时内存峰值极难看）。
+           用 file object 而非生成器：httpx 能据此算出 Content-Length，对象存储
+           的预签名校验才过。
+        2. **每次重试重开文件**。失败的 PUT 可能已把句柄读空，复用一个漂移的
+           偏移量会传出一份残缺字节（对象存储不校验内容，会当成成功）。
+
+        Content-Type 仍然刻意不设：预签名 URL 的签名不包含这个 header，
+        多带一个反而会验签失败。
+        """
+        size = file_path_obj.stat().st_size
+        timeout = self._upload_timeout_for(size)
+        last_error: Exception | None = None
+        for attempt in range(1, self.UPLOAD_ATTEMPTS + 1):
+            try:
+                # 独立客户端 + trust_env 与结果下载同口径：上传走代理隧道时偶发
+                # 提前断流，重试轮换直连能绕过去。
+                with (
+                    open(file_path_obj, "rb") as handle,
+                    httpx.Client(timeout=timeout, follow_redirects=True, trust_env=attempt % 2 == 1) as uploader,
+                ):
+                    response = uploader.put(upload_url, content=handle)
+                    response.raise_for_status()
+                return
+            except httpx.HTTPError as e:
+                last_error = e
+                if attempt == self.UPLOAD_ATTEMPTS:
+                    break
+                logger.warning(
+                    "MinerU 文件上传失败（%.1f MB，超时 %ss），准备重试 (%d/%d): %s",
+                    size / 1024 / 1024,
+                    int(timeout.read or 0),
+                    attempt,
+                    self.UPLOAD_ATTEMPTS,
+                    e,
+                )
+                time.sleep(attempt)
+        raise MineruAPIError(f"文件上传失败（{size / 1024 / 1024:.1f} MB）: {last_error}") from last_error
+
+    def _upload_file(self, file_path: str) -> str:
+        """上传文件到 MinerU，上传后 MinerU 自动创建解析任务。
+
+        分两步，超时口径不同（详见 `_upload_timeout_for`）：
+
+        1. 申请预签名地址：几百字节 JSON，用元数据超时；
+        2. 把文件本体流式 PUT 上去：耗时随体积线性增长，必须按体积给时间。
+
+        原始实现两步共用一个 30s 超时、且把整个文件 read() 进内存，65MB 卷宗
+        实测直接 `write operation timed out`——双引擎里 MinerU 这一侧永远缺结果。
 
         Returns:
             batch_id（用于查询解析结果）
         """
         file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            raise MineruAPIError(f"待上传文件不存在: {file_path}")
         file_name = file_path_obj.name
 
-        client = get_sync_http_client()
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self._active_key}",
-        }
-
-        payload = {
-            "files": [{"name": file_name, "data_id": uuid4().hex}],
-            "model_version": self.MODEL_VERSION,
-        }
-
-        try:
-            response = client.post(
-                self.BATCH_URL,
-                json=payload,
-                headers=headers,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            result = response.json()
-
-            logger.debug("batch API 响应: %s", result)
-
-            if result.get("code") != 0:
-                raise MineruAPIError(f"获取上传 URL 失败: {result.get('msg', '未知错误')}")
-
-            batch_id: str = result["data"]["batch_id"]
-            urls = result["data"]["file_urls"]
-
-            if not urls:
-                raise MineruAPIError("未获取到上传 URL")
-
-            upload_url = urls[0]
-
-            # 上传文件到预签名 URL（不设置 Content-Type，签名不包含此 header）
-            with open(file_path, "rb") as f:
-                upload_response = client.put(
-                    upload_url,
-                    content=f.read(),
-                    timeout=self.timeout,
-                )
-                upload_response.raise_for_status()
-
-            logger.info("文件上传成功: %s (batch_id=%s)", file_name, batch_id)
-
-            return batch_id
-
-        except httpx.HTTPError as e:
-            raise MineruAPIError(f"HTTP 请求失败: {e}") from e
+        batch_id, upload_url = self._request_upload_url(file_name)
+        self._put_file_streaming(upload_url, file_path_obj)
+        logger.info(
+            "文件上传成功: %s (%.1f MB, batch_id=%s)",
+            file_name,
+            file_path_obj.stat().st_size / 1024 / 1024,
+            batch_id,
+        )
+        return batch_id
 
     def _poll_batch_result(self, batch_id: str) -> dict:
         """轮询批量任务结果
@@ -441,6 +556,8 @@ class MineruBackend:
                 # 查找关键文件
                 md_file = None
                 content_list_file = None
+                layout_file = None
+                model_file = None
                 image_files = []
 
                 for f in Path(tmp_dir).rglob("*"):
@@ -448,6 +565,10 @@ class MineruBackend:
                         md_file = f
                     elif f.name.endswith("_content_list.json"):
                         content_list_file = f
+                    elif f.name == "layout.json":
+                        layout_file = f
+                    elif f.name.endswith("_model.json"):
+                        model_file = f
                     elif f.suffix in (".jpg", ".jpeg", ".png"):
                         image_files.append(f)
 
@@ -462,6 +583,16 @@ class MineruBackend:
                 if content_list_file:
                     text = self._extract_text_from_content_list(content_list_file)
                     layout = self._extract_page_layout_from_content_list(content_list_file)
+                    # content_list 只有块级 bbox 且完全没有页面尺寸；layout.json 补上
+                    # page_size 与行/span 级 box。它是增强信息，缺了或格式不对都退回
+                    # content_list 的原样结果，不影响 text/markdown 主链路。
+                    if layout and layout_file:
+                        self._merge_layout_json_details(layout, layout_file)
+                    # model.json 的 ocr_text 是逐行 bbox（content_list/layout.json 都没有）：
+                    # 它是唯一能给出「块里每一行各自在哪」的信息源。同样是增强信息，
+                    # 缺失或结构不符时只丢行框，不影响 text/markdown 主链路。
+                    if layout and model_file:
+                        self._merge_model_json_lines(layout, model_file)
                 elif md_file:
                     # fallback 到 markdown，需清理页眉页码
                     text = clean_page_artifacts(md_file.read_text(encoding="utf-8"), exclude_lines=header_texts)
@@ -600,6 +731,448 @@ class MineruBackend:
 
         pages = [page_map[page_no] for page_no in sorted(page_map)]
         return {"page_count": max(page_map, default=0), "pages": pages, "page_index_base": 0 if zero_based else 1}
+
+    def _merge_layout_json_details(self, layout: dict[str, Any], layout_file: Path) -> None:
+        """把 layout.json 的页面尺寸与行级 box 原地补进 content_list 版 layout。
+
+        为什么需要：content_list.json 只有块级 bbox，既没有页面尺寸（归一化坐标时
+        缺宽高会退化成「无坐标」），也没有行/span 级 box，无法定位到「这一行可能认错了」。
+        同一个 ZIP 里的 layout.json 两样都有（坐标同为千分比 0-1000）。
+
+        做法刻意是**合并而非替换**：page_no 与 blocks 仍以 content_list 为准（那是当前
+        主路径，且 content_list 覆盖了 layout.json 里 discarded_blocks 之外的正文顺序），
+        layout.json 只贡献它独有的字段（width/height、blocks[].lines）。
+
+        降级：文件缺失 / JSON 损坏 / 结构不符时保持 layout 原样，只记 warning。
+
+        Args:
+            layout: ``_extract_page_layout_from_content_list`` 的返回值（原地修改）。
+            layout_file: 结果 ZIP 内的 layout.json 路径。
+        """
+        page_details = self._parse_layout_json(layout_file)
+        if not page_details:
+            return
+
+        pages = layout.get("pages")
+        if not isinstance(pages, list):
+            return
+
+        for page in pages:
+            if not isinstance(page, dict):
+                continue
+            page_no = page.get("page_no")
+            try:
+                page_no = int(str(page_no))
+            except (TypeError, ValueError):
+                continue
+            detail = page_details.get(page_no)
+            if detail is None:
+                continue
+
+            if detail.get("width") and detail.get("height"):
+                page["width"] = detail["width"]
+                page["height"] = detail["height"]
+
+            page_blocks = page.get("blocks")
+            if not isinstance(page_blocks, list):
+                continue
+            self._attach_block_lines(page_blocks, detail.get("blocks") or [])
+
+    def _attach_block_lines(self, page_blocks: list[Any], detail_blocks: list[dict[str, Any]]) -> None:
+        """把 layout.json 的行级信息按页内顺序对回 content_list 的块。
+
+        为什么**不能**按 bbox 相等对：实测两者坐标单位不同（同一个「地址：…」块）：
+
+        =======================  =========================  ============
+        content_list.json          [209, 89, 666, 118]        千分比 0-1000
+        layout.json                [128, 90, 408, 119]        绝对像素（612×1008）
+        =======================  =========================  ============
+
+        换算式：``209 / 1000 × 612 = 127.9 ≈ 128``。所以 content_list 是千分比、
+        layout.json 是像素（与 ``bbox.py`` 里 ``resolve_bbox_unit('mineru') == 'permille'``
+        的判断一致——主路径走 content_list）。任何跨文件的 bbox 相等比较都恒不成立。
+
+        为什么可以按顺序对：两个文件是同一页的同一排版顺序，逐块 zip 实测完全对应；
+        差别只在 content_list 额外带了 ``header`` / ``footer`` / ``page_number``
+        这些被 layout.json 放进 ``discarded_blocks`` 的块。因此这里**跳过非正文块**
+        再顺序推进，而不是按下标硬切。
+
+        对不上的块保持没有 ``lines`` 字段——宁可承认「这行拿不到行级坐标」，
+        也不把邻近块的行粘过来。
+
+        只有普通正文块挂 ``lines``：表格/图片块在 layout.json 里的那一行是**整块**
+        的 box（与块 bbox 完全重合，实测如此），不是单元格几何。给它挂 ``lines``
+        会让下游误以为能按行/单元格定位表格内容，所以这类块只拿 ``html``，
+        行级坐标如实为空。
+        """
+        cursor = 0
+        for page_block in page_blocks:
+            if not isinstance(page_block, dict):
+                continue
+            block_type = normalize_block_type(str(page_block.get("type") or ""))
+            if block_type in NON_BODY_BLOCK_TYPES:
+                continue  # 页眉页脚在 layout.json 的 discarded_blocks 里，不参与对齐
+            if cursor >= len(detail_blocks):
+                return
+            detail_block = detail_blocks[cursor]
+            cursor += 1
+
+            if block_type in _NO_LINE_LEVEL_BLOCK_TYPES:
+                # 表格/图片只有整块坐标，行级信息按空列表如实反映（不为空就不写字段）
+                page_block["lines"] = []
+            else:
+                page_block["lines"] = detail_block["lines"]
+            if detail_block.get("html"):
+                page_block["html"] = detail_block["html"]
+
+    def _parse_layout_json(self, layout_file: Path) -> dict[int, dict[str, Any]]:
+        """解析 MinerU 结果 ZIP 里的 layout.json，按页码返回页面尺寸与块级行信息。
+
+        返回形状（页码为 1 起，与 content_list 主路径同一口径）::
+
+            {1: {"width": 612, "height": 1008,
+                 "blocks": [{"type": "text", "bbox": [...],
+                             "lines": [{"bbox": [...],
+                                        "spans": [{"bbox": [...], "type": "text",
+                                                    "content": "..."}]}]}]}}
+
+        为什么只用 ``preproc_blocks``：它与 content_list 是同一粒度的正文视图，
+        ``para_blocks`` 是更粗的段落合并视图，``discarded_blocks`` 是页眉页脚（不进正文）。
+
+        表格/图片块在这里**会**解析出一行，但其 bbox 与整块 bbox 完全重合、表格内容
+        装在 ``spans[].html``——它不提供单元格几何。是否把它当行级坐标用由
+        ``_attach_block_lines`` 判断（这两类块的 ``lines`` 会被置空），本函数只管如实取值。
+
+        Args:
+            layout_file: layout.json 路径。
+
+        Returns:
+            ``{页码: 页面详情}``；文件损坏或结构不符时返回空字典（调用方据此降级）。
+        """
+        try:
+            raw = json.loads(layout_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("读取 MinerU layout.json 失败，按无行级坐标处理: %s", exc)
+            return {}
+
+        pdf_info = raw.get("pdf_info") if isinstance(raw, dict) else None
+        if not isinstance(pdf_info, list):
+            logger.warning("MinerU layout.json 结构不符（缺少 pdf_info 列表），按无行级坐标处理")
+            return {}
+
+        pages: dict[int, dict[str, Any]] = {}
+        for page_info in pdf_info:
+            if not isinstance(page_info, dict):
+                continue
+            try:
+                # layout.json 的 page_idx 与 content_list 一致是 0 起，统一转 1 起页码
+                page_no = int(str(page_info.get("page_idx"))) + 1
+            except (TypeError, ValueError):
+                continue
+            if page_no < 1:
+                continue
+
+            page_size = page_info.get("page_size")
+            width: float | None = None
+            height: float | None = None
+            if isinstance(page_size, (list, tuple)) and len(page_size) >= 2:
+                try:
+                    width = round(float(page_size[0]), 2)
+                    height = round(float(page_size[1]), 2)
+                except (TypeError, ValueError):
+                    width = height = None
+
+            blocks: list[dict[str, Any]] = []
+            preproc_blocks = page_info.get("preproc_blocks")
+            for raw_block in preproc_blocks if isinstance(preproc_blocks, list) else []:
+                if not isinstance(raw_block, dict):
+                    continue
+                blocks.append(self._parse_layout_block(raw_block))
+
+            pages[page_no] = {"width": width, "height": height, "blocks": blocks}
+
+        return pages
+
+    def _parse_layout_block(self, raw_block: dict[str, Any]) -> dict[str, Any]:
+        """把 layout.json 的一个 ``preproc_blocks`` 条目转成块级行信息。
+
+        两类形状要一起吃下：
+        - 文本块：``lines[].spans[]`` 直接挂在块上（span.type == "text"，内容是 ``content``）
+        - 表格/图片块：块上没有 ``lines``，只有子块 ``blocks[]``（table_body / image_body），
+          那一行挂在子块里（span.type == "table" 装 ``html``，``image`` 装 ``image_path``）
+
+        子块存在时以子块为准：那才是 MinerU 给出实际几何的一层。
+        """
+        block_type = str(raw_block.get("type") or "")
+        lines_source = raw_block.get("lines")
+        if not isinstance(lines_source, list):
+            lines_source = []
+            child_blocks = raw_block.get("blocks")
+            for child in child_blocks if isinstance(child_blocks, list) else []:
+                if not isinstance(child, dict):
+                    continue
+                child_lines = child.get("lines")
+                if isinstance(child_lines, list):
+                    lines_source.extend(child_lines)
+
+        lines: list[dict[str, Any]] = []
+        html = ""
+        for raw_line in lines_source:
+            if not isinstance(raw_line, dict):
+                continue
+            spans: list[dict[str, Any]] = []
+            raw_spans = raw_line.get("spans")
+            for raw_span in raw_spans if isinstance(raw_spans, list) else []:
+                if not isinstance(raw_span, dict):
+                    continue
+                span_html = str(raw_span.get("html") or "")
+                if span_html and not html:
+                    html = span_html
+                spans.append(
+                    {
+                        "bbox": raw_span.get("bbox"),
+                        "type": str(raw_span.get("type") or ""),
+                        "sub_type": raw_span.get("sub_type"),
+                        "content": str(raw_span.get("content") or ""),
+                    }
+                )
+            lines.append({"bbox": raw_line.get("bbox"), "spans": spans})
+
+        return {
+            "type": block_type,
+            "sub_type": raw_block.get("sub_type"),
+            "bbox": raw_block.get("bbox"),
+            "lines": lines,
+            "html": html,
+        }
+
+    def _merge_model_json_lines(self, layout: dict[str, Any], model_file: Path) -> None:
+        """把 model.json 的 ocr_text 逐行框原地挂到 content_list 版 layout 的 text 块上。
+
+        为什么需要单独一份：content_list 只有块级 bbox，layout.json 的行 box 实测
+        与块 bbox 完全重合（是「整块又是一行」，不是真实逐行）。model.json 里的
+        ``ocr_text`` 才是逐行坐标，缺了它就没有「块里第几行在哪」这层信息。
+
+        为什么与 ``_merge_layout_json_details`` 顺序无关：两者写不同字段
+        （``lines``/``html``/页面宽高 vs ``line_boxes``），且各自只读自己的文件，
+        互不依赖对方的输出。
+
+        降级：文件缺失 / JSON 损坏 / 结构不符时保持 layout 原样，只记 warning。
+
+        Args:
+            layout: ``_extract_page_layout_from_content_list`` 的返回值（原地修改）。
+            model_file: 结果 ZIP 内的 model.json 路径。
+        """
+        page_lines = self._parse_model_json_lines(model_file)
+        if not page_lines:
+            return
+
+        pages = layout.get("pages")
+        if not isinstance(pages, list):
+            return
+
+        for page in pages:
+            if not isinstance(page, dict):
+                continue
+            try:
+                page_no = int(str(page.get("page_no")))
+            except (TypeError, ValueError):
+                continue
+            ocr_lines = page_lines.get(page_no)
+            if not ocr_lines:
+                continue  # 表格页实测 0 个 ocr_text：不挂行框就是如实反馈
+
+            page_blocks = page.get("blocks")
+            if not isinstance(page_blocks, list):
+                continue
+            self._attach_ocr_text_lines(page_blocks, ocr_lines)
+
+    def _parse_model_json_lines(self, model_file: Path) -> dict[int, list[dict[str, Any]]]:
+        """解析 MinerU 结果 ZIP 里的 model.json，按页码返回 ocr_text 的逐行框。
+
+        返回形状（页码为 1 起，与 content_list 主路径同一口径）::
+
+            {1: [{"bbox": [519, 630, 716, 652], "type": "ocr_text"}, ...]}
+
+        为什么是二维数组：model.json 外层是页、内层是该页的元素（实测第一页 29 个元素，
+        其中 15 个 ocr_text），没有 ``pdf_info`` 包装，与 layout.json 完全不同的结构。
+
+        为什么只取 ``ocr_text``：只有它带逐行 bbox 且没有文字（``text`` 恒为空、
+        ``score`` 恒为 1.0，两者都是假数据，一律不用）。其它类型的元素 bbox
+        已经由 content_list 提供，重复取无意义。
+
+        为什么必须乘 1000：model.json 的 bbox 是**归一化 0-1**（实测
+        ``[0.209, 0.088, 0.666, 0.11]``），而 content_list 是千分比 0-1000
+        （同一块 ``[209, 89, 666, 118]``）、layout.json 是绝对像素。不统一口径就无法
+        拿 ocr_text 去和 text 块的 bbox 做任何比较。
+
+        Args:
+            model_file: model.json 路径。
+
+        Returns:
+            ``{页码: [行框]}``；文件损坏或结构不符时返回空字典（调用方据此降级）。
+        """
+        try:
+            raw = json.loads(model_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("读取 MinerU model.json 失败，按无逐行坐标处理: %s", exc)
+            return {}
+
+        if not isinstance(raw, list):
+            logger.warning("MinerU model.json 结构不符（顶层不是页数组），按无逐行坐标处理")
+            return {}
+
+        pages: dict[int, list[dict[str, Any]]] = {}
+        for page_index, page_elements in enumerate(raw):
+            # 外层下标即页序（与 content_list 的 page_idx 一致是 0 起），统一转 1 起页码
+            page_no = page_index + 1
+            if not isinstance(page_elements, list):
+                continue
+
+            lines: list[dict[str, Any]] = []
+            for element in page_elements:
+                if not isinstance(element, dict):
+                    continue
+                if str(element.get("type") or "") != "ocr_text":
+                    continue
+                bbox = self._scaled_model_bbox(element.get("bbox"))
+                if bbox is None:
+                    continue
+                lines.append({"bbox": bbox, "type": "ocr_text"})
+
+            if lines:
+                pages[page_no] = lines
+
+        return pages
+
+    def _scaled_model_bbox(self, raw_bbox: Any) -> list[int] | None:
+        """把 model.json 的归一化 bbox（0-1）换算成千分比整数。
+
+        坐标非法时返回 None 而不是猜 0：0 会变成一个位于页角、看起来「能对上」的假框。
+        """
+        if not isinstance(raw_bbox, (list, tuple)) or len(raw_bbox) < 4:
+            return None
+        try:
+            values = [round(float(raw_bbox[index]) * _MODEL_JSON_BBOX_SCALE) for index in range(4)]
+        except (TypeError, ValueError):
+            return None
+        return values
+
+    def _attach_ocr_text_lines(
+        self,
+        page_blocks: list[Any],
+        ocr_lines: list[dict[str, Any]],
+    ) -> tuple[int, int]:
+        """把 ocr_text 的行框按 y 范围对回 text 块，给出逐行坐标（``line_boxes``）。
+
+        匹配规则（刻意严格，宁可对不上也不猜）：
+
+        1. ocr_text 的 y 范围**完全落在** text 块的 y 范围内（±5 千分比容差）——
+           只有完全包在块里的行才属于这个块，跨出块边的要么是邻块的行，
+           要么是块 bbox 本身偏了，两种都不该硬配。
+        2. x 范围有重叠——横向必须落在同一列；只有 y 重叠的话，同高的左右两栏
+           会把彼此的行偷走。
+        3. 匹配到的框数**必须等于**块内非空行数（``content.split("\n")`` 去掉空行），
+           否则**放弃**、不挂 ``line_boxes``。框数与行数不等时无从知道哪行配哪个框，
+           硬配就是编造坐标。
+        4. 匹配成功后按 y 升序排列，与 content 的行序一一对应（MinerU 的 ocr_text
+           在数组里也是 y 递增，但排序不依赖这个巧合）。
+
+        为什么不管页眉页脚：实测 ocr_text 根本不含页眉（header 块匹配到 0 个框），
+        所以只处理 ``text`` 块，header/footer/page_number 一律不动——不为它们
+        去「找框凑数」。
+
+        为什么表格/图片块不管：内容装在 html 里，行意义不同，它们的行级坐标
+        本就该是空的（见 ``_NO_LINE_LEVEL_BLOCK_TYPES``）。
+
+        Args:
+            page_blocks: content_list 版的页内块列表（原地修改）。
+            ocr_lines: ``_parse_model_json_lines`` 给出的该页行框（千分比）。
+
+        Returns:
+            ``(挂上 line_boxes 的块数, 尝试过但放弃的块数)``，供调用方记日志。
+        """
+        attached = 0
+        skipped = 0
+
+        for page_block in page_blocks:
+            if not isinstance(page_block, dict):
+                continue
+            # 只认 content_list 原生的 ``text``：标题等其它正文类型行数与块粒度不一致，
+            # 页眉页脚则本身就横平竖直地和 ocr_text 错开（实测 0 框）。
+            if str(page_block.get("type") or "") != BLOCK_TYPE_TEXT:
+                continue
+
+            text = str(page_block.get("text") or "")
+            line_count = len([line for line in text.split("\n") if line.strip()])
+            if line_count < 1:
+                continue
+
+            block_bbox = self._permille_bbox(page_block.get("bbox"))
+            if block_bbox is None:
+                continue
+
+            matched = self._match_ocr_lines_in_block(block_bbox, ocr_lines)
+            if len(matched) != line_count:
+                # 红线：框数 != 行数就放弃。记录差多少，便于判断是「折行但 content 没 \n」
+                # 还是「块 bbox 本身偏了」。
+                skipped += 1
+                logger.debug(
+                    "ocr_text 行框数与块行数不一致，不挂 line_boxes: 框=%d 行=%d 块=%s 文本=%r",
+                    len(matched),
+                    line_count,
+                    block_bbox,
+                    text[:30],
+                )
+                continue
+
+            # 按 y 升序 = 阅读顺序，与 content 的行序一致
+            matched.sort(key=lambda line: (line[1], line[0]))
+            page_block["line_boxes"] = [{"bbox": line} for line in matched]
+            attached += 1
+
+        return attached, skipped
+
+    def _match_ocr_lines_in_block(
+        self,
+        block_bbox: list[int],
+        ocr_lines: list[dict[str, Any]],
+    ) -> list[list[int]]:
+        """找出完全落在该 text 块内、且横向同列的所有 ocr_text 框（千分比）。
+
+        规则见 ``_attach_ocr_text_lines``：y 完全包含（±容差）、x 有重叠。
+        只返回框本身，不在这里判行数——数量是否吻合由调用方裁决。
+        """
+        block_x0, block_y0, block_x1, block_y1 = block_bbox
+        matched: list[list[int]] = []
+        for line in ocr_lines:
+            line_bbox = self._permille_bbox(line.get("bbox"))
+            if line_bbox is None:
+                continue
+            line_x0, line_y0, line_x1, line_y1 = line_bbox
+            # y 完全包含：行的上下边都在块内（留容差）
+            if line_y0 < block_y0 - _OCR_LINE_BBOX_TOLERANCE:
+                continue
+            if line_y1 > block_y1 + _OCR_LINE_BBOX_TOLERANCE:
+                continue
+            # x 有重叠：横向必须落在同一列
+            if min(line_x1, block_x1) - max(line_x0, block_x0) <= 0:
+                continue
+            matched.append(line_bbox)
+        return matched
+
+    def _permille_bbox(self, raw_bbox: Any) -> list[int] | None:
+        """把千分比 bbox 归一为 4 个整数 ``[x0, y0, x1, y1]``；非法时返回 None。
+
+        content_list 的 bbox 实测已是 0-1000 整数，这里只做「取整 + 校验形状」，
+        不再换算，避免把已经是千分比的坐标再乘一次 1000。
+        """
+        if not isinstance(raw_bbox, (list, tuple)) or len(raw_bbox) < 4:
+            return None
+        try:
+            return [round(float(raw_bbox[index])) for index in range(4)]
+        except (TypeError, ValueError):
+            return None
 
     def _collect_header_texts_from_content_list(self, content_list_path: Path) -> list[str]:
         """从 content_list.json 收集 header 类型的文本（用于清理 markdown）

@@ -40,6 +40,16 @@ class PositionedRectOut(BaseModel):
     h: float
     # True = 推出来的近似框（如 Office 整页框），不是原样量出来的
     approx: bool = False
+    # 精度等级：三档而不是单一布尔。
+    #
+    # 为什么 ``approx`` 不够：它同时表示「整页近似」（整张表没拆，坐标基本无意义）
+    # 与「半格误差」（表格均分出来的格/行，左右列对齐、纵向行高不均）——两者可信度
+    # 差一个数量级，前端却只能画同一种虚线。拆成三档后视觉才能分开：
+    #   exact = 引擎真实返回的 bbox（可信，实线）
+    #   cell  = 表格拆分的推算框（半格误差，虚线 + ≈）
+    #   page  = 整页近似（更淡的虚线）
+    # ``approx`` 保留是为了向后兼容（老前端只读它）。
+    precision: str = "exact"
 
 
 class PositionedBlockOut(BaseModel):
@@ -51,6 +61,10 @@ class PositionedBlockOut(BaseModel):
     rect: PositionedRectOut
     # Office 附带的结构定位（段落序 / 行列），对定位是确定的，矩形只是近似
     locator: dict[str, Any] | None = None
+    # 整表未拆时透出的结构信息：前端据此告诉律师「这是一张 52 行的表」，
+    # 而不是让他以为点中的是某一行。已拆分的块不带这两个字段。
+    table_rows: int | None = None
+    table_cols: int | None = None
 
 
 class SegmentOut(BaseModel):
@@ -89,10 +103,25 @@ class PdfSplitJobOut(BaseModel):
     layout_mode: str = "fast_text"
     # 解析平台：auto（优先+容灾）/ mineru / textin（锁定，失败不降级）
     cloud_backend: str = "auto"
+    # 交叉比对引擎（逗号分隔，如 `mineru,paddleocr_vl`）；空串表示不跑比对。
+    # 与 cloud_backend 无关：它不决定取字用谁，只表示「另外再跑哪几个引擎比对」。
+    dual_engines: str = ""
     progress: int
     total_pages: int
     processed_pages: int
     current_page: int
+    # 当前执行阶段：extract（取字）/ cross_check（交叉比对）/ segment（分段）/ done。
+    #
+    # 为什么前端必须拿到它：取字做完时 progress 已经是 100、processed_pages 也满了，
+    # 之后的交叉比对（十几分钟）与分段（4-8 分钟）全程都是 100——没有 stage，
+    # 界面上就是「100% 假死」。默认给 extract 是为了兼容老任务（stage 字段刚加时
+    # 存量行都是 extract）。
+    stage: str = "extract"
+    # 任务起止时间与已耗时（秒）。elapsed_seconds 在终态后**停止增长**，
+    # 前端直接显示即可；started_at 缺失时为 None（未开始或老数据）。
+    started_at: str | None = None
+    finished_at: str | None = None
+    elapsed_seconds: int | None = None
     summary: dict[str, Any]
     segments: list[SegmentOut]
     download_url: str = ""
@@ -187,6 +216,7 @@ def create_pdf_split_job(  # pragma: no cover
     ocr_profile: str = Form("balanced"),
     layout_mode: str = Form("fast_text"),
     cloud_backend: str = Form("auto"),
+    dual_engines: str = Form(""),
 ) -> PdfSplitJobSubmitOut:
     # 安全审计第4轮：source_path 直读服务器本地文件系统，仅管理员可提交；
     # 文件上传（file）仍对登录用户开放。
@@ -200,6 +230,7 @@ def create_pdf_split_job(  # pragma: no cover
         ocr_profile=ocr_profile,
         layout_mode=layout_mode,
         cloud_backend=cloud_backend,
+        dual_engines=dual_engines,
         created_by=getattr(request, "user", None),
     )
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
@@ -222,6 +253,24 @@ def find_reusable_pdf_split_job(
         total_pages=total_pages,
         user=_request_user(request),
     )
+    if job is None:
+        return None
+    return PdfSplitJobOut(**PdfSplitJobService().build_job_payload(job))
+
+
+@router.get("/inflight-job", response=PdfSplitJobOut | None)
+def find_inflight_pdf_split_job(
+    request: Any, source_name: str, total_pages: int | None = None
+) -> PdfSplitJobOut | None:
+    """查一份**正在进行中**的拆分任务，供前端接管轮询。
+
+    典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫
+    不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前
+    那个任务在界面上完全不存在（“幽灵任务”）。
+
+    返回 null 表示没有进行中的（前端照常新建）。
+    """
+    job = PdfSplitJobService().find_inflight_job(source_name=source_name, total_pages=total_pages)
     if job is None:
         return None
     return PdfSplitJobOut(**PdfSplitJobService().build_job_payload(job))

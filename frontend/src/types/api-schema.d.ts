@@ -5833,6 +5833,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pdf-splitting/inflight-job": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find Inflight Pdf Split Job
+         * @description 查一份**正在进行中**的拆分任务，供前端接管轮询。
+         *
+         *     典型场景：任务是由同事的浏览器、脚本或刷新前那个页面发起的，当前页面毫
+         *     不知情。不查就再建一个，同一份 164 页卷宗会并行跑两遍（钱翻倍），而先前
+         *     那个任务在界面上完全不存在（“幽灵任务”）。
+         *
+         *     返回 null 表示没有进行中的（前端照常新建）。
+         */
+        get: operations["apps_pdf_splitting_api_pdf_splitting_api_find_inflight_pdf_split_job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pdf-splitting/jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -6706,7 +6732,10 @@ export interface paths {
         post?: never;
         /**
          * Delete Message
-         * @description 删除收件箱消息（材料包）：先清理附件物理文件，再删 DB 记录（破坏性，前端需二次确认）。
+         * @description 删除收件箱消息（材料包）：硬删 DB 记录并清理附件物理文件（破坏性，前端需二次确认）。
+         *
+         *     被财务凭证（待认领收款 / 待认领发票）引用的消息会抛 ConflictError → 409，
+         *     且此时一个附件都不会被删（服务层先校验、后动文件）。
          */
         delete: operations["apps_message_hub_api_inbox_api_delete_message"];
         options?: never;
@@ -18387,6 +18416,11 @@ export interface components {
              * @default auto
              */
             cloud_backend: string;
+            /**
+             * Dual Engines
+             * @default
+             */
+            dual_engines: string;
             /** Progress */
             progress: number;
             /** Total Pages */
@@ -18395,6 +18429,17 @@ export interface components {
             processed_pages: number;
             /** Current Page */
             current_page: number;
+            /**
+             * Stage
+             * @default extract
+             */
+            stage: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Elapsed Seconds */
+            elapsed_seconds?: number | null;
             /** Summary */
             summary: {
                 [key: string]: unknown;
@@ -18439,6 +18484,10 @@ export interface components {
             locator?: {
                 [key: string]: unknown;
             } | null;
+            /** Table Rows */
+            table_rows?: number | null;
+            /** Table Cols */
+            table_cols?: number | null;
         };
         /**
          * PositionedRectOut
@@ -18458,6 +18507,11 @@ export interface components {
              * @default false
              */
             approx: boolean;
+            /**
+             * Precision
+             * @default exact
+             */
+            precision: string;
         };
         /** SegmentOut */
         SegmentOut: {
@@ -32622,6 +32676,11 @@ export interface operations {
                      * @default auto
                      */
                     cloud_backend?: string;
+                    /**
+                     * Dual Engines
+                     * @default
+                     */
+                    dual_engines?: string;
                 };
             };
         };
@@ -32638,6 +32697,29 @@ export interface operations {
         };
     };
     apps_pdf_splitting_api_pdf_splitting_api_find_reusable_pdf_split_job: {
+        parameters: {
+            query: {
+                source_name: string;
+                total_pages?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PdfSplitJobOut"] | null;
+                };
+            };
+        };
+    };
+    apps_pdf_splitting_api_pdf_splitting_api_find_inflight_pdf_split_job: {
         parameters: {
             query: {
                 source_name: string;

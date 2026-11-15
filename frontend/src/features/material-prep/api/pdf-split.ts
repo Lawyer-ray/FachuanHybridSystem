@@ -14,9 +14,22 @@ type PdfSplitJobSubmit = components['schemas']['PdfSplitJobSubmitOut']
 /** 云端解析平台偏好：auto=优先+容灾；锁定值=只用它，失败不降级 */
 export type CloudBackend = 'auto' | 'mineru' | 'textin'
 
+/**
+ * 第二引擎（交叉比对用）：`paddleocr_vl` 不是可注册的解析平台
+ * （`DocumentParseProvider.ProviderType` 只有 mineru / textin），它走的是
+ * `PaddleOCRApiEngine` 独立路径，所以**不能**塞进 `cloud_backend`——
+ * 后端 `resolve_cloud_backends` 会把不认识的单值按 auto 静默降级。
+ */
+export type DualEngine = 'mineru' | 'paddleocr_vl' | 'textin'
+
 export async function createPdfSplitJob(
   file: File,
-  opts: { layoutMode?: 'fast_text' | 'layout'; cloudBackend?: CloudBackend } = {},
+  opts: {
+    layoutMode?: 'fast_text' | 'layout'
+    cloudBackend?: CloudBackend
+    /** ≥2 个引擎时才传：逗号分隔的全部所选引擎（含正主），后端据此另起比对 */
+    dualEngines?: string | null
+  } = {},
 ): Promise<string> {
   const body = new FormData()
   body.append('file', file, file.name)
@@ -26,8 +39,13 @@ export async function createPdfSplitJob(
   // 版面策略：layout 让电子版 PDF 也上云端拿版面块与坐标（原文坐标对照需要），
   // 代价是这些页也计费且更慢；默认 fast_text 不调云端。
   body.append('layout_mode', opts.layoutMode ?? 'fast_text')
-  // 平台偏好：auto 会自动容灾（首选失败切下一个）；锁定则只用该平台、失败即失败
+  // 平台偏好：auto 会自动容灾（首选失败切下一个）；锁定则只用该平台、失败即失败。
+  // **只收单值**：多选时由调用方（platform-selection 的 resolveBackendRequest）
+  // 先算出正主，其余引擎走下面的独立字段。
   body.append('cloud_backend', opts.cloudBackend ?? 'auto')
+  // 交叉比对：≥2 个引擎时才有。独立字段而不是拼进 cloud_backend——
+  // 后者只认单值，拼成逗号串会被后端当成未知值按 auto 处理，用户勾的引擎就白勾了。
+  if (opts.dualEngines) body.append('dual_engines', opts.dualEngines)
   const result = await pdfSplitApi
     .post('jobs', { body, timeout: UPLOAD_TIMEOUT_MS })
     .json<PdfSplitJobSubmit>()
@@ -59,6 +77,30 @@ export async function extractPdfPages(
 
 export async function getPdfSplitJob(jobId: string): Promise<PdfSplitJobPayload> {
   return pdfSplitApi.get(`jobs/${jobId}`).json<PdfSplitJobPayload>()
+}
+
+/**
+ * 查一份**正在进行中**的拆分任务（GET /pdf-splitting/inflight-job）。
+ *
+ * 为什么需要：任务一旦发起就只活在发起页面的内存里。刷新、换设备、或者同事先
+ * 点了一次「自动分段」，当前阅读器毫不知情——界面上没有进度，再点一次又会
+ * 并行跑第二份 164 页（钱翻倍）。这就是所谓的「幽灵任务」。
+ *
+ * 命中就由阅读器接管轮询并在底部进度条上显示，不需要用户再点按钮。
+ * 返回 null 表示没有进行中的任务。失败同样静默返回 null：查在飞任务只是**优化**，
+ * 查不到最多是少一个进度条，不该让整个识别入口跟着报错。
+ */
+export async function findInflightPdfSplitJob(
+  sourceName: string,
+  totalPages?: number,
+): Promise<PdfSplitJobPayload | null> {
+  const searchParams: Record<string, string | number> = { source_name: sourceName }
+  if (totalPages != null && totalPages > 0) searchParams.total_pages = totalPages
+  try {
+    return await pdfSplitApi.get('inflight-job', { searchParams }).json<PdfSplitJobPayload | null>()
+  } catch {
+    return null
+  }
 }
 
 /**

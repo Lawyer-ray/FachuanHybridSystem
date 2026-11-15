@@ -42,15 +42,71 @@ def run_extract_stage(job_id: str) -> None:  # pragma: no cover
             two_stage.save_page_quality(storage, dict(summary.get("page_quality") or {}))
         except Exception:
             logger.exception("pdf_split_page_quality_save_failed", extra={"job_id": job_id})
+        # 双引擎分歧**不在这里写**：那时它还没算（双引擎已拆到 cross_check 阶段，
+        # 见 run_cross_check_stage）。在这里写只会拿一个空 dict 把上一步的产物覆盖掉。
         job.refresh_from_db(fields=["progress", "total_pages"])
-        two_stage.advance_to_segment_stage(job, pages_count=len(pages))
+        # 开了双引擎就先去交叉比对（它有自己的 600s），否则直接分段
+        two_stage.advance_after_extract(job, pages_count=len(pages))
     except Exception as exc:
         logger.exception("pdf_split_extract_stage_failed", extra={"job_id": job_id})
         two_stage.mark_stage_failed(job_uuid, PdfSplitStage.EXTRACT, str(exc))
 
 
+def run_cross_check_stage(job_id: str) -> None:  # pragma: no cover
+    """任务链 ②：双引擎交叉比对（只有开了双引擎才排这个任务）。
+
+    为什么要独立成任务：整本再解析两遍在 164 页上要十几分钟，而
+    `Q_CLUSTER.timeout`（默认 600s）是**单任务**硬阀值——超时直接杀 worker
+    进程，`finally` 不执行，任务不留任何 django_q_task 记录，DB 里只剩一个
+    `stage=cross_check` 的僵尸。心跳线程救不了：进程没了，线程也没了。
+    拆开之后本阶段有自己完整的 600s，与 extract / segment 平级。
+    """
+    from apps.pdf_splitting.services.split import two_stage
+
+    job_uuid = UUID(job_id)
+    split_service = PdfSplitService()
+    job = None
+    try:
+        job = PdfSplitJob.objects.get(id=job_uuid)
+        job.refresh_from_db(fields=["cancel_requested", "dual_engines"])
+        if job.cancel_requested:
+            PdfSplitJob.objects.filter(id=job.id).update(status=PdfSplitJobStatus.CANCELLED)
+            return
+
+        summary = split_service.cross_check_stage(job)
+        storage = PdfSplitStorage(job.id)
+        # 分歧必须落盘：分段阶段只读 pages.json，拿不到双引擎结果；重跑一遍
+        # 就是整本再付一次云端费。失败不影响主流程（空分歧也照写，读取端按空处理）。
+        try:
+            two_stage.save_engine_disagreements(
+                storage,
+                {
+                    "engine_disagreements": list(summary.get("engine_disagreements") or []),
+                    "engine_disagree_summary": dict(summary.get("engine_disagree_summary") or {}),
+                    "dual_engine": dict(summary.get("dual_engine") or {}),
+                },
+            )
+        except Exception:
+            logger.exception("pdf_split_engine_disagreements_save_failed", extra={"job_id": job_id})
+
+        job.refresh_from_db(fields=["progress", "total_pages"])
+        two_stage.advance_to_segment_stage(job, pages_count=job.total_pages or 0)
+    except Exception as exc:
+        logger.exception("pdf_split_cross_check_stage_failed", extra={"job_id": job_id})
+        # 交叉比对是附加信息：它挂了不应该把整份卷宗判失败。能把阶段推下去就推，
+        # 推不动（比如 DB 写不进去）才算真失败。
+        try:
+            if job is None:
+                job = PdfSplitJob.objects.get(id=job_uuid)
+            job.refresh_from_db(fields=["progress", "total_pages"])
+            two_stage.advance_to_segment_stage(job, pages_count=job.total_pages or 0)
+        except Exception:
+            logger.exception("pdf_split_cross_check_stage_advance_failed", extra={"job_id": job_id})
+            two_stage.mark_stage_failed(job_uuid, PdfSplitStage.CROSS_CHECK, str(exc))
+
+
 def run_segment_stage(job_id: str) -> None:  # pragma: no cover
-    """两阶段任务链 ②：从 pages.json 读回取字结果，只做分段与落库。"""
+    """任务链 ③：从 pages.json 读回取字结果，只做分段与落库。"""
     from apps.pdf_splitting.services.split import two_stage
 
     job_uuid = UUID(job_id)
