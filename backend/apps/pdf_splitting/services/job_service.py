@@ -105,7 +105,7 @@ class PdfSplitJobService:
         cloud_backend: str = PdfSplitCloudBackend.AUTO,
         dual_engines: str = "",
         created_by: Any | None = None,
-    ) -> PdfSplitJob:  # pragma: no cover
+    ) -> PdfSplitJob:
         has_file = file is not None
         has_path = bool((source_path or "").strip())
         if has_file == has_path:
@@ -349,9 +349,7 @@ class PdfSplitJobService:
         }
 
     @transaction.atomic
-    def confirm_segments(
-        self, *, job_id: uuid.UUID, items: list[dict[str, Any]], user: Any = None
-    ) -> PdfSplitJob:  # pragma: no cover
+    def confirm_segments(self, *, job_id: uuid.UUID, items: list[dict[str, Any]], user: Any = None) -> PdfSplitJob:
         job = self.get_job(job_id, user=user)
         if job.status not in {PdfSplitJobStatus.REVIEW_REQUIRED, PdfSplitJobStatus.COMPLETED}:
             raise ValidationException(message="当前状态不允许确认导出", errors={"status": job.status})
@@ -393,7 +391,7 @@ class PdfSplitJobService:
         job.refresh_from_db()
         return job
 
-    def request_cancel(self, *, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:  # pragma: no cover
+    def request_cancel(self, *, job_id: uuid.UUID, user: Any = None) -> PdfSplitJob:
         job = self.get_job(job_id, user=user)
         if job.status in {PdfSplitJobStatus.COMPLETED, PdfSplitJobStatus.FAILED, PdfSplitJobStatus.CANCELLED}:
             return job
@@ -415,7 +413,7 @@ class PdfSplitJobService:
         job.refresh_from_db()
         return job
 
-    def mark_completed(self, *, job_id: uuid.UUID, export_zip_relpath: str) -> None:  # pragma: no cover
+    def mark_completed(self, *, job_id: uuid.UUID, export_zip_relpath: str) -> None:
         PdfSplitJob.objects.filter(id=job_id).update(
             status=PdfSplitJobStatus.COMPLETED,
             progress=100,
@@ -424,7 +422,7 @@ class PdfSplitJobService:
             error_message="",
         )
 
-    def mark_failed(self, *, job_id: uuid.UUID, error_message: str) -> None:  # pragma: no cover
+    def mark_failed(self, *, job_id: uuid.UUID, error_message: str) -> None:
         PdfSplitJob.objects.filter(id=job_id).update(
             status=PdfSplitJobStatus.FAILED,
             error_message=error_message[:4000],
@@ -542,7 +540,7 @@ class PdfSplitJobService:
             )
         return filled
 
-    def _save_uploaded_pdf(self, file: UploadedFile, target_path: Path) -> str:  # pragma: no cover
+    def _save_uploaded_pdf(self, file: UploadedFile, target_path: Path) -> str:
         from django.conf import settings
         from django.core.files.base import ContentFile
         from django.core.files.storage import default_storage
@@ -606,7 +604,7 @@ class PdfSplitJobService:
             )
         return resolved
 
-    def _validate_pdf_file(self, source_pdf_path: Path) -> int:  # pragma: no cover
+    def _validate_pdf_file(self, source_pdf_path: Path) -> int:
         file_size = int(source_pdf_path.stat().st_size) if source_pdf_path.exists() else 0
         if file_size <= 0:
             raise ValidationException(message="PDF 文件为空", errors={"file": "PDF 文件不能为空"})
@@ -618,7 +616,11 @@ class PdfSplitJobService:
         try:
             with fitz.open(source_pdf_path) as doc:
                 total_pages = int(doc.page_count)
-        except (TypeError, ValueError):
+        # 必须带上 RuntimeError：pymupdf 2.x 对损坏 PDF 抛的是 FileDataError，它继承
+        # RuntimeError 而**不是** ValueError。只捕 (TypeError, ValueError) 等于一个都
+        # 接不住，损坏文件会穿透到全局兜底 handler，用户拿到 500「系统错误」而不是
+        # 400「PDF 文件损坏」。口径与 pdf_splitting_api.py 按页导出端点一致。
+        except (TypeError, ValueError, RuntimeError):
             raise ValidationException(message="PDF 无法打开", errors={"file": "PDF 文件损坏或格式不正确"}) from None
 
         if total_pages <= 0:

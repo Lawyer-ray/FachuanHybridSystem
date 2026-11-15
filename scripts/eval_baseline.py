@@ -62,7 +62,6 @@ django.setup()
 
 from apps.pdf_splitting.services.split.eval_metrics import char_error_rate, normalize_for_cer, table_cell_f1
 from apps.pdf_splitting.services.split.markdown_builder import (
-    _TABLE_SPLIT_MAX_ROWS,
     _filled_cell_ratio,
     _grid_col_count,
     _grid_row_count,
@@ -73,6 +72,23 @@ from apps.pdf_splitting.services.split.markdown_builder import (
     build_segment_markdown,
 )
 from apps.pdf_splitting.services.split.split_models import PageDescriptor
+
+# 拆块阈值从模块属性上现读，不在 import 列表里直接绑名。
+#
+# 为什么：CodeQL 的 py/import-of-mutable-attribute 会把「从别的模块导入模块级可变
+# 属性」标出来——那样的名字在本模块里是一个独立绑定，任何一方后续赋值都不会同步，
+# 读到的可能是过期值。这里每次用 `getattr(..., 默认值)` 现读，拿到的一定是
+# markdown_builder 当前生效的那个数，也顺手挡住了「常量被删/改名」的情况。
+_MARKDOWN_BUILDER_MODULE = "apps.pdf_splitting.services.split.markdown_builder"
+
+
+def table_split_max_rows() -> int:
+    """当前生效的表格拆块行数上限（缺省回落 12，与实现里的默认值一致）。"""
+    import importlib
+
+    module = importlib.import_module(_MARKDOWN_BUILDER_MODULE)
+    return int(getattr(module, "_TABLE_SPLIT_MAX_ROWS", 12))
+
 
 GOLDEN_DIR = (
     BACKEND_ROOT / "tests" / "ci" / "fixtures" / "pdf_splitting" / "golden_pages"
@@ -177,7 +193,7 @@ def table_block_stats(html: str) -> dict[str, Any]:
         else 0.0,
         "split_blocks": len(cells),
         "split_kind": (cells[0]["type"] if cells else "whole_table_kept"),
-        "over_max_rows": rows > _TABLE_SPLIT_MAX_ROWS,
+        "over_max_rows": rows > table_split_max_rows(),
     }
 
 
@@ -232,7 +248,7 @@ def main() -> int:
     lines: list[str] = [
         "# pdf_splitting 取字基线（eval_baseline.py）",
         "",
-        f"`_TABLE_SPLIT_MAX_ROWS = {_TABLE_SPLIT_MAX_ROWS}`",
+        f"`_TABLE_SPLIT_MAX_ROWS = {table_split_max_rows()}`",
         "",
         "> **参考文本不是人工校对的金标准**：全部 7 页 `gold_known: false`，它们是",
         "> MinerU 的原始输出。本报告的数字只能用来比**同一份 golden 上两次改动的涨跌**",

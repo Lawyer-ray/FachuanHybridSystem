@@ -54,6 +54,11 @@ function readState(): TaskState {
   return state
 }
 
+/** 直读模块级会话态：供「卸载后不要再写」这类只能看副作用、看不到渲染的快照断言使用 */
+export function readAutoSplitTask(): TaskState {
+  return state
+}
+
 function subscribe(notify: () => void) {
   listeners.add(notify)
   return () => {
