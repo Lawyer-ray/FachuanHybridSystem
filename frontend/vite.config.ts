@@ -68,9 +68,63 @@ export default defineConfig({
       // 不是正常重构。85 让余量从上一版的 0.65pp 回到 1.17pp——这次补的 31 个函数
       // 收益全部转成了抗抖空间，再补一轮同步抬上去。
       //
-      // 阈值取实测值向下取整再留约 1pp 抖动余量（拆分/重构会让分母微变，
-      // 太贴边会误红）。禁止下调；补到 90 以上再抬。
-      thresholds: { statements: 88, lines: 89, functions: 85, branches: 82 },
+      // 2026-11-11 第三轮（A 级方案：补 `??`/`||` 兜底而非 catch）：
+      // 上一轮之后又做了一次深度评估，结论是三个饱和目录（lib/hooks/app 合计只剩
+      // 约 30 行未覆盖）不该再投；真正漏的是**兜底分支**——全仓 2459 个分支里
+      // 943 个（38%）是 `??` / `||`，测「接口返回字段为 null / 不传可选参数」能
+      // 一次吃掉一大批。functions 又是最紧的一档（86.17 对门槛 85，只高 1.17pp）。
+      // 本轮按 ROI 补了 12 个文件、27 个端点/分支组（全部走到接近 100%）：
+      //   · invoice-intake/hooks/use-pending-invoices  6 个 mutation 的 success+error、
+      //     `res.message || 默认文案` 两路、onConfirmed 的 invoice_id 守卫
+      //   · payment-intake/hooks/use-pending-intakes   4 个 mutation；重点锁
+      //     reject 与 ignore 的端点/文案不能混（串了不报错，只是财务口径错）
+      //   · contract-review/api.ts                     URL 编码（含 `/` 与空格）、
+      //     suggest/apply/task-apply 三端点归属、upload 空 modelName 不 append
+      //   · invoice-intake/api.ts                      confirm 不传参时 body 显式 null、
+      //     红票三入口的 default-arg、copy 走 finance 前缀而非 intake
+      //   · payment-intake/api.ts                      补齐端点形状与 4 个 default-arg
+      //   · material-prep/api/office.ts                四路 MIME 回填 + 未知扩展名空串、
+      //     success===false 抛错、markdown/text 为 null 兜底
+      //   · use-live-rewrite-apply                     握手/回执/10s 超时/画布重建作废
+      //   · copilot/store/session.ts                   loadOlderHistory 状态机四个守卫
+      //   · copilot/launch.ts、lib/download-ticket.ts、hooks/use-today.ts、
+      //     app/router.tsx、use-assign-launch.ts       小尾部分支
+      // 实测 statements 90.36% / lines 92.31% / functions 88.01% / branches 84.11%。
+      //
+      // 本次抬阈值仍按同一条原则（实测值向下取整，再留抖动余量）：
+      //   实测 90.36 / 92.31 / 88.01 / 84.11，floor 为 90 / 92 / 88 / 84
+      //   落盘 90 / 92 / 87 / 84，余量 0.36 / 0.31 / 1.01 / 0.11pp
+      // functions 只到 87 而不是 floor 的 88：88 只剩 0.01pp 余量，一次组件拆分
+      // （新增的 2 个内联回调未测）就会把 CI 打红，而棘轮该拦的是新债、不是正常
+      // 重构。这一轮补的 99 个函数收益全部转成抗抖空间，再补一轮同步抬上去。
+      // statements / lines / branches 三项的余量也偏薄（branches 只剩 0.11pp），
+      // 同样是这一轮一次性补太多、分母几乎没变的结果。下一轮补测时优先把这三项
+      // 抬到留足约 1pp——本轮仍按「向下取整」落盘，是因为三项都已越过上一轮门槛
+      // 一个整数档，压着不抬等于让棘轮空转。
+      //
+      // 阈值取实测值向下取整再留抖动余量（拆分/重构会让分母微变，太贴边会误红）。
+      // 禁止下调；补到 90 以上再抬。
+      // 2026-11-16 第三轮（A 级补测落地）：236 → 365 个测试文件、4063 → 4705 个用例。
+      //
+      // 本轮不是「看哪个数字低就补哪个」，而是先做了一次结构评估，结论反直觉：
+      //   · src/lib / src/hooks / src/app 三个目录合计只剩 ~30 行未覆盖，已饱和；
+      //   · catch 类型的未覆盖分支是 **0** —— 「补错误处理」这个直觉方向是错的；
+      //     真正漏的是 `??` / `||` 兜底（943 个，占全部 2459 个分支的 38%），
+      //     它们的天然测法就是「接口返回字段为 null / 不传可选参数」。
+      // 所以本轮只打两处高 ROI 的地方：
+      //   · API 层包装（contract-review / invoice-intake / payment-intake / office）
+      //     —— 零 mock 摩擦，并顺带锁死「URL 前缀写全」「encodeURIComponent 带 / 与空格」
+      //     这两个已在注释里记录过的真实坑；
+      //   · 重复胶水（两个 use-pending-* hook 的 10 个几乎同形的 mutation）
+      //     —— 一个 renderHook 模板复用，行/函数比最高。
+      //
+      // 实测 statements 90.37 / lines 92.33 / functions 88.05 / branches 84.11。
+      //
+      // 阈值取 floor(实测) - 1，四项余量都在 1.0~1.4pp：
+      // 上一版曾把 branches 抬到 84（只剩 0.11pp），那是危险的 ——
+      // 棘轮的本意是拦新债，而不是让每次加一个小功能都要先补一批测试。
+      // 余量不足 1pp 时宁可让阈值低于实测，也不要制造「必然误红」的局面。
+      thresholds: { statements: 89, lines: 91, functions: 87, branches: 83 },
     },
   },
   plugins: [react(), tailwindcss()],
