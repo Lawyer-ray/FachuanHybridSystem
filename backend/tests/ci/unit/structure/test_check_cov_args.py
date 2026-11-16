@@ -1,4 +1,4 @@
-"""`scripts/check_cov_args.py` 的判据单测。
+"""`devtools/check_cov_args.py` 的判据单测。
 
 ## 为什么这条守卫需要被测
 
@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 #: 本文件在 backend/tests/ci/unit/structure/ 下，parents[4] 正好是 backend/。
-_SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "check_cov_args.py"
+_SCRIPT = Path(__file__).resolve().parents[4] / "devtools" / "check_cov_args.py"
 
 
 def _load_module():
