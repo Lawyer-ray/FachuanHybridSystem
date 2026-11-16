@@ -13,7 +13,6 @@ from asgiref.sync import sync_to_async
 from ninja import Router
 from ninja.errors import HttpError
 
-from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security import get_request_access_context
 from apps.core.security.auth import JWTOrSessionAuth
 
@@ -47,14 +46,11 @@ async def upload_attachment(request: Any, session_id: str) -> Any:
     uploaded = request.FILES.get("file")
     if uploaded is None:
         raise HttpError(400, "缺少 file 字段")
-    try:
-        attachment = await sync_to_async(create_attachment, thread_sensitive=True)(
-            session=session, user_id=_user_id(request), uploaded_file=uploaded
-        )
-    except ValidationException as exc:
-        # 只翻译校验类异常（超大/白名单外）为可读 4xx；
-        # 其余异常如实走全局 5xx，不吞不降级
-        raise HttpError(400, str(exc) or "附件保存失败") from exc
+    # 校验类异常（超大/白名单外）由 service 抛 ValidationException，全局处理器
+    # 统一翻成 400；其余异常如实走全局 5xx，不吞不降级（API 层不做 try/except）。
+    attachment = await sync_to_async(create_attachment, thread_sensitive=True)(
+        session=session, user_id=_user_id(request), uploaded_file=uploaded
+    )
     return AttachmentOut(
         attachment_id=str(attachment.attachment_id),
         filename=attachment.filename,
@@ -157,22 +153,18 @@ async def create_session_folder_ref(request: Any, session_id: str, data: FolderR
     if session is None:
         raise HttpError(404, "会话不存在")
     ctx = get_request_access_context(request)
-    try:
-        ref = await sync_to_async(create_folder_ref, thread_sensitive=True)(
-            session=session,
-            user_id=_user_id(request),
-            user=ctx.user,
-            org_access=ctx.org_access,
-            perm_open_access=ctx.perm_open_access,
-            owner_kind=data.kind,
-            owner_id=data.owner_id,
-            subpath=data.subpath,
-        )
-    except NotFoundError as exc:
-        # 无权/未绑定/云存储绑定/文件不存在 → 同一 404 文案（不区分，防枚举探测）
-        raise HttpError(404, str(exc) or "文件不存在") from exc
-    except ValidationException as exc:
-        raise HttpError(400, str(exc) or "subpath 非法") from exc
+    # 无权/未绑定/文件不存在由 service 抛 NotFoundError（全局 404，不区分防枚举），
+    # subpath 非法抛 ValidationException（全局 400）；API 层不做 try/except。
+    ref = await sync_to_async(create_folder_ref, thread_sensitive=True)(
+        session=session,
+        user_id=_user_id(request),
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+        owner_kind=data.kind,
+        owner_id=data.owner_id,
+        subpath=data.subpath,
+    )
     return AttachmentOut(
         attachment_id=str(ref.attachment_id),
         filename=ref.filename,
@@ -198,19 +190,14 @@ async def get_folder_ref_content(request: Any, kind: str = "contract", owner_id:
     if kind not in ("contract", "case") or owner_id <= 0:
         raise HttpError(400, "kind 仅支持 contract/case 且 owner_id 必须为正整数")
     ctx = get_request_access_context(request)
-    try:
-        return await sync_to_async(read_folder_file_content, thread_sensitive=True)(
-            owner_kind=kind,
-            owner_id=owner_id,
-            subpath=subpath,
-            user=ctx.user,
-            org_access=ctx.org_access,
-            perm_open_access=ctx.perm_open_access,
-        )
-    except NotFoundError as exc:
-        raise HttpError(404, str(exc) or "文件不存在（可能已被移动或移入删除区）") from exc
-    except ValidationException as exc:
-        raise HttpError(400, str(exc) or "subpath 非法") from exc
+    return await sync_to_async(read_folder_file_content, thread_sensitive=True)(
+        owner_kind=kind,
+        owner_id=owner_id,
+        subpath=subpath,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 @router.get("/folder-refs/pages", response=AttachmentPagesOut)
@@ -239,24 +226,19 @@ async def get_folder_ref_pages(
         pages=pages, dpi=dpi, format=format, max_pages=max_pages
     )
     ctx = get_request_access_context(request)
-    try:
-        outcome = await sync_to_async(render_folder_file_pages, thread_sensitive=True)(
-            owner_kind=kind,
-            owner_id=owner_id,
-            subpath=subpath,
-            user=ctx.user,
-            org_access=ctx.org_access,
-            perm_open_access=ctx.perm_open_access,
-            pages=pages_spec,
-            dpi=requested_dpi,
-            fmt=fmt,
-            max_pages=requested_max,
-            user_id=_user_id(request),
-        )
-    except NotFoundError as exc:
-        raise HttpError(404, str(exc) or "文件不存在（可能已被移动或移入删除区）") from exc
-    except ValidationException as exc:
-        raise HttpError(400, str(exc) or "subpath 非法") from exc
+    outcome = await sync_to_async(render_folder_file_pages, thread_sensitive=True)(
+        owner_kind=kind,
+        owner_id=owner_id,
+        subpath=subpath,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+        pages=pages_spec,
+        dpi=requested_dpi,
+        fmt=fmt,
+        max_pages=requested_max,
+        user_id=_user_id(request),
+    )
     payload = _pages_out(outcome, requested_max=requested_max)
     logger.info(
         "folder_refs_pages user=%s kind=%s owner_id=%s subpath=%r pages=%r dpi=%d format=%s returned=%d error=%s",

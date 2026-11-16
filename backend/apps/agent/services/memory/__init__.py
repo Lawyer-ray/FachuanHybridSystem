@@ -48,6 +48,7 @@ from ...models import AgentMemory, AgentSession, content_hash_of
 from .behavior import derive_preferences_from_behavior, persist_suggestions
 from .curation import promote_candidates, promote_memory, scan_pii_risk
 from .extraction import MAX_EXTRACT_ITEMS, extract_memories_from_session
+from .payloads import curatable_scopes_payload, list_memories_payload, memory_to_dict, search_memories_payload
 from .scopes import can_curate_scope, resolve_scopes, visible_queryset
 from .search import MIN_RELATIVE_RATIO, MIN_SIMILARITY, mark_hit, search_memories
 from .snapshot import (
@@ -116,4 +117,9 @@ __all__ = [
     "extract_memories_from_session",
     "derive_preferences_from_behavior",
     "persist_suggestions",
+    # API 读侧载荷（业务逻辑下沉，API 层只装 Schema）
+    "memory_to_dict",
+    "list_memories_payload",
+    "search_memories_payload",
+    "curatable_scopes_payload",
 ]

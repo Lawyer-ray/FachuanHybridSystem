@@ -7,11 +7,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from collections.abc import AsyncIterator
 from typing import Any
 
-import httpx
 from django.http import StreamingHttpResponse
 from ninja import Router
 from ninja.errors import HttpError
@@ -30,7 +28,7 @@ from ..services.chat_service import (
     stream_chat,
 )
 from ..services.event_bus import replay_events
-from ..services.live_sessions import get_live_worker
+from ..services.live_sessions import forward_steer_to_worker, get_live_worker
 from ..services.session_service import get_session as get_session_record
 from ..services.session_service import list_messages as list_message_records
 from ._helpers import _user_id
@@ -170,21 +168,12 @@ async def steer_running_session(  # pragma: no cover
     if not payload.message.strip():
         raise HttpError(400, "插话内容不能为空")
 
-    # P2-3：跨 worker 转发（Redis 路由表发现目标 worker）
+    # P2-3：跨 worker 转发（路由表发现目标 worker，转发逻辑在 live_sessions）
     target = get_live_worker(session_id)
     if target:
-        internal_token = os.environ.get("FACHUAN_INTERNAL_TOKEN", "")
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as http:
-                resp = await http.post(
-                    f"http://{target}/api/v1/agent/sessions/{session_id}/steer",
-                    json={"message": payload.message},
-                    headers={"X-Internal-Token": internal_token} if internal_token else {},
-                )
-                if resp.status_code == 200:
-                    return SteerOut(**resp.json())
-        except httpx.HTTPError:
-            logger.warning("跨 worker steer 转发失败（%s），回退本 worker", target)
+        forwarded = await forward_steer_to_worker(session_id, payload.message, target)
+        if forwarded is not None:
+            return SteerOut(**forwarded)
 
     try:
         disposition = await steer_session(session_id=session_id, message=payload.message)

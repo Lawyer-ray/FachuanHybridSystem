@@ -31,7 +31,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -135,3 +138,24 @@ def get_live_worker(session_id: str) -> str | None:
         return raw.decode() if isinstance(raw, bytes) else raw
     except Exception:
         return None
+
+
+async def forward_steer_to_worker(session_id: str, message: str, target: str) -> dict[str, Any] | None:
+    """P2-3：会话在其他 worker 运行时，把 steer 经 HTTP 转发到该 worker。
+
+    成功（200）返回响应 JSON 供调用方装配回执；转发失败或非 200 返回
+    ``None``，由调用方回退本 worker 处理。带 ``X-Internal-Token`` 服务间鉴权。
+    """
+    internal_token = os.environ.get("FACHUAN_INTERNAL_TOKEN", "")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as http:
+            resp = await http.post(
+                f"http://{target}/api/v1/agent/sessions/{session_id}/steer",
+                json={"message": message},
+                headers={"X-Internal-Token": internal_token} if internal_token else {},
+            )
+            if resp.status_code == 200:
+                return dict(resp.json())
+    except httpx.HTTPError:
+        logger.warning("跨 worker steer 转发失败（%s），回退本 worker", target)
+    return None
