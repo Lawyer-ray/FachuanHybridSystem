@@ -60,6 +60,28 @@ _OCR_REQUIRED_SUFFIXES: frozenset[str] = frozenset({".pdf", ".jpg", ".jpeg", ".p
 #: 不留容差会把真实匹配判成不匹配；留太多又会把邻行吞进来。±5 千分比 ≈ ±0.5% 页高。
 _OCR_LINE_BBOX_TOLERANCE = 5
 
+#: 是否要 MinerU 做公式识别。全链路只往一个方向取：**关**。
+#
+# 官方文档（https://mineru.net/apiManage/docs，两处均如此写）：
+# 「是否开启公式识别，默认 true。特别注意：对于 vlm 模型，这个参数只会影响
+#   行内公式的解析。」也就是说在 vlm 下它管不到行间公式（``$$…$$``），
+# 只管正文里夹着的 ``$…$``。
+#
+# 选 false 的依据是实测（2026-11，vlm + is_ocr=true，同一份含公式的合成 PDF
+# 各跑一次）：text / markdown / 每个块的文本与类型序列 **逐字节完全一致**，
+# 行间公式块照样产出。行内公式这一侧我们本来就不消费——``text`` 主路径只取
+# ``type == "text"``（见 ``_extract_text_from_content_list``），公式块进不了 text；
+# 要公式内容得读 ``markdown`` 或 ``blocks``（``BLOCK_TYPE_FORMULA``）。
+#
+# 保守取向由此而来：关掉它换不来质量，也换不来时间（实测两边耗时互有高低，
+# 差异在噪声里），唯一的收益是「不把表格里的小角标、印章边上的符号误判成
+# 行内公式」。真出现误判，公式块也只是被单独标成一个块，不会吞掉别的内容。
+#
+# 什么时候回头看：若将来允许把行内公式原样交给下游（例如让 LLM 读含公式的
+# 鉴定意见、利息计算书并需要 ``$r$`` 这类记号），或者抽查发现 markdown 里
+# ``$…$`` 出现的位置本该是普通文字/金额，就打开它重跑一次 A/B。
+_ENABLE_FORMULA = False
+
 
 class MineruBackend:
     """MinerU API 后端
@@ -383,24 +405,40 @@ class MineruBackend:
         payload 的字段位置**不能凭直觉放**：走的是批量接口
         ``/api/v4/file-urls/batch``，``is_ocr`` 是 ``files[]`` 元素里的字段
         （官方文档写作 ``file.is_ocr``）；顶层 ``is_ocr`` 只属于单文件接口
-        ``/api/v4/extract/task``。放错层服务端会静默忽略——不报错，只是回到默认
-        ``is_ocr=false``，扫描件解析出来是空白。
+        ``/api/v4/extract/task``。放错层服务端会静默忽略——不报错，只是回到
+        默认 ``is_ocr=false``。
+
+        关于 ``is_ocr`` 的实测事实（2026-11，vlm）：**它在 vlm 模型下不产生
+        任何差异**。同一份文字层为 0 的扫描件分别以 ``is_ocr=false`` /
+        ``true`` 各跑一次，返回正文逐字节相同（单页 84 字符；164 页件前 3 页
+        均 860 字符）。即 vlm 本来就会对无文字层的页面做 OCR，官方文档那句
+        「默认 false，仅对 pipeline、vlm 模型有效」在 vlm 下的实际含义是
+        「参数可识别」，而不是「关掉就不 OCR」。
+
+        既然如此为什么仍显式传 ``true``：
+          · ``MODEL_VERSION`` 是可改的。一旦有人切回 ``pipeline``，默认
+            ``is_ocr=false`` 会让扫描件解析成空白——这是静默的，不会报错。
+            显式传值让两种模型都安全。
+          · 省掉「靠默认值碰对」的隐式依赖。
         """
+        # 见上：vlm 下无实际作用，是为 pipeline 兼容与显式意图，不是性能开关。
         client = get_sync_http_client()
         suffix = Path(file_name).suffix.lower()
         file_entry: dict[str, Any] = {"name": file_name, "data_id": uuid4().hex}
         if suffix in _OCR_REQUIRED_SUFFIXES:
-            # 质量优先：扫描件与电子档一律 OCR。电子档开启 OCR 也多一遍识别，
-            # 但能覆盖「有文本层却错位/乱码」的劣质电子档，代价可接受。
+            # vlm 下此值实测无作用（见 _request_upload_url 的 docstring），
+            # 显式传 true 是为了 MODEL_VERSION 改回 pipeline 时扫描件仍能出字。
             file_entry["is_ocr"] = True
-            # 公式识别只对行内公式有意义；法律卷宗没有公式，关掉省时间且不损质量。
-            file_entry["enable_formula"] = False
+            # 与顶层同一个值，理由见 ``_ENABLE_FORMULA``。批量接口的文档把
+            # ``enable_formula`` 列在顶层；元素内这一份是为对齐 ``file.is_ocr``
+            # 的写法，两边取值必须一致，不能一处 true 一处 false。
+            file_entry["enable_formula"] = _ENABLE_FORMULA
         payload: dict[str, Any] = {
             "files": [file_entry],
             "model_version": self.MODEL_VERSION,
             "language": "ch",
             "enable_table": True,
-            "enable_formula": False,
+            "enable_formula": _ENABLE_FORMULA,
         }
         if callback and seed:
             payload["callback"] = callback

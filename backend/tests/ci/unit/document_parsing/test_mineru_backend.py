@@ -11,6 +11,7 @@ import pytest
 
 from apps.document_parsing.exceptions import MineruAPIError, ParsingTimeoutError
 from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
+from apps.document_parsing.services.backends import mineru_backend
 from apps.document_parsing.services.backends.mineru_backend import MineruBackend
 
 
@@ -1360,8 +1361,24 @@ class TestBatchUploadPayload:
         assert payload["model_version"] == MineruBackend.MODEL_VERSION
         assert payload["language"] == "ch"
         assert payload["enable_table"] is True
-        # 法律卷宗无公式：关掉省时间，不影响质量
-        assert payload["enable_formula"] is False
+        # 取值与理由见 mineru_backend._ENABLE_FORMULA；这里只钉住「相当值的单一来源」，
+        # 以后要改默认值只改那个常量，不必回来改断言。
+        assert payload["enable_formula"] is mineru_backend._ENABLE_FORMULA
+
+    def test_公式开关顶层与元素内取值一致(self) -> None:
+        """``enable_formula`` 在顶层和 ``files[]`` 里各有一份，不能一处开一处关。
+
+        批量接口的官方文档只把 ``enable_formula`` 列在顶层，元素内那一份是对齐
+        ``file.is_ocr`` 的写法。两处不一致时，服务端按哪份生效没有文档保证——
+        这种不确定性没必要时时去兜，钉死相等最省事。
+        办公文档走服务端默认，不带这个字段，因此只对 ``_OCR_REQUIRED_SUFFIXES`` 断言。
+        """
+        for name in ("卷宗.pdf", "扫描件.jpg", "照片.PNG"):
+            payload = self._capture_payload(name)
+            assert payload["files"][0]["enable_formula"] is payload["enable_formula"], name
+
+        office_payload = self._capture_payload("起诉状.docx")
+        assert "enable_formula" not in office_payload["files"][0]
 
     def test_元素基础字段与公式开关(self) -> None:
         payload = self._capture_payload("卷宗.pdf")
