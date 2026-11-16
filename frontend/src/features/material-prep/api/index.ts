@@ -2,7 +2,8 @@
  * 材料预处理的后端对接出口。
  *
  * 按**后端域**拆为 inbox-packs / cache / ocr / pdf-split / client / contracts /
- * cases / office / upload-links 九个模块，本文件只做 barrel re-export：消费方
+ * cases / office / upload-links 九个模块（另有 assign-provenance：归案溯源字段的
+ * 纯函数口径，从 cases 拆出以免它越过规模软红线），本文件只做 barrel re-export：消费方
  * 继续 `from '../api'` / `from './api'` 不变（原 api.ts 拆成 api/ 目录，解析
  * 结果同一份模块图）。
  *
@@ -23,5 +24,6 @@ export * from './pdf-split'
 export * from './client'
 export * from './contracts'
 export * from './cases'
+export * from './assign-provenance'
 export * from './office'
 export * from './upload-links'

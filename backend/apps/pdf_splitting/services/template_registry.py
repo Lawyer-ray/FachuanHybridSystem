@@ -22,6 +22,15 @@ class TemplateDefinition:
     version: str
     label: str
     rules: tuple[SegmentTemplateRule, ...]
+    #: 本场景高频、但**枚举里没有对应键名**的材料。列进 prompt 的 other 说明里，
+    #: 让模型给它们准确的开放命名，而不是硬塞一个语义不对的既有键名
+    #: （实测转账回单被塞成「放款凭证」）。
+    #:
+    #: 为什么不直接加成 rules：`segment_type` 落库受 `PdfSplitSegmentType.choices`
+    #: 约束（models.py），新增键名要同时改枚举 + 一条 choices 迁移（无 schema 改动）。
+    #: 一旦补了键名，就必须把该材料从本列表移走——同时出现在「可用键名」与
+    #: 「无键名提示」里，模型会自相矛盾。
+    open_label_hints: tuple[str, ...] = ()
 
 
 FILING_MATERIALS_V1 = TemplateDefinition(
@@ -64,8 +73,14 @@ FILING_MATERIALS_V1 = TemplateDefinition(
                 "身份证",
                 "营业执照",
                 "企业信用信息公示",
+                # 户口簿与身份证同属「当事人主体信息」，枚举里已有贴切键名，
+                # 不该让它落 unrecognized（民间借贷卷宗高频）。
+                "居民户口簿",
+                "户口簿",
+                "户口本",
+                "常住人口登记卡",
             ),
-            weak_keywords=("公民身份号码", "统一社会信用代码", "签发机关"),
+            weak_keywords=("公民身份号码", "统一社会信用代码", "签发机关", "户主", "与户主关系"),
             negative_keywords=("授权委托书", "送达地址确认书"),
         ),
         SegmentTemplateRule(
@@ -247,6 +262,63 @@ FILING_MATERIALS_V1 = TemplateDefinition(
             strong_keywords=("代理词", "代理意见"),
             weak_keywords=("尊敬的审判长", "代理人认为", "综上"),
         ),
+        # ── 民间借贷高频材料（P3-5①）──
+        # strong 只收**抬头式**短语：规则引擎扫全页，「提到借条」不等于「是借条」，
+        # 所以不把「借款」「担保」这类正文常用词放进 strong。
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.IOU,
+            label="借条",
+            default_filename="借条",
+            strong_keywords=("借条", "欠条"),
+            weak_keywords=("今借到", "出借人", "借款金额", "还款日期", "借款人签字"),
+            continuation_keywords=("借款人", "出借人", "利息", "还款"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.TRANSFER_RECEIPT,
+            label="转账回单",
+            default_filename="转账回单",
+            strong_keywords=("转账回单", "汇款回单", "电子回单", "转账凭证", "支付宝转账记录"),
+            weak_keywords=("付款人", "收款人", "交易金额", "交易时间", "回单编号"),
+            negative_keywords=("银行流水", "对账单"),
+            continuation_keywords=("收款人", "付款人", "交易金额"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.CHAT_RECORD,
+            label="聊天记录",
+            default_filename="聊天记录",
+            strong_keywords=("微信聊天记录", "聊天记录", "短信记录", "QQ聊天记录"),
+            weak_keywords=("聊天截图", "语音消息", "发送时间"),
+            continuation_keywords=("聊天", "消息"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.SETTLEMENT_AGREEMENT,
+            label="和解协议",
+            default_filename="和解协议",
+            strong_keywords=("和解协议", "和解协议书", "还款协议", "调解协议"),
+            weak_keywords=("甲方", "乙方", "一次性支付", "双方自愿"),
+            negative_keywords=("民事调解书", "判决书"),
+            continuation_keywords=("甲方", "乙方", "协议"),
+        ),
+        SegmentTemplateRule(
+            segment_type=PdfSplitSegmentType.GUARANTEE_CONTRACT,
+            label="保证合同",
+            default_filename="保证合同",
+            strong_keywords=("保证合同", "担保合同", "担保函", "保证担保合同"),
+            weak_keywords=("保证人", "保证期间", "担保范围", "连带责任保证"),
+            continuation_keywords=("保证人", "担保", "连带责任"),
+        ),
+    ),
+    # 仍**没有**枚举键名的高频材料：列出来让模型给准确开放名，而不是硬塞一个
+    # 语义不对的既有键名。借条/转账回单/聊天记录/和解协议/保证合同已补键名（见上），
+    # 从这里移走——同时出现在「可用键名」和「无键名提示」里会让模型自相矛盾。
+    open_label_hints=(
+        "收据",
+        "对账单",
+        "催款函",
+        "律师函",
+        "结婚证",
+        "出生医学证明",
+        "不动产权属查询结果",
     ),
 )
 

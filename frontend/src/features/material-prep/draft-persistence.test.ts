@@ -15,7 +15,7 @@ vi.mock('./api', () => ({
   saveDraft: saveDraftMock,
 }))
 
-import { discardPendingSave, scheduleSave } from './draft-persistence'
+import { discardPendingSave, flushPendingSave, scheduleSave } from './draft-persistence'
 import type { DraftState } from './types'
 
 const draftOf = (mark: string): DraftState => ({ mats: [], segs: [], infos: [], mark } as unknown as DraftState)
@@ -86,5 +86,51 @@ describe('scheduleSave 防抖落盘', () => {
     scheduleSave(draftOf('next'), 2)
     await vi.advanceTimersByTimeAsync(500)
     expect(saveDraftMock).toHaveBeenCalledExactlyOnceWith(2, draftOf('next'))
+  })
+})
+
+/**
+ * P3-5：登出前 flush。防抖窗口（450ms）内的最后一次编辑以前会被 discardPendingSave
+ * 直接丢掉——律师改完最后一个字就点退出，那次改动谁也没保存。
+ */
+describe('flushPendingSave：登出前把待存草稿立刻落盘', () => {
+  it('不等防抖到点就存最新草稿，且原计时器被取消（不会存第二次）', async () => {
+    saveDraftMock.mockResolvedValue(undefined)
+    scheduleSave(draftOf('a'), 7)
+    vi.advanceTimersByTime(200)
+    scheduleSave(draftOf('b'), 7)
+    const p = flushPendingSave()
+    expect(p).toBeInstanceOf(Promise)
+    expect(saveDraftMock).toHaveBeenCalledExactlyOnceWith(7, draftOf('b'))
+    await p
+    await vi.advanceTimersByTimeAsync(500)
+    expect(saveDraftMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('没有待存草稿时返回 null，不发请求', () => {
+    expect(flushPendingSave()).toBeNull()
+    expect(saveDraftMock).not.toHaveBeenCalled()
+    scheduleSave(draftOf('a'), 1)
+    flushPendingSave()
+    expect(flushPendingSave()).toBeNull()
+  })
+
+  it('flush 失败只 reject 不 toast（登出路径上凭证可能已清，报错文案会误导）', async () => {
+    const boom = new Error('401')
+    saveDraftMock.mockRejectedValue(boom)
+    scheduleSave(draftOf('a'), 1)
+    const p = flushPendingSave()!
+    const expectReject = expect(p).rejects.toBe(boom)
+    await expectReject
+    expect(toastMock.error).not.toHaveBeenCalled()
+  })
+
+  it('flush 之后新排队照常工作（单例状态已清干净）', async () => {
+    saveDraftMock.mockResolvedValue(undefined)
+    scheduleSave(draftOf('old'), 1)
+    flushPendingSave()
+    scheduleSave(draftOf('new'), 2)
+    await vi.advanceTimersByTimeAsync(500)
+    expect(saveDraftMock).toHaveBeenLastCalledWith(2, draftOf('new'))
   })
 })

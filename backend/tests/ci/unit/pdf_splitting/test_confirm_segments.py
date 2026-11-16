@@ -12,7 +12,10 @@
 * **缺页要自动补一段 `未识别材料_起-止`** —— 静默丢页是最坏的失败模式：律师看到
   「导出成功」，卷宗却少了几页；
 * **未识别类型的文件名要兜底** —— 空文件名落进导出环节会生成无意义的文件；
-* 确认后任务必须进入 ``EXPORTING`` 并排进队列 —— 否则律师点了确认什么也不会发生。
+* 确认后任务必须进入 ``EXPORTING`` 并排进队列 —— 否则律师点了确认什么也不会发生；
+* **``segments_md.json`` 必须按确认后的页区间重写** —— 只写 ``segments.json`` 会让
+  ``content_md`` 整体错位一格（md 按旧 order 存、DB 段按 1 基重建），且律师合并/拆分
+  分段后旧 md 与新区间根本对不上。见 ``TestConfirmRewritesMarkdown``。
 
 测试数据（文件名、正文）全部虚构；MEDIA_ROOT 隔离到 tmp_path（``write_json``
 会真的往任务目录写 ``segments.json``）。
@@ -257,3 +260,278 @@ class TestConfirmSegments:
             submit.return_value.submit.return_value = "t2"
             result = PdfSplitJobService().confirm_segments(job_id=job.id, items=[_item(1, 4)])
         assert result.status == PdfSplitJobStatus.EXPORTING
+
+
+# ── confirm 后 content_md 必须与段一致（P0-3）──────────────────────────
+#
+# 病因：md 产物按**旧** order 存（LLM 路径 0 基），confirm 按 1 基重建 DB 段却
+# 只写 segments.json。读取侧拿 1 基查 0 基字典 → 每段拿到上一段正文、末段空串。
+#
+# ⚠️ 验收口径（分析报告 §4 / §9.1）：**必须覆盖真的调整过分段的情形**，不能只测
+# 「什么都没改直接确认」——只统一 order 基址也能让那条绿，而律师一合并/拆分就又错。
+
+
+def _page_payload(page_no: int, *, layout: dict[str, Any] | None = None) -> dict[str, Any]:
+    text = f"第{page_no}页正文"
+    return {
+        "page_no": page_no,
+        "text": text,
+        "normalized_text": text,
+        "head_text": text,
+        "source_method": "fast_text",
+        "ocr_failed": False,
+        "top_candidates": [],
+        "layout": layout,
+        "layout_title": "",
+    }
+
+
+def _seed_products(
+    job: PdfSplitJob,
+    *,
+    with_pages: bool = True,
+    md_entries: list[dict[str, Any]] | None = None,
+    extract_summary: dict[str, Any] | None = None,
+    layouts: dict[int, dict[str, Any]] | None = None,
+) -> Any:
+    """铺一份「自动分段跑完」的任务目录产物。"""
+    from apps.pdf_splitting.services.storage import PdfSplitStorage
+
+    storage = PdfSplitStorage(job.id)
+    storage.ensure_dirs()
+    if with_pages:
+        pages = [_page_payload(no, layout=(layouts or {}).get(no)) for no in range(1, job.total_pages + 1)]
+        storage.write_json(storage.pages_json_path, pages)
+    if extract_summary is not None:
+        storage.write_json(storage.extract_summary_json_path, extract_summary)
+    if md_entries is not None:
+        storage.write_json(storage.segments_md_path, md_entries)
+    return storage
+
+
+def _old_md_entries(ranges: list[tuple[int, int]]) -> list[dict[str, Any]]:
+    """旧 md 产物：**0 基 order**（segment_batch.merge_batch_drafts 的真实形态）。"""
+    return [
+        {
+            "order": index,
+            "page_start": start,
+            "page_end": end,
+            "markdown": f"# 旧名{index}\n\n" + "\n\n".join(f"第{no}页正文" for no in range(start, end + 1)),
+            "positioned": [],
+            "quality_flags": [],
+        }
+        for index, (start, end) in enumerate(ranges)
+    ]
+
+
+def _confirmed_payload(job: PdfSplitJob, items: list[dict[str, Any]]) -> dict[str, Any]:
+    """确认 → 读回任务详情（前端与 MCP 拿到的就是这份）。"""
+    service = PdfSplitJobService()
+    with patch(_SUBMIT_PATH) as submit:
+        submit.return_value.submit.return_value = "task-confirm"
+        service.confirm_segments(job_id=job.id, items=items)
+    job.refresh_from_db()
+    return service.build_job_payload(job)
+
+
+def _assert_segment_md(segment: dict[str, Any], *, total_pages: int) -> None:
+    start, end = segment["page_start"], segment["page_end"]
+    markdown = segment["content_md"]
+    assert markdown.strip(), f"第 {start}-{end} 页这段正文为空（错位一格的末段症状）"
+    for no in range(1, total_pages + 1):
+        if start <= no <= end:
+            assert f"第{no}页正文" in markdown, f"段 {start}-{end} 缺第 {no} 页"
+        else:
+            assert f"第{no}页正文" not in markdown, f"段 {start}-{end} 混进第 {no} 页（错位一格）"
+
+
+class TestConfirmRewritesMarkdown:
+    """确认后 content_md 必须按**确认后的页区间**重建。"""
+
+    def test_什么都没改直接确认也不再有错位一格(self) -> None:
+        job = _job(pages=6)
+        _seed_products(job, md_entries=_old_md_entries([(1, 2), (3, 4), (5, 6)]))
+
+        payload = _confirmed_payload(
+            job,
+            [
+                _item(1, 2, filename="起诉状.pdf", segment_type=PdfSplitSegmentType.COMPLAINT),
+                _item(3, 4, filename="证据一.pdf"),
+                _item(5, 6, filename="证据二.pdf"),
+            ],
+        )
+
+        segments = payload["segments"]
+        assert [s["order"] for s in segments] == [1, 2, 3]
+        for segment in segments:
+            _assert_segment_md(segment, total_pages=6)
+
+    def test_合并两段后正文覆盖合并区间(self) -> None:
+        job = _job(pages=6)
+        _seed_products(job, md_entries=_old_md_entries([(1, 2), (3, 4), (5, 6)]))
+
+        payload = _confirmed_payload(job, [_item(1, 4, filename="合并.pdf"), _item(5, 6, filename="尾段.pdf")])
+
+        assert len(payload["segments"]) == 2
+        for segment in payload["segments"]:
+            _assert_segment_md(segment, total_pages=6)
+
+    def test_拆分一段后两半各拿自己那几页(self) -> None:
+        job = _job(pages=4)
+        _seed_products(job, md_entries=_old_md_entries([(1, 4)]))
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="前半.pdf"), _item(3, 4, filename="后半.pdf")])
+
+        assert [(s["page_start"], s["page_end"]) for s in payload["segments"]] == [(1, 2), (3, 4)]
+        for segment in payload["segments"]:
+            _assert_segment_md(segment, total_pages=4)
+
+    def test_改页区间后补洞段也有正文(self) -> None:
+        """律师把边界挪到 2-3：头尾缺口被补成未识别段，它们同样不能是空的。"""
+        job = _job(pages=4)
+        _seed_products(job, md_entries=_old_md_entries([(1, 4)]))
+
+        payload = _confirmed_payload(job, [_item(2, 3, filename="挪过边界.pdf")])
+
+        assert [(s["page_start"], s["page_end"]) for s in payload["segments"]] == [(1, 1), (2, 3), (4, 4)]
+        for segment in payload["segments"]:
+            _assert_segment_md(segment, total_pages=4)
+
+    def test_改名后段标题跟着变(self) -> None:
+        job = _job(pages=2)
+        _seed_products(job, md_entries=_old_md_entries([(1, 2)]))
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="律师改过的名字.pdf")])
+
+        assert payload["segments"][0]["content_md"].startswith("# 律师改过的名字\n")
+
+    def test_输入乱序时正文仍按页序对齐(self) -> None:
+        job = _job(pages=4)
+        _seed_products(job, md_entries=_old_md_entries([(1, 2), (3, 4)]))
+
+        payload = _confirmed_payload(job, [_item(3, 4, filename="乙.pdf"), _item(1, 2, filename="甲.pdf")])
+
+        assert payload["segments"][0]["content_md"].startswith("# 甲\n")
+        for segment in payload["segments"]:
+            _assert_segment_md(segment, total_pages=4)
+
+    def test_重复确认按最后一次的区间重建(self) -> None:
+        """第二次确认不能沿用第一次的 md——那正是「改完还是旧正文」的形态。"""
+        job = _job(pages=4)
+        _seed_products(job, md_entries=_old_md_entries([(1, 4)]))
+        service = PdfSplitJobService()
+        with patch(_SUBMIT_PATH) as submit:
+            submit.return_value.submit.return_value = "t"
+            service.confirm_segments(job_id=job.id, items=[_item(1, 4, filename="整本.pdf")])
+            PdfSplitJob.objects.filter(id=job.id).update(status=PdfSplitJobStatus.REVIEW_REQUIRED)
+            service.confirm_segments(
+                job_id=job.id, items=[_item(1, 1, filename="甲.pdf"), _item(2, 4, filename="乙.pdf")]
+            )
+        job.refresh_from_db()
+
+        segments = service.build_job_payload(job)["segments"]
+        assert [(s["page_start"], s["page_end"]) for s in segments] == [(1, 1), (2, 4)]
+        for segment in segments:
+            _assert_segment_md(segment, total_pages=4)
+
+    def test_坐标按取字落盘的实际平台换算而不是auto(self) -> None:
+        """job.cloud_backend 默认 auto → 单位 unknown → positioned 恒空（原 bug）。"""
+        job = _job(pages=1)
+        layout = {"blocks": [{"type": "text", "text": "第1页正文", "bbox": [100, 100, 500, 200]}]}
+        _seed_products(
+            job,
+            layouts={1: layout},
+            extract_summary={"ocr_provider": "mineru", "cloud_failover_from": ["textin"]},
+            md_entries=_old_md_entries([(1, 1)]),
+        )
+        assert job.cloud_backend == "auto"
+
+        payload = _confirmed_payload(job, [_item(1, 1, filename="有坐标.pdf")])
+
+        assert payload["segments"][0]["positioned"], "实际平台是 mineru，坐标必须能算出来"
+
+    def test_旧任务没有取字摘要时正文仍正确(self) -> None:
+        """坐标降级为不可用是可以接受的；正文错位不可以。"""
+        job = _job(pages=2)
+        _seed_products(job, md_entries=_old_md_entries([(1, 2)]))
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="旧任务.pdf")])
+
+        _assert_segment_md(payload["segments"][0], total_pages=2)
+        assert payload["segments"][0]["positioned"] == []
+
+    def test_每段都带page_spans字段(self) -> None:
+        """字段形状契约：前端按 page_spans 映射 pageSpans，缺键会 undefined。"""
+        job = _job(pages=2)
+        _seed_products(job, md_entries=_old_md_entries([(1, 2)]))
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="锚点.pdf")])
+
+        assert isinstance(payload["segments"][0]["page_spans"], list)
+
+    def test_页锚点切出来的正是本页正文(self) -> None:
+        """confirm 重建后锚点必须按**新** md 算——前端切/并段就靠它精确切分。"""
+        job = _job(pages=4)
+        _seed_products(job, md_entries=_old_md_entries([(1, 4)]))
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="前半.pdf"), _item(3, 4, filename="后半.pdf")])
+
+        for segment in payload["segments"]:
+            spans = segment["page_spans"]
+            assert [span["page"] for span in spans] == list(range(segment["page_start"], segment["page_end"] + 1))
+            for span in spans:
+                assert f"第{span['page']}页正文" in segment["content_md"][span["start"] : span["end"]]
+
+
+class TestConfirmMarkdownWithoutPages:
+    """旧任务 pages.json 缺失/损坏时按页区间重新配对，**不许静默错位**。"""
+
+    def test_没有pages_json时页区间没变的段仍对得上(self) -> None:
+        job = _job(pages=6)
+        _seed_products(job, with_pages=False, md_entries=_old_md_entries([(1, 2), (3, 4), (5, 6)]))
+
+        payload = _confirmed_payload(
+            job, [_item(1, 2, filename="甲.pdf"), _item(3, 4, filename="乙.pdf"), _item(5, 6, filename="丙.pdf")]
+        )
+
+        assert [(s["page_start"], s["page_end"]) for s in payload["segments"]] == [(1, 2), (3, 4), (5, 6)]
+        for segment in payload["segments"]:
+            _assert_segment_md(segment, total_pages=6)
+
+    def test_没有pages_json时合并段按页序拼接(self) -> None:
+        job = _job(pages=4)
+        _seed_products(job, with_pages=False, md_entries=_old_md_entries([(1, 2), (3, 4)]))
+
+        payload = _confirmed_payload(job, [_item(1, 4, filename="合并.pdf")])
+
+        markdown = payload["segments"][0]["content_md"]
+        assert markdown.index("第1页正文") < markdown.index("第3页正文")
+        _assert_segment_md(payload["segments"][0], total_pages=4)
+
+    def test_pages_json损坏时走降级而不是抛(self) -> None:
+        job = _job(pages=2)
+        storage = _seed_products(job, md_entries=_old_md_entries([(1, 2)]))
+        storage.pages_json_path.write_text('[{"page_no": 1,', encoding="utf-8")
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="降级.pdf")])
+
+        assert payload["segments"][0]["content_md"].strip(), "降级路径也不能把正文丢成空串"
+        _assert_segment_md(payload["segments"][0], total_pages=2)
+
+    def test_没有任何旧产物时留空串而不是别人的正文(self) -> None:
+        job = _job(pages=2)
+        _seed_products(job, with_pages=False)
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="什么都没有.pdf")])
+
+        assert payload["segments"][0]["content_md"] == ""
+
+    def test_页区间没变时页锚点原样保留(self) -> None:
+        job = _job(pages=2)
+        entries = _old_md_entries([(1, 2)])
+        entries[0]["page_spans"] = [{"page": 1, "start": 0, "end": 6}, {"page": 2, "start": 6, "end": 12}]
+        _seed_products(job, with_pages=False, md_entries=entries)
+
+        payload = _confirmed_payload(job, [_item(1, 2, filename="锚点.pdf")])
+
+        assert payload["segments"][0]["page_spans"] == entries[0]["page_spans"]

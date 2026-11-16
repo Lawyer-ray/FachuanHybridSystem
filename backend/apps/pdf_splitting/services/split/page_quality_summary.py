@@ -135,3 +135,40 @@ def serialize_quality(
         **summary,
         "pages": {str(page_no): asdict(quality) for page_no, quality in sorted(qualities.items())},
     }
+
+
+def attach_page_quality_flags(
+    segments_md: list[dict[str, Any]],
+    qualities: dict[int, PageQuality],
+) -> list[dict[str, Any]]:
+    """把逐页质量画像兑现成**段级** ``quality_flags``（合并，不覆盖）。
+
+    为什么必须做：判据层早就认出了「这页是身份证，但姓名 / 身份证号 / 住址均未读出」
+    与「疑似图形页，请核对原图」，但这些话只落在 summary 的 ``page_quality`` 里。
+    只读 ``content_md`` 的下游（起草 AI、MCP、归案后的案件侧）看不到 summary——
+    于是「系统知道哪里缺」与「消费方知道这里缺」之间断了一层。段级 flag 是它们
+    唯一会读到的提示通道。
+
+    与 ``consistency_summary.attach_quality_flags_to_markdown`` 的分工：那个贴
+    「疑似错字」，本函数贴「图形页 / 证件缺字段」。**必须在那个之后调用并合并**，
+    直接赋值会把错字提示整批顶掉。
+
+    文案一律用判据层给的 ``reason``（接入层不另造说法），前面加页号——
+    一段跨十几页时，律师要知道是哪一页需要翻原图。
+    """
+    for entry in segments_md:
+        start = int(entry.get("page_start") or 0)
+        end = int(entry.get("page_end") or 0)
+        flags = [str(item) for item in (entry.get("quality_flags") or []) if isinstance(item, str) and item]
+        seen = set(flags)
+        for page_no in range(start, end + 1):
+            quality = qualities.get(page_no)
+            if quality is None or not (quality.needs_visual_review or quality.doc_hint):
+                continue
+            flag = f"第{page_no}页：{quality.reason}"
+            if flag in seen:
+                continue
+            seen.add(flag)
+            flags.append(flag)
+        entry["quality_flags"] = flags
+    return segments_md

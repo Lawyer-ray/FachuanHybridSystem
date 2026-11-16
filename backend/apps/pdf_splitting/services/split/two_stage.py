@@ -62,7 +62,7 @@ TASK_SEGMENT = "apps.pdf_splitting.tasks.run_segment_stage"
 #: |:--|:--|:--|
 #: | extract（单引擎取字） | ~2-4 分钟 | 20 分钟 |
 #: | cross_check（双引擎） | 269s（2026-11-16）| 45 分钟 |
-#: | segment（LLM 分段） | ~130s | 20 分钟 |
+#: | segment（LLM 分段） | ~130s | 35 分钟（按最坏路径推算，见下） |
 #:
 #: 把全局值抬到能容忍最坏情况（45 分钟），等于让**每一个**普通任务都享有
 #: 45 分钟的失控窗口：真卡死时 worker 槽位要白占这么久才能回收。反之把全局
@@ -74,12 +74,26 @@ TASK_SEGMENT = "apps.pdf_splitting.tasks.run_segment_stage"
 #:
 #: ## 数值怎么定的
 #:
-#: 都取「实测值 × 3 左右」的整数分钟，理由见 `mineru_backend.py` 的同一次事故：
-#: MinerU 那一路曾因 TCP 半死静默阻塞到 4347s（72 分钟），说明云服务侧的长尾
-#: 远超直觉。×3 是给「云端排队 + 一次重传」留余量，同时仍能在真卡死时收口。
+#: extract / cross_check 取「实测值 × 3 左右」的整数分钟，理由见 `mineru_backend.py`
+#: 的同一次事故：MinerU 那一路曾因 TCP 半死静默阻塞到 4347s（72 分钟），说明云服务
+#: 侧的长尾远超直觉。×3 是给「云端排队 + 一次重传」留余量，同时仍能在真卡死时收口。
+#:
+#: segment **不能按实测 ×3 定**：它的耗时上界由分批重试策略决定，而不是由平均值决定。
+#: 按当前代码推算（`segment_batch.DEFAULT_BATCH_RETRY=2`、
+#: `llm_segment_detector._WALL_TIMEOUT_SECONDS=480`、`DEFAULT_SEGMENT_CONCURRENCY=4`）：
+#:
+#: · 单批耗尽重试 = 3 × 480s = **1440s**，已经超过原来的 1200s——**一批**偶发抖动
+#:   就足以让整阶段被硬杀，而心跳线程还在正常跳（看门狗认为它活着），无从申辩；
+#: · 并行度 4、164 页 7 批：慢批占着一个槽跑 1440s 期间，其余 6 批在另外 3 个槽上
+#:   早已跑完，所以尾部只需再留一轮墙钟 480s；
+#: · 合并 + 跨页一致性校对 + Markdown 重建 + 落盘再留 180s。
+#:
+#: 合计 1440 + 480 + 180 = 2100s = 35 分钟。**刻意不抬到 45 分钟**：本预算只覆盖
+#: 「至多一批耗尽重试」这一实测形态（7 批里 1 批偶发失败）。多批同时耗尽意味着 LLM
+#: 整体不可用，那时就该被杀并由整轮规则引擎兜底，而不是让 worker 槽白占更久。
 EXTRACT_STAGE_TIMEOUT_SECONDS = 20 * 60
 CROSS_CHECK_STAGE_TIMEOUT_SECONDS = 45 * 60
-SEGMENT_STAGE_TIMEOUT_SECONDS = 20 * 60
+SEGMENT_STAGE_TIMEOUT_SECONDS = 35 * 60
 
 
 def submit_extract_stage(job: PdfSplitJob) -> str:
@@ -145,6 +159,33 @@ def _pages_payload_path(storage: PdfSplitStorage) -> Path:
 
 def _page_quality_payload_path(storage: PdfSplitStorage) -> Path:
     return storage.page_quality_json_path
+
+
+def _extract_summary_payload_path(storage: PdfSplitStorage) -> Path:
+    return storage.extract_summary_json_path
+
+
+def save_extract_summary(storage: PdfSplitStorage, payload: dict[str, Any]) -> None:
+    """落盘取字阶段的观测摘要。
+
+    必须落盘的理由：``ocr_provider``（**实际生效**的平台，容灾后会与首选不同）是
+    分段阶段换算 bbox 单位的唯一依据。``job.cloud_backend`` 只是用户偏好，默认
+    "auto" 在 ``resolve_bbox_unit`` 里是 unknown —— 拿它当依据会让 positioned 恒空。
+    """
+    storage.write_json(_extract_summary_payload_path(storage), payload)
+
+
+def load_extract_summary(storage: PdfSplitStorage) -> dict[str, Any]:
+    """读回取字摘要；不存在或损坏返回空表（旧任务没这个产物，坐标降级为不可用）。"""
+    path = _extract_summary_payload_path(storage)
+    try:
+        if not path.exists():
+            return {}
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        logger.warning("pdf_split_extract_summary_unreadable", extra={"path": str(path)})
+        return {}
+    return raw if isinstance(raw, dict) else {}
 
 
 def save_pages(storage: PdfSplitStorage, pages: list[Any]) -> None:

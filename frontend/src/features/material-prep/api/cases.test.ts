@@ -42,6 +42,7 @@ vi.mock('@/lib/api', () => ({
 }))
 
 import { assignPack, currentLawyerId, searchCases } from './cases'
+import { bindProvenance } from './assign-provenance'
 
 /** 按 prefix 取第一个客户端桩（模块加载即建好的那几个用它断言） */
 function client(prefix: string) {
@@ -111,7 +112,7 @@ function stubAll(prefix: string, handlers: { get?: (path: string) => unknown; po
   }
 }
 
-const SEGMENT = { name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 3 }
+const SEGMENT = { name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 3, segmentRef: 'seg-a' }
 
 /** 归案默认桩：律师 42 / 客户 5 / 合同 88 / 案件 3001 / 附件 101 / 绑定成功 */
 function stubHappyPath() {
@@ -366,7 +367,7 @@ describe('assignPack：按分段切页', () => {
       target: 'existing',
       caseId: 55,
       parties: { our: '', their: '' },
-      segments: [{ name: '整卷', partIndex: 0, pageStart: 1, pageEnd: 10 }],
+      segments: [{ name: '整卷', partIndex: 0, pageStart: 1, pageEnd: 10, segmentRef: 'seg-whole' }],
       sources: [SOURCE],
     })
 
@@ -382,7 +383,7 @@ describe('assignPack：按分段切页', () => {
       target: 'existing',
       caseId: 55,
       parties: { our: '', their: '' },
-      segments: [{ name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3 }],
+      segments: [{ name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3, segmentRef: 'seg-a' }],
       sources: [SOURCE],
     })
 
@@ -406,8 +407,8 @@ describe('assignPack：按分段切页', () => {
       caseId: 55,
       parties: { our: '', their: '' },
       segments: [
-        { name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 2 },
-        { name: '证据', partIndex: 0, pageStart: 3, pageEnd: 10 },
+        { name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 2, segmentRef: 'seg-a' },
+        { name: '证据', partIndex: 0, pageStart: 3, pageEnd: 10, segmentRef: 'seg-b' },
       ],
       sources: [SOURCE],
     })
@@ -430,8 +431,8 @@ describe('assignPack：按分段切页', () => {
       caseId: 55,
       parties: { our: '', their: '' },
       segments: [
-        { name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3 },
-        { name: '证据', partIndex: 0, pageStart: 4, pageEnd: 5 },
+        { name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3, segmentRef: 'seg-a' },
+        { name: '证据', partIndex: 0, pageStart: 4, pageEnd: 5, segmentRef: 'seg-b' },
       ],
       sources: [SOURCE],
     })
@@ -453,7 +454,7 @@ describe('assignPack：按分段切页', () => {
       target: 'existing',
       caseId: 55,
       parties: { our: '', their: '' },
-      segments: [{ name: '照片证据', partIndex: 0, pageStart: 1, pageEnd: 1 }],
+      segments: [{ name: '照片证据', partIndex: 0, pageStart: 1, pageEnd: 1, segmentRef: 'seg-photo' }],
       sources: [{ partIndex: 0, n: '照片证据.jpg', k: 'photo', pages: 0 }],
     })
 
@@ -467,7 +468,7 @@ describe('assignPack：按分段切页', () => {
       target: 'existing',
       caseId: 55,
       parties: { our: '', their: '' },
-      segments: [{ name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3 }],
+      segments: [{ name: '起诉状', partIndex: 0, pageStart: 2, pageEnd: 3, segmentRef: 'seg-a' }],
       sources: [SOURCE],
     })
 
@@ -511,5 +512,80 @@ describe('assignPack：target=existing', () => {
       segments: [],
     })
     expect(res.caseName).toBe('')
+  })
+})
+
+/**
+ * P0-1 归案溯源：前端必须把「材料包消息 id + 段 id」带进 bind items，
+ * 否则后端段级匹配永远不生效（起草 RAG 只能退回重新抽纯文本）。
+ * 后端只在 source_message_id 非 null 时刷新溯源，所以拿不到有效值时**一个键都不传**。
+ */
+describe('assignPack：归案溯源字段', () => {
+  /** 每次 materials/bind 的 items[0] */
+  function bindItems(): Record<string, unknown>[] {
+    return callsOf('/api/v1/cases', 'post')
+      .filter((c) => String(c[0]).endsWith('/materials/bind'))
+      .map((c) => (c[1] as { json: { items: Record<string, unknown>[] } }).json.items[0]!)
+  }
+
+  const base = { target: 'existing' as const, caseId: 55, parties: { our: '', their: '' } }
+
+  it('bind items 带 source_message_id + source_segment_ref（逐段各自的段 id）', async () => {
+    await assignPack({
+      ...base,
+      messageId: 9,
+      segments: [SEGMENT, { ...SEGMENT, name: '证据', segmentRef: 'seg-b' }],
+    })
+    expect(bindItems()).toEqual([
+      { attachment_id: 101, category: 'party', type_name: '起诉状', side: 'our', source_message_id: 9, source_segment_ref: 'seg-a' },
+      { attachment_id: 101, category: 'party', type_name: '证据', side: 'our', source_message_id: 9, source_segment_ref: 'seg-b' },
+    ])
+  })
+
+  it('messageId 非法（0 / 负数 / 小数 / NaN / undefined）时不传任何溯源键，而不是塞脏值', async () => {
+    for (const bad of [0, -1, 1.5, Number.NaN, undefined as unknown as number]) {
+      vi.clearAllMocks()
+      stubHappyPath()
+      await assignPack({ ...base, messageId: bad, segments: [SEGMENT] })
+      const items = bindItems()
+      expect(items).toHaveLength(1)
+      expect(items[0]).not.toHaveProperty('source_message_id')
+      expect(items[0]).not.toHaveProperty('source_segment_ref')
+      // 归案本身照常完成（溯源是附加信息，不该拦住绑材料）
+      expect(items[0]).toMatchObject({ attachment_id: 101, type_name: '起诉状' })
+    }
+  })
+
+  it('段 id 空白时仍传 message_id（包级哈希匹配可独立生效），但不传空串段 ref', async () => {
+    await assignPack({ ...base, messageId: 9, segments: [{ ...SEGMENT, segmentRef: '   ' }] })
+    expect(bindItems()[0]).toEqual({
+      attachment_id: 101, category: 'party', type_name: '起诉状', side: 'our', source_message_id: 9,
+    })
+  })
+
+  it('不传 source_file_hash（后端自算，前端传了就是越权伪造）', async () => {
+    await assignPack({ ...base, messageId: 9, segments: [SEGMENT] })
+    expect(bindItems()[0]).not.toHaveProperty('source_file_hash')
+  })
+})
+
+describe('bindProvenance：溯源字段收窄口径', () => {
+  it('有效 message id + 段 id → 两个键都给，段 id 去首尾空白', () => {
+    expect(bindProvenance(9, 'seg-a')).toEqual({ source_message_id: 9, source_segment_ref: 'seg-a' })
+    expect(bindProvenance(9, '  seg-a  ')).toEqual({ source_message_id: 9, source_segment_ref: 'seg-a' })
+  })
+
+  it('段 id 缺失/空白 → 只给 message_id（不给空串）', () => {
+    expect(bindProvenance(9, '')).toEqual({ source_message_id: 9 })
+    expect(bindProvenance(9, undefined)).toEqual({ source_message_id: 9 })
+  })
+
+  it('message id 不是正整数 → 一个键都不给', () => {
+    expect(bindProvenance(0, 'seg-a')).toEqual({})
+    expect(bindProvenance(-3, 'seg-a')).toEqual({})
+    expect(bindProvenance(2.5, 'seg-a')).toEqual({})
+    expect(bindProvenance(Number.NaN, 'seg-a')).toEqual({})
+    expect(bindProvenance(Number.POSITIVE_INFINITY, 'seg-a')).toEqual({})
+    expect(bindProvenance(undefined as unknown as number, 'seg-a')).toEqual({})
   })
 })

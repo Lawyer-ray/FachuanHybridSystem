@@ -85,15 +85,49 @@ _GRAPHIC_MAX_CHARS = 60
 #: 内容真实但不足以自证是什么材料，需要律师核对。
 _SPARSE_MAX_CHARS = 200
 
+#: 值得为它单独调一次补救 OCR 的图片区域下限（占整页面积比）。
+#: 579 实测：p23 身份证的图片块占 74.5%、p41 面谈笔录照片占 6%、p98/p100/p101
+#: 占 66–69%，而 p148 平面图那个 image 块只有 0.6%（页眉 logo 量级）——
+#: 为后者花一次云端调用什么都救不回来。2% 落在这两类的空档里。
+_RESCUE_MIN_AREA_RATIO = 0.02
+
 #: 认不出材料类型时的 sparse 文案；认得出就换成 ``doc_type.describe_doc_page`` 的
 #: 具体说法（“这页是身份证，但姓名 / 身份证号 / 住址 均未读出”）。
 _SPARSE_REASON = "内容较少，可能是封面/证件/表单，建议核对"
 
-#: 跨页高频的印章/核对套话。**必须先剔除再统计**，否则每一页都能从中读出
+#: 跨页高频的印章/核对套话的**固定短语**部分。单一词表，统计与清洗共用同一份，
+#: 两边只在「经办人」那一支的吃法上不同（见下面两个正则）。
+_STAMP_PHRASES = r"已核对与原件相符|扫描件与留档资料相符|与原件核[对符]|编号\s*NOD[0-9A-Za-z\-]*"
+
+#: 字数统计用：经办人一支贪婪到行尾。**必须先剔除再统计**，否则每一页都能从中读出
 #: 「已核对与原件相符」这种成句中文，图形页的文本启发就永远不成立。
-_STAMP_BOILERPLATE_RE = re.compile(
-    r"(?:已核对与原件相符|扫描件与留档资料相符|与原件核[对符]|经办人[:：][^\n]*|编号\s*NOD[0-9A-Za-z\-]*)"
-)
+#: 阈值（60/200 字）是按这个口径在真实版面数据上校准的，故保持不变。
+_STAMP_BOILERPLATE_RE = re.compile(rf"(?:{_STAMP_PHRASES}|经办人[:：][^\n]*)")
+
+#: 正文清洗用：经办人只吃「标签 + 冒号 + 空白」，**不吃人名与后面的正文**。
+#: 贪婪到行尾会删掉真实正文——579 实测 20 行混合行受害，最重的一行是 872 字的
+#: 合同条款被吃到只剩 606 字，还有表格行 ``| 经办人：某某 日期：2023.2.15 |``
+#: 连日期单元格一起没了。人名是否属于套话，交给 _is_stamp_only_line 逐 token 复核。
+_STAMP_LABEL_RE = re.compile(rf"(?:{_STAMP_PHRASES}|经办人[:：][ \t]*)")
+
+#: 只有固定短语：混合行只剔这些（它们是字面量，剔掉不伤正文），经办人连同人名原样留着。
+_STAMP_PHRASE_RE = re.compile(rf"(?:{_STAMP_PHRASES})")
+
+#: 人名形态：纯 CJK 短词。判「经办人后面跟的是不是人名列表」用，不是第二份套话词表。
+#: 上限 6 字：中文姓名极少超过 4 字，留到 6 字容纳复姓与少数民族译名；
+#: 再长就一定是正文（「测试甲中华人民共和国国土资源部监制」这种粘连形态）。
+_NAME_TOKEN_RE = re.compile(r"^[\u4e00-\u9fff]{1,6}$")
+_NAME_SEPARATORS = "·、，,"
+
+
+def is_name_token(token: str) -> bool:
+    """剥掉人名分隔符后是否是人名形态短词（纯 CJK ≤6 字）。
+
+    md 重建层复核「贪婪判据有没有吞掉正文」要用同一口径，所以公开出来：
+    这个守卫一漂移就会真删正文，不能留两份定义。
+    """
+    return bool(_NAME_TOKEN_RE.match(token.strip(_NAME_SEPARATORS)))
+
 
 #: 一页「在写成句的话」的最短中文片段长度。6 字以下多是字段标签、印章文字、
 #: 图注（「不动产权证书号」「民政局」），不构成一句叙述。
@@ -220,6 +254,121 @@ def assess_page_quality(*, page_no: int, text: str, layout: dict | None = None) 
 def _strip_stamp_boilerplate(text: str) -> str:
     """剔除跨页重复的印章/核对套话，避免它们伪装成「这一页有成句中文」。"""
     return _STAMP_BOILERPLATE_RE.sub(" ", text)
+
+
+def _is_stamp_only_line(line: str) -> bool:
+    """整行是否**只有**印章套话（含「经办人：某某 某某」这种人名列表）。
+
+    两道门，缺一不可：
+    1. 行里真的出现套话标记（固定短语或「经办人：」）——否则「张三」这种裸人名行
+       会被当套话删掉；
+    2. 剥掉标记后剩下的每个空白分隔 token 都是人名形态短词。有一个不是，
+       就说明这行混着正文，整行**不剔也不改**。
+
+    第 2 道门是内容保真的关键：OCR 会把人名与正文粘成一个 token
+    （「某某中华人民共和国国土资源部监制」），它不是人名形态，于是整行保住。
+    """
+    if not _STAMP_LABEL_RE.search(line):
+        return False
+    residue = _STAMP_LABEL_RE.sub(" ", line)
+    return all(is_name_token(token) for token in residue.split())
+
+
+def strip_stamp_boilerplate_lines(text: str) -> str:
+    """按行剔除印章/核对套话：**整行都是套话才删行，混合行只剔固定短语**。
+
+    与 :func:`_strip_stamp_boilerplate` 共用同一份短语词表（``_STAMP_PHRASES``），
+    差别在用途与保守程度：那个给字数统计用（阈值按它的口径校准过），这个改的是
+    **律师要读的正文**，所以「经办人」一支不许贪婪到行尾——混合行一律保留原样，
+    只把字面量固定短语剔掉。579 实测贪婪吃法会删掉合同条款、权证正文、FATCA
+    尽调说明、材料标题，以及表格行里的日期单元格。
+
+    原本就空的行保留，段落结构不被抹平。
+    """
+    kept: list[str] = []
+    for line in text.splitlines():
+        if not line.strip():
+            kept.append("")
+            continue
+        if _is_stamp_only_line(line):
+            continue
+        kept.append(_STAMP_PHRASE_RE.sub(" ", line).strip())
+    return "\n".join(kept)
+
+
+def rescue_image_region(page: Any, quality: PageQuality) -> list[float] | None:
+    """这一页值得补救的图片区域（千分比外接矩形）；不值得返回 ``None``。
+
+    判据只有一条门槛：**质量画像已经说这页看不全内容**（图形页，或认出了证件类型），
+    且版面里存在「有图片块、块里一个字都没有」的区域。MinerU 把照片/手写页整块
+    当图片返回时就是这个形态（579 实测 p23 身份证整页只读出 45 字印章语）。
+
+    为什么不对所有 image 块补救：164 页里 36 页有 image 块，绝大多数是正常文本页上的
+    页眉 logo 与印章，为它们逐块调云端既烧钱又救不回内容。门槛交给质量画像，
+    它已经按真实版面数据校准过（见模块注释）。
+
+    已补救过的块（``rescued``）不再参与：补救产出的文字落在另外的正文块里，
+    原 image 块仍是空的——不标记的话同一份 PDF 每次重跑都会为它再付一次钱。
+    """
+    if not (quality.needs_visual_review or quality.doc_hint):
+        return None
+    blocks = _layout_blocks(getattr(page, "layout", None))
+    boxes = [
+        bbox
+        for block in blocks
+        if _block_type(block) in _IMAGE_BLOCK_TYPES
+        and not block.get("rescued")
+        and not str(block.get("text") or "").strip()
+        and (bbox := _block_bbox(block)) is not None
+    ]
+    if not boxes:
+        return None
+    x0 = min(box[0] for box in boxes)
+    y0 = min(box[1] for box in boxes)
+    x1 = max(box[2] for box in boxes)
+    y1 = max(box[3] for box in boxes)
+    if (x1 - x0) * (y1 - y0) < _RESCUE_MIN_AREA_RATIO * 1000.0 * 1000.0:
+        return None
+    return [x0, y0, x1, y1]
+
+
+def mark_rescued_image_blocks(blocks: list[Any], *, region: list[float]) -> list[dict[str, Any]]:
+    """给「已经单独识别过」的空 image 块打标，避免重跑时为同一块再付一次钱。
+
+    补救读回的文字落在新增的正文块里，原 image 块本身仍是空的——不打标的话
+    补救判据每次都命中它，缓存里明明已有成果却还要再调一次云端。
+    """
+    x0, y0, x1, y1 = region
+    out: list[dict[str, Any]] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        bbox = block.get("bbox")
+        inside = (
+            str(block.get("type") or "").strip().lower() in _IMAGE_BLOCK_TYPES
+            and isinstance(bbox, (list, tuple))
+            and len(bbox) >= 4
+            and x0 <= float(bbox[0])
+            and y0 <= float(bbox[1])
+            and float(bbox[2]) <= x1
+            and float(bbox[3]) <= y1
+        )
+        out.append({**block, "rescued": True} if inside else dict(block))
+    return out
+
+
+def _block_bbox(block: dict[str, Any]) -> list[float] | None:
+    """块的千分比外接矩形；形状不对返回 None（不猜坐标）。"""
+    raw = block.get("bbox")
+    if not isinstance(raw, (list, tuple)) or len(raw) < 4:
+        return None
+    try:
+        x0, y0, x1, y1 = (float(raw[0]), float(raw[1]), float(raw[2]), float(raw[3]))
+    except (TypeError, ValueError):
+        return None
+    if x1 <= x0 or y1 <= y0:
+        return None
+    return [x0, y0, x1, y1]
 
 
 def _layout_blocks(layout: dict | None) -> list[dict[str, Any]]:

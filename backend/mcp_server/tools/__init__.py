@@ -360,6 +360,7 @@ try:
         delete_message_source,
         download_inbox_attachment,
         get_inbox_message,
+        get_material_draft_segments,
         get_message_source,
         list_inbox_messages,
         list_message_sources,
@@ -987,6 +988,7 @@ if _HAS_MESSAGE_HUB:
     __all__ += [
         "list_inbox_messages",
         "get_inbox_message",
+        "get_material_draft_segments",
         "rename_inbox_attachment",
         "download_inbox_attachment",
         "preview_inbox_attachment",

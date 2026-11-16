@@ -17,11 +17,115 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
 from apps.automation.services.ocr.ocr_service import OCRService  # 保留直接构造：需要运行时 use_v5 参数控制精度/速度
+from apps.document_parsing.protocols.document_parser_protocol import normalize_block_type
 from apps.pdf_splitting.models import PdfSplitOcrProfile
 
+from .dual_engine import normalize_paddleocr_vl_blocks
 from .split_models import OCRPageResult, OCRRuntimeProfile
 
 logger = logging.getLogger("apps.pdf_splitting")
+
+#: VL 兜底页版面的坐标基准：与 MinerU 同为千分比，页尺寸随之记 1000×1000。
+#:
+#: 为什么不保留 VL 的绝对像素：``bbox.resolve_bbox_unit`` 只认 mineru（千分比）与
+#: textin（绝对）两种单位，而 ``build_segments_markdown`` 整段只收**一个** bbox_backend。
+#: 一份卷宗里混着 MinerU 页与 VL 兜底页时，只有把两者收敛到同一套量纲，
+#: 兜底页的绿框才不会按千分比去除绝对像素（框会飘到页外）。
+#: 记 width/height=1000 后，绝对单位分支除以页宽高也得到同一结果。
+_VL_LAYOUT_SIDE = 1000.0
+
+#: 云端平台的 source_method 前缀（``mineru_ocr`` / ``textin_empty`` …）。
+#: 缓存命中时靠它恢复真实来源——档案名记的是**首选**平台，容灾后可能名不副实。
+_CLOUD_METHOD_PREFIXES = ("mineru", "textin")
+
+
+def cloud_backend_of_method(source_method: str) -> str:
+    """从取字来源标记里认出云端平台；认不出返回空串（本地 OCR / 文本层没有平台）。"""
+    name = str(source_method or "").strip().lower()
+    for prefix in _CLOUD_METHOD_PREFIXES:
+        if name == prefix or name.startswith(f"{prefix}_"):
+            return prefix
+    return ""
+
+
+def vl_page_layout(layout_results: Any, *, page_no: int, text: str) -> dict[str, Any] | None:
+    """PaddleOCR-VL 的 ``layoutParsingResults`` → ``PageDescriptor.layout`` 形状。
+
+    块类型走 document_parsing 现成的归一化表（``doc_title`` → title 等），不在这里
+    另造一套词汇；坐标复用 ``normalize_paddleocr_vl_blocks``（它已处理多边形回退、
+    缺页尺寸、退化框）。算不出坐标的块**只保留文字**：前端不画框，但正文不丢。
+
+    拿不到任何块时返回 None——调用方据此走「无版面」分支，而不是拿一个空壳
+    冒充结构化结果。
+    """
+    pruned = [item.get("prunedResult") for item in layout_results or [] if isinstance(item, dict)]
+    blocks = normalize_paddleocr_vl_blocks(pruned)
+    if not blocks:
+        return None
+    out: list[dict[str, Any]] = []
+    for block in blocks:
+        item: dict[str, Any] = {
+            "type": normalize_block_type(block.block_type),
+            "text": block.text,
+            "text_level": None,
+        }
+        rect = block.rect or {}
+        if rect:
+            x, y = float(rect["x"]), float(rect["y"])
+            item["bbox"] = [
+                round(x * _VL_LAYOUT_SIDE, 2),
+                round(y * _VL_LAYOUT_SIDE, 2),
+                round((x + float(rect["w"])) * _VL_LAYOUT_SIDE, 2),
+                round((y + float(rect["h"])) * _VL_LAYOUT_SIDE, 2),
+            ]
+        out.append(item)
+    return {
+        "page_no": page_no,
+        "blocks": out,
+        "text": text,
+        "width": _VL_LAYOUT_SIDE,
+        "height": _VL_LAYOUT_SIDE,
+    }
+
+
+def _rescale_region_blocks(blocks: list[dict[str, Any]], *, region: list[float]) -> list[dict[str, Any]]:
+    """裁剪图内的千分比坐标 → 整页千分比坐标。
+
+    裁剪图自己也是一整页（VL 按它自己的宽高归一），所以先按区域宽高放大，
+    再平移到区域在整页里的起点。没有 bbox 的块原样保留（正文不丢，只是画不出框）。
+    """
+    x0, y0, x1, y1 = region
+    span_x, span_y = (x1 - x0) / _VL_LAYOUT_SIDE, (y1 - y0) / _VL_LAYOUT_SIDE
+    out: list[dict[str, Any]] = []
+    for block in blocks:
+        bbox = block.get("bbox")
+        if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
+            out.append(dict(block))
+            continue
+        shifted = dict(block)
+        shifted["bbox"] = [
+            round(x0 + float(bbox[0]) * span_x, 2),
+            round(y0 + float(bbox[1]) * span_y, 2),
+            round(x0 + float(bbox[2]) * span_x, 2),
+            round(y0 + float(bbox[3]) * span_y, 2),
+        ]
+        out.append(shifted)
+    return out
+
+
+def _recognize_page(ocr_service: Any, image_bytes: bytes, *, page_no: int) -> tuple[str, dict[str, Any] | None]:
+    """识别一页渲染图：优先拿**完整版面结果**，拿不到才退回纯文本。
+
+    为什么不再直接调 ``recognize_bytes``：那层只返回拼好的文字，同一次响应里的
+    ``layout_results``（块坐标）与印章图当场被丢掉。164 页实测有 29 页走这条兜底路径，
+    它们本来就只有纯文本、没有坐标——而版面结果就在已经付过费的那次响应里。
+    """
+    result = ocr_service.recognize_layout(image_bytes)
+    if result is None:
+        # 本地引擎没有版面概念；云端版面调用失败时也走这里（与改动前同样的纯文本兜底）
+        return str(ocr_service.recognize_bytes(image_bytes) or ""), None
+    text = str(getattr(result, "text", "") or "")
+    return text, vl_page_layout(getattr(result, "layout_results", None), page_no=page_no, text=text)
 
 
 def _ocr_pages_worker(
@@ -37,11 +141,12 @@ def _ocr_pages_worker(
         with fitz.open(pdf_path) as doc:
             matrix = fitz.Matrix(dpi / 72, dpi / 72)
             for page_no in page_numbers:
+                layout: dict[str, Any] | None = None
                 try:
                     page = doc.load_page(page_no - 1)
                     pix = page.get_pixmap(matrix=matrix)
                     image_bytes = pix.tobytes("png")
-                    text = ocr_service.recognize_bytes(image_bytes)
+                    text, layout = _recognize_page(ocr_service, image_bytes, page_no=page_no)
                     ocr_failed = not bool(text)
                 except Exception:
                     logger.exception("pdf_split_page_ocr_worker_failed", extra={"page_no": page_no})
@@ -53,6 +158,7 @@ def _ocr_pages_worker(
                         text=text,
                         source_method="ocr" if text else "ocr_failed",
                         ocr_failed=ocr_failed,
+                        layout=layout,
                     )
                 )
     except Exception:
@@ -120,6 +226,44 @@ class OCRHandler:
         if not results:
             raise ValueError(f"{backend} returned no page-indexed PDF results")
         return results
+
+    def ocr_page_region(
+        self,
+        *,
+        pdf_path: Path,
+        page_no: int,
+        region: list[float],
+        runtime_profile: OCRRuntimeProfile,
+    ) -> dict[str, Any] | None:  # pragma: no cover
+        """只渲染并识别整页里的一块区域（千分比坐标），返回**整页坐标系**下的版面。
+
+        为什么裁剪而不是整页重识别：MinerU 把照片/手写页当纯图片返回时，整页识别的
+        有效分辨率被整页尺寸摊薄（579 实测身份证页只读出 45 字印章语，姓名/证号/住址
+        全丢）。把图片区域单独按 OCR 档位 DPI 渲染出来，同一页的字段才有足够像素可读。
+
+        返回 ``{"text": ..., "blocks": [...]}``；识别不出内容返回 None。块坐标已从
+        裁剪图换算回整页千分比，调用方可以直接并进该页的版面。
+        """
+        try:
+            with fitz.open(pdf_path) as doc:
+                page = doc.load_page(page_no - 1)
+                scale_x, scale_y = page.rect.width / 1000.0, page.rect.height / 1000.0
+                clip = fitz.Rect(region[0] * scale_x, region[1] * scale_y, region[2] * scale_x, region[3] * scale_y)
+                pix = page.get_pixmap(matrix=fitz.Matrix(runtime_profile.dpi / 72, runtime_profile.dpi / 72), clip=clip)
+                image_bytes = pix.tobytes("png")
+        except Exception:
+            logger.exception("pdf_split_rescue_render_failed", extra={"page_no": page_no})
+            return None
+
+        text, layout = _recognize_page(OCRService(use_v5=runtime_profile.use_v5), image_bytes, page_no=page_no)
+        if not text.strip():
+            return None
+        # 无版面（本地引擎）时整块文字就是整个裁剪图：坐标记裁剪图自己的千分比，
+        # 下面统一换算回整页，避免两种来源走两套坐标口径。
+        blocks = (layout or {}).get("blocks") or [
+            {"type": "text", "text": text, "bbox": [0.0, 0.0, _VL_LAYOUT_SIDE, _VL_LAYOUT_SIDE]}
+        ]
+        return {"text": text, "blocks": _rescale_region_blocks(blocks, region=region)}
 
     def resolve_runtime_profile(self, profile_key: str) -> OCRRuntimeProfile:
         normalized = str(profile_key or "").strip().lower()
@@ -362,7 +506,7 @@ def _load_ocr_cache_entry(*, storage: Any, rel_path: str, page_no: int) -> _OcrC
     result = OCRPageResult(
         page_no=page_no,
         text=text,
-        source_method="ocr_cache" if text else "ocr_failed_cache",
+        source_method=_cached_source_method(str(payload.get("source_method") or ""), text=text),
         ocr_failed=bool(payload.get("ocr_failed")),
         layout=layout if isinstance(layout, dict) else None,
     )
@@ -371,6 +515,23 @@ def _load_ocr_cache_entry(*, storage: Any, rel_path: str, page_no: int) -> _OcrC
         result=result,
         modified_at=_ocr_cache_entry_mtime(rel_path=rel_path),
     )
+
+
+# ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）
+def _cached_source_method(payload_method: str, *, text: str) -> str:
+    """缓存命中时的来源标记：**云端平台必须保留真实的那一个**。
+
+    缓存档案名记的是**首选**平台（``..._mineru_text_v2``），而容灾生效时写进去的
+    其实是 TextIn 的结果。命中缓存那一轮不再调云端，无从知道发生过容灾——
+    只有条目里的 ``source_method`` 还记着真实来源。丢掉它，下游就会拿 MinerU 的
+    千分比去换算 TextIn 的绝对坐标，绿框整体错位。
+
+    本地 OCR / 文本层没有平台可言，沿用 ``ocr_cache`` / ``ocr_failed_cache``。
+    """
+    backend = cloud_backend_of_method(payload_method)
+    if backend:
+        return payload_method
+    return "ocr_cache" if text else "ocr_failed_cache"
 
 
 # ↓↓ 由 OCRHandler 下沉的模块级纯函数（四层架构静态方法棘轮）

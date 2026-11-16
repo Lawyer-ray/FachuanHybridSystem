@@ -8,6 +8,8 @@
  */
 
 import type { components } from '@/types/api-schema'
+import type { EngineDisagreement, EngineName } from './engine-types'
+import type { Inconsistency, PageQuality } from './quality-types'
 
 export type MaterialKind = 'pdf' | 'photo' | 'office'
 
@@ -46,6 +48,19 @@ export interface PageKey {
   p: number
 }
 
+/**
+ * 一页正文在段 md 里的字符区间（左闭右开，**不含**后端注入的段标题行）。
+ *
+ * 与后端 `segments_md.json` 的 `page_spans` 同口径（API 字段 snake_case，
+ * 映射到 `Segment.pageSpans`）。切段/并段靠它把正文按页精确搬走——没有它只能
+ * 按 blocks 页号近似圈范围，表格页必然圈不准。
+ */
+export interface PageSpan {
+  page: number
+  start: number
+  end: number
+}
+
 /** 一段材料 */
 export interface Segment {
   /** 稳定标识：列表 key 用。split/merge/删页后数组索引会漂移，不能用 si 当 key（会错绑状态） */
@@ -62,6 +77,17 @@ export interface Segment {
   confidence?: number
   /** 该段正文的 Markdown 重建（云端识别产出，供后续 AI 流程消费）；人工拆分 / 旧任务无 */
   md?: string
+  /**
+   * 每页正文在 `md` 里的字符区间（后端 `page_spans`）。切/并段按它精确搬运正文。
+   * 旧任务没有该字段时按 blocks 页号近似兜底；律师整段改写 md 后偏移失效，置空。
+   */
+  pageSpans?: PageSpan[]
+  /**
+   * 有一处块改动没能同步进 md（改前的原文在 md 里锚不到）。
+   * 两视图不同步必须让律师看见——静默留旧值正是「以为改好了其实没改」的来源。
+   * 整段改写 md 后清除（律师已给出权威正文）。
+   */
+  mdDrift?: boolean
   /** 该段的可定位块（原文坐标索引）；无坐标的后端 / 旧任务为空
    *  rect 为归一化 0–1，rect.approx 为 true 时代表"整页近似框"而非精确位置 */
   blocks?: PositionedBlock[]
@@ -93,9 +119,14 @@ export type PdfSplitSegmentSuggestion = Pick<
   | 'confidence'
   | 'review_flag'
   | 'content_md'
+  // 段级分段来源（llm/rule）：summary.segment_backend 说 mixed 时，靠它数出**哪几段**
+  // 是规则引擎兜的，提示律师重点复核（宁可说规则，也不能把规则引擎说成 LLM）
+  | 'source_method'
 > & {
   /** 该段的质量标记（如图形页 / 稀疏页）。后端若要扩展新取值，前端按字符串兜底展示 */
   quality_flags?: string[]
+  /** 每页正文在 content_md 里的字符区间（与 content_md 同口径的 snake_case）。旧任务没有该键 */
+  page_spans?: PageSpan[]
   /** 全本页级质量统计：哪些页是图纸、哪些页几乎没字。旧任务没有该键 */
   page_quality?: PageQuality
   /** 全本跨页文字不一致（同一枚章/同一个字段被识别成两种写法） */
@@ -110,159 +141,12 @@ export type PdfSplitSegmentSuggestion = Pick<
 export type PositionedBlock = components['schemas']['PositionedBlockOut']
 
 /**
- * 页级质量统计（`PdfSplitJobOut.summary.page_quality`）。
- *
- * 真实痛点：164 页卷宗里 p147 是宗地图、p148 是平面图，OCR 只出 6 个字和 47 个字。
- * 律师在正文里看到几行零散字符，根本不知道那是图纸——而图纸恰恰是抵押案件的关键证据。
- *
- * 后端把三类「正文不可信」的页分开给：图形页（图纸/印章/照片）、稀疏页（字太少）、
- * 空白页。前端只消费前两类做提示，空白页不打扰律师（删页是另一条交互）。
- *
- * 全部字段按可选读取：旧任务的 summary 里没有这个键，缺了不能崩。
+ * 识别质量统计与双引擎分歧的类型已按关注点拆到 `quality-types.ts` / `engine-types.ts`
+ * （本文件曾顶到 450 行硬红线）。这里 re-export，消费方的 `../types` 引法不变。
  */
-export interface PageQuality {
-  graphic_pages?: number[]
-  sparse_pages?: number[]
-  blank_pages?: number[]
-  /** 逐页说明，键是页号字符串（"147": "疑似图形页…"） */
-  details?: Record<string, string>
-  /**
-   * 证件页标识：键是页号字符串（"23"），值是证件类型码（`id_card` / `household` /
-   * `marriage` / `property_cert` / `license` / `income_proof`）。旧任务没有该键。
-   *
-   * 与 `graphic_pages` 的区别：「图纸看不出内容」是**没有**内容，
-   * 「证件页关键字段未读出」是**该有的内容在那儿但没读出来**——
-   * 姓名、身份证号、住址是律师必须抄进卷宗的东西，指着「这页是图纸」没用。
-   */
-  doc_hints?: Record<string, string>
-  /**
-   * 证件页未读出的字段（`summary.page_quality.doc_missing`，键=页号）。
-   *
-   * 只有 `doc_hints` 非空的页才出现在这里。`missing` 为空数组不代表「没问题」：
-   * 它表示工程上认得出类型、预期字段也都命中，但整页内容可疑（如满是乱码），
-   * 律师看一眼类型就该去核对原页。
-   */
-  doc_missing?: Record<string, DocMissing>
-}
-
-/** 一页证件材料的缺字段记录（`PageQuality.doc_missing` 的条目） */
-export interface DocMissing {
-  /** 证件类型码（与 `doc_hints` 同口径） */
-  doc?: string
-  /** 未读出的字段名（原样展示，不翻译）；空数组 = 字段都在但内容可疑 */
-  missing?: string[]
-}
-
-/**
- * 跨页文字不一致（`PdfSplitJobOut.summary.inconsistencies`）。
- *
- * 真实痛点：同一枚章被识别 150+ 次，其中 5 次错成「罗问文」（应为「罗向文」）。
- * 逐页翻不可能发现，所以列成全局清单，按 confidence 把最可疑的排在最前。
- */
-export interface Inconsistency {
-  /** 出现次数多的那个写法（视为正确写法） */
-  canonical: string
-  /** 出现次数少的那个写法（疑似错字） */
-  variant: string
-  canonical_count: number
-  variant_count: number
-  /** 不一致出现的页号（绝对页号） */
-  pages: number[]
-  /** 置信度：high 排最前；后端可能给空串或其他等级，按 low 兜底排序 */
-  confidence: string
-}
-
-/**
- * 双引擎交叉校验：某个 OCR 引擎对一处文字的识别结果。
- *
- * 引擎码与后端 `dual_engine.ENGINE_*` 逐字一致；中文名见 `draft/engine.ts` 的
- * `engineLabel`（唯一一处把引擎码转成人话的地方）。
- */
-export type EngineName = 'mineru' | 'paddleocr_vl' | 'textin'
-
-export interface EngineVariant {
-  engine: EngineName
-  /** 摘要（截到 120 字，带省略号）。列表扫读用；不能拿它去做正文定位。 */
-  text: string
-  /**
-   * 完整原文。缺省时（旧任务产物）退回 `text`。
-   *
-   * 两个用途：① 律师要看全文才能判断哪侧对；② 按完整文本定位到正文块——
-   * 摘要带省略号，`includes` 必然失败，表现就是「点了采用/修改没反应」。
-   */
-  full_text?: string
-}
-
-/**
- * 一处引擎分歧（`PdfSplitJobOut.summary.engine_disagreements`）。
- *
- * 核心原则：**分歧 = 确定信号；一致 ≠ 正确**。两个引擎都认成「李四」不代表就是李四
- * （实测存在两引擎一致地错），所以这里只列**分歧**，不投票、不自动采信。
- *
- * 与 `Inconsistency` 的区别：那张清单是「同一枚章在本卷里被写成两种」，是**页与页之间**
- * 的矛盾，靠出现次数判断哪个是基准；这里是「同一页同一处两个引擎读得不一样」，
- * 没有次数可数，裁决权只能在律师手上。两套数据模型不复用。
- */
-export interface EngineDisagreement {
-  /** 绝对页号（后端 page.page_no） */
-  page_no: number
-  /** char = 差一个字（形近字/漏笔）；line = 同一行差多个字；missing = 只有一方有这一行 */
-  kind: 'char' | 'line' | 'missing'
-  severity: 'high' | 'medium' | 'low'
-  /** 各引擎的识别结果；missing 类里空字符串代表该引擎没有这一行 */
-  variants: EngineVariant[]
-  /** 分歧处的截断原文，供清单里一眼定位 */
-  context: string
-  /** 是否命中唯一标识锚点（身份证号/账号）：命中即绑定到具体人/账户，优先看 */
-  anchor_hit: boolean
-  /** 两串相似度（0-1）；missing 类为 0。越低越可疑，清单里排前面 */
-  similarity: number
-  /**
-   * 各引擎在这一页的块框，用于页面上的「双框对照」。
-   *
-   * 可选：旧任务 / 后端还没透出 bbox 时为空，那时分歧清单仍然可看，只是不画框。
-   */
-  blocks?: EngineBlockRect[]
-}
-
-/**
- * 某个引擎在某页认出的一个块（含坐标），用于「双框对照」。
- *
- * 坐标口径必须与 `PositionedBlock.rect` 完全一致（归一化 0-1、相对**页面图像**），
- * 否则两个框会画在不同的比例尺上，「两框重叠时都可见」就无从谈起。
- */
-export interface EngineBlockRect {
-  engine: EngineName
-  page_no: number
-  text: string
-  /** 归一化 0-1 矩形；`approx` 为 true 时代表整页近似框而非精确位置 */
-  rect: { x: number; y: number; w: number; h: number; approx?: boolean }
-  /** 后端块类型（text/title/table/image…），只用于提示，不上色 */
-  block_type: string
-  /** 坐标不可信（整页近似框）：描边要更淡，不给假精度 */
-  approx: boolean
-}
-
-/**
- * 定位框精度等级。
- *
- * 三档而不是单一的 `approx` 布尔：后端以前把「整页近似」与「半格误差」都写成
- * `approx: true`，前端只能画同一种虚线——律师无法区分「这个框根本不准」与
- * 「这个框八九不离十」。拆开后视觉分级：
- *
- * - `exact`：引擎真实返回的 bbox（MinerU/VL 原生）——实线，可信
- * - `cell` ：表格拆分的推算框（左右列对齐、纵向行高不均）——虚线 + ≈
- * - `page` ：整页近似（整张表没拆，坐标基本无意义）——更淡的虚线
- */
-export type RectPrecision = 'exact' | 'cell' | 'page'
-
-/** 从后端块里读精度；旧任务没有 `precision` 字段，退化成看 `approx`。 */
-export function rectPrecisionOf(rect: { approx?: boolean; precision?: string } | null | undefined): RectPrecision {
-  const raw = rect?.precision
-  if (raw === 'exact' || raw === 'cell' || raw === 'page') return raw
-  // 旧任务（后端还没透出 precision）：approx 的旧语义是「整页近似」
-  return rect?.approx ? 'page' : 'exact'
-}
+export type { PageQuality, DocMissing, Inconsistency } from './quality-types'
+export type { EngineName, EngineVariant, EngineDisagreement, EngineBlockRect, RectPrecision } from './engine-types'
+export { rectPrecisionOf } from './engine-types'
 
 /** 标来源：页码（可选框选矩形，归一化 0-1） */
 export interface SrcRef {
@@ -295,8 +179,9 @@ export interface DraftState {
   /**
    * 页级质量统计（哪些页是图纸 / 稀疏 / 空白）。
    *
-   * **只用于展示，不入库**：它描述的是「这次识别产出了什么」，落盘后会与之后的
-   * 切段 / 删页错位。持久化口径见 `DraftStateToSave`（draft-persistence 与 api 剔除该字段）。
+   * 描述的是「这次识别产出了什么」，但**随草稿持久化**：消费方（`graphicPagesOf` /
+   * `docHintPagesOf`）拿 `seg.refs` 与它实时求交集，律师切段/删页后提示跟着变，
+   * 不存在错位；不落盘反而会让刷新一次提示就没了。口径见 `DraftStateToSave`。
    */
   pageQuality?: PageQuality
   /**
@@ -314,6 +199,25 @@ export interface DraftState {
    * 不是识别结果，所以与 pageQuality 那种机器事实区分开、随草稿持久化。
    */
   engineChecked?: string[]
+  /**
+   * 本包的识别成本选择（版面策略 + 引擎勾选），**按包持久化**。
+   *
+   * 为什么落草稿而不是只留会话态：这两项直接决定这一包要不要多付云端费用，
+   * 律师对「银行流水包开双引擎、对电子合同包只抽文本层」的判断是**按包**做的，
+   * 换包复位、重开同一包又得重选一遍等于把他的判断丢掉。
+   *
+   * 缺省（存量草稿没有该键）= 仅文本层 + 自动容灾，与本字段加入前的行为一致；
+   * 新建包的默认值由 `buildInitialDraft` 写入（见该函数注释里的计费说明）。
+   */
+  recognition?: RecognitionPrefs
+}
+
+/** 材料包级的识别成本选择（`DraftState.recognition`） */
+export interface RecognitionPrefs {
+  /** fast_text = 电子页只抽文本层（不计费、无坐标）；layout = 电子页也上云（更准、更慢、按页计费） */
+  layoutMode?: 'fast_text' | 'layout'
+  /** 勾选的云端引擎：空 = 自动容灾；1 个 = 锁定；≥2 个 = 交叉比对（多付一次云端费用） */
+  engines?: EngineName[]
 }
 
 /**

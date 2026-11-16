@@ -15,6 +15,7 @@ import {
   docTodosOf,
   docTypeLabel,
   graphicPagesOf,
+  inconsistencyKindOf,
   pagesText,
   qualityFlagLabel,
   readInconsistencies,
@@ -98,8 +99,8 @@ describe('readPageQuality', () => {
 
 describe('readInconsistencies', () => {
   const good = {
-    canonical: '罗向文',
-    variant: '罗问文',
+    canonical: '测试甲',
+    variant: '测试乙',
     canonical_count: 178,
     variant_count: 5,
     pages: [12, 45],
@@ -116,10 +117,39 @@ describe('readInconsistencies', () => {
       { canonical: '丙', variant: '丁', pages: ['x'] }, // 页号非数字 → 空列表，条目仍留
     ])
     expect(list).toHaveLength(2)
-    expect(list[0]!.variant).toBe('罗问文')
+    expect(list[0]!.variant).toBe('测试乙')
     expect(list[1]!.pages).toEqual([])
     // 缺次数时按 0 兜底，不炸
     expect(list[1]!.variant_count).toBe(0)
+  })
+
+  /**
+   * kind 是后端逐条新加的键。本函数是**逐键重建对象**，漏收 kind 就等于把它丢掉，
+   * 抽屉永远看不到判据种类 → 姓名聚类被渲染成「疑似错字」（律师可能合并两个真人）。
+   */
+  it('kind 逐条透传（三种判据都保留），非字符串/缺失置 undefined', () => {
+    const list = readInconsistencies([
+      { ...good, kind: 'frequency' },
+      { ...good, kind: 'entity_cluster', confidence: 'medium' },
+      { ...good, kind: 'id_malformed', confidence: 'medium' },
+      { ...good, kind: 1 },
+      good,
+    ])
+    expect(list.map((x) => x.kind)).toEqual(['frequency', 'entity_cluster', 'id_malformed', undefined, undefined])
+  })
+})
+
+describe('inconsistencyKindOf：判据种类收窄', () => {
+  it('三种已知 kind 原样返回', () => {
+    expect(inconsistencyKindOf({ kind: 'frequency' })).toBe('frequency')
+    expect(inconsistencyKindOf({ kind: 'entity_cluster' })).toBe('entity_cluster')
+    expect(inconsistencyKindOf({ kind: 'id_malformed' })).toBe('id_malformed')
+  })
+
+  it('缺失 / 空串 / 未知值一律按 frequency（旧任务产物与旧草稿没有该键）', () => {
+    expect(inconsistencyKindOf({})).toBe('frequency')
+    expect(inconsistencyKindOf({ kind: '' })).toBe('frequency')
+    expect(inconsistencyKindOf({ kind: 'brand_new_kind' })).toBe('frequency')
   })
 })
 

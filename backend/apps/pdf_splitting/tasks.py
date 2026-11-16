@@ -35,6 +35,13 @@ def run_extract_stage(job_id: str) -> None:  # pragma: no cover
         pages, summary = split_service.extract_stage(job)
         storage = PdfSplitStorage(job.id)
         two_stage.save_pages(storage, pages)
+        # 取字摘要必须落盘：分段阶段换算 bbox 单位要的是**实际生效**的 ocr_provider
+        # （容灾后与首选不同），而 job.cloud_backend 只是用户偏好（默认 auto → 单位
+        # unknown → positioned 恒空）。失败不阻断：坐标是附加信息，正文已经拿到了。
+        try:
+            two_stage.save_extract_summary(storage, dict(summary))
+        except Exception:
+            logger.exception("pdf_split_extract_summary_save_failed", extra={"job_id": job_id})
         # 页面质量画像必须在这里落盘：段级 quality_flags 要到分段阶段才贴得上，
         # 而那时只剩 pages.json，取不回逐页判定（详见 page_quality_summary 模块注释）。
         # 判据是启发式，只当提示用：算它出错也不能让取字阶段失败。

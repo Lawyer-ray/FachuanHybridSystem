@@ -560,3 +560,122 @@ def test_no_block_rects_key_when_nothing_can_be_linked() -> None:
         context="不存在的块",
     )
     assert "blocks" not in runner.disagreements_to_dicts([item])[0]
+
+
+class TestPersistedVariantCarriesReplayableText:
+    """落盘产物必须足以**离线复现严重度判定**。
+
+    真缺口（579 实测）：旧产物 664 个 variant 全部只有截到 120 字的 `text`，
+    332 条里只有 245 条能忠实重算；剩下的「看着只差标点」有一部分是**截断伪影**
+    ——真差异在 120 字之后。严重度判据吃的是原始行，所以必须落全文。
+    """
+
+    def _item(self, *, left: str, right: str) -> object:
+        from apps.pdf_splitting.services.split.dual_engine import (
+            ENGINE_MINERU,
+            ENGINE_PADDLEOCR_VL,
+            KIND_LINE,
+            SEVERITY_HIGH,
+            EngineDisagreement,
+            EngineVariant,
+        )
+
+        return EngineDisagreement(
+            page_no=1,
+            kind=KIND_LINE,
+            severity=SEVERITY_HIGH,
+            variants=[
+                EngineVariant(engine=ENGINE_MINERU, text=left[:119] + "…", full_text=left),
+                EngineVariant(engine=ENGINE_PADDLEOCR_VL, text=right[:119] + "…", full_text=right),
+            ],
+            context=left[:119] + "…",
+        )
+
+    def test_摘要看不出差别时全文能看出来(self) -> None:
+        left = "合同条款正文" * 30 + "甲方张三丰"
+        right = "合同条款正文" * 30 + "甲方张三半"
+        payload = runner.disagreements_to_dicts([self._item(left=left, right=right)])[0]
+
+        summaries = [v["text"] for v in payload["variants"]]
+        fulls = [v["full_text"] for v in payload["variants"]]
+        assert summaries[0] == summaries[1]  # 摘要一样 → 只看摘要会误判成排版差异
+        assert fulls == [left, right]
+        assert fulls[0] != fulls[1]
+
+    def test_摘要就是全文时不重复落盘(self) -> None:
+        from apps.pdf_splitting.services.split.dual_engine import ENGINE_MINERU, EngineVariant
+
+        payload = runner._variant_to_dict(EngineVariant(engine=ENGINE_MINERU, text="借款人：张三丰"))
+
+        # 等值时缺键与等值同义（两侧消费方都是 full_text or text 回退），省掉纯重复
+        assert payload == {"engine": ENGINE_MINERU, "label": "MinerU", "text": "借款人：张三丰"}
+
+    def test_剥标签导致摘要与原文不同时也落全文(self) -> None:
+        from apps.pdf_splitting.services.split.dual_engine import ENGINE_PADDLEOCR_VL, EngineVariant
+
+        raw = "<div>借款人  张三丰</div>"
+        payload = runner._variant_to_dict(
+            EngineVariant(engine=ENGINE_PADDLEOCR_VL, text="借款人 张三丰", full_text=raw)
+        )
+
+        assert payload["full_text"] == raw
+
+    def test_超过上限截断并明确打标(self) -> None:
+        from apps.pdf_splitting.services.split.dual_engine import ENGINE_MINERU, EngineVariant
+
+        raw = "文" * (runner._FULL_TEXT_MAX_CHARS + 500)
+        payload = runner._variant_to_dict(EngineVariant(engine=ENGINE_MINERU, text="文" * 119 + "…", full_text=raw))
+
+        assert len(payload["full_text"]) == runner._FULL_TEXT_MAX_CHARS
+        # 不打标的话，离线重算会把截断前缀当成全文，重犯「截断伪影」那个错
+        assert payload["full_text_truncated"] is True
+
+    def test_恰好等于上限不打标(self) -> None:
+        from apps.pdf_splitting.services.split.dual_engine import ENGINE_MINERU, EngineVariant
+
+        raw = "文" * runner._FULL_TEXT_MAX_CHARS
+        payload = runner._variant_to_dict(EngineVariant(engine=ENGINE_MINERU, text="文" * 119 + "…", full_text=raw))
+
+        assert len(payload["full_text"]) == runner._FULL_TEXT_MAX_CHARS
+        assert "full_text_truncated" not in payload
+
+    def test_现有键形状不变只加键(self) -> None:
+        payload = runner.disagreements_to_dicts([self._item(left="甲方张三丰", right="甲方张三半")])[0]
+
+        assert set(payload) == {"page_no", "kind", "severity", "variants", "context", "anchor_hit", "similarity"}
+        for variant in payload["variants"]:
+            assert {"engine", "label", "text"} <= set(variant)
+
+    def test_整链跑完summary里就带全文(self, tmp_path: Path) -> None:
+        """不只测序列化函数：从 run_dual_engine 出来的 summary 就要能离线重算。"""
+        left = "借款用途为购买住房" * 20 + "借款人张三丰"
+        right = "借款用途为购买住房" * 20 + "借款人张三半"
+        pdf = _make_pdf(tmp_path / "one.pdf", 1)
+
+        outcome = runner.run_dual_engine(pdf, engine_factories=_factories(_FakeMineru(text=left), _FakeVL(text=right)))
+
+        items = outcome.summary[runner.SUMMARY_ENGINE_DISAGREEMENTS]
+        assert items
+        fulls = [v.get("full_text") or v["text"] for v in items[0]["variants"]]
+        assert left in fulls and right in fulls
+
+    def test_落盘读回保留全文(self, tmp_path: Path) -> None:
+        from unittest.mock import MagicMock
+
+        from apps.pdf_splitting.services.split import two_stage
+
+        storage = MagicMock()
+        storage.engine_disagreements_json_path = tmp_path / "engine_disagreements.json"
+        storage.write_json.side_effect = lambda path, payload: path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        left = "合同条款正文" * 30 + "甲方张三丰"
+        payload = {
+            runner.SUMMARY_ENGINE_DISAGREEMENTS: runner.disagreements_to_dicts(
+                [self._item(left=left, right=left[:-1] + "半")]
+            )
+        }
+
+        two_stage.save_engine_disagreements(storage, payload)
+
+        assert two_stage.load_engine_disagreements(storage) == payload

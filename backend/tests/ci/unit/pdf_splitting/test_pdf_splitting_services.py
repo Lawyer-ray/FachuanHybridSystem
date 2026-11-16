@@ -65,7 +65,10 @@ class TestTemplateRegistry:
         # 后 9 条是补的：拆包是「收到什么拆什么」，不能只认一审起诉的那几类。
         # 补之前二审答辩包整包 5 段只认出 1 段，其余全落 unrecognized。
         # 此断言用于防止规则被误删。
-        assert len(FILING_MATERIALS_V1.rules) == 29
+        #
+        # +5 = 民间借贷高频类（借条、转账回单、聊天记录、和解协议、保证合同）：
+        # 补之前模型只能硬塞语义不对的既有键（转账回单→放款凭证）或落 unrecognized。
+        assert len(FILING_MATERIALS_V1.rules) == 34
 
     def test_appeal_template_has_own_rules(self) -> None:
         """二审必须有独立模板，不能靠往立案模板里塞类型。
@@ -355,3 +358,154 @@ class TestPdfSplitJobServiceNormalize:
         svc = self._make_service()
         assert svc._is_absolute_path("/tmp/test.pdf") is True
         assert svc._is_absolute_path("relative/test.pdf") is False
+
+
+class TestBboxBackendFromActualEngine:
+    """两阶段任务的坐标系来源必须是**实际引擎**，不是任务上的平台偏好。
+
+    真 bug：``job.cloud_backend="auto"`` 时 ``resolve_bbox_unit("auto")`` 返回 unknown，
+    ``build_positioned_blocks`` 直接返回 []——两阶段 + auto 的任务绿框恒空，
+    而单任务入口用的是取字 summary 里的实际 ocr_provider。
+    """
+
+    def _pages(self, source_method: str) -> list:
+        from apps.pdf_splitting.services.split.split_models import PageDescriptor
+
+        return [
+            PageDescriptor(
+                page_no=1,
+                text="银行流水交易明细",
+                normalized_text="银行流水交易明细",
+                head_text="银行流水交易明细",
+                source_method=source_method,
+                ocr_failed=False,
+                top_candidates=[],
+                layout={
+                    "page_no": 1,
+                    "blocks": [{"type": "text", "text": "银行流水交易明细", "bbox": [10, 10, 500, 60]}],
+                },
+            )
+        ]
+
+    def test_取字summary里的实际平台优先(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.pdf_splitting.services.split import two_stage
+        from apps.pdf_splitting.services.split.service import PdfSplitService
+
+        monkeypatch.setattr(two_stage, "load_extract_summary", lambda storage: {"ocr_provider": "textin"})
+
+        backend = PdfSplitService()._bbox_backend(job_id="job-1", storage=MagicMock(), pages=self._pages("mineru_ocr"))
+
+        assert backend == "textin"
+
+    def test_summary缺失时按页来源推断(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.pdf_splitting.services.split import two_stage
+        from apps.pdf_splitting.services.split.service import PdfSplitService
+
+        monkeypatch.setattr(two_stage, "load_extract_summary", lambda storage: {})
+
+        backend = PdfSplitService()._bbox_backend(job_id="job-1", storage=MagicMock(), pages=self._pages("mineru_ocr"))
+
+        assert backend == "mineru"
+
+    def test_summary写着auto也不退回auto(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.pdf_splitting.services.split import two_stage
+        from apps.pdf_splitting.services.split.service import PdfSplitService
+
+        monkeypatch.setattr(two_stage, "load_extract_summary", lambda storage: {"ocr_provider": "auto"})
+
+        backend = PdfSplitService()._bbox_backend(job_id="job-1", storage=MagicMock(), pages=self._pages("textin_ocr"))
+
+        assert backend == "textin"
+
+    def test_多平台混用取页数最多的(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.pdf_splitting.services.split import two_stage
+        from apps.pdf_splitting.services.split.service import PdfSplitService
+
+        monkeypatch.setattr(two_stage, "load_extract_summary", lambda storage: {})
+        pages = self._pages("mineru_ocr") + self._pages("textin_ocr") + self._pages("textin_ocr")
+
+        assert PdfSplitService()._bbox_backend(job_id="job-1", storage=MagicMock(), pages=pages) == "textin"
+
+    def test_纯本地取字报local且无版面画不出框(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.pdf_splitting.services.split import two_stage
+        from apps.pdf_splitting.services.split.markdown_builder import build_segments_markdown
+        from apps.pdf_splitting.services.split.service import PdfSplitService
+        from apps.pdf_splitting.services.split.split_models import SegmentDraft
+
+        monkeypatch.setattr(two_stage, "load_extract_summary", lambda storage: {"ocr_provider": "local"})
+        pages = self._pages("ocr")
+
+        backend = PdfSplitService()._bbox_backend(job_id="job-1", storage=MagicMock(), pages=pages)
+
+        # 如实报 local，不冒充云端平台
+        assert backend == "local"
+        draft = SegmentDraft(
+            order=0,
+            page_start=1,
+            page_end=1,
+            segment_type="other",
+            filename="材料.pdf",
+            confidence=0.9,
+            source_method="llm",
+            review_flag="normal",
+        )
+        # 真没有版面的本地引擎（逐行文本、无坐标）：画不出框，也不编坐标
+        pages[0].layout = None
+        assert build_segments_markdown([draft], pages, bbox_backend=backend)[0]["positioned"] == []
+
+    def test_vl兜底页的版面按千分比画得出框(self) -> None:
+        """兜底路径实为 VL API，版面统一写成 1000×1000 千分比（ocr_handler._VL_LAYOUT_SIDE）。
+
+        把 local 一律当 unknown 会让这批刚拿到的坐标被整批丢掉——P2-5 的收益归零。
+        """
+        from apps.pdf_splitting.services.split.markdown_builder import build_segments_markdown
+        from apps.pdf_splitting.services.split.split_models import PageDescriptor, SegmentDraft
+
+        page = PageDescriptor(
+            page_no=1,
+            text="银行流水交易明细",
+            normalized_text="银行流水交易明细",
+            head_text="银行流水交易明细",
+            source_method="ocr",
+            ocr_failed=False,
+            top_candidates=[],
+            layout={
+                "page_no": 1,
+                "width": 1000,
+                "height": 1000,
+                "blocks": [{"type": "text", "text": "银行流水交易明细", "bbox": [100, 100, 600, 200]}],
+            },
+        )
+        draft = SegmentDraft(
+            order=0,
+            page_start=1,
+            page_end=1,
+            segment_type="bank_statement",
+            filename="银行流水.pdf",
+            confidence=0.9,
+            source_method="llm",
+            review_flag="normal",
+        )
+        positioned = build_segments_markdown([draft], [page], bbox_backend="local")[0]["positioned"]
+        assert positioned
+        assert positioned[0]["rect"]["x"] == 0.1
+        assert positioned[0]["rect"]["w"] == 0.5
+
+    def test_auto确实画不出框而实际平台能(self) -> None:
+        from apps.pdf_splitting.services.split.markdown_builder import build_segments_markdown
+        from apps.pdf_splitting.services.split.split_models import SegmentDraft
+
+        draft = SegmentDraft(
+            order=0,
+            page_start=1,
+            page_end=1,
+            segment_type="bank_statement",
+            filename="银行流水.pdf",
+            confidence=0.9,
+            source_method="llm",
+            review_flag="normal",
+        )
+        pages = self._pages("mineru_ocr")
+
+        assert build_segments_markdown([draft], pages, bbox_backend="auto")[0]["positioned"] == []
+        assert build_segments_markdown([draft], pages, bbox_backend="mineru")[0]["positioned"]

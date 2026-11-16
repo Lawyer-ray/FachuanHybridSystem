@@ -7,11 +7,20 @@
 但那个数是人盯着屏幕量出来的，改完代码没有任何东西能复跑一遍说「变好了还是变坏了」。
 没有度量的调参等于没有版本控制的重构——每次改动都不可证伪。
 
-所以这里只放三个纯函数，全部只用 stdlib：
+所以这里只放纯函数，全部只用 stdlib：
 
 - :func:`char_error_rate` —— 逐页文本的 CER（编辑距离 / 参考长度）
 - :func:`normalize_for_cer` —— CER 前的归一化（去空白、去 Markdown 标记、全半角统一）
 - :func:`table_cell_f1` —— 表格的单元格级 F1（不要求行列对齐）
+- :func:`segment_boundary_scores` —— 分段边界 precision/recall/F1（±k 页容差、一对一匹配）
+
+## 为什么分段边界也要有度量
+
+分段算法的取舍（批窗口 25 页、右重叠 8 页、续页合并的条款号判据、40 页上限）
+此前同样只能凭目测。579 包实测「同一份房地产买卖合同被切成两段」「_续 独立成段」，
+但改完合并判据之后**没有任何东西能复跑一遍说边界变准了还是变坏了**。
+边界 F1 把「过切」与「漏切」分开报（precision 低 = 过切，recall 低 = 漏切），
+让每一次调参都有可证伪的落点。口径见 :func:`segment_boundary_scores`。
 
 ## 归一化必须同时报两个数
 
@@ -31,6 +40,8 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 from .split_models import _levenshtein_distance
 
@@ -206,3 +217,127 @@ def _gfm_cell_texts(markdown: str) -> list[str]:
         for cell in stripped.strip("|").split("|"):
             out.append(cell)
     return out
+
+
+# ---------------------------------------------------------------------------
+# 分段边界 F1
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BoundaryScores:
+    """分段边界的 precision / recall / F1 与匹配计数。
+
+    为什么把计数也带出来：只看 F1 无法区分「切少了」和「切多了」——
+    两者 F1 可能一样，但修法相反（一个要放宽合并、一个要收紧）。
+    ``matched / predicted / gold`` 让调参方向可证伪。
+    """
+
+    precision: float
+    recall: float
+    f1: float
+    matched: int
+    predicted: int
+    gold: int
+    #: 本次评分用的页容差，随结果一起报——不同容差下的 F1 不可直接比较。
+    tolerance: int
+
+
+def boundaries_from_segments(segments: Iterable[Sequence[int]]) -> list[int]:
+    """``[(page_start, page_end), ...]`` → 切点列表（每段末页，最后一段除外）。
+
+    **切点 p 的含义**：第 p 页是某段的末页，第 p+1 页起是下一段。这比「段首页」
+    少一个偏移歧义：一份 N 页单段材料的切点数是 0，而不是 1。
+
+    要求段按页序**连续覆盖**。有空洞或重叠时切点语义不明确（洞的两侧算不算边界？），
+    本函数不做猜测——那种输入请调用方自己给切点。
+    """
+    ranges = sorted((int(start), int(end)) for start, end in segments)
+    return [end for _, end in ranges[:-1]]
+
+
+def _find_partner(cut: int, distance: int, remaining_gold: set[int]) -> int | None:
+    """在剩余金标切点里找与 ``cut`` 恰好相距 ``distance`` 的那一个（先左后右，确定序）。"""
+    for candidate in (cut,) if distance == 0 else (cut - distance, cut + distance):
+        if candidate in remaining_gold:
+            return candidate
+    return None
+
+
+def _match_boundaries(pred: list[int], gold: list[int], tolerance: int) -> int:
+    """一对一贪心匹配：按距离从小到大配，配过的两侧都不再参与。
+
+    为什么必须一对一：容差 >0 时一个金标切点可能落在多个预测切点的容差窗里，
+    允许重复计数会让「把一段切成三份」的 recall 虚高到 1.0——那正是要测出来的过切。
+
+    为什么按距离递增而不是按预测顺序：先配精确命中（d=0），再配差 1 页的。
+    算法逐距离推进，放宽容差只是多跑几轮，所以匹配数**单调不减**——
+    F1 不会因为放宽容差反而变低，否则这个度量就不可证伪了。
+    同距离内按预测切点升序、同距离先左后右，保证结果确定。
+
+    用 ``set`` 预索引 + 只查 ``2*tolerance+1`` 个偏移，避免「预测 × 金标」两两线性比对。
+    """
+    remaining_gold = set(gold)
+    unmatched = list(pred)
+    matched = 0
+    for distance in range(tolerance + 1):
+        pending: list[int] = []
+        for cut in unmatched:
+            partner = _find_partner(cut, distance, remaining_gold)
+            if partner is None:
+                pending.append(cut)
+                continue
+            remaining_gold.discard(partner)
+            matched += 1
+        unmatched = pending
+        if not unmatched or not remaining_gold:
+            break
+    return matched
+
+
+def segment_boundary_scores(
+    pred: Iterable[int],
+    gold: Iterable[int],
+    *,
+    tolerance: int = 0,
+) -> BoundaryScores:
+    """分段边界的 precision / recall / F1，±``tolerance`` 页容差。
+
+    ## 口径（调参前必须先认这一份）
+
+    - **切点**是「某段的末页页号」，见 :func:`boundaries_from_segments`。
+      一份 N 页单段材料没有切点；切成 k 段有 k-1 个切点。
+    - **命中**：预测切点 p 与金标切点 g 满足 ``|p - g| <= tolerance``，且**一对一**
+      （每个金标切点最多被认领一次）。``tolerance=0`` 即精确对齐。
+    - ``precision = matched / 预测切点数``（切出来的边界有多少是对的）；
+      ``recall = matched / 金标切点数``（该切的边界切到了多少）。
+    - 输入去重后排序：同一页重复给切点不该被算成多个边界。
+
+    ## 空集约定（与 :func:`table_cell_f1` 同一口径）
+
+    两侧都无切点 → P/R/F1 全 ``1.0``（单段材料没有可错的边界）；
+    只有一侧有切点 → 全 ``0.0``。不用 ``1.0`` 兜单侧空集，否则「一个边界都没切」
+    会在金标也为空时拿满分，掩盖漏切。
+
+    Args:
+        pred: 预测切点（页号）。
+        gold: 金标切点（页号）。
+        tolerance: 页容差，``>=0``。负数直接报错——静默夹到 0 会让调参记录失真。
+
+    Returns:
+        :class:`BoundaryScores`，含 P/R/F1、匹配数与两侧切点数、本次容差。
+    """
+    if tolerance < 0:
+        raise ValueError(f"tolerance 必须 >=0，收到 {tolerance}")
+    pred_cuts = sorted({int(cut) for cut in pred})
+    gold_cuts = sorted({int(cut) for cut in gold})
+    if not pred_cuts and not gold_cuts:
+        return BoundaryScores(1.0, 1.0, 1.0, 0, 0, 0, tolerance)
+    if not pred_cuts or not gold_cuts:
+        return BoundaryScores(0.0, 0.0, 0.0, 0, len(pred_cuts), len(gold_cuts), tolerance)
+
+    matched = _match_boundaries(pred_cuts, gold_cuts, tolerance)
+    precision = matched / len(pred_cuts)
+    recall = matched / len(gold_cuts)
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return BoundaryScores(precision, recall, f1, matched, len(pred_cuts), len(gold_cuts), tolerance)

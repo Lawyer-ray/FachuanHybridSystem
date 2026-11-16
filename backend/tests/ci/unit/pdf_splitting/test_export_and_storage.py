@@ -80,6 +80,12 @@ class TestPdfSplitStorage:
         storage = PdfSplitStorage("test-id")
         assert storage.pages_json_path.name == "pages.json"
 
+    def test_extract_summary_json_path(self) -> None:
+        """取字摘要与 pages.json 同目录：分段阶段是另一个任务，只能靠文件拿到 ocr_provider。"""
+        storage = PdfSplitStorage("test-id")
+        assert storage.extract_summary_json_path.name == "extract_summary.json"
+        assert storage.extract_summary_json_path.parent == storage.analysis_dir
+
     def test_segments_json_path(self) -> None:
         storage = PdfSplitStorage("test-id")
         assert storage.segments_json_path.name == "segments.json"

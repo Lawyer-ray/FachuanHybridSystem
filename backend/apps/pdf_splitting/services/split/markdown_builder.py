@@ -8,25 +8,39 @@
 
 不存 DB（零迁移）：产物落 job 目录 analysis/segments_md.json，
 经 job API 的 content_md 字段透出，供下游 AI 流程直接消费。
+
+表格渲染与净化分别下沉到 ``md_table``（网格 → GFM）与 ``md_noise``（HTML/标题/
+跨页重复行），本模块只负责「按页拼段 + 定位框 + 页偏移」。
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from .bbox import normalize_bbox, resolve_bbox_unit
+from .md_noise import (
+    drop_noise_lines,
+    drop_stamp_boilerplate_lines,
+    repeated_noise_lines,
+    strip_html,
+    title_already_present,
+)
+from .md_table import _TR_RE, GfmTable, drop_footer_table_lines
+from .md_table import grid_col_count as _grid_col_count
+from .md_table import grid_row_count as _grid_row_count
+from .md_table import merge_continuation
+from .md_table import parse_grid as _parse_grid
+from .md_table import parse_table
+from .md_table import table_cell_count as _table_cell_count
 from .split_models import PageDescriptor, SegmentDraft
 
 logger = logging.getLogger("apps.pdf_splitting")
 
 _TITLE_TYPES = {"title", "text_level_title", "heading", "标题"}
 _NOISE_TYPES = {"header", "footer", "page_number", "image", "equation", "watermark"}
-
-_TR_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.IGNORECASE | re.DOTALL)
-_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
-_TAG_RE = re.compile(r"<[^>]+>")
 
 #: 定位框的精度等级（随 rect 透出，前端据此决定视觉）。
 #:
@@ -51,23 +65,30 @@ def build_segments_markdown(
     *,
     bbox_backend: str | None = None,
 ) -> list[dict[str, Any]]:
-    """为每个分段生成 Markdown 描述（order / 页区间 / 正文 / 定坐标块）。
+    """为每个分段生成 Markdown 描述（order / 页区间 / 正文 / 页偏移 / 定坐标块）。
 
     ``positioned`` 是「识别定位」的数据：每个正文块 + 它在原页上的归一化矩形。
     前端拿它做"点右栏字段 → 原文绿框"的双向对照。没有坐标的后端（本地 OCR）
     给空列表，而不是给一堆没框的块让前端白渲染。
+
+    ``page_spans`` 是「按页搬运正文」的数据：``[{"page", "start", "end"}]``，
+    左闭右开的**字符偏移**，指向 ``markdown`` 里该页产出的正文。只含实际产出
+    非空内容的页；注入的段标题不计入。前端切/并段时按它精确切分，不用靠
+    ``indexOf`` 猜（猜不中就会两视图漂移）。
     """
     page_by_no = {page.page_no: page for page in pages}
     results: list[dict[str, Any]] = []
     for draft in drafts:
         seg_pages = [page_by_no[no] for no in range(draft.page_start, draft.page_end + 1) if no in page_by_no]
         title = re.sub(r"\.pdf$", "", draft.filename or "", flags=re.IGNORECASE).strip() or "未命名材料"
+        markdown, page_spans = _assemble_segment(title, seg_pages)
         results.append(
             {
                 "order": draft.order,
                 "page_start": draft.page_start,
                 "page_end": draft.page_end,
-                "markdown": build_segment_markdown(title, seg_pages),
+                "markdown": markdown,
+                "page_spans": page_spans,
                 "positioned": build_positioned_blocks(seg_pages, bbox_backend=bbox_backend),
             }
         )
@@ -172,86 +193,6 @@ _TABLE_SPLIT_MAX_ROWS = 12
 _FILLED_CELL_RATIO_BYPASS = 0.30
 
 
-#: 单个单元格：捕获 rowspan / colspan 属性值（缺失即 1）
-_CELL_WITH_SPAN_RE = re.compile(r"<t([dh])([^>]*)>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
-_ROWSPAN_RE = re.compile(r"rowspan\s*=\s*[\"']?(\d+)", re.IGNORECASE)
-_COLSPAN_RE = re.compile(r"colspan\s*=\s*[\"']?(\d+)", re.IGNORECASE)
-
-
-def _span_value(pattern: re.Pattern[str], attrs: str) -> str:
-    """从标签属性串里取 rowspan/colspan 值；缺失返回 ``"1"``。
-
-    单独抽成函数是为了让 mypy 看清类型：``pattern.search(x) or [0, "1"]`` 把
-    ``Match|None`` 和 ``list`` 混在一起，下标取值会报 Argument 1 has incompatible type。
-    """
-    found = pattern.search(attrs)
-    return found.group(1) if found else "1"
-
-
-def _parse_grid(html: str) -> list[tuple[int, int, int, int, str]]:
-    """把 HTML 表格解析成网格占位：``[(row, col, rowspan, colspan, text), ...]``。
-
-    ## 为什么必须处理 rowspan / colspan
-
-    实测 164 页备份卷宗里 **81 个带 table_body 的 table 块里有 66 个（约 81%）带合并单元格**
-    （判据：``<td>`` 个数 < 网格格位数）。
-    不带 span 处理就按「行列均分」切，框会整片错位。合并单元格的典型形态：
-
-    ```html
-    <tr><td rowspan="2">照片</td><td colspan="2">结婚申请,符合…</td></tr>
-    <tr><td>登记机关</td><td>…</td></tr>
-    ```
-
-    首行只有 2 个 td，但第二行有 2 个 td，且首行的第二个 td 跨 2 列 ——
-    若直接 `col_count = max(每行td数)`，会算出 2 列、把「结婚申请」那句
-    按 1 列宽去画，实际它横跨 2 列。
-
-    注意：上面这个 p29 结婚证页**整页都不拆**（首个命中判据是格子里有 ``<img>``），
-    由 ``_split_is_trustworthy`` 拦下。span 算法仍然必须正确 —— 它对
-    真表单（p22 押品表、p145 不动产权证）是决定框位置的唯一依据。
-    （p22 虽然会进到拆格入口，但因 17 行 > ``_TABLE_SPLIT_MAX_ROWS`` 且不满足稀疏例外，
-    最终也是整表保留；span 算法对真正被拆的 37 个表块仍然生效。）
-
-    ## 算法
-
-    逐行推进，维护每列已占用的行号；遇到 span 就占位并跳过。这是标准 HTML 表格
-    占位算法，与浏览器渲染表格的方式一致。
-    """
-    grid: list[tuple[int, int, int, int, str]] = []
-    #: 占位表：``occupied[(row, col)] = True``
-    occupied: dict[tuple[int, int], bool] = {}
-
-    for row_index, row_html in enumerate(_TR_RE.findall(html)):
-        col_cursor = 0
-        for match in _CELL_WITH_SPAN_RE.finditer(row_html):
-            _tag, attrs, inner = match.group(1), match.group(2), match.group(3)
-            rowspan = max(1, int(_span_value(_ROWSPAN_RE, attrs)))
-            colspan = max(1, int(_span_value(_COLSPAN_RE, attrs)))
-
-            # 找到本行第一个未占用的列
-            while occupied.get((row_index, col_cursor)):
-                col_cursor += 1
-
-            text = _TAG_RE.sub("", inner).strip()
-            grid.append((row_index, col_cursor, rowspan, colspan, text))
-            for dr in range(rowspan):
-                for dc in range(colspan):
-                    occupied[(row_index + dr, col_cursor + dc)] = True
-            col_cursor += colspan
-
-    return grid
-
-
-def _grid_col_count(grid: list[tuple[int, int, int, int, str]]) -> int:
-    """网格的真实列数（由最右侧被占用的列 +1 得出，不受 colspan 干扰）。"""
-    return max((col + colspan for _r, col, _rs, colspan, _t in grid), default=0)
-
-
-def _grid_row_count(html: str) -> int:
-    """网格的真实行数（HTML 的 <tr> 数；rowspan 不改变行数，只是格子更高）。"""
-    return len(_TR_RE.findall(html))
-
-
 #: 拆格后**单格**面积的容忍上限（占页面面积比例）。
 #:
 #: 为什么不是「表格大就拆」：均分只有在「表格本身就是页面格局」时才成立。
@@ -276,11 +217,6 @@ _SPLIT_MAX_CELL_AREA_RATIO = 0.04
 #: p162 首行 74 字」在现有缓存上对不上（实测 p30 首行 53 字、p154 首行 25 字、
 #: p111 单行 223 字、p162 首行 13 字），且这条判据量的是**均值**而不是「首行」。
 _SPLIT_MAX_CHARS_PER_CELL = 45
-
-
-def _table_cell_count(html: str) -> int:
-    """表格的单元格总数（用于决定拆到格还是拆到行）。"""
-    return sum(len(_CELL_RE.findall(row_html)) for row_html in _TR_RE.findall(html))
 
 
 def _split_is_trustworthy(
@@ -589,34 +525,145 @@ def build_positioned_blocks(
 
 
 def build_segment_markdown(title: str, pages: list[PageDescriptor]) -> str:
-    parts = [f"# {title}"]
+    """单段 Markdown（不需要页偏移时用这个）。"""
+    markdown, _page_spans = _assemble_segment(title, pages)
+    return markdown
+
+
+@dataclass
+class _Piece:
+    """段内某页的一块正文，以及它与前一块之间的分隔符。"""
+
+    page_no: int
+    text: str
+    join: str
+
+
+def _assemble_segment(title: str, pages: list[PageDescriptor]) -> tuple[str, list[dict[str, Any]]]:
+    """重建单段 Markdown，并给出每页正文在**最终字符串**里的字符区间。
+
+    偏移必须按最终字符串算：注入的段标题、页间分隔符、跨页续表合并都会移动位置，
+    「先 join 再 strip」会让偏移整体漂移。这里每块先 strip、分隔符显式记账，
+    于是 ``markdown[span["start"]:span["end"]]`` 恰好等于该页产出的正文
+    （含页内块间空行；跨页续表被合并时，本页贡献的就是接在上一表后面的那几行）。
+    """
+    page_pieces: list[tuple[int, list[Any]]] = []
     for page in pages:
-        chunk = _page_markdown(page)
-        if chunk:
-            parts.append(chunk)
-    return "\n\n".join(parts).strip() + "\n"
+        pieces = _page_pieces(page)
+        if pieces:
+            page_pieces.append((page.page_no, pieces))
+    merged_pages = _merge_continuation_tables(page_pieces)
+    noise = repeated_noise_lines([_piece_lines(pieces) for _page_no, pieces in page_pieces])
+
+    flat: list[_Piece] = []
+    for page_index, (page_no, pieces) in enumerate(page_pieces):
+        for position, piece in enumerate(pieces):
+            rendered = piece.render() if isinstance(piece, GfmTable) else drop_noise_lines(piece, noise)
+            text = rendered.strip()
+            if not text:
+                continue
+            if not flat:
+                join = ""
+            elif position == 0:
+                join = "\n" if page_index in merged_pages else "\n\n"
+            else:
+                join = "\n\n"
+            flat.append(_Piece(page_no=page_no, text=text, join=join))
+
+    body_parts: list[str] = []
+    spans: dict[int, dict[str, Any]] = {}
+    cursor = 0
+    for piece in flat:
+        start = cursor + len(piece.join)
+        body_parts.append(piece.join + piece.text)
+        cursor = start + len(piece.text)
+        if piece.page_no in spans:
+            spans[piece.page_no]["end"] = cursor
+        else:
+            spans[piece.page_no] = {"page": piece.page_no, "start": start, "end": cursor}
+    body = "".join(body_parts)
+
+    prefix = f"# {title}"
+    if body:
+        prefix = "" if title_already_present(title, body.split("\n", 1)[0]) else f"# {title}\n\n"
+    offset = len(prefix)
+    page_spans = [
+        {"page": span["page"], "start": span["start"] + offset, "end": span["end"] + offset} for span in spans.values()
+    ]
+    return prefix + body + "\n", page_spans
 
 
-def _page_markdown(page: PageDescriptor) -> str:
+def _merge_continuation_tables(page_pieces: list[tuple[int, list[Any]]]) -> set[int]:
+    """跨页续表合并（保守版）：返回「首块已并入上一页表格」的页下标集合。
+
+    只在上一页**最后一块**就是那张表时才并：否则续表行会接到上一页的正文段落后面。
+    合并后本页首块换成「只有数据行」的字符串，与上一页之间用单个换行衔接——
+    用空行会把一张 GFM 表切成两张。
+
+    上一页那张表必须在合并**前**定格成字符串：``merge_continuation`` 是原地扩充
+    ``rows``，若留着对象等拼装时再渲染，上一页会把本页的续行一起渲染出来（正文重复）。
+    连续三页以上的续表只定格一次，之后锚点仍是同一张表对象。
+    """
+    merged: set[int] = set()
+    anchor: GfmTable | None = None
+    anchor_at: tuple[int, int] | None = None
+    for page_index, (_page_no, pieces) in enumerate(page_pieces):
+        merged_here = False
+        if anchor is not None and anchor_at is not None and pieces and isinstance(pieces[0], GfmTable):
+            previous_pieces = page_pieces[anchor_at[0]][1]
+            previous_index = anchor_at[1]
+            snapshot = anchor.render() if isinstance(previous_pieces[previous_index], GfmTable) else None
+            following = pieces[0]
+            if merge_continuation(anchor, following):
+                if snapshot is not None:
+                    previous_pieces[previous_index] = snapshot
+                pieces[0] = following.render_rows_only()
+                merged.add(page_index)
+                merged_here = True
+        if pieces and isinstance(pieces[-1], GfmTable):
+            anchor, anchor_at = pieces[-1], (page_index, len(pieces) - 1)
+        elif not (merged_here and len(pieces) == 1):
+            # 本页末尾不是表（也不是刚并进来的续行）→ 下一页不能再接着并
+            anchor, anchor_at = None, None
+    return merged
+
+
+def _piece_lines(pieces: list[Any]) -> list[str]:
+    """噪声统计只看文本块：表格行（``|`` 开头）本来就受保护，不必参与统计。"""
+    return [line for piece in pieces if isinstance(piece, str) for line in piece.splitlines()]
+
+
+def _page_pieces(page: PageDescriptor) -> list[Any]:
+    """一页的正文块（``str`` = 文本/标题，``GfmTable`` = 表格）；版面块全空时退回页文本。"""
     blocks = (page.layout or {}).get("blocks") if isinstance(page.layout, dict) else None
     if isinstance(blocks, list) and blocks:
-        rendered = [chunk for chunk in (_block_markdown(block) for block in blocks) if chunk]
-        if rendered:
-            return "\n\n".join(rendered)
-    return (page.text or "").strip()
+        pieces = [piece for piece in (_block_piece(block, page_text=page.text or "") for block in blocks) if piece]
+        if pieces:
+            return pieces
+    text = _text_piece(page.text or "")
+    return [text] if text else []
 
 
-def _block_markdown(block: Any) -> str:
+def _text_piece(raw: str) -> str:
+    """文本块净化：剥原始 HTML 标签 + 剔夹带表格行里的页脚 + 剔整行印章套话。
+
+    印章套话走**短语锚定**（不依赖页频），所以单页段、以及取字层清洗接不到的
+    版面块路径都能清掉；跨页频次路在 ``_assemble_segment`` 里另行叠加。
+    """
+    return drop_stamp_boilerplate_lines(drop_footer_table_lines(strip_html(raw)))
+
+
+def _block_piece(block: Any, *, page_text: str) -> Any:
     if not isinstance(block, dict):
         return ""
     block_type = str(block.get("type") or "").strip().lower()
-    text = str(block.get("text") or "").strip()
+    text = _text_piece(str(block.get("text") or ""))
     if block_type in _NOISE_TYPES or not text:
         return ""
 
     if block_type == "table":
-        table_md = _html_table_to_markdown(str(block.get("table_body") or block.get("table_structure") or ""))
-        return table_md or text
+        table = parse_table(str(block.get("table_body") or block.get("table_structure") or ""), page_text=page_text)
+        return table if table is not None else text
 
     text_level: Any = block.get("text_level")
     if block_type in _TITLE_TYPES or text_level not in (None, "", 0, "0"):
@@ -626,27 +673,3 @@ def _block_markdown(block: Any) -> str:
             level = 2
         return f"{'#' * level} {text}"
     return text
-
-
-def _html_table_to_markdown(html: str) -> str:
-    """容忍残缺的 HTML 表格 → GFM 表格；解析不出行时返回空串走纯文本兜底。"""
-    if not html:
-        return ""
-    rows: list[list[str]] = []
-    for row_html in _TR_RE.findall(html):
-        cells = [_TAG_RE.sub("", cell).replace("|", "\\|").strip() for cell in _CELL_RE.findall(row_html)]
-        cells = [re.sub(r"\s+", " ", cell) for cell in cells]
-        if cells:
-            rows.append(cells)
-    if not rows:
-        return ""
-
-    width = max(len(row) for row in rows)
-    normalized = [row + [""] * (width - len(row)) for row in rows]
-    header, *body = normalized
-    lines = [
-        "| " + " | ".join(header) + " |",
-        "|" + " --- |" * width,
-        *("| " + " | ".join(row) + " |" for row in body),
-    ]
-    return "\n".join(lines)

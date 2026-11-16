@@ -3,6 +3,7 @@
 from mcp_server.tools.message_hub.inbox import (
     download_inbox_attachment,
     get_inbox_message,
+    get_material_draft_segments,
     list_inbox_messages,
     preview_inbox_attachment,
     rename_inbox_attachment,
@@ -21,6 +22,7 @@ __all__ = [
     # 收件箱消息
     "list_inbox_messages",
     "get_inbox_message",
+    "get_material_draft_segments",
     "rename_inbox_attachment",
     "download_inbox_attachment",
     "preview_inbox_attachment",

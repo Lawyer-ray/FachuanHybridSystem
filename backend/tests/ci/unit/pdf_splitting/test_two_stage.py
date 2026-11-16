@@ -160,3 +160,18 @@ class TestStageTimeoutBudget:
             "SEGMENT_STAGE_TIMEOUT_SECONDS",
         ):
             assert getattr(two_stage, name) > cluster_default, f"{name} 不比集群默认值大，等于没设"
+
+    def test_分段预算覆盖单批耗尽重试(self) -> None:
+        """分段预算不能按「实测 130s × 3」定——它的上界由重试策略决定。
+
+        单批最坏 = (重试次数 + 1) × LLM 墙钟。预算低于它时，**一批**偶发抖动就
+        足以让整阶段被 django-q 硬杀，而心跳线程还在正常跳（看门狗认为它活着），
+        前面几批的 LLM 成果连落盘机会都没有。
+        """
+        from apps.pdf_splitting.services.split.llm_segment_detector import _WALL_TIMEOUT_SECONDS
+        from apps.pdf_splitting.services.split.segment_batch import DEFAULT_BATCH_RETRY
+
+        worst_single_batch = (DEFAULT_BATCH_RETRY + 1) * _WALL_TIMEOUT_SECONDS
+        assert worst_single_batch < two_stage.SEGMENT_STAGE_TIMEOUT_SECONDS, (
+            f"分段预算 {two_stage.SEGMENT_STAGE_TIMEOUT_SECONDS}s 撑不住单批最坏 {worst_single_batch}s"
+        )

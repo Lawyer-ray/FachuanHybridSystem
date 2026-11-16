@@ -339,3 +339,151 @@ def test_truncate_decodes_literal_backslash_n() -> None:
     assert _truncate("甲\\t乙") == "甲 乙"
     # 正常文本不受影响
     assert _truncate("客户姓名：曾某某") == "客户姓名：曾某某"
+
+
+class TestPresentationOnlyDiffIsLow:
+    """严重度校准：差异只剩标点/装饰符时降 low，实质差异一律不降。
+
+    真实基线（164 页银行档案，332 条分歧）：high 233 条里有 20 条两侧的字与数字
+    **完全一样**，差的只是句末句点、逗号、冒号、``▲`` 项目符号重复、``/`` 残笔。
+    律师面对 233 条 high 会告警疲劳，真错字被淹掉。
+
+    但「差异是标点」不等于「差异是排版」：``146.75`` vs ``14675`` 也差一个句点，
+    那是小数点——金额差一百倍。所以判据带数字夹逼守卫，且刻意不把勾选框/运算符
+    当呈现符（``☒仲裁`` vs ``☑诉讼`` 是意思表示分歧）。
+    """
+
+    def test_fullwidth_halfwidth_colon_only_is_not_reported_at_all(self) -> None:
+        """仅全角/半角冒号差异 → 归一化后相等，整条不报（比 low 更安静）。
+
+        这是既有契约（``test_fullwidth_and_halfwidth_punctuation_produce_nothing``），
+        校准严重度**不改**它：能归一化掉的差异不该占用清单条目。这里额外钉死
+        「绝不能是 high/medium」，防止将来有人把归一化判据放宽成报 low 时顺手抬级。
+        """
+        mineru = _render(["借款人：测试甲", "保证人：测试乙"])
+        vl = _render(["借款人:测试甲", "保证人:测试乙"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert result == []
+        assert not [item for item in result if item.severity in {SEVERITY_HIGH, SEVERITY_MEDIUM}]
+
+    def test_sentence_final_period_diff_is_low(self) -> None:
+        """句末句点一侧有一侧无 → low（字与数字全同）。"""
+        mineru = _render(["借款人应按约定用途使用借款资金。"])
+        vl = _render(["借款人应按约定用途使用借款资金"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_LOW
+        assert result[0].kind == KIND_LINE
+
+    def test_colon_vs_period_after_label_is_low_char(self) -> None:
+        """字段标签后 ``:`` vs ``.`` → 仍是单字差异，但降 low。"""
+        mineru = _render(["登记号:123"])
+        vl = _render(["登记号.123"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].kind == KIND_CHAR
+        assert result[0].severity == SEVERITY_LOW
+
+    def test_decorative_bullet_duplication_is_low(self) -> None:
+        """``▲▲`` vs ``▲``：银行合同用它标条款，重复一个不改语义 → low。"""
+        mineru = _render(["▲▲借款人应按期归还本息"])
+        vl = _render(["▲借款人应按期归还本息"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_LOW
+
+    def test_presentation_only_diff_stays_low_even_near_anchor(self) -> None:
+        """账号本身一字未变、只少了个冒号 → 锚点也不能把它抬回 high。"""
+        account = "6200000000000000000"
+        mineru = _render([f"账号:{account}"])
+        vl = _render([f"账号{account}"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].anchor_hit is True
+        assert result[0].severity == SEVERITY_LOW
+
+    def test_decimal_point_diff_stays_high(self) -> None:
+        """``146.75`` vs ``14675``：差的是小数点，金额差一百倍 → 必须仍 high。"""
+        mineru = _render(["逾期本金146.75元"])
+        vl = _render(["逾期本金14675元"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_HIGH
+
+    def test_thousands_separator_diff_stays_high(self) -> None:
+        """``1,000`` vs ``1000``：千分位被数字夹逼，同样不许降级。"""
+        mineru = _render(["借款金额1,000元"])
+        vl = _render(["借款金额1000元"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_HIGH
+
+    def test_share_fraction_slash_diff_stays_high(self) -> None:
+        """``1/2`` vs ``12``：共有份额的斜线被数字夹逼，不是排版。"""
+        mineru = _render(["共有份额1/2"])
+        vl = _render(["共有份额12"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_HIGH
+
+    def test_checkbox_state_diff_near_anchor_stays_high(self) -> None:
+        """``☒`` vs ``☑``：勾选态是意思表示（仲裁/诉讼二选一），不许当呈现符。"""
+        mineru = _render([f"争议解决☒仲裁 身份证号{FAKE_ID_CARD}"])
+        vl = _render([f"争议解决☑仲裁 身份证号{FAKE_ID_CARD}"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_HIGH
+
+    def test_formula_operator_diff_stays_high(self) -> None:
+        """利息公式里的 ``×`` 一侧被漏认 → 运算符不是装饰符，仍 high。"""
+        mineru = _render(["利息本金×利率×期限"])
+        vl = _render(["利息本金利率期限"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_HIGH
+
+    def test_percent_sign_diff_stays_high(self) -> None:
+        """``4.35%`` vs ``4.35``：百分号是单位，丢了就不知道是利率还是倍数。"""
+        mineru = _render(["年利率4.35%"])
+        vl = _render(["年利率4.35"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].severity == SEVERITY_HIGH
+
+    def test_real_name_diff_not_masked_by_punctuation_noise(self) -> None:
+        """同一行里既有全半角标点差异又有真人名错字 → 仍按人名错字定级（high）。
+
+        这是校准最大的风险：把「整行有标点差异」当成「整行只是排版差异」，
+        真错字就被静默降级。判据必须逐字符看差异，不能按行整体印象判。
+        """
+        mineru = _render([f"借款人：测试甲，身份证号：{FAKE_ID_CARD}"])
+        vl = _render([f"借款人:测试丙,身份证号:{FAKE_ID_CARD}"])
+
+        result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+        assert len(result) == 1
+        assert result[0].kind == KIND_CHAR
+        assert result[0].severity == SEVERITY_HIGH
+        assert result[0].anchor_hit is True

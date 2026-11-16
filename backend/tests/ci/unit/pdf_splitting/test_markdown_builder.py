@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 from typing import Any
 
 import pytest
 
 from apps.pdf_splitting.services.job_service import load_segments_md
-from apps.pdf_splitting.services.split.markdown_builder import (
-    _html_table_to_markdown,
-    build_segment_markdown,
-    build_segments_markdown,
-)
+from apps.pdf_splitting.services.split.markdown_builder import build_segment_markdown, build_segments_markdown
+from apps.pdf_splitting.services.split.md_table import parse_table
 from apps.pdf_splitting.services.split.split_models import PageDescriptor, SegmentDraft
 
 
@@ -75,8 +73,9 @@ class TestBuildSegmentMarkdown:
         assert "|" not in build_segment_markdown("t", [_page(1, layout=layout)])
 
     def test_单元格竖线转义与短行补齐(self) -> None:
-        table = _html_table_to_markdown("<table><tr><td>类型</td><td>备注</td></tr><tr><td>借|条</td></tr></table>")
-        lines = table.splitlines()
+        table = parse_table("<table><tr><td>类型</td><td>备注</td></tr><tr><td>借|条</td></tr></table>")
+        assert table is not None
+        lines = table.render().splitlines()
         assert lines[0] == "| 类型 | 备注 |"
         assert lines[2] == "| 借\\|条 |  |"  # 缺列补空、| 转义
 
@@ -121,6 +120,316 @@ class TestBuildSegmentsMarkdown:
         assert results[0]["markdown"].startswith("# 起诉状\n")
         assert results[1]["markdown"].startswith("# 未识别材料_2-2\n")
         assert results[2]["page_start"] == 3 and results[2]["page_end"] == 3
+
+
+def _draft(order: int, page_start: int, page_end: int, filename: str = "材料.pdf") -> SegmentDraft:
+    return SegmentDraft(
+        order=order,
+        page_start=page_start,
+        page_end=page_end,
+        segment_type="evidence_list",
+        filename=filename,
+        confidence=0.9,
+        source_method="llm",
+        review_flag="normal",
+    )
+
+
+def _table_block(body: str, text: str = "交易明细") -> dict[str, Any]:
+    return {"type": "table", "text": text, "table_body": body}
+
+
+class TestPageSpans:
+    """跨模块契约：``page_spans`` 是前端按页切分/搬运 md 的唯一依据。
+
+    不变量：``markdown[span["start"]:span["end"]]`` 恰好等于该页重建出的正文
+    （左闭右开、只含产出非空内容的页、不含注入的段标题）。
+    """
+
+    def test_多页偏移按最终字符串精确计算(self) -> None:
+        pages = [_page(1, "第一页正文"), _page(2, "第二页正文")]
+        entry = build_segments_markdown([_draft(1, 1, 2)], pages)[0]
+        md = entry["markdown"]
+
+        assert md == "# 材料\n\n第一页正文\n\n第二页正文\n"
+        assert entry["page_spans"] == [
+            {"page": 1, "start": 6, "end": 11},
+            {"page": 2, "start": 13, "end": 18},
+        ]
+        assert md[6:11] == "第一页正文"
+        assert md[13:18] == "第二页正文"
+
+    def test_注入标题不计入偏移(self) -> None:
+        entry = build_segments_markdown([_draft(1, 1, 1)], [_page(1, "正文")])[0]
+        span = entry["page_spans"][0]
+
+        assert entry["markdown"][: span["start"]] == "# 材料\n\n"
+        assert entry["markdown"][span["start"] : span["end"]] == "正文"
+
+    def test_空页不产出span(self) -> None:
+        pages = [_page(1, "第一页"), _page(2, ""), _page(3, "第三页")]
+        entry = build_segments_markdown([_draft(1, 1, 3)], pages)[0]
+
+        assert [s["page"] for s in entry["page_spans"]] == [1, 3]
+        for span, expected in zip(entry["page_spans"], ["第一页", "第三页"], strict=True):
+            assert entry["markdown"][span["start"] : span["end"]] == expected
+
+    def test_页内多块的偏移含块间空行(self) -> None:
+        layout = {"blocks": [{"type": "text", "text": "甲"}, {"type": "text", "text": "乙"}]}
+        entry = build_segments_markdown([_draft(1, 1, 1)], [_page(1, layout=layout)])[0]
+        span = entry["page_spans"][0]
+
+        assert entry["markdown"][span["start"] : span["end"]] == "甲\n\n乙"
+
+    def test_标题去重后偏移仍精确(self) -> None:
+        layout = {"blocks": [{"type": "title", "text": "借款合同"}, {"type": "text", "text": "正文"}]}
+        entry = build_segments_markdown([_draft(1, 1, 1, "借款合同.pdf")], [_page(1, layout=layout)])[0]
+        md = entry["markdown"]
+
+        assert md == "## 借款合同\n\n正文\n", "段名与文档首标题同名时不再重复注入"
+        span = entry["page_spans"][0]
+        assert span["start"] == 0
+        assert md[span["start"] : span["end"]] == "## 借款合同\n\n正文"
+
+    def test_无正文时只有标题且无span(self) -> None:
+        entry = build_segments_markdown([_draft(1, 1, 1)], [_page(1, "")])[0]
+
+        assert entry["markdown"] == "# 材料\n"
+        assert entry["page_spans"] == []
+
+    def test_跨页续表合并后的偏移口径(self) -> None:
+        """续表行并到上一张表后，本页贡献的就是接在表尾的那几行（仍是连续区间）。"""
+        page1 = _page(
+            1,
+            layout={
+                "blocks": [
+                    _table_block(
+                        "<table><tr><td>交易日期</td><td>金额</td></tr>"
+                        "<tr><td>20170201</td><td>100.00</td></tr></table>"
+                    )
+                ]
+            },
+        )
+        page2 = _page(
+            2,
+            layout={"blocks": [_table_block("<table><tr><td>20170202</td><td>200.00</td></tr></table>")]},
+        )
+        entry = build_segments_markdown([_draft(1, 1, 2)], [page1, page2])[0]
+        md = entry["markdown"]
+        first, second = entry["page_spans"]
+
+        assert md.count("| --- | --- |") == 1, "合并成一张表，不是两张"
+        assert md[first["start"] : first["end"]] == ("| 交易日期 | 金额 |\n| --- | --- |\n| 20170201 | 100.00 |")
+        assert md[second["start"] : second["end"]] == "| 20170202 | 200.00 |"
+        # 续表行与上一表之间是单换行（空行会把 GFM 表切成两张）
+        assert md[first["end"] : second["start"]] == "\n"
+
+    def test_三页连续续表不重复渲染(self) -> None:
+        """锚点表是原地扩充的：上一页必须在合并前定格，否则会把后续页的行重复输出。"""
+        pages = [
+            _page(
+                1,
+                layout={
+                    "blocks": [
+                        _table_block(
+                            "<table><tr><td>交易日期</td><td>金额</td></tr>"
+                            "<tr><td>20170201</td><td>100.00</td></tr></table>"
+                        )
+                    ]
+                },
+            ),
+            _page(2, layout={"blocks": [_table_block("<table><tr><td>20170202</td><td>200.00</td></tr></table>")]}),
+            _page(3, layout={"blocks": [_table_block("<table><tr><td>20170203</td><td>300.00</td></tr></table>")]}),
+        ]
+        entry = build_segments_markdown([_draft(1, 1, 3)], pages)[0]
+        md = entry["markdown"]
+
+        assert md.count("20170201") == 1
+        assert md.count("20170202") == 1
+        assert md.count("20170203") == 1
+        assert sum(1 for ln in md.splitlines() if ln.startswith("| ---")) == 1
+        for span, expected in zip(
+            entry["page_spans"],
+            [
+                "| 交易日期 | 金额 |\n| --- | --- |\n| 20170201 | 100.00 |",
+                "| 20170202 | 200.00 |",
+                "| 20170203 | 300.00 |",
+            ],
+            strict=True,
+        ):
+            assert md[span["start"] : span["end"]] == expected
+
+    def test_列数不同的跨页表不合并(self) -> None:
+        page1 = _page(
+            1,
+            layout={"blocks": [_table_block("<table><tr><td>交易日期</td><td>金额</td></tr></table>")]},
+        )
+        page2 = _page(
+            2,
+            layout={"blocks": [_table_block("<table><tr><td>持证人</td><td>某甲</td><td>登记日期</td></tr></table>")]},
+        )
+        entry = build_segments_markdown([_draft(1, 1, 2)], [page1, page2])[0]
+        md = entry["markdown"]
+
+        assert sum(1 for ln in md.splitlines() if ln.startswith("| ---")) == 2
+        assert md[entry["page_spans"][0]["end"] : entry["page_spans"][1]["start"]] == "\n\n"
+
+    def test_各页区间互不重叠且覆盖全部正文(self) -> None:
+        pages = [_page(1, "甲"), _page(2, "乙"), _page(3, "丙")]
+        entry = build_segments_markdown([_draft(1, 1, 3)], pages)[0]
+        md = entry["markdown"]
+        spans = entry["page_spans"]
+
+        assert md[spans[0]["start"] : spans[-1]["end"]] == "甲\n\n乙\n\n丙"
+        for left, right in itertools.pairwise(spans):
+            assert left["end"] <= right["start"]
+            assert md[left["end"] : right["start"]] in {"\n", "\n\n"}
+
+
+class TestMarkdownSanitization:
+    def test_无版面页的原始HTML被净化(self) -> None:
+        page = _page(1, '面谈笔录<img src="imgs/img_in_image_box_1_2_3_4.jpg"><div>正文</div>')
+        md = build_segment_markdown("面谈笔录", [page])
+
+        assert "<img" not in md and "<div" not in md
+        assert "正文" in md
+        assert "[图片]" not in md, "图片内容没 OCR 出来时不编造占位文字"
+
+    def test_版面块文本里的HTML也被净化(self) -> None:
+        layout = {"blocks": [{"type": "text", "text": "<div>第一条 借款</div>"}]}
+        md = build_segment_markdown("合同", [_page(1, layout=layout)])
+
+        assert "第一条 借款" in md and "<div" not in md
+
+    def test_段名与文档首标题同名时不重复注入(self) -> None:
+        layout = {"blocks": [{"type": "text", "text_level": 1, "text": "个人房产抵押贷款合同"}]}
+        md = build_segment_markdown("个人房产抵押贷款合同", [_page(1, layout=layout)])
+
+        assert md == "## 个人房产抵押贷款合同\n"
+
+    def test_段名与首标题不同名时仍注入(self) -> None:
+        layout = {"blocks": [{"type": "text", "text_level": 1, "text": "借款合同"}]}
+        md = build_segment_markdown("个人房产抵押贷款合同", [_page(1, layout=layout)])
+
+        assert md.startswith("# 个人房产抵押贷款合同\n\n## 借款合同")
+
+    def test_超宽表格降级为按行纯文本(self) -> None:
+        cols = 31
+        body = (
+            "<table>"
+            + "".join("<tr>" + "".join(f"<td>格{r}-{c}</td>" for c in range(cols)) + "</tr>" for r in range(2))
+            + "</table>"
+        )
+        md = build_segment_markdown("登记信息", [_page(1, layout={"blocks": [_table_block(body)]})])
+
+        assert "| --- |" not in md
+        assert "格0-0 格0-1" in md and f"格1-{cols - 1}" in md
+
+    def test_表格内页脚行被剔除(self) -> None:
+        body = (
+            "<table><tr><td>交易日期</td><td>金额</td></tr>"
+            "<tr><td>20170201</td><td>100.00</td></tr>"
+            "<tr><td>打印日期:20170720</td><td>第2页</td></tr></table>"
+        )
+        md = build_segment_markdown("流水", [_page(1, layout={"blocks": [_table_block(body)]})])
+
+        assert "打印日期" not in md and "第2页" not in md
+        assert "| 20170201 | 100.00 |" in md
+
+    def test_跨页重复印章核验语被滤而正文保留(self) -> None:
+        pages = [
+            _page(
+                no,
+                layout={
+                    "blocks": [
+                        {"type": "text", "text": "已核对与原件相符"},
+                        {"type": "text", "text": f"正文第{no}段"},
+                    ]
+                },
+            )
+            for no in range(1, 5)
+        ]
+        md = build_segment_markdown("档案", pages)
+
+        assert "已核对与原件相符" not in md
+        for no in range(1, 5):
+            assert f"正文第{no}段" in md
+
+    def test_每页重复的条款行不被滤(self) -> None:
+        """防「优化银行档案、劣化法院文书」：条款骨架每页重复也必须留下。"""
+        pages = [
+            _page(
+                no,
+                layout={"blocks": [{"type": "text", "text": "第一条 借款用途"}, {"type": "text", "text": f"正文{no}"}]},
+            )
+            for no in range(1, 5)
+        ]
+        md = build_segment_markdown("判决书", pages)
+
+        assert md.count("第一条 借款用途") == 4
+
+
+class TestStampBoilerplateEndToEnd:
+    """短语锚定路端到端：版面块路径与单页段都要清掉印章套话（频次路够不到的缺口）。"""
+
+    def test_单页段的印章套话被剔(self) -> None:
+        layout = {
+            "blocks": [
+                {"type": "text", "text": "已核对与原件相符"},
+                {"type": "text", "text": "借款人确认以上信息属实。"},
+            ]
+        }
+        md = build_segment_markdown("面谈笔录", [_page(1, layout=layout)])
+
+        assert "已核对与原件相符" not in md
+        assert "借款人确认以上信息属实。" in md
+
+    def test_单页段只剩套话时无正文也无页锚点(self) -> None:
+        page = _page(1, "已核对与原件相符\n扫描件与留档资料相符\n经办人：测试甲 测试乙")
+        entry = build_segments_markdown([_draft(1, 1, 1)], [page])[0]
+
+        assert entry["markdown"] == "# 材料\n"
+        assert entry["page_spans"] == []
+
+    def test_经办人尾巴粘着权证正文时整行保留(self) -> None:
+        text = "经办人：测试甲 测试乙根据《中华人民共和国物权法》等法律法规，准予登记，颁发此证。"
+        md = build_segment_markdown("不动产权证", [_page(1, layout={"blocks": [{"type": "text", "text": text}]})])
+
+        assert "准予登记，颁发此证。" in md
+
+    def test_法院文书单页段零误剔(self) -> None:
+        layout = {
+            "blocks": [
+                {"type": "text", "text": "本院认为"},
+                {"type": "text", "text": "如不服本判决，可在判决书送达之日起十五日内上诉。"},
+            ]
+        }
+        md = build_segment_markdown("民事判决书", [_page(1, layout=layout)])
+
+        assert "本院认为" in md
+        assert "如不服本判决" in md
+
+    def test_表格行里的套话不动(self) -> None:
+        body = (
+            "<table><tr><td>交易日期</td><td>金额</td></tr>"
+            "<tr><td>已核对与原件相符 经办人：测试甲</td><td></td></tr></table>"
+        )
+        md = build_segment_markdown("流水", [_page(1, layout={"blocks": [_table_block(body)]})])
+
+        assert "已核对与原件相符" in md, "表格行受保护：剔它会破坏行列结构"
+
+    def test_频次路仍然生效(self) -> None:
+        """非套话词表的重复短行仍靠跨页频次路（两条路互补，不是替代）。"""
+        pages = [
+            _page(
+                no, layout={"blocks": [{"type": "text", "text": "内部核对标记"}, {"type": "text", "text": f"正文{no}"}]}
+            )
+            for no in range(1, 5)
+        ]
+        md = build_segment_markdown("档案", pages)
+
+        assert "内部核对标记" not in md
+        assert "正文1" in md and "正文4" in md
 
 
 class TestLoadSegmentsMd:

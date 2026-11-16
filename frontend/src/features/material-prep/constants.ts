@@ -1,4 +1,4 @@
-import type { InfoField } from './types'
+import type { InfoField, RecognitionPrefs } from './types'
 
 /** 段头色点取色盘 */
 export const SEG_COLORS = ['#2563eb', '#22c55e', '#eab308', '#7c3aed', '#ef4444', '#0891b2'] as const
@@ -63,3 +63,22 @@ export const PACK_SOURCE_TYPES = 'manual_upload,client_upload'
 export const READER_CLOSE_MS = 240
 /** 卡片离场动画播完后移除 leaving 标记的等待（`.mp-packet.leave-*` 0.46s + 缓冲） */
 export const PACK_LEAVE_REMOVAL_MS = 540
+
+/**
+ * **新建**材料包的默认识别选择（计费默认值，改动需产品确认）。
+ *
+ * 双引擎默认开启：交叉比对产出的分歧清单是律师发现 OCR 错字的唯一确定信号，
+ * 默认关闭时多数包根本拿不到它（实测那个 164 页包是律师手动开的）。代价是同一份
+ * PDF 付两次云端费用——所以设置菜单里明示计费、给一键关闭，且选择随包持久化。
+ *
+ * 版面策略仍默认 fast_text：电子页不上云、不计费。要不要让电子页也上云（更准但
+ * 更慢更贵）由律师**按包**决定，不改全局默认。
+ *
+ * 存量草稿没有 recognition 键时不套用本默认（避免老包突然开始双倍计费），
+ * 回到「仅文本层 + 自动容灾」——见 store 的 recognitionOf。
+ *
+ * 返回新对象：每次建草稿都拿自己的数组，避免多个包共享同一份可变选择集。
+ */
+export function defaultRecognition(): RecognitionPrefs {
+  return { layoutMode: 'fast_text', engines: ['mineru', 'paddleocr_vl'] }
+}

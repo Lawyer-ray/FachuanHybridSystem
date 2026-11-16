@@ -13,6 +13,11 @@ from asgiref.sync import sync_to_async
 
 logger = logging.getLogger("apps.litigation_ai")
 
+#: 检索摘录上限（字符）。旧值 500 会把法律条款拦腰切断（一个完整条款常逾千字）；
+#: 1500 与 chunk 粒度（一页 / 一段 md ≈ 1500 字）对齐，top_k=5 时约 7500 字
+#: ≈ 4-5k token，prompt 成本可控，换来条款完整、金额/日期不被截丢。
+EVIDENCE_EXCERPT_CHARS = 1500
+
 
 class EvidenceDigestService:
     """
@@ -94,7 +99,7 @@ class EvidenceDigestService:
                 results.append(
                     {
                         "evidence_item_id": chunk.evidence_item_id,
-                        "text": chunk.text[:500] if chunk.text else "",  # 限制长度
+                        "text": chunk.text[:EVIDENCE_EXCERPT_CHARS] if chunk.text else "",
                         "page_start": getattr(chunk, "page_start", None),
                         "page_end": getattr(chunk, "page_end", None),
                         "source_name": (
@@ -135,7 +140,7 @@ class EvidenceDigestService:
                 results.append(
                     {
                         "evidence_item_id": chunk.evidence_item_id,
-                        "text": chunk.text[:500] if chunk.text else "",
+                        "text": chunk.text[:EVIDENCE_EXCERPT_CHARS] if chunk.text else "",
                         "page_start": getattr(chunk, "page_start", None),
                         "page_end": getattr(chunk, "page_end", None),
                         "source_name": (

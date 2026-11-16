@@ -170,10 +170,67 @@ export function hintNamesOf(subject: string | undefined, mats: { n: string; cust
   return [...new Set(out)]
 }
 
-/** 分段来源标记：summary 是自由字典，取不到就当规则引擎（保守，不谎报 AI 分段） */
+/**
+ * 分段来源标记：summary 是自由字典，取不到就当规则引擎（保守，不谎报 AI 分段）。
+ *
+ * 后端三态：`llm` 全 LLM 批 / `mixed` 有规则降级批 / `rule` 全规则。
+ * 原样透出给 `segmentBackendNote` 汇总，不在这里做语义判断。
+ */
 export function segmentBackendOf(job: { summary: Record<string, unknown> }): string {
   const backend = job.summary.segment_backend
   return typeof backend === 'string' ? backend : ''
+}
+
+/**
+ * 段级来源是否属于「要律师重点复核的非 AI 分段」。
+ *
+ * 用**排除法**而不是只认 `'rule'`：规则引擎实际产出多种 source_method
+ * （backend segment_detector.py：`rule` / `layout_title` / `rule_weak_only` /
+ * `rule_adjacent_start` / `rule_merged_adjacent` / `gap_fill`），只认 `'rule'` 会少报，
+ * 律师以为只有几段要复核。排除法对将来新增的规则变体天然生效，不会再漏。
+ *
+ * 排除两类：
+ *  · `llm` 前缀 —— LLM 分段（后端自己也用 `startswith("llm")` 判，见 job_service.py:694）；
+ *  · `manual` —— 人工确认/新建段（confirm 路径缺省即 manual，job_service.py:514）。
+ *    把律师自己分的段说成「规则分段请重点复核」是倒打一耙。
+ *
+ * 空/缺失不判为规则（不能凭猜断言来源）。机械按页切分 `page_split` 会计入：
+ * 它同样不是内容分析的结果，宁可多报也不漏报（本 feature 走 content_analysis，正常不出现）。
+ */
+function isReviewNeededMethod(raw: string | undefined): boolean {
+  const method = (raw ?? '').trim()
+  if (!method) return false
+  return !method.startsWith('llm') && method !== 'manual'
+}
+
+/**
+ * 一批结果里有几段是规则引擎兜的。
+ *
+ * 有段级 `source_method` 就**完全按它算**（哪怕算出 0）——它逐段落库，比 summary 准；
+ * 一个标记都没有时才用 summary 兜底：明说全规则就按整批计，来源不明不猜成规则。
+ */
+export function ruleSegmentCountOf(backend: string, segments: { source_method?: string }[]): number {
+  const marked = segments.filter((s) => (s.source_method ?? '').trim())
+  if (marked.length > 0) return marked.filter((s) => isReviewNeededMethod(s.source_method)).length
+  return backend === 'rule' ? segments.length : 0
+}
+
+/**
+ * 分段来源 → 律师能据此决定要不要复核的一句话。
+ *
+ * `mixed`（部分批降级规则引擎）必须说出来：以前只认 llm/非 llm，mixed 会被算进
+ * 「其余规则引擎」甚至「全规则」，把一次部分降级说成整份降级。规则分段的边界质量
+ * 明显低于 LLM，所以带规则时把段数一并报出来，让律师知道要重点看几段。
+ */
+export function segmentBackendNote(backends: string[], ruleSegments: number): string {
+  if (backends.length === 0) return ''
+  const llm = backends.filter((b) => b === 'llm').length
+  const mixed = backends.filter((b) => b === 'mixed').length
+  const review = ruleSegments > 0 ? `；${ruleSegments} 段为规则分段请重点复核` : ''
+  if (llm === backends.length) return '律所 AI 分段'
+  if (llm === 0 && mixed === 0) return `规则引擎分段（律所 AI 不可用）${review}`
+  if (llm === 0) return `律所 AI 与规则引擎混合分段${review}`
+  return `${llm}/${backends.length} 律所 AI 分段，其余含规则引擎${review}`
 }
 
 /** 由文件名推图片 MIME（后端只存 content_type，缺失时靠它补齐） */
@@ -188,16 +245,59 @@ export function guessImageType(name: string): string {
   return 'image/jpeg'
 }
 
+/** OCR 块的最小形状：坐标可选（只给文字的老调用方仍按返回序拼） */
+export interface OcrTextBlock {
+  text?: string
+  x?: number
+  y?: number
+  w?: number
+  h?: number
+}
+
+type RectBlock = OcrTextBlock & { x: number; y: number; w: number; h: number }
+
+function hasRect(b: OcrTextBlock): b is RectBlock {
+  return [b.x, b.y, b.w, b.h].every((v) => typeof v === 'number' && Number.isFinite(v))
+}
+
+const centerY = (b: RectBlock): number => b.y + b.h / 2
+
+/** y 相近算同一行：阈值取两块平均行高的 0.6（同行抖动远小于它，相邻行间距远大于它） */
+function sameLine(line: RectBlock[], b: RectBlock): boolean {
+  const avgY = line.reduce((sum, x) => sum + centerY(x), 0) / line.length
+  const avgH = line.reduce((sum, x) => sum + x.h, 0) / line.length
+  return Math.abs(centerY(b) - avgY) <= ((avgH + b.h) / 2) * 0.6
+}
+
 /**
- * OCR 文字块 → 段落文本。
+ * OCR 文字块 → 段落文本（按坐标重建阅读顺序）。
  *
- * 只拼文字、不出 Markdown 表格：框选取字的 blocks 是「矩形 + 文字」，没有
- * 行列语义，凭空编表格会把本来就散的手机拍照证据认成一堆假表格。行间用
- * 换行、块间空行，尽量保留阅读顺序（后端按识别顺序返回）。
+ * 引擎返回的块序不保证是阅读序（手机拍照证据尤其乱），直接 join 会把上下行、
+ * 左右块交错在一起。这里按 y 聚成行、行内按 x 排：同一行的块用空格连接，
+ * 行与行之间换行，保留行结构。
+ *
+ * 仍不出 Markdown 表格：块是「矩形 + 文字」，没有行列语义，凭空编表格会把
+ * 本来就散的手机拍照证据认成一堆假表格。
+ *
+ * 坐标不全时不猜阅读序，保持返回序。局限：真多栏版面同一 y 上的左右栏会被排成
+ * 一行（分栏需要 x 聚类，对单栏拍照证据反而会误切），这里不做。
  */
-export function blocksToMarkdown(blocks: { text?: string }[] | undefined): string {
-  const lines = (blocks ?? []).map((b) => (b.text ?? '').trim()).filter(Boolean)
-  return lines.join('\n')
+export function blocksToMarkdown(blocks: OcrTextBlock[] | undefined): string {
+  const items = (blocks ?? [])
+    .map((b) => ({ ...b, text: (b.text ?? '').trim() }))
+    .filter((b) => b.text)
+  if (!items.length) return ''
+  if (!items.every(hasRect)) return items.map((b) => b.text).join('\n')
+  const rects = items as RectBlock[]
+  const lines: RectBlock[][] = []
+  for (const b of [...rects].sort((a, z) => centerY(a) - centerY(z) || a.x - z.x)) {
+    const line = lines[lines.length - 1]
+    if (line && sameLine(line, b)) line.push(b)
+    else lines.push([b])
+  }
+  return lines
+    .map((line) => line.sort((a, z) => a.x - z.x).map((b) => b.text).join(' '))
+    .join('\n')
 }
 
 /**

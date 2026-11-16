@@ -108,6 +108,8 @@ export function useReaderToolbarProps(params: {
     onLayoutModeChange: st.setLayoutMode,
     cloudSelection: st.cloudSelection,
     onToggleCloudEngine: st.toggleCloudEngine,
+    // 一键关闭交叉比对：回到自动容灾（不计比对费），选择随包保存
+    onClearCrossCheck: () => st.setCloudSelection([]),
     handleAssign,
   }
 }

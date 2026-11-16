@@ -31,19 +31,23 @@ pages / segments / segments_md / summary，不建任务、不落库。pdf_splitt
 from __future__ import annotations
 
 import logging
+import re
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
 import pymupdf as fitz
 
+from apps.document_parsing.services.backends._page_artifacts import clean_page_artifacts
 from apps.pdf_splitting.services.template_registry import get_template_definition
 
 from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
 from .llm_segment_detector import LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
-from .ocr_handler import OCRHandler
-from .page_quality_summary import build_page_quality_summary
+from .ocr_handler import OCRHandler, cloud_backend_of_method
+from .page_quality import mark_rescued_image_blocks, rescue_image_region, strip_stamp_boilerplate_lines
+from .page_quality_summary import attach_page_quality_flags, build_page_quality_summary, qualities_by_page
 from .segment_detector import SegmentDetector
 from .split_models import (
     MATERIAL_KIND_SCANNED_PDF,
@@ -61,6 +65,22 @@ CancelCallback = Callable[[], bool]
 
 # 取消 / 进度节流：每解析 5 页查一次取消（与旧 analyze_job 的节奏一致）
 _CANCEL_CHECK_EVERY = 5
+
+#: 一次取字里最多为几页做图片块补救 OCR。
+#:
+#: 每页一次云端调用（VL 单页实测 ~29s），8 页约 4 分钟——取字阶段有 20 分钟预算，
+#: 留得出余量；同时这个上限挡住「整本都是图形页」的极端卷宗把预算吃光。
+#: 579 实测命中 6 页（p23/p24/p41/p98/p100/p101），远在上限内。
+_RESCUE_MAX_PAGES = 8
+
+#: 走「无块类型」路径的取字来源：PDF 文本层与本地/VL 兜底（含它们的缓存命中）。
+#: 云端块路径的页眉页脚由块类型在重建层滤掉，不在这里重复处理。
+_UNSTRUCTURED_SOURCES = frozenset({"text", "ocr", "ocr_failed", "ocr_cache", "ocr_failed_cache"})
+
+#: 长纯数字行（≥6 位）。579 兜底页实测有 16/18/22 位的纯数字行——那是卡号与账号，
+#: 不是页码。``clean_page_artifacts`` 会无条件删掉**所有**纯数字行，所以含这种行的页
+#: 必须跳过它那一道，否则等于把诉讼核心事实（金额/日期/账号）删掉。
+_LONG_DIGIT_LINE_RE = re.compile(r"(?m)^\s*\d{6,}\s*$")
 
 #: 版面策略取值。与 models.PdfSplitLayoutMode 同值，但这里不 import models：
 #: pipeline 是「无任务耦合」的门面（不建任务、不落库），让它可以被任何域直接调用，
@@ -171,8 +191,11 @@ def analyze_pdf(
     # 坐标换算依赖后端坐标系（MinerU 千分比 / Textin 绝对坐标），必须在构建
     # 时就告诉 markdown_builder：事后再猜会算出错位的绿框。
     bbox_backend = str(extraction_summary.get("ocr_provider") or "")
-    segments_md = attach_quality_flags_to_markdown(
-        build_segments_markdown(drafts, pages, bbox_backend=bbox_backend), inconsistencies
+    segments_md = attach_page_quality_flags(
+        attach_quality_flags_to_markdown(
+            build_segments_markdown(drafts, pages, bbox_backend=bbox_backend), inconsistencies
+        ),
+        qualities_by_page(pages),
     )
     return PdfAnalysisOutcome(
         pages=pages,
@@ -205,32 +228,82 @@ def detect_segments_with_fallback(
     *,
     template_key: str,
     llm_segment_detector: Any = None,
+    checkpoint_path: Path | None = None,
 ) -> tuple[list[SegmentDraft], dict[str, Any]]:
     """分段检测：律所 LLM（语义分类）优先，任何失败降级关键词规则引擎。
 
     返回 (drafts, summary 附加字段)。两条路径输出的 SegmentDraft 结构同构，
     后续校验（完整覆盖、无重叠）对两条路径一视同仁。
+
+    ``checkpoint_path``：批级成果落盘位置（由调用方给到 job 的 analysis 目录）。
+    worker 被杀后重跑据此续跑，不再为已完成的批重付 LLM 费用。
     """
     detector = llm_segment_detector if llm_segment_detector is not None else LLMSegmentDetector()
+    # 单批降级必须能被 summary 说出来：前端 segmentBackendOf 读到 "llm" 就不提示
+    # 规则降级，而「有几批其实是规则切的」只有分批执行器知道。
+    batch_stats: dict[str, Any] = {}
     try:
         # 分批分段：164 页整本一次会让总时长撞上 Django-Q 的 600s worker 超时
         # 被杀（实测某次 164 页任务跑到 499s 被杀）。分批后单次 LLM 调用缩短到
         # 1-3 分钟，且死一批也能整轮降级而不会出现半成品。
         from .segment_batch import detect_in_batches
 
-        drafts = detect_in_batches(pages=pages, template_key=template_key, detector=detector)
+        drafts = detect_in_batches(
+            pages=pages,
+            template_key=template_key,
+            detector=detector,
+            stats=batch_stats,
+            checkpoint_path=checkpoint_path,
+        )
         # 续页合并：LLM 会把跨页的同一份材料从中间切开（实测 164 页卷宗里
         # 一份《个人房产抵押贷款合同》被切成 p116-125 / p126-140 两段）。
         # 判据是条款序号推进 + 后段首页无标题，详见 segment_merge.py。
         from .segment_merge import merge_continuation_segments
 
         drafts = merge_continuation_segments(drafts, {page.page_no: page.text for page in pages})
-        return drafts, {"segment_backend": "llm", "segment_llm_fallback_reason": ""}
+        return drafts, {
+            "segment_backend": _segment_backend_of(batch_stats),
+            "segment_llm_fallback_reason": "",
+            "segment_total_batches": int(batch_stats.get("total_batches") or 0),
+            "segment_rule_batches": int(batch_stats.get("rule_batches") or 0),
+        }
     except Exception as exc:
         reason = f"{type(exc).__name__}: {str(exc)[:200]}"
         logger.warning("pdf_split_llm_segment_fallback", extra={"action": "llm_segment_fallback", "reason": reason})
         drafts = SegmentDetector().detect_segments(pages, template_key=template_key)
         return drafts, {"segment_backend": "rule", "segment_llm_fallback_reason": reason}
+
+
+def _segment_backend_of(batch_stats: dict[str, Any]) -> str:
+    """按各批实际走的路径给出 summary 口径：全 LLM / 混用 / 全规则。
+
+    拿不到分批统计时按 "llm" 报——那是本轮没抛异常的唯一成功路径，
+    与改动前一致；有统计就一律照实说，混用不再冒充纯 LLM。
+    """
+    total = int(batch_stats.get("total_batches") or 0)
+    rule = int(batch_stats.get("rule_batches") or 0)
+    if total <= 0:
+        return "llm"
+    if rule <= 0:
+        return "llm"
+    return "rule" if rule >= total else "mixed"
+
+
+def clean_unstructured_page_text(text: str) -> str:
+    """文本层 / 兜底页的噪声清洗：复用云端后端那套页眉页码判据 + 印章套话判据。
+
+    云端块路径靠块类型（header / footer / page_number）滤噪声，这两条路径**没有块类型**，
+    于是判决书页眉、页码、印章核验语每页重复混进正文（579 实测 83/164 页含印章套话）。
+    判据一律复用现成的：``clean_page_artifacts``（云端两个后端共用）与
+    ``page_quality`` 的印章套话正则，这里不另造一套。
+
+    ⚠️ 含长纯数字行的页跳过 ``clean_page_artifacts``：它无条件删纯数字行，而卷宗里
+    16/18/22 位的纯数字行是卡号/账号。印章套话不碰数字，仍然照清。
+    """
+    stripped = strip_stamp_boilerplate_lines(text)
+    if _LONG_DIGIT_LINE_RE.search(stripped):
+        return stripped
+    return clean_page_artifacts(stripped)
 
 
 def build_page_descriptor(
@@ -247,8 +320,13 @@ def build_page_descriptor(
 
     top_candidates 只被规则引擎消费；LLM 分段走 normalized_text / layout_title，
     但统一产出，保持 pages.json 数据形状稳定。
+
+    噪声清洗放在这里而不是各取字分支：文本层、兜底、缓存命中共四条分支都要清，
+    逐处调用迟早漏一条（漏掉的那条就是「云端页干净、兜底页满屏印章」的劈叉）。
     """
     detector = segment_detector if segment_detector is not None else SegmentDetector()
+    if source_method in _UNSTRUCTURED_SOURCES:
+        text = clean_unstructured_page_text(text)
     normalized_text = detector.normalize_text(text)
     return PageDescriptor(
         page_no=page_no,
@@ -266,11 +344,14 @@ def build_page_descriptor(
 
 
 class PageTextExtractor:
-    """逐页取字编排：文本层 → OCR 缓存 → 云端解析 → 本地 OCR 兜底。
+    """逐页取字编排：文本层 → OCR 缓存 → 云端解析 → 本地 OCR 兜底 → 图片块补救。
 
     云端（MinerU/TextIn）一次解析整本并按页恢复结果，带版面块（供 Markdown
     重建结构）；云端失败或漏页由本地并行 OCR 兜底。所有取字结果按
     (PDF SHA-256 × 档位 × 页码) 落缓存，重复分析零成本。
+
+    最后一步只对质量画像标出的图形页/证件页做定向补救（见 ``_rescue_image_pages``），
+    不是逐页都跑。
     """
 
     def __init__(
@@ -308,18 +389,25 @@ class PageTextExtractor:
         )
         pdf_hash = self._ocr_handler.sha256_file(pdf_path)
 
-        stats = {
+        stats: dict[str, Any] = {
             "runtime_profile": runtime_profile,
+            "pdf_hash": pdf_hash,
             "cloud_backend": cloud_backend,
             "cloud_candidates": cloud_candidates,
             "cloud_cache_profile": cloud_cache_profile,
             "cache_hit_count": 0,
             "cloud_cache_hit_count": 0,
+            # 缓存条目里恢复出来的真实平台计数：本轮没调云端时，它是唯一的来源证据
+            "cache_providers": Counter(),
+            "cloud_succeeded": False,
             "pending_ocr_count": 0,
             "cloud_error": "",
             "layout_mode": layout_mode,
             # 补版面但云端不可用：必须让调用方知道「你以为开了、其实没生效」
             "layout_unavailable_reason": "",
+            "image_rescue_pages": [],
+            "image_rescue_chars": 0,
+            "image_rescue_reused": 0,
         }
         with fitz.open(pdf_path) as doc:
             total_pages = int(doc.page_count)
@@ -340,6 +428,9 @@ class PageTextExtractor:
                 pdf_path, descriptors=descriptors, pdf_hash=pdf_hash, template_key=template_key, stats=stats
             )
 
+        # 补救放在取字全部定稿之后：判据要的是「这一页最终读出来多少内容」，
+        # 半路补救会对同一页重复判定，也可能把云端还没填的页当成图形页。
+        self._rescue_image_pages(pdf_path, descriptors=descriptors, template_key=template_key, stats=stats)
         final_pages = [item for item in descriptors if item is not None]
         return final_pages, self._build_summary(stats)
 
@@ -402,7 +493,9 @@ class PageTextExtractor:
                 descriptors[page_index] = build_page_descriptor(
                     page_no=page_no,
                     text=cached.text,
-                    source_method="ocr_cache" if cached.text else "ocr_failed_cache",
+                    # 用缓存条目自己的来源：档案名记的是首选平台，容灾写进来的可能是
+                    # 另一个平台的结果。照抄 "ocr_cache" 会把真实坐标系来源抹掉。
+                    source_method=cached.source_method,
                     ocr_failed=cached.ocr_failed,
                     template_key=template_key,
                     layout=cached.layout,
@@ -411,6 +504,9 @@ class PageTextExtractor:
                 resolved_pages += 1
                 stats["cache_hit_count"] += 1
                 stats["cloud_cache_hit_count"] += int(cached_from_cloud)
+                cached_backend = cloud_backend_of_method(cached.source_method)
+                if cached_backend:
+                    stats["cache_providers"][cached_backend] += 1
                 self._report_progress(resolved_pages, total_pages)
 
         stats["pending_page_numbers"] = [no for no in range(1, total_pages + 1) if descriptors[no - 1] is None]
@@ -493,6 +589,111 @@ class PageTextExtractor:
                 segment_detector=self._rule_detector,
             )
             self._report_progress(self._resolved_count(descriptors), total_pages)
+
+    def _rescue_image_pages(
+        self,
+        pdf_path: Path,
+        *,
+        descriptors: list[PageDescriptor | None],
+        template_key: str,
+        stats: dict[str, Any],
+    ) -> None:
+        """图形页 / 证件缺字段页的图片块定向补救 OCR。
+
+        为什么需要：MinerU 把照片、手写页整块当图片返回，块里一个字都没有，重建层
+        按类型把 image 块丢掉——579 实测 54 个 image 块全丢，身份证页只剩 45 字印章语、
+        面谈笔录 2 页只剩 209 字。质量画像**已经标出**这些页（graphic / doc_missing），
+        但从来没人拿它触发补救。这里把那条信号兑现成一次定向识别。
+
+        为什么不无谓重复计费：兜底页（source_method=ocr*）的版面本来就来自 VL 那次
+        响应，图片区域的内容已经在里面，再调一次是同一页付两次钱——直接记成复用。
+        """
+        pages = [item for item in descriptors if item is not None]
+        qualities = qualities_by_page(pages)
+        targets = [
+            (page, region)
+            for page in pages
+            if (region := rescue_image_region(page, qualities[page.page_no])) is not None
+        ]
+        if not targets:
+            return
+        if len(targets) > _RESCUE_MAX_PAGES:
+            logger.warning(
+                "pdf_split_image_rescue_capped",
+                extra={"targets": len(targets), "cap": _RESCUE_MAX_PAGES},
+            )
+        for page, region in targets[:_RESCUE_MAX_PAGES]:
+            self._rescue_one_page(
+                pdf_path, page, region=region, descriptors=descriptors, template_key=template_key, stats=stats
+            )
+
+    def _rescue_one_page(
+        self,
+        pdf_path: Path,
+        page: PageDescriptor,
+        *,
+        region: list[float],
+        descriptors: list[PageDescriptor | None],
+        template_key: str,
+        stats: dict[str, Any],
+    ) -> None:
+        """补救单页：识别图片区域 → 并进该页正文与版面 → 回写缓存（重跑不再付费）。"""
+        if page.source_method in _UNSTRUCTURED_SOURCES:
+            # 兜底页的版面就是 VL 那次响应给的，内容已在其中，不再重复计费
+            stats["image_rescue_reused"] += 1
+            return
+        try:
+            rescued = self._ocr_handler.ocr_page_region(
+                pdf_path=pdf_path, page_no=page.page_no, region=region, runtime_profile=stats["runtime_profile"]
+            )
+        except Exception:
+            # 补救是附加内容：它失败不能让已经取好的整本卷宗判失败
+            logger.exception("pdf_split_image_rescue_failed", extra={"page_no": page.page_no})
+            return
+        if not rescued:
+            logger.warning("pdf_split_image_rescue_empty", extra={"page_no": page.page_no})
+            return
+
+        text = f"{page.text}\n\n{rescued['text']}".strip()
+        layout = dict(page.layout or {})
+        layout["blocks"] = [
+            *mark_rescued_image_blocks(layout.get("blocks") or [], region=region),
+            *rescued["blocks"],
+        ]
+        layout["text"] = text
+        descriptors[page.page_no - 1] = build_page_descriptor(
+            page_no=page.page_no,
+            text=text,
+            source_method=page.source_method,
+            ocr_failed=False,
+            template_key=template_key,
+            layout=layout,
+            segment_detector=self._rule_detector,
+        )
+        stats["image_rescue_pages"].append(page.page_no)
+        stats["image_rescue_chars"] += len(str(rescued["text"]))
+        logger.info(
+            "pdf_split_image_rescued",
+            extra={"page_no": page.page_no, "chars": len(str(rescued["text"])), "region": region},
+        )
+        self._cache_rescued_page(page, text=text, layout=layout, stats=stats)
+
+    def _cache_rescued_page(
+        self, page: PageDescriptor, *, text: str, layout: dict[str, Any], stats: dict[str, Any]
+    ) -> None:
+        """把补救后的整页结果回写页缓存：同一份 PDF 重跑时不再为这几页付第二次钱。"""
+        if not stats.get("cloud_cache_profile"):
+            return
+        try:
+            self._ocr_handler.write_ocr_cache(
+                pdf_hash=stats["pdf_hash"],
+                profile_key=stats["cloud_cache_profile"],
+                result=OCRPageResult(
+                    page_no=page.page_no, text=text, source_method=page.source_method, ocr_failed=False, layout=layout
+                ),
+            )
+        except Exception:
+            logger.exception("pdf_split_image_rescue_cache_failed", extra={"page_no": page.page_no})
 
     def _fill_from_text_layer(
         self,
@@ -599,6 +800,7 @@ class PageTextExtractor:
                     backend,
                 )
             stats["cloud_backend"] = backend
+            stats["cloud_succeeded"] = True
             stats["cloud_failover_from"] = candidates[:index]
             return result
 
@@ -623,6 +825,27 @@ class PageTextExtractor:
     def _resolved_count(self, descriptors: list[PageDescriptor | None]) -> int:
         return len([item for item in descriptors if item is not None])
 
+    def _actual_provider(self, stats: dict[str, Any]) -> str:
+        """本轮产物**真正**出自哪个平台（坐标系换算就按它）。
+
+        首选平台不等于实际平台：容灾会换平台，而全部命中缓存那一轮根本不调云端，
+        ``cloud_backend`` 仍是首选值。此时若缓存里躺着上一次容灾写进来的 TextIn 结果，
+        照首选报 MinerU 就会拿千分比去除绝对坐标——绿框整体错位。
+        """
+        preferred = str(stats["cloud_backend"] or "")
+        cached = stats.get("cache_providers") or {}
+        if not cached:
+            return preferred or "local"
+        dominant = str(max(cached.items(), key=lambda item: item[1])[0])
+        if len(cached) > 1:
+            logger.warning(
+                "pdf_split_mixed_cached_providers",
+                extra={"providers": dict(cached), "chosen": dominant},
+            )
+        if stats.get("cloud_succeeded"):
+            return preferred or dominant
+        return dominant
+
     def _build_summary(self, stats: dict[str, Any]) -> dict[str, Any]:
         runtime_profile = stats["runtime_profile"]
         cloud_backend = stats["cloud_backend"]
@@ -642,7 +865,7 @@ class PageTextExtractor:
             "ocr_workers": runtime_profile.workers,
             "ocr_cache_hit_count": int(max(stats["cache_hit_count"], 0)),
             "ocr_miss_count": int(max(pending, 0)),
-            "ocr_provider": cloud_backend or "local",
+            "ocr_provider": self._actual_provider(stats),
             # 实际生效平台与首选不同 = 发生过容灾；把首选链一并记下便于排障
             "cloud_failover_from": stats.get("cloud_failover_from", []),
             "cloud_candidates": stats.get("cloud_candidates", []),
@@ -658,4 +881,9 @@ class PageTextExtractor:
             # 版面策略的落地情况（"开了但没生效"必须能从 summary 里看出来）
             "layout_mode": layout_mode,
             "layout_unavailable_reason": layout_unavailable,
+            # 图片块补救的兑现情况：救了几页、救回多少字、几页是复用已有 VL 结果。
+            # 「质量画像标了图形页」与「真的去补救了」是两件事，后者必须可观测。
+            "image_rescue_pages": list(stats.get("image_rescue_pages") or []),
+            "image_rescue_chars": int(stats.get("image_rescue_chars") or 0),
+            "image_rescue_reused": int(stats.get("image_rescue_reused") or 0),
         }

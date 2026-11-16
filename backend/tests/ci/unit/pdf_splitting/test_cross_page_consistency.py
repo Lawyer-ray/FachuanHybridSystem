@@ -17,8 +17,12 @@
 from __future__ import annotations
 
 from apps.pdf_splitting.services.split.cross_page_consistency import (
+    KIND_ENTITY_CLUSTER,
+    KIND_FREQUENCY,
+    KIND_ID_MALFORMED,
     Inconsistency,
     _is_header_word,
+    _is_valid_id_card,
     _iter_candidates,
     find_inconsistencies,
 )
@@ -132,10 +136,10 @@ class TestOnlyAtomicUnitsAreCompared:
     def test_true_words_in_body_text_are_not_candidates(self) -> None:
         """`支付宝支付` / `财付通支付` 是两个真词，滑窗曾让它们互相配对。"""
         pages_text = dict.fromkeys(
-            range(1, 40), "经办人：张三丰\n170306 3117063303100701000157 财付通支付 D31.00 7594.97 6223221027175157"
+            range(1, 40), "经办人：张三丰\n170306 1000000000000000000001 财付通支付 D31.00 7594.97 6200000000000001"
         )
         pages_text.update(
-            dict.fromkeys(range(40, 80), "经办人：张三丰\n170306 3117063303100700300179 支付宝支付 D226.00 7034.97")
+            dict.fromkeys(range(40, 80), "经办人：张三丰\n170306 1000000000000000000002 支付宝支付 D226.00 7034.97")
         )
         variants = {hit.variant for hit in find_inconsistencies(pages_text)}
         assert "支付宝支付" not in variants
@@ -304,3 +308,233 @@ class TestGuardsAndOrdering:
         except Exception:
             return
         raise AssertionError("Inconsistency 应为 frozen dataclass")
+
+
+def _role_pages(role: str, value: str, page_numbers: list[int]) -> dict[int, str]:
+    """``<role>：<value>`` 铺到指定页上（每页一次）。"""
+    return dict.fromkeys(page_numbers, f"{role}：{value}")
+
+
+#: 虚构借款人姓名族：同「姓+名首字」前缀、只差末字的 5 种写法。
+#: 真实卷宗里借款人正是这个形态——每种写法各出现 1-2 页，频次比只有 2.0。
+_BORROWER_WRITINGS = ["测试甲", "测试乙", "测试丙", "测试丁", "测试戊"]
+
+#: 虚构证件号（110101 = 示例行政区划，号码明显是假号）。
+_FAKE_ID = "110101199001011234"
+#: 同一号码被 OCR 认坏两位：第 2 位数字认成字母、第 17 位数字认错。
+_FAKE_ID_BROKEN = "1x0101199001011244"
+#: 与 _FAKE_ID 只差末两位的另一个**合法**号码（用于验「候选不唯一就不报」）。
+_FAKE_ID_NEIGHBOUR = "110101199001011244"
+
+
+class TestEntityClusterCatchesPartyName:
+    """当事人姓名：每种写法都很少时，频次悬殊法结构性失效，靠前缀聚类补。"""
+
+    def test_frequency_method_alone_misses_low_count_writings(self) -> None:
+        """5 种写法各 1-3 页、频次比 2.0 → 频次法一条都不报（这就是实测盲区）。"""
+        pages_text = _combine(
+            *[_role_pages("户名", writing, [index + 1]) for index, writing in enumerate(_BORROWER_WRITINGS)]
+        )
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_FREQUENCY] == []
+
+    def test_cluster_reports_every_other_writing_as_candidate(self) -> None:
+        """同一角色下 5 种写法 → 参照写法 + 其余 4 种各一条候选提示。"""
+        pages_text = _combine(
+            *[_role_pages("户名", writing, [index + 1]) for index, writing in enumerate(_BORROWER_WRITINGS)]
+        )
+
+        hits = [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ENTITY_CLUSTER]
+
+        assert len(hits) == 4
+        assert {hit.canonical for hit in hits} == {hits[0].canonical}  # 单一参照写法
+        assert {hits[0].canonical} | {hit.variant for hit in hits} == set(_BORROWER_WRITINGS)
+
+    def test_cluster_hints_are_medium_so_frontend_wont_auto_apply(self) -> None:
+        """必须是 medium：前端 engine-suggest 只信 high，medium 天然「只提示不改正文」。
+
+        簇里各写法频次接近，根本没有「哪个是正确写法」的证据。给 high 会让前端
+        建议把其中一个人名改成另一个——可能把两个真人合并成一个。
+        """
+        pages_text = _combine(
+            *[_role_pages("户名", writing, [index + 1]) for index, writing in enumerate(_BORROWER_WRITINGS)]
+        )
+
+        hits = [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ENTITY_CLUSTER]
+
+        assert hits
+        assert all(hit.confidence == "medium" for hit in hits)
+
+    def test_cluster_reports_variant_pages(self) -> None:
+        """页号仍必须给全——律师要靠它翻回原页核对是哪一种写法。"""
+        pages_text = _combine(
+            _role_pages("户名", "测试甲", [1, 2, 3]),
+            _role_pages("户名", "测试乙", [4, 5]),
+            _role_pages("户名", "测试丙", [6]),
+        )
+
+        hit = next(hit for hit in find_inconsistencies(pages_text) if hit.variant == "测试丙")
+
+        assert hit.pages == [6]
+        assert hit.canonical == "测试甲"
+        assert hit.canonical_count == 3
+        assert hit.variant_count == 1
+
+    def test_two_writings_are_not_clustered(self) -> None:
+        """只有 2 种写法 → 不聚类：那正是「两个同姓差一字的自然人」的形态。
+
+        与 ``TestPersonNameThreshold`` 同一份数据：频次法不报（1.4 倍），
+        聚类也不能报，否则这道守卫就被绕过去了。
+        """
+        pages_text = _combine(_field_pages("张三丰", 21), _field_pages("张四丰", 15, offset=21))
+
+        assert find_inconsistencies(pages_text) == []
+
+    def test_three_writings_on_one_page_are_not_clustered(self) -> None:
+        """3 种写法但全在同一页 → 不报：同页同角色并列更像共有人/保证人名单。"""
+        pages_text = {1: "户名：测试甲 测试乙 测试丙"}
+
+        assert find_inconsistencies(pages_text) == []
+
+    def test_writings_under_different_roles_are_not_clustered(self) -> None:
+        """跨角色不聚类：借款人/保证人/抵押人各自是同姓不同的人，这是常态。"""
+        pages_text = _combine(
+            _role_pages("借款人", "测试甲", [1, 2]),
+            _role_pages("保证人", "测试乙", [3, 4]),
+            _role_pages("抵押人", "测试丙", [5, 6]),
+        )
+
+        assert find_inconsistencies(pages_text) == []
+
+    def test_different_prefix_is_not_clustered(self) -> None:
+        """同角色但姓不同 → 不是一个人名簇。"""
+        pages_text = _combine(
+            _role_pages("户名", "测试甲", [1]),
+            _role_pages("户名", "合成乙", [2]),
+            _role_pages("户名", "虚构丙", [3]),
+        )
+
+        assert find_inconsistencies(pages_text) == []
+
+    def test_different_length_is_not_clustered(self) -> None:
+        """3 字与 4 字分桶：`测试甲` 与 `测试甲乙` 不是同一个人的漏字写法。"""
+        pages_text = _combine(
+            _role_pages("户名", "测试甲", [1]),
+            _role_pages("户名", "测试乙", [2]),
+            _role_pages("户名", "测试甲乙", [3]),
+        )
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ENTITY_CLUSTER] == []
+
+    def test_body_text_names_are_not_clustered(self) -> None:
+        """正文里的人名不进聚类：不对正文滑窗是本模块的立身之本（1340 条噪声教训）。"""
+        pages_text = {
+            1: "测试甲向本行申请借款",
+            2: "测试乙向本行申请借款",
+            3: "测试丙向本行申请借款",
+        }
+
+        assert find_inconsistencies(pages_text) == []
+
+    def test_business_terms_are_not_clustered_as_names(self) -> None:
+        """表头术语不是人名形态，不进姓名聚类（仍走原有频次判据）。"""
+        pages_text = _combine(_header_pages("交易卡号", 179), _header_pages("交易方号", 15, offset=179))
+
+        hits = find_inconsistencies(pages_text)
+
+        assert hits
+        assert all(hit.kind == KIND_FREQUENCY for hit in hits)
+
+    def test_cluster_does_not_duplicate_frequency_hit(self) -> None:
+        """频次法已报过的同一对写法，聚类不再刷一条。"""
+        pages_text = _combine(
+            _role_pages("经办人", "测试甲", list(range(1, 31))),
+            _role_pages("经办人", "测试乙", [31, 32, 33]),
+            _role_pages("经办人", "测试丙", [34]),
+        )
+
+        hits = find_inconsistencies(pages_text)
+        pairs = [(hit.canonical, hit.variant) for hit in hits]
+
+        assert len(pairs) == len(set(pairs))
+        assert ("测试甲", "测试乙") in pairs
+        assert sum(1 for hit in hits if hit.kind == KIND_FREQUENCY) == 1
+
+
+class TestIdCardMalformed:
+    """证件号：靠结构合法性这个硬证据，不靠频次。"""
+
+    def test_structurally_broken_id_is_reported(self) -> None:
+        """合法号 vs 被认坏两位的号（同一字段）→ 一条 id_malformed 提示。"""
+        pages_text = _combine(
+            _role_pages("公民身份号码", _FAKE_ID, [1, 2]),
+            _role_pages("公民身份号码", _FAKE_ID_BROKEN, [3]),
+        )
+
+        hits = [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ID_MALFORMED]
+
+        assert len(hits) == 1
+        assert hits[0].canonical == _FAKE_ID
+        assert hits[0].variant == _FAKE_ID_BROKEN
+        assert hits[0].pages == [3]
+        assert hits[0].confidence == "medium"
+
+    def test_two_valid_ids_differing_by_one_digit_are_not_reported(self) -> None:
+        """两侧都合法 → 不报：可能是相邻发号的两个自然人，没有硬证据就不猜。"""
+        pages_text = _combine(
+            _role_pages("证件号码", _FAKE_ID, [1, 2]),
+            _role_pages("证件号码", _FAKE_ID_NEIGHBOUR, [3, 4]),
+        )
+
+        assert find_inconsistencies(pages_text) == []
+
+    def test_ambiguous_broken_id_is_not_reported(self) -> None:
+        """损坏号与两个合法号都接近 → 候选不唯一，不指认。"""
+        pages_text = _combine(
+            _role_pages("公民身份号码", _FAKE_ID, [1]),
+            _role_pages("公民身份号码", _FAKE_ID_NEIGHBOUR, [2]),
+            _role_pages("公民身份号码", _FAKE_ID_BROKEN, [3]),
+        )
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ID_MALFORMED] == []
+
+    def test_broken_id_far_from_every_valid_id_is_not_reported(self) -> None:
+        """损坏号与合法号差 3 位以上 → 超出容差，不报。"""
+        pages_text = _combine(
+            _role_pages("证件号码", _FAKE_ID, [1]),
+            _role_pages("证件号码", "9x9999999999999999", [2]),
+        )
+
+        assert find_inconsistencies(pages_text) == []
+
+    def test_separator_may_be_missing(self) -> None:
+        """OCR 常把冒号丢掉或换成空格：两种形态都要能取到证件号。"""
+        pages_text = {1: f"证件号码 {_FAKE_ID}", 2: f"证件号码:{_FAKE_ID_BROKEN}"}
+
+        hits = [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ID_MALFORMED]
+
+        assert len(hits) == 1
+        assert hits[0].variant == _FAKE_ID_BROKEN
+
+    def test_longer_account_number_is_not_truncated_into_id(self) -> None:
+        """22 位账号串不许被截前 18 位当证件号——那会造出假的「损坏号」。"""
+        pages_text = {1: "证件号码：6200000000000000000123", 2: f"证件号码：{_FAKE_ID}"}
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ID_MALFORMED] == []
+
+    def test_id_roles_are_not_merged(self) -> None:
+        """不同证件号字段各自分桶：跨字段配对没有「同一处」的依据。"""
+        pages_text = _combine(
+            _role_pages("证件号码", _FAKE_ID, [1]),
+            _role_pages("公民身份号码", _FAKE_ID_BROKEN, [2]),
+        )
+
+        assert [hit for hit in find_inconsistencies(pages_text) if hit.kind == KIND_ID_MALFORMED] == []
+
+    def test_validity_oracle(self) -> None:
+        """18 位证只有末位可以是 X；15 位旧证全数字；其它长度一律不合法。"""
+        assert _is_valid_id_card(_FAKE_ID)
+        assert _is_valid_id_card("11010119900101123X")
+        assert _is_valid_id_card("110101900101123")
+        assert not _is_valid_id_card(_FAKE_ID_BROKEN)
+        assert not _is_valid_id_card("11010119900101123Y")
+        assert not _is_valid_id_card("12345")

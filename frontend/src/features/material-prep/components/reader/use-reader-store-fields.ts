@@ -42,6 +42,7 @@ export function useReaderStoreFields() {
     setZoom: useReader((s) => s.setZoom),
     setLayoutMode: useReader((s) => s.setLayoutMode),
     toggleCloudEngine: useReader((s) => s.toggleCloudEngine),
+    setCloudSelection: useReader((s) => s.setCloudSelection),
     setOcrPending: useReader((s) => s.setOcrPending),
     clearSel: useReader((s) => s.clearSel),
     toggleSelMode: useReader((s) => s.toggleSelMode),

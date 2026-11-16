@@ -107,6 +107,23 @@ def _is_repeated_header(block_text: str, excluded_norm: dict[str, int]) -> bool:
     return count >= 2
 
 
+def _repeated_header_norm(content_list: list[Any]) -> dict[str, int]:
+    """收集 header/footer 的归一化文本 → 出现次数（text 路径与 layout 路径共用）。
+
+    记次数而不是去重，是因为「出现 1 次」不能证明它是跨页页眉（也可能只是
+    误标成 header 的正文标题，那种不能连正文一起吞）。
+    """
+    excluded: dict[str, int] = {}
+    for block in content_list:
+        if not isinstance(block, dict) or block.get("type") not in ("header", "footer"):
+            continue
+        text = str(block.get("text") or "").strip()
+        if text:
+            key = normalize_text(text)
+            excluded[key] = excluded.get(key, 0) + 1
+    return excluded
+
+
 def _content_block_text(block: dict[str, Any]) -> str:
     """取一个 content_list 块的可读文本（表格/图片不再是空字符串）。
 
@@ -805,6 +822,9 @@ class MineruBackend:
                     # 缺失或结构不符时只丢行框，不影响 text/markdown 主链路。
                     if layout and model_file:
                         self._merge_model_json_lines(layout, model_file)
+                    # 行框对齐跑完了，才把误标成 text 的跨页页眉改回 header
+                    if layout:
+                        self._retype_mislabeled_headers(layout)
                 elif md_file:
                     # fallback 到 markdown，需清理页眉页码
                     text = clean_page_artifacts(md_file.read_text(encoding="utf-8"), exclude_lines=header_texts)
@@ -872,15 +892,7 @@ class MineruBackend:
                 content_list = json.load(f)
 
             # 收集 header/footer 类型的归一化文本 → 出现次数。
-            # 记次数而不是去重，是因为「出现 1 次」不能证明它是跨页页眉（也可能
-            # 只是误标成 header 的正文标题，那种不能连正文一起吞）。
-            excluded_norm: dict[str, int] = {}
-            for block in content_list:
-                if block.get("type") in ("header", "footer"):
-                    text = (block.get("text") or "").strip()
-                    if text:
-                        key = normalize_text(text)
-                        excluded_norm[key] = excluded_norm.get(key, 0) + 1
+            excluded_norm = _repeated_header_norm(content_list)
 
             # 提取正文块，跳过匹配已知页眉页脚的
             texts = []
@@ -905,7 +917,13 @@ class MineruBackend:
             return ""
 
     def _extract_page_layout_from_content_list(self, content_list_path: Path) -> dict[str, Any]:
-        """保留 MinerU 内容块的原始页码、版面框与表格数据。"""
+        """保留 MinerU 内容块的原始页码、版面框与表格数据。
+
+        被误标成 text 的跨页页眉在这里一并识别（判据与 ``_extract_text_from_content_list``
+        同源：``_is_repeated_header``），但**不在本方法里改类型**：改类型要等
+        ``_merge_layout_json_details`` / ``_merge_model_json_lines`` 跑完，见
+        ``_retype_mislabeled_headers``。
+        """
         try:
             content_list = json.loads(content_list_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -918,6 +936,9 @@ class MineruBackend:
             if isinstance(block, dict) and str(block.get("page_idx", "")).lstrip("-").isdigit()
         ]
         zero_based = 0 in raw_page_indices
+        excluded_norm = _repeated_header_norm(content_list)
+        #: 待改类型的块**引用**（不是页号+文本，避免回头再线性找一遍）
+        mislabeled: list[dict[str, Any]] = []
         page_map: dict[int, dict[str, Any]] = {}
         for block in content_list:
             if not isinstance(block, dict):
@@ -938,20 +959,47 @@ class MineruBackend:
             table_body = str(block.get("table_body") or "").strip()
 
             page = page_map.setdefault(page_no, {"page_no": page_no, "blocks": [], "text": ""})
-            page["blocks"].append(
-                {
-                    "type": block_type,
-                    "text_level": block.get("text_level"),
-                    "text": block_text,
-                    "bbox": block.get("bbox") or block.get("box"),
-                    "table_body": table_body or None,
-                }
-            )
+            page_block = {
+                "type": block_type,
+                "text_level": block.get("text_level"),
+                "text": block_text,
+                "bbox": block.get("bbox") or block.get("box"),
+                "table_body": table_body or None,
+            }
+            page["blocks"].append(page_block)
+            if block_type == "text" and _is_repeated_header(block_text, excluded_norm):
+                mislabeled.append(page_block)
+                continue
             if block_type not in {"header", "footer", "page_number"} and block_text:
                 page["text"] = f"{page['text']}\n{block_text}".strip()
 
         pages = [page_map[page_no] for page_no in sorted(page_map)]
-        return {"page_count": max(page_map, default=0), "pages": pages, "page_index_base": 0 if zero_based else 1}
+        return {
+            "page_count": max(page_map, default=0),
+            "pages": pages,
+            "page_index_base": 0 if zero_based else 1,
+            "mislabeled_headers": mislabeled,
+        }
+
+    def _retype_mislabeled_headers(self, layout: dict[str, Any]) -> None:
+        """把误标成 text 的跨页页眉改回 header 类型（必须在行框合并**之后**调用）。
+
+        为什么改类型而不是删块：header 块本来就保留在 ``blocks[]`` 里、只是不汇总进
+        ``page["text"]``（见 ``_content_block_text`` 的约定），下游 pdf_splitting 的
+        ``_NOISE_TYPES`` 也认 header——改类型即让正文与定位框同时不再显示它，
+        且如实反映「它是页眉」这个事实。
+
+        为什么必须等合并跑完：``_attach_block_lines`` 按**顺序**把 layout.json 的
+        ``preproc_blocks``（正文视图）对回 content_list 的块，靠「跳过非正文块」推进
+        游标。提前把某个 text 块改成 header，会让它被跳过、而 layout.json 那边它仍是
+        正文块 —— 该页之后所有块的行框整体错位一格。
+        """
+        mislabeled = layout.pop("mislabeled_headers", None)
+        if not isinstance(mislabeled, list):
+            return
+        for block in mislabeled:
+            if isinstance(block, dict):
+                block["type"] = "header"
 
     def _merge_layout_json_details(self, layout: dict[str, Any], layout_file: Path) -> None:
         """把 layout.json 的页面尺寸与行级 box 原地补进 content_list 版 layout。

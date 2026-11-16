@@ -50,3 +50,24 @@ export function discardPendingSave(): void {
   }
   latestDraft = null
 }
+
+/**
+ * 立刻把防抖窗口内的最后一次编辑落盘（登出前 flush 用）；没有待存值返回 null。
+ *
+ * 为什么需要它：`discardPendingSave` 会把最后 450ms 内的编辑直接丢掉——律师改完
+ * 最后一个字就点退出，那次改动谁也没保存。登出路径应当先 flush 再丢弃。
+ *
+ * 失败只 reject 不 toast：这条路径上凭证可能已清，弹「保存失败请检查后端连接」
+ * 会把一次正常的登出说成故障。由调用方决定吞掉还是提示。
+ */
+export function flushPendingSave(): Promise<void> | null {
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  const draft = latestDraft
+  const id = latestId
+  latestDraft = null
+  if (!draft) return null
+  return saveDraft(id, draft)
+}

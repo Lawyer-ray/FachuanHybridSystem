@@ -15,6 +15,8 @@ class CaseMaterialBindingOut(Schema):
     side: str | None = None
     party_ids: list[int] = Field(default_factory=list)
     supervising_authority_id: int | None = None
+    source_message_id: int | None = None
+    source_segment_ref: str | None = None
 
 
 class CaseMaterialBindCandidateOut(Schema):
@@ -36,6 +38,10 @@ class CaseMaterialBindItemIn(Schema):
     side: str | None = None
     party_ids: list[int] = Field(default_factory=list)
     supervising_authority_id: int | None = None
+    # 材料预处理溯源（可选）：归案链路传材料包消息 ID + 段 id，
+    # 起草 RAG 据此找回预处理 Markdown；不传则走原重新抽文本路径
+    source_message_id: int | None = None
+    source_segment_ref: str | None = None
 
 
 class CaseMaterialBindIn(Schema):

@@ -58,6 +58,7 @@ from .dual_engine import (
     SEVERITY_LOW,
     SEVERITY_MEDIUM,
     EngineDisagreement,
+    EngineVariant,
     compare_pages,
     is_markdown_table_line,
     link_disagreement_to_blocks,
@@ -73,6 +74,18 @@ SUMMARY_ENGINE_DISAGREE_SUMMARY = "engine_disagree_summary"
 
 #: 严重度桶的固定顺序：前端抽屉就是按这三组渲染，缺哪组都要给 0。
 _SEVERITY_BUCKETS = (SEVERITY_HIGH, SEVERITY_MEDIUM, SEVERITY_LOW)
+
+#: 落盘 ``full_text`` 的每变体字数上限。
+#:
+#: 依据（579 真实产物只读实测）：参与逐字比对的非表格行共 1177 条，最长 608 字、
+#: p99 238 字，**没有一条超过 1000 字**；「整块覆盖不一致」分支会把整页拼成一条，
+#: 实测最长 1165 字、p90 904 字，**没有一页超过 2000 字**。2000 覆盖全部实测情形
+#: 还留约 1.7 倍余量，够容纳更密的卷宗。
+#:
+#: 为什么必须有上限：整页拼接那条分支的长度随页面密度线性增长，无上限时一份
+#: 密集卷宗能把产物撑到几 MB（当前 579 已 524KB，其中 blocks 占 39%）。
+#: 超限不静默截断，另打 ``full_text_truncated`` 让离线重算能剔除这些条。
+_FULL_TEXT_MAX_CHARS = 2000
 
 #: 本模块**真能跑起来**的引擎。
 #:
@@ -287,6 +300,37 @@ def engine_block_to_dict(engine: str, block: Any) -> dict[str, Any]:
     }
 
 
+def _variant_to_dict(variant: EngineVariant) -> dict[str, Any]:
+    """一个变体 → 落盘 dict：摘要恒在，全文**只在与摘要不同时**才写。
+
+    为什么需要全文：``text`` 是剥标签 + 压空白 + 截到 120 字的摘要，而严重度判据
+    吃的是**原始行**。只存摘要的产物无法离线重算严重度——截断前缀看着只差标点，
+    真差异可能在 120 字之后（579 旧产物 332 条里 87 条至少一侧被截断，重算不了）。
+
+    为什么等值时不写：摘要与原文相同就说明摘要已是全文，再存一份是纯重复
+    （579 的 664 个变体里 510 个如此，实测省 30KB）。两侧消费方都是「全文缺省退回摘要」
+    （后端 ``EngineVariant.body``、前端 ``draft/engine.ts`` 的 variantBody），
+    缺键与等值同义，形状兼容。
+
+    为什么按 variant 限长而不是按严重度分级存：低等级也要能重算——校准的目的
+    正是验证「被降为 low 的那些真的只是标点差异」，只给 high/medium 存全文
+    等于把要验证的那一半藏起来。
+    """
+    payload: dict[str, Any] = {
+        "engine": variant.engine,
+        "label": variant.label,
+        "text": variant.text,
+    }
+    body = str(variant.body or "")
+    if not body or body == variant.text:
+        return payload
+    payload["full_text"] = body[:_FULL_TEXT_MAX_CHARS]
+    if len(body) > _FULL_TEXT_MAX_CHARS:
+        # 明确告诉离线重算的人「这一条不是全文」，否则截断伪影会被当成真噪声
+        payload["full_text_truncated"] = True
+    return payload
+
+
 def disagreements_to_dicts(
     disagreements: Iterable[EngineDisagreement],
     *,
@@ -308,18 +352,7 @@ def disagreements_to_dicts(
             "page_no": item.page_no,
             "kind": item.kind,
             "severity": item.severity,
-            "variants": [
-                {
-                    "engine": variant.engine,
-                    "label": variant.label,
-                    # text 是摘要（带省略号），full_text 是完整原文。
-                    # 前端两件都要：摘要用于列表扫读，全文用于「看清再判断」与
-                    # 「按完整文本定位到正文块」（拿摘要去 includes 必然失败）。
-                    "text": variant.text,
-                    "full_text": variant.body,
-                }
-                for variant in item.variants
-            ],
+            "variants": [_variant_to_dict(variant) for variant in item.variants],
             "context": item.context,
             "anchor_hit": item.anchor_hit,
             "similarity": round(float(item.similarity), 4),

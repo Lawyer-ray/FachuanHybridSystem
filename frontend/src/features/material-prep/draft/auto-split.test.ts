@@ -72,6 +72,7 @@ function sug(start: number, end: number, over: Partial<PdfSplitSegmentSuggestion
     confidence: 0.9,
     content_md: '',
     review_flag: '',
+    source_method: 'llm',
     ...over,
   }
 }

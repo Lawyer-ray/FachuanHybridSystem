@@ -416,3 +416,185 @@ class TestDocHint:
         quality = assess_page_quality(page_no=20, text="个人购房借款/担保合同\n某某银行某某支行\n2024年")
         assert quality.doc_hint is None
         assert quality.reason == "内容较少，可能是封面/证件/表单，建议核对"
+
+
+class TestStripStampBoilerplateLines:
+    """按行剔除印章套话：判据与字数统计共用同一份正则，只是整行套话要连行删掉。"""
+
+    def test_整行套话连行删掉(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        text = "个人房产抵押贷款合同\n已核对与原件相符\n扫描件与留档资料相符\n经办人：李四\n第一条 借款金额"
+        assert strip_stamp_boilerplate_lines(text) == "个人房产抵押贷款合同\n第一条 借款金额"
+
+    def test_行内混排只剔套话保留正文(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        assert strip_stamp_boilerplate_lines("借款金额 500000 元 已核对与原件相符") == "借款金额 500000 元"
+
+    def test_原本的空行保留段落结构(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        assert strip_stamp_boilerplate_lines("第一条\n\n第二条") == "第一条\n\n第二条"
+
+    def test_正文里的姓名不被当成经办人套话(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        # 「经办人：」才是套话；正文里的「借款人：张三」是当事人事实，必须留
+        assert strip_stamp_boilerplate_lines("借款人：张三\n经办人：李四") == "借款人：张三"
+
+
+class TestRescueImageRegion:
+    """图片块补救的门槛：只有质量画像说「看不全内容」的页才值得花一次云端调用。"""
+
+    def _page(self, *, text: str, blocks: list[dict]) -> object:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(page_no=23, text=text, layout={"blocks": blocks})
+
+    def test_身份证页的大图片块给出区域(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import rescue_image_region
+
+        page = self._page(
+            text=_P23_OCR_TEXT,
+            blocks=[
+                {"type": "image", "text": "", "bbox": [17, 12, 941, 818]},
+                {"type": "text", "text": "居民身份证", "bbox": [233, 488, 480, 546]},
+            ],
+        )
+        quality = assess_page_quality(page_no=23, text=page.text, layout=page.layout)
+        assert quality.doc_hint == "id_card"
+        assert rescue_image_region(page, quality) == [17, 12, 941, 818]
+
+    def test_正常文本页的页眉logo不补救(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import rescue_image_region
+
+        page = self._page(
+            text=_BODY_TEXT,
+            blocks=[{"type": "image", "text": "", "bbox": [0, 0, 900, 900]}, {"type": "text", "text": _BODY_TEXT}],
+        )
+        quality = assess_page_quality(page_no=8, text=page.text, layout=page.layout)
+        assert quality.kind == "text"
+        assert rescue_image_region(page, quality) is None
+
+    def test_面积太小的图片块不补救(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import rescue_image_region
+
+        # p148 实测形态：image 块只占 0.6%（页眉 logo 量级），为它调云端救不回内容
+        page = self._page(
+            text="平面图",
+            blocks=[{"type": "image", "text": "", "bbox": [100, 100, 180, 175]}],
+        )
+        quality = assess_page_quality(page_no=148, text=page.text, layout=page.layout)
+        assert quality.needs_visual_review is True
+        assert rescue_image_region(page, quality) is None
+
+    def test_图片块已有文字不补救(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import rescue_image_region
+
+        page = self._page(
+            text=_P23_OCR_TEXT,
+            blocks=[{"type": "image", "text": "姓名 张三", "bbox": [17, 12, 941, 818]}],
+        )
+        quality = assess_page_quality(page_no=23, text=page.text, layout=page.layout)
+        assert rescue_image_region(page, quality) is None
+
+    def test_多个空图片块取外接矩形(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import rescue_image_region
+
+        page = self._page(
+            text="面谈笔录表",
+            blocks=[
+                {"type": "image", "text": "", "bbox": [100, 100, 400, 400]},
+                {"type": "image", "text": "", "bbox": [500, 500, 900, 900]},
+            ],
+        )
+        quality = assess_page_quality(page_no=41, text=page.text, layout=page.layout)
+        assert rescue_image_region(page, quality) == [100, 100, 900, 900]
+
+    def test_没有版面时不补救(self) -> None:
+        from types import SimpleNamespace
+
+        from apps.pdf_splitting.services.split.page_quality import rescue_image_region
+
+        page = SimpleNamespace(page_no=147, text="宗地图", layout=None)
+        quality = assess_page_quality(page_no=147, text=page.text, layout=None)
+        assert rescue_image_region(page, quality) is None
+
+    def test_坐标形状不对不猜(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import rescue_image_region
+
+        page = self._page(text=_P23_OCR_TEXT, blocks=[{"type": "image", "text": "", "bbox": [1, 2]}])
+        quality = assess_page_quality(page_no=23, text=page.text, layout=page.layout)
+        assert rescue_image_region(page, quality) is None
+
+
+class TestStampCleaningKeepsMixedLineContent:
+    """混合行一字不丢：`经办人` 那一支曾贪婪到行尾，会删掉真实正文。
+
+    579 实测 20 行受害，最重的一行 872 字合同条款被吃到只剩 606 字；
+    表格行 `| 经办人：某某 日期：2023.2.15 |` 连日期单元格一起没了。
+    下面四类形态取自实测（人名已换成合成值）。
+    """
+
+    MIXED_LINES = (
+        # 权证正文整段
+        "经办人：测试甲 测试乙根据《中华人民共和国物权法》等法律法规，经审查准予登记，颁发此证。",
+        # FATCA 尽调说明（含 ASCII token）
+        "经办人：测试甲 测试乙实施 FATCA 法案尽职调查",
+        # 监制单位（人名与正文粘连成一个 token）
+        "经办人：测试甲 测试乙中华人民共和国国土资源部监制",
+        # 材料标题
+        "经办人：测试甲 测试乙某某银行个人贷款面谈笔录表",
+    )
+
+    def test_四类混合行一字不丢(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        for line in self.MIXED_LINES:
+            assert strip_stamp_boilerplate_lines(line) == line, line
+
+    def test_表格行里的日期单元格不被吞(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        line = "| 经办人：测试甲 日期：2023.2.15 |"
+        assert strip_stamp_boilerplate_lines(line) == line
+
+    def test_长合同条款行不被截尾(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        line = "五、甲方决定中途不卖或逾期____天仍未交付房地产时，作甲方中途悔约处理，本合同即告解除 经办人：测试甲"
+        assert strip_stamp_boilerplate_lines(line) == line
+
+    def test_混合行只剔固定短语_经办人与正文都留着(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        line = "经办人：测试甲 已核对与原件相符 经审查准予登记颁发此证"
+        out = strip_stamp_boilerplate_lines(line)
+        assert "已核对与原件相符" not in out
+        assert "经办人：测试甲" in out
+        assert "经审查准予登记颁发此证" in out
+
+    def test_纯套话行仍整行剔掉(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        text = "已核对与原件相符\n扫描件与留档资料相符\n经办人：测试甲 测试乙\n经办人：\n第一条 借款金额"
+        assert strip_stamp_boilerplate_lines(text) == "第一条 借款金额"
+
+    def test_人名与套话粘连的纯噪声行仍剔掉(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        assert strip_stamp_boilerplate_lines("测试甲已核对与原件相符") == ""
+
+    def test_裸人名行不被当套话删掉(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        # 没有套话标记的行一律不动：否则当事人姓名行会凭空消失
+        assert strip_stamp_boilerplate_lines("测试甲\n借款人：测试乙") == "测试甲\n借款人：测试乙"
+
+    def test_多行混合与纯套话混排(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality import strip_stamp_boilerplate_lines
+
+        text = "\n".join(["个人房产抵押贷款合同", *self.MIXED_LINES, "经办人：测试甲 测试乙", "已核对与原件相符"])
+        expected = "\n".join(["个人房产抵押贷款合同", *self.MIXED_LINES])
+        assert strip_stamp_boilerplate_lines(text) == expected

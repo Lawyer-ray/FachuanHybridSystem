@@ -108,9 +108,25 @@ export function readInconsistencies(raw: unknown): Inconsistency[] {
       variant_count: typeof r.variant_count === 'number' ? r.variant_count : 0,
       pages: numList(r.pages),
       confidence: typeof r.confidence === 'string' ? r.confidence : '',
+      // 判据种类必须一起收窄：这里是逐键重建对象，漏掉它抽屉就永远看不到 kind，
+      // 姓名聚类会被当成「疑似错字」渲染（律师可能把两个真人合并成一个）
+      kind: typeof r.kind === 'string' ? r.kind : undefined,
     })
   }
   return out
+}
+
+/** 不一致的判据种类（后端逐条给 kind；文案与「哪个写法对」的语义都随它变） */
+export type InconsistencyKind = 'frequency' | 'entity_cluster' | 'id_malformed'
+
+/**
+ * 判据种类收窄：**缺失 / 未知一律按 frequency**。
+ *
+ * 旧任务产物与旧草稿没有 kind 键，那时后端只有频次悬殊这一条判据，按 frequency
+ * 处理与历史行为逐字一致；后端将来加新判据时也不至于让整张清单崩掉。
+ */
+export function inconsistencyKindOf(item: Pick<Inconsistency, 'kind'>): InconsistencyKind {
+  return item.kind === 'entity_cluster' || item.kind === 'id_malformed' ? item.kind : 'frequency'
 }
 
 /** 清单排序：high → medium → 其它；同级变体次数多的在前，再按首个页号 */

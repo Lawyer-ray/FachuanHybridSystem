@@ -1014,6 +1014,149 @@ class TestExtractTextFromContentList:
         assert text == ""
 
 
+class TestLayoutRepeatedHeader:
+    """layout 块路径也要滤误标成 text 的跨页页眉（判据与 text 路径同源）。
+
+    此前 ``_is_repeated_header`` 只在 ``_extract_text_from_content_list`` 里调用，
+    layout 的 ``blocks[]`` / ``page["text"]`` 照单全收——pdf_splitting 消费的正是
+    layout，于是「已核对与原件相符」这类每页重复的行混进了分段正文。
+    """
+
+    @staticmethod
+    def _content_list(blocks: list[dict[str, object]]) -> str:
+        return json.dumps(blocks, ensure_ascii=False)
+
+    def test_误标text的重复页眉不进页文本(self, tmp_path: Path) -> None:
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            self._content_list(
+                [
+                    {"type": "header", "text": "某某法院", "page_idx": 0},
+                    {"type": "text", "text": "某某法院", "page_idx": 0},
+                    {"type": "header", "text": "某某法院", "page_idx": 1},
+                    {"type": "text", "text": "正文A", "page_idx": 0},
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        layout = _make_backend()._extract_page_layout_from_content_list(cl)
+        page = layout["pages"][0]
+
+        assert page["text"] == "正文A"
+        # 块本身还在（顺序不变），只是被记下来待改类型
+        assert [b["text"] for b in page["blocks"]] == ["某某法院", "某某法院", "正文A"]
+        assert len(layout["mislabeled_headers"]) == 1
+
+    def test_改类型后下游按页眉过滤(self, tmp_path: Path) -> None:
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            self._content_list(
+                [
+                    {"type": "header", "text": "某某法院", "page_idx": 0},
+                    {"type": "text", "text": "某某法院", "page_idx": 0},
+                    {"type": "header", "text": "某某法院", "page_idx": 1},
+                    {"type": "text", "text": "正文A", "page_idx": 0},
+                ]
+            ),
+            encoding="utf-8",
+        )
+        backend = _make_backend()
+        layout = backend._extract_page_layout_from_content_list(cl)
+        backend._retype_mislabeled_headers(layout)
+
+        types = [b["type"] for b in layout["pages"][0]["blocks"]]
+        assert types == ["header", "header", "text"], "改类型而不是删块：行框对齐与块顺序都不能变"
+        assert "mislabeled_headers" not in layout, "临时键不该流到下游产物里"
+
+    def test_只出现一次的页眉同名正文标题保留(self, tmp_path: Path) -> None:
+        """防「页眉=民事判决书、正文首标题也是民事判决书→被吞」的实测 bug。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            self._content_list(
+                [
+                    {"type": "header", "text": "民事判决书", "page_idx": 0},
+                    {"type": "text", "text": "民事判决书", "page_idx": 0},
+                    {"type": "text", "text": "正文内容", "page_idx": 0},
+                ]
+            ),
+            encoding="utf-8",
+        )
+        backend = _make_backend()
+        layout = backend._extract_page_layout_from_content_list(cl)
+        backend._retype_mislabeled_headers(layout)
+
+        page = layout["pages"][0]
+        assert page["text"] == "民事判决书\n正文内容"
+        assert [b["type"] for b in page["blocks"]] == ["header", "text", "text"]
+
+    def test_行框合并后才改类型_对齐不错位(self, tmp_path: Path) -> None:
+        """layout.json 把误标块仍当正文块：提前改类型会让该页之后所有行框错位一格。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            self._content_list(
+                [
+                    {"type": "header", "text": "某某法院", "bbox": [100, 10, 500, 40], "page_idx": 0},
+                    {"type": "text", "text": "某某法院", "bbox": [100, 50, 500, 80], "page_idx": 0},
+                    {"type": "header", "text": "某某法院", "bbox": [100, 10, 500, 40], "page_idx": 1},
+                    {"type": "text", "text": "正文A", "bbox": [100, 90, 500, 120], "page_idx": 0},
+                ]
+            ),
+            encoding="utf-8",
+        )
+        layout_file = tmp_path / "layout.json"
+        layout_file.write_text(
+            json.dumps(
+                {
+                    "pdf_info": [
+                        {
+                            "page_idx": 0,
+                            "page_size": [612, 1008],
+                            "preproc_blocks": [
+                                {
+                                    "type": "text",
+                                    "bbox": [61, 50, 306, 80],
+                                    "lines": [
+                                        {"bbox": [61, 50, 306, 80], "spans": [{"type": "text", "content": "某某法院"}]}
+                                    ],
+                                },
+                                {
+                                    "type": "text",
+                                    "bbox": [61, 90, 306, 120],
+                                    "lines": [
+                                        {"bbox": [61, 90, 306, 120], "spans": [{"type": "text", "content": "正文A"}]}
+                                    ],
+                                },
+                            ],
+                            "discarded_blocks": [],
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        backend = _make_backend()
+        layout = backend._extract_page_layout_from_content_list(cl)
+        backend._merge_layout_json_details(layout, layout_file)
+        backend._retype_mislabeled_headers(layout)
+
+        blocks = layout["pages"][0]["blocks"]
+        assert blocks[1]["type"] == "header"
+        assert blocks[1]["lines"][0]["spans"][0]["content"] == "某某法院"
+        assert blocks[2]["lines"][0]["spans"][0]["content"] == "正文A", "行框必须仍挂在正文A上"
+
+    def test_没有误标块时改类型是空操作(self, tmp_path: Path) -> None:
+        cl = tmp_path / "content_list.json"
+        cl.write_text(self._content_list([{"type": "text", "text": "正文", "page_idx": 0}]), encoding="utf-8")
+        backend = _make_backend()
+        layout = backend._extract_page_layout_from_content_list(cl)
+        backend._retype_mislabeled_headers(layout)
+
+        assert layout["pages"][0]["blocks"][0]["type"] == "text"
+
+
 # ── extract_text ─────────────────────────────────────────────────
 
 

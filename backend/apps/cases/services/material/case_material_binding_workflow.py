@@ -19,6 +19,8 @@ from apps.cases.models import (
 )
 from apps.core.exceptions import NotFoundError, ValidationException
 
+from .material_draft_md_service import compute_file_sha256
+
 
 class CaseMaterialBindingWorkflow:
     def __init__(self, case_service: Any | None = None) -> None:
@@ -85,16 +87,27 @@ class CaseMaterialBindingWorkflow:
                 resolved_type = self._resolve_type_cached(
                     cache=type_cache, category=category, type_id=type_id, type_name=type_name, law_firm_id=law_firm_id
                 )
+                defaults: dict[str, Any] = {
+                    "case_id": case_id,
+                    "category": category,
+                    "type": resolved_type,
+                    "type_name": resolved_type.name,
+                    "side": side,
+                    "supervising_authority_id": supervising_authority_id,
+                }
+                # 溯源只在传了 source_message_id 时刷新：同一附件重复绑定（字节未变）
+                # 而调用方未带溯源时，保留既有溯源，避免把 md 链接静默清掉。
+                source_message_id = payload.get("source_message_id")
+                if source_message_id is not None:
+                    attachment = attachments[att_id]
+                    defaults.update(
+                        source_message_id=int(source_message_id),
+                        source_segment_ref=(payload.get("source_segment_ref") or "").strip(),
+                        source_file_hash=compute_file_sha256(attachment.file.path),
+                    )
                 material, _created = CaseMaterial.objects.update_or_create(
                     source_attachment=attachments[att_id],
-                    defaults={
-                        "case_id": case_id,
-                        "category": category,
-                        "type": resolved_type,
-                        "type_name": resolved_type.name,
-                        "side": side,
-                        "supervising_authority_id": supervising_authority_id,
-                    },
+                    defaults=defaults,
                 )
                 if category == CaseMaterialCategory.PARTY:
                     validated_party_ids = self._validate_party_ids(party_ids, parties_by_id, side)
