@@ -182,7 +182,15 @@ export type EngineName = 'mineru' | 'paddleocr_vl' | 'textin'
 
 export interface EngineVariant {
   engine: EngineName
+  /** 摘要（截到 120 字，带省略号）。列表扫读用；不能拿它去做正文定位。 */
   text: string
+  /**
+   * 完整原文。缺省时（旧任务产物）退回 `text`。
+   *
+   * 两个用途：① 律师要看全文才能判断哪侧对；② 按完整文本定位到正文块——
+   * 摘要带省略号，`includes` 必然失败，表现就是「点了采用/修改没反应」。
+   */
+  full_text?: string
 }
 
 /**

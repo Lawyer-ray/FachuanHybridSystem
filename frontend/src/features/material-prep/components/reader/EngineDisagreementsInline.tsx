@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
-import { disagreementKindLabel, engineLabel, variantTextOf } from '../../draft'
+import { disagreementKindLabel, engineLabel, variantFullTextOf } from '../../draft'
 import { diffSegments } from '../../draft/text-diff'
 import { suggestionsOf, type EngineSuggestion } from '../../draft/engine-suggest'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
@@ -159,6 +159,16 @@ function InlineRow({
 }) {
   // 「更推荐改成什么」：只认 high 置信度的全卷低频变体，没有就空着（不猜）
   const suggestions: Record<string, EngineSuggestion> = suggestionsOf(item, inconsistencies)
+  // 哪些「侧」被展开了全文。键是 `${itemKey}:${engine}`——同一页多条分歧各自记，
+  // 不会因为展开第 1 条而把第 2 条也撑开。
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleExpanded = (k: string) =>
+    setExpanded((cur) => {
+      const next = new Set(cur)
+      if (next.has(k)) next.delete(k)
+      else next.add(k)
+      return next
+    })
   return (
     <div
       data-engine-inline-row
@@ -205,12 +215,14 @@ function InlineRow({
 
       <dl className="mt-1 flex flex-col gap-0.5">
         {item.variants.map((v) => {
-          const text = variantTextOf(item, v.engine)
-          // 另一侧引擎的文本：用来算「本侧哪几个字不同」。
-          // 只高亮归一化后仍有差异的位置——纯全半角标点差异不标，
-          // 否则一屏冒号高亮把真错字淹掉（实测第 1 页那条 high 就是 12 处冒号）。
-          const other = variantTextOf(item, item.variants.find((x) => x.engine !== v.engine)?.engine ?? '')
+          // 用**全文**而不是摘要：摘要带省略号，既看不清（判断不了哪侧对），
+          // 拿去和另一侧做 diff 也会在截断处伪造出差异。
+          const text = variantFullTextOf(item, v.engine)
+          const otherEngine = item.variants.find((x) => x.engine !== v.engine)?.engine
+          const other = otherEngine ? variantFullTextOf(item, otherEngine) : ''
           const parts = diffSegments(text, other)
+          // 长文本默认折叠：一页 6 条 × 300 字会把正文推到看不见
+          const isLong = text.length > 160
           return (
             <div
               key={v.engine}
@@ -229,19 +241,12 @@ function InlineRow({
                 )}
               >
                 {text.trim() ? (
-                  parts.map((seg, si) =>
-                    seg.changed ? (
-                      <mark
-                        key={si}
-                        data-diff-changed
-                        className="rounded bg-amber-200/80 px-0.5 font-medium text-amber-950"
-                      >
-                        {seg.text}
-                      </mark>
-                    ) : (
-                      <span key={si}>{seg.text}</span>
-                    ),
-                  )
+                  <VariantBody
+                    parts={parts}
+                    collapsed={isLong && !expanded.has(`${itemKey}:${v.engine}`)}
+                    onToggle={() => toggleExpanded(`${itemKey}:${v.engine}`)}
+                    total={text.length}
+                  />
                 ) : (
                   '（无此行）'
                 )}
@@ -249,7 +254,7 @@ function InlineRow({
               {onAdopt && text.trim() && (
                 <button
                   type="button"
-                  onClick={() => onAdopt(item.page_no, text, v.engine, itemKey)}
+                  onClick={() => onAdopt(item.page_no, variantFullTextOf(item, v.engine), v.engine, itemKey)}
                   title={`确认 ${engineLabel(v.engine)} 这版是对的，直接写入正文`}
                   className="flex-none self-start rounded bg-card px-1 text-[10.5px] text-secondary-foreground hover:bg-secondary @[220px]:self-auto"
                 >
@@ -282,7 +287,7 @@ function InlineRow({
           <div className="mt-1 flex justify-end">
             <button
               type="button"
-              onClick={() => onEdit(item.page_no, item.variants[0] ? variantTextOf(item, item.variants[0].engine) : '', itemKey)}
+              onClick={() => onEdit(item.page_no, item.variants[0] ? variantFullTextOf(item, item.variants[0].engine) : '', itemKey)}
               title="两个引擎都不对：进编辑态，以主引擎文本为起点改"
               className="rounded bg-card px-1.5 text-[10.5px] text-secondary-foreground hover:bg-secondary"
             >
@@ -292,5 +297,81 @@ function InlineRow({
         )}
       </dl>
     </div>
+  )
+}
+
+
+/**
+ * 一行的正文渲染：差异高亮 + 长文本折叠。
+ *
+ * ## 为什么要折叠
+ *
+ * 全文平均 200–300 字，一页 6 条分歧全部展开会把下面的正文推到看不见。
+ * 但**不能直接截断**（那就是原来的问题）：截断后律师判断不了哪侧对。
+ * 所以默认折叠、一键展开，折叠时也给字数，让人知道还有多少没看到。
+ */
+function VariantBody({
+  parts,
+  collapsed,
+  onToggle,
+  total,
+}: {
+  parts: { text: string; changed: boolean }[]
+  collapsed: boolean
+  onToggle: () => void
+  total: number
+}) {
+  // 折叠时只渲染前 160 字：分段数取决于差异分布（全文一致时只有 1 段），
+  // 不能拿段数判断「还有多少没看到」。
+  const LIMIT = 160
+  let acc = 0
+  const shown: { text: string; changed: boolean }[] = []
+  for (const seg of parts) {
+    if (!collapsed) {
+      shown.push(seg)
+      continue
+    }
+    if (acc >= LIMIT) break
+    const room = LIMIT - acc
+    shown.push(seg.text.length <= room ? seg : { text: seg.text.slice(0, room), changed: seg.changed })
+    acc += Math.min(seg.text.length, room)
+  }
+  const truncated = collapsed && total > LIMIT
+  return (
+    <>
+      {shown.map((seg, si) =>
+        seg.changed ? (
+          <mark
+            key={si}
+            data-diff-changed
+            className="rounded bg-amber-200/80 px-0.5 font-medium text-amber-950"
+          >
+            {seg.text}
+          </mark>
+        ) : (
+          <span key={si}>{seg.text}</span>
+        ),
+      )}
+      {collapsed && (
+        <button
+          type="button"
+          onClick={onToggle}
+          data-expand-fulltext
+          className="ml-1 rounded bg-secondary px-1 text-[10px] text-secondary-foreground hover:bg-zinc-200"
+        >
+          {truncated ? `展开全文（${total} 字）` : '展开'}
+        </button>
+      )}
+      {!collapsed && (
+        <button
+          type="button"
+          onClick={onToggle}
+          data-collapse-fulltext
+          className="ml-1 rounded bg-secondary px-1 text-[10px] text-secondary-foreground hover:bg-zinc-200"
+        >
+          收起
+        </button>
+      )}
+    </>
   )
 }

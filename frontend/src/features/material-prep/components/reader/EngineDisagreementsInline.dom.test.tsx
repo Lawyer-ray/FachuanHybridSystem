@@ -189,3 +189,60 @@ describe('EngineDisagreementsInline：差异高亮与双击定位', () => {
     expect(row.getAttribute('title')).toContain('双击')
   })
 })
+
+describe('EngineDisagreementsInline：全文与折叠', () => {
+  it('显示全文而不是摘要（摘要带省略号，判断不了哪侧对）', () => {
+    const full = '甲'.repeat(300)
+    const items = [
+      dis({
+        variants: [
+          { engine: 'mineru', text: '甲'.repeat(120) + '…', full_text: full, label: 'MinerU' },
+          { engine: 'paddleocr_vl', text: '乙'.repeat(120) + '…', full_text: '乙'.repeat(300), label: 'PaddleOCR-VL' },
+        ] as EngineDisagreement['variants'],
+      }),
+    ]
+    const { baseElement } = renderInline(items, seg([3]))
+    // 折叠时给「展开全文（300 字）」，说明后端到底给了多少
+    expect(baseElement.textContent).toContain('展开全文（300 字）')
+    expect(baseElement.textContent).not.toContain('…')
+  })
+
+  it('点「展开全文」显示后 300 字', () => {
+    const items = [
+      dis({
+        variants: [
+          { engine: 'mineru', text: '摘要…', full_text: 'A'.repeat(300), label: 'MinerU' },
+          { engine: 'paddleocr_vl', text: '摘要…', full_text: 'B'.repeat(300), label: 'PaddleOCR-VL' },
+        ] as EngineDisagreement['variants'],
+      }),
+    ]
+    const { baseElement } = renderInline(items, seg([3]))
+    const btns = Array.from(baseElement.querySelectorAll('button[data-expand-fulltext]'))
+    expect(btns.length).toBeGreaterThan(0)
+    fireEvent.click(btns[0]!)
+    // 展开后出现「收起」
+    expect(baseElement.textContent).toContain('收起')
+  })
+
+  it('采用/修改回传的是**全文**而不是摘要（摘要拿去 includes 正文必然失败）', () => {
+    const onAdopt = vi.fn()
+    const onEdit = vi.fn()
+    const full = '完整的正文这一行'.repeat(30)
+    const items = [
+      dis({
+        variants: [
+          { engine: 'mineru', text: '完整的正文…', full_text: full, label: 'MinerU' },
+          { engine: 'paddleocr_vl', text: '另一侧…', full_text: full + 'X', label: 'PaddleOCR-VL' },
+        ] as EngineDisagreement['variants'],
+      }),
+    ]
+    const { baseElement } = renderInline(items, seg([3]), { onAdopt, onEdit })
+    const adopt = Array.from(baseElement.querySelectorAll('button')).find((b) => b.textContent === '采用')!
+    fireEvent.click(adopt)
+    expect(onAdopt).toHaveBeenCalledWith(3, full, 'mineru', expect.any(String))
+
+    const edit = Array.from(baseElement.querySelectorAll('button')).find((b) => b.textContent?.includes('修改'))!
+    fireEvent.click(edit)
+    expect(onEdit).toHaveBeenCalledWith(3, full, expect.any(String))
+  })
+})

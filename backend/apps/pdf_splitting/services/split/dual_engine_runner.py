@@ -307,7 +307,16 @@ def disagreements_to_dicts(
             "kind": item.kind,
             "severity": item.severity,
             "variants": [
-                {"engine": variant.engine, "label": variant.label, "text": variant.text} for variant in item.variants
+                {
+                    "engine": variant.engine,
+                    "label": variant.label,
+                    # text 是摘要（带省略号），full_text 是完整原文。
+                    # 前端两件都要：摘要用于列表扫读，全文用于「看清再判断」与
+                    # 「按完整文本定位到正文块」（拿摘要去 includes 必然失败）。
+                    "text": variant.text,
+                    "full_text": variant.body,
+                }
+                for variant in item.variants
             ],
             "context": item.context,
             "anchor_hit": item.anchor_hit,

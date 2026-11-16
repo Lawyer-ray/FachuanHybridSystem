@@ -163,10 +163,30 @@ SEVERITY_LOW = "low"
 
 @dataclass(frozen=True)
 class EngineVariant:
-    """某引擎对同一处的识别结果。"""
+    """某引擎对同一处的识别结果。
+
+    ## 为什么既有 `text` 又有 `full_text`
+
+    `text` 是**摘要**（截到 120 字），列表里扫一眼够用；但它带着省略号，
+    前端拿它去正文块里做 `includes` 定位会**必然失败**（正文是完整文本），
+    表现为「点了采用/修改没反应」。
+
+    `full_text` 是这一行的完整原文。它让两件事成为可能：
+    1. 前端按完整文本定位到对应的正文块；
+    2. 律师在面板里能看到全文——不看清就没法判断哪一侧对。
+
+    体积代价可接受：实测 332 条分歧 × 2 侧 × 平均约 300 字 ≈ 200KB。
+    """
 
     engine: str
     text: str
+    #: 完整原文（不截断）。缺省时退回 `text`，兼容旧产物。
+    full_text: str = ""
+
+    @property
+    def body(self) -> str:
+        """取完整原文；旧产物没有 `full_text` 时退回摘要。"""
+        return self.full_text or self.text
 
     @property
     def label(self) -> str:
@@ -494,8 +514,8 @@ def _compare_pair(
                         kind=kind,
                         severity=severity,
                         variants=[
-                            EngineVariant(engine=left_name, text=_truncate(left_line)),
-                            EngineVariant(engine=right_name, text=_truncate(right_line)),
+                            EngineVariant(engine=left_name, text=_truncate(left_line), full_text=left_line),
+                            EngineVariant(engine=right_name, text=_truncate(right_line), full_text=right_line),
                         ],
                         context=_truncate(left_line if len(left_line) >= len(right_line) else right_line),
                         anchor_hit=anchor,
@@ -545,8 +565,8 @@ def _compare_pair(
                         kind=KIND_LINE,
                         severity=SEVERITY_HIGH,
                         variants=[
-                            EngineVariant(engine=left_name, text=_truncate(left_joined)),
-                            EngineVariant(engine=right_name, text=_truncate(right_joined)),
+                            EngineVariant(engine=left_name, text=_truncate(left_joined), full_text=left_joined),
+                            EngineVariant(engine=right_name, text=_truncate(right_joined), full_text=right_joined),
                         ],
                         context=_truncate(left_joined),
                         anchor_hit=_anchors_nearby(left_lines, i1) or _anchors_nearby(right_lines, j1),
@@ -565,7 +585,7 @@ def _compare_pair(
                         kind=KIND_MISSING,
                         severity=SEVERITY_LOW,
                         variants=[
-                            EngineVariant(engine=left_name, text=_truncate(left_line)),
+                            EngineVariant(engine=left_name, text=_truncate(left_line), full_text=left_line),
                             EngineVariant(engine=right_name, text=""),
                         ],
                         context=_truncate(left_line),
@@ -584,7 +604,7 @@ def _compare_pair(
                         severity=SEVERITY_LOW,
                         variants=[
                             EngineVariant(engine=left_name, text=""),
-                            EngineVariant(engine=right_name, text=_truncate(right_line)),
+                            EngineVariant(engine=right_name, text=_truncate(right_line), full_text=right_line),
                         ],
                         context=_truncate(right_line),
                         anchor_hit=_anchor_hit(right_line),

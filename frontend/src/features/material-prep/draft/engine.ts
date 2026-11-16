@@ -72,7 +72,7 @@ function readVariants(raw: unknown): EngineVariant[] {
     if (!item || typeof item !== 'object') continue
     const r = item as Record<string, unknown>
     if (!isEngine(r.engine)) continue
-    out.push({ engine: r.engine, text: str(r.text) })
+    out.push({ engine: r.engine, text: str(r.text), full_text: str(r.full_text) || undefined })
   }
   return out
 }
@@ -290,4 +290,15 @@ export function engineBlocksOfPage(
  */
 export function variantTextOf(d: EngineDisagreement, engine: EngineName): string {
   return d.variants.find((v) => v.engine === engine)?.text ?? ''
+}
+
+/**
+ * 该变体的**完整原文**（旧产物没有 `full_text` 时退回摘要）。
+ *
+ * 凡是「要拿去和正文块比对/写入」的地方都必须用这个，不能用 `variantTextOf`：
+ * 摘要是截断的（带 `…`），拿它去 `includes` 匹配完整正文必然失败。
+ */
+export function variantFullTextOf(d: EngineDisagreement, engine: EngineName): string {
+  const v = d.variants.find((x) => x.engine === engine)
+  return v?.full_text || v?.text || ''
 }
