@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { blockKeyOf } from '../../draft/block-keys'
-import type { EngineDisagreement, Segment } from '../../types'
+import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { BlockRow, WholeTextEditor } from './SegmentRow'
 import { EngineDisagreementsInline } from './EngineDisagreementsInline'
@@ -66,6 +66,8 @@ export function SegmentMarkdown({
   onToggleEngineChecked,
   onJumpEngine,
   onAdoptEngine,
+  onEditEngine,
+  inconsistencies = [],
 }: {
   seg: Segment | null
   /** 展开态由父级持有（右栏其它块共用同一个折叠开关，避免各自记住状态） */
@@ -102,7 +104,11 @@ export function SegmentMarkdown({
   engineChecked?: string[]
   onToggleEngineChecked?: (key: string, checked: boolean) => void
   onJumpEngine?: (pageNo: number, key: string) => void
-  onAdoptEngine?: (pageNo: number, text: string, engine: string) => void
+  onAdoptEngine?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  /** 「修改」：两侧都不对时进编辑态 */
+  onEditEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
+  /** 全卷不一致统计：用于「更推荐改成什么」 */
+  inconsistencies?: Inconsistency[]
 }) {
   // 正在编辑的那一行的 key；null = 全部只读
   const [editingKey, setEditingKey] = useState<string | null>(null)
@@ -231,6 +237,8 @@ export function SegmentMarkdown({
                       onJump={onJumpEngine}
                       onToggleChecked={onToggleEngineChecked}
                       onAdopt={onAdoptEngine}
+                      onEdit={onEditEngine}
+                      inconsistencies={inconsistencies}
                       heading={`P${b.page} 分歧`}
                     />
                   )}

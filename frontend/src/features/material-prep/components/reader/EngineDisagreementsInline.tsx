@@ -3,7 +3,8 @@ import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
 import { disagreementKindLabel, engineLabel, variantTextOf } from '../../draft'
 import { diffSegments } from '../../draft/text-diff'
-import type { EngineDisagreement, Segment } from '../../types'
+import { suggestionsOf, type EngineSuggestion } from '../../draft/engine-suggest'
+import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { cn } from '@/lib/utils'
 
 /**
@@ -40,6 +41,8 @@ export function EngineDisagreementsInline({
   onJump,
   onToggleChecked,
   onAdopt,
+  onEdit,
+  inconsistencies = [],
   heading,
   /** 按页分块时不再按段过滤（调用方已按页取好）——默认仍按 seg.refs 过滤 */
   skipSegmentFilter = false,
@@ -60,6 +63,10 @@ export function EngineDisagreementsInline({
    * 该分歧没匹配到块时为 null，调用方应退回整段编辑。
    */
   onAdopt?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  /** 「修改」：两侧都不对时进编辑态，预填主引擎文本作起点 */
+  onEdit?: (pageNo: number, text: string, disagreeKey?: string) => void
+  /** 全卷不一致统计：用于「更推荐改成什么」（只认 high 置信度） */
+  inconsistencies?: Inconsistency[]
   /** 标题文案。按页挂载时传「P4 分歧」，否则用默认的「本段识别分歧」 */
   heading?: string
   skipSegmentFilter?: boolean
@@ -117,6 +124,8 @@ export function EngineDisagreementsInline({
               onJump={onJump}
               onToggleChecked={onToggleChecked ? (v) => onToggleChecked(key, v) : undefined}
               onAdopt={onAdopt}
+              onEdit={onEdit}
+              inconsistencies={inconsistencies}
             />
           ))}
         </div>
@@ -133,14 +142,23 @@ function InlineRow({
   onJump,
   onToggleChecked,
   onAdopt,
+  onEdit,
+  inconsistencies = [],
 }: {
   item: EngineDisagreement
   itemKey: string
   checked: boolean
   onJump?: (pageNo: number, key: string) => void
   onToggleChecked?: (checked: boolean) => void
+  /** 「采用」：确认这一侧对，**直接写入**（不再进编辑态，那语义太绕） */
   onAdopt?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  /** 「修改」：两侧都不对时进编辑态，预填 TXT 作起点 */
+  onEdit?: (pageNo: number, text: string, disagreeKey?: string) => void
+  /** 全卷不一致统计：用来给「更推荐改成什么」的建议（只信 high） */
+  inconsistencies?: Inconsistency[]
 }) {
+  // 「更推荐改成什么」：只认 high 置信度的全卷低频变体，没有就空着（不猜）
+  const suggestions: Record<string, EngineSuggestion> = suggestionsOf(item, inconsistencies)
   return (
     <div
       data-engine-inline-row
@@ -232,7 +250,7 @@ function InlineRow({
                 <button
                   type="button"
                   onClick={() => onAdopt(item.page_no, text, v.engine, itemKey)}
-                  title={`用 ${engineLabel(v.engine)} 这版作为起点，改完再保存`}
+                  title={`确认 ${engineLabel(v.engine)} 这版是对的，直接写入正文`}
                   className="flex-none self-start rounded bg-card px-1 text-[10.5px] text-secondary-foreground hover:bg-secondary @[220px]:self-auto"
                 >
                   采用
@@ -241,6 +259,37 @@ function InlineRow({
             </div>
           )
         })}
+
+        {/* 推荐提示：只在高置信度命中全卷低频变体时出现。
+            「低频写法出现 3 次 / 高频写法出现 73 次」——后者大概率才对。
+            没有命中就整块不渲染，不给「可能」「疑似」这类含糊话。 */}
+        {Object.keys(suggestions).length > 0 && (
+          <div
+            data-engine-suggestion
+            className="mt-1 rounded bg-sky-50 px-1.5 py-1 text-[10.5px] leading-relaxed text-sky-900"
+          >
+            {Object.values(suggestions).map((sg) => (
+              <div key={sg.variant} className="break-words">
+                全卷里「{sg.canonical}」出现 {sg.canonicalCount} 次，「{sg.variant}」仅 {sg.variantCount} 次 ——
+                建议改成「<b className="font-medium">{sg.canonical}</b>」
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 修改：两侧都不对时走这里。采用是「确认这侧对」，修改是「都不对，我来写」。 */}
+        {onEdit && (
+          <div className="mt-1 flex justify-end">
+            <button
+              type="button"
+              onClick={() => onEdit(item.page_no, item.variants[0] ? variantTextOf(item, item.variants[0].engine) : '', itemKey)}
+              title="两个引擎都不对：进编辑态，以主引擎文本为起点改"
+              className="rounded bg-card px-1.5 text-[10.5px] text-secondary-foreground hover:bg-secondary"
+            >
+              ✎ 修改
+            </button>
+          </div>
+        )}
       </dl>
     </div>
   )

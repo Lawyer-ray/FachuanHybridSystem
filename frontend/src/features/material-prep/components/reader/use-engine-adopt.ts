@@ -23,11 +23,13 @@ import type { DraftState } from '../../types'
 export function useEngineAdopt(params: {
   draft: DraftState
   focusedSeg: number
+  /** 写入某块正文（`metaOps.editBlock`） */
+  editBlock: (si: number, key: string, text: string) => void
   onToggleChecked: (key: string, checked: boolean) => void
   onGotoPage: (si: number, pageNo: number) => void
   onOpenMd: () => void
 }) {
-  const { draft, focusedSeg, onToggleChecked, onGotoPage, onOpenMd } = params
+  const { draft, focusedSeg, editBlock, onToggleChecked, onGotoPage, onOpenMd } = params
 
   const [editRequest, setEditRequest] = useState<{
     key: string
@@ -37,23 +39,51 @@ export function useEngineAdopt(params: {
   /** 这次编辑由哪条分歧发起；保存后据此自动勾选 */
   const pendingCheckedKey = useRef<string | null>(null)
 
+  /** 定位：同页 + 块文本包含该引擎文本。找不到返回 null（宁可不改，也不写错块） */
+  const locate = useCallback(
+    (pageNo: number, text: string): { key: string; idx: number } | null => {
+      const seg = draft.segs[focusedSeg]
+      if (!seg?.blocks?.length) return null
+      const needle = text.trim()
+      if (!needle) return null
+      const idx = seg.blocks.findIndex((b) => b.page === pageNo && (b.text ?? '').includes(needle))
+      if (idx < 0) return null
+      return { key: blockKeyOf(seg, seg.blocks[idx]!, idx), idx }
+    },
+    [draft.segs, focusedSeg],
+  )
+
+  /**
+   * 「采用」：律师确认这一侧对 → **直接写入正文**，并标为已核对。
+   *
+   * 上一版把采用做成「进编辑态确认」，语义是错的：采用的是**明确表态**
+   * 「这版对」，不该再要一次确认；而「两侧都不对」有独立的「修改」入口。
+   */
   const adopt = useCallback(
     (pageNo: number, text: string, _engine: string, disagreeKey?: string) => {
-      const seg = draft.segs[focusedSeg]
-      if (!seg?.blocks?.length) return
-      const needle = text.trim()
-      if (!needle) return
-      // 定位口径与「采用」一致：同页 + 块文本包含该引擎文本。
-      // 找不到就不动——宁可不改，也不要把文字写到错误的块上。
-      const idx = seg.blocks.findIndex((b) => b.page === pageNo && (b.text ?? '').includes(needle))
-      if (idx < 0) return
-      const key = blockKeyOf(seg, seg.blocks[idx]!, idx)
+      const hit = locate(pageNo, text)
+      if (!hit) return
+      editBlock(focusedSeg, hit.key, text.trim())
+      if (disagreeKey) onToggleChecked(disagreeKey, true)
+      onGotoPage(focusedSeg, pageNo)
+    },
+    [locate, editBlock, focusedSeg, onToggleChecked, onGotoPage],
+  )
+
+  /**
+   * 「修改」：两侧都不对 → 进编辑态，预填主引擎文本作起点（改那几个字即可）。
+   * 保存后自动标为已核对（见 `commit`）。
+   */
+  const edit = useCallback(
+    (pageNo: number, text: string, disagreeKey?: string) => {
+      const hit = locate(pageNo, text)
+      if (!hit) return
       pendingCheckedKey.current = disagreeKey ?? null
-      setEditRequest({ key, seed: needle })
+      setEditRequest({ key: hit.key, seed: text.trim() })
       onOpenMd()
       onGotoPage(focusedSeg, pageNo)
     },
-    [draft.segs, focusedSeg, onGotoPage, onOpenMd],
+    [locate, focusedSeg, onGotoPage, onOpenMd],
   )
 
   /** 正文某行保存后调用：若这次编辑是分歧发起的，自动标为已核对 */
@@ -76,5 +106,5 @@ export function useEngineAdopt(params: {
     setEditRequest(req)
   }, [])
 
-  return { editRequest, adopt, commit, clearRequest, requestEdit }
+  return { editRequest, adopt, edit, commit, clearRequest, requestEdit }
 }

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
 import { docHintPagesOf, docTodosOf, graphicPagesOf } from '../../draft'
-import type { DraftState, EngineDisagreement, InfoField, PageQuality } from '../../types'
+import type { DraftState, EngineDisagreement, Inconsistency, InfoField, PageQuality } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
@@ -44,6 +44,8 @@ export function MetaPanel({
   onToggleEngineChecked,
   onJumpEngine,
   onAdoptEngine,
+  onEditEngine,
+  inconsistencies = [],
 }: {
   draft: DraftState
   /** 页级质量统计（旧任务没有）：用于正文面板顶部的「本段含图纸」提示 */
@@ -76,7 +78,11 @@ export function MetaPanel({
   onToggleEngineChecked?: (key: string, checked: boolean) => void
   onJumpEngine?: (pageNo: number, key: string) => void
   /** 采用某一侧引擎的文本写回正文 */
-  onAdoptEngine?: (pageNo: number, text: string, engine: string) => void
+  onAdoptEngine?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  /** 「修改」：两侧都不对时进编辑态，预填主引擎文本 */
+  onEditEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
+  /** 全卷不一致统计：用于「更推荐改成什么」 */
+  inconsistencies?: Inconsistency[]
 }) {
   const [showLib, setShowLib] = useState(false)
   // 栏宽可拖拽调整，跨会话记在 localStorage（纯显示偏好，不进草稿）
@@ -138,6 +144,8 @@ export function MetaPanel({
         onToggleEngineChecked={onToggleEngineChecked}
         onJumpEngine={onJumpEngine}
         onAdoptEngine={onAdoptEngine}
+        onEditEngine={onEditEngine}
+        inconsistencies={inconsistencies}
         onEditMarkdown={(md) => ops.editMarkdown(si, md)}
         onEditBlock={(key, text) => {
           ops.editBlock(si, key, text)

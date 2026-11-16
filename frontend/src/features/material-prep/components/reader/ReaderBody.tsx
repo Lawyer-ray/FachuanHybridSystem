@@ -181,9 +181,17 @@ export function ReaderBody({
    * 采用某一侧引擎文本 → 进编辑态预填 → 保存后自动勾选已核对。
    * 编排逻辑见 `use-engine-adopt.ts`（含「两侧都可能错」的设计理由）。
    */
-  const { editRequest, adopt: onAdoptEngineText, commit: onEditBlockApplied, clearRequest, requestEdit } = useEngineAdopt({
+  const {
+    editRequest,
+    adopt: onAdoptEngineText,
+    edit: onEditEngineText,
+    commit: onEditBlockApplied,
+    clearRequest,
+    requestEdit,
+  } = useEngineAdopt({
     draft,
     focusedSeg,
+    editBlock: metaOps.editBlock,
     onToggleChecked: onToggleEngineChecked,
     onGotoPage: onGotoSegmentPage,
     onOpenMd: () => setMdOpen(true),
@@ -370,6 +378,8 @@ export function ReaderBody({
             onToggleEngineChecked={onToggleEngineChecked}
             onJumpEngine={onJumpEngineDisagreement}
             onAdoptEngine={onAdoptEngineText}
+            onEditEngine={onEditEngineText}
+            inconsistencies={inconsistencies}
           />
         </div>
       </div>
