@@ -143,3 +143,49 @@ describe('EngineDisagreementsInline', () => {
     expect(row.className).toContain('@[220px]:flex-row')
   })
 })
+
+describe('EngineDisagreementsInline：差异高亮与双击定位', () => {
+  it('只高亮归一化后仍有差异的字（纯标点差异不高亮）', () => {
+    const items = [
+      dis({
+        variants: [
+          { engine: 'mineru', text: '客户姓名:张甲某 余额1208元', label: 'MinerU' },
+          { engine: 'paddleocr_vl', text: '客户姓名：张甲某 余额1208元', label: 'PaddleOCR-VL' },
+        ] as EngineDisagreement['variants'],
+      }),
+    ]
+    const { baseElement } = renderInline(items, seg([3]))
+    // 只有全半角冒号不同 → 一个 mark 都不该有
+    expect(baseElement.querySelectorAll('mark[data-diff-changed]')).toHaveLength(0)
+  })
+
+  it('真错字用 mark 标出来', () => {
+    const items = [
+      dis({
+        variants: [
+          { engine: 'mineru', text: '张甲某贷款余额1208元', label: 'MinerU' },
+          { engine: 'paddleocr_vl', text: '张乙某贷款余额1208元', label: 'PaddleOCR-VL' },
+        ] as EngineDisagreement['variants'],
+      }),
+    ]
+    const { baseElement } = renderInline(items, seg([3]))
+    const marks = Array.from(baseElement.querySelectorAll('mark[data-diff-changed]'))
+    expect(marks.length).toBeGreaterThan(0)
+    expect(marks.map((m) => m.textContent).join('')).toContain('甲')
+  })
+
+  it('双击整行触发 onJump（跳到原页 + 画框 + 滚到坐标）', () => {
+    const onJump = vi.fn()
+    const items = [dis()]
+    const keys = uniqueDisagreementKeys(items)
+    const { baseElement } = renderInline(items, seg([3]), { onJump })
+    fireEvent.doubleClick(baseElement.querySelector('[data-engine-inline-row]')!)
+    expect(onJump).toHaveBeenCalledWith(3, keys[0])
+  })
+
+  it('行上有可双击的提示（title），律师能发现这个入口', () => {
+    const { baseElement } = renderInline([dis()], seg([3]), { onJump: vi.fn() })
+    const row = baseElement.querySelector('[data-engine-inline-row]')!
+    expect(row.getAttribute('title')).toContain('双击')
+  })
+})

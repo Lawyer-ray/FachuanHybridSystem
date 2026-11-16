@@ -331,6 +331,10 @@ def _truncate(text: str, limit: int = _CONTEXT_MAX_CHARS) -> str:
     不压就白占预算。
     """
     raw = _TAG_ANY_RE.sub(" ", str(text or ""))
+    # 字面量 ``\n``（反斜杠 + n）来自 PaddleOCR-VL：它把换行写成了转义序列，
+    # 没有真换成 0x0A。不转掉的话律师看到的是 ``逾期本金:\n654.52元``，
+    # 会以为那是识别出来的字符——实测 12 条 high 全部带着这个噪声。
+    raw = raw.replace("\\n", " ").replace("\\t", " ")
     raw = re.sub(r"\s+", " ", raw).strip()
     return raw if len(raw) <= limit else raw[: limit - 1] + "…"
 

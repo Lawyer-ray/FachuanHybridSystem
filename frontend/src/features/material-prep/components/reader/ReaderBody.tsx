@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
 import { groupBySeverity, uniqueDisagreementKeys } from '../../draft'
 import { blockKeyOf } from '../../draft/block-keys'
+import { scrollToEngineRects } from './scroll-to-rect'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
 import { DocTodoDrawer } from './DocTodoDrawer'
@@ -228,8 +229,17 @@ export function ReaderBody({
       // 不是一回事，拿它索引会高亮到别的条目上。键是内容派生的，不受排序影响。
       setEngineActiveKey(key)
       onGotoAnyPage(pageNo)
+
+      // 再滚到**框的位置**（不只是页顶）：一页上千像素高，只到页顶等于没定位。
+      // 没有块坐标时（约 11%）该函数直接返回，保持「只跳页」不伪造精度。
+      const item = engineDisagreements.find((d, i) => engineKeys[i] === key)
+      const si = draft.segs.findIndex((sg) => sg.refs.some((r) => r.p === pageNo))
+      if (si < 0) return
+      const ref = draft.segs[si]!.refs.find((r) => r.p === pageNo)
+      if (!ref) return
+      scrollToEngineRects(ref.mi, ref.p, item?.blocks ?? [])
     },
-    [onGotoAnyPage],
+    [onGotoAnyPage, engineDisagreements, engineKeys, draft.segs],
   )
 
   const onLocateBlock = useCallback((key: string | null) => {

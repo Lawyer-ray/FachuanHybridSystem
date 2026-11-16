@@ -239,3 +239,18 @@ def test_results_sorted_by_severity_high_first() -> None:
     assert [item.severity for item in result] == [SEVERITY_HIGH, SEVERITY_MEDIUM, SEVERITY_LOW]
     assert [item.page_no for item in result] == [3, 1, 2]
     assert all(isinstance(item, EngineDisagreement) for item in result)
+
+
+def test_truncate_decodes_literal_backslash_n() -> None:
+    """字面量 ``\\n``（反斜杠 + n）必须解码成空格。
+
+    PaddleOCR-VL 会把换行写进字符串时留下转义序列而不是真 0x0A，不转掉的话
+    律师看到的是「逾期本金:\\n654.52元」，会以为那是识别出来的字符。
+    实测 164 页卷宗的 12 条带此噪声的分歧**全部**被判成了 high。
+    """
+    from apps.pdf_splitting.services.split.dual_engine import _truncate
+
+    assert _truncate("逾期本金:\\n654.52元") == "逾期本金: 654.52元"
+    assert _truncate("甲\\t乙") == "甲 乙"
+    # 正常文本不受影响
+    assert _truncate("客户姓名：曾某某") == "客户姓名：曾某某"

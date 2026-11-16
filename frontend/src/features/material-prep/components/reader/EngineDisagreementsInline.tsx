@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
 import { disagreementKindLabel, engineLabel, variantTextOf } from '../../draft'
+import { diffSegments } from '../../draft/text-diff'
 import type { EngineDisagreement, Segment } from '../../types'
 import { cn } from '@/lib/utils'
 
@@ -144,9 +145,15 @@ function InlineRow({
     <div
       data-engine-inline-row
       data-checked={checked ? 'true' : undefined}
+      // 双击整行 = 「带我去本体」：跳页 + 画双框 + 滚到框的位置。
+      // 与「第N页」按钮的分工：单击那个按钮只是「先看看那页」，
+      // 双击是「直接定位到出问题的地方」，两个粒度。
+      onDoubleClick={() => onJump?.(item.page_no, itemKey)}
+      title="双击定位到原页并画出两个引擎的框"
       className={cn(
-        'rounded-lg border px-2 py-1.5 transition-colors',
+        'cursor-pointer rounded-lg border px-2 py-1.5 transition-colors',
         checked ? 'border-zinc-200 bg-card opacity-50' : 'border-amber-200 bg-amber-50/40',
+        'hover:border-amber-300',
       )}
     >
       <div className="flex items-baseline gap-1.5 text-[11.5px] leading-relaxed">
@@ -181,6 +188,11 @@ function InlineRow({
       <dl className="mt-1 flex flex-col gap-0.5">
         {item.variants.map((v) => {
           const text = variantTextOf(item, v.engine)
+          // 另一侧引擎的文本：用来算「本侧哪几个字不同」。
+          // 只高亮归一化后仍有差异的位置——纯全半角标点差异不标，
+          // 否则一屏冒号高亮把真错字淹掉（实测第 1 页那条 high 就是 12 处冒号）。
+          const other = variantTextOf(item, item.variants.find((x) => x.engine !== v.engine)?.engine ?? '')
+          const parts = diffSegments(text, other)
           return (
             <div
               key={v.engine}
@@ -198,7 +210,23 @@ function InlineRow({
                   !text.trim() && 'text-muted-foreground',
                 )}
               >
-                {text.trim() || '（无此行）'}
+                {text.trim() ? (
+                  parts.map((seg, si) =>
+                    seg.changed ? (
+                      <mark
+                        key={si}
+                        data-diff-changed
+                        className="rounded bg-amber-200/80 px-0.5 font-medium text-amber-950"
+                      >
+                        {seg.text}
+                      </mark>
+                    ) : (
+                      <span key={si}>{seg.text}</span>
+                    ),
+                  )
+                ) : (
+                  '（无此行）'
+                )}
               </dd>
               {onAdopt && text.trim() && (
                 <button
