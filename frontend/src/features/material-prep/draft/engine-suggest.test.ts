@@ -21,8 +21,8 @@ function dis(texts: [string, string]): EngineDisagreement {
     kind: 'char',
     severity: 'high',
     variants: [
-      { engine: 'mineru', text: texts[0], label: 'MinerU' },
-      { engine: 'paddleocr_vl', text: texts[1], label: 'PaddleOCR-VL' },
+      { engine: 'mineru', text: texts[0] },
+      { engine: 'paddleocr_vl', text: texts[1] },
     ] as EngineDisagreement['variants'],
     context: '',
     anchor_hit: false,

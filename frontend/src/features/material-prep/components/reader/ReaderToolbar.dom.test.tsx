@@ -366,6 +366,7 @@ describe('ReaderBody：自动分段进度面板接线', () => {
         narrow={false}
         railOpen={false}
         metaOpen={false}
+        onOpenMeta={vi.fn()}
         onCollapsePanels={vi.fn()}
         railWrapCls=""
         metaWrapCls=""

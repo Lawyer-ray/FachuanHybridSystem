@@ -251,7 +251,7 @@ export function ReaderBody({
 
       // 再滚到**框的位置**（不只是页顶）：一页上千像素高，只到页顶等于没定位。
       // 没有块坐标时（约 11%）该函数直接返回，保持「只跳页」不伪造精度。
-      const item = engineDisagreements.find((d, i) => engineKeys[i] === key)
+      const item = engineDisagreements.find((_, i) => engineKeys[i] === key)
       const si = draft.segs.findIndex((sg) => sg.refs.some((r) => r.p === pageNo))
       if (si < 0) return
       const ref = draft.segs[si]!.refs.find((r) => r.p === pageNo)

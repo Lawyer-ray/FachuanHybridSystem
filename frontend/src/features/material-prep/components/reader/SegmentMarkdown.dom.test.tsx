@@ -465,8 +465,8 @@ describe('SegmentMarkdown：分歧按页挂载', () => {
       kind: 'char',
       severity: 'high',
       variants: [
-        { engine: 'mineru', text: '记 A', label: 'MinerU' },
-        { engine: 'paddleocr_vl', text: '记 B', label: 'PaddleOCR-VL' },
+        { engine: 'mineru', text: '记 A' },
+        { engine: 'paddleocr_vl', text: '记 B' },
       ] as EngineDisagreement['variants'],
       context: 'ctx',
       anchor_hit: false,

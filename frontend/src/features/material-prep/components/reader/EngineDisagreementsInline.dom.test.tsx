@@ -32,8 +32,8 @@ function dis(over: Partial<EngineDisagreement> = {}): EngineDisagreement {
     kind: 'char',
     severity: 'high',
     variants: [
-      { engine: 'mineru', text: '示例甲', label: 'MinerU' },
-      { engine: 'paddleocr_vl', text: '示例乙', label: 'PaddleOCR-VL' },
+      { engine: 'mineru', text: '示例甲' },
+      { engine: 'paddleocr_vl', text: '示例乙' },
     ] as EngineDisagreement['variants'],
     context: '借款人',
     anchor_hit: false,
@@ -106,8 +106,8 @@ describe('EngineDisagreementsInline', () => {
       dis({
         kind: 'missing',
         variants: [
-          { engine: 'mineru', text: '', label: 'MinerU' },
-          { engine: 'paddleocr_vl', text: '只有这侧有', label: 'PaddleOCR-VL' },
+          { engine: 'mineru', text: '' },
+          { engine: 'paddleocr_vl', text: '只有这侧有' },
         ] as EngineDisagreement['variants'],
       }),
     ]
@@ -149,8 +149,8 @@ describe('EngineDisagreementsInline：差异高亮与双击定位', () => {
     const items = [
       dis({
         variants: [
-          { engine: 'mineru', text: '客户姓名:张甲某 余额1208元', label: 'MinerU' },
-          { engine: 'paddleocr_vl', text: '客户姓名：张甲某 余额1208元', label: 'PaddleOCR-VL' },
+          { engine: 'mineru', text: '客户姓名:张甲某 余额1208元' },
+          { engine: 'paddleocr_vl', text: '客户姓名：张甲某 余额1208元' },
         ] as EngineDisagreement['variants'],
       }),
     ]
@@ -163,8 +163,8 @@ describe('EngineDisagreementsInline：差异高亮与双击定位', () => {
     const items = [
       dis({
         variants: [
-          { engine: 'mineru', text: '张甲某贷款余额1208元', label: 'MinerU' },
-          { engine: 'paddleocr_vl', text: '张乙某贷款余额1208元', label: 'PaddleOCR-VL' },
+          { engine: 'mineru', text: '张甲某贷款余额1208元' },
+          { engine: 'paddleocr_vl', text: '张乙某贷款余额1208元' },
         ] as EngineDisagreement['variants'],
       }),
     ]
@@ -196,8 +196,8 @@ describe('EngineDisagreementsInline：全文与折叠', () => {
     const items = [
       dis({
         variants: [
-          { engine: 'mineru', text: '甲'.repeat(120) + '…', full_text: full, label: 'MinerU' },
-          { engine: 'paddleocr_vl', text: '乙'.repeat(120) + '…', full_text: '乙'.repeat(300), label: 'PaddleOCR-VL' },
+          { engine: 'mineru', text: '甲'.repeat(120) + '…', full_text: full },
+          { engine: 'paddleocr_vl', text: '乙'.repeat(120) + '…', full_text: '乙'.repeat(300) },
         ] as EngineDisagreement['variants'],
       }),
     ]
@@ -211,8 +211,8 @@ describe('EngineDisagreementsInline：全文与折叠', () => {
     const items = [
       dis({
         variants: [
-          { engine: 'mineru', text: '摘要…', full_text: 'A'.repeat(300), label: 'MinerU' },
-          { engine: 'paddleocr_vl', text: '摘要…', full_text: 'B'.repeat(300), label: 'PaddleOCR-VL' },
+          { engine: 'mineru', text: '摘要…', full_text: 'A'.repeat(300) },
+          { engine: 'paddleocr_vl', text: '摘要…', full_text: 'B'.repeat(300) },
         ] as EngineDisagreement['variants'],
       }),
     ]
@@ -231,8 +231,8 @@ describe('EngineDisagreementsInline：全文与折叠', () => {
     const items = [
       dis({
         variants: [
-          { engine: 'mineru', text: '完整的正文…', full_text: full, label: 'MinerU' },
-          { engine: 'paddleocr_vl', text: '另一侧…', full_text: full + 'X', label: 'PaddleOCR-VL' },
+          { engine: 'mineru', text: '完整的正文…', full_text: full },
+          { engine: 'paddleocr_vl', text: '另一侧…', full_text: full + 'X' },
         ] as EngineDisagreement['variants'],
       }),
     ]
