@@ -14,7 +14,7 @@ import { fireEvent, render, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { EngineDisagreement } from '../../types'
-import { disagreementKey } from '../../draft'
+import { disagreementKey, uniqueDisagreementKeys } from '../../draft'
 import { EngineDisagreementDrawer } from './EngineDisagreementDrawer'
 
 function item(over: Partial<EngineDisagreement> = {}): EngineDisagreement {
@@ -37,7 +37,10 @@ function renderDrawer(
   items: EngineDisagreement[],
   over: Partial<Parameters<typeof EngineDisagreementDrawer>[0]> = {},
 ) {
-  return render(<EngineDisagreementDrawer open onOpenChange={vi.fn()} items={items} {...over} />)
+  // keys 与 items 一一对应（生产里由 ReaderBody 用 uniqueDisagreementKeys 算好）
+  return render(
+    <EngineDisagreementDrawer open onOpenChange={vi.fn()} items={items} keys={uniqueDisagreementKeys(items)} {...over} />,
+  )
 }
 
 function rows(baseElement: HTMLElement): HTMLElement[] {
@@ -82,15 +85,30 @@ describe('EngineDisagreementDrawer', () => {
     expect(rows(baseElement).map((r) => r.textContent ?? '').join()).toContain('低危条目')
   })
 
-  it('点一条回调 onJump(pageNo, index)，index 是它在**本组内**的位置', () => {
+  it('点一条回调 onJump(pageNo, 唯一键)，而不是组内下标', () => {
     const onJump = vi.fn()
-    // 两个中危：组内位置分别是 0 和 1（与列表呈现顺序一致，供页面侧高亮对上）
-    const { baseElement } = renderDrawer(
-      [item({ severity: 'medium', page_no: 31 }), item({ severity: 'medium', page_no: 44 })],
-      { onJump },
-    )
+    const a = item({ severity: 'medium', page_no: 31 })
+    const b = item({ severity: 'medium', page_no: 44 })
+    const { baseElement } = renderDrawer([a, b], { onJump })
     fireEvent.click(within(baseElement).getByText('第44页'))
-    expect(onJump).toHaveBeenCalledWith(44, 1)
+    // 传的是 b 自己的唯一键：分组重排也不会指错条目
+    expect(onJump).toHaveBeenCalledWith(44, uniqueDisagreementKeys([a, b])[1])
+  })
+
+  it('同一页两条：点第二条跳的是第二条的键，不是第一条', () => {
+    // 这是「点了没反应」的根因回归：旧实现按页号 find，一页多条永远命中第一条
+    const onJump = vi.fn()
+    const same = { page_no: 72, severity: 'high' as const, variants: [{ engine: 'mineru', text: '' }, { engine: 'paddleocr_vl', text: '' }] }
+    const a = item({ ...same })
+    const b = item({ ...same })
+    const keys = uniqueDisagreementKeys([a, b])
+    expect(keys[0]).not.toBe(keys[1]) // 裸键撞车，靠唯一键区分
+    const { baseElement } = renderDrawer([a, b], { onJump })
+    const rowEls = rows(baseElement)
+    expect(rowEls).toHaveLength(2)
+    // 两条都在第 72 页，按钮文案相同（「第72页」），只能按行取
+    fireEvent.click(within(rowEls[1]!).getByRole('button', { name: '第72页' }))
+    expect(onJump).toHaveBeenCalledWith(72, keys[1])
   })
 
   it('勾「已核对」回调键与布尔值，且该条置灰、计数减少', () => {
@@ -105,6 +123,7 @@ describe('EngineDisagreementDrawer', () => {
         open
         onOpenChange={vi.fn()}
         items={[d]}
+        keys={uniqueDisagreementKeys([d])}
         checked={[disagreementKey(d)]}
         onToggleChecked={onToggleChecked}
       />,

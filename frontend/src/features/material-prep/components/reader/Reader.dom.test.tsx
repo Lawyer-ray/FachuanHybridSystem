@@ -56,6 +56,17 @@ vi.mock('../../draft', () => ({
   matLabel: (m: { n: string }) => m.n,
   // 引擎分歧相关的两个纯函数：ReaderBody 每次渲染都要调，桩成最小可用行为
   disagreementKey: (d: { page_no: number; kind: string }) => `${d.page_no}:${d.kind}`,
+  uniqueDisagreementKey: (d: { page_no: number; kind: string }, n: number) =>
+    n > 0 ? `${d.page_no}:${d.kind}#${n}` : `${d.page_no}:${d.kind}`,
+  uniqueDisagreementKeys: (list: Array<{ page_no: number; kind: string }>) => {
+    const seen = new Map<string, number>()
+    return list.map((d) => {
+      const base = `${d.page_no}:${d.kind}`
+      const n = seen.get(base) ?? 0
+      seen.set(base, n + 1)
+      return n > 0 ? `${base}#${n}` : base
+    })
+  },
   groupBySeverity: (list: unknown[]) => ({ high: [], medium: [], low: [], unchecked: list.length }),
 }))
 const mediaMock = vi.hoisted(() => ({ narrow: false }))

@@ -79,6 +79,8 @@ export {
   engineShortLabel,
   engineBlocksOfPage,
   disagreementKey,
+  uniqueDisagreementKey,
+  uniqueDisagreementKeys,
   disagreementKindLabel,
   groupBySeverity,
   sortDisagreements,

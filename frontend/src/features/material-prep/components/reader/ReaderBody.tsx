@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
-import { disagreementKey, groupBySeverity } from '../../draft'
+import { groupBySeverity, uniqueDisagreementKeys } from '../../draft'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
 import { DocTodoDrawer } from './DocTodoDrawer'
@@ -134,8 +134,16 @@ export function ReaderBody({
   const [engineActiveKey, setEngineActiveKey] = useState<string | null>(null)
   // 引用稳定：下面 onJumpEngineDisagreement 依赖它，每次渲染新建空数组会让回调恒变
   const engineDisagreements = useMemo(() => draft.engineDisagreements ?? [], [draft.engineDisagreements])
+  // 「一条一份」的唯一键。不能用裸 `disagreementKey`：同一页内容相近的几条
+  // 会算出同一个键（实测 332 条里有 9 组共 27 条撞车），勾选与高亮都会串。
+  const engineKeys = useMemo(() => uniqueDisagreementKeys(engineDisagreements), [engineDisagreements])
+  const engineKeyToIndex = useMemo(() => {
+    const m = new Map<string, number>()
+    engineKeys.forEach((k, i) => m.set(k, i))
+    return m
+  }, [engineKeys])
   const engineFocus = engineActiveKey
-    ? (engineDisagreements.find((d) => disagreementKey(d) === engineActiveKey) ?? null)
+    ? (engineDisagreements[engineKeyToIndex.get(engineActiveKey) ?? -1] ?? null)
     : null
   // 左栏徽标只数未核对的：核完的条目仍然留在清单里置灰可查，但不该再催律师
   const engineUnchecked = groupBySeverity(engineDisagreements, new Set(draft.engineChecked ?? [])).unchecked
@@ -206,12 +214,20 @@ export function ReaderBody({
    * 抽屉**不关**：律师要一边看清单一边对原件，关掉就得多点一次再打开。
    */
   const onJumpEngineDisagreement = useCallback(
-    (pageNo: number) => {
-      const target = engineDisagreements.find((d) => d.page_no === pageNo)
-      if (target) setEngineActiveKey(disagreementKey(target))
+    (pageNo: number, key: string) => {
+      // ⚠ 必须用抽屉传下来的**唯一键**，既不能按页号 `find`、也不能用下标。
+      //
+      // 旧实现是 `engineDisagreements.find(d => d.page_no === pageNo)`：一页只有
+      // 一条分歧时看不出问题，但一页有多条时永远命中第一条。拿真实 164 页卷宗
+      // 的 332 条分歧统计：127 个有分歧的页里 74 页是 2 条以上，共 279 条（84%）
+      // 无法被单独定位——点第 34 条和第 1 条效果一样，律师看到的就是「点了没反应」。
+      //
+      // 也不能用下标：抽屉里的分组会按严重度重排，组内下标与这里的全局下标
+      // 不是一回事，拿它索引会高亮到别的条目上。键是内容派生的，不受排序影响。
+      setEngineActiveKey(key)
       onGotoAnyPage(pageNo)
     },
-    [engineDisagreements, onGotoAnyPage],
+    [onGotoAnyPage],
   )
 
   const onLocateBlock = useCallback((key: string | null) => {
@@ -324,6 +340,7 @@ export function ReaderBody({
         open={engineDrawerOpen}
         onOpenChange={setEngineDrawerOpen}
         items={engineDisagreements}
+        keys={engineKeys}
         checked={draft.engineChecked ?? []}
         activeKey={engineActiveKey}
         onJump={onJumpEngineDisagreement}

@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 import {
-  disagreementKey,
   disagreementKindLabel,
   engineLabel,
   groupBySeverity,
@@ -42,6 +41,7 @@ export function EngineDisagreementDrawer({
   open,
   onOpenChange,
   items,
+  keys,
   checked = [],
   activeKey = null,
   onJump,
@@ -51,12 +51,20 @@ export function EngineDisagreementDrawer({
   onOpenChange: (open: boolean) => void
   /** 已完成字段校验的分歧清单（来源见 draft/engine.readEngineDisagreements） */
   items: EngineDisagreement[]
+  /**
+   * 与 `items` 一一对应的「一条一份」唯一键（`uniqueDisagreementKeys`）。
+   *
+   * 不能在这里用裸 `disagreementKey` 现算：同一页内容相近的两三条会算出同一个键，
+   * 勾选会连带、跳转会串到第一条（实测 332 条里 9 组共 27 条撞车）。
+   * 由上层算好传下来，保证抽屉内的 key 与 `ReaderBody` 定位用的 key 是同一批。
+   */
+  keys: string[]
   /** 已核对的分歧键（`disagreementKey`） */
   checked?: string[]
   /** 当前在页面上高亮着的那一条（点过之后保持亮，方便眼睛在清单与页面间来回对） */
   activeKey?: string | null
   /** 点一条：跳到该页并画双框 */
-  onJump?: (pageNo: number, index: number) => void
+  onJump?: (pageNo: number, key: string) => void
   /** 勾/取消「已核对」；不传则不显示勾选框 */
   onToggleChecked?: (key: string, checked: boolean) => void
 }) {
@@ -65,13 +73,22 @@ export function EngineDisagreementDrawer({
   const checkedSet = new Set(checked)
   const groups = groupBySeverity(items, checkedSet)
 
-  const renderRow = (d: EngineDisagreement, index: number) => {
-    const key = disagreementKey(d)
+  // 分组会按严重度**重排**，所以不能拿分组里的下标去索引 `keys`（那份与 items 同序）。
+  // 用对象引用做 Map 的键：items 里每个元素都是同一个对象实例，分组只是重新装箱，
+  // 引用不变，因此能稳定查回它自己的唯一键。
+  const keyOfItem = new Map<EngineDisagreement, string>()
+  items.forEach((d, i) => {
+    const k = keys[i]
+    if (k) keyOfItem.set(d, k)
+  })
+
+  const renderRow = (d: EngineDisagreement, i: number) => {
+    const key = keyOfItem.get(d) ?? `${d.page_no}:${d.kind}:${i}`
     return (
       <DisagreementRow
         key={key}
         item={d}
-        index={index}
+        itemKey={key}
         checked={checkedSet.has(key)}
         active={activeKey === key}
         onJump={onJump}
@@ -162,18 +179,22 @@ function Group({
 /** 一条分歧：页码 + 类型 + 锚点标签 + 两个引擎的文本并列 + 已核对勾选 */
 function DisagreementRow({
   item,
-  index,
+  itemKey,
   checked,
   active,
   onJump,
   onToggleChecked,
 }: {
   item: EngineDisagreement
-  /** 在清单里的位置（跳转回调要它，页面侧据此高亮） */
-  index: number
+  /** 这条分歧的**唯一键**（`uniqueDisagreementKeys` 算出）。
+   *
+   * 跳转回调必须传键而不是下标：分组会按严重度重排，组内下标与 `items` 里的
+   * 全局下标不是一回事，拿组内下标去索引全局数组会高亮到别的条目上。
+   * 键是内容派生的，与排序无关，天然不会错位。 */
+  itemKey: string
   checked: boolean
   active: boolean
-  onJump?: (pageNo: number, index: number) => void
+  onJump?: (pageNo: number, key: string) => void
   onToggleChecked?: (checked: boolean) => void
 }) {
   const rows: { engine: EngineName; text: string }[] = item.variants.map((v) => ({
@@ -204,7 +225,7 @@ function DisagreementRow({
         <button
           type="button"
           disabled={!onJump}
-          onClick={() => onJump?.(item.page_no, index)}
+          onClick={() => onJump?.(item.page_no, itemKey)}
           title="跳到这一页，同时画出两个引擎的框"
           className={cn(
             'flex-none rounded px-1 text-[11px] tabular-nums',
