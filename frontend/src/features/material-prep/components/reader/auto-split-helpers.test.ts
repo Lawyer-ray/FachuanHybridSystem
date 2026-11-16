@@ -27,6 +27,8 @@ import {
   jobSnapshotOf,
   pipelineProgressPct,
   pollJob,
+  ruleSegmentCountOf,
+  segmentBackendNote,
   segmentBackendOf,
 } from './auto-split-helpers'
 
@@ -219,6 +221,118 @@ describe('formatElapsed / blocksToMarkdown', () => {
   it('OCR 块只拼文字：空块被丢掉，不产出空行', () => {
     expect(blocksToMarkdown(undefined)).toBe('')
     expect(blocksToMarkdown([{ text: '第一行' }, { text: '  ' }, { text: '第二行' }])).toBe('第一行\n第二行')
+  })
+})
+
+/**
+ * P3-4：图片旁路的阅读顺序。引擎返回的块序不保证是阅读序（手机拍照证据尤其乱），
+ * 直接 join 会把上下行、左右块交错在一起——律师拿到的正文读不通，下游 AI 更读不通。
+ */
+describe('blocksToMarkdown：按坐标重建阅读顺序', () => {
+  /** 造一个归一化坐标块（x/y/w/h 都是 0-1） */
+  const b = (text: string, x: number, y: number, w = 0.4, h = 0.04) => ({ text, x, y, w, h })
+
+  it('乱序输入按 y 分行、行内按 x 排（不是按返回序）', () => {
+    const out = blocksToMarkdown([
+      b('第二行左', 0.1, 0.2),
+      b('第一行右', 0.5, 0.1),
+      b('第二行右', 0.5, 0.2),
+      b('第一行左', 0.1, 0.1),
+    ])
+    expect(out).toBe('第一行左 第一行右\n第二行左 第二行右')
+  })
+
+  it('y 有轻微抖动仍归同一行（拍照倾斜/识别框不齐）', () => {
+    const out = blocksToMarkdown([b('左', 0.1, 0.1), b('右', 0.6, 0.112), b('下一行', 0.1, 0.2)])
+    expect(out).toBe('左 右\n下一行')
+  })
+
+  it('行距明显时分行，不会把整页拍成一行', () => {
+    const out = blocksToMarkdown([b('一', 0.1, 0.1), b('二', 0.1, 0.16), b('三', 0.1, 0.22)])
+    expect(out).toBe('一\n二\n三')
+  })
+
+  it('多栏同一 y 上的块按 x 从左到右（栏检测不在本次范围，行为要确定）', () => {
+    const out = blocksToMarkdown([b('右栏首行', 0.55, 0.1), b('左栏首行', 0.05, 0.1), b('左栏次行', 0.05, 0.16)])
+    expect(out).toBe('左栏首行 右栏首行\n左栏次行')
+  })
+
+  it('坐标不全 / 非法时不猜阅读序，保持返回序', () => {
+    expect(blocksToMarkdown([{ text: '甲' }, { text: '乙', x: 0.1, y: 0.2 }])).toBe('甲\n乙')
+    expect(blocksToMarkdown([b('甲', 0.1, Number.NaN), b('乙', 0.1, 0.2)])).toBe('甲\n乙')
+  })
+
+  it('空块与全空白坐标块都丢掉，不产出空行', () => {
+    expect(blocksToMarkdown([b('  ', 0.1, 0.1), b('正文', 0.1, 0.2), b('', 0.1, 0.3)])).toBe('正文')
+    expect(blocksToMarkdown([])).toBe('')
+  })
+})
+
+/**
+ * P1-9：后端把 summary.segment_backend 写诚实了（全 llm→llm、有规则批→mixed、
+ * 全规则→rule）。前端必须认 mixed，并把「几段是规则兜的」说出来——
+ * 宁可说规则，也不能把规则引擎说成 LLM。
+ */
+describe('segmentBackendOf / segmentBackendNote：mixed 三态', () => {
+  it('mixed 原样透出（不再被当成非 llm 就整份说成规则）', () => {
+    expect(segmentBackendOf({ summary: { segment_backend: 'mixed' } })).toBe('mixed')
+  })
+
+  it('全 llm 说律所 AI；全 rule / 缺失说规则引擎', () => {
+    expect(segmentBackendNote(['llm', 'llm'], 0)).toBe('律所 AI 分段')
+    expect(segmentBackendNote(['rule'], 3)).toBe('规则引擎分段（律所 AI 不可用）；3 段为规则分段请重点复核')
+    expect(segmentBackendNote([''], 0)).toBe('规则引擎分段（律所 AI 不可用）')
+    expect(segmentBackendNote([], 0)).toBe('')
+  })
+
+  it('mixed 说混合分段并报出规则段数（律师据此重点复核）', () => {
+    expect(segmentBackendNote(['mixed'], 4)).toBe('律所 AI 与规则引擎混合分段；4 段为规则分段请重点复核')
+    expect(segmentBackendNote(['llm', 'mixed'], 2)).toBe('1/2 律所 AI 分段，其余含规则引擎；2 段为规则分段请重点复核')
+    expect(segmentBackendNote(['llm', 'rule'], 5)).toBe('1/2 律所 AI 分段，其余含规则引擎；5 段为规则分段请重点复核')
+  })
+
+  it('规则段数按段级 source_method 算；summary 说全规则但一个标记都没有时按整批计', () => {
+    const segs = [{ source_method: 'llm' }, { source_method: 'rule' }, { source_method: 'rule' }]
+    expect(ruleSegmentCountOf('mixed', segs)).toBe(2)
+    expect(ruleSegmentCountOf('llm', segs)).toBe(2)
+    expect(ruleSegmentCountOf('rule', [{}, {}])).toBe(2)
+    // 来源不明时不猜成规则（宁可少报，也不把 LLM 分段说成规则）
+    expect(ruleSegmentCountOf('', [{}, {}])).toBe(0)
+    expect(ruleSegmentCountOf('mixed', [{ source_method: 'llm' }])).toBe(0)
+  })
+
+  /**
+   * 规则引擎不止产出 'rule'：segment_detector.py 还会给 layout_title / rule_weak_only /
+   * rule_adjacent_start / rule_merged_adjacent / gap_fill。只认 'rule' 会少报复核段数，
+   * 律师以为只有几段要看——这正是本条要防的回归。
+   */
+  it('规则引擎的多种 source_method 全部计入（不只 rule）', () => {
+    const ruleMethods = ['rule', 'layout_title', 'rule_weak_only', 'rule_adjacent_start', 'rule_merged_adjacent', 'gap_fill']
+    const segs = ruleMethods.map((m) => ({ source_method: m }))
+    expect(ruleSegmentCountOf('mixed', segs)).toBe(ruleMethods.length)
+    expect(ruleSegmentCountOf('rule', segs)).toBe(ruleMethods.length)
+    // 与 LLM 段混在一起时只数规则那几段
+    expect(ruleSegmentCountOf('mixed', [{ source_method: 'llm' }, ...segs])).toBe(ruleMethods.length)
+    // 将来新增的规则变体也不该漏（排除法天然覆盖）
+    expect(ruleSegmentCountOf('mixed', [{ source_method: 'rule_brand_new' }])).toBe(1)
+  })
+
+  it('llm 前缀不计入（后端自己也用 startswith("llm") 判 LLM）', () => {
+    expect(ruleSegmentCountOf('llm', [{ source_method: 'llm' }, { source_method: 'llm_merged' }])).toBe(0)
+  })
+
+  it('manual（人工确认/新建段）不计入——不能把律师自己分的段说成规则段', () => {
+    expect(ruleSegmentCountOf('mixed', [{ source_method: 'manual' }, { source_method: 'manual' }])).toBe(0)
+    expect(ruleSegmentCountOf('mixed', [{ source_method: 'manual' }, { source_method: 'rule' }])).toBe(1)
+    // 段级标记比 summary 准：summary 说全规则但段级全是人工，就报 0（不按整批兜底）
+    expect(ruleSegmentCountOf('rule', [{ source_method: 'manual' }])).toBe(0)
+  })
+
+  it('空/空白来源不计入；机械按页切分 page_split 计入（同样不是内容分析结果）', () => {
+    expect(ruleSegmentCountOf('mixed', [{ source_method: '' }, { source_method: '   ' }, {}])).toBe(0)
+    expect(ruleSegmentCountOf('mixed', [{ source_method: 'page_split' }, { source_method: 'llm' }])).toBe(1)
+    // 空白标记不算「有标记」，仍走 summary 兜底
+    expect(ruleSegmentCountOf('rule', [{ source_method: '  ' }, {}])).toBe(2)
   })
 })
 

@@ -44,6 +44,7 @@ function makeProps(over: Partial<ToolbarProps> = {}): ToolbarProps {
     onLayoutModeChange: vi.fn(),
     cloudSelection: [] as CloudSelection,
     onToggleCloudEngine: vi.fn(),
+    onClearCrossCheck: vi.fn(),
     ...over,
   }
 }
@@ -312,6 +313,40 @@ describe('ReaderToolbar：自动分段 split button', () => {
     const { unmount } = renderToolbar({ autoSplitRunning: true })
     expect((screen.getByRole('button', { name: /识别/ }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: /自动分段设置/ }) as HTMLButtonElement).disabled).toBe(true)
+    unmount()
+  })
+
+  /**
+   * P3-1 / P3-3：这两组选择直接决定本包的云端费用，且**按包持久化**。
+   * 新建包默认开双引擎，所以「关掉」必须一步可达，计费后果必须写在选项上。
+   */
+  it('勾了两个引擎时给一键关闭交叉比对的入口，点了回调', async () => {
+    const { props, unmount } = renderToolbar({ cloudSelection: ['mineru', 'paddleocr_vl'] })
+    await openSettings()
+    fireEvent.click(screen.getByText('关闭交叉比对（回到自动容灾）'))
+    expect(props.onClearCrossCheck).toHaveBeenCalled()
+    unmount()
+  })
+
+  it('没在比对时不渲染关闭入口（不制造无意义选项）', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['mineru'] })
+    await openSettings()
+    expect(screen.queryByText(/关闭交叉比对/)).toBeNull()
+    unmount()
+  })
+
+  it('两组选择都标注「本包记住」，补版面写明更慢更贵', async () => {
+    const { unmount } = renderToolbar()
+    await openSettings()
+    expect(screen.getAllByText(/本包记住/)).toHaveLength(2)
+    expect(screen.getByText(/电子页也送云端：更准但更慢更贵/)).toBeTruthy()
+    unmount()
+  })
+
+  it('比对态说明「换来错字清单 + 可一键关闭」，让默认开启的计费有对价说明', async () => {
+    const { unmount } = renderToolbar({ cloudSelection: ['mineru', 'paddleocr_vl'] })
+    await openSettings()
+    expect(screen.getByText(/换来的是「两个引擎读得不一样」的错字清单/)).toBeTruthy()
     unmount()
   })
 })

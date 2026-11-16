@@ -1,6 +1,7 @@
 
 import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, PositionedBlock, Segment } from '../types'
 import { matLabel, withDefaultNames } from './labels'
+import { blocksForPages, blockTextIndexOf, concatBlocks, joinMdByPages, joinWholeMd, shiftPageSpans } from './md-pages'
 import { initialSegments } from './resolve'
 import { nextSegId } from './seg-id'
 
@@ -8,9 +9,17 @@ import { nextSegId } from './seg-id'
  * 基础段不可变运算：所有函数返回新的 DraftState。
  */
 
+/** 切/并段搬动正文即人工整理结果：源段有正文就打 md 痕迹，重跑不得静默覆盖 */
+export function markMdMoved(seg: Segment, hadMd: boolean): Segment {
+  return hadMd ? markManualEdit(seg, 'md') : seg
+}
+
 /**
  * 在段 si 内部第 k 个页缝处切开（k 为该段 refs 的切分点，0..refs.length-2）。
  * 把该段拆成两段，各自沿用原段的类型（新段类型清空、名取来源名）。
+ *
+ * 正文与定位块按页归属跟着走：头段留注入标题（它沿用原段身份），尾段不带旧段名。
+ * 页锚点缺失时保守兜底——整段正文留给头段，尾段宁可缺正文也不拿别页的字。
  */
 export function splitSegment(d: DraftState, si: number, k: number): DraftState {
   if (si < 0 || si >= d.segs.length) return d
@@ -20,28 +29,52 @@ export function splitSegment(d: DraftState, si: number, k: number): DraftState {
   const head = cur.refs.slice(0, k + 1)
   const tail = cur.refs.slice(k + 1)
   const tailFirst = tail[0]! // 非空由上方 k < refs.length-1 守卫保证
+  const headSlice = joinMdByPages([{ seg: cur, pages: head }], true)
+  const tailSlice = joinMdByPages([{ seg: cur, pages: tail }])
   const newSeg: Segment = {
     id: nextSegId(),
     t: '',
     fn: matLabel(d.mats, tailFirst.mi),
     refs: tail,
     manual: true,
+    md: tailSlice?.md || undefined,
+    pageSpans: tailSlice?.pageSpans.length ? tailSlice.pageSpans : undefined,
+    blocks: blocksForPages(cur.blocks, tail),
   }
+  const headNext: Segment = {
+    ...cur,
+    refs: head,
+    manual: true,
+    md: headSlice ? headSlice.md || undefined : cur.md,
+    pageSpans: headSlice ? (headSlice.pageSpans.length ? headSlice.pageSpans : undefined) : cur.pageSpans,
+    blocks: blocksForPages(cur.blocks, head),
+  }
+  const hadMd = Boolean(cur.md)
   // 切开即视为人工整理过的段（与 selection 的 manual: true 口径一致）
-  const next = d.segs.map((sg, i) => (i === si ? { ...sg, refs: head, manual: true } : sg))
-  next.splice(si + 1, 0, newSeg)
+  const next = d.segs.map((sg, i) => (i === si ? markMdMoved(headNext, hadMd) : sg))
+  next.splice(si + 1, 0, markMdMoved(newSeg, hadMd))
   // 头尾两段若还用着源文件名，按各自起始页改成「源名-P起始页」——否则切几刀就有几份同名
   return withDefaultNames({ ...d, segs: next })
 }
 
-/** 段 si 并入上一段（si>0） */
+/** 段 si 并入上一段（si>0）：正文按页序拼接、定位块合并，被并段的正文不再丢弃 */
 export function mergeSegment(d: DraftState, si: number): DraftState {
   if (si <= 0 || si >= d.segs.length) return d
   const cur = d.segs[si]!
-  const next = d.segs.map((sg, i) => {
-    if (i === si - 1) return { ...sg, refs: [...sg.refs, ...cur.refs], manual: sg.manual || cur.manual }
-    return sg
-  })
+  const prev = d.segs[si - 1]!
+  const slice = joinMdByPages([
+    { seg: prev, pages: prev.refs },
+    { seg: cur, pages: cur.refs },
+  ], true)
+  const merged: Segment = {
+    ...prev,
+    refs: [...prev.refs, ...cur.refs],
+    manual: prev.manual || cur.manual,
+    md: slice ? slice.md || undefined : joinWholeMd([prev, cur]),
+    pageSpans: slice?.pageSpans.length ? slice.pageSpans : undefined,
+    blocks: concatBlocks(prev.blocks, cur.blocks),
+  }
+  const next = d.segs.map((sg, i) => (i === si - 1 ? markMdMoved(merged, Boolean(prev.md || cur.md)) : sg))
   next.splice(si, 1)
   // 并回整份时默认名变回源文件名
   return withDefaultNames({ ...d, segs: next })
@@ -61,7 +94,7 @@ export function moveSegment(d: DraftState, si: number, targetSi: number, positio
 }
 
 /** 打上「人工改过某字段」的痕迹；只置位不取消——律师改过就是改过，回退也不抹掉 */
-function markManualEdit(seg: Segment, what: 'md' | 'name'): Segment {
+export function markManualEdit(seg: Segment, what: 'md' | 'name'): Segment {
   return { ...seg, manualEdit: { ...seg.manualEdit, [what]: true, at: new Date().toISOString() } }
 }
 
@@ -148,7 +181,10 @@ export function setSegmentMarkdown(d: DraftState, si: number, md: string): Draft
   // 去掉首尾空白后与现值相同就不产生新对象：避免 Undo 栈里塞满「点开又关掉」的空改动
   const next = md.replace(/\s+$/, '')
   if ((seg.md ?? '') === next) return d
-  const segs = d.segs.map((sg, i) => (i === si ? markManualEdit({ ...sg, md: next || undefined }, 'md') : sg))
+  // 整段改写后旧页锚点偏移必然失效（不清掉，后续块编辑会按错区间定位）；
+  // 律师已给出权威正文，「块改动没同步」的痕迹一并清除
+  const edited = markManualEdit({ ...seg, md: next || undefined, pageSpans: undefined, mdDrift: undefined }, 'md')
+  const segs = d.segs.map((sg, i) => (i === si ? edited : sg))
   return { ...d, segs }
 }
 
@@ -184,34 +220,51 @@ export function removeSegmentBlock(d: DraftState, si: number, blockKey: string):
  * 后者是给下游 AI 消费的正文。只改一处会出现「列表里改好了、Markdown 里还是错的」
  * ——那比不改更糟（人以为已经修好了）。
  *
- * ## 怎么定位到 md 里的那一行
+ * ## 怎么定位到 md 里的那一处
  *
- * 用原文做替换：把该块**改前的文字**在 md 中第一次出现的位置替换成新文字。
- * 不用行号——后端拼 md 时做过格式化（表格转 GFM、标题加 #），块文本与 md 的行
- * 不是一一对应的，按行号改必然错位。原文匹配至少能保证"改的就是这段字"。
+ * 按**页锚点 + 同页同文序号**精确匹配（`md-pages.blockTextIndexOf`）：先圈到该页
+ * 正文区间，再取第 n 次出现。不用全段首次匹配——印章核验语这类重复行会改到别页去；
+ * 也不用行号——后端拼 md 时做过格式化（表格转 GFM、标题加 #），行号必然错位。
  *
- * 找不到原文时**只改块、不动 md**：宁可正文保留旧值，也不能乱替换别处的文字。
+ * ## 锚不到时不静默漂移
+ *
+ * 只改块、md 留旧值，但打上 `mdDrift`：右栏据此提示律师「这处没同步进正文，
+ * 请整段核对」。同时照样打 manualEdit.md 痕迹——律师逐块核过的内容不能被重跑抹掉。
  */
 export function setSegmentBlockText(d: DraftState, si: number, blockKey: string, text: string): DraftState {
   const seg = d.segs[si]
   if (!seg?.blocks?.length) return d
 
   let hit: PositionedBlock | undefined
+  let hitIndex = -1
   const blocks = seg.blocks.map((b, i) => {
     const samePageIdx = seg.blocks!.slice(0, i + 1).filter((x) => x.page === b.page).length - 1
     if (`${seg.id}:${b.page}:${samePageIdx}` !== blockKey) return b
     hit = b
+    hitIndex = i
     return { ...b, text }
   })
   if (!hit) return d
-
   const oldText = hit.text ?? ''
+  if (oldText === text) return d
+
   let md = seg.md
-  if (md && oldText && oldText !== text) {
-    const at = md.indexOf(oldText)
-    if (at >= 0) md = md.slice(0, at) + text + md.slice(at + oldText.length)
+  let pageSpans = seg.pageSpans
+  let mdDrift = seg.mdDrift
+  if (md && oldText) {
+    const at = blockTextIndexOf(seg, hitIndex, oldText)
+    if (at >= 0) {
+      md = md.slice(0, at) + text + md.slice(at + oldText.length)
+      // 正文长度变了，页锚点跟着平移，否则下一次块编辑会按旧偏移圈错区间
+      if (pageSpans) pageSpans = shiftPageSpans(pageSpans, at, oldText.length, text.length)
+    } else {
+      mdDrift = true
+    }
   }
 
-  const segs = d.segs.map((sg, i) => (i === si ? { ...sg, blocks, md } : sg))
+  const next = { ...seg, blocks, md, pageSpans, mdDrift }
+  // 正文变了、或这次没同步进去（律师的核对成果仍在块上）都要打痕迹；无正文的段没什么可保护
+  const touchedMd = Boolean(seg.md) && (md !== seg.md || mdDrift === true)
+  const segs = d.segs.map((sg, i) => (i === si ? (touchedMd ? markManualEdit(next, 'md') : next) : sg))
   return { ...d, segs }
 }

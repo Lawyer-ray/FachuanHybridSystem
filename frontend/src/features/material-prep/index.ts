@@ -3,6 +3,8 @@
  * 其它 feature / app 层只应从这里引，不穿透内部目录。
  */
 
+import { hasToken } from '@/lib/token'
+
 export { DeskPage } from './components/DeskPage'
 
 /**
@@ -10,11 +12,15 @@ export { DeskPage } from './components/DeskPage'
  * 上一账号的材料内容）。走动态 import：这条依赖链上有 pdfjs-dist（~1MB 懒加载
  * chunk），静态引会把整个材料预处理域拖进首屏包（AppNavbar 经 HomePage 进
  * entry chunk）——调用方（AppNavbar）应经本出口调用，不再穿透内部 store 路径。
+ *
+ * 重置前先把防抖窗口内的最后一次编辑落盘：律师改完最后一个字就点退出时，
+ * 那 450ms 内的改动不该被丢掉。**凭证仍在才存得进去**——调用方若已先清 token，
+ * 这里只能按丢弃处理（lib/reset-client-state 的顺序调整见交接报告）。
  */
-export function resetMaterialPrepState(): Promise<void> {
-  return import('./store').then((m) => {
-    m.useReader.getState().resetAll()
-  })
+export async function resetMaterialPrepState(): Promise<void> {
+  const [store, persistence] = await Promise.all([import('./store'), import('./draft-persistence')])
+  if (hasToken()) await persistence.flushPendingSave()?.catch(() => {})
+  store.useReader.getState().resetAll()
 }
 
 /**

@@ -73,6 +73,8 @@ export function useAssignLaunch(params: {
       partIndex: sg.refs[0]?.mi ?? 0,
       pageStart: sg.refs[0]?.p ?? 1,
       pageEnd: sg.refs[sg.refs.length - 1]?.p ?? 1,
+      // 段标识随材料一起进案件侧：起草 RAG 靠它找回律师核对过的那一段预处理 Markdown
+      segmentRef: sg.id,
     }))
 
     toast.loading('正在归案…', { id: 'assign' })

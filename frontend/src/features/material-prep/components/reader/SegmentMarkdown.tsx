@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
 import { blockKeyOf } from '../../draft/block-keys'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
-import { BlockRow, WholeTextEditor } from './SegmentRow'
+import { BlockRow } from './SegmentRow'
+import { SegmentMarkdownView } from './SegmentMarkdownView'
 import { EngineDisagreementsInline } from './EngineDisagreementsInline'
 import { SuspectsPanel } from './SuspectsPanel'
 
@@ -114,6 +116,10 @@ export function SegmentMarkdown({
   const [editingKey, setEditingKey] = useState<string | null>(null)
   /** 进入编辑态时要预填的文本（「两个引擎都不对」时点采用，用该侧全文作起点） */
   const [editSeed, setEditSeed] = useState<string | null>(null)
+  /** 有定位块时的视图切换：默认按块（可双击定位），切到原始 Markdown 才看得到表格/标题结构 */
+  const [rawView, setRawView] = useState(false)
+  /** 递增的一次性「整段进入编辑态」请求（无逐块编辑能力时的退路） */
+  const [mdEditRequest, setMdEditRequest] = useState(0)
 
   /**
    * 页面框双击 → 自动进入这一行的修改态。
@@ -126,15 +132,18 @@ export function SegmentMarkdown({
     if (!editRequestKey) return
     if (!onEditBlock) {
       // 没有逐块编辑能力（无定位块的段）：退回整段编辑
-      if (onEditMarkdown) setEditingAll(true)
+      if (onEditMarkdown) {
+        setRawView(true)
+        setMdEditRequest((n) => n + 1)
+      }
     } else {
+      // 逐块编辑只在「定位块」视图里有行可改：从原始 Markdown 视图切回来
+      setRawView(false)
       setEditSeed(editRequestSeed)
       setEditingKey(editRequestKey)
     }
     onEditRequestHandled?.()
   }, [editRequestKey, editRequestSeed, onEditBlock, onEditMarkdown, onEditRequestHandled])
-  // 没有定位块时的整段编辑开关
-  const [editingAll, setEditingAll] = useState(false)
 
 
   if (!seg) return null
@@ -197,27 +206,63 @@ export function SegmentMarkdown({
         onGotoPage={onGotoPage}
       />
 
+      {/* 块改动没同步进正文：必须说出来。静默留旧值就是「以为改好了其实没改」，
+          折叠态也要看得见，否则律师根本不知道有这回事。 */}
+      {seg.mdDrift && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50/60 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800">
+          有一处块改动没能同步进 Markdown 正文（改前的原文已对不上）。请切到「原始 Markdown」整段核对，否则下游拿到的还是旧文字。
+        </p>
+      )}
+
       {open && (
         <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1 px-1 text-[10.5px] text-muted-foreground">
-            <span>
-              {onEditMarkdown ? '双击定位原页 · 右键改这一行' : '双击定位到原页'}
-            </span>
-            {focusedBlockKey && (
+          {blocks.length > 0 && (
+            <div className="flex items-center gap-1 px-1 text-[10.5px] text-muted-foreground">
               <button
                 type="button"
-                onClick={() => onLocateBlock(null)}
-                className="ml-auto cursor-pointer underline underline-offset-2 hover:text-foreground"
+                onClick={() => setRawView(false)}
+                aria-pressed={!rawView}
+                className={cn(
+                  'rounded border px-1.5 py-0.5 transition-colors',
+                  rawView ? 'border-transparent hover:text-foreground' : 'border-zinc-300 bg-secondary text-foreground',
+                )}
               >
-                取消定位
+                定位块
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => setRawView(true)}
+                aria-pressed={rawView}
+                className={cn(
+                  'rounded border px-1.5 py-0.5 transition-colors',
+                  rawView ? 'border-zinc-300 bg-secondary text-foreground' : 'border-transparent hover:text-foreground',
+                )}
+              >
+                原始 Markdown
+              </button>
+              {!rawView && (
+                <span className="ml-auto">
+                  {onEditMarkdown ? '双击定位原页 · 右键改这一行' : '双击定位到原页'}
+                </span>
+              )}
+              {!rawView && focusedBlockKey && (
+                <button
+                  type="button"
+                  onClick={() => onLocateBlock(null)}
+                  className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+                >
+                  取消定位
+                </button>
+              )}
+            </div>
+          )}
 
-          {/* 列表即正文：每行就是原文的一段，改动直接在这行上做。
-              不再在下方重复一份完整渲染——同一段内容出现两次，
-              看的人要来回比对"刚才改的是不是这一行"。 */}
-          {blocks.length > 0 ? (
+          {/* 默认「列表即正文」：每行就是原文的一段，改动直接在这行上做，双击能定位原页。
+              原始 Markdown 是**切换**过去的另一视图（看表格/标题结构、整段修订），
+              不是并排再渲染一份——同一段内容出现两次，看的人要来回比对"刚才改的是不是这一行"。 */}
+          {rawView || blocks.length === 0 ? (
+            <SegmentMarkdownView md={seg.md} onCommit={onEditMarkdown} editRequest={mdEditRequest} />
+          ) : (
             blocks.map((b, i) => {
               const key = blockKeyOf(seg, b, i)
               // 该页第一行之前挂上这一页的分歧：律师读到 P1 的正文前，
@@ -274,18 +319,6 @@ export function SegmentMarkdown({
                 </Fragment>
               )
             })
-          ) : (
-            /* 没有定位块的段（本地 OCR / 旧任务）：退回整段文本编辑 */
-            <WholeTextEditor
-              text={seg.md}
-              editing={editingAll}
-              onStartEdit={onEditMarkdown ? () => setEditingAll(true) : undefined}
-              onCommit={(v) => {
-                onEditMarkdown?.(v)
-                setEditingAll(false)
-              }}
-              onCancel={() => setEditingAll(false)}
-            />
           )}
 
           {/* 可疑点清单：放在正文之后。先读正文，读到觉得不对的地方再回头查清单。 */}

@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 
 import { createApiClient } from '@/lib/api'
 import type { BundleMat, CaseRow } from '../types'
+import { bindProvenance } from './assign-provenance'
 import { clientApi } from './client'
 import { contractsApi } from './contracts'
 import { inboxApi } from './inbox-packs'
@@ -177,12 +178,18 @@ export interface AssignResult {
   unsplitCount: number
 }
 
-/** 归案要绑的一段材料：段名 + 该段页码（1 起、含两端）+ 页码出自第几个来源素材 */
+/** 归案要绑的一段材料：段名 + 该段页码（1 起、含两端）+ 页码出自第几个来源素材 + 段标识 */
 interface BundledSegment {
   name: string
   partIndex: number
   pageStart: number
   pageEnd: number
+  /**
+   * 草稿里的段 id（`Segment.id`）。归案时作为 `source_segment_ref` 传给后端，
+   * 起草 RAG 据此找回**律师核对过的那一段**预处理 Markdown；缺了它只能按包级
+   * 文件哈希匹配，段级对不上。
+   */
+  segmentRef: string
 }
 
 /**
@@ -191,8 +198,9 @@ interface BundledSegment {
  * @param opts.target       existing 追加已有案件 / new 新建
  * @param opts.caseId       target=existing 时必填
  * @param opts.caseName     target=new 时的案件名
+ * @param opts.messageId    材料包消息 id：取原始附件字节，并作为归案溯源 `source_message_id`
  * @param opts.parties      { our, their } —— 建当事人用
- * @param opts.segments     [{ name, partIndex, pageStart, pageEnd }]
+ * @param opts.segments     [{ name, partIndex, pageStart, pageEnd, segmentRef }]
  * @param opts.sources      材料包的来源素材（BundleMat[]）：给出时按每份素材的
  *                          `pages` 判断「该段是否覆盖整份」，覆盖就省掉切分往返
  */
@@ -300,8 +308,17 @@ export async function assignPack(opts: {
     const attId = await uploadSegment(caseId, blob, `${seg.name}.pdf`)
     if (attId == null) continue
     try {
+      // 带上溯源：起草 RAG 据此消费预处理 Markdown，而不是对同一份 PDF 再抽一遍纯文本
       await casesApi.post(`${caseId}/materials/bind`, {
-        json: { items: [{ attachment_id: attId, category: 'party', type_name: seg.name, side: 'our' }] },
+        json: {
+          items: [{
+            attachment_id: attId,
+            category: 'party',
+            type_name: seg.name,
+            side: 'our',
+            ...bindProvenance(opts.messageId, seg.segmentRef),
+          }],
+        },
       })
       boundCount += 1
     } catch {

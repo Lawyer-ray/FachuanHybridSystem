@@ -4,10 +4,11 @@ import { Check, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * 右栏正文面板的「行」组件：一行正文 + 「没有定位块」时的整段编辑。
+ * 右栏正文面板的「行」组件：一行正文（双击定位原页、右键就地改）。
  *
- * 从 `SegmentMarkdown` 拆出：那两个组件各自带本地编辑态（草稿文本、输入框生命周期），
+ * 从 `SegmentMarkdown` 拆出：它自带本地编辑态（草稿文本、输入框生命周期），
  * 与面板本身的展折/定位接线是两件事；合在一起会让面板文件顶到规模软红线。
+ * 整段编辑在 `SegmentMarkdownView`（渲染 / 源码 / 编辑三态）。
  */
 
 /** 一行正文：平时是文字（双击定位），编辑态是输入框（失焦/回车保存）。 */
@@ -150,74 +151,6 @@ export function BlockRow({
           className="mt-1 grid h-4 w-4 flex-none place-items-center rounded text-zinc-300 opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <Trash2 className="h-3 w-3" />
-        </button>
-      )}
-    </div>
-  )
-}
-
-/** 没有定位块时的整段编辑（md 存在但后端没给坐标）。 */
-export function WholeTextEditor({
-  text,
-  editing,
-  onStartEdit,
-  onCommit,
-  onCancel,
-}: {
-  text: string
-  editing: boolean
-  onStartEdit?: () => void
-  onCommit: (v: string) => void
-  onCancel: () => void
-}) {
-  const [draft, setDraft] = useState(text)
-
-  if (editing) {
-    return (
-      <div className="flex flex-col gap-1">
-        <textarea
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') onCancel()
-          }}
-          spellCheck={false}
-          className="max-h-[46vh] min-h-[140px] w-full resize-y overflow-auto rounded-lg border border-sky-300 bg-white p-2 font-mono text-[11px] leading-[1.7] outline-none focus:ring-1 focus:ring-sky-400"
-        />
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => onCommit(draft)}
-            className="flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-800"
-          >
-            <Check className="h-3 w-3" aria-hidden />
-            保存
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-secondary"
-          >
-            取消
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="group/whole relative">
-      <pre className="max-h-[46vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-200 bg-secondary/40 p-2 text-[11px] leading-[1.7] text-foreground">
-        {text}
-      </pre>
-      {onStartEdit && (
-        <button
-          type="button"
-          onClick={onStartEdit}
-          className="absolute right-1 top-1 rounded bg-white/90 px-1.5 py-0.5 text-[10.5px] text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground group-hover/whole:opacity-100"
-        >
-          改正文
         </button>
       )}
     </div>

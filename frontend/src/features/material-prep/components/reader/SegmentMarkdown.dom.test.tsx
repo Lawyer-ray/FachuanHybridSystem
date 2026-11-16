@@ -519,3 +519,53 @@ describe('SegmentMarkdown：分歧按页挂载', () => {
     expect(container.querySelectorAll('[data-engine-inline]')).toHaveLength(0)
   })
 })
+
+/**
+ * P3-2：有定位块时也要能看到/改到**原始 Markdown**。
+ * 纯文本行看不出表格结构与标题层级，而那正是 OCR 最易错处；逐块改也改不动整段结构。
+ */
+describe('原始 Markdown 视图切换', () => {
+  const tableMd = '# 流水\n\n| 日期 | 金额 |\n| --- | --- |\n| 20260101 | 100 |'
+
+  it('有定位块时默认按块渲染，切到「原始 Markdown」才看得到表格结构', () => {
+    const { container, getByText } = render(
+      <SegmentMarkdown {...base({ seg: seg({ md: tableMd, blocks }) })} />,
+    )
+    expect(container.querySelector('table')).toBeNull()
+    expect(container.querySelector('pre')).toBeNull()
+    fireEvent.click(getByText('原始 Markdown'))
+    expect(container.querySelector('table')).toBeTruthy()
+    expect(container.querySelectorAll('td')).toHaveLength(2)
+    fireEvent.click(getByText('定位块'))
+    expect(container.querySelector('table')).toBeNull()
+  })
+
+  it('原始 Markdown 视图能整段修订（走 onEditMarkdown → setSegmentMarkdown 保痕迹）', () => {
+    const onEditMarkdown = vi.fn()
+    const { container, getByText } = render(<SegmentMarkdown {...base({ onEditMarkdown })} />)
+    fireEvent.click(getByText('原始 Markdown'))
+    fireEvent.click(getByText('编辑整段'))
+    fireEvent.change(container.querySelector('textarea')!, { target: { value: '# 律师核过的正文' } })
+    fireEvent.click(getByText('保存整段'))
+    expect(onEditMarkdown).toHaveBeenCalledExactlyOnceWith('# 律师核过的正文')
+  })
+
+  it('块改动没同步进正文时给出提示，折叠态也看得见', () => {
+    const { getByText } = render(
+      <SegmentMarkdown {...base({ open: false, seg: seg({ md: tableMd, blocks, mdDrift: true }) })} />,
+    )
+    expect(getByText(/没能同步进 Markdown 正文/)).toBeTruthy()
+  })
+
+  it('没有 mdDrift 时不渲染该提示（不制造噪声）', () => {
+    const { queryByText } = render(<SegmentMarkdown {...base()} />)
+    expect(queryByText(/没能同步进 Markdown 正文/)).toBeNull()
+  })
+
+  it('没有定位块的段默认就是原始 Markdown 视图（渲染结构，不再是纯文本 pre）', () => {
+    const { container } = render(
+      <SegmentMarkdown {...base({ seg: seg({ md: tableMd, blocks: undefined }) })} />,
+    )
+    expect(container.querySelector('table')).toBeTruthy()
+  })
+})

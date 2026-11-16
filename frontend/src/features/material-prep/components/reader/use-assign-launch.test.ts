@@ -215,10 +215,24 @@ describe('onAssignConfirm：成功路径', () => {
     await hook.onAssignConfirm(assignNew)
 
     expect(assignPackMock.mock.calls[0]![0].segments).toEqual([
-      { name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 2 },
+      { name: '起诉状', partIndex: 0, pageStart: 1, pageEnd: 2, segmentRef: 's1' },
       // 段名空 → 用文件名
-      { name: 'b.pdf', partIndex: 1, pageStart: 1, pageEnd: 1 },
+      { name: 'b.pdf', partIndex: 1, pageStart: 1, pageEnd: 1, segmentRef: 's2' },
     ])
+  })
+
+  /**
+   * P0-1：段标识必须随归案一起传出去。后端按 source_message_id + source_segment_ref
+   * 找回律师核对过的预处理 Markdown；前端不传，段级匹配就永远不生效（只剩包级哈希）。
+   */
+  it('每段都带上 segmentRef=段 id，messageId 一并传给归案（溯源两个字段缺一不可）', async () => {
+    assignPackMock.mockResolvedValue(okResult)
+    const { hook } = useSetup()
+    await hook.onAssignConfirm(assignNew)
+
+    const arg = assignPackMock.mock.calls[0]![0]
+    expect(arg.messageId).toBe(77)
+    expect(arg.segments.map((s: { segmentRef: string }) => s.segmentRef)).toEqual(['s1', 's2'])
   })
 
   it('已有案件（target=existing）时 caseName 为 undefined（后端用已有案件名）', async () => {

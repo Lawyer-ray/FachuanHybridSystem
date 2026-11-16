@@ -1,5 +1,6 @@
 import { loadPdfDocument } from '@/lib/pdf'
 import { fetchAttachmentBytes } from '../api'
+import { defaultRecognition } from '../constants'
 import type {
   AttachmentMeta,
   BundleMat,
@@ -75,5 +76,8 @@ export function buildInitialDraft(_msg: InboxMessageDetail, mats: BundleMat[]): 
       { k: '委托人', v: '', src: '', srcRef: null, ph: '姓名或单位' },
       { k: '对方当事人', v: '', src: '', srcRef: null, ph: '姓名或单位', hint: '多个用、分隔' },
     ],
+    // 新建包默认开双引擎（计费默认值，见 constants.defaultRecognition）：
+    // 交叉比对的分歧清单是律师发现 OCR 错字的确定信号，不该要他先知道去开开关
+    recognition: defaultRecognition(),
   }
 }

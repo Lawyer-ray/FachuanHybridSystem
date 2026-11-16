@@ -174,7 +174,7 @@ export function Rail({
               type="button"
               data-inconsistency-entry
               onClick={onOpenInconsistencies}
-              title={`全本 ${inconsistencies.length} 处跨页写法不一致（疑似错字）`}
+              title={`全本 ${inconsistencies.length} 处跨页写法不一致（待核对）`}
               className="flex flex-none items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <ScanText className="h-3.5 w-3.5" aria-hidden />

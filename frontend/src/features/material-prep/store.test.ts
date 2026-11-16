@@ -52,7 +52,7 @@ function httpError(status: number, data?: unknown): HTTPError {
   err.data = data as never
   return err
 }
-import type { AttachmentMeta, DraftState, InboxMessageDetail } from './types'
+import type { AttachmentMeta, DraftState, InboxMessageDetail, RecognitionPrefs } from './types'
 
 // ---- 夹具 ----
 
@@ -707,5 +707,109 @@ describe('useReader 剩余回调用例', () => {
     expect(useReader.getState().pickInfo).toBe(1)
     expect(useReader.getState().selPages).toEqual([])
     expect(useReader.getState().ocrPending).toBeNull()
+  })
+})
+
+/**
+ * P3-1 / P3-3：识别成本选择（版面策略 + 引擎勾选）**按包持久化**。
+ *
+ * 这两项直接决定本包要花多少云端费用：律师的判断是按包做的（流水包开双引擎、
+ * 电子合同包只抽文本层），换包复位、重开又得重选等于把他的判断丢掉。
+ * 新建包默认双引擎是**计费默认值变更**，所以「存量草稿不追溯」也要锁住。
+ */
+describe('识别成本选择按包持久化', () => {
+  /** 已存草稿的包详情（segs 非空才会被当成「存过草稿」） */
+  function storedDetail(recognition?: RecognitionPrefs): InboxMessageDetail {
+    const ds: DraftState = {
+      ...draftOf(1),
+      segs: [{ id: 's1', t: '', fn: 'a0.pdf', refs: [{ mi: 0, p: 1 }], manual: false }],
+      ...(recognition ? { recognition } : {}),
+    }
+    return { ...detail(1, [pdfAtt({ part_index: 0, page_count: 2 })]), draft_state: ds } as unknown as InboxMessageDetail
+  }
+
+  it('新建包：默认双引擎（MinerU+VL）+ 仅文本层，并写进草稿', async () => {
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+
+    expect(useReader.getState().cloudSelection).toEqual(['mineru', 'paddleocr_vl'])
+    expect(useReader.getState().layoutMode).toBe('fast_text')
+    expect(useReader.getState().draft?.recognition).toEqual({
+      layoutMode: 'fast_text',
+      engines: ['mineru', 'paddleocr_vl'],
+    })
+  })
+
+  it('存量草稿没有 recognition：回到自动容灾 + 仅文本层（不追溯双倍计费）', async () => {
+    getPackDetailMock.mockResolvedValue(storedDetail())
+    await useReader.getState().open(1)
+
+    expect(useReader.getState().cloudSelection).toEqual([])
+    expect(useReader.getState().layoutMode).toBe('fast_text')
+  })
+
+  it('重开同一包：读回草稿里记住的选择', async () => {
+    getPackDetailMock.mockResolvedValue(storedDetail({ layoutMode: 'layout', engines: ['textin'] }))
+    await useReader.getState().open(1)
+
+    expect(useReader.getState().layoutMode).toBe('layout')
+    expect(useReader.getState().cloudSelection).toEqual(['textin'])
+  })
+
+  it('一键关闭后重开不再默认双引擎（空数组是「选过了」，不是「没选」）', async () => {
+    getPackDetailMock.mockResolvedValue(storedDetail({ layoutMode: 'fast_text', engines: [] }))
+    await useReader.getState().open(1)
+
+    expect(useReader.getState().cloudSelection).toEqual([])
+    expect(useReader.getState().layoutMode).toBe('fast_text')
+  })
+
+  it('改版面策略即写回草稿并排队落盘（防抖到点真的发出去）', async () => {
+    vi.useFakeTimers()
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+    saveDraftMock.mockClear()
+
+    useReader.getState().setLayoutMode('layout')
+    expect(useReader.getState().layoutMode).toBe('layout')
+    expect(useReader.getState().draft?.recognition?.layoutMode).toBe('layout')
+    await vi.advanceTimersByTimeAsync(500)
+    expect(saveDraftMock).toHaveBeenCalled()
+    expect(saveDraftMock.mock.calls.at(-1)?.[1]).toMatchObject({ recognition: { layoutMode: 'layout' } })
+    vi.useRealTimers()
+  })
+
+  it('勾/取消引擎与一键关闭都写回草稿（选择被记住）', async () => {
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+
+    useReader.getState().toggleCloudEngine('textin')
+    expect(useReader.getState().cloudSelection).toEqual(['mineru', 'paddleocr_vl', 'textin'])
+    expect(useReader.getState().draft?.recognition?.engines).toEqual(['mineru', 'paddleocr_vl', 'textin'])
+
+    // 一键关闭交叉比对：回到自动容灾，且落进草稿（重开不会再默认双倍计费）
+    useReader.getState().setCloudSelection([])
+    expect(useReader.getState().cloudSelection).toEqual([])
+    expect(useReader.getState().draft?.recognition?.engines).toEqual([])
+  })
+
+  it('换包不继承上一个包的成本选择', async () => {
+    getPackDetailMock.mockResolvedValue(storedDetail({ layoutMode: 'layout', engines: ['mineru', 'textin'] }))
+    await useReader.getState().open(1)
+    expect(useReader.getState().layoutMode).toBe('layout')
+
+    getPackDetailMock.mockResolvedValue(packB())
+    await useReader.getState().open(2)
+    // 新包按自己的默认（双引擎 + 仅文本层），不继承 A 包的 layout
+    expect(useReader.getState().layoutMode).toBe('fast_text')
+    expect(useReader.getState().cloudSelection).toEqual(['mineru', 'paddleocr_vl'])
+  })
+
+  it('没有草稿时改选择只动会话态，不抛（阅读器还没打开）', () => {
+    useReader.setState({ openId: null, draft: null })
+    useReader.getState().setLayoutMode('layout')
+    useReader.getState().setCloudSelection(['mineru'])
+    expect(useReader.getState().layoutMode).toBe('layout')
+    expect(useReader.getState().cloudSelection).toEqual(['mineru'])
   })
 })

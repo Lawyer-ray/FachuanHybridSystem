@@ -14,12 +14,14 @@ export function isEmptyDraft(ds: DraftState | Record<string, never>): ds is Reco
 }
 
 /**
- * 把后端 `summary.page_quality` 落到草稿上（只用于展示，**故意不进持久化**）。
+ * 把后端 `summary.page_quality` 落到草稿上（**随草稿持久化**）。
  *
- * 为什么不进持久化：质量统计是「这次识别产出了什么」的附带事实，落盘后会和
- * 律师那之后的切段 / 合段 / 删页错位（段可能早已不是识别时那几页了），刷新一次
- * 就变成一句与现状不符的假提示。它本来就随那次识别结果一起回来，重新打开材料包
- * 时再带上即可。因此 `draft-persistence` 与 `api` 用 `DraftStateToSave` 剔除该字段。
+ * 曾经故意不落盘，理由是「质量统计是这次识别的附带事实，落盘后会和律师之后的
+ * 切段/合段/删页错位」。那个担心代码里已经天然解决：`graphicPagesOf` /
+ * `docHintPagesOf` 都是拿 `seg.refs` 与 `quality.*_pages` **实时求交集**，段变了
+ * 提示跟着变。而不落盘的代价很实在——刷新一次提示就没了，律师得重新点「自动识别」
+ * 才看得到，可这个功能的意义恰恰是「打开就知道哪页要核对」。
+ * 持久化口径见 `DraftStateToSave`（已是完整 DraftState 形状）。
  *
  * 空/缺失不写入：旧任务的 summary 里没这个键，写成 `{"graphic_pages": [], …}`
  * 只会让「有没有质量数据」这件事故意模糊。

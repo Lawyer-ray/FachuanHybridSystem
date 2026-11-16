@@ -23,6 +23,8 @@ import {
   blocksToMarkdown,
   guessImageType,
   pollJob,
+  ruleSegmentCountOf,
+  segmentBackendNote,
   segmentBackendOf,
   type JobProgressSnapshot as JobSnapshot,
 } from './auto-split-helpers'
@@ -45,7 +47,8 @@ export type RerunChoice = 'keep' | 'overwrite' | 'cancel'
  *   · inconsistencies —— 同一枚章 / 同一个字段被识别成两种写法（→ 全局清单）
  *   · engineDisagreements —— 两个 OCR 引擎在同一处读得不一样（→ 引擎分歧清单 + 双框）
  *
- * 双引擎默认关闭，不跑时 `engine_disagreements` 整个键都不存在，收窄后为空数组。
+ * 没跑交叉比对时（存量包默认 / 律师一键关闭）`engine_disagreements` 整个键都不存在，
+ * 收窄后为空数组。新建包默认开双引擎，见 constants.defaultRecognition。
  */
 interface AutoSplitResult {
   mi: number
@@ -145,8 +148,8 @@ export function useAutoSplit() {
     beginOwnedAutoSplit()
     if (targets.length > 0) setProgress(`正在提交 ${targets.length} 个 PDF`)
     try {
-      // 版面策略在 ReaderState 上（不是 DraftState）：它是本次识别的成本选择，
-      // 随会话复位，不落草稿。整批只读一次，避免每个 PDF 各读一遍。
+      // 版面策略与引擎勾选**按包持久化**（draft.recognition），ReaderState 上是当前值。
+      // 整批只读一次，避免每个 PDF 各读一遍。
       const layoutMode = useReader.getState().layoutMode
       // 勾选的引擎集合整批只算一次：正主（cloud_backend 单值）+ 交叉比对名单
       // （dual_engines）。两者分开发是因为 cloud_backend 只认单值，塞逗号串会被
@@ -310,16 +313,13 @@ export function useAutoSplit() {
       }
 
       const count = results.reduce((sum, item) => sum + item.segments.length, 0)
-      // 分段后端可观测：律所 AI 失败会静默降级规则引擎，得让用户知道拿到的是哪种质量
-      const llmCount = results.filter((item) => item.segmentBackend === 'llm').length
-      const backendNote =
-        results.length === 0
-          ? ''
-          : llmCount === results.length
-            ? '律所 AI 分段'
-            : llmCount > 0
-              ? `${llmCount}/${results.length} 律所 AI 分段，其余规则引擎`
-              : '规则引擎分段（律所 AI 不可用）'
+      // 分段后端可观测：律所 AI 失败会降级规则引擎（summary 三态 llm/mixed/rule），
+      // 得让用户知道拿到的是哪种质量、有几段是规则兜的要重点复核
+      const ruleSegments = results.reduce(
+        (sum, item) => sum + ruleSegmentCountOf(item.segmentBackend, item.segments),
+        0,
+      )
+      const backendNote = segmentBackendNote(results.map((item) => item.segmentBackend), ruleSegments)
       // 几类材料的结果分开数：混在一起报「完成 N 份」会让律师以为图片也分了段。
       // 图片只回填正文、不产生分段，这里必须说清楚。
       const parts: string[] = []

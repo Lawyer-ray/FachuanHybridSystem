@@ -5,8 +5,7 @@ import { discardPendingSave, scheduleSave } from './draft-persistence'
 import { clearPdfDocuments } from '@/lib/pdf'
 import { errMessage } from '@/lib/errors'
 import { READER_CLOSE_MS } from './constants'
-import { toggleCloudEngine } from './components/reader/platform-selection'
-import type { CloudEngine, CloudSelection } from './components/reader/platform-selection'
+import { toggleCloudEngine, normalizeCloudSelection } from './components/reader/platform-selection'
 import {
   applyPageSelection,
   appendMatsToDraft,
@@ -24,103 +23,8 @@ import {
   setPackStatus,
   withDefaultNames,
 } from './draft'
-import type {
-  AssignInfo,
-  BundleMat,
-  DraftState,
-  Inconsistency,
-  InboxMessageDetail,
-  OcrPending,
-  PackStatus,
-  PageKey,
-} from './types'
-
-interface ReaderState {
-  openId: number | null
-  detail: InboxMessageDetail | null
-  draft: DraftState | null
-  status: 'idle' | 'loading' | 'ready' | 'error'
-  error: string
-  /** 退出过渡中（阅读器先淡出再卸载） */
-  closing: boolean
-  /** 正在「标来源」的信息便签序号（-1 = 未在取字） */
-  pickInfo: number
-  /** 画布缩放倍数（1 = 适应宽度） */
-  zoom: number
-  /** 并排列数 */
-  cols: number
-  /** 自动分段时的版面策略：
-   *  · fast_text（默认）—— 电子版 PDF 只抽文本层，快且不计费，但没有坐标
-   *  · layout —— 电子版也上云端拿版面块与坐标（原文坐标对照需要），按页计费
-   *  为什么放在 store 而不是组件局部 state：它是「这次识别的成本选择」，
-   *  换包时要复位、重开同一包时要保留，生命周期与阅读器会话一致。 */
-  layoutMode: 'fast_text' | 'layout'
-  /**
-   * 勾选参与本次识别的云端引擎：空集合 = 自动容灾；1 个 = 锁定；
-   * ≥2 个 = 交叉比对（见 components/reader/platform-selection.ts）。
-   *
-   * 为什么是集合而不是旧的 `'auto' | 'mineru' | 'textin'`：律师要能自己勾选
-   * 「同时用哪几个引擎」，而不是靠运维开环境变量。`auto` 是空集合的**后果**，
-   * 不是一个可勾的选项——两者并存会让「勾了 auto 又勾 mineru」无解。
-   */
-  cloudSelection: CloudSelection
-  /** 选页模式：平时点页面不做任何事，靠 ⌘/⇧ 或此模式 */
-  selMode: boolean
-  /** 当前选中的页 */
-  selPages: PageKey[]
-  /** 区间锚点（扁平序 index） */
-  lastAnchor: number
-  /** OCR 框选取字：当前待确认的框（民警未确认前由面板接管） */
-  ocrPending: OcrPending | null
-  /** 归案归属弹窗的开关。仍在 store 里（不退回 ReaderDialogs 局部 state）：换包
-   *  /重开时要随 openId 一并复位，且阅读器内其他模块也用得到这个「是否开着」的信号。
-   *  Esc 不再靠它：AssignModal 已改成 Radix Dialog，Esc 由 Radix 自己处理。 */
-  assignOpen: boolean
-  /**
-   * 本次识别带回来的全本级统计：跨页不一致清单（`summary.inconsistencies`）。
-   *
-   * 为什么在 store 而不在草稿：草稿记的是「律师怎么分」，这是「机器读到什么」，
-   * 而且同样不落盘。`useAutoSplit` 把 summary 消费掉之后，ReaderBody 还要用它
-   * 渲染全局清单，所以留一个会话级的落点。页级质量（page_quality）则落在
-   * `draft.pageQuality` 上——它要给左栏/右栏按段算页覆盖关系，跟草稿同生命周期更自然。
-   */
-  inconsistencies: Inconsistency[]
-
-  open: (id: number) => Promise<void>
-  close: () => void
-  /** 全局重置（登出时调用）：清空阅读器全部状态并释放缓存，丢弃未落盘的防抖保存 */
-  resetAll: () => void
-  /** 不可变更新 draft，并防抖保存到后端 */
-  update: (fn: (d: DraftState) => DraftState) => void
-  setPickInfo: (i: number) => void
-  /** 删除信息字段（含取字态 pickInfo 下标同步校正） */
-  removeInfo: (di: number) => void
-  setZoom: (z: number) => void
-  /** 切换版面策略（影响下一次「自动分段」是否让电子页上云端） */
-  setLayoutMode: (m: 'fast_text' | 'layout') => void
-  /** 勾选 / 取消一个云端引擎（空集合即自动容灾） */
-  toggleCloudEngine: (e: CloudEngine) => void
-  setCols: (n: number) => void
-  toggleSelMode: () => void
-  /** ⌘/Ctrl 单击切换 / ⇧ 单击选区间（shift=true 用锚点） */
-  toggleSel: (mi: number, p: number, shift: boolean) => void
-  clearSel: () => void
-  applySel: () => void
-  /** 删除页（缺省删当前选中，传 target 删指定页），返回被删页数 */
-  deleteSelected: (target?: PageKey[]) => number
-  setOcrPending: (p: OcrPending | null) => void
-  setAssignOpen: (v: boolean) => void
-  /** 本次识别带回的跨页不一致清单（空数组 = 没发现 / 旧任务没有） */
-  setInconsistencies: (list: Inconsistency[]) => void
-  /** 打标材料包状态（不接归档 / 拆分归类完成等） */
-  setStatus: (s: PackStatus) => void
-  setAssign: (a: AssignInfo) => void
-  renameMatInDraft: (mi: number, n: string) => void
-  /** 重命名材料包标题（同步已打开的阅读器标题） */
-  renameSubject: (id: number, title: string) => void
-  /** 阅读器内追加材料：上传后并回 draft_state（不改已拆内容） */
-  appendFiles: (files: File[]) => Promise<void>
-}
+import type { BundleMat, DraftState, PageKey } from './types'
+import type { ReaderState } from './reader-state'
 
 /** 阅读器会话交互态的清零并叠加差异字段（open 换包 / close 卸载 / resetAll
  *  三处共用同一组重置字段；差异项——openId/detail/draft/status/error——由调用方给）。 */
@@ -130,8 +34,8 @@ function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
     pickInfo: -1,
     zoom: 1,
     cols: 1,
-    // 换包/关闭一律复位成不计费的默认值：成本选择不该跨材料包继承
-    //（双引擎意味着同一份 PDF 付两次云端费用，更要复位）
+    // 换包/关闭先复位成不计费的默认值；open 拿到草稿后再按包覆盖（recognitionOf）。
+    // 成本选择不跨材料包继承——双引擎意味着同一份 PDF 付两次云端费用。
     layoutMode: 'fast_text',
     cloudSelection: [],
     selMode: false,
@@ -142,6 +46,19 @@ function resetState(over: Partial<ReaderState>): Partial<ReaderState> {
     // 换包 / 关闭一律清空：上一包的不一致清单套到新包上就是彻头彻尾的假清单
     inconsistencies: [],
     ...over,
+  }
+}
+
+/**
+ * 草稿里的按包识别选择 → 会话态。
+ *
+ * 存量草稿没有 recognition 键时回到「仅文本层 + 自动容灾」，**不**套用新建包的
+ * 双引擎默认：老包突然开始双倍计费是用户没同意过的变更。
+ */
+function recognitionOf(d: DraftState): Pick<ReaderState, 'layoutMode' | 'cloudSelection'> {
+  return {
+    layoutMode: d.recognition?.layoutMode ?? 'fast_text',
+    cloudSelection: normalizeCloudSelection(d.recognition?.engines ?? []),
   }
 }
 
@@ -190,7 +107,7 @@ export const useReader = create<ReaderState>((set, get) => ({
       // 仍用默认名的段按现行规则刷新（源名-P起始页）——老草稿里切开留下的余段
       // 都叫源文件名，打开就是几份同名；用户改过的名不动
       const draft = hasStored ? withDefaultNames(ensureSegIds(ds)) : buildInitialDraft(detail, mats)
-      set({ detail, draft, status: 'ready' })
+      set({ detail, draft, status: 'ready', ...recognitionOf(draft) })
     } catch (e) {
       if (get().openId !== id) return
       set({ status: 'error', error: errMessage(e, '打开失败') })
@@ -244,8 +161,20 @@ export const useReader = create<ReaderState>((set, get) => ({
     else if (di === pickInfo) set({ pickInfo: -1, selPages: [], ocrPending: null })
   },
   setZoom: (z) => set({ zoom: z }),
-  setLayoutMode: (m) => set({ layoutMode: m }),
-  toggleCloudEngine: (e) => set((s) => ({ cloudSelection: toggleCloudEngine(s.cloudSelection, e) })),
+  setLayoutMode: (m) => {
+    set({ layoutMode: m })
+    get().update((d) => ({ ...d, recognition: { ...d.recognition, layoutMode: m } }))
+  },
+  toggleCloudEngine: (e) => {
+    const next = toggleCloudEngine(get().cloudSelection, e)
+    set({ cloudSelection: next })
+    get().update((d) => ({ ...d, recognition: { ...d.recognition, engines: next } }))
+  },
+  setCloudSelection: (sel) => {
+    const next = normalizeCloudSelection(sel)
+    set({ cloudSelection: next })
+    get().update((d) => ({ ...d, recognition: { ...d.recognition, engines: next } }))
+  },
   setCols: (n) => set({ cols: n }),
   toggleSelMode: () => {
     const next = !get().selMode

@@ -36,6 +36,9 @@ function buildProposedSegments(
         reviewFlag: item.review_flag,
         confidence: item.confidence,
         md: item.content_md || undefined,
+        // 页锚点（后端 page_spans，与 content_md 同口径）：切/并段按它精确搬运正文。
+        // 旧任务没有该键，消费侧（md-pages.pageSpansOf）会退到 blocks 页号近似
+        pageSpans: item.page_spans?.length ? item.page_spans : undefined,
         // 原文坐标索引：后端已归一化为 0–1 矩形，直接用于页卡上的绿框
         blocks: item.positioned?.length ? item.positioned : undefined,
         // 段级质量标记（图形页 / 稀疏页）：旧任务没有，缺了就当无标记
@@ -157,7 +160,11 @@ export function applyAutoSplitPreservingEdits(
         bestOverlap = overlap
       }
     }
-    if (best) best.md = old.md
+    // 页锚点描述的就是这份 md，必须跟着一起搬（否则新段拿着别人的偏移切正文）
+    if (best) {
+      best.md = old.md
+      best.pageSpans = old.pageSpans
+    }
   }
 
   return replaceMatSegments(d, mi, proposed)
