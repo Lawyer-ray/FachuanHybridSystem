@@ -165,7 +165,10 @@ class TestWatchdogSchedule:
                 raise RuntimeError("db not ready")
 
         with patch("apps.core.tasking.ScheduleQueryService", return_value=_Boom()):
-            register_watchdog_schedule()  # 不应抛出
+            # 返回值无意义（成功时也是 None），关键是没抛异常。
+            # 显式断言而不是靠「就这行看它能不能过」：零断言测试会让
+            # test_quality_ratchet 的棘轮计数涨一格，掩盖其他真空缺。
+            assert register_watchdog_schedule() is None
 
     def test_定时入口会调用看门狗(self) -> None:
         with patch.object(job_recovery, "sweep_stale_jobs", return_value={"stale_found": 0, "actions": []}) as sweep:
