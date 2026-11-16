@@ -45,6 +45,17 @@ class PdfSplitStorage:
         return self.analysis_dir / "pages.json"
 
     @property
+    def extract_summary_json_path(self) -> Path:
+        """取字阶段的观测摘要（实际生效平台 ocr_provider / 容灾链 / 缓存命中 / 版面策略落地情况）。
+
+        单独落盘的理由：``extract_stage`` 只返回 (pages, summary)，summary 不进 DB，
+        而分段阶段是另一个 Django-Q 任务。不落盘时 ``ocr_provider`` 就永久丢失，
+        分段阶段只能拿 ``job.cloud_backend``（通常是 "auto"）当坐标系依据——
+        ``resolve_bbox_unit("auto")`` 是 unknown，positioned 直接恒空。
+        """
+        return self.analysis_dir / "extract_summary.json"
+
+    @property
     def segments_json_path(self) -> Path:
         return self.analysis_dir / "segments.json"
 

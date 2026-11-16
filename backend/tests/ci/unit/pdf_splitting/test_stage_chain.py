@@ -137,3 +137,48 @@ class TestCrossCheckTask:
         seg.assert_not_called()
         job.refresh_from_db()
         assert job.status == PdfSplitJobStatus.CANCELLED
+
+
+class TestExtractSummaryPersisted:
+    """取字摘要必须落盘：``ocr_provider`` 是分段阶段换算 bbox 单位的唯一依据。
+
+    不落盘时分段阶段只能拿 ``job.cloud_backend``（默认 "auto"）当依据，而
+    ``resolve_bbox_unit("auto")`` 是 unknown —— positioned 恒空。
+    """
+
+    def test_取字跑完把摘要落盘(self) -> None:
+        job = _job()
+        summary: dict[str, Any] = {"ocr_provider": "mineru", "cloud_failover_from": ["textin"]}
+
+        with (
+            patch("apps.pdf_splitting.tasks.PdfSplitService.extract_stage", return_value=([], summary)),
+            patch.object(two_stage, "save_pages"),
+            patch.object(two_stage, "save_page_quality"),
+            patch.object(two_stage, "save_extract_summary") as save,
+            patch.object(two_stage, "submit_segment_stage", return_value="tid-seg"),
+        ):
+            from apps.pdf_splitting.tasks import run_extract_stage
+
+            run_extract_stage(str(job.id))
+
+        save.assert_called_once()
+        assert save.call_args.args[1]["ocr_provider"] == "mineru"
+
+    def test_摘要落盘失败不阻断取字阶段(self) -> None:
+        """坐标是附加信息，正文已经拿到了——不能因为写不动一个 json 就判整份卷宗失败。"""
+        job = _job()
+
+        with (
+            patch("apps.pdf_splitting.tasks.PdfSplitService.extract_stage", return_value=([], {})),
+            patch.object(two_stage, "save_pages"),
+            patch.object(two_stage, "save_page_quality"),
+            patch.object(two_stage, "save_extract_summary", side_effect=OSError("disk full")),
+            patch.object(two_stage, "submit_segment_stage", return_value="tid-seg"),
+        ):
+            from apps.pdf_splitting.tasks import run_extract_stage
+
+            run_extract_stage(str(job.id))
+
+        job.refresh_from_db()
+        assert job.status != PdfSplitJobStatus.FAILED
+        assert job.stage == PdfSplitStage.SEGMENT

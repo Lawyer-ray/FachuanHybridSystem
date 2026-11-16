@@ -16,11 +16,20 @@ class TestResolveUnit:
         assert resolve_bbox_unit("mineru") == "permille"
         assert resolve_bbox_unit("textin") == "absolute"
 
+    def test_local_fallback_is_permille(self) -> None:
+        # 兜底路径实为 VL API，版面按 1000×1000 千分比写出（ocr_handler._VL_LAYOUT_SIDE）；
+        # 认成 unknown 会把兜底页刚拿到的定位框整批丢掉
+        assert resolve_bbox_unit("local") == "permille"
+
     def test_unknown_backend_is_unknown(self) -> None:
-        # 本地 OCR / 未知后端：不给坐标，前端就不画框
-        assert resolve_bbox_unit("local") == "unknown"
         assert resolve_bbox_unit(None) == "unknown"
         assert resolve_bbox_unit("") == "unknown"
+        assert resolve_bbox_unit("auto") == "unknown"
+
+    def test_vl_fallback_layout_normalizes(self) -> None:
+        rect = normalize_bbox([100, 200, 600, 400], unit=resolve_bbox_unit("local"), page_width=1000, page_height=1000)
+        assert rect is not None
+        assert (rect["x"], rect["y"], rect["w"], rect["h"]) == (0.1, 0.2, 0.5, 0.2)
 
 
 class TestMineruPermille:

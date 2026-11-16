@@ -159,6 +159,17 @@ class PdfSplitSegmentType(models.TextChoices):
     ENFORCEMENT_APPLICATION = "enforcement_application", "执行申请书"
     COURT_RECORD = "court_record", "庭审笔录"
     AGENT_OPINION = "agent_opinion", "代理词"
+    # ── 民间借贷高频材料 ──
+    #
+    # 这五类在立案卷宗里极常见，此前没有键名：模型要么硬塞一个语义不对的既有键
+    # （转账回单→放款凭证），要么回 other 落 unrecognized。它们**属于立案场景**，
+    # 所以进 filing 模板而不是另开模板（判决书/上诉状那类二审文书才需要独立模板，
+    # 理由见 template_registry 的注释）。
+    IOU = "iou", "借条"
+    TRANSFER_RECEIPT = "transfer_receipt", "转账回单"
+    CHAT_RECORD = "chat_record", "聊天记录"
+    SETTLEMENT_AGREEMENT = "settlement_agreement", "和解协议"
+    GUARANTEE_CONTRACT = "guarantee_contract", "保证合同"
     UNRECOGNIZED = "unrecognized", "未识别材料"
 
 

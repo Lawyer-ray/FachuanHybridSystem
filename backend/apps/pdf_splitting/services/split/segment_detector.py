@@ -19,7 +19,7 @@ logger = logging.getLogger("apps.pdf_splitting")
 
 
 class SegmentDetector:
-    """段落检测、评分、上下文推理、补全未识别区间。"""
+    """段落检测、评分、补全未识别区间（LLM 不可用时的降级兜底）。"""
 
     COMPLAINT_MAX_SPAN = 20
     COMPLAINT_TERMINAL_KEYWORDS = ("此致", "具状人", "起诉人", "起诉状具状人", "日期")
@@ -199,21 +199,12 @@ class SegmentDetector:
                 }
             )
 
-        inferred = self._infer_continuation_pages(pages, start_candidates, template_key=template_key)
-        candidate_page_set = {c["page_no"] for c in start_candidates}
-        all_candidates = start_candidates + [c for c in inferred if c["page_no"] not in candidate_page_set]
-        all_candidates.sort(key=lambda c: c["page_no"])
+        all_candidates = sorted(start_candidates, key=lambda c: c["page_no"])
 
         segments: list[SegmentDraft] = []
         for index, start in enumerate(all_candidates):
-            if start.get("source") == "context_infer":
-                continue
-
-            next_start_page = len(pages) + 1
-            for future in all_candidates[index + 1 :]:
-                if future.get("source") != "context_infer":
-                    next_start_page = future["page_no"]
-                    break
+            following = all_candidates[index + 1] if index + 1 < len(all_candidates) else None
+            next_start_page = following["page_no"] if following else len(pages) + 1
 
             end_page = next_start_page - 1
             if start["segment_type"] == PdfSplitSegmentType.COMPLAINT:
@@ -237,9 +228,9 @@ class SegmentDetector:
                 review_flag = PdfSplitReviewFlag.LOW_CONFIDENCE
                 source_method = "rule_weak_only"
 
-            prev_real = [c for c in all_candidates[:index] if c.get("source") != "context_infer"]
-            if prev_real and prev_real[-1]["page_no"] == start["page_no"] - 1:
-                if prev_real[-1]["segment_type"] == start["segment_type"]:
+            previous = all_candidates[index - 1] if index > 0 else None
+            if previous and previous["page_no"] == start["page_no"] - 1:
+                if previous["segment_type"] == start["segment_type"]:
                     review_flag = PdfSplitReviewFlag.LOW_CONFIDENCE
                     source_method = "rule_adjacent_start"
                     confidence = min(confidence, 0.55)
@@ -263,64 +254,6 @@ class SegmentDetector:
     # ------------------------------------------------------------------
     # 内部辅助
     # ------------------------------------------------------------------
-
-    def _infer_continuation_pages(
-        self,
-        pages: list[PageDescriptor],
-        start_candidates: list[dict[str, Any]],
-        *,
-        template_key: str,
-    ) -> list[dict[str, Any]]:
-        """
-        跨页上下文推理：将无候选但包含 continuation_keywords 的页面归入前一高置信度段落。
-
-        仅当前一候选 score >= 0.5 时触发，且段落页数不超过 30 页。
-        """
-        template = get_template_definition(template_key)
-        candidate_page_set = {c["page_no"] for c in start_candidates}
-        inferred: list[dict[str, Any]] = []
-
-        all_known: list[dict[str, Any]] = list(start_candidates)
-
-        for page in pages:
-            if page.page_no in candidate_page_set:
-                continue
-
-            prev_candidate: dict[str, Any] | None = None
-            for c in reversed(all_known):
-                if c["page_no"] < page.page_no:
-                    prev_candidate = c
-                    break
-
-            if prev_candidate is None or float(prev_candidate.get("score", 0.0)) < 0.5:
-                continue
-
-            span_start: int = int(prev_candidate.get("span_start", prev_candidate["page_no"]))
-            if page.page_no - span_start >= 30:
-                continue
-
-            rule = next(
-                (r for r in template.rules if r.segment_type == prev_candidate["segment_type"]),
-                None,
-            )
-            if rule is None or not rule.continuation_keywords:
-                continue
-
-            has_continuation = any(self.contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords)
-            if has_continuation:
-                entry: dict[str, Any] = {
-                    "page_no": page.page_no,
-                    "segment_type": prev_candidate["segment_type"],
-                    "score": round(float(prev_candidate["score"]) * 0.9, 3),
-                    "source": "context_infer",
-                    "span_start": span_start,
-                    "weak_only": False,
-                }
-                inferred.append(entry)
-                all_known.append(entry)
-                all_known.sort(key=lambda c: c["page_no"])
-
-        return inferred
 
     def _find_complaint_end(
         self,

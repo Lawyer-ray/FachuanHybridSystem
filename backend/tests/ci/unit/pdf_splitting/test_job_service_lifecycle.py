@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -51,6 +53,22 @@ pytestmark = pytest.mark.django_db
 #: create_job 里需要提交 Django-Q 任务的入口。测试一律 patch 掉，
 #: 否则会真的往队列里塞任务（测试环境没有 worker，任务永远躺在 OrmQ 里）。
 _SUBMIT_PATH = "apps.pdf_splitting.services.job_service.build_task_submission_service"
+#: 内容分析模式的首次取字提交在 two_stage 里（带阶段预算），是**另一个**入口。
+_STAGE_SUBMIT_PATH = "apps.pdf_splitting.services.split.two_stage.build_task_submission_service"
+
+
+@contextmanager
+def _patched_submits() -> Iterator[MagicMock]:
+    """两个提交入口共用一个替身。
+
+    只 patch job_service 那一个会漏掉内容分析路径：它走
+    ``two_stage.submit_extract_stage``，用的是 two_stage 模块里的工厂——
+    漏掉就等于在测试里真的入队一个取字任务。
+    """
+    factory = MagicMock()
+    factory.return_value.submit.return_value = "task-stub"
+    with patch(_SUBMIT_PATH, factory), patch(_STAGE_SUBMIT_PATH, factory):
+        yield factory
 
 
 @pytest.fixture(autouse=True)
@@ -336,7 +354,7 @@ class TestCreateJob:
 
     def test_file与source_path二选一_都不给被拒(self) -> None:
         with pytest.raises(ValidationException) as exc_info:
-            with patch(_SUBMIT_PATH) as submit:
+            with _patched_submits() as submit:
                 _service().create_job(file=None, source_path=None, template_key="filing_materials_v1")
         assert "二选一" in exc_info.value.message
         submit.assert_not_called()
@@ -345,7 +363,7 @@ class TestCreateJob:
         pdf = _make_pdf(tmp_path / "src.pdf", pages=1)
         with override_settings(MEDIA_ROOT=tmp_path):
             with pytest.raises(ValidationException) as exc_info:
-                with patch(_SUBMIT_PATH):
+                with _patched_submits():
                     _service().create_job(
                         file=_upload(pdf),
                         source_path=str(pdf),
@@ -357,7 +375,7 @@ class TestCreateJob:
         """内容分析模式必须提交 **extract** 阶段（不是老的整任务），
         这是 600s worker 超时被拆链的落地点。"""
         pdf = _make_pdf(tmp_path / "卷宗.pdf", pages=3)
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             submit_factory.return_value.submit.return_value = "task-extract-1"
             job = _service().create_job(
                 file=_upload(pdf),
@@ -365,12 +383,16 @@ class TestCreateJob:
                 template_key="filing_materials_v1",
             )
 
-        from apps.pdf_splitting.services.split.two_stage import TASK_EXTRACT
+        from apps.pdf_splitting.services.split.two_stage import EXTRACT_STAGE_TIMEOUT_SECONDS, TASK_EXTRACT
 
         submit_factory.return_value.submit.assert_called_once()
         args = submit_factory.return_value.submit.call_args
         assert args.args[0] == TASK_EXTRACT
         assert args.kwargs["args"] == [str(job.id)]
+        assert args.kwargs["task_name"] == f"pdf_split_extract_{job.id}"
+        # 首次提交也必须带阶段预算：裸 submit 会退回集群默认 600s，
+        # 拆链只给第二段全新预算，第一段仍在旧限额里被硬杀。
+        assert args.kwargs["timeout"] == EXTRACT_STAGE_TIMEOUT_SECONDS
 
         job.refresh_from_db()
         assert job.status == PdfSplitJobStatus.PENDING
@@ -388,7 +410,7 @@ class TestCreateJob:
     def test_按页拆分走单一导出前的整任务(self, tmp_path: Path) -> None:
         """非内容分析模式不拆链，直接提交整任务——否则按页拆分要多排一个空阶段。"""
         pdf = _make_pdf(tmp_path / "卷宗.pdf", pages=2)
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             submit_factory.return_value.submit.return_value = "task-whole"
             job = _service().create_job(
                 file=_upload(pdf),
@@ -406,7 +428,7 @@ class TestCreateJob:
         media_root = tmp_path / "media"
         pdf = _make_pdf(media_root / "inbox" / "起诉状.pdf", pages=2)
         with override_settings(MEDIA_ROOT=media_root, FOLDER_BROWSE_ROOTS=[]):
-            with patch(_SUBMIT_PATH) as submit_factory:
+            with _patched_submits() as submit_factory:
                 submit_factory.return_value.submit.return_value = "task-local"
                 job = _service().create_job(
                     file=None,
@@ -425,7 +447,7 @@ class TestCreateJob:
         pdf = _make_pdf(tmp_path / "卷宗.pdf", pages=1)
         anonymous = MagicMock()
         anonymous.is_authenticated = False
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             submit_factory.return_value.submit.return_value = "t"
             job = _service().create_job(
                 file=_upload(pdf), source_path=None, template_key="filing_materials_v1", created_by=anonymous
@@ -435,7 +457,7 @@ class TestCreateJob:
     def test_认证用户记created_by(self, tmp_path: Path) -> None:
         pdf = _make_pdf(tmp_path / "卷宗.pdf", pages=1)
         lawyer = LawyerFactory()
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             submit_factory.return_value.submit.return_value = "t"
             job = _service().create_job(
                 file=_upload(pdf), source_path=None, template_key="filing_materials_v1", created_by=lawyer
@@ -446,7 +468,7 @@ class TestCreateJob:
     def test_任务提交失败时回滚任务行与目录(self, tmp_path: Path) -> None:
         """提交失败必须回滚：留下没有 task_id 的任务行 = 前端永远 pending 的僵尸。"""
         pdf = _make_pdf(tmp_path / "卷宗.pdf", pages=1)
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             submit_factory.return_value.submit.side_effect = RuntimeError("broker down")
             with pytest.raises(RuntimeError, match="broker down"):
                 _service().create_job(file=_upload(pdf), source_path=None, template_key="filing_materials_v1")
@@ -465,7 +487,7 @@ class TestCreateJob:
         """
         broken = tmp_path / "broken.pdf"
         broken.write_bytes(b"%PDF-1.4 not really a pdf")
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             with pytest.raises(ValidationException) as exc_info:
                 _service().create_job(
                     file=SimpleUploadedFile("坏文件.pdf", broken.read_bytes(), content_type="application/pdf"),
@@ -607,7 +629,7 @@ class TestRequestCancel:
         job = _make_job(status=PdfSplitJobStatus.PROCESSING)
         PdfSplitJob.objects.filter(pk=job.pk).update(task_id="task-running")
 
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             submit_factory.return_value.cancel.return_value = {"queue_deleted": 0, "running": True}
             _service().request_cancel(job_id=job.id)
 
@@ -621,7 +643,7 @@ class TestRequestCancel:
         job = _make_job(status=PdfSplitJobStatus.PROCESSING)
         PdfSplitJob.objects.filter(pk=job.pk).update(task_id="task-x")
 
-        with patch(_SUBMIT_PATH) as submit_factory:
+        with _patched_submits() as submit_factory:
             submit_factory.return_value.cancel.side_effect = RuntimeError("broker down")
             _service().request_cancel(job_id=job.id)
 

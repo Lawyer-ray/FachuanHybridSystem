@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .cross_page_consistency import Inconsistency, find_inconsistencies
+from .cross_page_consistency import KIND_ENTITY_CLUSTER, KIND_ID_MALFORMED, Inconsistency, find_inconsistencies
 
 #: 写进 summary 的条数上限。真实卷宗实测 1340 条，全量传输没有意义——
 #: 前端是全本清单，律师看的是最可疑的前几十条；其余用 inconsistency_total 交代。
@@ -56,7 +56,14 @@ def pick_top_inconsistencies(items: list[Inconsistency], *, limit: int = SUMMARY
         limit: 只影响写进 summary 的条数，不影响 ``inconsistency_total``。
 
     Returns:
-        ``[{canonical, variant, canonical_count, variant_count, pages, confidence}, ...]``
+        ``[{canonical, variant, canonical_count, variant_count, pages, confidence, kind}, ...]``
+
+    ``kind`` 是**逐条**透出的判据种类（``frequency`` / ``entity_cluster`` / ``id_malformed``）。
+    为什么必须逐条而不是在 summary 里给一个按 kind 的计数：前端抽屉要按**每一行**
+    换文案与图标（「疑似错字」vs「姓名多写法候选，待核对」），计数无法定位到行；
+    而计数前端从已收到的条目自己就能算出来，不必后端再给一份。
+
+    这是**加键**不是改键：原有 6 个键的名字、类型、语义全部不变，旧前端忽略未知键即可。
     """
     ordered = sorted(
         items,
@@ -75,6 +82,7 @@ def pick_top_inconsistencies(items: list[Inconsistency], *, limit: int = SUMMARY
             "variant_count": item.variant_count,
             "pages": list(item.pages),
             "confidence": item.confidence,
+            "kind": item.kind,
         }
         for item in ordered[: max(0, limit)]
     ]
@@ -99,7 +107,25 @@ def flags_for_markdown(markdown: str, items: list[Inconsistency]) -> list[str]:
 
 
 def flag_text(item: Inconsistency) -> str:
-    """单条不一致的段级提示文案。"""
+    """单条不一致的段级提示文案。
+
+    按判据种类分文案：频次法有「高频写法」这个证据，可以说「疑似错字」；
+    实体聚类**没有**哪个对的证据（各写法频次接近），只能说「同一角色下有多种写法，
+    请核对」——把它也写成「疑似错字」会让律师以为系统判定了某个写法是错的，
+    进而把两个真人合并成一个。
+    """
+    if item.kind == KIND_ENTITY_CLUSTER:
+        return (
+            f"姓名写法不一致：{item.variant}"
+            f"（同一角色下另有「{item.canonical}」等写法，全本 {item.canonical_count} 次，"
+            f"此写法 {item.variant_count} 次，请核对是否同一人）"
+        )
+    if item.kind == KIND_ID_MALFORMED:
+        return (
+            f"证件号疑似识别错误：{item.variant}"
+            f"（位数结构不合法；同字段另有合法写法「{item.canonical}」{item.canonical_count} 次，"
+            f"此写法 {item.variant_count} 次）"
+        )
     return (
         f"疑似错字：{item.variant}"
         f"（全本 {item.canonical_count} 次写作「{item.canonical}」，此写法 {item.variant_count} 次）"

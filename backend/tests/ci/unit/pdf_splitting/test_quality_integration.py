@@ -158,7 +158,17 @@ class TestInconsistencyIntegration:
 
         assert len(picked) == 50
         assert picked[0]["canonical"] == "甲000"
-        assert set(picked[0]) == {"canonical", "variant", "canonical_count", "variant_count", "pages", "confidence"}
+        # kind 是逐条透出的判据种类（前端抽屉按行换文案要用）；原有 6 个键不许改名/改语义
+        assert set(picked[0]) == {
+            "canonical",
+            "variant",
+            "canonical_count",
+            "variant_count",
+            "pages",
+            "confidence",
+            "kind",
+        }
+        assert picked[0]["kind"] == "frequency"
 
     def test_排序_high在前_同级按变体次数降序(self) -> None:
         items = [
@@ -399,3 +409,97 @@ class TestAnalyzePdfWritesSummary:
         assert outcome.summary["layout_mode"] == "fast_text"
         # 每段都带 quality_flags（空表也要有键，前端据此整块不渲染）
         assert all("quality_flags" in entry for entry in outcome.segments_md)
+
+
+class TestAttachPageQualityFlags:
+    """图形页 / 证件缺字段警告兑现到**段级** flags：只读 content_md 的下游才看得到。"""
+
+    def _qualities(self) -> dict[int, PageQuality]:
+        return {
+            1: _quality(1, "text", review=False, reason="正常文本页"),
+            2: _quality(2, "graphic", review=True, reason="疑似图形页（图纸/印章/照片），请核对原图"),
+            3: PageQuality(
+                page_no=3,
+                char_count=45,
+                kind="sparse",
+                reason="这页是身份证，但姓名 / 身份证号 / 住址 均未读出，请人工录入或核对原图",
+                needs_visual_review=False,
+                doc_hint="id_card",
+            ),
+        }
+
+    def test_图形页与证件页各出一条带页号的flag(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality_summary import attach_page_quality_flags
+
+        segments_md = [{"order": 0, "page_start": 1, "page_end": 3, "markdown": "# 材料", "quality_flags": []}]
+
+        attach_page_quality_flags(segments_md, self._qualities())
+
+        flags = segments_md[0]["quality_flags"]
+        assert len(flags) == 2
+        assert flags[0].startswith("第2页：疑似图形页")
+        assert flags[1].startswith("第3页：这页是身份证")
+
+    def test_合并而不是覆盖已有的错字提示(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality_summary import attach_page_quality_flags
+
+        segments_md = [
+            {"order": 0, "page_start": 2, "page_end": 2, "markdown": "# a", "quality_flags": ["疑似错字：受办人"]}
+        ]
+
+        attach_page_quality_flags(segments_md, self._qualities())
+
+        assert segments_md[0]["quality_flags"][0] == "疑似错字：受办人"
+        assert len(segments_md[0]["quality_flags"]) == 2
+
+    def test_正常文本页不出flag(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality_summary import attach_page_quality_flags
+
+        segments_md = [{"order": 0, "page_start": 1, "page_end": 1, "markdown": "# a"}]
+
+        attach_page_quality_flags(segments_md, self._qualities())
+
+        assert segments_md[0]["quality_flags"] == []
+
+    def test_重复调用不重复堆flag(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality_summary import attach_page_quality_flags
+
+        segments_md = [{"order": 0, "page_start": 2, "page_end": 3, "markdown": "# a"}]
+
+        attach_page_quality_flags(segments_md, self._qualities())
+        attach_page_quality_flags(segments_md, self._qualities())
+
+        assert len(segments_md[0]["quality_flags"]) == 2
+
+    def test_没有逐页画像时保持原样(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality_summary import attach_page_quality_flags
+
+        segments_md = [
+            {"order": 0, "page_start": 1, "page_end": 9, "markdown": "# a", "quality_flags": ["疑似错字：x"]}
+        ]
+
+        attach_page_quality_flags(segments_md, {})
+
+        assert segments_md[0]["quality_flags"] == ["疑似错字：x"]
+
+    def test_非字符串flag被剔除(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality_summary import attach_page_quality_flags
+
+        segments_md = [{"order": 0, "page_start": 1, "page_end": 1, "markdown": "# a", "quality_flags": ["", 42, "x"]}]
+
+        attach_page_quality_flags(segments_md, self._qualities())
+
+        assert segments_md[0]["quality_flags"] == ["x"]
+
+    def test_正文与定位块不被改动(self) -> None:
+        from apps.pdf_splitting.services.split.page_quality_summary import attach_page_quality_flags
+
+        segments_md = [
+            {"order": 0, "page_start": 2, "page_end": 2, "markdown": "# 材料\n正文", "positioned": [{"page": 2}]}
+        ]
+
+        result = attach_page_quality_flags(segments_md, self._qualities())
+
+        assert result is segments_md
+        assert segments_md[0]["markdown"] == "# 材料\n正文"
+        assert segments_md[0]["positioned"] == [{"page": 2}]

@@ -24,9 +24,10 @@ from apps.pdf_splitting.services.split import two_stage
 
 
 def _storage(tmp_path: Path) -> Any:
-    """构造只带分歧产物路径的 storage 替身（``write_json`` 真写盘）。"""
+    """构造只带阶段产物路径的 storage 替身（``write_json`` 真写盘）。"""
     storage = MagicMock()
     storage.engine_disagreements_json_path = tmp_path / "engine_disagreements.json"
+    storage.extract_summary_json_path = tmp_path / "extract_summary.json"
 
     def write_json(path: Path, payload: object) -> None:
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -80,3 +81,54 @@ class TestLoadEngineDisagreementsDegradation:
 
         with patch.object(Path, "read_text", side_effect=OSError("permission denied")):
             assert two_stage.load_engine_disagreements(storage) == {}
+
+
+class TestExtractSummaryRoundTrip:
+    """取字摘要必须落盘：``ocr_provider`` 是分段阶段换算 bbox 单位的唯一依据。
+
+    不落盘时分段阶段只能拿 ``job.cloud_backend``（默认 "auto"）当依据，而
+    ``resolve_bbox_unit("auto")`` 是 unknown —— positioned 直接恒空。
+    """
+
+    def test_落盘读回往返(self, tmp_path: Path) -> None:
+        storage = _storage(tmp_path)
+        payload = {"ocr_provider": "mineru", "cloud_failover_from": ["textin"], "material_kind": "scanned_pdf"}
+
+        two_stage.save_extract_summary(storage, payload)
+
+        assert storage.extract_summary_json_path.exists()
+        assert two_stage.load_extract_summary(storage) == payload
+
+    def test_容灾后的实际平台能取回(self, tmp_path: Path) -> None:
+        """首选 textin、实际落到 mineru：坐标系必须按**实际**那个算。"""
+        storage = _storage(tmp_path)
+        two_stage.save_extract_summary(storage, {"ocr_provider": "mineru", "cloud_failover_from": ["textin"]})
+
+        assert two_stage.load_extract_summary(storage)["ocr_provider"] == "mineru"
+
+
+class TestLoadExtractSummaryDegradation:
+    """四类降级：文件不存在 / JSON 损坏 / 顶层不是 dict / 读文件 OSError。"""
+
+    def test_文件不存在回空表(self, tmp_path: Path) -> None:
+        """旧任务没有这个产物——坐标降级为不可用，但正文照常。"""
+        assert two_stage.load_extract_summary(_storage(tmp_path)) == {}
+
+    def test_json损坏回空表(self, tmp_path: Path) -> None:
+        storage = _storage(tmp_path)
+        storage.extract_summary_json_path.write_text('{"ocr_provider":', encoding="utf-8")
+        assert two_stage.load_extract_summary(storage) == {}
+
+    def test_顶层不是字典回空表(self, tmp_path: Path) -> None:
+        storage = _storage(tmp_path)
+        storage.extract_summary_json_path.write_text('["mineru"]', encoding="utf-8")
+        assert two_stage.load_extract_summary(storage) == {}
+
+    def test_读文件OSError回空表(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        storage = _storage(tmp_path)
+        storage.extract_summary_json_path.write_text("{}", encoding="utf-8")
+
+        with patch.object(Path, "read_text", side_effect=OSError("permission denied")):
+            assert two_stage.load_extract_summary(storage) == {}

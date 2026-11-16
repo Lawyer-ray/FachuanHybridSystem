@@ -130,9 +130,15 @@ def normalize_bbox(
 
 
 def resolve_bbox_unit(backend: str | None) -> str:
-    """按后端名给出它的 bbox 坐标单位（未知名返回不可用）。"""
+    """按后端名给出它的 bbox 坐标单位（未知名返回不可用）。
+
+    ``local`` 也是千分比：兜底路径实为 PaddleOCR-VL API，``ocr_handler.vl_page_layout``
+    把它的版面统一写成 1000×1000 基准（``_VL_LAYOUT_SIDE``），好让一份卷宗里混着的
+    MinerU 页与兜底页共用一个 bbox_backend。真没有版面的引擎（纯文本层 / 本地行 OCR）
+    压根不产出 blocks，这里给什么单位都画不出框，不存在编造坐标。
+    """
     name = str(backend or "").strip().lower()
-    if name == "mineru":
+    if name in {"mineru", "local"}:
         return "permille"
     if name == "textin":
         return "absolute"

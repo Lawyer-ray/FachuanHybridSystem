@@ -39,6 +39,34 @@
 3. **频次悬殊才算**：低频写法必须是高频写法的零头。门槛按「像不像人名」分两档
    （``TERM_MIN_RATIO`` / ``PERSON_NAME_MIN_RATIO``），不够悬殊的根本不进结果。
 
+## 频次法抓不到的：当事人姓名与证件号（实体感知判据）
+
+频次悬殊法只认「高频正确 + 低频错字」这一种形态。真实 164 页银行档案实测：
+借款人在「户名」字段下有 **5 种写法、各出现 1-2 页**，最大/最小频次比只有 2.0——
+既过不了 ``min_count``（3 次），也过不了 ``PERSON_NAME_MIN_RATIO``（4 倍）。
+于是全卷只检出 2 条银行经办人变体（73 次 vs 3 次），**法律上最关键的当事人姓名一条没报**。
+
+所以补两条不依赖频次悬殊的判据，都只在**角色字段值**这个原子位置上做：
+
+- ``entity_cluster``：同一角色字段下，同长度、同「姓+名首字」前缀的人名形态串聚成一簇。
+  簇里 **>=3 种写法**且**跨 >=2 页**才提示。为什么是 3 种：2 种写法同前缀差一字，
+  正是下面「必须避开的误判」里那两个自然人（`张三丰`/`张四丰`）的形态；要求 3 种
+  是因为「三个同姓同名首字的兄弟姐妹恰好都落在同一个角色字段里」远比「一个人名被
+  OCR 认成三种样子」少见。**输出是候选不是结论**：canonical 只是簇里出现页数最多的
+  参照写法，不判定哪个对，confidence 给 medium。
+- ``id_malformed``：同一证件号字段下，**结构非法**的写法（18 位证前 17 位出现了字母）
+  与它至多差 2 位的**唯一**合法写法配对。结构合法性是硬证据，不需要频次；容忍 2 位
+  是因为损坏侧根本不可能是真证件号，问题变成「这个字段里的哪个合法号码被认坏了」。
+  候选不唯一就**不报**（同字段可能并列借款人 + 配偶）。两侧都合法但差几位的不报——
+  那可能是相邻发号的两个自然人。
+
+两条判据一律 medium：前端 ``draft/engine-suggest.ts`` 只信 high 才给「建议改成 X」，
+所以 medium 天然落在「只提示、不自动改正文」这一侧，无需前端配合即安全。
+
+**局限（必须知道）**：后端拿不到当事人名单（``detectParties`` 只在前端草稿里回填），
+所以判据只能靠「角色字段 + 人名形态 + 前缀聚类」。姓名若**不出现在任何角色字段值里**
+（只在合同正文或段名中），本判据仍然抓不到——不对正文滑窗是刻意的，那是 1340 条噪声的来源。
+
 ## 必须避开的误判
 
 - **真不同的人名**：``张某某`(21) vs `张某某2`(15) 是两个自然人——两个人各自被写了
@@ -61,6 +89,7 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from itertools import combinations
 
 #: 参与比对的片段长度区间（按归一化后的字符数计）。
 MIN_FRAGMENT_LEN = 3
@@ -100,6 +129,49 @@ _BUSINESS_CHARS = frozenset(
     "合同协议银行日期金额利率账号编号司支行余额额本利息抵押担保借贷凭证细据表种类期号码卡户款项费税账存款交易明单份书证书计算报告案审诉讼机关公司企业务"
 )
 
+#: 判据种类。``frequency`` 是原有的「频次悬殊」判据（confidence 恒 high）。
+#: 后两种是**实体感知**判据，一律给 medium：前端 ``draft/engine-suggest.ts`` 只信
+#: high 才给「建议改成 X」，所以 medium 天然落在「只提示、不自动改正文」这一侧。
+#: 当事人姓名的多种写法频次接近（各 1-2 次），根本没有「哪个是高频正确写法」的证据，
+#: 给 high 会让前端把两个真人合并成一个——比漏报坏得多。
+KIND_FREQUENCY = "frequency"
+KIND_ENTITY_CLUSTER = "entity_cluster"
+KIND_ID_MALFORMED = "id_malformed"
+
+#: 姓名聚类的前缀长度（姓 + 名首字）。只同姓太松（同姓的人满卷都是），
+#: 同姓又同名首字才像「同一个人的多种 OCR 写法」。
+_NAME_PREFIX_LEN = 2
+
+#: 一个前缀簇至少要有这么多种**不同写法**才提示。
+#:
+#: 2 种不行：`张三丰`(21) vs `张四丰`(15) 正是本模块开头警告的两个自然人，
+#: 它们同角色、同长度、同前缀，只差最后一个字。要求 >=3 种写法，是因为
+#: 「三个同姓同名首字的兄弟姐妹恰好都出现在同一个角色字段里」远比
+#: 「一个人名被 OCR 认成三种样子」少见。真实卷宗里借款人正是 5 种写法各 1-2 页。
+_CLUSTER_MIN_WRITINGS = 3
+
+#: 一个前缀簇至少要跨这么多页才提示。同一页里同角色出现两个名字，
+#: 更可能是「共有人/保证人并列」这两个真人，而不是跨页 OCR 变体。
+_CLUSTER_MIN_PAGES = 2
+
+#: 证件号字段名。与 ``_FIELD_NAMES`` 分开：证件号的值是数字串，不走中文片段判据。
+#: 长名在前，避免 ``证件号`` 先匹配上 ``证件号码`` 的前缀再靠回溯纠正。
+_ID_FIELD_NAMES = "公民身份号码 身份证号码 证件号码 身份证号 证件号".split()  # noqa: SIM905
+
+#: 证件号取值。分隔符允许**缺失**：真实 OCR 常把冒号丢掉或换成空格
+#: （实测同一卷宗里 `证件号码 440…` 与 `证件号码：440…` 两种形态都有）。
+#: 尾部 ``(?![0-9Xx])`` 挡住「从更长的账号串里截前 18 位当证件号」。
+#:
+#: 角色名单独捕获：分隔符可缺失，所以**不能**像 ``_FIELD_VALUE_RE`` 那样按首个冒号
+#: 切角色名——无冒号时会把整段「角色+号码」当成角色，每个号码各自一桶，永远配不上对。
+_ID_VALUE_RE = re.compile(
+    "(?P<role>%s)[：: \\t]*(?P<value>[0-9Xx]{15,18})(?![0-9Xx])" % "|".join(_ID_FIELD_NAMES),
+)
+
+#: 18 位身份证：前 17 位必须是数字，只有末位可以是 X。15 位旧证：全数字。
+_ID_CARD_18_RE = re.compile(r"\d{17}[\dXx]")
+_ID_CARD_15_RE = re.compile(r"\d{15}")
+
 
 @dataclass(frozen=True)
 class Inconsistency:
@@ -107,7 +179,12 @@ class Inconsistency:
 
     ``canonical`` 是高频写法（推荐的正确写法），``variant`` 是低频变体（疑似错字），
     ``pages`` 是变体出现过的页号（升序、去重）——律师要靠它翻回原页核对。
-    ``confidence`` 当前恒为 ``"high"``：频次不够悬殊的根本不返回（宁可漏报，不可误报）。
+    ``confidence`` 在 ``kind=frequency`` 下恒为 ``"high"``：频次不够悬殊的根本不返回
+    （宁可漏报，不可误报）。
+
+    ``kind`` 区分判据来源，**只影响提示文案与置信度，不影响 canonical/variant 语义**：
+    ``entity_cluster`` 的 canonical 只是「簇里出现页数最多的那种写法」，是**参照**
+    而不是「判定为正确」——所以它给 medium，前端不会拿它自动改正文。
     """
 
     canonical: str
@@ -116,6 +193,7 @@ class Inconsistency:
     variant_count: int
     pages: list[int]
     confidence: str
+    kind: str = KIND_FREQUENCY
 
 
 def _normalize(text: str) -> str:
@@ -242,6 +320,196 @@ def _is_close_frequency(counts: Counter[str], canonical: str, variant: str) -> b
     return counts[canonical] < counts[variant] * _min_ratio(canonical, variant)
 
 
+def _field_role_of(match: re.Match[str]) -> str:
+    """``_FIELD_VALUE_RE`` 匹配对应的角色名（冒号前那一段）。
+
+    **前提：该正则的冒号是必需的**，所以首个冒号之前必然恰好是角色名。
+    分隔符可缺失的正则（如 ``_ID_VALUE_RE``）不能用本函数，必须自己捕获角色名。
+
+    不改 ``_FIELD_VALUE_RE`` 的分组结构：``_iter_candidates`` 依赖 ``group(1)`` 是值，
+    把角色名改成捕获组会让它整体错位。
+    """
+    return re.split(r"[：:]", match.group(0), maxsplit=1)[0]
+
+
+def _record_page_names(out: dict[str, dict[str, set[int]]], text: str, page_no: int, *, max_len: int) -> None:
+    """把一页里所有角色字段值中的人名形态串记进 ``{角色: {值: 页号集合}}``。"""
+    for match in _FIELD_VALUE_RE.finditer(text or ""):
+        bucket = out.setdefault(_field_role_of(match), {})
+        for piece in re.split(r"[ \t]+", match.group(1).strip()):
+            value = _normalize(piece)[:max_len]
+            if _looks_like_person_name(value):
+                bucket.setdefault(value, set()).add(page_no)
+
+
+def _role_name_pages(pages_text: dict[int, str], *, max_len: int) -> dict[str, dict[str, set[int]]]:
+    """``{角色名: {人名形态值: 出现过的页号集合}}``。
+
+    只收**角色字段值**里的人名形态串，不对正文滑窗——正文滑窗正是本模块开头
+    记录的 1340 条噪声的来源。角色字段是闭集，天然把「这句话里恰好有个三字词」挡在外面。
+    """
+    out: dict[str, dict[str, set[int]]] = {}
+    for page_no, text in pages_text.items():
+        _record_page_names(out, text, int(page_no), max_len=max_len)
+    return out
+
+
+def _cluster_reference(group: list[str], value_pages: dict[str, set[int]], counts: Counter[str]) -> str:
+    """簇里的**参照写法**：出现页数最多者，同页数按出现次数、再按字典序定序。
+
+    叫参照而不叫 canonical 是因为这里没有「哪个对」的证据——簇里各写法频次接近，
+    选它只是为了让输出稳定、让律师有个对照起点。
+    """
+    return min(group, key=lambda value: (-len(value_pages[value]), -counts[value], value))
+
+
+def _cluster_group_hits(
+    group: list[str],
+    value_pages: dict[str, set[int]],
+    counts: Counter[str],
+    reported: set[tuple[str, str]],
+) -> list[Inconsistency]:
+    """一个前缀簇 → 参照写法与其余每种写法各一条候选提示。"""
+    reference = _cluster_reference(group, value_pages, counts)
+    hits: list[Inconsistency] = []
+    for variant in group:
+        if variant == reference or (reference, variant) in reported:
+            continue
+        hits.append(
+            Inconsistency(
+                canonical=reference,
+                variant=variant,
+                canonical_count=counts[reference],
+                variant_count=counts[variant],
+                pages=sorted(value_pages[variant]),
+                confidence="medium",
+                kind=KIND_ENTITY_CLUSTER,
+            )
+        )
+    return hits
+
+
+def _entity_cluster_hits(
+    role_names: dict[str, dict[str, set[int]]],
+    counts: Counter[str],
+    reported: set[tuple[str, str]],
+) -> list[Inconsistency]:
+    """同一角色字段下，同一人的多种 OCR 写法 → 候选提示（不判对错）。
+
+    补的是频次悬殊法的**结构性盲区**：借款人姓名在真实卷宗里有 5 种写法、各出现
+    1-2 页，最大/最小频次比只有 2.0，永远过不了 ``PERSON_NAME_MIN_RATIO``（4 倍），
+    也过不了 ``min_count``（3 次）。频次法只能抓到「高频正确 + 低频错字」这一种形态，
+    而当事人姓名恰恰是「每种写法都很少」——法律上最关键，却最容易被漏掉。
+    """
+    hits: list[Inconsistency] = []
+    for value_pages in role_names.values():
+        # 预索引：同长度 + 同前缀才可能是一个人的多种写法，避免全量两两线性比对
+        buckets: dict[tuple[int, str], list[str]] = defaultdict(list)
+        for value in sorted(value_pages):
+            buckets[(len(value), value[:_NAME_PREFIX_LEN])].append(value)
+        for group in buckets.values():
+            if len(group) < _CLUSTER_MIN_WRITINGS:
+                continue
+            covered = {page for value in group for page in value_pages[value]}
+            if len(covered) < _CLUSTER_MIN_PAGES:
+                continue
+            hits.extend(_cluster_group_hits(group, value_pages, counts, reported))
+    return hits
+
+
+def _is_valid_id_card(value: str) -> bool:
+    """证件号是否**结构合法**（只查形态，不查校验位）。
+
+    18 位证的前 17 位必须是数字，只有末位可以是 X；15 位旧证全数字。
+    OCR 把某一位数字认成字母（``4x0…``）时结构就坏了——这是不依赖频次的硬证据。
+    """
+    if len(value) == 18:
+        return bool(_ID_CARD_18_RE.fullmatch(value))
+    if len(value) == 15:
+        return bool(_ID_CARD_15_RE.fullmatch(value))
+    return False
+
+
+def _two_drop_index(values: list[str]) -> dict[tuple[int, int, str], list[str]]:
+    """``{(挖掉的两个位号, 剩余串): [原值]}``，用于 O(1) 找「至多差两位」的对方。
+
+    同长度的两个值至多差 2 位 ⇔ 存在某两个位号，挖掉后两串完全相同。
+    **位号必须进键**：只按剩余串建索引会让 `abcd` 与 `cdab` 撞上同一个键（实际差 4 位）。
+    挖 2 位的索引天然覆盖「只差 1 位」（再随便挖一个相同位号即可），不必另建一份。
+    """
+    index: dict[tuple[int, int, str], list[str]] = defaultdict(list)
+    for value in values:
+        for left, right in combinations(range(len(value)), 2):
+            index[(left, right, value[:left] + value[left + 1 : right] + value[right + 1 :])].append(value)
+    return index
+
+
+def _id_bucket_hits(
+    bucket_pages: dict[str, set[int]],
+    bucket_counts: Counter[str],
+    reported: set[tuple[str, str]],
+) -> list[Inconsistency]:
+    """同一角色同一长度下，结构损坏的证件号 → 与它至多差 2 位的**唯一**合法证件号。
+
+    为什么容忍 2 位而不是人名那样的 1 位：证件号有**结构合法性**这个硬证据
+    （18 位证前 17 位必须是数字），损坏侧根本不可能是真证件号。问题不是「这两个写法
+    是不是同一个人」，而是「OCR 把这个字段里的哪个合法号码认坏了」。实测 579 包那条
+    损坏证件号与正确号差 2 位（一位数字被认成字母、另一位数字认错），1 位判据会漏掉它。
+
+    为什么要求**唯一**候选：同一角色字段下可能并列多个自然人（借款人 + 配偶）。
+    损坏号若与两个合法号都接近，就没有证据指认是哪一个——不猜，直接不报。
+    """
+    valid = sorted(value for value in bucket_pages if _is_valid_id_card(value))
+    broken = sorted(value for value in bucket_pages if not _is_valid_id_card(value))
+    index = _two_drop_index(valid)
+    hits: list[Inconsistency] = []
+    for bad in broken:
+        candidates = {
+            good
+            for left, right in combinations(range(len(bad)), 2)
+            for good in index.get((left, right, bad[:left] + bad[left + 1 : right] + bad[right + 1 :]), [])
+        }
+        # 0 个 = 无证据；>1 个 = 歧义。两种都不报。
+        if len(candidates) != 1:
+            continue
+        good = candidates.pop()
+        if (good, bad) in reported:
+            continue
+        hits.append(
+            Inconsistency(
+                canonical=good,
+                variant=bad,
+                canonical_count=bucket_counts[good],
+                variant_count=bucket_counts[bad],
+                pages=sorted(bucket_pages[bad]),
+                confidence="medium",
+                kind=KIND_ID_MALFORMED,
+            )
+        )
+    return hits
+
+
+def _id_card_hits(pages_text: dict[int, str], reported: set[tuple[str, str]]) -> list[Inconsistency]:
+    """同一证件号字段下，结构损坏的写法 vs 结构合法的写法（差 1 位）→ 提示。
+
+    **只报「一侧结构非法」**，不报「两侧都合法但差一位」：后者可能是两个自然人
+    （证件号相邻发号）或校验位歧义，没有硬证据就不猜。同理不做编辑距离 >1 的匹配。
+    """
+    pages_by: dict[tuple[str, int], dict[str, set[int]]] = defaultdict(dict)
+    counts_by: dict[tuple[str, int], Counter[str]] = defaultdict(Counter)
+    for page_no, text in pages_text.items():
+        for match in _ID_VALUE_RE.finditer(text or ""):
+            value = match.group("value")
+            key = (match.group("role"), len(value))
+            pages_by[key].setdefault(value, set()).add(int(page_no))
+            counts_by[key][value] += 1
+
+    hits: list[Inconsistency] = []
+    for key, bucket_pages in pages_by.items():
+        hits.extend(_id_bucket_hits(bucket_pages, counts_by[key], reported))
+    return hits
+
+
 def find_inconsistencies(
     pages_text: dict[int, str],
     *,
@@ -258,7 +526,8 @@ def find_inconsistencies(
 
     Returns:
         按 ``variant_count`` 降序排列（先看证据最多的），同频次按 canonical / variant
-        字典序。
+        字典序。含三种 ``kind``：``frequency``（high）与实体感知的
+        ``entity_cluster`` / ``id_malformed``（medium，只提示不判对错）。
     """
     if not pages_text or min_count < 2 or max_len < MIN_FRAGMENT_LEN:
         return []
@@ -296,5 +565,12 @@ def find_inconsistencies(
                         confidence="high",
                     )
                 )
+
+    # 实体感知判据：补频次法的结构性盲区（当事人姓名各写法都很少、证件号结构损坏）。
+    # 跳过频次法已报过的同一对写法，避免同一处刷两条。
+    reported = {(item.canonical, item.variant) for item in hits}
+    role_names = _role_name_pages(pages_text, max_len=max_len)
+    hits.extend(_entity_cluster_hits(role_names, counts, reported))
+    hits.extend(_id_card_hits(pages_text, reported))
 
     return sorted(hits, key=lambda item: (-item.variant_count, item.canonical, item.variant))

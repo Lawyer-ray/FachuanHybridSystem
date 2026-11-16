@@ -67,6 +67,17 @@ class PositionedBlockOut(BaseModel):
     table_cols: int | None = None
 
 
+class SegmentPageSpanOut(BaseModel):
+    """一段正文里属于某一页的字符区间（相对 ``content_md``，左闭右开）。
+
+    前端切/并段时按它把正文按页搬运，而不是整段照抄（污染）或整段丢弃（丢失）。
+    """
+
+    page: int
+    start: int
+    end: int
+
+
 class SegmentOut(BaseModel):
     id: int
     order: int
@@ -86,6 +97,9 @@ class SegmentOut(BaseModel):
     # 该段的识别质量提示（跨页一致性校对命中的疑似错字等）。只是提示，不阻塞流程；
     # 旧任务无该产物时为空列表，前端整块不渲染。
     quality_flags: list[str] = []
+    # 该段正文的页锚点（content_md 字符区间 → 页号）；旧任务无该产物时为空列表，
+    # 前端按「没有锚点」降级。字段名固定为 page_spans，前端按它映射 pageSpans。
+    page_spans: list[SegmentPageSpanOut] = []
 
 
 class PdfSplitJobOut(BaseModel):

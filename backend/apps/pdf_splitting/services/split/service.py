@@ -33,7 +33,8 @@ from .consistency_summary import attach_quality_flags_to_markdown, detect_incons
 from .dual_engine_runner import plan_dual_engine_factories, run_dual_engine
 from .export_utils import ExportUtils, deduplicate_filename, export_segment_pdf
 from .markdown_builder import build_segments_markdown
-from .ocr_handler import OCRHandler
+from .ocr_handler import OCRHandler, cloud_backend_of_method
+from .page_quality_summary import attach_page_quality_flags, qualities_by_page
 from .pipeline import (
     PdfAnalysisOutcome,
     PipelineCancelled,
@@ -60,6 +61,23 @@ def _dual_engine_summary(payload: dict[str, Any]) -> dict[str, Any]:
         or {"high": 0, "medium": 0, "low": 0},
         "dual_engine": dict(payload.get("dual_engine") or {}),
     }
+
+
+def _provider_from_pages(pages: list[PageDescriptor]) -> str:
+    """从逐页取字来源推断整本的云端平台（取字 summary 缺失时的降级判据）。
+
+    只认 ``mineru_ocr`` / ``textin_ocr`` 这类带平台名的来源；本地 OCR 与文本层
+    没有平台可言，返回空串让上层如实说「坐标不可用」，而不是猜一个平台。
+    多平台混用时取页数最多的那个，并交给上层记 warning。
+    """
+    counts: dict[str, int] = {}
+    for page in pages:
+        backend = cloud_backend_of_method(page.source_method)
+        if backend:
+            counts[backend] = counts.get(backend, 0) + 1
+    if not counts:
+        return ""
+    return max(counts.items(), key=lambda item: item[1])[0]
 
 
 class PdfSplitService:
@@ -249,14 +267,25 @@ class PdfSplitService:
         # LLM 分段在 164 页上是 4-8 分钟、全程无回调，必须靠后台心跳撑着，
         # 否则 `_begin_stage` 写的那一次心跳之后再无声息，看门狗会来杀。
         with periodic_heartbeat(job.id):
-            drafts, segment_summary = detect_segments_with_fallback(pages, template_key=job.template_key)
+            drafts, segment_summary = detect_segments_with_fallback(
+                pages,
+                template_key=job.template_key,
+                # 批级成果落在 job 目录里：worker 被杀后重跑接着已完成的批跑，
+                # 不再为同一批 LLM 付第二次钱。
+                checkpoint_path=storage.analysis_dir / "segment_checkpoint.json",
+            )
 
         # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、
         # 同一份文案），避免「单任务入口有、两阶段入口没有」的劈叉。
         inconsistencies = detect_inconsistencies(pages)
-        bbox_backend = str(getattr(job, "cloud_backend", "") or "")
-        segments_md = attach_quality_flags_to_markdown(
-            build_segments_markdown(drafts, pages, bbox_backend=bbox_backend), inconsistencies
+        segments_md = attach_page_quality_flags(
+            attach_quality_flags_to_markdown(
+                build_segments_markdown(
+                    drafts, pages, bbox_backend=self._bbox_backend(job_id=job.id, storage=storage, pages=pages)
+                ),
+                inconsistencies,
+            ),
+            qualities_by_page(pages),
         )
         outcome = PdfAnalysisOutcome(
             pages=pages,
@@ -284,6 +313,38 @@ class PdfSplitService:
         # ocr_profile / layout_mode / material_kind 抹掉（summary 只增不删）。
         self._persist_analysis(job=job, storage=storage, outcome=outcome, merge_summary=False)
         PdfSplitJob.objects.filter(id=job.id).update(stage=PdfSplitStage.DONE)
+
+    def _bbox_backend(self, *, job_id: Any, storage: PdfSplitStorage, pages: list[PageDescriptor]) -> str:
+        """两阶段任务的坐标系来源：读**实际引擎**，不是任务上的平台偏好。
+
+        ``job.cloud_backend`` 可能是 ``auto``（容灾偏好，不是平台名），
+        ``resolve_bbox_unit("auto")`` 返回 unknown → ``build_positioned_blocks``
+        直接返回 []。这就是「两阶段 + auto 的任务绿框恒空」的根因，而单任务入口
+        用的是取字 summary 里的实际 ``ocr_provider``——两个入口必须同一口径。
+
+        取字 summary 拿不到时（旧任务没有这份产物）按页记录的取字来源推断，
+        并明确记一条 warning：推断出来的坐标系不如取字阶段自己报的可信。
+        **不退回 "auto"**——那等于把恒空的 bug 留着。
+        """
+        from . import two_stage
+
+        # 产物缺失/损坏时 load_extract_summary 自己回空表，这里只需处理「空」这一种情况
+        provider = str(two_stage.load_extract_summary(storage).get("ocr_provider") or "")
+        if provider and provider != "auto":
+            return provider
+
+        inferred = _provider_from_pages(pages)
+        if inferred:
+            logger.warning(
+                "pdf_split_bbox_backend_inferred",
+                extra={"job_id": str(job_id), "provider": inferred, "pages": len(pages)},
+            )
+            return inferred
+        logger.warning(
+            "pdf_split_bbox_backend_unknown",
+            extra={"job_id": str(job_id), "pages": len(pages), "summary_provider": provider},
+        )
+        return ""
 
     def _enter_cross_check(self, job: PdfSplitJob) -> None:
         """进入交叉比对：确认阶段名、写心跳、把进度压回 90。

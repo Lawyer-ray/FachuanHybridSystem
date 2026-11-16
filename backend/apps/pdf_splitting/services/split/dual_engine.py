@@ -105,6 +105,26 @@ _PUNCT_MAP = str.maketrans(
     }
 )
 
+#: 只承载排版、不承载法律事实的「呈现符」闭集（按归一化后**仍存活**的字符列）。
+#:
+#: 两串的差异全部落在这里时，两引擎认出的字与数字是一样的，只是标点/装饰符不同 → low。
+#: 半角 ``- ~ = | > # * _`` 已被 ``_NOISE_CHARS_RE`` 当 Markdown 噪声清掉，所以这里
+#: 只列它们的**全角对应形**（``－ ～ ＝ ｜ ＊ ＿``）——同一个字符不该因为宽度不同而
+#: 一边被当噪声、一边被当 high 级实质分歧。
+#:
+#: **刻意不含** ``× ÷ ＋ + ☐ ☑ ☒ □ ✓ ✔ ✗ ％ % ￥ ＠ @ ＆ &``：勾选框的选中态
+#: （``☒仲裁`` vs ``☑诉讼``）与公式运算符、百分号、货币符都是合同意思表示的一部分，
+#: 把它们当排版差异降级会让真分歧静默消失——那比多报一条 high 坏得多。
+_PRESENTATION_MARKS = frozenset(
+    ".,:;!?()[]<>\"'"  # 句读与括引（全角形已被 _PUNCT_MAP 折成这些）
+    "/／＼∕"  # 斜线：日期分隔，也是整块拼接时本模块自己加的分隔符
+    "．·•‧"  # 句点与间隔号
+    "–―－"  # 各类横线
+    "▲△▼◆■●○"  # 装饰性项目符号（银行合同用它标条款，重复/漏一个不改语义）
+    "｜＊～＿＝"  # 全角形，其半角对应字符已被当噪声清掉
+    "‖│┃"  # 竖线分隔
+)
+
 #: 唯一标识锚点：18 位身份证 / 15 位旧身份证 / 12 位以上连续数字（账号、卡号）。
 #:
 #: 为什么这些位置错了最致命：姓名与身份证号同段出现时，姓名是**直接绑定**到唯一
@@ -393,6 +413,36 @@ def _truncate(text: str, limit: int = _CONTEXT_MAX_CHARS) -> str:
     return raw if len(raw) <= limit else raw[: limit - 1] + "…"
 
 
+def _flanked_by_digits(text: str, start: int, end: int) -> bool:
+    """``text[start:end]`` 这段差异是否被两个数字夹在中间。"""
+    return start > 0 and end < len(text) and text[start - 1].isdigit() and text[end].isdigit()
+
+
+def _is_presentation_only_diff(left: str, right: str) -> bool:
+    """两串（已归一化）的差异是否**全部**只是呈现符，不含任何字、数字或语义符号。
+
+    为什么不能只看「差异字符是不是标点」：``146.75`` 与 ``14675`` 的差异也只是一个
+    句点，但那是**小数点**——金额差一百倍。所以再加一道数字夹逼判据：差异段两侧都是
+    数字时，这个标点可能是小数点/千分位/份额分隔（``1/2`` vs ``12``），一律不算排版。
+    宁可把这类留在 high，也不能把诉讼金额的分歧降成 low。
+
+    入参必须是 :func:`_normalize` 之后的串：全半角标点与空白已经在那里被折平，
+    剩下的差异才轮到本判据分级。
+    """
+    matcher = difflib.SequenceMatcher(None, left, right, autojunk=False)
+    saw_diff = False
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        saw_diff = True
+        marks = left[i1:i2] + right[j1:j2]
+        if not all(ch in _PRESENTATION_MARKS for ch in marks):
+            return False
+        if _flanked_by_digits(left, i1, i2) or _flanked_by_digits(right, j1, j2):
+            return False
+    return saw_diff
+
+
 def _classify_pair(left: str, right: str, *, anchor: bool) -> tuple[str, str, float] | None:
     """给一对「同一位置的两种写法」定 kind / severity / 相似度。
 
@@ -405,16 +455,21 @@ def _classify_pair(left: str, right: str, *, anchor: bool) -> tuple[str, str, fl
 
     matcher = difflib.SequenceMatcher(None, norm_left, norm_right, autojunk=False)
     similarity = matcher.ratio()
+    # 差异只剩呈现符时降为 low：律师要的是「哪个字认错了」，不是「哪个逗号是全角」。
+    # 锚点也不能把它抬回 high——账号/证件号本身没变，变的只是它前后的标点。
+    presentation_only = _is_presentation_only_diff(norm_left, norm_right)
 
     if _one_char_diff(norm_left, norm_right):
         # 差一个字就是形近字/漏笔/多笔的典型形态。
         # 命中身份证号等锚点的位置升级为 high——姓名与号码绑定处的单字错最致命。
+        if presentation_only:
+            return KIND_CHAR, SEVERITY_LOW, similarity
         return KIND_CHAR, (SEVERITY_HIGH if anchor else SEVERITY_MEDIUM), similarity
 
     if similarity >= _LINE_SIMILARITY_FLOOR:
         # 同一行里差了两个以上字符：可能是漏字、串行，也可能是两引擎切行不同。
         # 一律 high——这一级已经超出「一眼能判断」的范围，必须人看。
-        return KIND_LINE, SEVERITY_HIGH, similarity
+        return KIND_LINE, (SEVERITY_LOW if presentation_only else SEVERITY_HIGH), similarity
 
     # 相似度太低：不再当「同一行的两个版本」，交给调用方按 missing/整行差异处理。
     return None
@@ -444,7 +499,7 @@ def compare_pages(
     # 取所有引擎涉及过的页码，逐页比对。
     # 某引擎完全没识别这一页（例如降级失败）时，它在对比中缺席——
     # 这种情况由 _compare_single_page 里的 missing 分支处理。
-    all_pages: set[int] = set()  # DEBUG-PROBE
+    all_pages: set[int] = set()
     for pages in engine_pages.values():
         all_pages.update(pages.keys())
 
@@ -616,7 +671,13 @@ def _compare_pair(
                     EngineDisagreement(
                         page_no=page_no,
                         kind=KIND_LINE,
-                        severity=SEVERITY_HIGH,
+                        # 整块对不上时同样要看差异的性质：两边行数不同会让本模块自己加的
+                        # ``／`` 拼接分隔符数量对不上，那是排版不是认错字，降 low。
+                        severity=(
+                            SEVERITY_LOW
+                            if _is_presentation_only_diff(whole_norm_left, whole_norm_right)
+                            else SEVERITY_HIGH
+                        ),
                         variants=[
                             EngineVariant(engine=left_name, text=_truncate(left_joined), full_text=left_joined),
                             EngineVariant(engine=right_name, text=_truncate(right_joined), full_text=right_joined),

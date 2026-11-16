@@ -176,3 +176,48 @@ class TestReadOcrCacheSelection:
         _write_page_file(root, "page_00010.json", text="第十页", ocr_failed=False)
 
         assert OCRHandler().read_ocr_cache(pdf_hash=PDF_HASH, profile_key=PROFILE_KEY, page_no=1) is None
+
+
+class TestCacheSourceProvenance:
+    """缓存命中必须保留**真实平台**：档案名记的是首选平台，容灾后会名不副实。
+
+    丢掉真实来源的后果是坐标系污染：TextIn 的绝对坐标被套上 MinerU 的千分比，
+    绿框整体错位。本地 OCR / 文本层没有平台可言，沿用 ocr_cache 旧标记。
+    """
+
+    def test_云端平台来源原样保留(self) -> None:
+        assert ocr_handler._cached_source_method("textin_ocr", text="正文") == "textin_ocr"
+        assert ocr_handler._cached_source_method("mineru_ocr", text="正文") == "mineru_ocr"
+        assert ocr_handler._cached_source_method("mineru_empty", text="") == "mineru_empty"
+
+    def test_本地来源沿用旧标记(self) -> None:
+        assert ocr_handler._cached_source_method("ocr", text="正文") == "ocr_cache"
+        assert ocr_handler._cached_source_method("ocr_failed", text="") == "ocr_failed_cache"
+        assert ocr_handler._cached_source_method("", text="正文") == "ocr_cache"
+
+    def test_读缓存时恢复真实平台(self, cache_storage) -> None:
+        _storage, root = cache_storage
+        path = os.path.join(_cache_dir(root), "page_0001.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(
+                {
+                    "text": "银行流水交易明细",
+                    "ocr_failed": False,
+                    "source_method": "textin_ocr",
+                    "layout": {"page_no": 1, "blocks": [], "width": 595, "height": 842},
+                },
+                handle,
+            )
+
+        result = OCRHandler().read_ocr_cache(pdf_hash=PDF_HASH, profile_key=PROFILE_KEY, page_no=1)
+
+        assert result is not None
+        assert result.source_method == "textin_ocr"
+        assert result.layout is not None
+
+    def test_平台前缀匹配不误伤同名本地来源(self) -> None:
+        # 「mineru_local」这类带前缀的标记仍算 mineru；完全无关的词不得被认成平台
+        assert ocr_handler.cloud_backend_of_method("mineru_local") == "mineru"
+        assert ocr_handler.cloud_backend_of_method("ocr") == ""
+        assert ocr_handler.cloud_backend_of_method("text") == ""
+        assert ocr_handler.cloud_backend_of_method("paddleocr_vl") == ""

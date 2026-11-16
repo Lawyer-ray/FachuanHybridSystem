@@ -453,7 +453,10 @@ class TestCloudFailover:
                 return {}  # 空结果
             return {
                 1: OCRPageResult(
-                    page_no=1, text=self.TEXT, source_method="textin_ocr", ocr_failed=False,
+                    page_no=1,
+                    text=self.TEXT,
+                    source_method="textin_ocr",
+                    ocr_failed=False,
                     layout={"page_no": 1, "blocks": [{"type": "text", "text": self.TEXT, "bbox": [1, 2, 3, 4]}]},
                 )
             }
@@ -492,3 +495,191 @@ class TestCloudFailover:
 
         assert handler.cloud_calls == []
         assert summary["ocr_provider"] == "local"
+
+
+class TestUnstructuredNoiseCleaning:
+    """文本层 / 兜底页的噪声清洗：云端块路径靠块类型滤，这两条路径以前零过滤。"""
+
+    STAMPED = "民事判决书\n已核对与原件相符\n扫描件与留档资料相符\n经办人：李四\n12\n本院认为借款事实清楚"
+
+    def test_印章套话与页码行被剔除(self) -> None:
+        from apps.pdf_splitting.services.split.pipeline import clean_unstructured_page_text
+
+        cleaned = clean_unstructured_page_text(self.STAMPED)
+        assert "已核对与原件相符" not in cleaned
+        assert "经办人" not in cleaned
+        assert "本院认为借款事实清楚" in cleaned
+        assert "\n12\n" not in cleaned
+
+    def test_长纯数字行是账号_整页跳过页码清洗(self) -> None:
+        from apps.pdf_splitting.services.split.pipeline import clean_unstructured_page_text
+
+        # 579 兜底页实测有 16/18/22 位纯数字行（卡号/账号）。clean_page_artifacts
+        # 会无条件删掉所有纯数字行，含这种行的页必须跳过它那一道。
+        text = "交易明细\n1234567890123456\n7"
+        assert clean_unstructured_page_text(text) == text
+
+    def test_跳过页码清洗时印章套话仍然清(self) -> None:
+        from apps.pdf_splitting.services.split.pipeline import clean_unstructured_page_text
+
+        assert clean_unstructured_page_text("已核对与原件相符\n1234567890123456") == "1234567890123456"
+
+    def test_只有无块类型的来源才清洗(self) -> None:
+        from apps.pdf_splitting.services.split.pipeline import build_page_descriptor
+
+        cloud = build_page_descriptor(
+            page_no=1, text=self.STAMPED, source_method="mineru_ocr", ocr_failed=False, template_key=TEMPLATE_KEY
+        )
+        # 云端页的噪声由重建层按块类型处理，取字层不重复清洗（避免两套判据漂移）
+        assert cloud.text == self.STAMPED
+
+        for method in ("text", "ocr", "ocr_cache"):
+            page = build_page_descriptor(
+                page_no=1, text=self.STAMPED, source_method=method, ocr_failed=False, template_key=TEMPLATE_KEY
+            )
+            assert "已核对与原件相符" not in page.text, method
+
+    def test_取字层不吞混合行正文(self) -> None:
+        """回归：清洗曾在取字层把「经办人：」之后整段吃掉，律师读到的正文直接少一段。"""
+        from apps.pdf_splitting.services.split.pipeline import build_page_descriptor
+
+        lines = [
+            "经办人：测试甲 测试乙根据《中华人民共和国物权法》等法律法规，经审查准予登记，颁发此证。",
+            "| 经办人：测试甲 日期：2023.2.15 |",
+            "经办人：测试甲 测试乙",
+            "已核对与原件相符",
+        ]
+        page = build_page_descriptor(
+            page_no=1, text="\n".join(lines), source_method="ocr", ocr_failed=False, template_key=TEMPLATE_KEY
+        )
+
+        assert lines[0] in page.text  # 权证正文
+        assert lines[1] in page.text  # 表格行的日期单元格
+        assert "经办人：测试甲 测试乙" not in page.text.splitlines()  # 纯套话行仍整行剔
+        assert "已核对与原件相符" not in page.text.splitlines()
+
+
+class TestCacheProvenance:
+    """缓存档案名记的是首选平台，真实来源只能从条目里恢复——否则坐标系被污染。"""
+
+    def _cached(self, source_method: str) -> OCRPageResult:
+        return OCRPageResult(
+            page_no=1,
+            text="银行流水交易明细",
+            source_method=source_method,
+            ocr_failed=False,
+            layout={
+                "page_no": 1,
+                "blocks": [{"type": "text", "text": "银行流水交易明细", "bbox": [10, 10, 500, 60]}],
+                "width": 595,
+                "height": 842,
+            },
+        )
+
+    def _handler(self, cached: OCRPageResult) -> Any:
+        handler = _StubOCRHandler()
+        handler.resolve_cloud_backends = lambda pref=None: ["mineru", "textin"]  # type: ignore[method-assign]
+        handler.read_ocr_cache = lambda **kwargs: cached  # type: ignore[method-assign]
+        return handler
+
+    def test_容灾写进的缓存命中后报真实平台(self, tmp_path: Path) -> None:
+        pdf = tmp_path / "scan.pdf"
+        _make_pdf(pdf, [None])
+        handler = self._handler(self._cached("textin_ocr"))
+
+        pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY, cloud_backend="auto"
+        )
+
+        assert handler.cloud_calls == []  # 全命中，本轮没调云端
+        assert pages[0].source_method == "textin_ocr"
+        # 首选是 mineru，但产物是 TextIn 的绝对坐标：报 mineru 会让绿框整体错位
+        assert summary["ocr_provider"] == "textin"
+
+    def test_本地兜底缓存标记原样透传(self, tmp_path: Path) -> None:
+        pdf = tmp_path / "scan.pdf"
+        _make_pdf(pdf, [None])
+        # 本地 OCR 没有平台可言，handler 给的就是 ocr_cache（转换在 handler 侧，见
+        # test_ocr_cache_selection）；编排层不再二次改写来源。
+        handler = self._handler(self._cached("ocr_cache"))
+
+        pages, _summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY
+        )
+        assert pages[0].source_method == "ocr_cache"
+
+    def test_本轮云端成功时以本轮平台为准(self, tmp_path: Path) -> None:
+        pdf = tmp_path / "scan.pdf"
+        _make_pdf(pdf, [None, None])
+        handler = _StubOCRHandler(
+            cloud={2: OCRPageResult(page_no=2, text="第二页正文", source_method="mineru_ocr", ocr_failed=False)}
+        )
+        handler.resolve_cloud_backends = lambda pref=None: ["mineru", "textin"]  # type: ignore[method-assign]
+        handler.read_ocr_cache = lambda **kwargs: (  # type: ignore[method-assign]
+            self._cached("textin_ocr") if kwargs["page_no"] == 1 else None
+        )
+
+        _pages, summary = PageTextExtractor(ocr_handler=handler).extract(
+            pdf, ocr_profile="balanced", template_key=TEMPLATE_KEY, cloud_backend="auto"
+        )
+        assert summary["ocr_provider"] == "mineru"
+
+
+class TestSegmentBackendHonesty:
+    """单批降级必须写进 summary：前端 segmentBackendOf 读到 llm 就不提示规则降级。"""
+
+    def test_批次口径翻译成三种来源(self) -> None:
+        from apps.pdf_splitting.services.split.pipeline import _segment_backend_of
+
+        assert _segment_backend_of({"total_batches": 7, "llm_batches": 7, "rule_batches": 0}) == "llm"
+        assert _segment_backend_of({"total_batches": 7, "llm_batches": 6, "rule_batches": 1}) == "mixed"
+        assert _segment_backend_of({"total_batches": 7, "llm_batches": 0, "rule_batches": 7}) == "rule"
+        # 拿不到统计（单批路径未填）时沿用原口径，不谎报降级
+        assert _segment_backend_of({}) == "llm"
+
+    def test_传stats与checkpoint并按批数写summary(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.pdf_splitting.services.split import segment_batch
+        from apps.pdf_splitting.services.split.split_models import PageDescriptor, SegmentDraft
+
+        captured: dict[str, Any] = {}
+
+        def _fake(**kwargs: Any) -> list[Any]:
+            captured.update(kwargs)
+            kwargs["stats"].update({"total_batches": 7, "llm_batches": 6, "rule_batches": 1, "single_batch": False})
+            return [
+                SegmentDraft(
+                    order=0,
+                    page_start=1,
+                    page_end=1,
+                    segment_type="complaint",
+                    filename="起诉状.pdf",
+                    confidence=0.9,
+                    source_method="llm",
+                    review_flag="normal",
+                )
+            ]
+
+        monkeypatch.setattr(segment_batch, "detect_in_batches", _fake)
+        pages = [
+            PageDescriptor(
+                page_no=1,
+                text="民事起诉状",
+                normalized_text="民事起诉状",
+                head_text="民事起诉状",
+                source_method="text",
+                ocr_failed=False,
+                top_candidates=[],
+            )
+        ]
+        checkpoint = tmp_path / "segment_checkpoint.json"
+
+        _drafts, summary = detect_segments_with_fallback(
+            pages, template_key=TEMPLATE_KEY, llm_segment_detector=_StubLLM(), checkpoint_path=checkpoint
+        )
+
+        assert isinstance(captured["stats"], dict)
+        assert captured["checkpoint_path"] == checkpoint
+        assert summary["segment_backend"] == "mixed"
+        assert summary["segment_rule_batches"] == 1
+        assert summary["segment_total_batches"] == 7
+        assert summary["segment_llm_fallback_reason"] == ""
