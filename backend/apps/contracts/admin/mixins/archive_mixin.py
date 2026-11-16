@@ -100,9 +100,9 @@ class ContractArchiveMixin:  # pragma: no cover
                     status=400,
                 )
 
-            from apps.contracts.services.archive import ArchiveGenerationService
+            from apps.contracts.services.archive.wiring import build_archive_generation_service
 
-            gen_service = ArchiveGenerationService()
+            gen_service = build_archive_generation_service()
             result = gen_service.generate_archive_folder(contract)
 
             if not result["success"]:
@@ -144,9 +144,9 @@ class ContractArchiveMixin:  # pragma: no cover
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
 
-            from apps.contracts.services.archive import ArchiveGenerationService
+            from apps.contracts.services.archive.wiring import build_archive_generation_service
 
-            gen_service = ArchiveGenerationService()
+            gen_service = build_archive_generation_service()
             result = gen_service.generate_single_archive_document(contract, archive_item_code)
 
             if result.get("error"):
@@ -181,9 +181,9 @@ class ContractArchiveMixin:  # pragma: no cover
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
 
-            from apps.contracts.services.archive import ArchiveGenerationService
+            from apps.contracts.services.archive.wiring import build_archive_generation_service
 
-            gen_service = ArchiveGenerationService()
+            gen_service = build_archive_generation_service()
             result = gen_service.download_archive_item(contract, archive_item_code)
 
             if result.get("error"):
@@ -475,9 +475,9 @@ class ContractArchiveMixin:  # pragma: no cover
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
 
-            from apps.contracts.services.archive import ArchiveGenerationService
+            from apps.contracts.services.archive.wiring import build_archive_generation_service
 
-            gen_service = ArchiveGenerationService()
+            gen_service = build_archive_generation_service()
             result = gen_service.scale_pages_to_a4(contract)
 
             return JsonResponse(result)

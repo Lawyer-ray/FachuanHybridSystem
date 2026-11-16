@@ -4,14 +4,27 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from pathlib import Path
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.conf import settings as django_settings
 from django.http import HttpRequest, HttpResponse
-from ninja import Router, Schema
+from ninja import Router
 
+from apps.contracts.schemas.archive_schemas import (
+    ChecklistItemOut,
+    ChecklistOut,
+    ClearAllOut,
+    ConfirmArchiveOut,
+    GenerateArchiveFolderOut,
+    LearnRulesOut,
+    MoveIn,
+    ReorderIn,
+    ScaleToA4Out,
+    SuccessOut,
+    SyncCaseMaterialsOut,
+    ToggleCompactOut,
+    UploadArchiveItemOut,
+)
 from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
 
 logger = logging.getLogger("apps.contracts.api")
@@ -39,135 +52,26 @@ async def _ensure_contract_access(request: HttpRequest, contract_id: int) -> Any
     return contract
 
 
-# ── Schemas ──
-
-
-class ReorderIn(Schema):
-    orders: dict[str, list[int]]
-
-
-class MoveIn(Schema):
-    target_code: str
-
-
-class SuccessOut(Schema):
-    success: bool = True
-
-
-class ClearAllOut(Schema):
-    success: bool = True
-    deleted_count: int = 0
-
-
-class GenerateArchiveFolderOut(Schema):
-    """生成归档文件夹输出"""
-
-    success: bool = True
-    generated_docs: list[str] = []
-    archive_dir: str = ""
-    errors: list[str] = []
-
-
-class ToggleCompactOut(Schema):
-    """精简视图切换输出"""
-
-    success: bool = True
-    compact_archive: bool = False
-
-
-class ChecklistItemOut(Schema):
-    """检查清单项输出"""
-
-    code: str
-    name: str
-    template: str | None = None
-    required: bool
-    auto_detect: str | None = None
-    source: str
-    completed: bool = False
-    material_ids: list[int] = []
-    materials: list[dict[str, Any]] = []
-    has_case_material: bool = False
-
-
-class ChecklistOut(Schema):
-    """检查清单输出"""
-
-    archive_category: str
-    archive_category_label: str
-    compact_archive: bool = False
-    items: list[ChecklistItemOut]
-    completed_count: int = 0
-    total_count: int = 0
-    required_completed_count: int = 0
-    required_total_count: int = 0
-    completion_percentage: float = 0.0
-
-
-class UploadArchiveItemOut(Schema):
-    """上传归档材料输出"""
-
-    id: int = 0
-    filename: str = ""
-
-
-class ConfirmArchiveOut(Schema):
-    """确认归档输出"""
-
-    success: bool = True
-    message: str = ""
-
-
-class SyncCaseMaterialsOut(Schema):
-    """同步案件材料输出"""
-
-    success: bool = True
-    synced_count: int = 0
-    message: str = ""
-
-
-class ScaleToA4Out(Schema):
-    """A4缩放输出"""
-
-    success: bool = True
-    scaled_count: int = 0
-    message: str = ""
-
-
-class LearnRulesOut(Schema):
-    """学习分类规则输出"""
-
-    success: bool = True
-    learned: int = 0
-    updated: int = 0
-    skipped: int = 0
-    message: str = ""
-
-
 # ── Endpoints ──
 
 
 @router.post("/archive/learn-rules", response=LearnRulesOut)
 async def learn_archive_rules(request: HttpRequest) -> Any:  # pragma: no cover
     """从已归档材料中学习分类规则（全局操作，仅管理员）"""
-    from apps.contracts.services.archive.learning_service import ArchiveLearningService
+    from apps.contracts.services.archive.wiring import build_archive_learning_service
     from apps.core.security.admin_access import ensure_admin_request
 
     ensure_admin_request(request, message="仅管理员可执行归档规则学习", code="PERMISSION_DENIED")
 
-    try:
-        service = ArchiveLearningService()
-        result = await sync_to_async(service.learn_from_archived_materials)()
-        return LearnRulesOut(
-            success=True,
-            learned=result.get("learned", 0),
-            updated=result.get("updated", 0),
-            skipped=result.get("skipped", 0),
-            message=f"学习完成：新增 {result['learned']} 条，更新 {result['updated']} 条，跳过 {result['skipped']} 条",
-        )
-    except (OSError, RuntimeError, ValueError) as exc:
-        logger.exception("archive_learning_failed")
-        return LearnRulesOut(success=False, message=str(exc))
+    service = build_archive_learning_service()
+    result = await sync_to_async(service.learn_from_archived_materials_safe)()
+    return LearnRulesOut(
+        success=result["success"],
+        learned=result.get("learned", 0),
+        updated=result.get("updated", 0),
+        skipped=result.get("skipped", 0),
+        message=result["message"],
+    )
 
 
 @router.get("/{contract_id}/archive/download-item/{archive_item_code}")
@@ -179,9 +83,9 @@ async def download_archive_item(
     if not contract:
         return HttpResponse(status=404)
 
-    from apps.contracts.services.archive import ArchiveGenerationService
+    from apps.contracts.services.archive.wiring import build_archive_generation_service
 
-    gen_service = ArchiveGenerationService()
+    gen_service = build_archive_generation_service()
     result = await sync_to_async(gen_service.download_archive_item)(contract, archive_item_code)
 
     if result.get("error"):
@@ -215,22 +119,17 @@ async def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any
     if not contract:
         return HttpResponse(status=404)
 
-    from apps.contracts.models.folder_binding import ContractFolderBinding
+    from apps.contracts.services.archive.archive_query_service import get_folder_binding_or_none
+    from apps.contracts.services.archive.wiring import build_archive_generation_service
 
-    try:
-        binding = contract.folder_binding
-    except ContractFolderBinding.DoesNotExist:
-        binding = None
-
+    binding = await sync_to_async(get_folder_binding_or_none)(contract)
     if not binding or not binding.folder_path:
         return GenerateArchiveFolderOut(
             success=False,
             errors=["请先在「文档与提醒」中绑定文件夹"],
         )
 
-    from apps.contracts.services.archive import ArchiveGenerationService
-
-    gen_service = ArchiveGenerationService()
+    gen_service = build_archive_generation_service()
     result = await sync_to_async(gen_service.generate_archive_folder)(contract)
 
     if not result["success"]:
@@ -254,14 +153,10 @@ async def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
     if not contract:
         return HttpResponse(status=404)
 
-    contract.compact_archive = not contract.compact_archive
-    await sync_to_async(contract.save)(update_fields=["compact_archive"])
-    logger.info(
-        "切换精简视图状态: contract_id=%s, compact_archive=%s",
-        contract_id,
-        contract.compact_archive,
-    )
-    return ToggleCompactOut(success=True, compact_archive=contract.compact_archive)
+    from apps.contracts.services.archive.archive_query_service import toggle_compact_archive as toggle_compact_service
+
+    compact_archive = await sync_to_async(toggle_compact_service)(contract)
+    return ToggleCompactOut(success=True, compact_archive=compact_archive)
 
 
 @router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
@@ -312,9 +207,9 @@ async def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:  # pragma:
     if not contract:
         return HttpResponse(status=404)
 
-    from apps.contracts.services.archive import ArchiveGenerationService
+    from apps.contracts.services.archive.wiring import build_archive_generation_service
 
-    gen_service = ArchiveGenerationService()
+    gen_service = build_archive_generation_service()
     result = await sync_to_async(gen_service.scale_pages_to_a4)(contract)
 
     return ScaleToA4Out(
@@ -349,14 +244,12 @@ async def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:  #
     if not uploaded_file:
         return HttpResponse(status=400)
 
-    from apps.core.services.storage_service import validate_file
-
-    try:
-        validate_file(uploaded_file)
-    except Exception as exc:
-        return HttpResponse(str(exc), status=400)
-
+    from apps.contracts.services.archive.archive_query_service import validate_upload_file_or_error
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+    error = await sync_to_async(validate_upload_file_or_error)(uploaded_file)
+    if error:
+        return HttpResponse(error, status=400)
 
     checklist_service = build_archive_checklist_service()
     material = await sync_to_async(checklist_service.upload_material_to_archive_item)(
@@ -431,46 +324,15 @@ async def preview_archive_material(request: HttpRequest, contract_id: int, mater
     if not await _ensure_contract_access(request, contract_id):
         return HttpResponse(status=404)
 
-    from apps.contracts.services.archive.archive_query_service import get_material_or_none
+    from apps.contracts.services.archive.archive_query_service import get_material_or_none, resolve_archive_preview_file
 
     material = await sync_to_async(get_material_or_none)(material_id, contract_id)
-
     if not material:
         return HttpResponse(status=404)
 
-    if not material.file_path:
-        return HttpResponse(status=404)
-
-    # 路径收敛（安全审计）：material.file_path 可能是历史脏数据中的任意绝对路径，
-    # 禁止直读。统一经 to_media_abs 收敛到 MEDIA_ROOT 内，再校验位于本合同的
-    # 归档材料目录（contracts/finalized/{contract_id}，所有写入方的唯一落盘根），
-    # 越界一律 404，杜绝绑定目录外任意文件读取。
-    from apps.core.exceptions import ValidationException
-    from apps.core.filesystem.upload_paths import MediaEntity
-    from apps.core.services.storage_service import to_media_abs
-
-    try:
-        file_path = to_media_abs(material.file_path)
-    except ValidationException:
-        logger.warning(
-            "归档材料预览拒绝非法路径: material_id=%s contract_id=%s",
-            material_id,
-            contract_id,
-        )
-        return HttpResponse(status=404)
-
-    contract_finalized_dir = (
-        Path(django_settings.MEDIA_ROOT) / MediaEntity.CONTRACT_FINALIZED / str(contract_id)
-    ).resolve()
-    if not file_path.is_relative_to(contract_finalized_dir):
-        logger.warning(
-            "归档材料预览路径越界（不在合同归档目录内）: material_id=%s contract_id=%s",
-            material_id,
-            contract_id,
-        )
-        return HttpResponse(status=404)
-
-    if not file_path.exists():
+    # 路径收敛与安全校验下沉到 Service；越界/非法/不存在一律 None → 404
+    file_path = await sync_to_async(resolve_archive_preview_file)(material, contract_id)
+    if file_path is None:
         return HttpResponse(status=404)
 
     content = await asyncio.to_thread(file_path.read_bytes)

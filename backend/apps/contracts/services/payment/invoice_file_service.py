@@ -47,7 +47,7 @@ from typing import Any
 from django.db import transaction
 from django.db.models import Q
 
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import BusinessException, ValidationException
 
 logger = logging.getLogger("apps.contracts")
 
@@ -415,6 +415,65 @@ class InvoiceFileService:
             folder_subpath=folder_subpath,
             folder_skipped_reason=skipped,
         )
+
+    def upload_invoices(
+        self,
+        files: list[Any],
+        *,
+        payment_id: int | None = None,
+        contract_id: int | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+        recognize: Any | None = None,
+    ) -> dict[str, Any]:
+        """批量上传发票：逐张独立成败，识别失败降级为「只存文件不填字段」。
+
+        recognize 为可选的单文件识别 callable（失败抛异常，由此处降级）；返回原始
+        payload（saved/failed/duplicated_count/开票状态），Schema 装配留给 API 层。
+        """
+        saved: list[SavedInvoice] = []
+        failed: list[dict[str, str]] = []
+        duplicated = 0
+        for uploaded in files:
+            filename = str(getattr(uploaded, "name", "") or "未命名")
+            parsed = None
+            if recognize is not None:
+                try:
+                    parsed = recognize(uploaded)
+                except Exception as exc:
+                    # 识别失败不是上传失败：照常存文件建记录，字段留空让人手填。
+                    # 日志字段别用 filename（LogRecord 保留字段，会抛 KeyError）。
+                    logger.warning("invoice_recognize_failed", extra={"invoice_file": filename}, exc_info=exc)
+            try:
+                result = self.save_invoice(
+                    payment_id=payment_id,
+                    contract_id=contract_id,
+                    uploaded_file=uploaded,
+                    parsed=parsed,
+                    user=user,
+                    org_access=org_access,
+                    perm_open_access=perm_open_access,
+                )
+            except BusinessException as exc:
+                failed.append({"filename": filename, "reason": str(exc.message)})
+                continue
+            except Exception:
+                logger.exception("invoice_upload_failed", extra={"invoice_file": filename})
+                failed.append({"filename": filename, "reason": "保存失败，请重试"})
+                continue
+            duplicated += 1 if result.duplicated else 0
+            saved.append(result)
+
+        status = self.payment_invoice_state(payment_id) if payment_id else {"": ""}
+        return {
+            "saved": saved,
+            "failed": failed,
+            "duplicated_count": duplicated,
+            "invoice_status": status.get("invoice_status", ""),
+            "invoice_status_label": status.get("invoice_status_label", ""),
+            "invoiced_amount": status.get("invoiced_amount", ""),
+        }
 
     def list_invoices(
         self, contract_id: int, *, payment_ids: list[int] | None = None, unlinked_only: bool = False

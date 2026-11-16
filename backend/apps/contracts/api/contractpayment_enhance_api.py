@@ -308,8 +308,8 @@ async def _upload_invoices(
     payment_id: int | None = None,
     contract_id: int | None = None,
 ) -> Any:
-    """收款/合同两路上传的公共循环：识别降级存票、逐张独立成败。"""
-    from apps.core.exceptions import BusinessException, ValidationException
+    """收款/合同两路上传的公共入口：ctx 提取 + 委托 service 批量落库 + Schema 装配。"""
+    from apps.core.exceptions import ValidationException
 
     if not files:
         raise ValidationException("请选择发票文件", errors={"files": "空"})
@@ -318,54 +318,22 @@ async def _upload_invoices(
     ctx = await sync_to_async(extract_request_context)(request)
     recognize = _build_recognizer()
 
-    saved: list[InvoiceOut] = []
-    failed: list[InvoiceUploadFailure] = []
-    duplicated = 0
-
-    for uploaded in files:
-        filename = str(getattr(uploaded, "name", "") or "未命名")
-        try:
-            parsed = await sync_to_async(recognize)(uploaded)
-        except Exception as exc:
-            # 识别失败不是上传失败：照常存文件并建记录，只是字段留空让人手填。
-            # 发票能否入账取决于有没有这张票，不取决于 OCR 认不认得出来。
-            # 注意日志字段别用 `filename`：它是 LogRecord 保留字段，会抛 KeyError。
-            logger.warning("invoice_recognize_failed", extra={"invoice_file": filename}, exc_info=exc)
-            parsed = None
-
-        try:
-            result = await sync_to_async(service.save_invoice, thread_sensitive=True)(
-                payment_id=payment_id,
-                contract_id=contract_id,
-                uploaded_file=uploaded,
-                parsed=parsed,
-                user=ctx.user,
-                org_access=ctx.org_access,
-                perm_open_access=ctx.perm_open_access,
-            )
-        except BusinessException as exc:
-            failed.append(InvoiceUploadFailure(filename=filename, reason=str(exc.message)))
-            continue
-        except Exception:
-            logger.exception("invoice_upload_failed", extra={"invoice_file": filename})
-            failed.append(InvoiceUploadFailure(filename=filename, reason="保存失败，请重试"))
-            continue
-
-        duplicated += 1 if result.duplicated else 0
-        saved.append(_saved_out(result, payment_id=payment_id))
-
-    status = (
-        await sync_to_async(service.payment_invoice_state, thread_sensitive=True)(payment_id)
-        if payment_id
-        else {"": ""}
+    payload = await sync_to_async(service.upload_invoices, thread_sensitive=True)(
+        files,
+        payment_id=payment_id,
+        contract_id=contract_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+        recognize=recognize,
     )
     return InvoiceUploadOut(
-        saved=saved,
-        failed=failed,
-        invoice_status=status.get("invoice_status", ""),
-        invoice_status_label=status.get("invoice_status_label", ""),
-        invoiced_amount=status.get("invoiced_amount", ""),
-        duplicated_count=duplicated,
+        saved=[_saved_out(r, payment_id=payment_id) for r in payload["saved"]],
+        failed=[InvoiceUploadFailure(filename=f["filename"], reason=f["reason"]) for f in payload["failed"]],
+        invoice_status=payload["invoice_status"],
+        invoice_status_label=payload["invoice_status_label"],
+        invoiced_amount=payload["invoiced_amount"],
+        duplicated_count=payload["duplicated_count"],
     )
 
 

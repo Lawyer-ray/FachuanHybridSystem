@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from django.db import transaction
@@ -99,3 +100,78 @@ def confirm_archive(contract_id: int) -> bool:
 
     logger.info("合同已归档: contract_id=%s", contract_id)
     return True
+
+
+def toggle_compact_archive(contract: Contract) -> bool:
+    """切换精简视图状态并落库，返回切换后的值。"""
+    contract.compact_archive = not contract.compact_archive
+    contract.save(update_fields=["compact_archive"])
+    logger.info(
+        "切换精简视图状态: contract_id=%s, compact_archive=%s",
+        contract.id,
+        contract.compact_archive,
+    )
+    return bool(contract.compact_archive)
+
+
+def get_folder_binding_or_none(contract: Contract) -> Any:
+    """安全取合同文件夹绑定，未绑定返回 None（避免 API 层捕获 DoesNotExist）。"""
+    from apps.contracts.models.folder_binding import ContractFolderBinding
+
+    try:
+        return contract.folder_binding
+    except ContractFolderBinding.DoesNotExist:
+        return None
+
+
+def validate_upload_file_or_error(uploaded_file: Any) -> str | None:
+    """校验上传文件，合法返回 None，否则返回错误文案（供 API 直接回 400）。"""
+    from apps.core.services.storage_service import validate_file
+
+    try:
+        validate_file(uploaded_file)
+    except Exception as exc:
+        return str(exc)
+    return None
+
+
+def resolve_archive_preview_file(material: FinalizedMaterial, contract_id: int) -> Path | None:
+    """归档材料预览路径收敛（安全审计：material.file_path 不得直读任意路径）。
+
+    统一经 to_media_abs 收敛到 MEDIA_ROOT 内，再校验位于本合同的归档材料目录
+    （contracts/finalized/{contract_id}，所有写入方的唯一落盘根）。非法路径、
+    越界、不存在一律返回 None，由调用方按 404 处理。
+    """
+    from django.conf import settings as django_settings
+
+    from apps.core.exceptions import ValidationException
+    from apps.core.filesystem.upload_paths import MediaEntity
+    from apps.core.services.storage_service import to_media_abs
+
+    if not material.file_path:
+        return None
+
+    try:
+        file_path = to_media_abs(material.file_path)
+    except ValidationException:
+        logger.warning(
+            "归档材料预览拒绝非法路径: material_id=%s contract_id=%s",
+            material.id,
+            contract_id,
+        )
+        return None
+
+    contract_finalized_dir = (
+        Path(django_settings.MEDIA_ROOT) / MediaEntity.CONTRACT_FINALIZED / str(contract_id)
+    ).resolve()
+    if not file_path.is_relative_to(contract_finalized_dir):
+        logger.warning(
+            "归档材料预览路径越界（不在合同归档目录内）: material_id=%s contract_id=%s",
+            material.id,
+            contract_id,
+        )
+        return None
+
+    if not file_path.exists():
+        return None
+    return file_path

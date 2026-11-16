@@ -252,6 +252,8 @@ class ContractFolderScanService:
         storage_provider: Any | None = None,
     ) -> dict[str, Any]:  # pragma: no cover
         session = self.get_session(contract_id=contract_id, session_id=session_id)
+        if storage_provider is None:
+            storage_provider = self._resolve_session_storage_provider(session)
         result = self._import_pipeline.confirm_import(
             contract_id=contract_id,
             session=session,
@@ -458,6 +460,20 @@ class ContractFolderScanService:
                 raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
 
         return binding
+
+    def _resolve_session_storage_provider(self, session: Any) -> Any | None:
+        """从 session → contract → binding 链路解析云存储 provider；失败按本地存储（None）。"""
+        try:
+            binding = session.contract.folder_binding
+            return self._make_provider_for_binding(binding)
+        except Exception:
+            logger.debug(
+                "解析云存储 provider 失败（已忽略，按本地存储确认导入）: contract_id=%s session_id=%s",
+                session.contract_id,
+                session.id,
+                exc_info=True,
+            )
+            return None
 
     def _make_provider_for_binding(self, binding: ContractFolderBinding) -> Any | None:  # pragma: no cover
         """Create a cloud storage provider for the binding, or None for local."""

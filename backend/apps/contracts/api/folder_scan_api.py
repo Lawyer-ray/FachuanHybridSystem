@@ -154,25 +154,10 @@ async def confirm_contract_scan(  # pragma: no cover
     await sync_to_async(_require_contract_access)(request, contract_id)
 
     service = _get_service()
-
-    # 解析云存储 provider（从 session → contract → binding 链路）
-    storage_provider = None
-    session = await sync_to_async(service.get_session)(contract_id=contract_id, session_id=session_id)
-    try:
-        binding = await sync_to_async(lambda: session.contract.folder_binding)()
-        storage_provider = await sync_to_async(service._make_provider_for_binding)(binding)
-    except Exception:
-        logger.debug(
-            "解析云存储 provider 失败（已忽略，按本地存储确认导入）: contract_id=%s session_id=%s",
-            contract_id,
-            session_id,
-            exc_info=True,
-        )
-
+    # 云存储 provider 由 service.confirm_import 内部按 session→binding 链路解析
     return await sync_to_async(service.confirm_import)(
         contract_id=contract_id,
         session_id=session_id,
         items=[item.model_dump() for item in payload.items],
         work_log_suggestions=[item.model_dump() for item in payload.work_log_suggestions],
-        storage_provider=storage_provider,
     )
