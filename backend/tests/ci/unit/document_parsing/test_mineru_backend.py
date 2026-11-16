@@ -11,6 +11,7 @@ import pytest
 
 from apps.document_parsing.exceptions import MineruAPIError, ParsingTimeoutError
 from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
+from apps.document_parsing.services.backends import mineru_backend
 from apps.document_parsing.services.backends.mineru_backend import MineruBackend
 
 
@@ -879,12 +880,19 @@ class TestParseResultZip:
 
 class TestExtractTextFromContentList:
     def test_normal(self, tmp_path: Path) -> None:
+        """表格块必须并入 text。
+
+        此前这里断言 ``"段落一\\n段落二"``——即表格被丢弃。那是 bug 的固化：
+        MinerU 的表格块 ``text`` 恒为空，内容在 ``table_body``（HTML），只取
+        ``type == "text"`` 会让表格内容 100% 消失（实测 8 页卷宗 7 个表格、
+        5292 字符全丢）。真实 content_list 里表格块的 text 就是空串。
+        """
         cl = tmp_path / "content_list.json"
         cl.write_text(
             json.dumps(
                 [
                     {"type": "text", "text": "段落一"},
-                    {"type": "table", "text": "表格"},
+                    {"type": "table", "text": "", "table_body": "<table><tr><td>表格</td></tr></table>"},
                     {"type": "text", "text": "段落二"},
                 ]
             )
@@ -892,7 +900,8 @@ class TestExtractTextFromContentList:
 
         backend = _make_backend()
         text = backend._extract_text_from_content_list(cl)
-        assert text == "段落一\n段落二"
+        # 表格 HTML 去标签后并入，位置保持原顺序
+        assert text == "段落一\n表格\n段落二"
 
     def test_empty_list(self, tmp_path: Path) -> None:
         cl = tmp_path / "content_list.json"
@@ -903,11 +912,12 @@ class TestExtractTextFromContentList:
         assert text == ""
 
     def test_no_text_blocks(self, tmp_path: Path) -> None:
+        """没有段落块、只有表格时，表格内容仍应产出（此前断言为空 = bug 固化）。"""
         cl = tmp_path / "content_list.json"
         cl.write_text(
             json.dumps(
                 [
-                    {"type": "table", "text": "表格内容"},
+                    {"type": "table", "text": "", "table_body": "<table><tr><td>表格内容</td></tr></table>"},
                     {"type": "image", "text": ""},
                 ]
             )
@@ -915,7 +925,85 @@ class TestExtractTextFromContentList:
 
         backend = _make_backend()
         text = backend._extract_text_from_content_list(cl)
-        assert text == ""
+        assert text == "表格内容"
+
+    def test_table_caption_fallback(self, tmp_path: Path) -> None:
+        """表格无 table_body 时退回 caption，不让块整个消失。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "table", "text": "", "table_caption": ["表 1 借款明细"]},
+                ]
+            )
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "表 1 借款明细"
+
+    def test_正文与页眉同文时正文不被吞(self, tmp_path: Path) -> None:
+        """页眉只出现 1 次时不当作重复页眉，正文同名内容要保留。
+
+        真实卷宗里很常见：页眉是「民事判决书」，正文首个标题也是「民事判决书」。
+        此前「归一化相等就丢」会把正文首段一起吞掉（已复现：输出为空）。
+        """
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "header", "text": "民事判决书"},
+                    {"type": "text", "text": "民事判决书"},
+                    {"type": "text", "text": "正文内容"},
+                ],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "民事判决书\n正文内容"
+
+    def test_真跨页页眉仍被过滤(self, tmp_path: Path) -> None:
+        """同一页眉出现 ≥2 次才算真页眉，还是要过滤掉。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "正文A"},
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "正文B"},
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "某某法院"},
+                ],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "正文A\n正文B"
+
+    def test_header_footer_excluded(self, tmp_path: Path) -> None:
+        """页眉页脚即使带了 text 也不并入正文。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "正文"},
+                    {"type": "page_number", "text": "1"},
+                    {"type": "footer", "text": "第 1 页"},
+                ]
+            )
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "正文"
 
     def test_invalid_json_returns_empty(self, tmp_path: Path) -> None:
         cl = tmp_path / "content_list.json"
@@ -1301,3 +1389,88 @@ class TestPollTimeoutIsEnforced:
 
         assert result["state"] == "done", "偶发断连不应被判成「网络不可用」"
         assert counter["n"] > backend.POLL_MAX_CONSECUTIVE_ERRORS
+
+
+# ── 批量上传 payload（is_ocr 嵌套位置） ──────────────────────────
+
+
+class TestBatchUploadPayload:
+    """``/api/v4/file-urls/batch`` 的 payload 字段与嵌套层级。
+
+    官方文档把批量接口的 OCR 开关写作 ``file.is_ocr``——即 **files 数组元素内的
+    字段**；顶层的 ``is_ocr`` 只属于单文件接口 ``/api/v4/extract/task``。
+    放错层服务端不报错，只是按默认 false 处理，扫描件解析出来是空白，所以这里
+    逐字段钉死位置。
+    """
+
+    @staticmethod
+    def _batch_ok_response() -> MagicMock:
+        return _mock_response(
+            200,
+            {"code": 0, "data": {"batch_id": "batch-ocr", "file_urls": ["https://oss.example.com/upload?sig=abc"]}},
+        )
+
+    def _capture_payload(self, file_name: str) -> dict:
+        """跑一次 `_request_upload_url`，返回真正发出去的 JSON body。"""
+        backend = _make_backend()
+        mock_client = MagicMock()
+        mock_client.post.return_value = self._batch_ok_response()
+
+        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+            batch_id, upload_url = backend._request_upload_url(file_name)
+
+        assert batch_id == "batch-ocr"
+        assert upload_url == "https://oss.example.com/upload?sig=abc"
+        mock_client.post.assert_called_once()
+        return mock_client.post.call_args.kwargs["json"]
+
+    def test_pdf_元素内显式开启ocr(self) -> None:
+        payload = self._capture_payload("劳动合同.pdf")
+
+        assert payload["files"][0]["is_ocr"] is True
+        # 顶层不能重复放：那是单文件接口的字段，混进批量接口只会误导后来人
+        assert "is_ocr" not in payload
+
+    def test_图片同样开启ocr(self) -> None:
+        for name in ("扫描件.jpg", "照片.JPEG", "截屏.png"):
+            payload = self._capture_payload(name)
+            assert payload["files"][0]["is_ocr"] is True, name
+
+    def test_办公文档不传ocr开关(self) -> None:
+        """docx/xlsx/pptx 由 MinerU 自己排版转换，不传 `is_ocr` 走服务端默认。"""
+        for name in ("起诉状.docx", "清单.xlsx", "证据.ppt", "明细.xls", "旧版.doc"):
+            payload = self._capture_payload(name)
+            assert "is_ocr" not in payload["files"][0], name
+
+    def test_顶层公共参数(self) -> None:
+        payload = self._capture_payload("卷宗.pdf")
+
+        assert payload["model_version"] == MineruBackend.MODEL_VERSION
+        assert payload["language"] == "ch"
+        assert payload["enable_table"] is True
+        # 取值与理由见 mineru_backend._ENABLE_FORMULA；这里只钉住「相当值的单一来源」，
+        # 以后要改默认值只改那个常量，不必回来改断言。
+        assert payload["enable_formula"] is mineru_backend._ENABLE_FORMULA
+
+    def test_公式开关顶层与元素内取值一致(self) -> None:
+        """``enable_formula`` 在顶层和 ``files[]`` 里各有一份，不能一处开一处关。
+
+        批量接口的官方文档只把 ``enable_formula`` 列在顶层，元素内那一份是对齐
+        ``file.is_ocr`` 的写法。两处不一致时，服务端按哪份生效没有文档保证——
+        这种不确定性没必要时时去兜，钉死相等最省事。
+        办公文档走服务端默认，不带这个字段，因此只对 ``_OCR_REQUIRED_SUFFIXES`` 断言。
+        """
+        for name in ("卷宗.pdf", "扫描件.jpg", "照片.PNG"):
+            payload = self._capture_payload(name)
+            assert payload["files"][0]["enable_formula"] is payload["enable_formula"], name
+
+        office_payload = self._capture_payload("起诉状.docx")
+        assert "enable_formula" not in office_payload["files"][0]
+
+    def test_元素基础字段与公式开关(self) -> None:
+        payload = self._capture_payload("卷宗.pdf")
+
+        entry = payload["files"][0]
+        assert entry["name"] == "卷宗.pdf"
+        assert entry["data_id"], "data_id 用于回查业务数据，不能为空"
+        assert len(payload["files"]) == 1

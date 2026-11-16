@@ -409,10 +409,10 @@ class ContractAdmin(
         if not case_no:
             return JsonResponse({"ok": False, "error": "请先填写律所OA案件编号"}, status=400)
 
-        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+        from apps.contracts.admin.wiring_admin import get_script_executor_service
 
         try:
-            guids = ScriptExecutorService().lookup_oa_case_guid(case_no=case_no, user=request.user)
+            guids = get_script_executor_service().lookup_oa_case_guid(case_no=case_no, user=request.user)
         except RuntimeError as e:
             return JsonResponse({"ok": False, "error": str(e)})
 
@@ -443,12 +443,11 @@ class ContractAdmin(
         except ValueError:
             return JsonResponse({"ok": False, "error": "律所ID 格式不正确，应为 OA 案件 GUID"}, status=400)
 
-        from apps.contracts.admin.wiring_admin import get_oa_party_resolution_service
+        from apps.contracts.admin.wiring_admin import get_oa_party_resolution_service, get_script_executor_service
         from apps.contracts.services.contract.integrations.oa_project_sync_service import build_sync_payload
-        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
 
         try:
-            oa_data = ScriptExecutorService().fetch_oa_project_detail(keyid=guid, user=request.user)
+            oa_data = get_script_executor_service().fetch_oa_project_detail(keyid=guid, user=request.user)
         except RuntimeError as e:
             return JsonResponse({"ok": False, "error": str(e)})
 

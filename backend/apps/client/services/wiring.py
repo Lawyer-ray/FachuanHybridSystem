@@ -5,13 +5,23 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from apps.client.adapters import (
+    ConflictCheckAdapter,
     CredentialAdapter,
     FileUploadAdapter,
     FileValidatorAdapter,
     GsxtReportAdapter,
+    RelatedItemsAdapter,
     TaskServiceAdapter,
 )
-from apps.client.ports import CredentialPort, FileUploadPort, FileValidatorPort, GsxtReportPort, TaskServicePort
+from apps.client.ports import (
+    ConflictCheckPort,
+    CredentialPort,
+    FileUploadPort,
+    FileValidatorPort,
+    GsxtReportPort,
+    RelatedItemsPort,
+    TaskServicePort,
+)
 from apps.core.interfaces import ServiceLocator
 
 if TYPE_CHECKING:
@@ -48,3 +58,13 @@ def get_file_validator_port() -> FileValidatorPort:
 def get_task_service_port() -> TaskServicePort:
     """获取任务服务端口。"""
     return TaskServiceAdapter()
+
+
+def get_conflict_check_port() -> ConflictCheckPort:
+    """获取利益冲突检查端口。"""
+    return ConflictCheckAdapter()
+
+
+def get_related_items_port() -> RelatedItemsPort:
+    """获取关联案件/合同查询端口。"""
+    return RelatedItemsAdapter()

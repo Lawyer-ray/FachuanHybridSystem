@@ -5,7 +5,6 @@ import {
   mergeSegsIntoOne as segsMerge,
   moveSegment as segMove,
   renameSegment as segRename,
-  setSegmentType as segSetType,
   setSegmentMarkdown as segSetMarkdown,
   setSegmentBlockText as segSetBlockText,
   removeSegmentBlock as segRemoveBlock,
@@ -17,7 +16,6 @@ import type { DraftState, InfoField, PageKey } from '../../types'
 
 /** Flow onOp 的形状（与 Flow.tsx 的 props 类型保持一致） */
 export interface FlowOps {
-  setSegType: (si: number, t: string) => void
   renameSeg: (si: number, name: string) => void
   mergeSeg: (si: number) => void
   splitSeg: (si: number, k: number) => void
@@ -52,7 +50,6 @@ export function buildFlowOps(
   pickPage: (mi: number, p: number) => void,
 ): FlowOps {
   return {
-    setSegType: (si, t) => update((d) => segSetType(d, si, t)),
     renameSeg: (si, name) => update((d) => segRename(d, si, name)),
     mergeSeg: (si) => update((d) => segMerge(d, si)),
     splitSeg: (si, k) => update((d) => segSplit(d, si, k)),

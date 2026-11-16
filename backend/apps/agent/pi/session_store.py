@@ -41,7 +41,9 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +65,7 @@ def agent_home() -> Path:
     try:
         os.chmod(root, 0o700)
     except OSError:
-        logger.debug("无法收紧 %s 权限（忽略）", root, exc_info=True)
+        logger.warning("无法收紧 %s 权限（忽略）", root, exc_info=True)
     return root
 
 
@@ -109,6 +111,19 @@ def has_session(session_id: str) -> bool:
     return bool(session_files(session_id))
 
 
+def _rmtree_or_warn(path: Path, session_id: str) -> None:
+    """best-effort 删除目录，逐项失败记 warning 后继续（不抛）。
+
+    不用 ``ignore_errors=True``：删除失败意味着用户以为「会话已删」但模型
+    上下文（含工具调用参数与返回内容）仍残留磁盘——隐私问题必须留痕。
+    """
+
+    def _warn(func: Callable[..., Any], p: str, exc: BaseException) -> None:
+        logger.warning("pi session 目录清理失败 session=%s path=%s（上下文仍残留磁盘）: %s", session_id, p, exc)
+
+    shutil.rmtree(path, onexc=_warn)
+
+
 def delete_session(session_id: str) -> int:
     """删除某个会话的 pi session 文件，返回删除的文件数。
 
@@ -119,7 +134,7 @@ def delete_session(session_id: str) -> int:
     if not directory.is_dir():
         return 0
     removed = len(list(directory.glob("*.jsonl")))
-    shutil.rmtree(directory, ignore_errors=True)
+    _rmtree_or_warn(directory, session_id)
     if removed:
         logger.info("已清理 pi session 文件 session=%s files=%s", session_id, removed)
     return removed
@@ -139,7 +154,7 @@ def purge_orphans(valid_ids: set[str]) -> int:
     for child in root.iterdir():
         if not child.is_dir() or child.name in valid_ids:
             continue
-        shutil.rmtree(child, ignore_errors=True)
+        _rmtree_or_warn(child, child.name)
         removed += 1
     if removed:
         logger.info("已清理 %s 个孤儿 pi session 目录", removed)

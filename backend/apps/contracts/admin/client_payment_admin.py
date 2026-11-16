@@ -88,9 +88,9 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):  # pra
         uploaded_file = self.cleaned_data.get("image")
 
         if uploaded_file:
-            from apps.contracts.services.client_payment import ClientPaymentImageService
+            from apps.contracts.admin.wiring_admin import get_client_payment_image_service
 
-            image_service = ClientPaymentImageService()
+            image_service = get_client_payment_image_service()
 
             # 删除旧图片
             if instance.pk and instance.image_path:
@@ -196,9 +196,9 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
         if not obj.pk or not obj.image_path:
             return "-"
 
-        from apps.contracts.services.client_payment import ClientPaymentImageService
+        from apps.contracts.admin.wiring_admin import get_client_payment_image_service
 
-        image_service = ClientPaymentImageService()
+        image_service = get_client_payment_image_service()
         url = image_service.get_image_url(obj.image_path)
         return format_html(
             '<a href="{}" target="_blank"><img src="{}" style="max-width:200px;max-height:200px;" /></a>',
@@ -256,9 +256,12 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
         if obj.contract_id:
             ensure_admin_contract_access(request, obj.contract_id)
 
-        from apps.contracts.services.client_payment import ClientPaymentImageService, ClientPaymentRecordService
+        from apps.contracts.admin.wiring_admin import (
+            get_client_payment_image_service,
+            get_client_payment_record_service,
+        )
 
-        service = ClientPaymentRecordService()
+        service = get_client_payment_record_service()
         uploaded_file = form.cleaned_data.get("image")
 
         if not change:
@@ -276,7 +279,7 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
 
             # 处理图片上传
             if uploaded_file:
-                image_service = ClientPaymentImageService()
+                image_service = get_client_payment_image_service()
                 image_path = image_service.save_image(uploaded_file, created.id)
                 created.image_path = image_path
                 created.save(update_fields=["image_path"])
@@ -292,7 +295,7 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
 
             # 处理图片上传
             if uploaded_file:
-                image_service = ClientPaymentImageService()
+                image_service = get_client_payment_image_service()
                 # 删除旧图片
                 if obj.image_path:
                     image_service.delete_image(obj.image_path)
@@ -303,18 +306,18 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def delete_model(self, request: HttpRequest, obj: ClientPaymentRecord) -> None:  # pragma: no cover
         """删除模型时调用 Service 层"""
-        from apps.contracts.services.client_payment import ClientPaymentRecordService
+        from apps.contracts.admin.wiring_admin import get_client_payment_record_service
 
-        service = ClientPaymentRecordService()
+        service = get_client_payment_record_service()
         service.delete_payment_record(obj.id)
 
     def delete_queryset(  # pragma: no cover
         self, request: HttpRequest, queryset: QuerySet[ClientPaymentRecord, ClientPaymentRecord]
     ) -> None:
         """批量删除时调用 Service 层（需逐条处理关联图片清理）"""
-        from apps.contracts.services.client_payment import ClientPaymentRecordService
+        from apps.contracts.admin.wiring_admin import get_client_payment_record_service
 
-        service = ClientPaymentRecordService()
+        service = get_client_payment_record_service()
         record_ids = list(queryset.values_list("id", flat=True))
         for record_id in record_ids:
             service.delete_payment_record(record_id)

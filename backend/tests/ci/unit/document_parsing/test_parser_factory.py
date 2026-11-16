@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from apps.document_parsing.services.parser_factory import ParserFactory, _resolve_auto_backend, create_parser
+from apps.document_parsing.services.parser_factory import ParserFactory, create_parser, resolve_auto_backend
 
 
 def _fake_provider(
@@ -64,7 +64,7 @@ class TestAutoBackend:
             "apps.document_parsing.services.parser_factory.ParseProviderService.get_providers",
             return_value=providers,
         ):
-            assert _resolve_auto_backend() == "textin"
+            assert resolve_auto_backend() == "textin"
 
     def test_picks_mineru_when_only_mineru_enabled(self) -> None:
         providers = [_fake_provider(name="MinerU", provider_type="mineru", priority=10, pk=1)]
@@ -72,7 +72,7 @@ class TestAutoBackend:
             "apps.document_parsing.services.parser_factory.ParseProviderService.get_providers",
             return_value=providers,
         ):
-            assert _resolve_auto_backend() == "mineru"
+            assert resolve_auto_backend() == "mineru"
 
     def test_auto_resolve_backend_mineru_priority(self) -> None:
         providers = [
@@ -83,4 +83,4 @@ class TestAutoBackend:
             "apps.document_parsing.services.parser_factory.ParseProviderService.get_providers",
             return_value=providers,
         ):
-            assert _resolve_auto_backend() == "textin"
+            assert resolve_auto_backend() == "textin"

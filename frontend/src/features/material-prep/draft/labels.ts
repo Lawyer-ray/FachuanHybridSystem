@@ -16,8 +16,8 @@ export function segMats(sg: Segment): number[] {
 export const selKeyOf = (r: PageKey): string => `${r.mi}:${r.p}`
 
 export function countUnclassified(d: DraftState): number {
-  // 未归类 = 这份还没处理过：没选类型，名字也还是系统默认名——改名即归类
-  return d.segs.filter((s) => !s.t && isAutoSegName(d, s)).length
+  // 未归类 = 这份还没处理过：名字仍是系统默认名。改名即归类（唯一的归类入口）。
+  return d.segs.filter((s) => isAutoSegName(d, s)).length
 }
 
 /** 段是否覆盖整个单一源文件（用于左栏「整份」行） */
@@ -48,26 +48,17 @@ function escapeRe(s: string): string {
 
 /**
  * 段的默认名，按优先级：
- *   1. 选了类型 → 「类型.pdf」；同类型已有一份时 → 「类型-P起始页.pdf」（拆完选个类型名字就有了，不用再改）
- *   2. 整份 → 源文件名
- *   3. 其它 → 「源名-P起始页.ext」（跨源取首页所在的源）
+ *   1. 整份 → 源文件名
+ *   2. 其它 → 「源名-P起始页.ext」（跨源取首页所在的源）
  *
- * 切开 / 切出 / 合并 / 删页 / 选类型五条路径共用这一条规则。以前只有「切出」的新段
+ * 切开 / 切出 / 合并 / 删页四条路径共用这一条规则。以前只有「切出」的新段
  * 带 -P 后缀，切开留下的尾段和合并留下的余段都直接沿用源文件名——切三刀就有三份
  * 同名材料，左栏看起来像凭空冒出一堆同名文件。
+ *
+ * （原先还有一条「选了类型 → 类型.pdf」。类型功能已移除，见 renameSegment 的注释。）
  */
-export function defaultSegName(
-  d: DraftState,
-  refs: PageKey[],
-  whole: boolean,
-  type = '',
-  used?: ReadonlySet<string>,
-): string {
+export function defaultSegName(d: DraftState, refs: PageKey[], whole: boolean): string {
   const first = refs[0]
-  if (type) {
-    const plain = `${type}.pdf`
-    return used?.has(plain) ? `${type}-P${first?.p ?? 1}.pdf` : plain
-  }
   if (!first) return '材料.pdf'
   const label = matLabel(d.mats, first.mi)
   if (whole) return label
@@ -82,6 +73,10 @@ export function defaultSegName(
  * 来源记录；用户把名字改成恰好像默认名的字符串（如「借条.pdf」）也不会被误判。
  * 老草稿没有 fnAuto，退回按模式识别：源文件名 / 「源名-P数字.ext」/ 该段**自己类型**的
  * 「类型.pdf」「类型-P数字.pdf」。
+ *
+ * ⚠️ 那个 `t` 分支**必须留着**，它不是活代码而是**历史数据兼容**：类型功能已移除，
+ * 但老草稿里仍有 `t` 非空、`fn` 为「借条.pdf」的段。判据一旦不看 `t`，这些段会被
+ * 误判成「律师亲自命名过」——在左栏显示为已归类、且它们占用的名字不再让给别人。
  */
 export function isAutoSegName(d: DraftState, seg: Pick<Segment, 'fn' | 't' | 'fnAuto'>): boolean {
   // 后端序列化会把缺失字段回成 null，用 != null 同时挡住 undefined 与 null
@@ -98,7 +93,7 @@ export function isAutoSegName(d: DraftState, seg: Pick<Segment, 'fn' | 't' | 'fn
 }
 
 /**
- * 刷新所有仍用默认名的段：类型变了 / 页区间变了（切开 / 切出 / 合并 / 删页）名字跟着变，
+ * 刷新所有仍用默认名的段：页区间变了（切开 / 切出 / 合并 / 删页）名字跟着变，
  * 变回整份就变回源文件名；用户改过名的段原样保留，且它们占用的名字不会再分给别人。
  * 刷新时同步写 fnAuto 记录来源。无变化返回原引用。
  */
@@ -107,7 +102,7 @@ export function withDefaultNames(d: DraftState): DraftState {
   let changed = false
   const segs = d.segs.map((sg, si) => {
     if (!isAutoSegName(d, sg)) return sg
-    const fn = defaultSegName(d, sg.refs, isWholeMat(d, si), sg.t, used)
+    const fn = defaultSegName(d, sg.refs, isWholeMat(d, si))
     used.add(fn)
     if (fn === sg.fn && sg.fnAuto === fn) return sg
     changed = true

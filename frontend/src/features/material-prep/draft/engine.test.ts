@@ -13,6 +13,8 @@ import { describe, expect, it } from 'vitest'
 import type { EngineBlockRect, EngineDisagreement } from '../types'
 import {
   disagreementKey,
+  uniqueDisagreementKey,
+  uniqueDisagreementKeys,
   disagreementKindLabel,
   engineBlocksOfPage,
   engineLabel,
@@ -115,6 +117,33 @@ describe('disagreementKey / 已核对', () => {
     expect(disagreementKey(item())).not.toBe(
       disagreementKey(item({ variants: [{ engine: 'mineru', text: '张三丰' }, { engine: 'paddleocr_vl', text: '张三封' }] })),
     )
+  })
+
+  it('撞车的两条必须拿到不同的唯一键（否则勾选与高亮会串）', () => {
+    // 真实场景：同一页内容相近（或空文本）的两条会算出同一个 disagreementKey。
+    // 实测 164 页卷宗 332 条分歧里有 9 组共 27 条撞车，第 56 页一组就 6 条。
+    const a = item({ page_no: 56, variants: [{ engine: 'mineru', text: '' }, { engine: 'paddleocr_vl', text: '' }] })
+    const b = item({ page_no: 56, variants: [{ engine: 'mineru', text: '' }, { engine: 'paddleocr_vl', text: '' }] })
+    expect(disagreementKey(a)).toBe(disagreementKey(b)) // 裸键确实撞了
+
+    const keys = uniqueDisagreementKeys([a, b])
+    expect(keys[0]).not.toBe(keys[1])
+    // 第一条保持裸键（不改变已有勾选的存档），第二条才加后缀
+    expect(keys[0]).toBe(disagreementKey(a))
+    expect(keys[1]).toBe(`${disagreementKey(b)}#1`)
+  })
+
+  it('uniqueDisagreementKeys 与输入一一对应，长度相同', () => {
+    const list = [item({ page_no: 1 }), item({ page_no: 2 }), item({ page_no: 1 })]
+    const keys = uniqueDisagreementKeys(list)
+    expect(keys).toHaveLength(list.length)
+    expect(new Set(keys).size).toBe(list.length)
+  })
+
+  it('uniqueDisagreementKey 单条：occurrence=0 时与裸键一致', () => {
+    const d = item()
+    expect(uniqueDisagreementKey(d, 0)).toBe(disagreementKey(d))
+    expect(uniqueDisagreementKey(d, 2)).toBe(`${disagreementKey(d)}#2`)
   })
 
   it('setEngineChecked 勾/取消；重复勾不改引用', () => {

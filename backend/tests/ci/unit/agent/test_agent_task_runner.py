@@ -190,7 +190,7 @@ class TestTaskApi:
     @pytest.mark.django_db
     def test_task_state_reported_in_session_out(self) -> None:
         """SessionOut 要回报任务进度，前端才能显示「跑完没有」。"""
-        from apps.agent.api.agent_api import _to_out
+        from apps.agent.api.session_api import _to_out
 
         session = AgentSession.objects.create(
             title="t",

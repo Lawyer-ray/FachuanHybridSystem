@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
-import { disagreementKey, groupBySeverity } from '../../draft'
+import { groupBySeverity, uniqueDisagreementKeys } from '../../draft'
+import { scrollToEngineRects } from './scroll-to-rect'
+import { useEngineAdopt } from './use-engine-adopt'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
 import { DocTodoDrawer } from './DocTodoDrawer'
-import { EngineDisagreementDrawer } from './EngineDisagreementDrawer'
 import { InconsistencyDrawer } from './InconsistencyDrawer'
 import { AutoSplitProgress } from './AutoSplitProgress'
 import { HintBar } from './HintBar'
@@ -38,6 +39,7 @@ export function ReaderBody({
   narrow,
   railOpen,
   metaOpen,
+  onOpenMeta,
   onCollapsePanels,
   railWrapCls,
   metaWrapCls,
@@ -76,6 +78,8 @@ export function ReaderBody({
   narrow: boolean
   railOpen: boolean
   metaOpen: boolean
+  /** 强制展开右栏（窄屏浮层时用；宽屏常驻，幂等） */
+  onOpenMeta: () => void
   onCollapsePanels: () => void
   railWrapCls: string
   metaWrapCls: string
@@ -121,7 +125,6 @@ export function ReaderBody({
    * （那时不该自动弹输入框）。只有「从页面框双击过来」这一条路径要进编辑，
    * 所以用一个独立的 key 表达意图，Markdown 侧消费后自行清空。
    */
-  const [editRequestKey, setEditRequestKey] = useState<string | null>(null)
   // 全本不一致清单抽屉（入口在左栏顶部）；属于纯阅读态，不落草稿
   const [inconsistencyOpen, setInconsistencyOpen] = useState(false)
   // 全卷「证件页待补录」抽屉（入口同样在左栏顶部，与不一致入口并列）
@@ -130,12 +133,19 @@ export function ReaderBody({
   //
   // 高亮态用**分歧键**而不是下标：重新识别后数组会换一批内容，下标会把高亮挂到
   // 一条不相关的分歧上（乃至越界）。用内容做键，不匹配就自然不高亮。
-  const [engineDrawerOpen, setEngineDrawerOpen] = useState(false)
   const [engineActiveKey, setEngineActiveKey] = useState<string | null>(null)
   // 引用稳定：下面 onJumpEngineDisagreement 依赖它，每次渲染新建空数组会让回调恒变
   const engineDisagreements = useMemo(() => draft.engineDisagreements ?? [], [draft.engineDisagreements])
+  // 「一条一份」的唯一键。不能用裸 `disagreementKey`：同一页内容相近的几条
+  // 会算出同一个键（实测 332 条里有 9 组共 27 条撞车），勾选与高亮都会串。
+  const engineKeys = useMemo(() => uniqueDisagreementKeys(engineDisagreements), [engineDisagreements])
+  const engineKeyToIndex = useMemo(() => {
+    const m = new Map<string, number>()
+    engineKeys.forEach((k, i) => m.set(k, i))
+    return m
+  }, [engineKeys])
   const engineFocus = engineActiveKey
-    ? (engineDisagreements.find((d) => disagreementKey(d) === engineActiveKey) ?? null)
+    ? (engineDisagreements[engineKeyToIndex.get(engineActiveKey) ?? -1] ?? null)
     : null
   // 左栏徽标只数未核对的：核完的条目仍然留在清单里置灰可查，但不该再催律师
   const engineUnchecked = groupBySeverity(engineDisagreements, new Set(draft.engineChecked ?? [])).unchecked
@@ -149,22 +159,6 @@ export function ReaderBody({
    *
    * 传 null 只清高亮、不滚动（「取消定位」不该把视线又拽走）。
    */
-  /**
-   * 双击页面上的定位框 → 高亮 Markdown 对应那条并进入修改态。
-   *
-   * 与 `onLocateBlock` 是**反向**的两条路：
-   *   · onLocateBlock：Markdown → 页面（滚到原页 + 框加亮）
-   *   · onActivateHit ：页面 → Markdown（高亮那条 + 直接可改）
-   * 律师的直觉是「我在原件上看到这行不对，点它就该能就地改」，
-   * 所以这条要走编辑态，而不是只加个高亮。
-   */
-  const onActivateHit = useCallback((key: string) => {
-    setFocusedBlockKey(key)
-    setEditRequestKey(key)
-    // 右栏若被折叠，展开它——否则「高亮了但看不见」
-    setMdOpen(true)
-  }, [])
-
   /**
    * 质量提示条 → 原页：滚到那一段（段内页卡带有 `data-mi` / `data-p`）。
    * 用段做跳转而不是全局页表：段的页卡与律师看到的那一段正文是同一个东西，
@@ -182,6 +176,42 @@ export function ReaderBody({
     },
     [draft.segs, onFocusSeg],
   )
+
+  /**
+   * 采用某一侧引擎文本 → 进编辑态预填 → 保存后自动勾选已核对。
+   * 编排逻辑见 `use-engine-adopt.ts`（含「两侧都可能错」的设计理由）。
+   */
+  const {
+    editRequest,
+    adopt: onAdoptEngineText,
+    edit: onEditEngineText,
+    commit: onEditBlockApplied,
+    clearRequest,
+    requestEdit,
+  } = useEngineAdopt({
+    draft,
+    focusedSeg,
+    editBlock: metaOps.editBlock,
+    onToggleChecked: onToggleEngineChecked,
+    onGotoPage: onGotoSegmentPage,
+    onOpenMd: () => setMdOpen(true),
+  })
+
+  /**
+   * 双击页面上的定位框 → 高亮 Markdown 对应那条并进入修改态。
+   *
+   * 与 `onLocateBlock` 是**反向**的两条路：
+   *   · onLocateBlock：Markdown → 页面（滚到原页 + 框加亮）
+   *   · onActivateHit ：页面 → Markdown（高亮那条 + 直接可改）
+   * 律师的直觉是「我在原件上看到这行不对，点它就该能就地改」，
+   * 所以这条要走编辑态，而不是只加个高亮。
+   */
+  const onActivateHit = useCallback((key: string) => {
+    setFocusedBlockKey(key)
+    requestEdit({ key })
+    // 右栏若被折叠，展开它——否则「高亮了但看不见」
+    setMdOpen(true)
+  }, [requestEdit])
 
   /** 不一致清单是**全本视角**，只给了一个页号；按页号在草稿里找它所在的段再跳 */
   const onGotoAnyPage = useCallback(
@@ -206,12 +236,29 @@ export function ReaderBody({
    * 抽屉**不关**：律师要一边看清单一边对原件，关掉就得多点一次再打开。
    */
   const onJumpEngineDisagreement = useCallback(
-    (pageNo: number) => {
-      const target = engineDisagreements.find((d) => d.page_no === pageNo)
-      if (target) setEngineActiveKey(disagreementKey(target))
+    (pageNo: number, key: string) => {
+      // ⚠ 必须用抽屉传下来的**唯一键**，既不能按页号 `find`、也不能用下标。
+      //
+      // 旧实现是 `engineDisagreements.find(d => d.page_no === pageNo)`：一页只有
+      // 一条分歧时看不出问题，但一页有多条时永远命中第一条。拿真实 164 页卷宗
+      // 的 332 条分歧统计：127 个有分歧的页里 74 页是 2 条以上，共 279 条（84%）
+      // 无法被单独定位——点第 34 条和第 1 条效果一样，律师看到的就是「点了没反应」。
+      //
+      // 也不能用下标：抽屉里的分组会按严重度重排，组内下标与这里的全局下标
+      // 不是一回事，拿它索引会高亮到别的条目上。键是内容派生的，不受排序影响。
+      setEngineActiveKey(key)
       onGotoAnyPage(pageNo)
+
+      // 再滚到**框的位置**（不只是页顶）：一页上千像素高，只到页顶等于没定位。
+      // 没有块坐标时（约 11%）该函数直接返回，保持「只跳页」不伪造精度。
+      const item = engineDisagreements.find((_, i) => engineKeys[i] === key)
+      const si = draft.segs.findIndex((sg) => sg.refs.some((r) => r.p === pageNo))
+      if (si < 0) return
+      const ref = draft.segs[si]!.refs.find((r) => r.p === pageNo)
+      if (!ref) return
+      scrollToEngineRects(ref.mi, ref.p, item?.blocks ?? [])
     },
-    [engineDisagreements, onGotoAnyPage],
+    [onGotoAnyPage, engineDisagreements, engineKeys, draft.segs],
   )
 
   const onLocateBlock = useCallback((key: string | null) => {
@@ -221,8 +268,9 @@ export function ReaderBody({
     const seg = draft.segs.find((s) => key.startsWith(`${s.id}:`))
     if (!seg) return
     const pageNo = Number(key.split(':')[1])
-    const firstPage = seg.refs[0]?.p ?? 1
-    const ref = seg.refs[pageNo - firstPage]
+    // 按页号 find，不能用 `page_no - firstPage` 当下标：切出几页 / 删页之后
+    // refs 可以是 [1, 3, 7] 这种跳号序列，减法会错位到别的页上。
+    const ref = seg.refs.find((r) => r.p === pageNo)
     if (!ref) return
     const el = document.querySelector<HTMLElement>(`[data-mi="${ref.mi}"][data-p="${ref.p}"]`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -255,11 +303,20 @@ export function ReaderBody({
             onOpenInconsistencies={() => setInconsistencyOpen(true)}
             onOpenDocTodos={() => setDocTodoOpen(true)}
             engineUnchecked={engineUnchecked}
-            onOpenEngineDisagreements={() => setEngineDrawerOpen(true)}
+            onOpenEngineDisagreements={() => {
+              // 不再有独立页签：分歧已内联在右栏正文之上。这里做两件有实际价值的事——
+              // ① 窄屏下把右栏浮层展开（否则点完看不到任何变化）；
+              // ② 跳到第一条**未核对**的分歧，律师点徽标的意图就是「带我去看」，
+              //    而不是「打开一个空面板」。
+              onOpenMeta()
+              const checkedSet = new Set(draft.engineChecked ?? [])
+              const idx = engineKeys.findIndex((k) => !checkedSet.has(k))
+              const first = engineDisagreements[idx === -1 ? 0 : idx]
+              if (first) onJumpEngineDisagreement(first.page_no, engineKeys[idx === -1 ? 0 : idx]!)
+            }}
             onFocusSeg={onFocusSeg}
             onRenameMat={onRenameMat}
             onRenameSeg={flowOps.renameSeg}
-            onSetSegType={flowOps.setSegType}
             onMergeSeg={flowOps.mergeSeg}
             onMergeSegs={flowOps.mergeSegs}
             onMoveSeg={flowOps.moveSeg}
@@ -293,6 +350,11 @@ export function ReaderBody({
         </div>
 
         <div className={metaWrapCls}>
+          {/* 右栏单一栏，不再分页签：正文 / 本段分歧 / 字段便签三者的作用域
+              都是「当前这一段」，分页签会把「发现问题」与「修复问题」拆到两个屏上。
+              分歧内联在正文之上（见 EngineDisagreementsInline 的注释）。
+              ⚠ 也不再用模态 Sheet：遮罩会把整页压灰并拦截点击，而核对分歧必须
+              在原件上边看边改——设计意图（「抽屉不关」）与模态实现本来就矛盾。 */}
           <MetaPanel
             draft={draft}
             pageQuality={pageQuality}
@@ -305,9 +367,19 @@ export function ReaderBody({
             onToggleMdOpen={() => setMdOpen((v) => !v)}
             focusedBlockKey={focusedBlockKey}
             onLocateBlock={onLocateBlock}
-            editRequestKey={editRequestKey}
-            onEditRequestHandled={() => setEditRequestKey(null)}
+            editRequestKey={editRequest?.key ?? null}
+            editRequestSeed={editRequest?.seed ?? null}
+            onEditRequestHandled={clearRequest}
+            onEditBlockApplied={onEditBlockApplied}
             narrow={narrow}
+            engineItems={engineDisagreements}
+            engineKeys={engineKeys}
+            engineChecked={draft.engineChecked ?? []}
+            onToggleEngineChecked={onToggleEngineChecked}
+            onJumpEngine={onJumpEngineDisagreement}
+            onAdoptEngine={onAdoptEngineText}
+            onEditEngine={onEditEngineText}
+            inconsistencies={inconsistencies}
           />
         </div>
       </div>
@@ -318,17 +390,6 @@ export function ReaderBody({
         onOpenChange={setInconsistencyOpen}
         items={inconsistencies}
         onGotoPage={onGotoAnyPage}
-      />
-
-      {/* 双引擎分歧：从左栏徽标打开，点一条跳到那一页并画两个引擎的框 */}
-      <EngineDisagreementDrawer
-        open={engineDrawerOpen}
-        onOpenChange={setEngineDrawerOpen}
-        items={engineDisagreements}
-        checked={draft.engineChecked ?? []}
-        activeKey={engineActiveKey}
-        onJump={onJumpEngineDisagreement}
-        onToggleChecked={onToggleEngineChecked}
       />
 
       {/* 全卷证件页待补录：从左栏证件徽标打开，「查看原页」跳到那一页 */}

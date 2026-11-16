@@ -177,6 +177,57 @@ class TestCreateJob:
         with pytest.raises(FileFormatNotSupportedError, match="不支持的文件格式"):
             backend._create_job(pdf)
 
+    @pytest.mark.parametrize("filename", ["test.pdf", "TEST.PDF"])
+    def test_pdf_sets_scan_parse_mode(self, tmp_path: Path, filename: str) -> None:
+        """PDF 显式声明 parse_mode=scan（质量优先：整页 OCR），不靠服务端默认值。"""
+        pdf = tmp_path / filename
+        pdf.write_bytes(b"%PDF-1.4 fake")
+
+        backend, mock_client = _make_backend()
+        mock_client.parse.create_job.return_value = MagicMock(job_id="job-abc")
+
+        backend._create_job(pdf, extract_tables=True)
+
+        config = mock_client.parse.create_job.call_args.kwargs["config"]
+        assert isinstance(config, xc.ParseConfig)
+        assert config.config is not None
+        assert config.config.engine_params == {"parse_mode": "scan"}
+        assert config.config.force_engine == "textin"
+
+    @pytest.mark.parametrize("filename", ["test.docx", "test.xlsx", "test.png"])
+    def test_non_pdf_omits_engine_config(self, tmp_path: Path, filename: str) -> None:
+        """非 PDF 不传引擎级参数（图片本身即 scan，Office 无此语义）。"""
+        doc = tmp_path / filename
+        doc.write_bytes(b"fake")
+
+        backend, mock_client = _make_backend()
+        mock_client.parse.create_job.return_value = MagicMock(job_id="job-abc")
+
+        backend._create_job(doc, extract_tables=True)
+
+        config = mock_client.parse.create_job.call_args.kwargs["config"]
+        assert isinstance(config, xc.ParseConfig)
+        assert config.config is None
+
+    def test_serialized_config_carries_parse_mode(self, tmp_path: Path) -> None:
+        """SDK 序列化结果（即 create_job 发出的 config 字段）必须含 parse_mode。
+
+        EngineConfig 顶层没有 parse_mode 字段，写错层级会被 pydantic 静默丢弃，
+        所以这里断言的是 model_dump() 之后的真实请求体。
+        """
+        pdf = tmp_path / "test.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+
+        backend, mock_client = _make_backend()
+        mock_client.parse.create_job.return_value = MagicMock(job_id="job-abc")
+
+        backend._create_job(pdf)
+
+        config = mock_client.parse.create_job.call_args.kwargs["config"]
+        payload = config.model_dump()
+        assert payload["config"]["engine_params"]["parse_mode"] == "scan"
+        assert payload["config"]["force_engine"] == "textin"
+
 
 # ── _poll_job ───────────────────────────────────────────────────
 

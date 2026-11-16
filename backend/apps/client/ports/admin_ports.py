@@ -87,3 +87,18 @@ class CredentialPort(Protocol):
             凭证对象或 None
         """
         ...
+
+    def has_jtn_credential(self, lawyer_id: int) -> bool:
+        """检查指定律师是否持有 OA 凭证。"""
+        ...
+
+
+class ConflictCheckPort(Protocol):
+    """利益冲突检查端口。
+
+    封装对 oa_filing 模块的依赖，复用 OA 登录打开利冲预检页面。
+    """
+
+    def open_conflict_check_page(self, *, keyword: str, user: Any) -> None:
+        """打开 OA 利益冲突预检页并填入当事人名称搜索。"""
+        ...

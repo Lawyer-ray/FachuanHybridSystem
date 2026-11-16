@@ -154,14 +154,14 @@ class TestClassification:
 
     def test_exempt_suffix_wins(self) -> None:
         """豁免后缀优先于一切模式（新增例外必须写明理由）。"""
-        from apps.agent.services import approval as mod
+        from apps.agent.services.approval import risk
 
-        original = mod.APPROVAL_EXEMPT_SUFFIXES
+        original = risk.APPROVAL_EXEMPT_SUFFIXES
         try:
-            mod.APPROVAL_EXEMPT_SUFFIXES = frozenset({"preview_delete"})
+            risk.APPROVAL_EXEMPT_SUFFIXES = frozenset({"preview_delete"})
             assert classify_risk("mcp__fachuan__preview_delete") is RiskLevel.LOW
         finally:
-            mod.APPROVAL_EXEMPT_SUFFIXES = original
+            risk.APPROVAL_EXEMPT_SUFFIXES = original
 
     def test_sensitive_marker_is_case_insensitive(self) -> None:
         assert classify_risk("mcp__fachuan__update_case", {"Target_Amount": 1}) is RiskLevel.HIGH
@@ -300,7 +300,8 @@ class TestApprovalEventPayload:
                 return 1
 
         monkeypatch.setattr("apps.agent.services.event_bus.get_bus", lambda: _Bus())
-        monkeypatch.setattr(mod, "redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
 
         # 让等待立即超时，避免测试卡 900 秒
         await mod.request_approval(
@@ -347,8 +348,9 @@ class TestApprovalEventPayload:
                 return 0
 
         monkeypatch.setattr("apps.agent.services.event_bus.get_bus", lambda: _Bus())
-        monkeypatch.setattr(mod, "redis_cache_enabled", lambda: False)
-        monkeypatch.setattr(mod, "allow_offline_approval", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.flow.allow_offline_approval", lambda: False)
 
         await request_approval(
             tool_name="mcp__fachuan__delete_case",

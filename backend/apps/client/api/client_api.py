@@ -10,29 +10,23 @@ from typing import Any, cast
 from asgiref.sync import sync_to_async
 from ninja import File, Router, Status
 from ninja.files import UploadedFile
-from pydantic import BaseModel
 
-from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn, OACredentialCheckOut, PartyListOut, RelatedItemsOut
+from apps.client.schemas import (
+    ClientIn,
+    ClientOut,
+    ClientUpdateIn,
+    IdCardValidateIn,
+    IdCardValidateOut,
+    OACredentialCheckOut,
+    ParseTextIn,
+    PartyListOut,
+    RelatedItemsOut,
+)
 from apps.client.services.text_parser import parse_client_text as _parse_client
 from apps.client.services.text_parser import parse_multiple_clients_text as _parse_multi
 from apps.core.dto.request_context import extract_request_context
 from apps.core.exceptions import ValidationException
 from apps.core.utils.id_card_utils import IdCardUtils
-
-
-class ParseTextRequest(BaseModel):
-    text: str
-    parse_multiple: bool = False
-
-
-class IdCardValidateRequest(BaseModel):
-    id_number: str
-
-
-class IdCardValidateResponse(BaseModel):
-    valid: bool
-    message: str
-
 
 router = Router(tags=["客户管理"])
 
@@ -124,17 +118,15 @@ async def search_parties(
 
 
 @router.post("/clients/parse-text")
-async def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]:  # pragma: no cover
+async def parse_client_text(request: Any, payload: ParseTextIn) -> dict[str, Any]:  # pragma: no cover
     """解析客户文本信息"""
     if payload.parse_multiple:
-        results = [c for c in _parse_multi(payload.text) if c.get("name")]
-        return {"success": True, "clients": results}
-    else:
-        result = _parse_client(payload.text)
-        if result.get("name"):
-            return {"success": True, "client": result, "parse_method": "regex"}
-        else:
-            return {"success": False, "message": "未能解析出客户信息"}
+        # _parse_multi 内部已按名称非空过滤，此处无需再筛
+        return {"success": True, "clients": _parse_multi(payload.text)}
+    result = _parse_client(payload.text)
+    if result.get("name"):
+        return {"success": True, "client": result, "parse_method": "regex"}
+    return {"success": False, "message": "未能解析出客户信息"}
 
 
 @router.get("/parse-text")
@@ -143,23 +135,23 @@ async def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:  # pra
     return _parse_client(text)
 
 
-@router.post("/clients/validate-id-card", response=IdCardValidateResponse)
-async def validate_id_card(request: Any, payload: IdCardValidateRequest) -> IdCardValidateResponse:  # pragma: no cover
+@router.post("/clients/validate-id-card", response=IdCardValidateOut)
+async def validate_id_card(request: Any, payload: IdCardValidateIn) -> IdCardValidateOut:  # pragma: no cover
     """校验身份证号码是否合法"""
     result = IdCardUtils.validate_id_card(payload.id_number)
-    return IdCardValidateResponse(valid=bool(result["valid"]), message=str(result["message"]))
+    return IdCardValidateOut(valid=bool(result["valid"]), message=str(result["message"]))
 
 
 @router.get("/clients/check-oa-credential", response=OACredentialCheckOut)
 async def check_oa_credential(request: Any) -> OACredentialCheckOut:  # pragma: no cover
     """检查当前用户是否有金诚同达OA凭证。"""
-    from apps.organization.services.credential.account_credential_service import AccountCredentialService
+    from apps.client.services.wiring import get_credential_port
 
     lawyer_id = getattr(request.user, "id", None)
     if lawyer_id is None:
         return OACredentialCheckOut(has_credential=False)
 
-    has_credential = await sync_to_async(AccountCredentialService().has_jtn_credential)(lawyer_id)
+    has_credential = await sync_to_async(get_credential_port().has_jtn_credential)(lawyer_id)
 
     return OACredentialCheckOut(has_credential=has_credential)
 

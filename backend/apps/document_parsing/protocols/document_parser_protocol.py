@@ -184,6 +184,24 @@ class ParsedDocument:
     coverage: ParseCoverage = field(default_factory=ParseCoverage)
     """后端能力位。默认全 False——不声明即视为无能力，避免静默假设。"""
 
+    pending_callback: "PendingCallback | None" = None
+    """云端回调待完成时的登记信息（None 表示本次解析已同步拿到结果）。
+
+    置此字段表示：任务已提交到云端、我方立即返回，最终结果由
+    ``/api/v1/document-parsing/webhook/{provider}`` 回调写回。任务记录此时仍为
+    processing，轮询端点因此能如实报「还没好」而不是空结果。"""
+
+
+@dataclass
+class PendingCallback:
+    """等待云端回调的任务登记信息。"""
+
+    provider: str
+    """平台类型（textin / mineru），与回调路径段一致"""
+
+    job_id: str
+    """云端任务标识（Textin=job_id，MinerU=batch_id），仅用于日志与排查"""
+
 
 @dataclass
 class TextExtractionResult:
@@ -232,7 +250,9 @@ class IDocumentParserProtocol(Protocol):
             extract_tables: 是否提取表格
             extract_images: 是否提取图片
             return_markdown: 是否返回 Markdown 格式
-            **kwargs: 其他参数
+            **kwargs: 其他参数。云端后端识别 ``callback_url`` / ``callback_seed``
+                （见 ``PendingCallback``）：同时传入时走回调、立即返回；
+                都不传时走原有轮询路径
 
         Returns:
             ParsedDocument 解析结果

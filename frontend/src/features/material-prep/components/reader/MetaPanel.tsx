@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
 import { docHintPagesOf, docTodosOf, graphicPagesOf } from '../../draft'
-import type { DraftState, InfoField, PageQuality } from '../../types'
+import type { DraftState, EngineDisagreement, Inconsistency, InfoField, PageQuality } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
@@ -34,8 +34,18 @@ export function MetaPanel({
   focusedBlockKey,
   onLocateBlock,
   editRequestKey,
+  editRequestSeed = null,
   onEditRequestHandled,
+  onEditBlockApplied,
   narrow = false,
+  engineItems = [],
+  engineKeys = [],
+  engineChecked = [],
+  onToggleEngineChecked,
+  onJumpEngine,
+  onAdoptEngine,
+  onEditEngine,
+  inconsistencies = [],
 }: {
   draft: DraftState
   /** 页级质量统计（旧任务没有）：用于正文面板顶部的「本段含图纸」提示 */
@@ -53,9 +63,26 @@ export function MetaPanel({
   onLocateBlock: (key: string | null) => void
   /** 页面框双击过来的「进入修改」请求（消费后由调用方清空） */
   editRequestKey?: string | null
+  /** 进入修改态时要预填的文本（「两个引擎都不对」时用该侧全文作起点） */
+  editRequestSeed?: string | null
+  /** 正文某一行保存后触发（用于「采用→编辑→保存」后自动勾选该条分歧已核对） */
+  onEditBlockApplied?: () => void
   onEditRequestHandled?: () => void
   /** 窄屏时右栏是抽屉，宽度由抽屉 CSS 决定，拖拽手柄不渲染 */
   narrow?: boolean
+  /** 全卷引擎分歧（内联区会按当前段页范围过滤后显示在正文上方） */
+  engineItems?: EngineDisagreement[]
+  /** 与 `engineItems` 一一对应的唯一键 */
+  engineKeys?: string[]
+  engineChecked?: string[]
+  onToggleEngineChecked?: (key: string, checked: boolean) => void
+  onJumpEngine?: (pageNo: number, key: string) => void
+  /** 采用某一侧引擎的文本写回正文 */
+  onAdoptEngine?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  /** 「修改」：两侧都不对时进编辑态，预填主引擎文本 */
+  onEditEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
+  /** 全卷不一致统计：用于「更推荐改成什么」 */
+  inconsistencies?: Inconsistency[]
 }) {
   const [showLib, setShowLib] = useState(false)
   // 栏宽可拖拽调整，跨会话记在 localStorage（纯显示偏好，不进草稿）
@@ -99,8 +126,9 @@ export function MetaPanel({
         </div>
       )}
 
-      {/* Markdown 正文：与材料信息同栏并排，滚动互不干扰。
-          放在字段卡之前——先看机器读到了什么，再决定填哪些字段。 */}
+      {/* Markdown 正文：分歧由它内部按页挂到对应行之前（P4 的疑问就在 P4 正文上方），
+          不再集中堆在栏顶——那样 6 条就把正文推到屏幕外，也看不出对应哪一页。
+          放在字段卡之前：先看机器读到了什么，再决定填哪些字段。 */}
       <SegmentMarkdown
         seg={draft.segs[si] ?? null}
         open={mdOpen}
@@ -108,9 +136,21 @@ export function MetaPanel({
         focusedBlockKey={focusedBlockKey}
         onLocateBlock={onLocateBlock}
         editRequestKey={editRequestKey}
+        editRequestSeed={editRequestSeed}
         onEditRequestHandled={onEditRequestHandled}
+        engineItems={engineItems}
+        engineKeys={engineKeys}
+        engineChecked={engineChecked}
+        onToggleEngineChecked={onToggleEngineChecked}
+        onJumpEngine={onJumpEngine}
+        onAdoptEngine={onAdoptEngine}
+        onEditEngine={onEditEngine}
+        inconsistencies={inconsistencies}
         onEditMarkdown={(md) => ops.editMarkdown(si, md)}
-        onEditBlock={(key, text) => ops.editBlock(si, key, text)}
+        onEditBlock={(key, text) => {
+          ops.editBlock(si, key, text)
+          onEditBlockApplied?.()
+        }}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}
         graphicPages={graphicPagesOf(draft.segs[si], pageQuality)}
         docPages={docPages}

@@ -122,7 +122,8 @@ class TestOfflineApproval:
     @pytest.mark.asyncio
     async def test_no_subscriber_pends_instead_of_rejecting(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("FACHUAN_APPROVAL_OFFLINE", "1")
-        monkeypatch.setattr(approval_mod, "redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
         session = await AgentSession.objects.acreate(title="任务式", origin="task")
 
         task = asyncio.ensure_future(
@@ -151,7 +152,8 @@ class TestOfflineApproval:
     @pytest.mark.asyncio
     async def test_offline_rejection_blocks_tool(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("FACHUAN_APPROVAL_OFFLINE", "1")
-        monkeypatch.setattr(approval_mod, "redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
         session = await AgentSession.objects.acreate(title="任务式-拒", origin="task")
 
         task = asyncio.ensure_future(
@@ -173,7 +175,8 @@ class TestOfflineApproval:
     async def test_offline_timeout_still_fail_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """离线也没人管：超时后必须拒绝（不能默默放行）。"""
         monkeypatch.setenv("FACHUAN_APPROVAL_OFFLINE", "1")
-        monkeypatch.setattr(approval_mod, "redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
         session = await AgentSession.objects.acreate(title="任务式-超时", origin="task")
 
         approved, _, _reason = await approval_mod.request_approval(
@@ -192,7 +195,8 @@ class TestOfflineApproval:
     async def test_offline_disabled_falls_back_to_reject(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """``FACHUAN_APPROVAL_OFFLINE=0`` 回到原 fail-closed 行为。"""
         monkeypatch.setenv("FACHUAN_APPROVAL_OFFLINE", "0")
-        monkeypatch.setattr(approval_mod, "redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
         session = await AgentSession.objects.acreate(title="保守部署", origin="task")
 
         approved, _, _reason = await approval_mod.request_approval(

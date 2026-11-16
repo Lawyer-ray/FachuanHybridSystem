@@ -60,7 +60,7 @@ export function SegmentHeader({
         <button
           type="button"
           onClick={startNameEdit}
-          title={classified ? '点一下改名' : '还没归类：点一下给这份起个名（名字是类型词会自动分类），或右键选类型'}
+          title={classified ? '点一下改名' : '还没归类：点一下给这份起个名'}
           className={cn(
             'flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[13.5px] font-medium',
             !classified && 'text-amber-700',

@@ -61,6 +61,17 @@ export function useReaderViewState() {
     setRailOpen(false)
   }, [])
   /**
+   * 强制**展开**右栏（不是切换）。
+   *
+   * 窄屏下右栏是浮层，默认收着；从左栏徽标点「引擎分歧」时如果只是切页签，
+   * 用户看不到任何变化（面板还藏在屏幕外）。宽屏下右栏常驻，多调一次 setState
+   * 是幂等的，无害。
+   */
+  const openMeta = useCallback(() => {
+    setMetaOpen(true)
+    setRailOpen(false)
+  }, [])
+  /**
    * 左栏「重命名源文件」入口：打开重命名弹窗并带初始名。
    *
    * 初始名是用户改过的名字优先，否则原始文件名——`customName` 是草稿里持久化的
@@ -88,6 +99,7 @@ export function useReaderViewState() {
     setRenaming,
     railOpen,
     metaOpen,
+    openMeta,
     toggleRail,
     toggleMeta,
     collapsePanels,

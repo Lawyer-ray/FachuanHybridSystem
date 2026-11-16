@@ -34,20 +34,21 @@ describe('segMats / selKeyOf', () => {
 })
 
 describe('countUnclassified', () => {
-  it('未归类 = 没类型且名字还是默认名；改名即归类', () => {
+  it('未归类 = 名字仍是默认名；改名是唯一归类入口（类型不再参与判定）', () => {
     const d: DraftState = {
       mats,
       segs: [
         // 名字还是默认名（源名-P起始页）且没类型 → 未归类
         { id: 's1', t: '', fn: '自定义名-P1.pdf', refs: [{ mi: 0, p: 1 }], manual: false },
-        // 选了类型 → 已归类
+        // 老草稿里残留的类型名（t 有值、fn 就是类型默认名）→ 仍算未归类：
+        // 类型功能已移除，判定只认 fnAuto / 改名
         { id: 's2', t: '证据', fn: '证据.pdf', refs: [{ mi: 0, p: 2 }], manual: false },
         // 没类型但改过名 → 已归类
         { id: 's3', t: '', fn: 'c.pdf', refs: [{ mi: 1, p: 1 }], manual: true },
       ],
       infos: [],
     }
-    expect(countUnclassified(d)).toBe(1)
+    expect(countUnclassified(d)).toBe(2)
   })
 })
 
@@ -94,11 +95,6 @@ describe('defaultSegName / isAutoSegName 默认命名规则', () => {
     expect(defaultSegName(d, [{ mi: 0, p: 2 }, { mi: 0, p: 3 }], false)).toBe('自定义名-P2.pdf')
     expect(defaultSegName(d, [{ mi: 1, p: 2 }, { mi: 0, p: 1 }], false)).toBe('证据-P2.pdf')
     expect(defaultSegName(d, [], false)).toBe('材料.pdf')
-  })
-
-  it('选了类型 → 「类型.pdf」，同类型已有一份 → 「类型-P起始页.pdf」（used 集合去重）', () => {
-    expect(defaultSegName(d, [{ mi: 0, p: 1 }], false, '借条')).toBe('借条.pdf')
-    expect(defaultSegName(d, [{ mi: 0, p: 3 }], false, '借条', new Set(['借条.pdf']))).toBe('借条-P3.pdf')
   })
 
   it('默认名判定：源文件名本身与「源名-P数字.ext」算默认名，其它都是用户改过的', () => {
@@ -152,26 +148,6 @@ describe('withDefaultNames 刷新默认名', () => {
     expect(withDefaultNames(whole).segs[0]!.fn).toBe('证据.pdf')
   })
 
-  it('选类型后名字跟类型走；同类型第二份加 -P；fnAuto 记录来源，改名后再换类型不再跟随', () => {
-    const d: DraftState = {
-      mats,
-      segs: [
-        { id: 'a', t: '', fn: '证据.pdf', refs: [{ mi: 1, p: 1 }, { mi: 1, p: 2 }], manual: true },
-        { id: 'b', t: '', fn: '自定义名-P1.pdf', refs: [{ mi: 0, p: 2 }], manual: true },
-      ],
-      infos: [],
-    }
-    const typed = withDefaultNames({ ...d, segs: [{ ...d.segs[0]!, t: '借条' }, { ...d.segs[1]!, t: '借条' }] })
-    // 第一份「借条.pdf」，第二份同类型 → 「借条-P2.pdf」；并记录 fnAuto
-    expect(typed.segs.map((s) => [s.fn, s.fnAuto])).toEqual([
-      ['借条.pdf', '借条.pdf'],
-      ['借条-P2.pdf', '借条-P2.pdf'],
-    ])
-
-    // fn !== fnAuto（用户手改）之后类型再变，名字不再跟随
-    const renamed = withDefaultNames({ ...typed, segs: [{ ...typed.segs[0]!, fn: '客户原件.pdf' }] })
-    expect(renamed.segs[0]!.fn).toBe('客户原件.pdf')
-  })
 
   it('首刷为老草稿补 fnAuto（对象会换）；之后 fn 不变时返回同一引用', () => {
     const d: DraftState = {

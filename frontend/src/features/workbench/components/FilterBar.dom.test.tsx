@@ -43,7 +43,7 @@ function renderBar(props: Partial<Parameters<typeof FilterBar>[0]> = {}) {
 }
 
 function searchInput(): HTMLInputElement {
-  return screen.getByPlaceholderText('搜索合同（名称）') as HTMLInputElement
+  return screen.getByPlaceholderText('搜索项目（名称）') as HTMLInputElement
 }
 
 function filterButton(): HTMLElement {

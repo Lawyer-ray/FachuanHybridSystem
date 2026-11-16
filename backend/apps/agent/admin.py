@@ -81,6 +81,9 @@ class AgentSessionAdmin(admin.ModelAdmin):
     list_filter = ("status", date_filter("created_at"))
     search_fields = ("title", "user__username")
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentSession]:
+        return super().get_queryset(request).select_related("user")
+
 
 @admin.register(AgentApproval)
 class AgentApprovalAdmin(admin.ModelAdmin):
@@ -91,6 +94,9 @@ class AgentApprovalAdmin(admin.ModelAdmin):
     search_fields = ("tool_name",)
     date_hierarchy = "created_at"
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentApproval]:
+        return super().get_queryset(request).select_related("decided_by", "session")
+
 
 @admin.register(AgentApprovalPolicy)
 class AgentApprovalPolicyAdmin(admin.ModelAdmin):
@@ -100,6 +106,9 @@ class AgentApprovalPolicyAdmin(admin.ModelAdmin):
     list_filter = ("action", "is_prefix")
     search_fields = ("tool_pattern", "user__username")
     ordering = ("-updated_at",)
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentApprovalPolicy]:
+        return super().get_queryset(request).select_related("user")
 
 
 @admin.register(AgentSkillPreference)
@@ -121,6 +130,9 @@ class AgentSkillPreferenceAdmin(admin.ModelAdmin):
     def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AgentSkillPreference]:
+        return super().get_queryset(request).select_related("user")
+
 
 @admin.register(AgentMemory)
 class AgentMemoryAdmin(admin.ModelAdmin):
@@ -140,9 +152,8 @@ class AgentMemoryAdmin(admin.ModelAdmin):
     # `autocomplete_fields: tuple[str, ...] = ()`：Django 基类把该属性声明为
     # ``list[str]``，用 tuple 覆写类型不兼容（mypy 报「Cannot override class
     # variable」），而且值是空的——既没任何行为，又把 CI 的全量 mypy 门卡死。
-    # `promoted_from` 已经由 `filter_horizontal` 接管，两者本身也互斥
-    # （同一字段不能同时出现在两处）。需要自动补全时改用 list 并只放 M2M 字段。
-    filter_horizontal = ("promoted_from",)
+    # 本 admin 是只读审计视图，``promoted_from`` 走 readonly_fields 只读展示，
+    # 不需要 filter_horizontal / autocomplete（ editable  widget 与只读语义冲突）。
     readonly_fields = (
         "scope",
         "lawyer",
@@ -160,6 +171,11 @@ class AgentMemoryAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        # 新建 team/law_firm 记忆必须走 promote_memory（强制改写 + PII 闸门），
+        # admin 直接新增会绕过这两道闸门，故禁增。
+        return False
 
     @admin.display(description="内容")
     def short_content(self, obj: AgentMemory) -> str:

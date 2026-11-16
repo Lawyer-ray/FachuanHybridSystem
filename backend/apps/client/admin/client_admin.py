@@ -6,7 +6,6 @@ from django import forms
 from django.apps import apps as django_apps
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
-from django.core.files.storage import default_storage
 from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest, JsonResponse
@@ -16,18 +15,11 @@ from simple_history.admin import SimpleHistoryAdmin
 from apps.client.models import Client, ClientIdentityDoc, PropertyClue, PropertyClueAttachment
 from apps.client.ports import CredentialPort, GsxtReportPort
 from apps.client.services.client_export_serializer_service import serialize_client_obj
-from apps.client.services.wiring import get_credential_port, get_gsxt_report_port
+from apps.client.services.wiring import get_conflict_check_port, get_credential_port, get_gsxt_report_port
 from apps.core.admin.mixins import AdminImportExportMixin
-from apps.core.filesystem.upload_paths import MediaEntity
-from apps.core.services.storage_service import sanitize_upload_filename, to_media_abs
+from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.client")
-
-
-def _build_gsxt_report_rel_path(*, client: Client) -> str:
-    """构造企业信用报告的 media 相对路径（client.name 经清洗，防目录逃逸）。"""
-    report_name = sanitize_upload_filename(f"{client.name[:20]}_企业信用报告.pdf") or "企业信用报告.pdf"
-    return f"{MediaEntity.CLIENT_DOCS}/{client.pk}/{report_name}"
 
 
 def _get_admin_service() -> Any:
@@ -112,7 +104,7 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg] 
     ) -> None:
         """保存表单集，使用端口处理报告上传。"""
         instances = formset.save(commit=False)
-        gsxt_port: GsxtReportPort = get_gsxt_report_port()
+        admin_service = _get_admin_service()
 
         for f in formset.forms:
             uploaded = f.cleaned_data.get("report_upload") if f.cleaned_data else None
@@ -121,21 +113,12 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg] 
             obj: Any = f.instance
             if not obj.pk:
                 continue
-            client = obj.client
-            rel_path = _build_gsxt_report_rel_path(client=client)
-            saved_name = default_storage.save(rel_path, uploaded)
-            rel_path = saved_name
-            doc, _ = ClientIdentityDoc.objects.get_or_create(
-                client=client,
-                doc_type=ClientIdentityDoc.BUSINESS_LICENSE,
-            )
-            doc.file_path = str(rel_path)
-            doc.save(update_fields=["file_path"])
-            # 使用端口标记任务成功
-            gsxt_port.upload_report(
+            # 文件已落盘，任务侧不重复存内容（include_content=False）
+            admin_service.save_gsxt_report(
+                client=obj.client,
+                uploaded_file=uploaded,
                 task_id=obj.pk,
-                file_content=b"",  # 文件已保存到本地，这里不传内容
-                file_name=rel_path,
+                include_content=False,
             )
         formset.save_m2m()
 
@@ -267,8 +250,6 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         """获取企业信用报告视图。"""
         from django.shortcuts import redirect
 
-        from apps.automation.services.gsxt.gsxt_login_service import GsxtLoginError
-
         client = Client.objects.get(pk=client_id)
 
         if client.client_type != "legal":
@@ -305,7 +286,7 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
                 credential_id=credential.id,
                 task_id=task_id,
             )
-        except GsxtLoginError as e:
+        except ValidationException as e:
             self.message_user(request, str(e), messages.ERROR)
             return redirect(f"../../{client_id}/change/")
 
@@ -340,25 +321,12 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         client = task.client
         uploaded: Any = request.FILES["report_file"]
 
-        rel_path = _build_gsxt_report_rel_path(client=client)
-        saved_name = default_storage.save(rel_path, uploaded)
-        rel_path = saved_name
-
-        # 读取文件内容用于端口回调
-        file_content = to_media_abs(rel_path).read_bytes()
-
-        doc, _ = ClientIdentityDoc.objects.get_or_create(
+        # 读取文件内容回传任务（include_content=True），并挂为营业执照附件
+        _get_admin_service().save_gsxt_report(
             client=client,
-            doc_type=ClientIdentityDoc.BUSINESS_LICENSE,
-        )
-        doc.file_path = str(rel_path)
-        doc.save(update_fields=["file_path"])
-
-        # 使用端口标记任务成功
-        gsxt_port.upload_report(
+            uploaded_file=uploaded,
             task_id=task_id,
-            file_content=file_content,
-            file_name=rel_path,
+            include_content=True,
         )
 
         self.message_user(
@@ -370,32 +338,22 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
 
     def _check_oa_credential_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         """检查当前用户是否有金诚同达OA凭证。"""
-        from django.db.models import Q
-
         lawyer_id = getattr(request.user, "id", None)
         if lawyer_id is None:
             return JsonResponse({"has_credential": False, "error": "无效用户"})
 
-        from apps.organization.models import AccountCredential
-
-        credential = AccountCredential.objects.filter(
-            Q(account__icontains="jtn.com") | Q(url__icontains="jtn.com"),
-            lawyer_id=lawyer_id,
-        ).exists()
-
+        credential = get_credential_port().has_jtn_credential(lawyer_id)
         return JsonResponse({"has_credential": credential})
 
     def _conflict_check_view(self, request: HttpRequest, client_id: int) -> Any:  # pragma: no cover
         """利益冲突检查：复用 OA 登录打开利冲预检页面，填入当事人名称并搜索，保持浏览器让律师查看。"""
         from django.shortcuts import redirect
 
-        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
-
         client = Client.objects.get(pk=client_id)
         keyword = client.name or ""
 
         try:
-            ScriptExecutorService().open_conflict_check_page(
+            get_conflict_check_port().open_conflict_check_page(
                 keyword=keyword,
                 user=request.user,
             )
@@ -532,24 +490,8 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
     def handle_json_import(  # pragma: no cover
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
-        from apps.client.services.client_resolve_service import ClientResolveService
-
-        svc = ClientResolveService()
-        success = skipped = 0
-        errors: list[str] = []
-        for i, item in enumerate(data_list, 1):
-            try:
-                id_number = item.get("id_number")
-                before = Client.objects.filter(id_number=id_number).exists() if id_number else False
-                svc.resolve_with_attachments(item)
-                if not before:
-                    success += 1
-                else:
-                    skipped += 1
-            except Exception as exc:
-                logger.exception("导入客户失败", extra={"index": i, "client_name": item.get("name", "?")})
-                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
-        return success, skipped, errors
+        result: tuple[int, int, list[str]] = _get_admin_service().import_json_items(data_list)
+        return result
 
     def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:  # pragma: no cover
         result = []

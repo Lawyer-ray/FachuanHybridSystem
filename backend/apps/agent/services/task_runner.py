@@ -259,12 +259,11 @@ def run_scheduled_digest() -> dict[str, int]:
     Returns:
         {"sessions": 创建会话数}（无到期事项的律师跳过）。
     """
-    from datetime import timedelta
+    from django.apps import apps as django_apps
 
-    from django.utils import timezone
-
-    from apps.cases.models import CaseAssignment
-    from apps.reminders.models import Reminder
+    # 跨 app 模型经 get_model 延迟解析（四层架构：不跨模块静态导入 Model）
+    CaseAssignment = django_apps.get_model("cases", "CaseAssignment")
+    Reminder = django_apps.get_model("reminders", "Reminder")
 
     now = timezone.now()
     week_end = now + timedelta(days=7)

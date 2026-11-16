@@ -15,6 +15,9 @@ pi 扩展（``pi/memory-inject.ts``）在 ``session_start`` 拉一次快照并�
 提升（``POST /promotion``）是**写**，带强制改写与 PII 闸门。
 分开是为了让前端能做成「左候选右编辑」的两栏交互，而不是一个模态框里
 既拉数据又提交。
+
+读侧的过滤/截断/作用域装配等业务逻辑下沉在 ``services/memory/payloads.py``，
+本层只把 service 载荷装进 Ninja Schema。
 """
 
 from __future__ import annotations
@@ -23,17 +26,22 @@ import logging
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from ninja import Router, Schema
+from ninja import Router
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentMemory
+from ..schemas import (
+    MemoryConfirmIn,
+    MemoryCreateIn,
+    MemoryHitOut,
+    MemoryOut,
+    PromoteCandidateOut,
+    PromoteIn,
+    SnapshotOut,
+)
 from ..services import memory_service
-
-#: 检索返回的单条内容上限（字）。操作指引上限 8000，留足不截断；
-#: 真正超出的会带 truncated=True，由模型决定是否收窄查询。
-SEARCH_CONTENT_MAX_CHARS = 8000
 
 logger = logging.getLogger(__name__)
 
@@ -47,79 +55,6 @@ def _current_user(request: Any) -> Any:
     return user
 
 
-def _to_out(memory: AgentMemory) -> dict[str, Any]:
-    return {
-        "id": str(memory.pk),
-        "scope": memory.scope,
-        "kind": memory.kind,
-        "content": memory.content,
-        "status": memory.status,
-        "confidence": memory.confidence,
-        "hit_count": memory.hit_count,
-        "created_at": memory.created_at.isoformat() if memory.created_at else "",
-        "source_session_id": (str(memory.source_session.session_id) if memory.source_session is not None else ""),
-    }
-
-
-class MemoryOut(Schema):
-    id: str
-    scope: str
-    kind: str
-    content: str
-    status: str
-    confidence: float
-    hit_count: int
-    created_at: str
-    source_session_id: str = ""
-
-
-class MemoryCreateIn(Schema):
-    content: str
-    kind: str = AgentMemory.Kind.FACT
-
-
-class MemoryConfirmIn(Schema):
-    ids: list[str]
-    accept: bool = True
-
-
-class PromoteCandidateOut(Schema):
-    id: str
-    kind: str
-    content: str
-    hit_count: int
-    from_lawyer: str = ""
-    pii_risk: list[str] = []
-
-
-class PromoteIn(Schema):
-    source_ids: list[str]
-    content: str
-    kind: str
-    scope: str
-    team_id: int | None = None
-    #: 律所层必须显式传 True：表示已阅读「全所可见」的影响面声明。
-    #: 为什么不是双管理员会签：实测生产环境存在只有 1 个管理员、甚至 0 个
-    #: 管理员的律所（firm2/firm3/firm5），强制会签会让那些律所完全用不了
-    #: 律所层。真实约束应该是「你知道自己在写全所规范」而不是「两个人盖章」。
-    acknowledged_firm_wide: bool = False
-
-
-class SnapshotOut(Schema):
-    content: str
-
-
-class MemoryHitOut(Schema):
-    id: str
-    scope: str
-    kind: str
-    content: str
-    score: float
-    #: 返回内容是否被截断。操作指引全文可达 8000 字，模型需要知道
-    #: 自己看到的是否完整（不完整时应收窄查询或分批读取）。
-    truncated: bool = False
-
-
 @router.get("", response=list[MemoryOut])
 async def list_memories(  # pragma: no cover
     request: Any,
@@ -127,27 +62,12 @@ async def list_memories(  # pragma: no cover
     status: str | None = None,
     limit: int = 100,
 ) -> list[MemoryOut]:
-    """当前律师可见的记忆列表。
-
-    **默认只返回 pending + active**，不返 ``deleted``：软删的语义是「律师不想
-    再看到它」，默认列表里还躺着会让人以为删除没生效（前端靠 ``status`` 过滤
-    可以遮蔽，但接口本身应该语义正确）。要看已删列表显式传 ``status=deleted``
-    （恢复入口需要）。
-    """
+    """当前律师可见的记忆列表（默认 pending + active，业务逻辑见 service）。"""
     lawyer = _current_user(request)
-
-    def _run() -> list[MemoryOut]:
-        if status:
-            statuses: tuple[str, ...] = (status,)
-        else:
-            statuses = (AgentMemory.Status.PENDING, AgentMemory.Status.ACTIVE)
-        queryset = memory_service.visible_queryset(lawyer, include_status=statuses)
-        if scope:
-            queryset = queryset.filter(scope=scope)
-        bounded = max(1, min(limit, 300))
-        return [MemoryOut(**_to_out(m)) for m in queryset[:bounded]]
-
-    return await sync_to_async(_run, thread_sensitive=True)()
+    rows = await sync_to_async(memory_service.list_memories_payload, thread_sensitive=True)(
+        lawyer, scope=scope, status=status, limit=limit
+    )
+    return [MemoryOut(**row) for row in rows]
 
 
 @router.post("", response=MemoryOut)
@@ -157,14 +77,10 @@ async def create_memory(request: Any, payload: MemoryCreateIn) -> MemoryOut:  # 
 
     def _run() -> MemoryOut:
         try:
-            memory = memory_service.create_memory(
-                lawyer,
-                content=payload.content,
-                kind=payload.kind,
-            )
+            memory = memory_service.create_memory(lawyer, content=payload.content, kind=payload.kind)
         except ValueError as exc:
             raise ValidationException(str(exc)) from exc
-        return MemoryOut(**_to_out(memory))
+        return MemoryOut(**memory_service.memory_to_dict(memory))
 
     return await sync_to_async(_run, thread_sensitive=True)()
 
@@ -183,43 +99,21 @@ async def confirm_memories(request: Any, payload: MemoryConfirmIn) -> dict[str, 
 
 @router.get("/search", response=list[MemoryHitOut])
 async def search_memory(request: Any, q: str, limit: int = 8) -> list[MemoryHitOut]:  # pragma: no cover
-    """语义 + 关键词混合检索。
+    """语义 + 关键词混合检索（``recall_memory`` MCP 工具的后端）。
 
-    这是 ``recall_memory`` MCP 工具的后端。与 ``GET /`` 的区别：
-
-    - `GET /` 是**浏览**：按时间倒序列出全部记忆，用于管理界面；
-    - `GET /search` 是**检索**：按相关度返回 top-N，带向量召回。
-
-    为什么必须分开：律师问「我以前说的格式要求」时，记忆里存的是「文书先给
-    结论」——字面无关、语义相关，列表浏览永远找不到。早前 `recall_memory`
-    拉全量后做子串过滤，就是漏了这一层。
+    与 ``GET /`` 的区别：``GET /`` 是按时间倒序**浏览**全部记忆（管理界面）；
+    ``GET /search`` 是按相关度**检索** top-N（带向量召回）。律师问「我以前
+    说的格式要求」时，记忆里存的是「文书先给结论」——字面无关、语义相关，
+    列表浏览永远找不到。
     """
     lawyer = _current_user(request)
     query = (q or "").strip()
     if not query:
         raise ValidationException("检索词不能为空")
-    bounded = max(1, min(limit, 30))
-
-    def _run() -> list[MemoryHitOut]:
-        hits = memory_service.search_memories(lawyer, query, limit=bounded)
-        out: list[MemoryHitOut] = []
-        for memory, score in hits:
-            content = memory.content or ""
-            clipped = len(content) > SEARCH_CONTENT_MAX_CHARS
-            out.append(
-                MemoryHitOut(
-                    id=str(memory.pk),
-                    scope=memory.scope,
-                    kind=memory.kind,
-                    # 操作指引按需取全文，这里给足；普通记忆本来就短
-                    content=content[:SEARCH_CONTENT_MAX_CHARS],
-                    score=round(float(score), 4),
-                    truncated=clipped,
-                )
-            )
-        return out
-
-    return await sync_to_async(_run, thread_sensitive=True)()
+    rows = await sync_to_async(memory_service.search_memories_payload, thread_sensitive=True)(
+        lawyer, query, limit=limit
+    )
+    return [MemoryHitOut(**row) for row in rows]
 
 
 @router.get("/snapshot", response=SnapshotOut)
@@ -280,7 +174,7 @@ async def promote_memory(request: Any, payload: PromoteIn) -> MemoryOut:  # prag
             )
         except ValueError as exc:
             raise ValidationException(str(exc)) from exc
-        return MemoryOut(**_to_out(memory))
+        return MemoryOut(**memory_service.memory_to_dict(memory))
 
     return await sync_to_async(_run, thread_sensitive=True)()
 
@@ -289,25 +183,7 @@ async def promote_memory(request: Any, payload: PromoteIn) -> MemoryOut:  # prag
 async def my_scopes(request: Any) -> dict[str, Any]:  # pragma: no cover
     """当前律师可策展的作用域（前端据此显示/隐藏「提升到团队」入口）。"""
     lawyer = _current_user(request)
-
-    def _run() -> dict[str, Any]:
-        teams = [
-            {
-                "id": team.pk,
-                "name": team.name,
-                "can_curate": memory_service.can_curate_scope(lawyer, AgentMemory.Scope.TEAM, team_id=team.pk),
-            }
-            for team in lawyer.lawyer_teams.all()
-        ]
-        return {
-            "law_firm": {
-                "id": lawyer.law_firm_id,
-                "can_curate": memory_service.can_curate_scope(lawyer, AgentMemory.Scope.LAW_FIRM),
-            },
-            "teams": teams,
-        }
-
-    return await sync_to_async(_run, thread_sensitive=True)()
+    return await sync_to_async(memory_service.curatable_scopes_payload, thread_sensitive=True)(lawyer)
 
 
 # ── 动态段路由（必须放最后）─────────────────────────────────────────────
@@ -344,6 +220,6 @@ async def restore_memory(request: Any, memory_id: str) -> MemoryOut:  # pragma: 
             memory = memory_service.restore_memory(lawyer, memory_id)
         except ValueError as exc:
             raise NotFoundError(str(exc)) from exc
-        return MemoryOut(**_to_out(memory))
+        return MemoryOut(**memory_service.memory_to_dict(memory))
 
     return await sync_to_async(_run, thread_sensitive=True)()

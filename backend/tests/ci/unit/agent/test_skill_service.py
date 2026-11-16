@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from apps.agent.models.agent import AgentSkillPreference
+from apps.agent.models import AgentSkillPreference
 from apps.agent.services import skill_service
 
 #: 仓库内真实技能库（4 份 SKILL.md 随代码发布）；测试不造假目录，直接用真的——
@@ -21,7 +21,9 @@ def user(db: Any) -> Any:
 
     firm = LawFirm.objects.create(name="技能测试律所")
     return Lawyer.objects.create_user(
-        username="skill-user", password="x-test-12345678", law_firm=firm  # pragma: allowlist secret
+        username="skill-user",
+        password="x-test-12345678",  # pragma: allowlist secret
+        law_firm=firm,
     )
 
 

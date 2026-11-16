@@ -38,6 +38,15 @@ class DocumentParsingTask(models.Model):
         db_index=True,
         help_text="Django-Q 任务 ID（安全修复：对外仅暴露本记录 id，Q id 仅内部反查用）",
     )
+    callback_seed = models.CharField(
+        "回调签名种子",
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="云端回调（webhook）签名种子：MinerU 回调 checksum 的 seed 部分由此派生，"
+        "空值表示该任务回调未启用（走轮询）",
+    )
     text = models.TextField("纯文本", blank=True)
     markdown = models.TextField("Markdown", blank=True)
     metadata = models.JSONField("元数据", default=dict, blank=True)

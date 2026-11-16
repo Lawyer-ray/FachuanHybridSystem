@@ -26,7 +26,6 @@ export {
   splitSegment,
   mergeSegment,
   moveSegment,
-  setSegmentType,
   renameSegment,
   resetSegments,
   setPackStatus,
@@ -80,10 +79,13 @@ export {
   engineShortLabel,
   engineBlocksOfPage,
   disagreementKey,
+  uniqueDisagreementKey,
+  uniqueDisagreementKeys,
   disagreementKindLabel,
   groupBySeverity,
   sortDisagreements,
   variantTextOf,
+  variantFullTextOf,
 } from './engine'
 export { reviewItemsOf, reviewItemId, sortReviewItems, groupByPage } from './review'
 export type { ReviewItem, ReviewItemKind } from './review'

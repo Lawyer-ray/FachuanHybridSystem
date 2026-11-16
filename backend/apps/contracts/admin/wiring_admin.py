@@ -150,3 +150,21 @@ def get_invoice_upload_service() -> Any:  # pragma: no cover
         "contracts.invoice_upload_service",
         lambda: InvoiceUploadService(),
     )
+
+
+def get_client_payment_image_service() -> Any:  # pragma: no cover
+    from apps.contracts.services.client_payment import ClientPaymentImageService
+
+    return ClientPaymentImageService()
+
+
+def get_client_payment_record_service() -> Any:  # pragma: no cover
+    from apps.contracts.services.client_payment import ClientPaymentRecordService
+
+    return ClientPaymentRecordService()
+
+
+def get_script_executor_service() -> Any:  # pragma: no cover
+    from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+
+    return ScriptExecutorService()

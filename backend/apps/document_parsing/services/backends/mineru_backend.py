@@ -1,4 +1,9 @@
-"""MinerU API 后端实现"""
+"""MinerU API 后端实现
+
+配置了回调（见 ``services/callback_config.py``）时，上传完成后不再轮询批量结果：
+把 ``callback`` / ``seed`` 随上传申请一起发给 MinerU，结果由
+`/api/v1/document-parsing/webhook/mineru` 推回。未配置时与原来完全一致。
+"""
 
 import json
 import logging
@@ -24,6 +29,7 @@ from apps.document_parsing.protocols.document_parser_protocol import (
     BLOCK_TYPE_TEXT,
     NON_BODY_BLOCK_TYPES,
     ParsedDocument,
+    PendingCallback,
     TextExtractionResult,
     normalize_block_type,
 )
@@ -45,10 +51,100 @@ _NO_LINE_LEVEL_BLOCK_TYPES: frozenset[str] = frozenset({BLOCK_TYPE_TABLE, BLOCK_
 #: （与 content_list 主路径同一口径，见 ``resolve_bbox_unit('mineru') == 'permille'``）。
 _MODEL_JSON_BBOX_SCALE = 1000
 
+#: 需要显式开启 OCR 的后缀（PDF 与图片）。其余办公文档（doc/docx/ppt/pptx/xls/xlsx）
+#: 由 MinerU 先转 PDF 再解析，不传 ``is_ocr`` 走服务端默认，省一次识别。
+_OCR_REQUIRED_SUFFIXES: frozenset[str] = frozenset({".pdf", ".jpg", ".jpeg", ".png", ".jp2", ".webp", ".gif", ".bmp"})
+
 #: 判断 ocr_text 行框是否落在 text 块 y 范围 / x 范围重叠时的容差（千分比）。
 #: 两个文件来自不同的版面推理分支，同一条线的上下边界会有几像素级差异，
 #: 不留容差会把真实匹配判成不匹配；留太多又会把邻行吞进来。±5 千分比 ≈ ±0.5% 页高。
 _OCR_LINE_BBOX_TOLERANCE = 5
+
+#: 是否要 MinerU 做公式识别。全链路只往一个方向取：**关**。
+#
+# 官方文档（https://mineru.net/apiManage/docs，两处均如此写）：
+# 「是否开启公式识别，默认 true。特别注意：对于 vlm 模型，这个参数只会影响
+#   行内公式的解析。」也就是说在 vlm 下它管不到行间公式（``$$…$$``），
+# 只管正文里夹着的 ``$…$``。
+#
+# 选 false 的依据是实测（2026-11，vlm + is_ocr=true，同一份含公式的合成 PDF
+# 各跑一次）：text / markdown / 每个块的文本与类型序列 **逐字节完全一致**，
+# 行间公式块照样产出。行内公式这一侧我们本来就不消费——``text`` 主路径只取
+# ``type == "text"``（见 ``_extract_text_from_content_list``），公式块进不了 text；
+# 要公式内容得读 ``markdown`` 或 ``blocks``（``BLOCK_TYPE_FORMULA``）。
+#
+# 保守取向由此而来：关掉它换不来质量，也换不来时间（实测两边耗时互有高低，
+# 差异在噪声里），唯一的收益是「不把表格里的小角标、印章边上的符号误判成
+# 行内公式」。真出现误判，公式块也只是被单独标成一个块，不会吞掉别的内容。
+#
+# 什么时候回头看：若将来允许把行内公式原样交给下游（例如让 LLM 读含公式的
+# 鉴定意见、利息计算书并需要 ``$r$`` 这类记号），或者抽查发现 markdown 里
+# ``$…$`` 出现的位置本该是普通文字/金额，就打开它重跑一次 A/B。
+_ENABLE_FORMULA = False
+
+
+def _is_repeated_header(block_text: str, excluded_norm: dict[str, int]) -> bool:
+    """这个 text 块是否就是页眉/页脚从页面上方/下方重复冒出来的那一行。
+
+    单纯「归一化相等」会把**正文里的同名内容一起吞掉**。法律文书里这种情况
+    很常见：页眉是「民事判决书」，正文首个标题也是「民事判决书」；页眉是
+    「（20XX）X XX 民初 XXX 号」，正文引用案号时也会出现同一串。此前这些正文首段被
+    当成重复页眉直接丢弃（已复现：header='民事判决书' + text='民事判决书'
+    时输出为空）。
+
+    现在的判据只认「**多次重复**」：同一个归一化文本在 header/footer 里
+    出现至少 2 次，才能当作跨页重复的页眉（真页眉每页都有）；只出现过
+    1 次的，视为可能是正文标题，保留。
+
+    Args:
+        block_text: 待判断的 text 块内容
+        excluded_norm: 已归一的 header/footer 文本 → 出现次数
+
+    Returns:
+        True 表示可以丢弃。
+    """
+    count = excluded_norm.get(normalize_text(block_text), 0)
+    return count >= 2
+
+
+def _content_block_text(block: dict[str, Any]) -> str:
+    """取一个 content_list 块的可读文本（表格/图片不再是空字符串）。
+
+    与 ``_extract_page_layout_from_content_list`` 里构建 ``page["text"]`` 的
+    口径严格同源：改这里必须同步改那里，否则 ``parsed.text`` 与
+    ``parsed.blocks`` 会给出不一样的内容，下游按哪份为准都会出错。
+
+    取舍说明：
+    - 表格块的 ``text`` 恒为空，正文在 ``table_body``（HTML）。去标签后保留
+      单元格文字，会丢掉行列结构——需要结构的下游应该读 ``blocks`` /
+      ``markdown``，这里只保证「内容不丢」。
+    - 表格/图片块的 ``text`` 为空时退回 caption + footnote，避免纯图表标注
+      的块整个消失。
+    - 页眉/页脚/页码**照常返回块自身文本**，是否并入正文由调用方决定
+      （``_extract_text_from_content_list`` 不并入；layout 的 ``blocks[]``
+      保留它，仅不汇总进 ``page["text"]``）。
+    """
+    block_type = str(block.get("type") or "")
+
+    text = str(block.get("text") or "").strip()
+    table_body = str(block.get("table_body") or "").strip()
+    if block_type == "table" and table_body:
+        text = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", table_body))).strip()
+
+    # caption / footnote 只在正文为空时回退使用——**不拿标题顶替真实内容**。
+    # 「表 1 借款明细」这类表题确实有信息量，但既有约定（见
+    # test_text非空时不使用标题覆盖）是正文优先；两条路径必须同源，
+    # 否则 ``text`` 与 ``blocks`` 会给出不同结果。
+    if not text:
+        captions = block.get("table_caption") or block.get("image_caption") or []
+        footnotes = block.get("table_footnote") or block.get("image_footnote") or []
+        if isinstance(captions, str):
+            captions = [captions]
+        if isinstance(footnotes, str):
+            footnotes = [footnotes]
+        text = " ".join(str(item).strip() for item in [*captions, *footnotes] if str(item).strip())
+
+    return text
 
 
 class MineruBackend:
@@ -213,7 +309,9 @@ class MineruBackend:
             extract_tables: 是否提取表格（MinerU 默认提取）
             extract_images: 是否提取图片
             return_markdown: 是否返回 Markdown
-            **kwargs: 其他参数
+            **kwargs: ``callback_url`` / ``callback_seed`` 同时给出时走回调
+                （上传完即返回，结果由 `/api/v1/document-parsing/webhook/mineru` 写回）；
+                否则走原有轮询
 
         Returns:
             ParsedDocument 解析结果
@@ -225,12 +323,33 @@ class MineruBackend:
         start_time = time.time()
         logger.info("开始 MinerU 解析: %s", file_path)
 
+        callback_url = str(kwargs.get("callback_url") or "").strip()
+        callback_seed = str(kwargs.get("callback_seed") or "").strip()
+        if callback_url and not callback_seed:
+            # MinerU 要求用 callback 时必须带 seed，否则其侧会拒掉整个请求；
+            # 与其发一个注定失败的上传，不如当作未启用回调
+            logger.warning("MinerU 收到 callback_url 但缺少 callback_seed，本次回退轮询: %s", file_path)
+            callback_url = ""
+
         # 每次解析任务占用一个 key，"_upload_file" 与 "_poll_batch_result" 共用该 key
         self._active_key, idx = self._acquire_key()
         success = False
         try:
             # 1. 上传文件到 MinerU（上传后 MinerU 自动创建解析任务）
-            batch_id = self._upload_file(file_path)
+            batch_id = self._upload_file(file_path, callback=callback_url or None, seed=callback_seed or None)
+
+            if callback_url:
+                # 回调路径：任务已在云端，立即返回。上传成功即算本次占用成功，
+                # 云端后续失败由回调侧记到任务记录上。
+                logger.info("MinerU 任务已提交，等待回调: %s (batch_id=%s)", file_path, batch_id)
+                success = True
+                return ParsedDocument(
+                    text="",
+                    markdown=None,
+                    metadata={"batch_id": batch_id},
+                    parse_method="mineru",
+                    pending_callback=PendingCallback(provider=self.provider_type, job_id=batch_id),
+                )
 
             # 2. 轮询批量结果
             result = self._poll_batch_result(batch_id)
@@ -331,17 +450,63 @@ class MineruBackend:
             total = min(total, float(self.UPLOAD_MAX_TIMEOUT))
         return httpx.Timeout(total, connect=self.UPLOAD_MIN_TIMEOUT, write=total, read=total)
 
-    def _request_upload_url(self, file_name: str) -> tuple[str, str]:
+    def _request_upload_url(
+        self,
+        file_name: str,
+        *,
+        callback: str | None = None,
+        seed: str | None = None,
+    ) -> tuple[str, str]:
         """申请预签名上传地址，返回 ``(batch_id, upload_url)``。
+
+        ``callback`` / ``seed`` 是 MinerU 的回调参数：callback 是解析完成后要 POST
+        的 URL，seed 是签名种子（用 callback 时必填，其回调 checksum =
+        sha256(uid + seed + content)）。两者传 None 表示不启用回调、保持轮询。
 
         这是几百字节的 JSON 往返，用元数据超时（`self.timeout`）就够了；
         它可能返回 5xx/限流，所以包一层轻量重试。
+
+        payload 的字段位置**不能凭直觉放**：走的是批量接口
+        ``/api/v4/file-urls/batch``，``is_ocr`` 是 ``files[]`` 元素里的字段
+        （官方文档写作 ``file.is_ocr``）；顶层 ``is_ocr`` 只属于单文件接口
+        ``/api/v4/extract/task``。放错层服务端会静默忽略——不报错，只是回到
+        默认 ``is_ocr=false``。
+
+        关于 ``is_ocr`` 的实测事实（2026-11，vlm）：**它在 vlm 模型下不产生
+        任何差异**。同一份文字层为 0 的扫描件分别以 ``is_ocr=false`` /
+        ``true`` 各跑一次，返回正文逐字节相同（单页 84 字符；164 页件前 3 页
+        均 860 字符）。即 vlm 本来就会对无文字层的页面做 OCR，官方文档那句
+        「默认 false，仅对 pipeline、vlm 模型有效」在 vlm 下的实际含义是
+        「参数可识别」，而不是「关掉就不 OCR」。
+
+        既然如此为什么仍显式传 ``true``：
+          · ``MODEL_VERSION`` 是可改的。一旦有人切回 ``pipeline``，默认
+            ``is_ocr=false`` 会让扫描件解析成空白——这是静默的，不会报错。
+            显式传值让两种模型都安全。
+          · 省掉「靠默认值碰对」的隐式依赖。
         """
+        # 见上：vlm 下无实际作用，是为 pipeline 兼容与显式意图，不是性能开关。
         client = get_sync_http_client()
-        payload = {
-            "files": [{"name": file_name, "data_id": uuid4().hex}],
+        suffix = Path(file_name).suffix.lower()
+        file_entry: dict[str, Any] = {"name": file_name, "data_id": uuid4().hex}
+        if suffix in _OCR_REQUIRED_SUFFIXES:
+            # vlm 下此值实测无作用（见 _request_upload_url 的 docstring），
+            # 显式传 true 是为了 MODEL_VERSION 改回 pipeline 时扫描件仍能出字。
+            file_entry["is_ocr"] = True
+            # 与顶层同一个值，理由见 ``_ENABLE_FORMULA``。批量接口的文档把
+            # ``enable_formula`` 列在顶层；元素内这一份是为对齐 ``file.is_ocr``
+            # 的写法，两边取值必须一致，不能一处 true 一处 false。
+            file_entry["enable_formula"] = _ENABLE_FORMULA
+        payload: dict[str, Any] = {
+            "files": [file_entry],
             "model_version": self.MODEL_VERSION,
+            "language": "ch",
+            "enable_table": True,
+            "enable_formula": _ENABLE_FORMULA,
         }
+        if callback and seed:
+            payload["callback"] = callback
+            payload["seed"] = seed
         last_error: Exception | None = None
         for attempt in range(1, self.UPLOAD_ATTEMPTS + 1):
             try:
@@ -415,8 +580,10 @@ class MineruBackend:
                 time.sleep(attempt)
         raise MineruAPIError(f"文件上传失败（{size / 1024 / 1024:.1f} MB）: {last_error}") from last_error
 
-    def _upload_file(self, file_path: str) -> str:
+    def _upload_file(self, file_path: str, *, callback: str | None = None, seed: str | None = None) -> str:
         """上传文件到 MinerU，上传后 MinerU 自动创建解析任务。
+
+        ``callback`` / ``seed`` 透传给上传申请接口（见 ``_request_upload_url``）。
 
         分两步，超时口径不同（详见 `_upload_timeout_for`）：
 
@@ -434,7 +601,7 @@ class MineruBackend:
             raise MineruAPIError(f"待上传文件不存在: {file_path}")
         file_name = file_path_obj.name
 
-        batch_id, upload_url = self._request_upload_url(file_name)
+        batch_id, upload_url = self._request_upload_url(file_name, callback=callback, seed=seed)
         self._put_file_streaming(upload_url, file_path_obj)
         logger.info(
             "文件上传成功: %s (%.1f MB, batch_id=%s)",
@@ -683,35 +850,53 @@ class MineruBackend:
         但部分页眉会被误识别为 text 类型。通过归一化匹配（去除标点后比较）
         过滤被误识别的页眉。
 
+        ⚠️ 必须含表格：MinerU 的表格块 ``text`` 字段**恒为空字符串**，内容全在
+        ``table_body`` 的 HTML 里。此前本方法只取 ``type == "text"``，导致表格
+        内容 100% 从 ``parsed.text`` 消失（实测 8 页卷宗：7 个表格、table_body
+        合计 5292 字符，text 里 0 字符）。法律卷宗的金额、账号、当事人清单大量
+        在表格里，这是静默丢数据。
+
+        表格 HTML 去标签的口径与 ``_extract_page_layout_from_content_list`` 里
+        的 ``page["text"]`` 完全一致（去标签 + 反转义 + 空白折叠），两条路径
+        必须同源，否则 ``text`` 与 ``blocks`` 会看出不同内容。图片块同理取
+        ``image_caption`` / ``image_footnote``。
+
         Args:
             content_list_path: content_list.json 文件路径
 
         Returns:
-            提取的文本（不含页眉页脚）
+            提取的文本（不含页眉页脚，但含表格正文与图表说明）
         """
         try:
             with open(content_list_path, encoding="utf-8") as f:
                 content_list = json.load(f)
 
-            # 收集 header/footer 类型的归一化文本（已知页眉页脚）
-            excluded_norm: set[str] = set()
+            # 收集 header/footer 类型的归一化文本 → 出现次数。
+            # 记次数而不是去重，是因为「出现 1 次」不能证明它是跨页页眉（也可能
+            # 只是误标成 header 的正文标题，那种不能连正文一起吞）。
+            excluded_norm: dict[str, int] = {}
             for block in content_list:
                 if block.get("type") in ("header", "footer"):
                     text = (block.get("text") or "").strip()
                     if text:
-                        excluded_norm.add(normalize_text(text))
+                        key = normalize_text(text)
+                        excluded_norm[key] = excluded_norm.get(key, 0) + 1
 
-            # 提取 text 块，跳过匹配已知页眉页脚的
+            # 提取正文块，跳过匹配已知页眉页脚的
             texts = []
             for block in content_list:
                 block_type = block.get("type", "")
-                block_text = block.get("text", "")
+                # 页眉/页脚/页码不进正文（每页重复一遍会把正文淹掉）。
+                # ``_content_block_text`` 只负责取块自身文本，不替调用方做取舍。
+                if block_type in ("header", "footer", "page_number"):
+                    continue
+                block_text = _content_block_text(block)
+                if not block_text:
+                    continue
 
-                if block_type == "text" and block_text:
-                    # 归一化后检查是否匹配已知页眉页脚
-                    if normalize_text(block_text) in excluded_norm:
-                        continue
-                    texts.append(block_text)
+                if block_type == "text" and _is_repeated_header(block_text, excluded_norm):
+                    continue
+                texts.append(block_text)
 
             return "\n".join(texts)
 
@@ -747,19 +932,10 @@ class MineruBackend:
                 continue
 
             block_type = str(block.get("type") or "")
-            block_text = str(block.get("text") or "").strip()
+            # 文本口径与 ``_extract_text_from_content_list`` 共用同一个方法：
+            # ``parsed.text`` 与 ``parsed.blocks`` 必须给出同一份内容。
+            block_text = _content_block_text(block)
             table_body = str(block.get("table_body") or "").strip()
-            if block_type == "table" and table_body:
-                block_text = unescape(re.sub(r"<[^>]+>", " ", table_body))
-                block_text = re.sub(r"\s+", " ", block_text).strip()
-            if not block_text:
-                captions = block.get("table_caption") or []
-                footnotes = block.get("table_footnote") or []
-                if isinstance(captions, str):
-                    captions = [captions]
-                if isinstance(footnotes, str):
-                    footnotes = [footnotes]
-                block_text = " ".join(str(item).strip() for item in captions + footnotes if str(item).strip())
 
             page = page_map.setdefault(page_no, {"page_no": page_no, "blocks": [], "text": ""})
             page["blocks"].append(

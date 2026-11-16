@@ -15,7 +15,6 @@ import {
   setPackAssign,
   setPackStatus,
   setSegmentMarkdown,
-  setSegmentType,
   splitSegment,
 } from './segments'
 import { ensureSegIds } from './seg-id'
@@ -35,11 +34,11 @@ function fixture(): DraftState {
 }
 
 describe('splitSegment', () => {
-  it('在第 k 页缝切开：前段保留类型且标记人工，新段类型清空；名字按「类型优先、其次源名-P起始页」', () => {
+  it('在第 k 页缝切开：前段保留旧类型字段、新段类型清空；名字按「源名-P起始页」', () => {
     const d = splitSegment(fixture(), 0, 1)
     expect(d.segs).toHaveLength(3)
-    // 头段带着类型「起诉状」→ 名字跟类型；尾段无类型 → 「源名-P起始页」
-    expect(d.segs[0]).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', manual: true })
+    // 类型功能已移除：头段沿用旧草稿残留的 t，但名字不再跟类型走
+    expect(d.segs[0]).toMatchObject({ t: '起诉状', fn: '起诉状-P1.pdf', manual: true })
     expect(d.segs[0]!.refs).toEqual([{ mi: 0, p: 1 }, { mi: 0, p: 2 }])
     expect(d.segs[1]).toMatchObject({ t: '', fn: '起诉状-P3.pdf', manual: true })
     expect(d.segs[1]!.refs).toEqual([{ mi: 0, p: 3 }])
@@ -57,25 +56,7 @@ describe('splitSegment', () => {
     expect(mergeSegment(renamed, 1).segs[0]!.fn).toBe('客户原件.pdf')
   })
 
-  it('换类型时默认名跟着类型走；用户手改过的名不跟', () => {
-    const d = fixture()
-    // 段 a 是默认名（起诉状.pdf + fnAuto 由首刷写入）→ 改类型名字跟着走
-    const first = setSegmentType(d, 0, '借条')
-    expect(first.segs[0]!.fn).toBe('借条.pdf')
-    expect(first.segs[0]!.fnAuto).toBe('借条.pdf')
 
-    // 手改成别的名字后换类型，名字保留
-    const renamed = renameSegment(first, 0, '客户原件.pdf')
-    expect(setSegmentType(renamed, 0, '银行流水').segs[0]!.fn).toBe('客户原件.pdf')
-  })
-
-  it('改名为类型词自动归类：「借条.pdf」→ t=借条；非类型名不改类型', () => {
-    const d = fixture()
-    const typed = renameSegment(d, 1, '借条.pdf')
-    expect(typed.segs[1]).toMatchObject({ fn: '借条.pdf', t: '借条' })
-    const plain = renameSegment(d, 1, '客户给的.pdf')
-    expect(plain.segs[1]).toMatchObject({ fn: '客户给的.pdf', t: '证据' })
-  })
 
   it('moveSegment 换位：after 移到目标段后、before 移到目标段前；自身为目标原样返回', () => {
     const after = moveSegment(fixture(), 0, 1, 'after')
@@ -161,13 +142,6 @@ describe('段 id 稳定性', () => {
 })
 
 describe('段属性操作', () => {
-  it('setSegmentType 改类型；同值返回原引用', () => {
-    const d0 = fixture()
-    const d = setSegmentType(d0, 0, '答辩状')
-    expect(d.segs[0]!.t).toBe('答辩状')
-    expect(setSegmentType(d, 0, '答辩状')).toBe(d)
-    expect(setSegmentType(d0, 9, 'x')).toBe(d0)
-  })
 
   it('renameSegment 去首尾空白；空名/同名返回原引用', () => {
     const d0 = fixture()
@@ -180,21 +154,20 @@ describe('段属性操作', () => {
 })
 
 describe('manualEdit 人工改动痕迹', () => {
-  it('改类型 / 改段名 / 改正文分别置位并记时间，只置位不取消', () => {
-    let d = setSegmentType(fixture(), 0, '答辩状')
-    expect(d.segs[0]!.manualEdit).toMatchObject({ type: true })
+  it('改段名 / 改正文分别置位并记时间，只置位不取消', () => {
+    // 类型功能已移除，前端不再产生 type 痕迹；字段本身保留只为读老草稿
+    // （auto-split 的冲突识别仍要读懂历史数据里的 type: true）。
+    let d = renameSegment(fixture(), 0, '我的答辩状.pdf')
+    expect(d.segs[0]!.manualEdit).toMatchObject({ name: true })
     expect(d.segs[0]!.manualEdit?.at).toEqual(expect.any(String))
-
-    d = renameSegment(d, 0, '我的答辩状.pdf')
-    expect(d.segs[0]!.manualEdit).toMatchObject({ type: true, name: true })
+    expect(d.segs[0]!.manualEdit?.type).toBeUndefined()
 
     d = setSegmentMarkdown(d, 0, '律师核过的正文')
-    expect(d.segs[0]!.manualEdit).toMatchObject({ type: true, name: true, md: true })
+    expect(d.segs[0]!.manualEdit).toMatchObject({ name: true, md: true })
   })
 
-  it('内容与现值相同 / 同值类型 / 同名：不算修改，返回原引用', () => {
+  it('内容与现值相同 / 同名：不算修改，返回原引用', () => {
     const d0 = fixture()
-    expect(setSegmentType(d0, 0, '起诉状')).toBe(d0)
     expect(renameSegment(d0, 0, '起诉状.pdf')).toBe(d0)
     expect(d0.segs[0]!.manualEdit).toBeUndefined()
   })

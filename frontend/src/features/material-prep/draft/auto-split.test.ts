@@ -7,7 +7,7 @@ import {
   renameMat,
 } from './auto-split'
 import { applyPageSelection } from './selection'
-import { renameSegment, setSegmentMarkdown, setSegmentType } from './segments'
+import { renameSegment, setSegmentMarkdown } from './segments'
 
 /** 两个源文件（mi=0/1），mi=0 有整段与另名段，mi=1 有整段——覆盖跟随名/非跟随名/跨源三种段 */
 function fixture(): DraftState {
@@ -195,9 +195,13 @@ describe('detectAutoSplitConflicts 人工改动冲突识别', () => {
     })
   })
 
-  it('改过段名 / 类型同样计为冲突，多个痕迹按 md/name/type 顺序列出', () => {
+  it('改过段名计为冲突；老草稿里的 type 痕迹照样读出（类型功能已移除，仅兼容历史数据）', () => {
     let d = renameSegment(singleSourceFixture(), 0, '我的起诉状')
-    d = setSegmentType(d, 0, '证据')
+    // 直接构造老草稿：前端已不再写 manualEdit.type，但库里存量数据还有
+    d = {
+      ...d,
+      segs: d.segs.map((sg, i) => (i === 0 ? { ...sg, manualEdit: { ...sg.manualEdit, type: true } } : sg)),
+    }
     expect(detectAutoSplitConflicts(d, 0, [sug(1, 3)])?.edited).toEqual([
       { si: 0, name: '我的起诉状', what: ['name', 'type'] },
     ])

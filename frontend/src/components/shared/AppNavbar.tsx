@@ -172,7 +172,7 @@ export function AppNavbar({
         />
         <NavLink
           to="/projects"
-          label="办案"
+          label="项目"
           active={navPath.startsWith('/projects')}
           onSelect={selectNav}
           onPrefetch={onPrefetch}

@@ -11,7 +11,7 @@ import type { AgentSession, SessionGroup } from '../types'
 export function describeLocation(pathname: string): string {
   if (pathname === '/') return '工作台首页'
   if (pathname.startsWith('/projects/')) return '委托详情页'
-  if (pathname.startsWith('/projects')) return '办案列表页'
+  if (pathname.startsWith('/projects')) return '项目列表页'
   if (pathname.startsWith('/material-prep')) return '材料预处理台'
   return `页面 ${pathname}`
 }

@@ -103,20 +103,105 @@ def test_multiple_char_difference_is_high_line() -> None:
 
 
 def test_markdown_markers_only_produce_nothing() -> None:
-    """只差 Markdown 标记（# / | / * / 表格分隔行）→ 0 条：那是排版，不是认错字。"""
+    """只差 Markdown 标记（# / * / 空白）→ 0 条：那是排版，不是认错字。
+
+    ⚠️ 这里**不放**表格行。表格行（``| a | b |``）不参与逐字比对，会被行切分直接丢掉，
+    表格的用例见 ``test_table_rows_are_not_compared_char_by_char``。
+    """
     mineru = _render(["# 借款合同", "张三丰 李四 王五", "示例机构"])
+    vl = _render(["## 借款合同", "张三丰  李四   王五", "**示例机构**"])
+
+    result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+    assert result == []
+
+
+def test_table_rows_are_not_compared_char_by_char() -> None:
+    """表格内容**不参与**逐字比对：两边表格形态根本不同，逐字比对只会造 high 噪声。
+
+    真实形态（这正是本次要修的问题）：
+
+    · MinerU 的表格块是一整行——HTML 去标签 + 空白折叠，动辄 1000+ 字符；
+    · PaddleOCR-VL 的表格是多行 GFM markdown，每行 ``|`` 分隔单元格。
+
+    同一张表在两边必然整表判成 ``replace``，并且相似度够高 → 报 **high**。修复前
+    表格块 ``text`` 恒为空、两边都被跳过；``parsed.text`` 开始含表格内容后若不同时
+    堵住，每张表一条 high，真错字就淹了。所以这里要求：一张表都不报。
+    """
+    # MinerU：一整行的整表（空白已折叠、无换行、无 | 分隔）
+    mineru_table_row = "客户名称 某某公司 保证人 张三丰 借款金额 1000000 借款期限 12个月 利率 4.35%"
+    mineru = _render([mineru_table_row])
+    # VL：同一张表的多行 markdown
     vl = _render(
         [
-            "| 姓名 | 姓名 | 姓名 |",
-            "| --- | --- | --- |",
-            "| 张三丰 | 李四 | 王五 |",
-            "**示例机构**",
+            "| 客户名称 | 某某公司 |",
+            "| --- | --- |",
+            "| 保证人 | 张三丰 |",
+            "| 借款金额 | 1000000 |",
+            "| 借款期限 | 12个月 |",
+            "| 利率 | 4.35% |",
         ]
     )
 
     result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
 
     assert result == []
+
+
+def test_html_table_block_is_never_reported() -> None:
+    """VL 有时把整表输出成 ``<table>``：这种行同样算表格行，不参与比对。"""
+    mineru = _render(["| 姓名 | 金额 |", "| --- | --- |", "| 张三丰 | 1000 |"])
+    vl = _render(["<table><tr><td>姓名</td><td>金额</td></tr><tr><td>张三丰</td><td>1000</td></tr></table>"])
+
+    assert compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}}) == []
+
+
+def test_pipe_inside_plain_sentence_is_still_compared() -> None:
+    """反例：正文里偶尔出现一个 ``|`` 不能当表格行——那会整片丢正文，才是真漏数据。"""
+    mineru = _render([f"姓名：张三丰 身份证号：{FAKE_ID_CARD}"])
+    vl = _render([f"姓名：张三半 | 身份证号：{FAKE_ID_CARD}"])
+
+    result = compare_pages({ENGINE_MINERU: {1: mineru}, ENGINE_PADDLEOCR_VL: {1: vl}})
+
+    assert len(result) == 1
+    assert result[0].anchor_hit is True
+    assert result[0].severity == SEVERITY_HIGH
+
+
+def test_real_name_typo_still_detected_beside_tables() -> None:
+    """关键回归：表格不参与比对，但真正的**人名错字**必须照旧被检出。
+
+    数据虚构，形态照真实卷宗：MinerU 认成「曾某某」（正确），VL 认成「曾某木」（错字），
+    姓名行就在表格下面。表格不该刷分歧，也不该把邻近的真错字挤掉——否则这次修复
+    就是「把静默漏数据换成静默误判」：每张表一条 high，律师反而看不见人名错。
+    """
+    id_line = f"身份证号：{FAKE_ID_CARD}"
+    body = ["借款人按合同约定用途使用借款资金、按期归还本息", "以上信息经核对无误"]
+    # MinerU：整张表压成**一行**（HTML 去标签 + 空白折叠）；VL：同一张表是**多行** markdown。
+    mineru_page = _render([f"姓名：曾某某 {id_line}", "客户名称 某某银行 借款金额 1000000 借款期限 12个月", *body])
+    vl_page = _render(
+        [
+            "| 客户名称 | 某某银行 |",
+            "| 借款金额 | 1000000 |",
+            "| 借款期限 | 12个月 |",
+            f"姓名：曾某木 {id_line}",
+            *body,
+        ]
+    )
+
+    result = compare_pages({ENGINE_MINERU: {1: mineru_page}, ENGINE_PADDLEOCR_VL: {1: vl_page}})
+
+    # 只有那一条人名分歧：表格一条都不报
+    assert len(result) == 1
+    item = result[0]
+    assert item.kind == KIND_CHAR
+    # 姓名行和身份证号写在同一行，属于「绑定到具体人」的锚点邻域 → high
+    assert item.anchor_hit is True
+    assert item.severity == SEVERITY_HIGH
+    assert {variant.text for variant in item.variants} == {
+        f"姓名：曾某某 {id_line}",
+        f"姓名：曾某木 {id_line}",
+    }
 
 
 def test_fullwidth_and_halfwidth_punctuation_produce_nothing() -> None:
@@ -239,3 +324,18 @@ def test_results_sorted_by_severity_high_first() -> None:
     assert [item.severity for item in result] == [SEVERITY_HIGH, SEVERITY_MEDIUM, SEVERITY_LOW]
     assert [item.page_no for item in result] == [3, 1, 2]
     assert all(isinstance(item, EngineDisagreement) for item in result)
+
+
+def test_truncate_decodes_literal_backslash_n() -> None:
+    """字面量 ``\\n``（反斜杠 + n）必须解码成空格。
+
+    PaddleOCR-VL 会把换行写进字符串时留下转义序列而不是真 0x0A，不转掉的话
+    律师看到的是「逾期本金:\\n654.52元」，会以为那是识别出来的字符。
+    实测 164 页卷宗的 12 条带此噪声的分歧**全部**被判成了 high。
+    """
+    from apps.pdf_splitting.services.split.dual_engine import _truncate
+
+    assert _truncate("逾期本金:\\n654.52元") == "逾期本金: 654.52元"
+    assert _truncate("甲\\t乙") == "甲 乙"
+    # 正常文本不受影响
+    assert _truncate("客户姓名：曾某某") == "客户姓名：曾某某"

@@ -41,11 +41,12 @@ import logging
 import os
 import socket
 import subprocess
-import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from .session_store import agent_home
 
 logger = logging.getLogger(__name__)
 
@@ -142,44 +143,68 @@ def _python_bin() -> str:
     return os.environ.get("PYTHON", "python3")
 
 
+#: 本进程拉起的共享 MCP 子进程句柄。崩溃复活靠下次 spawn 重新拉起，
+#: 已退出的旧句柄在这里 poll 回收（waitpid WNOHANG），不留僵尸。
+_spawned_procs: list[subprocess.Popen[bytes]] = []
+
+
+def _reap_exited_procs() -> None:
+    for proc in list(_spawned_procs):
+        if proc.poll() is not None:
+            _spawned_procs.remove(proc)
+
+
 def spawn_shared_server(endpoint: McpEndpoint) -> subprocess.Popen[bytes] | None:
     """以 streamable-http 方式拉起共享 MCP（独立进程，与 Django 解耦）。
 
     Returns:
         子进程句柄；端口已被占用（已有实例在跑）时返回 ``None``。
     """
+    _reap_exited_procs()
     if port_open(endpoint.host, endpoint.port):
         logger.info("共享 MCP 已在 %s 运行，复用现有实例", endpoint.url)
         return None
 
+    # 与 rpc_client._clean_env 同口径剔除代理：MCP 工具经内网 REST 访问
+    # Django，继承系统代理会把内网地址也代理出去（超时/502，极难定位）。
+    proxy_keys = {"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"}
     env = {
-        **os.environ,
+        **{key: value for key, value in os.environ.items() if key not in proxy_keys},
         "FACHUAN_MCP_TRANSPORT": "streamable-http",
         "FACHUAN_MCP_HTTP_HOST": endpoint.host,
         "FACHUAN_MCP_HTTP_PORT": str(endpoint.port),
     }
     # stderr 落到日志文件：MCP 启动失败（依赖缺失、端口冲突、Django 初始化报错）
-    # 的唯一线索都在这里。之前直接 DEVNULL，表现为「378 个工具全没了」却无从查起。
-    log_path = Path(tempfile.gettempdir()) / f"fachuan-shared-mcp-{endpoint.port}.log"
+    # 的唯一线索都在这里。落在 agent_home()（0700 根目录）下并以 0600 原子创建：
+    # 日志可能含业务数据，/tmp 可预测路径 + 默认 0644 会泄露给本机其他用户。
+    log_dir = agent_home() / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"shared-mcp-{endpoint.port}.log"
     logger.info("拉起共享 MCP: %s（日志: %s）", endpoint.url, log_path)
-    with contextlib.suppress(OSError):
-        log_file = log_path.open("ab")
-        return subprocess.Popen(
+    log_file: Any = None
+    try:
+        fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        # 已存在的旧文件权限可能更宽，显式收紧兜底
+        with contextlib.suppress(OSError):
+            os.fchmod(fd, 0o600)
+        log_file = os.fdopen(fd, "ab")
+    except OSError:
+        logger.warning("共享 MCP 日志文件不可写，stderr 将丢弃: %s", log_path, exc_info=True)
+    try:
+        proc = subprocess.Popen(
             [_python_bin(), "-m", "mcp_server"],
             cwd=str(_backend_dir()),
             env=env,
             stdout=subprocess.DEVNULL,
-            stderr=log_file,
+            stderr=log_file if log_file is not None else subprocess.DEVNULL,
             start_new_session=True,
         )
-    return subprocess.Popen(
-        [_python_bin(), "-m", "mcp_server"],
-        cwd=str(_backend_dir()),
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    finally:
+        # 子进程已继承 fd 副本；父进程句柄必须关，否则每次拉起泄漏一个 fd
+        if log_file is not None:
+            log_file.close()
+    _spawned_procs.append(proc)
+    return proc
 
 
 def ensure_shared_server(endpoint: McpEndpoint | None = None, *, wait_ready: bool = False) -> McpEndpoint:
@@ -231,6 +256,7 @@ def write_pi_config(
     另写一份 ``AGENTS.md``（系统提示词）：pi 无条件读取工作目录的 AGENTS.md
     （与项目信任无关），这是给 agent 注入法穿助手人格的唯一挂载点。
     """
+    from . import model_config
     from .model_config import write_models_json
     from .user_token import USER_TOKEN_ENV
 
@@ -238,8 +264,12 @@ def write_pi_config(
     root = Path(target_dir)
     root.mkdir(parents=True, exist_ok=True)
 
+    # provider 一次查询、多处复用（models.json / settings.json / 思考等级），
+    # 避免同一轮配置渲染重复读库；查不到时各写入方自行降级，行为不变。
+    provider = model_config._load_provider(model_hint)
+
     # 1) 模型配置：优先从数据库生成
-    generated = write_models_json(root, model_hint=model_hint)
+    generated = write_models_json(root, model_hint=model_hint, provider=provider)
     if generated is None:
         logger.info("未能从 LLMProvider 生成 models.json，回退用户级凭证")
 
@@ -252,7 +282,7 @@ def write_pi_config(
     # 必须写进隔离目录（PI_CODING_AGENT_DIR）：否则会沿用用户级
     # ~/.pi/agent/settings.json 里的默认 provider/model，我们生成的 models.json
     # 被静默绕过。
-    _write_settings_json(root, model_hint=model_hint)
+    _write_settings_json(root, model_hint=model_hint, provider=provider)
 
     # 2) MCP 配置
     #
@@ -276,7 +306,7 @@ def write_pi_config(
     return config_path
 
 
-def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Path | None:
+def _write_settings_json(target_dir: str | Path, *, model_hint: str = "", provider: Any = None) -> Path | None:
     """写隔离目录的 ``settings.json``（pin provider/model + 思考等级 + 图像闸门）。
 
     不写这份文件的后果：pi 会读用户级 ``~/.pi/agent/settings.json``，那里的
@@ -292,13 +322,15 @@ def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Pat
     Args:
         target_dir: 会话临时目录（同时充当 PI_CODING_AGENT_DIR）。
         model_hint: 本会话使用的模型名。
+        provider: 已查询的 LLMProvider；缺省 None 时自行查询（避免重复读库）。
 
     Returns:
         写出的路径；无法确定模型时返回 ``None``（不写，交给 pi 自己决定）。
     """
     from . import model_config
 
-    provider = model_config._load_provider(model_hint)
+    if provider is None:
+        provider = model_config._load_provider(model_hint)
     if provider is None:
         return None
     models = model_config._provider_models(provider)
@@ -324,7 +356,7 @@ def _write_settings_json(target_dir: str | Path, *, model_hint: str = "") -> Pat
             "keepRecentTokens": 32768,
         },
     }
-    level = model_config.resolve_thinking_level(model_id)
+    level = model_config.resolve_thinking_level(model_id, provider=provider)
     if level:
         settings["modelThinkingLevels"] = {f"{provider_name}/{model_id}": level}
 

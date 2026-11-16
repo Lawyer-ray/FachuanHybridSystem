@@ -142,9 +142,13 @@ export function Flow({
     if (blocks.length === 0) return m
 
     segs.forEach((seg) => {
-      // 与 hitsByPage 一样：block.page 是文档内绝对页号，要按段起始页偏移回 refs 下标
-      const firstPage = seg.refs[0]?.p ?? 1
-      const ref = seg.refs[engineFocus.page_no - firstPage]
+      // 按**页号匹配**回 refs，不能用 `page_no - firstPage` 当下标。
+      //
+      // refs 不一定是连续页：「切出几页」（splitOutPages）与「删页」之后，
+      // seg.refs 可以是 [1, 3, 7] 这种跳号序列。减法算出的下标会错位，
+      // 框就画到了错误的页上——而双框对照的全部意义就是「让我看到原件上
+      // 到底是哪个位置不一样」，画错页比不画更坑。
+      const ref = seg.refs.find((r) => r.p === engineFocus.page_no)
       if (!ref) return
       const groups: EngineBoxGroup[] = []
       for (const variant of engineFocus.variants) {
@@ -227,7 +231,7 @@ export function Flow({
               seg={seg}
               si={si}
               color={color}
-              classified={!!seg.t || !isAutoSegName(draft, seg)}
+              classified={!isAutoSegName(draft, seg)}
               onRename={(name) => onOp.renameSeg(si, name)}
               onMerge={() => onOp.mergeSeg(si)}
             />

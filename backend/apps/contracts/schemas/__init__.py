@@ -4,6 +4,23 @@ from __future__ import annotations
 
 from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 
+# Archive Schemas
+from .archive_schemas import (
+    ChecklistItemOut,
+    ChecklistOut,
+    ClearAllOut,
+    ConfirmArchiveOut,
+    GenerateArchiveFolderOut,
+    LearnRulesOut,
+    MoveIn,
+    ReorderIn,
+    ScaleToA4Out,
+    SuccessOut,
+    SyncCaseMaterialsOut,
+    ToggleCompactOut,
+    UploadArchiveItemOut,
+)
+
 # Client Schemas
 from .client_schemas import ClientIdentityDocOut, ClientOut
 

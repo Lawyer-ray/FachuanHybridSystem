@@ -144,7 +144,7 @@ def render_attachment_pages(
         )
         render.log_render(who=user_id, result=result, elapsed_ms=_elapsed_ms(started))
         return result
-    return _render_bytes_pages(
+    return render_bytes_pages(
         ref_id=str(attachment.attachment_id),
         filename=attachment.filename,
         mime=mime,
@@ -157,7 +157,7 @@ def render_attachment_pages(
     )
 
 
-def _render_bytes_pages(
+def render_bytes_pages(
     *,
     ref_id: str,
     filename: str,

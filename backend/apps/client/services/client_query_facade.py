@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractBaseUser as User
 
     from apps.client.models import Client
+    from apps.client.ports import RelatedItemsPort
 
 
 class ClientQueryFacade:
@@ -20,9 +21,11 @@ class ClientQueryFacade:
         self,
         query_service: ClientQueryService | None = None,
         access_policy: ClientAccessPolicy | None = None,
+        related_items_port: RelatedItemsPort | None = None,
     ) -> None:
         self._query_service = query_service
         self._access_policy = access_policy
+        self._related_items_port = related_items_port
 
     @property
     def query_service(self) -> ClientQueryService:
@@ -35,6 +38,14 @@ class ClientQueryFacade:
         if self._access_policy is None:
             self._access_policy = ClientAccessPolicy()
         return self._access_policy
+
+    @property
+    def related_items_port(self) -> RelatedItemsPort:
+        if self._related_items_port is None:
+            from .wiring import get_related_items_port
+
+            self._related_items_port = get_related_items_port()
+        return self._related_items_port
 
     def list_clients(
         self,
@@ -64,54 +75,11 @@ class ClientQueryFacade:
         return self.query_service.get_clients_by_ids(client_ids=client_ids)
 
     def get_related_items(self, *, client_id: int, user: User | None = None) -> dict[str, list[dict[str, Any]]]:
-        """获取客户关联的案件和合同（安全审计：按查询用户过滤越权条目）。"""
-        from apps.cases.models import Case, CaseParty
-        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-        from apps.contracts.models import Contract, ContractParty
-        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+        """获取客户关联的案件和合同（安全审计：按查询用户过滤越权条目）。
 
+        跨模块（cases/contracts）查询经 RelatedItemsPort 委托适配器，
+        本门面只负责客户查看权限校验。
+        """
         if user is not None:
             self.access_policy.ensure_has_perm(user, "client.view_client", "无权限查看客户")
-
-        case_parties = (
-            CaseParty.objects.filter(client_id=client_id).select_related("case").order_by("-case__start_date")
-        )
-        contract_parties = (
-            ContractParty.objects.filter(client_id=client_id)
-            .select_related("contract")
-            .order_by("-contract__specified_date")
-        )
-
-        # 只回查询用户有权访问的案件/合同（与 cases/contracts 列表口径一致）。
-        # 用 values("id") 子查询而非物化 Python set：后者会把该用户全部可见 ID
-        # 拉进内存再生成大 IN 列表，千级案件时每详情请求多拉千级 int；
-        # 子查询交给 PG 一次执行（同款写法见 search_service 的 court_sms 路径）。
-        if user is not None:
-            visible_cases = CaseAccessPolicy().filter_queryset(Case.objects.all(), user, None).values("id")
-            visible_contracts = ContractAccessPolicy().filter_queryset(Contract.objects.all(), user, None).values("id")
-            case_parties = case_parties.filter(case_id__in=visible_cases)
-            contract_parties = contract_parties.filter(contract_id__in=visible_contracts)
-
-        cases = [
-            {
-                "id": cp.case.id,
-                "name": cp.case.name,
-                "case_type": cp.case.case_type,
-                "status": cp.case.get_status_display() if cp.case.status else None,
-                "current_stage": cp.case.get_current_stage_display() if cp.case.current_stage else None,
-                "legal_status": cp.legal_status,
-            }
-            for cp in case_parties
-        ]
-        contracts = [
-            {
-                "id": cp.contract.id,
-                "name": cp.contract.name,
-                "case_type": cp.contract.case_type,
-                "status": cp.contract.get_status_display() if cp.contract.status else None,
-                "role": cp.role,
-            }
-            for cp in contract_parties
-        ]
-
-        return {"cases": cases, "contracts": contracts}
+        return self.related_items_port.get_related_items(client_id=client_id, user=user)

@@ -45,15 +45,17 @@ def _no_shared_mcp(monkeypatch: pytest.MonkeyPatch) -> Any:
     300 秒超时（has_remote 恒真），单测被拖成 5 分钟一个。
     """
     monkeypatch.setenv("FACHUAN_MCP_SHARED", "0")
-    monkeypatch.setattr("apps.agent.services.approval.redis_cache_enabled", lambda: False)
+    # approval 拆包后 redis_cache_enabled 在 flow/waiter 各自具名导入，须分别打桩
+    monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+    monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
     monkeypatch.setattr("apps.agent.services.event_bus.redis_cache_enabled", lambda: False)
 
-    import apps.agent.services.chat_service as chat_service
+    from apps.agent.services.chat import pool as chat_pool
 
-    original = chat_service._pool
-    chat_service._pool = None
+    original = chat_pool._pool
+    chat_pool._pool = None
     yield
-    chat_service._pool = original
+    chat_pool._pool = original
 
 
 # ===================================================================

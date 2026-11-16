@@ -236,7 +236,7 @@ class TestResolveDocType:
     """_resolve_doc_type auto-detection logic."""
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -252,7 +252,7 @@ class TestResolveDocType:
         assert svc._resolve_doc_type("id_card", "random") == "id_card"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -271,7 +271,7 @@ class TestResolveDocType:
         assert result is not None
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {"id_card": "...", "business_license": "..."},
     )
     def test_auto_detect_business_by_credit_code(self):
@@ -280,7 +280,7 @@ class TestResolveDocType:
         assert svc._resolve_doc_type("auto", text) == "business_license"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -297,7 +297,7 @@ class TestResolveDocType:
         assert svc._resolve_doc_type("auto", text) == "business_license"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -315,7 +315,7 @@ class TestResolveDocType:
         assert result == "passport"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -333,7 +333,7 @@ class TestResolveDocType:
         assert result == "hk_macao_permit"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -351,7 +351,7 @@ class TestResolveDocType:
         assert result == "household_register"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -369,7 +369,7 @@ class TestResolveDocType:
         assert result == "residence_permit"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {
             "id_card": "...",
             "business_license": "...",
@@ -397,7 +397,7 @@ class TestResolveDocType:
         assert result in ("legal_rep_id_card", "business_license")
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {"id_card": "...", "business_license": "..."},
     )
     def test_auto_detect_fallback_to_id_card(self):
@@ -407,7 +407,7 @@ class TestResolveDocType:
         assert result == "id_card"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {"id_card": "...", "business_license": "..."},
     )
     def test_source_name_used_for_detection(self):

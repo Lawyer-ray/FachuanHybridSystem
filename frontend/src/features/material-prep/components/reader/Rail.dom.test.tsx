@@ -54,7 +54,6 @@ function renderRail(props: Partial<Parameters<typeof Rail>[0]> = {}) {
   const onFocusSeg = vi.fn()
   const onRenameMat = vi.fn()
   const onRenameSeg = vi.fn()
-  const onSetSegType = vi.fn()
   const onMergeSeg = vi.fn()
   const onMergeSegs = vi.fn()
   const onMoveSeg = vi.fn()
@@ -64,7 +63,6 @@ function renderRail(props: Partial<Parameters<typeof Rail>[0]> = {}) {
       onFocusSeg={onFocusSeg}
       onRenameMat={onRenameMat}
       onRenameSeg={onRenameSeg}
-      onSetSegType={onSetSegType}
       onMergeSeg={onMergeSeg}
       onMergeSegs={onMergeSegs}
       onMoveSeg={onMoveSeg}
@@ -225,7 +223,6 @@ describe('Rail：多选与合并', () => {
         onFocusSeg={vi.fn()}
         onRenameMat={vi.fn()}
         onRenameSeg={vi.fn()}
-        onSetSegType={vi.fn()}
         onMergeSeg={vi.fn()}
         onMergeSegs={vi.fn()}
         onMoveSeg={vi.fn()}
@@ -256,14 +253,6 @@ describe('Rail：行回调', () => {
     container.remove()
   })
 
-  it('onSetType 透传 onSetSegType(si, type)', () => {
-    const onSetSegType = vi.fn()
-    const { container } = renderRail({ onSetSegType })
-    ;(rowProps[0]!.onSetType as (t: string) => void)('起诉状')
-
-    expect(onSetSegType).toHaveBeenCalledWith(0, '起诉状')
-    container.remove()
-  })
 
   it('非首份点 onMerge 透传 onMergeSeg(si)', () => {
     const onMergeSeg = vi.fn()

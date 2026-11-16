@@ -1,0 +1,211 @@
+"""Agent 对话 API —— SSE 流式发消息、断线回放、运行中插话/追加/撤回。
+
+端点前缀：``/api/v1/agent``（对话子域）。事件契约见 ``apps.agent.sse_types``。
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from collections.abc import AsyncIterator
+from typing import Any
+
+from django.http import StreamingHttpResponse
+from ninja import Router
+from ninja.errors import HttpError
+
+from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limit
+from apps.core.security.auth import JWTOrSessionAuth
+
+from ..models import AgentMessage
+from ..pi.rpc_client import PiError
+from ..schemas import ClearQueueOut, MessageIn, MessageOut, SteerIn, SteerOut
+from ..services.chat_service import (
+    SessionNotLiveError,
+    clear_queue_session,
+    follow_up_session,
+    steer_session,
+    stream_chat,
+)
+from ..services.event_bus import replay_events
+from ..services.live_sessions import forward_steer_to_worker, get_live_worker
+from ..services.session_service import get_session as get_session_record
+from ..services.session_service import list_messages as list_message_records
+from ._helpers import _user_id
+
+logger = logging.getLogger(__name__)
+
+router = Router(tags=["Agent 对话"], auth=JWTOrSessionAuth())
+
+#: 发消息限流（P1-8a）：每用户 20 次/分钟；RATE_LIMIT['AGENT_SEND_*'] 可覆盖
+_AGENT_SEND_RATE_LIMIT = get_rate_limit_config("AGENT_SEND", fallback_requests=20, fallback_window=60)
+
+
+def _send_rate_key(request: Any) -> str:
+    """限流键按用户（JWT 的 auth 或 session 的 user），匿名回退 IP 由基类兜底。"""
+    user = getattr(request, "auth", None) or getattr(request, "user", None)
+    pk = getattr(user, "pk", None)
+    return f"agent_send:user:{pk if pk is not None else 'anon'}"
+
+
+def _sse(payload: dict[str, Any]) -> bytes:
+    seq = payload.pop("_seq", None)
+    id_line = f"id: {seq}\n" if seq else ""
+    return f"{id_line}data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+
+
+def _live_session_error(exc: Exception) -> HttpError:
+    """把 service 层异常转成前端能理解的 HTTP 错误。"""
+    if isinstance(exc, PiError):
+        # pi 拒绝：通常是本轮已 settle（ran 完），插话无对象
+        return HttpError(409, "对话已结束，无法插话")
+    return HttpError(409, "会话当前没有运行中的对话")
+
+
+def _message_out(message: AgentMessage) -> MessageOut:
+    return MessageOut(
+        message_id=message.pk,
+        role=message.role,
+        content=message.content,
+        tool_name=message.tool_name,
+        created_at=message.created_at.isoformat(),
+        metadata=message.metadata or {},
+    )
+
+
+@router.get("/sessions/{session_id}/messages", response=list[MessageOut])
+async def list_messages(
+    request: Any, session_id: str, limit: int = 200, before_id: int | None = None
+) -> list[MessageOut]:  # pragma: no cover
+    """会话消息历史（旧→新），前端重开会话时据此回放转录。
+
+    ``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），
+    不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端
+    用最后一条的 message_id 作为下一页游标。
+
+    与 POST /messages（send_message）同路径，必须登记在同一路由器，
+    否则 Ninja 会按子路由各自建 URL pattern，GET 先匹配导致 POST 405。
+    """
+    messages = await list_message_records(
+        session_id=session_id, user_id=_user_id(request), limit=limit, before_id=before_id
+    )
+    if messages is None:
+        raise HttpError(404, "会话不存在")
+    return [_message_out(m) for m in messages]
+
+
+@router.get("/sessions/{session_id}/events/replay")
+async def replay_sse_events(
+    request: Any, session_id: str, last_event_id: int = 0
+) -> list[dict[str, Any]]:  # pragma: no cover
+    """P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
+
+    前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
+    """
+    return replay_events(session_id, last_event_id)
+
+
+@router.post("/sessions/{session_id}/messages")
+@rate_limit(
+    requests=_AGENT_SEND_RATE_LIMIT[0],
+    window=_AGENT_SEND_RATE_LIMIT[1],
+    key_func=_send_rate_key,
+)
+async def send_message(  # pragma: no cover
+    request: Any,
+    session_id: str,
+    payload: MessageIn,
+) -> Any:
+    """发消息并流式返回（SSE）。限流：每用户 20 次/分钟（RATE_LIMIT['AGENT_SEND_*'] 可覆盖）。"""
+    user_id = _user_id(request)
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        return StreamingHttpResponse(
+            # 必须传可迭代对象：直接传 bytes 会被逐字节迭代成 int，
+            # 前端收到的是一串十进制数字
+            iter([_sse({"type": "error", "message": "会话不存在"})]),
+            content_type="text/event-stream",
+        )
+
+    async def generator() -> AsyncIterator[bytes]:
+        # 会话对象在流式阶段重新取：ORM 实例带着数据库连接状态，
+        # 跨到 StreamingHttpResponse 的异步迭代阶段可能已失效。
+        current = await get_session_record(session_id=session_id, user_id=user_id)
+        if current is None:
+            yield _sse({"type": "error", "message": "会话不存在"})
+            return
+        try:
+            async for event in stream_chat(
+                session=current,
+                user_message=payload.message,
+                user_id=user_id,
+            ):
+                yield _sse(event)
+        except Exception:
+            logger.exception("SSE 生成器异常")
+            yield _sse({"type": "error", "message": "流处理异常，请稍后重试"})
+
+    response = StreamingHttpResponse(generator(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
+
+
+@router.post("/sessions/{session_id}/steer", response=SteerOut)
+async def steer_running_session(  # pragma: no cover
+    request: Any,
+    session_id: str,
+    payload: SteerIn,
+) -> Any:
+    """运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。
+
+    P2-3 跨 Worker：Redis 路由表发现会话在其他 worker → HTTP 转发。
+    用于「agent 写到一半发现要改方向」，不必停止重发。
+    """
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    if not payload.message.strip():
+        raise HttpError(400, "插话内容不能为空")
+
+    # P2-3：跨 worker 转发（路由表发现目标 worker，转发逻辑在 live_sessions）
+    target = get_live_worker(session_id)
+    if target:
+        forwarded = await forward_steer_to_worker(session_id, payload.message, target)
+        if forwarded is not None:
+            return SteerOut(**forwarded)
+
+    try:
+        disposition = await steer_session(session_id=session_id, message=payload.message)
+    except (SessionNotLiveError, PiError) as exc:
+        raise _live_session_error(exc) from exc
+    return SteerOut(success=True, disposition=disposition)
+
+
+@router.post("/sessions/{session_id}/follow-up", response=SteerOut)
+async def follow_up_running_session(  # pragma: no cover
+    request: Any,
+    session_id: str,
+    payload: SteerIn,
+) -> Any:
+    """追加一轮：agent 干完当前所有活后再跑这条。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    if not payload.message.strip():
+        raise HttpError(400, "追加内容不能为空")
+    try:
+        disposition = await follow_up_session(session_id=session_id, message=payload.message)
+    except (SessionNotLiveError, PiError) as exc:
+        raise _live_session_error(exc) from exc
+    return SteerOut(success=True, disposition=disposition)
+
+
+@router.delete("/sessions/{session_id}/queue", response=ClearQueueOut)
+async def clear_session_queue(request: Any, session_id: str) -> Any:  # pragma: no cover
+    """撤回已排队但尚未生效的插话 / 追加消息（「撤销」按钮）。"""
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
+    if session is None:
+        raise HttpError(404, "会话不存在")
+    messages = await clear_queue_session(session_id=session_id)
+    return ClearQueueOut(success=True, messages=messages)

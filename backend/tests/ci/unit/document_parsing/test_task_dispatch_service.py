@@ -62,6 +62,10 @@ class TestSubmitParseTask:
         assert submit_kwargs["timeout"] == 600
         assert mock_submit.call_args.args[0] == "apps.document_parsing.tasks.execute_parse_document"
         assert mock_submit.call_args.args[2] == "pdf"  # 扩展名去点
+        # 回调参数必须经 kwargs 字典传到任务函数：submit_task 无 **kwargs，
+        # 顶层传 callback_* 运行时会 TypeError（mock 会掩盖这点）。未配置回调时 seed 为空串。
+        assert submit_kwargs["kwargs"]["callback_record_id"] == 42
+        assert submit_kwargs["kwargs"]["callback_seed"] == ""
         # 3) Q id 回写记录 q_task_id（供轮询端点内部反查）
         mock_model.objects.filter.assert_called_once_with(pk=42)
         mock_model.objects.filter.return_value.update.assert_called_once_with(q_task_id="q-uuid-abc")

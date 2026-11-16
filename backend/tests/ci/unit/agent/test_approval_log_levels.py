@@ -16,29 +16,28 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-_APPROVAL_PY = Path(__file__).resolve().parents[4] / "apps" / "agent" / "services" / "approval.py"
+_APPROVAL_DIR = Path(__file__).resolve().parents[4] / "apps" / "agent" / "services" / "approval"
 
 
 def test_approval_has_no_debug_swallowed_exceptions() -> None:
-    source = _APPROVAL_PY.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    offenders: list[int] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ExceptHandler):
-            continue
-        for sub in ast.walk(node):
-            if (
-                isinstance(sub, ast.Call)
-                and isinstance(sub.func, ast.Attribute)
-                and sub.func.attr == "debug"
-                and isinstance(sub.func.value, ast.Name)
-                and sub.func.value.id == "logger"
-            ):
-                offenders.append(sub.lineno)
+    offenders: list[str] = []
+    for py in sorted(_APPROVAL_DIR.glob("*.py")):
+        tree = ast.parse(py.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            for sub in ast.walk(node):
+                if (
+                    isinstance(sub, ast.Call)
+                    and isinstance(sub.func, ast.Attribute)
+                    and sub.func.attr == "debug"
+                    and isinstance(sub.func.value, ast.Name)
+                    and sub.func.value.id == "logger"
+                ):
+                    offenders.append(f"{py.name}:{sub.lineno}")
     assert not offenders, (
-        "approval.py 审批链路在 except 内用 logger.debug 吞错(根 CLAUDE.md 标准:"
-        "失败若让用户看到无法解释结果必须 ≥ warning)——行号: "
-        + str(offenders)
+        "approval 包审批链路在 except 内用 logger.debug 吞错(根 CLAUDE.md 标准:"
+        "失败若让用户看到无法解释结果必须 ≥ warning)——位置: " + str(offenders)
     )
 
 

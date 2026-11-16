@@ -58,7 +58,10 @@ export const PackCard = memo(function PackCard({
 }) {
   const pct = pack.segs ? Math.round((pack.named / pack.segs) * 100) : 0
   const kinds = pack.types ?? []
-  const restUnclassified = pack.segs - kinds.length
+  // 未归类份数以**后端 named** 为准（改名或选了类型都算命名过），
+  // 而不是 `segs - kinds.length`：类型功能已移除，types 对新数据恒为空，
+  // 那个减法会把所有已改名的段都算成「未归类」。
+  const restUnclassified = Math.max(0, pack.segs - pack.named)
   const shown = useMemo(() => Math.max(1, Math.min(pack.mats || 1, 3)), [pack.mats])
 
   return (

@@ -6,7 +6,7 @@ import { describeLocation, groupSessions } from './location'
 describe('describeLocation（路由 → 页面描述）', () => {
   it('详情页由页面自己覆盖精确值，其余按前缀兜底', () => {
     expect(describeLocation('/')).toBe('工作台首页')
-    expect(describeLocation('/projects')).toBe('办案列表页')
+    expect(describeLocation('/projects')).toBe('项目列表页')
     expect(describeLocation('/projects/386')).toBe('委托详情页')
     expect(describeLocation('/material-prep')).toBe('材料预处理台')
     // 未收录的路由原样带出，模型至少知道自己在哪个页面

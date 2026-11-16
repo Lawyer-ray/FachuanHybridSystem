@@ -24,7 +24,7 @@ import os
 import re
 from pathlib import Path
 
-from apps.agent.models.agent import AgentSkillPreference
+from apps.agent.models import AgentSkillPreference
 
 logger = logging.getLogger(__name__)
 

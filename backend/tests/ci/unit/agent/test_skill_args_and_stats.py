@@ -41,9 +41,7 @@ class TestSkillArgs:
 
 class TestParseContextUsage:
     def test_happy_path(self) -> None:
-        stats: dict[str, Any] = {
-            "contextUsage": {"tokens": 12345, "contextWindow": 131072, "percent": 9.4}
-        }
+        stats: dict[str, Any] = {"contextUsage": {"tokens": 12345, "contextWindow": 131072, "percent": 9.4}}
         assert parse_context_usage(stats) == (12345, 131072)
 
     def test_unknown_tokens_is_none_not_zero(self) -> None:

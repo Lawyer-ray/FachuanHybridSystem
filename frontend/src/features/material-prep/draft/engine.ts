@@ -72,7 +72,7 @@ function readVariants(raw: unknown): EngineVariant[] {
     if (!item || typeof item !== 'object') continue
     const r = item as Record<string, unknown>
     if (!isEngine(r.engine)) continue
-    out.push({ engine: r.engine, text: str(r.text) })
+    out.push({ engine: r.engine, text: str(r.text), full_text: str(r.full_text) || undefined })
   }
   return out
 }
@@ -170,6 +170,42 @@ export function disagreementKey(d: EngineDisagreement): string {
 }
 
 /**
+ * 全卷唯一的键：在 `disagreementKey` 基础上给撞车的那几条加序号。
+ *
+ * ## 为什么必须加
+ *
+ * `disagreementKey` 只用页号 + kind + 两引擎文本。文本被 `_truncate` 截到 120 字后，
+ * 同一页上内容相近的几条会算出**同一个键**。实测 164 页卷宗的 332 条分歧里，
+ * 有 9 组共 27 条撞车（第 56 页一组就 6 条）。浅车有两个实际后果：
+ *
+ * 1. 「已核对」勾选按 key 存，勾一条会把同键的其他几条一起置灰；
+ * 2. 高亮按 key 定位，点第 3 条却高亮到第 1 条（`find` 拿到第一个匹配）。
+ *
+ * 序号用**同键内的出现次序**而不是全量下标：重跑后同一条分歧若仍在同键组里，
+ * 它的相对次序通常稳定，勾选不会跳；真的变了就该重新看。
+ */
+export function uniqueDisagreementKey(d: EngineDisagreement, occurrence: number): string {
+  const base = disagreementKey(d)
+  return occurrence > 0 ? `${base}#${occurrence}` : base
+}
+
+/**
+ * 给一整份分歧清单算出「一条一份」的唯一键，与它一一对应。
+ *
+ * 用 Map 计数而不是 O(n²) 双循环：332 条时两者差不多，但清单是律师随手
+ * 重复打开的，没必要在每次渲染里做平方级比较。
+ */
+export function uniqueDisagreementKeys(list: EngineDisagreement[]): string[] {
+  const seen = new Map<string, number>()
+  return list.map((d) => {
+    const base = disagreementKey(d)
+    const n = seen.get(base) ?? 0
+    seen.set(base, n + 1)
+    return n > 0 ? `${base}#${n}` : base
+  })
+}
+
+/**
  * 清单排序：严重度 → 锚点命中 → 相似度低 → 页号。
  *
  * 锚点（身份证号/账号邻域）排在相似度之前：绑定到具体人的错字比一行普通正文的
@@ -254,4 +290,15 @@ export function engineBlocksOfPage(
  */
 export function variantTextOf(d: EngineDisagreement, engine: EngineName): string {
   return d.variants.find((v) => v.engine === engine)?.text ?? ''
+}
+
+/**
+ * 该变体的**完整原文**（旧产物没有 `full_text` 时退回摘要）。
+ *
+ * 凡是「要拿去和正文块比对/写入」的地方都必须用这个，不能用 `variantTextOf`：
+ * 摘要是截断的（带 `…`），拿它去 `includes` 匹配完整正文必然失败。
+ */
+export function variantFullTextOf(d: EngineDisagreement, engine: EngineName): string {
+  const v = d.variants.find((x) => x.engine === engine)
+  return v?.full_text || v?.text || ''
 }

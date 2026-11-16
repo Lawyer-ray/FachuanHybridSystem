@@ -8,6 +8,10 @@ SDK 内部使用 httpx，与仓库风格一致。
     → 轮询 get_job(job_id) 直到终态
     → 下载 result_url 的 JSON（ParseResponse 结构）
     → 转换为 ParsedDocument
+
+配置了回调（见 ``services/callback_config.py``）时，上面第 2 步起的轮询/下载
+改由 `/api/v1/document-parsing/webhook/textin` 在云端完成后触发；本后端只负责
+create_job 并随即返回，worker 不再占着队列槽位空转。
 """
 
 import json
@@ -29,7 +33,11 @@ from apps.document_parsing.exceptions import (
     ParsingTimeoutError,
     TextinAPIError,
 )
-from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
+from apps.document_parsing.protocols.document_parser_protocol import (
+    ParsedDocument,
+    PendingCallback,
+    TextExtractionResult,
+)
 from apps.document_parsing.services.backends._page_artifacts import (
     clean_page_artifacts,
     collect_header_texts,
@@ -59,6 +67,12 @@ class TextinBackend:
     HTTP_TIMEOUT = 30  # 单次 HTTP 请求超时（秒）
     RESULT_DOWNLOAD_TIMEOUT = 60  # 结果文件下载超时（秒）
     RESULT_DOWNLOAD_ATTEMPTS = 3
+
+    # PDF 解析模式（Textin 引擎参数，透传为 config.config.engine_params.parse_mode）
+    # 'scan' = 把 PDF 当图片做整页 OCR；'auto' = 电子档直接抽取文字层。
+    # 业务口径是质量优先（用户明确要求「所有 PDF 都 OCR」），所以显式传 scan：
+    # 服务端默认值恰好也是 scan，但显式声明才不怕默认值变更，也不会被误改成 auto。
+    PDF_PARSE_MODE = "scan"
 
     # 后端能力声明：云端后端含 HTTP 上传 + 轮询，阻塞时间长，需异步执行
     requires_async_execution: bool = True
@@ -171,11 +185,31 @@ class TextinBackend:
             raise TextinAPIError(f"TextinParse 凭证格式不合法（应为 app_id|secret_code）: {credential!r}")
         app_id, secret_code = pair
 
+        callback_url = str(kwargs.get("callback_url") or "").strip()
+        if callback_url and not kwargs.get("callback_seed"):
+            # seed 是回调验签的一半材料（另一半是我们的私钥），缺了就无法校验来源；
+            # 静默退回轮询比「回调建了但收不到校验不了」更安全
+            logger.warning("TextinParse 收到 callback_url 但缺少 callback_seed，本次回退轮询: %s", file_path)
+            callback_url = ""
+
         success = False
         self._client = self._build_client(app_id, secret_code)
         try:
-            # 1. 创建异步解析任务
-            job_id = self._create_job(file_path_obj, extract_tables=extract_tables)
+            # 1. 创建异步解析任务（带回调时由云端完成后推送结果）
+            job_id = self._create_job(file_path_obj, extract_tables=extract_tables, webhook=callback_url or None)
+
+            if callback_url:
+                # 回调路径：任务已提交，立即返回。凭证视为占用成功（提交本身成功了），
+                # 后续的云端失败由回调侧记到任务记录上。
+                logger.info("TextinParse 任务已提交，等待回调: %s (job_id=%s)", file_path, job_id)
+                success = True
+                return ParsedDocument(
+                    text="",
+                    markdown=None,
+                    metadata={"job_id": job_id},
+                    parse_method="textin",
+                    pending_callback=PendingCallback(provider=self.provider_type, job_id=job_id),
+                )
 
             # 2. 轮询任务直到终态
             job_result = self._poll_job(job_id)
@@ -281,14 +315,63 @@ class TextinBackend:
             "txt",
         ]
 
+    # ── 回调路径的公开入口 ────────────────────────────────────
+
+    def parse_result_from_url(
+        self,
+        result_url: str,
+        *,
+        return_markdown: bool = True,
+        extract_images: bool = False,
+        job_id: str = "",
+    ) -> ParsedDocument:
+        """从结果 JSON 地址构建 ParsedDocument（回调路径用，不需要占凭证建 job）。
+
+        ``_parse_result`` 只用到 ``JobStatusResponse`` 的 ``result_url`` / ``job_id``
+        / ``file_id`` 三个字段，所以这里构造一个仅含前两者的终态响应，
+        解析逻辑（元素抽取、页眉清理、块构建）完全复用。
+        """
+
+        job_result = xc.JobStatusResponse(job_id=job_id or "", status="completed", result_url=result_url)
+        return self._parse_result(
+            job_result,
+            return_markdown=return_markdown,
+            extract_images=extract_images,
+        )
+
+    def fetch_job(self, job_id: str) -> xc.JobStatusResponse:
+        """查询任务终态（回调没带 result_url 时回查用）。
+
+        凭证处理与 ``parse_document`` 一致：从池里占一个，用完释放，失败计入冷却。
+        """
+
+        idx = self._pool.acquire()
+        if idx is None:
+            raise TextinAPIError("TextinParse 所有凭证仍在失败冷却中，请稍后重试")
+        pair = DocumentParseProvider.split_textin_credential(self._pool.credentials[idx])
+        if pair is None:
+            self._pool.release(idx, success=False)
+            raise TextinAPIError("TextinParse 凭证格式不合法（应为 app_id|secret_code）")
+
+        success = False
+        self._client = self._build_client(*pair)
+        try:
+            result = self._poll_job(job_id)
+            success = True
+            return result
+        finally:
+            self._client = None
+            self._pool.release(idx, success=success)
+
     # ── 内部方法 ──────────────────────────────────────────────
 
-    def _create_job(self, file_path: Path, *, extract_tables: bool = True) -> str:
+    def _create_job(self, file_path: Path, *, extract_tables: bool = True, webhook: str | None = None) -> str:
         """创建异步解析任务
 
         Args:
             file_path: 文件路径
             extract_tables: 是否提取表格结构
+            webhook: 完成回调 URL；None 表示由调用方轮询（原路径）
 
         Returns:
             job_id 任务 ID
@@ -308,13 +391,25 @@ class TextinBackend:
                 title_tree=True,
                 table_view="markdown",
             )
-            config = xc.ParseConfig(capabilities=capabilities)
+            config = xc.ParseConfig(
+                capabilities=capabilities,
+                # parse_mode 属于 "provider=textin" 的引擎级参数：REST 文档和
+                # parse-async OpenAPI 都把它放在 config.config.engine_params 下
+                # （SDK 的 EngineConfig 顶层没有 parse_mode 字段，直接写会被
+                # pydantic 静默丢弃）。只对 PDF 有意义，图片本身就是 scan。
+                config=(
+                    xc.EngineConfig(force_engine="textin", engine_params={"parse_mode": self.PDF_PARSE_MODE})
+                    if file_path.suffix.lower() == ".pdf"
+                    else None
+                ),
+            )
 
             with open(file_path, "rb") as f:
                 job_response = client.parse.create_job(
                     file=f,
                     filename=file_path.name,
                     config=config,
+                    webhook=webhook,
                 )
 
             job_id: str = str(job_response.job_id)
@@ -574,39 +669,54 @@ class TextinBackend:
 
     # 正文类型：NarrativeText（正文段落）、Title（标题）
     # 明确排除：Footer（页脚/页码）、Header（页眉）等非正文类型
-    _TEXT_ELEMENT_TYPES = frozenset({"NarrativeText", "Title"})
+    #: 计入纯文本的元素类型。
+    #:
+    #: ⚠️ Table 必须在里面。此前只有 NarrativeText / Title，表格整类被排除，
+    #: 导致 ``parsed.text`` 不含任何表格内容——与 MinerU 侧同构的静默丢数据
+    #: 缺陷（MinerU 那边是表格块 ``text`` 恒为空、内容在 ``table_body``）。
+    #: 法律卷宗的金额、账号、当事人清单大量在表格里，``auto`` 回落 Textin 时
+    #: 这个 bug 会原样复现，两边的修复必须同时成立才有意义。
+    #:
+    #: 表格的文字由 ``_get_element_text`` 展开 ``table_structure`` 取出（该能力
+    #: 早就写好，只是没被主路径调用）。Image / Figure 不计入：图片无文字，
+    #: 其说明文字在单独的 caption 元素里（若引擎给出）。
+    _TEXT_ELEMENT_TYPES = frozenset({"NarrativeText", "Title", "Table", "ListItem"})
     # 非正文元素类型（页眉页脚，fallback 路径排除）
     _EXCLUDED_ELEMENT_TYPES = frozenset({"Footer", "Header"})
 
     def _extract_text_from_elements(self, elements: list[Any]) -> str:
-        """从 elements 列表提取纯文本（排除页眉页脚）
+        """从 elements 列表提取纯文本（排除页眉页脚，含表格）
 
         TextinParse 元素类型参考 xparse-client parse.py 及实测：
         - NarrativeText / Title：正文和标题，保留
+        - Table：表格，展开 ``table_structure`` 取单元格文字
+          （逐字不保留行列结构；需要结构的下游读 ``blocks`` / ``markdown``）
         - Footer：页脚（通常为页码），排除
         - Header：页眉，排除
-        - Table / Image：结构化数据，不在纯文本中拼接
+        - Image：无文字，不计入
 
         Args:
             elements: ParseResponse.elements 列表（dict 形式）
 
         Returns:
-            拼接后的纯文本（不含页眉页脚）
+            拼接后的纯文本（不含页眉页脚，但含表格正文）
         """
         if not elements:
             return ""
 
         texts: list[str] = []
 
-        # 第一轮：只取正文/标题类型，排除 Footer（页脚）和 Header（页眉）
+        # 第一轮：只取正文/标题/表格类型，排除 Footer（页脚）和 Header（页眉）。
+        # 走 ``_get_element_text`` 而不是直接读 ``el["text"]``：表格的正文在
+        # ``table_structure`` 里，``text`` 是空的。
         for el in elements:
             if not isinstance(el, dict):
                 continue
             el_type = el.get("type")
             if el_type in self._TEXT_ELEMENT_TYPES:
-                el_text = el.get("text", "")
+                el_text = self._get_element_text(el)
                 if el_text:
-                    texts.append(strip_markdown_emphasis(el_text))
+                    texts.append(el_text)
 
         # fallback：如果没拿到任何正文块，取所有非 Footer/Header 且有 text 的元素
         # （避免完全无输出，但仍排除页眉页脚）

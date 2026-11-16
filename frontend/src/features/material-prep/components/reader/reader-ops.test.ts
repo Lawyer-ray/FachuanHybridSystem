@@ -12,7 +12,6 @@ import {
   mergeSegsIntoOne as segsMerge,
   moveSegment as segMove,
   setInfoValue as infoSetValue,
-  setSegmentType as segSetType,
   renameSegment as segRename,
   mergeSegment as segMerge,
   splitSegment as segSplit,
@@ -38,19 +37,18 @@ function draftFixture(): DraftState {
 const field: InfoField = { k: '委托人', v: '', src: '', srcRef: null }
 
 describe('buildFlowOps（draft 操作接线）', () => {
-  it('六个段操作各自下推对应纯函数给 update，pickPage 直通调用方实现', () => {
+  it('五个段操作各自下推对应纯函数给 update，pickPage 直通调用方实现', () => {
     const update = vi.fn()
     const pickPage = vi.fn()
     const ops = buildFlowOps(update, pickPage)
     const d = draftFixture()
 
-    ops.setSegType(0, '借条')
     ops.renameSeg(0, '民事起诉状')
     ops.mergeSeg(0)
     ops.splitSeg(0, 1)
     ops.mergeSegs([1, 0])
     ops.moveSeg(1, 0, 'before')
-    expect(update).toHaveBeenCalledTimes(6)
+    expect(update).toHaveBeenCalledTimes(5)
 
     // mergeSegs 会消耗 nextSegId 生成新段 id，深比较剥掉 id（顺序与内容仍锁死）
     const stripIds = (x: DraftState) => x.segs.map((s) => ({ fn: s.fn, t: s.t, refs: s.refs, manual: s.manual }))
@@ -67,26 +65,26 @@ describe('buildFlowOps（draft 操作接线）', () => {
           : undefined,
       })),
     })
-    expect(stripTs(fns[0]!)).toEqual(stripTs(segSetType(d, 0, '借条')))
-    expect(stripTs(fns[1]!)).toEqual(stripTs(segRename(d, 0, '民事起诉状')))
-    expect(stripTs(fns[2]!)).toEqual(stripTs(segMerge(d, 0)))
-    expect(stripTs(fns[3]!)).toEqual(stripTs(segSplit(d, 0, 1)))
-    expect(stripIds(fns[4]!)).toEqual(stripIds(segsMerge(d, [1, 0])))
-    expect(stripTs(fns[5]!)).toEqual(stripTs(segMove(d, 1, 0, 'before')))
+    expect(stripTs(fns[0]!)).toEqual(stripTs(segRename(d, 0, '民事起诉状')))
+    expect(stripTs(fns[1]!)).toEqual(stripTs(segMerge(d, 0)))
+    expect(stripTs(fns[2]!)).toEqual(stripTs(segSplit(d, 0, 1)))
+    expect(stripIds(fns[3]!)).toEqual(stripIds(segsMerge(d, [1, 0])))
+    expect(stripTs(fns[4]!)).toEqual(stripTs(segMove(d, 1, 0, 'before')))
 
     ops.pickPage(2, 3)
     expect(pickPage).toHaveBeenCalledWith(2, 3)
-    expect(update).toHaveBeenCalledTimes(6)
+    // pickPage 不进 update：仍是 5 次
+    expect(update).toHaveBeenCalledTimes(5)
   })
 
   it('操作是不可变的：fixture 不被就地改写', () => {
     const update = vi.fn()
     const ops = buildFlowOps(update, vi.fn())
     const d = draftFixture()
-    ops.setSegType(0, '借条')
+    ops.renameSeg(0, '被我改过的名字.pdf')
     const [fn] = update.mock.calls[0] as [(x: DraftState) => DraftState]
     fn(d)
-    expect(d.segs[0]!.t).toBe('起诉状')
+    expect(d.segs[0]!.fn).toBe('起诉状.pdf')
   })
 })
 

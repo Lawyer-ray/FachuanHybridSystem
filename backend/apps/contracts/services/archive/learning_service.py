@@ -63,6 +63,21 @@ class ArchiveLearningService:
     存入 DB 用于增量学习，并可导出为 Python 代码文件供其他用户共享。
     """
 
+    def learn_from_archived_materials_safe(self) -> dict[str, Any]:
+        """学习分类规则，捕获可恢复异常返回含 success/message 的结果（供 API 层直接调用）。"""
+        try:
+            result = self.learn_from_archived_materials()
+        except (OSError, RuntimeError, ValueError) as exc:
+            logger.exception("archive_learning_failed")
+            return {"success": False, "message": str(exc)}
+        return {
+            "success": True,
+            "learned": result.get("learned", 0),
+            "updated": result.get("updated", 0),
+            "skipped": result.get("skipped", 0),
+            "message": f"学习完成：新增 {result['learned']} 条，更新 {result['updated']} 条，跳过 {result['skipped']} 条",
+        }
+
     def learn_from_archived_materials(self) -> dict[str, Any]:
         """从已归档合同的材料中学习分类规则。
 
@@ -266,9 +281,7 @@ class ArchiveLearningService:
 
         # 合并数据文件中已有的规则（避免丢失之前导出的规则）
         try:
-            from apps.contracts.services.contract.integrations.archive_classifier import (
-                _load_learned_rules_from_json,
-            )
+            from apps.contracts.services.contract.integrations.archive_classifier import _load_learned_rules_from_json
 
             existing_rules = _load_learned_rules_from_json()
             for cat, code_map in existing_rules.items():

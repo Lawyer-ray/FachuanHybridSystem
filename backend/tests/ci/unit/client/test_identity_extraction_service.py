@@ -314,7 +314,7 @@ class TestIdentityExtractionServiceTextProcessing:
     # ── _resolve_doc_type ──
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {"id_card": "...", "business_license": "..."},
     )
     def test_resolve_doc_type_explicit(self):
@@ -322,7 +322,7 @@ class TestIdentityExtractionServiceTextProcessing:
         assert svc._resolve_doc_type("id_card", "some text") == "id_card"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {"id_card": "...", "business_license": "..."},
     )
     def test_resolve_doc_type_auto_business_license(self):
@@ -332,7 +332,7 @@ class TestIdentityExtractionServiceTextProcessing:
         assert result == "business_license"
 
     @patch(
-        "apps.client.services.identity_extraction.extraction_service.PROMPT_MAPPING",
+        "apps.client.services.identity_extraction.doc_type_detection.PROMPT_MAPPING",
         {"id_card": "...", "business_license": "..."},
     )
     def test_resolve_doc_type_auto_id_card(self):

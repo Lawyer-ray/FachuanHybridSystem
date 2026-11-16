@@ -256,7 +256,7 @@ function PageShell({
             onClick={onBack}
             className="transition-colors hover:text-foreground"
           >
-            办案
+            项目
           </button>
           <span>/</span>
           <span className="font-[550] text-foreground">立案工作台</span>

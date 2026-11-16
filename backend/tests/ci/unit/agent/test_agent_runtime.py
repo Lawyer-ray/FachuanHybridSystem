@@ -512,22 +512,22 @@ class TestApprovalOwnership:
         return SimpleNamespace(session=session)
 
     def test_owner_may_decide(self) -> None:
-        from apps.agent.api.agent_api import _may_decide
+        from apps.agent.api.approval_api import _may_decide
 
         assert _may_decide(self._user(7), self._record(7)) is True
 
     def test_other_user_may_not(self) -> None:
-        from apps.agent.api.agent_api import _may_decide
+        from apps.agent.api.approval_api import _may_decide
 
         assert _may_decide(self._user(8), self._record(7)) is False
 
     def test_superuser_always(self) -> None:
-        from apps.agent.api.agent_api import _may_decide
+        from apps.agent.api.approval_api import _may_decide
 
         assert _may_decide(self._user(1, superuser=True), self._record(7)) is True
 
     def test_orphan_session_superuser_only(self) -> None:
-        from apps.agent.api.agent_api import _may_decide
+        from apps.agent.api.approval_api import _may_decide
 
         assert _may_decide(self._user(7), self._record(None)) is False
         assert _may_decide(self._user(1, superuser=True), self._record(None)) is True

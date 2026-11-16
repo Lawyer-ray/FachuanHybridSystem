@@ -284,7 +284,7 @@ export const useReader = create<ReaderState>((set, get) => ({
     }
     get().update((d) => applyPageSelection(d, selPages))
     get().clearSel()
-    toast('新的一份已就位，记得选类型')
+    toast('新的一份已就位，记得给它起个名')
   },
 
   /** 删除页：缺省删当前选中；传 target 则删指定页（右键未选中页时用）。 */

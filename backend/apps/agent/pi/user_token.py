@@ -19,8 +19,8 @@ MCP 工具最终经 REST API 访问数据。若 ``mcp_server`` 一律用服务�
   票），每轮重铸；单轮 agent 运行远短于该寿命。
 - 不发 refresh token：改密失效机制（``pwd_ver``）只需作用在 refresh 上，access
   的暴露窗口由寿命收敛。
-- token 只存在于 pi 子进程 env 与临时目录里 mcp.json 的 **env 变量引用**中，
-  不落盘明文；临时目录随请求结束 rmtree。
+- token 只存在于 pi 子进程 env 与配置目录里 mcp.json 的 **env 变量引用**中，
+  不落盘明文；配置目录是稳定目录（0700 根目录下的 ``config/``），不随请求删除。
 
 无用户身份（``user_id`` 为空，仅测试/脚本场景）时不铸 token，``mcp_server``
 回退服务账号。

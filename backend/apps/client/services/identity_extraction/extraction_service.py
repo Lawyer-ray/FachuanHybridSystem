@@ -1,62 +1,62 @@
-"""
-证件信息提取服务
+"""证件信息提取服务（编排层）。
 
 使用 RapidOCR (PP-OCRv5) 提取图片文字,然后用 LLM 结构化提取信息.
+
+具体实现按子域拆分在本包内：
+- ``ocr``：图片/PDF 的 OCR IO
+- ``text_cleaning``：OCR 文本清洗与日志脱敏
+- ``doc_type_detection``：证件类型自动判型
+- ``rules``：身份证/营业执照/叙述式规则提取与置信度
+- ``llm_extraction``：LLM 结构化提取与 JSON 解析
+- ``validators``：证件号码校验位
+
+本类只保留编排（extract/safe_extract）与 OCR 分发；其余方法为兼容既有
+调用方/测试的薄委托，实现均在上述模块。
 """
 
-import json
+from __future__ import annotations
+
 import logging
-import re
-import tempfile
-from io import BytesIO
-from pathlib import Path
 from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.client.models import ClientIdentityDoc
-from apps.client.services.wiring import get_llm_service
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
-from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 from apps.core.protocols import IOcrService
 
+from . import ocr
 from .data_classes import ExtractionResult, LLMExtractionError, OCRExtractionError
-from .prompts import PROMPT_MAPPING, get_prompt_for_doc_type
+from .doc_type_detection import _resolve_doc_type
+from .llm_extraction import _llm_extract, _parse_llm_json
+from .rules import business_license as business_license_rules
+from .rules import confidence as confidence_rules
+from .rules import id_card as id_card_rules
+from .rules import narrative as narrative_rules
+from .text_cleaning import (
+    _MAX_LLM_OCR_CHARS,
+    _MAX_LLM_OCR_LINES,
+    _is_meaningful_line,
+    _looks_like_json_noise,
+    _normalize_ocr_text,
+    _prepare_text_for_llm,
+)
+from .validators import _validate_credit_code, _validate_id_number
 
 logger = logging.getLogger(__name__)
 
-# 喂给 LLM 的 OCR 文本上限，避免噪声与超长上下文拖慢推理
-_MAX_LLM_OCR_CHARS = 1800
-_MAX_LLM_OCR_LINES = 80
-
-# PII 日志脱敏：18 位身份证号（前 3 后 2 保留，中间掩码）与截断长度
-_ID_NUMBER_LOG_RE = re.compile(r"\d{17}[\dXx]")
-_PII_LOG_MAX_CHARS = 200
+__all__ = [
+    "IdentityExtractionService",
+    "_MAX_LLM_OCR_CHARS",
+    "_MAX_LLM_OCR_LINES",
+    "_normalize_ocr_text",
+    "_parse_llm_json",
+    "_validate_credit_code",
+    "_validate_id_number",
+]
 
 # 「有效期限」是**起止区间**的证件类型：到期日是区间末日，正则极易错拿签发日。
 # 此类证件即使规则命中关键字段，也必须同时跑 LLM 交叉校验。
 _DOC_TYPES_WITH_EXPIRY_RANGE = frozenset({"id_card", "legal_rep_id_card"})
-
-
-def _sanitize_pii_for_log(text: str) -> str:
-    """日志脱敏：掩码 18 位身份证号并截断（安全审计：OCR/LLM 内容含 PII 禁止明文 INFO）。"""
-    masked = _ID_NUMBER_LOG_RE.sub(lambda m: f"{m.group()[:3]}{'*' * 13}{m.group()[-2:]}", text)
-    return masked[:_PII_LOG_MAX_CHARS]
-
-
-# 身份证号校验位（ISO 7064 MOD 11-2）
-_ID_CARD_WEIGHTS = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
-_ID_CARD_CHECK_CODES = "10X98765432"
-
-# 统一社会信用代码校验字符集（GB 32100）
-_CREDIT_CODE_CHARS = "0123456789ABCDEFGHJKLMNPQRTUWXY"  # pragma: allowlist secret
-_CREDIT_CODE_WEIGHTS = (1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28)  # pragma: allowlist secret
-
-# 全角 → 半角映射（数字/字母/常见标点）
-_FULLWIDTH_TRANSLATION = str.maketrans(
-    "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ：，；．（）",
-    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz:,;.()",
-)
 
 
 class IdentityExtractionService:
@@ -204,797 +204,6 @@ class IdentityExtractionService:
                 errors={"extraction": str(e)},
             ) from e
 
-    def _ocr_extract(self, image_bytes: bytes) -> str:
-        """
-        使用 RapidOCR (PP-OCRv5) 提取图片/PDF文字
-
-        Args:
-            image_bytes: 图片或PDF字节数据
-
-        Returns:
-            str: 提取的文字
-        """
-        try:
-            if self._recognizer is not None and hasattr(self._recognizer, "classification"):
-                try:
-                    raw_text = self._recognizer.classification(image_bytes) or ""
-                except Exception as e:
-                    raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
-                if raw_text.strip():
-                    return raw_text.strip()
-                raise OCRExtractionError(_("OCR 未能提取到有效文字"))
-
-            # 检测是否为 PDF(更健壮的检测方式)
-            is_pdf = self._is_pdf_file(image_bytes)
-
-            if is_pdf:
-                # PDF 处理:用 pymupdf 转为图片
-                return self._extract_from_pdf(image_bytes)
-            else:
-                # 图片处理
-                return self._extract_from_image(image_bytes)
-
-        except OCRExtractionError:
-            raise
-        except Exception as e:
-            logger.exception("OCR 提取失败: %s", e)
-            raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
-
-    def _is_pdf_file(self, file_bytes: bytes) -> bool:  # pragma: no cover
-        """
-        检测文件是否为 PDF
-
-        Args:
-            file_bytes: 文件字节数据
-
-        Returns:
-            bool: 是否为 PDF 文件
-        """
-        if not file_bytes or len(file_bytes) < 8:
-            return False
-
-        # 方法1: 检查 PDF 魔数(%PDF-)
-        # PDF 文件通常以 %PDF- 开头,但可能有 BOM 或空白字符
-        header = file_bytes[:1024]  # 检查前 1KB
-        if b"%PDF-" in header:
-            return True
-
-        # 方法2: 尝试用 fitz 打开
-        try:
-            import pymupdf as fitz
-
-            doc = fitz.open(stream=file_bytes, filetype="pdf")
-            page_count = len(doc)
-            doc.close()
-            return page_count > 0
-        except Exception:
-            return False
-
-    def _extract_from_image(self, image_bytes: bytes) -> str:  # pragma: no cover
-        """从图片提取文字"""
-        from PIL import Image
-
-        try:
-            img: Any = Image.open(BytesIO(image_bytes))
-            if img.mode not in ("RGB", "L"):
-                img = img.convert("RGB")
-        except Exception as e:
-            logger.exception("图片格式无效: %s", e)
-            raise OCRExtractionError(_("图片格式无效,请上传 JPG 或 PNG 格式的图片")) from e
-
-        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as tmp:
-            img.save(tmp, format="JPEG", quality=95)
-            tmp_path = tmp.name
-
-            raw_text = self._ocr_service.recognize(tmp_path)
-
-            if raw_text and raw_text.strip():
-                logger.info("OCR 提取成功,文字长度: %s", len(raw_text))
-                return raw_text.strip()
-
-            raise OCRExtractionError(_("OCR 未能提取到有效文字"))
-
-    def _extract_from_pdf(self, pdf_bytes: bytes) -> str:  # pragma: no cover
-        """从 PDF 提取文字(图片型PDF)"""
-        import pymupdf as fitz  # pymupdf
-        from PIL import Image
-
-        # 禁用 PIL 的解压炸弹检查，避免超大 PDF 页面触发 DecompressionBombError
-        Image.MAX_IMAGE_PIXELS = None
-
-        all_texts = []
-
-        try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-
-            # 只处理前几页(证件通常只有1-2页)
-            max_pages = min(len(doc), 3)
-
-            for page_num in range(max_pages):
-                page_text = self._ocr_single_page(doc[page_num])
-                if page_text:
-                    all_texts.append(page_text)
-
-            doc.close()
-
-            if all_texts:
-                raw_text = "\n".join(all_texts)
-                logger.info("PDF OCR 提取成功,文字长度: %s", len(raw_text))
-                return raw_text.strip()
-
-            raise OCRExtractionError(_("PDF OCR 未能提取到有效文字"))
-
-        except OCRExtractionError:
-            raise
-        except (OSError, ValueError) as e:
-            logger.exception("PDF 处理失败: %s", e)
-            raise OCRExtractionError(_("PDF 处理失败: %(e)s") % {"e": e}) from e
-
-    def _ocr_single_page(self, page: Any) -> str:
-        """渲染单页为图片并 OCR，返回文本或空字符串。"""
-        import pymupdf as fitz
-
-        mat = fitz.Matrix(300 / 72, 300 / 72)
-        pix = page.get_pixmap(matrix=mat)
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-            pix.save(tmp.name)
-            tmp_path = tmp.name
-        try:
-            return self._ocr_service.recognize(tmp_path) or ""
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
-
-    def _looks_like_json_noise(self, line: str) -> bool:
-        """判断是否为结构化 JSON/调试噪声行。"""
-        candidate = line.strip()
-        if len(candidate) < 10:
-            return False
-
-        if (candidate.startswith("{") and candidate.endswith("}")) or (
-            candidate.startswith("[") and candidate.endswith("]")
-        ):
-            return True
-
-        # 常见 JSON 键值模式: "key": ...
-        if re.search(r'"[A-Za-z_][\w-]*"\s*:', candidate):
-            return True
-
-        json_chars = sum(1 for c in candidate if c in '{}[]":,')
-        if len(candidate) >= 30 and (json_chars / len(candidate)) > 0.30:
-            return True
-
-        return False
-
-    def _is_meaningful_line(self, line: str) -> bool:
-        """判断 OCR 行是否有信息价值。"""
-        if not line:
-            return False
-
-        # 仅符号/分隔线（如 ----、====、...）直接过滤
-        if re.fullmatch(r"[\W_]+", line):
-            return False
-
-        # 纯重复字符噪声（如 111111、哈哈哈哈）过滤
-        if len(set(line)) == 1 and len(line) >= 4:
-            return False
-
-        # 结构化 JSON 噪声过滤
-        if self._looks_like_json_noise(line):
-            return False
-
-        # 过短且不含常见有效字符（数字/中文/字母）过滤
-        if len(line) <= 1 and not re.search(r"[0-9A-Za-z\u4e00-\u9fff]", line):
-            return False
-
-        return True
-
-    def _prepare_text_for_llm(self, raw_text: str) -> str:
-        """清洗 OCR 文本后再发送给 LLM，减少噪声与无意义上下文。"""
-        # 统一换行并拆分候选行（兼容部分 OCR 用 | 作为分隔符）
-        normalized = raw_text.replace("\r\n", "\n").replace("\r", "\n")
-        candidates = re.split(r"\n+|\|", normalized)
-
-        seen: set[str] = set()
-        cleaned_lines: list[str] = []
-
-        for part in candidates:
-            # 合并中英文空白，减少 OCR 抖动导致的重复
-            line = re.sub(r"\s+", "", part).strip()
-            if not line:
-                continue
-            if not self._is_meaningful_line(line):
-                continue
-            if line in seen:
-                continue
-
-            seen.add(line)
-            cleaned_lines.append(line)
-
-        if not cleaned_lines:
-            fallback = raw_text.strip()
-            return fallback[:_MAX_LLM_OCR_CHARS]
-
-        # 行数限制
-        limited_lines = cleaned_lines[:_MAX_LLM_OCR_LINES]
-
-        # 字符总量限制
-        merged: list[str] = []
-        current_len = 0
-        for line in limited_lines:
-            add_len = len(line) + (1 if merged else 0)
-            if current_len + add_len > _MAX_LLM_OCR_CHARS:
-                break
-            merged.append(line)
-            current_len += add_len
-
-        prepared = "\n".join(merged)
-        return prepared if prepared else "\n".join(limited_lines[:10])
-
-    def _resolve_doc_type(self, doc_type: str, raw_text: str, source_name: str | None = None) -> str:
-        requested = (doc_type or "").strip()
-        if requested and requested != "auto" and requested in PROMPT_MAPPING:
-            return requested
-
-        if requested and requested not in {"auto", *PROMPT_MAPPING.keys()}:
-            logger.warning("收到不支持的证件类型，已自动降级判型: doc_type=%s", requested)
-
-        text = self._prepare_text_for_llm(raw_text)
-        normalized = text.lower()
-        source = (source_name or "").lower()
-
-        def has_any(tokens: tuple[str, ...]) -> bool:
-            return any(token in text or token in normalized or token in source for token in tokens)
-
-        business_tokens = (
-            "营业执照",
-            "统一社会信用代码",
-            "企业名称",
-            "法定代表人",
-            "注册资本",
-            "成立日期",
-            "营业期限",
-            "经营范围",
-            "住所",
-            "类型",
-            "business license",
-            "credit code",
-        )
-        id_card_tokens = ("公民身份号码", "居民身份证", "姓名", "性别", "民族", "住址", "出生")
-
-        business_score = sum(1 for token in business_tokens if token in text or token in normalized or token in source)
-        id_score = sum(1 for token in id_card_tokens if token in text)
-
-        credit_code_match = re.search(r"(?<![0-9A-Z])([0-9A-Z]{18})(?![0-9A-Z])", text.upper())
-        if credit_code_match:
-            credit_code = credit_code_match.group(1)
-            has_alpha = any(ch.isalpha() for ch in credit_code)
-            if has_alpha or business_score >= 1:
-                logger.info(
-                    "证件自动判型命中统一社会信用代码特征: requested_doc_type=%s, resolved_doc_type=%s, business_score=%s, id_score=%s",
-                    requested or "auto",
-                    ClientIdentityDoc.BUSINESS_LICENSE,
-                    business_score,
-                    id_score,
-                )
-                return str(ClientIdentityDoc.BUSINESS_LICENSE)
-
-        if business_score >= 2 and business_score >= id_score + 1:
-            logger.info(
-                "证件自动判型命中营业执照关键词: requested_doc_type=%s, resolved_doc_type=%s, business_score=%s, id_score=%s",
-                requested or "auto",
-                ClientIdentityDoc.BUSINESS_LICENSE,
-                business_score,
-                id_score,
-            )
-            return str(ClientIdentityDoc.BUSINESS_LICENSE)
-
-        if has_any(("passport", "护照", "nationality", "passport no", "issuing country")):
-            return str(ClientIdentityDoc.PASSPORT)
-
-        if has_any(("港澳", "通行证", "往来港澳", "hk", "macao")):
-            return str(ClientIdentityDoc.HK_MACAO_PERMIT)
-
-        if has_any(("户口本", "常住人口登记", "户主", "与户主关系")):
-            return str(ClientIdentityDoc.HOUSEHOLD_REGISTER)
-
-        if has_any(("居住证", "residence permit")):
-            return str(ClientIdentityDoc.RESIDENCE_PERMIT)
-
-        if has_any(("法定代表人", "负责人", "法人身份证")) and re.search(r"(?<!\d)\d{17}[\dXx](?!\d)", text):
-            return str(ClientIdentityDoc.LEGAL_REP_ID_CARD)
-
-        logger.info(
-            "证件自动判型回退身份证: requested_doc_type=%s, resolved_doc_type=%s, business_score=%s, id_score=%s",
-            requested or "auto",
-            ClientIdentityDoc.ID_CARD,
-            business_score,
-            id_score,
-        )
-        return str(ClientIdentityDoc.ID_CARD)
-
-    _NARRATIVE_NAME_RE = re.compile(
-        r"(?:原告|被告|上诉人|被上诉人|申请人|被申请人|异议人|第三人)[一二三四五六七八九十]*[:：]\s*([一-龥·]{2,4})(?=[，,。；;])"
-    )
-    _NARRATIVE_GENDER_RE = re.compile(r"[，,]\s*(男|女)\s*[，,]")
-    _NARRATIVE_ETHNICITY_RE = re.compile(r"[，,]\s*([一-龥]{1,4}族)\s*[，,]")
-    _NARRATIVE_ADDRESS_RE = re.compile(
-        r"(?:住|居住于|住所地|住址)[:：]?\s*([一-龥0-9]{2,60}?(?:省|市|县)?[一-龥0-9]*?(?:区|镇|乡)?[一-龥0-9]*(?:路|街|道|巷|村)[一-龥0-9]*(?:号|号院)[一-龥0-9]*(?:房|室|楼|座|栋|单元)?)"
-    )
-    _NARRATIVE_PHONE_RE = re.compile(r"(?:联系电话|电话|手机|联系方式)\s*[:：]?\s*(1[3-9]\d{9}|\d{3,4}-\d{7,8})")
-
-    # 叙述式地址边界截取：起点标签 → 下一个字段标签或句读为止
-    _NARRATIVE_ADDRESS_START_RE = re.compile(r"(?:住|居住于|住所地|住址|约定送达地址|送达地址)[:：]?")
-    _ADDRESS_BOUNDARY_RE = re.compile(r"公民身份|身份证号|联系电话|电话|手机|联系方式|出生|民族|有效期|邮编")
-
-    def _extract_id_number_candidates(self, text: str) -> list[str]:
-        """提取全部 18 位身份证号候选（按出现顺序），供校验位评分选优。"""
-        return [m.group(1).upper() for m in re.finditer(r"(?<!\d)(\d{17}[\dXx])(?!\d)", text)]
-
-    def _select_best_id_number(self, text: str) -> tuple[str | None, bool]:
-        """从候选中选校验位通过者；无候选返回 (None, False)。"""
-        candidates = self._extract_id_number_candidates(text)
-        if not candidates:
-            return None, False
-        for candidate in candidates:
-            if _validate_id_number(candidate):
-                return candidate, True
-        return candidates[0], False
-
-    def _extract_narrative_address_by_boundary(self, flat: str) -> str | None:
-        """叙述式地址边界截取：从「住/送达地址」起截取到下一个字段标签，不限地址形态。"""
-        start = self._NARRATIVE_ADDRESS_START_RE.search(flat)
-        if not start:
-            return None
-        tail = flat[start.end() :]
-        boundary = self._ADDRESS_BOUNDARY_RE.search(tail)
-        addr = tail[: boundary.start()] if boundary else tail
-        addr = addr.strip("。，,;；、")
-        return addr or None
-
-    def _extract_narrative_fields(self, text: str) -> dict[str, Any]:
-        """从判决书/起诉状等叙述式文本中提取当事人信息（非证件卡片版式）。"""
-        flat = text.replace("\n", "")
-        fields: dict[str, Any] = {
-            "name": None,
-            "gender": None,
-            "ethnicity": None,
-            "address": None,
-            "phone": None,
-        }
-
-        name_match = self._NARRATIVE_NAME_RE.search(flat)
-        if name_match:
-            fields["name"] = name_match.group(1)
-
-        gender_match = self._NARRATIVE_GENDER_RE.search(flat)
-        if gender_match:
-            fields["gender"] = gender_match.group(1)
-
-        ethnicity_match = self._NARRATIVE_ETHNICITY_RE.search(flat)
-        if ethnicity_match:
-            fields["ethnicity"] = ethnicity_match.group(1)
-
-        # 优先边界截取（覆盖任意地址形态），正则模式仅作兜底
-        fields["address"] = self._extract_narrative_address_by_boundary(flat)
-        if not fields["address"]:
-            address_match = self._NARRATIVE_ADDRESS_RE.search(flat)
-            if address_match:
-                fields["address"] = address_match.group(1)
-
-        phone_match = self._NARRATIVE_PHONE_RE.search(flat)
-        if phone_match:
-            fields["phone"] = phone_match.group(1)
-
-        return fields
-
-    # 字段级置信度：标签命中（卡片版式）> 叙述式命中 > 未命中；身份证号以校验位验证为准
-    _FIELD_CONF_LABEL = 0.95
-    _FIELD_CONF_NARRATIVE = 0.75
-    _FIELD_CONF_UNVERIFIED_ID = 0.6
-    _FIELD_CONF_ID_VERIFIED = 0.98
-    _FIELD_CONF_MISSING = 0.0
-
-    def _compute_id_card_field_confidence(self, extracted: dict[str, Any], narrative_used: bool) -> dict[str, float]:
-        """身份证路径字段级置信度。"""
-        if extracted.get("id_number"):
-            id_conf = (
-                self._FIELD_CONF_ID_VERIFIED
-                if _validate_id_number(extracted.get("id_number"))
-                else self._FIELD_CONF_UNVERIFIED_ID
-            )
-        else:
-            id_conf = self._FIELD_CONF_MISSING
-
-        source_conf = self._FIELD_CONF_NARRATIVE if narrative_used else self._FIELD_CONF_LABEL
-        confidence: dict[str, float] = {"id_number": id_conf}
-        for key in ("name", "address", "gender", "ethnicity", "birth_date", "expiry_date", "phone"):
-            confidence[key] = source_conf if extracted.get(key) else self._FIELD_CONF_MISSING
-        return confidence
-
-    def _compute_business_license_field_confidence(self, extracted: dict[str, Any]) -> dict[str, float]:
-        """营业执照路径字段级置信度。"""
-        if extracted.get("credit_code"):
-            credit_conf = (
-                self._FIELD_CONF_ID_VERIFIED
-                if _validate_credit_code(extracted.get("credit_code"))
-                else self._FIELD_CONF_UNVERIFIED_ID
-            )
-        else:
-            credit_conf = self._FIELD_CONF_MISSING
-
-        confidence: dict[str, float] = {"credit_code": credit_conf}
-        for key in ("company_name", "legal_representative", "address", "business_scope", "registration_date", "phone"):
-            confidence[key] = self._FIELD_CONF_LABEL if extracted.get(key) else self._FIELD_CONF_MISSING
-        return confidence
-
-    def _overall_confidence(self, extracted_data: dict[str, Any]) -> float:
-        """整包置信度 = 命中字段的字段级置信度均值（无字段级置信度时回退 0.95）。"""
-        field_conf: dict[str, float] | None = extracted_data.get("field_confidence")
-        if not field_conf:
-            return self._FIELD_CONF_LABEL
-        values = [v for v in field_conf.values() if v > self._FIELD_CONF_MISSING]
-        if not values:
-            return self._FIELD_CONF_MISSING
-        return round(sum(values) / len(values), 2)
-
-    def _compute_field_confidence(self, extracted: dict[str, Any], narrative_used: bool) -> dict[str, float]:
-        """按字段计算置信度；身份证号以校验位验证结果为准。"""
-        id_verified = bool(extracted.get("id_number")) and _validate_id_number(extracted.get("id_number"))
-        if extracted.get("id_number"):
-            id_conf = 0.98 if id_verified else self._FIELD_CONF_UNVERIFIED_ID
-        else:
-            id_conf = self._FIELD_CONF_MISSING
-
-        source_conf = self._FIELD_CONF_NARRATIVE if narrative_used else self._FIELD_CONF_LABEL
-        confidence: dict[str, float] = {"id_number": id_conf}
-        for key in ("name", "address", "gender", "ethnicity", "birth_date", "expiry_date", "phone"):
-            confidence[key] = source_conf if extracted.get(key) else self._FIELD_CONF_MISSING
-        return confidence
-
-    def _extract_by_rules(self, raw_text: str, doc_type: str) -> dict[str, Any] | None:
-        """规则提取：覆盖身份证、法代身份证、营业执照。"""
-        if doc_type == "business_license":
-            return self._extract_business_license(raw_text)
-        if doc_type not in {"id_card", "legal_rep_id_card"}:
-            return None
-
-        text = self._prepare_text_for_llm(_normalize_ocr_text(raw_text))
-        lines = [line.strip() for line in text.split("\n") if line.strip()]
-        merged = "\n".join(lines)
-
-        id_number, id_verified = self._select_best_id_number(merged)
-        name = self._extract_name(lines)
-        gender = self._extract_gender(lines)
-        ethnicity = self._extract_ethnicity(lines)
-        address = self._extract_address(lines)
-        expiry_date = self._extract_expiry_date(lines)
-        birth_date = self._extract_birth_date(merged, id_number)
-        phone = self._NARRATIVE_PHONE_RE.search(text.replace("\n", ""))
-
-        # 卡片版式未命中的字段，回退叙述式提取（判决书/起诉状文本）
-        narrative_used = False
-        if not any([name, gender, ethnicity, address]):
-            narrative = self._extract_narrative_fields(text)
-            name = narrative["name"]
-            gender = narrative["gender"]
-            ethnicity = narrative["ethnicity"]
-            address = narrative["address"]
-            narrative_used = any([name, gender, ethnicity, address])
-
-        extracted: dict[str, Any] = {
-            "name": name,
-            "id_number": id_number,
-            "address": address or "",
-            "expiry_date": expiry_date,
-            "gender": gender,
-            "ethnicity": ethnicity,
-            "birth_date": birth_date,
-            "phone": phone.group(1) if phone else "",
-        }
-        extracted["field_confidence"] = self._compute_id_card_field_confidence(extracted, narrative_used)
-
-        return extracted
-
-    def _extract_business_license(self, raw_text: str) -> dict[str, Any] | None:
-        """营业执照正则提取：企业名称、统一社会信用代码、法定代表人、地址、电话。"""
-        text = self._prepare_text_for_llm(_normalize_ocr_text(raw_text))
-        lines = [line.strip() for line in text.split("\n") if line.strip()]
-
-        # 统一社会信用代码（18位字母数字），多候选时优先选校验通过者
-        credit_code = None
-        for code_match in re.finditer(r"(?<![0-9A-Z])([0-9A-Z]{18})(?![0-9A-Z])", text.upper()):
-            candidate = code_match.group(1)
-            if not any(ch.isalpha() for ch in candidate):
-                continue  # 纯数字串大概率是日期/号码，不是信用代码
-            if _validate_credit_code(candidate):
-                credit_code = candidate
-                break
-            if credit_code is None:
-                credit_code = candidate
-
-        # 企业名称（原告/被告/名称/公司 后面的内容）
-        company_name = None
-        for line in lines:
-            m = re.search(r"(?:原告|被告|名称|公司名称|企业名称)[:：]\s*(.+)", line)
-            if m:
-                company_name = m.group(1).strip()
-                break
-        # 如果没匹配到前缀，尝试匹配"有限公司/股份公司"等模式
-        if not company_name:
-            m = re.search(r"([一-龥]+(?:有限公司|股份有限公司|集团|合伙企业))", text)
-            if m:
-                company_name = m.group(1)
-
-        # 法定代表人
-        legal_rep = None
-        for line in lines:
-            m = re.search(r"(?:法定代表人|负责人|经营者)[:：]\s*([一-龥·]{2,20})", line)
-            if m:
-                legal_rep = m.group(1).strip()
-                break
-
-        # 地址
-        address = None
-        for line in lines:
-            m = re.search(r"(?:地址|住所|经营场所|住址)[:：]\s*(.+)", line)
-            if m:
-                address = m.group(1).strip()
-                break
-
-        # 联系电话
-        phone = None
-        phone_match = re.search(r"(?:联系电话|电话|手机|联系方式)[:：]\s*([0-9\-\+\s]{7,20})", text)
-        if phone_match:
-            phone = phone_match.group(1).replace(" ", "").strip()
-
-        # 成立日期
-        registration_date = None
-        date_match = re.search(r"(?:成立日期|注册日期|营业期限)[:：]?\s*(\d{4})\D(\d{1,2})\D(\d{1,2})", text)
-        if date_match:
-            y_s, m_s, d_s = date_match.group(1), date_match.group(2), date_match.group(3)
-            registration_date = f"{y_s}-{int(m_s):02d}-{int(d_s):02d}"
-
-        # 经营范围
-        business_scope = None
-        for i, line in enumerate(lines):
-            m = re.search(r"(?:经营范围)[:：]\s*(.+)", line)
-            if m:
-                business_scope = m.group(1).strip()
-                break
-
-        extracted: dict[str, Any] = {
-            "company_name": company_name,
-            "credit_code": credit_code,
-            "legal_representative": legal_rep,
-            "address": address or "",
-            "business_scope": business_scope,
-            "registration_date": registration_date,
-            "phone": phone or "",
-        }
-
-        # 如果一个字段都没提取到，返回 None 让后续流程处理
-        if not any(extracted.values()):
-            return None
-
-        extracted["field_confidence"] = self._compute_business_license_field_confidence(extracted)
-        return extracted
-
-    def _extract_id_number(self, text: str) -> str | None:
-        match = re.search(r"(?<!\d)(\d{17}[\dXx])(?!\d)", text)
-        if not match:
-            return None
-        return match.group(1).upper()
-
-    def _extract_name(self, lines: list[str]) -> str | None:
-        for line in lines:
-            match = re.search(r"姓名[:：]?([\u4e00-\u9fa5·]{2,20})", line)
-            if match:
-                return match.group(1)
-        return None
-
-    def _extract_gender(self, lines: list[str]) -> str | None:
-        for line in lines:
-            match = re.search(r"性别[:：]?([男女])", line)
-            if match:
-                return match.group(1)
-        return None
-
-    def _extract_ethnicity(self, lines: list[str]) -> str | None:
-        for line in lines:
-            match = re.search(r"民族[:：]?([\u4e00-\u9fa5]{1,8})", line)
-            if match:
-                return match.group(1)
-        return None
-
-    def _extract_birth_date(self, text: str, id_number: str | None) -> str | None:
-        # 优先取“出生”行
-        match = re.search(r"出生[:：]?\s*(\d{4})\D(\d{1,2})\D(\d{1,2})", text)
-        if match:
-            return self._format_date_parts(match.group(1), match.group(2), match.group(3))
-
-        # 兜底：身份证号中解析出生日期（第7-14位）
-        if id_number and len(id_number) >= 14 and id_number[:17].isdigit():
-            year, month, day = id_number[6:10], id_number[10:12], id_number[12:14]
-            return self._format_date_parts(year, month, day)
-
-        return None
-
-    def _extract_expiry_date(self, lines: list[str]) -> str | None:
-        """从 OCR 文本行中提取证件到期日。
-
-        身份证的「有效期限」是**起止区间**（如 ``2025.11.07-2045.11.07``），到期日是区间末日。
-
-        历史实现的 bug（2026-11-06 实测）：区间正则匹配失败时直接落到「单日期」分支，
-        取到的是起始日（签发日），导致 2045 年到期的证件被判成 2025 年已过期。
-        触发场景：``年月日`` 格式（``2025年11月07日至2045年11月07日``）、OCR 丢分隔符
-        （``2025.11.072045.11.07``）、OCR 把区间拆成两行。
-
-        修复要点：
-        1. 先把相邻行拼成候选窗口再匹配，消除 OCR 断行影响；
-        2. 区间锚点兼容 ``- ~ 至 到 — –`` 以及「年月日」「./-」混排；
-        3. 同一窗口出现 **多个日期** 时一律取最后一个（到期日在后），只有在明确
-           出现「有效期至/至」且只有一个日期时才当作到期日，其余单日期一律不采信，
-           避免再把签发日当到期日。
-        """
-        # 日期：兼容 2025.11.07 / 2025-11-07 / 2025/11/07 / 2025年11月07日；
-        # 末尾可选的「日」必须吃掉，否则「2025年11月07日至2045年...」里的「日」
-        # 会挡住后面的分隔符，导致区间匹配失败。
-        date_pat = r"(\d{4})[.\-/年]\s*(\d{1,2})[.\-/月]\s*(\d{1,2})\s*日?"
-        # 区间：起始日 + 分隔符 + (结束日 | 长期)
-        range_re = re.compile(date_pat + r"\s*(?:[-~至到—–]|起至)\s*(长期|" + date_pat + r")")
-        marker_re = re.compile(r"有效期(?:限)?至[:：]?\s*" + date_pat)
-
-        def _next_line(lines: list[str], idx: int) -> str:
-            return lines[idx + 1] if idx + 1 < len(lines) else ""
-
-        for i, line in enumerate(lines):
-            window = line
-            # 提前拼接下一行：OCR 常把「2025.11.07-」和「2045.11.07」拆成两行
-            nxt = _next_line(lines, i)
-            if nxt:
-                window = f"{line} {nxt}"
-
-            if "长期" in window and ("有效" in window or "期限" in window):
-                return "2099-12-31"
-
-            range_match = range_re.search(window)
-            if range_match:
-                end_group = range_match.group(4)
-                if end_group == "长期":
-                    return "2099-12-31"
-                return self._format_date_parts(
-                    range_match.group(5),
-                    range_match.group(6),
-                    range_match.group(7),
-                )
-
-            # 明确「有效期至 X」且窗口内只有这一个日期时才采信
-            marker_match = marker_re.search(window)
-            if marker_match and not range_re.search(window):
-                all_dates = re.findall(date_pat, window)
-                if len(all_dates) == 1:
-                    return self._format_date_parts(
-                        marker_match.group(1),
-                        marker_match.group(2),
-                        marker_match.group(3),
-                    )
-
-            # 侜底：OCR 把区间分隔符整个吃掉（如 2025.11.072045.11.07）。
-            # 仅在「有效期」字样附近出现 **两个及以上** 完整日期时，取最后一个作到期日。
-            if "有效" in window or "期限" in window:
-                compact = re.findall(r"(\d{4})[.\-/年](\d{1,2})[.\-/月](\d{1,2})", window)
-                if len(compact) >= 2:
-                    y, m, d = compact[-1]
-                    return self._format_date_parts(y, m, d)
-
-        return None
-
-    def _extract_address(self, lines: list[str]) -> str | None:
-        address_parts: list[str] = []
-        collecting = False
-        stop_keywords = ("公民身份号码", "有效期限", "签发机关", "机关")
-
-        for line in lines:
-            if any(keyword in line for keyword in stop_keywords):
-                break
-
-            if line.startswith("住址"):
-                collecting = True
-                tail = line.replace("住址", "", 1).strip(" :：")
-                if tail:
-                    address_parts.append(tail)
-                continue
-
-            if collecting:
-                if re.fullmatch(r"\d{17}[\dXx]", line):
-                    break
-                address_parts.append(line)
-
-        if not address_parts:
-            return None
-
-        return "".join(address_parts)
-
-    def _format_date_parts(self, year: str, month: str, day: str) -> str | None:
-        try:
-            y = int(year)
-            m = int(month)
-            d = int(day)
-        except ValueError:
-            return None
-        if y <= 1900 or m <= 0 or d <= 0 or m > 12 or d > 31:
-            return None
-        return f"{y:04d}-{m:02d}-{d:02d}"
-
-    def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:  # pragma: no cover
-        """
-        使用 LLM 从文字中提取结构化信息
-        """
-        try:
-            llm_text = self._prepare_text_for_llm(raw_text)
-            logger.info("发送 LLM 前 OCR 文本清洗完成: 原始长度=%d, 清洗后长度=%d", len(raw_text), len(llm_text))
-            logger.debug("发送 LLM 前 OCR 清洗后文本内容(脱敏截断): %s", _sanitize_pii_for_log(llm_text))
-
-            prompt = get_prompt_for_doc_type(doc_type, llm_text)
-            # 推理模型需要更多 token（reasoning + output），普通模型 512 足够
-            max_tokens = 2048
-            logger.info(
-                "证件识别将调用 LLM: model=%s, max_tokens=%s",
-                model,
-                max_tokens,
-            )
-
-            messages = [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": f"请从以下文字中提取信息:\n{llm_text}"},
-            ]
-
-            llm_service = get_llm_service()
-            llm_resp = llm_service.chat(
-                messages=messages,
-                model=model,
-                max_tokens=max_tokens,
-                timeout=60,
-                think=False,
-                fallback=True,
-            )
-            logger.debug(
-                "LLM 响应详情(内容脱敏截断): backend=%s, model=%s, content=%s, prompt_tokens=%s, completion_tokens=%s",
-                llm_resp.backend,
-                llm_resp.model,
-                _sanitize_pii_for_log(str(llm_resp.content)),
-                llm_resp.prompt_tokens,
-                llm_resp.completion_tokens,
-            )
-            content = llm_resp.content or ""
-            if not content:
-                raise LLMExtractionError(_("LLM 返回内容为空"))
-
-            # 解析 JSON
-            try:
-                extracted_data = _parse_llm_json(content)
-                logger.info("LLM 提取成功,字段数量: %s", len(extracted_data))
-                return dict(extracted_data)
-
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.exception("LLM 返回的 JSON 格式错误: %s", e)
-                raise LLMExtractionError(_("智能识别结果解析失败，请稍后重试")) from e
-
-        except ConnectionError as e:
-            logger.exception("LLM 服务连接失败: %s", e)
-            raise ServiceUnavailableError(message=_("LLM 服务连接失败: %(e)s") % {"e": e}, service_name="LLM") from e
-        except LLMTimeoutError as e:
-            logger.warning("LLM 请求超时: %s", e)
-            raise LLMExtractionError(_("智能识别超时，请稍后重试")) from e
-        except LLMNetworkError as e:
-            logger.warning("LLM 网络异常: %s", e)
-            raise LLMExtractionError(_("无法连接智能识别服务，请检查网络后重试")) from e
-        except LLMExtractionError:
-            raise
-        except Exception as e:
-            logger.exception("LLM 提取失败: %s", e)
-            raise LLMExtractionError(_("智能识别暂时不可用，请稍后重试")) from e
-
     def safe_extract(
         self,
         image_bytes: bytes,
@@ -1039,83 +248,111 @@ class IdentityExtractionService:
             result["error"] = str(_("识别过程中发生未知错误，请稍后重试"))
         return result
 
+    # ── OCR 分发（保留 self.* 调用，测试通过 patch.object 替换子步骤）──
 
-# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def _normalize_ocr_text(text: str) -> str:
-    """OCR 文本归一化：全角转半角、去除中文间空格，保留换行作为字段边界信号。"""
-    normalized = text.translate(_FULLWIDTH_TRANSLATION)
-    # 去除行内空白（OCR 常在中英文间插入空格），保留换行
-    lines = (re.sub(r"[ \t　]+", "", line) for line in normalized.splitlines())
-    return "\n".join(lines)
+    def _ocr_extract(self, image_bytes: bytes) -> str:
+        """使用 RapidOCR (PP-OCRv5) 提取图片/PDF文字。"""
+        try:
+            if self._recognizer is not None and hasattr(self._recognizer, "classification"):
+                try:
+                    raw_text = self._recognizer.classification(image_bytes) or ""
+                except Exception as e:
+                    raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
+                if raw_text.strip():
+                    return raw_text.strip()
+                raise OCRExtractionError(_("OCR 未能提取到有效文字"))
 
+            if self._is_pdf_file(image_bytes):
+                return self._extract_from_pdf(image_bytes)
+            return self._extract_from_image(image_bytes)
 
-# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def _validate_id_number(id_number: str | None) -> bool:
-    """身份证号校验位验证（ISO 7064 MOD 11-2）。"""
-    if not id_number or len(id_number) != 18:
-        return False
-    if not id_number[:17].isdigit():
-        return False
-    checksum = sum(int(c) * w for c, w in zip(id_number[:17], _ID_CARD_WEIGHTS))
-    return _ID_CARD_CHECK_CODES[checksum % 11] == id_number[17].upper()
+        except OCRExtractionError:
+            raise
+        except Exception as e:
+            logger.exception("OCR 提取失败: %s", e)
+            raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
 
+    def _is_pdf_file(self, file_bytes: bytes) -> bool:  # pragma: no cover
+        return ocr._is_pdf_file(file_bytes)
 
-# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def _validate_credit_code(code: str | None) -> bool:
-    """统一社会信用代码校验（GB 32100）。"""
-    if not code or len(code) != 18:
-        return False
-    if any(ch not in _CREDIT_CODE_CHARS for ch in code):
-        return False
-    values = [_CREDIT_CODE_CHARS.index(ch) for ch in code[:17]]
-    checksum = sum(v * w for v, w in zip(values, _CREDIT_CODE_WEIGHTS)) % 31
-    return _CREDIT_CODE_CHARS[(31 - checksum) % 31] == code[17]
+    def _extract_from_image(self, image_bytes: bytes) -> str:  # pragma: no cover
+        return ocr._extract_from_image(image_bytes, self._ocr_service)
 
+    def _extract_from_pdf(self, pdf_bytes: bytes) -> str:  # pragma: no cover
+        return ocr._extract_from_pdf(pdf_bytes, self._ocr_service)
 
-# ↓↓ 由 IdentityExtractionService 下沉的模块级纯函数（四层架构静态方法棘轮）
-def _parse_llm_json(content: str) -> dict[str, Any]:
-    r"""从 LLM 输出中提取 JSON 对象，支持多种格式。
+    def _ocr_single_page(self, page: Any) -> str:
+        return ocr._ocr_single_page(page, self._ocr_service)
 
-    与权威实现 ``apps.core.llm.structured_output.extract_json_text`` 的差异
-    （2026-11 实测，以下 3 条均使得本函数**有意**保留独立版本）：
+    # ── 纯函数委托（实现见各子域模块，保留方法面兼容既有调用方/测试）──
 
-    1. **失败语义不同**：本函数在解析不出对象时抛 ``ValueError``，调用方据此
-       转换成 ``LLMExtractionError(_("智能识别结果解析失败，请稍后重试"))``；
-       权威实现返回 ``None``。替换会把异常路径静默改成 `None` 分支。
-    2. **只取非嵌套对象**：最后一步用窄正则 ``\{[^{}]*\}``，嵌套对象
-       （如 ``'x {"a":{"b":1}} y'``）取不到，会抛 ``ValueError``；
-       权威实现能正确取出嵌套对象。这是历史行为，调用方依赖失败走重试文案。
-    3. **围栏优先级高于直接解析**：本函数先试 ```json 块、再试整串直解；
-       权威实现先试整串。同一段文本里两者可能返回不同 JSON。
+    def _looks_like_json_noise(self, line: str) -> bool:
+        return _looks_like_json_noise(line)
 
-    结论：需求是「统一到唯一实现」，但这里改就是改业务异常语义与抽取结果，
-    不属于纯去重，故保留并在调用方不变的前提下维持现状。
-    """
-    # 1. 尝试从 ```json ... ``` 代码块中提取
-    if "```json" in content:
-        json_start = content.find("```json") + 7
-        json_end = content.find("```", json_start)
-        if json_end > json_start:
-            result: dict[str, Any] = json.loads(content[json_start:json_end].strip())
-            return result
-    # 2. 尝试从 ``` ... ``` 代码块中提取
-    if "```" in content:
-        json_start = content.find("```") + 3
-        json_end = content.find("```", json_start)
-        if json_end > json_start:
-            result2: dict[str, Any] = json.loads(content[json_start:json_end].strip())
-            return result2
-    # 3. 尝试直接解析整个内容
-    try:
-        result3: dict[str, Any] = json.loads(content.strip())
-        return result3
-    except json.JSONDecodeError:
-        pass
-    # 4. 尝试从文本中提取第一个 JSON 对象
-    import re
+    def _is_meaningful_line(self, line: str) -> bool:
+        return _is_meaningful_line(line)
 
-    match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
-    if match:
-        result4: dict[str, Any] = json.loads(match.group())
-        return result4
-    raise ValueError("无法从 LLM 输出中提取 JSON")
+    def _prepare_text_for_llm(self, raw_text: str) -> str:
+        return _prepare_text_for_llm(raw_text)
+
+    def _resolve_doc_type(self, doc_type: str, raw_text: str, source_name: str | None = None) -> str:
+        return _resolve_doc_type(doc_type, raw_text, source_name=source_name)
+
+    def _extract_by_rules(self, raw_text: str, doc_type: str) -> dict[str, Any] | None:
+        # 经由 self.* 分发，保留实例级 patch 点（测试据此拦截各证件类型的提取）
+        if doc_type == "business_license":
+            return self._extract_business_license(raw_text)
+        if doc_type not in {"id_card", "legal_rep_id_card"}:
+            return None
+        return id_card_rules._extract_id_card_fields(raw_text)
+
+    def _extract_business_license(self, raw_text: str) -> dict[str, Any] | None:
+        return business_license_rules._extract_business_license(raw_text)
+
+    def _extract_id_number_candidates(self, text: str) -> list[str]:
+        return id_card_rules._extract_id_number_candidates(text)
+
+    def _select_best_id_number(self, text: str) -> tuple[str | None, bool]:
+        return id_card_rules._select_best_id_number(text)
+
+    def _extract_id_number(self, text: str) -> str | None:
+        return id_card_rules._extract_id_number(text)
+
+    def _extract_name(self, lines: list[str]) -> str | None:
+        return id_card_rules._extract_name(lines)
+
+    def _extract_gender(self, lines: list[str]) -> str | None:
+        return id_card_rules._extract_gender(lines)
+
+    def _extract_ethnicity(self, lines: list[str]) -> str | None:
+        return id_card_rules._extract_ethnicity(lines)
+
+    def _extract_birth_date(self, text: str, id_number: str | None) -> str | None:
+        return id_card_rules._extract_birth_date(text, id_number)
+
+    def _extract_expiry_date(self, lines: list[str]) -> str | None:
+        return id_card_rules._extract_expiry_date(lines)
+
+    def _extract_address(self, lines: list[str]) -> str | None:
+        return id_card_rules._extract_address(lines)
+
+    def _format_date_parts(self, year: str, month: str, day: str) -> str | None:
+        return id_card_rules._format_date_parts(year, month, day)
+
+    def _extract_narrative_address_by_boundary(self, flat: str) -> str | None:
+        return narrative_rules._extract_narrative_address_by_boundary(flat)
+
+    def _extract_narrative_fields(self, text: str) -> dict[str, Any]:
+        return narrative_rules._extract_narrative_fields(text)
+
+    def _compute_id_card_field_confidence(self, extracted: dict[str, Any], narrative_used: bool) -> dict[str, float]:
+        return confidence_rules._compute_id_card_field_confidence(extracted, narrative_used)
+
+    def _compute_business_license_field_confidence(self, extracted: dict[str, Any]) -> dict[str, float]:
+        return confidence_rules._compute_business_license_field_confidence(extracted)
+
+    def _overall_confidence(self, extracted_data: dict[str, Any]) -> float:
+        return confidence_rules._overall_confidence(extracted_data)
+
+    def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:  # pragma: no cover
+        return _llm_extract(raw_text, doc_type, model)

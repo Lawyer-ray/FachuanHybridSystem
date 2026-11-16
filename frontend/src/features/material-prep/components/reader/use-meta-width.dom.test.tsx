@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   META_DEFAULT_WIDTH,
+  META_WIDTH_STORAGE_KEY,
   META_MAX_WIDTH,
   META_MIN_WIDTH,
   META_WIDE_DEFAULT,
@@ -17,7 +18,8 @@ import {
   useMetaWidth,
 } from './use-meta-width'
 
-const KEY = 'mp.meta.width'
+// 直接用实现导出的键：写死字符串会在换键（旧存档失效）时静默失配
+const KEY = META_WIDTH_STORAGE_KEY
 
 beforeEach(() => {
   localStorage.clear()

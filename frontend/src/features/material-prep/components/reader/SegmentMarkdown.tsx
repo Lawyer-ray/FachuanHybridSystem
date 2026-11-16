@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { blockKeyOf } from '../../draft/block-keys'
-import type { Segment } from '../../types'
+import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { BlockRow, WholeTextEditor } from './SegmentRow'
+import { EngineDisagreementsInline } from './EngineDisagreementsInline'
 import { SuspectsPanel } from './SuspectsPanel'
 
 /**
@@ -51,6 +52,7 @@ export function SegmentMarkdown({
   focusedBlockKey,
   onLocateBlock,
   editRequestKey,
+  editRequestSeed = null,
   onEditRequestHandled,
   onEditMarkdown,
   onEditBlock,
@@ -58,6 +60,14 @@ export function SegmentMarkdown({
   graphicPages = [],
   docPages = [],
   onGotoPage,
+  engineItems = [],
+  engineKeys = [],
+  engineChecked = [],
+  onToggleEngineChecked,
+  onJumpEngine,
+  onAdoptEngine,
+  onEditEngine,
+  inconsistencies = [],
 }: {
   seg: Segment | null
   /** 展开态由父级持有（右栏其它块共用同一个折叠开关，避免各自记住状态） */
@@ -72,6 +82,8 @@ export function SegmentMarkdown({
    * 消费后要调 `onEditRequestHandled` 清空，否则后续同块高亮会反复弹输入框。
    */
   editRequestKey?: string | null
+  /** 进入修改态时要预填的文本（缺省用本行原文） */
+  editRequestSeed?: string | null
   onEditRequestHandled?: () => void
   /** 手改正文（识别错字/表格拍平时律师自己修）——没有定位块时的整段编辑 */
   onEditMarkdown?: (md: string) => void
@@ -85,9 +97,23 @@ export function SegmentMarkdown({
   docPages?: DocHintPage[]
   /** 点提示条跳原页；不传则提示条不可点（只陈述事实） */
   onGotoPage?: (page: number) => void
+  /** 全卷引擎分歧（会先按本段页范围过滤，再按页号挂到该页第一行之前） */
+  engineItems?: EngineDisagreement[]
+  /** 与 `engineItems` 一一对应的唯一键 */
+  engineKeys?: string[]
+  engineChecked?: string[]
+  onToggleEngineChecked?: (key: string, checked: boolean) => void
+  onJumpEngine?: (pageNo: number, key: string) => void
+  onAdoptEngine?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  /** 「修改」：两侧都不对时进编辑态 */
+  onEditEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
+  /** 全卷不一致统计：用于「更推荐改成什么」 */
+  inconsistencies?: Inconsistency[]
 }) {
   // 正在编辑的那一行的 key；null = 全部只读
   const [editingKey, setEditingKey] = useState<string | null>(null)
+  /** 进入编辑态时要预填的文本（「两个引擎都不对」时点采用，用该侧全文作起点） */
+  const [editSeed, setEditSeed] = useState<string | null>(null)
 
   /**
    * 页面框双击 → 自动进入这一行的修改态。
@@ -102,12 +128,14 @@ export function SegmentMarkdown({
       // 没有逐块编辑能力（无定位块的段）：退回整段编辑
       if (onEditMarkdown) setEditingAll(true)
     } else {
+      setEditSeed(editRequestSeed)
       setEditingKey(editRequestKey)
     }
     onEditRequestHandled?.()
-  }, [editRequestKey, onEditBlock, onEditMarkdown, onEditRequestHandled])
+  }, [editRequestKey, editRequestSeed, onEditBlock, onEditMarkdown, onEditRequestHandled])
   // 没有定位块时的整段编辑开关
   const [editingAll, setEditingAll] = useState(false)
+
 
   if (!seg) return null
 
@@ -123,6 +151,22 @@ export function SegmentMarkdown({
   }
 
   const blocks = seg.blocks ?? []
+
+  // 分歧按页号分组：挂到该页**第一行之前**。
+  //
+  // 刻意不做行级精确匹配：一条分歧的「行」可能横跨多个 block（MinerU 把整页压成
+  // 1 行、VL 分成几十行），`blocks[].text` 还被截断过，实测只有约 2/3 能对上。
+  // 按页挂是律师真正需要的粒度——「这一页有疑问，翻过去看」，成本也低得多。
+  const byPage = new Map<number, { items: EngineDisagreement[]; keys: string[] }>()
+  const pageSet = new Set(seg.refs.map((r) => r.p))
+  engineItems.forEach((d, i) => {
+    const k = engineKeys[i]
+    if (!k || !pageSet.has(d.page_no)) return
+    const bucket = byPage.get(d.page_no) ?? { items: [], keys: [] }
+    bucket.items.push(d)
+    bucket.keys.push(k)
+    byPage.set(d.page_no, bucket)
+  })
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -176,24 +220,58 @@ export function SegmentMarkdown({
           {blocks.length > 0 ? (
             blocks.map((b, i) => {
               const key = blockKeyOf(seg, b, i)
+              // 该页第一行之前挂上这一页的分歧：律师读到 P1 的正文前，
+              // 先看到「P1 有 2 处两引擎读得不一样」。
+              // 判据用「上一行的页号不同」，而不是「本行是第 0 行」——
+              // 一个 block 可能有多行同页，插在首行前才自然。
+              const isFirstOfPage = i === 0 || blocks[i - 1]!.page !== b.page
+              const pageBucket = isFirstOfPage ? byPage.get(b.page) : undefined
               return (
-                <BlockRow
-                  key={key}
-                  blockKey={key}
-                  text={b.text || ''}
-                  page={b.page}
-                  approx={b.rect.approx}
-                  active={key === focusedBlockKey}
-                  editing={editingKey === key}
-                  onLocate={onLocateBlock}
-                  onRemove={onRemoveBlock}
-                  onStartEdit={onEditBlock ? setEditingKey : undefined}
-                  onCommitEdit={(text) => {
-                    onEditBlock?.(key, text)
-                    setEditingKey(null)
-                  }}
-                  onCancelEdit={() => setEditingKey(null)}
-                />
+                <Fragment key={key}>
+                  {pageBucket && (
+                    <EngineDisagreementsInline
+                      seg={seg}
+                      items={pageBucket.items}
+                      keys={pageBucket.keys}
+                      checked={engineChecked}
+                      onJump={onJumpEngine}
+                      onToggleChecked={onToggleEngineChecked}
+                      onAdopt={onAdoptEngine}
+                      onEdit={onEditEngine}
+                      inconsistencies={inconsistencies}
+                      heading={`P${b.page} 分歧`}
+                    />
+                  )}
+                  <BlockRow
+                    key={key}
+                    blockKey={key}
+                    text={b.text || ''}
+                    page={b.page}
+                    approx={b.rect.approx}
+                    active={key === focusedBlockKey}
+                    editing={editingKey === key}
+                    seedText={editingKey === key ? editSeed : null}
+                    onLocate={onLocateBlock}
+                    onRemove={onRemoveBlock}
+                    onStartEdit={
+                      onEditBlock
+                        ? (k) => {
+                            setEditSeed(null)
+                            setEditingKey(k)
+                          }
+                        : undefined
+                    }
+                    onCommitEdit={(text) => {
+                      onEditBlock?.(key, text)
+                      setEditingKey(null)
+                      setEditSeed(null)
+                    }}
+                    onCancelEdit={() => {
+                      setEditingKey(null)
+                      setEditSeed(null)
+                    }}
+                  />
+                </Fragment>
               )
             })
           ) : (

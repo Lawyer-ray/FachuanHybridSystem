@@ -68,12 +68,12 @@ describe('isSelectionContiguous', () => {
 })
 
 describe('splitOutPages', () => {
-  it('中间切出一段：残段与新段默认名按类型优先、其次源名-P起始页', () => {
+  it('中间切出一段：残段与新段默认名一律「源名-P起始页」', () => {
     const d = splitOutPages(fixture(), [{ mi: 0, p: 2 }])
     expect(d.segs).toHaveLength(4)
     const [head, cut, tail, other] = d.segs
-    // 头尾都带着类型「起诉状」→ 名字跟类型走；两份同名时后者加 -P 区分
-    expect(head).toMatchObject({ t: '起诉状', fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }], manual: false })
+    // 类型功能已移除：头/尾残段仍带着旧草稿的 t，但名字只按源名 + 起始页
+    expect(head).toMatchObject({ t: '起诉状', fn: '起诉状-P1.pdf', refs: [{ mi: 0, p: 1 }], manual: false })
     expect(cut).toMatchObject({ t: '', fn: '起诉状-P2.pdf', manual: true })
     expect(cut!.refs).toEqual([{ mi: 0, p: 2 }])
     expect(tail).toMatchObject({ t: '起诉状', fn: '起诉状-P3.pdf', refs: [{ mi: 0, p: 3 }], manual: false })
@@ -112,7 +112,7 @@ describe('mergeSegsIntoOne 多选段合并', () => {
     expect(d.segs[0]).toMatchObject({ t: '', fn: '起诉状-P1.pdf', manual: true, fnAuto: '起诉状-P1.pdf' })
   })
 
-  it('类型全部一致 → 沿用类型名；传入乱序也按文档序落地', () => {
+  it('合并后的新段不再推断类型；传入乱序也按文档序落地', () => {
     const same: DraftState = {
       ...fixture(),
       segs: [
@@ -121,7 +121,8 @@ describe('mergeSegsIntoOne 多选段合并', () => {
       ],
     }
     const d = mergeSegsIntoOne(same, [1, 0])
-    expect(d.segs[0]).toMatchObject({ t: '证据', fn: '证据.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
+    // 类型功能已移除：不再「类型全部一致就沿用类型名」，t 一律清空、名字按源名
+    expect(d.segs[0]).toMatchObject({ t: '', fn: '起诉状-P1.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
   })
 
   it('少于两份 / 越界下标 → 原样返回', () => {
@@ -136,11 +137,11 @@ describe('mergePagesIntoNew', () => {
     const d = mergePagesIntoNew(fixture(), [{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
     expect(d.segs).toHaveLength(3)
     // 首选页 0/3 在 seg-a：seg-a 剩下的 P1–2 留在前面，合并段紧随其后，seg-b 残段在后
-    expect(d.segs[0]).toMatchObject({ fn: '起诉状.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
+    expect(d.segs[0]).toMatchObject({ fn: '起诉状-P1.pdf', refs: [{ mi: 0, p: 1 }, { mi: 0, p: 2 }] })
     const merged = d.segs[1]
     expect(merged).toMatchObject({ t: '', fn: '起诉状-P3.pdf', manual: true })
     expect(merged!.refs).toEqual([{ mi: 0, p: 3 }, { mi: 1, p: 1 }])
-    expect(d.segs[2]).toMatchObject({ fn: '证据.pdf', refs: [{ mi: 1, p: 2 }] })
+    expect(d.segs[2]).toMatchObject({ fn: '证据-P2.pdf', refs: [{ mi: 1, p: 2 }] })
   })
 
   it('取走整份材料后空段被清理；并出来的恰是整份时默认名变回源文件名', () => {

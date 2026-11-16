@@ -48,9 +48,9 @@ class ArchiveClassificationRuleAdmin(admin.ModelAdmin):  # pragma: no cover
             return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         try:
-            from apps.contracts.services.archive.learning_service import ArchiveLearningService
+            from apps.contracts.services.archive.wiring import build_archive_learning_service
 
-            service = ArchiveLearningService()
+            service = build_archive_learning_service()
             result = service.learn_from_archived_materials()
             return JsonResponse(
                 {
@@ -71,9 +71,9 @@ class ArchiveClassificationRuleAdmin(admin.ModelAdmin):  # pragma: no cover
             return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         try:
-            from apps.contracts.services.archive.learning_service import ArchiveLearningService
+            from apps.contracts.services.archive.wiring import build_archive_learning_service
 
-            service = ArchiveLearningService()
+            service = build_archive_learning_service()
             result = service.export_rules_to_code()
             return JsonResponse(
                 {
@@ -89,9 +89,9 @@ class ArchiveClassificationRuleAdmin(admin.ModelAdmin):  # pragma: no cover
     @admin.action(description="导出选中规则到代码文件")
     def export_selected_rules_to_code(self, request: HttpRequest, queryset: Any) -> None:  # pragma: no cover
         """Admin action：导出选中规则到代码文件。"""
-        from apps.contracts.services.archive.learning_service import ArchiveLearningService
+        from apps.contracts.services.archive.wiring import build_archive_learning_service
 
-        service = ArchiveLearningService()
+        service = build_archive_learning_service()
         result = service.export_rules_to_code()
         self.message_user(
             request,

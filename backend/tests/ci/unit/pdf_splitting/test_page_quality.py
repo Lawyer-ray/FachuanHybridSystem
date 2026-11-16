@@ -275,6 +275,56 @@ class TestContract:
         layout = {"blocks": [{"type": "Table", "text": ""}]}
         assert assess_page_quality(page_no=8, text="宗地图", layout=layout).kind == "graphic"
 
+    def test_p147_land_map_when_text_already_contains_table(self) -> None:
+        """关键回归：表格内容已并入 ``text`` 时，宗地图仍必须判成「请核对原图」。
+
+        重构后 ``parsed.text`` 包含表格正文（HTML 去标签）。旧判据把
+        ``text`` 与 ``table_body`` **拼接**算字数：同一段内容算两遍，量纲也不再是
+        「这张表读出来多少字」。对 p147 这种「图被当成 table 块、抽不出字」的页，
+        重复计入会把它伪装成「表里有内容」，图形页提示直接失效。
+
+        新判据只看**表格块自己**的结构与去标签内容，与 ``text`` 解耦。
+        """
+        layout = {
+            "blocks": [
+                # p147 实况：table 块只有 6 字（HTML 去标签后的实际内容）
+                {"type": "table", "text": "宗地图", "table_body": "<td>宗地图</td>"},
+            ]
+        }
+        # text 里同一段表格内容又出现一次（真实后端就是这样拼的）
+        quality = assess_page_quality(page_no=147, text="宗地图 宗地图", layout=layout)
+        assert quality.kind == "graphic"
+        assert "请核对原图" in quality.reason
+        assert quality.needs_visual_review is True
+
+    def test_table_body_is_not_double_counted(self) -> None:
+        """字数量纲：同一个表格块的 ``text`` 与 ``table_body`` **不叠加**。
+
+        叠加的话 p147 那 6 字会被算成 12 字（仍 < 50，看不出问题），真正要防的是
+        量纲漂移：真实卷宗一张 30 字的图形表格块重叠后会跨过 50 的阀值，
+        图形页被判成正常页。这里用“刚好卡在阀值附近”的数据锁住两不叠加的语义。
+        """
+        table_text = "宗地图界址点坐标表说明文字共三十字含标点符号说明"  # 26 字
+        layout = {
+            "blocks": [
+                {"type": "table", "text": table_text, "table_body": f"<td>{table_text}</td>"},
+            ]
+        }
+        # 只按一份算：26 字 < 50 → 图形页（有表格结构、内容极少）
+        assert assess_page_quality(page_no=147, text=table_text, layout=layout).kind == "graphic"
+
+    def test_table_body_html_tags_do_not_count_as_content(self) -> None:
+        """HTML 标签不是内容：空表的 ``<td></td>`` 不能凑出「表里有内容」的假象。"""
+        layout = {"blocks": [{"type": "table", "text": "", "table_body": "<table><tr><td></td></tr></table>"}]}
+        assert assess_page_quality(page_no=147, text="", layout=layout).kind == "graphic"
+
+    def test_real_table_body_still_text(self) -> None:
+        """反例：真表格的 ``table_body`` 字数远超阀值时仍是正常文本页。"""
+        cells = "".join(f"<td>第{index}笔 1000000 元</td>" for index in range(100))
+        layout = {"blocks": [{"type": "table", "text": "", "table_body": f"<table><tr>{cells}</tr></table>"}]}
+        quality = assess_page_quality(page_no=8, text="欠款明细" * 100, layout=layout)
+        assert quality.kind == "text"
+
 
 class TestDocHint:
     """证件识别 + 关键字段缺失：把「内容较少」换成律师看得懂的一句话。

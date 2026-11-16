@@ -72,11 +72,13 @@ def derive_preferences_for_user(user_id: int) -> dict[str, Any]:
 
     零 LLM、零幻觉：读的是 ``AgentApproval`` 与 ``AgentRun`` 的既有审计数据。
     """
-    from apps.organization.models import Lawyer
+    from django.apps import apps as django_apps
 
     from . import memory_service
 
-    lawyer = Lawyer.objects.filter(pk=user_id).first()
+    # 跨 app 模型延迟解析（agent 不静态依赖 organization，与 session_service 同口径）
+    lawyer_model = django_apps.get_model("organization", "Lawyer")
+    lawyer: Any = lawyer_model.objects.filter(pk=user_id).first()
     if lawyer is None:
         return {"ok": False, "reason": "lawyer_not_found"}
     try:
@@ -135,10 +137,20 @@ def _register_schedules() -> None:
 
     用 ``schedule_exists`` 守卫：重复部署不会产生重复任务。与
     ``apps/core/tasking/cleanup_tasks._register_schedules`` 同一模式。
+
+    异常分级：调度表未 migrate、并发注册竞态属预期内降级（debug，下次
+    启动会补注册）；导入失败等真实配置错误必须 warning 可见——吞成 debug
+    会让「行为推断从来没跑过」无处可查。
     """
+    from django.db.utils import IntegrityError, OperationalError, ProgrammingError
+
     try:
         from apps.core.tasking import ScheduleQueryService
+    except ImportError:
+        logger.warning("记忆定时任务注册失败：调度服务导入异常（配置错误）", exc_info=True)
+        return
 
+    try:
         svc = ScheduleQueryService()
         # 每日一次：行为推断读的是审批与运行统计，一天一变更已足够。
         name = "agent:derive_behavior_memories"
@@ -157,5 +169,11 @@ def _register_schedules() -> None:
                 minutes=24 * 60,
             )
             logger.info("已注册定时任务: %s", name)
+    except (OperationalError, ProgrammingError):
+        # 启动期调度表可能尚未 migrate：预期内降级，不阻断 app 启动
+        logger.debug("记忆定时任务注册跳过（调度表未就绪）")
+    except IntegrityError:
+        # 多 worker 并发注册的竞态：同名调度已存在即目标达成
+        logger.debug("记忆定时任务注册跳过（同名调度已存在）")
     except Exception:
-        logger.debug("记忆定时任务注册跳过（未就绪）")
+        logger.warning("记忆定时任务注册失败", exc_info=True)

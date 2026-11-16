@@ -219,9 +219,9 @@ class TestChatServiceRegistersLiveSession:
         async def fake_model() -> str | None:
             return None
 
-        monkeypatch.setattr(chat_service, "get_pool", fake_pool)
-        monkeypatch.setattr(chat_service, "_resolve_model", fake_model)
-        monkeypatch.setattr(chat_service, "stream_events", fake_stream)
+        monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_pool)
+        monkeypatch.setattr("apps.agent.services.chat.pool._resolve_model", fake_model)
+        monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
         monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
 
         session = await sync_to_async(AgentSession.objects.create)(title="")
@@ -266,9 +266,9 @@ class TestChatServiceRegistersLiveSession:
         async def fake_model() -> str | None:
             return None
 
-        monkeypatch.setattr(chat_service, "get_pool", fake_pool)
-        monkeypatch.setattr(chat_service, "_resolve_model", fake_model)
-        monkeypatch.setattr(chat_service, "stream_events", fake_stream)
+        monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_pool)
+        monkeypatch.setattr("apps.agent.services.chat.pool._resolve_model", fake_model)
+        monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
         monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
 
         session = await sync_to_async(AgentSession.objects.create)(title="")

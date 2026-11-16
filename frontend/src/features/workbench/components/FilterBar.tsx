@@ -112,7 +112,7 @@ export function FilterBar({ facets, filter, onChange }: FilterBarProps) {
           value={filter.q}
           onChange={(e) => set({ q: e.target.value })}
           type="text"
-          placeholder="搜索合同（名称）"
+          placeholder="搜索项目（名称）"
           className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
         />
         <kbd className="rounded-[5px] border border-border bg-secondary px-1 text-[10px] text-muted-foreground">/</kbd>

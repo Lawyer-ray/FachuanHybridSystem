@@ -132,6 +132,7 @@ export function useReaderScreen() {
     narrow,
     railOpen: view.railOpen,
     metaOpen: view.metaOpen,
+    onOpenMeta: view.openMeta,
     onCollapsePanels: view.collapsePanels,
     railWrapCls: widths.railWrapCls,
     metaWrapCls: widths.metaWrapCls,

@@ -161,7 +161,11 @@ class TestThreadSensitiveAudit:
         本用例不是「不许新增」，而是「新增必须被看见」：改动时把新数字填进
         _BASELINE 并说明为何该处必须并行。基线取修复后 AST 口径实测值。
         """
-        _BASELINE = 58  # 2026-11-03 修复后 AST 实测（原 rg 口径 66 含注释行，非真实调用）
+        # 2026-11-03 修复后 AST 实测 58（原 rg 口径 66 含注释行，非真实调用）。
+        # 2026-11-16 → 59：document_parsing 云回调（webhook）引入后，
+        # task_dispatch_service._prepare_callback 为每条解析记录写一次 callback_seed
+        # （单行 update，与同文件其他 sync_to_async 同口径）。
+        _BASELINE = 59
         root = Path(__file__).resolve().parents[4] / "apps"
         found = self._count_thread_insensitive(root)
         total = sum(found.values())
