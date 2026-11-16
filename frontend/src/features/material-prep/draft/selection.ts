@@ -137,12 +137,12 @@ export function mergeSegsIntoOne(d: DraftState, sis: number[]): DraftState {
     .filter((_, i) => picked.has(i))
     .flatMap((sg) => sg.refs)
     .sort((a, b) => (order.get(`${a.mi}:${a.p}`) ?? 0) - (order.get(`${b.mi}:${b.p}`) ?? 0))
-  const types = new Set(d.segs.filter((_, i) => picked.has(i)).map((sg) => sg.t).filter(Boolean))
-  const t = types.size === 1 ? [...types][0]! : ''
+  // 类型功能已移除：合并后的新段不再继承/推断 `t`。老草稿里残留的 `t` 只在
+  // 头/尾残段上原样带过去（见上面 splitOut），不做任何新赋值。
   const merged: Segment = {
     id: nextSegId(),
-    t,
-    fn: defaultSegName(d, refs, false, t),
+    t: '',
+    fn: defaultSegName(d, refs, false),
     refs,
     manual: true,
   }

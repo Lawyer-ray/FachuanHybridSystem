@@ -227,7 +227,7 @@ export function Flow({
               seg={seg}
               si={si}
               color={color}
-              classified={!!seg.t || !isAutoSegName(draft, seg)}
+              classified={!isAutoSegName(draft, seg)}
               onRename={(name) => onOp.renameSeg(si, name)}
               onMerge={() => onOp.mergeSeg(si)}
             />

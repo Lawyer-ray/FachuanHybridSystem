@@ -26,7 +26,6 @@ export {
   splitSegment,
   mergeSegment,
   moveSegment,
-  setSegmentType,
   renameSegment,
   resetSegments,
   setPackStatus,

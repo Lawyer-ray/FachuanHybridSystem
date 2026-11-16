@@ -181,7 +181,9 @@ const PackRow = memo(function PackRow({
 }) {
   const badge = statusBadge(pack, finished)
   const kinds = pack.types ?? []
-  const restUnclassified = pack.segs - kinds.length
+  // 同上：未归类 = segs - named（后端 named 已把「改过名」计入），
+  // 不能用 segs - kinds.length，否则已改名的段会被误报未归类。
+  const restUnclassified = Math.max(0, pack.segs - pack.named)
   const time = friendlyTime(pack.received_at, { fallback: pack.received_at, else: 'md' })
 
   return (

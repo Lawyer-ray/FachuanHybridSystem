@@ -4,15 +4,9 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuRadioGroup,
-  ContextMenuRadioItem,
   ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { SEGMENT_TYPES } from '../../constants'
 import { docTypeLabel, segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
@@ -29,7 +23,7 @@ export type DropPos = 'before' | 'after'
 
 /**
  * 左栏的一行段：点击跳转、⌘/⇧点 多选、双击（或右键→重命名）行内改名、
- * 右键选类型 / 并入上一份、拖拽移动段序（上半=插到前面，下半=插到后面）。
+ * 右键重命名 / 并入上一份、拖拽移动段序（上半=插到前面，下半=插到后面）。
  *
  * 类型没有 pill：选了类型名字会自动变成「类型.pdf」，元数据在右键菜单里改。
  */
@@ -49,7 +43,6 @@ export function RailSegRow({
   onFocus,
   onSelectRow,
   onRename,
-  onSetType,
   onMerge,
   onDragStartRow,
   onHoverDrop,
@@ -77,7 +70,6 @@ export function RailSegRow({
   /** 带修饰键的点击（多选 / 区间选），e 传下去判断 meta/ctrl/shift */
   onSelectRow: (e: React.MouseEvent) => void
   onRename: (name: string) => void
-  onSetType: (t: string) => void
   onMerge?: () => void
   onDragStartRow: () => void
   /** dragOver 悬停时上报插入位置（上半 / 下半） */
@@ -162,7 +154,7 @@ export function RailSegRow({
           {/* 这里原本是一个按段类型上色的圆点（SEG_COLORS）。已按反馈移除：
               左栏是「找材料」的目录，不是按类型分类的图表；一圈彩色点只会
               把视线从「段名」上拽开，而段名才是律师真正在找的东西。
-              类型仍然可见：行内已显示了类型名胶囊，右键菜单也仍是选类型的入口。 */}
+              类型仍然可见：行内已显示了类型名胶囊（老草稿才有）。 */}
           {editing ? (
             <input
               autoFocus
@@ -214,25 +206,9 @@ export function RailSegRow({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-[180px]">
+        {/* 「选类型」已移除：类型词表是 24 个固定选项，而律师需要的只是「这份叫什么」。
+            重命名一个入口就能表达，且它才是归案判定看的那个信号（fnAuto）。 */}
         <ContextMenuItem onSelect={onStartEdit}>重命名</ContextMenuItem>
-        <ContextMenuSub>
-          <ContextMenuSubTrigger>选类型</ContextMenuSubTrigger>
-          <ContextMenuSubContent className="max-h-[320px] overflow-y-auto">
-            <ContextMenuRadioGroup value={seg.t} onValueChange={onSetType}>
-              {SEGMENT_TYPES.map((t) => (
-                <ContextMenuRadioItem key={t} value={t}>
-                  {t}
-                </ContextMenuRadioItem>
-              ))}
-            </ContextMenuRadioGroup>
-            {seg.t && (
-              <>
-                <ContextMenuSeparator />
-                <ContextMenuItem onSelect={() => onSetType('')}>清除类型</ContextMenuItem>
-              </>
-            )}
-          </ContextMenuSubContent>
-        </ContextMenuSub>
         {onMerge && (
           <>
             <ContextMenuSeparator />

@@ -259,7 +259,6 @@ export function ReaderBody({
             onFocusSeg={onFocusSeg}
             onRenameMat={onRenameMat}
             onRenameSeg={flowOps.renameSeg}
-            onSetSegType={flowOps.setSegType}
             onMergeSeg={flowOps.mergeSeg}
             onMergeSegs={flowOps.mergeSegs}
             onMoveSeg={flowOps.moveSeg}

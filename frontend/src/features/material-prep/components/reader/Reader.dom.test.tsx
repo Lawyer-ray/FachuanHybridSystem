@@ -160,7 +160,6 @@ const railCbs = vi.hoisted(() => ({
   onFocusSeg: null as null | ((si: number) => void),
   onRenameMat: null as null | ((mi: number) => void),
   onRenameSeg: null as null | ((si: number, n: string) => void),
-  onSetSegType: null as null | ((si: number, t: string) => void),
   onMergeSeg: null as null | ((si: number) => void),
 }))
 vi.mock('./Rail', () => ({
@@ -168,7 +167,6 @@ vi.mock('./Rail', () => ({
     railCbs.onFocusSeg = p.onFocusSeg as typeof railCbs.onFocusSeg
     railCbs.onRenameMat = p.onRenameMat as typeof railCbs.onRenameMat
     railCbs.onRenameSeg = p.onRenameSeg as typeof railCbs.onRenameSeg
-    railCbs.onSetSegType = p.onSetSegType as typeof railCbs.onSetSegType
     railCbs.onMergeSeg = p.onMergeSeg as typeof railCbs.onMergeSeg
     return (
       <div>

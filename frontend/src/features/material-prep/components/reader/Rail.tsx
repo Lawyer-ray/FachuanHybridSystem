@@ -10,7 +10,7 @@ import { useRailWidth } from './use-rail-width'
  * 左栏「源文件 → 段」目录。
  *
  * 行交互：点一下跳到该段；⌘/Ctrl+点 多选、⇧+点 选区间（选 ≥2 份时顶部出现操作条，
- * 可并成一份）；双击 / 右键「重命名」行内改名；右键选类型 / 并入上一份；
+ * 可并成一份）；双击 / 右键「重命名」行内改名；右键并入上一份；
  * 拖拽行到另一行的上半 / 下半 = 移动段序（学预览 App 的页列表，插入线实时可见）。
  * 源文件行右键可改源文件名。
  */
@@ -25,7 +25,6 @@ export function Rail({
   onFocusSeg,
   onRenameMat,
   onRenameSeg,
-  onSetSegType,
   onMergeSeg,
   onMergeSegs,
   onMoveSeg,
@@ -47,7 +46,6 @@ export function Rail({
   onFocusSeg: (si: number) => void
   onRenameMat: (mi: number) => void
   onRenameSeg: (si: number, name: string) => void
-  onSetSegType: (si: number, t: string) => void
   onMergeSeg: (si: number) => void
   onMergeSegs: (sis: number[]) => void
   onMoveSeg: (si: number, targetSi: number, position: 'before' | 'after') => void
@@ -93,7 +91,7 @@ export function Rail({
     docHintPages: docHintPagesOf(draft.segs[si], pageQuality),
     whole: isWholeMat(draft, si),
     auto: isAutoSegName(draft, draft.segs[si]!),
-    classified: !!draft.segs[si]!.t || !isAutoSegName(draft, draft.segs[si]!),
+    classified: !isAutoSegName(draft, draft.segs[si]!),
     selected: sel.includes(si),
     dropPos: drop?.si === si ? drop.pos : null,
     editing: editingSi === si,
@@ -114,7 +112,6 @@ export function Rail({
       setAnchor(si)
     },
     onRename: (name: string) => onRenameSeg(si, name),
-    onSetType: (t: string) => onSetSegType(si, t),
     onMerge: si > 0 ? () => onMergeSeg(si) : undefined,
     onDragStartRow: () => setDragSi(si),
     onHoverDrop: (pos: DropPos) => {

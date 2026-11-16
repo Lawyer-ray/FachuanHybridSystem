@@ -29,7 +29,6 @@ vi.mock('@/components/ui/context-menu', () => ({
   ContextMenuSubContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   ContextMenuSubTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
-vi.mock('../../constants', () => ({ SEGMENT_TYPES: ['起诉状', '证据'] }))
 vi.mock('../../draft', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../draft')>()
   return { ...actual, segRangeText: () => 'P1-P2' }
@@ -378,12 +377,13 @@ describe('RailSegRow：视觉态', () => {
 })
 
 describe('RailSegRow：右键菜单', () => {
-  it('菜单含重命名与选类型', () => {
+  it('菜单含重命名，且不再有「选类型」', () => {
     const { container, cbs, unmount } = renderRow()
     const menu = within(container).getByTestId('menu')
     fireEvent.click(within(menu).getByText('重命名'))
     expect(cbs.onStartEdit).toHaveBeenCalled()
-    expect(menu.textContent).toContain('选类型')
+    // 类型功能已移除：重命名是唯一归类入口
+    expect(menu.textContent).not.toContain('选类型')
     unmount()
   })
 })

@@ -120,6 +120,15 @@ class InboxMessageOut(SchemaMixin, Schema):
 
     @staticmethod
     def resolve_types(obj: InboxMessage) -> list[str]:
+        """段上出现过的类型名（最多 3 个）。
+
+        ⚠️ 前端的「选类型」入口已移除，**新数据不会再写 `t`**，所以这个字段对
+        新包恒为空。保留它只为**读老草稿**：存量草稿里 `t` 有值，前端仍能把
+        类型胶囊显示出来，而不是把历史类型信息丢掉。
+
+        判断「已归类份数」不要用这个字段的长度（前端曾经这么算），改看
+        `named` —— 它把「改过名」也算进去，在取消类型之后才是准确口径。
+        """
         segs = (obj.draft_state or {}).get("segs") or []
         seen: list[str] = []
         for s in segs:

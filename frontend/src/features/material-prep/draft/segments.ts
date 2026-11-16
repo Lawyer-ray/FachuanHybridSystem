@@ -1,4 +1,4 @@
-import { SEGMENT_TYPES } from '../constants'
+
 import type { AssignInfo, BundleMat, DraftState, PackStatus, PageKey, PositionedBlock, Segment } from '../types'
 import { matLabel, withDefaultNames } from './labels'
 import { initialSegments } from './resolve'
@@ -61,25 +61,23 @@ export function moveSegment(d: DraftState, si: number, targetSi: number, positio
 }
 
 /** 打上「人工改过某字段」的痕迹；只置位不取消——律师改过就是改过，回退也不抹掉 */
-function markManualEdit(seg: Segment, what: 'md' | 'name' | 'type'): Segment {
+function markManualEdit(seg: Segment, what: 'md' | 'name'): Segment {
   return { ...seg, manualEdit: { ...seg.manualEdit, [what]: true, at: new Date().toISOString() } }
 }
 
-/** 改段类型；仍用默认名的段名字跟着类型走（「起诉状.pdf」），拆完选个类型就不用再改名 */
-export function setSegmentType(d: DraftState, si: number, t: string): DraftState {
-  if (si < 0 || si >= d.segs.length || t === d.segs[si]!.t) return d
-  const segs = d.segs.map((sg, i) => (i === si ? markManualEdit({ ...sg, t }, 'type') : sg))
-  return withDefaultNames({ ...d, segs })
-}
-
-/** 改段名；名字恰好是类型词（如「借条.pdf」）时自动归类——改名即归类，一个控件两个信息 */
+/**
+ * 改段名——这是**唯一**的归类入口。
+ *
+ * 原先还有一个 `setSegmentType`（右键选类型）跟它并列。已移除：类型词表有 24 个
+ * 固定选项，而律师真正需要表达的只是「这份材料叫什么」，改名天然能覆盖。
+ * 两个入口还会让「已归类」的判定分裂成两条（`t` 与 `fnAuto`），
+ * 现在统一看 `fnAuto`：名字与系统默认名不同 = 律师亲自命名过。
+ */
 export function renameSegment(d: DraftState, si: number, fn: string): DraftState {
   if (si < 0 || si >= d.segs.length) return d
   const name = fn.trim()
   if (!name || name === d.segs[si]!.fn) return d
-  const base = name.replace(/\.[^.]+$/, '')
-  const matched = SEGMENT_TYPES.find((t) => t === base)
-  const segs = d.segs.map((sg, i) => (i === si ? markManualEdit({ ...sg, fn: name, t: matched ?? sg.t }, 'name') : sg))
+  const segs = d.segs.map((sg, i) => (i === si ? markManualEdit({ ...sg, fn: name }, 'name') : sg))
   return withDefaultNames({ ...d, segs })
 }
 

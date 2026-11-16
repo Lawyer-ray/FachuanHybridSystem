@@ -57,7 +57,7 @@ export function useReaderToolbarProps(params: {
   const st = useReaderStoreFields()
 
   // 归案唯一入口：没归完类不打开弹窗，跳到第一个未归类的段并提示
-  //（未归类 = 没类型且名字还是默认名；改名或右键选类型都算处理过）
+  //（未归类 = 名字仍是系统默认名；改名是唯一的归类入口）
   const handleAssign = () => {
     // 没草稿时归案无从谈起（bodyProps.draft 非空已由 Reader 保证，
     // 但 hook 参数类型允许 null，这里显式守卫）。
@@ -68,9 +68,9 @@ export function useReaderToolbarProps(params: {
     const unclassified = countUnclassified(draft)
     const allClassified = draft.segs.length > 0 && unclassified === 0
     if (!allClassified) {
-      const first = draft.segs.findIndex((s) => !s.t && isAutoSegName(draft, s))
+      const first = draft.segs.findIndex((s) => isAutoSegName(draft, s))
       if (first >= 0) onFocusSeg(first)
-      toast.info(`还有 ${unclassified} 份没命名 —— 双击左栏改名，或右键选类型`)
+      toast.info(`还有 ${unclassified} 份没命名 —— 双击左栏那行改名，或右键「重命名」`)
       return
     }
     st.setAssignOpen(true)
