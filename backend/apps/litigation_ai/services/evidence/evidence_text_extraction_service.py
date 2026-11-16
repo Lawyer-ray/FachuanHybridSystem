@@ -6,6 +6,34 @@ from typing import Any
 
 logger = logging.getLogger("apps.litigation_ai")
 
+#: 文本层少于该字符数视为「无有效文字层」（原阈值，保留）。
+_MIN_TEXT_CHARS = 20
+#: 扫描页判据：整页图像覆盖率 ≥ 该值 且 文本层 < _SCAN_MAX_TEXT_CHARS。
+#: 旧「<20 字才 OCR」会被扫描页上的印章核验语（「已核对与原件相符…」约 45 字）
+#: 骗过——永不 OCR，chunk 里只剩印章语。改用「整页大图 + 文字极少」双判据：
+#: 正常电子页要么无整页大图（覆盖率 0），要么图文混排文字 ≥200，不会白 OCR。
+_SCAN_IMAGE_COVERAGE = 0.5
+_SCAN_MAX_TEXT_CHARS = 200
+
+
+def _image_coverage(page: Any) -> float:
+    """页面被图像覆盖的面积占比（重叠图按面积和近似，封顶 1.0）。"""
+    page_area = page.rect.width * page.rect.height
+    if page_area <= 0:
+        return 0.0
+    covered = 0.0
+    for info in page.get_image_info():
+        bbox = info.get("bbox")
+        if bbox:
+            covered += max(0.0, bbox[2] - bbox[0]) * max(0.0, bbox[3] - bbox[1])
+    return min(covered / page_area, 1.0)
+
+
+def _needs_ocr(page: Any, text: str) -> bool:
+    if len(text) < _MIN_TEXT_CHARS:
+        return True
+    return _image_coverage(page) >= _SCAN_IMAGE_COVERAGE and len(text) < _SCAN_MAX_TEXT_CHARS
+
 
 class EvidenceTextExtractionService:
     def extract_chunks(self, file_path: str, max_pages: int | None = None) -> list[dict[str, Any]]:  # pragma: no cover
@@ -26,7 +54,7 @@ class EvidenceTextExtractionService:
             text = (page.get_text("text") or "").strip()
             method = "text"
 
-            if len(text) < 20:
+            if _needs_ocr(page, text):
                 ocr_text = self._try_ocr_fallback(page, ocr)
                 if ocr_text:
                     text = ocr_text

@@ -368,7 +368,11 @@ class CaseMaterialService:
             # （apps/cases/signals.py，内部 transaction.on_commit）在事务提交后清理，
             # 避免事务回滚后数据库行仍在、物理文件已被删。
             material.source_attachment = new_attachment
-            material.save(update_fields=["source_attachment"])
+            # 文件字节已换，段级溯源（哈希+段 ref）随之失效；包级来源仍成立，保留。
+            # 不清掉会让起草 RAG 把旧段的 md 喂给新文件——比没有 md 更糟。
+            material.source_file_hash = ""
+            material.source_segment_ref = ""
+            material.save(update_fields=["source_attachment", "source_file_hash", "source_segment_ref"])
 
             # 删除旧附件
             if old_attachment:

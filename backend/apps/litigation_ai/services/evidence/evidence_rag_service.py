@@ -6,6 +6,7 @@ from asgiref.sync import sync_to_async
 
 from apps.litigation_ai.models import EvidenceChunk
 
+from .evidence_draft_md_service import EvidenceDraftMdService, chunks_from_draft_segments
 from .evidence_embedding_service import EvidenceEmbeddingService
 from .evidence_text_extraction_service import EvidenceTextExtractionService
 from .evidence_vector_store_service import EvidenceVectorStoreService
@@ -22,13 +23,20 @@ class EvidenceRAGService:
         from ..wiring import get_evidence_query_service
 
         extraction = EvidenceTextExtractionService()
+        draft_md = EvidenceDraftMdService()
         items = get_evidence_query_service().list_evidence_item_ids_with_files_internal(evidence_item_ids)
         for item in items:
             if not item.file_path:
                 continue
             if EvidenceChunk.objects.filter(evidence_item_id=item.id).exists():
                 continue
-            chunks = extraction.extract_chunks(item.file_path, max_pages=max_pages_per_item)
+            # 优先消费预处理 md（律师核对过、含版面/表格）：有则全量切 chunk，
+            # 不受 max_pages_per_item 限制；无则回落 pymupdf 重抽（仍受页数上限）。
+            segments = draft_md.find_draft_segments(item.id)
+            if segments:
+                chunks = chunks_from_draft_segments(segments)
+            else:
+                chunks = extraction.extract_chunks(item.file_path, max_pages=max_pages_per_item)
             self._bulk_ingest(item.id, chunks)
 
     async def aensure_ingested(
@@ -38,6 +46,7 @@ class EvidenceRAGService:
         from ..wiring import get_evidence_query_service
 
         extraction = EvidenceTextExtractionService()
+        draft_md = EvidenceDraftMdService()
         items = await sync_to_async(get_evidence_query_service().list_evidence_item_ids_with_files_internal)(
             evidence_item_ids
         )
@@ -46,7 +55,11 @@ class EvidenceRAGService:
                 continue
             if await EvidenceChunk.objects.filter(evidence_item_id=item.id).aexists():
                 continue
-            chunks = await sync_to_async(extraction.extract_chunks)(item.file_path, max_pages=max_pages_per_item)
+            segments = await sync_to_async(draft_md.find_draft_segments)(item.id)
+            if segments:
+                chunks = chunks_from_draft_segments(segments)
+            else:
+                chunks = await sync_to_async(extraction.extract_chunks)(item.file_path, max_pages=max_pages_per_item)
             await sync_to_async(self._bulk_ingest)(item.id, chunks)
 
     def _bulk_ingest(self, evidence_item_id: int, chunks: list[dict]) -> None:

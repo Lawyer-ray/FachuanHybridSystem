@@ -63,6 +63,8 @@ class CaseMaterialQueryService:
                     "side": material.side,
                     "party_ids": [p.id for p in material.parties.all()],
                     "supervising_authority_id": material.supervising_authority_id,
+                    "source_message_id": material.source_message_id,
+                    "source_segment_ref": material.source_segment_ref or None,
                 }
             results.append(
                 {

@@ -5,6 +5,27 @@ description: 读取归档材料正文、解析文档、提取表格内容的指�
 
 # 材料与正文
 
+## 已预处理的材料包：优先读 draft segments，不要重新解析
+
+材料预处理（material-prep）里做过「自动识别」的材料包，分段正文（Markdown）
+已存在收件箱消息的 draft_state 里，且可能经过律师逐字核对——**这是质量最高
+的正文来源，优先于任何重新解析**。
+
+用 `get_material_draft_segments(message_id)` 读（message_id 即材料包 ID，
+材料预处理页 URL `/material-prep/<id>` 里的数字）：
+
+1. 先不传 `segment_index` 调一次，拿段目录（段名/类型/页区间/quality_flags/
+   md_chars）；`truncated=true` 时用 `offset` 翻页看全目录。
+2. 对需要的段传 `segment_index=<下标>` 取 md 全文；`md_truncated=true` 时
+   以 `md_offset=next_md_offset` 续读同一段，直到读全。
+3. `quality_flags` 非空或 `review_flag` 提示复核的段，引用其内容前提醒律师
+   该段识别质量存疑；`md_chars=0` 的段没有正文（多为照片/手写页），不要
+   当作「该材料无内容」下结论。
+
+**不要**对这类材料包再调 `extract_document_text` / `parse_document` 做 base64
+上传重解析：重解析拿不到律师的人工校对成果，质量更差且重复计费。
+`total_segs=0`（从未识别）时才回落到下面的解析路径。
+
 ## 归档材料的正文不在数据库里
 
 要读某份材料的实际内容，用 `extract_document_text`（返回纯文本）或

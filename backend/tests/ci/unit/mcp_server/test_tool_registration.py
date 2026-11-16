@@ -111,8 +111,8 @@ def test_no_unregistered_tools() -> None:
 def test_registration_count_matches_registry() -> None:
     """注册总数与线上工具面一致,防止注册面意外缩水。"""
     registered = _registered_names()
-    assert len(registered) == 423, (
-        f"注册工具数 {len(registered)} != 423。新增/删除工具时同步更新该基线数"
+    assert len(registered) == 424, (
+        f"注册工具数 {len(registered)} != 424。新增/删除工具时同步更新该基线数"
         "（2026-10-25: 410→409→415，删除 auto_namer_process 后新增 6 个记忆工具；"
         "再新增 ask_user 提问工具 → 416；子 agent 调研 + 引用核查 → 418；"
         "2026-10-26 新增 rewrite_folder_file → 419；新增四个 BARLC 东盟域外法查明工具"

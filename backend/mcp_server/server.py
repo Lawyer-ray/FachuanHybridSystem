@@ -224,6 +224,7 @@ from mcp_server.tools import (
     get_lawfirm,
     get_lawyer,
     get_lpr_sync_status,
+    get_material_draft_segments,
     get_message_source,
     get_pdf_split_job,
     get_pdf_split_page_preview,
@@ -1074,6 +1075,7 @@ _t(export_rotated_images)
 # 收件箱 - 消息
 _t(list_inbox_messages)
 _t(get_inbox_message)
+_t(get_material_draft_segments)
 _t(rename_inbox_attachment)
 _t(download_inbox_attachment)
 _t(preview_inbox_attachment)

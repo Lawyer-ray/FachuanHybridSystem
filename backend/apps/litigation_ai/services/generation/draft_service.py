@@ -17,6 +17,16 @@ from apps.litigation_ai.models import LitigationSession
 logger = logging.getLogger("apps.litigation_ai")
 
 
+def _excerpt_page_label(chunk: Any) -> str:
+    """摘录页码标注：段级 md chunk 带页区间，续块页码不可考（None）则不标。"""
+    start, end = chunk.page_start, chunk.page_end
+    if start and end and end != start:
+        return f" p{start}-{end}"
+    if start:
+        return f" p{start}"
+    return ""
+
+
 class DraftService:  # pragma: no cover
     """
     草稿生成服务(简化版,供 Agent 工具调用)
@@ -82,7 +92,7 @@ class LitigationDraftService:  # pragma: no cover
 
         from apps.litigation_ai.chains import LitigationDraftChain
 
-        from ..evidence.evidence_digest_service import EvidenceDigestService
+        from ..evidence.evidence_digest_service import EVIDENCE_EXCERPT_CHARS, EvidenceDigestService
         from ..session.context_service import LitigationContextService
 
         context_service = LitigationContextService()
@@ -124,7 +134,7 @@ class LitigationDraftService:  # pragma: no cover
                         "",
                         "# 证据摘录(检索匹配)",
                         *[
-                            f"[证据#{c.evidence_item_id} p{c.page_start}] {c.text[:500]}".strip()
+                            f"[证据#{c.evidence_item_id}{_excerpt_page_label(c)}] {c.text[:EVIDENCE_EXCERPT_CHARS]}".strip()
                             for c in retrieved
                             if c.text
                         ],

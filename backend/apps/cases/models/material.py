@@ -93,6 +93,11 @@ class CaseMaterial(models.Model):
         related_name="materials",
         verbose_name="主管机关",
     )
+    # 材料预处理溯源：归案 bind 时透传，供起草 RAG 找回律师核对过的分段 md。
+    # 不用 FK——inbox 消息可硬删，溯源是历史指针而非关系约束，查找侧容忍消息已删。
+    source_message_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="来源材料包消息ID")
+    source_segment_ref = models.CharField(max_length=64, blank=True, default="", verbose_name="来源分段标识")
+    source_file_hash = models.CharField(max_length=64, blank=True, default="", verbose_name="绑定附件SHA-256")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
