@@ -99,12 +99,71 @@ def find_stale_jobs(*, now: Any = None, stale_seconds: int = STALE_SECONDS) -> l
     return stale
 
 
+def _resume_task_for(job: PdfSplitJob) -> tuple[str, str, int | None]:
+    """按任务**当前阶段**决定从哪个任务入口续跑。
+
+    返回 ``(任务路径, 任务名称, 该阶段的临时预算秒数)``。预算为 None 时表示用
+    Django-Q 集群默认值（只有旧全量路径会落到这里）。
+
+    ## 为什么不能一律用 `execute_pdf_split_job`
+
+    那条是**旧全量路径**（`analyze_job` → `pipeline.analyze_pdf`），里面**不包含**
+    `cross_check_stage`。于是双引擎任务一旦被重排，就会静默退化成单引擎——
+    比对结果凭空消失，而律师那边看不出任何异常（任务照样跑完、照样出分段）。
+
+    更糟的是旧路径本身就是为了绕开 600s 硬超时才被拆掉的：它把取字 + 分段
+    挤在一次调用里，164 页实测跑到 499s 被杀。重排走回去等于等剂量地再死一次。
+
+    ## 各阶段的正确续跑点
+
+    | 任务当前阶段 | 续跑入口 | 理由 |
+    |---|---|---|
+    | `cross_check` | `run_cross_check_stage` | 取字产物已在 pages.json，只差比对 |
+    | `segment` | `run_segment_stage` | 取字 + 比对都已落盘，只差分段 |
+    | `extract` / 其它 | `run_extract_stage` | 从头取字（两阶段链路的正常起点） |
+
+    非内容分析任务（手工拆分 / 按页拆分）仍走旧的全量入口——它们本来就是
+    单一任务，没有阶段可复原。
+
+    ## 为什么预算也要跟进来
+
+    重排出来的任务如果不同时带上该阶段的 timeout，就会退回集群默认的 600s——
+    等于「看门狗救回来的任务，比它原先那次更容易死」。重排的意义是让任务活着
+    跑完，不是在 600s 处再杀它一次。
+    """
+    from apps.pdf_splitting.models import PdfSplitMode, PdfSplitStage
+    from apps.pdf_splitting.services.split.two_stage import (
+        CROSS_CHECK_STAGE_TIMEOUT_SECONDS,
+        EXTRACT_STAGE_TIMEOUT_SECONDS,
+        SEGMENT_STAGE_TIMEOUT_SECONDS,
+        TASK_CROSS_CHECK,
+        TASK_EXTRACT,
+        TASK_SEGMENT,
+    )
+
+    if job.split_mode != PdfSplitMode.CONTENT_ANALYSIS:
+        return "apps.pdf_splitting.tasks.execute_pdf_split_job", f"pdf_split_{job.id}", None
+
+    stage = getattr(job, "stage", PdfSplitStage.EXTRACT)
+    if stage == PdfSplitStage.CROSS_CHECK:
+        return TASK_CROSS_CHECK, f"pdf_split_cross_check_{job.id}", CROSS_CHECK_STAGE_TIMEOUT_SECONDS
+    if stage == PdfSplitStage.SEGMENT:
+        return TASK_SEGMENT, f"pdf_split_segment_{job.id}", SEGMENT_STAGE_TIMEOUT_SECONDS
+    return TASK_EXTRACT, f"pdf_split_extract_{job.id}", EXTRACT_STAGE_TIMEOUT_SECONDS
+
+
 def _requeue(job: PdfSplitJob) -> str:
-    """重新提交任务。返回动作描述。"""
+    """重新提交任务。返回动作描述。
+
+    入口按当前阶段选（见 `_resume_task_for`）：双引擎任务重排后**仍是双引擎**，
+    不会静默退化成旧全量路径；预算也一并带上，不会退回集群默认值再被杀一次。
+    """
+    task_path, task_name, timeout = _resume_task_for(job)
     task_id = build_task_submission_service().submit(
-        "apps.pdf_splitting.tasks.execute_pdf_split_job",
+        task_path,
         args=[str(job.id)],
-        task_name=f"pdf_split_{job.id}",
+        task_name=task_name,
+        timeout=timeout,
     )
     now = timezone.now()
     PdfSplitJob.objects.filter(id=job.id).update(
@@ -116,7 +175,7 @@ def _requeue(job: PdfSplitJob) -> str:
         error_message="",
         recovery_attempts=job.recovery_attempts + 1,
     )
-    return f"requeued(attempt={job.recovery_attempts + 1}, task_id={task_id})"
+    return f"requeued(attempt={job.recovery_attempts + 1}, path={task_path.rsplit('.', 1)[-1]}, task_id={task_id})"
 
 
 def _salvage_as_review(job: PdfSplitJob) -> str:

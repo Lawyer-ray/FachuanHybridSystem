@@ -12,7 +12,11 @@ Django-Q 的 worker 超时（`DJANGO_Q_TIMEOUT`，默认 600s）是**整个任�
 | 落库/建 Markdown | 十几秒 | |
 
 合在一起很轻松就超过 600s——实测 164 页任务跑到 499s 就被杀。拆开后每段
-各自有 600s 预算，两段都能稳住。
+有**自己独立的预算**（见下方 `*_STAGE_TIMEOUT_SECONDS`，由提交时逐任务传入
+django-q，覆盖集群默认值）。
+
+拆链只解决「前一段吃掉后一段的时间」，不解决「单段自己就不够」。云服务慢的时候
+双引擎一段就能超 600s，所以两件事都做了：拆链 + 按阶段放宽预算。
 
 ## 中间产物
 
@@ -48,6 +52,35 @@ TASK_EXTRACT = "apps.pdf_splitting.tasks.run_extract_stage"
 TASK_CROSS_CHECK = "apps.pdf_splitting.tasks.run_cross_check_stage"
 TASK_SEGMENT = "apps.pdf_splitting.tasks.run_segment_stage"
 
+#: 各阶段自己的 Django-Q 墙钟预算（秒）。
+#:
+#: ## 为什么不能只靠全局 `DJANGO_Q_TIMEOUT`
+#:
+#: 全局值是一个**所有任务共用**的数字，而这三个阶段的耗时特征差得很远：
+#:
+#: | 阶段 | 164 页实测 | 云服务慢时的合理上限 |
+#: |:--|:--|:--|
+#: | extract（单引擎取字） | ~2-4 分钟 | 20 分钟 |
+#: | cross_check（双引擎） | 269s（2026-11-16）| 45 分钟 |
+#: | segment（LLM 分段） | ~130s | 20 分钟 |
+#:
+#: 把全局值抬到能容忍最坏情况（45 分钟），等于让**每一个**普通任务都享有
+#: 45 分钟的失控窗口：真卡死时 worker 槽位要白占这么久才能回收。反之把全局
+#: 留在 600s，双引擎一遇云端排队/重传就会被硬杀，连 `finally` 都跑不到。
+#:
+#: 所以这里用 django-q 的**单任务 timeout**（`worker.py` 里
+#: `task.pop("timeout", timeout)`，每个任务可覆盖集群默认值）：全局保持小值
+#: 兜底，重活按需单独放宽。
+#:
+#: ## 数值怎么定的
+#:
+#: 都取「实测值 × 3 左右」的整数分钟，理由见 `mineru_backend.py` 的同一次事故：
+#: MinerU 那一路曾因 TCP 半死静默阻塞到 4347s（72 分钟），说明云服务侧的长尾
+#: 远超直觉。×3 是给「云端排队 + 一次重传」留余量，同时仍能在真卡死时收口。
+EXTRACT_STAGE_TIMEOUT_SECONDS = 20 * 60
+CROSS_CHECK_STAGE_TIMEOUT_SECONDS = 45 * 60
+SEGMENT_STAGE_TIMEOUT_SECONDS = 20 * 60
+
 
 def submit_extract_stage(job: PdfSplitJob) -> str:
     """提交第一阶段（取字）。"""
@@ -57,6 +90,7 @@ def submit_extract_stage(job: PdfSplitJob) -> str:
             TASK_EXTRACT,
             args=[str(job.id)],
             task_name=f"pdf_split_extract_{job.id}",
+            timeout=EXTRACT_STAGE_TIMEOUT_SECONDS,
         )
     )
 
@@ -72,13 +106,19 @@ def submit_cross_check_stage(job: PdfSplitJob) -> str:
     `django_q_task` 里一行都没有），DB 里只剩一个 `stage=cross_check` 的僵尸。
 
     心跳线程救不了这个：进程整个被杀，任何线程都没机会跑。唯一有效的做法
-    就是跟 `extract → segment` 一样拆成独立任务，让这一段有自己完整的 600s。
+    就是跟 `extract → segment` 一样拆成独立任务，让这一段有自己完整的预算。
+
+    预算取 `CROSS_CHECK_STAGE_TIMEOUT_SECONDS`（45 分钟）而不是集群默认的
+    600s：本阶段 164 页实测 269s，但那是**云端顺利时**的数字。云服务排队、
+    重传、网络抖动都会把它推过 600s——2026-11-16 那次就是 MinerU 单路阻塞到
+    4347s。留 45 分钟是为了让「慢但最终成功」不被误杀，同时仍能在真死时收口。
     """
     return str(
         build_task_submission_service().submit(
             TASK_CROSS_CHECK,
             args=[str(job.id)],
             task_name=f"pdf_split_cross_check_{job.id}",
+            timeout=CROSS_CHECK_STAGE_TIMEOUT_SECONDS,
         )
     )
 
@@ -86,7 +126,7 @@ def submit_cross_check_stage(job: PdfSplitJob) -> str:
 def submit_segment_stage(job: PdfSplitJob) -> str:
     """提交分段阶段。
 
-    独立提交是拆链的关键：前面每个阶段无论成功或失败，本阶段的 600s 预算
+    独立提交是拆链的关键：前面每个阶段无论成功或失败，本阶段的预算
     都是全新的，不会被前面阶段的耗时抵掉。
     """
     return str(
@@ -94,6 +134,7 @@ def submit_segment_stage(job: PdfSplitJob) -> str:
             TASK_SEGMENT,
             args=[str(job.id)],
             task_name=f"pdf_split_segment_{job.id}",
+            timeout=SEGMENT_STAGE_TIMEOUT_SECONDS,
         )
     )
 

@@ -68,6 +68,34 @@ class MineruBackend:
     MODEL_VERSION = "vlm"
     POLL_INTERVAL = 1  # 轮询间隔（秒）
     POLL_TIMEOUT = 360  # 6 分钟，为解析任务轮询和结果下载预留队列时间
+
+    #: 单次轮询请求的超时（秒）。
+    #
+    # ⚠️ 故意比 `self.timeout`（元数据请求的 30s）短得多，且**不能用它做总时长判据**。
+    #
+    # 实测事故（2026-11-16，164 页全本双引擎）：
+    #   · POLL_TIMEOUT = 360s，但 MinerU 那一路实际跑了 4347s（72 分钟）
+    #   · 日志里「轮询请求失败」只有 8 条 —— 说明绝大部分时间在**静默阻塞**，
+    #     不是在失败重试
+    #
+    # 根因：httpx 的 `timeout` 是「单次连接/读写」超时，不是墙钟总时长。
+    # TCP 连接半死（对端网关丢了状态、NAT 表过时）时，内核会按系统级重传策略
+    # 死等 —— macOS 默认 75s 起，多次重传可达十几分钟。这期间 `client.get()`
+    # 根本不返回，`while` 里那句 `elapsed > POLL_TIMEOUT` 永远轮不到执行。
+    #
+    # 所以超时控制必须两道：
+    #   ① 单次请求短超时（这个值）—— 让卡住的连接尽快失败而不是死等；
+    #   ② 循环里的墙钟检查（POLL_TIMEOUT）—— 仍需保留，防「每次都刚好没超时」的累积。
+    POLL_REQUEST_TIMEOUT = 15
+
+    #: 轮询请求**连续**失败多少次就放弃。
+    #
+    # 与 POLL_TIMEOUT 是两条路：
+    #   · 云端在跑但慢 → 请求都成功（state=running），靠 POLL_TIMEOUT 收口
+    #   · 本地网络/代理挂了 → 请求一直失败，靠这个计数收口
+    # 不去重试到时间耗尽，是因为后者重试再多次也不会自愈，只是白占 worker 槽位。
+    POLL_MAX_CONSECUTIVE_ERRORS = 8
+
     RESULT_DOWNLOAD_ATTEMPTS = 3
 
     # 文件上传专用的**每阶段最小超时**（秒）。
@@ -431,25 +459,29 @@ class MineruBackend:
             ParsingTimeoutError: 超时
             MineruAPIError: 任务失败
         """
-        client = get_sync_http_client()
         headers = {
             "Authorization": f"Bearer {self._active_key}",
         }
 
         url = f"{self.BATCH_RESULTS_URL}/{batch_id}"
         start_time = time.time()
+        consecutive_errors = 0
+        last_state = "尚未拿到响应"
 
         while True:
             elapsed = time.time() - start_time
             if elapsed > self.POLL_TIMEOUT:
-                raise ParsingTimeoutError(f"任务超时 ({self.POLL_TIMEOUT}秒): batch_id={batch_id}")
+                # 把「实际跑了多久」与「最后一次看到的 state」一起写进去：
+                # 只有裸的「任务超时 (360秒)」无法区分「云端真慢」与「本地网络死了」。
+                raise ParsingTimeoutError(
+                    f"任务超时 ({self.POLL_TIMEOUT}秒, 实际 {elapsed:.0f}s): batch_id={batch_id}, 最后状态={last_state}"
+                )
 
             try:
-                response = client.get(
-                    url,
-                    headers=headers,
-                    timeout=self.timeout,
-                )
+                # 每次都新建客户端：共享工厂客户端的长连接经历一次 SSL 断连后会处于
+                # 半死状态，而复用它正是上面那次 72 分钟阻塞的直接土壤。
+                with httpx.Client(timeout=self.POLL_REQUEST_TIMEOUT, follow_redirects=True) as client:
+                    response = client.get(url, headers=headers)
                 response.raise_for_status()
                 result = response.json()
 
@@ -475,6 +507,8 @@ class MineruBackend:
                     raise MineruAPIError(f"任务失败: {err_msg}")
 
                 # waiting-file / pending / running — 继续轮询
+                last_state = str(state)
+                consecutive_errors = 0  # 拿到有效响应就清零：连续失败只算「一直失败」
                 logger.debug(
                     "任务进行中: batch_id=%s (state=%s, elapsed=%.1fs)",
                     batch_id,
@@ -486,7 +520,18 @@ class MineruBackend:
             except MineruAPIError:
                 raise
             except httpx.HTTPError as e:
-                logger.warning("轮询请求失败: %s，将重试", e)
+                consecutive_errors += 1
+                logger.warning("轮询请求失败（连续第 %d 次）: %s，将重试", consecutive_errors, e)
+                # 连接一直不通时不要空转到 POLL_TIMEOUT：连续失败达到上限就直接报错。
+                # 理由：这是**本地网络层**的问题（DNS / 代理 / TLS），重试再多次也不会好，
+                # 只会把 worker 死死占住一个队列槽位。而云端「跑得慢」是正常态，走
+                # POLL_TIMEOUT 那条路。两者要分开报，否则排障时无法区分。
+                if consecutive_errors >= self.POLL_MAX_CONSECUTIVE_ERRORS:
+                    raise MineruAPIError(
+                        f"轮询连续失败 {consecutive_errors} 次"
+                        f"（{type(e).__name__}: {e}），判断为本地网络/代理不可用，已放弃: "
+                        f"batch_id={batch_id}"
+                    ) from e
                 time.sleep(self.POLL_INTERVAL)
 
     def _download_result_zip(self, zip_url: str, zip_path: Path) -> None:
