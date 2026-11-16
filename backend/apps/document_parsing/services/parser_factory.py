@@ -65,7 +65,7 @@ def create_parser(
         IDocumentParserProtocol 解析器实例
     """
     if backend in (None, "", "auto"):
-        backend = _resolve_auto_backend()
+        backend = resolve_auto_backend()
 
     class_path = ParserFactory._BACKEND_REGISTRY.get(backend)
     if class_path is None:
@@ -135,8 +135,11 @@ def resolve_cloud_backends(cloud_backend: str | None = None) -> list[str]:
     return out
 
 
-def _resolve_auto_backend() -> str:
+def resolve_auto_backend() -> str:
     """auto 模式：选择优先级最高的启用解析平台；未配置任何平台时回退 local。
+
+    下发回调参数之前要先知道 auto 实际落到哪个平台，否则不知道要不要带回调、
+    带哪个平台的，所以这个内部函数额外提供一个公开名字供任务执行侧使用。
 
     DocumentParseProvider.provider_type 与 _BACKEND_REGISTRY 的键一致
     （textin / mineru），无需额外映射。

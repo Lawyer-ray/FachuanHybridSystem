@@ -1301,3 +1301,72 @@ class TestPollTimeoutIsEnforced:
 
         assert result["state"] == "done", "偶发断连不应被判成「网络不可用」"
         assert counter["n"] > backend.POLL_MAX_CONSECUTIVE_ERRORS
+
+
+# ── 批量上传 payload（is_ocr 嵌套位置） ──────────────────────────
+
+
+class TestBatchUploadPayload:
+    """``/api/v4/file-urls/batch`` 的 payload 字段与嵌套层级。
+
+    官方文档把批量接口的 OCR 开关写作 ``file.is_ocr``——即 **files 数组元素内的
+    字段**；顶层的 ``is_ocr`` 只属于单文件接口 ``/api/v4/extract/task``。
+    放错层服务端不报错，只是按默认 false 处理，扫描件解析出来是空白，所以这里
+    逐字段钉死位置。
+    """
+
+    @staticmethod
+    def _batch_ok_response() -> MagicMock:
+        return _mock_response(
+            200,
+            {"code": 0, "data": {"batch_id": "batch-ocr", "file_urls": ["https://oss.example.com/upload?sig=abc"]}},
+        )
+
+    def _capture_payload(self, file_name: str) -> dict:
+        """跑一次 `_request_upload_url`，返回真正发出去的 JSON body。"""
+        backend = _make_backend()
+        mock_client = MagicMock()
+        mock_client.post.return_value = self._batch_ok_response()
+
+        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+            batch_id, upload_url = backend._request_upload_url(file_name)
+
+        assert batch_id == "batch-ocr"
+        assert upload_url == "https://oss.example.com/upload?sig=abc"
+        mock_client.post.assert_called_once()
+        return mock_client.post.call_args.kwargs["json"]
+
+    def test_pdf_元素内显式开启ocr(self) -> None:
+        payload = self._capture_payload("劳动合同.pdf")
+
+        assert payload["files"][0]["is_ocr"] is True
+        # 顶层不能重复放：那是单文件接口的字段，混进批量接口只会误导后来人
+        assert "is_ocr" not in payload
+
+    def test_图片同样开启ocr(self) -> None:
+        for name in ("扫描件.jpg", "照片.JPEG", "截屏.png"):
+            payload = self._capture_payload(name)
+            assert payload["files"][0]["is_ocr"] is True, name
+
+    def test_办公文档不传ocr开关(self) -> None:
+        """docx/xlsx/pptx 由 MinerU 自己排版转换，不传 `is_ocr` 走服务端默认。"""
+        for name in ("起诉状.docx", "清单.xlsx", "证据.ppt", "明细.xls", "旧版.doc"):
+            payload = self._capture_payload(name)
+            assert "is_ocr" not in payload["files"][0], name
+
+    def test_顶层公共参数(self) -> None:
+        payload = self._capture_payload("卷宗.pdf")
+
+        assert payload["model_version"] == MineruBackend.MODEL_VERSION
+        assert payload["language"] == "ch"
+        assert payload["enable_table"] is True
+        # 法律卷宗无公式：关掉省时间，不影响质量
+        assert payload["enable_formula"] is False
+
+    def test_元素基础字段与公式开关(self) -> None:
+        payload = self._capture_payload("卷宗.pdf")
+
+        entry = payload["files"][0]
+        assert entry["name"] == "卷宗.pdf"
+        assert entry["data_id"], "data_id 用于回查业务数据，不能为空"
+        assert len(payload["files"]) == 1

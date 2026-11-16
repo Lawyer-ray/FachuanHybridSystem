@@ -519,6 +519,30 @@ if ALLOW_FIRST_USER_SUPERUSER and (not AUTO_REGISTER_BOOTSTRAP_PASSWORD):
 FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5090")
 
 # ============================================================
+# 文档解析：云端回调（webhook）
+# ============================================================
+# 云端解析平台（MinerU / Textin）完成任务后回调本站的基地址，形如
+# ``https://api.example.com``（不带尾斜杠，不带路径——具体路径由本服务拼）。
+#
+# **默认空字符串 = 不启用回调**：两个云后端继续用各自的轮询路径跑完任务。
+# 这是刻意的 fail-safe：回调要外部服务能从公网打进来（域名、网关、防火墙
+# 转发），本地开发与内网部署通常不具备，配不上就不该让解析整个不可用。
+# 生效前提见 ``apps/document_parsing/services/callback_config.py``。
+DOCUMENT_PARSE_WEBHOOK_BASE_URL = (os.environ.get("DOCUMENT_PARSE_WEBHOOK_BASE_URL", "") or "").strip()
+
+# MinerU 回调签名主体：MinerU 用 ``sha256(uid + seed + content)`` 作 checksum，
+# 其中 uid 是我们向 MinerU 注册的账号标识（见其回调文档的「用户 ID」），
+# seed 由本服务为每个任务随机生成并随请求发出。
+# 未配置 uid 时不启用 MinerU 回调（MinerU 侧要求用 callback 时必须带 seed）。
+MINERU_CALLBACK_UID = (os.environ.get("MINERU_CALLBACK_UID", "") or "").strip()
+
+# Textin 回调签名密钥。Textin 的 webhook 载荷签名字段官方未公开字段名/算法细节，
+# 本服务按「共享密钥 + 载荷签名头」双向校验：配置了密钥才启用 Textin 回调，
+# 并在回调里要求请求头携带 ``X-Webhook-Signature = sha256(secret + raw_body)``。
+# 未配置时不启用 Textin 回调（保持轮询），见 textin_backend.py 的说明。
+TEXTIN_CALLBACK_SECRET = (os.environ.get("TEXTIN_CALLBACK_SECRET", "") or "").strip()
+
+# ============================================================
 # CORS 配置
 # ============================================================
 

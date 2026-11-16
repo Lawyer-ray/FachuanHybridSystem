@@ -19,6 +19,9 @@ from asgiref.sync import sync_to_async
 
 from apps.core.tasking import submit_task
 from apps.document_parsing.models import DocumentParsingTask
+from apps.document_parsing.services.callback_config import is_callback_enabled
+from apps.document_parsing.services.callback_result_service import DocumentParsingCallbackResultService
+from apps.document_parsing.services.webhook_signature import generate_seed
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,10 @@ class DocumentParsingTaskDispatchService:
 
         created_by 记录归属人（审计 P1 修复），records 列表/详情按其过滤。
         返回值为记录 id（字符串），Q 任务 id 回写 q_task_id 供轮询端点内部反查。
+
+        backend 为云平台且已配置回调（见 ``callback_config``）时，额外为本次解析
+        生成 seed 并挂到任务上，worker 据此把 callback 参数发给云端；未配置时
+        seed 保持空串，worker 走原有轮询，行为与引入回调之前一致。
         """
         parsing_task = await sync_to_async(DocumentParsingTask.objects.create, thread_sensitive=False)(
             file_name=file_name,
@@ -56,6 +63,7 @@ class DocumentParsingTaskDispatchService:
             status=DocumentParsingTask.Status.PROCESSING,
             created_by=created_by,
         )
+        callback_seed = await sync_to_async(self._prepare_callback, thread_sensitive=False)(parsing_task.id, backend)
         task_id = await sync_to_async(submit_task, thread_sensitive=False)(
             PARSE_TASK_TARGET,
             str(file_path),
@@ -64,6 +72,8 @@ class DocumentParsingTaskDispatchService:
             extract_tables,
             extract_images,
             return_markdown,
+            callback_record_id=parsing_task.id,
+            callback_seed=callback_seed,
             task_name=f"document_parsing_{parsing_task.id}",
             hook=PARSE_TASK_HOOK,
             timeout=PARSE_TASK_TIMEOUT_SECONDS,
@@ -106,6 +116,20 @@ class DocumentParsingTaskDispatchService:
         )
         await sync_to_async(self._record_q_task_id, thread_sensitive=False)(parsing_task.id, task_id)
         return str(parsing_task.id)
+
+    def _prepare_callback(self, record_id: int, backend: str) -> str:
+        """为本次解析生成回调 seed 并写回记录；不启用回调时返回空串。
+
+        seed 存在记录上的用途有两个：worker 拿去随请求发给云端（MinerU 用它算
+        checksum），回调到达时再与会话里的 seed 对一次（挡住旧 seed 的重放）。
+        """
+        if not is_callback_enabled(backend):
+            return ""
+        seed = generate_seed()
+        service = DocumentParsingCallbackResultService()
+        if backend == "mineru":
+            service.bind_mineru_callback(record_id, seed)
+        return seed
 
     def _record_q_task_id(self, record_id: int, q_task_id: str) -> None:
         """把 Django-Q 任务 id 回写到解析记录（update 避免整行覆盖并发回写）。"""

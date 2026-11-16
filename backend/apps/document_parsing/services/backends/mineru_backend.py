@@ -1,4 +1,9 @@
-"""MinerU API 后端实现"""
+"""MinerU API 后端实现
+
+配置了回调（见 ``services/callback_config.py``）时，上传完成后不再轮询批量结果：
+把 ``callback`` / ``seed`` 随上传申请一起发给 MinerU，结果由
+`/api/v1/document-parsing/webhook/mineru` 推回。未配置时与原来完全一致。
+"""
 
 import json
 import logging
@@ -24,6 +29,7 @@ from apps.document_parsing.protocols.document_parser_protocol import (
     BLOCK_TYPE_TEXT,
     NON_BODY_BLOCK_TYPES,
     ParsedDocument,
+    PendingCallback,
     TextExtractionResult,
     normalize_block_type,
 )
@@ -44,6 +50,10 @@ _NO_LINE_LEVEL_BLOCK_TYPES: frozenset[str] = frozenset({BLOCK_TYPE_TABLE, BLOCK_
 #: model.json 的 bbox 是归一化 0-1，乘这个系数换成千分比 0-1000
 #: （与 content_list 主路径同一口径，见 ``resolve_bbox_unit('mineru') == 'permille'``）。
 _MODEL_JSON_BBOX_SCALE = 1000
+
+#: 需要显式开启 OCR 的后缀（PDF 与图片）。其余办公文档（doc/docx/ppt/pptx/xls/xlsx）
+#: 由 MinerU 先转 PDF 再解析，不传 ``is_ocr`` 走服务端默认，省一次识别。
+_OCR_REQUIRED_SUFFIXES: frozenset[str] = frozenset({".pdf", ".jpg", ".jpeg", ".png", ".jp2", ".webp", ".gif", ".bmp"})
 
 #: 判断 ocr_text 行框是否落在 text 块 y 范围 / x 范围重叠时的容差（千分比）。
 #: 两个文件来自不同的版面推理分支，同一条线的上下边界会有几像素级差异，
@@ -213,7 +223,9 @@ class MineruBackend:
             extract_tables: 是否提取表格（MinerU 默认提取）
             extract_images: 是否提取图片
             return_markdown: 是否返回 Markdown
-            **kwargs: 其他参数
+            **kwargs: ``callback_url`` / ``callback_seed`` 同时给出时走回调
+                （上传完即返回，结果由 `/api/v1/document-parsing/webhook/mineru` 写回）；
+                否则走原有轮询
 
         Returns:
             ParsedDocument 解析结果
@@ -225,12 +237,33 @@ class MineruBackend:
         start_time = time.time()
         logger.info("开始 MinerU 解析: %s", file_path)
 
+        callback_url = str(kwargs.get("callback_url") or "").strip()
+        callback_seed = str(kwargs.get("callback_seed") or "").strip()
+        if callback_url and not callback_seed:
+            # MinerU 要求用 callback 时必须带 seed，否则其侧会拒掉整个请求；
+            # 与其发一个注定失败的上传，不如当作未启用回调
+            logger.warning("MinerU 收到 callback_url 但缺少 callback_seed，本次回退轮询: %s", file_path)
+            callback_url = ""
+
         # 每次解析任务占用一个 key，"_upload_file" 与 "_poll_batch_result" 共用该 key
         self._active_key, idx = self._acquire_key()
         success = False
         try:
             # 1. 上传文件到 MinerU（上传后 MinerU 自动创建解析任务）
-            batch_id = self._upload_file(file_path)
+            batch_id = self._upload_file(file_path, callback=callback_url or None, seed=callback_seed or None)
+
+            if callback_url:
+                # 回调路径：任务已在云端，立即返回。上传成功即算本次占用成功，
+                # 云端后续失败由回调侧记到任务记录上。
+                logger.info("MinerU 任务已提交，等待回调: %s (batch_id=%s)", file_path, batch_id)
+                success = True
+                return ParsedDocument(
+                    text="",
+                    markdown=None,
+                    metadata={"batch_id": batch_id},
+                    parse_method="mineru",
+                    pending_callback=PendingCallback(provider=self.provider_type, job_id=batch_id),
+                )
 
             # 2. 轮询批量结果
             result = self._poll_batch_result(batch_id)
@@ -331,17 +364,47 @@ class MineruBackend:
             total = min(total, float(self.UPLOAD_MAX_TIMEOUT))
         return httpx.Timeout(total, connect=self.UPLOAD_MIN_TIMEOUT, write=total, read=total)
 
-    def _request_upload_url(self, file_name: str) -> tuple[str, str]:
+    def _request_upload_url(
+        self,
+        file_name: str,
+        *,
+        callback: str | None = None,
+        seed: str | None = None,
+    ) -> tuple[str, str]:
         """申请预签名上传地址，返回 ``(batch_id, upload_url)``。
+
+        ``callback`` / ``seed`` 是 MinerU 的回调参数：callback 是解析完成后要 POST
+        的 URL，seed 是签名种子（用 callback 时必填，其回调 checksum =
+        sha256(uid + seed + content)）。两者传 None 表示不启用回调、保持轮询。
 
         这是几百字节的 JSON 往返，用元数据超时（`self.timeout`）就够了；
         它可能返回 5xx/限流，所以包一层轻量重试。
+
+        payload 的字段位置**不能凭直觉放**：走的是批量接口
+        ``/api/v4/file-urls/batch``，``is_ocr`` 是 ``files[]`` 元素里的字段
+        （官方文档写作 ``file.is_ocr``）；顶层 ``is_ocr`` 只属于单文件接口
+        ``/api/v4/extract/task``。放错层服务端会静默忽略——不报错，只是回到默认
+        ``is_ocr=false``，扫描件解析出来是空白。
         """
         client = get_sync_http_client()
-        payload = {
-            "files": [{"name": file_name, "data_id": uuid4().hex}],
+        suffix = Path(file_name).suffix.lower()
+        file_entry: dict[str, Any] = {"name": file_name, "data_id": uuid4().hex}
+        if suffix in _OCR_REQUIRED_SUFFIXES:
+            # 质量优先：扫描件与电子档一律 OCR。电子档开启 OCR 也多一遍识别，
+            # 但能覆盖「有文本层却错位/乱码」的劣质电子档，代价可接受。
+            file_entry["is_ocr"] = True
+            # 公式识别只对行内公式有意义；法律卷宗没有公式，关掉省时间且不损质量。
+            file_entry["enable_formula"] = False
+        payload: dict[str, Any] = {
+            "files": [file_entry],
             "model_version": self.MODEL_VERSION,
+            "language": "ch",
+            "enable_table": True,
+            "enable_formula": False,
         }
+        if callback and seed:
+            payload["callback"] = callback
+            payload["seed"] = seed
         last_error: Exception | None = None
         for attempt in range(1, self.UPLOAD_ATTEMPTS + 1):
             try:
@@ -415,8 +478,10 @@ class MineruBackend:
                 time.sleep(attempt)
         raise MineruAPIError(f"文件上传失败（{size / 1024 / 1024:.1f} MB）: {last_error}") from last_error
 
-    def _upload_file(self, file_path: str) -> str:
+    def _upload_file(self, file_path: str, *, callback: str | None = None, seed: str | None = None) -> str:
         """上传文件到 MinerU，上传后 MinerU 自动创建解析任务。
+
+        ``callback`` / ``seed`` 透传给上传申请接口（见 ``_request_upload_url``）。
 
         分两步，超时口径不同（详见 `_upload_timeout_for`）：
 
@@ -434,7 +499,7 @@ class MineruBackend:
             raise MineruAPIError(f"待上传文件不存在: {file_path}")
         file_name = file_path_obj.name
 
-        batch_id, upload_url = self._request_upload_url(file_name)
+        batch_id, upload_url = self._request_upload_url(file_name, callback=callback, seed=seed)
         self._put_file_streaming(upload_url, file_path_obj)
         logger.info(
             "文件上传成功: %s (%.1f MB, batch_id=%s)",

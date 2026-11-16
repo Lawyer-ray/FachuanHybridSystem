@@ -275,8 +275,14 @@ def _register_app_routers() -> None:
     api_v1.add_router("/legal-research/foreign-law", foreign_law_router, auth=JWTOrSessionAuth(), tags=["域外法查明"])
 
     from apps.document_parsing.api import router as document_parsing_router
+    from apps.document_parsing.api import webhook_router as document_parsing_webhook_router
 
     api_v1.add_router("/document-parsing", document_parsing_router, auth=JWTOrSessionAuth(), tags=["文档解析"])
+
+    # 云端（MinerU / Textin）完成回调：外部服务调不到也拿不到 JWT，所以必须单独
+    # 一个 auth=None 的 router —— 上一行的挂载级 auth 会覆盖端点上的 auth=None，
+    # 混进同一个 router 就永远打不进来。安全边界由签名校验承担。
+    api_v1.add_router("/document-parsing", document_parsing_webhook_router, auth=None, tags=["文档解析"])
 
     from apps.oa_filing.api.filing_api import router as oa_filing_router
 
