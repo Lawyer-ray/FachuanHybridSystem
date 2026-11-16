@@ -224,6 +224,7 @@ class TestCallbackEndpointDisabledByConfig:
         resp = receive_webhook(_Req(), "mineru")  # type: ignore[arg-type]
 
         assert resp.status_code == 404
+        assert json.loads(resp.content) == {"error": "provider disabled"}
 
     @pytest.mark.django_db
     def test_endpoint_404_when_uid_missing(self, settings: Any) -> None:
@@ -235,21 +236,30 @@ class TestCallbackEndpointDisabledByConfig:
             body = b"{}"
             headers: dict[str, str] = {}
 
-        assert receive_webhook(_Req(), "mineru").status_code == 404  # type: ignore[arg-type]
+        resp = receive_webhook(_Req(), "mineru")  # type: ignore[arg-type]
+
+        assert resp.status_code == 404
+        assert json.loads(resp.content) == {"error": "provider disabled"}
 
     def test_signature_failure_maps_to_403(self, callback_settings: Any) -> None:
         class _Req:
             body = b'{"seed": "s", "checksum": "bad", "content": "{}"}'
             headers = {"X-Callback-Url": "https://api.example.com/hook?uid=dp-1-abc"}
 
-        assert receive_webhook(_Req(), "mineru").status_code == 403  # type: ignore[arg-type]
+        resp = receive_webhook(_Req(), "mineru")  # type: ignore[arg-type]
+
+        assert resp.status_code == 403
+        assert json.loads(resp.content) == {"result": REJECTED_SIGNATURE}
 
     def test_unknown_provider_rejected(self, callback_settings: Any) -> None:
         class _Req:
             body = b"{}"
             headers: dict[str, str] = {}
 
-        assert receive_webhook(_Req(), "mineru2").status_code == 404  # type: ignore[arg-type]
+        resp = receive_webhook(_Req(), "mineru2")  # type: ignore[arg-type]
+
+        assert resp.status_code == 404
+        assert json.loads(resp.content) == {"error": "provider disabled"}
 
 
 class TestConfigGating:
