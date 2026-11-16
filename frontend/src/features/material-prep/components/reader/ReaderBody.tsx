@@ -2,10 +2,10 @@ import { useCallback, useMemo, useState } from 'react'
 
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
 import { groupBySeverity, uniqueDisagreementKeys } from '../../draft'
+import { blockKeyOf } from '../../draft/block-keys'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
 import { DocTodoDrawer } from './DocTodoDrawer'
-import { EngineDisagreementDrawer } from './EngineDisagreementDrawer'
 import { InconsistencyDrawer } from './InconsistencyDrawer'
 import { AutoSplitProgress } from './AutoSplitProgress'
 import { HintBar } from './HintBar'
@@ -38,6 +38,7 @@ export function ReaderBody({
   narrow,
   railOpen,
   metaOpen,
+  onOpenMeta,
   onCollapsePanels,
   railWrapCls,
   metaWrapCls,
@@ -76,6 +77,8 @@ export function ReaderBody({
   narrow: boolean
   railOpen: boolean
   metaOpen: boolean
+  /** 强制展开右栏（窄屏浮层时用；宽屏常驻，幂等） */
+  onOpenMeta: () => void
   onCollapsePanels: () => void
   railWrapCls: string
   metaWrapCls: string
@@ -130,7 +133,6 @@ export function ReaderBody({
   //
   // 高亮态用**分歧键**而不是下标：重新识别后数组会换一批内容，下标会把高亮挂到
   // 一条不相关的分歧上（乃至越界）。用内容做键，不匹配就自然不高亮。
-  const [engineDrawerOpen, setEngineDrawerOpen] = useState(false)
   const [engineActiveKey, setEngineActiveKey] = useState<string | null>(null)
   // 引用稳定：下面 onJumpEngineDisagreement 依赖它，每次渲染新建空数组会让回调恒变
   const engineDisagreements = useMemo(() => draft.engineDisagreements ?? [], [draft.engineDisagreements])
@@ -237,12 +239,46 @@ export function ReaderBody({
     const seg = draft.segs.find((s) => key.startsWith(`${s.id}:`))
     if (!seg) return
     const pageNo = Number(key.split(':')[1])
-    const firstPage = seg.refs[0]?.p ?? 1
-    const ref = seg.refs[pageNo - firstPage]
+    // 按页号 find，不能用 `page_no - firstPage` 当下标：切出几页 / 删页之后
+    // refs 可以是 [1, 3, 7] 这种跳号序列，减法会错位到别的页上。
+    const ref = seg.refs.find((r) => r.p === pageNo)
     if (!ref) return
     const el = document.querySelector<HTMLElement>(`[data-mi="${ref.mi}"][data-p="${ref.p}"]`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [draft.segs])
+
+  /**
+   * 采用某一侧引擎的这行文字，写回正文对应块。
+   *
+   * ## 为什么这是「省打字」而不是「替律师裁决」
+   *
+   * 旧的组件注释说「刻意不提供采纳某个引擎的按钮：按钮一按下去，错的那份就进了
+   * 诉状引用」。那句话在**没法核对**时成立。但现在律师旁边就是原件、有双框标注、
+   * 有跳转——他点「采用」之前必须自己看着原件判断。此时按钮的价值是把判定的结果
+   * **抄进正文**，免掉手工比对与打字，而不是替他决定。
+   *
+   * ## 定位口径
+   *
+   * 用引擎文本去 `seg.blocks` 里找包含它的那一块（与 `locateKeyOf` 同一思路：
+   * block 的 page 与分歧页号必须一致）。找不到就什么都不做——宁可不改，
+   * 也不要把文字写到错误的块上。
+   */
+  const onAdoptEngineText = useCallback(
+    (pageNo: number, text: string, _engine: string) => {
+      const seg = draft.segs[focusedSeg]
+      if (!seg?.blocks?.length) return
+      const needle = text.trim()
+      if (!needle) return
+      const idx = seg.blocks.findIndex((b) => b.page === pageNo && (b.text ?? '').includes(needle))
+      if (idx < 0) return
+      const block = seg.blocks[idx]!
+      const key = blockKeyOf(seg, block, idx)
+      metaOps.editBlock(focusedSeg, key, needle)
+      setFocusedBlockKey(key)
+      onGotoSegmentPage(focusedSeg, pageNo)
+    },
+    [draft.segs, focusedSeg, metaOps, onGotoSegmentPage],
+  )
 
   return (
     <>
@@ -271,7 +307,17 @@ export function ReaderBody({
             onOpenInconsistencies={() => setInconsistencyOpen(true)}
             onOpenDocTodos={() => setDocTodoOpen(true)}
             engineUnchecked={engineUnchecked}
-            onOpenEngineDisagreements={() => setEngineDrawerOpen(true)}
+            onOpenEngineDisagreements={() => {
+              // 不再有独立页签：分歧已内联在右栏正文之上。这里做两件有实际价值的事——
+              // ① 窄屏下把右栏浮层展开（否则点完看不到任何变化）；
+              // ② 跳到第一条**未核对**的分歧，律师点徽标的意图就是「带我去看」，
+              //    而不是「打开一个空面板」。
+              onOpenMeta()
+              const checkedSet = new Set(draft.engineChecked ?? [])
+              const idx = engineKeys.findIndex((k) => !checkedSet.has(k))
+              const first = engineDisagreements[idx === -1 ? 0 : idx]
+              if (first) onJumpEngineDisagreement(first.page_no, engineKeys[idx === -1 ? 0 : idx]!)
+            }}
             onFocusSeg={onFocusSeg}
             onRenameMat={onRenameMat}
             onRenameSeg={flowOps.renameSeg}
@@ -308,6 +354,11 @@ export function ReaderBody({
         </div>
 
         <div className={metaWrapCls}>
+          {/* 右栏单一栏，不再分页签：正文 / 本段分歧 / 字段便签三者的作用域
+              都是「当前这一段」，分页签会把「发现问题」与「修复问题」拆到两个屏上。
+              分歧内联在正文之上（见 EngineDisagreementsInline 的注释）。
+              ⚠ 也不再用模态 Sheet：遮罩会把整页压灰并拦截点击，而核对分歧必须
+              在原件上边看边改——设计意图（「抽屉不关」）与模态实现本来就矛盾。 */}
           <MetaPanel
             draft={draft}
             pageQuality={pageQuality}
@@ -323,6 +374,12 @@ export function ReaderBody({
             editRequestKey={editRequestKey}
             onEditRequestHandled={() => setEditRequestKey(null)}
             narrow={narrow}
+            engineItems={engineDisagreements}
+            engineKeys={engineKeys}
+            engineChecked={draft.engineChecked ?? []}
+            onToggleEngineChecked={onToggleEngineChecked}
+            onJumpEngine={onJumpEngineDisagreement}
+            onAdoptEngine={onAdoptEngineText}
           />
         </div>
       </div>
@@ -333,18 +390,6 @@ export function ReaderBody({
         onOpenChange={setInconsistencyOpen}
         items={inconsistencies}
         onGotoPage={onGotoAnyPage}
-      />
-
-      {/* 双引擎分歧：从左栏徽标打开，点一条跳到那一页并画两个引擎的框 */}
-      <EngineDisagreementDrawer
-        open={engineDrawerOpen}
-        onOpenChange={setEngineDrawerOpen}
-        items={engineDisagreements}
-        keys={engineKeys}
-        checked={draft.engineChecked ?? []}
-        activeKey={engineActiveKey}
-        onJump={onJumpEngineDisagreement}
-        onToggleChecked={onToggleEngineChecked}
       />
 
       {/* 全卷证件页待补录：从左栏证件徽标打开，「查看原页」跳到那一页 */}

@@ -1,14 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-/** 右栏宽度的 localStorage 键（跨会话保留：律师的屏幕与阅读习惯是稳定的） */
-const KEY = 'mp.meta.width'
+/**
+ * 右栏宽度的 localStorage 键（跨会话保留：律师的屏幕与阅读习惯是稳定的）。
+ *
+ * ## 为什么从 `mp.meta.width` 换成了 v2
+ *
+ * 默认宽从 256 改成 128 之后，老用户存档里那个 256 会**盖住**新默认值——
+ * 表现为「改了默认宽但看起来没生效」。换键等于让旧值失效一次，
+ * 用户重新拖一次就会写下自己的偏好。这是唯一能把新默认值真正交付给老用户的办法
+ * （在 `readMetaWidth` 里比较数值来「迁就」旧值会让语义变复杂，且分不清
+ * 「用户主动设的 256」与「旧默认值的 256」）。
+ */
+export const META_WIDTH_STORAGE_KEY = 'mp.meta.width.v2'
+const KEY = META_WIDTH_STORAGE_KEY
 
-/** 默认宽（与改动前的固定值一致，老用户升级后观感不变） */
-export const META_DEFAULT_WIDTH = 256
-/** 窄屏（@min-[1280px]）下的默认宽 */
+/**
+ * 默认宽。
+ *
+ * 从 256 收到 128（用户要求「比现在小一半」）：右栏装的是「正文 / 本段分歧 /
+ * 字段便签」，默认窄一点能让中栏的页面图占更大面积——核对分歧时看的是原件，
+ * 右栏是辅助。需要看长文本时往左拖即可，宽度会记在 localStorage。
+ */
+export const META_DEFAULT_WIDTH = 128
+/** 窄屏（浮层）下的默认宽：浮层盖在中栏上，太窄反而看不清，保持一屏可读 */
 export const META_WIDE_DEFAULT = 296
 
-export const META_MIN_WIDTH = 220
+/**
+ * 最小宽。
+ *
+ * 必须 ≤ 默认宽 128，否则 `clamp()` 会立刻把默认值弹回旧值——
+ * 这正是「改了默认值但看起来没生效」的典型原因。
+ * 100 是「还能放下一个页码按钮 + 两三个汉字」的下限。
+ */
+export const META_MIN_WIDTH = 100
 export const META_MAX_WIDTH = 640
 
 function clamp(v: number): number {

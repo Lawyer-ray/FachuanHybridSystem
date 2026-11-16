@@ -1,0 +1,213 @@
+import { useMemo, useState } from 'react'
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+
+import { disagreementKindLabel, engineLabel, variantTextOf } from '../../draft'
+import type { EngineDisagreement, Segment } from '../../types'
+import { cn } from '@/lib/utils'
+
+/**
+ * 「本段的双引擎分歧」——内联在右栏正文之上，不分页签。
+ *
+ * ## 为什么融进「材料信息」而不是独立页签
+ *
+ * 四块内容（正文 / 分歧 / 字段便签 / 字段库）的作用域完全一致：都是**当前这一段**。
+ * 分页签反而把「发现问题」和「修复问题」拆到了两个屏上——看到「同一处姓名两引擎读得不一样」
+ * 想改正文，得切页签、找块、双击，而切完清单就没了，不知道对照哪边。
+ *
+ * ## 为什么放在正文**上方**
+ *
+ * 律师的心智顺序是「先知道哪里有问题，再读/改」。分歧是这个段的健康度摘要，
+ * 属于「读之前该知道的事」；放在正文下面会被长 Markdown 推到屏幕外。
+ *
+ * ## 为什么默认只显示本段
+ *
+ * 全卷 332 条平铺会把侧栏撑爆，且绝大多数与当前段无关。这里按 `seg.refs`
+ * 覆盖的页过滤；全卷入口仍保留在底部（「查看全部」）。
+ *
+ * ## 「采用」按钮与「裁决权在律师」
+ *
+ * 旧注释说「刻意不提供采纳某个引擎的按钮：按钮一按下去，错的那份就进了诉状引用」。
+ * 那句话在**没法核对**时是对的。但现在旁边就是原件、有双框标注、有跳转——
+ * 律师点「采用」之前必须自己看着原件判断。此时按钮的价值是**省掉手工比对与
+ * 抄写**，不是替他决定。所以它必须与「跳到原页」并排出现，且默认不自动应用。
+ */
+export function EngineDisagreementsInline({
+  seg,
+  items,
+  keys,
+  checked = [],
+  onJump,
+  onToggleChecked,
+  onAdopt,
+}: {
+  /** 当前段；null 时不渲染 */
+  seg: Segment | null
+  /** 全卷分歧（会按本段页范围过滤） */
+  items: EngineDisagreement[]
+  /** 与 `items` 一一对应的唯一键 */
+  keys: string[]
+  checked?: string[]
+  onJump?: (pageNo: number, key: string) => void
+  onToggleChecked?: (key: string, checked: boolean) => void
+  /**
+   * 「采用这一侧」：把该引擎识别出的这行文字写回正文对应块。
+   *
+   * `blockKey` 是页面块 key（`<segId>:<page>:<idx>`），与 `onEditBlock` 同一口径；
+   * 该分歧没匹配到块时为 null，调用方应退回整段编辑。
+   */
+  onAdopt?: (pageNo: number, text: string, engine: string) => void
+}) {
+  const [open, setOpen] = useState(true)
+
+  // 本段覆盖的页集合：refs 可能不连续（切出几页 / 删页后是 [1,3,7] 这种）
+  const pageSet = useMemo(() => new Set((seg?.refs ?? []).map((r) => r.p)), [seg])
+
+  const mine = useMemo(() => {
+    if (!seg || pageSet.size === 0) return []
+    const out: { item: EngineDisagreement; key: string }[] = []
+    items.forEach((d, i) => {
+      const k = keys[i]
+      if (k && pageSet.has(d.page_no)) out.push({ item: d, key: k })
+    })
+    return out
+  }, [items, keys, seg, pageSet])
+
+  if (!seg || mine.length === 0) return null
+
+  const unchecked = mine.filter(({ key }) => !checked.includes(key)).length
+
+  return (
+    <section data-engine-inline className="@container flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center gap-1 rounded-md px-1 py-1 text-left hover:bg-secondary"
+      >
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
+        )}
+        <AlertTriangle className="h-3.5 w-3.5 flex-none text-amber-600" aria-hidden />
+        <span className="text-[12.5px] font-medium">本段识别分歧</span>
+        <span className="rounded-full bg-amber-100 px-1.5 text-[10.5px] leading-4 tabular-nums text-amber-800">
+          {mine.length}
+        </span>
+        {unchecked > 0 && unchecked !== mine.length && (
+          <span className="text-[11px] text-muted-foreground">（{unchecked} 处未核对）</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-2">
+          {mine.map(({ item, key }) => (
+            <InlineRow
+              key={key}
+              item={item}
+              itemKey={key}
+              checked={checked.includes(key)}
+              onJump={onJump}
+              onToggleChecked={onToggleChecked ? (v) => onToggleChecked(key, v) : undefined}
+              onAdopt={onAdopt}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** 一条内联分歧：页码 + 两个引擎文本 + 采用 / 跳转 */
+function InlineRow({
+  item,
+  itemKey,
+  checked,
+  onJump,
+  onToggleChecked,
+  onAdopt,
+}: {
+  item: EngineDisagreement
+  itemKey: string
+  checked: boolean
+  onJump?: (pageNo: number, key: string) => void
+  onToggleChecked?: (checked: boolean) => void
+  onAdopt?: (pageNo: number, text: string, engine: string) => void
+}) {
+  return (
+    <div
+      data-engine-inline-row
+      data-checked={checked ? 'true' : undefined}
+      className={cn(
+        'rounded-lg border px-2 py-1.5 transition-colors',
+        checked ? 'border-zinc-200 bg-card opacity-50' : 'border-amber-200 bg-amber-50/40',
+      )}
+    >
+      <div className="flex items-baseline gap-1.5 text-[11.5px] leading-relaxed">
+        {onToggleChecked && (
+          <input
+            type="checkbox"
+            checked={checked}
+            aria-label={`第 ${item.page_no} 页这条分歧已核对`}
+            onChange={(e) => onToggleChecked(e.target.checked)}
+            className="mt-[3px] flex-none accent-zinc-700"
+          />
+        )}
+        <button
+          type="button"
+          disabled={!onJump}
+          onClick={() => onJump?.(item.page_no, itemKey)}
+          title="跳到这一页，同时画出两个引擎的框"
+          className="flex-none rounded bg-card px-1 text-[11px] tabular-nums text-foreground hover:bg-secondary"
+        >
+          第{item.page_no}页
+        </button>
+        {item.anchor_hit && (
+          <span className="flex-none rounded bg-red-50 px-1 text-[10px] leading-4 text-red-700">
+            含身份证号/账号
+          </span>
+        )}
+        <span className="flex-none text-[10px] leading-4 text-muted-foreground">
+          {disagreementKindLabel(item.kind)}
+        </span>
+      </div>
+
+      <dl className="mt-1 flex flex-col gap-0.5">
+        {item.variants.map((v) => {
+          const text = variantTextOf(item, v.engine)
+          return (
+            <div
+              key={v.engine}
+              // 窄栏（默认 128px）下「引擎名 + 文字 + 采用按钮」挤在一行会把正文压得只剩
+              // 两三个字。用容器查询把布局一切为二：宽栏并排、窄栏上下叠。
+              // 不用断点（@media）：宽度由用户拖拽决定，与视口宽不是一回事——
+              // 用户完全可以在大屏上把右栏拖到最窄。
+              className="flex flex-col gap-0.5 text-[11.5px] leading-relaxed @[220px]:flex-row @[220px]:items-start @[220px]:gap-1"
+            >
+              <dt className="flex-none break-words text-muted-foreground @[220px]:w-[64px]">{engineLabel(v.engine)}</dt>
+              {/* break-words + min-w-0：长行必须自动换行，否则窄栏会把内容挤没 */}
+              <dd
+                className={cn(
+                  'min-w-0 flex-1 break-words',
+                  !text.trim() && 'text-muted-foreground',
+                )}
+              >
+                {text.trim() || '（无此行）'}
+              </dd>
+              {onAdopt && text.trim() && (
+                <button
+                  type="button"
+                  onClick={() => onAdopt(item.page_no, text, v.engine)}
+                  title={`把这行写回正文（${engineLabel(v.engine)}）`}
+                  className="flex-none self-start rounded bg-card px-1 text-[10.5px] text-secondary-foreground hover:bg-secondary @[220px]:self-auto"
+                >
+                  采用
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </dl>
+    </div>
+  )
+}

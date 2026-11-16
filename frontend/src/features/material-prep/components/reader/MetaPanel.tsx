@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
 import { docHintPagesOf, docTodosOf, graphicPagesOf } from '../../draft'
-import type { DraftState, InfoField, PageQuality } from '../../types'
+import type { DraftState, EngineDisagreement, InfoField, PageQuality } from '../../types'
 import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
 import { SegmentMarkdown } from './SegmentMarkdown'
+import { EngineDisagreementsInline } from './EngineDisagreementsInline'
 import { useMetaWidth } from './use-meta-width'
 
 /** 字段的 placeholder：把「多个用、分隔」这类提示并进去，不再在标签旁常驻一行小字 */
@@ -36,6 +37,12 @@ export function MetaPanel({
   editRequestKey,
   onEditRequestHandled,
   narrow = false,
+  engineItems = [],
+  engineKeys = [],
+  engineChecked = [],
+  onToggleEngineChecked,
+  onJumpEngine,
+  onAdoptEngine,
 }: {
   draft: DraftState
   /** 页级质量统计（旧任务没有）：用于正文面板顶部的「本段含图纸」提示 */
@@ -56,6 +63,15 @@ export function MetaPanel({
   onEditRequestHandled?: () => void
   /** 窄屏时右栏是抽屉，宽度由抽屉 CSS 决定，拖拽手柄不渲染 */
   narrow?: boolean
+  /** 全卷引擎分歧（内联区会按当前段页范围过滤后显示在正文上方） */
+  engineItems?: EngineDisagreement[]
+  /** 与 `engineItems` 一一对应的唯一键 */
+  engineKeys?: string[]
+  engineChecked?: string[]
+  onToggleEngineChecked?: (key: string, checked: boolean) => void
+  onJumpEngine?: (pageNo: number, key: string) => void
+  /** 采用某一侧引擎的文本写回正文 */
+  onAdoptEngine?: (pageNo: number, text: string, engine: string) => void
 }) {
   const [showLib, setShowLib] = useState(false)
   // 栏宽可拖拽调整，跨会话记在 localStorage（纯显示偏好，不进草稿）
@@ -98,6 +114,18 @@ export function MetaPanel({
           <div className="absolute inset-y-0 left-[3px] w-px bg-transparent transition-colors group-hover:bg-sky-400 group-active:bg-sky-500" />
         </div>
       )}
+
+      {/* 本段识别分歧：放在正文**之上**——律师的心智顺序是「先知道哪里有问题，
+          再读/改」。放下面会被长 Markdown 推到屏幕外，等于没有。 */}
+      <EngineDisagreementsInline
+        seg={draft.segs[si] ?? null}
+        items={engineItems}
+        keys={engineKeys}
+        checked={engineChecked}
+        onJump={onJumpEngine}
+        onToggleChecked={onToggleEngineChecked}
+        onAdopt={onAdoptEngine}
+      />
 
       {/* Markdown 正文：与材料信息同栏并排，滚动互不干扰。
           放在字段卡之前——先看机器读到了什么，再决定填哪些字段。 */}
