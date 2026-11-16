@@ -104,7 +104,7 @@ export function DealDetailPage() {
 
   /* 创建类动作：记日志 / 新增期限 / 新建下一程序案件仍占位；记收款已接真实表单 */
   const soon = useCallback((what: string) => soonToast(what), [])
-  const onAddLog = useCallback(() => soon('记办案日志'), [soon])
+  const onAddLog = useCallback(() => soon('记项目日志'), [soon])
   const onAddDue = useCallback(() => soon('新增期限'), [soon])
   const onCreateNext = useCallback(() => soon('新建' + (next ?? '') + '案件'), [soon, next])
 

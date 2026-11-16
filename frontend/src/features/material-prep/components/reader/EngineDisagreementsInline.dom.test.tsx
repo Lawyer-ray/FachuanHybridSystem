@@ -32,8 +32,8 @@ function dis(over: Partial<EngineDisagreement> = {}): EngineDisagreement {
     kind: 'char',
     severity: 'high',
     variants: [
-      { engine: 'mineru', text: '张三丰', label: 'MinerU' },
-      { engine: 'paddleocr_vl', text: '张四丰', label: 'PaddleOCR-VL' },
+      { engine: 'mineru', text: '示例甲', label: 'MinerU' },
+      { engine: 'paddleocr_vl', text: '示例乙', label: 'PaddleOCR-VL' },
     ] as EngineDisagreement['variants'],
     context: '借款人',
     anchor_hit: false,
@@ -81,8 +81,8 @@ describe('EngineDisagreementsInline', () => {
 
   it('显示两个引擎的文本，全部自动换行（不用 truncate 截断）', () => {
     const { baseElement } = renderInline([dis()], seg([3]))
-    expect(baseElement.textContent).toContain('张三丰')
-    expect(baseElement.textContent).toContain('张四丰')
+    expect(baseElement.textContent).toContain('示例甲')
+    expect(baseElement.textContent).toContain('示例乙')
     // 正文 dd 必须 break-words；truncate 会把内容截成一行省略号，窄栏下等于看不见
     const dds = Array.from(baseElement.querySelectorAll('[data-engine-inline-row] dd'))
     expect(dds.length).toBe(2)
@@ -98,7 +98,7 @@ describe('EngineDisagreementsInline', () => {
     const buttons = Array.from(baseElement.querySelectorAll('button')).filter((b) => b.textContent === '采用')
     expect(buttons).toHaveLength(2)
     fireEvent.click(buttons[1]!)
-    expect(onAdopt).toHaveBeenCalledWith(3, '张四丰', 'paddleocr_vl')
+    expect(onAdopt).toHaveBeenCalledWith(3, '示例乙', 'paddleocr_vl', expect.any(String))
   })
 
   it('空文本的一侧显示「（无此行）」且不给「采用」按钮', () => {

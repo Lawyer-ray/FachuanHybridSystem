@@ -10,7 +10,7 @@
  * - 导航分组按 SECTIONS 的首次出现顺序聚合（主链 7 段 + 支线 3 段），
  *   点击切换右侧内容；默认落在「① 收案」（律师打开案件的第一个动作）
  * - 页头 meta 逐项照实，缺值写占位而不是留空
- * - 面包屑「办案」回列表（保留选中案件是列表自己的事）
+ * - 面包屑「项目」回列表（保留选中案件是列表自己的事）
  *
  * 十个分区面板全部 stub：本文件测的是路由 / 导航 / 页壳，不是各面板内容。
  */
@@ -104,9 +104,9 @@ describe('BankLitigationPage · 选案线', () => {
     expect(screen.getByText('CASE_LIST')).toBeTruthy()
   })
 
-  it('面包屑「办案」回到案件列表', () => {
+  it('面包屑「项目」回到案件列表', () => {
     render(<BankLitigationPage initialCaseId={44} />)
-    fireEvent.click(screen.getByText('办案'))
+    fireEvent.click(screen.getByText('项目'))
     expect(screen.getByText('CASE_LIST')).toBeTruthy()
   })
 })

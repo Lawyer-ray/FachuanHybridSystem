@@ -439,7 +439,7 @@ describe('DealDetailPage 程序链与案件节', () => {
     expect(within(sec1).getByText('已结')).toBeTruthy()
     expect(within(sec1).getByText('¥3,200,000')).toBeTruthy()
     expect(within(sec1).getByText('¥1,600,000')).toBeTruthy()
-    expect(within(sec1).getByText('还没有办案日志')).toBeTruthy()
+    expect(within(sec1).getByText('还没有项目日志')).toBeTruthy()
   })
 
   it('案件绑定文件夹时默认切文件夹视图（子文件夹+文件清单），点「日志」切回时间轴', async () => {

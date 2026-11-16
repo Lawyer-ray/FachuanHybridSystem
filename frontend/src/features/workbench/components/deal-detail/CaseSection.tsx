@@ -146,7 +146,7 @@ export function CaseSection({
         <div className="px-5 pt-3.5 pb-1.5 max-[680px]:px-3.5">
           {entries.length === 0 ? (
             <EmptyBlock className="justify-start px-0 py-2 text-left text-xs text-muted-foreground/70">
-              还没有办案日志
+              还没有项目日志
             </EmptyBlock>
           ) : (
             entries.map((e, i) => (

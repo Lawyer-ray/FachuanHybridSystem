@@ -59,7 +59,7 @@ export function EngineDisagreementsInline({
    * `blockKey` 是页面块 key（`<segId>:<page>:<idx>`），与 `onEditBlock` 同一口径；
    * 该分歧没匹配到块时为 null，调用方应退回整段编辑。
    */
-  onAdopt?: (pageNo: number, text: string, engine: string) => void
+  onAdopt?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
   /** 标题文案。按页挂载时传「P4 分歧」，否则用默认的「本段识别分歧」 */
   heading?: string
   skipSegmentFilter?: boolean
@@ -139,7 +139,7 @@ function InlineRow({
   checked: boolean
   onJump?: (pageNo: number, key: string) => void
   onToggleChecked?: (checked: boolean) => void
-  onAdopt?: (pageNo: number, text: string, engine: string) => void
+  onAdopt?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
 }) {
   return (
     <div
@@ -231,8 +231,8 @@ function InlineRow({
               {onAdopt && text.trim() && (
                 <button
                   type="button"
-                  onClick={() => onAdopt(item.page_no, text, v.engine)}
-                  title={`把这行写回正文（${engineLabel(v.engine)}）`}
+                  onClick={() => onAdopt(item.page_no, text, v.engine, itemKey)}
+                  title={`用 ${engineLabel(v.engine)} 这版作为起点，改完再保存`}
                   className="flex-none self-start rounded bg-card px-1 text-[10.5px] text-secondary-foreground hover:bg-secondary @[220px]:self-auto"
                 >
                   采用

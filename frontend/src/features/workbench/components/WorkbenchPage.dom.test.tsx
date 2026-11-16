@@ -158,7 +158,7 @@ describe('WorkbenchPage FilterBar 交互下推', () => {
   it('搜索框输入：防抖 300ms 后关键词 trim 下推到列表接口', async () => {
     setupUi()
     await screen.findByText('王五委托')
-    fireEvent.change(screen.getByPlaceholderText('搜索合同（名称）'), { target: { value: '  王五 ' } })
+    fireEvent.change(screen.getByPlaceholderText('搜索项目（名称）'), { target: { value: '  王五 ' } })
     await waitFor(
       () => expect(listPageMock).toHaveBeenLastCalledWith(expect.objectContaining({ q: '王五' })),
       { timeout: 2000 },
@@ -192,7 +192,7 @@ describe('WorkbenchPage 空态两分支', () => {
     setupUi()
     await screen.findByText('王五委托')
 
-    fireEvent.change(screen.getByPlaceholderText('搜索合同（名称）'), { target: { value: '不存在' } })
+    fireEvent.change(screen.getByPlaceholderText('搜索项目（名称）'), { target: { value: '不存在' } })
     expect(await screen.findByText('没有匹配的项目')).toBeTruthy()
     expect(screen.queryByText('还没有项目数据')).toBeNull()
 
@@ -201,7 +201,7 @@ describe('WorkbenchPage 空态两分支', () => {
     // 断言 UI 恢复默认视图 + 搜索框被清空，而非断言新请求
     expect(await screen.findByText('王五委托')).toBeTruthy()
     await waitFor(() =>
-      expect(screen.getByPlaceholderText('搜索合同（名称）')).toHaveProperty('value', ''),
+      expect(screen.getByPlaceholderText('搜索项目（名称）')).toHaveProperty('value', ''),
     )
   })
 })

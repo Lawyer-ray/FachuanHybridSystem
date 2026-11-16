@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -23,6 +23,7 @@ export function BlockRow({
   onStartEdit,
   onCommitEdit,
   onCancelEdit,
+  seedText = null,
 }: {
   blockKey: string
   text: string
@@ -35,8 +36,36 @@ export function BlockRow({
   onStartEdit?: (key: string) => void
   onCommitEdit: (text: string) => void
   onCancelEdit: () => void
+  /**
+   * 进入编辑态时预填的文本（缺省用本行原文）。
+   *
+   * 用于「两个引擎都不对」的场景：律师点分歧里的「采用」时，把该引擎的完整文本
+   * 预填进来，他只需要改那几个错字，而不是对着 60+ 字的一行从零手打。
+   */
+  seedText?: string | null
 }) {
+  // 编辑态的草稿：进入编辑时用 seedText（若给了）作为起点，否则用本行原文。
+  // 不直接 `useState(text)` 是因为 seedText 要到「开始编辑」那一刻才确定，
+  // 在组件挂载时读它拿不到。
   const [draft, setDraft] = useState(text)
+
+  // 进入编辑态的那一拍把 seedText 灌进草稿。
+  //
+  // 用 effect 而不是在 `useState` 初始化器里读：seedText 是「点采用那一刻」才
+  // 传下来的，而本组件在渲染态下**早已挂载**，初始化器不会重跑。
+  //
+  // `appliedSeed` 记住上次灌过哪个值：同一次编辑里用户已经开始打字，
+  // 父级重渲染不能把他的话覆盖回种子文本。
+  const appliedSeed = useRef<string | null>(null)
+  useEffect(() => {
+    if (!editing) {
+      appliedSeed.current = null
+      return
+    }
+    if (appliedSeed.current === seedText) return
+    appliedSeed.current = seedText ?? null
+    setDraft(seedText ?? text)
+  }, [editing, seedText, text])
 
   if (editing) {
     // 编辑态：输入框 + **显式的保存/取消按钮**。

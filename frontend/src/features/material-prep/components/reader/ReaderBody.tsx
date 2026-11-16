@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 
 import type { DraftState, Inconsistency, OcrPending, PageKey, PageQuality } from '../../types'
 import { groupBySeverity, uniqueDisagreementKeys } from '../../draft'
-import { blockKeyOf } from '../../draft/block-keys'
 import { scrollToEngineRects } from './scroll-to-rect'
+import { useEngineAdopt } from './use-engine-adopt'
 import type { useReaderOcr } from './use-ocr'
 import { Flow } from './Flow'
 import { DocTodoDrawer } from './DocTodoDrawer'
@@ -125,7 +125,6 @@ export function ReaderBody({
    * （那时不该自动弹输入框）。只有「从页面框双击过来」这一条路径要进编辑，
    * 所以用一个独立的 key 表达意图，Markdown 侧消费后自行清空。
    */
-  const [editRequestKey, setEditRequestKey] = useState<string | null>(null)
   // 全本不一致清单抽屉（入口在左栏顶部）；属于纯阅读态，不落草稿
   const [inconsistencyOpen, setInconsistencyOpen] = useState(false)
   // 全卷「证件页待补录」抽屉（入口同样在左栏顶部，与不一致入口并列）
@@ -161,22 +160,6 @@ export function ReaderBody({
    * 传 null 只清高亮、不滚动（「取消定位」不该把视线又拽走）。
    */
   /**
-   * 双击页面上的定位框 → 高亮 Markdown 对应那条并进入修改态。
-   *
-   * 与 `onLocateBlock` 是**反向**的两条路：
-   *   · onLocateBlock：Markdown → 页面（滚到原页 + 框加亮）
-   *   · onActivateHit ：页面 → Markdown（高亮那条 + 直接可改）
-   * 律师的直觉是「我在原件上看到这行不对，点它就该能就地改」，
-   * 所以这条要走编辑态，而不是只加个高亮。
-   */
-  const onActivateHit = useCallback((key: string) => {
-    setFocusedBlockKey(key)
-    setEditRequestKey(key)
-    // 右栏若被折叠，展开它——否则「高亮了但看不见」
-    setMdOpen(true)
-  }, [])
-
-  /**
    * 质量提示条 → 原页：滚到那一段（段内页卡带有 `data-mi` / `data-p`）。
    * 用段做跳转而不是全局页表：段的页卡与律师看到的那一段正文是同一个东西，
    * 跳过去不会让人「知道在第 147 页，却在长列表里找不到」。
@@ -193,6 +176,34 @@ export function ReaderBody({
     },
     [draft.segs, onFocusSeg],
   )
+
+  /**
+   * 采用某一侧引擎文本 → 进编辑态预填 → 保存后自动勾选已核对。
+   * 编排逻辑见 `use-engine-adopt.ts`（含「两侧都可能错」的设计理由）。
+   */
+  const { editRequest, adopt: onAdoptEngineText, commit: onEditBlockApplied, clearRequest, requestEdit } = useEngineAdopt({
+    draft,
+    focusedSeg,
+    onToggleChecked: onToggleEngineChecked,
+    onGotoPage: onGotoSegmentPage,
+    onOpenMd: () => setMdOpen(true),
+  })
+
+  /**
+   * 双击页面上的定位框 → 高亮 Markdown 对应那条并进入修改态。
+   *
+   * 与 `onLocateBlock` 是**反向**的两条路：
+   *   · onLocateBlock：Markdown → 页面（滚到原页 + 框加亮）
+   *   · onActivateHit ：页面 → Markdown（高亮那条 + 直接可改）
+   * 律师的直觉是「我在原件上看到这行不对，点它就该能就地改」，
+   * 所以这条要走编辑态，而不是只加个高亮。
+   */
+  const onActivateHit = useCallback((key: string) => {
+    setFocusedBlockKey(key)
+    requestEdit({ key })
+    // 右栏若被折叠，展开它——否则「高亮了但看不见」
+    setMdOpen(true)
+  }, [requestEdit])
 
   /** 不一致清单是**全本视角**，只给了一个页号；按页号在草稿里找它所在的段再跳 */
   const onGotoAnyPage = useCallback(
@@ -256,39 +267,6 @@ export function ReaderBody({
     const el = document.querySelector<HTMLElement>(`[data-mi="${ref.mi}"][data-p="${ref.p}"]`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [draft.segs])
-
-  /**
-   * 采用某一侧引擎的这行文字，写回正文对应块。
-   *
-   * ## 为什么这是「省打字」而不是「替律师裁决」
-   *
-   * 旧的组件注释说「刻意不提供采纳某个引擎的按钮：按钮一按下去，错的那份就进了
-   * 诉状引用」。那句话在**没法核对**时成立。但现在律师旁边就是原件、有双框标注、
-   * 有跳转——他点「采用」之前必须自己看着原件判断。此时按钮的价值是把判定的结果
-   * **抄进正文**，免掉手工比对与打字，而不是替他决定。
-   *
-   * ## 定位口径
-   *
-   * 用引擎文本去 `seg.blocks` 里找包含它的那一块（与 `locateKeyOf` 同一思路：
-   * block 的 page 与分歧页号必须一致）。找不到就什么都不做——宁可不改，
-   * 也不要把文字写到错误的块上。
-   */
-  const onAdoptEngineText = useCallback(
-    (pageNo: number, text: string, _engine: string) => {
-      const seg = draft.segs[focusedSeg]
-      if (!seg?.blocks?.length) return
-      const needle = text.trim()
-      if (!needle) return
-      const idx = seg.blocks.findIndex((b) => b.page === pageNo && (b.text ?? '').includes(needle))
-      if (idx < 0) return
-      const block = seg.blocks[idx]!
-      const key = blockKeyOf(seg, block, idx)
-      metaOps.editBlock(focusedSeg, key, needle)
-      setFocusedBlockKey(key)
-      onGotoSegmentPage(focusedSeg, pageNo)
-    },
-    [draft.segs, focusedSeg, metaOps, onGotoSegmentPage],
-  )
 
   return (
     <>
@@ -381,8 +359,10 @@ export function ReaderBody({
             onToggleMdOpen={() => setMdOpen((v) => !v)}
             focusedBlockKey={focusedBlockKey}
             onLocateBlock={onLocateBlock}
-            editRequestKey={editRequestKey}
-            onEditRequestHandled={() => setEditRequestKey(null)}
+            editRequestKey={editRequest?.key ?? null}
+            editRequestSeed={editRequest?.seed ?? null}
+            onEditRequestHandled={clearRequest}
+            onEditBlockApplied={onEditBlockApplied}
             narrow={narrow}
             engineItems={engineDisagreements}
             engineKeys={engineKeys}

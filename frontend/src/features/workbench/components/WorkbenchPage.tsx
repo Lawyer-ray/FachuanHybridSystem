@@ -10,7 +10,7 @@ import { DealSheet } from './DealSheet'
 import { FilterBar } from './FilterBar'
 
 /**
- * 办案主页（路由 /projects，合同+案件融合）：合同全宽大行流 + 右侧详情抽屉。
+ * 项目主页（路由 /projects，合同+案件融合）：合同全宽大行流 + 右侧详情抽屉。
  * 列表按后端合同接口的单一顺序（id 倒序、最新建的在前）平铺，不再按争议解决/非诉分区。
  * 交互语义（38 号原型终态 + 详情页落地）：左键行 / → = 详情页（统一 /projects/:id，
  * 诉讼/非诉由详情页按 lit 选左栏）；右键行 / 👁 = 抽屉预览。
@@ -71,7 +71,7 @@ export function WorkbenchPage() {
       <main className="app-page-enter mx-auto max-w-[1460px] px-7 pt-[30px] pb-[110px]">
         {/* 页头单行：标题 + 摘要 + 搜索/筛选/chips */}
         <div className="mb-3.5 flex flex-wrap items-center gap-4">
-          <h1 className="text-[21px] font-[750] tracking-[-0.02em]">办案</h1>
+          <h1 className="text-[21px] font-[750] tracking-[-0.02em]">项目</h1>
           {!isLoading && !error && facets && (
             <span className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
               <b className="font-semibold text-secondary-foreground">{totalContracts}</b> 个项目 ·{' '}

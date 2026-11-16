@@ -188,7 +188,7 @@ export function NonLitDetailPage() {
 
   return (
     <main className="app-page-enter @container mx-auto max-w-[1280px] px-[30px] pt-[26px] pb-20 min-[1400px]:max-w-[1400px] min-[1900px]:max-w-[1760px] min-[2400px]:max-w-[2200px] min-[2600px]:max-w-[2480px] max-[680px]:px-3 max-[680px]:pt-4">
-      <DetailHeader deal={deal} onAddDue={() => soonToast('新增期限')} onAddLog={() => soonToast('记办案日志')} />
+      <DetailHeader deal={deal} onAddDue={() => soonToast('新增期限')} onAddLog={() => soonToast('记项目日志')} />
 
       {/* 周期轴：常法 → 服务期 + 事项刻度；专项 → 项目周期 + 阶段里程碑 */}
       {deal.from && deal.to && (

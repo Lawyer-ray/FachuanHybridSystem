@@ -34,7 +34,9 @@ export function MetaPanel({
   focusedBlockKey,
   onLocateBlock,
   editRequestKey,
+  editRequestSeed = null,
   onEditRequestHandled,
+  onEditBlockApplied,
   narrow = false,
   engineItems = [],
   engineKeys = [],
@@ -59,6 +61,10 @@ export function MetaPanel({
   onLocateBlock: (key: string | null) => void
   /** 页面框双击过来的「进入修改」请求（消费后由调用方清空） */
   editRequestKey?: string | null
+  /** 进入修改态时要预填的文本（「两个引擎都不对」时用该侧全文作起点） */
+  editRequestSeed?: string | null
+  /** 正文某一行保存后触发（用于「采用→编辑→保存」后自动勾选该条分歧已核对） */
+  onEditBlockApplied?: () => void
   onEditRequestHandled?: () => void
   /** 窄屏时右栏是抽屉，宽度由抽屉 CSS 决定，拖拽手柄不渲染 */
   narrow?: boolean
@@ -124,6 +130,7 @@ export function MetaPanel({
         focusedBlockKey={focusedBlockKey}
         onLocateBlock={onLocateBlock}
         editRequestKey={editRequestKey}
+        editRequestSeed={editRequestSeed}
         onEditRequestHandled={onEditRequestHandled}
         engineItems={engineItems}
         engineKeys={engineKeys}
@@ -132,7 +139,10 @@ export function MetaPanel({
         onJumpEngine={onJumpEngine}
         onAdoptEngine={onAdoptEngine}
         onEditMarkdown={(md) => ops.editMarkdown(si, md)}
-        onEditBlock={(key, text) => ops.editBlock(si, key, text)}
+        onEditBlock={(key, text) => {
+          ops.editBlock(si, key, text)
+          onEditBlockApplied?.()
+        }}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}
         graphicPages={graphicPagesOf(draft.segs[si], pageQuality)}
         docPages={docPages}

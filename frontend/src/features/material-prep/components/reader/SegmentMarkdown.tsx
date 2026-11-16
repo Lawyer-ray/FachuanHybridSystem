@@ -52,6 +52,7 @@ export function SegmentMarkdown({
   focusedBlockKey,
   onLocateBlock,
   editRequestKey,
+  editRequestSeed = null,
   onEditRequestHandled,
   onEditMarkdown,
   onEditBlock,
@@ -79,6 +80,8 @@ export function SegmentMarkdown({
    * 消费后要调 `onEditRequestHandled` 清空，否则后续同块高亮会反复弹输入框。
    */
   editRequestKey?: string | null
+  /** 进入修改态时要预填的文本（缺省用本行原文） */
+  editRequestSeed?: string | null
   onEditRequestHandled?: () => void
   /** 手改正文（识别错字/表格拍平时律师自己修）——没有定位块时的整段编辑 */
   onEditMarkdown?: (md: string) => void
@@ -103,6 +106,8 @@ export function SegmentMarkdown({
 }) {
   // 正在编辑的那一行的 key；null = 全部只读
   const [editingKey, setEditingKey] = useState<string | null>(null)
+  /** 进入编辑态时要预填的文本（「两个引擎都不对」时点采用，用该侧全文作起点） */
+  const [editSeed, setEditSeed] = useState<string | null>(null)
 
   /**
    * 页面框双击 → 自动进入这一行的修改态。
@@ -117,12 +122,14 @@ export function SegmentMarkdown({
       // 没有逐块编辑能力（无定位块的段）：退回整段编辑
       if (onEditMarkdown) setEditingAll(true)
     } else {
+      setEditSeed(editRequestSeed)
       setEditingKey(editRequestKey)
     }
     onEditRequestHandled?.()
-  }, [editRequestKey, onEditBlock, onEditMarkdown, onEditRequestHandled])
+  }, [editRequestKey, editRequestSeed, onEditBlock, onEditMarkdown, onEditRequestHandled])
   // 没有定位块时的整段编辑开关
   const [editingAll, setEditingAll] = useState(false)
+
 
   if (!seg) return null
 
@@ -228,21 +235,33 @@ export function SegmentMarkdown({
                     />
                   )}
                   <BlockRow
-                  key={key}
-                  blockKey={key}
-                  text={b.text || ''}
-                  page={b.page}
-                  approx={b.rect.approx}
-                  active={key === focusedBlockKey}
-                  editing={editingKey === key}
-                  onLocate={onLocateBlock}
-                  onRemove={onRemoveBlock}
-                  onStartEdit={onEditBlock ? setEditingKey : undefined}
-                  onCommitEdit={(text) => {
-                    onEditBlock?.(key, text)
-                    setEditingKey(null)
-                  }}
-                    onCancelEdit={() => setEditingKey(null)}
+                    key={key}
+                    blockKey={key}
+                    text={b.text || ''}
+                    page={b.page}
+                    approx={b.rect.approx}
+                    active={key === focusedBlockKey}
+                    editing={editingKey === key}
+                    seedText={editingKey === key ? editSeed : null}
+                    onLocate={onLocateBlock}
+                    onRemove={onRemoveBlock}
+                    onStartEdit={
+                      onEditBlock
+                        ? (k) => {
+                            setEditSeed(null)
+                            setEditingKey(k)
+                          }
+                        : undefined
+                    }
+                    onCommitEdit={(text) => {
+                      onEditBlock?.(key, text)
+                      setEditingKey(null)
+                      setEditSeed(null)
+                    }}
+                    onCancelEdit={() => {
+                      setEditingKey(null)
+                      setEditSeed(null)
+                    }}
                   />
                 </Fragment>
               )
