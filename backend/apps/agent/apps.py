@@ -33,4 +33,4 @@ class AgentConfig(AppConfig):
             with allow_startup_db():
                 _register_schedules()
         except Exception:
-            logger.debug("记忆定时任务注册跳过（未就绪）", exc_info=True)
+            logger.warning("记忆定时任务注册跳过（未就绪）", exc_info=True)

@@ -21,8 +21,9 @@ import pytest
 
 _AGENT_SERVICES = Path(__file__).resolve().parents[4] / "apps" / "agent" / "services"
 
-# 这些文件的 except 分支失败会直接呈现为「用户看到无法解释的结果」
-_GUARDED = ["approval.py", "live_sessions.py", "question.py"]
+# 这些文件/包的 except 分支失败会直接呈现为「用户看到无法解释的结果」
+# approval 已拆为包（目录），门禁扫包内全部 .py。
+_GUARDED = ["approval", "live_sessions.py", "question.py"]
 
 
 def _debug_calls_in_except(path: Path) -> list[int]:
@@ -46,9 +47,12 @@ def _debug_calls_in_except(path: Path) -> list[int]:
 @pytest.mark.parametrize("filename", _GUARDED)
 def test_no_debug_swallowed_exceptions(filename: str) -> None:
     path = _AGENT_SERVICES / filename
-    assert path.exists(), f"门禁文件缺失，路径可能已变动: {path}"
-    offenders = _debug_calls_in_except(path)
+    assert path.exists(), f"门禁路径缺失，路径可能已变动: {path}"
+    files = sorted(path.glob("*.py")) if path.is_dir() else [path]
+    offenders: list[str] = []
+    for f in files:
+        offenders.extend(f"{f.name}:{lineno}" for lineno in _debug_calls_in_except(f))
     assert not offenders, (
         f"{filename} 在 except 内用 logger.debug 吞错（根 CLAUDE.md 标准："
-        f"失败若让用户看到无法解释结果必须 ≥ warning）——行号: {offenders}"
+        f"失败若让用户看到无法解释结果必须 ≥ warning）——位置: {offenders}"
     )

@@ -95,13 +95,9 @@ LIVE_ROUTE_TTL = 120
 
 def _route_client() -> Any:
     """原生 Redis 客户端（与 event_bus 同源）。"""
-    try:
-        from django.core.cache import cache
+    from .event_bus import raw_redis_client
 
-        inner = getattr(cache, "_cache", None)
-        return getattr(inner, "_cache", None) if inner else None
-    except Exception:
-        return None
+    return raw_redis_client()
 
 
 def register_live_route(session_id: str, worker_id: str) -> None:

@@ -347,11 +347,16 @@ class TestRenderCache:
         assert cache.get("d" * 64, now=time.time() + 600) is None
 
     def test_key_changes_with_source_fingerprint(self) -> None:
-        """覆盖写入后必须失配，否则模型会看到上一份文件的图。"""
+        """覆盖写入后必须失配，否则模型会看到上一份文件的图。
+
+        指纹机制在 folder_refs 层：``render_folder_file_pages`` 把源文件
+        ``size``/``mtime`` 编进 cache_ref（``{display}?v={size}-{mtime}``），
+        key() 对该串散列——源文件更新后 cache_ref 变 → 键失配。
+        """
         cache = render.RenderCache(render.cache_root())
-        k1 = cache.key("att", 1, 150, "png", source_size=100, source_mtime=1000.0)
-        k2 = cache.key("att", 1, 150, "png", source_size=200, source_mtime=1000.0)
-        k3 = cache.key("att", 1, 150, "png", source_size=100, source_mtime=2000.0)
+        k1 = cache.key("folder:1/合同.pdf?v=100-1000", 1, 150, "png")
+        k2 = cache.key("folder:1/合同.pdf?v=200-1000", 1, 150, "png")
+        k3 = cache.key("folder:1/合同.pdf?v=100-2000", 1, 150, "png")
         assert len({k1, k2, k3}) == 3
 
     def test_cache_dir_separate_from_attachments(self, _isolated_media: Path) -> None:

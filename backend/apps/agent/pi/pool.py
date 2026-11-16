@@ -99,13 +99,14 @@ class PiProcessPool:
         Raises:
             PoolQueueTimeoutError: 排队超过 ``queue_timeout``。
         """
-        # P2-2：Redis 分布式信号量路径
+        # P2-2：Redis 分布式信号量路径。INCR/EXPIRE/DECR 是同步网络 IO，
+        # 必须放线程里跑，否则每次闸门操作都阻塞整个事件循环（所有 SSE 一起卡）。
         redis_gate = _try_redis_slot(self.size)
         if redis_gate is not None:
             timeout = self._config.queue_timeout
             deadline = asyncio.get_event_loop().time() + (timeout if timeout > 0 else 3600)
             while True:
-                if redis_gate.try_acquire():
+                if await asyncio.to_thread(redis_gate.try_acquire):
                     break
                 if timeout > 0 and asyncio.get_event_loop().time() >= deadline:
                     raise PoolQueueTimeoutError(f"agent 执行位已满，排队超过 {timeout:.0f} 秒（全机容量 {self.size}）")
@@ -113,7 +114,8 @@ class PiProcessPool:
             try:
                 yield
             finally:
-                redis_gate.release()
+                # to_thread 的线程不受 await 取消影响，release 必然执行完（同原同步语义）
+                await asyncio.to_thread(redis_gate.release)
             return
 
         # 无 Redis 路径（现行行为）
@@ -268,13 +270,9 @@ _GLOBAL_SEM_KEY = "agent:pool:global_count"
 
 def _redis_sync_client() -> Any:
     """原生 Redis 客户端（同步；与 event_bus 同源判定）。"""
-    try:
-        from django.core.cache import cache
+    from ..services.event_bus import raw_redis_client
 
-        inner = getattr(cache, "_cache", None)
-        return getattr(inner, "_cache", None) if inner else None
-    except Exception:
-        return None
+    return raw_redis_client()
 
 
 class _RedisGate:
@@ -314,7 +312,7 @@ class _RedisGate:
             except Exception:
                 # best-effort 释放并发槽位：Redis 抖动不应中断调用方，
                 # 但要留痕——否则槽位泄漏表现为「后面全部排队超时」，无从查起。
-                logger.debug("释放并发槽位失败 key=%s", self._key, exc_info=True)
+                logger.warning("释放并发槽位失败 key=%s", self._key, exc_info=True)
 
 
 def _try_redis_slot(size: int) -> _RedisGate | None:

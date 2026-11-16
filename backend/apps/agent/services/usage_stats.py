@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q, QuerySet, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
@@ -92,6 +92,14 @@ def _window_start(days: int) -> datetime:
     return timezone.now() - timedelta(days=max(1, days))
 
 
+def _runs_in_window(*, user_id: int | None, days: int) -> QuerySet[AgentRun]:
+    """时间窗 + 可选用户过滤的公共 queryset（三个聚合入口同口径）。"""
+    queryset = AgentRun.objects.filter(created_at__gte=_window_start(days))
+    if user_id is not None:
+        queryset = queryset.filter(user_id=user_id)
+    return queryset
+
+
 def summarize(
     *,
     user_id: int | None = None,
@@ -105,9 +113,7 @@ def summarize(
         days: 回看天数。
         session_id: 只看某个会话。
     """
-    queryset = AgentRun.objects.filter(created_at__gte=_window_start(days))
-    if user_id is not None:
-        queryset = queryset.filter(user_id=user_id)
+    queryset = _runs_in_window(user_id=user_id, days=days)
     if session_id is not None:
         queryset = queryset.filter(session__session_id=session_id)
 
@@ -127,9 +133,7 @@ def summarize(
     total_duration = int(agg["total_duration"] or 0)
 
     # ── 月度预算口径（P1-8b）：本月累计 token；env 配置预算后 80% 提醒 ──
-    from django.utils import timezone as dj_timezone
-
-    now = dj_timezone.localtime()
+    now = timezone.localtime()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     month_qs = AgentRun.objects.filter(created_at__gte=month_start)
     if user_id is not None:
@@ -171,9 +175,7 @@ def daily_series(
     days: int = DEFAULT_DAYS,
 ) -> list[dict[str, Any]]:
     """按天的时间序列（前端画趋势用）。无记录的日期不补零。"""
-    queryset = AgentRun.objects.filter(created_at__gte=_window_start(days))
-    if user_id is not None:
-        queryset = queryset.filter(user_id=user_id)
+    queryset = _runs_in_window(user_id=user_id, days=days)
     rows = (
         queryset.annotate(day=TruncDate("created_at"))
         .values("day")
@@ -203,9 +205,7 @@ def daily_series(
 
 def by_model(*, user_id: int | None = None, days: int = DEFAULT_DAYS) -> list[dict[str, Any]]:
     """按模型分组（看哪个模型贵、哪个用得多）。"""
-    queryset = AgentRun.objects.filter(created_at__gte=_window_start(days))
-    if user_id is not None:
-        queryset = queryset.filter(user_id=user_id)
+    queryset = _runs_in_window(user_id=user_id, days=days)
     rows = (
         queryset.values("model")
         .annotate(

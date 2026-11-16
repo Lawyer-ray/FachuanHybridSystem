@@ -24,7 +24,8 @@ from asgiref.sync import sync_to_async
 from ..models import AgentMessage, AgentSession
 from ..pi.pool import PoolQueueTimeoutError
 from ..pi.rpc_client import parse_context_usage
-from .chat_service import _mint_user_token, _session_env, get_pool
+from .chat import env
+from .chat.pool import get_pool
 from .session_cleanup import has_pi_session
 
 logger = logging.getLogger(__name__)
@@ -50,8 +51,8 @@ async def compact_session(*, session: AgentSession, user_id: int | None) -> dict
     if not await sync_to_async(has_pi_session, thread_sensitive=True)(session_id):
         raise CompactNotNeededError("会话还没有对话历史，无需压缩")
 
-    user_token = await _mint_user_token(user_id)
-    session_env = _session_env(session, user_id, user_token=user_token)
+    user_token = await env.mint_user_token(user_id)
+    session_env = env.session_env(session, user_id, user_token=user_token)
     try:
         pool = await get_pool()
         async with pool.acquire(session_env=session_env, session_id=session_id) as pi_session:

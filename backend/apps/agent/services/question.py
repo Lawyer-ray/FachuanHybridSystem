@@ -113,6 +113,9 @@ def _read_answer(question_id: str) -> dict[str, Any] | None:
     try:
         raw = cache.get(f"{ANSWER_KEY_PREFIX}{question_id}")
     except Exception:
+        # 读不到跨 worker 答案 → 等待方只能超时，律师「答了却像没答」，
+        # 属用户可见的无法解释结果，按根 CLAUDE.md 标准必须 ≥ warning。
+        logger.warning("读取问题答案失败(跨 worker 等待者将读不到结果): %s", question_id, exc_info=True)
         return None
     if not raw:
         return None
@@ -138,15 +141,11 @@ async def get_question_by_id(question_id: str) -> Any:
 
     放在 service 层：结构门禁要求 apps/*/api/ 不直连 ORM。
     """
-    from apps.agent.models.question import AgentQuestion
-
     return await AgentQuestion.objects.filter(question_id=question_id).select_related("session").afirst()
 
 
 async def list_pending_questions_for_user(user_id: int, limit: int = 20) -> list[Any]:
     """某用户待回答的提问（最新在前，最多 limit 条）。"""
-    from apps.agent.models.question import AgentQuestion
-
     return [
         row
         async for row in AgentQuestion.objects.filter(
@@ -372,14 +371,18 @@ async def submit_answer(
 ) -> bool:
     """前端提交回答（HTTP 端点调用）。
 
+    答案写两处：进程内等待器（同 worker 快路径）与 Redis（跨 worker）。
+    **本函数不写数据库**——``AgentQuestion.answers`` 由 ``ask_user`` 的等待方
+    落库；等待方已消失时答案不会落库，只留在 Redis 直至 TTL 过期。
+
     Returns:
         是否找到等待中的调用方。``False`` 意味着等待进程已不在（超时/进程重启），
-        答案仍会写 Redis 与数据库，但没人会读到——调用方应据此提示用户。
+        答案没人会读到——调用方应据此提示用户。
     """
     found = await _waiter.resolve(question_id, answers, skipped)
     _write_answer(question_id, answers, skipped)
 
-    # 有等待者时它是真相来源；没有时仍然落库，便于审计「律师当时答了什么」
+    # 只读记录做存在性/状态校验，本函数不写库：答案落库由 ask_user 的等待方负责。
     try:
         record = await AgentQuestion.objects.filter(question_id=uuid.UUID(question_id)).afirst()
     except (ValueError, AttributeError):
@@ -387,6 +390,7 @@ async def submit_answer(
     if record is None or record.status != AgentQuestion.Status.PENDING:
         return found
     if not found:
-        # 等待方已消失（超时）：只补记录，不改 status 为 answered 以免误导
+        # 等待方已消失（超时/进程重启）：无人消费答案，不改库也不改 status，
+        # 返回 False 让调用方提示用户「回答可能未被记录」。
         return False
     return found

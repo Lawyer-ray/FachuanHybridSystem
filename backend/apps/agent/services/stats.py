@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from apps.agent.models import AgentRun
+
 
 async def latest_run_for_session(session: Any) -> Any:
     """取某会话最新的一轮 run；没有则返回 None。"""
-    from apps.agent.models.agent import AgentRun
-
     return await AgentRun.objects.filter(session=session).order_by("-id").afirst()

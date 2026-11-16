@@ -8,7 +8,7 @@ compaction 还会主动丢弃旧细节——这是遗忘机制，不是记忆机
 所内规范（「刑事阅卷笔录按三栏式」）每次都要重讲一遍。
 
 本表把这类跨会话知识持久化到 Django 侧，经 MCP 工具面读写，由
-``services/memory_service.py`` 做检索与注入渲染。
+``services/memory/`` 包做检索与注入渲染。
 
 ## 为什么不用 pi-memory 那类文件方案
 
@@ -136,6 +136,8 @@ class AgentMemory(models.Model):
 
     kind = models.CharField(max_length=16, choices=Kind.choices, verbose_name="类型")
     content = models.TextField(verbose_name="记忆内容")
+    #: 指纹永远由内容派生（service 写入口经 ``content_hash_of`` 计算），
+    #: 不接受外部传入，否则去重约束可被绕过。Model 层不做该业务计算。
     content_hash = models.CharField(max_length=64, db_index=True, verbose_name="内容指纹")
 
     #: 语义检索用向量。空列表表示尚未 embed（自动抽取的任务会补），
@@ -235,8 +237,3 @@ class AgentMemory(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.get_scope_display()}/{self.get_kind_display()}] {self.content[:40]}"
-
-    def save(self, **kwargs: object) -> None:
-        # 指纹永远由内容派生，不接受外部传入（否则去重约束可被绕过）
-        self.content_hash = content_hash_of(self.content)
-        super().save(**kwargs)  # type: ignore[arg-type]

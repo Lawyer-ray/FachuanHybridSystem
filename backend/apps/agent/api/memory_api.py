@@ -23,12 +23,21 @@ import logging
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from ninja import Router, Schema
+from ninja import Router
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentMemory
+from ..schemas import (
+    MemoryConfirmIn,
+    MemoryCreateIn,
+    MemoryHitOut,
+    MemoryOut,
+    PromoteCandidateOut,
+    PromoteIn,
+    SnapshotOut,
+)
 from ..services import memory_service
 
 #: 检索返回的单条内容上限（字）。操作指引上限 8000，留足不截断；
@@ -59,65 +68,6 @@ def _to_out(memory: AgentMemory) -> dict[str, Any]:
         "created_at": memory.created_at.isoformat() if memory.created_at else "",
         "source_session_id": (str(memory.source_session.session_id) if memory.source_session is not None else ""),
     }
-
-
-class MemoryOut(Schema):
-    id: str
-    scope: str
-    kind: str
-    content: str
-    status: str
-    confidence: float
-    hit_count: int
-    created_at: str
-    source_session_id: str = ""
-
-
-class MemoryCreateIn(Schema):
-    content: str
-    kind: str = AgentMemory.Kind.FACT
-
-
-class MemoryConfirmIn(Schema):
-    ids: list[str]
-    accept: bool = True
-
-
-class PromoteCandidateOut(Schema):
-    id: str
-    kind: str
-    content: str
-    hit_count: int
-    from_lawyer: str = ""
-    pii_risk: list[str] = []
-
-
-class PromoteIn(Schema):
-    source_ids: list[str]
-    content: str
-    kind: str
-    scope: str
-    team_id: int | None = None
-    #: 律所层必须显式传 True：表示已阅读「全所可见」的影响面声明。
-    #: 为什么不是双管理员会签：实测生产环境存在只有 1 个管理员、甚至 0 个
-    #: 管理员的律所（firm2/firm3/firm5），强制会签会让那些律所完全用不了
-    #: 律所层。真实约束应该是「你知道自己在写全所规范」而不是「两个人盖章」。
-    acknowledged_firm_wide: bool = False
-
-
-class SnapshotOut(Schema):
-    content: str
-
-
-class MemoryHitOut(Schema):
-    id: str
-    scope: str
-    kind: str
-    content: str
-    score: float
-    #: 返回内容是否被截断。操作指引全文可达 8000 字，模型需要知道
-    #: 自己看到的是否完整（不完整时应收窄查询或分批读取）。
-    truncated: bool = False
 
 
 @router.get("", response=list[MemoryOut])

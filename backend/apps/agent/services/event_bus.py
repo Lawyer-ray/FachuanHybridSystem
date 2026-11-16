@@ -71,6 +71,20 @@ def _redis_client() -> Any:
     raise RuntimeError("当前缓存后端不支持原生 Redis 操作")
 
 
+def raw_redis_client() -> Any:
+    """原生 redis 客户端（``cache._cache._cache`` 链）；不可用返回 ``None``。
+
+    Stream 持久化 / live_sessions 路由 / pool 闸门统一从这里取，避免多处
+    各自 getattr 的取法漂移。与 ``_redis_client()`` 语义不同：后者走
+    ``get_client(write=True)`` 且不可用时抛错（list 中继专用），两者不可互换。
+    """
+    try:
+        inner = getattr(cache, "_cache", None)
+        return getattr(inner, "_cache", None) if inner else None
+    except Exception:
+        return None
+
+
 def redis_cache_enabled() -> bool:
     """缓存后端是否是 Redis（决定跨进程分发是否可用）。
 
@@ -185,7 +199,7 @@ class EventBus:
                 client.ltrim(key, -REDIS_MAX_LEN, -1)
                 client.expire(key, REDIS_TTL)
             except Exception:
-                logger.debug("写入 Redis 事件失败（已降级为进程内）: %s", session_id, exc_info=True)
+                logger.warning("写入 Redis 事件失败（已降级为进程内）: %s", session_id, exc_info=True)
 
         await asyncio.to_thread(_write)
 
@@ -210,7 +224,7 @@ class EventBus:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.debug("Redis 中继异常", exc_info=True)
+                logger.warning("Redis 中继异常", exc_info=True)
             await asyncio.sleep(RELAY_POLL_INTERVAL)
 
     async def _drain_redis(self) -> None:
@@ -279,20 +293,16 @@ def _append_to_stream(session_id: str, event: dict[str, Any]) -> None:
     if not redis_cache_enabled():
         return
     try:
-        import json as _json
+        import redis
 
-        import redis as _redis
-
-        client = getattr(
-            getattr(__import__("django.core.cache", fromlist=["cache"]).cache, "_cache", None), "_cache", None
-        )
-        if client and isinstance(client, _redis.Redis):
+        client = raw_redis_client()
+        if client and isinstance(client, redis.Redis):
             key = f"{_EVENT_STREAM_PREFIX}{session_id}"
             seq = client.incr(f"{_EVENT_STREAM_PREFIX}{session_id}:seq")
-            client.xadd(key, {"seq": str(seq), "data": _json.dumps(event, ensure_ascii=False)})
+            client.xadd(key, {"seq": str(seq), "data": json.dumps(event, ensure_ascii=False)})
             client.expire(key, _EVENT_STREAM_TTL)
     except Exception:
-        logger.debug("事件写 Redis Stream 失败（不影响实时投递）", exc_info=True)
+        logger.warning("事件写 Redis Stream 失败（不影响实时投递）", exc_info=True)
 
 
 def replay_events(session_id: str, last_event_id: int) -> list[dict[str, Any]]:
@@ -304,14 +314,10 @@ def replay_events(session_id: str, last_event_id: int) -> list[dict[str, Any]]:
     if not redis_cache_enabled():
         return []
     try:
-        import json as _json
+        import redis
 
-        import redis as _redis
-        from django.core.cache import cache
-
-        inner = getattr(cache, "_cache", None)
-        client = getattr(inner, "_cache", None) if inner else None
-        if not client or not isinstance(client, _redis.Redis):
+        client = raw_redis_client()
+        if not client or not isinstance(client, redis.Redis):
             return []
         key = f"{_EVENT_STREAM_PREFIX}{session_id}"
         entries = client.xrange(key, min=f"{last_event_id + 1}", max="+") or []
@@ -321,11 +327,11 @@ def replay_events(session_id: str, last_event_id: int) -> list[dict[str, Any]]:
             if not fields:
                 continue
             try:
-                event = _json.loads(fields.get("data", "{}"))
+                event = json.loads(fields.get("data", "{}"))
                 events.append(event)
             except (ValueError, TypeError):
                 continue
         return events
     except Exception:
-        logger.debug("事件回放失败", exc_info=True)
+        logger.warning("事件回放失败", exc_info=True)
         return []

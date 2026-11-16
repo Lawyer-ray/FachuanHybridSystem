@@ -583,7 +583,7 @@ class PiRpcSession:
         try:
             resp = await self._send({"type": "abort"})
         except (PiError, TimeoutError):
-            logger.debug("abort 发送失败（进程可能已退出）", exc_info=True)
+            logger.warning("abort 发送失败（进程可能已退出）", exc_info=True)
             return False
         return resp.get("success") is True
 

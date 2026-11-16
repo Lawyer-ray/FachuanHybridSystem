@@ -328,9 +328,9 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("", download_ticket_router, auth=JWTOrSessionAuth())
 
-    from apps.agent.api.agent_api import router as agent_router
+    from apps.agent.api import router as agent_router
 
-    api_v1.add_router("/agent", agent_router, tags=["Agent"])
+    api_v1.add_router("/agent", agent_router)
 
     # Agent 记忆工具面(mcp_server agent_memory)的后端端点:工具调
     # /agent/memory/*,router 不注册则 5 个工具运行时静默 404(契约门禁

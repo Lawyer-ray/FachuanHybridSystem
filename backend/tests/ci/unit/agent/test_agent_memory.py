@@ -62,6 +62,7 @@ def _memory(lawyer: Lawyer, content: str, **kwargs: object) -> AgentMemory:
         "lawyer": lawyer,
         "kind": AgentMemory.Kind.PREFERENCE,
         "content": content,
+        "content_hash": content_hash_of(content),
         "status": AgentMemory.Status.ACTIVE,
         "created_by": lawyer,
     }
@@ -424,7 +425,7 @@ class TestSemanticSearch:
         AgentMemory.objects.filter(pk=irrelevant.pk).update(embedding=[0.0, 1.0, 0.0])
 
         # 查询语义上接近「格式要求」，但字面与两条都不重合
-        with patch.object(memory_service, "_embed_query", return_value=[1.0, 0.0, 0.0]):
+        with patch.object(memory_service.search, "_embed_query", return_value=[1.0, 0.0, 0.0]):
             hits = memory_service.search_memories(lawyer, "我问过的格式要求")
 
         ids = [m.pk for m, _score in hits]
@@ -436,7 +437,7 @@ class TestSemanticSearch:
         memory = _memory(lawyer, "回函要附法条原文")
         assert not memory.embedding
 
-        with patch.object(memory_service, "_embed_query", return_value=[1.0, 0.0]):
+        with patch.object(memory_service.search, "_embed_query", return_value=[1.0, 0.0]):
             with patch(
                 "apps.core.interfaces.ServiceLocator.get_llm_service",
                 return_value=MagicMock(embed_texts=lambda texts, **kw: [[0.9, 0.1]] * len(texts)),
@@ -454,7 +455,7 @@ class TestSemanticSearch:
 
     def test_search_respects_scope_isolation(self, lawyer: Lawyer, outsider: Lawyer) -> None:
         mine = _memory(lawyer, "我的私密偏好")
-        with patch.object(memory_service, "_embed_query", return_value=None):
+        with patch.object(memory_service.search, "_embed_query", return_value=None):
             assert all(m.pk != mine.pk for m, _ in memory_service.search_memories(outsider, "私密"))
 
 
@@ -556,7 +557,7 @@ class TestPlaybookChannel:
     def test_playbook_full_text_retrievable(self, lawyer: Lawyer) -> None:
         """按需取全文：检索必须返回完整正文而不是索引。"""
         memory_service.create_memory(lawyer, content=self.PLAYBOOK, kind=AgentMemory.Kind.PLAYBOOK)
-        with patch.object(memory_service, "_embed_query", return_value=None):
+        with patch.object(memory_service.search, "_embed_query", return_value=None):
             hits = memory_service.search_memories(lawyer, "阅卷规范", limit=5)
         assert hits, "应能检索到指引"
         assert "每份材料页脚标注来源与页码" in hits[0][0].content

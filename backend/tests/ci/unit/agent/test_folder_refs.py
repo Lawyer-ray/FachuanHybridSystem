@@ -263,6 +263,7 @@ class TestReadAndRender:
         assert outcome.error == "unsupported_mime"
         assert outcome.pages == []
 
+
 class TestCaseOwnerKind:
     def test_case_ref_reads_case_binding_folder(self, db, tmp_path, monkeypatch, lawyer) -> None:
         """案件引用走 CaseFolderBrowseService：读案件绑定文件夹的原文件。"""

@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any
 from apps.core.exceptions import ValidationException
 
 from ..models import AgentAttachment, AgentSession
-from .attachments import _render_bytes_pages
+from .attachments import render_bytes_pages
 
 if TYPE_CHECKING:
     from apps.core.filesystem.bound_folder_browse import BoundFolderBrowseService
@@ -236,7 +236,7 @@ def render_folder_file_pages(
             error=render.RenderError.NOT_FOUND,
             detail="文件已不存在（可能已被移动或移入删除区）",
         )
-    return _render_bytes_pages(
+    return render_bytes_pages(
         ref_id=display,
         cache_ref=cache_ref,
         filename=path.name,

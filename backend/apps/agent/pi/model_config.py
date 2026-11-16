@@ -27,6 +27,7 @@ import itertools
 import json
 import logging
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -197,18 +198,21 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
     return entry
 
 
-def resolve_thinking_level(model_hint: str = "") -> str | None:
+def resolve_thinking_level(model_hint: str = "", provider: Any | None = None) -> str | None:
     """解析该模型应使用的 pi 思考等级（``--thinking`` 参数值）。
 
     重要：``models.json`` 里的 ``reasoning: true`` 只是冓「这个模型能思考」，
     真正的推理开关是会话的 ``thinkingLevel``，默认 ``off``。只声明能力而不传
     ``--thinking``，模型依旧不思考、也不会产生 ``thinking_delta`` 事件。
 
+    ``provider`` 缺省时自行查询；调用方已查过则传入，避免重复读库。
+
     Returns:
         ``medium``（平台开启思考且模型是推理模型）；否则 ``None``（不传参数，
         pi 保持默认 off）。
     """
-    provider = _load_provider(model_hint)
+    if provider is None:
+        provider = _load_provider(model_hint)
     if provider is None or not getattr(provider, "enable_thinking", False):
         return None
     models = _provider_models(provider)
@@ -221,15 +225,18 @@ def resolve_thinking_level(model_hint: str = "") -> str | None:
     return DEFAULT_THINKING_LEVEL
 
 
-def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
+def build_models_json(model_hint: str = "", provider: Any | None = None) -> dict[str, Any] | None:
     """把当前 LLMProvider 渲染成 pi 的 models.json 内容。
+
+    ``provider`` 缺省时自行查询；调用方已查过则传入，避免重复读库。
 
     Returns:
         ``models.json`` 的 dict；无可用 provider 时返回 ``None``
         （此时 pi 用自己的用户级配置，不做任何覆盖）。
     """
     gateway = os.environ.get(GATEWAY_URL_ENV, "").strip()
-    provider = _load_provider(model_hint)
+    if provider is None:
+        provider = _load_provider(model_hint)
 
     if gateway:
         # 网关模式：baseUrl 指向自家网关，pi 不持有真实 Key
@@ -286,30 +293,32 @@ def build_models_json(model_hint: str = "") -> dict[str, Any] | None:
     }
 
 
-def write_models_json(target_dir: str | Path, model_hint: str = "") -> Path | None:
+def write_models_json(target_dir: str | Path, model_hint: str = "", provider: Any | None = None) -> Path | None:
     """把 models.json 写进目标目录；无可用配置时返回 ``None``。
 
     **文件含明文 API Key，必须以 0600 创建。** ``Path.write_text`` 会先按
     默认 umask（通常 0644）建文件再 chmod，中间存在其他用户可读的窗口期，
-    且 chmod 失败时容易被静默吞掉。这里用 ``os.open`` 直接以 0600 原子创建，
-    创建即私有，不依赖后续 chmod。
+    且 chmod 失败时容易被静默吞掉。这里用 ``mkstemp``（创建即 0600）写同目录
+    临时文件再 ``os.replace`` 原子替换：pi 任何时刻读到的都是完整 JSON，
+    不会撞上 O_TRUNC 直写留下的截断/半截窗口。``provider`` 缺省时自行查询。
     """
-    payload = build_models_json(model_hint)
+    payload = build_models_json(model_hint, provider=provider)
     if payload is None:
         return None
 
     path = Path(target_dir) / "models.json"
     data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
-    # O_CREAT|O_WRONLY|O_TRUNC + 0600：创建瞬间即私有
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=".models-", suffix=".tmp")
     try:
-        # 若文件已存在且权限更宽，os.open 不会收紧；显式再设一次兜底
-        with contextlib.suppress(OSError):
-            os.fchmod(fd, 0o600)
-        os.write(fd, data)
+        # 缓冲写完整落盘（处理部分写）；mkstemp 创建即 0600，replace 后权限随新文件
+        with os.fdopen(fd, "wb") as tmp_file:
+            tmp_file.write(data)
+        os.replace(tmp_name, path)
     finally:
-        os.close(fd)
+        # replace 成功后 tmp 已不存在，suppress 兜底；失败时清掉残留临时文件
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
     return path
 
 

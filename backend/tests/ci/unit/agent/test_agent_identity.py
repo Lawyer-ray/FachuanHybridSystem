@@ -163,9 +163,9 @@ def _fake_runtime(monkeypatch: pytest.MonkeyPatch) -> asyncio.Event:
     async def fake_model() -> str | None:
         return None
 
-    monkeypatch.setattr(chat_service, "get_pool", fake_get_pool)
-    monkeypatch.setattr(chat_service, "_resolve_model", fake_model)
-    monkeypatch.setattr(chat_service, "stream_events", fake_stream)
+    monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_get_pool)
+    monkeypatch.setattr("apps.agent.services.chat.pool._resolve_model", fake_model)
+    monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
     monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
     return release
 
@@ -229,9 +229,9 @@ async def test_happy_path_records_title_and_persists_text(monkeypatch: pytest.Mo
     async def fake_get_pool() -> Any:
         return _FakePool()
 
-    monkeypatch.setattr(chat_service, "get_pool", fake_get_pool)
-    monkeypatch.setattr(chat_service, "_resolve_model", fake_model)
-    monkeypatch.setattr(chat_service, "stream_events", fake_stream)
+    monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_get_pool)
+    monkeypatch.setattr("apps.agent.services.chat.pool._resolve_model", fake_model)
+    monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
     from apps.agent.services.event_bus import EventBus
 
     monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
@@ -267,8 +267,8 @@ async def test_auto_title_strips_anchor_prefix(monkeypatch: pytest.MonkeyPatch) 
     async def fake_get_pool() -> Any:
         return _FakePool()
 
-    monkeypatch.setattr(chat_service, "get_pool", fake_get_pool)
-    monkeypatch.setattr(chat_service, "stream_events", fake_stream)
+    monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_get_pool)
+    monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
     from apps.agent.services.event_bus import EventBus
 
     monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
@@ -293,7 +293,7 @@ async def test_mint_failure_rejects_turn_without_persisting(monkeypatch: pytest.
     def boom(user_id: int) -> str:
         raise RuntimeError("user gone")
 
-    monkeypatch.setattr(chat_service, "mint_user_access_token", boom)
+    monkeypatch.setattr("apps.agent.services.chat.env.mint_user_access_token", boom)
 
     events = [e async for e in chat_service.stream_chat(session=session, user_message="问题", user_id=1)]
     assert [e["type"] for e in events] == ["error"]
