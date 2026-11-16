@@ -52,11 +52,16 @@ class GsxtReportAdapter:
 
     def start_login(self, credential_id: int, task_id: int) -> None:
         """启动登录流程。"""
-        from apps.automation.services.gsxt.gsxt_login_service import start_login_gsxt
+        from apps.automation.services.gsxt.gsxt_login_service import GsxtLoginError, start_login_gsxt
+        from apps.core.exceptions import ValidationException
 
         account_credential_model = _get_account_credential_model()
         credential = account_credential_model.objects.get(pk=credential_id)
-        start_login_gsxt(credential, task_id)
+        try:
+            start_login_gsxt(credential, task_id)
+        except GsxtLoginError as e:
+            # 跨模块异常收敛为本域 ValidationException，Admin 无需导入 automation 异常类型
+            raise ValidationException(message=str(e), code="GSXT_LOGIN_FAILED") from e
         logger.info("启动国家企业信用信息公示系统登录: task_id=%s", task_id)
 
     def get_waiting_email_task(self, client_id: int) -> Any | None:
@@ -106,3 +111,19 @@ class CredentialAdapter:
             .order_by("-last_login_success_at", "-login_success_count")
             .first()
         )
+
+    def has_jtn_credential(self, lawyer_id: int) -> bool:
+        """检查指定律师是否持有 OA 凭证（委托 organization 服务）。"""
+        from apps.organization.services.credential.account_credential_service import AccountCredentialService
+
+        return AccountCredentialService().has_jtn_credential(lawyer_id)
+
+
+class ConflictCheckAdapter:
+    """利益冲突检查适配器（封装 oa_filing 依赖）。"""
+
+    def open_conflict_check_page(self, *, keyword: str, user: Any) -> None:
+        """打开 OA 利益冲突预检页并填入当事人名称搜索。"""
+        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+
+        ScriptExecutorService().open_conflict_check_page(keyword=keyword, user=user)

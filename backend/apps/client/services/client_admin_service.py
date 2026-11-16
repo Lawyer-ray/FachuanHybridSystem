@@ -6,16 +6,26 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from django.core.files.storage import default_storage
+
+from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.client_admin_file_mixin import _DOC_TYPE_DISPLAY, ClientAdminFileMixin
+from apps.client.services.wiring import get_gsxt_report_port
 from apps.core.exceptions import ValidationException
+from apps.core.filesystem.upload_paths import MediaEntity
+from apps.core.services.storage_service import sanitize_upload_filename, to_media_abs
 
 if TYPE_CHECKING:
-    from apps.client.models import Client
-
     from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
 
 logger = logging.getLogger("apps.client")
+
+
+def _build_gsxt_report_rel_path(*, client: Client) -> str:
+    """构造企业信用报告的 media 相对路径（client.name 经清洗，防目录逃逸）。"""
+    report_name = sanitize_upload_filename(f"{client.name[:20]}_企业信用报告.pdf") or "企业信用报告.pdf"
+    return f"{MediaEntity.CLIENT_DOCS}/{client.pk}/{report_name}"
 
 
 @dataclass
@@ -127,3 +137,44 @@ class ClientAdminService(ClientAdminFileMixin):
             )
 
         return {"doc_type": doc_type, "file_path": file_path, "doc_id": doc_id}
+
+    def save_gsxt_report(self, *, client: Client, uploaded_file: Any, task_id: int, include_content: bool) -> str:
+        """保存企业信用报告 PDF 并挂为营业执照附件，标记报告任务成功。
+
+        include_content=True 时读取文件内容回传任务（admin 上传视图）；
+        False 时文件已落盘、任务侧不重复存内容（inline 表单集路径）。
+        """
+        rel_path = _build_gsxt_report_rel_path(client=client)
+        saved_name = default_storage.save(rel_path, uploaded_file)
+
+        doc, _ = ClientIdentityDoc.objects.get_or_create(
+            client=client,
+            doc_type=ClientIdentityDoc.BUSINESS_LICENSE,
+        )
+        doc.file_path = str(saved_name)
+        doc.save(update_fields=["file_path"])
+
+        file_content = to_media_abs(saved_name).read_bytes() if include_content else b""
+        get_gsxt_report_port().upload_report(task_id=task_id, file_content=file_content, file_name=saved_name)
+        return saved_name
+
+    def import_json_items(self, data_list: list[dict[str, Any]]) -> tuple[int, int, list[str]]:
+        """批量导入当事人（含附件），返回 (成功数, 跳过数, 错误列表)。"""
+        from .client_resolve_service import ClientResolveService
+
+        svc = ClientResolveService()
+        success = skipped = 0
+        errors: list[str] = []
+        for i, item in enumerate(data_list, 1):
+            try:
+                id_number = item.get("id_number")
+                before = Client.objects.filter(id_number=id_number).exists() if id_number else False
+                svc.resolve_with_attachments(item)
+                if not before:
+                    success += 1
+                else:
+                    skipped += 1
+            except Exception as exc:
+                logger.exception("导入客户失败", extra={"index": i, "client_name": item.get("name", "?")})
+                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
+        return success, skipped, errors

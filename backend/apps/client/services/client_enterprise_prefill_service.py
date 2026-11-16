@@ -41,12 +41,19 @@ class ClientEnterprisePrefillService:
         company_id: str,
         provider: str | None = None,
         include_existing: bool = True,
+        user: Any = None,
     ) -> dict[str, Any]:
         """构建企业客户预填。
 
         include_existing=False 时不回查既有客户（安全审计 2026-10-19：existing_client
         会按信用代码披露客户 id/name，仅供有 client.view_client 权限的调用方）。
+        传入 user 时在服务层做权限判定（权限校验属 Service 职责，API 只透传用户）。
         """
+        if user is not None:
+            from apps.client.services.client_access_policy import ClientAccessPolicy
+
+            include_existing = include_existing and ClientAccessPolicy().has_perm(user, "client.view_client")
+
         normalized_company_id = str(company_id or "").strip()
         if not normalized_company_id:
             raise ValidationException(message="company_id 不能为空", code="INVALID_COMPANY_ID")

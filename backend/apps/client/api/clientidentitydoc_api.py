@@ -2,10 +2,10 @@ import logging
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from ninja import File, Router, Schema
+from ninja import File, Router
 from ninja.files import UploadedFile
 
-from apps.client.schemas import IdentityDocDetailOut, IdentityRecognizeOut
+from apps.client.schemas import BindMergedDocIn, IdentityDocDetailOut, IdentityRecognizeOut, MergeIdCardManualIn
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger(__name__)
@@ -94,18 +94,9 @@ def add_identity_doc(  # pragma: no cover
         client_id=client_id,
         doc_type=doc_type,
         uploaded_file=file,
-        user=getattr(request, "user", None),
+        user=_identity_request_user(request),
     )
     return {"success": True, "doc_id": identity_doc.id, "message": "证件文档添加成功"}
-
-
-class MergeIdCardManualIn(Schema):
-    """手动合并身份证请求体"""
-
-    front_image_path: str
-    back_image_path: str
-    front_corners: list[list[int]]
-    back_corners: list[list[int]]
 
 
 @router.post("/identity-docs/merge-id-card")
@@ -148,34 +139,20 @@ def merge_id_card_manual(  # pragma: no cover
     return result
 
 
-class BindMergedDocIn(Schema):
-    """绑定合并证件请求体"""
-
-    client_id: int
-    pdf_path: str
-    doc_type: str = "id_card"
-
-
 @router.post("/identity-docs/bind-merged")
 def bind_merged_doc(  # pragma: no cover
     request: Any,
     data: BindMergedDocIn,
 ) -> dict[str, Any]:
     """将已合并的 PDF 绑定到当事人的证件记录"""
-    try:
-        doc_service = _get_identity_doc_service()
-        _user = getattr(request, "auth", None) or getattr(request, "user", None)
-        doc = doc_service.add_identity_doc(
-            client_id=data.client_id,
-            doc_type=data.doc_type,
-            file_path=data.pdf_path,
-            user=_user,
-        )
-        logger.info("合并证件绑定成功", extra={"client_id": data.client_id, "doc_id": doc.id})
-        return {"success": True, "doc_id": doc.id, "message": "证件绑定成功"}
-    except Exception:
-        logger.exception("合并证件绑定失败", extra={"client_id": data.client_id})
-        return {"success": False, "message": "证件绑定失败，请手动添加"}
+    doc_service = _get_identity_doc_service()
+    result: dict[str, Any] = doc_service.bind_merged_doc_safe(
+        client_id=data.client_id,
+        doc_type=data.doc_type,
+        file_path=data.pdf_path,
+        user=_identity_request_user(request),
+    )
+    return result
 
 
 @router.get("/identity-docs/{doc_id}", response=IdentityDocDetailOut)
@@ -192,8 +169,7 @@ def get_identity_doc(request: Any, doc_id: int) -> IdentityDocDetailOut:  # prag
     """
     service = _get_identity_doc_service()
     # 安全审计 B-14：读取含 file_path/media_url，须有客户查看权限
-    _user = getattr(request, "auth", None) or getattr(request, "user", None)
-    identity_doc = service.get_identity_doc(doc_id, user=_user)
+    identity_doc = service.get_identity_doc(doc_id, user=_identity_request_user(request))
 
     return IdentityDocDetailOut(
         id=identity_doc.id,
@@ -218,7 +194,7 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:  # pragma:
         操作结果
     """
     service = _get_identity_doc_service()
-    service.delete_identity_doc(doc_id=doc_id, user=getattr(request, "user", None))
+    service.delete_identity_doc(doc_id=doc_id, user=_identity_request_user(request))
 
     return {"success": True, "message": "证件文档删除成功"}
 

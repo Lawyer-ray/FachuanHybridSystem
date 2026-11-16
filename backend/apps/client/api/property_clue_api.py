@@ -82,7 +82,7 @@ def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:  #
 
     API 层职责：
     1. 接收查询参数
-    2. 调用 Service 静态方法
+    2. 调用 Service 方法
     3. 返回模板
 
     Requirements: 2.1, 2.2, 2.3, 2.4

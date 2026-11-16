@@ -221,3 +221,15 @@ class ClientIdentityDocService:
             file_path=saved_path.as_posix(),
             user=user,
         )
+
+    def bind_merged_doc_safe(
+        self, *, client_id: int, doc_type: str, file_path: str, user: Any = None
+    ) -> dict[str, Any]:
+        """绑定已合并 PDF 到证件记录，捕获异常返回含 success 的 dict（供 API 层直接调用）。"""
+        try:
+            doc = self.add_identity_doc(client_id=client_id, doc_type=doc_type, file_path=file_path, user=user)
+        except Exception:
+            logger.exception("合并证件绑定失败", extra={"client_id": client_id})
+            return {"success": False, "message": "证件绑定失败，请手动添加"}
+        logger.info("合并证件绑定成功", extra={"client_id": client_id, "doc_id": doc.id})
+        return {"success": True, "doc_id": doc.id, "message": "证件绑定成功"}
