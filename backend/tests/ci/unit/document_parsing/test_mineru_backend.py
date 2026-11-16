@@ -880,12 +880,19 @@ class TestParseResultZip:
 
 class TestExtractTextFromContentList:
     def test_normal(self, tmp_path: Path) -> None:
+        """表格块必须并入 text。
+
+        此前这里断言 ``"段落一\\n段落二"``——即表格被丢弃。那是 bug 的固化：
+        MinerU 的表格块 ``text`` 恒为空，内容在 ``table_body``（HTML），只取
+        ``type == "text"`` 会让表格内容 100% 消失（实测 8 页卷宗 7 个表格、
+        5292 字符全丢）。真实 content_list 里表格块的 text 就是空串。
+        """
         cl = tmp_path / "content_list.json"
         cl.write_text(
             json.dumps(
                 [
                     {"type": "text", "text": "段落一"},
-                    {"type": "table", "text": "表格"},
+                    {"type": "table", "text": "", "table_body": "<table><tr><td>表格</td></tr></table>"},
                     {"type": "text", "text": "段落二"},
                 ]
             )
@@ -893,7 +900,8 @@ class TestExtractTextFromContentList:
 
         backend = _make_backend()
         text = backend._extract_text_from_content_list(cl)
-        assert text == "段落一\n段落二"
+        # 表格 HTML 去标签后并入，位置保持原顺序
+        assert text == "段落一\n表格\n段落二"
 
     def test_empty_list(self, tmp_path: Path) -> None:
         cl = tmp_path / "content_list.json"
@@ -904,11 +912,12 @@ class TestExtractTextFromContentList:
         assert text == ""
 
     def test_no_text_blocks(self, tmp_path: Path) -> None:
+        """没有段落块、只有表格时，表格内容仍应产出（此前断言为空 = bug 固化）。"""
         cl = tmp_path / "content_list.json"
         cl.write_text(
             json.dumps(
                 [
-                    {"type": "table", "text": "表格内容"},
+                    {"type": "table", "text": "", "table_body": "<table><tr><td>表格内容</td></tr></table>"},
                     {"type": "image", "text": ""},
                 ]
             )
@@ -916,7 +925,85 @@ class TestExtractTextFromContentList:
 
         backend = _make_backend()
         text = backend._extract_text_from_content_list(cl)
-        assert text == ""
+        assert text == "表格内容"
+
+    def test_table_caption_fallback(self, tmp_path: Path) -> None:
+        """表格无 table_body 时退回 caption，不让块整个消失。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "table", "text": "", "table_caption": ["表 1 借款明细"]},
+                ]
+            )
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "表 1 借款明细"
+
+    def test_正文与页眉同文时正文不被吞(self, tmp_path: Path) -> None:
+        """页眉只出现 1 次时不当作重复页眉，正文同名内容要保留。
+
+        真实卷宗里很常见：页眉是「民事判决书」，正文首个标题也是「民事判决书」。
+        此前「归一化相等就丢」会把正文首段一起吞掉（已复现：输出为空）。
+        """
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "header", "text": "民事判决书"},
+                    {"type": "text", "text": "民事判决书"},
+                    {"type": "text", "text": "正文内容"},
+                ],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "民事判决书\n正文内容"
+
+    def test_真跨页页眉仍被过滤(self, tmp_path: Path) -> None:
+        """同一页眉出现 ≥2 次才算真页眉，还是要过滤掉。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "正文A"},
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "正文B"},
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "某某法院"},
+                ],
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "正文A\n正文B"
+
+    def test_header_footer_excluded(self, tmp_path: Path) -> None:
+        """页眉页脚即使带了 text 也不并入正文。"""
+        cl = tmp_path / "content_list.json"
+        cl.write_text(
+            json.dumps(
+                [
+                    {"type": "header", "text": "某某法院"},
+                    {"type": "text", "text": "正文"},
+                    {"type": "page_number", "text": "1"},
+                    {"type": "footer", "text": "第 1 页"},
+                ]
+            )
+        )
+
+        backend = _make_backend()
+        text = backend._extract_text_from_content_list(cl)
+        assert text == "正文"
 
     def test_invalid_json_returns_empty(self, tmp_path: Path) -> None:
         cl = tmp_path / "content_list.json"

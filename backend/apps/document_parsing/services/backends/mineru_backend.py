@@ -786,41 +786,124 @@ class MineruBackend:
         但部分页眉会被误识别为 text 类型。通过归一化匹配（去除标点后比较）
         过滤被误识别的页眉。
 
+        ⚠️ 必须含表格：MinerU 的表格块 ``text`` 字段**恒为空字符串**，内容全在
+        ``table_body`` 的 HTML 里。此前本方法只取 ``type == "text"``，导致表格
+        内容 100% 从 ``parsed.text`` 消失（实测 8 页卷宗：7 个表格、table_body
+        合计 5292 字符，text 里 0 字符）。法律卷宗的金额、账号、当事人清单大量
+        在表格里，这是静默丢数据。
+
+        表格 HTML 去标签的口径与 ``_extract_page_layout_from_content_list`` 里
+        的 ``page["text"]`` 完全一致（去标签 + 反转义 + 空白折叠），两条路径
+        必须同源，否则 ``text`` 与 ``blocks`` 会看出不同内容。图片块同理取
+        ``image_caption`` / ``image_footnote``。
+
         Args:
             content_list_path: content_list.json 文件路径
 
         Returns:
-            提取的文本（不含页眉页脚）
+            提取的文本（不含页眉页脚，但含表格正文与图表说明）
         """
         try:
             with open(content_list_path, encoding="utf-8") as f:
                 content_list = json.load(f)
 
-            # 收集 header/footer 类型的归一化文本（已知页眉页脚）
-            excluded_norm: set[str] = set()
+            # 收集 header/footer 类型的归一化文本 → 出现次数。
+            # 记次数而不是去重，是因为「出现 1 次」不能证明它是跨页页眉（也可能
+            # 只是误标成 header 的正文标题，那种不能连正文一起吞）。
+            excluded_norm: dict[str, int] = {}
             for block in content_list:
                 if block.get("type") in ("header", "footer"):
                     text = (block.get("text") or "").strip()
                     if text:
-                        excluded_norm.add(normalize_text(text))
+                        key = normalize_text(text)
+                        excluded_norm[key] = excluded_norm.get(key, 0) + 1
 
-            # 提取 text 块，跳过匹配已知页眉页脚的
+            # 提取正文块，跳过匹配已知页眉页脚的
             texts = []
             for block in content_list:
                 block_type = block.get("type", "")
-                block_text = block.get("text", "")
+                # 页眉/页脚/页码不进正文（每页重复一遍会把正文淹掉）。
+                # ``_content_block_text`` 只负责取块自身文本，不替调用方做取舍。
+                if block_type in ("header", "footer", "page_number"):
+                    continue
+                block_text = self._content_block_text(block)
+                if not block_text:
+                    continue
 
-                if block_type == "text" and block_text:
-                    # 归一化后检查是否匹配已知页眉页脚
-                    if normalize_text(block_text) in excluded_norm:
-                        continue
-                    texts.append(block_text)
+                if block_type == "text" and self._is_repeated_header(block_text, excluded_norm):
+                    continue
+                texts.append(block_text)
 
             return "\n".join(texts)
 
         except Exception as e:
             logger.warning("解析 content_list.json 失败: %s", e)
             return ""
+
+    @staticmethod
+    def _is_repeated_header(block_text: str, excluded_norm: set[str], *, seen: int = 0) -> bool:
+        """这个 text 块是否就是页眉/页脚从页面上方/下方重复冒出来的那一行。
+
+        单纯「归一化相等」会把**正文里的同名内容一起吞掉**。法律文书里这种情况
+        很常见：页眉是「民事判决书」，正文首个标题也是「民事判决书」；页眉是
+        「（20XX）X XX 民初 XXX 号」，正文引用案号时也会出现同一串。此前这些正文首段被
+        当成重复页眉直接丢弃（已复现：header='民事判决书' + text='民事判决书'
+        时输出为空）。
+
+        现在的判据只认「**多次重复**」：同一个归一化文本在 header/footer 里
+        出现至少 2 次，才能当作跨页重复的页眉（真页眉每页都有）；只出现过
+        1 次的，视为可能是正文标题，保留。
+
+        Args:
+            block_text: 待判断的 text 块内容
+            excluded_norm: 已归一的 header/footer 文本 → 出现次数
+            seen: 未使用（保留位，兼容旧调用签名）
+
+        Returns:
+            True 表示可以丢弃。
+        """
+        count = excluded_norm.get(normalize_text(block_text), 0)
+        return count >= 2
+
+    @staticmethod
+    def _content_block_text(block: dict[str, Any]) -> str:
+        """取一个 content_list 块的可读文本（表格/图片不再是空字符串）。
+
+        与 ``_extract_page_layout_from_content_list`` 里构建 ``page["text"]`` 的
+        口径严格同源：改这里必须同步改那里，否则 ``parsed.text`` 与
+        ``parsed.blocks`` 会给出不一样的内容，下游按哪份为准都会出错。
+
+        取舍说明：
+        - 表格块的 ``text`` 恒为空，正文在 ``table_body``（HTML）。去标签后保留
+          单元格文字，会丢掉行列结构——需要结构的下游应该读 ``blocks`` /
+          ``markdown``，这里只保证「内容不丢」。
+        - 表格/图片块的 ``text`` 为空时退回 caption + footnote，避免纯图表标注
+          的块整个消失。
+        - 页眉/页脚/页码**照常返回块自身文本**，是否并入正文由调用方决定
+          （``_extract_text_from_content_list`` 不并入；layout 的 ``blocks[]``
+          保留它，仅不汇总进 ``page["text"]``）。
+        """
+        block_type = str(block.get("type") or "")
+
+        text = str(block.get("text") or "").strip()
+        table_body = str(block.get("table_body") or "").strip()
+        if block_type == "table" and table_body:
+            text = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", table_body))).strip()
+
+        # caption / footnote 只在正文为空时回退使用——**不拿标题顶替真实内容**。
+        # 「表 1 借款明细」这类表题确实有信息量，但既有约定（见
+        # test_text非空时不使用标题覆盖）是正文优先；两条路径必须同源，
+        # 否则 ``text`` 与 ``blocks`` 会给出不同结果。
+        if not text:
+            captions = block.get("table_caption") or block.get("image_caption") or []
+            footnotes = block.get("table_footnote") or block.get("image_footnote") or []
+            if isinstance(captions, str):
+                captions = [captions]
+            if isinstance(footnotes, str):
+                footnotes = [footnotes]
+            text = " ".join(str(item).strip() for item in [*captions, *footnotes] if str(item).strip())
+
+        return text
 
     def _extract_page_layout_from_content_list(self, content_list_path: Path) -> dict[str, Any]:
         """保留 MinerU 内容块的原始页码、版面框与表格数据。"""
@@ -850,19 +933,10 @@ class MineruBackend:
                 continue
 
             block_type = str(block.get("type") or "")
-            block_text = str(block.get("text") or "").strip()
+            # 文本口径与 ``_extract_text_from_content_list`` 共用同一个方法：
+            # ``parsed.text`` 与 ``parsed.blocks`` 必须给出同一份内容。
+            block_text = self._content_block_text(block)
             table_body = str(block.get("table_body") or "").strip()
-            if block_type == "table" and table_body:
-                block_text = unescape(re.sub(r"<[^>]+>", " ", table_body))
-                block_text = re.sub(r"\s+", " ", block_text).strip()
-            if not block_text:
-                captions = block.get("table_caption") or []
-                footnotes = block.get("table_footnote") or []
-                if isinstance(captions, str):
-                    captions = [captions]
-                if isinstance(footnotes, str):
-                    footnotes = [footnotes]
-                block_text = " ".join(str(item).strip() for item in captions + footnotes if str(item).strip())
 
             page = page_map.setdefault(page_no, {"page_no": page_no, "blocks": [], "text": ""})
             page["blocks"].append(

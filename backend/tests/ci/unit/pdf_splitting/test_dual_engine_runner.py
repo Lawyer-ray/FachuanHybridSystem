@@ -389,6 +389,156 @@ def test_disagreements_carry_block_rects_for_double_box(tmp_path: Path) -> None:
         assert block["block_type"]
 
 
+def test_table_block_text_is_not_fed_to_comparison(tmp_path: Path) -> None:
+    """MinerU 的表格块**不进**逐字比对：`parsed.text` 现在含表格正文，必须显式剔掉。
+
+    修复前表格块 ``text`` 恒为空串，两边在行切分时就自然跳过了；`mineru_backend`
+    把 HTML 去标签后并入 ``parsed.text`` 之后，若不在这里显式剔表格，那张 1000+ 字符的
+    整表行会与 VL 的多行 markdown 表格整表判成 ``replace`` → 每条 high，把真错字淹掉。
+    """
+    base = "借款人按合同约定用途使用借款资金、按期归还本息"
+    page = {
+        "page_no": 1,
+        "width": 595,
+        "height": 842,
+        # 页面文本已经把表格内容拼进去了（块顺序：正文 → 表格）
+        "text": f"{base}\n客户名称 某某银行 借款金额 1000000 借款期限 12个月",
+        "blocks": [
+            {"type": "text", "text": base},
+            {
+                "type": "table",
+                "text": "客户名称 某某银行 借款金额 1000000 借款期限 12个月",
+                "table_body": "<td>客户名称</td><td>某某银行</td>",
+            },
+        ],
+    }
+
+    assert runner._mineru_page_text_without_tables(page) == base
+
+
+class _TableMineru(_FakeMineru):
+    """MinerU 桩：正文 + 一个整表块（表格文本已并入 ``page["text"]``，与真实后端一致）。"""
+
+    def parse_document(self, *, file_path: str, **_kwargs: object) -> SimpleNamespace:
+        with fitz.open(file_path) as doc:
+            page_count = int(doc.page_count)
+        pages = []
+        blocks = []
+        for index in range(page_count):
+            relative = index + 1
+            pages.append(
+                {
+                    "page_no": relative,
+                    "width": 595,
+                    "height": 842,
+                    "text": "借款人：张三丰\n客户名称 某某银行 借款金额 1000000",
+                }
+            )
+            blocks.extend(
+                [
+                    SimpleNamespace(type="text", text="借款人：张三丰", bbox=[209, 89, 666, 118], page_no=relative),
+                    SimpleNamespace(
+                        type="table",
+                        # 表格块的 text 现在是去标签后的**一整行**（不再是空串）
+                        text="客户名称 某某银行 借款金额 1000000",
+                        bbox=[209, 200, 900, 600],
+                        page_no=relative,
+                    ),
+                ]
+            )
+        return SimpleNamespace(layout={"pages": pages}, blocks=blocks)
+
+
+class _TableVL(_FakeVL):
+    """VL 桩：正文之外，markdown 文本里多一块 GFM 表格（多行、带 ``|``）。"""
+
+    def recognize_bytes(
+        self, payload: bytes, *, is_pdf: bool = False, page_count: int | None = None
+    ) -> SimpleNamespace:
+        with fitz.open(stream=payload, filetype="pdf") as doc:
+            actual_count = int(doc.page_count)
+        results = [
+            {
+                "markdown": {"text": "借款人：张三丰\n| 客户名称 | 某某银行 |\n| --- | --- |\n| 借款金额 | 1000000 |"},
+                "prunedResult": {
+                    "width": 595,
+                    "height": 842,
+                    "parsing_res_list": [
+                        {"block_label": "text", "block_content": "借款人：张三丰", "block_bbox": [72, 60, 400, 90]}
+                    ],
+                },
+            }
+            for _index in range(actual_count)
+        ]
+        return SimpleNamespace(text="merged", layout_results=results)
+
+
+def test_tables_do_not_raise_disagreements_for_identical_pages(tmp_path: Path) -> None:
+    """正文一致、只有表格形态不同的页 → **0 条分歧**（表格不参与逐字比对）。"""
+    pdf = _make_pdf(tmp_path / "sample.pdf", 2)
+
+    outcome = runner.run_dual_engine(pdf, engine_factories=_factories(_TableMineru(), _TableVL()))
+
+    assert outcome.disagreements == []
+    assert outcome.summary[runner.SUMMARY_ENGINE_DISAGREE_SUMMARY] == {"high": 0, "medium": 0, "low": 0}
+    # 逐页文本里也不再有表格内容：它已进了 Markdown/块数据，在这里重复一遍
+    # 只会造出一段没人能对上的单行文本
+    assert "客户名称" not in outcome.engine_pages[runner.ENGINE_MINERU][1]
+
+
+def test_table_blocks_produce_no_double_box_rect(tmp_path: Path) -> None:
+    """表格块不产生对照框：1000+ 字符的整表块几乎必含任何短变体，会把框画满整张表。"""
+    pdf = _make_pdf(tmp_path / "sample.pdf", 1)
+
+    outcome = runner.run_dual_engine(pdf, engine_factories=_factories(_TableMineru(), _TableVL()))
+
+    mineru_blocks = outcome.blocks_by_engine[runner.ENGINE_MINERU]
+    assert [block.block_type for block in mineru_blocks] == ["text"]
+
+
+def test_real_name_typo_survives_table_noise(tmp_path: Path) -> None:
+    """关键回归：表格不刷 high，人名错字仍然被检出。
+
+    两边正文完全相同，只有姓名差一个字；同时还各带一张形态不同的表。
+    表格若参与比对，会先刷出 high 把这条真分歧挤下去（排序只显示 high 的前几条）。
+    """
+
+    class _TypoMineru(_TableMineru):
+        def parse_document(self, *, file_path: str, **_kwargs: object) -> SimpleNamespace:
+            parsed = super().parse_document(file_path=file_path)
+            parsed.layout["pages"][0]["text"] = f"借款人：张三丰 身份证号：{FAKE_ID_CARD}"
+            parsed.blocks[0] = SimpleNamespace(
+                type="text", text=f"借款人：张三丰 身份证号：{FAKE_ID_CARD}", bbox=[209, 89, 666, 118], page_no=1
+            )
+            return parsed
+
+    class _TypoVL(_TableVL):
+        def recognize_bytes(
+            self, payload: bytes, *, is_pdf: bool = False, page_count: int | None = None
+        ) -> SimpleNamespace:
+            parsed = super().recognize_bytes(payload, is_pdf=is_pdf, page_count=page_count)
+            typo_line = f"借款人：张三半 身份证号：{FAKE_ID_CARD}"
+            parsed.layout_results[0]["markdown"]["text"] = (
+                f"{typo_line}\n| 客户名称 | 某某银行 |\n| --- | --- |\n| 借款金额 | 1000000 |"
+            )
+            parsed.layout_results[0]["prunedResult"]["parsing_res_list"][0]["block_content"] = typo_line
+            return parsed
+
+    pdf = _make_pdf(tmp_path / "sample.pdf", 1)
+
+    outcome = runner.run_dual_engine(pdf, engine_factories=_factories(_TypoMineru(), _TypoVL()))
+
+    # 只有那一条人名分歧：表格不报
+    counts = outcome.summary[runner.SUMMARY_ENGINE_DISAGREE_SUMMARY]
+    assert counts == {"high": 1, "medium": 0, "low": 0}
+    item = outcome.summary[runner.SUMMARY_ENGINE_DISAGREEMENTS][0]
+    assert item["anchor_hit"] is True
+    assert {variant["text"] for variant in item["variants"]} == {
+        f"借款人：张三丰 身份证号：{FAKE_ID_CARD}",
+        f"借款人：张三半 身份证号：{FAKE_ID_CARD}",
+    }
+
+
 def test_no_block_rects_key_when_nothing_can_be_linked() -> None:
     """匹配不上就**不写** ``blocks`` 键：宁可只画一个框，也不要把框画到不相干处。"""
     payload = runner.disagreements_to_dicts([])

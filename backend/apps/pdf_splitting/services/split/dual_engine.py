@@ -4,11 +4,11 @@
 
 最初的设想是「多引擎跑一遍，采信票数多的」。真实卷宗实测推翻了它：
 
-- 第 31 页「曾妙焮」：MinerU ✅ / PaddleOCR-VL ✅ —— 一致且都对
-- 第 38 页「曾妙欣」：MinerU ❌ / VL ❌ —— **两引擎一致地错**（真相是「曾妙焮」）
+- 第 31 页「张某某」：MinerU ✅ / PaddleOCR-VL ✅ —— 一致且都对
+- 第 38 页「张某某」：MinerU ❌ / VL ❌ —— **两引擎一致地错**（真相是「张某某」）
 - 第 38 页「张三丰」：MinerU ✅ / VL 认成「张四丰」 ❌ —— 分歧，暴露了真问题
 
-（MinerU 侧的这半是可以复跑的：164 页备份卷宗缓存的 p31 文本内含「曾妙焮」、p38 内含「曾妙欣」
+（MinerU 侧的这半是可以复跑的：164 页备份卷宗缓存的 p31 文本内含该姓名、p38 内含错写
 与「张三丰」。VL 侧那一半的原始响应不在仓库里，待核实（无存档，无法复跑）。）
 
 也就是：
@@ -160,6 +160,13 @@ SEVERITY_HIGH = "high"
 SEVERITY_MEDIUM = "medium"
 SEVERITY_LOW = "low"
 
+#: MinerU 的表格块类型（小写比较）。表格不参与逐字比对、也不产出对照框，
+#: 理由见 ``_compare_pair`` 与 ``normalize_mineru_blocks``。
+#:
+#: **对外共享**：``dual_engine_runner`` 在构造逐页文本时用它剔表格块。两边必须
+#: 用同一份词汇，否则一边剔了、另一边没剔，表格又会从另一个入口流进比对。
+MINERU_TABLE_BLOCK_TYPES = frozenset({"table"})
+
 
 @dataclass(frozen=True)
 class EngineVariant:
@@ -269,12 +276,36 @@ def _normalize(text: str) -> str:
     return _NOISE_CHARS_RE.sub("", raw.translate(_PUNCT_MAP))
 
 
+def is_markdown_table_line(line: str) -> bool:
+    """这一行是否是 Markdown/HTML 表格行（按形态判，不看语义）。
+
+    认三种形态，都来自 PaddleOCR-VL 的实际输出：
+
+    · 以 ``|`` 开头——GFM 表格行（``| 姓名 | 金额 |``）；
+    · 纯分隔行（``| --- | --- |``）——同样以 ``|`` 开头，一并被上面那条盖住；
+    · 去掉 HTML 标签后以 ``<table`` 开头——VL 有时直接把整表输出成 ``<table>``。
+
+    **不**把「正文里偶尔出现一个竖线」的行当成表格：``|`` 在中文正文里是分隔符，
+    按「含 | 即表格」会把正常句子整片丢弃，那才是真漏数据。
+
+    **对外共享**：``dual_engine_runner`` 在没有块可用时用同一道过滤切 MinerU 文本。
+    两个引擎必须用**同一个**表格形态判据，否则一侧剔了另一侧没剔，结果还是一堆假分歧。
+    """
+    stripped = line.strip()
+    if stripped.startswith("|"):
+        return True
+    return stripped.lower().startswith("<table")
+
+
 def _split_meaningful_lines(text: str) -> list[str]:
     """把一页文本切成「有意义」的行。
 
     空行、纯 Markdown 分隔行（``| --- |``）、纯表格分隔符都丢掉——它们不承载内容，
     两引擎在这上面几乎必然不同（VL 输出 GFM 表格，MinerU 可能是段落），
     留着只会制造噪声。
+
+    **表格行也丢掉**（见 :func:`is_markdown_table_line`），理由见 :func:`_compare_pair`：
+    表格内容不参与逐字比对。
     """
     out: list[str] = []
     for raw in str(text or "").splitlines():
@@ -283,6 +314,9 @@ def _split_meaningful_lines(text: str) -> list[str]:
             continue
         # 纯表格分隔行：|---|---| 或 --- 这类
         if re.fullmatch(r"[|\-:\s]+", stripped):
+            continue
+        # 表格行：两边输出形态根本不同，逐字比对没有意义（详见 _compare_pair）
+        if is_markdown_table_line(stripped):
             continue
         # 没有可见文字的纯标签行（例如 ``<div style="..."><img ... /></div>``）。
         #
@@ -475,7 +509,26 @@ def _compare_pair(
     right_name: str,
     right_text: str,
 ) -> list[EngineDisagreement]:
-    """两个引擎在同一页上的逐行比对。"""
+    """两个引擎在同一页上的逐行比对。
+
+    ## 表格内容**不参与**逐字比对
+
+    两个引擎给出的表格形态根本不同：
+
+    · MinerU：表格块是一整行（HTML 去标签 + 空白折叠，实用上 1000+ 字符的单行）；
+    · PaddleOCR-VL：表格是多行 GFM markdown（每行带 ``|`` 分隔的单元格）。
+
+    同一张表在两边的行切分、行列结构和空白处理上必然不同，喂给 difflib 只会整表
+    判成一处 ``replace``、再因为相似度够高被报成 **high**。修复前表格块的 ``text``
+    恒为空串，两边都在行切分阶段被跳过、**根本没参与比对**；``parsed.text`` 开始含
+    表格内容之后若不同时堵住这里，每张表都会冒一条 high 级分歧，把「张三 /
+    张叁」那种一字的真名错字淹掉——律师就再也看不到真问题。
+
+    所以两侧都显式跳过表格：MinerU 侧由 ``_run_mineru`` 按块类型过滤（表格块不进去
+    逐页文本），VL 侧由 ``_split_meaningful_lines`` 按行形态过滤。代价是「两边都识别
+    到了表格」这类信息不再从逐字比对里体现——那是可以接受的：表格的正确性只能靠
+    人看原图核对，逐字比对给不出可信结论，而一条假 high 会让真 suspect 失去意义。
+    """
     left_lines = _split_meaningful_lines(left_text)
     right_lines = _split_meaningful_lines(right_text)
     if not left_lines or not right_lines:
@@ -792,13 +845,25 @@ def normalize_mineru_blocks(
             ``doc.layout["pages"][].width/height`` 里，由调用方整理成这个形状。
 
     Returns:
-        与输入同序的块列表；空文本、无 bbox、无页码的块被跳过（画不出来也没内容）。
+        与输入同序的块列表；**表格块**、空文本、无 bbox、无页码的块被跳过
+        （画不出来、没内容，或不该参与比对）。
         ``page_sizes`` 里查不到某页时，只要坐标量级是千分比（SaaS 主线）仍能画出框；
         只有量级像是绝对像素时才因为没页宽高而 ``rect={}`` 且 ``approx=True``。
+
+    ## 为什么表格块要**显式**跳过
+
+    这里刻意不靠 ``text == ""`` 顺手把表格块滤掉：``parsed.text`` / 块文本现在会带上
+    表格正文（HTML 去标签），表格块不再是空文本，靠空串过滤的旧假设已经失效。而表格块
+    一旦流进 ``link_disagreement_to_blocks``，一张 1000+ 字符的整表块几乎必含任何短变体
+    的文字，会把分歧“定位”到整张表上——画出一个盖住半页的假框。
+    表格本身不参与逐字比对，也就不需要它的对照框（理由见 :func:`_compare_pair`）。
     """
     sizes = page_sizes or {}
     out: list[EngineBlock] = []
     for block in blocks or []:
+        # 表格块显式跳过（不能靠 text 为空隐式跳过，表格文本现在非空）
+        if str(getattr(block, "type", "") or "").strip().lower() in MINERU_TABLE_BLOCK_TYPES:
+            continue
         text = str(getattr(block, "text", "") or "").strip()
         if not text:
             continue

@@ -53,11 +53,13 @@ import pymupdf as fitz
 from .dual_engine import (
     ENGINE_MINERU,
     ENGINE_PADDLEOCR_VL,
+    MINERU_TABLE_BLOCK_TYPES,
     SEVERITY_HIGH,
     SEVERITY_LOW,
     SEVERITY_MEDIUM,
     EngineDisagreement,
     compare_pages,
+    is_markdown_table_line,
     link_disagreement_to_blocks,
     normalize_mineru_blocks,
     normalize_paddleocr_vl_blocks,
@@ -405,6 +407,7 @@ def _run_mineru(backend: Any, upload_path: Path) -> tuple[dict[int, str], list[A
     )
     layout = getattr(parsed, "layout", None) or {}
     pages = [page for page in layout.get("pages", []) if isinstance(page, dict)]
+    raw_blocks = list(getattr(parsed, "blocks", None) or [])
 
     pages_text: dict[int, str] = {}
     page_sizes: dict[int, dict[str, Any]] = {}
@@ -412,14 +415,67 @@ def _run_mineru(backend: Any, upload_path: Path) -> tuple[dict[int, str], list[A
         page_no = _coerce_page_no(page.get("page_no"))
         if page_no is None:
             continue
-        pages_text[page_no] = str(page.get("text") or "")
+        # 页 dict 应该自带 ``blocks``（``_extract_page_layout_from_content_list``
+        # 就是这么建的）；早期产物 / 回放路径可能没带，退到顶层的同名块列表，
+        # 否则剔表格就只能按行形态猜，整表行会被当成正文继续参与逐字比对。
+        page_blocks = page.get("blocks")
+        if not isinstance(page_blocks, list):
+            page_blocks = [block for block in raw_blocks if _block_page_no(block) == page_no]
+        pages_text[page_no] = _mineru_page_text_without_tables({**page, "blocks": page_blocks})
         page_sizes[page_no] = {"width": page.get("width"), "height": page.get("height")}
 
-    blocks = normalize_mineru_blocks(getattr(parsed, "blocks", None) or [], page_sizes)
+    blocks = normalize_mineru_blocks(raw_blocks, page_sizes)
     if not pages_text:
         # 解析「成功」但一页都没出来：等同失败，否则会静默变成「没有分歧」
         return {}, blocks, "MinerU 未返回任何按页结果"
     return pages_text, blocks, ""
+
+
+def _block_page_no(block: Any) -> int | None:
+    """读一个块的页码（dict 与 ``ParsedBlock`` 两种形状都认）。"""
+    raw = block.get("page_no") if isinstance(block, Mapping) else getattr(block, "page_no", None)
+    return _coerce_page_no(raw)
+
+
+def _mineru_page_text_without_tables(page: Mapping[str, Any]) -> str:
+    """取一页 MinerU 文本，**剔掉表格块**，只留参与逐字比对的部分。
+
+    ## 为什么必须在输入侧剔、不能留给 ``compare_pages``
+
+    ``page["text"]`` 现在是按块顺序拼接的（表格块也在里面，表格正文是一整行
+    1000+ 字符），而 PaddleOCR-VL 那边表格是多行 GFM markdown。同一张表在两边
+    的行切分与空白处理必然不同，直接喂给 difflib 就是每条表一条 high 级「替换」，
+    把「张三 / 张叁」那种一字的真名错字淹没。
+
+    所以在进比对之前就剔掉：有 ``blocks`` 就按块重建（仅保留非表格块，顺序不变）；
+    没有块可用的降级路径只能按行过滤（与 VL 侧同一道 ``is_markdown_table_line``）。
+    剩下的块文本恰好就是 ``parsed.text`` 与块内容同源的那一份（见 mineru_backend
+    里 ``_content_block_text``），剔表格不丢正文。
+
+    ``pages_text`` 的其余用途（页级 SKU 落盘、UI 展示）读的是同一份字典，因此表格
+    内容也从那里消失——这是有意的：表格已经进了 Markdown / 块数据，在这里重复一遍
+    只会造出一段没人能对上的单行文本。
+    """
+    blocks = page.get("blocks")
+    if isinstance(blocks, list) and blocks:
+        kept: list[str] = []
+        for block in blocks:
+            # 块的形状不固定：有的是 ``ParsedBlock`` 对象，有的是 dict（回放页缓存）。
+            # 两种都要认，否则回放路径会把整张表又放回比对里。
+            block_type = block.get("type") if isinstance(block, Mapping) else getattr(block, "type", None)
+            if str(block_type or "").strip().lower() in MINERU_TABLE_BLOCK_TYPES:
+                continue
+            block_text = block.get("text") if isinstance(block, Mapping) else getattr(block, "text", None)
+            text = str(block_text or "").strip()
+            if text:
+                kept.append(text)
+        if kept:
+            return "\n".join(kept)
+
+    # 没有块可用（本地后端、或整页都是表格）：只能按行过滤表格形态的行。
+    return "\n".join(
+        line for line in str(page.get("text") or "").splitlines() if line.strip() and not is_markdown_table_line(line)
+    )
 
 
 def _run_paddleocr_vl(

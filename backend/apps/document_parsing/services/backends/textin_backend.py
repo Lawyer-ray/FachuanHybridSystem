@@ -669,39 +669,54 @@ class TextinBackend:
 
     # 正文类型：NarrativeText（正文段落）、Title（标题）
     # 明确排除：Footer（页脚/页码）、Header（页眉）等非正文类型
-    _TEXT_ELEMENT_TYPES = frozenset({"NarrativeText", "Title"})
+    #: 计入纯文本的元素类型。
+    #:
+    #: ⚠️ Table 必须在里面。此前只有 NarrativeText / Title，表格整类被排除，
+    #: 导致 ``parsed.text`` 不含任何表格内容——与 MinerU 侧同构的静默丢数据
+    #: 缺陷（MinerU 那边是表格块 ``text`` 恒为空、内容在 ``table_body``）。
+    #: 法律卷宗的金额、账号、当事人清单大量在表格里，``auto`` 回落 Textin 时
+    #: 这个 bug 会原样复现，两边的修复必须同时成立才有意义。
+    #:
+    #: 表格的文字由 ``_get_element_text`` 展开 ``table_structure`` 取出（该能力
+    #: 早就写好，只是没被主路径调用）。Image / Figure 不计入：图片无文字，
+    #: 其说明文字在单独的 caption 元素里（若引擎给出）。
+    _TEXT_ELEMENT_TYPES = frozenset({"NarrativeText", "Title", "Table", "ListItem"})
     # 非正文元素类型（页眉页脚，fallback 路径排除）
     _EXCLUDED_ELEMENT_TYPES = frozenset({"Footer", "Header"})
 
     def _extract_text_from_elements(self, elements: list[Any]) -> str:
-        """从 elements 列表提取纯文本（排除页眉页脚）
+        """从 elements 列表提取纯文本（排除页眉页脚，含表格）
 
         TextinParse 元素类型参考 xparse-client parse.py 及实测：
         - NarrativeText / Title：正文和标题，保留
+        - Table：表格，展开 ``table_structure`` 取单元格文字
+          （逐字不保留行列结构；需要结构的下游读 ``blocks`` / ``markdown``）
         - Footer：页脚（通常为页码），排除
         - Header：页眉，排除
-        - Table / Image：结构化数据，不在纯文本中拼接
+        - Image：无文字，不计入
 
         Args:
             elements: ParseResponse.elements 列表（dict 形式）
 
         Returns:
-            拼接后的纯文本（不含页眉页脚）
+            拼接后的纯文本（不含页眉页脚，但含表格正文）
         """
         if not elements:
             return ""
 
         texts: list[str] = []
 
-        # 第一轮：只取正文/标题类型，排除 Footer（页脚）和 Header（页眉）
+        # 第一轮：只取正文/标题/表格类型，排除 Footer（页脚）和 Header（页眉）。
+        # 走 ``_get_element_text`` 而不是直接读 ``el["text"]``：表格的正文在
+        # ``table_structure`` 里，``text`` 是空的。
         for el in elements:
             if not isinstance(el, dict):
                 continue
             el_type = el.get("type")
             if el_type in self._TEXT_ELEMENT_TYPES:
-                el_text = el.get("text", "")
+                el_text = self._get_element_text(el)
                 if el_text:
-                    texts.append(strip_markdown_emphasis(el_text))
+                    texts.append(el_text)
 
         # fallback：如果没拿到任何正文块，取所有非 Footer/Header 且有 text 的元素
         # （避免完全无输出，但仍排除页眉页脚）

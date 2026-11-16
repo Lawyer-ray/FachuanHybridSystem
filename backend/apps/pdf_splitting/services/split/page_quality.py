@@ -36,6 +36,10 @@
 MinerU 遇到大面积图形（宗地图/平面图/表格截图）时会给 table 块却抽不出字，
 所以「table 块字数 < 50」是比 image 块强得多的判据。
 
+**这里的字数只数表格块自己的内容，与 ``parsed.text`` 无关**：``text`` 现在含表格正文，
+拿它做依据既分不出「那点字是正文还是表格」，又会在拼 ``table_body`` 时把同一段内容算
+两遍（详见 ``_table_block_char_counts``）。
+
 **image 块只在「没有 table 块」时才作为判据**：p148 平面图
 ``[image 0, text 0, text 31, text 15]`` 没有 table 块，31/15 字全是印章套话，剔除套话后
 有效字符 27，加上 image 块才认得出是图纸；而 p8 有 table 587 字，以表格为准。
@@ -119,6 +123,10 @@ _B2_FIELD_LABEL_RE = re.compile(
 _FIELD_VALUE_RE = re.compile(
     r"(?:姓名|性别|民族|出生|住址|签发机关|有效期限|公民身份号码)[\s|:：]*([\u4e00-\u9fff]{6,})"
 )
+
+#: 任意 HTML 标签（含自闭合）。表格块正文是 HTML，标签本身不承载内容，
+#: 必须先去掉再数字数，否则 ``<td></td>`` 也能凑出「有表格内容」的假象。
+_TAG_RE = re.compile(r"<[^>]*>")
 
 #: 块类型词汇：与 document_parsing 的块词汇表对齐，内联一份以守住「纯 stdlib」。
 _TABLE_BLOCK_TYPES = frozenset({"table"})
@@ -231,16 +239,31 @@ def _block_type(block: dict[str, Any]) -> str:
 
 
 def _table_block_char_counts(blocks: list[dict[str, Any]]) -> list[int]:
-    """每个 table 块的文本字数（已去掉空白）。
+    """每个 table 块的**去标签**内容字数（已去掉空白）。
 
-    块文本优先取 ``text``；MinerU 的表格正文也可能落在 ``table_body``（HTML）里，
-    两者都取不到才算 0 字——这正好是「有表格结构、无表格内容」的信号。
+    取数口径刻意与 ``parsed.text`` **解耦**：表格字数只看 ``table_body``（HTML 去标签）
+    或 ``text`` 本身，**两者不叠加**。
+
+    为什么不继续沿用「``text`` + ``table_body`` 拼接算字数」：重构后 ``parsed.text``
+    已经包含表格正文（``mineru_backend._content_block_text`` 把 HTML 去标签后并入），
+    而块上的 ``text`` 又是同一份口径 —— 再拼一次 ``table_body`` 等于同一段内容算两遍，
+    量纲也不再是「这张表读出来多少字」。后果是反的：p147 宗地图那种「图被当成表格块、
+    抽不出字」的页会因为字数被重复计入而看不出「表里没内容」，图形页提示失效。
+
+    也不能直接把 ``parsed.text`` 当作依据：它已经归一化成「这页有没有字」的粗粒度
+    信号，分不出那点字是正文还是表格。而「有表格结构、几乎没表格内容」恰恰是
+    图形页最可靠的信号（见模块注释），必须单看表格块自己的内容。
+
+    取不到任何内容才算 0 字——这正好是「有表格结构、无表格内容」的信号。
     """
     counts: list[int] = []
     for block in blocks:
         if _block_type(block) not in _TABLE_BLOCK_TYPES:
             continue
-        content = " ".join(str(block.get(key) or "") for key in ("text", "table_body"))
+        raw = str(block.get("table_body") or "") or str(block.get("text") or "")
+        # HTML 标签本身不是内容：不去掉的话 ``<td></td>`` 也能凑出字数，
+        # 空表就会被当成真表格。
+        content = _TAG_RE.sub(" ", raw)
         counts.append(len("".join(content.split())))
     return counts
 
