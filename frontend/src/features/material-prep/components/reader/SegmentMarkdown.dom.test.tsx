@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { blockKeyOf } from '../../draft/block-keys'
 import { SegmentMarkdown } from './SegmentMarkdown'
-import type { PositionedBlock, Segment } from '../../types'
+import type { EngineDisagreement, PositionedBlock, Segment } from '../../types'
 
 function seg(over: Partial<Segment> = {}): Segment {
   return {
@@ -448,5 +448,74 @@ describe('质量提示条（证件页）', () => {
     const { container } = render(<SegmentMarkdown {...base({ docPages: [] })} />)
     expect(container.querySelector('[data-doc-hint]')).toBeNull()
     expect(container.querySelector('[data-quality-hint]')).toBeNull()
+  })
+})
+
+describe('SegmentMarkdown：分歧按页挂载', () => {
+  // 多页段：第 1 页两行、第 3 页一行。分歧应挂在各页**第一行之前**。
+  const multiPageBlocks: PositionedBlock[] = [
+    { page: 1, type: 'paragraph', text: '第一页第一行。', rect: { x: 0, y: 0, w: 1, h: 0.1, approx: false, precision: 'exact' } },
+    { page: 1, type: 'paragraph', text: '第一页第二行。', rect: { x: 0, y: 0.1, w: 1, h: 0.1, approx: false, precision: 'exact' } },
+    { page: 3, type: 'paragraph', text: '第三页第一行。', rect: { x: 0, y: 0.2, w: 1, h: 0.1, approx: false, precision: 'exact' } },
+  ]
+
+  function dis(pageNo: number): EngineDisagreement {
+    return {
+      page_no: pageNo,
+      kind: 'char',
+      severity: 'high',
+      variants: [
+        { engine: 'mineru', text: '记 A', label: 'MinerU' },
+        { engine: 'paddleocr_vl', text: '记 B', label: 'PaddleOCR-VL' },
+      ] as EngineDisagreement['variants'],
+      context: 'ctx',
+      anchor_hit: false,
+      similarity: 0.8,
+    }
+  }
+
+  function renderWith(items: EngineDisagreement[]) {
+    return render(
+      <SegmentMarkdown
+        {...base({
+          seg: seg({ md: 'x', blocks: multiPageBlocks, refs: [{ mi: 0, p: 1 }, { mi: 0, p: 3 }] }),
+        })}
+        engineItems={items}
+        engineKeys={items.map((d) => `${d.page_no}:k`)}
+      />,
+    )
+  }
+
+  it('分歧按页挂到该页第一行之前，而不是全部堆在栏顶', () => {
+    const { container } = renderWith([dis(1), dis(3)])
+    const inlines = Array.from(container.querySelectorAll('[data-engine-inline]'))
+    expect(inlines).toHaveLength(2)
+    // 每块的标题带页码，律师能一眼对上正文哪一页
+    expect(inlines[0]!.textContent).toContain('P1 分歧')
+    expect(inlines[1]!.textContent).toContain('P3 分歧')
+
+    // 顺序断言：P1 分歧 → 第一页第一行 → … → P3 分歧 → 第三页第一行
+    const html = container.innerHTML
+    expect(html.indexOf('P1 分歧')).toBeLessThan(html.indexOf('第一页第一行'))
+    expect(html.indexOf('第一页第二行')).toBeLessThan(html.indexOf('P3 分歧'))
+    expect(html.indexOf('P3 分歧')).toBeLessThan(html.indexOf('第三页第一行'))
+  })
+
+  it('同一页多行时只在该页首行前插一次，不重复', () => {
+    const { container } = renderWith([dis(1)])
+    const inlines = Array.from(container.querySelectorAll('[data-engine-inline]'))
+    expect(inlines).toHaveLength(1)
+  })
+
+  it('只挂本段覆盖页的分歧（段外页号不渲染）', () => {
+    const { container } = renderWith([dis(1), dis(99)])
+    const inlines = Array.from(container.querySelectorAll('[data-engine-inline]'))
+    expect(inlines).toHaveLength(1)
+    expect(container.textContent).not.toContain('P99 分歧')
+  })
+
+  it('没有分歧时不渲染任何分歧块', () => {
+    const { container } = renderWith([])
+    expect(container.querySelectorAll('[data-engine-inline]')).toHaveLength(0)
   })
 })

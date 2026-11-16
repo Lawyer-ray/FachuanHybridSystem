@@ -9,7 +9,6 @@ import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
 import { SegmentMarkdown } from './SegmentMarkdown'
-import { EngineDisagreementsInline } from './EngineDisagreementsInline'
 import { useMetaWidth } from './use-meta-width'
 
 /** 字段的 placeholder：把「多个用、分隔」这类提示并进去，不再在标签旁常驻一行小字 */
@@ -115,20 +114,9 @@ export function MetaPanel({
         </div>
       )}
 
-      {/* 本段识别分歧：放在正文**之上**——律师的心智顺序是「先知道哪里有问题，
-          再读/改」。放下面会被长 Markdown 推到屏幕外，等于没有。 */}
-      <EngineDisagreementsInline
-        seg={draft.segs[si] ?? null}
-        items={engineItems}
-        keys={engineKeys}
-        checked={engineChecked}
-        onJump={onJumpEngine}
-        onToggleChecked={onToggleEngineChecked}
-        onAdopt={onAdoptEngine}
-      />
-
-      {/* Markdown 正文：与材料信息同栏并排，滚动互不干扰。
-          放在字段卡之前——先看机器读到了什么，再决定填哪些字段。 */}
+      {/* Markdown 正文：分歧由它内部按页挂到对应行之前（P4 的疑问就在 P4 正文上方），
+          不再集中堆在栏顶——那样 6 条就把正文推到屏幕外，也看不出对应哪一页。
+          放在字段卡之前：先看机器读到了什么，再决定填哪些字段。 */}
       <SegmentMarkdown
         seg={draft.segs[si] ?? null}
         open={mdOpen}
@@ -137,6 +125,12 @@ export function MetaPanel({
         onLocateBlock={onLocateBlock}
         editRequestKey={editRequestKey}
         onEditRequestHandled={onEditRequestHandled}
+        engineItems={engineItems}
+        engineKeys={engineKeys}
+        engineChecked={engineChecked}
+        onToggleEngineChecked={onToggleEngineChecked}
+        onJumpEngine={onJumpEngine}
+        onAdoptEngine={onAdoptEngine}
         onEditMarkdown={(md) => ops.editMarkdown(si, md)}
         onEditBlock={(key, text) => ops.editBlock(si, key, text)}
         onRemoveBlock={(key) => ops.removeBlock(si, key)}

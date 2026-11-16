@@ -39,6 +39,9 @@ export function EngineDisagreementsInline({
   onJump,
   onToggleChecked,
   onAdopt,
+  heading,
+  /** 按页分块时不再按段过滤（调用方已按页取好）——默认仍按 seg.refs 过滤 */
+  skipSegmentFilter = false,
 }: {
   /** 当前段；null 时不渲染 */
   seg: Segment | null
@@ -56,6 +59,9 @@ export function EngineDisagreementsInline({
    * 该分歧没匹配到块时为 null，调用方应退回整段编辑。
    */
   onAdopt?: (pageNo: number, text: string, engine: string) => void
+  /** 标题文案。按页挂载时传「P4 分歧」，否则用默认的「本段识别分歧」 */
+  heading?: string
+  skipSegmentFilter?: boolean
 }) {
   const [open, setOpen] = useState(true)
 
@@ -63,14 +69,14 @@ export function EngineDisagreementsInline({
   const pageSet = useMemo(() => new Set((seg?.refs ?? []).map((r) => r.p)), [seg])
 
   const mine = useMemo(() => {
-    if (!seg || pageSet.size === 0) return []
+    if (!seg || (!skipSegmentFilter && pageSet.size === 0)) return []
     const out: { item: EngineDisagreement; key: string }[] = []
     items.forEach((d, i) => {
       const k = keys[i]
-      if (k && pageSet.has(d.page_no)) out.push({ item: d, key: k })
+      if (k && (skipSegmentFilter || pageSet.has(d.page_no))) out.push({ item: d, key: k })
     })
     return out
-  }, [items, keys, seg, pageSet])
+  }, [items, keys, seg, pageSet, skipSegmentFilter])
 
   if (!seg || mine.length === 0) return null
 
@@ -90,7 +96,7 @@ export function EngineDisagreementsInline({
           <ChevronRight className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
         )}
         <AlertTriangle className="h-3.5 w-3.5 flex-none text-amber-600" aria-hidden />
-        <span className="text-[12.5px] font-medium">本段识别分歧</span>
+        <span className="text-[12.5px] font-medium">{heading ?? '本段识别分歧'}</span>
         <span className="rounded-full bg-amber-100 px-1.5 text-[10.5px] leading-4 tabular-nums text-amber-800">
           {mine.length}
         </span>
