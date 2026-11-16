@@ -382,6 +382,7 @@ class TestConfirmRewritesMarkdown:
 
         payload = _confirmed_payload(job, [_item(1, 2, filename="前半.pdf"), _item(3, 4, filename="后半.pdf")])
 
+        assert [(s["page_start"], s["page_end"]) for s in payload["segments"]] == [(1, 2), (3, 4)]
         for segment in payload["segments"]:
             _assert_segment_md(segment, total_pages=4)
 
@@ -428,7 +429,9 @@ class TestConfirmRewritesMarkdown:
             )
         job.refresh_from_db()
 
-        for segment in service.build_job_payload(job)["segments"]:
+        segments = service.build_job_payload(job)["segments"]
+        assert [(s["page_start"], s["page_end"]) for s in segments] == [(1, 1), (2, 4)]
+        for segment in segments:
             _assert_segment_md(segment, total_pages=4)
 
     def test_坐标按取字落盘的实际平台换算而不是auto(self) -> None:
@@ -491,6 +494,7 @@ class TestConfirmMarkdownWithoutPages:
             job, [_item(1, 2, filename="甲.pdf"), _item(3, 4, filename="乙.pdf"), _item(5, 6, filename="丙.pdf")]
         )
 
+        assert [(s["page_start"], s["page_end"]) for s in payload["segments"]] == [(1, 2), (3, 4), (5, 6)]
         for segment in payload["segments"]:
             _assert_segment_md(segment, total_pages=6)
 
@@ -500,6 +504,8 @@ class TestConfirmMarkdownWithoutPages:
 
         payload = _confirmed_payload(job, [_item(1, 4, filename="合并.pdf")])
 
+        markdown = payload["segments"][0]["content_md"]
+        assert markdown.index("第1页正文") < markdown.index("第3页正文")
         _assert_segment_md(payload["segments"][0], total_pages=4)
 
     def test_pages_json损坏时走降级而不是抛(self) -> None:
@@ -509,6 +515,7 @@ class TestConfirmMarkdownWithoutPages:
 
         payload = _confirmed_payload(job, [_item(1, 2, filename="降级.pdf")])
 
+        assert payload["segments"][0]["content_md"].strip(), "降级路径也不能把正文丢成空串"
         _assert_segment_md(payload["segments"][0], total_pages=2)
 
     def test_没有任何旧产物时留空串而不是别人的正文(self) -> None:

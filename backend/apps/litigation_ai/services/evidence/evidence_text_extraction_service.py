@@ -18,7 +18,7 @@ _SCAN_MAX_TEXT_CHARS = 200
 
 def _image_coverage(page: Any) -> float:
     """页面被图像覆盖的面积占比（重叠图按面积和近似，封顶 1.0）。"""
-    page_area = page.rect.width * page.rect.height
+    page_area = float(page.rect.width) * float(page.rect.height)
     if page_area <= 0:
         return 0.0
     covered = 0.0

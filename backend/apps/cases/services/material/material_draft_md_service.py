@@ -98,6 +98,8 @@ class MaterialDraftMdService:
         )
         refs: dict[int, set[str]] = {}
         for message_id, segment_ref in rows:
+            if message_id is None:
+                continue
             refs.setdefault(message_id, set()).add(segment_ref)
         return refs
 
@@ -134,6 +136,8 @@ class MaterialDraftMdService:
             .distinct()
         )
         for message_id in message_ids:
+            if message_id is None:
+                continue
             msg = get_message_or_none(message_id)
             if msg is None:
                 continue
