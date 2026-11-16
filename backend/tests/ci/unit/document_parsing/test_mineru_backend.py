@@ -252,6 +252,22 @@ class TestUploadFile:
 
 
 class TestPollBatchResult:
+    """轮询结果的解析与超时控制。
+
+    ⚠️ 轮询现在**每次新建** `httpx.Client`（不再复用共享工厂客户端）——
+    共享客户端的长连接经历一次 SSL 断连后会处于半死状态，而「复用半死连接」
+    正是 2026-11-16 那次 164 页全量跑 72 分钟的土壤。
+    所以这些用例必须 patch `httpx.Client` 而不是 `get_sync_http_client`。
+    """
+
+    @staticmethod
+    def _patch_client(mock_client):
+        """把 `httpx.Client(...)` 换成 context manager，返回给定的 mock。"""
+        ctx = MagicMock()
+        ctx.__enter__.return_value = mock_client
+        ctx.__exit__.return_value = False
+        return patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=ctx)
+
     def test_done_immediately(self) -> None:
         backend = _make_backend()
         mock_client = MagicMock()
@@ -272,7 +288,7 @@ class TestPollBatchResult:
         )
 
         with (
-            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            self._patch_client(mock_client),
             patch(f"{_PATCH_PREFIX}.time.sleep"),
         ):
             result = backend._poll_batch_result("batch-123")
@@ -299,7 +315,7 @@ class TestPollBatchResult:
         )
 
         with (
-            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            self._patch_client(mock_client),
             patch(f"{_PATCH_PREFIX}.time.sleep"),
         ):
             with pytest.raises(MineruAPIError, match="corrupted file"):
@@ -339,7 +355,7 @@ class TestPollBatchResult:
         mock_client.get.side_effect = side_effect
 
         with (
-            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            self._patch_client(mock_client),
             patch(f"{_PATCH_PREFIX}.time.sleep"),
         ):
             result = backend._poll_batch_result("batch-123")
@@ -359,7 +375,7 @@ class TestPollBatchResult:
         )
 
         with (
-            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            self._patch_client(mock_client),
             patch(f"{_PATCH_PREFIX}.time.sleep"),
         ):
             with pytest.raises(MineruAPIError, match="查询结果失败"):
@@ -395,7 +411,7 @@ class TestPollBatchResult:
         mock_client.get.side_effect = side_effect
 
         with (
-            patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+            self._patch_client(mock_client),
             patch(f"{_PATCH_PREFIX}.time.sleep"),
         ):
             result = backend._poll_batch_result("batch-123")
@@ -1154,3 +1170,134 @@ class TestUploadStreaming:
         backend = _make_backend()
         with pytest.raises(MineruAPIError, match="待上传文件不存在"):
             backend._upload_file(str(tmp_path / "nope.pdf"))
+
+
+class TestPollTimeoutIsEnforced:
+    """POLL_TIMEOUT 必须真的生效——这是一个曾经完全失效的配置。
+
+    ## 事故（2026-11-16，164 页全本双引擎）
+
+    配置写的是 `POLL_TIMEOUT = 360`，但 MinerU 那一路实际跑了 **4347 秒**（72 分钟）。
+    期间日志里「轮询请求失败」只有 8 条 —— 绝大部分时间在**静默阻塞**。
+
+    根因：httpx 的 `timeout` 是「单次连接/读写」超时，不是墙钟总时长。TCP 连接
+    半死时内核按系统级重传策略死等（macOS 默认 75s 起，多次重传可达十几分钟），
+    这期间 `client.get()` 不返回，`while` 里那句 `elapsed > POLL_TIMEOUT`
+    永远轮不到执行。
+
+    所以这里锁两件事：
+    1. 单次请求用的是**短超时**（POLL_REQUEST_TIMEOUT），不是元数据的 30s；
+    2. 累计时长真的超了就抛 ParsingTimeoutError，且文案里带实际耗时与最后状态。
+    """
+
+    def test_单次请求用短超时而不是元数据超时(self) -> None:
+        backend = _make_backend()
+        mock_client = MagicMock()
+        mock_client.get.return_value = _mock_response(
+            200,
+            {"code": 0, "data": {"extract_result": [{"state": "done", "full_zip_url": "https://e.com/r.zip"}]}},
+        )
+        ctx = MagicMock()
+        ctx.__enter__.return_value = mock_client
+        ctx.__exit__.return_value = False
+
+        with (
+            patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=ctx) as client_cls,
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
+            backend._poll_batch_result("batch-x")
+
+        timeout_used = client_cls.call_args.kwargs["timeout"]
+        assert timeout_used == backend.POLL_REQUEST_TIMEOUT
+        assert timeout_used < backend.timeout, "单次轮询必须比元数据超时更短，否则半死连接会拖住整个循环"
+
+    def test_累计超时时抛出并带上实际耗时与最后状态(self) -> None:
+        """云端一直在 running（请求都成功）→ 靠 POLL_TIMEOUT 收口。"""
+        backend = _make_backend()
+        mock_client = MagicMock()
+        mock_client.get.return_value = _mock_response(
+            200, {"code": 0, "data": {"extract_result": [{"state": "running"}]}}
+        )
+        ctx = MagicMock()
+        ctx.__enter__.return_value = mock_client
+        ctx.__exit__.return_value = False
+
+        # 让时间每次都跨过阈值：第一次进入循环就判超时
+        clock = iter([0.0, 10_000.0] + [10_000.0] * 50)
+        with (
+            patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=ctx),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+            patch(f"{_PATCH_PREFIX}.time.time", side_effect=lambda: next(clock)),
+        ):
+            with pytest.raises(ParsingTimeoutError) as exc:
+                backend._poll_batch_result("batch-timeout")
+
+        message = str(exc.value)
+        assert "任务超时" in message
+        assert "实际" in message, "必须带实际耗时，否则无法区分「云端真慢」与「本地网络死了」"
+
+    def test_连续失败达到上限就放弃而不是空转到超时(self) -> None:
+        """本地网络/代理挂了 → 请求一直失败，靠连续失败计数收口。
+
+        与上一条是两条不同的路：这里请求根本没成功过，重试再多次也不会自愈，
+        只会白占 worker 槽位。
+        """
+        import httpx
+
+        backend = _make_backend()
+        mock_client = MagicMock()
+        mock_client.get.side_effect = httpx.ConnectError("network down")
+        ctx = MagicMock()
+        ctx.__enter__.return_value = mock_client
+        ctx.__exit__.return_value = False
+
+        with (
+            patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=ctx),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+            pytest.raises(MineruAPIError, match="连续失败"),
+        ):
+            backend._poll_batch_result("batch-net-down")
+
+        assert mock_client.get.call_count == backend.POLL_MAX_CONSECUTIVE_ERRORS
+
+    def test_成功响应会重置连续失败计数(self) -> None:
+        """连续失败只算「一直失败」：中途成功过一次就重新计数。
+
+        否则一个偶发抖动的网络（每次失败之间夹着成功）会被误判成「网络不可用」，
+        把其实还活着的任务提前判死。
+
+        不用 mock 时钟（那容易造出无限循环）：让「成功响应」在第 N 次后直接给 done。
+        只要计数被正确重置，就一定能走到那个 done；若「成功不重置计数」，
+        连续失败会一路累加到上限而先抛错。
+        """
+        import httpx
+
+        backend = _make_backend()
+        counter = {"n": 0}
+        done_resp = _mock_response(
+            200,
+            {"code": 0, "data": {"extract_result": [{"state": "done", "full_zip_url": "https://e.com/r.zip"}]}},
+        )
+
+        def _get(*_a, **_kw):
+            counter["n"] += 1
+            if counter["n"] > backend.POLL_MAX_CONSECUTIVE_ERRORS * 2:
+                return done_resp
+            if counter["n"] % 2 == 1:
+                raise httpx.ConnectError("blip")
+            return _mock_response(200, {"code": 0, "data": {"extract_result": [{"state": "waiting-file"}]}})
+
+        mock_client = MagicMock()
+        mock_client.get.side_effect = _get
+        ctx = MagicMock()
+        ctx.__enter__.return_value = mock_client
+        ctx.__exit__.return_value = False
+
+        with (
+            patch(f"{_PATCH_PREFIX}.httpx.Client", return_value=ctx),
+            patch(f"{_PATCH_PREFIX}.time.sleep"),
+        ):
+            result = backend._poll_batch_result("batch-flaky")
+
+        assert result["state"] == "done", "偶发断连不应被判成「网络不可用」"
+        assert counter["n"] > backend.POLL_MAX_CONSECUTIVE_ERRORS

@@ -107,3 +107,56 @@ class TestTaskNames:
             module_path, func_name = name.rsplit(".", 1)
             module = importlib.import_module(module_path)
             assert callable(getattr(module, func_name)), f"{name} 不存在"
+
+
+class TestStageTimeoutBudget:
+    """每个阶段必须自带 timeout——不传就退回集群默认值，云端一抖就被硬杀。
+
+    背景（2026-11-16，164 页全本双引擎）：
+    · 双引擎实测 269s、分段 130s，看似离 600s 很远；
+    · 但同一次事故里 MinerU 单路曾静默阻塞到 4347s（72 分钟）——
+      云服务的长尾不是直觉能估的。
+    所以预算按「实测 × 3」定额，并用 django-q 的单任务 timeout 覆盖集群默认值，
+    而不是把全局值抬到能容忍最坏情况（那会让每个普通任务都享有巨大失控窗口）。
+    """
+
+    @staticmethod
+    def _patched_submit():
+        return patch("apps.pdf_splitting.services.split.two_stage.build_task_submission_service")
+
+    def test_取字阶段带上自己的预算(self) -> None:
+        job = MagicMock(id="job-1")
+        with self._patched_submit() as factory:
+            two_stage.submit_extract_stage(job)
+
+        assert factory.return_value.submit.call_args.kwargs["timeout"] == two_stage.EXTRACT_STAGE_TIMEOUT_SECONDS
+
+    def test_双引擎阶段预算最长(self) -> None:
+        """双引擎要跑两遍整本，预算必须比另两段宽——否则它就失去单独拆出来的意义。"""
+        job = MagicMock(id="job-1")
+        with self._patched_submit() as factory:
+            two_stage.submit_cross_check_stage(job)
+
+        used = factory.return_value.submit.call_args.kwargs["timeout"]
+        assert used == two_stage.CROSS_CHECK_STAGE_TIMEOUT_SECONDS
+        assert used > two_stage.EXTRACT_STAGE_TIMEOUT_SECONDS
+        assert used > two_stage.SEGMENT_STAGE_TIMEOUT_SECONDS
+
+    def test_分段阶段带上自己的预算(self) -> None:
+        job = MagicMock(id="job-1")
+        with self._patched_submit() as factory:
+            two_stage.submit_segment_stage(job)
+
+        assert factory.return_value.submit.call_args.kwargs["timeout"] == two_stage.SEGMENT_STAGE_TIMEOUT_SECONDS
+
+    def test_三个阶段的预算都远超集群默认值(self) -> None:
+        """集群默认 600s 是全局小值兜底；阶段预算若比它还小就白加了。"""
+        from apps.core.config.django_runtime import resolve_q_cluster
+
+        cluster_default = int(resolve_q_cluster()["timeout"])
+        for name in (
+            "EXTRACT_STAGE_TIMEOUT_SECONDS",
+            "CROSS_CHECK_STAGE_TIMEOUT_SECONDS",
+            "SEGMENT_STAGE_TIMEOUT_SECONDS",
+        ):
+            assert getattr(two_stage, name) > cluster_default, f"{name} 不比集群默认值大，等于没设"
