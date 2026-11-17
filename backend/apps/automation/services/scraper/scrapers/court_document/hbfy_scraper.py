@@ -20,6 +20,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
+from ._http import court_client
 from .base_court_scraper import as_sync_page
 from .daolv_sifa_songda_scraper import DaolvSifaSongdaScraper
 
@@ -67,7 +68,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
             raise ValueError("湖北免账号链接缺少 msg 参数")
 
         # follow_redirects=True 对齐 requests.Session 默认行为（httpx 默认不跟）
-        session = httpx.Client(follow_redirects=True)
+        session = court_client(follow_redirects=True)
         session.headers.update(
             {
                 "User-Agent": (

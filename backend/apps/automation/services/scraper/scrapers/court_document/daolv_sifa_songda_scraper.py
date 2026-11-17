@@ -29,6 +29,7 @@ from django.core.files.storage import default_storage
 
 from apps.core.filesystem.upload_paths import replace_illegal_filename_chars
 
+from ._http import court_client
 from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
@@ -110,7 +111,7 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 登录链依赖会话 cookie（JSESSIONID），且平台存在多跳 302；
         # follow_redirects=True 对齐 requests.Session 默认行为（httpx 默认不跟）
-        session = httpx.Client(follow_redirects=True)
+        session = court_client(follow_redirects=True)
         session.headers.update(
             {
                 "User-Agent": (

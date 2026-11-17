@@ -47,7 +47,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
 
     def _fetch_documents_via_direct_api(self, params: dict[str, str]) -> list[dict[str, Any]]:  # pragma: no cover
         """直接调用法院 API 获取文书列表（无需浏览器，含运行内重试）"""
-        import httpx
+        from ._http import court_client
 
         api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
         headers = {
@@ -73,7 +73,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
         for attempt in range(1, self._LIST_API_ATTEMPTS + 1):
             start_time = time.time()
             try:
-                with httpx.Client(headers=headers, timeout=self._LIST_API_TIMEOUT_S) as client:
+                with court_client(headers=headers, timeout=self._LIST_API_TIMEOUT_S) as client:
                     response = client.post(api_url, json=payload)
                     response.raise_for_status()
                     api_data = response.json()
@@ -144,9 +144,9 @@ class ZxfwDirectApiMixin:  # pragma: no cover
                 },
             )
             try:
-                import httpx
+                from ._http import court_client
 
-                with httpx.Client(timeout=download_timeout / 1000.0, follow_redirects=True) as client:
+                with court_client(timeout=download_timeout / 1000.0, follow_redirects=True) as client:
                     response = client.get(url)
                     response.raise_for_status()
                     rel_path = filepath.relative_to(settings.MEDIA_ROOT).as_posix()
@@ -190,7 +190,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
 
         必须在调用 getWsListBySdbhNew 之前执行。
         """
-        import httpx
+        from ._http import court_client
 
         api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/updateSdxxBySdzt"
         headers = {
@@ -212,7 +212,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
         payload = {"sdbh": params.get("sdbh"), "qdbh": params.get("qdbh"), "sdsin": params.get("sdsin")}
         logger.info("发送签收确认: %s, payload: %s", api_url, payload)
         try:
-            with httpx.Client(headers=headers, timeout=30.0) as client:
+            with court_client(headers=headers, timeout=30.0) as client:
                 resp = client.post(api_url, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
