@@ -1,7 +1,7 @@
 """JTNAdapter.wait_open_browsers_closed 回收逻辑单测（Playwright driver 泄漏修复的锚点）。
 
 回归语义：半自动浏览器关闭后必须逐个回收浏览器会话（page → context →
-browser，CloakBrowser 的 browser.close() 内嵌停止 Playwright driver / node 进程），
+browser，Playwright 的 browser.close() 会回收 driver / node 进程），
 回收只处理本实例打开的会话并同步清理全局防-GC 列表；等待/关闭失败不得上抛。
 """
 
@@ -49,7 +49,7 @@ async def test_connected_browser_waits_then_reclaims(monkeypatch: pytest.MonkeyP
     assert "disconnected" in registered
     session.page.close.assert_awaited_once()
     session.context.close.assert_awaited_once()
-    session.browser.close.assert_awaited_once()  # CloakBrowser: 内嵌 pw.stop()
+    session.browser.close.assert_awaited_once()  # browser.close() 会连带停止 driver
 
 
 @pytest.mark.asyncio

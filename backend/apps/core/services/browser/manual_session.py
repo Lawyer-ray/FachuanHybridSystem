@@ -179,17 +179,22 @@ async def create_browser_async_manual(  # pragma: no cover
         screen_size, (window_width, window_height) = _screen_geometry()
         launch_kwargs["args"] = [f"--window-size={window_width},{window_height}"]
 
-    from cloakbrowser import launch_async
+    from playwright.async_api import async_playwright
 
-    from .launcher import ensure_browser_binary
+    from .launcher import ensure_browser_binary_async
 
-    ensure_browser_binary()
+    await ensure_browser_binary_async()
     logger.info("启动手动生命周期浏览器 (profile=%s, headless=%s)", profile.name, profile.headless)
-    browser = await launch_async(
-        headless=profile.headless,
-        humanize=profile.anti_detection,
-        **launch_kwargs,
-    )
+    pw = await async_playwright().start()
+    try:
+        browser = await pw.chromium.launch(
+            headless=profile.headless,
+            proxy={"server": profile.proxy} if profile.proxy else None,
+            **launch_kwargs,
+        )
+    except Exception:
+        await pw.stop()
+        raise
 
     context_args = profile.to_context_args()
     if profile.anti_detection:

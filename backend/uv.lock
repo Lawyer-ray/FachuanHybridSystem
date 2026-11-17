@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
@@ -939,20 +939,6 @@ wheels = [
 ]
 
 [[package]]
-name = "cloakbrowser"
-version = "0.7.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cryptography" },
-    { name = "httpx" },
-    { name = "playwright" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/63/b9/4ca765ff174d849d1e7d644a91f5ba539de9ecbecda928afff15a76c36ee/cloakbrowser-0.7.0.tar.gz", hash = "sha256:85b576251f5f758e2ff7e5d386b0b30d62959ac1698b33b3d84bebd81d658159", size = 5841059, upload-time = "2026-11-01T18:19:56.676Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/9c/192b8f591e5e400146356e633da00be19fb5dda71d2a30abe3698103edf5/cloakbrowser-0.7.0-py3-none-any.whl", hash = "sha256:71def3e5e843a47b4ad4db201b6cc9364844ba949f213e5d5f0d3a7b9d7e162d", size = 137665, upload-time = "2026-11-01T18:19:54.83Z" },
-]
-
-[[package]]
 name = "cobble"
 version = "0.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1511,7 +1497,6 @@ wheels = [
 name = "fachuan-backend"
 version = "26.52.11"
 source = { virtual = "." }
-default-groups = ["dev", "test"]
 dependencies = [
     { name = "aiofiles" },
     { name = "aiohttp" },
@@ -1521,7 +1506,6 @@ dependencies = [
     { name = "boto3" },
     { name = "channels" },
     { name = "channels-redis" },
-    { name = "cloakbrowser" },
     { name = "concurrent-log-handler" },
     { name = "cryptography" },
     { name = "ddddocr" },
@@ -1625,7 +1609,6 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.43.64" },
     { name = "channels", specifier = "==4.3.2" },
     { name = "channels-redis", specifier = "==4.3.0" },
-    { name = "cloakbrowser", specifier = ">=0.5.4" },
     { name = "concurrent-log-handler", specifier = ">=0.9.25" },
     { name = "cryptography", specifier = "==50.0.2" },
     { name = "ddddocr", specifier = ">=1.6.0" },

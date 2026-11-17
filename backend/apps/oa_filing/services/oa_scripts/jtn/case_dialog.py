@@ -3,7 +3,7 @@
 盖章/归档共用同一「搜索案件」弹窗模式：iframe 内表格勾选 radio → 父页面
 layui 层点「选择」回填主页面。历史坑（两次踩中）：查询异步重渲染会清掉已
 勾选的 radio；行未勾上时点「选择」，OA 弹「请选择对应的案件信息」且弹窗
-保持打开——脚本若不验证就继续，后续表单控件会被弹窗遮罩挡住（cloakbrowser
+保持打开——脚本若不验证就继续，后续表单控件会被弹窗遮罩挡住（Playwright
 报 ElementNotReceivingEventsError: element is covered by <DIV>）。
 
 本模块提供：勾选校验（click → 校验 checked → 强制置位 + change 事件）、
