@@ -24,13 +24,20 @@ class AgentConfig(AppConfig):
         没挂 schedule 就等于不存在——这是本轮补上的缺口。
 
         失败只降级不阻断：调度表可能尚未 migrate，这时 app 仍要能启动。
+
+        **必须经 ``run_startup_db_sync`` 摆渡**：ASGI 部署下 ready() 跑在事件
+        循环线程里，直接查调度表会抛 ``SynchronousOnlyOperation``（每个 uvicorn
+        进程启动时都会报这条 warning，调度一次也没注册上）。
         """
         try:
-            from apps.core.utils.startup_db import allow_startup_db
+            from apps.core.utils.startup_db import allow_startup_db, run_startup_db_sync
 
             from .services.memory_tasks import _register_schedules
 
-            with allow_startup_db():
-                _register_schedules()
+            def _register() -> None:
+                with allow_startup_db():
+                    _register_schedules()
+
+            run_startup_db_sync(_register)
         except Exception:
             logger.warning("记忆定时任务注册跳过（未就绪）", exc_info=True)
