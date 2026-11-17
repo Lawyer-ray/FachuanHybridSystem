@@ -45,6 +45,20 @@ from .folder_binding_schemas import (
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
+
+# Folder Browse Schemas
+from .folder_browse_schemas import (
+    ContractFolderCopyIn,
+    ContractFolderEntriesOut,
+    ContractFolderEntryNameIn,
+    ContractFolderFileOut,
+    ContractFolderPathIn,
+    ContractFolderSaveAsIntentIn,
+    ContractFolderSaveAsIntentOut,
+    ContractFolderSaveIn,
+    ContractFolderSaveOut,
+    ContractFolderSubfolderOut,
+)
 from .folder_scan_schemas import (
     ArchiveItemOptionOut,
     ContractFolderScanAIClassifyIn,
@@ -84,6 +98,9 @@ from .payment_schemas import (
     FinanceStatsItem,
     FinanceStatsOut,
 )
+
+# Stages Schemas
+from .stages_schemas import ContractStagesIn, ContractStagesOut
 
 # Supplementary Agreement Schemas
 from .supplementary_schemas import (
@@ -132,6 +149,20 @@ __all__ = [
     "FolderBindingResponseSchema",
     "FolderBrowseEntrySchema",
     "FolderBrowseResponseSchema",
+    # Folder Browse
+    "ContractFolderSubfolderOut",
+    "ContractFolderFileOut",
+    "ContractFolderEntriesOut",
+    "ContractFolderEntryNameIn",
+    "ContractFolderCopyIn",
+    "ContractFolderPathIn",
+    "ContractFolderSaveIn",
+    "ContractFolderSaveOut",
+    "ContractFolderSaveAsIntentIn",
+    "ContractFolderSaveAsIntentOut",
+    # Stages
+    "ContractStagesIn",
+    "ContractStagesOut",
     # Folder Scan
     "ContractFolderScanStartIn",
     "ContractFolderScanStartOut",

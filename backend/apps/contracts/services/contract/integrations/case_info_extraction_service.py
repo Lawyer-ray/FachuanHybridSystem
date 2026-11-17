@@ -135,9 +135,9 @@ def extract_case_info_from_candidates(
     Returns:
         [{"source_path", "filename", "number", "document_name", "court_name", "stage", "content"}, ...]
     """
-    from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
+    from apps.contracts.adapters.documents_extractor_adapter import build_judgment_pdf_extractor
 
-    extractor = JudgmentPdfExtractor()
+    extractor = build_judgment_pdf_extractor()
     by_number: dict[str, dict[str, Any]] = {}
 
     for candidate in candidates:

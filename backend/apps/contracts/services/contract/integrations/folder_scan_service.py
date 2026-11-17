@@ -1,10 +1,29 @@
-"""合同文件夹自动捕获服务。"""
+"""合同文件夹自动捕获服务。
+
+按子域拆为 5 个 mixin（**同目录**，方法体经 ``self._host`` 回查本模块 globals）：
+
+- ``_ScanTaskMixin``       扫描启动 / 子文件夹列举 / Django-Q 任务执行
+- ``_ImportMixin``         确认导入 / 监督卡检测 / 作废票标记 / 导入纠错学习
+- ``_ScanScopeMixin``      子文件夹解析 / 越界校验 / 相对路径归一化
+- ``_SessionQueryMixin``   会话读取 / 清空 / 状态载荷装配
+- ``_BindingMixin``        合同存在性 / 可访问绑定 / 云存储 provider 解析
+
+.. important::
+   **为什么是 mixin 而不是拆成同名子包**：测试有 53 处 patch 指向本模块的**具体绑定位置**
+   （``folder_scan_service.Contract`` 24 处、``.ContractFolderScanSession`` 11 处等）。
+   拆成同名包后这些名字的绑定位置改变、patch 全部失效，需同步改 6 个测试文件；
+   mixin 方案把方法体搬走但保留本模块为唯一定义点，**零测试改动**。
+
+   mixin 内的纪律：引用被 patch 的名字一律写 ``self._host.Contract``，禁裸名
+   （裸名在 mixin 模块 globals 里不存在，会 NameError）。
+"""
 
 from __future__ import annotations
 
 import logging
 import os
 import re
+import sys
 import unicodedata
 from pathlib import Path
 from typing import Any
@@ -23,15 +42,31 @@ from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
+from ._binding_mixin import _BindingMixin
 from ._candidate_post_processor import CandidatePostProcessor
+from ._import_mixin import _ImportMixin
 from ._import_pipeline import ImportPipeline
+from ._scan_scope_mixin import _ScanScopeMixin
+from ._scan_task_mixin import _ScanTaskMixin
+from ._session_query_mixin import _SessionQueryMixin
 from .case_info_extraction_service import apply_case_info_to_contract, extract_case_info_from_candidates
 
 logger = logging.getLogger(__name__)
 
 
-class ContractFolderScanService:
+class ContractFolderScanService(
+    _ScanTaskMixin,
+    _ImportMixin,
+    _ScanScopeMixin,
+    _SessionQueryMixin,
+    _BindingMixin,
+):
     """合同自动捕获扫描、轮询、确认导入服务。"""
+
+    @property
+    def _host(self) -> Any:
+        """mixin 回查本模块 globals 的唯一入口——测试 patch 靠它继续命中。"""
+        return sys.modules[__name__]
 
     _ACTIVE_STATUSES = {
         ContractFolderScanStatus.PENDING,
@@ -61,588 +96,6 @@ class ContractFolderScanService:
         self._scan_service = scan_service or BoundFolderScanService()
         self._post_processor = CandidatePostProcessor(self._scan_service)
         self._import_pipeline = ImportPipeline()
-
-    # ── Public API ──────────────────────────────────────────────────────
-
-    def start_scan(
-        self,
-        *,
-        contract_id: int,
-        started_by: Any | None,
-        rescan: bool = False,
-        scan_subfolder: str = "",
-    ) -> ContractFolderScanSession:  # pragma: no cover
-        self._ensure_contract_exists(contract_id)
-        binding = self._get_accessible_binding(contract_id)
-        storage_provider = self._make_provider_for_binding(binding)
-        scan_scope = self._resolve_scan_scope(binding.folder_path, scan_subfolder, storage_provider=storage_provider)
-
-        if not rescan:
-            existing = (
-                ContractFolderScanSession.objects.filter(contract_id=contract_id, status__in=self._ACTIVE_STATUSES)
-                .order_by("-created_at")
-                .first()
-            )
-            if existing:
-                existing_subfolder = self._extract_scan_subfolder(existing.result_payload)
-                if existing_subfolder == scan_scope["scan_subfolder"]:
-                    return existing
-                raise ValidationException(
-                    message="已有进行中的扫描任务，请等待完成或使用“重新扫描”",
-                    errors={"session_id": str(existing.id)},
-                )
-
-            # 复用同子文件夹的已完成会话，避免重复扫描
-            completed_match = (
-                ContractFolderScanSession.objects.filter(
-                    contract_id=contract_id,
-                    status=ContractFolderScanStatus.COMPLETED,
-                )
-                .order_by("-created_at")
-                .first()
-            )
-            if completed_match:
-                completed_subfolder = self._extract_scan_subfolder(completed_match.result_payload)
-                if completed_subfolder == scan_scope["scan_subfolder"]:
-                    return completed_match
-
-        session = ContractFolderScanSession.objects.create(
-            contract_id=contract_id,
-            status=ContractFolderScanStatus.PENDING,
-            progress=0,
-            current_file="",
-            result_payload={
-                "summary": {},
-                "candidates": [],
-                "scan_scope": scan_scope,
-            },
-            started_by=started_by if getattr(started_by, "is_authenticated", False) else None,
-        )
-
-        task_id = build_task_submission_service().submit(
-            "apps.contracts.services.contract.integrations.folder_scan_service.run_contract_folder_scan_task",
-            args=[str(session.id)],
-            task_name=f"contract_folder_scan_{session.id}",
-        )
-
-        ContractFolderScanSession.objects.filter(id=session.id).update(
-            status=ContractFolderScanStatus.RUNNING,
-            task_id=str(task_id),
-            updated_at=timezone.now(),
-        )
-        session.refresh_from_db()
-        logger.info(
-            "contract_folder_scan_submitted",
-            extra={
-                "contract_id": contract_id,
-                "session_id": str(session.id),
-                "scan_subfolder": scan_scope["scan_subfolder"],
-            },
-        )
-        return session
-
-    def list_scan_subfolders(self, *, contract_id: int) -> dict[str, Any]:  # pragma: no cover
-        self._ensure_contract_exists(contract_id)
-        binding = self._get_accessible_binding(contract_id)
-
-        # Cloud storage: use provider to list subdirectories
-        storage_type = getattr(binding, "storage_type", "local")
-        if storage_type != "local":
-            provider = self._make_provider_for_binding(binding)
-            root_path = binding.folder_path
-            try:
-                children = provider.list_directory(root_path) if provider else []
-            except Exception:
-                children = []
-            subfolders = []
-            for child in children:
-                if not child.is_dir:
-                    continue
-                if child.name.startswith("."):
-                    continue
-                subfolders.append({"relative_path": child.name, "display_name": child.name})
-            subfolders.sort(key=lambda x: x["display_name"].lower())
-            return {"root_path": root_path, "subfolders": subfolders}
-
-        # Local filesystem
-        root = Path(binding.folder_path).expanduser().resolve()
-
-        subfolders_local: list[dict[str, str]] = []
-        for child_local in sorted(root.iterdir(), key=lambda item: item.name.lower()):
-            if child_local.name.startswith("."):
-                continue
-            if not child_local.is_dir():
-                continue
-            resolved_child = child_local.resolve()
-            if not self._is_within_root(root, resolved_child):
-                continue
-            subfolders_local.append(
-                {
-                    "relative_path": child_local.name,
-                    "display_name": child_local.name,
-                }
-            )
-
-        return {
-            "root_path": root.as_posix(),
-            "subfolders": subfolders_local,
-        }
-
-    def get_session(self, *, contract_id: int, session_id: UUID) -> ContractFolderScanSession:
-        try:
-            return ContractFolderScanSession.objects.get(id=session_id, contract_id=contract_id)
-        except ContractFolderScanSession.DoesNotExist:
-            raise NotFoundError("扫描会话不存在") from None
-
-    def get_latest_session(self, *, contract_id: int) -> ContractFolderScanSession | None:  # pragma: no cover
-        """返回合同最新的扫描会话，没有则返回 None。"""
-        return ContractFolderScanSession.objects.filter(contract_id=contract_id).order_by("-created_at").first()
-
-    def clear_scan_sessions(self, *, contract_id: int) -> int:  # pragma: no cover
-        """清空合同的扫描会话（弹窗「清空结果」）。
-
-        只删扫描工作区（候选/建议/提取结果），不动已导入的材料与回填的案号。
-        扫描进行中拒绝清空，避免任务回写已删除的会话行。
-        """
-        self._ensure_contract_exists(contract_id)
-        has_active = ContractFolderScanSession.objects.filter(
-            contract_id=contract_id,
-            status__in=self._ACTIVE_STATUSES,
-        ).exists()
-        if has_active:
-            raise ValidationException(message="扫描进行中，请等待完成后再清空")
-        deleted, _rows = ContractFolderScanSession.objects.filter(contract_id=contract_id).delete()
-        logger.info("contract_folder_scan_cleared", extra={"contract_id": contract_id, "deleted": deleted})
-        return deleted
-
-    def build_status_payload(self, *, session: ContractFolderScanSession) -> dict[str, Any]:
-        payload = dict(session.result_payload or {})
-        summary = payload.get("summary") or {}
-        candidates = payload.get("candidates") or []
-
-        return {
-            "session_id": str(session.id),
-            "status": session.status,
-            "progress": int(session.progress or 0),
-            "current_file": session.current_file or "",
-            "summary": {
-                "total_files": int(summary.get("total_files", 0) or 0),
-                "deduped_files": int(summary.get("deduped_files", 0) or 0),
-                "classified_files": int(summary.get("classified_files", 0) or 0),
-                # 闸 2：被判定为作废票（文件名含「红字开具」）因而未勾选的候选数
-                "skipped_voided": int(summary.get("skipped_voided", 0) or 0),
-            },
-            "candidates": candidates,
-            "error_message": session.error_message or "",
-            "archive_category": payload.get("archive_category") or "",
-            "archive_item_options": payload.get("archive_item_options") or [],
-            "work_log_suggestions": payload.get("work_log_suggestions") or [],
-            "ai_classify_result": payload.get("ai_classify_result") or {},
-            "case_info_extractions": payload.get("case_info_extractions") or [],
-        }
-
-    @transaction.atomic
-    def confirm_import(
-        self,
-        *,
-        contract_id: int,
-        session_id: UUID,
-        items: list[dict[str, Any]],
-        work_log_suggestions: list[dict[str, str]] | None = None,
-        storage_provider: Any | None = None,
-    ) -> dict[str, Any]:  # pragma: no cover
-        session = self.get_session(contract_id=contract_id, session_id=session_id)
-        if storage_provider is None:
-            storage_provider = self._resolve_session_storage_provider(session)
-        result = self._import_pipeline.confirm_import(
-            contract_id=contract_id,
-            session=session,
-            items=items,
-            work_log_suggestions=work_log_suggestions,
-            storage_provider=storage_provider,
-            learn_from_correction_fn=self._learn_from_import_correction,
-        )
-
-        # 同步→案件信息回填：裁判文书提取结果按选中项追加写入关联案件
-        # （案号/法院去重新增、空字段回填，多阶段共存；失败不影响导入）
-        try:
-            extractions = list((session.result_payload or {}).get("case_info_extractions") or [])
-            selected_paths = {str(i.get("source_path") or "") for i in items if i.get("selected")}
-            if extractions:
-                contract = Contract.objects.get(pk=contract_id)
-                result["case_info_apply"] = apply_case_info_to_contract(
-                    contract, extractions, selected_paths=selected_paths
-                )
-        except Exception:
-            logger.exception("case_info_apply_failed", extra={"contract_id": contract_id})
-
-        # 同步→检测监督卡 串联：导入完成后立即检测合同 PDF 末页监督卡
-        # OCR 失败不影响导入结果（异常被吞，导入数据随外层事务正常提交）
-        supervision_result = self._auto_detect_supervision_card(contract_id)
-        result["supervision_card_detection"] = supervision_result
-        return result
-
-    def _auto_detect_supervision_card(self, contract_id: int) -> dict[str, Any]:
-        """导入完成后自动检测监督卡，失败返回未触发状态。"""
-        try:
-            from apps.contracts.services.archive.supervision_card_extractor import SupervisionCardExtractor
-
-            contract = Contract.objects.get(pk=contract_id)
-            detect_result = SupervisionCardExtractor().detect_and_extract(contract)
-            found = bool(detect_result.get("found"))
-            if found:
-                logger.info(
-                    "supervision_card_auto_detected",
-                    extra={"contract_id": contract_id, "page_number": detect_result.get("page_number")},
-                )
-            return {
-                "triggered": True,
-                "found": found,
-                "extracted_count": 1 if found else 0,
-                "detail": detect_result,
-            }
-        except Exception:
-            logger.exception("supervision_card_auto_detect_failed", extra={"contract_id": contract_id})
-            return {"triggered": False, "found": False, "extracted_count": 0, "error": "检测失败"}
-
-    def run_scan_task(self, *, session_id: str) -> None:  # pragma: no cover
-        session = ContractFolderScanSession.objects.select_related("contract").filter(id=session_id).first()
-        if not session:
-            logger.warning("contract_folder_scan_session_missing", extra={"session_id": session_id})
-            return
-
-        try:
-            binding = self._get_accessible_binding(session.contract_id)
-            storage_provider = self._make_provider_for_binding(binding)
-            payload = dict(session.result_payload or {})
-            scan_scope = self._resolve_scan_scope(
-                binding.folder_path,
-                self._extract_scan_subfolder(payload),
-                storage_provider=storage_provider,
-            )
-
-            def _progress(status: str, progress: int, current_file: str | None) -> None:  # pragma: no cover
-                # 文件遍历结束（"completed"）后还有后处理/工作日志/案件信息提取阶段，
-                # 此时不能提前置 COMPLETED——轮询端见 COMPLETED 即停止轮询，会拿到
-                # 空结果误报「未找到可导入的文件」；COMPLETED 只由最终原子落库写入
-                mapped_status = ContractFolderScanStatus.RUNNING
-                shown_progress = int(progress)
-                if status == "classifying":
-                    mapped_status = ContractFolderScanStatus.CLASSIFYING
-                elif status == "completed":
-                    shown_progress = min(shown_progress, 99)
-
-                ContractFolderScanSession.objects.filter(id=session.id).update(
-                    status=mapped_status,
-                    progress=shown_progress,
-                    current_file=current_file or "",
-                    updated_at=timezone.now(),
-                )
-
-            result = self._scan_service.scan_folder(
-                folder_path=scan_scope["scan_folder"],
-                domain="contract",
-                progress_callback=_progress,
-                storage_provider=storage_provider,
-                exclude_dir_keywords=self._exclude_dir_keywords(scan_subfolder=scan_scope["scan_subfolder"]),
-            )
-            result["scan_scope"] = scan_scope
-
-            contract = session.contract
-            archive_category = get_archive_category(getattr(contract, "case_type", ""))
-
-            candidates = result.get("candidates") or []
-            skipped_voided = self._mark_voided_candidates(candidates)
-            if skipped_voided:
-                logger.info(
-                    "folder_scan_skip_voided_dir",
-                    extra={"contract_id": session.contract_id, "skipped_voided": skipped_voided},
-                )
-            result["skipped_voided"] = skipped_voided
-            candidates = self._post_processor.post_process_candidates(
-                candidates=candidates,
-                archive_category=archive_category,
-                scan_folder=scan_scope["scan_folder"],
-                contract_id=session.contract_id,
-                storage_provider=storage_provider,
-            )
-            result["candidates"] = candidates
-
-            # 工作日志建议
-            work_log_suggestions = collect_work_log_suggestions(
-                scan_scope["scan_folder"], archive_category, storage_provider=storage_provider
-            )
-            result["work_log_suggestions"] = work_log_suggestions
-
-            # 裁判文书案件信息提取（审级/法院名称/案号/主文），单文件失败不阻断扫描
-            try:
-                result["case_info_extractions"] = extract_case_info_from_candidates(
-                    candidates, storage_provider=storage_provider
-                )
-            except Exception:
-                logger.exception("case_info_extraction_error", extra={"session_id": session_id})
-                result["case_info_extractions"] = []
-
-            # 归档清单项选项
-            archive_item_options = collect_archive_item_options(archive_category)
-            result["archive_item_options"] = archive_item_options
-            result["archive_category"] = archive_category
-
-            ContractFolderScanSession.objects.filter(id=session.id).update(
-                status=ContractFolderScanStatus.COMPLETED,
-                progress=100,
-                current_file="",
-                result_payload=result,
-                error_message="",
-                updated_at=timezone.now(),
-            )
-        except Exception as exc:
-            from apps.cloud_storage.exceptions import CloudStorageError
-
-            if isinstance(exc, CloudStorageError):
-                error_msg = str(exc)
-            else:
-                error_msg = f"扫描失败: {type(exc).__name__}"
-            logger.exception("contract_folder_scan_failed", extra={"session_id": session_id})
-            ContractFolderScanSession.objects.filter(id=session.id).update(
-                status=ContractFolderScanStatus.FAILED,
-                error_message=error_msg,
-                updated_at=timezone.now(),
-            )
-
-    # ── Private helpers ─────────────────────────────────────────────────
-
-    def _mark_voided_candidates(self, candidates: list[dict[str, Any]]) -> int:
-        """闸 2：把作废红票候选标为不可导入，返回命中数。
-
-        目录级的 `已冲红/` 已由 ``_ALWAYS_EXCLUDE_DIR_KEYWORDS`` 挡在扫描外，这里是第二道：
-        历史扫描会话、手工传参、或有人在发票目录根下丢了一份红票副本时，候选里仍可能
-        混进作废票。判据只能是**命名事实**（文件名含「红字开具」）——扫描阶段手里没有
-        ``Invoice`` 记录可查，而这张文件的归属恰恰是本步骤要定的。
-
-        只改候选字典，不删候选：人要能在弹窗里看到“这张被跳过了”，而不是它凭空消失。
-        """
-        skipped = 0
-        for candidate in candidates:
-            if not _looks_voided_filename(str(candidate.get("filename") or "")):
-                continue
-            candidate["selected"] = False
-            candidate["archive_item_code"] = ""
-            candidate["voided_skipped"] = True
-            skipped += 1
-        return skipped
-
-    def _ensure_contract_exists(self, contract_id: int) -> None:  # pragma: no cover
-        if Contract.objects.filter(id=contract_id).exists():
-            return
-        raise NotFoundError("合同不存在")
-
-    def _get_accessible_binding(self, contract_id: int) -> ContractFolderBinding:  # pragma: no cover
-        binding = ContractFolderBinding.objects.filter(contract_id=contract_id).first()
-        if not binding:
-            raise ValidationException(message="未绑定文件夹", errors={"contract_id": contract_id})
-
-        storage_type = getattr(binding, "storage_type", "local")
-        if storage_type == "local":
-            folder = Path(binding.folder_path)
-            if not folder.exists() or not folder.is_dir():
-                raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
-        else:
-            # Cloud storage: use provider to check accessibility
-            from apps.cloud_storage.factory import create_provider_for_binding
-
-            provider = create_provider_for_binding(binding)
-            try:
-                accessible = provider.is_dir(binding.folder_path) or provider.exists(binding.folder_path)
-            except Exception:
-                accessible = False
-            if not accessible:
-                raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
-
-        return binding
-
-    def _resolve_session_storage_provider(self, session: Any) -> Any | None:
-        """从 session → contract → binding 链路解析云存储 provider；失败按本地存储（None）。"""
-        try:
-            binding = session.contract.folder_binding
-            return self._make_provider_for_binding(binding)
-        except Exception:
-            logger.debug(
-                "解析云存储 provider 失败（已忽略，按本地存储确认导入）: contract_id=%s session_id=%s",
-                session.contract_id,
-                session.id,
-                exc_info=True,
-            )
-            return None
-
-    def _make_provider_for_binding(self, binding: ContractFolderBinding) -> Any | None:  # pragma: no cover
-        """Create a cloud storage provider for the binding, or None for local."""
-        storage_type = getattr(binding, "storage_type", "local")
-        if storage_type == "local":
-            return None
-        from apps.cloud_storage.factory import create_provider_for_binding
-
-        return create_provider_for_binding(binding)
-
-    def _extract_scan_subfolder(self, payload: dict[str, Any] | None) -> str:
-        scope = (payload or {}).get("scan_scope") or {}
-        return str(scope.get("scan_subfolder") or "").strip()
-
-    def _resolve_scan_scope(
-        self,
-        root_folder: str,
-        scan_subfolder: str,
-        storage_provider: Any | None = None,
-    ) -> dict[str, str]:  # pragma: no cover
-        normalized_subfolder = self._normalize_scan_subfolder(scan_subfolder)
-
-        if storage_provider is not None:
-            # Cloud storage: use PurePosixPath for path arithmetic
-            from pathlib import PurePosixPath
-
-            root = PurePosixPath(root_folder)
-            scan_path = root
-            if normalized_subfolder:
-                scan_path = root / normalized_subfolder
-                # Normalize to prevent traversal
-                scan_path = PurePosixPath("/") / str(scan_path).lstrip("/")
-                root_str = str(root)
-                scan_str = str(scan_path)
-                is_within = (
-                    scan_str.startswith(root_str + "/")
-                    or scan_str == root_str
-                    or (root_str == "/" and scan_str.startswith("/") and scan_str != "/")
-                )
-                if not is_within:
-                    raise ValidationException(
-                        message="扫描子文件夹越界",
-                        errors={"scan_subfolder": normalized_subfolder},
-                    )
-                # 与 _get_accessible_binding 一致：先 is_dir()（PROPFIND）再 exists() 兜底。
-                # 坚果云等 WebDAV 的 HEAD 对目录返回 403，单用 exists() 会把存在的子目录判死。
-                if not (storage_provider.is_dir(str(scan_path)) or storage_provider.exists(str(scan_path))):
-                    raise ValidationException(
-                        message="扫描子文件夹不可访问",
-                        errors={"scan_subfolder": normalized_subfolder},
-                    )
-
-            return {
-                "root_folder": str(root),
-                "scan_folder": str(scan_path),
-                "scan_subfolder": normalized_subfolder,
-            }
-
-        # Local filesystem
-        root_local = Path(root_folder).expanduser().resolve()
-        scan_path_local = root_local
-        if normalized_subfolder:
-            scan_path_local = (root_local / normalized_subfolder).resolve()
-            if not self._is_within_root(root_local, scan_path_local):
-                raise ValidationException(
-                    message="扫描子文件夹越界",
-                    errors={"scan_subfolder": normalized_subfolder},
-                )
-            if not scan_path_local.exists() or not scan_path_local.is_dir():
-                raise ValidationException(
-                    message="扫描子文件夹不可访问",
-                    errors={"scan_subfolder": normalized_subfolder},
-                )
-
-        return {
-            "root_folder": root_local.as_posix(),
-            "scan_folder": scan_path_local.as_posix(),
-            "scan_subfolder": normalized_subfolder,
-        }
-
-    def _normalize_scan_subfolder(self, scan_subfolder: str) -> str:
-        raw = str(scan_subfolder or "").strip().replace("\\", "/")
-        if not raw:
-            return ""
-        if raw.startswith("/") or raw.startswith("~") or re.match(r"^[A-Za-z]:/", raw):
-            raise ValidationException(message="扫描子文件夹必须使用相对路径", errors={"scan_subfolder": raw})
-
-        parts = [part for part in raw.split("/") if part not in {"", "."}]
-        if not parts:
-            return ""
-        if any(part == ".." for part in parts):
-            raise ValidationException(message="扫描子文件夹路径非法", errors={"scan_subfolder": raw})
-        return "/".join(parts)
-
-    def _is_within_root(self, root: Path, target: Path) -> bool:
-        # 解耦（2026-10-19）：实现上提 apps.core.filesystem.path_confinement（与 cases 侧逐字相同）
-        from apps.core.filesystem.path_confinement import is_within
-
-        return is_within(root, target)
-
-    def _learn_from_import_correction(
-        self,
-        *,
-        candidate: dict[str, Any],
-        actual_archive_item_code: str,
-        contract_id: int,
-    ) -> None:
-        """导入确认时自动学习：如果用户修改了 archive_item_code，记录为学习规则。"""
-        if not actual_archive_item_code:
-            return
-
-        # 获取扫描时分类器预测的 archive_item_code
-        predicted_code = str(candidate.get("archive_item_code") or "").strip()
-        if predicted_code == actual_archive_item_code:
-            return  # 用户没修改，无需学习
-
-        # 只对案件材料学习
-        if str(candidate.get("suggested_category") or "") != "case_material":
-            return
-
-        filename = str(candidate.get("filename") or "")
-        if not filename:
-            return
-
-        try:
-            from apps.contracts.models import ArchiveClassificationRule
-            from apps.contracts.services.archive.category_mapping import get_archive_category
-            from apps.contracts.services.archive.learning_service import extract_keywords
-            from apps.contracts.services.contract.integrations.archive_classifier import invalidate_db_rules_cache
-
-            contract = Contract.objects.filter(id=contract_id).values_list("case_type", flat=True).first()
-            if not contract:
-                return
-            archive_category = get_archive_category(contract)
-            if not archive_category:
-                return
-
-            keywords = extract_keywords(filename)
-            learned_any = False
-            for kw in keywords:
-                # 跳过歧义关键词：如果已有规则映射到不同 code，不覆盖
-                existing = (
-                    ArchiveClassificationRule.objects.filter(
-                        archive_category=archive_category,
-                        filename_keyword=kw,
-                    )
-                    .exclude(archive_item_code=actual_archive_item_code)
-                    .first()
-                )
-                if existing:
-                    continue
-
-                _, created = ArchiveClassificationRule.objects.get_or_create(
-                    archive_category=archive_category,
-                    filename_keyword=kw,
-                    defaults={
-                        "archive_item_code": actual_archive_item_code,
-                        "source": "manual",
-                        "hit_count": 1,
-                    },
-                )
-                if created:
-                    learned_any = True
-
-            # 学习完成后刷新缓存，确保新规则立即生效
-            if learned_any:
-                invalidate_db_rules_cache()
-        except (OSError, RuntimeError, ValueError):
-            logger.exception("learn_from_import_correction_failed")
 
 
 def run_contract_folder_scan_task(session_id: str) -> None:  # pragma: no cover

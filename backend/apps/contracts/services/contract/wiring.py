@@ -30,6 +30,30 @@ def build_contract_service(*, case_service: ICaseService, lawyer_service: ILawye
     )
 
 
+def build_contract_display_service() -> Any:
+    """构建合同显示服务实例（无状态，可安全缓存）。"""
+    from .query import ContractDisplayService
+
+    return ContractDisplayService()
+
+
+def build_contract_progress_service() -> Any:
+    """构建合同进度服务实例（无状态，可安全缓存）。"""
+    from .query import ContractProgressService
+
+    return ContractProgressService()
+
+
+def build_contract_admin_service() -> Any:
+    """构建合同 Admin 服务实例，注入显示 / 进度两个协作者。"""
+    from .admin import ContractAdminService
+
+    return ContractAdminService(
+        display_service=build_contract_display_service(),
+        progress_service=build_contract_progress_service(),
+    )
+
+
 def get_contract_service() -> Any:
     return ServiceLocator.get_contract_service()
 

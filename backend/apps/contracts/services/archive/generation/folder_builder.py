@@ -277,7 +277,7 @@ def _compile_final_archive_pdf(
     import pymupdf as fitz
     from django.utils import timezone
 
-    from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
+    from apps.contracts.adapters.documents_pdf_adapter import to_temp_pdf
 
     contract_name = contract.name or "未命名合同"
     today_str = timezone.localdate().strftime("%Y%m%d")
@@ -308,7 +308,7 @@ def _compile_final_archive_pdf(
             logger.warning("模板文书docx不存在，跳过: %s", docx_path.name)
             continue
 
-        pdf_path, is_temp = resolve_material_to_temp_pdf(docx_path)
+        pdf_path, is_temp = to_temp_pdf(docx_path)
         if pdf_path is not None:
             pdf_files_to_merge.append(pdf_path)
             if is_temp:
