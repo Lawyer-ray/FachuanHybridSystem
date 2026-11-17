@@ -418,3 +418,7 @@ projects/
 
 # 贡献与致谢名单（含真实姓名/投资人信息，属本机记录，不入库）
 CONTRIBUTING.md
+
+# vibe 生成的图片/视频素材（AI 产出的演示与宣传素材，体积大且可重新生成，不入库）
+/vibe_images/
+/vibe_videos/
