@@ -216,7 +216,7 @@ def _merge_materials_to_pdf(
     filenames: list[str] = []
 
     try:
-        from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
+        from apps.contracts.adapters.documents_pdf_adapter import to_temp_pdf
 
         for material in materials:
             if not material.file_path:
@@ -233,7 +233,7 @@ def _merge_materials_to_pdf(
                 logger.warning("合并时文件不存在: %s", material.original_filename)
                 continue
 
-            pdf_path, is_temp = resolve_material_to_temp_pdf(file_path)
+            pdf_path, is_temp = to_temp_pdf(file_path)
             if pdf_path is None:
                 logger.warning("不支持的文件类型或转换失败: %s", material.original_filename)
                 continue

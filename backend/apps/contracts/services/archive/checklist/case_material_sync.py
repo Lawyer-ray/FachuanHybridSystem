@@ -30,13 +30,13 @@ def _convert_to_pdf_if_needed(
     转换成功后原文件被删除，返回新的 (rel_path, safe_name)。
     转换失败时保留原文件，graceful degradation。
     """
-    from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
+    from apps.contracts.adapters.documents_pdf_adapter import to_temp_pdf
 
     abs_path = to_media_abs(rel_path)
     if not abs_path.exists():
         return rel_path, safe_name
 
-    pdf_path, is_temp = resolve_material_to_temp_pdf(abs_path)
+    pdf_path, is_temp = to_temp_pdf(abs_path)
     if pdf_path is None or not is_temp:
         # 已是 PDF 或转换失败，不处理
         return rel_path, safe_name

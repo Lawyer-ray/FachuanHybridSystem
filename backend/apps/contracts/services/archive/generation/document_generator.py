@@ -26,7 +26,10 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
     if not template_path:
         return {"success": False, "error": f"模板文件不存在: {template_subtype}"}
 
-    from apps.documents.services.generation.pipeline import DocxPreviewService, PipelineContextBuilder
+    from apps.contracts.adapters.documents_generation_adapter import (
+        build_docx_preview_service,
+        build_pipeline_context_builder,
+    )
 
     case = (
         contract.cases.select_related(
@@ -41,7 +44,7 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
         .first()
     )
 
-    context_builder = PipelineContextBuilder()
+    context_builder = build_pipeline_context_builder()
     context = context_builder.build_archive_context(contract, case)
 
     from apps.contracts.models.archive_override import ArchivePlaceholderOverride
@@ -54,7 +57,7 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
 
     _apply_overrides(context, contract, template_subtype)
 
-    rows = DocxPreviewService().preview(str(template_path), context)
+    rows = build_docx_preview_service().preview(str(template_path), context)
     return {"success": True, "data": rows, "has_overrides": has_overrides}
 
 
@@ -158,14 +161,17 @@ def _generate_single_document(
         return {"template_subtype": template_subtype, "error": f"模板文件不存在: {template_subtype}"}
 
     try:
-        from apps.documents.services.generation.pipeline import DocxRenderer, PipelineContextBuilder
+        from apps.contracts.adapters.documents_generation_adapter import (
+            build_docx_renderer,
+            build_pipeline_context_builder,
+        )
 
-        context_builder = PipelineContextBuilder()
+        context_builder = build_pipeline_context_builder()
         context = context_builder.build_archive_context(contract, case)
 
         _apply_overrides(context, contract, template_subtype)
 
-        content = DocxRenderer().render(str(template_path), context)
+        content = build_docx_renderer().render(str(template_path), context)
 
         filename = _generate_filename(contract, item)
 

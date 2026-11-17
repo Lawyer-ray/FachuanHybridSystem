@@ -26,7 +26,7 @@ _ARCHIVE_TEMPLATE_FILES: dict[str, str] = {
 def get_template_path(template_subtype: str, contract: Contract | None = None) -> Path | None:
     """获取归档模板文件的完整路径。
 
-    优先从 DocumentTemplate 数据库查找匹配合同 case_type 的归档模板，
+    优先从 documents 的 DocumentTemplate 查匹配合同 case_type 的归档模板，
     找不到再回退到硬编码的公有目录模板。
     """
     db_path = _get_template_path_from_db(template_subtype, contract)
@@ -53,22 +53,11 @@ def get_template_path(template_subtype: str, contract: Contract | None = None) -
 
 
 def _get_template_path_from_db(template_subtype: str, contract: Contract | None) -> Path | None:
-    """从 DocumentTemplate 数据库查找匹配的归档模板路径。"""
-    from apps.documents.models import DocumentTemplate, DocumentTemplateType
+    """从 documents 的 DocumentTemplate 查找匹配的归档模板路径。
 
-    templates = DocumentTemplate.objects.filter(
-        template_type=DocumentTemplateType.ARCHIVE,
-        archive_sub_type=template_subtype,
-        is_active=True,
-    )
+    DocumentTemplate 属于 documents 模块，跨模块 Model 查询经其 adapter 出口完成。
+    """
+    from apps.contracts.adapters.documents_generation_adapter import find_archive_template_path
 
     case_type = getattr(contract, "case_type", None) if contract else None
-
-    for template in templates:
-        case_types = template.case_types or []
-        if not case_types or "all" in case_types or (case_type and case_type in case_types):
-            file_location = template.get_file_location()
-            if file_location and Path(file_location).exists():
-                return Path(file_location)
-
-    return None
+    return find_archive_template_path(template_subtype, case_type)

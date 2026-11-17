@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Any
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 
+from apps.contracts.adapters.documents_placeholder_adapter import get_lawyer_work_log_content, random_work_log_content
 from apps.contracts.admin.access import ensure_admin_contract_access
 from apps.contracts.models.finalized_material import FinalizedMaterial
-from apps.documents.services.placeholders.archive import _generate_random_work_log_content, _get_lawyer_work_log_content
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -739,14 +739,14 @@ class ContractArchiveMixin:  # pragma: no cover
             has_real_log = False
             content = ""
             for case in contract.cases.all():
-                content = _get_lawyer_work_log_content(case)
+                content = get_lawyer_work_log_content(case)
                 if content:
                     has_real_log = True
                     break
 
             # Fallback：随机生成
             if not content:
-                content = _generate_random_work_log_content(contract.start_date, contract.end_date)
+                content = random_work_log_content(contract.start_date, contract.end_date)
 
             if not content:
                 return JsonResponse({"success": False, "error": "无法生成内容"}, status=500)

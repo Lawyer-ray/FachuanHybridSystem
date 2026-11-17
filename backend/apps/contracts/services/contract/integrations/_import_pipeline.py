@@ -313,9 +313,9 @@ class ImportPipeline:
     def _convert_docx_to_temp_pdf(self, file_path: Path) -> Path | None:
         """将本地 docx 文件转换为临时 PDF 文件。"""
         try:
-            from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
+            from apps.contracts.adapters.documents_pdf_adapter import to_pdf
 
-            pdf_path_str = convert_docx_to_pdf(file_path.as_posix())
+            pdf_path_str = to_pdf(file_path.as_posix())
             if pdf_path_str:
                 return Path(pdf_path_str)
             return None
@@ -328,13 +328,13 @@ class ImportPipeline:
         import tempfile
 
         try:
-            from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
+            from apps.contracts.adapters.documents_pdf_adapter import to_pdf
 
             with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
                 tmp.write(file_bytes)
                 docx_path = tmp.name
             try:
-                pdf_path_str = convert_docx_to_pdf(docx_path)
+                pdf_path_str = to_pdf(docx_path)
                 if pdf_path_str:
                     return Path(pdf_path_str)
                 return None
