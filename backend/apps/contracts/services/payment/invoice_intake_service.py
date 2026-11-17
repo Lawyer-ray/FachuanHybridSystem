@@ -1030,37 +1030,6 @@ def _group_item(invoice: Any, intake: Any) -> dict[str, Any]:
     }
 
 
-def _offset_invoice_of(intake: InvoiceIntake) -> Any:
-    """被这张红票冲销的原 ``Invoice``（优先用落库的 FK，回落按票号现查）。
-
-    回落分支是为历史数据：红票入池时扫描器还没写 ``offset_invoice``，
-    先行重解析或人工重跑后才有。只查不写——写回属于扫描/裁定层的事。
-    """
-    from apps.contracts.models import Invoice
-
-    if intake.offset_invoice_id:
-        invoice = Invoice.objects.filter(pk=intake.offset_invoice_id).select_related("payment__contract", "contract")
-        return invoice.first()
-    number = str(str(getattr(intake, "red_against_number", "") or "") or "")
-    if not number:
-        return None
-    return Invoice.objects.filter(invoice_number=number).select_related("payment__contract", "contract").first()
-
-
-def _intake_of_invoice(invoice: Any) -> InvoiceIntake | None:
-    """生成这张 ``Invoice`` 的那条 intake（用于组内 original 段的 intake_id）。"""
-    if invoice is None:
-        return None
-    intake: InvoiceIntake | None = InvoiceIntake.objects.filter(invoice_id=invoice.pk).first()
-    return intake
-
-
-def _reissue_of(intake: InvoiceIntake) -> InvoiceIntake | None:
-    """本组的重开蓝票：被这张红票 ``supersedes`` 的那条 intake。"""
-    reissue: InvoiceIntake | None = InvoiceIntake.objects.filter(supersedes_intake_id=intake.pk).first()
-    return reissue
-
-
 def _red_intakes_for_reissues(reissue_rows: list[InvoiceIntake]) -> list[InvoiceIntake]:
     """给一批「重开蓝票」找出各自所属的红票（可能为空：红票还没到）。
 

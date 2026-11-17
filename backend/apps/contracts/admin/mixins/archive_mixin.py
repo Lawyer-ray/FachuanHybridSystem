@@ -736,8 +736,6 @@ class ContractArchiveMixin:  # pragma: no cover
                 return JsonResponse({"success": False, "error": "开始日期不能晚于结束日期"}, status=400)
 
             # 尝试真实 CaseLog（contract.cases 已在 get_contract_detail 中 prefetch_related）
-            from apps.documents.services.placeholders.archive import ArchivePlaceholderService
-
             has_real_log = False
             content = ""
             for case in contract.cases.all():
