@@ -8,7 +8,7 @@ dependencies = [
     "django==6.1.3",
     "django-cors-headers==4.9.0",
     "django-nested-admin==4.1.6",
-    "django-ninja==1.7.3",
+    "django-ninja==1.8.0",
     "django-ninja-jwt==5.4.5",
     "django-ninja-extra==0.31.7",
     # 运行时补丁：给 ModelForm/ModelAdmin/Field 等加 __class_getitem__，支撑泛型下标写法（生产 --no-dev 也必须安装）
@@ -22,7 +22,7 @@ dependencies = [
     "channels-redis==4.3.0",
     "valkey==6.2.0",
     # --- 数据库 ---
-    "psycopg[binary,pool]==3.3.8",
+    "psycopg[binary,pool]==3.3.9",
     # --- HTTP 客户端 ---
     "httpx[http2]==0.28.1",
     "h2>=4.4.1",
@@ -38,7 +38,7 @@ dependencies = [
     "python-docx==1.2.0",
     "reportlab==5.1.0",
     "pdfplumber==0.11.10",
-    "pikepdf==10.17.0",
+    "pikepdf==10.18.1",
     "pymupdf==2.1",
     "openpyxl==3.1.5",
     "xlrd>=2.0.1",
@@ -55,7 +55,7 @@ dependencies = [
     # 仅用原生 Playwright。CloakBrowser（Pro 二进制）首次使用会联网拉包并要求
     # license key，在无终端的 django-q worker/CI 里直接抛错——把「装浏览器」
     # 这个一次性动作变成了任务执行期的授权故障，已移除。
-    "playwright==1.64.1",
+    "playwright==1.65.2",
     # --- 数据处理 ---
     "pandas==3.1.1",
     "pydantic==2.14.3",
@@ -73,7 +73,7 @@ dependencies = [
     # --- 热重载 ---
     "watchfiles>=1.2.0",
     # --- 生产部署 ---
-    "gunicorn==26.2.0",
+    "gunicorn==27.0.1",
     "lxml>=6.1.1",
     "defusedxml>=0.7.1",
     "mammoth>=1.12.0",
@@ -109,7 +109,7 @@ dependencies = [
 dev = [
     # --- 代码格式化 ---
     "isort==9.0.2",
-    "ruff==0.17.4",
+    "ruff==0.17.5",
     # --- 类型检查 ---
     "mypy==2.4.1",
     "django-stubs==6.1.2",
@@ -127,7 +127,7 @@ test = [
     "pytest==9.2.0",
     "pytest-django==4.14.0",
     "pytest-cov==7.1.0",
-    "pytest-asyncio==1.4.1.post1",
+    "pytest-asyncio==1.5.0",
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
