@@ -59,7 +59,6 @@ dependencies = [
     # --- 数据处理 ---
     "pandas==3.1.1",
     "pydantic==2.14.3",
-    "pydantic-ai>=2.26.0",
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     # --- 安全 / 加密 ---
