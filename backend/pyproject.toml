@@ -55,7 +55,7 @@ dependencies = [
     # 仅用原生 Playwright。CloakBrowser（Pro 二进制）首次使用会联网拉包并要求
     # license key，在无终端的 django-q worker/CI 里直接抛错——把「装浏览器」
     # 这个一次性动作变成了任务执行期的授权故障，已移除。
-    "playwright==1.64.1",
+    "playwright==1.65.2",
     # --- 数据处理 ---
     "pandas==3.1.1",
     "pydantic==2.14.3",
