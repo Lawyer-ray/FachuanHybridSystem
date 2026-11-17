@@ -72,7 +72,7 @@ class TestBrowserProfile:
         args = p.to_launch_args()
         assert args["headless"] is False
         assert args["slow_mo"] == 500
-        # CloakBrowser 内置反检测，不再需要 Chrome 启动参数
+        # 反检测由 anti_detection 注入，不依赖 Chrome 启动参数
         assert "args" not in args or "--no-sandbox" not in args.get("args", [])
 
     def test_to_launch_args_with_proxy(self) -> None:
@@ -213,23 +213,30 @@ class TestManualSession:
 
         profile = BrowserProfile(name="manual_test", headless=True, anti_detection=True)
         with (
-            patch("apps.core.services.browser.launcher.ensure_browser_binary", return_value="/bin/chrome"),
-            patch("cloakbrowser.launch_async", new=AsyncMock(return_value=browser)) as launch_mock,
+            patch(
+                "apps.core.services.browser.launcher.ensure_browser_binary_async",
+                new=AsyncMock(return_value="/bin/chrome"),
+            ),
+            patch("playwright.async_api.async_playwright") as pw_mock,
             patch(
                 "apps.core.services.browser.manual_session._screen_geometry",
                 return_value=((1920, 1080), (1920, 1040)),
             ),
         ):
+            pw = MagicMock()
+            pw.chromium.launch = AsyncMock(return_value=browser)
+            pw_mock.return_value.start = AsyncMock(return_value=pw)
             handle = await create_browser_async_manual(profile)
 
         assert isinstance(handle, BrowserSessionHandle)
         assert handle.browser is browser
         assert handle.context is context
         assert handle.page is page
-        assert handle.playwright is None  # CloakBrowser: driver 停止内嵌在 browser.close()
         # 手动会话强制有头（半自动=人机协作），profile 的 headless=True 被豁免覆盖
         # 屏幕适配：窗口显式指定为屏幕可用区域（1920×1040）
-        launch_mock.assert_awaited_once_with(headless=False, humanize=True, args=["--window-size=1920,1040"])
+        pw.chromium.launch.assert_awaited_once_with(
+            headless=False, proxy=None, args=["--window-size=1920,1040"]
+        )
         # 反检测上下文参数合并进 new_context；屏幕适配时视口跟随窗口（no_viewport）
         _, kwargs = browser.new_context.await_args
         assert kwargs["locale"] == "zh-CN"
@@ -254,13 +261,19 @@ class TestManualSession:
 
         profile = BrowserProfile(name="manual_fixed", headless=True, anti_detection=False)
         with (
-            patch("apps.core.services.browser.launcher.ensure_browser_binary", return_value="/bin/chrome"),
-            patch("cloakbrowser.launch_async", new=AsyncMock(return_value=browser)) as launch_mock,
+            patch(
+                "apps.core.services.browser.launcher.ensure_browser_binary_async",
+                new=AsyncMock(return_value="/bin/chrome"),
+            ),
+            patch("playwright.async_api.async_playwright") as pw_mock,
         ):
+            pw = MagicMock()
+            pw.chromium.launch = AsyncMock(return_value=browser)
+            pw_mock.return_value.start = AsyncMock(return_value=pw)
             await create_browser_async_manual(profile, viewport={"width": 800, "height": 600})
 
         # 未做屏幕适配：无窗口尺寸参数，保持调用方指定的固定视口
-        launch_mock.assert_awaited_once_with(headless=False, humanize=False)
+        pw.chromium.launch.assert_awaited_once_with(headless=False, proxy=None)
         _, kwargs = browser.new_context.await_args
         assert kwargs["viewport"] == {"width": 800, "height": 600}
         assert "no_viewport" not in kwargs
@@ -411,7 +424,7 @@ class TestAntiDetection:
     """AntiDetection 测试。"""
 
     def test_random_user_agent(self) -> None:
-        """UA 由 CloakBrowser 自动处理，get_random_user_agent 保留兼容但返回空。"""
+        """UA 由 anti_detection 上下文参数统一处理，get_random_user_agent 保留兼容但返回空。"""
         from apps.core.services.browser.anti_detection import AntiDetection
 
         ad = AntiDetection()
@@ -499,48 +512,32 @@ class TestModuleImports:
 
 
 class TestEnsureBrowserBinary:
-    """ensure_browser_binary 智能报错封装测试。"""
+    """ensure_browser_binary 智能报错封装测试（原生 Playwright）。"""
 
     def test_returns_binary_path_when_ready(self) -> None:
         from apps.core.services.browser.launcher import ensure_browser_binary
 
-        with patch("cloakbrowser.ensure_binary", return_value="/.cloakbrowser/chrome"):
-            assert ensure_browser_binary() == "/.cloakbrowser/chrome"
+        with patch("pathlib.Path.exists", return_value=True), patch("pathlib.Path.is_file", return_value=True):
+            path = ensure_browser_binary()
+        assert path  # 真实 Chromium 路径
+        assert "chrom" in path.lower() or "Chrome" in path
 
-    def test_network_error_gives_actionable_hint(self) -> None:
-        from pathlib import Path
+    def test_missing_binary_gives_install_hint(self) -> None:
+        """浏览器没装：给出一条能直接照做的安装命令，不扯 license。"""
+        from apps.core.services.browser.launcher import BrowserInstallError, ensure_browser_binary
 
-        import httpx
-
-        from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
-
-        with (
-            patch("cloakbrowser.ensure_binary", side_effect=httpx.ConnectTimeout("timed out")),
-            patch("cloakbrowser.config.get_binary_path", return_value=Path("/.cloakbrowser/chromium/chrome.exe")),
-        ):
-            with pytest.raises(CloakBrowserInstallError) as ei:
+        with patch("pathlib.Path.exists", return_value=False):
+            with pytest.raises(BrowserInstallError) as ei:
                 ensure_browser_binary()
         msg = str(ei.value)
-        assert "下载失败" in msg
-        assert "CLOAKBROWSER_DOWNLOAD_URL" in msg
-        assert "CLOAKBROWSER_BINARY_PATH" in msg
-        assert "timed out" in msg  # 保留原始错误便于排查
+        assert "playwright install chromium" in msg
+        assert "未安装" in msg
+        assert "license" not in msg.lower()
 
-    def test_binary_path_non_existent_gives_hint(self) -> None:
-        from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
+    def test_playwright_init_failure_preserves_message(self) -> None:
+        from apps.core.services.browser.launcher import BrowserInstallError, ensure_browser_binary
 
-        with (
-            patch("cloakbrowser.ensure_binary", side_effect=FileNotFoundError("no")),
-            patch("cloakbrowser.config.get_local_binary_override", return_value="C:/nope/chrome.exe"),
-        ):
-            with pytest.raises(CloakBrowserInstallError) as ei:
+        with patch("playwright.sync_api.sync_playwright", side_effect=RuntimeError("driver crashed")):
+            with pytest.raises(BrowserInstallError) as ei:
                 ensure_browser_binary()
-        assert "CLOAKBROWSER_BINARY_PATH" in str(ei.value)
-
-    def test_runtime_error_preserves_message(self) -> None:
-        from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
-
-        with patch("cloakbrowser.ensure_binary", side_effect=RuntimeError("Unsupported platform")):
-            with pytest.raises(CloakBrowserInstallError) as ei:
-                ensure_browser_binary()
-        assert "Unsupported platform" in str(ei.value)
+        assert "driver crashed" in str(ei.value)

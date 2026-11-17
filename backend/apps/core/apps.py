@@ -14,7 +14,7 @@ class CoreConfig(AppConfig):
     verbose_name = "核心系统"
 
     def ready(self) -> None:  # pragma: no cover
-        from apps.core.utils.startup_db import allow_startup_db
+        from apps.core.utils.startup_db import allow_startup_db, run_startup_db_sync
 
         try:
             from .tasking.qcluster_shutdown import patch_django_q_cluster_stop_for_macos
@@ -33,14 +33,21 @@ class CoreConfig(AppConfig):
         except Exception:
             logger.debug("ninja DjangoGetter 性能补丁跳过（未就绪）", exc_info=True)
 
-        # 注册文件清理定时任务
+        # 注册文件清理定时任务。
+        #
+        # 必须经 run_startup_db_sync 摆渡：ASGI 部署下 ready() 在事件循环线程里跑，
+        # 直接查调度表抛 SynchronousOnlyOperation，被下面的 except 吞成 debug——
+        # 文件清理/磁盘监控三条定时任务于是从来没注册上过。
         try:
             from .tasking.cleanup_tasks import _register_schedules
 
-            with allow_startup_db():
-                _register_schedules()
+            def _register_cleanup_schedules() -> None:
+                with allow_startup_db():
+                    _register_schedules()
+
+            run_startup_db_sync(_register_cleanup_schedules)
         except Exception:
-            logger.debug("cleanup_tasks 调度注册跳过（未就绪）")
+            logger.debug("cleanup_tasks 调度注册跳过（未就绪）", exc_info=True)
 
         # 注册 post_migrate 信号,首次 migrate 后自动加载种子数据
         from django.db.models.signals import post_migrate

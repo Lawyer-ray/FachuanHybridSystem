@@ -102,14 +102,11 @@ class BrowserService:  # pragma: no cover
         if profile.name in self._browsers:
             return self._browsers[profile.name]
 
-        from cloakbrowser import ensure_binary, launch
+        from .launcher import ensure_browser_binary, launch_browser_instance
 
         logger.info("创建浏览器实例 (profile=%s)", profile.name)
-        ensure_binary()
-        browser = launch(
-            headless=profile.headless,
-            humanize=profile.anti_detection,
-        )
+        ensure_browser_binary()
+        browser = launch_browser_instance(profile)
 
         self._browsers[profile.name] = (None, browser)
         return None, browser

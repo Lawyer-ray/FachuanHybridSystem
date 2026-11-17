@@ -105,7 +105,7 @@ async def _create_persistent_context_async(  # pragma: no cover
 ) -> AsyncIterator[tuple[AsyncPage, AsyncBrowserContext]]:
     """异步启动持久化浏览器上下文（登录态落盘）。
 
-    使用 ``launch_persistent_context_async`` 直接返回 BrowserContext，
+    使用 ``chromium.launch_persistent_context`` 直接返回 BrowserContext，
     Cookie / localStorage / IndexedDB 均保存在 ``user_data_dir`` 里。
 
     Args:
@@ -115,11 +115,11 @@ async def _create_persistent_context_async(  # pragma: no cover
     import tempfile
     from pathlib import Path
 
-    from cloakbrowser import launch_persistent_context_async
+    from playwright.async_api import async_playwright
 
-    from .launcher import ensure_browser_binary
+    from .launcher import ensure_browser_binary_async
 
-    ensure_browser_binary()
+    await ensure_browser_binary_async()
 
     effective_user_data_dir = profile.user_data_dir
     if not effective_user_data_dir and session_id:
@@ -137,15 +137,19 @@ async def _create_persistent_context_async(  # pragma: no cover
 
     launch_kwargs: dict[str, Any] = {
         "headless": profile.headless,
-        "humanize": profile.anti_detection,
+        "proxy": {"server": profile.proxy} if profile.proxy else None,
+        "args": profile.launch_args or None,
     }
-    if profile.proxy:
-        launch_kwargs["proxy"] = profile.proxy
 
-    context = await launch_persistent_context_async(
-        user_data_dir=effective_user_data_dir,
-        **launch_kwargs,
-    )
+    pw = await async_playwright().start()
+    try:
+        context = await pw.chromium.launch_persistent_context(
+            user_data_dir=effective_user_data_dir,
+            **launch_kwargs,
+        )
+    except Exception:
+        await pw.stop()
+        raise
 
     try:
         context.set_default_timeout(profile.timeout)
@@ -162,6 +166,11 @@ async def _create_persistent_context_async(  # pragma: no cover
             await context.close()
         except Exception:
             logger.debug("关闭持久化浏览器上下文失败（已忽略）", exc_info=True)
+        finally:
+            try:
+                await pw.stop()
+            except Exception:
+                logger.debug("停止 Playwright 失败（已忽略）", exc_info=True)
 
 
 @asynccontextmanager
@@ -207,16 +216,18 @@ async def create_browser_async(  # pragma: no cover
         async with _create_persistent_context_async(profile, session_id=session_id) as (page, context):
             yield page, context
     else:
-        # 原生 launch 的异步版本（CloakBrowser）
-        from cloakbrowser import launch_async
+        # 原生 launch 的异步版本（Playwright）
+        from playwright.async_api import async_playwright
 
         from .anti_detection import anti_detection
-        from .launcher import ensure_browser_binary
+        from .launcher import ensure_browser_binary_async
 
-        ensure_browser_binary()
-        browser = await launch_async(
+        await ensure_browser_binary_async()
+        pw = await async_playwright().start()
+        browser = await pw.chromium.launch(
             headless=profile.headless,
-            humanize=profile.anti_detection,
+            proxy={"server": profile.proxy} if profile.proxy else None,
+            args=profile.launch_args or None,
         )
 
         try:
@@ -236,7 +247,7 @@ async def create_browser_async(  # pragma: no cover
             # macOS 补充指纹补丁
             await anti_detection.apply_macos_patches_async(page)
         except Exception:
-            # 浏览器已启动但初始化中途失败：先回收 CloakBrowser 实例再抛出，避免泄漏
+            # 浏览器已启动但初始化中途失败：先回收浏览器实例再抛出，避免泄漏
             try:
                 await browser.close()
             except Exception:

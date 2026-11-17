@@ -424,12 +424,17 @@ class SMSDownloadMixin:
         elif sms.status == CourtSMSStatus.MATCHING:
             logger.info("✅ 下载任务完成，继续匹配流程: SMS ID=%s, Task ID=%s", sms.id, scraper_task.id)
 
+        # 走「从匹配阶段开始」的专用入口，不走 process_sms。
+        # process_sms 是从 PENDING 一路往下推的全流程入口，会重新进入
+        # `_process_downloading_or_matching`；下载刚成功时那里若再建任务，
+        # 就是「成功→MATCHING→再下载」的死循环（2026-11-17 SMS 296/297）。
+        # _process_from_matching 只跑匹配→重命名→通知，不可能回头下载。
         task_id = submit_task(
-            "apps.automation.workers.court_sms_tasks.process_sms",
+            "apps.automation.workers.court_sms_tasks.process_sms_from_matching",
             sms.id,
             task_name=f"court_sms_continue_{sms.id}",
         )
-        logger.info("提交后续处理任务: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
+        logger.info("提交后续处理任务（从匹配阶段）: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
 
     def _handle_sms_download_failed(self, sms: CourtSMS, scraper_task: ScraperTask) -> bool:  # pragma: no cover
         """处理下载失败的 SMS，返回是否需要 continue（跳过重试逻辑）"""
@@ -494,7 +499,34 @@ class SMSDownloadMixin:
         sms: CourtSMS,
         process_options: dict[str, Any] | None = None,
     ) -> CourtSMS:  # pragma: no cover
-        """根据是否有下载链接决定进入下载或匹配阶段"""
+        """根据是否有下载链接决定进入下载或匹配阶段。
+
+        **MATCHING 且已有下载任务时必须直接进入匹配，不得再建任务**。
+
+        死循环事故（2026-11-17，SMS 296/297 无限重复签收+下载）：
+
+            process_sms(MATCHING) → 有 download_links → 新建任务 → 置 DOWNLOADING
+              → 任务成功 → _handle_sms_download_success 置回 MATCHING 并提交 process_sms
+                → process_sms(MATCHING) → 又新建任务 → …… 无终止
+
+        根因：MATCHING 有两种来源，这里只对其中一种成立——
+
+        1. 客户转交通道建记录即置 MATCHING（没有解析/下载两步可走）→ 需要建任务；
+        2. 下载成功后被 `_handle_sms_download_success` 置回 MATCHING → **产物已就绪**，
+           建任务只会重复签收法院接口、重复下载同一份文书。
+
+        用 `scraper_task` 区分：它只在建过下载任务后才有值，是「已经走过下载」的可靠标记。
+        转交通道的记录 `scraper_task` 为空，仍走原逻辑。
+        """
+        already_downloaded = sms.status == CourtSMSStatus.MATCHING and sms.scraper_task_id
+        if already_downloaded:
+            logger.info(
+                "短信 %s 处于匹配阶段且已有下载任务 %s，跳过建任务直接匹配（避免重复签收/重复下载）",
+                sms.id,
+                sms.scraper_task_id,
+            )
+            return sms
+
         if sms.download_links:
             logger.info("短信 %s 有下载链接，创建下载任务", sms.id)
             scraper_task = self._create_download_task(sms, process_options=process_options)

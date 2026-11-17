@@ -32,6 +32,9 @@ def _make_sms(
     sms.case = case
     sms.case_log = case_log
     sms.scraper_task = scraper_task
+    # 真实模型上 scraper_task_id 是 FK 列：未关联时为 None。假成 MagicMock 会给一个
+    # 恒真的假 ID，让「是否已下载过」的判断永远成立——必须显式跟随 scraper_task。
+    sms.scraper_task_id = scraper_task.id if scraper_task is not None else None
     sms.download_links = download_links or []
     sms.party_names = party_names or []
     sms.document_file_paths = document_file_paths or []
@@ -812,3 +815,47 @@ class TestProcessDownloadingOrMatching:
         sms = _make_sms(download_links=[])
         result = mixin._process_downloading_or_matching(sms)
         assert sms.status == "matching"
+
+    @patch(f"{_MOD}.SMSDownloadMixin._create_download_task")
+    def test_matching_with_existing_task_does_not_create_again(self, mock_create):
+        """MATCHING + 已有下载任务：不得再建任务（否则无限重复签收+下载）。
+
+        回归 2026-11-17 SMS 296/297 死循环：
+        process_sms(MATCHING) → 建任务 → DOWNLOADING → 成功 → MATCHING → 再建 → …
+        """
+        from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
+
+        mixin = SMSDownloadMixin()
+        sms = _make_sms(status="matching", download_links=["http://x.com"], scraper_task=_make_task())
+        result = mixin._process_downloading_or_matching(sms)
+
+        mock_create.assert_not_called()
+        assert result is sms
+        assert sms.status == "matching"  # 留在匹配阶段，不回退到 downloading
+        sms.save.assert_not_called()
+
+    @patch(f"{_MOD}.SMSDownloadMixin._create_download_task")
+    def test_matching_without_task_still_creates(self, mock_create):
+        """客户转交通道：记录建即 MATCHING 且无 scraper_task，仍需建任务。"""
+        from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
+
+        mixin = SMSDownloadMixin()
+        task = _make_task()
+        mock_create.return_value = task
+        sms = _make_sms(status="matching", download_links=["http://x.com"], scraper_task=None)
+        mixin._process_downloading_or_matching(sms)
+
+        mock_create.assert_called_once()
+        assert sms.status == "downloading"
+
+    @patch(f"{_MOD}.SMSDownloadMixin._create_download_task")
+    def test_downloading_state_still_creates(self, mock_create):
+        """DOWNLOADING 状态（不是 MATCHING）不受新守卫影响。"""
+        from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
+
+        mixin = SMSDownloadMixin()
+        mock_create.return_value = _make_task()
+        sms = _make_sms(status="downloading", download_links=["http://x.com"])
+        mixin._process_downloading_or_matching(sms)
+
+        mock_create.assert_called_once()
