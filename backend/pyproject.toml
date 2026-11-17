@@ -22,7 +22,7 @@ dependencies = [
     "channels-redis==4.3.0",
     "valkey==6.2.0",
     # --- 数据库 ---
-    "psycopg[binary,pool]==3.3.8",
+    "psycopg[binary,pool]==3.3.9",
     # --- HTTP 客户端 ---
     "httpx[http2]==0.28.1",
     "h2>=4.4.1",
@@ -109,7 +109,7 @@ dependencies = [
 dev = [
     # --- 代码格式化 ---
     "isort==9.0.2",
-    "ruff==0.17.4",
+    "ruff==0.17.5",
     # --- 类型检查 ---
     "mypy==2.4.1",
     "django-stubs==6.1.2",
@@ -127,7 +127,7 @@ test = [
     "pytest==9.2.0",
     "pytest-django==4.14.0",
     "pytest-cov==7.1.0",
-    "pytest-asyncio==1.4.1.post1",
+    "pytest-asyncio==1.5.0",
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
