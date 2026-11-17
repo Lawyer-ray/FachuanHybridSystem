@@ -1,7 +1,7 @@
 """单平台多 Key 槽位管理。
 
-服务路径（``OpenAICompatibleBackend``）与 Agent 路径（pydantic-ai）共用本模块，
-使「每 Key 并发上限」的语义在两条路径上保持一致，避免各自实现一套轮询规则。
+供 ``OpenAICompatibleBackend`` 使用，统一「每 Key 并发上限」的语义，
+避免各调用点各自实现一套轮询规则。
 """
 
 from __future__ import annotations
