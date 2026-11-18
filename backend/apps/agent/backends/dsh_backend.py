@@ -74,9 +74,34 @@ _APPROVAL_METHODS = frozenset({"approval/request"})
 _SILENT_METHODS = frozenset({"session.status", "session.query.completed"})
 
 #: 同上，按 ``session.event`` 里的 ``event.type`` 判定。
-#: ``agent/inbox/spliced`` 是本轮 prompt 的入队回执（见 ``api.py`` 的
-#: ``_is_inbox_receipt``），没有正文。
-_SILENT_EVENT_TYPES = frozenset({"agent/inbox/spliced"})
+#:
+#: 两类：
+#: 1. ``agent/inbox/spliced`` —— 本轮 prompt 的入队回执（见 ``api.py`` 的
+#:    ``_is_inbox_receipt``），没有正文。
+#: 2. **生命周期事件** —— 实测一次普通对话会带 5 条这样的事件
+#:    （``turn/start`` / ``step/start`` / ``step/end`` / ``user/message`` /
+#:    ``request/header``）。它们对前端没有任何意义（``streaming.ts`` 落到
+#:    ``default`` 分支丢弃），但在双答里会**翻倍占带宽**，还会在日志里刷成
+#:    ``unknown`` 噪音、掩盖真正未翻译的新事件类型。
+#:
+#: 这里刻意用白名单而不是「凡不认识的都不发」：新事件类型如果是**内容**
+#: （譬如 dsh 以后加了增量 token），必须能漏出来被我们看见并补翻译，
+#: 而不是被静默吞掉。
+_SILENT_EVENT_TYPES = frozenset(
+    {
+        "agent/inbox/spliced",
+        "turn/start",
+        # 注意：turn/end **不在此列** —— 它在下面有专门分支（reason.kind=="error"
+        # 要报成 error），放进静默集合会让人误以为「结束一律不转发」，而实际上
+        # 那个分支在静默检查**之前**就已 return，根本走不到这里。
+        "step/start",
+        "step/end",
+        "user/message",
+        "request/header",
+        "request/context",
+        "system/message",
+    }
+)
 
 #: 后台线程里跑 ``Session.run()`` 的线程池上限。dsh 一轮就是一个常驻子进程，
 #: 线程只是「阻塞等待」，不占 CPU；上限取 8 与 pi 侧进程池默认（4）同量级留余量。
