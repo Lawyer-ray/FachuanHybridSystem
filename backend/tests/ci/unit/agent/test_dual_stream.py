@@ -156,17 +156,26 @@ class TestBothSucceed:
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
-    async def test_done_emitted_exactly_once_with_agents(self) -> None:
+    async def test_done_emitted_per_column(self) -> None:
+        """每栏各一个 done，且都带完整 agents 清单。
+
+        **2026-11-19 修正**：这里原先断言「只发一个 done」，前提是「两个 done 会让
+        前端在第一栏结束时收尾、另一栏停在生成中」。那个前提是错的——前端
+        ``onDone`` 的契约本来就是「按 agent 收那一栏」，只发一个 done 反而让次栏
+        永远收不了尾，界面上两栏都是「(无内容)」。真实事故即由此而来。
+        """
         _register_pair(_ok_script("A"), _ok_script("B"))
         session = await _make_session()
 
         events = await _collect(session)
 
         dones = [e for e in events if e.get("type") == "done"]
-        # 两个 done 会让前端在第一栏结束时收尾、另一栏永远停在「生成中」
-        assert len(dones) == 1
-        assert dones[0]["agents"] == [PRIMARY, SECONDARY]
-        # done 必须是最后一个事件（前端据此收尾）
+        assert len(dones) == len({PRIMARY, SECONDARY})
+        # 每栏的 done 指向自己那一栏，前端据此各自收尾
+        assert {d["agent"] for d in dones} == {PRIMARY, SECONDARY}
+        for done in dones:
+            assert done["agents"] == [PRIMARY, SECONDARY]
+        # 整轮的最后一个事件仍是 done（前端据此判定本轮结束）
         assert events[-1]["type"] == "done"
 
     @pytest.mark.django_db(transaction=True)
@@ -213,7 +222,7 @@ class TestOneSucceedsOneFails:
         assert len(errors) == 1
         assert errors[0]["agent"] == SECONDARY
         # 仍然有且只有一个 done：主答是成功的，本轮整体正常收尾
-        assert [e["type"] for e in events].count("done") == 1
+        assert [e["type"] for e in events].count("done") == 2  # 每栏各一个
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
@@ -228,7 +237,7 @@ class TestOneSucceedsOneFails:
         errors = [e for e in events if e.get("type") == "error"]
         assert len(errors) == 1
         assert errors[0]["agent"] == PRIMARY
-        assert [e["type"] for e in events].count("done") == 1
+        assert [e["type"] for e in events].count("done") == 2  # 每栏各一个
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
@@ -270,7 +279,7 @@ class TestBothFail:
         events = await _collect(session)
 
         # 没有 done 的话前端会一直显示「生成中」——失败也必须收尾
-        assert [e["type"] for e in events].count("done") == 1
+        assert [e["type"] for e in events].count("done") == 2  # 每栏各一个（失败也要收尾）
 
 
 class TestQuotaDegraded:
@@ -293,7 +302,7 @@ class TestQuotaDegraded:
         assert len(degraded) == 1
         assert degraded[0]["reason"]
         assert [e["type"] for e in events].count("error") == 0
-        assert [e["type"] for e in events].count("done") == 1
+        assert [e["type"] for e in events].count("done") == 1  # 降级为单后端，仍一个
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
@@ -321,7 +330,7 @@ class TestSingleBackendFallback:
         events = await _collect(session)
 
         assert [e["content"] for e in events if e.get("type") == "delta"] == ["唯一后端"]
-        assert [e["type"] for e in events].count("done") == 1
+        assert [e["type"] for e in events].count("done") == 1  # 降级为单后端，仍一个
 
 
 class TestPickSecondary:

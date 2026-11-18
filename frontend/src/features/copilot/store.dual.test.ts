@@ -125,6 +125,63 @@ describe('send 的双答分流', () => {
     expect(answers.every((m) => m.streaming === false)).toBe(true)
   })
 
+  it('回归：两栏各自发 done 且交错到达时，先完成的那栏不能收掉另一栏', async () => {
+    // 2026-11-19 真实事故：后端在**每栏**跑完时各发一次 done（带 agent）。
+    // 旧实现 onDone 直接调 finishAssistant()（收掉全部 streaming 气泡），
+    // 于是 pi 先完成后 dsh 的 delta 无处可写——界面上两栏都是「(无内容)」，
+    // 还冒出一句「流处理异常」。这里用「done 早于另一栏的 delta」还原来锁住它。
+    useCopilot.setState({ backends: [option('pi'), option('dsh')], selectedAgentKind: 'pi', dual: true })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"meta","session_id":"s-1","agent":"pi","agents":["pi","dsh"]}\n\n',
+        'data: {"type":"delta","content":"主答","agent":"pi","run_id":"s-1:pi:1"}\n\n',
+        // pi 先跑完 —— 此刻 dsh 一个字都还没来
+        'data: {"type":"done","session_id":"s-1","agent":"pi","agents":["pi","dsh"]}\n\n',
+        // dsh 随后才开始吐字（真实的交错形状）
+        'data: {"type":"delta","content":"次答","agent":"dsh","run_id":"s-1:dsh:1"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"dsh","agents":["pi","dsh"]}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('你知道我是谁吗')
+
+    const answers = useCopilot.getState().messages.filter((m) => m.role === 'assistant')
+    expect(answers).toHaveLength(2)
+    // 关键断言：dsh 落后于 pi 的 done 到达，内容仍必须写进去
+    expect(answers.find((m) => m.agentKind === 'dsh')!.content).toBe('次答')
+    expect(answers.find((m) => m.agentKind === 'pi')!.content).toBe('主答')
+    expect(answers.every((m) => m.streaming === false)).toBe(true)
+  })
+
+  it('回归：多栏时完成时间不记在先完成那栏的 done 上', async () => {
+    // 若 onDone 无条件写 doneAt，双答的「本轮完成时间」会变成先完成那栏的时刻，
+    // 轮次统计偏早（律师看到的耗时比实际短）。
+    useCopilot.setState({
+      backends: [option('pi'), option('dsh')],
+      selectedAgentKind: 'pi',
+      dual: true,
+      turnStats: { startedAt: 1, firstTokenAt: null, doneAt: null } as never,
+    })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"A","agent":"pi","run_id":"s-1:pi:1"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+        'data: {"type":"delta","content":"B","agent":"dsh","run_id":"s-1:dsh:1"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"dsh"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('q')
+
+    const answers = useCopilot.getState().messages.filter((m) => m.role === 'assistant')
+    expect(answers).toHaveLength(2)
+    expect(answers.find((m) => m.agentKind === 'dsh')!.content).toBe('B')
+    // 两栏都收尾了，doneAt 才应被写
+    expect(useCopilot.getState().turnStats.doneAt).not.toBeNull()
+  })
+
   it('dual=true 时把开关下发到请求体（默认 false 不发）', async () => {
     useCopilot.setState({ backends: [option('pi'), option('dsh')], selectedAgentKind: 'pi', dual: true })
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)

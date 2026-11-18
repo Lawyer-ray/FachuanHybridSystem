@@ -25,10 +25,16 @@
 
 | 情况 | 事件 | 收尾 |
 |:--|:--|:--|
-| 两个都成功 | 各自完整的事件流（带 ``agent`` / ``run_id``） | 一个 ``done`` |
-| 一成一败 | 成功的照常输出；失败方**只**发一条带 ``agent`` 的 ``error`` | 一个 ``done`` |
-| 两个都失败 | 只发**第一条** ``error``（不堆两条） | 一个 ``done`` |
-| 辅助配额已满 | 只跑主后端 + 一条 ``activity{status:"degraded", reason}`` | 一个 ``done`` |
+| 两个都成功 | 各自完整的事件流（带 ``agent`` / ``run_id``） | **每栏一个** ``done`` |
+| 一成一败 | 成功的照常输出；失败方**只**发一条带 ``agent`` 的 ``error`` | **每栏一个** ``done`` |
+| 两个都失败 | 只发**第一条** ``error``（不堆两条） | **每栏一个** ``done`` |
+| 辅助配额已满 | 只跑主后端 + 一条 ``activity{status:"degraded", reason}`` | 一个 ``done``（agents 收窄为单栏） |
+
+关于 ``done`` 的条数（2026-11-19 修正）：早先的设计是「整轮只发一个 done」，
+理由是「两个 done 会让前端在第一栏结束时收尾」。**那个理由站不住**——前端
+``onDone`` 的契约就是「这个 done 属于哪个 agent，就收哪一栏」，只发一个反而让
+次栏永远收不了尾，界面上两栏都是「(无内容)」。真实事故即由此而来，故改为按栏发，
+字段与单后端路径同形。
 
 关键取舍：**一个后端坏了不能把另一个也拖下水**。律师要的是「至少有一个答案」，
 所以每个后端的事件流被单独包住，异常就地转成一条 ``error``，另一个继续转发。
@@ -264,6 +270,10 @@ async def stream_dual(
             )
         else:
             logger.info("双答降级为只跑主答 session=%s（aux 席位已满或关闭）", session_id)
+            # **收窄 agents**：降级后本轮确实只有一个后端在跑。不收窄的话末尾会
+            # 按 agents 给「次栏」也发一个 done，而那一栏从未产出任何内容 ——
+            # 前端会多渲染一个空栏并在那里收尾（实测就是「(无内容)」）。
+            agents = [primary_kind]
             yield {
                 "type": "activity",
                 "status": ACTIVITY_DEGRADED,
@@ -342,7 +352,19 @@ async def stream_dual(
 
     if not primary_ok and not secondary_ok:
         logger.warning("双答：两个后端都失败 session=%s", session_id)
-    yield {"type": "done", "session_id": session_id, "agent": primary_kind, "agents": agents}
+    # **每栏各发一个 done**，而不是只发一个「会话级 done」。
+    #
+    # 真实事故（2026-11-19）：只发一个 ``agent=primary_kind`` 的 done 时，前端
+    # 拿到它只收得了主栏；次栏的光标永远转着、内容被当成「还在流」而丢弃，
+    # 界面上两栏都是「(无内容)」。
+    #
+    # 前端 `turn-handlers.onDone` 的契约就是「这个 done 属于哪个 agent，就收哪一栏」，
+    # 全部栏收完才算整轮结束。所以这里按 agents 逐栏发，字段与单后端路径同形
+    # （`stream_chat` 也是每轮一个 done）。
+    #
+    # `agents` 仍然带着，前端/日志据它知道本轮有谁参与。
+    for kind in agents:
+        yield {"type": "done", "session_id": session_id, "agent": kind, "agents": agents}
 
 
 async def _aux_available() -> bool:
