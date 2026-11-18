@@ -730,3 +730,83 @@ class TestProviderDefault:
 
         assert DEFAULT_API == "openai-completions"
         assert DEFAULT_PROVIDER == "fachuan"
+
+
+# ============ 思考模式（2026-11-19 真实反馈）============
+
+
+class TestThinkingConfiguration:
+    """dsh 必须和 pi 一样把「思考」透传到网关。
+
+    真实反馈：「dsh 没有开启思考强度」。排查发现 ``dsh_config`` 完全没读
+    ``enable_thinking``，也没写 reasoning/compat —— 而 pi 侧（`model_config._model_entry`）
+    早就踩过同一个坑：律所 LiteLLM 网关把思考开关放在
+    ``chat_template_kwargs.thinking``，不显式声明 compat 时适配器会误判，
+    网关不返回 reasoning_content，表现为「平台开了思考但模型永远不思考」。
+    """
+
+    def test_thinking_block_emitted_when_enabled(self, tmp_path: object) -> None:
+        from apps.agent.backends.dsh_config import _provider_patch_path
+
+        text = open(
+            _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["kimi-2.6"], thinking=True),
+            encoding="utf-8",
+        ).read()
+        # 三件套缺一不可（见 _provider_patch_path 的注释）
+        assert "reasoningEfforts:" in text
+        assert "thinkingFormat: chat-template" in text
+        assert "chatTemplateKwargs:" in text
+        assert "thinking: true" in text
+
+    def test_thinking_block_absent_when_disabled(self, tmp_path: object) -> None:
+        """未开思考时不能声明能力：给普通模型错报会让网关收到它不认的参数而 400。"""
+        from apps.agent.backends.dsh_config import _provider_patch_path
+
+        text = open(
+            _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["m"], thinking=False),
+            encoding="utf-8",
+        ).read()
+        assert "reasoningEfforts" not in text
+        assert "chatTemplateKwargs" not in text
+
+    def test_thinking_requires_both_switch_and_model_capability(self, tmp_path: object) -> None:
+        """平台开关 + 该模型确实是推理模型，两个条件都要满足。"""
+        from types import SimpleNamespace
+
+        from apps.agent.backends import dsh_config as mod
+
+        class _P:
+            base_url = "http://gw/v1"
+            api_keys = "sk-a"  # pragma: allowlist secret
+            default_model = "kimi-2.6"
+            extra_models = ""
+            fallback_models = ""
+
+            def __init__(self, on: bool, capable: bool) -> None:
+                self.enable_thinking = on
+                self._capable = capable
+
+            def supports_thinking(self, model: str = "") -> bool:
+                return self._capable
+
+            def parsed_key_entries(self):
+                return [("sk-a", [])]  # pragma: allowlist secret
+
+        def _thinking_for(provider: object, home: object) -> bool:
+            # 直接调 dsh_patches，检查生成的 patch 里有没有思考块
+            paths = mod.dsh_patches(
+                str(home),
+                base_url="http://gw/v1",
+                models=["kimi-2.6"],
+                thinking=bool(
+                    getattr(provider, "enable_thinking", False)
+                    and getattr(provider, "supports_thinking", None)
+                    and provider.supports_thinking("kimi-2.6")  # type: ignore[attr-defined]
+                ),
+            )
+            provider_patch = [p for p in paths if "provider" in p][0]
+            return "thinkingFormat" in open(provider_patch, encoding="utf-8").read()
+
+        assert _thinking_for(_P(True, True), tmp_path) is True
+        assert _thinking_for(_P(True, False), tmp_path) is False
+        assert _thinking_for(_P(False, True), tmp_path) is False
