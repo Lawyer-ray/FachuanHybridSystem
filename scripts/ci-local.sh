@@ -238,6 +238,22 @@ if [ "$RUN_BACKEND" = true ]; then
     fail "compileall"
   fi
 
+  # [3b] 迁移漂移检查（模型改了却没生成迁移）
+  #
+  # 为什么单独一道：`agent_kind` 那次真实事故——代码里加了字段、迁移文件也生成了，
+  # 但**开发库没跑 migrate**，于是线上表现是「创建会话失败，请稍后重试」，
+  # 而日志里才看得到 `column agent_agentsession.agent_kind does not exist`。
+  # 前后端 CI 全绿、所有单测全绿（测试库会自己建表），只有真人一点就炸。
+  #
+  # `--check` 只能发现「模型有改动但没生成迁移文件」；要发现「迁移文件在但
+  # 没应用」必须连库比对（--full 模式下额外做，见下）。
+  header "3b" "迁移漂移检查 (makemigrations --check)"
+  if DB_NAME="${DB_NAME:-test_fachuan_dev}" $BACKEND_PYTHON apiSystem/manage.py makemigrations --check --dry-run 2>&1 | grep -q "No changes detected"; then
+    pass "migrations-in-sync"
+  else
+    fail "migrations-in-sync（模型改了但没生成迁移，跑 makemigrations 后重试）"
+  fi
+
   # [4] Pre-commit（对齐 backend job 的 Pre-commit step）
   header "4/22" "Pre-commit hooks (changed files)"
   if [ ! -f "$ROOT_DIR/.pre-commit-config.yaml" ]; then

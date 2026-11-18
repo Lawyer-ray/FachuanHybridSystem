@@ -36,6 +36,7 @@ const session: AgentSession = {
   title: '',
   status: 'active',
   llm_model: '',
+  agent_kind: 'pi',
   created_at: '',
   updated_at: '',
 }

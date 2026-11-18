@@ -1,7 +1,18 @@
 /**
  * Copilot 域类型：/api/v1/agent 的接口契约与前端转录模型。
  * 后端事件契约见 backend/apps/agent/services/chat_service.py 顶部注释。
+ *
+ * 几个自成一节、且体量足以撞软红线的类型单独成文件，此处 re-export 保持既有
+ * import 路径（`@/features/copilot/types`）不变：
+ * - `backend-types.ts`：可选 agent 后端与「新建会话用哪个」的选择字段；
+ * - `scope-types.ts`：会话归属的业务范围（案件内 / 合同内）；
+ * - `skill-types.ts`：技能清单与启停回执（`/` 菜单的数据源）；
+ * - `state-types.ts`：store 的状态形状（`CopilotState`）。
  */
+
+export type { AgentBackendOption } from './backend-types'
+export type { CopilotContext, CopilotScope } from './scope-types'
+export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
 
 /** 会话（GET/POST /agent/sessions） */
 export interface AgentSession {
@@ -10,6 +21,14 @@ export interface AgentSession {
   status: string
   /** 最近一轮实际使用的模型（服务端回写；未对话过为空） */
   llm_model: string
+  /**
+   * 本会话使用的 agent 后端（`pi` / `dsh`）。
+   *
+   * **会话级属性、不可中途更换**：上下文归后端自己管（pi 有自己的 session 文件），
+   * 换后端等于换脑子，前面的对话对它不存在。所以已建会话只用于展示，切换器
+   * 只在新会话时可选。
+   */
+  agent_kind: string
   /** 来源入口：chat（对话页）/ case（案件内）/ contract（合同内）/ task（任务式后台） */
   origin?: string
   case_id?: number | null
@@ -39,6 +58,8 @@ export interface AgentHistoryMessage {
   role: 'user' | 'assistant' | 'tool'
   content: string
   tool_name: string
+  /** 消息级来源（`pi` / `dsh`）；空串 = 旧数据 / 未标注（按 `pi` 处理） */
+  agent_kind?: string
   created_at: string
   metadata: Record<string, unknown>
 }
@@ -143,6 +164,14 @@ export interface ChatMessage {
   thinking?: string
   /** 思考已完成（收到首个正文 delta 后置位，用于折叠/收起样式） */
   thinkingDone?: boolean
+  /**
+   * 这条回答/工具行由哪个 agent 产出（`pi` / `dsh`）。
+   *
+   * 同题双答时一轮里会有两条 assistant 消息，各带自己的 agent；单后端轮次只有
+   * 一条。**空串/undefined 表示旧数据 / 未标注**，渲染时当 `pi` 处理——引入
+   * 双答之前本系统只有 pi 在跑（见后端 AgentMessage.agent_kind 注释）。
+   */
+  agentKind?: string
 }
 
 /** 待审批的高危工具调用（approval_request 事件 → 审批卡） */
@@ -167,17 +196,6 @@ export interface AgentTaskReceipt {
   session_id: string
   task_id: string
   task_state: string
-  title: string
-}
-
-/** 会话归属的业务范围（案件内 / 合同内）；不带则为普通对话 */
-export interface CopilotScope {
-  origin: 'case' | 'contract'
-  refId: number
-}
-
-/** 业务内会话上下文（案件/合同页打开时携带）：范围 + 展示名 */
-export interface CopilotContext extends CopilotScope {
   title: string
 }
 
@@ -230,24 +248,6 @@ export interface PendingApprovalItem {
   created_at: string
 }
 
-/** GET /agent/skills 的技能清单项（pi 技能；消息以 `/skill:名字 参数` 触发展开） */
-export interface AgentSkill {
-  name: string
-  description: string
-  enabled: boolean
-}
-
-/** GET /agent/skills 的响应体 */
-export interface AgentSkillList {
-  skills: AgentSkill[]
-}
-
-/** PATCH /agent/skills/{name} 的回执 */
-export interface AgentSkillToggleReceipt {
-  name: string
-  enabled: boolean
-}
-
 /** GET /agent/sessions/{id}/stats：token 用量与上下文水位（水位未知为 null） */
 export interface AgentSessionStats {
   output_tokens: number
@@ -282,110 +282,5 @@ export interface SlashMenuItem {
   disabledHint?: string
 }
 
-/**
- * store（useCopilot）的完整状态形状。
- * 动作语义见各字段注释；实现见 store.ts（编排）与同域模块
- * （streaming / turn-handlers / outgoing / transitions / persistence）。
- */
-export interface CopilotState {
-  sessionId: string | null
-  messages: ChatMessage[]
-  approvals: PendingApproval[]
-  streaming: boolean
-  loadingHistory: boolean
-  lastError: string | null
-  /** 本轮输出统计：流式期间驱动实时 tok/s，结束后展示精确 token 与平均速度 */
-  turnStats: TurnStats
-  /** 上下文水位（null = 未知/无会话）；done 事件与 stats/compact 接口回填 */
-  contextUsage: { used: number | null; total: number | null }
-  /** 后端正在压缩上下文（compaction 事件 start→end；手动压缩请求期间同为 true） */
-  compacting: boolean
-  /** 池满排队中：队列名次（1 起）；null = 不在排队 */
-  queuePosition: number | null
-  /** 本轮已插话（steer）且尚未撤回的文本 */
-  queuedSteers: string[]
-  /** 插话请求在途（防重复提交） */
-  steering: boolean
-  /** 业务内会话上下文（null = 普通对话模式）；会话列表按它过滤、新会话带归属 */
-  context: CopilotContext | null
-  /** 待发送附件（拖拽/选择后暂存，随下一条消息上传并引用） */
-  pendingFiles: File[]
-  /** 待发送的文件夹引用（从合同目录树拖入；随下一条消息落库并引用） */
-  pendingRefs: FolderRefDraft[]
-  /** 待发送的框选引用（编辑器选区进来后挂在输入框上方，随下一条消息发出） */
-  pendingQuote: SelectionQuote | null
-  /** 设置/清除待发送的框选引用（新选区直接覆盖旧的） */
-  setPendingQuote: (quote: SelectionQuote | null) => void
-  /** 通用模式的页面感知：用户当前所在页面的描述（详情页会写更精确值覆盖），send 注入 */
-  pageHint: string | null
-  /** 上一条已注入的页面描述：页面没变不重复注入，历史不刷屏 */
-  lastPageHintSent: string | null
-  /** 页面感知写入（AppShell 路由兜底 / 详情页精确覆盖） */
-  setPageHint: (hint: string) => void
-  /** 附件上传在途（发送按钮置忙，防止重复提交） */
-  uploadingAttachments: boolean
-  /**
-   * 一次 send 的全过程在途（进入即置位，消息真正入列才清除）。
-   *
-   * 光靠 uploadingAttachments 不够：上传完成到消息入列之间它已被置回 false，
-   * 而 streaming 还是 false，三个按钮同时解锁 → 二次 send 会重复上传同一批
-   * 附件并把两条消息推进转录。所以用这个标志贯穿「建会话 → 上传附件 →
-   * 消息入列」全程。
-   */
-  sending: boolean
-  /** 拖拽文件悬停中（面板渲染投放离焦高亮） */
-  draggingFiles: boolean
-  /** 拖拽/选择加入待发附件（前端预检不过的拒绝并提示） */
-  addAttachmentFiles: (files: FileList | File[]) => void
-  /** 移除一个待发附件 */
-  removeAttachmentFile: (index: number) => void
-  /** 加入一个待发文件夹引用（同 contractId+subpath 去重） */
-  addFolderRef: (draft: FolderRefDraft) => void
-  /** 移除一个待发文件夹引用 */
-  removeFolderRef: (index: number) => void
-  /** 进入业务内会话模式（案件/合同页打开）：列表过滤到该业务，新会话带归属 */
-  enterContext: (context: CopilotContext) => Promise<void>
-  /** 退出业务内会话模式，回到普通对话 */
-  exitContext: () => Promise<void>
-  /** 切换会话（null = 新对话）；会先停掉在途流再回放历史 */
-  switchSession: (id: string | null) => Promise<void>
-  /**
-   * 发消息并消费 SSE 流；无会话时先创建。
-   * onQueued 在「消息已入列开流（true）」或「早失败未发出（false，如建会话/
-   * 上传附件失败）」时同步回调一次——调用方（Composer）据此决定是否回填正文。
-   * 注意 send 的 Promise 要等整轮流结束才 resolve，不要用它做快速反馈。
-   */
-  send: (text: string, onQueued?: (sent: boolean) => void) => Promise<void>
-  /** 停止生成（中断在途流） */
-  stop: () => void
-  /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed）；拒绝可附理由 */
-  decide: (approvalId: string, approved: boolean, reason?: string) => Promise<void>
-  /** 运行中插话：当前轮工具调用后、下次模型调用前生效 */
-  steer: (text: string) => Promise<void>
-  /** 撤回已排队未生效的全部插话 */
-  revokeQueuedSteers: () => Promise<void>
-  /** 提交后台任务（origin=task）：受理后切到该任务会话 */
-  submitTask: (text: string) => Promise<void>
-  /** 拉取离线待审批并合并进审批卡（面板打开 / 每轮流结束时调用） */
-  loadPendingApprovals: () => Promise<void>
-  /** 关闭一张审批卡（已决/已超时的僵尸卡；仅本地移除，不影响服务端状态） */
-  dismissApproval: (approvalId: string) => void
-  /** 给助手消息点赞/点踩（乐观更新，失败回滚；P1-9b） */
-  rateMessage: (messageId: number, rating: 'up' | 'down' | 'none') => Promise<void>
-  /** 加载更早的历史消息（游标分页，P1-3a）；没有更早时置 noMoreHistory */
-  loadOlderHistory: () => Promise<void>
-  /** 历史已到头（没有更早的消息了） */
-  noMoreHistory: boolean
-  /** 正在加载更早的消息 */
-  loadingOlder: boolean
-  /** 重拉当前会话历史（后台任务跑完后刷新转录用；流式中跳过） */
-  refreshHistory: () => Promise<void>
-  /** 写入上下文水位（done 事件 / stats / compact 回填的唯一写入口） */
-  setContextUsage: (used: number | null, total: number | null) => void
-  /** 拉取当前会话上下文水位（会话切换/新建后刷新；失败静默） */
-  refreshContextUsage: () => Promise<void>
-  /** 手动压缩当前会话上下文（slash 菜单 compact 命令）：成功 toast 新水位 */
-  compactContext: () => Promise<void>
-  /** 登出清理（换账号不得残留上一账号的会话内容） */
-  reset: () => void
-}
+/** store 状态形状定义在同目录 `state-types.ts`（体量与关注点都与契约不同） */
+export type { CopilotState } from './state-types'

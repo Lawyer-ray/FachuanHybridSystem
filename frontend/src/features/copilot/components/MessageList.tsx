@@ -17,12 +17,13 @@ import { LoadingBlock } from '@/components/shared/AsyncState'
 import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
 import '../copilot.css'
-import { bizHintParts, shortToolName } from '../domain'
+import { bizHintParts, groupAnswerRuns, shortToolName } from '../domain'
 import { useSmoothStreamText } from '../hooks/use-smooth-stream-text'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
 import { AssistantMarkdown } from './AssistantMarkdown'
+import { DualAnswers } from './DualAnswers'
 import { CopilotWelcome } from './CopilotWelcome'
 import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
 import { UserAvatar } from './UserAvatar'
@@ -303,9 +304,19 @@ export function MessageList() {
       )}
       {queuePosition !== null && <QueueBanner position={queuePosition} />}
       <div className="flex flex-col gap-2.5">
-        {messages.map((m) => (
-          <Bubble key={m.id} message={m} />
-        ))}
+        {groupAnswerRuns(messages).map((group) =>
+          // 「单条」项原样渲染：行为与引入本功能前完全一致（不加栏头、不改布局）。
+          // 只有连续两条以上 assistant 才是双答轮次，并排给律师对照。
+          group.answers.length > 1 ? (
+            <DualAnswers
+              key={group.answers[0]!.id}
+              answers={group.answers}
+              renderAnswer={(answer) => <Bubble message={answer} />}
+            />
+          ) : (
+            <Bubble key={group.answers[0]!.id} message={group.answers[0]!} />
+          ),
+        )}
       </div>
       {approvals.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-2">

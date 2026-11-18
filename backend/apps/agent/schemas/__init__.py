@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from .agent_backend_schemas import BackendOptionOut
 from .approval_schemas import ApprovalDecideIn, PiApprovalIn, PiApprovalOut
 from .attachment_schemas import AttachmentOut, AttachmentPageOut, AttachmentPagesOut, FolderRefIn
 from .chat_schemas import ClearQueueOut, SteerIn, SteerOut
@@ -26,6 +27,7 @@ from .usage_schemas import UsageOut
 
 __all__ = [
     "ApprovalDecideIn",
+    "BackendOptionOut",
     "AttachmentOut",
     "AttachmentPageOut",
     "AttachmentPagesOut",

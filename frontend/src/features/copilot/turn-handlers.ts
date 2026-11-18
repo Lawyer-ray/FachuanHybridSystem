@@ -9,12 +9,27 @@
 
 import { estimateTokens, extractRewriteArgs, nextLocalId, parseFileRewrite } from './domain'
 import { FILE_REWRITTEN_EVENT } from './launch'
-import type { StreamHandlers } from './streaming'
+import type { EventOrigin, StreamHandlers } from './streaming'
 import type { useCopilot } from './store'
 
 type CopilotSet = typeof useCopilot.setState
 
-export function createTurnHandlers(assistantId: string, set: CopilotSet): {
+/**
+ * `assistantFor`：事件的 agent kind → 该写进哪条 assistant 气泡的 id。
+ *
+ * 键是 `agent`（`pi` / `dsh`），特殊键 `''` 是兜底（单后端轮次 / 事件缺 agent）。
+ * 由 store 在开流时按「本轮有哪些栏」建好，闭包里只读不写。
+ */
+export type AssistantRoute = (kind: string) => string
+
+export function createTurnHandlers(
+  defaultAssistantId: string,
+  set: CopilotSet,
+  assistantFor: AssistantRoute = () => defaultAssistantId,
+  /** 本轮有几栏（>1 = 双答）。错误行只在多栏时才标来源：单后端时多加一个
+   *  「pi：」前缀会改变律师已经习惯的文案，而它并不带来任何区分信息。 */
+  columnCount = 1,
+): {
   handlers: StreamHandlers
   finishAssistant: () => void
 } {
@@ -26,26 +41,31 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
    * 回收，无跨轮泄漏。 */
   const rewriteArgsById = new Map<string, { original: string; replacement: string }>()
 
-  const appendAssistant = (chunk: string) => {
+  const appendAssistant = (chunk: string, origin: EventOrigin) => {
     if (!chunk) return
+    const targetId = assistantFor(origin.kind)
     set((s) => ({
       messages: s.messages.map((m) =>
         // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
-        m.id === assistantId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
+        m.id === targetId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
       ),
     }))
   }
-  const appendThinking = (chunk: string) => {
+  const appendThinking = (chunk: string, origin: EventOrigin) => {
     if (!chunk) return
+    const targetId = assistantFor(origin.kind)
     set((s) => ({
       messages: s.messages.map((m) =>
-        m.id === assistantId ? { ...m, thinking: (m.thinking ?? '') + chunk } : m,
+        m.id === targetId ? { ...m, thinking: (m.thinking ?? '') + chunk } : m,
       ),
     }))
   }
+  /** 收尾**全部**本轮的 assistant 气泡（双答两栏各自都要停住光标） */
   const finishAssistant = () => {
     set((s) => ({
-      messages: s.messages.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
+      messages: s.messages.map((m) =>
+        m.role === 'assistant' && m.streaming ? { ...m, streaming: false } : m,
+      ),
     }))
   }
   /** 仅在有值时才 set（避免每个 delta 都触发一次状态写入） */
@@ -55,8 +75,8 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
 
   const handlers: StreamHandlers = {
     onThinking: appendThinking,
-    onDelta: (chunk) => {
-      appendAssistant(chunk)
+    onDelta: (chunk, origin) => {
+      appendAssistant(chunk, origin)
       set((s) => {
         const now = Date.now()
         const estTokens = s.turnStats.estTokens + estimateTokens(chunk)
@@ -75,7 +95,7 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
         }
       })
     },
-    onToolCall: (event) => {
+    onToolCall: (event, origin) => {
       // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）
       if (event.tool_call_id && event.name?.endsWith('rewrite_folder_file')) {
         const extracted = extractRewriteArgs(event.arguments)
@@ -96,6 +116,8 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
               content: '',
               toolName: event.name,
               toolCallId: event.tool_call_id,
+              // 双答时两栏各自调工具：工具行必须带来源，否则回放时分不出证据归谁
+              ...(origin.kind ? { agentKind: origin.kind } : {}),
             },
           ],
         }
@@ -160,9 +182,18 @@ export function createTurnHandlers(assistantId: string, set: CopilotSet): {
       set({ compacting: phase === 'start' })
     },
     onProgress: clearQueueBanner,
-    onError: (message) => {
-      set({ lastError: message })
-      finishAssistant()
+    onError: (message, origin) => {
+      // 双答时一个后端失败另一个照常输出：错误行必须标明是哪一栏失败了，
+      // 否则律师会以为整轮都没跑成，而屏幕上半截明明有答案。
+      const who = columnCount > 1 && origin.kind ? `${origin.kind}：` : ''
+      set({ lastError: `${who}${message}` })
+      // 失败方的栏要停住光标；另一栏继续流（finishAssistant 会把所有 streaming
+      // 气泡收掉，这里只收失败那一栏）
+      // 查不到时（本轮没登记过该 agent）回落到默认栏，不造孤儿气泡
+      const failedId = assistantFor(origin.kind)
+      set((s) => ({
+        messages: s.messages.map((m) => (m.id === failedId ? { ...m, streaming: false } : m)),
+      }))
     },
     onDone: (context) => {
       finishAssistant()

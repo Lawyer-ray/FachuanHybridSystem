@@ -8,7 +8,7 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -28,8 +28,21 @@ export function listSessions(limit = 50, scope?: CopilotScope): Promise<AgentSes
   return api.get('agent/sessions', { searchParams }).json<AgentSession[]>()
 }
 
-export function createSession(title = '', scope?: CopilotScope): Promise<AgentSession> {
-  return api.post('agent/sessions', { json: { title, ...scopePayload(scope) } }).json<AgentSession>()
+/**
+ * 新建会话。
+ *
+ * `agentKind` 是用户对后端的选择（`pi` / `dsh`），**会话级、建完不能改**（上下文
+ * 归后端自己管）。空串表示不指定，由后端用默认值——不传时契约默认也是 `pi`。
+ */
+export function createSession(title = '', scope?: CopilotScope, agentKind = ''): Promise<AgentSession> {
+  return api
+    .post('agent/sessions', { json: { title, ...scopePayload(scope), ...(agentKind ? { agent_kind: agentKind } : {}) } })
+    .json<AgentSession>()
+}
+
+/** 可选 agent 后端清单（切换器数据源；`available=false` 的项带不可用原因） */
+export function fetchBackends(): Promise<AgentBackendOption[]> {
+  return api.get('agent/backends').json<AgentBackendOption[]>()
 }
 
 export function deleteSession(sessionId: string): Promise<{ deleted: number }> {
@@ -60,8 +73,22 @@ export function decideApproval(approvalId: string, approved: boolean, reason = '
  * `signal` 用于「停止生成」：中断即客户端断开，服务端会把已流出的
  * 部分回答落库（metadata.truncated），前端随后重拉历史即可对齐。
  */
-export function openMessageStream(sessionId: string, message: string, signal: AbortSignal): Promise<Response> {
-  return api.post(`agent/sessions/${sessionId}/messages`, { json: { message }, signal })
+/**
+ * 打开一条 SSE 流。
+ *
+ * `dual`（同题双答）默认 **不传**：后端契约默认 false，成本翻倍（两个模型各跑
+ * 一轮、各自调工具），不能默认开。传 true 时两个后端并行应答，事件靠 `agent`
+ * 字段分流到各自的栏。字段只在为 true 时下发——不传免得让「默认」这件事出现
+ * 两个真相（前端的 false 与后端的 false）。
+ */
+export function openMessageStream(
+  sessionId: string,
+  message: string,
+  signal: AbortSignal,
+  dual = false,
+): Promise<Response> {
+  const json = dual ? { message, dual } : { message }
+  return api.post(`agent/sessions/${sessionId}/messages`, { json, signal })
 }
 
 /** 运行中插话：当前 assistant turn 的工具调用跑完后、下次模型调用前生效（后端 steer） */

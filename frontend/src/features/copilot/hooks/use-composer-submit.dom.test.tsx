@@ -15,6 +15,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { useCopilot } from '../store'
 import { POST_COMPOSITION_ENTER_GUARD_MS } from './use-ime-enter-guard'
 import { useComposerSubmit, type ComposerSubmitOptions } from './use-composer-submit'
 
@@ -45,6 +46,7 @@ function makeOptions(overrides: Partial<ComposerSubmitOptions> = {}): ComposerSu
     uploading: false,
     sending: false,
     streaming: false,
+    steerEnabled: true,
     bgMode: false,
     setBgMode: vi.fn(),
     speech: { listening: false, stop: vi.fn() },
@@ -267,6 +269,20 @@ describe('useComposerSubmit：流式中 Enter 是插话', () => {
     expect(options.send).not.toHaveBeenCalled()
     expect(options.setText).toHaveBeenCalledWith('')
     expect(e.preventDefault).toHaveBeenCalledTimes(1)
+  })
+
+  it('后端不声明 steer 能力时不插话，改为提示等本轮结束（不静默丢输入）', () => {
+    useCopilot.setState({ lastError: null })
+    const options = makeOptions({ streaming: true, steerEnabled: false })
+    const { result } = render(options)
+
+    press(result.current, keyEvent('Enter', { timeStamp: 5000 }))
+
+    expect(options.steer).not.toHaveBeenCalled()
+    expect(options.send).not.toHaveBeenCalled()
+    // 草稿必须留着：用户敲的字没送出去，清空等于丢掉
+    expect(options.setText).not.toHaveBeenCalled()
+    expect(useCopilot.getState().lastError).toContain('不支持运行中插话')
   })
 
   it('流式中合成态的 Enter 不插话（选词不等于发插话）', () => {

@@ -6,6 +6,7 @@
  *
  * 子模块分工：
  * - sse.ts        SSE 帧解析（与 streaming.ts 的帧消费配对）
+ * - dual.ts       同题双答：事件的栏归属与栏标签
  * - transcript.ts 转录映射：锚点/引用块的**出站构建 + 回放解析**（成对互逆）
  * - reference.ts  框选引用构建、默认出站提示语、AI 改写落盘识别
  * - approval.ts   审批倒计时窗口（与后端 approval.py 的契约常量）、离线卡映射、状态徽标
@@ -19,6 +20,7 @@
 
 export * from './approval'
 export * from './attachment'
+export * from './dual'
 export * from './location'
 export * from './reference'
 export * from './slash'

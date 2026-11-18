@@ -17,11 +17,13 @@ import {
   splitQuoteBlock,
   splitRefBlocks,
 } from '../domain'
+import { DEFAULT_AGENT_KIND } from '../domain'
 import { uploadAttachmentsAndCompose } from '../outgoing'
 import { storeSession } from '../persistence'
 import { consumeAgentStream } from '../streaming'
 import { createTurnHandlers } from '../turn-handlers'
-import type { CopilotState, TurnStats } from '../types'
+import type { AgentBackendOption, CopilotState, TurnStats } from '../types'
+import { resolveCapabilities } from './backends'
 import { bumpSessionEpoch } from './session-epoch'
 import type { Slice } from './slice'
 
@@ -33,6 +35,40 @@ export const EMPTY_STATS: TurnStats = {
   estTokens: 0,
   exactTokens: null,
   samples: [],
+}
+
+/**
+ * 本轮双答要跑哪几个后端（顺序 = 栏的左右顺序）。
+ *
+ * 主栏 = 会话自己选的（新会话取 `selectedAgentKind`，空串时后端默认 pi），次栏 =
+ * 清单里第一个「可用的、且不是主」的后端。规则与后端 `dual.pick_secondary`
+ * 同口径，但前端必须在**开流前**就知道有两栏——否则事件到了才发现没有对应气泡，
+ * 次答的正文会全部落进主栏（表现是两栏内容一模一样）。
+ *
+ * 与后端口径的唯一差别：后端按注册表顺序取，前端按 `/agent/backends` 清单顺序取。
+ * 两个来源同一个注册表，顺序一致；清单没拉到（`backends` 为空）时返回单栏，
+ * 行为退回到「不加双答」，不会造出两个空栏。
+ */
+export function dualAgentKinds(state: Partial<Pick<CopilotState, 'backends' | 'selectedAgentKind'>>): string[] {
+  const primary = state.selectedAgentKind || DEFAULT_AGENT_KIND
+  const backends = state.backends ?? []
+  const secondary = backends.find(
+    (b) => b.available && b.kind !== primary && resolveCapabilities(backends, b.kind).streaming,
+  )
+  return secondary ? [primary, secondary.kind] : []
+}
+
+/**
+ * 本部署能不能开同题双答：清单里存在「可用的、且不是当前主后端」的第二个后端。
+ *
+ * 与 {@link dualAgentKinds} 同源（后者多要求 `streaming` 能力）：这里只判「有没有
+ * 第二家」，用来决定开关能不能点；真正的栏数由 dualAgentKinds 决定。
+ */
+export function dualAvailableFor(backends: AgentBackendOption[] | undefined, selectedAgentKind: string): boolean {
+  const primary = selectedAgentKind || DEFAULT_AGENT_KIND
+  // 清单可能是 undefined：组件测试常只 mock 部分 state。这里按「没有第二家」
+  // 处理（开关置灰），而不是抛错——渲染期抛错会把整个面板打成白屏。
+  return (backends ?? []).some((b) => b.available && b.kind !== primary)
 }
 
 /**
@@ -85,8 +121,10 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     const startedSessionId = get().sessionId
     let sessionId = startedSessionId
     if (!sessionId) {
+      // 新会话带上用户选的 agent 后端（空串 = 不指定，后端用默认值 pi）。
+      // 只在建会话这一刻生效：已有会话换后端会丢掉上下文，见 store/backends.ts。
       try {
-        sessionId = (await copilotApi.createSession('', get().context ?? undefined)).session_id
+        sessionId = (await copilotApi.createSession('', get().context ?? undefined, pre.selectedAgentKind)).session_id
       } catch {
         set({ lastError: '创建会话失败，请稍后重试', sending: false })
         onQueued?.(false)
@@ -127,7 +165,17 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     if (pre.pendingQuote) set({ pendingQuote: null })
     const composed = outgoing.composed
 
+    // 双答开关：本轮要几栏。双答时两栏并排（各带 agent 标签），单后端时只有一条
+    // ——单条路径必须与引入本功能前**完全一致**（那条的 agentKind 留空，渲染不加
+    // 标签，见 domain/dual.isDualTurn）。
+    const dualAgents = pre.dual ? dualAgentKinds(pre) : []
     const assistantId = nextLocalId()
+    // 每个 agent 一栏：id 先算好，气泡与事件路由共用同一份——两处各 nextLocalId()
+    // 会造出「气泡挂在 A 的 id、事件写进 B 的 id」这种只差一个字难以发现的错配。
+    const assistantByAgent: Record<string, string> =
+      dualAgents.length > 1
+        ? Object.fromEntries(dualAgents.map((kind, i) => [kind, i === 0 ? assistantId : nextLocalId()]))
+        : {}
     // 与历史回放同一解析：本地即时渲染也把页面/业务锚点、引用块还原成 chip，两侧不漂移
     const { pageHint, body: noHint } = splitPageHintLine(composed)
     const { bizHint, body: noBiz } = splitBizHintLine(noHint)
@@ -145,7 +193,16 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
           ...(refs.length ? { refs } : {}),
           ...(quote ? { quote } : {}),
         },
-        { id: assistantId, role: 'assistant', content: '', streaming: true },
+        // 单后端：一条不带 agentKind 的气泡（与历史渲染口径一致：空串 = 旧行为）
+        ...(dualAgents.length > 1
+          ? dualAgents.map((kind) => ({
+              id: assistantByAgent[kind]!,
+              role: 'assistant' as const,
+              content: '',
+              streaming: true,
+              agentKind: kind,
+            }))
+          : [{ id: assistantId, role: 'assistant' as const, content: '', streaming: true }]),
       ],
       approvals: [],
       streaming: true,
@@ -157,12 +214,19 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     }))
     onQueued?.(true)
 
-    // 本轮的 SSE → 状态更新集中在 turn-handlers（正文/思考/工具行/审批/排队/统计）
-    const { handlers, finishAssistant } = createTurnHandlers(assistantId, set)
+    // 本轮的 SSE → 状态更新集中在 turn-handlers（正文/思考/工具行/审批/排队/统计）。
+    // 双答时按事件里的 agent 分到各自气泡：路由表的键是 kind，缺 agent 的事件
+    // 落到第一条（主栏）——鉴于是「旧口径」且双答前只有一条气泡。
+    const { handlers, finishAssistant } = createTurnHandlers(
+      assistantId,
+      set,
+      (kind) => assistantByAgent[kind] ?? assistantId,
+      dualAgents.length > 1 ? 2 : 1,
+    )
 
     controller = new AbortController()
     try {
-      const resp = await copilotApi.openMessageStream(sessionId, composed, controller.signal)
+      const resp = await copilotApi.openMessageStream(sessionId, composed, controller.signal, pre.dual)
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
       await consumeAgentStream(resp, handlers)
       finishAssistant()

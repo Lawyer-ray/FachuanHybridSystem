@@ -64,6 +64,12 @@ class MessageIn(Schema):
     """发消息请求体。"""
 
     message: str
+    #: 同一问题同时问两个 agent，两边的回答都给律师看。
+    #:
+    #: **默认 False**：成本翻倍（两个模型各跑一轮、各自调用工具），不能默认开。
+    #: 这不是会话级属性——律师可以逐轮决定要不要对比，所以放在消息请求体而不是
+    #: ``SessionIn`` 里。
+    dual: bool = False
 
 
 class MessageOut(Schema):
@@ -73,6 +79,9 @@ class MessageOut(Schema):
     role: str
     content: str
     tool_name: str
+    #: 这条消息来自哪个 agent。空串 = 旧数据 / 未标注（引入字段前的记录），
+    #: 前端渲染时当 ``pi`` 处理。
+    agent_kind: str = ""
     created_at: str
     metadata: dict[str, Any] = {}
 

@@ -22,6 +22,18 @@ class AgentMessage(models.Model):
         verbose_name="所属会话",
     )
     role = models.CharField(max_length=16, choices=Role.choices, verbose_name="角色")
+    #: 这条消息是哪个 agent 说的。
+    #:
+    #: 为什么消息级需要它（会话级已经有 ``AgentSession.agent_kind``）：
+    #: 「同一问题同时问 pi 和 dsh」模式下，同一轮的助手回答有**两条**，都挂在
+    #: 同一个 ``session`` 外键下。只有会话标识就分不出哪条是谁说的——历史回放
+    #: 时两栏会混成一段，律师看到的是「AI 自相矛盾」而不是「两个模型的不同意见」。
+    #: 工具结果（``role=tool``）同理：哪些证据属于哪一栏必须能还原。
+    #:
+    #: 空串表示**旧数据 / 未标注**（不是错误）：引入本字段之前的消息没有 agent
+    #: 概念，回填时猜成 ``pi`` 会把「其实来自别的后端」的旧记录坐实成错的。
+    #: 前端渲染时把空串当 ``pi`` 处理——引入双答之前本系统只有 pi 在跑。
+    agent_kind = models.CharField(max_length=32, blank=True, default="", db_index=True, verbose_name="Agent 后端")
     content = models.TextField(blank=True, default="", verbose_name="内容")
     tool_name = models.CharField(max_length=200, blank=True, default="", verbose_name="工具名")
     tool_call_id = models.CharField(max_length=200, blank=True, default="", verbose_name="工具调用标识")

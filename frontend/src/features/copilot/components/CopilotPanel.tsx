@@ -16,15 +16,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Columns2, FolderTree, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Sparkles, SquareStack, X } from 'lucide-react'
+import { Paperclip } from 'lucide-react'
 
 import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
 import { useCopilotDrop } from '../hooks/use-copilot-drop'
 import { usePanelResize } from '../hooks/use-panel-resize'
 import { useCopilot } from '../store'
+import { resolveCapabilities } from '../store/backends'
 
 import { Composer } from './Composer'
+import { CopilotHeader } from './CopilotHeader'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
@@ -63,6 +65,9 @@ export function CopilotPanel({
   const exitContext = useCopilot((s) => s.exitContext)
   const loadPendingApprovals = useCopilot((s) => s.loadPendingApprovals)
   const refreshHistory = useCopilot((s) => s.refreshHistory)
+  const loadBackends = useCopilot((s) => s.loadBackends)
+  const backends = useCopilot((s) => s.backends)
+  const selectedAgentKind = useCopilot((s) => s.selectedAgentKind)
   const queryClient = useQueryClient()
   const isSmUp = useMediaQuery('(min-width: 640px)')
   const { width, railCapable, setPanelRef, onHandlePointerDown } = usePanelResize(isSmUp)
@@ -115,6 +120,12 @@ export function CopilotPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 可选 agent 后端清单：切换器的数据源。拉取失败静默（切换器退化为纯展示，
+  // 发消息仍走后端默认 pi），所以不阻塞面板打开。
+  useEffect(() => {
+    void loadBackends()
+  }, [loadBackends])
+
   // 业务页打开入口（案件/合同页的「AI 助手」按钮）：
   // ①面板尚未挂载时 chunk 加载完从这里取走 pending；②已打开时监听后续事件切上下文
   useEffect(() => {
@@ -150,6 +161,14 @@ export function CopilotPanel({
   const currentSession = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId) : undefined
   const currentTitle = currentSession?.title ?? ''
   const currentModel = currentSession?.llm_model ?? ''
+  // 会话的后端只能从列表缓存读：store 不存它（切换语义只对新会话成立，见
+  // AgentBackendPicker）。缓存未到时按「可切换」渲染——新对话本来就是多数场景，
+  // 且此时用户正在选。
+  const currentAgentKind = currentSession?.agent_kind ?? null
+  // 当前会话所用后端的能力声明：输入区据此隐藏插话入口（`steer=false` 的后端
+  // 会把用户敲进去的话丢掉而不报错，比直接禁用糟糕得多）。新对话时按「将要
+  // 新建的会话」算，避免建会话前的界面上已经少了一块。
+  const currentCapabilities = resolveCapabilities(backends, currentAgentKind ?? selectedAgentKind)
 
   // 每轮流结束后刷新会话列表：首条消息会自动生成标题，标题要能浮上来
   useEffect(() => {
@@ -227,96 +246,25 @@ export function CopilotPanel({
           onPointerDown={onHandlePointerDown}
         />
 
-        <header className="flex h-12 flex-none items-center gap-1.5 border-b border-border px-2.5">
-          <button
-            type="button"
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            onClick={toggleList}
-            aria-label={railVisible ? '收起会话栏' : '展开会话列表'}
-            title={railVisible ? '收起会话栏' : '展开会话列表'}
-          >
-            {railVisible ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-          </button>
-          <span className="copilot-orb ml-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-[8px]" aria-hidden>
-            <Sparkles className="h-3.5 w-3.5 text-background" strokeWidth={2.2} />
-          </span>
-          <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
-            {context ? `AI 助手 · ${context.title}` : currentTitle || 'AI 助手'}
-          </span>
-          {context && (
-            <button
-              type="button"
-              className="flex h-7 max-w-40 flex-none items-center gap-1 rounded-[8px] bg-secondary px-2 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
-              onClick={() => void exitContext()}
-              aria-label="退出业务范围，回到全部会话"
-              title={`当前只看「${context.title}」的会话，点击回到全部`}
-            >
-              <SquareStack className="h-3 w-3 flex-none" />
-              <span className="truncate">{context.origin === 'case' ? '本案' : '本委托'}</span>
-              <X className="h-3 w-3 flex-none" />
-            </button>
-          )}
-          {context?.origin === 'contract' && (
-            <button
-              type="button"
-              className={`flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12px] transition-colors hover:bg-secondary hover:text-foreground ${
-                treeDrawerOpen ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-              }`}
-              onClick={() => setTreeDrawerOpen((v) => !v)}
-              aria-label={treeDrawerOpen ? '收起合同材料目录' : '展开合同材料目录'}
-              aria-pressed={treeDrawerOpen}
-              title="合同绑定文件夹目录树：把文件拖到输入区即可引用"
-            >
-              <FolderTree className="h-3.5 w-3.5" />
-              材料
-            </button>
-          )}
-          {dockCapable && onDockToggle && (
-            <button
-              type="button"
-              className={`flex h-7 w-7 flex-none items-center justify-center rounded-[8px] transition-colors hover:bg-secondary hover:text-foreground ${
-                docked ? 'bg-secondary text-foreground' : 'text-muted-foreground'
-              }`}
-              onClick={onDockToggle}
-              aria-pressed={docked}
-              aria-label={docked ? '切换为悬浮模式' : '切换为并排模式'}
-              title={
-                docked
-                  ? '并排模式中：页面内容让位同屏显示，点击切回悬浮覆盖'
-                  : '并排模式：页面内容自动让位，可与合同详情页并排对照'
-              }
-            >
-              <Columns2 className="h-4 w-4" />
-            </button>
-          )}
-          {currentModel && (
-            <span
-              className="hidden max-w-28 flex-none truncate rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10.5px] text-muted-foreground sm:block"
-              title={`当前模型：${currentModel}`}
-            >
-              {currentModel}
-            </span>
-          )}
-          <button
-            type="button"
-            className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            onClick={() => {
-              void switchSession(null)
-              setListOverlayOpen(false)
-            }}
-          >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-            新对话
-          </button>
-          <button
-            type="button"
-            className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            onClick={onClose}
-            aria-label="收起 AI 助手"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+        <CopilotHeader
+          railVisible={railVisible}
+          onToggleRail={toggleList}
+          context={context}
+          onExitContext={() => void exitContext()}
+          treeDrawerOpen={treeDrawerOpen}
+          onToggleTreeDrawer={() => setTreeDrawerOpen((v) => !v)}
+          dockCapable={dockCapable}
+          docked={docked}
+          onDockToggle={onDockToggle}
+          currentTitle={currentTitle}
+          currentModel={currentModel}
+          currentAgentKind={currentAgentKind}
+          onNewSession={() => {
+            void switchSession(null)
+            setListOverlayOpen(false)
+          }}
+          onClose={onClose}
+        />
 
         <div className="relative flex min-h-0 flex-1">
           {railVisible && <SessionSidebar variant="rail" panelWidth={width} />}
@@ -328,7 +276,7 @@ export function CopilotPanel({
             <FolderTreeDrawer contractId={context.refId} onClose={() => setTreeDrawerOpen(false)} />
           )}
         </div>
-        <Composer />
+        <Composer steerEnabled={currentCapabilities.steer !== false} />
     </aside>
   )
 }

@@ -8,7 +8,8 @@
  *   内容「复活」回已清空的输入框）。
  * - `uploading || sending` 两个标志都要挡：「上传完成 → 消息入列」之间两者
  *   都为 false 的窗口里二次提交会重复发。
- * - 流式中 Enter 是「插话」（steer），不是新消息。
+ * - 流式中 Enter 是「插话」（steer），不是新消息；当前后端不声明 `steer` 能力
+ *   时改为提示「等本轮结束」，绝不静默丢弃用户的输入。
  * - 常规发送先清空正文腾出输入位，早失败（建会话/上传附件失败）时回填，
  *   但期间用户又输入了新内容就不打扰（只补空）。
  *
@@ -24,6 +25,7 @@
 import type { RefObject } from 'react'
 
 import { defaultOutgoingPrompt } from '../domain'
+import { useCopilot } from '../store'
 import type { FolderRefDraft, SelectionQuote } from '../types'
 import { useImeEnterGuard } from './use-ime-enter-guard'
 
@@ -37,6 +39,8 @@ export interface ComposerSubmitOptions {
   uploading: boolean
   sending: boolean
   streaming: boolean
+  /** 当前后端是否支持运行中插话（`BackendCapabilities.steer`） */
+  steerEnabled: boolean
   bgMode: boolean
   setBgMode: (on: boolean) => void
   speech: { listening: boolean; stop: (quiet?: boolean) => void }
@@ -57,6 +61,7 @@ export function useComposerSubmit(options: ComposerSubmitOptions) {
     uploading,
     sending,
     streaming,
+    steerEnabled,
     bgMode,
     setBgMode,
     speech,
@@ -86,6 +91,12 @@ export function useComposerSubmit(options: ComposerSubmitOptions) {
     if (!value && pendingFiles.length === 0 && pendingRefs.length === 0 && !pendingQuote) return
     if (uploading || sending) return
     if (streaming) {
+      // 后端不支持插话（如声明 steer=false）：说清楚为什么没反应，而不是把
+      // 用户敲的这段字默默扔掉——后者看起来就是「按了没反应」
+      if (!steerEnabled) {
+        useCopilot.setState({ lastError: '当前后端不支持运行中插话，请等本轮结束后再发送' })
+        return
+      }
       // 运行中插话：不改写当前输出，在工具调用后、下次模型调用前生效
       void steer(value)
       setText('')
