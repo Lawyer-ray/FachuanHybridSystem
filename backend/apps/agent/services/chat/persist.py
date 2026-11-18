@@ -28,8 +28,12 @@ async def _recent_history(session: AgentSession, limit: int = 40) -> list[AgentM
     return messages
 
 
-async def _persist_tool_message(session: AgentSession, event: dict[str, Any]) -> None:
-    """落库工具结果（失败只记日志，不影响 SSE 流）。"""
+async def _persist_tool_message(session: AgentSession, event: dict[str, Any], agent_kind: str = "") -> None:
+    """落库工具结果（失败只记日志，不影响 SSE 流）。
+
+    ``agent_kind``：双答轮次里两个 agent 各自调工具，回放时必须能分出哪条证据
+    属于哪一栏（消息级来源见 ``AgentMessage.agent_kind``）。
+    """
     try:
         await AgentMessage.objects.acreate(
             session=session,
@@ -37,6 +41,7 @@ async def _persist_tool_message(session: AgentSession, event: dict[str, Any]) ->
             content=str(event.get("result") or "")[:8000],
             tool_name=str(event.get("name") or ""),
             metadata={"tool_call_id": str(event.get("tool_call_id") or "")},
+            agent_kind=agent_kind,
         )
     except Exception:
         logger.warning("工具消息落库失败", exc_info=True)

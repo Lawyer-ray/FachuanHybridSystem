@@ -29,6 +29,7 @@ import { useComposerIntake } from '../hooks/use-composer-intake'
 import { useComposerSubmit } from '../hooks/use-composer-submit'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
+import { dualAvailableFor } from '../store/turn'
 import { useCopilot } from '../store'
 import { ComposerFooter } from './ComposerFooter'
 import { ComposerQuote } from './ComposerQuote'
@@ -42,7 +43,14 @@ const REVOKE_BUTTON_CLASS = 'flex h-6 flex-none items-center gap-1 rounded-[6px]
 const STOP_BUTTON_CLASS = 'flex h-7 w-7 flex-none items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-85'
 const SEND_BUTTON_CLASS = 'copilot-send flex h-7 w-7 flex-none items-center justify-center rounded-full disabled:opacity-30 disabled:shadow-none'
 
-export function Composer() {
+/**
+ * @param steerEnabled 当前后端是否支持运行中插话（`BackendCapabilities.steer`）。
+ *   由 CopilotPanel 按会话/待建会话的后端能力传入——`false` 时流式中不再提示
+ *   「插话补充指令」，Enter 改为明确告知等本轮结束（见 use-composer-submit）。
+ *   为什么不由本组件自己从 store 算：已建会话的后端只存在于会话列表缓存里，
+ *   那是 CopilotPanel 的数据源。
+ */
+export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   const [text, setText] = useState('')
   const [bgMode, setBgMode] = useState(false)
   const streaming = useCopilot((s) => s.streaming)
@@ -59,6 +67,11 @@ export function Composer() {
   const sessionId = useCopilot((s) => s.sessionId)
   const messageCount = useCopilot((s) => s.messages.length)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
+  const dual = useCopilot((s) => s.dual)
+  const setDual = useCopilot((s) => s.setDual)
+  // 双答要求部署里真有第二个可用后端：只有一个时置灰并说明原因，而不是让用户
+  // 打开一个「点了也没两栏」的开关（静默失效比禁用糟糕得多）
+  const dualAvailable = useCopilot((s) => dualAvailableFor(s.backends, s.selectedAgentKind))
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
@@ -102,7 +115,7 @@ export function Composer() {
 
   const { submit, handleKeyDown, autoGrow, onCompositionStart, onCompositionEnd } = useComposerSubmit({
     text, setText, textareaRef, pendingFiles, pendingRefs, pendingQuote, uploading, sending,
-    streaming, bgMode, setBgMode, speech, slash, send, steer, submitTask,
+    streaming, steerEnabled, bgMode, setBgMode, speech, slash, send, steer, submitTask,
   })
 
   // 两条外部写入通道：框选引用（挂引用卡）与选区预填（追加文字），见 hook 文件头
@@ -123,7 +136,9 @@ export function Composer() {
   const placeholder = speech.listening
     ? '正在听写…说完点麦克风结束，可手动修改后发送'
     : streaming
-      ? '插话补充指令，Enter 送达当前对话…'
+      ? steerEnabled
+        ? '插话补充指令，Enter 送达当前对话…'
+        : '当前后端不支持中途插话，本轮结束后再发送…'
       : bgMode
         ? '后台运行：提交后可关闭页面，跑完会在会话里通知你…'
         : '问点什么…'
@@ -158,6 +173,11 @@ export function Composer() {
             bgMode={bgMode}
             onToggleBgMode={() => setBgMode((v) => !v)}
             bgToggleDisabled={streaming || hasPendingAttachments || sending}
+            dualMode={dual}
+            onToggleDual={() => setDual(!dual)}
+            // 流式中不能改：本轮已开流，改了只会让按钮与已发出的那一轮对不上
+            dualToggleDisabled={!dualAvailable || streaming || sending}
+            dualHint={dualAvailable ? '' : '当前部署只有一个可用后端，无法对比'}
             attachDisabled={streaming || uploading || sending}
             onPickFiles={() => fileInputRef.current?.click()}
             fileInputRef={fileInputRef}

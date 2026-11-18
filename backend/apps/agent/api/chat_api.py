@@ -26,6 +26,7 @@ from ..services.chat_service import (
     follow_up_session,
     steer_session,
     stream_chat,
+    stream_dual,
 )
 from ..services.event_bus import replay_events
 from ..services.live_sessions import forward_steer_to_worker, get_live_worker
@@ -68,6 +69,8 @@ def _message_out(message: AgentMessage) -> MessageOut:
         role=message.role,
         content=message.content,
         tool_name=message.tool_name,
+        # 空串 = 引入双答之前的旧数据：前端渲染时当 pi 处理（历史口径）
+        agent_kind=getattr(message, "agent_kind", "") or "",
         created_at=message.created_at.isoformat(),
         metadata=message.metadata or {},
     )
@@ -134,12 +137,16 @@ async def send_message(  # pragma: no cover
         if current is None:
             yield _sse({"type": "error", "message": "会话不存在"})
             return
+        # 双答开关：``payload.dual`` 默认 False（成本翻倍，不能默认开）。
+        # 两个编排器产出的是同一种事件流，前端不区分来源；分流靠事件里的
+        # ``agent`` / ``run_id``。
+        events = (
+            stream_dual(session=current, user_message=payload.message, user_id=user_id)
+            if payload.dual
+            else stream_chat(session=current, user_message=payload.message, user_id=user_id)
+        )
         try:
-            async for event in stream_chat(
-                session=current,
-                user_message=payload.message,
-                user_id=user_id,
-            ):
+            async for event in events:
                 yield _sse(event)
         except Exception:
             logger.exception("SSE 生成器异常")

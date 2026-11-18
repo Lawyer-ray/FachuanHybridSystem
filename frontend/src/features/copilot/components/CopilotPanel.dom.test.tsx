@@ -27,9 +27,14 @@ const storeMock = vi.hoisted(() => ({
   exitContext: vi.fn(async () => {}),
   loadPendingApprovals: vi.fn(async () => {}),
   refreshHistory: vi.fn(async () => {}),
+  // 后端切换器（AgentBackendPicker）读这两项；空清单 = 退化为纯展示
+  backends: [] as Array<{ kind: string; label: string; description: string; available: boolean; reason: string; capabilities: Record<string, boolean> }>,
+  selectedAgentKind: '',
+  loadBackends: vi.fn(async () => {}),
+  selectAgentKind: vi.fn(),
 }))
 
-const apiMock = vi.hoisted(() => ({ listSessions: vi.fn() }))
+const apiMock = vi.hoisted(() => ({ listSessions: vi.fn(), fetchBackends: vi.fn() }))
 const launchMock = vi.hoisted(() => ({ takePendingLaunchContext: vi.fn() }))
 const mediaMock = vi.hoisted(() => ({ useMediaQuery: vi.fn(() => false) }))
 const resizeMock = vi.hoisted(() => ({
@@ -116,6 +121,9 @@ beforeEach(() => {
   resizeMock.railCapable = false
   launchMock.takePendingLaunchContext.mockReturnValue(null)
   apiMock.listSessions.mockResolvedValue([])
+  apiMock.fetchBackends.mockResolvedValue([])
+  storeMock.backends = []
+  storeMock.selectedAgentKind = ''
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 })
 

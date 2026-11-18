@@ -162,6 +162,9 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
       refs: refsSplit?.refs.length ? refsSplit.refs : undefined,
       quote: quoteSplit?.quote ?? undefined,
       toolName: row.tool_name || undefined,
+      // 消息级来源：assistant / tool 行带 agent_kind，历史回放才能把双答的两栏
+      // 重新并排；空串（旧数据 / 单后端轮次）留 undefined，渲染时按 pi 处理
+      agentKind: row.role !== 'user' ? row.agent_kind || undefined : undefined,
       truncated: row.metadata?.truncated === true || undefined,
     }
   })

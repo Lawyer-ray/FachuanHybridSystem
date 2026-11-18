@@ -22,9 +22,17 @@
 
 from __future__ import annotations
 
+import logging
+
 from . import registry
 
+logger = logging.getLogger(__name__)
+
 _registered = False
+#: import **失败过**的 kind。用来记「dsh SDK 没装」这类永久性缺失，避免每轮对话
+#: 都重试一次 import（异常开销不小，日志也会刷）。注意它不表达「注册过」：
+#: 注册表被 ``clear()`` 清空后仍要能重新注册（见 ``_register_dsh``）。
+_attempted: set[str] = set()
 
 
 def ensure_registered() -> None:
@@ -36,6 +44,9 @@ def ensure_registered() -> None:
     """
     global _registered
     if _registered and "pi" in registry.available_kinds():
+        # pi 在就说明主路径可用；dsh 是可选后端，单独补（缺 SDK 的部署里
+        # 上面这个条件会一直成立，不能因为 dsh 缺席就每次都重跑一遍）。
+        _register_dsh()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -46,3 +57,44 @@ def ensure_registered() -> None:
     if "pi" not in registry.available_kinds():
         registry.register(PiBackend())
     _registered = True
+    _register_dsh()
+
+
+def _register_dsh() -> None:
+    """注册 dsh 后端；SDK 没装时**静默降级**（只登记一次）。
+
+    ## 为什么这里的延迟 import 是硬要求
+
+    ``dsh_backend`` 顶层 ``import deepseek_harness``（理由见该模块注释）。如果本函数
+    在模块顶层 import 它，那么**没装 SDK 的部署会在 app 启动时直接崩**——pi 明明
+    可用，却因为一个可选后端缺依赖而整个服务起不来。这与「注册 dsh」这个可有可无
+    的动作完全不匹配。
+
+    ## 为什么吞 ImportError 而不是往上抛
+
+    dsh 是会话级可选的第二个后端：只有 ``agent_kind="dsh"`` 的会话需要它。缺它就
+    让 pi 会话照常跑，是把故障面限制在「选了 dsh 的那些会话」的唯一办法。那些会话
+    会在 ``registry.get("dsh")`` 拿到 ``LookupError``，消息里带已注册清单，足以定位。
+
+    ## 为什么 ``_attempted`` 只管「import 失败」而不阻止重注册
+
+    ``ensure_registered`` 每轮对话都调，重试**失败的** import 既无意义（模块不会
+    自己出现）又刷日志，所以记在 ``_attempted`` 里跳过。但它**不能**当成「已经
+    注册过」的凭据：注册表是可被 ``clear()`` 清空的全局状态（测试大量用到），
+    清空后若被 ``_attempted`` 挡住，dsh 会话就会永远报「未知 backend」——
+    与 pi 那个踩过的坑一模一样。真正「在不在」只问注册表。
+    """
+    if "dsh" in registry.available_kinds():
+        return
+    if "dsh" in _attempted:
+        # 上次 import 失败（SDK 没装）。静默跳过，不重复刷日志。
+        return
+
+    try:
+        from .dsh_backend import DshBackend
+    except ImportError:
+        # 缺 deepseek-harness-sdk：记录后当作「本部署没有这个后端」。
+        _attempted.add("dsh")
+        logger.info("deepseek-harness SDK 未安装，dsh 后端不可用（pi 不受影响）")
+        return
+    registry.register(DshBackend())

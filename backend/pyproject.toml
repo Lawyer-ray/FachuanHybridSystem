@@ -33,6 +33,11 @@ dependencies = [
     # --- LLM / AI ---
     "openai>=2.53.0",
     "huggingface-hub>=2.0.0",  # v2 移除 resume_download 参数（本项目未使用，安全）
+    # DeepSeek Harness Python SDK：第二个 agent 运行时（与 pi 并存，会话级切换）。
+    # 会连带装同版本 deepseek-harness-runtime-bin（平台二进制 wheel）。
+    # 锁到 rc 版本：官方明示 developer preview、会有 breaking change，
+    # 升级必须走回归（见 docs/04-计划/活跃/dsh-python-sdk-integration.md）。
+    "deepseek-harness-sdk==0.2.2rc2",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",

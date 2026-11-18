@@ -21,6 +21,8 @@
 - ``env``：会话级环境变量与用户凭证铸造（compact_service 复用）
 - ``persist``：消息 / 运行记录落库
 - ``stream``：stream_chat 主编排
+- ``dual``：同一问题同时问两个 agent 的合并编排（stream_dual）
+- ``budget``：按用途（primary / aux）的准入判定与降级
 - ``live_control``：运行中插话（steer / follow_up / clear_queue）
 
 本 ``__init__`` 重导出原 ``chat_service`` 的全部公开符号；``chat_service.py``
@@ -41,6 +43,7 @@ from ..live_sessions import get_live_registry
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
 from ..skill_service import enabled_skill_paths
+from .dual import ACTIVITY_DEGRADED, StreamMemo, pick_secondary, stream_dual
 from .env import _worker_id
 from .env import mint_user_token
 from .env import mint_user_token as _mint_user_token
@@ -59,12 +62,19 @@ from .pool import (
     close_pool,
     get_pool,
 )
-from .stream import AUTO_TITLE_LIMIT, stream_chat
+from .stream import AUTO_TITLE_LIMIT, auto_title, record_user_message, stream_chat
 
 __all__ = [
     # stream
     "stream_chat",
     "AUTO_TITLE_LIMIT",
+    "auto_title",
+    "record_user_message",
+    # dual
+    "stream_dual",
+    "pick_secondary",
+    "ACTIVITY_DEGRADED",
+    "StreamMemo",
     # live_control
     "SessionNotLiveError",
     "steer_session",

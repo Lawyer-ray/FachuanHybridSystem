@@ -6,6 +6,7 @@
  *
  * 本文件只做**装配**：state 形状与语义见 types.ts 的 CopilotState，动作按
  * 关注点分片在同目录：
+ * - backends.ts      agent 后端选择（新建会话用 pi / dsh，持久化偏好）
  * - session.ts       会话生命周期（进入业务范围/切换/历史回放与分页）
  * - turn.ts          一轮对话（发送、流生命周期、插话、后台任务）
  * - approval.ts      审批卡（加载合并/决策/失效清理）
@@ -20,10 +21,11 @@
 import { create } from 'zustand'
 
 import { resetUploadReceipts } from '../outgoing'
-import { readStoredSession, storeSession } from '../persistence'
+import { readStoredSession, storeAgentKind, storeSession } from '../persistence'
 import type { CopilotState } from '../types'
 import { createApprovalSlice } from './approval'
 import { createAttachmentSlice } from './attachment'
+import { createBackendsSlice } from './backends'
 import { createContextUsageSlice } from './context-usage'
 import { createSessionSlice } from './session'
 import { bumpSessionEpoch } from './session-epoch'
@@ -52,6 +54,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   uploadingAttachments: false,
   sending: false,
   draggingFiles: false,
+  dual: false,
   noMoreHistory: false,
   loadingOlder: false,
 
@@ -61,7 +64,14 @@ export const useCopilot = create<CopilotState>((set, get) => ({
     set({ pageHint: hint })
   },
 
+  // 同题双答开关：纯本地偏好，不落库（会话级后端不受影响，见 backends.ts）
+  setDual: (on) => {
+    if (get().dual === on) return
+    set({ dual: on })
+  },
+
   // ── 各关注点分片 ────────────────────────────────────────────────────
+  ...createBackendsSlice(set, get),
   ...createSessionSlice(set, get),
   ...createTurnSlice(set, get),
   ...createApprovalSlice(set, get),
@@ -92,7 +102,11 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       uploadingAttachments: false,
       sending: false,
       draggingFiles: false,
+      dual: false,
+      // 后端清单是部署级信息（不随账号变），保留；只把当前选择交回默认
+      selectedAgentKind: '',
     })
+    storeAgentKind('')
     resetUploadReceipts()
     storeSession(null)
   },

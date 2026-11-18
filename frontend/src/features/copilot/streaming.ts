@@ -6,7 +6,7 @@
  * 循环读到底（done 帧后由服务端关流），调用方无需提前退出。
  */
 
-import { parseSseEvent, takeSseFrames } from './domain'
+import { agentOf, parseSseEvent, runIdOf, takeSseFrames } from './domain'
 import type { AgentStreamEvent } from './types'
 
 type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
@@ -27,13 +27,27 @@ export interface UsagePayload {
   cacheWriteTokens: number
 }
 
+/**
+ * 「这一帧是谁产的」——同题双答时前端靠它把交错的事件分到各自的栏。
+ *
+ * 为什么带在**每个** handler 上而不是进 `StreamHandlers` 的构造参数：一帧只在
+ * 帧解析那一刻知道自己的 `agent`，而 handler 是跨帧复用的。带参数的形状让
+ * 「事件来自哪个 agent」跟着事件走，不会因为 handler 内部记状态而在交错流里
+ * 串栏（两个 agent 的事件是交替到达的，状态一旦落到闭包里就会互相覆盖）。
+ */
+export interface EventOrigin {
+  /** 事件里的 `agent`；缺失时按 pi（见 domain/dual.agentOf） */
+  kind: string
+  runId: string
+}
+
 export interface StreamHandlers {
   /** 思考增量（不计入正文） */
-  onThinking(chunk: string): void
+  onThinking(chunk: string, origin: EventOrigin): void
   /** 正文增量 */
-  onDelta(chunk: string): void
-  onToolCall(event: ToolCallEvent): void
-  onToolResult(event: ToolResultEvent): void
+  onDelta(chunk: string, origin: EventOrigin): void
+  onToolCall(event: ToolCallEvent, origin: EventOrigin): void
+  onToolResult(event: ToolResultEvent, origin: EventOrigin): void
   /** usage 事件（pi 精确计数，一轮内多段 assistant 逐次上报）
    *
    * 传结构体而不是位置参数：字段还会长（cache 已是第三个维度），
@@ -47,7 +61,7 @@ export interface StreamHandlers {
   onCompaction(phase: 'start' | 'end'): void
   /** 首个推进事件（delta/thinking/tool_call/error/done）：清掉排队提示 */
   onProgress(): void
-  onError(message: string): void
+  onError(message: string, origin: EventOrigin): void
   onDone(context?: { used: number | null; total: number | null }): void
 }
 
@@ -65,21 +79,23 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
     for (const frame of frames) {
       const event = parseSseEvent(frame)
       if (!event) continue
+      // 每帧自己的来源：双答时两个 agent 的事件交替到达，绝不能记在 handler 上
+      const origin: EventOrigin = { kind: agentOf(event), runId: runIdOf(event) }
       switch (event.type) {
         case 'thinking':
           h.onProgress()
-          h.onThinking(event.content)
+          h.onThinking(event.content, origin)
           break
         case 'delta':
           h.onProgress()
-          h.onDelta(event.content)
+          h.onDelta(event.content, origin)
           break
         case 'tool_call':
           h.onProgress()
-          h.onToolCall(event)
+          h.onToolCall(event, origin)
           break
         case 'tool_result':
-          h.onToolResult(event)
+          h.onToolResult(event, origin)
           break
         case 'usage':
           h.onUsage({
@@ -102,8 +118,9 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           }
           break
         case 'error':
+          // 每个失败方只发一条（后端保证不堆两条），这里按来源挂到对应栏
           h.onProgress()
-          h.onError(event.message)
+          h.onError(event.message, origin)
           break
         case 'done':
           h.onProgress()

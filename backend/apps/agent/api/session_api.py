@@ -5,18 +5,23 @@
 
 from __future__ import annotations
 
+import importlib.util
 import logging
+from dataclasses import asdict
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import Router
 from ninja.errors import HttpError
 
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..backends import available_kinds as available_backend_kinds
+from ..backends import get as get_backend
+from ..backends.builtin import ensure_registered
 from ..models import AgentSession
 from ..pi.rpc_client import PiError
-from ..schemas import CompactOut, SessionIn, SessionOut, SessionRenameIn, SessionStatsOut
+from ..schemas import BackendOptionOut, CompactOut, SessionIn, SessionOut, SessionRenameIn, SessionStatsOut
 from ..services.session_service import create_session as create_session_record
 from ..services.session_service import delete_session as delete_session_record
 from ..services.session_service import get_session as get_session_record
@@ -28,6 +33,103 @@ from ._helpers import _user_id
 logger = logging.getLogger(__name__)
 
 router = Router(tags=["Agent 会话"], auth=JWTOrSessionAuth())
+
+
+#: kind → 用户可见名的缺省表。不认识的 kind 直接显示 kind 本身（新后端注册后
+#: 前端至少不会看到一个空名字），所以这张表只列**需要中文/友好名**的后端。
+_BACKEND_LABELS: dict[str, tuple[str, str]] = {
+    "pi": ("Pi", "通用 agent 运行时，工具面与技能最全"),
+    "dsh": ("DeepSeek Harness", "DeepSeek 官方 harness 运行时"),
+}
+
+#: dsh 的 Python SDK 模块名（可用性自检用）。
+_DSH_SDK_MODULE = "deepseek_harness"
+
+
+def _backend_option(kind: str, capabilities: dict[str, Any], *, available: bool, reason: str) -> BackendOptionOut:
+    """按缺省标签表拼一条选项（未登记的 kind 用 kind 自身当名字）。"""
+    label, description = _BACKEND_LABELS.get(kind, (kind, ""))
+    return BackendOptionOut(
+        kind=kind,
+        label=label,
+        description=description,
+        available=available,
+        reason=reason,
+        capabilities=capabilities,
+    )
+
+
+def _no_llm_provider_reason() -> str:
+    """LLMProvider 是否可用；不可用时返回面向用户的原因，否则空串。
+
+    同步 ORM，调用方负责用 ``sync_to_async`` 包一层（本端点是 async 的）。
+    复用 ``pi.model_config._load_provider`` 而不是自己写一遍查询：模型来源只能
+    有一处定义，否则「能不能用」的判断和真正解析出来的模型会漂移。
+    """
+    from ..pi.model_config import _load_provider, _provider_models
+
+    provider = _load_provider()
+    if provider is None:
+        return "未配置可用的 LLM 平台（后台需启用至少一个 LLMProvider）"
+    if not _provider_models(provider):
+        return "LLM 平台未配置默认模型"
+    return ""
+
+
+def _dsh_probe() -> tuple[bool, str]:
+    """dsh 后端现在能不能用：SDK 装了 + 有可用 LLMProvider。
+
+    **只做进程内探测，不起 dsh 子进程**：切换器每次打开都会调本端点，为一次
+    探测拉起 node 运行时（冷启动秒级）会拖慢整个面板。真正握手/建会话时的失败
+    由对话链路报错——这里判的是「大概率能跑」，宁可漏报也不让面板卡住。
+
+    SDK 缺失时不 import 它：``DshBackend`` 注册是延迟的，缺包时 import 会抛。
+    """
+    if importlib.util.find_spec(_DSH_SDK_MODULE) is None:
+        return False, "未安装 DeepSeek Harness SDK（deepseek-harness-sdk）"
+    provider_reason = _no_llm_provider_reason()
+    if provider_reason:
+        return False, provider_reason
+    return True, ""
+
+
+def _collect_backend_options() -> list[BackendOptionOut]:
+    """列出可选后端及其可用性（同步：查注册表 + 查 LLMProvider，全在纯同步路径上）。"""
+    ensure_registered()
+    registered = available_backend_kinds()
+    options: list[BackendOptionOut] = []
+    for kind in registered:
+        if kind == "dsh":
+            available, reason = _dsh_probe()
+        else:
+            available, reason = True, ""
+        options.append(
+            _backend_option(kind, asdict(get_backend(kind).capabilities), available=available, reason=reason)
+        )
+    # dsh 未注册（缺 SDK / 未接好）时仍列出，置灰并说明原因：直接不出现会让用户
+    # 以为「本系统没有这个后端」，而真相是「这里缺东西」——后者是可排查、可修的。
+    if "dsh" not in registered:
+        options.append(
+            _backend_option(
+                "dsh",
+                {},
+                available=False,
+                reason="未注册 DshBackend（缺 DeepSeek Harness SDK 或接入未完成）",
+            )
+        )
+    return options
+
+
+@router.get("/backends", response=list[BackendOptionOut])
+async def list_backends(request: Any) -> list[BackendOptionOut]:
+    """列出可用的 agent 后端（前端切换器用）。
+
+    ``available=False`` 的选项要在前端置灰并显示 ``reason``——用户若选了它，
+    报错会发生在**建完会话之后**，而 ``agent_kind`` 是会话级属性、不能中途改，
+    只能换个后端重开。所以可用性必须能提前问出来。
+    未注册的 dsh 也会以置灰条目出现（见 ``_collect_backend_options``）。
+    """
+    return await sync_to_async(_collect_backend_options, thread_sensitive=True)()
 
 
 def _to_out(session: AgentSession) -> SessionOut:

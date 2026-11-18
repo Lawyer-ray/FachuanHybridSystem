@@ -17,6 +17,7 @@ vi.mock('@/lib/api', () => ({ api: apiMock, UPLOAD_TIMEOUT_MS: 300_000 }))
 
 import {
   createSession,
+  fetchBackends,
   uploadAttachment,
   decideApproval,
   deleteSession,
@@ -90,6 +91,29 @@ describe('copilot api', () => {
     expect(apiMock.post).toHaveBeenLastCalledWith('agent/sessions', {
       json: { title: '', origin: 'case', case_id: 12 },
     })
+  })
+
+  it('createSession: 指定 agent_kind 时带进请求体（会话级后端选择）', async () => {
+    await createSession('', undefined, 'dsh')
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions', { json: { title: '', agent_kind: 'dsh' } })
+  })
+
+  it('createSession: 未指定 agent_kind 时不发该字段（交给服务端默认 pi）', async () => {
+    await createSession('新对话')
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions', { json: { title: '新对话' } })
+  })
+
+  it('createSession: agent_kind 与业务范围可同时带', async () => {
+    await createSession('', { origin: 'case', refId: 12 }, 'dsh')
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions', {
+      json: { title: '', origin: 'case', case_id: 12, agent_kind: 'dsh' },
+    })
+  })
+
+  it('fetchBackends: GET agent/backends（切换器数据源）', async () => {
+    apiMock.get.mockReturnValue(chain([]))
+    await fetchBackends()
+    expect(apiMock.get).toHaveBeenCalledWith('agent/backends')
   })
 
   it('deleteSession: DELETE 带会话 id', async () => {

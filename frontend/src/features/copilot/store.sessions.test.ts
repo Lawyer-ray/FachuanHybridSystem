@@ -36,6 +36,7 @@ const session: AgentSession = {
   title: '',
   status: 'active',
   llm_model: '',
+  agent_kind: 'pi',
   created_at: '',
   updated_at: '',
 }
@@ -277,7 +278,8 @@ describe('copilot store：业务上下文', () => {
     useCopilot.setState({ context: { origin: 'contract', refId: 386, title: '张三委托' } })
 
     await useCopilot.getState().send('本案进展如何')
-    expect(copilotApi.createSession).toHaveBeenCalledWith('', { origin: 'contract', refId: 386, title: '张三委托' })
+    // 第三个参数是新会话的 agent 后端（未选择时为空串 = 交给后端默认）
+    expect(copilotApi.createSession).toHaveBeenCalledWith('', { origin: 'contract', refId: 386, title: '张三委托' }, '')
   })
 
   it('上下文内提交后台任务：带 case_id 归属', async () => {
