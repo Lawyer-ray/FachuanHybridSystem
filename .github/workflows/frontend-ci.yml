@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'scripts/check-guardrails-wired.mjs'
       - '.github/workflows/frontend-ci.yml'
   push:
     branches:
@@ -12,6 +13,7 @@ on:
       - dev
     paths:
       - 'frontend/**'
+      - 'scripts/check-guardrails-wired.mjs'
       - '.github/workflows/frontend-ci.yml'
 
 concurrency:
@@ -19,6 +21,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 护栏通电自检：先于一切检查跑，防止「写了检查脚本但从不挂进必经链」。
+  # 纯 Node、无依赖、秒级返回，作为整条 CI 的冒烟闸门。
+  # 背景见 docs/harness/pitfalls.md PIT-001 / PIT-005。
+  guardrails-wired:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Guardrails wired (check scripts must run somewhere)
+        run: node scripts/check-guardrails-wired.mjs
+
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 10

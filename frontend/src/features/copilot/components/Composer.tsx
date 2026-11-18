@@ -100,7 +100,7 @@ export function Composer() {
     },
   })
 
-  const { submit, handleKeyDown, autoGrow } = useComposerSubmit({
+  const { submit, handleKeyDown, autoGrow, onCompositionStart, onCompositionEnd } = useComposerSubmit({
     text, setText, textareaRef, pendingFiles, pendingRefs, pendingQuote, uploading, sending,
     streaming, bgMode, setBgMode, speech, slash, send, steer, submitTask,
   })
@@ -178,6 +178,8 @@ export function Composer() {
               autoGrow()
             }}
             onKeyDown={handleKeyDown}
+            onCompositionStart={onCompositionStart}
+            onCompositionEnd={onCompositionEnd}
           />
           {streaming ? (
             <button type="button" className={STOP_BUTTON_CLASS} onClick={stop} aria-label="停止生成" title="停止生成（已生成部分会保留）">
