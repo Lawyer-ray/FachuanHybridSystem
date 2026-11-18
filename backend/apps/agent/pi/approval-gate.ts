@@ -16,6 +16,7 @@
  *  - FACHUAN_INTERNAL_TOKEN   服务间鉴权（与 Django settings 共享密钥）
  *  - FACHUAN_USER_ID          当前用户 id
  *  - FACHUAN_SESSION_ID       Agent 会话标识
+ *  - FACHUAN_RUN_ID           本次运行的二级寻址键（{session_id}:{agent_kind}:{seq}）
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -27,6 +28,13 @@ const APPROVAL_URL =
 const INTERNAL_TOKEN = process.env.FACHUAN_INTERNAL_TOKEN ?? "";
 const USER_ID = Number(process.env.FACHUAN_USER_ID ?? "0");
 const SESSION_ID = process.env.FACHUAN_SESSION_ID ?? "";
+/**
+ * 二级寻址键：同一会话可能并行跑多个 agent（pi / 后续其他后端），
+ * 只报 session_id 的话前端收到两条 approval_request 分不清是谁的。
+ * 一起送上去，前端靠它把审批卡片挂到正确的栏。
+ * 为空串表示旧行为（只有 session 级寻址），后端有稳定字段可读。
+ */
+const RUN_ID = process.env.FACHUAN_RUN_ID ?? "";
 
 /**
  * 高风险工具判定模式：命中即必须人工审批。
@@ -298,6 +306,7 @@ export default function (pi: ExtensionAPI) {
           risk_level: level,
           user_id: USER_ID,
           session_id: SESSION_ID,
+          run_id: RUN_ID,
           // 附上判定依据，便于审计"为什么这条要高危"与事后调阈值
           risk_basis: {
             by_name: byName,

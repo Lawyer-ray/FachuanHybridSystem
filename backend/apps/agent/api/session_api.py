@@ -13,6 +13,7 @@ from ninja.errors import HttpError
 
 from apps.core.security.auth import JWTOrSessionAuth
 
+from ..backends import available_kinds as available_backend_kinds
 from ..models import AgentSession
 from ..pi.rpc_client import PiError
 from ..schemas import CompactOut, SessionIn, SessionOut, SessionRenameIn, SessionStatsOut
@@ -35,6 +36,8 @@ def _to_out(session: AgentSession) -> SessionOut:
         title=session.title,
         status=session.status,
         llm_model=session.llm_model,
+        # 历史会话无此字段值时兜底 `pi`，与引入 agent_kind 之前的行为一致
+        agent_kind=getattr(session, "agent_kind", "") or "pi",
         origin=session.origin,
         case_id=session.case_id,
         contract_id=session.contract_id,
@@ -51,13 +54,26 @@ def _to_out(session: AgentSession) -> SessionOut:
 
 @router.post("/sessions", response=SessionOut)
 async def create_session(request: Any, payload: SessionIn) -> SessionOut:  # pragma: no cover
-    """新建会话。"""
+    """新建会话。
+
+    ``agent_kind`` 未注册时直接拒绝（HttpError 400），**不静默回退到 pi**：
+    用户以为换了后端而实际没换，比直接报错难发现得多——会先归因于
+    「新模型效果不行」，白白浪费一轮调试。
+    空串仍允许（旧客户端不传），走模型默认值 `pi`。
+    """
+    agent_kind = (payload.agent_kind or "").strip() or "pi"
+    if agent_kind not in available_backend_kinds():
+        raise HttpError(
+            400,
+            f"未注册的 agent 后端：{agent_kind}；可选：{', '.join(available_backend_kinds())}",
+        )
     session = await create_session_record(
         title=payload.title,
         user_id=_user_id(request),
         origin=payload.origin,
         case_id=payload.case_id,
         contract_id=payload.contract_id,
+        agent_kind=agent_kind,
     )
     return _to_out(session)
 

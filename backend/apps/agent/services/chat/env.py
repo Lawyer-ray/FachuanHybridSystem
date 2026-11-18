@@ -2,6 +2,9 @@
 
 ``session_env`` / ``mint_user_token`` 是 chat 包对外共享的公开助手：
 除 stream 编排外，``compact_service`` 也复用同一套会话 env 与凭证铸造逻辑。
+
+注入的变量清单：``FACHUAN_SESSION_ID`` / ``FACHUAN_USER_ID`` / ``FACHUAN_RUN_ID``
+/ ``FACHUAN_USER_TOKEN`` / ``FACHUAN_APPROVAL_URL`` / ``FACHUAN_INTERNAL_TOKEN``。
 """
 
 from __future__ import annotations
@@ -20,10 +23,18 @@ def _worker_id() -> str:
     return os.environ.get("HOSTNAME", "") or socket.gethostname()
 
 
-def session_env(session: AgentSession | None, user_id: int | None, user_token: str = "") -> dict[str, str]:
+def session_env(
+    session: AgentSession | None,
+    user_id: int | None,
+    user_token: str = "",
+    run_id: str = "",
+) -> dict[str, str]:
     """注入给 pi 子进程的会话级环境变量。
 
     - ``FACHUAN_SESSION_ID`` / ``FACHUAN_USER_ID``：审批 extension 回调路由
+    - ``FACHUAN_RUN_ID``：审批回调的**二级寻址键**（``{session_id}:{agent_kind}:{seq}``）。
+      同会话内可并行多个 agent，只按 session 寻址会让审批弹窗分不清是哪次调用；
+      为空时不注入，审批侧回退到只按 session 寻址（兼容旧行为）。
     - ``FACHUAN_USER_TOKEN``：律师本人的 access token，mcp.json 以 ``${...}`` 引用
       作为 Authorization 头（见 ``pi/user_token.py``）。**无 token 也要写空串**：
       让 pi 的变量展开得到空值而不是保留字面量，mcp_server 据此回退服务账号。
@@ -33,6 +44,9 @@ def session_env(session: AgentSession | None, user_id: int | None, user_token: s
         env["FACHUAN_SESSION_ID"] = str(session.session_id)
     if user_id is not None:
         env["FACHUAN_USER_ID"] = str(user_id)
+    # 二级寻址键：调用方不传（旧调用方 / 单 agent 场景）即保持原有行为。
+    if run_id:
+        env["FACHUAN_RUN_ID"] = run_id
     approval_url = os.environ.get("FACHUAN_APPROVAL_URL", "").strip()
     if approval_url:
         env["FACHUAN_APPROVAL_URL"] = approval_url

@@ -1,4 +1,17 @@
-"""stream_chat —— 一轮对话的 SSE 编排（原 chat_service.py 主体）。"""
+"""stream_chat —— 一轮对话的 SSE 编排（原 chat_service.py 主体）。
+
+本层是**编排层**：准入（铸凭证）、落库（消息 / 标题 / ``AgentRun``）、事件总线、
+会话收尾都归它；「跑一轮」本身交给 ``backends`` 注册表里按 kind 取到的后端。
+后端只吐事件，本层把事件先入账再转发，保证「客户端断开时已送达的增量已经在落库
+缓冲里」。
+
+## 遗留的 pi 直接依赖
+
+``PoolQueueTimeoutError`` / ``PiError`` / ``PiNotAvailableError`` 仍从 pi 包里 import：
+它们是**pi 特有异常**，本层要按异常类型给出不同文案（排队超时是「忙」不是故障，
+pi 不可用要引导找管理员）。等接入第二个后端时再收敛成统一的 ``BackendError``
+层次——现在先统一会让「哪个后端坏了」的信息在翻译时丢掉。
+"""
 
 from __future__ import annotations
 
@@ -12,17 +25,17 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 
+from ...backends import RunContext
+from ...backends import get as get_backend
+from ...backends.builtin import ensure_registered
 from ...models import AgentMessage, AgentSession
-from ...pi.bridge import stream_events
 from ...pi.pool import PoolQueueTimeoutError
-from ...pi.rpc_client import PiError, PiNotAvailableError, parse_context_usage
+from ...pi.rpc_client import PiError, PiNotAvailableError
 from ..event_bus import get_bus
 from ..history import render_transcript
-from ..live_sessions import get_live_registry
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
-from ..skill_service import enabled_skill_paths
-from . import env, persist, pool
+from . import env, persist
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +66,15 @@ async def stream_chat(
     两种情况下本轮的助手文本与工具结果都会回写 ``AgentMessage``，那是审计与
     会话回放的权威来源。
     """
+    # 先确保内置后端已注册（幂等）：注册表是进程内全局状态，可能被清空过；
+    # 取后端之前补一次，比依赖「app 启动时那一次」稳得多（见 builtin 模块说明）。
+    ensure_registered()
+
+    # 后端按会话的 ``agent_kind`` 选（模型字段已在 AgentSession 上，历史数据回填为
+    # ``pi``）。未设置 / 未识别时回落到 ``pi``：引入多后端前只有一个后端在跑，
+    # 空串必须等价于引入前的行为。
+    backend = get_backend(getattr(session, "agent_kind", "") or "pi")
+
     # 先铸身份凭证再接受消息：铸不出（用户被删/停用）就整轮拒绝，
     # 不能让工具退回超管服务账号执行。
     try:
@@ -94,6 +116,11 @@ async def stream_chat(
     bus = get_bus()
     external_queue = await bus.register(str(session.session_id))
 
+    # 本轮运行 id：``{session_id}:{agent_kind}:{轮次}``，审批回调与运行记录都靠它归因。
+    # 轮次序号**暂固定为 1**：现在每会话同一时刻只有一轮在跑，多 agent 并行上线时
+    # 再按会话内的并发轮次递增（届时审批弹窗才需要区分「同会话第几轮」）。
+    run_id = f"{session_id}:{backend.kind}:1"
+
     follow_ok = True
     cancelled = False
     model: str | None = None
@@ -111,116 +138,91 @@ async def stream_chat(
     error_kind = ""
     started = time.monotonic()
     try:
-        yield {"type": "meta", "session_id": str(session.session_id), "agent": "pi"}
-        yield {"type": "activity", "status": "thinking", "agent": "pi"}
-
-        pi_pool = await pool.get_pool()
-        # 按请求解析模型：Admin 改了 LLMProvider 默认模型立即生效，
-        # 且 --model 与 models.json 同源不会失配（池配置里的只是兜底）。
-        model = await pool._resolve_model()
-        if model and model != session.llm_model:
-            # 回写实际使用的模型，SessionOut 如实回报（客户端不再传模型）
-            await AgentSession.objects.filter(pk=session.pk).aupdate(llm_model=model)
-        # 会话级 env：extension 靠 FACHUAN_SESSION_ID 把审批回调路由回本会话。
-        # 必须在启动 pi 之前注入，否则回调里 session_id 为空，前端收不到
-        # approval_request，只能等超时走 fail-closed。
-        session_env = env.session_env(session, user_id, user_token=user_token)
-        # 本律师启用的技能目录（`--skill` 注入；偏好查询走同步 ORM，放线程里）。
-        # 无用户身份（测试场景）时给空清单——不注入任何技能也能正常对话。
-        if user_id is not None:
-            skill_paths = await sync_to_async(enabled_skill_paths, thread_sensitive=True)(user_id)
-        else:
-            skill_paths = []
-        # 池满时先告知前端在排队（否则用户只能盯着转圈不知道发生了什么）。
-        # 必须在 acquire 之前看：acquire 里会同步等执行位，事件发不出去。
-        # 用 getattr 容错：测试与自定义池实现不一定带这两个属性。
-        waiting = int(getattr(pi_pool, "waiting", 0) or 0)
-        saturated = bool(getattr(pi_pool, "saturated", False))
-        if waiting > 0 or saturated:
-            yield {
-                "type": "activity",
-                "status": "queued",
-                "agent": "pi",
-                "position": waiting + 1,
-            }
-        async with pi_pool.acquire(
-            session_env=session_env,
-            model=model,
-            session_id=session_id,
+        yield {"type": "meta", "session_id": str(session.session_id), "agent": backend.kind}
+        # 开流即告知「正在思考」：后台进程启动、排队、建连都要时间，这段时间前端
+        # 只有一个静态界面。这是编排层的状态播报（与具体后端无关），所以不走后端事件。
+        yield {"type": "activity", "status": "thinking", "agent": backend.kind, "run_id": run_id}
+        # 直接用注册表里那个后端实例：收尾事实按 ``run_id`` 归集在它身上
+        # （``result_for(run_id)``），并发会话各取各的，不会互相覆盖。
+        ctx = RunContext(
+            run_id=run_id,
+            session=session,
+            user_id=user_id,
+            prompt=prompt_text,
+            user_token=user_token,
+            model=None,
             tool_selection=tool_selection,
-            skill_paths=skill_paths,
-        ) as pi_session:
-            # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。
-            # 不用「两个 get() task + asyncio.wait」—那个写法在 yield 让出控制权后
-            # 容易丢掉已取出的事件（实测表现为只有 activity、无 delta）。
-            # 改为：pi 事件流为主循环，审批事件用非阻塞轮询插队。
-            stream = stream_events(pi_session)
-            pending_next: asyncio.Task[dict[str, Any]] | None = None
-            # 登记运行中会话：用户可在本轮跑到一半时 steer / follow_up。
-            # 必须包在事件循环外面——登记后才有 prompt，否则插话会打空。
-            registry = get_live_registry()
-            await registry.register(str(session.session_id), pi_session)
-            # P2-3：跨 worker 路由注册（Redis 路由表）
-            from ..live_sessions import register_live_route
-
-            register_live_route(str(session.session_id), env._worker_id())
-            try:
-                await pi_session.prompt(prompt_text)
+        )
+        stream = backend.stream(ctx)
+        # 收到 done 就别再 aclose：后端在 done 之前已经写好 ``result``（见
+        # ``pi_backend`` 的 done 分支），aclose 只会白跑一遍关闭流程。
+        stream_exhausted = False
+        try:
+            async for event in stream:
+                # ``None`` 是后端「本 tick 无事件」的让出信号：借这个 tick 把外部总线
+                # 里的审批事件推进来（审批不走后端事件流，见 pi_backend 模块说明）。
                 while True:
-                    while True:
-                        try:
-                            yield external_queue.get_nowait()
-                        except asyncio.QueueEmpty:
-                            break
-
-                    if pending_next is None:
-                        pending_next = asyncio.ensure_future(stream.__anext__())
-                    await asyncio.wait({pending_next}, timeout=0.2)
-                    if not pending_next.done():
-                        continue
-                    task, pending_next = pending_next, None
                     try:
-                        event = task.result()
-                    except StopAsyncIteration:
+                        yield external_queue.get_nowait()
+                    except asyncio.QueueEmpty:
                         break
-                    # delta 先入账再 yield：生成器停在 yield 点被打断（客户端断开）
-                    # 时，已送达的最后一段增量必须已经在落库缓冲里
-                    if event.get("type") == "delta":
-                        assistant_parts.append(str(event.get("content") or ""))
-                    elif event.get("type") == "usage":
-                        # pi 的精确计数：一轮里工具循环会产出多段 assistant，逐段累加
-                        output_tokens_total += int(event.get("output_tokens") or 0)
-                        input_tokens_total += int(event.get("input_tokens") or 0)
-                        cache_read_total += int(event.get("cache_read_tokens") or 0)
-                        cache_write_total += int(event.get("cache_write_tokens") or 0)
-                    elif event.get("type") == "tool_call":
-                        tool_calls_total += 1
-                    elif event.get("type") == "compaction" and event.get("phase") == "end":
-                        # 自动压缩完成：Django 消息表是回放权威，必须留痕；
-                        # 否则律师重开会话只看到 AI「失忆」，没有任何解释。
-                        await persist._persist_compaction_message(session, "自动压缩上下文")
-                    yield event
-                    if event.get("type") == "tool_result":
-                        await persist._persist_tool_message(session, event)
-                    if event.get("type") == "done":
-                        break
-            finally:
-                await registry.unregister(str(session.session_id), pi_session)
-                from ..live_sessions import unregister_live_route
+                if event is None:
+                    continue
 
-                unregister_live_route(str(session.session_id))
-                if pending_next is not None:
-                    # 提前退出（done / 取消）时可能还挂着一次 __anext__，必须收掉，
-                    # 否则任务泄漏并在事件循环关闭时刷 "Task was destroyed" 警告。
-                    pending_next.cancel()
+                # delta 先入账再 yield：生成器停在 yield 点被打断（客户端断开）
+                # 时，已送达的最后一段增量必须已经在落库缓冲里
+                if event.get("type") == "delta":
+                    assistant_parts.append(str(event.get("content") or ""))
+                elif event.get("type") == "usage":
+                    # pi 的精确计数：一轮里工具循环会产出多段 assistant，逐段累加
+                    output_tokens_total += int(event.get("output_tokens") or 0)
+                    input_tokens_total += int(event.get("input_tokens") or 0)
+                    cache_read_total += int(event.get("cache_read_tokens") or 0)
+                    cache_write_total += int(event.get("cache_write_tokens") or 0)
+                elif event.get("type") == "tool_call":
+                    tool_calls_total += 1
+                elif event.get("type") == "compaction" and event.get("phase") == "end":
+                    # 自动压缩完成：Django 消息表是回放权威，必须留痕；
+                    # 否则律师重开会话只看到 AI「失忆」，没有任何解释。
+                    await persist._persist_compaction_message(session, "自动压缩上下文")
+                yield event
+                if event.get("type") == "tool_result":
+                    await persist._persist_tool_message(session, event)
+                if event.get("type") == "done":
+                    # 记下「已见过 done」，但**不 break**：后端生成器在 done 之后还有
+                    # 代码（finally 里注销 live session、收掉挂起的 __anext__；再退
+                    # 出 async with 归还进程），break 会让它永远停在 yield 点、这
+                    # 些收尾一次也不会跑（表现为注册表泄漏、进程不归还）。
+                    # 后端保证 done 是最后一个事件（见 ``base.py`` 契约），所以下一
+                    # 轮 async for 就结束。
+                    stream_exhausted = True
+        finally:
+            # 客户端断开 / 取消时本生成器停在 ``yield`` 点收到 GeneratorExit。后端那侧
+            # 必须被关掉：它的 finally 要注销 live session、收掉挂起的 ``__anext__``，
+            # ``pool.acquire`` 的退出路径才走得到取消分支
+            # （close(abort_running=True) → 先 clear_queue + abort 再关进程）。
+            #
+            # **不能在这里 await ``stream.aclose()``**：真实 pi 进程的关闭要屏蔽外层
+            # 取消、跑完整套 abort 流程（可能耗时数百毫秒），而 GeneratorExit 路径上
+            # 的 await 会把「用户按停止」变成「等半天没反应」——原实现在这里也不
+            # await，取消语义由 ``pool.acquire.__aexit__`` 自己担。改成派一个后台
+            # 任务去关：既不会卡住前端，也不会因 GC 时机不确定而泄漏子进程。
+            if not stream_exhausted:
+                task = asyncio.ensure_future(stream.aclose())
+                task.add_done_callback(persist._log_task_failure)
 
-            # 轮正常结束、pi 进程还活着（仍在 async with 内）：取一次会话水位，
-            # 供 done 事件与 AgentRun。异常路径不会走到这里；stats 失败只降级
-            # （水位 None），不影响对话本身。
-            try:
-                context_used, context_total = parse_context_usage(await pi_session.get_session_stats())
-            except Exception:
-                logger.warning("会话上下文水位获取失败（不影响对话）", exc_info=True)
+        # 收尾事实（实际模型、上下文水位）按 run_id 向后端取——异步生成器的 return
+        # 值取不到，而后端在 done 之前就已把它写好。后端没实现 ``result_for`` 时
+        # 保持上面的缺省值（模型 ``None``、水位 ``None``），不编造数据。
+        result_for = getattr(backend, "result_for", None)
+        result = result_for(run_id) if result_for is not None else None
+        if result is not None:
+            # 实际用的模型与水位都要回写：SessionOut 如实回报（客户端不再传模型），
+            # done 事件与 AgentRun 也要用同一个值（两处不一致会让成本对不上账）。
+            model = result.model
+            context_used, context_total = result.context_used, result.context_total
+            if model and model != session.llm_model:
+                await AgentSession.objects.filter(pk=session.pk).aupdate(llm_model=model)
 
     except (GeneratorExit, asyncio.CancelledError):
         # 客户端断开/中止：已流出的部分回答也要落库（见 finally），再按生成器语义上抛。

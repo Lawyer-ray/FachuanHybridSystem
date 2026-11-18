@@ -165,7 +165,7 @@ def _fake_runtime(monkeypatch: pytest.MonkeyPatch) -> asyncio.Event:
 
     monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_get_pool)
     monkeypatch.setattr("apps.agent.services.chat.pool._resolve_model", fake_model)
-    monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
+    monkeypatch.setattr("apps.agent.backends.pi_backend.stream_events", fake_stream)
     monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
     return release
 
@@ -231,7 +231,7 @@ async def test_happy_path_records_title_and_persists_text(monkeypatch: pytest.Mo
 
     monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_get_pool)
     monkeypatch.setattr("apps.agent.services.chat.pool._resolve_model", fake_model)
-    monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
+    monkeypatch.setattr("apps.agent.backends.pi_backend.stream_events", fake_stream)
     from apps.agent.services.event_bus import EventBus
 
     monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
@@ -268,7 +268,7 @@ async def test_auto_title_strips_anchor_prefix(monkeypatch: pytest.MonkeyPatch) 
         return _FakePool()
 
     monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_get_pool)
-    monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
+    monkeypatch.setattr("apps.agent.backends.pi_backend.stream_events", fake_stream)
     from apps.agent.services.event_bus import EventBus
 
     monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)

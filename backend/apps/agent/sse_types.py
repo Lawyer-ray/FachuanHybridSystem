@@ -21,6 +21,8 @@ class MetaEvent(BaseModel):
     type: Literal["meta"]
     session_id: str
     agent: str = ""
+    # 本次运行的二级寻址键（{session_id}:{agent_kind}:{seq}）；空串=旧行为
+    run_id: str = ""
 
 
 class ActivityEvent(BaseModel):
@@ -30,6 +32,7 @@ class ActivityEvent(BaseModel):
     status: str
     agent: str = ""
     position: int | None = None
+    run_id: str = ""
 
 
 class DeltaEvent(BaseModel):
@@ -37,6 +40,7 @@ class DeltaEvent(BaseModel):
 
     type: Literal["delta"]
     content: str
+    run_id: str = ""
 
 
 class ThinkingEvent(BaseModel):
@@ -44,6 +48,7 @@ class ThinkingEvent(BaseModel):
 
     type: Literal["thinking"]
     content: str
+    run_id: str = ""
 
 
 class ToolCallEvent(BaseModel):
@@ -53,6 +58,7 @@ class ToolCallEvent(BaseModel):
     tool_call_id: str
     name: str
     arguments: str | None = None
+    run_id: str = ""
 
 
 class ToolResultEvent(BaseModel):
@@ -63,6 +69,12 @@ class ToolResultEvent(BaseModel):
     name: str
     result: str | None = None
     is_error: bool = False
+    run_id: str = ""
+
+
+# ``run_id`` 语义（本条及以下「属于某次运行产出」的事件均带）：
+# 同一会话可并行多个 agent，前端靠 run_id 把事件挂到正确的栏；
+# 空串 = 旧数据 / 未接入 run_id 的调用方，按会话级处理（向后兼容）。
 
 
 class ApprovalRequestEvent(BaseModel):
@@ -75,6 +87,8 @@ class ApprovalRequestEvent(BaseModel):
     message: str = ""
     risk_level: str = ""
     needs_second_confirmation: bool = False
+    # 二级寻址键：并行 agent 时前端靠它把审批卡片挂到发起该调用的那一栏
+    run_id: str = ""
 
 
 class UsageEvent(BaseModel):
@@ -93,6 +107,7 @@ class UsageEvent(BaseModel):
     input_tokens: int = 0
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
+    run_id: str = ""
 
 
 class QuestionRequestEvent(BaseModel):
@@ -102,6 +117,7 @@ class QuestionRequestEvent(BaseModel):
     question_id: str
     questions: list[dict[str, Any]] = []
     timeout_seconds: int = 180
+    run_id: str = ""
 
 
 class CompactionEvent(BaseModel):
@@ -113,6 +129,7 @@ class CompactionEvent(BaseModel):
 
     type: Literal["compaction"]
     phase: Literal["start", "end"]
+    run_id: str = ""
 
 
 class ErrorEvent(BaseModel):
@@ -120,6 +137,7 @@ class ErrorEvent(BaseModel):
 
     type: Literal["error"]
     message: str
+    run_id: str = ""
 
 
 class DoneEvent(BaseModel):
@@ -135,6 +153,7 @@ class DoneEvent(BaseModel):
     session_id: str
     context_used_tokens: int | None = None
     context_total_tokens: int | None = None
+    run_id: str = ""
 
 
 AgentStreamEvent = (
@@ -161,12 +180,25 @@ def generate_ts() -> str:
  */
 
 export type AgentStreamEvent =
-  | { type: 'meta'; session_id: string; agent?: string }
-  | { type: 'activity'; status: string; agent?: string; position?: number }
-  | { type: 'delta'; content: string }
-  | { type: 'thinking'; content: string }
-  | { type: 'tool_call'; tool_call_id: string; name: string; arguments?: unknown }
-  | { type: 'tool_result'; tool_call_id: string; name: string; result?: string; is_error?: boolean }
+  | { type: 'meta'; session_id: string; agent?: string; run_id?: string }
+  | { type: 'activity'; status: string; agent?: string; position?: number; run_id?: string }
+  | { type: 'delta'; content: string; run_id?: string }
+  | { type: 'thinking'; content: string; run_id?: string }
+  | {
+      type: 'tool_call'
+      tool_call_id: string
+      name: string
+      arguments?: unknown
+      run_id?: string
+    }
+  | {
+      type: 'tool_result'
+      tool_call_id: string
+      name: string
+      result?: string
+      is_error?: boolean
+      run_id?: string
+    }
   | {
       type: 'approval_request'
       approval_id: string
@@ -175,6 +207,7 @@ export type AgentStreamEvent =
       message: string
       risk_level?: string
       needs_second_confirmation?: boolean
+      run_id?: string
     }
   | {
       type: 'usage'
@@ -182,16 +215,24 @@ export type AgentStreamEvent =
       input_tokens: number
       cache_read_tokens: number
       cache_write_tokens: number
+      run_id?: string
     }
   | {
       type: 'question_request'
       question_id: string
       questions: Array<Record<string, unknown>>
       timeout_seconds: number
+      run_id?: string
     }
-  | { type: 'error'; message: string }
-  | { type: 'compaction'; phase: 'start' | 'end' }
-  | { type: 'done'; session_id: string; context_used_tokens?: number; context_total_tokens?: number }
+  | { type: 'error'; message: string; run_id?: string }
+  | { type: 'compaction'; phase: 'start' | 'end'; run_id?: string }
+  | {
+      type: 'done'
+      session_id: string
+      context_used_tokens?: number
+      context_total_tokens?: number
+      run_id?: string
+    }
 """
 
 

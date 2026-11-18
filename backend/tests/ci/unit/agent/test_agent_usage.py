@@ -265,6 +265,12 @@ class TestRecordRun:
             raise RuntimeError("db down")
 
         monkeypatch.setattr(chat_service.AgentRun.objects, "acreate", boom)
+
+        # 断言方式：调用前后都正常返回，且**没有 AgentRun 落库**——
+        # 后者才是「失败被吞掉、对话不受影响」的正面证据。
+        # 只写 `asyncio.run(...)` 不抛异常不算断言（本仓质量门禁禁止零断言用例）：
+        # 若 _record_run 被改成先 acreate 成功再抛，零断言版本也是绿的。
+        before = chat_service.AgentRun.objects.count()
         asyncio.run(
             chat_service._record_run(
                 session=_make_session(),
@@ -278,6 +284,7 @@ class TestRecordRun:
                 duration_ms=1,
             )
         )
+        assert chat_service.AgentRun.objects.count() == before
 
 
 @pytest.mark.django_db
@@ -401,7 +408,7 @@ class TestStreamChatRecordsRun:
 
         monkeypatch.setattr("apps.agent.services.chat.pool.get_pool", fake_pool)
         monkeypatch.setattr("apps.agent.services.chat.pool._resolve_model", fake_model)
-        monkeypatch.setattr("apps.agent.services.chat.stream.stream_events", fake_stream)
+        monkeypatch.setattr("apps.agent.backends.pi_backend.stream_events", fake_stream)
         monkeypatch.setattr(EventBus, "_ensure_relay", lambda self: None)
 
     @pytest.mark.django_db(transaction=True)
