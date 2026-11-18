@@ -15,12 +15,17 @@
  * 拆出时刻意保留「拿同一份 state + hook 返回」的形态：send/steer/submitTask
  * 是 zustand 稳定引用，speech 与 slash 的交互态（listening / onKeyDown）必须
  * 由 Composer 传给 textarea / toolbar，故以参数注入而不是在本文件重新取。
+ *
+ * IME 守卫（useImeEnterGuard）在本文件内挂载并把 composition 处理器一并返回，
+ * 由 Composer 绑到 textarea：合成态的生命周期与 Enter 判定必须在同一处，
+ * 拆给两处会漂移。
  */
 
 import type { RefObject } from 'react'
 
 import { defaultOutgoingPrompt } from '../domain'
 import type { FolderRefDraft, SelectionQuote } from '../types'
+import { useImeEnterGuard } from './use-ime-enter-guard'
 
 export interface ComposerSubmitOptions {
   text: string
@@ -61,6 +66,9 @@ export function useComposerSubmit(options: ComposerSubmitOptions) {
     submitTask,
   } = options
 
+  /** 输入法 Enter 守卫：选词确认的 Enter 不能当发送（PIT-006） */
+  const ime = useImeEnterGuard()
+
   /** 跟随内容自适应高度（1–5 行） */
   const autoGrow = () => {
     const el = textareaRef.current
@@ -99,7 +107,17 @@ export function useComposerSubmit(options: ComposerSubmitOptions) {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+    // 合成中 / compositionend 后尾随窗口的 Enter 一律吞掉，且必须在 slash 之前：
+    // 菜单开着时 Enter 本来是「选中菜单项」，但选词那次 Enter 绝不能顺带选中它。
+    if (ime.shouldIgnoreEnter(e)) {
+      ime.guardEnter(e)
+      return
+    }
+    // Shift+Enter 是换行，永远不是发送，也**不该被 slash 菜单当成「选中项」**：
+    // slash.onKeyDown 的 case 'Enter' 不看 shiftKey，菜单开着时 Shift+Enter 会
+    // 直接 apply 选中项。所以在问菜单之前就短路——换行是输入法/浏览器的事。
+    if (e.key === 'Enter' && e.shiftKey) return
+    if (e.key === 'Enter') {
       // 菜单开着时 Enter 是「选中菜单项」不是「发送」；其余菜单键同理短路
       if (slash.onKeyDown(e)) {
         e.preventDefault()
@@ -114,5 +132,12 @@ export function useComposerSubmit(options: ComposerSubmitOptions) {
     }
   }
 
-  return { submit, handleKeyDown, autoGrow }
+  return {
+    submit,
+    handleKeyDown,
+    autoGrow,
+    ime,
+    onCompositionStart: ime.onCompositionStart,
+    onCompositionEnd: ime.onCompositionEnd,
+  }
 }

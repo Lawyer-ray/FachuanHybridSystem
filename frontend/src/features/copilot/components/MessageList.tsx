@@ -11,9 +11,6 @@
 
 import { memo, useEffect, useRef, useState } from 'react'
 import { Brain, Briefcase, Check, Copy, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
-import remarkGfm from 'remark-gfm'
 
 import { useAuth } from '@/features/auth'
 import { LoadingBlock } from '@/components/shared/AsyncState'
@@ -21,9 +18,11 @@ import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
 import '../copilot.css'
 import { bizHintParts, shortToolName } from '../domain'
+import { useSmoothStreamText } from '../hooks/use-smooth-stream-text'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
+import { AssistantMarkdown } from './AssistantMarkdown'
 import { CopilotWelcome } from './CopilotWelcome'
 import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
 import { UserAvatar } from './UserAvatar'
@@ -128,6 +127,18 @@ function CopyButton({ text }: { text: string }) {
 
 const Bubble = memo(function Bubble({ message }: { message: ChatMessage }) {
   const user = useAuth((s) => s.user)
+  // 流式平滑放字：只对正在直播的 assistant 消息生效，历史消息与非直播原样返回。
+  // 见 docs/harness/pitfalls.md PIT-007 —— 直接渲染原始 delta 会「一顿一顿」，
+  // 且每来一个字就重解析整篇 markdown（成本随回复长度线性涨，长回复掉帧）。
+  //
+  // **必须放在所有 early return 之前**：hook 调用顺序不能依赖 message.role，
+  // 否则同一位置在 role 切换（tool → assistant）时会改变 hook 数量，React 直接报错。
+  // 非 assistant 消息传 live=false，hook 内部直接返回 full，不调度任何动画帧。
+  const smoothContent = useSmoothStreamText(
+    message.content,
+    message.role === 'assistant' && message.streaming === true,
+  )
+
   if (message.role === 'tool') return <ToolRow message={message} />
 
   if (message.role === 'user') {
@@ -186,24 +197,18 @@ const Bubble = memo(function Bubble({ message }: { message: ChatMessage }) {
     )
   }
 
+  const content = smoothContent
+
   const showCopy = !message.streaming && Boolean(message.content)
   return (
     <div className="group relative max-w-full text-[13px] leading-relaxed text-foreground">
       <ThinkingBlock message={message} />
-      {message.content ? (
+      {content ? (
         // assistant 回答按 Markdown 渲染（gfm：表格/删除线/任务列表）；
         // react-markdown 默认不执行原始 HTML，无注入面；
         // rehype-highlight 只处理标注了语言的代码块（detect 关闭）
         <div className="copilot-md break-words pr-0">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
-            components={{
-              a: (props) => <a {...props} target="_blank" rel="noreferrer" />,
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+          <AssistantMarkdown text={content} streaming={message.streaming === true} />
         </div>
       ) : message.streaming ? null : message.thinking ? null : (
         '（无内容）'

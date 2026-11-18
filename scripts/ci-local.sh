@@ -9,6 +9,7 @@
 #   ./scripts/ci-local.sh --backend    # 仅后端
 #
 # 对照表（本脚本 → GitHub CI job）：
+#   [0]  guardrails-wired     → frontend-ci / guardrails-wired（护栏通电自检，见 pitfalls.md PIT-005）
 #   [1]  security-guard       → backend-security-guard
 #   [2]  repository-hygiene   → backend (Repository hygiene step)
 #   [3]  compileall           → backend (Compile Python step)
@@ -147,6 +148,29 @@ export HYPOTHESIS_PROFILE=default
 
 BACKEND_PYTHON="$BACKEND_DIR/.venv/bin/python"
 BACKEND_PYTEST="$BACKEND_DIR/.venv/bin/pytest"
+
+# ============================================================
+#  [0] 护栏通电自检（跨前后端，最先跑，快失败）
+# ============================================================
+# 防止「写了检查脚本但从不挂进必经链」——没人执行的护栏等于没有护栏，
+# 而且还多一份维护税。见 docs/harness/pitfalls.md PIT-001 / PIT-005。
+# 纯 Node、无依赖、秒级返回，所以放在所有检查之前当冒烟闸门。
+if [ "$RUN_BACKEND" = true ] || [ "$RUN_FRONTEND" = true ]; then
+  echo -e "\n${CYAN}╔══════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}║          护栏通电自检                        ║${NC}"
+  echo -e "${CYAN}╚══════════════════════════════════════════════╝${NC}"
+  header "0" "护栏通电 (guardrails wired)"
+  if command -v node > /dev/null 2>&1 \
+    && node "$ROOT_DIR/scripts/check-guardrails-wired.mjs" > /dev/null 2>&1; then
+    pass "guardrails-wired"
+  elif ! command -v node > /dev/null 2>&1; then
+    skip "guardrails-wired（未安装 node）"
+  else
+    # 失败时重跑一次把明细打到屏幕，避免只看到一行 ✗ 无从下手
+    node "$ROOT_DIR/scripts/check-guardrails-wired.mjs" || true
+    fail "guardrails-wired"
+  fi
+fi
 
 # ============================================================
 #  后端检查

@@ -5,7 +5,7 @@
  * store 直接 setState 注入转录，不 mock 网络。
  */
 import { act, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useCopilot } from '../store'
 import { MessageList } from './MessageList'
@@ -21,6 +21,42 @@ vi.mock('react-markdown', async () => {
   markdownSpy.mockImplementation(actual.default)
   return { ...actual, default: markdownSpy }
 })
+
+/**
+ * 动画帧控制：useSmoothStreamText 用 rAF 逐拍放字，测试里同步推进。
+ * 不桩掉的话 jsdom 的 rAF 由定时器驱动，断言时机不可控。
+ */
+let rafQueue: FrameRequestCallback[] = []
+let rafSeq = 0
+
+beforeEach(() => {
+  rafQueue = []
+  rafSeq = 0
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+    rafQueue.push(cb)
+    rafSeq += 1
+    return rafSeq
+  })
+  vi.stubGlobal('cancelAnimationFrame', () => {
+    rafQueue = []
+  })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+/** 推进若干帧，直到没有排队回调（平滑放字每帧会重新排下一帧） */
+function stepAllFrames(maxFrames = 400) {
+  for (let i = 0; i < maxFrames; i += 1) {
+    const pending = rafQueue
+    rafQueue = []
+    if (pending.length === 0) return
+    act(() => {
+      for (const cb of pending) cb(0)
+    })
+  }
+}
 
 function renderWithMessages(messages: ChatMessage[]) {
   useCopilot.setState({ messages, streaming: false, loadingHistory: false, approvals: [], lastError: null })
@@ -89,10 +125,21 @@ describe('MessageList：流式重渲染（P1-3）', () => {
       })
     })
 
-    // 只有流式那条重算 Markdown，两条历史气泡按引用相等 bail out
-    expect(markdownSpy).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('第一条历史回答')).toBeTruthy()
+    // 流式那条在首帧还没有可见文本（平滑放字从空开始），所以此刻
+    // 没有任何新的 Markdown 渲染 —— 这本身就是「历史气泡没有重渲染」的证据：
+    // 若 Bubble 未 memo，两条历史气泡会被重算，计数应为 2 而不是 0。
+    expect(markdownSpy).toHaveBeenCalledTimes(0)
+
+    // 推进动画帧，让流式那条平滑放出到全文（见 docs/harness/pitfalls.md PIT-007）
+    stepAllFrames()
     expect(screen.getByText('正文…又长了')).toBeTruthy()
+
+    // 推完之后：新文本只由流式那条渲染，两条历史气泡仍未重算。
+    // 分块路径下流式内容可能被拆成多块，所以这里断言「>= 1 且历史气泡没被算进去」。
+    const rendered = markdownSpy.mock.calls.map((args) => String(args[0]?.children ?? ''))
+    expect(rendered.join('')).toContain('正文…又长了')
+    expect(rendered.join('')).not.toContain('第一条历史回答')
+    expect(rendered.join('')).not.toContain('第二条历史回答')
   })
 })
 

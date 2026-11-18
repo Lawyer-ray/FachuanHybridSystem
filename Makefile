@@ -7,6 +7,9 @@ GREEN := \033[0;32m
 YELLOW := \033[0;33m
 NC := \033[0m
 
+guardrails: ## 护栏通电自检：检查脚本是否都挂进了必经链（见 docs/harness/pitfalls.md PIT-005）
+	@node scripts/check-guardrails-wired.mjs --list
+
 ci: ## 快速本地 CI（不需要数据库：ruff + mypy + tsc + eslint + build + bandit + pip-audit）
 	@bash scripts/ci-local.sh --quick
 
