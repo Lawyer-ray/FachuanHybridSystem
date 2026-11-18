@@ -56,6 +56,7 @@ logger = logging.getLogger(__name__)
 # 每次发事件都要多一次 ``import`` 查字典，且「SDK 没装」的失败点会从 import
 # 边界漂到 stream 里——那时已经建好会话、铸好凭证，回滚代价大得多。
 from deepseek_harness import DeepSeekHarness, DeepSeekHarnessConfig
+from deepseek_harness.errors import JsonRpcError, SdkProtocolError
 from deepseek_harness.models import Notification
 
 #: 审批接线是否完成。``False`` = fail-closed stub：收到审批请求即拒绝并记日志。
@@ -473,7 +474,27 @@ class DshBackend:
 
         def _run_blocking() -> None:
             try:
-                harness.run(ctx.prompt, session_id=session_id, on_notification=_on_notification)
+                # **不能直接用 ``harness.run(session_id=...)``**：SDK 的实现是
+                # ``self.start_session(session_id).run(...)``，而 ``start_session``
+                # 对已存在的会话会抛
+                #   ``JsonRpcError: session "<uuid>" already exists``。
+                # dsh 把会话持久化在 ``$DSH_HOME/sessions`` 下，所以同一
+                # ``AgentSession`` 的**第二轮对话必炸**（真实事故 2026-11-19）。
+                #
+                # 正确路径：先 ``resume_session``（恢复磁盘上的历史），再在
+                # 那个 Session 上 ``run``；只有全新会话才 ``start_session``。
+                # 这也是「多轮上下文由 dsh 自己管」的落地方式——我们只给 id，
+                # 历史由它从自己的 home 读回来。
+                try:
+                    harness.resume_session(session_id).run(ctx.prompt, on_notification=_on_notification)
+                except (SdkProtocolError, JsonRpcError) as resume_exc:
+                    # 首轮 / home 被清过：resume 失败是**预期**的，转新建。
+                    # 其它异常（传输断了、runtime 崩了）不该被这里吞掉——
+                    # 那会把「后端不可用」误报成「新建会话」，更难排查。
+                    if "already exists" in str(resume_exc):
+                        raise
+                    logger.debug("dsh 会话 %s 尚无持久化历史，转新建（%s）", session_id, type(resume_exc).__name__)
+                    harness.start_session(session_id).run(ctx.prompt, on_notification=_on_notification)
             except BaseException as exc:
                 # 捕 ``BaseException`` 而不是 ``Exception``：运行线程里的任何逃逸异常
                 # 都会让 ``run()`` 永远不返回而消费侧无限等待，捕范围越宽越安全。

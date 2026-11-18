@@ -256,7 +256,16 @@ class _StubHarness:
         self.thread_names: list[str] = []
         self.closed = False
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - 仅为子类可读
+        super().__init_subclass__(**kwargs)
+
     def run(self, prompt: str, *, session_id: str, on_notification: Any) -> None:
+        """**旧形状**：``harness.run(prompt, session_id=...)``。
+
+        生产路径已不再用它（改用 ``resume_session().run()``，见下）。保留是为了
+        让「有人误用旧接口」时测试能立刻红——真 SDK 的 ``run(session_id=...)``
+        对已存在会话会抛 ``already exists``。
+        """
         import threading
 
         from deepseek_harness.models import Notification
@@ -266,6 +275,27 @@ class _StubHarness:
             on_notification(Notification(method=method, payload=payload))
         if self._error is not None:
             raise self._error
+
+    def resume_session(self, session_id: str) -> Any:
+        """返回一个可 ``run(prompt, on_notification=...)`` 的 Session 桩。
+
+        对应 SDK 的 ``DeepSeekHarness.resume_session``：恢复磁盘上的历史再续跑。
+        生产代码用它处理「同一 AgentSession 的第二轮」——直接用
+        ``harness.run(session_id=...)`` 会命中 ``session ... already exists``
+        （真实事故 2026-11-19）。
+        """
+        harness = self
+
+        class _Session:
+            id = session_id
+
+            def run(self, prompt: str, *, on_notification: Any) -> None:
+                harness.run(prompt, session_id=session_id, on_notification=on_notification)
+
+        return _Session()
+
+    def start_session(self, session_id: str) -> Any:
+        return self.resume_session(session_id)
 
     def close(self) -> None:
         self.closed = True
@@ -810,3 +840,41 @@ class TestThinkingConfiguration:
         assert _thinking_for(_P(True, True), tmp_path) is True
         assert _thinking_for(_P(True, False), tmp_path) is False
         assert _thinking_for(_P(False, True), tmp_path) is False
+
+
+class TestMultiTurnResume:
+    """同一 AgentSession 的第二轮必须走 resume，不能重新 start_session。
+
+    真实事故（2026-11-19）：律师第二次发言时后端报
+    ``deepseek_harness.errors.JsonRpcError: session "<uuid>" already exists``，
+    SSE 直接断流。根因是 ``harness.run(prompt, session_id=...)`` 内部走
+    ``start_session()``，而 dsh 把会话**持久化在磁盘**上——第二轮必然撞号。
+    """
+
+    def test_second_turn_uses_resume_not_start(self) -> None:
+        """生产代码必须先 resume_session 再 run（否则第二轮必炸）。"""
+        import inspect
+
+        from apps.agent.backends import dsh_backend as mod
+
+        # `_stream` 里嵌套了 `_run_blocking`，`getsource(_stream)` 拿不到那段，
+        # 所以查整个模块的源码。
+        src = inspect.getsource(mod)
+        assert "harness.resume_session(session_id).run(" in src, "生产路径必须用 resume_session 续跑已有会话"
+        # 反向断言：不能再出现裸 `harness.run(..., session_id=...)`（那是撞号的老写法）
+        assert "harness.run(ctx.prompt, session_id=session_id" not in src
+
+    def test_stub_exposes_both_paths(self) -> None:
+        """桩与真 SDK 同形：resume_session 与 start_session 都存在。"""
+        stub = _StubHarness([])
+        assert hasattr(stub, "resume_session")
+        assert hasattr(stub, "start_session")
+        # resume 出来的 Session 能直接 run
+        called: list[str] = []
+
+        class _H(_StubHarness):
+            def run(self, prompt: str, *, session_id: str, on_notification: Any) -> None:
+                called.append(prompt)
+
+        _H([]).resume_session("s-1").run("hello", on_notification=lambda _n: None)
+        assert called == ["hello"]
