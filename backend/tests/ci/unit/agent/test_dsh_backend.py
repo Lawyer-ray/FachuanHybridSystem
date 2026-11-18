@@ -462,6 +462,19 @@ class TestHarnessPool:
         assert pool.size == 0
 
 
+@pytest.fixture(autouse=True)
+def _no_dsh_profile_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认关闭 dsh profile 自动引导。
+
+    ``dsh_home_for()`` 会调 ``_ensure_profile()``，后者在缺 profile 时会**真的去跑
+    ``dsh plugin add``（联网装包）**。单测不需要它，而且在 CI（无网络 / 无 pnpm）
+    里会以 exit 127 失败——实测曾让 8 个用例全红。
+
+    要验引导行为本身的用例自己打开（或直接测 ``_ensure_profile``）。
+    """
+    monkeypatch.setenv("FACHUAN_DSH_AUTO_PROFILE", "0")
+
+
 class TestDshConfig:
     def test_maps_base_url_key_and_model(self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(DSH_HOME_ENV, str(tmp_path))

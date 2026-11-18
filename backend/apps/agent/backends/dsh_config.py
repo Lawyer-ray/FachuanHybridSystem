@@ -273,7 +273,14 @@ def _ensure_profile(home: Path) -> None:
         # （表现为「装了但工具面为空」）。实测踩到过。
         profile_dir.symlink_to(shared / "profiles" / "sdk", target_is_directory=True)
         logger.info("dsh profile 已链到共享安装：%s -> %s", profile_dir, shared)
-    except OSError:
+    except Exception:  # 引导失败必须降级，不能拖垮对话
+        # **刻意宽捕获**：这一步会调外部 `dsh` 子进程（网络装包），失败原因五花八门
+        # ——CI 无网络（exit 127）、pnpm 权限、目标目录只读、subprocess 超时……
+        # 设计约定是「工具面缺失」而**不是**「对话失败」（见函数 docstring）：
+        # 模型本身能跑，把引导错误上抛会把「能用」变成「不能用」。
+        #
+        # 实测教训：原先只 catch OSError，而 subprocess.CalledProcessError 是
+        # SubprocessError 子类**不是** OSError —— CI 里 8 个用例因此全红。
         logger.warning("dsh profile 引导失败（本会话无业务工具，但可对话）", exc_info=True)
 
 

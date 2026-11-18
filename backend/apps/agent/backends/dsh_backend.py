@@ -559,7 +559,17 @@ class DshBackend:
         与 `pi/rpc_client.py` 的 `_clean_env` 是同一个坑、同一种解法。
         """
         sdk_config = DeepSeekHarnessConfig(**config.sdk_kwargs())
-        return await sync_to_async(_acquire_without_proxy, thread_sensitive=False)(self._pool, ctx, sdk_config)
+        # 用**本模块自己的 executor**（`_executor`，thread_name_prefix="dsh-run"），
+        # 不用 ``sync_to_async(..., thread_sensitive=False)``。
+        #
+        # 理由（本仓 `test_db_pool_default_off` 的审计要求）：
+        # 起 dsh 子进程是**秒级长任务**且**完全不碰 DB**，thread_sensitive=False
+        # 会把这类长任务塞进全局共享线程池，挤占其它 sync_to_async 的槽位
+        # （历史上就因此引发过 PoolTimeout）。审计用例的建议正是「长任务改用
+        # 显式 executor」——这里照做，同时让 `thread_sensitive=False` 的总量
+        # 保持基线不变（新增必须被看见，但能不新增就不新增）。
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, _acquire_without_proxy, self._pool, ctx, sdk_config)
 
     # ── 事件消费与翻译 ───────────────────────────────────────────────────
 
