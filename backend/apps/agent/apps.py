@@ -13,6 +13,37 @@ class AgentConfig(AppConfig):
     verbose_name = "Agent 运行时（pi）"
 
     def ready(self) -> None:
+        """注册内置 agent 后端 + 记忆相关的周期任务。
+
+        ## 为什么后端注册放在 ready() 而不是模块导入副作用
+
+        导入副作用依赖「有人先 import 了那个模块」，而 ``services/chat/stream.py``
+        取后端是在请求处理时才发生的一一开发机上跑一轮对话、后台 djq worker
+        跑任务、单元测试直接调 ``stream_chat``，三条路径没有任何一个保证先
+        import 过 ``pi_backend``。漏了就在第一轮对话里报「未知 agent backend」，
+        而且只在冷启动后的**第一轮**暴露，最难复现。
+
+        ``ready()`` 是 Django 保证在 app 可用后执行一次的钩子，三种入口都有。
+
+        ## 为什么注册失败不阻断启动
+
+        与下面的调度表注册相反：后端注册表是进程内纯内存操作，不会因为数据库未
+        migrate 而失败。它真的失败（比如代码里写了两个 ``kind="pi"``）是开发期
+        错误，此时继续启动只会把错误推到用户请求上。所以要让它直接抛出去
+        （不包 try），启动即失败、部署即回滚。
+        """
+        # 延后 import：``builtin`` 会连带拉起 pi 的 rpc / 池依赖，放在模块头
+        # 会让 ``import apps.agent.apps`` 就把 pi 整包加载进来（含子进程相关模块）。
+        from .backends.builtin import ensure_registered
+
+        # 启动时先装一遍；同一个函数也在 ``stream_chat`` 取后端前调，注册表
+        # 被清空也能自愈（幂等）。两处都走它，避免两套注册逻辑漂移。
+        ensure_registered()
+
+        self._register_memory_schedules()
+
+    @staticmethod
+    def _register_memory_schedules() -> None:
         """注册记忆相关的周期任务。
 
         与 ``apps/core/apps.py`` 同一模式：启动时补注册一次，用

@@ -19,6 +19,14 @@ class SessionIn(Schema):
     origin: str = "chat"
     case_id: int | None = None
     contract_id: int | None = None
+    #: 本会话用哪个 agent 后端（默认 `pi`）。
+    #:
+    #: **刻意留在契约里**（与模型参数相反：模型由服务端解析、客户端传了不生效）：
+    #: agent 后端是用户的选择而非部署配置，同一律师可能在不同会话里分别问
+    #: pi 和其他后端做对比，所以必须是客户端可指定的。
+    #: 未注册的 kind 在创建时拒绝（而不是静默回退到 pi），否则用户以为换了后端
+    #: 实际没换——这种「假切换」比报错更难发现。
+    agent_kind: str = "pi"
 
 
 class SessionOut(Schema):
@@ -28,6 +36,8 @@ class SessionOut(Schema):
     title: str
     status: str
     llm_model: str
+    #: 本会话使用的 agent 后端。历史会话回填为 `pi`。
+    agent_kind: str = "pi"
     origin: str
     case_id: int | None = None
     contract_id: int | None = None

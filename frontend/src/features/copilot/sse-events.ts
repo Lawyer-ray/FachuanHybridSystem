@@ -4,12 +4,25 @@
  */
 
 export type AgentStreamEvent =
-  | { type: 'meta'; session_id: string; agent?: string }
-  | { type: 'activity'; status: string; agent?: string; position?: number }
-  | { type: 'delta'; content: string }
-  | { type: 'thinking'; content: string }
-  | { type: 'tool_call'; tool_call_id: string; name: string; arguments?: unknown }
-  | { type: 'tool_result'; tool_call_id: string; name: string; result?: string; is_error?: boolean }
+  | { type: 'meta'; session_id: string; agent?: string; run_id?: string }
+  | { type: 'activity'; status: string; agent?: string; position?: number; run_id?: string }
+  | { type: 'delta'; content: string; run_id?: string }
+  | { type: 'thinking'; content: string; run_id?: string }
+  | {
+      type: 'tool_call'
+      tool_call_id: string
+      name: string
+      arguments?: unknown
+      run_id?: string
+    }
+  | {
+      type: 'tool_result'
+      tool_call_id: string
+      name: string
+      result?: string
+      is_error?: boolean
+      run_id?: string
+    }
   | {
       type: 'approval_request'
       approval_id: string
@@ -18,6 +31,7 @@ export type AgentStreamEvent =
       message: string
       risk_level?: string
       needs_second_confirmation?: boolean
+      run_id?: string
     }
   | {
       type: 'usage'
@@ -25,13 +39,21 @@ export type AgentStreamEvent =
       input_tokens: number
       cache_read_tokens: number
       cache_write_tokens: number
+      run_id?: string
     }
   | {
       type: 'question_request'
       question_id: string
       questions: Array<Record<string, unknown>>
       timeout_seconds: number
+      run_id?: string
     }
-  | { type: 'error'; message: string }
-  | { type: 'compaction'; phase: 'start' | 'end' }
-  | { type: 'done'; session_id: string; context_used_tokens?: number; context_total_tokens?: number }
+  | { type: 'error'; message: string; run_id?: string }
+  | { type: 'compaction'; phase: 'start' | 'end'; run_id?: string }
+  | {
+      type: 'done'
+      session_id: string
+      context_used_tokens?: number
+      context_total_tokens?: number
+      run_id?: string
+    }

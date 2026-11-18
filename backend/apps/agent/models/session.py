@@ -95,6 +95,21 @@ class AgentSession(models.Model):
         verbose_name="状态",
     )
     llm_model = models.CharField(max_length=100, blank=True, default="", verbose_name="模型")
+    #: 本会话使用哪个 agent 后端（对应 `apps.agent.backends` 注册表里的 kind）。
+    #:
+    #: 默认 `pi` 且历史数据全部回填为 `pi`——引入这个字段时只有一个后端在跑，
+    #: 所以「空串 / 未识别」一律按 pi 处理，与引入前行为完全一致。
+    #:
+    #: 为什么要落到会话而不是用户偏好：同一律师可能在不同会话里用不同 agent
+    #: （比如拿不准的案子开两个会话分别问），偏好级配置表达不了这种意图。
+    #: 加 db_index 是因为会话列表按来源/用户筛选时，前端要显示每条的 agent 标识。
+    agent_kind = models.CharField(
+        max_length=32,
+        blank=True,
+        default="pi",
+        db_index=True,
+        verbose_name="Agent 后端",
+    )
     metadata = models.JSONField(default=dict, blank=True, verbose_name="附加数据")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
