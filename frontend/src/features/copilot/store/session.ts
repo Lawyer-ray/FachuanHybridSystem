@@ -70,7 +70,20 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
     if (id === prev.sessionId && !prev.streaming && (id === null || hasView)) return
     get().stop()
     withViewTransition(() => {
-      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [], contextUsage: { used: null, total: null } })
+      // 切会话要清掉上一个会话的待答提问与草稿（与 approvals 同口径）：
+      // 它们是「本会话的交互席位」，跨会话保留会让律师在 B 会话里回答 A 的问题
+      set({
+        sessionId: id,
+        messages: [],
+        approvals: [],
+        pendingQuestions: [],
+        questionDrafts: {},
+        lastError: null,
+        loadingHistory: id !== null,
+        queuePosition: null,
+        queuedSteers: [],
+        contextUsage: { used: null, total: null },
+      })
     })
     storeSession(id)
     if (!id) return

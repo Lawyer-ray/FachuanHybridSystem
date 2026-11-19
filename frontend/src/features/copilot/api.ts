@@ -8,7 +8,7 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -171,6 +171,26 @@ export function fetchContractFolderEntries(contractId: number, subpath = ''): Pr
 /** 给一条助手消息点赞/点踩（反馈回流；rating: up/down/none，none=撤销） */
 export function rateMessage(messageId: number, rating: 'up' | 'down' | 'none'): Promise<Record<string, unknown>> {
   return api.post(`agent/messages/${messageId}/rating`, { json: { rating } }).json<Record<string, unknown>>()
+}
+
+/**
+ * 提交结构化提问的回答（模型反问的答案回流）。
+ *
+ * 字段名对齐后端 `QuestionAnswerIn`：`answers[].selections/text/comment` +
+ * `skipped`。`success=false` 不等于失败——等待方可能已超时（律师过了 180s 才
+ * 点提交），此时答案仍被记录、模型已按假设继续；调用方应按「已记录但本轮已继续」
+ * 提示，不要当成错误重试。
+ */
+export function answerQuestion(
+  questionId: string,
+  payload: { answers: QuestionAnswerItem[]; skipped: boolean },
+): Promise<QuestionAnswerReceipt> {
+  return api.post(`agent/question/${questionId}/answer`, { json: payload }).json<QuestionAnswerReceipt>()
+}
+
+/** 当前律师待回答的提问（重开会话/面板时补拉，避免错过模型的反问） */
+export function fetchPendingQuestions(): Promise<PendingQuestionItem[]> {
+  return api.get('agent/questions/pending').json<PendingQuestionItem[]>()
 }
 
 /** 取消后台任务（排队中可取消；运行中诚实 409） */

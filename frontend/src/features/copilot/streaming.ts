@@ -12,6 +12,7 @@ import type { AgentStreamEvent } from './types'
 type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
 type ToolResultEvent = Extract<AgentStreamEvent, { type: 'tool_result' }>
 type ApprovalEvent = Extract<AgentStreamEvent, { type: 'approval_request' }>
+type QuestionEvent = Extract<AgentStreamEvent, { type: 'question_request' }>
 
 /**
  * usage 事件的归一化载荷。
@@ -55,6 +56,15 @@ export interface StreamHandlers {
    */
   onUsage(usage: UsagePayload): void
   onApproval(event: ApprovalEvent): void
+  /**
+   * 模型反问（结构化提问）。
+   *
+   * 可选实现，但**不实现就等于把提问丢掉**：后端会阻塞等 180s，然后按假设
+   * 继续——法律场景里那等于「AI 自己编了个事实接着干」。所以真正开流的 store
+   * 必须实现它。`questions` 是后端归一化后的自由形状（字段见
+   * services/question.py），由 domain/question.normalizeQuestions 宽容解析。
+   */
+  onQuestion?(event: QuestionEvent, origin: EventOrigin): void
   /** 排队事件：前方名次（1 起，含自己在队列中的位置） */
   onQueued(position: number): void
   /** 上下文压缩进行/完成（自动压缩原本无声，律师会以为 AI「失忆」） */
@@ -123,6 +133,12 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           break
         case 'approval_request':
           h.onApproval(event)
+          break
+        case 'question_request':
+          // 提问不阻断流：卡片与审批同层并列渲染，模型在服务端等回答
+          // （超时即按假设继续，前端仍可补答）
+          h.onProgress()
+          h.onQuestion?.(event, origin)
           break
         case 'compaction':
           h.onCompaction(event.phase)

@@ -29,6 +29,7 @@ import { createApprovalSlice } from './approval'
 import { createAttachmentSlice } from './attachment'
 import { createBackendsSlice } from './backends'
 import { createContextUsageSlice } from './context-usage'
+import { createQuestionSlice } from './question'
 import { createSessionSlice } from './session'
 import { bumpSessionEpoch } from './session-epoch'
 import { createTurnSlice, EMPTY_STATS } from './turn'
@@ -40,6 +41,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   approvals: [],
   streaming: false,
   loadingHistory: false,
+  // pendingQuestions / questionDrafts 由 createQuestionSlice 提供初值（同 approvals 的模式）
   lastError: null,
   turnStats: EMPTY_STATS,
   contextUsage: { used: null, total: null },
@@ -71,6 +73,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   ...createSessionSlice(set, get),
   ...createTurnSlice(set, get),
   ...createApprovalSlice(set, get),
+  ...createQuestionSlice(set, get),
   ...createAttachmentSlice(set, get),
   ...createContextUsageSlice(set, get),
 
@@ -82,6 +85,8 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       sessionId: null,
       messages: [],
       approvals: [],
+      pendingQuestions: [],
+      questionDrafts: {},
       streaming: false,
       loadingHistory: false,
       lastError: null,

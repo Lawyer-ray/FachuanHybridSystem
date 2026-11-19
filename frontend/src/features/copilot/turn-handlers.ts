@@ -7,7 +7,7 @@
  * - finishAssistant 收尾助手气泡（流读尽与 done 双路径都要能调，幂等）
  */
 
-import { estimateTokens, extractRewriteArgs, nextLocalId, parseFileRewrite } from './domain'
+import { estimateTokens, extractRewriteArgs, nextLocalId, normalizeQuestions, parseFileRewrite } from './domain'
 import { FILE_REWRITTEN_EVENT } from './launch'
 import type { EventOrigin, StreamHandlers } from './streaming'
 import { useCopilot } from './store'
@@ -42,6 +42,9 @@ export function createTurnHandlers(
    * 事件，打开中的画布就能就地落修订（免整页重载）。轮结束即随闭包
    * 回收，无跨轮泄漏。 */
   const rewriteArgsById = new Map<string, { original: string; replacement: string }>()
+
+  /** 无 `timeout_seconds` 时的兜底等待窗口（与后端 DEFAULT_QUESTION_TIMEOUT 同值） */
+  const QUESTION_TIMEOUT_FALLBACK_S = 180
 
   /**
    * 这一帧该写进哪条气泡。
@@ -186,6 +189,27 @@ export function createTurnHandlers(
           },
         ],
       }))
+    },
+    onQuestion: (event, origin) => {
+      // 归一化失败（模型给了完全无法解析的题面）时宁可不渲染，也不占着交互席位：
+      // 后端到点会按假设继续，前端多一张空白卡只会让人以为是 bug
+      const questions = normalizeQuestions(event.questions)
+      if (questions.length === 0) return
+      // 事件不带 session（它只出现在某个会话的流上）：入队时补上，
+      // 否则切会话后旧会话的提问会渲染到新会话里
+      const sessionId = useCopilot.getState().sessionId
+      if (!sessionId) return
+      useCopilot.getState().enqueueQuestion({
+        questionId: event.question_id,
+        sessionId,
+        questions,
+        timeoutSeconds:
+          typeof event.timeout_seconds === 'number' && event.timeout_seconds > 0
+            ? event.timeout_seconds
+            : QUESTION_TIMEOUT_FALLBACK_S,
+        receivedAt: Date.now(),
+        ...(origin.kind ? { agentKind: origin.kind } : {}),
+      })
     },
     onQueued: (position) => {
       set({ queuePosition: Math.max(1, position) })

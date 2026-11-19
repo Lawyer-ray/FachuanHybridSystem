@@ -12,6 +12,7 @@
  * - reference.ts  框选引用构建、默认出站提示语、AI 改写落盘识别
  * - approval.ts   审批倒计时窗口（与后端 approval.py 的契约常量）、离线卡映射、状态徽标
  * - attachment.ts 附件预检与大小展示
+ * - question.ts   结构化提问（模型反问）：归一化、草稿变换、答案批次
  * - tokens.ts     输出速度估算
  * - slash.ts      `/` 命令菜单
  * - location.ts   路由 → 页面描述、会话分组
@@ -24,6 +25,7 @@ export * from './attachment'
 export * from './dual'
 export * from './location'
 export * from './progress'
+export * from './question'
 export * from './reference'
 export * from './slash'
 export * from './sse'

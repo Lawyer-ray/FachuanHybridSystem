@@ -26,6 +26,8 @@ const storeMock = vi.hoisted(() => ({
   enterContext: vi.fn(async () => {}),
   exitContext: vi.fn(async () => {}),
   loadPendingApprovals: vi.fn(async () => {}),
+  // 待答提问与待审审批同口径补拉（面板打开/每轮流结束时各一次）
+  loadPendingQuestions: vi.fn(async () => {}),
   refreshHistory: vi.fn(async () => {}),
   // 后端切换器（AgentBackendPicker）读这两项；空清单 = 退化为纯展示
   backends: [] as Array<{ kind: string; label: string; description: string; available: boolean; reason: string; capabilities: Record<string, boolean> }>,

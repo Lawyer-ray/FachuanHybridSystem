@@ -26,6 +26,7 @@ import { useSmoothStreamText } from '../hooks/use-smooth-stream-text'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
+import { QuestionCard } from './questions/QuestionCard'
 import { AssistantMarkdown } from './AssistantMarkdown'
 import { AnswerGroupView } from './AnswerGroupView'
 import { CopilotWelcome } from './CopilotWelcome'
@@ -261,6 +262,7 @@ function QueueBanner({ position }: { position: number }) {
 export function MessageList({ wide = false }: { wide?: boolean } = {}) {
   const messages = useCopilot((s) => s.messages)
   const approvals = useCopilot((s) => s.approvals)
+  const pendingQuestions = useCopilot((s) => s.pendingQuestions)
   const streaming = useCopilot((s) => s.streaming)
   const loadingHistory = useCopilot((s) => s.loadingHistory)
   const lastError = useCopilot((s) => s.lastError)
@@ -280,7 +282,7 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
   useEffect(() => {
     const el = scrollRef.current
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
-  }, [messages, approvals, lastError, queuePosition])
+  }, [messages, approvals, pendingQuestions, lastError, queuePosition])
 
   const empty = messages.length === 0 && !streaming && !loadingHistory
 
@@ -336,6 +338,13 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
         <div className="mt-2.5 flex flex-col gap-2">
           {approvals.map((a) => (
             <ApprovalCard key={a.approvalId} approval={a} />
+          ))}
+        </div>
+      )}
+      {pendingQuestions.length > 0 && (
+        <div className="mt-2.5 flex flex-col gap-2">
+          {pendingQuestions.map((q) => (
+            <QuestionCard key={q.questionId} question={q} />
           ))}
         </div>
       )}

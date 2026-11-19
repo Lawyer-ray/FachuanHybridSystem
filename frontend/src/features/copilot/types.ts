@@ -10,6 +10,8 @@
  * - `state-types.ts`：store 的状态形状（`CopilotState`）。
  */
 
+import type { QuestionItem } from './domain/question'
+
 export type { AgentBackendOption, AgentSpec } from './backend-types'
 export type { CopilotContext, CopilotScope } from './scope-types'
 export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
@@ -222,6 +224,57 @@ export interface PendingApproval {
   decided?: 'approved' | 'rejected'
 }
 
+/**
+ * 待回答的结构化提问（`question_request` 事件 → 问答卡；从 /questions/pending 补拉）
+ *
+ * 与审批**刻意同层但不同语义**：审批是闸门（超时=拒绝，fail-closed），
+ * 提问是求助（超时=模型按假设继续，不阻断）。所以这里没有 expired 决断，
+ * 只有「已继续但可补答」这一态——`continued`。
+ */
+export interface PendingQuestion {
+  questionId: string
+  /**
+   * 提问所属会话。
+   *
+   * **必填才有防串会话的能力**：`question_request` 事件本身不带 session（它只
+   * 在某个会话的 SSE 流上出现），所以入队时由 store 补当前 sessionId；
+   * `GET /questions/pending` 则自带 `session_id`。缺这个字段，A 会话的提问会
+   * 渲染在 B 会话上（红队审查 F11）。
+   */
+  sessionId: string
+  questions: QuestionItem[]
+  /** 后端等待窗口（秒）：到点模型按假设继续，但问题不失效 */
+  timeoutSeconds: number
+  /** 本地收到时刻（倒计时起点，与服务端发事件时刻近似） */
+  receivedAt: number
+  /** 多答时哪一栏问的（事件 `agent`；缺失 = 主栏/单栏） */
+  agentKind?: string
+  /** 提交终态：已答 / 已跳过（终态后卡片只读回显） */
+  submitted?: 'answered' | 'skipped'
+  /** 回答被服务端记录但等待方已超时（`accepted && !success`）：本轮已继续 */
+  continued?: boolean
+  /** 服务端回执里给律师看的一句话（如「回答已记录，但本轮对话已按超时继续」） */
+  note?: string
+  /** 提交在途（按钮置忙，防重复提交） */
+  submitting?: boolean
+}
+
+/** GET /agent/questions/pending 的列表项 */
+export interface PendingQuestionItem {
+  question_id: string
+  session_id: string
+  questions: Record<string, unknown>[]
+  created_at: string
+}
+
+/** POST /agent/question/{id}/answer 的回执 */
+export interface QuestionAnswerReceipt {
+  success: boolean
+  accepted?: boolean
+  note?: string
+  error?: string
+}
+
 /** POST /agent/tasks 的受理回执 */
 export interface AgentTaskReceipt {
   session_id: string
@@ -314,4 +367,7 @@ export interface SlashMenuItem {
 }
 
 /** store 状态形状定义在同目录 `state-types.ts`（体量与关注点都与契约不同） */
+
+/** 结构化提问的题面类型由纯领域模块定义（回流类型与契约分属两处） */
+export type { QuestionAnswerItem, QuestionDraft, QuestionItem, QuestionOption } from './domain/question'
 export type { CopilotState } from './state-types'

@@ -8,7 +8,15 @@
 
 import type { AgentBackendSelection } from './backend-types'
 import type { CopilotContext } from './scope-types'
-import type { ChatMessage, FolderRefDraft, PendingApproval, SelectionQuote, TurnStats } from './types'
+import type {
+  ChatMessage,
+  FolderRefDraft,
+  PendingApproval,
+  PendingQuestion,
+  QuestionDraft,
+  SelectionQuote,
+  TurnStats,
+} from './types'
 
 /**
  * store（useCopilot）的完整状态形状。
@@ -19,6 +27,25 @@ export interface CopilotState extends AgentBackendSelection {
   sessionId: string | null
   messages: ChatMessage[]
   approvals: PendingApproval[]
+  /**
+   * 待回答的结构化提问（模型反问，与审批同层并列，不进转录）。
+   *
+   * 后端 `question_request` 事件已存在且答案回传端点已就绪；这里承载的只是
+   * 「还没答的那几张卡」——超时不等于失效，补拉（loadPendingQuestions）也会写它。
+   */
+  pendingQuestions: PendingQuestion[]
+  /** 提问草稿：键 = `${questionId}:${itemId}`（每道小题独立草稿，面板收起不丢） */
+  questionDrafts: Record<string, QuestionDraft>
+  /** 收到一条提问（事件入口；同 question_id 去重） */
+  enqueueQuestion: (question: PendingQuestion) => void
+  /** 写入/替换某道小题的草稿 */
+  setQuestionDraft: (questionId: string, itemId: string, draft: QuestionDraft) => void
+  /** 提交整组回答（一道未答等同跳过；提交在途置忙，失败保持可重提） */
+  submitQuestion: (questionId: string) => Promise<void>
+  /** 关闭一张提问卡（已答/已超时的僵尸卡；仅本地移除） */
+  dismissQuestion: (questionId: string) => void
+  /** 拉取服务端待答提问并合并（面板打开/重开会话时补拉，避免错过反问） */
+  loadPendingQuestions: () => Promise<void>
   streaming: boolean
   loadingHistory: boolean
   lastError: string | null
