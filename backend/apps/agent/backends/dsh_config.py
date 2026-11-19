@@ -23,6 +23,14 @@ ORM，而 block 模型在事件循环里跑，两者的线程模型完全不同�
 ``extra_models`` 的逗号/分号/换行混写、key 轮转）。再写一套等于让两边的
 「哪个平台算可用」口径分叉——Admin 里改一个 provider，pi 能跑、dsh 跑不了
 （或反过来）是最难查的一类配置故障。
+
+## 读库走缓存，key 轮转不走缓存
+
+每轮现查 ``LLMProvider`` 要付一条 ``sync_to_async`` + ORM 的固定开销（实测
+占首字延迟里约 1.3s 量级）。:func:`build_config` 不传 ``provider`` 时改走
+``gateway_cache.get_gateway_settings``（30s TTL + provider 保存信号失效）。
+缓存只存平台静态配置，**key 轮转仍然每轮现算**——否则轮转会被冻结，
+所有会话压在同一把 key 上（见 ``gateway_cache`` 模块 docstring）。
 """
 
 from __future__ import annotations
@@ -35,7 +43,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
-from ..pi.model_config import _load_provider, _next_key, _provider_keys_and_models, _provider_models
+from ..pi.model_config import _next_key
+from .gateway_cache import get_gateway_settings, model_supports_thinking, settings_from_provider
 
 logger = logging.getLogger(__name__)
 
@@ -574,12 +583,27 @@ def _provider_patch_path(dsh_home: str, *, base_url: str, models: list[str], thi
         #      ——dsh 的模型条目里没有 pi 那套变量求值语义。
         if thinking:
             lines.append("            reasoningEfforts:")
-            # off 必须列上：律师关掉思考时 dsh 要能真的关（否则只能整模型禁用）
-            for effort in ("off", "low", "medium", "high"):
-                lines.append(f"              {effort}: {_q(effort)}")
+            # off 必须列上：律师关掉思考时 dsh 要能真的关（否则只能整模型禁用）。
+            #
+            # 档位集合受**服务端白名单**约束，不是 pi/dsh 的七档全集。
+            # 实测（2026-11-19）DeepSeek V4.1 走 vLLM 的原话：
+            #   ``reasoning_effort must be low, high, xhigh, max, or an integer
+            #   within [1, 100]``
+            # 所以：
+            # - ``medium`` **不能列**：发出去直接 400，选中即整轮对话失败；
+            #   以前这里列了它，等于在 UI 上埋了一个必炸档位。
+            # - ``minimal`` 不列：服务端会静默降成 low，不如直接不给。
+            # - 补上 ``xhigh`` / ``max``：律师要的就是能调到最高。
+            for effort in ("off", "low", "high", "xhigh", "max"):
+                # key 必须加引号：YAML 1.1 把裸的 ``off`` / ``on`` / ``yes`` / ``no``
+                # 解析成**布尔**，于是 ``off: "off"`` 会变成 ``False: 'off'``，
+                # dsh 找不到名为 off 的档位 → 用户无法关闭思考，且不报错。
+                lines.append(f"              {_q(effort)}: {_q(effort)}")
             lines.append("            compat:")
             lines.append("              thinkingFormat: chat-template")
-            lines.append("              supportsReasoningEffort: false")
+            # True：网关实测接受 reasoning_effort（见 pi/model_config.py 同款注释）。
+            # thinking 开关管「要不要想」，effort 管「想多深」，两者互补。
+            lines.append("              supportsReasoningEffort: true")
             lines.append("              maxTokensField: max_tokens")
             lines.append("              chatTemplateKwargs:")
             lines.append("                thinking: true")
@@ -698,6 +722,7 @@ def build_config(
     model_hint: str | None = None,
     provider: Any | None = None,
     user_token: str = "",
+    api_key: str | None = None,
 ) -> DshProviderConfig | None:
     """把当前启用的 ``LLMProvider`` 映射成 dsh 配置；不可用时返回 ``None``。
 
@@ -708,12 +733,17 @@ def build_config(
             显式选择优先，provider 白名单只是「有哪些可选」，不是硬闸门。
         provider: 已查好的 ``LLMProvider``。**调用方在 async 上下文里必须自己用
             ``sync_to_async`` 查好再传**：本函数不会读库，否则在事件循环里调用
-            会抛 ``SynchronousOnlyOperation``；传 ``None`` 时本函数会走同步查询，
-            只适用于已在同步上下文（线程 / 后台任务）里的调用方。
+            会抛 ``SynchronousOnlyOperation``；传 ``None`` 时本函数会走同步查询
+            （带 30s TTL 缓存，见 ``gateway_cache``），只适用于已在同步上下文
+            （线程 / 后台任务）里的调用方。
         user_token: 律师本人的 access token（``RunContext.user_token``，**不是**
             provider key）。``user_id`` 只决定「谁的 home 目录」，拿不到这个请求
             的身份——所以业务工具的 MCP patch 只能由调用方把 token 传进来（见
             :func:`dsh_mcp_patch`）。空串表示本轮无身份，接不上业务工具。
+        api_key: 本轮编排层指定的网关 key（``RunContext.api_key``）。有值时照用，
+            **不再走** ``_next_key`` 轮转——网关限每把 key 的并发（实测 3），
+            同轮多个 agent 必须拿不同的 key（见 ``key_scheduler``）。``None`` /
+            空串保持原口径（每轮现算轮转），与引入本参数前逐字一致。
 
     Returns:
         可用的 dsh 配置；**没有任何可用 provider（或缺 base_url / api_key）时
@@ -721,21 +751,23 @@ def build_config(
         provider 会让请求打到 ``deepseek-official`` 官方端点，用错的 key、
         记错的账，且用户完全看不出发生了什么。
     """
-    if provider is None:
-        provider = _load_provider(model_hint or "")
-    if provider is None:
+    # ``provider`` 传了就用它（同步上下文，已查好）；没传就走缓存路径：命中时
+    # 完全不碰数据库（命中后省掉 sync_to_async 那条固定开销，实测首字延迟里
+    # 约 1.3s 的量级）。TTL 与 ``LLMProvider`` 的 save/delete 信号失效见
+    # ``gateway_cache`` 模块 docstring。
+    settings = settings_from_provider(provider) if provider is not None else get_gateway_settings(model_hint)
+    if settings is None:
         logger.warning("没有启用的 LLMProvider，dsh 无法启动")
         return None
 
-    base_url = str(getattr(provider, "base_url", "") or "").strip()
-    keys, _scopes = _provider_keys_and_models(provider)
+    base_url = settings.base_url
+    keys = list(settings.api_keys)
     if not base_url or not keys:
         logger.warning("LLMProvider 缺少 base_url 或 api_key，dsh 无法启动")
         return None
 
-    models = _provider_models(provider)
-    default_model = str(getattr(provider, "default_model", "") or "").strip()
-    model = (model_hint or "").strip() or default_model or (models[0] if models else "")
+    models = list(settings.models)
+    model = (model_hint or "").strip() or settings.default_model or (models[0] if models else "")
     if not model:
         logger.warning("LLMProvider 未配置任何模型，dsh 无法启动")
         return None
@@ -754,11 +786,10 @@ def build_config(
     # 思考模式：与 pi 同口径——**平台总开关 + 该模型确实是推理模型**两个条件都满足
     # 才声明。只按平台开关不看模型会给普通模型错报能力（网关直接 400，见 pi 侧
     # `_model_entry` 的同款注释）；只按模型不看开关则等于绕过律师/Amon 的配置。
-    thinking_capable = bool(
-        getattr(provider, "enable_thinking", False)
-        and getattr(provider, "supports_thinking", None)
-        and provider.supports_thinking(model)
-    )
+    # 模型能力由 ``gateway_cache.model_supports_thinking`` 统一判：它先问
+    # provider 的 ``supports_thinking``（同步上下文传了 provider 时），走缓存路径
+    # 时用与 ``LLMProvider`` 同一份特征表——同一个模型在两条路径上不会判出两种结果。
+    thinking_capable = bool(settings.enable_thinking and model_supports_thinking(model, provider))
     extra = dsh_patches(home, base_url=base_url, models=declared, thinking=thinking_capable)
     mcp_patch = dsh_mcp_patch(home, user_token=user_token)
     return DshProviderConfig(
@@ -766,8 +797,10 @@ def build_config(
         provider=DEFAULT_PROVIDER,
         model=model,
         base_url=base_url,
-        # 与会话间 key 轮转同源（pi 的 models.json 也走这个），避免所有 dsh 会话
-        # 压在同一把 key 上触发限流。
-        api_key=_next_key(keys),
+        # 编排层指定了本轮的 key 就用它；为空才回落到与会话间 key 轮转同源的口径
+        # （pi 的 models.json 也走这个），避免所有 dsh 会话压在同一把 key 上触发限流。
+        # **轮转每轮现算**：缓存里存的是全部 key，不是「这一轮选哪把」
+        # （见 ``gateway_cache`` 的红线二）。
+        api_key=(api_key or "").strip() or _next_key(keys),
         patches=_insert_before_env_patches(mcp_patch, extra),
     )

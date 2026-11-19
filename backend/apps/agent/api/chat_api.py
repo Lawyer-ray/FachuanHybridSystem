@@ -21,12 +21,14 @@ from ..models import AgentMessage
 from ..pi.rpc_client import PiError
 from ..schemas import ClearQueueOut, MessageIn, MessageOut, SteerIn, SteerOut
 from ..services.chat_service import (
+    MAX_ANSWERS,
     SessionNotLiveError,
     clear_queue_session,
     follow_up_session,
+    normalize_agents,
     steer_session,
     stream_chat,
-    stream_dual,
+    stream_multi,
 )
 from ..services.event_bus import replay_events
 from ..services.live_sessions import forward_steer_to_worker, get_live_worker
@@ -137,14 +139,43 @@ async def send_message(  # pragma: no cover
         if current is None:
             yield _sse({"type": "error", "message": "会话不存在"})
             return
-        # 双答开关：``payload.dual`` 默认 False（成本翻倍，不能默认开）。
-        # 两个编排器产出的是同一种事件流，前端不区分来源；分流靠事件里的
-        # ``agent`` / ``run_id``。
-        events = (
-            stream_dual(session=current, user_message=payload.message, user_id=user_id)
-            if payload.dual
-            else stream_chat(session=current, user_message=payload.message, user_id=user_id)
-        )
+        # 本轮参与方：``agents`` 显式优先，否则退回旧前端的 ``dual`` 开关。
+        #
+        # 编排层不认识具体 kind —— 加第 4、5 个 agent 时这里不需要改，注册进来
+        # 就能选。两种请求体形态（``["pi"]`` / ``[{kind,model}]``）在这里归一成
+        # ``AgentSpec``，下游只见一种形状（含每栏模型）。
+        specs = normalize_agents(payload.agents)
+
+        if len(specs) > MAX_ANSWERS:
+            # 不静默截断：静默截断会让用户以为选中的都跑了，实际少跑了几个还看不出来。
+            yield _sse(
+                {
+                    "type": "error",
+                    "message": f"一次最多同时问 {MAX_ANSWERS} 个 agent，本轮收到 {len(specs)} 个",
+                }
+            )
+            return
+
+        # 单栏直接走 stream_chat（少绕一层，且 done 的形态只有一处定义）。
+        if len(specs) == 1:
+            events = stream_chat(
+                session=current,
+                user_message=payload.message,
+                user_id=user_id,
+                agent_kind=specs[0].kind,
+                model=specs[0].model,
+            )
+        elif specs or payload.dual:
+            # ``specs=None`` + ``dual`` 走「会话默认 + 次选」（老客户端只发
+            # ``dual: true``，见 ``multi.resolve_specs`` 的回落口径）。
+            events = stream_multi(
+                session=current,
+                user_message=payload.message,
+                user_id=user_id,
+                specs=specs or None,
+            )
+        else:
+            events = stream_chat(session=current, user_message=payload.message, user_id=user_id)
         try:
             async for event in events:
                 yield _sse(event)

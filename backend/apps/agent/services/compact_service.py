@@ -21,6 +21,8 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
+from ..backends.gateway_cache import load_api_keys
+from ..backends.key_scheduler import get_key_scheduler
 from ..models import AgentMessage, AgentSession
 from ..pi.pool import PoolQueueTimeoutError
 from ..pi.rpc_client import parse_context_usage
@@ -53,13 +55,30 @@ async def compact_session(*, session: AgentSession, user_id: int | None) -> dict
 
     user_token = await env.mint_user_token(user_id)
     session_env = env.session_env(session, user_id, user_token=user_token)
+
+    # 轮次级 key 分配：压缩是**单栏**操作，所以只占一把。
+    #
+    # 为什么压缩也要参与分配：网关按「每把 key 并发 N」限流，压缩与正常对话
+    # 打的是同一批 key。若压缩还走后端自己的 ``_next_key``，它可能正好压在
+    # 某个已有 3 个对话在用 key 上 → 429 → 用户看到「压缩卡住 60 秒」，而这一刻
+    # 往往正是他上下文快爆了、最需要压缩成功的时候。
+    #
+    # 拿不到 key 池时 ``load_api_keys`` 返回空元组，``allocate`` 给出空租约，
+    # 传给 pool 的就是 ``None`` → 回落后端轮转（引入本机制前的行为）。
+    scheduler = get_key_scheduler()
+    lease = scheduler.allocate(await load_api_keys(getattr(session, "llm_model", "") or None), 1)[0]
     try:
         pool = await get_pool()
-        async with pool.acquire(session_env=session_env, session_id=session_id) as pi_session:
+        async with pool.acquire(
+            session_env=session_env, session_id=session_id, api_key=lease.key or None
+        ) as pi_session:
             await pi_session.compact()
             stats = await pi_session.get_session_stats()
     except PoolQueueTimeoutError as exc:
         raise CompactBusyError("当前使用人数较多，请稍后再试") from exc
+    finally:
+        # 必须归还：漏一次就把这把 key 的一个并发槽永久占掉，之后越来越容易 429。
+        lease.release()
 
     used, total = parse_context_usage(stats)
     try:

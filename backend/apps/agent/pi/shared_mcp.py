@@ -213,6 +213,8 @@ def write_pi_config(
     target_dir: str | Path,
     endpoint: McpEndpoint | None = None,
     model_hint: str = "",
+    *,
+    api_key: str | None = None,
 ) -> Path:
     """写出 pi 的完整配置（MCP + 模型），返回 MCP 配置文件路径。
 
@@ -223,6 +225,10 @@ def write_pi_config(
 
     模型优先从数据库 LLMProvider 渲染（Admin 改了就生效），
     渲染不出时才回退复制用户级凭证。
+
+    ``api_key`` 是本轮编排层指定的网关 key（``RunContext.api_key``），原样转交
+    :func:`model_config.write_models_json`；``None`` 时写函数仍走 ``_next_key``
+    轮转，行为与引入本参数前一致。
 
     另写一份 ``AGENTS.md``（系统提示词）：pi 无条件读取工作目录的 AGENTS.md
     （与项目信任无关），这是给 agent 注入法穿助手人格的唯一挂载点。
@@ -240,7 +246,7 @@ def write_pi_config(
     provider = model_config._load_provider(model_hint)
 
     # 1) 模型配置：优先从数据库生成
-    generated = write_models_json(root, model_hint=model_hint, provider=provider)
+    generated = write_models_json(root, model_hint=model_hint, provider=provider, api_key=api_key)
     if generated is None:
         logger.info("未能从 LLMProvider 生成 models.json，回退用户级凭证")
 

@@ -211,7 +211,11 @@ class TestSettingsJson:
         data = _json.loads(path.read_text(encoding="utf-8"))
         assert data["defaultProvider"] == "fachuan"
         assert data["defaultModel"] == "kimi-2.6"
-        assert data["modelThinkingLevels"] == {"fachuan/kimi-2.6": "medium"}
+        # 档位必须是网关**真的接受**的取值。原先是 ``medium``，但实测网关
+        # （DeepSeek V4.1 走 vLLM）原话：``reasoning_effort must be low, high,
+        # xhigh, max, or an integer within [1, 100]`` —— ``medium`` 会直接 400。
+        # 也就是说旧断言锁住的正是「默认配置下思考一开就报错」这个 bug。
+        assert data["modelThinkingLevels"] == {"fachuan/kimi-2.6": "max"}
 
     def test_no_thinking_level_when_disabled(self, monkeypatch: Any, tmp_path: Any) -> None:
         import json as _json

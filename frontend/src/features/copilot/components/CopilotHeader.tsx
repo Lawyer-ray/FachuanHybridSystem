@@ -1,6 +1,9 @@
 /**
  * Copilot 面板 header：会话栏开关、上下文范围、目录树、并排、后端、模型、新对话、收起。
  *
+ * 抽屉（CopilotPanel）与独立页（AssistantPage）共用：页面上没有「收起」语义，
+ * 故 onClose 可缺省（不为页面造一个假的关闭按钮），并排按钮同理由 dockCapable 控制。
+ *
  * 从 CopilotPanel 拆出（后者撞 350 行软红线）。拆出的好处不止行数：这一行控件
  * 的可见条件互相独立，聚在一处才能一眼对照——尤其 agent 后端标识必须紧挨「新对话」，
  * 用户才会把它理解成「下一个会话用谁」而不是「当前会话可以换」（换不了，见
@@ -9,7 +12,7 @@
  * 纯展示组件：所有状态与动作由 CopilotPanel 传入，避免两处各订阅一份 store。
  */
 
-import { Columns2, FolderTree, PanelLeftClose, PanelLeftOpen, Plus, Sparkles, SquareStack, X } from 'lucide-react'
+import { Columns2, FolderTree, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Plus, Sparkles, SquareStack, X } from 'lucide-react'
 
 import type { CopilotContext } from '../types'
 import { AgentBackendPicker } from './AgentBackendPicker'
@@ -33,7 +36,29 @@ export interface CopilotHeaderProps {
   /** 当前会话的后端 kind；null = 还没有会话（后端可自由选） */
   currentAgentKind: string | null
   onNewSession: () => void
-  onClose: () => void
+  /** 收起（仅抽屉有）：缺省时不渲染关闭钮 */
+  onClose?: () => void
+  /**
+   * 跳到全屏助手页（`/assistant`）；缺省时不渲染「全屏」钮。
+   *
+   * 只有**抽屉**传它：独立页自己就是全屏，再放一个「全屏」钮没有意义。
+   *
+   * 为什么要这个钮：顶栏左侧导航里也有一个叫「AI 助手」的入口，但那是跳到
+   * 新页面；而顶栏右侧同名按钮开的是抽屉。两个入口同名，用户点了右边的
+   * 就以为「跳转坏了」（真实反馈）。在抽屉里直接给一个「全屏」，比让用户
+   * 去猜哪个「AI 助手」才是页面直观得多。
+   */
+  onExpand?: () => void
+  /**
+   * 退出全屏助手页（回到进入前的页面）；只有**独立页**传它。
+   *
+   * 为什么必须有它：全屏页没有导航栏入口可以「点回去」，不给出口用户就被困在
+   * 那一页里（真实反馈：全屏之后不知道怎么缩回去）。
+   *
+   * 用**带文字**的按钮而不是一颗小图标：上一版只给了图标入口，用户没找到。
+   * 出口这种「后悔药」宁愿占点地方，也要一眼看得见。
+   */
+  onExitFullscreen?: () => void
 }
 
 export function CopilotHeader({
@@ -51,6 +76,8 @@ export function CopilotHeader({
   currentAgentKind,
   onNewSession,
   onClose,
+  onExpand,
+  onExitFullscreen,
 }: CopilotHeaderProps) {
   return (
     <header className="flex h-12 flex-none items-center gap-1.5 border-b border-border px-2.5">
@@ -133,14 +160,39 @@ export function CopilotHeader({
         <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
         新对话
       </button>
-      <button
-        type="button"
-        className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        onClick={onClose}
-        aria-label="收起 AI 助手"
-      >
-        <X className="h-4 w-4" />
-      </button>
+      {onExitFullscreen && (
+        <button
+          type="button"
+          className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={onExitFullscreen}
+          aria-label="退出全屏"
+          title="退出全屏，回到进入前的页面"
+        >
+          <Minimize2 className="h-3.5 w-3.5" />
+          退出全屏
+        </button>
+      )}
+      {onExpand && (
+        <button
+          type="button"
+          className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={onExpand}
+          aria-label="在全屏窗口中打开 AI 助手"
+          title="全屏打开（多 agent 并排时更宽敞）"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      )}
+      {onClose && (
+        <button
+          type="button"
+          className="flex h-7 w-7 flex-none items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={onClose}
+          aria-label="收起 AI 助手"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
     </header>
   )
 }

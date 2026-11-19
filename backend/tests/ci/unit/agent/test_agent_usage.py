@@ -185,6 +185,61 @@ class TestCacheTokenWiring:
         assert rows["pricey"]["cache_hit_rate"] == 0.0
         assert rows["cheap"]["cache_read_tokens"] == 900
 
+    def test_by_agent_separates_each_backend(self) -> None:
+        """按 agent 分组：同一个模型被两个 agent 用时也能分开算。
+
+        这是 ``AgentRun.agent_kind`` 存在的全部理由——多答一轮会同时落 N 条记录，
+        若两个 agent 配了同一个模型，``by_model`` 完全无法区分钱是谁花的。
+        """
+        from apps.agent.services.usage_stats import by_agent
+
+        session = _make_session()
+        _run(session, agent_kind="pi", model="kimi-2.6", output_tokens=20)
+        _run(session, agent_kind="dsh", model="kimi-2.6", output_tokens=30)
+        _run(session, agent_kind="dsh", model="kimi-2.6", output_tokens=50)
+
+        rows = {row["agent_kind"]: row for row in by_agent(days=30)}
+        assert set(rows) == {"pi", "dsh"}
+        assert rows["pi"]["runs"] == 1
+        assert rows["dsh"]["runs"] == 2
+        # 逐 agent 求和：dsh 30 + 50，不是全表 100
+        assert rows["dsh"]["output_tokens"] == 80
+        assert rows["pi"]["output_tokens"] == 20
+
+    def test_by_agent_treats_blank_kind_as_pi(self) -> None:
+        """空 ``agent_kind`` 归 pi：那是引入字段前的历史数据。
+
+        不归一的话报表会多出「(未记录)」一行，看起来像有个神秘的第四个 agent
+        在烧钱——而事实是那时只有 pi 在跑。与 ``AgentMessage.agent_kind`` 同口径。
+        """
+        from apps.agent.services.usage_stats import by_agent
+
+        session = _make_session()
+        _run(session, agent_kind="", model="kimi-2.6", output_tokens=7)
+        _run(session, agent_kind="pi", model="kimi-2.6", output_tokens=3)
+
+        rows = {row["agent_kind"]: row for row in by_agent(days=30)}
+        assert "" not in rows
+        assert rows["pi"]["runs"] == 2
+        assert rows["pi"]["output_tokens"] == 10
+
+    def test_by_agent_counts_failures_per_backend(self) -> None:
+        """失败/中止逐 agent 计：多答时一个后端挂掉不该让整轮看起来失败，
+        但运营要知道是哪个后端不稳。"""
+        from apps.agent.services.usage_stats import by_agent
+
+        session = _make_session()
+        _run(session, agent_kind="pi", status=AgentRun.Status.OK)
+        _run(session, agent_kind="dsh", status=AgentRun.Status.ERROR)
+        _run(session, agent_kind="dsh", status=AgentRun.Status.CANCELLED)
+
+        rows = {row["agent_kind"]: row for row in by_agent(days=30)}
+        assert rows["pi"]["failed_runs"] == 0
+        assert rows["dsh"]["failed_runs"] == 1
+        assert rows["dsh"]["cancelled_runs"] == 1
+        # 失败也算一次运行：上面 dsh 共 2 条记录
+        assert rows["dsh"]["runs"] == 2
+
     def test_admin_hit_rate_shows_dash_when_no_data(self) -> None:
         """Admin 对「没上报数据」显示 ``—`` 而不是 ``0%``。
 

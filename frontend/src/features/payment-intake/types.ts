@@ -6,7 +6,15 @@
  */
 
 /** 候选判定类别（后端 contract_match_v2 的 kind） */
-export type CandidateKind = 'exact' | 'partial' | 'amount_only'
+/**
+ * 候选来源类别。
+ *
+ * - `ai_suggested`：规则没有任何实名证据时，由 LLM 兜底给出的建议
+ *   （后端 `contract_match_ai`）。它**永远**排在规则候选之后，置信度也低于
+ *   `amount_only`——模型判断不能盖过「金额确实等于应收余额」这条客观事实。
+ *   前端必须显式标注这是 AI 建议，不能伪装成系统确定匹配。
+ */
+export type CandidateKind = 'exact' | 'partial' | 'amount_only' | 'ai_suggested'
 
 /** 待认领状态 */
 export type IntakeStatus = 'pending' | 'confirmed' | 'rejected' | 'ignored'

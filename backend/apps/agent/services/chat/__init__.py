@@ -21,7 +21,8 @@
 - ``env``：会话级环境变量与用户凭证铸造（compact_service 复用）
 - ``persist``：消息 / 运行记录落库
 - ``stream``：stream_chat 主编排
-- ``dual``：同一问题同时问两个 agent 的合并编排（stream_dual）
+- ``multi``：同一问题同时问 N 个 agent 的合并编排（stream_multi）
+- ``dual``：``multi`` 的两栏兼容壳（旧前端 ``dual=true`` 契约）
 - ``budget``：按用途（primary / aux）的准入判定与降级
 - ``live_control``：运行中插话（steer / follow_up / clear_queue）
 
@@ -43,13 +44,23 @@ from ..live_sessions import get_live_registry
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
 from ..skill_service import enabled_skill_paths
-from .dual import ACTIVITY_DEGRADED, StreamMemo, pick_secondary, stream_dual
+from .dual import stream_dual
 from .env import _worker_id
 from .env import mint_user_token
 from .env import mint_user_token as _mint_user_token
 from .env import session_env
 from .env import session_env as _session_env
 from .live_control import SessionNotLiveError, clear_queue_session, follow_up_session, steer_session
+from .multi import (
+    ACTIVITY_DEGRADED,
+    MAX_ANSWERS,
+    AgentSpec,
+    StreamMemo,
+    normalize_agents,
+    pick_secondary,
+    resolve_specs,
+    stream_multi,
+)
 from .persist import _log_task_failure, _persist_compaction_message, _persist_tool_message, _recent_history, _record_run
 from .pool import (
     DEFAULT_POOL_SIZE,
@@ -70,8 +81,13 @@ __all__ = [
     "AUTO_TITLE_LIMIT",
     "auto_title",
     "record_user_message",
-    # dual
+    # multi / dual
+    "MAX_ANSWERS",
+    "AgentSpec",
+    "normalize_agents",
+    "resolve_specs",
     "stream_dual",
+    "stream_multi",
     "pick_secondary",
     "ACTIVITY_DEGRADED",
     "StreamMemo",

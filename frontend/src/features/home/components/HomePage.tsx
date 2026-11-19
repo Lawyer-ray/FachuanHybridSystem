@@ -13,7 +13,6 @@ import { EventContextMenu } from './EventContextMenu'
 import { EventDetailDialog } from './EventDetailDialog'
 import { ToolDock } from './ToolDock'
 import { materialPrepDetail } from '@/app/paths'
-import { useMediaQuery } from '@/hooks/use-media'
 import { useToday } from '@/hooks/use-today'
 import { todayKey } from '@/lib/date'
 import { errMessage } from '@/lib/errors'
@@ -50,9 +49,11 @@ export function HomePage() {
   // useToday 跨零点自动重算：整夜不关的工作台不会把「今天」冻结在昨天
   const todayDate = useToday()
   const today = useMemo(() => todayKey(todayDate), [todayDate])
-  // 手机端抽屉口径：与本页 max-[760px]: 的 Tailwind 类一致（旧 isMobile() 读
-  // innerWidth 瞬间值且无 resize 订阅，跨过断点后点日期不会开抽屉）
-  const isMobile = useMediaQuery('(max-width: 760px)')
+  // 当日抽屉的开关口径：**日历密度**（手机视口或面板被助手并排 / 分屏压窄）。
+  // 以前按视口 760px 判，助手并排把日历压到 ~80px 宽时视口仍很宽，格子里只剩
+  // 一两个字的标题、点开却是「新增」弹窗，看不到该日详情。密度由 CalendarPanel
+  // 按面板净宽算好回传（见 calendar-density.ts）。
+  const [calendarCompact, setCalendarCompact] = useState(false)
   const [sheetDay, setSheetDay] = useState<string | null>(null)
   // 新增安排弹窗（day=null 关闭）；由日历空白格与手机抽屉「＋新增」共同打开
   const [adding, setAdding] = useState<{ day: string; time: string } | null>(null)
@@ -151,10 +152,10 @@ export function HomePage() {
     [today],
   )
 
-  /* 日历点某天：桌面端只高亮，手机端开抽屉 */
+  /* 日历点某天：窄日历（手机 / 面板被压窄）开当日抽屉，宽日历只高亮 */
   const handleSelectDay = useCallback((key: string) => {
-    if (isMobile) setSheetDay(key)
-  }, [isMobile])
+    if (calendarCompact) setSheetDay(key)
+  }, [calendarCompact])
 
   // 材料包 / 已转过的消息 → 直接进材料预处理的详情页。
   // 用 navigate 做 SPA 跳转，别用 window.location.assign（那是整页刷新，
@@ -267,6 +268,8 @@ export function HomePage() {
                 onOpenAdd={openAddDialog}
                 onToggleComplete={handleToggleComplete}
                 onEventContextMenu={handleEventContextMenu}
+                // 密度回传：窄日历改成「点格开当日抽屉」，宽日历保持「点空白新增」
+                onCompactChange={setCalendarCompact}
               />
             )}
             <ToolDock />

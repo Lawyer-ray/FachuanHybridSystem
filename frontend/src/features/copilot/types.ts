@@ -10,7 +10,7 @@
  * - `state-types.ts`：store 的状态形状（`CopilotState`）。
  */
 
-export type { AgentBackendOption } from './backend-types'
+export type { AgentBackendOption, AgentSpec } from './backend-types'
 export type { CopilotContext, CopilotScope } from './scope-types'
 export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
 
@@ -58,7 +58,7 @@ export interface AgentHistoryMessage {
   role: 'user' | 'assistant' | 'tool'
   content: string
   tool_name: string
-  /** 消息级来源（`pi` / `dsh`）；空串 = 旧数据 / 未标注（按 `pi` 处理） */
+  /** 消息级来源（`pi` / `dsh` / 新注册的后端）；空串 = 旧数据 / 未标注（按 `pi` 处理） */
   agent_kind?: string
   created_at: string
   metadata: Record<string, unknown>
@@ -160,6 +160,13 @@ export interface ChatMessage {
   rating?: 'up' | 'down'
   /** 正在流式接收中（assistant 专属） */
   streaming?: boolean
+  /**
+   * 这一栏本轮没跑成（多答时某后端报错/配额降级）：渲染为「本轮未做」。
+   *
+   * 只标失败那一栏，其他栏的正文照常显示——不标的话界面上就是个空白栏头，
+   * 看起来像「回答了但内容丢了」。
+   */
+  failed?: boolean
   /** 模型的思考过程（开启思考模式时由 thinking 事件累积，仅展示不入正文） */
   thinking?: string
   /** 思考已完成（收到首个正文 delta 后置位，用于折叠/收起样式） */
@@ -167,11 +174,35 @@ export interface ChatMessage {
   /**
    * 这条回答/工具行由哪个 agent 产出（`pi` / `dsh`）。
    *
-   * 同题双答时一轮里会有两条 assistant 消息，各带自己的 agent；单后端轮次只有
+   * 多答时一轮里有 2~4 条 assistant 消息，各带自己的 agent；单后端轮次只有
    * 一条。**空串/undefined 表示旧数据 / 未标注**，渲染时当 `pi` 处理——引入
-   * 双答之前本系统只有 pi 在跑（见后端 AgentMessage.agent_kind 注释）。
+   * 多答之前本系统只有 pi 在跑（见后端 AgentMessage.agent_kind 注释）。
    */
   agentKind?: string
+  /**
+   * 这条回答用的模型名（栏头显示「agent · 模型」的数据源）。
+   *
+   * 律师引入多答就是为了**比较效果**：栏头不写模型，看到几份不同意见却分不清
+   * 哪份是谁答的，比较就失去意义。
+   *
+   * 两条来源：本地发送时取自本轮指定（`store/turn.ts` 建气泡那一刻就带上——
+   * 后端事件里没有 model 字段）；历史回放取自 `metadata.model`（后端在流结束时
+   * 落库的实际模型）。未指定 / 旧数据时 undefined，栏头只显示 agent 名。
+   */
+  model?: string
+  /**
+   * 这条回答期间该 agent **自己**调用过的工具（按到达顺序）。
+   *
+   * 为什么挂在回答上而不是当独立消息渲染：多答时 2~4 个 agent 在**同一时刻**
+   * 各调各的工具，转录里这些 tool 消息交错相邻（pi 的 get_current_user、dsh 的
+   * tool_search、pi 的 list_lawyers…）。按时间平铺在一个列表里就变成截图里那
+   * 样——一坨分不清谁的、还占满整行的工具条。
+   *
+   * 挂到各自的栏之后，读法是「这个 AI 查了什么、然后说了什么」，与人读对话的
+   * 顺序一致。单栏（只有一个 agent）时不填这个字段，工具行仍按原样平铺在气泡
+   * 之间——那条路径的时间顺序本身就是对的，没必要动。
+   */
+  tools?: ChatMessage[]
 }
 
 /** 待审批的高危工具调用（approval_request 事件 → 审批卡） */

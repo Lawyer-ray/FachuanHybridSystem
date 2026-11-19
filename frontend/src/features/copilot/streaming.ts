@@ -28,7 +28,7 @@ export interface UsagePayload {
 }
 
 /**
- * 「这一帧是谁产的」——同题双答时前端靠它把交错的事件分到各自的栏。
+ * 「这一帧是谁产的」——多答时前端靠它把交错的事件分到各自的栏。
  *
  * 为什么带在**每个** handler 上而不是进 `StreamHandlers` 的构造参数：一帧只在
  * 帧解析那一刻知道自己的 `agent`，而 handler 是跨帧复用的。带参数的形状让
@@ -61,6 +61,14 @@ export interface StreamHandlers {
   onCompaction(phase: 'start' | 'end'): void
   /** 首个推进事件（delta/thinking/tool_call/error/done）：清掉排队提示 */
   onProgress(): void
+  /**
+   * 后端降级：本轮只跑了主后端（aux 席位已满），`reason` 是给律师看的一句话。
+   *
+   * 可选实现：不关心降级的调用方（测试替身、单后端路径）不必提供。不提供的话，
+   * 被丢下的那几栏会一直留在 streaming 状态（光标转不停、done 永远不来），所以
+   * 真正开多栏的 store 必须实现它。
+   */
+  onDegraded?(reason: string): void
   onError(message: string, origin: EventOrigin): void
   /**
    * 某一方跑完。
@@ -120,9 +128,12 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onCompaction(event.phase)
           break
         case 'activity':
-          // queued 时带 position（前方名次）；thinking 不入转录
+          // queued 时带 position（前方名次）；thinking 不入转录；
+          // degraded 表示多答被降级成只跑主后端（aux 席位已满）
           if (event.status === 'queued' && typeof event.position === 'number') {
             h.onQueued(event.position)
+          } else if (event.status === 'degraded') {
+            h.onDegraded?.(event.reason ?? '本轮只跑了主后端')
           }
           break
         case 'error':

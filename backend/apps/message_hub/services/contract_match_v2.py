@@ -34,6 +34,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
@@ -61,8 +62,9 @@ KIND_EXACT = "exact"
 KIND_PARTIAL = "partial"
 KIND_AMOUNT_ONLY = "amount_only"
 
-# 类别排序权重（只用于排序，不参与展示分数）
-_KIND_ORDER = {KIND_EXACT: 0, KIND_PARTIAL: 1, KIND_AMOUNT_ONLY: 2}
+# 类别排序权重（只用于排序，不参与展示分数）。
+# ai_suggested 排在最后：模型给的是概率判断，不能盖过任何规则证据。
+_KIND_ORDER = {KIND_EXACT: 0, KIND_PARTIAL: 1, KIND_AMOUNT_ONLY: 2, "ai_suggested": 3}
 
 # 权重
 W_ON_BEHALF_EXACT = 0.9  # 代付方命中委托人全称：银行备注明确指向该委托人
@@ -115,6 +117,127 @@ def _party_names(contract: Any) -> list[tuple[str, str]]:
         if name:
             names.append((name, str(getattr(cp, "role", "") or "")))
     return names
+
+
+#: 银行备注里的主体名与企业全称之间的最短公共前缀长度。
+#: 「甲方公司」vs「甲方水产科技有限公司」→ 公共前缀「甲方」= 4 字，命中。
+#: 取 4 而不是 2：两字前缀（「广东」「北京」）会把同城的无关企业全拉进来。
+_NAME_PREFIX_MIN = 4
+
+#: 不能单独作为「同一主体」证据的通用词。
+#: 实测翻车：付款人「某某」通过包含匹配命中「【演示】某某银行股份有限公司」，
+#: 把一笔无主到账错挂到演示合同上。这类词本身没有识别力，必须排除。
+_GENERIC_NAME_TOKENS = frozenset(
+    {
+        "某某",
+        "某公司",
+        "某单位",
+        "客户",
+        "个人",
+        "公司",
+        "单位",
+        "银行",
+        "贵公司",
+        "我司",
+        "本公司",
+        "支付宝",
+        "微信",
+        "现金",
+    }
+)
+
+#: 名字前面的方括号/圆括号修饰（``【演示】``、``（测试）``），不参与识别力判定
+_BRACKET_PREFIX_RE = re.compile(r"^[\[【(（][^\]】)）]{1,20}[\]】)）]\s*")
+
+#: 主体名里可忽略的组织形式后缀（递归剔除后比较主体语义）
+_ORG_SUFFIXES = (
+    "股份有限公司",
+    "有限责任公司",
+    "有限公司",
+    "公司",
+    "事务所",
+    "委员会",
+    "分公司",
+    "厂",
+    "店",
+)
+
+
+def _strip_org_suffix(value: str) -> str:
+    """剔除企业组织形式后缀，留主体字号（「甲方水产科技有限公司」→「甲方水产科技」）。"""
+    name = (value or "").strip()
+    for suffix in _ORG_SUFFIXES:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)].strip()
+            break
+    return name
+
+
+def _common_prefix_len(a: str, b: str) -> int:
+    """两个字符串的公共前缀长度。"""
+    limit = min(len(a), len(b))
+    idx = 0
+    while idx < limit and a[idx] == b[idx]:
+        idx += 1
+    return idx
+
+
+def _is_generic_name(value: str) -> bool:
+    """名字是否只是通用词/占位名（没有识别力，不能当主体证据）。
+
+    不仅看整体，还要看剔除修饰后的核心：合同委托人常带前缀/后缀修饰
+    （``【演示】某某银行股份有限公司``），只比对整串会漏判。
+    """
+    raw = (value or "").strip()
+    if len(raw) < 2:
+        return True
+    core = _strip_org_suffix(raw)
+    # 去掉中文方括号/圆括号里的修饰前缀（【演示】）
+    core = _BRACKET_PREFIX_RE.sub("", core).strip()
+    if not core or len(core) < 2:
+        return True
+    for token in _GENERIC_NAME_TOKENS:
+        if token in (raw, core):
+            return True
+    # 核心去修饰后仍落在通用词里，或整体等价于「某某」重复
+    if core in _GENERIC_NAME_TOKENS:
+        return True
+    return core.replace("某某", "") == "" and "某某" in core
+
+
+def _name_hits(*, text: str, probe: str) -> bool:
+    """主体名是否指向同一个委托人。
+
+    银行备注里的企业名几乎总是**简称**，而合同上一定是工商全称：
+
+    - 备注：``甲方公司支付律师费``  → 抽出 ``甲方公司``
+    - 合同：``甲方水产科技有限公司``（PRINCIPAL）
+
+    直接子串判断（``p in text or text in p``）在这里两边都不成立，于是唯一能
+    指向该项目的证据被丢掉，整笔钱退化成「仅金额吻合」。
+
+    三层判定（从严到宽）：
+
+    1. 任一方包含另一方（原行为，短名/全名完全一致时命中）
+    2. 剔除组织形式后缀后仍包含（``甲方`` vs ``甲方水产科技``）
+    3. 剔除后公共前缀 ≥ ``_NAME_PREFIX_MIN`` 字（简称 vs 全称）
+    """
+    party = (text or "").strip()
+    target = (probe or "").strip()
+    if len(party) < 2 or len(target) < 2:
+        return False
+    # 通用词 / 占位名不做任何相似判定（否则「某某」会命中一切带「某某」的合同）
+    if _is_generic_name(party) or _is_generic_name(target):
+        return False
+    if party in target or target in party:
+        return True
+    party_core = _strip_org_suffix(party)
+    target_core = _strip_org_suffix(target)
+    if len(party_core) < 2 or len(target_core) < 2:
+        return False
+    if party_core in target_core or target_core in party_core:
+        return True
+    return _common_prefix_len(party_core, target_core) >= _NAME_PREFIX_MIN
 
 
 def _case_numbers_of(contract: Any) -> list[str]:
@@ -194,13 +317,16 @@ def score_contract(
     on_behalf = (notice.on_behalf_of or "").strip()
 
     if on_behalf:
-        hit = [p for p in principals if p and (p in on_behalf or on_behalf in p)]
+        # 注意方向：text 是银行备注里的（短）主体名，probe 是合同上的委托人全称
+        hit = [p for p in principals if p and _name_hits(text=on_behalf, probe=p)]
         if hit:
             score += Decimal(str(W_ON_BEHALF_EXACT))
             reasons.append(f"代付方命中委托人「{hit[0]}」")
             on_behalf_hit = True
     if payer:
-        hit = [p for p in principals if p and (p == payer or p in payer or payer in p)]
+        # 走与代付方同一套判定（含通用词防护）：旧写法 ``payer in p`` 会让付款人
+        # 「某某」命中「【演示】某某银行…」，把无主到账错挂到演示合同上。
+        hit = [p for p in principals if p and _name_hits(text=payer, probe=p)]
         if hit:
             payer_hit = True
             if on_behalf_hit:
@@ -209,6 +335,11 @@ def score_contract(
             else:
                 score += Decimal(str(W_PARTY_NAME))
                 reasons.append(f"付款人命中委托人「{hit[0]}」")
+        elif notice.payer_is_person:
+            # 付款人是自然人但没命中任何委托人：律所真实收付链路是「客户→承办律师→律所」，
+            # 银行短信里的付款人就是律师姓名，本就不该命中委托人。
+            # 不当证据用，但留一句说明，避免人工看快照时误以为「系统没看见付款人」。
+            reasons.append(f"付款人 {payer} 为个人账户（律师代收转付情形，不作委托人证据）")
 
     # 3) 合同全名出现在正文里（名称太短容易误伤，要求 ≥6 字）
     if len(contract_name) >= 6 and contract_name in mail_text:
@@ -268,6 +399,40 @@ def score_contract(
     )
 
 
+def _ai_candidate_pool(*, eligible: list[Any], notice: TransferNotice, mail_text: str) -> list[dict[str, Any]]:
+    """给 AI 兜底的候选池。
+
+    排序策略：先按「应收余额与金额的差距」由近到远，让模型优先看到金额能对上的
+    项目；金额差得远的排在后面但仍保留（模型可能从名称线索认出主体）。
+    上限由 ``contract_match_ai.MAX_PROMPT_CANDIDATES`` 再截一道。
+    """
+    amount = notice.amount
+    rows: list[tuple[Decimal, dict[str, Any]]] = []
+    for contract in eligible:
+        cases = list(contract.cases.all())
+        case_target_amounts = [getattr(c, "target_amount", None) for c in cases]
+        outstanding, _explain = compute_outstanding(
+            contract, case_target_amounts, paid_total=getattr(contract, "paid_total", None)
+        )
+        if amount is not None and outstanding is not None:
+            gap = abs(amount - outstanding)
+        else:
+            gap = Decimal("999999999")
+        rows.append(
+            (
+                gap,
+                {
+                    "contract_id": int(getattr(contract, "id", 0) or 0),
+                    "contract_name": str(getattr(contract, "name", "") or ""),
+                    "outstanding_amount": str(outstanding) if outstanding is not None else None,
+                    "fee_mode": str(getattr(contract, "fee_mode", "") or ""),
+                },
+            )
+        )
+    rows.sort(key=lambda r: (r[0], r[1]["contract_id"]))
+    return [row[1] for row in rows]
+
+
 def rank_candidates(candidates: list[Candidate], *, limit: int = MAX_CANDIDATES) -> list[Candidate]:
     """按类别排序，同类内分数降序。
 
@@ -309,9 +474,9 @@ def _collect_excluded_hints(
         principals = [n for n, role in _party_names(contract) if role == "PRINCIPAL"]
         matched: list[str] = []
         if on_behalf:
-            matched += [p for p in principals if p and (p in on_behalf or on_behalf in p)]
+            matched += [p for p in principals if p and _name_hits(text=on_behalf, probe=p)]
         if payer:
-            matched += [p for p in principals if p and (p == payer or p in payer or payer in p)]
+            matched += [p for p in principals if p and _name_hits(text=payer, probe=p)]
         hit_numbers = [n for n in mail_case_numbers if n in _case_numbers_of(contract)]
         if not matched and not hit_numbers:
             continue
@@ -329,11 +494,18 @@ def _collect_excluded_hints(
     return hints[:5]
 
 
-def suggest_contracts_for_transfer(*, subject: str = "", body_text: str = "", body_html: str = "") -> dict[str, Any]:
+def suggest_contracts_for_transfer(
+    *, subject: str = "", body_text: str = "", body_html: str = "", allow_ai_fallback: bool = True
+) -> dict[str, Any]:
     """给一封到账通知算出候选项目。
 
     返回结构对应 ``PaymentIntake.match_snapshot``（设计文档 §3.5）。
     **不写任何数据**，纯只读。
+
+    Args:
+        allow_ai_fallback: **仅在没有任何 ``exact`` 候选**时才调 LLM 兜底
+            （见 ``contract_match_ai``）。规则已给出实名证据时不再花模型调用。
+            测试与大批量回扫可传 ``False`` 关掉。
     """
     notice = parse_transfer_notice(subject=subject, body_text=body_text, body_html=body_html)
     mail_text = "\n".join(p for p in (subject or "", body_text or "") if p).strip()
@@ -357,12 +529,49 @@ def suggest_contracts_for_transfer(*, subject: str = "", body_text: str = "", bo
             candidates.append(candidate)
 
     ranked = rank_candidates(candidates)
+
+    # ── AI 兜底 ────────────────────────────────────────────
+    # 只在「规则没有任何确定答案」时启用：有 exact 说明已经有案号/委托人这种
+    # 硬证据，模型再判一次既浪费一次调用，又可能把正确结果挤掉。
+    # 用全部合格项目作候选池（而不只是 ranked）：ranked 里的 amount_only 依赖
+    # 「金额恰好等于应收余额」，而模型恰恰能看懂金额对不上但主体明确的情形。
+    ai_used = False
+    if allow_ai_fallback and not any(c.kind == KIND_EXACT for c in ranked):
+        from apps.message_hub.services.contract_match_ai import suggest_with_ai
+
+        pool = _ai_candidate_pool(eligible=eligible, notice=notice, mail_text=mail_text)
+        ai_results = suggest_with_ai(notice=notice, mail_text=mail_text, candidates=pool)
+        if ai_results:
+            ai_used = True
+            existing_ids = {c.contract_id for c in ranked}
+            ranked.extend(
+                Candidate(
+                    contract_id=int(item["contract_id"]),
+                    contract_name=str(item.get("contract_name") or ""),
+                    kind=str(item["kind"]),
+                    score=Decimal(str(item["score"])),
+                    reasons=list(item.get("reasons") or []),
+                    outstanding_amount=(
+                        Decimal(str(item["outstanding_amount"])) if item.get("outstanding_amount") is not None else None
+                    ),
+                    fee_mode=str(item.get("fee_mode") or ""),
+                    caveat=str(item.get("caveat") or ""),
+                )
+                for item in ai_results
+                if int(item["contract_id"]) not in existing_ids
+            )
+            # AI 候选单独留额度：规则候选的上限不该把兜底结果挤掉
+            from apps.message_hub.services.contract_match_ai import MAX_AI_RESULTS
+
+            ranked = rank_candidates(ranked, limit=MAX_CANDIDATES + MAX_AI_RESULTS)
+
     excluded_hints = _collect_excluded_hints(
         notice=notice, mail_case_numbers=mail_case_numbers, mail_text=mail_text, eligible_ids=eligible_ids
     )
 
     return {
         "matcher_version": "v2",
+        "ai_fallback_used": ai_used,
         "parsed": {
             "amount": str(notice.amount) if notice.amount is not None else None,
             "payer_name": notice.payer_name,

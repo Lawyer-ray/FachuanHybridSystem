@@ -38,6 +38,11 @@ const copilotState = vi.hoisted(() => ({
   removeAttachmentFile: vi.fn(),
   removeFolderRef: vi.fn(),
   compactContext: vi.fn(),
+  // 多答：本轮跑哪几个 AI（默认空 = 单跑会话默认后端）
+  backends: [] as { kind: string; label: string; description: string; available: boolean; reason: string; capabilities: Record<string, boolean> }[],
+  answerAgents: [] as string[],
+  toggleAnswerAgent: vi.fn(),
+  selectedAgentKind: '',
 }))
 
 vi.mock('../store', () => ({
@@ -86,6 +91,10 @@ beforeEach(() => {
   copilotState.removeAttachmentFile = vi.fn()
   copilotState.removeFolderRef = vi.fn()
   copilotState.compactContext = vi.fn()
+  copilotState.backends = []
+  copilotState.answerAgents = []
+  copilotState.toggleAnswerAgent = vi.fn()
+  copilotState.selectedAgentKind = ''
   skillsMock.mockResolvedValue({
     skills: [
       { name: 'web-research', description: '联网搜索与网页原文抓取', enabled: true },

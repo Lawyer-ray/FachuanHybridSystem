@@ -571,6 +571,9 @@ class DshBackend:
         为什么不在 ``_acquire`` 里补写 patch：配置在进池前就定了（``patches``
         是 ``DeepSeekHarnessConfig`` 的构造参数），事后补写文件不会被已经拼好的
         ``--patch`` 命令行看到——那是「文件写对了但没生效」的静默故障。
+
+        ``api_key`` 传 ``ctx.api_key``：编排层按轮次给每栏分配 key（见
+        ``key_scheduler``），这里转交给 ``build_config``；为空时它仍走原轮转口径。
         """
         from . import dsh_config as config_module
 
@@ -579,6 +582,7 @@ class DshBackend:
                 user_id=ctx.user_id,
                 model_hint=ctx.model,
                 user_token=ctx.user_token,
+                api_key=ctx.api_key,
             )
         except Exception as exc:
             # 读库失败（连接断了 / 迁移没跑）：这是后端基础设施问题，不是配置缺失。

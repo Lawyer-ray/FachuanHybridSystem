@@ -4,8 +4,17 @@
  */
 
 export type AgentStreamEvent =
-  | { type: 'meta'; session_id: string; agent?: string; run_id?: string }
-  | { type: 'activity'; status: string; agent?: string; position?: number; run_id?: string }
+  | { type: 'meta'; session_id: string; agent?: string; agents?: string[]; run_id?: string }
+  | {
+      type: 'activity'
+      status: string
+      agent?: string
+      agents?: string[]
+      position?: number
+      /** 仅 status='degraded'：降级原因（多答只跑了主后端） */
+      reason?: string
+      run_id?: string
+    }
   | { type: 'delta'; content: string; run_id?: string }
   | { type: 'thinking'; content: string; run_id?: string }
   | {
@@ -53,6 +62,8 @@ export type AgentStreamEvent =
   | {
       type: 'done'
       session_id: string
+      agent?: string
+      agents?: string[]
       context_used_tokens?: number
       context_total_tokens?: number
       run_id?: string

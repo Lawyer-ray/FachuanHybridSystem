@@ -16,7 +16,9 @@ export type IntakeShape = 'matched' | 'amountOnly' | 'unmatched'
 export function intakeShape(intake: Intake): IntakeShape {
   const top = intake.candidates[0]
   if (!top) return 'unmatched'
-  if (top.kind === 'amount_only') return 'amountOnly'
+  // ai_suggested 与 amount_only 同类：都没有实名证据，都要强提醒核对。
+  // 不归入 matched 是刻意的：AI 自己也会判错，不能因为它排第一就默认可直接确认。
+  if (top.kind === 'amount_only' || top.kind === 'ai_suggested') return 'amountOnly'
   return 'matched'
 }
 
@@ -29,7 +31,7 @@ export function intakeShape(intake: Intake): IntakeShape {
 export function hasUsableSuggestion(intake: Intake): boolean {
   if (intake.suggested_contract_id == null) return false
   const top = intake.candidates[0]
-  return top != null && top.kind !== 'amount_only'
+  return top != null && top.kind !== 'amount_only' && top.kind !== 'ai_suggested'
 }
 
 /** 卡片顶部的一句话结论 */
@@ -37,7 +39,9 @@ export function intakeHeadline(intake: Intake): string {
   const shape = intakeShape(intake)
   const top = intake.candidates[0]
   if (shape === 'unmatched' || top == null) return '未匹配到在办项目，请手动选择'
-  if (shape === 'amountOnly') return '仅有金额吻合，请核对后选择'
+  if (shape === 'amountOnly') {
+    return top.kind === 'ai_suggested' ? 'AI 推断的项目，请核对后选择' : '仅有金额吻合，请核对后选择'
+  }
   return `${KIND_STYLES[top.kind].label}：${top.contract_name}`
 }
 

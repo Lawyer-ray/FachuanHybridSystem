@@ -47,6 +47,16 @@ logger = logging.getLogger("apps.contracts")
 # 默认回看天数：用户前两周才开始让财务发到账通知
 DEFAULT_LOOKBACK_DAYS = 14
 
+#: 没有实名证据的候选类别：不能被预选为「系统建议项目」。
+#:
+#: - ``amount_only``：仅金额撞上应收余额，无身份证据；
+#: - ``ai_suggested``：LLM 兜底推断，未经规则证据确认。
+#:
+#: 预选这两类等于暗示「系统已经帮你选好了」，使用者会直接点确认。
+#: 与前端 ``hasUsableSuggestion`` 必须同口径，否则会出现「后端预选了、
+#: 前端不显示确认按钮」的自相矛盾。
+_NON_EVIDENCE_KINDS = frozenset({"amount_only", "ai_suggested"})
+
 # 款项关键词：命中才认为这封邮件可能是到账通知
 _TRANSFER_KEYWORDS = (
     "到账",
@@ -104,9 +114,9 @@ def _build_intake(message: InboxMessage) -> PaymentIntake | None:
     suggested_id = candidates[0].get("contract_id") if candidates else None
 
     # 有实名证据的候选 = 可信 → pending（等人确认归属）
-    # 只有 amount_only 的候选 = 不可信 → 仍是 pending，但不预选建议项目
-    #   （避免"系统已经帮你选好了"的暗示员工直接点确认）
-    if suggested_id is not None and candidates[0].get("kind") == "amount_only":
+    # 没有实名证据的候选（amount_only / ai_suggested）→ 仍是 pending，但不预选：
+    # 预选等于暗示「系统已经帮你选好了」，而这两类都必须人工核对。
+    if suggested_id is not None and candidates[0].get("kind") in _NON_EVIDENCE_KINDS:
         suggested_id = None
 
     from apps.message_hub.services.transfer_notice import html_to_text
@@ -226,8 +236,9 @@ def rematch_intake(intake: PaymentIntake) -> bool:
     )
     candidates = snapshot.get("candidates") or []
     suggested_id = candidates[0].get("contract_id") if candidates else None
-    # 与 _build_intake 同口径：只有 amount_only 的建议不预选（不暗示人直接点确认）
-    if suggested_id is not None and candidates[0].get("kind") == "amount_only":
+    # 与 _build_intake 同口径：amount_only / ai_suggested 的建议不预选
+    # （不暗示人直接点确认；ai_suggested 是模型推断，同样不能预设为答案）
+    if suggested_id is not None and candidates[0].get("kind") in _NON_EVIDENCE_KINDS:
         suggested_id = None
 
     intake.match_snapshot = snapshot

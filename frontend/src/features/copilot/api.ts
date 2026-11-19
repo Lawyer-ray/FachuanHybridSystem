@@ -8,7 +8,7 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -76,18 +76,32 @@ export function decideApproval(approvalId: string, approved: boolean, reason = '
 /**
  * 打开一条 SSE 流。
  *
- * `dual`（同题双答）默认 **不传**：后端契约默认 false，成本翻倍（两个模型各跑
- * 一轮、各自调工具），不能默认开。传 true 时两个后端并行应答，事件靠 `agent`
- * 字段分流到各自的栏。字段只在为 true 时下发——不传免得让「默认」这件事出现
- * 两个真相（前端的 false 与后端的 false）。
+ * `agents`：本轮跑哪几个 agent、各用哪个模型（顺序 = 栏的左右顺序）。契约见
+ * 后端 `MessageIn.agents: list[AgentSpecIn | str] | None`——两种形状都收（老前端
+ * 发纯字符串），前端**统一发对象** `{kind, model?}`：只留一种写法，`model` 缺省
+ * 即平台默认，与发纯字符串等价。
+ *
+ * 下发规则（**空数组一律不发**）：
+ * - 0 个：不传字段，后端用会话自己的 `agent_kind` 单跑——后端契约默认值
+ *   （`None` → 单栏）就是它，多传一个空数组只会让「默认」出现两个真相；
+ * - 1 个：只发 `agents`（单跑指定后端）；
+ * - 2~4 个：多答，事件靠 `agent` 字段分流到各自的栏。
+ *
+ * **不发 `dual`**：那是个布尔，只能表达「两个」。后端保留它只为兼容老客户端；
+ * 新前端只用 `agents`，避免「dual=true 同时 agents=[a,b,c]」这种需要猜优先级的
+ * 请求（虽然后端口径是「显式 > 隐式」，但前端不该依赖两条路径的一致性）。
+ *
+ * 上限 `MAX_ANSWERS = 4` 由 store 在调用前截断（见 store/turn.ts），后端超限
+ * 直接回一条 `error` 事件（不静默截断），所以前端必须先截——用户敲回车之后
+ * 才被告知「选多了」是很差的体验。
  */
 export function openMessageStream(
   sessionId: string,
   message: string,
   signal: AbortSignal,
-  dual = false,
+  agents: AgentSpec[] = [],
 ): Promise<Response> {
-  const json = dual ? { message, dual } : { message }
+  const json = agents.length > 0 ? { message, agents } : { message }
   return api.post(`agent/sessions/${sessionId}/messages`, { json, signal })
 }
 

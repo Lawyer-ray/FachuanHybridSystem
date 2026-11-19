@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { WEEKDAYS } from '../constants'
 import type { CalendarEvent, CalendarStats } from '../api'
+import { densityForWidth, maxRowsForWidth } from '../calendar-density'
 import { buildMonthGrid } from '../domain'
 import { BTN, BTN_ICON, PANEL } from '../ui'
 import { useElementWidth } from '@/hooks/use-element-width'
@@ -35,6 +36,8 @@ interface Props {
   onOpenAdd: (key: string) => void
   /** 右键事件行 → 快捷菜单（光标坐标随事件带上）；可选，不传则右键走浏览器默认行为 */
   onEventContextMenu?: (e: CalendarEvent, pos: { x: number; y: number }) => void
+  /** 密度是否降到紧凑档（点格子=看这一天）。调用方据此决定开当日抽屉还是弹新增 */
+  onCompactChange?: (compact: boolean) => void
 }
 
 /** 大日历面板：月份切换 + 周一起点月历 + 事件行 + 悬停摘要 + 统计。
@@ -52,6 +55,7 @@ export function CalendarPanel({
   onToggleComplete,
   onOpenAdd,
   onEventContextMenu,
+  onCompactChange,
 }: Props) {
   const [selected, setSelected] = useState(today)
   // 跨零点跟随：useState(today) 只取初值，长开页面跨天后默认高亮会冻结在昨天。
@@ -60,15 +64,20 @@ export function CalendarPanel({
   useEffect(() => {
     setSelected((prev) => (prev <= today ? today : prev))
   }, [today])
-  // 每格最多行数（超出折叠成「+N 更多」）按**面板实测宽度**自适应：≥1900 → 5、
-  // ≥1150 → 4、否则 3（阈值由旧视口断点 2400/1600 扣除页边距与右栏换算而来）。
-  // 不用视口 matchMedia：AI 助手并排让位后面板净宽比视口窄数百像素，
-  // 视口量不到它，会在窄日历里硬塞 4/5 行。宽度未测得（首帧/测试）按 3 行。
+  // 内容密度（每格几行、放不给放副标题）与每格最多行数，全部按**面板实测净宽**
+  // 判定，不看视口：AI 助手并排让位后面板净宽比视口窄数百像素，视口量不到它——
+  // 以前只在「最多几行」上按净宽、内容形态仍按视口，于是并排 / 分屏时日历在
+  // ~90px 宽的格子里硬塞五行卡片（每行只剩一两个字）。阈值见 calendar-density.ts。
   const [sectionRef, sectionWidth] = useElementWidth<HTMLElement>()
-  const maxRows = sectionWidth >= 1900 ? 5 : sectionWidth >= 1150 ? 4 : 3
-  // 手机断点（与本页 max-[760px]: 的 Tailwind 类一致）：格子只有 ~50px 宽，事件行
-  // 放不下也点不准，点按一律开当日抽屉看全文；桌面端才区分「点空白新增 / 点事件开详情」
-  const isMobile = useMediaQuery('(max-width: 760px)')
+  // 手机视口一律紧凑档：手机上面板必然窄，且「点格子开当日抽屉」是手机唯一的
+  // 详情入口（格子只有 ~50px 宽，事件行放不下也点不准）。宽视口下再按净宽分三档。
+  const isPhone = useMediaQuery('(max-width: 760px)')
+  const density = isPhone ? 'compact' : densityForWidth(sectionWidth, 'wide')
+  const maxRows = maxRowsForWidth(sectionWidth)
+  const compact = density === 'compact'
+  useEffect(() => {
+    onCompactChange?.(compact)
+  }, [compact, onCompactChange])
 
   const cells = buildMonthGrid(view.year, view.month)
 
@@ -78,9 +87,10 @@ export function CalendarPanel({
   }
 
   return (
-    <section ref={sectionRef} className={PANEL}>
-      {/* 头部：月份导航 + 统计 */}
-      <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-4">
+    <section ref={sectionRef} className={`${PANEL} @container`}>
+      {/* 头部：月份导航 + 统计。窄面板（助手并排 / 分屏 / 手机）下统计整行下沉并
+          两端对齐，不再挤在月份右侧换来换去地折行 */}
+      <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-4 @max-[560px]:gap-x-1.5 @max-[560px]:px-3 @max-[560px]:pt-3">
         <button type="button" className={BTN_ICON} onClick={() => onShiftMonth(-1)} title="上个月" aria-label="上个月">
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
@@ -94,7 +104,8 @@ export function CalendarPanel({
           今天
         </button>
 
-        <div className="ml-auto flex gap-4 text-[11.5px] whitespace-nowrap text-muted-foreground">
+        {/* flex-wrap：三项统计各带 whitespace-nowrap，极窄时宁可折成两行也不横向溢出 */}
+        <div className="ml-auto flex flex-wrap gap-x-4 gap-y-[2px] text-[11.5px] whitespace-nowrap text-muted-foreground @max-[560px]:ml-0 @max-[560px]:w-full @max-[560px]:justify-between @max-[560px]:gap-x-2 @max-[560px]:text-[11px]">
           <span className="flex items-baseline gap-1">
             今日 <b className="tabular-nums font-semibold text-status-red">{stats.today}</b> 件
           </span>
@@ -126,7 +137,7 @@ export function CalendarPanel({
             selected={cell.key === selected}
             events={cell.key ? (eventsByDay[cell.key] ?? []) : []}
             maxRows={maxRows}
-            mobile={isMobile}
+            density={density}
             onPick={pickDay}
             onOpenDetail={onOpenEvent}
             onOpenAdd={onOpenAdd}
@@ -141,8 +152,8 @@ export function CalendarPanel({
         )}
       </div>
 
-      {/* 图例 */}
-      <div className="flex gap-[18px] px-4 pb-[13px] text-[10.5px] text-muted-foreground">
+      {/* 图例（窄面板允许折行，不横向溢出） */}
+      <div className="flex flex-wrap gap-x-[18px] gap-y-[3px] px-4 pb-[13px] text-[10.5px] text-muted-foreground @max-[560px]:px-3">
         <span className="flex items-center gap-1.5">
           <i className="h-[7px] w-[7px] flex-none rounded-full bg-status-red" />
           紧要 · 庭期 / 期限

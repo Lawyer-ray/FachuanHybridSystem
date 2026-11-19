@@ -85,7 +85,11 @@ class TestResponseShape:
     def test_lists_every_registered_backend(self) -> None:
         register(_FakeBackend("pi"))
         register(_FakeBackend("dsh"))
-        assert sorted(_options()) == ["dsh", "pi"]
+        # ``ensure_registered()``（幂等）会把真实内置后端一并补进注册表，所以这里
+        # 断言「注入的两个都在」而不是全集——后者每接一个后端就要改一次，且失败信息
+        # 只说明「多了个 kind」，与本用例要验的「按 kind 逐条列出」无关。
+        kinds = sorted(_options())
+        assert {"dsh", "pi"} <= set(kinds)
 
     def test_each_option_carries_label_capabilities_and_schema_fields(self) -> None:
         register(_FakeBackend("pi", _caps(steer=False)))
@@ -211,8 +215,10 @@ class TestRoute:
         """
         register(_FakeBackend("pi"))
         options = await session_api.list_backends(request=None)
-        # 未注册的 dsh 也以置灰条目出现（见 _collect_backend_options）
-        assert sorted(o.kind for o in options) == ["dsh", "pi"]
+        # 未注册的 dsh 也以置灰条目出现（见 _collect_backend_options）；其余条目来自
+        # ``ensure_registered()`` 补上的真实内置后端，所以只断言这两条存在。
+        kinds = {o.kind for o in options}
+        assert {"dsh", "pi"} <= kinds
         assert all(isinstance(o, BackendOptionOut) for o in options)
 
     def test_route_registered_on_agent_prefix(self) -> None:

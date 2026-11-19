@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from django.db.models import Count, Q, QuerySet, Sum
-from django.db.models.functions import TruncDate
+from django.db.models import Count, Q, QuerySet, Sum, Value
+from django.db.models.functions import Coalesce, NullIf, TruncDate
 from django.utils import timezone
 
 from ..models import AgentRun
@@ -201,6 +201,69 @@ def daily_series(
         }
         for row in rows
     ]
+
+
+def by_agent(*, user_id: int | None = None, days: int = DEFAULT_DAYS) -> list[dict[str, Any]]:
+    """按 agent 后端分组（看每个 agent 花了多少、跑了多少轮）。
+
+    ## 为什么需要它（与 ``by_model`` 的分工）
+
+    ``by_model`` 回答「哪个模型贵」。多 agent 上线后，同一个模型可能被两个 agent
+    同时用（例如 pi 和 dsh 都配 ``kimi-2.6``），那时按模型聚合根本分不清钱是谁花
+    的——这是引入 ``AgentRun.agent_kind`` 的直接原因。
+
+    两个维度不互相替代：律师问「换 dsh 到底值不值」看这里，问「glm53 比 kimi 便宜
+    多少」看 ``by_model``。
+
+    ## 空串归 pi
+
+    引入 ``agent_kind`` 之前的历史记录该字段为空。那时**只有** pi 在跑，所以归到
+    pi 是符合事实的（与 ``AgentMessage.agent_kind`` 的「空串当 pi」同口径）。
+    不做这个归一的话，报表上会多出一行「(未记录)」，看起来像有个神秘的第四个
+    agent 在烧钱。
+    """
+    queryset = _runs_in_window(user_id=user_id, days=days)
+    # **在 SQL 里就归一空串**，不能只改显示文案：`GROUP BY agent_kind` 会把
+    # `""` 与 `"pi"` 分成两组，逐行改名会让报表出现**两行都叫 pi** 的重复项，
+    # 而它们的 token 各自只算了一半。Coalesce+NullIf 让数据库把它们当同一组。
+    normalized = Coalesce(NullIf("agent_kind", Value("")), Value("pi"))
+    rows = (
+        queryset.annotate(agent_backend=normalized)
+        .values("agent_backend")
+        .annotate(
+            runs=Count("id"),
+            input_tokens=Sum("input_tokens"),
+            output_tokens=Sum("output_tokens"),
+            cache_read_tokens=Sum("cache_read_tokens"),
+            cache_write_tokens=Sum("cache_write_tokens"),
+            failed=Count("id", filter=Q(status=AgentRun.Status.ERROR)),
+            cancelled=Count("id", filter=Q(status=AgentRun.Status.CANCELLED)),
+        )
+        .order_by("-runs")
+    )
+    result = []
+    for row in rows:
+        input_tokens = int(row["input_tokens"] or 0)
+        output_tokens = int(row["output_tokens"] or 0)
+        cache_read = int(row["cache_read_tokens"] or 0)
+        cache_write = int(row["cache_write_tokens"] or 0)
+        denominator = input_tokens + cache_read + cache_write
+        result.append(
+            {
+                "agent_kind": row["agent_backend"],
+                "runs": int(row["runs"] or 0),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read,
+                "cache_write_tokens": cache_write,
+                "cache_hit_rate": round(cache_read / denominator, 4) if denominator else 0.0,
+                # 失败/中止单独计：多答时一个 agent 挂掉不该让整轮看起来失败，
+                # 但运营要知道是哪个后端不稳。
+                "failed_runs": int(row["failed"] or 0),
+                "cancelled_runs": int(row["cancelled"] or 0),
+            }
+        )
+    return result
 
 
 def by_model(*, user_id: int | None = None, days: int = DEFAULT_DAYS) -> list[dict[str, Any]]:

@@ -7,6 +7,7 @@ import { hasToken } from '@/lib/token'
 import { LoginPage, SocialCallbackPage } from '@/features/auth'
 import { AppShell } from './shell/AppShell'
 import {
+  AssistantPageLazy,
   BankLitigationPageLazy,
   ClientUploadPageLazy,
   DeskPageLazy,
@@ -110,6 +111,10 @@ export function AppRouter() {
           <Route path={ROUTES.bankLitigationCase} element={lazyPage(<BankLitigationCaseRoute />)} />
           {/* 合同复审工作台（发起审查后跳入；参数与 ReviewWorkbenchPage 的 useParams 对齐） */}
           <Route path={ROUTES.projectReview} element={<ReviewWorkbenchPageLazy />} />
+          {/* AI 助手独立页（全宽）：抽屉面板宽 600~1200px，多 agent 并排时每栏放不下。
+              两者共用同一个 copilot store（切过去就是同一段对话）；/assistant 上壳层
+              不再渲染抽屉，避免同一段对话两个输入框同屏。 */}
+          <Route path={ROUTES.assistant} element={<AssistantPageLazy />} />
           {/* 设置：系统状态 + 账号绑定 */}
           <Route path={ROUTES.settings} element={<SettingsPageLazy />} />
           {/* 旧路径迁移：账号绑定已并入设置页。保留 query 前转（bound= 绑定成功

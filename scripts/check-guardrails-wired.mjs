@@ -68,6 +68,18 @@ const ALLOWED_UNWIRED = new Map([
       "它不是「没人跑」——依赖它的静态护栏 tests/ci/unit/agent/test_dsh_verify_assertion_sources.py 在 CI 里跑（守护脚本的断言来源不被生产静默）。" +
       "本脚本在接入 dsh 工具面变更时手工跑一次，输出贴进验收报告。",
   ],
+  [
+    "scripts/verify_per_agent_model.py",
+    "端到端验收：需真启 Django（:8002）+ 真连律所网关（内网 :4000，要绕代理）+ 三个 agent 各跑一轮真实对话，CI 容器不具备这些依赖。" +
+      "它不是「没人跑」——依赖它的静态护栏 tests/ci/unit/agent/test_per_agent_model_regression.py 在 CI 里跑（守护「每栏模型」「每栏一个 done」「整轮一个 aux 席位」「工具按栏归位」不被静默改坏）。" +
+      "本脚本在改动多答编排 / 模型解析时手工跑一次，输出贴进验收报告。",
+  ],
+  [
+    "scripts/verify_key_scheduling.py",
+    "端到端验收：需真启 Django + 真连律所网关（内网 :4000，要绕代理）跑完整多答轮次，CI 容器不具备。" +
+      "它不是「没人跑」——依赖它的静态护栏 tests/ci/unit/agent/test_key_scheduler.py（分配器语义）与 test_round_key_allocation.py（编排层分栏）在 CI 里跑。" +
+      "本脚本在改动 key 分配 / 网关并发相关代码时手工跑一次，验证「三栏各用一把不同 key」在真实链路成立（含子进程后端）。",
+  ],
 ]);
 
 function readIfExists(relPath) {

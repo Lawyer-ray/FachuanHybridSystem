@@ -22,6 +22,29 @@ export interface AgentBackendOption {
   reason: string
   /** 能力声明（字段见后端 `BackendCapabilities`），前端据此隐藏插话框等 */
   capabilities: Record<string, boolean>
+  /**
+   * 该后端可选的模型（`GET /agent/backends` 的 `models`；空 = 跟随平台默认）。
+   *
+   * 三个后端最终都落到同一个 LiteLLM，所以共用同一份清单；将来某后端有独占
+   * 模型时在它自己返回值里收窄，前端不写死任何对应关系。
+   *
+   * **缺省 `[]`**：后端尚未上线该字段的部署里它不存在，前端据此隐去模型下拉
+   * （见 {@link AgentBackendOption.default_model} 的注释）。
+   */
+  models?: string[]
+  /** 未显式指定时用的模型（UI 预填；`null`/缺省 = 不知道，不预填） */
+  default_model?: string | null
+}
+
+/**
+ * 本轮一个参与方：哪个后端 + 用哪个模型（`POST /agent/sessions/{id}/messages`
+ * 的 `agents` 数组元素，与后端 `AgentSpecIn` 同形）。
+ *
+ * `model` 缺省 = 用平台默认模型——与引入本字段前发纯字符串 `"pi"` 完全等价。
+ */
+export interface AgentSpec {
+  kind: string
+  model?: string
 }
 
 /**
@@ -41,4 +64,14 @@ export interface AgentBackendSelection {
   loadBackends: () => Promise<void>
   /** 选择新建会话用的后端（不可用的选项直接忽略） */
   selectAgentKind: (kind: string) => void
+  /**
+   * 本轮各栏指定的模型（`kind → 模型名`，只对有值的 kind 存在键）。
+   *
+   * 与 `answerAgents` 分开存：`answerAgents` 决定「跑哪几家」，本字段决定
+   * 「每家跑哪个模型」。没指定模型的后端不出现在这里（发消息时省略 `model`
+   * 字段，后端回落平台默认）。`reset()` 清空。
+   */
+  answerModels: Record<string, string>
+  /** 给某一栏指定模型（空串 = 取消指定，回落平台默认） */
+  setAnswerModel: (kind: string, model: string) => void
 }

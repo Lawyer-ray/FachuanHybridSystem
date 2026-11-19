@@ -30,6 +30,13 @@ export const PanelBackdropLazy = lazy(() =>
   import('@/features/copilot').then((m) => ({ default: m.PanelBackdrop })),
 )
 
+// AI 助手独立页（/assistant）：与抽屉同一个 copilot 域 chunk（共用 store 与消息组件）。
+// 故意不进 ROUTE_PRELOADERS：copilot 域带 markdown/语法高亮，登录即空闲预载会把
+// 它塞进每个用户的首屏余量；首次展开抽屉或首次进本页时再拉即可。
+export const AssistantPageLazy = lazy(() =>
+  import('@/features/copilot').then((m) => ({ default: m.AssistantPage })),
+)
+
 // 客户上传单页（公开）：律师生成 /u/{token} 链接一对一发给客户，免登录上传。
 // 独立轻量 chunk（不带 pdfjs 等重依赖），放 RequireAuth 之外与 /login 平级。
 export const ClientUploadPageLazy = lazy(() =>

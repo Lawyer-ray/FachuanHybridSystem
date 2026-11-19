@@ -1,23 +1,36 @@
-import { Check } from 'lucide-react'
-
 import type { CalendarEvent } from '../api'
+import { briefLine, cardTitle, isKeyKind } from '../api-meta'
+import type { CalendarDensity } from '../calendar-density'
 import { formatCN, parseKey } from '../domain'
-import { briefLine, cardTargetLine, cardTitle, cellMetaLines } from '../api-meta'
-import { KIND_ROW } from '../constants'
-import { isKeyKind } from '../api-meta'
 import { cn } from '@/lib/utils'
+import { DayEventRow } from './DayEventRow'
 
 /**
- * 月历的单日格（从 CalendarPanel.tsx 拆出）：事件行（桌面）/ 标题截断（手机）、
- * 完成勾选、悬停摘要。纯展示受控组件，选中态与数据都在 CalendarPanel。
+ * 月历的单日格（从 CalendarPanel.tsx 拆出）：事件行（wide / medium）、
+ * 圆点标题（compact）、完成勾选、悬停摘要。纯展示受控组件，
+ * 选中态与数据都在 CalendarPanel。
+ *
+ * 三档密度全部由 CalendarPanel 按**面板净宽**算好传进来（见 calendar-density.ts），
+ * 这里不再读视口——AI 助手并排 / 分屏把面板压窄时视口依旧很宽，按视口判定就会
+ * 在 ~50px 宽的格子里硬塞五行卡片。
  */
 
-/** 格子高度：桌面按视口自适应；手机端只放日期行 + 两条标题，压到 72px 让整月基本一屏可见
- *  （原先手机沿用桌面的 132px 起步，一屏只见两三周，还全是空白） */
-const CELL_HEIGHT = 'min-h-[clamp(132px,12vw,208px)] max-[760px]:min-h-[72px]'
+/** 格子高度：宽档随视口自适应；中档固定够放「日期 + 两行标题」；紧凑档压到 72px
+ *  让整月基本一屏可见（原先手机上沿用桌面的 132px 起步，一屏只见两三周，还全是空白） */
+const CELL_HEIGHT: Record<CalendarDensity, string> = {
+  wide: 'min-h-[clamp(132px,12vw,208px)]',
+  medium: 'min-h-[120px]',
+  compact: 'min-h-[72px]',
+}
 
-/** 手机端格子里最多显示几条标题（再多折叠成 +N，全文进当日抽屉） */
-const MOBILE_TITLE_ROWS = 2
+const CELL_PAD: Record<CalendarDensity, string> = {
+  wide: 'p-[7px]',
+  medium: 'p-[5px]',
+  compact: 'p-[4px]',
+}
+
+/** 紧凑档格子里最多显示几条标题（再多折叠成 +N，全文进当日抽屉） */
+const COMPACT_TITLE_ROWS = 2
 
 interface CellProps {
   cell: { key: string | null; day: number | null; inMonth: boolean }
@@ -25,44 +38,50 @@ interface CellProps {
   selected: boolean
   events: CalendarEvent[]
   maxRows: number
-  /** 手机断点：点格子任意位置都开当日抽屉，不区分空白 / 事件 */
-  mobile: boolean
+  /** 内容密度（按面板净宽）；compact 同时决定交互：整格点按 = 看这一天 */
+  density: CalendarDensity
   onPick: (key: string) => void
   onOpenDetail: (e: CalendarEvent) => void
-  /** 点日历格空白处 → 新增该日安排（仅桌面端） */
+  /** 点日历格空白处 → 新增该日安排（非 compact 档） */
   onOpenAdd: (key: string) => void
   /** 勾选完成 / 取消完成 */
   onToggleComplete: (e: CalendarEvent) => void
-  /** 右键事件行 → 快捷菜单（删除等）；仅桌面事件行触发（手机行不渲染） */
+  /** 右键事件行 → 快捷菜单（删除等）；仅事件行触发（compact 档不渲染事件行） */
   onEventContextMenu?: (e: CalendarEvent, pos: { x: number; y: number }) => void
 }
 
-export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick, onOpenAdd, onOpenDetail, onToggleComplete, onEventContextMenu }: CellProps) {
-  if (!cell.key || cell.day == null) return <div className={cn(CELL_HEIGHT, 'border-r border-b border-border-light')} />
+export function DayCell({ cell, today, selected, events, maxRows, density, onPick, onOpenAdd, onOpenDetail, onToggleComplete, onEventContextMenu }: CellProps) {
+  const compact = density === 'compact'
+
+  if (!cell.key || cell.day == null) {
+    return <div className={cn(CELL_HEIGHT[density], 'border-r border-b border-border-light')} />
+  }
 
   const key = cell.key
   const isToday = key === today
   const shown = events.slice(0, maxRows)
   const hidden = events.length - shown.length
-  const mobileHidden = events.length - Math.min(events.length, MOBILE_TITLE_ROWS)
+  const compactHidden = events.length - Math.min(events.length, COMPACT_TITLE_ROWS)
 
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${cell.day} 日${events.length ? `，${events.length} 个安排` : ''}，${mobile ? '点按查看该日安排' : '回车新增该日安排'}`}
+      aria-label={`${cell.day} 日${events.length ? `，${events.length} 个安排` : ''}，${compact ? '点按查看该日安排' : '回车新增该日安排'}`}
       className={cn(
-        'group relative cursor-pointer border-r border-b border-border-light p-[7px] transition-colors last:border-r-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset max-[760px]:p-[4px]',
-        CELL_HEIGHT,
+        'group relative cursor-pointer border-r border-b border-border-light transition-colors last:border-r-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+        CELL_PAD[density],
+        CELL_HEIGHT[density],
         !cell.inMonth && 'opacity-30',
         selected && 'bg-secondary/60',
         isToday && 'bg-status-red-bg/40',
       )}
       onClick={(ev) => {
-        // 手机端：格子里没有可点准的事件行，点哪儿都是「看这一天」→ 开当日抽屉，
-        // 新增走抽屉里的「＋新增」。以前这里也走「点空白新增」：手机上事件只是
-        // 不可交互的圆点，点圆点穿透成新增弹窗，详情永远开不了
-        if (mobile) {
+        // 紧凑档（手机 / 面板被压窄）：格子里没有可点准的事件行，点哪儿都是
+        // 「看这一天」→ 开当日抽屉，新增走抽屉里的「＋新增」。以前这里也走
+        // 「点空白新增」：窄格里事件只是不可交互的圆点，点圆点穿透成新增弹窗，
+        // 详情永远开不了
+        if (compact) {
           onPick(key)
           return
         }
@@ -75,14 +94,14 @@ export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick
         onOpenAdd(key)
       }}
       onKeyDown={(ev) => {
-        // 键盘可达：Enter / Space 等价于点格子（桌面=打开该日新增；手机=开抽屉）；事件行详情见事件行自身的 onKeyDown
+        // 键盘可达：Enter / Space 等价于点格子（非紧凑档=打开该日新增；紧凑档=开抽屉）；事件行详情见事件行自身的 onKeyDown
         if (ev.key === 'Enter' || ev.key === ' ') {
           ev.preventDefault()
           onPick(key)
-          if (!mobile) onOpenAdd(key)
+          if (!compact) onOpenAdd(key)
         }
       }}
-      title={mobile ? undefined : '点空白处新增该日安排'}
+      title={compact ? undefined : '点空白处新增该日安排'}
     >
       <div className="mb-[5px] flex items-center justify-center gap-[3px]">
         <span
@@ -101,109 +120,46 @@ export function DayCell({ cell, today, selected, events, maxRows, mobile, onPick
         )}
       </div>
 
-      <div className={cn('flex flex-col gap-[2px]', 'max-[760px]:hidden')}>
-        {shown.map((e) => {
-          const meta = cellMetaLines(e)
-          const targetLine = cardTargetLine(e)
-          return (
-            <div
+      {density !== 'compact' && shown.length > 0 && (
+        <div className="flex flex-col gap-[2px]">
+          {shown.map((e) => (
+            <DayEventRow
               key={e.id}
-              data-calendar-event={e.id}
-              role="button"
-              tabIndex={0}
-              className={cn(
-                'flex flex-col justify-center gap-px rounded-[5px] px-[6px] py-[3px] text-[11.5px] transition-[filter] hover:brightness-95',
-                KIND_ROW[e.kind],
-                !isKeyKind(e.kind) && 'bg-secondary/70',
-                e.is_completed && 'opacity-55',
-              )}
-              onClick={(ev) => {
-                ev.stopPropagation()
-                onOpenDetail(e)
-              }}
-              onKeyDown={(ev) => {
-                // 键盘可达：Enter / Space 打开事件详情（等价点击事件行）
-                if (ev.key !== 'Enter' && ev.key !== ' ') return
-                // 行首完成勾选按钮自身可激活，按键交给按钮，不重复触发详情
-                if ((ev.target as HTMLElement).closest('button')) return
-                ev.preventDefault()
-                // 不冒泡到日历格（否则会触发「点空白处新增」）
-                ev.stopPropagation()
-                onOpenDetail(e)
-              }}
-              onContextMenu={onEventContextMenu
-                ? (ev) => {
-                    // 右键直达快捷菜单（删除等）：拦掉浏览器原生菜单，也不触发日历格的任何行为
-                    ev.preventDefault()
-                    ev.stopPropagation()
-                    onEventContextMenu(e, { x: ev.clientX, y: ev.clientY })
-                  }
-                : undefined}
+              event={e}
+              density={density}
+              onOpenDetail={onOpenDetail}
+              onToggleComplete={onToggleComplete}
+              onEventContextMenu={onEventContextMenu}
+            />
+          ))}
+          {hidden > 0 && (
+            <span
+              data-calendar-more
+              className="mt-[1px] self-start rounded-[6px] border border-input bg-secondary px-2 py-[2px] text-[10.5px] font-semibold text-secondary-foreground"
             >
-              {/* 时间独占第一行，正文全部左对齐顶格开始。
-                  以前把时间做成固定 30px 的前导列，导致律师/地点两行要缩进
-                  到 30px 起，左侧白费一条——格子本来就窄，不能再浪费宽度。
-                  行首的完成勾选与时间同行，已完成时标题划线。 */}
-              <span className="flex items-center gap-1">
-                <button
-                  type="button"
-                  aria-label={e.is_completed ? '标记为未完成' : '标记为完成'}
-                  title={e.is_completed ? '标记为未完成' : '标记为完成'}
-                  onClick={(ev) => {
-                    // 勾选只切换完成态：不冒泡到事件行（详情）与日历格（新增）
-                    ev.stopPropagation()
-                    onToggleComplete(e)
-                  }}
-                  className={cn(
-                    'flex h-[12px] w-[12px] flex-none items-center justify-center rounded-full border-[1.5px] transition-colors',
-                    e.is_completed
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-current/40 text-transparent hover:border-current',
-                  )}
-                >
-                  <Check className="h-[8px] w-[8px]" strokeWidth={3} />
-                </button>
-                <span className="text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
-                {e.time_range && e.time_range !== e.time && (
-                  <span className="truncate text-[9px] tabular-nums opacity-55">-{e.time_range.split('-')[1]}</span>
-                )}
-              </span>
-              {/* 主标题用 cardTitle（行动项优先）：后端 title 是「关联对象名优先」，
-                  绑了长合同名后格子里只剩合同名，看不出这条安排要做什么 */}
-              <span className={cn('truncate font-medium leading-tight', e.is_completed && 'line-through')}>{cardTitle(e)}</span>
-              {targetLine && <span className="truncate text-[9.5px] opacity-70">{targetLine}</span>}
-              {meta.primary && <span className="truncate text-[9.5px] opacity-75">{meta.primary}</span>}
-              {meta.secondary && <span className="truncate text-[9.5px] opacity-60">{meta.secondary}</span>}
-            </div>
-          )
-        })}
-        {hidden > 0 && (
-          <span
-            data-calendar-more
-            className="mt-[1px] self-start rounded-[6px] border border-input bg-secondary px-2 py-[2px] text-[10.5px] font-semibold text-secondary-foreground"
-          >
-            + {hidden} 更多
-          </span>
-        )}
-      </div>
+              + {hidden} 更多
+            </span>
+          )}
+        </div>
+      )}
 
-      {/* 手机端：圆点 + 标题截断。格子仅 ~50px 宽，只够看开头几个字和紧要色，
+      {/* 紧凑档：圆点 + 标题截断。格子仅 ~50px 宽，只够看开头几个字和紧要色，
           全文进当日抽屉（点格子即开）；纯展示不拦点击，整格一个点击目标 */}
-      {events.length > 0 && (
-        <div aria-hidden data-calendar-mobile-titles className="mt-[2px] hidden flex-col gap-[2px] max-[760px]:flex">
-          {events.slice(0, MOBILE_TITLE_ROWS).map((e) => (
+      {compact && events.length > 0 && (
+        <div aria-hidden data-calendar-compact-titles className="mt-[2px] flex flex-col gap-[2px]">
+          {events.slice(0, COMPACT_TITLE_ROWS).map((e) => (
             <span key={e.id} className={cn('flex min-w-0 items-center gap-[3px]', e.is_completed && 'opacity-40')}>
               <i className={cn('h-[5px] w-[5px] flex-none rounded-full', isKeyKind(e.kind) ? 'bg-status-red' : 'bg-input')} />
               <span className={cn('truncate text-[9.5px] leading-[1.3]', e.is_completed && 'line-through')}>{cardTitle(e)}</span>
             </span>
           ))}
-          {mobileHidden > 0 && <em className="text-[9px] leading-none text-muted-foreground">+{mobileHidden}</em>}
+          {compactHidden > 0 && <em className="text-[9px] leading-none text-muted-foreground">+{compactHidden}</em>}
         </div>
       )}
 
-      {/* 悬停摘要 */}
-      {events.length > 0 && (
-        <div className="pointer-events-none absolute bottom-[calc(100%+4px)] left-1/2 z-40 hidden w-[300px] max-w-[330px] -translate-x-1/2 scale-95 rounded-[11px] bg-foreground p-[11px_14px] text-[11.5px] leading-[1.5] text-background opacity-0 shadow-[0_8px_24px_rgba(0,0,0,.16)] transition-[opacity,transform,visibility] group-hover:visible group-hover:scale-100 group-hover:opacity-100 min-[761px]:block">
+      {/* 悬停摘要（紧凑档不弹：格子太窄，300px 浮层会盖住整块日历） */}
+      {!compact && events.length > 0 && (
+        <div className="pointer-events-none absolute bottom-[calc(100%+4px)] left-1/2 z-40 hidden w-[300px] max-w-[330px] -translate-x-1/2 scale-95 rounded-[11px] bg-foreground p-[11px_14px] text-[11.5px] leading-[1.5] text-background opacity-0 shadow-[0_8px_24px_rgba(0,0,0,.16)] transition-[opacity,transform,visibility] group-hover:visible group-hover:scale-100 group-hover:opacity-100 block">
           <div className="mb-1.5 text-[10px] text-background/60">
             {/* parseKey 而非 new Date(key)：后者按 UTC 零点解析，西半球时区会退一天 */}
             {(isToday ? '今天 · ' : '') + formatCN(parseKey(key))}

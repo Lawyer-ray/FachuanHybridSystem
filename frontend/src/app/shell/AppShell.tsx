@@ -1,10 +1,11 @@
 import { Suspense, useEffect, type CSSProperties } from 'react'
-import { Outlet, useLocation } from 'react-router'
+import { Outlet, useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { CopilotPanelLazy, PanelBackdropLazy, preloadAllRoutes, preloadRoute, whenIdle } from '../preload'
+import { ROUTES } from '../paths'
 import { RouteFallback } from '../router'
 import { useCopilotShell } from './use-copilot-shell'
 
@@ -29,6 +30,9 @@ import { useCopilotShell } from './use-copilot-shell'
  *
  * AI 助手与 ⌘K 检索的全部开关状态在 useCopilotShell（与路由无关）；本文件只做
  * 布局装配。
+ *
+ * /assistant（AI 助手独立页）例外：那一页自己就是全屏助手，本层不再叠抽屉，
+ * 也不给内容区留并排 padding——见下面 copilotPanelVisible 的注释。
  */
 export function AppShell() {
   // 登录后空闲时把三个主入口的 chunk 预载进来：切标签不再等下载。
@@ -39,6 +43,7 @@ export function AppShell() {
   // 「[当前页面：…]」锚点用）。详情页挂载后会写更精确的描述（实体名+id）
   // 覆盖；动态 import 保持 copilot 域的懒加载边界。
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   useEffect(() => {
     let cancelled = false
     void Promise.all([import('@/features/copilot/store'), import('@/features/copilot/domain')]).then(
@@ -63,6 +68,14 @@ export function AppShell() {
     setSearchOpen,
   } = useCopilotShell()
 
+  // AI 助手独立页（/assistant）自己就是全屏助手：壳层不再叠一层抽屉——同一段
+  // 对话出现两个输入框，用户不知道该跟哪个说（与复审页「两个 AI 助手并排」
+  // 同一取舍，见 use-copilot-shell）。抽屉的开关状态原样保留，离开本页即恢复；
+  // 并排 padding 同理要停，否则页面会被一个看不见的面板让出一截。
+  const onAssistantPage = pathname === ROUTES.assistant
+  const copilotPanelVisible = copilotMounted && !onAssistantPage
+  const contentDocked = effectiveDocked && !onAssistantPage
+
   return (
     <div className="min-h-screen bg-background">
       <AppNavbar
@@ -72,12 +85,12 @@ export function AppShell() {
         searchOpen={searchOpen}
         onSearchOpenChange={setSearchOpen}
       />
-      {copilotBackdropEnabled && copilotMounted && (
+      {copilotBackdropEnabled && copilotPanelVisible && (
         <Suspense fallback={null}>
           <PanelBackdropLazy open={copilotOpen} onClose={toggleCopilot} />
         </Suspense>
       )}
-      {copilotMounted && (
+      {copilotPanelVisible && (
         <Suspense fallback={null}>
           <CopilotPanelLazy
             open={copilotOpen}
@@ -85,13 +98,18 @@ export function AppShell() {
             dockCapable={isXlUp}
             docked={effectiveDocked}
             onDockToggle={toggleCopilotDock}
+            onExpand={() => {
+              // 先收抽屉再跳页：留着抽屉会让独立页叠在一起（同一段对话两个输入框）。
+              toggleCopilot()
+              void navigate(ROUTES.assistant)
+            }}
           />
         </Suspense>
       )}
       <div
         className="transition-[padding-right] duration-200"
         style={
-          effectiveDocked
+          contentDocked
             ? ({
                 paddingRight: 'var(--copilot-w-app, 0px)',
                 // 并排让位的净宽对 fixed 定位的全屏层（材料预处理阅读器）同样生效：

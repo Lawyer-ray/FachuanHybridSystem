@@ -119,8 +119,34 @@ _AMOUNT_RES = (
 # 「账户4501」这类账号会被 元 正则误抽吗？不会——它后面没有「元」。
 # 但「人民币2400元」里 2400 前面可能紧跟数字（如日期），所以抓取要求词边界。
 
-# ── 代付：「（代某供应链公司付律师费）」 ──────────
-_ON_BEHALF_RE = re.compile(r"代\s*([\u4e00-\u9fa5A-Za-z0-9（）()·]{2,60}?)\s*(?:付|付款|支付)")
+# ── 代付 / 付款方说明 ─────────────────────────────────────
+#
+# 真实样本有**两种**写法，必须都覆盖（2026-11 真实漏匹配事故）：
+#
+#   ① 「（代某供应链公司付律师费）」          ← 有「代」字，原实现只认这种
+#   ② 「（甲方公司支付律师费）」          ← **无「代」字**，原实现完全不命中
+#
+# 事故复盘：律师本人（某律师）先把客户的钱收进自己账户，再转到律所账户，
+# 银行短信的付款人是**律师姓名**，真正的付款方只写在括号里。原正则强制以
+# 「代」开头，于是 on_behalf_of 留空 → 唯一能指向项目的强证据消失 → 该笔
+# 9000 只能靠「金额撞应收余额」落进 amount_only（待认领页显示「仅金额吻合」）。
+#
+# 语义说明：这里用「代付方」字段承载两种写法的**付款方主体**——对匹配器而言
+# 它只意味着「这笔钱背后指向哪个委托人」，不区分是不是法律意义上的代为支付。
+_ON_BEHALF_RE = re.compile(r"(?:代|由)?\s*([\u4e00-\u9fa5A-Za-z0-9（）()·]{2,60}?)\s*(?:代付|付款|支付|汇付|缴付|付)")
+
+# 括号内说明的候选区域：「（…）」「(…)」。只在这些片段里找付款方，
+# 避免正文里任意「XX支付」被当成代付方（如「向贵公司账户支付」）。
+_ON_BEHALF_SCOPE_RE = re.compile(r"[（(]([^（()）]{2,80})[）)]")
+
+#: 括号说明里的「款项用途」后缀，需从主体名里剔除
+#: （「甲方公司支付律师费」→ 主体「甲方公司」，不是「甲方公司支付律师费」）
+_ON_BEHALF_TAIL_NOISE = re.compile(
+    r"(?:支付|代付|付款|汇付|缴付|转入|存入)?\s*(?:的)?\s*(?:律师费|代理费|服务费|法律顾问费|顾问费|费用|款项).*$"
+)
+
+#: 主体名末尾的修饰词（「甲方公司」保留「公司」，但去掉「向贵公司」这类指代）
+_ON_BEHALF_LEADING_NOISE = re.compile(r"^(?:其|该|此|向我?司|向贵公司|贵公司|本公司)\s*")
 
 # ── 付款人 ────────────────────────────────────────────────
 # 真实格式：【建设银行】李某11月4日17时30分... / 【建设银行】张某11月8日10时31分...
@@ -136,6 +162,30 @@ _PAYER_AFTER_BANK_RE = re.compile(
 # 兜底：正文里「付款人：XXX」
 _PAYER_LABEL_RE = re.compile(r"付款人[:：]\s*([^\n;；,，]{2,40})")
 
+# ── 律师代收转付：「某律师11月18日…存入人民币9000元」 ────────
+#
+# 律所真实收付链路：客户把钱打给**承办律师个人**，律师再转入律所对公账户。
+# 银行短信里的付款人因此是律师姓名，而不是委托人。这种付款人**不能**拿去
+# 和合同的 PRINCIPAL 比对（律师永远不是任何合同的委托人），否则白白浪费掉
+# 一条实名信号，还可能误命中「同名委托人」。
+#
+# 判定不写死律师名单（避免跟组织架构漂移），只标识「付款人是自然人」这一
+# 事实；是否为本所律师由调用方用 Lawyer 表核对后决定是否降级。
+_PERSON_NAME_RE = re.compile(r"^[\u4e00-\u9fa5]{2,4}$")
+
+
+def looks_like_person_name(value: str) -> bool:
+    """付款人是否像一个自然人姓名（2–4 个汉字，不含公司/机构字样）。
+
+    只做形态判断，不查库：本模块是纯解析层，不应依赖 ORM。
+    """
+    name = (value or "").strip()
+    if not _PERSON_NAME_RE.match(name):
+        return False
+    org_tokens = ("公司", "银行", "律所", "事务所", "中心", "学校", "医院", "政府", "委员会", "厂", "店")
+    return not any(token in name for token in org_tokens)
+
+
 # ── 到账日期：「11月4日17时30分」 ───────────────────────────
 _MONTH_DAY_RE = re.compile(r"(\d{1,2})\s*月\s*(\d{1,2})\s*日")
 
@@ -148,6 +198,9 @@ class TransferNotice:
     payer_name: str = ""
     on_behalf_of: str = ""
     received_at: date | None = None
+    #: 付款人形态上是自然人姓名。律所场景下这往往意味着「承办律师代收转付」
+    #: （客户→律师→律所），此时付款人不能作为「委托人命中」的实名证据。
+    payer_is_person: bool = False
     # 解析时命中的原文片段，便于人工复核「系统是从哪句读出来的」
     evidence: list[str] = field(default_factory=list)
 
@@ -179,6 +232,48 @@ def _parse_amount(text: str) -> tuple[Decimal | None, str]:
     return found[0][0], found[0][1]
 
 
+def _clean_on_behalf(raw: str) -> str:
+    """把括号里的说明句归一成付款方主体名。
+
+    ``代某供应链公司付律师费``  → ``某供应链公司``
+    ``甲方公司支付律师费``  → ``甲方公司``
+    """
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    value = _ON_BEHALF_LEADING_NOISE.sub("", value).strip()
+    value = _ON_BEHALF_TAIL_NOISE.sub("", value).strip()
+    # 去掉残留的引号/顿号等
+    value = value.strip("　 \t“”\"'‘’、·,，;；.。")
+    return value if len(value) >= 2 else ""
+
+
+def extract_on_behalf_of(haystack: str) -> tuple[str, str]:
+    """从到账通知里抽出「付款方主体」与命中的原文片段。
+
+    **只在括号片段里找**（``（…）`` / ``(…)``）：真实的付款方说明总是被律师
+    补在括号里。如果全文任意位置都搜「XX支付」，正文里「向贵公司账户支付」
+    这类描述会被误当成付款方，把噪声当成实名证据比漏掉更危险。
+
+    两种真实写法都支持（见 ``_ON_BEHALF_RE`` 上方的事故复盘）：
+
+    - ``（代某供应链公司付律师费）``
+    - ``（甲方公司支付律师费）``
+
+    Returns:
+        ``(主体名, 命中的括号原文)``；无命中返回 ``("", "")``。
+    """
+    for scope in _ON_BEHALF_SCOPE_RE.finditer(haystack or ""):
+        inner = scope.group(1)
+        m = _ON_BEHALF_RE.search(inner)
+        if not m:
+            continue
+        cleaned = _clean_on_behalf(m.group(1))
+        if cleaned:
+            return cleaned, scope.group(0)
+    return "", ""
+
+
 def parse_transfer_notice(*, subject: str = "", body_text: str = "", body_html: str = "") -> TransferNotice:
     """解析一封到账通知。
 
@@ -198,10 +293,10 @@ def parse_transfer_notice(*, subject: str = "", body_text: str = "", body_html: 
     if amount_evidence:
         notice.evidence.append(f"金额：{amount_evidence}")
 
-    m = _ON_BEHALF_RE.search(haystack)
-    if m:
-        notice.on_behalf_of = m.group(1).strip()
-        notice.evidence.append(f"代付：{m.group(0)}")
+    on_behalf, on_behalf_raw = extract_on_behalf_of(haystack)
+    if on_behalf:
+        notice.on_behalf_of = on_behalf
+        notice.evidence.append(f"代付：{on_behalf_raw}")
 
     payer = ""
     m = _PAYER_AFTER_BANK_RE.search(haystack)
@@ -214,6 +309,10 @@ def parse_transfer_notice(*, subject: str = "", body_text: str = "", body_html: 
     notice.payer_name = payer
     if payer:
         notice.evidence.append(f"付款人：{payer}")
+        # 付款人是自然人 = 可能是承办律师代收转付（律师先收客户的款，再转入律所）。
+        # 标记出来供上层判断：这种付款人**不能**当委托人证据用。
+        if looks_like_person_name(payer):
+            notice.payer_is_person = True
 
     m = _MONTH_DAY_RE.search(haystack)
     if m:

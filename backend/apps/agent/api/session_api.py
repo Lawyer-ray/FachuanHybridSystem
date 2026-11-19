@@ -46,9 +46,22 @@ _BACKEND_LABELS: dict[str, tuple[str, str]] = {
 _DSH_SDK_MODULE = "deepseek_harness"
 
 
-def _backend_option(kind: str, capabilities: dict[str, Any], *, available: bool, reason: str) -> BackendOptionOut:
-    """按缺省标签表拼一条选项（未登记的 kind 用 kind 自身当名字）。"""
+def _backend_option(
+    kind: str,
+    capabilities: dict[str, Any],
+    *,
+    available: bool,
+    reason: str,
+    models: list[str] | None = None,
+) -> BackendOptionOut:
+    """按缺省标签表拼一条选项（未登记的 kind 用 kind 自身当名字）。
+
+    ``models`` 是本轮可选的模型清单，``default_model`` 取清单第一项——
+    与 ``pool._resolve_model()`` 的回落口径一致（那里也是 ``models[0]``），
+    否则 UI 预填的模型和实际不指定时用的模型会对不上。
+    """
     label, description = _BACKEND_LABELS.get(kind, (kind, ""))
+    model_names = list(models or [])
     return BackendOptionOut(
         kind=kind,
         label=label,
@@ -56,7 +69,24 @@ def _backend_option(kind: str, capabilities: dict[str, Any], *, available: bool,
         available=available,
         reason=reason,
         capabilities=capabilities,
+        models=model_names,
+        default_model=model_names[0] if model_names else None,
     )
+
+
+def _available_models() -> list[str]:
+    """当前平台可选的模型清单（无可用平台 / 无模型时为空列表）。
+
+    复用 ``pi.model_config._provider_models``：模型来源只能有一处定义，否则
+    「能不能用」的判断与真正解析出来的模型会漂移（``_no_llm_provider_reason``
+    用的是同一份）。同步 ORM，调用方负责 ``sync_to_async``。
+    """
+    from ..pi.model_config import _load_provider, _provider_models
+
+    provider = _load_provider()
+    if provider is None:
+        return []
+    return _provider_models(provider)
 
 
 def _no_llm_provider_reason() -> str:
@@ -97,6 +127,9 @@ def _collect_backend_options() -> list[BackendOptionOut]:
     """列出可选后端及其可用性（同步：查注册表 + 查 LLMProvider，全在纯同步路径上）。"""
     ensure_registered()
     registered = available_backend_kinds()
+    # 模型清单只查一次：三个后端共用同一份（都落到同一个网关），按 kind 再查
+    # 三遍纯属浪费——这个端点每次打开切换器都会被调。
+    models = _available_models()
     options: list[BackendOptionOut] = []
     for kind in registered:
         if kind == "dsh":
@@ -104,7 +137,13 @@ def _collect_backend_options() -> list[BackendOptionOut]:
         else:
             available, reason = True, ""
         options.append(
-            _backend_option(kind, asdict(get_backend(kind).capabilities), available=available, reason=reason)
+            _backend_option(
+                kind,
+                asdict(get_backend(kind).capabilities),
+                available=available,
+                reason=reason,
+                models=models,
+            )
         )
     # dsh 未注册（缺 SDK / 未接好）时仍列出，置灰并说明原因：直接不出现会让用户
     # 以为「本系统没有这个后端」，而真相是「这里缺东西」——后者是可排查、可修的。
@@ -115,6 +154,9 @@ def _collect_backend_options() -> list[BackendOptionOut]:
                 {},
                 available=False,
                 reason="未注册 DshBackend（缺 DeepSeek Harness SDK 或接入未完成）",
+                # 未注册 = 现在跑不了，不给模型清单，避免 UI 让用户在一个置灰的
+                # 后边选完模型才发现用不了
+                models=[],
             )
         )
     return options

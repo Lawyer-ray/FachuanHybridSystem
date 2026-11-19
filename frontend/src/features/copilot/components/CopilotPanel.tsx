@@ -12,35 +12,28 @@
  *
  * 并排模式（宽屏，AppShell 传入 dockCapable/docked）：遮罩关闭，主内容
  * 区让出等宽 padding，本面板与页面同屏对照；切换按钮在 header 右侧。
+ *
+ * 宽度是抽屉的固有约束（多 agent 并排时每栏放不下）：需要全宽时去独立页
+ * `/assistant`（AssistantPage）——同一批对话组件、同一个 store，只换布局。
+ * 会话装配（恢复会话/后端清单/待审/标题与能力）两处共用 useActiveSession。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Paperclip } from 'lucide-react'
 
-import { listSessions } from '../api'
-import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
+import { useMediaQuery } from '@/hooks/use-media'
+
+import { useActiveSession } from '../hooks/use-active-session'
 import { useCopilotDrop } from '../hooks/use-copilot-drop'
 import { usePanelResize } from '../hooks/use-panel-resize'
+import { readStoredRailOpen, storeRailOpen } from '../persistence'
 import { useCopilot } from '../store'
-import { resolveCapabilities } from '../store/backends'
 
 import { Composer } from './Composer'
 import { CopilotHeader } from './CopilotHeader'
+import { FileDropHint } from './FileDropHint'
 import { FolderTreeDrawer } from './FolderTreeDrawer'
 import { MessageList } from './MessageList'
 import { SessionSidebar } from './SessionSidebar'
-import { useMediaQuery } from '@/hooks/use-media'
-
-const RAIL_KEY = 'copilot:rail'
-
-function readRailOpen(): boolean {
-  try {
-    return localStorage.getItem(RAIL_KEY) !== '0'
-  } catch {
-    return true
-  }
-}
 
 export function CopilotPanel({
   open,
@@ -48,6 +41,7 @@ export function CopilotPanel({
   dockCapable = false,
   docked = false,
   onDockToggle,
+  onExpand,
 }: {
   open: boolean
   onClose: () => void
@@ -56,19 +50,16 @@ export function CopilotPanel({
   /** 当前是否处于并排模式（open && 偏好 && 宽屏） */
   docked?: boolean
   onDockToggle?: () => void
+  /**
+   * 跳到全屏助手页；由壳层注入（面板本身不依赖 router，否则单测渲染就要包
+   * MemoryRouter，而这个组件对路由本无兴趣）。
+   */
+  onExpand?: () => void
 }) {
-  const sessionId = useCopilot((s) => s.sessionId)
-  const streaming = useCopilot((s) => s.streaming)
   const context = useCopilot((s) => s.context)
   const switchSession = useCopilot((s) => s.switchSession)
-  const enterContext = useCopilot((s) => s.enterContext)
   const exitContext = useCopilot((s) => s.exitContext)
-  const loadPendingApprovals = useCopilot((s) => s.loadPendingApprovals)
-  const refreshHistory = useCopilot((s) => s.refreshHistory)
-  const loadBackends = useCopilot((s) => s.loadBackends)
-  const backends = useCopilot((s) => s.backends)
-  const selectedAgentKind = useCopilot((s) => s.selectedAgentKind)
-  const queryClient = useQueryClient()
+  const { currentTitle, currentModel, currentAgentKind, currentCapabilities } = useActiveSession()
   const isSmUp = useMediaQuery('(min-width: 640px)')
   const { width, railCapable, setPanelRef, onHandlePointerDown } = usePanelResize(isSmUp)
 
@@ -110,85 +101,9 @@ export function CopilotPanel({
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
-  // 常驻会话栏开关（持久化）；窄屏/收窄时的覆盖式列表开关（瞬态）
-  const [railOpen, setRailOpen] = useState(readRailOpen)
+  // 常驻会话栏开关（持久化，与独立页共用一份）；窄屏/收窄时的覆盖式列表开关（瞬态）
+  const [railOpen, setRailOpen] = useState(readStoredRailOpen)
   const [listOverlayOpen, setListOverlayOpen] = useState(false)
-
-  // 恢复上次会话的历史（StrictMode 双挂载幂等：同 id 重拉无害）
-  useEffect(() => {
-    void switchSession(sessionId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // 可选 agent 后端清单：切换器的数据源。拉取失败静默（切换器退化为纯展示，
-  // 发消息仍走后端默认 pi），所以不阻塞面板打开。
-  useEffect(() => {
-    void loadBackends()
-  }, [loadBackends])
-
-  // 业务页打开入口（案件/合同页的「AI 助手」按钮）：
-  // ①面板尚未挂载时 chunk 加载完从这里取走 pending；②已打开时监听后续事件切上下文
-  useEffect(() => {
-    const pending = takePendingLaunchContext()
-    if (pending) void enterContext(pending)
-    const onLaunch = (e: Event) => {
-      const detail = (e as CustomEvent<CopilotLaunchContext | null>).detail
-      if (detail) void enterContext(detail)
-    }
-    window.addEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
-    return () => window.removeEventListener(COPILOT_LAUNCH_EVENT, onLaunch)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // 离线审批入口：面板打开、每轮流结束、切会话后拉一次待审列表。
- // 后台任务挂起的高危工具调用由此浮出水面，而不是默默超时。
-  useEffect(() => {
-    if (!streaming) void loadPendingApprovals()
-  }, [streaming, sessionId, loadPendingApprovals])
-
-  // 面板标题取当前会话标题：会话列表缓存里查（缓存由侧栏/流结束刷新）
-  // 会话列表按业务范围取：context（案件/合同页打开）时只列该范围的会话；
-  // scopeKey 进 queryKey 保证两套列表缓存互不串
-  const scopeKey = context ? `${context.origin}:${context.refId}` : 'all'
-  const scope = context ? { origin: context.origin, refId: context.refId } : undefined
-  const sessionsQuery = useQuery({
-    queryKey: ['copilot', 'sessions', scopeKey],
-    queryFn: () => listSessions(50, scope),
-    enabled: Boolean(sessionId) || Boolean(context),
-    staleTime: 30_000,
-    retry: false,
-  })
-  const currentSession = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId) : undefined
-  const currentTitle = currentSession?.title ?? ''
-  const currentModel = currentSession?.llm_model ?? ''
-  // 会话的后端只能从列表缓存读：store 不存它（切换语义只对新会话成立，见
-  // AgentBackendPicker）。缓存未到时按「可切换」渲染——新对话本来就是多数场景，
-  // 且此时用户正在选。
-  const currentAgentKind = currentSession?.agent_kind ?? null
-  // 当前会话所用后端的能力声明：输入区据此隐藏插话入口（`steer=false` 的后端
-  // 会把用户敲进去的话丢掉而不报错，比直接禁用糟糕得多）。新对话时按「将要
-  // 新建的会话」算，避免建会话前的界面上已经少了一块。
-  const currentCapabilities = resolveCapabilities(backends, currentAgentKind ?? selectedAgentKind)
-
-  // 每轮流结束后刷新会话列表：首条消息会自动生成标题，标题要能浮上来
-  useEffect(() => {
-    if (!streaming && (sessionId || context)) {
-      void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] })
-    }
-  }, [streaming, sessionId, context, queryClient])
-
-  // 后台任务跑完（updated_at 变化）自动重拉转录：任务的通知消息/产出
-  // 不在面板的流式路径里，只能靠轮询发现的 updated_at 变化来刷新。
-  // 对话式会话不走这里（store 已实时追加，重拉只会浪费一次请求）。
-  const prevTaskUpdatedRef = useRef('')
-  useEffect(() => {
-    if (currentSession?.origin !== 'task') return
-    const updatedAt = currentSession.updated_at
-    if (!updatedAt || updatedAt === prevTaskUpdatedRef.current) return
-    const isFirst = prevTaskUpdatedRef.current === ''
-    prevTaskUpdatedRef.current = updatedAt
-    if (!isFirst && !streaming) void refreshHistory()
-  }, [currentSession, streaming, refreshHistory])
 
   const railVisible = railOpen && railCapable
   const draggingFiles = useCopilot((s) => s.draggingFiles)
@@ -199,11 +114,7 @@ export function CopilotPanel({
   const toggleList = () => {
     if (railCapable) {
       setRailOpen((v) => {
-        try {
-          localStorage.setItem(RAIL_KEY, v ? '0' : '1')
-        } catch {
-          /* 忽略持久化失败 */
-        }
+        storeRailOpen(!v)
         return !v
       })
     } else {
@@ -224,19 +135,7 @@ export function CopilotPanel({
         onDragLeave={drop.onDragLeave}
         onDrop={drop.onDrop}
       >
-        {draggingFiles && (
-          <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-background/70 backdrop-blur-[1px]">
-            <div className="flex flex-col items-center gap-2 rounded-[14px] border-2 border-dashed border-primary/60 bg-card px-8 py-6 text-center shadow-lg">
-              <Paperclip className="h-6 w-6 text-primary" />
-              <p className="text-[14px] font-semibold text-foreground">松手添加附件</p>
-              <p className="text-[12px] leading-relaxed text-muted-foreground">
-                PDF / Word / 图片（PNG·JPG·TIFF）/ TXT · 单个 ≤ 20MB
-                <br />
-                附件随下一条消息一起发送，AI 会自动读取内容
-              </p>
-            </div>
-          </div>
-        )}
+        {draggingFiles && <FileDropHint />}
         {/* 拖拽把手：面板锚定右侧，向左拖变宽 */}
         <div
           role="separator"
@@ -264,6 +163,7 @@ export function CopilotPanel({
             setListOverlayOpen(false)
           }}
           onClose={onClose}
+          onExpand={onExpand}
         />
 
         <div className="relative flex min-h-0 flex-1">

@@ -29,7 +29,7 @@ import { useComposerIntake } from '../hooks/use-composer-intake'
 import { useComposerSubmit } from '../hooks/use-composer-submit'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
-import { dualAvailableFor } from '../store/turn'
+import { defaultAgentKind } from '../store/backends'
 import { useCopilot } from '../store'
 import { ComposerFooter } from './ComposerFooter'
 import { ComposerQuote } from './ComposerQuote'
@@ -67,11 +67,14 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   const sessionId = useCopilot((s) => s.sessionId)
   const messageCount = useCopilot((s) => s.messages.length)
   const addAttachmentFiles = useCopilot((s) => s.addAttachmentFiles)
-  const dual = useCopilot((s) => s.dual)
-  const setDual = useCopilot((s) => s.setDual)
-  // 双答要求部署里真有第二个可用后端：只有一个时置灰并说明原因，而不是让用户
-  // 打开一个「点了也没两栏」的开关（静默失效比禁用糟糕得多）
-  const dualAvailable = useCopilot((s) => dualAvailableFor(s.backends, s.selectedAgentKind))
+  // 本轮跑哪几个 AI（多答）：清单 + 已选 + 默认项，「选满 4 个」由菜单自己置灰
+  const backends = useCopilot((s) => s.backends)
+  const answerAgents = useCopilot((s) => s.answerAgents)
+  // 各栏的模型（与勾选分存：勾选决定跑不跑，模型决定跑哪个）
+  const answerModels = useCopilot((s) => s.answerModels)
+  const toggleAnswerAgent = useCopilot((s) => s.toggleAnswerAgent)
+  const setAnswerModel = useCopilot((s) => s.setAnswerModel)
+  const defaultKind = useCopilot((s) => defaultAgentKind(s.backends))
   const send = useCopilot((s) => s.send)
   const stop = useCopilot((s) => s.stop)
   const steer = useCopilot((s) => s.steer)
@@ -173,11 +176,15 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
             bgMode={bgMode}
             onToggleBgMode={() => setBgMode((v) => !v)}
             bgToggleDisabled={streaming || hasPendingAttachments || sending}
-            dualMode={dual}
-            onToggleDual={() => setDual(!dual)}
+            backends={backends}
+            answerAgents={answerAgents}
+            answerModels={answerModels}
+            defaultAgentKind={defaultKind}
+            onToggleAnswerAgent={toggleAnswerAgent}
+            onSelectAnswerModel={setAnswerModel}
             // 流式中不能改：本轮已开流，改了只会让按钮与已发出的那一轮对不上
-            dualToggleDisabled={!dualAvailable || streaming || sending}
-            dualHint={dualAvailable ? '' : '当前部署只有一个可用后端，无法对比'}
+            answerDisabled={streaming || sending}
+            answerHint=""
             attachDisabled={streaming || uploading || sending}
             onPickFiles={() => fileInputRef.current?.click()}
             fileInputRef={fileInputRef}

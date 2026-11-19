@@ -64,14 +64,19 @@ export interface CopilotState extends AgentBackendSelection {
   /** 拖拽文件悬停中（面板渲染投放离焦高亮） */
   draggingFiles: boolean
   /**
-   * 同题双答开关（默认关）。
+   * 本轮跑哪几个 agent（多答：1~{@link MAX_ANSWERS} 个，顺序 = 栏的左右顺序）。
    *
-   * 默认关是成本决定的：开了等于同一问题跑两个模型、两边各自调工具，token 与
-   * 耗时都翻倍。所以它必须是律师每轮显式选择的动作，而不是一个悄悄变贵的默认。
+   * 默认 `[]`：按会话默认后端单跑。单元素 = 单跑指定后端，多元素 = 并排多栏。
+   *
+   * 为什么默认不多答：多一栏等于多跑一个模型、各自调工具，token 与耗时线性涨。
+   * 它必须是律师每轮显式选择的动作，而不是一个悄悄变贵的默认。
+   *
+   * 空数组而不是 `[默认后端]`：默认后端是「部署给的」，前端清单没拉到时也算不出来
+   * （见 store/turn.ts 的 resolveAnswerAgents）。
    */
-  dual: boolean
-  /** 切换同题双答开关（只影响下一轮，不重跑已发出的提问） */
-  setDual: (on: boolean) => void
+  answerAgents: string[]
+  /** 切换本轮参与的 agent（只影响下一轮，不重跑已发出的提问） */
+  toggleAnswerAgent: (kind: string) => void
   /** 拖拽/选择加入待发附件（前端预检不过的拒绝并提示） */
   addAttachmentFiles: (files: FileList | File[]) => void
   /** 移除一个待发附件 */

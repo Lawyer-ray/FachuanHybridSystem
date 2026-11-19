@@ -291,3 +291,52 @@ class TestSelectableContracts:
         _contract(name="注解项目", fixed="10000", paid="4000")  # privacy-allow
         row = selectable_contracts().get(name="注解项目")  # privacy-allow
         assert row.paid_total == Decimal("4000")
+
+
+class TestRematchUsesCurrentMatcher:
+    """匹配器改进后，存量 pending 快照必须能按新逻辑重算。
+
+    为什么单独锁这条：``match_snapshot`` 是**扫描当时的不可变快照**（便于事后
+    追责）。匹配器修好后存量记录不会自动更新，用户会在前端继续看到旧结论，
+    误以为修复没生效——2026-11 真实踩过这个坑。
+    """
+
+    def test_rematch_refreshes_stale_snapshot(self, db, lawyer, source, message):
+        """旧快照（on_behalf 丢失）经 rematch 后应变成有实名证据的 exact。"""
+        from apps.contracts.services.payment.intake_scanner import rematch_intake
+
+        # 括号里写明付款方、但没有「代」字——正是修复前抽不到的那类正文
+        message.body_text = "【测试银行】某律师11月18日10时24分向贵公司4501账户存入人民币9000元。（甲方公司支付律师费）"
+        message.save(update_fields=["body_text"])
+
+        intake = PaymentIntake.objects.create(
+            inbox_message=message,
+            dedupe_key="rematch-1",
+            amount=Decimal("9000.00"),
+            received_at=date(2026, 11, 18),
+            payer_name="某律师",  # privacy-allow
+            status=IntakeStatus.PENDING,
+            match_snapshot={"matcher_version": "v2", "parsed": {"on_behalf_of": ""}, "candidates": []},
+            suggested_contract_id=None,
+        )
+        assert rematch_intake(intake) is True
+        intake.refresh_from_db()
+        assert intake.match_snapshot["parsed"]["on_behalf_of"] == "甲方公司"  # privacy-allow
+
+    def test_terminal_intake_snapshot_is_never_rewritten(self, db, lawyer, source, message):
+        """终态（已拒绝/已忽略）的快照是审计凭证，rematch 不得改动。"""
+        from apps.contracts.services.payment.intake_scanner import rematch_intake
+
+        frozen = {"matcher_version": "v1", "parsed": {}, "candidates": []}
+        intake = PaymentIntake.objects.create(
+            inbox_message=message,
+            dedupe_key="rematch-2",
+            amount=Decimal("9000.00"),
+            received_at=date(2026, 11, 18),
+            status=IntakeStatus.REJECTED,
+            match_snapshot=frozen,
+            suggested_contract_id=None,
+        )
+        assert rematch_intake(intake) is False
+        intake.refresh_from_db()
+        assert intake.match_snapshot == frozen

@@ -1,4 +1,4 @@
-"""双 agent 并行回答（services/chat/dual.py）的失败矩阵。
+"""多 agent 并行回答（services/chat/multi.py）的失败矩阵。
 
 四个必须成立的场景（任务书的「失败矩阵」）：
 
@@ -23,7 +23,7 @@ import pytest
 from apps.agent.backends import BackendCapabilities, RunContext, register
 from apps.agent.backends import registry as registry_module
 from apps.agent.models import AgentMessage, AgentSession
-from apps.agent.services.chat import budget, dual
+from apps.agent.services.chat import budget, multi
 from apps.agent.services.chat import stream as stream_module
 
 #: 会话自己的后端（主答）。kind 刻意不用 ``pi`` / ``dsh``：那两个名字属于真实
@@ -112,7 +112,7 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> Any:
     # 两个模块都用 ``from ... import ensure_registered`` 取了本地名，
     # 只改 ``builtin`` 的属性对它们无效，必须逐个替换引用点
     monkeypatch.setattr(stream_module, "ensure_registered", lambda: None)
-    monkeypatch.setattr(dual, "ensure_registered", lambda: None)
+    monkeypatch.setattr(multi, "ensure_registered", lambda: None)
     monkeypatch.setattr(stream_module, "get_backend", _guard_get_backend)
     monkeypatch.delenv("FACHUAN_AGENT_AUX_SLOTS", raising=False)
     monkeypatch.delenv("FACHUAN_AGENT_AUX_RATIO", raising=False)
@@ -126,7 +126,7 @@ async def _make_session(agent_kind: str = PRIMARY) -> AgentSession:
 
 
 async def _collect(session: AgentSession) -> list[dict[str, Any]]:
-    return [e async for e in dual.stream_dual(session=session, user_message="合同有效吗", user_id=None)]
+    return [e async for e in multi.stream_dual(session=session, user_message="合同有效吗", user_id=None)]
 
 
 def _register_pair(
@@ -298,7 +298,7 @@ class TestQuotaDegraded:
         deltas = [e for e in events if e.get("type") == "delta"]
         assert [e["content"] for e in deltas] == ["主答正文"]
         # 降级用 activity.status=degraded 告知，而不是 error：本轮是成功的
-        degraded = [e for e in events if e.get("type") == "activity" and e.get("status") == dual.ACTIVITY_DEGRADED]
+        degraded = [e for e in events if e.get("type") == "activity" and e.get("status") == multi.ACTIVITY_DEGRADED]
         assert len(degraded) == 1
         assert degraded[0]["reason"]
         assert [e["type"] for e in events].count("error") == 0
@@ -340,17 +340,221 @@ class TestPickSecondary:
         register(_FakeBackend(PRIMARY, []))
         register(_FakeBackend(SECONDARY, []))
         session = AgentSession(title="t", agent_kind=PRIMARY)
-        assert dual.pick_secondary(session) == SECONDARY
+        assert multi.pick_secondary(session) == SECONDARY
 
     def test_single_backend_returns_none(self) -> None:
         register(_FakeBackend(PRIMARY, []))
         session = AgentSession(title="t", agent_kind=PRIMARY)
         # None = 双答无从谈起，调用方退回单后端（不是报错）
-        assert dual.pick_secondary(session) is None
+        assert multi.pick_secondary(session) is None
 
     def test_blank_session_kind_treated_as_pi(self) -> None:
         register(_FakeBackend("pi", []))
         register(_FakeBackend(SECONDARY, []))
         session = AgentSession(title="t", agent_kind="")
         # 旧数据空串等价于 pi（与 stream_chat 同口径），次答不该是 pi 自己
-        assert dual.pick_secondary(session) == SECONDARY
+        assert multi.pick_secondary(session) == SECONDARY
+
+
+class TestThreeAnswers:
+    """三栏以上：验证「多答」不是「双答」的别名。
+
+    这是 v27.20 抽象收敛的核心回归——``multi.stream_multi(kinds=[a, b, c])``
+    必须真的跑三个，而不是只有前两个生效。
+
+    为什么单独成类而不是改 ``_register_pair``：双栏路径是 ``dual=true`` 旧前端的
+    契约，它的行为必须逐字不变；三栏是新能力，两者不该共用断言。
+
+    **全部用例写成 async 并共用一个事件循环**：Django 异步 ORM 的连接绑定在
+    创建它的事件循环上，用 ``asyncio.run`` 分段跑（先建会话、再收集事件）会让
+    第二段拿到一个属于已关闭循环的连接，表现为「第三个 agent 静默不产出」——
+    排查了很久才发现是测试装置的问题，不是 ``multi`` 的。
+    """
+
+    THIRD = "third-agent"
+
+    @classmethod
+    async def _collect_three(cls, kinds: list[str]) -> list[dict[str, Any]]:
+        session = await _make_session()
+        return [
+            e
+            async for e in multi.stream_multi(
+                session=session, user_message="合同有效吗", user_id=None, kinds=kinds
+            )
+        ]
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_three_bodies_three_dones_three_run_ids(self) -> None:
+        """三栏各一份正文 + 各一个 done + 各一个 run_id。
+
+        run_id 必须互不相同：前端靠它把事件分流到各自的栏，两个后端共用同一个
+        run_id 会让它们的 delta 落进同一栏——界面上变成一段混着两个模型的乱码。
+        """
+        _register_pair(_ok_script("甲"), _ok_script("乙"))
+        register(_FakeBackend(self.THIRD, _ok_script("丙")))
+
+        events = await self._collect_three([PRIMARY, SECONDARY, self.THIRD])
+
+        deltas = [e for e in events if e.get("type") == "delta"]
+        assert sorted(e["content"] for e in deltas) == ["丙", "乙", "甲"]
+        assert {e["agent"] for e in deltas} == {PRIMARY, SECONDARY, self.THIRD}
+
+        dones = [e for e in events if e.get("type") == "done"]
+        assert len(dones) == 3
+        assert len({e["run_id"] for e in deltas}) == 3
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_aux_seat_held_once_for_whole_round(self) -> None:
+        """整轮只占**一个** aux 席位，不是每栏一个。
+
+        实测默认 ``aux_slots() = 4 × 0.25 = 1``。若每栏各抢一个，三栏时后两栏
+        必然被挡，界面上「选了三个只出两个」且被挡的栏连原因都看不到。
+        """
+        _register_pair(_ok_script("甲"), _ok_script("乙"))
+        register(_FakeBackend(self.THIRD, _ok_script("丙")))
+
+        await self._collect_three([PRIMARY, SECONDARY, self.THIRD])
+
+        # 跑完必须把席位还回去，否则下一轮永远降级
+        assert budget.snapshot()["aux_in_use"] == 0
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_duplicate_kinds_are_deduped(self) -> None:
+        """同一个 kind 传两遍只跑一次。
+
+        重复跑同一个后端：两栏共用一份 ``session_id:agent_kind:`` 前缀，run_id
+        会撞车，且成本翻倍却得到两个一模一样（且互相串栏）的回答。
+        """
+        _register_pair(_ok_script("甲"), _ok_script("乙"))
+        session = await _make_session()
+
+        assert multi.resolve_kinds(session, [PRIMARY, PRIMARY, SECONDARY]) == [PRIMARY, SECONDARY]
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_explicit_single_kind_delegates(self) -> None:
+        """只给一个 kind 时走单后端路径，不经过合并逻辑。"""
+        _register_pair(_ok_script("甲"), _ok_script("乙"))
+        session = await _make_session()
+
+        events = [
+            e
+            async for e in multi.stream_multi(
+                session=session, user_message="合同有效吗", user_id=None, kinds=[PRIMARY]
+            )
+        ]
+        dones = [e for e in events if e.get("type") == "done"]
+        assert len(dones) == 1
+        # 单栏透传走 ``stream_chat`` 原样，它的 done **不带** ``agent`` —— 那是
+        # 既有契约（单栏时前端不需要分流）。这条断言钉住「单栏没有被合并逻辑
+        # 多绕一圈」，而不是要求它带 agent。
+        assert "agent" not in dones[0]
+
+
+class _ContextRecordingBackend(_FakeBackend):
+    """按预置脚本吐事件，并记下本轮 ``RunContext``（验「三栏拿到同一份 prep」）。"""
+
+    def __init__(self, kind: str, script: list[dict[str, Any]], seen: dict[str, Any]) -> None:
+        super().__init__(kind, script)
+        self._seen = seen
+
+    def stream(self, ctx: RunContext) -> AsyncGenerator[dict[str, Any] | None, None]:
+        self._seen[self.kind] = ctx
+        return self._stream(ctx)
+
+
+class TestSharedPreStreamPrep:
+    """开流前的固定开销对 N 栏是同一个答案，只该算一次。
+
+    回归的是三 agent 同答时每栏各做一遍「铸凭证 + 探 pi session + （无 pi session
+    时）查历史」：这三件事只取决于律师、会话、提问，与哪一栏无关。三条都走
+    ``sync_to_async(thread_sensitive=True)``（同一线程排队），重复 N 次就是串行
+    N 次，全部摊在首字延迟上。
+
+    只断言「调用次数」与「三栏拿到同一份 prep」，不断言耗时——耗时随机器与
+    数据库状态漂移，钉不住。
+    """
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_prep_computed_once_and_shared_by_all_columns(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from collections import Counter
+
+        calls: Counter[str] = Counter()
+        seen: dict[str, Any] = {}
+
+        async def _mint(user_id: Any) -> str:
+            calls["mint"] += 1
+            return "tok-shared"
+
+        async def _probe(session_id: str) -> bool:
+            calls["probe"] += 1
+            # 无 pi session：逼出历史回退那一段（多答时它也曾被各栏各查一遍）
+            return False
+
+        async def _history(session: Any, limit: int = 40) -> list[Any]:
+            calls["history"] += 1
+            return []
+
+        monkeypatch.setattr(stream_module.env, "mint_user_token", _mint)
+        monkeypatch.setattr(stream_module, "probe_pi_session", _probe)
+        monkeypatch.setattr(stream_module.persist, "_recent_history", _history)
+
+        for kind in (PRIMARY, SECONDARY, "third-agent"):
+            register(_ContextRecordingBackend(kind, _ok_script(kind), seen))
+        session = await _make_session()
+
+        events = [
+            e
+            async for e in multi.stream_multi(
+                session=session, user_message="合同有效吗", user_id=7, kinds=[PRIMARY, SECONDARY, "third-agent"]
+            )
+        ]
+
+        # 三栏同一个律师、同一个会话、同一条提问 → 各算一次就够
+        assert calls == {"mint": 1, "probe": 1, "history": 1}, calls
+        # 但每一栏都必须真的拿到那份凭证与 prompt：共用的是「算出来的值」，
+        # 不是「只有主答有」。少了这个断言，prep 传丢一栏也测不出来。
+        assert set(seen) == {PRIMARY, SECONDARY, "third-agent"}
+        assert {ctx.user_token for ctx in seen.values()} == {"tok-shared"}
+        assert len({ctx.prompt for ctx in seen.values()}) == 1
+        # 三栅契约不变：每栏一个 done，整轮仍只落一条用户消息
+        assert [e["type"] for e in events].count("done") == 3
+        assert await AgentMessage.objects.filter(session=session, role=AgentMessage.Role.USER).acount() == 1
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_mint_failure_keeps_per_column_error_semantics(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """预铸凭证失败时的行为必须与「各栏自己铸」逐字一致。
+
+        预铸只是省掉重复劳动，不能改失败语义：那时是每栏各发一条 error，
+        全部失败按失败矩阵只转发第一条。若预铸失败就整轮拉倒、或只跑主答，
+        律师看到的东西就变了。
+        """
+
+        async def _mint(user_id: Any) -> str:
+            raise ValueError("用户已停用")
+
+        monkeypatch.setattr(stream_module.env, "mint_user_token", _mint)
+
+        for kind in (PRIMARY, SECONDARY):
+            register(_FakeBackend(kind, _ok_script(kind)))
+        session = await _make_session()
+
+        events = [
+            e
+            async for e in multi.stream_multi(
+                session=session, user_message="合同有效吗", user_id=7, kinds=[PRIMARY, SECONDARY]
+            )
+        ]
+
+        errors = [e for e in events if e.get("type") == "error"]
+        assert len(errors) == 1  # 全部失败：只转发第一条（失败矩阵第 3 行）
+        assert errors[0]["agent"] == PRIMARY
+        assert [e["type"] for e in events].count("done") == 2  # 失败也要每栏收尾
+        # 用户消息在凭证之前就已落库（既有顺序），失败不许把它带走
+        assert await AgentMessage.objects.filter(session=session, role=AgentMessage.Role.USER).acount() == 1
+        assert await AgentMessage.objects.filter(session=session, role=AgentMessage.Role.ASSISTANT).acount() == 0

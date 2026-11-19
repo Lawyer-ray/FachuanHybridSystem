@@ -40,7 +40,36 @@ class AgentConfig(AppConfig):
         # 被清空也能自愈（幂等）。两处都走它，避免两套注册逻辑漂移。
         ensure_registered()
 
+        self._connect_gateway_cache_invalidation()
         self._register_memory_schedules()
+
+    @staticmethod
+    def _connect_gateway_cache_invalidation() -> None:
+        """``LLMProvider`` 增删改 → 立刻清掉网关配置缓存。
+
+        为什么挂在 agent app 的 ``ready()`` 而不是 ``core`` 的：缓存本身
+        （``backends.gateway_cache``）只服务 openai-agents / dsh 两个后端，
+        是 agent 侧的读优化；把它接进 core 的启动路径会让「清 core 的缓存」
+        与「agent 的读法」耦合，而 agent 是可选模块。
+
+        连信号失败只 warning：缓存清不掉最坏结果是「Admin 改了配置，最多 30s
+        （:data:`gateway_cache.DEFAULT_TTL_SECONDS`）后生效」，不该让整个进程
+        起不来。
+        """
+        try:
+            from django.db.models.signals import post_delete, post_save
+
+            from apps.core.models import LLMProvider
+
+            from .backends.gateway_cache import invalidate_gateway_cache
+        except Exception:
+            logger.warning("网关配置缓存的失效信号未连接（仅按 TTL 过期）", exc_info=True)
+            return
+
+        for signal, uid in ((post_save, "agent_llm_provider_saved"), (post_delete, "agent_llm_provider_deleted")):
+            # 直接 connect 而不是 ``@receiver``：本方法在 ``ready()`` 里可能被调用
+            # 多次（测试里重建 app registry），``dispatch_uid`` 保证 receiver 只挂一份。
+            signal.connect(invalidate_gateway_cache, sender=LLMProvider, dispatch_uid=uid, weak=False)
 
     @staticmethod
     def _register_memory_schedules() -> None:

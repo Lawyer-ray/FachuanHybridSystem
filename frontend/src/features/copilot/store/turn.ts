@@ -17,12 +17,12 @@ import {
   splitQuoteBlock,
   splitRefBlocks,
 } from '../domain'
-import { DEFAULT_AGENT_KIND } from '../domain'
+import { MAX_ANSWERS } from '../domain'
 import { uploadAttachmentsAndCompose } from '../outgoing'
 import { storeSession } from '../persistence'
 import { consumeAgentStream } from '../streaming'
 import { createTurnHandlers } from '../turn-handlers'
-import type { AgentBackendOption, CopilotState, TurnStats } from '../types'
+import type { AgentSpec, CopilotState, TurnStats } from '../types'
 import { resolveCapabilities } from './backends'
 import { bumpSessionEpoch } from './session-epoch'
 import type { Slice } from './slice'
@@ -38,37 +38,65 @@ export const EMPTY_STATS: TurnStats = {
 }
 
 /**
- * 本轮双答要跑哪几个后端（顺序 = 栏的左右顺序）。
+ * 本轮实际要跑哪几个 agent（顺序 = 栏的左右顺序）。
  *
- * 主栏 = 会话自己选的（新会话取 `selectedAgentKind`，空串时后端默认 pi），次栏 =
- * 清单里第一个「可用的、且不是主」的后端。规则与后端 `dual.pick_secondary`
- * 同口径，但前端必须在**开流前**就知道有两栏——否则事件到了才发现没有对应气泡，
- * 次答的正文会全部落进主栏（表现是两栏内容一模一样）。
+ * 输入是用户在工具栏里选的那几个（`answerAgents`），这里只做两件事：
+ * 1. **按清单过滤**：不可用（缺 SDK / 没配 LLM）或声明不支持流式的后端去掉——
+ *    留着只会多一个永远空着的栏；
+ * 2. **截到上限**：{@link MAX_ANSWERS}（与后端同口径，超出后端直接 400）。
  *
- * 与后端口径的唯一差别：后端按注册表顺序取，前端按 `/agent/backends` 清单顺序取。
- * 两个来源同一个注册表，顺序一致；清单没拉到（`backends` 为空）时返回单栏，
- * 行为退回到「不加双答」，不会造出两个空栏。
+ * 返回 `[]` = 不指定，后端单跑会话默认后端（单栏）。返回单元素 = 单跑该后端。
+ *
+ * 为什么前端必须在**开流前**知道有几栏：事件到了才发现没有对应气泡的话，
+ * 那一栏的正文会全部落进第一栏（表现是两栏内容一模一样）。
  */
-export function dualAgentKinds(state: Partial<Pick<CopilotState, 'backends' | 'selectedAgentKind'>>): string[] {
-  const primary = state.selectedAgentKind || DEFAULT_AGENT_KIND
+export function resolveAnswerAgents(
+  state: Partial<Pick<CopilotState, 'backends' | 'answerAgents'>>,
+): string[] {
   const backends = state.backends ?? []
-  const secondary = backends.find(
-    (b) => b.available && b.kind !== primary && resolveCapabilities(backends, b.kind).streaming,
-  )
-  return secondary ? [primary, secondary.kind] : []
+  const picked = state.answerAgents ?? []
+  const usable = picked.filter((kind) => {
+    const option = backends.find((b) => b.kind === kind)
+    // 清单没拉到（`backends` 为空）时信任用户的选择：不是每次都能拉成功，
+    // 而按「找不到就不跑」会让多答在冷启动时安静地退化成单栏。
+    if (!option) return true
+    return option.available && resolveCapabilities(backends, kind).streaming
+  })
+  return usable.slice(0, MAX_ANSWERS)
 }
 
 /**
- * 本部署能不能开同题双答：清单里存在「可用的、且不是当前主后端」的第二个后端。
+ * 本轮下发的参与方清单：`[{kind, model?}]`（顺序 = 栏的左右顺序）。
  *
- * 与 {@link dualAgentKinds} 同源（后者多要求 `streaming` 能力）：这里只判「有没有
- * 第二家」，用来决定开关能不能点；真正的栏数由 dualAgentKinds 决定。
+ * 与 {@link resolveAnswerAgents} 的栏清单**同源**：先按可用性过滤、截到上限，
+ * 再逐栏挂上律师指定的模型。两件事分开算，是为了让「这一轮几栏」与「每栏哪个
+ * 模型」不会各自跑出不同的栏序。
+ *
+ * **`model` 只在有值时才出现在元素上**：缺省字段 = 用平台默认模型，与引入本字段
+ * 前发纯字符串 `"pi"` 完全等价（后端 `AgentSpecIn.model` 缺省为 None）。存空串
+ * 或不发会让同一件事有两种写法——后端口径是 `None`，前端就只表达 None。
+ *
+ * 显式指定了清单外的模型名也照发：清单可能过期（后端刚上新模型）、也可能拉取
+ * 失败，而那时已有选择不该被前端悄悄改掉——真不认的话后端会报错，比静默改模型好。
  */
-export function dualAvailableFor(backends: AgentBackendOption[] | undefined, selectedAgentKind: string): boolean {
-  const primary = selectedAgentKind || DEFAULT_AGENT_KIND
-  // 清单可能是 undefined：组件测试常只 mock 部分 state。这里按「没有第二家」
-  // 处理（开关置灰），而不是抛错——渲染期抛错会把整个面板打成白屏。
-  return (backends ?? []).some((b) => b.available && b.kind !== primary)
+export function resolveAnswerSpecs(
+  state: Partial<Pick<CopilotState, 'backends' | 'answerAgents' | 'answerModels'>>,
+): AgentSpec[] {
+  const models = state.answerModels ?? {}
+  return resolveAnswerAgents(state).map((kind) => {
+    const model = models[kind]
+    return model ? { kind, model } : { kind }
+  })
+}
+
+/**
+ * 能不能再多选一个 agent（工具栏据此置灰未选项）。
+ *
+ * 只判**数量**：具体某个后端可用与否由清单项自己的 `available` 决定，
+ * 两件事分开判，UI 才能说清「已选满」还是「这个后端不可用」。
+ */
+export function canAddAnswerAgent(picked: readonly string[]): boolean {
+  return picked.length < MAX_ANSWERS
 }
 
 /**
@@ -165,17 +193,24 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     if (pre.pendingQuote) set({ pendingQuote: null })
     const composed = outgoing.composed
 
-    // 双答开关：本轮要几栏。双答时两栏并排（各带 agent 标签），单后端时只有一条
-    // ——单条路径必须与引入本功能前**完全一致**（那条的 agentKind 留空，渲染不加
-    // 标签，见 domain/dual.isDualTurn）。
-    const dualAgents = pre.dual ? dualAgentKinds(pre) : []
+    // 本轮要几栏：选中的 agent 清单（过滤不可用/截到上限后才是真实栏数）。
+    // 单栏路径必须与引入多答前**完全一致**（那条的 agentKind 留空，渲染不加
+    // 标签，见 domain/dual.groupAnswerRuns）。
+    const turnAgents = resolveAnswerAgents(pre)
+    // 每栏带模型（缺省不带 = 平台默认）；顺序与 turnAgents 逐一对应
+    const turnSpecs = resolveAnswerSpecs(pre)
+    const multiColumn = turnAgents.length > 1
     const assistantId = nextLocalId()
     // 每个 agent 一栏：id 先算好，气泡与事件路由共用同一份——两处各 nextLocalId()
     // 会造出「气泡挂在 A 的 id、事件写进 B 的 id」这种只差一个字难以发现的错配。
-    const assistantByAgent: Record<string, string> =
-      dualAgents.length > 1
-        ? Object.fromEntries(dualAgents.map((kind, i) => [kind, i === 0 ? assistantId : nextLocalId()]))
-        : {}
+    const assistantByAgent: Record<string, string> = multiColumn
+      ? Object.fromEntries(turnAgents.map((kind, i) => [kind, i === 0 ? assistantId : nextLocalId()]))
+      : {}
+    // 各栏点名的模型：气泡先带上（后端事件不带 model，不在这里记就永远丢了）。
+    // 单栏不记——单栏不显示「· 模型」（见 MultiAnswers）。
+    const modelByAgent: Record<string, string> = multiColumn
+      ? Object.fromEntries(turnSpecs.flatMap((spec) => (spec.model ? [[spec.kind, spec.model]] : [])))
+      : {}
     // 与历史回放同一解析：本地即时渲染也把页面/业务锚点、引用块还原成 chip，两侧不漂移
     const { pageHint, body: noHint } = splitPageHintLine(composed)
     const { bizHint, body: noBiz } = splitBizHintLine(noHint)
@@ -194,13 +229,14 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
           ...(quote ? { quote } : {}),
         },
         // 单后端：一条不带 agentKind 的气泡（与历史渲染口径一致：空串 = 旧行为）
-        ...(dualAgents.length > 1
-          ? dualAgents.map((kind) => ({
+        ...(multiColumn
+          ? turnAgents.map((kind) => ({
               id: assistantByAgent[kind]!,
               role: 'assistant' as const,
               content: '',
               streaming: true,
               agentKind: kind,
+              ...(modelByAgent[kind] ? { model: modelByAgent[kind] } : {}),
             }))
           : [{ id: assistantId, role: 'assistant' as const, content: '', streaming: true }]),
       ],
@@ -215,18 +251,18 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     onQueued?.(true)
 
     // 本轮的 SSE → 状态更新集中在 turn-handlers（正文/思考/工具行/审批/排队/统计）。
-    // 双答时按事件里的 agent 分到各自气泡：路由表的键是 kind，缺 agent 的事件
-    // 落到第一条（主栏）——鉴于是「旧口径」且双答前只有一条气泡。
+    // 多栏时按事件里的 agent 分到各自气泡：路由表的键是 kind，缺 agent 的事件
+    // 落到第一条（主栏）——鉴于是「旧口径」且多答前只有一条气泡。
     const { handlers, finishAssistant } = createTurnHandlers(
       assistantId,
       set,
       (kind) => assistantByAgent[kind] ?? assistantId,
-      dualAgents.length > 1 ? 2 : 1,
+      turnAgents.length,
     )
 
     controller = new AbortController()
     try {
-      const resp = await copilotApi.openMessageStream(sessionId, composed, controller.signal, pre.dual)
+      const resp = await copilotApi.openMessageStream(sessionId, composed, controller.signal, turnSpecs)
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
       await consumeAgentStream(resp, handlers)
       finishAssistant()

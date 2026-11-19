@@ -253,7 +253,10 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
     <>
       <div
         className={cn(
-          'flex h-[42px] min-w-[320px] max-w-[480px] flex-1 items-center gap-[7px] rounded-[11px] border border-input bg-card py-0 pr-[5px] pl-[13px] shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors focus-within:border-ring/40 @min-[700px]:ml-auto',
+          // min-w 用 min(320px,100%)：宽度够时保住 320px 让它整行占位（父级 flex-wrap 会把它
+          // 折到第二行），净宽不足 320px 时（AI 助手并排拉宽、分屏）就缩到容器宽——
+          // 写死 320px 会让整行溢出到容器外，行尾的「记一笔」被右下方的助手面板盖住看不见。
+          'flex h-[42px] min-w-[min(320px,100%)] max-w-[480px] flex-1 items-center gap-[7px] rounded-[11px] border border-input bg-card py-0 pr-[5px] pl-[13px] shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors focus-within:border-ring/40 @min-[700px]:ml-auto',
           dragOver && 'border-ring/60 bg-secondary/60',
         )}
         onDragOver={(e) => {

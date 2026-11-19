@@ -7,49 +7,33 @@
  *   首个推进事件（delta 等）自动清除——用户不用盯着转圈猜发生了什么
  * - assistant 气泡：Markdown（GFM）渲染 + 代码块语法高亮（rehype-highlight，
  *   未标注语言的块不高亮）；hover 显示复制按钮（复制 Markdown 源码）
+ * - 等待期观感：正文未到但工具在跑时，气泡内显示「正在查 XX…」呼吸行
+ *   （见 StreamActivity）——否则先调工具的 dsh / openai-agents 看起来像卡死
+ * - 多答轮次：相邻的 2~4 条 assistant 交给 MultiAnswers 并排（单条走普通气泡，
+ *   与引入该功能前完全一致）
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
-import { Brain, Briefcase, Check, Copy, Loader2, MapPin, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react'
+import { Brain, Briefcase, Check, Copy, Loader2, MapPin, ThumbsDown, ThumbsUp } from 'lucide-react'
 
 import { useAuth } from '@/features/auth'
 import { LoadingBlock } from '@/components/shared/AsyncState'
 import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
 import '../copilot.css'
-import { bizHintParts, groupAnswerRuns, shortToolName } from '../domain'
+import { bizHintParts, groupAnswerRuns } from '../domain'
 import { useSmoothStreamText } from '../hooks/use-smooth-stream-text'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { ApprovalCard } from './ApprovalCard'
 import { AssistantMarkdown } from './AssistantMarkdown'
-import { DualAnswers } from './DualAnswers'
+import { AnswerGroupView } from './AnswerGroupView'
 import { CopilotWelcome } from './CopilotWelcome'
 import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
+import { StreamActivity } from './StreamActivity'
+import { OwnToolList } from './ToolChips'
+import { ToolRow } from './ToolRow'
 import { UserAvatar } from './UserAvatar'
-
-// 三个气泡组件必须 memo：流式每个 delta 都 set({messages: s.messages.map(…)})
-// 造出新数组 + 新消息对象，不 memo 的话每条历史气泡的 Markdown 树都要重算
-// （200 条历史 × 几百个 delta）。props 只有 message 一个引用，未变的消息
-// 走浅比较 bail out。
-const ToolRow = memo(function ToolRow({ message }: { message: ChatMessage }) {
-  const name = shortToolName(message.toolName)
-  return (
-    <details className="group rounded-[10px] border border-border bg-secondary/40 px-2.5 py-1.5">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
-        <Wrench className="h-3 w-3 flex-none" />
-        <span className="truncate">
-          {message.content ? '已完成' : '调用中'} · {name}
-        </span>
-      </summary>
-      {message.content && (
-        <pre className="mt-1.5 max-h-56 overflow-y-auto border-t border-border pt-1.5 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-secondary-foreground">
-          {message.content}
-        </pre>
-      )}
-    </details>
-  )
-})
 
 const ThinkingBlock = memo(function ThinkingBlock({ message }: { message: ChatMessage }) {
   const thinking = message.thinking ?? ''
@@ -126,7 +110,14 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-const Bubble = memo(function Bubble({ message }: { message: ChatMessage }) {
+const Bubble = memo(function Bubble({
+  message,
+  hideTools,
+}: {
+  message: ChatMessage
+  /** 已归位到各栏的工具行 id：命中的 tool 消息不在这里渲染（见 AnswerGroupView） */
+  hideTools?: ReadonlySet<string>
+}) {
   const user = useAuth((s) => s.user)
   // 流式平滑放字：只对正在直播的 assistant 消息生效，历史消息与非直播原样返回。
   // 见 docs/harness/pitfalls.md PIT-007 —— 直接渲染原始 delta 会「一顿一顿」，
@@ -140,7 +131,11 @@ const Bubble = memo(function Bubble({ message }: { message: ChatMessage }) {
     message.role === 'assistant' && message.streaming === true,
   )
 
-  if (message.role === 'tool') return <ToolRow message={message} />
+  if (message.role === 'tool') {
+    // 工具已经在气泡内（活动行）或气泡下（chip）显示了，外面不再来一条
+    if (hideTools?.has(message.id)) return null
+    return <ToolRow message={message} />
+  }
 
   if (message.role === 'user') {
     const refs = message.refs ?? []
@@ -200,10 +195,23 @@ const Bubble = memo(function Bubble({ message }: { message: ChatMessage }) {
 
   const content = smoothContent
 
+  // 多答里没跑成的那一栏：明写「本轮未做」而不是留空。留空的话界面上只有一个
+  // 栏头，看起来像「回答了但内容丢了」——律师会去查是不是系统坏了。
+  if (message.failed && !message.content && !message.streaming) {
+    return (
+      <div className="text-[12px] leading-relaxed text-muted-foreground" data-testid="answer-failed">
+        本轮未做
+      </div>
+    )
+  }
+
   const showCopy = !message.streaming && Boolean(message.content)
   return (
     <div className="group relative max-w-full text-[13px] leading-relaxed text-foreground">
       <ThinkingBlock message={message} />
+      {/* 「还在干活」要出现在**律师的注意力焦点**上（本栏气泡内、正文之前），
+          而不是转录流里某一行工具条——后者他根本不会去看（见 StreamActivity） */}
+      <StreamActivity message={message} />
       {content ? (
         // assistant 回答按 Markdown 渲染（gfm：表格/删除线/任务列表）；
         // react-markdown 默认不执行原始 HTML，无注入面；
@@ -215,6 +223,11 @@ const Bubble = memo(function Bubble({ message }: { message: ChatMessage }) {
         '（无内容）'
       )}
       {message.streaming && <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>}
+      {/* 这个 agent 自己调过的工具：挂在他自己的话下面，而不是所有 agent 的
+          工具混成一个列表堆在底部（真实反馈：一坨分不清谁的工具条、还占满整行）。
+          只在多栏模式由 mergeAgentAnswers 填充；单栏时 tools 为空，工具行仍按
+          原时间顺序平铺（那条路径的顺序本身就是对的）。 */}
+      {message.tools && message.tools.length > 0 && <OwnToolList tools={message.tools} />}
       {message.truncated && (
         <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
       )}
@@ -245,7 +258,7 @@ function QueueBanner({ position }: { position: number }) {
   )
 }
 
-export function MessageList() {
+export function MessageList({ wide = false }: { wide?: boolean } = {}) {
   const messages = useCopilot((s) => s.messages)
   const approvals = useCopilot((s) => s.approvals)
   const streaming = useCopilot((s) => s.streaming)
@@ -278,14 +291,19 @@ export function MessageList() {
           **侧边栏面板**——面板拉到 1200px 时两侧各空 200px 以上，纯亏。
           改成 max-w-6xl（1152px）：默认 600 与常见拉宽（≤1150）
           都不产生留白，只有真拉到屏幕级才留白，且那时行宽也确实需要约束。
+
+          ``wide`` 为 true 时**解除**这个上限：独立助手页（``/assistant``）整屏
+          都是对话区，多 agent 并排时每栏要尽量宽才读得下。默认 false，抽屉面板
+          的行为逐字不变——这是刻意的：抽屉在 1200px 宽的屏幕里拉到 1152 已经
+          贴边，再放开只会让单栏正文行长到难读。
           empty 分支要撑满（h-full + flex）才能让欢迎页垂直居中：本层是
           CopilotWelcome 唯一的「高度来源」，不给高度它的 h-full 就塌成
           内容高、justify-center 无处可居（欢迎页贴顶、下面大片空白）。 */}
       <div
         className={
           empty
-            ? 'mx-auto flex h-full w-full max-w-6xl flex-col'
-            : 'mx-auto w-full max-w-6xl'
+            ? `mx-auto flex h-full w-full flex-col ${wide ? '' : 'max-w-6xl'}`
+            : `mx-auto w-full ${wide ? '' : 'max-w-6xl'}`
         }
       >
       {empty && <CopilotWelcome />}
@@ -304,19 +322,15 @@ export function MessageList() {
       )}
       {queuePosition !== null && <QueueBanner position={queuePosition} />}
       <div className="flex flex-col gap-2.5">
-        {groupAnswerRuns(messages).map((group) =>
-          // 「单条」项原样渲染：行为与引入本功能前完全一致（不加栏头、不改布局）。
-          // 只有连续两条以上 assistant 才是双答轮次，并排给律师对照。
-          group.answers.length > 1 ? (
-            <DualAnswers
-              key={group.answers[0]!.id}
-              answers={group.answers}
-              renderAnswer={(answer) => <Bubble message={answer} />}
-            />
-          ) : (
-            <Bubble key={group.answers[0]!.id} message={group.answers[0]!} />
-          ),
-        )}
+        {groupAnswerRuns(messages).map((group) => (
+          <AnswerGroupView
+            key={group.answers[0]!.id}
+            answers={group.answers}
+            // hideTools：多栏里已归位到各栏的工具行，不再当转录流独立项渲染
+            // （否则未完成的工具会同时出现在气泡内活动行和外面的工具行里）
+            renderAnswer={(answer, hideTools) => <Bubble message={answer} hideTools={hideTools} />}
+          />
+        ))}
       </div>
       {approvals.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-2">
