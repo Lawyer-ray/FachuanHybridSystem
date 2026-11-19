@@ -37,6 +37,15 @@ export const KIND_STYLES: Record<CandidateKind, KindStyle> = {
     chip: 'border-border bg-secondary text-muted-foreground',
     risky: true,
   },
+  // AI 兜底建议：规则拿不到任何实名证据时才出现。
+  // 文案刻意带「AI」字样，避免让人误以为是系统确定匹配；risky 同 amount_only，
+  // 同样要求人工核对后才可确认。
+  ai_suggested: {
+    label: 'AI 推断',
+    tone: 'text-status-yellow',
+    chip: 'border-status-yellow/30 bg-status-yellow-bg text-status-yellow',
+    risky: true,
+  },
 }
 
 /** 排除原因的人话标签（与后端 EXCLUDED_LABELS 对应，前端只用于紧凑展示） */

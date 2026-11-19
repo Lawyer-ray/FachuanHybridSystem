@@ -276,3 +276,104 @@ class TestRankCandidates:
             ]
         )
         assert ranked[0].contract_id == 2
+
+
+class TestOnBehalfNoDaiPrefix:
+    """真实事故：括号说明**没有「代」字**时，付款方证据必须仍然抽得到。
+
+    场景（2026-11 真实数据）：律师本人（某律师）先把客户的钱收进自己账户，
+    再转入律所对公账户。银行短信付款人是**律师姓名**，真正的付款方只写在
+    括号里，且写法是「（甲方公司支付律师费）」——没有「代」字。
+
+    原 ``_ON_BEHALF_RE`` 强制以「代」开头，于是整条实名信号消失，该笔 9000
+    只能靠「金额撞应收余额」落进 amount_only，在待认领页显示「仅金额吻合」，
+    而合格项目里有 7 个应收余额都是 9000，人得逐个翻。
+    """
+
+    def test_bracket_without_dai_is_extracted(self):
+        from apps.message_hub.services.transfer_notice import parse_transfer_notice
+
+        n = parse_transfer_notice(
+            body_text="【建设银行】某律师11月18日10时24分向贵公司4501账户存入人民币9000元。（甲方公司支付律师费）"
+        )
+        assert n.amount == Decimal("9000")
+        assert n.on_behalf_of == "甲方公司"
+        assert n.payer_name == "某律师"
+        assert n.payer_is_person is True
+
+    def test_bracket_with_dai_still_works(self):
+        """原有写法不能回归。"""
+        from apps.message_hub.services.transfer_notice import parse_transfer_notice
+
+        n = parse_transfer_notice(
+            body_text="【建设银行】张某11月8日10时31分向贵公司4501账户存入人民币10000元。（代某供应链公司付律师费）"
+        )
+        assert n.on_behalf_of == "某供应链公司"
+
+    def test_no_bracket_means_no_on_behalf(self):
+        """括号外不臆造付款方：正文里「向贵公司账户支付」不是付款方。"""
+        from apps.message_hub.services.transfer_notice import parse_transfer_notice
+
+        n = parse_transfer_notice(body_text="【建设银行】李某11月4日向贵公司4501账户电子汇入人民币2400元。")
+        assert n.on_behalf_of == ""
+
+    def test_abbreviated_company_hits_full_name(self):
+        """括号里是简称「甲方公司」，合同上是全称「甲方水产科技有限公司」。
+
+        旧子串判断两边都不成立，必须靠剔除组织形式后缀 + 公共前缀。
+        """
+        c = _contract(
+            cid=372,
+            name="张某诉甲方水产科技有限公司劳动合同纠纷一案",
+            fee_mode="FIXED",
+            fixed_amount="9000",
+            paid_total="0",
+            parties=[("甲方水产科技有限公司", "PRINCIPAL"), ("张某", "OPPOSING")],
+        )
+        cand = score_contract(
+            contract=c,
+            notice=_notice(amount="9000", payer="某律师", on_behalf="甲方公司"),
+            mail_case_numbers=[],
+            mail_text="（甲方公司支付律师费）",
+        )
+        assert cand is not None
+        assert cand.kind == KIND_EXACT, "代付方命中委托人即定案，不应退化成 amount_only"
+        assert any("代付方命中委托人" in r for r in cand.reasons)
+
+    def test_generic_placeholder_name_never_hits(self):
+        """通用词「某某」不能命中任何项目。
+
+        实测事故：付款人「某某」通过包含匹配命中「【演示】某某银行股份有限公司」，
+        把一笔无主到账错挂到演示合同上。
+        """
+        c = _contract(
+            cid=391,
+            name="【演示】银行不良贷款批量诉讼委托代理合同",
+            fixed_amount="9000",
+            paid_total="0",
+            parties=[("【演示】某某银行股份有限公司广州分行", "PRINCIPAL")],
+        )
+        cand = score_contract(
+            contract=c,
+            notice=_notice(amount="9000", payer="某某", on_behalf="某某"),
+            mail_case_numbers=[],
+            mail_text="（某某支付律师费）",
+        )
+        # 金额仍会命中，所以候选可能存在，但**绝不能**是 exact
+        assert cand is None or cand.kind != KIND_EXACT
+
+    def test_lawyer_person_payer_leaves_note_but_no_evidence(self):
+        """付款人是自然人且未命中委托人时，只留说明，不算实名证据。"""
+        c = _contract(
+            cid=260,
+            name="无关项目",
+            fixed_amount="9000",
+            paid_total="0",
+            parties=[("乙方照明电器有限公司", "PRINCIPAL")],
+        )
+        notice = _notice(amount="9000", payer="某律师")
+        notice.payer_is_person = True
+        cand = score_contract(contract=c, notice=notice, mail_case_numbers=[], mail_text="")
+        assert cand is not None
+        assert cand.kind == KIND_AMOUNT_ONLY
+        assert any("律师代收转付" in r for r in cand.reasons)

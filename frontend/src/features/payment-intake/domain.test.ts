@@ -181,3 +181,30 @@ describe('filterContracts', () => {
     expect(filterContracts(rows, '甲').map((r) => r.id)).toEqual([1])
   })
 })
+
+describe('AI 兜底建议（ai_suggested）', () => {
+  // 后端 contract_match_ai：规则拿不到任何实名证据时才让 LLM 从候选里挑。
+  // 前端必须把它当「需核对」而不是「已确定」，否则用户会以为系统认定了。
+
+  it('AI 候选同样要求核对（不归入 matched）', () => {
+    expect(intakeShape(intake({ candidates: [candidate({ kind: 'ai_suggested' })] }))).toBe('amountOnly')
+  })
+
+  it('AI 候选不提供「确认建议」按钮', () => {
+    const ai = intake({
+      candidates: [candidate({ kind: 'ai_suggested', contract_id: 7 })],
+      suggested_contract_id: 7,
+    })
+    expect(hasUsableSuggestion(ai)).toBe(false)
+  })
+
+  it('标题明确标注是 AI 推断', () => {
+    const ai = intake({ candidates: [candidate({ kind: 'ai_suggested' })] })
+    expect(intakeHeadline(ai)).toContain('AI')
+  })
+
+  it('仅金额吻合的标题不带 AI 字样（两者不混淆）', () => {
+    const amountOnly = intake({ candidates: [candidate({ kind: 'amount_only' })] })
+    expect(intakeHeadline(amountOnly)).not.toContain('AI')
+  })
+})
