@@ -218,6 +218,8 @@ export interface PendingApproval {
   riskLevel?: string
   /** 紧急级：同意前需二次确认 */
   needsSecondConfirmation?: boolean
+  /** 多答时哪个 agent 要动库表（审批事件带 `agent`；缺失 = 单栏/未标注） */
+  agentKind?: string
   /** 离线待审（从 GET /approvals/pending 拉回，多来自后台任务），倒计时口径不同 */
   offline?: boolean
   /** 本地已提交决定后的终态展示 */

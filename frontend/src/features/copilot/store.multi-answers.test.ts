@@ -237,6 +237,32 @@ describe('send 的多答分流', () => {
     expect(answers.map((m) => m.content)).toEqual(['甲', '乙', '丙'])
   })
 
+  it('usage 事件按栏归集（多答要比价，不能全算在主栏上）', async () => {
+    useCopilot.setState({ backends: three, answerAgents: ['pi', 'dsh'] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"甲","agent":"pi"}\n\n',
+        'data: {"type":"usage","output_tokens":120,"input_tokens":30,"cache_read_tokens":300,"cache_write_tokens":0,"agent":"pi"}\n\n',
+        'data: {"type":"delta","content":"乙","agent":"dsh"}\n\n',
+        'data: {"type":"usage","output_tokens":80,"input_tokens":70,"cache_read_tokens":0,"cache_write_tokens":20,"agent":"dsh"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agents":["pi","dsh"]}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('两份合同哪份更有利')
+
+    const { turnStatsByLane, turnStats } = useCopilot.getState()
+    // 每栏自己一份账（栏头 chip 的数据源）
+    expect(turnStatsByLane.pi?.exactTokens).toBe(120)
+    expect(turnStatsByLane.pi?.cacheReadTokens).toBe(300)
+    expect(turnStatsByLane.dsh?.exactTokens).toBe(80)
+    expect(turnStatsByLane.dsh?.cacheWriteTokens).toBe(20)
+    // 全局聚合照旧（单栏路径与旧 UI 不受影响）
+    expect(turnStats.exactTokens).toBe(200)
+    expect(turnStats.inputTokens).toBe(100)
+  })
+
   it('回归：各栏各自发 done 且交错到达时，先完成的那栏不能收掉其他栏', async () => {
     // 2026-11-19 真实事故：后端在**每栏**跑完时各发一次 done（带 agent）。
     // 旧实现 onDone 直接调 finishAssistant()（收掉全部 streaming 气泡），

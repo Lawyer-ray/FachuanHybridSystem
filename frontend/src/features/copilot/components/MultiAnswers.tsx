@@ -19,6 +19,7 @@ import { memo } from 'react'
 
 import { agentLabel } from '../domain'
 import type { ChatMessage } from '../types'
+import { LaneUsageChip } from './LaneUsageChip'
 
 /** 栏头：小而克制的标签，各栏视觉上必须能一眼分清谁是谁（以及用哪个模型答的） */
 const LABEL_CLASS =
@@ -80,11 +81,15 @@ export const MultiAnswers = memo(function MultiAnswers({
         const highlighted = Boolean(highlightKind) && kind === highlightKind
         return (
           <section key={answer.id} className="min-w-0" data-testid={`multi-column-${kind || 'pi'}`}>
-            <div
-              className={`${LABEL_CLASS} ${highlighted ? 'border-foreground/30 font-medium text-foreground' : ''}`}
-              data-default={highlighted ? 'true' : undefined}
-            >
-              <AgentModelHead label={agentLabel(kind)} model={answer.model} />
+            <div className="flex min-w-0 items-center gap-1">
+              <div
+                className={`${LABEL_CLASS} ${highlighted ? 'border-foreground/30 font-medium text-foreground' : ''}`}
+                data-default={highlighted ? 'true' : undefined}
+              >
+                <AgentModelHead label={agentLabel(kind)} model={answer.model} />
+              </div>
+              {/* 分栏用量：多答就是为了比较，栏头必须能看出谁贵谁快 */}
+              <LaneUsageChip kind={kind} />
             </div>
             {renderAnswer(answer)}
           </section>

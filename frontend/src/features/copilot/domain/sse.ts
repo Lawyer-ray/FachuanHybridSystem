@@ -24,11 +24,13 @@ export function nextLocalId(): string {
 export function takeSseFrames(buffer: string): { frames: string[]; rest: string } {
   const frames: string[] = []
   let rest = buffer
-  let idx = rest.indexOf('\n\n')
-  while (idx >= 0) {
-    frames.push(rest.slice(0, idx))
-    rest = rest.slice(idx + 2)
-    idx = rest.indexOf('\n\n')
+  for (;;) {
+    // 分隔符容忍 CRLF：反代/网关把 `\n\n` 改写成 `\r\n\r\n` 的情况真实存在，
+    // 只认 `\n\n` 会让整条流一帧都切不出来（看着像「后端没回数据」）
+    const match = /\r?\n\r?\n/.exec(rest)
+    if (!match) break
+    frames.push(rest.slice(0, match.index))
+    rest = rest.slice(match.index + match[0].length)
   }
   return { frames, rest }
 }

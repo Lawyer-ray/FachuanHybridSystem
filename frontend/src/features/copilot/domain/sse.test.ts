@@ -26,7 +26,8 @@ describe('takeSseFrames', () => {
 
   it('帧尾容忍 CR（行尾为 CRLF 的帧也能解析；后端实际只发 LF）', () => {
     const { frames } = takeSseFrames('data: {"type":"done"}\r\n\n')
-    expect(frames).toEqual(['data: {"type":"done"}\r'])
+    // CRLF 分隔符整块切掉：帧里不残留 CR，JSON.parse 与原逻辑结果一致
+    expect(frames).toEqual(['data: {"type":"done"}'])
     expect(parseSseEvent(frames[0] ?? '')).toEqual({ type: 'done' })
   })
 })

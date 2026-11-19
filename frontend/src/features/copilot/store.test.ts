@@ -200,13 +200,12 @@ describe('copilot store：发送与流式转录', () => {
     expect(streaming).toBe(false)
   })
 
-  it('stop 中断流后重拉历史对齐（服务端落库部分回答）', async () => {
+  it('stop 中断流后**不**重拉历史：保留已流出正文，只标本栏截断', async () => {
+    // 契约变更（红队审查 C2）：原先 stop 走 switchSession 全量重拉，会把刚流出的
+    // 正文、分栏用量账、未落库的栏一起冲掉——用户看到的是「按了停止答案就没了」。
+    // 服务端确实落库了 truncated，但那是下次打开会话的事；眼前这一屏必须留着。
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
-    const history: AgentHistoryMessage[] = [
-      { message_id: 1, role: 'user', content: 'x', tool_name: '', created_at: '', metadata: {} },
-      { message_id: 2, role: 'assistant', content: '半截', tool_name: '', created_at: '', metadata: { truncated: true } },
-    ]
-    const fetchHistory = vi.mocked(copilotApi.fetchHistory).mockResolvedValue(history)
+    const fetchHistory = vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
 
     // mock 的流必须响应 abort 信号：真实 fetch 中断时 reader.read() 会以
     // AbortError reject，这里用 controller.error 等价模拟，才能走到 catch 分支
@@ -229,10 +228,13 @@ describe('copilot store：发送与流式转录', () => {
     useCopilot.getState().stop()
     await sending
 
-    expect(fetchHistory).toHaveBeenCalledWith('s-1')
-    const { messages, streaming } = useCopilot.getState()
-    expect(messages[1]?.content).toBe('半截')
+    expect(fetchHistory).not.toHaveBeenCalled()
+    const { messages, streaming, lastError } = useCopilot.getState()
+    // 已经流出来的半句还在（不再被历史覆盖）
+    expect(messages[1]?.content).toBe('半')
     expect(messages[1]?.truncated).toBe(true)
+    expect(messages[1]?.streaming).toBe(false)
+    expect(lastError).toBeNull()
     expect(streaming).toBe(false)
   })
 

@@ -92,6 +92,12 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             后台任务
           </span>
         )}
+        {/* 多答时两栏可能同时要审批：不标来源，律师不知道是哪条回答要动库表 */}
+        {approval.agentKind && (
+          <span className="rounded-[4px] bg-secondary px-1 py-px text-[10.5px] text-muted-foreground">
+            {approval.agentKind}
+          </span>
+        )}
         <span className="ml-auto flex flex-none items-center gap-1.5 text-[11px] tabular-nums text-muted-foreground">
           {approval.decided
             ? approval.decided === 'approved'

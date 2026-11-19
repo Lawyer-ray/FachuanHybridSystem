@@ -44,6 +44,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   // pendingQuestions / questionDrafts 由 createQuestionSlice 提供初值（同 approvals 的模式）
   lastError: null,
   turnStats: EMPTY_STATS,
+  turnStatsByLane: {},
   contextUsage: { used: null, total: null },
   compacting: false,
   queuePosition: null,
@@ -91,6 +92,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       loadingHistory: false,
       lastError: null,
       turnStats: { ...EMPTY_STATS },
+      turnStatsByLane: {},
       contextUsage: { used: null, total: null },
       compacting: false,
       queuePosition: null,

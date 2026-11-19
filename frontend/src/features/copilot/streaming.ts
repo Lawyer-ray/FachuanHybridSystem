@@ -54,8 +54,14 @@ export interface StreamHandlers {
    * 传结构体而不是位置参数：字段还会长（cache 已是第三个维度），
    * 位置参数每加一个就要改所有实现，且容易错位。
    */
-  onUsage(usage: UsagePayload): void
-  onApproval(event: ApprovalEvent): void
+  onUsage(usage: UsagePayload, origin: EventOrigin): void
+  /**
+   * 审批请求。
+   *
+   * `origin` 不可省：多答时两栏可能同时要审批，卡上不写来源，律师根本分不清
+   * 「这是哪条回答要用我的库表」。单栏时 origin.kind 为空串，渲染按旧口径。
+   */
+  onApproval(event: ApprovalEvent, origin: EventOrigin): void
   /**
    * 模型反问（结构化提问）。
    *
@@ -91,11 +97,24 @@ export interface StreamHandlers {
   onDone(context: { used: number | null; total: number | null } | undefined, origin: EventOrigin): void
 }
 
+/**
+ * 流的收尾结论。
+ *
+ * `sawDone=false` 是**可观测的异常**：连接被掐断时 `reader.read()` 只会正常
+ * 返回 `done:true`，看上去和「服务端跑完了」一模一样——不区分就会把断流记成
+ * 正常完成（红队审查 R1）。
+ */
+export interface StreamOutcome {
+  /** 是否收到过 done 帧（每栏各发一条，多答时 ≥1 即算正常收尾） */
+  sawDone: boolean
+}
+
 /** 消费一条 agent SSE 流，逐帧分发；流读尽或中途异常时返回/抛出。 */
-export async function consumeAgentStream(resp: Response, h: StreamHandlers): Promise<void> {
+export async function consumeAgentStream(resp: Response, h: StreamHandlers): Promise<StreamOutcome> {
   const reader = resp.body!.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let sawDone = false
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
@@ -124,15 +143,19 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onToolResult(event, origin)
           break
         case 'usage':
-          h.onUsage({
-            outputTokens: event.output_tokens,
-            inputTokens: event.input_tokens ?? 0,
-            cacheReadTokens: event.cache_read_tokens ?? 0,
-            cacheWriteTokens: event.cache_write_tokens ?? 0,
-          })
+          // origin 必须跟着走：多答要按栏归集，丢了来源就只能全算在主栏上
+          h.onUsage(
+            {
+              outputTokens: event.output_tokens,
+              inputTokens: event.input_tokens ?? 0,
+              cacheReadTokens: event.cache_read_tokens ?? 0,
+              cacheWriteTokens: event.cache_write_tokens ?? 0,
+            },
+            origin,
+          )
           break
         case 'approval_request':
-          h.onApproval(event)
+          h.onApproval(event, origin)
           break
         case 'question_request':
           // 提问不阻断流：卡片与审批同层并列渲染，模型在服务端等回答
@@ -158,6 +181,7 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onError(event.message, origin)
           break
         case 'done':
+          sawDone = true
           h.onProgress()
           // 水位字段可选：旧后端 / pi 未上报时 undefined，前端隐藏水位显示
           h.onDone(
@@ -172,4 +196,23 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
       }
     }
   }
+
+  // 尾帧：服务端关流前可能留下一个没有空行结尾的完整帧（半帧另当别论）。
+  // 直接丢掉的话，恰好落在尾巴上的 done 会被当成「没收到」。
+  const tail = buffer.trim()
+  if (tail.startsWith('data:')) {
+    const event = parseSseEvent(tail)
+    if (event?.type === 'done') {
+      sawDone = true
+      h.onProgress()
+      h.onDone(
+        event.context_used_tokens === undefined && event.context_total_tokens === undefined
+          ? undefined
+          : { used: event.context_used_tokens ?? null, total: event.context_total_tokens ?? null },
+        { kind: agentOf(event), runId: runIdOf(event) },
+      )
+    }
+  }
+
+  return { sawDone }
 }

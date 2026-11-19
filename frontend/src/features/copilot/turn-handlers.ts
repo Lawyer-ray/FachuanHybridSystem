@@ -7,7 +7,15 @@
  * - finishAssistant 收尾助手气泡（流读尽与 done 双路径都要能调，幂等）
  */
 
-import { estimateTokens, extractRewriteArgs, nextLocalId, normalizeQuestions, parseFileRewrite } from './domain'
+import {
+  emptyTurnStats,
+  estimateTokens,
+  extractRewriteArgs,
+  nextLocalId,
+  normalizeQuestions,
+  parseFileRewrite,
+} from './domain'
+import type { TurnStats } from './types'
 import { FILE_REWRITTEN_EVENT } from './launch'
 import type { EventOrigin, StreamHandlers } from './streaming'
 import { useCopilot } from './store'
@@ -58,6 +66,22 @@ export function createTurnHandlers(
    */
   const targetOf = (kind: string): string => assistantFor(kind)
 
+  /**
+   * 写某一栏的用量账（`kind` 空串 = 单栏/未标注，仍单独成一份）。
+   *
+   * 为什么按 `kind` 而不是 run_id：`run_id` 恒为 `session:kind:1`、跨轮不递增
+   * （后端尚未修），拿它当键会把两栏写进同一份账；`agent` 是每帧都带且真实
+   * 互斥的（多答每栏一个后端）。
+   */
+  const bumpLane = (kind: string, fn: (lane: TurnStats) => TurnStats) => {
+    set((s) => ({
+      turnStatsByLane: {
+        ...s.turnStatsByLane,
+        [kind]: fn(s.turnStatsByLane[kind] ?? emptyTurnStats()),
+      },
+    }))
+  }
+
   const appendAssistant = (chunk: string, origin: EventOrigin) => {
     if (!chunk) return
     const targetId = targetOf(origin.kind)
@@ -94,6 +118,14 @@ export function createTurnHandlers(
     onThinking: appendThinking,
     onDelta: (chunk, origin) => {
       appendAssistant(chunk, origin)
+      // 该栏自己的首字/末字时间：多答时比较「谁先出字、谁更快」全靠它
+      const stamp = Date.now()
+      bumpLane(origin.kind, (lane) => ({
+        ...lane,
+        firstDeltaAt: lane.firstDeltaAt ?? stamp,
+        lastDeltaAt: stamp,
+        estTokens: lane.estTokens + estimateTokens(chunk),
+      }))
       set((s) => {
         const now = Date.now()
         const estTokens = s.turnStats.estTokens + estimateTokens(chunk)
@@ -161,7 +193,15 @@ export function createTurnHandlers(
         window.dispatchEvent(new CustomEvent(FILE_REWRITTEN_EVENT, { detail: rewrite }))
       }
     },
-    onUsage: (usage) => {
+    onUsage: (usage, origin) => {
+      // 分栏账：多答的核心可比性（哪一栏贵、哪一栏缓存命中高）
+      bumpLane(origin.kind, (lane) => ({
+        ...lane,
+        exactTokens: (lane.exactTokens ?? 0) + usage.outputTokens,
+        inputTokens: (lane.inputTokens ?? 0) + usage.inputTokens,
+        cacheReadTokens: (lane.cacheReadTokens ?? 0) + usage.cacheReadTokens,
+        cacheWriteTokens: (lane.cacheWriteTokens ?? 0) + usage.cacheWriteTokens,
+      }))
       set((s) => ({
         turnStats: {
           ...s.turnStats,
@@ -174,7 +214,7 @@ export function createTurnHandlers(
         },
       }))
     },
-    onApproval: (event) => {
+    onApproval: (event, origin) => {
       set((s) => ({
         approvals: [
           ...s.approvals,
@@ -186,6 +226,8 @@ export function createTurnHandlers(
             receivedAt: Date.now(),
             riskLevel: event.risk_level,
             needsSecondConfirmation: event.needs_second_confirmation,
+            // 多答时两栏可能同时要审批：卡上不写来源就分不清是谁要动库表
+            ...(origin.kind ? { agentKind: origin.kind } : {}),
           },
         ],
       }))
@@ -262,6 +304,8 @@ export function createTurnHandlers(
       // 无处可写，界面上两栏都是「(无内容)」，并冒出一句「流处理异常」。
       // 单后端时 columnCount === 1，收这一栏等价于收全部，行为与原来一致。
       const doneId = targetOf(origin.kind)
+      const doneAt = Date.now()
+      bumpLane(origin.kind, (lane) => ({ ...lane, doneAt }))
       set((s) => ({
         messages: s.messages.map((m) =>
           m.id === doneId && m.streaming ? { ...m, streaming: false } : m,

@@ -14,6 +14,7 @@
  * - attachment.ts 附件预检与大小展示
  * - question.ts   结构化提问（模型反问）：归一化、草稿变换、答案批次
  * - tokens.ts     输出速度估算
+ * - usage.ts      用量口径与人读格式化（分栏计量、token/速度/命中率/时长）
  * - slash.ts      `/` 命令菜单
  * - location.ts   路由 → 页面描述、会话分组
  *
@@ -30,4 +31,5 @@ export * from './reference'
 export * from './slash'
 export * from './sse'
 export * from './tokens'
+export * from './usage'
 export * from './transcript'

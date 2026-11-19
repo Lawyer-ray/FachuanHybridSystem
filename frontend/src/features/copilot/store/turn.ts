@@ -11,6 +11,7 @@ import * as copilotApi from '../api'
 import {
   buildBizHintBlock,
   buildSelectionQuoteBlock,
+  emptyTurnStats,
   nextLocalId,
   splitBizHintLine,
   splitPageHintLine,
@@ -28,14 +29,8 @@ import { bumpSessionEpoch } from './session-epoch'
 import type { Slice } from './slice'
 
 /** 轮次统计初值（send 入列时复位；reset 也复用它） */
-export const EMPTY_STATS: TurnStats = {
-  firstDeltaAt: null,
-  lastDeltaAt: null,
-  doneAt: null,
-  estTokens: 0,
-  exactTokens: null,
-  samples: [],
-}
+/** 轮次统计初值（形状定义在 domain/usage，store 与 turn-handlers 共用同一份） */
+export const EMPTY_STATS: TurnStats = emptyTurnStats()
 
 /**
  * 本轮实际要跑哪几个 agent（顺序 = 栏的左右顺序）。
@@ -247,6 +242,8 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       queuePosition: null,
       queuedSteers: [],
       turnStats: { ...EMPTY_STATS, samples: [] },
+      // 分栏账按轮重置：上一轮的栏不该出现在本轮栏头
+      turnStatsByLane: {},
     }))
     onQueued?.(true)
 
@@ -260,22 +257,52 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       turnAgents.length,
     )
 
+    // 本轮有哪些气泡：断流时要精确标它们（不能按 `streaming` 扫全场，
+    // 否则会误伤下一轮刚开的气泡）
+    const laneIds = new Set<string>(
+      multiColumn ? Object.values(assistantByAgent) : [assistantId],
+    )
+    /**
+     * 把本轮各栏标成「已中断」。
+     *
+     * 不重拉历史是本轮改造的重点（红队审查 C2）：`switchSession` 会整段替换
+     * `messages`，把刚流出的正文、分栏账、未落库的栏全部冲掉——用户看到的是
+     * 「我按了停止，答案就没了」。服务端那边确实落了 truncated，但它要下一次
+     * 打开会话才看得到；眼前这一屏必须留着。
+     */
+    const markInterrupted = (message: string | null) => {
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.role === 'assistant' && laneIds.has(m.id) ? { ...m, streaming: false, truncated: true } : m,
+        ),
+        ...(message ? { lastError: message } : {}),
+      }))
+    }
+
     controller = new AbortController()
     try {
       const resp = await copilotApi.openMessageStream(sessionId, composed, controller.signal, turnSpecs)
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
-      await consumeAgentStream(resp, handlers)
+      const outcome = await consumeAgentStream(resp, handlers)
       finishAssistant()
       set((s) => ({ turnStats: { ...s.turnStats, doneAt: s.turnStats.doneAt ?? Date.now() } }))
+      // 连接正常结束但没收到 done：上游被掐断（反代超时/服务重启）。
+      // 不区分的话它和「跑完了」看起来一模一样。
+      // 但若本轮已报过具体错误（error 事件/降级），那句文案更准确，不许覆盖。
+      if (!outcome.sawDone && get().lastError === null) {
+        markInterrupted('与本轮的连接提前结束，回答可能不完整')
+      }
     } catch {
       finishAssistant()
-      const aborted = controller?.signal.aborted
-      if (get().sessionId) {
-        // 服务端会把已流出的部分回答落库（truncated）：无论主动停止还是
-        // 网络中断，都重拉历史对齐，再决定要不要提示错误
-        await get().switchSession(get().sessionId)
-      }
-      if (!aborted) {
+      const aborted = controller?.signal.aborted === true
+      if (aborted) {
+        // 主动停止：保留已流出正文与统计，只标截断（服务端已落 truncated）
+        markInterrupted(null)
+      } else {
+        // 真失败（网络断/HTTP 错）：重拉历史对齐服务端落库结果，再提示
+        if (get().sessionId) {
+          await get().switchSession(get().sessionId)
+        }
         set({ lastError: '连接中断，请重试' })
       }
     } finally {

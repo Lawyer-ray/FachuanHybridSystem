@@ -51,6 +51,14 @@ export interface CopilotState extends AgentBackendSelection {
   lastError: string | null
   /** 本轮输出统计：流式期间驱动实时 tok/s，结束后展示精确 token 与平均速度 */
   turnStats: TurnStats
+  /**
+   * 分栏用量账（键 = 事件里的 `agent`，空串 = 单栏/未标注）。
+   *
+   * 多答的核心价值是**比较**：只并排几份答案、却看不出哪份更贵更慢，比较就
+   * 只剩「读起来顺不顺」。单栏容量下 `turnStats` 仍然是同一份数据的聚合，
+   * 旧 UI（TurnStatsView）不受影响。
+   */
+  turnStatsByLane: Record<string, TurnStats>
   /** 上下文水位（null = 未知/无会话）；done 事件与 stats/compact 接口回填 */
   contextUsage: { used: number | null; total: number | null }
   /** 后端正在压缩上下文（compaction 事件 start→end；手动压缩请求期间同为 true） */
