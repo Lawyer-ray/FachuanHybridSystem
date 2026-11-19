@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 
 import { fetchAgentSkills } from '../api'
 import { useComposerIntake } from '../hooks/use-composer-intake'
+import { useDraft } from '../hooks/use-draft'
 import { useComposerSubmit } from '../hooks/use-composer-submit'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
@@ -51,7 +52,8 @@ const SEND_BUTTON_CLASS = 'copilot-send flex h-7 w-7 flex-none items-center just
  *   那是 CopilotPanel 的数据源。
  */
 export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
-  const [text, setText] = useState('')
+  // 草稿按会话持久化：切会话/刷新都不丢（律师常写一整段事实，重打一遍代价很高）
+  const [text, setText] = useDraft(useCopilot((s) => s.sessionId))
   const [bgMode, setBgMode] = useState(false)
   const streaming = useCopilot((s) => s.streaming)
   const queuedSteers = useCopilot((s) => s.queuedSteers)
