@@ -104,7 +104,8 @@ export function CalendarPanel({
           今天
         </button>
 
-        <div className="ml-auto flex gap-4 text-[11.5px] whitespace-nowrap text-muted-foreground @max-[560px]:ml-0 @max-[560px]:w-full @max-[560px]:justify-between @max-[560px]:gap-2 @max-[560px]:text-[11px]">
+        {/* flex-wrap：三项统计各带 whitespace-nowrap，极窄时宁可折成两行也不横向溢出 */}
+        <div className="ml-auto flex flex-wrap gap-x-4 gap-y-[2px] text-[11.5px] whitespace-nowrap text-muted-foreground @max-[560px]:ml-0 @max-[560px]:w-full @max-[560px]:justify-between @max-[560px]:gap-x-2 @max-[560px]:text-[11px]">
           <span className="flex items-baseline gap-1">
             今日 <b className="tabular-nums font-semibold text-status-red">{stats.today}</b> 件
           </span>
