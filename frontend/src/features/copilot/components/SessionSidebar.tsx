@@ -38,6 +38,7 @@ import type { AgentSession, SessionGroup } from '../types'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { Button } from '@/components/ui/button'
 import { DeleteSessionDialog } from './session/DeleteSessionDialog'
+import { ExportMenu } from './ExportMenu'
 import { SessionGroupBlock } from './session/SessionGroupBlock'
 import { UsageFooter } from './session/UsageFooter'
 
@@ -144,11 +145,14 @@ export function SessionSidebar({ variant, onClose, panelWidth = 0 }: SessionSide
       )}
       <header className="flex h-10 flex-none items-center gap-2 border-b border-border px-3">
         <span className="text-[12.5px] font-semibold text-foreground">对话</span>
-        {variant === 'overlay' && (
-          <button type="button" onClick={onClose} aria-label="收起对话列表" className={CLOSE_BUTTON_CLASS}>
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-1">
+          <ExportMenu />
+          {variant === 'overlay' && (
+            <button type="button" onClick={onClose} aria-label="收起对话列表" className={CLOSE_BUTTON_CLASS}>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="flex-none p-2">

@@ -24,8 +24,11 @@
  * - time.ts       转录时间显示（HH:mm）
  * - location.ts   路由 → 页面描述、会话分组
  * - message-id.ts 转录消息 id 解析（db-/local- 两种前缀与「能否评分」）
+ * - export.ts     会话导出（Markdown / 纯文本）与文件名
+ * - outline.ts    轮次大纲（已加载窗口内的提问 → 回答）
  *
  * 全部为纯函数（无 React、无 IO），vitest 直接覆盖（node 环境，无 DOM）。
+ * 唯一例外是 `export.downloadText`：允许触达 Blob/URL/document 的下载动作。
  */
 
 export * from './approval'
@@ -37,8 +40,10 @@ export * from './mention'
 export * from './page-span'
 export * from './dual'
 export * from './error'
+export * from './export'
 export * from './location'
 export * from './message-id'
+export * from './outline'
 export * from './progress'
 export * from './question'
 export * from './reference'
