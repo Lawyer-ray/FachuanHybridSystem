@@ -13,23 +13,34 @@ import { Wrench } from 'lucide-react'
 import { shortToolName } from '../domain'
 import type { ChatMessage } from '../types'
 
+import { DiffBlock } from './markdown/DiffBlock'
+
 // 必须 memo：流式每个 delta 都 set({messages: s.messages.map(…)}) 造出新数组 +
 // 新消息对象，不 memo 的话整棵工具行 DOM 都要重算（200 条历史 × 几百个 delta）。
 // props 只有 message 一个引用，未变的消息走浅比较 bail out。
 export const ToolRow = memo(function ToolRow({ message }: { message: ChatMessage }) {
   const name = shortToolName(message.toolName)
+  // 改写类工具：把「改了哪一句」直接画出来，而不是让律师去看 2000 字的 JSON 结果。
+  // 只有结算后才画（运行中参数还在渐进完整，画出来会是个半截 diff）。
+  const rewrite = message.content ? message.rewrite : undefined
   return (
     <details className="group rounded-[10px] border border-border bg-secondary/40 px-2.5 py-1.5">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
         <Wrench className="h-3 w-3 flex-none" />
         <span className="truncate">
-          {message.content ? '已完成' : '调用中'} · {name}
+          {message.content ? '已完成' : '调用中'} · {rewrite?.filename ?? name}
         </span>
       </summary>
+      {rewrite && <DiffBlock original={rewrite.original} replacement={rewrite.replacement} filename={rewrite.filename} />}
       {message.content && (
-        <pre className="mt-1.5 max-h-56 overflow-y-auto border-t border-border pt-1.5 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-secondary-foreground">
-          {message.content}
-        </pre>
+        <details className="mt-1.5 border-t border-border pt-1.5">
+          <summary className="cursor-pointer list-none text-[11px] text-muted-foreground hover:text-foreground">
+            工具返回原文
+          </summary>
+          <pre className="mt-1 max-h-56 overflow-y-auto font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-secondary-foreground">
+            {message.content}
+          </pre>
+        </details>
       )}
     </details>
   )

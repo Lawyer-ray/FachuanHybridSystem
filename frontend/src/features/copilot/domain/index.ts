@@ -6,6 +6,7 @@
  *
  * 子模块分工：
  * - sse.ts        SSE 帧解析（与 streaming.ts 的帧消费配对）
+ * - diff.ts       行级 diff（改写块「改了哪一句」的唯一实现，与 unified diff 同形）
  * - dual.ts       同题双答：事件的栏归属与栏标签
  * - error.ts      错误文案 → 可操作提示（能否重发、能不能关掉、诊断文本）
  * - progress.ts   流式「还在干活」：当前在调哪个工具、动作词翻译
@@ -26,6 +27,7 @@
 
 export * from './approval'
 export * from './attachment'
+export * from './diff'
 export * from './dual'
 export * from './error'
 export * from './location'

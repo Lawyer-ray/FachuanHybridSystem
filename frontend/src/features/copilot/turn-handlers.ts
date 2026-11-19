@@ -148,15 +148,24 @@ export function createTurnHandlers(
     },
     onToolCall: (event, origin) => {
       // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）
-      if (event.tool_call_id && event.name?.endsWith('rewrite_folder_file')) {
-        const extracted = extractRewriteArgs(event.arguments)
-        if (extracted) rewriteArgsById.set(event.tool_call_id, extracted)
-      }
+      const extracted =
+        event.name?.endsWith('rewrite_folder_file') && event.tool_call_id
+          ? extractRewriteArgs(event.arguments)
+          : null
+      if (event.tool_call_id && extracted) rewriteArgsById.set(event.tool_call_id, extracted)
       // pi 对同一工具调用可能发多条 message_end（arguments 渐进完整），
-      // 以 tool_call_id 去重：已有则原行保留，没有才追加
+      // 以 tool_call_id 去重：已有则只把修订块更新为更完整的版本，不新增行
       set((s) => {
-        if (event.tool_call_id && s.messages.some((m) => m.toolCallId === event.tool_call_id)) {
-          return s
+        const existing = event.tool_call_id
+          ? s.messages.find((m) => m.role === 'tool' && m.toolCallId === event.tool_call_id)
+          : undefined
+        if (existing) {
+          if (!extracted) return s
+          return {
+            messages: s.messages.map((m) =>
+              m === existing ? { ...m, rewrite: extracted } : m,
+            ),
+          }
         }
         return {
           messages: [
@@ -167,6 +176,7 @@ export function createTurnHandlers(
               content: '',
               toolName: event.name,
               toolCallId: event.tool_call_id,
+              ...(extracted ? { rewrite: extracted } : {}),
               // 多答时各栏各自调工具：工具行必须带来源，否则回放时分不出证据归谁
               ...(origin.kind ? { agentKind: origin.kind } : {}),
             },
@@ -217,6 +227,7 @@ export function createTurnHandlers(
       }))
     },
     onApproval: (event, origin) => {
+      const sessionId = useCopilot.getState().sessionId
       set((s) => ({
         approvals: [
           ...s.approvals,
@@ -230,6 +241,9 @@ export function createTurnHandlers(
             needsSecondConfirmation: event.needs_second_confirmation,
             // 多答时两栏可能同时要审批：卡上不写来源就分不清是谁要动库表
             ...(origin.kind ? { agentKind: origin.kind } : {}),
+            // 事件只出现在某个会话的流上，入队时补归属：补拉路径拿服务端的
+            // `session_id` 过滤，两条路径必须同一个字段才不会再把别人的卡带进来
+            ...(sessionId ? { sessionId } : {}),
           },
         ],
       }))

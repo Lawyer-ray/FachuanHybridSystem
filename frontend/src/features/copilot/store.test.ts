@@ -187,6 +187,36 @@ describe('copilot store：发送与流式转录', () => {
     expect(approvals[0]?.approvalId).toBe('a1')
   })
 
+  it('rewrite_folder_file 的参数落成修订块，后到的完整参数只更新不新增行', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    // pi 对同一调用会发多条 tool_call（arguments 渐进完整）：第一条只有原文，
+    // 第二条才带齐 replacement + subpath
+    const incomplete = { original: '逾期付款的，按日万分之五计息。' }
+    const complete = {
+      subpath: '1-律师资料/1-合同/借款合同.docx',
+      original: '逾期付款的，按日万分之五计息。',
+      replacement: '逾期付款的，按日万分之三计息。',
+      contract_id: 7,
+    }
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        `data: ${JSON.stringify({ type: 'tool_call', tool_call_id: 'r1', name: 'mcp__fachuan__rewrite_folder_file', arguments: incomplete })}\n\n`,
+        `data: ${JSON.stringify({ type: 'tool_call', tool_call_id: 'r1', name: 'mcp__fachuan__rewrite_folder_file', arguments: complete })}\n\n`,
+        `data: ${JSON.stringify({ type: 'tool_result', tool_call_id: 'r1', name: 'rewrite_folder_file', result: '{"applied":true}' })}\n\n`,
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('把违约利息改成万分之三')
+
+    const tools = useCopilot.getState().messages.filter((m) => m.role === 'tool')
+    // 同一次调用只占一行（去重仍生效）
+    expect(tools).toHaveLength(1)
+    expect(tools[0]?.rewrite?.replacement).toBe('逾期付款的，按日万分之三计息。')
+    // 文件名取 subpath 的 basename：修订块标题要写「改了哪个文件」
+    expect(tools[0]?.rewrite?.filename).toBe('借款合同.docx')
+  })
+
   it('error 事件置错误提示并收尾助手气泡', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
     vi.mocked(copilotApi.openMessageStream).mockResolvedValue(

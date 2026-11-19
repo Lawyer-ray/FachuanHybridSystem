@@ -166,6 +166,17 @@ export interface ChatMessage {
   /** tool 消息的工具名（tool_call 与 tool_result 的归并键） */
   toolName?: string
   toolCallId?: string
+  /**
+   * `rewrite_folder_file` 的改写对（原文片段 / 改写全文），用来在工具行里画出
+   * 「改了哪一句」。
+   *
+   * **数据源只有 `tool_call.arguments`**：`tool_result.result` 在 SSE 里被截到
+   * 2000 字读不回全文（见 `domain/reference.ts` 的长注释），所以这里存的是**参数**
+   * 而不是结果；`filePath` 是参数里的 `subpath` 去掉目录后的显示名。
+   *
+   * 工具可能发多条 `tool_call`（arguments 渐进完整），后到的解析结果覆盖前一条。
+   */
+  rewrite?: { original: string; replacement: string; filename?: string }
   /** 回答被停止/断连截断（服务端 metadata.truncated 透传） */
   truncated?: boolean
   /** 用户反馈：点赞/点踩（历史回放透传，P1-9b） */
@@ -232,6 +243,14 @@ export interface PendingApproval {
   agentKind?: string
   /** 离线待审（从 GET /approvals/pending 拉回，多来自后台任务），倒计时口径不同 */
   offline?: boolean
+  /**
+   * 这张卡属于哪个会话。
+   *
+   * 补拉端点返回的是「当前律师全部会话」的待审项，入队时必须带上归属，
+   * 否则 A 会话挂起的高危审批会渲染在 B 会话上（律师以为自己在批 B 的事，
+   * 实际放行的是 A 的操作）。与 `PendingQuestion.sessionId` 同口径。
+   */
+  sessionId?: string
   /** 本地已提交决定后的终态展示 */
   decided?: 'approved' | 'rejected'
 }
