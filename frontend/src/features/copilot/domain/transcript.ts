@@ -161,6 +161,9 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
     const quoteSplit = row.role === 'user' ? splitQuoteBlock(refsSplit?.body ?? row.content) : null
     return {
       id: `db-${row.message_id}`,
+      // 落库主键显式带上：评分/翻页游标都靠它，别再让调用方从 id 里反推
+      serverId: row.message_id,
+      createdAt: row.created_at ? Date.parse(row.created_at) || undefined : undefined,
       role: row.role,
       content: row.role === 'tool' ? row.content.slice(0, 2000) : (quoteSplit?.body ?? row.content),
       pageHint: hintSplit?.pageHint ?? undefined,

@@ -16,7 +16,9 @@
  * - tokens.ts     输出速度估算
  * - usage.ts      用量口径与人读格式化（分栏计量、token/速度/命中率/时长）
  * - slash.ts      `/` 命令菜单
+ * - time.ts       转录时间显示（HH:mm）
  * - location.ts   路由 → 页面描述、会话分组
+ * - message-id.ts 转录消息 id 解析（db-/local- 两种前缀与「能否评分」）
  *
  * 全部为纯函数（无 React、无 IO），vitest 直接覆盖（node 环境，无 DOM）。
  */
@@ -25,10 +27,12 @@ export * from './approval'
 export * from './attachment'
 export * from './dual'
 export * from './location'
+export * from './message-id'
 export * from './progress'
 export * from './question'
 export * from './reference'
 export * from './slash'
+export * from './time'
 export * from './sse'
 export * from './tokens'
 export * from './usage'

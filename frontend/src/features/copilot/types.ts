@@ -144,6 +144,16 @@ export interface BizHint {
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
+  /**
+   * 落库主键（历史回放来自 `AgentHistoryMessage.message_id`）。
+   *
+   * 实时气泡没有它（还没落库），所以「能否评分/能否当翻页游标」必须看这个
+   * 字段而不是从 `id` 里反推——旧代码 `Number('local-1'.slice(3))` 得到 NaN，
+   * 按钮可点但请求必然失败（见 domain/message-id.ts）。
+   */
+  serverId?: number
+  /** 发生时刻（ms）。历史回放来自 `created_at`；实时气泡为本地收到时刻 */
+  createdAt?: number
   content: string
   /** user 消息里的文件夹引用（从「[已引用文件：…]」块解析，气泡上方重放为 chip） */
   refs?: SentRefMeta[]

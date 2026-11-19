@@ -21,7 +21,7 @@ import { LoadingBlock } from '@/components/shared/AsyncState'
 import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
 import '../copilot.css'
-import { bizHintParts, groupAnswerRuns } from '../domain'
+import { bizHintParts, formatClock, groupAnswerRuns, ratableMessageId } from '../domain'
 import { useSmoothStreamText } from '../hooks/use-smooth-stream-text'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
@@ -70,16 +70,28 @@ const ThinkingBlock = memo(function ThinkingBlock({ message }: { message: ChatMe
   )
 })
 
-/** 点赞/点踩（P1-9b）：乐观更新在 store，失败自动回滚 */
-function RateButtons({ messageId, rating }: { messageId: number; rating?: 'up' | 'down' }) {
+/**
+ * 点赞/点踩（P1-9b）：乐观更新在 store，失败自动回滚。
+ *
+ * `messageId` 为 null = 本条还没落库（实时气泡）：按钮置灰并说明原因。
+ * 旧写法直接 `Number(message.id.slice(3))`，对 `local-3` 得到 NaN——按钮看起来
+ * 可点，点了必然失败且没有任何反馈（见 domain/message-id.ts）。
+ */
+function RateButtons({ messageId, rating }: { messageId: number | null; rating?: 'up' | 'down' }) {
   const rate = useCopilot((s) => s.rateMessage)
+  const disabled = messageId === null
   const btn = (r: 'up' | 'down') => ({
     type: 'button' as const,
     'aria-label': r === 'up' ? '有帮助' : '没帮助',
+    disabled,
+    title: disabled ? '本条尚未落库，暂不可评分' : r === 'up' ? '有帮助' : '没帮助',
     className:
-      'flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary ' +
+      'flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40 ' +
       (rating === r ? 'text-foreground' : 'opacity-60 hover:opacity-100'),
-    onClick: () => void rate(messageId, rating === r ? 'none' : r),
+    onClick: () => {
+      if (messageId === null) return
+      void rate(messageId, rating === r ? 'none' : r)
+    },
   })
   return (
     <span className="ml-1.5 inline-flex gap-0.5 align-middle">
@@ -188,6 +200,15 @@ const Bubble = memo(function Bubble({
               {message.content}
             </div>
           )}
+          {message.createdAt ? (
+            <time
+              className="text-[10.5px] text-muted-foreground tabular-nums"
+              dateTime={new Date(message.createdAt).toISOString()}
+              title={new Date(message.createdAt).toLocaleString('zh-CN')}
+            >
+              {formatClock(message.createdAt)}
+            </time>
+          ) : null}
         </div>
         <UserAvatar user={user} className="h-6 w-6" />
       </div>
@@ -234,8 +255,17 @@ const Bubble = memo(function Bubble({
       )}
       {showCopy && (
         <span className="ml-1 inline-flex items-center align-middle">
-          <RateButtons messageId={Number(message.id.slice(3))} rating={message.rating} />
+          <RateButtons messageId={ratableMessageId(message)} rating={message.rating} />
           <CopyButton text={message.content} />
+          {message.createdAt ? (
+            <time
+              className="ml-1 text-[10.5px] text-muted-foreground tabular-nums"
+              dateTime={new Date(message.createdAt).toISOString()}
+              title={new Date(message.createdAt).toLocaleString('zh-CN')}
+            >
+              {formatClock(message.createdAt)}
+            </time>
+          ) : null}
         </span>
       )}
     </div>
@@ -273,10 +303,22 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
+  // 与 stickToBottom 同步的**可见**状态：只有它变了才需要重渲染（渲染「回到底部」钮）
+  const [atBottom, setAtBottom] = useState(true)
 
   const handleScroll = () => {
     const el = scrollRef.current
-    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+    if (!el) return
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+    stickToBottom.current = near
+    setAtBottom((prev) => (prev === near ? prev : near))
+  }
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current
+    stickToBottom.current = true
+    setAtBottom(true)
+    if (el) el.scrollTop = el.scrollHeight
   }
 
   useEffect(() => {
@@ -350,6 +392,20 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
       )}
       {lastError && <p className="mt-2 text-[12px] text-destructive">{lastError}</p>}
       </div>
+      {/* 上翻看历史后一键回到最新：长回答（几十屏）里上翻后只能一直滚回去。
+          sticky bottom-0 让它只在本容器视野内吸底，不跟随页面其他区域。 */}
+      {messages.length > 0 && !atBottom && (
+        <div className="pointer-events-none sticky bottom-0 z-10 mt-2 flex justify-end">
+          <button
+            type="button"
+            className="pointer-events-auto rounded-full border border-border bg-card px-2.5 py-1 text-[11.5px] text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+            title="跳到最新一条"
+            onClick={scrollToBottom}
+          >
+            回到底部 ↓
+          </button>
+        </div>
+      )}
     </div>
   )
 }

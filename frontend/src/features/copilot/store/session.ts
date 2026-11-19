@@ -6,7 +6,7 @@
  */
 
 import * as copilotApi from '../api'
-import { historyToMessages } from '../domain'
+import { HISTORY_PAGE_SIZE, historyToMessages, oldestDbId } from '../domain'
 import { storeSession } from '../persistence'
 import { withViewTransition } from '../transitions'
 import type { CopilotState } from '../types'
@@ -94,7 +94,11 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
       // 等待期间用户可能又切走了：只回填仍是当前会话的结果
       if (get().sessionId === id) {
         withViewTransition(() => {
-          set({ messages: historyToMessages(rows), loadingHistory: false, noMoreHistory: rows.length < 200 })
+          set({
+            messages: historyToMessages(rows),
+            loadingHistory: false,
+            noMoreHistory: rows.length < HISTORY_PAGE_SIZE,
+          })
         })
       }
     } catch {
@@ -124,22 +128,22 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
   loadOlderHistory: async () => {
     const { sessionId, messages, loadingHistory, streaming, noMoreHistory } = get()
     if (!sessionId || loadingHistory || streaming || noMoreHistory) return
-    const oldest = messages.find((m) => m.id.startsWith('db-'))
-    const beforeId = oldest ? Number(oldest.id.slice(3)) : undefined
+    // 游标 = 首条已落库消息的主键（实时气泡没有主键，跳过）
+    const beforeId = oldestDbId(messages)
     if (!beforeId) {
       set({ noMoreHistory: true })
       return
     }
     set({ loadingOlder: true })
     try {
-      const older = await copilotApi.fetchHistory(sessionId, 200, beforeId)
+      const older = await copilotApi.fetchHistory(sessionId, HISTORY_PAGE_SIZE, beforeId)
       if (older.length === 0) {
         set({ noMoreHistory: true })
         return
       }
       set((s) => ({
         messages: [...historyToMessages(older), ...s.messages],
-        noMoreHistory: older.length < 200,
+        noMoreHistory: older.length < HISTORY_PAGE_SIZE,
       }))
     } catch {
       /* 静默：翻页失败不打扰当前对话 */

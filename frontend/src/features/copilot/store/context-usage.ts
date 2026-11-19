@@ -9,7 +9,8 @@
 import { HTTPError } from 'ky'
 
 import * as copilotApi from '../api'
-import type { CopilotState } from '../types'
+import { ratableMessageId } from '../domain'
+import type { ChatMessage, CopilotState } from '../types'
 import type { Slice } from './slice'
 
 export type ContextUsageSlice = Pick<
@@ -53,10 +54,14 @@ export const createContextUsageSlice: Slice<ContextUsageSlice> = (set, get) => (
   },
 
   rateMessage: async (messageId, rating) => {
-    const prev = get().messages.find((m) => m.id === `db-${messageId}`)?.rating
+    // 按**落库主键**匹配，不拼 `db-${id}` 字符串：拼串只对历史气泡成立，
+    // 实时气泡（local-*）会永远匹配不到，点了没任何反应。
+    // ratableMessageId 兼容两种来源：显式 serverId，或 `db-` 前缀反推。
+    const matches = (m: ChatMessage) => ratableMessageId(m) === messageId
+    const prev = get().messages.find((m) => matches(m))?.rating
     const apply = (r?: 'up' | 'down') =>
       set((s) => ({
-        messages: s.messages.map((m) => (m.id === `db-${messageId}` ? { ...m, rating: r } : m)),
+        messages: s.messages.map((m) => (matches(m) ? { ...m, rating: r } : m)),
       }))
     apply(rating === 'none' ? undefined : rating)
     try {
