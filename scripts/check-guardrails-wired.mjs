@@ -62,6 +62,12 @@ const isCheckScript = (name) => {
 const ALLOWED_UNWIRED = new Map([
   // 示例格式（当前无条目，新增时照此写）：
   // ["scripts/check-foo.mjs", "依赖真实生产凭据，只能在发版机上手工跑"],
+  [
+    "scripts/verify_dsh_mcp.py",
+    "端到端验收：需本机 node runtime + dsh home 里装好的 @deepseek-ai/dsh-mcp-client + 真启 dsh 子进程（冷启动数秒），CI 容器不具备且耗时远超单测。" +
+      "它不是「没人跑」——依赖它的静态护栏 tests/ci/unit/agent/test_dsh_verify_assertion_sources.py 在 CI 里跑（守护脚本的断言来源不被生产静默）。" +
+      "本脚本在接入 dsh 工具面变更时手工跑一次，输出贴进验收报告。",
+  ],
 ]);
 
 function readIfExists(relPath) {
