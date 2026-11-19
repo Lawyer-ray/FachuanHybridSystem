@@ -60,6 +60,7 @@ function renderPanel(events: CalendarEvent[]) {
     onToggleComplete: vi.fn(),
     onOpenAdd: vi.fn(),
     onEventContextMenu: vi.fn(),
+    onCompactChange: vi.fn(),
   }
   const utils = render(
     <CalendarPanel
@@ -74,9 +75,9 @@ function renderPanel(events: CalendarEvent[]) {
   return { ...handlers, ...utils }
 }
 
-/** 手机端格内标题列表（纯展示块；不能按 aria-hidden 找——lucide 图标 svg 也带 aria-hidden） */
+/** 紧凑档格内标题列表（纯展示块；不能按 aria-hidden 找——lucide 图标 svg 也带 aria-hidden） */
 function mobileTitleList(cell: HTMLElement): HTMLElement {
-  const list = cell.querySelector<HTMLElement>('[data-calendar-mobile-titles]')
+  const list = cell.querySelector<HTMLElement>('[data-calendar-compact-titles]')
   if (!list) throw new Error('手机端标题列表未渲染')
   return list
 }
@@ -175,5 +176,19 @@ describe('CalendarPanel 桌面断点', () => {
     fireEvent.keyDown(screen.getByRole('button', { name: '15 日，回车新增该日安排' }), { key: 'Enter' })
     expect(onSelectDay).toHaveBeenCalledWith('2026-10-15')
     expect(onOpenAdd).toHaveBeenCalledWith('2026-10-15')
+  })
+})
+
+describe('CalendarPanel 密度回传（调用方据此决定点格子开抽屉还是新增）', () => {
+  it('手机视口 → onCompactChange(true)', () => {
+    installMatchMedia({ '(max-width: 760px)': true })
+    const { onCompactChange } = renderPanel([ev()])
+    expect(onCompactChange).toHaveBeenCalledWith(true)
+  })
+
+  it('宽视口且量不到面板宽（jsdom）→ 兜底 wide，onCompactChange(false)', () => {
+    installMatchMedia({})
+    const { onCompactChange } = renderPanel([ev()])
+    expect(onCompactChange).toHaveBeenCalledWith(false)
   })
 })

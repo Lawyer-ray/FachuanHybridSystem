@@ -2,11 +2,13 @@
 /**
  * DayCell 测试（jsdom）。
  *
- * 月历单日格的分支密度很高，核心是「桌面 / 手机」两套交互：
+ * 月历单日格的分支密度很高，核心是「非紧凑档 / 紧凑档」两套交互，
+ * 外加 wide / medium 两档内容形态（密度按面板净宽算，见 calendar-density.ts）：
  * - 空槽（key/day 为 null）只渲染占位
- * - 桌面：点空白 → onOpenAdd；点事件行或「+N 更多」→ 只 onPick
- * - 手机：点任何位置 → onPick（事件行不渲染）
- * - 键盘：Enter/Space 触发 onPick（桌面额外 onOpenAdd）
+ * - 非紧凑档：点空白 → onOpenAdd；点事件行或「+N 更多」→ 只 onPick
+ * - 紧凑档：点任何位置 → onPick（事件行不渲染）
+ * - medium 档事件行只留「时间 + 标题」，不再塞关联对象 / 律师 / 地点
+ * - 键盘：Enter/Space 触发 onPick（非紧凑档额外 onOpenAdd）
  * - 事件行：点击/Enter 开详情且不冒泡；右键在有 handler 时才拦默认菜单
  * - 视觉：非本月降透明度、今天高亮、选中底色、已完成划线
  */
@@ -19,12 +21,12 @@ vi.mock('../domain', () => ({
 }))
 vi.mock('../api-meta', () => ({
   briefLine: () => '',
-  cellMetaLines: () => ['09:00', '第三法庭'],
+  cellMetaLines: () => ({ primary: '承办律师甲', secondary: '第三法庭' }),
   isKeyKind: (k: string) => k === 'hearing',
   // 本文件测的是交互/视觉态，标题取值逻辑交给 api-meta 自己的单测；
   // 这里给直通实现，保持事件行按 e.title 渲染的既有断言不变
   cardTitle: (e: { title?: string }) => e.title ?? '',
-  cardTargetLine: () => '',
+  cardTargetLine: () => '关联案名',
 }))
 vi.mock('../constants', () => ({ KIND_ROW: { hearing: 'kind-hearing' } }))
 
@@ -58,7 +60,7 @@ function renderCell(over: Partial<CellProps> = {}) {
     selected: false,
     events: [ev(1)],
     maxRows: 3,
-    mobile: false,
+    density: 'wide',
     ...cbs,
     ...over,
   }
@@ -113,7 +115,7 @@ describe('DayCell：桌面点击分派', () => {
 
 describe('DayCell：手机行为', () => {
   it('手机点任何位置 → onPick（不开新增）', () => {
-    const { cbs, cellEl, unmount } = renderCell({ mobile: true })
+    const { cbs, cellEl, unmount } = renderCell({ density: 'compact' })
     fireEvent.click(cellEl)
     expect(cbs.onPick).toHaveBeenCalledWith('2026-10-20')
     expect(cbs.onOpenAdd).not.toHaveBeenCalled()
@@ -121,7 +123,7 @@ describe('DayCell：手机行为', () => {
   })
 
   it('手机不渲染事件行（标题行只在桌面可见）', () => {
-    const { container, unmount } = renderCell({ mobile: true })
+    const { container, unmount } = renderCell({ density: 'compact' })
     // 桌面事件行带 data-calendar-event；手机隐藏但仍可能在 DOM 中，
     // 这里断言 aria-label 文案走手机分支
     const el = container.querySelector('[role="button"]') as HTMLElement
@@ -130,7 +132,7 @@ describe('DayCell：手机行为', () => {
   })
 
   it('桌面 aria-label 说明「回车新增」', () => {
-    const { cellEl, unmount } = renderCell({ mobile: false })
+    const { cellEl, unmount } = renderCell({ density: 'wide' })
     expect(cellEl.getAttribute('aria-label')).toContain('回车新增该日安排')
     unmount()
   })
@@ -154,7 +156,7 @@ describe('DayCell：键盘', () => {
   })
 
   it('手机 Enter：只 onPick', () => {
-    const { cbs, cellEl, unmount } = renderCell({ mobile: true })
+    const { cbs, cellEl, unmount } = renderCell({ density: 'compact' })
     fireEvent.keyDown(cellEl, { key: 'Enter' })
     expect(cbs.onPick).toHaveBeenCalled()
     expect(cbs.onOpenAdd).not.toHaveBeenCalled()
@@ -240,6 +242,52 @@ describe('DayCell：视觉态', () => {
     const { container, unmount } = renderCell({ events: [ev(1, { is_completed: true })] })
     const row = container.querySelector('[data-calendar-event]') as HTMLElement
     expect(row.className).toContain('opacity-55')
+    unmount()
+  })
+})
+
+describe('DayCell：内容密度档', () => {
+  it('wide 档事件行带关联对象 / 律师 / 地点', () => {
+    const { container, unmount } = renderCell({ density: 'wide' })
+    const row = container.querySelector('[data-calendar-event]') as HTMLElement
+    expect(row.textContent).toContain('事件 1')
+    expect(row.textContent).toContain('关联案名')
+    expect(row.textContent).toContain('承办律师甲')
+    expect(row.textContent).toContain('第三法庭')
+    unmount()
+  })
+
+  it('medium 档只留「时间 + 标题」，不再塞副标题（窄格里每行只剩一两个字）', () => {
+    const { container, unmount } = renderCell({ density: 'medium' })
+    const row = container.querySelector('[data-calendar-event]') as HTMLElement
+    expect(row.textContent).toContain('09:00')
+    expect(row.textContent).toContain('事件 1')
+    expect(row.textContent).not.toContain('关联案名')
+    expect(row.textContent).not.toContain('承办律师甲')
+    expect(row.textContent).not.toContain('第三法庭')
+    unmount()
+  })
+
+  it('medium 档仍是桌面交互（点事件行开详情，点空白新增）', () => {
+    const { cbs, cellEl, container, unmount } = renderCell({ density: 'medium' })
+    fireEvent.click(container.querySelector('[data-calendar-event]') as HTMLElement)
+    expect(cbs.onOpenDetail).toHaveBeenCalledTimes(1)
+    fireEvent.click(cellEl)
+    expect(cbs.onOpenAdd).toHaveBeenCalledWith('2026-10-20')
+    unmount()
+  })
+
+  it('compact 档不渲染事件行，标题列表最多 2 条', () => {
+    const { container, unmount } = renderCell({
+      density: 'compact',
+      events: [ev(1), ev(2), ev(3)],
+    })
+    expect(container.querySelector('[data-calendar-event]')).toBeNull()
+    const list = container.querySelector('[data-calendar-compact-titles]') as HTMLElement
+    expect(list.textContent).toContain('事件 1')
+    expect(list.textContent).toContain('事件 2')
+    expect(list.textContent).not.toContain('事件 3')
+    expect(list.textContent).toContain('+1')
     unmount()
   })
 })

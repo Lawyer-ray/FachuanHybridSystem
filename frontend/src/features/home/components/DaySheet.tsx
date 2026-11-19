@@ -33,7 +33,9 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onToggleCom
         onClick={onClose}
       />
       <div
-        className={`fixed inset-x-0 bottom-0 z-61 flex max-h-[72vh] flex-col rounded-t-[18px] bg-card shadow-[0_-12px_40px_rgba(0,0,0,.12)] transition-transform duration-300 ease-out ${
+        // 宽视口（助手并排 / 分屏把日历压窄后仍可能视口很宽）居中限宽，
+        // 否则一张 1400px 通屏底部抽屉比被它挡住的日历还难看清；手机上仍满宽
+        className={`fixed inset-x-0 bottom-0 z-61 mx-auto flex w-full max-w-[640px] max-h-[72vh] flex-col rounded-t-[18px] bg-card shadow-[0_-12px_40px_rgba(0,0,0,.12)] transition-transform duration-300 ease-out ${
           open ? 'translate-y-0' : 'translate-y-[105%]'
         }`}
       >

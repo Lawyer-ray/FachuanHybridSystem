@@ -39,26 +39,34 @@ vi.mock('sonner', () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.f
 
 // 子组件打桩：只暴露需要断言的交互入口
 const calendarProps = vi.hoisted(() => ({ onSelectDay: null as null | ((k: string) => void), view: null as unknown, onShiftMonth: null as null | ((d: number) => void), onGoToday: null as null | (() => void) }))
-vi.mock('./CalendarPanel', () => ({
-  CalendarPanel: (p: { view: unknown; onSelectDay: (k: string) => void; onShiftMonth: (d: number) => void; onGoToday: () => void; onOpenEvent: (e: unknown) => void; onOpenAdd: (d: string) => void; onEventContextMenu?: (e: unknown, pos: { x: number; y: number }) => void }) => {
-    calendarProps.onSelectDay = p.onSelectDay
-    calendarProps.view = p.view
-    calendarProps.onShiftMonth = p.onShiftMonth
-    calendarProps.onGoToday = p.onGoToday
-    return (
-      <div>
-        CALENDAR
-        <button type="button" onClick={() => p.onSelectDay('2026-11-20')}>选某天</button>
-        <button type="button" onClick={() => p.onShiftMonth(1)}>下月</button>
-        <button type="button" onClick={() => p.onShiftMonth(-1)}>上月</button>
-        <button type="button" onClick={() => p.onGoToday()}>回今天</button>
-        <button type="button" onClick={() => p.onOpenEvent({ id: 7, day: '2026-11-15', title: '开庭', member_ids: [11, 12], is_completed: false })}>打开事件</button>
-        <button type="button" onClick={() => p.onOpenAdd('2026-11-20')}>加安排</button>
-        <button type="button" onClick={() => p.onEventContextMenu?.({ id: 8, day: '2026-11-15', title: '右键事件' }, { x: 10, y: 20 })}>右键事件</button>
-      </div>
-    )
-  },
-}))
+vi.mock('./CalendarPanel', async () => {
+  const { useEffect } = await import('react')
+  return {
+  // 真实面板按**自身净宽**算密度再回传（见 calendar-density.ts）；这里用 mediaMock 代替，
+  // 手机视口 → 紧凑档，于是「点格子开当日抽屉」。
+    CalendarPanel: (p: { view: unknown; onSelectDay: (k: string) => void; onShiftMonth: (d: number) => void; onGoToday: () => void; onOpenEvent: (e: unknown) => void; onOpenAdd: (d: string) => void; onEventContextMenu?: (e: unknown, pos: { x: number; y: number }) => void; onCompactChange?: (compact: boolean) => void }) => {
+      useEffect(() => {
+        p.onCompactChange?.(mediaMock.isMobile)
+      }, [p])
+      calendarProps.onSelectDay = p.onSelectDay
+      calendarProps.view = p.view
+      calendarProps.onShiftMonth = p.onShiftMonth
+      calendarProps.onGoToday = p.onGoToday
+      return (
+        <div>
+          CALENDAR
+          <button type="button" onClick={() => p.onSelectDay('2026-11-20')}>选某天</button>
+          <button type="button" onClick={() => p.onShiftMonth(1)}>下月</button>
+          <button type="button" onClick={() => p.onShiftMonth(-1)}>上月</button>
+          <button type="button" onClick={() => p.onGoToday()}>回今天</button>
+          <button type="button" onClick={() => p.onOpenEvent({ id: 7, day: '2026-11-15', title: '开庭', member_ids: [11, 12], is_completed: false })}>打开事件</button>
+          <button type="button" onClick={() => p.onOpenAdd('2026-11-20')}>加安排</button>
+          <button type="button" onClick={() => p.onEventContextMenu?.({ id: 8, day: '2026-11-15', title: '右键事件' }, { x: 10, y: 20 })}>右键事件</button>
+        </div>
+      )
+    },
+  }
+})
 
 const todayCardProps = vi.hoisted(() => ({ onToggle: null as null | ((e: unknown) => void) }))
 vi.mock('./TodayCard', () => ({
