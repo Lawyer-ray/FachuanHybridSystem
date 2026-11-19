@@ -206,7 +206,7 @@ class TestThreeColumns:
         _register_ok(contexts, PRIMARY, SECONDARY, THIRD)
         session = await _make_session()
 
-        events = await _collect_multi(session, [PRIMARY, SECONDARY, THIRD])
+        await _collect_multi(session, [PRIMARY, SECONDARY, THIRD])
 
         assert set(contexts) == {PRIMARY, SECONDARY, THIRD}
         keys = {kind: ctx.api_key for kind, ctx in contexts.items()}

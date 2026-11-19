@@ -43,7 +43,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
-from ..pi.model_config import _load_provider, _next_key
+from ..pi.model_config import _next_key
 from .gateway_cache import get_gateway_settings, model_supports_thinking, settings_from_provider
 
 logger = logging.getLogger(__name__)

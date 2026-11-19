@@ -87,11 +87,9 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-from asgiref.sync import sync_to_async
-
 from ...backends import available_kinds
 from ...backends.builtin import ensure_registered
-from ...backends.gateway_cache import get_gateway_settings, load_api_keys
+from ...backends.gateway_cache import load_api_keys
 from ...backends.key_scheduler import KeyLease, get_key_scheduler
 from ...models import AgentMessage, AgentSession
 from ..event_bus import get_bus

@@ -44,7 +44,6 @@ MCP v2（当前 venv 里是 ``mcp 2.2.0``）支持一条会话上并发请求，
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 import time

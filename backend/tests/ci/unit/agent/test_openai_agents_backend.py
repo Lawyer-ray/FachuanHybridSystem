@@ -319,7 +319,6 @@ class TestGatewayResolution:
     def test_key_rotation_uses_shared_helper(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """多 key 时轮流用：全压在同一把 key 上会触发网关限流。"""
         seen: list[str] = []
-        keys = ["k1", "k2", "k3"]
 
         def _next(keys_in: list[str]) -> str:
             chosen = keys_in[len(seen) % len(keys_in)]

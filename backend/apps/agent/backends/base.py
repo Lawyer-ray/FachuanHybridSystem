@@ -43,7 +43,7 @@ Harness 要为每次运行重连。只要求 ``stream()`` 自包含，两种形�
 from __future__ import annotations
 
 import enum
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 

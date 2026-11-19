@@ -39,6 +39,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import secrets
 import threading
 from dataclasses import dataclass, field
 from typing import Iterable
@@ -66,12 +67,30 @@ def capacity() -> int:
     return max(1, min(value, 64))
 
 
+#: 进程级随机盐：让指纹**不可跨进程/跨部署对撞**。
+#:
+#: 为什么不用裸 SHA256：key 是低熵以外的短字符串，裸哈希等于给了一份可离线爆破的
+#: 摘要（同样的 key 在任何机器上得到同样的指纹，攻击者拿到日志就能反查常见 key）。
+#: 加一个每次启动新生成的随机盐之后，指纹只在本进程内有意义——它本来也只用于
+#: 「这条日志说的是哪把 key」，跨进程一致没有价值。
+#:
+#: 用 blake2b 而不是 sha256：SHA-256 是通用快速哈希，静态扫描器（CodeQL
+#: py/weak-sensitive-data-hashing）会把它报成「不安全的密码哈希」——虽然这里根本
+#: 不是存密码，但换成带盐的 blake2b 既消除了误报，也确实是给秘密做指纹的正确做法。
+_FINGERPRINT_SALT = secrets.token_bytes(16)
+
+
 def fingerprint(api_key: str) -> str:
-    """key 的短指纹（可安全进日志）。空 key 给 ``(empty)``。"""
+    """key 的短指纹（可安全进日志）。空 key 给 ``(empty)``。
+
+    只在**本进程内**稳定（见 ``_FINGERPRINT_SALT``）：用途是让日志/测试能区分
+    「哪把 key」，不是做跨进程的稳定标识。
+    """
     text = (api_key or "").strip()
     if not text:
         return "(empty)"
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+    digest = hashlib.blake2b(text.encode("utf-8"), digest_size=4, salt=_FINGERPRINT_SALT)
+    return digest.hexdigest()
 
 
 @dataclass
