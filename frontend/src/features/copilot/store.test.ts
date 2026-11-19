@@ -187,6 +187,28 @@ describe('copilot store：发送与流式转录', () => {
     expect(approvals[0]?.approvalId).toBe('a1')
   })
 
+  it('实时气泡带 createdAt：刚发出去的这条就有时间，不用刷新一次才出现', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"好的"}\n\n',
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+
+    const before = Date.now()
+    await useCopilot.getState().send('查案件')
+    const after = Date.now()
+
+    const { messages } = useCopilot.getState()
+    const user = messages.find((m) => m.role === 'user')
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect(user?.createdAt).toBeGreaterThanOrEqual(before)
+    expect(user?.createdAt).toBeLessThanOrEqual(after)
+    // 同一条消息发出时建立的两条气泡共用一个时刻（不是各自取一次 Date.now）
+    expect(assistant?.createdAt).toBe(user?.createdAt)
+  })
+
   it('rewrite_folder_file 的参数落成修订块，后到的完整参数只更新不新增行', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
     // pi 对同一调用会发多条 tool_call（arguments 渐进完整）：第一条只有原文，

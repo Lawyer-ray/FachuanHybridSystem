@@ -211,6 +211,9 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     const { bizHint, body: noBiz } = splitBizHintLine(noHint)
     const { refs, body: noRefs } = splitRefBlocks(noBiz)
     const { quote, body } = splitQuoteBlock(noRefs)
+    // 实时气泡也要有时间戳：`createdAt` 原先只有历史回放填，于是「刚发出去的这条」
+    // 下面没有时间、刷新一次才出现——同一份数据两个样，律师会以为时间戳是随机的。
+    const sentAt = Date.now()
     set((s) => ({
       messages: [
         ...s.messages,
@@ -218,6 +221,7 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
           id: nextLocalId(),
           role: 'user',
           content: body,
+          createdAt: sentAt,
           ...(pageHint ? { pageHint } : {}),
           ...(bizHint ? { bizHint } : {}),
           ...(refs.length ? { refs } : {}),
@@ -229,11 +233,12 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
               id: assistantByAgent[kind]!,
               role: 'assistant' as const,
               content: '',
+              createdAt: sentAt,
               streaming: true,
               agentKind: kind,
               ...(modelByAgent[kind] ? { model: modelByAgent[kind] } : {}),
             }))
-          : [{ id: assistantId, role: 'assistant' as const, content: '', streaming: true }]),
+          : [{ id: assistantId, role: 'assistant' as const, content: '', createdAt: sentAt, streaming: true }]),
       ],
       // 本会话里**已挂起的他线待审卡不能因为发一句话就消失**：它往往来自后台
       // 任务（无人可问时挂起两小时），律师回来先发一条消息再想去批，卡已经没了。
