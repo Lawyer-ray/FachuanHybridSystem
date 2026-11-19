@@ -23,6 +23,7 @@ import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 
 import { splitStreamingMarkdownBlocks } from '../lib/stream-blocks'
+import { CodeBlock } from './markdown/CodeBlock'
 
 /**
  * 渲染配置只建一次。
@@ -35,6 +36,9 @@ const REHYPE_PLUGINS = [rehypeHighlight]
 /** 外链一律新窗口打开：WebView 内跳转会顶掉整个应用 */
 const MD_COMPONENTS = {
   a: (props: React.ComponentProps<'a'>) => <a {...props} target="_blank" rel="noreferrer" />,
+  // `pre` 接管整块代码（含高亮后的 span 树）：语言标签 + 单块复制。
+  // 只映射 `pre`、不映射 `code`：行内 `code` 不该出现复制按钮。
+  pre: CodeBlock,
 }
 
 /**
