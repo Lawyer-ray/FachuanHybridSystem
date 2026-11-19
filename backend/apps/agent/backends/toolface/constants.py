@@ -58,6 +58,27 @@ SESSION_HEADER = "x-fachuan-session"
 #: ``${FACHUAN_SESSION_ID}`` 展开，值由 ``chat_service`` 注入）。
 SESSION_ID_ENV = "FACHUAN_SESSION_ID"
 
+#: 工具面分层请求头（MCP server 读它决定 ``tools/list`` 返回多少工具）。
+#:
+#: ## 为什么分层要落成请求头
+#:
+#: pi 有自己的 ``toolExposure`` + ``deferred``（pi 私有机制）。而 dsh 的
+#: ``mcp-client`` **没有任何过滤配置**，且**会话内不重新同步** ``tools/list``
+#: （实测：加一个 ``tool_search`` 动态解锁也不行）。所以「给模型多少工具」
+#: 只能在连接建立那一刻定下来——唯一能表达这个意图的位置就是请求头。
+#:
+#: 放在 toolface 而不是各写一处：它是**双端契约**（MCP server 读、dsh 写），
+#: 两处各写一个字符串就是漂移的起点——头名拼错时 MCP 会当成「没带」而返回
+#: **全量**，表现为「分层配置了却没生效」，没有任何报错。
+TOOL_TIER_HEADER = "x-fachuan-tool-tier"
+
+#: ``TOOL_TIER_HEADER`` 的取值：只用 ``DIRECT_TOOLS`` + ``DIRECT_PATTERNS``
+#: （实测 61 个工具 / 33KB / 1.1 万 token）。
+TIER_LITE = "lite"
+
+#: 全量工具面（424 个 / 244KB / 8.3 万 token）。不带头时的默认行为。
+TIER_FULL = "full"
+
 
 def tool_prefix(server_name: str = SERVER_NAME) -> str:
     """工具全名前缀 ``mcp__<server_name>__``（审批与 ``--tools`` 白名单共用口径）。"""

@@ -117,6 +117,23 @@ class TestDshPatchServerName:
         body = dsh_mcp.patch_body(McpEndpoint(), "tok")  # pragma: allowlist secret
         assert f"toolCallTimeoutMs: {toolface.TOOL_TIMEOUT_SECONDS * 1000}\n" in body
 
+    def test_patch_declares_lite_tool_tier(self) -> None:
+        """dsh 必须声明工具面档位，否则 MCP server 返回全量 424 个工具。
+
+        实测代价：全量 244KB / 8.3 万 token vs lite 33KB / 1.1 万。
+        且 dsh **会话内不重新同步 tools/list**，所以「给多少」只能在连接时定，
+        唯一表达位置就是这个请求头 —— 漏了它不会报错，只会默默地多花 7 万 token。
+        """
+        body = dsh_mcp.patch_body(McpEndpoint(), "tok")  # pragma: allowlist secret
+        assert f"{toolface.TOOL_TIER_HEADER}: " in body
+        assert toolface.TIER_LITE in body
+
+    def test_tool_tier_can_be_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """一键回滚到全量（排查「模型说没这个能力」时先关它确认）。"""
+        monkeypatch.setenv("FACHUAN_DSH_TOOL_TIER", "off")
+        body = dsh_mcp.patch_body(McpEndpoint(), "tok")  # pragma: allowlist secret
+        assert toolface.TIER_FULL in body
+
 
 class TestCrossLanguagePrefix:
     """TS / 另一份 Python 字面量无法 import 本常量，只能靠文本比对守。"""

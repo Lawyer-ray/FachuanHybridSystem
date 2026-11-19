@@ -66,7 +66,7 @@ from typing import Any
 
 from ..pi import shared_mcp as shared_mcp_module
 from ..pi.shared_mcp import ensure_shared_server
-from .toolface import SERVER_NAME, TOOL_TIMEOUT_SECONDS, McpEndpoint, shared_enabled
+from .toolface import SERVER_NAME, TIER_LITE, TOOL_TIER_HEADER, TOOL_TIMEOUT_SECONDS, McpEndpoint, shared_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,25 @@ def _write_private(path: Path, content: str) -> None:
     os.replace(tmp, path)
 
 
+#: 工具面分层开关（``off`` 一键回到全量）。与 MCP server 侧
+#: ``FACHUAN_MCP_TOOL_TIER_GATE`` 分开：那个是服务端总闸（关掉等于谁都不分层），
+#: 这个是**本客户端**要不要声明 lite——两者都开才真的分层，便于单侧回滚。
+_TIER_ENV = "FACHUAN_DSH_TOOL_TIER"
+
+
+def _tool_tier() -> str:
+    """本轮要声明的工具面档位。
+
+    只在值明确为 ``off`` 式写法时退回全量；其余一律 ``lite``——默认收紧而不是
+    默认放开，因为「多给模型 400 个工具」的成本是每轮 8.3 万 token，而「少给」
+    最多是模型说一句「我没有这个能力」，后者用户能感知、前者只有账单能看到。
+    """
+    raw = (os.environ.get(_TIER_ENV, "") or "").strip().lower()
+    if raw in ("off", "0", "false", "no", "full"):
+        return "full"
+    return TIER_LITE
+
+
 def patch_body(endpoint: McpEndpoint, user_token: str) -> str:
     """生成 patch 文件内容（纯函数，便于测试与单测断言）。
 
@@ -153,6 +172,19 @@ def patch_body(endpoint: McpEndpoint, user_token: str) -> str:
             f"        url: {_quoted(endpoint.url)}",
             "        headers:",
             f"          Authorization: {_quoted(f'Bearer {user_token}')}",
+            # 工具面分层（2026-11-19）：让 MCP server 只返回 direct 层工具。
+            #
+            # **为什么必须由 dsh 这一侧声明**：dsh 的 mcp-client 会把
+            # `tools/list` 返回的每个工具都注册给模型，且**会话内不重新同步**
+            # （实测：加 tool_search 动态解锁也不行，见
+            #  docs/04-计划/活跃/工具面分层方案.md）。所以「给多少」
+            # 必须在连接建立那一刻就定下来，唯一能表达这个意图的位置是请求头。
+            #
+            # 实测收益：424 个工具 244KB / 8.3 万 token → 61 个 33KB / 1.1 万。
+            #
+            # 不带这个头 = 全量（MCP server 侧的兼容底线），所以老客户端与
+            # 手工调试仍然看到完整工具面。
+            f"          {TOOL_TIER_HEADER}: {_quoted(_tool_tier())}",
             f"        toolCallTimeoutMs: {TOOL_CALL_TIMEOUT_MS}",
             "        failOnStartupError: true",
             "",

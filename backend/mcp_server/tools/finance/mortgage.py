@@ -129,78 +129,17 @@ def mortgage_default_calculate(
 ) -> dict[str, Any]:
     """计算银行起诉断供借款人的逾期违约债权（诉讼请求金额）。
 
-    输出诉讼请求金额：剩余本金、未付利息、罚息、复利、其他费用及合计，
-    以及逐期违约明细（含每笔还款的冲抵明细）和每日新增利息，可直接引用进起诉状。
-
-    银行口径差异参数（对照贷款合同填写）：
-    - 罚息利率：multiplier=执行利率×倍数（常见上浮50%，如交行 23.5 条）；specified=合同直接约定
-    - 复利：compound_on_interest 对欠付利息计复利；compound_on_penalty 对罚息再计复利
-      （如交行 13.1 条对"应付未付利息（包括罚息）"计收复利，两者都开）
-    - compound_method: flat=复利不分段，积数×收取时罚息利率（交行 13.1 条口径）；
-      daily=逐日按当日罚息利率分段（多数银行）
-    - grace_period_days: 宽限期（如合同 25.4 条），宽限期内还款视为按时
-    - first_period_interest: prorate=首期按放款日→首期扣款日实际天数计息（含零头天数，
-      如交行 3.1(3) 条），full_month=整月
-    - charge_interest_on_payment_day: 逾期天数是否含还款日当日
-      （交行 13.2 条约定算至实际还款日前一日，传 false）
-    - prepayment_compensation_rate: 提前还款补偿金率（如交行 25.5 条为 1%）
-
-    Args:
-        principal: 贷款本金（元）。
-        start_date: 放款日期，格式 YYYY-MM-DD。
-        term_months: 贷款期限（月）。
-        repayment_method: 还款方式，equal_installment=等额本息，equal_principal=等额本金。
-        rate_mode: 利率模式，fixed=固定利率，lpr=LPR+基点浮动。
-        fixed_rate: 固定年利率（%），rate_mode=fixed 时必填。
-        lpr_type: LPR 期限品种，1y 或 5y（房贷一般用 5y）。
-        basis_points: LPR 加点基点，100bp=1%，可为负。
-        repricing_day: 重定价日，"MM-DD" 或 "anniversary"（放款日对应日）。
-        payment_day: 每月扣款日（1-31），不填则取放款日对应日；29-31 在小月自动钳制到月末。
-        penalty_mode: 罚息利率模式，multiplier=执行利率×倍数，specified=合同直接约定罚息利率。
-        penalty_multiplier: 罚息倍数（penalty_mode=multiplier 时使用，常见 1.5）。
-        penalty_rate: 罚息年利率%（penalty_mode=specified 时必填，如 6.15）。
-        compound_on_interest: 是否对欠付利息计收复利，默认是。
-        compound_on_penalty: 是否对罚息再计收复利，默认否（如交行约定对罚息计复利则传 true）。
-        compound_method: 复利计算方式，daily=逐日分段（默认），flat=不分段积数法。
-        grace_period_days: 宽限期天数，默认 0。
-        first_period_interest: 首期计息方式，prorate=按实际天数（默认），full_month=整月。
-        charge_interest_on_payment_day: 逾期天数是否含还款日当日，默认否（算至还款日前一日）。
-        year_days: 罚息/复利计息基准天数，360 或 365，默认 360。
-        allocation_order: 还款冲抵顺序，可选值 penalty/interest/compound/principal。
-            默认 ["penalty", "interest", "compound", "principal"]，不同银行约定不同可自定义。
-        prepayment_handling: 提前还款重排方式，shorten_term=缩短期限月供不变，reduce_payment=月供递减期限不变。
-        prepayment_compensation_rate: 提前还款补偿金率(%)，如 1.0 表示提前归还本金的 1%，不传表示无。
-        fees_offset: 是否让诉讼费用参与还款冲抵（追加 fee 到冲抵顺序末尾按序核销），默认否（费用仅计入诉讼请求合计）。
-        step_up_rate: 逾期自动加码比例(%)，如 50 表示逾期触发后罚息/复利上浮 50%；不传=不加码。
-        step_up_trigger_days: 加码触发所需连续逾期天数，0=首个欠款批次起即加码。
-        rounding_mode: 舍入规则，period=逐期四舍五入到分再求和（默认），cumulative=汇总一次性舍入。
-        interest_cutoff_date: 利息止算日（YYYY-MM-DD，可选）。合同利息计算至此日；
-            默认=claim_date。止算日后罚息/复利是否继续由 cutoff_continues_penalty/compound 决定。
-        cutoff_continues_penalty: 止算日后罚息是否继续计算至计算截止日（默认否，即罚息止算）。
-        cutoff_continues_compound: 止算日后复利是否继续计算至计算截止日（默认否，即复利止算）。
-        other_fees: 其他费用列表，每项 {"name": "律师费", "amount": 50000}，仅计入诉讼请求合计。
-        payments: 借款人实际还款流水列表，每项 {"payment_date": "YYYY-MM-DD", "amount": 金额,
-            "payment_type": "normal"(正常还款，可省略) 或 "prepayment_principal"(提前冲减本金), "note": 备注(可省略)}。
-        claim_date: 计算截止日（起诉日），格式 YYYY-MM-DD，默认今天。
-        claim_mode: 违约金与罚息主张口径，both=并行叠加（默认），either=择一从高（取较大者计入诉请，避免重复主张）。
-        accelerate_date: 加速到期日（银行宣布全部本金提前到期之日，YYYY-MM-DD）。自该日起全部剩余本金转已到期本金，
-            罚息/复利对全额计收并停止按月摊销；不填或不早于截止日=不触发。
-        accelerate_grace_days: 加速到期宽限天数（加速日后该天数内还款视为按时，罚息自宽限期届满次日起算），默认 0。
-        cap_penalty_annual: 罚息/复利年利率封顶(%)，实际罚息利率超过该上限时按封顶值计息；不传=不封顶。
-        cap_total_mode: 总债权（违约金+罚息+复利）封顶模式，none=不封顶（默认）、amount=固定金额、
-            principal_ratio=未还本金倍数、interest_ratio=未付利息倍数。
-        cap_total_value: 总债权封顶值：amount 模式为固定金额（元），ratio 模式为倍数（如 1.5）。
-        interest_cut_inclusive: 计息起止边界：True=含截止日当天（算头算尾，末日各 +1 天），默认 False=算头不算尾。
-        pause_periods: 停息区间列表，每项 {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "note": 备注}（end 含当日）；
-            区间内罚息/复利及按天截算的合同利息暂停计息，还款流水照常核销（停息挂账/展期场景）。
+    输出剩余本金、未付利息、罚息、复利、其他费用及合计，以及逐期违约明细与每日
+    新增利息，可直接引用进起诉状。银行口径差异（罚息 penalty_mode/penalty_rate、
+    复利 compound_on_interest/compound_method、宽限期、首期计息、冲抵
+    allocation_order、还款流水 payments、停息 pause_periods、加速到期、封顶
+    cap_total_mode 等）逐项写在参数说明里，对照贷款合同填写。
 
     Returns:
-        claim: 诉讼请求金额汇总（outstanding_principal 剩余本金 / unpaid_interest 未付利息 /
-            penalty_interest 罚息 / compound_interest 复利 / other_fees 其他费用 /
-            total_claim 合计 / daily_accrual 此后每日新增）。
-        default_rows: 逐期违约明细（欠本/欠息/逾期天数/罚息/复利/每笔还款冲抵明细）。
+        claim: 诉请金额汇总（剩余本金/未付利息/罚息/复利/其他费用/合计/每日新增）。
+        default_rows: 逐期违约明细（欠本/欠息/逾期天数/罚息/复利/还款冲抵明细）。
         schedule_rows: 重排后的还款计划对照表。
-        warnings: 口径提示（复利口径、宽限期、重排次数等），引用金额前务必阅读。
+        warnings: 口径提示，引用金额前务必阅读。
     """
     payload: dict[str, Any] = {
         "principal": principal,
