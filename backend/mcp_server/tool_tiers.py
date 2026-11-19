@@ -22,8 +22,9 @@ schema 是纯成本。
 
 **为什么走 `deferred` 而不是自建通用分发代理**：`deferred` 由 pi 的
 `tool_search` 加载后**仍以真名调用**，审批网关按 `mcp__fachuan__delete_case`
-这类全名匹配，判级链路完全不受影响。而"一个 `fachuan_tool_call({name,args})`
-通用代理"会让 `tool_call` 钩子只看到 `fachuan_tool_call`（低风险 → 放行），
+（前缀 = `toolface.tool_prefix()`）这类全名匹配，判级链路完全不受影响。而"一个
+`fachuan_tool_call({name,args})` 通用代理"会让 `tool_call` 钩子只看到
+`fachuan_tool_call`（低风险 → 放行），
 **等于把四级审批全部关掉**。这条路明确禁止。
 
 ## 与审批的关系
@@ -42,7 +43,20 @@ from __future__ import annotations
 import logging
 import os
 
+# 「MCP server 名」的权威定义在 ``apps/agent/backends/toolface``（审批按
+# ``mcp__<server>__<tool>`` 全名匹配，名字必须单源）。本模块直接 import 它：
+# ``mcp_server`` 与 ``apps`` 同属 ``backend/``，路径已由既有的启动链路就位
+# （同 ``mcp_server/server.py`` 对 ``apps.agent.services.approval`` 的 import）；
+# 这里**不**自己改 ``sys.path``——那会让「能不能 import」取决于谁先执行，
+# 并掩盖真正的路径问题。``toolface`` 只依赖 stdlib，不拖 Django / pi 依赖树。
+from apps.agent.backends.toolface import SERVER_NAME, skill_prefix, tool_prefix
+
 logger = logging.getLogger(__name__)
+
+#: 业务 MCP server 的工具全名前缀（``mcp__fachuan__``）。
+TOOL_NAME_PREFIX = tool_prefix()
+#: skill server 的工具全名前缀（``mcp__skill__``）。
+SKILL_TOOL_PREFIX = skill_prefix()
 
 TOOL_TIERS_ENV = "FACHUAN_MCP_TOOL_TIERS"
 

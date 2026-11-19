@@ -65,16 +65,26 @@ from pathlib import Path
 from typing import Any
 
 from ..pi import shared_mcp as shared_mcp_module
-from ..pi.shared_mcp import McpEndpoint, ensure_shared_server, shared_enabled
+from ..pi.shared_mcp import ensure_shared_server
+from .toolface import SERVER_NAME, TOOL_TIMEOUT_SECONDS, McpEndpoint, shared_enabled
 
 logger = logging.getLogger(__name__)
 
-#: mcp-client 的 server 命名空间。**必须**是 ``fachuan``（见模块 docstring）。
-SERVER_NAME = "fachuan"
 #: 单个 MCP 工具调用的超时（毫秒）。mcp-client 默认 60s，而法穿的文书生成 /
 #: 批量类工具自己就是 180s（``mcp_server`` 侧 ``timeout=180``），默认值会先把
-#: 它们掐断。200s 与 pi 的 ``mcp.json`` 同口径（双端超时必须调用方 > 服务端）。
-TOOL_CALL_TIMEOUT_MS = 200_000
+#: 它们掐断。200s 与 pi 的 ``mcp.json`` 同口径（双端超时必须调用方 > 服务端），
+#: 所以直接从 ``toolface.TOOL_TIMEOUT_SECONDS`` 换算——两边各写一个数就是漂移的
+#: 起点（历史：pi 侧 200 / dsh 侧另写 200_000）。
+TOOL_CALL_TIMEOUT_MS = TOOL_TIMEOUT_SECONDS * 1000
+
+__all__ = [
+    "PATCH_FILENAME",
+    "SERVER_NAME",
+    "TOOL_CALL_TIMEOUT_MS",
+    "ensure_mcp_patch",
+    "ensure_shared_server",
+    "patch_body",
+]
 
 #: patch 文件名。放在 dsh home 下是因为它是每次启动都要用的稳定配置，且**含
 #: 真实 token**：临时目录会被清掉（下次启动静默失去工具），而 /tmp 上的可预测
@@ -182,6 +192,12 @@ def ensure_mcp_patch(dsh_home: str, *, user_token: str, wait_ready: bool = True)
         # 「连不上」报成后端不可用），不在这里抛——那会把「工具面缺失」
         # 升级成「整轮对话失败」，而模型本身是能跑的。
         try:
+            # ``ensure_shared_server`` 必须继续作为**本模块的顶层符号**存在：
+            # ``test_dsh_mcp.py`` 用 ``monkeypatch.setattr(dsh_mcp,
+            # "ensure_shared_server", ...)`` 挡住真起子进程，符号消失就是
+            # 静默失效 → 真拉起一个 ~225MB 的 MCP 子进程。所以这里调用的是
+            # 「本模块命名空间里的那个名字」（运行时按 globals 解析），而不是
+            # 再套一层 ``shared_mcp_module.`` 前缀。
             ensure_shared_server(endpoint, wait_ready=wait_ready)
         except OSError:
             logger.warning("拉起共享 MCP 失败，dsh 本会话将无业务工具", exc_info=True)

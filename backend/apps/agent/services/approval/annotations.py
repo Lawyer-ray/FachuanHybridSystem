@@ -6,7 +6,12 @@ import asyncio
 import logging
 from typing import Any
 
+from ...backends.toolface import tool_prefix
+
 logger = logging.getLogger(__name__)
+
+#: 业务 MCP 工具的前缀（``mcp__fachuan__``），与审批分级同源。
+MCP_TOOL_PREFIX = tool_prefix()
 
 
 def _list_mcp_tools(mcp: Any) -> list[Any]:
@@ -111,5 +116,5 @@ def load_tool_annotations(tool_name: str) -> dict[str, Any] | None:
     table = _annotation_table()
     if not table:
         return None
-    short_name = tool_name.rsplit("__", 1)[-1]
+    short_name = tool_name[len(MCP_TOOL_PREFIX) :] if tool_name.startswith(MCP_TOOL_PREFIX) else tool_name
     return table.get(short_name)

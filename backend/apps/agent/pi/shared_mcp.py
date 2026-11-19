@@ -30,6 +30,23 @@
 
 ``FACHUAN_MCP_SHARED=0`` 时退回 stdio 模式：每个 pi 各起一份，
 牺牲内存换部署简单。默认**启用共享**。
+
+## 与 ``backends/toolface`` 的分工（2026-11 抽取）
+
+与后端无关的部分（``McpEndpoint`` / ``shared_enabled`` / ``resolve_endpoint`` /
+``port_open`` / ``spawn_shared_server``）已下沉到 ``apps.agent.backends.toolface``，
+pi 与 dsh 共用同一份实现。本模块**保留原有的全部符号名**并 re-export：
+
+- ``tests/ci/unit/agent/test_shared_mcp_revive.py`` 用
+  ``monkeypatch.setattr(shared_mcp_module, ...)`` patch **本模块属性**，符号消失
+  会让 patch 静默失效并真的拉起子进程（撞 pytest 30s 超时）；
+- ``scripts/verify_dsh_mcp.py`` 替换 ``shared_mcp.resolve_endpoint``，
+  所以那个名字必须继续是**本模块命名空间里的可替换间接层**。
+
+pi 专属的部分（``mcp.json`` 字段表 ``_build_server_entry``、exposure、模型配置、
+AGENTS.md）留在本文件——``mcp_server`` 侧的漂移门禁
+（``tests/ci/unit/mcp_server/test_pi_timeout_alignment.py``）按本文件路径扫
+``"timeout": N`` 字面量。
 """
 
 from __future__ import annotations
@@ -39,24 +56,59 @@ import contextlib
 import json
 import logging
 import os
-import socket
-import subprocess
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..backends.toolface import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    ENDPOINT_PATH,
+    HOST_ENV,
+    PORT_ENV,
+    READY_TIMEOUT,
+    SERVER_DESCRIPTION,
+    SERVER_NAME,
+    SESSION_HEADER,
+    SESSION_ID_ENV,
+    SHARED_ENV,
+    McpEndpoint,
+    backend_dir,
+    endpoint_from_env,
+    port_open,
+    python_bin,
+    shared_enabled,
+    spawn_shared_server,
+    tool_prefix,
+)
 from .session_store import agent_home
 
 logger = logging.getLogger(__name__)
 
-SHARED_ENV = "FACHUAN_MCP_SHARED"
-PORT_ENV = "FACHUAN_MCP_HTTP_PORT"
-HOST_ENV = "FACHUAN_MCP_HTTP_HOST"
-DEFAULT_PORT = 8011
-DEFAULT_HOST = "127.0.0.1"
-ENDPOINT_PATH = "/mcp"
-READY_TIMEOUT = 30.0
+__all__ = [
+    "DEFAULT_HOST",
+    "DEFAULT_PORT",
+    "ENDPOINT_PATH",
+    "EXPOSURE_ENV",
+    "HOST_ENV",
+    "McpEndpoint",
+    "PORT_ENV",
+    "READY_TIMEOUT",
+    "SERVER_DESCRIPTION",
+    "SERVER_NAME",
+    "SESSION_HEADER",
+    "SHARED_ENV",
+    "ensure_shared_server",
+    "port_open",
+    "resolve_endpoint",
+    "resolve_exposure",
+    "shared_enabled",
+    "spawn_shared_server",
+    "tool_prefix",
+    "wait_until_ready",
+    "write_pi_config",
+    "write_pi_mcp_config",
+]
 
 #: MCP 工具面 exposure 模式（对应 pi 的 McpExposure）。灰度开关：
 #: - ``direct``（默认）：全部工具 schema 声明给模型。2026-10-25 实测
@@ -86,40 +138,17 @@ def resolve_exposure() -> str:
     return raw
 
 
-@dataclass(slots=True)
-class McpEndpoint:
-    """共享 MCP 的连接信息。"""
-
-    host: str = DEFAULT_HOST
-    port: int = DEFAULT_PORT
-
-    @property
-    def url(self) -> str:
-        return f"http://{self.host}:{self.port}{ENDPOINT_PATH}"
-
-
-def shared_enabled() -> bool:
-    """是否启用共享 MCP（默认启用）。"""
-    raw = os.environ.get(SHARED_ENV, "1").strip().lower()
-    return raw not in {"0", "false", "no", "off"}
-
-
 def resolve_endpoint() -> McpEndpoint:
-    host = os.environ.get(HOST_ENV, DEFAULT_HOST).strip() or DEFAULT_HOST
-    try:
-        port = int(os.environ.get(PORT_ENV, DEFAULT_PORT))
-    except ValueError:
-        port = DEFAULT_PORT
-    return McpEndpoint(host=host, port=port)
+    """按环境变量解析共享 MCP endpoint（**保留为可替换的间接层**）。
 
-
-def port_open(host: str, port: int, timeout: float = 0.5) -> bool:
-    """探测端口是否可连。"""
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
+    这个函数是仓库里的既定替换点：``scripts/verify_dsh_mcp.py`` 替换本模块的
+    ``resolve_endpoint`` 把 :8011 指向假服务器，``backends.dsh_mcp._resolve_endpoint``
+    每次从模块属性重取。实现已下沉到 ``toolface.endpoint.endpoint_from_env``，但
+    **不要**把它改成 import 时绑定的别名（``resolve_endpoint = endpoint_from_env``）
+    ——那样替换就不生效，验证会变假绿。
+    """
+    endpoint: McpEndpoint = endpoint_from_env()
+    return endpoint
 
 
 async def wait_until_ready(endpoint: McpEndpoint, timeout: float = READY_TIMEOUT) -> bool:
@@ -132,79 +161,21 @@ async def wait_until_ready(endpoint: McpEndpoint, timeout: float = READY_TIMEOUT
     return False
 
 
-def _backend_dir() -> Path:
-    return Path(__file__).resolve().parents[3]
+def _spawn_shared_server(endpoint: McpEndpoint) -> Any:
+    """``toolface.bootstrap.spawn_shared_server`` 的 pi 侧薄壳（注入日志目录）。
 
+    为什么需要这一层：``toolface`` 不能 import ``pi.session_store``（``pi`` 依赖
+    它，反向 import 成环），所以日志目录由调用方注入。落点仍是
+    ``agent_home()``（0700 根目录），子进程以 0600 追加写，不放 /tmp——
+    日志可能含业务数据。
 
-def _python_bin() -> str:
-    candidate = _backend_dir() / ".venv" / "bin" / "python"
-    if candidate.exists():
-        return str(candidate)
-    return os.environ.get("PYTHON", "python3")
-
-
-#: 本进程拉起的共享 MCP 子进程句柄。崩溃复活靠下次 spawn 重新拉起，
-#: 已退出的旧句柄在这里 poll 回收（waitpid WNOHANG），不留僵尸。
-_spawned_procs: list[subprocess.Popen[bytes]] = []
-
-
-def _reap_exited_procs() -> None:
-    for proc in list(_spawned_procs):
-        if proc.poll() is not None:
-            _spawned_procs.remove(proc)
-
-
-def spawn_shared_server(endpoint: McpEndpoint) -> subprocess.Popen[bytes] | None:
-    """以 streamable-http 方式拉起共享 MCP（独立进程，与 Django 解耦）。
-
-    Returns:
-        子进程句柄；端口已被占用（已有实例在跑）时返回 ``None``。
+    为什么还留一个同名 re-export：``spawn_shared_server`` 必须是本模块命名空间里
+    ``test_shared_mcp_revive.py`` 的 ``monkeypatch.setattr`` 替换目标（挡住真起
+    子进程），所以真正被调的是本函数，它经模块属性调 re-export 的那个名字。
     """
-    _reap_exited_procs()
-    if port_open(endpoint.host, endpoint.port):
-        logger.info("共享 MCP 已在 %s 运行，复用现有实例", endpoint.url)
-        return None
-
-    # 与 rpc_client._clean_env 同口径剔除代理：MCP 工具经内网 REST 访问
-    # Django，继承系统代理会把内网地址也代理出去（超时/502，极难定位）。
-    proxy_keys = {"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"}
-    env = {
-        **{key: value for key, value in os.environ.items() if key not in proxy_keys},
-        "FACHUAN_MCP_TRANSPORT": "streamable-http",
-        "FACHUAN_MCP_HTTP_HOST": endpoint.host,
-        "FACHUAN_MCP_HTTP_PORT": str(endpoint.port),
-    }
-    # stderr 落到日志文件：MCP 启动失败（依赖缺失、端口冲突、Django 初始化报错）
-    # 的唯一线索都在这里。落在 agent_home()（0700 根目录）下并以 0600 原子创建：
-    # 日志可能含业务数据，/tmp 可预测路径 + 默认 0644 会泄露给本机其他用户。
-    log_dir = agent_home() / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / f"shared-mcp-{endpoint.port}.log"
-    logger.info("拉起共享 MCP: %s（日志: %s）", endpoint.url, log_path)
-    log_file: Any = None
-    try:
-        fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-        # 已存在的旧文件权限可能更宽，显式收紧兜底
-        with contextlib.suppress(OSError):
-            os.fchmod(fd, 0o600)
-        log_file = os.fdopen(fd, "ab")
-    except OSError:
-        logger.warning("共享 MCP 日志文件不可写，stderr 将丢弃: %s", log_path, exc_info=True)
-    try:
-        proc = subprocess.Popen(
-            [_python_bin(), "-m", "mcp_server"],
-            cwd=str(_backend_dir()),
-            env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=log_file if log_file is not None else subprocess.DEVNULL,
-            start_new_session=True,
-        )
-    finally:
-        # 子进程已继承 fd 副本；父进程句柄必须关，否则每次拉起泄漏一个 fd
-        if log_file is not None:
-            log_file.close()
-    _spawned_procs.append(proc)
-    return proc
+    # 只为「日志落在 agent home」这一件事加参数；测试把 ``spawn_shared_server``
+    # 换成 ``lambda ep, **kw`` 时不会被这个关键字参数打挂。
+    return spawn_shared_server(endpoint, log_dir=agent_home() / "logs")
 
 
 def ensure_shared_server(endpoint: McpEndpoint | None = None, *, wait_ready: bool = False) -> McpEndpoint:
@@ -223,7 +194,7 @@ def ensure_shared_server(endpoint: McpEndpoint | None = None, *, wait_ready: boo
     if not shared_enabled():
         logger.info("共享 MCP 已禁用（%s=0），pi 将各自启动 stdio MCP", SHARED_ENV)
         return resolved
-    proc = spawn_shared_server(resolved)
+    proc = _spawn_shared_server(resolved)
     if proc is not None and wait_ready:
         deadline = time.monotonic() + READY_TIMEOUT
         while time.monotonic() < deadline:
@@ -294,7 +265,7 @@ def write_pi_config(
     config_path = root / "mcp.json"
     server = _build_server_entry(resolved, USER_TOKEN_ENV)
     config_path.write_text(
-        json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
+        json.dumps({"mcpServers": {SERVER_NAME: server}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -436,7 +407,9 @@ def _build_server_entry(resolved: McpEndpoint, user_token_env: str) -> dict[str,
                 # ``chat_service`` 注入 pi 子进程 env（FACHUAN_SESSION_ID）。
                 # 缺失时展开为空串，``ask_user`` 会返回 no_channel 而不是报错
                 # （提问不是闸门，问不到就让模型按假设继续）。
-                "X-Fachuan-Session": "${FACHUAN_SESSION_ID}",
+                # 头名与 ``toolface.SESSION_HEADER`` 同源（HTTP 头大小写不敏感，
+                # 那边是小写规范形式，这里按 pi 文档的写法保持 Title-Case）。
+                "X-Fachuan-Session": "${" + SESSION_ID_ENV + "}",
             },
             # pi 默认 exposure=codemode：MCP 工具不声明给模型（只能经
             # codemode 脚本间接调），表现为「模型说去查，但没有 tool_call 直接
@@ -447,17 +420,23 @@ def _build_server_entry(resolved: McpEndpoint, user_token_env: str) -> dict[str,
             **extra,
             # deferred 下 pi 会把它列入 system prompt 的 mcp_servers 小节，
             # 也让 tool_search 按它排序——写清楚"这服务有什么"比堆关键词有用。
-            "description": "法穿法律事务系统：案件、合同、文书、当事人、财务、期限、法规检索与自动化",
+            "description": SERVER_DESCRIPTION,
             # pi 每请求默认 60s 超时，会先于 client 侧 LLM 链路工具的 180s
             # （见 tools/documents/litigation.py 等 12 处 timeout=180）掐断——
             # 双端超时必须 pi > client，否则 client 的努力全部作废。200 给
             # 传输层留余量；工具发 progress notifications 可重置该计时。
+            #
+            # 这里刻意写**字面量**而不是 ``TOOL_TIMEOUT_SECONDS``：
+            # ``tests/ci/unit/mcp_server/test_pi_timeout_alignment.py`` 用正则扫
+            # 本文件的 ``"timeout": N`` 文本，换成常量名会让那道门禁扫不到东西
+            # 而硬失败。两处取值的一致性由 ``tests/ci/unit/agent/test_toolface.py``
+            # 断言 == ``toolface.TOOL_TIMEOUT_SECONDS`` 守住。
             "timeout": 200,
         }
     return {
-        "command": _python_bin(),
+        "command": python_bin(),
         "args": ["-m", "mcp_server"],
-        "cwd": str(_backend_dir()),
+        "cwd": str(backend_dir()),
         # stdio 回退同样不能落回 codemode 默认（工具将不可调用）
         "exposure": exposure,
         **extra,
@@ -475,7 +454,7 @@ def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = N
     config_path = root / "mcp.json"
     server = _build_server_entry(resolved, USER_TOKEN_ENV)
     config_path.write_text(
-        json.dumps({"mcpServers": {"fachuan": server}}, ensure_ascii=False, indent=2),
+        json.dumps({"mcpServers": {SERVER_NAME: server}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
     return config_path

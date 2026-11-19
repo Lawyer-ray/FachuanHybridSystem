@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ...models import AgentApprovalPolicy
+from .risk import short_tool_name
 
 
 def lookup_approval_policy(*, user_id: int | None, tool_name: str) -> str | None:
@@ -18,7 +19,7 @@ def lookup_approval_policy(*, user_id: int | None, tool_name: str) -> str | None
         return None
 
     # 精确匹配：全名（mcp__fachuan__delete_case）或短名（delete_case）都行
-    short_name = tool_name.rsplit("__", 1)[-1]
+    short_name = short_tool_name(tool_name)
     exact = (
         AgentApprovalPolicy.objects.filter(user_id=user_id, is_prefix=False, tool_pattern__in=[tool_name, short_name])
         .values_list("action", flat=True)

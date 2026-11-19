@@ -15,7 +15,14 @@ from django.utils import timezone
 from ...models import AgentApproval, AgentSession
 from ..event_bus import redis_cache_enabled
 from .policy import lookup_approval_policy
-from .risk import OFFLINE_TIMEOUT, RiskLevel, approval_timeout, classify_risk, needs_second_confirmation
+from .risk import (
+    OFFLINE_TIMEOUT,
+    RiskLevel,
+    approval_timeout,
+    classify_risk,
+    needs_second_confirmation,
+    short_tool_name,
+)
 from .waiter import (
     _clear_decision,
     _clear_waiter_heartbeat,
@@ -66,7 +73,7 @@ async def _sse_channel(
 
 def _approval_message(tool_name: str, level: RiskLevel) -> str:
     """给前端弹窗用的提示语（按等级区分措辞，避免一律「高风险」而失去区分度）。"""
-    short = tool_name.rsplit("__", 1)[-1]
+    short = short_tool_name(tool_name)
     if level == RiskLevel.CRITICAL:
         return f"即将执行批量破坏性操作：{short}。这会影响多条数据且不可撤回，请再次确认。"
     return f"即将执行不可撤回操作：{short}，请确认是否继续。"
