@@ -55,7 +55,13 @@ describe('离线待审项 → 审批卡', () => {
       receivedAt: new Date('2026-10-23T10:00:00Z').getTime(),
       riskLevel: 'high',
       offline: true,
+      // 归属必须穿到卡片模型：补拉列表是「全部会话」的，丢了它就无法按会话过滤
+      sessionId: 't-9',
     })
+    // 服务端没给 session_id 时回落调用方传入的当前会话
+    expect(
+      pendingItemToApproval({ ...item, session_id: '' }, 's-fallback').sessionId,
+    ).toBe('s-fallback')
     expect(pendingItemToApproval({ ...item, created_at: '坏日期' }).receivedAt).toBeGreaterThan(0)
   })
 

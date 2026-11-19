@@ -26,7 +26,7 @@ describe('copilot store：离线审批', () => {
     vi.mocked(copilotApi.fetchPendingApprovals).mockResolvedValue([
       {
         approval_id: 'off-1',
-        session_id: 't-9',
+        session_id: 's-1',
         tool_name: 'mcp__fachuan__delete_case',
         tool_args: { case_id: 1 },
         risk_level: 'high',
@@ -42,6 +42,7 @@ describe('copilot store：离线审批', () => {
       },
     ])
     useCopilot.setState({
+      sessionId: 's-1',
       approvals: [{ approvalId: 'a1', toolName: 't', toolArgs: {}, message: 'm', receivedAt: Date.now() }],
     })
 
@@ -51,10 +52,56 @@ describe('copilot store：离线审批', () => {
     expect(approvals).toHaveLength(2)
     const offline = approvals.find((a) => a.approvalId === 'off-1')
     expect(offline?.offline).toBe(true)
+    // 归属落进卡片模型：渲染层与「决定」都要知道这张卡属于哪个会话
+    expect(offline?.sessionId).toBe('s-1')
     expect(offline?.riskLevel).toBe('high')
     expect(offline?.toolName).toBe('mcp__fachuan__delete_case')
     // 已知项不被覆盖（保留本地 message / 终态）
     expect(approvals.find((a) => a.approvalId === 'a1')?.message).toBe('m')
+  })
+
+  it('别的会话的待审项不合并（A 会话的审批不能渲染在 B 会话上）', async () => {
+    vi.mocked(copilotApi.fetchPendingApprovals).mockResolvedValue([
+      {
+        approval_id: 'mine',
+        session_id: 's-1',
+        tool_name: 'mcp__fachuan__delete_case',
+        tool_args: {},
+        risk_level: 'high',
+        created_at: new Date().toISOString(),
+      },
+      {
+        approval_id: 'other',
+        session_id: 's-2',
+        tool_name: 'mcp__fachuan__delete_case',
+        tool_args: {},
+        risk_level: 'critical',
+        created_at: new Date().toISOString(),
+      },
+    ])
+    useCopilot.setState({ sessionId: 's-1' })
+
+    await useCopilot.getState().loadPendingApprovals()
+
+    expect(useCopilot.getState().approvals.map((a) => a.approvalId)).toEqual(['mine'])
+  })
+
+  it('没有当前会话时不合并（避免无归属卡进队列）', async () => {
+    vi.mocked(copilotApi.fetchPendingApprovals).mockResolvedValue([
+      {
+        approval_id: 'x',
+        session_id: 's-1',
+        tool_name: 't',
+        tool_args: {},
+        risk_level: 'low',
+        created_at: new Date().toISOString(),
+      },
+    ])
+    useCopilot.setState({ sessionId: null })
+
+    await useCopilot.getState().loadPendingApprovals()
+
+    expect(useCopilot.getState().approvals).toEqual([])
   })
 
   it('拉取失败静默（不打扰主流程）', async () => {
@@ -70,7 +117,7 @@ describe('copilot store：僵尸离线审批', () => {
     vi.mocked(copilotApi.fetchPendingApprovals).mockResolvedValue([
       {
         approval_id: 'zombie',
-        session_id: 't-1',
+        session_id: 's-1',
         tool_name: 'mcp__fachuan__delete_reminder',
         tool_args: { reminder_id: 999999 },
         risk_level: 'high',
@@ -78,7 +125,7 @@ describe('copilot store：僵尸离线审批', () => {
       },
       {
         approval_id: 'live',
-        session_id: 't-2',
+        session_id: 's-1',
         tool_name: 'mcp__fachuan__delete_case',
         tool_args: {},
         risk_level: 'high',
@@ -87,7 +134,10 @@ describe('copilot store：僵尸离线审批', () => {
     ])
     // 本地已有一张僵尸离线卡（上次拉进来的）
     useCopilot.setState({
-      approvals: [{ approvalId: 'zombie', toolName: 't', toolArgs: {}, message: '', receivedAt: old, offline: true }],
+      sessionId: 's-1',
+      approvals: [
+        { approvalId: 'zombie', toolName: 't', toolArgs: {}, message: '', receivedAt: old, offline: true, sessionId: 's-1' },
+      ],
     })
 
     await useCopilot.getState().loadPendingApprovals()

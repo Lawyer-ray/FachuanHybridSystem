@@ -235,7 +235,10 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
             }))
           : [{ id: assistantId, role: 'assistant' as const, content: '', streaming: true }]),
       ],
-      approvals: [],
+      // 本会话里**已挂起的他线待审卡不能因为发一句话就消失**：它往往来自后台
+      // 任务（无人可问时挂起两小时），律师回来先发一条消息再想去批，卡已经没了。
+      // 在线卡（本轮正在等的那个）才随本轮重置——旧的在线卡早已过 300s 窗口。
+      approvals: s.approvals.filter((a) => a.offline && !a.decided),
       streaming: true,
       // 消息已入列、流已开：置忙交给 streaming，sending 在此解除
       sending: false,

@@ -24,8 +24,18 @@ export function approvalWindowSec(riskLevel?: string, offline?: boolean): number
   return riskLevel === 'critical' ? APPROVAL_CRITICAL_WINDOW_S : APPROVAL_WINDOW_S
 }
 
-/** 离线待审批列表项 → 审批卡模型（倒计时按服务端 created_at 起算，窗口 7200s） */
-export function pendingItemToApproval(item: PendingApprovalItem): PendingApproval {
+/**
+ * 离线待审批列表项 → 审批卡模型（倒计时按服务端 created_at 起算，窗口 7200s）。
+ *
+ * `sessionId` **必须收下**：列表端点返回的是「当前律师全部会话」的待审项，
+ * 丢掉它就只能靠 store 里另存一份平行 map 去过滤，而历史教训是那种平行结构
+ * 一定会在某个分支漏更新（问答卡同型缺陷）。服务端没给就回落调用方传入的
+ * 当前会话 id。
+ */
+export function pendingItemToApproval(
+  item: PendingApprovalItem,
+  fallbackSessionId?: string,
+): PendingApproval {
   return {
     approvalId: item.approval_id,
     toolName: item.tool_name,
@@ -34,6 +44,9 @@ export function pendingItemToApproval(item: PendingApprovalItem): PendingApprova
     receivedAt: new Date(item.created_at).getTime() || Date.now(),
     riskLevel: item.risk_level,
     offline: true,
+    ...(item.session_id || fallbackSessionId
+      ? { sessionId: item.session_id || fallbackSessionId }
+      : {}),
   }
 }
 

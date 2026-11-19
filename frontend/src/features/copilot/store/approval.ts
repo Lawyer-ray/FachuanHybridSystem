@@ -12,7 +12,7 @@ import type { Slice } from './slice'
 
 export type ApprovalSlice = Pick<CopilotState, 'decide' | 'loadPendingApprovals' | 'dismissApproval'>
 
-export const createApprovalSlice: Slice<ApprovalSlice> = (set) => ({
+export const createApprovalSlice: Slice<ApprovalSlice> = (set, get) => ({
   decide: async (approvalId, approved, reason = '') => {
     set((s) => ({
       approvals: s.approvals.map((a) =>
@@ -29,13 +29,23 @@ export const createApprovalSlice: Slice<ApprovalSlice> = (set) => ({
   loadPendingApprovals: async () => {
     try {
       const items = await copilotApi.fetchPendingApprovals()
+      // 端点返回「当前律师全部会话」的待审项：只收当前会话那份。
+      // 不收的后果不是多一张卡，而是律师在 B 会话里点「同意」放行了 A 会话的
+      // 高危操作——审批是合规闸门，窜会话就是窜闸门（问答卡已按同口径修过）。
+      const sessionId = get().sessionId
+      if (!sessionId) return
       set((s) => {
         // 只补前端不知道的：已渲染（含已决定）的不动，避免覆盖本地终态；
         // 已超窗的僵尸项不合并（服务端懒清理之外的双保险），并顺带清除旧卡
         const known = new Set(s.approvals.map((a) => a.approvalId))
         const fresh = items
-          .filter((i) => !known.has(i.approval_id) && !isExpiredOfflineItem(i))
-          .map(pendingItemToApproval)
+          .filter(
+            (i) =>
+              i.session_id === sessionId &&
+              !known.has(i.approval_id) &&
+              !isExpiredOfflineItem(i),
+          )
+          .map((i) => pendingItemToApproval(i, sessionId))
         const pruned = s.approvals.filter(
           (a) => !(a.offline && !a.decided && Date.now() - a.receivedAt > APPROVAL_OFFLINE_WINDOW_S * 1000),
         )
