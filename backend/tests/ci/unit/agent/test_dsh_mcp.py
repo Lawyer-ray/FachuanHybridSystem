@@ -9,7 +9,7 @@
 3. 与 ``dsh_config`` 的接线顺序：MCP 层排在内置层之后、``FACHUAN_DSH_PATCHES``
    之前（后写的同 id 条目胜出，部署方要能覆盖它）。
 
-「工具真的被发现」由 ``backend/scripts/verify_dsh_mcp.py`` 端到端验（真 dsh +
+「工具真的被发现」由 ``scripts/verify_dsh_mcp.py``（仓库根）端到端验（真 dsh +
 真 MCP 握手），不在本文件——那需要 node runtime 与装好的 mcp-client 插件。
 """
 

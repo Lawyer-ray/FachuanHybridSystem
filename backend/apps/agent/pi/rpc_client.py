@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..backends.toolface import tool_prefix
+
 logger = logging.getLogger(__name__)
 
 PI_BIN_ENV = "FACHUAN_PI_BIN"
@@ -57,7 +59,11 @@ COMPACTION_EXTENSION_ENV = "FACHUAN_PI_COMPACTION_EXTENSION"
 #: **安全边界仍然在**：``tool_search`` 只能发现/加载 MCP 工具（它不提供
 #: 任何文件系统或 shell 能力），而加载后的每个调用照旧过 ``tool_call``
 #: 钩子 → 四级审批。列它进来不会打开任何新攻击面。
-TOOL_SELECTION = "mcp__fachuan__*,tool_search"
+#: 前缀取值由 ``toolface.tool_prefix()`` 拼出；``tool_search`` 是 pi 内置元工具
+#: （不带 MCP 前缀）。TS 侧无法 import Python 常量，
+#: ``approval-gate.ts`` / ``tool-result-guard.ts`` 的前缀文本由
+#: ``tests/ci/unit/agent/test_toolface.py`` 做跨语言不变量比对。
+TOOL_SELECTION = f"{tool_prefix()}*,tool_search"
 _READ_CHUNK = 65536
 _SHUTDOWN_TIMEOUT = 5.0
 _STDERR_LINE_LIMIT = 500

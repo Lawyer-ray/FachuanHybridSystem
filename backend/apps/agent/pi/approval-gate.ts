@@ -155,7 +155,15 @@ const WRITE_PREFIXES: readonly string[] = [
 
 type RiskLevel = "low" | "medium" | "high" | "critical";
 
-/** 短名（去掉 mcp__fachuan__ 前缀），与服务端判定口径一致。 */
+/**
+ * 短名（去掉 `mcp__fachuan__` 前缀），与服务端判定口径一致。
+ *
+ * 前缀值与 Python 侧 `apps/agent/backends/toolface/constants.py` 的
+ * `SERVER_NAME` **必须同步**（TS 无法 import Python 常量，由
+ * `tests/ci/unit/agent/test_toolface.py` 扫文本守）。这里按 `"__"` 切尾而不是
+ * 硬编码前缀常量：短名（未带前缀）也能得到正确结果，与服务端
+ * `risk.short_tool_name` 同义。
+ */
 function shortName(toolName: string): string {
   const parts = toolName.split("__");
   return parts[parts.length - 1] ?? toolName;

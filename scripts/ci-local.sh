@@ -245,13 +245,52 @@ if [ "$RUN_BACKEND" = true ]; then
   # 而日志里才看得到 `column agent_agentsession.agent_kind does not exist`。
   # 前后端 CI 全绿、所有单测全绿（测试库会自己建表），只有真人一点就炸。
   #
-  # `--check` 只能发现「模型有改动但没生成迁移文件」；要发现「迁移文件在但
-  # 没应用」必须连库比对（--full 模式下额外做，见下）。
+  # 两道，缺一不可（都是真实事故的产物）：
+  #
+  #   3b  「模型改了但没生成迁移文件」→ `makemigrations --check`
+  #   3c  「迁移文件在但目标库没应用」→ `migrate --check`
+  #
+  # 后者是 2026-11-18/19 **连续两次**的真实事故：0016（agent_kind）与 0017
+  # （message.agent_kind）都生成了迁移，但开发库没跑 migrate，于是线上表现是
+  # 「创建会话失败」与「双答无回答」，日志里才看得到 `column ... does not exist`。
+  # 而测试库自己建表 → 单测全绿、CI 全绿，只有真人一点就炸。
+  #
+  # 3c 需要连库，所以只在库可达时跑（本地开发机 / --full）；CI 里没有持久库，
+  # 那侧靠 `make migrate` 的部署纪律兜。
   header "3b" "迁移漂移检查 (makemigrations --check)"
   if DB_NAME="${DB_NAME:-test_fachuan_dev}" $BACKEND_PYTHON apiSystem/manage.py makemigrations --check --dry-run 2>&1 | grep -q "No changes detected"; then
-    pass "migrations-in-sync"
+    pass "migrations-generated"
   else
-    fail "migrations-in-sync（模型改了但没生成迁移，跑 makemigrations 后重试）"
+    fail "migrations-generated（模型改了但没生成迁移，跑 makemigrations 后重试）"
+  fi
+
+  header "3c" "迁移已应用检查 (migrate --check)"
+  # 两个坑都要在这一段里避开：
+  #   1. 脚本是 `set -euo pipefail`，而 `migrate --check` 在「有未应用迁移」时
+  #      **故意**返回非零 —— 不兜住它，整个 ci-local 会在这一步静默中断
+  #      （表现为 3c 之后的检查全不跑，比报错更难发现）
+  #   2. `grep -q` 在无匹配时返回 1，配合 pipefail 同样会中断
+  # 所以：先把输出与返回码捞干净，再纯字符串判断。
+  #
+  # 用**开发库**（FACHUAN_LOCAL_DB_NAME，缺省 fachuan_dev）而不是 ci-local 顶部
+  # export 的 TEST_DB_NAME：后者是 --full 专用的临时库，平时根本没迁移过，
+  # 对它做「已应用检查」只会产生噪音。这一道要防的是**开发者自己那个库**漂了。
+  _migrate_check_db="${FACHUAN_LOCAL_DB_NAME:-fachuan_dev}"
+  _migrate_rc=0
+  _migrate_out=$(DB_NAME="$_migrate_check_db" $BACKEND_PYTHON apiSystem/manage.py migrate --check 2>&1) || _migrate_rc=$?
+  if [ "$_migrate_rc" -eq 0 ]; then
+    pass "migrations-applied"
+  else
+    case "$_migrate_out" in
+      *"could not connect"*|*"Connection refused"*|*"connection refused"*|*"does not exist"*"database"*|*OperationalError*)
+        # 库不可达不算错（CI / 无 PG 的机器）：如实跳过，不要假装通过
+        skip "migrations-applied（数据库不可连）"
+        ;;
+      *)
+        printf '%s\n' "$_migrate_out" | sed -n '/^\[20/!p' | tail -5
+        fail "migrations-applied（目标库有未应用的迁移，跑 manage.py migrate 后重试）"
+        ;;
+    esac
   fi
 
   # [4] Pre-commit（对齐 backend job 的 Pre-commit step）

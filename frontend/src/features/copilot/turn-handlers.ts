@@ -10,7 +10,7 @@
 import { estimateTokens, extractRewriteArgs, nextLocalId, parseFileRewrite } from './domain'
 import { FILE_REWRITTEN_EVENT } from './launch'
 import type { EventOrigin, StreamHandlers } from './streaming'
-import type { useCopilot } from './store'
+import { useCopilot } from './store'
 
 type CopilotSet = typeof useCopilot.setState
 
@@ -195,8 +195,25 @@ export function createTurnHandlers(
         messages: s.messages.map((m) => (m.id === failedId ? { ...m, streaming: false } : m)),
       }))
     },
-    onDone: (context) => {
-      finishAssistant()
+    onDone: (context, origin) => {
+      // **只收这一栏**，不能 `finishAssistant()`（那会收掉全部 streaming 气泡）。
+      //
+      // 双答真实事故：pi 先完成 → done 到达 → 全部气泡被收掉 → dsh 后续的 delta
+      // 无处可写，界面上两栏都是「(无内容)」，并冒出一句「流处理异常」。
+      // 单后端时 columnCount === 1，收这一栏等价于收全部，行为与原来一致。
+      const doneId = assistantFor(origin.kind)
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === doneId && m.streaming ? { ...m, streaming: false } : m,
+        ),
+      }))
+      // 整轮是否结束由「还有没有栏在流」决定：多栏时要把 doneAt / 排队清空 /
+      // 水位写回推到最后一栏完成；单栏时立即执行（与原来等价）。
+      const stillStreaming = useCopilot.getState().messages.some((m) => m.role === 'assistant' && m.streaming)
+      if (stillStreaming) {
+        // 还有栏没跑完：水位是「本轮最后状态」，留到收尾时再写
+        return
+      }
       set((s) => ({
         turnStats: { ...s.turnStats, doneAt: Date.now() },
         queuedSteers: [],

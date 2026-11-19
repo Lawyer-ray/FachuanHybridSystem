@@ -6,7 +6,13 @@ from typing import Any
 
 from django.db import models
 
+from ...backends.toolface import tool_prefix
 from .annotations import load_tool_annotations
+
+#: 业务 MCP 工具的全名前缀（``mcp__fachuan__``）。审批链的匹配口径就建立在这个
+#: 前缀上——改名会让工具照旧可调但**不再经过人工闸门**（静默失效），
+#: 所以它不允许在各处手写。
+MCP_TOOL_PREFIX = tool_prefix()
 
 #: 高危工具判定模式（对完整工具名做子串匹配；pi 侧形如 ``mcp__fachuan__delete_lawyer``）。
 #: 模式从 mcp_server 实际注册表校准——旧清单 6 个名字里有 3 个（send_document /
@@ -234,6 +240,20 @@ def classify_risk(
     return _worse(by_name, _classify_by_annotations(hints, by_name))
 
 
+def short_tool_name(tool_name: str) -> str:
+    """去掉 MCP 前缀取短名（``mcp__fachuan__delete_case`` → ``delete_case``）。
+
+    前缀取 :data:`MCP_TOOL_PREFIX`（= ``toolface.tool_prefix()``），不用硬编码
+    字面量；未带前缀的短名（``delete_case``）退回按 ``"__"`` 切尾，
+    与 ``approval-gate.ts`` 的 ``shortName`` 同义。没有容错分支的话，
+    ``mcp__skill__xxx`` 这类别的 server 的工具会被当成 ``mcp__skill__xxx`` 全名，
+    判定直接落空成「低风险」。
+    """
+    if tool_name.startswith(MCP_TOOL_PREFIX):
+        return tool_name[len(MCP_TOOL_PREFIX) :]
+    return tool_name.rsplit("__", 1)[-1]
+
+
 def _classify_by_name(tool_name: str, tool_args: dict[str, Any] | None) -> RiskLevel:
     """纯名字 + 参数判定（兵底；extension 侧 ``classifyByName`` 与它同序）。"""
     if any(pattern in tool_name for pattern in HARD_DENY_PATTERNS):
@@ -242,7 +262,7 @@ def _classify_by_name(tool_name: str, tool_args: dict[str, Any] | None) -> RiskL
         return RiskLevel.CRITICAL
     if any(pattern in tool_name for pattern in DANGER_PATTERNS):
         return RiskLevel.HIGH
-    short_name = tool_name.rsplit("__", 1)[-1]
+    short_name = short_tool_name(tool_name)
     if short_name.startswith(WRITE_PREFIXES):
         if _has_sensitive_arg(tool_args):
             return RiskLevel.HIGH

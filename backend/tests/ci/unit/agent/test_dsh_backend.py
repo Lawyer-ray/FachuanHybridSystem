@@ -256,7 +256,16 @@ class _StubHarness:
         self.thread_names: list[str] = []
         self.closed = False
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - 仅为子类可读
+        super().__init_subclass__(**kwargs)
+
     def run(self, prompt: str, *, session_id: str, on_notification: Any) -> None:
+        """**旧形状**：``harness.run(prompt, session_id=...)``。
+
+        生产路径已不再用它（改用 ``resume_session().run()``，见下）。保留是为了
+        让「有人误用旧接口」时测试能立刻红——真 SDK 的 ``run(session_id=...)``
+        对已存在会话会抛 ``already exists``。
+        """
         import threading
 
         from deepseek_harness.models import Notification
@@ -266,6 +275,27 @@ class _StubHarness:
             on_notification(Notification(method=method, payload=payload))
         if self._error is not None:
             raise self._error
+
+    def resume_session(self, session_id: str) -> Any:
+        """返回一个可 ``run(prompt, on_notification=...)`` 的 Session 桩。
+
+        对应 SDK 的 ``DeepSeekHarness.resume_session``：恢复磁盘上的历史再续跑。
+        生产代码用它处理「同一 AgentSession 的第二轮」——直接用
+        ``harness.run(session_id=...)`` 会命中 ``session ... already exists``
+        （真实事故 2026-11-19）。
+        """
+        harness = self
+
+        class _Session:
+            id = session_id
+
+            def run(self, prompt: str, *, on_notification: Any) -> None:
+                harness.run(prompt, session_id=session_id, on_notification=on_notification)
+
+        return _Session()
+
+    def start_session(self, session_id: str) -> Any:
+        return self.resume_session(session_id)
 
     def close(self) -> None:
         self.closed = True
@@ -730,3 +760,121 @@ class TestProviderDefault:
 
         assert DEFAULT_API == "openai-completions"
         assert DEFAULT_PROVIDER == "fachuan"
+
+
+# ============ 思考模式（2026-11-19 真实反馈）============
+
+
+class TestThinkingConfiguration:
+    """dsh 必须和 pi 一样把「思考」透传到网关。
+
+    真实反馈：「dsh 没有开启思考强度」。排查发现 ``dsh_config`` 完全没读
+    ``enable_thinking``，也没写 reasoning/compat —— 而 pi 侧（`model_config._model_entry`）
+    早就踩过同一个坑：律所 LiteLLM 网关把思考开关放在
+    ``chat_template_kwargs.thinking``，不显式声明 compat 时适配器会误判，
+    网关不返回 reasoning_content，表现为「平台开了思考但模型永远不思考」。
+    """
+
+    def test_thinking_block_emitted_when_enabled(self, tmp_path: object) -> None:
+        from apps.agent.backends.dsh_config import _provider_patch_path
+
+        text = open(
+            _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["kimi-2.6"], thinking=True),
+            encoding="utf-8",
+        ).read()
+        # 三件套缺一不可（见 _provider_patch_path 的注释）
+        assert "reasoningEfforts:" in text
+        assert "thinkingFormat: chat-template" in text
+        assert "chatTemplateKwargs:" in text
+        assert "thinking: true" in text
+
+    def test_thinking_block_absent_when_disabled(self, tmp_path: object) -> None:
+        """未开思考时不能声明能力：给普通模型错报会让网关收到它不认的参数而 400。"""
+        from apps.agent.backends.dsh_config import _provider_patch_path
+
+        text = open(
+            _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["m"], thinking=False),
+            encoding="utf-8",
+        ).read()
+        assert "reasoningEfforts" not in text
+        assert "chatTemplateKwargs" not in text
+
+    def test_thinking_requires_both_switch_and_model_capability(self, tmp_path: object) -> None:
+        """平台开关 + 该模型确实是推理模型，两个条件都要满足。"""
+        from types import SimpleNamespace
+
+        from apps.agent.backends import dsh_config as mod
+
+        class _P:
+            base_url = "http://gw/v1"
+            api_keys = "sk-a"  # pragma: allowlist secret
+            default_model = "kimi-2.6"
+            extra_models = ""
+            fallback_models = ""
+
+            def __init__(self, on: bool, capable: bool) -> None:
+                self.enable_thinking = on
+                self._capable = capable
+
+            def supports_thinking(self, model: str = "") -> bool:
+                return self._capable
+
+            def parsed_key_entries(self):
+                return [("sk-a", [])]  # pragma: allowlist secret
+
+        def _thinking_for(provider: object, home: object) -> bool:
+            # 直接调 dsh_patches，检查生成的 patch 里有没有思考块
+            paths = mod.dsh_patches(
+                str(home),
+                base_url="http://gw/v1",
+                models=["kimi-2.6"],
+                thinking=bool(
+                    getattr(provider, "enable_thinking", False)
+                    and getattr(provider, "supports_thinking", None)
+                    and provider.supports_thinking("kimi-2.6")  # type: ignore[attr-defined]
+                ),
+            )
+            provider_patch = [p for p in paths if "provider" in p][0]
+            return "thinkingFormat" in open(provider_patch, encoding="utf-8").read()
+
+        assert _thinking_for(_P(True, True), tmp_path) is True
+        assert _thinking_for(_P(True, False), tmp_path) is False
+        assert _thinking_for(_P(False, True), tmp_path) is False
+
+
+class TestMultiTurnResume:
+    """同一 AgentSession 的第二轮必须走 resume，不能重新 start_session。
+
+    真实事故（2026-11-19）：律师第二次发言时后端报
+    ``deepseek_harness.errors.JsonRpcError: session "<uuid>" already exists``，
+    SSE 直接断流。根因是 ``harness.run(prompt, session_id=...)`` 内部走
+    ``start_session()``，而 dsh 把会话**持久化在磁盘**上——第二轮必然撞号。
+    """
+
+    def test_second_turn_uses_resume_not_start(self) -> None:
+        """生产代码必须先 resume_session 再 run（否则第二轮必炸）。"""
+        import inspect
+
+        from apps.agent.backends import dsh_backend as mod
+
+        # `_stream` 里嵌套了 `_run_blocking`，`getsource(_stream)` 拿不到那段，
+        # 所以查整个模块的源码。
+        src = inspect.getsource(mod)
+        assert "harness.resume_session(session_id).run(" in src, "生产路径必须用 resume_session 续跑已有会话"
+        # 反向断言：不能再出现裸 `harness.run(..., session_id=...)`（那是撞号的老写法）
+        assert "harness.run(ctx.prompt, session_id=session_id" not in src
+
+    def test_stub_exposes_both_paths(self) -> None:
+        """桩与真 SDK 同形：resume_session 与 start_session 都存在。"""
+        stub = _StubHarness([])
+        assert hasattr(stub, "resume_session")
+        assert hasattr(stub, "start_session")
+        # resume 出来的 Session 能直接 run
+        called: list[str] = []
+
+        class _H(_StubHarness):
+            def run(self, prompt: str, *, session_id: str, on_notification: Any) -> None:
+                called.append(prompt)
+
+        _H([]).resume_session("s-1").run("hello", on_notification=lambda _n: None)
+        assert called == ["hello"]

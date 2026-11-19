@@ -511,7 +511,7 @@ _DSH_LOCKDOWN_PATCH = """
 """
 
 
-def _provider_patch_path(dsh_home: str, *, base_url: str, models: list[str]) -> str:
+def _provider_patch_path(dsh_home: str, *, base_url: str, models: list[str], thinking: bool = False) -> str:
     """把「本网关走 OpenAI 兼容协议」写成 patch 文件，返回路径。
 
     ## 为什么这件事必须落成 patch
@@ -552,6 +552,37 @@ def _provider_patch_path(dsh_home: str, *, base_url: str, models: list[str]) -> 
     ]
     for name in models:
         lines.append(f"          - id: {_q(name)}")
+        lines.append(f"            name: {_q(name)}")
+        # ── 思考模式（与 pi 的 models.json 同款兼容层）──────────────────────
+        #
+        # **为什么必须有这一段**（真实反馈：「dsh 没有开启思考强度」）：
+        #
+        # 律所网关是 LiteLLM，它把思考开关放在 ``chat_template_kwargs.thinking``
+        # （布尔），而 dsh 的 openai-completions 适配器默认探测会误判 →
+        # 不发思考参数 → 网关不返回 reasoning_content →
+        # 表现为「模型支持思考、平台也开了，但 dsh 永远不思考」。
+        #
+        # pi 侧早就踩过并解决了（``model_config._model_entry`` 的 compat），
+        # dsh 侧此前完全没写，所以同一个网关在两边行为不同。
+        #
+        # 三件事缺一不可：
+        #   1. reasoningEfforts 声明「这个模型能用哪些思考档位」——不声明时
+        #      dsh 认为它不支持推理，连 ``reasoning_effort`` 都不会下发。
+        #   2. thinkingFormat=chat-template：走 chat_template_kwargs 通道。
+        #   3. chatTemplateKwargs.thinking：告诉 dsh 往该通道写什么（布尔）。
+        #      写法是字面量 ``true``，而不是 pi 的 ``$var: thinking.enabled``
+        #      ——dsh 的模型条目里没有 pi 那套变量求值语义。
+        if thinking:
+            lines.append("            reasoningEfforts:")
+            # off 必须列上：律师关掉思考时 dsh 要能真的关（否则只能整模型禁用）
+            for effort in ("off", "low", "medium", "high"):
+                lines.append(f"              {effort}: {_q(effort)}")
+            lines.append("            compat:")
+            lines.append("              thinkingFormat: chat-template")
+            lines.append("              supportsReasoningEffort: false")
+            lines.append("              maxTokensField: max_tokens")
+            lines.append("              chatTemplateKwargs:")
+            lines.append("                thinking: true")
     path = Path(dsh_home) / "fachuan-provider.patch.yml"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return str(path)
@@ -581,6 +612,7 @@ def dsh_patches(
     *,
     base_url: str = "",
     models: list[str] | None = None,
+    thinking: bool = False,
 ) -> tuple[str, ...]:
     """额外 profile 层（安全收紧 + MCP 接入）路径。
 
@@ -608,7 +640,9 @@ def dsh_patches(
         # 2) 网关路由（有 base_url 才有意义）
         if base_url:
             with contextlib.suppress(OSError):
-                paths.append(_provider_patch_path(dsh_home, base_url=base_url, models=list(models or [])))
+                paths.append(
+                    _provider_patch_path(dsh_home, base_url=base_url, models=list(models or []), thinking=thinking)
+                )
 
     raw = os.environ.get("FACHUAN_DSH_PATCHES", "").strip()
     if not raw:
@@ -717,7 +751,15 @@ def build_config(
     # 收紧在前保证「不会被后面的 patch 重新打开 bash」；网关路由在中是因为它
     # 描述「本机怎么连模型」，比工具面更基础；MCP 层在部署侧之前，让部署方仍能
     # 用 ``FACHUAN_DSH_PATCHES`` 覆盖/补充 MCP 配置（后写的同 id 条目胜出）。
-    extra = dsh_patches(home, base_url=base_url, models=declared)
+    # 思考模式：与 pi 同口径——**平台总开关 + 该模型确实是推理模型**两个条件都满足
+    # 才声明。只按平台开关不看模型会给普通模型错报能力（网关直接 400，见 pi 侧
+    # `_model_entry` 的同款注释）；只按模型不看开关则等于绕过律师/Amon 的配置。
+    thinking_capable = bool(
+        getattr(provider, "enable_thinking", False)
+        and getattr(provider, "supports_thinking", None)
+        and provider.supports_thinking(model)
+    )
+    extra = dsh_patches(home, base_url=base_url, models=declared, thinking=thinking_capable)
     mcp_patch = dsh_mcp_patch(home, user_token=user_token)
     return DshProviderConfig(
         dsh_home=home,

@@ -34,7 +34,15 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-/** 只处理法穿自己的工具；内置工具已由 `--tools` 全部关闭，这里是双保险。 */
+/**
+ * 只处理法穿自己的工具；内置工具已由 `--tools` 全部关闭，这里是双保险。
+ *
+ * 此值与 Python 侧 `apps/agent/backends/toolface/constants.py` 的
+ * `SERVER_NAME`（经 `tool_prefix()` 拼成 `mcp__<SERVER_NAME>__`）**必须同步**。
+ * TS 侧无法 import Python 常量，所以由
+ * `tests/ci/unit/agent/test_toolface.py` 扫本文件文本做跨语言不变量比对——
+ * 改这里会让审批/守卫静默错配（组件照旧工作，只是认不出任何法穿工具）。
+ */
 const TOOL_PREFIX = "mcp__fachuan__";
 
 /**

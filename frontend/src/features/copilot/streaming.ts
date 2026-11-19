@@ -62,7 +62,15 @@ export interface StreamHandlers {
   /** 首个推进事件（delta/thinking/tool_call/error/done）：清掉排队提示 */
   onProgress(): void
   onError(message: string, origin: EventOrigin): void
-  onDone(context?: { used: number | null; total: number | null }): void
+  /**
+   * 某一方跑完。
+   *
+   * `origin` 不可省：双答时两个后端**各自**发 done（后端保证整轮只有一个
+   * done 事件，但那是「会话级」的；每栏仍需要知道「我这栏跑完了」）。
+   * 不收 origin 的话，先完成的那栏会让 `finishAssistant()` 把另一栏一起收掉
+   * ——另一栏后续的 delta 无处可去，界面上就是「(无内容)」。
+   */
+  onDone(context: { used: number | null; total: number | null } | undefined, origin: EventOrigin): void
 }
 
 /** 消费一条 agent SSE 流，逐帧分发；流读尽或中途异常时返回/抛出。 */
@@ -129,6 +137,7 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
             event.context_used_tokens === undefined && event.context_total_tokens === undefined
               ? undefined
               : { used: event.context_used_tokens ?? null, total: event.context_total_tokens ?? null },
+            origin,
           )
           break
         default:

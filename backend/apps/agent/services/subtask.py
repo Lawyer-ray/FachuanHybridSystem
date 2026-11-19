@@ -34,6 +34,7 @@ from typing import Any
 
 from django.utils import timezone
 
+from ..backends.toolface import tool_prefix
 from ..models import AgentMessage, AgentRun, AgentSession, AgentSubtask
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,9 @@ def readonly_tool_selection() -> str:
     刻意**不含** ``tool_search``——子 agent 不该自己发现新工具，它拿到的
     就是一份固定的只读面。
     """
-    return ",".join(f"mcp__fachuan__{prefix}*" for prefix in READONLY_PREFIXES)
+    # 前缀与审批同源（``toolface.tool_prefix()``）：白名单写错的话子 agent 拿到的
+    # 是「一个工具都没有」，而不是报错。
+    return ",".join(f"{tool_prefix()}{prefix}*" for prefix in READONLY_PREFIXES)
 
 
 async def count_running(parent_session_pk: int) -> int:

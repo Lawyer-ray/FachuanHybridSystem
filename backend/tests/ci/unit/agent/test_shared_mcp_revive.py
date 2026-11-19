@@ -113,7 +113,7 @@ class TestWaitReadySemantics:
     def test_reuse_returns_without_waiting(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """复用现有实例（spawn 返回 None）时不得进入就绪轮询。"""
         port_probes: list[Any] = []
-        monkeypatch.setattr(shared_mcp_module, "spawn_shared_server", lambda ep: None)
+        monkeypatch.setattr(shared_mcp_module, "spawn_shared_server", lambda ep, **kw: None)
         monkeypatch.setattr(shared_mcp_module, "port_open", lambda *a, **k: port_probes.append(a) or True)
         ensure_shared_server(McpEndpoint(), wait_ready=True)
         assert port_probes == [], "复用实例不应进入就绪轮询"
@@ -125,7 +125,7 @@ class TestWaitReadySemantics:
         class _FakeProc:
             pass
 
-        monkeypatch.setattr(shared_mcp_module, "spawn_shared_server", lambda ep: _FakeProc())
+        monkeypatch.setattr(shared_mcp_module, "spawn_shared_server", lambda ep, **kw: _FakeProc())
         monkeypatch.setattr(shared_mcp_module, "port_open", lambda *a, **k: port_probes.append(a) or True)
         ensure_shared_server(McpEndpoint(), wait_ready=True)
         assert port_probes, "新拉实例应轮询端口就绪"
@@ -134,6 +134,6 @@ class TestWaitReadySemantics:
         """FACHUAN_MCP_SHARED=0 时既不 spawn 也不等待。"""
         spawned: list[Any] = []
         monkeypatch.setenv("FACHUAN_MCP_SHARED", "0")
-        monkeypatch.setattr(shared_mcp_module, "spawn_shared_server", lambda ep: spawned.append(ep))
+        monkeypatch.setattr(shared_mcp_module, "spawn_shared_server", lambda ep, **kw: spawned.append(ep))
         ensure_shared_server(McpEndpoint(), wait_ready=True)
         assert spawned == []
