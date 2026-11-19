@@ -68,13 +68,25 @@ def test_run_id_round_trips_through_serialization(model: type, payload: dict[str
 
 
 def test_generated_ts_exposes_run_id_on_every_event() -> None:
-    """TS 生成物必须逐类带 ``run_id?: string``——前端才能按栏分流。"""
+    """TS 生成物必须逐类带 ``run_id?: string`` 与 ``agent?: string``。
+
+    断言刻意**不依赖模板排版**：生成器已从手写字符串改成 ``model_fields`` 反射，
+    排版本来就会随字段增删变化；钉住排版等于把测试变成模板的第二个副本（历史
+    上正是这样：模板与测试一起漂移，而运行时第三个样子）。
+    """
+    from apps.agent.sse_types import EVENT_MODELS
+    from apps.agent.sse_types import generate_ts as _gen
+
     ts = generate_ts()
-    assert "type: 'meta'; session_id: string; agent?: string; run_id?: string" in ts
-    # 事件总数 = 生成物里的分支数；每个分支都必须出现 run_id
-    branches = [line for line in ts.splitlines() if line.lstrip().startswith("| { type:") or line.strip() == "| {"]
-    assert len(branches) == len(_MINIMAL_PAYLOADS)
-    assert ts.count("run_id?: string") == len(_MINIMAL_PAYLOADS)
+    total = len(EVENT_MODELS)
+    # 每个事件类各出现一次 run_id / agent；多一个说明有分支漏声明，少一个说明生成器漏类
+    assert ts.count("run_id?: string") == total
+    assert ts.count("agent?: string") == total
+    # 每个事件类型都出现在生成物里
+    for model in EVENT_MODELS:
+        tag = model.model_fields["type"].annotation.__args__[0]  # type: ignore[attr-defined]
+        assert f"type: '{tag}'" in ts, f"生成物缺少事件 {tag}"
+    assert _gen() == ts
 
 
 def test_stream_event_union_covers_all_run_scoped_models() -> None:

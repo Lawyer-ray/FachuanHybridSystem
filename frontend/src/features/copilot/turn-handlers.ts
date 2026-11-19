@@ -235,7 +235,9 @@ export function createTurnHandlers(
             approvalId: event.approval_id,
             toolName: event.tool_name,
             toolArgs: event.tool_args ?? {},
-            message: event.message,
+            // 契约里 `message` 带默认值 → 线路上可能不发这个键（节点/降级卡片会这样）。
+            // 缺失时给空串：卡片正文区留白，但按钮与倒计时照常工作（不能整个卡片不渲染）。
+            message: event.message ?? '',
             receivedAt: Date.now(),
             riskLevel: event.risk_level,
             needsSecondConfirmation: event.needs_second_confirmation,

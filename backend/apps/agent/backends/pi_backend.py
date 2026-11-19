@@ -215,14 +215,19 @@ class PiBackend:
                     # 统一补 ``agent`` / ``run_id``：两个 agent 同题并行时，前端靠
                     # 这两个字段把交错的事件分流到不同栏。
                     event = {**event, "agent": self.kind, "run_id": ctx.run_id}
-                    if event.get("type") == "done":
-                        # **先取水位、写好 result，再 yield done**：done 是事件流里
-                        # 消费者唯一会停下的一步（``stream.py`` 收到即 break，
-                        # 不会再把这个生成器跑到底），所以收尾事实必须在 done 之前
-                        # 就已就位，否则 ``backend.result`` 永远是 None。
+                    if event.get("type") == "settled":
+                        # **收尾事实必须在生成器结束前就位**，否则
+                        # ``backend.result_for(run_id)`` 永远是 None，模型名与
+                        # 上下文水位永远拿不到（症状：``/stats`` 的
+                        # ``context_used_tokens`` 恒 null、分栏水位条从不亮）。
+                        #
+                        # ``settled`` 是 bridge 在 pi 的 ``agent_settled`` 处发的
+                        # **内部标记**，不是线路事件：**不转发**。线上只能有一条
+                        # ``done``，由编排层（``stream.py``）统一发——那里才知道
+                        # 落库主键与会话级水位。两个都发会让前端收到两条 done，
+                        # 多栏下还会把「每栏各一条」的计数打乱。
+                        #
                         # 这一步仍在 ``async with`` 内：pi 进程还活着，stats 才拿得到。
-                        # 顺序与原实现一致（原实现也是「事件循环结束 → 取水位」，
-                        # 而事件循环结束的唯一条件是收到 done）。
                         try:
                             context_used, context_total = parse_context_usage(await pi_session.get_session_stats())
                         except Exception:
@@ -230,6 +235,7 @@ class PiBackend:
                         self._results[ctx.run_id] = PiRunResult(
                             model=model, context_used=context_used, context_total=context_total
                         )
+                        break
                     yield event
                     if event.get("type") == "done":
                         break

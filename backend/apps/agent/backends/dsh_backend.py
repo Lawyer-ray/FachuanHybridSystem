@@ -440,7 +440,16 @@ class DshBackend:
     capabilities = BackendCapabilities(
         streaming=True,
         tool_calls=True,
-        approval=True,
+        # **能力声明必须等于现实**：本版本的 ``_ApprovalPump`` 收到
+        # ``approval/request`` 一律回 ``rejected``（见 ``:data:`_APPROVAL_WIRED```），
+        # 律师看不到任何审批卡。原先写死 ``True``，``/backends`` 把它透给前端，
+        # 前端据此认为切到 dsh 仍有四级审批闸门——这是**合规红线级别的错误
+        # 能力声明**，不是体验问题（``base.py`` 的 ``approval`` 字段注释就写着
+        # 「``False`` 的后端在高危动作上没有人工闸门，启用前必须先由合规确认」）。
+        #
+        # 绑到 ``_APPROVAL_WIRED`` 而不是写死 False：真正接上审批时只改一个常量，
+        # 声明自动跟上——不留「代码接了、声明忘了改」的第二处。
+        approval=_APPROVAL_WIRED,
         compaction=True,
         steer=False,
         concurrent_in_session=False,

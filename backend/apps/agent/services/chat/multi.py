@@ -88,6 +88,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ...backends import available_kinds
+from ...backends import get as get_backend
 from ...backends.builtin import ensure_registered
 from ...backends.gateway_cache import load_api_keys
 from ...backends.key_scheduler import KeyLease, get_key_scheduler
@@ -672,8 +673,39 @@ async def stream_multi(
     # 路径同形（`stream_chat` 也是每轮一个 done）。
     #
     # `agents` 仍然带着，前端/日志据它知道本轮有谁参与。
+    # 收尾原因：全部失败才是 error，部分失败是 degraded（律师需要知道「另外几栏
+    # 没跑成」而不是看到几个空白栏头）。前端靠 ``finish_reason`` 决定是否把栏
+    # 标成「本轮未做」，不靠「有没有正文」去猜。
+    finish_reason = "error" if failed and len(failed) == len(agents) else "degraded" if failed else "ok"
+    # 逐栏水位：多答时前端按栏写 ``contextUsage``。不填每栏的 ``context_*``
+    # 会让水位条停在上一轮的旧值——那比不显示更糟（显示的是错的数）。
+    # 收尾事实按 ``run_id`` 存在各后端实例上（与单后端路径同源：
+    # ``stream.py`` 也是从 ``backend.result_for(run_id)`` 取）。
     for kind in agents:
-        yield {"type": "done", "session_id": session_id, "agent": kind, "agents": agents}
+        memo = primary_memo if kind == primary else memos.get(kind)
+        run_id = memo.run_id if memo is not None else ""
+        context_used: int | None = None
+        context_total: int | None = None
+        if run_id:
+            # 取不到就保持 None（前端隐藏水位），**不能**因为水位取不到而
+            # 把 done 吞掉：done 是前端收栏的唯一信号，缺一条那一栏就永远转圈。
+            try:
+                result_for = getattr(get_backend(kind), "result_for", None)
+                result = result_for(run_id) if result_for is not None else None
+                if result is not None:
+                    context_used, context_total = result.context_used, result.context_total
+            except Exception:
+                logger.warning("多答：%s 栏水位获取失败（不影响收栏）", kind, exc_info=True)
+        yield {
+            "type": "done",
+            "session_id": session_id,
+            "agent": kind,
+            "agents": agents,
+            "run_id": run_id,
+            "finish_reason": finish_reason,
+            "context_used_tokens": context_used,
+            "context_total_tokens": context_total,
+        }
 
 
 async def stream_dual(

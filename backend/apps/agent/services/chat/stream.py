@@ -265,7 +265,7 @@ async def stream_chat(
     error_kind = ""
     started = time.monotonic()
     try:
-        yield {"type": "meta", "session_id": str(session.session_id), "agent": backend.kind}
+        yield {"type": "meta", "session_id": str(session.session_id), "agent": backend.kind, "run_id": run_id}
         # 开流即告知「正在思考」：后台进程启动、排队、建连都要时间，这段时间前端
         # 只有一个静态界面。这是编排层的状态播报（与具体后端无关），所以不走后端事件。
         yield {"type": "activity", "status": "thinking", "agent": backend.kind, "run_id": run_id}
@@ -469,9 +469,19 @@ async def stream_chat(
             logger.warning("记忆抽取入队失败（不影响对话）", exc_info=True)
 
     if follow_ok:
+        # 线上**唯一**的那条 done（每栏各一条）。三个字段不能省：
+        # - ``agent`` / ``run_id``：多栏时前端靠它们把 done 挂到正确的栏；
+        # - ``finish_reason``：没有它前端只能把「正常结束」「降级」混为一谈。
+        #   ``stream.py`` 只会走到这条路径（error 分支在 ``if follow_ok`` 之前),
+        #   所以这里恒 ``"ok"``；``degraded`` / ``error`` 由 ``multi.py`` 发。
+        #   ``cancelled`` **不可达**（``WIRE_UNREACHABLE``）：客户端断开时生成器
+        #   已被关闭，根本没有通道发 done——它只出现在落库 metadata 里。
         yield {
             "type": "done",
             "session_id": str(session.session_id),
+            "agent": backend.kind,
+            "run_id": run_id,
+            "finish_reason": "ok",
             "context_used_tokens": context_used,
             "context_total_tokens": context_total,
         }

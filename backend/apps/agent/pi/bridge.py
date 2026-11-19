@@ -427,4 +427,16 @@ async def stream_events(
         for translated in translate_all(event, agent=agent, tracker=tracker):
             yield translated
         if event.kind == "event" and event.event_type == "agent_settled":
+            # 发一个**内部标记**（不是 ``done``）把「本轮已收尾」这件事传出去。
+            #
+            # 为什么不用 ``done``：线上只能有一条 done，它由编排层
+            # （``services/chat/stream.py``）统一发——那里才知道落库主键与
+            # 会话级水位。历史上这里直接 ``return``，于是 ``pi_backend`` 里
+            # 「收到 done 就取上下文水位」的分支永不执行，水位恒为 None，
+            # 前端的水位条从来没亮过（不是前端 bug）。
+            #
+            # 为什么标记必须在这里发：``agent_settled`` 是 pi 明确的「不会再有
+            # 自动继续」边界，也是 pi 进程还活着、``get_session_stats`` 还拿得到
+            # 数的最后时刻。晚一步就取不到了。
+            yield {"type": "settled"}
             return

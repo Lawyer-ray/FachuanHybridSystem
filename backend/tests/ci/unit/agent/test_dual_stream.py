@@ -448,10 +448,15 @@ class TestThreeAnswers:
         ]
         dones = [e for e in events if e.get("type") == "done"]
         assert len(dones) == 1
-        # 单栏透传走 ``stream_chat`` 原样，它的 done **不带** ``agent`` —— 那是
-        # 既有契约（单栏时前端不需要分流）。这条断言钉住「单栏没有被合并逻辑
-        # 多绕一圈」，而不是要求它带 agent。
-        assert "agent" not in dones[0]
+        # 单栏透传走 ``stream_chat`` 原样（不经过本模块的合并逻辑）——钉住这一点：
+        # done 只一条。
+        #
+        # 但 done **必须带 agent / run_id / finish_reason**：契约已把这几个键
+        # 升为每个事件类的公共信封（前端不再靠属性探测判断「这帧是谁发的」），
+        # 单栏也不例外——单栏时前端同样要拿 run_id 归集用量与水位。
+        assert dones[0]["agent"] == PRIMARY
+        assert dones[0]["run_id"].endswith(f":{PRIMARY}:1")
+        assert dones[0]["finish_reason"] == "ok"
 
 
 class _ContextRecordingBackend(_FakeBackend):
