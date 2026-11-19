@@ -82,16 +82,6 @@ export function createTurnHandlers(
     }))
   }
 
-  const appendAssistant = (chunk: string, origin: EventOrigin) => {
-    if (!chunk) return
-    const targetId = targetOf(origin.kind)
-    set((s) => ({
-      messages: s.messages.map((m) =>
-        // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
-        m.id === targetId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
-      ),
-    }))
-  }
   const appendThinking = (chunk: string, origin: EventOrigin) => {
     if (!chunk) return
     const targetId = targetOf(origin.kind)
@@ -117,29 +107,41 @@ export function createTurnHandlers(
   const handlers: StreamHandlers = {
     onThinking: appendThinking,
     onDelta: (chunk, origin) => {
-      appendAssistant(chunk, origin)
-      // 该栏自己的首字/末字时间：多答时比较「谁先出字、谁更快」全靠它
-      const stamp = Date.now()
-      bumpLane(origin.kind, (lane) => ({
-        ...lane,
-        firstDeltaAt: lane.firstDeltaAt ?? stamp,
-        lastDeltaAt: stamp,
-        estTokens: lane.estTokens + estimateTokens(chunk),
-      }))
+      if (!chunk) return
+      const targetId = targetOf(origin.kind)
+      const now = Date.now()
+      const est = estimateTokens(chunk)
+      // **一次 set 写三处**（正文/该栏账/全局账）。原先一个 delta 要写三次 store，
+      // 而每次写入都会跑一遍 `messages.map`——长会话里这是流式掉帧的主要来源之一。
       set((s) => {
-        const now = Date.now()
-        const estTokens = s.turnStats.estTokens + estimateTokens(chunk)
-        const samples = [...s.turnStats.samples, [now, estTokens] as [number, number]]
+        const lane = s.turnStatsByLane[origin.kind] ?? emptyTurnStats()
+        const stats = s.turnStats
+        const estTokens = stats.estTokens + est
+        const samples = [...stats.samples, [now, estTokens] as [number, number]]
         // 只留最近 4 秒的采样，窗口计算足够（2s 窗口）
         const cutoff = now - 4000
         const start = samples.findIndex(([t]) => t >= cutoff)
         return {
+          messages: s.messages.map((m) =>
+            // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
+            m.id === targetId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
+          ),
           turnStats: {
-            ...s.turnStats,
-            firstDeltaAt: s.turnStats.firstDeltaAt ?? now,
+            ...stats,
+            firstDeltaAt: stats.firstDeltaAt ?? now,
             lastDeltaAt: now,
             estTokens,
             samples: start > 0 ? samples.slice(start) : samples,
+          },
+          turnStatsByLane: {
+            ...s.turnStatsByLane,
+            // 该栏自己的首字/末字时间：多答时比较「谁先出字、谁更快」全靠它
+            [origin.kind]: {
+              ...lane,
+              firstDeltaAt: lane.firstDeltaAt ?? now,
+              lastDeltaAt: now,
+              estTokens: lane.estTokens + est,
+            },
           },
         }
       })

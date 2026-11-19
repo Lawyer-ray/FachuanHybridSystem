@@ -13,7 +13,7 @@
  *   与引入该功能前完全一致）
  */
 
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Brain, Briefcase, Check, Copy, Loader2, MapPin, ThumbsDown, ThumbsUp } from 'lucide-react'
 
 import { useAuth } from '@/features/auth'
@@ -314,6 +314,16 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
     setAtBottom((prev) => (prev === near ? prev : near))
   }
 
+  // 分组与行渲染都固定引用：`AnswerGroupView`/`MultiAnswers` 都是 memo 的，
+  // 每次渲染新建的箭头函数会把它们一起击穿（流式期间每个 delta 都重算一轮）。
+  const groups = useMemo(() => groupAnswerRuns(messages), [messages])
+  const renderAnswer = useCallback(
+    (answer: ChatMessage, hideTools: ReadonlySet<string>) => (
+      <Bubble message={answer} hideTools={hideTools} />
+    ),
+    [],
+  )
+
   const scrollToBottom = () => {
     const el = scrollRef.current
     stickToBottom.current = true
@@ -366,13 +376,13 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
       )}
       {queuePosition !== null && <QueueBanner position={queuePosition} />}
       <div className="flex flex-col gap-2.5">
-        {groupAnswerRuns(messages).map((group) => (
+        {groups.map((group) => (
           <AnswerGroupView
             key={group.answers[0]!.id}
             answers={group.answers}
             // hideTools：多栏里已归位到各栏的工具行，不再当转录流独立项渲染
             // （否则未完成的工具会同时出现在气泡内活动行和外面的工具行里）
-            renderAnswer={(answer, hideTools) => <Bubble message={answer} hideTools={hideTools} />}
+            renderAnswer={renderAnswer}
           />
         ))}
       </div>
