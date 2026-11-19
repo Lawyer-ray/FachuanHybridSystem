@@ -18,47 +18,9 @@ import { Button } from '@/components/ui/button'
 import { emptyDraft, isAnswered, setFreeform, toggleSelection } from '../../domain'
 import { useCopilot } from '../../store'
 import { draftKey } from '../../store/question'
-import type { PendingQuestion, QuestionItem } from '../../types'
+import type { PendingQuestion } from '../../types'
 import { QuestionCountdown } from './QuestionCountdown'
-
-/** 选项一行（单选=radio 语义、多选=checkbox 语义；aria 让读屏能听懂） */
-function OptionButton({
-  item,
-  label,
-  description,
-  selected,
-  disabled,
-  onClick,
-}: {
-  item: QuestionItem
-  label: string
-  description: string
-  selected: boolean
-  disabled: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      role={item.allowMultiple ? 'checkbox' : 'radio'}
-      aria-checked={selected}
-      disabled={disabled}
-      onClick={onClick}
-      className={`w-full rounded-[8px] border px-2.5 py-2 text-left transition-colors disabled:opacity-60 ${
-        selected
-          ? 'border-primary/60 bg-primary/10'
-          : 'border-border hover:bg-secondary'
-      }`}
-    >
-      <span className="block text-[13px] font-medium">{label}</span>
-      {description && (
-        <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">
-          {description}
-        </span>
-      )}
-    </button>
-  )
-}
+import { QuestionOptionRow } from './QuestionOptionRow'
 
 export function QuestionCard({ question }: { question: PendingQuestion }) {
   const drafts = useCopilot((s) => s.questionDrafts)
@@ -123,7 +85,7 @@ export function QuestionCard({ question }: { question: PendingQuestion }) {
       {current.options.length > 0 && (
         <div className="mt-2 flex flex-col gap-1.5" role="group" aria-label="可选答案">
           {current.options.map((opt) => (
-            <OptionButton
+            <QuestionOptionRow
               key={opt.label}
               item={current}
               label={opt.label}
