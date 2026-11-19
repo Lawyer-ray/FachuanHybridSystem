@@ -49,6 +49,8 @@ export interface CopilotState extends AgentBackendSelection {
   streaming: boolean
   loadingHistory: boolean
   lastError: string | null
+  /** 关闭当前错误提示（错误文案不自动消失：律师可能正看着它决定下一步） */
+  clearError: () => void
   /** 本轮输出统计：流式期间驱动实时 tok/s，结束后展示精确 token 与平均速度 */
   turnStats: TurnStats
   /**

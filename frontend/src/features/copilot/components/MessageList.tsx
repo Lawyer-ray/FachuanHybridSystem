@@ -30,6 +30,7 @@ import { QuestionCard } from './questions/QuestionCard'
 import { AssistantMarkdown } from './AssistantMarkdown'
 import { AnswerGroupView } from './AnswerGroupView'
 import { CopilotWelcome } from './CopilotWelcome'
+import { ErrorNotice } from './ErrorNotice'
 import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
 import { StreamActivity } from './StreamActivity'
 import { OwnToolList } from './ToolChips'
@@ -400,7 +401,7 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
           ))}
         </div>
       )}
-      {lastError && <p className="mt-2 text-[12px] text-destructive">{lastError}</p>}
+      <ErrorNotice />
       </div>
       {/* 上翻看历史后一键回到最新：长回答（几十屏）里上翻后只能一直滚回去。
           sticky bottom-0 让它只在本容器视野内吸底，不跟随页面其他区域。 */}

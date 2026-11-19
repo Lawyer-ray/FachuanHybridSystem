@@ -78,6 +78,11 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   ...createAttachmentSlice(set, get),
   ...createContextUsageSlice(set, get),
 
+  /** 关闭错误提示（只清展示；错误本身已由调用方处理或无法处理） */
+  clearError: () => {
+    if (get().lastError !== null) set({ lastError: null })
+  },
+
   // ── 全局清理（登出） ────────────────────────────────────────────────
   reset: () => {
     get().stop()
