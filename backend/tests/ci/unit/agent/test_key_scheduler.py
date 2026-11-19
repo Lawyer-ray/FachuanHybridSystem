@@ -154,10 +154,20 @@ class TestNoKeyLeak:
         text = "\n".join(rec.getMessage() for rec in caplog.records)
         assert "sk-SECRET-1" not in text, "明文 key 进了日志"
 
-    def test_fingerprint_is_stable_and_short(self) -> None:
-        assert fingerprint("sk-A") == fingerprint("sk-A")
-        assert fingerprint("sk-A") != fingerprint("sk-B")
-        assert len(fingerprint("sk-A")) == 8
+    def test_fingerprint_is_a_stable_alias_without_leaking_content(self) -> None:
+        """指纹是**进程内别名**，不是 key 的哈希。
+
+        曾经用 SHA256 / 带盐 blake2b，都被 CodeQL 判成「不安全的密码哈希」而卡住
+        静态检查；更重要的是「从秘密派生出的稳定值」本身就没有必要存在的理由。
+        别名与 key 内容无关，泄露不了任何东西，同样能区分「日志里说的是哪把 key」。
+        """
+        a1 = fingerprint("sk-A")
+        a2 = fingerprint("sk-A")
+        b = fingerprint("sk-B")
+        assert a1 == a2, "同一把 key 的标签必须稳定"
+        assert a1 != b, "不同 key 必须拿到不同标签"
+        assert "sk-A" not in a1 and "sk" not in a1, "标签不得包含 key 的任何片段"
+        assert a1.startswith("key-")
         assert fingerprint("") == "(empty)"
 
 
