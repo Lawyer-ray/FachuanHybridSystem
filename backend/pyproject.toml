@@ -38,6 +38,10 @@ dependencies = [
     # 锁到 rc 版本：官方明示 developer preview、会有 breaking change，
     # 升级必须走回归（见 docs/04-计划/活跃/dsh-python-sdk-integration.md）。
     "deepseek-harness-sdk==0.2.2rc2",
+    # OpenAI Agents SDK：第三个 agent 运行时（与 pi / dsh 并存，会话级切换）。
+    # 纯 Python wheel、无平台限制；模型走律所网关的 OpenAI 兼容端点
+    # （OpenAIChatCompletionsModel），工具面走共享 MCP（MCPServerStreamableHttp）。
+    "openai-agents==0.25.0",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",

@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  assistant,
   loginPath,
   materialPrep,
   materialPrepDetail,
@@ -51,5 +52,12 @@ describe('paths：材料预处理与公开入口', () => {
   it('登录页与设置页', () => {
     expect(loginPath()).toBe('/login')
     expect(settings()).toBe('/settings')
+  })
+})
+
+describe('paths：AI 助手独立页', () => {
+  it('assistant 就是独立页路由（侧边栏入口与路由表同源，不手拼）', () => {
+    expect(assistant()).toBe(ROUTES.assistant)
+    expect(ROUTES.assistant).toBe('/assistant')
   })
 })

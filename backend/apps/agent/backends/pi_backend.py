@@ -133,9 +133,15 @@ class PiBackend:
         session_id = str(session.session_id)
 
         pi_pool = await chat_pool.get_pool()
-        # 按请求解析模型：Admin 改了 LLMProvider 默认模型立即生效，
-        # 且 --model 与 models.json 同源不会失配（池配置里的只是兜底）。
-        model = await chat_pool._resolve_model()
+        # 本轮模型：``ctx.model`` 是用户逐栏显式指定的（多答时每栏可以不同），
+        # 优先级高于平台默认；只有它为空才回落到 ``_resolve_model()``——
+        # 回落分支逐字未变，老路径（不指定模型）行为与引入本字段前一致。
+        # 不同模型不会串号：``PiProcessPool`` 是用完即毁的进程工厂（pool.py），
+        # 不缓存进程，每次 acquire 都按本次传的 model 起新进程。
+        #
+        # ``_resolve_model()`` 的注释仍然成立：Admin 改了 LLMProvider 默认模型立即
+        # 生效，且 --model 与 models.json 同源不会失配（池配置里的只是兜底）。
+        model = ctx.model or await chat_pool._resolve_model()
         # 会话级 env：extension 靠 FACHUAN_SESSION_ID 把审批回调路由回本会话，
         # 靠 FACHUAN_RUN_ID 区分同会话并行的多个 agent。
         # 必须在启动 pi 之前注入，否则回调里 session_id 为空，前端收不到
@@ -169,6 +175,9 @@ class PiBackend:
             session_id=session_id,
             tool_selection=ctx.tool_selection,
             skill_paths=skill_paths,
+            # 编排层按轮次分配的 key（见 ``key_scheduler``）：它会被写进本会话的
+            # models.json。``None`` 时写函数仍走 ``_next_key`` 轮转（旧行为）。
+            api_key=ctx.api_key,
         ) as pi_session:
             # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。
             # 不用「两个 get() task + asyncio.wait」—那个写法在 yield 让出控制权后

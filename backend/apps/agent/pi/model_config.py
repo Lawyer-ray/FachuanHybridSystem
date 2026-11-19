@@ -38,7 +38,33 @@ GATEWAY_KEY_ENV = "FACHUAN_PI_GATEWAY_KEY"
 DEFAULT_CONTEXT_WINDOW = 128000
 DEFAULT_MAX_TOKENS = 8192
 #: 平台开启思考时传给 pi 的 ``--thinking`` 等级（pi: minimal/low/medium/high/xhigh/max）
-DEFAULT_THINKING_LEVEL = "medium"
+#:
+#: 取 ``max``：律师要的是「能想多深想多深」。这是**默认档位**，不是能力开关——
+#: 是否真的思考仍由平台总开关 ``enable_thinking`` 与该模型是否推理模型决定。
+#:
+#: ⚠️ 档位取值受上游约束，不可照搬 pi 的七档全集。实测（2026-11，DeepSeek V4.1
+#: 走 vLLM）服务端原话：
+#:     ``reasoning_effort must be low, high, xhigh, max, or an integer within [1, 100]``
+#: 也就是说 **``medium`` 会直接 400 失败**（曾经就是默认值，等于默认配置下
+#: 「一开思考就报错」）。发往服务端前会经 ``_GATEWAY_EFFORT_MAP`` 归一化。
+DEFAULT_THINKING_LEVEL = "max"
+
+#: pi 的思考等级 → 网关真正接受的 ``reasoning_effort``。
+#:
+#: 网关只认 ``low`` / ``high`` / ``xhigh`` / ``max``（及 1–100 整数），不认
+#: ``minimal`` / ``medium``。这里把 pi 的七档收窄映射到服务端能吃的值：
+#:
+#: - ``medium`` 不映射到 ``high`` 而是保留 **不合法的事实** 会炸，所以映射到
+#:   ``high``（最接近的中档）；
+#: - ``minimal`` 服务端会静默降成 ``low``（实测回显已变 low），显式映射避免误导。
+_GATEWAY_EFFORT_MAP: dict[str, str] = {
+    "minimal": "low",
+    "low": "low",
+    "medium": "high",
+    "high": "high",
+    "xhigh": "xhigh",
+    "max": "max",
+}
 
 #: 会话间轮转计数（itertools.count 的 next() 在 CPython 下是原子的，无需锁）
 _rotation = itertools.count()
@@ -188,14 +214,62 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
         # - chatTemplateKwargs：告诉 pi 往该通道写什么。
         #   ``$var: thinking.enabled`` 是 pi 的变量语法，由思考等级推导布尔值
         # - supportsReasoningEffort=false：避免发网关不认的 reasoning_effort
+        # 为什么现在是 ``True``（与早先的 ``False`` 相反）：
+        # 早先写 False 是因为当时的判断是「网关不认 reasoning_effort，发了会
+        # 400」。实测（2026-11-19）证明那个判断错了——网关（LiteLLM → vLLM）
+        # 接受且**需要** ``reasoning_effort`` 才能真正分级：
+        #
+        #   reasoning_effort=max  + chat_template_kwargs.thinking=true
+        #   → HTTP 200，reasoning_tokens 26–48，reasoning_content 有内容
+        #
+        # 两个参数是**互补**而非互斥：thinking 开关管「要不要想」，
+        # reasoning_effort 管「想多深」。只发前者等于永远停在默认深度，
+        # 拖到 Max 也不生效。
+        #
+        # 若将来网关换成真的不认 effort 的实现，改回 False 即可（单点开关）。
         "compat": {
             "thinkingFormat": "chat-template",
-            "supportsReasoningEffort": False,
+            "supportsReasoningEffort": True,
             "maxTokensField": "max_tokens",
             "chatTemplateKwargs": {"thinking": {"$var": "thinking.enabled"}},
         },
     }
+    if entry["reasoning"]:
+        # 档位映射：pi 的七个档位 → 网关真正接受的 reasoning_effort。
+        #
+        # 为什么必须显式给：pi 文档原话是「模型没映射的档位走 provider 默认值
+        # 到 high；**xhigh 和 max 不支持**」。不写这张表，使用者把档位拖到
+        # Max 时会被默默降成 high——正是「看起来调了但没生效」。
+        #
+        # 为什么值不是原样七档：服务端（DeepSeek V4.1 / vLLM）只认
+        # ``low`` / ``high`` / ``xhigh`` / ``max``，发 ``medium`` 直接 400。
+        # 详见 ``_GATEWAY_EFFORT_MAP``。
+        entry["thinkingLevelMap"] = {
+            "off": "off",
+            "minimal": "low",
+            "low": "low",
+            "medium": "high",
+            "high": "high",
+            "xhigh": "xhigh",
+            "max": "max",
+        }
     return entry
+
+
+def gateway_effort(level: str) -> str:
+    """把 pi/dsh 的思考档位归一成网关真正接受的 ``reasoning_effort`` 值。
+
+    服务端白名单（实测）：``low`` / ``high`` / ``xhigh`` / ``max``。
+    其余值（``minimal`` / ``medium``）一律映射到最接近的合法档位，绝不原样下发
+    ——原样发 ``medium`` 会得到 400，整轮对话直接失败。
+    """
+    cleaned = (level or "").strip().lower()
+    if not cleaned:
+        return ""
+    if cleaned in _GATEWAY_EFFORT_MAP:
+        return _GATEWAY_EFFORT_MAP[cleaned]
+    # 未知值不把它当合法 effort 传下去：fail-closed 到默认档
+    return _GATEWAY_EFFORT_MAP.get(DEFAULT_THINKING_LEVEL, "max")
 
 
 def resolve_thinking_level(model_hint: str = "", provider: Any | None = None) -> str | None:
@@ -208,7 +282,7 @@ def resolve_thinking_level(model_hint: str = "", provider: Any | None = None) ->
     ``provider`` 缺省时自行查询；调用方已查过则传入，避免重复读库。
 
     Returns:
-        ``medium``（平台开启思考且模型是推理模型）；否则 ``None``（不传参数，
+        ``max``（平台开启思考且模型是推理模型）；否则 ``None``（不传参数，
         pi 保持默认 off）。
     """
     if provider is None:
@@ -225,10 +299,19 @@ def resolve_thinking_level(model_hint: str = "", provider: Any | None = None) ->
     return DEFAULT_THINKING_LEVEL
 
 
-def build_models_json(model_hint: str = "", provider: Any | None = None) -> dict[str, Any] | None:
+def build_models_json(
+    model_hint: str = "", provider: Any | None = None, *, api_key: str | None = None
+) -> dict[str, Any] | None:
     """把当前 LLMProvider 渲染成 pi 的 models.json 内容。
 
     ``provider`` 缺省时自行查询；调用方已查过则传入，避免重复读库。
+
+    Args:
+        api_key: 本轮编排层指定的网关 key（``RunContext.api_key``）。有值时写进
+            ``providers.fachuan.apiKey``，**不再调** ``_next_key``：网关限每把
+            key 的并发（实测 3），同轮多个 agent 各拿一把互不相同的 key 只能由
+            编排层按轮次分配（见 ``backends/key_scheduler``）。``None`` / 空串
+            保持原轮转口径，行为与引入本参数前逐字一致。
 
     Returns:
         ``models.json`` 的 dict；无可用 provider 时返回 ``None``
@@ -281,7 +364,7 @@ def build_models_json(model_hint: str = "", provider: Any | None = None) -> dict
             "fachuan": {
                 "baseUrl": base_url,
                 "api": "openai-completions",
-                "apiKey": _next_key(keys),
+                "apiKey": (api_key or "").strip() or _next_key(keys),
                 "models": [
                     _model_entry(
                         name, enable_thinking=bool(getattr(provider, "enable_thinking", False)), provider=provider
@@ -293,7 +376,9 @@ def build_models_json(model_hint: str = "", provider: Any | None = None) -> dict
     }
 
 
-def write_models_json(target_dir: str | Path, model_hint: str = "", provider: Any | None = None) -> Path | None:
+def write_models_json(
+    target_dir: str | Path, model_hint: str = "", provider: Any | None = None, *, api_key: str | None = None
+) -> Path | None:
     """把 models.json 写进目标目录；无可用配置时返回 ``None``。
 
     **文件含明文 API Key，必须以 0600 创建。** ``Path.write_text`` 会先按
@@ -301,8 +386,9 @@ def write_models_json(target_dir: str | Path, model_hint: str = "", provider: An
     且 chmod 失败时容易被静默吞掉。这里用 ``mkstemp``（创建即 0600）写同目录
     临时文件再 ``os.replace`` 原子替换：pi 任何时刻读到的都是完整 JSON，
     不会撞上 O_TRUNC 直写留下的截断/半截窗口。``provider`` 缺省时自行查询。
+    ``api_key`` 原样转交 :func:`build_models_json`（编排层轮次级分配的 key）。
     """
-    payload = build_models_json(model_hint, provider=provider)
+    payload = build_models_json(model_hint, provider=provider, api_key=api_key)
     if payload is None:
         return None
 

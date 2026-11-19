@@ -20,12 +20,22 @@ from .memory_schemas import (
     SnapshotOut,
 )
 from .question_schemas import QuestionAnswerIn, QuestionAnswerItem
-from .session_schemas import CompactOut, MessageIn, MessageOut, SessionIn, SessionOut, SessionRenameIn, SessionStatsOut
+from .session_schemas import (
+    AgentSpecIn,
+    CompactOut,
+    MessageIn,
+    MessageOut,
+    SessionIn,
+    SessionOut,
+    SessionRenameIn,
+    SessionStatsOut,
+)
 from .skill_schemas import SkillListOut, SkillOut, SkillToggleIn, SkillToggleOut
 from .task_schemas import TaskIn, TaskOut
 from .usage_schemas import UsageOut
 
 __all__ = [
+    "AgentSpecIn",
     "ApprovalDecideIn",
     "BackendOptionOut",
     "AttachmentOut",

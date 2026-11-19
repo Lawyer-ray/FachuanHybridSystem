@@ -97,6 +97,14 @@ describe('CopilotHeader：条件渲染', () => {
     expect(screen.getByRole('button', { name: /合同材料目录/ })).toBeTruthy()
   })
 
+  it('不传 onClose 时不渲染收起钮（独立页 AssistantPage 没有收起语义）', () => {
+    render(<CopilotHeader {...makeProps({ onClose: undefined })} />)
+    expect(screen.queryByRole('button', { name: '收起 AI 助手' })).toBeNull()
+    // 其余开关照旧：会话栏 / 新对话仍在位
+    expect(screen.getByRole('button', { name: /收起会话栏/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /新对话/ })).toBeTruthy()
+  })
+
   it('并排按钮要同时满足「可并排」与「有回调」', () => {
     const { unmount } = render(<CopilotHeader {...makeProps({ dockCapable: false, onDockToggle: vi.fn() })} />)
     expect(screen.queryByRole('button', { name: /并排模式/ })).toBeNull()
@@ -131,5 +139,26 @@ describe('CopilotHeader：agent 后端入口', () => {
     // 只读态不再提供 listbox
     fireEvent.click(locked)
     expect(screen.queryByRole('listbox')).toBeNull()
+  })
+})
+
+describe('CopilotHeader：全屏入口', () => {
+  // 顶栏左侧导航里也有一个叫「AI 助手」的入口，但那是跳到 /assistant 新页面；
+  // 顶栏右侧同名按钮开的是抽屉。两个入口同名，用户点了右边的就以为「跳转坏了」
+  // （真实反馈）。所以抽屉头部必须有一个明确的「全屏」钮。
+  it('传了 onExpand 才渲染全屏钮，点击回调它', () => {
+    const onExpand = vi.fn()
+    render(<CopilotHeader {...makeProps({ onExpand })} />)
+
+    const button = screen.getByLabelText('在全屏窗口中打开 AI 助手')
+    button.click()
+
+    expect(onExpand).toHaveBeenCalledTimes(1)
+  })
+
+  it('没传 onExpand 时不渲染（独立页自己就是全屏，再放一个没意义）', () => {
+    render(<CopilotHeader {...makeProps()} />)
+
+    expect(screen.queryByLabelText('在全屏窗口中打开 AI 助手')).toBeNull()
   })
 })

@@ -174,6 +174,36 @@ describe('historyToMessages（转录映射）', () => {
     expect(historyToMessages(rows)[2]?.content).toHaveLength(2000)
   })
 
+  it('assistant 的 metadata.model → 模型名（刷新后栏头仍写「agent · 模型」）', () => {
+    const messages = historyToMessages([
+      { message_id: 1, role: 'assistant', content: '答', tool_name: '', created_at: '', metadata: { model: 'kimi-2.6' } },
+    ])
+    expect(messages[0]?.model).toBe('kimi-2.6')
+  })
+
+  it('model 缺失 / 空串 / 非字符串一律 undefined（不编造模型名）', () => {
+    const mk = (metadata: Record<string, unknown>) => {
+      const [first] = historyToMessages([
+        { message_id: 1, role: 'assistant', content: '答', tool_name: '', created_at: '', metadata },
+      ])
+      // 显式断言而不是 `!`：这条用例测的是 metadata.model 的解析，若历史转换
+      // 本身没产出气泡，用 `!` 会让下面的 toBeUndefined 全部「意外通过」。
+      expect(first).toBeDefined()
+      return first!
+    }
+    expect(mk({}).model).toBeUndefined()
+    expect(mk({ model: '' }).model).toBeUndefined()
+    expect(mk({ model: null }).model).toBeUndefined()
+    expect(mk({ model: 42 }).model).toBeUndefined()
+  })
+
+  it('user 行不带 model（模型只属于回答）', () => {
+    const messages = historyToMessages(
+      [{ message_id: 1, role: 'user', content: '问', tool_name: '', created_at: '', metadata: { model: 'kimi-2.6' } }],
+    )
+    expect(messages[0]?.model).toBeUndefined()
+  })
+
   it('历史回放：quote 从块还原到消息字段、正文不残留块文本', () => {
     const quote = {
       kind: 'contract' as const,

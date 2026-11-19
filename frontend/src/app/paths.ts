@@ -25,6 +25,8 @@ export const ROUTES = {
   projects: '/projects',
   projectDetail: '/projects/:id',
   projectReview: '/projects/:id/review/:taskId',
+  /** AI 助手独立页（全宽）：抽屉面板放不下的多 agent 并排在这里看 */
+  assistant: '/assistant',
   settings: '/settings',
   /** 账号绑定并入设置页后的旧路径，只做前转 */
   legacyBindings: '/settings/bindings',
@@ -88,6 +90,17 @@ export function projectDetail(id: number | string | undefined | null): string {
  */
 export function projectReview(projectId: number | string, taskId: string): string {
   return `/projects/${projectId}/review/${taskId}`
+}
+
+/**
+ * AI 助手独立页（全宽）。
+ *
+ * 抽屉面板（CopilotPanel）在宽屏上也只有 600~1200px，多 agent 并排（2~4 栏）时每栏
+ * 只剩一百多像素、工具行也挤成两行。独立页复用同一批对话组件与**同一个 store**，
+ * 只是把宽度交给屏幕。跳转一律走这里，别再手拼 '/assistant'。
+ */
+export function assistant(): string {
+  return ROUTES.assistant
 }
 
 /** 设置页（系统状态 + 账号绑定） */

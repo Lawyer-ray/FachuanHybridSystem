@@ -63,15 +63,40 @@ class TestMigration:
         assert operations[0].model_name == "agentmessage"
         assert operations[0].name == "agent_kind"
 
-    def test_leaf_migration_is_0017(self) -> None:
-        # 0017 之后还有人加迁移的话这条会失败：那时要确认新迁移确实排在 0017 之后，
-        # 而不是从更早的分支名跳过了它（孤儿迁移的经典成因）。
-        # 不打 django_db：只要迁移图的**文件名与依赖**，不连数据库。
+    def test_0017_is_ancestor_of_leaf(self) -> None:
+        """0017 必须**排在**叶子之前（防孤儿迁移），而不是「自己就是叶子」。
+
+        ## 为什么不能断言「叶子就是 0017」
+
+        原先写的是 ``assert "0017..." in leaves``，本意是防「新迁移从更早的分支
+        跳过了它」这个孤儿迁移的经典成因。但那个写法把「0017 是最后一个迁移」也
+        一并锁死了——加 0018 时它就失败，而 0018 **正确地**依赖 0017 时没有任何
+        问题。测试锁错了东西：要防的是「0017 被绕过」，不是「0017 后不能再加」。
+
+        ## 改成沿依赖链往回走
+
+        只要叶子能顺着 ``parent`` 回溯到 0017，就说明没有迁移跳过它；序数本身
+        与「以后还会加多少迁移」解耦。
+
+        不打 django_db：只要迁移图的**文件名与依赖**，不连数据库。
+        """
         from django.db.migrations.loader import MigrationLoader
 
         loader = MigrationLoader(None, ignore_no_migrations=True)
-        leaves = {name for app, name in loader.graph.leaf_nodes() if app == "agent"}
-        assert "0017_agent_message_agent_kind" in leaves
+        leaves = [name for app, name in loader.graph.leaf_nodes() if app == "agent"]
+        assert leaves, "agent 应用应有至少一个叶子迁移"
+
+        target = "0017_agent_message_agent_kind"
+        for leaf in leaves:
+            # forwards_plan 返回到达该叶子的**完整迁移顺序**（含 0017 本身）。
+            # 0017 在其中 = 没被绕过；用「在不在序列里」而不是「是不是最后」，
+            # 这样再加 0019/0020 都不会误报。
+            plan = [name for _app, name in loader.graph.forwards_plan(("agent", leaf))]
+            assert target in plan, (
+                f"叶子迁移 {leaf} 的依赖链里没有 {target} —— 0017 被绕过了"
+                "（孤儿迁移：新迁移从更早的分支接出去，会导致 0017 的字段在某些库上缺失）"
+                f"；实际链路：{plan}"
+            )
 
 
 class TestSchemaContract:

@@ -50,6 +50,21 @@ class AgentRun(models.Model):
         verbose_name="发起人",
     )
     model = models.CharField(max_length=100, blank=True, default="", verbose_name="模型")
+    #: 本条运行记录是**哪个 agent 后端**跑的（``pi`` / ``dsh`` / ``openai-agents``）。
+    #:
+    #: ## 为什么必须记在运行上，而不是靠会话字段
+    #:
+    #: ``AgentSession.agent_kind`` 是「这个会话默认用谁」，多答一轮会同时落 N 条
+    #: 记录（三个 agent 各一条，模型可能各不相同）。没有本字段时，账上只能看到
+    #: 「这一轮花了多少钱」，却回答不了「**哪个 agent** 花的」——两个 agent 用同一个
+    #: 模型时更彻底无解，只能按模型名反猜。
+    #:
+    #: ## 为什么空串而不是默认 ``pi``
+    #:
+    #: 空串 = 引入本字段之前的旧数据。填 ``pi`` 会把「不知道」伪装成事实（那时
+    #: 只有 pi 在跑，但这是**推断**出来的，不是记下来的）；查询侧按「空串归 pi」
+    #: 处理即可，与 ``AgentMessage.agent_kind`` 同口径。
+    agent_kind = models.CharField(max_length=32, blank=True, default="", verbose_name="agent 后端")
     status = models.CharField(
         max_length=16,
         choices=Status.choices,

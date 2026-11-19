@@ -60,15 +60,43 @@ class SessionRenameIn(Schema):
     title: str
 
 
+class AgentSpecIn(Schema):
+    """本轮一个参与方：哪个后端 + 用哪个模型。"""
+
+    #: 后端 kind（``SessionIn.agent_kind`` 的合法取值）。
+    kind: str
+    #: 该栏用的模型；空/``None`` = 用平台默认（与引入本字段前的行为一致）。
+    model: str | None = None
+
+
 class MessageIn(Schema):
     """发消息请求体。"""
 
     message: str
-    #: 同一问题同时问两个 agent，两边的回答都给律师看。
+    #: 本轮要同时问哪几个 agent，可逐栏指定模型。
     #:
-    #: **默认 False**：成本翻倍（两个模型各跑一轮、各自调用工具），不能默认开。
-    #: 这不是会话级属性——律师可以逐轮决定要不要对比，所以放在消息请求体而不是
-    #: ``SessionIn`` 里。
+    #: 空 / ``None`` = 用会话自己选的后端单跑。长度 1 = 单跑那一个。
+    #: 长度 ≥2 = 多答，各栏并排显示。
+    #:
+    #: **两种形态混用**：新前端发 ``[{"kind":"pi","model":"kimi-2.6"},
+    #: {"kind":"dsh"}]``，老前端发 ``["pi","dsh"]``。两种都必须能过校验——
+    #: 选模型的收益不该以「旧前端全挂（422）」为代价。归一化在
+    #: ``services/chat/multi.normalize_agents``（字符串/字典/``AgentSpec`` 都认）。
+    #:
+    #: **为什么是显式清单而不是「让后端自己挑」**：加第 4、5 个 agent 时编排层
+    #: 不该有任何改动。让调用方把本轮参与方说清楚，注册表里多一个 kind 不需要
+    #: 动 ``multi.py`` 一个字。
+    #:
+    #: 上限见 ``services/chat/multi.MAX_ANSWERS``（超了 API 层返回 400，不静默
+    #: 截断——静默截断会让用户以为选中的都跑了）。
+    agents: list[AgentSpecIn | str] | None = None
+    #: 旧前端的「双答」开关，等价于 ``agents=[会话默认, 次选]``。
+    #:
+    #: **保留是为了兼容**：老客户端只会发 ``dual: true``。两处都给时 ``agents``
+    #: 优先（显式 > 隐式）。新前端请直接用 ``agents``。
+    #:
+    #: **默认 False**：成本随栏数线性增长，不能默认开。这不是会话级属性——律师
+    #: 可以逐轮决定要不要对比，所以放在消息请求体而不是 ``SessionIn`` 里。
     dual: bool = False
 
 

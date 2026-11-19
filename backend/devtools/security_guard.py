@@ -201,8 +201,28 @@ def _check_todo(filepath: str, mode: str, base: str | None, head: str) -> list[s
     return errors
 
 
+#: 允许 ``print`` 的路径前缀：这些是**命令行验收/诊断工具**，stdout 就是它们的
+#: 输出接口。改成 logger 反而会让用法退化（要配 handler 才有输出，且格式变成
+#: "INFO: ..."），而它们的使用方式是「跑一遍、把输出贴进验收报告」。
+#:
+#: 严格只放行 ``scripts/verify_*.py``：应用代码（``backend/apps/**``）里的 print
+#: 仍然一律拦下——那里的 print 是「忘了写日志」的代名词，会污染服务端 stdout。
+PRINT_ALLOWED_PREFIXES: tuple[str, ...] = ("scripts/verify_",)
+
+
+def _print_allowed(filepath: str) -> bool:
+    normalized = filepath.replace("\\", "/")
+    # 仓储根相对路径才算；绝对路径先砍到 scripts/ 之后
+    idx = normalized.find("scripts/")
+    if idx >= 0:
+        normalized = normalized[idx:]
+    return any(normalized.startswith(prefix) for prefix in PRINT_ALLOWED_PREFIXES)
+
+
 def _check_print(filepath: str, mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
+    if _print_allowed(filepath):
+        return errors
     try:
         source = Path(filepath).read_text(encoding="utf-8")
         tree = ast.parse(source, filename=filepath)

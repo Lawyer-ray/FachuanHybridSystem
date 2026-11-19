@@ -256,6 +256,21 @@ describe('AppShell：AI 助手面板开关', () => {
     })
   })
 
+  it('/assistant 上不叠抽屉：页面自己就是全屏助手', async () => {
+    setupApp({ idleFiresNow: false, route: '/assistant' })
+    // 独立页（真组件，本文件不 mock copilot 域）先渲染出来。超时放宽到 5s：
+    // 全量跑时 copilot chunk 的模块求值很慢，1s 会把「还没加载完」误判成「没渲染」
+    expect(await screen.findByRole('main', { name: 'AI 助手' }, { timeout: 5000 })).toBeTruthy()
+
+    // 再按 ⌘J：开关状态照旧切换（离开本页即恢复），但本页不该多出一个 fixed 抽屉——
+    // 同一段对话两个输入框同屏，用户不知道该跟哪个说
+    fireEvent.keyDown(window, { key: 'j', metaKey: true })
+    await waitFor(() => expect(localStorage.getItem('copilot:open')).toBe('1'))
+    // 等一拍再断言「不存在」：抽屉若该挂载，copilotMounted 的 effect 会在这一拍里挂上
+    await new Promise((r) => setTimeout(r, 50))
+    expect(document.querySelector('aside')).toBeNull()
+  })
+
   it('localStorage 读取抛错时回落收起态（不崩）', async () => {
     const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('SecurityError')

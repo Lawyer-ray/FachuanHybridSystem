@@ -385,3 +385,20 @@ class RunContext:
     #: 主会话与只读子 agent 必须能在同一进程内并发存在，全局常量会让两边互相覆盖。
     #: 声明 ``capabilities.tool_calls = False`` 的后端可忽略此字段。
     tool_selection: str | None
+
+    #: 本轮**指定**的网关 API key；``None`` 表示由后端按自己的轮转口径选。
+    #:
+    #: ## 为什么 key 要由编排层指定而不是后端自己轮转
+    #:
+    #: 网关对每把 key 限 ``max_parallel_requests = 3``（实测 429 + ``retry-after: 60``）。
+    #: 后端的 ``_next_key`` 是**全局轮转计数**：它只保证「先后两次通常不同」，
+    #: 不保证同一轮的三个 agent 不同，也不知道哪把 key 已经满了。所以「三 agent
+    #: 用三把 key」必须由编排层在**轮次级别**显式分配（见 ``key_scheduler``）。
+    #:
+    #: 后端实现方：**有这个值就照着用**，不要再调 ``_next_key`` 覆盖它——那会让
+    #: 编排层的分配白做，且两个 agent 撞回同一把 key 时没有任何报错，只表现为
+    #: 「偶尔某栏卡 60 秒」。
+    #:
+    #: 安全：**不得写进日志**（与 ``user_token`` 同级）。需要标识时用
+    #: ``key_scheduler.fingerprint``。
+    api_key: str | None = None

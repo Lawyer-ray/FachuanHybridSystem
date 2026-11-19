@@ -1,13 +1,19 @@
 /**
- * 输入框左侧的工具按钮组：后台运行开关 / 同题双答开关 / 附件（含隐藏 file
+ * 输入框左侧的工具按钮组：后台运行开关 / 本轮 AI 多选菜单 / 附件（含隐藏 file
  * input）/ 语音输入。
  *
- * 从 Composer 拆出（后者超软红线）。四个按钮共享同一套「禁用条件」——流式、上传中、
- * 发送中都要压住，否则会在「上传完成 → 消息入列」的窗口里被重复触发；条件由
- * Composer 算好传进来，本组件只负责渲染与点击分发。
+ * 从 Composer 拆出（后者超软红线）。四个控件共享同一套「禁用条件」——流式、
+ * 上传中、发送中都要压住，否则会在「上传完成 → 消息入列」的窗口里被重复触发；
+ * 条件由 Composer 算好传进来，本组件只负责渲染与点击分发。
+ *
+ * 「这次跑哪几个 AI」是个多选菜单（{@link AnswerAgentMenu}），不是开关：选项来自
+ * 部署级清单，写死几个开关会在新后端注册后立刻过期。
  */
 
-import { Clock, GitCompare, Mic, Paperclip } from 'lucide-react'
+import { Clock, Mic, Paperclip } from 'lucide-react'
+
+import type { AgentBackendOption } from '../types'
+import { AnswerAgentMenu } from './AnswerAgentMenu'
 
 /** 工具按钮的统一外观（三个纯图标按钮共用，避免三份重复长串） */
 const iconButtonClass =
@@ -17,10 +23,14 @@ export function ComposerToolbar({
   bgMode,
   onToggleBgMode,
   bgToggleDisabled,
-  dualMode,
-  onToggleDual,
-  dualToggleDisabled,
-  dualHint,
+  backends,
+  answerAgents,
+  answerModels,
+  defaultAgentKind,
+  onToggleAnswerAgent,
+  onSelectAnswerModel,
+  answerDisabled,
+  answerHint,
   attachDisabled,
   onPickFiles,
   fileInputRef,
@@ -32,13 +42,22 @@ export function ComposerToolbar({
   onToggleBgMode: () => void
   /** 后台模式开关是否禁用（流式/带附件/发送中等） */
   bgToggleDisabled: boolean
-  /** 同题双答开关状态（默认关：成本翻倍，见 store 的 dual 字段） */
-  dualMode: boolean
-  onToggleDual: () => void
-  /** 本部署没有可配对的第二个后端时禁用（点了也不会有两栏） */
-  dualToggleDisabled: boolean
+  /** 可选后端清单（多选菜单的数据源） */
+  backends: AgentBackendOption[]
+  /** 本轮已选的 agent kind（空数组 = 用会话默认后端单跑） */
+  answerAgents: string[]
+  /** 各栏指定的模型（`kind → 模型名`；没有键 = 平台默认） */
+  answerModels: Record<string, string>
+  /** 会话默认后端 kind（菜单里标「默认」） */
+  defaultAgentKind: string
+  /** 选中/取消一个 agent（顺序 = 栏的左右顺序） */
+  onToggleAnswerAgent: (kind: string) => void
+  /** 给某一栏指定模型（空串 = 取消指定） */
+  onSelectAnswerModel: (kind: string, model: string) => void
+  /** 流式中 / 发送中：本轮已开流，改了只会让按钮与已发出的那一轮对不上 */
+  answerDisabled: boolean
   /** 禁用原因（悬停提示；空串表示无补充） */
-  dualHint: string
+  answerHint: string
   attachDisabled: boolean
   onPickFiles: () => void
   fileInputRef: React.RefObject<HTMLInputElement | null>
@@ -74,26 +93,17 @@ export function ComposerToolbar({
       >
         <Clock className="h-4 w-4" />
       </button>
-      {/* 同题双答开关：默认关。开着时下一轮同时问两个后端，两栏并排给律师对照 */}
-      <button
-        type="button"
-        className={`${iconButtonClass} ${
-          dualMode ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-        }`}
-        onClick={onToggleDual}
-        disabled={dualToggleDisabled}
-        aria-label={dualMode ? '关闭同题双答' : '同时问两个 AI'}
-        aria-pressed={dualMode}
-        title={
-          dualToggleDisabled
-            ? dualHint || '当前部署只有一个可用后端，无法对比'
-            : dualMode
-              ? '同题双答已开启：下一轮同时问两个 AI，回答并排显示（成本翻倍）'
-              : '同时问两个 AI：同一个问题分别由两个后端回答，并排对照（成本翻倍）'
-        }
-      >
-        <GitCompare className="h-4 w-4" />
-      </button>
+      {/* 本轮跑哪几个 AI：默认只跑一个（未选 = 会话默认后端），多选即多栏并排对照 */}
+      <AnswerAgentMenu
+        backends={backends}
+        selected={answerAgents}
+        models={answerModels}
+        defaultKind={defaultAgentKind}
+        disabled={answerDisabled}
+        hint={answerHint}
+        onToggle={onToggleAnswerAgent}
+        onSelectModel={onSelectAnswerModel}
+      />
       <button
         type="button"
         className={`${iconButtonClass} text-muted-foreground hover:bg-secondary hover:text-foreground`}

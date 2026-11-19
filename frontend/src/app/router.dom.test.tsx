@@ -35,6 +35,7 @@ vi.mock('@/features/auth', () => ({
 const seen = vi.hoisted(() => ({ caseIds: [] as Array<number | null> }))
 
 vi.mock('./preload', () => ({
+  AssistantPageLazy: () => <div data-testid="assistant">助手页</div>,
   HomePageLazy: () => <div data-testid="home">首页</div>,
   ClientUploadPageLazy: () => <div data-testid="upload">上传页</div>,
   DeskPageLazy: () => <div data-testid="desk">预处理页</div>,
@@ -68,6 +69,7 @@ function LocationTag({ testid }: { testid: string }) {
   return <div data-testid={testid}>{`${loc.pathname}${loc.search}`}</div>
 }
 
+import { ROUTES } from './paths'
 import { AppRouter } from './router'
 
 function renderAt(path: string) {
@@ -86,6 +88,13 @@ describe('未知路径兜底', () => {
   it('未知路径回首页（不能白屏）', () => {
     renderAt('/some/unknown/path')
     expect(screen.getByTestId('home')).toBeTruthy()
+  })
+})
+
+describe('AI 助手独立页路由', () => {
+  it('ROUTES.assistant 渲染助手页（路径模板只在 paths.ts 里定义）', () => {
+    renderAt(ROUTES.assistant)
+    expect(screen.getByTestId('assistant')).toBeTruthy()
   })
 })
 

@@ -20,6 +20,7 @@ import contextlib
 import logging
 import time
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -35,12 +36,72 @@ from ..event_bus import get_bus
 from ..history import render_transcript
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
-from . import env, persist
+from . import env, persist, profile
 
 logger = logging.getLogger(__name__)
 
 #: 会话标题缺省取首条用户消息的前若干字（侧边栏会话列表用）
 AUTO_TITLE_LIMIT = 30
+
+
+@dataclass(frozen=True)
+class ContextPrep:
+    """一轮开流前**与栏无关**的事实：律师凭证 + 本轮 prompt。
+
+    为什么捆成一个值：三 agent 同答时 ``stream_chat`` 会被调用 N 次，而这两件
+    事对 N 栏是**同一个答案**（同一个律师、同一个会话、同一条提问）。各栏各算
+    一次不只是白跑：``mint_user_token`` / ``_recent_history`` 都走
+    ``sync_to_async(thread_sensitive=True)``，即在同一线程上排队，重复 N 次就是
+    串行 N 次；``has_pi_session`` 每次还会把会话目录 ``mkdir`` + ``chmod`` 一遍。
+    所以 ``stream_multi`` 算一次，N 个 ``stream_chat`` 共用（见 ``prepare_context``）。
+
+    不能跨轮复用：凭证每轮重铸（寿命说明见 ``pi/user_token.py``），pi session
+    是否已存在、历史有几条每轮都在变。
+    """
+
+    #: 律师本人的 access token（``user_id`` 为空时是空串，工具面回退服务账号）
+    user_token: str
+    #: 本轮实际发给后端的 prompt：正常情况下就是用户消息；无 pi session 但有
+    #: 历史时是补上了 transcript 的那份（见 ``prepare_context``）。
+    prompt_text: str
+
+
+async def probe_pi_session(session_id: str) -> bool:
+    """该会话是否已有 pi 原生 session（决定续写还是 transcript 回退）。
+
+    单独成函数是因为 ``stream_multi`` 要用**同一口径**在整轮外面探一次：两处
+    各写一份 ``sync_to_async(..., thread_sensitive=True)`` 迟早会漂移，而漂移的
+    表现是「有的栏补了历史、有的没补」，极难看出来。
+    """
+    return await sync_to_async(has_pi_session, thread_sensitive=True)(session_id)
+
+
+async def prepare_context(*, session: AgentSession, user_id: int | None, user_message: str) -> ContextPrep:
+    """算出本轮开流前与栏无关的事实：凭证 + prompt（含上下文回退）。
+
+    顺序是**铸造 → 探 session → 补历史**：铸不出凭证就整轮拒绝，不能让工具退回
+    超管服务账号执行（见 ``pi/user_token.py`` 的 confused deputy 说明）。
+
+    Raises:
+        用户被删 / 停用时 ``mint_user_token`` 抛错——怎么拒由调用方决定：
+        ``stream_chat`` 逐栏发 ``error``，``stream_multi`` 回退到逐栏铸造
+        （多答时凭证只该铸一次，但失败语义必须与逐栏一致）。
+    """
+    session_id = str(session.session_id)
+    async with profile.timed("prepare.mint_user_token", session=session_id):
+        user_token = await env.mint_user_token(user_id)
+
+    prompt_text = user_message
+    async with profile.timed("prepare.has_pi_session", session=session_id):
+        resumed = await probe_pi_session(session_id)
+    if not resumed:
+        async with profile.timed("prepare.recent_history", session=session_id):
+            history = await persist._recent_history(session)
+        if history:
+            # 无 pi session 但有历史 → 一次性补齐上下文，之后交给 pi 自己管
+            prompt_text = render_transcript(history, user_message)
+            logger.info("pi session 缺失，本轮以 transcript 回退 session=%s 历史=%s 条", session_id, len(history))
+    return ContextPrep(user_token=user_token, prompt_text=prompt_text)
 
 
 def auto_title(user_message: str) -> str:
@@ -90,6 +151,9 @@ async def stream_chat(
     persist_assistant: bool = True,
     memo: Any | None = None,
     agent_kind: str = "",
+    model: str | None = None,
+    api_key: str | None = None,
+    context: ContextPrep | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """跑一轮对话，产出 SSE 事件。
 
@@ -123,6 +187,17 @@ async def stream_chat(
             ``session.agent_kind``（单后端路径的唯一口径）。双答路径必须显式
             传：同一个会话要同时跑主/次两个后端，靠会话字段选后端会让两次调用
             都取到主后端——表现是「两栏内容一模一样」，且不会报任何错。
+        model: 本轮**显式指定**的模型（用户逐栏选的）。``None`` = 由后端按自身
+            默认策略选，与引入本字段前的行为逐字一致。多答时每栏各传各的，
+            所以它不能是会话级属性。
+        api_key: 本轮**指定**的网关 key（由 ``stream_multi`` 的轮次级分配给出）。
+            ``None`` = 后端按自己的轮转口径（``_next_key``）选，与引入本参数前
+            逐字一致——拿不到 key 池时就是这条路径，不能报错。多答时每栏各传
+            各的，所以它也不能是会话级属性。**不得写进日志**（见 ``RunContext.api_key``）。
+        context: 本轮开流前的事实（凭证 + prompt）。``None`` = 由本函数自己算，
+            与引入本参数前逐字一致。多答路径传 ``stream_multi`` 算好的那一份：
+            N 栏问的是同一个律师、同一个会话、同一条提问，这些事只该做一次
+            （见 ``ContextPrep``）。
     """
     # 先确保内置后端已注册（幂等）：注册表是进程内全局状态，可能被清空过；
     # 取后端之前补一次，比依赖「app 启动时那一次」稳得多（见 builtin 模块说明）。
@@ -133,30 +208,32 @@ async def stream_chat(
     # 空串必须等价于引入前的行为。
     backend = get_backend(agent_kind or getattr(session, "agent_kind", "") or "pi")
 
+    prep_started = time.perf_counter()
     # 先铸身份凭证再接受消息：铸不出（用户被删/停用）就整轮拒绝，
     # 不能让工具退回超管服务账号执行。
-    try:
-        user_token = await env.mint_user_token(user_id)
-    except Exception:
-        logger.exception("为用户 %s 铸造 agent 凭证失败，拒绝本轮对话", user_id)
-        yield {"type": "error", "message": "无法为当前用户签发工具访问凭证，请联系管理员"}
-        return
+    #
+    # 多答路径由调用方把算好的那份传进来（``context``）：同一轮 N 栏是同一个
+    # 律师的同一条提问，各铸一次只是把同一条 user 查询排队 N 遍。
+    if context is None:
+        try:
+            context = await prepare_context(session=session, user_id=user_id, user_message=user_message)
+        except Exception:
+            logger.exception("为用户 %s 铸造 agent 凭证失败，拒绝本轮对话", user_id)
+            yield {"type": "error", "message": "无法为当前用户签发工具访问凭证，请联系管理员"}
+            return
 
     session_id = str(session.session_id)
-    resumed = await sync_to_async(has_pi_session, thread_sensitive=True)(session_id)
-    prompt_text = user_message
-    if not resumed:
-        history = await persist._recent_history(session)
-        if history:
-            # 无 pi session 但有历史 → 一次性补齐上下文，之后交给 pi 自己管
-            prompt_text = render_transcript(history, user_message)
-            logger.info("pi session 缺失，本轮以 transcript 回退 session=%s 历史=%s 条", session_id, len(history))
+    user_token = context.user_token
+    prompt_text = context.prompt_text
 
     if not user_message_recorded:
-        await record_user_message(session, user_message)
+        async with profile.timed("stream.record_user_message", agent=backend.kind, session=session_id):
+            await record_user_message(session, user_message)
 
     bus = get_bus()
-    external_queue = await bus.register(str(session.session_id))
+    async with profile.timed("stream.bus_register", agent=backend.kind, session=session_id):
+        external_queue = await bus.register(str(session.session_id))
+    profile.since("stream.pre_stream_total", prep_started, agent=backend.kind, session=session_id)
 
     # 本轮运行 id：``{session_id}:{agent_kind}:{轮次}``，审批回调与运行记录都靠它归因。
     # 轮次序号**暂固定为 1**：现在每会话同一时刻只有一轮在跑，多 agent 并行上线时
@@ -169,7 +246,11 @@ async def stream_chat(
 
     follow_ok = True
     cancelled = False
-    model: str | None = None
+    # 实际使用的模型：先用**本轮显式指定**的那个（``model`` 入参），跑完若有后端
+    # 回报的真实模型则覆盖它（见下方 ``result_for``）。不要在这里重新置 None——
+    # 那会让「用户选了模型」在成本记录 / 助手消息 metadata 里全部变空，界面上
+    # 看不到这一栏到底用了什么。
+    used_model: str | None = model
     assistant_parts: list[str] = []
     output_tokens_total = 0
     input_tokens_total = 0
@@ -196,7 +277,12 @@ async def stream_chat(
             user_id=user_id,
             prompt=prompt_text,
             user_token=user_token,
-            model=None,
+            # 模型与 key 都是**本轮逐栏**的取值：前者是用户选的模型，后者是
+            # ``stream_multi`` 轮次级分配的结果（None = 后端自己轮转）。两处都
+            # 只透传，不在这里重新推导——重新推导会把「三栏三把 key」变成
+            # 「三栏各自轮转」，撞在同一把上时只有『某栏卡 60 秒』这一个症状。
+            model=model,
+            api_key=api_key,
             tool_selection=tool_selection,
         )
         stream = backend.stream(ctx)
@@ -260,16 +346,17 @@ async def stream_chat(
 
         # 收尾事实（实际模型、上下文水位）按 run_id 向后端取——异步生成器的 return
         # 值取不到，而后端在 done 之前就已把它写好。后端没实现 ``result_for`` 时
-        # 保持上面的缺省值（模型 ``None``、水位 ``None``），不编造数据。
+        # 保持上面的缺省值（模型 = 本轮显式指定的那个，可能为 ``None``；水位
+        # ``None``），不编造数据。
         result_for = getattr(backend, "result_for", None)
         result = result_for(run_id) if result_for is not None else None
         if result is not None:
             # 实际用的模型与水位都要回写：SessionOut 如实回报（客户端不再传模型），
             # done 事件与 AgentRun 也要用同一个值（两处不一致会让成本对不上账）。
-            model = result.model
+            used_model = result.model
             context_used, context_total = result.context_used, result.context_total
-            if model and model != session.llm_model:
-                await AgentSession.objects.filter(pk=session.pk).aupdate(llm_model=model)
+            if used_model and used_model != session.llm_model:
+                await AgentSession.objects.filter(pk=session.pk).aupdate(llm_model=used_model)
 
     except (GeneratorExit, asyncio.CancelledError):
         # 客户端断开/中止：已流出的部分回答也要落库（见 finally），再按生成器语义上抛。
@@ -312,7 +399,10 @@ async def stream_chat(
         await persist._record_run(
             session=session,
             user_id=user_id,
-            model=model,
+            model=used_model,
+            # 这一轮**实际**用的后端（不是会话默认的那个）：多答一轮会同时落 N 条
+            # 记录，缺了它账上只能按模型名反猜哪条属于哪一栏。
+            agent_kind=backend.kind,
             cancelled=cancelled,
             error_kind=error_kind,
             input_tokens=input_tokens_total,
@@ -333,7 +423,7 @@ async def stream_chat(
         # metadata 两条路径都要（落库 / 交回调用方），放在 if 外面算
         assistant_metadata: dict[str, Any] = {}
         if assistant_text:
-            assistant_metadata = {"model": model or ""}
+            assistant_metadata = {"model": used_model or ""}
             if output_tokens_total > 0:
                 assistant_metadata["output_tokens"] = output_tokens_total
             if cancelled or not follow_ok:

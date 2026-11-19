@@ -35,3 +35,11 @@ class BackendOptionOut(Schema):
     reason: str
     #: 能力声明，见 ``BackendCapabilities`` 各字段注释。
     capabilities: dict[str, Any]
+    #: 该后端可选的模型清单（来自启用的 ``LLMProvider``：``default_model`` +
+    #: ``extra_models``）。空列表 = 不支持逐栏指定模型，前端不显示下拉。
+    #: 三个后端最终都落到同一个 LiteLLM 网关，所以共用同一份清单是合理的；
+    #: 若将来某后端有独占模型，在它自己的返回值里收窄，不要在这里加分支类型。
+    models: list[str] = []
+    #: 未指定模型时该后端会用的那个（UI 预填用）。
+    #: ``None`` = 没有可用平台/默认模型，此时 ``models`` 也应为空。
+    default_model: str | None = None

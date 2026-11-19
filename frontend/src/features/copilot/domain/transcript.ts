@@ -140,6 +140,12 @@ export function bizHintParts(hint: BizHint): { unit: string; title: string; ref:
   return { unit: hint.kind === 'case' ? '本案' : '本委托', title: hint.title, ref: `#${hint.refId}` }
 }
 
+/** `metadata.model` → 模型名；缺失 / 非字符串 / 空串一律 undefined（不编造） */
+function modelOf(metadata: Record<string, unknown> | undefined): string | undefined {
+  const model = metadata?.model
+  return typeof model === 'string' && model ? model : undefined
+}
+
 /**
  * 历史消息 → 转录气泡。
  * tool 消息后端截断到 8000 字符，前端预览再收一刀；truncated 标记透传。
@@ -165,6 +171,9 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
       // 消息级来源：assistant / tool 行带 agent_kind，历史回放才能把双答的两栏
       // 重新并排；空串（旧数据 / 单后端轮次）留 undefined，渲染时按 pi 处理
       agentKind: row.role !== 'user' ? row.agent_kind || undefined : undefined,
+      // 实际用的模型（后端流结束时写进 metadata.model）：刷新后栏头仍写「agent · 模型」，
+      // 否则重开会话就看不出那几栏各用的什么模型，对比历史回答就没法还原了
+      model: row.role === 'assistant' ? modelOf(row.metadata) : undefined,
       truncated: row.metadata?.truncated === true || undefined,
     }
   })

@@ -151,6 +151,45 @@ describe('copilot api', () => {
     expect(got.body).not.toBeNull()
   })
 
+  it('openMessageStream: agents 原样下发（顺序 = 栏序，多答靠它表达）', async () => {
+    apiMock.post.mockReturnValue(Promise.resolve(new Response('data: x')))
+    await openMessageStream('s-1', '你好', new AbortController().signal, [{ kind: 'dsh' }, { kind: 'pi' }, { kind: 'oai' }])
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/messages', {
+      json: { message: '你好', agents: [{ kind: 'dsh' }, { kind: 'pi' }, { kind: 'oai' }] },
+      signal: expect.anything(),
+    })
+  })
+
+  it('openMessageStream: 每栏可带模型（{kind, model} 对象形状，与后端 AgentSpecIn 同形）', async () => {
+    apiMock.post.mockReturnValue(Promise.resolve(new Response('data: x')))
+    await openMessageStream('s-1', '你好', new AbortController().signal, [
+      { kind: 'pi', model: 'kimi-2.6' },
+      { kind: 'dsh' },
+    ])
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/messages', {
+      json: { message: '你好', agents: [{ kind: 'pi', model: 'kimi-2.6' }, { kind: 'dsh' }] },
+      signal: expect.anything(),
+    })
+  })
+
+  it('openMessageStream: 单个 agent 也下发（单跑指定后端）', async () => {
+    apiMock.post.mockReturnValue(Promise.resolve(new Response('data: x')))
+    await openMessageStream('s-1', '你好', new AbortController().signal, [{ kind: 'dsh' }])
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/messages', {
+      json: { message: '你好', agents: [{ kind: 'dsh' }] },
+      signal: expect.anything(),
+    })
+  })
+
+  it('openMessageStream: 空 agents 不发字段（不传 = 后端单跑会话默认后端）', async () => {
+    apiMock.post.mockReturnValue(Promise.resolve(new Response('data: x')))
+    await openMessageStream('s-1', '你好', new AbortController().signal, [])
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/messages', {
+      json: { message: '你好' },
+      signal: expect.anything(),
+    })
+  })
+
   it('steerSession: POST steer 带 message（P0-2）', async () => {
     await steerSession('s-1', '补充')
     expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/steer', { json: { message: '补充' } })

@@ -26,8 +26,10 @@ export function createTurnHandlers(
   defaultAssistantId: string,
   set: CopilotSet,
   assistantFor: AssistantRoute = () => defaultAssistantId,
-  /** 本轮有几栏（>1 = 双答）。错误行只在多栏时才标来源：单后端时多加一个
-   *  「pi：」前缀会改变律师已经习惯的文案，而它并不带来任何区分信息。 */
+  /** 本轮选了几栏（>1 = 多答）。注意它只表达「律师想跑几栏」，
+   *  **不能**用来判「事件该怎么路由」——见 targetOf。错误行只在多栏时才标来源：
+   *  单后端时多加一个「pi：」前缀会改变律师已经习惯的文案，而它并不带来任何
+   *  区分信息。 */
   columnCount = 1,
 ): {
   handlers: StreamHandlers
@@ -41,9 +43,21 @@ export function createTurnHandlers(
    * 回收，无跨轮泄漏。 */
   const rewriteArgsById = new Map<string, { original: string; replacement: string }>()
 
+  /**
+   * 这一帧该写进哪条气泡。
+   *
+   * 多栏时 `origin.kind` 是精确的，但**按栏清单判断，不按 columnCount 判断**：
+   * 后端可能降级（aux 席位满 → 只跑主后端并收窄 agents），也可能某个 kind 不在
+   * 清单里。这两种情况下 `assistantFor` 会回落到默认气泡——单栏轮次里事件带的
+   * `agent` 是后端自己的 kind（`pi` / `dsh` / `openai-agents`），而单栏气泡没有
+   * 登记在任何 kind 名下（见 store/turn.ts：只有多栏才建 assistantByAgent）。
+   * 一律走 `assistantFor` 让「路由表怎么建的就怎么查」，两处只有一份真相。
+   */
+  const targetOf = (kind: string): string => assistantFor(kind)
+
   const appendAssistant = (chunk: string, origin: EventOrigin) => {
     if (!chunk) return
-    const targetId = assistantFor(origin.kind)
+    const targetId = targetOf(origin.kind)
     set((s) => ({
       messages: s.messages.map((m) =>
         // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
@@ -53,14 +67,14 @@ export function createTurnHandlers(
   }
   const appendThinking = (chunk: string, origin: EventOrigin) => {
     if (!chunk) return
-    const targetId = assistantFor(origin.kind)
+    const targetId = targetOf(origin.kind)
     set((s) => ({
       messages: s.messages.map((m) =>
         m.id === targetId ? { ...m, thinking: (m.thinking ?? '') + chunk } : m,
       ),
     }))
   }
-  /** 收尾**全部**本轮的 assistant 气泡（双答两栏各自都要停住光标） */
+  /** 收尾**全部**本轮的 assistant 气泡（多答各栏都要停住光标） */
   const finishAssistant = () => {
     set((s) => ({
       messages: s.messages.map((m) =>
@@ -116,7 +130,7 @@ export function createTurnHandlers(
               content: '',
               toolName: event.name,
               toolCallId: event.tool_call_id,
-              // 双答时两栏各自调工具：工具行必须带来源，否则回放时分不出证据归谁
+              // 多答时各栏各自调工具：工具行必须带来源，否则回放时分不出证据归谁
               ...(origin.kind ? { agentKind: origin.kind } : {}),
             },
           ],
@@ -182,26 +196,48 @@ export function createTurnHandlers(
       set({ compacting: phase === 'start' })
     },
     onProgress: clearQueueBanner,
+    onDegraded: (reason) => {
+      // 后端降级（aux 席位已满）：本轮律师选了几家，实际只跑了一家。不说明的话
+      // 他会以为对比没生效、或者其余几家的回答丢了。
+      //
+      // 同时要把**被丢下的那几栏**就地收尾并标「本轮未做」：后端收窄了 agents，
+      // 只会给主栏发 done，其余栏永远等不到收尾信号——界面上就是一排转圈的空栏。
+      // 主栏是 `assistantFor('')`（路由表为空时它就是第一栏，见 store/turn.ts）。
+      const keptId = assistantFor('')
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.role === 'assistant' && m.streaming && m.id !== keptId
+            ? { ...m, streaming: false, failed: true }
+            : m,
+        ),
+        lastError: reason,
+      }))
+    },
     onError: (message, origin) => {
-      // 双答时一个后端失败另一个照常输出：错误行必须标明是哪一栏失败了，
+      // 多答时一个后端失败其他照常输出：错误行必须标明是哪一栏失败了，
       // 否则律师会以为整轮都没跑成，而屏幕上半截明明有答案。
       const who = columnCount > 1 && origin.kind ? `${origin.kind}：` : ''
       set({ lastError: `${who}${message}` })
-      // 失败方的栏要停住光标；另一栏继续流（finishAssistant 会把所有 streaming
-      // 气泡收掉，这里只收失败那一栏）
+      // 失败方的栏要停住光标并标成「本轮未做」；其他栏继续流（finishAssistant
+      // 会把所有 streaming 气泡收掉，这里只收失败那一栏）。
+      //
+      // 为什么明写「本轮未做」而不是留空：那一栏到收尾都没有正文，不标记的话
+      // 界面上就是一个空白的栏头，看起来像「AI 回答了但内容丢了」。
       // 查不到时（本轮没登记过该 agent）回落到默认栏，不造孤儿气泡
-      const failedId = assistantFor(origin.kind)
+      const failedId = targetOf(origin.kind)
       set((s) => ({
-        messages: s.messages.map((m) => (m.id === failedId ? { ...m, streaming: false } : m)),
+        messages: s.messages.map((m) =>
+          m.id === failedId ? { ...m, streaming: false, failed: true } : m,
+        ),
       }))
     },
     onDone: (context, origin) => {
       // **只收这一栏**，不能 `finishAssistant()`（那会收掉全部 streaming 气泡）。
       //
-      // 双答真实事故：pi 先完成 → done 到达 → 全部气泡被收掉 → dsh 后续的 delta
+      // 多答真实事故：pi 先完成 → done 到达 → 全部气泡被收掉 → dsh 后续的 delta
       // 无处可写，界面上两栏都是「(无内容)」，并冒出一句「流处理异常」。
       // 单后端时 columnCount === 1，收这一栏等价于收全部，行为与原来一致。
-      const doneId = assistantFor(origin.kind)
+      const doneId = targetOf(origin.kind)
       set((s) => ({
         messages: s.messages.map((m) =>
           m.id === doneId && m.streaming ? { ...m, streaming: false } : m,

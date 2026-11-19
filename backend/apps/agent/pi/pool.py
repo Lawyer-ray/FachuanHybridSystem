@@ -158,6 +158,7 @@ class PiProcessPool:
         session_id: str | None = None,
         tool_selection: str | None = None,
         skill_paths: list[str] | None = None,
+        api_key: str | None = None,
     ) -> AsyncIterator[PiRpcSession]:
         """构造一个 pi 会话，退出时销毁进程并清理临时目录。
 
@@ -169,6 +170,9 @@ class PiProcessPool:
             skill_paths: 本会话注入的 Agent Skills 目录（``--skill``）。
                 ``None`` 表示不注入任何技能（配合 rpc_client 恒定的
                 ``--no-skills``，宿主机用户级技能不会混进来）。
+            api_key: 本轮编排层指定的网关 key（``RunContext.api_key``），原样转交
+                ``write_pi_config`` 写进 models.json；``None`` 时仍由写函数按
+                ``_next_key`` 轮转（旧行为）。
 
         三条纪律：
 
@@ -213,7 +217,7 @@ class PiProcessPool:
                     from asgiref.sync import sync_to_async
 
                     await sync_to_async(write_pi_config, thread_sensitive=True)(
-                        config_dir, self._config.mcp_endpoint, model_hint=effective_model or ""
+                        config_dir, self._config.mcp_endpoint, model_hint=effective_model or "", api_key=api_key
                     )
                     # 思考等级由 write_pi_config 一并写入隔离目录的 settings.json
                     # （pi 官方开关是 modelThinkingLevels，不是 CLI 参数也不是

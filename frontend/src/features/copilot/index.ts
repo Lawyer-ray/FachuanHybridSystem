@@ -9,6 +9,13 @@
 export { CopilotPanel } from './components/CopilotPanel'
 
 /**
+ * AI 助手独立页（/assistant）：与抽屉同一批对话组件、同一个 store，只是把宽度
+ * 交给屏幕。与 CopilotPanel 同属 copilot 域 chunk：两者共用 store 与消息组件，
+ * 拆成两个 lazy 入口只会把同一份代码拉两次。
+ */
+export { AssistantPage } from './components/AssistantPage'
+
+/**
  * AI 助手面板的背景压暗遮罩（非模态 dock 只在窄视口下才生效，见组件注释）。
  * 由 AppShell 与面板并列渲染：它不占布局，但需要自己跟面板的挂载/卸载
  * 同步，才能把 fade-out 播完。

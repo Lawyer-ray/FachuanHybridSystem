@@ -222,8 +222,8 @@ describe('copilot store：新会话带上所选后端', () => {
     await useCopilot.getState().send('继续')
 
     expect(copilotApi.createSession).not.toHaveBeenCalled()
-    // 第 4 个参数是双答开关（默认 false）：本用例不涉及双答，断言它没被误开
-    expect(copilotApi.openMessageStream).toHaveBeenCalledWith('s-9', '继续', expect.anything(), false)
+    // 第 4 个参数是本轮参与的 agent 清单（默认空 = 单跑会话默认后端）
+    expect(copilotApi.openMessageStream).toHaveBeenCalledWith('s-9', '继续', expect.anything(), [])
   })
 })
 
