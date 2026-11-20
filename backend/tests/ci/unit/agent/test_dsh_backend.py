@@ -29,7 +29,7 @@ pytest.importorskip("deepseek_harness", reason="deepseek-harness-sdk 未安装�
 
 from apps.agent.backends import AgentBackend, BackendCapabilities, RunContext
 from apps.agent.backends import registry as registry_module
-from apps.agent.backends.dsh_backend import DshBackend, DshRunResult, _HarnessPool, _log_unmapped
+from apps.agent.backends.dsh_backend import _APPROVAL_WIRED, DshBackend, DshRunResult, _HarnessPool, _log_unmapped
 from apps.agent.backends.dsh_config import DSH_HOME_ENV, DshProviderConfig, build_config, dsh_home_for, dsh_patches
 
 
@@ -85,16 +85,23 @@ class TestIdentity:
         assert DshBackend.kind == "dsh"
 
     def test_capabilities_match_sdk_facts(self) -> None:
-        """``steer=False`` 是事实陈述：SDK 的 ``Session`` 没有 steer/abort 方法。
+        """能力声明必须逐项等于现实，不是「目标状态」。
 
-        声明 ``True`` 会让前端显示插话输入框，而用户敲进去的话会被直接丢弃
-        ——比禁用更糟（见 ``base.py`` 的 ``steer`` 注释）。
+        ``steer=False``：SDK 的 ``Session`` 没有 steer/abort 方法。声明 ``True``
+        会让前端显示插话输入框，而用户敲进去的话会被直接丢弃——比禁用更糟
+        （见 ``base.py`` 的 ``steer`` 注释）。
+
+        ``approval`` 同理，而且后果更重：本版本的 ``_ApprovalPump`` 收到
+        ``approval/request`` 一律回 ``rejected``，律师看不到任何审批卡。
+        原先写死 ``True`` 让 ``/backends`` 把「有四级审批闸门」这条谎话透给
+        前端——**合规红线级别的错误能力声明**。现在绑定到 ``_APPROVAL_WIRED``：
+        真正接上审批时只改一个常量，声明自动跟上。
         """
         caps = DshBackend.capabilities
         assert isinstance(caps, BackendCapabilities)
         assert caps.streaming is True
         assert caps.tool_calls is True
-        assert caps.approval is True
+        assert caps.approval is _APPROVAL_WIRED
         assert caps.compaction is True
         assert caps.steer is False
         assert caps.concurrent_in_session is False
@@ -175,9 +182,19 @@ class TestEventTranslation:
         assert [f["type"] for f in frames] == ["thinking", "delta"]
 
     def test_turn_end_error_becomes_error_event(self) -> None:
-        """``turn/end`` 的 ``reason.kind == "error"`` 是模型侧失败，必须报 error。"""
+        """``turn/end`` 的 ``reason.kind == "error"`` 是模型侧失败，必须报 error。
+
+        帧要走 ``errors.project_message``：SDK 只给一句话，但那句话可能就是 429 /
+        上下文超限 / 网关卡住。手写帧时前端拿不到 ``code``，多答时律师会把
+        「等 60 秒就好」读成「这一栏的后端废了」。
+        """
         frames = self._translate(_notification("turn/end", {"reason": {"kind": "error", "message": "上游 429"}}))
-        assert frames == [{"type": "error", "message": "上游 429"}]
+        [frame] = frames
+        assert frame["type"] == "error"
+        assert (frame["code"], frame["scope"]) == ("rate_limited", "account")
+        # 中文原文原样保留（它已经是写给人看的句子），原文同时进 detail 供排障。
+        assert frame["message"] == "上游 429"
+        assert frame["detail"]["reason"] == "上游 429"
 
     def test_turn_end_normal_produces_no_event(self) -> None:
         """正常结束由编排层发 done，本层不重复发（协议：一轮只一个 done）。"""
@@ -235,11 +252,11 @@ class TestTranslationShapesMatchSseContract:
             )
         )
         by_type = {f["type"]: f for f in frames}
-        ThinkingEvent.model_validate(by_type["thinking"])
-        DeltaEvent.model_validate(by_type["delta"])
-        ToolCallEvent.model_validate(by_type["tool_call"])
+        assert isinstance(ThinkingEvent.model_validate(by_type["thinking"]), ThinkingEvent)
+        assert isinstance(DeltaEvent.model_validate(by_type["delta"]), DeltaEvent)
+        assert isinstance(ToolCallEvent.model_validate(by_type["tool_call"]), ToolCallEvent)
         [error] = backend._translate(*_notification("turn/end", {"reason": {"kind": "error", "message": "x"}}))
-        ErrorEvent.model_validate(error)
+        assert isinstance(ErrorEvent.model_validate(error), ErrorEvent)
 
 
 class _StubHarness:

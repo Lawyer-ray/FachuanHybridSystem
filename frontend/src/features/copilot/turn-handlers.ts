@@ -7,7 +7,17 @@
  * - finishAssistant 收尾助手气泡（流读尽与 done 双路径都要能调，幂等）
  */
 
-import { estimateTokens, extractRewriteArgs, nextLocalId, parseFileRewrite } from './domain'
+import {
+  applyToolCall,
+  applyToolResult,
+  emptyTurnStats,
+  estimateTokens,
+  extractRewriteArgs,
+  mergeCitations,
+  normalizeQuestions,
+  parseFileRewrite,
+} from './domain'
+import type { TurnStats } from './types'
 import { FILE_REWRITTEN_EVENT } from './launch'
 import type { EventOrigin, StreamHandlers } from './streaming'
 import { useCopilot } from './store'
@@ -43,6 +53,9 @@ export function createTurnHandlers(
    * 回收，无跨轮泄漏。 */
   const rewriteArgsById = new Map<string, { original: string; replacement: string }>()
 
+  /** 无 `timeout_seconds` 时的兜底等待窗口（与后端 DEFAULT_QUESTION_TIMEOUT 同值） */
+  const QUESTION_TIMEOUT_FALLBACK_S = 180
+
   /**
    * 这一帧该写进哪条气泡。
    *
@@ -55,16 +68,22 @@ export function createTurnHandlers(
    */
   const targetOf = (kind: string): string => assistantFor(kind)
 
-  const appendAssistant = (chunk: string, origin: EventOrigin) => {
-    if (!chunk) return
-    const targetId = targetOf(origin.kind)
+  /**
+   * 写某一栏的用量账（`kind` 空串 = 单栏/未标注，仍单独成一份）。
+   *
+   * 为什么按 `kind` 而不是 run_id：`run_id` 恒为 `session:kind:1`、跨轮不递增
+   * （后端尚未修），拿它当键会把两栏写进同一份账；`agent` 是每帧都带且真实
+   * 互斥的（多答每栏一个后端）。
+   */
+  const bumpLane = (kind: string, fn: (lane: TurnStats) => TurnStats) => {
     set((s) => ({
-      messages: s.messages.map((m) =>
-        // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
-        m.id === targetId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
-      ),
+      turnStatsByLane: {
+        ...s.turnStatsByLane,
+        [kind]: fn(s.turnStatsByLane[kind] ?? emptyTurnStats()),
+      },
     }))
   }
+
   const appendThinking = (chunk: string, origin: EventOrigin) => {
     if (!chunk) return
     const targetId = targetOf(origin.kind)
@@ -90,62 +109,87 @@ export function createTurnHandlers(
   const handlers: StreamHandlers = {
     onThinking: appendThinking,
     onDelta: (chunk, origin) => {
-      appendAssistant(chunk, origin)
+      if (!chunk) return
+      const targetId = targetOf(origin.kind)
+      const now = Date.now()
+      const est = estimateTokens(chunk)
+      // **一次 set 写三处**（正文/该栏账/全局账）。原先一个 delta 要写三次 store，
+      // 而每次写入都会跑一遍 `messages.map`——长会话里这是流式掉帧的主要来源之一。
       set((s) => {
-        const now = Date.now()
-        const estTokens = s.turnStats.estTokens + estimateTokens(chunk)
-        const samples = [...s.turnStats.samples, [now, estTokens] as [number, number]]
+        const lane = s.turnStatsByLane[origin.kind] ?? emptyTurnStats()
+        const stats = s.turnStats
+        const estTokens = stats.estTokens + est
+        const samples = [...stats.samples, [now, estTokens] as [number, number]]
         // 只留最近 4 秒的采样，窗口计算足够（2s 窗口）
         const cutoff = now - 4000
         const start = samples.findIndex(([t]) => t >= cutoff)
         return {
+          messages: s.messages.map((m) =>
+            // 首个正文 delta 到达 → 思考阶段结束（供前端收起/打勾）
+            m.id === targetId ? { ...m, content: m.content + chunk, thinkingDone: true } : m,
+          ),
           turnStats: {
-            ...s.turnStats,
-            firstDeltaAt: s.turnStats.firstDeltaAt ?? now,
+            ...stats,
+            firstDeltaAt: stats.firstDeltaAt ?? now,
             lastDeltaAt: now,
             estTokens,
             samples: start > 0 ? samples.slice(start) : samples,
           },
+          turnStatsByLane: {
+            ...s.turnStatsByLane,
+            // 该栏自己的首字/末字时间：多答时比较「谁先出字、谁更快」全靠它
+            [origin.kind]: {
+              ...lane,
+              firstDeltaAt: lane.firstDeltaAt ?? now,
+              lastDeltaAt: now,
+              estTokens: lane.estTokens + est,
+            },
+          },
         }
       })
+    },
+    onCitations: (citations, origin) => {
+      if (citations.length === 0) return
+      // 引用表落在**该栏自己的**气泡上：多答时两栏可能引完全不同的材料，写死
+      // 主栏会让 B 栏那句「见[K1]」点开的是 A 栏的证据。与正文/工具行走同一张
+      // 路由表（targetOf），单栏时它回落默认气泡，口径与引入多答前一致。
+      //
+      // 写进气泡本身就是「流内缓存」：这一轮的正文在收尾落库前只活在这里，
+      // 角标要能立刻点开就只能挑这条消息；刷新后另由 metadata.citations 重建
+      // （见 domain/transcript.historyToMessages）。同 citeNo 后到为准，见
+      // mergeCitations（增量事件可能先给名字、后补页码/原文）。
+      const targetId = targetOf(origin.kind)
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === targetId ? { ...m, citations: mergeCitations(m.citations, citations) } : m,
+        ),
+      }))
     },
     onToolCall: (event, origin) => {
-      // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）
-      if (event.tool_call_id && event.name?.endsWith('rewrite_folder_file')) {
-        const extracted = extractRewriteArgs(event.arguments)
-        if (extracted) rewriteArgsById.set(event.tool_call_id, extracted)
-      }
-      // pi 对同一工具调用可能发多条 message_end（arguments 渐进完整），
-      // 以 tool_call_id 去重：已有则原行保留，没有才追加
+      // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）。
+      // 原文/改写全文只在这里完整到达（tool_result 的 result 被 SSE 截到 2000 字）。
+      const extracted =
+        event.name?.endsWith('rewrite_folder_file') && event.tool_call_id
+          ? extractRewriteArgs(event.arguments)
+          : null
+      if (event.tool_call_id && extracted) rewriteArgsById.set(event.tool_call_id, extracted)
       set((s) => {
-        if (event.tool_call_id && s.messages.some((m) => m.toolCallId === event.tool_call_id)) {
-          return s
-        }
-        return {
-          messages: [
-            ...s.messages,
-            {
-              id: nextLocalId(),
-              role: 'tool',
-              content: '',
-              toolName: event.name,
-              toolCallId: event.tool_call_id,
-              // 多答时各栏各自调工具：工具行必须带来源，否则回放时分不出证据归谁
-              ...(origin.kind ? { agentKind: origin.kind } : {}),
-            },
-          ],
-        }
+        // 工具调用的两层落点（转录工具行 + 气泡上的活动行）都在 domain/progress：
+        // 这里只管本轮修订参数缓存与写状态。返回原引用 = 什么都没变（不写状态）。
+        const messages = applyToolCall(s.messages, targetOf(origin.kind), {
+          ...(event.tool_call_id ? { toolCallId: event.tool_call_id } : {}),
+          toolName: event.name,
+          ...(origin.kind ? { agentKind: origin.kind } : {}),
+          ...(extracted ? { rewrite: extracted } : {}),
+        })
+        return messages === s.messages ? s : { messages }
       })
     },
-    onToolResult: (event) => {
-      const matchId = event.tool_call_id
+    onToolResult: (event, origin) => {
       set((s) => ({
-        // tool_call 与 tool_result 以 tool_call_id 归并；缺 id 时落最近一个空 tool 气泡
-        messages: s.messages.map((m, i) => {
-          const byId = m.role === 'tool' && matchId && m.toolCallId === matchId
-          const lastEmpty =
-            !matchId && m.role === 'tool' && !m.content && s.messages.slice(i + 1).every((x) => x.role !== 'tool')
-          return byId || lastEmpty ? { ...m, content: String(event.result ?? '') } : m
+        messages: applyToolResult(s.messages, targetOf(origin.kind), {
+          ...(event.tool_call_id ? { toolCallId: event.tool_call_id } : {}),
+          result: String(event.result ?? ''),
         }),
       }))
       // AI 把修订写回文件夹文件（rewrite_folder_file 落盘成功）：广播给正
@@ -158,7 +202,15 @@ export function createTurnHandlers(
         window.dispatchEvent(new CustomEvent(FILE_REWRITTEN_EVENT, { detail: rewrite }))
       }
     },
-    onUsage: (usage) => {
+    onUsage: (usage, origin) => {
+      // 分栏账：多答的核心可比性（哪一栏贵、哪一栏缓存命中高）
+      bumpLane(origin.kind, (lane) => ({
+        ...lane,
+        exactTokens: (lane.exactTokens ?? 0) + usage.outputTokens,
+        inputTokens: (lane.inputTokens ?? 0) + usage.inputTokens,
+        cacheReadTokens: (lane.cacheReadTokens ?? 0) + usage.cacheReadTokens,
+        cacheWriteTokens: (lane.cacheWriteTokens ?? 0) + usage.cacheWriteTokens,
+      }))
       set((s) => ({
         turnStats: {
           ...s.turnStats,
@@ -171,7 +223,8 @@ export function createTurnHandlers(
         },
       }))
     },
-    onApproval: (event) => {
+    onApproval: (event, origin) => {
+      const sessionId = useCopilot.getState().sessionId
       set((s) => ({
         approvals: [
           ...s.approvals,
@@ -179,13 +232,41 @@ export function createTurnHandlers(
             approvalId: event.approval_id,
             toolName: event.tool_name,
             toolArgs: event.tool_args ?? {},
-            message: event.message,
+            // 契约里 `message` 带默认值 → 线路上可能不发这个键（节点/降级卡片会这样）。
+            // 缺失时给空串：卡片正文区留白，但按钮与倒计时照常工作（不能整个卡片不渲染）。
+            message: event.message ?? '',
             receivedAt: Date.now(),
             riskLevel: event.risk_level,
             needsSecondConfirmation: event.needs_second_confirmation,
+            // 多答时两栏可能同时要审批：卡上不写来源就分不清是谁要动库表
+            ...(origin.kind ? { agentKind: origin.kind } : {}),
+            // 事件只出现在某个会话的流上，入队时补归属：补拉路径拿服务端的
+            // `session_id` 过滤，两条路径必须同一个字段才不会再把别人的卡带进来
+            ...(sessionId ? { sessionId } : {}),
           },
         ],
       }))
+    },
+    onQuestion: (event, origin) => {
+      // 归一化失败（模型给了完全无法解析的题面）时宁可不渲染，也不占着交互席位：
+      // 后端到点会按假设继续，前端多一张空白卡只会让人以为是 bug
+      const questions = normalizeQuestions(event.questions)
+      if (questions.length === 0) return
+      // 事件不带 session（它只出现在某个会话的流上）：入队时补上，
+      // 否则切会话后旧会话的提问会渲染到新会话里
+      const sessionId = useCopilot.getState().sessionId
+      if (!sessionId) return
+      useCopilot.getState().enqueueQuestion({
+        questionId: event.question_id,
+        sessionId,
+        questions,
+        timeoutSeconds:
+          typeof event.timeout_seconds === 'number' && event.timeout_seconds > 0
+            ? event.timeout_seconds
+            : QUESTION_TIMEOUT_FALLBACK_S,
+        receivedAt: Date.now(),
+        ...(origin.kind ? { agentKind: origin.kind } : {}),
+      })
     },
     onQueued: (position) => {
       set({ queuePosition: Math.max(1, position) })
@@ -196,6 +277,12 @@ export function createTurnHandlers(
       set({ compacting: phase === 'start' })
     },
     onProgress: clearQueueBanner,
+    onStreamEnd: () => {
+      // `compacting` 只能靠 compaction end 事件退场；断流时那个事件永远不会来，
+      // Composer 底栏就会永远写着「正在压缩上下文…」（压缩中途按停止即可复现）。
+      // 与 `sawDone` 无关：正常结束走到这里时它早已是 false，多一次判断只会多一个分支。
+      set((s) => (s.compacting ? { compacting: false } : s))
+    },
     onDegraded: (reason) => {
       // 后端降级（aux 席位已满）：本轮律师选了几家，实际只跑了一家。不说明的话
       // 他会以为对比没生效、或者其余几家的回答丢了。
@@ -238,6 +325,8 @@ export function createTurnHandlers(
       // 无处可写，界面上两栏都是「(无内容)」，并冒出一句「流处理异常」。
       // 单后端时 columnCount === 1，收这一栏等价于收全部，行为与原来一致。
       const doneId = targetOf(origin.kind)
+      const doneAt = Date.now()
+      bumpLane(origin.kind, (lane) => ({ ...lane, doneAt }))
       set((s) => ({
         messages: s.messages.map((m) =>
           m.id === doneId && m.streaming ? { ...m, streaming: false } : m,

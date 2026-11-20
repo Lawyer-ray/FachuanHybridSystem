@@ -58,6 +58,49 @@ export function storeAgentKind(kind: string): void {
  * 用户对这件事只有一个态度，不该按宿主记两个 key —— 在抽屉里收起过列表，
  * 打开独立页时它又自己弹回来，就是没记住。默认展开。
  */
+/**
+ * 草稿按会话持久化（滑动窗口式保留最近几条，不无限增长）。
+ *
+ * 为什么需要一个 key 前缀而不是单个 key：律师在 A 会话说了一半去 B 会话查东西，
+ * 回来时草稿必须还在。单 key 会在切会话那一刻被覆盖成空串。
+ */
+const DRAFT_PREFIX = 'copilot:draft:'
+/** 同时保留多少个会话的草稿（超出时淘汰最早的那条） */
+const DRAFT_LIMIT = 20
+/** 新建会话（sessionId 为空）的草稿键 */
+export const NEW_SESSION_DRAFT_KEY = 'new'
+
+export function readDraft(sessionId: string | null): string {
+  try {
+    return localStorage.getItem(DRAFT_PREFIX + (sessionId ?? NEW_SESSION_DRAFT_KEY)) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** 写入草稿；空串等于删除（不留一堆空 key） */
+export function storeDraft(sessionId: string | null, text: string): void {
+  try {
+    const key = DRAFT_PREFIX + (sessionId ?? NEW_SESSION_DRAFT_KEY)
+    if (!text.trim()) {
+      localStorage.removeItem(key)
+      return
+    }
+    localStorage.setItem(key, text)
+    // 淘汰：只在新增 key 时做一次，避免每次写都扫全表
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(DRAFT_PREFIX))
+    if (keys.length > DRAFT_LIMIT) {
+      for (const stale of keys.slice(0, keys.length - DRAFT_LIMIT)) localStorage.removeItem(stale)
+    }
+  } catch {
+    /* 无 localStorage 环境忽略 */
+  }
+}
+
+export function clearDraft(sessionId: string | null): void {
+  storeDraft(sessionId, '')
+}
+
 export function readStoredRailOpen(): boolean {
   try {
     return localStorage.getItem(RAIL_KEY) !== '0'

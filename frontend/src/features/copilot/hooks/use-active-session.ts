@@ -38,6 +38,7 @@ export function useActiveSession(): ActiveSessionInfo {
   const switchSession = useCopilot((s) => s.switchSession)
   const enterContext = useCopilot((s) => s.enterContext)
   const loadPendingApprovals = useCopilot((s) => s.loadPendingApprovals)
+  const loadPendingQuestions = useCopilot((s) => s.loadPendingQuestions)
   const refreshHistory = useCopilot((s) => s.refreshHistory)
   const loadBackends = useCopilot((s) => s.loadBackends)
   const backends = useCopilot((s) => s.backends)
@@ -75,6 +76,12 @@ export function useActiveSession(): ActiveSessionInfo {
   useEffect(() => {
     if (!streaming) void loadPendingApprovals()
   }, [streaming, sessionId, loadPendingApprovals])
+
+  // 待答提问同口径补拉：模型反问时若页面关着（后台任务/换设备），事件早已错过，
+  // 但问题仍在服务端待答——不补拉的话模型只能按假设继续，律师事后无从得知
+  useEffect(() => {
+    if (!streaming) void loadPendingQuestions()
+  }, [streaming, sessionId, loadPendingQuestions])
 
   // 会话列表按业务范围取：context（案件/合同页打开）时只列该范围的会话；
   // scopeKey 进 queryKey 保证两套列表缓存互不串

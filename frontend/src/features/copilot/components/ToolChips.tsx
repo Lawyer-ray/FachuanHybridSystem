@@ -14,6 +14,8 @@ import { Wrench } from 'lucide-react'
 import { shortToolName } from '../domain'
 import type { ChatMessage } from '../types'
 
+import { DiffBlock } from './markdown/DiffBlock'
+
 export const OwnToolList = memo(function OwnToolList({ tools }: { tools: ChatMessage[] }) {
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -38,6 +40,15 @@ export const ToolChip = memo(function ToolChip({ tool }: { tool: ChatMessage }) 
         <span className="max-w-[190px] truncate font-mono">{name}</span>
         <span className="flex-none text-[10px] opacity-70">{done ? '' : '…'}</span>
       </summary>
+      {done && tool.rewrite && (
+        <div className="max-w-[min(560px,80vw)] px-1.5 pb-1">
+          <DiffBlock
+            original={tool.rewrite.original}
+            replacement={tool.rewrite.replacement}
+            filename={tool.rewrite.filename}
+          />
+        </div>
+      )}
       {done && (
         <pre className="max-h-40 max-w-[min(420px,70vw)] overflow-auto border-t border-border/70 px-1.5 py-1 font-mono text-[10.5px] leading-relaxed break-all whitespace-pre-wrap text-secondary-foreground">
           {tool.content}

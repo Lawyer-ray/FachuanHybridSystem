@@ -461,7 +461,7 @@ POST /tasks {message, title?, case_id?}
 
 ```
 meta → activity(thinking|queued)? → delta*/thinking* → tool_call* → tool_result*
-     → usage* → approval_request? → error? → done
+     → citations* → usage* → approval_request? → error? → done
 ```
 
 | 事件 | 关键字段 |
@@ -472,10 +472,20 @@ meta → activity(thinking|queued)? → delta*/thinking* → tool_call* → tool
 | `thinking` | `content`（思考增量，不推高正文水位） |
 | `tool_call` | `tool_call_id` / `name` / `arguments` |
 | `tool_result` | `tool_call_id` / `name` / `result`（纯文本，≤2000 字）/ `is_error` |
+| `citations` | `citations[]`：`cite_no` / `kind` / `ref_id` / `name` / `page` / `clause` / `chunk_id` / `text`（每次检索一帧，只带**新增**） |
 | `usage` | `input_tokens` / `output_tokens` |
 | `approval_request` | `approval_id` / `tool_name` / `tool_args` / `risk_level` / `needs_second_confirmation` |
-| `error` | `message`（已翻译成人话，不吐堆栈） |
-| `done` | `session_id` |
+| `error` | `message`（已翻译成人话）/ `code` / `scope` / `detail`（见 `errors.py` 的 code 全表） |
+| `done` | `session_id` / `finish_reason` / `context_*` |
+
+`citations` 是「逐句溯源」的线路载体：`backend/apps/agent/services/chat/citations.py`
+把检索类工具结果（`search_cases` / `list_cases` / `list_contracts` / `global_search` /
+`verify_citations` / `check_law_references` / `list_research_results` / `capability_search`）
+投影成 `CitationRef`，`cite_no` 按命中出现顺序 1 起递增（跨轮重来，与模型在正文里
+写 `[K<编号>]` 的计数口径一致，清单同源在 `pi/AGENTS.md`）。本轮**全部**引用同时
+落 `AgentMessage.metadata["citations"]`——刷新后没有 SSE，只有它能把角标重建出来。
+助手消息 metadata 还带 `usage_by_lane`（`{<agent>: {output,input,cache_read,cache_write}}`，
+分栏成本对比刷新后仍在）与 `ttft_ms`（首 token 到请求发出的毫秒数，拿不到就不写）。
 
 `usage` 携带 pi 的精确计数（工具循环里每段 assistant 各发一次），前端流式期间
 用估算展示实时 tok/s、结束后用真实值收尾；累计值落在 `AgentRun` 与助手消息

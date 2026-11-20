@@ -27,7 +27,7 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-import { findInflightPdfSplitJob, findReusablePdfSplitJob } from './pdf-split'
+import { findInflightPdfSplitJob, findReusablePdfSplitJob, jobDownloadUrl, segmentMdUrl, segmentPdfUrl } from './pdf-split'
 
 /** ky ResponsePromise 形状桩：同步可链 .json()，await 得 body */
 function respond(body: unknown) {
@@ -90,6 +90,43 @@ describe('findReusablePdfSplitJob：复用已算好的任务', () => {
   it('查询失败返回 null 而不是抛错：查复用只是优化，失败不该阻断识别主流程', async () => {
     splittingClient().get.mockReturnValue(fail(new Error('503 Service Unavailable')))
     await expect(findReusablePdfSplitJob('a.pdf', 3)).resolves.toBeNull()
+  })
+})
+
+/**
+ * 下载直链构造函数。
+ *
+ * 三个函数返回的是**给人手动打开会 401 的裸地址**，唯一合法用法是交给
+ * `withDownloadTicket()` 换一次性票据后再打开（安全审计 M-2，见函数注释与
+ * `inbox/components/InboxView.dom.test.tsx` 里那次 401 事故的回归注释）。
+ * 因此这里锁两件事：
+ *  1. 前缀与资源路径逐字正确（后端 router 挂在 `/pdf-splitting` 下，不猜）；
+ *  2. `?ids=` 只出现在选中集非空时，且拼的是 segment 主键。
+ */
+describe('下载直链：单段 PDF / 单段 MD / 整包（含 ?ids=）', () => {
+  it('单段 PDF：路径与后端 /pdf-splitting/jobs/{job_id}/segments/{id}/pdf 一致', () => {
+    expect(segmentPdfUrl('job-7', 12)).toBe('/api/v1/pdf-splitting/jobs/job-7/segments/12/pdf')
+  })
+
+  it('单段 MD：与 PDF 同一前缀、同一主键，只有末段不同', () => {
+    expect(segmentMdUrl('job-7', 12)).toBe('/api/v1/pdf-splitting/jobs/job-7/segments/12/md')
+  })
+
+  it('整包下载不带 query（后端按整个任务打包）', () => {
+    expect(jobDownloadUrl('job-7')).toBe('/api/v1/pdf-splitting/jobs/job-7/download')
+    expect(jobDownloadUrl('job-7', [])).toBe('/api/v1/pdf-splitting/jobs/job-7/download')
+  })
+
+  it('只打选中段：ids 为逗号分隔的 segment 主键，且排序去重（同一组选择→同一 URL）', () => {
+    expect(jobDownloadUrl('job-7', [15, 12, 15])).toBe('/api/v1/pdf-splitting/jobs/job-7/download?ids=12,15')
+  })
+
+  it('非正整数的主键被丢掉：传错只会让后端 400，不如在拼串时就清掉', () => {
+    expect(jobDownloadUrl('job-7', [12, 0, -3, 1.5, Number.NaN])).toBe(
+      '/api/v1/pdf-splitting/jobs/job-7/download?ids=12',
+    )
+    // 全是脏值等于什么都没选中 → 退回整包路径（绝不拼出 ?ids= 这种空参）
+    expect(jobDownloadUrl('job-7', [0, -1])).toBe('/api/v1/pdf-splitting/jobs/job-7/download')
   })
 })
 

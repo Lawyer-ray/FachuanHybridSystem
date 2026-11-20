@@ -44,11 +44,16 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
+from ..errors import project_message
 from .rpc_client import PiEvent, PiRpcSession
 
 logger = logging.getLogger(__name__)
 
 _RESULT_PREVIEW_LIMIT = 2000
+
+#: 上游只给了纯英文/堆栈时的兜底文案（pi 自己的错，文案沿用引入 code 之前的说法，
+#: 集成测试与运维文档都已经认得这一句）。
+_PI_ERROR_FALLBACK = "pi 运行失败，请稍后重试（详见服务端日志）"
 
 
 def _content_text(message: dict[str, Any]) -> str:
@@ -280,7 +285,11 @@ def translate_all(
         return [{"type": "compaction", "phase": "end"}]
 
     if etype == "error":
-        return [{"type": "error", "message": str(event.raw.get("message") or "pi 运行错误")}]
+        # 走 ``errors.project_message`` 而不是手写帧：pi 的 error 事件只给一句话，
+        # 而同一句话可能就是一个 429（该提示「等几秒」）或上下文超限（该提示
+        # 「压缩或新开会话」）。手写帧时前端拿不到 ``code``，只能归到「未知错误」，
+        # 同一件事在别的路径上却叫 ``rate_limited``——两端不一致，无论哪边对。
+        return [project_message(str(event.raw.get("message") or ""), fallback_message=_PI_ERROR_FALLBACK)]
 
     return []
 
@@ -427,4 +436,16 @@ async def stream_events(
         for translated in translate_all(event, agent=agent, tracker=tracker):
             yield translated
         if event.kind == "event" and event.event_type == "agent_settled":
+            # 发一个**内部标记**（不是 ``done``）把「本轮已收尾」这件事传出去。
+            #
+            # 为什么不用 ``done``：线上只能有一条 done，它由编排层
+            # （``services/chat/stream.py``）统一发——那里才知道落库主键与
+            # 会话级水位。历史上这里直接 ``return``，于是 ``pi_backend`` 里
+            # 「收到 done 就取上下文水位」的分支永不执行，水位恒为 None，
+            # 前端的水位条从来没亮过（不是前端 bug）。
+            #
+            # 为什么标记必须在这里发：``agent_settled`` 是 pi 明确的「不会再有
+            # 自动继续」边界，也是 pi 进程还活着、``get_session_stats`` 还拿得到
+            # 数的最后时刻。晚一步就取不到了。
+            yield {"type": "settled"}
             return

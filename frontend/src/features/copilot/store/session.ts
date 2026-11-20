@@ -6,7 +6,7 @@
  */
 
 import * as copilotApi from '../api'
-import { historyToMessages } from '../domain'
+import { HISTORY_PAGE_SIZE, historyToMessages, oldestDbId } from '../domain'
 import { storeSession } from '../persistence'
 import { withViewTransition } from '../transitions'
 import type { CopilotState } from '../types'
@@ -17,6 +17,29 @@ export type SessionSlice = Pick<
   CopilotState,
   'enterContext' | 'exitContext' | 'switchSession' | 'refreshHistory' | 'loadOlderHistory'
 >
+
+/**
+ * 「这一批是不是最后一页」——判断还有没有更早的历史，**唯一的判据**。
+ *
+ * 后端 `list_messages` 按 `created_at desc, id desc` 取 limit 条再反转成正序：
+ * 不传 `before_id` 得到的是**最新一页**，传了得到的是该游标之前的一页。也就是说
+ * 每个请求都是「切一刀取 limit 条」，所以只可能有两种结果——
+ *
+ * - 返回条数 == limit：被 limit 截断了，服务端大概率还有更早的（前端继续给按钮，
+ *   点下去拿到 0 条时才真正收敛）；
+ * - 返回条数 < limit：服务端手里的记录已经不够一页 ⟹ 这一刀切到了头，没有更早的。
+ *
+ * 这就是为什么判据必须写成「本批条数 < 页大小」，而不能写成任何**累计**口径
+ * （比如「已加载总条数 < 页大小」或「本批条数 == 0」）：最新一页本身就可能是
+ * 不足一页的短页，累计口径会把「一共只有 199 条」误判成「还能翻」。
+ *
+ * 三处调用点（首屏 / 轮询刷新 / 追加上一页）必须**全部**过这个函数，否则又会出现
+ * 「某一处换了判据、按钮状态与实际不符」的老问题（见 store.session-history.test.ts
+ * 的 100/199/200/201 / refreshHistory 用例）。
+ */
+function isLastHistoryPage(batch: readonly unknown[]): boolean {
+  return batch.length < HISTORY_PAGE_SIZE
+}
 
 export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
   enterContext: async (context) => {
@@ -70,7 +93,25 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
     if (id === prev.sessionId && !prev.streaming && (id === null || hasView)) return
     get().stop()
     withViewTransition(() => {
-      set({ sessionId: id, messages: [], approvals: [], lastError: null, loadingHistory: id !== null, queuePosition: null, queuedSteers: [], contextUsage: { used: null, total: null } })
+      // 切会话要清掉上一个会话的待答提问与草稿（与 approvals 同口径）：
+      // 它们是「本会话的交互席位」，跨会话保留会让律师在 B 会话里回答 A 的问题
+      set({
+        sessionId: id,
+        messages: [],
+        approvals: [],
+        pendingQuestions: [],
+        questionDrafts: {},
+        lastError: null,
+        loadingHistory: id !== null,
+        // 翻页下限**必须随会话一起清掉**：它是上一个会话的事实，不是新会话的。
+        // 不清的话，在 A 会话翻到底（true）再切到 B，B 在历史回来之前（以及拉取
+        // 失败时）会继承 A 的 true，按钮直接消失——用户看到的是「B 明明有更早的
+        // 消息却加载不了」，刷新页面才恢复。
+        noMoreHistory: false,
+        queuePosition: null,
+        queuedSteers: [],
+        contextUsage: { used: null, total: null },
+      })
     })
     storeSession(id)
     if (!id) return
@@ -81,7 +122,11 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
       // 等待期间用户可能又切走了：只回填仍是当前会话的结果
       if (get().sessionId === id) {
         withViewTransition(() => {
-          set({ messages: historyToMessages(rows), loadingHistory: false, noMoreHistory: rows.length < 200 })
+          set({
+            messages: historyToMessages(rows),
+            loadingHistory: false,
+            noMoreHistory: isLastHistoryPage(rows),
+          })
         })
       }
     } catch {
@@ -100,7 +145,13 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
       const rows = await copilotApi.fetchHistory(id)
       if (get().sessionId === id) {
         withViewTransition(() => {
-          set({ messages: historyToMessages(rows) })
+          // 替换转录的同时**必须重算** noMoreHistory。原实现只换 messages，
+          // 于是下面这个真实场景会把按钮永久藏起来：
+          //   会话 250 条 → 首屏 200 条（false）→ 翻一页 50 条 → true（已到底）
+          //   → 后台任务跑完触发 refreshHistory → 转录被换回「最新 200 条」，
+          //     可 noMoreHistory 还是 true ⟹ 按钮不出，最早那 50 条再也翻不回来。
+          // 替换后的转录是「最新一页」，就用同一把尺子（本批 < 页大小）重算。
+          set({ messages: historyToMessages(rows), noMoreHistory: isLastHistoryPage(rows) })
         })
       }
     } catch {
@@ -111,22 +162,24 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
   loadOlderHistory: async () => {
     const { sessionId, messages, loadingHistory, streaming, noMoreHistory } = get()
     if (!sessionId || loadingHistory || streaming || noMoreHistory) return
-    const oldest = messages.find((m) => m.id.startsWith('db-'))
-    const beforeId = oldest ? Number(oldest.id.slice(3)) : undefined
+    // 游标 = 首条已落库消息的主键（实时气泡没有主键，跳过）
+    const beforeId = oldestDbId(messages)
     if (!beforeId) {
       set({ noMoreHistory: true })
       return
     }
     set({ loadingOlder: true })
     try {
-      const older = await copilotApi.fetchHistory(sessionId, 200, beforeId)
+      const older = await copilotApi.fetchHistory(sessionId, HISTORY_PAGE_SIZE, beforeId)
       if (older.length === 0) {
         set({ noMoreHistory: true })
         return
       }
       set((s) => ({
         messages: [...historyToMessages(older), ...s.messages],
-        noMoreHistory: older.length < 200,
+        // 追加上一页：到没到头只看**这一批**够不够一页（`older.length === 0` 的
+        // 情况上面已提前返回，所以这里必然是 1..=页大小，`< 页大小` 即最后一页）。
+        noMoreHistory: isLastHistoryPage(older),
       }))
     } catch {
       /* 静默：翻页失败不打扰当前对话 */

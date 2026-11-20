@@ -6,8 +6,10 @@ import hashlib
 import json
 import logging
 import os
+import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,7 @@ from django.core.files.storage import default_storage
 from apps.automation.services.ocr.ocr_service import OCRService  # 保留直接构造：需要运行时 use_v5 参数控制精度/速度
 from apps.document_parsing.protocols.document_parser_protocol import normalize_block_type
 from apps.pdf_splitting.models import PdfSplitOcrProfile
+from apps.pdf_splitting.services.heartbeat import heartbeat_block
 
 from .dual_engine import normalize_paddleocr_vl_blocks
 from .split_models import OCRPageResult, OCRRuntimeProfile
@@ -37,6 +40,113 @@ _VL_LAYOUT_SIDE = 1000.0
 #: 云端平台的 source_method 前缀（``mineru_ocr`` / ``textin_empty`` …）。
 #: 缓存命中时靠它恢复真实来源——档案名记的是**首选**平台，容灾后可能名不副实。
 _CLOUD_METHOD_PREFIXES = ("mineru", "textin")
+
+#: 单页云端 OCR 的**最坏**墙钟：一次调用最多能占到这么久才开始报错。
+#:
+#: 取值与 ``apps.automation.services.ocr.paddleocr_api_service._JOB_TIMEOUT_FLOOR_SECONDS``
+#: （300.0s，单页/页数未知时的轮询下限）对齐。不 import 那个私有常量：它是 OCR 子系统的
+#: 内部默认值，随时可能调整，而这里的用途是「预算规划的最坏值」，两边语义不同，
+#: 只是**当前**恰好相等；真要变时应该由本常量领跑并回头校准。
+SINGLE_PAGE_OCR_WORST_CASE_SECONDS = 300.0
+
+#: 单页决策的安全余量：拿定主意「这一页还值得发」之后，剩下的搬砖时间
+#: （写页缓存、进度回写、线程调度抖动）。
+#:
+#: 60s 不是拍脑袋：缓存写一页是一个小 JSON（实测毫秒级），进度回写是单列
+#: ``update()``；60s 全给调度抖动与 GIL 排队也敌得过线程池 6 路并发的实测形态。
+SINGLE_PAGE_OCR_SAFETY_MARGIN_SECONDS = 60.0
+
+
+@dataclass
+class OCRStageBudget:
+    """取字阶段的墙钟预算（``time.monotonic`` 截止点），供逐页 OCR 做降级决策。
+
+    ## 为什么需要它（2026-11-20 事故）
+
+    93 页卷宗 extract 阶段：11:40:43 启动，11:41:56 MinerU 4 批跑完，之后 PaddleOCR
+    单页 OCR **连续 8 次** ``Job 超时（300s）``，11:57 才恢复。12:00:43 django-q 按
+    ``Task exceeded maximum timeout value (1200 seconds)`` 硬杀 worker 进程——
+    ``finally`` 都不执行，已付费的两次 MinerU + 8 次 OCR 全部作废（``segs=0``）。
+
+    根因不是「预算太小」，而是**最坏情况无上界**：单页 300s × 93 页 / 3 个 worker
+    = 9300s，任何合理预算都盖不住。所以这里算的是「还剩多少」，让逐页 OCR 在
+    预算耗尽前**主动停止提交注定超时的云端调用**——把「整轮白跑」换成
+    「在预算内自然结束 + 明确标出哪几页没取到字」。
+
+    ``skipped_pages`` 记录因预算不足被跳过的页号：这些页**不会**写进 OCR 页缓存
+    （见 ``split/pipeline._resolve_pending_pages``），否则一次临时的预算耗尽会被
+    缓存成「这页永久没字」，重跑时连重试机会都没有。
+    """
+
+    #: ``time.monotonic()`` 下的截止点（不是墙钟：NTP 校时/时区变化都不该影响它）
+    deadline_monotonic: float
+    #: 本段预算总秒数（排障时和日志一起看，才知道「剩 400s」是好是坏）
+    total_seconds: float
+    #: 起点（算已用时长用）
+    started_monotonic: float
+    #: 因预算不足跳过的页号。线程池里多个 worker 会并发 ``add``：
+    #: ``set.add`` 在 CPython 下是原子的，与 ``heartbeat``` 模块起线程同一套假定。
+    skipped_pages: set[int] = field(default_factory=set)
+
+    def remaining_seconds(self, *, now: float | None = None) -> float:
+        """还剩多少秒（可能为负：已经超了，此时任何云端调用都不该发）。"""
+        return self.deadline_monotonic - (time.monotonic() if now is None else now)
+
+    def required_seconds(self) -> float:
+        """一次单页云端 OCR 需要的最小剩余预算（最坏耗时 + 安全余量）。"""
+        return SINGLE_PAGE_OCR_WORST_CASE_SECONDS + SINGLE_PAGE_OCR_SAFETY_MARGIN_SECONDS
+
+    def allows_single_page_ocr(self, *, now: float | None = None) -> bool:
+        """现在再发一次单页云端识别，还来得及在预算内收手吗？
+
+        这是**降级触发点**：``剩余预算 < 单页最坏超时（300s）+ 安全余量（60s）``
+        时返回 False。少发一次可能成功的调用，换整轮结果不被 django-q 硬杀。
+        """
+        return self.remaining_seconds(now=now) >= self.required_seconds()
+
+    def mark_skipped(self, page_no: int) -> None:
+        self.skipped_pages.add(page_no)
+
+    @property
+    def skipped_count(self) -> int:
+        return len(self.skipped_pages)
+
+
+def _safe_beat(beat: Callable[[], None]) -> None:
+    """显式心跳“绝不影响识别”。
+
+    为什么要包一层：页边界上的 `beat()` 是同步调用，而它写的是 DB（连接抖动/死锁都可能抛）。
+    一旦抛出去，会被 `_ocr_pages_worker` 外层的 `except` 当成“整个分片炸了”，把一批本来是
+    好好的页全标成 `ocr_failed`——用一次写库抖动换一整批页的文字，得不偿失。
+    后台线程版的 `heartbeat_block` 本来就 swallow（`heartbeat.py:_heartbeat_loop`），两者语义要一致。
+    """
+    try:
+        beat()
+    except Exception:
+        logger.warning("pdf_split_page_heartbeat_failed", exc_info=True)
+
+
+def _budget_allows_page(budget: OCRStageBudget | None, *, page_no: int) -> bool:
+    """预算门禁：True = 可以发云端调用；False = 该页直接标 ``ocr_failed``。
+
+    单独抽成函数是为了让「跳过」这件事只有**一处**：日志、计数、返回值的语义
+    都绑在一起，不会出现某个调用点忘了记数。
+    """
+    if budget is None:  # 没算预算（旧调用路径 / 单测桩）= 不降级，行为与改动前完全一致
+        return True
+    if budget.allows_single_page_ocr():
+        return True
+    budget.mark_skipped(page_no)
+    logger.warning(
+        "pdf_split_ocr_page_skipped_budget",
+        extra={
+            "page_no": page_no,
+            "remaining_seconds": round(budget.remaining_seconds(), 1),
+            "required_seconds": round(budget.required_seconds(), 1),
+            "budget_total_seconds": round(budget.total_seconds, 1),
+        },
+    )
+    return False
 
 
 def cloud_backend_of_method(source_method: str) -> str:
@@ -134,33 +244,74 @@ def _ocr_pages_worker(
     page_numbers: list[int],
     use_v5: bool,
     dpi: int,
+    budget: OCRStageBudget | None = None,
+    heartbeat: Callable[[], None] | None = None,
 ) -> list[OCRPageResult]:  # pragma: no cover
+    """线程池的一个分片：逐页渲染 + 云端识别，**每页前后都刷心跳**。
+
+    ## 心跳为何要在这里刷（2026-11-20 事故）
+
+    本函数跑在 ``parallel_ocr`` 的线程池里，逐页串行调云端识别，单页最坏 300s。
+    进度回调只在本批次**全部跑完**后才触发（见 ``pipeline._resolve_pending_pages``），
+    所以整个批次期间 DB 一行不写：事故中这里冻结了 839s，``heartbeat_at`` 停在
+    11:43:23。看门狗靠 ``max(heartbeat_at, updated_at)`` 判活，再多冻一倍时间就会把
+    **仍在正常重试**的任务判死重排——重排 = 整份卷宗再付一次云端费用。
+
+    两层保护：
+    1. ``heartbeat_block``：阻塞在单页识别里时，后台线程每 15s 补一拍；
+    2. 每页开始/结束（**包括 except 分支**）显式 ``beat()``：即使线程被 GIL 拖慢，
+       页边界上也必定有一拍，且这让「覆盖到失败路径」可被断言（不靠 sleep）。
+
+    心跳是**回调**而不是 job_id：线程池不该知道 job 主键，也不知道该不该写库；
+    上层（``split/service.extract_stage``）把「给这个 job 刷心跳」封成回调往下传。
+    """
     results: list[OCRPageResult] = []
+    beat = heartbeat if heartbeat is not None else (lambda: None)
     ocr_service = OCRService(use_v5=use_v5)
     try:
         with fitz.open(pdf_path) as doc:
             matrix = fitz.Matrix(dpi / 72, dpi / 72)
-            for page_no in page_numbers:
-                layout: dict[str, Any] | None = None
-                try:
-                    page = doc.load_page(page_no - 1)
-                    pix = page.get_pixmap(matrix=matrix)
-                    image_bytes = pix.tobytes("png")
-                    text, layout = _recognize_page(ocr_service, image_bytes, page_no=page_no)
-                    ocr_failed = not bool(text)
-                except Exception:
-                    logger.exception("pdf_split_page_ocr_worker_failed", extra={"page_no": page_no})
-                    text = ""
-                    ocr_failed = True
-                results.append(
-                    OCRPageResult(
-                        page_no=page_no,
-                        text=text,
-                        source_method="ocr" if text else "ocr_failed",
-                        ocr_failed=ocr_failed,
-                        layout=layout,
+            # 整个分片包在心跳块里：这是「阻塞在单页 300s 里」也有心跳的唯一保证。
+            with heartbeat_block(beat):
+                for page_no in page_numbers:
+                    _safe_beat(beat)
+                    layout: dict[str, Any] | None = None
+                    if not _budget_allows_page(budget, page_no=page_no):
+                        # 预算已不足以支撑一次最坏情况的单页调用：不发这一次注定超时的请求，
+                        # 直接把页标成 ocr_failed（下游 llm_segment_detector 会显式标「未取到文字」）。
+                        # 这里**不写页缓存**（由 pipeline 负责）：预算是临时状态，不能缓存成永久失败。
+                        results.append(
+                            OCRPageResult(
+                                page_no=page_no,
+                                text="",
+                                source_method="ocr_failed",
+                                ocr_failed=True,
+                            )
+                        )
+                        _safe_beat(beat)
+                        continue
+                    try:
+                        page = doc.load_page(page_no - 1)
+                        pix = page.get_pixmap(matrix=matrix)
+                        image_bytes = pix.tobytes("png")
+                        text, layout = _recognize_page(ocr_service, image_bytes, page_no=page_no)
+                        ocr_failed = not bool(text)
+                    except Exception:
+                        logger.exception("pdf_split_page_ocr_worker_failed", extra={"page_no": page_no})
+                        text = ""
+                        ocr_failed = True
+                    finally:
+                        # 失败路径同样要刷：事故里就是 8 次超时全走 except，一拍都没刷。
+                        _safe_beat(beat)
+                    results.append(
+                        OCRPageResult(
+                            page_no=page_no,
+                            text=text,
+                            source_method="ocr" if text else "ocr_failed",
+                            ocr_failed=ocr_failed,
+                            layout=layout,
+                        )
                     )
-                )
     except Exception:
         logger.exception("pdf_split_ocr_worker_failed", extra={"pdf_path": pdf_path})
         for page_no in page_numbers:
@@ -296,30 +447,37 @@ class OCRHandler:
         pdf_path: Path,
         page_numbers: list[int],
         runtime_profile: OCRRuntimeProfile,
+        budget: OCRStageBudget | None = None,
+        heartbeat: Callable[[], None] | None = None,
     ) -> dict[int, OCRPageResult]:  # pragma: no cover
+        """并行逐页 OCR（本部署实为云端 API），分片后交给线程池。
+
+        ``budget`` / ``heartbeat`` 都是**可选**的：不传就是改动前的行为（不降级、不刷心跳），
+        存量调用方与测试桩零改动。四个 ``_ocr_pages_worker`` 调用点必须**全部**透传这两个
+        参数：三个是容灾/补跑分支（线程池异常重试、结果缺失重跑），它们跑的是同一批
+        可能阻塞 300s/页的云端调用，漏传一个就会出现「主路径有心跳、补跑路径没有」的
+        黑洞（事故里冻结 839s 的正是这条路径）。
+        """
         if not page_numbers:
             return {}
 
+        worker_kwargs: dict[str, Any] = {
+            "pdf_path": pdf_path.as_posix(),
+            "use_v5": runtime_profile.use_v5,
+            "dpi": runtime_profile.dpi,
+            "budget": budget,
+            "heartbeat": heartbeat,
+        }
+
         if runtime_profile.workers <= 1 or len(page_numbers) <= 1:
-            result_list = _ocr_pages_worker(
-                pdf_path=pdf_path.as_posix(),
-                page_numbers=page_numbers,
-                use_v5=runtime_profile.use_v5,
-                dpi=runtime_profile.dpi,
-            )
+            result_list = _ocr_pages_worker(page_numbers=page_numbers, **worker_kwargs)
             return {item.page_no: item for item in result_list}
 
         results: dict[int, OCRPageResult] = {}
         chunks = _chunk_pages(page_numbers=page_numbers, chunk_count=runtime_profile.workers)
         with ThreadPoolExecutor(max_workers=runtime_profile.workers) as executor:
             future_map = {
-                executor.submit(
-                    _ocr_pages_worker,
-                    pdf_path=pdf_path.as_posix(),
-                    page_numbers=chunk,
-                    use_v5=runtime_profile.use_v5,
-                    dpi=runtime_profile.dpi,
-                ): chunk
+                executor.submit(_ocr_pages_worker, page_numbers=chunk, **worker_kwargs): chunk
                 for chunk in chunks
                 if chunk
             }
@@ -330,12 +488,7 @@ class OCRHandler:
                         results[item.page_no] = item
                 except Exception:
                     logger.exception("pdf_split_parallel_ocr_failed_chunk", extra={"chunk_size": len(chunk)})
-                    for item in _ocr_pages_worker(
-                        pdf_path=pdf_path.as_posix(),
-                        page_numbers=chunk,
-                        use_v5=runtime_profile.use_v5,
-                        dpi=runtime_profile.dpi,
-                    ):
+                    for item in _ocr_pages_worker(page_numbers=chunk, **worker_kwargs):
                         results[item.page_no] = item
 
         if len(results) < len(page_numbers):
@@ -344,12 +497,7 @@ class OCRHandler:
                 "pdf_split_parallel_ocr_missing_results",
                 extra={"missing_pages": len(missing_pages), "total_pages": len(page_numbers)},
             )
-            for item in _ocr_pages_worker(
-                pdf_path=pdf_path.as_posix(),
-                page_numbers=missing_pages,
-                use_v5=runtime_profile.use_v5,
-                dpi=runtime_profile.dpi,
-            ):
+            for item in _ocr_pages_worker(page_numbers=missing_pages, **worker_kwargs):
                 results[item.page_no] = item
         return results
 
@@ -394,13 +542,33 @@ class OCRHandler:
             )
         return best_result
 
-    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:
-        rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
+    def write_ocr_cache(
+        self,
+        *,
+        pdf_hash: str,
+        profile_key: str,
+        result: OCRPageResult,
+        page_no: int | None = None,
+    ) -> None:
+        """写一页的 OCR 缓存。
+
+        ``page_no`` 是**权威页号**（调用方手里那个绝对页号）。不传时退回
+        ``result.page_no``——但调用方都应当传：分批解析的结果曾被按相对页号命名，
+        导致多批互相覆盖（见 ``cloud_batch.rebase_page_result`` 的事故注释）。
+        """
+        target_page = page_no if page_no is not None else result.page_no
+        rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=target_page)
+        layout = result.layout
+        if isinstance(layout, dict) and layout.get("page_no") != target_page:
+            # 条目自证用：layout 里的页号与权威页号保持一致，读侧据此判毒化
+            layout = {**layout, "page_no": target_page}
         payload = {
+            # 自证页号：读侧据此判断「这份内容属不属于这一页」
+            "page_no": target_page,
             "text": result.text,
             "ocr_failed": result.ocr_failed,
             "source_method": result.source_method,
-            "layout": result.layout,
+            "layout": layout,
         }
         content = ContentFile(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         # default_storage.save 遇同名不覆盖而是改名（page_0001_0fm4T2l.json），
@@ -503,12 +671,30 @@ def _load_ocr_cache_entry(*, storage: Any, rel_path: str, page_no: int) -> _OcrC
         return None
     text = str(payload.get("text") or "")
     layout = payload.get("layout")
+    layout_dict = layout if isinstance(layout, dict) else None
+
+    # **缓存必须自证页号**：条目里记的页号与「文件名所指的页号」不一致，说明这份
+    # 内容属于别的页（2026-11-20 事故：分批解析只平移了字典键、没平移
+    # result.page_no，于是每批都往 1..n 这批文件名上写、互相覆盖）。此时宁可当作
+    # 未命中重新取字，也绝不能把别人的文字当成这一页交出去——否则错误会被
+    # 「断点续传」永久固化，且读的时候看不出任何异常。
+    declared = payload.get("page_no")
+    if not isinstance(declared, int) and layout_dict is not None:
+        raw_declared = layout_dict.get("page_no")
+        declared = raw_declared if isinstance(raw_declared, int) else None
+    if isinstance(declared, int) and declared != page_no:
+        logger.warning(
+            "pdf_split_ocr_cache_page_mismatch",
+            extra={"cache_file": rel_path, "requested_page": page_no, "declared_page": declared},
+        )
+        return None
+
     result = OCRPageResult(
         page_no=page_no,
         text=text,
         source_method=_cached_source_method(str(payload.get("source_method") or ""), text=text),
         ocr_failed=bool(payload.get("ocr_failed")),
-        layout=layout if isinstance(layout, dict) else None,
+        layout=layout_dict,
     )
     return _OcrCacheEntry(
         name=rel_path.rsplit("/", 1)[-1],

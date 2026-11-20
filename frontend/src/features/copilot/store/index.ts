@@ -29,6 +29,8 @@ import { createApprovalSlice } from './approval'
 import { createAttachmentSlice } from './attachment'
 import { createBackendsSlice } from './backends'
 import { createContextUsageSlice } from './context-usage'
+import { createMentionSlice } from './mentions'
+import { createQuestionSlice } from './question'
 import { createSessionSlice } from './session'
 import { bumpSessionEpoch } from './session-epoch'
 import { createTurnSlice, EMPTY_STATS } from './turn'
@@ -40,8 +42,10 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   approvals: [],
   streaming: false,
   loadingHistory: false,
+  // pendingQuestions / questionDrafts 由 createQuestionSlice 提供初值（同 approvals 的模式）
   lastError: null,
   turnStats: EMPTY_STATS,
+  turnStatsByLane: {},
   contextUsage: { used: null, total: null },
   compacting: false,
   queuePosition: null,
@@ -71,8 +75,15 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   ...createSessionSlice(set, get),
   ...createTurnSlice(set, get),
   ...createApprovalSlice(set, get),
+  ...createQuestionSlice(set, get),
+  ...createMentionSlice(set, get),
   ...createAttachmentSlice(set, get),
   ...createContextUsageSlice(set, get),
+
+  /** 关闭错误提示（只清展示；错误本身已由调用方处理或无法处理） */
+  clearError: () => {
+    if (get().lastError !== null) set({ lastError: null })
+  },
 
   // ── 全局清理（登出） ────────────────────────────────────────────────
   reset: () => {
@@ -82,10 +93,13 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       sessionId: null,
       messages: [],
       approvals: [],
+      pendingQuestions: [],
+      questionDrafts: {},
       streaming: false,
       loadingHistory: false,
       lastError: null,
       turnStats: { ...EMPTY_STATS },
+      turnStatsByLane: {},
       contextUsage: { used: null, total: null },
       compacting: false,
       queuePosition: null,

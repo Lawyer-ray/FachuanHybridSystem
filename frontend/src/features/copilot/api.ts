@@ -8,7 +8,7 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, UsageSummary } from './types'
+import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
 function scopePayload(scope?: CopilotScope): Record<string, string | number> {
@@ -162,15 +162,157 @@ export interface FolderEntries {
   files: { name: string; subpath: string; size: number; modified_at: string }[]
 }
 
-export function fetchContractFolderEntries(contractId: number, subpath = ''): Promise<FolderEntries> {
+/**
+ * 合同绑定文件夹某一层。`signal` 供 `@` 引用源的中断（查询词变了就 abort 上一轮）。
+ *
+ * 契约：`backend/apps/contracts/api/folder_binding_api.py`（路由前缀 `/contracts`
+ * 由 `backend/apiSystem/apiSystem/api.py:217` 装配）。
+ */
+export function fetchContractFolderEntries(contractId: number, subpath = '', signal?: AbortSignal): Promise<FolderEntries> {
   return api
-    .get(`contracts/${contractId}/folder-entries`, { searchParams: subpath ? { subpath } : {} })
+    .get(`contracts/${contractId}/folder-entries`, { searchParams: subpath ? { subpath } : {}, ...(signal ? { signal } : {}) })
     .json<FolderEntries>()
+}
+
+/**
+ * 案件绑定文件夹某一层（与合同版同形：`CaseFolderEntriesResponseSchema` 与
+ * `ContractFolderEntriesOut` 的 folders/files 字段一致）。
+ *
+ * 契约：`backend/apps/cases/api/case_folder_browse_api.py:54`
+ * `GET /{case_id}/folder-entries?subpath=`，前缀 `/cases` 见 api.py:215。
+ */
+export function fetchCaseFolderEntries(caseId: number, subpath = '', signal?: AbortSignal): Promise<FolderEntries> {
+  return api
+    .get(`cases/${caseId}/folder-entries`, { searchParams: subpath ? { subpath } : {}, ...(signal ? { signal } : {}) })
+    .json<FolderEntries>()
+}
+
+/** 业务范围 → 绑定文件夹某一层的条目（案件/合同两个端点同形，合并成一个入口） */
+export function fetchScopeFolderEntries(
+  scope: CopilotScope,
+  subpath = '',
+  signal?: AbortSignal,
+): Promise<FolderEntries> {
+  return scope.origin === 'case'
+    ? fetchCaseFolderEntries(scope.refId, subpath, signal)
+    : fetchContractFolderEntries(scope.refId, subpath, signal)
+}
+
+/** `@` 引用的文书/目录候选源要的行（本前端只用名字/路径/大小） */
+export interface ScopeFolderRows {
+  browsable: boolean
+  message: string | null
+  folders: { name: string; subpath: string }[]
+  files: { name: string; subpath: string; size: number }[]
+}
+
+/** 候选源再下钻几层子目录（多几次请求换「@起诉状」在真实目录结构上真能命中） */
+export const SCOPE_SUBDIR_SCAN = 6
+
+/** 绑定文件夹候选的缓存（一个业务范围一份）：候选集不随查询词变化，重复拉没意义 */
+const scopeRowsCache = new Map<string, Promise<ScopeFolderRows>>()
+
+/** 测试 / 绑定文件夹变更后用：清掉候选缓存 */
+export function clearScopeFolderRowsCache(): void {
+  scopeRowsCache.clear()
+}
+
+/**
+ * 业务范围 → 绑定文件夹里可 @ 的文件与子目录（根层 + 前 {@link SCOPE_SUBDIR_SCAN} 个子目录）。
+ *
+ * 为什么带下钻：文书几乎不在绑定根（典型是 `1-一审/2-立案材料/起诉状.pdf`），只列根
+ * 会让 `@起诉状` 永远搜不到真正想引的东西。结果按 `origin:refId` 缓存——一次打开菜单
+ * 只发一轮请求，之后每个查询词都命中缓存。
+ *
+ * **已知局限**（需后端端点才能根治，见产出）：深层（≥3 级）文书搜不到，且无服务端
+ * 递归检索能力；单个子目录读失败只跳过它（换机器/权限变了的目录很常见）。
+ *
+ * 注：错误不进缓存（用户到详情页重新绑定后重试应该能看到变化）。
+ */
+export function loadScopeFolderRows(scope: CopilotScope): Promise<ScopeFolderRows> {
+  const key = `${scope.origin}:${scope.refId}`
+  const cached = scopeRowsCache.get(key)
+  if (cached) return cached
+  const pending = (async (): Promise<ScopeFolderRows> => {
+    const root = await fetchScopeFolderEntries(scope)
+    if (!root.browsable) return { browsable: false, message: root.message, folders: [], files: [] }
+    const subdirs = root.folders.slice(0, SCOPE_SUBDIR_SCAN)
+    const deeper = await Promise.allSettled(subdirs.map((folder) => fetchScopeFolderEntries(scope, folder.subpath)))
+    const files = root.files.map(({ name, subpath, size }) => ({ name, subpath, size }))
+    for (const result of deeper) {
+      if (result.status !== 'fulfilled' || !result.value.browsable) continue
+      for (const { name, subpath, size } of result.value.files) files.push({ name, subpath, size })
+    }
+    return { browsable: true, message: null, folders: root.folders, files }
+  })().catch((error: unknown) => {
+    scopeRowsCache.delete(key)
+    throw error
+  })
+  scopeRowsCache.set(key, pending)
+  return pending
+}
+
+/** 全局搜索的一条结果（`core/api/search_api.py` 的 `SearchResultItem`） */
+export interface GlobalSearchItem {
+  id: number
+  title: string
+  subtitle: string
+  side: string
+  case_type: string
+  contract_id: number | null
+  contract_name: string
+}
+
+/**
+ * `GET /search` 的返回（`GlobalSearchResult`）：六类固定键，本前端只用两类的标题/副标题。
+ *
+ * 为什么用全局搜索做 `@案件` / `@合同` 的候选源：它不是为引用写的，但它是**唯一**
+ * 按关键词跨案件/合同检索、且已做行级 ACL 过滤的端点（`search_service.py` 每条
+ * search_* 都接 user/org_access）。单类列表端点（`GET /cases`）要自己拼过滤词，
+ * 且搜索口径会与全局搜索漂移。
+ */
+export interface GlobalSearchResult {
+  clients: GlobalSearchItem[]
+  cases: GlobalSearchItem[]
+  contracts: GlobalSearchItem[]
+  inbox: GlobalSearchItem[]
+  court_sms: GlobalSearchItem[]
+  contacts: GlobalSearchItem[]
+}
+
+/**
+ * 跨实体关键词搜索。契约：`backend/apps/core/api/search_api.py:52`
+ * `GET /search?q=&limit=`（前缀 `/search` 见 api.py:320）。
+ *
+ * `q` 为空时后端直接回空（不是错误）；`limit` 服务端硬顶 10。
+ */
+export function globalSearch(q: string, limit = 5, signal?: AbortSignal): Promise<GlobalSearchResult> {
+  return api.get('search', { searchParams: { q, limit }, ...(signal ? { signal } : {}) }).json<GlobalSearchResult>()
 }
 
 /** 给一条助手消息点赞/点踩（反馈回流；rating: up/down/none，none=撤销） */
 export function rateMessage(messageId: number, rating: 'up' | 'down' | 'none'): Promise<Record<string, unknown>> {
   return api.post(`agent/messages/${messageId}/rating`, { json: { rating } }).json<Record<string, unknown>>()
+}
+
+/**
+ * 提交结构化提问的回答（模型反问的答案回流）。
+ *
+ * 字段名对齐后端 `QuestionAnswerIn`：`answers[].selections/text/comment` +
+ * `skipped`。`success=false` 不等于失败——等待方可能已超时（律师过了 180s 才
+ * 点提交），此时答案仍被记录、模型已按假设继续；调用方应按「已记录但本轮已继续」
+ * 提示，不要当成错误重试。
+ */
+export function answerQuestion(
+  questionId: string,
+  payload: { answers: QuestionAnswerItem[]; skipped: boolean },
+): Promise<QuestionAnswerReceipt> {
+  return api.post(`agent/question/${questionId}/answer`, { json: payload }).json<QuestionAnswerReceipt>()
+}
+
+/** 当前律师待回答的提问（重开会话/面板时补拉，避免错过模型的反问） */
+export function fetchPendingQuestions(): Promise<PendingQuestionItem[]> {
+  return api.get('agent/questions/pending').json<PendingQuestionItem[]>()
 }
 
 /** 取消后台任务（排队中可取消；运行中诚实 409） */

@@ -10,10 +10,11 @@ B. **辅助席位整轮一个**（v27.20 修复）：一轮 N 栏共占**一个*
    各抢一个——默认 ``aux_slots() = 4 × 0.25 = 1``，每栏一个的话三栏会静默掉两栏。
 C. **工具事件按 agentKind 归位**（v27.20.1 修复）：每栏调的工具事件必须带
    ``agent`` / 各自的 ``run_id``，且工具结果落库时带正确的 ``agent_kind``。
-D. **指定模型不让 run_id 撞车**：``run_id = {session_id}:{agent_kind}:1`` 的后缀
-   恒为 1（见 ``stream.py``），多栏并行的唯一性完全靠中间的 ``agent_kind``。
-   一旦有人为了「同一后端两个模型」把模型塞进 run_id 或把后缀改成共享计数，
-   前端会按错误的键分栏、``AgentRun`` 成本会串账。
+D. **指定模型不让 run_id 撞车**：``run_id = {session_id}:{agent_kind}:{turn}``
+   的唯一性来自「中间段是 kind」+「轮次号只在一轮内共享」（见 ``stream.py`` 的
+   ``next_run_turn``）。一旦有人为了「同一后端两个模型」把模型塞进 run_id、
+   或让同一轮的各栏各自取号，前端会按错误的键分栏、``AgentRun`` 成本会串账。
+   轮次号本身**不是**固定 1（跨轮必须不同），但同一轮的三栏必须完全一致。
 E. **模型逐栏落到后端**：``specs`` 里每栏的 ``model`` 必须原样进 ``RunContext.model``
    （未指定的栏是 ``None``，不能继承相邻栏），且写进 ``AgentRun.model`` 与助手
    消息 ``metadata["model"]``——两处必须一致。
@@ -355,19 +356,18 @@ class TestRunIdUniqueness:
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
     async def test_run_ids_are_unique_per_column(self) -> None:
-        """三栏的 ``run_id`` 互不相同，且后缀仍是固定的 ``:1``。
+        """三栏的 ``run_id`` 互不相同，且同一轮共享同一个轮次号。
 
-        防的回归（本次改动的直接风险）：``run_id = f"{session_id}:{agent_kind}:1"``
-        的后缀是**固定 1**，多栏并行的唯一性完全来自中间的 ``agent_kind``。
-        若有人为了让「同一个后端换不同模型」也各占一栏，把模型拼进 run_id、
-        或把后缀改成跨栏共享的轮次计数，就会出两种事故：
+        防的回归：``run_id = f"{session_id}:{agent_kind}:{turn}"`` 的唯一性来自
+        「中间段是 kind」+「同一轮共享一个 turn」。两种改动会出事故：
 
-        - 两栏 run_id 相同 → 前端按 run_id 分栏时两份回答串成一栏；
-        - 后缀不再是 ``:1`` → 审批回调（``FACHUAN_RUN_ID`` 二级寻址）与
-          ``backend.result_for(run_id)`` 对不上，成本与水位归到错的栏。
+        - 两栏 run_id 相同（把 kind 段去掉 / 把模型拼进去当维度）→ 前端按
+          run_id 分栏时两份回答串成一栏；
+        - 每栏各自取号（在 ``stream_chat`` 里各自 INCR 而不从 ``multi`` 传）
+          → 同一轮变成 ``:1`` / ``:2`` / ``:3``，前端再也无法把三条 run 认成
+          一次提问，用量按轮汇总就必然错。
 
-        断言「后缀是 ``:1``」而不是只断言「互不相同」：后者在把后缀改成
-        ``:2`` / ``:3`` 时仍然绿，而那种改动已经破坏了外部契约。
+        所以这里同时钉两件事：**三个 run_id**、**同一个后缀**。
         """
         events = await _collect_three()
 
@@ -376,7 +376,11 @@ class TestRunIdUniqueness:
         assert len(run_ids) == 3, f"三栏必须三个 run_id，实际 {run_ids}"
         session = await AgentSession.objects.order_by("-id").afirst()
         session_id = str(session.session_id)
-        assert run_ids == {f"{session_id}:{kind}:1" for kind in (COLUMN_A, COLUMN_B, COLUMN_C)}
+        turns = {run_id.rsplit(":", 1)[1] for run_id in run_ids}
+        assert len(turns) == 1, f"同一轮的三栏必须共用一个轮次号，实际 {run_ids}"
+        (turn,) = turns
+        assert turn.isdigit() and int(turn) >= 1, f"轮次号必须是正整数，实际 {turn!r}"
+        assert run_ids == {f"{session_id}:{kind}:{turn}" for kind in (COLUMN_A, COLUMN_B, COLUMN_C)}
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
@@ -395,7 +399,11 @@ class TestRunIdUniqueness:
         session_id = str(session.session_id)
         for kind, backend in _INJECTED.items():
             assert len(backend.run_ids) == 1, f"{kind} 这一栏起了 {len(backend.run_ids)} 条流"
-            assert backend.run_ids[0] == f"{session_id}:{kind}:1"
+            # 只有三段：session / kind / 正整数轮次。模型名出现任何一个位置都会让
+            # 这两条断言之一失败（rsplit 拿到的是尾段）。
+            prefix, _, turn = backend.run_ids[0].rpartition(":")
+            assert prefix == f"{session_id}:{kind}", f"中间段必须是 kind，实际 {backend.run_ids[0]}"
+            assert turn.isdigit(), f"尾段必须是轮次号，实际 {turn!r}"
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio

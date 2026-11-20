@@ -98,8 +98,10 @@ def stub_runtime(monkeypatch: pytest.MonkeyPatch) -> _StubPool:
     pool = _StubPool(session)
 
     async def fake_stream(pi_session: Any, *, agent: str = "pi") -> Any:
+        # 与真实 bridge 同形：末尾发**内部标记** ``settled``（不是 done）。
+        # done 由编排层统一发，后端不转发——见 pi/bridge.py 的说明。
         yield {"type": "delta", "content": "答"}
-        yield {"type": "done"}
+        yield {"type": "settled"}
 
     async def fake_get_pool() -> Any:
         return pool
@@ -174,25 +176,35 @@ class TestStreamEvents:
             assert event["run_id"] == "sess-1:pi:1", event
 
     @pytest.mark.django_db
-    def test_result_is_ready_when_done_arrives(self, stub_runtime: _StubPool) -> None:
-        """done 事件产出时 ``result_for(run_id)`` 必须已就位。
+    def test_result_ready_when_generator_ends_and_no_leaked_frames(self, stub_runtime: _StubPool) -> None:
+        """收尾事实必须在生成器结束前就位，且后端**不转发** done / settled。
 
-        编排层收到 done 就停止消费，若收尾事实在 done 之后才写，模型与水位会全丢
-        （AgentRun 记空模型、done 事件没有水位）。
+        历史故障（2026-11）：取水位的触发点是「收到 done」，而 pi 从不发 done
+        ——``bridge.stream_events`` 在 ``agent_settled`` 处直接 ``return``，于是
+        这段分支永不执行：``result_for(run_id)`` 恒 None → ``AgentRun`` 记空模型、
+        ``/sessions/{id}/stats`` 的 ``context_*`` 恒 null → 前端水位条从未亮过。
+
+        现在触发点是 bridge 在 ``agent_settled`` 处发的内部标记 ``settled``。
+        两条不变式一起锁死：
+        1. 生成器结束时 ``result_for`` 已就位；
+        2. 后端既不转发 ``done``（线上唯一那条由编排层发，两条会把多栏的
+           「每栏各一条」计数打乱），也不把内部标记泄漏成线路事件。
         """
         backend = PiBackend()
         ctx = _ctx()
-        seen_done_result: list[PiRunResult | None] = []
+        seen_types: list[str] = []
 
         async def run() -> None:
             async for event in backend.stream(ctx):
-                if event is not None and event.get("type") == "done":
-                    seen_done_result.append(backend.result_for(ctx.run_id))
+                if event is not None:
+                    seen_types.append(str(event.get("type")))
 
         asyncio.run(run())
-        assert seen_done_result, "没有收到 done"
-        result = seen_done_result[0]
-        assert isinstance(result, PiRunResult)
+        assert "done" not in seen_types, "后端不得转发 done（由编排层统一发）"
+        assert "settled" not in seen_types, "内部标记泄漏成了线路事件"
+
+        result = backend.result_for(ctx.run_id)
+        assert isinstance(result, PiRunResult), "生成器结束时收尾事实必须已就位"
         assert result.model == "kimi-2.6"
         # 桩 stats 返回空 dict → 水位应为 None（不编造 0）
         assert result.context_used is None

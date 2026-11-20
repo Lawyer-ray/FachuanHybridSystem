@@ -258,10 +258,12 @@ class TestSingleColumn:
         assert contexts[PRIMARY].api_key in KEYS
         # 单栏只占一把：打开这一栏时在飞计数恰好是 1
         assert probes == {PRIMARY: 1}
-        # 透传路径的 done 不带 agent（既有契约，单栏时前端不需要分流）
+        # 透传路径只发一条 done（单栏不经过合并逻辑），但它必须带 agent / run_id
+        # —— 这几个键已升为所有事件类的公共信封，前端不再区分单栏与多栏。
         dones = [event for event in events if event.get("type") == "done"]
         assert len(dones) == 1
-        assert "agent" not in dones[0]
+        assert dones[0]["agent"] == PRIMARY
+        assert dones[0]["run_id"].endswith(f":{PRIMARY}:1")
         assert get_key_scheduler().snapshot() == {}
 
 

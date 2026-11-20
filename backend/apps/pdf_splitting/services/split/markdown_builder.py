@@ -15,9 +15,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .bbox import normalize_bbox, resolve_bbox_unit
@@ -528,6 +530,40 @@ def build_segment_markdown(title: str, pages: list[PageDescriptor]) -> str:
     """单段 Markdown（不需要页偏移时用这个）。"""
     markdown, _page_spans = _assemble_segment(title, pages)
     return markdown
+
+
+def load_segment_markdown_map(path: Path) -> dict[int, str]:
+    """读 ``segments_md.json`` → ``{order: markdown}``（下载打包 / 段正文透出共用）。
+
+    为什么下载侧要读**落盘产物**而不是现场 ``build_segment_markdown`` 重算：
+    ``segments_md.json`` 是律师在界面上看到的 ``content_md`` 的同一份来源
+    （confirm 手改过页区间后会被重写）。现场重算会得到「下载的 md 和屏幕上的
+    正文不是同一份」——多选下载里这是最难解释的不一致。
+
+    文件缺失 / 损坏 / 形状不对一律回空表并记一条 warning：旧任务没有 md 产物，
+    调用方据此降级（段下载 404、打包只放 pdf），而不是让整个下载失败。
+    """
+    if not path.exists():
+        # 老任务（md 产物上线前建的）就是没有这个文件，属预期内缺产物，不走 warning
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("pdf_split_segments_md_read_failed", extra={"path": str(path)})
+        return {}
+    if not isinstance(payload, list):
+        logger.warning("pdf_split_segments_md_unexpected_shape", extra={"path": str(path)})
+        return {}
+    result: dict[int, str] = {}
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        try:
+            order = int(item.get("order"))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        result[order] = str(item.get("markdown") or "")
+    return result
 
 
 @dataclass

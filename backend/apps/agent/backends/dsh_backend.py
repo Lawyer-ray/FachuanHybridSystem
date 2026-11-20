@@ -47,6 +47,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
+from ..errors import project_message
 from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
 
 logger = logging.getLogger(__name__)
@@ -440,7 +441,16 @@ class DshBackend:
     capabilities = BackendCapabilities(
         streaming=True,
         tool_calls=True,
-        approval=True,
+        # **能力声明必须等于现实**：本版本的 ``_ApprovalPump`` 收到
+        # ``approval/request`` 一律回 ``rejected``（见 ``:data:`_APPROVAL_WIRED```），
+        # 律师看不到任何审批卡。原先写死 ``True``，``/backends`` 把它透给前端，
+        # 前端据此认为切到 dsh 仍有四级审批闸门——这是**合规红线级别的错误
+        # 能力声明**，不是体验问题（``base.py`` 的 ``approval`` 字段注释就写着
+        # 「``False`` 的后端在高危动作上没有人工闸门，启用前必须先由合规确认」）。
+        #
+        # 绑到 ``_APPROVAL_WIRED`` 而不是写死 False：真正接上审批时只改一个常量，
+        # 声明自动跟上——不留「代码接了、声明忘了改」的第二处。
+        approval=_APPROVAL_WIRED,
         compaction=True,
         steer=False,
         concurrent_in_session=False,
@@ -743,8 +753,10 @@ class DshBackend:
             reason = data.get("reason") if isinstance(data.get("reason"), dict) else {}
             kind = str((reason or {}).get("kind") or "")
             if kind == "error":
-                message = str((reason or {}).get("message") or "dsh 本轮以 error 结束")
-                return [{"type": "error", "message": message}]
+                # 投影而不是手写：SDK 只给一句话，但这句话可能就是 429 / 上下文
+                # 超限 / 网关超时。手写帧时前端拿不到 ``code``，只能把「等 60 秒
+                # 就好」读成「这一栏坏了」——多答时尤其惨，律师会以为那个后端废了。
+                return [project_message(str((reason or {}).get("message") or "dsh 本轮以 error 结束"))]
             return []
         if event_type in _SILENT_EVENT_TYPES:
             # 入队回执等：有事件体但无用户可见内容。

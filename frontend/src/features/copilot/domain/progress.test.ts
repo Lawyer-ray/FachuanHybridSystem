@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { activityText, pendingToolCall, toolActionLabel } from './progress'
+import { activityText, applyToolCall, applyToolResult, currentTool, pendingToolCall, toolActionLabel } from './progress'
 import type { ChatMessage } from '../types'
 
 const tool = (id: string, name: string, content = ''): ChatMessage => ({
@@ -41,6 +41,72 @@ describe('pendingToolCall（这一栏此刻在等哪个工具）', () => {
   it('全部已完成时返回 null（此刻不在等任何工具）', () => {
     const tools = [tool('t1', 'get_current_user', '{}'), tool('t2', 'list_cases', '[]')]
     expect(pendingToolCall(tools)).toBeNull()
+  })
+})
+
+/**
+ * 单栏真实形态：气泡上没有 `tools`（那是多栏的渲染槽），只有 `pendingTool`。
+ *
+ * 这一组以前是空的——`activityText` 只看 `message.tools`，而单栏永远是 undefined，
+ * 于是 dsh / openai-agents 调工具的十几秒里界面什么都没有（律师以为卡死）。
+ */
+describe('activityText（单栏：靠 pendingTool 说话）', () => {
+  const assistant = (pendingTool?: ChatMessage): ChatMessage => ({
+    id: 'a1',
+    role: 'assistant',
+    content: '',
+    streaming: true,
+    ...(pendingTool ? { pendingTool } : {}),
+  })
+
+  it('工具还在跑：说清在查什么（不依赖 tools）', () => {
+    expect(activityText(assistant(tool('call-1', 'mcp__fachuan__list_lawyers')))).toBe('正在查律师名单…')
+  })
+
+  it('工具都回来了、正文还没到：转「正在整理资料…」（不是继续「正在查」）', () => {
+    // turn-handlers 的 onToolResult 把 pendingTool 置为**已完成**而不是清空，
+    // 就是为了这一档能判出来：置空的话这里会直接白回去，而正文还要再等好几秒
+    expect(activityText(assistant(tool('call-1', 'get_client', '{"name":"张三"}')))).toBe('正在整理资料…')
+  })
+
+  it('正文到了就不再说动作（正文自己会说话）', () => {
+    expect(activityText({ ...assistant(tool('call-1', 'get_client')), content: '结论' })).toBeNull()
+  })
+
+  it('多栏时 tools 优先：并行调用里还差最早那个没回来', () => {
+    // 多栏的 tools 是本轮全部工具的历史，pendingTool 只是最后一枚；顺序反了会把
+    // 「还在等 get_current_user」说成「正在查律师名单」（后一个已经回来了）
+    const message: ChatMessage = {
+      id: 'a1',
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      tools: [tool('t1', 'get_current_user'), tool('t2', 'list_lawyers', '[]')],
+      pendingTool: tool('t2', 'list_lawyers', '[]'),
+    }
+    expect(activityText(message)).toBe('正在确认身份…')
+  })
+})
+
+describe('currentTool（这条气泡的焦点工具）', () => {
+  it('两个来源都空时返回 null（不能编造焦点）', () => {
+    expect(currentTool({ id: 'a1', role: 'assistant', content: '' })).toBeNull()
+  })
+
+  it('只有 pendingTool 时就是它（单栏）', () => {
+    const tool1 = tool('call-1', 'list_cases')
+    expect(currentTool({ id: 'a1', role: 'assistant', content: '', pendingTool: tool1 })?.id).toBe('call-1')
+  })
+
+  it('tools 里有未完成的优先于 pendingTool（多栏）', () => {
+    const message: ChatMessage = {
+      id: 'a1',
+      role: 'assistant',
+      content: '',
+      tools: [tool('t1', 'get_current_user')],
+      pendingTool: tool('t2', 'list_lawyers', '已回'),
+    }
+    expect(currentTool(message)?.id).toBe('t1')
   })
 })
 
@@ -133,5 +199,81 @@ describe('activityText（这一栏此刻在干什么）', () => {
   it('空栏（没有工具、没有思考、正文未到）留空，不凭空说「正在思考」', () => {
     // 思考模式关闭时「正在思考…」是不成立的叙述；这一段只有几百毫秒
     expect(activityText({ id: 'a1', role: 'assistant', content: '', streaming: true })).toBeNull()
+  })
+})
+
+describe('applyToolCall / applyToolResult（一次调用落在两个位置）', () => {
+  const assistant = (id: string, agentKind?: string): ChatMessage => ({
+    id,
+    role: 'assistant',
+    content: '',
+    streaming: true,
+    ...(agentKind ? { agentKind } : {}),
+  })
+  const lanes = () => [assistant('a1'), assistant('a2', 'dsh')]
+  const owner = (messages: ChatMessage[], id = 'a1') => messages.find((m) => m.id === id)!
+
+  it('tool_call：转录里新增工具行，且只在所属气泡挂 pendingTool', () => {
+    const next = applyToolCall(lanes(), 'a1', { toolCallId: 'c1', toolName: 'list_lawyers', agentKind: 'pi' })
+
+    expect(next.filter((m) => m.role === 'tool')).toHaveLength(1)
+    expect(next.find((m) => m.role === 'tool')!.agentKind).toBe('pi')
+    expect(owner(next).pendingTool?.toolName).toBe('list_lawyers')
+    // 另一栏绝不能被挂上：多答串栏会让 dsh 那一栏显示 pi 的工具
+    expect(owner(next, 'a2').pendingTool).toBeUndefined()
+  })
+
+  it('同一次调用重复到达：不新增行，且返回**原引用**（store 据此跳过写状态）', () => {
+    const first = applyToolCall(lanes(), 'a1', { toolCallId: 'c1', toolName: 'list_lawyers' })
+    const again = applyToolCall(first, 'a1', { toolCallId: 'c1', toolName: 'list_lawyers' })
+
+    expect(again).toBe(first)
+    expect(again.filter((m) => m.role === 'tool')).toHaveLength(1)
+  })
+
+  it('参数渐进完整：后到的修订块覆盖前一条，仍只有一行', () => {
+    const first = applyToolCall(lanes(), 'a1', {
+      toolCallId: 'c1',
+      toolName: 'rewrite_folder_file',
+      rewrite: { original: '一半', replacement: '' },
+    })
+    const second = applyToolCall(first, 'a1', {
+      toolCallId: 'c1',
+      toolName: 'rewrite_folder_file',
+      rewrite: { original: '完整原文', replacement: '完整改写' },
+    })
+
+    const rows = second.filter((m) => m.role === 'tool')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.rewrite?.replacement).toBe('完整改写')
+  })
+
+  it('tool_result：工具行填结果，pendingTool 置**已完成**（不是清空）', () => {
+    let messages = applyToolCall(lanes(), 'a1', { toolCallId: 'c1', toolName: 'get_client' })
+    messages = applyToolResult(messages, 'a1', { toolCallId: 'c1', result: '{"name":"张三"}' })
+
+    expect(messages.find((m) => m.role === 'tool')!.content).toBe('{"name":"张三"}')
+    expect(owner(messages).pendingTool).toBeTruthy()
+    expect(owner(messages).pendingTool!.content).toBe('{"name":"张三"}')
+    // 「查完了、正文还没来」这一档必须能判出来（置空的话界面会白回去）
+    expect(activityText(owner(messages))).toBe('正在整理资料…')
+  })
+
+  it('结果为空也算完成（否则界面永远停在「正在查…」，而哨兵不漏到文案里）', () => {
+    let messages = applyToolCall(lanes(), 'a1', { toolCallId: 'c1', toolName: 'list_cases' })
+    messages = applyToolResult(messages, 'a1', { toolCallId: 'c1', result: '' })
+
+    const text = activityText(owner(messages))
+    expect(text).toBe('正在整理资料…')
+    expect(text).not.toContain('无返回内容')
+  })
+
+  it('别的栏的工具结果不影响本栏的「正在查」', () => {
+    let messages = applyToolCall(lanes(), 'a1', { toolCallId: 'p1', toolName: 'get_client' })
+    messages = applyToolCall(messages, 'a2', { toolCallId: 'd1', toolName: 'list_cases' })
+    messages = applyToolResult(messages, 'a2', { toolCallId: 'd1', result: '[]' })
+
+    expect(activityText(owner(messages, 'a1'))).toBe('正在查客户信息…')
+    expect(activityText(owner(messages, 'a2'))).toBe('正在整理资料…')
   })
 })

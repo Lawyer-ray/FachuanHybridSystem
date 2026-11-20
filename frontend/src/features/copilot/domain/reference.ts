@@ -60,8 +60,16 @@ export interface FileRewriteSignal {
   replacement?: string
 }
 
-/** rewrite_folder_file 调用参数里提取原文/改写全文；形状不对或为空返回 null（宁缺勿错） */
-export function extractRewriteArgs(args: unknown): { original: string; replacement: string } | null {
+/**
+ * rewrite_folder_file 调用参数里提取原文/改写全文；形状不对或为空返回 null（宁缺勿错）
+ *
+ * `filename` 是附带的**显示名**（`subpath` 的 basename）：修订块要写明「改了哪个
+ * 文件」，而 `subpath` 在参数里本来就是完整相对路径。取不到就不带这个键（而不是
+ * 给空串）——调用方用「有没有这个键」判断要不要画文件名，空串会让它画出「修订 · 」。
+ */
+export function extractRewriteArgs(
+  args: unknown,
+): { original: string; replacement: string; filename?: string } | null {
   let parsed: unknown = args
   if (typeof parsed === 'string') {
     try {
@@ -71,10 +79,11 @@ export function extractRewriteArgs(args: unknown): { original: string; replaceme
     }
   }
   if (!parsed || typeof parsed !== 'object') return null
-  const { original, replacement } = parsed as Record<string, unknown>
+  const { original, replacement, subpath } = parsed as Record<string, unknown>
   if (typeof original !== 'string' || typeof replacement !== 'string') return null
   if (!original.trim() || !replacement.trim()) return null
-  return { original, replacement }
+  const filename = typeof subpath === 'string' ? subpath.split('/').pop()?.trim() : ''
+  return { original, replacement, ...(filename ? { filename } : {}) }
 }
 
 /**

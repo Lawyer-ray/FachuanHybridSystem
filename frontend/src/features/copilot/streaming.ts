@@ -6,12 +6,13 @@
  * 循环读到底（done 帧后由服务端关流），调用方无需提前退出。
  */
 
-import { agentOf, parseSseEvent, runIdOf, takeSseFrames } from './domain'
-import type { AgentStreamEvent } from './types'
+import { agentOf, narrowCitations, parseSseEvent, runIdOf, takeSseFrames } from './domain'
+import type { AgentStreamEvent, CitationRef } from './types'
 
 type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
 type ToolResultEvent = Extract<AgentStreamEvent, { type: 'tool_result' }>
 type ApprovalEvent = Extract<AgentStreamEvent, { type: 'approval_request' }>
+type QuestionEvent = Extract<AgentStreamEvent, { type: 'question_request' }>
 
 /**
  * usage 事件的归一化载荷。
@@ -53,8 +54,35 @@ export interface StreamHandlers {
    * 传结构体而不是位置参数：字段还会长（cache 已是第三个维度），
    * 位置参数每加一个就要改所有实现，且容易错位。
    */
-  onUsage(usage: UsagePayload): void
-  onApproval(event: ApprovalEvent): void
+  onUsage(usage: UsagePayload, origin: EventOrigin): void
+  /**
+   * 审批请求。
+   *
+   * `origin` 不可省：多答时两栏可能同时要审批，卡上不写来源，律师根本分不清
+   * 「这是哪条回答要用我的库表」。单栏时 origin.kind 为空串，渲染按旧口径。
+   */
+  onApproval(event: ApprovalEvent, origin: EventOrigin): void
+  /**
+   * 模型反问（结构化提问）。
+   *
+   * 可选实现，但**不实现就等于把提问丢掉**：后端会阻塞等 180s，然后按假设
+   * 继续——法律场景里那等于「AI 自己编了个事实接着干」。所以真正开流的 store
+   * 必须实现它。`questions` 是后端归一化后的自由形状（字段见
+   * services/question.py），由 domain/question.normalizeQuestions 宽容解析。
+   */
+  onQuestion?(event: QuestionEvent, origin: EventOrigin): void
+  /**
+   * 引用表增量（逐句溯源）。
+   *
+   * 一轮内可多次到达（后端按检索/引用产生顺序分段推），调用方必须**追加合并**而
+   * 不是替换。载荷已是收窄后的 `CitationRef`（snake_case → camelCase 只在
+   * domain/knowledge.narrowCitations 一处做）。可选实现：不实现就等于把溯源丢掉
+   * ——正文里的 `[Kn]` 仍会渲染成纯文本，只是点不开。
+   *
+   * `origin` 不可省：多答时两栏各有自己的引用，写死主栏会把 A 栏引的材料挂到
+   * B 栏的回答下面（点开的那份不是那句话的出处）。
+   */
+  onCitations?(citations: CitationRef[], origin: EventOrigin): void
   /** 排队事件：前方名次（1 起，含自己在队列中的位置） */
   onQueued(position: number): void
   /** 上下文压缩进行/完成（自动压缩原本无声，律师会以为 AI「失忆」） */
@@ -79,24 +107,98 @@ export interface StreamHandlers {
    * ——另一栏后续的 delta 无处可去，界面上就是「(无内容)」。
    */
   onDone(context: { used: number | null; total: number | null } | undefined, origin: EventOrigin): void
+  /**
+   * 流到了 EOF——**不管有没有 done**。`sawDone=false` 就是「这是断流」。
+   *
+   * 与返回值分工：返回值是给**调用方**的收尾结论（store 据此按栏标截断），本回调
+   * 是给 **handler 自己**的：有些状态只能靠「又一个事件」退场（如 `compaction end`
+   * 才清的 `compacting`），流被掐断时它就永远转下去了。可选项。
+   */
+  onStreamEnd?(outcome: StreamOutcome): void
 }
 
+/**
+ * 流的收尾结论。
+ *
+ * `sawDone=false` 是**可观测的异常**：连接被掐断时 `reader.read()` 只会正常
+ * 返回 `done:true`，看上去和「服务端跑完了」一模一样——不区分就会把断流记成
+ * 正常完成（红队审查 R1）。
+ */
+export interface StreamOutcome {
+  /** 是否收到过 done 帧（每栏各发一条，多答时 ≥1 即算正常收尾） */
+  sawDone: boolean
+  /**
+   * 真正收到 done 的栏（只认 done 帧里**显式**的 `agent`）。
+   *
+   * 全局 `sawDone` 回答不了「**哪一栏**跑完了」：三栏只到 1 个 done 时它照样是
+   * `true`，另两栏就此静默留空（真实事故：界面上两个空栏头，看起来像「AI 回答了
+   * 但内容丢了」）。按栏记账后，收尾时才能把缺的栏标「已中断」（判定见
+   * domain/stream-guard.classifyStreamEnd）。
+   */
+  doneKinds: string[]
+  /** 收到过「没写来源」的会话级 done（旧后端/单栏：等于整轮都收尾了） */
+  sessionLevelDone: boolean
+}
+
+/**
+ * done 帧里**显式**标注的来源；空串 = 这帧没写 `agent`。
+ *
+ * 不能用 `agentOf`：它对缺省值回落到 `pi`（多答前只有 pi 在跑），拿来记「谁
+ * 跑完了」会把一条没标来源的 done 记成「pi 那一栏跑完了」——多答里 pi 不在第一栏
+ * 时，真正跑完的那栏反而会被标成缺 done。
+ *
+ * 也不用帧里的 `agents`：那是本轮的**全量**栏清单，第一条 done 就带全家，拿它当
+ * 「谁跑完了」会让缺 done 的栏永远不被发现——正好是那个静默空栏 bug。
+ */
+function explicitAgentOf(event: object): string {
+  return ((event as { agent?: string }).agent ?? '').trim()
+}
+
+/**
+ * `citations` 事件的载荷（原始形状，未收窄）；不是引用事件时返回 `null`。
+ *
+ * 为什么不用 `case 'citations'` 见读循环里的注释：事件联合类型是后端生成物，
+ * 前端不能先手改（会被 CI 的逐字节契约比对打回），所以这里用形状判据取值。
+ */
 /** 消费一条 agent SSE 流，逐帧分发；流读尽或中途异常时返回/抛出。 */
-export async function consumeAgentStream(resp: Response, h: StreamHandlers): Promise<void> {
+export async function consumeAgentStream(resp: Response, h: StreamHandlers): Promise<StreamOutcome> {
   const reader = resp.body!.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  /** 收到 done 的栏（按显式 `agent`）；会话级 done 另记一个开关 */
+  const doneKinds = new Set<string>()
+  let sessionLevelDone = false
   for (;;) {
     const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const { frames, rest } = takeSseFrames(buffer)
-    buffer = rest
+    let frames: string[]
+    if (done) {
+      // EOF：缓冲区里的残渣要再解析一轮。`decoder.decode()` 无参调用把流式解码器
+      // 里攒着的半个多字节字符冲出来（中文被切在 chunk 边界上时不冲就是乱码）。
+      //
+      // 为什么必须做：服务端写完最后一帧常常直接关流、不补 `\n\n`，那个尾巴上
+      // 可能正好是 done（丢了就把正常轮次记成断流），也可能是最后一截正文或一次
+      // usage（丢了就是可见的数据丢失）。
+      buffer += decoder.decode()
+      const tail = takeSseFrames(buffer)
+      frames = tail.frames
+      const leftover = tail.rest.trim()
+      // 剩下的是没有空行结尾的那一帧（或半帧）：是完整 JSON 就照发，半帧由
+      // parseSseEvent 的 JSON.parse 兜住（容错返回 null，流不当异常）
+      if (leftover) frames = [...frames, leftover]
+    } else {
+      buffer += decoder.decode(value, { stream: true })
+      const part = takeSseFrames(buffer)
+      buffer = part.rest
+      frames = part.frames
+    }
     for (const frame of frames) {
       const event = parseSseEvent(frame)
       if (!event) continue
       // 每帧自己的来源：双答时两个 agent 的事件交替到达，绝不能记在 handler 上
       const origin: EventOrigin = { kind: agentOf(event), runId: runIdOf(event) }
+      // 逐句溯源：`citations`（增量事件，一轮可多次）。
+      //
+      // 为什么不写成 `case 'citations'`：`AgentStreamEvent` 是后端 pydantic 的
       switch (event.type) {
         case 'thinking':
           h.onProgress()
@@ -106,6 +208,11 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onProgress()
           h.onDelta(event.content, origin)
           break
+        case 'citations':
+          // 入站引用（逐句溯源）：一轮内可多次到达，每次只带新增那几条。
+          // 收窄只有一处（narrowCitations），实时与历史回放共用同一判据。
+          h.onCitations?.(narrowCitations(event.citations), origin)
+          break
         case 'tool_call':
           h.onProgress()
           h.onToolCall(event, origin)
@@ -114,15 +221,25 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onToolResult(event, origin)
           break
         case 'usage':
-          h.onUsage({
-            outputTokens: event.output_tokens,
-            inputTokens: event.input_tokens ?? 0,
-            cacheReadTokens: event.cache_read_tokens ?? 0,
-            cacheWriteTokens: event.cache_write_tokens ?? 0,
-          })
+          // origin 必须跟着走：多答要按栏归集，丢了来源就只能全算在主栏上
+          h.onUsage(
+            {
+              outputTokens: event.output_tokens,
+              inputTokens: event.input_tokens ?? 0,
+              cacheReadTokens: event.cache_read_tokens ?? 0,
+              cacheWriteTokens: event.cache_write_tokens ?? 0,
+            },
+            origin,
+          )
           break
         case 'approval_request':
-          h.onApproval(event)
+          h.onApproval(event, origin)
+          break
+        case 'question_request':
+          // 提问不阻断流：卡片与审批同层并列渲染，模型在服务端等回答
+          // （超时即按假设继续，前端仍可补答）
+          h.onProgress()
+          h.onQuestion?.(event, origin)
           break
         case 'compaction':
           h.onCompaction(event.phase)
@@ -141,7 +258,11 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onProgress()
           h.onError(event.message, origin)
           break
-        case 'done':
+        case 'done': {
+          // 按栏记账（只认显式 agent）：收尾时要能回答「哪一栏没等到 done」
+          const who = explicitAgentOf(event)
+          if (who) doneKinds.add(who)
+          else sessionLevelDone = true
           h.onProgress()
           // 水位字段可选：旧后端 / pi 未上报时 undefined，前端隐藏水位显示
           h.onDone(
@@ -151,9 +272,24 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
             origin,
           )
           break
+        }
         default:
           break // meta / activity(thinking) 不入转录
       }
     }
+    // EOF 这一轮的 frames 已经分发完：必须跳出，否则 read() 会一直返回 done:true
+    // 永不结束（缓冲区残渣会被反复重新分发，表现为整轮挂死）
+    if (done) break
   }
+
+  const outcome: StreamOutcome = {
+    sawDone: sessionLevelDone || doneKinds.size > 0,
+    doneKinds: [...doneKinds],
+    sessionLevelDone,
+  }
+  // 两条通道，各管各的：回调给 handler 清瞬态（此刻仍在读循环的上下文里），返回值
+  // 给 store 做收尾判定。store **不能**在回调里收尾：它还要 finishAssistant() 清
+  // streaming，两处写同一帧状态会互相覆盖。
+  h.onStreamEnd?.(outcome)
+  return outcome
 }

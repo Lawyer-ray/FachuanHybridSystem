@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,8 @@ from django.utils import timezone
 from apps.core.dependencies.core import build_task_submission_service
 from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus, PdfSplitStage
 from apps.pdf_splitting.services.storage import PdfSplitStorage
+
+from .ocr_handler import OCRStageBudget
 
 logger = logging.getLogger("apps.pdf_splitting")
 
@@ -91,9 +94,60 @@ TASK_SEGMENT = "apps.pdf_splitting.tasks.run_segment_stage"
 #: 合计 1440 + 480 + 180 = 2100s = 35 分钟。**刻意不抬到 45 分钟**：本预算只覆盖
 #: 「至多一批耗尽重试」这一实测形态（7 批里 1 批偶发失败）。多批同时耗尽意味着 LLM
 #: 整体不可用，那时就该被杀并由整轮规则引擎兜底，而不是让 worker 槽白占更久。
-EXTRACT_STAGE_TIMEOUT_SECONDS = 20 * 60
+#:
+#: ## extract 为什么从 20 分钟抬到 24 分钟（2026-11-20 事故重算）
+#:
+#: 事故时间线（93 页，单引擎）：11:40:43 启动 → 11:41:56 MinerU 4 批跑完（73s）→
+#: 11:43:23 最后一拍心跳 → PaddleOCR 单页 **8 次 300s 超时** → 11:57 恢复 →
+#: 11:59 跑完 93/93（progress=100）→ 12:00:43 按 1200s 硬杀。
+#:
+#: 即：**真正干活 + 抖动 = 1096s**，之后还剩下不到 104s 写页缓存/ pages.json /
+#: 摘要 / 推进阶段——20 分钟**从算术上就装不下这次事故**（连“零额外抖动”都不够）。
+#:
+#: 24 分钟 = 1440s = 1096s（实测形态）+ 150s（尾部，见下）+ ~190s 余量。它不再是
+#: “拍一个大数字求安心”：真正的上界由**降级**给出——最后一次性页云端调用在
+#: `剩余 ≥ 单页最坏 300s + 余量 60s` 时才会发出（见 `ocr_handler.OCRStageBudget`），
+#: 所以本阶段最迟在 `deadline` 前自然结束，不会被 django-q 硬杀。
+#:
+#: 刻意**不**抬到 30/45 分钟：它会把“真卡死”时白占 worker 槽的时间拉长，而
+#: 超出 1440s 的那些情况（多页连续抖动、云端整体不可用）本来就该由降级处理，
+#: 不是由无限加预算处理。
+EXTRACT_STAGE_TIMEOUT_SECONDS = 24 * 60
 CROSS_CHECK_STAGE_TIMEOUT_SECONDS = 45 * 60
 SEGMENT_STAGE_TIMEOUT_SECONDS = 35 * 60
+
+#: 取字阶段留给「OCR 都做完了、但结果还没落到可交付状态」的尾段时间。
+#:
+#: 这段不是零：2026-11-20 那次 progress 已经到 100（11:59），到 12:00:43 被杀还有
+#: ≥100s 没跑完（逐页写 OCR 缓存 + pages.json + 取字摘要 + 页面质量画像 + 推进阶段）。
+#: 150s 在实测尾部上再留一半余量；预算不让 OCR 吃到这一段，否则又会“OCR 成功了、
+#: 任务还是被杀”。
+EXTRACT_STAGE_TAIL_RESERVE_SECONDS = 150
+
+
+def extract_stage_budget(
+    *,
+    timeout_seconds: float = EXTRACT_STAGE_TIMEOUT_SECONDS,
+    tail_reserve_seconds: float = EXTRACT_STAGE_TAIL_RESERVE_SECONDS,
+    now: float | None = None,
+) -> OCRStageBudget:
+    """在 `extract` 阶段开始时算一个墙钟预算，供逐页 OCR 做降级决策。
+
+    用 ``time.monotonic()`` 而不是 ``time.time()``：预算关心的是“过了多久”，
+    NTP 校时 / 时区变化都不应该让正在跑的任务凭空多出或少掉几分钟。
+
+    Args:
+        timeout_seconds: 本任务的 django-q 硬阀值。**必须与 `submit_extract_stage`
+            提交的值一致**：两者不同步就等于拿错的尺子量剩余时间。
+        tail_reserve_seconds: 留给落盘/推进阶段的时间（见常量注释）。
+        now: 注入当前 monotonic 值（单测用；生产不传）。
+    """
+    started = time.monotonic() if now is None else now
+    return OCRStageBudget(
+        started_monotonic=started,
+        deadline_monotonic=started + float(timeout_seconds) - float(tail_reserve_seconds),
+        total_seconds=float(timeout_seconds) - float(tail_reserve_seconds),
+    )
 
 
 def submit_extract_stage(job: PdfSplitJob) -> str:

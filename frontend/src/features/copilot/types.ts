@@ -10,6 +10,12 @@
  * - `state-types.ts`：store 的状态形状（`CopilotState`）。
  */
 
+import type { CitationRef } from './domain/knowledge'
+import type { LaneUsage } from './domain/usage'
+import type { QuestionItem } from './domain/question'
+
+export type { CitationRef, CitationKind } from './domain/knowledge'
+export type { MentionCandidate, MentionInsert, MentionKind } from './domain/mention'
 export type { AgentBackendOption, AgentSpec } from './backend-types'
 export type { CopilotContext, CopilotScope } from './scope-types'
 export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
@@ -142,6 +148,16 @@ export interface BizHint {
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
+  /**
+   * 落库主键（历史回放来自 `AgentHistoryMessage.message_id`）。
+   *
+   * 实时气泡没有它（还没落库），所以「能否评分/能否当翻页游标」必须看这个
+   * 字段而不是从 `id` 里反推——旧代码 `Number('local-1'.slice(3))` 得到 NaN，
+   * 按钮可点但请求必然失败（见 domain/message-id.ts）。
+   */
+  serverId?: number
+  /** 发生时刻（ms）。历史回放来自 `created_at`；实时气泡为本地收到时刻 */
+  createdAt?: number
   content: string
   /** user 消息里的文件夹引用（从「[已引用文件：…]」块解析，气泡上方重放为 chip） */
   refs?: SentRefMeta[]
@@ -154,6 +170,17 @@ export interface ChatMessage {
   /** tool 消息的工具名（tool_call 与 tool_result 的归并键） */
   toolName?: string
   toolCallId?: string
+  /**
+   * `rewrite_folder_file` 的改写对（原文片段 / 改写全文），用来在工具行里画出
+   * 「改了哪一句」。
+   *
+   * **数据源只有 `tool_call.arguments`**：`tool_result.result` 在 SSE 里被截到
+   * 2000 字读不回全文（见 `domain/reference.ts` 的长注释），所以这里存的是**参数**
+   * 而不是结果；`filePath` 是参数里的 `subpath` 去掉目录后的显示名。
+   *
+   * 工具可能发多条 `tool_call`（arguments 渐进完整），后到的解析结果覆盖前一条。
+   */
+  rewrite?: { original: string; replacement: string; filename?: string }
   /** 回答被停止/断连截断（服务端 metadata.truncated 透传） */
   truncated?: boolean
   /** 用户反馈：点赞/点踩（历史回放透传，P1-9b） */
@@ -191,6 +218,30 @@ export interface ChatMessage {
    */
   model?: string
   /**
+   * 这条回答引用的材料（入站引用，AI → 材料）。
+   *
+   * 与 `refs` / `quote`（出站引用）**方向相反、字段不共用**：那两个是律师给模型
+   * 的东西，这个是模型给律师的溯源。正文里的 `[Kn]` 角标靠 `citeNo` 与这里对齐；
+   * 缺字段 = 本轮没有来源（旧数据 / 后端未接），不是「引用丢失」。
+   */
+  citations?: CitationRef[]
+  /**
+   * 这一栏这一轮的历史用量（刷新后栏头 chip 的数据源）。
+   *
+   * 与 `turnStatsByLane`（内存里只活一轮）是**同一形状的两种来源**：那份是实时账、
+   * 每轮清空；这份来自后端落库的 `metadata.usage_by_lane` + `ttft_ms`，由
+   * `domain/usage.laneUsageFromMetadata` 收窄。两条来源共用一个 `LaneUsage`，
+   * 否则刷新前后同一栏会出现两个数。
+   */
+  laneUsage?: LaneUsage
+  /**
+   * 单栏时「此刻在等哪个工具返回」（驱动气泡内的「正在查 XX…」）。
+   *
+   * 为什么不复用 `tools`：`tools` 是多栏的**渲染槽**（栏下方那串 chip），单栏若
+   * 也往里写就会把工具行渲染成两份。这个字段只喂 `activityText`，从不单独渲染。
+   */
+  pendingTool?: ChatMessage
+  /**
    * 这条回答期间该 agent **自己**调用过的工具（按到达顺序）。
    *
    * 为什么挂在回答上而不是当独立消息渲染：多答时 2~4 个 agent 在**同一时刻**
@@ -216,10 +267,71 @@ export interface PendingApproval {
   riskLevel?: string
   /** 紧急级：同意前需二次确认 */
   needsSecondConfirmation?: boolean
+  /** 多答时哪个 agent 要动库表（审批事件带 `agent`；缺失 = 单栏/未标注） */
+  agentKind?: string
   /** 离线待审（从 GET /approvals/pending 拉回，多来自后台任务），倒计时口径不同 */
   offline?: boolean
+  /**
+   * 这张卡属于哪个会话。
+   *
+   * 补拉端点返回的是「当前律师全部会话」的待审项，入队时必须带上归属，
+   * 否则 A 会话挂起的高危审批会渲染在 B 会话上（律师以为自己在批 B 的事，
+   * 实际放行的是 A 的操作）。与 `PendingQuestion.sessionId` 同口径。
+   */
+  sessionId?: string
   /** 本地已提交决定后的终态展示 */
   decided?: 'approved' | 'rejected'
+}
+
+/**
+ * 待回答的结构化提问（`question_request` 事件 → 问答卡；从 /questions/pending 补拉）
+ *
+ * 与审批**刻意同层但不同语义**：审批是闸门（超时=拒绝，fail-closed），
+ * 提问是求助（超时=模型按假设继续，不阻断）。所以这里没有 expired 决断，
+ * 只有「已继续但可补答」这一态——`continued`。
+ */
+export interface PendingQuestion {
+  questionId: string
+  /**
+   * 提问所属会话。
+   *
+   * **必填才有防串会话的能力**：`question_request` 事件本身不带 session（它只
+   * 在某个会话的 SSE 流上出现），所以入队时由 store 补当前 sessionId；
+   * `GET /questions/pending` 则自带 `session_id`。缺这个字段，A 会话的提问会
+   * 渲染在 B 会话上（红队审查 F11）。
+   */
+  sessionId: string
+  questions: QuestionItem[]
+  /** 后端等待窗口（秒）：到点模型按假设继续，但问题不失效 */
+  timeoutSeconds: number
+  /** 本地收到时刻（倒计时起点，与服务端发事件时刻近似） */
+  receivedAt: number
+  /** 多答时哪一栏问的（事件 `agent`；缺失 = 主栏/单栏） */
+  agentKind?: string
+  /** 提交终态：已答 / 已跳过（终态后卡片只读回显） */
+  submitted?: 'answered' | 'skipped'
+  /** 回答被服务端记录但等待方已超时（`accepted && !success`）：本轮已继续 */
+  continued?: boolean
+  /** 服务端回执里给律师看的一句话（如「回答已记录，但本轮对话已按超时继续」） */
+  note?: string
+  /** 提交在途（按钮置忙，防重复提交） */
+  submitting?: boolean
+}
+
+/** GET /agent/questions/pending 的列表项 */
+export interface PendingQuestionItem {
+  question_id: string
+  session_id: string
+  questions: Record<string, unknown>[]
+  created_at: string
+}
+
+/** POST /agent/question/{id}/answer 的回执 */
+export interface QuestionAnswerReceipt {
+  success: boolean
+  accepted?: boolean
+  note?: string
+  error?: string
 }
 
 /** POST /agent/tasks 的受理回执 */
@@ -314,4 +426,7 @@ export interface SlashMenuItem {
 }
 
 /** store 状态形状定义在同目录 `state-types.ts`（体量与关注点都与契约不同） */
+
+/** 结构化提问的题面类型由纯领域模块定义（回流类型与契约分属两处） */
+export type { QuestionAnswerItem, QuestionDraft, QuestionItem, QuestionOption } from './domain/question'
 export type { CopilotState } from './state-types'

@@ -6,13 +6,150 @@
  * agent 2.4 秒就出字，这两个憋到 16 秒才一次性吐全文」。事件链路本来就通
  * （`tool_call` → 工具行），缺的是**把工具行放到正文区里、并说清正在干什么**。
  *
- * 这里只回答两个问题，渲染在 components/StreamActivity.tsx：
- * 1. {@link pendingToolCall}：这一栏此刻还在等哪个工具返回（→「正在查 XX…」）；
- * 2. {@link toolActionLabel}：这个工具名用中文怎么说（→「正在查客户信息…」）。
+ * 这里只回答三个问题：
+ * 1. {@link applyToolCall} / {@link applyToolResult}：一次工具调用落到**两个位置**
+ *    ——转录里的工具行、气泡上的活动行（纯变换，turn-handlers 只负责写 store）；
+ * 2. {@link currentTool} / {@link pendingToolCall}：这一栏此刻还在等哪个工具返回
+ *    （→「正在查 XX…」）；
+ * 3. {@link toolActionLabel}：这个工具名用中文怎么说（→「正在查客户信息…」）。
+ *
+ * ## 工具的两个来源（踩过的坑）
+ *
+ * 多栏时工具挂在 `message.tools`（`mergeAgentAnswers` 填的**渲染槽**，栏头下那串
+ * chip）；单栏时 `tools` 永远是 undefined——于是本模块早先直接返回 null，界面上
+ * 什么都不显示。而那正是事故现场：dsh / openai-agents 先调工具、调完才吐正文，
+ * 中间十几次读秒一片空白（律师以为是卡死）。所以单栏改用 `message.pendingTool`
+ * （见 turn-handlers 的 onToolCall / onToolResult），本模块对两者一视同仁。
  */
 
 import type { ChatMessage } from '../types'
 import { shortToolName } from './reference'
+import { nextLocalId } from './sse'
+
+/**
+ * 结果为空时给 `pendingTool.content` 的哨兵。
+ *
+ * `content` 是必填 string，空串与「还在等」在 ChatMessage 上不可区分，于是空结果的
+ * 工具会让界面永远停在「正在查 XX…」。这个字段从不渲染（见 {@link activityText}），
+ * 所以哨兵不会漏到屏幕上。
+ */
+export const EMPTY_TOOL_RESULT = '（无返回内容）'
+
+/** 一次 `tool_call` 事件里与本模块有关的部分（事件对象里其余字段是给别处用的） */
+export interface ToolCallInput {
+  toolCallId?: string
+  toolName?: string
+  /** 多答时哪个 agent 调的（工具行要带来源，否则回放时分不出证据归谁） */
+  agentKind?: string
+  /** `rewrite_folder_file` 的参数解析结果；其他工具为 undefined */
+  rewrite?: ChatMessage['rewrite']
+}
+
+/** 一次 `tool_result` 事件里与本模块有关的部分 */
+export interface ToolResultInput {
+  toolCallId?: string
+  result: string
+}
+
+/**
+ * `tool_call` → 新的 messages：新增/更新**转录工具行**，并在所属气泡上挂
+ * {@link ChatMessage.pendingTool}。
+ *
+ * 一次调用为什么落到两个位置：
+ * - 工具行（`role:'tool'`）是回放与核对的依据（改名/结果/修订块都在那），
+ *   单栏按时间平铺、多栏归到各栏 chip；
+ * - `pendingTool` 只喂活动行（「正在查 XX…」）。**不能**把单栏的工具也写进
+ *   `tools`：那是多栏的渲染槽，写了工具行会渲染两份。
+ *
+ * 返回**原数组引用** = 什么都没变（pi 对同一次调用会重复发 `message_end`，
+ * 每次都写状态会让整段转录白白重渲染）。
+ */
+export function applyToolCall(
+  messages: ChatMessage[],
+  ownerId: string,
+  call: ToolCallInput,
+): ChatMessage[] {
+  const callId = call.toolCallId ?? ''
+  const existing = callId
+    ? messages.find((m) => m.role === 'tool' && m.toolCallId === callId)
+    : undefined
+  let next = messages
+  if (existing) {
+    // 参数渐进完整：后到的解析结果覆盖前一条，不新增行
+    if (call.rewrite) next = messages.map((m) => (m === existing ? { ...m, rewrite: call.rewrite } : m))
+  } else {
+    next = [
+      ...messages,
+      {
+        id: nextLocalId(),
+        role: 'tool',
+        content: '',
+        toolName: call.toolName,
+        ...(callId ? { toolCallId: callId } : {}),
+        ...(call.rewrite ? { rewrite: call.rewrite } : {}),
+        ...(call.agentKind ? { agentKind: call.agentKind } : {}),
+      },
+    ]
+  }
+  return withPendingTool(next, ownerId, call)
+}
+
+/**
+ * 在**指定气泡**上挂「此刻在等哪个工具」。
+ *
+ * 只改 `ownerId` 这一条：多答时两栏的工具交错到达，写错一栏就会让 pi 那边显示
+ * 「正在查案件列表…」（dsh 的工具）——看起来正常，实际全是别人的活。
+ */
+function withPendingTool(messages: ChatMessage[], ownerId: string, call: ToolCallInput): ChatMessage[] {
+  const callId = call.toolCallId ?? ''
+  const marked = (m: ChatMessage) =>
+    callId ? m.pendingTool?.toolCallId === callId : m.pendingTool !== undefined
+  let changed = false
+  const next = messages.map((m) => {
+    if (m.id !== ownerId || marked(m)) return m
+    changed = true
+    return {
+      ...m,
+      pendingTool: {
+        // id 用 tool_call_id：天然唯一，回调时一眼能对上是哪次调用
+        id: callId || nextLocalId(),
+        role: 'tool' as const,
+        content: '',
+        toolName: call.toolName,
+        ...(callId ? { toolCallId: callId } : {}),
+      },
+    }
+  })
+  return changed ? next : messages
+}
+
+/**
+ * `tool_result` → 新的 messages：工具行填结果，气泡上的 `pendingTool` 置**已完成**。
+ *
+ * 为什么置「已完成」而不是清空：清空后「工具都回来了、正文还没来」与「一次都没
+ * 调过」不可区分，界面会在律师最需要一句交代的时候突然白回去（正文往往还要等
+ * 好几秒）。已完成与待返回靠 `content` 是否为空区分（见 {@link currentTool}）。
+ */
+export function applyToolResult(
+  messages: ChatMessage[],
+  ownerId: string,
+  res: ToolResultInput,
+): ChatMessage[] {
+  const matchId = res.toolCallId ?? ''
+  const settled = res.result || EMPTY_TOOL_RESULT
+  return messages.map((m, i) => {
+    // tool_call 与 tool_result 以 tool_call_id 归并；缺 id 时落最近一个空 tool 行
+    const byId = Boolean(matchId) && m.role === 'tool' && m.toolCallId === matchId
+    const lastEmpty =
+      !matchId && m.role === 'tool' && !m.content && messages.slice(i + 1).every((x) => x.role !== 'tool')
+    if (byId || lastEmpty) return { ...m, content: res.result }
+    if (m.id !== ownerId || !m.pendingTool) return m
+    // 不是这次调用的结果：别人的工具不影响本栏的「正在查」
+    if (matchId && m.pendingTool.toolCallId !== matchId) return m
+    if (!matchId && m.pendingTool.content) return m
+    return { ...m, pendingTool: { ...m.pendingTool, content: settled } }
+  })
+}
 
 /**
  * 这一栏现在的活动说明；`null` = 不该显示活动行。
@@ -32,10 +169,24 @@ export function activityText(message: ChatMessage): string | null {
   if (message.streaming !== true || message.failed) return null
   // 正文或思考一出现，各自的块就接管了「还活着」的叙事
   if (message.content || message.thinking) return null
-  const pending = pendingToolCall(message.tools)
-  if (pending) return `正在${toolActionLabel(pending.toolName)}…`
+  const tool = currentTool(message)
+  // 还没回来（content 空）→ 说清在查什么；已回来（content 非空，见
+  // turn-handlers 的 onToolResult）→ 落到下一档「整理资料」
+  if (tool && !tool.content) return `正在${toolActionLabel(tool.toolName)}…`
+  if (tool) return '正在整理资料…'
   if (message.tools && message.tools.length > 0) return '正在整理资料…'
   return null
+}
+
+/**
+ * 这条气泡此刻的焦点工具：多栏看 `tools`，单栏看 `pendingTool`。
+ *
+ * 顺序不能反：多栏的 `tools` 是本轮**全部**工具的历史，`pendingTool` 只是最后一枚；
+ * 先问 `tools` 才能保证「并行调了三个、还差最早那个没回来」时显示的是它。
+ * 两边都空 = 这一轮还没调过工具，调用方不要编造一个焦点。
+ */
+export function currentTool(message: ChatMessage): ChatMessage | null {
+  return pendingToolCall(message.tools) ?? message.pendingTool ?? null
 }
 
 /**

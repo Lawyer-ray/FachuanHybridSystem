@@ -11,6 +11,7 @@ import * as copilotApi from '../api'
 import {
   buildBizHintBlock,
   buildSelectionQuoteBlock,
+  emptyTurnStats,
   nextLocalId,
   splitBizHintLine,
   splitPageHintLine,
@@ -18,6 +19,9 @@ import {
   splitRefBlocks,
 } from '../domain'
 import { MAX_ANSWERS } from '../domain'
+// 直接从子模块引：`domain/index.ts` 的出口表不归本文件维护（多 agent 并行改造期间
+// 谁都在改它），而收尾判定是纯函数，路径直一点也更好追
+import { classifyStreamEnd } from '../domain/stream-guard'
 import { uploadAttachmentsAndCompose } from '../outgoing'
 import { storeSession } from '../persistence'
 import { consumeAgentStream } from '../streaming'
@@ -28,14 +32,8 @@ import { bumpSessionEpoch } from './session-epoch'
 import type { Slice } from './slice'
 
 /** 轮次统计初值（send 入列时复位；reset 也复用它） */
-export const EMPTY_STATS: TurnStats = {
-  firstDeltaAt: null,
-  lastDeltaAt: null,
-  doneAt: null,
-  estTokens: 0,
-  exactTokens: null,
-  samples: [],
-}
+/** 轮次统计初值（形状定义在 domain/usage，store 与 turn-handlers 共用同一份） */
+export const EMPTY_STATS: TurnStats = emptyTurnStats()
 
 /**
  * 本轮实际要跑哪几个 agent（顺序 = 栏的左右顺序）。
@@ -216,6 +214,9 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     const { bizHint, body: noBiz } = splitBizHintLine(noHint)
     const { refs, body: noRefs } = splitRefBlocks(noBiz)
     const { quote, body } = splitQuoteBlock(noRefs)
+    // 实时气泡也要有时间戳：`createdAt` 原先只有历史回放填，于是「刚发出去的这条」
+    // 下面没有时间、刷新一次才出现——同一份数据两个样，律师会以为时间戳是随机的。
+    const sentAt = Date.now()
     set((s) => ({
       messages: [
         ...s.messages,
@@ -223,6 +224,7 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
           id: nextLocalId(),
           role: 'user',
           content: body,
+          createdAt: sentAt,
           ...(pageHint ? { pageHint } : {}),
           ...(bizHint ? { bizHint } : {}),
           ...(refs.length ? { refs } : {}),
@@ -234,19 +236,35 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
               id: assistantByAgent[kind]!,
               role: 'assistant' as const,
               content: '',
+              createdAt: sentAt,
               streaming: true,
               agentKind: kind,
               ...(modelByAgent[kind] ? { model: modelByAgent[kind] } : {}),
             }))
-          : [{ id: assistantId, role: 'assistant' as const, content: '', streaming: true }]),
+          : [{ id: assistantId, role: 'assistant' as const, content: '', createdAt: sentAt, streaming: true }]),
       ],
-      approvals: [],
+      // 本会话里**已挂起的他线待审卡不能因为发一句话就消失**：它往往来自后台
+      // 任务（无人可问时挂起两小时），律师回来先发一条消息再想去批，卡已经没了。
+      // 在线卡（本轮正在等的那个）才随本轮重置——旧的在线卡早已过 300s 窗口。
+      approvals: s.approvals.filter((a) => a.offline && !a.decided),
       streaming: true,
       // 消息已入列、流已开：置忙交给 streaming，sending 在此解除
       sending: false,
       queuePosition: null,
       queuedSteers: [],
       turnStats: { ...EMPTY_STATS, samples: [] },
+      // 分栏账按轮重置：上一轮的栏不该出现在本轮栏头。
+      //
+      // **不要改成「保留上一轮并标记为历史」**：栏头 chip 是按 kind 直取的
+      // （见 LaneUsageChip），留着旧键就是让本轮的 pi 栏挂着上一轮 pi 的速度与
+      // token 数——那正是「数字看着像真的、但错了」的一类 bug。
+      //
+      // 历史轮次的用量因此**不在这里保留**，唯一正确的位置是落库的消息 metadata
+      // （`usage_by_lane` + `ttft_ms`，由 domain/usage 的 `laneUsageFromMetadata`
+      // 收窄成 LaneUsage，由 transcript 回放时挂到气泡上）。也就是说：刷新后要
+      // 看见历史栏用量，需要「按轮/按消息存放的结构」——那属于 types.ts /
+      // state-types.ts，不在本文件的口径内，别在这里糊一个近似实现。
+      turnStatsByLane: {},
     }))
     onQueued?.(true)
 
@@ -260,22 +278,71 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       turnAgents.length,
     )
 
+    // 本轮有哪些气泡：断流时要精确标它们（不能按 `streaming` 扫全场，
+    // 否则会误伤下一轮刚开的气泡）
+    const laneIds = new Set<string>(
+      multiColumn ? Object.values(assistantByAgent) : [assistantId],
+    )
+    /**
+     * 把本轮各栏标成「已中断」。
+     *
+     * 不重拉历史是本轮改造的重点（红队审查 C2）：`switchSession` 会整段替换
+     * `messages`，把刚流出的正文、分栏账、未落库的栏全部冲掉——用户看到的是
+     * 「我按了停止，答案就没了」。服务端那边确实落了 truncated，但它要下一次
+     * 打开会话才看得到；眼前这一屏必须留着。
+     */
+    const markInterrupted = (ids: Set<string>) => {
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          // 已经标 `failed` 的栏有自己的「本轮未做」：再叠一个「已中断」会让一栏上
+          // 挂两个徽标，读不出到底发生了什么（降级 + 断流同时发生时就会这样）
+          m.role === 'assistant' && ids.has(m.id) && !m.failed
+            ? { ...m, streaming: false, truncated: true }
+            : m,
+        ),
+      }))
+    }
+    /** 栏 kind → 气泡 id（与 turn-handlers 的路由表同源） */
+    const laneIdOf = (kind: string) => assistantByAgent[kind] ?? assistantId
+
     controller = new AbortController()
     try {
       const resp = await copilotApi.openMessageStream(sessionId, composed, controller.signal, turnSpecs)
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
-      await consumeAgentStream(resp, handlers)
+      const outcome = await consumeAgentStream(resp, handlers)
       finishAssistant()
       set((s) => ({ turnStats: { ...s.turnStats, doneAt: s.turnStats.doneAt ?? Date.now() } }))
+      // 收尾：连接正常结束但没收到 done = 上游被掐断（反代超时/服务重启）。
+      // 「是否已报过错」与「是否截断」是两个独立事实（原先 `lastError !== null` 会拦住
+      // 标截断）：先降级/报错、再断流时，那句更具体的错误不能把「这几栏没等到 done」
+      // 一起吃掉——律师只看到一句解释，却看不到「回答可能不完整」。
+      //
+      // 单栏传空栏清单：单栏事件照样带后端的 agent，拿它比对会误判成缺 done。
+      const verdict = classifyStreamEnd({
+        lanes: multiColumn ? turnAgents : [],
+        doneKinds: outcome.doneKinds,
+        sessionLevelDone: outcome.sessionLevelDone,
+      })
+      // 只标缺 done 的那几栏（不能把跑完的栏也标中断）；单栏归「整轮气泡」的旧口径
+      if (verdict.truncated) {
+        markInterrupted(
+          verdict.missingLanes.length > 0 ? new Set(verdict.missingLanes.map(laneIdOf)) : laneIds,
+        )
+      }
+      // 更具体的错误优先：已说了「对比执行位已满」，再叠一句「连接提前结束」只会绕晕人
+      const notice = verdict.notice
+      if (notice) set((s) => ({ lastError: s.lastError ?? notice }))
     } catch {
       finishAssistant()
-      const aborted = controller?.signal.aborted
-      if (get().sessionId) {
-        // 服务端会把已流出的部分回答落库（truncated）：无论主动停止还是
-        // 网络中断，都重拉历史对齐，再决定要不要提示错误
-        await get().switchSession(get().sessionId)
-      }
-      if (!aborted) {
+      const aborted = controller?.signal.aborted === true
+      if (aborted) {
+        // 主动停止：保留已流出正文与统计，只标截断（服务端已落 truncated）
+        markInterrupted(laneIds)
+      } else {
+        // 真失败（网络断/HTTP 错）：重拉历史对齐服务端落库结果，再提示
+        if (get().sessionId) {
+          await get().switchSession(get().sessionId)
+        }
         set({ lastError: '连接中断，请重试' })
       }
     } finally {

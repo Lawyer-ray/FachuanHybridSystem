@@ -81,8 +81,27 @@ class TestTranslate:
             "agent": "pi",
         }
 
-    def test_error_passthrough(self) -> None:
-        assert translate(_ev("event", type="error", message="boom")) == {"type": "error", "message": "boom"}
+    def test_error_is_projected_not_passthrough(self) -> None:
+        """pi 的 ``error`` 事件也必须带 ``code`` / ``scope``（不再手写帧）。
+
+        这条路径以前只发 ``{"type": "error", "message": <上游原文>}``：律师看到
+        一句英文，前端拿不到 ``code`` 只能归到「未知错误」。同一个 429 在编排层
+        的其它路径上叫 ``rate_limited``（会提示「等 60 秒」）——同一件事两个结论。
+        """
+        frame = translate(_ev("event", type="error", message="boom"))
+        assert frame["type"] == "error"
+        assert frame["code"] == "unknown"
+        assert frame["scope"] == "unknown"
+        assert frame["detail"] == {"reason": "boom"}
+        # 纯英文原文不是给律师看的：替换成 pi 的兜底文案，原文进 detail 供排障。
+        assert frame["message"] == "pi 运行失败，请稍后重试（详见服务端日志）"
+
+    def test_error_message_classified_into_actionable_code(self) -> None:
+        """上游给的中文原文保留（它已经是人话），但 code 照样认得出限流。"""
+        frame = translate(_ev("event", type="error", message="网关 429 限流，retry-after: 60"))
+        assert (frame["code"], frame["scope"]) == ("rate_limited", "account")
+        assert frame["detail"]["retry_after_seconds"] == 60
+        assert frame["message"] == "网关 429 限流，retry-after: 60"
 
     def test_unknown_event_dropped(self) -> None:
         assert translate(_ev("event", type="internal_noise")) is None

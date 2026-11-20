@@ -8,7 +8,15 @@
  * - 后台模式（时钟开关）：提交后立即返回，任务在后台跑完写入会话通知
  *
  * `/` 打头时弹命令菜单（技能补全 `/skill:名字 ` + 内置命令），交互态在
- * use-slash-menu；底栏显示会话上下文水位（done 事件 / stats 接口回填）。
+ * use-slash-menu；`@` 弹引用菜单（案件/合同/文书/文件夹），交互态在
+ * use-mention-menu；底栏显示会话上下文水位（done 事件 / stats 接口回填）。
+ *
+ * **两个菜单共用一条按键管线**：`use-slash-menu` 与本文件里的 `menuKeyDown` 被
+ * 合成一个 `{ onKeyDown }` 塞进 `useComposerSubmit`，于是「IME 守卫 → Shift+Enter
+ * 放行 → 菜单是否吃掉这个键 → 发送」的顺序只有一处（use-composer-submit），
+ * 两个菜单不可能出现「一个吃 Enter、另一个把 Enter 落到发送」的竞态。
+ * `use-mention-menu` 与 `use-slash-menu` 也共用同一个 token 检测器
+ * （`detectMentionToken`）与同一个草稿改写原语（`applyMention`）。
  *
  * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  *
@@ -19,23 +27,43 @@
  * 改它之前先读 use-composer-submit.ts 的文件头。
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowUp, Square, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchAgentSkills } from '../api'
+import { applyMention, detectMentionToken, type MentionInsert, type MentionToken } from '../domain'
 import { useComposerIntake } from '../hooks/use-composer-intake'
+import { useDraft } from '../hooks/use-draft'
 import { useComposerSubmit } from '../hooks/use-composer-submit'
+import { useMentionMenu } from '../hooks/use-mention-menu'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
 import { defaultAgentKind } from '../store/backends'
 import { useCopilot } from '../store'
+import type { CopilotScope } from '../types'
 import { ComposerFooter } from './ComposerFooter'
 import { ComposerQuote } from './ComposerQuote'
 import { ComposerToolbar } from './ComposerToolbar'
+import { MentionMenu } from './MentionMenu'
 import { PendingChips } from './PendingChips'
 import { SlashMenu } from './SlashMenu'
+
+/** 引用候选 listbox 的 id：textarea 的 aria-controls 指向它 */
+const MENTION_LISTBOX_ID = 'composer-mention-listbox'
+
+/**
+ * textarea 自适应高度（1–5 行）。
+ *
+ * 与 use-composer-submit 的 autoGrow 同口径：`@` 选中后要立即长个儿，而那条路径的
+ * autoGrow 在 useComposerSubmit 返回后才有（它依赖 mention.onKeyDown，与这里是一个
+ * 环）。两处的高度上限必须一致，改一处必须同步另一处。
+ */
+function growTextarea(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+}
 
 /** 流式中的「已插话 N 条」提示条（撤回按钮在前一排，两者共用一行） */
 const STEER_BAR_CLASS = 'mb-1.5 flex items-center gap-1.5 px-1 text-[11.5px] text-muted-foreground'
@@ -51,7 +79,8 @@ const SEND_BUTTON_CLASS = 'copilot-send flex h-7 w-7 flex-none items-center just
  *   那是 CopilotPanel 的数据源。
  */
 export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
-  const [text, setText] = useState('')
+  // 草稿按会话持久化：切会话/刷新都不丢（律师常写一整段事实，重打一遍代价很高）
+  const [text, setText] = useDraft(useCopilot((s) => s.sessionId))
   const [bgMode, setBgMode] = useState(false)
   const streaming = useCopilot((s) => s.streaming)
   const queuedSteers = useCopilot((s) => s.queuedSteers)
@@ -80,8 +109,14 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
   const steer = useCopilot((s) => s.steer)
   const revokeQueuedSteers = useCopilot((s) => s.revokeQueuedSteers)
   const submitTask = useCopilot((s) => s.submitTask)
+  // 业务范围与 `@` 引用（文书/文件夹取当前案件/合同的绑定文件夹）
+  const context = useCopilot((s) => s.context)
+  const addMention = useCopilot((s) => s.addMention)
+  const clearMentions = useCopilot((s) => s.clearMentions)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  /** 光标位置：`@`/`/` 的 token 识别要的是「光标前」而不是「草稿末尾」 */
+  const [caret, setCaret] = useState(0)
 
   /** 语音听写（Chrome/Edge 原生，zh-CN）：内容实时进草稿；onText 带 autoGrow
    *  ——语音进来也要长个儿，不能等用户敲键才撑高 */
@@ -106,8 +141,22 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
     skills,
     hasSession: Boolean(sessionId && messageCount > 0),
     onSkill: (name) => {
-      setText(`/skill:${name} `)
-      textareaRef.current?.focus()
+      // 与 `@` 用**同一个改写原语**（applyMention + detectMentionToken）：
+      // 命令的 token 按「整行」算（命令语义是整行 = 命令 + 参数，不看光标在哪），
+      // 所以这里显式传 text.length 而不是跟随 caret
+      const token = detectMentionToken(text, text.length)
+      const next = token?.trigger === '/' ? applyMention(text, token, { insertText: `/skill:${name} ` }) : null
+      const value = next?.text ?? `/skill:${name} `
+      const caretAt = next?.caret ?? value.length
+      setText(value)
+      // 光标落到补全后的位置（原先只 focus，光标留在开头，再打参数会插到 /skill: 前面）
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(caretAt, caretAt)
+        setCaret(caretAt)
+      })
     },
     onCommand: (id) => {
       if (id !== 'compact') return
@@ -116,9 +165,65 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
     },
   })
 
+  /** 业务范围（对象形状要稳定：源列表按它 memo，变了会重拉候选） */
+  const scope = useMemo<CopilotScope | undefined>(
+    () => (context ? { origin: context.origin, refId: context.refId } : undefined),
+    [context],
+  )
+
+  /**
+   * `@` 选中：改写草稿 + 落进 pendingMentions。
+   *
+   * 草稿里只放人能读的 `@名字 `（`insertText`），协议块留在 `clipboardText`，
+   * 由 outgoing 在发送时缀到正文后——否则一行正文被十几个不可读字符打断。
+   */
+  const onPickMention = useCallback(
+    (insert: MentionInsert, token: MentionToken) => {
+      const next = applyMention(text, token, insert)
+      setText(next.text)
+      addMention(insert)
+      // 受控值下一帧才提交，光标必须那时再复位（现在设会被 React 覆写）
+      requestAnimationFrame(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(next.caret, next.caret)
+        setCaret(next.caret)
+        growTextarea(el)
+      })
+    },
+    [addMention, setText, text],
+  )
+
+  const mention = useMentionMenu({ text, caret, scope, onPick: onPickMention })
+
+  /**
+   * 菜单按键的**唯一**裁决点：先 `@` 引用菜单，再 `/` 命令菜单。
+   * 返回 true = 已被菜单消费，`use-composer-submit` 会 preventDefault 并短路发送。
+   */
+  const menuKeyDown = (event: React.KeyboardEvent): boolean =>
+    mention.onKeyDown(event) === 'consumed' || slash.onKeyDown(event)
+
+  /**
+   * 发送 + 成功清引用：`onQueued(true)` 表示消息已入列（store/turn.ts 那里也在此
+   * 清 pendingFiles/pendingRefs）。失败时保留 chips，重试不丢引用。
+   */
+  const sendWithMentions = useCallback(
+    async (outgoing: string, onQueued?: (sent: boolean) => void) => {
+      await send(outgoing, (sent) => {
+        if (sent) clearMentions()
+        onQueued?.(sent)
+      })
+    },
+    [clearMentions, send],
+  )
+
   const { submit, handleKeyDown, autoGrow, onCompositionStart, onCompositionEnd } = useComposerSubmit({
     text, setText, textareaRef, pendingFiles, pendingRefs, pendingQuote, uploading, sending,
-    streaming, steerEnabled, bgMode, setBgMode, speech, slash, send, steer, submitTask,
+    streaming, steerEnabled, bgMode, setBgMode, speech, steer, submitTask,
+    // 两个菜单合一个入口进提交管线：顺序与互斥只由这一处决定
+    slash: { onKeyDown: menuKeyDown },
+    send: sendWithMentions,
   })
 
   // 两条外部写入通道：框选引用（挂引用卡）与选区预填（追加文字），见 hook 文件头
@@ -169,8 +274,17 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
           </div>
         )}
         <div className="relative flex items-end gap-2 rounded-[14px] border border-border bg-background px-2.5 py-1.5 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-foreground/30 focus-within:ring-4 focus-within:ring-foreground/10">
-          {slash.open && (
+          {slash.open && !mention.open && (
             <SlashMenu items={slash.items} selectedIndex={slash.index} onHover={slash.setIndex} onSelect={slash.apply} />
+          )}
+          {mention.open && (
+            <MentionMenu
+              id={MENTION_LISTBOX_ID}
+              groups={mention.groups}
+              highlight={mention.highlight}
+              onHover={mention.onHover}
+              onPick={(target) => mention.pick(target)}
+            />
           )}
           <ComposerToolbar
             bgMode={bgMode}
@@ -192,18 +306,28 @@ export function Composer({ steerEnabled = true }: { steerEnabled?: boolean }) {
             speech={speech}
             speechBase={text}
           />
+          {/* 焦点始终在 textarea（combobox 模式）：菜单只挂 aria-activedescendant。
+              不把 role 改成 combobox —— 那会让「按文本框跳转」的读屏用户找不到这个框，
+              且既有测试与交互都以 textbox 为准 */}
           <textarea
             ref={textareaRef}
             value={text}
             rows={1}
             placeholder={placeholder}
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-expanded={mention.open}
+            aria-controls={mention.open ? MENTION_LISTBOX_ID : undefined}
             className="max-h-30 min-h-6 flex-1 resize-none bg-transparent text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground"
             onChange={(e) => {
               // 听写中手动改字：以编辑后的全文为新基线，后续听写在其后追加
               if (speech.listening) speech.rebase(e.target.value)
               setText(e.target.value)
+              setCaret(e.target.selectionStart ?? e.target.value.length)
               autoGrow()
             }}
+            // 点选/方向键移动光标后 token 会变：不跟踪就只在「敲字」那天才认得引用
+            onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
             onKeyDown={handleKeyDown}
             onCompositionStart={onCompositionStart}
             onCompositionEnd={onCompositionEnd}

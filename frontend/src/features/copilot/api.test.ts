@@ -16,7 +16,12 @@ const apiMock = vi.hoisted(() => ({
 vi.mock('@/lib/api', () => ({ api: apiMock, UPLOAD_TIMEOUT_MS: 300_000 }))
 
 import {
+  clearScopeFolderRowsCache,
   createSession,
+  fetchCaseFolderEntries,
+  fetchContractFolderEntries,
+  globalSearch,
+  loadScopeFolderRows,
   fetchBackends,
   uploadAttachment,
   decideApproval,
@@ -259,5 +264,88 @@ describe('skills & stats & compact api', () => {
     apiMock.post.mockReturnValueOnce(chain({ compacted: true }))
     await compactSession('s-1')
     expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/compact')
+  })
+})
+
+/**
+ * `@` 引用候选源的端点契约。
+ *
+ * 这几个路径不是猜的：`GET /search`（core/api/search_api.py，前缀见 api.py:320）、
+ * `GET /cases/{id}/folder-entries`（case_folder_browse_api.py:54，前缀 api.py:215）、
+ * `GET /contracts/{id}/folder-entries`（folder_binding_api.py，前缀 api.py:217）。
+ * 路径写错的症状是「@ 永远没候选、控制台也不报」——所以在这里钉死。
+ */
+describe('copilot api：@ 引用候选源', () => {
+  it('globalSearch GET search 带 q/limit（空 q 与 limit 上限由后端管）', async () => {
+    apiMock.get.mockReturnValue(chain({ cases: [], contracts: [] }))
+    await globalSearch('张三', 8)
+    expect(apiMock.get).toHaveBeenCalledWith('search', { searchParams: { q: '张三', limit: 8 } })
+  })
+
+  it('globalSearch 带 AbortSignal（查询词变了要能中断上一轮）', async () => {
+    apiMock.get.mockReturnValue(chain({ cases: [], contracts: [] }))
+    const controller = new AbortController()
+    await globalSearch('张三', 8, controller.signal)
+    expect(apiMock.get).toHaveBeenCalledWith('search', {
+      searchParams: { q: '张三', limit: 8 },
+      signal: controller.signal,
+    })
+  })
+
+  it('fetchCaseFolderEntries GET cases/{id}/folder-entries（subpath 为空时不带参数）', async () => {
+    apiMock.get.mockReturnValue(chain({ browsable: true, folders: [], files: [] }))
+    await fetchCaseFolderEntries(7)
+    expect(apiMock.get).toHaveBeenCalledWith('cases/7/folder-entries', { searchParams: {} })
+    await fetchCaseFolderEntries(7, '1-一审')
+    expect(apiMock.get).toHaveBeenLastCalledWith('cases/7/folder-entries', { searchParams: { subpath: '1-一审' } })
+  })
+
+  it('fetchContractFolderEntries GET contracts/{id}/folder-entries', async () => {
+    apiMock.get.mockReturnValue(chain({ browsable: true, folders: [], files: [] }))
+    await fetchContractFolderEntries(5, '2-立案材料')
+    expect(apiMock.get).toHaveBeenCalledWith('contracts/5/folder-entries', { searchParams: { subpath: '2-立案材料' } })
+  })
+
+  it('loadScopeFolderRows：根层 + 前 6 个子目录合并，结果按范围缓存', async () => {
+    clearScopeFolderRowsCache()
+    apiMock.get.mockImplementation((_url: string, options: { searchParams?: { subpath?: string } } = {}) => {
+      const subpath = options.searchParams?.subpath
+      // 根层：8 个子目录 + 1 个文件（只应扫前 6 个子目录）
+      if (!subpath) {
+        return chain({
+          browsable: true,
+          folders: Array.from({ length: 8 }, (_, i) => ({ name: `目录${i}`, subpath: `d${i}` })),
+          files: [{ name: '根文件.pdf', subpath: '根文件.pdf', size: 2048, modified_at: '' }],
+        })
+      }
+      return chain({
+        browsable: true,
+        folders: [],
+        files: [{ name: '起诉状.pdf', subpath: `${subpath}/起诉状.pdf`, size: 1024, modified_at: '' }],
+      })
+    })
+
+    const rows = await loadScopeFolderRows({ origin: 'case', refId: 7 })
+    // 根 1 + 前 6 个子目录（第 7/8 个不扫：一次菜单只允许一轮有界的请求）
+    expect(apiMock.get).toHaveBeenCalledTimes(7)
+    expect(rows.files.map((f) => f.name)).toEqual(['根文件.pdf', ...Array.from({ length: 6 }, () => '起诉状.pdf')])
+
+    // 第二个查询词命中缓存，不再发请求
+    const again = await loadScopeFolderRows({ origin: 'case', refId: 7 })
+    expect(again.files).toHaveLength(7)
+    expect(apiMock.get).toHaveBeenCalledTimes(7)
+    clearScopeFolderRowsCache()
+  })
+
+  it('loadScopeFolderRows：未绑定文件夹 → browsable=false，不报错', async () => {
+    clearScopeFolderRowsCache()
+    apiMock.get.mockReturnValue(chain({ browsable: false, message: '该案件未绑定文件夹', folders: [], files: [] }))
+    await expect(loadScopeFolderRows({ origin: 'case', refId: 9 })).resolves.toEqual({
+      browsable: false,
+      message: '该案件未绑定文件夹',
+      folders: [],
+      files: [],
+    })
+    clearScopeFolderRowsCache()
   })
 })

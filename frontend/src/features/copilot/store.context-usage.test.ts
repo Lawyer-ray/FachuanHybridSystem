@@ -8,6 +8,9 @@
  * - 压缩有并发闸门（`compacting` / `streaming`）：流式期间压缩会把正在生成
  *   的回答一起压掉；
  * - 点赞/点踩是乐观更新 + 失败回滚：不回滚会让界面永远显示一个后端没存下的评价。
+ *
+ * 另有一条与「分栏用量」交叉的不变量（见文件末尾）：一轮结束后 `turnStatsByLane`
+ * 必须还在（栏头 chip 的数据源），只在**下一轮开始**时才清空。
  */
 import { HTTPError } from 'ky'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -238,5 +241,97 @@ describe('rateMessage：点赞 / 点踩 / 撤销', () => {
 
     expect(useCopilot.getState().messages).toHaveLength(1)
     expect(useCopilot.getState().messages[0]?.rating).toBeUndefined()
+  })
+})
+
+/* ────────────────────────── 分栏用量：本轮账的生命周期 ───────────────────── */
+
+const encoder = new TextEncoder()
+
+/** 把几条 SSE 帧拼成一个 Response（与 streaming.ts 消费的形状一致） */
+function sseResponse(frames: string[]): Response {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const frame of frames) controller.enqueue(encoder.encode(frame))
+      controller.close()
+    },
+  })
+  return new Response(body, { status: 200 })
+}
+
+/** 两栏（pi / dsh）各一条 delta + 各一条 usage + 一个整轮 done */
+const TWO_LANE_TURN = [
+  'data: {"type":"delta","content":"甲","agent":"pi"}\n\n',
+  'data: {"type":"usage","output_tokens":120,"input_tokens":30,"cache_read_tokens":300,"cache_write_tokens":0,"agent":"pi"}\n\n',
+  'data: {"type":"delta","content":"乙","agent":"dsh"}\n\n',
+  'data: {"type":"usage","output_tokens":80,"input_tokens":70,"cache_read_tokens":0,"cache_write_tokens":20,"agent":"dsh"}\n\n',
+  'data: {"type":"done","session_id":"s-1","agents":["pi","dsh"]}\n\n',
+]
+
+describe('分栏账（turnStatsByLane）在一轮结束后仍在', () => {
+  /** 跑完一轮两栏对话（会话已存在，不建新会话） */
+  async function runTwoLaneTurn(): Promise<void> {
+    useCopilot.setState({ sessionId: 's-1', answerAgents: ['pi', 'dsh'] })
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(sseResponse(TWO_LANE_TURN))
+    await useCopilot.getState().send('两份合同哪份更有利')
+  }
+
+  it('回答写完（流已结束）后账还在：栏头 chip 不会在最后一帧后面变空', async () => {
+    await runTwoLaneTurn()
+
+    expect(useCopilot.getState().streaming).toBe(false)
+    const lanes = useCopilot.getState().turnStatsByLane
+    // 每栏一份自己的账（LaneUsageChip 的数据源）
+    expect(lanes.pi?.exactTokens).toBe(120)
+    expect(lanes.pi?.cacheReadTokens).toBe(300)
+    expect(lanes.dsh?.exactTokens).toBe(80)
+    expect(lanes.dsh?.cacheWriteTokens).toBe(20)
+  })
+
+  it('账的键与本轮气泡的 agentKind 对齐（历史回放要靠这个对应关系认领各栏）', async () => {
+    await runTwoLaneTurn()
+
+    const kinds = useCopilot
+      .getState()
+      .messages.filter((m) => m.role === 'assistant')
+      .map((m) => m.agentKind)
+    expect(kinds).toEqual(['pi', 'dsh'])
+    // 键集合一一对应：多一个/少一个都意味着「某栏的账找不到主人」
+    expect(Object.keys(useCopilot.getState().turnStatsByLane).sort()).toEqual([...kinds].sort())
+  })
+
+  it('下一轮开始时才清空：不残留上一轮的数（否则栏头挂的是上一轮的速度与 token）', async () => {
+    await runTwoLaneTurn()
+    expect(useCopilot.getState().turnStatsByLane.pi?.exactTokens).toBe(120)
+
+    // 第二轮：只有一个 done，没有任何 usage/delta —— 清空后不该被重新填满
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"done","session_id":"s-1"}\n\n']),
+    )
+    await useCopilot.getState().send('第二个问题')
+
+    const lanes = useCopilot.getState().turnStatsByLane
+    // 上一轮的精确数不残留（done 帧会给本轮的栏建一份**空**账，这是允许的）
+    expect(lanes.pi?.exactTokens).toBeNull()
+    expect(lanes.pi?.cacheReadTokens).toBeUndefined()
+    expect(lanes.pi?.inputTokens).toBeUndefined()
+    // 本轮完全没有出现的栏直接不在了（dsh 的账随上一轮一起丢掉）
+    expect(lanes.dsh).toBeUndefined()
+    expect(useCopilot.getState().turnStats.exactTokens).toBeNull()
+  })
+
+  it('已知缺口（未闭环）：换个会话后这一轮的数只剩内存账，messages 上没带用量', async () => {
+    await runTwoLaneTurn()
+
+    // 现在的状态：数只活在那个单槽内存账里；气泡上**没有**任何用量字段。
+    // 所以刷新/切会话后历史轮次的栏用量必然消失——补法是后端把每栏用量落进
+    // metadata.usage_by_lane（+ ttft_ms），再由 domain/usage.laneUsageFromMetadata
+    // 收窄后挂到气泡上（见 domain/usage.ts 与 LaneUsageChip 的 usage 入参）。
+    const answers = useCopilot.getState().messages.filter((m) => m.role === 'assistant')
+    expect(answers).toHaveLength(2)
+    for (const m of answers) {
+      expect(Object.keys(m)).not.toContain('laneUsage')
+      expect(Object.keys(m)).not.toContain('usage')
+    }
   })
 })

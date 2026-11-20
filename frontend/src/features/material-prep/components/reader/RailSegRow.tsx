@@ -10,6 +10,8 @@ import {
 import { docTypeLabel, segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
+import { SegmentFileButtons, SegmentSelectBox } from './SegmentDownloadBar'
+import type { SegmentRowDownload } from './use-segment-selection'
 
 /** 名字中部省略：区分信息（-P20.pdf）在尾部，尾部截断等于把区分信息截掉 */
 function midEllipsis(s: string, max = 16): string {
@@ -39,6 +41,7 @@ export function RailSegRow({
   graphicPages = [],
   docHintPages = [],
   editing,
+  download,
   onStartEdit,
   onFocus,
   onSelectRow,
@@ -65,6 +68,9 @@ export function RailSegRow({
   docHintPages?: { page: number; doc: string; missing: string[] }[]
   /** 行内改名由父层持有（右键「重命名」也要打开它） */
   editing: boolean
+  /** 勾选 + 单个下载的视图模型；undefined = 本段没有后端产物（人工拆的段 / 旧草稿），
+   *  此时两个控件都不渲染——不给「点了一定 404」的入口 */
+  download?: SegmentRowDownload
   onStartEdit: () => void
   onFocus: () => void
   /** 带修饰键的点击（多选 / 区间选），e 传下去判断 meta/ctrl/shift */
@@ -151,6 +157,9 @@ export function RailSegRow({
               )}
             />
           )}
+          {/* 勾选框放在名字**前**：这里是「按段挑材料去下载」的清单，勾选位在行首
+              才符合列表直觉（与邮箱/文件管理器同位置）。改名时收起，把宽度让给输入框 */}
+          {!editing && <SegmentSelectBox row={download} name={displayName} />}
           {/* 这里原本是一个按段类型上色的圆点（SEG_COLORS）。已按反馈移除：
               左栏是「找材料」的目录，不是按类型分类的图表；一圈彩色点只会
               把视线从「段名」上拽开，而段名才是律师真正在找的东西。
@@ -203,6 +212,8 @@ export function RailSegRow({
               复核
             </span>
           ) : null}
+          {/* 单个下载（PDF / MD）压在行尾：与「这一段是什么」的读法一致 */}
+          {!editing && <SegmentFileButtons row={download} />}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-[180px]">

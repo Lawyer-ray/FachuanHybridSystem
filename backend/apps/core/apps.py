@@ -17,11 +17,16 @@ class CoreConfig(AppConfig):
         from apps.core.utils.startup_db import allow_startup_db, run_startup_db_sync
 
         try:
-            from .tasking.qcluster_shutdown import patch_django_q_cluster_stop_for_macos
+            from .tasking.qcluster_shutdown import (
+                patch_django_q_cluster_stop_for_macos,
+                patch_django_q_sig_handler_for_finalizing,
+            )
             from .tasking.qcluster_spawn import patch_django_q_mp_context_for_macos
 
             patch_django_q_mp_context_for_macos()
             patch_django_q_cluster_stop_for_macos()
+            # 必须早于任何 q.start()（start() 会把当时的 sig_handler 绑进 signal.signal）
+            patch_django_q_sig_handler_for_finalizing()
         except Exception:
             logger.debug("django-q spawn/shutdown patch 跳过（未就绪）")
 

@@ -32,6 +32,7 @@ from apps.pdf_splitting.models import (
     parse_dual_engines,
 )
 
+from .split.markdown_builder import load_segment_markdown_map
 from .storage import PdfSplitStorage
 from .template_registry import get_default_filename, get_segment_label, get_template_definition
 
@@ -83,6 +84,25 @@ def _elapsed_seconds_for(job: PdfSplitJob) -> int | None:
     if job.status in _TERMINAL_STATUSES and job.finished_at is not None:
         return max(0, int((job.finished_at - started).total_seconds()))
     return max(0, int((timezone.now() - started).total_seconds()))
+
+
+def _source_name_variants(source_name: str) -> list[str]:
+    """同一次上传在库里可能出现的两种文件名形态。
+
+    写侧（``_save_uploaded_pdf``）存的是 ``sanitize_upload_filename`` **清洗后**的名字，
+    而调用方（前端「自动识别」）传的是**附件原名**。两者在含中文标点时不同：
+    全角括号 ``（）`` 会被清洗成下划线，于是原名里的 ``）_`` 变成 ``__``。
+
+    2026-11-20 实测：附件原名 ``…（某某工伤行政复议案件）_20261120收.pdf``，
+    库里存 ``…_某某工伤行政复议案件__20261120收.pdf``。``find_reusable_job`` 用原名
+    精确匹配 → **永远 miss** → 每次点「自动识别」都新建任务、从零重跑一遍 93 页
+    （实测两小时内同一份文件跑了三遍，钱和时间全白花）。
+
+    两种形态都收：``raw`` 覆盖「将来若改成存原名」的情况，``sanitized`` 覆盖
+    现存数据，因此**不需要迁移**也不需要回填历史行。
+    """
+    variants = {source_name, source_name.strip(), sanitize_upload_filename(source_name)}
+    return [name for name in variants if name]
 
 
 class PdfSplitJobService:
@@ -227,7 +247,7 @@ class PdfSplitJobService:
             return None
 
         queryset = PdfSplitJob.objects.filter(
-            source_original_name=source_name,
+            source_original_name__in=_source_name_variants(source_name),
             status__in=(PdfSplitJobStatus.REVIEW_REQUIRED, PdfSplitJobStatus.COMPLETED),
         )
         if total_pages is not None:
@@ -271,7 +291,7 @@ class PdfSplitJobService:
             return None
 
         queryset = PdfSplitJob.objects.filter(
-            source_original_name=source_name,
+            source_original_name__in=_source_name_variants(source_name),
             status__in=(PdfSplitJobStatus.PENDING, PdfSplitJobStatus.PROCESSING),
             cancel_requested=False,
         )
@@ -700,26 +720,13 @@ def _segment_display_label(segment: PdfSplitSegment) -> str:
 
 def load_segments_md(path: Path) -> dict[int, str]:
     """读分段 Markdown 产物（order → 正文）；文件缺失 / 损坏一律回空表——
-    旧任务没有 md 产物，content_md 退化为空串，不阻断任务详情接口。"""
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        logger.warning("pdf_split_segments_md_read_failed", extra={"path": str(path)})
-        return {}
-    if not isinstance(payload, list):
-        return {}
-    result: dict[int, str] = {}
-    for item in payload:
-        if not isinstance(item, dict):
-            continue
-        try:
-            order = int(item.get("order"))  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            continue
-        result[order] = str(item.get("markdown") or "")
-    return result
+    旧任务没有 md 产物，content_md 退化为空串，不阻断任务详情接口。
+
+    实现在 ``split.markdown_builder.load_segment_markdown_map``，这里只转调：
+    下载打包（``PdfSplitService``）也要按 order 取同一份正文，两份解析器必然
+    漏改其中一份，而两边口径一旦劈叉就是「屏幕上的正文和下载的 md 不一样」。
+    """
+    return load_segment_markdown_map(path)
 
 
 def load_segments_quality_flags(path: Path) -> dict[int, list[str]]:

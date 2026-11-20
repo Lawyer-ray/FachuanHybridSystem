@@ -7,7 +7,16 @@
  * 或「归属 id 被切进标题」。
  */
 
-import type { AgentHistoryMessage, BizHint, ChatMessage, SentRefMeta, SelectionQuote } from '../types'
+import type {
+  AgentHistoryMessage,
+  BizHint,
+  ChatMessage,
+  CitationRef,
+  SentRefMeta,
+  SelectionQuote,
+} from '../types'
+import { narrowCitations } from './knowledge'
+import { laneUsageFromMetadata, pickLaneUsage } from './usage'
 
 /**
  * 引用块行（发送时由 outgoing 拼入消息）：
@@ -140,6 +149,21 @@ export function bizHintParts(hint: BizHint): { unit: string; title: string; ref:
   return { unit: hint.kind === 'case' ? '本案' : '本委托', title: hint.title, ref: `#${hint.refId}` }
 }
 
+/**
+ * `metadata.citations`（落库时的 snake_case 数组）→ 气泡的 `citations`。
+ *
+ * **缺失 / 畸形 / 全被丢光一律 undefined，绝不返回 `[]`**：渲染层把「有引用表」
+ * 当成「本轮有溯源」，`[]` 会让正文里每个 `[Kn]` 都被判成失效角标而降级成纯
+ * 文本；旧数据根本没有这个键，必须与「有键但为空」回到同一条 undefined 旧行为。
+ * 收窄只用 narrowCitations 一个判据（与实时 SSE 路径共用，刷新前后不漂移）。
+ */
+function historyCitationsOf(
+  metadata: Record<string, unknown> | undefined,
+): CitationRef[] | undefined {
+  const citations = narrowCitations(metadata?.citations)
+  return citations.length > 0 ? citations : undefined
+}
+
 /** `metadata.model` → 模型名；缺失 / 非字符串 / 空串一律 undefined（不编造） */
 function modelOf(metadata: Record<string, unknown> | undefined): string | undefined {
   const model = metadata?.model
@@ -161,6 +185,9 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
     const quoteSplit = row.role === 'user' ? splitQuoteBlock(refsSplit?.body ?? row.content) : null
     return {
       id: `db-${row.message_id}`,
+      // 落库主键显式带上：评分/翻页游标都靠它，别再让调用方从 id 里反推
+      serverId: row.message_id,
+      createdAt: row.created_at ? Date.parse(row.created_at) || undefined : undefined,
       role: row.role,
       content: row.role === 'tool' ? row.content.slice(0, 2000) : (quoteSplit?.body ?? row.content),
       pageHint: hintSplit?.pageHint ?? undefined,
@@ -174,6 +201,16 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
       // 实际用的模型（后端流结束时写进 metadata.model）：刷新后栏头仍写「agent · 模型」，
       // 否则重开会话就看不出那几栏各用的什么模型，对比历史回答就没法还原了
       model: row.role === 'assistant' ? modelOf(row.metadata) : undefined,
+      // 入站引用（逐句溯源）：后端落库在 `metadata.citations`，刷新后靠它让角标
+      // 仍可点开。只认 assistant 行——引用属于「这句话出自哪」
+      // 历史用量：与 `turnStatsByLane` 共用 `LaneUsage` 形状，收窄函数也只有一处
+      // （`laneUsageFromMetadata`）。缺 `usage_by_lane` → undefined 而不是空对象，
+      // 渲染层据此「整段不显示」而不是显示一排 0。
+      laneUsage:
+        row.role === 'assistant'
+          ? (pickLaneUsage(laneUsageFromMetadata(row.metadata), row.agent_kind ?? '') ?? undefined)
+          : undefined,
+      citations: row.role === 'assistant' ? historyCitationsOf(row.metadata) : undefined,
       truncated: row.metadata?.truncated === true || undefined,
     }
   })

@@ -61,7 +61,9 @@ def cluster_status() -> dict[str, Any]:
     - ``clusters``：redis 心跳键按集群名去重的数量（心跳 TTL 3s，键在 = 心跳在）。
       0 = 没有集群在跑；>1 = 多棵进程树抢同一 broker（僵尸集群，成因与清剿
       手法见 backend/CLAUDE.md「Django-Q 队列与僵尸集群防范」）。
-    - ``queue_depth``：OrmQ 待消费条数。
+    - ``queue_depth``：待消费条数，**按真实 broker 取**：Redis broker 读 Redis 列表长度，
+      ORM broker 才数 OrmQ 表。此前无条件下 ``OrmQ.objects.count()``，Redis broker 下
+      排队任务根本不在该表，永远报 0（2026-11-20 事故：Redis 堆了 296 条、状态卡片显示 0 深度）。
     - ``succeeded_today`` / ``failed_today``：本地今日成败计数。
     - ``last_success_at`` / ``last_failed_at``：最近一次成功 / 失败时间。
     - ``broker_error``：redis 探测失败时的异常摘要；非 redis broker 或探测失败时
@@ -77,8 +79,12 @@ def cluster_status() -> dict[str, Any]:
 
     clusters: int | None = None
     broker_error: str | None = None
+    queue_depth = OrmQ.objects.count()
     try:
         if is_redis_broker():
+            from apps.core.tasking.redis_queue import get_queue_length
+
+            queue_depth = get_queue_length()
             conn = _get_redis_connection()
             names: set[str] = set()
             for key in conn.scan_iter(match="django_q:*:cluster:*", count=200):
@@ -92,7 +98,7 @@ def cluster_status() -> dict[str, Any]:
 
     return {
         "clusters": clusters,
-        "queue_depth": OrmQ.objects.count(),
+        "queue_depth": queue_depth,
         "succeeded_today": Task.objects.filter(success=True, stopped__date=today).count(),
         "failed_today": Task.objects.filter(success=False, stopped__date=today).count(),
         "last_success_at": last_success,

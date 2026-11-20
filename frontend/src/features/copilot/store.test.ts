@@ -187,6 +187,58 @@ describe('copilot store：发送与流式转录', () => {
     expect(approvals[0]?.approvalId).toBe('a1')
   })
 
+  it('实时气泡带 createdAt：刚发出去的这条就有时间，不用刷新一次才出现', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"好的"}\n\n',
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+
+    const before = Date.now()
+    await useCopilot.getState().send('查案件')
+    const after = Date.now()
+
+    const { messages } = useCopilot.getState()
+    const user = messages.find((m) => m.role === 'user')
+    const assistant = messages.find((m) => m.role === 'assistant')
+    expect(user?.createdAt).toBeGreaterThanOrEqual(before)
+    expect(user?.createdAt).toBeLessThanOrEqual(after)
+    // 同一条消息发出时建立的两条气泡共用一个时刻（不是各自取一次 Date.now）
+    expect(assistant?.createdAt).toBe(user?.createdAt)
+  })
+
+  it('rewrite_folder_file 的参数落成修订块，后到的完整参数只更新不新增行', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    // pi 对同一调用会发多条 tool_call（arguments 渐进完整）：第一条只有原文，
+    // 第二条才带齐 replacement + subpath
+    const incomplete = { original: '逾期付款的，按日万分之五计息。' }
+    const complete = {
+      subpath: '1-律师资料/1-合同/借款合同.docx',
+      original: '逾期付款的，按日万分之五计息。',
+      replacement: '逾期付款的，按日万分之三计息。',
+      contract_id: 7,
+    }
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        `data: ${JSON.stringify({ type: 'tool_call', tool_call_id: 'r1', name: 'mcp__fachuan__rewrite_folder_file', arguments: incomplete })}\n\n`,
+        `data: ${JSON.stringify({ type: 'tool_call', tool_call_id: 'r1', name: 'mcp__fachuan__rewrite_folder_file', arguments: complete })}\n\n`,
+        `data: ${JSON.stringify({ type: 'tool_result', tool_call_id: 'r1', name: 'rewrite_folder_file', result: '{"applied":true}' })}\n\n`,
+        'data: {"type":"done","session_id":"s-1"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('把违约利息改成万分之三')
+
+    const tools = useCopilot.getState().messages.filter((m) => m.role === 'tool')
+    // 同一次调用只占一行（去重仍生效）
+    expect(tools).toHaveLength(1)
+    expect(tools[0]?.rewrite?.replacement).toBe('逾期付款的，按日万分之三计息。')
+    // 文件名取 subpath 的 basename：修订块标题要写「改了哪个文件」
+    expect(tools[0]?.rewrite?.filename).toBe('借款合同.docx')
+  })
+
   it('error 事件置错误提示并收尾助手气泡', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
     vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
@@ -200,13 +252,12 @@ describe('copilot store：发送与流式转录', () => {
     expect(streaming).toBe(false)
   })
 
-  it('stop 中断流后重拉历史对齐（服务端落库部分回答）', async () => {
+  it('stop 中断流后**不**重拉历史：保留已流出正文，只标本栏截断', async () => {
+    // 契约变更（红队审查 C2）：原先 stop 走 switchSession 全量重拉，会把刚流出的
+    // 正文、分栏用量账、未落库的栏一起冲掉——用户看到的是「按了停止答案就没了」。
+    // 服务端确实落库了 truncated，但那是下次打开会话的事；眼前这一屏必须留着。
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
-    const history: AgentHistoryMessage[] = [
-      { message_id: 1, role: 'user', content: 'x', tool_name: '', created_at: '', metadata: {} },
-      { message_id: 2, role: 'assistant', content: '半截', tool_name: '', created_at: '', metadata: { truncated: true } },
-    ]
-    const fetchHistory = vi.mocked(copilotApi.fetchHistory).mockResolvedValue(history)
+    const fetchHistory = vi.mocked(copilotApi.fetchHistory).mockResolvedValue([])
 
     // mock 的流必须响应 abort 信号：真实 fetch 中断时 reader.read() 会以
     // AbortError reject，这里用 controller.error 等价模拟，才能走到 catch 分支
@@ -229,10 +280,13 @@ describe('copilot store：发送与流式转录', () => {
     useCopilot.getState().stop()
     await sending
 
-    expect(fetchHistory).toHaveBeenCalledWith('s-1')
-    const { messages, streaming } = useCopilot.getState()
-    expect(messages[1]?.content).toBe('半截')
+    expect(fetchHistory).not.toHaveBeenCalled()
+    const { messages, streaming, lastError } = useCopilot.getState()
+    // 已经流出来的半句还在（不再被历史覆盖）
+    expect(messages[1]?.content).toBe('半')
     expect(messages[1]?.truncated).toBe(true)
+    expect(messages[1]?.streaming).toBe(false)
+    expect(lastError).toBeNull()
     expect(streaming).toBe(false)
   })
 

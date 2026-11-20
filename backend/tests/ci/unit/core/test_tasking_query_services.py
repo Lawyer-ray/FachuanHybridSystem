@@ -113,6 +113,29 @@ class TestClusterStatus:
         assert data["clusters"] == 2
 
     @pytest.mark.django_db
+    def test_queue_depth_follows_redis_queue(self):
+        """Redis broker：queue_depth 取 Redis 队列真实长度（OrmQ 表此时恒为 0）。"""
+        conn = MagicMock()
+        conn.scan_iter.return_value = [b"django_q:default-abc12345:cluster:123"]
+        conn.llen.return_value = 296
+        with (
+            patch("apps.core.tasking.redis_queue.is_redis_broker", return_value=True),
+            patch("apps.core.tasking.redis_queue._get_redis_connection", return_value=conn),
+        ):
+            data = task_queue_query.cluster_status()
+        assert data["queue_depth"] == 296
+
+    @pytest.mark.django_db
+    def test_queue_depth_counts_ormq_on_orm_broker(self):
+        """ORM broker：仍按 OrmQ 表计数。"""
+        from django_q.models import OrmQ
+
+        OrmQ.objects.create(key="default", payload="signed-package")
+        with patch("apps.core.tasking.redis_queue.is_redis_broker", return_value=False):
+            data = task_queue_query.cluster_status()
+        assert data["queue_depth"] == 1
+
+    @pytest.mark.django_db
     def test_today_counts_and_last_run_times(self):
         """今日成败计数与最近一次成功/失败时间来自 Task 表。"""
         from django.utils import timezone
