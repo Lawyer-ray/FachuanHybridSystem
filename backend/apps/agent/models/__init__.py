@@ -7,6 +7,7 @@ from .attachment import AgentAttachment
 from .memory import AgentMemory, content_hash_of
 from .message import AgentMessage
 from .question import AgentQuestion
+from .review import AgentReview
 from .run import AgentRun
 from .session import AgentSession
 from .skill import AgentSkillPreference
@@ -19,6 +20,7 @@ __all__ = [
     "AgentMemory",
     "AgentMessage",
     "AgentQuestion",
+    "AgentReview",
     "AgentRun",
     "AgentSession",
     "AgentSkillPreference",
