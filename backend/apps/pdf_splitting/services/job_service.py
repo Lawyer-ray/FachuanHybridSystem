@@ -32,6 +32,7 @@ from apps.pdf_splitting.models import (
     parse_dual_engines,
 )
 
+from .split.markdown_builder import load_segment_markdown_map
 from .storage import PdfSplitStorage
 from .template_registry import get_default_filename, get_segment_label, get_template_definition
 
@@ -700,26 +701,13 @@ def _segment_display_label(segment: PdfSplitSegment) -> str:
 
 def load_segments_md(path: Path) -> dict[int, str]:
     """读分段 Markdown 产物（order → 正文）；文件缺失 / 损坏一律回空表——
-    旧任务没有 md 产物，content_md 退化为空串，不阻断任务详情接口。"""
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        logger.warning("pdf_split_segments_md_read_failed", extra={"path": str(path)})
-        return {}
-    if not isinstance(payload, list):
-        return {}
-    result: dict[int, str] = {}
-    for item in payload:
-        if not isinstance(item, dict):
-            continue
-        try:
-            order = int(item.get("order"))  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            continue
-        result[order] = str(item.get("markdown") or "")
-    return result
+    旧任务没有 md 产物，content_md 退化为空串，不阻断任务详情接口。
+
+    实现在 ``split.markdown_builder.load_segment_markdown_map``，这里只转调：
+    下载打包（``PdfSplitService``）也要按 order 取同一份正文，两份解析器必然
+    漏改其中一份，而两边口径一旦劈叉就是「屏幕上的正文和下载的 md 不一样」。
+    """
+    return load_segment_markdown_map(path)
 
 
 def load_segments_quality_flags(path: Path) -> dict[int, list[str]]:

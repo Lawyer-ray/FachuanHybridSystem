@@ -10,6 +10,7 @@ from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
 
 from apps.core.exceptions import ValidationException
+from apps.core.http.download import build_download_response
 from apps.pdf_splitting.services import PdfSplitJobService, PdfSplitService
 from apps.pdf_splitting.services.split.export_utils import export_segment_pdf
 from apps.pdf_splitting.services.storage import PdfSplitStorage
@@ -29,6 +30,27 @@ def _require_admin(request: Any) -> None:
     from apps.core.security.admin_access import ensure_admin_request
 
     ensure_admin_request(request, message="无权限提交服务器本地路径", code="PERMISSION_DENIED")
+
+
+def _parse_segment_ids(raw: str) -> list[int] | None:
+    """解析 ``?ids=12,15`` → ``[12, 15]``；空串/缺省返回 None（＝整包）。
+
+    只接受 ASCII 数字 token。为什么这么严：这个值直通 ``id`` 过滤，放宽成
+    「任意字符塞进去再由 ORM 容错」等于把查询拼接权交给调用方；其次空 token
+    （``ids=1,,2`` / 尾逗号）也当场拒——静默丢掉一个空段，与静默跳过不存在的
+    id 是同一种错：律师只会看到「选中的都打进去了」的错觉。
+    """
+    text = (raw or "").strip()
+    if not text:
+        return None
+    tokens = [token.strip() for token in text.split(",")]
+    invalid = [token for token in tokens if not (token.isascii() and token.isdigit())]
+    if invalid:
+        raise ValidationException(
+            message=f"ids 参数不合法：{', '.join(repr(token) for token in invalid)}",
+            errors={"ids": invalid},
+        )
+    return [int(token) for token in tokens]
 
 
 class PositionedRectOut(BaseModel):
@@ -320,13 +342,44 @@ def cancel_pdf_split_job(request: Any, job_id: UUID) -> PdfSplitJobSubmitOut:  #
     return PdfSplitJobSubmitOut(job_id=str(job.id), status=job.status)
 
 
-@router.get("/jobs/{job_id}/download")
-def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:  # pragma: no cover
+@router.get("/jobs/{job_id}/segments/{segment_id}/pdf")
+def get_pdf_split_segment_pdf(request: Any, job_id: UUID, segment_id: int) -> HttpResponse:
+    """单段 PDF 下载（Content-Disposition: attachment）。
+
+    单个下载 / 多选下载 / 整包下载共用同一份切页与命名实现（见
+    ``PdfSplitService.build_download_*``），否则「单下的那份」与「包里那份」
+    会在页边界或文件名上对不上。
+    """
     job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
-    storage = PdfSplitStorage(job.id)
-    if not storage.export_zip_path.exists():
+    content, filename = PdfSplitService().build_download_pdf(job, segment_id)
+    return build_download_response(content, filename, "application/pdf")
+
+
+@router.get("/jobs/{job_id}/segments/{segment_id}/md")
+def get_pdf_split_segment_markdown(request: Any, job_id: UUID, segment_id: int) -> HttpResponse:
+    """单段 Markdown 下载：与同一段的 PDF 同名（只差扩展名），律所归案时成对存放。"""
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
+    content, filename = PdfSplitService().build_download_markdown(job, segment_id)
+    return build_download_response(content.encode("utf-8"), filename, "text/markdown; charset=utf-8")
+
+
+@router.get("/jobs/{job_id}/download")
+def get_pdf_split_download(request: Any, job_id: UUID, ids: str = "") -> HttpResponse:
+    """整包 / 多选打包下载（zip，平铺）：每段一份 pdf + 一份同名 md。
+
+    不带 ``ids`` 就是原来的整包（向后兼容，只是包里多了 md）；带 ``ids``（段
+    **主键**，逗号分隔）只打选中的段，非法或不属于本任务的 id 整体 400。
+    打包在 Service 现算而不是回读 ``exports/split_result.zip``：那份可能是本次
+    上线前导出的（没有 md），直接发出去就是「整包缺 md」——而这次需求的核心恰恰
+    是每份 pdf 必须配一份 md。
+    """
+    job = PdfSplitJobService().get_job(job_id, user=_request_user(request))  # 安全审计第4轮：校验任务属主
+    package = PdfSplitService().build_download_zip(job=job, segment_ids=_parse_segment_ids(ids))
+    if package is None:
+        # 没段可打：沿用旧 /download 的契约（404 + 空响应体），不要把半个包发出去。
         return HttpResponse(status=404)
-    return FileResponse(storage.export_zip_path.open("rb"), content_type="application/zip", filename="split_result.zip")  # type: ignore[return-value]
+    content, filename = package
+    return build_download_response(content, filename, "application/zip")
 
 
 @router.get("/jobs/{job_id}/pdf")
