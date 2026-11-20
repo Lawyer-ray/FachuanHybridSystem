@@ -182,14 +182,17 @@ async def create_project_note(request: Any, payload: ProjectNoteIn) -> MemoryOut
     会话里注入，同团队所有人都看得到、都写得了。
     """
     lawyer = _current_user(request)
+    contract_id, case_id = payload.contract_id, payload.case_id
+    if contract_id is None and case_id is None:
+        contract_id, case_id = await _session_anchors(session_id=payload.session_id, user_id=lawyer.pk)
 
     def _run() -> MemoryOut:
         try:
             memory = memory_service.create_note(
                 lawyer,
                 content=payload.content,
-                contract_id=payload.contract_id,
-                case_id=payload.case_id,
+                contract_id=contract_id,
+                case_id=case_id,
                 kind=payload.kind,
                 supersede_id=payload.supersede_id,
             )

@@ -252,6 +252,39 @@ export function loadScopeFolderRows(scope: CopilotScope): Promise<ScopeFolderRow
   return pending
 }
 
+/** 项目笔记的回执（`POST /agent/memory/notes` 的 `MemoryOut` 子集） */
+export interface ProjectNoteReceipt {
+  id: string
+  content: string
+  contract_id: number | null
+  case_id: number | null
+  /** 非空 = 已有人点过确认（项目事实）；空 = 同事的判断 */
+  confirmed_at: string
+}
+
+/**
+ * 把一条结论存进项目笔记（同团队可见）。
+ *
+ * **只传 sessionId**：前端拿不到可靠的 `contract_id`（案件页的 `CopilotScope`
+ * 只有 case_id），让前端猜锚点必然把结论写到错的项目上。锚点由服务端按会话
+ * 归属反查，会话不属于自己时按「没有锚点」处理。
+ */
+export function createProjectNote(input: {
+  content: string
+  sessionId: string
+  kind?: string
+}): Promise<ProjectNoteReceipt> {
+  return api
+    .post('agent/memory/notes', {
+      json: {
+        content: input.content,
+        session_id: input.sessionId,
+        ...(input.kind ? { kind: input.kind } : {}),
+      },
+    })
+    .json<ProjectNoteReceipt>()
+}
+
 /** 全局搜索的一条结果（`core/api/search_api.py` 的 `SearchResultItem`） */
 export interface GlobalSearchItem {
   id: number

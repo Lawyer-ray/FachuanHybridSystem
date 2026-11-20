@@ -34,6 +34,10 @@ class ProjectNoteIn(Schema):
     #: 至少给一个：只挂项目 = 整个项目通用；挂案件 = 只在该案会话里展开。
     contract_id: int | None = None
     case_id: int | None = None
+    #: 不想传锚点时传会话 id，由服务端按会话归属反查（前端只有 sessionId，
+    #: 拿不到 contract_id；让前端猜锚点必然写错地方）。会话不属于当前律师
+    #: 时按「没给锚点」处理，不报越权细节。
+    session_id: str | None = None
     kind: str = AgentMemory.Kind.FACT
     #: 推翻旧结论时传旧笔记 id：旧条保留、不再注入（不静默覆盖）。
     supersede_id: str | None = None

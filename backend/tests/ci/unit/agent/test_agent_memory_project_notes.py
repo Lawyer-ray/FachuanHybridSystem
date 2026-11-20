@@ -15,8 +15,9 @@
 from __future__ import annotations
 
 import pytest
+from asgiref.sync import async_to_sync
 
-from apps.agent.models import AgentMemory
+from apps.agent.models import AgentMemory, AgentSession
 from apps.agent.services import memory_service
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
 
@@ -203,3 +204,34 @@ class TestSnapshot:
         first = memory_service.build_snapshot(lawyer, contract_id=CONTRACT_ID)
         second = memory_service.build_snapshot(lawyer, contract_id=CONTRACT_ID)
         assert first == second
+
+
+class TestSessionAnchors:
+    """前端只有 sessionId，锚点由服务端按会话归属反查（猜锚点必然写错地方）。"""
+
+    @pytest.mark.django_db
+    def test_derives_anchors_from_own_session(self, lawyer: Lawyer) -> None:
+        from apps.agent.api.memory_api import _session_anchors
+
+        session = AgentSession.objects.create(
+            title="案件内对话", origin="case", case_id=CASE_ID, contract_id=CONTRACT_ID, user=lawyer
+        )
+        assert async_to_sync(_session_anchors)(session_id=str(session.session_id), user_id=lawyer.pk) == (
+            CONTRACT_ID,
+            CASE_ID,
+        )
+
+    @pytest.mark.django_db
+    def test_other_users_session_yields_nothing(self, lawyer: Lawyer, outsider: Lawyer) -> None:
+        from apps.agent.api.memory_api import _session_anchors
+
+        session = AgentSession.objects.create(
+            title="别人的会话", origin="case", case_id=CASE_ID, contract_id=CONTRACT_ID, user=outsider
+        )
+        assert async_to_sync(_session_anchors)(session_id=str(session.session_id), user_id=lawyer.pk) == (None, None)
+
+    @pytest.mark.django_db
+    def test_invalid_uuid_is_silent(self, lawyer: Lawyer) -> None:
+        from apps.agent.api.memory_api import _session_anchors
+
+        assert async_to_sync(_session_anchors)(session_id="not-a-uuid", user_id=lawyer.pk) == (None, None)
