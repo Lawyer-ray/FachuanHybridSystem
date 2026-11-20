@@ -47,6 +47,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
+from ..errors import project_message
 from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
 
 logger = logging.getLogger(__name__)
@@ -752,8 +753,10 @@ class DshBackend:
             reason = data.get("reason") if isinstance(data.get("reason"), dict) else {}
             kind = str((reason or {}).get("kind") or "")
             if kind == "error":
-                message = str((reason or {}).get("message") or "dsh 本轮以 error 结束")
-                return [{"type": "error", "message": message}]
+                # 投影而不是手写：SDK 只给一句话，但这句话可能就是 429 / 上下文
+                # 超限 / 网关超时。手写帧时前端拿不到 ``code``，只能把「等 60 秒
+                # 就好」读成「这一栏坏了」——多答时尤其惨，律师会以为那个后端废了。
+                return [project_message(str((reason or {}).get("message") or "dsh 本轮以 error 结束"))]
             return []
         if event_type in _SILENT_EVENT_TYPES:
             # 入队回执等：有事件体但无用户可见内容。

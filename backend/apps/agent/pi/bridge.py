@@ -44,11 +44,16 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
+from ..errors import project_message
 from .rpc_client import PiEvent, PiRpcSession
 
 logger = logging.getLogger(__name__)
 
 _RESULT_PREVIEW_LIMIT = 2000
+
+#: 上游只给了纯英文/堆栈时的兜底文案（pi 自己的错，文案沿用引入 code 之前的说法，
+#: 集成测试与运维文档都已经认得这一句）。
+_PI_ERROR_FALLBACK = "pi 运行失败，请稍后重试（详见服务端日志）"
 
 
 def _content_text(message: dict[str, Any]) -> str:
@@ -280,7 +285,11 @@ def translate_all(
         return [{"type": "compaction", "phase": "end"}]
 
     if etype == "error":
-        return [{"type": "error", "message": str(event.raw.get("message") or "pi 运行错误")}]
+        # 走 ``errors.project_message`` 而不是手写帧：pi 的 error 事件只给一句话，
+        # 而同一句话可能就是一个 429（该提示「等几秒」）或上下文超限（该提示
+        # 「压缩或新开会话」）。手写帧时前端拿不到 ``code``，只能归到「未知错误」，
+        # 同一件事在别的路径上却叫 ``rate_limited``——两端不一致，无论哪边对。
+        return [project_message(str(event.raw.get("message") or ""), fallback_message=_PI_ERROR_FALLBACK)]
 
     return []
 

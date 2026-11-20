@@ -204,6 +204,55 @@ class QuestionRequestEvent(_RunScoped):
     timeout_seconds: int = 180
 
 
+class CitationRef(BaseModel):
+    """一条**入站引用**（AI → 材料）——正文 `[K<cite_no>]` 角标指向的来源。
+
+    字段名与 ``services/chat/citations.py`` 的投影产物逐字对应；**前端已按
+    这批 snake_case 名消费**（TS 生成物里也是 ``cite_no``，由前端映射成
+    ``citeNo``）。改名前先想清楚：它是历史回放的一部分，落库在
+    ``AgentMessage.metadata["citations"]`` 里，旧数据不会跟着改名。
+
+    ``cite_no`` 必须由**后端**分配（本轮检索命中的出现顺序，1 起单调递增），
+    前端不得自己按出现顺序重编号——历史回放时正文与来源表的对应关系只能靠它。
+    """
+
+    #: 与正文 ``[K<cite_no>]`` 一一对应；本轮内从 1 开始（跨轮重新从 1 开始）。
+    cite_no: int
+    #: 来源种类（决定角标点开时显示哪套字段与跳转动作）。
+    kind: Literal["case", "contract", "statute", "judgment", "file"]
+    #: 业务主键（能跳转到案件/合同/文书详情时才有）。
+    ref_id: int | None = None
+    #: 显示名：案件名 / 合同名 / 法条名（《民法典》）/ 判决书标题 / 文件名。
+    name: str
+    #: 定位：页（**解析器分段页码**，不等于打印页；前端 ``pageSpanNote`` 措辞不同）。
+    page: int | None = None
+    #: 定位：条款号（法条「第 X 条」/ 判决书案号）。
+    clause: str | None = None
+    #: 定位：检索切片主键（精确回溯用；本仓库当前检索工具都不返回，留作扩展位）。
+    chunk_id: int | None = None
+    #: 原文片段（角标点开时显示；空串 = 未随本轮保存，角标仍可点）。
+    text: str = ""
+
+
+class CitationsEvent(_RunScoped):
+    """本轮**新增**的引用（一次工具调用一批，一轮内可多次）。
+
+    为什么必须有这个事件：前端早已做好 ``[Kn]`` 角标与引用卡的渲染层
+    （``domain/knowledge.ts`` / ``CitationMark.tsx``），但后端从不发引用，
+    整条链路是死的——律师只能看到「AI 说『根据判决』」，却点不开是哪一份。
+
+    为什么是「新增」而不是「全量重发」：每帧只带这一次工具调用产出的那几条，
+    帧大小与工具输出同阶；全量重发会让一轮里第十次检索的帧无限膨胀。
+    前端按 ``cite_no`` 合并即可（后来的同号覆盖前面的，编号不会变）。
+
+    落库不走这里：``AgentMessage.metadata["citations"]`` 存的是**本轮全部**
+    （历史回放没有 SSE，只有 metadata）。
+    """
+
+    type: Literal["citations"]
+    citations: list[CitationRef] = []
+
+
 class CompactionEvent(_RunScoped):
     """上下文压缩进行中（pi 自动压缩或手动压缩触发）。
 
@@ -288,6 +337,7 @@ AgentStreamEvent = (
     | UsageEvent
     | QuestionRequestEvent
     | CompactionEvent
+    | CitationsEvent
     | ErrorEvent
     | UnknownEvent
     | DoneEvent
@@ -306,6 +356,7 @@ EVENT_MODELS: list[type[BaseModel]] = [
     UsageEvent,
     QuestionRequestEvent,
     CompactionEvent,
+    CitationsEvent,
     ErrorEvent,
     UnknownEvent,
     DoneEvent,

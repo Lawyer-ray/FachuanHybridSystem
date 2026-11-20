@@ -42,6 +42,7 @@ from ..history import render_transcript
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
 from . import env, persist, profile
+from .citations import CitationCollector
 
 logger = logging.getLogger(__name__)
 
@@ -346,6 +347,13 @@ async def stream_chat(
     context_total: int | None = None
     error_kind = ""
     started = time.monotonic()
+    # 本轮引用的分配器（检索类工具结果 → ``[Kn]`` 来源）。每栏各持一个：多答时
+    # 三栏的正文各自编号，互不干扰（前端也按栏渲染角标）。
+    citations = CitationCollector()
+    # 首个 token 的时刻（TTFT 的分子）。取 ``delta`` 或 ``thinking`` 中**先到的
+    # 那一个**：思考 token 已经开始计费、也在等它，只算正文会把「模型先想了 8 秒」
+    # 藏起来——而那正是律师最常抱怨的「半天没反应」。
+    first_token_at: float | None = None
     try:
         yield {"type": "meta", "session_id": str(session.session_id), "agent": backend.kind, "run_id": run_id}
         # 开流即告知「正在思考」：后台进程启动、排队、建连都要时间，这段时间前端
@@ -387,6 +395,11 @@ async def stream_chat(
                 # 时，已送达的最后一段增量必须已经在落库缓冲里
                 if event.get("type") == "delta":
                     assistant_parts.append(str(event.get("content") or ""))
+                    if first_token_at is None:
+                        first_token_at = time.monotonic()
+                elif event.get("type") == "thinking":
+                    if first_token_at is None:
+                        first_token_at = time.monotonic()
                 elif event.get("type") == "usage":
                     # pi 的精确计数：一轮里工具循环会产出多段 assistant，逐段累加
                     output_tokens_total += int(event.get("output_tokens") or 0)
@@ -403,6 +416,21 @@ async def stream_chat(
                 if event.get("type") == "tool_result":
                     # 工具结果也带 agent_kind：双答时两栏的证据必须能对回各自的栏
                     await persist._persist_tool_message(session, event, backend.kind)
+                    # 检索类工具结果 → 本轮新增引用（一次工具调用一帧，只带新增）。
+                    # ``is_error`` 的结果不产引用：失败调用的 result 是错误文案，
+                    # 里面不会有命中，强行解析只会造出没有来源的角标。
+                    if not event.get("is_error"):
+                        new_refs = citations.ingest(
+                            tool_name=str(event.get("name") or ""),
+                            result=event.get("result"),
+                        )
+                        if new_refs:
+                            yield {
+                                "type": "citations",
+                                "citations": citations.wire(new_refs),
+                                "agent": backend.kind,
+                                "run_id": run_id,
+                            }
                 if event.get("type") == "done":
                     # 记下「已见过 done」，但**不 break**：后端生成器在 done 之后还有
                     # 代码（finally 里注销 live session、收掉挂起的 __anext__；再退
@@ -526,6 +554,26 @@ async def stream_chat(
             # 单栏视角说 ok 的那一栏，可能同轮的另一栏已经炸了（轮级 = degraded）。
             # 这里先写栏级值是取消/中途失败时的兜底（那时 multi 的收尾代码跑不到）。
             assistant_metadata["finish_reason"] = _lane_finish_reason(cancelled=cancelled, follow_ok=follow_ok)
+            # 分栏用量落库：``turnStatsByLane`` 原本只在内存、每轮清空，于是
+            # 「哪一栏更贵更慢」这个多答的核心卖点刷新就没了。键是后端 kind
+            # （多答时每栏各存自己那条消息，单栏也存一条）。
+            # 四个键名与前端 ``usageByLane`` 的读取口径一致（snake_case）。
+            assistant_metadata["usage_by_lane"] = {
+                backend.kind: {
+                    "output": output_tokens_total,
+                    "input": input_tokens_total,
+                    "cache_read": cache_read_total,
+                    "cache_write": cache_write_total,
+                }
+            }
+            # TTFT：拿不到（后端一个 token 事件都没发：出错 / 秒退）就不写这个键，
+            # **不编造 0**——0ms 首字是一个不可能的数，写进去会污染性能对比。
+            if first_token_at is not None:
+                assistant_metadata["ttft_ms"] = max(0, int((first_token_at - started) * 1000))
+            # 本轮全部引用落库：历史回放（刷新 / 第二天再看）拿不到 SSE 的
+            # ``citations`` 帧，只有这份 metadata 能重建正文里的角标与来源卡。
+            if citations.all:
+                assistant_metadata["citations"] = citations.wire()
         if memo is not None:
             # 交回调用方落库（persist_assistant=False）：正文与 metadata 都要给，
             # 否则调用方只能自己重算一遍 token 与截断标记，两处必然漂移。

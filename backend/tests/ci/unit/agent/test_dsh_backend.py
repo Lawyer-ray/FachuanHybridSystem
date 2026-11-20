@@ -182,9 +182,19 @@ class TestEventTranslation:
         assert [f["type"] for f in frames] == ["thinking", "delta"]
 
     def test_turn_end_error_becomes_error_event(self) -> None:
-        """``turn/end`` 的 ``reason.kind == "error"`` 是模型侧失败，必须报 error。"""
+        """``turn/end`` 的 ``reason.kind == "error"`` 是模型侧失败，必须报 error。
+
+        帧要走 ``errors.project_message``：SDK 只给一句话，但那句话可能就是 429 /
+        上下文超限 / 网关卡住。手写帧时前端拿不到 ``code``，多答时律师会把
+        「等 60 秒就好」读成「这一栏的后端废了」。
+        """
         frames = self._translate(_notification("turn/end", {"reason": {"kind": "error", "message": "上游 429"}}))
-        assert frames == [{"type": "error", "message": "上游 429"}]
+        [frame] = frames
+        assert frame["type"] == "error"
+        assert (frame["code"], frame["scope"]) == ("rate_limited", "account")
+        # 中文原文原样保留（它已经是写给人看的句子），原文同时进 detail 供排障。
+        assert frame["message"] == "上游 429"
+        assert frame["detail"]["reason"] == "上游 429"
 
     def test_turn_end_normal_produces_no_event(self) -> None:
         """正常结束由编排层发 done，本层不重复发（协议：一轮只一个 done）。"""

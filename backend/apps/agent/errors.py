@@ -198,6 +198,33 @@ ERROR_TYPES: tuple[type[AgentError], ...] = (
 #: 已发布的全部 code（前端可据此做穷举映射）。
 ERROR_CODES: frozenset[str] = frozenset(cls.code for cls in ERROR_TYPES)
 
+#: 每个 code「人能拿去修」的 ``detail`` 键集合（任一出现即满足）。
+#:
+#: 为什么要把这张表写进**生产代码**而不是测试里：``code`` 是前端分支的唯一依据，
+#: 而「切到哪个分支」往往需要一个可执行参数（等几秒？哪把 key？最多几栏？）。
+#: 新增 code 时忘了带 detail，前端只能把律师推回「未知错误」那一屏——
+#: 错误依旧是错的，只是现在看起来像坏的。表放在 code 定义旁边，改的人一眼看到；
+#: ``test_error_code_registry`` 把它钉住（每个 code 必须登记，每条真实投影必须命中）。
+#:
+#: 空集 = **显式声明无需 detail**（例如纯粹的状态陈述），不是「忘了填」。
+ERROR_DETAIL_KEYS: dict[str, frozenset[str]] = {
+    # 限流：必须能告诉律师「等几秒」或「换哪把 key / 哪个模型」。
+    "rate_limited": frozenset({"retry_after_seconds", "reason", "backend", "model"}),
+    # 本地闸门：要能区分「池子满」与「对比席位满」。
+    "quota_exceeded": frozenset({"limit", "reason"}),
+    "backend_unavailable": frozenset({"reason"}),
+    "capability_unsupported": frozenset({"reason"}),
+    "context_overflow": frozenset({"reason"}),
+    "upstream_timeout": frozenset({"reason"}),
+    "tool_args_invalid": frozenset({"reason"}),
+    "auth_failed": frozenset({"reason"}),
+    # 会话不存在要带上是哪个会话：前端能据此刷新列表并挑下一个。
+    "session_not_found": frozenset({"session_id", "reason"}),
+    # 栏数超限要带上「选了几个 / 最多几个」：前端直接提示而不抠中文文案。
+    "too_many_agents": frozenset({"requested", "max", "reason"}),
+    "unknown": frozenset({"reason", "exc_type"}),
+}
+
 #: ``BackendErrorKind`` → ``(code, scope)``。
 #:
 #: 后端在边界处已经把自家异常收敛成 :class:`BackendError`（见 ``base.py`` 的
@@ -225,6 +252,11 @@ _PI_MESSAGE_RULES: tuple[tuple[re.Pattern[str], type[AgentError]], ...] = (
     ),
     (re.compile(r"timed?\s?out|\btimeout\b", re.IGNORECASE), UpstreamTimeoutError),
 )
+
+
+#: 判断「上游那句话是写给人看的吗」：含中文就基本是（网关/运行时给中国用户写的
+#: 提示语都是中文），纯英文/堆栈则是给运维看的。
+_CJK_RE = re.compile(r"[\u4e00-\u9fa5]")
 
 
 def _clip(text: str) -> str:
@@ -321,6 +353,59 @@ def _classify(exc: BaseException) -> tuple[str, ErrorScope, dict[str, Any], str]
     )
 
 
+def project_message(
+    text: str,
+    *,
+    agent: str = "",
+    run_id: str = "",
+    message: str | None = None,
+    fallback_message: str | None = None,
+) -> dict[str, Any]:
+    """上游**只给了一句话**时的投影（pi 的 ``error`` 事件 / dsh 的 ``turn/end`` 失败）。
+
+    这两条路径以前各自手写 ``{"type": "error", "message": <上游原文>}``：
+    律师看到的是一句英文或一整个堆栈片段，前端拿不到 ``code`` 只能归到「未知
+    错误」；而同一个 429 在别的路径上明明是 ``rate_limited``（可以「等 60 秒」）。
+    **同一件事在不同入口给出不同结论**，这是最伤信任的一类不一致。
+
+    分类复用 :data:`_PI_MESSAGE_RULES`（429 / 401 / context / timeout）——它们
+    本来就是「从一句话里认出错误类型」的规则，与具体后端无关。
+
+    Args:
+        text: 上游原文（会进 ``detail["reason"]``，经脱敏 + 截断）。
+        agent: 产出这帧的后端 kind；空串不写该键（同 :func:`project`）。
+        run_id: 本轮寻址键；空串不写。
+        message: 覆盖文案（调用方知道比默认更准确的说法时用）。
+        fallback_message: 上游原文**不是给人看的**（纯英文/堆栈）时用它的替代
+            文案；不传则用 code 的默认中文文案。
+
+    Returns:
+        可直接 ``yield`` 的 dict，字段与 ``sse_types.ErrorEvent`` 一一对应。
+    """
+    raw = _clip(text or "")
+    error_type: type[AgentError] = AgentError
+    for pattern, candidate in _PI_MESSAGE_RULES:
+        if pattern.search(raw):
+            error_type = candidate
+            break
+    # 上游连一句话都没给时也至少留一个可追查的键：空 ``detail`` 会让前端/运维
+    # 只看到「未知错误」，而「上游没给任何文本」本身就是一个确定的结论。
+    if not raw:
+        exc = error_type(exc_type="upstream_error_no_message")
+    else:
+        detail: dict[str, Any] = {"reason": raw}
+        # 429 的「等几秒」就在同一句话里（网关常把 retry-after 拼进消息）：不取出来
+        # 的话前端只能干说「限流」，而它能做到的是把倒计时直接摆在按钮上。
+        retry_after = _retry_after_seconds(raw)
+        if retry_after is not None:
+            detail["retry_after_seconds"] = retry_after
+        exc = error_type(**detail)
+    # 含中文的上游句子原样保留：它已经是写给用户的中文提示，换成兜底文案等于
+    # 把唯一的具体信息（哪个超时、哪个会话）也一起换掉。
+    shown = message or (raw if raw and _CJK_RE.search(raw) else fallback_message)
+    return project(exc, agent=agent, run_id=run_id, message=shown)
+
+
 def project(
     exc: BaseException,
     *,
@@ -357,6 +442,7 @@ def project(
 
 __all__ = [
     "ERROR_CODES",
+    "ERROR_DETAIL_KEYS",
     "ERROR_TYPES",
     "AgentError",
     "AuthFailedError",
@@ -371,4 +457,5 @@ __all__ = [
     "UpstreamTimeoutError",
     "default_message_for",
     "project",
+    "project_message",
 ]

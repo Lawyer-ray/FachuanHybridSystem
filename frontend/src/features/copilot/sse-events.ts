@@ -99,6 +99,21 @@ export type AgentStreamEvent =
     phase: 'start' | 'end'
   }
   | {
+    type: 'citations'
+    run_id?: string
+    agent?: string
+    citations?: ({
+      cite_no: number
+      kind: 'case' | 'contract' | 'statute' | 'judgment' | 'file'
+      ref_id?: number
+      name: string
+      page?: number
+      clause?: string
+      chunk_id?: number
+      text?: string
+    })[]
+  }
+  | {
     type: 'error'
     run_id?: string
     agent?: string
