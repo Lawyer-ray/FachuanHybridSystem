@@ -18,8 +18,10 @@
 import { memo } from 'react'
 
 import { agentLabel } from '../domain'
-import type { ChatMessage } from '../types'
+import type { AgentBackendOption, ChatMessage } from '../types'
+import { findBackend, noApprovalWarn } from '../store/backends'
 import { LaneUsageChip } from './LaneUsageChip'
+import { NoApprovalBadge } from './NoApprovalBadge'
 
 /** 栏头：小而克制的标签，各栏视觉上必须能一眼分清谁是谁（以及用哪个模型答的） */
 const LABEL_CLASS =
@@ -66,12 +68,18 @@ export const MultiAnswers = memo(function MultiAnswers({
   answers,
   renderAnswer,
   highlightKind,
+  backends = [],
 }: {
   answers: ChatMessage[]
   /** 复用 MessageList 的 Bubble（它带了 Markdown / 平滑放字 / 复制按钮全套） */
   renderAnswer: (message: ChatMessage) => React.ReactNode
   /** 当前默认后端的高亮 kind（栏头加粗）；空串表示不高亮 */
   highlightKind?: string
+  /**
+   * 后端清单（只为读 `capabilities.approval`）：没有审批闸门的那一栏要在栏头说清。
+   * 律师是**看完了回答**才决定采不采用的，栏头是他唯一会回看的位置。
+   */
+  backends?: AgentBackendOption[]
 }) {
   const grid = GRID_BY_COLUMNS[answers.length] ?? GRID_BY_COLUMNS[4]
   return (
@@ -88,6 +96,8 @@ export const MultiAnswers = memo(function MultiAnswers({
               >
                 <AgentModelHead label={agentLabel(kind)} model={answer.model} />
               </div>
+              {/* 这一栏没有人工审批闸门：高危工具不会弹卡（dsh 直接拒绝 / openai-agents 照常执行） */}
+              {noApprovalWarn(findBackend(backends, kind)) && <NoApprovalBadge />}
               {/* 分栏用量：多答就是为了比较，栏头必须能看出谁贵谁快 */}
               {/* usage：历史轮次的落库用量；缺省时 chip 自己回落到本轮内存账 */}
               <LaneUsageChip kind={kind} usage={answer.laneUsage} />

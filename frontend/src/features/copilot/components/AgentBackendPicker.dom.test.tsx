@@ -30,14 +30,14 @@ vi.mock('../store', () => ({
 
 import { AgentBackendPicker } from './AgentBackendPicker'
 
-function option(kind: string, label: string, available = true, reason = '') {
+function option(kind: string, label: string, available = true, reason = '', approval = true) {
   return {
     kind,
     label,
     description: `${label} 的说明`,
     available,
     reason,
-    capabilities: {},
+    capabilities: { approval },
   }
 }
 

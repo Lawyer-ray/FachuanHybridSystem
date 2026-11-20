@@ -38,7 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   act(() => {
-    useCopilot.setState({ messages: [], streaming: false, loadingHistory: false, approvals: [], lastError: null })
+    useCopilot.setState({ messages: [], streaming: false, loadingHistory: false, approvals: [], lastError: null, backends: [] })
   })
 })
 
@@ -76,6 +76,51 @@ describe('MessageList：多答并排', () => {
     expect(screen.getByText('主答正文')).toBeTruthy()
     expect(screen.getByText('次答正文')).toBeTruthy()
     expect(container.querySelectorAll('[data-testid^="multi-column-"]')).toHaveLength(2)
+  })
+
+  /**
+   * 栏头是这个标记的最后一站：律师**看完回答**才决定采不采用，而那一栏没有人工
+   * 审批闸门（高危工具不弹卡）。清单没拉到时不挂——误报一次这个标记就废了。
+   */
+  it('没有审批闸门的后端，在它那一栏的栏头挂标记（有闸门的不挂）', () => {
+    useCopilot.setState({
+      backends: [
+        {
+          kind: 'pi',
+          label: 'Pi',
+          description: '',
+          available: true,
+          reason: '',
+          capabilities: { approval: true },
+        },
+        {
+          kind: 'dsh',
+          label: 'DeepSeek Harness',
+          description: '',
+          available: true,
+          reason: '',
+          capabilities: { approval: false },
+        },
+      ],
+    } as never)
+    renderWithMessages([
+      { id: 'a1', role: 'assistant', content: '主答正文', agentKind: 'pi' },
+      { id: 'a2', role: 'assistant', content: '次答正文', agentKind: 'dsh' },
+    ])
+    stepAllFrames()
+
+    expect(screen.getByTestId('multi-column-pi').querySelector('[data-no-approval-badge]')).toBeNull()
+    expect(screen.getByTestId('multi-column-dsh').querySelector('[data-no-approval-badge]')).toBeTruthy()
+    act(() => useCopilot.setState({ backends: [] }))
+  })
+
+  it('后端清单没拉到时不挂标记（查不到 ≠ 没闸门，误报比漏报更伤）', () => {
+    renderWithMessages([
+      { id: 'a1', role: 'assistant', content: '主答正文', agentKind: 'pi' },
+      { id: 'a2', role: 'assistant', content: '次答正文', agentKind: 'dsh' },
+    ])
+    stepAllFrames()
+    expect(document.querySelector('[data-no-approval-badge]')).toBeNull()
   })
 
   it('每栏按 agent 标明来源（data-testid 供定位，不依赖 DOM 顺序）', () => {
