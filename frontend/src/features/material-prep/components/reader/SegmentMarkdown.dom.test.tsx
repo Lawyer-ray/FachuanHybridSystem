@@ -370,15 +370,51 @@ describe('页面框双击 → 进入修改', () => {
  * 提示条必须写在标题下方（开始读正文之前），并且能一步跳回原页。
  */
 describe('质量提示条（图纸 / 稀疏页）', () => {
-  it('覆盖图形页时显示提示条并给出页数', () => {
+  it('覆盖图形页时逐页提示（每页一行，写明是哪一页）', () => {
     const { container } = render(<SegmentMarkdown {...base({ graphicPages: [147, 148] })} />)
+    const hints = container.querySelectorAll('[data-quality-hint]')
+    expect(hints).toHaveLength(2)
+    expect(hints[0]!.textContent).toContain('P147 疑似图纸')
+    expect(hints[0]!.textContent).toContain('正文可能不完整')
+    expect(hints[0]!.textContent).toContain('建议核对原页')
+    expect(hints[1]!.textContent).toContain('P148')
+  })
+
+  /**
+   * 落点：**挂在该页正文第一行之前**，而不是栏顶一张清单。
+   * 同一段里双引擎分歧已经这么做（读到 P2 就看到 P2 的分歧），质量问题照同一套走，
+   * 否则律师得在栏顶记页号、再回正文里找「P2 在哪」。
+   */
+  it('提示挂在该页正文第一行之前', () => {
+    const twoPages = seg({
+      md: '# 证据目录\n\n一\n\n二',
+      refs: [
+        { mi: 0, p: 1 },
+        { mi: 0, p: 2 },
+      ],
+      blocks: [
+        ...blocks,
+        {
+          page: 2,
+          type: 'paragraph',
+          text: '第二页正文。',
+          rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.05, approx: false, precision: 'exact' },
+        },
+      ],
+    })
+    const { container, getByText } = render(<SegmentMarkdown {...base({ seg: twoPages, graphicPages: [2] })} />)
     const hint = container.querySelector('[data-quality-hint]') as HTMLElement
-    expect(hint).toBeTruthy()
-    expect(hint.textContent).toContain('本段含 2 页疑似图纸')
-    expect(hint.textContent).toContain('正文可能不完整')
-    expect(hint.textContent).toContain('建议核对原页')
-    // 页号一并给出，律师才知道去翻哪几页
-    expect(hint.textContent).toContain('P147–148')
+    const lastOfP1 = getByText('被告对此不予认可。')
+    const firstOfP2 = getByText('第二页正文。')
+    // 在第一页正文之后、第二页正文之前
+    expect(lastOfP1.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(hint.compareDocumentPosition(firstOfP2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  /** 图纸页往往一个字都没取出来（没有正文行可挂）：提示必须自己成一行，否则等于没提示 */
+  it('提示页没有正文行时，提示仍然出现（补在正文之后）', () => {
+    const { container } = render(<SegmentMarkdown {...base({ graphicPages: [147] })} />)
+    expect(container.querySelector('[data-quality-hint]')).toBeTruthy()
   })
 
   it('提示条在标题之下、正文之上', () => {
