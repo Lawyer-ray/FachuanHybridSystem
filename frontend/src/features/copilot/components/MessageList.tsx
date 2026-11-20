@@ -1,243 +1,43 @@
 /**
- * 转录列表：气泡 + 工具行 + 审批卡 + 排队提示 + 错误行。
+ * 转录列表的**装配骨架**：订阅 store、分组、吸底滚动、锚点接线、骨架布局。
+ *
+ * 单条消息的三种气泡在 `message/Bubble.tsx`（+ `message/ThinkingBlock.tsx`），
+ * 列表外壳控件（排队条 / 加载更早 / 回到底部）在 `message/ListChrome.tsx`。
+ * 本文件只留「一个列表」这件事本身的逻辑，改气泡外观请去 message/ 下。
+ *
  * 自动吸底滚动用 ref 直改 DOM（高频 delta 时不经 React 协调），
  * 用户上翻查看历史时停止吸底，回到底部附近再恢复。
  *
  * - 排队提示：池满时后端发 activity{queued,position}，store 记 queuePosition，
  *   首个推进事件（delta 等）自动清除——用户不用盯着转圈猜发生了什么
- * - assistant 气泡：Markdown（GFM）渲染 + 代码块语法高亮（rehype-highlight，
- *   未标注语言的块不高亮）；hover 显示复制按钮（复制 Markdown 源码）
  * - 消息级操作（复制/评分/时间戳）收在 MessageActions；正文里选中一段会浮出
  *   SelectionBarLayer（引用到输入框），两者的取舍见各自文件头
- * - 等待期观感：正文未到但工具在跑时，气泡内显示「正在查 XX…」呼吸行
- *   （见 StreamActivity）——否则先调工具的 dsh / openai-agents 看起来像卡死
- * - 多答轮次：相邻的 2~4 条 assistant 交给 MultiAnswers 并排（单条走普通气泡，
- *   与引入该功能前完全一致）
+ * - 多答轮次：相邻的 2~4 条 assistant 交给 AnswerGroupView/MultiAnswers 并排
+ *   （单条走普通气泡，与引入该功能前完全一致）
+ * - 滚动位置按会话记「语义锚点」（见 hooks/use-scroll-anchor）：切走前存、
+ *   历史就位后落回，别让律师翻到一半被丢回顶部
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Brain, Briefcase, Loader2, MapPin } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { useAuth } from '@/features/auth'
 import { LoadingBlock } from '@/components/shared/AsyncState'
 
 import '../copilot.css'
-import { bizHintParts, formatClock, groupAnswerRuns, ratableMessageId } from '../domain'
-import { useSmoothStreamText } from '../hooks/use-smooth-stream-text'
+import { groupAnswerRuns } from '../domain'
+import { useScrollAnchor } from '../hooks/use-scroll-anchor'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
-import { ApprovalCard } from './ApprovalCard'
-import { QuestionCard } from './questions/QuestionCard'
-import { AssistantMarkdown } from './AssistantMarkdown'
 import { AnswerGroupView } from './AnswerGroupView'
+import { ApprovalCard } from './ApprovalCard'
 import { CopilotWelcome } from './CopilotWelcome'
 import { ErrorNotice } from './ErrorNotice'
-import { MessageActions } from './MessageActions'
-import { useScrollAnchor } from '../hooks/use-scroll-anchor'
+import { LoadOlderButton, QueueBanner, ScrollToBottomButton } from './message/ListChrome'
+import { Bubble } from './message/Bubble'
+import { QuestionCard } from './questions/QuestionCard'
 import { SelectionBarLayer } from './SelectionBar'
-import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
-import { StreamActivity } from './StreamActivity'
-import { OwnToolList } from './ToolChips'
-import { ToolRow } from './ToolRow'
-import { UserAvatar } from './UserAvatar'
 
-const ThinkingBlock = memo(function ThinkingBlock({ message }: { message: ChatMessage }) {
-  const thinking = message.thinking ?? ''
-  const thinkingNow = !message.thinkingDone
-  // 思考结束自动收起：<details open> 是**静态属性**，只在挂载时生效——
-  // 思考中以 open=true 挂载后，prop 变 false 也不会收起，于是正文开始后
-  // 那片 396 字的思考内容继续占着 max-h-56，读起来就是一大块空白。
-  // 改为受控：用 state 跟踪「用户是否手动改过」，没改过就跟随思考状态。
-  const [userToggled, setUserToggled] = useState<boolean | null>(null)
-  const open = userToggled ?? thinkingNow
-  useEffect(() => {
-    // 思考结束的那一刻清掉手动状态，回落到自动收起
-    if (message.thinkingDone) setUserToggled((v) => (v === null ? v : null))
-  }, [message.thinkingDone])
-  if (!thinking) return null
-  return (
-    <details
-      open={open}
-      onToggle={(e) => setUserToggled(e.currentTarget.open)}
-      className="mb-1.5 rounded-[10px] border border-dashed border-border bg-secondary/30 px-2.5 py-1.5"
-    >
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
-        <Brain className="h-3 w-3 flex-none" />
-        {/* 思考中用渐变流光（copilot-shimmer），结束后回落普通 muted 色 */}
-        <span className={thinkingNow ? 'copilot-shimmer' : undefined}>
-          {thinkingNow ? '深度思考中…' : `已深度思考（${thinking.length} 字）`}
-        </span>
-      </summary>
-      <pre className="mt-1.5 max-h-56 overflow-y-auto border-t border-border pt-1.5 text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
-        {thinking}
-      </pre>
-    </details>
-  )
-})
-
-const Bubble = memo(function Bubble({
-  message,
-  hideTools,
-}: {
-  message: ChatMessage
-  /** 已归位到各栏的工具行 id：命中的 tool 消息不在这里渲染（见 AnswerGroupView） */
-  hideTools?: ReadonlySet<string>
-}) {
-  const user = useAuth((s) => s.user)
-  // 流式平滑放字：只对正在直播的 assistant 消息生效，历史消息与非直播原样返回。
-  // 见 docs/harness/pitfalls.md PIT-007 —— 直接渲染原始 delta 会「一顿一顿」，
-  // 且每来一个字就重解析整篇 markdown（成本随回复长度线性涨，长回复掉帧）。
-  //
-  // **必须放在所有 early return 之前**：hook 调用顺序不能依赖 message.role，
-  // 否则同一位置在 role 切换（tool → assistant）时会改变 hook 数量，React 直接报错。
-  // 非 assistant 消息传 live=false，hook 内部直接返回 full，不调度任何动画帧。
-  const smoothContent = useSmoothStreamText(
-    message.content,
-    message.role === 'assistant' && message.streaming === true,
-  )
-
-  if (message.role === 'tool') {
-    // 工具已经在气泡内（活动行）或气泡下（chip）显示了，外面不再来一条
-    if (hideTools?.has(message.id)) return null
-    return <ToolRow message={message} />
-  }
-
-  if (message.role === 'user') {
-    const refs = message.refs ?? []
-    const quote = message.quote
-    const pageHint = message.pageHint
-    const bizHint = message.bizHint
-    const biz = bizHint ? bizHintParts(bizHint) : null
-    // ml-auto：外层 flex-col 默认 stretch 会把这一行拉满整行，气泡于是贴左，
-    // 右侧再空出 12%——观感就是「两边都空着一大块」。靠右是 IM 惯例，
-    // 也让用户消息与左侧 AI 回答形成清晰的对位。
-    return (
-      <div data-msg-id={message.id} className="ml-auto flex max-w-[88%] items-end gap-1.5">
-        <div className="flex min-w-0 flex-1 flex-col items-end gap-1">
-          {biz && bizHint && (
-            <span
-              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
-              title={`本条消息归属：${biz.unit}「${bizHint.title}」 ${biz.ref}（AI 据此直达对应案件/合同的数据）`}
-            >
-              <Briefcase className="h-3 w-3 flex-none text-foreground" />
-              {/* 三段渲染而不是整串 truncate：id 是唯一的机器可读归属信息，
-                  截断会把它吃掉。长标题只压中间段，尾部 #id 永不可隐藏 */}
-              <span className="truncate">
-                {biz.unit} · {biz.title}
-              </span>
-              <span className="flex-none tabular-nums text-foreground">{biz.ref}</span>
-            </span>
-          )}
-          {pageHint && (
-            <span
-              className="flex max-w-full items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
-              title={`发送时所在页面：${pageHint}（AI 可据此了解页面内容）`}
-            >
-              <MapPin className="h-3 w-3 flex-none text-foreground" />
-              <span className="max-w-52 truncate">{pageHint}</span>
-            </span>
-          )}
-          {quote && (
-            <div className="flex max-w-full flex-col items-end">
-              <SelectionQuoteCard quote={quote} />
-            </div>
-          )}
-          {refs.length > 0 && (
-            <div className="flex max-w-full flex-col items-end">
-              <RefQuoteCard refs={refs} />
-            </div>
-          )}
-          {(message.content.trim() || (refs.length === 0 && !quote && !pageHint && !bizHint)) && (
-            // data-copilot-selection-root：用户气泡正文也允许「选中即引用」
-            <div
-              data-copilot-selection-root
-              className="max-w-full rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background"
-            >
-              {message.content}
-            </div>
-          )}
-          {message.createdAt ? (
-            <time
-              className="text-[10.5px] text-muted-foreground tabular-nums"
-              dateTime={new Date(message.createdAt).toISOString()}
-              title={new Date(message.createdAt).toLocaleString('zh-CN')}
-            >
-              {formatClock(message.createdAt)}
-            </time>
-          ) : null}
-        </div>
-        <UserAvatar user={user} className="h-6 w-6" />
-      </div>
-    )
-  }
-
-  const content = smoothContent
-
-  // 多答里没跑成的那一栏：明写「本轮未做」而不是留空。留空的话界面上只有一个
-  // 栏头，看起来像「回答了但内容丢了」——律师会去查是不是系统坏了。
-  if (message.failed && !message.content && !message.streaming) {
-    return (
-      <div className="text-[12px] leading-relaxed text-muted-foreground" data-testid="answer-failed">
-        本轮未做
-      </div>
-    )
-  }
-
-  const showCopy = !message.streaming && Boolean(message.content)
-  return (
-    <div data-msg-id={message.id} className="group relative max-w-full text-[13px] leading-relaxed text-foreground">
-      <ThinkingBlock message={message} />
-      {/* 「还在干活」要出现在**律师的注意力焦点**上（本栏气泡内、正文之前），
-          而不是转录流里某一行工具条——后者他根本不会去看（见 StreamActivity） */}
-      <StreamActivity message={message} />
-      {content ? (
-        // assistant 回答按 Markdown 渲染（gfm：表格/删除线/任务列表）；
-        // react-markdown 默认不执行原始 HTML，无注入面；
-        // rehype-highlight 只处理标注了语言的代码块（detect 关闭）
-        // data-copilot-selection-root：选区浮条的生效范围（见 use-selection-quote）
-        <div data-copilot-selection-root className="copilot-md break-words pr-0">
-          <AssistantMarkdown text={content} streaming={message.streaming === true} />
-        </div>
-      ) : message.streaming ? null : message.thinking ? null : (
-        '（无内容）'
-      )}
-      {message.streaming && <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>}
-      {/* 这个 agent 自己调过的工具：挂在他自己的话下面，而不是所有 agent 的
-          工具混成一个列表堆在底部（真实反馈：一坨分不清谁的工具条、还占满整行）。
-          只在多栏模式由 mergeAgentAnswers 填充；单栏时 tools 为空，工具行仍按
-          原时间顺序平铺（那条路径的顺序本身就是对的）。 */}
-      {message.tools && message.tools.length > 0 && <OwnToolList tools={message.tools} />}
-      {message.truncated && (
-        <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
-      )}
-      {showCopy && (
-        <MessageActions
-          content={message.content}
-          messageId={ratableMessageId(message)}
-          rating={message.rating}
-          createdAt={message.createdAt}
-        />
-      )}
-    </div>
-  )
-})
-
-/** 排队提示条：池满时显示名次（position 含自己，「前方 N 人」= N-1） */
-function QueueBanner({ position }: { position: number }) {
-  const ahead = Math.max(0, position - 1)
-  return (
-    <div className="mb-2 flex items-center gap-1.5 rounded-[8px] border border-border bg-secondary/40 px-2.5 py-1.5 text-[12px] text-muted-foreground">
-      <Loader2 className="h-3 w-3 flex-none animate-spin" />
-      {ahead > 0 ? (
-        <span>
-          当前使用人数较多，排队中 · 前方 {ahead} 人…
-        </span>
-      ) : (
-        <span>排队中，即将开始…</span>
-      )}
-    </div>
-  )
-}
+/** 分页按钮的显示门槛：历史一次性拉 200 条，到了这个数才可能还有更早的 */
+const OLDER_HISTORY_THRESHOLD = 200
 
 export function MessageList({ wide = false }: { wide?: boolean } = {}) {
   const messages = useCopilot((s) => s.messages)
@@ -331,64 +131,42 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
             : `mx-auto w-full ${wide ? '' : 'max-w-6xl'}`
         }
       >
-      {empty && <CopilotWelcome />}
-      {loadingHistory && <LoadingBlock text="正在加载历史…" className="py-6" />}
-      {!loadingHistory && !noMoreHistory && messages.length >= 200 && (
-        <div className="mb-2 flex justify-center">
-          <button
-            type="button"
-            className="rounded-[8px] border border-border px-3 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            onClick={() => void loadOlderHistory()}
-            disabled={loadingOlder}
-          >
-            {loadingOlder ? '加载中…' : '加载更早的消息'}
-          </button>
-        </div>
-      )}
-      {queuePosition !== null && <QueueBanner position={queuePosition} />}
-      <div className="flex flex-col gap-2.5">
-        {groups.map((group) => (
-          <AnswerGroupView
-            key={group.answers[0]!.id}
-            answers={group.answers}
-            // hideTools：多栏里已归位到各栏的工具行，不再当转录流独立项渲染
-            // （否则未完成的工具会同时出现在气泡内活动行和外面的工具行里）
-            renderAnswer={renderAnswer}
-          />
-        ))}
-      </div>
-      {approvals.length > 0 && (
-        <div className="mt-2.5 flex flex-col gap-2">
-          {approvals.map((a) => (
-            <ApprovalCard key={a.approvalId} approval={a} />
+        {empty && <CopilotWelcome />}
+        {loadingHistory && <LoadingBlock text="正在加载历史…" className="py-6" />}
+        {!loadingHistory && !noMoreHistory && messages.length >= OLDER_HISTORY_THRESHOLD && (
+          <LoadOlderButton loading={loadingOlder} onLoad={loadOlderHistory} />
+        )}
+        {queuePosition !== null && <QueueBanner position={queuePosition} />}
+        <div className="flex flex-col gap-2.5">
+          {groups.map((group) => (
+            <AnswerGroupView
+              key={group.answers[0]!.id}
+              answers={group.answers}
+              // hideTools：多栏里已归位到各栏的工具行，不再当转录流独立项渲染
+              // （否则未完成的工具会同时出现在气泡内活动行和外面的工具行里）
+              renderAnswer={renderAnswer}
+            />
           ))}
         </div>
-      )}
-      {pendingQuestions.length > 0 && (
-        <div className="mt-2.5 flex flex-col gap-2">
-          {pendingQuestions.map((q) => (
-            <QuestionCard key={q.questionId} question={q} />
-          ))}
-        </div>
-      )}
-      <ErrorNotice />
+        {approvals.length > 0 && (
+          <div className="mt-2.5 flex flex-col gap-2">
+            {approvals.map((a) => (
+              <ApprovalCard key={a.approvalId} approval={a} />
+            ))}
+          </div>
+        )}
+        {pendingQuestions.length > 0 && (
+          <div className="mt-2.5 flex flex-col gap-2">
+            {pendingQuestions.map((q) => (
+              <QuestionCard key={q.questionId} question={q} />
+            ))}
+          </div>
+        )}
+        <ErrorNotice />
       </div>
       {/* 选中即引用的浮条（position: fixed，挂哪里都行；放在这里才能跟着列表的生命周期） */}
       <SelectionBarLayer />
-      {/* 上翻看历史后一键回到最新：长回答（几十屏）里上翻后只能一直滚回去。
-          sticky bottom-0 让它只在本容器视野内吸底，不跟随页面其他区域。 */}
-      {messages.length > 0 && !atBottom && (
-        <div className="pointer-events-none sticky bottom-0 z-10 mt-2 flex justify-end">
-          <button
-            type="button"
-            className="pointer-events-auto rounded-full border border-border bg-card px-2.5 py-1 text-[11.5px] text-muted-foreground shadow-sm transition-colors hover:text-foreground"
-            title="跳到最新一条"
-            onClick={scrollToBottom}
-          >
-            回到底部 ↓
-          </button>
-        </div>
-      )}
+      {messages.length > 0 && !atBottom && <ScrollToBottomButton onClick={scrollToBottom} />}
     </div>
   )
 }
