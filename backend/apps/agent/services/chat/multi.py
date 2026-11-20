@@ -105,10 +105,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from ...backends import available_kinds
 from ...backends import get as get_backend
@@ -429,30 +429,38 @@ async def _pump_lane(
     的语义，不是失败，不该变成一条 ``error`` 帧。
     """
     # 生成器先取到手：`async for` 提前退出时**不会**替你关它（见下面 finally）。
-    agen = stream_chat(
-        session=session,
-        user_message=user_message,
-        user_id=user_id,
-        tool_selection=tool_selection,
-        # 用户消息已由 stream_multi 落库一次（N 个后端共用同一条提问）
-        user_message_recorded=True,
-        # 主答由 stream_chat 自己落库（栏级 usage / ttft 都在它手里）；
-        # 非主答的正文交回本模块，只有那里知道该带哪个 agent_kind
-        persist_assistant=persist_assistant,
-        memo=memo,
-        # 凭证与 prompt 已由 stream_multi 算好：N 栏同一个律师、同一条提问，
-        # 每栏各铸一次只是把同一条 user 查询排队 N 遍（见 ContextPrep）
-        context=context,
-        # 关键：不能落到会话自己的 agent_kind，否则每次调用都取主后端
-        agent_kind=agent_kind,
-        # 这一栏自己的模型（None = 平台默认）。不传的话三栏会全部落到
-        # 平台默认，界面上「三栏三模型」实际是三栏同模型，且没有任何报错。
-        model=model,
-        # 这一栏自己的 key（None = 后端自己轮转）：三栏抢同一把会撞上
-        # 网关每 key 3 并发的限流，表现为「某一栏卡 60 秒」。
-        api_key=_lease_key(lease),
-        # 与主答**同一个**轮次号（本轮只取一次号，见 ``stream.next_run_turn``）
-        turn=turn,
+    #
+    # ``cast``：``stream_chat`` 的返回标注是 ``AsyncIterator``（调用方只该迭代它），
+    # 而关闭生成器需要 ``AsyncGenerator`` 上的 ``aclose``。用 cast 而不是把
+    # ``stream_chat`` 的签名改成 ``AsyncGenerator``：那会把「也可以传一个普通
+    # 异步迭代器进来」的余地收窄，而本函数只关心「能迭代 + 能关」这两件事。
+    agen = cast(
+        "AsyncGenerator[dict[str, Any], None]",
+        stream_chat(
+            session=session,
+            user_message=user_message,
+            user_id=user_id,
+            tool_selection=tool_selection,
+            # 用户消息已由 stream_multi 落库一次（N 个后端共用同一条提问）
+            user_message_recorded=True,
+            # 主答由 stream_chat 自己落库（栏级 usage / ttft 都在它手里）；
+            # 非主答的正文交回本模块，只有那里知道该带哪个 agent_kind
+            persist_assistant=persist_assistant,
+            memo=memo,
+            # 凭证与 prompt 已由 stream_multi 算好：N 栏同一个律师、同一条提问，
+            # 每栏各铸一次只是把同一条 user 查询排队 N 遍（见 ContextPrep）
+            context=context,
+            # 关键：不能落到会话自己的 agent_kind，否则每次调用都取主后端
+            agent_kind=agent_kind,
+            # 这一栏自己的模型（None = 平台默认）。不传的话三栏会全部落到
+            # 平台默认，界面上「三栏三模型」实际是三栏同模型，且没有任何报错。
+            model=model,
+            # 这一栏自己的 key（None = 后端自己轮转）：三栏抢同一把会撞上
+            # 网关每 key 3 并发的限流，表现为「某一栏卡 60 秒」。
+            api_key=_lease_key(lease),
+            # 与主答**同一个**轮次号（本轮只取一次号，见 ``stream.next_run_turn``）
+            turn=turn,
+        ),
     )
     try:
         async for event in agen:

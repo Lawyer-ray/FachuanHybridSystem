@@ -26,13 +26,12 @@ import logging
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.core.exceptions import ValidationError
 from ninja import Router
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentMemory, AgentSession
+from ..models import AgentMemory
 from ..schemas import (
     MemoryConfirmIn,
     MemoryCreateIn,
@@ -45,6 +44,7 @@ from ..schemas import (
     SnapshotOut,
 )
 from ..services import memory_service
+from ..services.memory import scopes as memory_scopes
 
 logger = logging.getLogger(__name__)
 
@@ -136,27 +136,14 @@ async def search_memory(request: Any, q: str, limit: int = 8) -> list[MemoryHitO
 async def _session_anchors(*, session_id: str | None, user_id: int) -> tuple[int | None, int | None]:
     """会话 → ``(contract_id, case_id)``，用于把「本项目/本案」的笔记挑出来。
 
-    三条安全约定：
-
-    1. **会话归属必须校验**：只按 ``user_id`` 现查，拿别人的 session_id 也
-       只会得到 ``(None, None)``——本项目笔记虽然团队共享，但不能靠猜
-       session_id 去探别人正在办哪个案子；
-    2. 非法 UUID 一律当作「没有锚点」，不抛 500（扩展是每轮热路径）；
-    3. 没有 session_id（旧扩展、纯对话入口）时行为与引入锚点前**完全一致**。
+    查询本身在服务层（``services/memory/scopes.session_anchor_ids``）：四层架构棘轮
+    要求 API 层零 ``Model.objects`` 调用，安全约定（归属校验 / 非法 UUID / 缺省）
+    随查询一起写在那个函数的 docstring 里。本函数只负责第 3 条：没有 session_id
+    （旧扩展、纯对话入口）时行为与引入锚点前**完全一致**，连查询都不发。
     """
     if not session_id:
         return None, None
-    try:
-        row = (
-            await AgentSession.objects.filter(session_id=session_id, user_id=user_id)
-            .values("case_id", "contract_id")
-            .afirst()
-        )
-    except (ValueError, ValidationError):
-        return None, None
-    if not row:
-        return None, None
-    return row["contract_id"], row["case_id"]
+    return await memory_scopes.session_anchor_ids(session_id=session_id, user_id=user_id)
 
 
 @router.get("/snapshot", response=SnapshotOut)

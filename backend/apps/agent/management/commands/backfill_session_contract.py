@@ -53,7 +53,9 @@ class Command(BaseCommand):
             return
 
         case_model = django_apps.get_model("cases", "Case")
-        case_ids = set(pending.values_list("case_id", flat=True))
+        # 过滤 None：查询条件已限定 ``case_id__isnull=False``，但 ``values_list`` 的
+        # 静态类型仍是 ``int | None``——拿它去 ``pk__in`` 会被 mypy 拦。
+        case_ids: set[int] = {cid for cid in pending.values_list("case_id", flat=True) if cid is not None}
 
         contract_of_case: dict[int, int] = dict(
             case_model.objects.filter(pk__in=case_ids, contract__isnull=False).values_list("id", "contract_id")
@@ -68,7 +70,8 @@ class Command(BaseCommand):
         buffer: list[AgentSession] = []
 
         for session in pending.only("id", "case_id", "contract_id").iterator(chunk_size=batch_size):
-            target = contract_of_case.get(session.case_id)
+            # 同上：查询已排除空 case_id，这里把类型收窄成 ``int`` 再查表
+            target = contract_of_case.get(session.case_id) if session.case_id is not None else None
             if target is None:
                 if session.case_id in known_case_ids:
                     case_without_project += 1

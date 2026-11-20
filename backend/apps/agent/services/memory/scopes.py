@@ -7,12 +7,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, cast
 
 from django.apps import apps as django_apps
+from django.core.exceptions import ValidationError
 from django.db.models import Q, QuerySet
 
-from ...models import AgentMemory
+from ...models import AgentMemory, AgentSession
 
 if TYPE_CHECKING:
     from apps.organization.models import Lawyer
@@ -32,9 +34,40 @@ def team_member_ids(lawyer: Lawyer) -> set[int]:
     from apps.organization.services.wiring import build_org_access_computation_service
 
     access = build_org_access_computation_service().compute(lawyer)
-    lawyer_ids = set(access.get("lawyers", set()) or set())
+    # ``compute`` 的返回标注是 ``dict[str, object]``（它服务多个调用方），所以这里
+    # 必须收窄：直接 ``set(access.get(...))`` 会退化成 ``object`` 不可迭代。
+    lawyers = cast("Iterable[int]", access.get("lawyers") or ())
+    lawyer_ids: set[int] = set(lawyers)
     lawyer_ids.add(lawyer.pk)
     return lawyer_ids
+
+
+async def session_anchor_ids(*, session_id: str, user_id: int) -> tuple[int | None, int | None]:
+    """会话 → ``(contract_id, case_id)``；非法 UUID 与查不到一律 ``(None, None)``。
+
+    三条安全约定：
+
+    1. **会话归属必须校验**：只按 ``user_id`` 现查，拿别人的 session_id 也只会得到
+       ``(None, None)``——项目笔记虽然团队共享，但不能靠猜 session_id 去探别人
+       正在办哪个案子；
+    2. 非法 UUID 一律当作「没有锚点」，不抛 500（扩展是每轮热路径）；
+    3. 没有 session_id（旧扩展、纯对话入口）由调用方直接返回，不进本函数。
+
+    为什么在服务层：``tests/ci/structure/test_four_layer_architecture.py`` 的
+    四层棘轮要求 API 层零 ``Model.objects`` 调用（基线 0）——这条查询原本写在
+    ``api/memory_api.py`` 里，被棘轮挡下来了。
+    """
+    try:
+        row = (
+            await AgentSession.objects.filter(session_id=session_id, user_id=user_id)
+            .values("case_id", "contract_id")
+            .afirst()
+        )
+    except (ValueError, ValidationError):
+        return None, None
+    if not row:
+        return None, None
+    return row["contract_id"], row["case_id"]
 
 
 def anchor_q(*, contract_id: int | None, case_id: int | None) -> Q | None:
