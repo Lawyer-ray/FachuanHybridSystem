@@ -55,11 +55,22 @@ repos:
   #     - id: mypy
 
   # Secrets scanning
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
+  #
+  # 不要改回 `repo: Yelp/detect-secrets` + `args: ['--baseline', ...]`：
+  # v1.5.0 的 detect-secrets-hook 会**原地写回**基线（trim 掉这一遍扫描没复现出的条目，
+  # 退出码 3），一次普通提交就能把 backend/.secrets.baseline 从 ~2879 行削到 ~146 行
+  # （"results": {}），历史豁免全部失效、之后每次提交都被误报挡住。
+  # 上游没有 --no-write/--dry-run 开关，只读语义只能由这层封装提供（基线在临时副本上读写）。
+  # 复盘与自检：docs/harness/backend/infra.md「detect-secrets 把基线整份清空」
+  - repo: local
     hooks:
       - id: detect-secrets
-        args: ['--baseline', 'backend/.secrets.baseline']
+        name: Detect secrets (baseline read-only)
+        description: 用 detect-secrets 扫暂存文件；基线只读（临时副本），永不被钩子改写。
+        entry: python scripts/detect_secrets_readonly.py
+        language: python
+        additional_dependencies: ['detect-secrets==1.5.0']
+        types: [file]
         exclude: ^.*/(logs|htmlcov|media|migrations|staticfiles|\.venv)/.*$|^backend/\.secrets\.baseline$|frontend/pnpm-lock\.yaml$
 
   - repo: local
@@ -106,3 +117,14 @@ repos:
         files: .*
         pass_filenames: false
         verbose: true
+
+      - id: check-secrets-baseline-shrink
+        # 兜底护栏（必须排在所有会改文件的钩子之后）：backend/.secrets.baseline 被净删 >100 行
+        # 或 "results" 被清空 → 立刻失败并给还原命令。主修法见 detect-secrets 钩子的注释。
+        name: Guard backend/.secrets.baseline against bulk deletion
+        # language: script 的 entry 第一段会被当成「仓库内路径」解析，不能写 `bash ...`
+        entry: scripts/check-secrets-baseline-shrink.sh
+        language: script
+        files: .*
+        pass_filenames: false
+        always_run: true
