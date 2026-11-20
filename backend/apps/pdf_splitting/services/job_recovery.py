@@ -556,13 +556,8 @@ def recover_job(job: PdfSplitJob, *, verdict: StalenessVerdict | None = None) ->
 
     `verdict` 是判死结论，只用于把「凭什么判死」写进 `error_message`；不传也能工作
     （等价于改动前「只写结论不写原因」的行为），方便直接对单个任务手动收尾。
-
-    除了参数，还会读 `job.staleness_verdict`（见 `sweep_stale_jobs` 里为什么）——
-    本函数的**裸调用签名叫 `recover_job(job)`**，既有调用方（含测试里的替身）都按
-    一个位置参数调用它，所以巡检路径不能靠额外 kwarg 传结论。
     """
-    if verdict is None:
-        verdict = getattr(job, "staleness_verdict", None)
+
     reason = verdict.describe() if isinstance(verdict, StalenessVerdict) else ""
 
     if job.recovery_attempts >= MAX_RECOVERY_ATTEMPTS:
@@ -619,11 +614,11 @@ def sweep_stale_jobs(
         )
         # 判死结论用实例属性传给 `recover_job`，不用 kwarg：本函数的裸调用签名是
         # `recover_job(job)`，既有调用方/测试替身只接受一个位置参数。
-        # 动态属性：Model 上没有这个字段（只在内存里传一次判死结论），
-        # 直接赋值 mypy 会报 attr-defined，用 setattr 表达「这是运行期挂的」。
-        job.staleness_verdict = verdict
         try:
-            action = recover_job(job)
+            # 判死结论走显式参数。原先用「实例上挂个 staleness_verdict 属性」传，
+            # 既被 mypy 判 attr-defined、又被 ruff B010 禁 setattr —— 隐藏状态本来
+            # 就该有个名字：recover_job 早就有 `verdict` 可选参数，直接传即可。
+            action = recover_job(job, verdict=verdict)
             logger.warning(
                 "pdf_split_job_recovered",
                 extra={

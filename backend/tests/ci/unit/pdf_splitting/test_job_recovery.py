@@ -142,7 +142,8 @@ class TestSweepIsolatesFailures:
         bad = _job(id="bad")
         good = _job(id="good")
 
-        def fake_recover(job: Any) -> str:
+        def fake_recover(job: Any, **_: Any) -> str:
+            # 真实签名是 recover_job(job, *, verdict=None)；替身要接受这个 kwarg
             if job.id == "bad":
                 raise RuntimeError("boom")
             return "requeued"
