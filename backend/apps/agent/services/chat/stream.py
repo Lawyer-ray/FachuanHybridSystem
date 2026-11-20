@@ -223,6 +223,8 @@ async def stream_chat(
     api_key: str | None = None,
     context: ContextPrep | None = None,
     turn: int | None = None,
+    multi_lane: bool = False,
+    tool_exclude: frozenset[str] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """跑一轮对话，产出 SSE 事件。
 
@@ -374,6 +376,11 @@ async def stream_chat(
             model=model,
             api_key=api_key,
             tool_selection=tool_selection,
+            # 多栏并答的写降级：本栏属于多栏时，写类工具已被从工具面摘掉
+            # （``--exclude-tools``），审批层还会再拒一次。单栏两个值保持默认，
+            # 与本函数引入这两个参数前的行为逐字一致。
+            multi_lane=multi_lane,
+            tool_exclude=tool_exclude,
         )
         stream = backend.stream(ctx)
         # 收到 done 就别再 aclose：后端在 done 之前已经写好 ``result``（见

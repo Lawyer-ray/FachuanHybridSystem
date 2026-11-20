@@ -43,6 +43,7 @@ from mcp_server.tools.contracts.folder_scan import (
 )
 from mcp_server.tools.contracts.parties import add_contract_party, get_client_related_items, remove_contract_party
 from mcp_server.tools.contracts.payments import create_payment, delete_payment, update_payment
+from mcp_server.tools.contracts.write_patch import apply_file_write_patches, propose_write_patch
 from mcp_server.tools.contracts.supplementary import (
     create_supplementary_agreement,
     delete_supplementary_agreement,
@@ -85,6 +86,8 @@ __all__ = [
     "list_folder_files",
     "read_folder_file",
     "rewrite_folder_file",
+    "propose_write_patch",
+    "apply_file_write_patches",
     # 合同归档
     "learn_archive_rules",
     "get_archive_checklist",

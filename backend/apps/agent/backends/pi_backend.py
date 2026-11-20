@@ -174,6 +174,9 @@ class PiBackend:
             model=model,
             session_id=session_id,
             tool_selection=ctx.tool_selection,
+            # 多栏并答时写类工具已从工具面摘掉（`--exclude-tools`）；单栏为 None，
+            # pi 的启动参数与引入该参数前逐字一致。
+            tool_exclude=ctx.tool_exclude,
             skill_paths=skill_paths,
             # 编排层按轮次分配的 key（见 ``key_scheduler``）：它会被写进本会话的
             # models.json。``None`` 时写函数仍走 ``_next_key`` 轮转（旧行为）。

@@ -18,6 +18,7 @@ from mcp_server.tools import (
     add_case_party,
     add_contract_party,
     analyze_template,
+    apply_file_write_patches,
     approve_workflow_step,
     ask_user,
     assign_lawyer,
@@ -341,6 +342,7 @@ from mcp_server.tools import (
     preview_supplementary_agreement_context,
     process_document,
     process_document_by_path,
+    propose_write_patch,
     quick_recognize_invoice,
     read_agent_attachment,
     read_folder_file,
@@ -1274,6 +1276,8 @@ _t(read_agent_attachment)
 _t(list_folder_files)
 _t(read_folder_file)
 _t(rewrite_folder_file)
+_t(propose_write_patch)
+_t(apply_file_write_patches)
 
 # 期限聚合：跨案件/合同/日志汇总到期事项
 _t(list_upcoming_deadlines)

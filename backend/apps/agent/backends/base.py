@@ -402,3 +402,17 @@ class RunContext:
     #: 安全：**不得写进日志**（与 ``user_token`` 同级）。需要标识时用
     #: ``key_scheduler.fingerprint``。
     api_key: str | None = None
+
+    #: 本轮是否属于「多栏并答」（同一个提问有 >1 栏在跑）。
+    #:
+    #: 多栏时**任何一栏都不许直接改文件**：写类工具从工具面摘除（pi 的
+    #: ``--exclude-tools``，见 ``tool_exclude``），审批层再兜一道——dsh /
+    #: openai-agents 不走 ``--exclude-tools``，只靠审批层拒写（见
+    #: ``services/approval/policy.multi_lane_write_refusal``）。
+    #: 单栏恒为 ``False``：单栏的工具面、启动参数与行为都与引入本字段前逐字一致。
+    multi_lane: bool = False
+
+    #: 本轮要从工具面**摘除**的工具名（pi 的 ``--exclude-tools``，逗号分隔）。
+    #: ``None`` = 不摘任何工具，此时 ``PiRpcSession._build_args`` 的输出与引入
+    #: 本字段前**逐字一致**（有断言用例守着，别让它漂）。
+    tool_exclude: frozenset[str] | None = None
