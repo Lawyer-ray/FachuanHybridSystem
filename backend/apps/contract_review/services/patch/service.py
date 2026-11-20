@@ -31,6 +31,7 @@ B1 阶段不做自动挑选，挑错一段比多问一句贵得多。`duplicate`
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Sequence
 from io import BytesIO
 from pathlib import Path
@@ -61,6 +62,9 @@ logger = logging.getLogger(__name__)
 #: mtime 比较容差（秒）。与 `bound_folder_browse.save_file_content` 同一口径：
 #: 不同文件系统的 mtime 精度不同（ext4 纳秒 / HFS+ 秒），严格相等会误报冲突。
 MTIME_TOLERANCE = 1.0
+
+#: apply 路径的 mtime 比较容差。只为浮点表示误差留余量，不做"秒级宽容"。
+_APPLY_MTIME_EPS = 1e-6
 
 _OWNER_KINDS = frozenset(PatchOwnerKind.values)
 
@@ -158,7 +162,7 @@ def docx_full_text(doc: DocumentType) -> str:
     return "\n".join(lines)
 
 
-def apply_patches(
+def _apply_patches_locked(
     *,
     patch_ids: Sequence[str],
     note: str = "",
@@ -329,7 +333,9 @@ def _reject_stale_mtime(
         logger.warning("patch 未带 base_mtime，跳过乐观锁二次校验 subpath=%s patches=%s", subpath, list(patch_ids))
         return
     base = bases.pop()
-    if actual_mtime is not None and abs(actual_mtime - base) > MTIME_TOLERANCE:
+    # apply 路径用**严格**比较：秒级容差会让 1 秒内的两次写盘都通过校验，
+    # 而后写的把先写的整份覆盖（真机并发用例实测到的丢更新）。
+    if actual_mtime is not None and abs(actual_mtime - base) > _APPLY_MTIME_EPS:
         raise ConflictError(
             message="文件在提案后被修改过，请重新打开确认后再应用",
             code="FILE_MODIFIED",
@@ -403,3 +409,32 @@ def _mark_applied(applied_ids: Sequence[str], merged_ids: Sequence[str], *, note
 
 
 __all__ = ["MTIME_TOLERANCE", "apply_patches", "collect_patch", "docx_full_text", "to_write_patch"]
+
+#: 同一份文件的应用必须串行：两个裁决几乎同时提交时，读 mtime → 写盘之间若被另一个
+#: 请求插入，两次都会通过校验，后写的整份覆盖先写的（文件级 last-write-wins）。
+#: 这里用按 ``(owner_kind, owner_id, subpath)`` 的进程内锁先兜住同进程并发；
+#: 跨进程（多 worker）仍需更外层的锁，已登记为待办（见计划文档 §20 同族）。
+_APPLY_LOCKS: dict[tuple[str, int, str], threading.Lock] = {}
+_APPLY_LOCKS_GUARD = threading.Lock()
+
+
+def _apply_lock(key: tuple[str, int, str]) -> threading.Lock:
+    with _APPLY_LOCKS_GUARD:
+        lock = _APPLY_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _APPLY_LOCKS[key] = lock
+        return lock
+
+
+def apply_patches(**kwargs: Any) -> dict[str, Any]:
+    """把选中的 patch 一次性写进文件（同文件串行 + 严格 mtime 校验）。
+
+    外层只做两件事：算出锁键、持锁调用 ``_apply_patches_locked``。
+    业务逻辑全在内层，避免为了加锁把 40 行主体再缩进一层。
+    """
+    patch_ids = kwargs.get("patch_ids") or ()
+    rows = _load_rows(patch_ids)
+    owner_kind, owner_id, subpath = _single_target(rows)
+    with _apply_lock((owner_kind, owner_id, subpath)):
+        return _apply_patches_locked(**kwargs)
