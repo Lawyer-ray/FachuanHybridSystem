@@ -47,6 +47,9 @@ _LOW_POST_ALLOWLIST: dict[str, str] = {
     "validate_folder_structure": "目录树校验,只读",
     "check_law_references": "法条核验,只读检索",
     "verify_citations": "法条/案号核查,只读检索(backing service 经 grep 确认无 .save/.create/update)",
+    # 多栏并答的候选改写：只落 patch 草案行(status=proposed)，**不碰文档字节**；
+    # 真正写盘的那一步是 apply_file_write_patches（名字命中 file_ → HIGH 审批）
+    "propose_write_patch": "只登记候选改写草案,零写盘(应用走 apply_file_write_patches,HIGH)",
     "chat_with_context": "LLM 对话,无持久化",
     "test_model_connection": "LLM 连通测试,无持久化",
     "capability_search": "能力检索,只读",

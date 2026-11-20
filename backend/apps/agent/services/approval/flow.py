@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from ...models import AgentApproval, AgentSession
 from ..event_bus import redis_cache_enabled
-from .policy import lookup_approval_policy
+from .policy import lookup_approval_policy, multi_lane_write_refusal
 from .risk import (
     OFFLINE_TIMEOUT,
     RiskLevel,
@@ -133,6 +133,14 @@ async def request_approval(
         ``(approved, approval_id)``。``approved`` 为 ``True`` 才放行。
     """
     approval_id = uuid.uuid4().hex
+
+    # 多栏并答时写类工具**直接拒绝**，不弹审批卡：三栏同时改同一份文件是结构性
+    # 冲突，让人去批准它没有意义（批准了也必然互相覆盖）。放在分级与用户策略
+    # 之前——`allow` 策略同样不许给这条路开绿灯。
+    refusal = multi_lane_write_refusal(session_id=session_id, tool_name=tool_name)
+    if refusal is not None:
+        logger.info("多栏并答拒绝写类工具（不弹审批卡）tool=%s session=%s", tool_name, session_id)
+        return False, "", refusal
 
     level = classify_risk(tool_name, tool_args)
     if level in (RiskLevel.LOW, RiskLevel.MEDIUM):

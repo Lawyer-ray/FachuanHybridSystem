@@ -157,6 +157,7 @@ class PiProcessPool:
         model: str | None = None,
         session_id: str | None = None,
         tool_selection: str | None = None,
+        tool_exclude: frozenset[str] | None = None,
         skill_paths: list[str] | None = None,
         api_key: str | None = None,
     ) -> AsyncIterator[PiRpcSession]:
@@ -233,6 +234,7 @@ class PiProcessPool:
                         session_dir=session_dir,
                         session_id=session_id,
                         tool_selection=tool_selection,
+                        exclude_tools=tool_exclude,
                         skill_paths=skill_paths,
                     )
                     await session.start()
