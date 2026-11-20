@@ -132,11 +132,20 @@ async def suggest_edit(request: HttpRequest, payload: DirectEditSuggestIn) -> di
 
 @router.post("/apply", response=DirectEditApplyOut)
 @rate_limit_from_settings("TASK", by_user=True)
-async def apply_edit(request: HttpRequest, payload: DirectEditApplyIn) -> dict[str, Any]:
+async def apply_edit(
+    request: HttpRequest,
+    payload: DirectEditApplyIn,
+    expect_mtime: float | None = None,
+) -> dict[str, Any]:
     """采纳一条候选：写成 Word 修订痕迹（`<w:del>` + `<w:ins>`）并覆写原文件。
 
     定位失败返回 `applied=false` 而不是报错——「选中的原文已被改过」是律师
     常见操作结果，前端要能提示「重新框选」，而不是弹 500。
+
+    `expect_mtime`（query，与 `contracts/{id}/folder-save` 同口径）是**乐观锁**：
+    调用方读到文件时的 mtime。不一致说明这期间文件已被别人改过，此时必须
+    409 而不是覆写——不传就等于放弃这道锁（服务层 `save_file_content` 会
+    整段跳过 mtime 校验），所以只要调用方拿得到 mtime 就必须带上。
     """
     user = request.user
     kind, owner_id = _resolve_target(payload.contract_id, payload.case_id)
@@ -149,6 +158,7 @@ async def apply_edit(request: HttpRequest, payload: DirectEditApplyIn) -> dict[s
         user=user,
         org_access=getattr(user, "org_access", None),
         perm_open_access=False,
+        expect_mtime=expect_mtime,
         kind=kind,
     )
     # 回传归属 id：MCP 工具结果原样透传到前端，编辑器据「哪份合同/案件的

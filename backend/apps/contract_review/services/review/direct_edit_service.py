@@ -138,7 +138,7 @@ def _browse(kind: str = "contract") -> Any:
     return ContractFolderBrowseService()
 
 
-def _read_bytes(
+def _resolve_file_path(
     browse: BoundFolderBrowseService,
     *,
     owner_id: int,
@@ -146,8 +146,8 @@ def _read_bytes(
     user: Any | None,
     org_access: dict[str, Any] | None,
     perm_open_access: bool,
-) -> bytes:
-    """取原文件字节。走 browse 的权限校验，不自己拼路径。"""
+) -> Path:
+    """按 binder 的 ACL 解析出磁盘路径（不自己拼路径、不绕过权限）。"""
     try:
         path = browse.resolve_file(
             owner_id=owner_id,
@@ -162,7 +162,59 @@ def _read_bytes(
         # 权限不足等：统一收敛成 NotFound，不泄露「存在但无权」
         logger.warning("划词直改读取源文件失败 owner=%s subpath=%s: %s", owner_id, subpath, exc)
         raise NotFoundError(message="文件不存在或无权访问", code="FOLDER_NOT_FOUND") from exc
-    return Path(path).read_bytes()
+    return Path(path)
+
+
+def _read_bytes(
+    browse: BoundFolderBrowseService,
+    *,
+    owner_id: int,
+    subpath: str,
+    user: Any | None,
+    org_access: dict[str, Any] | None,
+    perm_open_access: bool,
+) -> bytes:
+    """取原文件字节。走 browse 的权限校验，不自己拼路径。"""
+    path = _resolve_file_path(
+        browse,
+        owner_id=owner_id,
+        subpath=subpath,
+        user=user,
+        org_access=org_access,
+        perm_open_access=perm_open_access,
+    )
+    return path.read_bytes()
+
+
+def read_file_mtime(
+    browse: BoundFolderBrowseService,
+    *,
+    owner_id: int,
+    subpath: str,
+    user: Any | None,
+    org_access: dict[str, Any] | None,
+    perm_open_access: bool,
+) -> float | None:
+    """取文件的当前 mtime（秒）。
+
+    patch 草案的 ``base_mtime`` 来自这里：提案时刻的磁盘 mtime，应用前拿它与
+    实际值二次比对（见 ``services/patch/service.apply_patches``）。取不到时
+    返回 ``None``——乐观锁退化成「不锁」，但提案本身仍然有效，不能因为
+    文件系统不报 mtime 就让律师无法提案。
+    """
+    path = _resolve_file_path(
+        browse,
+        owner_id=owner_id,
+        subpath=subpath,
+        user=user,
+        org_access=org_access,
+        perm_open_access=perm_open_access,
+    )
+    try:
+        return float(path.stat().st_mtime)
+    except OSError:
+        logger.warning("读取文件 mtime 失败（patch 将不带乐观锁）subpath=%s", subpath, exc_info=True)
+        return None
 
 
 class DirectEditService:
@@ -266,4 +318,10 @@ def get_direct_edit_service() -> DirectEditService:
     return DirectEditService()
 
 
-__all__ = ["DEFAULT_AUTHOR", "DirectEditService", "get_direct_edit_service", "locate_paragraph"]
+__all__ = [
+    "DEFAULT_AUTHOR",
+    "DirectEditService",
+    "get_direct_edit_service",
+    "locate_paragraph",
+    "read_file_mtime",
+]
