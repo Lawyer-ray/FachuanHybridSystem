@@ -20,6 +20,7 @@ import { memo } from 'react'
 import { agentLabel } from '../domain'
 import type { AgentBackendOption, ChatMessage } from '../types'
 import { findBackend, noApprovalWarn } from '../store/backends'
+import { LaneFactsBadge } from './LaneFactsBadge'
 import { LaneUsageChip } from './LaneUsageChip'
 import { NoApprovalBadge } from './NoApprovalBadge'
 
@@ -98,6 +99,9 @@ export const MultiAnswers = memo(function MultiAnswers({
               </div>
               {/* 这一栏没有人工审批闸门：高危工具不会弹卡（dsh 直接拒绝 / openai-agents 照常执行） */}
               {noApprovalWarn(findBackend(backends, kind)) && <NoApprovalBadge />}
+              {/* 体检事实：读这条回答自己的引用/工具/截断标记，零数据时不渲染；
+                  放在用量之前——用量文字长，把「没引/没查」挤到栏宽外就白做了 */}
+              <LaneFactsBadge message={answer} />
               {/* 分栏用量：多答就是为了比较，栏头必须能看出谁贵谁快 */}
               {/* usage：历史轮次的落库用量；缺省时 chip 自己回落到本轮内存账 */}
               <LaneUsageChip kind={kind} usage={answer.laneUsage} />
