@@ -437,3 +437,8 @@ export interface SlashMenuItem {
 /** 结构化提问的题面类型由纯领域模块定义（回流类型与契约分属两处） */
 export type { QuestionAnswerItem, QuestionDraft, QuestionItem, QuestionOption } from './domain/question'
 export type { CopilotState } from './state-types'
+
+/** 多答裁决卡视图（camelCase；线上契约→视图的映射见 domain/fusion.ts） */
+export type { ClusterView, ConflictPairView, ConflictSideView, LaneView, ReviewView, VerdictView } from './domain/fusion'
+/** 评审采纳记录视图（独立端点，不进冻结的 Review 快照；见 domain/adoption.ts） */
+export type { AdoptionView } from './domain/adoption'
