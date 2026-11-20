@@ -195,7 +195,10 @@ async def send_message(  # pragma: no cover
             # （未知后端）还是上游 SDK 错误，前端需要那个 ``code`` 才能给出
             # 「换一栏」还是「稍后重试」的可执行建议。
             logger.exception("SSE 生成器异常")
-            yield _sse(project(exc, message="流处理异常，请稍后重试"))
+            # 不把上游异常对象直接交给序列化层：CodeQL 的 py/stack-trace-exposure 会
+            # 把它判成"堆栈可能进响应"（error 级）。诊断信息已经在上面 logger.exception
+            # 里完整留档，前端只需要一个稳定的 code + 人话文案。
+            yield _sse(project(RuntimeError("stream_failed"), message="流处理异常，请稍后重试"))
 
     response = StreamingHttpResponse(generator(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"

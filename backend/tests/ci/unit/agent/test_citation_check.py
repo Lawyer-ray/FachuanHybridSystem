@@ -50,14 +50,14 @@ def test_verified_statute_and_case_produce_no_message() -> None:
     """核到的不进 unverified 清单（清单只放"要人再看一眼"的）。"""
     lookup = FakeLookup(
         statutes={("民法典", 1079): f"第一千零七十九条 {ARTICLE_1079_BODY}"},
-        cases={"合成案号-样例"},
+        cases={"（2020）京01民终1号"},  # allowlist secret（合成案号，仅用于测试解析规则）
     )
-    text = "依据《民法典》第一千零七十九条，夫妻一方要求离婚的可以直接起诉；参见合成案号-样例。"
+    text = "依据《民法典》第一千零七十九条，夫妻一方要求离婚的可以直接起诉；参见（2020）京01民终1号。"  # allowlist secret（合成案号，仅用于测试解析规则）
 
     assert verify_references(text, lookup=lookup) == []
     # 中文条号折算成 1079 才问得到数据源（折错就是核错一条法条）。
     assert lookup.statute_calls == [("民法典", 1079)]
-    assert lookup.case_calls == ["合成案号-样例"]
+    assert lookup.case_calls == ["（2020）京01民终1号"]  # allowlist secret（合成案号，仅用于测试解析规则）
 
 
 def test_missing_statute_is_reported_with_the_wording_from_the_answer() -> None:
@@ -69,9 +69,9 @@ def test_missing_statute_is_reported_with_the_wording_from_the_answer() -> None:
 
 def test_missing_case_number_is_reported() -> None:
     """查不到的案号同样进清单（案号真实性是另一条独立的造假路径）。"""
-    messages = verify_references("参见合成案号-样例判决。", lookup=FakeLookup())
+    messages = verify_references("参见（2020）京01民终1234号判决。", lookup=FakeLookup())  # allowlist secret（合成案号，仅用于测试解析规则）
 
-    assert messages == ["引案号合成案号-样例，本轮无核验命中"]
+    assert messages == ["引案号（2020）京01民终1234号，本轮无核验命中"]  # allowlist secret（合成案号，仅用于测试解析规则）
 
 
 def test_article_number_mismatch_in_returned_text_is_reported() -> None:
@@ -140,10 +140,10 @@ def test_extract_statute_refs_keeps_first_wording_per_article() -> None:
 
 def test_extract_case_refs_normalizes_paren_width() -> None:
     """案号：全角/半角括号与空白归一，同一案号只抽一次。"""
-    refs = extract_case_refs("合成案号-样例 与 合成案号-样例 是同一案")
+    refs = extract_case_refs("(2020)京01民终1号 与 （2020）京01民终1号 是同一案")  # allowlist secret（合成案号，仅用于测试解析规则）
 
     assert len(refs) == 1
-    assert refs[0].case_no == "合成案号-样例"
+    assert refs[0].case_no == "（2020）京01民终1号"  # allowlist secret（合成案号，仅用于测试解析规则）
 
 
 def test_empty_text_returns_no_messages() -> None:

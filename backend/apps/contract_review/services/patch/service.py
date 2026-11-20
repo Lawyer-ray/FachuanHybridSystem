@@ -30,9 +30,12 @@ B1 阶段不做自动挑选，挑错一段比多问一句贵得多。`duplicate`
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import logging
+import os
 import threading
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -51,6 +54,7 @@ from ..review.direct_edit_service import (
     _browse,
     _bump_editor_doc_key,
     _read_bytes,
+    _resolve_file_path,
     locate_paragraph,
     read_file_mtime,
 )
@@ -427,14 +431,46 @@ def _apply_lock(key: tuple[str, int, str]) -> threading.Lock:
         return lock
 
 
+@contextlib.contextmanager
+def _exclusive_file_lock(path: Path) -> Iterator[None]:
+    """**跨进程**互斥锁（同目录下的 ``.apply.lock`` 旁挂文件）。
+
+    为什么必须有：进程内的 ``threading.Lock`` 挡不住多 worker / 多机 —— 真机用两个
+    独立进程同时提交同一份 docx 的裁决，实测**两次都返回成功**，而文件里一处改动都
+    没留下（两边各自读到旧 mtime、各自从旧字节生成新文档，后写整份覆盖先写）。
+
+    为什么不锁 docx 本身：Word / 编辑器也会打开它，锁正文会干扰正常编辑；
+    旁挂一个只用于串行的空文件最干净。
+    """
+    lock_path = path.with_suffix(path.suffix + ".apply.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        with contextlib.suppress(OSError):
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
 def apply_patches(**kwargs: Any) -> dict[str, Any]:
     """把选中的 patch 一次性写进文件（同文件串行 + 严格 mtime 校验）。
 
-    外层只做两件事：算出锁键、持锁调用 ``_apply_patches_locked``。
-    业务逻辑全在内层，避免为了加锁把 40 行主体再缩进一层。
+    两层锁：进程内 ``threading.Lock`` + 跨进程 ``flock``。串行之后，内层的严格
+    mtime 校验才真正有效——否则两次写盘都能在对方落盘前读到同一个旧 mtime。
     """
     patch_ids = kwargs.get("patch_ids") or ()
     rows = _load_rows(patch_ids)
     owner_kind, owner_id, subpath = _single_target(rows)
-    with _apply_lock((owner_kind, owner_id, subpath)):
+    browse = _browse(owner_kind)
+    path = _resolve_file_path(
+        browse,
+        owner_id=owner_id,
+        subpath=subpath,
+        user=kwargs.get("user"),
+        org_access=kwargs.get("org_access"),
+        perm_open_access=bool(kwargs.get("perm_open_access", False)),
+    )
+    with _apply_lock((owner_kind, owner_id, subpath)), _exclusive_file_lock(path):
         return _apply_patches_locked(**kwargs)

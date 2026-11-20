@@ -96,7 +96,7 @@ class _OAMatchingMixin(_OAServiceContract):
                 "",
                 cleaned,
             ).strip()
-        pieces = re.split(r"[、,，;；和及与以及]\s*", cleaned)
+        pieces = re.split(r"[、,，;；和及与以]\s*", cleaned)
         tokens: list[str] = []
 
         for piece in pieces:

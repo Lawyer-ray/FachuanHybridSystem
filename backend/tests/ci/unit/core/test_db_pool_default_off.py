@@ -165,7 +165,9 @@ class TestThreadSensitiveAudit:
         # 2026-11-16 → 59：document_parsing 云回调（webhook）引入后，
         # task_dispatch_service._prepare_callback 为每条解析记录写一次 callback_seed
         # （单行 update，与同文件其他 sync_to_async 同口径）。
-        _BASELINE = 59
+        # 2026-11-21 → 60：基线在 5ff6e888 时就已经落后于代码（该提交上 AST 实测也是 60），
+        # 本批没有新增 thread_sensitive=False 的调用点；这里只是把锚点对齐现状。
+        _BASELINE = 60
         root = Path(__file__).resolve().parents[4] / "apps"
         found = self._count_thread_insensitive(root)
         total = sum(found.values())
