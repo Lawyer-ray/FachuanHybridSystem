@@ -15,6 +15,8 @@ from .memory_schemas import (
     MemoryCreateIn,
     MemoryHitOut,
     MemoryOut,
+    NoteConfirmIn,
+    ProjectNoteIn,
     PromoteCandidateOut,
     PromoteIn,
     SnapshotOut,

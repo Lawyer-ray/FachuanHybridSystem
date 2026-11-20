@@ -17,6 +17,32 @@ class MemoryOut(Schema):
     hit_count: int
     created_at: str
     source_session_id: str = ""
+    #: 项目/案件锚点。两个都为 None 表示这是一条「跨项目通用」的记忆。
+    contract_id: int | None = None
+    case_id: int | None = None
+    #: 非空 = 已有人点过确认，是「项目事实」；空 = 「同事的判断」。
+    confirmed_at: str = ""
+    confirmed_by: str = ""
+    #: 本条推翻了哪条旧笔记（旧条不删除，只是不再注入）。
+    supersedes_id: str = ""
+
+
+class ProjectNoteIn(Schema):
+    """写一条项目笔记（挂到项目/某案件上，同团队成员都能看到）。"""
+
+    content: str
+    #: 至少给一个：只挂项目 = 整个项目通用；挂案件 = 只在该案会话里展开。
+    contract_id: int | None = None
+    case_id: int | None = None
+    kind: str = AgentMemory.Kind.FACT
+    #: 推翻旧结论时传旧笔记 id：旧条保留、不再注入（不静默覆盖）。
+    supersede_id: str | None = None
+
+
+class NoteConfirmIn(Schema):
+    """把一条笔记升为「项目事实」；``content`` 非空时顺手改写（律师说得更准）。"""
+
+    content: str | None = None
 
 
 class MemoryCreateIn(Schema):

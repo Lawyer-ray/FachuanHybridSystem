@@ -49,12 +49,14 @@ from .behavior import derive_preferences_from_behavior, persist_suggestions
 from .curation import promote_candidates, promote_memory, scan_pii_risk
 from .extraction import MAX_EXTRACT_ITEMS, extract_memories_from_session
 from .payloads import curatable_scopes_payload, list_memories_payload, memory_to_dict, search_memories_payload
-from .scopes import can_curate_scope, resolve_scopes, visible_queryset
+from .scopes import anchor_visible_queryset, can_curate_scope, resolve_scopes, team_member_ids, visible_queryset
 from .search import MIN_RELATIVE_RATIO, MIN_SIMILARITY, mark_hit, search_memories
 from .snapshot import (
     INDEX_QUOTA,
     INJECT_QUOTA_LAW_FIRM,
     INJECT_QUOTA_LAWYER,
+    INJECT_QUOTA_PROJECT_FACT,
+    INJECT_QUOTA_PROJECT_JUDGMENT,
     INJECT_QUOTA_TEAM,
     MAX_SINGLE_ENTRY_CHARS,
     PLAYBOOK_MAX_CHARS,
@@ -64,7 +66,15 @@ from .snapshot import (
     build_snapshot,
     invalidate_snapshot,
 )
-from .write import confirm_memories, create_memory, forget_memory, restore_memory
+from .write import (
+    NOTE_MAX_CHARS,
+    confirm_memories,
+    confirm_note,
+    create_memory,
+    create_note,
+    forget_memory,
+    restore_memory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +103,15 @@ __all__ = [
     "MIN_RELATIVE_RATIO",
     "SNAPSHOT_CACHE_TTL",
     "SNAPSHOT_CACHE_KEY",
+    "INJECT_QUOTA_PROJECT_FACT",
+    "INJECT_QUOTA_PROJECT_JUDGMENT",
+    "NOTE_MAX_CHARS",
     # 作用域与权限
     "resolve_scopes",
     "visible_queryset",
     "can_curate_scope",
+    "team_member_ids",
+    "anchor_visible_queryset",
     # 检索
     "search_memories",
     "mark_hit",
@@ -106,6 +121,8 @@ __all__ = [
     "invalidate_snapshot",
     # 写入
     "create_memory",
+    "create_note",
+    "confirm_note",
     "confirm_memories",
     "forget_memory",
     "restore_memory",

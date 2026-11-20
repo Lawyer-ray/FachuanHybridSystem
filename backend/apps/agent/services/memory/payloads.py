@@ -32,6 +32,13 @@ def memory_to_dict(memory: AgentMemory) -> dict[str, Any]:
         "hit_count": memory.hit_count,
         "created_at": memory.created_at.isoformat() if memory.created_at else "",
         "source_session_id": (str(memory.source_session.session_id) if memory.source_session is not None else ""),
+        # 项目锚点：前端靠它们把笔记归到「项目/本案」，也靠 confirmed_at 区分
+        # 「同事的判断」与「已确认的项目事实」。
+        "contract_id": memory.contract_id,
+        "case_id": memory.case_id,
+        "confirmed_at": memory.confirmed_at.isoformat() if memory.confirmed_at else "",
+        "confirmed_by": (str(memory.confirmed_by) if memory.confirmed_by_id else ""),
+        "supersedes_id": str(memory.supersedes_id) if memory.supersedes_id else "",
     }
 
 

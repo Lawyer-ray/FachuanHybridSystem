@@ -30,6 +30,18 @@ INJECT_QUOTA_LAWYER = 1600
 INJECT_QUOTA_TEAM = 900
 INJECT_QUOTA_LAW_FIRM = 700
 
+#: 项目层（合同）**已确认事实**的字数上限。
+#:
+#: 为什么单独开一块而不是从上面三层里切：项目事实是「本案怎么打」的前提，
+#: 一旦被个人偏好挤掉，后面每一轮都在错误前提上推理；反过来把个人层削小
+#: 又会让「先结结论再给理由」这类硬偏好失效。两块各算各的额度。
+INJECT_QUOTA_PROJECT_FACT = 1200
+
+#: 项目层**判断**（同事会话得出的、未经人确认的结论）的字数上限。
+#: 比事实块小：判断可被推翻，且必须能与事实一眼区分，否则模型会把推测
+#: 当既成事实继续往下推。
+INJECT_QUOTA_PROJECT_JUDGMENT = 800
+
 #: 单条记忆的字数上限。超过说明抽取失败（把整段对话当记忆了），
 #: 该类条目不参与注入，但仍留在库里供人处理。
 MAX_SINGLE_ENTRY_CHARS = 200
@@ -45,7 +57,14 @@ PLAYBOOK_MAX_CHARS = 8000
 #: 快照缓存 TTL（秒）。扩展通常在同一会话内反复拉，跨天/写记忆会主动失效。
 SNAPSHOT_CACHE_TTL = 3600
 
-SNAPSHOT_CACHE_KEY = "agent:memory:snapshot:{user_id}:{firm_id}"
+#: 快照 cache key。**必须**带上版本号与锚点：
+#:
+#: - 不带锚点 = 把 A 案的快照发给 B 案（最严重的正确性事故）；
+#: - 不带版本号 = 失效只能按人删一个 key，而同一律师现在有 N 个锚点 key，
+#:   且 locmem 没有 ``delete_pattern``。版本号把「失效」降级成「自增一个
+#:   整数」，所有锚点变体一次作废。
+SNAPSHOT_CACHE_KEY = "agent:memory:snapshot:{user_id}:{firm_id}:{version}:{anchor}"
+SNAPSHOT_VERSION_KEY = "agent:memory:snapver:{user_id}"
 
 _KIND_LABEL: dict[str, str] = {
     AgentMemory.Kind.CORRECTION: "纠正",
@@ -112,14 +131,114 @@ _SCOPE_QUOTA: dict[str, int] = {
 }
 
 
-def build_snapshot(lawyer: Lawyer, *, refresh: bool = False, refresh_reason: str = "") -> str:
+def _snapshot_version(lawyer: Lawyer) -> int:
+    """当前律师的快照版本号（不存就现置 1）。"""
+    return int(cache.get_or_set(SNAPSHOT_VERSION_KEY.format(user_id=lawyer.pk), 1, None) or 1)
+
+
+def _bump_snapshot_version(lawyer: Lawyer) -> None:
+    """让该律师**所有锚点变体**的快照失效。
+
+    不能只删一个 key：同一个律师现在按项目/案件有 N 个快照（见
+    ``SNAPSHOT_CACHE_KEY``），而 locmem 不支持 ``delete_pattern``。
+    """
+    key = SNAPSHOT_VERSION_KEY.format(user_id=lawyer.pk)
+    try:
+        cache.incr(key)
+    except ValueError:
+        # key 不存在或不是整数（缓存被清 / 首次写入）—— 置一个新版本即可
+        cache.set(key, 2, None)
+
+
+def _anchor_lines(
+    notes: list[AgentMemory],
+    *,
+    quota: int,
+    with_confirm: bool,
+) -> str:
+    """把一批项目笔记渲染成行（带作者与时间，受配额约束）。"""
+    lines: list[str] = []
+    used = 0
+    for note in notes:
+        content = " ".join((note.content or "").split()).strip()
+        if not content:
+            continue
+        # Lawyer.__str__ = real_name or username（模型没有 name 字段）
+        who = (str(note.lawyer) if note.lawyer_id else "") or "同事"
+        stamp = note.confirmed_at or note.created_at
+        when = stamp.strftime("%m-%d") if stamp else ""
+        where = "本案" if note.case_id is not None else "项目"
+        suffix = f"（{who} {when} 确认）" if with_confirm else f"（{who} {when}）"
+        line = f"- [{where}] {content}{suffix}"
+        if used + len(line) > quota:
+            break
+        lines.append(line)
+        used += len(line)
+    return "\n".join(lines)
+
+
+def _anchor_block(lawyer: Lawyer, *, contract_id: int | None, case_id: int | None) -> tuple[str, list[AgentMemory]]:
+    """渲染「本项目/本案」块：已确认事实在前，未确认的判断在后。
+
+    两块的标题必须说清性质差异。混在一起的话，模型会把同事的推测当成
+    已确认事实继续往下推，错误的期望值会被一轮轮放大。
+
+    排序确定性（字节稳定）：事实按 ``(confirmed_at, id)`` 降序，判断按
+    ``(created_at, id)`` 降序，同时间戳用 id 兑底。
+    """
+    if contract_id is None and case_id is None:
+        return "", []
+    queryset = (
+        scopes.anchor_visible_queryset(lawyer, contract_id=contract_id, case_id=case_id)
+        .select_related("lawyer")
+        .order_by("id")[:200]
+    )
+    notes = list(queryset)
+    if not notes:
+        return "", []
+
+    facts = sorted((n for n in notes if n.confirmed_at), key=lambda n: (n.confirmed_at, n.pk), reverse=True)
+    judgments = sorted((n for n in notes if not n.confirmed_at), key=lambda n: (n.created_at, n.pk), reverse=True)
+
+    blocks: list[str] = []
+    injected: list[AgentMemory] = []
+
+    fact_text = _anchor_lines(facts, quota=INJECT_QUOTA_PROJECT_FACT, with_confirm=True)
+    if fact_text:
+        blocks.append(
+            "### 本项目已确认的事实（律师人工确认过；**与工具查到的数据冲突时，一律以工具为准**）\n" + fact_text
+        )
+        injected.extend(facts)
+
+    judgment_text = _anchor_lines(judgments, quota=INJECT_QUOTA_PROJECT_JUDGMENT, with_confirm=False)
+    if judgment_text:
+        blocks.append("### 本项目同事的判断（来自团队其他会话，**未经确认**，需自行复核后再用）\n" + judgment_text)
+        injected.extend(judgments)
+
+    return "\n\n".join(blocks), injected
+
+
+def build_snapshot(
+    lawyer: Lawyer,
+    *,
+    contract_id: int | None = None,
+    case_id: int | None = None,
+    refresh: bool = False,
+    refresh_reason: str = "",
+) -> str:
     """渲染注入用的记忆块（Markdown）。
 
     带会话无关的缓存：同一律师在 TTL 内拿到完全相同的字节，保证 prompt
     cache 可命中。``refresh=True`` 用于「长期记忆刚写入」这类必须立刻可见的
     场景（对应 pi-memory 的 snapshotDirty）。
     """
-    key = SNAPSHOT_CACHE_KEY.format(user_id=lawyer.pk, firm_id=lawyer.law_firm_id or 0)
+    anchor = f"c{contract_id or 0}-k{case_id or 0}"
+    key = SNAPSHOT_CACHE_KEY.format(
+        user_id=lawyer.pk,
+        firm_id=lawyer.law_firm_id or 0,
+        version=_snapshot_version(lawyer),
+        anchor=anchor,
+    )
     if not refresh:
         cached = cache.get(key)
         if isinstance(cached, str):
@@ -127,8 +246,13 @@ def build_snapshot(lawyer: Lawyer, *, refresh: bool = False, refresh_reason: str
 
     layers: list[SnapshotLayer] = []
     for scope, kwargs in scopes.resolve_scopes(lawyer):
+        # **排除项目笔记**：它们走上面的锚点块，且有「本案/他案」的区分。
+        # 不排除的话，一条挂在 A 案的笔记会同时出现在 B 案会话的「个人记忆」
+        # 里——等于项目隔离失效，而且同一条被注入两遍。
         queryset = AgentMemory.objects.filter(
             status=AgentMemory.Status.ACTIVE,
+            contract_id__isnull=True,
+            case_id__isnull=True,
             **kwargs,
         )
         memories = tuple(search._rank_by_usage(list(queryset), 40))
@@ -137,6 +261,13 @@ def build_snapshot(lawyer: Lawyer, *, refresh: bool = False, refresh_reason: str
 
     blocks: list[str] = []
     injected: list[AgentMemory] = []
+
+    # 项目层排在最前：本轮到底在办哪个项目，优先级高于律师的个人偏好。
+    anchor_block, anchor_notes = _anchor_block(lawyer, contract_id=contract_id, case_id=case_id)
+    if anchor_block:
+        blocks.append(anchor_block)
+        injected.extend(anchor_notes)
+
     for layer in layers:
         text = layer.text
         if not text:
@@ -163,7 +294,7 @@ def build_snapshot(lawyer: Lawyer, *, refresh: bool = False, refresh_reason: str
 
 def invalidate_snapshot(lawyer: Lawyer) -> None:
     """写记忆后主动失效快照（否则新记忆最慢要等 TTL 才可见）。"""
-    cache.delete(SNAPSHOT_CACHE_KEY.format(user_id=lawyer.pk, firm_id=lawyer.law_firm_id or 0))
+    _bump_snapshot_version(lawyer)
 
 
 def _invalidate_firm_snapshots(lawyer: Lawyer) -> None:

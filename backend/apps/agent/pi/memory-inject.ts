@@ -36,8 +36,17 @@ const API_BASE =
   process.env.FACHUAN_API_BASE ?? "http://127.0.0.1:8002/api/v1";
 const USER_TOKEN = process.env.FACHUAN_USER_TOKEN ?? "";
 
-/** 快照上限（字符）。服务端已按层限额渲染，这里只做最后一道防线。 */
-const MAX_SNAPSHOT_CHARS = 4000;
+/**
+ * 快照上限（字符）。服务端已按层限额渲染，这里只做最后一道防线。
+ *
+ * 6400 的由来：个人/团队/律所三层 1600+900+700，加上「本项目事实 1200 +
+ * 本项目判断 800」两块，服务端最大可渲染到 ~5200。留在 4000 会在有项目
+ * 笔记的会话里**静默截断尾部**（被切掉的通常正是律所规范那块）。
+ */
+const MAX_SNAPSHOT_CHARS = 6400;
+
+/** 会话标识：服务端据此挑出「本项目/本案」的笔记（缺失时行为与以前一致）。 */
+const SESSION_ID = process.env.FACHUAN_SESSION_ID ?? "";
 
 /** 拉取超时。快照端点是纯 DB 查询 + 缓存，正常 <100ms；3s 足够且不拖慢首响应。 */
 const FETCH_TIMEOUT_MS = 3000;
@@ -65,7 +74,9 @@ async function fetchSnapshot(): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const resp = await fetch(`${API_BASE}/agent/memory/snapshot`, {
+    const url = new URL(`${API_BASE}/agent/memory/snapshot`);
+    if (SESSION_ID) url.searchParams.set("session_id", SESSION_ID);
+    const resp = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${USER_TOKEN}` },
       signal: controller.signal,
     });
