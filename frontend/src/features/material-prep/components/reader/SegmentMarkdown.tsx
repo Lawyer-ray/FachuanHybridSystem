@@ -3,8 +3,9 @@ import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { blockKeyOf } from '../../draft/block-keys'
+import { reviewHintOf } from '../../draft/quality'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
-import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
+import { SegmentPageHint, SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { BlockRow } from './SegmentRow'
 import { SegmentMarkdownView } from './SegmentMarkdownView'
 import { EngineDisagreementsInline } from './EngineDisagreementsInline'
@@ -152,9 +153,13 @@ export function SegmentMarkdown({
   if (!seg.md) {
     if (seg.manual) return null
     return (
-      <div className="flex items-start gap-1.5 rounded-lg border border-zinc-200 bg-secondary/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
-        <FileCode2 className="mt-0.5 h-3 w-3 flex-none opacity-60" aria-hidden />
-        <span>该段没有 Markdown 正文（本地 OCR 或人工拆分不产出正文重建）</span>
+      <div className="flex flex-col gap-1">
+        {/* 没有正文恰恰是最该说清「要复核什么」的情况：律师连读的地方都没有 */}
+        <SegmentQualityHint review={reviewHintOf(seg)} />
+        <div className="flex items-start gap-1.5 rounded-lg border border-zinc-200 bg-secondary/40 px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <FileCode2 className="mt-0.5 h-3 w-3 flex-none opacity-60" aria-hidden />
+          <span>该段没有 Markdown 正文（本地 OCR 或人工拆分不产出正文重建）</span>
+        </div>
       </div>
     )
   }
@@ -177,6 +182,26 @@ export function SegmentMarkdown({
     byPage.set(d.page_no, bucket)
   })
 
+  /**
+   * 逐页的「需要核对」提示：证件页缺字段 / 疑似图纸页。
+   *
+   * 与引擎分歧同一落点（该页正文第一行之前）——同一段里已经有这个示范，律师读到
+   * 哪一页就看到那一页的问题，不用回栏顶比页号再找位置。
+   *
+   * 落不到任何一行的页（图纸页往往一个字都没取出来）单独补在正文之后：那一页本来
+   * 就「没东西可读」，提示只能自己成一行，否则就等于没提示。
+   */
+  const docByPage = new Map<number, DocHintPage>()
+  for (const d of docPages) if (!docByPage.has(d.page)) docByPage.set(d.page, d)
+  const graphicSet = new Set(graphicPages)
+  const hintedPages = [...new Set([...docByPage.keys(), ...graphicSet])].sort((a, b) => a - b)
+  const pagesWithRows = new Set(blocks.map((b) => b.page))
+  const orphanHintPages = hintedPages.filter((p) => !pagesWithRows.has(p))
+  const pageHintOf = (page: number) =>
+    docByPage.has(page) || graphicSet.has(page) ? (
+      <SegmentPageHint page={page} doc={docByPage.get(page)} graphic={graphicSet.has(page)} onGotoPage={onGotoPage} />
+    ) : null
+
   return (
     <div className="flex flex-col gap-1.5">
       <button
@@ -197,14 +222,10 @@ export function SegmentMarkdown({
         </span>
       </button>
 
-      {/* 质量提示紧贴标题之下：正文里的几行零散字符看不出是图纸，这句必须写在
-          律师开始读正文之前，而不是读完了再在底部告诉他。 */}
-      <SegmentQualityHint
-        flags={seg.qualityFlags}
-        graphicPages={graphicPages}
-        docPages={docPages}
-        onGotoPage={onGotoPage}
-      />
+      {/* 段级提示紧贴标题之下：自动分段切错边界/起错名，错的可能是整段（把别的材料
+          末尾混进来），必须在律师开始读之前说。逐页的问题（证件页缺字段 / 图纸页）
+          不在这儿——它们挂到正文里对应页的第一行之前，见下面的 pageHintOf。 */}
+      <SegmentQualityHint review={reviewHintOf(seg)} flags={seg.qualityFlags} />
 
       {/* 块改动没同步进正文：必须说出来。静默留旧值就是「以为改好了其实没改」，
           折叠态也要看得见，否则律师根本不知道有这回事。 */}
@@ -273,6 +294,7 @@ export function SegmentMarkdown({
               const pageBucket = isFirstOfPage ? byPage.get(b.page) : undefined
               return (
                 <Fragment key={key}>
+                  {isFirstOfPage && pageHintOf(b.page)}
                   {pageBucket && (
                     <EngineDisagreementsInline
                       seg={seg}
@@ -319,6 +341,15 @@ export function SegmentMarkdown({
                 </Fragment>
               )
             })
+          )}
+
+          {/* 落不到正文行的提示页（图纸页多半一个字都没取出来）：只能自己成行 */}
+          {!rawView && orphanHintPages.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {orphanHintPages.map((page) => (
+                <Fragment key={`hint-${page}`}>{pageHintOf(page)}</Fragment>
+              ))}
+            </div>
           )}
 
           {/* 可疑点清单：放在正文之后。先读正文，读到觉得不对的地方再回头查清单。 */}

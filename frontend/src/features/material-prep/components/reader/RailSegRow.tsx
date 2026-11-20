@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileImage, IdCard } from 'lucide-react'
+import { AlertTriangle, FileImage, IdCard } from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -7,19 +7,12 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { docTypeLabel, segRangeText } from '../../draft'
+import { docTypeLabel, reviewHintOf, segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
-import { SegmentFileButtons, SegmentSelectBox } from './SegmentDownloadBar'
+import { SegmentDownloadMenuItems, SegmentSelectBox } from './SegmentDownloadBar'
+import { splitNameTail } from './segment-name'
 import type { SegmentRowDownload } from './use-segment-selection'
-
-/** 名字中部省略：区分信息（-P20.pdf）在尾部，尾部截断等于把区分信息截掉 */
-function midEllipsis(s: string, max = 16): string {
-  if (s.length <= max) return s
-  const tail = Math.floor((max - 1) / 2)
-  const head = max - 1 - tail
-  return `${s.slice(0, head)}…${s.slice(-tail)}`
-}
 
 export type DropPos = 'before' | 'after'
 
@@ -28,6 +21,11 @@ export type DropPos = 'before' | 'after'
  * 右键重命名 / 并入上一份、拖拽移动段序（上半=插到前面，下半=插到后面）。
  *
  * 类型没有 pill：选了类型名字会自动变成「类型.pdf」，元数据在右键菜单里改。
+ *
+ * ## 宽度预算（左栏默认 232px，可拖到 520px）
+ *
+ * 一行里常驻的只有四样：勾选框、段名、页范围、质量图标。单段下载（PDF / MD）
+ * 在右键菜单里——上一版两个按钮常驻，40 行里段名被挤到四五个字。
  */
 export function RailSegRow({
   seg,
@@ -103,7 +101,7 @@ export function RailSegRow({
           data-rail-seg={si}
           data-selected={selected || undefined}
           draggable={!editing}
-          title={`${seg.fn}\n点击跳转 · ⌘/⇧点 多选 · 双击改名 · 右键更多`}
+          title={`${seg.fn}\n点击跳转 · ⌘/⇧点 多选 · 双击改名 · 右键改名/下载`}
           className={cn(
             'relative flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring',
             selected && 'bg-secondary/70 ring-1 ring-foreground/25',
@@ -180,9 +178,11 @@ export function RailSegRow({
               className="h-6 min-w-0 flex-1 rounded border border-zinc-400 bg-white px-1.5 text-[12.5px] outline-none"
             />
           ) : (
-            <span className="min-w-0 flex-1 truncate text-[13px]">{midEllipsis(displayName)}</span>
+            <SegmentName name={displayName} />
           )}
-          {meta && !editing && <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{meta}</span>}
+          {meta && !editing && (
+            <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">{meta}</span>
+          )}
           {/* 质量标记：只给一个极淡的灰图标，不上色、不加文字。
               左栏是「找材料」的目录，上一版正是因此把彩色类型圆点删掉了；
               但「这一份里有几页是图纸，正文看不出内容」/「这一份里有身份证页，
@@ -190,30 +190,9 @@ export function RailSegRow({
               的标记：图标本身不抢视线，说明放 tooltip。
               证件页优先级高于图纸页：两者都有时只显示证件图标——缺的是必须抄进
               卷宗的字段，比「这页看不出内容」更该先处理；两个图标并排只会互相稀释。 */}
-          {!editing && docHintPages.length > 0 ? (
-            <span
-              data-doc-mark
-              className="flex-none text-zinc-400"
-              title={docHintTooltip(docHintPages)}
-            >
-              <IdCard className="h-3 w-3" aria-hidden />
-            </span>
-          ) : !editing && graphicPages.length > 0 ? (
-            <span
-              data-graphic-mark
-              className="flex-none text-zinc-400"
-              title={`含 ${graphicPages.length} 页疑似图纸/照片，请核对原图`}
-            >
-              <FileImage className="h-3 w-3" aria-hidden />
-            </span>
-          ) : null}
-          {!editing && seg.reviewFlag === 'low_confidence' ? (
-            <span className="flex-none text-[10px] text-amber-700" title="自动识别置信度低，建议核对">
-              复核
-            </span>
-          ) : null}
-          {/* 单个下载（PDF / MD）压在行尾：与「这一段是什么」的读法一致 */}
-          {!editing && <SegmentFileButtons row={download} />}
+          {!editing && (
+            <SegmentMarks seg={seg} docHintPages={docHintPages} graphicPages={graphicPages} />
+          )}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-[180px]">
@@ -224,6 +203,13 @@ export function RailSegRow({
           <>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={onMerge}>并入上一份</ContextMenuItem>
+          </>
+        )}
+        {/* 单个下载（PDF / Markdown）：行内不占宽度，收进右键菜单，见 SegmentDownloadMenuItems */}
+        {download && (
+          <>
+            <ContextMenuSeparator />
+            <SegmentDownloadMenuItems row={download} />
           </>
         )}
       </ContextMenuContent>
@@ -263,3 +249,71 @@ function docHintTooltip(pages: { page: number; doc: string; missing: string[] }[
 
 /** 页区间文案：连续「P5–19」、断续「P3, P7–9」、跨源「跨源」——labels.segRangeText 的本地别名 */
 const segRangeTextLocal = segRangeText
+
+/**
+ * 段名：**头部吃剩余宽度并截断，尾部固定显示**。
+ *
+ * CSS `truncate` 裁的是尾部，而段名的区分信息恰好全在尾部（`-P20.pdf`）——
+ * 两份「授权委托书」只差页号，尾一裁就分不出谁是谁。拆成两段后头部随便截，
+ * 尾部永远完整（拆分规则见 `segment-name.ts`）。
+ */
+function SegmentName({ name }: { name: string }) {
+  const { head, tail } = splitNameTail(name)
+  if (!tail) return <span className="min-w-0 flex-1 truncate text-[13px]">{name}</span>
+  return (
+    <span data-seg-name className="flex min-w-0 flex-1 items-baseline text-[13px]">
+      <span className="min-w-0 flex-1 truncate">{head}</span>
+      <span data-seg-name-tail className="flex-none">
+        {tail}
+      </span>
+    </span>
+  )
+}
+
+/**
+ * 行内质量标记：**只给图标 + tooltip，不写文字**。
+ *
+ * 「复核」两个字常驻是左栏最贵的一笔开销：40 份材料里三十多行都挂着它，
+ * 每行固定吃掉 22px——在 232px 宽的栏里等于直接拿走两个字的名字位。
+ * 同一个意思用 12px 的琥珀色三角说，信息一点不少（tooltip 里连置信度百分比
+ * 和「该核对什么」都写清楚），宽度只剩一半，而且与右栏 `SegmentQualityHint`
+ * 用的是同一个图形，读起来是一套语言。
+ */
+function SegmentMarks({
+  seg,
+  docHintPages,
+  graphicPages,
+}: {
+  seg: Segment
+  docHintPages: { page: number; doc: string; missing: string[] }[]
+  graphicPages: number[]
+}) {
+  const reviewHint = reviewHintOf(seg)
+  return (
+    <span className="flex flex-none items-center gap-0.5">
+      {docHintPages.length > 0 ? (
+        <span data-doc-mark className="flex-none text-zinc-400" title={docHintTooltip(docHintPages)}>
+          <IdCard className="h-3 w-3" aria-hidden />
+        </span>
+      ) : graphicPages.length > 0 ? (
+        <span
+          data-graphic-mark
+          className="flex-none text-zinc-400"
+          title={`含 ${graphicPages.length} 页疑似图纸/照片，请核对原图`}
+        >
+          <FileImage className="h-3 w-3" aria-hidden />
+        </span>
+      ) : null}
+      {reviewHint && (
+        <span
+          data-review-mark
+          className="flex-none text-amber-600"
+          // tooltip 走 reviewHintOf：与段头徽标、右栏提示条同一句话（含「核对什么」）
+          title={reviewHint.reason ? `${reviewHint.label}：${reviewHint.reason}` : reviewHint.label}
+        >
+          <AlertTriangle className="h-3 w-3" aria-hidden />
+        </span>
+      )}
+    </span>
+  )
+}

@@ -225,8 +225,9 @@ export function Rail({
         </div>
       </div>
 
-      {/* 下载工具条：只在真有后端产物时出现（整套 UI 由 dl 自己判空，见 SegmentDownloadBar） */}
-      <SegmentDownloadBar dl={dl} />
+      {/* 下载工具条：只在真有后端产物时出现（整套 UI 由 dl 自己判空，见 SegmentDownloadBar）。
+          total 传全部段数：只有差额时才解释「可下载 N/M 段」，相等时不多说一句废话。 */}
+      <SegmentDownloadBar dl={dl} total={draft.segs.length} />
 
       {draft.segs.length === 0 && (
         <p className="px-1 text-xs text-muted-foreground">还没有材料。先点右上角新建材料包。</p>

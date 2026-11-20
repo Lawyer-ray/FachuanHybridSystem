@@ -68,6 +68,57 @@ describe('SegmentMarkdown', () => {
     expect(container.querySelector('pre')).toBeNull()
   })
 
+  /**
+   * 用户反馈（原话）：「需要复核的材料，为什么没有把复核的问题展示在右边对应
+   * Markdown 处——那我怎么知道什么要复核」。中栏段头只有一个「建议复核」徽标，
+   * 右栏正文一个字不提，等于让律师自己猜该核对什么。
+   */
+  it('低置信度的段：正文面板顶部写出「为什么复核」和「核对什么」', () => {
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({
+          seg: seg({
+            md: '# 证据目录\n\n原告提交了转账凭证。',
+            reviewFlag: 'low_confidence',
+            sourceMethod: 'layout_title',
+            confidence: 0.62,
+          }),
+        })}
+      />,
+    )
+    const hint = container.querySelector('[data-review-hint]') as HTMLElement
+    expect(hint).toBeTruthy()
+    expect(hint.textContent).toContain('建议复核')
+    // 原因（不是只有「建议复核」四个字）
+    expect(hint.textContent).toContain('起点是按版面标题推断的')
+    // 62% 不低，就别拿它当理由（真实反馈：「置信度 90% 你还要我复核？」）
+    expect(hint.textContent).not.toContain('自动分段置信度')
+    // 行动指引
+    expect(hint.textContent).toContain('请核对本段起止页与材料名')
+  })
+
+  /**
+   * 置信度 90% 仍被要求复核时，必须说清「复核的是边界，不是文字」——
+   * 后端触发它的是边界二审没结论这类结构信号（刻意不降模型自报的置信度）。
+   */
+  it('高置信度仍要复核时：写明要核对的是分段边界', () => {
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({
+          seg: seg({ md: '# 证据目录', reviewFlag: 'low_confidence', sourceMethod: 'llm', confidence: 0.9 }),
+        })}
+      />,
+    )
+    const hint = container.querySelector('[data-review-hint]') as HTMLElement
+    expect(hint.textContent).toContain('文字识别置信度 90%')
+    expect(hint.textContent).toContain('要核对的是分段边界')
+  })
+
+  it('不需要复核的段不出现复核提示条', () => {
+    const { container } = render(<SegmentMarkdown {...base()} />)
+    expect(container.querySelector('[data-review-hint]')).toBeNull()
+  })
+
   it('人工拆分的段不显示任何正文提示（避免噪声）', () => {
     const { container } = render(<SegmentMarkdown {...base({ seg: seg({ manual: true }) })} />)
     expect(container.textContent).toBe('')
@@ -337,15 +388,51 @@ describe('页面框双击 → 进入修改', () => {
  * 提示条必须写在标题下方（开始读正文之前），并且能一步跳回原页。
  */
 describe('质量提示条（图纸 / 稀疏页）', () => {
-  it('覆盖图形页时显示提示条并给出页数', () => {
+  it('覆盖图形页时逐页提示（每页一行，写明是哪一页）', () => {
     const { container } = render(<SegmentMarkdown {...base({ graphicPages: [147, 148] })} />)
+    const hints = container.querySelectorAll('[data-quality-hint]')
+    expect(hints).toHaveLength(2)
+    expect(hints[0]!.textContent).toContain('P147 疑似图纸')
+    expect(hints[0]!.textContent).toContain('正文可能不完整')
+    expect(hints[0]!.textContent).toContain('建议核对原页')
+    expect(hints[1]!.textContent).toContain('P148')
+  })
+
+  /**
+   * 落点：**挂在该页正文第一行之前**，而不是栏顶一张清单。
+   * 同一段里双引擎分歧已经这么做（读到 P2 就看到 P2 的分歧），质量问题照同一套走，
+   * 否则律师得在栏顶记页号、再回正文里找「P2 在哪」。
+   */
+  it('提示挂在该页正文第一行之前', () => {
+    const twoPages = seg({
+      md: '# 证据目录\n\n一\n\n二',
+      refs: [
+        { mi: 0, p: 1 },
+        { mi: 0, p: 2 },
+      ],
+      blocks: [
+        ...blocks,
+        {
+          page: 2,
+          type: 'paragraph',
+          text: '第二页正文。',
+          rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.05, approx: false, precision: 'exact' },
+        },
+      ],
+    })
+    const { container, getByText } = render(<SegmentMarkdown {...base({ seg: twoPages, graphicPages: [2] })} />)
     const hint = container.querySelector('[data-quality-hint]') as HTMLElement
-    expect(hint).toBeTruthy()
-    expect(hint.textContent).toContain('本段含 2 页疑似图纸')
-    expect(hint.textContent).toContain('正文可能不完整')
-    expect(hint.textContent).toContain('建议核对原页')
-    // 页号一并给出，律师才知道去翻哪几页
-    expect(hint.textContent).toContain('P147–148')
+    const lastOfP1 = getByText('被告对此不予认可。')
+    const firstOfP2 = getByText('第二页正文。')
+    // 在第一页正文之后、第二页正文之前
+    expect(lastOfP1.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(hint.compareDocumentPosition(firstOfP2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  /** 图纸页往往一个字都没取出来（没有正文行可挂）：提示必须自己成一行，否则等于没提示 */
+  it('提示页没有正文行时，提示仍然出现（补在正文之后）', () => {
+    const { container } = render(<SegmentMarkdown {...base({ graphicPages: [147] })} />)
+    expect(container.querySelector('[data-quality-hint]')).toBeTruthy()
   })
 
   it('提示条在标题之下、正文之上', () => {

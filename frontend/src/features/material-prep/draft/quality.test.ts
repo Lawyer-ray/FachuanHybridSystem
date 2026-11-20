@@ -18,6 +18,7 @@ import {
   inconsistencyKindOf,
   pagesText,
   qualityFlagLabel,
+  reviewHintOf,
   readInconsistencies,
   readPageQuality,
   sortInconsistencies,
@@ -315,6 +316,75 @@ describe('qualityFlagLabel / pagesText', () => {
     expect(pagesText([])).toBe('')
     expect(pagesText([147, 148])).toBe('P147–148')
     expect(pagesText([9, 3, 7, 8])).toBe('P3, P7–9')
+  })
+})
+
+/**
+ * 段级复核：`review_flag` → 「要不要复核、为什么」。
+ *
+ * 这里锁两件事，都来自真实反馈（「那我怎么知道什么要复核」）：
+ * 1. 只给「建议复核」四个字等于没说——原因必须写出来，且同一句话在中栏徽标、
+ *    左栏 tooltip、右栏提示条三处必须**完全一致**（不一致会让律师不全信任何一处）；
+ * 2. 拿不到原因时**不编**：宁可为空串，也不要给一句放之四海皆准的废话。
+ */
+describe('reviewHintOf：复核信号 → 人话', () => {
+  it('正常段不出复核提示', () => {
+    expect(reviewHintOf({ reviewFlag: 'normal' })).toBeNull()
+    expect(reviewHintOf({})).toBeNull()
+  })
+
+  it('低置信度：原因按 source_method 分开说', () => {
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'layout_title', confidence: 0.5 })).toEqual({
+      label: '建议复核',
+      reason: '起点是按版面标题推断的，可能把上一份的末尾切进来 · 自动分段置信度 50%',
+    })
+    expect(
+      reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'rule_adjacent_start', confidence: 0.55 })?.reason,
+    ).toBe('和上一段的起点只隔一页，可能切得太碎 · 自动分段置信度 55%')
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'llm', confidence: 0.4 })?.reason).toBe(
+      '模型对这一段的边界把握不大 · 自动分段置信度 40%',
+    )
+  })
+
+  /**
+   * 真实反馈：「置信度 90% 你还要我复核？」
+   *
+   * 90% 还打复核标记的情况是存在的（后端边界二审没能给出结论 → 打标记，但**刻意
+   * 不动模型自报的置信度**，因为没有校准依据）。错在**我们把这个数字当成了理由**：
+   * 提示里出现的百分比必须支持「要复核」这个结论，否则律师看到的就是一句自相矛盾
+   * 的话，进而不再相信整个提示。
+   */
+  it('置信度不低时，不把百分比当理由：说清复核的是边界', () => {
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'llm', confidence: 0.9 })?.reason).toBe(
+      '文字识别置信度 90%，要核对的是分段边界（二审没能给出结论）',
+    )
+    // 规则引擎的结构成因仍是真原因，但高置信度不再追加数字
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'layout_title', confidence: 0.9 })?.reason).toBe(
+      '起点是按版面标题推断的，可能把上一份的末尾切进来',
+    )
+  })
+
+  it('原因不明时不硬凑：只给置信度，不认识的方法一个字都不编', () => {
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'brand_new_method' })?.reason).toBe('')
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'brand_new_method', confidence: 0.5 })?.reason).toBe(
+      '自动分段置信度 50%',
+    )
+  })
+
+  it('未识别 / OCR 失败各自有专属原因（不是同一句「建议复核」）', () => {
+    expect(reviewHintOf({ reviewFlag: 'unrecognized' })).toEqual({
+      label: '未识别',
+      reason: '这一段没认出是哪类材料，可能是模板里没有的新类型',
+    })
+    expect(reviewHintOf({ reviewFlag: 'ocr_failed' })?.reason).toBe('这一段的文字没有取出来，正文可能是空的')
+  })
+
+  it('后端给了中文标签就用它（前端词表落后于后端时不会显示英文码）', () => {
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', reviewFlagLabel: '低置信度' })?.label).toBe('低置信度')
+  })
+
+  it('后端将来新增的取值：标签原样展示，原因留空（不编）', () => {
+    expect(reviewHintOf({ reviewFlag: 'need_manual_merge' })).toEqual({ label: 'need_manual_merge', reason: '' })
   })
 })
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PencilLine, Split } from 'lucide-react'
 import { segRangeText } from '../../draft'
+import { reviewHintOf } from '../../draft/quality'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +23,8 @@ export function SegmentHeader({
 }) {
   const [editing, setEditing] = useState(false)
   const [nameDraft, setNameDraft] = useState(seg.fn)
+  // 复核信号（低置信度 / 未识别 / OCR 失败）：徽标与 tooltip 都读它
+  const reviewHint = reviewHintOf(seg)
 
   // 页区间 + 页数：「P5–19 · 15 页」；跨源「跨源 · 15 页」。切几刀后名字再像，看区间就分得开
   const rangeText = `${segRangeText(seg)} · ${seg.refs.length} 页`
@@ -71,14 +74,17 @@ export function SegmentHeader({
         </button>
       )}
 
-      {seg.reviewFlag === 'low_confidence' || seg.reviewFlag === 'unrecognized' ? (
+      {/* 复核徽标：文案与 tooltip 都走 reviewHintOf —— 右栏提示条、左栏三角标读的是同一句，
+          三处各拼一遍迟早出现「徽标说 62%、提示条说 60%」，那会让律师连带不信第三处 */}
+      {reviewHint && (
         <span
+          data-review-badge
           className="flex-none rounded-full bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-800"
-          title={`自动识别置信度 ${Math.round((seg.confidence ?? 0) * 100)}%，请核对页段边界和材料名称`}
+          title={reviewHint.reason ? `${reviewHint.label}：${reviewHint.reason}` : reviewHint.label}
         >
-          建议复核
+          {reviewHint.label}
         </span>
-      ) : null}
+      )}
 
       {/* 页区间（原型 rg） */}
       <span className="hidden flex-none text-[11.5px] tabular-nums text-muted-foreground @min-[1024px]:inline">{rangeText}</span>

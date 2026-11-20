@@ -40,6 +40,10 @@ function buildProposedSegments(
         refs,
         manual: false,
         reviewFlag: item.review_flag,
+        reviewFlagLabel: item.review_flag_label,
+        // 复核原因（右栏提示条 / 段头 tooltip 都读它）：低置信度的成因不止一种，
+        // 只写「建议复核」律师不知道要核对什么（见 draft/quality.reviewHintOf）
+        sourceMethod: item.source_method,
         confidence: item.confidence,
         md: item.content_md || undefined,
         // 页锚点（后端 page_spans，与 content_md 同口径）：切/并段按它精确搬运正文。

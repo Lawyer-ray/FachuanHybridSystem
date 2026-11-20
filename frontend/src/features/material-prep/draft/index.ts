@@ -70,8 +70,9 @@ export {
   docTodosOf,
   qualityFlagLabel,
   pagesText,
+  reviewHintOf,
 } from './quality'
-export type { DocTodo } from './quality'
+export type { DocTodo, SegmentReviewHint } from './quality'
 export {
   readEngineDisagreements,
   readEngineBlocks,

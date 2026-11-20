@@ -42,7 +42,19 @@ vi.mock('@/components/ui/context-menu', () => ({
   ContextMenu: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   ContextMenuTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   ContextMenuContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  ContextMenuItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ContextMenuItem: ({
+    children,
+    onSelect,
+    disabled,
+  }: {
+    children: React.ReactNode
+    onSelect?: () => void
+    disabled?: boolean
+  }) => (
+    <button type="button" disabled={disabled} onClick={() => onSelect?.()}>
+      {children}
+    </button>
+  ),
   ContextMenuSeparator: () => <hr />,
 }))
 
@@ -59,7 +71,7 @@ vi.mock('./RailSegRow', () => ({
 import { appendTicket } from '@/lib/download-ticket'
 import { toast } from 'sonner'
 import { Rail } from './Rail'
-import { SegmentDownloadBar, SegmentFileButtons, SegmentSelectBox } from './SegmentDownloadBar'
+import { SegmentDownloadBar, SegmentDownloadMenuItems, SegmentSelectBox } from './SegmentDownloadBar'
 import { useSegmentDownloads, type DownloadableSegment, type SegmentRowDownload } from './use-segment-selection'
 
 /**
@@ -78,7 +90,7 @@ function Harness({ segments }: { segments: DownloadableSegment[] }) {
           <div key={seg.pk} data-row>
             <SegmentSelectBox row={row} name={seg.name} />
             <span>{seg.name}</span>
-            <SegmentFileButtons row={row} />
+            <SegmentDownloadMenuItems row={row} />
           </div>
         )
       })}
@@ -93,8 +105,8 @@ const SEGMENTS: DownloadableSegment[] = [
   { pk: 15, jobId: 'job-2', name: '借款合同' },
 ]
 
-const pdfBtn = (i = 0) => screen.getAllByRole('button', { name: 'PDF' })[i] as HTMLButtonElement
-const mdBtn = (i = 0) => screen.getAllByRole('button', { name: 'MD' })[i] as HTMLButtonElement
+const pdfBtn = (i = 0) => screen.getAllByRole('button', { name: '下载 PDF' })[i] as HTMLButtonElement
+const mdBtn = (i = 0) => screen.getAllByRole('button', { name: '下载 Markdown' })[i] as HTMLButtonElement
 const boxOf = (name: string) => screen.getByRole('checkbox', { name }) as HTMLInputElement
 const selectAll = () => boxOf('全选')
 
@@ -114,12 +126,12 @@ describe('SegmentDownloadBar：没有产物就整块不渲染', () => {
     container.remove()
   })
 
-  it('有产物时才出现工具条与每行的 PDF / MD', () => {
+  it('有产物时才出现工具条与每行的下载项', () => {
     const { container } = render(<Harness segments={SEGMENTS} />)
     expect(container.querySelector('[data-segment-download-bar]')).toBeTruthy()
     expect(screen.getByRole('button', { name: '整包下载' })).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: 'PDF' })).toHaveLength(3)
-    expect(screen.getAllByRole('button', { name: 'MD' })).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: '下载 PDF' })).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: '下载 Markdown' })).toHaveLength(3)
     container.remove()
   })
 })
@@ -162,8 +174,8 @@ describe('多选：全选 / 半选 / 空选中不出现批量按钮', () => {
   })
 })
 
-describe('单个下载：PDF / MD 各一次，且都带票据', () => {
-  it('点行的 PDF：换票入参是单段 pdf 端点，下载用的是带 ticket 的地址', async () => {
+describe('单个下载（右键菜单项）：PDF / MD 各一次，且都带票据', () => {
+  it('点「下载 PDF」：换票入参是单段 pdf 端点，下载用的是带 ticket 的地址', async () => {
     const { container } = render(<Harness segments={SEGMENTS} />)
     fireEvent.click(pdfBtn(0))
 
@@ -176,7 +188,7 @@ describe('单个下载：PDF / MD 各一次，且都带票据', () => {
     container.remove()
   })
 
-  it('点行的 MD：同一段、只有末段换成 md', async () => {
+  it('点「下载 Markdown」：同一段、只有末段换成 md', async () => {
     const { container } = render(<Harness segments={SEGMENTS} />)
     fireEvent.click(mdBtn(1))
 

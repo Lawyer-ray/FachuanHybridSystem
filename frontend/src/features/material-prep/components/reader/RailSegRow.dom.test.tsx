@@ -7,8 +7,9 @@
  * - 键盘：Enter/空格跳转、F2 进改名
  * - 双击进改名；改名 Enter 提交、Escape 取消、失焦提交；空名不提交
  * - 拖拽：dragstart 带上 si、dragover 按上下半给 before/after、drop/dragend 回调
- * - 视觉：未分类琥珀色、低置信度「复核」标、插入线位置、图形页灰图标标记
- * - 名字中部省略（尾部区分信息不能被截掉）
+ * - 视觉：未分类琥珀色、低置信度琥珀三角标、插入线位置、图形页灰图标标记
+ * - 名字尾部（-P20.pdf 这类区分信息）固定保留，头部才参与截断
+ * - 单段下载收在右键菜单里：行内不占宽度，但没有后端产物的行不给假入口
  */
 import { createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -247,9 +248,23 @@ describe('RailSegRow：视觉态', () => {
     unmount()
   })
 
-  it('低置信度显示「复核」标', () => {
-    const { container, unmount } = renderRow({ seg: seg({ reviewFlag: 'low_confidence' }) })
-    expect(within(container).getByText('复核')).toBeTruthy()
+  /**
+   * 「复核」两字常驻是左栏最贵的一笔开销：40 份材料里三十多行挂着它，每行固定
+   * 吃掉 22px，等于从段名里直接拿走两个字。同一件事用 12px 的琥珀三角说即可，
+   * 置信度和「该核对什么」放 tooltip。这里同时锁住两件事：标记在、文字不在。
+   */
+  it('低置信度用琥珀三角标，不再占「复核」两字的宽度', () => {
+    const { container, unmount } = renderRow({ seg: seg({ reviewFlag: 'low_confidence', confidence: 0.42 }) })
+    const mark = container.querySelector('[data-review-mark]') as HTMLElement
+    expect(mark).toBeTruthy()
+    expect(mark.getAttribute('title')).toContain('42%')
+    expect(container.textContent).not.toContain('复核')
+    unmount()
+  })
+
+  it('没有低置信度标记的行不出三角标', () => {
+    const { container, unmount } = renderRow()
+    expect(container.querySelector('[data-review-mark]')).toBeNull()
     unmount()
   })
 
@@ -352,20 +367,69 @@ describe('RailSegRow：视觉态', () => {
     unmount()
   })
 
-  it('长名字中部省略，保留尾部区分信息', () => {
+  /**
+   * 两份「授权委托书」常常只差页号，区分信息全在尾部。以前是 `midEllipsis` 按
+   * 字数挖中间、再交给 CSS 截尾部——字数上限远大于左栏宽度，CSS 把尾巴连同
+   * 省略号一起裁掉，中部省略等于没生效。现在尾部是 `flex-none` 的独立节点，
+   * 头部（flex-1 + truncate）怎么截都碰不到它。
+   */
+  it('长名字：头部参与截断，尾部区分信息固定保留', () => {
     const longName = '1-授权委托书某甲某乙某丙某丁V1-P20.pdf'
     const { container, unmount } = renderRow({ seg: seg({ fn: longName }) })
-    const text = container.textContent ?? ''
-    expect(text).toContain('…')
-    // 尾部区分信息（P20.pdf）必须保留
-    expect(text).toContain('P20.pdf')
+    const head = container.querySelector('[data-seg-name] > span:first-child') as HTMLElement
+    const tail = container.querySelector('[data-seg-name-tail]') as HTMLElement
+    expect(head.className).toContain('truncate')
+    expect(tail.textContent).toBe('-P20.pdf')
+    // 拆完不丢字：头 + 尾 = 原名
+    expect(`${head.textContent ?? ''}${tail.textContent ?? ''}`).toBe(longName)
     unmount()
   })
 
-  it('短名字不省略', () => {
+  it('短名字不拆分（整段放得下，不必多一层 DOM）', () => {
     const { container, unmount } = renderRow({ seg: seg({ fn: '起诉状.pdf' }) })
     expect(container.textContent).toContain('起诉状.pdf')
-    expect(container.textContent).not.toContain('…')
+    expect(container.querySelector('[data-seg-name-tail]')).toBeNull()
+    unmount()
+  })
+
+  /**
+   * 单段下载从行尾常驻搬进右键菜单：行内不再出现 PDF / MD 两个按钮，
+   * 但「只要这一段、只要 PDF」仍然可达，且两个入口会各自回调对应类型。
+   */
+  it('行内不再出现 PDF / MD 常驻按钮', () => {
+    const download = {
+      checked: false,
+      busyKind: null,
+      disabled: false,
+      onToggle: vi.fn(),
+      onDownload: vi.fn(),
+    }
+    const { row, unmount } = renderRow({ download: download as never })
+    expect(within(row).queryByRole('button', { name: 'PDF' })).toBeNull()
+    expect(within(row).queryByRole('button', { name: 'MD' })).toBeNull()
+    unmount()
+  })
+
+  it('右键菜单的「下载 PDF / 下载 Markdown」各自回调对应类型', () => {
+    const download = {
+      checked: false,
+      busyKind: null,
+      disabled: false,
+      onToggle: vi.fn(),
+      onDownload: vi.fn(),
+    }
+    const { container, unmount } = renderRow({ download: download as never })
+    const menu = within(container).getByTestId('menu')
+    fireEvent.click(within(menu).getByText('下载 PDF'))
+    fireEvent.click(within(menu).getByText('下载 Markdown'))
+    expect(download.onDownload.mock.calls).toEqual([['pdf'], ['md']])
+    unmount()
+  })
+
+  it('没有后端产物的行不给下载入口（点了一定 404）', () => {
+    const { container, unmount } = renderRow()
+    const menu = within(container).getByTestId('menu')
+    expect(menu.textContent).not.toContain('下载')
     unmount()
   })
 
