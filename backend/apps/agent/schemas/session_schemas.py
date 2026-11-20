@@ -110,6 +110,13 @@ class MessageOut(Schema):
     #: 这条消息来自哪个 agent。空串 = 旧数据 / 未标注（引入字段前的记录），
     #: 前端渲染时当 ``pi`` 处理。
     agent_kind: str = ""
+    #: 律师反馈：``up`` / ``down``；空串 = 未评分。
+    #:
+    #: 撤销（``POST /agent/messages/{id}/rating`` 的 ``none``）是**删键**，
+    #: 回放时同样读成空串——所以空串不区分「从没评过」与「评过又撤销」，
+    #: 这两种状态前端要画的东西一样（两个按钮都不高亮）。
+    #: 数据源是 ``metadata["rating"]``，见 ``agent/services/message_rating``。
+    rating: str = ""
     created_at: str
     metadata: dict[str, Any] = {}
 

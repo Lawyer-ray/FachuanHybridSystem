@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 
 from django.http import StreamingHttpResponse
-from ninja import Router
+from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limit
@@ -33,6 +33,7 @@ from ..services.chat_service import (
 )
 from ..services.event_bus import replay_events
 from ..services.live_sessions import forward_steer_to_worker, get_live_worker
+from ..services.message_rating import RATING_METADATA_KEY, set_message_rating
 from ..services.session_service import get_session as get_session_record
 from ..services.session_service import list_messages as list_message_records
 from ._helpers import _user_id
@@ -74,6 +75,9 @@ def _message_out(message: AgentMessage) -> MessageOut:
         tool_name=message.tool_name,
         # 空串 = 引入双答之前的旧数据：前端渲染时当 pi 处理（历史口径）
         agent_kind=getattr(message, "agent_kind", "") or "",
+        # 反馈存在 metadata 里（撤销=删键），回放时提升为顶层字段：
+        # 空串 = 未评分 / 已撤销
+        rating=str((message.metadata or {}).get(RATING_METADATA_KEY, "")),
         created_at=message.created_at.isoformat(),
         metadata=message.metadata or {},
     )
@@ -257,3 +261,29 @@ async def clear_session_queue(request: Any, session_id: str) -> Any:  # pragma: 
         raise HttpError(404, "会话不存在")
     messages = await clear_queue_session(session_id=session_id)
     return ClearQueueOut(success=True, messages=messages)
+
+
+class MessageRatingIn(Schema):
+    """律师对一条消息的反馈：``up`` / ``down``；``none`` = 撤销（删键）。"""
+
+    rating: Literal["up", "down", "none"]
+
+
+class MessageRatingOut(Schema):
+    """反馈回执。``rating`` 是落库后的值，空串 = 已撤销（``metadata`` 里无该键）。"""
+
+    message_id: int
+    rating: str = ""
+
+
+@router.post("/messages/{message_id}/rating", response=MessageRatingOut)
+async def rate_message(request: Any, message_id: int, payload: MessageRatingIn) -> Any:
+    """给一条已落库的消息点赞 / 点踩（``none`` 撤销）。
+
+    归属看**消息所属会话**：别人的会话一律 404，不是 403——403 等于承认
+    「这条消息存在」，是无成本的存在性探测。
+    """
+    message = await set_message_rating(message_id=message_id, user_id=_user_id(request), rating=payload.rating)
+    if message is None:
+        raise HttpError(404, "消息不存在")
+    return MessageRatingOut(message_id=message.pk, rating=str((message.metadata or {}).get(RATING_METADATA_KEY, "")))
