@@ -303,3 +303,73 @@ class TestDocxRevisionTool:
         # 「第二句」在 del 里）——要求改「第二句」应改到 ins 内的那份
         assert DocxRevisionTool().apply_revision(para, "第二句", "新句") is True
         assert "新句" in visible_text(para)
+
+
+class TestRevIdPerDocument:
+    """修订 ``w:id`` 的号段归文档所有，不是进程全局计数器。
+
+    旧实现 ``_rev_id_counter`` 是模块级 ``global`` 自增：docx 里已有修订（Word
+    里人工改过的痕迹、或多栏并写时另一栏刚落的修订）时，新号会与之重复；多
+    worker 各自从 1 数起也会互撞。重复 ``w:id`` 在 Word 眼里是文档损坏。
+    """
+
+    @staticmethod
+    def _seed_existing_revision(paragraph, rev_id: int) -> None:
+        """在段落里放一条「既有」修订，模拟 Word 里人工留下的痕迹。"""
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        ins = OxmlElement("w:ins")
+        ins.set(qn("w:id"), str(rev_id))
+        ins.set(qn("w:author"), "人工")
+        ins.set(qn("w:date"), "2020-01-01T00:00:00Z")
+        run = OxmlElement("w:r")
+        text = OxmlElement("w:t")
+        text.text = "既有修订"
+        run.append(text)
+        ins.append(run)
+        paragraph._element.append(ins)
+
+    @staticmethod
+    def _revision_ids(paragraph) -> list[int]:
+        from docx.oxml.ns import qn
+
+        tags = (qn("w:ins"), qn("w:del"))
+        return [int(elem.get(qn("w:id"))) for elem in paragraph._element.iter() if elem.tag in tags]
+
+    def test_two_rewrites_increment_above_existing_max(self):
+        """同文档两次改写：新号都排在既有最大号之后，且彼此不撞号。"""
+        from docx import Document
+
+        tool = DocxRevisionTool()
+        doc = Document()
+        para = doc.add_paragraph()
+        para.add_run("第一句。")
+        para.add_run("第二句。")
+        self._seed_existing_revision(para, 900)
+
+        assert tool.apply_revision(para, "第一句。", "开头。") is True
+        first = [i for i in self._revision_ids(para) if i != 900]
+        assert tool.apply_revision(para, "第二句。", "结尾。") is True
+        second = [i for i in self._revision_ids(para) if i != 900 and i not in first]
+
+        assert first == [901, 902]
+        assert second == [903, 904]
+        assert len({900, *first, *second}) == 5
+
+    def test_rev_id_is_scoped_per_document(self):
+        """号从各文档自身推出：改文档 A 不会把文档 B 的起号推高。"""
+        from docx import Document
+
+        tool = DocxRevisionTool()
+        doc_a, doc_b = Document(), Document()
+        para_a = doc_a.add_paragraph("甲方义务")
+        para_b = doc_b.add_paragraph("乙方义务")
+        self._seed_existing_revision(para_a, 900)
+        self._seed_existing_revision(para_b, 5)
+
+        assert tool.apply_revision(para_a, "甲方", "甲方（含关联方）") is True
+        assert tool.apply_revision(para_b, "乙方", "乙方（含关联方）") is True
+
+        assert [i for i in self._revision_ids(para_a) if i != 900] == [901, 902]
+        assert [i for i in self._revision_ids(para_b) if i != 5] == [6, 7]
