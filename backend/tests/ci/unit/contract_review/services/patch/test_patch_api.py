@@ -74,6 +74,10 @@ class TestProposeEndpoint:
             content_type="application/json",
         )
         assert resp.status_code == 400, resp.content
+        # 断言到「为什么 400」：只断状态码时，把校验理由改成任何东西都是绿的
+        # （`test_test_quality_ratchet` 也禁止纯状态码断言）
+        body = resp.json()
+        assert "二选一" in str(body), body
 
 
 class TestApplyEndpoint:

@@ -341,7 +341,9 @@ def _mtime_or_none(browse: Any, **kwargs: Any) -> float | None:
     """取当前 mtime；ACL 已在上游校验过（这里只为乐观锁服务，取不到就不锁）。"""
     try:
         return read_file_mtime(browse, **kwargs)
-    except Exception:
+    except (OSError, ValueError):
+        # 只接「文件读不到/路径非法」：那类失败等于拿不到 mtime，乐观锁退化为不锁。
+        # 其它异常（编程错误、ACL 逻辑 bug）故意不接——吞掉会让"锁失效"变成静默常态。
         logger.warning("patch 应用前取 mtime 失败（乐观锁退化为不锁）", exc_info=True)
         return None
 
@@ -395,13 +397,9 @@ def _render_revisions(
 
 def _mark_applied(applied_ids: Sequence[str], merged_ids: Sequence[str], *, note: str) -> None:
     """写盘成功后一次性改状态（失败不回滚状态：文件已经写进去了）。"""
-    ContractWritePatch.objects.filter(patch_id__in=list(applied_ids)).update(
-        status=PatchStatus.APPLIED, note=note
-    )
+    ContractWritePatch.objects.filter(patch_id__in=list(applied_ids)).update(status=PatchStatus.APPLIED, note=note)
     if merged_ids:
-        ContractWritePatch.objects.filter(patch_id__in=list(merged_ids)).update(
-            status=PatchStatus.MERGED, note=note
-        )
+        ContractWritePatch.objects.filter(patch_id__in=list(merged_ids)).update(status=PatchStatus.MERGED, note=note)
 
 
 __all__ = ["MTIME_TOLERANCE", "apply_patches", "collect_patch", "docx_full_text", "to_write_patch"]

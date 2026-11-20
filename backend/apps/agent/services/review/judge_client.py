@@ -20,7 +20,7 @@ import secrets
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from apps.core.llm.exceptions import LLMTimeoutError
+from apps.core.llm.exceptions import LLMError, LLMTimeoutError
 from apps.core.llm.service import get_llm_service
 
 from .judge_prompt import ParsedVerdict, build_prompt, parse_verdict
@@ -144,7 +144,12 @@ async def judge_with_retry(
             reply = await judge_once(prompt=prompt, judge_model=used_model, call_judge=call_judge)
         except asyncio.CancelledError:
             raise
-        except Exception as error:
+        except (LLMError, OSError, ValueError, RuntimeError) as error:
+            # 只吞「网关/网络/超时/解析/客户端自报不可用」五类：它们都是"这次 judge 没结论"，
+            # 折成 unscored 而不是让整轮评审 500。RuntimeError 收进来是因为可注入的
+            # call_judge（测试替身、部分 HTTP 客户端）用它将"judge down"往外抛。
+            # **其它异常故意不接**（TypeError / AttributeError / KeyError 多是我们自己写错），
+            # 应该炸出来让人看到——宽 `except Exception` 会把 bug 变成「评审总是缺几条」。
             last = ParsedVerdict(unscored_reason=_reason_for_error(error))
         else:
             prompt_tokens += reply.prompt_tokens
