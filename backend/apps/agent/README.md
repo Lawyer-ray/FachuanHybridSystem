@@ -210,15 +210,13 @@ PII 闸门 + 律所层只收惯例/偏好。理由见 plan 文件第 3 节。
 
 **已知缺口（不是设计取舍，是真没做完）**：
 
-1. `save_case_note` 只给 `case_id` 时落库行 `contract_id = NULL`，而项目页按
-   `contract_id` 查，**这类笔记不会出现在「AI 上下文」抽屉**（案件会话里仍能注入）。
-   修法：`write.create_note` 入口复用 `session_service.resolve_contract_id` 补锚点。
-2. 被 `supersedes` 推翻的旧条仍是 `active`，列表接口不做区分 → 抽屉里会同时显示
-   两条互相矛盾的结论且无标记。修法：`MemoryOut` 增 `superseded_by_id`，抽屉折叠。
-3. 抽屉没有「确认」入口（确认只能走 `confirm_project_fact` 或 API）。
-4. 抽屉 `limit=50` 无分页，超出静默截断。
-5. `create_note` 未跑 `curation.scan_pii_risk`；笔记里的当事人/金额会随快照每轮
+1. 抽屉没有「确认」入口（确认只能走 `confirm_project_fact` 或 API）。
+2. 抽屉 `limit=50` 无分页，超出静默截断。
+3. `create_note` 未跑 `curation.scan_pii_risk`；笔记里的当事人/金额会随快照每轮
    进 system prompt（同团队可见，无跨团队通道）。
+
+> 已修（v27.19.6）：只给 `case_id` 的笔记补出了项目锚点（否则项目面板看不到）；
+> 被 `supersedes` 推翻的旧条在列表里带 `is_superseded`，抽屉收进「已被推翻」组。
 
 完整清单与做法见 `docs/04-计划/活跃/agent-shared-context-remaining.md`
 （该目录被 `.gitignore` 忽略，只在本机；入库的只有本节这几条）。
