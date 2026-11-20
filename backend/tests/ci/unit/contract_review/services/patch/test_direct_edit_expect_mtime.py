@@ -27,20 +27,11 @@ import pytest
 from django.test import Client as DjangoTestClient
 from docx import Document
 
-from apps.contracts.models import ContractAssignment, ContractFolderBinding
-from apps.testing.factories import ContractFactory, LawyerFactory
+from apps.contract_review.services.formatting.docx_revision_tool import visible_text
 
-SUBPATH = "1-合同/a.docx"
-SELECTION = "甲方应于三十日内支付货款。"
+from tests.ci.unit.contract_review.services.patch.docx_fixtures import CLAUSE_PAYMENT, SUBPATH
+
 SUGGESTED = "甲方应于十五日内支付货款。"
-
-
-def _docx_bytes() -> bytes:
-    doc = Document()
-    doc.add_paragraph(SELECTION)
-    buf = BytesIO()
-    doc.save(buf)
-    return buf.getvalue()
 
 
 @pytest.fixture
@@ -48,31 +39,13 @@ def client() -> DjangoTestClient:
     return DjangoTestClient()
 
 
-@pytest.fixture
-def bound(tmp_path: Path) -> Any:
-    """一份已绑定临时目录的合同 + 有 ACL 访问权的律师 + 真实 docx。"""
-
-    def _make() -> tuple[Any, Any, Path]:
-        src_dir = tmp_path / "1-合同"
-        src_dir.mkdir(parents=True, exist_ok=True)
-        file_path = src_dir / "a.docx"
-        file_path.write_bytes(_docx_bytes())
-        lawyer = LawyerFactory()
-        contract = ContractFactory()
-        ContractAssignment.objects.create(contract=contract, lawyer=lawyer)
-        ContractFolderBinding.objects.create(contract=contract, folder_path=str(tmp_path))
-        return lawyer, contract, file_path
-
-    return _make
-
-
 def _apply(client: DjangoTestClient, contract_id: int, *, expect_mtime: float | None) -> Any:
-    url = f"/api/v1/contract-review/direct-edit/apply?expect_mtime={expect_mtime}" if expect_mtime is not None else (
-        "/api/v1/contract-review/direct-edit/apply"
-    )
+    url = "/api/v1/contract-review/direct-edit/apply"
+    if expect_mtime is not None:
+        url = f"{url}?expect_mtime={expect_mtime}"
     return client.post(
         url,
-        data={"contract_id": contract_id, "subpath": SUBPATH, "selection": SELECTION, "suggested": SUGGESTED},
+        data={"contract_id": contract_id, "subpath": SUBPATH, "selection": CLAUSE_PAYMENT, "suggested": SUGGESTED},
         content_type="application/json",
     )
 
@@ -106,7 +79,5 @@ class TestExpectMtime:
         assert resp.status_code == 200, resp.content
         assert resp.json()["applied"] is True
         # 落盘后能读到修订插入的文本（visible_text 口径：含 w:ins、不含 w:del）
-        from apps.contract_review.services.formatting.docx_revision_tool import visible_text
-
-        doc = Document(BytesIO(file_path.read_bytes()))
+        doc = Document(BytesIO(Path(file_path).read_bytes()))
         assert SUGGESTED in visible_text(doc.paragraphs[0])
