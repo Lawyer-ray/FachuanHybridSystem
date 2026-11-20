@@ -7,8 +7,9 @@
  * - 键盘：Enter/空格跳转、F2 进改名
  * - 双击进改名；改名 Enter 提交、Escape 取消、失焦提交；空名不提交
  * - 拖拽：dragstart 带上 si、dragover 按上下半给 before/after、drop/dragend 回调
- * - 视觉：未分类琥珀色、低置信度「复核」标、插入线位置、图形页灰图标标记
- * - 名字中部省略（尾部区分信息不能被截掉）
+ * - 视觉：未分类琥珀色、低置信度琥珀三角标、插入线位置、图形页灰图标标记
+ * - 名字尾部（-P20.pdf 这类区分信息）固定保留，头部才参与截断
+ * - 单段下载浮层默认不占位、平时不吃指针
  */
 import { createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -247,9 +248,23 @@ describe('RailSegRow：视觉态', () => {
     unmount()
   })
 
-  it('低置信度显示「复核」标', () => {
-    const { container, unmount } = renderRow({ seg: seg({ reviewFlag: 'low_confidence' }) })
-    expect(within(container).getByText('复核')).toBeTruthy()
+  /**
+   * 「复核」两字常驻是左栏最贵的一笔开销：40 份材料里三十多行挂着它，每行固定
+   * 吃掉 22px，等于从段名里直接拿走两个字。同一件事用 12px 的琥珀三角说即可，
+   * 置信度和「该核对什么」放 tooltip。这里同时锁住两件事：标记在、文字不在。
+   */
+  it('低置信度用琥珀三角标，不再占「复核」两字的宽度', () => {
+    const { container, unmount } = renderRow({ seg: seg({ reviewFlag: 'low_confidence', confidence: 0.42 }) })
+    const mark = container.querySelector('[data-review-mark]') as HTMLElement
+    expect(mark).toBeTruthy()
+    expect(mark.getAttribute('title')).toContain('42%')
+    expect(container.textContent).not.toContain('复核')
+    unmount()
+  })
+
+  it('没有低置信度标记的行不出三角标', () => {
+    const { container, unmount } = renderRow()
+    expect(container.querySelector('[data-review-mark]')).toBeNull()
     unmount()
   })
 
@@ -352,20 +367,59 @@ describe('RailSegRow：视觉态', () => {
     unmount()
   })
 
-  it('长名字中部省略，保留尾部区分信息', () => {
+  /**
+   * 两份「授权委托书」常常只差页号，区分信息全在尾部。以前是 `midEllipsis` 按
+   * 字数挖中间、再交给 CSS 截尾部——字数上限远大于左栏宽度，CSS 把尾巴连同
+   * 省略号一起裁掉，中部省略等于没生效。现在尾部是 `flex-none` 的独立节点，
+   * 头部（flex-1 + truncate）怎么截都碰不到它。
+   */
+  it('长名字：头部参与截断，尾部区分信息固定保留', () => {
     const longName = '1-授权委托书某甲某乙某丙某丁V1-P20.pdf'
     const { container, unmount } = renderRow({ seg: seg({ fn: longName }) })
-    const text = container.textContent ?? ''
-    expect(text).toContain('…')
-    // 尾部区分信息（P20.pdf）必须保留
-    expect(text).toContain('P20.pdf')
+    const head = container.querySelector('[data-seg-name] > span:first-child') as HTMLElement
+    const tail = container.querySelector('[data-seg-name-tail]') as HTMLElement
+    expect(head.className).toContain('truncate')
+    expect(tail.textContent).toBe('-P20.pdf')
+    // 拆完不丢字：头 + 尾 = 原名
+    expect(`${head.textContent ?? ''}${tail.textContent ?? ''}`).toBe(longName)
     unmount()
   })
 
-  it('短名字不省略', () => {
+  it('短名字不拆分（整段放得下，不必多一层 DOM）', () => {
     const { container, unmount } = renderRow({ seg: seg({ fn: '起诉状.pdf' }) })
     expect(container.textContent).toContain('起诉状.pdf')
-    expect(container.textContent).not.toContain('…')
+    expect(container.querySelector('[data-seg-name-tail]')).toBeNull()
+    unmount()
+  })
+
+  /**
+   * 单段下载（PDF / MD）从常驻改成悬停浮出。两件事都必须锁住：
+   * 1. 默认不可点——否则段名尾部会留两个看不见的点击热区；
+   * 2. 按钮仍在 DOM 里且可聚焦——键盘用户 Tab 进去靠 focus-within 让它浮出。
+   */
+  it('单段下载默认不占位、不吃指针；按钮仍在（键盘可达）', () => {
+    const download = {
+      checked: false,
+      busyKind: null,
+      disabled: false,
+      onToggle: vi.fn(),
+      onDownload: vi.fn(),
+    }
+    const { container, unmount } = renderRow({ download: download as never })
+    const chip = container.querySelector('[data-row-download]') as HTMLElement
+    expect(chip.className).toContain('opacity-0')
+    expect(chip.className).toContain('pointer-events-none')
+    expect(chip.className).toContain('group-hover:opacity-100')
+    expect(chip.className).toContain('focus-within:opacity-100')
+    // 触摸屏没有 hover：退回行内常显
+    expect(chip.className).toContain('[@media(hover:none)]:opacity-100')
+    expect(within(chip).getByRole('button', { name: 'PDF' })).toBeTruthy()
+    unmount()
+  })
+
+  it('没有后端产物的行不出下载浮层', () => {
+    const { container, unmount } = renderRow()
+    expect(container.querySelector('[data-row-download]')).toBeNull()
     unmount()
   })
 

@@ -27,7 +27,7 @@ const BAR_BTN =
 const ROW_BTN =
   'flex h-[18px] flex-none items-center justify-center rounded px-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40'
 
-export function SegmentDownloadBar({ dl }: { dl: SegmentDownloads }) {
+export function SegmentDownloadBar({ dl, total }: { dl: SegmentDownloads; total?: number }) {
   const { segments, sel } = dl
   // 没有任何可下载段（还没跑完分段 / 段是人工拆的 / 旧草稿没产物）→ **整块不渲染**。
   // 不是把按钮置灰：一排永远点不动的灰按钮只会让人以为下载功能坏了，而这里真实
@@ -35,37 +35,45 @@ export function SegmentDownloadBar({ dl }: { dl: SegmentDownloads }) {
   if (segments.length === 0) return null
   const jobs = new Set(segments.map((seg) => seg.jobId)).size
   const busy = dl.busy !== null
+  // 只有「左栏的段多于可下载段」时才解释差额（人工拆的段没有后端产物）。
+  // 绝大多数包里两者相等，此时再说「共 40 段可下载」等于把「40 份」重复一遍。
+  const partial = typeof total === 'number' && total > segments.length
 
   return (
+    // 一行放得下就一行：左栏只有 232~268px 宽，两行按钮组白吃掉约 28px 高度，
+    // 而这一段列表有几十行。放不下时 flex-wrap 自然折到第二行，
+    // 而不是把「整包下载」挤成两行字。
     <div
       data-segment-download-bar
-      className="flex flex-col gap-1.5 rounded-lg border border-border bg-secondary/40 px-2 py-1.5"
+      className="flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-lg border border-border bg-secondary/40 px-2 py-1"
     >
-      <div className="flex items-center gap-1.5">
-        <label
-          className="flex min-w-0 flex-none cursor-pointer items-center gap-1.5 text-[11.5px] text-muted-foreground"
-          title={sel.allSelected ? '取消全选' : `全选这 ${segments.length} 段，勾中后可批量下载`}
-        >
-          {/* 半选态（勾了一部分）只能走 DOM 的 indeterminate：HTML 没有对应属性，
-              而 checked 又是受控的（React 置回来），所以每次 render 用 ref 补一次 */}
-          <input
-            type="checkbox"
-            aria-label="全选"
-            checked={sel.allSelected}
-            ref={(el) => {
-              if (el) el.indeterminate = sel.indeterminate
-            }}
-            onChange={() => (sel.allSelected ? sel.clear() : sel.selectAll())}
-            className="h-3.5 w-3.5 cursor-pointer accent-foreground"
-          />
-          全选
-        </label>
-        <span className="ml-auto flex-none text-[11px] tabular-nums text-muted-foreground">
-          {sel.count > 0 ? `已选 ${sel.count}/${segments.length} 段` : `共 ${segments.length} 段可下载`}
+      <label
+        className="flex min-w-0 flex-none cursor-pointer items-center gap-1 text-[11.5px] text-muted-foreground"
+        title={sel.allSelected ? '取消全选' : `全选这 ${segments.length} 段，勾中后可批量下载`}
+      >
+        {/* 半选态（勾了一部分）只能走 DOM 的 indeterminate：HTML 没有对应属性，
+            而 checked 又是受控的（React 置回来），所以每次 render 用 ref 补一次 */}
+        <input
+          type="checkbox"
+          aria-label="全选"
+          checked={sel.allSelected}
+          ref={(el) => {
+            if (el) el.indeterminate = sel.indeterminate
+          }}
+          onChange={() => (sel.allSelected ? sel.clear() : sel.selectAll())}
+          className="h-3.5 w-3.5 cursor-pointer accent-foreground"
+        />
+        全选
+      </label>
+      {(sel.count > 0 || partial) && (
+        <span className="flex-none text-[10.5px] tabular-nums text-muted-foreground">
+          {sel.count > 0
+            ? `已选 ${sel.count}/${segments.length}`
+            : `可下载 ${segments.length}/${total} 段`}
         </span>
-      </div>
+      )}
 
-      <div className="flex items-center gap-1.5">
+      <div className="ml-auto flex flex-none items-center gap-1.5">
         {/* 没有选中就**不渲染**这个按钮：`下载选中（0）` 是个空入口，点下去后端
             会退回整包，等于悄悄替用户改了意图。空态的说明放在上面「全选」的 title 上。 */}
         {sel.count > 0 && (
