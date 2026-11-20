@@ -68,6 +68,8 @@ export function ReaderBody({
   onToggleEngineChecked,
   autoSplitTask = null,
   onHideAutoSplit,
+  onRedetectParties,
+  redetectBusy = false,
 }: {
   draft: DraftState
   /** 页级质量统计（`summary.page_quality`，旧任务为 null） */
@@ -113,6 +115,9 @@ export function ReaderBody({
   /** 自动分段任务会话态；null = 没有在跑的任务（或用户点了「不再显示」） */
   autoSplitTask?: AutoSplitTaskView | null
   onHideAutoSplit?: () => void
+  /** 重跑当事人识别（只覆盖机填值；无此回调时右栏不显示入口） */
+  onRedetectParties?: () => void
+  redetectBusy?: boolean
 }) {
   // Markdown 面板展开态：右栏自己记，不落草稿（纯阅读偏好）
   const [mdOpen, setMdOpen] = useState(true)
@@ -380,6 +385,8 @@ export function ReaderBody({
             onAdoptEngine={onAdoptEngineText}
             onEditEngine={onEditEngineText}
             inconsistencies={inconsistencies}
+            onRedetectParties={onRedetectParties}
+            redetectBusy={redetectBusy}
           />
         </div>
       </div>

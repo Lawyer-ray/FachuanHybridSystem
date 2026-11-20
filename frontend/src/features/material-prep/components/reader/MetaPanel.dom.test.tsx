@@ -48,7 +48,15 @@ function ops() {
   }
 }
 
-function renderPanel(infos: unknown[], extra: { pickInfo?: number; o?: ReturnType<typeof ops> } = {}) {
+function renderPanel(
+  infos: unknown[],
+  extra: {
+    pickInfo?: number
+    o?: ReturnType<typeof ops>
+    onRedetectParties?: () => void
+    redetectBusy?: boolean
+  } = {},
+) {
   const o = extra.o ?? ops()
   const onSetPickInfo = vi.fn()
   const utils = render(
@@ -63,10 +71,18 @@ function renderPanel(infos: unknown[], extra: { pickInfo?: number; o?: ReturnTyp
         onToggleMdOpen={() => {}}
         focusedBlockKey={null}
         onLocateBlock={() => {}}
+        onRedetectParties={extra.onRedetectParties}
+        redetectBusy={extra.redetectBusy}
       />,
     ),
   )
   return { ...utils, o, onSetPickInfo }
+}
+
+/** 字段卡里的「重新识别当事人」按钮（委托人 + 对方当事人各一个；取第一个，没有则为 null） */
+function redetectBtn(container: HTMLElement) {
+  const all = within(container).queryAllByLabelText('重新识别当事人') as HTMLButtonElement[]
+  return all[0] ?? null
 }
 
 beforeEach(() => {
@@ -244,6 +260,53 @@ describe('MetaPanel：记一项字段库', () => {
     ])
     fireEvent.click(within(container).getByText('记一项'))
     expect(container.textContent).toContain('字段库已用完')
+    container.remove()
+  })
+})
+
+describe('MetaPanel：重新识别当事人', () => {
+  it('只给当事人字段入口，其余字段没有', () => {
+    const { container } = renderPanel([{ k: '标的额', v: '100' }], { onRedetectParties: () => {} })
+    expect(redetectBtn(container)).toBeNull()
+    container.remove()
+
+    const withParty = renderPanel([{ k: '委托人', v: '某个错的人' }], { onRedetectParties: () => {} })
+    expect(redetectBtn(withParty.container)).toBeTruthy()
+    withParty.container.remove()
+  })
+
+  it('点一下就触发重跑（不需要先清空字段）', () => {
+    const onRedetectParties = vi.fn()
+    const { container } = renderPanel(
+      [
+        { k: '委托人', v: '苏某某、某某山庄饮食有限公司', src: '自动识别' },
+        { k: '对方当事人', v: '' },
+      ],
+      { onRedetectParties },
+    )
+    // 两个当事人字段各有一个入口：重跑的是「整份材料」的识别，点哪个都一样
+    expect(within(container).queryAllByLabelText('重新识别当事人')).toHaveLength(2)
+    fireEvent.click(redetectBtn(container)!)
+    expect(onRedetectParties).toHaveBeenCalledTimes(1)
+    container.remove()
+  })
+
+  it('没有回调（旧调用方 / 无识别语境的宿主）时不渲染入口', () => {
+    const { container } = renderPanel([{ k: '委托人', v: '张三' }])
+    expect(redetectBtn(container)).toBeNull()
+    container.remove()
+  })
+
+  it('重跑中按钮禁用，防连点打爆客户库', () => {
+    const onRedetectParties = vi.fn()
+    const { container } = renderPanel([{ k: '委托人', v: '张三' }], {
+      onRedetectParties,
+      redetectBusy: true,
+    })
+    const btn = redetectBtn(container)!
+    expect(btn.disabled).toBe(true)
+    fireEvent.click(btn)
+    expect(onRedetectParties).not.toHaveBeenCalled()
     container.remove()
   })
 })
