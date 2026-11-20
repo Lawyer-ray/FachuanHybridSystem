@@ -30,6 +30,19 @@ def _bounded(limit: int, cap: int = 200) -> int:
     return max(1, min(limit, cap))
 
 
+def contract_id_for_case(case_id: int | None) -> int | None:
+    """案件 → 所属项目（合同）id，同步版。查不到返回 None（``Case.contract`` 可为空）。
+
+    建会话（异步）与写项目笔记（同步）都要这条推导，所以实现只留这一份：
+    异步路径用 ``sync_to_async`` 包一层，避免两处各写一遍「怎么从案件找项目」。
+    """
+    if case_id is None:
+        return None
+    # 跨 app 延迟解析：agent 不静态依赖 cases（与 annotate_scope_names 同口径）
+    case_model = django_apps.get_model("cases", "Case")
+    return case_model.objects.filter(pk=case_id).values_list("contract_id", flat=True).first()
+
+
 async def resolve_contract_id(*, case_id: int | None, contract_id: int | None) -> int | None:
     """会话归属项目（合同）的推导规则 —— ``AgentSession.contract_id`` 的唯一来源。
 
@@ -45,9 +58,9 @@ async def resolve_contract_id(*, case_id: int | None, contract_id: int | None) -
     """
     if contract_id is not None or case_id is None:
         return contract_id
-    # 跨 app 延迟解析：agent 不静态依赖 cases（与 annotate_scope_names 同口径）
-    case_model = django_apps.get_model("cases", "Case")
-    return await case_model.objects.filter(pk=case_id).values_list("contract_id", flat=True).afirst()
+    from asgiref.sync import sync_to_async
+
+    return await sync_to_async(contract_id_for_case, thread_sensitive=True)(case_id)
 
 
 async def create_session(

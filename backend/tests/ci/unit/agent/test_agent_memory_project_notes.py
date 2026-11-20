@@ -268,3 +268,51 @@ class TestListPayloadAnchorFilter:
 
         rows = memory_service.list_memories_payload(lawyer, scope=None, status=None, limit=50)
         assert {r["content"] for r in rows} == {"本项目判断", "跨项目通用的偏好"}
+
+
+class TestCaseOnlyNoteGetsProjectAnchor:
+    """只给 case_id 写入时，必须补出项目锚点（否则项目面板看不到它）。"""
+
+    @pytest.mark.django_db
+    def test_contract_backfilled_from_case(self, lawyer: Lawyer) -> None:
+        from apps.cases.models import Case
+        from apps.contracts.models import Contract
+
+        contract = Contract.objects.create(name="补锚点项目", case_type="civil")
+        case = Case.objects.create(name="补锚点案件", contract=contract)
+
+        note = memory_service.create_note(lawyer, content="只给案件也要能出现在项目页", case_id=case.pk)
+        assert note.case_id == case.pk
+        assert note.contract_id == contract.pk
+
+        rows = memory_service.list_memories_payload(
+            lawyer, scope=None, status=None, limit=50, contract_id=contract.pk
+        )
+        assert [r["content"] for r in rows] == ["只给案件也要能出现在项目页"]
+
+    @pytest.mark.django_db
+    def test_case_without_contract_stays_none(self, lawyer: Lawyer) -> None:
+        from apps.cases.models import Case
+
+        case = Case.objects.create(name="无项目案件")
+        note = memory_service.create_note(lawyer, content="无项目可挂", case_id=case.pk)
+        assert note.contract_id is None
+        assert note.case_id == case.pk
+
+
+class TestSupersededFlag:
+    """被推翻的条目要在列表里标出来（注入本来就不会用它）。"""
+
+    @pytest.mark.django_db
+    def test_list_marks_superseded(self, lawyer: Lawyer) -> None:
+        old = memory_service.create_note(lawyer, content="旧结论：三个月内付清", contract_id=CONTRACT_ID)
+        memory_service.create_note(
+            lawyer, content="新结论：六个月内分期", contract_id=CONTRACT_ID, supersede_id=str(old.pk)
+        )
+
+        rows = memory_service.list_memories_payload(
+            lawyer, scope=None, status=None, limit=50, contract_id=CONTRACT_ID
+        )
+        by_content = {r["content"]: r["is_superseded"] for r in rows}
+        assert by_content["旧结论：三个月内付清"] is True
+        assert by_content["新结论：六个月内分期"] is False

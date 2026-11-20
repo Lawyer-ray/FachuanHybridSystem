@@ -25,6 +25,9 @@ class MemoryOut(Schema):
     confirmed_by: str = ""
     #: 本条推翻了哪条旧笔记（旧条不删除，只是不再注入）。
     supersedes_id: str = ""
+    #: 本条**已被后来的条目推翻**。注入侧不会用它，但面板要标出来——
+    #: 不然会并排显示两条互相矛盾的结论。
+    is_superseded: bool = False
 
 
 class ProjectNoteIn(Schema):

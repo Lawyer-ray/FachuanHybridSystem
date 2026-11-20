@@ -91,6 +91,22 @@ def _require_anchor(*, contract_id: int | None, case_id: int | None) -> None:
         raise ValueError("项目笔记必须挂到项目（contract_id）或案件（case_id）上")
 
 
+def _contract_of_case(case_id: int | None) -> int | None:
+    """只给案件时补上项目锚点。
+
+    为什么必须补：项目页「AI 上下文」面板按 ``contract_id`` 查，而
+    ``anchor_q`` 生成的是 ``Q(contract_id=X)``——**``contract_id IS NULL`` 的行
+    永远不匹配**。不补的话，模型用 ``save_case_note`` 只给 case_id 存下的判断，
+    在案件会话里能注入、在项目页却看不见（真机验证过）。
+
+    推导与建会话共用 ``session_service.contract_id_for_case``：同一个「案件属于
+    哪个项目」只能有一个答案。``Case.contract`` 允许为空，查不到就保持 None。
+    """
+    from ..session_service import contract_id_for_case
+
+    return contract_id_for_case(case_id)
+
+
 def _editable_note(lawyer: Lawyer, memory_id: str) -> AgentMemory:
     """取一条「我能动」的项目笔记。
 
@@ -138,6 +154,8 @@ def create_note(
        ``supersede_id``——旧条留在库里（不删除），只是不再注入。
     """
     _require_anchor(contract_id=contract_id, case_id=case_id)
+    if contract_id is None:
+        contract_id = _contract_of_case(case_id)
     raw = (content or "").strip()
     if not raw:
         raise ValueError("笔记内容不能为空")

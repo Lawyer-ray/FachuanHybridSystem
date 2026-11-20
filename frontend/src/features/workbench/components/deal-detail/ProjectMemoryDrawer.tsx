@@ -43,8 +43,12 @@ export function ProjectMemoryDrawer({
   })
 
   const notes = query.data ?? []
-  const facts = notes.filter((n) => n.confirmed_at !== '')
-  const judgments = notes.filter((n) => n.confirmed_at === '')
+  // 被推翻的旧结论单独放最后：留在两列里会让律师看到两条互相矛盾的判断，
+  // 而且没有任何提示。它们仍要可见——「当时怎么定的」本身是线索。
+  const live = notes.filter((n) => !n.is_superseded)
+  const facts = live.filter((n) => n.confirmed_at !== '')
+  const judgments = live.filter((n) => n.confirmed_at === '')
+  const superseded = notes.filter((n) => n.is_superseded)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -79,6 +83,12 @@ export function ProjectMemoryDrawer({
             <>
               <NoteGroup title="已确认的事实" hint="同团队确认过，可以当依据" notes={facts} />
               <NoteGroup title="同事的判断" hint="还没人确认，先当线索" notes={judgments} />
+              <NoteGroup
+                title="已被推翻"
+                hint="仅作历史线索，不要当依据"
+                notes={superseded}
+                tone="muted"
+              />
             </>
           )}
         </SheetBody>
@@ -87,10 +97,23 @@ export function ProjectMemoryDrawer({
   )
 }
 
-function NoteGroup({ title, hint, notes }: { title: string; hint: string; notes: ProjectNote[] }) {
+function NoteGroup({
+  title,
+  hint,
+  notes,
+  tone,
+}: {
+  title: string
+  hint: string
+  notes: ProjectNote[]
+  tone?: 'muted'
+}) {
+  // 「已被推翻」空了就整组隐藏；上面两组空着也要留标题与 0——「没人确认过」
+  // 本身就是律师要知道的信息，藏掉会让他以为这条已被确认。
+  if (notes.length === 0 && tone === 'muted') return null
   return (
     <section className="mb-5" aria-label={title}>
-      <h3 className="text-[12px] font-[650] text-foreground">
+      <h3 className={'text-[12px] font-[650] ' + (tone === 'muted' ? 'text-muted-foreground' : 'text-foreground')}>
         {title}
         <span className="ml-1.5 font-normal text-muted-foreground">{notes.length}</span>
       </h3>
@@ -98,7 +121,7 @@ function NoteGroup({ title, hint, notes }: { title: string; hint: string; notes:
       {notes.length > 0 && (
         <ul className="space-y-1">
           {notes.map((note) => (
-            <NoteRow key={note.id} note={note} />
+            <NoteRow key={note.id} note={note} muted={tone === 'muted'} />
           ))}
         </ul>
       )}
@@ -106,7 +129,7 @@ function NoteGroup({ title, hint, notes }: { title: string; hint: string; notes:
   )
 }
 
-function NoteRow({ note }: { note: ProjectNote }) {
+function NoteRow({ note, muted }: { note: ProjectNote; muted?: boolean }) {
   const confirmed = note.confirmed_at !== ''
   return (
     <li className="flex items-start gap-2 rounded-[8px] px-2 py-1.5">
@@ -114,7 +137,9 @@ function NoteRow({ note }: { note: ProjectNote }) {
         {note.case_id != null ? '本案' : '项目'}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] leading-relaxed break-words text-foreground">{note.content}</p>
+        <p className={'text-[13px] leading-relaxed break-words ' + (muted ? 'text-muted-foreground line-through decoration-border' : 'text-foreground')}>
+          {note.content}
+        </p>
         <p className="mt-1 text-[11px] text-muted-foreground">
           {/* 确认人名字可能是空串（历史数据 / 确认人已不在职）：退回「已确认」，别渲染出半个「 确认」 */}
           {confirmed ? (note.confirmed_by ? `${note.confirmed_by} 确认` : '已确认') : fmtCNDate(note.created_at)}

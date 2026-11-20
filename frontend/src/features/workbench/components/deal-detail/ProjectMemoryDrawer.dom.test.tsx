@@ -35,6 +35,7 @@ function note(overrides: Partial<ProjectNote> = {}): ProjectNote {
     confirmed_by: '',
     case_id: null,
     created_at: '2026-10-01T09:00:00',
+    is_superseded: false,
     ...overrides,
   }
 }
@@ -128,4 +129,18 @@ describe('ProjectMemoryDrawer', () => {
     fireEvent.click(within(alert).getByRole('button', { name: '重试' }))
     await waitFor(() => expect(listProjectNotes).toHaveBeenCalledTimes(2))
   })
+})
+
+it('被推翻的旧结论单独一组，不与现行结论并排', async () => {
+  vi.mocked(listProjectNotes).mockResolvedValue([
+    note({ id: 'm-new', content: '新结论：六个月内分期' }),
+    note({ id: 'm-old', content: '旧结论：三个月内付清', is_superseded: true }),
+  ])
+  renderDrawer()
+  await screen.findByText('新结论：六个月内分期')
+
+  const supersededGroup = screen.getByRole('region', { name: '已被推翻' })
+  expect(within(supersededGroup).getByText('旧结论：三个月内付清')).toBeTruthy()
+  // 现行的那组里不能再出现旧结论
+  expect(within(screen.getByRole('region', { name: '同事的判断' })).queryByText('旧结论：三个月内付清')).toBeNull()
 })

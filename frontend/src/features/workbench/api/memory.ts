@@ -24,6 +24,8 @@ export interface ProjectNote {
   /** 非空 = 挂在本案上；null = 挂在项目（合同）上 */
   case_id: number | null
   created_at: string
+  /** 已被后来的条目推翻：注入不会用它，面板要标出来，否则会并排显示两条矛盾结论 */
+  is_superseded: boolean
 }
 
 /** agent 前缀只有本文件用，不放进 `api/client.ts`（那里是跨资源共用的实例） */

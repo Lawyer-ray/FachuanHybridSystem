@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from django.db.models import Exists, OuterRef
+
 from ...models import AgentMemory
 from .scopes import anchor_q, can_curate_scope, visible_queryset
 from .search import search_memories
@@ -39,6 +41,10 @@ def memory_to_dict(memory: AgentMemory) -> dict[str, Any]:
         "confirmed_at": memory.confirmed_at.isoformat() if memory.confirmed_at else "",
         "confirmed_by": (str(memory.confirmed_by) if memory.confirmed_by_id else ""),
         "supersedes_id": str(memory.supersedes_id) if memory.supersedes_id else "",
+        # 是否已被后来的条目标为「推翻」。注入侧靠 superseded_by__isnull 过滤，
+        # 但**列表/面板要看到它并标出来**：否则抽屉里会并排显示两条互相矛盾的
+        # 结论、还没有任何提示，律师按旧结论办事的风险比看不到更高。
+        "is_superseded": bool(getattr(memory, "is_superseded", False)),
     }
 
 
@@ -70,6 +76,8 @@ def list_memories_payload(
     anchor = anchor_q(contract_id=contract_id, case_id=case_id)
     if anchor is not None:
         queryset = queryset.filter(anchor)
+    # 一条被谁推翻 = 存在另一条把 supersedes 指向它（注解而不是逐行查，避免 N+1）
+    queryset = queryset.annotate(is_superseded=Exists(AgentMemory.objects.filter(supersedes=OuterRef("pk"))))
     bounded = max(1, min(limit, 300))
     return [memory_to_dict(m) for m in queryset[:bounded]]
 
