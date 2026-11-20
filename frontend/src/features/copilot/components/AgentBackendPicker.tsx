@@ -25,7 +25,8 @@ import { useCallback, useState } from 'react'
 import { Check, ChevronDown, Lock } from 'lucide-react'
 
 import { useCopilot } from '../store'
-import { findBackend } from '../store/backends'
+import { findBackend, noApprovalWarn } from '../store/backends'
+import { NoApprovalBadge } from './NoApprovalBadge'
 
 /** 关闭下拉的两种方式：选中 / 点外面；`null` 表示不选（只关闭） */
 type CloseReason = string | null
@@ -130,7 +131,10 @@ export function AgentBackendPicker({ currentKind }: {
                   {isActive && <Check className="h-3 w-3 text-foreground" aria-hidden />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12.5px] font-medium text-foreground">{option.label}</span>
+                  <span className="block truncate text-[12.5px] font-medium text-foreground">
+                    {option.label}
+                    {noApprovalWarn(option) && <NoApprovalBadge className="ml-1" />}
+                  </span>
                   <span className="block text-[11px] leading-snug text-muted-foreground">
                     {/* 不可用时优先说原因：这才是用户此刻需要的那句话 */}
                     {option.available ? option.description : option.reason}

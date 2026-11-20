@@ -17,7 +17,9 @@ import { Check } from 'lucide-react'
 
 import { MAX_ANSWERS } from '../domain'
 import type { AgentBackendOption } from '../types'
+import { noApprovalWarn } from '../store/backends'
 import { AgentModelPicker } from './AgentModelPicker'
+import { NoApprovalBadge } from './NoApprovalBadge'
 
 /** 左侧勾选区（视觉上 12px 见方，与既有 AgentBackendPicker 一致：只画对勾不画方框） */
 const CHECK_CLASS = 'mt-0.5 flex h-3 w-3 flex-none items-center justify-center'
@@ -85,6 +87,8 @@ export function AgentRow({
                 默认
               </span>
             )}
+            {/* 没有审批闸门必须在**勾选之前**就看到：勾上它等于放弃高危工具的人工确认 */}
+            {noApprovalWarn(option) && <NoApprovalBadge className="ml-1" />}
           </span>
           <span className="block text-[11px] leading-snug text-muted-foreground">
             {option.available ? option.description : option.reason}

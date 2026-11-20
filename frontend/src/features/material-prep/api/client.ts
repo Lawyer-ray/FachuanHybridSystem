@@ -20,3 +20,16 @@ export async function searchClients(
     })
     .json<ClientHit[]>()
 }
+
+/**
+ * 按关键字在客户库检索，**不限**我方/对方（不传 is_our_client，两侧一起返回）。
+ *
+ * 与 `searchClients` 的唯一差别就是不加侧过滤 —— 因为自动识别当事人要回答的
+ * 正是「这个人属于哪一侧」：先按侧过滤等于先把答案当成输入了。
+ * 服务端 `is_our_client` 是可选参数（见 /client/parties/search），省略即不过滤。
+ */
+export async function lookupClients(keyword: string, signal?: AbortSignal): Promise<ClientHit[]> {
+  return clientApi
+    .get('parties/search', { searchParams: { keyword }, signal })
+    .json<ClientHit[]>()
+}

@@ -13,6 +13,7 @@ import { useReaderWidths } from './use-reader-widths'
 import { useReaderOcr } from './use-ocr'
 import { useAutoSplit } from './use-auto-split'
 import { useInflightAutoSplit } from './use-auto-split-task'
+import { useRedetectParties } from './use-redetect-parties'
 import { useReviewBackfill } from './use-review-backfill'
 import { useReaderKeys } from './use-reader-keys'
 import { useWheelZoom } from './use-wheel-zoom'
@@ -51,6 +52,8 @@ export function useReaderScreen() {
   const [setFlowWrap, flowWrapW, flowWrapEl] = useElementWidth<HTMLDivElement>()
   const ocr = useReaderOcr()
   const autoSplit = useAutoSplit()
+  // 右栏「重新识别当事人」：自动识别只在分段那一刻跑一次，错了得能重来
+  const redetect = useRedetectParties()
   // 打开阅读器就查一次「有没有别人发起、还在跑的识别任务」，命中则接管轮询并
   // 在底部进度面板上显示。以前任务只活在本页面内存里：刷新/换设备后界面一片空白，
   // 而云端那份 164 页卷宗还在烧钱（「幽灵任务」）。
@@ -168,6 +171,9 @@ export function useReaderScreen() {
     // 自动分段进度面板：隐藏时为空（面板自己不渲染），隐藏后任务仍在后台跑
     autoSplitTask: inflight.task.hidden ? null : inflight.task,
     onHideAutoSplit: inflight.hide,
+    // 重跑当事人识别（只覆盖机填值，见 use-redetect-parties）
+    onRedetectParties: redetect.redetect,
+    redetectBusy: redetect.busy,
   }
 
   return {

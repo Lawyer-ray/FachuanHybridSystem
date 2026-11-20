@@ -106,6 +106,50 @@ describe('detectParties：清洗与投票', () => {
   })
 })
 
+describe('detectParties：双向标签「申请人」不得把两造拼成一个委托人', () => {
+  // 回归工伤行政复议卷宗的真实形状：一叠纸里「申请人」同时指委托单位和职工，
+  // 旧实现按频次投票，填出「苏某某、某某山庄饮食有限公司」—— 既多了个人，
+  // 又把对面写成了我方。
+  it('复议卷宗：答复书里的申请人是委托单位，工伤认定书里的是职工 —— 只认单位', () => {
+    const got = detectParties(
+      draftWith(
+        [
+          '# 行政复议答复书',
+          '答复人：佛山市顺德区民政和人力资源社会保障局',
+          '申请人：某某山庄饮食有限公司',
+        ].join('\n'),
+        ['# 工伤认定申请表', '申请人：苏某某', '职工姓名：苏某某', '工作单位：某某山庄饮食有限公司'].join('\n'),
+        ['# 认定工伤决定书', '申请人：苏某某', '职工姓名：苏某某', '用人单位：某某山庄饮食有限公司'].join('\n'),
+      ),
+    )
+    // 职工一侧同时被「职工姓名」命名过，且存在另一个申请人 → 从委托人候选里剔除
+    expect(got.our).toBe('某某山庄饮食有限公司')
+    // 对方当事人不猜：「第三人/职工」只用于排除，不直接填（客户库对账在 party-lookup）
+    expect(got.their).toBe('')
+  })
+
+  it('员工一方卷宗：「申请人」只有一个名字时照常填，不误剔', () => {
+    const got = detectParties(
+      draftWith(
+        ['# 劳动仲裁申请书', '申请人：苏某某', '职工姓名：苏某某', '被申请人：某某山庄饮食有限公司'].join('\n'),
+      ),
+    )
+    expect(got.our).toBe('苏某某')
+    expect(got.their).toBe('某某山庄饮食有限公司')
+  })
+
+  it('强标签（原告/委托人）优先于「职工」排除规则', () => {
+    const got = detectParties(
+      draftWith(
+        ['# 起诉状', '原告：苏某某'].join('\n'),
+        ['# 工伤认定申请表', '申请人：苏某某', '申请人：某某山庄饮食有限公司', '职工姓名：苏某某'].join('\n'),
+      ),
+    )
+    // 苏某某有「原告」强标签，即使同时被标为职工也留在我方
+    expect(got.our).toContain('苏某某')
+  })
+})
+
 describe('applyDetectedParties：只填空字段', () => {
   const field = (k: string, v = '', src = '') => ({ k, v, src, srcRef: null })
 
@@ -139,5 +183,36 @@ describe('applyDetectedParties：只填空字段', () => {
     expect(changed).toBe(true)
     expect(next[0]).toEqual(field('委托人'))
     expect(next[1]).toMatchObject({ v: '谭某某', src: '自动识别' })
+  })
+})
+
+describe('applyDetectedParties：重新识别（replaceAuto）', () => {
+  const field = (k: string, v = '', src = '') => ({ k, v, src, srcRef: null })
+
+  it('覆盖上次的机填值，但不动律师手填的值', () => {
+    const infos = [field('委托人', '错的人、另一个人', '自动识别'), field('对方当事人', '律师填的', '手工')]
+    const { infos: next, changed } = applyDetectedParties(
+      infos,
+      { our: '某某山庄饮食有限公司', their: '苏某某' },
+      { replaceAuto: true },
+    )
+    expect(changed).toBe(true)
+    expect(next[0]).toMatchObject({ v: '某某山庄饮食有限公司', src: '自动识别' })
+    // 手填字段原样保留（重新识别不是「覆盖全部」）
+    expect(next[1]).toEqual(infos[1])
+  })
+
+  it('这一侧没识别出来时清掉上次的机填值（空值比错值省事）', () => {
+    const infos = [field('委托人', '苏某某', '自动识别'), field('对方当事人')]
+    const { infos: next, changed } = applyDetectedParties(infos, { our: '', their: '谭某某' }, { replaceAuto: true })
+    expect(changed).toBe(true)
+    expect(next[0]).toEqual(field('委托人'))
+    expect(next[1]).toMatchObject({ v: '谭某某', src: '自动识别' })
+  })
+
+  it('识别结果与现有填写一致时不报改动（不触发多余保存）', () => {
+    const infos = [field('委托人', '某某银行', '自动识别')]
+    const { changed } = applyDetectedParties(infos, { our: '某某银行', their: '' }, { replaceAuto: true })
+    expect(changed).toBe(false)
   })
 })

@@ -67,6 +67,22 @@ export function resolveCapabilities(backends: AgentBackendOption[], kind: string
   return findBackend(backends, kind)?.capabilities ?? DEFAULT_CAPABILITIES
 }
 
+/**
+ * 要不要给这个后端挂「无审批闸门」标记。
+ *
+ * 两件事必须分开看：
+ *
+ * - **清单里查不到这个 kind**（`backends` 还没拉到 / 历史消息里的未知后端）→ **不挂**。
+ *   那一刻所有 kind 都查不到，按「查不到＝没闸门」显示会让 pi 的回答栏头也闪一遍
+ *   「无审批」——这个标记一旦误报过一次，之后每次真报都会被当成噪声。
+ * - **查到了但没声明 `approval`**（或声明为 false）→ **挂**。合规默认值必须偏向披露：
+ *   把「没声明」当成「有闸门」，正是审计里最危险的那种乐观
+ *   （`BackendCapabilities.approval` 的原话：`False` 的后端在高危动作上没有人工闸门）。
+ */
+export function noApprovalWarn(option: AgentBackendOption | undefined): boolean {
+  return option !== undefined && option.capabilities?.approval !== true
+}
+
 export const createBackendsSlice: Slice<BackendsSlice> = (set, get) => ({
   backends: [],
   selectedAgentKind: readStoredAgentKind(),

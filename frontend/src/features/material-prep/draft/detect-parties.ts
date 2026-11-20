@@ -13,19 +13,26 @@ import type { DraftState } from '../types'
  * 「甲方的名字」和「客户经理的名字」在正文里长得一样，必须靠**字段标签**定位：
  *
  *   委托人（我方）  ← 「贷款人：」「报送单位：」「原告：」「委托人：」「甲方（贷款人）」
- *   对方当事人      ← 「借款人：」「被告：」「甲方（借款人）：」「申请人：」
+ *   对方当事人      ← 「借款人：」「被告：」「甲方（借款人）：」「被申请人：」
  *
  * 标签优先，再按出现频次投票。这样「催收人：某某某」「经办人：某某某」
  * 这类内部人员就不会被误当成当事人。
  *
  * ═══ 边界 ═══
- * · 只填**空**字段，不覆盖律师手填/改过的内容
+ * · 只填**空**字段，不覆盖律师手填/改过的内容（要覆盖机填值走「重新识别」，见
+ *   `applyDetectedParties` 的 replaceAuto）
  * · 识别不出就不填，不猜 —— 空的输入框比填错的好
  * · 只取当事人姓名/单位名，不碰身份证号、地址（那些走别的字段）
+ *
+ * ═══ 本模块只做「文本证据」，不做「身份判定」═══
+ * 光看标签有一类问题无解：**同一个标签在不同文书里指向相反的两造**（见
+ * AMBIGUOUS_OUR_LABELS）。所以本模块产出的 `PartyCandidates` 只是候选，
+ * 真正的身份由 `./party-lookup` 拿客户库里已登记的 `is_our_client` 去对账；
+ * 客户库查不到时，才退回这里的标签判定。
  */
 
 /**
- * 我方（委托人）标签。
+ * 我方（委托人）强标签。
  *
  * ⚠️ 只收**放款方/权利方**的标签。早先把「抵押人」「义务人」也放进来，
  * 结果「抵押人（丙方）：谭某某」把借款人也算成了委托人 ——
@@ -38,11 +45,25 @@ const OUR_LABELS = [
   '委托单位',
   '委托人',
   '原告',
-  '申请人',
   '抵押权人',
   '债权人',
   '出借人',
 ]
+
+/**
+ * 双向标签：**同一叠纸里，它可能正好指着相反的两造**，所以只能当弱信号。
+ *
+ * 实测（工伤行政复议卷宗实测）：
+ *   ·《行政复议答复书》「申请人：某某山庄饮食有限公司」← 我方委托人
+ *   ·《工伤认定申请表》「申请人：苏某某」                              ← 对面职工
+ *   ·《认定工伤决定书》「申请人：苏某某」                              ← 对面职工
+ * 三处都写「申请人」，按频次投票 2:1 站到职工那边，最终右栏填出
+ * 「苏某某、某某山庄饮食有限公司」—— 两造被拼成同一个委托人，
+ * 既多了一个人，又把对面写成了我方。
+ *
+ * 故「申请人」单独立组：**只有在能排除职工一侧时才算我方证据**（见 detectPartyCandidates）。
+ */
+const AMBIGUOUS_OUR_LABELS = ['申请人']
 
 /**
  * 对方（借款人/被告）标签。
@@ -61,6 +82,18 @@ const THEIR_LABELS = [
   '义务人',
   '债务人',
 ]
+
+/**
+ * 「受伤职工 / 第三人」这类标签：只说明**这个人不是我们要代表的那一方**，
+ * 从不直接填进任何一侧。
+ *
+ * 唯一用途：当「申请人」出现两个以上不同主体时，把同时被这些标签命名过的那一侧
+ * 从委托人候选里剔掉 —— 同一个主体不可能既是我方委托人、又是材料里的「受伤害职工」。
+ *
+ * ⚠️ **只在有竞争时生效**：员工一方的卷宗里「申请人」只有职工一个名字，
+ * 这种卷宗是「申请人（职工）+ 被申请人（单位）」的配对，不会误剔。
+ */
+const SUBJECT_LABELS = ['受伤害职工', '受伤职工', '职工姓名', '员工姓名', '劳动者', '第三人']
 
 /** 明确不是当事人的角色（内部人员、第三方机构），命中就跳过 */
 const NOT_A_PARTY = [
@@ -167,12 +200,19 @@ function looksLikeFieldOrCode(v: string): boolean {
   return false
 }
 
+/** 「谭某某 梁某某」这种一行多人的拆开；标签值里已有顿号的同样拆 */
+function splitNames(name: string): string[] {
+  return name
+    .split(/\s+|、/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
 /** 多数投票：同一个名字出现次数最多的那组 */
 function topNames(hits: Hit[], max = 3): string[] {
   const tally = new Map<string, number>()
   for (const h of hits) {
-    // 「谭某某 梁某某」这种一行多人的，拆开分别计数
-    for (const n of h.name.split(/\s+|、/).map((x) => x.trim()).filter(Boolean)) {
+    for (const n of splitNames(h.name)) {
       tally.set(n, (tally.get(n) ?? 0) + 1)
     }
   }
@@ -182,9 +222,77 @@ function topNames(hits: Hit[], max = 3): string[] {
     .map(([n]) => n)
 }
 
+/** 命中里出现过的**单个**主体名（归属判断用：拼起来的名字要拆开比） */
+function nameSet(hits: Hit[]): Set<string> {
+  const out = new Set<string>()
+  for (const h of hits) for (const n of splitNames(h.name)) out.add(n)
+  return out
+}
+
+function uniqueNames(names: Iterable<string>): string[] {
+  return [...new Set(names)]
+}
+
 /** 把识别到的多个名字按用户习惯拼起来（中文顿号分隔） */
-function joinNames(names: string[]): string {
+export function joinPartyNames(names: readonly string[]): string {
   return names.join('、')
+}
+
+/** 按标签分组的命中：同一行只走一个标签，但四个分组各扫一遍（「申请人」不会被当成「原告」） */
+function collectHits(draft: DraftState): { strong: Hit[]; ambiguous: Hit[]; their: Hit[]; subject: Hit[] } {
+  const buckets = { strong: [] as Hit[], ambiguous: [] as Hit[], their: [] as Hit[], subject: [] as Hit[] }
+  for (const seg of draft.segs) {
+    const text = seg.md ?? ''
+    if (!text) continue
+    buckets.strong.push(...scanLabeled(text, OUR_LABELS, NOT_A_PARTY))
+    buckets.ambiguous.push(...scanLabeled(text, AMBIGUOUS_OUR_LABELS, NOT_A_PARTY))
+    buckets.their.push(...scanLabeled(text, THEIR_LABELS, NOT_A_PARTY))
+    buckets.subject.push(...scanLabeled(text, SUBJECT_LABELS, NOT_A_PARTY))
+  }
+  return buckets
+}
+
+export interface PartyCandidates {
+  /** 委托人候选（票数降序）：只有标签支持我方时才在这里 */
+  ours: string[]
+  /** 对方当事人候选（票数降序） */
+  theirs: string[]
+  /**
+   * 正文里出现过的**全部**当事人候选（我方 → 对方 → 职工/第三人，去重、保持顺序）。
+   * 交给 `./party-lookup` 逐名去客户库对账：命中客户库的按 `is_our_client` 归类，
+   * 查不到才退回 ours/theirs 的标签判定。
+   */
+  names: string[]
+}
+
+/** 扫全部段落的正文，产出两侧候选（纯文本证据，不做身份判定） */
+export function detectPartyCandidates(draft: DraftState): PartyCandidates {
+  const b = collectHits(draft)
+  const theirNames = nameSet(b.their)
+  const subjectNames = nameSet(b.subject)
+  const strongNames = nameSet(b.strong)
+  // 「申请人」出现两个以上不同主体 = 这叠纸里有两个申请人（复议申请人 + 工伤认定申请人）。
+  // 单靠标签分不出哪一边是我们，这时被「职工/第三人」命名过的那一侧必定是对面。
+  const ambiguousCompetes = nameSet(b.ambiguous).size > 1
+
+  const ours = topNames(
+    [...b.strong, ...b.ambiguous].filter((h) => {
+      const names = splitNames(h.name)
+      // 同一人不可能在两造：以对方名单优先（借款人/被告指向性更强）
+      if (names.some((n) => theirNames.has(n))) return false
+      if (!ambiguousCompetes) return true
+      // 只靠「申请人」进来的候选，若同时被职工/第三人命名过，就是被代表的那一方。
+      // 强标签（原告/委托人/贷款人…）命中过的不受这条影响。
+      return !names.some((n) => subjectNames.has(n) && !strongNames.has(n))
+    }),
+  ).filter((n) => !theirNames.has(n))
+
+  const theirs = topNames(b.their).filter((n) => !ours.includes(n))
+  return {
+    ours,
+    theirs,
+    names: uniqueNames([...ours, ...theirs, ...subjectNames, ...nameSet(b.ambiguous), ...strongNames]),
+  }
 }
 
 export interface DetectedParties {
@@ -194,59 +302,38 @@ export interface DetectedParties {
   their: string
 }
 
-/**
- * 扫描整个草稿的所有分段正文，识别两侧当事人。
- *
- * 为什么扫**全部**分段而不是只看某一份：当事人的完整信息散在多份材料里 ——
- * 不良贷款监控报告有「借款人/报送单位」，贷款申请有「申请人/配偶」，
- * 送达地址确认书有「收件人」。单看一份会漏。
- */
+/** 只要标签判定的结果（客户库对账的兜底，也是单测与旧调用方的入口） */
 export function detectParties(draft: DraftState): DetectedParties {
-  const our: Hit[] = []
-  const their: Hit[] = []
-
-  for (const seg of draft.segs) {
-    const text = seg.md ?? ''
-    if (!text) continue
-    our.push(...scanLabeled(text, OUR_LABELS, NOT_A_PARTY))
-    their.push(...scanLabeled(text, THEIR_LABELS, NOT_A_PARTY))
-  }
-
-  const theirNames = topNames(their)
-  // 我方名单里剔掉已在对方名单出现的名字。
-  // 为什么需要：一份材料里同一个人可能被两个标签提到
-  // （「借款人：谭某某」+「抵押人：谭某某」），而不同材料的标签归属
-  // 偶尔会串（早期实测「抵押人」被算进我方）。同一个人不可能同时在两造，
-  // 所以以**对方名单优先**为准 —— 借款人/被告的标签指向性更强。
-  const ourNames = topNames(our).filter((n) => !theirNames.includes(n))
-
-  return {
-    our: joinNames(ourNames),
-    their: joinNames(theirNames),
-  }
+  const { ours, theirs } = detectPartyCandidates(draft)
+  return { our: joinPartyNames(ours), their: joinPartyNames(theirs) }
 }
 
 /**
- * 把识别结果回填到 infos。**只填空字段**，不动律师已填/已改的内容。
+ * 把识别结果回填到 infos。
+ *
+ * 默认 **只填空字段**，不动律师已填/已改的内容。
+ * `replaceAuto` 供「重新识别当事人」按钮用：把**机填值**（`src === '自动识别'`）
+ * 也一并接管 —— 否则第一次识别错了就永远改不掉（只填空的规则会把它当成律师输入）。
+ * 律师手填 / 从客户库选过标签的字段（src 为空或别的来源）依旧不动。
  *
  * 返回是否存在改动（决定要不要触发保存）。
  */
 export function applyDetectedParties(
   infos: DraftState['infos'],
   detected: DetectedParties,
+  opts: { replaceAuto?: boolean } = {},
 ): { infos: DraftState['infos']; changed: boolean } {
   let changed = false
   const next = infos.map((f) => {
-    if (f.v?.trim()) return f // 已有值，跳过
-    if (f.k === '委托人' && detected.our) {
-      changed = true
-      return { ...f, v: detected.our, src: '自动识别' }
-    }
-    if (f.k === '对方当事人' && detected.their) {
-      changed = true
-      return { ...f, v: detected.their, src: '自动识别' }
-    }
-    return f
+    const writable = !f.v?.trim() || (opts.replaceAuto === true && f.src === '自动识别')
+    if (!writable) return f // 律师填过 / 改过的，跳过
+    const v = f.k === '委托人' ? detected.our : f.k === '对方当事人' ? detected.their : ''
+    if (f.k !== '委托人' && f.k !== '对方当事人') return f
+    // 重新识别但这一侧没识别出来 → 清掉上次的机填值（错值比空值更费律师）
+    const nextV = v || (opts.replaceAuto === true ? '' : f.v)
+    if (nextV === f.v) return f
+    changed = true
+    return nextV ? { ...f, v: nextV, src: '自动识别' } : { ...f, v: '', src: '' }
   })
   return { infos: changed ? next : infos, changed }
 }

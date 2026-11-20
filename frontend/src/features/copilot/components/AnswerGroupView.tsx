@@ -45,6 +45,8 @@ export const AnswerGroupView = memo(function AnswerGroupView({
   // 栏头高亮的是「当前默认后端」：与后端清单第一项同口径（新建会话默认用它），
   // 律师据此知道哪一栏是自己平时问的那个。
   const defaultAgentKind = useCopilot((s) => s.selectedAgentKind || DEFAULT_AGENT_KIND)
+  // 栏头要标「这一栏没有审批闸门」：清单引用稳定（store 切片），不会击穿 memo
+  const backends = useCopilot((s) => s.backends)
 
   // 一组 = 一轮（见 domain/dual.ts 的 groupAnswerRuns）。组里出现几个 agent
   // kind，就说明这一轮问了几家。
@@ -88,5 +90,12 @@ export const AnswerGroupView = memo(function AnswerGroupView({
     )
   }
 
-  return <MultiAnswers answers={merged} highlightKind={defaultAgentKind} renderAnswer={renderLane} />
+  return (
+    <MultiAnswers
+      answers={merged}
+      highlightKind={defaultAgentKind}
+      renderAnswer={renderLane}
+      backends={backends}
+    />
+  )
 })

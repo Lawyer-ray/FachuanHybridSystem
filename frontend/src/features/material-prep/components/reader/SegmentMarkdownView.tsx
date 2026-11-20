@@ -6,7 +6,7 @@ import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * 右栏正文的「原始 Markdown」视图：渲染 / 源码 / 整段编辑三态。
+ * 右栏正文的「渲染 / 源码 / 编辑整段」三种呈现。
  *
  * ## 为什么必须有它
  *
@@ -14,6 +14,13 @@ import { cn } from '@/lib/utils'
  * 标题层级，而表格/标题恰恰是 OCR 最易错的地方（合并单元格错列、表头错位、
  * 标题重复）。只给纯文本行，等于让律师对着已经拍平的结果核对拍平前的错误。
  * 而且纯文本行只能逐块改，改不动整段结构。
+ *
+ * ## 为什么是**受控**的（`mode` / `onModeChange` 从父级来）
+ *
+ * 这个组件以前自己持有一套「渲染 / 源码 / 编辑整段」按钮，父级 `SegmentMarkdown`
+ * 另有一套「定位块 / 原始 Markdown」——两套切换器叠在一起，切过去之后控件从两个
+ * 变三个、选中态还换了一套样式。一个侧边栏里最多同时出现三行控件，正是「乱」的
+ * 来源。现在视图状态只有一份（在 `SegmentMarkdown`），本组件只负责画。
  *
  * ## 安全口径（与仓内既有 Markdown 渲染一致）
  *
@@ -28,37 +35,29 @@ function hasRawHtml(md: string): boolean {
   return /<\/?[a-z][^>]*>/i.test(md)
 }
 
-type ViewMode = 'render' | 'source' | 'edit'
-
-const MODE_LABEL: Record<Exclude<ViewMode, 'edit'>, string> = {
-  render: '渲染',
-  source: '源码',
-}
+/** 三种呈现。`edit` 不是独立的「视图」，是 `source` 的可编辑态（父级据此高亮「源码」） */
+export type MarkdownViewMode = 'render' | 'source' | 'edit'
 
 export function SegmentMarkdownView({
   md,
+  mode,
+  onModeChange,
   onCommit,
-  editRequest = 0,
 }: {
   md: string
+  /** 当前呈现方式（父级持有：切换器只有一套，见文件头） */
+  mode: MarkdownViewMode
+  onModeChange: (mode: MarkdownViewMode) => void
   /** 整段保存（走 setSegmentMarkdown，保 manualEdit 痕迹）；不传 = 只读 */
   onCommit?: (md: string) => void
-  /** 递增的一次性「进入编辑态」请求（页面框双击但没有逐块编辑能力时用） */
-  editRequest?: number
 }) {
-  const [mode, setMode] = useState<ViewMode>('render')
   const [draft, setDraft] = useState(md)
-
-  // 与 BlockRow 的 appliedSeed 同型：记住消费过哪个请求号，父级重渲染不覆盖用户正在打的话
-  const applied = useRef(0)
+  // 进入编辑态那一下才用最新 md 预填：编辑期间父级重渲染不能覆盖用户正在打的话
+  const lastMode = useRef<MarkdownViewMode>(mode)
   useEffect(() => {
-    if (editRequest === applied.current) return
-    applied.current = editRequest
-    if (editRequest > 0) {
-      setDraft(md)
-      setMode('edit')
-    }
-  }, [editRequest, md])
+    if (mode === 'edit' && lastMode.current !== 'edit') setDraft(md)
+    lastMode.current = mode
+  }, [mode, md])
 
   if (mode === 'edit') {
     return (
@@ -68,7 +67,7 @@ export function SegmentMarkdownView({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') setMode('render')
+            if (e.key === 'Escape') onModeChange('render')
           }}
           spellCheck={false}
           aria-label="整段 Markdown 正文"
@@ -80,7 +79,7 @@ export function SegmentMarkdownView({
             type="button"
             onClick={() => {
               onCommit?.(draft)
-              setMode('render')
+              onModeChange('render')
             }}
             className="flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white hover:bg-zinc-800"
           >
@@ -89,7 +88,7 @@ export function SegmentMarkdownView({
           </button>
           <button
             type="button"
-            onClick={() => setMode('render')}
+            onClick={() => onModeChange('render')}
             className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-secondary"
           >
             取消
@@ -100,53 +99,22 @@ export function SegmentMarkdownView({
     )
   }
 
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1">
-        {(['render', 'source'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            aria-pressed={mode === m}
-            className={cn(
-              'rounded border px-1.5 py-0.5 text-[10.5px] transition-colors',
-              mode === m
-                ? 'border-zinc-300 bg-secondary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {MODE_LABEL[m]}
-          </button>
-        ))}
-        {onCommit && (
-          <button
-            type="button"
-            onClick={() => {
-              setDraft(md)
-              setMode('edit')
-            }}
-            className="ml-auto rounded border border-border px-1.5 py-0.5 text-[10.5px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            编辑整段
-          </button>
-        )}
-      </div>
+  if (mode === 'source') {
+    return (
+      <pre className="max-h-[46vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-200 bg-secondary/40 p-2 font-mono text-[11px] leading-[1.7] text-foreground">
+        {md}
+      </pre>
+    )
+  }
 
-      {mode === 'source' ? (
-        <pre className="max-h-[46vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-200 bg-secondary/40 p-2 font-mono text-[11px] leading-[1.7] text-foreground">
-          {md}
-        </pre>
-      ) : (
-        <div className="max-h-[46vh] overflow-auto rounded-lg border border-zinc-200 bg-secondary/40 p-2">
-          {hasRawHtml(md) && (
-            <p className="mb-1 text-[10.5px] leading-4 text-amber-700">
-              正文里有 HTML 标签（识别产物泄漏），渲染视图不执行它们——切到「源码」看原文。
-            </p>
-          )}
-          <RenderedMarkdown md={md} />
-        </div>
+  return (
+    <div className="max-h-[46vh] overflow-auto rounded-lg border border-zinc-200 bg-secondary/40 p-2">
+      {hasRawHtml(md) && (
+        <p className="mb-1 text-[10.5px] leading-4 text-amber-700">
+          正文里有 HTML 标签（识别产物泄漏），渲染视图不执行它们——切到「源码」看原文。
+        </p>
       )}
+      <RenderedMarkdown md={md} />
     </div>
   )
 }

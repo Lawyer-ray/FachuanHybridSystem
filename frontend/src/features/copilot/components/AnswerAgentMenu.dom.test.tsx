@@ -19,14 +19,21 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AgentBackendOption } from '../types'
 import { AnswerAgentMenu } from './AnswerAgentMenu'
 
-function option(kind: string, label = kind, available = true, models: string[] = [], defaultModel = ''): AgentBackendOption {
+function option(
+  kind: string,
+  label = kind,
+  available = true,
+  models: string[] = [],
+  defaultModel = '',
+  approval = true,
+): AgentBackendOption {
   return {
     kind,
     label,
     description: `${label} 说明`,
     available,
     reason: available ? '' : '未安装 SDK',
-    capabilities: { streaming: true },
+    capabilities: { streaming: true, approval },
     models,
     default_model: defaultModel,
   }
@@ -35,8 +42,9 @@ function option(kind: string, label = kind, available = true, models: string[] =
 const MODELS = ['kimi-2.6', 'glm53', 'claude-opus-4-5']
 const backends = [
   option('pi', 'Pi', true, MODELS, 'kimi-2.6'),
-  option('dsh', 'DeepSeek Harness', true, MODELS, 'glm53'),
-  option('oai', 'OpenAI Agents', true, MODELS, 'kimi-2.6'),
+  // 这两个没有人工审批闸门（dsh fail-closed 直接拒 / openai-agents 照常执行）
+  option('dsh', 'DeepSeek Harness', true, MODELS, 'glm53', false),
+  option('oai', 'OpenAI Agents', true, MODELS, 'kimi-2.6', false),
   option('gpt', 'GPT'),
 ]
 
@@ -95,6 +103,24 @@ describe('AnswerAgentMenu', () => {
     // 默认项（清单第一项）标出来：律师要知道「不选时到底是谁在答」
     expect(screen.getByText('默认')).toBeTruthy()
     expect(screen.getByRole('option', { name: /Pi/ }).getAttribute('aria-selected')).toBe('false')
+  })
+
+  /**
+   * 合规信息，必须显示在**勾选之前**：`BackendCapabilities.approval=False` 意味着
+   * 高危工具不会弹审批卡（dsh 直接拒绝 / openai-agents 照常执行）。等出事再说是没用的。
+   */
+  it('没有审批闸门的后端在勾选之前就挂「无审批」标记（有闸门的不挂）', () => {
+    renderMenu()
+    openMenu()
+
+    const piRow = screen.getByTestId('agent-row-pi')
+    const dshRow = screen.getByTestId('agent-row-dsh')
+    const oaiRow = screen.getByTestId('agent-row-oai')
+    expect(piRow.querySelector('[data-no-approval-badge]')).toBeNull()
+    expect(dshRow.querySelector('[data-no-approval-badge]')).toBeTruthy()
+    expect(oaiRow.querySelector('[data-no-approval-badge]')).toBeTruthy()
+    // 徽标自己带完整语义（tooltip + aria-label），不靠旁边文字
+    expect(dshRow.querySelector('[data-no-approval-badge]')!.getAttribute('title')).toContain('没有人工审批闸门')
   })
 
   it('点一项回调那次 kind，并收起菜单', () => {

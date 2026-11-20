@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Link2 } from 'lucide-react'
+import { Plus, Trash2, Link2, Sparkles, LoaderCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
@@ -46,6 +46,8 @@ export function MetaPanel({
   onAdoptEngine,
   onEditEngine,
   inconsistencies = [],
+  onRedetectParties,
+  redetectBusy = false,
 }: {
   draft: DraftState
   /** 页级质量统计（旧任务没有）：用于正文面板顶部的「本段含图纸」提示 */
@@ -83,6 +85,9 @@ export function MetaPanel({
   onEditEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 全卷不一致统计：用于「更推荐改成什么」 */
   inconsistencies?: Inconsistency[]
+  /** 重跑当事人识别：只覆盖机填值（src=自动识别），律师手填的不动 */
+  onRedetectParties?: () => void
+  redetectBusy?: boolean
 }) {
   const [showLib, setShowLib] = useState(false)
   // 栏宽可拖拽调整，跨会话记在 localStorage（纯显示偏好，不进草稿）
@@ -173,6 +178,25 @@ export function MetaPanel({
             <div className="flex items-center gap-1">
               <span className="text-[12.5px] font-medium">{f.k}</span>
               <span className="ml-auto" />
+              {/* 重新识别当事人：自动识别只在分段完成时跑一次，识别错了否则只能
+                  手动清空字段再重跑整个 OCR（回填规则是「只填空字段」）。
+                  只对当事人这两个字段显示 —— 其余字段没有机器识别结果可重跑。 */}
+              {onRedetectParties && (f.k === '委托人' || f.k === '对方当事人') && (
+                <button
+                  type="button"
+                  onClick={onRedetectParties}
+                  disabled={redetectBusy}
+                  title="重新识别当事人：按材料正文 + 客户库重算，覆盖机器填的值（手填的不动）"
+                  aria-label="重新识别当事人"
+                  className="grid h-5 w-5 place-items-center rounded text-zinc-400 transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-60"
+                >
+                  {redetectBusy ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
               {/* 标来源：图标即入口；取字态下亮琥珀，顶部提示条负责解释怎么做 */}
               <button
                 type="button"

@@ -16,7 +16,8 @@ import {
 } from '../../draft'
 import type { EngineDisagreement, Inconsistency, PageQuality } from '../../types'
 import { useReader } from '../../store'
-import { applyDetectedParties, detectParties } from '../../draft/detect-parties'
+import { applyDetectedParties } from '../../draft/detect-parties'
+import { resolveParties } from '../../draft/party-lookup'
 import type { DraftState, PdfSplitSegmentSuggestion } from '../../types'
 import { usePollSession } from '@/hooks/use-poll-session'
 import {
@@ -293,14 +294,17 @@ export function useAutoSplit() {
       // 分段完成后正文已在草稿里，当事人信息（借款人/银行）也就在里面。
       // 不回填的话律师得自己翻材料手打一遍右栏那两个框 —— 那正是机器该干的活。
       // 只填空字段（律师已填/改过的不覆盖），识别不出就留空，不猜。
-      // ⚠️ 必须判空：单测里 store 的 draft 可能是 null，直接 detectParties 会抛
+      // 身份判定走 resolveParties：先按标签取候选，再去**客户库**对账
+      // （同一叠纸里「申请人」可能同时指委托单位和职工，光看标签必错一半，
+      //   见 draft/party-lookup.ts）。客户库查不到才退回纯标签判定。
+      // ⚠️ 必须判空：单测里 store 的 draft 可能是 null，直接识别会抛
       //    「Cannot read properties of null」，把整条成功路径带崩（实测挂了 6 个用例）。
       //    现场不会有 null（阅读器打开着才有这个 hook），但测试环境有。
       let detected: { our: string; their: string } = { our: '', their: '' }
       try {
         const draftNow = useReader.getState().draft
         if (draftNow) {
-          detected = detectParties(draftNow)
+          detected = await resolveParties(draftNow)
           if (detected.our || detected.their) {
             current.update((value) => {
               const { infos, changed } = applyDetectedParties(value.infos, detected)
