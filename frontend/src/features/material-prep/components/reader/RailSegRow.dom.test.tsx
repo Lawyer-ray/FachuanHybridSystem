@@ -9,7 +9,7 @@
  * - 拖拽：dragstart 带上 si、dragover 按上下半给 before/after、drop/dragend 回调
  * - 视觉：未分类琥珀色、低置信度琥珀三角标、插入线位置、图形页灰图标标记
  * - 名字尾部（-P20.pdf 这类区分信息）固定保留，头部才参与截断
- * - 单段下载浮层默认不占位、平时不吃指针
+ * - 单段下载收在右键菜单里：行内不占宽度，但没有后端产物的行不给假入口
  */
 import { createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -393,11 +393,24 @@ describe('RailSegRow：视觉态', () => {
   })
 
   /**
-   * 单段下载（PDF / MD）从常驻改成悬停浮出。两件事都必须锁住：
-   * 1. 默认不可点——否则段名尾部会留两个看不见的点击热区；
-   * 2. 按钮仍在 DOM 里且可聚焦——键盘用户 Tab 进去靠 focus-within 让它浮出。
+   * 单段下载从行尾常驻搬进右键菜单：行内不再出现 PDF / MD 两个按钮，
+   * 但「只要这一段、只要 PDF」仍然可达，且两个入口会各自回调对应类型。
    */
-  it('单段下载默认不占位、不吃指针；按钮仍在（键盘可达）', () => {
+  it('行内不再出现 PDF / MD 常驻按钮', () => {
+    const download = {
+      checked: false,
+      busyKind: null,
+      disabled: false,
+      onToggle: vi.fn(),
+      onDownload: vi.fn(),
+    }
+    const { row, unmount } = renderRow({ download: download as never })
+    expect(within(row).queryByRole('button', { name: 'PDF' })).toBeNull()
+    expect(within(row).queryByRole('button', { name: 'MD' })).toBeNull()
+    unmount()
+  })
+
+  it('右键菜单的「下载 PDF / 下载 Markdown」各自回调对应类型', () => {
     const download = {
       checked: false,
       busyKind: null,
@@ -406,20 +419,17 @@ describe('RailSegRow：视觉态', () => {
       onDownload: vi.fn(),
     }
     const { container, unmount } = renderRow({ download: download as never })
-    const chip = container.querySelector('[data-row-download]') as HTMLElement
-    expect(chip.className).toContain('opacity-0')
-    expect(chip.className).toContain('pointer-events-none')
-    expect(chip.className).toContain('group-hover:opacity-100')
-    expect(chip.className).toContain('focus-within:opacity-100')
-    // 触摸屏没有 hover：退回行内常显
-    expect(chip.className).toContain('[@media(hover:none)]:opacity-100')
-    expect(within(chip).getByRole('button', { name: 'PDF' })).toBeTruthy()
+    const menu = within(container).getByTestId('menu')
+    fireEvent.click(within(menu).getByText('下载 PDF'))
+    fireEvent.click(within(menu).getByText('下载 Markdown'))
+    expect(download.onDownload.mock.calls).toEqual([['pdf'], ['md']])
     unmount()
   })
 
-  it('没有后端产物的行不出下载浮层', () => {
+  it('没有后端产物的行不给下载入口（点了一定 404）', () => {
     const { container, unmount } = renderRow()
-    expect(container.querySelector('[data-row-download]')).toBeNull()
+    const menu = within(container).getByTestId('menu')
+    expect(menu.textContent).not.toContain('下载')
     unmount()
   })
 

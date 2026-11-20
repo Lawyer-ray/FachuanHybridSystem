@@ -1,5 +1,6 @@
 import { FileDown, Loader2, PackageOpen } from 'lucide-react'
 
+import { ContextMenuItem } from '@/components/ui/context-menu'
 import type { SegmentDownloads, SegmentFileKind, SegmentRowDownload } from './use-segment-selection'
 
 /**
@@ -7,9 +8,13 @@ import type { SegmentDownloads, SegmentFileKind, SegmentRowDownload } from './us
  *
  * 产品口径（用户原话）：「打包下载已经转好的 Markdown 以及分好段的 pdf，可以
  * 单个下载、多选下载，也可以一起整包下载」——三档对应下面三个入口：
- *   · 单个 → 每行 `PDF` / `MD`（`/segments/{id}/pdf|md`）
+ *   · 单个 → 行右键菜单「下载 PDF / 下载 Markdown」（`/segments/{id}/pdf|md`）
  *   · 多选 → 工具条「下载选中（N）」（`/download?ids=12,15`）
  *   · 整包 → 工具条「整包下载」（`/download`，每段 pdf+md 打成 zip）
+ *
+ * 「单个」为什么不在行尾常驻两个按钮：段行里最贵的是段名宽度（见 RailSegRow 的
+ * 宽度预算），而只要 PDF 不要 MD 是低频需求。真要一段的产物，勾上它 → 「下载选中（1）」
+ * 只需两下；右键菜单只是给细粒度需求留的门。
  *
  * 状态与换票逻辑全在 `use-segment-selection.ts`：工具条和段行必须是**同一份**
  * 选中/置忙状态，两处各自 useState 迟早不同步。本文件只管长相。
@@ -22,10 +27,6 @@ import type { SegmentDownloads, SegmentFileKind, SegmentRowDownload } from './us
 /** 工具条按钮样式：左栏只有 232~268px 宽，放不下 PBTN 的 30px 高 + 13px 内边距 */
 const BAR_BTN =
   'flex h-[24px] flex-none items-center gap-1 rounded-[6px] border border-border bg-card px-1.5 text-[11.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
-
-/** 段行的小按钮：加号一律 18px 高，与行内 13px 的字号同一视觉量级 */
-const ROW_BTN =
-  'flex h-[18px] flex-none items-center justify-center rounded px-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-card hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40'
 
 export function SegmentDownloadBar({ dl, total }: { dl: SegmentDownloads; total?: number }) {
   const { segments, sel } = dl
@@ -135,32 +136,26 @@ export function SegmentSelectBox({ row, name }: { row: SegmentRowDownload | unde
   )
 }
 
-/** 段行末尾的「PDF」「MD」两个单文件下载按钮 */
-export function SegmentFileButtons({ row }: { row: SegmentRowDownload | undefined }) {
+/**
+ * 段行右键菜单里的两个单文件下载项。
+ *
+ * 放在菜单而不是行尾：一行里最值钱的是段名宽度，而「只要这一段，只要 PDF」
+ * 是低频细分需求。勾行 + 「下载选中（1）」已经覆盖了「只要这一段」，
+ * 菜单只多给一个「不打包、只要单一文件」的门。
+ */
+export function SegmentDownloadMenuItems({ row }: { row: SegmentRowDownload | undefined }) {
   if (!row) return null
-  const btn = (kind: SegmentFileKind, label: string, title: string) => (
-    <button
-      type="button"
-      aria-label={label}
-      title={title}
-      disabled={row.disabled}
-      onClick={(e) => {
-        // 同上：点下载不该顺带把视图跳到这一段
-        e.stopPropagation()
-        row.onDownload(kind)
-      }}
-      onDoubleClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.stopPropagation()}
-      className={ROW_BTN}
-    >
-      {/* 置忙时换成转圈：文字由 aria-label 保留，屏幕阅读器与测试都不受影响 */}
-      {row.busyKind === kind ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : label}
-    </button>
+  const item = (kind: SegmentFileKind, label: string) => (
+    <ContextMenuItem key={kind} disabled={row.disabled} onSelect={() => row.onDownload(kind)}>
+      {/* 置忙时换成转圈：文字不变，屏幕阅读器与测试都不受影响 */}
+      {row.busyKind === kind ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+      {label}
+    </ContextMenuItem>
   )
   return (
-    <span className="flex flex-none items-center gap-0.5">
-      {btn('pdf', 'PDF', '下载这一段已切好的 PDF')}
-      {btn('md', 'MD', '下载这一段的 Markdown')}
-    </span>
+    <>
+      {item('pdf', '下载 PDF')}
+      {item('md', '下载 Markdown')}
+    </>
   )
 }

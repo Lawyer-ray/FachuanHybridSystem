@@ -10,7 +10,7 @@ import {
 import { docTypeLabel, segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
-import { SegmentFileButtons, SegmentSelectBox } from './SegmentDownloadBar'
+import { SegmentDownloadMenuItems, SegmentSelectBox } from './SegmentDownloadBar'
 import { splitNameTail } from './segment-name'
 import type { SegmentRowDownload } from './use-segment-selection'
 
@@ -25,7 +25,7 @@ export type DropPos = 'before' | 'after'
  * ## 宽度预算（左栏默认 232px，可拖到 520px）
  *
  * 一行里常驻的只有四样：勾选框、段名、页范围、质量图标。单段下载（PDF / MD）
- * **悬停时浮出**，不占常驻宽度——上一版两个按钮常驻，40 行里段名被挤到四五个字。
+ * 在右键菜单里——上一版两个按钮常驻，40 行里段名被挤到四五个字。
  */
 export function RailSegRow({
   seg,
@@ -101,9 +101,9 @@ export function RailSegRow({
           data-rail-seg={si}
           data-selected={selected || undefined}
           draggable={!editing}
-          title={`${seg.fn}\n点击跳转 · ⌘/⇧点 多选 · 双击改名 · 右键更多`}
+          title={`${seg.fn}\n点击跳转 · ⌘/⇧点 多选 · 双击改名 · 右键改名/下载`}
           className={cn(
-            'group relative flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring',
+            'relative flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring',
             selected && 'bg-secondary/70 ring-1 ring-foreground/25',
             !classified && 'text-amber-700',
           )}
@@ -193,8 +193,6 @@ export function RailSegRow({
           {!editing && (
             <SegmentMarks seg={seg} docHintPages={docHintPages} graphicPages={graphicPages} />
           )}
-          {/* 单个下载（PDF / MD）：悬停/聚焦浮出，不占常驻宽度，见 RowDownload */}
-          {!editing && <RowDownload row={download} />}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-[180px]">
@@ -205,6 +203,13 @@ export function RailSegRow({
           <>
             <ContextMenuSeparator />
             <ContextMenuItem onSelect={onMerge}>并入上一份</ContextMenuItem>
+          </>
+        )}
+        {/* 单个下载（PDF / Markdown）：行内不占宽度，收进右键菜单，见 SegmentDownloadMenuItems */}
+        {download && (
+          <>
+            <ContextMenuSeparator />
+            <SegmentDownloadMenuItems row={download} />
           </>
         )}
       </ContextMenuContent>
@@ -307,36 +312,6 @@ function SegmentMarks({
           <AlertTriangle className="h-3 w-3" aria-hidden />
         </span>
       ) : null}
-    </span>
-  )
-}
-
-/**
- * 行尾的单段下载（PDF / MD）：**悬停 / 键盘聚焦时浮出，平时不占位**。
- *
- * 为什么不常驻：左栏是「找材料」的目录，判断「这是不是我要的那一份」永远比
- * 「现在就下载」更高频。两个常驻按钮固定吃掉约 40px，代价直接落在段名上。
- *
- * 为什么用绝对定位而不是「宽度从 0 展开」：那样鼠标扫过整列时每行文字都会
- * 被挤动一下，读起来像界面在抖。浮层贴在行尾，段名宽度恒定。
- *
- * 触摸屏没有 hover（`hover: none`）：浮层退回行内常显，否则手机上单段下载
- * 就只剩右键菜单一条路（而手机上连右键都没有）。
- */
-function RowDownload({ row }: { row: SegmentRowDownload | undefined }) {
-  if (!row) return null
-  return (
-    <span
-      data-row-download
-      className={cn(
-        'pointer-events-none absolute top-1/2 right-0.5 -translate-y-1/2 rounded-md border border-border bg-card px-1 opacity-0 shadow-sm transition-opacity',
-        // 平时不可点（否则会在段名尾部留两个看不见的点击热区），浮出才接管指针
-        'group-hover:pointer-events-auto group-hover:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100',
-        // 触摸屏：回到行内静态布局，常显、无边框
-        '[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:static [@media(hover:none)]:translate-y-0 [@media(hover:none)]:border-0 [@media(hover:none)]:bg-transparent [@media(hover:none)]:px-0 [@media(hover:none)]:opacity-100 [@media(hover:none)]:shadow-none',
-      )}
-    >
-      <SegmentFileButtons row={row} />
     </span>
   )
 }
