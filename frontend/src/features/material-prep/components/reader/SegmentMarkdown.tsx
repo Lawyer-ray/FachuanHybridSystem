@@ -1,13 +1,13 @@
 import { Fragment, useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileCode2, PencilLine, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { blockKeyOf } from '../../draft/block-keys'
 import { reviewHintOf } from '../../draft/quality'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { SegmentPageHint, SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
+import { SegmentMarkdownView, type MarkdownViewMode } from './SegmentMarkdownView'
 import { BlockRow } from './SegmentRow'
-import { SegmentMarkdownView } from './SegmentMarkdownView'
 import { EngineDisagreementsInline } from './EngineDisagreementsInline'
 import { SuspectsPanel } from './SuspectsPanel'
 
@@ -117,10 +117,14 @@ export function SegmentMarkdown({
   const [editingKey, setEditingKey] = useState<string | null>(null)
   /** 进入编辑态时要预填的文本（「两个引擎都不对」时点采用，用该侧全文作起点） */
   const [editSeed, setEditSeed] = useState<string | null>(null)
-  /** 有定位块时的视图切换：默认按块（可双击定位），切到原始 Markdown 才看得到表格/标题结构 */
-  const [rawView, setRawView] = useState(false)
-  /** 递增的一次性「整段进入编辑态」请求（无逐块编辑能力时的退路） */
-  const [mdEditRequest, setMdEditRequest] = useState(0)
+  /**
+   * 右栏正文看见的是哪一种：分块 / 渲染 / 源码（+ 编辑整段）。
+   *
+   * **只有这一份视图状态**。此前是「父级的 rawView 布尔」+「子组件自己的三态」两套
+   * 切换器叠着，切到原始 Markdown 之后控件从两个变三个、选中态还换一套样式——
+   * 一个侧边栏里三行控件就是这么来的。tab、✎、页面框双击三个入口都改这一个状态。
+   */
+  const [view, setView] = useState<MarkdownViewMode | 'blocks'>('blocks')
 
   /**
    * 页面框双击 → 自动进入这一行的修改态。
@@ -133,13 +137,10 @@ export function SegmentMarkdown({
     if (!editRequestKey) return
     if (!onEditBlock) {
       // 没有逐块编辑能力（无定位块的段）：退回整段编辑
-      if (onEditMarkdown) {
-        setRawView(true)
-        setMdEditRequest((n) => n + 1)
-      }
+      if (onEditMarkdown) setView('edit')
     } else {
-      // 逐块编辑只在「定位块」视图里有行可改：从原始 Markdown 视图切回来
-      setRawView(false)
+      // 逐块编辑只在「分块」视图里有行可改：从源码/渲染视图切回来
+      setView('blocks')
       setEditSeed(editRequestSeed)
       setEditingKey(editRequestKey)
     }
@@ -197,13 +198,19 @@ export function SegmentMarkdown({
   const hintedPages = [...new Set([...docByPage.keys(), ...graphicSet])].sort((a, b) => a - b)
   const pagesWithRows = new Set(blocks.map((b) => b.page))
   const orphanHintPages = hintedPages.filter((p) => !pagesWithRows.has(p))
+  /**
+   * 没有定位块（本地 OCR / 旧任务）时没有「分块」这一档，落到渲染视图。
+   * 归一在这里做而不是 useState 初值：hooks 必须跑在 `seg` 早返回之前，那时还拿不到 blocks。
+   */
+  const tab: MarkdownViewMode | 'blocks' = view === 'blocks' && blocks.length === 0 ? 'render' : view
+
   const pageHintOf = (page: number) =>
     docByPage.has(page) || graphicSet.has(page) ? (
       <SegmentPageHint page={page} doc={docByPage.get(page)} graphic={graphicSet.has(page)} onGotoPage={onGotoPage} />
     ) : null
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="@container flex flex-col gap-1.5">
       <button
         type="button"
         onClick={onToggleOpen}
@@ -231,59 +238,68 @@ export function SegmentMarkdown({
           折叠态也要看得见，否则律师根本不知道有这回事。 */}
       {seg.mdDrift && (
         <p className="rounded-lg border border-amber-300 bg-amber-50/60 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-800">
-          有一处块改动没能同步进 Markdown 正文（改前的原文已对不上）。请切到「原始 Markdown」整段核对，否则下游拿到的还是旧文字。
+          有一处块改动没能同步进 Markdown 正文（改前的原文已对不上）。请切到「源码」核对整段，否则下游拿到的还是旧文字。
         </p>
       )}
 
       {open && (
         <div className="flex flex-col gap-1">
-          {blocks.length > 0 && (
-            <div className="flex items-center gap-1 px-1 text-[10.5px] text-muted-foreground">
-              <button
-                type="button"
-                onClick={() => setRawView(false)}
-                aria-pressed={!rawView}
-                className={cn(
-                  'rounded border px-1.5 py-0.5 transition-colors',
-                  rawView ? 'border-transparent hover:text-foreground' : 'border-zinc-300 bg-secondary text-foreground',
-                )}
-              >
-                定位块
-              </button>
-              <button
-                type="button"
-                onClick={() => setRawView(true)}
-                aria-pressed={rawView}
-                className={cn(
-                  'rounded border px-1.5 py-0.5 transition-colors',
-                  rawView ? 'border-zinc-300 bg-secondary text-foreground' : 'border-transparent hover:text-foreground',
-                )}
-              >
-                原始 Markdown
-              </button>
-              {!rawView && (
-                <span className="ml-auto">
-                  {onEditMarkdown ? '双击定位原页 · 右键改这一行' : '双击定位到原页'}
-                </span>
+          {/* 唯一的视图切换器：文字 tab + 一条发丝下划线，没有盒子。
+              右侧那枚 ✎ 是「编辑整段」——它是视图而不是动作入口，所以不再单独占一行。
+              **编辑态整行不渲染**：点 tab 会直接卸载 textarea，等于静默丢掉没保存的正文；
+              编辑态自己那条「保存整段 / 取消」才是出口。 */}
+          {tab !== 'edit' && (
+            <div className="flex items-center gap-0.5 px-1">
+              {blocks.length > 0 && (
+                <ViewTab active={tab === 'blocks'} onClick={() => setView('blocks')}>
+                  分块
+                </ViewTab>
               )}
-              {!rawView && focusedBlockKey && (
+              <ViewTab active={tab === 'render'} onClick={() => setView('render')}>
+                渲染
+              </ViewTab>
+              <ViewTab active={tab === 'source'} onClick={() => setView('source')}>
+                源码
+              </ViewTab>
+              <span className="ml-auto" />
+              {/* 一次性教学文案：只在分块视图、且有地方放的时候出现（容器窄于 320px 直接不显示，
+                  它不该跟 tab 抢同一行）。定位中换成「取消定位」，那是当下真正要给的出口。 */}
+              {tab === 'blocks' &&
+                (focusedBlockKey ? (
+                  <button
+                    type="button"
+                    onClick={() => onLocateBlock(null)}
+                    className="flex flex-none items-center gap-0.5 rounded px-1 pb-1 text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <X className="h-3 w-3 flex-none" aria-hidden />
+                    取消定位
+                  </button>
+                ) : (
+                  <span
+                    title={onEditMarkdown ? '双击某一行定位到原页；右键改这一行' : '双击某一行定位到原页'}
+                    className="hidden flex-none pb-1 text-[10.5px] text-muted-foreground/60 @[320px]:inline"
+                  >
+                    {onEditMarkdown ? '双击定位 · 右键改行' : '双击定位'}
+                  </span>
+                ))}
+              {onEditMarkdown && (
                 <button
                   type="button"
-                  onClick={() => onLocateBlock(null)}
-                  className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+                  aria-label="编辑整段"
+                  title="整段编辑 Markdown（保存后以整段正文为准）"
+                  onClick={() => setView('edit')}
+                  className="flex h-5 w-5 flex-none items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 >
-                  取消定位
+                  <PencilLine className="h-3 w-3" aria-hidden />
                 </button>
               )}
             </div>
           )}
 
           {/* 默认「列表即正文」：每行就是原文的一段，改动直接在这行上做，双击能定位原页。
-              原始 Markdown 是**切换**过去的另一视图（看表格/标题结构、整段修订），
+              渲染 / 源码是**切换**过去的另两个视图（看表格/标题结构、整段修订），
               不是并排再渲染一份——同一段内容出现两次，看的人要来回比对"刚才改的是不是这一行"。 */}
-          {rawView || blocks.length === 0 ? (
-            <SegmentMarkdownView md={seg.md} onCommit={onEditMarkdown} editRequest={mdEditRequest} />
-          ) : (
+          {tab === 'blocks' ? (
             blocks.map((b, i) => {
               const key = blockKeyOf(seg, b, i)
               // 该页第一行之前挂上这一页的分歧：律师读到 P1 的正文前，
@@ -341,10 +357,17 @@ export function SegmentMarkdown({
                 </Fragment>
               )
             })
+          ) : (
+            <SegmentMarkdownView
+              md={seg.md}
+              mode={tab}
+              onModeChange={setView}
+              onCommit={onEditMarkdown}
+            />
           )}
 
           {/* 落不到正文行的提示页（图纸页多半一个字都没取出来）：只能自己成行 */}
-          {!rawView && orphanHintPages.length > 0 && (
+          {tab === 'blocks' && orphanHintPages.length > 0 && (
             <div className="flex flex-col gap-1">
               {orphanHintPages.map((page) => (
                 <Fragment key={`hint-${page}`}>{pageHintOf(page)}</Fragment>
@@ -357,5 +380,37 @@ export function SegmentMarkdown({
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * 视图 tab：文字 + 下划线，**不用盒子**。
+ *
+ * 一排「选中项带边框、未选中透明边框」的按钮是这一栏看起来乱的主要原因——两个盒子
+ * 并排时，人眼会先去读边框而不是文字。下划线只占 1.5px，而且只有一项有。
+ */
+function ViewTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'flex-none border-b-[1.5px] px-1.5 pb-1 text-[11px] transition-colors',
+        active
+          ? 'border-foreground font-medium text-foreground'
+          : 'border-transparent text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {children}
+    </button>
   )
 }
