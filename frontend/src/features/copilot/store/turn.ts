@@ -253,7 +253,17 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       queuePosition: null,
       queuedSteers: [],
       turnStats: { ...EMPTY_STATS, samples: [] },
-      // 分栏账按轮重置：上一轮的栏不该出现在本轮栏头
+      // 分栏账按轮重置：上一轮的栏不该出现在本轮栏头。
+      //
+      // **不要改成「保留上一轮并标记为历史」**：栏头 chip 是按 kind 直取的
+      // （见 LaneUsageChip），留着旧键就是让本轮的 pi 栏挂着上一轮 pi 的速度与
+      // token 数——那正是「数字看着像真的、但错了」的一类 bug。
+      //
+      // 历史轮次的用量因此**不在这里保留**，唯一正确的位置是落库的消息 metadata
+      // （`usage_by_lane` + `ttft_ms`，由 domain/usage 的 `laneUsageFromMetadata`
+      // 收窄成 LaneUsage，由 transcript 回放时挂到气泡上）。也就是说：刷新后要
+      // 看见历史栏用量，需要「按轮/按消息存放的结构」——那属于 types.ts /
+      // state-types.ts，不在本文件的口径内，别在这里糊一个近似实现。
       turnStatsByLane: {},
     }))
     onQueued?.(true)
