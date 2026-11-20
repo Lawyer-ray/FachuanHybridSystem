@@ -90,6 +90,20 @@ describe('页面锚点（通用助手页面感知）', () => {
     expect(splitBizHintLine('[当前业务：本委托「某银行」 contract_id=8]\n问').bizHint).toBeNull()
   })
 
+  it('historyToMessages：评分只认 up/down，空串与脏值落 undefined', () => {
+    // 后端 `MessageOut.rating`："" = 未评分。历史回放必须尊重它——
+    // 把空串兜成 "down" 等于把「没评」渲染成「律师踩过」。
+    const rows: AgentHistoryMessage[] = [
+      { message_id: 1, role: 'assistant', content: 'a', tool_name: '', created_at: '', rating: 'up', metadata: {} },
+      { message_id: 2, role: 'assistant', content: 'b', tool_name: '', created_at: '', rating: 'down', metadata: {} },
+      // 未评分：后端真发的是空串（不是 None），必须当「没评」
+      { message_id: 3, role: 'assistant', content: 'c', tool_name: '', created_at: '', rating: '', metadata: {} },
+      // 旧后端不认识这个字段：不返回也不能凭空造出一个反馈
+      { message_id: 4, role: 'assistant', content: 'd', tool_name: '', created_at: '', metadata: {} },
+    ]
+    expect(historyToMessages(rows).map((m) => m.rating)).toEqual(['up', 'down', undefined, undefined])
+  })
+
   it('historyToMessages：user 行锚点折叠为 pageHint、不进正文', () => {
     const rows: AgentHistoryMessage[] = [
       { message_id: 1, role: 'user', content: '[当前页面：委托详情 · 某银行（contract_id=8）]\n总结一下', tool_name: '', created_at: '', metadata: {} },

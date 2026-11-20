@@ -67,6 +67,13 @@ export interface AgentHistoryMessage {
   /** 消息级来源（`pi` / `dsh` / 新注册的后端）；空串 = 旧数据 / 未标注（按 `pi` 处理） */
   agent_kind?: string
   created_at: string
+  /**
+   * 律师反馈（后端 `MessageOut.rating`）。空串 = 未评分；缺失 = 旧后端。
+   *
+   * `metadata.rating` 里也有同值，但顶层字段是**契约**：前端不该去猜后端把
+   * 反馈存在 metadata 的哪个键里（那是实现细节，改名就静默失效）。
+   */
+  rating?: 'up' | 'down' | ''
   metadata: Record<string, unknown>
 }
 
