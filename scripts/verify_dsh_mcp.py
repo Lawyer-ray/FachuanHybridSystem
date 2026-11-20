@@ -198,12 +198,14 @@ def _start_server(port: int) -> None:
 def _wait_port(port: int, timeout: float = _WAIT_CONNECT_TIMEOUT) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        with (
-            contextlib.suppress(OSError),
-            socket.create_connection(("127.0.0.1", port), timeout=0.5),
-        ):
-            return True
-        time.sleep(0.2)
+        try:
+            # 探活成功即返回；连接必须自己关（早先写成 with suppress + return True，
+            # CodeQL 既报 unreachable 又漏了 socket 未关闭这个真实泄漏）。
+            socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+        except OSError:
+            time.sleep(0.2)
+            continue
+        return True
     return False
 
 
