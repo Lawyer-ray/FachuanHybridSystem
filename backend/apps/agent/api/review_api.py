@@ -63,6 +63,7 @@ def _to_review(record: AgentReview) -> Review:
         review_id=record.review_id,
         session_id=str(record.session.session_id),
         turn=record.turn,
+        rubric_id=record.rubric_id,
         stage=cast(Literal["shadow"], record.stage),
         lanes=[LaneReview.model_validate(item) for item in record.lanes],
         verdicts=[CriteriaVerdict.model_validate(item) for item in record.verdicts],
@@ -96,6 +97,8 @@ async def review_session(request: Any, session_id: str, payload: ReviewIn) -> Re
         answers=answers,
         rubric=rubric,
         judge_models=list(payload.judge_models),
+        # rubric_id 进 Review 契约（落库另有 rubric_id 列）：离线校准按版本归因
+        rubric_id=payload.rubric_id,
     )
     await save_review(
         session=session,

@@ -89,6 +89,8 @@ async def run_jury(
     judge_models: Sequence[str],
     call_judge: JudgeCall | None = None,
     review_id: str | None = None,
+    rubric_id: str = "",
+    rubric_version: str = "",
 ) -> Review:
     """对一轮多栏回答跑完整评审。
 
@@ -127,4 +129,6 @@ async def run_jury(
             "total": total_tokens,
         },
         review_id=review_id,
+        rubric_id=rubric_id,
+        rubric_version=rubric_version,
     )

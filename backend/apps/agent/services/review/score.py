@@ -66,16 +66,23 @@ def build_review(
     lanes: Sequence[str],
     tokens: Mapping[str, int],
     review_id: str | None = None,
+    rubric_id: str = "",
+    rubric_version: str = "",
 ) -> Review:
     """汇总成完整 ``Review``。
 
     ``stage`` 本批只有 ``shadow``：结果只展示，不触发任何自动动作。
+
+    ``rubric_id`` / ``rubric_version`` 必须带上：离线校准（B6）要按 rubric 版本归因，
+    缺版本的评审只能当「不知道拿哪把尺量的」，不能进 kappa 统计。
     """
     lane_reviews = [build_lane_review(lane, items, verdicts) for lane in lanes]
     return Review(
         review_id=review_id or uuid.uuid4().hex,
         session_id=session_id,
         turn=turn,
+        rubric_id=rubric_id,
+        rubric_version=rubric_version,
         stage="shadow",
         lanes=lane_reviews,
         verdicts=list(verdicts),
