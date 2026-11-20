@@ -50,6 +50,100 @@ export interface CitationRef {
   keywords?: string[]
 }
 
+/** 后端认可的引用种类闭集（线上给别的值一律按 `file` 处理，见 narrowCitations） */
+const CITATION_KINDS: readonly CitationKind[] = ['case', 'contract', 'statute', 'judgment', 'file']
+
+/** 只认有限正整数：`cite_no` / id / 页 / 切片都是主键类字段，0、负数、小数、
+ *  字符串只可能是脏数据（`"3"` 这种也不收——静默 Number() 会把 `null` 转成 0） */
+function positiveIntOf(raw: unknown): number | undefined {
+  return typeof raw === 'number' && Number.isInteger(raw) && raw > 0 ? raw : undefined
+}
+
+/** 只认非空字符串：空串等于没给，落 undefined 而不是让卡片显示一个空标签 */
+function nonEmptyStringOf(raw: unknown): string | undefined {
+  return typeof raw === 'string' && raw !== '' ? raw : undefined
+}
+
+/** 关键词只收「全字符串的数组」，其余（单串 / 混了数字）整体丢弃，不逐项强转 */
+function stringListOf(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const words = raw.filter((word): word is string => typeof word === 'string' && word !== '')
+  return words.length > 0 ? words : undefined
+}
+
+/**
+ * 线上引用条目（**snake_case**、自由形状）→ 前端 `CitationRef`（camelCase）。
+ *
+ * SSE `citations` 事件与历史 `metadata.citations` 落库共用这个形状，两处**只走
+ * 这一个判据**（历史回放与实时渲染若各写一份收窄，刷新前后就会出现「同一个
+ * 会话里有的角标能点、有的不能」）。
+ *
+ * 规则（与 `parseCiteMarkers` 同一取向：**宁缺勿错**）
+ * - 缺 `cite_no` 或 `name` → **整条丢弃**：没有编号永远对不上正文角标，没有显示名
+ *   就只能在卡片里留个空壳，两种都只会让律师以为「来源丢了」；
+ * - `kind` 不在闭集 → 落 `'file'`：种类只决定卡片展示哪套字段，不值得丢整条；
+ * - 其余键**逐个显式映射**，不做泛型自动改键——那会把 raw 里前端不认识的字段
+ *   （后端的调试字段、将来新增的键）一并带进渲染层，等于让线上数据定义前端类型。
+ *
+ * 同编号的条目后到为准、位置留在首次出现处（顺序稳定，见 mergeCitations）。
+ */
+export function narrowCitations(raw: unknown): CitationRef[] {
+  if (!Array.isArray(raw)) return []
+  const parsed: CitationRef[] = []
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) continue
+    const row = item as Record<string, unknown>
+    const citeNo = positiveIntOf(row.cite_no)
+    const name = nonEmptyStringOf(row.name)
+    if (citeNo === undefined || name === undefined) continue
+    const kind = row.kind as CitationKind
+    const refId = positiveIntOf(row.ref_id)
+    const page = positiveIntOf(row.page)
+    const clause = nonEmptyStringOf(row.clause)
+    const chunkId = positiveIntOf(row.chunk_id)
+    const text = nonEmptyStringOf(row.text)
+    const keywords = stringListOf(row.keywords)
+    parsed.push({
+      citeNo,
+      kind: CITATION_KINDS.includes(kind) ? kind : 'file',
+      name,
+      ...(refId !== undefined ? { refId } : {}),
+      ...(page !== undefined ? { page } : {}),
+      ...(clause !== undefined ? { clause } : {}),
+      ...(chunkId !== undefined ? { chunkId } : {}),
+      ...(text !== undefined ? { text } : {}),
+      ...(keywords !== undefined ? { keywords } : {}),
+    })
+  }
+  return mergeCitations([], parsed)
+}
+
+/**
+ * 把新到的一批引用并进已有引用表。
+ *
+ * `citations` 事件是**增量**的（一轮内可多次到达，后端可能先给名字、随后补齐
+ * 页码/原文），所以合并规则只有一条：**同 `citeNo` 后到为准，位置留在首次出现处**。
+ * 位置不能跟着新值跳：引用表是律师肉眼顺读的顺序，补一次数据就重新排序会让人
+ * 以为自己看错了行。
+ */
+export function mergeCitations(
+  existing: readonly CitationRef[] | undefined,
+  incoming: readonly CitationRef[],
+): CitationRef[] {
+  const merged = [...(existing ?? [])]
+  const at = new Map(merged.map((citation, index) => [citation.citeNo, index]))
+  for (const citation of incoming) {
+    const index = at.get(citation.citeNo)
+    if (index === undefined) {
+      at.set(citation.citeNo, merged.length)
+      merged.push(citation)
+    } else {
+      merged[index] = citation
+    }
+  }
+  return merged
+}
+
 /** 正文里一处 `[Kn]` 标记的位置 */
 export interface CiteMarker {
   citeNo: number

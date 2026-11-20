@@ -476,3 +476,103 @@ describe('EOF 尾帧：最后一帧即使没有空行结尾也要交付', () => 
     expect(useCopilot.getState().compacting).toBe(false)
   })
 })
+
+// ============ 逐句溯源：citations 事件（增量，一轮可多次） ============
+
+describe('citations 事件：单栏落到气泡、多答各归各栏', () => {
+  it('单栏：citations 追加到该气泡，角标点得开', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"结论见[K1]与[K2]。","agent":"pi"}\n\n',
+        'data: {"type":"citations","agent":"pi","run_id":"s-1:pi:1","citations":[{"cite_no":1,"kind":"case","ref_id":217,"name":"某公司诉某银行案","page":4},{"cite_no":2,"kind":"file","name":"委托合同.docx","chunk_id":88}]}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    // 落库前就能点开：引用挂在实时气泡上（收尾后由 metadata.citations 重建同一份）
+    expect(assistant.citations).toEqual([
+      { citeNo: 1, kind: 'case', refId: 217, name: '某公司诉某银行案', page: 4 },
+      { citeNo: 2, kind: 'file', name: '委托合同.docx', chunkId: 88 },
+    ])
+  })
+
+  it('多答：两栏各收自己那份，另一栏不受影响（不能写死主栏）', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: ['pi', 'dsh'] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"citations","agent":"pi","citations":[{"cite_no":1,"kind":"statute","name":"民法典第 577 条"}]}\n\n',
+        'data: {"type":"citations","agent":"dsh","citations":[{"cite_no":1,"kind":"contract","name":"委托合同.docx"}]}\n\n',
+        'data: {"type":"delta","content":"pi 的答[K1]","agent":"pi"}\n\n',
+        'data: {"type":"delta","content":"dsh 的答[K1]","agent":"dsh"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"dsh"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+
+    const lane = (kind: string) =>
+      useCopilot.getState().messages.find((m) => m.role === 'assistant' && m.agentKind === kind)!
+    // 两栏 cite_no 都是 1，但指向不同材料：串栏就会出现「点开的是别人的证据」
+    expect(lane('pi').citations).toEqual([{ citeNo: 1, kind: 'statute', name: '民法典第 577 条' }])
+    expect(lane('dsh').citations).toEqual([{ citeNo: 1, kind: 'contract', name: '委托合同.docx' }])
+  })
+
+  it('增量：同一 cite_no 后到覆盖先到，新编号追加、顺序不变', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"citations","agent":"pi","citations":[{"cite_no":1,"name":"先到的名字","page":1}]}\n\n',
+        'data: {"type":"citations","agent":"pi","citations":[{"cite_no":1,"name":"后到的名字","page":9,"text":"原文片段"},{"cite_no":2,"name":"另一条"}]}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    expect(assistant.citations).toEqual([
+      { citeNo: 1, kind: 'file', name: '后到的名字', page: 9, text: '原文片段' },
+      { citeNo: 2, kind: 'file', name: '另一条' },
+    ])
+  })
+
+  it('空载荷 / 全畸形条目不造空表（否则正文角标会被统统降级）', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"citations","agent":"pi","citations":[]}\n\n',
+        'data: {"type":"citations","agent":"pi","citations":[{"name":"缺编号.pdf"}]}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+    expect(useCopilot.getState().messages.find((m) => m.role === 'assistant')?.citations).toBeUndefined()
+  })
+
+  it('收尾一致性：正文有合法 [Kn] 但没收到引用表 → 保持 undefined，不补假引用', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"结论见[K1]。","agent":"pi"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    // 渲染层已有「引用缺失就降级为纯文本」：在这里按 [K1] 造一条来源只会编出假出处
+    expect(assistant.content).toContain('[K1]')
+    expect(assistant.citations).toBeUndefined()
+  })
+})

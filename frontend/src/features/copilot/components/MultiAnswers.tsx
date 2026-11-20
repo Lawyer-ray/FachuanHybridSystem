@@ -89,7 +89,8 @@ export const MultiAnswers = memo(function MultiAnswers({
                 <AgentModelHead label={agentLabel(kind)} model={answer.model} />
               </div>
               {/* 分栏用量：多答就是为了比较，栏头必须能看出谁贵谁快 */}
-              <LaneUsageChip kind={kind} />
+              {/* usage：历史轮次的落库用量；缺省时 chip 自己回落到本轮内存账 */}
+              <LaneUsageChip kind={kind} usage={answer.laneUsage} />
             </div>
             {renderAnswer(answer)}
           </section>

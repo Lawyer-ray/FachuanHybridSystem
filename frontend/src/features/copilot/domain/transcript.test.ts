@@ -204,6 +204,69 @@ describe('historyToMessages（转录映射）', () => {
     expect(messages[0]?.model).toBeUndefined()
   })
 
+  it('assistant 的 metadata.citations → citations（刷新后角标仍可点开）', () => {
+    const messages = historyToMessages([
+      {
+        message_id: 1,
+        role: 'assistant',
+        content: '结论见[K1]。',
+        tool_name: '',
+        created_at: '',
+        metadata: {
+          citations: [
+            { cite_no: 1, kind: 'case', ref_id: 217, name: '某公司诉某银行案', page: 4, chunk_id: 88 },
+            { cite_no: 2, kind: 'file', name: '委托合同.docx', clause: '7.2' },
+          ],
+        },
+      },
+    ])
+    // 落库是 snake_case，回放必须是 camelCase（与 SSE 路径同一个收窄函数）
+    expect(messages[0]?.citations).toEqual([
+      { citeNo: 1, kind: 'case', refId: 217, name: '某公司诉某银行案', page: 4, chunkId: 88 },
+      { citeNo: 2, kind: 'file', name: '委托合同.docx', clause: '7.2' },
+    ])
+  })
+
+  it('旧数据没有 metadata.citations → undefined（不是 []）', () => {
+    const [message] = historyToMessages([
+      { message_id: 1, role: 'assistant', content: '问', tool_name: '', created_at: '', metadata: {} },
+    ])
+    // `[]` 会被渲染层读成「本轮有引用但都失效」，把 [Kn] 全降级；旧数据必须走未定义
+    expect(message?.citations).toBeUndefined()
+  })
+
+  it('有键但为空 / 全部畸形 → 仍回到 undefined（不把空表写进气泡）', () => {
+    const mk = (citations: unknown) =>
+      historyToMessages([
+        { message_id: 1, role: 'assistant', content: '答', tool_name: '', created_at: '', metadata: { citations } },
+      ])[0]?.citations
+    expect(mk([])).toBeUndefined()
+    expect(mk([{ name: '缺编号.pdf' }])).toBeUndefined()
+    expect(mk('citations')).toBeUndefined()
+  })
+
+  it('user / tool 行不重建引用（引用属于「这句话出自哪」）', () => {
+    const rows: AgentHistoryMessage[] = [
+      {
+        message_id: 1,
+        role: 'user',
+        content: '问',
+        tool_name: '',
+        created_at: '',
+        metadata: { citations: [{ cite_no: 1, name: '甲.pdf' }] },
+      },
+      {
+        message_id: 2,
+        role: 'tool',
+        content: 'x',
+        tool_name: 'search',
+        created_at: '',
+        metadata: { citations: [{ cite_no: 1, name: '甲.pdf' }] },
+      },
+    ]
+    expect(historyToMessages(rows).map((m) => m.citations)).toEqual([undefined, undefined])
+  })
+
   it('历史回放：quote 从块还原到消息字段、正文不残留块文本', () => {
     const quote = {
       kind: 'contract' as const,
@@ -226,5 +289,54 @@ describe('historyToMessages（转录映射）', () => {
     expect(m?.quote?.text).toBe(quote.text)
     expect(m?.content).toBe('这段条款什么意思？')
     expect(m?.bizHint?.title).toBe('测试')
+  })
+})
+
+describe('历史回放：分栏用量（刷新后栏头仍能比价）', () => {
+  /** 一条 assistant 历史行；metadata 是后端落库的自由形状 */
+  const assistantRow = (metadata: Record<string, unknown>, agentKind = 'pi') =>
+    ({
+      message_id: 7,
+      role: 'assistant',
+      content: '答',
+      tool_name: '',
+      agent_kind: agentKind,
+      created_at: '2026-11-20T00:00:00Z',
+      metadata,
+    }) as never
+
+  it('从 metadata.usage_by_lane + ttft_ms 重建该栏用量', () => {
+    const m = historyToMessages([
+      assistantRow({
+        usage_by_lane: { pi: { output: 320, input: 1200, cache_read: 4800, cache_write: 0 } },
+        ttft_ms: 640,
+      }),
+    ])[0]
+    expect(m?.laneUsage).toEqual({
+      outputTokens: 320,
+      inputTokens: 1200,
+      cacheReadTokens: 4800,
+      cacheWriteTokens: 0,
+      ttftMs: 640,
+      // duration_ms 缺失：不编造（渲染层据此少显示「总耗时」一段）
+      durationMs: null,
+      // 后端明确回报的数，不是前端拿 token 估的
+      estimated: false,
+    })
+  })
+
+  it('旧数据没有这个键 → undefined 而不是空对象（整段不显示，不显示一排 0）', () => {
+    const m = historyToMessages([assistantRow({})])[0]
+    expect(m?.laneUsage).toBeUndefined()
+  })
+
+  it('多答时各栏取自己那份，不会把主栏的数安到别的栏上', () => {
+    const rows = [
+      assistantRow({ usage_by_lane: { pi: { output: 100 }, dsh: { output: 900 } } }, 'pi'),
+      assistantRow({ usage_by_lane: { pi: { output: 100 }, dsh: { output: 900 } } }, 'dsh'),
+    ]
+    const [a, b] = historyToMessages(rows)
+    expect(a?.laneUsage?.outputTokens).toBe(100)
+    expect(b?.laneUsage?.outputTokens).toBe(900)
   })
 })

@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   hasPendingCiteMarker,
+  mergeCitations,
+  narrowCitations,
   pageSpanNote,
   parseCiteMarkers,
   reconcileCitations,
@@ -112,6 +114,125 @@ describe('splitCiteSegments：切「文字 / 角标」，拼回去一字不差',
     const text = segments.map((s) => (s.kind === 'text' ? s.text : '[K]')).join('')
     expect(segments.filter((s) => s.kind === 'cite')).toHaveLength(1)
     expect(text).toBe('见[K]与[K9]')
+  })
+})
+
+describe('narrowCitations：线上 snake_case → 前端 camelCase（宁缺勿错）', () => {
+  it('正常条目逐字段显式映射（缺的字段不凭空补）', () => {
+    expect(
+      narrowCitations([
+        {
+          cite_no: 2,
+          kind: 'statute',
+          ref_id: 31,
+          name: '民法典第 577 条',
+          page: 12,
+          clause: '577',
+          chunk_id: 8801,
+          text: '当事人一方不履行合同义务…',
+        },
+      ]),
+    ).toEqual([
+      {
+        citeNo: 2,
+        kind: 'statute',
+        refId: 31,
+        name: '民法典第 577 条',
+        page: 12,
+        clause: '577',
+        chunkId: 8801,
+        text: '当事人一方不履行合同义务…',
+      },
+    ])
+  })
+
+  it('缺 cite_no 的条目整条丢弃（对不上角标的来源是毒药）', () => {
+    expect(narrowCitations([{ name: '判决书.pdf', kind: 'judgment' }])).toEqual([])
+  })
+
+  it('缺 name（或空串 / 非字符串）的条目整条丢弃（不渲染空壳卡片）', () => {
+    expect(narrowCitations([{ cite_no: 1, kind: 'file' }])).toEqual([])
+    expect(narrowCitations([{ cite_no: 1, name: '', kind: 'file' }])).toEqual([])
+    expect(narrowCitations([{ cite_no: 1, name: 42, kind: 'file' }])).toEqual([])
+  })
+
+  it('kind 不在闭集 → 落 file（种类只决定卡片字段，不值得丢整条）', () => {
+    expect(narrowCitations([{ cite_no: 3, name: '某材料', kind: 'evidence' }])).toEqual([
+      { citeNo: 3, kind: 'file', name: '某材料' },
+    ])
+    // 整个 kind 缺失同理（旧数据 / 后端未标注）
+    expect(narrowCitations([{ cite_no: 3, name: '某材料' }])[0]?.kind).toBe('file')
+  })
+
+  it('多余字段被丢（不做泛型改键：raw 里未知键绝不带进渲染层）', () => {
+    const [citation] = narrowCitations([
+      // `refId` / `citeNo` 是**前端**键名，线上出现同名键不能反向覆盖映射结果
+      { cite_no: 1, name: '合同.docx', kind: 'contract', refId: 999, citeNo: 77, debug_trace: 'x', score: 0.82 },
+    ])
+    expect(citation).toEqual({ citeNo: 1, kind: 'contract', name: '合同.docx' })
+  })
+
+  it('状不对（非数组 / null / 元素不是对象）→ 空数组，不抛', () => {
+    expect(narrowCitations(undefined)).toEqual([])
+    expect(narrowCitations(null)).toEqual([])
+    expect(narrowCitations('citations')).toEqual([])
+    expect(narrowCitations({ 0: { cite_no: 1, name: 'x' } })).toEqual([])
+    expect(narrowCitations([null, 1, 'x', []])).toEqual([])
+  })
+
+  it('cite_no 非正整数（0 / 负数 / 小数 / 字符串数字）一律丢弃', () => {
+    for (const citeNo of [0, -1, 1.5, '1', Number.NaN]) {
+      expect(narrowCitations([{ cite_no: citeNo, name: '材料' }])).toEqual([])
+    }
+  })
+
+  it('同 citeNo 后到为准，位置留在首次出现处（引用表不因补数据而跳位）', () => {
+    const result = narrowCitations([
+      { cite_no: 1, name: '先到的名字', page: 1 },
+      { cite_no: 2, name: '另一条' },
+      { cite_no: 1, name: '后到的名字', page: 9 },
+    ])
+    expect(result.map((c) => c.citeNo)).toEqual([1, 2])
+    expect(result[0]).toEqual({ citeNo: 1, kind: 'file', name: '后到的名字', page: 9 })
+  })
+
+  it('顺序按线上给的原样保留（不按编号排序：编号是后端的叙述顺序）', () => {
+    const result = narrowCitations([
+      { cite_no: 3, name: 'c' },
+      { cite_no: 1, name: 'a' },
+      { cite_no: 2, name: 'b' },
+    ])
+    expect(result.map((c) => c.citeNo)).toEqual([3, 1, 2])
+  })
+
+  it('keywords 白名单：全字符串数组才收，混了非字符串/单串整体丢', () => {
+    const keywordsOf = (keywords: unknown) =>
+      narrowCitations([{ cite_no: 1, name: 'a', keywords }])[0]?.keywords
+    expect(keywordsOf(['违约金', '解除'])).toEqual(['违约金', '解除'])
+    // 混了非字符串：只留字符串（高亮差一个词不该丢整条来源）
+    expect(keywordsOf(['违约金', 7])).toEqual(['违约金'])
+    // 不是数组：整体不要，不做按空格切词那种瞎猜
+    expect(keywordsOf('违约金')).toBeUndefined()
+    expect(keywordsOf([7])).toBeUndefined()
+  })
+})
+
+describe('mergeCitations：增量合并（citations 事件一轮可多次）', () => {
+  it('已有为空时直接得到新的一批', () => {
+    expect(mergeCitations(undefined, [cite(1)])).toEqual([cite(1)])
+    expect(mergeCitations([], [])).toEqual([])
+  })
+
+  it('新编号追加在后，旧编号原位覆盖（后到为准）', () => {
+    const merged = mergeCitations([cite(1, { name: '旧' }), cite(2)], [cite(1, { name: '新' }), cite(3)])
+    expect(merged.map((c) => c.citeNo)).toEqual([1, 2, 3])
+    expect(merged[0]?.name).toBe('新')
+  })
+
+  it('不改动入参（纯函数：store 里的旧引用表不被就地改写）', () => {
+    const existing = [cite(1)]
+    mergeCitations(existing, [cite(1, { name: '新' })])
+    expect(existing[0]?.name).toBe('材料1.pdf')
   })
 })
 

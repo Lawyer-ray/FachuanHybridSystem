@@ -6,8 +6,8 @@
  * 循环读到底（done 帧后由服务端关流），调用方无需提前退出。
  */
 
-import { agentOf, parseSseEvent, runIdOf, takeSseFrames } from './domain'
-import type { AgentStreamEvent } from './types'
+import { agentOf, narrowCitations, parseSseEvent, runIdOf, takeSseFrames } from './domain'
+import type { AgentStreamEvent, CitationRef } from './types'
 
 type ToolCallEvent = Extract<AgentStreamEvent, { type: 'tool_call' }>
 type ToolResultEvent = Extract<AgentStreamEvent, { type: 'tool_result' }>
@@ -71,6 +71,18 @@ export interface StreamHandlers {
    * services/question.py），由 domain/question.normalizeQuestions 宽容解析。
    */
   onQuestion?(event: QuestionEvent, origin: EventOrigin): void
+  /**
+   * 引用表增量（逐句溯源）。
+   *
+   * 一轮内可多次到达（后端按检索/引用产生顺序分段推），调用方必须**追加合并**而
+   * 不是替换。载荷已是收窄后的 `CitationRef`（snake_case → camelCase 只在
+   * domain/knowledge.narrowCitations 一处做）。可选实现：不实现就等于把溯源丢掉
+   * ——正文里的 `[Kn]` 仍会渲染成纯文本，只是点不开。
+   *
+   * `origin` 不可省：多答时两栏各有自己的引用，写死主栏会把 A 栏引的材料挂到
+   * B 栏的回答下面（点开的那份不是那句话的出处）。
+   */
+  onCitations?(citations: CitationRef[], origin: EventOrigin): void
   /** 排队事件：前方名次（1 起，含自己在队列中的位置） */
   onQueued(position: number): void
   /** 上下文压缩进行/完成（自动压缩原本无声，律师会以为 AI「失忆」） */
@@ -142,6 +154,12 @@ function explicitAgentOf(event: object): string {
   return ((event as { agent?: string }).agent ?? '').trim()
 }
 
+/**
+ * `citations` 事件的载荷（原始形状，未收窄）；不是引用事件时返回 `null`。
+ *
+ * 为什么不用 `case 'citations'` 见读循环里的注释：事件联合类型是后端生成物，
+ * 前端不能先手改（会被 CI 的逐字节契约比对打回），所以这里用形状判据取值。
+ */
 /** 消费一条 agent SSE 流，逐帧分发；流读尽或中途异常时返回/抛出。 */
 export async function consumeAgentStream(resp: Response, h: StreamHandlers): Promise<StreamOutcome> {
   const reader = resp.body!.getReader()
@@ -178,6 +196,9 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
       if (!event) continue
       // 每帧自己的来源：双答时两个 agent 的事件交替到达，绝不能记在 handler 上
       const origin: EventOrigin = { kind: agentOf(event), runId: runIdOf(event) }
+      // 逐句溯源：`citations`（增量事件，一轮可多次）。
+      //
+      // 为什么不写成 `case 'citations'`：`AgentStreamEvent` 是后端 pydantic 的
       switch (event.type) {
         case 'thinking':
           h.onProgress()
@@ -186,6 +207,11 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
         case 'delta':
           h.onProgress()
           h.onDelta(event.content, origin)
+          break
+        case 'citations':
+          // 入站引用（逐句溯源）：一轮内可多次到达，每次只带新增那几条。
+          // 收窄只有一处（narrowCitations），实时与历史回放共用同一判据。
+          h.onCitations?.(narrowCitations(event.citations), origin)
           break
         case 'tool_call':
           h.onProgress()

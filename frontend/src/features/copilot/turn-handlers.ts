@@ -13,6 +13,7 @@ import {
   emptyTurnStats,
   estimateTokens,
   extractRewriteArgs,
+  mergeCitations,
   normalizeQuestions,
   parseFileRewrite,
 } from './domain'
@@ -146,6 +147,23 @@ export function createTurnHandlers(
           },
         }
       })
+    },
+    onCitations: (citations, origin) => {
+      if (citations.length === 0) return
+      // 引用表落在**该栏自己的**气泡上：多答时两栏可能引完全不同的材料，写死
+      // 主栏会让 B 栏那句「见[K1]」点开的是 A 栏的证据。与正文/工具行走同一张
+      // 路由表（targetOf），单栏时它回落默认气泡，口径与引入多答前一致。
+      //
+      // 写进气泡本身就是「流内缓存」：这一轮的正文在收尾落库前只活在这里，
+      // 角标要能立刻点开就只能挑这条消息；刷新后另由 metadata.citations 重建
+      // （见 domain/transcript.historyToMessages）。同 citeNo 后到为准，见
+      // mergeCitations（增量事件可能先给名字、后补页码/原文）。
+      const targetId = targetOf(origin.kind)
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === targetId ? { ...m, citations: mergeCitations(m.citations, citations) } : m,
+        ),
+      }))
     },
     onToolCall: (event, origin) => {
       // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）。

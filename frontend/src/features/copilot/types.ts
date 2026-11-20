@@ -11,6 +11,7 @@
  */
 
 import type { CitationRef } from './domain/knowledge'
+import type { LaneUsage } from './domain/usage'
 import type { QuestionItem } from './domain/question'
 
 export type { CitationRef, CitationKind } from './domain/knowledge'
@@ -224,6 +225,15 @@ export interface ChatMessage {
    * 缺字段 = 本轮没有来源（旧数据 / 后端未接），不是「引用丢失」。
    */
   citations?: CitationRef[]
+  /**
+   * 这一栏这一轮的历史用量（刷新后栏头 chip 的数据源）。
+   *
+   * 与 `turnStatsByLane`（内存里只活一轮）是**同一形状的两种来源**：那份是实时账、
+   * 每轮清空；这份来自后端落库的 `metadata.usage_by_lane` + `ttft_ms`，由
+   * `domain/usage.laneUsageFromMetadata` 收窄。两条来源共用一个 `LaneUsage`，
+   * 否则刷新前后同一栏会出现两个数。
+   */
+  laneUsage?: LaneUsage
   /**
    * 单栏时「此刻在等哪个工具返回」（驱动气泡内的「正在查 XX…」）。
    *
