@@ -12,12 +12,7 @@ from typing import Any
 import pytest
 
 from apps.agent.services.review import judge_client
-from apps.agent.services.review.judge_client import (
-    JUDGE_MAX_ATTEMPTS,
-    JudgeReply,
-    judge_once,
-    judge_with_retry,
-)
+from apps.agent.services.review.judge_client import JUDGE_MAX_ATTEMPTS, JudgeReply, judge_once, judge_with_retry
 from apps.core.llm.exceptions import LLMTimeoutError
 
 _GOOD = '{"criteria_met": true, "explanation": "满足", "evidence_quote": "第 3 条"}'
@@ -209,7 +204,11 @@ class TestLlmJudgeWiring:
                 captured.update(kwargs)
                 return _FakeResponse()
 
-        monkeypatch.setattr(judge_client, "get_llm_service", lambda: _FakeService())
+        async def _fake_async_service():  # 测试替身：judge 现在走 async 门面
+
+            return _FakeService()
+
+        monkeypatch.setattr(judge_client, "_async_llm_service", _fake_async_service)
 
         reply = await judge_once(prompt="PROMPT", judge_model="judge-real")
 

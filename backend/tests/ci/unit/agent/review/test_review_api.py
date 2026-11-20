@@ -51,7 +51,11 @@ def _request(user: Any) -> SimpleNamespace:
 
 def _make_user(username: str = "review_api_user") -> Any:
     firm = LawFirm.objects.create(name=f"评审测试所-{username}")
-    return Lawyer.objects.create_user(username=username, password="x-test-12345678", law_firm=firm)
+    return Lawyer.objects.create_user(
+        username=username,
+        password="x-test-12345678",  # pragma: allowlist secret（测试固定口令，非真实凭证）
+        law_firm=firm,
+    )
 
 
 def _make_three_lane_session(user: Any) -> AgentSession:
@@ -72,7 +76,11 @@ def test_three_lane_review_persists_and_replays(monkeypatch: pytest.MonkeyPatch)
     user = _make_user()
     session = _make_three_lane_session(user)
     service = _FakeJudgeService()
-    monkeypatch.setattr(judge_client, "get_llm_service", lambda: service)
+
+    async def _fake_async_service():  # 测试替身：judge 现在走 async 门面
+        return service
+
+    monkeypatch.setattr(judge_client, "_async_llm_service", _fake_async_service)
 
     review = async_to_sync(review_api.review_session)(
         _request(user),
@@ -106,7 +114,11 @@ def test_review_rejects_foreign_session_with_404(monkeypatch: pytest.MonkeyPatch
     owner = _make_user("review_owner")
     intruder = _make_user("review_intruder")
     session = _make_three_lane_session(owner)
-    monkeypatch.setattr(judge_client, "get_llm_service", lambda: _FakeJudgeService())
+
+    async def _fake_async_service():  # 测试替身：judge 现在走 async 门面
+        return _FakeJudgeService()
+
+    monkeypatch.setattr(judge_client, "_async_llm_service", _fake_async_service)
 
     with pytest.raises(HttpError) as exc:
         async_to_sync(review_api.review_session)(
@@ -123,7 +135,11 @@ def test_review_rejects_foreign_session_with_404(monkeypatch: pytest.MonkeyPatch
 def test_review_rejects_unknown_rubric_and_out_of_range_turn(monkeypatch: pytest.MonkeyPatch) -> None:
     user = _make_user("review_bad_input")
     session = _make_three_lane_session(user)
-    monkeypatch.setattr(judge_client, "get_llm_service", lambda: _FakeJudgeService())
+
+    async def _fake_async_service():  # 测试替身：judge 现在走 async 门面
+        return _FakeJudgeService()
+
+    monkeypatch.setattr(judge_client, "_async_llm_service", _fake_async_service)
 
     with pytest.raises(HttpError) as unknown:
         async_to_sync(review_api.review_session)(

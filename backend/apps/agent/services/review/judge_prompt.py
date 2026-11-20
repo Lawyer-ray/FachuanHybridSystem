@@ -138,6 +138,31 @@ def build_prompt(channel: str, nonce: str, *, task: str, submission: str, criter
 """
 
 
+#: 判定字段的"裸值"扫描式（仅在整段 JSON 解析失败时兜底用，见 ``_salvage_verdict``）。
+#: 只认裸 ``true`` / ``false`` / ``null``——``"true"``（带引号）是协议偏离，不能在这里被救活。
+_CRITERIA_BARE_RE = re.compile(r'"criteria_met"\s*:\s*(true|false|null)\b')
+
+
+def _salvage_verdict(text: str) -> object:
+    """整段 JSON 解析失败时，只把 ``criteria_met`` 捞回来（其它字段放弃）。
+
+    为什么需要：judge 的输出被 ``max_tokens`` 截断时，JSON 缺右括号，``json.loads``
+    必然失败——真机实测 21 条判定里 7 条因此变成 ``parse_failed``（33%）。而判定本身
+    往往已经写在最前面（``{"criteria_met": true, "explanation": "...被截断"``），
+    为一句解释丢掉整条判定，等于让"输出太长"变成"判不了"。
+
+    只捞**判定**、不猜解释：截断的解释本来就不完整，留着会误导"这条为什么不过"。
+    出现两个不同值时判为歧义（返回 ``_MISSING``）——宁可不判，不能猜。
+    """
+    found = {match.group(1) for match in _CRITERIA_BARE_RE.finditer(text)}
+    if len(found) != 1:
+        return _MISSING
+    raw = found.pop()
+    if raw == "null":
+        return None
+    return raw == "true"
+
+
 def _load_json(text: str) -> object:
     """按 ①整段 ②最后一个 json 围栏块 ③最后一个平衡对象 的顺序尝试解析。"""
     candidates = [text.strip()]
@@ -218,7 +243,16 @@ def parse_verdict(text: str) -> ParsedVerdict:
 
     data = _load_json(text)
     if data is _MISSING or not isinstance(data, dict):
-        return ParsedVerdict(unscored_reason=_PARSE_FAILED)
+        salvaged = _salvage_verdict(text)
+        if salvaged is _MISSING:
+            return ParsedVerdict(unscored_reason=_PARSE_FAILED)
+        # 截断/夹带其它文本：判定救回来，解释与证据留空（截断的解释会误导）
+        return ParsedVerdict(
+            criteria_met=salvaged,
+            explanation="",
+            evidence_quote="",
+            unscored_reason="" if salvaged is not None else _UNJUDGEABLE,
+        )
 
     value = data.get("criteria_met", _MISSING)
     if value is _MISSING:

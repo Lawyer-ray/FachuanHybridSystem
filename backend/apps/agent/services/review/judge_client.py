@@ -19,9 +19,9 @@ import random
 import secrets
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
 from apps.core.llm.exceptions import LLMError, LLMTimeoutError
-from apps.core.llm.service import get_llm_service
 
 from .judge_prompt import ParsedVerdict, build_prompt, parse_verdict
 
@@ -30,7 +30,7 @@ JUDGE_MAX_ATTEMPTS = 2
 #: 单次调用的硬超时（秒）。计划文档 §6.3 的 ``JUDGE_PER_ITEM_TIMEOUT``。
 JUDGE_TIMEOUT_SECONDS = 60.0
 #: judge 输出很短（一个 JSON 对象），不需要长输出预算。
-JUDGE_MAX_TOKENS = 512
+JUDGE_MAX_TOKENS = 900
 #: 指数退避基数 / 上限 / 抖动（秒），口径见计划文档 §6.7。
 JUDGE_BACKOFF_BASE = 0.5
 JUDGE_BACKOFF_CAP = 4.0
@@ -69,9 +69,39 @@ class JudgeOutcome:
 JudgeCall = Callable[[str, str], Awaitable[JudgeReply]]
 
 
+#: 进程级缓存的 **async 安全** LLM 门面（见 ``_async_llm_service``）。
+_async_service: Any | None = None
+_async_service_lock: asyncio.Lock | None = None
+
+
+async def _async_llm_service() -> Any:
+    """取一个 async 安全的 ``LLMService``（进程内缓存）。
+
+    **不能直接用 ``get_llm_service()``**：它同步构造，在 async 上下文里首次读配置会走
+    同步 ORM，抛 ``SynchronousOnlyOperation``；fallback 策略把异常吞成「后端不可用」，
+    最终表现为「21 条判定全是 ``judge_error``」——真机跑出来就是 22 条全判不了，
+    而单测因为注入了 ``call_judge`` 全绿（这正是 ``agent-runtime.md`` 记的 SyncToAsync 坑）。
+
+    ``LLMService.create()`` 是官方异步工厂：它先把 provider / key / base_url 预热进缓存，
+    之后 ``is_available()`` 不再触库。第一次调用贵一次，之后进程内复用。
+    """
+    global _async_service, _async_service_lock
+    if _async_service is not None:
+        return _async_service
+    if _async_service_lock is None:
+        _async_service_lock = asyncio.Lock()
+    async with _async_service_lock:
+        if _async_service is None:
+            from apps.core.llm.service import LLMService
+
+            _async_service = await LLMService.create()
+    return _async_service
+
+
 async def _llm_judge(prompt: str, judge_model: str) -> JudgeReply:
     """走统一 LLM 门面调一次 judge（生产实现）。"""
-    response = await get_llm_service().achat(
+    service = await _async_llm_service()
+    response = await service.achat(
         messages=[{"role": "user", "content": prompt}],
         model=judge_model,
         temperature=0.0,
