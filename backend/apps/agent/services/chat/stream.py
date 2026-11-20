@@ -5,12 +5,14 @@
 后端只吐事件，本层把事件先入账再转发，保证「客户端断开时已送达的增量已经在落库
 缓冲里」。
 
-## 遗留的 pi 直接依赖
+## 错误文案从哪来
 
-``PoolQueueTimeoutError`` / ``PiError`` / ``PiNotAvailableError`` 仍从 pi 包里 import：
-它们是**pi 特有异常**，本层要按异常类型给出不同文案（排队超时是「忙」不是故障，
-pi 不可用要引导找管理员）。等接入第二个后端时再收敛成统一的 ``BackendError``
-层次——现在先统一会让「哪个后端坏了」的信息在翻译时丢掉。
+本层不再手写 ``{"type": "error", "message": ...}``：所有错误帧都经
+``errors.project`` 投影成 ``code`` / ``scope`` / ``detail`` / ``message``。按异常
+类型分 ``except`` 只剩一个用途——**运维账本的 ``AgentRun.error_kind``**
+（``pi_unavailable`` / ``queue_timeout`` …，DB 里的历史短串，改名等于历史数据
+对不上）。给律师看的措辞与给前端分支的 ``code`` 一律由 ``errors.py`` 决定：
+两套词汇各为各的目的存在，混用会让其中一方被迫冻结。
 """
 
 from __future__ import annotations
@@ -24,15 +26,18 @@ from dataclasses import dataclass
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.core.cache import cache
 from django.utils import timezone
 
 from ...backends import RunContext
 from ...backends import get as get_backend
 from ...backends.builtin import ensure_registered
+from ...errors import AuthFailedError, project
 from ...models import AgentMessage, AgentSession
 from ...pi.pool import PoolQueueTimeoutError
 from ...pi.rpc_client import PiError, PiNotAvailableError
-from ..event_bus import get_bus
+from ...sse_types import FinishReason
+from ..event_bus import get_bus, redis_cache_enabled
 from ..history import render_transcript
 from ..memory_tasks import enqueue_extraction
 from ..session_cleanup import has_pi_session
@@ -42,6 +47,68 @@ logger = logging.getLogger(__name__)
 
 #: 会话标题缺省取首条用户消息的前若干字（侧边栏会话列表用）
 AUTO_TITLE_LIMIT = 30
+
+#: 轮次计数键前缀（Redis INCR）：``agent:run:seq:{session_id}`` → 1, 2, 3 …
+_RUN_SEQ_KEY_PREFIX = "agent:run:seq:"
+#: 计数键的存活窗口（秒）。7 天：够覆盖同一会话的连续追问，又不会给每个会话
+#: 永久留一个键（会话数量只增不减）。窗口内不复位 = ``run_id`` 在同一会话内
+#: 单调递增；键过期后从 1 重新开始，旧 run 早已跑完，不会混淆。
+_RUN_SEQ_TTL = 7 * 24 * 3600
+
+
+def _next_turn_sync(session_id: str) -> int | None:
+    """本会话的下一轮次号；拿不到（无 Redis / 调用失败）返回 ``None``。
+
+    同步函数：Redis 的 IO 不能占着事件循环（``cache.incr`` 在网关/网络抖动时
+    可能阻塞到 socket 超时，那会把**所有**并发会话的 SSE 一起拖住）。调用方经
+    ``sync_to_async(thread_sensitive=False)`` 放到线程里跑。
+    """
+    if not redis_cache_enabled():
+        # 非 Redis 缓存（开发环境的 LocMem / 测试的 Dummy）里计数器是**进程内**的：
+        # 两个 worker 各自从 1 开始，反而会造出跨 worker 的重复 run_id——那比
+        # 固定 ``:1`` 更危险（前端把两个 run 的事件归成一个）。所以直接不计数。
+        return None
+    key = f"{_RUN_SEQ_KEY_PREFIX}{session_id}"
+    try:
+        # ``add`` 只负责建档（键已存在时是 no-op，不会把计数打回 0），
+        # ``incr`` 才是原子的 INCRBY。
+        cache.add(key, 0, _RUN_SEQ_TTL)
+        turn = int(cache.incr(key))
+        # 滑动窗口：只 touch 不支持就算了（部分后端没有），计数本身仍然正确。
+        with contextlib.suppress(Exception):
+            cache.touch(key, _RUN_SEQ_TTL)
+        return turn
+    except Exception:
+        # Redis 挂了**不能**让对话失败：run_id 退回 ``:1``（引入本能力之前的行为），
+        # 审批回调与 ``result_for`` 仍按整串归因，只是跨轮不再唯一。
+        logger.warning("轮次计数失败，run_id 回落为 :1 session=%s", session_id, exc_info=True)
+        return None
+
+
+async def next_run_turn(session_id: str) -> int:
+    """本会话的下一轮次号（Redis ``INCR``；不可用时恒 ``1`` = 旧行为）。
+
+    为什么轮次必须真递增：``run_id = {session}:{kind}:{turn}`` 是前端按 run
+    归集用量的唯一键。恒为 ``1`` 时同一会话的第二轮与第一轮共用一个 run_id，
+    用量、审批与 ``backend.result_for`` 全归到同一格里——多轮一跑就串账。
+
+    **同一轮的多栏必须共用同一个 turn**：多答（``multi.py``）在开流前调一次，
+    把结果逐栏传下去（``stream_chat(turn=...)``）。各栏各自 INCR 会让「同一轮」
+    的三栏拿到 1/2/3，前端再也无法把三条 run 认成一次提问。
+    """
+    turn = await sync_to_async(_next_turn_sync, thread_sensitive=False)(session_id)
+    return turn if turn is not None else 1
+
+
+def _lane_finish_reason(*, cancelled: bool, follow_ok: bool) -> FinishReason:
+    """单栏视角的「这轮怎么结束的」（与 ``done.finish_reason`` 同一枚举）。
+
+    ``cancelled`` 只在落库 metadata 里出现：客户端断开时生成器已被关闭，没有
+    通道发 ``done``（见 ``sse_types.WIRE_UNREACHABLE``）。
+    """
+    if cancelled:
+        return "cancelled"
+    return "ok" if follow_ok else "error"
 
 
 @dataclass(frozen=True)
@@ -154,6 +221,7 @@ async def stream_chat(
     model: str | None = None,
     api_key: str | None = None,
     context: ContextPrep | None = None,
+    turn: int | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """跑一轮对话，产出 SSE 事件。
 
@@ -198,6 +266,9 @@ async def stream_chat(
             与引入本参数前逐字一致。多答路径传 ``stream_multi`` 算好的那一份：
             N 栏问的是同一个律师、同一个会话、同一条提问，这些事只该做一次
             （见 ``ContextPrep``）。
+        turn: 本轮轮次号（:func:`next_run_turn` 的产物）。``None`` = 本函数自己
+            取一次（单栏路径）。多答路径**必须**传入算好的同一个值：各栏各自
+            取号会让同一轮的三栏拿到不同 turn，前端无法把它们认成一次提问。
     """
     # 先确保内置后端已注册（幂等）：注册表是进程内全局状态，可能被清空过；
     # 取后端之前补一次，比依赖「app 启动时那一次」稳得多（见 builtin 模块说明）。
@@ -217,9 +288,11 @@ async def stream_chat(
     if context is None:
         try:
             context = await prepare_context(session=session, user_id=user_id, user_message=user_message)
-        except Exception:
+        except Exception as exc:
             logger.exception("为用户 %s 铸造 agent 凭证失败，拒绝本轮对话", user_id)
-            yield {"type": "error", "message": "无法为当前用户签发工具访问凭证，请联系管理员"}
+            # 投影而不是手写：这个 code（``auth_failed``）是前端「该重新登录还是
+            # 找管理员」的唯一依据，手写一份就多一处拼写会漂。
+            yield project(AuthFailedError(reason=str(exc)), agent=backend.kind)
             return
 
     session_id = str(session.session_id)
@@ -236,9 +309,18 @@ async def stream_chat(
     profile.since("stream.pre_stream_total", prep_started, agent=backend.kind, session=session_id)
 
     # 本轮运行 id：``{session_id}:{agent_kind}:{轮次}``，审批回调与运行记录都靠它归因。
-    # 轮次序号**暂固定为 1**：现在每会话同一时刻只有一轮在跑，多 agent 并行上线时
-    # 再按会话内的并发轮次递增（届时审批弹窗才需要区分「同会话第几轮」）。
-    run_id = f"{session_id}:{backend.kind}:1"
+    #
+    # 轮次由 ``next_run_turn`` 取（Redis INCR，按会话）：以前恒 ``:1``，同一会话
+    # 的第二轮与第一轮共用一个 run_id，前端按 run 归集用量时两轮混成一格。
+    #
+    # 改这个后缀是安全的，已核查全部消费者：``FACHUAN_RUN_ID`` 只被
+    # ``pi/approval-gate.ts`` 原样回填进审批请求体（不做分段解析），后端
+    # ``approval.py`` 按整串存库，``backend.result_for(run_id)`` / ``live_sessions``
+    # 用整串做字典键。全仓没有按 ``endswith(':1')`` / ``split(':')[2]`` 的匹配，
+    # 所以「后缀必须是 1」从来不是契约的一部分——真正的契约是**同一轮各栏共享
+    # 一个 turn、不同轮不同 turn**。
+    turn_no = turn if turn is not None else await next_run_turn(session_id)
+    run_id = f"{session_id}:{backend.kind}:{turn_no}"
     if memo is not None:
         # 事件里的 run_id 与这里同源：调用方靠它把事件归到正确的栏（见 dual.py
         # 的 StreamMemo 说明），不要在两处各推导一遍。
@@ -370,23 +452,26 @@ async def stream_chat(
         follow_ok = False
         error_kind = "pi_unavailable"
         logger.error("pi 不可用: %s", exc)
-        yield {"type": "error", "message": "pi 运行时不可用，请联系管理员（详见服务端日志）"}
+        yield project(exc, agent=backend.kind, run_id=run_id)
     except PoolQueueTimeoutError as exc:
         # 排队超时是「忙」，不是故障：给出可读提示，不要把堆栈吐给律师
         follow_ok = False
         error_kind = "queue_timeout"
         logger.warning("agent 进程池排队超时: %s", exc)
-        yield {"type": "error", "message": "当前使用人数较多，请稍后重试"}
+        yield project(exc, agent=backend.kind, run_id=run_id)
     except PiError as exc:
         follow_ok = False
         error_kind = "pi_error"
         logger.error("pi 运行失败: %s", exc)
-        yield {"type": "error", "message": "pi 运行失败，请稍后重试（详见服务端日志）"}
-    except Exception:
+        yield project(exc, agent=backend.kind, run_id=run_id)
+    except Exception as exc:
         follow_ok = False
         error_kind = "unexpected"
         logger.exception("Agent runtime 未预期错误")
-        yield {"type": "error", "message": "Agent 运行失败，请稍后重试"}
+        # 兜底分支也要投影：上游 SDK 的异常可能是限流/超时/上下文超限（dsh /
+        # openai-agents 抛的 ``BackendError`` 就落在这里），一律说成「运行失败」
+        # 会让前端丢掉「等一会儿就好」这个可执行结论。
+        yield project(exc, agent=backend.kind, run_id=run_id)
     finally:
         # 注意：生成器的 finally 里**不能 yield**。客户端断开时本协程会收到
         # GeneratorExit，此时再 yield 会抛 RuntimeError（"async generator ignored
@@ -428,6 +513,19 @@ async def stream_chat(
                 assistant_metadata["output_tokens"] = output_tokens_total
             if cancelled or not follow_ok:
                 assistant_metadata["truncated"] = True
+            # “这轮怎么结束的”落库：历史回放（重开会话 / 第二天再看）拿不到 SSE，
+            # 只有这一份记录。前端 ``turn-actions.canContinue`` 靠它判断「能不能
+            # 继续生成」，旧实现只能看 ``truncated``，而「降级」与「取消」在
+            # ``truncated`` 里长得一模一样。
+            #
+            # 值是 ``FinishReason``（与 ``done.finish_reason`` 同一枚举）：
+            # ``cancelled`` 只可能出现在这里——客户端断开时生成器已被关闭，
+            # 根本没有通道发 ``done``（见 ``sse_types.WIRE_UNREACHABLE``）。
+            #
+            # 多答路径（``multi.py``）会在整轮结束后用**轮级**结论覆盖这个值：
+            # 单栏视角说 ok 的那一栏，可能同轮的另一栏已经炸了（轮级 = degraded）。
+            # 这里先写栏级值是取消/中途失败时的兜底（那时 multi 的收尾代码跑不到）。
+            assistant_metadata["finish_reason"] = _lane_finish_reason(cancelled=cancelled, follow_ok=follow_ok)
         if memo is not None:
             # 交回调用方落库（persist_assistant=False）：正文与 metadata 都要给，
             # 否则调用方只能自己重算一遍 token 与截断标记，两处必然漂移。
@@ -450,10 +548,16 @@ async def stream_chat(
                 task = asyncio.ensure_future(persist_coro)
                 task.add_done_callback(persist._log_task_failure)
                 with contextlib.suppress(asyncio.CancelledError):
-                    await asyncio.shield(task)
+                    message = await asyncio.shield(task)
+                    if memo is not None:
+                        memo.message_id = message.pk
             else:
                 try:
-                    await persist_coro
+                    message = await persist_coro
+                    if memo is not None:
+                        # 主键交回调用方：多答要用它把**轮级** finish_reason 写进
+                        # 这一行（见 ``multi._stamp_turn_finish_reason``）。
+                        memo.message_id = message.pk
                 except Exception:
                     logger.warning("助手消息落库失败", exc_info=True)
 

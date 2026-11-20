@@ -17,6 +17,7 @@ from ninja.errors import HttpError
 from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limit
 from apps.core.security.auth import JWTOrSessionAuth
 
+from ..errors import SessionNotFoundError, TooManyAgentsError, project
 from ..models import AgentMessage
 from ..pi.rpc_client import PiError
 from ..schemas import ClearQueueOut, MessageIn, MessageOut, SteerIn, SteerOut
@@ -128,7 +129,7 @@ async def send_message(  # pragma: no cover
         return StreamingHttpResponse(
             # 必须传可迭代对象：直接传 bytes 会被逐字节迭代成 int，
             # 前端收到的是一串十进制数字
-            iter([_sse({"type": "error", "message": "会话不存在"})]),
+            iter([_sse(project(SessionNotFoundError(session_id=session_id)))]),
             content_type="text/event-stream",
         )
 
@@ -137,7 +138,7 @@ async def send_message(  # pragma: no cover
         # 跨到 StreamingHttpResponse 的异步迭代阶段可能已失效。
         current = await get_session_record(session_id=session_id, user_id=user_id)
         if current is None:
-            yield _sse({"type": "error", "message": "会话不存在"})
+            yield _sse(project(SessionNotFoundError(session_id=session_id)))
             return
         # 本轮参与方：``agents`` 显式优先，否则退回旧前端的 ``dual`` 开关。
         #
@@ -148,11 +149,16 @@ async def send_message(  # pragma: no cover
 
         if len(specs) > MAX_ANSWERS:
             # 不静默截断：静默截断会让用户以为选中的都跑了，实际少跑了几个还看不出来。
+            # ``detail`` 带上两个数：前端能直接说「最多 4 栏，你选了 6 栏」，
+            # 不用从中文文案里再抠数字。
             yield _sse(
-                {
-                    "type": "error",
-                    "message": f"一次最多同时问 {MAX_ANSWERS} 个 agent，本轮收到 {len(specs)} 个",
-                }
+                project(
+                    TooManyAgentsError(
+                        f"一次最多同时问 {MAX_ANSWERS} 个 agent，本轮收到 {len(specs)} 个",
+                        requested=len(specs),
+                        max=MAX_ANSWERS,
+                    )
+                )
             )
             return
 
@@ -179,9 +185,13 @@ async def send_message(  # pragma: no cover
         try:
             async for event in events:
                 yield _sse(event)
-        except Exception:
+        except Exception as exc:
+            # 走到这里说明异常穿过了整层编排（stream / multi 自己已把可预期错误
+            # 转成 error 帧）——仍用投影而不是手写：来的是 ``LookupError``
+            # （未知后端）还是上游 SDK 错误，前端需要那个 ``code`` 才能给出
+            # 「换一栏」还是「稍后重试」的可执行建议。
             logger.exception("SSE 生成器异常")
-            yield _sse({"type": "error", "message": "流处理异常，请稍后重试"})
+            yield _sse(project(exc, message="流处理异常，请稍后重试"))
 
     response = StreamingHttpResponse(generator(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"

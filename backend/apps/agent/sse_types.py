@@ -38,6 +38,20 @@ FinishReason = Literal["ok", "degraded", "error", "cancelled"]
 #: SSE 上**不可达**的 ``finish_reason``：只在落库 metadata 里出现。
 WIRE_UNREACHABLE: frozenset[str] = frozenset({"cancelled"})
 
+#: ``error.scope``：这错该由**谁**来修。
+#:
+#: 为什么不只给一个 code：律师看到「限流」时该做的是等 15 秒，看到「后端不可用」
+#: 时该做的是找管理员——两者都能用 code 区分，但前端还要决定「这句话该不该带
+#: 一个『联系管理员』按钮」。scope 就是这个粗粒度结论，它比 code 稳定得多
+#: （新增 code 时不必回头改前端的分组逻辑）。
+#:
+#: - ``account``：律师/账号侧（限流、配额、凭证）——通常等一等或重新登录就能过；
+#: - ``model``：后端或模型侧（不可用、上游超时）——律师改不了，要报给管理员；
+#: - ``request``：这次请求本身（上下文超限、参数太多、会话不存在）——换问法/新开会话；
+#: - ``tool``：工具调用参数（模型生成错了，先回给模型改）；
+#: - ``unknown``：兜底（保持与引入 scope 之前的旧前端兼容）。
+ErrorScope = Literal["account", "model", "request", "tool", "unknown"]
+
 
 class _RunScoped(BaseModel):
     """「属于某次运行」的公共信封。
@@ -145,12 +159,48 @@ class UsageEvent(_RunScoped):
     cache_write_tokens: int = 0
 
 
+class QuestionOption(BaseModel):
+    """一个可选项（字段与 ``question.normalize_questions`` 的产物逐字对应）。
+
+    声明它而不是让 questions 继续写成 ``list[dict[str, Any]]``：后者在 OpenAPI/
+    TS 里只有 ``Record<string, unknown>``，前端只能照着后端代码猜字段名——而
+    「查 OpenAPI 才能写前端」是硬约定。字段名来自 ``normalize_questions`` 的
+    实际产物，由 ``test_agent_question_spec_contract`` 逐字段比对（漂移会红）。
+    """
+
+    label: str
+    #: 补充说明（模型可留空）；前端渲染成选项下的灰字。
+    description: str = ""
+
+
+class QuestionSpec(BaseModel):
+    """一道待回答的问题。
+
+    **不做运行时校验**：这是线路契约声明，不是入口校验器。真正的归一化在
+    ``services/question.normalize_questions``（它要宽容解析模型的多种写法），
+    在这里再套一层 pydantic 只会把「模型写法怪」变成「提问直接失败」。
+    """
+
+    #: 答案回填的对齐键（服务端生成，模型给的可能重复）
+    id: str
+    question: str
+    #: 为什么问这个（模型给的上下文，可空）
+    context: str = ""
+    options: list[QuestionOption] = []
+    #: 是否允许自由文本作答（默认允许：律师常常要补充选项外的情况）
+    allow_freeform: bool = True
+    #: 是否允许多选
+    allow_multiple: bool = False
+    #: 是否允许附加评论
+    allow_comment: bool = False
+
+
 class QuestionRequestEvent(_RunScoped):
     """模型向律师提问（不是审批：超时不阻断，模型按假设继续）。"""
 
     type: Literal["question_request"]
     question_id: str
-    questions: list[dict[str, Any]] = []
+    questions: list[QuestionSpec] = []
     timeout_seconds: int = 180
 
 
@@ -166,10 +216,26 @@ class CompactionEvent(_RunScoped):
 
 
 class ErrorEvent(_RunScoped):
-    """流内错误（已翻译成人话）"""
+    """流内错误（已翻译成人话 + 稳定错误码）。
+
+    ``message`` 是给律师看的句子（可改、可润色）；``code`` 是给程序分支的稳定
+    枚举串（**一旦发出就不能改语义**，见 ``errors.py`` 的红线）。
+
+    历史教训：此前只有 ``message``，前端 ``domain/error.ts`` 只能对中文文案做
+    ``includes`` 归类——后端把「当前使用人数较多」改一个字，前端的「限流」分类
+    就静默退回「未知错误」，没有任何测试会红。
+    """
 
     type: Literal["error"]
     message: str
+    #: 稳定错误码（``errors.ERROR_CODES`` 之一；空串 = 引入 code 之前的旧数据）。
+    code: str = ""
+    #: 这错该由谁修（见 :data:`ErrorScope`）。
+    scope: ErrorScope = "unknown"
+    #: 「人能拿去修」的参数：哪个后端、哪个模型、还能等几秒、哪把 key。
+    #: 形状按 code 而定（见 ``errors.py`` 的各类 ``detail()``），刻意不写成固定
+    #: 模型：把 union 塞进契约会让前端为每个 code 各写一个分支才能读一个字段。
+    detail: dict[str, Any] = Field(default_factory=dict)
 
 
 class UnknownEvent(_RunScoped):
@@ -256,8 +322,13 @@ def _ts_literal(values: tuple[object, ...]) -> str:
     return " | ".join(parts)
 
 
-def _ts_type(annotation: Any) -> str:
-    """把一个 Python 注解映射成 TS 类型；未知一律 ``unknown``（宁可松，不可错）。"""
+def _ts_type(annotation: Any, depth: int = 1) -> str:
+    """把一个 Python 注解映射成 TS 类型；未知一律 ``unknown``（宁可松，不可错）。
+
+    ``depth`` 只影响**嵌套模型**的缩进（见 :func:`_ts_object`）：``QuestionSpec``
+    这类嵌套对象展开成内联对象字面量，缩进必须跟调用处对齐，否则读起来像另一
+    个字段。
+    """
     if annotation is type(None):
         return "null"
     if annotation is str:
@@ -266,16 +337,20 @@ def _ts_type(annotation: Any) -> str:
         return "boolean"
     if annotation in (int, float):
         return "number"
+    # 嵌套 pydantic 模型 → 内联对象字面量。不能退化成 ``unknown``：那样
+    # ``question_request.questions`` 的字段名又只剩前端猜（这正是本次要修的）。
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return _ts_object(annotation, depth)
     origin = get_origin(annotation)
     if origin is Literal:
         return _ts_literal(get_args(annotation))
     if origin in (Union, types.UnionType):
         args = [a for a in get_args(annotation) if a is not type(None)]
-        rendered = " | ".join(_ts_type(a) for a in args)
+        rendered = " | ".join(_ts_type(a, depth) for a in args)
         return f"{rendered} | null" if len(args) != len(get_args(annotation)) else rendered
     if origin in (list, set, tuple):
         args = get_args(annotation)
-        inner = _ts_type(args[0]) if args else "unknown"
+        inner = _ts_type(args[0], depth) if args else "unknown"
         # 联合类型做元素要加括号，否则 `a | b[]` 的优先级是错的
         return f"({inner})[]" if " | " in inner else f"{inner}[]"
     if origin is dict:
@@ -298,30 +373,35 @@ def _is_optional(model: type[BaseModel], name: str) -> bool:
     return True
 
 
-def _ts_model(model: type[BaseModel]) -> str:
-    """单个事件模型 → 一段 TS 对象类型。
+def _ts_object(model: type[BaseModel], depth: int = 1) -> str:
+    """一个 pydantic 模型 → 一段 TS 对象类型（顶层的 ``type`` 排第一）。
 
     ``type`` 排第一（它是判别式，读代码时先看到才知道这是哪种帧），其余按
     ``model_fields`` 的声明序——声明序就是文档顺序，前端读生成的 TS 时上下文一致。
+
+    ``depth`` 是缩进层级：顶层事件是 1（字段 4 空格、右花括号 2 空格，与历史
+    生成物逐字一致），嵌套模型逐层 +1。
     """
     names = list(model.model_fields)
     if "type" in names:
         names.remove("type")
         names.insert(0, "type")
+    pad = "  " * depth
+    inner_pad = "  " * (depth + 1)
     lines: list[str] = []
     for name in names:
         optional = _is_optional(model, name)
-        rendered = _ts_type(model.model_fields[name].annotation)
+        rendered = _ts_type(model.model_fields[name].annotation, depth + 1)
         if optional and rendered.endswith(" | null"):
             rendered = rendered[: -len(" | null")]
-        lines.append(f"    {name}{'?' if optional else ''}: {rendered}")
+        lines.append(f"{inner_pad}{name}{'?' if optional else ''}: {rendered}")
     body = "\n".join(lines)
-    return "{\n" + body + "\n  }"
+    return "{\n" + body + "\n" + pad + "}"
 
 
 def generate_ts() -> str:
     """生成 TypeScript 类型定义文件内容（从 ``model_fields`` 反射）。"""
-    members = "\n  | ".join(_ts_model(model) for model in EVENT_MODELS)
+    members = "\n  | ".join(_ts_object(model) for model in EVENT_MODELS)
     return (
         "/**\n"
         " * SSE 流事件类型（自动生成——python -m apps.agent.sse_types --ts）\n"

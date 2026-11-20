@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from ...models import AgentMessage, AgentRun, AgentSession
@@ -45,6 +46,35 @@ async def _persist_tool_message(session: AgentSession, event: dict[str, Any], ag
         )
     except Exception:
         logger.warning("工具消息落库失败", exc_info=True)
+
+
+async def _stamp_finish_reason(*, message_ids: Mapping[str, Any], finish_reason: str) -> None:
+    """把**轮级** ``finish_reason`` 回写到本轮已落库的助手消息（多答用）。
+
+    为什么必须由整轮覆写、而不是各栏写自己的：``degraded`` 是**轮级**事实
+    （「另外几栏没跑成」），单栏视角永远只会说 ok/error。前端
+    ``turn-actions.canContinue`` 靠这个值决定「继续生成」能不能点，而历史回放
+    没有 SSE 可看——只有这一份 metadata。
+
+    Args:
+        message_ids: ``kind -> StreamMemo``（只用它的 ``message_id`` / ``metadata``）。
+            这里不直接收 ``StreamMemo``：``persist`` 被 ``multi`` / ``stream`` 共同
+            依赖，反向 import 会形成环。
+        finish_reason: 轮级结论（``ok`` / ``degraded`` / ``error``）。
+    """
+    for agent, memo in message_ids.items():
+        message_id = getattr(memo, "message_id", None)
+        if not message_id:
+            # 这一栏没有正文（或落库失败 / 被取消）：没有可回写的行。
+            continue
+        metadata = {**getattr(memo, "metadata", {}), "finish_reason": finish_reason}
+        try:
+            await AgentMessage.objects.filter(pk=message_id).aupdate(metadata=metadata)
+        except Exception:
+            # 回写失败不能拖垮对话：done 仍要发（它是前端收栏的唯一信号）。
+            logger.warning(
+                "finish_reason 回写失败 message_id=%s agent=%s（不影响对话）", message_id, agent, exc_info=True
+            )
 
 
 async def _persist_compaction_message(session: AgentSession, label: str) -> None:

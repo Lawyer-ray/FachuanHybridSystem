@@ -78,7 +78,18 @@ export type AgentStreamEvent =
     run_id?: string
     agent?: string
     question_id: string
-    questions?: Record<string, unknown>[]
+    questions?: {
+      id: string
+      question: string
+      context?: string
+      options?: {
+        label: string
+        description?: string
+      }[]
+      allow_freeform?: boolean
+      allow_multiple?: boolean
+      allow_comment?: boolean
+    }[]
     timeout_seconds?: number
   }
   | {
@@ -92,6 +103,9 @@ export type AgentStreamEvent =
     run_id?: string
     agent?: string
     message: string
+    code?: string
+    scope?: 'account' | 'model' | 'request' | 'tool' | 'unknown'
+    detail?: Record<string, unknown>
   }
   | {
     type: 'unknown'

@@ -192,9 +192,13 @@ async def _collect(kinds: list[str], *, session_kind: str = PI) -> list[dict[str
     return [e async for e in multi.stream_multi(session=session, user_message="合同有效吗", user_id=None, kinds=kinds)]
 
 
-async def _collect_keeping_session(kinds: list[str], *, session_kind: str = PI) -> tuple[AgentSession, list[dict[str, Any]]]:
+async def _collect_keeping_session(
+    kinds: list[str], *, session_kind: str = PI
+) -> tuple[AgentSession, list[dict[str, Any]]]:
     session = await _make_session(session_kind)
-    events = [e async for e in multi.stream_multi(session=session, user_message="合同有效吗", user_id=None, kinds=kinds)]
+    events = [
+        e async for e in multi.stream_multi(session=session, user_message="合同有效吗", user_id=None, kinds=kinds)
+    ]
     return session, events
 
 
@@ -418,24 +422,36 @@ class TestUnknownKindDegradesOneColumn:
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
-    async def test_column_error_event_carries_no_losing_agent(self) -> None:
-        """已知缺口（已写进验收报告）：非主答栏的 error **不带** ``agent``。
+    async def test_column_error_event_carries_the_losing_agent(self) -> None:
+        """非主答栏的 error 必须带 ``agent``（否则前端挂不回那一栏）。
 
-        ``_pump_one`` 抛错时把 ``agent=""`` 写进事件，而消费侧用
-        ``_tag(event, kind, memo)`` 补—— ``setdefault`` 不会覆盖已存在的空串，
-        于是这条 error 落到 ``agent=""`` 上，前端无法把它挂回失败的那一栏。
+        历史缺口：``_pump_one`` 抛错时把 ``agent=""`` 写进事件，消费侧用
+        ``_tag(event, kind, memo)`` 的 ``setdefault`` 补——空串已存在，setdefault
+        不会覆盖，于是这条 error 落到 ``agent=""``，前端只能把“某一栏失败”渲染
+        到无处安放的位置（或静默丢弃）。现在 ``_pump_one`` 自己知道是哪一栏，
+        直接带上。
 
-        本断言把**当前行为**钉住（而不是假装它正确）：缺口修好后这里会红，
-        届时改成 ``assert errors[0]["agent"] == FOURTH`` 即可。这是本文件唯一一条
-        「钉住缺陷」的用例，故意写成断言而不是注释——注释会静静烂掉。
+        本用例原先是「钉住缺陷」的断言（``agent == ""``），修好后按当时的约定
+        改成正面断言。
         """
-        _install(PI, FakeBackend(FOURTH, RuntimeError("第 3 栏炸了")))
-        # 第 3 栏要真的被启动才可能失败，aux 给足
+        # 三栏都必须**真的注册成自己**：给 ``_install`` 传一个 FakeBackend 实例会
+        # 让它以实例为键（kind 变成一个对象），于是三栏全部取不到后端、全部报错。
+        # 旧版本就是这么写的，断言恰好因为「只有一个错误被转发」而绿——测的是
+        # 另一个缺陷。这里显式逐个注册，让失败只来自第 3 栏。
+        _install(PI, DSH)
+        failing = FakeBackend(FOURTH, RuntimeError("第 3 栏炸了"))
+        register(failing)
+        _INJECTED[FOURTH] = failing
+        # 第 3 栏要真的被启动才可能失败，aux 给足（见上面的 fixture）
         events = await _collect([PI, DSH, FOURTH])
 
         errors = [e for e in events if e.get("type") == "error"]
         assert len(errors) == 1, f"失败栏只发一条 error，实际: {errors}"
-        assert errors[0]["agent"] == "", "缺口已修复？请把断言改成 agent == 失败的那个 kind"
+        assert errors[0]["agent"] == FOURTH, f"error 必须挂回失败的那一栏，实际: {errors[0]}"
+        # 同一帧还要能被前端分类：后端抛的是无类别的 RuntimeError → unknown
+        # （不能倒过来：把普通失败标成「能力不支持」会引导用户去换一栏，白跑）。
+        assert errors[0]["code"] == "unknown"
+        assert errors[0]["scope"] == "unknown"
 
 
 # ── D. 配额按序分档 ──────────────────────────────────────────────────
@@ -532,12 +548,8 @@ class TestOrchestrationLayerDoesNotKnowKinds:
             assert not pattern.search(source), f"编排层出现了具体 kind 字面量 {kind!r}——抽象退化了"
 
         # ``"pi"`` 只允许出现在回落默认值那一处
-        offending = [
-            line
-            for line in source.splitlines()
-            if self.ALLOWED_LITERAL in line and "agent_kind" not in line
-        ]
-        assert not offending, f"``\"pi\"`` 只允许用于 agent_kind 回落，实际出现在: {offending}"
+        offending = [line for line in source.splitlines() if self.ALLOWED_LITERAL in line and "agent_kind" not in line]
+        assert not offending, f'``"pi"`` 只允许用于 agent_kind 回落，实际出现在: {offending}'
         fallback = inspect.getsource(multi.primary_kind)
         assert self.ALLOWED_LITERAL in fallback, "回落默认值应当只留在 primary_kind 里，便于一处审计"
 
@@ -575,6 +587,8 @@ class TestCollectHelperContract:
     @pytest.mark.asyncio
     async def test_collect_returns_events_with_types(self) -> None:
         _install(PI)
-        events = await _drain(multi.stream_multi(session=await _make_session(), user_message="q", user_id=None, kinds=[PI]))
+        events = await _drain(
+            multi.stream_multi(session=await _make_session(), user_message="q", user_id=None, kinds=[PI])
+        )
         assert events, "至少要有 meta / activity / delta / done"
         assert all(isinstance(e.get("type"), str) for e in events)

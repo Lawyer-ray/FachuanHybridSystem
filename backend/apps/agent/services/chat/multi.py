@@ -92,10 +92,12 @@ from ...backends import get as get_backend
 from ...backends.builtin import ensure_registered
 from ...backends.gateway_cache import load_api_keys
 from ...backends.key_scheduler import KeyLease, get_key_scheduler
+from ...errors import AgentError, project
 from ...models import AgentMessage, AgentSession
+from ...sse_types import FinishReason
 from ..event_bus import get_bus
-from . import budget, profile
-from .stream import ContextPrep, prepare_context, record_user_message, stream_chat
+from . import budget, persist, profile
+from .stream import ContextPrep, next_run_turn, prepare_context, record_user_message, stream_chat
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +196,13 @@ class StreamMemo:
     parts: list[str] = field(default_factory=list)
     run_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
+    #: 本栏已落库的助手消息主键（``None`` = 没落库 / 落库失败 / 取消时还未完成）。
+    #:
+    #: 为什么需要它：整轮结束后要用**轮级** ``finish_reason`` 回写这一行
+    #: （部分失败时整轮是 ``degraded``，而单栏视角只会说 ``ok``）。拿不到主键
+    #: 就只能在服务层按「本条消息之后创建的 assistant 行」反猜，那会写到下一轮
+    #: 的头上。
+    message_id: int | None = None
 
 
 def primary_kind(session: AgentSession) -> str:
@@ -268,9 +277,14 @@ def _tag(event: dict[str, Any], agent: str, memo: StreamMemo) -> dict[str, Any]:
     return tagged
 
 
-def _backend_error(agent: str, message: str) -> dict[str, Any]:
-    """失败方唯一的一条 ``error``（带 ``agent``，前端据此挂到对应栏）。"""
-    return {"type": "error", "message": message, "agent": agent}
+def _backend_error(agent: str, exc: BaseException | None = None, *, message: str = "") -> dict[str, Any]:
+    """失败方唯一的一条 ``error``（带 ``agent``，前端据此挂到对应栏）。
+
+    帧由 ``errors.project`` 投影（不手写）：多答的失败方可能是限流/超时/未知
+    kind，前端要的是 ``code`` 而不是一句统一的中文——否则「三栏里有一栏只是被
+    限流」会被读成「那一栏坏了」。
+    """
+    return project(exc or AgentError(message or "该 agent 本轮运行失败"), agent=agent, message=message or None)
 
 
 async def _round_api_keys(model_hint: str | None, *, session_id: str) -> tuple[str, ...]:
@@ -323,7 +337,7 @@ async def _persist_answer(session: AgentSession, agent: str, memo: StreamMemo) -
     metadata = dict(memo.metadata)
     metadata.setdefault("model", "")
     try:
-        await AgentMessage.objects.acreate(
+        message = await AgentMessage.objects.acreate(
             session=session,
             role=AgentMessage.Role.ASSISTANT,
             content=text,
@@ -332,6 +346,9 @@ async def _persist_answer(session: AgentSession, agent: str, memo: StreamMemo) -
         )
     except Exception:
         logger.warning("多答：非主答正文落库失败 session=%s agent=%s", session.session_id, agent, exc_info=True)
+        return
+    # 主键回交：整轮结束时要用轮级 finish_reason 回写这一行（见 ``StreamMemo.message_id``）。
+    memo.message_id = message.pk
 
 
 async def _pump_one(
@@ -346,6 +363,7 @@ async def _pump_one(
     memo: StreamMemo,
     queue: asyncio.Queue[dict[str, Any] | None],
     context: ContextPrep | None,
+    turn: int,
 ) -> None:
     """一个非主答后端：事件进队列，结束时放一个 ``None`` 收尾。
 
@@ -390,16 +408,24 @@ async def _pump_one(
             # 这一栏自己的 key（None = 后端自己轮转）：三栏抢同一把会撞上
             # 网关每 key 3 并发的限流，表现为「某一栏卡 60 秒」。
             api_key=_lease_key(lease),
+            # 与主答**同一个**轮次号（本轮只取一次号，见 ``stream.next_run_turn``）
+            turn=turn,
         ):
             if event.get("type") == "done":
                 continue  # done 由 stream_multi 按栏统一发，见模块 docstring
             await queue.put(event)
     except (GeneratorExit, asyncio.CancelledError):
         raise
-    except Exception:
+    except Exception as exc:
         logger.exception("多答：agent=%s 这一轮失败 session=%s", agent_kind, session.session_id)
-        # agent 留空由调用方补（这里拿不到调用方统一后的写法）
-        await queue.put(_backend_error("", "该 agent 本轮运行失败，其他回答不受影响（详见服务端日志）"))
+        # agent 带上：本协程知道自己是哪一栏（``_tag`` 只是兜底补）
+        await queue.put(
+            _backend_error(
+                agent_kind,
+                exc,
+                message="该 agent 本轮运行失败，其他回答不受影响（详见服务端日志）",
+            )
+        )
     finally:
         # 先还 key 再收尾：归还只是字典计数，不会被打断；而漏还的代价是永久的。
         lease.release()
@@ -490,6 +516,9 @@ async def stream_multi(
         return
 
     primary, secondaries = agents[0], agents[1:]
+    # 本轮轮次号只取**一次**：N 栏必须共用同一个 turn。各栏各自 INCR 会让
+    # 「同一次提问」的三栏拿到 1/2/3，前端按 run 归集用量时把一轮拆成三轮。
+    turn = await next_run_turn(session_id)
 
     # 用户消息与标题只写一次：N 个后端跑的是同一条提问，各写一次会让回放里出现
     # N 条一模一样的提问。
@@ -566,6 +595,7 @@ async def stream_multi(
                         memo=memos[kind],
                         queue=queues[kind],
                         context=context,
+                        turn=turn,
                     )
                 )
         else:
@@ -598,11 +628,17 @@ async def stream_multi(
                 model=models[primary],
                 api_key=_lease_key(leases[primary]),
                 context=context,
+                turn=turn,
             ):
                 if event.get("type") == "done":
                     continue  # done 由本模块按栏统一发
                 tagged = _tag(event, primary, primary_memo)
                 if tagged.get("type") == "error":
+                    # 这一栏**已经**报错了：整轮结论要据此算 degraded/error。
+                    # 早先只在这里记 ``errors`` 不记 ``ok``，于是 ``failed`` 永远是
+                    # 空集——``finish_reason`` 永远是 ``ok``，「部分失败」在收尾
+                    # 事件与落库 metadata 里都看不见（律师看不出这一轮没跑全）。
+                    ok[primary] = False
                     errors.append(tagged)
                     if len(errors) > 1:
                         continue  # 全部失败：只发第一条，不堆 N 条
@@ -616,11 +652,11 @@ async def stream_multi(
                         break
         except (GeneratorExit, asyncio.CancelledError):
             raise
-        except Exception:
+        except Exception as exc:
             # 主答的异常同样只降级成本栏的错误，不吞掉其他回答（失败矩阵第 2 条）
             ok[primary] = False
             logger.exception("多答：主答这一轮失败 session=%s", session_id)
-            errors.append(_backend_error(primary, "主后端本轮运行失败，其他回答不受影响"))
+            errors.append(_backend_error(primary, exc, message="主后端本轮运行失败，其他回答不受影响"))
             if len(errors) == 1:
                 yield errors[0]
         finally:
@@ -639,6 +675,7 @@ async def stream_multi(
                     break
                 tagged = _tag(event, kind, memos[kind])
                 if tagged.get("type") == "error":
+                    ok[kind] = False
                     errors.append(tagged)
                     if len(errors) > 1:
                         continue
@@ -676,7 +713,18 @@ async def stream_multi(
     # 收尾原因：全部失败才是 error，部分失败是 degraded（律师需要知道「另外几栏
     # 没跑成」而不是看到几个空白栏头）。前端靠 ``finish_reason`` 决定是否把栏
     # 标成「本轮未做」，不靠「有没有正文」去猜。
-    finish_reason = "error" if failed and len(failed) == len(agents) else "degraded" if failed else "ok"
+    finish_reason: FinishReason = "error" if failed and len(failed) == len(agents) else "degraded" if failed else "ok"
+    # 轮级结论回写本轮已落库的助手行：历史回放（客户端刷新 / 第二天再看）拿不到
+    # 这条 done，只有消息 metadata 能告诉前端「这轮是部分失败还是正常结束」。
+    # 单栏视角只会写 ok/error（见 ``stream._lane_finish_reason``），「另外几栏
+    # 没跑成」是**整轮**才知道的事实，只能在这里补。
+    #
+    # 位置在 done 之前：前端收到 done 往往会立即拉一次消息列表（拿 message_id /
+    # 可续写状态），回写晚于它就会读到旧值，然后本轮的「继续生成」按钮是灰的。
+    await persist._stamp_finish_reason(
+        message_ids={kind: (primary_memo if kind == primary else memos.get(kind)) for kind in agents},
+        finish_reason=finish_reason,
+    )
     # 逐栏水位：多答时前端按栏写 ``contextUsage``。不填每栏的 ``context_*``
     # 会让水位条停在上一轮的旧值——那比不显示更糟（显示的是错的数）。
     # 收尾事实按 ``run_id`` 存在各后端实例上（与单后端路径同源：
