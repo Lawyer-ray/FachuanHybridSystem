@@ -36,7 +36,9 @@ def _request(user: Any) -> SimpleNamespace:
 
 def _make_user(username: str) -> Any:
     firm = LawFirm.objects.create(name=f"采纳测试所-{username}")
-    return Lawyer.objects.create_user(username=username, password="x-test-12345678", law_firm=firm)
+    return Lawyer.objects.create_user(
+        username=username, password="x-test-12345678", law_firm=firm  # pragma: allowlist secret（测试固定口令，非真实凭证）
+    )  # pragma: allowlist secret（测试固定口令，非真实凭证）
 
 
 def _make_review(user: Any) -> AgentReview:

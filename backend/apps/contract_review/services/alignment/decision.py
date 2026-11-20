@@ -49,7 +49,10 @@ def record_decision(decision: Decision) -> Decision:
                 decided_by=normalized.decided_by,
                 reason=normalized.reason,
                 dissent=list(normalized.dissent),
-                decided_at=normalized.decided_at,
+                # 契约里 ``decided_at`` 可空（调用方不一定带），而列是 ``auto_now_add``：
+                # 传 None 会被 Django 当成"显式置空"并与字段类型冲突（mypy 也会红）。
+                # 只有真的带了时间才覆盖，否则让 auto_now_add 落库。
+                **({"decided_at": normalized.decided_at} if normalized.decided_at is not None else {}),
             )
     except IntegrityError as exc:  # 同一 decision_id 重复落库 = 试图改历史
         raise ConflictError(f"裁决 {normalized.decision_id} 已存在，裁决台账只追加不改写") from exc

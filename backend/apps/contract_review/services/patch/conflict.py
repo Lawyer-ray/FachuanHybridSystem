@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
+from typing import Literal
 
 from apps.contract_review.services.write_contracts import PatchConflict, WritePatch
 
@@ -130,7 +131,7 @@ def _conflict_of(subpath: str, component: Sequence[tuple[WritePatch, Span]]) -> 
     """一个相交分量 → `PatchConflict`（同改法=duplicate，不同改法=overlap_diff）。"""
     ordered = sorted(component, key=lambda item: item[0].patch_id)
     replacements = {patch.replacement for patch, _span in ordered}
-    kind = "duplicate" if len(replacements) == 1 else "overlap_diff"
+    kind: Literal["overlap_diff", "duplicate"] = "duplicate" if len(replacements) == 1 else "overlap_diff"
     return PatchConflict(
         subpath=subpath,
         clause_key=None,

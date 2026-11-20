@@ -43,7 +43,6 @@ from mcp_server.tools.contracts.folder_scan import (
 )
 from mcp_server.tools.contracts.parties import add_contract_party, get_client_related_items, remove_contract_party
 from mcp_server.tools.contracts.payments import create_payment, delete_payment, update_payment
-from mcp_server.tools.contracts.write_patch import apply_file_write_patches, propose_write_patch
 from mcp_server.tools.contracts.supplementary import (
     create_supplementary_agreement,
     delete_supplementary_agreement,
@@ -51,6 +50,7 @@ from mcp_server.tools.contracts.supplementary import (
     list_supplementary_agreements,
     update_supplementary_agreement,
 )
+from mcp_server.tools.contracts.write_patch import apply_file_write_patches, propose_write_patch
 
 __all__ = [
     # 合同核心

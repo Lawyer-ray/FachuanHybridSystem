@@ -13,8 +13,8 @@
 
 from __future__ import annotations
 
-from .clause_split import ClauseSpan, ClauseSplit, Granularity, split_clauses
 from .classify import AlignmentReport, ClauseOutcome, classify_patches
+from .clause_split import ClauseSpan, ClauseSplit, Granularity, split_clauses
 from .decision import load_decision, new_decision_id, record_decision, to_decision
 from .diff3 import MergeHunk, MergeResult, diff3
 from .models import ContractDecision, DecisionOwnerKind

@@ -24,14 +24,7 @@ from dataclasses import asdict
 import pytest
 
 from apps.agent.services.adjudication.contracts import FusedHit, RetrievalHit
-from apps.agent.services.chat.fusion import (
-    LANE_TRUNCATION_FACTOR,
-    RRF_K,
-    case_key,
-    page_key,
-    rrf_fuse,
-    statute_key,
-)
+from apps.agent.services.chat.fusion import LANE_TRUNCATION_FACTOR, RRF_K, case_key, page_key, rrf_fuse, statute_key
 
 #: 一条"长尾"案号：在三路里都出现，但每路都排在第 100 名。
 LONG_TAIL = case_key("（2021）最高法民申9号")

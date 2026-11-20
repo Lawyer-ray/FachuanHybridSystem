@@ -15,13 +15,13 @@
 from __future__ import annotations
 
 from apps.contract_review.services.patch.conflict import detect_conflicts, patch_span, spans_overlap
+from apps.contract_review.services.write_contracts import WritePatch
 from tests.ci.unit.contract_review.services.patch.docx_fixtures import (
     CLAUSE_COURT,
     CLAUSE_PAYMENT,
     CLAUSE_PENALTY,
     SUBPATH,
 )
-from apps.contract_review.services.write_contracts import WritePatch
 
 FULL_TEXT = "\n".join([CLAUSE_PAYMENT, CLAUSE_PENALTY, CLAUSE_COURT])
 

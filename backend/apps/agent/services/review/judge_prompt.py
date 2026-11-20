@@ -246,6 +246,10 @@ def parse_verdict(text: str) -> ParsedVerdict:
         salvaged = _salvage_verdict(text)
         if salvaged is _MISSING:
             return ParsedVerdict(unscored_reason=_PARSE_FAILED)
+        # 到这里只可能是 True / False / None（_MISSING 已在上面返回）。
+        # 显式收窄给类型检查看：``_salvage_verdict`` 的返回类型带了哨兵对象。
+        if not isinstance(salvaged, bool) and salvaged is not None:
+            return ParsedVerdict(unscored_reason=_PARSE_FAILED)
         # 截断/夹带其它文本：判定救回来，解释与证据留空（截断的解释会误导）
         return ParsedVerdict(
             criteria_met=salvaged,

@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from ..adjudication.contracts import Review
 from ...models import AgentMessage, AgentReview, AgentSession
+from ..adjudication.contracts import Review
 
 
 async def load_turn_answers(session: AgentSession, turn: int, lanes: list[str]) -> tuple[str, dict[str, str]]:

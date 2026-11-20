@@ -28,7 +28,6 @@ from django.test import Client as DjangoTestClient
 from docx import Document
 
 from apps.contract_review.services.formatting.docx_revision_tool import visible_text
-
 from tests.ci.unit.contract_review.services.patch.docx_fixtures import CLAUSE_PAYMENT, SUBPATH
 
 SUGGESTED = "甲方应于十五日内支付货款。"
