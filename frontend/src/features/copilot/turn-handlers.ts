@@ -8,10 +8,11 @@
  */
 
 import {
+  applyToolCall,
+  applyToolResult,
   emptyTurnStats,
   estimateTokens,
   extractRewriteArgs,
-  nextLocalId,
   normalizeQuestions,
   parseFileRewrite,
 } from './domain'
@@ -147,52 +148,30 @@ export function createTurnHandlers(
       })
     },
     onToolCall: (event, origin) => {
-      // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）
+      // rewrite_folder_file：参数渐进完整时后一条覆盖前一条（以完整到达为准）。
+      // 原文/改写全文只在这里完整到达（tool_result 的 result 被 SSE 截到 2000 字）。
       const extracted =
         event.name?.endsWith('rewrite_folder_file') && event.tool_call_id
           ? extractRewriteArgs(event.arguments)
           : null
       if (event.tool_call_id && extracted) rewriteArgsById.set(event.tool_call_id, extracted)
-      // pi 对同一工具调用可能发多条 message_end（arguments 渐进完整），
-      // 以 tool_call_id 去重：已有则只把修订块更新为更完整的版本，不新增行
       set((s) => {
-        const existing = event.tool_call_id
-          ? s.messages.find((m) => m.role === 'tool' && m.toolCallId === event.tool_call_id)
-          : undefined
-        if (existing) {
-          if (!extracted) return s
-          return {
-            messages: s.messages.map((m) =>
-              m === existing ? { ...m, rewrite: extracted } : m,
-            ),
-          }
-        }
-        return {
-          messages: [
-            ...s.messages,
-            {
-              id: nextLocalId(),
-              role: 'tool',
-              content: '',
-              toolName: event.name,
-              toolCallId: event.tool_call_id,
-              ...(extracted ? { rewrite: extracted } : {}),
-              // 多答时各栏各自调工具：工具行必须带来源，否则回放时分不出证据归谁
-              ...(origin.kind ? { agentKind: origin.kind } : {}),
-            },
-          ],
-        }
+        // 工具调用的两层落点（转录工具行 + 气泡上的活动行）都在 domain/progress：
+        // 这里只管本轮修订参数缓存与写状态。返回原引用 = 什么都没变（不写状态）。
+        const messages = applyToolCall(s.messages, targetOf(origin.kind), {
+          ...(event.tool_call_id ? { toolCallId: event.tool_call_id } : {}),
+          toolName: event.name,
+          ...(origin.kind ? { agentKind: origin.kind } : {}),
+          ...(extracted ? { rewrite: extracted } : {}),
+        })
+        return messages === s.messages ? s : { messages }
       })
     },
-    onToolResult: (event) => {
-      const matchId = event.tool_call_id
+    onToolResult: (event, origin) => {
       set((s) => ({
-        // tool_call 与 tool_result 以 tool_call_id 归并；缺 id 时落最近一个空 tool 气泡
-        messages: s.messages.map((m, i) => {
-          const byId = m.role === 'tool' && matchId && m.toolCallId === matchId
-          const lastEmpty =
-            !matchId && m.role === 'tool' && !m.content && s.messages.slice(i + 1).every((x) => x.role !== 'tool')
-          return byId || lastEmpty ? { ...m, content: String(event.result ?? '') } : m
+        messages: applyToolResult(s.messages, targetOf(origin.kind), {
+          ...(event.tool_call_id ? { toolCallId: event.tool_call_id } : {}),
+          result: String(event.result ?? ''),
         }),
       }))
       // AI 把修订写回文件夹文件（rewrite_folder_file 落盘成功）：广播给正
@@ -280,6 +259,12 @@ export function createTurnHandlers(
       set({ compacting: phase === 'start' })
     },
     onProgress: clearQueueBanner,
+    onStreamEnd: () => {
+      // `compacting` 只能靠 compaction end 事件退场；断流时那个事件永远不会来，
+      // Composer 底栏就会永远写着「正在压缩上下文…」（压缩中途按停止即可复现）。
+      // 与 `sawDone` 无关：正常结束走到这里时它早已是 false，多一次判断只会多一个分支。
+      set((s) => (s.compacting ? { compacting: false } : s))
+    },
     onDegraded: (reason) => {
       // 后端降级（aux 席位已满）：本轮律师选了几家，实际只跑了一家。不说明的话
       // 他会以为对比没生效、或者其余几家的回答丢了。

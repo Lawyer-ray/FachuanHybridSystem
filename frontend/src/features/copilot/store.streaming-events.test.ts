@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as copilotApi from './api'
+import { activityText } from './domain'
 import { useCopilot } from './store'
-import type { AgentSession } from './types'
+import type { AgentBackendOption, AgentSession } from './types'
 
 vi.mock('./api', () => ({
   createSession: vi.fn(),
@@ -255,6 +256,223 @@ describe('copilot store：上下文水位与压缩事件', () => {
       ]),
     )
     await useCopilot.getState().send('x')
+    expect(useCopilot.getState().compacting).toBe(false)
+  })
+})
+
+// ============ 单栏可观测性 / 缺 done 的收尾 / EOF 尾帧（流式健壮性） ============
+
+/** 可逐步喂帧的响应（观察**流当中**的状态：同步消费完就什么都看不到了） */
+function controlledStream() {
+  const handles = { push: (_frame: string) => {}, close: () => {} }
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      handles.push = (frame: string) => controller.enqueue(encoder.encode(frame))
+      handles.close = () => controller.close()
+    },
+  })
+  return { resp: new Response(body, { status: 200 }), ...handles }
+}
+
+function option(kind: string): AgentBackendOption {
+  return {
+    kind,
+    label: kind,
+    description: '',
+    available: true,
+    reason: '',
+    capabilities: {
+      streaming: true,
+      tool_calls: true,
+      approval: true,
+      compaction: true,
+      steer: true,
+      concurrent_in_session: false,
+    },
+  }
+}
+
+const threeBackends = [option('pi'), option('dsh'), option('oai')]
+
+describe('单栏：工具期间的「正在查 XX…」靠 pendingTool（不靠多栏的 tools）', () => {
+  it('tool_call 出现 → 说「正在查律师名单…」；tool_result 回来 → 转「正在整理资料…」', async () => {
+    // 真实事故：dsh / openai-agents 先调工具、调完才吐正文，中间十几秒界面一片空白
+    // （`activityText` 只看 `message.tools`，而单栏永远没有 `tools`）
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    const stream = controlledStream()
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(stream.resp)
+    const assistant = () => useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+
+    const sending = useCopilot.getState().send('查下律师')
+
+    stream.push('data: {"type":"tool_call","tool_call_id":"c1","name":"mcp__fachuan__list_lawyers","agent":"pi"}\n\n')
+    await vi.waitFor(() => expect(assistant().pendingTool?.toolCallId).toBe('c1'))
+    expect(activityText(assistant())).toBe('正在查律师名单…')
+    // 单栏的 `tools` 必须保持空：那是多栏的渲染槽，填了工具行会渲染两份
+    expect(assistant().tools).toBeUndefined()
+    // 转录流里的工具行照旧平铺（单栏那条路径的时间顺序本来就对）
+    expect(useCopilot.getState().messages.some((m) => m.role === 'tool' && m.toolCallId === 'c1')).toBe(true)
+
+    stream.push('data: {"type":"tool_result","tool_call_id":"c1","name":"mcp__fachuan__list_lawyers","result":"[]","agent":"pi"}\n\n')
+    await vi.waitFor(() => expect(activityText(assistant())).toBe('正在整理资料…'))
+
+    stream.push('data: {"type":"delta","content":"共 3 位律师","agent":"pi"}\n\n')
+    stream.push('data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n')
+    stream.close()
+    await sending
+
+    expect(assistant().content).toBe('共 3 位律师')
+    // 收尾后不再有活动行（正文与光标接管）
+    expect(activityText(assistant())).toBeNull()
+  })
+
+  it('另一栏的工具结果不会清掉本栏的「正在查」', async () => {
+    // 多答时两栏的工具交错到达：按 tool_call_id 匹配才不会把 dsh 的结果记到 pi 头上
+    useCopilot.setState({ backends: threeBackends, answerAgents: ['pi', 'dsh'] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    const stream = controlledStream()
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(stream.resp)
+    const lane = (kind: string) =>
+      useCopilot.getState().messages.find((m) => m.role === 'assistant' && m.agentKind === kind)!
+
+    const sending = useCopilot.getState().send('x')
+    stream.push('data: {"type":"tool_call","tool_call_id":"p1","name":"get_client","agent":"pi"}\n\n')
+    stream.push('data: {"type":"tool_call","tool_call_id":"d1","name":"list_cases","agent":"dsh"}\n\n')
+    await vi.waitFor(() => expect(lane('dsh').pendingTool?.toolCallId).toBe('d1'))
+
+    stream.push('data: {"type":"tool_result","tool_call_id":"d1","name":"list_cases","result":"[]","agent":"dsh"}\n\n')
+    await vi.waitFor(() => expect(activityText(lane('dsh'))).toBe('正在整理资料…'))
+    // pi 那栏仍在等自己的工具
+    expect(activityText(lane('pi'))).toBe('正在查客户信息…')
+
+    stream.push('data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n')
+    stream.push('data: {"type":"done","session_id":"s-1","agent":"dsh"}\n\n')
+    stream.close()
+    await sending
+  })
+})
+
+describe('缺 done 的收尾：不再静默留空栏', () => {
+  it('三栏只到一栏 done：缺的两栏标「已中断」，跑完那栏不标、也不标失败', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: ['pi', 'dsh', 'oai'] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"pi 的答","agent":"pi"}\n\n',
+        'data: {"type":"delta","content":"dsh 的答","agent":"dsh"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+
+    const lane = (kind: string) =>
+      useCopilot.getState().messages.find((m) => m.role === 'assistant' && m.agentKind === kind)!
+    expect(lane('pi').truncated).toBeUndefined()
+    expect(lane('dsh').truncated).toBe(true)
+    expect(lane('oai').truncated).toBe(true)
+    // 「没等到」不是「跑失败」：标成「本轮未做」会让律师以为后端拒绝了这一栏
+    expect(lane('dsh').failed).toBeUndefined()
+    expect(useCopilot.getState().lastError).toContain('未等到')
+    expect(useCopilot.getState().lastError).toContain('dsh / oai')
+  })
+
+  it('先降级后断流：被丢下的栏标「本轮未做」，主栏仍标「已中断」（两个独立事实）', async () => {
+    // 原先 `lastError !== null` 会拦住标 truncated：降级已经写了 lastError，
+    // 于是断流时主栏既不标中断也没有提示——律师看到一句「对比执行位已满」，
+    // 却不知道自己的主答案还断在半路
+    useCopilot.setState({ backends: threeBackends, answerAgents: ['pi', 'dsh'] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"activity","status":"degraded","agent":"pi","reason":"对比执行位已满"}\n\n',
+        'data: {"type":"delta","content":"只有一半","agent":"pi"}\n\n',
+        // 没有 done：连接在收尾前被掐断
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+
+    const lane = (kind: string) =>
+      useCopilot.getState().messages.find((m) => m.role === 'assistant' && m.agentKind === kind)!
+    expect(lane('dsh').failed).toBe(true)
+    // 已标「本轮未做」的栏不再叠「已中断」（一栏两个徽标读不出到底发生了什么）
+    expect(lane('dsh').truncated).toBeUndefined()
+    expect(lane('pi').truncated).toBe(true)
+    // 更具体的错误优先，不被「未等到…」的提示覆盖
+    expect(useCopilot.getState().lastError).toBe('对比执行位已满')
+  })
+
+  it('单栏断流（没有 done）：标截断并提示连接提前结束', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"delta","content":"半截","agent":"pi"}\n\n']),
+    )
+
+    await useCopilot.getState().send('x')
+
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    expect(assistant.truncated).toBe(true)
+    expect(assistant.streaming).toBe(false)
+    expect(useCopilot.getState().lastError).toBe('与本轮的连接提前结束，回答可能不完整')
+  })
+})
+
+describe('EOF 尾帧：最后一帧即使没有空行结尾也要交付', () => {
+  it('尾帧是 done：不标截断、不报错（早先被丢掉 → 正常轮次被当成断流）', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"delta","content":"答","agent":"pi"}\n\n', 'data: {"type":"done","session_id":"s-1","agent":"pi"}']),
+    )
+
+    await useCopilot.getState().send('x')
+
+    const assistant = useCopilot.getState().messages.find((m) => m.role === 'assistant')!
+    expect(assistant.truncated).toBeUndefined()
+    expect(useCopilot.getState().lastError).toBeNull()
+  })
+
+  it('尾帧是正文：最后一截字也在（不能只认 done）', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"delta","content":"前半句，","agent":"pi"}\n\n', 'data: {"type":"delta","content":"后半句。","agent":"pi"}']),
+    )
+
+    await useCopilot.getState().send('x')
+
+    expect(useCopilot.getState().messages.find((m) => m.role === 'assistant')?.content).toBe('前半句，后半句。')
+  })
+
+  it('尾帧是 usage：本轮最准的成本数据不丢', async () => {
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse([
+        'data: {"type":"delta","content":"答","agent":"pi"}\n\n',
+        'data: {"type":"done","session_id":"s-1","agent":"pi"}\n\n',
+        'data: {"type":"usage","output_tokens":42,"agent":"pi"}',
+      ]),
+    )
+
+    await useCopilot.getState().send('x')
+
+    expect(useCopilot.getState().turnStats.exactTokens).toBe(42)
+  })
+
+  it('压缩中途断流：底栏的「正在压缩上下文…」不会永远转下去', async () => {
+    // `compacting` 只能靠 compaction end 事件退场；断流时那个事件永远不来
+    useCopilot.setState({ backends: threeBackends, answerAgents: [] })
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    vi.mocked(copilotApi.openMessageStream).mockResolvedValue(
+      sseResponse(['data: {"type":"compaction","phase":"start"}\n\n', 'data: {"type":"delta","content":"答","agent":"pi"}\n\n']),
+    )
+
+    await useCopilot.getState().send('x')
+
     expect(useCopilot.getState().compacting).toBe(false)
   })
 })

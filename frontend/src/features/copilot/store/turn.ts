@@ -19,6 +19,9 @@ import {
   splitRefBlocks,
 } from '../domain'
 import { MAX_ANSWERS } from '../domain'
+// 直接从子模块引：`domain/index.ts` 的出口表不归本文件维护（多 agent 并行改造期间
+// 谁都在改它），而收尾判定是纯函数，路径直一点也更好追
+import { classifyStreamEnd } from '../domain/stream-guard'
 import { uploadAttachmentsAndCompose } from '../outgoing'
 import { storeSession } from '../persistence'
 import { consumeAgentStream } from '../streaming'
@@ -278,14 +281,19 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
      * 「我按了停止，答案就没了」。服务端那边确实落了 truncated，但它要下一次
      * 打开会话才看得到；眼前这一屏必须留着。
      */
-    const markInterrupted = (message: string | null) => {
+    const markInterrupted = (ids: Set<string>) => {
       set((s) => ({
         messages: s.messages.map((m) =>
-          m.role === 'assistant' && laneIds.has(m.id) ? { ...m, streaming: false, truncated: true } : m,
+          // 已经标 `failed` 的栏有自己的「本轮未做」：再叠一个「已中断」会让一栏上
+          // 挂两个徽标，读不出到底发生了什么（降级 + 断流同时发生时就会这样）
+          m.role === 'assistant' && ids.has(m.id) && !m.failed
+            ? { ...m, streaming: false, truncated: true }
+            : m,
         ),
-        ...(message ? { lastError: message } : {}),
       }))
     }
+    /** 栏 kind → 气泡 id（与 turn-handlers 的路由表同源） */
+    const laneIdOf = (kind: string) => assistantByAgent[kind] ?? assistantId
 
     controller = new AbortController()
     try {
@@ -294,18 +302,32 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       const outcome = await consumeAgentStream(resp, handlers)
       finishAssistant()
       set((s) => ({ turnStats: { ...s.turnStats, doneAt: s.turnStats.doneAt ?? Date.now() } }))
-      // 连接正常结束但没收到 done：上游被掐断（反代超时/服务重启）。
-      // 不区分的话它和「跑完了」看起来一模一样。
-      // 但若本轮已报过具体错误（error 事件/降级），那句文案更准确，不许覆盖。
-      if (!outcome.sawDone && get().lastError === null) {
-        markInterrupted('与本轮的连接提前结束，回答可能不完整')
+      // 收尾：连接正常结束但没收到 done = 上游被掐断（反代超时/服务重启）。
+      // 「是否已报过错」与「是否截断」是两个独立事实（原先 `lastError !== null` 会拦住
+      // 标截断）：先降级/报错、再断流时，那句更具体的错误不能把「这几栏没等到 done」
+      // 一起吃掉——律师只看到一句解释，却看不到「回答可能不完整」。
+      //
+      // 单栏传空栏清单：单栏事件照样带后端的 agent，拿它比对会误判成缺 done。
+      const verdict = classifyStreamEnd({
+        lanes: multiColumn ? turnAgents : [],
+        doneKinds: outcome.doneKinds,
+        sessionLevelDone: outcome.sessionLevelDone,
+      })
+      // 只标缺 done 的那几栏（不能把跑完的栏也标中断）；单栏归「整轮气泡」的旧口径
+      if (verdict.truncated) {
+        markInterrupted(
+          verdict.missingLanes.length > 0 ? new Set(verdict.missingLanes.map(laneIdOf)) : laneIds,
+        )
       }
+      // 更具体的错误优先：已说了「对比执行位已满」，再叠一句「连接提前结束」只会绕晕人
+      const notice = verdict.notice
+      if (notice) set((s) => ({ lastError: s.lastError ?? notice }))
     } catch {
       finishAssistant()
       const aborted = controller?.signal.aborted === true
       if (aborted) {
         // 主动停止：保留已流出正文与统计，只标截断（服务端已落 truncated）
-        markInterrupted(null)
+        markInterrupted(laneIds)
       } else {
         // 真失败（网络断/HTTP 错）：重拉历史对齐服务端落库结果，再提示
         if (get().sessionId) {

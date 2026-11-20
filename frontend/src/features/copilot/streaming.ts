@@ -95,6 +95,14 @@ export interface StreamHandlers {
    * ——另一栏后续的 delta 无处可去，界面上就是「(无内容)」。
    */
   onDone(context: { used: number | null; total: number | null } | undefined, origin: EventOrigin): void
+  /**
+   * 流到了 EOF——**不管有没有 done**。`sawDone=false` 就是「这是断流」。
+   *
+   * 与返回值分工：返回值是给**调用方**的收尾结论（store 据此按栏标截断），本回调
+   * 是给 **handler 自己**的：有些状态只能靠「又一个事件」退场（如 `compaction end`
+   * 才清的 `compacting`），流被掐断时它就永远转下去了。可选项。
+   */
+  onStreamEnd?(outcome: StreamOutcome): void
 }
 
 /**
@@ -107,6 +115,31 @@ export interface StreamHandlers {
 export interface StreamOutcome {
   /** 是否收到过 done 帧（每栏各发一条，多答时 ≥1 即算正常收尾） */
   sawDone: boolean
+  /**
+   * 真正收到 done 的栏（只认 done 帧里**显式**的 `agent`）。
+   *
+   * 全局 `sawDone` 回答不了「**哪一栏**跑完了」：三栏只到 1 个 done 时它照样是
+   * `true`，另两栏就此静默留空（真实事故：界面上两个空栏头，看起来像「AI 回答了
+   * 但内容丢了」）。按栏记账后，收尾时才能把缺的栏标「已中断」（判定见
+   * domain/stream-guard.classifyStreamEnd）。
+   */
+  doneKinds: string[]
+  /** 收到过「没写来源」的会话级 done（旧后端/单栏：等于整轮都收尾了） */
+  sessionLevelDone: boolean
+}
+
+/**
+ * done 帧里**显式**标注的来源；空串 = 这帧没写 `agent`。
+ *
+ * 不能用 `agentOf`：它对缺省值回落到 `pi`（多答前只有 pi 在跑），拿来记「谁
+ * 跑完了」会把一条没标来源的 done 记成「pi 那一栏跑完了」——多答里 pi 不在第一栏
+ * 时，真正跑完的那栏反而会被标成缺 done。
+ *
+ * 也不用帧里的 `agents`：那是本轮的**全量**栏清单，第一条 done 就带全家，拿它当
+ * 「谁跑完了」会让缺 done 的栏永远不被发现——正好是那个静默空栏 bug。
+ */
+function explicitAgentOf(event: object): string {
+  return ((event as { agent?: string }).agent ?? '').trim()
 }
 
 /** 消费一条 agent SSE 流，逐帧分发；流读尽或中途异常时返回/抛出。 */
@@ -114,13 +147,32 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
   const reader = resp.body!.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let sawDone = false
+  /** 收到 done 的栏（按显式 `agent`）；会话级 done 另记一个开关 */
+  const doneKinds = new Set<string>()
+  let sessionLevelDone = false
   for (;;) {
     const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const { frames, rest } = takeSseFrames(buffer)
-    buffer = rest
+    let frames: string[]
+    if (done) {
+      // EOF：缓冲区里的残渣要再解析一轮。`decoder.decode()` 无参调用把流式解码器
+      // 里攒着的半个多字节字符冲出来（中文被切在 chunk 边界上时不冲就是乱码）。
+      //
+      // 为什么必须做：服务端写完最后一帧常常直接关流、不补 `\n\n`，那个尾巴上
+      // 可能正好是 done（丢了就把正常轮次记成断流），也可能是最后一截正文或一次
+      // usage（丢了就是可见的数据丢失）。
+      buffer += decoder.decode()
+      const tail = takeSseFrames(buffer)
+      frames = tail.frames
+      const leftover = tail.rest.trim()
+      // 剩下的是没有空行结尾的那一帧（或半帧）：是完整 JSON 就照发，半帧由
+      // parseSseEvent 的 JSON.parse 兜住（容错返回 null，流不当异常）
+      if (leftover) frames = [...frames, leftover]
+    } else {
+      buffer += decoder.decode(value, { stream: true })
+      const part = takeSseFrames(buffer)
+      buffer = part.rest
+      frames = part.frames
+    }
     for (const frame of frames) {
       const event = parseSseEvent(frame)
       if (!event) continue
@@ -180,8 +232,11 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
           h.onProgress()
           h.onError(event.message, origin)
           break
-        case 'done':
-          sawDone = true
+        case 'done': {
+          // 按栏记账（只认显式 agent）：收尾时要能回答「哪一栏没等到 done」
+          const who = explicitAgentOf(event)
+          if (who) doneKinds.add(who)
+          else sessionLevelDone = true
           h.onProgress()
           // 水位字段可选：旧后端 / pi 未上报时 undefined，前端隐藏水位显示
           h.onDone(
@@ -191,28 +246,24 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
             origin,
           )
           break
+        }
         default:
           break // meta / activity(thinking) 不入转录
       }
     }
+    // EOF 这一轮的 frames 已经分发完：必须跳出，否则 read() 会一直返回 done:true
+    // 永不结束（缓冲区残渣会被反复重新分发，表现为整轮挂死）
+    if (done) break
   }
 
-  // 尾帧：服务端关流前可能留下一个没有空行结尾的完整帧（半帧另当别论）。
-  // 直接丢掉的话，恰好落在尾巴上的 done 会被当成「没收到」。
-  const tail = buffer.trim()
-  if (tail.startsWith('data:')) {
-    const event = parseSseEvent(tail)
-    if (event?.type === 'done') {
-      sawDone = true
-      h.onProgress()
-      h.onDone(
-        event.context_used_tokens === undefined && event.context_total_tokens === undefined
-          ? undefined
-          : { used: event.context_used_tokens ?? null, total: event.context_total_tokens ?? null },
-        { kind: agentOf(event), runId: runIdOf(event) },
-      )
-    }
+  const outcome: StreamOutcome = {
+    sawDone: sessionLevelDone || doneKinds.size > 0,
+    doneKinds: [...doneKinds],
+    sessionLevelDone,
   }
-
-  return { sawDone }
+  // 两条通道，各管各的：回调给 handler 清瞬态（此刻仍在读循环的上下文里），返回值
+  // 给 store 做收尾判定。store **不能**在回调里收尾：它还要 finishAssistant() 清
+  // streaming，两处写同一帧状态会互相覆盖。
+  h.onStreamEnd?.(outcome)
+  return outcome
 }
