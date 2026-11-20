@@ -40,6 +40,14 @@ export interface CitationRef {
   chunkId?: number
   /** 原文片段（角标点开时显示；缺失时角标仍可点，只是显示「原文未随本轮保存」） */
   text?: string
+  /**
+   * 本轮检索命中的关键词（可选）。
+   *
+   * **只影响角标卡片里的 `<mark>` 高亮，不参与定位**：后端目前不发检索词，
+   * 缺失时不高亮即可——绝不能在前端自己按空格切词瞎猜，那会把「第」这类
+   * 高频字涂满整段原文，反而看不出命中在哪。
+   */
+  keywords?: string[]
 }
 
 /** 正文里一处 `[Kn]` 标记的位置 */
@@ -98,4 +106,54 @@ export function reconcileCitations(
 export function pageSpanNote(page: number, kind: CitationKind): string {
   if (kind === 'statute' || kind === 'judgment') return `第 ${page} 页`
   return `第 ${page} 段（按解析分段）`
+}
+
+/**
+ * 正文片段：要么是普通文字，要么是一处角标。
+ *
+ * 单独给出「片段」而不是让渲染层自己切字符串，是为了让「哪些方括号算引用」
+ * 只有 `parseCiteMarkers` 一个判据——渲染层（react-markdown 的 components 映射）
+ * 拿到的文本节点可能被行内标记拆成好几段，切分规则一旦分叉就会出现
+ * 「同一句话里有的 `[K1]` 是角标、有的是文本」。
+ */
+export type CiteSegment =
+  | { kind: 'text'; text: string }
+  | { kind: 'cite'; citeNo: number }
+
+/**
+ * 把一段正文按 `[Kn]` 切成「文字 / 角标」片段，供渲染层逐段还原。
+ *
+ * `known` 语义与 `parseCiteMarkers` 一致（给了就只认其中的编号）。
+ * 没有标记时返回**单段原文**，调用方据此跳过整个替换动作（保持原字符串）。
+ */
+export function splitCiteSegments(
+  text: string,
+  known?: ReadonlySet<number>,
+): CiteSegment[] {
+  const marks = parseCiteMarkers(text, known)
+  if (marks.length === 0) return text.length > 0 ? [{ kind: 'text', text }] : []
+
+  const segments: CiteSegment[] = []
+  let cursor = 0
+  for (const mark of marks) {
+    if (mark.start > cursor) segments.push({ kind: 'text', text: text.slice(cursor, mark.start) })
+    segments.push({ kind: 'cite', citeNo: mark.citeNo })
+    cursor = mark.end
+  }
+  if (cursor < text.length) segments.push({ kind: 'text', text: text.slice(cursor) })
+  return segments
+}
+
+/**
+ * 文本末尾是不是一个**还没写完**的角标（`[K` / `[K1`）。
+ *
+ * 流式输出时用：模型正一个字一个字吐 `[K12]`，若在 `[K1` 这一帧就渲染角标，
+ * 用户会看到角标先亮起、随后编号从 1 跳成 12（甚至点开的是另一条来源）。
+ * 判断「这一段还有半截标记」后整段先按纯文本渲染，闭合的下一帧再一次性包角标——
+ * 宁可晚半秒出现，也不要闪现一个错的来源。
+ *
+ * 只认末尾：标记内部不可能有换行，所以一段文本里只可能**最后**那个标记没写完。
+ */
+export function hasPendingCiteMarker(text: string): boolean {
+  return /\[K\d{0,3}$/.test(text)
 }
