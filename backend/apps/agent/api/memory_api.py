@@ -64,6 +64,7 @@ async def list_memories(  # pragma: no cover
     scope: str | None = None,
     status: str | None = None,
     limit: int = 100,
+    offset: int = 0,
     contract_id: int | None = None,
     case_id: int | None = None,
 ) -> list[MemoryOut]:
@@ -71,6 +72,7 @@ async def list_memories(  # pragma: no cover
 
     ``contract_id`` / ``case_id``：只看挂在某个项目/案件上的项目笔记，
     供「项目页 AI 上下文面板」使用。两个都给时取并集（与注入侧同一语义）。
+    ``offset`` 配合 ``limit`` 翻页（面板的「加载更多」）。
     """
     lawyer = _current_user(request)
     rows = await sync_to_async(memory_service.list_memories_payload, thread_sensitive=True)(
@@ -78,6 +80,7 @@ async def list_memories(  # pragma: no cover
         scope=scope,
         status=status,
         limit=limit,
+        offset=offset,
         contract_id=contract_id,
         case_id=case_id,
     )

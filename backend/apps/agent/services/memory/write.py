@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from django.db import transaction
@@ -19,6 +20,8 @@ from . import scopes, search, snapshot
 
 if TYPE_CHECKING:
     from apps.organization.models import Lawyer
+
+logger = logging.getLogger(__name__)
 
 
 def create_memory(
@@ -201,7 +204,31 @@ def create_note(
 
     _ensure_embedding(note)
     snapshot.invalidate_snapshot(lawyer)
+    _warn_pii_risk(note, lawyer)
     return note
+
+
+def _warn_pii_risk(note: AgentMemory, lawyer: Lawyer) -> None:
+    """项目笔记落库时跑一次 PII 粗筛，命中只记日志、不阻断。
+
+    为什么不阻断：项目笔记的正常内容就是「某某公司欠款 80 万、3 月 12 日开庭」，
+    硬拦会把正常办案材料挡在门外，律师直接关掉这个功能。为什么不静默：这些字
+    会随记忆快照**每轮进 system prompt**，还会被导出/复制，至少要留痕，出事能查。
+
+    与 ``promote_memory`` 的区别：那里是「提升到团队/律所（全所可见）」，命中即拦；
+    这里可见性只有同律师团队，风险等级不同，所以处置也不同。
+    """
+    from .curation import scan_pii_risk
+
+    hits = scan_pii_risk(note.content)
+    if not hits:
+        return
+    logger.warning(
+        "项目笔记命中敏感模式（已放行，同团队可见）: id=%s lawyer=%s hits=%s",
+        note.pk,
+        lawyer.pk,
+        hits,
+    )
 
 
 def confirm_note(lawyer: Lawyer, memory_id: str, *, content: str | None = None) -> AgentMemory:

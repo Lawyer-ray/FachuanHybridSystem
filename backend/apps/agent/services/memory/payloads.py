@@ -56,6 +56,7 @@ def list_memories_payload(
     limit: int,
     contract_id: int | None = None,
     case_id: int | None = None,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """当前律师可见的记忆列表载荷。
 
@@ -65,6 +66,10 @@ def list_memories_payload(
     ``contract_id`` / ``case_id`` 用于「项目页的 AI 上下文面板」：只取挂在
     本项目/本案上的笔记（两个都给时取并集，与注入侧 ``anchor_q`` 同一语义，
     避免「面板看到 5 条、注入只有 3 条」这种两套口径）。
+
+    ``offset`` 供「加载更多」翻页。排序显式写成 ``(-created_at, id)``：只按
+    时间排时同一秒写入的多条顺序不稳定，翻页会漏条或重复条（id 只是决胜位，
+    不承担语义）。
     """
     if status:
         statuses: tuple[str, ...] = (status,)
@@ -79,7 +84,9 @@ def list_memories_payload(
     # 一条被谁推翻 = 存在另一条把 supersedes 指向它（注解而不是逐行查，避免 N+1）
     queryset = queryset.annotate(is_superseded=Exists(AgentMemory.objects.filter(supersedes=OuterRef("pk"))))
     bounded = max(1, min(limit, 300))
-    return [memory_to_dict(m) for m in queryset[:bounded]]
+    start = max(0, offset)
+    ordered = queryset.order_by("-created_at", "id")
+    return [memory_to_dict(m) for m in ordered[start : start + bounded]]
 
 
 def search_memories_payload(lawyer: Lawyer, query: str, *, limit: int) -> list[dict[str, Any]]:

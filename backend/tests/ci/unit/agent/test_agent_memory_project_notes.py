@@ -316,3 +316,63 @@ class TestSupersededFlag:
         by_content = {r["content"]: r["is_superseded"] for r in rows}
         assert by_content["旧结论：三个月内付清"] is True
         assert by_content["新结论：六个月内分期"] is False
+
+
+class TestPagination:
+    """面板「加载更多」：offset 翻页必须不漏不重。"""
+
+    @pytest.mark.django_db
+    def test_offset_walks_pages(self, lawyer: Lawyer) -> None:
+        for i in range(5):
+            memory_service.create_note(lawyer, content=f"判断{i}", contract_id=CONTRACT_ID)
+
+        def page(offset: int) -> list[str]:
+            rows = memory_service.list_memories_payload(
+                lawyer, scope=None, status=None, limit=2, offset=offset, contract_id=CONTRACT_ID
+            )
+            return [r["content"] for r in rows]
+
+        first, second, third = page(0), page(2), page(4)
+        assert len(first) == 2 and len(second) == 2 and len(third) == 1
+        assert len(set(first + second + third)) == 5
+
+    @pytest.mark.django_db
+    def test_same_timestamp_pages_do_not_overlap(self, lawyer: Lawyer) -> None:
+        # 同一秒写入的多条：只按 created_at 排会翻页漏条/重条，id 必须当决胜位
+        from django.utils import timezone
+
+        fixed = timezone.now()
+        for i in range(4):
+            memory_service.create_note(lawyer, content=f"同秒{i}", contract_id=CONTRACT_ID)
+        AgentMemory.objects.filter(contract_id=CONTRACT_ID).update(created_at=fixed)
+
+        def page(offset: int) -> list[str]:
+            rows = memory_service.list_memories_payload(
+                lawyer, scope=None, status=None, limit=2, offset=offset, contract_id=CONTRACT_ID
+            )
+            return [r["content"] for r in rows]
+
+        a, b = page(0), page(2)
+        assert len(set(a) & set(b)) == 0
+        assert len(set(a + b)) == 4
+
+
+class TestPiiWarning:
+    """项目笔记命中敏感模式：放行但留痕（可见性只有同团队，与策展闸门等级不同）。"""
+
+    @pytest.mark.django_db
+    def test_warns_without_blocking(self, lawyer: Lawyer, caplog: pytest.LogCaptureFixture) -> None:
+        # 手机号是构造出来的假号码，只为触发 write._warn_pii_risk 的正则
+        phone = "138" + "0000" + "0000"
+        with caplog.at_level("WARNING"):
+            note = memory_service.create_note(
+                lawyer, content=f"当事人电话 {phone}，先电话沟通", contract_id=CONTRACT_ID
+            )
+        assert note.pk is not None
+        assert any("项目笔记命中敏感模式" in rec.getMessage() for rec in caplog.records)
+
+    @pytest.mark.django_db
+    def test_clean_note_does_not_warn(self, lawyer: Lawyer, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level("WARNING"):
+            memory_service.create_note(lawyer, content="对方已同意分期", contract_id=CONTRACT_ID)
+        assert not any("项目笔记命中敏感模式" in rec.getMessage() for rec in caplog.records)

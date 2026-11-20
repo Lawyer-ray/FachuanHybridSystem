@@ -1,15 +1,20 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Sparkles } from 'lucide-react'
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { errMessage } from '@/lib/errors'
 
-import { listProjectNotes, type ProjectNote } from '../../api'
+import { listProjectNotes, PROJECT_NOTES_PAGE_SIZE, type ProjectNote } from '../../api'
 import { fmtCNDate } from '../../domain'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
 
+import { ProjectNoteConfirmDialog } from './ProjectNoteConfirmDialog'
+
 /**
- * 「AI 上下文」抽屉：把挂在本项目上的 AI 笔记读出来（只读）。
+ * 「AI 上下文」抽屉：把挂在本项目上的 AI 笔记读出来，并给「同事的判断」一条
+ * 人工确认的入口。
  *
  * ## 为什么分「已确认的事实 / 同事的判断」两组，且事实在前
  *
@@ -17,10 +22,18 @@ import { workbenchKeys } from '../../hooks/use-workbench-data'
  * 某位同事（或 AI）当时的一句判断。混在一列里，律师会把后者当结论用——所以顺序
  * 固定、两组各自计数，并在组头写清「能当依据 / 只是线索」。
  *
- * ## 为什么没有编辑 / 删除 / 确认按钮
+ * ## 为什么只在这里开「确认」，其它写入口仍留在助手那侧
  *
- * 本期只开读。确认要落确认人（后端 `NoteConfirmIn` 写 `confirmed_by`），改写笔记
- * 等于换一条结论，都属于助手那侧的写流程；这里给半套写入口只会让「谁改的」说不清。
+ * 模型写的只是判断，必须人点一下才升为项目事实——这是整套记忆设计的闸门。律师
+ * 恰恰是在这一屏看到某条判断「说得对」的，让他回助手重写一遍才能确认，等于把闸门
+ * 关死。改写 / 删除 / 新增仍然只走助手：这里给半套写入口会让「谁改的」说不清。
+ *
+ * ## 为什么用 useInfiniteQuery 分页
+ *
+ * 后端一次只回 limit 条，静默截断会让律师以为「本项目就这些笔记」，而漏掉的正是
+ * 同事的判断。分页状态交给 react-query（而不是组件里自己攒数组）：确认成功后
+ * 只需 invalidate 同一个 key，它会把已加载的每一页依次重取，列表带着新分组刷新，
+ * 本地累积则得手工决定「重取哪几页、旧页怎么和新页拼」。
  *
  * 请求只在打开时发（`enabled: open`）：项目详情页是律师停留最久的一页，不该为
  * 一个默认收起的抽屉背一条请求。
@@ -35,14 +48,22 @@ export function ProjectMemoryDrawer({
   /** 委托合同 id（`:id`）：笔记的项目锚点就是它 */
   contractId: number
 }) {
-  const query = useQuery({
+  // 正在确认的那条（null = 弹窗关闭）。放在这里而不是行内：弹窗要跨行复用，
+  // 且行组件只该负责「点了一下」。
+  const [confirming, setConfirming] = useState<ProjectNote | null>(null)
+
+  const query = useInfiniteQuery({
     queryKey: workbenchKeys.projectNotes(contractId),
-    queryFn: () => listProjectNotes(contractId),
+    queryFn: ({ pageParam }) => listProjectNotes(contractId, { offset: pageParam }),
+    initialPageParam: 0,
+    // 返回条数 < limit 即末页：后端没有 total，多要一次空页比猜总数诚实
+    getNextPageParam: (lastPage, _pages, lastOffset) =>
+      lastPage.length < PROJECT_NOTES_PAGE_SIZE ? undefined : lastOffset + PROJECT_NOTES_PAGE_SIZE,
     enabled: open,
     staleTime: 30_000,
   })
 
-  const notes = query.data ?? []
+  const notes = query.data?.pages.flat() ?? []
   // 被推翻的旧结论单独放最后：留在两列里会让律师看到两条互相矛盾的判断，
   // 而且没有任何提示。它们仍要可见——「当时怎么定的」本身是线索。
   const live = notes.filter((n) => !n.is_superseded)
@@ -64,9 +85,11 @@ export function ProjectMemoryDrawer({
         </SheetHeader>
 
         <SheetBody className="px-6 pt-4">
-          {query.isLoading ? (
+          {query.isPending ? (
+            /* isPending 而不是 isLoading：enabled 从 false 翻 true 的那一帧还没发出请求，
+               用 isLoading 会先闪一下「本项目还没有笔记」的空态 */
             <LoadingBlock size="sm" text="正在加载 AI 笔记…" className="justify-start py-6" />
-          ) : query.isError ? (
+          ) : notes.length === 0 && query.isError ? (
             /* 失败不能退化成空列表：律师会读成「本项目没有笔记」，把同事的判断当成不存在 */
             <ErrorBlock
               error={query.error}
@@ -81,20 +104,84 @@ export function ProjectMemoryDrawer({
             </EmptyBlock>
           ) : (
             <>
+              {/* 确认入口只挂在「同事的判断」：上面那组已经确认过，下面那组已被推翻 */}
               <NoteGroup title="已确认的事实" hint="同团队确认过，可以当依据" notes={facts} />
-              <NoteGroup title="同事的判断" hint="还没人确认，先当线索" notes={judgments} />
+              <NoteGroup
+                title="同事的判断"
+                hint="还没人确认，先当线索"
+                notes={judgments}
+                onConfirm={setConfirming}
+              />
               <NoteGroup
                 title="已被推翻"
                 hint="仅作历史线索，不要当依据"
                 notes={superseded}
                 tone="muted"
               />
+              <ProjectNotesPager
+                loaded={notes.length}
+                hasMore={query.hasNextPage}
+                fetching={query.isFetchingNextPage}
+                error={query.isFetchNextPageError ? query.error : null}
+                onLoadMore={() => void query.fetchNextPage()}
+              />
             </>
           )}
         </SheetBody>
       </SheetContent>
+
+      <ProjectNoteConfirmDialog
+        note={confirming}
+        contractId={contractId}
+        onClose={() => setConfirming(null)}
+      />
     </Sheet>
   )
+}
+
+/**
+ * 列表底部的分页脚：加载更多 / 加载更多失败可重试 / 末页计数。
+ *
+ * 加载更多失败**不清空已加载内容**——重试入口原地替换按钮，律师不会因为最后一页
+ * 超时就连带丢掉前面看过的那几条。
+ */
+function ProjectNotesPager({
+  loaded,
+  hasMore,
+  fetching,
+  error,
+  onLoadMore,
+}: {
+  loaded: number
+  hasMore: boolean
+  fetching: boolean
+  /** 非空 = 上一次「加载更多」失败（首屏失败走的是整块 ErrorBlock，不会到这里） */
+  error: unknown
+  onLoadMore: () => void
+}) {
+  if (error) {
+    return (
+      <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-[8px] bg-secondary px-2.5 py-2 text-[12px] text-destructive">
+        <span>加载更多失败：{errMessage(error, '请稍后重试')}</span>
+        <button type="button" className="flex-none underline underline-offset-2" onClick={onLoadMore}>
+          重试
+        </button>
+      </div>
+    )
+  }
+  if (hasMore) {
+    return (
+      <button
+        type="button"
+        disabled={fetching}
+        onClick={onLoadMore}
+        className="mb-4 w-full rounded-[8px] border border-border px-2.5 py-2 text-[12px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-60"
+      >
+        {fetching ? '加载中…' : '加载更多'}
+      </button>
+    )
+  }
+  return <p className="mb-4 py-1 text-center text-[11px] text-muted-foreground">已全部加载 {loaded} 条</p>
 }
 
 function NoteGroup({
@@ -102,11 +189,14 @@ function NoteGroup({
   hint,
   notes,
   tone,
+  onConfirm,
 }: {
   title: string
   hint: string
   notes: ProjectNote[]
   tone?: 'muted'
+  /** 只有「同事的判断」传：确认入口只给还没人确认过的现行判断 */
+  onConfirm?: (note: ProjectNote) => void
 }) {
   // 「已被推翻」空了就整组隐藏；上面两组空着也要留标题与 0——「没人确认过」
   // 本身就是律师要知道的信息，藏掉会让他以为这条已被确认。
@@ -121,7 +211,12 @@ function NoteGroup({
       {notes.length > 0 && (
         <ul className="space-y-1">
           {notes.map((note) => (
-            <NoteRow key={note.id} note={note} muted={tone === 'muted'} />
+            <NoteRow
+              key={note.id}
+              note={note}
+              muted={tone === 'muted'}
+              onConfirm={onConfirm ? () => onConfirm(note) : undefined}
+            />
           ))}
         </ul>
       )}
@@ -129,7 +224,16 @@ function NoteGroup({
   )
 }
 
-function NoteRow({ note, muted }: { note: ProjectNote; muted?: boolean }) {
+function NoteRow({
+  note,
+  muted,
+  onConfirm,
+}: {
+  note: ProjectNote
+  muted?: boolean
+  /** 不给就不渲染「确认」：已确认 / 已推翻的行没有可确认的东西 */
+  onConfirm?: () => void
+}) {
   const confirmed = note.confirmed_at !== ''
   return (
     <li className="flex items-start gap-2 rounded-[8px] px-2 py-1.5">
@@ -145,6 +249,17 @@ function NoteRow({ note, muted }: { note: ProjectNote; muted?: boolean }) {
           {confirmed ? (note.confirmed_by ? `${note.confirmed_by} 确认` : '已确认') : fmtCNDate(note.created_at)}
         </p>
       </div>
+      {onConfirm && (
+        <button
+          type="button"
+          onClick={onConfirm}
+          aria-label="确认这条判断为项目事实"
+          title="确认后本项目的所有律师都会把它当已确认的事实使用"
+          className="mt-0.5 flex-none rounded-[6px] border border-border px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          确认
+        </button>
+      )}
     </li>
   )
 }
