@@ -333,16 +333,34 @@ describe('reviewHintOf：复核信号 → 人话', () => {
     expect(reviewHintOf({})).toBeNull()
   })
 
-  it('低置信度：原因按 source_method 分开说，并附上置信度', () => {
-    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'layout_title', confidence: 0.62 })).toEqual({
+  it('低置信度：原因按 source_method 分开说', () => {
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'layout_title', confidence: 0.5 })).toEqual({
       label: '建议复核',
-      reason: '起点是按版面标题推断的，可能把上一份的末尾切进来 · 自动分段置信度 62%',
+      reason: '起点是按版面标题推断的，可能把上一份的末尾切进来 · 自动分段置信度 50%',
     })
     expect(
       reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'rule_adjacent_start', confidence: 0.55 })?.reason,
     ).toBe('和上一段的起点只隔一页，可能切得太碎 · 自动分段置信度 55%')
     expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'llm', confidence: 0.4 })?.reason).toBe(
       '模型对这一段的边界把握不大 · 自动分段置信度 40%',
+    )
+  })
+
+  /**
+   * 真实反馈：「置信度 90% 你还要我复核？」
+   *
+   * 90% 还打复核标记的情况是存在的（后端边界二审没能给出结论 → 打标记，但**刻意
+   * 不动模型自报的置信度**，因为没有校准依据）。错在**我们把这个数字当成了理由**：
+   * 提示里出现的百分比必须支持「要复核」这个结论，否则律师看到的就是一句自相矛盾
+   * 的话，进而不再相信整个提示。
+   */
+  it('置信度不低时，不把百分比当理由：说清复核的是边界', () => {
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'llm', confidence: 0.9 })?.reason).toBe(
+      '文字识别置信度 90%，要核对的是分段边界（二审没能给出结论）',
+    )
+    // 规则引擎的结构成因仍是真原因，但高置信度不再追加数字
+    expect(reviewHintOf({ reviewFlag: 'low_confidence', sourceMethod: 'layout_title', confidence: 0.9 })?.reason).toBe(
+      '起点是按版面标题推断的，可能把上一份的末尾切进来',
     )
   })
 

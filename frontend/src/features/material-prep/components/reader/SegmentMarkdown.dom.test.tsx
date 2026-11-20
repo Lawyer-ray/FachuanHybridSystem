@@ -91,9 +91,27 @@ describe('SegmentMarkdown', () => {
     expect(hint.textContent).toContain('建议复核')
     // 原因（不是只有「建议复核」四个字）
     expect(hint.textContent).toContain('起点是按版面标题推断的')
-    expect(hint.textContent).toContain('自动分段置信度 62%')
+    // 62% 不低，就别拿它当理由（真实反馈：「置信度 90% 你还要我复核？」）
+    expect(hint.textContent).not.toContain('自动分段置信度')
     // 行动指引
     expect(hint.textContent).toContain('请核对本段起止页与材料名')
+  })
+
+  /**
+   * 置信度 90% 仍被要求复核时，必须说清「复核的是边界，不是文字」——
+   * 后端触发它的是边界二审没结论这类结构信号（刻意不降模型自报的置信度）。
+   */
+  it('高置信度仍要复核时：写明要核对的是分段边界', () => {
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({
+          seg: seg({ md: '# 证据目录', reviewFlag: 'low_confidence', sourceMethod: 'llm', confidence: 0.9 }),
+        })}
+      />,
+    )
+    const hint = container.querySelector('[data-review-hint]') as HTMLElement
+    expect(hint.textContent).toContain('文字识别置信度 90%')
+    expect(hint.textContent).toContain('要核对的是分段边界')
   })
 
   it('不需要复核的段不出现复核提示条', () => {
