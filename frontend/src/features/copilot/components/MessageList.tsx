@@ -33,6 +33,7 @@ import { AnswerGroupView } from './AnswerGroupView'
 import { CopilotWelcome } from './CopilotWelcome'
 import { ErrorNotice } from './ErrorNotice'
 import { MessageActions } from './MessageActions'
+import { useScrollAnchor } from '../hooks/use-scroll-anchor'
 import { SelectionBarLayer } from './SelectionBar'
 import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
 import { StreamActivity } from './StreamActivity'
@@ -111,7 +112,7 @@ const Bubble = memo(function Bubble({
     // 右侧再空出 12%——观感就是「两边都空着一大块」。靠右是 IM 惯例，
     // 也让用户消息与左侧 AI 回答形成清晰的对位。
     return (
-      <div className="ml-auto flex max-w-[88%] items-end gap-1.5">
+      <div data-msg-id={message.id} className="ml-auto flex max-w-[88%] items-end gap-1.5">
         <div className="flex min-w-0 flex-1 flex-col items-end gap-1">
           {biz && bizHint && (
             <span
@@ -184,7 +185,7 @@ const Bubble = memo(function Bubble({
 
   const showCopy = !message.streaming && Boolean(message.content)
   return (
-    <div className="group relative max-w-full text-[13px] leading-relaxed text-foreground">
+    <div data-msg-id={message.id} className="group relative max-w-full text-[13px] leading-relaxed text-foreground">
       <ThinkingBlock message={message} />
       {/* 「还在干活」要出现在**律师的注意力焦点**上（本栏气泡内、正文之前），
           而不是转录流里某一行工具条——后者他根本不会去看（见 StreamActivity） */}
@@ -249,11 +250,20 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
   const noMoreHistory = useCopilot((s) => s.noMoreHistory)
   const loadingOlder = useCopilot((s) => s.loadingOlder)
   const loadOlderHistory = useCopilot((s) => s.loadOlderHistory)
+  const sessionId = useCopilot((s) => s.sessionId)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
   // 与 stickToBottom 同步的**可见**状态：只有它变了才需要重渲染（渲染「回到底部」钮）
   const [atBottom, setAtBottom] = useState(true)
+  // 每会话的滚动位置（语义锚点，见 hooks/use-scroll-anchor）：切走前记、回来时落回
+  const anchorApi = useScrollAnchor(scrollRef)
+  // 写 ref 只能在 effect 里（渲染期写会被 React Compiler 判错），而恢复要在
+  // 「历史已就位」之后跑一次——两个 effect 各自合法，串起来就是「拿到最新函数再调」。
+  const anchorApiRef = useRef(anchorApi)
+  useEffect(() => {
+    anchorApiRef.current = anchorApi
+  })
 
   const handleScroll = () => {
     const el = scrollRef.current
@@ -261,6 +271,9 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 60
     stickToBottom.current = near
     setAtBottom((prev) => (prev === near ? prev : near))
+    // 记位置必须在滚动事件里：`useEffect` 的 cleanup 跑在 DOM 已换成新会话之后，
+    // 那时量到的是空转录，锚点白丢（见 use-scroll-anchor 的接线说明）。
+    anchorApiRef.current.saveAnchor(sessionId)
   }
 
   // 分组与行渲染都固定引用：`AnswerGroupView`/`MultiAnswers` 都是 memo 的，
@@ -284,6 +297,14 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
     const el = scrollRef.current
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight
   }, [messages, approvals, pendingQuestions, lastError, queuePosition])
+
+  // 历史就位后把位置落回这个会话上次读到的行。只在**不在 follow 状态**时做：
+  // 律师正贴着底看实时输出时把视图拽回历史位置，比丢位置更糟。
+  useEffect(() => {
+    if (loadingHistory || streaming) return
+    anchorApiRef.current.restoreAnchor(sessionId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在「会话换了 / 历史刚就位」时落一次
+  }, [sessionId, loadingHistory])
 
   const empty = messages.length === 0 && !streaming && !loadingHistory
 
