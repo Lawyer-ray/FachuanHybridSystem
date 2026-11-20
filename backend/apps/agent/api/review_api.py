@@ -20,14 +20,16 @@ from __future__ import annotations
 
 from typing import Any, Literal, cast
 
+from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from pydantic import Field
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import AgentReview
+from ..models import AgentReview, AgentReviewAdoption
 from ..services.adjudication.contracts import CriteriaVerdict, LaneReview, Review
+from ..services.review.adoption import find_owned_review, load_adoption, record_adoption
 from ..services.review.jury import run_jury
 from ..services.review.rubric import UnknownRubricError, load_rubric
 from ..services.review.store import latest_review, load_turn_answers, save_review
@@ -121,3 +123,73 @@ async def get_session_review(request: Any, session_id: str, turn: int | None = N
     if record is None:
         raise HttpError(404, "该轮尚无评审结果")
     return _to_review(record)
+
+
+class AdoptIn(Schema):
+    """律师显式采纳的请求体。"""
+
+    #: 采纳的栏（``agent_kind``）；``None`` = 不归属某一栏（合并/手改，原因写 ``note``）。
+    lane: str | None = Field(default=None, max_length=64)
+    merged: bool = False
+    note: str = Field(default="", max_length=500)
+
+
+class AdoptionOut(Schema):
+    """一次采纳的线上形状（POST 返回、GET 回显同一形状）。"""
+
+    review_id: str
+    lane: str | None
+    merged: bool
+    note: str
+    adopted_at: str
+
+
+class AdoptionEnvelope(Schema):
+    """GET 回显；``adoption=None`` = 这轮还没采纳（不是错误）。"""
+
+    adoption: AdoptionOut | None
+
+
+def _adoption_out(review: AgentReview, record: AgentReviewAdoption) -> AdoptionOut:
+    """落库行 → 契约形状；``review_id`` 用已加载对象，避免同步回查。"""
+    return AdoptionOut(
+        review_id=review.review_id,
+        lane=record.lane,
+        merged=record.merged,
+        note=record.note,
+        # 统一按当前时区输出：POST 的返回值来自内存对象（UTC），GET 的回显来自
+        # 数据库连接（本地时区），不归一化会让"同一次采纳"在刷新前后字符串不同。
+        adopted_at=timezone.localtime(record.adopted_at).isoformat(),
+    )
+
+
+@router.post("/reviews/{review_id}/adopt", response=AdoptionOut)
+async def adopt_review(request: Any, review_id: str, payload: AdoptIn) -> AdoptionOut:
+    """律师显式采纳某栏/合并结果（幂等：同一 review 重复采纳覆盖同一行）。
+
+    影子开关**不**拦这条路由：采纳是律师点的，不是系统自动做的；
+    ``FACHUAN_REVIEW_SHADOW`` 只决定将来的自动路径能否启动
+    （见 ``services/review/adoption.py`` 的模块说明）。
+    """
+    review = await find_owned_review(review_id=review_id, user_id=_user_id(request))
+    if review is None:
+        # 不存在与非本人同答 404：区分开等于给了一个"这个 review_id 存在"的探针。
+        raise HttpError(404, "评审不存在")
+    record = await record_adoption(
+        review=review,
+        user_id=_user_id(request),
+        lane=payload.lane,
+        merged=payload.merged,
+        note=payload.note,
+    )
+    return _adoption_out(review, record)
+
+
+@router.get("/reviews/{review_id}/adoption", response=AdoptionEnvelope)
+async def get_review_adoption(request: Any, review_id: str) -> AdoptionEnvelope:
+    """回显当前采纳结果（刷新可回放）；未采纳时 ``adoption`` 为 ``null``。"""
+    review = await find_owned_review(review_id=review_id, user_id=_user_id(request))
+    if review is None:
+        raise HttpError(404, "评审不存在")
+    record = await load_adoption(review)
+    return AdoptionEnvelope(adoption=_adoption_out(review, record) if record is not None else None)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .adoption import AgentReviewAdoption
 from .approval import AgentApproval, AgentApprovalPolicy
 from .attachment import AgentAttachment
 from .memory import AgentMemory, content_hash_of
@@ -21,6 +22,7 @@ __all__ = [
     "AgentMessage",
     "AgentQuestion",
     "AgentReview",
+    "AgentReviewAdoption",
     "AgentRun",
     "AgentSession",
     "AgentSkillPreference",
