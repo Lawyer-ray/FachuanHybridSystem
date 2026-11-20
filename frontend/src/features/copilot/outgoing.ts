@@ -3,9 +3,15 @@
  *
  * 附件不进模型上下文——上传后消息里附「[已上传附件：name (attachment_id=…)]」
  * 引用块，模型用 mcp__fachuan__read_agent_attachment(id) 在服务端读正文。
+ *
+ * **引用块只有一套格式**：三条来源（拖拽文件/目录、输入框 `@` 引用）全部走
+ * `domain/mention.ts` 的 `mentionRefBlock`，与 `domain/transcript.ts` 的
+ * `SENT_REF_RE` 严格互逆。绝不为 `@` 新增第二种写法——否则历史回放的 chip 与
+ * 实时 chip 会两副面孔，律师刷新一次页面就认不出自己引用过什么。
  */
 
 import * as copilotApi from './api'
+import { mentionRefBlock, type MentionInsert } from './domain'
 import type { AgentAttachmentReceipt, FolderRefDraft } from './types'
 
 export interface OutgoingMessage {
@@ -35,7 +41,9 @@ export function resetUploadReceipts(): void {
  * - 附件：逐个上传（任一失败返回 null——本轮不发、chips 保留可重试，
  *   重试时已成功的走缓存），成功后在原文后附引用块；
  * - 文件夹引用：逐个落库（POST folder-refs 拿回执），附「已引用文件」块
- *   ——模型按 contract_id + subpath 调 read_folder_file 读绑定文件夹原文件。
+ *   ——模型按 contract_id + subpath 调 read_folder_file 读绑定文件夹原文件；
+ * - `@` 引用（`pendingMentions`）：不落库、不复制字节，直接按归属拼「已引用
+ *   文件/目录」块（整案/整份合同带 `subpath="."` = 绑定根）。
  *
  * 上传在途/收尾的状态落点（uploadingAttachments/pendingFiles）由调用方
  * store.send 负责；本模块只做纯出站组装。
@@ -45,8 +53,12 @@ export async function uploadAttachmentsAndCompose(
   trimmed: string,
   files: File[],
   folderRefs: FolderRefDraft[] = [],
+  mentions?: readonly MentionInsert[],
 ): Promise<OutgoingMessage | null> {
-  if (files.length === 0 && folderRefs.length === 0) return { composed: trimmed }
+  // 调用点（store/turn.ts）目前只传前四个参数：`store/**` 不在本次改动范围内，
+  // 故不传时从 store 读 `pendingMentions`（同一个真相来源，不另设缓存）
+  const mentionsToSend = mentions ?? (await readPendingMentions())
+  if (files.length === 0 && folderRefs.length === 0 && mentionsToSend.length === 0) return { composed: trimmed }
   const receipts: AgentAttachmentReceipt[] = []
   try {
     for (const file of files) {
@@ -82,16 +94,46 @@ export async function uploadAttachmentsAndCompose(
     if (key.startsWith(`${sessionId}:`)) uploadReceipts.delete(key)
   }
   const refBlocks = refReceipts
-    .filter((r) => r.ref_contract_id != null)
-    .map((r) => {
-      const idKey = r.ref_owner_kind === 'case' ? 'case_id' : 'contract_id'
-      return `[已引用文件：${r.filename} (attachment_id=${r.attachment_id}, ${idKey}=${r.ref_contract_id}, subpath="${r.ref_subpath}")]`
-    })
-  const dirBlocks = folderRefsDir.map(
-    (d) =>
-      `[已引用目录：${d.name} (${d.kind === 'case' ? 'case_id' : 'contract_id'}=${d.ownerId}, subpath="${d.subpath}")]`,
+    .filter((r) => r.ref_contract_id != null && r.ref_owner_kind != null)
+    .map((r) =>
+      mentionRefBlock(
+        {
+          kind: 'document',
+          label: r.filename,
+          subpath: r.ref_subpath,
+          owner: { kind: r.ref_owner_kind === 'case' ? 'case' : 'contract', id: r.ref_contract_id as number },
+        },
+        r.attachment_id,
+      ),
+    )
+  const dirBlocks = folderRefsDir.map((d) =>
+    mentionRefBlock({ kind: 'folder', label: d.name, subpath: d.subpath, owner: { kind: d.kind, id: d.ownerId } }),
   )
+  // `@` 引用：重新过一遍构建器（而不是直接拿 insert.clipboardText），保证格式
+  // 变更只有一处生效；没有归属的条目拼不出协议块，留痕而不是静默吞掉
+  const mentionBlocks: string[] = []
+  for (const mention of mentionsToSend) {
+    const block = mentionRefBlock(mention)
+    if (!block) {
+      console.warn('[copilot] @引用缺少归属（owner/subpath），已跳过出站块', mention)
+      continue
+    }
+    mentionBlocks.push(block)
+  }
   const uploadBlocks = receipts.map((r) => `[已上传附件：${r.filename} (attachment_id=${r.attachment_id})]`)
-  const blocks = [...refBlocks, ...dirBlocks, ...uploadBlocks].join('\n')
+  const blocks = [...mentionBlocks, ...refBlocks, ...dirBlocks, ...uploadBlocks].join('\n')
   return { composed: `${trimmed}\n\n${blocks}` }
+}
+
+/**
+ * 读待发 `@` 引用。
+ *
+ * 为什么是惰性 import 而不是顶部静态 import：`store/index.ts` 顶层就 import 了本
+ * 模块的 `resetUploadReceipts`，静态反向引用会形成 index → outgoing → index 的
+ * 模块初始化环（`useCopilot` 在环里可能是未初始化绑定）。惰性 import 发生在
+ * 发送时刻，那时 store 早已就绪。
+ */
+async function readPendingMentions(): Promise<readonly MentionInsert[]> {
+  const { useCopilot } = await import('./store')
+  return useCopilot.getState().pendingMentions ?? []
 }
