@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from django.apps import apps as django_apps
 from django.db.models import QuerySet
 
@@ -176,9 +178,32 @@ async def annotate_scope_names(sessions: list[AgentSession]) -> list[AgentSessio
     return sessions
 
 
+def _as_uuid(raw: object) -> uuid.UUID | None:
+    """宽松转 UUID，非法输入返回 ``None``（不抛）。
+
+    ``AgentSession.session_id`` 是 UUID 列。调用方手里的 id 来自 URL / 旧前端拼串，
+    可能是任意字符串；直接丢给 ``filter()`` 会让 Django 在**查询构造阶段**抛
+    ``ValidationError``，最终变成 500——对调用方来说「id 不合法」与「id 不存在」
+    是同一件事，都该是 404。
+    """
+    if isinstance(raw, uuid.UUID):
+        return raw
+    try:
+        return uuid.UUID(str(raw))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 async def get_session(*, session_id: str, user_id: int | None) -> AgentSession | None:
-    """按 session_id 取会话（带归属过滤）。"""
-    return await _scoped(user_id).filter(session_id=session_id).afirst()
+    """按 session_id 取会话（带归属过滤）。
+
+    非法 UUID 直接返回 ``None``（见 ``_as_uuid``）：否则 ``GET /sessions/<乱码>``
+    这类请求会 500，而正确行为是 404。
+    """
+    normalized = _as_uuid(session_id)
+    if normalized is None:
+        return None
+    return await _scoped(user_id).filter(session_id=normalized).afirst()
 
 
 async def list_messages(
