@@ -3,11 +3,14 @@
 from mcp_server.tools.core.agent_attachments import read_agent_attachment
 from mcp_server.tools.core.agent_memory import (
     confirm_memories,
+    confirm_project_fact,
     forget_memory,
     list_pending_memories,
     recall_memory,
     remember,
     restore_memory,
+    save_case_note,
+    save_project_note,
 )
 from mcp_server.tools.core.agent_skills import get_agent_skill
 from mcp_server.tools.core.ask_user import ask_user
@@ -85,6 +88,10 @@ __all__ = [
     "restore_memory",
     "list_pending_memories",
     "confirm_memories",
+    # 项目笔记（团队共享的判断，挂在项目/案件上）
+    "save_project_note",
+    "save_case_note",
+    "confirm_project_fact",
     # 异步任务统一状态
     "get_async_task_status",
     "list_doc_converter_jobs",

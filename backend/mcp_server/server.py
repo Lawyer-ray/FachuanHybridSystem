@@ -48,6 +48,7 @@ from mcp_server.tools import (
     confirm_memories,
     confirm_party,
     confirm_pdf_split,
+    confirm_project_fact,
     convert_document,
     create_case,
     create_case_folder_binding,
@@ -359,7 +360,9 @@ from mcp_server.tools import (
     retry_sms_processing,
     rewrite_folder_file,
     save_archive_overrides,
+    save_case_note,
     save_group_order,
+    save_project_note,
     save_to_directory,
     scale_to_a4,
     search_bidding_info,
@@ -1256,6 +1259,14 @@ _t(forget_memory)
 _t(restore_memory)
 _t(list_pending_memories)
 _t(confirm_memories)
+
+# 项目笔记：把「这个项目的结论」挂到项目/案件上，同团队跨会话共享。
+# 与上面三层记忆的分工：上面记的是律师的习惯，这里记的是项目的判断。
+_t(save_project_note)
+_t(save_case_note)
+# 升级为「项目事实」走 confirm_ 前缀 → HIGH，需要人工点一下：
+# 一旦标成事实，后续会话会当前提用，静默执行等于模型替律师签字。
+_t(confirm_project_fact)
 
 # 对话附件：服务端读文件提取正文（base64 不进模型上下文）
 _t(read_agent_attachment)
