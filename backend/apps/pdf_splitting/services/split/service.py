@@ -26,6 +26,7 @@ from apps.pdf_splitting.models import (
     parse_dual_engines,
 )
 from apps.pdf_splitting.services.heartbeat import periodic_heartbeat
+from apps.pdf_splitting.services.heartbeat import touch_heartbeat as _touch_heartbeat_row
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 from apps.pdf_splitting.services.template_registry import get_default_filename
 
@@ -154,6 +155,10 @@ class PdfSplitService:
                 is_cancelled=is_cancelled,
                 ocr_handler=self._ocr_handler,
                 llm_segment_detector=self._llm_segment_detector,
+                # 心跳回调同样要下传：这条旧全量路径里的逐页 OCR 也会长时间无回调。
+                # 预算传 None：本路径没有按阶段覆盖 django-q timeout（走集群默认值），
+                # 拿不到可信数字就不编一个——宁可不降级，也不拿错的尺子量剩余时间。
+                heartbeat=lambda: self.touch_heartbeat(job_id=job.id),
             )
         except PipelineCancelled:
             PdfSplitJob.objects.filter(id=job.id).update(
@@ -169,14 +174,35 @@ class PdfSplitService:
         把任务标成 processing + stage=extract，跑完后返回 pages 供调用方
         落盘。不在这里写 pages.json：落盘与推进阶段是编排层（tasks.py）的事，
         本方法保持“纯粹的二作”。
+
+        ## 为什么在这里算预算、并把心跳封成回调下传
+
+        本方法是“最近一个知道 django-q 给本任务多少秒”的地方（`submit_extract_stage`
+        提交的就是 `EXTRACT_STAGE_TIMEOUT_SECONDS`），而真正会阻塞的是下面的逐页 OCR
+        （线程池里，单页最坏 300s）。2026-11-20 事故：93 页卷宗在这里遇上 8 次单页超时，
+        心跳冻结 839s，最后被 1200s 硬杀，整轮（含两次 MinerU + 8 次 OCR 费用）白跑。
+
+        所以：预算在**这一步**算好往下传（下面的 pipeline 不知道也不该知道任务阀值），
+        心跳封成**无参回调**往下传（线程池不知道也不该知道 job 主键）。两者都是“参数/回调
+        下传”而不是“把 job 存到共享线程里”——后者在同一 worker 跑多个任务时会互相污染。
         """
+        from . import two_stage
+
         storage = PdfSplitStorage(job.id)
         storage.ensure_dirs()
         self._begin_stage(job, PdfSplitStage.EXTRACT)
 
+        # 预算从阶段开始就计时（含建目录/写库这些小题大做的开销），不在 OCR 前才起表：
+        # 否则“阶段开头就慢”的那几分钟会被当成可用预算。
+        stage_budget = two_stage.extract_stage_budget()
+
         def on_progress(resolved_pages: int, total_pages: int) -> None:
             self.touch_heartbeat(job_id=job.id)
             self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
+
+        def on_heartbeat() -> None:
+            # 只刷心跳，不动进度：逐页 OCR 与图片补救都是“没进度可报但可能在跑”的段落。
+            self.touch_heartbeat(job_id=job.id)
 
         def is_cancelled() -> bool:
             job.refresh_from_db(fields=["cancel_requested"])
@@ -194,7 +220,21 @@ class PdfSplitService:
             on_progress=on_progress,
             is_cancelled=is_cancelled,
             ocr_handler=self._ocr_handler,
+            heartbeat=on_heartbeat,
+            budget=stage_budget,
         )
+        if stage_budget.skipped_count:
+            # 阶段级别的最终账：单页日志早就在 `ocr_handler` 里打过，但“这次到底降级了几页”
+            # 只有汇总后才看得出来（而这直接影响分段边界）。
+            logger.warning(
+                "pdf_split_extract_budget_degraded",
+                extra={
+                    "job_id": str(job.id),
+                    "skipped_pages": stage_budget.skipped_count,
+                    "budget_seconds": round(stage_budget.total_seconds, 1),
+                    "remaining_seconds": round(stage_budget.remaining_seconds(), 1),
+                },
+            )
         # 双引擎**不在这里跑**：它要把整本再解析一遍（十几分钟），而本阶段已经
         # 用掉大半 600s 预算。留在同一次任务里会被 Q_CLUSTER timeout 硬杀进程，
         # 连 finally 都不执行（详见 two_stage.submit_cross_check_stage）。
@@ -657,9 +697,13 @@ class PdfSplitService:
         把一个**仍在正常工作**的任务误判为死任务。心跳必须比进度更频繁。
 
         调用方（pipeline 的每页回调）负责调它；这里只负责写库。
+
+        **实现在 `services/heartbeat.touch_heartbeat`，这里只转调**：同一件事以前有两份
+        拷贝（本方法与 heartbeat 模块各一份），逐页 OCR 的线程池又需要第三个入口时，
+        三份实现必然漏改其中一份——而心跳一旦和看门狗的判据不一致，就是“在跑的任务被
+        判死重排”。保留本方法只为守住 `PdfSplitService` 的公开 API。
         """
-        now = timezone.now()
-        PdfSplitJob.objects.filter(id=job_id).update(heartbeat_at=now, updated_at=now)
+        _touch_heartbeat_row(job_id=job_id)
 
 
 # 版面标题提取已下沉 split_models（pipeline / service 共用）；此处保留旧名再导出，

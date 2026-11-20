@@ -33,19 +33,22 @@ from __future__ import annotations
 import logging
 import re
 from collections import Counter
+from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import pymupdf as fitz
 
 from apps.document_parsing.services.backends._page_artifacts import clean_page_artifacts
+from apps.pdf_splitting.services.heartbeat import heartbeat_block
 from apps.pdf_splitting.services.template_registry import get_template_definition
 
 from .consistency_summary import attach_quality_flags_to_markdown, detect_inconsistencies, pick_top_inconsistencies
 from .llm_segment_detector import LLMSegmentDetector
 from .markdown_builder import build_segments_markdown
-from .ocr_handler import OCRHandler, cloud_backend_of_method
+from .ocr_handler import OCRHandler, OCRStageBudget, cloud_backend_of_method
 from .page_quality import mark_rescued_image_blocks, rescue_image_region, strip_stamp_boilerplate_lines
 from .page_quality_summary import attach_page_quality_flags, build_page_quality_summary, qualities_by_page
 from .segment_detector import SegmentDetector
@@ -62,6 +65,14 @@ logger = logging.getLogger("apps.pdf_splitting")
 
 ProgressCallback = Callable[[int, int], None]
 CancelCallback = Callable[[], bool]
+
+#: 心跳回调：只做一件事——给当前 job 写一拍心跳。
+#:
+#: 为什么传回调而不是 job_id：本模块刻意与 ``PdfSplitJob`` 解耦（分文件头：“不建任务、
+#: 不落库”），它不知道也不应该知道主键长什么样；而逐页 OCR 的线程池里又确实需要
+#: 「阻塞期间也有一拍心跳」（2026-11-20 事故：这里冻结了 839s）。传一个动作下去，
+#: 两边的依赖方向就都对了：上层知道给谁刷，下层只管在正确的时机呼一下。
+HeartbeatCallback = Callable[[], None]
 
 # 取消 / 进度节流：每解析 5 页查一次取消（与旧 analyze_job 的节奏一致）
 _CANCEL_CHECK_EVERY = 5
@@ -113,6 +124,8 @@ def extract_pages(
     on_progress: ProgressCallback | None = None,
     is_cancelled: CancelCallback | None = None,
     ocr_handler: Any = None,
+    heartbeat: HeartbeatCallback | None = None,
+    budget: OCRStageBudget | None = None,
 ) -> tuple[list[PageDescriptor], dict[str, Any]]:
     """流水线第一阶段：只做取字，不分段。
 
@@ -120,11 +133,17 @@ def extract_pages(
     各自就能吃掉大半分钟，合在一起必然撞 Django-Q 的 600s worker 超时。
     拆成两个独立任务后各自有完整预算，且取字产物落 pages.json，分段被杀
     也不用重跑 OCR。
+
+    Args:
+        heartbeat: 心跳回调（长阻塞路径也会刷）；None = 不刷（无任务上下文的纯函数调用）。
+        budget: 本段墙钟预算；None = 不降级（行为与改动前完全一致）。
     """
     extractor = PageTextExtractor(
         ocr_handler=ocr_handler,
         on_progress=on_progress,
         is_cancelled=is_cancelled,
+        heartbeat=heartbeat,
+        budget=budget,
     )
     pages, summary = extractor.extract(
         pdf_path,
@@ -153,6 +172,8 @@ def analyze_pdf(
     is_cancelled: CancelCallback | None = None,
     ocr_handler: Any = None,
     llm_segment_detector: Any = None,
+    heartbeat: HeartbeatCallback | None = None,
+    budget: OCRStageBudget | None = None,
 ) -> PdfAnalysisOutcome:
     """整条流水线的无状态门面：取字 → 分段 → Markdown。
 
@@ -169,6 +190,7 @@ def analyze_pdf(
         on_progress: 进度回调 (已解析页数, 总页数)，每解析一页触发一次（节流由调用方决定）。
         is_cancelled: 取消查询回调；返回 True 时抛 PipelineCancelled。
         ocr_handler / llm_segment_detector: 依赖注入口（测试桩）；缺省用真实实现。
+        heartbeat / budget: 心跳回调与墙钟预算，原样下传给取字阶段（见 `extract_pages`）。
     """
     pages, extraction_summary = extract_pages(
         pdf_path,
@@ -179,6 +201,8 @@ def analyze_pdf(
         on_progress=on_progress,
         is_cancelled=is_cancelled,
         ocr_handler=ocr_handler,
+        heartbeat=heartbeat,
+        budget=budget,
     )
     drafts, segment_summary = detect_segments_with_fallback(
         pages,
@@ -360,11 +384,45 @@ class PageTextExtractor:
         ocr_handler: Any = None,
         on_progress: ProgressCallback | None = None,
         is_cancelled: CancelCallback | None = None,
+        heartbeat: HeartbeatCallback | None = None,
+        budget: OCRStageBudget | None = None,
     ) -> None:
         self._ocr_handler = ocr_handler if ocr_handler is not None else OCRHandler()
         self._rule_detector = SegmentDetector()
         self._on_progress = on_progress
         self._is_cancelled = is_cancelled
+        self._heartbeat = heartbeat
+        # 预算只在**取字阶段被算出来**时才存在（见 split/service.extract_stage）：
+        # 无任务上下文的直接调用（其他域复用、单测）不降级，行为与改动前一致。
+        self._budget = budget
+
+    # ------------------------------------------------------------------
+    # 心跳 / 预算：长阻塞段与逐页降级共用
+    # ------------------------------------------------------------------
+
+    def _heartbeat_ctx(self) -> Any:
+        """包住一段可能长时间无回调的阻塞调用（云端整本解析 / 图片补救单页识别）。
+
+        没传心跳回调时返回 `nullcontext()`：纯函数调用（例如别的域直接调
+        `analyze_pdf`）不应该因为多了一个上下文管理器就产生任何行为。
+        """
+        if self._heartbeat is None:
+            return nullcontext()
+        return heartbeat_block(self._heartbeat)
+
+    def _ocr_kwargs(self) -> dict[str, Any]:
+        """`parallel_ocr` 的可选关键字：**只有在真有值时才传**。
+
+        为什么不做成恒定传 `budget=None, heartbeat=None`：`ocr_handler` 是依赖注入点，
+        既有测试桩 / 旧实现的 `parallel_ocr` 签名不带这两个参数，恒传会直接 TypeError。
+        只在有值时下传，存量桩零改动，而生产路径（两个值都有）拿到完整能力。
+        """
+        extra: dict[str, Any] = {}
+        if self._budget is not None:
+            extra["budget"] = self._budget
+        if self._heartbeat is not None:
+            extra["heartbeat"] = self._heartbeat
+        return extra
 
     def extract(
         self,
@@ -408,6 +466,10 @@ class PageTextExtractor:
             "image_rescue_pages": [],
             "image_rescue_chars": 0,
             "image_rescue_reused": 0,
+            # 因预算不足被跳过的页（逐页 OCR 阶段）：只计不拦，但必须能让 summary 说出来。
+            "budget_skipped_pages": [],
+            # 因预算不足整批放弃的图片补救页数（补救是附加内容，不是正文必要的路）
+            "image_rescue_skipped_budget": 0,
         }
         with fitz.open(pdf_path) as doc:
             total_pages = int(doc.page_count)
@@ -568,17 +630,28 @@ class PageTextExtractor:
         local_fallback_pages = [no for no in pending if descriptors[no - 1] is None]
         if not local_fallback_pages:
             return
+        # 预算与心跳一起下传：逐页 OCR 可能一页阻塞 300s，**这一段既无进度回调也无 DB 写入**
+        # （2026-11-20 事故里就冻结在这里 839s），必须靠心跳回调 + 逐页预算门禁控住。
         ocr_results = self._ocr_handler.parallel_ocr(
-            pdf_path=pdf_path, page_numbers=local_fallback_pages, runtime_profile=stats["runtime_profile"]
+            pdf_path=pdf_path,
+            page_numbers=local_fallback_pages,
+            runtime_profile=stats["runtime_profile"],
+            **self._ocr_kwargs(),
         )
+        # 因预算不足被跳过的页：**不写页缓存**。预算是这一次运行的临时状态，写进缓存就变成
+        # 「这页永久没字」——下一轮即使预算充足也会命中缓存直接跳过，降级变成永久损失。
+        budget_skipped = set(self._budget.skipped_pages) if self._budget is not None else set()
         for page_no in local_fallback_pages:
             self._raise_if_cancelled(page_no)
             result = ocr_results.get(page_no) or OCRPageResult(
                 page_no=page_no, text="", source_method="ocr_failed", ocr_failed=True
             )
-            self._ocr_handler.write_ocr_cache(
-                pdf_hash=pdf_hash, profile_key=stats["runtime_profile"].key, result=result
-            )
+            if page_no not in budget_skipped:
+                self._ocr_handler.write_ocr_cache(
+                    pdf_hash=pdf_hash, profile_key=stats["runtime_profile"].key, result=result
+                )
+            else:
+                stats["budget_skipped_pages"].append(page_no)
             descriptors[page_no - 1] = build_page_descriptor(
                 page_no=page_no,
                 text=result.text,
@@ -589,6 +662,18 @@ class PageTextExtractor:
                 segment_detector=self._rule_detector,
             )
             self._report_progress(self._resolved_count(descriptors), total_pages)
+        if stats["budget_skipped_pages"]:
+            # 必须留痕：`llm_segment_detector` 会把 ocr_failed 页当「未取到文字」跳过，
+            # 少页文本会影响分段边界。这个代价必须可见，而不是只体现在“这次快了点”。
+            logger.warning(
+                "pdf_split_ocr_budget_degraded",
+                extra={
+                    "skipped_pages": len(stats["budget_skipped_pages"]),
+                    "total_pending_pages": len(local_fallback_pages),
+                    "page_numbers": stats["budget_skipped_pages"][:50],
+                    "remaining_seconds": round(self._budget.remaining_seconds(), 1) if self._budget else None,
+                },
+            )
 
     def _rescue_image_pages(
         self,
@@ -622,7 +707,37 @@ class PageTextExtractor:
                 "pdf_split_image_rescue_capped",
                 extra={"targets": len(targets), "cap": _RESCUE_MAX_PAGES},
             )
-        for page, region in targets[:_RESCUE_MAX_PAGES]:
+        capped = targets[:_RESCUE_MAX_PAGES]
+        # 预算门禁（现有兜底路径的第二段，不是新发明的一条路）：补救是**附加**内容，
+        # 每页还是一次最坏 300s 的云端调用。取字本身已经把预算吃光时，宁可直接不作补救，
+        # 也不要发出“注定把任务拖过 django-q 硬阀值”的调用（2026-11-20：整轮白跑）。
+        # 正文已经拿到（补救只补图形块/证件字段），丢掉它只是少几页细节，不是丢整份结果。
+        if self._budget is not None and not self._budget.allows_single_page_ocr():
+            stats["image_rescue_skipped_budget"] = len(capped)
+            logger.warning(
+                "pdf_split_image_rescue_skipped_budget",
+                extra={
+                    "targets": len(capped),
+                    "page_numbers": [page.page_no for page, _region in capped],
+                    "remaining_seconds": round(self._budget.remaining_seconds(), 1),
+                    "required_seconds": round(self._budget.required_seconds(), 1),
+                },
+            )
+            return
+        for index, (page, region) in enumerate(capped):
+            # 逐页再判一次：补救过程中预算还在减（一页 29s，几页就能把余量吃浅）。
+            if self._budget is not None and not self._budget.allows_single_page_ocr():
+                stats["image_rescue_skipped_budget"] = len(capped) - index
+                logger.warning(
+                    "pdf_split_image_rescue_skipped_budget",
+                    extra={
+                        "page_no": page.page_no,
+                        "remaining_targets": len(capped) - index,
+                        "remaining_seconds": round(self._budget.remaining_seconds(), 1),
+                        "required_seconds": round(self._budget.required_seconds(), 1),
+                    },
+                )
+                break
             self._rescue_one_page(
                 pdf_path, page, region=region, descriptors=descriptors, template_key=template_key, stats=stats
             )
@@ -643,9 +758,11 @@ class PageTextExtractor:
             stats["image_rescue_reused"] += 1
             return
         try:
-            rescued = self._ocr_handler.ocr_page_region(
-                pdf_path=pdf_path, page_no=page.page_no, region=region, runtime_profile=stats["runtime_profile"]
-            )
+            # 单页补救也是一次云端调用（实测 ~29s，最坏 300s）：同样需要心跳块兜住。
+            with self._heartbeat_ctx():
+                rescued = self._ocr_handler.ocr_page_region(
+                    pdf_path=pdf_path, page_no=page.page_no, region=region, runtime_profile=stats["runtime_profile"]
+                )
         except Exception:
             # 补救是附加内容：它失败不能让已经取好的整本卷宗判失败
             logger.exception("pdf_split_image_rescue_failed", extra={"page_no": page.page_no})
@@ -774,15 +891,18 @@ class PageTextExtractor:
         errors: list[str] = []
         for index, backend in enumerate(candidates):
             try:
-                result = parse_in_batches(
-                    source_path=pdf_path,
-                    page_numbers=page_numbers,
-                    parse_one=lambda mini_path, _backend=backend: self._ocr_handler.parse_cloud_pages(
-                        pdf_path=mini_path, backend=_backend
-                    ),
-                    on_batch_done=on_batch_done,
-                    on_progress=on_progress,
-                )
+                # 整本云端解析也是长阻塞段（实测 MinerU 单路曾静默阻塞 4347s）：批级进度
+                # 回调之间有很长的沉默期，用心跳块兜住，看门狗才不会把在跑的任务判死。
+                with self._heartbeat_ctx():
+                    result = parse_in_batches(
+                        source_path=pdf_path,
+                        page_numbers=page_numbers,
+                        parse_one=lambda mini_path, _backend=backend: self._ocr_handler.parse_cloud_pages(
+                            pdf_path=mini_path, backend=_backend
+                        ),
+                        on_batch_done=on_batch_done,
+                        on_progress=on_progress,
+                    )
             except Exception as exc:
                 logger.exception("pdf_split_cloud_ocr_failed", extra={"provider": backend})
                 errors.append(f"{backend}: {type(exc).__name__}: {str(exc)[:200]}")
@@ -858,7 +978,7 @@ class PageTextExtractor:
             layout_unavailable = "未配置可用的云端解析平台，补版面已回落为仅文本层（无坐标）"
         elif layout_mode == LAYOUT_MODE_LAYOUT and stats.get("cloud_error"):
             layout_unavailable = f"云端解析失败，补版面已回落为仅文本层：{stats['cloud_error']}"
-        return {
+        summary = {
             "ocr_profile": runtime_profile.key,
             "ocr_dpi": runtime_profile.dpi,
             "ocr_model": "v5_server" if runtime_profile.use_v5 else "v4_default",
@@ -887,3 +1007,17 @@ class PageTextExtractor:
             "image_rescue_chars": int(stats.get("image_rescue_chars") or 0),
             "image_rescue_reused": int(stats.get("image_rescue_reused") or 0),
         }
+        if self._budget is not None:
+            # 预算降级的观测面：**只有真算了预算才追加这几个键**，不在无预算的
+            # 纯函数调用（别的域复用 / 单测）上凭空多出字段。
+            summary.update(
+                {
+                    "stage_budget_seconds": round(self._budget.total_seconds, 1),
+                    "stage_budget_remaining_seconds": round(self._budget.remaining_seconds(), 1),
+                    # 因预算不足而没发云端调用的页数（下游会把它们当“未取到文字”）
+                    "ocr_budget_skipped_count": len(stats["budget_skipped_pages"]),
+                    "ocr_budget_skipped_pages": list(stats["budget_skipped_pages"]),
+                    "image_rescue_skipped_budget": int(stats.get("image_rescue_skipped_budget") or 0),
+                }
+            )
+        return summary
