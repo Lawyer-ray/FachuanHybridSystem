@@ -238,6 +238,7 @@ class PiRpcSession:
         session_dir: str | None = None,
         session_id: str | None = None,
         tool_selection: str | None = None,
+        exclude_tools: frozenset[str] | None = None,
         skill_paths: list[str] | None = None,
     ) -> None:
         self._cwd = cwd
@@ -250,6 +251,11 @@ class PiRpcSession:
         #: 作为构造参数而不是全局常量：子 agent 与主会话必须能在同一进程内
         #: 并发存在，全局常量会让两边互相覆盖。
         self._tool_selection = tool_selection or TOOL_SELECTION
+        #: 要从工具面**摘除**的工具（``--exclude-tools``）。为什么不能靠
+        #: ``--tools`` 表达排除：它是正向白名单，条目只做 ``^pattern$`` 匹配，
+        #: 且 ``-name`` 修饰符不许与通配符混用（pi 1.6.0 cli.md / parseArgs）。
+        #: 空集合 = 一个都不摘，``_build_args`` 与引入本参数前逐字一致。
+        self._exclude_tools: frozenset[str] = frozenset(exclude_tools or ())
         #: Agent Skills 注入面（``--skill``，可重复）。空列表表示本次不注入
         #: 任何技能——配合恒定的 ``--no-skills``（见 :meth:`_build_args`），
         #: 宿主机的用户级技能目录永远不会混进律师的生产会话。
@@ -279,6 +285,8 @@ class PiRpcSession:
             "--tools",
             self._tool_selection,
         ]
+        if self._exclude_tools:
+            args.extend(["--exclude-tools", ",".join(sorted(self._exclude_tools))])
         # 多个 --extension：审批网关 + 记忆注入。pi 支持重复传该参数。
         for extension in resolve_extensions(self._extension):
             args.extend(["--extension", extension])

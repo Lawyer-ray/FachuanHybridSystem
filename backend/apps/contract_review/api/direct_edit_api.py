@@ -25,7 +25,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
-from ninja import Router
+from ninja import Router, Schema
 
 from apps.contract_review.schemas.direct_edit_schemas import (
     DirectEditApplyIn,
@@ -132,11 +132,20 @@ async def suggest_edit(request: HttpRequest, payload: DirectEditSuggestIn) -> di
 
 @router.post("/apply", response=DirectEditApplyOut)
 @rate_limit_from_settings("TASK", by_user=True)
-async def apply_edit(request: HttpRequest, payload: DirectEditApplyIn) -> dict[str, Any]:
+async def apply_edit(
+    request: HttpRequest,
+    payload: DirectEditApplyIn,
+    expect_mtime: float | None = None,
+) -> dict[str, Any]:
     """采纳一条候选：写成 Word 修订痕迹（`<w:del>` + `<w:ins>`）并覆写原文件。
 
     定位失败返回 `applied=false` 而不是报错——「选中的原文已被改过」是律师
     常见操作结果，前端要能提示「重新框选」，而不是弹 500。
+
+    `expect_mtime`（query，与 `contracts/{id}/folder-save` 同口径）是**乐观锁**：
+    调用方读到文件时的 mtime。不一致说明这期间文件已被别人改过，此时必须
+    409 而不是覆写——不传就等于放弃这道锁（服务层 `save_file_content` 会
+    整段跳过 mtime 校验），所以只要调用方拿得到 mtime 就必须带上。
     """
     user = request.user
     kind, owner_id = _resolve_target(payload.contract_id, payload.case_id)
@@ -149,6 +158,7 @@ async def apply_edit(request: HttpRequest, payload: DirectEditApplyIn) -> dict[s
         user=user,
         org_access=getattr(user, "org_access", None),
         perm_open_access=False,
+        expect_mtime=expect_mtime,
         kind=kind,
     )
     # 回传归属 id：MCP 工具结果原样透传到前端，编辑器据「哪份合同/案件的
@@ -185,3 +195,138 @@ async def apply_task_edit(request: HttpRequest, payload: TaskEditApplyIn) -> dic
         user=user,
     )
     return result
+
+
+# ───────────────────────── 多栏并答的 patch 草案区 ─────────────────────────
+#
+# 三个写类端点里，只有这里两个是「多栏并答」用的：
+# - `/patch/propose` 只登记候选改写（不碰磁盘），多栏各提各的；
+# - `/patch/apply` 由律师裁决后调用，一次性写盘（服务层还会二次校验 mtime）。
+#
+# 请求/响应模型刻意**留在本文件**而不是 `schemas/direct_edit_schemas.py`：这套
+# 结构只服务这两个端点，字段口径直接来自冻结契约 `write_contracts.WritePatch`，
+# 与划词直改的三个 Schema（无状态一问一答）没有共用形状，拆到共用模块反而
+# 让「谁能改这两个字段」多一处入口。
+
+
+class WritePatchProposeIn(Schema):
+    """登记一条候选改写（**不落盘**）。"""
+
+    contract_id: int | None = None
+    case_id: int | None = None
+    subpath: str
+    """绑定根下的相对路径，如 `3-办案/专项合同.docx`"""
+    original: str
+    """要替换的逐字原文（定位锚点，不许做任何归一化）"""
+    replacement: str
+    """改写后的完整文本"""
+    session_id: str = ""
+    """产出它的会话标识（MCP 侧从 X-Fachuan-Session 取）"""
+    turn: int = 0
+    """同一轮多栏共用的轮次号；0 = 调用方没给"""
+    agent_kind: str = ""
+    """产出后端（pi / dsh / openai-agents）；B1 阶段 MCP 侧拿不到，留空"""
+    run_id: str = ""
+    """同一轮里区分栏的运行 id；B1 阶段 MCP 侧拿不到，留空"""
+
+
+class WritePatchOut(Schema):
+    """一条候选改写的回执（字段与 `WritePatch` 契约同口径）。"""
+
+    patch_id: str
+    owner_kind: str
+    owner_id: int
+    subpath: str
+    original: str
+    replacement: str
+    base_mtime: float | None = None
+    status: str
+    session_id: str = ""
+    turn: int = 0
+
+
+class WritePatchApplyIn(Schema):
+    """应用选中的候选改写（一次性写盘，仍走 HIGH 审批闸门）。"""
+
+    patch_ids: list[str]
+    """律师勾选的 patch；必须同属一份文件"""
+    note: str = ""
+    """应用备注（留痕）"""
+
+
+class WritePatchApplyOut(Schema):
+    applied: list[str]
+    """真正写进文档的 patch"""
+    merged: list[str]
+    """内容与别人完全相同的重复提案（合并成一次写盘）"""
+    subpath: str
+    name: str = ""
+
+
+@router.post("/patch/propose", response=WritePatchOut)
+@rate_limit_from_settings("TASK", by_user=True)
+async def propose_write_patch_endpoint(request: HttpRequest, payload: WritePatchProposeIn) -> dict[str, Any]:
+    """登记一条候选改写（**不碰文件**）。
+
+    多栏并答时写类工具（`rewrite_folder_file` 等）被摘出工具面，模型改用
+    `propose_write_patch` 出草案；三栏的草案在 `apply` 时统一做冲突检测。
+    """
+    from apps.contract_review.services.patch.service import collect_patch
+    from apps.contract_review.services.review.direct_edit_service import _browse, read_file_mtime
+
+    user = request.user
+    kind, owner_id = _resolve_target(payload.contract_id, payload.case_id)
+    # 基准 mtime 是乐观锁的锚：提案时刻的磁盘值，应用前会再比一次
+    base_mtime = await sync_to_async(read_file_mtime, thread_sensitive=True)(
+        _browse(kind),
+        owner_id=owner_id,
+        subpath=payload.subpath,
+        user=user,
+        org_access=getattr(user, "org_access", None),
+        perm_open_access=False,
+    )
+    patch = await sync_to_async(collect_patch, thread_sensitive=True)(
+        owner_kind=kind,
+        owner_id=owner_id,
+        subpath=payload.subpath,
+        original=payload.original,
+        replacement=payload.replacement,
+        base_mtime=base_mtime,
+        session_id=payload.session_id,
+        turn=payload.turn,
+        agent_kind=payload.agent_kind,
+        run_id=payload.run_id,
+    )
+    return {
+        "patch_id": patch.patch_id,
+        "owner_kind": patch.owner_kind,
+        "owner_id": patch.owner_id,
+        "subpath": patch.subpath,
+        "original": patch.original,
+        "replacement": patch.replacement,
+        "base_mtime": patch.base_mtime,
+        "status": patch.status,
+        "session_id": patch.session_id,
+        "turn": patch.turn,
+    }
+
+
+@router.post("/patch/apply", response=WritePatchApplyOut)
+@rate_limit_from_settings("TASK", by_user=True)
+async def apply_write_patches_endpoint(request: HttpRequest, payload: WritePatchApplyIn) -> dict[str, Any]:
+    """把选中的候选改写**一次性**写进文件（Word 修订痕迹）。
+
+    互斥冲突（同一段原文两种改法）返回 409 且一个字都不写；文件在提案后被改过
+    （mtime 不符）同样 409。审批不在这里做——它由工具名在网关侧判 HIGH 后弹卡，
+    本端点不提供任何绕过开关。
+    """
+    from apps.contract_review.services.patch.service import apply_patches
+
+    user = request.user
+    return await sync_to_async(apply_patches, thread_sensitive=True)(
+        patch_ids=payload.patch_ids,
+        note=payload.note,
+        user=user,
+        org_access=getattr(user, "org_access", None),
+        perm_open_access=False,
+    )

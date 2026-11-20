@@ -18,6 +18,7 @@ import {
   mergeAgentAnswers,
   runIdOf,
 } from './dual'
+import type { CitationRef } from './knowledge'
 import type { ChatMessage } from '../types'
 
 describe('agentOf（事件 → 栏）', () => {
@@ -170,6 +171,71 @@ describe('mergeAgentAnswers（同栏多段合成一条）', () => {
     )
     expect(merged).toHaveLength(1)
     expect(merged[0]!.content).toBe('旧1旧2')
+  })
+})
+
+describe('mergeAgentAnswers：同栏多段不丢字段', () => {
+  // `...prev` 合并只保前段字段：后段的 citations / truncated / failed 会静默丢失，
+  // 表现为栏头徽标少算引用、被停过的那一段看不出截断。
+  const answer = (id: string, agentKind: string, content: string, extra?: Partial<ChatMessage>): ChatMessage => ({
+    id,
+    role: 'assistant',
+    content,
+    agentKind,
+    ...extra,
+  })
+  const cite = (citeNo: number, name: string): CitationRef => ({ citeNo, kind: 'file', name })
+
+  it('两段都有 citations：取并集、按 citeNo 去重、顺序按首次出现', () => {
+    const merged = mergeAgentAnswers(
+      [
+        answer('a1', 'pi', '前段', { citations: [cite(1, '甲.pdf'), cite(2, '乙.pdf')] }),
+        answer('a2', 'pi', '后段', { citations: [cite(2, '乙.pdf（补页码）'), cite(3, '丙.pdf')] }),
+      ],
+      ['pi'],
+    )
+    expect(merged).toHaveLength(1)
+    expect(merged[0]!.content).toBe('前段后段')
+    expect(merged[0]!.citations?.map((citation) => citation.citeNo)).toEqual([1, 2, 3])
+    // 同号后到为准（与 mergeCitations 同口径：补页码/原文时不会丢）
+    expect(merged[0]!.citations?.[1]?.name).toBe('乙.pdf（补页码）')
+  })
+
+  it('只有后段带引用也不丢（`...prev` 时代会整批丢掉）', () => {
+    const merged = mergeAgentAnswers(
+      [answer('a1', 'pi', '前段'), answer('a2', 'pi', '后段', { citations: [cite(4, '丁.pdf')] })],
+      ['pi'],
+    )
+    expect(merged[0]!.citations?.map((citation) => citation.name)).toEqual(['丁.pdf'])
+  })
+
+  it('只有前段带引用时保留（不会被后段的缺省覆盖）', () => {
+    const merged = mergeAgentAnswers(
+      [answer('a1', 'pi', '前段', { citations: [cite(1, '甲.pdf')] }), answer('a2', 'pi', '后段')],
+      ['pi'],
+    )
+    expect(merged[0]!.citations?.map((citation) => citation.citeNo)).toEqual([1])
+  })
+
+  it('truncated / failed 任一为真即真（任一段被截/失败，整栏都要标）', () => {
+    const forward = mergeAgentAnswers(
+      [answer('a1', 'pi', '前段', { truncated: true }), answer('a2', 'pi', '后段')],
+      ['pi'],
+    )
+    expect(forward[0]!.truncated).toBe(true)
+
+    const backward = mergeAgentAnswers(
+      [answer('a1', 'pi', '前段'), answer('a2', 'pi', '后段', { failed: true })],
+      ['pi'],
+    )
+    expect(backward[0]!.failed).toBe(true)
+  })
+
+  it('两段都没有时不凭空写 false / 空数组（缺字段 = 没引 / 旧数据）', () => {
+    const merged = mergeAgentAnswers([answer('a1', 'pi', 'A'), answer('a2', 'pi', 'B')], ['pi'])
+    expect('citations' in merged[0]!).toBe(false)
+    expect('truncated' in merged[0]!).toBe(false)
+    expect('failed' in merged[0]!).toBe(false)
   })
 })
 

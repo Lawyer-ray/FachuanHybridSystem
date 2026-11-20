@@ -23,6 +23,24 @@ export { AssistantPage } from './components/AssistantPage'
 export { PanelBackdrop } from './components/PanelBackdrop'
 
 /**
+ * 多答裁决的跨 lane 契约（只读）：类型同源于后端 `services/adjudication/contracts.py`。
+ * 谁都不许在这里加字段——改契约先改 `docs/04-计划/活跃/adjudication-agent-assignments.md` 附录 A。
+ */
+export type {
+  CriteriaMet,
+  CriteriaVerdict,
+  EquivalenceCluster,
+  FusedHit,
+  LaneReview,
+  PatchConflict,
+  PatchConflictKind,
+  Review,
+  ReviewStage,
+  UnscoredReason,
+  WritePatchStatus,
+} from './adjudication-types'
+
+/**
  * 登出时全局清理 copilot 状态（换账号不得残留上一账号的会话内容）。
  * 动态 import 调用方不必静态依赖本域，保持懒加载边界。
  */

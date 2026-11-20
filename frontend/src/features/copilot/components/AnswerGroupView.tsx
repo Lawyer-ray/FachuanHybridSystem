@@ -17,7 +17,9 @@
 
 import { Fragment, memo, useCallback, useMemo } from 'react'
 
-import { attachedToolIds, DEFAULT_AGENT_KIND, distinctAgentKinds, mergeAgentAnswers } from '../domain'
+import { attachedToolIds, DEFAULT_AGENT_KIND, distinctAgentKinds, HISTORY_PAGE_SIZE, mergeAgentAnswers } from '../domain'
+// 从子模块直引：`domain/index.ts` 的桶出口不在本片白名单内（与 LaneFactsBadge 同一口径）
+import { reviewTurnOf } from '../domain/fusion'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { MultiAnswers } from './MultiAnswers'
@@ -47,6 +49,24 @@ export const AnswerGroupView = memo(function AnswerGroupView({
   const defaultAgentKind = useCopilot((s) => s.selectedAgentKind || DEFAULT_AGENT_KIND)
   // 栏头要标「这一栏没有审批闸门」：清单引用稳定（store 切片），不会击穿 memo
   const backends = useCopilot((s) => s.backends)
+
+  // 裁决卡的数据源：后端 `turn` = 会话里第几条 user 消息。
+  //
+  // `windowComplete` 是必须的诚实边界：历史按 HISTORY_PAGE_SIZE 分页，>200 条的
+  // 老会话加载的是「最新一页」，从窗口里数 user 消息会少数几轮——那样会把 A 轮
+  // 的评审挂到 B 轮的答案下面（错位的证据比不显示更糟）。窗口完整只有两种：
+  // 已翻到顶（noMoreHistory）或总量不足一页（= 本来就是全量）。
+  const sessionId = useCopilot((s) => s.sessionId)
+  const reviewTurn = useCopilot((s) =>
+    reviewTurnOf(s.messages, answers[0]!.id, s.noMoreHistory || s.messages.length < HISTORY_PAGE_SIZE),
+  )
+  const reviewTarget = useMemo(
+    () =>
+      sessionId !== null && sessionId !== '' && reviewTurn !== null
+        ? { sessionId, turn: reviewTurn }
+        : null,
+    [sessionId, reviewTurn],
+  )
 
   // 一组 = 一轮（见 domain/dual.ts 的 groupAnswerRuns）。组里出现几个 agent
   // kind，就说明这一轮问了几家。
@@ -96,6 +116,7 @@ export const AnswerGroupView = memo(function AnswerGroupView({
       highlightKind={defaultAgentKind}
       renderAnswer={renderLane}
       backends={backends}
+      reviewTarget={reviewTarget}
     />
   )
 })

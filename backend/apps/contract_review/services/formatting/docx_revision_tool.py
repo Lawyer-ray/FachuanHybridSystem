@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
@@ -18,13 +19,44 @@ logger = logging.getLogger(__name__)
 
 AUTHOR = "法穿SI"
 
-_rev_id_counter = 1
+#: 修订元素：`w:id` 的号段就在这两类元素上
+_REVISION_TAGS = (qn("w:ins"), qn("w:del"))
+
+#: ``anchor=None``（脱离文档的样例构造）时的孤立号。真实写入一律带 anchor，
+#: 号从目标文档的现状推出来，不经过这里。
+_ORPHAN_REV_ID_COUNTER = itertools.count(1)
 
 
-def _next_rev_id() -> str:
-    global _rev_id_counter
-    _rev_id_counter += 1
-    return str(_rev_id_counter)
+def _max_rev_id(anchor: etree._Element | None) -> int:
+    """anchor 所属文档里已用的最大修订 ``w:id``（没有修订时 0）。"""
+    if anchor is None:
+        return 0
+    node = getattr(anchor, "_element", anchor)
+    root = node.getroottree().getroot()
+    max_id = 0
+    for elem in root.iter(*_REVISION_TAGS):
+        raw = elem.get(qn("w:id"))
+        if raw is None:
+            continue
+        try:
+            max_id = max(max_id, int(raw))
+        except ValueError:  # 非数字 id 不是本工具写的，跳过而不是崩掉整次改写
+            continue
+    return max_id
+
+
+def _next_rev_id(anchor: etree._Element | None = None) -> str:
+    """下一个修订 ``w:id`` = anchor 所属文档已有最大号 + 1。
+
+    号段属于**文档**，不是进程：进程级自增在多 worker、多文档下会与 docx 里
+    既有的号撞车（Word 把重复 ``w:id`` 当文档损坏）。
+
+    ``anchor`` 必须是**仍在文档里**的元素（段落或落点 run）——元素一旦从树上
+    detach，就再也找不到所属文档，算出来的号只覆盖它自己那一小棵子树。
+    """
+    if anchor is None:
+        return str(next(_ORPHAN_REV_ID_COUNTER))
+    return str(_max_rev_id(anchor) + 1)
 
 
 class DocxRevisionTool:
@@ -78,6 +110,8 @@ class DocxRevisionTool:
 
         parent = run_elem.getparent()
         idx = list(parent).index(run_elem)
+        # 号从文档现状取：run_elem 马上就要 detach，段落还挂在文档上
+        rev_id = int(_next_rev_id(parent))
         parent.remove(run_elem)
 
         insert_pos = idx
@@ -86,10 +120,10 @@ class DocxRevisionTool:
             parent.insert(insert_pos, _make_run(prefix, run_elem))
             insert_pos += 1
 
-        parent.insert(insert_pos, _create_del(original, author, date, run_elem))
+        parent.insert(insert_pos, _create_del(original, author, date, run_elem, str(rev_id)))
         insert_pos += 1
 
-        parent.insert(insert_pos, _create_ins(replacement, author, date, run_elem))
+        parent.insert(insert_pos, _create_ins(replacement, author, date, run_elem, str(rev_id + 1)))
         insert_pos += 1
 
         if suffix:
@@ -172,9 +206,14 @@ class DocxRevisionTool:
         elements: list[etree._Element] = []
         # 删除痕迹写文档**实际**区间文本：空白容忍匹配下选区与原文的空白
         # 可能不一致，照抄 original 会让 del 内容与被删 run 对不上账
+        #
+        # 号从段落（仍在文档上）取：被覆盖的首单元在手术里可能已整只移除，
+        # ref_elem 那时已 detach，拿它算号只能看到自己那一小棵子树
+        rev_id = int(_next_rev_id(p_elem))
         if del_pieces:
-            elements.append(_create_del("".join(del_pieces), author, date, ref_elem))
-        elements.append(_create_ins(replacement, author, date, ref_elem))
+            elements.append(_create_del("".join(del_pieces), author, date, ref_elem, str(rev_id)))
+            rev_id += 1
+        elements.append(_create_ins(replacement, author, date, ref_elem, str(rev_id)))
 
         if after_anchor is not None and after_anchor.getparent() is p_elem:
             for elem in reversed(elements):
@@ -186,20 +225,24 @@ class DocxRevisionTool:
         return True
 
 
-def _create_del(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:  # pragma: no cover
-    """创建 <w:del> 删除标记"""
+def _create_del(
+    text: str, author: str, date: str, source_run: etree._Element, rev_id: str | None = None
+) -> etree._Element:  # pragma: no cover
+    """创建 <w:del> 删除标记。``rev_id`` 缺省时从 source_run 所属文档分配。"""
     del_elem = OxmlElement("w:del")
-    del_elem.set(qn("w:id"), _next_rev_id())
+    del_elem.set(qn("w:id"), rev_id or _next_rev_id(source_run))
     del_elem.set(qn("w:author"), author)
     del_elem.set(qn("w:date"), date)
     del_elem.append(_make_run(text, source_run, tag="w:delText"))
     return del_elem
 
 
-def _create_ins(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:  # pragma: no cover
-    """创建 <w:ins> 插入标记"""
+def _create_ins(
+    text: str, author: str, date: str, source_run: etree._Element, rev_id: str | None = None
+) -> etree._Element:  # pragma: no cover
+    """创建 <w:ins> 插入标记。``rev_id`` 缺省时从 source_run 所属文档分配。"""
     ins_elem = OxmlElement("w:ins")
-    ins_elem.set(qn("w:id"), _next_rev_id())
+    ins_elem.set(qn("w:id"), rev_id or _next_rev_id(source_run))
     ins_elem.set(qn("w:author"), author)
     ins_elem.set(qn("w:date"), date)
     ins_elem.append(_make_run(text, source_run))
@@ -327,7 +370,7 @@ def _withdraw_unit_text(
             val = elem.get(attr)
             if val:
                 new_ins.set(attr, val)
-        new_ins.set(qn("w:id"), _next_rev_id())
+        new_ins.set(qn("w:id"), _next_rev_id(parent if parent is not None else elem))
         new_ins.append(_make_run(keep_after, first if first is not None else elem))
         tail = new_ins
         if kept is not None:

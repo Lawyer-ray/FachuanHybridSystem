@@ -192,6 +192,7 @@ from mcp_server.tools.contract_review import (
 )
 from mcp_server.tools.contracts import (
     add_contract_party,
+    apply_file_write_patches,
     browse_folders,
     clear_all_archive_materials,
     confirm_archive,
@@ -223,6 +224,7 @@ from mcp_server.tools.contracts import (
     list_folder_files,
     list_supplementary_agreements,
     move_archive_material,
+    propose_write_patch,
     read_folder_file,
     remove_contract_party,
     reorder_archive_materials,
@@ -616,6 +618,8 @@ __all__ = [
     "list_folder_files",
     "read_folder_file",
     "rewrite_folder_file",
+    "propose_write_patch",
+    "apply_file_write_patches",
     # 合同归档
     "learn_archive_rules",
     "get_archive_checklist",

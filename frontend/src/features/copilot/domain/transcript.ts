@@ -212,6 +212,9 @@ export function historyToMessages(rows: AgentHistoryMessage[]): ChatMessage[] {
           : undefined,
       citations: row.role === 'assistant' ? historyCitationsOf(row.metadata) : undefined,
       truncated: row.metadata?.truncated === true || undefined,
+      // 评分：只认 up/down。空串（未评分）与旧后端的缺失都落 undefined——
+      // 脏数据不能凭空造出一个点赞，否则刷新后律师会看到自己没点过的反馈。
+      rating: row.rating === 'up' || row.rating === 'down' ? row.rating : undefined,
     }
   })
 }

@@ -67,6 +67,13 @@ export interface AgentHistoryMessage {
   /** 消息级来源（`pi` / `dsh` / 新注册的后端）；空串 = 旧数据 / 未标注（按 `pi` 处理） */
   agent_kind?: string
   created_at: string
+  /**
+   * 律师反馈（后端 `MessageOut.rating`）。空串 = 未评分；缺失 = 旧后端。
+   *
+   * `metadata.rating` 里也有同值，但顶层字段是**契约**：前端不该去猜后端把
+   * 反馈存在 metadata 的哪个键里（那是实现细节，改名就静默失效）。
+   */
+  rating?: 'up' | 'down' | ''
   metadata: Record<string, unknown>
 }
 
@@ -430,3 +437,8 @@ export interface SlashMenuItem {
 /** 结构化提问的题面类型由纯领域模块定义（回流类型与契约分属两处） */
 export type { QuestionAnswerItem, QuestionDraft, QuestionItem, QuestionOption } from './domain/question'
 export type { CopilotState } from './state-types'
+
+/** 多答裁决卡视图（camelCase；线上契约→视图的映射见 domain/fusion.ts） */
+export type { ClusterView, ConflictPairView, ConflictSideView, LaneView, ReviewView, VerdictView } from './domain/fusion'
+/** 评审采纳记录视图（独立端点，不进冻结的 Review 快照；见 domain/adoption.ts） */
+export type { AdoptionView } from './domain/adoption'

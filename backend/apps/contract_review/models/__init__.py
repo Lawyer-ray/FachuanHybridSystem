@@ -1,3 +1,5 @@
+from ..services.alignment.models import ContractDecision
+from ..services.patch.models import ContractWritePatch
 from .document_version import DocumentVersion, VersionKind
 from .format_normalize import FormatNormalize
 from .format_normalize_detail import FormatNormalizeDetail

@@ -115,9 +115,11 @@ from ...backends import get as get_backend
 from ...backends.builtin import ensure_registered
 from ...backends.gateway_cache import load_api_keys
 from ...backends.key_scheduler import KeyLease, get_key_scheduler
+from ...backends.toolface import tool_prefix
 from ...errors import AgentError, project
 from ...models import AgentMessage, AgentSession
 from ...sse_types import FinishReason
+from ..approval.policy import MULTI_LANE_WRITE_TOOLS, clear_multi_lane_session, mark_multi_lane_session
 from ..event_bus import EventBus, get_bus
 from . import budget, persist, profile
 from .stream import ContextPrep, next_run_turn, prepare_context, record_user_message, stream_chat
@@ -144,6 +146,17 @@ _LANE_QUEUE_MAXSIZE = 256
 #: 按栏补发真正的 ``done``；拿它当内部收尾信号会让消费者分不清「要转发的帧」
 #: 与「这一栏结束了」。
 _LANE_DONE = object()
+
+
+def multi_lane_tool_exclude() -> frozenset[str]:
+    """多栏并答时要从工具面摘掉的写类工具（pi ``--exclude-tools`` 口径的全名）。
+
+    为什么是"摘掉"而不是"少给一个白名单"：pi 的 ``--tools`` 是正向白名单
+    （条目只做 ``^pattern$`` 匹配，``-name`` 不许与通配符混用），表达不了"除
+    X 以外全都要"；``--exclude-tools`` 才是排除通道。取名口径与审批层同源
+    （``approval.policy.MULTI_LANE_WRITE_TOOLS``），两处必须指向同一批工具。
+    """
+    return frozenset(f"{tool_prefix()}{name}" for name in MULTI_LANE_WRITE_TOOLS)
 
 
 @dataclass(frozen=True)
@@ -401,6 +414,8 @@ async def _pump_lane(
     context: ContextPrep | None,
     turn: int,
     persist_assistant: bool,
+    multi_lane: bool = False,
+    tool_exclude: frozenset[str] | None = None,
 ) -> None:
     """**一栏**后端：帧补齐 ``agent`` / ``run_id`` 后进共享队列，结束时放哨兵。
 
@@ -460,6 +475,10 @@ async def _pump_lane(
             api_key=_lease_key(lease),
             # 与主答**同一个**轮次号（本轮只取一次号，见 ``stream.next_run_turn``）
             turn=turn,
+            # 多栏并答的写降级：写类工具已从工具面摘掉（``--exclude-tools``），
+            # 审批层还会再拒一次；单栏两个值保持默认（行为与引入前逐字一致）
+            multi_lane=multi_lane,
+            tool_exclude=tool_exclude,
         ),
     )
     try:
@@ -698,6 +717,9 @@ async def stream_multi(
     persisted: set[str] = set()
     # 整轮的辅助席位与资源都挂在它上面：客户端断开时 finally 统一释放。
     stack = AsyncExitStack()
+    # 本轮是否已向审批层登记「多栏」：只有登记过才撤销。无条件 decr 会踩到
+    # 同一会话里**别的**多栏轮（把计数减到 0，别人的写保护凭空消失）。
+    multi_lane_marked = False
 
     try:
         yield {"type": "meta", "session_id": session_id, "agent": primary, "agents": agents}
@@ -755,6 +777,22 @@ async def stream_multi(
                 "reason": "对比执行位已满，本轮只跑了主后端",
             }
 
+        # ── 多栏写降级：写类工具摘出工具面，改写改由 propose_write_patch 出草案 ──
+        #
+        # 判据用**真正会跑的栏数**（降级后 agents 已收窄成 1），不是用户选了几栏：
+        # 只跑主答时它就是唯一的写者，没有「后写覆盖先写」的风险，摘掉写工具只会
+        # 让律师白白少一个能力。
+        #
+        # 两件事必须成对做：
+        # 1. 工具面摘除（pi 的 `--exclude-tools`）——模型**看不到**写类工具；
+        # 2. 审批层登记（`mark_multi_lane_session`）——dsh / openai-agents 的工具面
+        #    不走 `--exclude-tools`，它们仍能发起调用，靠审批层直接拒写兜底。
+        lane_multi = len(agents) > 1
+        lane_exclude = multi_lane_tool_exclude() if lane_multi else None
+        if lane_multi:
+            mark_multi_lane_session(str(session.session_id))
+            multi_lane_marked = True
+
         # ── 一栏一条 task，全部往同一个有界队列里放 ──────────────────────
         #
         # 主答也在其中：内联迭代会让它独占「实时上线」的位置，别的栏再好也只能
@@ -778,6 +816,9 @@ async def stream_multi(
                     # 主答由 stream_chat 自己落库（栏级 usage / ttft 在它手里）；
                     # 非主答的正文交回本模块才能带上 agent_kind
                     persist_assistant=kind == primary,
+                    # 多栏才摘写类工具；单栏这两个值是默认（False / None）
+                    multi_lane=lane_multi,
+                    tool_exclude=lane_exclude,
                 )
             )
         # 审批 / 提问走事件总线，不是后端事件流：它们也需要自己的搬运协程
@@ -821,6 +862,10 @@ async def stream_multi(
             persisted.add(kind)
             await _persist_answer(session, kind, memos[kind])
     finally:
+        # 撤销多栏登记：审批层据此判断"这一刻还能不能直接改文件"。放在 finally 的
+        # 第一句——它必须比收尾动作先落地，否则收尾期间模型还能拿着多栏身份调写工具。
+        if multi_lane_marked:
+            clear_multi_lane_session(str(session.session_id))
         # 提前退出（客户端断开 / 被取消）的收尾：停掉仍在跑的栏，并按栏补落库。
         #
         # 这一段**屏蔽外层取消**：真取消时若让 ``CancelledError`` 直接打断，

@@ -15,6 +15,7 @@
  */
 
 import type { ChatMessage } from '../types'
+import { mergeCitations } from './knowledge'
 
 /** 一轮里最多几栏。与后端 `MAX_ANSWERS` 同口径（规格 2.3：超过直接 400）。
  *
@@ -165,12 +166,21 @@ export function mergeAgentAnswers(answers: ChatMessage[], agents: readonly strin
       byAgent.set(kind, answer)
       continue
     }
+    // `...prev` 只保**前段**字段，后段的引用/截断/失败标记必须显式合并——
+    // 漏掉时界面不报错，只是栏头徽标少算引用、停过的那段看不出被截断。
+    // 引用按 `citeNo` 取并集（mergeCitations：同号后到为准、位置留在首次出现）；
+    // truncated / failed 任一为真即真（任何一段被截/失败，整栏都要标）。
+    const citations = mergeCitations(prev.citations, answer.citations ?? [])
     byAgent.set(kind, {
       ...prev,
       content: prev.content + answer.content,
       // 思考过程同理拼接；streaming 只要还有一段在流就仍算在流
       ...(answer.thinking ? { thinking: (prev.thinking ?? '') + answer.thinking } : {}),
       ...(prev.streaming || answer.streaming ? { streaming: true } : {}),
+      // 两段都没有引用时不写空数组：`citations` 缺失 = 旧数据/没引，与 `[]` 不同义
+      ...(citations.length > 0 ? { citations } : {}),
+      ...(prev.truncated || answer.truncated ? { truncated: true } : {}),
+      ...(prev.failed || answer.failed ? { failed: true } : {}),
     })
   }
 
