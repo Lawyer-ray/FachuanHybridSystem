@@ -524,6 +524,12 @@ meta → activity(thinking|queued)? → delta*/thinking* → tool_call* → tool
      → citations* → usage* → approval_request? → error? → done
 ```
 
+**多栏（多答，`stream_multi` 同时问 N 个 agent）时这条链按栏各一份**：帧都带
+`agent` / `run_id`，按**到达顺序**交错上线（不是左栏跑完再跑右栏），前端逐帧按
+这两个字段分流；`done` 每栏一条、按 `agents` 顺序在**全部栏落库之后**才发；客户端
+断开（按停止）时已流出的正文同样按栏落库。单栏与多栏的区别只在这里，下面这张表
+所有字段对所有栏都成立。
+
 | 事件 | 关键字段 |
 |:-|:-|
 | `meta` | `session_id` / `agent` |
