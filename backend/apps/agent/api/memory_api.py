@@ -37,11 +37,14 @@ from ..schemas import (
     MemoryCreateIn,
     MemoryHitOut,
     MemoryOut,
+    NoteConfirmIn,
+    ProjectNoteIn,
     PromoteCandidateOut,
     PromoteIn,
     SnapshotOut,
 )
 from ..services import memory_service
+from ..services.memory import scopes as memory_scopes
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +64,25 @@ async def list_memories(  # pragma: no cover
     scope: str | None = None,
     status: str | None = None,
     limit: int = 100,
+    offset: int = 0,
+    contract_id: int | None = None,
+    case_id: int | None = None,
 ) -> list[MemoryOut]:
-    """当前律师可见的记忆列表（默认 pending + active，业务逻辑见 service）。"""
+    """当前律师可见的记忆列表（默认 pending + active，业务逻辑见 service）。
+
+    ``contract_id`` / ``case_id``：只看挂在某个项目/案件上的项目笔记，
+    供「项目页 AI 上下文面板」使用。两个都给时取并集（与注入侧同一语义）。
+    ``offset`` 配合 ``limit`` 翻页（面板的「加载更多」）。
+    """
     lawyer = _current_user(request)
     rows = await sync_to_async(memory_service.list_memories_payload, thread_sensitive=True)(
-        lawyer, scope=scope, status=status, limit=limit
+        lawyer,
+        scope=scope,
+        status=status,
+        limit=limit,
+        offset=offset,
+        contract_id=contract_id,
+        case_id=case_id,
     )
     return [MemoryOut(**row) for row in rows]
 
@@ -116,18 +133,92 @@ async def search_memory(request: Any, q: str, limit: int = 8) -> list[MemoryHitO
     return [MemoryHitOut(**row) for row in rows]
 
 
+async def _session_anchors(*, session_id: str | None, user_id: int) -> tuple[int | None, int | None]:
+    """会话 → ``(contract_id, case_id)``，用于把「本项目/本案」的笔记挑出来。
+
+    查询本身在服务层（``services/memory/scopes.session_anchor_ids``）：四层架构棘轮
+    要求 API 层零 ``Model.objects`` 调用，安全约定（归属校验 / 非法 UUID / 缺省）
+    随查询一起写在那个函数的 docstring 里。本函数只负责第 3 条：没有 session_id
+    （旧扩展、纯对话入口）时行为与引入锚点前**完全一致**，连查询都不发。
+    """
+    if not session_id:
+        return None, None
+    return await memory_scopes.session_anchor_ids(session_id=session_id, user_id=user_id)
+
+
 @router.get("/snapshot", response=SnapshotOut)
-async def get_snapshot(request: Any, refresh: bool = False) -> SnapshotOut:  # pragma: no cover
+async def get_snapshot(
+    request: Any, refresh: bool = False, session_id: str | None = None
+) -> SnapshotOut:  # pragma: no cover
     """注入用记忆快照（pi 扩展在 session_start 调用）。
 
     ``refresh=true`` 仅在长期记忆刚写入时使用——它会让快照内容变化，
     进而破坏该会话后续轮次的 prompt cache 前缀。
+
+    ``session_id`` 决定「本项目/本案」那两块要不要渲染：带着它才会把同团队
+    写在该项目上的笔记注入进来（跨会话共享判断的唯一入口）。
+    """
+    lawyer = _current_user(request)
+    contract_id, case_id = await _session_anchors(session_id=session_id, user_id=lawyer.pk)
+
+    def _run() -> SnapshotOut:
+        content = memory_service.build_snapshot(
+            lawyer,
+            contract_id=contract_id,
+            case_id=case_id,
+            refresh=refresh,
+            refresh_reason="api",
+        )
+        return SnapshotOut(content=content)
+
+    return await sync_to_async(_run, thread_sensitive=True)()
+
+
+@router.post("/notes", response=MemoryOut)
+async def create_project_note(request: Any, payload: ProjectNoteIn) -> MemoryOut:  # pragma: no cover
+    """写一条项目笔记（挂到项目或某案件上）。
+
+    与 ``POST /agent/memory`` 的区别：那条存的是**这个律师的习惯**（跨项目
+    通用，按 scope 分层）；这条存的是**这个项目的结论**，只在本项目/本案的
+    会话里注入，同团队所有人都看得到、都写得了。
+    """
+    lawyer = _current_user(request)
+    contract_id, case_id = payload.contract_id, payload.case_id
+    if contract_id is None and case_id is None:
+        contract_id, case_id = await _session_anchors(session_id=payload.session_id, user_id=lawyer.pk)
+
+    def _run() -> MemoryOut:
+        try:
+            memory = memory_service.create_note(
+                lawyer,
+                content=payload.content,
+                contract_id=contract_id,
+                case_id=case_id,
+                kind=payload.kind,
+                supersede_id=payload.supersede_id,
+            )
+        except ValueError as exc:
+            raise ValidationException(str(exc)) from exc
+        return MemoryOut(**memory_service.memory_to_dict(memory))
+
+    return await sync_to_async(_run, thread_sensitive=True)()
+
+
+@router.post("/{memory_id}/confirm", response=MemoryOut)
+async def confirm_project_note(request: Any, memory_id: str, payload: NoteConfirmIn) -> MemoryOut:  # pragma: no cover
+    """把一条笔记升为「项目事实」（人工点一下），可顺带改写内容。
+
+    为什么要人点：模型写的判断可能是它自己的推理，也可能被卷宗里的文字带偏。
+    一旦标成事实，后面的会话会当**前提**使用，错误会被逐轮放大。
     """
     lawyer = _current_user(request)
 
-    def _run() -> SnapshotOut:
-        content = memory_service.build_snapshot(lawyer, refresh=refresh, refresh_reason="api")
-        return SnapshotOut(content=content)
+    def _run() -> MemoryOut:
+        try:
+            memory = memory_service.confirm_note(lawyer, memory_id, content=payload.content)
+        except ValueError as exc:
+            raise ValidationException(str(exc)) from exc
+        return MemoryOut(**memory_service.memory_to_dict(memory))
 
     return await sync_to_async(_run, thread_sensitive=True)()
 

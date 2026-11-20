@@ -46,6 +46,22 @@ compaction 还会主动丢弃旧细节——这是遗忘机制，不是记忆机
 规模自证：一名律师几百条、一个律所几千条记忆。``apps/litigation_ai`` 的
 ``EvidenceChunk.embedding`` 已用 JSONField + Python 余弦跑通同量级检索。
 为这个数据量引入 pgvector 扩展、索引维护与部署依赖不成正比。
+
+## 项目锚点：A 律师的判断怎么让 B 律师用上
+
+同一个团队里 2-3 人办同一个案件是常态，而 pi session 是**按会话、按人**的，
+A 跟 AI 捋清楚的判断 B 完全看不到，只能重问一遍。所以给记忆加 ``contract_id``
+/ ``case_id`` 两个锚点字段：写入时挂到项目/案件上，注入时按当前会话的锚点
+取回来——**跨会话共享的是「判断」，不是「谈话记录」**（把 A 的 pi session
+挂给 B 会让 B 继承 A 的试错与偏见，且破坏 prompt cache 前缀稳定性）。
+
+为什么共享单元是**项目（合同）**而不是案件：非诉没有案件，只有合同；而案件
+本身挂在合同下（``Case.contract``，合同指派还会同步成案件指派）。
+为什么可见性是**同律师团队**而不是“项目成员”：两者在此系统里等价（
+``org_access["lawyers"]`` 就是团队成员全集），项目成员不存在独立身份。
+
+写入走 ``write.create_note()``（三个人都能写，append-only），确认走
+``write.confirm_note()``（点一下才升为“项目事实”，可再改写）。
 """
 
 from __future__ import annotations
@@ -144,6 +160,56 @@ class AgentMemory(models.Model):
     #: 此时检索退化为关键词匹配而不是直接漏掉。
     embedding = models.JSONField(default=list, blank=True, verbose_name="向量")
 
+    # ── 项目/案件锚点（与 scope 正交）────────────────────────────────
+    #
+    # ``scope`` 回答「**谁能看**」（个人/团队/律所），锚点回答「**属于哪个项目**」
+    # （注入到哪个项目的会话）。两个维度正交，不能合并：
+    #
+    # - 一条个人记忆挂到某项目 → 同团队的人在**这个项目**的会话里能看到它；
+    # - 同一条个人记忆不挂锚点 → 仍然只按原来的三层可见性走。
+    #
+    # 为什么不改 ``scope`` 加一个 ``project`` 档：可见性真相是「同律师团队」
+    # （``OrgAccessComputationService`` 算出的 ``org_access["lawyers"]``），
+    # 再加一档会引入第二套权限语义，两套迟早漂移。
+    #
+    # 为什么用整数不加外键：照 ``models/session.py`` 的先例——agent 不该因
+    # contracts/cases 表删除而丢审计记录或级联，也不引入跨 app 迁移依赖。
+    contract_id = models.BigIntegerField(null=True, blank=True, db_index=True, verbose_name="项目（合同）id")
+    case_id = models.BigIntegerField(null=True, blank=True, verbose_name="案件 id")
+
+    # ── 项目事实的确认（"必须人点一下"）────────────────────────────
+    #
+    # 区分「流水判断」与「项目事实」**不用再加一个 tier 枚举**：
+    # ``confirmed_at`` 为空 = 模型/律师随手写的判断（可被 supersede）；
+    # 非空 = 有人点过确认的项目事实（改动需再次确认）。
+    #
+    # 为什么不用 tier：``kind`` 已经承担「这条记忆是什么性质」（事实/偏好/
+    # 惯例/纠正/指引），再叠一个同名字段，``kind=fact`` 与 ``tier=judgment``
+    # 这种自相矛盾的行一定会出现。用时间戳表达「确认与否」既无枚举冲突，
+    # 又白拿一份「谁在什么时候认的」审计。
+    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="确认时间")
+    confirmed_by = models.ForeignKey(
+        "organization.Lawyer",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="confirmed_agent_memories",
+        verbose_name="确认人",
+    )
+
+    #: 被本条推翻的旧条目。**失效不删除**：旧行留在库里，`status=DELETED`
+    #: 之外只看 ``supersedes`` 链就能回答「当时是怎么认定的」（Graphiti 的
+    #: 失效语义，不引图库）。``SET_NULL`` 而非 CASCADE：删掉一条旧事实
+    #: 不该连带抹掉那条更正记录。
+    supersedes = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="superseded_by",
+        verbose_name="推翻的旧条目",
+    )
+
     # ── 溯源 ──────────────────────────────────────────────────────────
     #: 这条记忆是哪次对话得出的。前端点开可看到来源，这是律师敢用的前提。
     source_session = models.ForeignKey(
@@ -206,6 +272,8 @@ class AgentMemory(models.Model):
             models.Index(fields=["lawyer", "status"], name="agent_mem_lawyer_status_idx"),
             models.Index(fields=["team", "status"], name="agent_mem_team_status_idx"),
             models.Index(fields=["law_firm", "status"], name="agent_mem_firm_status_idx"),
+            # 项目注入主路径：按锚点取「本项目/本案」的条目
+            models.Index(fields=["contract_id", "case_id", "status"], name="agent_mem_anchor_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
             # scope 与归属字段必须自洽，且恰好一个非空

@@ -19,6 +19,7 @@ import { useSmoothStreamText } from '../../hooks/use-smooth-stream-text'
 import type { ChatMessage } from '../../types'
 import { AssistantMarkdown } from '../AssistantMarkdown'
 import { MessageActions } from '../MessageActions'
+import { SaveNoteButton } from '../SaveNoteButton'
 import { RefQuoteCard, SelectionQuoteCard } from '../RefQuote'
 import { StreamActivity } from '../StreamActivity'
 import { OwnToolList } from '../ToolChips'
@@ -162,12 +163,18 @@ export const Bubble = memo(function Bubble({
         <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
       )}
       {showCopy && (
-        <MessageActions
-          content={message.content}
-          messageId={ratableMessageId(message)}
-          rating={message.rating}
-          createdAt={message.createdAt}
-        />
+        <>
+          <MessageActions
+            content={message.content}
+            messageId={ratableMessageId(message)}
+            rating={message.rating}
+            createdAt={message.createdAt}
+          />
+          {/* 存进项目笔记：把这条回答里的结论落到项目上，同团队可见。
+              只在这里出现（不在流式气泡上）：还没落库的会话没有 sessionId，
+              存了也无处归属。 */}
+          <SaveNoteButton content={message.content} />
+        </>
       )}
     </div>
   )

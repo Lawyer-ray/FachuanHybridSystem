@@ -15,6 +15,9 @@
 
     activity → delta* → tool_call*/tool_result* → usage* → approval_request? → error? → done
 
+多栏（多答）时这条链**按栏各一份**：帧带 ``agent`` / ``run_id`` 按到达顺序交错
+上线，``done`` 每栏一条（按 ``agents`` 顺序，整轮落库之后）。
+
 ## 子模块
 
 - ``pool``：pi 进程池单例与配置解析

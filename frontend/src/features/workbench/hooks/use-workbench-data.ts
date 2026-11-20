@@ -15,6 +15,8 @@ export const workbenchKeys = {
     ['workbench', 'contracts-page', f.status, f.cat, f.fee, q, page] as const,
   contractCases: (contractId: number) => ['workbench', 'contract-cases', contractId] as const,
   contract: (contractId: number) => ['workbench', 'contract', contractId] as const,
+  /** 本项目 AI 笔记（项目页「AI 上下文」抽屉只在打开时拉，见 ProjectMemoryDrawer） */
+  projectNotes: (contractId: number) => ['workbench', 'project-notes', contractId] as const,
   /** 案件直挂提醒按「该合同下的案件 id 集合」缓存：案件增减即换键重拉 */
   caseReminders: (contractId: number, caseIds: number[]) =>
     ['workbench', 'case-reminders', contractId, caseIds.join(',')] as const,

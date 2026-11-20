@@ -172,6 +172,58 @@ PII 闸门 + 律所层只收惯例/偏好。理由见 plan 文件第 3 节。
 审批分级：`forget_memory` 是 **HIGH（需人工审批）**（工具名不含 `delete`，不加
 这条模型就能静默抹掉律师的记忆）；`remember` / `restore_memory` 是 MEDIUM 留痕。
 
+### 项目笔记：A 律师的判断怎么让 B 律师用上
+
+上面那套三层记忆存的是**律师的习惯**（跨项目通用）。但同一个团队 2-3 人办同
+一个案件时，真正缺的是**这个项目的结论**：A 跟 AI 捋清楚的争点、已定策略、
+被否掉的方案，B 完全看不到，只能重问一遍——因为 pi session 是按会话按人隔离的。
+
+所以记忆多两个**锚点字段**（`contract_id` / `case_id`），与 `scope` 正交：
+
+| 维度 | 回答什么 |
+|:-|:-|
+| `scope`（lawyer / team / law_firm） | **谁能看** |
+| 锚点（contract_id / case_id） | **属于哪个项目**、注入到哪 |
+
+三条设计约束（改之前先读）：
+
+1. **共享单元是项目（合同），不是案件**：非诉没有案件；案件本身挂在合同下
+   （`Case.contract`），所以锚点优先挂合同，只对本案成立的事实才挂 `case_id`。
+2. **可见性 = 同律师团队**，不是「点名共享」。`scopes.anchor_visible_queryset`
+   直接复用 `OrgAccessComputationService` 算出的 `org_access["lawyers"]`——
+   不另写一套权限，否则两套迟早漂移。
+3. **注入分两块且顺序固定**：`本项目已确认的事实`（1200 字，人工确认过）→
+   `本项目同事的判断`（800 字，未经确认，行内带作者与日期）→ 个人 → 团队 →
+   律所。判断不能和事实混排：混了模型会把推测当前提，错误逐轮放大。
+
+「必须人点一下才升为事实」用 `confirmed_at` 表达，**不加 tier 枚举**：`kind`
+已经承担「这条记忆是什么性质」，再叠一个同名字段必然出现 `kind=fact` +
+`tier=judgment` 这种自相矛盾的行。工具面是 `confirm_project_fact`，刻意用
+`confirm_` 前缀 → 判 HIGH → 弹人工审批（静默执行等于模型替律师签字）。
+
+**快照缓存必须带锚点与版本号**（`SNAPSHOT_CACHE_KEY`）：不带锚点会把 A 案的
+快照发给 B 案；不带版本号则失效只能按人删一个 key，而同一律师现在有 N 个锚点
+变体（locmem 没有 `delete_pattern`）。版本号把失效降级成「自增一个整数」。
+
+写入是 append-only：三个人同时写不同事实零冲突；推翻旧结论用 `supersedes`
+指针，旧条保留、不再注入（保住「当时怎么定的」这条线索）。
+
+**缺口收口情况**（v27.19.6 内全部修完，逐条都有单测守着）：
+
+| 缺口 | 修法 |
+|:-|:-|
+| 只给 `case_id` 的笔记在项目面板看不到 | 写入口补项目锚点（与建会话共用一份推导） |
+| 被推翻的旧条与现行结论并排、无提示 | 列表注解 `is_superseded`，抽屉单列「已被推翻」 |
+| 抽屉没有「确认」入口 | 判断行加确认动作 + 可改写弹窗（同一端点，不走 MCP 审批） |
+| `limit=50` 静默截断 | 后端 `offset` + 前端「加载更多 / 已全部加载 N 条」 |
+| `create_note` 未跑 PII 闸门 | 落库后跑 `scan_pii_risk`，命中 warning 留痕、不阻断 |
+
+仍可做但不算缺口（排期见 `docs/04-计划/活跃/agent-shared-context-remaining.md`）：
+引用埋点、笔记↔原始回答跳转、冷启动事实草稿、批量诉讼模板层。
+
+完整清单与做法见 `docs/04-计划/活跃/agent-shared-context-remaining.md`
+（该目录被 `.gitignore` 忽略，只在本机；入库的只有本节这几条）。
+
 ### 3.1 pi session 存储（`pi/session_store.py`）
 
 目录布局（根目录 `FACHUAN_AGENT_HOME`，默认 `~/.fachuan-agent`，权限 0700）：
@@ -318,6 +370,14 @@ publish(session_id, event)
 | GET | `/sessions/{id}/stats` | 会话 token 用量与上下文水位（读库，不起进程） |
 | POST | `/sessions/{id}/compact` | 手动压缩上下文（同步；无历史幂等 `compacted=false`，池忙 429） |
 
+记忆前缀 `/api/v1/agent/memory`（细则见 `docs/plans/agent-memory-plan.md` 与本文「项目笔记」节）：
+
+| 方法 | 路径 | 说明 |
+|:-|:-|:-|
+| GET | `/memory/snapshot` | 注入用快照；`session_id` 决定要不要渲染「本项目/本案」两块 |
+| POST | `/memory/notes` | 写一条项目笔记；锚点可显式给，也可只给 `session_id` 由服务端反查 |
+| POST | `/memory/{id}/confirm` | 把笔记升为「项目事实」（可带改写）；同团队成员均可确认 |
+
 ### 运行中插话（steer / follow_up）
 
 用户不必「停止 → 重发完整需求 → 前功尽弃」。`services/live_sessions.py` 维护
@@ -463,6 +523,12 @@ POST /tasks {message, title?, case_id?}
 meta → activity(thinking|queued)? → delta*/thinking* → tool_call* → tool_result*
      → citations* → usage* → approval_request? → error? → done
 ```
+
+**多栏（多答，`stream_multi` 同时问 N 个 agent）时这条链按栏各一份**：帧都带
+`agent` / `run_id`，按**到达顺序**交错上线（不是左栏跑完再跑右栏），前端逐帧按
+这两个字段分流；`done` 每栏一条、按 `agents` 顺序在**全部栏落库之后**才发；客户端
+断开（按停止）时已流出的正文同样按栏落库。单栏与多栏的区别只在这里，下面这张表
+所有字段对所有栏都成立。
 
 | 事件 | 关键字段 |
 |:-|:-|

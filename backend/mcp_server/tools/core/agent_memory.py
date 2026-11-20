@@ -136,3 +136,108 @@ def confirm_memories(ids: list[str], accept: bool = True) -> dict[str, Any]:
     """
     result: dict[str, Any] = client.post("/agent/memory/confirm", json={"ids": ids, "accept": accept})
     return result
+
+
+def save_project_note(
+    content: str,
+    contract_id: int,
+    case_id: int | None = None,
+    kind: str = "fact",
+    supersede_id: str | None = None,
+) -> dict[str, Any]:
+    """把一条**项目结论**记到项目上，同团队所有律师后续都能看到。
+
+    什么时候用：你在这个项目/这个案子里捋出了一条对后续办案有用的结论
+    （争点判断、已定策略、被否掉的方案、关键期限、对方底线），而这句话
+    下次开会话就没人记得了。写下来，比在对话里说一遍有用。
+
+    与 ``remember`` 的区别（别混）：
+    - ``remember`` 记的是**这位律师的习惯/偏好**，跨项目通用；
+    - 本工具记的是**这个项目的结论**，只在该项目及其案件里说得上话。
+
+    Args:
+        content: 一句话结论，**上限 300 字**，要能独立读懂（不要写「同上」）。
+            判断类内容请把理由一起带上，只写结论的条目复核时没法用。
+        contract_id: 项目（委托合同）id。从 ``list_contracts`` / 案件详情
+            的 ``contract_id`` 取，不要猜。
+        case_id: 案件 id。只有结论**只对这个案件成立**时才传（例如「本案
+            证人反复」）；整个项目通用的结论不要传，否则它不会在别的案件
+            会话里出现。
+        kind: ``fact``（默认）/ ``preference`` / ``procedure`` /
+            ``correction`` / ``playbook``。
+        supersede_id: 推翻旧结论时传那条旧笔记的 id。旧条不会被删除，只是
+            不再注入——保住「当时是怎么认定的」这条线索。
+
+    可见性：同律师团队全体可见（不是私人备注）。不要往里写不该给同事看的东西。
+    """
+    payload: dict[str, Any] = {
+        "content": content,
+        "contract_id": contract_id,
+        "kind": kind,
+    }
+    if case_id is not None:
+        payload["case_id"] = case_id
+    if supersede_id:
+        payload["supersede_id"] = supersede_id
+    result: dict[str, Any] = client.post("/agent/memory/notes", json=payload)
+    return result
+
+
+def save_case_note(
+    content: str,
+    case_id: int,
+    contract_id: int | None = None,
+    kind: str = "fact",
+    supersede_id: str | None = None,
+) -> dict[str, Any]:
+    """把一条**只对本案件成立**的结论记到案件上（同团队可见）。
+
+    与 ``save_project_note`` 的分工：项目级结论挂项目，全项目通用；只有
+    这个案子才成立的事实（本案排期、本案证人、本案法官倾向）挂案件。
+    挂错层级的代价是：挂在案件上的结论不会在兄弟案件的会话里出现；挂在
+    项目上的结论会被别的案件当通用前提读进去。
+
+    Args:
+        content: 一句话结论，**上限 300 字**，要能独立读懂。
+        case_id: 案件 id（必填）。从 ``list_cases`` / ``get_case`` 取。
+        contract_id: 所属项目（委托合同）id；有就一起给，便于按项目汇总。
+        kind: 记忆类型，默认 ``fact``。
+        supersede_id: 要推翻的旧笔记 id（旧条保留、不再注入）。
+
+    可见性：同律师团队全体可见。
+    """
+    payload: dict[str, Any] = {
+        "content": content,
+        "case_id": case_id,
+        "kind": kind,
+    }
+    if contract_id is not None:
+        payload["contract_id"] = contract_id
+    if supersede_id:
+        payload["supersede_id"] = supersede_id
+    result: dict[str, Any] = client.post("/agent/memory/notes", json=payload)
+    return result
+
+
+def confirm_project_fact(memory_id: str, content: str | None = None) -> dict[str, Any]:
+    """把一条项目笔记升为**项目事实**——这一步必须由律师本人点头。
+
+    为什么需要人：笔记里可能是你的推理，也可能被卷宗里的文字带偏。一旦标成
+    「事实」，后面的会话会把它当**前提**用，错误会被一轮轮放大。所以本工具
+    会弹出人工确认；律师不同意就不会生效，你也不该反复重试。
+
+    什么时候用：律师说「这条对，记下来」「确认一下」「这几点定下来了」，
+    或你在整理结论时认为某条已被律师明确认可。
+
+    Args:
+        memory_id: 要确认的笔记 id（``save_project_note`` 等返回的 ``id``）。
+        content: 可选改写。律师说得更准时用它覆盖原文（上限 300 字）；
+            不改就留空。
+
+    注意：这不是「提升到团队/律所记忆」——那需要管理员策展，工具面不提供。
+    """
+    payload: dict[str, Any] = {}
+    if content is not None:
+        payload["content"] = content
+    result: dict[str, Any] = client.post(f"/agent/memory/{memory_id}/confirm", json=payload)
+    return result

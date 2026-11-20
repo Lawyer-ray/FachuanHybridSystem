@@ -4,7 +4,7 @@
 
 1. **两个都成**：各自的事件都转发，``done`` 只发一次，助手消息两条各带 ``agent_kind``；
 2. **一成一败**：失败方只发一条带 ``agent`` 的 ``error``，成功方照常输出；
-3. **两个都败**：只发**第一条** ``error``（不堆两条）；
+3. **两个都败**：**每栏各自**一条带 ``agent`` 的 ``error``（前端按栏标「本轮未做」）；
 4. **配额不足**：只跑主后端 + 一条 ``activity{status:"degraded", reason}``。
 
 全部离线：注册表注入假后端（``stream()`` 直接吐预置事件），不调真模型、不起子进程。
@@ -254,21 +254,27 @@ class TestOneSucceedsOneFails:
 
 
 class TestBothFail:
-    """失败矩阵第 3 行：两个都败，只发第一条 error。"""
+    """失败矩阵第 3 行：两个都败，**每栏各自**一条 error。
+
+    **2026-11-20 修正**：这里原先断言「只发第一条 error」，理由是「N 条 error 在
+    同一气泡区会渲染成 N 行」。公平交错（事件按到达顺序上线）之后那个写法连
+    正确性都保不住：谁先到谁才是「第一条」，主栏的 error 可能被次栏占位而静默
+    不发——最左栏出错了却没有错误行。前端 ``onError`` 是单字段覆盖写（不会堆
+    N 条横幅）并按 ``origin.kind`` 把那一栏标成「本轮未做」，所以每栏各发一条。
+    """
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
-    async def test_only_first_error_emitted(self) -> None:
+    async def test_each_lane_emits_its_own_error(self) -> None:
         _register_pair(RuntimeError("主答炸了"), RuntimeError("次答炸了"))
         session = await _make_session()
 
         events = await _collect(session)
 
         errors = [e for e in events if e.get("type") == "error"]
-        # 两条 error 在同一个气泡区会渲染成两行，读起来像「失败了两遍」
-        assert len(errors) == 1
-        # 第一条来自主答（主答先跑），带 agent 供前端归栏
-        assert errors[0]["agent"] == PRIMARY
+        assert len(errors) == 2
+        # 每条 error 带自己的 agent：前端据此把**那一栏**标成「本轮未做」
+        assert {e["agent"] for e in errors} == {PRIMARY, SECONDARY}
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
@@ -530,9 +536,8 @@ class TestSharedPreStreamPrep:
     async def test_mint_failure_keeps_per_column_error_semantics(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """预铸凭证失败时的行为必须与「各栏自己铸」逐字一致。
 
-        预铸只是省掉重复劳动，不能改失败语义：那时是每栏各发一条 error，
-        全部失败按失败矩阵只转发第一条。若预铸失败就整轮拉倒、或只跑主答，
-        律师看到的东西就变了。
+        预铸只是省掉重复劳动，不能改失败语义：那时是每栏各发一条 error。
+        若预铸失败就整轮拉倒、或只跑主答，律师看到的东西就变了。
         """
 
         async def _mint(user_id: Any) -> str:
@@ -552,8 +557,9 @@ class TestSharedPreStreamPrep:
         ]
 
         errors = [e for e in events if e.get("type") == "error"]
-        assert len(errors) == 1  # 全部失败：只转发第一条（失败矩阵第 3 行）
-        assert errors[0]["agent"] == PRIMARY
+        # 预铸失败 → 每栏各自铸造也失败 → **每栏各自**一条 error（不是只发第一条）
+        assert len(errors) == 2
+        assert {e["agent"] for e in errors} == {PRIMARY, SECONDARY}
         assert [e["type"] for e in events].count("done") == 2  # 失败也要每栏收尾
         # 用户消息在凭证之前就已落库（既有顺序），失败不许把它带走
         assert await AgentMessage.objects.filter(session=session, role=AgentMessage.Role.USER).acount() == 1

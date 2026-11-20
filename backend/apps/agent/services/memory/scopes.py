@@ -7,15 +7,116 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, cast
 
 from django.apps import apps as django_apps
+from django.core.exceptions import ValidationError
 from django.db.models import Q, QuerySet
 
-from ...models import AgentMemory
+from ...models import AgentMemory, AgentSession
 
 if TYPE_CHECKING:
     from apps.organization.models import Lawyer
+
+
+def team_member_ids(lawyer: Lawyer) -> set[int]:
+    """当前律师可见范围的**律师 id 集合**（同律师团队全体 + 自己）。
+
+    直接调 ``OrgAccessComputationService.compute``，不在这里重写一遍
+    「团队成员」的算法：那是全系统的权限真相（``org_access["lawyers"]``），
+    在这里复制一份必然漂移，而漂移的后果是「同团队的人看不到彼此的判断」
+    或反过来「团队外的人看到了」——后者是泄密。
+
+    延迟 import：agent 不在模块加载期静态依赖 organization 的服务图
+    （与 ``session_service`` 的库懒解析同口径）。
+    """
+    from apps.organization.services.wiring import build_org_access_computation_service
+
+    access = build_org_access_computation_service().compute(lawyer)
+    # ``compute`` 的返回标注是 ``dict[str, object]``（它服务多个调用方），所以这里
+    # 必须收窄：直接 ``set(access.get(...))`` 会退化成 ``object`` 不可迭代。
+    lawyers = cast("Iterable[int]", access.get("lawyers") or ())
+    lawyer_ids: set[int] = set(lawyers)
+    lawyer_ids.add(lawyer.pk)
+    return lawyer_ids
+
+
+async def session_anchor_ids(*, session_id: str, user_id: int) -> tuple[int | None, int | None]:
+    """会话 → ``(contract_id, case_id)``；非法 UUID 与查不到一律 ``(None, None)``。
+
+    三条安全约定：
+
+    1. **会话归属必须校验**：只按 ``user_id`` 现查，拿别人的 session_id 也只会得到
+       ``(None, None)``——项目笔记虽然团队共享，但不能靠猜 session_id 去探别人
+       正在办哪个案子；
+    2. 非法 UUID 一律当作「没有锚点」，不抛 500（扩展是每轮热路径）；
+    3. 没有 session_id（旧扩展、纯对话入口）由调用方直接返回，不进本函数。
+
+    为什么在服务层：``tests/ci/structure/test_four_layer_architecture.py`` 的
+    四层棘轮要求 API 层零 ``Model.objects`` 调用（基线 0）——这条查询原本写在
+    ``api/memory_api.py`` 里，被棘轮挡下来了。
+    """
+    try:
+        row = (
+            await AgentSession.objects.filter(session_id=session_id, user_id=user_id)
+            .values("case_id", "contract_id")
+            .afirst()
+        )
+    except (ValueError, ValidationError):
+        return None, None
+    if not row:
+        return None, None
+    return row["contract_id"], row["case_id"]
+
+
+def anchor_q(*, contract_id: int | None, case_id: int | None) -> Q | None:
+    """项目/案件锚点的匹配条件；两个锚点都为空时返回 None（调用方不加条件）。
+
+    匹配语义：挂在**本项目**上的条目，或挂在**本案**上的条目。合同层的条目
+    在它所有下属案件的会话里可见（项目就是权限泡）；案件层的条目不在兄弟
+    案件里展开——那会让批量诉讼的事实互相串味。
+    """
+    condition = Q()
+    matched = False
+    if contract_id is not None:
+        condition |= Q(contract_id=contract_id)
+        matched = True
+    if case_id is not None:
+        condition |= Q(case_id=case_id)
+        matched = True
+    return condition if matched else None
+
+
+def anchor_visible_queryset(
+    lawyer: Lawyer,
+    *,
+    contract_id: int | None,
+    case_id: int | None,
+    include_status: tuple[str, ...] = (AgentMemory.Status.ACTIVE,),
+) -> QuerySet[AgentMemory]:
+    """**项目笔记的唯一读入口**：同团队成员挂在本项目/本案上的条目。
+
+    与 :func:`visible_queryset` 的区别（别把两者混用）：
+
+    | | visible_queryset | 本函数 |
+    |:-|:-|:-|
+    | 回答 | 「我个人/我团队/我所」的偏好与惯例 | 「本项目」的判断 |
+    | 归属维度 | scope（lawyer/team/law_firm） | 锚点（contract_id/case_id） |
+    | 作者范围 | 按作用域三档 | 同律师团队全体（含他人） |
+
+    被更新条目推翻的旧条（``superseded_by`` 非空）不参与注入：模型该看到
+    的是现结论；旧结论留在库里供人回查「当时怎么定的」。
+    """
+    condition = anchor_q(contract_id=contract_id, case_id=case_id)
+    if condition is None:
+        return AgentMemory.objects.none()
+    return AgentMemory.objects.filter(
+        condition,
+        lawyer_id__in=list(team_member_ids(lawyer)),
+        status__in=include_status,
+        superseded_by__isnull=True,
+    )
 
 
 def resolve_scopes(lawyer: Lawyer) -> list[tuple[str, dict[str, Any]]]:

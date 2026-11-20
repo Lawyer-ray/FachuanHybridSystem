@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from django.db.models import Exists, OuterRef
+
 from ...models import AgentMemory
-from .scopes import can_curate_scope, visible_queryset
+from .scopes import anchor_q, can_curate_scope, visible_queryset
 from .search import search_memories
 
 if TYPE_CHECKING:
@@ -32,14 +34,42 @@ def memory_to_dict(memory: AgentMemory) -> dict[str, Any]:
         "hit_count": memory.hit_count,
         "created_at": memory.created_at.isoformat() if memory.created_at else "",
         "source_session_id": (str(memory.source_session.session_id) if memory.source_session is not None else ""),
+        # 项目锚点：前端靠它们把笔记归到「项目/本案」，也靠 confirmed_at 区分
+        # 「同事的判断」与「已确认的项目事实」。
+        "contract_id": memory.contract_id,
+        "case_id": memory.case_id,
+        "confirmed_at": memory.confirmed_at.isoformat() if memory.confirmed_at else "",
+        "confirmed_by": (str(memory.confirmed_by) if memory.confirmed_by_id else ""),
+        "supersedes_id": str(memory.supersedes_id) if memory.supersedes_id else "",
+        # 是否已被后来的条目标为「推翻」。注入侧靠 superseded_by__isnull 过滤，
+        # 但**列表/面板要看到它并标出来**：否则抽屉里会并排显示两条互相矛盾的
+        # 结论、还没有任何提示，律师按旧结论办事的风险比看不到更高。
+        "is_superseded": bool(getattr(memory, "is_superseded", False)),
     }
 
 
-def list_memories_payload(lawyer: Lawyer, *, scope: str | None, status: str | None, limit: int) -> list[dict[str, Any]]:
+def list_memories_payload(
+    lawyer: Lawyer,
+    *,
+    scope: str | None,
+    status: str | None,
+    limit: int,
+    contract_id: int | None = None,
+    case_id: int | None = None,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
     """当前律师可见的记忆列表载荷。
 
     默认只返回 pending + active（软删的语义是「不想再看到」）；显式传
     ``status`` 则按该状态过滤（恢复入口需要 ``status=deleted``）。
+
+    ``contract_id`` / ``case_id`` 用于「项目页的 AI 上下文面板」：只取挂在
+    本项目/本案上的笔记（两个都给时取并集，与注入侧 ``anchor_q`` 同一语义，
+    避免「面板看到 5 条、注入只有 3 条」这种两套口径）。
+
+    ``offset`` 供「加载更多」翻页。排序显式写成 ``(-created_at, id)``：只按
+    时间排时同一秒写入的多条顺序不稳定，翻页会漏条或重复条（id 只是决胜位，
+    不承担语义）。
     """
     if status:
         statuses: tuple[str, ...] = (status,)
@@ -48,8 +78,15 @@ def list_memories_payload(lawyer: Lawyer, *, scope: str | None, status: str | No
     queryset = visible_queryset(lawyer, include_status=statuses)
     if scope:
         queryset = queryset.filter(scope=scope)
+    anchor = anchor_q(contract_id=contract_id, case_id=case_id)
+    if anchor is not None:
+        queryset = queryset.filter(anchor)
+    # 一条被谁推翻 = 存在另一条把 supersedes 指向它（注解而不是逐行查，避免 N+1）
+    queryset = queryset.annotate(is_superseded=Exists(AgentMemory.objects.filter(supersedes=OuterRef("pk"))))
     bounded = max(1, min(limit, 300))
-    return [memory_to_dict(m) for m in queryset[:bounded]]
+    start = max(0, offset)
+    ordered = queryset.order_by("-created_at", "id")
+    return [memory_to_dict(m) for m in ordered[start : start + bounded]]
 
 
 def search_memories_payload(lawyer: Lawyer, query: str, *, limit: int) -> list[dict[str, Any]]:

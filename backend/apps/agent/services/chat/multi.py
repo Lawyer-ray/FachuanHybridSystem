@@ -12,7 +12,7 @@
 
     stream_multi
       ├─ record_user_message / bus.register        ← 一次
-      ├─ N 个 stream_chat 并发（首个在此协程，其余走队列）
+      ├─ N 个 stream_chat 各一条 task（共用有界队列，交错上线）
       └─ bus.unregister + 每栏一个 done             ← 收尾
 
 每个 ``stream_chat`` 各自照常写 ``AgentRun``（成本必须分别归因到各自的模型）与
@@ -25,9 +25,21 @@
 ``agent_kind`` 是主，注册表里第一个不等于主的 kind 是次」——与旧 ``stream_dual``
 同口径，保证 ``dual=True`` 的旧前端行为不变。
 
-**首个 kind 在调用方协程里直接迭代，其余全部走队列**。这不是随意选择：首个
-（主答）的异常必须能原样上抛成取消语义，否则客户端断开时停不下来；其余的回答
-失败只降级成本栏的 ``error``，不能把主答拖下水。
+「主 / 次」只决定两件事：主答的正文由 ``stream_chat`` 自己落库；配额不足时只保留
+主答。**事件通路上一视同仁**——每栏（含主答）都是独立 task，产出的帧先进同一个
+有界队列，再由一个纯消费者按到达顺序 ``yield`` 出去。
+
+## 公平交错合并（2026-11-20 修正，教训见 ``docs/harness/pitfalls.md`` PIT-020）
+
+早先的形态是「主答在调用方协程里内联迭代 + 其余栏各一个**无界**队列，且只在
+主答结束后按栏**串行**抽干」。后果是**左列永远最快**：左列恒为 ``agents[0]``，
+右列的帧被后端扣住，等左列跑完才整批刷出，第 3 列还要等第 2 列的 task 结束。
+前端本来就逐帧按 ``agent`` / ``run_id`` 分流（见
+``frontend/src/features/copilot/streaming.ts``），所以这是纯后端缺陷。
+
+现在的形态是「N 个 task + 一个共享**有界**队列（``_LANE_QUEUE_MAXSIZE``，背压
+上限：无界队列会把整篇回答压在 RAM 里）+ 纯消费者」，每栏结束时往队列里放一个
+``_LANE_DONE`` 哨兵。**谁先产出谁先上线**，没有任何「主栏优先」的隐式顺序。
 
 ## 失败矩阵（本模块的核心设计）
 
@@ -35,7 +47,7 @@
 |:--|:--|:--|
 | 全部成功 | 各自完整的事件流（带 ``agent`` / ``run_id``） | **每栏一个** ``done`` |
 | 部分失败 | 成功的照常输出；失败方**只**发一条带 ``agent`` 的 ``error`` | **每栏一个** ``done`` |
-| 全部失败 | 只发**第一条** ``error``（不堆 N 条） | **每栏一个** ``done`` |
+| 全部失败 | 每栏**各自**一条 ``error``（带 ``agent``） | **每栏一个** ``done`` |
 | 辅助配额已满 | 只跑主后端 + 一条 ``activity{status:"degraded", reason}`` | 一个 ``done``（agents 收窄为单栏） |
 
 关于 ``done`` 的条数（2026-11-19 修正，教训保留在此）：早先的设计是「整轮只发
@@ -48,9 +60,12 @@
 所以每个后端的事件流被单独包住，异常就地转成一条 ``error``，其余继续转发。
 也因此不用 ``gather(return_exceptions=False)``——那个会让第一个异常把整轮打死。
 
-全部失败时为什么只发一条：N 条 ``error`` 在同一个气泡区渲染成 N 行，读起来像
-「同一件事失败了 N 遍」。第一条已足够表达「本轮没跑成」，另一半的原因进日志与
-它自己的 ``AgentRun.error_kind``（查用量时才看，不干扰主界面）。
+**每栏各发一条** ``error``（2026-11-20 修正）：早先的写法是「只发第一条」，理由是
+「N 条 ``error`` 会渲染成 N 行，读起来像同一件事失败了 N 遍」。公平交错之后那个
+写法连正确性都保不住：谁先到谁才是「第一条」，主栏的 ``error`` 可能被次栏占位而
+**静默不发**——最左栏出错了却没有错误行。前端 ``onError`` 是单字段覆盖写
+（``lastError``，不会堆 N 条横幅）并按 ``origin.kind`` 把**那一栏**标成「本轮
+未做」，所以正确做法是每栏各发一条、各自带 ``agent``。
 
 ## 落库
 
@@ -58,10 +73,17 @@
 ``persist_assistant=False`` 把正文交回这里（``StreamMemo``），由本模块带着
 ``agent_kind`` 落库——否则次答在历史回放里会凭空消失，律师第二天再看只剩一份。
 
+补落必须**按 ``agents`` 顺序**，不能按完成顺序：历史回放按 ``-created_at,-id``
+排序、前端用 assistant 行序决定栏的左右，谁先跑完谁先落库会让刷新后栏序随机。
+
+客户端断开（按停止）**也要落库**：被取消的 ``stream_chat`` 会跑完自己的
+``finally`` 把已流出的正文写进 ``StreamMemo``，本模块在那之后补写还没落过的栏。
+不做这一步的话，用户在次栏说到一半按停止，下次打开会话就只剩主栏。
+
 ## 并发上限
 
 ``MAX_ANSWERS = 4``。理由是成本线性增长且四栏并排在 UI 上已接近可读性极限，
-不是技术限制——``_pump_one`` 对 N 没有假设，调高这个常量即可。
+不是技术限制——``_pump_lane`` 对 N 没有假设，调高这个常量即可。
 
 ## 轮次级 key 分配
 
@@ -71,8 +93,8 @@ N 栏落在不同 key 上，也不知道哪把已经满了。所以分配在这�
 ``LLMProvider.api_keys`` 取出 key 池，由 ``key_scheduler.allocate`` 给**每一栏
 各分一把互不相同**的 key，经 ``RunContext.api_key`` 传给后端。
 
-归还的规则是「谁用谁还」：主答在自己的 ``finally`` 归还，非主答在 ``_pump_one``
-的 ``finally`` 归还，整轮另挂一层兜底（被 cancel 后没再被调度到的栏跑不到
+归还的规则是「谁用谁还」：每一栏都在 ``_pump_lane`` 的 ``finally`` 归还，
+整轮另挂一层兜底（被 cancel 后没再被调度到的栏跑不到
 ``finally``，而漏还一把 key 的代价是那一路并发额度永久少 1 → 越来越容易 429）。
 拿不到 key 池（没有 provider / 读配置失败）时**不报错**，传 ``None`` 让后端走
 它原来的轮转口径——与引入 key 分配前逐字一致。
@@ -81,11 +103,12 @@ N 栏落在不同 key 上，也不知道哪把已经满了。所以分配在这�
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from ...backends import available_kinds
 from ...backends import get as get_backend
@@ -95,7 +118,7 @@ from ...backends.key_scheduler import KeyLease, get_key_scheduler
 from ...errors import AgentError, project
 from ...models import AgentMessage, AgentSession
 from ...sse_types import FinishReason
-from ..event_bus import get_bus
+from ..event_bus import EventBus, get_bus
 from . import budget, persist, profile
 from .stream import ContextPrep, next_run_turn, prepare_context, record_user_message, stream_chat
 
@@ -108,6 +131,19 @@ ACTIVITY_DEGRADED = "degraded"
 #: 一轮最多同时问几个 agent。超出的由 API 层挡掉（400），本模块不静默截断——
 #: 静默截断会让用户以为选中的都跑了，实际少跑了几个还看不出来。
 MAX_ANSWERS = 4
+
+#: 所有栏共用的那个队列的容量上限。**有界是为了背压**：
+#: 无界队列在慢客户端下会把 N 栏的全部 delta（一整篇回答）压在进程内存里，
+#: 而它们本来只需要「生产者稍微慢一点」。256 与 ``event_bus.MAX_QUEUED``
+#: 同量级——超过这个数说明前端已经跟不上，让后端等一下才是对的。
+_LANE_QUEUE_MAXSIZE = 256
+
+#: 一栏「帧已全部产出」的哨兵（单例，消费者用 ``is`` 判等）。
+#:
+#: 为什么不用 ``{"type": "done"}``：``done`` 是后端的帧类型，本模块自己也要
+#: 按栏补发真正的 ``done``；拿它当内部收尾信号会让消费者分不清「要转发的帧」
+#: 与「这一栏结束了」。
+_LANE_DONE = object()
 
 
 @dataclass(frozen=True)
@@ -351,7 +387,7 @@ async def _persist_answer(session: AgentSession, agent: str, memo: StreamMemo) -
     memo.message_id = message.pk
 
 
-async def _pump_one(
+async def _pump_lane(
     *,
     session: AgentSession,
     user_message: str,
@@ -361,11 +397,16 @@ async def _pump_one(
     model: str | None,
     lease: KeyLease,
     memo: StreamMemo,
-    queue: asyncio.Queue[dict[str, Any] | None],
+    queue: asyncio.Queue[Any],
     context: ContextPrep | None,
     turn: int,
+    persist_assistant: bool,
 ) -> None:
-    """一个非主答后端：事件进队列，结束时放一个 ``None`` 收尾。
+    """**一栏**后端：帧补齐 ``agent`` / ``run_id`` 后进共享队列，结束时放哨兵。
+
+    主答与其他栏走同一个函数。早先主答是在 ``stream_multi`` 里内联迭代的，
+    其余栏各走一个无界队列、只在主答结束后串行抽干——于是左列（恒为
+    ``agents[0]``）永远最快、右列整批后到（``docs/harness/pitfalls.md`` PIT-020）。
 
     ``lease`` 是这一栏自己的 key 租约：**本函数负责归还**（在 ``finally`` 里，
     异常与取消路径同样跑）。漏还一把 key 的代价是那一路并发额度永久少 1，
@@ -373,7 +414,7 @@ async def _pump_one(
 
     ## aux 席位为什么由调用方统一持（而不是这里各抢一个）
 
-    实测：``aux_slots() = 总席位(4) × 0.25 = 1``。若每个非主答各自
+    实测：``aux_slots() = 总席位(4) × 0.25 = 1``。若每栏各自
     ``reserve("aux")``，三栏时第二、三个必然被挡——界面上「选了三个只出两个」，
     且被挡的那栏连一句原因都没有。**这个坑真踩过**：v27.20 的三栏用例实测
     ``third-agent outcome=[BudgetExceeded('辅助 agent 并发已满（1/1）')]``。
@@ -384,18 +425,27 @@ async def _pump_one(
     所以席位由 ``stream_multi`` 在整轮外面持有一个（见 ``_hold_aux``），本函数
     只管跑。``BudgetExceeded`` 不再可能从这里冒出来。
 
-    ``CancelledError`` 原样上抛：客户端断开时这是「按停止」的语义，不是失败。
+    ``GeneratorExit`` / ``CancelledError`` 原样上抛：客户端断开时这是「按停止」
+    的语义，不是失败，不该变成一条 ``error`` 帧。
     """
-    try:
-        async for event in stream_chat(
+    # 生成器先取到手：`async for` 提前退出时**不会**替你关它（见下面 finally）。
+    #
+    # ``cast``：``stream_chat`` 的返回标注是 ``AsyncIterator``（调用方只该迭代它），
+    # 而关闭生成器需要 ``AsyncGenerator`` 上的 ``aclose``。用 cast 而不是把
+    # ``stream_chat`` 的签名改成 ``AsyncGenerator``：那会把「也可以传一个普通
+    # 异步迭代器进来」的余地收窄，而本函数只关心「能迭代 + 能关」这两件事。
+    agen = cast(
+        "AsyncGenerator[dict[str, Any], None]",
+        stream_chat(
             session=session,
             user_message=user_message,
             user_id=user_id,
             tool_selection=tool_selection,
             # 用户消息已由 stream_multi 落库一次（N 个后端共用同一条提问）
             user_message_recorded=True,
-            # 正文交回本模块落库：只有这里知道该带哪个 agent_kind
-            persist_assistant=False,
+            # 主答由 stream_chat 自己落库（栏级 usage / ttft 都在它手里）；
+            # 非主答的正文交回本模块，只有那里知道该带哪个 agent_kind
+            persist_assistant=persist_assistant,
             memo=memo,
             # 凭证与 prompt 已由 stream_multi 算好：N 栏同一个律师、同一条提问，
             # 每栏各铸一次只是把同一条 user 查询排队 N 遍（见 ContextPrep）
@@ -410,15 +460,22 @@ async def _pump_one(
             api_key=_lease_key(lease),
             # 与主答**同一个**轮次号（本轮只取一次号，见 ``stream.next_run_turn``）
             turn=turn,
-        ):
+        ),
+    )
+    try:
+        async for event in agen:
             if event.get("type") == "done":
                 continue  # done 由 stream_multi 按栏统一发，见模块 docstring
-            await queue.put(event)
+            # 进队列前就补齐 ``agent`` / ``run_id``：消费者是哑的（只按到达顺序
+            # 转发），而前端无条件按这两个字段分流——口径必须在这里统一，不能
+            # 让前端猜「哪种事件可能没有 agent」。
+            await queue.put(_tag(event, agent_kind, memo))
     except (GeneratorExit, asyncio.CancelledError):
         raise
     except Exception as exc:
         logger.exception("多答：agent=%s 这一轮失败 session=%s", agent_kind, session.session_id)
-        # agent 带上：本协程知道自己是哪一栏（``_tag`` 只是兜底补）
+        # ``agent`` 带上：**每栏各发一条** error，前端靠它把那一栏标成「本轮
+        # 未做」（只发一条会让主栏的失败被次栏占位而静默消失，见模块 docstring）
         await queue.put(
             _backend_error(
                 agent_kind,
@@ -427,9 +484,106 @@ async def _pump_one(
             )
         )
     finally:
+        # **必须显式关掉这一栏的生成器**：`async for` 提前退出（最典型的是被
+        # 取消在 ``queue.put`` 上——队列有界之后这一路才成为可能）不会替你
+        # ``aclose()``（PEP 525），而 ``stream_chat`` 的 finally 才是唯一把已
+        # 流出的正文写进 ``memo.parts``、把已花的 token 记进 ``AgentRun`` 的
+        # 地方。不关的后果是断连时次栏半截正文静默丢失，且主栏那条助手行改由
+        # 事件循环的 asyncgen finalizer 异步补写——它会晚于这里同步写的次栏行，
+        # 回放时栏序反转（``docs/harness/pitfalls.md`` PIT-021：这一整段就是那条坑
+        # 的根治点，它的症状是「按了停止右侧几栏的回答凭空消失 / 刷新后左右栏反了」）。
+        #
+        # 吞掉 Exception 但不吞取消：``aclose()`` 自己会吞 GeneratorExit；真正的
+        # 取消要继续上抛（那是「按停止」的语义，不是失败）。
+        with contextlib.suppress(Exception):
+            await agen.aclose()
         # 先还 key 再收尾：归还只是字典计数，不会被打断；而漏还的代价是永久的。
         lease.release()
-        await queue.put(None)
+        # 哨兵只能走 ``await queue.put()``，**不能** ``put_nowait``：队列满时丢了
+        # 哨兵，消费者就永远等不到这一栏收尾。这里不会白等——消费者唯一的中途
+        # 退出路径是收尾阶段的 ``task.cancel()``，而它会继续抽干队列（见
+        # ``_join_lanes``）。
+        await queue.put(_LANE_DONE)
+
+
+async def _pump_external(external: asyncio.Queue[dict[str, Any]], queue: asyncio.Queue[Any]) -> None:
+    """把事件总线（审批 / 提问）的帧搬进共享队列。
+
+    审批不走后端事件流（见 ``event_bus`` 模块说明），所以它需要自己的搬运协程。
+    早先的写法是「主答每产一个帧就顺手 ``get_nowait()`` 一次」捎带出来，但公平
+    交错之后主答不再有「间隙」这个概念（它和别栏一样只是一条 task）。
+
+    收尾交给取消：本协程不丢 ``_LANE_DONE``——它不是一栏，不该计入栏数。
+    """
+    while True:
+        await queue.put(await external.get())
+
+
+async def _join_lanes(tasks: Sequence[asyncio.Task[None]], queue: asyncio.Queue[Any]) -> None:
+    """等这些 task 真正收尾；期间继续把共享队列抽干（取到的条目直接丢掉）。
+
+    为什么要边等边抽干：被取消的栏会在 ``_pump_lane`` 的 ``finally`` 里
+    ``await queue.put(_LANE_DONE)``，而 ``task.cancel()`` 只打断**一次** await
+    （当时挂着的那个）。若那一栏是在 ``queue.put(帧)`` 上被取消的，队列多半还
+    是满的——它接着在 ``finally`` 里放哨兵就会一直挂着，于是「等它收尾」变成
+    死等，SSE 连接再也关不掉。这里腾出队列位置即可，收尾阶段已经没有人要看
+    这些帧了。
+    """
+    pending = {task for task in tasks if not task.done()}
+    while pending:
+        getter: asyncio.Task[Any] = asyncio.ensure_future(queue.get())
+        done, _ = await asyncio.wait({*pending, getter}, return_when=asyncio.FIRST_COMPLETED)
+        pending.difference_update(done)
+        if not getter.done():
+            getter.cancel()
+    for task in tasks:
+        # 取走异常：``_pump_lane`` 只该抛取消，真抛出来是缺陷——记一条日志，
+        # 别让它变成「Task exception was never retrieved」这种没有上下文的噪声。
+        if not task.done() or task.cancelled():
+            continue
+        exc = task.exception()
+        if exc is not None:
+            logger.warning("多答：某一栏的 task 异常收尾", exc_info=exc)
+
+
+async def _close_round(
+    *,
+    session: AgentSession,
+    agents: Sequence[str],
+    memos: Mapping[str, StreamMemo],
+    persisted: set[str],
+    tasks: Mapping[str, asyncio.Task[None]],
+    external_task: asyncio.Task[None] | None,
+    queue: asyncio.Queue[Any],
+    stack: AsyncExitStack,
+    bus: EventBus,
+    session_id: str,
+    external_queue: asyncio.Queue[dict[str, Any]],
+) -> None:
+    """收尾：停掉仍在跑的栏、补落断连时未落库的栏、释放席位与订阅。
+
+    由 ``stream_multi`` 的 ``finally`` 通过 ``ensure_future`` + ``shield`` 调用：
+    真取消（客户端断开）时若让 ``CancelledError`` 直接打断，已经流出的次栏正文
+    就永久丢了（下次打开会话只剩主栏）。与 ``stream.py`` 的取消落库路径同一口径。
+
+    补落按 ``agents`` 顺序，**不是**按完成顺序（见模块 docstring 的「落库」）。
+    ``persisted`` 是正常路径已经落过的栏，这里只补没落过的。
+    """
+    for task in tasks.values():
+        if not task.done():
+            task.cancel()
+    if external_task is not None and not external_task.done():
+        external_task.cancel()
+    # 等它们真正收尾：被取消的 ``stream_chat`` 要跑完自己的 ``finally`` 才会把
+    # 已流出的正文写进 ``memo.parts``（见 ``stream.py`` 的落库块）；不等的话
+    # 下面拿到的是空正文，等于没落。
+    await _join_lanes([*tasks.values(), *([external_task] if external_task is not None else [])], queue)
+    for kind in agents[1:]:  # 主答由 ``stream_chat`` 自己落库，不重复落
+        if kind in persisted:
+            continue
+        await _persist_answer(session, kind, memos[kind])
+    await stack.aclose()
+    await bus.unregister(session_id, external_queue)
 
 
 @asynccontextmanager
@@ -530,14 +684,18 @@ async def stream_multi(
     async with profile.timed("multi.bus_register", session=session_id):
         external_queue = await bus.register(session_id)
 
-    primary_memo = StreamMemo()
-    memos: dict[str, StreamMemo] = {kind: StreamMemo() for kind in secondaries}
-    queues: dict[str, asyncio.Queue[dict[str, Any] | None]] = {kind: asyncio.Queue() for kind in secondaries}
+    # 每栏一个 memo（含主答）：主答的正文由 stream_chat 自己落库，但收尾时仍要
+    # 从它身上取 run_id / 水位 / 助手行主键，口径与非主答一致。
+    memos: dict[str, StreamMemo] = {kind: StreamMemo() for kind in agents}
+    # 所有栏**共用**这一个队列：每栏各一个队列、只按 agents 顺序按栏抽干正是
+    # 本次要废除的设计（左列永远最快，PIT-020）。有界 = 背压（见常量注释）。
+    queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=_LANE_QUEUE_MAXSIZE)
     tasks: dict[str, asyncio.Task[None]] = {}
-
-    # 失败矩阵的状态：全部失败时只转发第一条 error（见模块 docstring）
-    errors: list[dict[str, Any]] = []
+    external_task: asyncio.Task[None] | None = None
+    # 失败矩阵的状态：谁失败谁被记成 False（每栏各自一条 error）
     ok: dict[str, bool] = dict.fromkeys(agents, True)
+    # 已经落过库的栏：收尾时只补没落过的（断连路径靠它避免重复落库）
+    persisted: set[str] = set()
     # 整轮的辅助席位与资源都挂在它上面：客户端断开时 finally 统一释放。
     stack = AsyncExitStack()
 
@@ -564,9 +722,9 @@ async def stream_multi(
         # 位置是硬的：参与方已定（知道要几把）、各栏还没启动（第一栏已经开跑就
         # 晚了，它只能用后端自己的全局轮转）。
         leases = await _allocate_round_leases(kinds=agents, model_hint=models[primary], session_id=session_id)
-        # 整轮兜底归还：主答在自己下面的 finally 还、非主答在 ``_pump_one`` 的
-        # finally 还；被 cancel 且之后没再被调度到的协程跑不到 finally，而漏还
-        # 一把 key 会让那一路并发额度永久少 1（之后越来越容易 429，且无任何报错）。
+        # 整轮兜底归还：每一栏都在 ``_pump_lane`` 的 finally 还；被 cancel 且之后
+        # 没再被调度到的协程跑不到 finally，而漏还一把 key 会让那一路并发额度
+        # 永久少 1（之后越来越容易 429，且无任何报错）。
         # ``KeyLease.release`` 幂等，重复归还无害。
         for lease in leases.values():
             stack.callback(lease.release)
@@ -577,28 +735,10 @@ async def stream_multi(
         # 各抢一个会让三栏掉两栏（实测踩过）。同一轮的 N 栏是**同一个人的一次
         # 请求**，把它当 N 个独立请求去抢闸既跑不动、语义也不对。
         #
-        # 用 ExitStack 而不是 `async with`：下面主答迭代里可能抛 GeneratorExit
-        # （客户端断开），那条路径同样必须把席位还回去。
+        # 用 ExitStack 而不是 `async with`：下面任何一个 ``yield`` 都可能抛
+        # GeneratorExit（客户端断开），那条路径同样必须把席位还回去。
         aux_permit = await stack.enter_async_context(_hold_aux())
-        if aux_permit:
-            for kind in secondaries:
-                tasks[kind] = asyncio.create_task(
-                    _pump_one(
-                        session=session,
-                        user_message=user_message,
-                        user_id=user_id,
-                        tool_selection=tool_selection,
-                        agent_kind=kind,
-                        model=models[kind],
-                        # 一栏一把：每栏拿到的 lease 就是它自己那把 key
-                        lease=leases[kind],
-                        memo=memos[kind],
-                        queue=queues[kind],
-                        context=context,
-                        turn=turn,
-                    )
-                )
-        else:
+        if not aux_permit:
             logger.info("多答降级为只跑主答 session=%s（aux 席位已满或关闭）", session_id)
             # 降级后那几栏一次请求都不会发：把它们的 key **立刻**还回去，别让
             # 本轮白占着并发额度（主答要跑多久，它们就会占多久）。
@@ -615,86 +755,98 @@ async def stream_multi(
                 "reason": "对比执行位已满，本轮只跑了主后端",
             }
 
-        # ── 主答：直接在此协程里迭代（它的异常要能原样上抛取消语义） ────
-        try:
-            async for event in stream_chat(
-                session=session,
-                user_message=user_message,
-                user_id=user_id,
-                tool_selection=tool_selection,
-                user_message_recorded=True,
-                memo=primary_memo,
-                agent_kind=primary,
-                model=models[primary],
-                api_key=_lease_key(leases[primary]),
-                context=context,
-                turn=turn,
-            ):
-                if event.get("type") == "done":
-                    continue  # done 由本模块按栏统一发
-                tagged = _tag(event, primary, primary_memo)
-                if tagged.get("type") == "error":
-                    # 这一栏**已经**报错了：整轮结论要据此算 degraded/error。
-                    # 早先只在这里记 ``errors`` 不记 ``ok``，于是 ``failed`` 永远是
-                    # 空集——``finish_reason`` 永远是 ``ok``，「部分失败」在收尾
-                    # 事件与落库 metadata 里都看不见（律师看不出这一轮没跑全）。
-                    ok[primary] = False
-                    errors.append(tagged)
-                    if len(errors) > 1:
-                        continue  # 全部失败：只发第一条，不堆 N 条
-                yield tagged
-                # 借主答事件的间隙把外部总线（审批）里的事件推进来：审批不走
-                # 后端事件流，见 pi_backend 模块说明。
-                while True:
-                    try:
-                        yield external_queue.get_nowait()
-                    except asyncio.QueueEmpty:
-                        break
-        except (GeneratorExit, asyncio.CancelledError):
-            raise
-        except Exception as exc:
-            # 主答的异常同样只降级成本栏的错误，不吞掉其他回答（失败矩阵第 2 条）
-            ok[primary] = False
-            logger.exception("多答：主答这一轮失败 session=%s", session_id)
-            errors.append(_backend_error(primary, exc, message="主后端本轮运行失败，其他回答不受影响"))
-            if len(errors) == 1:
-                yield errors[0]
-        finally:
-            # 主答跑完（含客户端断开）即归还它那把 key：剩下的几栏可能还要跑一
-            # 会儿，它们各自持有自己的租约，不需要跟主答同进同出。
-            leases[primary].release()
+        # ── 一栏一条 task，全部往同一个有界队列里放 ──────────────────────
+        #
+        # 主答也在其中：内联迭代会让它独占「实时上线」的位置，别的栏再好也只能
+        # 等它跑完（docs/harness/pitfalls.md PIT-020）。谁先产出谁先上线。
+        for kind in agents:
+            tasks[kind] = asyncio.create_task(
+                _pump_lane(
+                    session=session,
+                    user_message=user_message,
+                    user_id=user_id,
+                    tool_selection=tool_selection,
+                    agent_kind=kind,
+                    model=models[kind],
+                    # 一栏一把：每栏拿到的 lease 就是它自己那把 key
+                    lease=leases[kind],
+                    memo=memos[kind],
+                    queue=queue,
+                    context=context,
+                    # 与主答**同一个**轮次号
+                    turn=turn,
+                    # 主答由 stream_chat 自己落库（栏级 usage / ttft 在它手里）；
+                    # 非主答的正文交回本模块才能带上 agent_kind
+                    persist_assistant=kind == primary,
+                )
+            )
+        # 审批 / 提问走事件总线，不是后端事件流：它们也需要自己的搬运协程
+        # （原先靠「主答每产一个帧就 get_nowait 一次」捎带，现在没有那个间隙了）。
+        external_task = asyncio.create_task(_pump_external(external_queue, queue))
 
-        # ── 其余答案：把剩余事件全部转发给前端 ──────────────────────────
-        for kind in secondaries:
-            task = tasks.get(kind)
-            if task is None:
+        # ── 纯消费者：谁先产出谁先上线 ──────────────────────────────────
+        #
+        # 公平交错就是本次修复本身（docs/harness/pitfalls.md PIT-020）：消费者
+        # 只做三件事——转发、数哨兵、按帧自己的 ``agent`` 记录哪一栏失败；这里
+        # **刻意**没有任何「主栏优先」的排序。
+        finished = 0
+        while finished < len(agents):
+            event = await queue.get()
+            if event is _LANE_DONE:
+                finished += 1
                 continue
-            while True:
-                event = await queues[kind].get()
-                if event is None:
-                    break
-                tagged = _tag(event, kind, memos[kind])
-                if tagged.get("type") == "error":
-                    ok[kind] = False
-                    errors.append(tagged)
-                    if len(errors) > 1:
-                        continue
-                yield tagged
-            # 等任务收尾。``_pump_one`` 不抛 BudgetExceeded（席位由本轮统一持），
-            # 这里的 exception 只可能是它内部的真实故障——那已经转成 error 事件
-            # 进了队列，所以结果本身不需要再分支。
-            await asyncio.gather(task, return_exceptions=True)
+            if event.get("type") == "error":
+                # 哪一栏失败由这一帧自己的 ``agent`` 说（``_pump_lane`` 已补齐）：
+                # 整轮结论要据此算 degraded / error，否则「部分失败」在收尾事件
+                # 与落库 metadata 里都看不见（律师看不出这一轮没跑全）。
+                #
+                # 用 ``get`` + 成员判定而不是直接下标：外部总线（审批 / 提问）
+                # 的帧也走这个队列，它的契约不保证带 ``agent``；真出现一条
+                # ``type="error"`` 的外部帧，``KeyError`` 会把整个生成器打死，
+                # 四栏一条 ``done`` 都发不出去。
+                agent = event.get("agent")
+                if agent in ok:
+                    ok[agent] = False
+            yield event
+
+        # ── 正常收尾：等所有栏真正结束，再按 agents 顺序落非主答正文 ────
+        #
+        # 顺序是硬的：此刻各栏 ``stream_chat`` 都已跑完自身的 ``finally``
+        # （``memo.parts`` / ``memo.metadata`` 已填好），落库才拿得到正文。
+        await _join_lanes(list(tasks.values()), queue)
+        for kind in agents[1:]:  # 主答由 ``stream_chat`` 自己落库，不重复落
+            # 记账提到 await **之前**：取消若正好落在 ``acreate`` 里，asgiref
+            # 的线程写仍会提交，而 ``memo.message_id`` 还是 None —— 留在后面
+            # 记账会让收尾路径再写一条内容一样的行。
+            persisted.add(kind)
             await _persist_answer(session, kind, memos[kind])
     finally:
-        # 提前退出（客户端断开）时把仍在跑的后端停掉：``stream_chat`` 内部靠
-        # finally 把已流出的部分落库，取消它就是「用户按停止」的语义。
-        for task in tasks.values():
-            if not task.done():
-                task.cancel()
+        # 提前退出（客户端断开 / 被取消）的收尾：停掉仍在跑的栏，并按栏补落库。
+        #
+        # 这一段**屏蔽外层取消**：真取消时若让 ``CancelledError`` 直接打断，
+        # 已流出的次栏正文就永久丢了（下次打开会话只剩主栏）。做法与
+        # ``stream.py`` 的取消落库路径同一口径（ensure_future + shield）。
+        #
         # finally 里**不能 yield**（GeneratorExit 路径上会抛 RuntimeError，
         # 表现为 SSE 被截断），收尾只做 await。
-        await stack.aclose()
-        await bus.unregister(session_id, external_queue)
+        closing = asyncio.ensure_future(
+            _close_round(
+                session=session,
+                agents=agents,
+                memos=memos,
+                persisted=persisted,
+                tasks=tasks,
+                external_task=external_task,
+                queue=queue,
+                stack=stack,
+                bus=bus,
+                session_id=session_id,
+                external_queue=external_queue,
+            )
+        )
+        closing.add_done_callback(persist._log_task_failure)
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.shield(closing)
 
     failed = [kind for kind, is_ok in ok.items() if not is_ok]
     if failed and len(failed) == len(agents):
@@ -722,7 +874,7 @@ async def stream_multi(
     # 位置在 done 之前：前端收到 done 往往会立即拉一次消息列表（拿 message_id /
     # 可续写状态），回写晚于它就会读到旧值，然后本轮的「继续生成」按钮是灰的。
     await persist._stamp_finish_reason(
-        message_ids={kind: (primary_memo if kind == primary else memos.get(kind)) for kind in agents},
+        message_ids={kind: memos[kind] for kind in agents},
         finish_reason=finish_reason,
     )
     # 逐栏水位：多答时前端按栏写 ``contextUsage``。不填每栏的 ``context_*``
@@ -730,8 +882,7 @@ async def stream_multi(
     # 收尾事实按 ``run_id`` 存在各后端实例上（与单后端路径同源：
     # ``stream.py`` 也是从 ``backend.result_for(run_id)`` 取）。
     for kind in agents:
-        memo = primary_memo if kind == primary else memos.get(kind)
-        run_id = memo.run_id if memo is not None else ""
+        run_id = memos[kind].run_id
         context_used: int | None = None
         context_total: int | None = None
         if run_id:
