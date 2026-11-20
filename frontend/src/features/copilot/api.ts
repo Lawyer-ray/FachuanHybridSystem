@@ -8,6 +8,8 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
+import type { Review } from './adjudication-types'
+import type { ReviewAdoptPayload, ReviewAdoptionEnvelope, ReviewAdoptionWire } from './domain/adoption'
 import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
@@ -58,6 +60,38 @@ export function fetchHistory(sessionId: string, limit = 200, beforeId?: number):
   const searchParams: Record<string, string | number> = { limit }
   if (beforeId) searchParams.before_id = beforeId
   return api.get(`agent/sessions/${sessionId}/messages`, { searchParams }).json<AgentHistoryMessage[]>()
+}
+
+/**
+ * 取某一轮的评审结果（`GET /agent/sessions/{id}/review?turn=`）。
+ *
+ * 该轮还没评审过时后端回 404——那是**正常态**，调用方按「没有裁决卡」处理，
+ * 不弹错误。`turn` 口径 = 会话里第几条 user 消息（1 起），不是消息 id；
+ * 历史分页导致窗口不完整时前端算不出正确 turn，宁可不挂卡（见 domain/fusion
+ * 的 `reviewTurnOf`）。
+ */
+export function fetchReview(sessionId: string, turn: number): Promise<Review> {
+  return api.get(`agent/sessions/${sessionId}/review`, { searchParams: { turn } }).json<Review>()
+}
+
+/**
+ * 提交采纳 / 标为合并 / 理由（`POST /agent/reviews/{id}/adopt`）。
+ *
+ * 只落一条决定，不改写任何内容（stage=shadow）。`lane=null + merged=true` 表示
+ * 合并采纳；返回落库后的采纳记录。刷新后的回显走 {@link fetchReviewAdoption}，
+ * 不要在这里另存一份缓存。
+ */
+export function adoptReview(reviewId: string, payload: ReviewAdoptPayload): Promise<ReviewAdoptionWire> {
+  return api.post(`agent/reviews/${reviewId}/adopt`, { json: payload }).json<ReviewAdoptionWire>()
+}
+
+/**
+ * 读采纳记录（`GET /agent/reviews/{id}/adoption`）。
+ *
+ * `adoption: null` 与 404 同义（还没人采纳）：调用方一律按「没有采纳记录」展示。
+ */
+export function fetchReviewAdoption(reviewId: string): Promise<ReviewAdoptionEnvelope> {
+  return api.get(`agent/reviews/${reviewId}/adoption`).json<ReviewAdoptionEnvelope>()
 }
 
 /** 前端提交审批决定（同意/拒绝高危工具调用） */
