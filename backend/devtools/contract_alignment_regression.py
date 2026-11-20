@@ -277,6 +277,21 @@ def _format_table(rows: list[SnapshotRow], totals: Counter[str]) -> str:
     return "\n".join(lines)
 
 
+def _emit(message: str) -> None:
+    """把一行报告写到 stdout。
+
+    为什么不用 ``print``：仓库 pre-commit 守卫禁止应用代码 print（那里的 print 是
+    "忘了写日志"的代名词，会污染服务端 stdout）。本脚本的 stdout 是**产物本身**。
+
+    为什么也不用 ``logging``：本脚本会 ``django.setup()``，而本仓的日志配置在 setup 时
+    把全局 ``logging.disable`` 提到了 INFO（实测 ``root.manager.disable == 20``）——
+    ``logger.info`` 会被静默丢弃，报告一个字都不出来（本条是同一次排查踩到的：
+    脚本 exit 0 但 stdout 为空）。所以直接写 ``sys.stdout``，并显式 flush。
+    """
+    sys.stdout.write(message + "\n")
+    sys.stdout.flush()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="20 份合同的条款对齐离线回归")
     parser.add_argument(
@@ -300,13 +315,13 @@ def main(argv: list[str] | None = None) -> int:
         reports.append(report)
         totals.update(row.counts)
 
-    print(f"[数据来源] {source}")
-    print(_format_table(rows, totals))
+    _emit(f"[数据来源] {source}")
+    _emit(_format_table(rows, totals))
     conflict_count = sum(len(report.conflicts) for report in reports)
     note_count = sum(len(report.notes) for report in reports)
-    print(f"[明细] PatchConflict {conflict_count} 条；切分/清单提示 {note_count} 条")
+    _emit(f"[明细] PatchConflict {conflict_count} 条；切分/清单提示 {note_count} 条")
     if source.startswith("synthetic"):
-        print("[声明] synthetic 结果只用于验证分类逻辑，不代表真实合同统计。")
+        _emit("[声明] synthetic 结果只用于验证分类逻辑，不代表真实合同统计。")
     return 0
 
 
