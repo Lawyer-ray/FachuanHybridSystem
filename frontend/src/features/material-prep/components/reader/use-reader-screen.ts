@@ -13,6 +13,7 @@ import { useReaderWidths } from './use-reader-widths'
 import { useReaderOcr } from './use-ocr'
 import { useAutoSplit } from './use-auto-split'
 import { useInflightAutoSplit } from './use-auto-split-task'
+import { useReviewBackfill } from './use-review-backfill'
 import { useReaderKeys } from './use-reader-keys'
 import { useWheelZoom } from './use-wheel-zoom'
 import type { DraftState } from '../../types'
@@ -55,6 +56,9 @@ export function useReaderScreen() {
   // 而云端那份 164 页卷宗还在烧钱（「幽灵任务」）。
   // 只在草稿就绪时查：mats 来自草稿，没草稿时页数也是猜的。
   const inflight = useInflightAutoSplit(readyDraft?.mats ?? [], readyDraft != null)
+  // 老草稿缺「复核原因」（source_method）：打开时按 splitRef.jobId 从后端补一次，
+  // 否则右栏提示条只能写「置信度 62%」，说不出为什么（见 review-backfill.ts）
+  useReviewBackfill(readyDraft, st.update)
   const actions = useReaderActions(draft)
   const view = useReaderViewState()
   const onExitHint = useReaderHintExit()
