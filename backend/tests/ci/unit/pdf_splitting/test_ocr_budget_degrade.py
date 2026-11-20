@@ -226,7 +226,9 @@ class _StubOCRHandler:
     def read_ocr_cache(self, *, pdf_hash: str, profile_key: str, page_no: int) -> OCRPageResult | None:
         return None
 
-    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:
+    def write_ocr_cache(
+        self, *, pdf_hash: str, profile_key: str, result: OCRPageResult, page_no: int | None = None
+    ) -> None:
         self.written.append((profile_key, result.page_no, result.source_method))
 
     def parse_cloud_pages(self, *, pdf_path: Path, backend: str) -> dict[int, OCRPageResult]:

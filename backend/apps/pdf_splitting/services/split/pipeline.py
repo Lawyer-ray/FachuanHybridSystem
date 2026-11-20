@@ -367,6 +367,34 @@ def build_page_descriptor(
     )
 
 
+def _assert_page_integrity(pages: list[Any], *, expected: int) -> None:
+    """取字产物必须**恰好覆盖 1..N 每页一次**，否则立刻失败而不是继续往下走。
+
+    ## 为什么这条断言是必须的（2026-11-20 事故）
+
+    原先这里是 `[item for item in descriptors if item is not None]`：页号缺失被
+    静默「压紧」，于是第 k 个元素的页号可能不是 k。下游两处都按位置取值——
+    `descriptors[page_no - 1]` 与段检测拿到的顺序——一旦错位，`pages.json` 的
+    「页号 ↔ 文本」绑定就整体歪掉，而**整条链路没有一个地方会报错**：段检测照样
+    输出 44 段、置信度照样 0.9，只是每段的正文和页号不是同一页。用户看到的是
+    「全部识别错误、错页乱页」。
+
+    这条断言把「静默出错」变成「当场失败」：宁可这次取字报错重跑，也不要交出一份
+    页码错乱的分段结果——后者律师会拿去归档。
+    """
+    numbers = [int(getattr(page, "page_no", 0) or 0) for page in pages]
+    duplicated = sorted({n for n in numbers if numbers.count(n) > 1})
+    if duplicated:
+        raise ValueError(f"取字产物页号重复：{duplicated[:10]}（共 {len(duplicated)} 个重复页号）")
+    out_of_order = [n for i, n in enumerate(numbers) if i > 0 and n <= numbers[i - 1]]
+    if out_of_order:
+        raise ValueError(f"取字产物页号未严格递增：首个异常 {out_of_order[0]}（页序已乱，拒绝继续分段）")
+    if numbers and numbers != list(range(1, len(numbers) + 1)):
+        raise ValueError(f"取字产物页号必须从 1 连续：实际 {numbers[:5]}…{numbers[-3:]}")
+    if numbers and len(numbers) != expected:
+        raise ValueError(f"取字产物只覆盖 {len(numbers)} 页，应为 {expected} 页（缺页会让分段边界整体错位）")
+
+
 class PageTextExtractor:
     """逐页取字编排：文本层 → OCR 缓存 → 云端解析 → 本地 OCR 兜底 → 图片块补救。
 
@@ -494,6 +522,7 @@ class PageTextExtractor:
         # 半路补救会对同一页重复判定，也可能把云端还没填的页当成图形页。
         self._rescue_image_pages(pdf_path, descriptors=descriptors, template_key=template_key, stats=stats)
         final_pages = [item for item in descriptors if item is not None]
+        _assert_page_integrity(final_pages, expected=stats.get("total_pages") or len(descriptors))
         return final_pages, self._build_summary(stats)
 
     # ------------------------------------------------------------------
@@ -608,7 +637,10 @@ class PageTextExtractor:
             if not result.text:
                 continue
             self._ocr_handler.write_ocr_cache(
-                pdf_hash=pdf_hash, profile_key=stats["cloud_cache_profile"], result=result
+                pdf_hash=pdf_hash,
+                profile_key=stats["cloud_cache_profile"],
+                result=result,
+                page_no=page_no,
             )
             descriptors[page_no - 1] = build_page_descriptor(
                 page_no=page_no,
@@ -856,7 +888,11 @@ class PageTextExtractor:
             if not getattr(result, "text", ""):
                 continue
             try:
-                self._ocr_handler.write_ocr_cache(pdf_hash=pdf_hash, profile_key=profile_key, result=result)
+                # page_no 传**权威键**（绝对页号），不要依赖 result 自带的页号：
+                # 分批解析曾只平移字典键、不改值，导致多批写到同一批缓存文件名上互相覆盖
+                self._ocr_handler.write_ocr_cache(
+                    pdf_hash=pdf_hash, profile_key=profile_key, result=result, page_no=page_no
+                )
             except Exception:
                 # 写缓存失败不能让已解析的页丢掉（内存里的结果仍会进最终产物）
                 logger.exception("pdf_split_cloud_cache_write_failed", extra={"page_no": page_no})

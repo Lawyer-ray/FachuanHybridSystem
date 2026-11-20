@@ -542,13 +542,33 @@ class OCRHandler:
             )
         return best_result
 
-    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:
-        rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
+    def write_ocr_cache(
+        self,
+        *,
+        pdf_hash: str,
+        profile_key: str,
+        result: OCRPageResult,
+        page_no: int | None = None,
+    ) -> None:
+        """写一页的 OCR 缓存。
+
+        ``page_no`` 是**权威页号**（调用方手里那个绝对页号）。不传时退回
+        ``result.page_no``——但调用方都应当传：分批解析的结果曾被按相对页号命名，
+        导致多批互相覆盖（见 ``cloud_batch.rebase_page_result`` 的事故注释）。
+        """
+        target_page = page_no if page_no is not None else result.page_no
+        rel_path = _ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=target_page)
+        layout = result.layout
+        if isinstance(layout, dict) and layout.get("page_no") != target_page:
+            # 条目自证用：layout 里的页号与权威页号保持一致，读侧据此判毒化
+            layout = {**layout, "page_no": target_page}
         payload = {
+            # 自证页号：读侧据此判断「这份内容属不属于这一页」
+            "page_no": target_page,
             "text": result.text,
             "ocr_failed": result.ocr_failed,
             "source_method": result.source_method,
-            "layout": result.layout,
+            "layout": layout,
         }
         content = ContentFile(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         # default_storage.save 遇同名不覆盖而是改名（page_0001_0fm4T2l.json），
@@ -651,12 +671,30 @@ def _load_ocr_cache_entry(*, storage: Any, rel_path: str, page_no: int) -> _OcrC
         return None
     text = str(payload.get("text") or "")
     layout = payload.get("layout")
+    layout_dict = layout if isinstance(layout, dict) else None
+
+    # **缓存必须自证页号**：条目里记的页号与「文件名所指的页号」不一致，说明这份
+    # 内容属于别的页（2026-11-20 事故：分批解析只平移了字典键、没平移
+    # result.page_no，于是每批都往 1..n 这批文件名上写、互相覆盖）。此时宁可当作
+    # 未命中重新取字，也绝不能把别人的文字当成这一页交出去——否则错误会被
+    # 「断点续传」永久固化，且读的时候看不出任何异常。
+    declared = payload.get("page_no")
+    if not isinstance(declared, int) and layout_dict is not None:
+        raw_declared = layout_dict.get("page_no")
+        declared = raw_declared if isinstance(raw_declared, int) else None
+    if isinstance(declared, int) and declared != page_no:
+        logger.warning(
+            "pdf_split_ocr_cache_page_mismatch",
+            extra={"cache_file": rel_path, "requested_page": page_no, "declared_page": declared},
+        )
+        return None
+
     result = OCRPageResult(
         page_no=page_no,
         text=text,
         source_method=_cached_source_method(str(payload.get("source_method") or ""), text=text),
         ocr_failed=bool(payload.get("ocr_failed")),
-        layout=layout if isinstance(layout, dict) else None,
+        layout=layout_dict,
     )
     return _OcrCacheEntry(
         name=rel_path.rsplit("/", 1)[-1],

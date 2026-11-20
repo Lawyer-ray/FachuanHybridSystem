@@ -48,6 +48,7 @@ import logging
 import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import is_dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -131,6 +132,42 @@ def _split_run(run: list[int], size: int) -> list[list[int]]:
     return [run[index : index + size] for index in range(0, len(run), size)]
 
 
+def rebase_page_result(value: Any, page_no: int) -> Any:
+    """把一批结果的「批内相对页号」改写成**整卷绝对页号**。
+
+    ## 为什么必须同时改「键」和「值」（2026-11-20 事故）
+
+    `parse_in_batches` 原本只平移字典的键：
+
+        mapped = {rel + offset: value}      # 键变绝对页号，value.page_no 仍是相对号
+
+    而下游写 OCR 页缓存时文件名取自 **`result.page_no`**（见
+    `pipeline._persist_cloud_batch`）。于是每一批都把自己的结果写到「1..n」这批
+    缓存文件名上，**不同批互相覆盖、谁最后写完谁赢**（完成顺序决定归属）。
+    更糟的是读缓存时 `read_ocr_cache` 会把请求的页号强行盖回 result，中毒从此
+    不可见——之后每次重跑都把脏数据当真理读回来。
+
+    实测后果：93 页卷宗的 `pages.json` 里出现「相隔 50 页的同一段文字」
+    （p2/p52 疾病诊断证明书、p3/p53 出院记录、p4/p54、p6/p56…），而缓存里同一段
+    文字又落在 −4、+46、+65 等不同偏移上——那是**多次中毒叠加**的指纹。
+
+    改值而不只是改键，一处修掉三个后果：缓存按绝对页号命名、断点续传读到的是
+    正确的那一页、`pages.json` 的页号↔文本绑定不可能再错位。
+    """
+    if not is_dataclass(value):
+        return value
+    layout = getattr(value, "layout", None)
+    new_layout = layout
+    if isinstance(layout, dict) and "page_no" in layout:
+        # layout 是「该页的版面」，里面的 page_no 与 result.page_no 必须同源；
+        # 只改外层会让下游按 layout["page_no"] 取框时又落回相对号。
+        new_layout = {**layout, "page_no": page_no}
+    try:
+        return replace(value, page_no=page_no, layout=new_layout)
+    except TypeError:  # pragma: no cover - 值形状变化时宁可原样返回，不要炸掉整批
+        return value
+
+
 def slice_pdf(source_path: Path, page_numbers: list[int]) -> bytes:
     """把 `page_numbers` 覆盖的连续区间切出来，作为独立小 PDF 的字节。
 
@@ -210,7 +247,12 @@ def parse_in_batches(
 
             rel = parse_one(tmp_path)
             offset = batch[0] - 1
-            mapped = {int(page_no) + offset: value for page_no, value in rel.items()}
+            # **键和值一起重定基**：只平移键会让每批的缓存写到同一批文件名上、
+            # 互相覆盖（见 rebase_page_result 的注释与 2026-11-20 事故）。
+            mapped = {
+                int(page_no) + offset: rebase_page_result(value, int(page_no) + offset)
+                for page_no, value in rel.items()
+            }
             missing = [page_no for page_no in batch if page_no not in mapped]
             if missing:
                 logger.warning(
