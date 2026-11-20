@@ -173,6 +173,7 @@ class TestBuildJobPayloadStageFields:
         job.refresh_from_db()
         assert PdfSplitJobService().build_job_payload(job)["stage"] == PdfSplitStage.EXTRACT
 
+
 class TestFileNameNormalisationAsymmetry:
     """附件原名 vs 库里清洗后的名字：不复用就会一遍遍重跑。
 

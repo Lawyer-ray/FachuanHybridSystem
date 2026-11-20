@@ -61,7 +61,6 @@ def _isolate(monkeypatch: pytest.MonkeyPatch) -> None:
     def _env(*_a: Any, **_kw: Any) -> dict[str, str]:
         return {}
 
-
     # has_pi_session 经 sync_to_async 包一层调用，所以桩本身必须是**同步**函数。
     monkeypatch.setattr(compact_service, "has_pi_session", lambda _sid: True)
     monkeypatch.setattr(compact_service.env, "mint_user_token", _token)

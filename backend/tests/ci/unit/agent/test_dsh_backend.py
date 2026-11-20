@@ -252,11 +252,11 @@ class TestTranslationShapesMatchSseContract:
             )
         )
         by_type = {f["type"]: f for f in frames}
-        ThinkingEvent.model_validate(by_type["thinking"])
-        DeltaEvent.model_validate(by_type["delta"])
-        ToolCallEvent.model_validate(by_type["tool_call"])
+        assert isinstance(ThinkingEvent.model_validate(by_type["thinking"]), ThinkingEvent)
+        assert isinstance(DeltaEvent.model_validate(by_type["delta"]), DeltaEvent)
+        assert isinstance(ToolCallEvent.model_validate(by_type["tool_call"]), ToolCallEvent)
         [error] = backend._translate(*_notification("turn/end", {"reason": {"kind": "error", "message": "x"}}))
-        ErrorEvent.model_validate(error)
+        assert isinstance(ErrorEvent.model_validate(error), ErrorEvent)
 
 
 class _StubHarness:

@@ -50,7 +50,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import is_dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pymupdf as fitz
 
@@ -163,7 +163,9 @@ def rebase_page_result(value: Any, page_no: int) -> Any:
         # 只改外层会让下游按 layout["page_no"] 取框时又落回相对号。
         new_layout = {**layout, "page_no": page_no}
     try:
-        return replace(value, page_no=page_no, layout=new_layout)
+        # `is_dataclass` 只窄化到 DataclassInstance，而 `replace()` 的类型变量要求具体类；
+        # 这里刻意 cast 到 Any —— 形状在运行期已由 is_dataclass 与 TypeError 兜住。
+        return replace(cast(Any, value), page_no=page_no, layout=new_layout)
     except TypeError:  # pragma: no cover - 值形状变化时宁可原样返回，不要炸掉整批
         return value
 

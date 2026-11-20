@@ -351,9 +351,7 @@ class _LocalOnlyOCRHandler:
     def read_ocr_cache(self, *, pdf_hash: str, profile_key: str, page_no: int) -> Any:
         return None
 
-    def write_ocr_cache(
-        self, *, pdf_hash: str, profile_key: str, result: Any, page_no: int | None = None
-    ) -> None:
+    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: Any, page_no: int | None = None) -> None:
         return None
 
     def parse_cloud_pages(self, *, pdf_path: Path, backend: str) -> dict[int, Any]:

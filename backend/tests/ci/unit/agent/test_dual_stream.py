@@ -377,10 +377,7 @@ class TestThreeAnswers:
     async def _collect_three(cls, kinds: list[str]) -> list[dict[str, Any]]:
         session = await _make_session()
         return [
-            e
-            async for e in multi.stream_multi(
-                session=session, user_message="合同有效吗", user_id=None, kinds=kinds
-            )
+            e async for e in multi.stream_multi(session=session, user_message="合同有效吗", user_id=None, kinds=kinds)
         ]
 
     @pytest.mark.django_db(transaction=True)
@@ -442,9 +439,7 @@ class TestThreeAnswers:
 
         events = [
             e
-            async for e in multi.stream_multi(
-                session=session, user_message="合同有效吗", user_id=None, kinds=[PRIMARY]
-            )
+            async for e in multi.stream_multi(session=session, user_message="合同有效吗", user_id=None, kinds=[PRIMARY])
         ]
         dones = [e for e in events if e.get("type") == "done"]
         assert len(dones) == 1

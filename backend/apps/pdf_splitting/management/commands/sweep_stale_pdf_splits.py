@@ -73,7 +73,7 @@ class Command(BaseCommand):
         limit: int = options["limit"]
         grace_seconds: int = options["stage_grace_seconds"]
         # 显式空表 = 关闭第二判据；None = 用 job_recovery 里登记的阶段预算表
-        stage_timeouts = {} if options["no_stage_budget"] else None
+        stage_timeouts: dict[str, int] | None = {} if options["no_stage_budget"] else None
 
         if options["dry_run"]:
             stale = job_recovery.find_stale_jobs(

@@ -111,22 +111,16 @@ class TestCacheSelfAttestsPageNo:
         这就是事故里「重跑也不对」的根因：旧代码不看条目里的页号，直接把请求页号
         盖回去，于是别人的文字被当成这一页交出去，而且**读的时候毫无异常**。
         """
-        storage = _MemoryStorage(
-            {"c/page_0003.json": json.dumps({"page_no": 57, "text": "别人的正文"}).encode()}
-        )
+        storage = _MemoryStorage({"c/page_0003.json": json.dumps({"page_no": 57, "text": "别人的正文"}).encode()})
         assert _load_ocr_cache_entry(storage=storage, rel_path="c/page_0003.json", page_no=3) is None
 
     def test_layout_page_no_is_used_when_top_level_missing(self) -> None:
         """旧条目没有顶层 page_no：退用 layout 里的页号判毒化。"""
-        storage = _MemoryStorage(
-            {"c/page_0003.json": json.dumps({"text": "x", "layout": {"page_no": 57}}).encode()}
-        )
+        storage = _MemoryStorage({"c/page_0003.json": json.dumps({"text": "x", "layout": {"page_no": 57}}).encode()})
         assert _load_ocr_cache_entry(storage=storage, rel_path="c/page_0003.json", page_no=3) is None
 
     def test_matching_entry_is_returned(self) -> None:
-        storage = _MemoryStorage(
-            {"c/page_0003.json": json.dumps({"page_no": 3, "text": "出院记录"}).encode()}
-        )
+        storage = _MemoryStorage({"c/page_0003.json": json.dumps({"page_no": 3, "text": "出院记录"}).encode()})
         entry = _load_ocr_cache_entry(storage=storage, rel_path="c/page_0003.json", page_no=3)
         assert entry is not None and entry.result.text == "出院记录"
 
@@ -140,9 +134,7 @@ class TestCacheSelfAttestsPageNo:
         """写入侧：权威页号必须写进条目，供下次自证。"""
         settings.MEDIA_ROOT = tmp_path
         handler = OCRHandler()
-        handler.write_ocr_cache(
-            pdf_hash="h" * 64, profile_key="p", result=_page(3, text="正文"), page_no=53
-        )
+        handler.write_ocr_cache(pdf_hash="h" * 64, profile_key="p", result=_page(3, text="正文"), page_no=53)
         cache_file = tmp_path / "pdf_splitting/ocr_cache" / ("h" * 64) / "p" / "page_0053.json"
         assert cache_file.exists(), "必须按**权威页号**命名，不能按 result.page_no"
         payload = json.loads(cache_file.read_text(encoding="utf-8"))
@@ -155,7 +147,8 @@ class TestCacheSelfAttestsPageNo:
 
 class TestPageIntegrityAssertion:
     def test_accepts_complete_contiguous_pages(self) -> None:
-        _assert_page_integrity([_page(n) for n in range(1, 4)], expected=3)
+        pages = [_page(n) for n in range(1, 4)]
+        assert _assert_page_integrity(pages, expected=3) == pages
 
     def test_rejects_duplicate_page_numbers(self) -> None:
         """页号重复 = 同两页内容被写到同一页上（事故里的 p2/p52 即此形态）。"""
@@ -177,4 +170,4 @@ class TestPageIntegrityAssertion:
 
     def test_empty_is_allowed(self) -> None:
         """没有页（任务被取消/零页）不归这条断言管。"""
-        _assert_page_integrity([], expected=0)
+        assert _assert_page_integrity([], expected=0) == []

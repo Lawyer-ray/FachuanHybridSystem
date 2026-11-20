@@ -568,4 +568,7 @@ class TestDownloadOverHttp:
             f"/api/v1/pdf-splitting/jobs/{job.id}/segments/{segments[0].id}/md",
             f"/api/v1/pdf-splitting/jobs/{job.id}/download",
         ):
-            assert client.get(url).status_code in {401, 403}, url
+            resp = client.get(url)
+            assert resp.status_code in {401, 403}, url
+            # 只断状态码不够：还要确认响应体里没有产物内容（未登录不能拿到任何字节）
+            assert b"%PDF" not in resp.content, url

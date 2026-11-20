@@ -367,7 +367,7 @@ def build_page_descriptor(
     )
 
 
-def _assert_page_integrity(pages: list[Any], *, expected: int) -> None:
+def _assert_page_integrity(pages: list[Any], *, expected: int) -> list[Any]:
     """取字产物必须**恰好覆盖 1..N 每页一次**，否则立刻失败而不是继续往下走。
 
     ## 为什么这条断言是必须的（2026-11-20 事故）
@@ -393,6 +393,7 @@ def _assert_page_integrity(pages: list[Any], *, expected: int) -> None:
         raise ValueError(f"取字产物页号必须从 1 连续：实际 {numbers[:5]}…{numbers[-3:]}")
     if numbers and len(numbers) != expected:
         raise ValueError(f"取字产物只覆盖 {len(numbers)} 页，应为 {expected} 页（缺页会让分段边界整体错位）")
+    return pages
 
 
 class PageTextExtractor:

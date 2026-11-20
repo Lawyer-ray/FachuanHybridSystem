@@ -619,6 +619,8 @@ def sweep_stale_jobs(
         )
         # 判死结论用实例属性传给 `recover_job`，不用 kwarg：本函数的裸调用签名是
         # `recover_job(job)`，既有调用方/测试替身只接受一个位置参数。
+        # 动态属性：Model 上没有这个字段（只在内存里传一次判死结论），
+        # 直接赋值 mypy 会报 attr-defined，用 setattr 表达「这是运行期挂的」。
         job.staleness_verdict = verdict
         try:
             action = recover_job(job)
