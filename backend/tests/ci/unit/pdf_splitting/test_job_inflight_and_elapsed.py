@@ -172,3 +172,41 @@ class TestBuildJobPayloadStageFields:
         PdfSplitJob.objects.filter(id=job.id).update(stage="")
         job.refresh_from_db()
         assert PdfSplitJobService().build_job_payload(job)["stage"] == PdfSplitStage.EXTRACT
+
+class TestFileNameNormalisationAsymmetry:
+    """附件原名 vs 库里清洗后的名字：不复用就会一遍遍重跑。
+
+    2026-11-20 实测事故：附件原名 …（某某工伤行政复议案件）_20261120收.pdf
+    被 ``sanitize_upload_filename`` 清洗成 …_某某工伤行政复议案件__20261120收.pdf
+    存进 ``source_original_name``；而前端拿**原名**来查复用 → 精确匹配永远 miss
+    → 点一次「自动识别」就从零重跑 93 页（两小时内同一份文件跑了三遍）。
+    """
+
+    def test_reusable_job_matches_raw_attachment_name(self) -> None:
+        sanitized = "行政复议听取意见通知书_某某案件__20261120收.pdf"
+        raw = "行政复议听取意见通知书（某某案件）_20261120收.pdf"
+        job = _make_job(name=sanitized, status=PdfSplitJobStatus.REVIEW_REQUIRED, pages=93)
+
+        found = PdfSplitJobService().find_reusable_job(source_name=raw, total_pages=93)
+
+        assert found is not None and found.id == job.id
+
+    def test_inflight_job_matches_raw_attachment_name(self) -> None:
+        sanitized = "行政复议听取意见通知书_某某案件__20261120收.pdf"
+        raw = "行政复议听取意见通知书（某某案件）_20261120收.pdf"
+        job = _make_job(name=sanitized, status=PdfSplitJobStatus.PROCESSING, pages=93)
+
+        found = PdfSplitJobService().find_inflight_job(source_name=raw, total_pages=93)
+
+        assert found is not None and found.id == job.id
+
+    def test_sanitized_name_still_matches(self) -> None:
+        """反向也要成立：调用方直接给清洗后的名字不能因此 miss。"""
+        job = _make_job(name="卷宗_A_B.pdf", status=PdfSplitJobStatus.REVIEW_REQUIRED)
+        found = PdfSplitJobService().find_reusable_job(source_name="卷宗_A_B.pdf")
+        assert found is not None and found.id == job.id
+
+    def test_different_pages_still_miss(self) -> None:
+        """放宽的只是**文件名**形态，页数判据不能被顺手放宽（同名不同件）。"""
+        _make_job(name="卷宗_A_B.pdf", status=PdfSplitJobStatus.REVIEW_REQUIRED, pages=93)
+        assert PdfSplitJobService().find_reusable_job(source_name="卷宗（A）B.pdf", total_pages=94) is None

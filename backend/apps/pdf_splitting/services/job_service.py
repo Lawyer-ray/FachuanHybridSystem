@@ -86,6 +86,25 @@ def _elapsed_seconds_for(job: PdfSplitJob) -> int | None:
     return max(0, int((timezone.now() - started).total_seconds()))
 
 
+def _source_name_variants(source_name: str) -> list[str]:
+    """同一次上传在库里可能出现的两种文件名形态。
+
+    写侧（``_save_uploaded_pdf``）存的是 ``sanitize_upload_filename`` **清洗后**的名字，
+    而调用方（前端「自动识别」）传的是**附件原名**。两者在含中文标点时不同：
+    全角括号 ``（）`` 会被清洗成下划线，于是原名里的 ``）_`` 变成 ``__``。
+
+    2026-11-20 实测：附件原名 ``…（某某工伤行政复议案件）_20261120收.pdf``，
+    库里存 ``…_某某工伤行政复议案件__20261120收.pdf``。``find_reusable_job`` 用原名
+    精确匹配 → **永远 miss** → 每次点「自动识别」都新建任务、从零重跑一遍 93 页
+    （实测两小时内同一份文件跑了三遍，钱和时间全白花）。
+
+    两种形态都收：``raw`` 覆盖「将来若改成存原名」的情况，``sanitized`` 覆盖
+    现存数据，因此**不需要迁移**也不需要回填历史行。
+    """
+    variants = {source_name, source_name.strip(), sanitize_upload_filename(source_name)}
+    return [name for name in variants if name]
+
+
 class PdfSplitJobService:
     # 收件箱单文件上限已放宽到 1GB（整卷客户材料），这里必须跟上——否则
     # 材料包里的文件能传进来、却在自动分段时被拒，白上传一次。
@@ -228,7 +247,7 @@ class PdfSplitJobService:
             return None
 
         queryset = PdfSplitJob.objects.filter(
-            source_original_name=source_name,
+            source_original_name__in=_source_name_variants(source_name),
             status__in=(PdfSplitJobStatus.REVIEW_REQUIRED, PdfSplitJobStatus.COMPLETED),
         )
         if total_pages is not None:
@@ -272,7 +291,7 @@ class PdfSplitJobService:
             return None
 
         queryset = PdfSplitJob.objects.filter(
-            source_original_name=source_name,
+            source_original_name__in=_source_name_variants(source_name),
             status__in=(PdfSplitJobStatus.PENDING, PdfSplitJobStatus.PROCESSING),
             cancel_requested=False,
         )
