@@ -93,6 +93,18 @@ export interface Segment {
   blocks?: PositionedBlock[]
   /** 本段的质量标记（后端 SegmentOut.quality_flags 的项目）。旧任务 / 人工拆分没有该字段 */
   qualityFlags?: string[]
+  /**
+   * 这一段在后端的出处：拆分任务号 + 分段主键（`PdfSplitSegment.id`）。
+   *
+   * 为什么必须随身带："下载已经转好的 Markdown / 分好段的 PDF" 两个端点都是
+   * `/pdf-splitting/jobs/{job_id}/segments/{segment_id}/...`，而本地的段是前端自己
+   * 切的（`id` 是 `seg-3` 这种本地串，跟后端主键毫无关系），草稿里也不存任务号。
+   * 不带这两个值就只能靠"按页范围去猜后端是哪一段"，切/并过一次就错位。
+   *
+   * 什么时候**没有**：人工切段/并段/旧草稿——这些段后端根本没有产物，缺省时
+   * 下载 UI 整块不渲染（不给"点了一定失败"的入口）。
+   */
+  splitRef?: SegmentSplitRef
   /** 人工动过的痕迹：重跑自动识别时用它判断是否该弹窗询问 */
   manualEdit?: {
     /** 改过 Markdown 正文 */
@@ -106,9 +118,17 @@ export interface Segment {
   }
 }
 
+/** 段的后端坐标：哪个拆分任务产出的、在那边的主键是多少。见 `Segment.splitRef` */
+export interface SegmentSplitRef {
+  jobId: string
+  /** `PdfSplitSegment.id`（自增主键）。**不是**本地列表下标，也不是 `Segment.id` */
+  pk: number
+}
+
 /** 后端 PDF 拆分接口返回的页段候选。
- *  取生成物 SegmentOut 的消费子集（id/order 等字段本域不消费，收进投影反而
- *  逼测试夹具补无关字段） */
+ *  取生成物 SegmentOut 的消费子集（order 等字段本域不消费，收进投影反而逼测试
+ *  夹具补无关字段）。`id` 单独在下面声明成**可选**：它只在"下载已切好的产物"
+ *  时需要，规则引擎分流等构造点拿不到真实主键，逼它们补一个假 id 只会更糟 */
 export type PdfSplitSegmentSuggestion = Pick<
   components['schemas']['SegmentOut'],
   | 'page_start'
@@ -123,6 +143,8 @@ export type PdfSplitSegmentSuggestion = Pick<
   // 是规则引擎兜的，提示律师重点复核（宁可说规则，也不能把规则引擎说成 LLM）
   | 'source_method'
 > & {
+  /** 后端分段主键（`SegmentOut.id`）：下载该段已切好的 pdf/md 靠它定位（→ `Segment.splitRef`） */
+  id?: number
   /** 该段的质量标记（如图形页 / 稀疏页）。后端若要扩展新取值，前端按字符串兜底展示 */
   quality_flags?: string[]
   /** 每页正文在 content_md 里的字符区间（与 content_md 同口径的 snake_case）。旧任务没有该键 */

@@ -52,6 +52,8 @@ export type RerunChoice = 'keep' | 'overwrite' | 'cancel'
  */
 interface AutoSplitResult {
   mi: number
+  /** 产出这批段的任务号（→ `Segment.splitRef`，下载已切好的 pdf/md 靠它定位） */
+  jobId: string
   segments: PdfSplitSegmentSuggestion[]
   segmentBackend: string
   pageQuality: PageQuality | null
@@ -205,6 +207,7 @@ export function useAutoSplit() {
             status: 'fulfilled',
             value: {
               mi,
+              jobId,
               segments: result.segments,
               segmentBackend: segmentBackendOf(result),
               pageQuality: readPageQuality(result.summary.page_quality),
@@ -273,7 +276,7 @@ export function useAutoSplit() {
         // 引擎分歧同路：它也是「这次识别产出了什么」，且要随草稿持久化（抽屉与双框都要读它）
         current.update((value) =>
           withEngineDisagreements(
-            withPageQuality(applyFor(value, result.mi, result.segments), result.pageQuality),
+            withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.pageQuality),
             result.engineDisagreements,
           ),
         )

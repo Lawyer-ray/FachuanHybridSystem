@@ -4,6 +4,8 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../types'
 import { docHintPagesOf, docTodosOf, graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
+import { SegmentDownloadBar } from './SegmentDownloadBar'
+import { useSegmentDownloads, type DownloadableSegment } from './use-segment-selection'
 import { useRailWidth } from './use-rail-width'
 
 /**
@@ -13,6 +15,10 @@ import { useRailWidth } from './use-rail-width'
  * 可并成一份）；双击 / 右键「重命名」行内改名；右键并入上一份；
  * 拖拽行到另一行的上半 / 下半 = 移动段序（学预览 App 的页列表，插入线实时可见）。
  * 源文件行右键可改源文件名。
+ *
+ * 下载已转好的产物（PDF / Markdown）也在这里：段列表本来就在左栏，律师在这里
+ * 认段、改名、调序，「要哪几段」的判断只能在同一处做（中栏一次只显示一段，勾不出多选）。
+ * 顶部工具栏与每行的勾选框 / PDF / MD 共用一份状态，见 `use-segment-selection`。
  */
 export function Rail({
   draft,
@@ -54,6 +60,12 @@ export function Rail({
 }) {
   const { mats } = draft
   const rail = useRailWidth(wide)
+  // 可下载的段 = 有后端出处的段（`splitRef` 由自动识别落地时写入）。人工切/合的段
+  // 后端没有产物，不进这份清单，也就不出勾选框与下载按钮。
+  const downloadables: DownloadableSegment[] = draft.segs.flatMap((sg) =>
+    sg.splitRef ? [{ pk: sg.splitRef.pk, jobId: sg.splitRef.jobId, name: sg.fn }] : [],
+  )
+  const dl = useSegmentDownloads(downloadables)
   // 全卷证件待补录页数：入口只在真有这数据时出现（旧任务没有 doc_hints，不渲染假入口）
   const docTodoCount = docTodosOf(pageQuality).length
 
@@ -93,6 +105,8 @@ export function Rail({
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !isAutoSegName(draft, draft.segs[si]!),
     selected: sel.includes(si),
+    // 行内勾选/下载只认主键：与工具条共用同一份选中与置忙状态（见 use-segment-selection）
+    download: dl.rowFor(draft.segs[si]!.splitRef?.pk),
     dropPos: drop?.si === si ? drop.pos : null,
     editing: editingSi === si,
     onStartEdit: () => setEditingSi((v) => (v === si ? null : si)),
@@ -210,6 +224,9 @@ export function Rail({
           )}
         </div>
       </div>
+
+      {/* 下载工具条：只在真有后端产物时出现（整套 UI 由 dl 自己判空，见 SegmentDownloadBar） */}
+      <SegmentDownloadBar dl={dl} />
 
       {draft.segs.length === 0 && (
         <p className="px-1 text-xs text-muted-foreground">还没有材料。先点右上角新建材料包。</p>

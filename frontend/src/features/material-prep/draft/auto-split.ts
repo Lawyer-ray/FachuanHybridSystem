@@ -21,6 +21,8 @@ function buildProposedSegments(
   mi: number,
   pages: number,
   suggestions: PdfSplitSegmentSuggestion[],
+  /** 产出这批段的后端任务号；带上它才能下载已切好的产物（见 `Segment.splitRef`） */
+  jobId?: string,
 ): Segment[] | null {
   const proposed: Segment[] = suggestions
     .filter((item) => item.page_start >= 1 && item.page_end >= item.page_start && item.page_end <= pages)
@@ -29,6 +31,10 @@ function buildProposedSegments(
       for (let p = item.page_start; p <= item.page_end; p++) refs.push({ mi, p })
       return {
         id: nextSegId(),
+        // 后端出处：`/pdf-splitting/jobs/{job}/segments/{pk}/pdf|md` 靠这两个值定位。
+        // 不带的后果是下载只能靠「按页范围猜后端是哪一段」，切/并一次就错位。
+        // 拿不到任务号（旧调用点）或后端没回 id（规则引擎分流）时留空，下载 UI 自会隐藏。
+        splitRef: jobId && item.id ? { jobId, pk: item.id } : undefined,
         t: suggestedType(item),
         fn: item.filename.replace(/\.pdf$/i, ''),
         refs,
@@ -75,13 +81,14 @@ export function applyAutoSplit(
   d: DraftState,
   mi: number,
   suggestions: PdfSplitSegmentSuggestion[],
+  jobId?: string,
 ): DraftState {
   const mat = d.mats[mi]
   if (!mat || mat.k !== 'pdf' || suggestions.length === 0) return d
   const existing = d.segs.filter((seg) => seg.refs.some((ref) => ref.mi === mi))
   if (existing.some((seg) => seg.manual || seg.refs.some((ref) => ref.mi !== mi))) return d
 
-  const proposed = buildProposedSegments(mi, mat.pages, suggestions)
+  const proposed = buildProposedSegments(mi, mat.pages, suggestions, jobId)
   if (!proposed) return d
   return replaceMatSegments(d, mi, proposed)
 }
@@ -139,13 +146,14 @@ export function applyAutoSplitPreservingEdits(
   d: DraftState,
   mi: number,
   suggestions: PdfSplitSegmentSuggestion[],
+  jobId?: string,
 ): DraftState {
   const mat = d.mats[mi]
   if (!mat || mat.k !== 'pdf' || suggestions.length === 0) return d
   const existing = d.segs.filter((seg) => seg.refs.some((ref) => ref.mi === mi))
   if (existing.some((seg) => seg.manual || seg.refs.some((ref) => ref.mi !== mi))) return d
 
-  const proposed = buildProposedSegments(mi, mat.pages, suggestions)
+  const proposed = buildProposedSegments(mi, mat.pages, suggestions, jobId)
   if (!proposed) return d
 
   const oldMd = existing.filter((seg) => seg.manualEdit?.md && seg.md)

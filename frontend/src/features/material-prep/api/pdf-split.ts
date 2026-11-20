@@ -1,7 +1,16 @@
 import { createApiClient, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 import type { components } from '@/types/api-schema'
 
-const pdfSplitApi = createApiClient({ prefix: '/api/v1/pdf-splitting' })
+/**
+ * 拆分域路由前缀。**单点定义**：ky 客户端与下面三个下载直链共用同一个字符串。
+ * 口径来源：后端 `apiSystem/api.py` 的 `api_v1.add_router("/pdf-splitting", ...)`，
+ * 与 `GET /pdf-splitting/jobs/{job_id}` 同一前缀——不猜、不另抄一份。
+ * 直链若自己拼（写死 `/api/v1`，或漏掉 `/pdf-splitting`），只会在用户点下载时
+ * 才暴露 404：单测和页面自测都看不见。
+ */
+const PDF_SPLIT_PREFIX = '/api/v1/pdf-splitting'
+
+const pdfSplitApi = createApiClient({ prefix: PDF_SPLIT_PREFIX })
 
 /** GET /pdf-splitting/jobs/{job_id} 的响应（生成物 PdfSplitJobOut）。
  *  后端已修复 OpenAPI 组件名冲突（此前该端点误挂 doc-converter 的 JobOut，
@@ -73,6 +82,52 @@ export async function extractPdfPages(
   body.append('page_end', String(pageEnd))
   const res = await pdfSplitApi.post('extract-pages', { body, timeout: UPLOAD_TIMEOUT_MS })
   return await res.blob()
+}
+
+/**
+ * 单段已切好的 PDF 直链（GET /pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf）。
+ *
+ * ⚠️ **不能直接当 `<a href>` 用**：JWT 存在 localStorage，只有经 ky 发的请求才带
+ * `Authorization`；浏览器导航带不上它，后端也刻意不收 `?token=<JWT>`（安全审计
+ * M-2：JWT 会落进 nginx access log / 浏览器历史 / Referer）。裸链接在任何账号下
+ * 都是 401——这正是「用自己的账号下载自己的材料也失败」那次事故
+ * （回归注释见 `inbox/components/InboxView.dom.test.tsx`）。
+ *
+ * 正确用法：`downloadUrl(await withDownloadTicket(segmentPdfUrl(jobId, pk)))`。
+ */
+export function segmentPdfUrl(jobId: string, segmentId: number): string {
+  return `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/segments/${segmentId}/pdf`
+}
+
+/** 单段 Markdown 直链（GET .../segments/{segment_id}/md）。与 PDF 同一套票据换票纪律，见上 */
+export function segmentMdUrl(jobId: string, segmentId: number): string {
+  return `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/segments/${segmentId}/md`
+}
+
+/**
+ * 打包下载直链（GET /pdf-splitting/jobs/{job_id}/download）。
+ *
+ * 不传 `segmentIds` = 整包（后端把该任务每一段的 pdf + md 打进一个 zip）；
+ * 传了就只打这几段：`?ids=12,15`（后端收的是 `PdfSplitSegment` 主键，不是列表下标）。
+ *
+ * 同样**不能当 `<a href>` 用**；且这是**带 query 的 URL**，换票时 `appendTicket`
+ * 会拼成 `&ticket=`（拼错成第二个 `?` 时后端只会收到一个叫 `?ids` 的垃圾参数）。
+ */
+export function jobDownloadUrl(jobId: string, segmentIds?: number[]): string {
+  const ids = normalizeSegmentIds(segmentIds)
+  const base = `${PDF_SPLIT_PREFIX}/jobs/${encodeURIComponent(jobId)}/download`
+  return ids.length > 0 ? `${base}?ids=${ids.join(',')}` : base
+}
+
+/**
+ * 只留**正整数**并去重排序。
+ * 主键是后端自增 int：0 / 负数 / 小数 / NaN 只可能来自调用方把下标或空值当主键
+ * 传进来，后端会直接 400（律师看到的是「下载失败」而不是「参数错了」）。
+ * 排序 + 去重是为了让同一组选择永远拼出同一个 URL——日志和快照比对才有意义。
+ */
+function normalizeSegmentIds(segmentIds?: number[]): number[] {
+  if (!segmentIds || segmentIds.length === 0) return []
+  return [...new Set(segmentIds.filter((n) => Number.isInteger(n) && n > 0))].sort((a, b) => a - b)
 }
 
 export async function getPdfSplitJob(jobId: string): Promise<PdfSplitJobPayload> {
