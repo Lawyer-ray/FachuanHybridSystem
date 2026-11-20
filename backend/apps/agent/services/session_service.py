@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from django.apps import apps as django_apps
 from django.db.models import QuerySet
 
 from ..models import AgentMessage, AgentSession
@@ -29,6 +30,26 @@ def _bounded(limit: int, cap: int = 200) -> int:
     return max(1, min(limit, cap))
 
 
+async def resolve_contract_id(*, case_id: int | None, contract_id: int | None) -> int | None:
+    """会话归属项目（合同）的推导规则 —— ``AgentSession.contract_id`` 的唯一来源。
+
+    ``contract_id`` 是「这条会话属于哪个项目」的锚点：项目页按它拉会话、
+    侧栏按它分组、跨会话共享上下文按它挂载。而前端在案件页只发 ``case_id``
+    （``copilot/scope-types.ts`` 的 ``CopilotScope`` 就是 case|contract 二选一），
+    于是案件会话的 ``contract_id`` 恒为 NULL——同一个项目的诉讼会话与非诉会话
+    因此分到两组，项目页也拉不到。
+
+    显式传了的 ``contract_id`` 一律尊重，不覆盖；只有「有案件、没合同」时才去
+    案件上反查。``Case.contract`` 允许为空（历史/导入案件），查不到就保持
+    None：宁可在项目维度缺一条，也不猜一个错的项目挂上去。
+    """
+    if contract_id is not None or case_id is None:
+        return contract_id
+    # 跨 app 延迟解析：agent 不静态依赖 cases（与 annotate_scope_names 同口径）
+    case_model = django_apps.get_model("cases", "Case")
+    return await case_model.objects.filter(pk=case_id).values_list("contract_id", flat=True).afirst()
+
+
 async def create_session(
     *,
     title: str,
@@ -45,13 +66,16 @@ async def create_session(
 
     ``agent_kind`` 为空时回退到 ``pi``：历史调用方（任务式 / 子任务 / 测试）
     不传这个参数，行为与引入前一致。
+
+    ``contract_id`` 在案件会话里由 :func:`resolve_contract_id` 从案件反查补上，
+    不依赖客户端多传一个字段（旧客户端也自动受益）。
     """
     return await AgentSession.objects.acreate(
         title=title,
         user_id=user_id,
         origin=origin,
         case_id=case_id,
-        contract_id=contract_id,
+        contract_id=await resolve_contract_id(case_id=case_id, contract_id=contract_id),
         agent_kind=agent_kind or "pi",
     )
 
