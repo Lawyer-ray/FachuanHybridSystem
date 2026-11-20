@@ -50,6 +50,9 @@ export interface Review {
   reviewId: string
   sessionId: string
   turn: number
+  /** 用了哪套 rubric、哪一版（离线校准按版本归因，缺了会把两套标准混着算） */
+  rubricId: string
+  rubricVersion: string
   stage: ReviewStage
   lanes: LaneReview[]
   verdicts: CriteriaVerdict[]

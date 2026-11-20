@@ -93,6 +93,10 @@ class Review(BaseModel):
     review_id: str
     session_id: str
     turn: int
+    #: 用了哪套 rubric、哪一版。**必须记**：离线校准要按版本归因，否则改了 rubric 之后
+    #: 历史评审与新一轮评测混在一起，kappa 算出来是两套标准混出来的假数。
+    rubric_id: str = ""
+    rubric_version: str = ""
     stage: Literal["shadow"] = "shadow"
     lanes: list[LaneReview] = Field(default_factory=list)
     verdicts: list[CriteriaVerdict] = Field(default_factory=list)
