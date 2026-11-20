@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { blockKeyOf } from '../../draft/block-keys'
+import { reviewHintOf } from '../../draft/quality'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { BlockRow } from './SegmentRow'
@@ -200,6 +201,7 @@ export function SegmentMarkdown({
       {/* 质量提示紧贴标题之下：正文里的几行零散字符看不出是图纸，这句必须写在
           律师开始读正文之前，而不是读完了再在底部告诉他。 */}
       <SegmentQualityHint
+        review={reviewHintOf(seg)}
         flags={seg.qualityFlags}
         graphicPages={graphicPages}
         docPages={docPages}

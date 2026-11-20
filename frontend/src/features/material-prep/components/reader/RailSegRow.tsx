@@ -7,7 +7,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { docTypeLabel, segRangeText } from '../../draft'
+import { docTypeLabel, reviewHintOf, segRangeText } from '../../draft'
 import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 import { SegmentDownloadMenuItems, SegmentSelectBox } from './SegmentDownloadBar'
@@ -288,6 +288,7 @@ function SegmentMarks({
   docHintPages: { page: number; doc: string; missing: string[] }[]
   graphicPages: number[]
 }) {
+  const reviewHint = reviewHintOf(seg)
   return (
     <span className="flex flex-none items-center gap-0.5">
       {docHintPages.length > 0 ? (
@@ -303,15 +304,16 @@ function SegmentMarks({
           <FileImage className="h-3 w-3" aria-hidden />
         </span>
       ) : null}
-      {seg.reviewFlag === 'low_confidence' ? (
+      {reviewHint && (
         <span
           data-review-mark
           className="flex-none text-amber-600"
-          title={`自动识别置信度 ${Math.round((seg.confidence ?? 0) * 100)}%，建议核对页段边界与材料名`}
+          // tooltip 走 reviewHintOf：与段头徽标、右栏提示条同一句话（含「核对什么」）
+          title={reviewHint.reason ? `${reviewHint.label}：${reviewHint.reason}` : reviewHint.label}
         >
           <AlertTriangle className="h-3 w-3" aria-hidden />
         </span>
-      ) : null}
+      )}
     </span>
   )
 }

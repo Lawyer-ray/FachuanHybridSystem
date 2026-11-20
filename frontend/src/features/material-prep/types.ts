@@ -74,6 +74,11 @@ export interface Segment {
    *  后端序列化会把缺失回成 null */
   fnAuto?: string | null
   reviewFlag?: string
+  /** 后端的复核标记中文名（`SegmentOut.review_flag_label`）；旧草稿没有，前端按 reviewFlag 兜底 */
+  reviewFlagLabel?: string
+  /** 这一段是怎么分出来的（`SegmentOut.source_method`）：rule / layout_title / llm …。
+   *  复核原因要看它——同样是低置信度，起因不同、该核对的东西也不同 */
+  sourceMethod?: string
   confidence?: number
   /** 该段正文的 Markdown 重建（云端识别产出，供后续 AI 流程消费）；人工拆分 / 旧任务无 */
   md?: string
@@ -147,6 +152,8 @@ export type PdfSplitSegmentSuggestion = Pick<
   id?: number
   /** 该段的质量标记（如图形页 / 稀疏页）。后端若要扩展新取值，前端按字符串兜底展示 */
   quality_flags?: string[]
+  /** 复核标记的中文名（SegmentOut 必带；这里声明成可选，免得测试夹具被迫补无关字段） */
+  review_flag_label?: string
   /** 每页正文在 content_md 里的字符区间（与 content_md 同口径的 snake_case）。旧任务没有该键 */
   page_spans?: PageSpan[]
   /** 全本页级质量统计：哪些页是图纸、哪些页几乎没字。旧任务没有该键 */

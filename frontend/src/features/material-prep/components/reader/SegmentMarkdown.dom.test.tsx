@@ -68,6 +68,39 @@ describe('SegmentMarkdown', () => {
     expect(container.querySelector('pre')).toBeNull()
   })
 
+  /**
+   * 用户反馈（原话）：「需要复核的材料，为什么没有把复核的问题展示在右边对应
+   * Markdown 处——那我怎么知道什么要复核」。中栏段头只有一个「建议复核」徽标，
+   * 右栏正文一个字不提，等于让律师自己猜该核对什么。
+   */
+  it('低置信度的段：正文面板顶部写出「为什么复核」和「核对什么」', () => {
+    const { container } = render(
+      <SegmentMarkdown
+        {...base({
+          seg: seg({
+            md: '# 证据目录\n\n原告提交了转账凭证。',
+            reviewFlag: 'low_confidence',
+            sourceMethod: 'layout_title',
+            confidence: 0.62,
+          }),
+        })}
+      />,
+    )
+    const hint = container.querySelector('[data-review-hint]') as HTMLElement
+    expect(hint).toBeTruthy()
+    expect(hint.textContent).toContain('建议复核')
+    // 原因（不是只有「建议复核」四个字）
+    expect(hint.textContent).toContain('起点是按版面标题推断的')
+    expect(hint.textContent).toContain('自动分段置信度 62%')
+    // 行动指引
+    expect(hint.textContent).toContain('请核对本段起止页与材料名')
+  })
+
+  it('不需要复核的段不出现复核提示条', () => {
+    const { container } = render(<SegmentMarkdown {...base()} />)
+    expect(container.querySelector('[data-review-hint]')).toBeNull()
+  })
+
   it('人工拆分的段不显示任何正文提示（避免噪声）', () => {
     const { container } = render(<SegmentMarkdown {...base({ seg: seg({ manual: true }) })} />)
     expect(container.textContent).toBe('')

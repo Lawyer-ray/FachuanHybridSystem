@@ -293,3 +293,87 @@ export function pagesText(pages: number[]): string {
   }
   return parts.join(', ')
 }
+
+/* ============================================================
+ * 段级复核：`review_flag` → 人话
+ * ============================================================ */
+
+/** 一段的复核信号归一后的形状（供段头徽标 / 左栏 tooltip / 右栏提示条共用） */
+export interface SegmentReviewHint {
+  /** 短标签：「建议复核」/「未识别」/「OCR 失败」 */
+  label: string
+  /** 为什么被标出来。拿不到具体原因时给空串——**不编原因**比编一条更可信 */
+  reason: string
+}
+
+/** 后端 `PdfSplitReviewFlag` 的本地兜底文案（API 带了 `review_flag_label` 时优先用它） */
+const REVIEW_LABELS: Record<string, string> = {
+  low_confidence: '建议复核',
+  unrecognized: '未识别',
+  ocr_failed: 'OCR 失败',
+}
+
+/**
+ * 分段来源 → 「为什么这一段让人不放心」。
+ *
+ * 取值来自后端分段侧：规则引擎 `rule` / `layout_title` / `rule_weak_only` /
+ * `rule_adjacent_start` / `rule_merged_adjacent` / `gap_fill`，模型侧 `llm`。
+ * 只解释**会产生 low_confidence 的那几种**，其余返回空串而不是硬凑一句。
+ */
+function reviewReasonOfMethod(method: string | undefined): string {
+  switch (method) {
+    case 'layout_title':
+      return '起点是按版面标题推断的，可能把上一份的末尾切进来'
+    case 'rule_weak_only':
+      return '只命中了弱规则（标题像、版式不像）'
+    case 'rule_adjacent_start':
+      return '和上一段的起点只隔一页，可能切得太碎'
+    case 'rule_merged_adjacent':
+      return '和相邻段拼过再拆开，边界可能偏'
+    case 'gap_fill':
+      return '这段是补空得来的（前后都没有明确标题）'
+    case 'llm':
+    case 'llm_merged':
+      return '模型对这一段的边界把握不大'
+    default:
+      return ''
+  }
+}
+
+/**
+ * 是否需要复核、为什么。
+ *
+ * ## 为什么要在这一层算
+ *
+ * 同一句话要出现在三处：中栏段头徽标、左栏段行 tooltip、右栏正文面板顶部提示条。
+ * 三处各拼一遍文案，迟早出现「徽标说 62%，提示条说 60%」这种自相矛盾——律师
+ * 一旦发现两处对不上，就会连带不信第三处。所以只在这里拼，组件只做展示。
+ *
+ * ## 为什么 low_confidence 的原因要看 `sourceMethod`
+ *
+ * 「建议复核」本身不构成行动：律师要知道的是**核对什么**。低置信度有四五种成因
+ * （版面标题猜的起点、只命中弱规则、和上一段只隔一页……），对应的核对动作完全不同。
+ */
+export function reviewHintOf(seg: {
+  reviewFlag?: string
+  confidence?: number
+  sourceMethod?: string
+  reviewFlagLabel?: string
+}): SegmentReviewHint | null {
+  const flag = seg.reviewFlag
+  if (!flag || flag === 'normal') return null
+  const label = seg.reviewFlagLabel || REVIEW_LABELS[flag] || flag
+
+  if (flag === 'low_confidence') {
+    const pct =
+      typeof seg.confidence === 'number' && Number.isFinite(seg.confidence)
+        ? `自动分段置信度 ${Math.round(seg.confidence * 100)}%`
+        : ''
+    const reason = [reviewReasonOfMethod(seg.sourceMethod), pct].filter(Boolean).join(' · ')
+    return { label, reason }
+  }
+  if (flag === 'unrecognized') return { label, reason: '这一段没认出是哪类材料，可能是模板里没有的新类型' }
+  if (flag === 'ocr_failed') return { label, reason: '这一段的文字没有取出来，正文可能是空的' }
+  // 后端将来新增的取值：原样展示标签，原因留空（不编）
+  return { label, reason: '' }
+}
