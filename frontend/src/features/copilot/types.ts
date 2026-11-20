@@ -10,8 +10,11 @@
  * - `state-types.ts`：store 的状态形状（`CopilotState`）。
  */
 
+import type { CitationRef } from './domain/knowledge'
 import type { QuestionItem } from './domain/question'
 
+export type { CitationRef, CitationKind } from './domain/knowledge'
+export type { MentionCandidate, MentionInsert, MentionKind } from './domain/mention'
 export type { AgentBackendOption, AgentSpec } from './backend-types'
 export type { CopilotContext, CopilotScope } from './scope-types'
 export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
@@ -213,6 +216,21 @@ export interface ChatMessage {
    * 落库的实际模型）。未指定 / 旧数据时 undefined，栏头只显示 agent 名。
    */
   model?: string
+  /**
+   * 这条回答引用的材料（入站引用，AI → 材料）。
+   *
+   * 与 `refs` / `quote`（出站引用）**方向相反、字段不共用**：那两个是律师给模型
+   * 的东西，这个是模型给律师的溯源。正文里的 `[Kn]` 角标靠 `citeNo` 与这里对齐；
+   * 缺字段 = 本轮没有来源（旧数据 / 后端未接），不是「引用丢失」。
+   */
+  citations?: CitationRef[]
+  /**
+   * 单栏时「此刻在等哪个工具返回」（驱动气泡内的「正在查 XX…」）。
+   *
+   * 为什么不复用 `tools`：`tools` 是多栏的**渲染槽**（栏下方那串 chip），单栏若
+   * 也往里写就会把工具行渲染成两份。这个字段只喂 `activityText`，从不单独渲染。
+   */
+  pendingTool?: ChatMessage
   /**
    * 这条回答期间该 agent **自己**调用过的工具（按到达顺序）。
    *

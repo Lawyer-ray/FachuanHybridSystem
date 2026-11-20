@@ -29,6 +29,7 @@ import { createApprovalSlice } from './approval'
 import { createAttachmentSlice } from './attachment'
 import { createBackendsSlice } from './backends'
 import { createContextUsageSlice } from './context-usage'
+import { createMentionSlice } from './mentions'
 import { createQuestionSlice } from './question'
 import { createSessionSlice } from './session'
 import { bumpSessionEpoch } from './session-epoch'
@@ -75,6 +76,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   ...createTurnSlice(set, get),
   ...createApprovalSlice(set, get),
   ...createQuestionSlice(set, get),
+  ...createMentionSlice(set, get),
   ...createAttachmentSlice(set, get),
   ...createContextUsageSlice(set, get),
 

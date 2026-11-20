@@ -7,6 +7,7 @@
  */
 
 import type { AgentBackendSelection } from './backend-types'
+import type { MentionInsert } from './domain/mention'
 import type { CopilotContext } from './scope-types'
 import type {
   ChatMessage,
@@ -77,6 +78,20 @@ export interface CopilotState extends AgentBackendSelection {
   pendingFiles: File[]
   /** 待发送的文件夹引用（从合同目录树拖入；随下一条消息落库并引用） */
   pendingRefs: FolderRefDraft[]
+  /**
+   * 待发送的 `@` 引用（案件 / 合同 / 文书 / 文件夹）。
+   *
+   * 与 `pendingRefs`（文件夹引用）与 `pendingQuote`（框选引用）并列，但**不是
+   * 第三套 chip 渲染**：三者最终都由 `outgoing.ts` 拼成同一个出站协议块
+   * （`[已引用文件：…]` / `[已引用选段：…]`），只是来源不同。
+   */
+  pendingMentions: MentionInsert[]
+  /** 写入一条 @ 引用（同一对象重复引用只保留一条，顺序按首次引用） */
+  addMention: (insert: MentionInsert) => void
+  /** 移除一条 @ 引用（输入框里的引用 chip 点 ×） */
+  removeMention: (kind: MentionInsert['kind'], refId: number | undefined, label: string) => void
+  /** 清空 @ 引用（发送成功 / 切会话） */
+  clearMentions: () => void
   /** 待发送的框选引用（编辑器选区进来后挂在输入框上方，随下一条消息发出） */
   pendingQuote: SelectionQuote | null
   /** 设置/清除待发送的框选引用（新选区直接覆盖旧的） */
