@@ -235,3 +235,36 @@ class TestSessionAnchors:
         from apps.agent.api.memory_api import _session_anchors
 
         assert async_to_sync(_session_anchors)(session_id="not-a-uuid", user_id=lawyer.pk) == (None, None)
+
+
+class TestListPayloadAnchorFilter:
+    """项目页「AI 上下文」面板的读侧：按锚点取本项目/本案的笔记。"""
+
+    @pytest.mark.django_db
+    def test_filters_by_contract(self, lawyer: Lawyer) -> None:
+        memory_service.create_note(lawyer, content="本项目判断", contract_id=CONTRACT_ID)
+        memory_service.create_note(lawyer, content="别的项目判断", contract_id=OTHER_CONTRACT_ID)
+        memory_service.create_memory(lawyer, content="跨项目通用的偏好")
+
+        rows = memory_service.list_memories_payload(
+            lawyer, scope=None, status=None, limit=50, contract_id=CONTRACT_ID
+        )
+        assert [r["content"] for r in rows] == ["本项目判断"]
+
+    @pytest.mark.django_db
+    def test_contract_and_case_are_union(self, lawyer: Lawyer) -> None:
+        memory_service.create_note(lawyer, content="项目级", contract_id=CONTRACT_ID)
+        memory_service.create_note(lawyer, content="案件级", contract_id=CONTRACT_ID, case_id=CASE_ID)
+
+        rows = memory_service.list_memories_payload(
+            lawyer, scope=None, status=None, limit=50, contract_id=CONTRACT_ID, case_id=CASE_ID
+        )
+        assert {r["content"] for r in rows} == {"项目级", "案件级"}
+
+    @pytest.mark.django_db
+    def test_no_anchor_returns_everything_visible(self, lawyer: Lawyer) -> None:
+        memory_service.create_note(lawyer, content="本项目判断", contract_id=CONTRACT_ID)
+        memory_service.create_memory(lawyer, content="跨项目通用的偏好")
+
+        rows = memory_service.list_memories_payload(lawyer, scope=None, status=None, limit=50)
+        assert {r["content"] for r in rows} == {"本项目判断", "跨项目通用的偏好"}

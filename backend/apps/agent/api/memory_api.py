@@ -64,11 +64,22 @@ async def list_memories(  # pragma: no cover
     scope: str | None = None,
     status: str | None = None,
     limit: int = 100,
+    contract_id: int | None = None,
+    case_id: int | None = None,
 ) -> list[MemoryOut]:
-    """当前律师可见的记忆列表（默认 pending + active，业务逻辑见 service）。"""
+    """当前律师可见的记忆列表（默认 pending + active，业务逻辑见 service）。
+
+    ``contract_id`` / ``case_id``：只看挂在某个项目/案件上的项目笔记，
+    供「项目页 AI 上下文面板」使用。两个都给时取并集（与注入侧同一语义）。
+    """
     lawyer = _current_user(request)
     rows = await sync_to_async(memory_service.list_memories_payload, thread_sensitive=True)(
-        lawyer, scope=scope, status=status, limit=limit
+        lawyer,
+        scope=scope,
+        status=status,
+        limit=limit,
+        contract_id=contract_id,
+        case_id=case_id,
     )
     return [MemoryOut(**row) for row in rows]
 

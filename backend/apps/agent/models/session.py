@@ -129,6 +129,9 @@ class AgentSession(models.Model):
         indexes = [
             models.Index(fields=["user", "-updated_at"], name="agent_session_user_idx"),
             models.Index(fields=["case_id", "-updated_at"], name="agent_session_case_idx"),
+            # 项目页按 contract_id 拉会话（诉讼会话由 case→contract 回填后也会命中）；
+            # 没有这条索引时是整表扫，会话越多越慢。
+            models.Index(fields=["contract_id", "-updated_at"], name="agent_session_contract_idx"),
             models.Index(fields=["origin", "-updated_at"], name="agent_session_origin_idx"),
             models.Index(fields=["origin", "task_state", "-updated_at"], name="agent_session_task_idx"),
         ]

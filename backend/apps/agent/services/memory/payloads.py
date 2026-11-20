@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ...models import AgentMemory
-from .scopes import can_curate_scope, visible_queryset
+from .scopes import anchor_q, can_curate_scope, visible_queryset
 from .search import search_memories
 
 if TYPE_CHECKING:
@@ -42,11 +42,23 @@ def memory_to_dict(memory: AgentMemory) -> dict[str, Any]:
     }
 
 
-def list_memories_payload(lawyer: Lawyer, *, scope: str | None, status: str | None, limit: int) -> list[dict[str, Any]]:
+def list_memories_payload(
+    lawyer: Lawyer,
+    *,
+    scope: str | None,
+    status: str | None,
+    limit: int,
+    contract_id: int | None = None,
+    case_id: int | None = None,
+) -> list[dict[str, Any]]:
     """当前律师可见的记忆列表载荷。
 
     默认只返回 pending + active（软删的语义是「不想再看到」）；显式传
     ``status`` 则按该状态过滤（恢复入口需要 ``status=deleted``）。
+
+    ``contract_id`` / ``case_id`` 用于「项目页的 AI 上下文面板」：只取挂在
+    本项目/本案上的笔记（两个都给时取并集，与注入侧 ``anchor_q`` 同一语义，
+    避免「面板看到 5 条、注入只有 3 条」这种两套口径）。
     """
     if status:
         statuses: tuple[str, ...] = (status,)
@@ -55,6 +67,9 @@ def list_memories_payload(lawyer: Lawyer, *, scope: str | None, status: str | No
     queryset = visible_queryset(lawyer, include_status=statuses)
     if scope:
         queryset = queryset.filter(scope=scope)
+    anchor = anchor_q(contract_id=contract_id, case_id=case_id)
+    if anchor is not None:
+        queryset = queryset.filter(anchor)
     bounded = max(1, min(limit, 300))
     return [memory_to_dict(m) for m in queryset[:bounded]]
 
