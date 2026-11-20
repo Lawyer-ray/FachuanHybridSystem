@@ -77,7 +77,10 @@ class FakeRO {
   static instances: FakeRO[] = []
   readonly targets: Element[] = []
   disconnected = false
-  constructor(private readonly cb: ResizeObserverCallback) {
+  /** 显式字段而不是构造函数参数属性：`erasableSyntaxOnly` 下参数属性不可用 */
+  private readonly cb: ResizeObserverCallback
+  constructor(cb: ResizeObserverCallback) {
+    this.cb = cb
     FakeRO.instances.push(this)
   }
   observe(t: Element): void {

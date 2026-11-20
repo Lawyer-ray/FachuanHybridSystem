@@ -7,6 +7,8 @@
  *   首个推进事件（delta 等）自动清除——用户不用盯着转圈猜发生了什么
  * - assistant 气泡：Markdown（GFM）渲染 + 代码块语法高亮（rehype-highlight，
  *   未标注语言的块不高亮）；hover 显示复制按钮（复制 Markdown 源码）
+ * - 消息级操作（复制/评分/时间戳）收在 MessageActions；正文里选中一段会浮出
+ *   SelectionBarLayer（引用到输入框），两者的取舍见各自文件头
  * - 等待期观感：正文未到但工具在跑时，气泡内显示「正在查 XX…」呼吸行
  *   （见 StreamActivity）——否则先调工具的 dsh / openai-agents 看起来像卡死
  * - 多答轮次：相邻的 2~4 条 assistant 交给 MultiAnswers 并排（单条走普通气泡，
@@ -14,11 +16,10 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Brain, Briefcase, Check, Copy, Loader2, MapPin, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { Brain, Briefcase, Loader2, MapPin } from 'lucide-react'
 
 import { useAuth } from '@/features/auth'
 import { LoadingBlock } from '@/components/shared/AsyncState'
-import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
 import '../copilot.css'
 import { bizHintParts, formatClock, groupAnswerRuns, ratableMessageId } from '../domain'
@@ -31,6 +32,8 @@ import { AssistantMarkdown } from './AssistantMarkdown'
 import { AnswerGroupView } from './AnswerGroupView'
 import { CopilotWelcome } from './CopilotWelcome'
 import { ErrorNotice } from './ErrorNotice'
+import { MessageActions } from './MessageActions'
+import { SelectionBarLayer } from './SelectionBar'
 import { RefQuoteCard, SelectionQuoteCard } from './RefQuote'
 import { StreamActivity } from './StreamActivity'
 import { OwnToolList } from './ToolChips'
@@ -70,59 +73,6 @@ const ThinkingBlock = memo(function ThinkingBlock({ message }: { message: ChatMe
     </details>
   )
 })
-
-/**
- * 点赞/点踩（P1-9b）：乐观更新在 store，失败自动回滚。
- *
- * `messageId` 为 null = 本条还没落库（实时气泡）：按钮置灰并说明原因。
- * 旧写法直接 `Number(message.id.slice(3))`，对 `local-3` 得到 NaN——按钮看起来
- * 可点，点了必然失败且没有任何反馈（见 domain/message-id.ts）。
- */
-function RateButtons({ messageId, rating }: { messageId: number | null; rating?: 'up' | 'down' }) {
-  const rate = useCopilot((s) => s.rateMessage)
-  const disabled = messageId === null
-  const btn = (r: 'up' | 'down') => ({
-    type: 'button' as const,
-    'aria-label': r === 'up' ? '有帮助' : '没帮助',
-    disabled,
-    title: disabled ? '本条尚未落库，暂不可评分' : r === 'up' ? '有帮助' : '没帮助',
-    className:
-      'flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40 ' +
-      (rating === r ? 'text-foreground' : 'opacity-60 hover:opacity-100'),
-    onClick: () => {
-      if (messageId === null) return
-      void rate(messageId, rating === r ? 'none' : r)
-    },
-  })
-  return (
-    <span className="ml-1.5 inline-flex gap-0.5 align-middle">
-      <button {...btn('up')}>
-        <ThumbsUp className="h-3 w-3" />
-      </button>
-      <button {...btn('down')}>
-        <ThumbsDown className="h-3 w-3" />
-      </button>
-    </span>
-  )
-}
-
-/** 复制助手回答的 Markdown 源码（hover 浮现） */
-function CopyButton({ text }: { text: string }) {
-  // 必须走 useCopyFeedback：内网 http 部署下 navigator.clipboard 不存在，
-  // 手写调用只会静默失败（点了没任何反馈），它内部带 execCommand 兜底。
-  const { copied, copy } = useCopyFeedback({ resetMs: 1500 })
-  return (
-    <button
-      type="button"
-      className="absolute top-0 right-0 flex h-6 w-6 items-center justify-center rounded-[6px] bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
-      aria-label="复制回答"
-      title="复制 Markdown 源码"
-      onClick={() => void copy(text)}
-    >
-      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-    </button>
-  )
-}
 
 const Bubble = memo(function Bubble({
   message,
@@ -197,7 +147,11 @@ const Bubble = memo(function Bubble({
             </div>
           )}
           {(message.content.trim() || (refs.length === 0 && !quote && !pageHint && !bizHint)) && (
-            <div className="max-w-full rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background">
+            // data-copilot-selection-root：用户气泡正文也允许「选中即引用」
+            <div
+              data-copilot-selection-root
+              className="max-w-full rounded-[12px] rounded-br-[4px] bg-foreground px-3 py-2 text-[13px] leading-relaxed break-words whitespace-pre-wrap text-background"
+            >
               {message.content}
             </div>
           )}
@@ -239,7 +193,8 @@ const Bubble = memo(function Bubble({
         // assistant 回答按 Markdown 渲染（gfm：表格/删除线/任务列表）；
         // react-markdown 默认不执行原始 HTML，无注入面；
         // rehype-highlight 只处理标注了语言的代码块（detect 关闭）
-        <div className="copilot-md break-words pr-0">
+        // data-copilot-selection-root：选区浮条的生效范围（见 use-selection-quote）
+        <div data-copilot-selection-root className="copilot-md break-words pr-0">
           <AssistantMarkdown text={content} streaming={message.streaming === true} />
         </div>
       ) : message.streaming ? null : message.thinking ? null : (
@@ -255,19 +210,12 @@ const Bubble = memo(function Bubble({
         <span className="ml-1.5 rounded-[4px] border border-border px-1 py-px text-[10.5px] text-muted-foreground">已中断</span>
       )}
       {showCopy && (
-        <span className="ml-1 inline-flex items-center align-middle">
-          <RateButtons messageId={ratableMessageId(message)} rating={message.rating} />
-          <CopyButton text={message.content} />
-          {message.createdAt ? (
-            <time
-              className="ml-1 text-[10.5px] text-muted-foreground tabular-nums"
-              dateTime={new Date(message.createdAt).toISOString()}
-              title={new Date(message.createdAt).toLocaleString('zh-CN')}
-            >
-              {formatClock(message.createdAt)}
-            </time>
-          ) : null}
-        </span>
+        <MessageActions
+          content={message.content}
+          messageId={ratableMessageId(message)}
+          rating={message.rating}
+          createdAt={message.createdAt}
+        />
       )}
     </div>
   )
@@ -340,7 +288,8 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
   const empty = messages.length === 0 && !streaming && !loadingHistory
 
   return (
-    <div ref={scrollRef} onScroll={handleScroll} className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
+    // data-copilot-scroll：选区浮条要靠它算可见框（见 SelectionBar.visibleBoundsOf）
+    <div ref={scrollRef} onScroll={handleScroll} data-copilot-scroll className="copilot-messages flex-1 overflow-y-auto px-3.5 py-3">
       {/* 内容限宽居中：避免超宽屏一行长到难读，但同时别把面板里的可用宽度
           白白让出去。原先写死 max-w-3xl（768px）是按「全屏对话页」定的，可这里是
           **侧边栏面板**——面板拉到 1200px 时两侧各空 200px 以上，纯亏。
@@ -403,6 +352,8 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
       )}
       <ErrorNotice />
       </div>
+      {/* 选中即引用的浮条（position: fixed，挂哪里都行；放在这里才能跟着列表的生命周期） */}
+      <SelectionBarLayer />
       {/* 上翻看历史后一键回到最新：长回答（几十屏）里上翻后只能一直滚回去。
           sticky bottom-0 让它只在本容器视野内吸底，不跟随页面其他区域。 */}
       {messages.length > 0 && !atBottom && (

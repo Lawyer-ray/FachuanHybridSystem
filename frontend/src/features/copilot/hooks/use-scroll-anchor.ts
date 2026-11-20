@@ -31,7 +31,7 @@
  * 用法见文件末尾的「接线」注释；本文件只提供 hook 与测试，不接进 `MessageList`。
  */
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 
 /** 行身份标记：视口内第一个带它的元素即锚点（由 `MessageList` 给每条消息加） */
@@ -154,8 +154,15 @@ export function useScrollAnchor(scroller: RefObject<HTMLElement | null>): {
     [],
   )
 
-  const saveAnchor = useCallback(
-    (sessionId: string | null) => {
+  /**
+   * 记忆化交给 React Compiler。
+   *
+   * 这里原本是 `useCallback(fn, [scroller])`，而 `scroller` 是 ref 对象（引用恒定），
+   * 于是在 `preserve-manual-memoization` 规则下编译器直接报「无法保留既有记忆化」
+   * 并跳过整个 hook 的编译——比不记忆化更糟。ref 恒定意味着依赖数组本来也不起
+   * 作用，去掉包装与编译器对齐即可。
+   */
+  const saveAnchor = (sessionId: string | null) => {
       const el = scroller.current
       if (!sessionId || !el) return
       disableNativeAnchor(el)
@@ -165,12 +172,9 @@ export function useScrollAnchor(scroller: RefObject<HTMLElement | null>): {
         anchorTop: row ? row.top : 0,
         scrollTop: el.scrollTop,
       })
-    },
-    [scroller],
-  )
+  }
 
-  const restoreAnchor = useCallback(
-    (sessionId: string | null) => {
+  const restoreAnchor = (sessionId: string | null) => {
       const el = scroller.current
       if (!sessionId || !el) return
       disableNativeAnchor(el)
@@ -210,9 +214,7 @@ export function useScrollAnchor(scroller: RefObject<HTMLElement | null>): {
       })
       observerRef.current = ro
       ro.observe(target)
-    },
-    [scroller],
-  )
+  }
 
   return { saveAnchor, restoreAnchor }
 }
