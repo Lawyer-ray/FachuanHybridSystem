@@ -518,6 +518,21 @@ def _format_table(table: Any) -> str:
 _MIN_EXTRACT_CHARS = int(os.getenv("FACHUAN_FETCH_MIN_EXTRACT_CHARS", "300"))
 
 
+def _extract_error_types() -> tuple[type[BaseException], ...]:
+    """trafilatura/lxml 在畸形输入上可能抛的解析类异常（用于窄化捕获）。"""
+    types: list[type[BaseException]] = [ValueError, TypeError, LookupError]
+    try:
+        from lxml.etree import LxmlError
+
+        types.append(LxmlError)
+    except ImportError:  # pragma: no cover - lxml 是硬依赖，仅防御精简环境
+        pass
+    return tuple(types)
+
+
+_EXTRACT_ERRORS: tuple[type[BaseException], ...] = _extract_error_types()
+
+
 def _extract_text_trafilatura(html: str) -> str:
     """用 trafilatura 二次抽取（**可选依赖**：没装就返回空串，退回选择器结果）。
 
@@ -538,7 +553,10 @@ def _extract_text_trafilatura(html: str) -> str:
             include_tables=True,
             favor_recall=True,
         )
-    except Exception:  # pragma: no cover - 第三方解析异常不该拖垮抓取
+    except _EXTRACT_ERRORS:  # pragma: no cover - 第三方解析异常不该拖垮抓取
+        # 窄化到「解析类」异常：trafilatura 对畸形输入抛 ValueError/TypeError，
+        # lxml 抛 LxmlError。**不用 ``except Exception``**——本仓库有宽异常棘轮
+        # （test_error_semantics），新吞宽异常会直接红灯，而且那也确实会掩盖真 bug。
         logger.debug("trafilatura 抽取失败，退回选择器结果", exc_info=True)
         return ""
     return (extracted or "").strip()
