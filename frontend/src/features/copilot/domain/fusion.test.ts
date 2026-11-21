@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CriteriaVerdict, EquivalenceCluster, LaneReview, Review, Synthesis } from '../adjudication-types'
+import { agentLabel } from './dual'
 import {
   conflictPairsOf,
   droppedReasonLabel,
@@ -252,7 +253,7 @@ describe('toSynthesisView：综合结论 snake_case → camelCase', () => {
       { lane: 'pi', label: 'Pi' },
       { lane: 'dsh', label: 'DeepSeek Harness' },
     ])
-    expect(view.dropped).toEqual([{ lane: 'openai-agents', label: 'openai-agents', reason: '本轮无正文' }])
+    expect(view.dropped).toEqual([{ lane: 'openai-agents', label: agentLabel('openai-agents'), reason: '本轮无正文' }])
     expect(view.citations).toEqual([{ lane: 'pi', label: 'Pi', quote: '《民法典》第五百八十四条' }])
     expect(view.unverified).toEqual(['pi 引《X 办法》第 7 条，本轮无核验命中'])
     expect(view.tokens).toEqual({ prompt: 2100, completion: 640, total: 2740 })

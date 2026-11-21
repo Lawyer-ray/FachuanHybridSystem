@@ -16,6 +16,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import type { Synthesis } from '../../adjudication-types'
+import { agentLabel } from '../../domain/dual'
 import { toSynthesisView } from '../../domain/fusion'
 import { SynthesisCard } from './SynthesisCard'
 
@@ -68,7 +69,7 @@ describe('SynthesisCard：被丢弃的栏', () => {
     )
     const dropped = screen.getByTestId('synthesis-dropped').textContent ?? ''
     expect(dropped).toContain('DeepSeek Harness（本轮无正文）')
-    expect(dropped).toContain('openai-agents（本轮失败）')
+    expect(dropped).toContain(`${agentLabel('openai-agents')}（本轮失败）`)
     expect(dropped).toContain('other（超长被截）')
     // 三种原因不许折叠成同一句话
     expect(dropped).not.toContain('没参与')

@@ -33,6 +33,7 @@ import { toReviewView } from '../../domain/fusion'
 import type { ChatMessage } from '../../types'
 import { MultiAnswers } from '../MultiAnswers'
 import { ReviewSummaryCard } from './ReviewSummaryCard'
+import { agentLabel } from '../../domain/dual'
 
 const lane = (over: Partial<LaneReview> = {}): LaneReview => ({
   lane: 'pi',
@@ -185,7 +186,7 @@ describe('ReviewSummaryCard：共识 / 分歧（成团）', () => {
     )
     const list = screen.getByTestId('review-clusters')
     expect(list.textContent).toContain('共识：Pi、DeepSeek Harness')
-    expect(list.textContent).toContain('单独立场：openai-agents')
+    expect(list.textContent).toContain(`单独立场：${agentLabel('openai-agents')}`)
     expect(screen.getByTestId('cluster-0').getAttribute('data-emphasized')).toBe('true')
     expect(screen.getByTestId('cluster-0').textContent).toContain('代表 Pi')
   })
