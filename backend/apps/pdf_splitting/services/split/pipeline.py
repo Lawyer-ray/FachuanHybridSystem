@@ -112,6 +112,13 @@ class PdfAnalysisOutcome:
     drafts: list[SegmentDraft]
     segments_md: list[dict[str, Any]]
     summary: dict[str, Any] = field(default_factory=dict)
+    #: 表格几何产物（由调用方落盘到 ``analysis/table_geometry.json``）。
+    #:
+    #: 为什么由 outcome 带出而不是在 pipeline 里自己写：本模块与 DB/job 目录完全解耦
+    #: （模块头注释的约定），落盘是 ``PdfSplitService._persist_analysis`` 的事。
+    #: 也不能只传给 ``build_segments_markdown`` 而不存：用户确认分段后重建时（confirm）
+    #: 拿不到内存里的这份数据，那次重建就会退回整表框。
+    table_geometry: dict[str, Any] = field(default_factory=dict)
 
 
 def extract_pages(
@@ -215,9 +222,19 @@ def analyze_pdf(
     # 坐标换算依赖后端坐标系（MinerU 千分比 / Textin 绝对坐标），必须在构建
     # 时就告诉 markdown_builder：事后再猜会算出错位的绿框。
     bbox_backend = str(extraction_summary.get("ocr_provider") or "")
+    artifact, geometry, geometry_summary = _measure_table_geometry(
+        pdf_path=pdf_path, pages=pages, bbox_backend=bbox_backend
+    )
     segments_md = attach_page_quality_flags(
         attach_quality_flags_to_markdown(
-            build_segments_markdown(drafts, pages, bbox_backend=bbox_backend), inconsistencies
+            build_segments_markdown(
+                drafts,
+                pages,
+                bbox_backend=bbox_backend,
+                table_geometry=geometry,
+                legacy_uniform=_table_geometry().uniform_fallback_enabled(),
+            ),
+            inconsistencies,
         ),
         qualities_by_page(pages),
     )
@@ -225,13 +242,47 @@ def analyze_pdf(
         pages=pages,
         drafts=drafts,
         segments_md=segments_md,
+        table_geometry=artifact,
         # summary 只增不改：取字 + 分段原有字段全保留，新字段追加在后面
         summary={
             **extraction_summary,
             **segment_summary,
             **_inconsistency_summary(inconsistencies),
+            # 几何的观测块（整表框的 reason 都在这里计数）
+            "table_geometry": geometry_summary,
         },
     )
+
+
+def _table_geometry() -> Any:
+    """延迟拿到 ``table_geometry`` 模块（import 面已经很大，模块级再加一条不划算）。"""
+    from . import table_geometry
+
+    return table_geometry
+
+
+def _measure_table_geometry(
+    *, pdf_path: Path, pages: list[PageDescriptor], bbox_backend: str
+) -> tuple[dict[str, Any], dict[int, dict[int, Any]], dict[str, Any]]:
+    """单任务入口的几何 pass：开关关就完全不调引擎、不产产物。
+
+    与 ``PdfSplitService._ensure_table_geometry`` 同口径（同一个 ``switches()``、
+    同一个 ``summary_block()``）；差别只在“不读盘也不落盘”——单任务路径刚跑完取字，
+    手里就有 ``pdf_path`` 与 ``pages``，量一次即可，落盘由调用方用 outcome 完成
+    （否则用户确认分段后重建时就拿不到几何，会退回整表框）。
+    """
+    module = _table_geometry()
+    enabled, _legacy_uniform = module.switches()
+    if not enabled:
+        logger.info("pdf_split_table_geometry_disabled", extra={"entry": "analyze_pdf"})
+        return {}, {}, module.summary_block({}, enabled=False)
+    artifact = module.build_geometry_artifact(
+        pages,
+        pdf_path=pdf_path,
+        engine=module.PaddleTableGeometryEngine(),
+        bbox_backend=bbox_backend,
+    )
+    return artifact, module.geometries_by_page_block(artifact), module.summary_block(artifact, enabled=True)
 
 
 def _inconsistency_summary(inconsistencies: list[Any]) -> dict[str, Any]:

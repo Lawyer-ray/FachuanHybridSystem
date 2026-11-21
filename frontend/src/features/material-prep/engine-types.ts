@@ -79,20 +79,27 @@ export interface EngineBlockRect {
 /**
  * 定位框精度等级。
  *
- * 三档而不是单一的 `approx` 布尔：后端以前把「整页近似」与「半格误差」都写成
+ * 四档而不是单一的 `approx` 布尔：后端以前把「整页近似」与「半格误差」都写成
  * `approx: true`，前端只能画同一种虚线——律师无法区分「这个框根本不准」与
  * 「这个框八九不离十」。拆开后视觉分级：
  *
  * - `exact`：引擎真实返回的 bbox（MinerU/VL 原生）——实线，可信
- * - `cell` ：表格拆分的推算框（左右列对齐、纵向行高不均）——虚线 + ≈
+ * - `grid` ：表格单元格**量出来的**框（PP-StructureV3 `cell_box_list` 实测）——实线 + 稍深，
+ *            与 `exact` 一样可信；分两档只为说清来路（格子 vs 文本行）
+ * - `cell` ：表格**均分推算**的框（左右列对齐、纵向行高不均；列宽悬殊时会整列偏出去）——虚线 + ≈
  * - `page` ：整页近似（整张表没拆，坐标基本无意义）——更淡的虚线
+ *
+ * `grid` 与 `cell` 的分界是「量出来的 vs 算出来的」，这正是律师要不要去核原图的分界；
+ * 只按 `approx` 画一种虚线时，这条分界在界面上是不存在的。
  */
-export type RectPrecision = 'exact' | 'cell' | 'page'
+export type RectPrecision = 'exact' | 'grid' | 'cell' | 'page'
 
 /** 从后端块里读精度；旧任务没有 `precision` 字段，退化成看 `approx`。 */
 export function rectPrecisionOf(rect: { approx?: boolean; precision?: string } | null | undefined): RectPrecision {
   const raw = rect?.precision
-  if (raw === 'exact' || raw === 'cell' || raw === 'page') return raw
+  // 逐值白名单（不做 `raw as RectPrecision` 硬转）：后端将来新增档位若这里没跟上，
+  // 退化成看 approx —— 宁可画得不确定，也不把未知档位谎报成 exact。
+  if (raw === 'exact' || raw === 'grid' || raw === 'cell' || raw === 'page') return raw
   // 旧任务（后端还没透出 precision）：approx 的旧语义是「整页近似」
   return rect?.approx ? 'page' : 'exact'
 }

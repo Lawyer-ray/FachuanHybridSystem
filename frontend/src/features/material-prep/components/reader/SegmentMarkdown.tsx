@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { blockKeyOf } from '../../draft/block-keys'
 import { reviewHintOf } from '../../draft/quality'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
+import { rectPrecisionOf } from '../../types'
 import { SegmentPageHint, SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { SegmentMarkdownView, type MarkdownViewMode } from './SegmentMarkdownView'
 import { BlockRow } from './SegmentRow'
@@ -331,6 +332,9 @@ export function SegmentMarkdown({
                     text={b.text || ''}
                     page={b.page}
                     approx={b.rect.approx}
+                    // 后端 precision 是 string（openapi 里没做成枚举），用 rectPrecisionOf 收窄成
+                    // 四档联合类型；旧草稿没有该字段时它按 approx 退化，与画框同一口径。
+                    precision={rectPrecisionOf(b.rect)}
                     active={key === focusedBlockKey}
                     editing={editingKey === key}
                     seedText={editingKey === key ? editSeed : null}

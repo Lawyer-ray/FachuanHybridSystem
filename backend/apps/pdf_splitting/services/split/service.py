@@ -312,8 +312,14 @@ class PdfSplitService:
         return summary
 
     def segment_stage(self, job: PdfSplitJob) -> None:
-        """两阶段任务链 ②：从 pages.json 读回取字结果，只做分段与落库。"""
-        from . import two_stage
+        """两阶段任务链 ②：从 pages.json 读回取字结果，只做分段与落库。
+
+        本阶段额外跑一次**表格几何 pass**（DESIGN §5 方案 A）：段阶段是“唯一同时拥有
+        ``pages``、``pdf_path`` 与上游产物目录的地方”，几何必须在这里落盘，三个
+        ``build_segments_markdown`` 调用点才能共享同一份——否则会出现
+        “确认分段后点格子又画错”。
+        """
+        from . import table_geometry, two_stage
         from .pipeline import PageDescriptor
 
         storage = PdfSplitStorage(job.id)
@@ -338,11 +344,20 @@ class PdfSplitService:
 
         # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、
         # 同一份文案），避免「单任务入口有、两阶段入口没有」的劈叉。
+        bbox_backend = self._bbox_backend(job_id=job.id, storage=storage, pages=pages)
+        table_geometry_payload, geometry, geometry_summary = self._ensure_table_geometry(
+            job=job, storage=storage, pages=pages, bbox_backend=bbox_backend
+        )
         inconsistencies = detect_inconsistencies(pages)
         segments_md = attach_page_quality_flags(
             attach_quality_flags_to_markdown(
                 build_segments_markdown(
-                    drafts, pages, bbox_backend=self._bbox_backend(job_id=job.id, storage=storage, pages=pages)
+                    drafts,
+                    pages,
+                    bbox_backend=bbox_backend,
+                    table_geometry=geometry,
+                    # 回滚开关：几何缺失时是否退回旧均分（默认关 = 整表框）
+                    legacy_uniform=table_geometry.uniform_fallback_enabled(),
                 ),
                 inconsistencies,
             ),
@@ -352,6 +367,9 @@ class PdfSplitService:
             pages=pages,
             drafts=drafts,
             segments_md=segments_md,
+            # 产物随 outcome 交给 `_persist_analysis` 落盘：它写在 pages.json **之后**，
+            # 顺序反过来的话产物会比 pages.json 旧，下次分段重跑就会判“过期”重付费。
+            table_geometry=table_geometry_payload,
             summary={
                 **segment_summary,
                 # 取字阶段算好并落盘的页面质量画像。
@@ -368,12 +386,51 @@ class PdfSplitService:
                 # engine_disagree_summary，前端 draft.ts 按这两个名字消费。
                 # 没选多引擎时两个键是空列表/空计数——形状固定，前端不用判 None。
                 **_dual_engine_summary(two_stage.load_engine_disagreements(storage)),
+                # 表格几何的观测块：整表框的 reason 都在这里计数，静默降级不做
+                "table_geometry": geometry_summary,
             },
         )
         # merge_summary=False：本阶段只产出分段相关字段，不能把取字阶段写下的
         # ocr_profile / layout_mode / material_kind 抹掉（summary 只增不删）。
         self._persist_analysis(job=job, storage=storage, outcome=outcome, merge_summary=False)
         PdfSplitJob.objects.filter(id=job.id).update(stage=PdfSplitStage.DONE)
+
+    def _ensure_table_geometry(
+        self, *, job: PdfSplitJob, storage: PdfSplitStorage, pages: list[PageDescriptor], bbox_backend: str
+    ) -> tuple[dict[str, Any], dict[int, dict[int, Any]], dict[str, Any]]:
+        """几何产物：**缺/过期才量** → 返回 (原始产物, 定位映射, summary 区块)。
+
+        “缺/过期才量”是钱的问题：产物即缓存，分段重跑命中就不重复付费。
+        开关关闭时不调用引擎也不产产物（回滚开关决定定位退到均分还是整表框）。
+
+        本方法**不落盘**：产物由 ``_persist_analysis`` 在写完 ``pages.json`` 之后写，
+        否则产物会永远比 pages.json 旧，过期判定每次都成立（等于没有缓存）。
+        """
+        from . import table_geometry, two_stage
+
+        enabled, _legacy_uniform = table_geometry.switches()
+        if not enabled:
+            logger.info("pdf_split_table_geometry_disabled", extra={"job_id": str(job.id)})
+            return {}, {}, table_geometry.summary_block({}, enabled=False)
+
+        if two_stage.table_geometry_is_stale(storage):
+            artifact = table_geometry.build_geometry_artifact(
+                pages,
+                pdf_path=storage.source_pdf_path,
+                engine=table_geometry.PaddleTableGeometryEngine(),
+                bbox_backend=bbox_backend,
+            )
+            logger.info(
+                "pdf_split_table_geometry_measured",
+                extra={"job_id": str(job.id), **table_geometry.summary_block(artifact, enabled=True)},
+            )
+        else:
+            artifact = two_stage.load_table_geometry_payload(storage)
+        return (
+            artifact,
+            table_geometry.geometries_by_page_block(artifact),
+            table_geometry.summary_block(artifact, enabled=True),
+        )
 
     def _bbox_backend(self, *, job_id: Any, storage: PdfSplitStorage, pages: list[PageDescriptor]) -> str:
         """两阶段任务的坐标系来源：读**实际引擎**，不是任务上的平台偏好。
@@ -800,9 +857,24 @@ class PdfSplitService:
         ``ocr_profile`` / ``layout_mode`` / ``material_kind`` 等字段从 summary 里抹掉。
         summary 只增不删，前端可能还有旧消费方在读这些键。
         """
+        from . import two_stage
+
         storage.write_json(storage.pages_json_path, [asdict(item) for item in outcome.pages])
         storage.write_json(storage.segments_json_path, [asdict(item) for item in outcome.drafts])
         storage.write_json(storage.segments_md_path, outcome.segments_md)
+        # 几何产物：单任务入口（analyze_pdf）把量好的产物随 outcome 带回来，由这里落盘。
+        # 不落盘 = “用户确认分段后重建”那条路径拿不到几何 → 格子又画成整表框。
+        table_geometry_payload = getattr(outcome, "table_geometry", None)
+        if isinstance(table_geometry_payload, dict) and table_geometry_payload:
+            two_stage.save_table_geometry(storage, table_geometry_payload)
+            logger.info(
+                "pdf_split_table_geometry_saved",
+                extra={
+                    "job_id": str(job.id),
+                    "pages": len(table_geometry_payload.get("pages") or {}),
+                    "summary": table_geometry_payload.get("summary") or {},
+                },
+            )
 
         # 同名去重：LLM 常把同一类材料切成多段并给同一个名字
         # （实测一份 164 页卷宗里出现两个「居民户口簿.pdf」、两个

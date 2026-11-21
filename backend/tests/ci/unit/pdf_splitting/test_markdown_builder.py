@@ -465,10 +465,15 @@ class TestTableSplitIntoCells:
         body = "".join("<tr>" + "".join(f"<td>R{r}C{c}</td>" for c in range(cols)) + "</tr>" for r in range(rows))
         return f"<table>{body}</table>"
 
-    def test_短表按单元格拆且坐标按行列均分(self) -> None:
+    def test_没有几何时不拆格_只留整表框(self) -> None:
+        """PR-2 起默认**不再均分**：没有量到的几何就没有可点的格子。
+
+        均分不可能用任何便宜判据证明可靠（列宽离散度拿不到），留着它等于留着一个
+        已知会指错地方的路径（p10「件数」列偏 0.185 页宽 ≈ 110pt）。
+        """
         from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
 
-        # 6 行 × 4 列 = 24 格，行数与格数都在门槛内 → 拆格
+        # 6 行 × 4 列 = 24 格，行数与格数都在门槛内 —— 旧实现会在这里拆成 24 个均分格
         layout = {
             "width": 1000,
             "height": 1000,
@@ -477,6 +482,23 @@ class TestTableSplitIntoCells:
             ],
         }
         blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+
+        assert [b["type"] for b in blocks] == ["table"]
+        assert blocks[0]["rect"]["precision"] == "page"
+        assert blocks[0]["table_rows"] == 6 and blocks[0]["table_cols"] == 4
+
+    def test_回滚开关打开时仍按行列均分(self) -> None:
+        """``legacy_uniform=True``（``PDF_SPLIT_TABLE_UNIFORM_FALLBACK=1``）恢复旧行为。"""
+        from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
+
+        layout = {
+            "width": 1000,
+            "height": 1000,
+            "blocks": [
+                {"type": "table", "text": "x" * 100, "bbox": [100, 200, 500, 800], "table_body": self._html(6, 4)}
+            ],
+        }
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru", legacy_uniform=True)
         cells = [b for b in blocks if b["type"] == "table_cell"]
 
         assert len(cells) == 24
@@ -498,7 +520,7 @@ class TestTableSplitIntoCells:
                 {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(10, 13)}
             ],
         }
-        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru", legacy_uniform=True)
         rows = [b for b in blocks if b["type"] == "table_row"]
         cells = [b for b in blocks if b["type"] == "table_cell"]
 
@@ -583,7 +605,7 @@ class TestTableSplitIntoCells:
                 }
             ],
         }
-        blocks = build_positioned_blocks([_page(22, layout=layout)], bbox_backend="mineru")
+        blocks = build_positioned_blocks([_page(22, layout=layout)], bbox_backend="mineru", legacy_uniform=True)
         cells = [b for b in blocks if b["type"] == "table_cell"]
 
         assert len(cells) == 12
@@ -629,7 +651,7 @@ class TestTableSplitTrustworthiness:
     )
 
     @staticmethod
-    def _blocks(page_no: int, bbox: list[int], body: str) -> list[Any]:
+    def _blocks(page_no: int, bbox: list[int], body: str, *, legacy_uniform: bool = False) -> list[Any]:
         from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
 
         layout = {
@@ -637,7 +659,14 @@ class TestTableSplitTrustworthiness:
             "height": 1000,
             "blocks": [{"type": "table", "text": "整页表格", "bbox": bbox, "table_body": body}],
         }
-        return build_positioned_blocks([_page(page_no, layout=layout)], bbox_backend="mineru")
+        return build_positioned_blocks(
+            [_page(page_no, layout=layout)], bbox_backend="mineru", legacy_uniform=legacy_uniform
+        )
+
+    @classmethod
+    def _blocks_uniform(cls, page_no: int, bbox: list[int], body: str) -> list[Any]:
+        """同上，但走回滚开关（旧均分路径）——用来证明闸门本身没被改松/改紧。"""
+        return cls._blocks(page_no, bbox, body, legacy_uniform=True)
 
     def test_p29_格子里有图片时整页不拆(self) -> None:
         blocks = self._blocks(29, [19, 9, 960, 818], self._P29)
@@ -678,7 +707,7 @@ class TestTableSplitTrustworthiness:
         12 行以内的真表单，律师确实要逐格点，列宽均等时纵向误差也在 1 行内。
         """
         rows = "".join(f"<tr><td>押品信息</td><td>字段{r}</td><td>输入项</td><td>暂无</td></tr>" for r in range(10))
-        blocks = self._blocks(22, [192, 154, 790, 554], f"<table>{rows}</table>")
+        blocks = self._blocks_uniform(22, [192, 154, 790, 554], f"<table>{rows}</table>")
         cells = [b for b in blocks if b["type"] == "table_cell"]
 
         assert len(cells) == 40
@@ -713,7 +742,8 @@ class TestPrecisionField:
         # exact 仍带 approx=False——老前端读 approx 画实线，与 precision 一致
         assert blocks[0]["rect"]["approx"] is False
 
-    def test_表格拆分行格标_cell(self) -> None:
+    def test_均分回滚路径的格子标_cell(self) -> None:
+        """``cell`` 现在只在回滚开关打开时出现（默认走 ``grid`` 或整表框 ``page``）。"""
         from apps.pdf_splitting.services.split.markdown_builder import build_positioned_blocks
 
         layout = {
@@ -723,7 +753,7 @@ class TestPrecisionField:
                 {"type": "table", "text": "x" * 100, "bbox": [100, 100, 900, 900], "table_body": self._html(6, 4)}
             ],
         }
-        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru")
+        blocks = build_positioned_blocks([_page(1, layout=layout)], bbox_backend="mineru", legacy_uniform=True)
 
         assert all(b["rect"]["precision"] == "cell" for b in blocks)
         assert all(b["rect"]["approx"] is True for b in blocks)

@@ -39,7 +39,7 @@ import logging
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
 
@@ -48,6 +48,9 @@ from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus, PdfSplitSt
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 
 from .ocr_handler import OCRStageBudget
+
+if TYPE_CHECKING:  # pragma: no cover - 仅类型检查（运行期不需要，避免拖入几何模块的依赖）
+    from .table_geometry import PageTableGeometry
 
 logger = logging.getLogger("apps.pdf_splitting")
 
@@ -281,6 +284,70 @@ def load_page_quality(storage: PdfSplitStorage) -> dict[str, Any]:
         logger.warning("pdf_split_page_quality_unreadable", extra={"path": str(path)})
         return {}
     return raw if isinstance(raw, dict) else {}
+
+
+def _table_geometry_payload_path(storage: PdfSplitStorage) -> Path:
+    return storage.table_geometry_json_path
+
+
+def save_table_geometry(storage: PdfSplitStorage, payload: dict[str, Any]) -> None:
+    """落盘表格几何产物（逐页逐块量到的真实格子）。
+
+    为什么必须落盘而不是随建随用：``build_segments_markdown`` 有**三个**调用点
+    （两阶段分段 / 单任务分析 / 用户确认后重建），几何必须三处共享同一份；
+    否则「确认分段后点格子又画错」——与 ``bbox_backend`` 踩过的坑同型。
+    产物同时充当缓存：分段重跑命中即跳过，不重复付费调用。
+    """
+    storage.write_json(_table_geometry_payload_path(storage), payload)
+
+
+def load_table_geometry_payload(storage: PdfSplitStorage) -> dict[str, Any]:
+    """读回几何产物**原样**（summary 探针与诊断用）；不存在或损坏返回空表。"""
+    path = _table_geometry_payload_path(storage)
+    try:
+        if not path.exists():
+            return {}
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        logger.warning("pdf_split_table_geometry_unreadable", extra={"path": str(path)})
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def load_table_geometry(storage: PdfSplitStorage) -> dict[int, dict[int, PageTableGeometry]]:
+    """读回几何并解析成定位层直接能吃的映射 ``{页号: {block_index: PageTableGeometry}}``。
+
+    空表 = “没有任何几何”（旧任务/关着开关/整个 pass 失败）→ 定位退回整表框，
+    正文不受影响。
+    """
+    from .table_geometry import geometries_by_page_block
+
+    return geometries_by_page_block(load_table_geometry_payload(storage))
+
+
+def table_geometry_is_stale(storage: PdfSplitStorage) -> bool:
+    """几何产物是否需要重量：缺产物，或产物**早于** ``pages.json``。
+
+    ``pages.json`` 被重写意味着分段输入换了一批（重跑取字），旧的格子坐标
+    与新的版面块已经对不上（页码可能都对，块下标却换了）——按“过期就重量”处理，
+    而不去比内容指纹：几何是定位精度，不值得为此多存一份哈希。
+
+    读不到时间戳时当作过期（宁重量一次，也不用对不上的旧坐标）。
+
+    ⚠️ 落盘顺序是这个判据的前提：产物必须在 ``pages.json`` **之后**写
+    （所以 ``segment_stage`` 不自己存，而是让 ``_persist_analysis`` 统一写）。
+    反过来写的话产物永远比 pages.json 旧，"过期就重量" 会每次都命中，等于没有缓存。
+    """
+    path = _table_geometry_payload_path(storage)
+    pages_path = _pages_payload_path(storage)
+    try:
+        if not path.exists():
+            return True
+        if not pages_path.exists():
+            return False
+        return path.stat().st_mtime < pages_path.stat().st_mtime
+    except OSError:
+        return True
 
 
 def _engine_disagreements_payload_path(storage: PdfSplitStorage) -> Path:

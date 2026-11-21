@@ -825,13 +825,24 @@ def rebuild_confirmed_segments_md(storage: PdfSplitStorage, normalized: list[dic
     ``job.cloud_backend``：后者默认 "auto"，在 ``resolve_bbox_unit`` 里是 unknown，
     拿它当依据会让 positioned 恒空。旧任务没有这份摘要时留空串，坐标降级为不可用——
     与旧行为一致，但正文仍然正确。
+
+    **表格几何也必须在这里读回来**（与分段阶段同口径）：不读的话，律师确认完分段
+    再点格子，格子就退回整表框——“确认后反而变差”比一开始不准更难解释。
     """
-    from apps.pdf_splitting.services.split import two_stage
+    from apps.pdf_splitting.services.split import table_geometry, two_stage
 
     raw_pages = two_stage.load_pages(storage)
     bbox_backend = str(two_stage.load_extract_summary(storage).get("ocr_provider") or "")
     previous = _read_segments_md_entries(storage.segments_md_path)
-    return build_confirmed_segments_md(normalized, raw_pages, bbox_backend=bbox_backend, previous_entries=previous)
+    geometry = two_stage.load_table_geometry(storage)
+    return build_confirmed_segments_md(
+        normalized,
+        raw_pages,
+        bbox_backend=bbox_backend,
+        previous_entries=previous,
+        table_geometry=geometry,
+        legacy_uniform=table_geometry.uniform_fallback_enabled(),
+    )
 
 
 def build_confirmed_segments_md(
@@ -840,6 +851,8 @@ def build_confirmed_segments_md(
     *,
     bbox_backend: str = "",
     previous_entries: list[dict[str, Any]] | None = None,
+    table_geometry: dict[int, dict[int, Any]] | None = None,
+    legacy_uniform: bool = False,
 ) -> list[dict[str, Any]]:
     """纯计算：确认后的段列表 + pages.json → 新的 segments_md 条目。
 
@@ -876,7 +889,14 @@ def build_confirmed_segments_md(
         for order, item in enumerate(normalized, start=1)
     ]
     return attach_quality_flags_to_markdown(
-        build_segments_markdown(drafts, pages, bbox_backend=bbox_backend), detect_inconsistencies(pages)
+        build_segments_markdown(
+            drafts,
+            pages,
+            bbox_backend=bbox_backend,
+            table_geometry=table_geometry,
+            legacy_uniform=legacy_uniform,
+        ),
+        detect_inconsistencies(pages),
     )
 
 
