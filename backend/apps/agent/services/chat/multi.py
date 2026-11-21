@@ -110,6 +110,9 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, cast
 
+from django.core.exceptions import ImproperlyConfigured
+from django.db import DatabaseError
+
 from ...backends import available_kinds
 from ...backends import get as get_backend
 from ...backends.builtin import ensure_registered
@@ -356,7 +359,8 @@ async def _round_key_concurrency(model_hint: str | None) -> int | None:
 
     try:
         settings = await sync_to_async(get_gateway_settings, thread_sensitive=True)(model_hint)
-    except Exception:
+    except (DatabaseError, ImproperlyConfigured, RuntimeError):
+        # 读库失败（连接断 / 迁移未跑 / 配置缺失）：回落默认并发，不打断本轮。
         logger.debug("读取每 Key 并发上限失败，回落到环境变量/默认值", exc_info=True)
         return None
     value = int(getattr(settings, "concurrency_per_key", 0) or 0) if settings is not None else 0

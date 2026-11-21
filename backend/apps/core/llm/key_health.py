@@ -17,7 +17,8 @@
 
 缓存抖动/不可用时，健康查询必须返回「健康」、代次查询返回「不变」。Fail-closed
 会让一次 Redis 抖动把整个 Key 池判死——那比读不到状态糟糕得多。所有函数内部
-`except Exception` 吞掉并 debug 记录。
+``CACHE_ERRORS``（缓存层可预期失败）吞掉并 debug 记录——**不用宽捕获**，
+让「降级」与「随手吞异常」在代码上可区分（棘轮才有信号）。
 
 ## 红线二：Key 明文与可枚举指纹都不进缓存键
 
@@ -41,6 +42,8 @@ import re
 import time
 from dataclasses import dataclass
 from typing import Any
+
+from apps.core.infrastructure.cache import CACHE_ERRORS
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +77,7 @@ def _cache() -> Any | None:
         from django.core.cache import cache
 
         return cache
-    except Exception:  # pragma: no cover - Django 未就绪（脚本/单测早期）
+    except CACHE_ERRORS:  # pragma: no cover - Django 未就绪（脚本/单测早期）
         logger.debug("Django cache 不可用，Key 健康降级为进程内", exc_info=True)
         return None
 
@@ -85,7 +88,7 @@ def _key_id(api_key: str) -> str:
         from apps.core.infrastructure.cache import _hash_key_component
 
         return _hash_key_component(api_key)
-    except Exception:  # pragma: no cover - 极端降级：用长度占位（不同 Key 会撞，但只影响健康判定）
+    except CACHE_ERRORS:  # pragma: no cover - 极端降级：用长度占位（不同 Key 会撞，但只影响健康判定）
         logger.debug("HMAC 派生失败，健康键退化为长度占位", exc_info=True)
         return f"len{len(api_key or '')}"
 
@@ -123,7 +126,7 @@ def config_generation() -> int:
         return 0
     try:
         return int(cache.get(CONFIG_GENERATION_KEY) or 0)
-    except Exception:
+    except CACHE_ERRORS:
         logger.debug("读取配置代次失败（按 0 处理）", exc_info=True)
         return 0
 
@@ -137,7 +140,7 @@ def bump_config_generation() -> int:
         # add 失败（键不存在时置 0）再 incr，避免第一次 incr 抛 ValueError
         cache.add(CONFIG_GENERATION_KEY, 0, timeout=None)
         return int(cache.incr(CONFIG_GENERATION_KEY))
-    except Exception:
+    except CACHE_ERRORS:
         logger.debug("递增配置代次失败（其它进程只能等 TTL）", exc_info=True)
         return 0
 
@@ -153,7 +156,7 @@ def mark_cooling(provider: str, api_key: str, seconds: float, reason: str) -> No
     payload = {"until": time.time() + float(seconds), "reason": (reason or "")[:120]}
     try:
         cache.set(_health_key(provider, api_key), payload, timeout=max(1, int(seconds)))
-    except Exception:
+    except CACHE_ERRORS:
         logger.debug("写 Key 冷却状态失败（仅本进程内生效）", exc_info=True)
 
 
@@ -164,7 +167,7 @@ def clear_cooling(provider: str, api_key: str) -> None:
         return
     try:
         cache.delete(_health_key(provider, api_key))
-    except Exception:
+    except CACHE_ERRORS:
         logger.debug("清除 Key 冷却状态失败", exc_info=True)
 
 
@@ -175,7 +178,7 @@ def get_health(provider: str, api_key: str) -> KeyHealth:
         return KeyHealth(remaining=_HEALTHY, reason="")
     try:
         payload = cache.get(_health_key(provider, api_key))
-    except Exception:
+    except CACHE_ERRORS:
         logger.debug("读 Key 健康状态失败（按健康处理）", exc_info=True)
         return KeyHealth(remaining=_HEALTHY, reason="")
     if not isinstance(payload, dict):
@@ -194,7 +197,7 @@ def cooling_map(provider: str, api_keys: list[str]) -> dict[str, KeyHealth]:
     keys = [_health_key(provider, key) for key in api_keys]
     try:
         payloads = cache.get_many(keys)
-    except Exception:
+    except CACHE_ERRORS:
         logger.debug("批量读 Key 健康失败（按全部健康处理）", exc_info=True)
         return {}
     now = time.time()

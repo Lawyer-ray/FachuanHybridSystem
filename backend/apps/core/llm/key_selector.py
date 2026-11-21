@@ -27,6 +27,8 @@ from __future__ import annotations
 import itertools
 import logging
 
+from apps.core.infrastructure.cache import CACHE_ERRORS
+
 logger = logging.getLogger(__name__)
 
 #: 进程内轮转计数（``next()`` 在 CPython 下原子，无需锁）。
@@ -65,7 +67,7 @@ def select_key(api_keys: list[str], provider: str = "") -> str:
                     )
                     healthy = survivors
                 # survivors 为空 = 全部冷却 → 保持全量轮转（fail-open，见模块 docstring）
-        except Exception:  # pragma: no cover - 缓存不可用则按全健康处理
+        except CACHE_ERRORS:  # pragma: no cover - 缓存不可用则按全健康处理
             logger.debug("读取跨进程 Key 健康失败，按全健康轮转", exc_info=True)
 
     return healthy[next(_rotation) % len(healthy)]

@@ -36,6 +36,8 @@ from typing import Any
 
 import httpx
 
+from apps.core.infrastructure.cache import CACHE_ERRORS
+
 logger = logging.getLogger(__name__)
 
 #: 只有这些状态码说明「这把 Key 本身有问题」，才值得冷却（LiteLLM 白名单微调版）。
@@ -293,7 +295,7 @@ class KeyPool:
             from apps.core.llm.key_health import cooling_map
 
             return dict(cooling_map(self.provider, self.keys))
-        except Exception:  # pragma: no cover - 缓存/Django 不可用时降级为进程内
+        except CACHE_ERRORS:  # pragma: no cover - 缓存/Django 不可用时降级为进程内
             logger.debug("跨进程 Key 健康不可用，仅用进程内冷却", exc_info=True)
             return {}
 
@@ -304,7 +306,7 @@ class KeyPool:
             from apps.core.llm.key_health import mark_cooling
 
             mark_cooling(self.provider, api_key, seconds, reason)
-        except Exception:  # pragma: no cover
+        except CACHE_ERRORS:  # pragma: no cover
             logger.debug("写跨进程 Key 健康失败", exc_info=True)
 
     def _clear_shared(self, api_key: str) -> None:
@@ -314,7 +316,7 @@ class KeyPool:
             from apps.core.llm.key_health import clear_cooling
 
             clear_cooling(self.provider, api_key)
-        except Exception:  # pragma: no cover
+        except CACHE_ERRORS:  # pragma: no cover
             logger.debug("清跨进程 Key 健康失败", exc_info=True)
 
     def is_cooling(self, idx: int, model: str = "") -> bool:

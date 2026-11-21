@@ -42,6 +42,11 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from django.core.exceptions import ImproperlyConfigured
+from django.db import DatabaseError
+
+from apps.core.infrastructure.cache import CACHE_ERRORS
+
 logger = logging.getLogger(__name__)
 
 #: 缓存默认存活时间（秒）。取值理由见模块 docstring：既要挡住「每轮一次同步
@@ -226,7 +231,7 @@ def _config_generation() -> int:
         from apps.core.llm.key_health import config_generation
 
         return config_generation()
-    except Exception:  # pragma: no cover - 缓存/Django 不可用时只靠 TTL
+    except CACHE_ERRORS:  # pragma: no cover - 缓存/Django 不可用时只靠 TTL
         return 0
 
 
@@ -249,7 +254,7 @@ def invalidate_gateway_cache(**_kwargs: object) -> None:
         from apps.core.llm.key_health import bump_config_generation
 
         bump_config_generation()
-    except Exception:  # pragma: no cover - 缓存不可用时只清本进程
+    except CACHE_ERRORS:  # pragma: no cover - 缓存不可用时只清本进程
         logger.debug("递增配置代次失败，仅本进程缓存生效", exc_info=True)
         _generation += 1
 
@@ -292,7 +297,7 @@ async def load_api_keys(model_hint: str | None) -> tuple[str, ...]:
 
     try:
         settings = await sync_to_async(get_gateway_settings, thread_sensitive=True)(model_hint)
-    except Exception:
+    except (DatabaseError, ImproperlyConfigured, RuntimeError):
         logger.warning("读取网关配置失败，本轮沿用后端自己的 key 轮转", exc_info=True)
         return ()
     if settings is None:
@@ -303,7 +308,7 @@ async def load_api_keys(model_hint: str | None) -> tuple[str, ...]:
         from apps.core.llm.key_health import cooling_map
 
         cooling = cooling_map(settings.name, list(settings.api_keys)) if settings.name else {}
-    except Exception:  # pragma: no cover
+    except CACHE_ERRORS:  # pragma: no cover
         cooling = {}
     if cooling:
         survivors = tuple(key for key in settings.api_keys if key not in cooling)

@@ -21,6 +21,33 @@ def _safe_get_config(key: str, default: Any | None = None) -> Any:
         return default
 
 
+#: 缓存层「可预期失败」的类型集合（fail-open 的**显式**声明）。
+#:
+#: 为什么需要它：Key 健康 / 网关缓存这类**可选子系统**的契约是 fail-open
+#: （见 ``apps/core/llm/key_health.py`` 红线一）——缓存抖动绝不能把 Key 池判死，
+#: 更不能让律师看到 500。以前这些位置一律写宽捕获，但那让「宽异常捕获棘轮」
+#: （``tests/ci/structure/test_exception_ratchet.py``）失去信号：分不清「深思后的
+#: 降级」与「随手吞掉」。
+#:
+#: 收敛成一个具名元组后：类型仍然覆盖缓存层的真实失败模式，而每处调用点都变成
+#: 「我明确知道我在吞什么」。新增失败模式就往这里加，不要回退到宽捕获。
+CACHE_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,  # 连接被拒 / 超时（Redis、socket）
+    ValueError,  # 反序列化 / incr 非数字 / 非法 TTL
+    TypeError,  # 配置形状不对
+    KeyError,  # 客户端内部取值失败
+    AttributeError,  # 后端对象不完整（Django 未就绪）
+    RuntimeError,  # 「cache 未配置」等运行时错误
+    ImportError,  # 可选依赖 / Django app 未加载
+)
+try:  # pragma: no cover - redis 一定装了（RedisCache 依赖）
+    from redis.exceptions import RedisError as _RedisError
+
+    CACHE_ERRORS = (*CACHE_ERRORS, _RedisError)
+except ImportError:  # pragma: no cover
+    pass
+
+
 def _hash_key_component(value: str) -> str:
     import hashlib
     import hmac
