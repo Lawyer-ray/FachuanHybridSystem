@@ -81,6 +81,13 @@ repos:
         language: python
         types: [python]
 
+      - id: forbid-new-broad-except
+        name: Forbid new broad except Exception
+        description: 新增宽异常捕获必须同时删掉一条（全仓棘轮只许下调，不许上调）。
+        entry: python backend/devtools/security_guard.py --check broad-except --mode staged
+        language: python
+        types: [python]
+
       - id: forbid-added-print
         name: Forbid added print/pprint
         entry: python backend/devtools/security_guard.py --check print --mode staged

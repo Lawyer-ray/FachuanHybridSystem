@@ -201,6 +201,64 @@ def _check_todo(filepath: str, mode: str, base: str | None, head: str) -> list[s
     return errors
 
 
+#: 宽异常捕获：只按**暂存差异**看净增，不去碰仓库里的历史存量。
+#:
+#: 为什么不看全仓计数：仓库有一道全局棘轮
+#: （``tests/ci/structure/test_exception_ratchet.py``，基线 1602 且**只许下调**），
+#: 但它只在跑单测时才发现——而多会话并行改同一分支时，别人提交的宽 except
+#: 会把主线顶红，让「谁加的最后没人知道」（2026-11-21 实测：域外法线两处
+#: ``except Exception`` 让棘轮 1604 > 1602，卡住所有人的 ``make pr-ready``）。
+#: 改成在**提交那一刻**按人按差异拦：本次新增了宽 except 就必须同时删掉一条，
+#: 否则先收窄再提交。存量再怎么变都不会被这道钩子打扰。
+BROAD_EXCEPT_PATTERN = re.compile(r"^\s*except\s+Exception\b")
+
+
+def _check_broad_except(filepath: str, mode: str, base: str | None, head: str) -> list[str]:
+    """新增宽 ``except Exception`` 而没同时减少一条 → 报错。
+
+    只对 ``backend/apps/**`` 与 ``backend/mcp_server/**`` 生效（测试里的
+    ``pytest.raises(Exception)`` 不算，所以按行首 ``except`` 匹配）。
+    """
+    normalized = filepath.replace("\\", "/")
+    if not (
+        normalized.startswith("apps/")
+        or normalized.startswith("mcp_server/")
+        or "/apps/" in normalized
+        or "/mcp_server/" in normalized
+    ):
+        return []
+    if mode == "staged":
+        diff = _run_git(["git", "diff", "--cached", "-U0", "--", filepath])
+    elif base:
+        diff = _run_git(["git", "diff", f"{base}..{head}", "-U0", "--", filepath])
+    else:
+        return []
+    added: list[tuple[int, str]] = []
+    removed = 0
+    current_line = 0
+    for line in diff.splitlines():
+        if line.startswith("@@"):
+            match = re.search(r"\+(\d+)", line)
+            if match:
+                current_line = int(match.group(1)) - 1
+            continue
+        if line.startswith("+") and not line.startswith("+++"):
+            current_line += 1
+            if BROAD_EXCEPT_PATTERN.match(line[1:]):
+                added.append((current_line, line[1:].strip()))
+            continue
+        if line.startswith("-") and not line.startswith("---"):
+            if BROAD_EXCEPT_PATTERN.match(line[1:]):
+                removed += 1
+    if len(added) <= removed:
+        return []
+    return [
+        f"{filepath}:{lineno}: 新增宽异常捕获（本次 +{len(added)} / -{removed}）："
+        "换成具体类型，或同时删掉一条旧的（棘轮只许下调）"
+        for lineno, _content in added[removed:]
+    ]
+
+
 #: 允许 ``print`` 的路径前缀：这些是**命令行验收/诊断工具**，stdout 就是它们的
 #: 输出接口。改成 logger 反而会让用法退化（要配 handler 才有输出，且格式变成
 #: "INFO: ..."），而它们的使用方式是「跑一遍、把输出贴进验收报告」。
@@ -621,7 +679,15 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--check",
-        choices=["todo", "print", "binary-ext", "private-path", "sensitive", "llm-privacy"],
+        choices=[
+            "todo",
+            "print",
+            "binary-ext",
+            "private-path",
+            "sensitive",
+            "llm-privacy",
+            "broad-except",
+        ],
         required=True,
     )
     parser.add_argument("--mode", choices=["staged", "range", "all"], default="staged")
@@ -647,7 +713,9 @@ def main() -> None:
         all_errors.extend(errors)
     else:
         for filepath in args.files:
-            if args.check == "todo":
+            if args.check == "broad-except":
+                all_errors.extend(_check_broad_except(filepath, args.mode, args.base, args.head))
+            elif args.check == "todo":
                 all_errors.extend(_check_todo(filepath, args.mode, args.base, args.head))
             else:
                 all_errors.extend(_check_print(filepath, args.mode, args.base, args.head))
