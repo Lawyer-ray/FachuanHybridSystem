@@ -134,6 +134,25 @@ describe('成功路径', () => {
     expect(screen.queryByText('待判断层比对')).toBeNull()
   })
 
+  it('时效告警与非空时必须展示（生效日晚于引用时点这类问题不能藏起来）', async () => {
+    apiMock.verifyThaiLaw.mockResolvedValue(
+      okResult({
+        verdict: '支持',
+        adjudicated: true,
+        effective_date: '2020-01-01',
+        version_warnings: ['该法生效日 2020-01-01 晚于引用时点 2019-06-01，当时尚未生效'],
+        source_url: 'https://barlc.swupl.edu.cn/Detail?dbID=9&dbName=LAW&sysID=538',
+      }),
+    )
+    render(<ForeignLawVerifyCard />)
+    fireEvent.click(screen.getByRole('button', { name: /核验这 3 条/ }))
+    await waitFor(() => expect(screen.getAllByText('生效版本提示')).toHaveLength(3))
+    expect(
+      screen.getAllByText('· 该法生效日 2020-01-01 晚于引用时点 2019-06-01，当时尚未生效'),
+    ).toHaveLength(3)
+    expect(screen.getAllByText('原站打开')).toHaveLength(3)
+  })
+
   it('有 trace 时渲染 MCP 调用轨迹（看得出真连了 BARLC）', async () => {
     apiMock.verifyThaiLaw.mockResolvedValue(
       okResult({

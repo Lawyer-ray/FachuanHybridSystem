@@ -37,6 +37,13 @@ class ForeignLawVerifyIn(BaseModel):
         pattern=f"^$|{_COUNTRY_CODE_PATTERN}",
         description="BARLC 国别代码，如 LAWCOUNTRYTG（泰国）；留空则全东盟检索",
     )
+    as_of_date: str = Field(
+        default="",
+        max_length=10,
+        description="引用时点（YYYY-MM-DD），如合同签署日或争议发生时点；给了才做时效比对",
+    )
+    contract_id: int | None = Field(default=None, description="关联合同 id（仅用于留痕归类，可空）")
+    citation_anchor: str = Field(default="", max_length=128, description="合同内的锚点，如「第三条 租金」（可空）")
 
 
 class ForeignLawVerifyOut(BaseModel):
@@ -77,8 +84,17 @@ class ForeignLawVerifyOut(BaseModel):
     elements: list[dict[str, Any]] = []
     #: 判定器摘要（不含自由文本，避免白吃上下文）。
     votes: list[dict[str, Any]] = []
-    #: 合议消耗的 token（与生成本分开记）。
+    #: 合议消耗的 token（与生成本分开记）。`cached=True` 时是上次的成本，不可重复求和。
     jury_tokens: int = 0
+    #: 合议结果是否来自缓存。
+    cached: bool = False
+    # ---- 溯源与生效版本（申报书要求「注明国别、名称及生效版本」）--------------
+    #: 该法在 BARLC（公开学术平台的代码内简称）的详情页地址，给律师点回原页。
+    source_url: str = ""  # privacy-allow BARLC 是公开学术平台缩写，非客户机构
+    effective_date: str = ""
+    revise_date: str = ""
+    #: 时效告警。非空时前端**必须**原样展示（如「生效日晚于引用时点」）。
+    version_warnings: list[str] = []
     # 失败时 asean_law_* 回带的结构化原因（reason 枚举 + detail 原文）
     detail: str = ""
     # 调用轨迹：接入 → 登录 → 检索 → 取正文 → 切条款 → 取原文

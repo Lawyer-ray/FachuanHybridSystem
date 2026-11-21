@@ -546,3 +546,135 @@ def test_run_jury_requires_claim() -> None:
 def test_parsed_vote_defaults() -> None:
     assert ParsedVote().scored is False
     assert ParsedVote(verdict=VERDICT_SUPPORTED).scored is True
+
+
+# ---------------------------------------------------------------- 纯数字体例（印度法系）
+
+
+def test_numeric_style_rejects_bullet_list() -> None:
+    from plugins.barlc_asean_law.adapter import _SECTION_NUMERIC_RE, _numeric_style_plausible
+
+    bullets = "Heading\n1. first bullet\n2. second bullet\nNote\n5. unrelated\n"
+    assert _numeric_style_plausible(list(_SECTION_NUMERIC_RE.finditer(bullets)), bullets) is False
+
+
+def test_numeric_style_accepts_long_articles() -> None:
+    from plugins.barlc_asean_law.adapter import _SECTION_NUMERIC_RE, _numeric_style_plausible
+
+    line = "In this Act, unless there is anything repugnant in the subject or context, the provisions apply."
+    text = "PRELIMINARY.\n" + "\n".join(f"{i}. {line}" for i in range(1, 12))
+    assert _numeric_style_plausible(list(_SECTION_NUMERIC_RE.finditer(text)), text) is True
+    assert len(BarlcAdapter.split_sections(text, lang="en")) == 11
+
+
+def test_numeric_style_preferred_when_article_split_is_degenerate() -> None:
+    """实测柬埔寨：Article 只在正文交叉引用处出现 → 37 条、中位段长 1 万字；数字体例 1296 条。"""
+    from plugins.barlc_asean_law.adapter import _SECTION_EN_RE, _SECTION_NUMERIC_RE, _numeric_preferred
+
+    body = "This is a long article body. " * 400
+    text = "".join(
+        f"Article {i} (cross reference),\n"
+        + "".join(f"{i * 10 + k}. Real article heading\n{body}\n" for k in range(1, 6))
+        for i in range(1, 5)
+    )
+    primary = list(_SECTION_EN_RE.finditer(text))
+    numeric = list(_SECTION_NUMERIC_RE.finditer(text))
+    assert _numeric_preferred(primary, numeric, text) is True
+    sections = BarlcAdapter.split_sections(text, lang="en")
+    # 改选数字体例：条数等于数字头条数，且没有一条是中位段长 5 万字的粘连块
+    assert len(sections) == len(numeric) == 20
+    assert sections[0].number == "11"
+
+
+# ---------------------------------------------------------------- 按款引用
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"), [("4(2)", "2"), ("第4条第2款", "2"), ("第七条第（三）项", "3"), ("4", "")]
+)
+def test_subclause_of(raw: str, expected: str) -> None:
+    assert BarlcAdapter.subclause_of(raw) == expected
+
+
+def test_find_section_degrades_subclause_to_article() -> None:
+    sections = [LawSection(number="4", text="Section 4. Rental must be in writing. (1) ... (2) ...")]
+    found = BarlcAdapter.find_section(sections, "第4条第2款")
+    assert found is sections[0]
+
+
+# ---------------------------------------------------------------- 生效版本
+
+
+def _detail_with_dates(effective: str | None, revise: str | None) -> LawDetail:
+    base = _detail()
+    return LawDetail(
+        **{
+            **{
+                name: getattr(base, name)
+                for name in base.__dataclass_fields__
+                if name not in {"effective_date", "revise_date"}
+            },
+            "effective_date": effective,
+            "revise_date": revise,
+        }
+    )
+
+
+def test_version_warnings_flags_not_yet_effective() -> None:
+    from plugins.barlc_asean_law.verify import _version_warnings
+
+    warnings = _version_warnings(_detail_with_dates("2020-01-01", None), "2019-06-01")
+    assert warnings and "尚未生效" in warnings[0]
+
+
+def test_version_warnings_flags_later_revision() -> None:
+    from plugins.barlc_asean_law.verify import _version_warnings
+
+    warnings = _version_warnings(_detail_with_dates("2010-01-01", "2022-05-05"), "2020-01-01")
+    assert warnings and "应适用旧版" in warnings[0]
+
+
+def test_version_warnings_never_claims_validity() -> None:
+    """BARLC 没有「是否现行有效」字段，没时点又没有修订时不许产生任何结论。"""
+    from plugins.barlc_asean_law.verify import _version_warnings
+
+    assert _version_warnings(_detail_with_dates("2010-01-01", None), "") == ()
+    assert _version_warnings(_detail_with_dates(None, None), "2020-01-01") == ()
+
+
+def test_version_warnings_rejects_non_iso_date() -> None:
+    from plugins.barlc_asean_law.verify import _version_warnings
+
+    warnings = _version_warnings(_detail_with_dates("2010-01-01", None), "2020年1月")
+    assert warnings and "不是 YYYY-MM-DD" in warnings[0]
+
+
+# ---------------------------------------------------------------- 上下文窗口
+
+
+def test_neighbour_text_returns_adjacent_sections_only() -> None:
+    from plugins.barlc_asean_law.verify import _neighbour_text
+
+    sections = [LawSection(number=n, text=f"Section {n}. text") for n in ("1", "2", "3")]
+    before, after = _neighbour_text(sections, sections[1])
+    assert before.startswith("Section 1.")
+    assert after.startswith("Section 3.")
+    assert _neighbour_text(sections, sections[0])[0] == ""
+    assert _neighbour_text(sections, sections[-1])[1] == ""
+
+
+# ---------------------------------------------------------------- 国别码校验
+
+
+def test_unknown_country_is_rejected_with_valid_codes() -> None:
+    from plugins.barlc_asean_law.models import BarlcUnknownCountry
+
+    class _CountryAdapter(_FakeAdapter):
+        def known_country_codes(self):
+            return {"LAWCOUNTRYTG", "LAWCOUNTRYMLXY"}
+
+    verifier = JudicialVerifier(_CountryAdapter())
+    with pytest.raises(BarlcUnknownCountry) as excinfo:
+        verifier.resolve_law(CRED, law_name="Civil Code", country_code="LAWCOUNTRYMY")
+    assert "LAWCOUNTRYMLXY" in str(excinfo.value)
+    assert excinfo.value.country_code == "LAWCOUNTRYMY"

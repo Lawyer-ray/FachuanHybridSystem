@@ -84,6 +84,15 @@ export interface ForeignLawVerifyResult {
   elements?: ForeignLawElement[]
   votes?: ForeignLawVote[]
   jury_tokens?: number
+  /** 合议结果来自缓存（此时 jury_tokens 是上次的成本） */
+  cached?: boolean
+  // ---- 溯源与生效版本 ----
+  /** BARLC 详情页，给律师点回原页 */
+  source_url?: string
+  effective_date?: string
+  revise_date?: string
+  /** 时效告警。非空时必须原样展示 */
+  version_warnings?: string[]
   /** @deprecated 判定已在插件里做完，只在合议关闭时才为 true */
   needs_model_judgement?: boolean
   claim?: string

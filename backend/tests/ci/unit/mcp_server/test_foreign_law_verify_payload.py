@@ -56,6 +56,11 @@ REQUIRED_KEYS = {
     "elements",
     "votes",
     "jury_tokens",
+    "cached",
+    "source_url",
+    "effective_date",
+    "revise_date",
+    "version_warnings",
 }
 
 
@@ -101,6 +106,10 @@ class _FakeAdapter:
     @staticmethod
     def find_section(sections, number):
         return BarlcAdapter.find_section(sections, number)
+
+    @staticmethod
+    def known_country_codes():
+        return {"LAWCOUNTRYTG", "LAWCOUNTRYMLXY"}
 
 
 def _judge_answer(elements: list[tuple[str, str]]) -> str:
@@ -232,3 +241,52 @@ def test_not_found_still_reported_as_not_found(wired, monkeypatch) -> None:
     assert result["verdict"] == "不存在该引用"
     assert result["unconfirmed"] is False
     assert result["needs_model_judgement"] is False
+
+
+def test_unknown_country_returns_valid_codes(wired, monkeypatch) -> None:
+    """国别码猜错要报参数错 + 合法清单，不能报成「查无此法」。"""
+    # 适配器认得的是 LAWCOUNTRYTG / LAWCOUNTRYMLXY，请求却传了 LAWCOUNTRYMY
+
+    result = asean_law.asean_law_verify(
+        law_name="Contracts Act",
+        section_number="1",
+        country_code="LAWCOUNTRYMY",
+    )
+
+    assert result["ok"] is False
+    assert result["reason"] == "unknown_country"
+    assert "LAWCOUNTRYMLXY" in result["valid_country_codes"]
+
+
+def test_as_of_date_is_forwarded_and_surfaces_warnings(wired, monkeypatch) -> None:
+    """给了引用时点就必须做时效比对，并把告警带回工具返回值。"""
+    import json
+
+    from plugins.barlc_asean_law.models import LawDetail
+
+    original = wired.get_detail
+
+    def _detail_before_effective(*args, **kwargs):
+        base = original(*args, **kwargs)
+        payload = {name: getattr(base, name) for name in base.__dataclass_fields__}
+        payload["effective_date"] = "2020-01-01"
+        return LawDetail(**payload)
+
+    monkeypatch.setattr(wired, "get_detail", _detail_before_effective)
+    answer = json.dumps(
+        {"elements": [{"statement": "必须书面", "verdict": "支持", "reason": ""}], "quote": ""},
+        ensure_ascii=False,
+    )
+    monkeypatch.setattr(jury_module, "llm_judge_call", lambda prompt, model, role: (answer, 10))
+
+    result = asean_law.asean_law_verify(
+        law_name="Rental of Immovable Property for Commerce and Industry Act",
+        section_number="4",
+        claim="租赁必须书面",
+        country_code="LAWCOUNTRYTG",
+        as_of_date="2019-06-01",
+    )
+
+    assert result["effective_date"] == "2020-01-01"
+    assert any("尚未生效" in warning for warning in result["version_warnings"])
+    assert result["source_url"].endswith("sysID=321381")

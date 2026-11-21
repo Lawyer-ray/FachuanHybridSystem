@@ -49,6 +49,15 @@ _SEARCH_TIMEOUT_SECONDS = 20.0
 _COUNTRIES_TIMEOUT_SECONDS = 15.0
 
 
+def _current_lawyer_id(request: Any) -> int | None:
+    """从请求里取当前律师 id（取不到返回 None，不阻断核验）。"""
+    try:
+        user = getattr(request, "auth", None) or getattr(request, "user", None)
+        return int(getattr(user, "id", 0) or 0) or None
+    except Exception:  # 匿名/服务账号/自定义 auth 对象：留痕记 None 即可
+        return None
+
+
 def _call_foreign_law_tool(
     tool_name: str,
     kwargs: dict[str, Any],
@@ -113,6 +122,7 @@ def verify_foreign_law(request: Any, payload: ForeignLawVerifyIn) -> dict[str, A
             "section_number": payload.section_number,
             "claim": payload.claim,
             "country_code": payload.country_code,
+            "as_of_date": payload.as_of_date,
         },
         timeout=_VERIFY_TIMEOUT_SECONDS,
     )
@@ -128,6 +138,16 @@ def verify_foreign_law(request: Any, payload: ForeignLawVerifyIn) -> dict[str, A
         law_title=str(result.get("law_title") or ""),
         section_text=str(result.get("section_text") or ""),
         reason=str(result.get("reason") or ""),
+        total_ms=total_ms,
+    )
+
+    # 留痕：旁路写入，失败不影响返回（见 service 的 docstring）。
+    from apps.legal_research.services.foreign_law_verification_service import record_verification
+
+    record_verification(
+        lawyer_id=_current_lawyer_id(request),
+        payload=payload.model_dump(),
+        result=result,
         total_ms=total_ms,
     )
     return result

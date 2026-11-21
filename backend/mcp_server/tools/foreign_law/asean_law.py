@@ -139,7 +139,8 @@ def asean_law_search(
 
     Returns:
         {"ok": true, "total": N, "hits": [{"sys_id","title_cn","title_en",
-         "title_local","publish_date","effective_date"}, ...]}
+         "title_local","publish_date","effective_date","country_code",
+         "source_url"}, ...]}
 
     Note:
         `QUANWEN` 命中只说明全库某处词频出现，**不等于**某个法条支持该主张。
@@ -157,6 +158,8 @@ def asean_law_search(
             detail="检索关键词不能为空。空查询会返回全库数据，请给出具体的法律名称或术语。",
         )
 
+    from plugins.barlc_asean_law.models import BarlcUnknownCountry
+
     try:
         total, hits = adapter.search(
             credential,
@@ -166,6 +169,8 @@ def asean_law_search(
             page=page,
             page_size=page_size,
         )
+    except BarlcUnknownCountry as exc:
+        return _unknown_country_failure(exc)
     except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         logger.warning("BARLC 检索失败 keyword=%s: %s", keyword, exc)
         return _tool_result(ok=False, reason="search_failed", detail=str(exc))
@@ -182,6 +187,9 @@ def asean_law_search(
                 "title_local": hit.title_local,
                 "publish_date": hit.publish_date,
                 "effective_date": hit.effective_date,
+                "revise_date": hit.revise_date,
+                "country_code": hit.country_code,
+                "source_url": adapter.law_url(hit.sys_id),
             }
             for hit in hits
         ],
@@ -229,6 +237,7 @@ def asean_law_read(
         "title_en": detail.title_en,
         "title_local": detail.title_local,
         "effective_date": detail.effective_date,
+        "revise_date": detail.revise_date,
         "publish_date": detail.publish_date,
         "country_code": detail.country_code,
         "law_category": detail.law_category,
@@ -299,6 +308,7 @@ def asean_law_verify(
     section_number: str = "",
     claim: str = "",
     country_code: str = "",
+    as_of_date: str = "",
 ) -> dict[str, Any]:
     """核验一条域外法引用是否成立（JEV 判断层的入口）。
 
@@ -312,6 +322,12 @@ def asean_law_verify(
         claim: 该引用所要支持的主张，如「租赁合同必须书面并登记」。
             留空则只核验条款是否存在，不做内容比对。
         country_code: 国别代码，用于缩小检索范围。留空则全东盟检索。
+            **必须是 BARLC 的代码**（不是 ISO 缩写）：泰国 `LAWCOUNTRYTG`、
+            越南 `LAWCOUNTRYYN`、马来西亚 `LAWCOUNTRYMLXY`、菲律宾 `LAWCOUNTRYFLB`。
+            传错会得到 `reason="unknown_country"` 与合法清单，而不是空的检索结果。
+        as_of_date: 引用的**时点**（ISO `YYYY-MM-DD`），如合同签署日或争议发生时点。
+            给了就校验「该法当时是否已生效 / 所引版本是否还没修订」，结论进
+            `version_warnings`。留空则只回带版本元数据。
 
     Returns:
         {"ok": true,
@@ -339,6 +355,9 @@ def asean_law_verify(
         | `agreement` | 最高票/有效票；无有效票时为 null |
         | `votes` | 每个判定器的摘要（**不含**自由文本，只能看判定面） |
         | `matched_by` | 怎么定位到这部法的；`ambiguous` 表示名称没认准 |
+        | `source_url` | 该法在 BARLC 的详情页，给律师点回原页 |
+        | `effective_date` / `revise_date` | 生效日/修订日（ISO 日期串） |
+        | `version_warnings` | 时效告警。**非空时必须原样转达给律师** |
 
         `verdict == "不存在该引用"` 是规则层直接判定，不消耗模型调用：
         法律检索不到、正文不可读、条款号超出范围，都归入此类。
@@ -351,6 +370,7 @@ def asean_law_verify(
     except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         return _credential_failure(exc)
 
+    from plugins.barlc_asean_law.models import BarlcUnknownCountry
     from plugins.barlc_asean_law.verify import CitationRequest, JudicialVerifier
 
     try:
@@ -362,8 +382,11 @@ def asean_law_verify(
                 section_number=str(section_number or ""),
                 claim=str(claim or ""),
                 country_code=country_code or None,
+                as_of_date=str(as_of_date or ""),
             ),
         )
+    except BarlcUnknownCountry as exc:
+        return _unknown_country_failure(exc)
     except Exception as exc:  # 降级返回结构化失败，见 test_error_semantics 豁免表
         logger.warning("引用核验失败 law=%s: %s", law_name, exc)
         return _tool_result(ok=False, reason="verify_failed", detail=str(exc))
@@ -386,11 +409,33 @@ def asean_law_verify(
         review_reasons=list(check.review_reasons),
         agreement=check.agreement,
         matched_by=check.matched_by,
+        # 溯源与版本（申报书要求「注明国别、名称及生效版本」）。
+        source_url=check.source_url,
+        effective_date=check.effective_date,
+        revise_date=check.revise_date,
+        version_warnings=list(check.version_warnings),
         # 逐要件判定：律师问「哪一项没依据」时，答案在这里。
         elements=list(check.elements),
         # 判定器摘要（不含 quote/解释，避免白吃模型上下文）。
         votes=list(check.votes),
         jury_tokens=check.jury_tokens,
+        # 缓存命中时 jury_tokens 是上次的成本，统计时必须能过滤掉。
+        cached=check.cached,
+    )
+
+
+def _unknown_country_failure(exc: Any) -> dict[str, Any]:
+    """国别码传错：报参数错 + 合法清单，**不**报成「查无此法」。
+
+    BARLC 的国别码不是 ISO 缩写（马来西亚 `LAWCOUNTRYMLXY`、菲律宾
+    `LAWCOUNTRYFLB`），按直觉猜必错。以前猜错只会拿到空结果，被报成
+    「不存在该引用」——错在参数、锅在结论。
+    """
+    return _tool_result(
+        ok=False,
+        reason="unknown_country",
+        detail=str(exc),
+        valid_country_codes=list(getattr(exc, "valid_codes", [])),
     )
 
 

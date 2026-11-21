@@ -10,7 +10,7 @@
  */
 
 import { useState } from 'react'
-import { CheckCircle2, ExternalLink, Loader2, XCircle } from 'lucide-react'
+import { CheckCircle2, ExternalLink, Loader2, TriangleAlert, XCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -189,6 +189,23 @@ export function ForeignLawVerifyCard() {
               合同主张：{row.citation.claim}
             </div>
 
+            {/* 时效告警：这类问题必须显性展示，不能藏在一个绿 pill 后面 */}
+            {row.state === 'done' && row.result?.version_warnings?.length ? (
+              <div className="mt-2 rounded-[8px] border border-status-yellow/50 bg-status-yellow-bg/50 px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-status-yellow">
+                  <TriangleAlert className="size-3" />
+                  生效版本提示
+                </div>
+                <ul className="mt-[2px] flex flex-col gap-[2px]">
+                  {row.result.version_warnings.map((warning) => (
+                    <li key={warning} className="text-[10.5px] leading-[1.55] text-secondary-foreground">
+                      · {warning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             {/* 逐要件判定：律师问「哪一项没依据」的答案 */}
             {row.state === 'done' && row.result?.elements?.length ? (
               <div className="mt-2 rounded-[8px] border border-border-light bg-background px-2.5 py-2">
@@ -232,6 +249,17 @@ export function ForeignLawVerifyCard() {
                   <span>{row.result.law_title} · Section {row.result.section_number}</span>
                   <span className="text-border">·</span>
                   <span>BARLC 返回原文</span>
+                  {row.result.source_url ? (
+                    <a
+                      href={row.result.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-auto inline-flex items-center gap-0.5 text-status-blue hover:underline"
+                    >
+                      原站打开
+                      <ExternalLink className="size-2.5" />
+                    </a>
+                  ) : null}
                 </div>
                 <pre className="max-h-[120px] overflow-auto whitespace-pre-wrap font-mono text-[10.5px] leading-[1.65] text-secondary-foreground">
                   {row.result.section_text}
