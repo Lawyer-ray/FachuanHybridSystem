@@ -323,7 +323,9 @@ class LoopbackGateway:
         }
         # SSE 长连接：httpx 的全局超时必须关掉，否则 5s 后就断流；代理自身
         # 不做超时，超时判定交给网关与 harness（harness 会解析 Retry-After 重试）。
-        client = httpx.AsyncClient(trust_env=False, timeout=None)  # noqa: S113
+        # S113（ruff）/ B113（bandit）：同一个决定要两套扫描器各标一次——
+        # 只写 noqa 时 bandit 仍会把 SSE 长连接的超时当成「忘了设超时」拦下来。
+        client = httpx.AsyncClient(trust_env=False, timeout=None)  # noqa: S113  # nosec B113
         upstream_request = client.build_request(request.method, upstream, headers=headers, content=body)
         try:
             upstream_response = await client.send(upstream_request, stream=True)
