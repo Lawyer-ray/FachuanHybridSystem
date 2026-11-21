@@ -23,8 +23,8 @@ from apps.document_parsing.protocols.document_parser_protocol import normalize_b
 from apps.pdf_splitting.models import PdfSplitOcrProfile
 from apps.pdf_splitting.services.heartbeat import heartbeat_block
 
-from .dual_engine import normalize_paddleocr_vl_blocks
 from .clip_frame import clip_rect_for_page
+from .dual_engine import normalize_paddleocr_vl_blocks
 from .split_models import OCRPageResult, OCRRuntimeProfile
 
 logger = logging.getLogger("apps.pdf_splitting")

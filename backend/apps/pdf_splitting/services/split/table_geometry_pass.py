@@ -51,10 +51,11 @@ from typing import Any, Protocol
 import pymupdf as fitz
 
 from .bbox import normalize_bbox, resolve_bbox_unit
+from .clip_frame import clip_rect_for_page
 from .md_table import grid_col_count as _grid_col_count
 from .md_table import grid_row_count as _grid_row_count
 from .md_table import parse_grid as _parse_grid
-from .clip_frame import clip_rect_for_page
+from .page_rotation import derotate_pixel_box, normalize_theta, rotated_frame_size
 from .table_geometry import (
     _BOX_AXES,
     _RECT_PRECISION,
@@ -93,7 +94,6 @@ from .table_geometry import (
     measure_table_crop,
     structural_check,
 )
-from .page_rotation import derotate_pixel_box, normalize_theta, rotated_frame_size
 from .table_geometry_lines import LOCAL_LINE_ENGINE, RasterGrid, cells_from_grid, detect_grid_from_png
 
 logger = logging.getLogger("apps.pdf_splitting")
