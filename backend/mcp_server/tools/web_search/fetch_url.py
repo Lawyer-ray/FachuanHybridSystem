@@ -148,6 +148,15 @@ _REDIRECT_PATTERNS = (
 )
 
 
+#: 搜狗自家的域名。命中即意味着「没解析出原文地址」——详见
+#: ``fetch_url`` 里的 ``unresolved_redirect`` 分支。
+_SOGOU_HOST_RE = re.compile(r"(^|\.)sogou\.com$", re.IGNORECASE)
+
+
+def _is_sogou_host(host: str | None) -> bool:
+    return bool(host) and _SOGOU_HOST_RE.search(host or "") is not None
+
+
 def _resolve_sogou_redirect(html: str) -> str | None:
     """从搜狗跳转页里抽出真实目标 URL；不是跳转页则返回 None。
 
@@ -563,6 +572,9 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
         ``invalid_url``       不是合法 http(s) 地址
         ``blocked_target``    目标（或重定向跳板）属于内网/本机段,SSRF 防护拒绝
         ``too_many_redirects`` 重定向超过 5 跳(疑似环/恶意跳板链)
+        ``unresolved_redirect`` 搜狗 ``/link?url=`` 跳转未解析出原文（token
+                              失效或与检索会话不绑定）——换一条链接，
+                              **不要**把返回当原文（此时没有正文）
         ``empty_pdf``         PDF 能打开但无文字——多半是扫描件,需要 OCR
         ``pdf_parse_error``   PDF 损坏/加密,解析器打不开
         ``pdf_no_parser``     目标是 PDF 但环境缺 PDF 解析器
@@ -574,6 +586,13 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     raw = (url or "").strip()
     if not raw:
         return {"ok": False, "url": raw, "reason": "invalid_url", "message": "网址不能为空"}
+
+    #: 输入是不是搜狗跳转链接（``/link?url=<token>``）——这类 token 与发起搜索
+    #: 的会话绑定，另起一个连接去抓时常被重定向回搜狗首页（实测：返回值
+    #: ``ok=true`` + 494 字首页导航，模型会把它当成原文摘要）。
+    input_was_sogou_link = raw.startswith("/link") or "/link?" in raw
+    #: 跳转页里是否已成功解析出真实地址（决定「解析失败」与「抓真实页失败」怎么归因）
+    resolved_real_target = False
 
     # 相对跳转链接补全成搜狗域名
     if raw.startswith("/link"):
@@ -642,6 +661,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
             real_url = _resolve_sogou_redirect(html)
             if real_url and real_url != current:
+                resolved_real_target = True
                 if _host_is_internal(urlparse(real_url).hostname or ""):
                     return {
                         "ok": False,
@@ -722,6 +742,20 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                 "url": target,
                 "reason": "antispider",
                 "message": "目标站点返回了反爬/验证码页面，无法获取正文",
+            }
+
+        # 搜狗跳转链接解析失败：落在搜狗自家域名上（首页/跳转壳），说明 token
+        # 失效或与会话不绑定。**必须报错**——把搜狗首页当正文返回 ``ok=true``
+        # 是「静默错内容」，比失败更糟（模型会拿导航文字当判决书摘要）。
+        if input_was_sogou_link and not resolved_real_target and _is_sogou_host(urlparse(current).hostname):
+            return {
+                "ok": False,
+                "url": target,
+                "reason": "unresolved_redirect",
+                "message": (
+                    "搜狗跳转链接未能解析出原文地址（token 失效或与检索会话不绑定）；"
+                    "请在搜索结果里换一条链接，或让用户直接访问原网页"
+                ),
             }
 
         text = _extract_text(html)

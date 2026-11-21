@@ -151,6 +151,40 @@ class TestSuccess:
         assert result["title"] == "真实页"
         assert instance.stream.call_count == 2
 
+    def test_unresolved_sogou_link_is_reported_not_faked(self, fake_http: Any) -> None:
+        """搜狗 ``/link?url=`` 解析不出真实地址时必须报错。
+
+        2026-11-21 实测：token 失效或与检索会话不绑定时，搜狗会 302 回
+        自家首页，老实现把首页导航当正文返回 ``ok=true``（494 字，“网页/微信/
+        知乎…”）——模型会拿它当判决书摘要。静默错内容比失败更糟，
+        所以这里必须走 ``unresolved_redirect``。
+        """
+        homepage = (
+            "<html><head><title>搜狗搜索引擎 - 上网从搜狗开始</title></head>"
+            "<body><nav>网页 微信 知乎 图片 视频 地图 更多</nav></body></html>"
+        )
+        _set_response(fake_http, _response(200, homepage, url="https://www.sogou.com/link?url=abc"))
+
+        result = _module().fetch_url("/link?url=hedJjaC291PM8os")
+
+        assert result["ok"] is False
+        assert result["reason"] == "unresolved_redirect"
+        assert "原文地址" in result["message"]
+
+    def test_direct_sogou_page_still_fetchable(self, fake_http: Any) -> None:
+        """非 /link 跳转的搜狗页（用户就是要读该页）不受上面那条规则误伤。"""
+        page = (
+            "<html><head><title>搜狗搜索帮助</title></head><body><article>"
+            + "帮助说明。" * 80
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, page, url="https://www.sogou.com/help/index.html"))
+
+        result = _module().fetch_url("https://www.sogou.com/help/index.html")
+
+        assert result["ok"] is True
+        assert "帮助说明" in result["text"]
+
 
 class TestHonestFailures:
     """失败必须给准确的 reason，不能伪装成「页面为空」。"""
