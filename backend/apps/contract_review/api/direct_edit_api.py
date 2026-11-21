@@ -147,6 +147,11 @@ async def apply_edit(
     409 而不是覆写——不传就等于放弃这道锁（服务层 `save_file_content` 会
     整段跳过 mtime 校验），所以只要调用方拿得到 mtime 就必须带上。
     """
+    from apps.agent.services.approval.write_guard import ensure_request_not_multi_lane
+
+    # 入口 C 兜底：agent 在多栏会话里直接落盘 → 409（律师点「采纳」不带会话头，不受影响）
+    await ensure_request_not_multi_lane(request, endpoint="contract_review.direct_edit.apply")
+
     user = request.user
     kind, owner_id = _resolve_target(payload.contract_id, payload.case_id)
     svc = _get_apply_service()
@@ -311,6 +316,18 @@ async def propose_write_patch_endpoint(request: HttpRequest, payload: WritePatch
     }
 
 
+def _patch_session_ids(patch_ids: list[str]) -> list[str]:
+    """这些 patch 的产出会话（应用请求本身不带会话头：律师在页面上点）。
+
+    服务层 `_load_rows` 会再查一次 DB；这里先查只为让兜底早于建对象/写盘。
+    不存在的 id 直接跳过（交给服务层按 400 报「patch 不存在」）。
+    """
+    # 查询放服务层（四层架构：API 层不得出现 Model.objects）。
+    from apps.contract_review.services.patch import service as patch_service
+
+    return patch_service.session_ids_for_patches(patch_ids)
+
+
 @router.post("/patch/apply", response=WritePatchApplyOut)
 @rate_limit_from_settings("TASK", by_user=True)
 async def apply_write_patches_endpoint(request: HttpRequest, payload: WritePatchApplyIn) -> dict[str, Any]:
@@ -320,7 +337,15 @@ async def apply_write_patches_endpoint(request: HttpRequest, payload: WritePatch
     （mtime 不符）同样 409。审批不在这里做——它由工具名在网关侧判 HIGH 后弹卡，
     本端点不提供任何绕过开关。
     """
+    from apps.agent.services.approval.write_guard import ensure_request_not_multi_lane
     from apps.contract_review.services.patch.service import apply_patches
+
+    # 应用动作由律师在页面上点出（不带会话头），所以还要看 patch 行自己的产出
+    # 会话：任一条草案来自仍在多栏并答的会话 → 409（入口 C 兜底）。
+    session_ids = await sync_to_async(_patch_session_ids, thread_sensitive=True)(payload.patch_ids)
+    await ensure_request_not_multi_lane(
+        request, endpoint="contract_review.direct_edit.patch_apply", session_ids=session_ids
+    )
 
     user = request.user
     return await sync_to_async(apply_patches, thread_sensitive=True)(

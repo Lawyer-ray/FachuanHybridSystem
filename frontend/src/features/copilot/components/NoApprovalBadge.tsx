@@ -5,16 +5,20 @@ import { ShieldOff } from 'lucide-react'
  *
  * ## 为什么要有它
  *
- * 三个后端里**只有 pi** 会把高危工具拦下来问人。另外两个：
+ * 三个后端里 **pi 与 openai-agents 默认都会**把高危工具拦下来问人（openai-agents
+ * 的闸门由 `FACHUAN_OPENAI_APPROVAL` 控制，默认 on；关掉时 `approval` 与实现同步
+ * 声明 False）。不会弹审批卡的是：
  *
  * - **dsh**：fail-closed —— 收到 `approval/request` 一律回 `rejected`，
  *   高危调用**被直接拒绝**（安全方向对，但律师看不到审批卡）；
- * - **openai-agents**：根本不接 SDK 的 `require_approval`，高危调用**照常执行**。
+ * - **openai-agents（闸门被显式关闭时）**：既不挂 guardrail、`approval` 也声明
+ *   False，高危调用**照常执行**。
  *
- * 两者行为相反，共同点是**不会弹审批卡**。后端在 `capabilities.approval` 里
+ * 共同点是**不会弹审批卡**。后端在 `capabilities.approval` 里
  * 如实声明这一位（`BackendCapabilities` 的注释写着「`False` 的后端在高危动作上
  * 没有人工闸门，启用前必须先由合规确认」），前端只读它——不写死
- * `if (kind === 'dsh')`，新后端注册后自动跟上。
+ * `if (kind === 'dsh')`，新后端注册后自动跟上。openai-agents 默认 true，因此
+ * 正常情况下它那一行/那一栏不会出现这枚徽标。
  *
  * ## 为什么必须显示在「选择之前」
  *

@@ -42,6 +42,11 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from django.core.exceptions import ImproperlyConfigured
+from django.db import DatabaseError
+
+from apps.core.infrastructure.cache import CACHE_ERRORS
+
 logger = logging.getLogger(__name__)
 
 #: 缓存默认存活时间（秒）。取值理由见模块 docstring：既要挡住「每轮一次同步
@@ -68,11 +73,16 @@ class GatewaySettings:
     常见的写法。
     """
 
-    base_url: str
-    api_keys: tuple[str, ...]
-    models: tuple[str, ...]
-    default_model: str
-    enable_thinking: bool
+    #: 平台名：跨进程 Key 健康记账的一维键（``key_health`` 用它拼缓存键）。
+    #: 也可以在审计/日志里回答「这一轮用的是哪个平台」。
+    name: str = ""
+    base_url: str = ""
+    #: 每 Key 并发上限（Admin 配置值，未按进程数折算）。持有租约的路径用它判饱和。
+    concurrency_per_key: int = 0
+    api_keys: tuple[str, ...] = ()
+    models: tuple[str, ...] = ()
+    default_model: str = ""
+    enable_thinking: bool = False
 
     def __repr__(self) -> str:
         # 覆盖默认 repr：默认实现会把 api_keys 明文打出来，而一个 dataclass
@@ -88,6 +98,9 @@ class GatewaySettings:
 class _Entry:
     settings: GatewaySettings | None
     expires_at: float
+    #: 写入时的跨进程配置代次：Admin 保存会 bump 它，其它 worker/MCP 进程据此立刻重载，
+    #: 不必等 TTL（原来 MCP 与服务路径要等 300 秒，症状是「聊天好了、检索还用旧 Key」）。
+    generation: int = 0
 
 
 def model_supports_thinking(model: str, provider: Any | None = None) -> bool:
@@ -155,6 +168,8 @@ def settings_from_provider(provider: Any) -> GatewaySettings:
 
     keys, _scopes = _provider_keys_and_models(provider)
     return GatewaySettings(
+        name=str(getattr(provider, "name", "") or "").strip(),
+        concurrency_per_key=int(getattr(provider, "concurrency_per_key", 0) or 0),
         base_url=str(getattr(provider, "base_url", "") or "").strip(),
         api_keys=tuple(keys),
         models=tuple(_provider_models(provider)),
@@ -197,17 +212,27 @@ def get_gateway_settings(model_hint: str | None) -> GatewaySettings | None:
 
     key = _cache_key(model_hint)
     now = time.monotonic()
+    generation = _config_generation()
     with _lock:
         entry = _cache.get(key)
-    if entry is not None and entry.expires_at > now:
+    if entry is not None and entry.expires_at > now and entry.generation == generation:
         return entry.settings
 
     settings = _load(model_hint)
     with _lock:
         if len(_cache) >= _MAX_ENTRIES and key not in _cache:
             _cache.clear()
-        _cache[key] = _Entry(settings=settings, expires_at=time.monotonic() + ttl)
+        _cache[key] = _Entry(settings=settings, expires_at=time.monotonic() + ttl, generation=generation)
     return settings
+
+
+def _config_generation() -> int:
+    try:
+        from apps.core.llm.key_health import config_generation
+
+        return config_generation()
+    except CACHE_ERRORS:  # pragma: no cover - 缓存/Django 不可用时只靠 TTL
+        return 0
 
 
 def invalidate_gateway_cache(**_kwargs: object) -> None:
@@ -224,6 +249,13 @@ def invalidate_gateway_cache(**_kwargs: object) -> None:
     global _generation
     with _lock:
         _cache.clear()
+    # 同时递增跨进程代次：其它 worker / 共享 MCP 进程的缓存据此立刻失效
+    try:
+        from apps.core.llm.key_health import bump_config_generation
+
+        bump_config_generation()
+    except CACHE_ERRORS:  # pragma: no cover - 缓存不可用时只清本进程
+        logger.debug("递增配置代次失败，仅本进程缓存生效", exc_info=True)
         _generation += 1
 
 
@@ -265,7 +297,24 @@ async def load_api_keys(model_hint: str | None) -> tuple[str, ...]:
 
     try:
         settings = await sync_to_async(get_gateway_settings, thread_sensitive=True)(model_hint)
-    except Exception:
+    except (DatabaseError, ImproperlyConfigured, RuntimeError):
         logger.warning("读取网关配置失败，本轮沿用后端自己的 key 轮转", exc_info=True)
         return ()
-    return tuple(settings.api_keys) if settings is not None else ()
+    if settings is None:
+        return ()
+    # 读侧过滤别的进程判定冷却中的 Key（审计 S4）：多答/压缩两条路径拿到的
+    # key 池里不该包含刚被 401/429 判死的那些。读不到健康状态时不过滤（fail-open）。
+    try:
+        from apps.core.llm.key_health import cooling_map
+
+        cooling = cooling_map(settings.name, list(settings.api_keys)) if settings.name else {}
+    except CACHE_ERRORS:  # pragma: no cover
+        cooling = {}
+    if cooling:
+        survivors = tuple(key for key in settings.api_keys if key not in cooling)
+        if survivors:
+            logger.info(
+                "本轮 key 池跳过 %d 把冷却中的 Key（平台 %s）", len(settings.api_keys) - len(survivors), settings.name
+            )
+            return survivors
+    return tuple(settings.api_keys)

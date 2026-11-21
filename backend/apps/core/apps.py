@@ -54,6 +54,27 @@ class CoreConfig(AppConfig):
         except Exception:
             logger.debug("cleanup_tasks 调度注册跳过（未就绪）", exc_info=True)
 
+        # 启动期迁移健康检查（只在 DEBUG 下 WARNING，不阻断启动）。
+        #
+        # 三次 `column ... does not exist` 事故的共同点：迁移文件生成了、开发库
+        # 没跑 migrate，而单测/CI 全绿（测试库自己建表）。CI 层有
+        # `scripts/check_migrations.sh` 三道闸门，这里补最后一道：一启动就喊出来。
+        if "test" not in sys.argv and "pytest" not in sys.modules:
+            try:
+
+                def _warn_migrations() -> None:
+                    with allow_startup_db():
+                        from .utils.migration_health import warn_if_unapplied
+
+                        warn_if_unapplied()
+
+                run_startup_db_sync(_warn_migrations)
+            except (ImportError, RuntimeError, AttributeError, OSError):
+                # 具体类型而非宽捕获：本仓有「宽异常捕获」棘轮门禁
+                # （tests/ci/structure/test_exception_ratchet.py）；数据库错误已在
+                # warn_if_unapplied 内部吞掉，这里只兜「模块/ASGI 未就绪」。
+                logger.debug("启动期迁移健康检查跳过（未就绪）", exc_info=True)
+
         # 注册 post_migrate 信号,首次 migrate 后自动加载种子数据
         from django.db.models.signals import post_migrate
 

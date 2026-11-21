@@ -225,27 +225,40 @@ export function createTurnHandlers(
     },
     onApproval: (event, origin) => {
       const sessionId = useCopilot.getState().sessionId
-      set((s) => ({
-        approvals: [
-          ...s.approvals,
-          {
-            approvalId: event.approval_id,
-            toolName: event.tool_name,
-            toolArgs: event.tool_args ?? {},
-            // 契约里 `message` 带默认值 → 线路上可能不发这个键（节点/降级卡片会这样）。
-            // 缺失时给空串：卡片正文区留白，但按钮与倒计时照常工作（不能整个卡片不渲染）。
-            message: event.message ?? '',
-            receivedAt: Date.now(),
-            riskLevel: event.risk_level,
-            needsSecondConfirmation: event.needs_second_confirmation,
-            // 多答时两栏可能同时要审批：卡上不写来源就分不清是谁要动库表
-            ...(origin.kind ? { agentKind: origin.kind } : {}),
-            // 事件只出现在某个会话的流上，入队时补归属：补拉路径拿服务端的
-            // `session_id` 过滤，两条路径必须同一个字段才不会再把别人的卡带进来
-            ...(sessionId ? { sessionId } : {}),
-          },
-        ],
-      }))
+      // 「哪一栏提的」只在多栏轮次才记：单栏没有第二栏可分，记下来只会在卡上
+      // 多一个没有信息量的徽标。
+      //
+      // 读 `event.agent` 而不是 `origin.kind`：后者缺失时回落到 pi（见
+      // domain/dual.agentOf），是为了事件路由而做的归一——拿它当来源会把
+      // 「旧后端没带 agent」误标成 pi，正是这张卡要避免的假归属。
+      const laneAgent = columnCount > 1 ? event.agent ?? '' : ''
+      set((s) => {
+        // 同一 approval_id 只留一张（重放/重连可能重复投递）；**不能按
+        // tool_name 去重**——两栏同时要删同一张表是合法的两张卡，各自独立决定
+        if (s.approvals.some((a) => a.approvalId === event.approval_id)) return s
+        return {
+          approvals: [
+            ...s.approvals,
+            {
+              approvalId: event.approval_id,
+              toolName: event.tool_name,
+              toolArgs: event.tool_args ?? {},
+              // 契约里 `message` 带默认值 → 线路上可能不发这个键（节点/降级卡片会这样）。
+              // 缺失时给空串：卡片正文区留白，但按钮与倒计时照常工作（不能整个卡片不渲染）。
+              message: event.message ?? '',
+              receivedAt: Date.now(),
+              riskLevel: event.risk_level,
+              needsSecondConfirmation: event.needs_second_confirmation,
+              // 空串 = 单栏 / 旧后端未带：卡片据此不渲染栏标签
+              agent: laneAgent,
+              runId: origin.runId,
+              // 事件只出现在某个会话的流上，入队时补归属：补拉路径拿服务端的
+              // `session_id` 过滤，两条路径必须同一个字段才不会再把别人的卡带进来
+              ...(sessionId ? { sessionId } : {}),
+            },
+          ],
+        }
+      })
     },
     onQuestion: (event, origin) => {
       // 归一化失败（模型给了完全无法解析的题面）时宁可不渲染，也不占着交互席位：

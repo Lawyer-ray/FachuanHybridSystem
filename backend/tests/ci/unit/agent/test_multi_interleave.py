@@ -447,3 +447,40 @@ class TestDisconnectPersistsEveryLane:
 
         rows = [m async for m in AgentMessage.objects.filter(session=session, role=AgentMessage.Role.ASSISTANT)]
         assert [m.agent_kind for m in rows if m.agent_kind == SECONDARY]
+
+
+class TestExternalBusSubscription:
+    """总线订阅必须**只有一份**（2026-11-21 真机验收抓到）。
+
+    缺陷现场：``stream_multi`` 订阅一次，三个 ``stream_chat`` 各订阅一次 → 同一条
+    ``approval_request`` 被投进 4 个队列，前端收到 **4 张一模一样的审批卡**
+    （DB 里只有 1 行，所以不是重复审批，是重复投递）。修法是各栏
+    ``subscribe_external=False``，总线只由编排层持有。
+    """
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_bus_registered_once_for_three_lanes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        for kind in (PRIMARY, SECONDARY, THIRD):
+            register(_FakeBackend(kind, _deltas("答")))
+
+        registered: list[str] = []
+
+        class _Bus:
+            async def register(self, session_id: str) -> asyncio.Queue[dict[str, Any]]:
+                registered.append(session_id)
+                return asyncio.Queue()
+
+            async def unregister(self, session_id: str, queue: asyncio.Queue[dict[str, Any]]) -> None:
+                return None
+
+            async def publish(self, session_id: str, event: dict[str, Any]) -> int:
+                return 0
+
+        monkeypatch.setattr(stream_module, "get_bus", lambda: _Bus())
+        monkeypatch.setattr(multi, "get_bus", lambda: _Bus())
+
+        await _collect([PRIMARY, SECONDARY, THIRD])
+        assert len(registered) == 1, f"总线被订阅了 {len(registered)} 次（应为 1：只有编排层）"

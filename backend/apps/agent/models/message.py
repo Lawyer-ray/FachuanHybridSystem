@@ -33,6 +33,9 @@ class AgentMessage(models.Model):
     #: 空串表示**旧数据 / 未标注**（不是错误）：引入本字段之前的消息没有 agent
     #: 概念，回填时猜成 ``pi`` 会把「其实来自别的后端」的旧记录坐实成错的。
     #: 前端渲染时把空串当 ``pi`` 处理——引入双答之前本系统只有 pi 在跑。
+    #: 本轮轮次号（会话内 1 起递增，与 ``AgentRun.turn_no`` / ``run_id`` 同源）。
+    #: 前端转录分组、成本按轮聚合、评审定位都靠它；0 = 引入本字段前的旧数据。
+    turn_no = models.IntegerField(default=0, db_index=True, verbose_name="轮次号")
     agent_kind = models.CharField(max_length=32, blank=True, default="", db_index=True, verbose_name="Agent 后端")
     content = models.TextField(blank=True, default="", verbose_name="内容")
     tool_name = models.CharField(max_length=200, blank=True, default="", verbose_name="工具名")

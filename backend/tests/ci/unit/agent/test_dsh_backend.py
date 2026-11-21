@@ -91,11 +91,13 @@ class TestIdentity:
         会让前端显示插话输入框，而用户敲进去的话会被直接丢弃——比禁用更糟
         （见 ``base.py`` 的 ``steer`` 注释）。
 
-        ``approval`` 同理，而且后果更重：本版本的 ``_ApprovalPump`` 收到
-        ``approval/request`` 一律回 ``rejected``，律师看不到任何审批卡。
-        原先写死 ``True`` 让 ``/backends`` 把「有四级审批闸门」这条谎话透给
-        前端——**合规红线级别的错误能力声明**。现在绑定到 ``_APPROVAL_WIRED``：
-        真正接上审批时只改一个常量，声明自动跟上。
+        ``approval`` 同理，而且后果更重：本栏**没有人工审批闸门**——
+        ``approval_requests`` 从未传 ``True``，runtime 不发 ``approval/request``
+        给我们（allow/deny 由 runtime 自带 answerer 决定），律师看不到任何审批卡；
+        高危调用的强制闸门在 MCP 服务端（``tool_approval_gate``）。原先写死 ``True``
+        让 ``/backends`` 把「有四级审批闸门」这条谎话透给前端——**合规红线级别的
+        错误能力声明**。现在绑定到 ``_APPROVAL_WIRED``：真正接上审批时只改一个
+        常量，声明自动跟上。
         """
         caps = DshBackend.capabilities
         assert isinstance(caps, BackendCapabilities)
@@ -155,14 +157,85 @@ class TestEventTranslation:
                 },
             )
         )
+        # ``arguments`` 由 ``_tool_call_arguments`` 解成对象（参数级展示与审批卡的
+        # ``tool_args`` 都要按键取值；``sse_types`` 里该字段是 ``Any``，前端两种
+        # 形状都认，所以解成对象不会让任何一侧退化）。
         assert frames == [
             {
                 "type": "tool_call",
                 "tool_call_id": "call-1",
                 "name": "mcp__fachuan__get_case",
-                "arguments": '{"id": 7}',
+                "arguments": {"id": 7},
             }
         ]
+
+    def test_hyphenated_tool_call_block_becomes_tool_call(self) -> None:
+        """dsh 的 assistant 消息里工具块类型是 **``tool-call``**（连字符）。
+
+        原先只认 ``toolCall`` / ``tool_call``（早期推断名），结果 dsh 真实流里
+        一帧 ``tool_call`` 都不产：前端看不到工具名与参数，审批卡也就没有工具信息。
+        字段是 ``callId`` / ``name`` / ``arguments``（与 run 事件 ``tool/call`` 同名）。
+        """
+        frames = self._translate(
+            _notification(
+                "assistant/message",
+                {
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool-call",
+                                "callId": "call-9",
+                                "name": "mcp__fachuan__list_cases",
+                                "arguments": '{"limit": 5}',
+                            }
+                        ]
+                    }
+                },
+            )
+        )
+        [frame] = frames
+        assert frame["type"] == "tool_call"
+        assert frame["tool_call_id"] == "call-9"
+        assert frame["name"] == "mcp__fachuan__list_cases"
+        assert frame["arguments"] == {"limit": 5}
+
+    def test_tool_call_run_event_becomes_tool_call(self) -> None:
+        """``tool/call`` 运行事件也要出 ``tool_call`` 帧（字段名与帧字段不同）。
+
+        dsh 侧是 ``callId`` / ``name`` / ``arguments``（raw JSON 字符串），帧侧是
+        ``tool_call_id`` / ``name`` / ``arguments``；不翻这一条前端只看得到正文。
+        """
+        from apps.agent.sse_types import ToolCallEvent
+
+        frames = self._translate(
+            _notification("tool/call", {"callId": "call-7", "name": "mcp__fachuan__get_case", "arguments": '{"id": 7}'})
+        )
+        assert frames == [
+            {
+                "type": "tool_call",
+                "tool_call_id": "call-7",
+                "name": "mcp__fachuan__get_case",
+                "arguments": {"id": 7},
+            }
+        ]
+        # 帧必须能过契约模型（字段改名后不同步会静默失效）
+        assert isinstance(ToolCallEvent.model_validate(frames[0]), ToolCallEvent)
+
+    def test_non_json_tool_arguments_do_not_raise(self) -> None:
+        """参数不是合法 JSON（截断 / 单引号）时不能让整轮事件流崩掉：原样进 ``_raw``。"""
+        from apps.agent.sse_types import ToolCallEvent
+
+        broken = "{'id': 7"
+        for notification in (
+            _notification("tool/call", {"callId": "c1", "name": "n", "arguments": broken}),
+            _notification(
+                "assistant/message",
+                {"message": {"content": [{"type": "tool-call", "callId": "c2", "name": "n", "arguments": broken}]}},
+            ),
+        ):
+            [frame] = self._translate(notification)
+            assert frame["arguments"] == {"_raw": broken}
+            assert isinstance(ToolCallEvent.model_validate(frame), ToolCallEvent)
 
     def test_mixed_blocks_keep_order(self) -> None:
         """一段 assistant 消息里可同时有思考与正文；顺序不能乱（前端按序拼接）。"""
@@ -382,6 +455,36 @@ class TestStreamBridge:
         # 一轮结束必须释放子进程，否则 dsh 会一直占着池位与内存。
         assert pool.released >= 1
         assert harness.closed
+
+    def test_tool_call_frame_carries_agent_and_run_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """工具帧与正文帧同口径：出口处统一补 ``agent`` / ``run_id``。
+
+        两个后端同题并行时，前端靠这两个字段把工具行挂到正确的那一栏；只给正文
+        补、给工具帧不补，工具调用就会挂错栏。
+        """
+        self._patch_config(monkeypatch)
+        harness = _StubHarness(
+            [
+                _notification("tool/call", {"callId": "call-3", "name": "get_case", "arguments": '{"id": 7}'}),
+                _notification("turn/end", {"reason": {"kind": "stop"}}),
+            ]
+        )
+        backend, _pool = self._backend(harness)
+
+        async def collect() -> list[dict[str, Any]]:
+            return [e async for e in backend.stream(_ctx("sess-1:dsh:2")) if e is not None]
+
+        events = asyncio.run(collect())
+        assert events == [
+            {
+                "type": "tool_call",
+                "tool_call_id": "call-3",
+                "name": "get_case",
+                "arguments": {"id": 7},
+                "agent": "dsh",
+                "run_id": "sess-1:dsh:2",
+            }
+        ]
 
     def test_run_happens_off_the_event_loop_thread(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """``run()`` 是同步阻塞的：跑在主线程会把整个事件循环卡死（其它会话全停）。"""

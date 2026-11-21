@@ -500,3 +500,252 @@ def test_usage_all_flag_works_for_superuser(authenticated_client: Any) -> None:
     assert authenticated_client.get("/api/v1/agent/usage?all=true").json()["input_tokens"] == 5000
     # 不带 all 时超管也只看自己（避免误把全所数字当自己的）
     assert authenticated_client.get("/api/v1/agent/usage").json()["input_tokens"] == 0
+
+
+@pytest.mark.django_db
+def test_usage_by_agent_groups_by_backend_and_scoped_to_owner() -> None:
+    """``GET /usage/by-agent``：按 agent 后端分组，且只看得到自己的运行。
+
+    分组键是 ``AgentRun.agent_kind``。两个 agent 配同一个模型时 ``by-model`` 分不开
+    钱是谁花的，这个端点就是为那种场景存在的；历史空串必须归 ``pi``，不能多出一行。
+    """
+    from apps.agent.models import AgentRun, AgentSession
+
+    user, client = _make_user("by-agent-owner")
+    mine = AgentSession.objects.create(title="mine", user=user)
+    AgentRun.objects.create(
+        session=mine, user=user, agent_kind="pi", model="kimi-2.6", input_tokens=100, output_tokens=10
+    )
+    AgentRun.objects.create(
+        session=mine, user=user, agent_kind="dsh", model="kimi-2.6", input_tokens=200, output_tokens=20
+    )
+    # 引入 agent_kind 之前的历史行：空串应归 pi，而不是单列一行
+    AgentRun.objects.create(session=mine, user=user, agent_kind="", model="kimi-2.6", output_tokens=5)
+
+    other_user, other_client = _make_user("by-agent-other")
+    other_session = AgentSession.objects.create(title="someone-else", user=other_user)
+    AgentRun.objects.create(
+        session=other_session, user=other_user, agent_kind="dsh", model="kimi-2.6", output_tokens=9999
+    )
+
+    rows = {row["agent_kind"]: row for row in client.get("/api/v1/agent/usage/by-agent").json()}
+    assert set(rows) == {"pi", "dsh"}, "空 agent_kind 被单列成第三组了"
+    assert rows["pi"]["runs"] == 2
+    assert rows["pi"]["output_tokens"] == 15
+    assert rows["dsh"]["runs"] == 1
+    assert rows["dsh"]["input_tokens"] == 200
+    # 成本口径：input + output + cacheWrite，不含 cacheRead
+    assert rows["dsh"]["total_tokens"] == 220
+    # 他人数据不得出现（越权返回的是「少了几行」，不是 403）
+    assert sum(row["runs"] for row in rows.values()) == 3
+    assert 9999 not in {row["output_tokens"] for row in rows.values()}
+
+    other_rows = {row["agent_kind"]: row for row in other_client.get("/api/v1/agent/usage/by-agent").json()}
+    assert other_rows["dsh"]["output_tokens"] == 9999
+
+
+# ===================================================================
+# 审批记录导出（合规 CSV）
+# ===================================================================
+
+_EXPORT_HEADER = [
+    "approval_id",
+    "created_at",
+    "decided_at",
+    "session_id",
+    "run_id",
+    "tool_name",
+    "risk_level",
+    "status",
+    "decided_by",
+    "tool_args",
+    "request_reason",
+    "decision_reason",
+]
+
+
+def _csv_rows(resp: Any) -> tuple[list[str], list[list[str]]]:
+    """把导出响应解析成 (表头, 数据行)。BOM 用 utf-8-sig 吃掉。"""
+    import csv
+    import io
+
+    assert resp.content.startswith(b"\xef\xbb\xbf"), "缺 UTF-8 BOM：Excel 打开中文会乱码"
+    parsed = list(csv.reader(io.StringIO(resp.content.decode("utf-8-sig"))))
+    return parsed[0], parsed[1:]
+
+
+@pytest.mark.django_db
+def test_approvals_export_only_own_rows_with_header_and_bom() -> None:
+    """导出：表头齐全、BOM 存在、只含自己会话的记录（他人记录不泄露）。"""
+    import uuid as uuid_mod
+
+    from django.utils import timezone
+
+    user, client = _make_user("export-owner")
+    own_session = AgentSession.objects.create(title="甲", user=user)
+    other_session = AgentSession.objects.create(title="乙")
+    mine = AgentApproval.objects.create(
+        approval_id=uuid_mod.uuid4(),
+        session=own_session,
+        run_id="s:pi:3",
+        tool_name="mcp__fachuan__delete_case",
+        tool_args={"case_id": 7},
+        reason="清理草稿",
+        risk_level="high",
+        status=AgentApproval.Status.APPROVED,
+        decided_by=user,
+        decided_at=timezone.now(),
+        decision_reason="已核对案号",
+    )
+    AgentApproval.objects.create(
+        approval_id=uuid_mod.uuid4(), session=other_session, tool_name="leak", reason="别人的审批"
+    )
+
+    resp = client.get("/api/v1/agent/approvals/export")
+    assert resp.status_code == 200
+    assert resp["Content-Type"].startswith("text/csv")
+    assert "attachment" in resp["Content-Disposition"]
+    assert resp["X-Export-Truncated"] == "false"
+    assert resp["X-Export-Rows"] == "1"
+
+    header, rows = _csv_rows(resp)
+    assert header == _EXPORT_HEADER
+    assert len(rows) == 1, f"越权行泄露了: {rows}"
+    record = dict(zip(header, rows[0], strict=True))
+    assert record["approval_id"] == str(mine.approval_id)
+    assert record["session_id"] == str(own_session.session_id)
+    assert record["run_id"] == "s:pi:3"
+    assert record["tool_name"] == "mcp__fachuan__delete_case"
+    assert json.loads(record["tool_args"]) == {"case_id": 7}
+    assert record["risk_level"] == "high"
+    assert record["status"] == "approved"
+    assert record["decided_by"] == user.username
+    assert record["request_reason"] == "清理草稿"
+    assert record["decision_reason"] == "已核对案号"
+    assert record["created_at"] and record["decided_at"]
+    assert "leak" not in resp.content.decode("utf-8-sig")
+
+
+@pytest.mark.django_db
+def test_approvals_export_requires_auth() -> None:
+    """未登录不得导出（CSV 里是工具参数与驳回理由，不是公开数据）。
+
+    除了状态码，还必须断言「没漏出内容」：401 配一份 CSV 正文才是真事故。
+    """
+    from django.test import Client
+
+    resp = Client().get("/api/v1/agent/approvals/export")
+    assert resp.status_code == 401
+    assert "text/csv" not in (resp.headers.get("Content-Type") or "").lower()
+    body = resp.content.decode("utf-8-sig", errors="ignore")
+    assert "approval_id" not in body, "未登录响应里出现了 CSV 表头（数据泄露）"
+    assert "tool_args" not in body
+
+
+@pytest.mark.django_db
+def test_approvals_export_scope_plain_user_vs_superuser(authenticated_client: Any) -> None:
+    """无主会话的记录：普通律师导不出（空 CSV，不是 403 而是「没有」），超管全出。"""
+    import uuid as uuid_mod
+
+    _, normal_client = _make_user("export-plain")
+    other_session = AgentSession.objects.create(title="别人的会话")
+    AgentApproval.objects.create(approval_id=uuid_mod.uuid4(), session=other_session, tool_name="t-other")
+
+    header, rows = _csv_rows(normal_client.get("/api/v1/agent/approvals/export"))
+    assert header == _EXPORT_HEADER, "越权时也要给表头（CSV 得能被解析）"
+    assert rows == [], "普通律师导出了别人会话的审批"
+
+    _, super_rows = _csv_rows(authenticated_client.get("/api/v1/agent/approvals/export"))
+    assert {dict(zip(_EXPORT_HEADER, row, strict=True))["tool_name"] for row in super_rows} == {"t-other"}
+
+
+@pytest.mark.django_db
+def test_approvals_export_escapes_formula_cells() -> None:
+    """CSV 注入防护：``= + @`` 开头（以及非数字的 ``-``）的单元格前置单引号。
+
+    工具参数由模型写、理由由用户写，都不可信；不转义时 Excel 打开导出文件会把它
+    当公式执行（DDE 可拉外链命令）。
+    """
+    import uuid as uuid_mod
+
+    user, client = _make_user("export-inject")
+    session = AgentSession.objects.create(title="注入", user=user)
+    AgentApproval.objects.create(
+        approval_id=uuid_mod.uuid4(),
+        session=session,
+        tool_name="t",
+        tool_args={"cmd": "=cmd|'/C calc'!A0", "delta": -1},
+        reason="+42 是金额不是公式",
+        decision_reason="@SUM(1+1)",
+    )
+
+    header, rows = _csv_rows(client.get("/api/v1/agent/approvals/export"))
+    record = dict(zip(header, rows[0], strict=True))
+    # 请求理由与驳回理由都是人写的不可信文本：前置单引号后 Excel 才按文本开
+    assert record["request_reason"] == "'+42 是金额不是公式"
+    assert record["decision_reason"] == "'@SUM(1+1)"
+    # tool_args 是 JSON 串（首字符必为 ``{``），不会命中公式前缀规则，
+    # 但里面的引号/逗号必须能原样解回来（不能被 CSV 引号转义揉坏）
+    assert json.loads(record["tool_args"]) == {"cmd": "=cmd|'/C calc'!A0", "delta": -1}
+
+
+@pytest.mark.django_db
+def test_approvals_export_status_and_days_filters() -> None:
+    """``?status=`` 与 ``?days=`` 过滤都真的生效，且默认不限时间。"""
+    import uuid as uuid_mod
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    user, client = _make_user("export-filter")
+    session = AgentSession.objects.create(title="过滤", user=user)
+    old_rejected = AgentApproval.objects.create(
+        approval_id=uuid_mod.uuid4(), session=session, tool_name="old", status=AgentApproval.Status.REJECTED
+    )
+    # created_at 是 auto_now_add：回填 40 天前，模拟一条老记录
+    AgentApproval.objects.filter(pk=old_rejected.pk).update(created_at=timezone.now() - timedelta(days=40))
+    AgentApproval.objects.create(
+        approval_id=uuid_mod.uuid4(), session=session, tool_name="new-approved", status=AgentApproval.Status.APPROVED
+    )
+    AgentApproval.objects.create(
+        approval_id=uuid_mod.uuid4(), session=session, tool_name="new-pending", status=AgentApproval.Status.PENDING
+    )
+
+    def tool_names(query: str) -> set[str]:
+        header, rows = _csv_rows(client.get(f"/api/v1/agent/approvals/export{query}"))
+        return {dict(zip(header, row, strict=True))["tool_name"] for row in rows}
+
+    # 默认 days=0 = 不限时间：合规导出不该默认把 40 天前的记录藏掉
+    assert tool_names("") == {"old", "new-approved", "new-pending"}
+    assert tool_names("?days=7") == {"new-approved", "new-pending"}
+    assert tool_names("?status=rejected") == {"old"}
+    assert tool_names("?days=7&status=approved") == {"new-approved"}
+    assert tool_names("?days=7&status=rejected") == set()
+
+    # 非法 status 是参数校验失败（422），不是 500，也不能静默当「没过滤」
+    assert client.get("/api/v1/agent/approvals/export?status=bogus").status_code == 422
+
+
+@pytest.mark.django_db
+def test_approvals_export_truncates_at_cap_without_silence() -> None:
+    """超过条数上限时截断，但用响应头把「被截断了」说出来（不静默）。"""
+    import uuid as uuid_mod
+
+    from apps.agent.services.approval.queries import EXPORT_MAX_ROWS
+
+    user, client = _make_user("export-cap")
+    session = AgentSession.objects.create(title="上限", user=user)
+    AgentApproval.objects.bulk_create(
+        [
+            AgentApproval(approval_id=uuid_mod.uuid4(), session=session, tool_name=f"t{i}")
+            for i in range(EXPORT_MAX_ROWS + 1)
+        ],
+        batch_size=2000,
+    )
+
+    resp = client.get("/api/v1/agent/approvals/export")
+    assert resp.status_code == 200
+    assert resp["X-Export-Rows"] == str(EXPORT_MAX_ROWS)
+    assert resp["X-Export-Truncated"] == "true", "命中上限却没说，调用方会以为「就这么多条」"
+    header, rows = _csv_rows(resp)
+    assert len(rows) == EXPORT_MAX_ROWS

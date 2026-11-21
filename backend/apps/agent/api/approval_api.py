@@ -10,8 +10,11 @@ import logging
 import os
 from typing import Any
 
-from ninja import Router
+from django.http import HttpResponse
+from django.utils import timezone
+from ninja import Query, Router
 
+from apps.core.http.download import build_download_response
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentApproval
@@ -20,6 +23,7 @@ from ..services.approval import _waiter_is_alive, classify_risk, decide_approval
 from ..services.approval import list_approvals as list_approval_records
 from ..services.approval import list_pending_for_user as list_pending_approvals
 from ..services.approval import request_approval
+from ..services.approval.queries import approval_export_csv, list_approvals_for_export
 from ._helpers import _current_user, _user_id
 
 logger = logging.getLogger(__name__)
@@ -80,6 +84,10 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
         tool_args=payload.args or {},
         user_id=payload.user_id or None,
         session_id=payload.session_id or None,
+        reason=payload.reason,
+        # 多栏归因 + 同轮内同名调用的区分：一且丢了就没法回答「这张卡是哪一栏的」。
+        run_id=payload.run_id,
+        tool_call_id=payload.tool_call_id,
     )
     return PiApprovalOut(
         approved=approved,
@@ -144,3 +152,42 @@ async def list_approvals(request: Any, limit: int = 50) -> list[dict[str, Any]]:
         }
         for a in records
     ]
+
+
+@router.get("/approvals/export")
+async def export_approvals(
+    request: Any,
+    days: int = Query(0, ge=0, description="回看天数；0（默认）= 不限时间"),
+    status: AgentApproval.Status | None = Query(None, description="审批状态过滤"),
+) -> HttpResponse:
+    """导出审批记录 CSV（合规留痕：UTF-8 BOM，Excel 直开不乱码）。
+
+    ## 权限（与 ``/approvals`` 同口径）
+
+    普通律师只拿到**自己会话**的记录，超级用户拿全部。无权看的记录不是报 403
+    而是**不出现**——403 等于告诉对方「确实存在别人的审批」。
+
+    ## 截断
+
+    单次最多导出 ``EXPORT_MAX_ROWS`` 条（按时间倒序）。命中上限时**不静默**：
+    响应头 ``X-Export-Truncated: true`` + warning 日志，调用方应缩小 ``days`` /
+    ``status`` 范围后重导。
+    """
+    user = _current_user(request)
+    page = await list_approvals_for_export(user=user, days=days, status=status)
+    filename = f"agent-approvals-{timezone.localdate():%Y%m%d}.csv"
+    # utf-8-sig：写出 BOM。少这 3 个字节，Excel（Windows）会把中文按 GBK 解，全行乱码。
+    response = build_download_response(
+        approval_export_csv(page.records).encode("utf-8-sig"), filename, "text/csv; charset=utf-8"
+    )
+    response["X-Export-Rows"] = str(len(page.records))
+    response["X-Export-Truncated"] = "true" if page.truncated else "false"
+    if page.truncated:
+        logger.warning(
+            "审批导出命中上限已截断: user=%s days=%s status=%s rows=%d",
+            getattr(user, "username", None),
+            days,
+            status.value if status is not None else "-",
+            len(page.records),
+        )
+    return response

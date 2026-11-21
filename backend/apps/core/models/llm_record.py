@@ -21,6 +21,11 @@ class LLMCallRecord(models.Model):
     id: int
     model = models.CharField(max_length=100, verbose_name="模型")
     backend = models.CharField(max_length=50, blank=True, default="", verbose_name="后端")
+    #: 平台名（``LLMProvider.name``）。与 ``backend`` 是两件事：backend 是「哪个实现
+    #: （openai-compatible / pi / dsh）」，provider 是「哪个平台/网关」。做成本归属
+    #: 必须按 provider——同一个 backend 会连多个平台，同一平台也会被多个 backend 用。
+    #: 历史行留空串（显示「未知」），**不猜测回填**。
+    provider = models.CharField(max_length=50, blank=True, default="", verbose_name="平台")
     caller = models.CharField(max_length=200, blank=True, default="", verbose_name="调用方")
     success = models.BooleanField(default=True, verbose_name="是否成功")
     error_type = models.CharField(max_length=100, blank=True, default="", verbose_name="错误类型")

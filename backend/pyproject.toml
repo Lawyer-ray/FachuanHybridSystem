@@ -111,6 +111,7 @@ dependencies = [
     "webauthn>=3.0.1",
     "authlib>=1.9.1",
     "dnspython>=2.9.0",
+    "trafilatura>=2.3",
 ]
 
 [dependency-groups]

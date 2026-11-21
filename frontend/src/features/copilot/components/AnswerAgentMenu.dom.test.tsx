@@ -42,9 +42,10 @@ function option(
 const MODELS = ['kimi-2.6', 'glm53', 'claude-opus-4-5']
 const backends = [
   option('pi', 'Pi', true, MODELS, 'kimi-2.6'),
-  // 这两个没有人工审批闸门（dsh fail-closed 直接拒 / openai-agents 照常执行）
+  // dsh 没有人工审批闸门（fail-closed 直接拒）；openai-agents 默认有闸门
+  // （`FACHUAN_OPENAI_APPROVAL` 默认 on，能力位随开关一起变）
   option('dsh', 'DeepSeek Harness', true, MODELS, 'glm53', false),
-  option('oai', 'OpenAI Agents', true, MODELS, 'kimi-2.6', false),
+  option('oai', 'OpenAI Agents', true, MODELS, 'kimi-2.6'),
   option('gpt', 'GPT'),
 ]
 
@@ -107,9 +108,10 @@ describe('AnswerAgentMenu', () => {
 
   /**
    * 合规信息，必须显示在**勾选之前**：`BackendCapabilities.approval=False` 意味着
-   * 高危工具不会弹审批卡（dsh 直接拒绝 / openai-agents 照常执行）。等出事再说是没用的。
+   * 高危工具不会弹审批卡（dsh 直接拒绝）。等出事再说是没用的；反过来
+   * approval=true（pi / 默认配置的 openai-agents）不能误挂这枚标记。
    */
-  it('没有审批闸门的后端在勾选之前就挂「无审批」标记（有闸门的不挂）', () => {
+  it('只有 approval=false 的后端在勾选之前挂「无审批」标记（true 的不挂）', () => {
     renderMenu()
     openMenu()
 
@@ -118,7 +120,7 @@ describe('AnswerAgentMenu', () => {
     const oaiRow = screen.getByTestId('agent-row-oai')
     expect(piRow.querySelector('[data-no-approval-badge]')).toBeNull()
     expect(dshRow.querySelector('[data-no-approval-badge]')).toBeTruthy()
-    expect(oaiRow.querySelector('[data-no-approval-badge]')).toBeTruthy()
+    expect(oaiRow.querySelector('[data-no-approval-badge]')).toBeNull()
     // 徽标自己带完整语义（tooltip + aria-label），不靠旁边文字
     expect(dshRow.querySelector('[data-no-approval-badge]')!.getAttribute('title')).toContain('没有人工审批闸门')
   })

@@ -128,8 +128,10 @@ class TestKeyPoolModelScopes:
 
     def test_cooldown_is_isolated_per_model(self) -> None:
         pool = _KeyPool(["k1"])  # pragma: allowlist secret
-        assert pool.acquire("a") == 0
-        pool.release(0, success=False, model="a")
+        # 连续 FAILS_BEFORE_COOLDOWN 次才冷却（默认 2）：单次抖动不该把 Key 停掉
+        for _ in range(_KeyPool.FAILS_BEFORE_COOLDOWN):
+            assert pool.acquire("a") == 0
+            pool.release(0, success=False, model="a")
         # a 冷却中，但同一 Key 访问 b 不受影响
         assert pool.acquire("a") is None
         assert pool.acquire("b") == 0

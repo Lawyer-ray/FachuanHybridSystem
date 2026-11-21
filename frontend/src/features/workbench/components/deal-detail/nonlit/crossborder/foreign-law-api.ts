@@ -11,7 +11,9 @@
  * ═══ 接口形态（实测） ═══
  *   POST /api/v1/legal-research/foreign-law/verify
  *   { law_name: '民商法典', section_number: '538', country_code: 'LAWCOUNTRYTG', claim?: string }
- *   → { ok, verdict, law_title, section_number, section_text, reason, needs_model_judgement }
+ *   → { ok, verdict, law_title, section_number, section_text, reason,
+ *       adjudicated, unconfirmed, needs_human, review_reasons, agreement,
+ *       matched_by, elements, votes, jury_tokens }
  *
  * 两个坑（已踩）：
  *   · country_code 必须是 LAWCOUNTRYTG，不是 TH —— 传 TH 会 422
@@ -34,6 +36,27 @@ export interface ForeignLawTraceStep {
   ms: number
 }
 
+/** 逐要件判定（律师问「哪一项没依据」时看的这一行） */
+export interface ForeignLawElement {
+  statement: string
+  /** 支持 / 矛盾 / 原文未提及 */
+  verdict: string
+  reason?: string
+}
+
+/** 一个判定器的摘要（不含自由文本，后端刻意只透判定面） */
+export interface ForeignLawVote {
+  model: string
+  /** balanced（中立）/ adversarial（对抗） */
+  role: string
+  verdict: string
+  unscored_reason?: string
+  /** 判定器回带的原文片段是否真的在条文里；null = 没提供 */
+  evidence_ok?: boolean | null
+  attempts?: number
+  total_tokens?: number
+}
+
 /** 核验结果（后端原样返回） */
 export interface ForeignLawVerifyResult {
   ok: boolean
@@ -42,6 +65,37 @@ export interface ForeignLawVerifyResult {
   section_number?: string
   section_text?: string
   reason?: string
+  /**
+   * 合议**跑过**了（含「跑过但弃权」）。
+   *
+   * 与 `needs_model_judgement` 分工：合议跑过就没有「等别的模型判」这回事，
+   * 弃权也是结论——所以不能根据 verdict 为空就提示律师「待判断」。
+   */
+  adjudicated?: boolean
+  /** 没有结论（既不是支持/矛盾/未提及，也不是不存在该引用） */
+  unconfirmed?: boolean
+  /** 结论可用，但必须把 review_reasons 给律师看 */
+  needs_human?: boolean
+  review_reasons?: string[]
+  /** 最高票 / 有效票；无有效票时 null（不是 0 分） */
+  agreement?: number | null
+  /** 怎么定位到这部法的：exact / containment / ambiguous */
+  matched_by?: string
+  /** 指定到「款」时该款正文（仅定位展示；判定基于整条 section_text） */
+  matched_paragraph?: string
+  elements?: ForeignLawElement[]
+  votes?: ForeignLawVote[]
+  jury_tokens?: number
+  /** 合议结果来自缓存（此时 jury_tokens 是上次的成本） */
+  cached?: boolean
+  // ---- 溯源与生效版本 ----
+  /** BARLC 详情页，给律师点回原页 */
+  source_url?: string
+  effective_date?: string
+  revise_date?: string
+  /** 时效告警。非空时必须原样展示 */
+  version_warnings?: string[]
+  /** @deprecated 判定已在插件里做完，只在合议关闭时才为 true */
   needs_model_judgement?: boolean
   claim?: string
   detail?: string

@@ -32,6 +32,14 @@ def fake_http() -> Any:
 
 
 @pytest.fixture(autouse=True)
+def _no_host_pacing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """单测里关掉「按 host 最小间隔」的等待：它只是礼貌，不该让用例变慢。"""
+    monkeypatch.setattr(_module(), "_HOST_MIN_INTERVAL", 0.0)
+    _module()._HOST_LAST_HIT.clear()
+    _module()._host_state().reset()
+
+
+@pytest.fixture(autouse=True)
 def _public_dns() -> Any:
     """默认把 DNS 解析 mock 成公网地址。
 
@@ -151,6 +159,40 @@ class TestSuccess:
         assert result["title"] == "真实页"
         assert instance.stream.call_count == 2
 
+    def test_unresolved_sogou_link_is_reported_not_faked(self, fake_http: Any) -> None:
+        """搜狗 ``/link?url=`` 解析不出真实地址时必须报错。
+
+        2026-11-21 实测：token 失效或与检索会话不绑定时，搜狗会 302 回
+        自家首页，老实现把首页导航当正文返回 ``ok=true``（494 字，“网页/微信/
+        知乎…”）——模型会拿它当判决书摘要。静默错内容比失败更糟，
+        所以这里必须走 ``unresolved_redirect``。
+        """
+        homepage = (
+            "<html><head><title>搜狗搜索引擎 - 上网从搜狗开始</title></head>"
+            "<body><nav>网页 微信 知乎 图片 视频 地图 更多</nav></body></html>"
+        )
+        _set_response(fake_http, _response(200, homepage, url="https://www.sogou.com/link?url=abc"))
+
+        result = _module().fetch_url("/link?url=hedJjaC291PM8os")
+
+        assert result["ok"] is False
+        assert result["reason"] == "unresolved_redirect"
+        assert "原文地址" in result["message"]
+
+    def test_direct_sogou_page_still_fetchable(self, fake_http: Any) -> None:
+        """非 /link 跳转的搜狗页（用户就是要读该页）不受上面那条规则误伤。"""
+        page = (
+            "<html><head><title>搜狗搜索帮助</title></head><body><article>"
+            + "帮助说明。" * 80
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, page, url="https://www.sogou.com/help/index.html"))
+
+        result = _module().fetch_url("https://www.sogou.com/help/index.html")
+
+        assert result["ok"] is True
+        assert "帮助说明" in result["text"]
+
 
 class TestHonestFailures:
     """失败必须给准确的 reason，不能伪装成「页面为空」。"""
@@ -163,6 +205,22 @@ class TestHonestFailures:
         assert result["ok"] is False
         assert result["reason"] == "antispider"
         assert "验证码" in result["message"]
+
+    def test_wechat_captcha_page_without_the_word_captcha(self, fake_http: Any) -> None:
+        """微信验证页只写「环境异常」（页面上没有「验证码」三字）。
+
+        2026-11-21 实测：非浏览器 UA 或短时间连抓会被 302 到
+        ``mp/wappoc_appmsgcaptcha``，落地页标题是「环境异常」。只认
+        ``验证码/captcha`` 的标记表会在这种页面上静默漏判，把验证页当正文
+        交给模型——比报错糟得多。
+        """
+        _set_response(fake_http, _response(200, "<html><body><h2>环境异常</h2><p>请点击按钮进行验证</p></body></html>"))
+
+        result = _module().fetch_url("https://mp.weixin.qq.com/s/xxxx")
+
+        assert result["ok"] is False
+        assert result["reason"] == "antispider"
+        assert "粘贴" in result["message"]  # 文案必须给出可执行的出路
 
     def test_blocked_403(self, fake_http: Any) -> None:
         _set_response(fake_http, _response(403, "denied"))
@@ -896,17 +954,20 @@ class TestBodySizeCap:
 
 
 class TestRobotsTxt:
-    """robots.txt 尊重(2026-10-25 审计六十七轮,对齐官方 fetch server)——
-    目标站通用组(User-agent: *)明确 Disallow 的路径不抓;robots.txt 拉不到
-    (网络错/非 2xx)fail-open 放行(与官方 fail-closed 的刻意差异,理由见
-    fetch_url._ROBOTS_CACHE_TTL 注释)。autouse fixture 已把检查 patch 成
-    恒放行,本类用例在体内恢复真实实现。"""
+    """robots.txt **strict 模式**(2026-10-25 六十七轮口径)——目标站通用组
+    (User-agent: *)明确 Disallow 的路径不抓;robots.txt 拉不到(网络错/非 2xx)
+    fail-open 放行(与官方 fail-closed 的刻意差异,理由见 fetch_url._ROBOTS_CACHE_TTL)。
+
+    2026-11-21 起默认已是 ``off``(不查 robots,理由见 ``_ROBOTS_MODE``),所以
+    本类每个用例都显式把模式切回 ``strict``;默认行为由
+    ``test_default_mode_ignores_robots`` 单独钉住。"""
 
     @staticmethod
     def _use_real_robots(monkeypatch: pytest.MonkeyPatch) -> Any:
         module = _module()
         real = module._robots_allows_real
         monkeypatch.setattr(module, "_robots_allows", real)
+        monkeypatch.setattr(module, "_ROBOTS_MODE", "strict")
         return module
 
     @staticmethod
@@ -928,6 +989,25 @@ class TestRobotsTxt:
         assert result["ok"] is False
         assert result["reason"] == "robots_disallowed"
         instance.stream.assert_not_called()
+
+    def test_default_mode_ignores_robots(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """默认模式(off):即使目标站通用组 Disallow 全站,也照抓正文。
+
+        公众号 ``mp.weixin.qq.com`` 就是这种站(``Disallow: /`` + 六条 Allow 白名单,
+        ``/s/`` 不在白名单),旧口径下整站不可读——这是 2026-11-21 改默认值的直接原因。
+        断言连 robots.txt 都不该去拉(省一次无谓请求)。
+        """
+        module = self._use_real_robots(monkeypatch)
+        monkeypatch.setattr(module, "_ROBOTS_MODE", "off")
+        instance = fake_http.return_value.__enter__.return_value
+        instance.get.return_value = self._robots_response(body="User-Agent: *\nDisallow: /\n")
+        _set_response(fake_http, _response(200, "<html><body><article>公众号正文</article></body></html>"))
+
+        result = module.fetch_url("https://example.com/s/Hj6EBQIG69HrH7egbBFoFQ")
+
+        assert result["ok"] is True
+        assert "公众号正文" in result["text"]
+        instance.get.assert_not_called()
 
     def test_robots_404_fails_open(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
         """robots.txt 404 = 站点没写规则,标准语义为全允许,照常抓取。"""
@@ -1031,3 +1111,186 @@ class TestRedirectParseHonesty:
         assert module._resolve_sogou_redirect(html) is None
         html2 = "<meta http-equiv='refresh' content=\"0;URL='https://ok.example.com/x'\">"
         assert module._resolve_sogou_redirect(html2) == "https://ok.example.com/x"
+
+
+class TestPublishDate:
+    """发布日期抽取：兜底引擎完全没有日期，页面自己能给的就必须拿到。"""
+
+    def test_meta_property(self, fake_http: Any) -> None:
+        html = (
+            '<html><head><meta property="article:published_time" content="2026-03-02T08:00:00+08:00">'
+            "</head><body><article>" + "正文。" * 100 + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://a.gov.cn/x")
+
+        assert result["ok"] is True
+        assert result["published"] == "2026-03-02"
+
+    def test_json_ld(self, fake_http: Any) -> None:
+        html = (
+            '<html><head><script type="application/ld+json">'
+            '{"@type":"NewsArticle","datePublished":"2025-11-20"}</script></head>'
+            "<body><article>" + "正文。" * 100 + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        assert _module().fetch_url("https://a.gov.cn/y")["published"] == "2025-11-20"
+
+    def test_text_fallback_is_keyword_anchored(self, fake_http: Any) -> None:
+        """没有 meta 的政务页：正文头部的「发布时间：2026-01-12」可以兜底。"""
+        html = (
+            "<html><body><article>"
+            "来源：陕西省人社厅 发布时间：2026-01-12　浏览：12 次\n"
+            + "正文。" * 100
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        assert _module().fetch_url("https://a.gov.cn/d")["published"] == "2026-01-12"
+
+    def test_quoted_law_date_is_not_treated_as_publish_date(self, fake_http: Any) -> None:
+        """正文里引用的「自 2023年12月5日起施行」不是发布日期——误判比没有更糟。"""
+        html = "<html><body><article>" + "本解释自 2023年12月5日起施行。" + "正文。" * 100 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        assert _module().fetch_url("https://a.gov.cn/e")["published"] == ""
+
+    def test_missing_date_is_empty_string(self, fake_http: Any) -> None:
+        html = "<html><body><article>" + "正文。" * 100 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://a.gov.cn/z")
+
+        assert result["ok"] is True
+        assert result["published"] == ""
+
+
+class TestHostThrottle:
+    """429/503 要读 Retry-After 并冷却该 host；继续打只会再吃一次同样的错。"""
+
+    def test_429_trips_host_breaker(self, fake_http: Any) -> None:
+        module = _module()
+        _set_response(fake_http, _response(429, "", url="https://busy.example.com/x"))
+        fake_http.return_value.__enter__.return_value.stream.return_value = _StreamCM(
+            httpx.Response(
+                status_code=429,
+                headers={"retry-after": "42"},
+                content=b"",
+                request=httpx.Request("GET", "https://busy.example.com/x"),
+            )
+        )
+
+        result = module.fetch_url("https://busy.example.com/x")
+
+        assert result["ok"] is False
+        assert result["reason"] == "host_throttled"
+        assert "42" in result["message"]
+        remaining, reason = module._host_state().info("busy.example.com")
+        assert remaining > 30 and "429" in reason
+
+    def test_second_call_to_cooled_host_is_rejected_without_network(self, fake_http: Any) -> None:
+        module = _module()
+        module._host_state().trip("slow.example.com", "HTTP 429", 60)
+
+        result = module.fetch_url("https://slow.example.com/y")
+
+        assert result["ok"] is False
+        assert result["reason"] == "host_throttled"
+        instance = fake_http.return_value.__enter__.return_value
+        assert instance.stream.call_count == 0, "熔断期间不该再发请求"
+
+
+class TestTrafilaturaFallback:
+    """选择器明显抽不到东西时，用 trafilatura 兜底（**可选依赖**）。
+
+    ⚠️ 证据更正：最初以为「政务页只抽 830 字」是漏抽，实测那页正文本身就是 830 字
+    （trafilatura 只给 694）。所以这条兜底不是「修抽取质量」，而是给**老站/怪排版**
+    的免费保险：只有选择器几乎抽不到（< 300 字）时才请它出手。
+    """
+
+    def test_falls_back_when_selector_finds_little(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _module()
+        html = "<html><body><div class='weird-old-layout'>只有一点点</div></body></html>"
+        _set_response(fake_http, _response(200, html))
+        monkeypatch.setattr(module, "_extract_text_trafilatura", lambda _html: "兜底正文。" * 100)
+
+        result = module.fetch_url("https://old.example.com/a")
+
+        assert result["ok"] is True
+        assert "兜底正文" in result["text"]
+
+    def test_keeps_selector_result_when_it_is_rich(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _module()
+        html = "<html><body><article>" + "选择器正文。" * 200 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+        called: list[int] = []
+        monkeypatch.setattr(module, "_extract_text_trafilatura", lambda _html: called.append(1) or "短的兜底")
+
+        result = module.fetch_url("https://new.example.com/a")
+
+        assert "选择器正文" in result["text"]
+        assert called == [], "选择器抽到足够内容时不该再花时间跑 trafilatura"
+
+    def test_returns_empty_when_trafilatura_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _module()
+        monkeypatch.setattr(module, "_MIN_EXTRACT_CHARS", 300)
+        # 模拟未安装：import 失败 → 返回空串（调用方保留选择器结果）
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fake_import(name: str, *a: Any, **kw: Any) -> Any:
+            if name == "trafilatura":
+                raise ImportError("not installed")
+            return real_import(name, *a, **kw)
+
+        monkeypatch.setattr(builtins, "__import__", _fake_import)
+
+        assert module._extract_text_trafilatura("<html></html>") == ""
+
+
+class TestTitleFallback:
+    """标题兜底：微信正文页的 ``<title>`` 恒空，标题只在 og:title / msg_title。"""
+
+    _BODY = "<article>" + "正文内容。" * 80 + "</article>"
+
+    def test_og_title_when_title_is_empty(self, fake_http: Any) -> None:
+        html = (
+            "<html><head><title></title>"
+            '<meta property="og:title" content="第二届广东省律师AI技能大赛初赛结果出炉！">'
+            f"</head><body>{self._BODY}</body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://mp.weixin.qq.com/s/xxxx")
+
+        assert result["ok"] is True
+        assert result["title"] == "第二届广东省律师AI技能大赛初赛结果出炉！"
+
+    def test_msg_title_variable_when_no_meta(self, fake_http: Any) -> None:
+        html = (
+            "<html><head><title></title></head><body>"
+            "<script>var msg_title = '公众号文章标题'.html(false);</script>"
+            f"{self._BODY}</body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://mp.weixin.qq.com/s/yyyy")
+
+        assert result["ok"] is True
+        assert result["title"] == "公众号文章标题"
+
+    def test_title_tag_still_wins(self, fake_http: Any) -> None:
+        """回归：``<title>`` 非空时行为不变（不给普通站点引入 og:title 覆盖）。"""
+        html = (
+            "<html><head><title>法院公告</title>"
+            '<meta property="og:title" content="某站首页">'
+            f"</head><body>{self._BODY}</body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/a")
+
+        assert result["title"] == "法院公告"

@@ -22,6 +22,24 @@ from apps.core.llm.backends.base import OpenAIProviderConfig
 logger = logging.getLogger("apps.core.services.llm_provider")
 
 
+def _config_generation() -> int:
+    """跨进程配置代次（缓存不可用或首次读取时返回 0 = 只靠 TTL）。
+
+    放模块级而不是做成静态方法：四层架构规定 Service 层不用静态方法
+    （``tests/ci/structure/test_four_layer_architecture.py`` 的棘轮只许下调）；
+    本函数没有实例状态，纯函数更合适。
+
+    注：那个棘轮扫描器是**按行正则**，注释/文档串里出现这个装饰器名字也会被
+    计入——所以这里的说明文字刻意不写它的字面形式。
+    """
+    try:
+        from apps.core.llm.key_health import config_generation
+
+        return config_generation()
+    except (ImportError, AttributeError, OSError):  # pragma: no cover
+        return 0
+
+
 @dataclass
 class RemoteKeyModels:
     """单个 Key 拉取远端模型列表的结果。
@@ -63,6 +81,16 @@ class RemoteModelList:
         return any(item.ok for item in self.per_key)
 
 
+def _split_fallback_models(raw: str) -> list[str]:
+    """降级模型链：逗号/换行/分号分隔，去重保序（与 ``parse_key_entries`` 同风格）。"""
+    models: list[str] = []
+    for part in (raw or "").replace("\n", ",").replace(";", ",").split(","):
+        model = part.strip()
+        if model and model not in models:
+            models.append(model)
+    return models
+
+
 def _extract_model_ids(payload: Any) -> list[str]:
     """从 OpenAI-compatible ``/models`` 响应中提取模型 id（去重保序）。
 
@@ -89,44 +117,65 @@ def _extract_model_ids(payload: Any) -> list[str]:
 class LLMProviderService:
     """LLM 平台配置服务（进程内 TTL 缓存）。"""
 
-    _CACHE_TTL_SECONDS: ClassVar[float] = 300.0
+    #: 缓存时长。原为 300s，实测「Admin 换 Key 后检索通道还拿旧 Key 300 秒」；
+    #: 现在另有跨进程代次校验（见 ``_generation``），TTL 只作兜底。
+    _CACHE_TTL_SECONDS: ClassVar[float] = 60.0
     _MODELS_TIMEOUT_SECONDS: ClassVar[float] = 15.0
     _CHAT_PROBE_TIMEOUT_SECONDS: ClassVar[float] = 10.0
     # 对话能力探测的并发与总预算：上百个模型逐个串行探测（10s 超时）会拖到
     # 十几分钟，改并发探测并设置总时间墙。
     _PROBE_CONCURRENCY: ClassVar[int] = 8
     _PROBE_TOTAL_BUDGET_SECONDS: ClassVar[float] = 120.0
-    _cache: ClassVar[tuple[list[OpenAIProviderConfig], float] | None] = None
+    #: ``(平台列表, 过期时刻, 配置代次)``；代次来自 ``key_health``（跨进程共享）。
+    _cache: ClassVar[tuple[list[OpenAIProviderConfig], float, int] | None] = None
 
     @classmethod
     def invalidate_cache(cls) -> None:
-        """清空平台配置缓存（Admin 保存/删除后调用，使改动立即生效）。"""
+        """清空平台配置缓存，并**递增跨进程代次**让其它 worker / MCP 进程也重载。
+
+        Admin 保存只跑在一个 worker 里，不 bump 代次的话，其它进程要等 TTL
+        （原来是 300 秒）——症状是「聊天好了、检索还用旧 Key」。
+        """
         cls._cache = None
+        try:
+            from apps.core.llm.key_health import bump_config_generation
+
+            bump_config_generation()
+        except Exception:  # pragma: no cover - 缓存不可用时只清本进程
+            logger.debug("递增配置代次失败，仅本进程缓存生效", exc_info=True)
 
     @classmethod
     def get_providers(cls) -> list[OpenAIProviderConfig]:
-        """同步读取启用的平台配置列表（带缓存）。"""
+        """同步读取启用的平台配置列表（带缓存 + 跨进程代次校验）。"""
+        generation = _config_generation()
         cached = cls._cache
         if cached is not None:
-            value, cached_at = cached
-            if time.monotonic() - cached_at <= cls._CACHE_TTL_SECONDS:
+            value, cached_at, cached_generation = cached
+            fresh = time.monotonic() - cached_at <= cls._CACHE_TTL_SECONDS
+            same_generation = generation == 0 or cached_generation == generation
+            if fresh and same_generation:
                 return value
 
         try:
             providers = cls._load_from_db()
         except Exception:
             logger.warning("[LLMProviderService] 读取平台配置失败", exc_info=True)
-            providers = []
-        cls._cache = (providers, time.monotonic())
+            # **读库失败不写缓存**：否则一次 DB/解密抖动会把「没有平台」固化一整个
+            # TTL，下游静默回落到 env 单 Key 平台（审计 P1-7，症状是「回答变差 / 401」）。
+            return cached[0] if cached is not None else []
+        cls._cache = (providers, time.monotonic(), generation)
         return providers
 
     @classmethod
     async def aget_providers(cls) -> list[OpenAIProviderConfig]:
-        """异步读取启用的平台配置列表（带缓存）。"""
+        """异步读取启用的平台配置列表（带缓存 + 跨进程代次校验）。"""
+        generation = _config_generation()
         cached = cls._cache
         if cached is not None:
-            value, cached_at = cached
-            if time.monotonic() - cached_at <= cls._CACHE_TTL_SECONDS:
+            value, cached_at, cached_generation = cached
+            fresh = time.monotonic() - cached_at <= cls._CACHE_TTL_SECONDS
+            same_generation = generation == 0 or cached_generation == generation
+            if fresh and same_generation:
                 return value
 
         from asgiref.sync import sync_to_async
@@ -135,8 +184,8 @@ class LLMProviderService:
             providers = await sync_to_async(cls._load_from_db)()
         except Exception:
             logger.warning("[LLMProviderService] 异步读取平台配置失败", exc_info=True)
-            providers = []
-        cls._cache = (providers, time.monotonic())
+            return cached[0] if cached is not None else []
+        cls._cache = (providers, time.monotonic(), generation)
         return providers
 
     @classmethod
@@ -160,12 +209,15 @@ class LLMProviderService:
                     key_model_scopes={key: models for key, models in entries if models},
                     default_model=(row.default_model or "").strip(),
                     extra_models=row.parsed_models(),
+                    fallback_models=_split_fallback_models(row.fallback_models),
                     embedding_model=(row.embedding_model or "").strip(),
                     vision_model=(row.vision_model or "").strip(),
                     enable_thinking=bool(row.enable_thinking),
                     thinking_switch_supported=row.supports_thinking(),
                     timeout=int(row.timeout or 120),
                     concurrency_per_key=int(row.concurrency_per_key or 0),
+                    rpm_limit=int(getattr(row, "rpm_limit", 0) or 0),
+                    tpm_limit=int(getattr(row, "tpm_limit", 0) or 0),
                     priority=int(row.priority or 10),
                     enabled=bool(row.enabled),
                 )

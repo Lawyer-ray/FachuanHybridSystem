@@ -66,7 +66,15 @@ from typing import Any
 
 from ..pi import shared_mcp as shared_mcp_module
 from ..pi.shared_mcp import ensure_shared_server
-from .toolface import SERVER_NAME, TIER_LITE, TOOL_TIER_HEADER, TOOL_TIMEOUT_SECONDS, McpEndpoint, shared_enabled
+from .toolface import (
+    SERVER_NAME,
+    SESSION_HEADER,
+    TIER_LITE,
+    TOOL_TIER_HEADER,
+    TOOL_TIMEOUT_SECONDS,
+    McpEndpoint,
+    shared_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +158,7 @@ def _tool_tier() -> str:
     return TIER_LITE
 
 
-def patch_body(endpoint: McpEndpoint, user_token: str) -> str:
+def patch_body(endpoint: McpEndpoint, user_token: str, *, session_id: str = "") -> str:
     """生成 patch 文件内容（纯函数，便于测试与单测断言）。
 
     为什么 ``failOnStartupError: true``：默认的 ``false`` 会把「连不上 / 401」
@@ -172,6 +180,10 @@ def patch_body(endpoint: McpEndpoint, user_token: str) -> str:
             f"        url: {_quoted(endpoint.url)}",
             "        headers:",
             f"          Authorization: {_quoted(f'Bearer {user_token}')}",
+            # 会话标识（与 pi 同源头名，HTTP 头大小写不敏感）：MCP 服务端的审批闸门
+            # 靠它把审批卡投到正确的会话、并把「谁在等」写成 AgentApproval.session。
+            # 不带时审批网关只能建无会话单（只有超管能批）→ 等于高危工具全拒。
+            *([f"          {SESSION_HEADER}: {_quoted(session_id)}"] if session_id else []),
             # 工具面分层（2026-11-19）：让 MCP server 只返回 direct 层工具。
             #
             # **为什么必须由 dsh 这一侧声明**：dsh 的 mcp-client 会把
@@ -192,7 +204,7 @@ def patch_body(endpoint: McpEndpoint, user_token: str) -> str:
     )
 
 
-def ensure_mcp_patch(dsh_home: str, *, user_token: str, wait_ready: bool = True) -> str | None:
+def ensure_mcp_patch(dsh_home: str, *, user_token: str, session_id: str = "", wait_ready: bool = True) -> str | None:
     """确保 :8011 在跑并写出 mcp patch，返回 patch 文件路径。
 
     同步函数：调用方（``dsh_config.build_config``）本身就在线程里跑（它要读同步
@@ -246,7 +258,7 @@ def ensure_mcp_patch(dsh_home: str, *, user_token: str, wait_ready: bool = True)
 
     path = Path(dsh_home) / PATCH_FILENAME
     try:
-        _write_private(path, patch_body(endpoint, token))
+        _write_private(path, patch_body(endpoint, token, session_id=session_id))
     except OSError:
         logger.warning("写入 dsh MCP patch 失败：%s（本会话无业务工具）", path, exc_info=True)
         return None

@@ -116,12 +116,19 @@ class OpenAIProviderConfig:
     key_model_scopes: dict[str, list[str]] = field(default_factory=dict)
     default_model: str = ""
     extra_models: list[str] = field(default_factory=list)
+    #: 降级模型链（主模型失败后按序重试）。原本只有 pi 读它，Admin 里也改不到，
+    #: 服务路径/dsh/openai-agents 全都不降级（审计 P1-10）。此处加载进来后，
+    #: 任何拿到 provider 的调用方都能看到同一条链。
+    fallback_models: list[str] = field(default_factory=list)
     embedding_model: str = ""
     vision_model: str = ""
     enable_thinking: bool = False
     thinking_switch_supported: bool = False
     timeout: int = 120
     concurrency_per_key: int = 0
+    #: 每 Key 每分钟请求数 / token 数上限（0 = 不限；默认只观测不拒绝）
+    rpm_limit: int = 0
+    tpm_limit: int = 0
     priority: int = 10
     enabled: bool = True
 

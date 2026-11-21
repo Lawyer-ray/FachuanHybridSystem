@@ -20,7 +20,11 @@ _CONTRACT_FILING_SEQUENCE_LOCK_KEY = 8_801_001
 def _acquire_filing_lock() -> None:
     """获取合同建档序号的 PostgreSQL 事务级咨询锁（非 PG 环境为 no-op）。
 
-    四层架构规范：Service 层禁用 @staticmethod，纯函数一律下沉到模块级。
+    四层架构规范：Service 层禁用静态方法，纯函数一律下沉到模块级。
+
+    注：``tests/ci/structure/test_four_layer_architecture.py`` 的静态方法棘轮是
+    **按行正则**，注释里写那个装饰器的字面形式会被计入（这行原本就是一处假计数），
+    所以这里只说「静态方法」。
     """
     if connection.vendor == "postgresql":
         with connection.cursor() as cursor:

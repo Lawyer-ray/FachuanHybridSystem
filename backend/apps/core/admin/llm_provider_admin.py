@@ -62,6 +62,17 @@ class LLMProviderAdmin(admin.ModelAdmin):
                     "api_keys",
                     "timeout",
                     "concurrency_per_key",
+                    "rpm_limit",
+                    "tpm_limit",
+                ),
+                # 2026-11-21 审计（P0-2）：并发记账是**进程内**的，而生产有
+                # 2 个 gunicorn worker + 1 个共享 MCP 进程 → 这里填 3，网关实际
+                # 看到的是 3 × 3 = 9 个在途，必然换回 429 + retry-after: 60。
+                "description": (
+                    "⚠ 并发上限是<b>按进程</b>记账的：生产环境有 2 个 Web worker + 1 个共享 MCP 进程，"
+                    "因此这里填 3 时，网关实际可能看到 9 个并发请求。"
+                    "若网关返回 429（x-ratelimit-api-key-limit-max_parallel_requests），"
+                    "应把该值按 worker 数折算（如 3 ÷ 3 = 1）后再观察。"
                 ),
             },
         ),
@@ -71,6 +82,7 @@ class LLMProviderAdmin(admin.ModelAdmin):
                 "fields": (
                     "default_model",
                     "extra_models",
+                    "fallback_models",
                     "enable_thinking",
                     "embedding_model",
                     "vision_model",

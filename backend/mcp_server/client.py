@@ -15,7 +15,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from . import config
 from .config import http_transport_enabled
-from .identity import passthrough_authorization
+from .identity import SESSION_HEADER, current_session_id, passthrough_authorization
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,18 @@ class FachuanTransportError(FachuanApiError):
 
 _MAX_OBTAIN_RETRIES = 3
 _RETRY_BACKOFF = (1.0, 3.0, 5.0)
+
+
+def _with_session_header(headers: dict[str, str]) -> dict[str, str]:
+    """把当前 agent 会话标识透传给 REST（写端点据此识别「agent 在多栏里直接写」）。
+
+    来源是 MCP 入站的 ``X-Fachuan-Session``（见 ``identity.current_session_id``）。
+    没有会话（stdio / 脚本 / 后台任务）就不带头：REST 侧按「律师手动操作」放行。
+    """
+    session_id = current_session_id()
+    if session_id:
+        headers[SESSION_HEADER] = session_id
+    return headers
 
 
 class FachuanClient:
@@ -134,7 +146,7 @@ class FachuanClient:
         # 这里（如 REQUEST_AUTH 被显式关闭调优），也直接报错而不是悄悄升权。
         passthrough = passthrough_authorization()
         if passthrough:
-            return {"Authorization": passthrough}
+            return _with_session_header({"Authorization": passthrough})
         if http_transport_enabled():
             raise FachuanApiError(
                 "共享 MCP 未收到调用方身份：HTTP 模式禁止回退到服务账号（超管）。"
@@ -142,7 +154,7 @@ class FachuanClient:
             )
         # stdio 模式（每 pi 一进程，手工/脚本场景）：用服务账号
         self._ensure_token()
-        return {"Authorization": f"Bearer {self._access_token}"}
+        return _with_session_header({"Authorization": f"Bearer {self._access_token}"})
 
     def _guard_transport(
         self, send: Callable[[], httpx.Response], method: str, path: str, *, timeout: float = 60.0

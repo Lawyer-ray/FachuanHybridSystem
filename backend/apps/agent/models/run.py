@@ -49,6 +49,8 @@ class AgentRun(models.Model):
         blank=True,
         verbose_name="发起人",
     )
+    #: 平台名（``LLMProvider.name``）：成本归属的一维。历史行留空 = 「未知」。
+    provider = models.CharField(max_length=50, blank=True, default="", verbose_name="平台")
     model = models.CharField(max_length=100, blank=True, default="", verbose_name="模型")
     #: 本条运行记录是**哪个 agent 后端**跑的（``pi`` / ``dsh`` / ``openai-agents``）。
     #:
@@ -64,6 +66,9 @@ class AgentRun(models.Model):
     #: 空串 = 引入本字段之前的旧数据。填 ``pi`` 会把「不知道」伪装成事实（那时
     #: 只有 pi 在跑，但这是**推断**出来的，不是记下来的）；查询侧按「空串归 pi」
     #: 处理即可，与 ``AgentMessage.agent_kind`` 同口径。
+    #: 本轮轮次号（与助手消息的 ``turn_no`` 同值）：多答一轮 N 条记录靠它聚合成
+    #: 「这一轮三栏一共花了多少」，不再靠 created_at 时间窗猜。
+    turn_no = models.IntegerField(default=0, db_index=True, verbose_name="轮次号")
     agent_kind = models.CharField(max_length=32, blank=True, default="", verbose_name="agent 后端")
     status = models.CharField(
         max_length=16,

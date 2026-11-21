@@ -115,6 +115,11 @@ async def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any: 
 @router.post("/{contract_id}/archive/generate-folder", response=GenerateArchiveFolderOut)
 async def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """生成归档文件夹：模板文书 + 合并 PDF"""
+    from apps.agent.services.approval.write_guard import ensure_request_not_multi_lane
+
+    # 入口 C 兜底：多栏并答时 agent 不得整批重建绑定目录（会盖掉其它栏正在改的文件）
+    await ensure_request_not_multi_lane(request, endpoint="contracts.archive.generate_folder")
+
     contract = await _ensure_contract_access(request, contract_id)
     if not contract:
         return HttpResponse(status=404)
@@ -162,6 +167,11 @@ async def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
 @router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
 async def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """从案件材料同步到归档"""
+    from apps.agent.services.approval.write_guard import ensure_request_not_multi_lane
+
+    # 入口 C 兜底：同步会重写归档目录里的整批文件（与 generate-folder 同一风险）
+    await ensure_request_not_multi_lane(request, endpoint="contracts.archive.sync_case_materials")
+
     contract = await _ensure_contract_access(request, contract_id)
     if not contract:
         return HttpResponse(status=404)

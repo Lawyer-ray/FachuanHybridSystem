@@ -117,6 +117,12 @@ class LLMProvider(models.Model):
     )
     timeout = models.PositiveIntegerField(default=120, verbose_name="超时（秒）")
     concurrency_per_key = models.PositiveIntegerField(default=3, verbose_name="每 Key 并发上限")
+    #: 每 Key 每分钟请求数上限（0 = 不限）。网关侧（LiteLLM）可以按 Key 限 rpm，
+    #: 我们这边只有并发维度——长文档/大 prompt 场景会直接吃 429 而不知道为什么。
+    #: **默认只观测不拒绝**（见 ``key_pool.rate_limit_enforce``）：先跑一周看真实分布。
+    rpm_limit = models.PositiveIntegerField(default=0, verbose_name="每 Key 每分钟请求数上限")
+    #: 每 Key 每分钟 token 上限（0 = 不限），同样是观察优先。
+    tpm_limit = models.PositiveIntegerField(default=0, verbose_name="每 Key 每分钟 Token 上限")
     priority = models.PositiveIntegerField(default=10, verbose_name="优先级")
     enabled = models.BooleanField(default=True, verbose_name="启用")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")

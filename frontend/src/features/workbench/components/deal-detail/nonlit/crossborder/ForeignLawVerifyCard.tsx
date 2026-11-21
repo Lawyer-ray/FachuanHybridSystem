@@ -10,7 +10,7 @@
  */
 
 import { useState } from 'react'
-import { CheckCircle2, ExternalLink, Loader2, XCircle } from 'lucide-react'
+import { CheckCircle2, ExternalLink, Loader2, TriangleAlert, XCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -19,9 +19,42 @@ import { TonePill as Pill } from './crossborder-ui'
 import {
   DEMO_THAI_CITATIONS,
   verifyThaiLaw,
+  type ForeignLawElement,
   type ForeignLawVerifyResult,
   type ThaiLawCitation,
 } from './foreign-law-api'
+
+/**
+ * 判定结论 → 标签颜色与文案。
+ *
+ * 不用 `verdict ? '已判定' : '未判定'` 这种二元写法：`待判定` 有两种成因
+ * （合议弃权 vs 合议未开启），且「原文未提及」不等于「不支持」——
+ * 标签必须自己说清楚，律师才不会读反。
+ */
+function verdictPill(result: ForeignLawVerifyResult) {
+  if (result.verdict === '支持') return <Pill tone="green">条文支持该主张</Pill>
+  if (result.verdict === '矛盾') return <Pill tone="red">条文与该主张相反</Pill>
+  if (result.verdict === '原文未提及') return <Pill tone="yellow">条文未涉及该主张</Pill>
+  if (result.verdict === '不存在该引用') return <Pill tone="red">不存在该引用</Pill>
+  if (result.adjudicated) return <Pill tone="yellow">判定器未形成多数</Pill>
+  return <Pill tone="yellow">待判断层比对</Pill>
+}
+
+/** 要件判定的行内颜色 */
+function elementTone(verdict: string): 'green' | 'red' | 'yellow' {
+  if (verdict === '支持') return 'green'
+  if (verdict === '矛盾') return 'red'
+  return 'yellow'
+}
+
+function ElementRow({ element }: { element: ForeignLawElement }) {
+  return (
+    <li className="flex items-start gap-1.5 text-[10.5px] leading-[1.6]">
+      <Pill tone={elementTone(element.verdict)}>{element.verdict}</Pill>
+      <span className="min-w-0 flex-1 text-secondary-foreground">{element.statement}</span>
+    </li>
+  )
+}
 
 interface Row<T> {
   citation: ThaiLawCitation
@@ -139,7 +172,7 @@ export function ForeignLawVerifyCard() {
               {row.state === 'done' && row.result?.ok ? (
                 <>
                   <Pill tone="green">已取到原文</Pill>
-                  {row.result.needs_model_judgement ? <Pill tone="yellow">待判断层比对</Pill> : null}
+                  {verdictPill(row.result)}
                 </>
               ) : null}
               {row.state === 'fail' ? <Pill tone="red">未核验</Pill> : null}
@@ -156,6 +189,59 @@ export function ForeignLawVerifyCard() {
               合同主张：{row.citation.claim}
             </div>
 
+            {/* 时效告警：这类问题必须显性展示，不能藏在一个绿 pill 后面 */}
+            {row.state === 'done' && row.result?.version_warnings?.length ? (
+              <div className="mt-2 rounded-[8px] border border-status-yellow/50 bg-status-yellow-bg/50 px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-status-yellow">
+                  <TriangleAlert className="size-3" />
+                  生效版本提示
+                </div>
+                <ul className="mt-[2px] flex flex-col gap-[2px]">
+                  {row.result.version_warnings.map((warning) => (
+                    <li key={warning} className="text-[10.5px] leading-[1.55] text-secondary-foreground">
+                      · {warning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* 逐要件判定：律师问「哪一项没依据」的答案 */}
+            {row.state === 'done' && row.result?.elements?.length ? (
+              <div className="mt-2 rounded-[8px] border border-border-light bg-background px-2.5 py-2">
+                <div className="mb-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span className="font-medium text-foreground">逐要件判定</span>
+                  {typeof row.result.agreement === 'number' ? (
+                    <>
+                      <span className="text-border">·</span>
+                      <span className="tabular-nums">
+                        一致度 {Math.round(row.result.agreement * 100)}%
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+                <ul className="flex flex-col gap-[3px]">
+                  {row.result.elements.map((element) => (
+                    <ElementRow key={element.statement} element={element} />
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* 必须人工复核的提示：不许只给一个绿灯就完事 */}
+            {row.state === 'done' && row.result?.needs_human ? (
+              <div className="mt-2 rounded-[8px] border border-status-yellow/50 bg-status-yellow-bg/50 px-2.5 py-1.5">
+                <div className="text-[10px] font-medium text-status-yellow">需人工复核</div>
+                <ul className="mt-[2px] flex flex-col gap-[2px]">
+                  {(row.result.review_reasons ?? []).map((reason) => (
+                    <li key={reason} className="text-[10.5px] leading-[1.55] text-secondary-foreground">
+                      · {reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             {/* 条文原文（真返回） */}
             {row.state === 'done' && row.result?.section_text ? (
               <div className="mt-2 rounded-[8px] border border-border-light bg-secondary/25 px-2.5 py-2">
@@ -163,9 +249,32 @@ export function ForeignLawVerifyCard() {
                   <span>{row.result.law_title} · Section {row.result.section_number}</span>
                   <span className="text-border">·</span>
                   <span>BARLC 返回原文</span>
+                  {row.result.source_url ? (
+                    <a
+                      href={row.result.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-auto inline-flex items-center gap-0.5 text-status-blue hover:underline"
+                    >
+                      原站打开
+                      <ExternalLink className="size-2.5" />
+                    </a>
+                  ) : null}
                 </div>
                 <pre className="max-h-[120px] overflow-auto whitespace-pre-wrap font-mono text-[10.5px] leading-[1.65] text-secondary-foreground">
                   {row.result.section_text}
+                </pre>
+              </div>
+            ) : null}
+
+            {/* 指定到款时把该款正文单独标出来（判定仍基于整条，见后端说明） */}
+            {row.state === 'done' && row.result?.matched_paragraph ? (
+              <div className="mt-2 rounded-[8px] border border-status-blue/40 bg-status-blue-bg/30 px-2.5 py-2">
+                <div className="mb-1 text-[10px] text-muted-foreground">
+                  引用指定到该款（判定仍基于整条原文）
+                </div>
+                <pre className="whitespace-pre-wrap font-mono text-[10.5px] leading-[1.65] text-secondary-foreground">
+                  {row.result.matched_paragraph}
                 </pre>
               </div>
             ) : null}

@@ -34,11 +34,13 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import os
 import re
 import socket
 import threading
 import time
 import urllib.robotparser
+from html import unescape as _html_unescape
 from typing import Any
 from urllib.parse import urlparse
 
@@ -118,6 +120,19 @@ _HEADERS = {
 #: 逐块累积双保险——声明头可以骗,实读为准)。
 _MAX_BODY_BYTES = 10 * 1024 * 1024
 
+#: robots.txt 策略开关(2026-11-21):
+#:
+#: ``off``(默认)——**不查 robots.txt**。为什么改:robots.txt 是给「自动化遍历」的
+#: 约定(RFC 9309),不约束「用户显式指定要读的那一篇」,浏览器同样不读它。实测
+#: 代价是公众号 ``mp.weixin.qq.com`` 的通用组为 ``Disallow: /`` + 六条 ``Allow``
+#: 白名单,``/s/`` 不在白名单 → 整站不可读;而公众号是中文法律内容的主要来源,
+#: 律师把链接贴进对话的意图是「读这一篇」,不是让系统去爬。真正的底线一条都没
+#: 放松:SSRF 内网拦截、反爬/验证页识别、每 host 0.5s 限速、响应体 10MB 上限。
+#:
+#: ``strict``——恢复 2026-10-25 六十七轮的口径(见下方原注释):通用组明确
+#: ``Disallow`` 的路径不抓,返回 ``robots_disallowed``;robots.txt 拉不到仍 fail-open。
+_ROBOTS_MODE = os.getenv("FACHUAN_FETCH_ROBOTS_MODE", "off").strip().lower()
+
 #: robots.txt 尊重(2026-10-25 审计六十七轮,对齐官方 fetch server):模型自主
 #: 抓取按目标站 robots.txt 的**通用组(User-agent: \*)**判定,明确 Disallow
 #: 的路径不抓,返回 ``robots_disallowed``。与官方的**刻意差异**:robots.txt
@@ -137,6 +152,126 @@ _ROBOTS_CACHE_MAX = 32
 _robots_cache: dict[str, tuple[float, urllib.robotparser.RobotFileParser | None]] = {}
 _robots_lock = threading.Lock()
 
+#: ── 按 host 礼貌限速（学 Scrapy AutoThrottle / SearXNG 的多尺度节流）──
+#:
+#: 2026-11-21 实测：抓同一站连续多篇会直接换回 521/403（``hefei.gov.cn`` 521、
+#: ``law-lib.com`` 403）。此前本工具对「同一 host 连击」毫无防护，唯一的约束是
+#: 模型自己别太快——那不是防护。
+#:
+#: 策略刻意选「快速失败」而不是 sleep：与 ``web_search`` 的进程级配额同口径
+#: （阻塞会把整轮对话拖死）。模型拿到 ``host_throttled`` 后应当换来源或稍后再读。
+#: 同一 host 两次抓取的最小间隔（秒）。默认 0.5s：Scrapy AutoThrottle 同族思路，
+#: 但**用短暂 sleep 而不是拒绝**——读同一站点的多个链接是正常用法，直接挡回会让
+#: 模型被迫换来源。上限 2s，避免一次慢站拖死整轮。
+_HOST_MIN_INTERVAL = float(os.getenv("FACHUAN_FETCH_HOST_INTERVAL", "0.5"))
+_HOST_MAX_PACE_SECONDS = 2.0
+_HOST_LAST_HIT: dict[str, float] = {}
+_HOST_BREAKER_TTL = 3600.0
+_HOST_BREAKER_MAX = 64
+_host_breaker: Any = None
+_host_lock = threading.Lock()
+
+
+def _host_state() -> Any:
+    """按 host 记账的熔断器（懒建，避免模块导入期依赖 resilience 的初始化顺序）。"""
+    global _host_breaker
+    if _host_breaker is None:
+        from .resilience import ChannelBreaker
+
+        _host_breaker = ChannelBreaker()
+    return _host_breaker
+
+
+def _host_throttle(host: str) -> str:
+    """该 host 现在是否该被**挡回**（只有熔断会挡）；返回中文原因，可用时返回空串。
+
+    单纯「太快」不挡回，而是由 :func:`_host_pace` 短暂等待——读同一站点的多个
+    链接是正常用法。只有对方明确限流（429/503 带 Retry-After）或拒绝（401/403）
+    才进熔断，那时挡回是**省时间**：继续打只会再吃一次同样的错。
+    """
+    if not host:
+        return ""
+    remaining, reason = _host_state().info(host)
+    if remaining > 0:
+        return f"该站点近期抓取失败（{reason}），{int(remaining) + 1} 秒后再试或换来源"
+    return ""
+
+
+def _host_pace(host: str) -> None:
+    """按 host 的最小间隔**短暂**等待（≤ ``_HOST_MAX_PACE_SECONDS``），不拒绝请求。"""
+    if not host or _HOST_MIN_INTERVAL <= 0:
+        return
+    now = time.monotonic()
+    with _host_lock:
+        last = _HOST_LAST_HIT.get(host, 0.0)
+        wait = min(_HOST_MIN_INTERVAL - (now - last), _HOST_MAX_PACE_SECONDS)
+        _HOST_LAST_HIT[host] = now + max(0.0, wait)
+        if len(_HOST_LAST_HIT) > _HOST_BREAKER_MAX:
+            cutoff = now - 600
+            for stale in [k for k, v in _HOST_LAST_HIT.items() if v < cutoff]:
+                _HOST_LAST_HIT.pop(stale, None)
+    if wait > 0:
+        time.sleep(wait)
+
+
+def _retry_after_seconds(headers: httpx.Headers) -> float | None:
+    """``Retry-After`` → 秒（夹在 [5, 300]）；缺失/HTTP-date 返回 None。"""
+    raw = headers.get("retry-after")
+    if not raw:
+        return None
+    try:
+        return max(5.0, min(float(str(raw).strip()), 300.0))
+    except ValueError:
+        return None
+
+
+#: 页面发布日期的三个来源（按可信度排序）：meta / JSON-LD / <time datetime>。
+_META_DATE = re.compile(
+    r"""<meta[^>]+(?:property|name)=["'](?:article:published_time|publishdate|pubdate|date|og:release_date)["'][^>]+content=["']([^"']+)["']""",
+    re.IGNORECASE,
+)
+_JSONLD_DATE = re.compile(r'"datePublished"\s*:\s*"([^"]+)"', re.IGNORECASE)
+_TIME_TAG = re.compile(r"""<time[^>]+datetime=["']([^"']+)["']""", re.IGNORECASE)
+_DATE_PREFIX = re.compile(r"(\d{4}-\d{2}-\d{2})")
+#: 最后一道：正文头部**带关键词**的日期。政务站常见「来源：xxx 时间：2026-01-12」而没有 meta。
+#: 必须锚定关键词，否则会把正文里引用的「自 2023年12月5日起施行」误当发布日期。
+_TEXT_DATE_ANCHORED = re.compile(
+    r"(?:发布时间|发布日期|发布日|时间|日期|更新日期|成文日期)\s*[:：]?\s*(\d{4})[-年./](\d{1,2})[-月./](\d{1,2})"
+)
+
+
+def _extract_published(html: str) -> str:
+    """从页面里抽发布日期（``YYYY-MM-DD``）；认不出返回空串。
+
+    ``web_search`` 的兜底引擎**完全没有日期字段**，而法律场景里「这条是不是
+    现行/最新」几乎全靠日期。页面自己能给出（政务站/新闻站普遍带 meta 或
+    JSON-LD）就没必要再去猜。
+    """
+    for pattern in (_META_DATE, _JSONLD_DATE, _TIME_TAG):
+        match = pattern.search(html)
+        if not match:
+            continue
+        found = _DATE_PREFIX.search(match.group(1))
+        if found:
+            return found.group(1)
+    return ""
+
+
+def _extract_published_fallback(text: str) -> str:
+    """正文头部（前 400 字）里**带关键词**的日期；只为没有 meta 的政务站兜底。
+
+    关键词锚定是必要的：政务/判决页正文里到处是「自 2023年12月5日起施行」，
+    无锚定的正则会把它们当成发布日期（比没有日期更糟——模型会据此判断「最新」）。
+    """
+    match = _TEXT_DATE_ANCHORED.search((text or "")[:400])
+    if not match:
+        return ""
+    year, month, day = match.group(1), int(match.group(2)), int(match.group(3))
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return ""
+    return f"{year}-{month:02d}-{day:02d}"
+
+
 #: 搜狗跳转页里的真实地址（``window.location.replace("...")`` 或 meta refresh）。
 #: 两个正则**各自绑定自己的标记词**:URL= 只在 http-equiv(meta refresh)语境
 #: 里找——搜狗搜索结果页内嵌大量 JS,任意 `URL=` 变量赋值会被误抽成
@@ -146,6 +281,15 @@ _REDIRECT_PATTERNS = (
     ("window.location.replace", re.compile(r"""window\.location\.replace\(\s*["']([^"']+)["']\s*\)""")),
     ("http-equiv", re.compile(r"""URL=['"]?([^"'>\s]+)["']?""")),
 )
+
+
+#: 搜狗自家的域名。命中即意味着「没解析出原文地址」——详见
+#: ``fetch_url`` 里的 ``unresolved_redirect`` 分支。
+_SOGOU_HOST_RE = re.compile(r"(^|\.)sogou\.com$", re.IGNORECASE)
+
+
+def _is_sogou_host(host: str | None) -> bool:
+    return bool(host) and _SOGOU_HOST_RE.search(host or "") is not None
 
 
 def _resolve_sogou_redirect(html: str) -> str | None:
@@ -174,6 +318,11 @@ _ANTISPIDER_MARKERS = (
     "captcha",
     "安全验证",
     "请完成验证",
+    # 微信公众号的滑块/验证页(2026-11-21 实测):非浏览器 UA 或短时间连抓会被 302 到
+    # mp/wappoc_appmsgcaptcha,落地页文案是「环境异常」,页面上不一定出现「验证码」
+    # 三个字——只靠上一条 ``captcha`` 会在站点改文案后静默漏判。
+    "环境异常",
+    "wappoc_appmsgcaptcha",
 )
 
 #: HTML meta 声明的 charset(只嗅探 <head> 前若干字节)
@@ -382,6 +531,68 @@ def _format_table(table: Any) -> str:
     return "\n".join(lines)
 
 
+#: 选择器抽到的正文低于这个字数时，才去请 trafilatura 二次抽取。
+#: 依据：政务页实测只抽到 830 字（页面实际更长）；trafilatura 自己的
+#: ``MIN_EXTRACTED_SIZE=250`` 正是「级联降级闸门」而非合格线，取同量级即可。
+_MIN_EXTRACT_CHARS = int(os.getenv("FACHUAN_FETCH_MIN_EXTRACT_CHARS", "300"))
+
+
+def _extract_error_types() -> tuple[type[BaseException], ...]:
+    """trafilatura/lxml 在畸形输入上可能抛的解析类异常（用于窄化捕获）。"""
+    types: list[type[BaseException]] = [ValueError, TypeError, LookupError]
+    try:
+        from lxml.etree import LxmlError
+
+        types.append(LxmlError)
+    except ImportError:  # pragma: no cover - lxml 是硬依赖，仅防御精简环境
+        pass
+    return tuple(types)
+
+
+_EXTRACT_ERRORS: tuple[type[BaseException], ...] = _extract_error_types()
+
+
+def _extract_text_trafilatura(html: str) -> str:
+    """用 trafilatura 二次抽取（**可选依赖**：没装就返回空串，退回选择器结果）。
+
+    为什么只做「兜底」而不是替换整条管线：trafilatura 抽取更干净，但会改变现有
+    输出的段落/表格形态，直接替换会让下游（分块续读、注入包裹、表格保真）的基线
+    全部漂移。先用它补「选择器明显漏抽」的那一类页面（政务页/老站），
+    命中率与稳定性观察够再谈替换。
+    """
+    try:
+        import trafilatura
+    except ImportError:  # pragma: no cover - 未安装时静默降级
+        logger.debug("trafilatura 未安装，仅用选择器抽取正文")
+        return ""
+    try:
+        extracted = trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+            favor_recall=True,
+        )
+    except _EXTRACT_ERRORS:  # pragma: no cover - 第三方解析异常不该拖垮抓取
+        # 窄化到「解析类」异常：trafilatura 对畸形输入抛 ValueError/TypeError，
+        # lxml 抛 LxmlError。**不用 ``except Exception``**——本仓库有宽异常棘轮
+        # （test_error_semantics），新吞宽异常会直接红灯，而且那也确实会掩盖真 bug。
+        logger.debug("trafilatura 抽取失败，退回选择器结果", exc_info=True)
+        return ""
+    return (extracted or "").strip()
+
+
+def _extract_text_with_fallback(html: str) -> str:
+    """选择器抽取 → 字数不足时用 trafilatura 兜底（取更长的那份）。"""
+    text = _extract_text(html)
+    if len(text) >= _MIN_EXTRACT_CHARS:
+        return text
+    improved = _extract_text_trafilatura(html)
+    if len(improved) > len(text):
+        logger.info("正文选择器只抽到 %d 字，trafilatura 兜底后 %d 字", len(text), len(improved))
+        return improved
+    return text
+
+
 def _extract_text(html: str) -> str:
     """从 HTML 提取正文纯文本。
 
@@ -415,10 +626,30 @@ def _extract_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+#: 标题兜底链(2026-11-21):``<title>`` 优先(不改既有行为),空则退到 og/twitter,
+#: 最后退到内联 JS 变量。
+#:
+#: 存在理由:微信公众号正文页的 ``<title>`` 是**空的**——标题只写在
+#: ``<meta property="og:title">`` 与 ``var msg_title = '…'`` 两处(实测
+#: mp.weixin.qq.com/s/… 2026-11-21)。只读 ``<title>`` 会返回空串,前端标题栏
+#: 一片空白,模型也失去「这篇是什么」的第一条线索。
+_TITLE_META_KEYS = (("property", "og:title"), ("name", "twitter:title"))
+_MSG_TITLE_RE = re.compile(r"""var\s+msg_title\s*=\s*(['"])(.+?)\1""", re.S)
+
+
 def _meta_title(html: str) -> str:
+    """页面标题:``<title>`` → ``og:title`` → ``twitter:title`` → ``var msg_title``。"""
     soup = _soup(html)
-    if soup.title and soup.title.string:
+    if soup.title and soup.title.string and soup.title.string.strip():
         return soup.title.string.strip()
+    for attr, key in _TITLE_META_KEYS:
+        tag = soup.find("meta", attrs={attr: key})
+        content = (tag.get("content") or "").strip() if tag is not None else ""
+        if content:
+            return content
+    match = _MSG_TITLE_RE.search(html)
+    if match and match.group(2).strip():
+        return _html_unescape(match.group(2)).strip()
     return ""
 
 
@@ -428,38 +659,42 @@ def _meta_title(html: str) -> str:
 #: 重新计算),只缓存成功结果;条目上限防膨胀,过期即弃。
 _CACHE_TTL_SECONDS = 300.0
 _CACHE_MAX_ENTRIES = 16
-_fetch_cache: dict[str, tuple[float, str, str, str]] = {}  # url -> (expires, kind, title, text)
+_fetch_cache: dict[str, tuple[float, str, str, str, str]] = {}  # url -> (expires, kind, title, text, published)
 _cache_lock = threading.Lock()
 
 
-def _cache_get(url: str) -> tuple[str, str, str] | None:
+def _cache_get(url: str) -> tuple[str, str, str, str] | None:
     now = time.monotonic()
     with _cache_lock:
         entry = _fetch_cache.get(url)
         if entry is None:
             return None
-        expires, kind, title, text = entry
+        expires, kind, title, text, published = entry
         if now >= expires:
             _fetch_cache.pop(url, None)
             return None
-        return kind, title, text
+        return kind, title, text, published
 
 
-def _cache_put(url: str, kind: str, title: str, text: str) -> None:
+def _cache_put(url: str, kind: str, title: str, text: str, published: str = "") -> None:
     now = time.monotonic()
     with _cache_lock:
         if len(_fetch_cache) >= _CACHE_MAX_ENTRIES:
             oldest = min(_fetch_cache, key=lambda k: _fetch_cache[k][0])
             _fetch_cache.pop(oldest, None)
-        _fetch_cache[url] = (now + _CACHE_TTL_SECONDS, kind, title, text)
+        _fetch_cache[url] = (now + _CACHE_TTL_SECONDS, kind, title, text, published)
 
 
 def _robots_allows(url: str, http: httpx.Client) -> bool:
     """目标站 robots.txt 通用组是否允许抓取该 URL(见 ``_ROBOTS_CACHE_TTL`` 注释)。
 
-    robots.txt 拉不到或没有 2xx 响应时返回 True(fail-open)。缓存按
+    仅在 ``_ROBOTS_MODE == "strict"`` 时真正判定;默认 ``off`` 直接放行
+    (2026-11-21,理由见 ``_ROBOTS_MODE`` 注释:用户显式指定的单篇不是爬虫遍历)。
+    strict 下 robots.txt 拉不到或没有 2xx 响应时返回 True(fail-open)。缓存按
     origin 记 ``(过期时刻, parser)``;parser 为 None 表示「无规则=全允许」。
     """
+    if _ROBOTS_MODE != "strict":
+        return True
     parsed = urlparse(url)
     if (parsed.hostname or "").lower() in _ROBOTS_EXEMPT_HOSTS:
         return True
@@ -563,6 +798,9 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
         ``invalid_url``       不是合法 http(s) 地址
         ``blocked_target``    目标（或重定向跳板）属于内网/本机段,SSRF 防护拒绝
         ``too_many_redirects`` 重定向超过 5 跳(疑似环/恶意跳板链)
+        ``unresolved_redirect`` 搜狗 ``/link?url=`` 跳转未解析出原文（token
+                              失效或与检索会话不绑定）——换一条链接，
+                              **不要**把返回当原文（此时没有正文）
         ``empty_pdf``         PDF 能打开但无文字——多半是扫描件,需要 OCR
         ``pdf_parse_error``   PDF 损坏/加密,解析器打不开
         ``pdf_no_parser``     目标是 PDF 但环境缺 PDF 解析器
@@ -574,6 +812,13 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     raw = (url or "").strip()
     if not raw:
         return {"ok": False, "url": raw, "reason": "invalid_url", "message": "网址不能为空"}
+
+    #: 输入是不是搜狗跳转链接（``/link?url=<token>``）——这类 token 与发起搜索
+    #: 的会话绑定，另起一个连接去抓时常被重定向回搜狗首页（实测：返回值
+    #: ``ok=true`` + 494 字首页导航，模型会把它当成原文摘要）。
+    input_was_sogou_link = raw.startswith("/link") or "/link?" in raw
+    #: 跳转页里是否已成功解析出真实地址（决定「解析失败」与「抓真实页失败」怎么归因）
+    resolved_real_target = False
 
     # 相对跳转链接补全成搜狗域名
     if raw.startswith("/link"):
@@ -594,13 +839,18 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     # 不再走网络/限流。窗口与包裹标注照常按本次参数计算。
     cached = _cache_get(raw)
     if cached is not None:
-        kind, title, text = cached
-        return {**_paginate_and_wrap(raw, kind, title, text, start_index, limit), "cached": True}
+        kind, title, text, published = cached
+        return {**_paginate_and_wrap(raw, kind, title, text, start_index, limit, published), "cached": True}
 
     # SSRF 拦截:本机/内网/链路本地目标直接拒绝。**重定向手动逐跳跟随**,
     # 每跳过检——follow_redirects=True 会让「公网 302 → 内网」的攻击路径
     # 绕过首跳检查。
     current = target
+    target_host = urlparse(target).hostname or ""
+    throttled = _host_throttle(target_host)
+    if throttled:
+        return {"ok": False, "url": target, "reason": "host_throttled", "message": throttled}
+    _host_pace(target_host)
     try:
         with httpx.Client(timeout=20.0, follow_redirects=False, trust_env=False) as http:
             for _hop in range(5):
@@ -642,6 +892,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             # 搜狗跳转页：抽真实地址再抓一次（真实地址同样过 SSRF 检查）
             real_url = _resolve_sogou_redirect(html)
             if real_url and real_url != current:
+                resolved_real_target = True
                 if _host_is_internal(urlparse(real_url).hostname or ""):
                     return {
                         "ok": False,
@@ -677,7 +928,22 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             "message": f"连接失败：{type(exc).__name__}",
         }
 
+    if status in {429, 503}:
+        # 429/503 是「你现在太快了」：按 Retry-After 冷却该 host，别让模型立刻重打。
+        host = urlparse(target).hostname or ""
+        wait = _retry_after_seconds(headers) or 30.0
+        if host:
+            _host_state().trip(host, f"HTTP {status}", wait)
+        return {
+            "ok": False,
+            "url": target,
+            "reason": "host_throttled",
+            "message": f"对方限流（HTTP {status}），约 {wait:.0f} 秒后再试此站点，或换其他来源",
+        }
     if status in {401, 403}:
+        host = urlparse(target).hostname or ""
+        if host:
+            _host_state().trip(host, f"HTTP {status}", 600)
         return {
             "ok": False,
             "url": target,
@@ -709,6 +975,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     is_pdf = "pdf" in content_type or data[:5] == b"%PDF-"
     is_docx = not is_pdf and ("word" in content_type or _sniffs_docx(data))
 
+    published = ""
     if is_pdf or is_docx:
         extractor = _extract_pdf_text if is_pdf else _extract_docx_text
         try:
@@ -721,10 +988,27 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                 "ok": False,
                 "url": target,
                 "reason": "antispider",
-                "message": "目标站点返回了反爬/验证码页面，无法获取正文",
+                "message": (
+                    "目标站点返回了反爬/验证码页面，无法获取正文。不要再重试、也不要换 UA 重试；"
+                    "请用户把正文粘贴进对话，或用浏览器「打印 → 另存为 PDF」后上传，再由 read_agent_attachment 读取"
+                ),
             }
 
-        text = _extract_text(html)
+        # 搜狗跳转链接解析失败：落在搜狗自家域名上（首页/跳转壳），说明 token
+        # 失效或与会话不绑定。**必须报错**——把搜狗首页当正文返回 ``ok=true``
+        # 是「静默错内容」，比失败更糟（模型会拿导航文字当判决书摘要）。
+        if input_was_sogou_link and not resolved_real_target and _is_sogou_host(urlparse(current).hostname):
+            return {
+                "ok": False,
+                "url": target,
+                "reason": "unresolved_redirect",
+                "message": (
+                    "搜狗跳转链接未能解析出原文地址（token 失效或与检索会话不绑定）；"
+                    "请在搜索结果里换一条链接，或让用户直接访问原网页"
+                ),
+            }
+
+        text = _extract_text_with_fallback(html)
         if not text:
             # 有壳无内容：多半是 SPA 需要 JS 渲染
             return {
@@ -734,14 +1018,17 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                 "message": "页面需要 JavaScript 渲染，静态抓取拿不到正文",
             }
         title = _meta_title(html)
+        published = _extract_published(html) or _extract_published_fallback(text)
 
     kind = "外部 PDF 文档抓取内容" if is_pdf else ("外部 Word 文档抓取内容" if is_docx else "外部网页抓取内容")
     # 成功结果按原始输入 URL 入缓存——分块续读的后续 chunk 直接命中
-    _cache_put(raw, kind, title, text)
-    return {**_paginate_and_wrap(target, kind, title, text, start_index, limit), "cached": False}
+    _cache_put(raw, kind, title, text, published)
+    return {**_paginate_and_wrap(target, kind, title, text, start_index, limit, published), "cached": False}
 
 
-def _paginate_and_wrap(target: str, kind: str, title: str, text: str, start_index: int, limit: int) -> dict[str, Any]:
+def _paginate_and_wrap(
+    target: str, kind: str, title: str, text: str, start_index: int, limit: int, published: str = ""
+) -> dict[str, Any]:
     """全文 → 分块窗口 + 注入包裹 + 字节预算(缓存命中与新鲜抓取共用)。"""
     total_chars = len(text)
     start = max(0, start_index)
@@ -760,6 +1047,7 @@ def _paginate_and_wrap(target: str, kind: str, title: str, text: str, start_inde
             "total_chars": total_chars,
             "next_index": None,
             "host": urlparse(target).netloc,
+            "published": published,
         }
 
     # 分块窗口（官方 fetch server 的 max_length + start_index 模式）:
@@ -801,4 +1089,5 @@ def _paginate_and_wrap(target: str, kind: str, title: str, text: str, start_inde
         "total_chars": total_chars,
         "next_index": next_index,
         "host": urlparse(target).netloc,
+        "published": published,
     }

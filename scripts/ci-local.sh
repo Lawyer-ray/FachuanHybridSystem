@@ -173,6 +173,24 @@ if [ "$RUN_BACKEND" = true ] || [ "$RUN_FRONTEND" = true ]; then
 fi
 
 # ============================================================
+#  [0b] 审批分级跨语言一致性（approval parity）
+# ============================================================
+# 为什么必跑：approval-gate.ts 的分级规则是服务端 risk.py 的镜像，而它此前
+# **从未被真正执行过**（旧检查只是用正则从源码里抠数组比文本）。这条用 Node 的
+# 类型剥离直接跑 approval-rules.ts，拿与 Python 测试同一份向量逐条对账，
+# 秒级返回且不需要数据库。脚本在 scripts/check-approval-parity.mjs。
+if [ "$RUN_BACKEND" = true ]; then
+  header "0b" "审批分级跨语言 (approval parity)"
+  if ! command -v node > /dev/null 2>&1; then
+    skip "approval-parity（未安装 node）"
+  elif node "$ROOT_DIR/scripts/check-approval-parity.mjs" 2>&1; then
+    pass "approval-parity"
+  else
+    fail "approval-parity"
+  fi
+fi
+
+# ============================================================
 #  后端检查
 # ============================================================
 if [ "$RUN_BACKEND" = true ]; then
@@ -257,6 +275,19 @@ if [ "$RUN_BACKEND" = true ]; then
   #
   # 3c 需要连库，所以只在库可达时跑（本地开发机 / --full）；CI 里没有持久库，
   # 那侧靠 `make migrate` 的部署纪律兜。
+  header "3a" "openapi 产物与代码一致"
+  # 产物 backend/openapi.json 是前端 TS 类型的唯一输入，不在必经链上会静默腐烂
+  # （实测落后 12 条路径 / 21 个 schema）。CI 侧只在 pull_request 跑（见
+  # backend-ci.yml 的 openapi-freshness），本地这侧随时可跑。
+  # 注意用 $ROOT_DIR：本函数前面已经 `cd "$BACKEND_DIR"`，写相对 `scripts/...`
+  # 会落到 backend/scripts/（**空目录**）上 → 这一步长期假红，假红多了大家就
+  # 学会无视这道闸门，真漂移也就没人看（2026-11-21 实测发现）。
+  if bash "$ROOT_DIR/scripts/check-openapi-fresh.sh" --json >/dev/null 2>&1; then
+    pass "openapi-fresh"
+  else
+    fail "openapi-fresh（产物落后代码，跑 make openapi-refresh 后重试）"
+  fi
+
   header "3b" "迁移漂移检查 (makemigrations --check)"
   if DB_NAME="${DB_NAME:-test_fachuan_dev}" $BACKEND_PYTHON apiSystem/manage.py makemigrations --check --dry-run 2>&1 | grep -q "No changes detected"; then
     pass "migrations-generated"
@@ -291,6 +322,18 @@ if [ "$RUN_BACKEND" = true ]; then
         fail "migrations-applied（目标库有未应用的迁移，跑 manage.py migrate 后重试）"
         ;;
     esac
+  fi
+
+  # [3d] 迁移图分支冲突（多个会话在同一分支各建一个迁移的典型事故）
+  #
+  # 3b/3c 都看不见这类问题：文件齐全、也能 apply，但同一 app 出现两个 leaf 时
+  # `migrate` 直接 CommandError。本项目允许多个 AI 并行改同一分支，所以这道
+  # 必须独立跑（纯读迁移图，不需要数据库，quick 模式也能跑）。
+  header "3d" "迁移图分支冲突检查"
+  if ONLY=graph "$ROOT_DIR/scripts/check_migrations.sh" 2>&1 | tail -3 | grep -q "全部通过"; then
+    pass "migrations-single-leaf"
+  else
+    fail "migrations-single-leaf（同一 app 多个 leaf，跑 makemigrations --merge）"
   fi
 
   # [4] Pre-commit（对齐 backend job 的 Pre-commit step）

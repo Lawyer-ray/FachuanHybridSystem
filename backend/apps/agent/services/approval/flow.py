@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import uuid
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from datetime import timedelta
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -36,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 #: 离线审批开关（``FACHUAN_APPROVAL_OFFLINE=0`` 可关闭，回到纯 fail-closed）。
 OFFLINE_ENV = "FACHUAN_APPROVAL_OFFLINE"
+
+#: 「超时后补批」的放行有效期（秒）。与 MCP 闸门的 Redis 台账 TTL 同量级：
+#: 批了之后模型要在这么久之内原样重试一次，否则重新走一遍审批。
+LATE_GRANT_SECONDS = 600
 
 
 def allow_offline_approval() -> bool:
@@ -71,6 +78,41 @@ async def _sse_channel(
         await get_bus().unregister(session_id, queue)
 
 
+async def _has_remote_subscribers(bus: Any, session_id: str) -> bool:
+    """本进程之外是否还有人订阅（Redis 计数）。
+
+    用 ``getattr`` 兜底是为了假总线（测试里的 ``_Bus`` 只实现
+    ``has_subscribers`` / ``publish``）不至于因为多了个方法就要全改一遍；
+    真总线一定有这个方法（``EventBus.remote_subscriber_count``）。
+    """
+    counter = getattr(bus, "remote_subscriber_count", None)
+    if counter is None:
+        return False
+    with suppress(Exception):
+        return int(await counter(session_id) or 0) > 0
+    return False
+
+
+def approval_dedupe_key(*, session_id: str | None, tool_name: str, tool_args: dict[str, Any] | None) -> str:
+    """同一调用的去重键：``sha256(session|短工具名|稳定参数)``。
+
+    三个入口（pi 扩展���MCP 服务端闸门、写端点兑底）共用同一张审批卡，
+    必须以「会话 + 工具 + 参数」为键；只用工具名会把「删 A 案」与
+    「删 B 案」合成一张卡。
+    """
+    payload = json.dumps(
+        {
+            "s": session_id or "",
+            "t": short_tool_name(tool_name),
+            "a": tool_args or {},
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
 def _approval_message(tool_name: str, level: RiskLevel) -> str:
     """给前端弹窗用的提示语（按等级区分措辞，避免一律「高风险」而失去区分度）。"""
     short = short_tool_name(tool_name)
@@ -104,10 +146,22 @@ async def _await_and_finalize(
         await _waiter.discard(approval_id)
         _clear_waiter_heartbeat(approval_id)
         _clear_decision(approval_id)
+        # 取消路径（客户端断开 / 进程收尾）会带着 PENDING 进来：显式置 cancelled。
+        # 不置的话这条记录要等 7200s 的僵尸清理才变，前端一直显示「待审批」。
+        if record.status == AgentApproval.Status.PENDING:
+            record.status = AgentApproval.Status.CANCELLED
         record.decided_at = timezone.now()
-        await record.asave(update_fields=["status", "decided_at"])
-    reason_out = record.reason or ("用户同意" if record.is_granted else "用户拒绝或超时")
-    return record.is_granted, approval_id, reason_out
+        # 落库用 shield：本函数常在**已被取消**的任务里跑，裸 await 会再抛
+        # CancelledError，把状态改回 PENDING（实测会留下僵尸行）。
+        with suppress(Exception):
+            await asyncio.shield(record.asave(update_fields=["status", "decided_at"]))
+    # 驳回理由由**另一个 ORM 实例**写入（decide_approval），必须回读；
+    # 不回读时模型永远收到「用户拒绝或超时」那句兜底文案，驳回意见就断了。
+    with suppress(Exception):
+        await record.arefresh_from_db(fields=["status", "reason", "decision_reason"])
+    granted = record.is_granted
+    reason_out = record.decision_reason or record.reason or ("用户同意" if granted else "用户拒绝或超时")
+    return granted, approval_id, reason_out
 
 
 async def request_approval(
@@ -117,6 +171,8 @@ async def request_approval(
     user_id: int | None = None,
     session_id: str | None = None,
     reason: str = "",
+    run_id: str = "",
+    tool_call_id: str = "",
     timeout: float | None = None,
     offline_timeout: float = OFFLINE_TIMEOUT,
 ) -> tuple[bool, str, str]:
@@ -169,6 +225,28 @@ async def request_approval(
 
     effective_timeout = timeout if timeout is not None else approval_timeout(level)
 
+    # ── 三入口去重 ──
+    # 同一 (会话, 工具, 参数) 已在等待时，第二个入口直接返回「正在等待」：
+    # 不新建记录、也不弹第二张卡——否则一次删除会弹两张、等两次。
+    dedupe_key = approval_dedupe_key(session_id=session_id, tool_name=tool_name, tool_args=tool_args)
+    pending = (
+        await AgentApproval.objects.filter(dedupe_key=dedupe_key, status=AgentApproval.Status.PENDING)
+        .exclude(approval_id=uuid.UUID(approval_id))
+        .order_by("-created_at")
+        .afirst()
+    )
+    if pending is not None and (pending.expires_at is None or pending.expires_at > timezone.now()):
+        logger.info(
+            "同一调用已在等待审批，复用既有审批单 tool=%s approval=%s",
+            tool_name,
+            pending.approval_id,
+        )
+        return (
+            False,
+            pending.approval_id.hex,
+            "同一调用已在等待审批，不要重复发起：等律师确认后原样重试一次即可",
+        )
+
     session = None
     if session_id:
         try:
@@ -184,6 +262,12 @@ async def request_approval(
         tool_args=tool_args or {},
         reason=reason,
         risk_level=level.value,
+        run_id=(run_id or "")[:64],
+        tool_call_id=(tool_call_id or "")[:120],
+        dedupe_key=dedupe_key,
+        # 上限取两条等待路径里更长的那个：在线/离线分支在下面才定，
+        # 这里先封锁一个宽限期，收尾时不会再有别的写入点。
+        expires_at=timezone.now() + timedelta(seconds=max(effective_timeout, offline_timeout)),
     )
 
     # 先登记等待者、再 publish。反过来的话，若「用户决定」先于 register 到达
@@ -203,7 +287,15 @@ async def request_approval(
         # 订阅者可能在**别的 worker**（SSE 连接在 A，审批回调落在 B）。
         # 多 worker 下 publish 到 Redis 即可送达，此时本地 delivered 为 0
         # 但仍有远端订阅者，不能据此判为「无人可问」。
-        has_remote = bool(await bus.has_subscribers(session_id)) or redis_cache_enabled()
+        # 真实「有没有人在看」= 本进程订阅者 + 其他 worker 的订阅者（Redis 计数）。
+        # 不能再用 ``redis_cache_enabled()`` 代替：生产用的就是 Redis，那会让
+        # has_remote 恒为 True，离线挂起分支永远不可达（审批只剩 300/900s）。
+        # 没有 Redis 就不可能有「别的 worker 上的订阅者」，没必要也不应该去查。
+        has_remote = await bus.has_subscribers(session_id) or (
+            redis_cache_enabled() and await _has_remote_subscribers(bus, session_id)
+        )
+        run_parts = (run_id or "").split(":")
+        agent_kind = run_parts[-2] if len(run_parts) >= 3 else ""
         delivered = await bus.publish(
             session_id,
             {
@@ -214,6 +306,10 @@ async def request_approval(
                 "risk_level": level.value,
                 "needs_second_confirmation": needs_second_confirmation(level),
                 "message": reason or _approval_message(tool_name, level),
+                # _RunScoped 契约要求每帧带 run_id/agent：三栏并答时前端
+                # 靠这两个字段把审批卡挂到正确的那一栏。
+                "run_id": run_id or "",
+                "agent": agent_kind,
             },
         )
 
@@ -290,15 +386,25 @@ async def decide_approval(
     except (ValueError, AttributeError):
         record = None
 
-    if record is not None and record.status == AgentApproval.Status.PENDING:
+    # 允许对 **timeout** 的单子补批：MCP 闸门为了不被客户端超时掐断，最多等
+    # WAIT(≤150s) 就返回「已发起审批」；律师晚几分钟看到卡片点同意是常态。
+    # 不补批的话那张卡永久钉在 timeout，重试只能再弹一张——体验与审计都更差。
+    late_answer = record is not None and record.status == AgentApproval.Status.TIMEOUT
+    if record is not None and (record.status == AgentApproval.Status.PENDING or late_answer):
         record.status = AgentApproval.Status.APPROVED if approved else AgentApproval.Status.REJECTED
         record.decided_at = timezone.now()
+        if late_answer and approved:
+            # 补批要重新计有效期：DB 台账（MCP 闸门）只在 expires_at 未过期时放行，
+            # 而原来那条是按「发起时刻 + 离线超时」算的，早就过期了。
+            record.expires_at = timezone.now() + timedelta(seconds=LATE_GRANT_SECONDS)
         if user_id is not None:
             record.decided_by_id = user_id
         if reason.strip():
-            record.reason = reason.strip()[:2000]
-            await record.asave(update_fields=["status", "decided_at", "decided_by", "reason"])
+            # 写 ``decision_reason`` 而不是覆盖 ``reason``：后者是发起方写的
+            # 请求理由，覆盖掉后就分不清「为什么提」与「为什么拒」了。
+            record.decision_reason = reason.strip()[:2000]
+            await record.asave(update_fields=["status", "decided_at", "decided_by", "decision_reason", "expires_at"])
         else:
-            await record.asave(update_fields=["status", "decided_at", "decided_by"])
+            await record.asave(update_fields=["status", "decided_at", "decided_by", "expires_at"])
 
     return found or record is not None

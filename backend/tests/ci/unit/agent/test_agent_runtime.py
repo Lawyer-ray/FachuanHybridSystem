@@ -142,10 +142,10 @@ class TestApprovalPolicy:
 
         from apps.agent.services.approval import DANGER_PATTERNS
 
-        extension = Path(__file__).resolve().parents[4] / "apps" / "agent" / "pi" / "approval-gate.ts"
+        extension = Path(__file__).resolve().parents[4] / "apps" / "agent" / "pi" / "approval-rules.ts"
         source = extension.read_text(encoding="utf-8")
         match = re.search(r"HIGH_RISK_PATTERNS: readonly string\[\] = \[(.*?)\]", source, re.S)
-        assert match is not None, "approval-gate.ts 缺少 HIGH_RISK_PATTERNS 定义"
+        assert match is not None, "approval-rules.ts 缺少 HIGH_RISK_PATTERNS 定义"
         ts_patterns = re.findall(r'"([^"]+)"', match.group(1))
         assert set(ts_patterns) == set(DANGER_PATTERNS), (
             f"两侧模式清单不一致: ts={sorted(ts_patterns)} py={sorted(DANGER_PATTERNS)}"

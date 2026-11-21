@@ -75,6 +75,13 @@ const ALLOWED_UNWIRED = new Map([
       "本脚本在改动多答编排 / 模型解析时手工跑一次，输出贴进验收报告。",
   ],
   [
+    "scripts/verify_approval_gate.py",
+    "端到端验收：需真启共享 MCP（:8011）+ Django（:8002）+ 真实库与迁移，CI 容器不具备这些依赖。" +
+      "它不是「没人跑」——同一套语义的静态护栏 test_tool_approval_gate.py（拦截/台账/isError 形状/先判后调）、" +
+      "test_approval_gate_foundation.py（去重/归因/驳回理由/补批）、test_multi_interleave.py（总线只订阅一次）在 CI 里跑。" +
+      "本脚本在改动审批闸门 / 台账 / 等待上限时手工跑一次，输出贴进验收报告。",
+  ],
+  [
     "scripts/verify_key_scheduling.py",
     "端到端验收：需真启 Django + 真连律所网关（内网 :4000，要绕代理）跑完整多答轮次，CI 容器不具备。" +
       "它不是「没人跑」——依赖它的静态护栏 tests/ci/unit/agent/test_key_scheduler.py（分配器语义）与 test_round_key_allocation.py（编排层分栏）在 CI 里跑。" +

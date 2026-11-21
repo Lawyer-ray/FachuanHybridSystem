@@ -70,6 +70,8 @@ def _openai_module() -> Any:
 def _gateway_settings(**overrides: Any) -> Any:
     """网关配置快照桩（``GatewaySettings`` 的形状）。"""
     fields: dict[str, Any] = {
+        "name": "律所 kimi",
+        "concurrency_per_key": 3,
         "base_url": "http://gw.internal:4000/v1",
         "api_keys": ("k1", "k2"),
         "models": ("kimi-2.6",),
@@ -87,7 +89,7 @@ class TestOpenAiAgentsKey:
         module = _openai_module()
         rotated: list[list[str]] = []
 
-        def _next(keys: list[str]) -> str:
+        def _next(keys: list[str], **_kw: object) -> str:
             rotated.append(keys)
             return "rotated"
 
@@ -99,7 +101,7 @@ class TestOpenAiAgentsKey:
     def test_settings_without_key_still_rotates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """兼容底线：不传 ``api_key`` 时行为与引入该参数前逐字一致。"""
         module = _openai_module()
-        monkeypatch.setattr(module, "_next_key", lambda keys: "rotated")
+        monkeypatch.setattr(module, "_next_key", lambda keys, **_kw: "rotated")
         gateway = module.gateway_from_settings(_gateway_settings(), None)
         assert gateway is not None
         assert gateway[1] == "rotated"
@@ -108,14 +110,14 @@ class TestOpenAiAgentsKey:
         """调用方必须把 ``ctx.api_key`` 真的传下去——参数加了但没接线等于没做。"""
         module = _openai_module()
         monkeypatch.setattr(module, "get_gateway_settings", lambda hint: _gateway_settings())
-        monkeypatch.setattr(module, "_next_key", lambda keys: pytest.fail("ctx.api_key 有值时不得轮转"))
+        monkeypatch.setattr(module, "_next_key", lambda keys, **_kw: pytest.fail("ctx.api_key 有值时不得轮转"))
         resolved = asyncio.run(module.OpenAiAgentsBackend()._resolve_gateway(_ctx(api_key=_SECRET)))
         assert resolved.api_key == _SECRET
 
     def test_backend_falls_back_without_ctx_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         module = _openai_module()
         monkeypatch.setattr(module, "get_gateway_settings", lambda hint: _gateway_settings())
-        monkeypatch.setattr(module, "_next_key", lambda keys: "rotated")
+        monkeypatch.setattr(module, "_next_key", lambda keys, **_kw: "rotated")
         resolved = asyncio.run(module.OpenAiAgentsBackend()._resolve_gateway(_ctx(api_key=None)))
         assert resolved.api_key == "rotated"  # pragma: allowlist secret
 
@@ -163,7 +165,7 @@ class TestDshKey:
     def test_build_config_uses_api_key_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from apps.agent.backends import dsh_config
 
-        monkeypatch.setattr(dsh_config, "_next_key", lambda keys: pytest.fail("api_key 有值时 dsh 不得再轮转"))
+        monkeypatch.setattr(dsh_config, "_next_key", lambda keys, **_kw: pytest.fail("api_key 有值时 dsh 不得再轮转"))
         config = dsh_config.build_config(user_id=7, provider=_dsh_provider(), api_key=_SECRET)
         assert config is not None
         assert config.api_key == _SECRET
@@ -171,7 +173,7 @@ class TestDshKey:
     def test_build_config_without_api_key_still_rotates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from apps.agent.backends import dsh_config
 
-        monkeypatch.setattr(dsh_config, "_next_key", lambda keys: "rotated")
+        monkeypatch.setattr(dsh_config, "_next_key", lambda keys, **_kw: "rotated")
         config = dsh_config.build_config(user_id=7, provider=_dsh_provider())
         assert config is not None
         assert config.api_key == "rotated"  # pragma: allowlist secret
@@ -252,7 +254,7 @@ class TestPiWorkspaceKey:
         from apps.agent.pi import model_config
 
         self._no_gateway_mode(monkeypatch)
-        monkeypatch.setattr(model_config, "_next_key", lambda keys: pytest.fail("api_key 有值时 pi 不得再轮转"))
+        monkeypatch.setattr(model_config, "_next_key", lambda keys, **_kw: pytest.fail("api_key 有值时 pi 不得再轮转"))
         path = model_config.write_models_json(tmp_path, "kimi-2.6", provider=_pi_provider(), api_key=_SECRET)
         assert path is not None
         assert _read_api_key(path) == _SECRET
@@ -261,7 +263,7 @@ class TestPiWorkspaceKey:
         from apps.agent.pi import model_config
 
         self._no_gateway_mode(monkeypatch)
-        monkeypatch.setattr(model_config, "_next_key", lambda keys: "rotated")
+        monkeypatch.setattr(model_config, "_next_key", lambda keys, **_kw: "rotated")
         path = model_config.write_models_json(tmp_path, "kimi-2.6", provider=_pi_provider())
         assert path is not None
         assert _read_api_key(path) == "rotated"

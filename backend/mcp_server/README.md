@@ -68,6 +68,7 @@ make mcp-status    # 进程/日志
 | 默认体量 ≤20KB | 无门禁(需线上数据) | pi 对工具输出 20KB 起腰斩(中段截断+文件指针),**默认参数的调用必须留在截断线内**——新列表工具按「20KB ÷ 实测均条体积」定默认 limit;`get_case` 默认剥 logs、`search_cases` 套投影同此理 |
 | 客户端行为 | `test_client.py` | token 刷新、错误信封、传输韧性、下载闸门、巨型列表护栏、抽象边界 |
 | 工具行为 | `test_new_tools.py` / `test_agent_attachments.py` / `test_fetch_url.py`(含 SSRF 拦截) / … | 重组型工具的真实逻辑 |
+| 联网检索三通道 | `test_web_search_channels.py` | 搜狗免费 HTML 接口是 **IP 级**封禁(302→`/captcha/`),共享 MCP 下全所共用一个出口 IP——生产库近 7 天真实调用 **33 拦 / 6 成(15%)**,且封禁期间模型按技能提示「换关键词重试」把配额和封禁一起烧(会话 268 三分钟连打 20 次)。因此 `web_search` 改成 **桌面→手机→律所兜底引擎** 三通道 + 通道熔断(反爬 10 分钟/结构漂移 5 分钟/瞬时 1 分钟)+ 结果缓存(双 lane 同题只打一次);封禁期间手机通道实测仍活(307KB 结果页)。兜底通道 = 律所 LiteLLM 网关上的百炼检索(**零配置复用 Admin → AI 平台的 base_url + 全部 key**,经与模型调用同一个 Key 池轮询;实测 15/15 可用),但来源以自媒体为主、**无发布日期**——工具层按 URL host 权威性重排,并在无官方/专业来源时显式声明「不得直接作为法源」;其单条摘要可达 4.8 万字,统一按 600 字 + 18KB 字节预算截断。`fetch_url` 同步修 `/link?url=` 解析失败静默返回搜狗首页(`ok=true` 错内容)的病灶 → `unresolved_redirect` |
 
 跑法:`DB_NAME=test_fachuan_dev .venv/bin/pytest tests/ci/unit/mcp_server/ -q --reuse-db`(严禁不带 DB_NAME)。
 

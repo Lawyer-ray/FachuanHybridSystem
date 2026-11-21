@@ -37,13 +37,26 @@ class ForeignLawVerifyIn(BaseModel):
         pattern=f"^$|{_COUNTRY_CODE_PATTERN}",
         description="BARLC 国别代码，如 LAWCOUNTRYTG（泰国）；留空则全东盟检索",
     )
+    as_of_date: str = Field(
+        default="",
+        max_length=10,
+        description="引用时点（YYYY-MM-DD），如合同签署日或争议发生时点；给了才做时效比对",
+    )
+    contract_id: int | None = Field(default=None, description="关联合同 id（仅用于留痕归类，可空）")
+    citation_anchor: str = Field(default="", max_length=128, description="合同内的锚点，如「第三条 租金」（可空）")
 
 
 class ForeignLawVerifyOut(BaseModel):
     """``asean_law_verify`` 的返回结构（原样透出）。
 
-    成功时 ``verdict == "待判定"`` 表示条文已取到，需判定层比对 ``section_text``
-    与 ``claim``；``"不存在该引用"`` 是规则层直接判死，不消耗模型调用。
+    判定已在插件里完成（多判定器合议），这里**不再有**「等外部判定层比对」那一步：
+
+    - ``verdict`` 可能是四个结论之一，也可能是 ``待判定``（没有结论）；
+    - ``待判定`` 有两种成因，靠 ``adjudicated`` 区分：
+      合议跑过但弃权（``true``，**不要再找模型判**）vs. 合议未开启（``false``）；
+    - ``不存在该引用`` 是规则层直接判死，不消耗模型调用；
+    - ``needs_human`` 为真时，前端**必须**把 ``review_reasons`` 展示出来，
+      不能只给一个绿色 pill。
     """
 
     ok: bool
@@ -54,6 +67,36 @@ class ForeignLawVerifyOut(BaseModel):
     reason: str = ""
     needs_model_judgement: bool = False
     claim: str = ""
+    # ---- 多判定器合议结论面 ------------------------------------------------
+    # 合议跑过 = 判定已经做完（包括「弃权」也是结论）；
+    # 合议没跑（开关关闭）时才是 `needs_model_judgement=True`。
+    adjudicated: bool = False
+    #: 没有结论（区分它与「不存在该引用」）。
+    unconfirmed: bool = False
+    #: 结论可用但必须把复核提示带给律师。
+    needs_human: bool = False
+    review_reasons: list[str] = []
+    #: 最高票 / 有效票；无有效票时为 null（**不是 0 分**）。
+    agreement: float | None = None
+    #: 怎么定位到这部法的：exact / containment / ambiguous。
+    matched_by: str = ""
+    #: 逐要件判定（律师问「哪一项没依据」的答案）。
+    elements: list[dict[str, Any]] = []
+    #: 判定器摘要（不含自由文本，避免白吃上下文）。
+    votes: list[dict[str, Any]] = []
+    #: 合议消耗的 token（与生成本分开记）。`cached=True` 时是上次的成本，不可重复求和。
+    jury_tokens: int = 0
+    #: 合议结果是否来自缓存。
+    cached: bool = False
+    # ---- 溯源与生效版本（申报书要求「注明国别、名称及生效版本」）--------------
+    #: 该法在 BARLC（公开学术平台的代码内简称）的详情页地址，给律师点回原页。
+    source_url: str = ""  # privacy-allow BARLC 是公开学术平台缩写，非客户机构
+    #: 指定到「款」时该款正文（仅定位展示；判定基于整条 section_text）。
+    matched_paragraph: str = ""
+    effective_date: str = ""
+    revise_date: str = ""
+    #: 时效告警。非空时前端**必须**原样展示（如「生效日晚于引用时点」）。
+    version_warnings: list[str] = []
     # 失败时 asean_law_* 回带的结构化原因（reason 枚举 + detail 原文）
     detail: str = ""
     # 调用轨迹：接入 → 登录 → 检索 → 取正文 → 切条款 → 取原文

@@ -173,5 +173,10 @@ def health_check(request: Any) -> dict[str, Any]:  # pragma: no cover
 
 @router.post("/jobs/{job_id}/save-to-dir", response=SaveToDirOut, summary="保存到指定目录")
 def save_to_directory(request: Any, job_id: UUID, payload: SaveToDirIn) -> dict[str, Any]:  # pragma: no cover
+    from apps.agent.services.approval.write_guard import ensure_write_not_multi_lane, request_session_id
+
+    # 入口 C 兜底：多栏并答时 agent 不得把文件写进用户指定目录；
+    # 律师在页面上手动保存不带会话头，不受影响。
+    ensure_write_not_multi_lane(endpoint="doc_converter.save_to_dir", session_ids=[request_session_id(request)])
     _service.get_job(job_id, user=_request_user(request))  # 安全审计 B-10：校验任务属主
     return _service.save_job_to_directory(job_id=job_id, target_dir=payload.target_dir)

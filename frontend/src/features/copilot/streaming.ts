@@ -59,7 +59,9 @@ export interface StreamHandlers {
    * 审批请求。
    *
    * `origin` 不可省：多答时两栏可能同时要审批，卡上不写来源，律师根本分不清
-   * 「这是哪条回答要用我的库表」。单栏时 origin.kind 为空串，渲染按旧口径。
+   * 「这是哪条回答要用我的库表」。注意 `origin.kind` 缺失时会回落 pi（为了事件
+   * 路由），**不能**拿它当栏来源——单栏/旧后端的「没有来源」由 handler 按本轮
+   * 栏数（`columnCount`）判断并记空串。
    */
   onApproval(event: ApprovalEvent, origin: EventOrigin): void
   /**

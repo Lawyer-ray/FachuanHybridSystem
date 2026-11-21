@@ -206,6 +206,32 @@ class TestCacheTokenWiring:
         assert rows["dsh"]["output_tokens"] == 80
         assert rows["pi"]["output_tokens"] == 20
 
+    def test_by_provider_separates_platforms(self) -> None:
+        """按平台分组：同一模型可能由多个平台提供，钱要分得清（TECH-DEBT ①）。"""
+        from apps.agent.services.usage_stats import by_provider
+
+        session = _make_session()
+        _run(session, provider="律所 kimi", output_tokens=20)
+        _run(session, provider="别的服务商", output_tokens=30)
+        _run(session, provider="别的服务商", output_tokens=50)
+
+        rows = {row["provider"]: row for row in by_provider(days=30)}
+
+        assert set(rows) == {"律所 kimi", "别的服务商"}
+        assert rows["别的服务商"]["runs"] == 2
+        assert rows["别的服务商"]["output_tokens"] == 80
+
+    def test_by_provider_keeps_blank_as_unknown(self) -> None:
+        """历史行（字段上线前）显示「未知」，不按默认平台回填——回填会把账算错。"""
+        from apps.agent.services.usage_stats import by_provider
+
+        session = _make_session()
+        _run(session)  # provider 为空
+
+        rows = by_provider(days=30)
+
+        assert [row["provider"] for row in rows] == ["未知"]
+
     def test_by_agent_treats_blank_kind_as_pi(self) -> None:
         """空 ``agent_kind`` 归 pi：那是引入字段前的历史数据。
 
@@ -222,6 +248,28 @@ class TestCacheTokenWiring:
         assert "" not in rows
         assert rows["pi"]["runs"] == 2
         assert rows["pi"]["output_tokens"] == 10
+
+    def test_by_agent_total_tokens_excludes_cache_read(self) -> None:
+        """逐 agent 的 ``total_tokens`` 与 ``UsageSummary.total_tokens`` 同口径。
+
+        同一张报表里两个数字不同口径 = 必然有人把 cacheRead 算进去，于是
+        「哪个 agent 贵」的结论反了个。这里把口径钉住。
+        """
+        from apps.agent.services.usage_stats import by_agent
+
+        session = _make_session()
+        _run(
+            session,
+            agent_kind="dsh",
+            input_tokens=100,
+            output_tokens=20,
+            cache_read_tokens=5000,
+            cache_write_tokens=300,
+        )
+
+        (row,) = by_agent(days=30)
+        assert row["total_tokens"] == 100 + 20 + 300
+        assert row["total_tokens"] != 100 + 20 + 300 + 5000, "cacheRead 被误计入成本口径"
 
     def test_by_agent_counts_failures_per_backend(self) -> None:
         """失败/中止逐 agent 计：多答时一个后端挂掉不该让整轮看起来失败，

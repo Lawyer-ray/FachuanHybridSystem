@@ -5,7 +5,10 @@
  * 这张卡的价值全在「证据感」：条文原文与 MCP 调用轨迹都是**真实返回**的，
  * 查到什么显示什么，查不到就说查不到。所以断言集中在：
  * - 三条引用逐条串行查询，每条的状态独立（一条失败不拖垮其余）
- * - 成功时显示原文 + 出处 + 耗时；`needs_model_judgement` 时标「待判断层比对」
+ * - 成功时显示原文 + 出处 + 耗时
+ * - 合议结论必须显示：支持/矛盾/原文未提及三种颜色不同，**不可混为「已判定」一个标**
+ * - `adjudicated` 但无结论 = 判定器未形成多数，不能冒充「待判断层」（会让人去白等）
+ * - `needs_human` 时必须把 review_reasons 摆出来（只给绿灯等于隐矞风险）
  * - 失败时显示原因；抛错时显示错误消息
  * - 查询期间按钮禁用并显示「正在查询…」（接口 6–8 秒，不能让律师以为卡死）
  */
@@ -78,6 +81,76 @@ describe('成功路径', () => {
     render(<ForeignLawVerifyCard />)
     fireEvent.click(screen.getByRole('button', { name: /核验这 3 条/ }))
     await waitFor(() => expect(screen.getAllByText('待判断层比对')).toHaveLength(3))
+  })
+
+  it('合议给出「支持」时显示结论标签（不再提示待比对）', async () => {
+    apiMock.verifyThaiLaw.mockResolvedValue(
+      okResult({ verdict: '支持', adjudicated: true, agreement: 1, needs_model_judgement: false }),
+    )
+    render(<ForeignLawVerifyCard />)
+    fireEvent.click(screen.getByRole('button', { name: /核验这 3 条/ }))
+    await waitFor(() => expect(screen.getAllByText('条文支持该主张')).toHaveLength(3))
+    expect(screen.queryByText('待判断层比对')).toBeNull()
+  })
+
+  it('「原文未提及」与「支持」用不同文案（不得读反）', async () => {
+    apiMock.verifyThaiLaw.mockResolvedValue(okResult({ verdict: '原文未提及', adjudicated: true }))
+    render(<ForeignLawVerifyCard />)
+    fireEvent.click(screen.getByRole('button', { name: /核验这 3 条/ }))
+    await waitFor(() => expect(screen.getAllByText('条文未涉及该主张')).toHaveLength(3))
+    expect(screen.queryByText('条文支持该主张')).toBeNull()
+  })
+
+  it('逐要件判定与一致度都渲染（律师问「哪一项没依据」时看这里）', async () => {
+    apiMock.verifyThaiLaw.mockResolvedValue(
+      okResult({
+        verdict: '原文未提及',
+        adjudicated: true,
+        agreement: 2 / 3,
+        needs_human: true,
+        review_reasons: ['部分要件在条文中没有对应表述，建议逐项核对'],
+        elements: [
+          { statement: '租赁合同必须采用书面形式', verdict: '支持' },
+          { statement: '租赁合同必须经公证', verdict: '原文未提及' },
+        ],
+      }),
+    )
+    render(<ForeignLawVerifyCard />)
+    fireEvent.click(screen.getByRole('button', { name: /核验这 3 条/ }))
+    await waitFor(() => expect(screen.getAllByText('逐要件判定')).toHaveLength(3))
+    expect(screen.getAllByText('租赁合同必须经公证')).toHaveLength(3)
+    expect(screen.getAllByText('一致度 67%')).toHaveLength(3)
+    expect(screen.getAllByText('需人工复核')).toHaveLength(3)
+    expect(screen.getAllByText('· 部分要件在条文中没有对应表述，建议逐项核对')).toHaveLength(3)
+  })
+
+  it('合议跑过但弃权时显示「判定器未形成多数」，不是「待判断层比对」', async () => {
+    apiMock.verifyThaiLaw.mockResolvedValue(
+      okResult({ verdict: '待判定', adjudicated: true, unconfirmed: true, needs_human: true }),
+    )
+    render(<ForeignLawVerifyCard />)
+    fireEvent.click(screen.getByRole('button', { name: /核验这 3 条/ }))
+    await waitFor(() => expect(screen.getAllByText('判定器未形成多数')).toHaveLength(3))
+    expect(screen.queryByText('待判断层比对')).toBeNull()
+  })
+
+  it('时效告警与非空时必须展示（生效日晚于引用时点这类问题不能藏起来）', async () => {
+    apiMock.verifyThaiLaw.mockResolvedValue(
+      okResult({
+        verdict: '支持',
+        adjudicated: true,
+        effective_date: '2020-01-01',
+        version_warnings: ['该法生效日 2020-01-01 晚于引用时点 2019-06-01，当时尚未生效'],
+        source_url: 'https://barlc.swupl.edu.cn/Detail?dbID=9&dbName=LAW&sysID=538',
+      }),
+    )
+    render(<ForeignLawVerifyCard />)
+    fireEvent.click(screen.getByRole('button', { name: /核验这 3 条/ }))
+    await waitFor(() => expect(screen.getAllByText('生效版本提示')).toHaveLength(3))
+    expect(
+      screen.getAllByText('· 该法生效日 2020-01-01 晚于引用时点 2019-06-01，当时尚未生效'),
+    ).toHaveLength(3)
+    expect(screen.getAllByText('原站打开')).toHaveLength(3)
   })
 
   it('有 trace 时渲染 MCP 调用轨迹（看得出真连了 BARLC）', async () => {

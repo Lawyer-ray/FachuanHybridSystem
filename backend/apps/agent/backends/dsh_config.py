@@ -682,7 +682,7 @@ def dsh_patches(
     return tuple(paths)
 
 
-def dsh_mcp_patch(dsh_home: str, *, user_token: str) -> str | None:
+def dsh_mcp_patch(dsh_home: str, *, user_token: str, session_id: str = "") -> str | None:
     """生成「法穿业务工具」那一层 patch，返回路径（无 token 时 ``None``）。
 
     单独一个函数而不是在 :func:`build_config` 里内联：本函数会**同步拉起共享
@@ -695,7 +695,7 @@ def dsh_mcp_patch(dsh_home: str, *, user_token: str) -> str | None:
     """
     from . import dsh_mcp
 
-    return dsh_mcp.ensure_mcp_patch(dsh_home, user_token=user_token)
+    return dsh_mcp.ensure_mcp_patch(dsh_home, user_token=user_token, session_id=session_id)
 
 
 def _insert_before_env_patches(mcp_patch: str | None, patches: tuple[str, ...]) -> tuple[str, ...]:
@@ -722,6 +722,7 @@ def build_config(
     model_hint: str | None = None,
     provider: Any | None = None,
     user_token: str = "",
+    session_id: str = "",
     api_key: str | None = None,
 ) -> DshProviderConfig | None:
     """把当前启用的 ``LLMProvider`` 映射成 dsh 配置；不可用时返回 ``None``。
@@ -791,7 +792,7 @@ def build_config(
     # 时用与 ``LLMProvider`` 同一份特征表——同一个模型在两条路径上不会判出两种结果。
     thinking_capable = bool(settings.enable_thinking and model_supports_thinking(model, provider))
     extra = dsh_patches(home, base_url=base_url, models=declared, thinking=thinking_capable)
-    mcp_patch = dsh_mcp_patch(home, user_token=user_token)
+    mcp_patch = dsh_mcp_patch(home, user_token=user_token, session_id=session_id)
     return DshProviderConfig(
         dsh_home=home,
         provider=DEFAULT_PROVIDER,
@@ -801,6 +802,6 @@ def build_config(
         # （pi 的 models.json 也走这个），避免所有 dsh 会话压在同一把 key 上触发限流。
         # **轮转每轮现算**：缓存里存的是全部 key，不是「这一轮选哪把」
         # （见 ``gateway_cache`` 的红线二）。
-        api_key=(api_key or "").strip() or _next_key(keys),
+        api_key=(api_key or "").strip() or _next_key(keys, provider=getattr(settings, "name", "")),
         patches=_insert_before_env_patches(mcp_patch, extra),
     )

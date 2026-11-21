@@ -14,6 +14,11 @@
    静默降级、不抛。
 7. **端到端**：跑 ``stream()``（SDK 的 ``Runner`` / ``AsyncOpenAI`` / MCP 全部打桩），
    断言事件序列、``done`` 收尾、``result_for`` 的模型回填。
+8. **审批闸门**：HIGH / CRITICAL 工具被拒 → ``reject_content``（工具不执行、本轮
+   继续）、LOW 直过、批准放行；开关 ``FACHUAN_OPENAI_APPROVAL=off`` 时 guardrail
+   不挂且能力声明同步为 False。
+9. **tick**：SDK 静默期必须 ``yield None``——编排层只在后端 yield 时排空事件总线，
+   而审批卡正是从那条总线来的（不补这一帧，前端的卡永远不出现）。
 
 ``openai_agents_backend`` 顶层 ``import agents``，所以本文件用 ``pytest.importorskip``
 兜住「SDK 没装」的 CI 环境——那时跳过的是 import 层面的用例，而不是把它们改成假绿。
@@ -31,9 +36,10 @@ import pytest
 
 pytest.importorskip("agents", reason="openai-agents SDK 未安装，跳过 openai-agents 后端用例")
 
-from agents import Agent
+from agents import Agent, ToolInputGuardrailData
 from agents.items import MessageOutputItem, ToolCallItem, ToolCallOutputItem
 from agents.stream_events import AgentUpdatedStreamEvent, RawResponsesStreamEvent, RunItemStreamEvent
+from agents.tool_context import ToolContext
 from openai.types.responses import (
     ResponseFunctionToolCall,
     ResponseOutputMessage,
@@ -55,23 +61,32 @@ from apps.agent.backends import openai_agents_backend as backend_module
 from apps.agent.backends import registry as registry_module
 from apps.agent.backends.dsh_config import proxy_env_keys, without_proxy_env
 from apps.agent.backends.openai_agents_backend import (
+    APPROVAL_GUARDRAIL,
+    APPROVAL_REJECTED_MESSAGE,
     BLOCKED_TOOL_NAMES,
     MAX_TURNS,
     OpenAiAgentsBackend,
     gateway_from_provider,
     resolve_gateway,
 )
+from apps.agent.services import approval as approval_service
 
 
 class _Session:
     session_id = "sess-1"
 
 
-def _ctx(run_id: str = "sess-1:openai-agents:1", *, model: str | None = None, token: str = "tok") -> RunContext:
+def _ctx(
+    run_id: str = "sess-1:openai-agents:1",
+    *,
+    model: str | None = None,
+    token: str = "tok",
+    user_id: int | None = None,
+) -> RunContext:
     return RunContext(
         run_id=run_id,
         session=_Session(),
-        user_id=None,
+        user_id=user_id,
         prompt="你好",
         user_token=token,
         model=model,
@@ -130,22 +145,36 @@ def _isolated_registry() -> Iterator[None]:
     registry_module.clear()
 
 
+@pytest.fixture(autouse=True)
+def _default_approval_switch(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """本文件默认在「闸门开」的前提下跑。
+
+    开发机/CI 的环境变量里可能已经有 ``FACHUAN_OPENAI_APPROVAL=off``（回滚演练后
+    忘了拔），不清掉会让默认路径的断言在别人机器上飘。要测 ``off`` 的用例自己
+    用 ``monkeypatch.setenv`` 显式设。
+    """
+    monkeypatch.delenv(backend_module.APPROVAL_ENV, raising=False)
+    yield
+
+
 class TestIdentity:
     def test_kind_is_openai_agents(self) -> None:
         assert OpenAiAgentsBackend.kind == "openai-agents"
 
     def test_capabilities_are_fact_statements(self) -> None:
-        """逐项对齐规格 §3.2 与 SDK 事实。
+        """逐项对齐规格与 SDK 事实。
 
         ``steer=False``：``RunResultStreaming`` 只有 ``cancel``，没有插话接口。
-        ``approval=False``：SDK 有 ``require_approval``，但本轮不接（规格明示）。
+        ``approval``：与 ``FACHUAN_OPENAI_APPROVAL`` 同源（默认 on）——写死 ``True``
+        会让关掉开关时前端的「有闸门」徽标说谎（``base.py`` 把这一项定为合规声明）。
         ``concurrent_in_session=True``：每次 ``stream()`` 自建 client / agent / 连接。
         """
-        caps = OpenAiAgentsBackend.capabilities
+        caps = OpenAiAgentsBackend().capabilities
         assert isinstance(caps, BackendCapabilities)
         assert caps.streaming is True
         assert caps.tool_calls is True
-        assert caps.approval is False
+        assert caps.approval is backend_module.approval_enabled()
+        assert caps.approval is True, "默认必须是 on：审批闸门是这一栏的合规前提"
         assert caps.compaction is False
         assert caps.steer is False
         assert caps.concurrent_in_session is True
@@ -320,7 +349,7 @@ class TestGatewayResolution:
         """多 key 时轮流用：全压在同一把 key 上会触发网关限流。"""
         seen: list[str] = []
 
-        def _next(keys_in: list[str]) -> str:
+        def _next(keys_in: list[str], **_kw: object) -> str:
             chosen = keys_in[len(seen) % len(keys_in)]
             seen.append(chosen)
             return chosen
@@ -427,6 +456,141 @@ class TestToolFace:
     def test_max_turns_is_bounded(self) -> None:
         """超过 8 轮基本是模型空转，继续跑只烧 token。"""
         assert MAX_TURNS == 8
+
+
+def _tool_data(*, tool_name: str, arguments: str, ctx: RunContext | None = None) -> ToolInputGuardrailData:
+    """guardrail 的真实入参。
+
+    用 SDK 自己的 ``ToolContext`` 而不是假对象：``tool_name`` / ``tool_arguments`` /
+    ``tool_call_id`` 这三个字段名就是这条链路的契约，猜错了会在真机上静默拿到空串。
+    ``ToolContext.context`` 是本轮 ``RunContext``（闸门经它取归因字段）。
+    """
+    tool_context = ToolContext(
+        ctx or _ctx(user_id=7),
+        tool_name=tool_name,
+        tool_call_id="call-1",
+        tool_arguments=arguments,
+    )
+    return ToolInputGuardrailData(context=tool_context, agent=Agent(name="t"))
+
+
+class TestApprovalGate:
+    """人工审批闸门：分级结果怎么翻成 SDK 的行为值。
+
+    「工具没被调用」由 SDK 保证：``reject_content`` 是 ``run_internal/tool_execution.py``
+    里唯一「不调工具、把文案当工具结果交给模型」的分支（``allow`` 照常执行，
+    ``raise_exception`` 会变成 ``ToolGuardrailTripwireTriggered`` 并中断本轮）。
+    这里的断言就是「交给 SDK 的那个行为值」。
+    """
+
+    @pytest.mark.asyncio
+    async def test_high_risk_rejection_returns_reject_content(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """法务最常踩的场景：改金额的写。被拒 → ``reject_content`` + 拒绝文案。"""
+        asked: dict[str, Any] = {}
+
+        async def _request(**kwargs: Any) -> tuple[bool, str, str]:
+            asked.update(kwargs)
+            return False, "appr-1", "用户拒绝"
+
+        monkeypatch.setattr(approval_service, "classify_risk", lambda name, args: approval_service.RiskLevel.HIGH)
+        monkeypatch.setattr(approval_service, "request_approval", _request)
+
+        out = await backend_module._approval_guardrail(
+            _tool_data(tool_name="update_contract", arguments='{"amount": 500000}')
+        )
+
+        assert out.behavior["type"] == "reject_content", "抛异常会被 SDK 包成 Error executing tool（前端标红）"
+        assert out.behavior["message"] == APPROVAL_REJECTED_MESSAGE
+        # 审批单必须带齐归因三件套：没有 run_id/session_id 就挂不到那一栏的卡上。
+        assert asked == {
+            "tool_name": "update_contract",
+            "tool_args": {"amount": 500000},
+            "user_id": 7,
+            "session_id": "sess-1",
+            "run_id": "sess-1:openai-agents:1",
+        }
+
+    @pytest.mark.asyncio
+    async def test_critical_risk_is_gated_too(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """紧急级（批量清空 / delete_all）不能因为比 HIGH 高一档就绕过闸门。"""
+
+        async def _request(**kwargs: Any) -> tuple[bool, str, str]:
+            return False, "appr-2", "用户拒绝"
+
+        monkeypatch.setattr(approval_service, "classify_risk", lambda name, args: approval_service.RiskLevel.CRITICAL)
+        monkeypatch.setattr(approval_service, "request_approval", _request)
+
+        out = await backend_module._approval_guardrail(_tool_data(tool_name="clear_all_drafts", arguments="{}"))
+        assert out.behavior["type"] == "reject_content"
+
+    @pytest.mark.asyncio
+    async def test_approved_tool_is_allowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """律师点同意 → ``allow``（工具照常执行）。"""
+
+        async def _request(**kwargs: Any) -> tuple[bool, str, str]:
+            return True, "appr-3", "用户同意"
+
+        monkeypatch.setattr(approval_service, "classify_risk", lambda name, args: approval_service.RiskLevel.HIGH)
+        monkeypatch.setattr(approval_service, "request_approval", _request)
+
+        out = await backend_module._approval_guardrail(_tool_data(tool_name="send_document", arguments="{}"))
+        assert out.behavior["type"] == "allow"
+
+    @pytest.mark.asyncio
+    async def test_low_risk_tool_is_allowed_without_asking(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """读类工具直接放行——每笔查询都弹卡会让律师闭眼点同意。"""
+        seen: dict[str, Any] = {}
+
+        def _classify(name: str, args: dict[str, Any]) -> Any:
+            seen.update(name=name, args=args)
+            return approval_service.RiskLevel.LOW
+
+        async def _request(**kwargs: Any) -> tuple[bool, str, str]:
+            raise AssertionError("低风险工具不应该发起审批")
+
+        monkeypatch.setattr(approval_service, "classify_risk", _classify)
+        monkeypatch.setattr(approval_service, "request_approval", _request)
+
+        out = await backend_module._approval_guardrail(
+            _tool_data(tool_name="search_case", arguments='{"query": "合同"}')
+        )
+
+        assert out.behavior["type"] == "allow"
+        # 参数是原始 JSON 串 → 分级器必须拿到解析后的 dict（否则参数级判定全落空）
+        assert seen == {"name": "search_case", "args": {"query": "合同"}}
+
+    def test_tool_arguments_are_parsed_from_the_raw_json_string(self) -> None:
+        """``ToolContext.tool_arguments`` 是 JSON 串；解不开时退回空 dict（纯名字口径）。"""
+        assert backend_module._parse_tool_arguments('{"a": 1}') == {"a": 1}
+        assert backend_module._parse_tool_arguments("") == {}
+        assert backend_module._parse_tool_arguments("not-json") == {}
+        assert backend_module._parse_tool_arguments("[1, 2]") == {}
+
+
+class TestApprovalSwitch:
+    """开关 ``FACHUAN_OPENAI_APPROVAL`` 与能力声明必须同源。"""
+
+    def test_guardrail_is_attached_by_default(self) -> None:
+        """SDK 把 ``server.tool_input_guardrails`` 逐个挂到每只 MCP 工具上
+        （``agents/mcp/util.py`` 的 ``_build_wrapped_function_tool``），
+        所以「挂到 server 上」就是「每只工具都有闸门」。"""
+        assert backend_module.approval_enabled() is True
+        server = backend_module.build_mcp_server(url="http://127.0.0.1:8011/mcp", user_token="tok-abc")
+        assert server.tool_input_guardrails == [APPROVAL_GUARDRAIL]
+        assert APPROVAL_GUARDRAIL.get_name() == "fachuan_approval"
+
+    @pytest.mark.parametrize("value", ["0", "false", "no", "off", "OFF"])
+    def test_switch_off_removes_gate_and_capability(self, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+        """回滚路径：不挂 guardrail，**且**能力声明同步变 False。
+
+        只改一边就是「前端说安全、实际没闸门」或反过来，两种都是合规级别的错。
+        """
+        monkeypatch.setenv(backend_module.APPROVAL_ENV, value)
+
+        assert backend_module.approval_enabled() is False
+        assert OpenAiAgentsBackend().capabilities.approval is False
+        server = backend_module.build_mcp_server(url="http://127.0.0.1:8011/mcp", user_token="tok-abc")
+        assert server.tool_input_guardrails is None
 
 
 class TestErrorClassification:
@@ -541,6 +705,28 @@ class _FakeStreamResult:
             yield event
         if self._error is not None:
             raise self._error
+        self.is_complete = True
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+
+class _IdleStreamResult:
+    """先吐一帧、随后长时间静默，直到测试放行——模拟「工具正在等审批」的那段时间。
+
+    SDK 在 guardrail 等审批时不产出任何事件；后端必须自己让出 tick，否则
+    编排层永远没机会把审批卡从事件总线里推给前端。
+    """
+
+    def __init__(self) -> None:
+        self.release = asyncio.Event()
+        self.is_complete = False
+        self.cancelled = False
+
+    async def stream_events(self) -> AsyncIterator[Any]:
+        yield _text_delta("答")
+        await self.release.wait()
+        yield _text_delta("案")
         self.is_complete = True
 
     def cancel(self) -> None:
@@ -669,6 +855,47 @@ class TestStreamEndToEnd:
         assert recorded is not None
         assert recorded.model == "resolved-model"
         assert recorded.context_used is None
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
+    async def test_run_context_is_passed_to_the_runner(self, _wired: SimpleNamespace) -> None:
+        """``context=ctx`` 是审批闸门的必要条件：
+
+        guardrail 只能经 ``data.context.context`` 取回本轮 ``RunContext``
+        （用户 / 会话 / run_id 三个归因字段）；不传时审批单会没有归属。
+        """
+        ctx = _ctx(run_id="r-ctx")
+        _ = [frame async for frame in OpenAiAgentsBackend().stream(ctx)]
+        assert _wired.captured["run"]["context"] is ctx
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
+    async def test_idle_stream_yields_none_tick(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """SDK 静默期必须 ``yield None``。
+
+        编排层只在后端 yield 时排空事件总线（``services/chat/stream.py``），而审批卡
+        正是从那条总线来的。不补这一帧的具体症状：工具在 guardrail 里等审批、
+        前端永远不弹卡，直到超时按拒处理。
+        """
+        monkeypatch.setattr(backend_module, "get_gateway_settings", lambda model_hint: _settings())
+        monkeypatch.setattr(backend_module, "port_open", lambda host, port: False)
+        monkeypatch.setattr(backend_module, "Agent", lambda **kwargs: SimpleNamespace(**kwargs))
+        stub = _IdleStreamResult()
+        monkeypatch.setattr(backend_module.Runner, "run_streamed", lambda *a, **kw: stub)
+
+        stream = OpenAiAgentsBackend().stream(_ctx())
+
+        first = await asyncio.wait_for(stream.__anext__(), timeout=5)
+        assert first is not None and first["type"] == "delta"
+
+        idle = await asyncio.wait_for(stream.__anext__(), timeout=5)
+        assert idle is None, "SDK 静默时必须让出 tick，否则审批卡到不了前端"
+
+        stub.release.set()
+        rest = [frame async for frame in stream]
+        assert [f["content"] for f in rest if f and f["type"] == "delta"] == ["案"]
+        assert rest[-1] is not None and rest[-1]["type"] == "done"
+        assert stub.cancelled is False, "正常跑完不得 cancel"
 
     @pytest.mark.django_db
     @pytest.mark.asyncio

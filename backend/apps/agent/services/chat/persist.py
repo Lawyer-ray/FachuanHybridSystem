@@ -29,7 +29,9 @@ async def _recent_history(session: AgentSession, limit: int = 40) -> list[AgentM
     return messages
 
 
-async def _persist_tool_message(session: AgentSession, event: dict[str, Any], agent_kind: str = "") -> None:
+async def _persist_tool_message(
+    session: AgentSession, event: dict[str, Any], agent_kind: str = "", turn_no: int = 0
+) -> None:
     """落库工具结果（失败只记日志，不影响 SSE 流）。
 
     ``agent_kind``：双答轮次里两个 agent 各自调工具，回放时必须能分出哪条证据
@@ -43,6 +45,7 @@ async def _persist_tool_message(session: AgentSession, event: dict[str, Any], ag
             tool_name=str(event.get("name") or ""),
             metadata={"tool_call_id": str(event.get("tool_call_id") or "")},
             agent_kind=agent_kind,
+            turn_no=turn_no,
         )
     except Exception:
         logger.warning("工具消息落库失败", exc_info=True)
@@ -107,6 +110,7 @@ async def _record_run(
     duration_ms: int,
     context_used_tokens: int | None = None,
     context_total_tokens: int | None = None,
+    turn_no: int = 0,
 ) -> None:
     """落一条 AgentRun。任何失败只记日志——统计不能拖垮对话本身。"""
     if cancelled:
@@ -116,9 +120,12 @@ async def _record_run(
     else:
         status = AgentRun.Status.OK
     try:
+        from apps.core.llm.provider_lookup import resolve_provider_name
+
         await AgentRun.objects.acreate(
             session=session,
             user_id=user_id,
+            provider=resolve_provider_name(model),
             model=(model or "")[:100],
             agent_kind=(agent_kind or "")[:32],
             status=status,
@@ -129,6 +136,7 @@ async def _record_run(
             tool_calls=max(0, int(tool_calls)),
             duration_ms=max(0, int(duration_ms)),
             error_kind=error_kind[:64],
+            turn_no=turn_no,
             context_used_tokens=context_used_tokens,
             context_total_tokens=context_total_tokens,
         )

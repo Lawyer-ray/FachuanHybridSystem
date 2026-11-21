@@ -10,6 +10,15 @@ NC := \033[0m
 guardrails: ## 护栏通电自检：检查脚本是否都挂进了必经链（见 docs/harness/pitfalls.md PIT-005）
 	@node scripts/check-guardrails-wired.mjs --list
 
+openapi-check: ## 校验 backend/openapi.json 与代码是否一致（漂移则非零退出）
+	@bash scripts/check-openapi-fresh.sh
+
+openapi-refresh: ## 刷新 openapi 产物（backend/openapi.json + frontend TS 类型）
+	@bash scripts/check-openapi-fresh.sh --write
+
+approval-parity: ## 审批分级跨语言一致性：Node 真执行 approval-rules.ts，对同一份向量比 Python 期望值
+	@node scripts/check-approval-parity.mjs
+
 ci: ## 快速本地 CI（不需要数据库：ruff + mypy + tsc + eslint + build + bandit + pip-audit）
 	@bash scripts/ci-local.sh --quick
 
@@ -21,6 +30,20 @@ ci-backend: ## 仅后端 CI（快速模式）
 
 ci-frontend: ## 仅前端 CI（tsc + eslint + build）
 	@bash scripts/ci-local.sh --quick --frontend
+
+migrate-check: ## 迁移三道闸门（生成 / 已应用 / 分支冲突）——开 PR 前必须全绿
+	@bash scripts/check_migrations.sh
+
+pr-ready: ## 开 PR 前的一键自检（迁移三道闸门 + 护栏通电 + 分级一致性 + 快速 CI）
+	@echo "── 迁移三道闸门 ──"
+	@bash scripts/check_migrations.sh
+	@echo "── 护栏通电 ──"
+	@node scripts/check-guardrails-wired.mjs
+	@echo "── 审批分级跨语言一致性 ──"
+	@node scripts/check-approval-parity.mjs
+	@echo "── 快速 CI（ruff / mypy / tsc / eslint / build）──"
+	@bash scripts/ci-local.sh --quick
+	@echo "\n✅ pr-ready 全绿：可以开 PR 了（迁移已在本地库应用）"
 
 ci-backend-full: ## 仅后端 CI（完整模式，需要 PostgreSQL）
 	@bash scripts/ci-local.sh --full --backend
@@ -102,4 +125,4 @@ help: ## 显示帮助信息
 	@echo "安装 hook:   make install-hooks"
 	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify guardrails approval-parity

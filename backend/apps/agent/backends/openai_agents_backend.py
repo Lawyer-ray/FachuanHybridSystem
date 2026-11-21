@@ -27,8 +27,10 @@
   ``ResponseTextDeltaEvent`` 等直接翻成增量，**不是**整段补发）。
 - ``tool_calls=True``：真的产出 ``tool_call`` / ``tool_result``（``tool_called`` /
   ``tool_output`` 两种 run item）。
-- ``approval=False``：SDK 有 ``require_approval``，但本轮不接（规格 §3.2）。
-  前端据此隐藏审批入口——**高危工具在这一栏没有人工闸门**，启用该会话前需合规确认。
+- ``approval``：由 :data:`APPROVAL_ENV`（``FACHUAN_OPENAI_APPROVAL``）决定，默认
+  ``True``。闸门接在 MCP server 的 ``tool_input_guardrails`` 上（见下节）；关掉开关
+  时**既不挂 guardrail、``approval`` 也同时声明 False**——前端「有闸门」徽标据此
+  显示，两处写死一份必然说谎。
 - ``compaction=False``：SDK 不做上下文裁剪，由编排层负责。
 - ``steer=False``：``RunResultStreaming`` 只有 ``cancel``，没有插话接口。声明
   ``True`` 会让前端渲染出一个敲进去就被丢弃的输入框，比禁用更糟。
@@ -41,6 +43,25 @@
 ``RunContext.prompt`` 已由编排层渲染好历史（见 ``RunContext.prompt`` 的注释），
 agent 本身无状态。收益是上下文只有一个来源——两套来源必然漂移。
 
+## 人工审批闸门
+
+高危 / 紧急工具调用在**执行前**停下来等律师确认（分级判定与审批单复用
+``services/approval`` 的 ``classify_risk`` / ``request_approval``，不在本模块另写
+一套阈值）。三点接线事实：
+
+1. **用 ``tool_input_guardrails``，不用 ``require_approval``**：后者的 callable 策略
+   只拿到 ``(run_context, agent, tool)``——SDK 在 ``agents/mcp/server.py`` 的
+   ``_get_needs_approval_for_tool`` 里把 ``_args`` / ``_call_id`` 丢弃了。那会把
+   「改金额的写」与「改备注的写」拉平，参数级判定（``SENSITIVE_ARG_MARKERS``）
+   直接失效。guardrail 拿到的 ``ToolContext`` 带 ``tool_name`` 与
+   ``tool_arguments``（模型发出的原始 JSON 串），才是分级要的两样东西。
+2. **拒绝走 ``reject_content``，不抛异常**：抛异常会被 SDK 包成
+   ``Error executing tool ...``（前端标红、看板上算工具故障），而这里要的是
+   「工具不执行、本轮继续，模型换个只读方案」。
+3. **``Runner.run_streamed(..., context=ctx)`` 是必要条件**：guardrail 只能经
+   ``data.context.context`` 取回本轮 ``RunContext``（用户 / 会话 / run_id 三个归因
+   字段都在里面），不传 context 时闸门拿不到归因信息。
+
 ## 工具面
 
 「越多越好」是明确要求：``tool_filter`` **只排除** :data:`BLOCKED_TOOL_NAMES`
@@ -50,12 +71,23 @@ agent 本身无状态。收益是上下文只有一个来源——两套来源�
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
-from agents import Agent, ModelSettings, OpenAIChatCompletionsModel, Runner, set_tracing_disabled
+from agents import (
+    Agent,
+    ModelSettings,
+    OpenAIChatCompletionsModel,
+    Runner,
+    ToolGuardrailFunctionOutput,
+    ToolInputGuardrail,
+    ToolInputGuardrailData,
+    set_tracing_disabled,
+)
 from agents.mcp import MCPServerStreamableHttp
 from agents.stream_events import RawResponsesStreamEvent, RunItemStreamEvent, StreamEvent
 from asgiref.sync import sync_to_async
@@ -93,12 +125,18 @@ MAX_TURNS = 8
 #: 双端超时必须「调用方 > 服务端」，否则文书生成 / 批量类工具会被调用方先掐断。
 MCP_CLIENT_TIMEOUT_SECONDS = 200.0
 
+#: 等 SDK 下一个事件的单次上限（秒）。超时就 ``yield None`` 让出一个 tick——
+#: 编排层只在后端 yield 时排空事件总线（``services/chat/stream.py``），而审批卡
+#: 正是从那条总线来的；不让出就表现为「工具在等审批、前端的卡永远不出现」。
+#: 与 ``pi_backend`` 取同一值：两个后端同一套编排层，让出粒度不该各写一份。
+TICK_TIMEOUT_SECONDS = 0.2
+
 #: 明确危险、不交给模型的工具名（MCP 原始名，不带 ``mcp__fachuan__`` 前缀——
 #: ``tool_filter`` 匹配的是 ``Tool.name``）。
 #:
 #: **只排除删除类**：用户要求「工具面越多越好」，这里不是收窄，而是摘掉「不可逆
-#: 且本栏没有审批闸门」的动作。``approval=False``（见模块 docstring）意味着一旦
-#: 暴露，模型能在没有任何人工确认的情况下删数据——与 pi / dsh 的四级审批红线冲突。
+#: 且不该由模型自主发起」的动作。审批闸门（:data:`APPROVAL_GUARDRAIL`）拦的是模型
+#: **已经决定**要调的写操作，``delete_case`` 连审批卡都不该弹——直接不给这个工具。
 BLOCKED_TOOL_NAMES: tuple[str, ...] = ("delete_case",)
 
 #: ``done`` 里不编造水位：SDK 的 ``Usage`` 只有 token 计数，没有模型窗口大小。
@@ -180,7 +218,11 @@ def gateway_from_settings(
         return None
     # 编排层指定了本轮的 key 就用它；为空才回落到与 pi / dsh 共用的
     # ``_next_key`` 轮转序列（避免所有会话与所有后端压在同一把 key 上触发限流）。
-    return settings.base_url, (api_key or "").strip() or _next_key(list(settings.api_keys)), model
+    return (
+        settings.base_url,
+        (api_key or "").strip() or _next_key(list(settings.api_keys), provider=getattr(settings, "name", "")),
+        model,
+    )
 
 
 def gateway_from_provider(provider: Any, model_hint: str | None) -> tuple[str, str, str] | None:
@@ -251,19 +293,125 @@ def _instructions(ctx: RunContext) -> str:
     )
 
 
-def build_mcp_server(*, url: str, user_token: str) -> MCPServerStreamableHttp:
+# ── 人工审批闸门 ──────────────────────────────────────────────────────────
+
+#: 审批闸门开关（环境变量）。默认 on；``off`` / ``0`` / ``false`` / ``no`` 时
+#: **既不挂 guardrail、:attr:`OpenAiAgentsBackend.capabilities` 的 ``approval``
+#: 也同时变 False**。两处读同一个函数是本模块的硬约束：能力声明是给前端看的
+#: 事实（「这一栏有没有人工闸门」），与实现默默分叉就是合规级别的错误信息。
+APPROVAL_ENV = "FACHUAN_OPENAI_APPROVAL"
+
+#: 拒绝后喂回模型的文案。刻意不谈「权限 / 系统限制」：律师拒绝是可以谈的，
+#: 写明「改用只读方案或提出替代方案」模型才会接着干活，而不是直接终止本轮。
+APPROVAL_REJECTED_MESSAGE = "用户拒绝了该操作，请改用只读方案或提出替代方案。"
+
+
+def approval_enabled() -> bool:
+    """审批闸门是否启用（默认启用，解析口径与 ``toolface.shared_enabled`` 一致）。"""
+    raw = os.environ.get(APPROVAL_ENV, "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def backend_capabilities() -> BackendCapabilities:
+    """本轮实例的能力声明（``approval`` 与开关同源，其余是静态事实）。
+
+    返回新对象而不是类属性常量：``approval`` 随 ``FACHUAN_OPENAI_APPROVAL`` 变，
+    写成类属性就只能在进程启动时取一次值，测试与热切换都会看到陈旧值。
+    """
+    return BackendCapabilities(
+        streaming=True,
+        tool_calls=True,
+        approval=approval_enabled(),
+        compaction=False,
+        steer=False,
+        concurrent_in_session=True,
+    )
+
+
+def _parse_tool_arguments(raw: Any) -> dict[str, Any]:
+    """把 guardrail 拿到的原始参数串解析成 dict。
+
+    ``ToolContext.tool_arguments`` 是模型发出的**原始 JSON 串**（字符串，不是已解析
+    的 dict），与 ``run_item`` 里透传给前端的 ``arguments`` 同一份。解析失败时退回空
+    dict 而不是拒绝整个调用：``classify_risk`` 的第一层判据是工具名（删除 / 外发 /
+    递交类照样命中），参数级敏感字段判定只是补漏层——「读不出参数就退回纯名字
+    口径」与 ``approval.risk`` 里注解表加载失败时的降级同义。
+    """
+    try:
+        parsed = json.loads(raw or "{}")
+    except (TypeError, ValueError):
+        logger.warning("工具参数不是合法 JSON，风险判定退回纯名字口径")
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+async def _approval_guardrail(data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
+    """高危 / 紧急工具执行前等律师确认；拒绝则以 ``reject_content`` 回给模型。
+
+    分级与审批单全部交给 ``services/approval``（与其它入口同一张审批卡、同一份阈值），
+    本函数只负责三件事：把参数交给分级器、拿到决定、翻译成 guardrail 输出。
+
+    **不抛异常**：抛异常会被 SDK 包成 ``Error executing tool ...``，前端标红且看板上
+    算成工具故障；真正的语义是「律师拒了，本轮继续」——``reject_content`` 让工具
+    不执行、把文案当工具结果交给模型。
+
+    审批服务在函数内 import：``backends`` 在 AppConfig 阶段被导入，而
+    ``services.approval`` 要初始化 Django 模型层与事件总线，模块级 import 会把
+    ``backends`` ← ``services`` 串成一个启动期的环。
+    """
+    from ..services.approval import RiskLevel, classify_risk, request_approval
+
+    tool_name = str(data.context.tool_name or "")
+    tool_args = _parse_tool_arguments(data.context.tool_arguments)
+    if classify_risk(tool_name, tool_args) not in (RiskLevel.HIGH, RiskLevel.CRITICAL):
+        return ToolGuardrailFunctionOutput.allow()
+
+    ctx = cast(RunContext, data.context.context)
+    approved, _approval_id, _reason = await request_approval(
+        tool_name=tool_name,
+        tool_args=tool_args,
+        user_id=ctx.user_id,
+        session_id=str(ctx.session.session_id),
+        run_id=ctx.run_id,
+    )
+    if approved:
+        return ToolGuardrailFunctionOutput.allow()
+    return ToolGuardrailFunctionOutput.reject_content(APPROVAL_REJECTED_MESSAGE)
+
+
+#: 挂在每个 MCP 工具上的审批 guardrail（开关 ``off`` 时不传给 MCP server，见
+#: :func:`build_mcp_server`）。名字进日志与 trace，改名前先搜有没有按名字断言的地方。
+APPROVAL_GUARDRAIL: ToolInputGuardrail[Any] = ToolInputGuardrail(
+    guardrail_function=_approval_guardrail, name="fachuan_approval"
+)
+
+
+def build_mcp_server(*, url: str, user_token: str, session_id: str = "") -> MCPServerStreamableHttp:
     """建一个（尚未连接的）法穿 MCP 客户端。
 
     ``tool_filter`` 用**静态 dict** 而不是 callable：callable 过滤器内部抛异常会被
     SDK 静默吞掉（表现是「工具凭空消失」，连日志都没有）。dict 走同一路径但不会抛。
+
+    ``tool_input_guardrails`` 是本栏的人工审批闸门（开关见 :data:`APPROVAL_ENV`）；
+    关掉时传 ``None``——不挂闸门与「挂了但放行」在 trace 与行为上都不同，别混。
     """
     return MCPServerStreamableHttp(
-        params={"url": url, "headers": {"Authorization": f"Bearer {user_token}"}},
+        params={
+            "url": url,
+            "headers": {
+                # 会话标识：MCP 服务端审批闸门（mcp_server/tool_approval_gate.py）
+                # 靠它把审批卡投到正确会话；不带时会建「无会话单」，只有超管能批，
+                # 等于高危工具全拒。头名与 pi / dsh 同源（HTTP 头大小写不敏感）。
+                **({"x-fachuan-session": session_id} if session_id else {}),
+                "Authorization": f"Bearer {user_token}",
+            },
+        },
         # tools/list 约 244KB，而每次模型调用都要工具声明；不开缓存每轮多几次全量传输。
         cache_tools_list=True,
         name=SERVER_NAME,
         tool_filter={"blocked_tool_names": list(BLOCKED_TOOL_NAMES)},
         client_session_timeout_seconds=MCP_CLIENT_TIMEOUT_SECONDS,
+        tool_input_guardrails=[APPROVAL_GUARDRAIL] if approval_enabled() else None,
     )
 
 
@@ -339,14 +487,11 @@ class OpenAiAgentsBackend:
     """
 
     kind = "openai-agents"
-    capabilities = BackendCapabilities(
-        streaming=True,
-        tool_calls=True,
-        approval=False,
-        compaction=False,
-        steer=False,
-        concurrent_in_session=True,
-    )
+
+    #: 能力声明（:func:`backend_capabilities`）。**实例属性而不是类属性**：
+    #: ``approval`` 与 ``FACHUAN_OPENAI_APPROVAL`` 同源，类属性只能在 import 时
+    #: 取一次值。
+    capabilities: BackendCapabilities
 
     #: 按 ``run_id`` 归集的收尾事实。键控而不是单值——注册表里存的是单例，而
     #: ``stream()`` 并发（见 ``capabilities.concurrent_in_session``）：实例属性会让
@@ -359,6 +504,7 @@ class OpenAiAgentsBackend:
     _tool_names: dict[str, str]
 
     def __init__(self) -> None:
+        self.capabilities = backend_capabilities()
         self._results = {}
         self._tool_names = {}
 
@@ -435,7 +581,11 @@ class OpenAiAgentsBackend:
             pooled = await get_mcp_session_pool().acquire(
                 url=target.url,
                 user_token=target.user_token,
-                factory=lambda: build_mcp_server(url=target.url, user_token=target.user_token),
+                factory=lambda: build_mcp_server(
+                    url=target.url,
+                    user_token=target.user_token,
+                    session_id=str(ctx.session.session_id),
+                ),
             )
 
         try:
@@ -455,12 +605,36 @@ class OpenAiAgentsBackend:
                 # “沿用默认”，与“显式不要思考参数”是两回事。
                 model_settings=_thinking_settings(model, resolved.settings) or ModelSettings(),
             )
-            result = Runner.run_streamed(agent, ctx.prompt, max_turns=MAX_TURNS)
+            # ``context=ctx`` 不只是「顺手传个上下文」：审批 guardrail 只能经
+            # ``data.context.context`` 取回本轮 RunContext（用户 / 会话 / run_id
+            # 三个归因字段）。不传时闸门就变成无主审批单，审计断链。
+            result = Runner.run_streamed(agent, ctx.prompt, context=ctx, max_turns=MAX_TURNS)
+            stream_events = result.stream_events()
+            pending_next: asyncio.Task[Any] | None = None
             try:
-                async for event in result.stream_events():
+                while True:
+                    if pending_next is None:
+                        pending_next = asyncio.ensure_future(stream_events.__anext__())
+                    await asyncio.wait({pending_next}, timeout=TICK_TIMEOUT_SECONDS)
+                    if not pending_next.done():
+                        # 本 tick 没有新事件：让出一帧，编排层借它把外部总线里的
+                        # 审批事件推进来（工具正在等 approval_guardrail，那段时间
+                        # SDK 不会产出任何事件）。``pending_next`` 不丢：它还挂着
+                        # 一次 ``__anext__``，下一轮循环继续等它（不重复取、不泄漏）。
+                        yield None
+                        continue
+                    task, pending_next = pending_next, None
+                    try:
+                        event = task.result()
+                    except StopAsyncIteration:
+                        break
                     for frame in self._translate_stream_event(event):
                         yield {**frame, "agent": self.kind, "run_id": ctx.run_id}
             finally:
+                if pending_next is not None:
+                    # 提前退出（done / 取消）时可能还挂着一次 __anext__，必须收掉，
+                    # 否则任务泄漏并在事件循环关闭时刷 "Task was destroyed" 警告。
+                    pending_next.cancel()
                 if not result.is_complete:
                     # 客户端断开 / 提前 break：让 SDK 的后台任务停下来，否则它会
                     # 继续跑模型循环（烧 token），并在事件循环关闭时刷
