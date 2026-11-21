@@ -701,7 +701,8 @@ class TestProviderPatch:
         from apps.agent.backends.dsh_config import _provider_patch_path
 
         path = _provider_patch_path(str(tmp_path), base_url="http://gw.internal:4000/v1", models=["kimi-2.6"])
-        text = open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
         assert "openai-completions" in text
         assert "http://gw.internal:4000/v1" in text
         assert "apiKeyEnv: DEEPSEEK_API_KEY" in text
@@ -713,7 +714,9 @@ class TestProviderPatch:
         from apps.agent.backends.dsh_config import _provider_patch_path
 
         path = _provider_patch_path(str(tmp_path), base_url="http://a/b", models=["m"])
-        for line in open(path, encoding="utf-8"):
+        with open(path, encoding="utf-8") as handle:
+            lines = list(handle)
+        for line in lines:
             stripped = line.strip()
             if stripped.startswith("baseURL:") or stripped.startswith("- id:"):
                 assert stripped.count('"') % 2 == 0, f"引号不配对: {stripped}"
@@ -725,7 +728,8 @@ class TestLockdownPatch:
     def _text(self, tmp_path: object) -> str:
         from apps.agent.backends.dsh_config import _lockdown_patch_path
 
-        return open(_lockdown_patch_path(str(tmp_path)), encoding="utf-8").read()
+        with open(_lockdown_patch_path(str(tmp_path)), encoding="utf-8") as handle:
+            return handle.read()
 
     @pytest.mark.parametrize(
         "plugin_id",
@@ -795,10 +799,11 @@ class TestThinkingConfiguration:
     def test_thinking_block_emitted_when_enabled(self, tmp_path: object) -> None:
         from apps.agent.backends.dsh_config import _provider_patch_path
 
-        text = open(
+        with open(
             _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["kimi-2.6"], thinking=True),
             encoding="utf-8",
-        ).read()
+        ) as handle:
+            text = handle.read()
         # 三件套缺一不可（见 _provider_patch_path 的注释）
         assert "reasoningEfforts:" in text
         assert "thinkingFormat: chat-template" in text
@@ -809,10 +814,11 @@ class TestThinkingConfiguration:
         """未开思考时不能声明能力：给普通模型错报会让网关收到它不认的参数而 400。"""
         from apps.agent.backends.dsh_config import _provider_patch_path
 
-        text = open(
+        with open(
             _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["m"], thinking=False),
             encoding="utf-8",
-        ).read()
+        ) as handle:
+            text = handle.read()
         assert "reasoningEfforts" not in text
         assert "chatTemplateKwargs" not in text
 
@@ -852,7 +858,8 @@ class TestThinkingConfiguration:
                 ),
             )
             provider_patch = [p for p in paths if "provider" in p][0]
-            return "thinkingFormat" in open(provider_patch, encoding="utf-8").read()
+            with open(provider_patch, encoding="utf-8") as handle:
+                return "thinkingFormat" in handle.read()
 
         assert _thinking_for(_P(True, True), tmp_path) is True
         assert _thinking_for(_P(True, False), tmp_path) is False

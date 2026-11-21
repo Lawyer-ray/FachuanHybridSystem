@@ -181,7 +181,7 @@ describe('刷新前后：事实来自消息本身', () => {
         metadata: {
           citations: [
             { cite_no: 1, kind: 'statute', name: '《民法典》第577条' },
-            { cite_no: 2, kind: 'case', name: '合成案号-样例' },
+            { cite_no: 2, kind: 'case', name: '(2023)京01民终1号' }, // allowlist secret（合成案号，仅用于测试）
           ],
         },
       },

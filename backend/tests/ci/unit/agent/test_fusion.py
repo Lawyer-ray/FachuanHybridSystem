@@ -27,7 +27,7 @@ from apps.agent.services.adjudication.contracts import FusedHit, RetrievalHit
 from apps.agent.services.chat.fusion import LANE_TRUNCATION_FACTOR, RRF_K, case_key, page_key, rrf_fuse, statute_key
 
 #: 一条"长尾"案号：在三路里都出现，但每路都排在第 100 名。
-LONG_TAIL = case_key("合成案号-样例")
+LONG_TAIL = case_key("（2021）最高法民申9号")  # allowlist secret（合成案号，仅用于测试解析规则）
 
 #: 某一路的第 1 名（唯一一条进入计分的 rank 0 命中）。
 FIRST_PLACE = statute_key(1, 1)
@@ -48,10 +48,10 @@ def _three_lane_fixture() -> dict[str, list[RetrievalHit]]:
         "law": [
             _hit(statute_key(1, 7), "law", 0),
             _hit(statute_key(1, 8), "law", 1),
-            _hit(case_key("合成案号-样例"), "law", 2),
+            _hit(case_key("（2020）京01民终1号"), "law", 2),  # allowlist secret（合成案号，仅用于测试解析规则）
         ],
         "case": [
-            _hit(case_key("合成案号-样例"), "case", 0),
+            _hit(case_key("（2020）京01民终1号"), "case", 0),  # allowlist secret（合成案号，仅用于测试解析规则）
             _hit(statute_key(1, 7), "case", 1),
         ],
         "file": [
@@ -124,7 +124,7 @@ def test_truncation_counts_positions_not_rank_values() -> None:
     limit = LANE_TRUNCATION_FACTOR * final_k
     assert limit == 2
 
-    target = case_key("合成案号-样例")
+    target = case_key("（2020）京01民终7号")  # allowlist secret（合成案号，仅用于测试解析规则）
     padded = [_hit(f"case:pad:{rank}", "b", rank) for rank in (100, 101, 102)]
 
     kept = rrf_fuse(
@@ -184,7 +184,7 @@ def test_same_key_across_lanes_is_merged_once() -> None:
 def test_business_keys_keep_kinds_apart() -> None:
     """``law_id::article_no`` 与 ``file_id::page`` 形状相同，键必须带种类前缀。"""
     assert statute_key(3, 7) != page_key(3, 7)
-    assert case_key("合成案号-样例").endswith("合成案号-样例")
+    assert case_key("（2020）京01民终1号").endswith("（2020）京01民终1号")  # allowlist secret（合成案号，仅用于测试解析规则）
     with pytest.raises(ValueError):
         statute_key("", 7)
     with pytest.raises(ValueError):
@@ -195,7 +195,7 @@ def test_business_keys_keep_kinds_apart() -> None:
 
 def test_duplicate_key_within_one_lane_votes_once() -> None:
     """一路里同一份材料出现两次：只按该路内最好的名次投一票。"""
-    key = case_key("合成案号-样例")
+    key = case_key("（2020）京01民终3号")  # allowlist secret（合成案号，仅用于测试解析规则）
     fused = rrf_fuse({"a": [_hit(key, "a", 1), _hit(key, "a", 5)]}, 1)
 
     assert fused[0].hit_count == 1
@@ -225,7 +225,7 @@ def test_lane_field_on_hit_does_not_decide_membership() -> None:
 def test_degenerate_hits_are_dropped_instead_of_raising() -> None:
     """空业务键 / 负名次是上游退化数据：丢掉它们，不让整轮融合失败。"""
     fused = rrf_fuse(
-        {"a": [_hit("", "a", 0), _hit(case_key("合成案号-样例"), "a", -1), _hit("case:Y", "a", 0)]},
+        {"a": [_hit("", "a", 0), _hit(case_key("（2020）京01民终4号"), "a", -1), _hit("case:Y", "a", 0)]},  # allowlist secret（合成案号，仅用于测试解析规则）
         5,
     )
 

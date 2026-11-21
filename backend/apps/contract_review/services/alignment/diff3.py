@@ -231,14 +231,10 @@ def _merge_disjoint_edits(base: str, ours: str, theirs: str, offset: int) -> lis
         ours_insert = "".join(edit[2] for edit in group["ours"] if edit[0] == edit[1])
         theirs_insert = "".join(edit[2] for edit in group["theirs"] if edit[0] == edit[1])
         if ours_insert or theirs_insert:
-            if ours_insert == theirs_insert:
-                kind: MergeKind = "same"
-            elif ours_insert:
-                kind = "a"
-            elif theirs_insert:
-                kind = "b"
-            else:  # pragma: no cover - 两个空串不会进这个分支
-                return None
+            # 三个分支穷尽了 "两串相等 / 只有甲有 / 只有乙有"：
+            # 走到 else 意味着两串都为空，而外层 if 已保证至少一个非空，
+            # 所以不必再写 `else: return None`（CodeQL 会把它标成不可达）。
+            kind: MergeKind = "same" if ours_insert == theirs_insert else ("a" if ours_insert else "b")
             hunks.append(
                 MergeHunk(
                     kind=kind,
