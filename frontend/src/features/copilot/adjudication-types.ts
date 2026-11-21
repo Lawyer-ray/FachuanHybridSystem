@@ -71,6 +71,71 @@ export interface Review {
   headline: string
   /** 提到但没被检索/核验兜住的东西 */
   unverified: string[]
+  /**
+   * 各栏答案「其实是不是同一个立场」（双向蕴含成团）。
+   *
+   * 空列表有两种含义，**必须配合** {@link Review.clusters_error} 才能区分：
+   * 错误为空 = 没跑成团（旧数据 / 单栏）；错误非空 = 跑了但失败。
+   */
+  clusters: EquivalenceCluster[]
+  /**
+   * 成团失败的原因（空串 = 成功或未跑）。
+   *
+   * **绝不许**把失败折算成「三份全异」：判等超时与「三份真的不一样」对律师是
+   * 完全不同的信息（见 `toClusterViews` 的 tie 语义）。
+   */
+  clusters_error: string
+}
+
+/**
+ * `dropped[].reason` 的封闭集，与后端 `contracts.DROPPED_REASONS` 逐字对应。
+ *
+ * - `empty` 该栏本轮没有正文；
+ * - `failed` 该栏本轮失败（没有可聚合的回答）；
+ * - `too_long` 单栏正文超过长度上限、被截后才进 prompt。
+ *
+ * 三者都不是「候选没参与」——它们必须被展示出来，否则聚合稿少了一栏的来源。
+ */
+export type DroppedReason = 'empty' | 'failed' | 'too_long'
+
+/** 综合结论里的一条来源锚点：哪一栏、引了哪一句（只做锚点，不是核验结果） */
+export interface SynthesisCitation {
+  lane: string
+  /** 从该栏原文抽出的引用串（法条名或案号），原样保留、不归一化 */
+  quote: string
+}
+
+/** 没进聚合 prompt 的候选：栏 + 封闭原因（{@link DroppedReason}） */
+export interface DroppedCandidate {
+  lane: string
+  reason: DroppedReason
+}
+
+/**
+ * 一次「综合结论」的线上形状（`POST .../synthesize` 响应与 `GET .../synthesis` 回放同形）。
+ *
+ * 与 {@link Review} 的分工：`Review` 判「哪栏更好」（打分），`Synthesis` 产「一份合成稿」
+ * （结论）。两者互不依赖，可以只跑其中一个。camelCase 的视图形状在
+ * `domain/fusion.ts` 的 `SynthesisView`（本文件只放线上形状，见模块头）。
+ */
+export interface Synthesis {
+  synthesis_id: string
+  session_id: string
+  turn: number
+  /** 合成后的正文（Markdown）；空 = 没合成出东西，前端整卡不渲染 */
+  text: string
+  /** 实际执行合成的模型（不是候选模型） */
+  model: string
+  /** 真正进了 prompt 的栏（顺序 = 请求顺序） */
+  lanes_used: string[]
+  /** 没进 prompt 的栏及原因；与 `lanes_used` 互斥且并集 = 请求的栏 */
+  dropped: DroppedCandidate[]
+  /** 逐条来源锚点 */
+  citations: SynthesisCitation[]
+  /** 提到但检索/核验没兜住的引用（「没核上」不是「错」） */
+  unverified: string[]
+  /** 合成自身的 token 成本（与各栏生成成本分开记） */
+  tokens: Record<string, number>
 }
 
 /** 融合的一条命中（RRF 只吃名次，不吃原始分） */

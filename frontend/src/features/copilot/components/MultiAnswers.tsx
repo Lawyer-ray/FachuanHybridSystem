@@ -15,16 +15,15 @@
  * ——侧边栏面板在笔记本上只有 400px 宽，硬塞四列会把每栏压成一行三个字的薯条。
  */
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 
-import { agentLabel } from '../domain'
+import { agentLabel, distinctAgentKinds } from '../domain'
 import type { AgentBackendOption, ChatMessage } from '../types'
 import { findBackend, noApprovalWarn } from '../store/backends'
 import { LaneFactsBadge } from './LaneFactsBadge'
 import { LaneUsageChip } from './LaneUsageChip'
 import { NoApprovalBadge } from './NoApprovalBadge'
-import { ReviewSummaryCard } from './review/ReviewSummaryCard'
-import { useReview } from './review/use-review'
+import { ReviewPanel } from './review/ReviewPanel'
 
 /** 栏头：小而克制的标签，各栏视觉上必须能一眼分清谁是谁（以及用哪个模型答的） */
 const LABEL_CLASS =
@@ -85,15 +84,16 @@ export const MultiAnswers = memo(function MultiAnswers({
    */
   backends?: AgentBackendOption[]
   /**
-   * 这一轮评审卡的数据源（`null` = 不挂卡）。
+   * 这一轮评审/综合结论的数据源（`null` = 不挂面板）。
    *
    * `turn` 必须由调用方按「后端口径 + 窗口完整」算出来（见 domain/fusion 的
    * `reviewTurnOf`）：算不出正确轮次时宁可传 null，也不要把别轮的评审挂到这一轮
-   * 的答案下面。没有评审数据时整块不渲染（钩子返回 null）。
+   * 的答案下面。按钮/卡片的请求状态全部在 ReviewPanel 内，不占本组件的 memo 边界。
    */
   reviewTarget?: { sessionId: string; turn: number } | null
 }) {
-  const review = useReview(reviewTarget?.sessionId ?? null, reviewTarget?.turn ?? null)
+  // 本轮的栏（顺序 = 答案顺序）：评审与合成的 `agents` 参数（请求顺序）
+  const lanes = useMemo(() => distinctAgentKinds(answers), [answers])
   const grid = GRID_BY_COLUMNS[answers.length] ?? GRID_BY_COLUMNS[4]
   return (
     <div className="min-w-0">
@@ -124,8 +124,9 @@ export const MultiAnswers = memo(function MultiAnswers({
           )
         })}
       </div>
-      {/* 裁决卡挂在栏下方：读完答案再裁决（headline 是导航，放前面会先入为主） */}
-      {review && <ReviewSummaryCard review={review} />}
+      {/* 评审/综合结论面板挂在栏下方：读完答案再裁决（headline 是导航，放前面会先入为主）。
+          不自动跑评审（一轮三栏约 5 万 token）：面板里只有按钮，点了才发请求。 */}
+      <ReviewPanel target={reviewTarget} agents={lanes} />
     </div>
   )
 })
