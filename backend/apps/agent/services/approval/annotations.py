@@ -111,6 +111,19 @@ def _annotation_table() -> dict[str, dict[str, Any] | None]:
     return table
 
 
+def prime_annotation_cache(table: dict[str, dict[str, Any] | None]) -> int:
+    """用外部已读到的表**预热**缓存（MCP 进程内唯一正确的读法）。
+
+    为什么需要它：MCP 进程里 ``mcp.list_tools()`` 是 async 且依赖请求上下文，
+    在启动期调会抛错 → 本模块退回空表 → 整条审批分级只剩名字黑名单（实测
+    2026-11-21 生产日志「注解 0 条」）。MCP 进程自己有活的 ``ToolManager``，
+    同步读它才是准的；读到的表交给这里，两个进程（MCP / Django）口径一致。
+    """
+    global _ANNOTATION_TABLE
+    _ANNOTATION_TABLE = dict(table)
+    return len(_ANNOTATION_TABLE)
+
+
 def load_tool_annotations(tool_name: str) -> dict[str, Any] | None:
     """按工具全名/短名取 MCP 注解（取不到返回 ``None``）。"""
     table = _annotation_table()

@@ -240,3 +240,41 @@ class TestCancel:
         assert refreshed is not None
         assert refreshed.status == AgentApproval.Status.CANCELLED
         assert refreshed.decided_at is not None
+
+
+class TestLateApproval:
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.asyncio
+    async def test_late_approval_after_timeout_still_grants(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """MCP 闸门最多等 WAIT(≤150s)；律师晚点批必须仍能放行一次。
+
+        闸门把 offline_timeout 也压到 WAIT，所以「没人开页面」时记录会先变
+        ``timeout``。如果补批不生效，那张卡就永久废掉、模型只能再弹一张。
+        """
+        monkeypatch.setattr("apps.agent.services.approval.flow.redis_cache_enabled", lambda: False)
+        monkeypatch.setattr("apps.agent.services.approval.waiter.redis_cache_enabled", lambda: False)
+        session = await AgentSession.objects.acreate(title="补批", origin="chat")
+        sid = str(session.session_id)
+
+        # 用一个极短的等待，让它自然超时
+        approved, approval_id, _ = await approval_mod.request_approval(
+            tool_name="mcp__fachuan__delete_case",
+            tool_args={"case_id": 11},
+            session_id=sid,
+            timeout=0.05,
+            offline_timeout=0.05,
+        )
+        assert approved is False
+        record = await AgentApproval.objects.filter(session=session).afirst()
+        assert record is not None
+        assert record.status == AgentApproval.Status.TIMEOUT
+
+        # 律师几分钟后点同意
+        ok = await approval_mod.decide_approval(approval_id, True, reason="晚点补批")
+        assert ok is True
+        refreshed = await AgentApproval.objects.aget(pk=record.pk)
+        assert refreshed.status == AgentApproval.Status.APPROVED
+        assert refreshed.is_live_grant is True, "补批后必须是一条可兑付的有效批准"
+        assert refreshed.expires_at is not None and refreshed.expires_at > refreshed.created_at

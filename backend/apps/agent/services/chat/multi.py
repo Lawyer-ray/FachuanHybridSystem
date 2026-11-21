@@ -417,6 +417,7 @@ async def _pump_lane(
     persist_assistant: bool,
     multi_lane: bool = False,
     tool_exclude: frozenset[str] | None = None,
+    subscribe_external: bool = False,
 ) -> None:
     """**一栏**后端：帧补齐 ``agent`` / ``run_id`` 后进共享队列，结束时放哨兵。
 
@@ -480,6 +481,8 @@ async def _pump_lane(
             # 审批层还会再拒一次；单栏两个值保持默认（行为与引入前逐字一致）
             multi_lane=multi_lane,
             tool_exclude=tool_exclude,
+            # 多栏时总线由编排层独占订阅（见 stream.stream_chat 的同名参数）
+            subscribe_external=subscribe_external,
         ),
     )
     try:
@@ -821,6 +824,9 @@ async def stream_multi(
                     # 多栏才摘写类工具；单栏这两个值是默认（False / None）
                     multi_lane=lane_multi,
                     tool_exclude=lane_exclude,
+                    # 总线订阅归编排层（本函数已 register 一次并交给 _pump_external）：
+                    # 各栏再订阅会把同一条审批事件转发 N+1 次（3 栏 → 4 张一样的卡）。
+                    subscribe_external=False,
                 )
             )
         # 审批 / 提问走事件总线，不是后端事件流：它们也需要自己的搬运协程

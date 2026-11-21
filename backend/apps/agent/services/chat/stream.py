@@ -226,6 +226,7 @@ async def stream_chat(
     turn: int | None = None,
     multi_lane: bool = False,
     tool_exclude: frozenset[str] | None = None,
+    subscribe_external: bool = True,
 ) -> AsyncIterator[dict[str, Any]]:
     """跑一轮对话，产出 SSE 事件。
 
@@ -312,8 +313,14 @@ async def stream_chat(
             await record_user_message(session, user_message, turn_no=turn_no)
 
     bus = get_bus()
-    async with profile.timed("stream.bus_register", agent=backend.kind, session=session_id):
-        external_queue = await bus.register(str(session.session_id))
+    # 多栏并答时**只有编排层**订阅总线（``subscribe_external=False``）：
+    # 各栏再各订阅一次的话，同一条 ``approval_request`` 会被投进 4 个队列
+    # （3 栏 + 编排层），前端就收到 4 张一模一样的审批卡（真机实测。
+    # 2026-11-21）。单栏与直接调用方保持原行为。
+    external_queue: asyncio.Queue[dict[str, Any]] | None = None
+    if subscribe_external:
+        async with profile.timed("stream.bus_register", agent=backend.kind, session=session_id):
+            external_queue = await bus.register(str(session.session_id))
     profile.since("stream.pre_stream_total", prep_started, agent=backend.kind, session=session_id)
 
     # 本轮运行 id：``{session_id}:{agent_kind}:{轮次}``，审批回调与运行记录都靠它归因。
@@ -394,7 +401,7 @@ async def stream_chat(
             async for event in stream:
                 # ``None`` 是后端「本 tick 无事件」的让出信号：借这个 tick 把外部总线
                 # 里的审批事件推进来（审批不走后端事件流，见 pi_backend 模块说明）。
-                while True:
+                while external_queue is not None:
                     try:
                         yield external_queue.get_nowait()
                     except asyncio.QueueEmpty:
@@ -515,7 +522,8 @@ async def stream_chat(
         # 注意：生成器的 finally 里**不能 yield**。客户端断开时本协程会收到
         # GeneratorExit，此时再 yield 会抛 RuntimeError（"async generator ignored
         # GeneratorExit"），表现为 SSE 被截断、curl 返回 CURLE_PARTIAL_FILE(18)。
-        await bus.unregister(str(session.session_id), external_queue)
+        if external_queue is not None:
+            await bus.unregister(str(session.session_id), external_queue)
 
         # 运行记录落库（成功 / 取消 / 出错三态都记）。
         # 只记成功等于把最贵的失败藏起来：用户按停止时模型可能已跑了大半

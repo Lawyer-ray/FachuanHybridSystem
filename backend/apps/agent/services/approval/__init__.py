@@ -40,7 +40,13 @@
 """
 
 from ..event_bus import redis_cache_enabled
-from .annotations import _annotation_table, _list_mcp_tools, _reset_annotation_cache, load_tool_annotations
+from .annotations import (
+    _annotation_table,
+    _list_mcp_tools,
+    _reset_annotation_cache,
+    load_tool_annotations,
+    prime_annotation_cache,
+)
 from .flow import (
     OFFLINE_ENV,
     _approval_message,

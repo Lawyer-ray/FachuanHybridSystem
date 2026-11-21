@@ -40,6 +40,10 @@ logger = logging.getLogger(__name__)
 #: 离线审批开关（``FACHUAN_APPROVAL_OFFLINE=0`` 可关闭，回到纯 fail-closed）。
 OFFLINE_ENV = "FACHUAN_APPROVAL_OFFLINE"
 
+#: 「超时后补批」的放行有效期（秒）。与 MCP 闸门的 Redis 台账 TTL 同量级：
+#: 批了之后模型要在这么久之内原样重试一次，否则重新走一遍审批。
+LATE_GRANT_SECONDS = 600
+
 
 def allow_offline_approval() -> bool:
     """无人在线时是否允许挂起等离线审批。
@@ -382,17 +386,25 @@ async def decide_approval(
     except (ValueError, AttributeError):
         record = None
 
-    if record is not None and record.status == AgentApproval.Status.PENDING:
+    # 允许对 **timeout** 的单子补批：MCP 闸门为了不被客户端超时掐断，最多等
+    # WAIT(≤150s) 就返回「已发起审批」；律师晚几分钟看到卡片点同意是常态。
+    # 不补批的话那张卡永久钉在 timeout，重试只能再弹一张——体验与审计都更差。
+    late_answer = record is not None and record.status == AgentApproval.Status.TIMEOUT
+    if record is not None and (record.status == AgentApproval.Status.PENDING or late_answer):
         record.status = AgentApproval.Status.APPROVED if approved else AgentApproval.Status.REJECTED
         record.decided_at = timezone.now()
+        if late_answer and approved:
+            # 补批要重新计有效期：DB 台账（MCP 闸门）只在 expires_at 未过期时放行，
+            # 而原来那条是按「发起时刻 + 离线超时」算的，早就过期了。
+            record.expires_at = timezone.now() + timedelta(seconds=LATE_GRANT_SECONDS)
         if user_id is not None:
             record.decided_by_id = user_id
         if reason.strip():
             # 写 ``decision_reason`` 而不是覆盖 ``reason``：后者是发起方写的
             # 请求理由，覆盖掉后就分不清「为什么提」与「为什么拒」了。
             record.decision_reason = reason.strip()[:2000]
-            await record.asave(update_fields=["status", "decided_at", "decided_by", "decision_reason"])
+            await record.asave(update_fields=["status", "decided_at", "decided_by", "decision_reason", "expires_at"])
         else:
-            await record.asave(update_fields=["status", "decided_at", "decided_by"])
+            await record.asave(update_fields=["status", "decided_at", "decided_by", "expires_at"])
 
     return found or record is not None

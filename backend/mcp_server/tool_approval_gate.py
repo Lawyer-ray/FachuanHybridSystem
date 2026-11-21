@@ -63,7 +63,13 @@ from django.db import close_old_connections
 from mcp.server.context import CallNext, HandlerResult, ServerRequestContext
 from mcp.types import CallToolResult, TextContent
 
-from apps.agent.services.approval import RiskLevel, _annotation_table, classify_risk, request_approval
+from apps.agent.services.approval import (
+    RiskLevel,
+    _annotation_table,
+    classify_risk,
+    prime_annotation_cache,
+    request_approval,
+)
 from apps.agent.services.approval.flow import approval_dedupe_key
 from apps.agent.services.approval.risk import short_tool_name
 from mcp_server.identity import current_session_id, request_authorization
@@ -137,16 +143,59 @@ def wait_seconds() -> float:
     return min(value, MAX_WAIT_SECONDS)
 
 
-def prime_tool_annotations() -> int:
-    """在事件循环**之外**预生成 name→annotations 快照，返回工具数。
+def _annotations_from_live_server(server: Any) -> dict[str, dict[str, Any] | None]:
+    """从**活着的** ``MCPServer`` 同步读注解表（MCP 进程内唯一可靠的读法）。
 
-    由 ``install_tool_approval_gate`` 在装配点调用。读表失败时审批内核会缓存
-    一张空表并留 WARNING，此后分级退回纯名字判定（不会因为注解读不到就放行，
-    也不会在事件循环里再起加载线程）。
+    为什么不能走审批内核的 ``_annotation_table()``：它内部调
+    ``mcp.list_tools()``（async，依赖请求上下文），在启动期调用会抛错并缓存
+    空表——线上表现就是启动日志「注解 0 条」，分级退回纯名字判定。而
+    ``server._tool_manager.list_tools()`` 是同步纯内存读取，实测 429 个工具
+    全部带 annotations。
     """
-    table = _annotation_table()
+    manager = getattr(server, "_tool_manager", None)
+    if manager is None or not hasattr(manager, "list_tools"):
+        return {}
+    table: dict[str, dict[str, Any] | None] = {}
+    for tool in manager.list_tools():
+        hints = getattr(tool, "annotations", None)
+        name = getattr(tool, "name", "")
+        if not name:
+            continue
+        table[name] = (
+            None
+            if hints is None
+            else {
+                "read_only_hint": getattr(hints, "read_only_hint", None),
+                "destructive_hint": getattr(hints, "destructive_hint", None),
+                "open_world_hint": getattr(hints, "open_world_hint", None),
+            }
+        )
+    return table
+
+
+def prime_tool_annotations(server: Any = None) -> int:
+    """预生成 name→annotations 快照并**同时预热审批内核缓存**，返回工具数。
+
+    优先从活 server 同步读（见 :func:`_annotations_from_live_server`）；拿不到时
+    退回审批内核的老路径（Django 进程内 / 测试场景）。两条路径都失败时返回 0
+    ——分级退回纯名字判定，仍然只更严不更松。
+    """
+    table: dict[str, dict[str, Any] | None] = {}
+    if server is not None:
+        try:
+            table = _annotations_from_live_server(server)
+        except Exception:
+            logger.warning("从 MCP 工具表读注解失败，改用审批内核路径", exc_info=True)
+    if not table:
+        table = _annotation_table()
     _TOOL_ANNOTATIONS.clear()
     _TOOL_ANNOTATIONS.update(table)
+    # 预热内核缓存：``request_approval`` 内部还会再调一次 ``classify_risk``，
+    # 它也读注解；不预热的话它会在事件循环里再走一次会失败的懒加载。
+    try:
+        prime_annotation_cache(table)
+    except Exception:
+        logger.warning("预热审批内核注解缓存失败（分级将退回名字判定）", exc_info=True)
     return len(_TOOL_ANNOTATIONS)
 
 
@@ -282,6 +331,7 @@ async def _await_approval(tool_name: str, tool_args: dict[str, Any]) -> tuple[bo
     """发起并等待人工审批，返回 ``(approved, approval_id, reason)``。"""
     await _recycle_db_connections()
     try:
+        cap = wait_seconds()
         return await request_approval(
             tool_name=tool_name,
             tool_args=tool_args,
@@ -289,7 +339,13 @@ async def _await_approval(tool_name: str, tool_args: dict[str, Any]) -> tuple[bo
             # （严格性等同「该用户没有任何 allow 策略」），不因此放行。
             user_id=None,
             session_id=current_session_id() or None,
-            timeout=wait_seconds(),
+            timeout=cap,
+            # **离线等待也必须压到同一个上限**：没人开着 SSE 时
+            # ``request_approval`` 会走离线挂起（默认 7200s），而客户端工具超时
+            # 只有 200s——工具调用会整整挂两小时，律师看到的只是一次超时失败。
+            # 压到 cap 之后：调用按时返回「已发起审批」，律师晚点批仍然有效
+            # （``decide_approval`` 允许补批并重置有效期），模型原样重试即可。
+            offline_timeout=cap,
         )
     finally:
         # 收尾失败不覆盖主异常：连接会在下一次进闸门时再回收一次。
@@ -390,7 +446,7 @@ def install_tool_approval_gate(server: Any) -> bool:
     **事件循环启动之前**调用：注解快照读表是同步的，装到链上之后再读会去
     事件循环里做那件 10 秒 join 的事。
     """
-    tool_count = prime_tool_annotations()
+    tool_count = prime_tool_annotations(server)
     chain = server.middleware
     if any(item is _TOOL_APPROVAL_GATE for item in chain):
         return False
