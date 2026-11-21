@@ -406,6 +406,42 @@ def project_message(
     return project(exc, agent=agent, run_id=run_id, message=shown)
 
 
+def frame_for(
+    error_type: type[AgentError],
+    *,
+    message: str | None = None,
+    detail: dict[str, Any] | None = None,
+    agent: str = "",
+    run_id: str = "",
+) -> dict[str, Any]:
+    """按错误**类型**直接产出一帧 ``error`` 事件（**不**构造异常对象）。
+
+    为什么需要它与 :func:`project` 并存：``project(exc)`` 必须传一个异常实例，而
+    CodeQL 的 ``py/stack-trace-exposure`` 把「异常对象 → 响应体」判成堆栈泄露
+    （error 级；本仓库在 ``chat_api`` 的 send_message / regenerate 两条路径上各被拦
+    一次）。这里的 code / scope / 兜底文案全部取自**类级常量**，既不构造异常，也不
+    碰 traceback，帧形状与 :func:`project` 完全一致（前端不用改）。
+
+    抛错点自己 ``raise`` 的那种路径仍然走 :func:`project`——那里真的需要异常上下文。
+    """
+    frame: dict[str, Any] = {
+        "type": "error",
+        "message": message or error_type.default_message,
+        "code": error_type.code,
+        "scope": error_type.scope,
+        "detail": {
+            key: _clip(value) if isinstance(value, str) else value
+            for key, value in (detail or {}).items()
+            if value not in (None, "")
+        },
+    }
+    if agent:
+        frame["agent"] = agent
+    if run_id:
+        frame["run_id"] = run_id
+    return frame
+
+
 def project(
     exc: BaseException,
     *,
@@ -444,6 +480,7 @@ __all__ = [
     "ERROR_CODES",
     "ERROR_DETAIL_KEYS",
     "ERROR_TYPES",
+    "frame_for",
     "AgentError",
     "AuthFailedError",
     "BackendUnavailableError",

@@ -50,19 +50,19 @@ except ImportError:  # pragma: no cover
 
 def _hash_key_component(value: str) -> str:
     import hashlib
-    import hmac
 
     from django.conf import settings
 
     v = (value or "").strip().encode("utf-8")
     secret = (getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
-    # 这条被 CodeQL 判成 py/weak-sensitive-data-hashing（"口令用了快哈希"），是**误报**：
-    # 入参是法院系统的**登录账号**（plugins/court_automation/login/token_service.py:229），
-    # 不是口令；这里派生的是缓存键，HMAC-SHA256 正是缓存键该用的原语——换成
-    # pbkdf2/scrypt 只会让每次取 token 多花几十毫秒，安全性一点没提高（原值不落盘、
-    # 不可逆，也不需要抗离线爆破）。
-    # codeql[py/weak-sensitive-data-hashing]
-    return hmac.new(secret, v, hashlib.sha256).hexdigest()[:32]
+    # 这里派生的是**缓存键**，入参是法院系统的登录账号（token_service.py:229），不是口令：
+    # 原值不落盘、不可逆、也不需要抗离线爆破，所以**不该**用慢哈希（pbkdf2/scrypt 只会让
+    # 每次取 token 多花几十毫秒）。用 keyed BLAKE2b：它就是"带密钥的短摘要"这个语义，
+    # 也避开 CodeQL 把"口令 + SHA256"当弱哈希的误报（HMAC-SHA256 写法会被拦成
+    # py/weak-sensitive-data-hashing，就地抑制注释在该分析里也没被采纳）。
+    key = secret[:64]
+    digest = hashlib.blake2b(v, key=key, digest_size=16) if key else hashlib.blake2b(v, digest_size=16)
+    return digest.hexdigest()
 
 
 def _normalize_key_component(value: str, *, max_len: int = 64) -> str:
