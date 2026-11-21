@@ -89,7 +89,7 @@ async def _has_remote_subscribers(bus: Any, session_id: str) -> bool:
     return False
 
 
-def _dedupe_key(*, session_id: str | None, tool_name: str, tool_args: dict[str, Any] | None) -> str:
+def approval_dedupe_key(*, session_id: str | None, tool_name: str, tool_args: dict[str, Any] | None) -> str:
     """同一调用的去重键：``sha256(session|短工具名|稳定参数)``。
 
     三个入口（pi 扩展���MCP 服务端闸门、写端点兑底）共用同一张审批卡，
@@ -224,7 +224,7 @@ async def request_approval(
     # ── 三入口去重 ──
     # 同一 (会话, 工具, 参数) 已在等待时，第二个入口直接返回「正在等待」：
     # 不新建记录、也不弹第二张卡——否则一次删除会弹两张、等两次。
-    dedupe_key = _dedupe_key(session_id=session_id, tool_name=tool_name, tool_args=tool_args)
+    dedupe_key = approval_dedupe_key(session_id=session_id, tool_name=tool_name, tool_args=tool_args)
     pending = (
         await AgentApproval.objects.filter(dedupe_key=dedupe_key, status=AgentApproval.Status.PENDING)
         .exclude(approval_id=uuid.UUID(approval_id))

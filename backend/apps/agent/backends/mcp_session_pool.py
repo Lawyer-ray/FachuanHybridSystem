@@ -47,6 +47,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -153,6 +154,10 @@ class McpSessionPool:
     ) -> PooledMCPServer | None:
         """取一条**属于该 token** 的已连接会话；建连失败返回 ``None``。
 
+        取用前先 :meth:`sweep`：代码原本只在 docstring 里写「每次取用时顺手
+        扫一遍」，但实际从未调用（全仓 0 个调用点）——后果是空闲连接与
+        溢出桶永不回收（token 轮换后旧连接在其进程生命周期内一直挂着）。
+
         Args:
             url: MCP endpoint（``http://host:port/mcp``）。池键的一部分：同一个人
                 连不同 endpoint 不能共用连接。
@@ -166,6 +171,11 @@ class McpSessionPool:
             调用方**必须**在 ``finally`` 里 :meth:`release`。建连失败返回 ``None``
             ——调用方据此降级为「本轮无工具」（与原来 ``port_open`` 为假同口径）。
         """
+        # 先把超时空闲连接与溢出桶扫掉（见本方法 docstring）。失败不影响取用：
+        # 回收是「收拾房间」，不是「能不能住」的前提。
+        with suppress(Exception):
+            await self.sweep()
+
         if not (user_token or "").strip():
             # 无 token 就没有身份可言，连上去只会 401。调用方本应先判，这里再兜一层：
             # 「空 token 也能拿到别人的连接」是最严重的一类串号，宁可不给。

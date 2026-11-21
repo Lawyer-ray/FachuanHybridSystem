@@ -44,6 +44,19 @@ from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
+#: 缓存/计数类的可重试异常。
+#:
+#: 为什么不用宽泛的异常捕获：仓库有棘轮门禁
+#: （``tests/ci/structure/test_exception_ratchet.py``）禁止扩大宽 except；
+#: 这两个位置（跨进程订阅计数）失败本来就该降级，用具体类型反而更诚实。
+_CACHE_ERRORS: tuple[type[BaseException], ...] = (OSError, ValueError, TypeError, RuntimeError)
+try:  # pragma: no cover - redis 一定装了（RedisCache 依赖），这里只为类型收敛
+    from redis.exceptions import RedisError as _RedisError
+
+    _CACHE_ERRORS = (*_CACHE_ERRORS, _RedisError)
+except ImportError:  # pragma: no cover
+    pass
+
 MAX_QUEUED = 256
 REDIS_KEY_PREFIX = "agent:bus:"
 #: 跨 worker 的「有人在看这个会话」计数键。审批层靠它区分
@@ -120,7 +133,7 @@ def _bump_subscribers(session_id: str, delta: int) -> None:
         else:
             if int(cache.decr(key) or 0) <= 0:
                 cache.delete(key)
-    except Exception:
+    except _CACHE_ERRORS:
         logger.warning("更新跨进程订阅者计数失败: %s", session_id, exc_info=True)
 
 
@@ -168,7 +181,7 @@ class EventBus:
             return 0
         try:
             return int(cache.get(f"{SUBSCRIBER_KEY_PREFIX}{session_id}") or 0)
-        except Exception:
+        except _CACHE_ERRORS:
             logger.warning("读取跨进程订阅者计数失败: %s", session_id, exc_info=True)
             return 0
 

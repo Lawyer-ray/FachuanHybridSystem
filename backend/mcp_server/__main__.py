@@ -58,11 +58,15 @@ def main() -> None:
 
         from mcp_server.identity import RequestAuthMiddleware
         from mcp_server.server import mcp  # http 模式 stdout 不是协议通道,无需改道窗口
+        from mcp_server.tool_approval_gate import install_tool_approval_gate
         from mcp_server.tool_tier_gate import install_tool_tier_gate
 
         # 按 X-Fachuan-Tool-Tier 裁剪 tools/list（stdlib 请求头 → 客户端自选工具面）。
         # install 幂等：共享进程里重复调用不会把中间件挂两遍。
         install_tool_tier_gate(mcp)
+        # 服务端审批闸门（入口 B）：dsh / openai-agents 没有工具调用钩子，
+        # 高危工具只能在 MCP 这一层拦；同样幂等。
+        install_tool_approval_gate(mcp)
 
         host = os.environ.get("FACHUAN_MCP_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1"
         try:
@@ -81,12 +85,16 @@ def main() -> None:
     sys.stdout = sys.stderr
     try:
         from mcp_server.server import mcp
+        from mcp_server.tool_approval_gate import install_tool_approval_gate
         from mcp_server.tool_tier_gate import install_tool_tier_gate
     finally:
         sys.stdout = real_stdout
     # stdio 下没有请求头，一律全量；挂上只是为了让两条传输共用同一个装配点
     # （手工 ``pi`` / 脚本用 stdio 时不带任何头，行为与改造前完全一致）。
     install_tool_tier_gate(mcp)
+    # 审批闸门同理共用装配点：stdio 无 X-Fachuan-Session，高危工具一律等不到
+    # 审批（fail-closed），不会因为「问不到人」就放行。
+    install_tool_approval_gate(mcp)
     mcp.run()
 
 

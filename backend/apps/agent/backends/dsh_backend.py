@@ -9,35 +9,37 @@
    桥成 ``AsyncGenerator``（见 :class:`_NotificationBridge`）。
 2. **事件翻译**：dsh 的 notification → ``sse_types.py`` 的 12 种契约事件
    （见 :meth:`DshBackend._translate`）。
-3. **审批接收**：``approval_requests=True`` 后 runtime 会把 ``approval/request``
-   塞进 ``client.next_request()`` 的队列，必须有人持续抽走并 reply，否则运行时
-   会一直等（见 :class:`_ApprovalPump`）。
+3. **审批接收（未接线，见下）**：``approval_requests=True`` 后 runtime 会把
+   ``approval/request`` 塞进 ``client.next_request()`` 的队列，必须有人持续抽走
+   并 reply，否则运行时会一直等（见 :class:`_ApprovalPump`）。本栏**不传**这个
+   开关，泵也不启动。
 
 **不接管**（留在编排层 ``services/chat/stream.py``）：铸造用户凭证、落库、
 事件总线订阅、用户文案翻译。边界与 ``pi_backend`` 完全一致，理由见 ``base.py``。
 
-## 审批：默认 fail-closed（这是本模块唯一未完成的接线）
+## 审批：本栏没有人工审批闸门（事实，不是待办）
 
-真实链路要求「dsh 的 approval 请求 → Django ``request_approval()`` → 前端卡片 →
-用户决定 → ``client.respond()``」。这条链路**跨线程**：``next_request()`` 是阻塞
-的同步调用，只能跑在线程里，而 ``request_approval`` 是 async 且要读 ORM、发
-Redis。技术上可行（``asyncio.run_coroutine_threadsafe`` 把协程丢回主事件循环），
-但它需要一次真实的 ``DEEPSEEK_API_KEY`` 跑通才能确认 payload 语义（例如
-``callId`` 到底对应哪个工具调用、``reason`` 里有没有参数）。
+``approval_requests`` **从未传 ``True``**（``dsh_config.sdk_kwargs()`` 里没有这个
+键），所以 runtime 不会把 ``approval/request`` 发给我们，allow/deny 由 dsh
+runtime **自带的 answerer** 决定。本栏因此**没有**人工审批闸门，前端也不该为
+dsh 渲染审批卡（``capabilities.approval`` 如实声明 ``False``，见下）。
 
-因此本版本**默认 fail-closed**：拿到审批请求就记日志并 ``respond`` 一个
-``rejected``，即高危工具调用会被拒绝但会话不崩。安全方向正确（宁拒不放），
-但**功能上是未完成项**——用户会看到「dsh 拒绝了一次高危工具调用」而不是审批
-卡片。接入闸门见 :data:`_APPROVAL_WIRED`。
+高危调用的**强制闸门在 MCP 服务端**（``tool_approval_gate``）：它拦在工具真正
+执行的那一侧，与用哪个 agent 后端无关，dsh / pi 都绕不过去。
 
-``approval=False`` 时列在 ``_UNWIRED_KINDS`` 里的请求（``user-question/ask``）
-必须 ``respond_error`` 清掉：不回的请求会让运行时永远挂起（实测表现为整轮
-卡到超时），而会话本身的审批闸门仍在——drop 一个提问只是「模型这次没问到人」。
+:class:`_ApprovalPump` 只在 :data:`_APPROVAL_WIRED` 为真时才 ``start()``。它里面
+那条「收到审批请求即回 ``rejected``」的分支当前**收不到任何请求**——那是接线
+完成后的落点，不是运行中的兜底。翻常量前必须同时把 ``approval_requests=True``
+传进 ``DeepSeekHarnessConfig``，理由与挂死风险见 :data:`_APPROVAL_WIRED`。
+
+泵启用后，非审批类请求（``user-question/ask`` 等）必须 ``respond_error`` 清掉：
+不回的请求会让运行时永远挂起（实测表现为整轮卡到超时）。
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import threading
 from collections.abc import AsyncGenerator
@@ -60,9 +62,17 @@ from deepseek_harness import DeepSeekHarness, DeepSeekHarnessConfig
 from deepseek_harness.errors import JsonRpcError, SdkProtocolError
 from deepseek_harness.models import Notification
 
-#: 审批接线是否完成。``False`` = fail-closed stub：收到审批请求即拒绝并记日志。
-#: 改 ``True`` 前必须：①用真实 key 跑一次拿到真实 ``approval/request`` payload；
-#: ②把 :class:`_ApprovalPump` 里的 stub 换成 ``request_approval`` 调用并写测试。
+#: 审批接线是否完成。``False`` = 本栏**没有人工审批闸门**：``approval_requests``
+#: 从未传 ``True``，runtime 不发 ``approval/request`` 给我们，allow/deny 由 runtime
+#: 自带的 answerer 决定；高危调用的强制闸门在 MCP 服务端（``tool_approval_gate``）。
+#: 所以 :class:`_ApprovalPump` 不 ``start()``，它那条 ``rejected`` 分支收不到请求。
+#:
+#: **翻成 ``True`` 时必须同一次改动里把 ``approval_requests=True`` 传进
+#: ``DeepSeekHarnessConfig``**（``dsh_config.DshProviderConfig.sdk_kwargs()``，
+#: 本文件之外）：只开泵不传开关，泵阻塞等一个永远不来的请求；只传开关不开泵，
+#: runtime 侧 ``await`` 答案**没有超时**，整轮会**永久挂死**（不是超时报错）。
+#: 同时要把 :meth:`_ApprovalPump._handle` 里的 stub 换成 ``request_approval()``
+#: 调用并补测试。
 _APPROVAL_WIRED = False
 
 #: 本模块会主动 reply 的请求方法；其余方法一律 ``respond_error`` 掉，绝不静默丢弃
@@ -133,6 +143,26 @@ def _log_unmapped(method: str, payload: dict[str, Any]) -> None:
     """
     logger.debug("dsh 未映射事件 method=%s payload_keys=%s", method, sorted(payload))
     return
+
+
+def _tool_call_arguments(raw: Any) -> Any:
+    """把 dsh 的 ``arguments`` 归一成 ``tool_call`` 帧的 ``arguments``。
+
+    dsh 两个来源都把它写成 **raw JSON 字符串**：assistant 消息里的 ``tool-call``
+    块（``packages/llm/src/types.ts``）与 ``tool/call`` 运行事件
+    （``session/src/types.ts``）。这里解成对象——参数级展示与审批卡的 ``tool_args``
+    都要按键取值。``sse_types.ToolCallEvent.arguments`` 是 ``Any``，前端
+    ``extractRewriteArgs`` 对象/字符串都认，所以解成对象不会让任何一侧退化。
+
+    **解不动不抛**：模型偶尔写出不是合法 JSON 的参数（截断、单引号），一个坏参数
+    不该让整轮事件流崩掉。原样塞进 ``{"_raw": ...}``，前端至少能显示原文。
+    """
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except ValueError:
+            return {"_raw": raw}
+    return raw if isinstance(raw, dict) else None
 
 
 @dataclass(frozen=True)
@@ -333,11 +363,13 @@ class _ApprovalPump:
     让 runtime 把审批请求发给我们而不是走它自己的 answerer，**没人抽就会一直挂**：
     表现是模型停在那里不动、直到超时。所以必须在 ``run()`` 之外另起一条线程。
 
-    ## fail-closed
+    ## 本栏不启动它
 
-    本版本不接 Django 审批服务（见模块 docstring 的 ``_APPROVAL_WIRED``）：
-    收到 ``approval/request`` 一律回 ``{"outcome": "rejected"}``。方向正确（高危
-    工具宁拒不放），但用户拿不到审批卡片——这是**已知未完成项**。
+    ``_APPROVAL_WIRED`` 为 ``False``（本栏没有人工审批闸门），``start()`` 不会被
+    调用：runtime 走自己的 answerer，``approval/request`` 不会被塞进
+    ``next_request()`` 队列。所以 :meth:`_handle` 里那条「回 ``rejected``」的分支
+    **收不到请求**，它只是接线完成后的落点。高危调用的强制闸门在 MCP 服务端
+    （``tool_approval_gate``），不在这里。
 
     非审批类请求（``user-question/ask`` 等）回 ``respond_error``：不回的请求会让
     运行时永远等下去，而 ``respond_error`` 至少让模型拿到一个明确失败。
@@ -441,12 +473,15 @@ class DshBackend:
     capabilities = BackendCapabilities(
         streaming=True,
         tool_calls=True,
-        # **能力声明必须等于现实**：本版本的 ``_ApprovalPump`` 收到
-        # ``approval/request`` 一律回 ``rejected``（见 ``:data:`_APPROVAL_WIRED```），
-        # 律师看不到任何审批卡。原先写死 ``True``，``/backends`` 把它透给前端，
-        # 前端据此认为切到 dsh 仍有四级审批闸门——这是**合规红线级别的错误
-        # 能力声明**，不是体验问题（``base.py`` 的 ``approval`` 字段注释就写着
-        # 「``False`` 的后端在高危动作上没有人工闸门，启用前必须先由合规确认」）。
+        # **能力声明必须等于现实**：本栏**没有人工审批闸门**——``approval_requests``
+        # 从未传 ``True``，runtime 不发 ``approval/request`` 给我们（allow/deny 由
+        # runtime 自带 answerer 决定），律师看不到任何审批卡。所以如实声明
+        # ``False``（``base.py`` 的 ``approval`` 字段注释：「``False`` 的后端在高危
+        # 动作上没有人工闸门，启用前必须先由合规确认」）。原先写死 ``True``，
+        # ``/backends`` 把它透给前端，前端据此以为切到 dsh 仍有四级审批闸门。
+        #
+        # 高危调用的**强制闸门在 MCP 服务端**（``tool_approval_gate``），拦在工具
+        # 真正执行的那一侧，与本声明无关（dsh / pi 都绕不过去）。
         #
         # 绑到 ``_APPROVAL_WIRED`` 而不是写死 False：真正接上审批时只改一个常量，
         # 声明自动跟上——不留「代码接了、声明忘了改」的第二处。
@@ -592,6 +627,8 @@ class DshBackend:
                 user_id=ctx.user_id,
                 model_hint=ctx.model,
                 user_token=ctx.user_token,
+                # 会话标识：MCP 服务端审批闸门靠它把审批卡投到正确会话。
+                session_id=str(ctx.session.session_id),
                 api_key=ctx.api_key,
             )
         except Exception as exc:
@@ -691,6 +728,8 @@ class DshBackend:
         - ``assistant/message`` → ``event["data"]["message"]["content"]`` 里的
           ``{"type": "text", "text": ...}`` 块（或 ``data.content``）
         - ``turn/end`` → ``event["data"]["reason"]["kind"]``
+        - ``tool/call`` → ``event["data"]`` 里的 ``callId`` / ``name`` /
+          ``arguments``（工具调用开始，见 :meth:`_translate_tool_call`）
         - ``agent/inbox/spliced`` → 本轮 prompt 的入队回执
 
         所以本函数的主路径是「先拆 ``session.event`` 外壳，再看 ``event.type``」。
@@ -746,6 +785,10 @@ class DshBackend:
         """
         if event_type == "assistant/message":
             return self._translate_assistant_message(data)
+        if event_type == "tool/call":
+            # 工具调用开始。不翻这一条，前端只看得到正文：不知道调了哪个工具、
+            # 参数是什么（审批卡、引用、修订画布全靠工具名+参数）。
+            return self._translate_tool_call(data)
         if event_type == "turn/end":
             # 本轮结束。``reason.kind`` 为 ``"error"`` 时是模型侧失败（SDK 的
             # ``finish_reason``），要报成 error 而不是静默结束——否则用户看到的是
@@ -764,6 +807,29 @@ class DshBackend:
         return None
 
     @staticmethod
+    def _translate_tool_call(data: dict[str, Any]) -> list[dict[str, Any]]:
+        """``tool/call`` 运行事件 → ``tool_call``（帧字段对齐 ``sse_types``）。
+
+        字段名来自 dsh ``session/src/types.ts`` 的 run 事件：``callId`` / ``name`` /
+        ``arguments``（**raw JSON 字符串**，由 :func:`_tool_call_arguments` 解码）。
+
+        缺 ``callId`` 或 ``name`` 就跳过：``tool_call_id`` 是前端把 ``tool_result``
+        配回本次调用的键，发一个空 id 会把结果记到别人头上。
+        """
+        call_id = str(data.get("callId") or data.get("id") or "")
+        name = str(data.get("name") or "")
+        if not (call_id and name):
+            return []
+        return [
+            {
+                "type": "tool_call",
+                "tool_call_id": call_id,
+                "name": name,
+                "arguments": _tool_call_arguments(data.get("arguments")),
+            }
+        ]
+
+    @staticmethod
     def _translate_assistant_message(data: dict[str, Any]) -> list[dict[str, Any]]:
         """``assistant/message`` → ``thinking`` / ``delta`` / ``tool_call``。
 
@@ -774,16 +840,22 @@ class DshBackend:
             data["message"]["content"] = [
                 {"type": "text", "text": "..."},
                 {"type": "thinking", "text": "..."},        # 思考块（推断）
-                {"type": "toolCall", ...},                  # 工具调用（推断）
+                {"type": "tool-call", ...},                 # 工具调用（确认过的真名）
             ]
 
         ``final_response`` 里的 ``content_owner = message if isinstance(message, dict)
         else data``，说明两种形状都可能出现（有 ``message`` 包装 / 无包装）。
         这里同样两路都认。
 
-        思考块与工具调用块的类型名是**推断**（``final_response`` 只处理 text 块，
-        源码里没有它们的定义）。认得就翻译，认不得就跳过——**待真实跑一次后按
-        实际类型名收敛**，跳过的部分会体现在工具调用数为 0 上，不会静默变成正文。
+        工具块的真名是 **``tool-call``（连字符）**，见 SDK ``packages/llm/src/
+        types.ts`` 与 ``assembler.ts``；字段是 ``callId`` / ``name`` / ``arguments``
+        （与 run 事件 ``tool/call`` 同名）。camelCase ``toolCall`` / 下划线
+        ``tool_call`` 是早期推断名（真实流里没出现过），按 ``id`` / ``name`` 认——
+        只认前两个名字的版本曾让 dsh **一帧 ``tool_call`` 都不产**，前端看不到工具名
+        与参数。思考块的类型名仍是推断（``final_response`` 只处理 text 块）。
+
+        缺 ``callId``/``id`` 或 ``name`` 的块跳过：``tool_call_id`` 是前端归并
+        请求与结果的键（前端 ``applyToolResult`` 按它匹配），空 id 会配错行。
         """
         message = data.get("message") if isinstance(data.get("message"), dict) else data
         content = (message or {}).get("content")
@@ -802,8 +874,8 @@ class DshBackend:
                 text = block.get("text") or block.get("thinking")
                 if isinstance(text, str) and text:
                     frames.append({"type": "thinking", "content": text})
-            elif block_type in ("toolCall", "tool_call"):
-                call_id = str(block.get("id") or block.get("toolCallId") or "")
+            elif block_type in ("tool-call", "toolCall", "tool_call"):
+                call_id = str(block.get("callId") or block.get("id") or block.get("toolCallId") or "")
                 name = str(block.get("name") or block.get("toolName") or "")
                 if call_id and name:
                     args = block.get("arguments") or block.get("args")
@@ -812,7 +884,7 @@ class DshBackend:
                             "type": "tool_call",
                             "tool_call_id": call_id,
                             "name": name,
-                            "arguments": args if isinstance(args, str) else None,
+                            "arguments": _tool_call_arguments(args),
                         }
                     )
         return frames
