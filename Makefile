@@ -10,6 +10,12 @@ NC := \033[0m
 guardrails: ## 护栏通电自检：检查脚本是否都挂进了必经链（见 docs/harness/pitfalls.md PIT-005）
 	@node scripts/check-guardrails-wired.mjs --list
 
+openapi-check: ## 校验 backend/openapi.json 与代码是否一致（漂移则非零退出）
+	@bash scripts/check-openapi-fresh.sh
+
+openapi-refresh: ## 刷新 openapi 产物（backend/openapi.json + frontend TS 类型）
+	@bash scripts/check-openapi-fresh.sh --write
+
 approval-parity: ## 审批分级跨语言一致性：Node 真执行 approval-rules.ts，对同一份向量比 Python 期望值
 	@node scripts/check-approval-parity.mjs
 

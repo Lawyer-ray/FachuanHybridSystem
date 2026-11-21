@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'backend/**'
+      - 'scripts/check-openapi-fresh.sh'
       - '.github/workflows/backend-ci.yml'
   push:
     branches:
@@ -12,6 +13,7 @@ on:
       - dev
     paths:
       - 'backend/**'
+      - 'scripts/check-openapi-fresh.sh'
       - '.github/workflows/backend-ci.yml'
   schedule:
     - cron: "0 2 * * 0"  # 每周日 UTC 2:00（节省 minutes）
@@ -21,6 +23,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # OpenAPI 产物与代码一致性（护栏）。
+  #
+  # 为什么必须有：backend/openapi.json 是 frontend/src/types/api-schema.d.ts 的唯一输入，
+  # 不在必经链上就会静默腐烂（2026-11-21 实测落后 12 条路径 + 21 个 schema，其中 3 个
+  # 是改名）。腐烂的后果不是构建变红，而是「类型看起来对、运行时字段不存在」。
+  #
+  # 为什么只在 pull_request 跑：现存漂移是历史欠账，若也在 push 到 main 时跑，main 会
+  # 立刻变红；修它需要一次「纯产物刷新」提交。限定 PR 后 main 保持绿，而下一份 PR 起
+  # 就必须自证产物是新的。
+  #
+  # 本地等价入口：make openapi-check / make openapi-refresh（见 scripts/check-openapi-fresh.sh）。
+  openapi-freshness:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Install deps
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: openapi 产物与代码一致
+        run: bash scripts/check-openapi-fresh.sh
   backend-security-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10

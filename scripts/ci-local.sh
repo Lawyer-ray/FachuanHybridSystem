@@ -275,6 +275,16 @@ if [ "$RUN_BACKEND" = true ]; then
   #
   # 3c 需要连库，所以只在库可达时跑（本地开发机 / --full）；CI 里没有持久库，
   # 那侧靠 `make migrate` 的部署纪律兜。
+  header "3a" "openapi 产物与代码一致"
+  # 产物 backend/openapi.json 是前端 TS 类型的唯一输入，不在必经链上会静默腐烂
+  # （实测落后 12 条路径 / 21 个 schema）。CI 侧只在 pull_request 跑（见
+  # backend-ci.yml 的 openapi-freshness），本地这侧随时可跑。
+  if bash scripts/check-openapi-fresh.sh --json >/dev/null 2>&1; then
+    pass "openapi-fresh"
+  else
+    fail "openapi-fresh（产物落后代码，跑 make openapi-refresh 后重试）"
+  fi
+
   header "3b" "迁移漂移检查 (makemigrations --check)"
   if DB_NAME="${DB_NAME:-test_fachuan_dev}" $BACKEND_PYTHON apiSystem/manage.py makemigrations --check --dry-run 2>&1 | grep -q "No changes detected"; then
     pass "migrations-generated"
