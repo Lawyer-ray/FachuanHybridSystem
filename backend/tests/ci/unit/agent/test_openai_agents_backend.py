@@ -460,8 +460,14 @@ class TestToolFace:
         assert server.client_session_timeout_seconds == backend_module.MCP_CLIENT_TIMEOUT_SECONDS
 
     def test_max_turns_is_bounded(self) -> None:
-        """超过 8 轮基本是模型空转，继续跑只烧 token。"""
-        assert MAX_TURNS == 8
+        """必须有上限（防死循环烧 token），但上限不能卡在「正常工作线」上。
+
+        实测（2026-11-21）：同一句正常业务问题，12 次工具调用能过、15 次就
+        ``MaxTurnsExceeded``，而超限的代价是**这一栏一个字都不产出**（``delta=0``、
+        ``done=0``）——不是降级，是整轮报废。所以断言「有界且 ≥16」，不再钉具体数字：
+        再调值时不该因为改了个合理常量就红。
+        """
+        assert 16 <= MAX_TURNS <= 64
 
 
 def _tool_data(*, tool_name: str, arguments: str, ctx: RunContext | None = None) -> ToolInputGuardrailData:

@@ -173,6 +173,9 @@ class ResolvedTarget:
     base_url: str
     api_key: str
     model: str
+    #: 本轮要注入请求体的思考字段（空 = 该模型/平台不开思考）。
+    #: harness 自己不发这些字段，只能由 loopback 代理补（见 ``antigravity_gateway``）。
+    thinking: dict[str, Any]
 
 
 # ── 开关与能力声明 ────────────────────────────────────────────────────────
@@ -213,6 +216,49 @@ def backend_capabilities() -> BackendCapabilities:
         steer=False,
         concurrent_in_session=True,
     )
+
+
+def thinking_extra(settings: Any, model: str) -> dict[str, Any]:
+    """本轮该注入网关的思考字段；不该开思考时返回空 dict。
+
+    ## 为什么必须在这里补（而不是指望 SDK）
+
+    harness 的 OpenAI 兼容通道**不发任何思考参数**（实测请求体只有
+    ``max_completion_tokens / messages / model / stream / stream_options /
+    tool_choice / tools``）。而网关（LiteLLM → vLLM）要两个字段才开思考：
+
+    - ``chat_template_kwargs.thinking``（布尔）；
+    - ``reasoning_effort``（字符串，服务端白名单 ``low|high|xhigh|max``）。
+
+    不补的症状是**静默的**：不报错、回答照出，只是明显变浅、
+    ``thoughts_token_count`` 恒 0——用户只会觉得「换个 agent 回答差一截」。
+    这也正是 pi / dsh / openai-agents 三个后端都各自补过一遍的同一件事。
+
+    ## 口径与其它后端严格同源
+
+    - 开关取 ``LLMProvider.enable_thinking``（平台级，Admin 里可关）；
+    - 模型能力取 :func:`gateway_cache.model_supports_thinking`（与 ``pi.model_config``
+      同一张特征表）；
+    - 档位取 ``pi.model_config`` 的 ``DEFAULT_THINKING_LEVEL`` 并经
+      :func:`gateway_effort` 归一（原样发 ``medium`` 会被网关 400）。
+
+    Returns:
+        ``{"reasoning_effort": ..., "chat_template_kwargs": {"thinking": True}}``；
+        平台未开或模型不是推理模型时返回 ``{}``（**不注入任何字段**——给非推理模型
+        发思考参数会被网关 400）。
+    """
+    from ..pi.model_config import DEFAULT_THINKING_LEVEL, gateway_effort
+    from .gateway_cache import model_supports_thinking
+
+    if settings is None or not getattr(settings, "enable_thinking", False):
+        return {}
+    if not model_supports_thinking(model):
+        return {}
+    effort = gateway_effort(DEFAULT_THINKING_LEVEL)
+    extra: dict[str, Any] = {"chat_template_kwargs": {"thinking": True}}
+    if effort:
+        extra["reasoning_effort"] = effort
+    return extra
 
 
 # ── 运行目录 ──────────────────────────────────────────────────────────────
@@ -559,7 +605,12 @@ class AntigravityBackend:
                 BackendErrorKind.UNAVAILABLE,
                 "未配置可用的 AI 平台（base_url / api_key / 模型），antigravity 无法启动；请联系管理员",
             )
-        return ResolvedTarget(base_url=resolved.base_url, api_key=resolved.api_key, model=resolved.model)
+        return ResolvedTarget(
+            base_url=resolved.base_url,
+            api_key=resolved.api_key,
+            model=resolved.model,
+            thinking=thinking_extra(settings, resolved.model),
+        )
 
     async def _run(self, ctx: RunContext, target: ResolvedTarget) -> AsyncGenerator[StreamFrame, None]:
         """占执行位 → 起 harness → 合并「增量 + 钩子事件」→ 发 usage。"""
@@ -583,7 +634,7 @@ class AntigravityBackend:
     async def _drive(self, ctx: RunContext, target: ResolvedTarget) -> AsyncGenerator[StreamFrame, None]:
         """真正与 SDK 打交道的那一段（所有退出路径都要注销代理路由）。"""
         gateway = get_loopback_gateway()
-        lease = await gateway.register(base_url=target.base_url, api_key=target.api_key)
+        lease = await gateway.register(base_url=target.base_url, api_key=target.api_key, extra_body=target.thinking)
         sink = _EventSink(ctx, self.kind)
         decide = _ToolDecideHook(sink, ctx)
         result_hook = _ToolResultHook(sink, decide)

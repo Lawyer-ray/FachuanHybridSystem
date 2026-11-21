@@ -14,6 +14,40 @@
 
 ---
 
+## ⑥ 两个 agent 后端的埋点缺口（实测发现，2026-11-21 四栏验收）
+
+**现象**：四栏并答时，只有 `pi` / `antigravity` 两栏的成本能对上账、检索证据能显示；
+`dsh` / `openai-agents` 两栏「答得好但看不见过程与成本」。
+
+**证据**（`backend/scripts/verify_agent_lanes.py` 真跑，同一句业务问题）：
+
+| 后端 | `usage` 事件 | `tool_result` 事件 | `done` 条数 |
+|:-|:-|:-|:-|
+| `pi` | ✅ 42.9K in / 5.9K out | ✅ | 1 |
+| `antigravity` | ✅ 38.2K in / 10.7K out | ✅ | 1（编排层发） |
+| `dsh` | ❌ 0 / 0 | ❌ 有 10 次 `tool_call`、0 条 `tool_result` | 1 |
+| `openai-agents` | ❌ 0 / 0 | ✅ | **2**（后端 + 编排层各一） |
+
+**根因**：
+
+- `dsh_backend._translate_event`（`apps/agent/backends/dsh_backend.py:786-807`）只有
+  `assistant/message` / `tool/call` / `turn/end` 三个分支，**没有 `tool/result`**；
+  usage 处已写「待 SDK 暴露 usage/stats 后补」（同文件 :175）。
+- `openai_agents_backend` 从不发 `usage` 帧（`result_for` 只回模型名），且
+  `_run` 末尾自己 `yield done`（`openai_agents_backend.py:658-667`）——编排层
+  `stream.py` 也会铸一条，单栏路径于是出现两条。
+
+**修法**：dsh 补 `tool/result` 分支（先按 runtime 实际事件名确认 payload，形状同
+`tool/call` 的 `callId`）；openai-agents 删掉自造的 `done` 并把
+`raw_responses[*].usage` 聚合成一帧（SDK 0.25 的 `RunResultStreaming` 上没有
+现成的 usage 属性，只能从原始响应累加），改动后同步更新两处单测断言。
+
+**代价**：dsh 侧要先拿到 runtime 的 `tool/result` 事件样本（目前事件名未知，
+`_log_unmapped` 会把未识别事件打日志）；openai-agents 侧要给
+`test_backend_extensibility` 那条「单栏 done 恒为 1」的用例补一版。
+
+---
+
 ## ⑤ 主对话路径的精确在飞计数 —— **实测不需要，已关闭**
 
 **原顾虑**：pi / dsh / openai-agents 在外部进程里直接跟网关说话，拿不到请求边界，

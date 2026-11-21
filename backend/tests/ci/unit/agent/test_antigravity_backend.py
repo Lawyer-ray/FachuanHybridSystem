@@ -386,6 +386,16 @@ class TestGatewayResolution:
     def test_no_model_at_all_is_unavailable(self) -> None:
         assert gateway_cache.resolve_gateway_target(_settings(models=(), default_model=""), None) is None
 
+    def test_thinking_extra_follows_platform_switch(self) -> None:
+        """平台开关 + 模型能力共同决定；非推理模型一律不注入（网关会 400）。"""
+        assert backend_module.thinking_extra(_settings(enable_thinking=True), "kimi-2.6") == {
+            "chat_template_kwargs": {"thinking": True},
+            "reasoning_effort": "max",
+        }
+        assert backend_module.thinking_extra(_settings(enable_thinking=False), "kimi-2.6") == {}
+        # glm53 不在推理模型特征表里 → 不注入
+        assert backend_module.thinking_extra(_settings(enable_thinking=True), "glm53") == {}
+
     def test_target_repr_hides_key(self) -> None:
         target = gateway_cache.resolve_gateway_target(_settings(), None, api_key="sk-secret")
         assert target is not None
@@ -406,6 +416,25 @@ class TestLoopbackGateway:
     def test_normalize_keeps_tool_choice_with_tools(self) -> None:
         body = json.dumps({"tool_choice": "auto", "tools": [{"type": "function"}]}).encode()
         assert json.loads(normalize_request_body(body))["tool_choice"] == "auto"
+
+    def test_normalize_injects_thinking_fields(self) -> None:
+        """思考参数只能由代理补：harness 的 OpenAI 通道不发这两个字段。
+
+        网关（LiteLLM → vLLM）要 ``chat_template_kwargs.thinking`` +
+        ``reasoning_effort`` 才开思考；不补的症状是**静默变浅**（不报错、
+        ``thoughts_token_count`` 恒 0），所以这条注入必须有用例守着。
+        """
+        body = json.dumps({"model": "m", "messages": []}).encode()
+        extra = {"chat_template_kwargs": {"thinking": True}, "reasoning_effort": "max"}
+        payload = json.loads(normalize_request_body(body, extra))
+        assert payload["chat_template_kwargs"] == {"thinking": True}
+        assert payload["reasoning_effort"] == "max"
+
+    def test_normalize_never_overrides_harness_values(self) -> None:
+        """只补缺不覆盖：harness 将来自己带这些字段时，以它为准。"""
+        body = json.dumps({"model": "m", "reasoning_effort": "low"}).encode()
+        payload = json.loads(normalize_request_body(body, {"reasoning_effort": "max"}))
+        assert payload["reasoning_effort"] == "low"
 
     def test_normalize_passes_through_non_json(self) -> None:
         raw = b"not json"
@@ -468,7 +497,10 @@ class TestBuildConfig:
         backend = AntigravityBackend()
         ctx = _ctx()
         target = backend_module.ResolvedTarget(
-            base_url="http://gw.internal:4000/v1", api_key="sk-1", model="kimi-2.6"  # pragma: allowlist secret
+            base_url="http://gw.internal:4000/v1",
+            api_key="sk-1",  # pragma: allowlist secret
+            model="kimi-2.6",
+            thinking={},
         )
         servers = backend._mcp_servers(ctx)
         return backend._build_config(

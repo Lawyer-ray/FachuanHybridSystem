@@ -21,6 +21,21 @@ Antigravity SDK 的本地 harness（Go 二进制 ``bin/localharness``）只有�
 ``http://127.0.0.1:<port>/r/<token><网关路径>``，代理补上 ``Authorization: Bearer
 <key>`` 后转发到真正的网关。key 不写进 URL、不进日志，只存在于内存表里。
 
+## 顺便补的第二件事：思考参数
+
+harness 的 OpenAI 兼容通道**也不发**思考开关（实测请求体只有
+``max_completion_tokens / messages / model / stream / stream_options /
+tool_choice / tools``）。而网关（LiteLLM → vLLM）的思考需要两个字段：
+
+```json
+{"chat_template_kwargs": {"thinking": true}, "reasoning_effort": "max"}
+```
+
+不补的后果不是报错，而是**这一栏回答明显变浅**、且 `thoughts_token_count` 恒为 0
+——与其它三个后端用同一个模型、同一个平台开关却「差一截」，没有任何提示。
+所以注册路由时把本轮该注入的字段一并带上（由后端按
+``LLMProvider.enable_thinking`` + 模型能力算好），转发时**只补缺不覆盖**。
+
 ## 红线一：按 run 分 key，不共享
 
 :8011 与网关两头都是「每把 key 有并发上限」。编排层按轮次给每一栏分配了互不相同的
@@ -78,7 +93,7 @@ ROUTE_TTL_SECONDS = 1800.0
 _PASS_RESPONSE_HEADERS = ("content-type", "retry-after", "x-request-id")
 
 
-def normalize_request_body(body: bytes) -> bytes:
+def normalize_request_body(body: bytes, extra_body: dict[str, Any] | None = None) -> bytes:
     """转发前做最小请求体归一（**只修协议不兼容，不改语义**）。
 
     实测（律所网关 = LiteLLM → vLLM 0.33）：harness 在本轮**没有任何工具**时
@@ -93,6 +108,12 @@ def normalize_request_body(body: bytes) -> bytes:
 
     解析失败（非 JSON / 空体）一律原样返回：代理不是校验层，宁可让上游自己报错，
     也不要把一个能跑的请求体改坏。
+
+    Args:
+        body: harness 发来的原始请求体。
+        extra_body: 本轮要补的字段（思考开关等）。**只补缺、不覆盖**：harness
+            将来自己带上这些字段时，以它为准——那时本函数的注入就该自动失效，
+            而不是把模型侧显式选择改掉。
     """
     if not body:
         return body
@@ -102,11 +123,19 @@ def normalize_request_body(body: bytes) -> bytes:
         return body
     if not isinstance(payload, dict):
         return body
+    changed = False
     tools = payload.get("tools")
     if "tool_choice" in payload and (not isinstance(tools, list) or not tools):
         payload.pop("tool_choice", None)
-        return json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    return body
+        changed = True
+    for key, value in (extra_body or {}).items():
+        if key in payload:
+            continue
+        payload[key] = value
+        changed = True
+    if not changed:
+        return body
+    return json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
 
 @dataclass(frozen=True)
@@ -126,6 +155,8 @@ class _Route:
     base_url: str
     #: 真实 key。**不得进日志**——需要标识时只用 :attr:`token` 前缀。
     api_key: str
+    #: 本轮要补进请求体的字段（思考开关等）；空 = 不补。
+    extra_body: dict[str, Any]
     created_at: float
 
 
@@ -145,13 +176,15 @@ class LoopbackGateway:
 
     # ── 对外 API ─────────────────────────────────────────────────────────
 
-    async def register(self, *, base_url: str, api_key: str) -> GatewayLease:
+    async def register(self, *, base_url: str, api_key: str, extra_body: dict[str, Any] | None = None) -> GatewayLease:
         """登记一次运行，返回 harness 该用的 loopback 地址与注销 token。
 
         Args:
             base_url: 网关的 OpenAI 兼容地址（可含路径，如 ``http://host:4000/v1``）。
             api_key: 本轮该用的 key（编排层已按栏分配好；为空则本模块拒绝登记，
                 让后端走「无可用平台」的错误路径，而不是发一批 401 出去）。
+            extra_body: 本轮要补进请求体的字段（思考开关等，见模块 docstring）。
+                ``None`` / 空 = 原样转发。
 
         Returns:
             租约：``base_url`` 的路径部分原样保留（harness 在它后面接
@@ -163,7 +196,9 @@ class LoopbackGateway:
         parts = urlsplit(base_url)
         path = parts.path.rstrip("/")
         token = uuid.uuid4().hex
-        self._routes[token] = _Route(base_url=base_url, api_key=api_key, created_at=time.monotonic())
+        self._routes[token] = _Route(
+            base_url=base_url, api_key=api_key, extra_body=dict(extra_body or {}), created_at=time.monotonic()
+        )
         self._sweep()
         return GatewayLease(token=token, base_url=f"http://127.0.0.1:{self._port}{ROUTE_PREFIX}{token}{path}")
 
@@ -280,7 +315,7 @@ class LoopbackGateway:
         if request.url.query:
             upstream = f"{upstream}?{request.url.query}"
 
-        body = normalize_request_body(await request.body())
+        body = normalize_request_body(await request.body(), route.extra_body)
         headers = {
             "authorization": f"Bearer {route.api_key}",
             "content-type": request.headers.get("content-type", "application/json"),
