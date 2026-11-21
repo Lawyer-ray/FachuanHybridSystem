@@ -23,7 +23,6 @@ pi 只接受一个 ``apiKey``。系统的多 Key 轮询（``core.llm.key_pool``�
 from __future__ import annotations
 
 import contextlib
-import itertools
 import json
 import logging
 import os
@@ -66,15 +65,18 @@ _GATEWAY_EFFORT_MAP: dict[str, str] = {
     "max": "max",
 }
 
-#: 会话间轮转计数（itertools.count 的 next() 在 CPython 下是原子的，无需锁）
-_rotation = itertools.count()
 
+def _next_key(keys: list[str], provider: str = "") -> str:
+    """会话间轮转 Key，并**跳过别的进程判定冷却中**的 Key（审计 P0-1）。
 
-def _next_key(keys: list[str]) -> str:
-    """会话间轮转 Key，避免所有会话压在同一把 Key 上。"""
-    if not keys:
-        return ""
-    return keys[next(_rotation) % len(keys)]
+    真正持有槽位的路径（core LLMClient / 检索）用 ``KeyPool.acquire``，冷却精确
+    记账；而 pi/dsh/openai-agents 在外部进程里直接跟网关说话，拿不到请求边界，
+    不能占槽位（会泄漏）。这里做读侧最小修复：健康优先轮转，绝不主动去撞一把
+    已知 401/429 的 Key。全冷却时仍返回一把（fail-open，见 ``key_selector``）。
+    """
+    from apps.core.llm.key_selector import select_key
+
+    return select_key(list(keys or []), provider=provider)
 
 
 def _load_provider(model_hint: str = "") -> Any:
@@ -364,7 +366,7 @@ def build_models_json(
             "fachuan": {
                 "baseUrl": base_url,
                 "api": "openai-completions",
-                "apiKey": (api_key or "").strip() or _next_key(keys),
+                "apiKey": (api_key or "").strip() or _next_key(keys, provider=getattr(provider, "name", "")),
                 "models": [
                     _model_entry(
                         name, enable_thinking=bool(getattr(provider, "enable_thinking", False)), provider=provider

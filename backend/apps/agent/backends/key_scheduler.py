@@ -52,11 +52,27 @@ CAPACITY_ENV = "FACHUAN_GATEWAY_KEY_CONCURRENCY"
 DEFAULT_CAPACITY = 3
 
 
-def capacity() -> int:
-    """每把 key 的并发上限（``FACHUAN_GATEWAY_KEY_CONCURRENCY``，默认 3）。"""
+def capacity(configured: int | None = None) -> int:
+    """每把 key 的并发上限。
+
+    优先级：环境变量 ``FACHUAN_GATEWAY_KEY_CONCURRENCY``（运维可覆盖，也是旧行为）
+    → 平台配置的 ``concurrency_per_key``（Admin 可改）→ ``DEFAULT_CAPACITY``（3，
+    与网关 ``max_parallel_requests`` 同口径）。
+
+    ## 为什么要读 DB 配置（2026-11-21 审计 P0-3）
+
+    原来只读环境变量，于是「Admin 把并发改成 1」对多答路径完全无效：它仍按 3 判
+    饱和，明明还有余量却 WARNING「全部 key 都已达到并发上限」并循环复用。两条
+    路径两套口径，改参数只对一半生效。
+
+    再按**进程数**折算（``key_pool.effective_limit``）：并发记账是进程内的，生产
+    2 个 worker + 1 个 MCP 时，Admin 填 3 会让网关看到 9 个在途。
+    """
     raw = (os.environ.get(CAPACITY_ENV, "") or "").strip()
     if not raw:
-        return DEFAULT_CAPACITY
+        from apps.core.llm.key_pool import effective_limit
+
+        return effective_limit(configured or DEFAULT_CAPACITY) or 1
     try:
         value = int(raw)
     except ValueError:
@@ -148,12 +164,14 @@ class KeyScheduler:
 
     # ── 分配 ────────────────────────────────────────────────────────────
 
-    def allocate(self, keys: Iterable[str], count: int) -> list[KeyLease]:
+    def allocate(self, keys: Iterable[str], count: int, *, concurrency: int | None = None) -> list[KeyLease]:
         """为同一轮的 ``count`` 栏分配 key（互不相同，优先低负载）。
 
         Args:
             keys: 可用 key 列表（``LLMProvider.api_keys`` 解析结果）。
             count: 本轮需要几把（= 参与 agent 数）。
+            concurrency: 平台配置的每 Key 并发上限（Admin 的
+                ``concurrency_per_key``）；为空则回落到环境变量/默认值。
 
         Returns:
             长度恒为 ``count`` 的租约列表。``keys`` 为空时返回空串租约。
@@ -165,7 +183,7 @@ class KeyScheduler:
             # 没有任何 key：让后端自己按它原有口径处理（通常直接报「未配置平台」）。
             return [KeyLease(key="", _scheduler=self) for _ in range(count)]
 
-        cap = capacity()
+        cap = capacity(concurrency)
         with self._lock:
             start = self._cursor % len(pool)
             self._cursor = (self._cursor + count) % max(1, len(pool))

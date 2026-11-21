@@ -802,6 +802,6 @@ def build_config(
         # （pi 的 models.json 也走这个），避免所有 dsh 会话压在同一把 key 上触发限流。
         # **轮转每轮现算**：缓存里存的是全部 key，不是「这一轮选哪把」
         # （见 ``gateway_cache`` 的红线二）。
-        api_key=(api_key or "").strip() or _next_key(keys),
+        api_key=(api_key or "").strip() or _next_key(keys, provider=getattr(settings, "name", "")),
         patches=_insert_before_env_patches(mcp_patch, extra),
     )

@@ -218,7 +218,11 @@ def gateway_from_settings(
         return None
     # 编排层指定了本轮的 key 就用它；为空才回落到与 pi / dsh 共用的
     # ``_next_key`` 轮转序列（避免所有会话与所有后端压在同一把 key 上触发限流）。
-    return settings.base_url, (api_key or "").strip() or _next_key(list(settings.api_keys)), model
+    return (
+        settings.base_url,
+        (api_key or "").strip() or _next_key(list(settings.api_keys), provider=getattr(settings, "name", "")),
+        model,
+    )
 
 
 def gateway_from_provider(provider: Any, model_hint: str | None) -> tuple[str, str, str] | None:

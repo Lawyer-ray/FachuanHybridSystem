@@ -125,6 +125,36 @@ def cooldown_hint(exc: BaseException | None) -> float | None:
     return max(5.0, min(seconds, 300.0))
 
 
+#: 生产拓扑里的「会同时向网关发请求的进程数」（2 个 web worker + 1 个共享 MCP）。
+#:
+#: 并发记账是**进程内**的（见 ``KeyScheduler`` 与 ``shared_pool`` 的论证），所以
+#: Admin 里填的 ``concurrency_per_key=3`` 在 3 个进程下会让网关看到最多 9 个在途，
+#: 直接吃 429。把单进程上限按进程数折算是最省的补救：
+#: ``FACHUAN_LLM_PROCESS_COUNT`` 默认 1（单进程/测试），部署侧设成 3。
+PROCESS_COUNT_ENV = "FACHUAN_LLM_PROCESS_COUNT"
+
+
+def process_count() -> int:
+    raw = (os.getenv(PROCESS_COUNT_ENV) or "").strip()
+    if not raw:
+        return 1
+    try:
+        return max(1, min(int(raw), 32))
+    except ValueError:
+        logger.warning("%s=%r 不是整数，按 1 个进程处理", PROCESS_COUNT_ENV, raw)
+        return 1
+
+
+def effective_limit(configured: int) -> int:
+    """把「每 Key 并发上限」按进程数折算成**单进程真实可用**的槽位数。
+
+    ``configured=3`` + 3 个进程 → 1；``configured=0``（不限）保持 0。
+    """
+    if configured <= 0:
+        return 0
+    return max(1, int(configured) // process_count())
+
+
 class KeyPool:
     """单平台多 Key 槽位管理：按模型过滤候选、轮询分配、每 Key 并发上限、失败冷却。
 
@@ -147,7 +177,10 @@ class KeyPool:
         keys: list[str],
         concurrency_per_key: int = 0,
         scopes: dict[str, list[str]] | None = None,
+        provider: str = "",
     ) -> None:
+        #: 平台名：跨进程 Key 健康记账的一维键（``key_health`` 用它拼缓存键）
+        self.provider = (provider or "").strip()
         self.keys = list(keys)
         self.limit = max(0, int(concurrency_per_key or 0))
         self.scopes: dict[str, list[str]] = {key: list(models) for key, models in (scopes or {}).items()}
@@ -172,6 +205,7 @@ class KeyPool:
     def acquire(self, model: str = "") -> int | None:
         """在可用于该模型的 Key 中选中一个下标并占用；无候选或全部冷却时返回 None。"""
         used = (model or "").strip()
+        shared = self._shared_cooling()
         with self._lock:
             candidates = self._eligible(used)
             total = len(candidates)
@@ -183,15 +217,23 @@ class KeyPool:
                 self._cursor += 1
                 if self._failed_until.get((idx, used), 0.0) > now:
                     continue
+                if self.keys[idx] in shared:
+                    continue
                 if self.limit and self._active[idx] >= self.limit:
                     continue
                 self._active[idx] += 1
                 return idx
-            # 全部处于并发上限：超限使用下一个未冷却的 Key，保证请求可用
-            for _ in range(total):
-                idx = candidates[self._cursor % total]
-                self._cursor += 1
-                if self._failed_until.get((idx, used), 0.0) <= now:
+            # 全部处于并发上限：超限使用下一个「未冷却」的 Key，保证请求可用。
+            # 两趟：先挑本地与**跨进程**都没判坏的；实在没有才退到「只避开本地冷却」。
+            # 只查本地会让别的进程刚判死的 Key（多见于 401/429）被当成可用而复活。
+            for ignore_shared in (False, True):
+                for _ in range(total):
+                    idx = candidates[self._cursor % total]
+                    self._cursor += 1
+                    if self._failed_until.get((idx, used), 0.0) > now:
+                        continue
+                    if not ignore_shared and self.keys[idx] in shared:
+                        continue
                     self._active[idx] += 1
                     return idx
             return None
@@ -220,10 +262,12 @@ class KeyPool:
         with self._lock:
             if 0 <= idx < len(self._active):
                 self._active[idx] = max(0, self._active[idx] - 1)
+            api_key = self.keys[idx] if 0 <= idx < len(self.keys) else ""
             if success:
                 self._failed_until.pop(key, None)
                 self._fails.pop(key, None)
                 self._reason.pop(key, None)
+                self._clear_shared(api_key)
                 return
             if not is_key_fault(error):
                 # 与 Key 无关的失败（400 参数错 / 上下文超长 / 内容审核 / 解析失败）：
@@ -239,6 +283,39 @@ class KeyPool:
             self._failed_until[key] = time.monotonic() + max(1.0, seconds)
             self._fails.pop(key, None)
             self._reason[key] = f"{type(error).__name__ if error else '失败'}（冷却 {seconds:.0f}s）"
+            self._mark_shared(api_key, seconds, self._reason[key])
+
+    def _shared_cooling(self) -> dict[str, Any]:
+        """别的进程判定的冷却 Key（fail-open：读不到就当全健康）。"""
+        if not self.provider or not self.keys:
+            return {}
+        try:
+            from apps.core.llm.key_health import cooling_map
+
+            return dict(cooling_map(self.provider, self.keys))
+        except Exception:  # pragma: no cover - 缓存/Django 不可用时降级为进程内
+            logger.debug("跨进程 Key 健康不可用，仅用进程内冷却", exc_info=True)
+            return {}
+
+    def _mark_shared(self, api_key: str, seconds: float, reason: str) -> None:
+        if not self.provider or not api_key:
+            return
+        try:
+            from apps.core.llm.key_health import mark_cooling
+
+            mark_cooling(self.provider, api_key, seconds, reason)
+        except Exception:  # pragma: no cover
+            logger.debug("写跨进程 Key 健康失败", exc_info=True)
+
+    def _clear_shared(self, api_key: str) -> None:
+        if not self.provider or not api_key:
+            return
+        try:
+            from apps.core.llm.key_health import clear_cooling
+
+            clear_cooling(self.provider, api_key)
+        except Exception:  # pragma: no cover
+            logger.debug("清跨进程 Key 健康失败", exc_info=True)
 
     def is_cooling(self, idx: int, model: str = "") -> bool:
         """该 ``(Key, 模型)`` 组合是否处于失败冷却中。"""
@@ -318,7 +395,7 @@ def shared_pool(
         if pool is None:
             for stale in [k for k in _shared_pools if k[0] == name]:
                 del _shared_pools[stale]
-            pool = KeyPool(keys, concurrency_per_key, scopes)
+            pool = KeyPool(keys, effective_limit(concurrency_per_key), scopes, provider=name)
             _shared_pools[cache_key] = pool
         return pool
 

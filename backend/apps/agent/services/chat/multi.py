@@ -345,6 +345,24 @@ async def _round_api_keys(model_hint: str | None, *, session_id: str) -> tuple[s
     return await load_api_keys(model_hint)
 
 
+async def _round_key_concurrency(model_hint: str | None) -> int | None:
+    """本轮的「每 Key 并发上限」（Admin 的 ``concurrency_per_key``）；拿不到返回 None。
+
+    与「哪些 key 可用」同源（``gateway_cache``）：两处各读一份配置必然漂移。
+    """
+    from asgiref.sync import sync_to_async
+
+    from ...backends.gateway_cache import get_gateway_settings
+
+    try:
+        settings = await sync_to_async(get_gateway_settings, thread_sensitive=True)(model_hint)
+    except Exception:
+        logger.debug("读取每 Key 并发上限失败，回落到环境变量/默认值", exc_info=True)
+        return None
+    value = int(getattr(settings, "concurrency_per_key", 0) or 0) if settings is not None else 0
+    return value or None
+
+
 def _lease_key(lease: KeyLease) -> str | None:
     """租约 → ``RunContext.api_key`` 的取值。
 
@@ -367,7 +385,7 @@ async def _allocate_round_leases(
     """
     async with profile.timed("multi.allocate_keys", session=session_id):
         keys = await _round_api_keys(model_hint, session_id=session_id)
-        leases = get_key_scheduler().allocate(keys, len(kinds))
+        leases = get_key_scheduler().allocate(keys, len(kinds), concurrency=await _round_key_concurrency(model_hint))
     # 只打指纹（``KeyLease.label`` 走 ``fingerprint``）：明文 key 不得进日志。
     logger.info(
         "多答：本轮 key 分配 session=%s 栏数=%d keys=%s",
