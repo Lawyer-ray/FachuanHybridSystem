@@ -9,6 +9,11 @@ NC := \033[0m
 
 guardrails: ## 护栏通电自检：检查脚本是否都挂进了必经链（见 docs/harness/pitfalls.md PIT-005）
 	@node scripts/check-guardrails-wired.mjs --list
+	@echo "── worktree 生命周期（未收尾的 worktree = 合并债）──"
+	@node scripts/check_worktrees.mjs
+
+worktrees: ## 只看 worktree 生命周期（详细表格 + 回收命令）
+	@node scripts/check_worktrees.mjs
 
 openapi-check: ## 校验 backend/openapi.json 与代码是否一致（漂移则非零退出）
 	@bash scripts/check-openapi-fresh.sh
