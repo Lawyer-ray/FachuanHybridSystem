@@ -32,6 +32,14 @@ def fake_http() -> Any:
 
 
 @pytest.fixture(autouse=True)
+def _no_host_pacing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """单测里关掉「按 host 最小间隔」的等待：它只是礼貌，不该让用例变慢。"""
+    monkeypatch.setattr(_module(), "_HOST_MIN_INTERVAL", 0.0)
+    _module()._HOST_LAST_HIT.clear()
+    _module()._host_state().reset()
+
+
+@pytest.fixture(autouse=True)
 def _public_dns() -> Any:
     """默认把 DNS 解析 mock 成公网地址。
 
@@ -1065,3 +1073,73 @@ class TestRedirectParseHonesty:
         assert module._resolve_sogou_redirect(html) is None
         html2 = "<meta http-equiv='refresh' content=\"0;URL='https://ok.example.com/x'\">"
         assert module._resolve_sogou_redirect(html2) == "https://ok.example.com/x"
+
+
+class TestPublishDate:
+    """发布日期抽取：兜底引擎完全没有日期，页面自己能给的就必须拿到。"""
+
+    def test_meta_property(self, fake_http: Any) -> None:
+        html = (
+            '<html><head><meta property="article:published_time" content="2026-03-02T08:00:00+08:00">'
+            "</head><body><article>" + "正文。" * 100 + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://a.gov.cn/x")
+
+        assert result["ok"] is True
+        assert result["published"] == "2026-03-02"
+
+    def test_json_ld(self, fake_http: Any) -> None:
+        html = (
+            '<html><head><script type="application/ld+json">'
+            '{"@type":"NewsArticle","datePublished":"2025-11-20"}</script></head>'
+            "<body><article>" + "正文。" * 100 + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        assert _module().fetch_url("https://a.gov.cn/y")["published"] == "2025-11-20"
+
+    def test_missing_date_is_empty_string(self, fake_http: Any) -> None:
+        html = "<html><body><article>" + "正文。" * 100 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://a.gov.cn/z")
+
+        assert result["ok"] is True
+        assert result["published"] == ""
+
+
+class TestHostThrottle:
+    """429/503 要读 Retry-After 并冷却该 host；继续打只会再吃一次同样的错。"""
+
+    def test_429_trips_host_breaker(self, fake_http: Any) -> None:
+        module = _module()
+        _set_response(fake_http, _response(429, "", url="https://busy.example.com/x"))
+        fake_http.return_value.__enter__.return_value.stream.return_value = _StreamCM(
+            httpx.Response(
+                status_code=429,
+                headers={"retry-after": "42"},
+                content=b"",
+                request=httpx.Request("GET", "https://busy.example.com/x"),
+            )
+        )
+
+        result = module.fetch_url("https://busy.example.com/x")
+
+        assert result["ok"] is False
+        assert result["reason"] == "host_throttled"
+        assert "42" in result["message"]
+        remaining, reason = module._host_state().info("busy.example.com")
+        assert remaining > 30 and "429" in reason
+
+    def test_second_call_to_cooled_host_is_rejected_without_network(self, fake_http: Any) -> None:
+        module = _module()
+        module._host_state().trip("slow.example.com", "HTTP 429", 60)
+
+        result = module.fetch_url("https://slow.example.com/y")
+
+        assert result["ok"] is False
+        assert result["reason"] == "host_throttled"
+        instance = fake_http.return_value.__enter__.return_value
+        assert instance.stream.call_count == 0, "熔断期间不该再发请求"

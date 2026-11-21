@@ -170,7 +170,7 @@ class TestBreaker:
         breaker.trip("sogou_desktop", "被反爬", 600)
         remaining, reason = breaker.info("sogou_desktop")
         assert 599 <= remaining <= 600
-        assert reason == "被反爬"
+        assert reason.startswith("被反爬")  # 附「第 N 次，冷却 ×M」便于运维辨认
         assert breaker.is_open("sogou_desktop")
 
         now[0] += 601
@@ -192,6 +192,39 @@ class TestBreaker:
         breaker.trip("sogou_desktop", "被反爬", 600)
         assert breaker.is_open("sogou_desktop")
         assert not breaker.is_open("sogou_mobile")
+
+    def test_repeated_failures_escalate_cooldown(self) -> None:
+        """同一通道连续失败：冷却按 2× 递增，封顶 4×（实测封禁 ≥10 分钟，一次 600s 不够）。"""
+        now = [0.0]
+        breaker = _resilience().ChannelBreaker(clock=lambda: now[0])
+
+        breaker.trip("c", "被反爬", 600)
+        first = breaker.info("c")[0]
+        now[0] += first + 1
+        breaker.trip("c", "被反爬", 600)
+        second = breaker.info("c")[0]
+        now[0] += second + 1
+        breaker.trip("c", "被反爬", 600)
+        third = breaker.info("c")[0]
+        now[0] += third + 1
+        breaker.trip("c", "被反爬", 600)
+        fourth = breaker.info("c")[0]
+
+        assert 599 <= first <= 600
+        assert 1199 <= second <= 1200
+        assert 2399 <= third <= 2400
+        assert 2399 <= fourth <= 2400, "封顶 4×"
+        assert breaker.strikes["c"] == 4
+
+    def test_success_resets_strikes(self) -> None:
+        breaker = _resilience().ChannelBreaker()
+        breaker.trip("c", "x", 60)
+        breaker.clear("c")
+
+        breaker.trip("c", "x", 60)
+
+        assert breaker.strikes["c"] == 1, "恢复后重新计数（否则冷却会越滚越长）"
+        assert breaker.info("c")[0] <= 61
 
     def test_zero_cooldown_is_noop(self) -> None:
         breaker = _resilience().ChannelBreaker()
@@ -784,3 +817,51 @@ class _WidePool:
 
     def release(self, idx: int, *, success: bool, model: str = "") -> None:
         return None
+
+
+class TestUrlNormalization:
+    """结果去重：同一篇文章带不带跟踪参数都是同一篇（SearXNG/ddgs 同族做法）。"""
+
+    def test_tracking_params_and_fragment_ignored(self) -> None:
+        module = _module()
+        base = "https://www.court.gov.cn/zixun/xiangqing/419382.html"
+
+        assert module._url_key(base) == module._url_key(base + "?utm_source=sohu&spm=a1")
+        assert module._url_key(base) == module._url_key(base + "#section-2")
+        assert module._url_key(base) == module._url_key("http://court.gov.cn/zixun/xiangqing/419382.html")
+
+    def test_meaningful_query_kept(self) -> None:
+        module = _module()
+        a = module._url_key("https://a.gov.cn/doc?entityid=1")
+        b = module._url_key("https://a.gov.cn/doc?entityid=2")
+
+        assert a != b, "不同的业务参数必须算两篇"
+
+    def test_dedupe_keeps_richer_snippet(self) -> None:
+        module = _module()
+        results = [
+            module._SearchResult(title="甲", url="https://a.gov.cn/x?utm_source=1", snippet="短"),
+            module._SearchResult(title="甲", url="https://a.gov.cn/x", snippet="更长的一段摘要"),
+            module._SearchResult(title="乙", url="https://a.gov.cn/y", snippet="另一篇"),
+        ]
+
+        kept = module._dedupe_results(results)
+
+        assert len(kept) == 2
+        assert kept[0].snippet == "更长的一段摘要"
+
+    def test_desktop_results_are_deduped(self, fake_http: dict[str, Any]) -> None:
+        module = _module()
+        html = (
+            "<html><body>"
+            '<div class="vrwrap"><h3><a href="https://a.gov.cn/x?utm_source=t">甲</a></h3>'
+            '<div class="space-txt">摘要甲</div></div>'
+            '<div class="vrwrap"><h3><a href="https://a.gov.cn/x">甲（转载）</a></h3>'
+            '<div class="space-txt">摘要甲更长一些</div></div>'
+            "</body></html>"
+        )
+        fake_http["responses"] = [_response(html)]
+
+        text = module._do_search("合同", 5)
+
+        assert "找到 1 条搜索结果" in text, text[:400]

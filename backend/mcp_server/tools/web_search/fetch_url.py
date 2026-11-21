@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import os
 import re
 import socket
 import threading
@@ -136,6 +137,106 @@ _ROBOTS_CACHE_TTL = 3600.0
 _ROBOTS_CACHE_MAX = 32
 _robots_cache: dict[str, tuple[float, urllib.robotparser.RobotFileParser | None]] = {}
 _robots_lock = threading.Lock()
+
+#: ── 按 host 礼貌限速（学 Scrapy AutoThrottle / SearXNG 的多尺度节流）──
+#:
+#: 2026-11-21 实测：抓同一站连续多篇会直接换回 521/403（``hefei.gov.cn`` 521、
+#: ``law-lib.com`` 403）。此前本工具对「同一 host 连击」毫无防护，唯一的约束是
+#: 模型自己别太快——那不是防护。
+#:
+#: 策略刻意选「快速失败」而不是 sleep：与 ``web_search`` 的进程级配额同口径
+#: （阻塞会把整轮对话拖死）。模型拿到 ``host_throttled`` 后应当换来源或稍后再读。
+#: 同一 host 两次抓取的最小间隔（秒）。默认 0.5s：Scrapy AutoThrottle 同族思路，
+#: 但**用短暂 sleep 而不是拒绝**——读同一站点的多个链接是正常用法，直接挡回会让
+#: 模型被迫换来源。上限 2s，避免一次慢站拖死整轮。
+_HOST_MIN_INTERVAL = float(os.getenv("FACHUAN_FETCH_HOST_INTERVAL", "0.5"))
+_HOST_MAX_PACE_SECONDS = 2.0
+_HOST_LAST_HIT: dict[str, float] = {}
+_HOST_BREAKER_TTL = 3600.0
+_HOST_BREAKER_MAX = 64
+_host_breaker: Any = None
+_host_lock = threading.Lock()
+
+
+def _host_state() -> Any:
+    """按 host 记账的熔断器（懒建，避免模块导入期依赖 resilience 的初始化顺序）。"""
+    global _host_breaker
+    if _host_breaker is None:
+        from .resilience import ChannelBreaker
+
+        _host_breaker = ChannelBreaker()
+    return _host_breaker
+
+
+def _host_throttle(host: str) -> str:
+    """该 host 现在是否该被**挡回**（只有熔断会挡）；返回中文原因，可用时返回空串。
+
+    单纯「太快」不挡回，而是由 :func:`_host_pace` 短暂等待——读同一站点的多个
+    链接是正常用法。只有对方明确限流（429/503 带 Retry-After）或拒绝（401/403）
+    才进熔断，那时挡回是**省时间**：继续打只会再吃一次同样的错。
+    """
+    if not host:
+        return ""
+    remaining, reason = _host_state().info(host)
+    if remaining > 0:
+        return f"该站点近期抓取失败（{reason}），{int(remaining) + 1} 秒后再试或换来源"
+    return ""
+
+
+def _host_pace(host: str) -> None:
+    """按 host 的最小间隔**短暂**等待（≤ ``_HOST_MAX_PACE_SECONDS``），不拒绝请求。"""
+    if not host or _HOST_MIN_INTERVAL <= 0:
+        return
+    now = time.monotonic()
+    with _host_lock:
+        last = _HOST_LAST_HIT.get(host, 0.0)
+        wait = min(_HOST_MIN_INTERVAL - (now - last), _HOST_MAX_PACE_SECONDS)
+        _HOST_LAST_HIT[host] = now + max(0.0, wait)
+        if len(_HOST_LAST_HIT) > _HOST_BREAKER_MAX:
+            cutoff = now - 600
+            for stale in [k for k, v in _HOST_LAST_HIT.items() if v < cutoff]:
+                _HOST_LAST_HIT.pop(stale, None)
+    if wait > 0:
+        time.sleep(wait)
+
+
+def _retry_after_seconds(headers: httpx.Headers) -> float | None:
+    """``Retry-After`` → 秒（夹在 [5, 300]）；缺失/HTTP-date 返回 None。"""
+    raw = headers.get("retry-after")
+    if not raw:
+        return None
+    try:
+        return max(5.0, min(float(str(raw).strip()), 300.0))
+    except ValueError:
+        return None
+
+
+#: 页面发布日期的三个来源（按可信度排序）：meta / JSON-LD / <time datetime>。
+_META_DATE = re.compile(
+    r"""<meta[^>]+(?:property|name)=["'](?:article:published_time|publishdate|pubdate|date|og:release_date)["'][^>]+content=["']([^"']+)["']""",
+    re.IGNORECASE,
+)
+_JSONLD_DATE = re.compile(r'"datePublished"\s*:\s*"([^"]+)"', re.IGNORECASE)
+_TIME_TAG = re.compile(r"""<time[^>]+datetime=["']([^"']+)["']""", re.IGNORECASE)
+_DATE_PREFIX = re.compile(r"(\d{4}-\d{2}-\d{2})")
+
+
+def _extract_published(html: str) -> str:
+    """从页面里抽发布日期（``YYYY-MM-DD``）；认不出返回空串。
+
+    ``web_search`` 的兜底引擎**完全没有日期字段**，而法律场景里「这条是不是
+    现行/最新」几乎全靠日期。页面自己能给出（政务站/新闻站普遍带 meta 或
+    JSON-LD）就没必要再去猜。
+    """
+    for pattern in (_META_DATE, _JSONLD_DATE, _TIME_TAG):
+        match = pattern.search(html)
+        if not match:
+            continue
+        found = _DATE_PREFIX.search(match.group(1))
+        if found:
+            return found.group(1)
+    return ""
+
 
 #: 搜狗跳转页里的真实地址（``window.location.replace("...")`` 或 meta refresh）。
 #: 两个正则**各自绑定自己的标记词**:URL= 只在 http-equiv(meta refresh)语境
@@ -437,30 +538,30 @@ def _meta_title(html: str) -> str:
 #: 重新计算),只缓存成功结果;条目上限防膨胀,过期即弃。
 _CACHE_TTL_SECONDS = 300.0
 _CACHE_MAX_ENTRIES = 16
-_fetch_cache: dict[str, tuple[float, str, str, str]] = {}  # url -> (expires, kind, title, text)
+_fetch_cache: dict[str, tuple[float, str, str, str, str]] = {}  # url -> (expires, kind, title, text, published)
 _cache_lock = threading.Lock()
 
 
-def _cache_get(url: str) -> tuple[str, str, str] | None:
+def _cache_get(url: str) -> tuple[str, str, str, str] | None:
     now = time.monotonic()
     with _cache_lock:
         entry = _fetch_cache.get(url)
         if entry is None:
             return None
-        expires, kind, title, text = entry
+        expires, kind, title, text, published = entry
         if now >= expires:
             _fetch_cache.pop(url, None)
             return None
-        return kind, title, text
+        return kind, title, text, published
 
 
-def _cache_put(url: str, kind: str, title: str, text: str) -> None:
+def _cache_put(url: str, kind: str, title: str, text: str, published: str = "") -> None:
     now = time.monotonic()
     with _cache_lock:
         if len(_fetch_cache) >= _CACHE_MAX_ENTRIES:
             oldest = min(_fetch_cache, key=lambda k: _fetch_cache[k][0])
             _fetch_cache.pop(oldest, None)
-        _fetch_cache[url] = (now + _CACHE_TTL_SECONDS, kind, title, text)
+        _fetch_cache[url] = (now + _CACHE_TTL_SECONDS, kind, title, text, published)
 
 
 def _robots_allows(url: str, http: httpx.Client) -> bool:
@@ -613,13 +714,18 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     # 不再走网络/限流。窗口与包裹标注照常按本次参数计算。
     cached = _cache_get(raw)
     if cached is not None:
-        kind, title, text = cached
-        return {**_paginate_and_wrap(raw, kind, title, text, start_index, limit), "cached": True}
+        kind, title, text, published = cached
+        return {**_paginate_and_wrap(raw, kind, title, text, start_index, limit, published), "cached": True}
 
     # SSRF 拦截:本机/内网/链路本地目标直接拒绝。**重定向手动逐跳跟随**,
     # 每跳过检——follow_redirects=True 会让「公网 302 → 内网」的攻击路径
     # 绕过首跳检查。
     current = target
+    target_host = urlparse(target).hostname or ""
+    throttled = _host_throttle(target_host)
+    if throttled:
+        return {"ok": False, "url": target, "reason": "host_throttled", "message": throttled}
+    _host_pace(target_host)
     try:
         with httpx.Client(timeout=20.0, follow_redirects=False, trust_env=False) as http:
             for _hop in range(5):
@@ -697,7 +803,22 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
             "message": f"连接失败：{type(exc).__name__}",
         }
 
+    if status in {429, 503}:
+        # 429/503 是「你现在太快了」：按 Retry-After 冷却该 host，别让模型立刻重打。
+        host = urlparse(target).hostname or ""
+        wait = _retry_after_seconds(headers) or 30.0
+        if host:
+            _host_state().trip(host, f"HTTP {status}", wait)
+        return {
+            "ok": False,
+            "url": target,
+            "reason": "host_throttled",
+            "message": f"对方限流（HTTP {status}），约 {wait:.0f} 秒后再试此站点，或换其他来源",
+        }
     if status in {401, 403}:
+        host = urlparse(target).hostname or ""
+        if host:
+            _host_state().trip(host, f"HTTP {status}", 600)
         return {
             "ok": False,
             "url": target,
@@ -729,6 +850,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
     is_pdf = "pdf" in content_type or data[:5] == b"%PDF-"
     is_docx = not is_pdf and ("word" in content_type or _sniffs_docx(data))
 
+    published = ""
     if is_pdf or is_docx:
         extractor = _extract_pdf_text if is_pdf else _extract_docx_text
         try:
@@ -768,14 +890,17 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                 "message": "页面需要 JavaScript 渲染，静态抓取拿不到正文",
             }
         title = _meta_title(html)
+        published = _extract_published(html)
 
     kind = "外部 PDF 文档抓取内容" if is_pdf else ("外部 Word 文档抓取内容" if is_docx else "外部网页抓取内容")
     # 成功结果按原始输入 URL 入缓存——分块续读的后续 chunk 直接命中
-    _cache_put(raw, kind, title, text)
-    return {**_paginate_and_wrap(target, kind, title, text, start_index, limit), "cached": False}
+    _cache_put(raw, kind, title, text, published)
+    return {**_paginate_and_wrap(target, kind, title, text, start_index, limit, published), "cached": False}
 
 
-def _paginate_and_wrap(target: str, kind: str, title: str, text: str, start_index: int, limit: int) -> dict[str, Any]:
+def _paginate_and_wrap(
+    target: str, kind: str, title: str, text: str, start_index: int, limit: int, published: str = ""
+) -> dict[str, Any]:
     """全文 → 分块窗口 + 注入包裹 + 字节预算(缓存命中与新鲜抓取共用)。"""
     total_chars = len(text)
     start = max(0, start_index)
@@ -794,6 +919,7 @@ def _paginate_and_wrap(target: str, kind: str, title: str, text: str, start_inde
             "total_chars": total_chars,
             "next_index": None,
             "host": urlparse(target).netloc,
+            "published": published,
         }
 
     # 分块窗口（官方 fetch server 的 max_length + start_index 模式）:
@@ -835,4 +961,5 @@ def _paginate_and_wrap(target: str, kind: str, title: str, text: str, start_inde
         "total_chars": total_chars,
         "next_index": next_index,
         "host": urlparse(target).netloc,
+        "published": published,
     }

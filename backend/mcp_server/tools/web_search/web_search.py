@@ -26,7 +26,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -280,6 +280,57 @@ _SELF_MEDIA_HOST_SUFFIXES = (
 )
 
 
+#: 纯跟踪/分享参数：同一篇文章带不带它们都是同一篇。
+_TRACKING_PARAMS = frozenset(
+    {
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+        "spm",
+        "from",
+        "_fr",
+        "share_token",
+        "scene",
+        "src",
+    }
+)
+
+
+def _url_key(url: str) -> str:
+    """URL 的去重键：忽略 scheme、``www.``、fragment、顺序与跟踪参数。
+
+    依据 SearXNG 的去重键（不含 scheme）与 ddgs 的共识做法。**不做整串 unquote**：
+    中文路径的百分号编码要保持原样，否则同一篇文章的两种编码会被误判为两篇。
+    """
+    parsed = urlparse(url or "")
+    host = (parsed.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    path = (parsed.path or "/").rstrip("/") or "/"
+    pairs = sorted(
+        (k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=False) if k.lower() not in _TRACKING_PARAMS
+    )
+    return f"{host}{path}?{urlencode(pairs)}" if pairs else f"{host}{path}"
+
+
+def _dedupe_results(results: list[_SearchResult]) -> list[_SearchResult]:
+    """按规范化 URL 去重：同一篇只留摘要更完整的那条（SearXNG 的合并思路）。"""
+    index: dict[str, int] = {}
+    kept: list[_SearchResult] = []
+    for item in results:
+        key = _url_key(item.url) if item.url else f"title:{item.title}"
+        if key in index:
+            slot = index[key]
+            if len(item.snippet) > len(kept[slot].snippet):
+                kept[slot] = item
+            continue
+        index[key] = len(kept)
+        kept.append(item)
+    return kept
+
+
 def _authority_tier(host: str) -> int:
     """来源权威分层：0 官方/法院、1 专业法律库、2 自媒体、3 其他。"""
     h = (host or "").lower()
@@ -388,10 +439,10 @@ def _parse_mobile_results(html: str, max_results: int) -> list[_SearchResult]:
             continue  # 正文卡/来源卡：没有独立标题，随标题卡一起收编
         link_el = card.select_one('a[href*="url="]') or card.select_one("a[href]")
         url = _mobile_link_target(str(link_el.get("href") or "")) if link_el else ""
-        if url and url in seen:
+        key = _url_key(url) if url else f"title:{title}"
+        if key in seen:
             continue
-        if url:
-            seen.add(url)
+        seen.add(key)
 
         text = re.sub(r"\s+", " ", card.get_text(" ", strip=True))
         snippet = text[len(title) :].strip() if text.startswith(title) else text
@@ -474,7 +525,7 @@ def _desktop_search(query: str, max_results: int, page: int) -> _Outcome:
             cooldown=_COOLDOWN_TRANSIENT,
         )
 
-    results = _parse_results(resp.text, max_results)
+    results = _dedupe_results(_parse_results(resp.text, max_results))
     if not results:
         detail = _empty_results_message(resp.text)
         reason = "antispider" if _looks_like_antispider(resp.text) else "parse_zero"
@@ -541,6 +592,8 @@ def _firm_search_outcome(query: str, max_results: int, page: int) -> _Outcome | 
         )
     if not results:
         return _Outcome(False, detail="兜底引擎未返回任何结果（可能是上游排队/降级）。", reason="empty", cooldown=0.0)
+
+    results = _dedupe_results(results)
 
     # 按来源权威性**稳定**重排：官方/法院优先，自媒体沉底（同层级保持原相关性顺序）。
     # 分层必须看 URL 的 host——``source`` 是展示名（「百度」「人力资源和社会保障部」），

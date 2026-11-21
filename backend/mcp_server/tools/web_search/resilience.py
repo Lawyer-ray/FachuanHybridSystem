@@ -41,6 +41,10 @@ class ChannelBreaker:
         self._clock = clock
         self._until: dict[str, float] = {}
         self._reason: dict[str, str] = {}
+        #: 连续失败次数：同一通道反复失败时冷却时长按 2× 递增（封顶 4×）。
+        #: 依据：搜狗封禁实测 ≥10 分钟，而首次冷却只有 600s——到点立刻再撞等于
+        #: 白送一次请求并重新计时（SearXNG 也是「按错误类型定长 + 连续失败加重」）。
+        self._strikes: dict[str, int] = {}
         self._lock = threading.Lock()
 
     def info(self, channel: str) -> tuple[float, str]:
@@ -57,26 +61,44 @@ class ChannelBreaker:
     def is_open(self, channel: str) -> bool:
         return self.info(channel)[0] > 0
 
+    #: 连续失败的冷却倍数上限（1× → 2× → 4×）。
+    MAX_STRIKE_MULTIPLIER = 4
+
     def trip(self, channel: str, reason: str, seconds: float) -> None:
-        """让通道冷却 ``seconds`` 秒；同通道重复 trip 取**更晚**的截止时刻。"""
+        """让通道冷却 ``seconds`` 秒；**连续失败**时按 2× 递增（封顶 4×）。
+
+        同通道重复 trip 取更晚的截止时刻。
+        """
         if seconds <= 0:
             return
-        until = self._clock() + seconds
         with self._lock:
+            strikes = self._strikes.get(channel, 0) + 1
+            self._strikes[channel] = strikes
+            multiplier = min(2 ** (strikes - 1), self.MAX_STRIKE_MULTIPLIER)
+            until = self._clock() + seconds * multiplier
             if until > self._until.get(channel, 0.0):
                 self._until[channel] = until
-                self._reason[channel] = reason
+                self._reason[channel] = f"{reason}（第 {strikes} 次，冷却 ×{multiplier}）"
 
     def clear(self, channel: str) -> None:
+        """通道恢复正常：冷却与**连续失败计数**一起清零。"""
         with self._lock:
             self._until.pop(channel, None)
             self._reason.pop(channel, None)
+            self._strikes.pop(channel, None)
 
     def reset(self) -> None:
         """清空全部状态（测试用；生产不需要调用）。"""
         with self._lock:
             self._until.clear()
             self._reason.clear()
+            self._strikes.clear()
+
+    @property
+    def strikes(self) -> dict[str, int]:
+        """各通道的连续失败次数（只读快照，供诊断）。"""
+        with self._lock:
+            return dict(self._strikes)
 
 
 class ResultCache:
