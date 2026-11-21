@@ -66,6 +66,13 @@ def _provider_for(model: str) -> str:
     return resolve_provider_name(model)
 
 
+async def _aprovider_for(model: str) -> str:
+    """异步版 ``_provider_for``：async 审计必须走 ``aget_providers``，否则会读同步 ORM。"""
+    from apps.core.llm.provider_lookup import aresolve_provider_name
+
+    return await aresolve_provider_name(model)
+
+
 def record_llm_call(
     *,
     backend: str,
@@ -119,7 +126,7 @@ async def arecord_llm_call(
         await _awrite_record(
             model=model or "-",
             backend=backend,
-            provider=_provider_for(model),
+            provider=await _aprovider_for(model),
             caller=caller[:200],
             version=AUDIT_VERSION,
             success=success,

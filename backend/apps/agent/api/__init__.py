@@ -15,6 +15,7 @@ from .question_api import router as question_router
 from .review_api import router as review_router
 from .session_api import router as session_router
 from .skill_api import router as skill_router
+from .synthesis_api import router as synthesis_router
 from .task_api import router as task_router
 from .usage_api import router as usage_router
 
@@ -26,6 +27,7 @@ router.add_router("", task_router)
 router.add_router("", approval_router)
 router.add_router("", question_router)
 router.add_router("", review_router)
+router.add_router("", synthesis_router)
 router.add_router("", attachment_router)
 router.add_router("", skill_router)
 router.add_router("", usage_router)

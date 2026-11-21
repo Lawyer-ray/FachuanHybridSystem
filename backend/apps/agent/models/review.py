@@ -70,6 +70,13 @@ class AgentReview(models.Model):
     unverified = models.JSONField(default=list, blank=True, verbose_name="未核验项")
     #: 评审自身的 token 成本（与三栏生成成本分开记）。
     tokens = models.JSONField(default=dict, blank=True, verbose_name="评审 token")
+    #: ``EquivalenceCluster`` 的数组（三栏答案是否同一立场）。
+    #:
+    #: 为什么不拆表：与 verdicts 同理——成团是**一次评审的完整快照**，reroll 后成员
+    #: 与代表全变；拆表就要处理「上一轮的簇已不存在」的悬空。
+    clusters = models.JSONField(default=list, blank=True, verbose_name="立场成团")
+    #: 成团失败原因（空串 = 成功或未跑）。失败与「三份真的全异」必须可区分。
+    clusters_error = models.CharField(max_length=200, blank=True, default="", verbose_name="成团失败原因")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:

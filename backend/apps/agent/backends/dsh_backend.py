@@ -126,6 +126,13 @@ _DRAIN_TIMEOUT_SECONDS = 2.0
 #: 单轮运行结束的哨兵：放进事件队列表示「run 已返回（或抛异常）」。
 _DONE = object()
 
+#: 工具结果文本的截断上限（字）。与 ``pi/bridge.py`` 的 ``_RESULT_PREVIEW_LIMIT``
+#: 同值是**必须**而不是巧合：``services/chat/citations.py`` 的
+#: ``_salvage_prefix_objects`` 按「结果前 2000 字」写了解析兜底（半截 JSON 只解码
+#: 完整的前缀对象，绝不接受半个对象）。两条通道截断长度一旦不同，同一份
+#: ``search_cases`` 结果会一边出引用、一边一条都出不来。
+_TOOL_RESULT_PREVIEW_LIMIT = 2000
+
 
 def _log_unmapped(method: str, payload: dict[str, Any]) -> None:
     """未识别的事件记 debug 并原样透传给前端。
@@ -165,14 +172,49 @@ def _tool_call_arguments(raw: Any) -> Any:
     return raw if isinstance(raw, dict) else None
 
 
+def _tool_result_text(content: Any) -> str:
+    """把 ``tool/result`` 里的 ``message.content`` 拆成可展示文本。
+
+    形状来自实测的 ``tool/result`` 事件（见 :meth:`DshBackend._translate_tool_result`）：
+    ``content`` 是 content block 数组，工具结果的实际载荷在
+    ``{"type": "text", "text": ...}`` 块的 ``text`` 里（通常是一段 JSON 字符串）。
+
+    **只取 text 块**：非文本块（图片等）没有可读正文，硬转成 ``str(block)`` 只会
+    把 Python repr 泄给前端。与 ``pi/bridge.py`` 的 ``_result_text`` 口径一致，
+    两条通道的结果文本因此长得一样（引用解析只认这一份文本）。
+
+    解不动不抛：工具结果决定「律师能不能看到检索证据」，一条怪形状的结果不该让
+    整轮事件流崩掉，所以未知类型退化成空串而不是异常。
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, dict):
+        text = content.get("text")
+        return text if isinstance(text, str) else ""
+    if not isinstance(content, list):
+        return "" if content is None else str(content)
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict):
+            text = block.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+    return "".join(parts)
+
+
 @dataclass(frozen=True)
 class DshRunResult:
     """一轮跑完后交回编排层的事实（与 ``PiRunResult`` 同构，便于编排层统一处理）。
 
     ``model`` 只有解析成功才有值；``context_used`` / ``context_total`` **恒为
-    ``None``**：dsh SDK 目前没有暴露会话水位/上下文统计的接口（``Session`` 只有
-    ``run`` / ``get_working_directory``）。编造 0 会让前端显示「上下文已满」，
-    所以如实留空。**待 SDK 暴露 usage/stats 后补**。
+    ``None``**：dsh SDK 仍未暴露会话水位/上下文窗口统计（``Session`` 只有
+    ``run`` / ``get_working_directory``，runtime 里那句 ``stats not available``
+    就是它自己的话）。编造 0 会让前端显示「上下文已满」，所以如实留空。
+    **成本不在这里**：token 用量已从 ``assistant/message`` 的 ``data.usage`` 逐次
+    上报（见 :meth:`DshBackend._translate_usage`），那是每次模型调用的用量，不是
+    会话水位——两者别再混为一谈。
     """
 
     model: str | None
@@ -495,8 +537,16 @@ class DshBackend:
     #: 实例属性会在并发会话间互相覆盖（pi 的 ``PiBackend`` 同因同解）。
     _results: dict[str, DshRunResult]
 
+    #: ``tool_call_id`` → 工具名。``tool/result`` 事件里**没有**工具名（实测只有
+    #: ``message.toolCallId`` / ``message.source.callId``），名字只能从先到的
+    #: ``tool/call`` 记下来再配对（``openai_agents_backend._tool_names`` 同一手法）。
+    #: 键是模型侧生成的 ``callId``（``chatcmpl-tool-<hex>``，全局唯一），所以本栏在
+    #: 注册表单例下跨会话共用也是安全的；取用即 ``pop``，不留长期条目。
+    _tool_names: dict[str, str]
+
     def __init__(self, pool: _HarnessPool | None = None) -> None:
         self._results = {}
+        self._tool_names = {}
         self._pool = pool if pool is not None else get_pool()
         self._executor = ThreadPoolExecutor(max_workers=_MAX_RUNNING_THREADS, thread_name_prefix="dsh-run")
 
@@ -732,6 +782,16 @@ class DshBackend:
           ``arguments``（工具调用开始，见 :meth:`_translate_tool_call`）
         - ``agent/inbox/spliced`` → 本轮 prompt 的入队回执
 
+        以下两条是**真机实测**（2026-11-21，dsh SDK 0.2.2rc2，一次 8 次工具调用
+        的联网检索轮）确认的，形状逐字来自日志而非源码：
+
+        - ``tool/result`` → ``event["data"]["message"]`` 里 ``toolCallId`` /
+          ``content``（text 块数组）/ ``isError`` / ``source.callId``（结果，见
+          :meth:`_translate_tool_result`）
+        - ``assistant/message`` 的 ``event["data"]["usage"]`` →
+          ``{inputTokens, outputTokens, totalTokens, cacheReadTokens}``（每次模型
+          调用一份，见 :meth:`_translate_usage`）
+
         所以本函数的主路径是「先拆 ``session.event`` 外壳，再看 ``event.type``」。
 
         ## 正文增量 vs 整段
@@ -789,6 +849,12 @@ class DshBackend:
             # 工具调用开始。不翻这一条，前端只看得到正文：不知道调了哪个工具、
             # 参数是什么（审批卡、引用、修订画布全靠工具名+参数）。
             return self._translate_tool_call(data)
+        if event_type == "tool/result":
+            # 工具结果。不翻这一条，前端只看得到「调了什么」，看不到「查到了什么」：
+            # 检索证据链断在调用那一侧，``services/chat/citations`` 也拿不到结果，
+            # 于是一条引用都产不出（实测：一轮 8 次 ``tool_call``、0 条
+            # ``tool_result``）。
+            return self._translate_tool_result(data)
         if event_type == "turn/end":
             # 本轮结束。``reason.kind`` 为 ``"error"`` 时是模型侧失败（SDK 的
             # ``finish_reason``），要报成 error 而不是静默结束——否则用户看到的是
@@ -806,8 +872,7 @@ class DshBackend:
             return []
         return None
 
-    @staticmethod
-    def _translate_tool_call(data: dict[str, Any]) -> list[dict[str, Any]]:
+    def _translate_tool_call(self, data: dict[str, Any]) -> list[dict[str, Any]]:
         """``tool/call`` 运行事件 → ``tool_call``（帧字段对齐 ``sse_types``）。
 
         字段名来自 dsh ``session/src/types.ts`` 的 run 事件：``callId`` / ``name`` /
@@ -815,11 +880,15 @@ class DshBackend:
 
         缺 ``callId`` 或 ``name`` 就跳过：``tool_call_id`` 是前端把 ``tool_result``
         配回本次调用的键，发一个空 id 会把结果记到别人头上。
+
+        顺手把 ``callId → name`` 记进 :attr:`_tool_names`：``tool/result`` 事件里
+        没有工具名，只能在这里配对（见 :meth:`_translate_tool_result`）。
         """
         call_id = str(data.get("callId") or data.get("id") or "")
         name = str(data.get("name") or "")
         if not (call_id and name):
             return []
+        self._tool_names[call_id] = name
         return [
             {
                 "type": "tool_call",
@@ -829,9 +898,117 @@ class DshBackend:
             }
         ]
 
+    def _translate_tool_result(self, data: dict[str, Any]) -> list[dict[str, Any]]:
+        """``tool/result`` 运行事件 → ``tool_result``（帧字段对齐 ``sse_types``）。
+
+        字段形状逐字来自**真机实测**（SDK 0.2.2rc2）：
+
+        ::
+
+            data = {
+                "turn": 1, "step": 1,
+                "message": {
+                    "role": "tool",
+                    "toolCallId": "chatcmpl-tool-ace9ce68ca3c6acb",
+                    "source": {"kind": "tool", "callId": "chatcmpl-tool-ace9..."},
+                    "content": [{"type": "text", "text": "{...检索结果 JSON...}"}],
+                    "isError": False,
+                    "id": "4aa5ee36-bb0e-410f-b963-bfd718e53819",
+                },
+            }
+
+        三个只能从这里读出来的事实：
+
+        1. **``tool_call_id`` 与 ``tool/call`` 的 ``callId`` 同源**：实测 8 次调用
+           8 条结果，``message.toolCallId`` 与 ``message.source.callId`` 恒等且逐条
+           命中前面 ``tool/call`` 的 ``callId``（前端的 ``applyToolResult`` 就靠这个
+           键把结果配回那一行）。两处任一存在即可用，不必猜形状。
+        2. **没有工具名**：名字只能从 :attr:`_tool_names`（``tool/call`` 记下的
+           配对表）里取。取不到就给空串——``tool_result.name`` 是必填字符串，前端
+           靠 ``tool_call_id`` 配对，不依赖这个名字。
+        3. **失败是 ``isError`` 布尔**（不是异常/错误体）：直接映到 ``is_error``，
+           前端才会把那次调用标红。失败但无错误正文时补一句可读文案，不要发一条
+           空白结果——“空白”和“没权限”在律师眼里是两回事。
+
+        结果文本截断到 :data:`_TOOL_RESULT_PREVIEW_LIMIT`：一轮检索的原文动辄
+        6KB，不截会把 SSE 带宽吃满（且 ``citations`` 的兜底解析本来就只认前 2000 字）。
+        """
+        # 显式窄化而不是内联三元：``dict.get()`` 的返回类型带 ``None``，mypy 在
+        # 内联写法下无法把 ``message`` 收窄成 dict（``Item "None" ... has no attribute``）。
+        raw_message = data.get("message")
+        message: dict[str, Any] = raw_message if isinstance(raw_message, dict) else data
+        raw_source = message.get("source")
+        source: dict[str, Any] = raw_source if isinstance(raw_source, dict) else {}
+        call_id = str(message.get("toolCallId") or source.get("callId") or "")
+        if not call_id:
+            # 空 id 会把结果记到别人头上（同 ``_translate_tool_call`` 的理由），
+            # 宁可不发这一帧。
+            return []
+        name = self._tool_names.pop(call_id, "")
+        is_error = bool(message.get("isError"))
+        text = _tool_result_text(message.get("content"))
+        if not text and is_error:
+            text = "工具执行失败（dsh 未返回错误详情）"
+        return [
+            {
+                "type": "tool_result",
+                "tool_call_id": call_id,
+                "name": name,
+                "result": text[:_TOOL_RESULT_PREVIEW_LIMIT],
+                "is_error": is_error,
+            }
+        ]
+
+    @staticmethod
+    def _translate_usage(data: dict[str, Any]) -> list[dict[str, Any]]:
+        """``assistant/message`` 的 ``data.usage`` → ``usage`` 帧。
+
+        实测每次模型调用（= 一个 ``step``）的 ``assistant/message`` 都带一份，
+        形状固定为 ``{inputTokens, outputTokens, totalTokens, cacheReadTokens}``：
+
+        - ``inputTokens`` 是**未命中缓存**的 prompt token，``cacheReadTokens`` 是
+          命中的那部分（实测 ``242 + 10944 + 162 == 11348 == totalTokens``）；
+          正因为 ``inputTokens`` 不含缓存命中，才能逐字映到 ``UsageEvent`` 的
+          ``input_tokens``（它同样只装未命中部分，见 ``sse_types.UsageEvent``）。
+        - ``totalTokens`` **不是**本轮总量，是**累加后的上下文大小**（实测同一轮
+          由 11348 涨到 38986）——拿它当用量会把成本算成几倍，所以直接丢掉，
+          只累加 ``inputTokens`` / ``outputTokens`` / ``cacheReadTokens``。
+        - 没有 ``cacheWriteTokens`` 字段：``cache_write_tokens`` 恒 0（dsh 侧不
+          上报，编一个数会让“缓存命中率”失真）。
+
+        一轮里工具循环有多个 step，编排层 ``stream.py`` 按帧累加（与 pi 同口径），
+        所以这里**逐次发**而不是攒一帧。三项全 0 时不发帧：那是“没拿到统计”，
+        发出去会变成“这轮不花钱”。
+        """
+        raw = data.get("usage")
+        if not isinstance(raw, dict):
+            return []
+
+        def _count(key: str) -> int:
+            value = raw.get(key)
+            # bool 是 int 的子类，``True`` 不该被当成 1 token。
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return 0
+            return max(0, int(value))
+
+        input_tokens = _count("inputTokens")
+        output_tokens = _count("outputTokens")
+        cache_read_tokens = _count("cacheReadTokens")
+        if not (input_tokens or output_tokens or cache_read_tokens):
+            return []
+        return [
+            {
+                "type": "usage",
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read_tokens,
+                "cache_write_tokens": 0,
+            }
+        ]
+
     @staticmethod
     def _translate_assistant_message(data: dict[str, Any]) -> list[dict[str, Any]]:
-        """``assistant/message`` → ``thinking`` / ``delta`` / ``tool_call``。
+        """``assistant/message`` → ``thinking`` / ``delta`` / ``tool_call`` / ``usage``。
 
         字段形状照 ``api.py`` 的 ``final_response``：
 
@@ -856,11 +1033,16 @@ class DshBackend:
 
         缺 ``callId``/``id`` 或 ``name`` 的块跳过：``tool_call_id`` 是前端归并
         请求与结果的键（前端 ``applyToolResult`` 按它匹配），空 id 会配错行。
+
+        用量不在这里取：它不在 ``message`` 里，而在**同一个 event 的** ``data.usage``
+        上（只挂在事件外层）。所以内容块无论能不能认出，都照样补一帧 ``usage``
+        （见 :meth:`_translate_usage`）——“只认识内容块就把用量也吞掉”会让一个新
+        块类型顺手弄丢整轮成本。
         """
         message = data.get("message") if isinstance(data.get("message"), dict) else data
         content = (message or {}).get("content")
         if not isinstance(content, list):
-            return []
+            return DshBackend._translate_usage(data)
         frames: list[dict[str, Any]] = []
         for block in content:
             if not isinstance(block, dict):
@@ -887,6 +1069,7 @@ class DshBackend:
                             "arguments": _tool_call_arguments(args),
                         }
                     )
+        frames.extend(DshBackend._translate_usage(data))
         return frames
 
     @staticmethod

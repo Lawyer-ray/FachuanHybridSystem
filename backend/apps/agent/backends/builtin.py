@@ -48,6 +48,7 @@ def ensure_registered() -> None:
         # 部署里上面这个条件会一直成立，不能因为可选后端缺席就每次都重跑一遍）。
         _register_dsh()
         _register_openai_agents()
+        _register_antigravity()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -60,6 +61,7 @@ def ensure_registered() -> None:
     _registered = True
     _register_dsh()
     _register_openai_agents()
+    _register_antigravity()
 
 
 def _register_dsh() -> None:
@@ -128,3 +130,32 @@ def _register_openai_agents() -> None:
         logger.info("openai-agents SDK 未安装，openai-agents 后端不可用（pi 不受影响）")
         return
     registry.register(OpenAiAgentsBackend())
+
+
+def _register_antigravity() -> None:
+    """注册 antigravity 后端；SDK 没装时**静默降级**（只登记一次）。
+
+    与 :func:`_register_dsh` / :func:`_register_openai_agents` 同构，理由也相同：
+    ``antigravity_backend`` 顶层 ``import google.antigravity``，而这是一个**可选
+    后端**——缺依赖不该让 pi 会话跟着起不来。缺包时这些会话在
+    ``registry.get("antigravity")`` 拿到 ``LookupError``（消息里带已注册清单），
+    前端 ``/backends`` 也会如实标成不可用。
+
+    ``_attempted`` 只记「import 失败过」，**不能**当成「已注册」的凭据：注册表是
+    可被 ``clear()`` 清空的全局状态，清空后若被它挡住，该后端会永远报「未知
+    backend」（pi / dsh / openai-agents 都踩过这个坑）。真正「在不在」只问注册表。
+    """
+    kind = "antigravity"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    try:
+        from .antigravity_backend import AntigravityBackend
+    except ImportError:
+        # 缺 google-antigravity（含平台二进制 wheel）：记录后当作「本部署没有这个后端」。
+        _attempted.add(kind)
+        logger.info("google-antigravity SDK 未安装，antigravity 后端不可用（其它后端不受影响）")
+        return
+    registry.register(AntigravityBackend())

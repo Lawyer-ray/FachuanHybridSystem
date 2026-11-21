@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 
 from django.apps import apps as django_apps
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
 from ..models import AgentMessage, AgentSession
 
@@ -224,7 +224,15 @@ async def list_messages(
     session = await get_session(session_id=session_id, user_id=user_id)
     if session is None:
         return None
-    queryset = AgentMessage.objects.filter(session=session)
+    # 被重生成/续写取代的旧回答不展示（行仍在库里，审计可回溯）。
+    #
+    # 条件必须写成「键存在**且**为 true」再取反：SQL 是三值逻辑，键缺失时
+    # ``metadata -> 'superseded'`` 是 NULL，`NOT (NULL = true)` 仍是 NULL，
+    # 于是 ``.exclude(metadata__superseded=True)`` 会把**所有没有这个键的老消息**
+    # 一起滤掉（实测：空会话过滤后一条都不剩）。写成 ``has_key & =True`` 再取反，
+    # 键缺失时前半为 false，``NOT (false AND …)`` 为 true，行被正确保留。
+    superseded = Q(metadata__has_key="superseded") & Q(metadata__superseded=True)
+    queryset = AgentMessage.objects.filter(session=session).exclude(superseded)
     if before_id is not None and before_id > 0:
         queryset = queryset.filter(id__lt=before_id)
     rows = queryset.order_by("-created_at", "-id")[: _bounded(limit, 1000)]

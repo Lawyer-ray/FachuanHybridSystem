@@ -85,6 +85,28 @@ class PdfSplitStorage:
         return self.analysis_dir / "engine_disagreements.json"
 
     @property
+    def rotated_backfill_json_path(self) -> Path:
+        """转正页回填报告（哪几页被 VL 换过正文 / 每页跳过原因 / 字数变化）。
+
+        单独落盘的理由：回填发生在 cross_check 阶段，而 summary 要到 segment 阶段才写进
+        DB；两个阶段只能靠 job 目录里的文件传递。它同时是「这页的正文到底被谁换过」的
+        唯一凭据——出问题时不能只靠翻日志。
+        """
+        return self.analysis_dir / "rotated_backfill.json"
+
+    @property
+    def table_geometry_json_path(self) -> Path:
+        """表格格子几何产物（逐页逐块量到的真实格子）。
+
+        单独落盘的理由与 ``engine_disagreements.json`` 一样，但多一条：
+        ``build_segments_markdown`` 有**三个**调用点（两阶段分段 / 单任务分析 /
+        用户确认后重建 segments_md），任何一处拿不到几何就会退回整表框——
+        “确认分段后点格子又画错”正是 ``bbox_backend`` 踩过的同类坑。
+        所以这份产物必须是三处共享的**文件**，而不是某个调用点手里的内存变量。
+        """
+        return self.analysis_dir / "table_geometry.json"
+
+    @property
     def export_zip_path(self) -> Path:
         return self.exports_dir / "split_result.zip"
 

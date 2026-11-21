@@ -9,6 +9,11 @@ NC := \033[0m
 
 guardrails: ## 护栏通电自检：检查脚本是否都挂进了必经链（见 docs/harness/pitfalls.md PIT-005）
 	@node scripts/check-guardrails-wired.mjs --list
+	@echo "── worktree 生命周期（未收尾的 worktree = 合并债）──"
+	@node scripts/check_worktrees.mjs
+
+worktrees: ## 只看 worktree 生命周期（详细表格 + 回收命令）
+	@node scripts/check_worktrees.mjs
 
 openapi-check: ## 校验 backend/openapi.json 与代码是否一致（漂移则非零退出）
 	@bash scripts/check-openapi-fresh.sh
@@ -34,9 +39,11 @@ ci-frontend: ## 仅前端 CI（tsc + eslint + build）
 migrate-check: ## 迁移三道闸门（生成 / 已应用 / 分支冲突）——开 PR 前必须全绿
 	@bash scripts/check_migrations.sh
 
-pr-ready: ## 开 PR 前的一键自检（迁移三道闸门 + 护栏通电 + 分级一致性 + 快速 CI）
+pr-ready: ## 开 PR 前的一键自检（迁移三道闸门 + worktree 收尾 + 护栏通电 + 分级一致性 + 快速 CI）
 	@echo "── 迁移三道闸门 ──"
 	@bash scripts/check_migrations.sh
+	@echo "── worktree 生命周期（未收尾的 worktree = 合并债）──"
+	@node scripts/check_worktrees.mjs
 	@echo "── 护栏通电 ──"
 	@node scripts/check-guardrails-wired.mjs
 	@echo "── 审批分级跨语言一致性 ──"

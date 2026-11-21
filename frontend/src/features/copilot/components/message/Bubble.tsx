@@ -15,7 +15,11 @@ import { Briefcase, MapPin } from 'lucide-react'
 import { useAuth } from '@/features/auth'
 
 import { bizHintParts, formatClock, ratableMessageId } from '../../domain'
+// 直接从子模块引：canContinue / canRegenerate 属「这一轮能不能重放」的判据，
+// 与转录渲染无关，不塞进 domain/index.ts 的出口表（那里是按域分块的）
+import { canContinue, canRegenerate } from '../../domain/turn-actions'
 import { useSmoothStreamText } from '../../hooks/use-smooth-stream-text'
+import { useCopilot } from '../../store'
 import type { ChatMessage } from '../../types'
 import { AssistantMarkdown } from '../AssistantMarkdown'
 import { MessageActions } from '../MessageActions'
@@ -169,6 +173,14 @@ export const Bubble = memo(function Bubble({
             messageId={ratableMessageId(message)}
             rating={message.rating}
             createdAt={message.createdAt}
+            // 判据在 domain/turn-actions.ts：必须已落库、必须是 assistant；
+            // 续写还要求这条被截断过（否则"接哪一段"没有对象）
+            regenerable={canRegenerate(message)}
+            continuable={canContinue(message)}
+            onRegenerate={(mode) => {
+              const id = ratableMessageId(message)
+              if (id !== null) void useCopilot.getState().regenerate(id, mode)
+            }}
           />
           {/* 存进项目笔记：把这条回答里的结论落到项目上，同团队可见。
               只在这里出现（不在流式气泡上）：还没落库的会话没有 sessionId，

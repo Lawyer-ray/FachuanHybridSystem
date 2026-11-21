@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { rectPrecisionOf, type RectPrecision } from '../../types'
 
 /**
  * 右栏正文面板的「行」组件：一行正文（双击定位原页、右键就地改）。
@@ -11,12 +12,35 @@ import { cn } from '@/lib/utils'
  * 整段编辑在 `SegmentMarkdownView`（渲染 / 源码 / 编辑三态）。
  */
 
+/**
+ * 定位框可信度的人话（tooltip 用）。
+ *
+ * 以前只用 `approx` 判「整页近似框」，于是**所有**均分推算的表格块（`precision=cell`）
+ * 都被说成「整页近似框」——这是两种完全不同的不可信程度：整表一个框（坐标基本无意义）
+ * 与格子/列有偏差（八九不离十）。按 precision 分档说之后：
+ *   grid  → 已按原表实测格子定位（可信）
+ *   cell  → 表格均分推算，可能半格偏差（要去核）
+ *   page  → 整表近似框（坐标无意义）
+ *   exact → 不加任何限定语（引擎原样返回，说了反而像在打折扣）
+ *
+ * 缺 `precision` 的旧数据退化看 `approx`（走 `rectPrecisionOf`，与画框同一条判定链，
+ * 避免「框画成虚线、文案说是精确」这类自相矛盾）。
+ */
+function precisionHintOf(h: { approx?: boolean; precision?: RectPrecision }): string {
+  const precision = h.precision ?? rectPrecisionOf(h)
+  if (precision === 'grid') return '已按原表实测格子定位'
+  if (precision === 'cell') return '表格均分推算，可能半格偏差'
+  if (precision === 'page') return '整表近似框'
+  return ''
+}
+
 /** 一行正文：平时是文字（双击定位），编辑态是输入框（失焦/回车保存）。 */
 export function BlockRow({
   blockKey,
   text,
   page,
   approx,
+  precision,
   active,
   editing,
   onLocate,
@@ -29,7 +53,15 @@ export function BlockRow({
   blockKey: string
   text: string
   page: number
+  /** 定位框是否「整页近似」（旧语义，只在缺 `precision` 时兜底用） */
   approx?: boolean
+  /**
+   * 定位框精度（后端 `PositionedRectOut.precision` 透传）。
+   *
+   * 与 `approx` 并存而不是替换它：旧草稿 / 旧任务产物里没有 precision，
+   * 那时只能靠 approx 判；两条路都收进 `precisionHintOf`，判定口径只有一处。
+   */
+  precision?: RectPrecision
   active: boolean
   editing: boolean
   onLocate: (key: string | null) => void
@@ -119,6 +151,9 @@ export function BlockRow({
     )
   }
 
+  // 定位可信度的限定语：空串（exact）时不出括号，tooltip 保持短
+  const hint = precisionHintOf({ approx, precision })
+
   return (
     <div className="group/row flex items-start gap-0.5">
       <button
@@ -133,7 +168,7 @@ export function BlockRow({
               }
             : undefined
         }
-        title={`第 ${page} 页${approx ? '（整页近似框）' : ''} · 双击定位${onStartEdit ? ' · 右键改这一行' : ''}`}
+        title={`第 ${page} 页${hint ? `（${hint}）` : ''} · 双击定位${onStartEdit ? ' · 右键改这一行' : ''}`}
         className={cn(
           'flex min-w-0 flex-1 items-start gap-1.5 rounded px-1.5 py-1 text-left text-[11px] leading-relaxed transition-colors',
           active ? 'bg-sky-50 text-sky-900 ring-1 ring-sky-300' : 'hover:bg-secondary/60',

@@ -51,9 +51,19 @@ export function runIdOf(event: object): string {
 }
 
 /** kind → 栏标签（只列需要中文名的；未知 kind 直接显示 kind 自身） */
+/**
+ * kind → 栏头显示名。
+ *
+ * **只放「给人看的品牌名」，不放后端标识**：没登记的 kind 原样显示（`agentLabel`
+ * 的兜底），所以新后端上线时漏加一行不会崩，只是栏头出现英文标识。
+ *
+ * 四个后端的顺序不代表优先级（顺序由后端 `GET /agent/backends` 给）。
+ */
 const AGENT_LABELS: Record<string, string> = {
   pi: 'Pi',
   dsh: 'DeepSeek Harness',
+  'openai-agents': 'OpenAI Agents',
+  antigravity: 'Antigravity',
 }
 
 export function agentLabel(kind: string): string {

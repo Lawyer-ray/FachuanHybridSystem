@@ -66,6 +66,51 @@ class TestResolveProviderName:
         assert provider_lookup.resolve_provider_name("m1") == ""
 
 
+class TestAResolveProviderName:
+    """async 链路护栏：必须走 ``aget_providers``，绝不能碰同步访问器。
+
+    真机回归（2026-11-21）：agent 运行落库 ``_record_run`` 在事件循环里调
+    ``resolve_provider_name``，同步 ``get_providers()`` 读库抛
+    ``SynchronousOnlyOperation``，被 ``_load_from_db`` 吞成空列表——成本归属
+    静默变「未知」，日志只剩一条 warning。
+    """
+
+    @pytest.mark.asyncio
+    async def test_uses_aget_providers_and_never_calls_sync_accessor(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        providers = [_provider("平台甲", ["m1"], priority=1), _provider("平台乙", ["m2"], priority=2)]
+
+        def _sync_access_forbidden() -> list[Any]:
+            raise AssertionError("async 链路调用了同步 get_providers（会触发 SynchronousOnlyOperation）")
+
+        monkeypatch.setattr(LLMProviderService, "get_providers", _sync_access_forbidden)
+        monkeypatch.setattr(LLMProviderService, "_cache", None)
+        monkeypatch.setattr(LLMProviderService, "_load_from_db", staticmethod(lambda: providers), raising=True)
+
+        # aget_providers 是真实实现（内部 sync_to_async(_load_from_db)），必须正常返回
+        assert await provider_lookup.aresolve_provider_name("m2") == "平台乙"
+
+    @pytest.mark.asyncio
+    async def test_empty_when_no_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def _aget() -> list[Any]:
+            return []
+
+        monkeypatch.setattr("apps.core.services.llm_provider_service.LLMProviderService.aget_providers", _aget)
+
+        assert await provider_lookup.aresolve_provider_name("m1") == ""
+
+    @pytest.mark.asyncio
+    async def test_never_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def _boom() -> list[Any]:
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr("apps.core.services.llm_provider_service.LLMProviderService.aget_providers", _boom)
+
+        # 与同步版同一纪律：统计旁路失败只影响归属字段，不拖垮调用记录写入
+        assert await provider_lookup.aresolve_provider_name("m1") == ""
+
+
 class TestRecordCarriesProvider:
     def test_llm_call_record_written_with_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
         captured: dict[str, Any] = {}

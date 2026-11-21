@@ -82,6 +82,12 @@ const ALLOWED_UNWIRED = new Map([
       "本脚本在改动审批闸门 / 台账 / 等待上限时手工跑一次，输出贴进验收报告。",
   ],
   [
+    "scripts/verify_agent_lanes.py",
+    "端到端验收：要真连律所网关（内网 :4000，需绕代理）+ 真启共享 MCP（:8011）+ 四个后端各跑真实对话（pi 子进程 / dsh 常驻 / openai-agents / antigravity 的 120MB Go 二进制），CI 容器不具备。" +
+      "它验的是**只有真跑才知道**的三件事：思考是否真的开（判据是 thinking 帧 + 思考 token）、联网搜索是否可用（判据是真出现 web_search 且 tool_result 不报错）、四栏是否各答各的（done 每栏一条 + run_id 唯一）。" +
+      "它不是「没人跑」——四个后端的单测（test_pi_backend / test_dsh_backend / test_openai_agents_backend / test_antigravity_backend）在 CI 里跑，守翻译与闸门；本脚本在接入/改动任何 agent 后端或多答编排时手工跑一次，输出贴进验收报告。",
+  ],
+  [
     "scripts/verify_key_scheduling.py",
     "端到端验收：需真启 Django + 真连律所网关（内网 :4000，要绕代理）跑完整多答轮次，CI 容器不具备。" +
       "它不是「没人跑」——依赖它的静态护栏 tests/ci/unit/agent/test_key_scheduler.py（分配器语义）与 test_round_key_allocation.py（编排层分栏）在 CI 里跑。" +

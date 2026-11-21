@@ -21,6 +21,7 @@ from ..errors import SessionNotFoundError, TooManyAgentsError, project, project_
 from ..models import AgentMessage
 from ..pi.rpc_client import PiError
 from ..schemas import ClearQueueOut, MessageIn, MessageOut, SteerIn, SteerOut
+from ..services.chat.regenerate import MODE_CONTINUE, REPLAY_MODES, continuation_prompt, mark_superseded, resolve_target
 from ..services.chat_service import (
     MAX_ANSWERS,
     SessionNotLiveError,
@@ -113,6 +114,98 @@ async def replay_sse_events(
     前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
     """
     return replay_events(session_id, last_event_id)
+
+
+class RegenerateIn(Schema):
+    """重生成 / 续写的请求体。
+
+    ``from_message_id`` 可以是这一轮里的**任意一条**（提问 / 回答 / 工具行）：
+    服务端按"同一轮"定位，不要求前端先算出是哪一栏。
+    """
+
+    #: 被操作的那条消息（点哪一栏就传哪一条）
+    from_message_id: int
+    #: ``regenerate`` = 重跑同一提问；``continue`` = 接着被中断的前缀继续写
+    mode: str = "regenerate"
+    #: 显式指定栏（只允许 1 个；不传则沿用它自己的 agent_kind）
+    agents: list[str] | None = None
+
+
+@router.post("/sessions/{session_id}/regenerate")
+@rate_limit(
+    requests=_AGENT_SEND_RATE_LIMIT[0],
+    window=_AGENT_SEND_RATE_LIMIT[1],
+    key_func=_send_rate_key,
+)
+async def regenerate_message(request: Any, session_id: str, payload: RegenerateIn) -> Any:  # pragma: no cover
+    """重生成 / 续写（SSE，与发消息同形）。
+
+    **不新落用户消息**：复用原提问（``user_message_recorded=True``），轮次号也不增
+    （``turn=target.turn_no``）——否则同一个问题会变成两轮，「第几轮」这个口径当场废掉。
+
+    开流前先把这一轮同栏的旧回答标 ``metadata.superseded``（幂等），列表接口据此
+    隐藏它们；消息行本身不删，审计仍能回溯「AI 当时说过什么」。
+    """
+    user_id = _user_id(request)
+    lanes = [lane.strip() for lane in (payload.agents or []) if lane.strip()]
+    if len(lanes) > 1:
+        return StreamingHttpResponse(
+            iter([_sse(project_message("regenerate_multi_lane", message="重生成一次只能跑一栏，请点具体那一栏"))]),
+            content_type="text/event-stream",
+        )
+    if payload.mode not in REPLAY_MODES:
+        return StreamingHttpResponse(
+            iter([_sse(project_message("regenerate_bad_mode", message=f"未知的重放模式：{payload.mode}"))]),
+            content_type="text/event-stream",
+        )
+
+    async def generator() -> AsyncIterator[bytes]:
+        current = await get_session_record(session_id=session_id, user_id=user_id)
+        if current is None:
+            yield _sse(project(SessionNotFoundError(session_id=session_id)))
+            return
+        try:
+            target = await resolve_target(
+                session=current,
+                from_message_id=payload.from_message_id,
+                mode=payload.mode,
+                lane=lanes[0] if lanes else "",
+            )
+        except (LookupError, ValueError) as error:
+            # 定位失败是**可操作**的错误（消息不在这个会话 / 这条回答没有正文），
+            # 用一句话说清，别让前端归到「未知错误」
+            yield _sse(project_message("regenerate_target_missing", message=str(error)))
+            return
+
+        marked = await mark_superseded(session=current, turn_no=target.turn_no, lane=target.lane)
+        logger.info(
+            "重生成：session=%s turn=%s lane=%s mode=%s superseded=%s",
+            session_id,
+            target.turn_no,
+            target.lane or "(无栏)",
+            target.mode,
+            len(marked),
+        )
+        prompt = continuation_prompt(target.prompt, target.prefix) if target.mode == MODE_CONTINUE else target.prompt
+        try:
+            async for event in stream_chat(
+                session=current,
+                user_message=prompt,
+                user_id=user_id,
+                agent_kind=target.lane,
+                model=target.model or None,
+                # 复用原提问：不落用户消息、不重算标题
+                user_message_recorded=True,
+                # 同轮：新回答挂在原来的轮次下，不制造新的一轮
+                turn=target.turn_no,
+            ):
+                yield _sse(event)
+        except SessionNotLiveError as error:
+            yield _sse(project_message("session_not_live", message=str(error)))
+        except PiError as error:
+            yield _sse(project_message("pi_error", message=str(error)))
+
+    return StreamingHttpResponse(generator(), content_type="text/event-stream")
 
 
 @router.post("/sessions/{session_id}/messages")

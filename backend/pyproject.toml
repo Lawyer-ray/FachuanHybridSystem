@@ -42,6 +42,13 @@ dependencies = [
     # 纯 Python wheel、无平台限制；模型走律所网关的 OpenAI 兼容端点
     # （OpenAIChatCompletionsModel），工具面走共享 MCP（MCPServerStreamableHttp）。
     "openai-agents==0.25.0",
+    # Google Antigravity SDK：第四个 agent 运行时（与 pi / dsh / openai-agents 并存，会话级切换）。
+    # 纯 Python 包 + **随 wheel 分发的 Go 二进制**（bin/localharness，实测 120MB / 118MB RSS）：
+    # 只有 macosx_11_0 / manylinux_2_17 / musllinux_1_1 / win 轮子，别的平台装不上。
+    # 模型走律所网关的 OpenAI 兼容端点（但 SDK 不发 auth 头，见 backends/antigravity_gateway.py），
+    # 工具面走共享 MCP（McpStreamableHttpServer）。
+    # 锁到 0.1.24：官方标 Development Status :: 3 - Alpha，升级必须走回归。
+    "google-antigravity==0.1.24",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",

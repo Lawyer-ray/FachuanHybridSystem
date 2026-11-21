@@ -303,6 +303,170 @@ class TestEventTranslation:
         assert _log_unmapped("whatever", {"k": "v"}) is None
 
 
+def _tool_result_data(call_id: str, text: str, *, is_error: bool = False) -> dict[str, Any]:
+    """实测的 ``tool/result`` 事件 ``data``（字段逐字来自真机日志，SDK 0.2.2rc2）。
+
+    关键事实：工具名**不在**这里——只有 ``message.toolCallId``（与
+    ``message.source.callId`` 同值）与 ``isError`` 布尔；结果正文在 text 块里。
+    """
+    return {
+        "turn": 1,
+        "step": 1,
+        "message": {
+            "role": "tool",
+            "source": {"kind": "tool", "callId": call_id},
+            "toolCallId": call_id,
+            "content": [{"type": "text", "text": text}],
+            "isError": is_error,
+            "id": "4aa5ee36-bb0e-410f-b963-bfd718e53819",
+        },
+    }
+
+
+class TestToolResultTranslation:
+    """``tool/result`` → ``tool_result``（实测：原先一轮 8 次 ``tool_call``、0 条结果）。"""
+
+    def test_result_pairs_id_and_name_with_previous_tool_call(self) -> None:
+        """``tool_call_id`` 与 ``tool/call`` 的 ``callId`` 同源，名字靠配对表补。
+
+        实测两者逐条相等（8/8），但结果事件里**没有** ``name``——不配对就只能发
+        空名字。这里用**同一个后端实例**先翻 ``tool/call`` 再翻 ``tool/result``，
+        复现真实顺序（注册表里的后端也是单例）。
+        """
+        from apps.agent.sse_types import ToolResultEvent
+
+        backend = DshBackend()
+        backend._translate(
+            *_notification(
+                "tool/call",
+                {"callId": "chatcmpl-tool-ace9", "name": "mcp__fachuan__search_cases", "arguments": '{"q": "违约金"}'},
+            )
+        )
+
+        frames = backend._translate(
+            *_notification("tool/result", _tool_result_data("chatcmpl-tool-ace9", '{"items": []}'))
+        )
+
+        assert frames == [
+            {
+                "type": "tool_result",
+                "tool_call_id": "chatcmpl-tool-ace9",
+                "name": "mcp__fachuan__search_cases",
+                "result": '{"items": []}',
+                "is_error": False,
+            }
+        ]
+        assert isinstance(ToolResultEvent.model_validate(frames[0]), ToolResultEvent)
+
+    def test_result_without_matching_call_still_emits_with_empty_name(self) -> None:
+        """没有可配对的 ``tool/call``（结果先到 / 跨进程重启）时仍要发：
+
+        结果本身就是检索证据，宁可少一个名字也不能丢一帧证据。``name`` 是必填
+        字符串，所以给空串（前端靠 ``tool_call_id`` 配行）。
+        """
+        [frame] = DshBackend()._translate(*_notification("tool/result", _tool_result_data("call-x", "ok")))
+        assert (frame["name"], frame["tool_call_id"], frame["result"]) == ("", "call-x", "ok")
+
+    def test_result_text_is_truncated_to_preview_limit(self) -> None:
+        """结果正文截断到 2000 字（与 ``pi/bridge.py`` 同值）。
+
+        实测一次 ``fetch_url`` 的原文 6.4KB：不截会把 SSE 带宽吃满；而
+        ``services/chat/citations`` 的前缀兜底解析本来就只认前 2000 字。
+        """
+        from apps.agent.backends.dsh_backend import _TOOL_RESULT_PREVIEW_LIMIT
+
+        long_text = "法" * (_TOOL_RESULT_PREVIEW_LIMIT + 2000)
+        [frame] = DshBackend()._translate(*_notification("tool/result", _tool_result_data("call-3", long_text)))
+        assert _TOOL_RESULT_PREVIEW_LIMIT == 2000
+        assert len(frame["result"]) == _TOOL_RESULT_PREVIEW_LIMIT
+        # 截的是尾巴，前缀不动（前端已展示的部分不会变）。
+        assert frame["result"] == long_text[:_TOOL_RESULT_PREVIEW_LIMIT]
+
+    def test_error_result_is_marked_and_gets_a_readable_message(self) -> None:
+        """``isError=true`` 必须映到 ``is_error``，且失败但无正文时要有可读文案。
+
+        失败的 ``result`` 会被 ``stream.py`` 跳过引用解析（是对的），但前端仍要把
+        那次调用标红；发一条空白结果会让「空白」和「没权限」长得一模一样。
+        """
+        empty = _tool_result_data("call-4", "", is_error=True)
+        [frame] = DshBackend()._translate(*_notification("tool/result", empty))
+        assert frame["is_error"] is True
+        assert frame["result"]
+        assert "失败" in frame["result"]
+
+    def test_result_without_call_id_is_skipped(self) -> None:
+        """空 ``tool_call_id`` 会把结果记到别人头上（同 ``tool_call`` 的理由）。"""
+        data = _tool_result_data("", "ok")
+        data["message"].pop("source")
+        assert DshBackend()._translate(*_notification("tool/result", data)) == []
+
+    def test_source_call_id_is_used_when_tool_call_id_missing(self) -> None:
+        """两处 id 任一份可用（实测两者恒等，但只认一处会在字段改名时静默丢结果）。"""
+        data = _tool_result_data("call-5", "ok")
+        data["message"].pop("toolCallId")
+        [frame] = DshBackend()._translate(*_notification("tool/result", data))
+        assert frame["tool_call_id"] == "call-5"
+
+
+class TestUsageTranslation:
+    """``assistant/message`` 的 ``data.usage`` → ``usage`` 帧（实测原先成本记 0）。"""
+
+    #: 实测的一份 ``data.usage``（第 1 步模型调用）：242 + 10944 + 162 == totalTokens。
+    _USAGE = {"inputTokens": 242, "outputTokens": 162, "totalTokens": 11348, "cacheReadTokens": 10944}
+
+    def test_usage_becomes_usage_frame_after_content(self) -> None:
+        """``inputTokens``/``cacheReadTokens`` 逐字映到帧字段；``totalTokens`` 丢掉。
+
+        dsh 的 ``inputTokens`` 与 ``UsageEvent.input_tokens`` 同义（都只装**未命中
+        缓存**的 prompt token）；``totalTokens`` 是累加后的上下文大小（实测同一轮
+        从 11348 涨到 38986），拿它当用量会把成本算成几倍。``usage`` 没有
+        ``cacheWriteTokens`` 字段，所以帧侧恒 0。
+        """
+        from apps.agent.sse_types import UsageEvent
+
+        frames = DshBackend()._translate(
+            *_notification(
+                "assistant/message",
+                {"message": {"content": [{"type": "text", "text": "答"}]}, "usage": self._USAGE},
+            )
+        )
+        # 正文先到（TTFT 靠 delta 计时），用量补在后面。
+        assert [f["type"] for f in frames] == ["delta", "usage"]
+        usage = frames[1]
+        assert usage == {
+            "type": "usage",
+            "input_tokens": 242,
+            "output_tokens": 162,
+            "cache_read_tokens": 10944,
+            "cache_write_tokens": 0,
+        }
+        assert isinstance(UsageEvent.model_validate(usage), UsageEvent)
+
+    def test_usage_is_emitted_even_when_content_is_unrecognised(self) -> None:
+        """用量挂在事件外层：内容块认不出（或形状变了）也不能顺手把成本吞掉。"""
+        frames = DshBackend()._translate(
+            *_notification("assistant/message", {"content": "不是数组", "usage": self._USAGE})
+        )
+        assert [f["type"] for f in frames] == ["usage"]
+
+    def test_all_zero_usage_emits_no_frame(self) -> None:
+        """三项全 0 是「没拿到统计」，不是「这轮不花钱」——不产帧（编 0 会污染成本）。"""
+        zero = {"inputTokens": 0, "outputTokens": 0, "totalTokens": 0, "cacheReadTokens": 0}
+        frames = DshBackend()._translate(
+            *_notification(
+                "assistant/message", {"message": {"content": [{"type": "text", "text": "答"}]}, "usage": zero}
+            )
+        )
+        assert [f["type"] for f in frames] == ["delta"]
+
+    def test_missing_usage_emits_no_frame(self) -> None:
+        """旧 runtime / 不上报 usage 的 provider：不产帧，也不报错。"""
+        frames = DshBackend()._translate(
+            *_notification("assistant/message", {"message": {"content": [{"type": "text", "text": "答"}]}})
+        )
+        assert [f["type"] for f in frames] == ["delta"]
+
+
 class TestTranslationShapesMatchSseContract:
     """产出的事件必须能被 ``sse_types`` 的 pydantic 模型校验（契约不同步会静默失效）。"""
 
@@ -485,6 +649,37 @@ class TestStreamBridge:
                 "run_id": "sess-1:dsh:2",
             }
         ]
+
+    def test_tool_result_frame_carries_agent_and_run_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """工具结果与工具调用同口径：出口处统一补 ``agent`` / ``run_id``。
+
+        这条也是「一轮工具循环不丢结果」的桥级证据：``tool/call`` 与 ``tool/result``
+        经过回调线程 → 队列 → 生成器后仍然配对（名字与 id 都对得上）。
+        """
+        self._patch_config(monkeypatch)
+        harness = _StubHarness(
+            [
+                _notification("tool/call", {"callId": "call-8", "name": "mcp__fachuan__web_search", "arguments": "{}"}),
+                _notification("tool/result", _tool_result_data("call-8", '{"hits": 1}')),
+                _notification("turn/end", {"reason": {"kind": "stop"}}),
+            ]
+        )
+        backend, _pool = self._backend(harness)
+
+        async def collect() -> list[dict[str, Any]]:
+            return [e async for e in backend.stream(_ctx("sess-1:dsh:3")) if e is not None]
+
+        events = asyncio.run(collect())
+        assert [e["type"] for e in events] == ["tool_call", "tool_result"]
+        assert events[1] == {
+            "type": "tool_result",
+            "tool_call_id": "call-8",
+            "name": "mcp__fachuan__web_search",
+            "result": '{"hits": 1}',
+            "is_error": False,
+            "agent": "dsh",
+            "run_id": "sess-1:dsh:3",
+        }
 
     def test_run_happens_off_the_event_loop_thread(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """``run()`` 是同步阻塞的：跑在主线程会把整个事件循环卡死（其它会话全停）。"""

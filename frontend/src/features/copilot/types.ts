@@ -13,6 +13,7 @@
 import type { CitationRef } from './domain/knowledge'
 import type { LaneUsage } from './domain/usage'
 import type { QuestionItem } from './domain/question'
+import type { ToolRunState } from './domain/tool-view'
 
 export type { CitationRef, CitationKind } from './domain/knowledge'
 export type { MentionCandidate, MentionInsert, MentionKind } from './domain/mention'
@@ -152,7 +153,7 @@ export interface BizHint {
   refId: number
 }
 
-export interface ChatMessage {
+export interface ChatMessage extends ToolRunState {
   id: string
   role: 'user' | 'assistant' | 'tool'
   /**

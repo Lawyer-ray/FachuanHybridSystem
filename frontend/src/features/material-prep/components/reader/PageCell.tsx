@@ -16,17 +16,24 @@ export type { PageRect } from './ui'
 export type { EngineBoxGroup }
 
 /**
- * 普通定位框的描边样式（按精度分三档）。
+ * 普通定位框的描边样式（按精度分四档）。
  *
  * 以前只有「虚线/实线」两种，而 ``approx`` 同时盖了两种完全不同的不可信程度——
  * 整页大框（坐标无意义）与表格半格框（左右列对齐、纵向行高不均）画出来一模一样，
- * 律师无法判断值不值得去核对。三档分开后：
- *   exact → 实线（可信）
- *   cell  → 虚线（八九不离十，可去核）
+ * 律师无法判断值不值得去核对。分档后：
+ *   exact → 实线（引擎原生 bbox，可信）
+ *   grid  → 实线 + 稍深一档、线宽 1.5px（原表**实测**格子，可信且比 exact 更「实」：
+ *           复核表格时要能一眼看出「这个框是量表量出来的，不是按列数除出来的」）
+ *   cell  → 虚线（均分**推算**，列宽悬殊时会整列偏出去，必须去核）
  *   page  → 虚线 + 更淡（坐标基本无意义，仅提示「这里有内容」）
+ *
+ * ⚠️ 未知取值一律落到最后一档（最淡）：后端加了新档位而这里没跟上时，宁可画得不确定，
+ * 也不能让律师以为它是量出来的。`grid` 必须在 `exact` 之前判——两者都是实线，
+ * 落到 `exact` 分支就等于把新档位吃掉（视觉上无从区分，白改后端）。
  */
 function hitBoxClass(h: { approx?: boolean; precision?: RectPrecision }): string {
   const precision = h.precision ?? rectPrecisionOf(h)
+  if (precision === 'grid') return 'border-[1.5px] border-sky-700/80'
   if (precision === 'exact') return 'border border-sky-500/70'
   if (precision === 'cell') return 'border border-sky-500/60 border-dashed'
   return 'border border-sky-500/40 border-dashed'
@@ -206,7 +213,7 @@ export const PageCell = memo(function PageCell({
           </div>
         ))}
 
-        {/* 识别定位：云端识别出的正文块（虚线=整页近似框，不给假精度） */}
+        {/* 识别定位：云端识别出的正文块（实线=量出来的 / 虚线=推算 / 最淡虚线=整页近似） */}
         {hits.map((h) => {
           const on = focusedHitKey === h.key
           // 有选中块时其余框淡化：不同时亮一片，才看得出「这一条对应哪一个框」

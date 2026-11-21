@@ -28,6 +28,8 @@ def _storage(tmp_path: Path) -> Any:
     storage = MagicMock()
     storage.engine_disagreements_json_path = tmp_path / "engine_disagreements.json"
     storage.extract_summary_json_path = tmp_path / "extract_summary.json"
+    storage.table_geometry_json_path = tmp_path / "table_geometry.json"
+    storage.pages_json_path = tmp_path / "pages.json"
 
     def write_json(path: Path, payload: object) -> None:
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -132,3 +134,108 @@ class TestLoadExtractSummaryDegradation:
 
         with patch.object(Path, "read_text", side_effect=OSError("permission denied")):
             assert two_stage.load_extract_summary(storage) == {}
+
+
+class TestTableGeometryRoundTrip:
+    """表格几何产物：三个 ``build_segments_markdown`` 调用点共享的那份文件。
+
+    不落盘的后果不是“少一个字段”，而是「确认分段后点格子又画错」——
+    重建路径（confirm）拿不到内存里的几何，只能退回整表框。
+    """
+
+    @staticmethod
+    def _artifact() -> dict[str, Any]:
+        return {
+            "engine": "pp_structure_v3",
+            "generated_at": "2026-11-21T00:00:00+00:00",
+            "summary": {"mode": "batch", "pages_total": 1, "pages_measured": 1, "cells_total": 1},
+            "pages": {
+                "10": {
+                    "tables": {
+                        "0": {
+                            "rows": 1,
+                            "cols": 1,
+                            "cells": [
+                                {
+                                    "text": "甲",
+                                    "row": 0,
+                                    "col": 0,
+                                    "row_span": 1,
+                                    "col_span": 1,
+                                    "rect": {"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4},
+                                }
+                            ],
+                            "crop": [0.0, 0.0, 1.0, 1.0],
+                            "block_index": 0,
+                            "pp_bbox": {"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4},
+                            "match": {"block_index": 0, "table_index": 0, "iou": 0.98, "margin": 0.98, "reason": "matched"},
+                            "diagnostics": {"text_source": "table_ocr_pred"},
+                        }
+                    },
+                    "skipped": {"1": "unmatched_pp_table"},
+                }
+            },
+        }
+
+    def test_落盘读回往返(self, tmp_path: Path) -> None:
+        storage = _storage(tmp_path)
+
+        two_stage.save_table_geometry(storage, self._artifact())
+
+        assert storage.table_geometry_json_path.exists(), "几何必须真实落盘，否则 confirm 重建会退回整表框"
+        assert two_stage.load_table_geometry_payload(storage) == self._artifact()
+
+    def test_读回后能解析成定位映射(self, tmp_path: Path) -> None:
+        storage = _storage(tmp_path)
+        two_stage.save_table_geometry(storage, self._artifact())
+
+        geometry = two_stage.load_table_geometry(storage)
+
+        assert set(geometry) == {10}
+        assert geometry[10][0].rows == 1
+        assert geometry[10][0].cells[0].text == "甲"
+        assert geometry[10][0].match == self._artifact()["pages"]["10"]["tables"]["0"]["match"]
+
+    def test_缺产物回空表(self, tmp_path: Path) -> None:
+        """旧任务/关着开关都没有这个产物 → 定位退回整表框，正文照常。"""
+        storage = _storage(tmp_path)
+
+        assert two_stage.load_table_geometry_payload(storage) == {}
+        assert two_stage.load_table_geometry(storage) == {}
+
+    def test_损坏产物回空表(self, tmp_path: Path) -> None:
+        storage = _storage(tmp_path)
+        storage.table_geometry_json_path.write_text('{"pages": {', encoding="utf-8")
+
+        assert two_stage.load_table_geometry_payload(storage) == {}
+        assert two_stage.load_table_geometry(storage) == {}
+
+    def test_产物缺失即过期(self, tmp_path: Path) -> None:
+        storage = _storage(tmp_path)
+        storage.pages_json_path.write_text("[]", encoding="utf-8")
+
+        assert two_stage.table_geometry_is_stale(storage) is True
+
+    def test_产物早于_pages_json_即过期(self, tmp_path: Path) -> None:
+        """重跑取字会重写 pages.json：旧几何的块下标已经对不上，必须重量。"""
+        import os
+
+        storage = _storage(tmp_path)
+        storage.table_geometry_json_path.write_text("{}", encoding="utf-8")
+        storage.pages_json_path.write_text("[]", encoding="utf-8")
+        os.utime(storage.table_geometry_json_path, (1_000_000, 1_000_000))
+        os.utime(storage.pages_json_path, (2_000_000, 2_000_000))
+
+        assert two_stage.table_geometry_is_stale(storage) is True
+
+    def test_产物比_pages_json_新时命中缓存(self, tmp_path: Path) -> None:
+        """分段重跑命中产物即跳过，不重复付费调引擎。"""
+        import os
+
+        storage = _storage(tmp_path)
+        storage.pages_json_path.write_text("[]", encoding="utf-8")
+        storage.table_geometry_json_path.write_text("{}", encoding="utf-8")
+        os.utime(storage.pages_json_path, (1_000_000, 1_000_000))
+        os.utime(storage.table_geometry_json_path, (2_000_000, 2_000_000))
+
+        assert two_stage.table_geometry_is_stale(storage) is False

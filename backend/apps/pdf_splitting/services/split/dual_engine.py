@@ -49,12 +49,15 @@ MinerU 输出版面段落。所以不能按行号硬对齐，要用 difflib 做�
 from __future__ import annotations
 
 import difflib
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from apps.document_parsing.protocols.document_parser_protocol import BLOCK_TYPE_UNKNOWN
+
+from .page_rotation import derotate_rect, page_angle
 
 #: 分歧上下文截断长度。律师看的是「这一行大概在说什么」，不是全文。
 _CONTEXT_MAX_CHARS = 120
@@ -963,6 +966,21 @@ def _split_page_size(raw: Any) -> tuple[Any, Any]:
     return None, None
 
 
+def _frame_size(width: Any, height: Any) -> tuple[float, float] | None:
+    """``prunedResult`` 的 ``width``/``height`` → 正浮点二元组；不可用返回 ``None``。
+
+    方向反变换要在像素与归一化之间来回换算，没有可信的正尺寸就不做（宁可给θ=0 的
+    未变换坐标，也不拿 0 当分母算出一个飘到页外的框）。
+    """
+    try:
+        width_px, height_px = float(width), float(height)
+    except (TypeError, ValueError):
+        return None
+    if not (math.isfinite(width_px) and math.isfinite(height_px)) or width_px <= 0 or height_px <= 0:
+        return None
+    return width_px, height_px
+
+
 def normalize_paddleocr_vl_blocks(pruned_results: Any) -> list[EngineBlock]:
     """把 PaddleOCR-VL 的 ``prunedResult`` 列表统一成 ``EngineBlock``。
 
@@ -975,6 +993,12 @@ def normalize_paddleocr_vl_blocks(pruned_results: Any) -> list[EngineBlock]:
         按输入顺序拼接的块列表（跨页按 ``pruned_results`` 顺序）。**页号按列表下标 +1**：
         VL 的块本身不带页码，只能靠 ``layoutParsingResults`` 的顺序定位，
         这与 MinerU 1 起页号对齐。缺 ``width``/``height`` 时 ``rect={}`` 且 ``approx=True``。
+
+    ## 方向：``rect`` 出来时已经在**原页帧**
+
+    开启整页方向分类后 ``prunedResult`` 的坐标全在转正帧（见 ``page_rotation``）。反变换就在这里
+    做——而且**只在这里**做一次：本函数是两个消费方（``ocr_handler.vl_page_layout`` 与
+    ``dual_engine_runner``）共用的唯一入口，谁也不必再转一次。
     """
     out: list[EngineBlock] = []
     for index, pruned in enumerate(pruned_results or []):
@@ -983,6 +1007,8 @@ def normalize_paddleocr_vl_blocks(pruned_results: Any) -> list[EngineBlock]:
         page_no = index + 1
         width = pruned.get("width")
         height = pruned.get("height")
+        theta = page_angle(dict(pruned))
+        frame = _frame_size(width, height)
         raw_blocks = pruned.get("parsing_res_list")
         if not isinstance(raw_blocks, list):
             continue
@@ -997,6 +1023,10 @@ def normalize_paddleocr_vl_blocks(pruned_results: Any) -> list[EngineBlock]:
             if not bbox:
                 continue
             rect = _normalize_absolute_rect(bbox, width, height)
+            if rect is not None and theta:
+                # 转正了却拿不到可信帧尺寸 = 换不回原页帧：宁可不出框（approx=True），
+                # 也不把转正帧的坐标当作原页帧画出去。
+                rect = derotate_rect(rect, theta, rot_w=frame[0], rot_h=frame[1]) if frame else None
             # 原始 label（doc_title/text/table…）原样保留：前端要按它区分标题/表格，
             # 归一到统一词汇会丢掉对照时需要的粒度。
             out.append(

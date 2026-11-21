@@ -95,12 +95,80 @@ class GatewaySettings:
 
 
 @dataclass(frozen=True)
+class GatewayTarget:
+    """本轮真正要用的 ``(base_url, api_key, model)`` 三元组。
+
+    ## 为什么要有这个类型（而不是各后端自己拼元组）
+
+    「从 ``LLMProvider`` 解出这一轮打哪里、用哪把 key、用哪个模型」是**四个后端
+    共用的一件事**，而它的三条细节各写一份必然分叉：
+
+    1. 模型分辨率（``model_hint`` → ``default_model`` → 白名单第一个）；
+    2. key 轮转口径（``RunContext.api_key`` 有值就**不得**再轮转）；
+    3. 「缺 base_url / key / 模型」三件事都算不可用（返回 ``None`` 而不是编一个）。
+
+    历史上这段判定在 ``openai_agents_backend`` 与 ``dsh_config`` 里各有一份，
+    接第三个后端时只能靠「照抄上一份」——这里的类型是把它们收敛成唯一权威。
+    """
+
+    base_url: str
+    #: 本轮该用的 key（**明文**，不得进日志；需要标识时用
+    #: ``key_scheduler.fingerprint``）。
+    api_key: str
+    model: str
+
+    def __repr__(self) -> str:
+        # 与 GatewaySettings 同口径：dataclass 很可能被顺手 log 出去，key 不能跟着走。
+        return f"GatewayTarget(base_url={self.base_url!r}, api_key=<redacted>, model={self.model!r})"
+
+
+@dataclass(frozen=True)
 class _Entry:
     settings: GatewaySettings | None
     expires_at: float
     #: 写入时的跨进程配置代次：Admin 保存会 bump 它，其它 worker/MCP 进程据此立刻重载，
     #: 不必等 TTL（原来 MCP 与服务路径要等 300 秒，症状是「聊天好了、检索还用旧 Key」）。
     generation: int = 0
+
+
+def resolve_gateway_target(
+    settings: GatewaySettings | None, model_hint: str | None, *, api_key: str | None = None
+) -> GatewayTarget | None:
+    """把网关快照解成本轮目标；不可用时返回 ``None``（调用方报 ``UNAVAILABLE``）。
+
+    纯函数、不读库，所以可以在事件循环里直接调用（快照由
+    :func:`get_gateway_settings` 在线程里查好）。
+
+    **key 轮转在此现算**：缓存只存 provider 的静态配置（全部 key 的列表），不存
+    「这一轮选中哪把」——否则轮转序列会被冻结在缓存有效期内（见模块 docstring
+    红线二）。
+
+    **``api_key`` 非空时直接用它、不再轮转**：编排层按轮次给每一栏分配了互不
+    相同的 key（``key_scheduler``），这里再轮转等于把分配结果覆盖掉——两栏撞回
+    同一把 key 时不报错，只表现为「某一栏卡 60 秒」（网关 429 +
+    ``retry-after: 60``）。见 ``base.py`` 的 ``RunContext.api_key``。
+
+    **模型分辨率**：``model_hint``（用户本轮显式选的）→ ``default_model`` →
+    白名单第一个。**绝不写死模型名**——写死等于让 Admin 里「换模型」在后端静默
+    失效。显式指定但不在白名单里照用：白名单表达「有哪些可选」，不是硬闸门
+    （与 ``dsh_config.build_config`` 同口径，否则同一个模型 pi 能用、这栏不能用）。
+    """
+    if settings is None:
+        return None
+    if not settings.base_url or not settings.api_keys:
+        return None
+    model = (model_hint or "").strip() or settings.default_model or (settings.models[0] if settings.models else "")
+    if not model:
+        return None
+    if (api_key or "").strip():
+        chosen = (api_key or "").strip()
+    else:
+        # 延迟 import：pi.model_config 会连带拉起 pi 的 rpc / 池依赖，而本模块
+        # 在 AppConfig 阶段就可能被 import（同 ``_load`` 的处理）。
+        from ..pi.model_config import _next_key
+
+        chosen = _next_key(list(settings.api_keys), provider=getattr(settings, "name", ""))
+    return GatewayTarget(base_url=settings.base_url, api_key=chosen, model=model)
 
 
 def model_supports_thinking(model: str, provider: Any | None = None) -> bool:

@@ -358,6 +358,36 @@ class TestRecordRun:
         assert run.output_tokens == 0
         assert run.duration_ms == 0
 
+    def test_provider_resolved_without_sync_accessor(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """护栏：_record_run 是 async，平台归属必须走 aget_providers。
+
+        真机回归（2026-11-21，pi 栏 100% 复现）：这里同步调
+        ``resolve_provider_name`` → ``get_providers()`` 在事件循环里读库，抛
+        ``SynchronousOnlyOperation`` 后被吞成空列表，``AgentRun.provider``
+        静默落成空串。
+        """
+        from types import SimpleNamespace
+
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        providers = [
+            SimpleNamespace(
+                name="平台甲", priority=1, enabled=True, extra_models=["m"], default_model="m", all_models=["m"]
+            )
+        ]
+
+        def _sync_access_forbidden() -> list[Any]:
+            raise AssertionError("async 链路调用了同步 get_providers（会触发 SynchronousOnlyOperation）")
+
+        async def _aget() -> list[Any]:
+            return providers
+
+        monkeypatch.setattr(LLMProviderService, "get_providers", _sync_access_forbidden)
+        monkeypatch.setattr(LLMProviderService, "aget_providers", _aget)
+
+        run = self._record(model="m")
+        assert run.provider == "平台甲"
+
     def test_persist_failure_does_not_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """统计落库失败绝不能把已成功的对话变成报错。"""
         import asyncio

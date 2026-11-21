@@ -63,6 +63,9 @@ def _dual_engine_summary(payload: dict[str, Any]) -> dict[str, Any]:
         "engine_disagree_summary": dict(payload.get("engine_disagree_summary") or {})
         or {"high": 0, "medium": 0, "low": 0},
         "dual_engine": dict(payload.get("dual_engine") or {}),
+        # 转正页回填的记账（cross_check 阶段写好并落盘）：哪几页被 VL 换过、每页跳过原因。
+        # 空 dict = 这次没开双引擎 / 没被转正页命中——不能省这个键，否则前端要写分支。
+        "rotated_backfill": dict(payload.get("rotated_backfill") or {}),
     }
 
 
@@ -281,15 +284,20 @@ class PdfSplitService:
         为什么失败不抛异常：分歧是**附加信息**，取字早已成功且已落盘。让一个
         可选的交叉校验把整份卷宗判失败，是拿主路径给辅助功能陪葬。失败就把
         空分歧交给分段阶段，任务照常往下走。
+
+        本阶段还顺带做**转正页回填**（`rotated_backfill`）：它是全仓唯一同时拿得到
+        `pages`（extract 阶段落的 pages.json）与 `DualEngineOutcome` 的地方，所以
+        VL 回填必须在这里下手，否则 VL 认对的那些页永远进不了正文。
         """
         engines = parse_dual_engines(getattr(job, "dual_engines", ""))
         if len(engines) < 2:
             return {}
 
+        storage = PdfSplitStorage(job.id)
         # pdf_path 只在测试里显式传入；生产路径总是走任务目录下那份源文件副本
         # （任务目录自带 source/original.pdf，不依赖附件是否还在）。
         if pdf_path is None:
-            pdf_path = PdfSplitStorage(job.id).source_pdf_path
+            pdf_path = storage.source_pdf_path
         self._enter_cross_check(job)
         try:
             factories, unavailable = plan_dual_engine_factories(engines)
@@ -309,11 +317,18 @@ class PdfSplitService:
         dual["selected"] = engines
         dual["unavailable"] = unavailable
         summary["dual_engine"] = dual
+        summary["rotated_backfill"] = self._apply_rotated_page_backfill(job=job, storage=storage, outcome=outcome)
         return summary
 
     def segment_stage(self, job: PdfSplitJob) -> None:
-        """两阶段任务链 ②：从 pages.json 读回取字结果，只做分段与落库。"""
-        from . import two_stage
+        """两阶段任务链 ②：从 pages.json 读回取字结果，只做分段与落库。
+
+        本阶段额外跑一次**表格几何 pass**（DESIGN §5 方案 A）：段阶段是“唯一同时拥有
+        ``pages``、``pdf_path`` 与上游产物目录的地方”，几何必须在这里落盘，三个
+        ``build_segments_markdown`` 调用点才能共享同一份——否则会出现
+        “确认分段后点格子又画错”。
+        """
+        from . import table_geometry_switches, two_stage
         from .pipeline import PageDescriptor
 
         storage = PdfSplitStorage(job.id)
@@ -338,11 +353,20 @@ class PdfSplitService:
 
         # 跨页一致性校对与段级质量标记：与 analyze_pdf 走同一条路径（同一份判据、
         # 同一份文案），避免「单任务入口有、两阶段入口没有」的劈叉。
+        bbox_backend = self._bbox_backend(job_id=job.id, storage=storage, pages=pages)
+        table_geometry_payload, geometry, geometry_summary = self._ensure_table_geometry(
+            job=job, storage=storage, pages=pages, bbox_backend=bbox_backend
+        )
         inconsistencies = detect_inconsistencies(pages)
         segments_md = attach_page_quality_flags(
             attach_quality_flags_to_markdown(
                 build_segments_markdown(
-                    drafts, pages, bbox_backend=self._bbox_backend(job_id=job.id, storage=storage, pages=pages)
+                    drafts,
+                    pages,
+                    bbox_backend=bbox_backend,
+                    table_geometry=geometry,
+                    # 回滚开关：几何缺失时是否退回旧均分（默认关 = 整表框）
+                    legacy_uniform=table_geometry_switches.uniform_fallback_enabled(),
                 ),
                 inconsistencies,
             ),
@@ -352,6 +376,9 @@ class PdfSplitService:
             pages=pages,
             drafts=drafts,
             segments_md=segments_md,
+            # 产物随 outcome 交给 `_persist_analysis` 落盘：它写在 pages.json **之后**，
+            # 顺序反过来的话产物会比 pages.json 旧，下次分段重跑就会判“过期”重付费。
+            table_geometry=table_geometry_payload,
             summary={
                 **segment_summary,
                 # 取字阶段算好并落盘的页面质量画像。
@@ -368,12 +395,161 @@ class PdfSplitService:
                 # engine_disagree_summary，前端 draft.ts 按这两个名字消费。
                 # 没选多引擎时两个键是空列表/空计数——形状固定，前端不用判 None。
                 **_dual_engine_summary(two_stage.load_engine_disagreements(storage)),
+                # 表格几何的观测块：整表框的 reason 都在这里计数，静默降级不做
+                "table_geometry": geometry_summary,
             },
         )
         # merge_summary=False：本阶段只产出分段相关字段，不能把取字阶段写下的
         # ocr_profile / layout_mode / material_kind 抹掉（summary 只增不删）。
         self._persist_analysis(job=job, storage=storage, outcome=outcome, merge_summary=False)
         PdfSplitJob.objects.filter(id=job.id).update(stage=PdfSplitStage.DONE)
+
+    def _ensure_table_geometry(
+        self, *, job: PdfSplitJob, storage: PdfSplitStorage, pages: list[PageDescriptor], bbox_backend: str
+    ) -> tuple[dict[str, Any], dict[int, dict[int, Any]], dict[str, Any]]:
+        """几何产物：**缺/过期才量** → 返回 (原始产物, 定位映射, summary 区块)。
+
+        “缺/过期才量”是钱的问题：产物即缓存，分段重跑命中就不重复付费。
+        开关关闭时不调用引擎也不产产物（回滚开关决定定位退到均分还是整表框）。
+
+        本方法**不落盘**：产物由 ``_persist_analysis`` 在写完 ``pages.json`` 之后写，
+        否则产物会永远比 pages.json 旧，过期判定每次都成立（等于没有缓存）。
+        """
+        from . import table_geometry_pass, table_geometry_switches, two_stage
+
+        enabled, _legacy_uniform = table_geometry_switches.switches()
+        if not enabled:
+            logger.info("pdf_split_table_geometry_disabled", extra={"job_id": str(job.id)})
+            return {}, {}, table_geometry_pass.summary_block({}, enabled=False)
+
+        if two_stage.table_geometry_is_stale(storage):
+            artifact = table_geometry_pass.build_geometry_artifact(
+                pages,
+                pdf_path=storage.source_pdf_path,
+                engine=table_geometry_pass.PaddleTableGeometryEngine(),
+                bbox_backend=bbox_backend,
+                # L2 本地线条兜底（默认关）：开关只在这里读，pass 层收布尔值
+                local_lines_enabled=table_geometry_switches.local_lines_enabled(),
+            )
+            logger.info(
+                "pdf_split_table_geometry_measured",
+                extra={"job_id": str(job.id), **table_geometry_pass.summary_block(artifact, enabled=True)},
+            )
+        else:
+            artifact = two_stage.load_table_geometry_payload(storage)
+        return (
+            artifact,
+            table_geometry_pass.geometries_by_page_block(artifact),
+            table_geometry_pass.summary_block(artifact, enabled=True),
+        )
+
+    def _apply_rotated_page_backfill(
+        self, *, job: PdfSplitJob, storage: PdfSplitStorage, outcome: Any
+    ) -> dict[str, Any]:
+        """转正页回填：**全仓唯一的调用点**（判据与规则全在 `rotated_backfill`）。
+
+        双引擎跑在 cross_check 阶段，而 pages 在 extract 阶段就已落盘——本阶段是唯一
+        同时拿得到两者（又不必重新付一次云端费）的位置。回填结果写回 pages.json，
+        分段阶段与几何 pass 读到的就是修正后的正文。
+
+        整个回填包在 try 里的理由：它是**附加修正**，一个回填 bug 不能把已经付费的
+        双引擎分歧一起丢掉（那些分歧还没落盘）。失败只记 warning 并在 summary 里留
+        ``error``，任务照常往下走，正文保持原样（乱码但不丢页）。
+
+        异常类型只收具体的几个：读/写盘 ``OSError``、raw dict → dataclass 的
+        ``TypeError`` / ``KeyError``、页号脏值 ``ValueError``。
+        """
+        from . import rotated_backfill, table_geometry_switches, two_stage
+
+        enabled = table_geometry_switches.rotated_page_use_vl_text_enabled()
+        # 先给一个空判决：万一后面的写盘炸了，summary 里也要如实写出「已经改了哪几页」，
+        # 不能因为最后一步失败就把前面的替换说成没发生。
+        result = rotated_backfill.RotatedBackfillResult()
+        try:
+            raw_pages = two_stage.load_pages(storage)
+            if not raw_pages:
+                # 取字产物缺失（重排/人工重提的异常路径）：没有 pages 可回填，如实记一条
+                logger.warning("pdf_split_rotated_backfill_pages_missing", extra={"job_id": str(job.id)})
+                return rotated_backfill.summary_block(rotated_backfill.RotatedBackfillResult(), enabled=enabled)
+
+            view = rotated_backfill.vl_page_view(outcome)
+            pages = rotated_backfill.pages_from_raw(raw_pages)
+            chars_before = {page.page_no: len(str(page.text or "")) for page in pages}
+            result = rotated_backfill.apply_rotated_backfill(
+                pages,
+                angles=view.angles,
+                vl_text=view.text,
+                vl_blocks=view.blocks,
+                enabled=enabled,
+                template_key=str(getattr(job, "template_key", "") or ""),
+            )
+            if result.applied:
+                self._write_back_pages(storage=storage, raw_pages=raw_pages, pages=pages, applied=result.applied)
+            storage.write_json(
+                storage.rotated_backfill_json_path,
+                rotated_backfill.backfill_report(
+                    result,
+                    angles=view.angles,
+                    chars_before=chars_before,
+                    pages=pages,
+                    enabled=enabled,
+                    written_at=timezone.now().isoformat(),
+                ),
+            )
+        except (OSError, TypeError, ValueError, KeyError) as exc:
+            logger.warning(
+                "pdf_split_rotated_backfill_failed",
+                exc_info=True,
+                extra={"job_id": str(job.id), "error": type(exc).__name__},
+            )
+            return rotated_backfill.summary_block(result, enabled=enabled, error=type(exc).__name__)
+        return rotated_backfill.summary_block(result, enabled=enabled)
+
+    def _write_back_pages(
+        self,
+        *,
+        storage: PdfSplitStorage,
+        raw_pages: list[dict[str, Any]],
+        pages: list[PageDescriptor],
+        applied: tuple[int, ...],
+    ) -> None:
+        """把回填结果写回 pages.json：先备份，再改 raw dict，最后整体回写。
+
+        ## 为什么改 raw dict 而不是重新 ``asdict(pages)``
+
+        pages.json 是**跨阶段契约**（extract 写、segment 读）。重新序列化整份会把别的
+        版本写进去的、本版本不认识的键全部丢掉——而那些键可能正是下游要的。所以只改
+        本次真正动过的页的那几个字段（``rotated_backfill.BACKFILL_FIELDS``）。
+
+        ## 备份
+
+        覆盖前把旧文件复制成 ``pages.json.bak-<ts>``：回填是律师看不见的正文替换，
+        出问题时必须能一眼看到「换之前是什么」。
+
+        ## ⚠️ 前提：本函数只能在 segment 阶段**之前**跑
+
+        ``two_stage.table_geometry_is_stale()`` 用 mtime 判定几何产物是否过期。
+        cross_check 在 segment 之前，那时几何产物还不存在，这次 mtime 更新无害；
+        **若将来有人把 cross_check 排到 segment 之后**，几何产物就会被判成 stale
+        重量一次（多花一笔云端钱）。
+        """
+        from . import rotated_backfill
+
+        if storage.pages_json_path.exists():
+            backup_name = f"{storage.pages_json_path.name}.bak-{timezone.now().strftime('%Y%m%dT%H%M%S')}"
+            storage.save_overwrite(
+                storage.pages_json_path.with_name(backup_name), ContentFile(storage.pages_json_path.read_bytes())
+            )
+
+        wanted = set(applied)
+        by_page = {page.page_no: page for page in pages if page.page_no in wanted}
+        for item in raw_pages:
+            page = by_page.get(int(item.get("page_no") or 0))
+            if page is None:
+                continue
+            for field_name in rotated_backfill.BACKFILL_FIELDS:
+                item[field_name] = getattr(page, field_name)
+        storage.write_json(storage.pages_json_path, raw_pages)
 
     def _bbox_backend(self, *, job_id: Any, storage: PdfSplitStorage, pages: list[PageDescriptor]) -> str:
         """两阶段任务的坐标系来源：读**实际引擎**，不是任务上的平台偏好。
@@ -800,9 +976,24 @@ class PdfSplitService:
         ``ocr_profile`` / ``layout_mode`` / ``material_kind`` 等字段从 summary 里抹掉。
         summary 只增不删，前端可能还有旧消费方在读这些键。
         """
+        from . import two_stage
+
         storage.write_json(storage.pages_json_path, [asdict(item) for item in outcome.pages])
         storage.write_json(storage.segments_json_path, [asdict(item) for item in outcome.drafts])
         storage.write_json(storage.segments_md_path, outcome.segments_md)
+        # 几何产物：单任务入口（analyze_pdf）把量好的产物随 outcome 带回来，由这里落盘。
+        # 不落盘 = “用户确认分段后重建”那条路径拿不到几何 → 格子又画成整表框。
+        table_geometry_payload = getattr(outcome, "table_geometry", None)
+        if isinstance(table_geometry_payload, dict) and table_geometry_payload:
+            two_stage.save_table_geometry(storage, table_geometry_payload)
+            logger.info(
+                "pdf_split_table_geometry_saved",
+                extra={
+                    "job_id": str(job.id),
+                    "pages": len(table_geometry_payload.get("pages") or {}),
+                    "summary": table_geometry_payload.get("summary") or {},
+                },
+            )
 
         # 同名去重：LLM 常把同一类材料切成多段并给同一个名字
         # （实测一份 164 页卷宗里出现两个「居民户口簿.pdf」、两个

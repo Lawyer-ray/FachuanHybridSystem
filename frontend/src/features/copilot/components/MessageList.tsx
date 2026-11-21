@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LoadingBlock } from '@/components/shared/AsyncState'
 
 import '../copilot.css'
-import { groupAnswerRuns } from '../domain'
+import { buildTurnOutline, groupAnswerRuns } from '../domain'
 import { useScrollAnchor } from '../hooks/use-scroll-anchor'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
@@ -35,6 +35,7 @@ import { LoadOlderButton, QueueBanner, ScrollToBottomButton } from './message/Li
 import { Bubble } from './message/Bubble'
 import { QuestionCard } from './questions/QuestionCard'
 import { SelectionBarLayer } from './SelectionBar'
+import { TurnRail } from './TurnRail'
 
 /** 分页按钮的显示门槛：历史一次性拉 200 条，到了这个数才可能还有更早的 */
 const OLDER_HISTORY_THRESHOLD = 200
@@ -65,6 +66,47 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
     anchorApiRef.current = anchorApi
   })
 
+  // 轮次大纲（长会话导航）：上翻超过 60px 且 ≥4 轮才出现——短会话给一条竖条
+  // 只是噪声。当前轮由滚动位置算（**不查 store**），跳转只做 scrollIntoView：
+  // 组件本身不知道转录结构，锚点就是 `[data-prompt-id]`（见下方 map 的包装 div）。
+  const turns = useMemo(() => buildTurnOutline(messages), [messages])
+  const [rail, setRail] = useState<{ visible: boolean; activeId: string | null }>({
+    visible: false,
+    activeId: null,
+  })
+  // rAF 合帧：一帧最多量一次（滚动事件可能一帧来好几个）
+  const railRaf = useRef<number | null>(null)
+  const scheduleRailMeasure = useCallback(() => {
+    if (railRaf.current !== null) return
+    railRaf.current = window.requestAnimationFrame(() => {
+      railRaf.current = null
+      const el = scrollRef.current
+      if (!el) return
+      const visible = el.scrollTop > 60 && turns.length >= 4
+      let activeId: string | null = null
+      if (visible) {
+        // 用 rect 相减而不是 offsetTop：offsetParent 不一定是滚动容器
+        const top = el.getBoundingClientRect().top + 80
+        for (const node of el.querySelectorAll<HTMLElement>('[data-prompt-id]')) {
+          if (node.getBoundingClientRect().top <= top) activeId = node.dataset.promptId ?? activeId
+          else break
+        }
+      }
+      setRail((prev) => (prev.visible === visible && prev.activeId === activeId ? prev : { visible, activeId }))
+    })
+  }, [turns.length])
+
+  useEffect(() => () => {
+    if (railRaf.current !== null) window.cancelAnimationFrame(railRaf.current)
+  }, [])
+
+  const jumpToPrompt = useCallback((promptId: string) => {
+    const nodes = scrollRef.current?.querySelectorAll<HTMLElement>('[data-prompt-id]')
+    // 不用 CSS.escape 拼选择器：message id 形状不由前端定，逐个比对最稳
+    const node = nodes ? Array.from(nodes).find((item) => item.dataset.promptId === promptId) : undefined
+    node?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
@@ -74,6 +116,7 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
     // 记位置必须在滚动事件里：`useEffect` 的 cleanup 跑在 DOM 已换成新会话之后，
     // 那时量到的是空转录，锚点白丢（见 use-scroll-anchor 的接线说明）。
     anchorApiRef.current.saveAnchor(sessionId)
+    scheduleRailMeasure()
   }
 
   // 分组与行渲染都固定引用：`AnswerGroupView`/`MultiAnswers` 都是 memo 的，
@@ -100,6 +143,10 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
 
   // 历史就位后把位置落回这个会话上次读到的行。只在**不在 follow 状态**时做：
   // 律师正贴着底看实时输出时把视图拽回历史位置，比丢位置更糟。
+  useEffect(() => {
+    if (!streaming) scheduleRailMeasure()
+  }, [messages, streaming, scheduleRailMeasure])
+
   useEffect(() => {
     if (loadingHistory || streaming) return
     anchorApiRef.current.restoreAnchor(sessionId)
@@ -138,15 +185,21 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
         )}
         {queuePosition !== null && <QueueBanner position={queuePosition} />}
         <div className="flex flex-col gap-2.5">
-          {groups.map((group) => (
+          {groups.map((group) => {
+            const head = group.answers[0]!
+            // 每轮用户提问是轮次大纲的锚点：TurnRail 按它算当前轮、跳转也落到它
+            const promptId = head.role === 'user' ? head.id : undefined
+            return (
+            <div key={head.id} {...(promptId ? { 'data-prompt-id': promptId } : {})}>
             <AnswerGroupView
-              key={group.answers[0]!.id}
               answers={group.answers}
               // hideTools：多栏里已归位到各栏的工具行，不再当转录流独立项渲染
               // （否则未完成的工具会同时出现在气泡内活动行和外面的工具行里）
               renderAnswer={renderAnswer}
             />
-          ))}
+            </div>
+            )
+          })}
         </div>
         {approvals.length > 0 && (
           <div className="mt-2.5 flex flex-col gap-2">
@@ -166,6 +219,14 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
       </div>
       {/* 选中即引用的浮条（position: fixed，挂哪里都行；放在这里才能跟着列表的生命周期） */}
       <SelectionBarLayer />
+      {rail.visible && (
+        <TurnRail
+          turns={turns}
+          activePromptId={rail.activeId}
+          onJump={jumpToPrompt}
+          className="absolute top-3 right-2 z-10 w-56"
+        />
+      )}
       {messages.length > 0 && !atBottom && <ScrollToBottomButton onClick={scrollToBottom} />}
     </div>
   )

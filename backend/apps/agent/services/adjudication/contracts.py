@@ -35,6 +35,20 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
+@dataclass(frozen=True)
+class EquivalenceCluster:
+    """ "这几份答案其实是同一个立场"。
+
+    ``tie=True`` 表示**没有可判定的代表**（全异或平票）。这时上层必须显示"三份各说
+    各的"，绝不允许悄悄回落成第一条——那会让律师以为自己看到的是共识。
+    """
+
+    member_ids: tuple[str, ...]
+    representative_id: str
+    tie: bool = False
+
+
 #: 判定"没结论"的封闭原因集。新增原因要同时改本常量与计划文档附录 A。
 CRITERIA_UNSCORED_REASONS: frozenset[str] = frozenset(
     {
@@ -106,6 +120,15 @@ class Review(BaseModel):
     unverified: list[str] = Field(default_factory=list)
     #: 评审自身的 token 成本（与三栏的 usage 分开记，别混进生成成本）。
     tokens: dict[str, int] = Field(default_factory=dict)
+    #: 三栏答案"其实是不是同一个立场"（双向蕴含成团，见 ``chat/equivalence.py``）。
+    #:
+    #: 空列表有两种含义，**必须配合** ``clusters_error`` 才能区分：
+    #: ``clusters_error == ""`` 且为空 = 没跑成团（旧数据 / 单栏）；非空错误 = 跑了但失败。
+    #: 所以这里不用 `None`——"没跑"与"跑了失败"在契约层就是两个字段，不存在歧义。
+    clusters: list[EquivalenceCluster] = Field(default_factory=list)
+    #: 成团失败的原因（空串 = 成功或未跑）。**绝不许**把失败折算成"三份全异"：
+    #: 判等超时与"三份真的不一样"对律师是完全不同的信息。
+    clusters_error: str = ""
 
 
 @dataclass(frozen=True)
@@ -137,17 +160,56 @@ class FusedHit:
     lanes: tuple[str, ...] = field(default_factory=tuple)
 
 
-@dataclass(frozen=True)
-class EquivalenceCluster:
-    """ "这几份答案其实是同一个立场"。
+class SynthesisCitation(BaseModel):
+    """综合结论里某一句依据来自哪一栏的哪一条引用（来源锚点，不是核验结果）。"""
 
-    ``tie=True`` 表示**没有可判定的代表**（全异或平票）。这时上层必须显示"三份各说
-    各的"，绝不允许悄悄回落成第一条——那会让律师以为自己看到的是共识。
+    model_config = ConfigDict(extra="forbid")
+
+    lane: str
+    #: 从该栏原文抽出的引用串（法条名或案号），原样保留，不做归一化。
+    quote: str
+
+
+class DroppedCandidate(BaseModel):
+    """没进聚合 prompt 的候选（**必须交出去**，否则"少了一栏"看起来像聚合者漏读）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lane: str
+    #: 封闭集：``empty`` 空回答 / ``failed`` 该栏本轮失败 / ``too_long`` 超单栏长度上限被截。
+    reason: str
+
+
+#: ``DroppedCandidate.reason`` 的封闭取值。
+DROPPED_REASONS: frozenset[str] = frozenset({"empty", "failed", "too_long"})
+
+
+class Synthesis(BaseModel):
+    """一次「综合结论」的完整产物（MoA aggregator 的那一步，收敛成一份可引用的文书）。
+
+    与 ``Review`` 的分工：``Review`` 判"哪栏更好"（打分），``Synthesis`` 产"一份合成稿"
+    （结论）。两者互不依赖，可以只跑其中一个。
     """
 
-    member_ids: tuple[str, ...]
-    representative_id: str
-    tie: bool = False
+    model_config = ConfigDict(extra="forbid")
+
+    synthesis_id: str
+    session_id: str
+    turn: int
+    #: 合成后的正文（Markdown）。
+    text: str = ""
+    #: 实际执行合成的模型（不是候选模型）。
+    model: str = ""
+    #: 真正进了 prompt 的栏（顺序 = 请求顺序）。
+    lanes_used: list[str] = Field(default_factory=list)
+    #: 没进 prompt 的栏及原因；与 ``lanes_used`` 互斥且并集 = 请求的 agents。
+    dropped: list[DroppedCandidate] = Field(default_factory=list)
+    #: 逐条来源锚点（哪一栏提到的哪一条引用）。
+    citations: list[SynthesisCitation] = Field(default_factory=list)
+    #: 提到但检索/核验没兜住的引用（复用 ``chat/citation_check.verify_references``）。
+    unverified: list[str] = Field(default_factory=list)
+    #: 合成自身的 token 成本（与各栏生成成本分开记）。
+    tokens: dict[str, int] = Field(default_factory=dict)
 
 
 #: 各 lane 必须实现的公开入口（评审时逐条核对；改了要同步改计划文档）。
@@ -165,4 +227,6 @@ A4 确定性融合  backend/apps/agent/services/chat/
     fusion.py        rrf_fuse(lanes: Mapping[str, Sequence[RetrievalHit]], final_k: int) -> list[FusedHit]
     equivalence.py   cluster_answers(ids, entails) -> list[EquivalenceCluster]
     citation_check.py verify_references(...) -> list[str]       # 返回 unverified 文案
+    aggregate.py     build_aggregate_messages(task, candidates, *, max_chars) -> list[dict]
+                     synthesize(...) -> Synthesis                   # MoA aggregator 那一步
 """

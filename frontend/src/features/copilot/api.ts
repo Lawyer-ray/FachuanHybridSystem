@@ -8,8 +8,6 @@
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
 
-import type { Review } from './adjudication-types'
-import type { ReviewAdoptPayload, ReviewAdoptionEnvelope, ReviewAdoptionWire } from './domain/adoption'
 import type { AgentAttachmentReceipt, AgentBackendOption, AgentCompactReceipt, AgentHistoryMessage, AgentSession, AgentSessionStats, AgentSkillList, AgentSkillToggleReceipt, AgentSpec, AgentTaskReceipt, CopilotScope, PendingApprovalItem, PendingQuestionItem, QuestionAnswerItem, QuestionAnswerReceipt, UsageSummary } from './types'
 
 /** scope → 创建会话的请求体字段（origin + case_id/contract_id） */
@@ -63,36 +61,22 @@ export function fetchHistory(sessionId: string, limit = 200, beforeId?: number):
 }
 
 /**
- * 取某一轮的评审结果（`GET /agent/sessions/{id}/review?turn=`）。
+ * 评审 / 综合结论 / 采纳端点在 `review-api.ts`（`api.ts` 已到 450 行硬红线，按职责拆出）。
  *
- * 该轮还没评审过时后端回 404——那是**正常态**，调用方按「没有裁决卡」处理，
- * 不弹错误。`turn` 口径 = 会话里第几条 user 消息（1 起），不是消息 id；
- * 历史分页导致窗口不完整时前端算不出正确 turn，宁可不挂卡（见 domain/fusion
- * 的 `reviewTurnOf`）。
+ * 这里 re-export 保持既有 import 路径不变（`from './api'`），与 `types.ts` re-export
+ * `backend-types.ts` 同口径；新增评审类端点请直接加到 `review-api.ts`。
  */
-export function fetchReview(sessionId: string, turn: number): Promise<Review> {
-  return api.get(`agent/sessions/${sessionId}/review`, { searchParams: { turn } }).json<Review>()
-}
-
-/**
- * 提交采纳 / 标为合并 / 理由（`POST /agent/reviews/{id}/adopt`）。
- *
- * 只落一条决定，不改写任何内容（stage=shadow）。`lane=null + merged=true` 表示
- * 合并采纳；返回落库后的采纳记录。刷新后的回显走 {@link fetchReviewAdoption}，
- * 不要在这里另存一份缓存。
- */
-export function adoptReview(reviewId: string, payload: ReviewAdoptPayload): Promise<ReviewAdoptionWire> {
-  return api.post(`agent/reviews/${reviewId}/adopt`, { json: payload }).json<ReviewAdoptionWire>()
-}
-
-/**
- * 读采纳记录（`GET /agent/reviews/{id}/adoption`）。
- *
- * `adoption: null` 与 404 同义（还没人采纳）：调用方一律按「没有采纳记录」展示。
- */
-export function fetchReviewAdoption(reviewId: string): Promise<ReviewAdoptionEnvelope> {
-  return api.get(`agent/reviews/${reviewId}/adoption`).json<ReviewAdoptionEnvelope>()
-}
+export {
+  adoptReview,
+  fetchReview,
+  fetchReviewAdoption,
+  fetchReviewOptions,
+  fetchSynthesis,
+  REVIEW_TIMEOUT_MS,
+  runReview,
+  runSynthesis,
+} from './review-api'
+export type { ReviewOptions } from './review-api'
 
 /** 前端提交审批决定（同意/拒绝高危工具调用） */
 export function decideApproval(approvalId: string, approved: boolean, reason = ''): Promise<Record<string, unknown>> {
@@ -129,6 +113,23 @@ export function decideApproval(approvalId: string, approved: boolean, reason = '
  * 直接回一条 `error` 事件（不静默截断），所以前端必须先截——用户敲回车之后
  * 才被告知「选多了」是很差的体验。
  */
+/**
+ * 重生成 / 续写（`POST /agent/sessions/{id}/regenerate`，返回未消费的 SSE Response）。
+ *
+ * 与 {@link openMessageStream} 同形，所以复用同一条流消费链路；区别只在语义：
+ * **不新落用户消息**（复用原提问）、轮次号不增、开流前服务端把这一轮同栏的旧回答
+ * 标成 `metadata.superseded`（列表接口据此隐藏，行不删）。
+ *
+ * `from_message_id` 传的是**被操作那条消息的库主键**（`parseMessageId` 的结果）。
+ */
+export function openRegenerateStream(
+  sessionId: string,
+  body: { from_message_id: number; mode: 'regenerate' | 'continue'; agents?: string[] },
+  signal?: AbortSignal,
+): Promise<Response> {
+  return api.post(`agent/sessions/${sessionId}/regenerate`, { json: body, signal })
+}
+
 export function openMessageStream(
   sessionId: string,
   message: string,

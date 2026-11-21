@@ -65,6 +65,7 @@ from .dual_engine import (
     normalize_mineru_blocks,
     normalize_paddleocr_vl_blocks,
 )
+from .page_rotation import page_angle
 
 logger = logging.getLogger("apps.pdf_splitting")
 
@@ -108,14 +109,20 @@ class DualEngineOutcome:
     """一次双引擎编排的产物。
 
     ``summary`` 可以直接 ``**`` 进 job summary（两个键都是纯 dict/list）；
-    ``engine_pages`` / ``blocks_by_engine`` 是给调用方继续加工用的
-    （页级 SKU 落盘、UI 双框），不进 summary——逐页全文会把 job 详情撑到几 MB。
+    ``engine_pages`` / ``blocks_by_engine`` / ``engine_page_angles`` 是给调用方继续加工用的
+    （页级 SKU 落盘、UI 双框、转正页回填），不进 summary——逐页全文会把 job 详情撑到几 MB。
+
+    ``engine_page_angles``：``{引擎名: {页号: angle}}``，即服务端为识别把该页**转正**了
+    多少度（逆时针为正，取自 ``prunedResult.doc_preprocessor_res.angle``；缺字段/脏值记 0）。
+    只有 PaddleOCR-VL 会报（MinerU 那次调用没开方向分类，它的键恒为空 dict）。
+    这是 ``split/rotated_backfill`` 判断「这页正文该不该换成 VL 的」的唯一依据。
     """
 
     engine_pages: dict[str, dict[int, str]]
     blocks_by_engine: dict[str, list[Any]]
     disagreements: list[EngineDisagreement]
     summary: dict[str, Any] = field(default_factory=dict)
+    engine_page_angles: dict[str, dict[int, int]] = field(default_factory=dict)
 
 
 def plan_dual_engine_factories(engines: Sequence[str]) -> tuple[dict[str, Any], list[str]]:
@@ -195,15 +202,17 @@ def run_dual_engine(
 
     engine_pages: dict[str, dict[int, str]] = {}
     blocks_by_engine: dict[str, list[Any]] = {}
+    engine_page_angles: dict[str, dict[int, int]] = {}
     engine_status: dict[str, dict[str, Any]] = {}
     for engine in factories:
-        text_pages, blocks, error = raw_results.get(engine, ({}, [], "引擎未运行"))
+        text_pages, blocks, page_angles, error = raw_results.get(engine, ({}, [], {}, "引擎未运行"))
         if targets is not None:
             # 切页后上传的是从第 1 页起的小 PDF，两引擎给出的都是**相对页号**。
             # 分歧的页码必须是原卷页码——否则前端跳转和高亮会落到别的页上。
-            text_pages, blocks = _remap_to_source_pages(text_pages, blocks, targets)
+            text_pages, blocks, page_angles = _remap_to_source_pages(text_pages, blocks, page_angles, targets)
         engine_pages[engine] = text_pages
         blocks_by_engine[engine] = blocks
+        engine_page_angles[engine] = page_angles
         engine_status[engine] = {
             "ok": not error,
             "page_count": len(text_pages),
@@ -228,6 +237,7 @@ def run_dual_engine(
         engine_pages=engine_pages,
         blocks_by_engine=blocks_by_engine,
         disagreements=disagreements,
+        engine_page_angles=engine_page_angles,
         summary={
             SUMMARY_ENGINE_DISAGREEMENTS: disagreements_to_dicts(disagreements, blocks_by_disagreement=annotations),
             SUMMARY_ENGINE_DISAGREE_SUMMARY: summarize_severities(disagreements),
@@ -246,8 +256,9 @@ def run_dual_engine(
 def _remap_to_source_pages(
     text_pages: dict[int, str],
     blocks: list[Any],
+    page_angles: dict[int, int],
     targets: Sequence[int],
-) -> tuple[dict[int, str], list[Any]]:
+) -> tuple[dict[int, str], list[Any], dict[int, int]]:
     """相对页号（1..N）→ 原卷页号。
 
     只试试点页时最容易错的一步：切出来的小 PDF 第 1 页在原卷可能是第 38 页，
@@ -259,6 +270,8 @@ def _remap_to_source_pages(
     """
     mapping = {index + 1: page_no for index, page_no in enumerate(targets)}
     remapped_pages = {mapping[relative]: text for relative, text in text_pages.items() if relative in mapping}
+    # 角度也是逐页的相对页号：不跟着映射，回填会拿「第 1 页转了 270°」去换原卷最后一页
+    remapped_angles = {mapping[relative]: angle for relative, angle in page_angles.items() if relative in mapping}
     remapped_blocks: list[Any] = []
     for block in blocks:
         # block.page_no 在 EngineBlock 上是 int，但类型标注为 Any（兼容后端多样返回），
@@ -270,7 +283,7 @@ def _remap_to_source_pages(
         if source_page is None:
             continue
         remapped_blocks.append(replace(block, page_no=source_page))
-    return remapped_pages, remapped_blocks
+    return remapped_pages, remapped_blocks, remapped_angles
 
 
 def disagreement_key(item: EngineDisagreement) -> tuple[int, str, str]:
@@ -383,12 +396,12 @@ def _run_engines_parallel(
     page_numbers: Sequence[int] | None,
     total_pages: int,
     max_workers: int,
-) -> dict[str, tuple[dict[int, str], list[Any], str]]:
+) -> dict[str, tuple[dict[int, str], list[Any], dict[int, int], str]]:
     """并行跑各引擎；任一引擎抛异常只影响它自己那一份结果。"""
     if not factories:
         return {}
 
-    results: dict[str, tuple[dict[int, str], list[Any], str]] = {}
+    results: dict[str, tuple[dict[int, str], list[Any], dict[int, int], str]] = {}
     with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(factories)))) as executor:
         future_map = {
             executor.submit(_run_single_engine, engine, factory, upload_path, page_numbers, total_pages): engine
@@ -401,7 +414,7 @@ def _run_engines_parallel(
                 # 工厂本身炸了（没配 Key、依赖缺失）也走到这里：
                 # 另一个引擎的结果必须照常返回。
                 logger.exception("pdf_split_dual_engine_failed", extra={"engine": engine})
-                results[engine] = ({}, [], f"{type(exc).__name__}: {_sanitize(str(exc))}")
+                results[engine] = ({}, [], {}, f"{type(exc).__name__}: {_sanitize(str(exc))}")
     return results
 
 
@@ -411,25 +424,28 @@ def _run_single_engine(
     upload_path: Path,
     page_numbers: Sequence[int] | None,
     total_pages: int,
-) -> tuple[dict[int, str], list[Any], str]:
-    """跑单个引擎。返回 ``(逐页文本, 归一化块, 错误信息)``，错误信息为空即成功。"""
+) -> tuple[dict[int, str], list[Any], dict[int, int], str]:
+    """跑单个引擎。返回 ``(逐页文本, 归一化块, 逐页方向角, 错误信息)``，错误信息为空即成功。"""
     try:
         backend = factory()
         if engine == ENGINE_MINERU:
             return _run_mineru(backend, upload_path)
         if engine == ENGINE_PADDLEOCR_VL:
             return _run_paddleocr_vl(backend, upload_path, page_numbers=page_numbers, total_pages=total_pages)
-        return {}, [], f"未知引擎: {engine}"
+        return {}, [], {}, f"未知引擎: {engine}"
     except Exception as exc:
         logger.exception("pdf_split_dual_engine_engine_error", extra={"engine": engine})
-        return {}, [], f"{type(exc).__name__}: {_sanitize(str(exc))}"
+        return {}, [], {}, f"{type(exc).__name__}: {_sanitize(str(exc))}"
 
 
-def _run_mineru(backend: Any, upload_path: Path) -> tuple[dict[int, str], list[Any], str]:
+def _run_mineru(backend: Any, upload_path: Path) -> tuple[dict[int, str], list[Any], dict[int, int], str]:
     """MinerU：一次解析整份 PDF，从 ``layout["pages"]`` 恢复逐页文本与版面块。
 
     页号恢复与 ``OCRHandler.parse_cloud_pages`` 同一口径（``page.page_no``）：
     两处对同一份 MinerU 结果必须切出同一套页码，否则分歧的页码会和页缓存错位。
+
+    方向角**恒为空 dict**：这个后端本来就没开方向分类（它连 ``angle`` 字段都不给），
+    填 0 会让「没数据」与「确实没转正」混为一谈。
     """
     parsed = backend.parse_document(
         file_path=upload_path.as_posix(),
@@ -460,8 +476,8 @@ def _run_mineru(backend: Any, upload_path: Path) -> tuple[dict[int, str], list[A
     blocks = normalize_mineru_blocks(raw_blocks, page_sizes)
     if not pages_text:
         # 解析「成功」但一页都没出来：等同失败，否则会静默变成「没有分歧」
-        return {}, blocks, "MinerU 未返回任何按页结果"
-    return pages_text, blocks, ""
+        return {}, blocks, {}, "MinerU 未返回任何按页结果"
+    return pages_text, blocks, {}, ""
 
 
 def _block_page_no(block: Any) -> int | None:
@@ -517,17 +533,23 @@ def _run_paddleocr_vl(
     *,
     page_numbers: Sequence[int] | None,
     total_pages: int,
-) -> tuple[dict[int, str], list[Any], str]:
+) -> tuple[dict[int, str], list[Any], dict[int, int], str]:
     """PaddleOCR-VL：整份（或切好的页范围）PDF 上传，按 ``layoutParsingResults`` 下标恢复页号。
 
     页号只能按**下标 + 1** 推：VL 的结果里没有页码字段，它按上传文件的页序返回。
     切页之后上传的是一份从第 1 页开始的小 PDF，所以下标也是从 1 起。
+
+    同一趟里顺带把每页的 ``prunedResult.doc_preprocessor_res.angle`` 读出来（页号同一套
+    下标口径，不另猜页码）：它记的是服务端为了识别把页面**转正**了多少度，是转正页回填
+    （``split/rotated_backfill``）判断「这页主引擎正文该不该换掉」的唯一依据。
     """
     payload = upload_path.read_bytes()
     result = backend.recognize_bytes(payload, is_pdf=True, page_count=total_pages)
 
     layout_results = _extract_layout_results(result)
     pages_text: dict[int, str] = {}
+    page_angles: dict[int, int] = {}
+    pruned_results: list[Any] = []
     for index, item in enumerate(layout_results):
         if not isinstance(item, dict):
             continue
@@ -537,20 +559,22 @@ def _run_paddleocr_vl(
         else:
             text = str(item.get("text") or "")
         pages_text[index + 1] = text
+        pruned = item.get("prunedResult")
+        pruned_results.append(pruned)
+        page_angles[index + 1] = page_angle(pruned)
 
     if not pages_text:
         # 没有版面结果的模型（PP-OCRv5 之类）只能给整段文本，不能硬编页码：
         # 编出来就是假页码，分歧会指到错误的页。这时只返回空，让它按「失败」降级。
         merged = str(getattr(result, "text", "") or "")
         if merged.strip():
-            return {}, [], "PaddleOCR-VL 未返回逐页版面结果（可能是模型未配置为 VL）"
-        return {}, [], "PaddleOCR-VL 返回空结果"
+            return {}, [], {}, "PaddleOCR-VL 未返回逐页版面结果（可能是模型未配置为 VL）"
+        return {}, [], {}, "PaddleOCR-VL 返回空结果"
 
     # 归一化要的是每页的 ``prunedResult``（块在 ``parsing_res_list`` 里），
     # 不是 ``layoutParsingResults[i]`` 本身——直接传后者会一个块都拿不到。
-    pruned_results = [item.get("prunedResult") for item in layout_results if isinstance(item, dict)]
     blocks = normalize_paddleocr_vl_blocks(pruned_results)
-    return pages_text, blocks, ""
+    return pages_text, blocks, page_angles, ""
 
 
 def _extract_layout_results(result: Any) -> list[Any]:

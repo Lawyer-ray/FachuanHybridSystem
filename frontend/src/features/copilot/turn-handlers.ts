@@ -181,15 +181,22 @@ export function createTurnHandlers(
           toolName: event.name,
           ...(origin.kind ? { agentKind: origin.kind } : {}),
           ...(extracted ? { rewrite: extracted } : {}),
+          // 五态与耗时的起点：从「声明了这次调用」那一刻开始算，而不是结果回来才记
+          toolState: 'running',
+          startedAt: Date.now(),
+          toolArgs: event.arguments,
         })
         return messages === s.messages ? s : { messages }
       })
     },
     onToolResult: (event, origin) => {
+      // 成功/失败由事件说了算（`is_error`），不由结果文本是否为空推断
       set((s) => ({
         messages: applyToolResult(s.messages, targetOf(origin.kind), {
           ...(event.tool_call_id ? { toolCallId: event.tool_call_id } : {}),
           result: String(event.result ?? ''),
+          toolState: event.is_error === true ? 'error' : 'ok',
+          endedAt: Date.now(),
         }),
       }))
       // AI 把修订写回文件夹文件（rewrite_folder_file 落盘成功）：广播给正

@@ -25334,6 +25334,47 @@
         ]
       }
     },
+    "/api/v1/agent/sessions/{session_id}/regenerate": {
+      "post": {
+        "operationId": "apps_agent_api_chat_api_regenerate_message",
+        "summary": "Regenerate Message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "重生成 / 续写（SSE，与发消息同形）。\n\n**不新落用户消息**：复用原提问（``user_message_recorded=True``），轮次号也不增\n（``turn=target.turn_no``）——否则同一个问题会变成两轮，「第几轮」这个口径当场废掉。\n\n开流前先把这一轮同栏的旧回答标 ``metadata.superseded``（幂等），列表接口据此\n隐藏它们；消息行本身不删，审计仍能回溯「AI 当时说过什么」。",
+        "tags": [
+          "Agent 对话"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/sessions/{session_id}/steer": {
       "post": {
         "operationId": "apps_agent_api_chat_api_steer_running_session",
@@ -25898,6 +25939,34 @@
         ]
       }
     },
+    "/api/v1/agent/review/options": {
+      "get": {
+        "operationId": "apps_agent_api_review_api_review_options",
+        "summary": "Review Options",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewOptions"
+                }
+              }
+            }
+          }
+        },
+        "description": "列出可选的 rubric 与 judge 模型（前端构造 ``/review`` 请求前先问这里）。\n\n``_available_models()`` 是**同步** ORM（查 LLMProvider），必须 ``sync_to_async``——\n在事件循环里直接调会抛 ``SynchronousOnlyOperation``，而它会被降级路径吞成\n\"平台没有可用模型\"，症状是按钮永远置灰而日志一片安静。",
+        "tags": [
+          "Agent 评审"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/sessions/{session_id}/review": {
       "post": {
         "operationId": "apps_agent_api_review_api_review_session",
@@ -26076,6 +26145,108 @@
         "description": "回显当前采纳结果（刷新可回放）；未采纳时 ``adoption`` 为 ``null``。",
         "tags": [
           "Agent 评审"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/sessions/{session_id}/synthesize": {
+      "post": {
+        "operationId": "apps_agent_api_synthesis_api_synthesize_session",
+        "summary": "Synthesize Session",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Synthesis"
+                }
+              }
+            }
+          }
+        },
+        "description": "对指定轮次跑一次综合结论（独立请求，不进 SSE）。",
+        "tags": [
+          "Agent 综合结论"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynthesisIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/sessions/{session_id}/synthesis": {
+      "get": {
+        "operationId": "apps_agent_api_synthesis_api_get_session_synthesis",
+        "summary": "Get Session Synthesis",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "turn",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Turn"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Synthesis"
+                }
+              }
+            }
+          }
+        },
+        "description": "回放已落库的综合结论；``turn`` 不传时取最近一次。",
+        "tags": [
+          "Agent 综合结论"
         ],
         "security": [
           {
@@ -55124,6 +55295,39 @@
         "title": "MessageIn",
         "type": "object"
       },
+      "RegenerateIn": {
+        "description": "重生成 / 续写的请求体。\n\n``from_message_id`` 可以是这一轮里的**任意一条**（提问 / 回答 / 工具行）：\n服务端按\"同一轮\"定位，不要求前端先算出是哪一栏。",
+        "properties": {
+          "from_message_id": {
+            "title": "From Message Id",
+            "type": "integer"
+          },
+          "mode": {
+            "default": "regenerate",
+            "title": "Mode",
+            "type": "string"
+          },
+          "agents": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agents"
+          }
+        },
+        "required": [
+          "from_message_id"
+        ],
+        "title": "RegenerateIn",
+        "type": "object"
+      },
       "SteerOut": {
         "description": "插话结果。``disposition`` 为 queued（已排队）或 handled（被扩展消费）。",
         "properties": {
@@ -55425,6 +55629,36 @@
         "title": "QuestionAnswerItem",
         "type": "object"
       },
+      "ReviewOptions": {
+        "description": "触发评审前前端要问的可选项（契约 §C1）。",
+        "properties": {
+          "rubric_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rubric Ids",
+            "type": "array"
+          },
+          "judge_models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Judge Models",
+            "type": "array"
+          },
+          "max_lanes": {
+            "title": "Max Lanes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rubric_ids",
+          "judge_models",
+          "max_lanes"
+        ],
+        "title": "ReviewOptions",
+        "type": "object"
+      },
       "CriteriaVerdict": {
         "additionalProperties": false,
         "description": "一条 rubric 对一栏的一次判定（N 栏 × M 条 = N×M 条）。",
@@ -55479,6 +55713,34 @@
           "lane"
         ],
         "title": "CriteriaVerdict",
+        "type": "object"
+      },
+      "EquivalenceCluster": {
+        "additionalProperties": false,
+        "description": "\"这几份答案其实是同一个立场\"。\n\n``tie=True`` 表示**没有可判定的代表**（全异或平票）。这时上层必须显示\"三份各说\n各的\"，绝不允许悄悄回落成第一条——那会让律师以为自己看到的是共识。",
+        "properties": {
+          "member_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Member Ids",
+            "type": "array"
+          },
+          "representative_id": {
+            "title": "Representative Id",
+            "type": "string"
+          },
+          "tie": {
+            "default": false,
+            "title": "Tie",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "member_ids",
+          "representative_id"
+        ],
+        "title": "EquivalenceCluster",
         "type": "object"
       },
       "LaneReview": {
@@ -55586,6 +55848,18 @@
             },
             "title": "Tokens",
             "type": "object"
+          },
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/EquivalenceCluster"
+            },
+            "title": "Clusters",
+            "type": "array"
+          },
+          "clusters_error": {
+            "default": "",
+            "title": "Clusters Error",
+            "type": "string"
           }
         },
         "required": [
@@ -55614,6 +55888,7 @@
             "type": "array"
           },
           "rubric_id": {
+            "default": "contract_answer_v1",
             "title": "Rubric Id",
             "type": "string"
           },
@@ -55621,16 +55896,13 @@
             "items": {
               "type": "string"
             },
-            "minItems": 1,
             "title": "Judge Models",
             "type": "array"
           }
         },
         "required": [
           "turn",
-          "agents",
-          "rubric_id",
-          "judge_models"
+          "agents"
         ],
         "title": "ReviewIn",
         "type": "object"
@@ -55724,6 +55996,147 @@
           "adoption"
         ],
         "title": "AdoptionEnvelope",
+        "type": "object"
+      },
+      "DroppedCandidate": {
+        "additionalProperties": false,
+        "description": "没进聚合 prompt 的候选（**必须交出去**，否则\"少了一栏\"看起来像聚合者漏读）。",
+        "properties": {
+          "lane": {
+            "title": "Lane",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lane",
+          "reason"
+        ],
+        "title": "DroppedCandidate",
+        "type": "object"
+      },
+      "Synthesis": {
+        "additionalProperties": false,
+        "description": "一次「综合结论」的完整产物（MoA aggregator 的那一步，收敛成一份可引用的文书）。\n\n与 ``Review`` 的分工：``Review`` 判\"哪栏更好\"（打分），``Synthesis`` 产\"一份合成稿\"\n（结论）。两者互不依赖，可以只跑其中一个。",
+        "properties": {
+          "synthesis_id": {
+            "title": "Synthesis Id",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "integer"
+          },
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "title": "Model",
+            "type": "string"
+          },
+          "lanes_used": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lanes Used",
+            "type": "array"
+          },
+          "dropped": {
+            "items": {
+              "$ref": "#/components/schemas/DroppedCandidate"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesisCitation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "unverified": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unverified",
+            "type": "array"
+          },
+          "tokens": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Tokens",
+            "type": "object"
+          }
+        },
+        "required": [
+          "synthesis_id",
+          "session_id",
+          "turn"
+        ],
+        "title": "Synthesis",
+        "type": "object"
+      },
+      "SynthesisCitation": {
+        "additionalProperties": false,
+        "description": "综合结论里某一句依据来自哪一栏的哪一条引用（来源锚点，不是核验结果）。",
+        "properties": {
+          "lane": {
+            "title": "Lane",
+            "type": "string"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lane",
+          "quote"
+        ],
+        "title": "SynthesisCitation",
+        "type": "object"
+      },
+      "SynthesisIn": {
+        "description": "触发一次综合结论所需的上下文。",
+        "properties": {
+          "turn": {
+            "minimum": 1,
+            "title": "Turn",
+            "type": "integer"
+          },
+          "agents": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Agents",
+            "type": "array"
+          },
+          "model": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn",
+          "agents"
+        ],
+        "title": "SynthesisIn",
         "type": "object"
       },
       "AttachmentOut": {

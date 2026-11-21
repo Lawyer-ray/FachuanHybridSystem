@@ -6,11 +6,13 @@
 > 为什么放根目录：`docs/` 被 `.gitignore:257` 整个忽略（`git ls-files docs` 为空），
 > 写在那里等于没写——其他 AI 会话与后来的人都看不到。本文件**在 git 里**。
 >
-> 最近一次更新：2026-11-21（当前**无未完成项**；⑤ 经压测已关闭）。
+> 最近一次更新：2026-11-21（当前**无未完成项**；⑤ 经压测关闭、⑥ 已随 `v27.21.1` 结清）。
 >
 > **已完成**（不在本清单里了）：
 > - ① 成本归属缺 provider 维度 → `v27.20.11`（`LLMCallRecord` / `AgentRun` 加 provider + 写入 + `by_provider`）
 > - ③ `fallback_models` 只解一半 → `v27.20.11`（非流式路径按降级链重试）
+> - ⑥ agent 后端埋点缺口（dsh 无 `tool/result` 与 usage、openai-agents 无 usage 且单栏双 `done`、
+>   平台解析在 async 上下文读同步 ORM）→ `v27.21.1`（三条全部补齐，真机四栏验收通过）
 
 ---
 

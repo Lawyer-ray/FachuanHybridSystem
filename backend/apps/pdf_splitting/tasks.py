@@ -91,6 +91,9 @@ def run_cross_check_stage(job_id: str) -> None:  # pragma: no cover
                     "engine_disagreements": list(summary.get("engine_disagreements") or []),
                     "engine_disagree_summary": dict(summary.get("engine_disagree_summary") or {}),
                     "dual_engine": dict(summary.get("dual_engine") or {}),
+                    # 转正页回填的记账也要跟着落盘：summary 到分段阶段才写进 DB，
+                    # 不落盘的话「哪几页被 VL 换过正文」就只剩 rotated_backfill.json 一处。
+                    "rotated_backfill": dict(summary.get("rotated_backfill") or {}),
                 },
             )
         except Exception:
