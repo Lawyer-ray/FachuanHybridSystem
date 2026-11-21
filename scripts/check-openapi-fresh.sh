@@ -62,8 +62,20 @@ trap 'rm -f "$TMP_JSON"' EXIT
     "$PY" apiSystem/manage.py export_openapi_schema --out "$TMP_JSON" >/dev/null )
 
 # 用 python 比对并输出人话摘要（比 jq 少一个依赖，且能列出具体路径）。
+# 插件路由排除：backend/plugins 是私有子模块，CI 拿不到（GITHUB_TOKEN 无权克隆）。
+# 产物是在**带插件**的树上导出的，于是 CI 导出的 schema 天然少那批路径 —— 不排除
+# 就是永久假红（PR #669 实测：少 15 条 /automation、/court-filing、/court-guarantee）。
+# 排除只作用于「比对」：本地有插件时照常全量比，核心路由漂移仍然拦得住。
+if [ -d "$BACKEND/plugins/court_automation" ]; then
+  OPENAPI_EXCLUDE_PREFIXES="${OPENAPI_EXCLUDE_PREFIXES:-}"
+else
+  OPENAPI_EXCLUDE_PREFIXES="${OPENAPI_EXCLUDE_PREFIXES:-/api/v1/automation/,/api/v1/court-filing/,/api/v1/court-guarantee/}"
+fi
+export OPENAPI_EXCLUDE_PREFIXES
+
 SUMMARY="$("$PY" - "$TMP_JSON" "$ARTIFACT" <<'PY'
 import json
+import os
 import sys
 
 fresh_path, committed_path = sys.argv[1], sys.argv[2]
@@ -76,9 +88,22 @@ except FileNotFoundError:
     print('MISSING\t-\t-\t-\t-\t-')
     raise SystemExit(0)
 
-fp, cp = set(fresh.get("paths", {})), set(committed.get("paths", {}))
+exclude = [p for p in os.environ.get("OPENAPI_EXCLUDE_PREFIXES", "").split(",") if p]
+
+
+def _kept(path: str) -> bool:
+    return not any(path.startswith(prefix) for prefix in exclude)
+
+
+fp = {p for p in fresh.get("paths", {}) if _kept(p)}
+cp = {p for p in committed.get("paths", {}) if _kept(p)}
 fs = set(fresh.get("components", {}).get("schemas", {}))
 cs = set(committed.get("components", {}).get("schemas", {}))
+if exclude:
+    # 插件缺席时 schema 归属无法判定（插件注册的模型会以「产物多出 14 个类型」的
+    # 形式出现，而路径已经排除过）。此时只比路径——路径是更强、更稳的信号；
+    # 本地（有插件）仍然全量比 schema。
+    fs = cs = fs & cs
 added_paths, removed_paths = sorted(fp - cp), sorted(cp - fp)
 added_schemas, removed_schemas = sorted(fs - cs), sorted(cs - fs)
 drift = bool(added_paths or removed_paths or added_schemas or removed_schemas)
