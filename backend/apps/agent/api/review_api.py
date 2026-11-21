@@ -11,15 +11,22 @@
 
 ## 落库与回放
 
-每次 POST 落一行 ``AgentReview``（逐条 verdict 存 JSON）。GET 取该轮最新的
+每次 POST 落一行 ``AgentReview``（逐条 verdict / 立场成团存 JSON）。GET 取该轮最新的
 一条——刷新页面/第二天再看都能拿回同一份结果，不需要重跑 judge。
 本批只有影子模式：结果只展示，**不触发任何自动动作**。
+
+## judge 模型：前端不许猜
+
+``POST`` 的 ``judge_models`` 可省略，服务端按契约 §C2 四条解析（见
+``services/review/judge_models.py``）。前端要提前知道能选什么，问
+``GET /agent/review/options``——那里的清单来自平台真实模型表。
 """
 
 from __future__ import annotations
 
 from typing import Any, Literal, cast
 
+from asgiref.sync import sync_to_async
 from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
@@ -28,13 +35,16 @@ from pydantic import Field
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentReview, AgentReviewAdoption
-from ..services.adjudication.contracts import CriteriaVerdict, LaneReview, Review
+from ..services.adjudication.contracts import CriteriaVerdict, EquivalenceCluster, LaneReview, Review
+from ..services.chat_service import MAX_ANSWERS
 from ..services.review.adoption import find_owned_review, load_adoption, record_adoption
+from ..services.review.judge_models import configured_judge_models, resolve_judge_models
 from ..services.review.jury import run_jury
-from ..services.review.rubric import UnknownRubricError, load_rubric
-from ..services.review.store import latest_review, load_turn_answers, save_review
+from ..services.review.rubric import DEFAULT_RUBRIC_ID, UnknownRubricError, available_rubric_ids, load_rubric
+from ..services.review.store import latest_review, load_turn_answers, load_turn_models, save_review
 from ..services.session_service import get_session as get_session_record
 from ._helpers import _user_id
+from .session_api import _available_models
 
 router = Router(tags=["Agent 评审"], auth=JWTOrSessionAuth())
 
@@ -46,9 +56,22 @@ class ReviewIn(Schema):
     turn: int = Field(ge=1)
     #: 参与本轮的栏（``agent_kind``）；答案从 AgentMessage 里按栏回读。
     #: 上限与多答运行时一致（``MAX_ANSWERS = 4``），避免一次评审把 judge 预算放大。
-    agents: list[str] = Field(min_length=1, max_length=4)
-    rubric_id: str
-    judge_models: list[str] = Field(min_length=1)
+    agents: list[str] = Field(min_length=1, max_length=MAX_ANSWERS)
+    #: 默认走内置合同问答 rubric（库里还没有 rubric 表单，见 ``rubric.DEFAULT_RUBRIC_ID``）。
+    rubric_id: str = DEFAULT_RUBRIC_ID
+    #: **可省略**：空列表 = 服务端解析（§C2 第 2/3 条），不是"用不到模型"。
+    #: 之前是 ``min_length=1``，逼得前端必须猜一个模型名——猜错时评审全线
+    #: ``judge_error``，而律师只看到"三栏全没评上"。
+    judge_models: list[str] = Field(default_factory=list)
+
+
+class ReviewOptions(Schema):
+    """触发评审前前端要问的可选项（契约 §C1）。"""
+
+    rubric_ids: list[str]
+    #: 平台真实模型清单；**空列表** = 平台没有可用模型 → 前端置灰按钮并显示原因。
+    judge_models: list[str]
+    max_lanes: int
 
 
 def _normalize_lanes(agents: list[str]) -> list[str]:
@@ -57,6 +80,15 @@ def _normalize_lanes(agents: list[str]) -> list[str]:
     if not lanes:
         raise HttpError(422, "agents 不能为空")
     return lanes
+
+
+def _to_contract_cluster(item: dict[str, Any]) -> EquivalenceCluster:
+    """JSON 列 → 冻结 dataclass（``member_ids`` 列里是 list，契约要 tuple）。"""
+    return EquivalenceCluster(
+        member_ids=tuple(item.get("member_ids") or ()),
+        representative_id=str(item.get("representative_id") or ""),
+        tie=bool(item.get("tie")),
+    )
 
 
 def _to_review(record: AgentReview) -> Review:
@@ -72,6 +104,23 @@ def _to_review(record: AgentReview) -> Review:
         headline=record.headline,
         unverified=list(record.unverified),
         tokens=dict(record.tokens),
+        clusters=[_to_contract_cluster(item) for item in record.clusters],
+        clusters_error=record.clusters_error,
+    )
+
+
+@router.get("/review/options", response=ReviewOptions)
+async def review_options(request: Any) -> ReviewOptions:
+    """列出可选的 rubric 与 judge 模型（前端构造 ``/review`` 请求前先问这里）。
+
+    ``_available_models()`` 是**同步** ORM（查 LLMProvider），必须 ``sync_to_async``——
+    在事件循环里直接调会抛 ``SynchronousOnlyOperation``，而它会被降级路径吞成
+    "平台没有可用模型"，症状是按钮永远置灰而日志一片安静。
+    """
+    return ReviewOptions(
+        rubric_ids=available_rubric_ids(),
+        judge_models=await sync_to_async(_available_models, thread_sensitive=True)(),
+        max_lanes=MAX_ANSWERS,
     )
 
 
@@ -90,15 +139,27 @@ async def review_session(request: Any, session_id: str, payload: ReviewIn) -> Re
     lanes = _normalize_lanes(payload.agents)
     try:
         task, answers = await load_turn_answers(session, payload.turn, lanes)
+        # §C2 第 3 条要用本轮真正跑过的模型：不为了一次查询把解析拆成两段。
+        turn_models = await load_turn_models(session, payload.turn, lanes)
     except LookupError as exc:
         raise HttpError(404, "该轮次不存在") from exc
+
+    judge_models = resolve_judge_models(
+        requested=payload.judge_models,
+        configured=configured_judge_models(),
+        turn_models=turn_models,
+    )
+    if not judge_models:
+        # 不编默认模型名：平台上不存在的名字只会让 21 条判定全变 judge_error。
+        raise HttpError(422, "未配置评审模型")
+
     review = await run_jury(
         session_id=str(session.session_id),
         turn=payload.turn,
         task=task,
         answers=answers,
         rubric=rubric,
-        judge_models=list(payload.judge_models),
+        judge_models=judge_models,
         # rubric_id 进 Review 契约（落库另有 rubric_id 列）：离线校准按版本归因
         rubric_id=payload.rubric_id,
     )
@@ -106,7 +167,8 @@ async def review_session(request: Any, session_id: str, payload: ReviewIn) -> Re
         session=session,
         user_id=_user_id(request),
         rubric_id=payload.rubric_id,
-        judge_models=list(payload.judge_models),
+        # 落实际用过的清单（而不是请求里的空列表）：复盘时才看得出这次判官是谁。
+        judge_models=judge_models,
         review=review,
     )
     return review
