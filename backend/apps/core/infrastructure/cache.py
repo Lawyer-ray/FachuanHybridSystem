@@ -48,21 +48,29 @@ except ImportError:  # pragma: no cover
     pass
 
 
+#: 派生缓存键片段的工作因子。实测 10_000 次约 1 ms（50_000 约 5 ms，600_000 约 63 ms）。
+_KEY_COMPONENT_ITERATIONS = 10_000
+
+
 def _hash_key_component(value: str) -> str:
+    """凭据类片段的稳定摘要（32 位十六进制），用于**跨进程**缓存键的片段。"""
     import hashlib
 
     from django.conf import settings
 
     v = (value or "").strip().encode("utf-8")
-    secret = (getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
-    # 这里派生的是**缓存键**，入参是法院系统的登录账号（token_service.py:229），不是口令：
-    # 原值不落盘、不可逆、也不需要抗离线爆破，所以**不该**用慢哈希（pbkdf2/scrypt 只会让
-    # 每次取 token 多花几十毫秒）。用 keyed BLAKE2b：它就是"带密钥的短摘要"这个语义，
-    # 也避开 CodeQL 把"口令 + SHA256"当弱哈希的误报（HMAC-SHA256 写法会被拦成
-    # py/weak-sensitive-data-hashing，就地抑制注释在该分析里也没被采纳）。
-    key = secret[:64]
-    digest = hashlib.blake2b(v, key=key, digest_size=16) if key else hashlib.blake2b(v, digest_size=16)
-    return digest.hexdigest()
+    # SECRET_KEY 在这里是**pepper**（固定盐），保证同一把 key 在每个 worker 里
+    # 派生出同一个片段——这是本函数存在的理由，也是它不能换成
+    # `key_scheduler.fingerprint` 那种进程内别名的原因（别名跨进程对不上）。
+    salt = (getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")[:64]
+    # 用 PBKDF2 而不是普通摘要：入参是凭据（法院登录账号、LLM Key 明文），
+    # CodeQL 的 `py/weak-sensitive-data-hashing` 按「低熵口令」口径判定，凡把敏感值
+    # 喂给**任何**快哈希都算不安全——SHA256、HMAC-SHA256、keyed BLAKE2b 三次换算法
+    # 三次照样告警（换算法不换结论）。查询自己给的推荐就是 PBKDF2/scrypt/argon2。
+    # 迭代数按「每次调用约 1 ms」取，不是按 OWASP 的口令存储口径（600k）取：这里不落
+    # 口令校验值，输入本身是高熵 Key，工作因子只为抬高离线反推成本。别改回快哈希。
+    # 换算法会让旧缓存键一次性失效，后果只是首轮未命中。
+    return hashlib.pbkdf2_hmac("sha256", v, salt, _KEY_COMPONENT_ITERATIONS, dklen=16).hex()
 
 
 def _normalize_key_component(value: str, *, max_len: int = 64) -> str:

@@ -776,7 +776,9 @@ class TestRegressionsAroundDeletions:
     def test_llm_provider_service_import_path(self) -> None:
         from apps.core.services.llm_provider_service import LLMProviderService as S
 
-        assert S._CACHE_TTL_SECONDS == 300.0
+        # 60 而不是 300：跨进程「换了 Key」已由代次计数器即时失效（`key_health`），
+        # TTL 只剩「同一进程内兜住漏网刷新」这一件事，长 TTL 反而放大旧配置窗口。
+        assert S._CACHE_TTL_SECONDS == 60.0
 
     def test_class_var_annotations_present(self) -> None:
         """ClassVar 注解保留（classmethod 改动未破坏类型语义）。"""

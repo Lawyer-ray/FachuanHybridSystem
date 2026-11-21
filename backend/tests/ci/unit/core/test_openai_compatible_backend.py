@@ -554,8 +554,11 @@ class TestStreamInterruptionKeyPool:
             patch.object(b, "_key_pool", return_value=pool),
             patch.object(b, "_create_sync_stream", side_effect=lambda *a, **k: _raising_stream()),
         ):
-            with pytest.raises(LLMNetworkError):
-                list(b.stream([{"role": "user", "content": "hi"}], model=self.MODEL))
+            # 连续 FAILS_BEFORE_COOLDOWN 次才冷却（默认 2）：单次网络抖动不该把
+            # 健康 Key 停掉 30 秒。单 Key 池里一次 stream 只 release 一次。
+            for _ in range(KeyPool.FAILS_BEFORE_COOLDOWN):
+                with pytest.raises(LLMNetworkError):
+                    list(b.stream([{"role": "user", "content": "hi"}], model=self.MODEL))
 
         assert pool.is_cooling(0, self.MODEL)
 

@@ -82,6 +82,18 @@ def _gateway_settings(**overrides: Any) -> Any:
     return SimpleNamespace(**fields)
 
 
+def _patch_next_key(monkeypatch: pytest.MonkeyPatch, replacement: Any) -> None:
+    """把轮转函数换成桩。
+
+    patch 的是 ``pi.model_config._next_key`` 而**不是**后端模块的同名属性：判定
+    口径（有 key 就用、没有才轮转）已收敛到 ``gateway_cache.resolve_gateway_target``，
+    它在调用时才 ``from ..pi.model_config import _next_key``（见该函数），所以
+    patch 后端模块名字打不中真实调用——同一口径见
+    ``test_openai_agents_backend.py`` 与 ``test_antigravity_backend.py``。
+    """
+    monkeypatch.setattr("apps.agent.pi.model_config._next_key", replacement)
+
+
 class TestOpenAiAgentsKey:
     """``gateway_from_settings`` / ``_resolve_gateway`` 的 key 选择。"""
 
@@ -93,7 +105,7 @@ class TestOpenAiAgentsKey:
             rotated.append(keys)
             return "rotated"
 
-        monkeypatch.setattr(module, "_next_key", _next)
+        _patch_next_key(monkeypatch, _next)
         gateway = module.gateway_from_settings(_gateway_settings(), None, api_key=_SECRET)
         assert gateway == ("http://gw.internal:4000/v1", _SECRET, "kimi-2.6")
         assert rotated == [], "编排层指定了 key 就不许再轮转（会把分配结果覆盖掉）"
@@ -101,7 +113,7 @@ class TestOpenAiAgentsKey:
     def test_settings_without_key_still_rotates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """兼容底线：不传 ``api_key`` 时行为与引入该参数前逐字一致。"""
         module = _openai_module()
-        monkeypatch.setattr(module, "_next_key", lambda keys, **_kw: "rotated")
+        _patch_next_key(monkeypatch, lambda keys, **_kw: "rotated")
         gateway = module.gateway_from_settings(_gateway_settings(), None)
         assert gateway is not None
         assert gateway[1] == "rotated"
@@ -110,14 +122,14 @@ class TestOpenAiAgentsKey:
         """调用方必须把 ``ctx.api_key`` 真的传下去——参数加了但没接线等于没做。"""
         module = _openai_module()
         monkeypatch.setattr(module, "get_gateway_settings", lambda hint: _gateway_settings())
-        monkeypatch.setattr(module, "_next_key", lambda keys, **_kw: pytest.fail("ctx.api_key 有值时不得轮转"))
+        _patch_next_key(monkeypatch, lambda keys, **_kw: pytest.fail("ctx.api_key 有值时不得轮转"))
         resolved = asyncio.run(module.OpenAiAgentsBackend()._resolve_gateway(_ctx(api_key=_SECRET)))
         assert resolved.api_key == _SECRET
 
     def test_backend_falls_back_without_ctx_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         module = _openai_module()
         monkeypatch.setattr(module, "get_gateway_settings", lambda hint: _gateway_settings())
-        monkeypatch.setattr(module, "_next_key", lambda keys, **_kw: "rotated")
+        _patch_next_key(monkeypatch, lambda keys, **_kw: "rotated")
         resolved = asyncio.run(module.OpenAiAgentsBackend()._resolve_gateway(_ctx(api_key=None)))
         assert resolved.api_key == "rotated"  # pragma: allowlist secret
 

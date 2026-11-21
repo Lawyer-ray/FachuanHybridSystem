@@ -17,7 +17,7 @@ from ninja.errors import HttpError
 from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limit
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..errors import SessionNotFoundError, TooManyAgentsError, frame_for, project, project_message
+from ..errors import SessionNotFoundError, TooManyAgentsError, frame_for, project_message
 from ..models import AgentMessage
 from ..pi.rpc_client import PiError
 from ..schemas import ClearQueueOut, MessageIn, MessageOut, SteerIn, SteerOut
@@ -296,7 +296,7 @@ async def send_message(  # pragma: no cover
             # （未知后端）还是上游 SDK 错误，前端需要那个 ``code`` 才能给出
             # 「换一栏」还是「稍后重试」的可执行建议。
             logger.exception("SSE 生成器异常")
-            # 用 ``project_message``（吃**字符串**）而不是 ``project(exc)``：
+            # 用 ``project_message``（吃**字符串**）而不是 ``errors.project``（吃异常对象）：
             # 只要异常对象参与构造响应，CodeQL 的 py/stack-trace-exposure 就判成
             # "堆栈可能进响应"（error 级，实测两次都被拦）；而这条路径也不需要细分类——
             # 能走到这里说明异常已穿过 stream/multi 的全部兜底，对律师只有一个结论：
