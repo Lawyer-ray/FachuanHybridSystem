@@ -13,7 +13,9 @@ from ninja import Router
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..schemas import UsageOut
+from ..schemas.usage_schemas import UsageByAgentOut
 from ..services.usage_stats import UsageSummary
+from ..services.usage_stats import by_agent as usage_by_agent
 from ..services.usage_stats import by_model as usage_by_model
 from ..services.usage_stats import daily_series as usage_daily_series
 from ..services.usage_stats import summarize as usage_summarize
@@ -67,3 +69,16 @@ async def get_usage_daily(request: Any, days: int = 30) -> list[dict[str, Any]]:
 async def get_usage_by_model(request: Any, days: int = 30) -> list[dict[str, Any]]:  # pragma: no cover
     """按模型的用量分布。"""
     return await sync_to_async(usage_by_model, thread_sensitive=True)(user_id=_user_id(request), days=days)
+
+
+@router.get("/usage/by-agent", response=list[UsageByAgentOut])
+async def get_usage_by_agent(request: Any, days: int = 30) -> list[UsageByAgentOut]:  # pragma: no cover
+    """按 agent 后端的成本归因（哪个后端跑了多少轮、花了多少 token）。
+
+    权限口径与 ``/usage`` ``/usage/daily`` ``/usage/by-model`` 一致：只看当前用户。
+    ``by_model`` 分不清「同一个模型被两个 agent 用时钱是谁花的」，这个端点回答它。
+    空 ``agent_kind``（引入字段前的历史行）已在 SQL 侧归 ``pi``，不会多出一行
+    「(未记录)」。
+    """
+    rows = await sync_to_async(usage_by_agent, thread_sensitive=True)(user_id=_user_id(request), days=days)
+    return [UsageByAgentOut(**row) for row in rows]

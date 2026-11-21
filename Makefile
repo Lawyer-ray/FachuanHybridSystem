@@ -10,6 +10,9 @@ NC := \033[0m
 guardrails: ## 护栏通电自检：检查脚本是否都挂进了必经链（见 docs/harness/pitfalls.md PIT-005）
 	@node scripts/check-guardrails-wired.mjs --list
 
+approval-parity: ## 审批分级跨语言一致性：Node 真执行 approval-rules.ts，对同一份向量比 Python 期望值
+	@node scripts/check-approval-parity.mjs
+
 ci: ## 快速本地 CI（不需要数据库：ruff + mypy + tsc + eslint + build + bandit + pip-audit）
 	@bash scripts/ci-local.sh --quick
 
@@ -102,4 +105,4 @@ help: ## 显示帮助信息
 	@echo "安装 hook:   make install-hooks"
 	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q publish prod-restart stop start prod-logs mcp mcp-status mcp-logs mcp-verify guardrails approval-parity

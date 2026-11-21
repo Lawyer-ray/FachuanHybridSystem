@@ -274,8 +274,13 @@ export interface PendingApproval {
   riskLevel?: string
   /** 紧急级：同意前需二次确认 */
   needsSecondConfirmation?: boolean
-  /** 多答时哪个 agent 要动库表（审批事件带 `agent`；缺失 = 单栏/未标注） */
-  agentKind?: string
+  /**
+   * 哪一栏提的（`approval_request.agent` 原文）。空串 = 没有栏归属（单栏 / 旧后端），
+   * 卡片据此不渲染栏标签；多栏轮次才记，见 turn-handlers.onApproval。
+   */
+  agent?: string
+  /** 该栏的 run_id（`approval_request.run_id` 原文；空串 = 旧后端未带） */
+  runId?: string
   /** 离线待审（从 GET /approvals/pending 拉回，多来自后台任务），倒计时口径不同 */
   offline?: boolean
   /**

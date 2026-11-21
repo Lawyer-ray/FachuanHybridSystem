@@ -50,6 +50,7 @@ async def _require_case_contract(request: Any, case_id: int) -> Any:
 
 
 async def _save_or_download(
+    request: Any,
     contract_id: int | None,
     case_id: int,
     content: bytes,
@@ -58,6 +59,11 @@ async def _save_or_download(
     subdir_key: str = "contract_documents",
 ) -> Any:
     """如有合同文件夹绑定则保存文件，否则返回下载响应。"""
+    from apps.agent.services.approval.write_guard import ensure_request_not_multi_lane
+
+    # 入口 C 兜底：agent 多栏并答时不得向合同文件夹落盘（这一支会真写文件）
+    await ensure_request_not_multi_lane(request, endpoint="documents.preservation.save_or_download")
+
     if contract_id is None:
         return build_download_response(content=content, filename=filename, content_type=content_type)
 
@@ -101,6 +107,7 @@ async def download_preservation_application(request: Any, case_id: int) -> Any: 
 
     logger.info("财产保全申请书生成成功", extra={"case_id": case_id, "doc_filename": filename})
     return await _save_or_download(
+        request,
         contract_id=contract_id,
         case_id=case_id,
         content=content,
@@ -128,6 +135,7 @@ async def download_delay_delivery_application(request: Any, case_id: int) -> Any
 
     logger.info("暂缓送达申请书生成成功", extra={"case_id": case_id, "doc_filename": filename})
     return await _save_or_download(
+        request,
         contract_id=contract_id,
         case_id=case_id,
         content=content,
@@ -147,6 +155,11 @@ async def download_full_package(request: Any, case_id: int) -> Any:  # pragma: n
 
     Requirements: 3.3, 10.1
     """
+    from apps.agent.services.approval.write_guard import ensure_request_not_multi_lane
+
+    # 入口 C 兜底：ZIP 不走 `_save_or_download`（改走 extract_zip），单点拦不到
+    await ensure_request_not_multi_lane(request, endpoint="documents.preservation.package")
+
     case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 

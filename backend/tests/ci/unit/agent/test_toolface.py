@@ -156,16 +156,16 @@ class TestCrossLanguagePrefix:
         assert declared == [tool_prefix()]
 
     def test_approval_gate_ts_mentions_the_same_prefix(self) -> None:
-        """``approval-gate.ts`` 里的 ``mcp__*__`` 文本必须都是本 server 的前缀。
+        """``approval-rules.ts`` 里的 ``mcp__*__`` 文本必须都是本 server 的前缀。
 
         gate 的实现按 ``"__"`` 切尾取短名，没有前缀常量；它只在前缀指的注释里
         写出那个名字——正是后来人抄写时唯一的参照，所以它也必须与
         ``SERVER_NAME`` 一致。用正则把所有形如 ``mcp__x__`` 的片段全抓出来逐个比，
         而不是只看「有没有出现正确值」（那样错误值也能混过去）。
         """
-        source = (_PI_DIR / "approval-gate.ts").read_text(encoding="utf-8")
+        source = (_PI_DIR / "approval-rules.ts").read_text(encoding="utf-8")
         mentioned = set(re.findall(r"mcp__[A-Za-z0-9_-]+__", source))
-        assert mentioned == {tool_prefix()}, f"approval-gate.ts 提到的前缀与本 server 不一致: {sorted(mentioned)}"
+        assert mentioned == {tool_prefix()}, f"approval-rules.ts 提到的前缀与本 server 不一致: {sorted(mentioned)}"
 
     def test_only_toolface_constructs_the_prefix_from_a_literal(self) -> None:
         """``apps/`` 下除了 ``toolface`` 自己，不许再用字面量拼 ``mcp__fachuan__``。

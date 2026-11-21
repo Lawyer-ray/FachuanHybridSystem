@@ -102,6 +102,24 @@ describe('AgentBackendPicker：新建会话可切换', () => {
 
     expect(screen.getByText(/后端清单暂不可用，将使用默认后端/)).toBeTruthy()
   })
+
+  it('能力位 approval=true 不挂「无审批」，false 才挂（openai-agents 默认 true）', () => {
+    storeMock.backends = [
+      option('pi', 'Pi'),
+      option('openai-agents', 'OpenAI Agents'),
+      option('dsh', 'DeepSeek Harness', true, '', false),
+    ]
+    render(<AgentBackendPicker currentKind={null} />)
+    fireEvent.click(screen.getByRole('button', { name: /后端：Pi/ }))
+
+    expect(screen.getByRole('option', { name: /Pi/ }).querySelector('[data-no-approval-badge]')).toBeNull()
+    expect(
+      screen.getByRole('option', { name: /OpenAI Agents/ }).querySelector('[data-no-approval-badge]'),
+    ).toBeNull()
+    expect(
+      screen.getByRole('option', { name: /DeepSeek Harness/ }).querySelector('[data-no-approval-badge]'),
+    ).toBeTruthy()
+  })
 })
 
 describe('AgentBackendPicker：已有会话只读', () => {

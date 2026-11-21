@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, Clock, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { approvalWindowSec, previewToolArgs, shortToolName } from '../domain'
+import { agentLabel, approvalWindowSec, previewToolArgs, shortToolName } from '../domain'
 import { useCopilot } from '../store'
 import type { PendingApproval } from '../types'
 
@@ -92,10 +92,16 @@ export function ApprovalCard({ approval }: { approval: PendingApproval }) {
             后台任务
           </span>
         )}
-        {/* 多答时两栏可能同时要审批：不标来源，律师不知道是哪条回答要动库表 */}
-        {approval.agentKind && (
-          <span className="rounded-[4px] bg-secondary px-1 py-px text-[10.5px] text-muted-foreground">
-            {approval.agentKind}
+        {/* 多答时两栏可能同时要审批：不标来源，律师不知道是哪条回答要动库表。
+            样式与 MultiAnswers 的栏头同源（圆角/边框/字号一致），读起来就是
+            「这一栏提的」；单栏/旧后端的 agent 是空串，整枚徽标不渲染（避免噪声）。 */}
+        {approval.agent && (
+          <span
+            data-testid="approval-agent"
+            title={`由「${agentLabel(approval.agent)}」这一栏提出`}
+            className="inline-flex min-w-0 flex-none items-center rounded-[6px] border border-border bg-secondary/60 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+          >
+            {agentLabel(approval.agent)}
           </span>
         )}
         <span className="ml-auto flex flex-none items-center gap-1.5 text-[11px] tabular-nums text-muted-foreground">

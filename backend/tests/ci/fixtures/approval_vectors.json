@@ -1,0 +1,489 @@
+[
+  {
+    "name": "mcp__fachuan__list_cases",
+    "args": null,
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "读类 + 注解缺失 -> 低（旧 TS 会抬到 medium）"
+  },
+  {
+    "name": "mcp__fachuan__get_case",
+    "args": {
+      "case_id": 1
+    },
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "读类带参 + 注解缺失 -> 低"
+  },
+  {
+    "name": "mcp__fachuan__recall_memory",
+    "args": {
+      "query": "借款"
+    },
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "记忆读（recall）-> 低"
+  },
+  {
+    "name": "mcp__fachuan__delete_case",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "删除 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__undelete_x",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "子串 delete -> 高"
+  },
+  {
+    "name": "mcp__fachuan__clear_all_x",
+    "args": {},
+    "annotations": null,
+    "expected_level": "critical",
+    "expected_hard_deny": true,
+    "note": "clear_all -> 紧急 + 硬拒绝"
+  },
+  {
+    "name": "mcp__fachuan__delete_all_cases",
+    "args": {},
+    "annotations": null,
+    "expected_level": "critical",
+    "expected_hard_deny": true,
+    "note": "delete_all -> 紧急 + 硬拒绝"
+  },
+  {
+    "name": "mcp__fachuan__bulk_delete_contracts",
+    "args": {},
+    "annotations": null,
+    "expected_level": "critical",
+    "expected_hard_deny": true,
+    "note": "bulk_delete -> 紧急 + 硬拒绝"
+  },
+  {
+    "name": "mcp__fachuan__reset_and_seed",
+    "args": {},
+    "annotations": null,
+    "expected_level": "critical",
+    "expected_hard_deny": true,
+    "note": "reset_and_ -> 紧急 + 硬拒绝"
+  },
+  {
+    "name": "mcp__fachuan__file_lawsuit",
+    "args": {
+      "case_id": 1
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "file_ 递交 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__batch_create_cases",
+    "args": {
+      "count": 3
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "batch_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__list_batch_records",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "名字里含 batch_ 子串 -> 高（子串语义）"
+  },
+  {
+    "name": "mcp__fachuan__execute_court_filing",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "execute_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__trigger_oa_filing",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "trigger_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__send_document",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "send_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__upload_attachment",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "upload_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__confirm_archive",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "confirm_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__approve_workflow_step",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "approve_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__forget_memory",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "forget_ -> 高"
+  },
+  {
+    "name": "mcp__fachuan__rewrite_folder_file",
+    "args": {
+      "path": "合同.docx",
+      "instruction": "改第一段"
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "rewrite_ 2026-11 升级 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__parse_document",
+    "args": {},
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "parse_document 精确圈定 -> 中"
+  },
+  {
+    "name": "mcp__fachuan__remember",
+    "args": {
+      "text": "当事人偏好电话"
+    },
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "remember -> 中"
+  },
+  {
+    "name": "mcp__fachuan__restore_memory",
+    "args": {
+      "id": 1
+    },
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "restore_memory -> 中"
+  },
+  {
+    "name": "mcp__fachuan__update_contract",
+    "args": {
+      "amount": 100
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "写 + 金额参数 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__update_case",
+    "args": {
+      "note": "备注"
+    },
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "写 + 无敏感参数 -> 中"
+  },
+  {
+    "name": "mcp__fachuan__update_case",
+    "args": {
+      "target_amount": 5
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "写 + 金额 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__update_case",
+    "args": {
+      "Status": "closed"
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "写 + 大写敏感键 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__update_reminder",
+    "args": {
+      "due_at": "2026-01-01"
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "写 + 期限 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__create_case_log",
+    "args": {
+      "note": "记一笔"
+    },
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "常规写 -> 中"
+  },
+  {
+    "name": "mcp__fachuan__export_case_package",
+    "args": {},
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "export_ -> 中"
+  },
+  {
+    "name": "mcp__fachuan__sync_message_source",
+    "args": {},
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "sync_ -> 中"
+  },
+  {
+    "name": "mcp__fachuan__unified_generate",
+    "args": {},
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "unified_ -> 中"
+  },
+  {
+    "name": "mcp__fachuan__start_workflow",
+    "args": {
+      "deadline": "2026-02-01"
+    },
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "写 + 期限 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__calculate_interest",
+    "args": {
+      "principal": 1000
+    },
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "纯计算 -> 低（principal 不参与，非写前缀）"
+  },
+  {
+    "name": "mcp__fachuan__validate_folder_structure",
+    "args": {},
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "纯校验 -> 低"
+  },
+  {
+    "name": "mcp__fachuan__chat_with_context",
+    "args": {},
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "闲聊 -> 低"
+  },
+  {
+    "name": "mcp__skill__delete_x",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "非 fachuan 命名空间，仍按子串 delete -> 高"
+  },
+  {
+    "name": "mcp__fachuan__a__b",
+    "args": {},
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "多段命名空间 -> 低"
+  },
+  {
+    "name": "mcp__fachuan__ns__update_case",
+    "args": {
+      "note": "x"
+    },
+    "annotations": null,
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "短名归一差异：Python 短名 a__b 风格 -> 低（旧 TS 判中）"
+  },
+  {
+    "name": "delete_case",
+    "args": {},
+    "annotations": null,
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "无前缀短名 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__list_cases",
+    "args": {},
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": null,
+      "openWorldHint": null
+    },
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "readOnlyHint=true -> 低"
+  },
+  {
+    "name": "mcp__fachuan__list_cases",
+    "args": {},
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": true,
+      "openWorldHint": null
+    },
+    "expected_level": "low",
+    "expected_hard_deny": false,
+    "note": "只读优先于破坏性 -> 低"
+  },
+  {
+    "name": "mcp__fachuan__delete_case",
+    "args": {},
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": null,
+      "openWorldHint": null
+    },
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "注解写错（只读）也降不了名字黑名单 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__clear_cache",
+    "args": {},
+    "annotations": null,
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "clear_ 前缀 + 注解缺失 -> 中"
+  },
+  {
+    "name": "mcp__fachuan__clear_cache",
+    "args": {},
+    "annotations": {
+      "readOnlyHint": null,
+      "destructiveHint": true,
+      "openWorldHint": null
+    },
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "destructiveHint=true -> 高"
+  },
+  {
+    "name": "mcp__fachuan__analyze_template",
+    "args": {},
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "openWorldHint": null
+    },
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "非只读 + 破坏性 -> 高"
+  },
+  {
+    "name": "mcp__fachuan__sync_lpr_rates",
+    "args": {},
+    "annotations": {
+      "readOnlyHint": null,
+      "destructiveHint": false,
+      "openWorldHint": true
+    },
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "非只读 + openWorldHint -> 高"
+  },
+  {
+    "name": "mcp__fachuan__get_case",
+    "args": {
+      "case_id": 1
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "openWorldHint": false
+    },
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "非只读且不破坏 -> 至少中"
+  },
+  {
+    "name": "mcp__fachuan__recall_memory",
+    "args": {
+      "query": "x"
+    },
+    "annotations": {
+      "readOnlyHint": null,
+      "destructiveHint": false,
+      "openWorldHint": null
+    },
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "非只读的读类 -> 中"
+  },
+  {
+    "name": "mcp__fachuan__update_case",
+    "args": {
+      "note": "x"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": null,
+      "openWorldHint": null
+    },
+    "expected_level": "medium",
+    "expected_hard_deny": false,
+    "note": "只读注解 + 写名 -> 取大 = 中"
+  },
+  {
+    "name": "mcp__fachuan__cleanup_orphan_files",
+    "args": {},
+    "annotations": {
+      "readOnlyHint": null,
+      "destructiveHint": true,
+      "openWorldHint": null
+    },
+    "expected_level": "high",
+    "expected_hard_deny": false,
+    "note": "cleanup_ + 破坏性 -> 高"
+  }
+]

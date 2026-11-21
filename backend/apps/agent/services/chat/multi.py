@@ -378,7 +378,7 @@ async def _allocate_round_leases(
     return dict(zip(kinds, leases, strict=True))
 
 
-async def _persist_answer(session: AgentSession, agent: str, memo: StreamMemo) -> None:
+async def _persist_answer(session: AgentSession, agent: str, memo: StreamMemo, *, turn_no: int = 0) -> None:
     """落库非主答正文（带 ``agent_kind``）；失败只记日志，不影响已流出的回答。"""
     text = "".join(memo.parts).strip()
     if not text:
@@ -392,6 +392,7 @@ async def _persist_answer(session: AgentSession, agent: str, memo: StreamMemo) -
             content=text,
             metadata=metadata,
             agent_kind=agent,
+            turn_no=turn_no,
         )
     except Exception:
         logger.warning("多答：非主答正文落库失败 session=%s agent=%s", session.session_id, agent, exc_info=True)
@@ -578,6 +579,7 @@ async def _close_round(
     bus: EventBus,
     session_id: str,
     external_queue: asyncio.Queue[dict[str, Any]],
+    turn_no: int = 0,
 ) -> None:
     """收尾：停掉仍在跑的栏、补落断连时未落库的栏、释放席位与订阅。
 
@@ -600,7 +602,7 @@ async def _close_round(
     for kind in agents[1:]:  # 主答由 ``stream_chat`` 自己落库，不重复落
         if kind in persisted:
             continue
-        await _persist_answer(session, kind, memos[kind])
+        await _persist_answer(session, kind, memos[kind], turn_no=turn_no)
     await stack.aclose()
     await bus.unregister(session_id, external_queue)
 
@@ -696,7 +698,7 @@ async def stream_multi(
     # 用户消息与标题只写一次：N 个后端跑的是同一条提问，各写一次会让回放里出现
     # N 条一模一样的提问。
     async with profile.timed("multi.record_user_message", session=session_id):
-        await record_user_message(session, user_message)
+        await record_user_message(session, user_message, turn_no=turn)
     # 事件总线也只订阅一次：``stream_chat`` 订阅的是「本轮会话的外部事件」
     # （审批等），多次订阅会让一条审批只被其中一个消费、其余永远收不到。
     bus = get_bus()
@@ -860,7 +862,7 @@ async def stream_multi(
             # 的线程写仍会提交，而 ``memo.message_id`` 还是 None —— 留在后面
             # 记账会让收尾路径再写一条内容一样的行。
             persisted.add(kind)
-            await _persist_answer(session, kind, memos[kind])
+            await _persist_answer(session, kind, memos[kind], turn_no=turn)
     finally:
         # 撤销多栏登记：审批层据此判断"这一刻还能不能直接改文件"。放在 finally 的
         # 第一句——它必须比收尾动作先落地，否则收尾期间模型还能拿着多栏身份调写工具。
@@ -887,6 +889,8 @@ async def stream_multi(
                 bus=bus,
                 session_id=session_id,
                 external_queue=external_queue,
+                # 断连补落库也要带本轮轮次号：否则「这一栏是哪一轮的」在库里丢失。
+                turn_no=turn,
             )
         )
         closing.add_done_callback(persist._log_task_failure)

@@ -173,6 +173,24 @@ if [ "$RUN_BACKEND" = true ] || [ "$RUN_FRONTEND" = true ]; then
 fi
 
 # ============================================================
+#  [0b] 审批分级跨语言一致性（approval parity）
+# ============================================================
+# 为什么必跑：approval-gate.ts 的分级规则是服务端 risk.py 的镜像，而它此前
+# **从未被真正执行过**（旧检查只是用正则从源码里抠数组比文本）。这条用 Node 的
+# 类型剥离直接跑 approval-rules.ts，拿与 Python 测试同一份向量逐条对账，
+# 秒级返回且不需要数据库。脚本在 scripts/check-approval-parity.mjs。
+if [ "$RUN_BACKEND" = true ]; then
+  header "0b" "审批分级跨语言 (approval parity)"
+  if ! command -v node > /dev/null 2>&1; then
+    skip "approval-parity（未安装 node）"
+  elif node "$ROOT_DIR/scripts/check-approval-parity.mjs" 2>&1; then
+    pass "approval-parity"
+  else
+    fail "approval-parity"
+  fi
+fi
+
+# ============================================================
 #  后端检查
 # ============================================================
 if [ "$RUN_BACKEND" = true ]; then

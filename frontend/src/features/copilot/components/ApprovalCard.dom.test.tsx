@@ -214,3 +214,41 @@ describe('ApprovalCard：风险分级（P0-3）', () => {
     container.remove()
   })
 })
+
+describe('ApprovalCard：按栏归位（多答）', () => {
+  it('卡上带 agent 时显示栏标签（与栏头同一套文案，不是原始 kind）', () => {
+    const { container } = render(
+      <ApprovalCard approval={approval({ agent: 'dsh', runId: 's-1:dsh:1' })} />,
+    )
+    const tag = container.querySelector('[data-testid="approval-agent"]')
+    expect(tag?.textContent).toBe('DeepSeek Harness')
+    expect(tag?.getAttribute('title')).toContain('这一栏')
+    container.remove()
+  })
+
+  it('单栏 / 旧后端（agent 为空串）不渲染栏标签', () => {
+    const { container } = render(<ApprovalCard approval={approval({ agent: '' })} />)
+    expect(container.querySelector('[data-testid="approval-agent"]')).toBeNull()
+    container.remove()
+  })
+
+  it('同名工具在两个栏同时挂起：两张卡共存，各自按 approvalId 决定', () => {
+    render(
+      <>
+        <ApprovalCard approval={approval({ approvalId: 'a-pi', toolName: 'mcp__fachuan__delete_case', agent: 'pi' })} />
+        <ApprovalCard approval={approval({ approvalId: 'a-dsh', toolName: 'mcp__fachuan__delete_case', agent: 'dsh' })} />
+      </>,
+    )
+    expect(screen.getAllByTestId('approval-agent').map((el) => el.textContent)).toEqual([
+      'Pi',
+      'DeepSeek Harness',
+    ])
+
+    const approveButtons = screen.getAllByRole('button', { name: '同意' })
+    expect(approveButtons).toHaveLength(2)
+    fireEvent.click(approveButtons[0]!)
+    fireEvent.click(approveButtons[1]!)
+    expect(storeMock.decide).toHaveBeenNthCalledWith(1, 'a-pi', true)
+    expect(storeMock.decide).toHaveBeenNthCalledWith(2, 'a-dsh', true)
+  })
+})

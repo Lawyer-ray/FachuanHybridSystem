@@ -191,7 +191,7 @@ def auto_title(user_message: str) -> str:
     return title_src[:AUTO_TITLE_LIMIT]
 
 
-async def record_user_message(session: AgentSession, user_message: str) -> None:
+async def record_user_message(session: AgentSession, user_message: str, *, turn_no: int = 0) -> None:
     """落库本轮用户消息（并在首轮补会话标题）。
 
     归编排层而不是后端（见 ``backends/base.py`` 的分工边界）：双答模式下两个
@@ -202,6 +202,7 @@ async def record_user_message(session: AgentSession, user_message: str) -> None:
         session=session,
         role=AgentMessage.Role.USER,
         content=user_message,
+        turn_no=turn_no,
     )
     updates: dict[str, Any] = {"updated_at": timezone.now()}
     if not session.title:
@@ -302,9 +303,13 @@ async def stream_chat(
     user_token = context.user_token
     prompt_text = context.prompt_text
 
+    # 轮次号必须**先于**用户消息落库算出来：用户消息也要带本轮号，否则转录分组
+    # 只能回到「一段连续非 user 算一轮」的推断（PIT 级脆弱判据）。
+    # 一轮只 INCR 一次，run_id 复用同一个值。
+    turn_no = turn if turn is not None else await next_run_turn(session_id)
     if not user_message_recorded:
         async with profile.timed("stream.record_user_message", agent=backend.kind, session=session_id):
-            await record_user_message(session, user_message)
+            await record_user_message(session, user_message, turn_no=turn_no)
 
     bus = get_bus()
     async with profile.timed("stream.bus_register", agent=backend.kind, session=session_id):
@@ -322,7 +327,6 @@ async def stream_chat(
     # 用整串做字典键。全仓没有按 ``endswith(':1')`` / ``split(':')[2]`` 的匹配，
     # 所以「后缀必须是 1」从来不是契约的一部分——真正的契约是**同一轮各栏共享
     # 一个 turn、不同轮不同 turn**。
-    turn_no = turn if turn is not None else await next_run_turn(session_id)
     run_id = f"{session_id}:{backend.kind}:{turn_no}"
     if memo is not None:
         # 事件里的 run_id 与这里同源：调用方靠它把事件归到正确的栏（见 dual.py
@@ -422,7 +426,7 @@ async def stream_chat(
                 yield event
                 if event.get("type") == "tool_result":
                     # 工具结果也带 agent_kind：双答时两栏的证据必须能对回各自的栏
-                    await persist._persist_tool_message(session, event, backend.kind)
+                    await persist._persist_tool_message(session, event, backend.kind, turn_no=turn_no)
                     # 检索类工具结果 → 本轮新增引用（一次工具调用一帧，只带新增）。
                     # ``is_error`` 的结果不产引用：失败调用的 result 是错误文案，
                     # 里面不会有命中，强行解析只会造出没有来源的角标。
@@ -525,6 +529,7 @@ async def stream_chat(
             agent_kind=backend.kind,
             cancelled=cancelled,
             error_kind=error_kind,
+            turn_no=turn_no,
             input_tokens=input_tokens_total,
             output_tokens=output_tokens_total,
             cache_read_tokens=cache_read_total,
@@ -598,6 +603,7 @@ async def stream_chat(
                 # 单后端轮次也标注来源：历史回放要靠它区分双答轮次的两栏与
                 # 普通轮次的一条（空串 = 引入本字段前的旧数据）。
                 agent_kind=backend.kind,
+                turn_no=turn_no,
             )
             if cancelled:
                 task = asyncio.ensure_future(persist_coro)

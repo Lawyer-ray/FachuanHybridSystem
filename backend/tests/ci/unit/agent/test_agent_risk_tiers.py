@@ -27,7 +27,20 @@ from apps.agent.services.approval import (
     needs_second_confirmation,
 )
 
-EXTENSION = Path(__file__).resolve().parents[4] / "apps" / "agent" / "pi" / "approval-gate.ts"
+_PI_DIR = Path(__file__).resolve().parents[4] / "apps" / "agent" / "pi"
+#: 表的唯一所在
+EXTENSION = _PI_DIR / "approval-rules.ts"
+#: A 层的接线所在（读环境 / 算分级 / 发 HTTP）
+GATE = _PI_DIR / "approval-gate.ts"
+
+
+def _layer_source() -> str:
+    """A 层的全部源码（规则 + 接线）。
+
+    2026-11 把判定表与纯函数抽到 ``approval-rules.ts`` 后，这些「存在性」
+    断言必须看两份文件：只扫其中一份会让「接线被删」或「规则被删」漏过。
+    """
+    return EXTENSION.read_text(encoding="utf-8") + "\n" + GATE.read_text(encoding="utf-8")
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +64,7 @@ def _fresh_annotation_cache() -> Any:
 def _ts_list(name: str) -> list[str]:
     source = EXTENSION.read_text(encoding="utf-8")
     match = re.search(rf"{name}: readonly string\[\] = \[(.*?)\]", source, re.S)
-    assert match is not None, f"approval-gate.ts 缺少 {name}"
+    assert match is not None, f"approval-rules.ts 缺少 {name}"
     return re.findall(r'"([^"]+)"', match.group(1))
 
 
@@ -216,7 +229,7 @@ class TestServerExtensionParity:
 
     def test_extension_has_classify_function(self) -> None:
         """extension 必须实现分级（只发 tool 名会导致服务端无法做参数级判定）。"""
-        source = EXTENSION.read_text(encoding="utf-8")
+        source = _layer_source()
         assert "classifyByName" in source
         assert "risk_level" in source
 
@@ -226,19 +239,19 @@ class TestServerExtensionParity:
 
     def test_extension_has_hard_deny_layer(self) -> None:
         """extension 必须存在硬拒绝层（命中即 block，不进审批）。"""
-        source = EXTENSION.read_text(encoding="utf-8")
+        source = _layer_source()
         assert "isHardDenied" in source
         assert "block: true" in source
 
     def test_extension_handles_annotations(self) -> None:
         """extension 必须接 MCP annotations（补名字黑名单漏掉的那部分工具）。"""
-        source = EXTENSION.read_text(encoding="utf-8")
+        source = _layer_source()
         assert "classifyByAnnotations" in source
         assert "getAllTools" in source
 
     def test_extension_handles_nested_tool_calls(self) -> None:
         """嵌套调用（聚合工具 / ctx.executeTool）父子上取大，否则成审批绕过通道。"""
-        source = EXTENSION.read_text(encoding="utf-8")
+        source = _layer_source()
         assert "parentToolCallId" in source
         assert "worse(" in source
 

@@ -32,3 +32,29 @@ class UsageOut(Schema):
     budget_tokens: int = 0
     #: 已用超预算 80% 时为真（前端黄条提醒）
     budget_warn: bool = False
+
+
+class UsageByAgentOut(Schema):
+    """按 agent 后端的成本归因行（``GET /usage/by-agent``）。
+
+    与 :class:`UsageOut` 的 ``/usage`` 是汇总／拆解关系：``total_tokens`` 同口径
+    （``input + output + cacheWrite``，**不含** cacheRead）。
+
+    多 agent 上线后同一个模型可能被两个后端同时使用，``by_model`` 分不清钱是谁
+    花的——这里按 ``AgentRun.agent_kind`` 拆开（历史空串在 SQL 侧归 ``pi``）。
+    """
+
+    #: agent 后端（``pi`` / ``dsh`` / ...）；空串已在 SQL 侧归一为 ``pi``。
+    agent_kind: str
+    runs: int
+    input_tokens: int
+    output_tokens: int
+    #: 缓存读 / 写 token。命中率见 ``cache_hit_rate``（口径同 ``UsageOut``）。
+    cache_read_tokens: int
+    cache_write_tokens: int
+    total_tokens: int
+    cache_hit_rate: float
+    #: 后端报错的轮次（失败）。
+    failed_runs: int
+    #: 用户主动中止的轮次。与 ``failed_runs`` 分开：一个是后端不稳，一个是人喊停。
+    cancelled_runs: int

@@ -73,6 +73,25 @@ _APPLY_MTIME_EPS = 1e-6
 _OWNER_KINDS = frozenset(PatchOwnerKind.values)
 
 
+def session_ids_for_patches(patch_ids: Sequence[str]) -> list[str]:
+    """这些 patch 的产出会话 id（去重前保持原顺序）。
+
+    API 层用它做「多栏拒写」的兜底判据：应用请求本身不带会话头（律师在页面上
+    点采纳），但每条 patch 行里记着它是**哪一轮、哪个会话**产出的。
+
+    放在服务层而不是 API：四层架构禁止 API 层出现 ``Model.objects``
+    （``tests/ci/structure/test_four_layer_architecture.py`` 的棘轮是 0）。
+    """
+    clean = [str(pid).strip() for pid in patch_ids if str(pid).strip()]
+    if not clean:
+        return []
+    return [
+        session_id
+        for session_id in ContractWritePatch.objects.filter(patch_id__in=clean).values_list("session_id", flat=True)
+        if session_id
+    ]
+
+
 def to_write_patch(row: ContractWritePatch) -> WritePatch:
     """存储行 → 冻结契约里的领域对象（冲突检测与应用只认领域对象）。"""
     return WritePatch(

@@ -256,6 +256,9 @@ def by_agent(*, user_id: int | None = None, days: int = DEFAULT_DAYS) -> list[di
                 "output_tokens": output_tokens,
                 "cache_read_tokens": cache_read,
                 "cache_write_tokens": cache_write,
+                # 与 ``UsageSummary.total_tokens`` 同口径：含 output 与 cacheWrite，
+                # **不含** cacheRead（重读的前缀计进去会让「谁花了多少」虚高数倍）。
+                "total_tokens": input_tokens + output_tokens + cache_write,
                 "cache_hit_rate": round(cache_read / denominator, 4) if denominator else 0.0,
                 # 失败/中止单独计：多答时一个 agent 挂掉不该让整轮看起来失败，
                 # 但运营要知道是哪个后端不稳。
