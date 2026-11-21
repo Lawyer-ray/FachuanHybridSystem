@@ -42,6 +42,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # 必须带子模块：产物 backend/openapi.json 是在**带插件**的树上导出的
+          # （plugins/court_automation 注册了 15 条 /automation、/court-filing、
+          # /court-guarantee 路由）。不拉子模块时 CI 导出的 schema 少了这批路径，
+          # 比对必然红——那是假红，与产物是否漂移无关（2026-11-21 PR #669 实测）。
+          submodules: recursive
+          # 子模块用 https 地址，避免 CI 里没有 SSH key
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v10.3.3
