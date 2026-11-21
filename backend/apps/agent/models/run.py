@@ -49,6 +49,8 @@ class AgentRun(models.Model):
         blank=True,
         verbose_name="发起人",
     )
+    #: 平台名（``LLMProvider.name``）：成本归属的一维。历史行留空 = 「未知」。
+    provider = models.CharField(max_length=50, blank=True, default="", verbose_name="平台")
     model = models.CharField(max_length=100, blank=True, default="", verbose_name="模型")
     #: 本条运行记录是**哪个 agent 后端**跑的（``pi`` / ``dsh`` / ``openai-agents``）。
     #:

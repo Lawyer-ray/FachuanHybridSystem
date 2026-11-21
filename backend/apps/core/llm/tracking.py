@@ -59,6 +59,13 @@ async def _awrite_record(**fields: Any) -> None:
     await LLMCallRecord.objects.acreate(**fields)
 
 
+def _provider_for(model: str) -> str:
+    """模型 → 平台名（供成本归属）。导入放函数内：tracking 被大量模块导入，避免环。"""
+    from apps.core.llm.provider_lookup import resolve_provider_name
+
+    return resolve_provider_name(model)
+
+
 def record_llm_call(
     *,
     backend: str,
@@ -78,6 +85,7 @@ def record_llm_call(
         _write_record(
             model=model or "-",
             backend=backend,
+            provider=_provider_for(model),
             caller=caller[:200],
             version=AUDIT_VERSION,
             success=success,
@@ -111,6 +119,7 @@ async def arecord_llm_call(
         await _awrite_record(
             model=model or "-",
             backend=backend,
+            provider=_provider_for(model),
             caller=caller[:200],
             version=AUDIT_VERSION,
             success=success,

@@ -6,32 +6,11 @@
 > 为什么放根目录：`docs/` 被 `.gitignore:257` 整个忽略（`git ls-files docs` 为空），
 > 写在那里等于没写——其他 AI 会话与后来的人都看不到。本文件**在 git 里**。
 >
-> 最近一次更新：2026-11-21（对应 `changelog/v27/v27.20/v27.20.8.md` 那一轮）。
-
----
-
-## ① 成本归属缺 provider 维度（最值钱）
-
-**现象（用户能看到什么）**
-- 「本月花了多少」「哪个平台贵」「谁的 Key 被刷」这三个问题**现在答不出来**；
-- 月度预算告警的数字和网关（LiteLLM）账单对不上；
-- 一次多答（三栏并行）花了三份钱，报表里看不出来是哪三份。
-
-**证据**
-- `backend/apps/agent/models/run.py`：`AgentRun` 只有 `model` / `agent_kind`，**没有 provider**；
-- `backend/apps/core/models/llm_record.py`：`LLMCallRecord` 只有 `backend` / `model`；
-- `backend/apps/agent/services/usage_stats.py`：预算与用量只统计 `AgentRun`（`_runs_in_window`），
-  core 服务路径写在 `LLMCallRecord` 的 token **不进预算**；上下文压缩与检索（`firm_search`）**完全不计**。
-
-**修法**
-1. `AgentRun` / `LLMCallRecord` 各加可空 `provider` 字段（2 个迁移，历史行留空 = 「未知」，不猜）；
-2. 三条后端路径（pi / dsh / openai-agents）把已解析到的平台名透传进来——`gateway_cache.GatewaySettings.name`
-   已经是现成的（v27.20.7 加的）；
-3. `usage_stats` 照 `by_agent` 的 `Coalesce(NullIf(...))` 口径加 `by_provider`；
-4. 预算口径扩到 `LLMCallRecord`；检索通道按「每次调用 ≈ ¥0.06」估算入账（或让网关回报用量）。
-
-**代价**：2 个迁移 + 3 条路径透传；报表加列。**风险**：迁移可回滚（字段可空），
-但「历史行没有 provider」必须在报表里显示为「未知」而不是回填猜测。
+> 最近一次更新：2026-11-21。
+>
+> **已完成**（不在本清单里了）：
+> - ① 成本归属缺 provider 维度 → `v27.20.11`（`LLMCallRecord` / `AgentRun` 加 provider + 写入 + `by_provider`）
+> - ③ `fallback_models` 只解一半 → `v27.20.11`（非流式路径按降级链重试）
 
 ---
 
@@ -50,24 +29,6 @@
 先做「只观测不拒绝」跑一周，拿到真实分布再决定是否拦截。
 
 **代价**：1 个迁移 + KeyPool 计数；**风险**：额度填错会误伤（所以先观察模式）。
-
----
-
-## ③ `fallback_models` 只解了一半
-
-**现象**：Admin 里现在能编辑「降级模型」了（v27.20.7 加），但**只有 pi 会真的降级**；
-core 服务路径、dsh、openai-agents 遇到主模型挂了仍然直接报错。同一个模型，换个入口就不降级。
-
-**证据**：`fallback_models` 的消费者只有 `apps/client/tasks.py`、`model_list_service.py`、
-`llm_provider_service.py`（加载进 `OpenAIProviderConfig`）、Admin 与 pi（`pi/model_config.py:411-425` 附近）；
-`apps/core/llm/backends/openai_compatible.py` 里**没有**读它的代码路径。
-
-**修法**：在 `openai_compatible` 的非流式 chat/embedding 路径上，`LLMAPIError`（可重试类）
-时按 `provider.fallback_models` 顺序换模型重试一次；流式路径不做（中途换模型会导致已流出的
-token 作废，得不偿失）。
-
-**代价**：S（一个文件 + 测试）；**风险**：降级链配错会把请求打到不支持该参数的模型上
-（所以要沿用 `_build_payload` 的模型能力判定）。
 
 ---
 

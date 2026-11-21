@@ -303,3 +303,56 @@ def by_model(*, user_id: int | None = None, days: int = DEFAULT_DAYS) -> list[di
             }
         )
     return result
+
+
+def by_provider(*, user_id: int | None = None, days: int = DEFAULT_DAYS) -> list[dict[str, Any]]:
+    """按**平台**分组（哪个网关/平台花钱最多）。
+
+    ## 与 by_model / by_agent 的分工
+
+    - ``by_model``：哪个模型贵；
+    - ``by_agent``：哪个 agent 后端贵；
+    - ``by_provider``：钱花在**哪个平台**上（律所网关 / 别的服务商）。同一个模型可能由
+      多个平台提供，同一个平台也会被多个 backend 用——三者互不替代。
+
+    ## 空串显示为「未知」，不猜
+
+    ``provider`` 字段是 2026-11-21 才加的（成本归属整改），历史行必然为空。这里**不按
+    默认平台回填**：那会把别的平台的账算到它头上。报表里如实显示「未知」并保留一行，
+    让运维一眼看出「这条数据是什么时候开始有的」。
+    """
+    queryset = _runs_in_window(user_id=user_id, days=days)
+    normalized = Coalesce(NullIf("provider", Value("")), Value("未知"))
+    rows = (
+        queryset.annotate(provider_name=normalized)
+        .values("provider_name")
+        .annotate(
+            runs=Count("id"),
+            input_tokens=Sum("input_tokens"),
+            output_tokens=Sum("output_tokens"),
+            cache_read_tokens=Sum("cache_read_tokens"),
+            cache_write_tokens=Sum("cache_write_tokens"),
+            failed=Count("id", filter=Q(status=AgentRun.Status.ERROR)),
+        )
+        .order_by("-runs")
+    )
+    result = []
+    for row in rows:
+        input_tokens = int(row["input_tokens"] or 0)
+        output_tokens = int(row["output_tokens"] or 0)
+        cache_read = int(row["cache_read_tokens"] or 0)
+        cache_write = int(row["cache_write_tokens"] or 0)
+        result.append(
+            {
+                "provider": row["provider_name"],
+                "runs": int(row["runs"] or 0),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read,
+                "cache_write_tokens": cache_write,
+                # 与 UsageSummary.total_tokens 同口径：含 output 与 cacheWrite，不含 cacheRead
+                "total_tokens": input_tokens + output_tokens + cache_write,
+                "failed_runs": int(row["failed"] or 0),
+            }
+        )
+    return result

@@ -120,9 +120,12 @@ async def _record_run(
     else:
         status = AgentRun.Status.OK
     try:
+        from apps.core.llm.provider_lookup import resolve_provider_name
+
         await AgentRun.objects.acreate(
             session=session,
             user_id=user_id,
+            provider=resolve_provider_name(model),
             model=(model or "")[:100],
             agent_kind=(agent_kind or "")[:32],
             status=status,
