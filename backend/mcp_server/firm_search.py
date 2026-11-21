@@ -56,6 +56,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -74,6 +76,18 @@ ENV_TIMEOUT = "FACHUAN_FIRM_SEARCH_TIMEOUT"
 ENV_PATH = "FACHUAN_FIRM_SEARCH_PATH"
 #: 选平台的模型提示（留空 = 优先级最高的启用平台，与模型调用同口径）。
 ENV_MODEL_HINT = "FACHUAN_FIRM_SEARCH_MODEL_HINT"
+#: 检索侧的**总并发闸门**（与网关的「每 key 并发」是两件事，见 ``_concurrency_gate``）。
+ENV_MAX_CONCURRENT = "FACHUAN_FIRM_SEARCH_MAX_CONCURRENT"
+
+#: 默认总并发上限。理由见 ``_concurrency_gate`` 的实测数据：10 是安全水位。
+DEFAULT_MAX_CONCURRENT = 10
+
+#: 闸门满时最多排队多少秒；超过就快速失败（让通道层如实告诉模型「正在排队」）。
+#:
+#: 15s 的来历：30 并发 / 闸门 10 = 3 轮，实测每轮约 3s、总 12s；给 3s 余量。
+#: 等 10s 时实测 27/30（3 个 busy），等 20s 时 28/30（剩下的失败变成上游
+#: 返回畸形响应，不再是排队问题）。再长就只是在拖慢律师的等待。
+_GATE_WAIT_SECONDS = 15.0
 
 #: 百炼检索工具在网关上的注册名（``<server>-<tool>``）。
 TOOL_NAME = "WebSearch-bailian_web_search"
@@ -244,6 +258,51 @@ def _pages_from_result(result: dict[str, Any]) -> list[dict[str, Any]] | None:
     return None
 
 
+_gate_lock = threading.Lock()
+_gate: tuple[int, threading.BoundedSemaphore] | None = None
+
+
+def _concurrency_gate() -> threading.BoundedSemaphore | None:
+    """检索侧总并发闸门（**与网关的 per-key 并发是两个不同的限额**）。
+
+    ## 为什么需要它（2026-11-21 实测水位）
+
+    ``LLMProvider.concurrency_per_key=3`` 是「网关允许多少并发」，不是「上游检索
+    服务吃得下多少」。10 把 key × 3 = 30 槽位的实测结果：
+
+    | 并发 | 成功 | 耗时 |
+    |---|---|---|
+    | 5 | 5/5 | 2.4s |
+    | 10 | 10/10 | 2.8s |
+    | 20 | 14/20 | 48.5s（含 45s 超时） |
+    | 30（满槽位） | 22/30 | 23s，p50 21s |
+
+    即：**每 key 1 并发（10 并发）是安全水位**，满了会排队、变慢、甚至返回空
+    pages。所以池仍然按网关限额取槽（不顶穿网关），再加一道检索侧闸门压住上游。
+
+    闸门**不会突破网关限额**：它只会在「池允许的并发」之下再收紧。
+    设为 0 表示关闭闸门（只保留网关限额）。
+    """
+    global _gate
+    raw = (os.getenv(ENV_MAX_CONCURRENT) or "").strip()
+    try:
+        limit = int(raw) if raw else DEFAULT_MAX_CONCURRENT
+    except ValueError:
+        logger.warning("%s 不是整数（%r），回退默认 %s", ENV_MAX_CONCURRENT, raw, DEFAULT_MAX_CONCURRENT)
+        limit = DEFAULT_MAX_CONCURRENT
+    if limit <= 0:
+        return None
+    with _gate_lock:
+        if _gate is None or _gate[0] != limit:
+            _gate = (limit, threading.BoundedSemaphore(limit))
+        return _gate[1]
+
+
+def _release_gate(gate: threading.BoundedSemaphore | None) -> None:
+    if gate is not None:
+        gate.release()
+
+
 def _key_pool(cfg: FirmSearchConfig) -> Any:
     """取**与模型调用同一个** Key 池实例（参数必须逐一对齐）。
 
@@ -262,7 +321,25 @@ def _key_pool(cfg: FirmSearchConfig) -> Any:
     )
 
 
-def _post(url: str, key: str, query: str, count: int, timeout: float) -> httpx.Response:
+@dataclass(frozen=True)
+class _Fetched:
+    """一次调用的最小结果（只留 search() 需要的两个字段，便于单测替身）。"""
+
+    status_code: int
+    text: str
+
+
+def _call(url: str, key: str, query: str, count: int, timeout: float) -> _Fetched:
+    """POST 一次 ``tools/call``，**带总时长上限**。
+
+    ## 为什么必须自己算总时长（2026-11-21 实测血案）
+
+    响应是 SSE。LiteLLM 会给慢上游持续发心跳，每次读都「成功」，于是
+    ``httpx.Client(timeout=45)`` 的 read 超时（**逐次读**生效）永远不触发：
+    某个 key 的检索挂死时，单次调用实测跑了 **310 秒**才返回，直接把整轮对话
+    拖死，而通道熔断根本来不及生效。这里用 ``stream`` + 截止时刻自查，
+    超时按 ``timeout`` 秒硬截断。
+    """
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -274,10 +351,24 @@ def _post(url: str, key: str, query: str, count: int, timeout: float) -> httpx.R
         "Accept": "application/json, text/event-stream",
         "x-litellm-api-key": f"Bearer {key}",
     }
+    deadline = time.monotonic() + timeout
     # trust_env=False：与 fetch_url / 搜狗通道同口径——系统代理会把内网网关
     # 代理出去，表现为超时/502，极难排障（CLAUDE.md「内网地址必须绕过系统代理」）。
-    with httpx.Client(timeout=timeout, follow_redirects=True, trust_env=False) as client:
-        return client.post(url, headers=headers, json=payload)
+    limits = httpx.Timeout(connect=min(10.0, timeout), read=timeout, write=timeout, pool=timeout)
+    with httpx.Client(timeout=limits, follow_redirects=True, trust_env=False) as client:
+        with client.stream("POST", url, headers=headers, json=payload) as response:
+            chunks: list[bytes] = []
+            for chunk in response.iter_raw():
+                chunks.append(chunk)
+                if time.monotonic() > deadline:
+                    raise httpx.ReadTimeout(f"检索总耗时超过 {timeout:.0f} 秒（SSE 心跳不会触发逐次读超时）")
+            charset = response.charset_encoding
+            body = b"".join(chunks)
+            try:
+                text = body.decode(charset or "utf-8", errors="replace")
+            except LookupError:  # 网关声明了 Python 不认识的编码名
+                text = body.decode("utf-8", errors="replace")
+            return _Fetched(status_code=response.status_code, text=text)
 
 
 def search(query: str, count: int, config: FirmSearchConfig | None = None) -> dict[str, Any]:
@@ -286,7 +377,11 @@ def search(query: str, count: int, config: FirmSearchConfig | None = None) -> di
     **不抛异常**：所有失败都折成 ``ok=False`` + 机器可读 reason，调用方
     （``web_search``）据此决定熔断时长与给模型的措辞。
     reason 取值：``not_configured`` / ``no_key`` / ``timeout`` / ``network_error`` /
-    ``http_error`` / ``rpc_error`` / ``bad_payload`` / ``empty``。
+    ``http_error`` / ``rpc_error`` / ``bad_payload`` / ``empty`` / ``busy``。
+
+    ``empty`` 与 ``busy`` **不代表通道坏了**：前者多是上游排队/降级（实测 30 并发时
+    27% 返回空 pages），后者是我们自己的并发闸门满了——调用方不该为这两种情况
+    把整条通道冷却几分钟。
     """
     cfg = config or load_config()
     if cfg is None:
@@ -294,6 +389,22 @@ def search(query: str, count: int, config: FirmSearchConfig | None = None) -> di
     if not cfg.keys:
         return {"ok": False, "reason": "no_key", "pages": [], "detail": "兜底检索通道没有可用 Key"}
 
+    gate = _concurrency_gate()
+    if gate is not None and not gate.acquire(timeout=_GATE_WAIT_SECONDS):
+        return {
+            "ok": False,
+            "reason": "busy",
+            "pages": [],
+            "detail": f"兜底检索并发已满（上限 {DEFAULT_MAX_CONCURRENT}），排队 {_GATE_WAIT_SECONDS:.0f} 秒仍未轮到",
+        }
+    try:
+        return _search_locked(cfg, query, count)
+    finally:
+        _release_gate(gate)
+
+
+def _search_locked(cfg: FirmSearchConfig, query: str, count: int) -> dict[str, Any]:
+    """真正发请求的那一段（闸门已持有）。"""
     pool = _key_pool(cfg)
     last_error: dict[str, Any] = {"ok": False, "reason": "no_key", "pages": [], "detail": "兜底检索没有可用 Key"}
 
@@ -304,7 +415,7 @@ def search(query: str, count: int, config: FirmSearchConfig | None = None) -> di
             break
         key = pool.keys[idx]
         try:
-            resp = _post(cfg.url, key, query, count, cfg.timeout)
+            resp = _call(cfg.url, key, query, count, cfg.timeout)
         except httpx.TimeoutException:
             pool.release(idx, success=False, model="")
             logger.warning("兜底检索超时（%ss）", cfg.timeout)
@@ -342,6 +453,8 @@ def search(query: str, count: int, config: FirmSearchConfig | None = None) -> di
 
         envelope = _sse_payload(resp.text)
         if envelope is None:
+            if attempt == 0:  # 高并发下上游偶发畸形响应（实测 30 并发时出现），换一把重试
+                continue
             return {"ok": False, "reason": "bad_payload", "pages": [], "detail": "兜底检索返回了无法解析的响应体"}
         if envelope.get("error"):
             detail = str(envelope["error"])[:160]
@@ -353,6 +466,8 @@ def search(query: str, count: int, config: FirmSearchConfig | None = None) -> di
 
         pages = _pages_from_result(result)
         if pages is None:
+            if attempt == 0:
+                continue
             return {"ok": False, "reason": "bad_payload", "pages": [], "detail": "兜底检索返回结构异常（无 pages）"}
         if not pages:
             return {"ok": False, "reason": "empty", "pages": [], "detail": "兜底检索未返回任何结果"}
@@ -362,8 +477,10 @@ def search(query: str, count: int, config: FirmSearchConfig | None = None) -> di
 
 
 __all__ = [
+    "DEFAULT_MAX_CONCURRENT",
     "DEFAULT_MCP_PATH",
     "ENV_KEY",
+    "ENV_MAX_CONCURRENT",
     "ENV_MODEL_HINT",
     "ENV_PATH",
     "ENV_TIMEOUT",

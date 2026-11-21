@@ -49,6 +49,8 @@ def _isolate_web_search_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]
         firm = importlib.import_module("mcp_server.firm_search")
         monkeypatch.delenv(firm.ENV_URL, raising=False)
         monkeypatch.delenv(firm.ENV_KEY, raising=False)
+        monkeypatch.delenv(firm.ENV_MAX_CONCURRENT, raising=False)
+        monkeypatch.setattr(firm, "_gate", None, raising=False)
         # 平台配置解析也屏蔽：单测的测试库里没有 LLMProvider，
         # 真去查库既慢又会把「查库异常」混进失败原因（真实告警会被噪声淹没）。
         monkeypatch.setattr(firm, "_active_providers", list)

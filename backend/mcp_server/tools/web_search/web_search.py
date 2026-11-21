@@ -88,6 +88,18 @@ _COOLDOWN_TRANSIENT = float(os.getenv("FACHUAN_SEARCH_COOLDOWN_TRANSIENT", "60")
 #: 兜底引擎失败：本身很稳，失败多为网关侧抖动，2 分钟。
 _COOLDOWN_FIRM = float(os.getenv("FACHUAN_SEARCH_COOLDOWN_FIRM", "120"))
 
+#: 兜底引擎的按原因冷却（覆盖 ``_COOLDOWN_FIRM``）。
+#:
+#: 实测（2026-11-21）：30 并发时 27% 返回空 pages、并发 20 时出现 45s 超时——
+#: 这类失败是**上游排队/降级**，不是通道本身坏了。若一律冷却 2 分钟，一次并发
+#: 高峰就会把兜底通道整体停摆，恰好错过最需要它的时候。
+_FIRM_COOLDOWN_BY_REASON: dict[str, float] = {
+    "empty": 0.0,  # 空结果不熔断：下一次请求就该正常试
+    "busy": 10.0,  # 我们自己的并发闸门满：很快就轮到
+    "no_key": 60.0,  # 平台没配 key：等运维，别每轮都试
+    "bad_payload": 30.0,  # 上游畸形响应：偶发，短冷却即可
+}
+
 #: 进程级结果缓存（同一问题被多答双 lane 同秒各搜一次时只打一次网络）。
 _CACHE = ResultCache(ttl=float(os.getenv("FACHUAN_SEARCH_CACHE_TTL", "600")))
 #: 通道熔断状态。
@@ -509,7 +521,8 @@ def _firm_search_outcome(query: str, max_results: int, page: int) -> _Outcome | 
         if reason == "not_configured":
             return None
         detail = str(payload.get("detail") or "兜底引擎检索失败") + "。"
-        return _Outcome(False, detail=detail, reason=reason, cooldown=_COOLDOWN_FIRM)
+        cooldown = _FIRM_COOLDOWN_BY_REASON.get(reason, _COOLDOWN_FIRM)
+        return _Outcome(False, detail=detail, reason=reason, cooldown=cooldown)
 
     pages = payload.get("pages") or []
     results: list[_SearchResult] = []
@@ -527,7 +540,7 @@ def _firm_search_outcome(query: str, max_results: int, page: int) -> _Outcome | 
             )
         )
     if not results:
-        return _Outcome(False, detail="兜底引擎未返回任何结果。", reason="empty", cooldown=_COOLDOWN_FIRM)
+        return _Outcome(False, detail="兜底引擎未返回任何结果（可能是上游排队/降级）。", reason="empty", cooldown=0.0)
 
     # 按来源权威性**稳定**重排：官方/法院优先，自媒体沉底（同层级保持原相关性顺序）。
     # 分层必须看 URL 的 host——``source`` 是展示名（「百度」「人力资源和社会保障部」），

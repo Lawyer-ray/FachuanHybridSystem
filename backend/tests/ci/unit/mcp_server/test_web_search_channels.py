@@ -21,7 +21,10 @@ from __future__ import annotations
 
 import importlib
 import json
+import threading
+import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest import mock
 
@@ -76,6 +79,28 @@ class _FakeClient:
     def post(self, url: str, **kwargs: Any) -> httpx.Response:
         self.post_calls.append((url, kwargs))
         return self._next()
+
+    def stream(self, method: str, url: str, **kwargs: Any) -> Any:
+        self.post_calls.append((url, kwargs))
+        return _FakeStream(self._next())
+
+
+class _FakeStream:
+    """``client.stream(...)`` 的替身：暴露 status_code / iter_raw / charset_encoding。"""
+
+    def __init__(self, response: httpx.Response) -> None:
+        self.status_code = response.status_code
+        self._body = response.content
+        self.charset_encoding = "utf-8"
+
+    def __enter__(self) -> _FakeStream:
+        return self
+
+    def __exit__(self, *exc: Any) -> bool:
+        return False
+
+    def iter_raw(self, chunk_size: int | None = None) -> Iterator[bytes]:
+        yield self._body
 
 
 @pytest.fixture()
@@ -545,3 +570,126 @@ class TestConfigResolution:
         assert out["ok"] is True
         used = [c[1]["headers"]["x-litellm-api-key"] for c in fake_http["client"].post_calls]
         assert used == ["Bearer sk-1", "Bearer sk-2"]  # 换了一把 key，而不是整条通道失败
+
+
+class TestCallDeadline:
+    """SSE 心跳会让「逐次读超时」永不触发——必须自己算总时长。
+
+    2026-11-21 实测血案：某个 key 的检索挂死，``httpx.Client(timeout=45)``
+    愣是跑了 **310 秒**才回来，整轮对话被拖死，通道熔断也来不及生效。
+    """
+
+    class _DripStream:
+        def __init__(self) -> None:
+            self.status_code = 200
+            self.charset_encoding = "utf-8"
+
+        def __enter__(self) -> _DripStream:
+            return self
+
+        def __exit__(self, *exc: Any) -> bool:
+            return False
+
+        def iter_raw(self, chunk_size: int | None = None) -> Iterator[bytes]:
+            for _ in range(10_000):  # 心跳：每块都「读成功」，但永远读不完
+                time.sleep(0.02)
+                yield b": keep-alive\n"
+
+    def test_hanging_stream_is_cut_at_deadline(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        cfg = module.FirmSearchConfig(url="http://gw/WebSearch/mcp", keys=("k",), timeout=0.3)
+
+        class _Client:
+            def __enter__(self) -> _Client:
+                return self
+
+            def __exit__(self, *exc: Any) -> bool:
+                return False
+
+            def stream(self, method: str, url: str, **kwargs: Any) -> Any:
+                return TestCallDeadline._DripStream()
+
+        monkeypatch.setattr(module.httpx, "Client", lambda **kwargs: _Client())
+
+        started = time.monotonic()
+        out = module.search("合同", 5, cfg)
+        elapsed = time.monotonic() - started
+
+        assert out["ok"] is False
+        assert out["reason"] == "timeout"
+        assert elapsed < 3.0, f"必须在截止时刻附近截断，实测 {elapsed:.2f}s"
+
+
+class TestConcurrencyGate:
+    """检索侧总并发闸门：10 把 key × 3 槽位 ≠ 上游吃得下。
+
+    2026-11-21 实测水位：5/10 并发全成（2-3s），20 并发 14/20（48s，含超时），
+    30 并发（满槽位）22/30、p50 21s。所以网关限额之外再压一道检索侧闸门，
+    默认 10；满了排队，排不到就快速失败（``busy``），而不是把上游打爆。
+    """
+
+    def test_gate_caps_effective_concurrency(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        cfg = module.FirmSearchConfig(url="http://gw/WebSearch/mcp", keys=("k",), timeout=5)
+        monkeypatch.setenv(module.ENV_MAX_CONCURRENT, "2")
+        monkeypatch.setattr(module, "_gate", None)
+
+        state = {"inflight": 0, "peak": 0}
+        lock = threading.Lock()
+
+        def fake_call(url: str, key: str, query: str, count: int, timeout: float) -> Any:
+            with lock:
+                state["inflight"] += 1
+                state["peak"] = max(state["peak"], state["inflight"])
+            time.sleep(0.15)
+            with lock:
+                state["inflight"] -= 1
+            payload = {"status": 0, "pages": [{"title": "T", "url": "https://a.gov.cn/x", "snippet": "s"}]}
+            envelope = {"jsonrpc": "2.0", "id": 1,
+                        "result": {"content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}]}}
+            return module._Fetched(status_code=200, text=f"data: {json.dumps(envelope, ensure_ascii=False)}\n\n")
+
+        monkeypatch.setattr(module, "_call", fake_call)
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            results = list(pool.map(lambda _: module.search("合同", 3, cfg), range(6)))
+
+        assert all(r["ok"] for r in results), results
+        assert state["peak"] <= 2, f"闸门上限 2 被突破：峰值 {state['peak']}"
+
+    def test_gate_busy_fails_fast(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        cfg = module.FirmSearchConfig(url="http://gw/WebSearch/mcp", keys=("k",), timeout=5)
+        monkeypatch.setenv(module.ENV_MAX_CONCURRENT, "1")
+        monkeypatch.setattr(module, "_gate", None)
+        monkeypatch.setattr(module, "_GATE_WAIT_SECONDS", 0.05)
+
+        def slow_call(url: str, key: str, query: str, count: int, timeout: float) -> Any:
+            time.sleep(0.4)
+            return module._Fetched(status_code=500, text="")
+
+        monkeypatch.setattr(module, "_call", slow_call)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(module.search, "合同", 3, cfg)
+            time.sleep(0.05)
+            second = module.search("合同", 3, cfg)
+            first.result()
+
+        assert second["ok"] is False
+        assert second["reason"] == "busy"
+
+    def test_empty_reason_does_not_trip_channel_breaker(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """空结果多半是上游排队/降级——不该让兜底通道冷却 2 分钟。"""
+        web = _module()
+        monkeypatch.setattr(
+            _firm_module(),
+            "search",
+            lambda *a, **k: {"ok": False, "reason": "empty", "pages": [], "detail": "兜底检索未返回任何结果"},
+        )
+
+        outcome = web._firm_search_outcome("合同", 5, 1)
+
+        assert outcome is not None and not outcome.ok
+        assert outcome.reason == "empty"
+        assert outcome.cooldown == 0.0
