@@ -317,15 +317,34 @@ def asean_law_verify(
         {"ok": true,
          "verdict": "支持" | "矛盾" | "原文未提及" | "不存在该引用" | "待判定",
          "law_title": "...", "section_number": "...", "section_text": "...",
-         "reason": "..."}
+         "reason": "...", "adjudicated": bool, "unconfirmed": bool,
+         "needs_human": bool, "review_reasons": [...], "agreement": 0.67,
+         "matched_by": "exact|containment|ambiguous", "elements": [...],
+         "votes": [...], "jury_tokens": 3503}
 
     Note:
-        `verdict == "待判定"` 表示条文已取到，需要调用方（JEV 判定层）拿
-        `section_text` 与 `claim` 交给模型在固定选项里选一个。**规则层不做语义
-        判断**，避免与模型层职责混淆。
+        **判定已经在这里做完了**（多判定器合议，见 `plugins/barlc_asean_law/jury.py`）。
+        不要再把 `section_text` 和 `claim` 拿去找别的模型判一遍——重复判定只会得到
+        第二个不相关的意见，而合议已经声明过自己是否可信。
+
+        怎么读结果：
+
+        | 字段 | 含义 |
+        |:--|:--|
+        | `verdict` | 四个固定结论之一；`待判定` = 没有结论（看下面两个布尔） |
+        | `adjudicated` | 合议**跑过**了。与「没跑」是两回事 |
+        | `unconfirmed` | 没有结论（区分它和「不存在该引用」） |
+        | `needs_human` + `review_reasons` | 结论可用但**必须**把复核提示带给律师 |
+        | `elements` | 逐要件判定。律师问「哪一项没依据」时，答案在这里 |
+        | `agreement` | 最高票/有效票；无有效票时为 null |
+        | `votes` | 每个判定器的摘要（**不含**自由文本，只能看判定面） |
+        | `matched_by` | 怎么定位到这部法的；`ambiguous` 表示名称没认准 |
 
         `verdict == "不存在该引用"` 是规则层直接判定，不消耗模型调用：
         法律检索不到、正文不可读、条款号超出范围，都归入此类。
+
+        **不要把 `待判定` 当成「不存在」**：它可能意味着切不出条款、名称只是近似、
+        同名法存在于多个国家，或判定器没形成多数——这些都要看 `reason`。
     """
     try:
         adapter, credential = _adapter_and_credential()
@@ -356,8 +375,22 @@ def asean_law_verify(
         section_number=check.section_number,
         section_text=check.section_text,
         reason=check.reason,
-        needs_model_judgement=not check.result,
         claim=str(claim or ""),
+        # --- 合议结论面（判定已在插件里做完，这里只负责透出）--------------------
+        # 合议跑过但没有结论 = 弃权，**不能**再冒充「请外部判定层来判」；
+        # 只有合议根本没跑（开关关闭）时才真的待判。
+        adjudicated=check.adjudicated,
+        unconfirmed=check.is_unconfirmed,
+        needs_model_judgement=check.is_unconfirmed and not check.adjudicated,
+        needs_human=check.needs_human,
+        review_reasons=list(check.review_reasons),
+        agreement=check.agreement,
+        matched_by=check.matched_by,
+        # 逐要件判定：律师问「哪一项没依据」时，答案在这里。
+        elements=list(check.elements),
+        # 判定器摘要（不含 quote/解释，避免白吃模型上下文）。
+        votes=list(check.votes),
+        jury_tokens=check.jury_tokens,
     )
 
 
