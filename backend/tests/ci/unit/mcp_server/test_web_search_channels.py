@@ -301,8 +301,10 @@ class TestFirmFallback:
     @pytest.fixture(autouse=True)
     def _firm_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         module = _firm_module()
+        # 显式走「环境变量覆盖」分支：这些用例验的是协议解析，不该读库
         monkeypatch.setenv(module.ENV_URL, "http://gw:4000/WebSearch/mcp")
         monkeypatch.setenv(module.ENV_KEY, "Bearer test-key")
+        monkeypatch.setattr(module, "_active_providers", list)
 
     @staticmethod
     def _sse(pages: list[dict[str, Any]]) -> httpx.Response:
@@ -317,7 +319,7 @@ class TestFirmFallback:
 
     @staticmethod
     def _config() -> Any:
-        return _firm_module().FirmSearchConfig(url="http://gw:4000/WebSearch/mcp", key="Bearer k", timeout=45)
+        return _firm_module().FirmSearchConfig(url="http://gw:4000/WebSearch/mcp", keys=("k",), timeout=45)
 
     def test_parses_sse_pages(self, fake_http: dict[str, Any]) -> None:
         page = {"title": "T", "url": "https://www.court.gov.cn/a", "hostname": "最高人民法院", "snippet": "S"}
@@ -422,3 +424,124 @@ class TestResultShaping:
         assert len(text.encode("utf-8")) <= module._OUTPUT_BYTE_BUDGET
         assert text.startswith(module._WRAPPER_HEADER)
         assert text.endswith(module._WRAPPER_FOOTER)
+
+
+class TestConfigResolution:
+    """地址与凭据从哪来：**复用 Admin「AI 平台」配置**，不再配第二份密钥。
+
+    这是 2026-11-21 的返工点：第一版把网关地址和 key 写进 .env（``FACHUAN_FIRM_SEARCH_KEY``），
+    而同一把 key 本来就配在 Admin → AI 平台（``LLMProvider``）里，等于把密钥配了两份：
+    换 key 要改两处、轮换漏一处就静默失效。现在默认从平台配置推导，
+    key 走**与模型调用同一个** Key 池（并发上限与失败冷却都共享）。
+    """
+
+    class _Provider:
+        """``OpenAIProviderConfig`` 的替身（字段名与 ``_pick_provider`` 的访问口径一致）。"""
+
+        def __init__(self, **kw: Any) -> None:
+            self.name = kw.get("name", "律所 kimi")
+            self.base_url = kw.get("base_url", "http://gw.example:4000/v1")
+            self.api_keys = kw.get("api_keys", ["sk-a", "sk-b"])
+            self.key_model_scopes = kw.get("key_model_scopes", {})
+            self.default_model = kw.get("default_model", "kimi-2.6")
+            self.enabled = kw.get("enabled", True)
+            self.priority = kw.get("priority", 1)
+            self.concurrency_per_key = kw.get("concurrency_per_key", 3)
+
+        @property
+        def all_models(self) -> list[str]:
+            return [self.default_model]
+
+    @pytest.fixture(autouse=True)
+    def _no_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        monkeypatch.delenv(module.ENV_URL, raising=False)
+        monkeypatch.delenv(module.ENV_KEY, raising=False)
+        monkeypatch.delenv(module.ENV_MODEL_HINT, raising=False)
+        monkeypatch.delenv(module.ENV_PATH, raising=False)
+
+    def test_mcp_url_derived_from_base_url(self) -> None:
+        module = _firm_module()
+        assert module.mcp_url_from_base_url("http://gw:4000/v1") == "http://gw:4000/WebSearch/mcp"
+        assert module.mcp_url_from_base_url("https://gw.example.com/v1/") == "https://gw.example.com/WebSearch/mcp"
+        assert module.mcp_url_from_base_url("http://gw:4000/v1", "/custom/mcp") == "http://gw:4000/custom/mcp"
+        # 缺 scheme/host 一律不接：宁可放弃通道，也不要拼个错地址去撞
+        assert module.mcp_url_from_base_url("") == ""
+        assert module.mcp_url_from_base_url("gw:4000/v1") == ""
+
+    def test_env_override_wins_and_strips_bearer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        monkeypatch.setenv(module.ENV_URL, "http://other:9000/WebSearch/mcp")
+        monkeypatch.setenv(module.ENV_KEY, "Bearer sk-env")
+
+        cfg = module.load_config()
+
+        assert cfg is not None
+        assert cfg.url == "http://other:9000/WebSearch/mcp"
+        assert cfg.keys == ("sk-env",)
+        assert cfg.provider == "env-override"
+
+    def test_provider_config_reused(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        provider = self._Provider()
+        monkeypatch.setattr(module, "_active_providers", lambda: [provider])
+
+        cfg = module.load_config()
+
+        assert cfg is not None
+        # URL 由平台 base_url 推导（不是第二处配置）
+        assert cfg.url == "http://gw.example:4000/WebSearch/mcp"
+        # key 用平台的全部 key（不再单配一把）
+        assert cfg.keys == ("sk-a", "sk-b")
+        assert cfg.provider == "律所 kimi"
+        assert cfg.concurrency_per_key == 3
+
+    def test_provider_without_keys_disables_channel(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        monkeypatch.setattr(module, "_active_providers", lambda: [self._Provider(api_keys=[])])
+        assert module.load_config() is None
+
+    def test_no_provider_disables_channel(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        monkeypatch.setattr(module, "_active_providers", list)
+        assert module.load_config() is None
+
+    def test_key_pool_shared_with_model_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """检索与模型调用必须落在**同一个** Key 池实例上。
+
+        各持一份就把「每 Key 并发上限」放大成两倍，直接顶穿网关限额，
+        而且失败冷却也不再共享——且这一切都是静默的（不报错）。
+        """
+        from apps.core.llm.key_pool import shared_pool
+
+        module = _firm_module()
+        provider = self._Provider()
+        monkeypatch.setattr(module, "_active_providers", lambda: [provider])
+        cfg = module.load_config()
+        assert cfg is not None
+
+        # 与 openai_compatible._key_pool 逐参数一致
+        expected = shared_pool(provider.name, provider.api_keys, provider.concurrency_per_key, None)
+
+        assert module._key_pool(cfg) is expected
+
+    def test_retry_with_next_key_on_401(self, fake_http: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        monkeypatch.setattr(module, "_active_providers", lambda: [self._Provider(api_keys=["sk-1", "sk-2"])])
+        cfg = module.load_config()
+        assert cfg is not None
+        fake_http["responses"] = [
+            httpx.Response(401, content=b"", request=httpx.Request("POST", cfg.url)),
+            _response("event: message\ndata: " + json.dumps({
+                "jsonrpc": "2.0", "id": 1,
+                "result": {"content": [{"type": "text", "text": json.dumps(
+                    {"status": 0, "pages": [{"title": "T", "url": "https://a.gov.cn/x", "snippet": "s"}]},
+                    ensure_ascii=False)}]},
+            }, ensure_ascii=False) + "\n\n"),
+        ]
+
+        out = module.search("合同", 5, cfg)
+
+        assert out["ok"] is True
+        used = [c[1]["headers"]["x-litellm-api-key"] for c in fake_http["client"].post_calls]
+        assert used == ["Bearer sk-1", "Bearer sk-2"]  # 换了一把 key，而不是整条通道失败
