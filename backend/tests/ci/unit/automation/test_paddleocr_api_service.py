@@ -1361,3 +1361,224 @@ class TestMultiTokenRequestBinding:
 
         with pytest.raises(RuntimeError, match="冷却"):
             engine.recognize_bytes(b"img")
+
+
+class TestPageOrientation:
+    """整页方向分类：开哪些模型、angle 怎么解析、脏值怎么降级。
+
+    坐标反变换（转正帧 → 原页帧）不在本模块做，本模块只负责把 angle **透出**且不因为
+    一个脏字段把整次识别作废；反变换的公式与标定见
+    ``tests/ci/unit/pdf_splitting/test_page_rotation.py``。
+    """
+
+    def _engine(self, model: str = "paddleocr_vl") -> Any:
+        from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
+        with patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService"):
+            return PaddleOCRApiEngine(model=model)
+
+    def _configured_engine(self, model: str) -> Any:
+        from apps.automation.services.ocr import paddleocr_api_service as svc
+
+        with patch("apps.automation.services.ocr.paddleocr_api_service.SystemConfigService"):
+            engine = svc.PaddleOCRApiEngine(model=model)
+        engine._config_service = MagicMock()
+        engine._config_service.get_value.side_effect = lambda key, default="": (
+            "https://job.example/api" if key == svc._UNIFIED_JOB_API_URL_KEY else "tok"
+        )
+        # 隔离凭证池：全局注册表按 pool_key 共享，测试间必须用唯一键
+        engine._pool_key = f"test-orient-{id(engine)}"
+        return engine
+
+    @staticmethod
+    def _response(status_code: int, payload: dict[str, Any] | None = None, text: str = "") -> Any:
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.text = text
+        resp.json.return_value = payload or {}
+        return resp
+
+    def test_开关只对版面类与_pp_structure_生效(self) -> None:
+        """PP-OCRv5/v6 是纯文字场景：不为罕见躺倒页给每一页都加一次分类模型前向。"""
+        from apps.automation.services.ocr.paddleocr_api_service import _DOC_ORIENTATION_MODELS
+
+        for model in ("pp_structure_v3", "paddleocr_vl", "paddleocr_vl_1_5", "paddleocr_vl_1_6"):
+            assert model in _DOC_ORIENTATION_MODELS, model
+        for model in ("pp_ocrv5", "pp_ocrv6"):
+            assert model not in _DOC_ORIENTATION_MODELS, model
+
+    @pytest.mark.parametrize(
+        ("model", "expected"), [("pp_structure_v3", True), ("paddleocr_vl", True), ("pp_ocrv5", False)]
+    )
+    def test_同步提交的_optionalPayload_按模型带方向开关(self, model: str, expected: bool) -> None:
+        engine = self._configured_engine(model)
+        client = MagicMock()
+        client.__enter__.return_value = client
+        client.__exit__.return_value = False
+        client.post.return_value = self._response(200, {"data": {"jobId": "job-1"}})
+        # 只看提交参数：轮询立刻 failed 结束，不必造完整结果
+        client.get.return_value = self._response(200, {"data": {"state": "failed", "errorMsg": "stop"}})
+
+        with (
+            patch("apps.automation.services.ocr.paddleocr_api_service.httpx.Client", return_value=client),
+            patch("time.sleep"),
+        ):
+            with pytest.raises(RuntimeError, match="Job 失败"):
+                engine.recognize_bytes(b"img")
+
+        payload = json.loads(client.post.call_args.kwargs["data"]["optionalPayload"])
+        assert payload["useDocOrientationClassify"] is expected
+
+    def test_异步提交的_optionalPayload_同样带方向开关(self) -> None:
+        """同步/异步两份 optionalPayload 是手抄的，必须各测一次（漂了就是「只在后台队列里生效」）。"""
+        import asyncio
+
+        engine = self._configured_engine("paddleocr_vl")
+        captured: dict[str, Any] = {}
+
+        def _factory(**kwargs: Any) -> Any:
+            client = MagicMock()
+            client.__aenter__ = _async_return(client)
+            client.__aexit__ = _async_return(False)
+
+            async def _post(*args: Any, **kw: Any) -> Any:
+                captured.update(kw)
+                return MagicMock(status_code=200, json=lambda: {"data": {"jobId": "job-1"}})
+
+            async def _get(*args: Any, **kw: Any) -> Any:
+                return MagicMock(status_code=200, json=lambda: {"data": {"state": "failed", "errorMsg": "stop"}})
+
+            client.post = _post
+            client.get = _get
+            return client
+
+        with (
+            patch("apps.automation.services.ocr.paddleocr_api_service.httpx.AsyncClient", side_effect=_factory),
+            patch("asyncio.sleep", _async_return(None)),
+        ):
+            with pytest.raises(RuntimeError, match="Job 失败"):
+                asyncio.run(engine.arecognize_bytes(b"img"))
+
+        payload = json.loads(captured["data"]["optionalPayload"])
+        assert payload["useDocOrientationClassify"] is True
+
+    def test_解析透出逐页方向与转正帧尺寸(self) -> None:
+        engine = self._engine()
+        data = {
+            "result": {
+                "layoutParsingResults": [
+                    {
+                        "markdown": {"text": "甲医院 疾病诊断证明书"},
+                        "prunedResult": {
+                            "width": 1753,
+                            "height": 1240,
+                            "doc_preprocessor_res": {"angle": 270},
+                        },
+                    }
+                ]
+            }
+        }
+
+        parsed = engine._parse_response(data, "paddleocr_vl")
+
+        assert [(o.angle, o.width, o.height) for o in parsed.page_orientations] == [(270, 1753, 1240)]
+
+    def test_没有方向字段时按零处理(self) -> None:
+        """关闭方向分类时响应里没有这个字段 —— 这是正常路径，不许告警刷屏。"""
+        engine = self._engine()
+        data = {
+            "result": {
+                "layoutParsingResults": [{"markdown": {"text": "m"}, "prunedResult": {"width": 100, "height": 200}}]
+            }
+        }
+
+        parsed = engine._parse_response(data, "paddleocr_vl")
+
+        assert [(o.angle, o.width, o.height) for o in parsed.page_orientations] == [(0, 100, 200)]
+
+    @pytest.mark.parametrize("raw_angle", [45, "abc", -30])
+    def test_脏角度归零且告警(self, raw_angle: Any, caplog: pytest.LogCaptureFixture) -> None:
+        engine = self._engine()
+        data = {
+            "result": {
+                "layoutParsingResults": [
+                    {
+                        "markdown": {"text": "m"},
+                        "prunedResult": {"width": 100, "height": 200, "doc_preprocessor_res": {"angle": raw_angle}},
+                    }
+                ]
+            }
+        }
+
+        with caplog.at_level("WARNING"):
+            parsed = engine._parse_response(data, "paddleocr_vl")
+
+        assert parsed.page_orientations[0].angle == 0, "脏值按「没转」处理，不编一个角度"
+        assert "方向解析" in caplog.text
+
+    def test_jsonl_多页逐页累加且裸片段不补位(self) -> None:
+        """裸片段行不能占一个页位——占了就会把 A 页的 angle 用到 B 页上。"""
+        engine = self._engine()
+        first = json.dumps(
+            {
+                "result": {
+                    "layoutParsingResults": [{"markdown": {"text": "a"}, "prunedResult": {"width": 100, "height": 200}}]
+                }
+            },
+            ensure_ascii=False,
+        )
+        fragment = json.dumps({"result": {"rec_texts": ["裸片段"]}}, ensure_ascii=False)
+        second = json.dumps(
+            {
+                "result": {
+                    "layoutParsingResults": [
+                        {
+                            "markdown": {"text": "b"},
+                            "prunedResult": {"width": 200, "height": 100, "doc_preprocessor_res": {"angle": 90}},
+                        }
+                    ]
+                }
+            },
+            ensure_ascii=False,
+        )
+
+        parsed = engine._parse_jsonl_response("\n".join([first, fragment, second]), "paddleocr_vl")
+
+        assert [o.angle for o in parsed.page_orientations] == [0, 90]
+
+    def test_表格带上本页转正角度(self) -> None:
+        """表格的像素框在转正帧，消费方要靠这个字段反变换 —— 丢了就等于没透出。"""
+        engine = self._engine("pp_structure_v3")
+        table = {"cell_box_list": [[420, 486, 887, 650]], "pred_html": "<table><tr><td>甲</td></tr></table>"}
+        data = {
+            "result": {
+                "layoutParsingResults": [
+                    {
+                        "prunedResult": {
+                            "width": 1753,
+                            "height": 1240,
+                            "doc_preprocessor_res": {"angle": 270},
+                            "table_res_list": [table],
+                        }
+                    }
+                ]
+            }
+        }
+
+        parsed = engine._parse_response(data, "pp_structure_v3")
+
+        assert parsed.tables and parsed.tables[0].page_angle == 270
+        assert parsed.tables[0].image_size == (1753, 1240), "image_size 是**转正帧**尺寸，反变换的两个基准之一"
+
+    def test_表格没有方向字段时角度为零(self) -> None:
+        engine = self._engine("pp_structure_v3")
+        table = {"cell_box_list": [[420, 486, 887, 650]], "pred_html": "<table><tr><td>甲</td></tr></table>"}
+        data = {
+            "result": {
+                "layoutParsingResults": [{"prunedResult": {"width": 1753, "height": 1240, "table_res_list": [table]}}]
+            }
+        }
+
+        parsed = engine._parse_response(data, "pp_structure_v3")
+
+        assert parsed.tables and parsed.tables[0].page_angle == 0

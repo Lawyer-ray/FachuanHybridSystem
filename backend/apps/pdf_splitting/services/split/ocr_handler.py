@@ -24,6 +24,7 @@ from apps.pdf_splitting.models import PdfSplitOcrProfile
 from apps.pdf_splitting.services.heartbeat import heartbeat_block
 
 from .dual_engine import normalize_paddleocr_vl_blocks
+from .clip_frame import clip_rect_for_page
 from .split_models import OCRPageResult, OCRRuntimeProfile
 
 logger = logging.getLogger("apps.pdf_splitting")
@@ -398,8 +399,8 @@ class OCRHandler:
         try:
             with fitz.open(pdf_path) as doc:
                 page = doc.load_page(page_no - 1)
-                scale_x, scale_y = page.rect.width / 1000.0, page.rect.height / 1000.0
-                clip = fitz.Rect(region[0] * scale_x, region[1] * scale_y, region[2] * scale_x, region[3] * scale_y)
+                normalized = [value / _VL_LAYOUT_SIDE for value in region]
+                clip = clip_rect_for_page(page, normalized)
                 pix = page.get_pixmap(matrix=fitz.Matrix(runtime_profile.dpi / 72, runtime_profile.dpi / 72), clip=clip)
                 image_bytes = pix.tobytes("png")
         except Exception:

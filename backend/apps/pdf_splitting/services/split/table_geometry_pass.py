@@ -54,6 +54,7 @@ from .bbox import normalize_bbox, resolve_bbox_unit
 from .md_table import grid_col_count as _grid_col_count
 from .md_table import grid_row_count as _grid_row_count
 from .md_table import parse_grid as _parse_grid
+from .clip_frame import clip_rect_for_page
 from .table_geometry import (
     _BOX_AXES,
     _RECT_PRECISION,
@@ -92,6 +93,7 @@ from .table_geometry import (
     measure_table_crop,
     structural_check,
 )
+from .page_rotation import derotate_pixel_box, normalize_theta, rotated_frame_size
 from .table_geometry_lines import LOCAL_LINE_ENGINE, RasterGrid, cells_from_grid, detect_grid_from_png
 
 logger = logging.getLogger("apps.pdf_splitting")
@@ -262,7 +264,9 @@ def build_geometry_artifact(
     measurable: list[_CandidatePage] = []
     for page in selected:
         if rotations.get(page.page_no):
-            # 旋转页的坐标无法在本仓内闭合验证（前端也不做旋转归一），按纪律整表框
+            # 本地 clip 已自洽（``clip_frame.clip_rect_for_page``：裁图帧 = 可见帧 = pdf.js 渲染帧），
+            # 但批量主路径是把子 PDF 交给**服务端栅格**，那个服务端是否尊重 /Rotate 未证实
+            # （docs/analysis/rotated-pages-2026-11-21/pipeline.md §7.1），所以旋转页仍整表框。
             _skip_page(artifact, page, reason=REASON_ROTATION, reasons=reasons)
             continue
         measurable.append(page)
@@ -386,17 +390,35 @@ def summary_block(artifact: Any, *, enabled: bool) -> dict[str, Any]:
 def _table_payload(table: Any) -> dict[str, Any]:
     """``paddleocr_api_service.ParsedTableResult`` → 本模块认识的表结构。
 
-    只搬运原样字段（像素框 + HTML + 行级 OCR），不做任何换算或过滤：换算在
+    只搬运字段（像素框 + HTML + 行级 OCR），不做行列聚类/过滤：换算在
     ``build_cell_boxes``/``assign_cell_texts``，过滤在解析层已经做过一遍。
+
+    **方向反变换只在这一处做一次**：开整页方向分类后服务端返回的框在「转正帧」，
+    这里按 ``page_angle`` 把它们换回**原页帧**，并把 ``image_size`` 同步换成原页帧尺寸
+    （90/270 时 W/H 互换）。换在这里而不是 ``table_geometry`` 里的理由很实际：
+    ``map_pixel_rect(crop, crop_size)`` 只认「像素框 + 该框所在帧的尺寸」，只要出本函数时
+    框和尺寸都已经是原页帧，裁图路径（``crop`` 非全页）与批量路径（``crop`` 全页）就
+    一行都不用改，也不会双重变换。
     """
     image_size = table.image_size
+    angle = normalize_theta(getattr(table, "page_angle", 0))
+    boxes: list[list[float]] = [list(box) for box in table.cell_boxes]
+    text_boxes: list[list[float]] = [list(box) for box in table.text_boxes]
+    if angle and image_size:
+        # ``image_size`` 本身就是转正帧尺寸（同一个 prunedResult 的 width/height），
+        # 正好是像素反变换需要的两个基准
+        rot_w, rot_h = float(image_size[0]), float(image_size[1])
+        boxes = [list(derotate_pixel_box(box, angle, rot_w=rot_w, rot_h=rot_h)) for box in boxes]
+        text_boxes = [list(derotate_pixel_box(box, angle, rot_w=rot_w, rot_h=rot_h)) for box in text_boxes]
+        frame_w, frame_h = rotated_frame_size(angle, rot_w=rot_w, rot_h=rot_h)
+        image_size = (round(frame_w), round(frame_h))
     return {
-        "cell_box_list": [list(box) for box in table.cell_boxes],
+        "cell_box_list": boxes,
         "pred_html": table.html,
         "image_size": list(image_size) if image_size else None,
         "table_ocr_pred": {
             "rec_texts": list(table.texts),
-            "rec_boxes": [list(box) for box in table.text_boxes],
+            "rec_boxes": text_boxes,
         },
     }
 
@@ -611,13 +633,7 @@ def _measure_page_crop(pdf_path: Path, *, page: _CandidatePage, engine: TableMea
     try:
         with fitz.open(pdf_path) as doc:
             page_obj = doc[page.page_no - 1]
-            page_rect = page_obj.rect
-            clip = fitz.Rect(
-                crop[0] * page_rect.width,
-                crop[1] * page_rect.height,
-                crop[2] * page_rect.width,
-                crop[3] * page_rect.height,
-            )
+            clip = clip_rect_for_page(page_obj, crop)
             scale = _FALLBACK_CROP_DPI / 72
             pixmap = page_obj.get_pixmap(matrix=fitz.Matrix(scale, scale), clip=clip)
             image_bytes = pixmap.tobytes("png")

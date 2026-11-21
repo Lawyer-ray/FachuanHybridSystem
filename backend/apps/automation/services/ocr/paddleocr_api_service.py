@@ -208,6 +208,22 @@ _LAYOUT_ENDPOINT_MODELS = {"paddleocr_vl", "paddleocr_vl_1_5", "paddleocr_vl_1_6
 # PP-OCRv5/v6 是纯文字 OCR，没有这个信封，不能顺手也去解析（会把空表当结果）。
 _STRUCTURED_TABLE_MODEL = "pp_structure_v3"
 
+# 要开**整页方向分类**的模型：版面类（VL 系列）+ PP-StructureV3。
+#
+# 为什么必须开（p52 实测，2026-11-21）：元数据 ``/Rotate=0`` 但内容躺倒的页，不开时
+# 只认出 82 字垃圾（「日22602」「中会限 业」），开了之后是 399 字正确正文；单页耗时
+# 34.4s，比不开只多一个分类模型的前向。PP-OCRv5/v6 先不开：纯文字场景为省下那一类
+# 罕见页而给每一页都加一次分类模型，性价比不划算。
+#
+# ⚠️ 开了之后**坐标会整体换到「转正帧」**（``prunedResult.width/height`` 变成转正帧
+# 尺寸、``doc_preprocessor_res.angle`` 非 0），必须由消费方反变换回原页帧——本模块只把
+# angle 透出（``PaddleOCRApiResult.page_orientations`` / ``ParsedTableResult.page_angle``），
+# 反变换在 ``apps.pdf_splitting.services.split.page_rotation`` 里做且只做一次。
+_DOC_ORIENTATION_MODELS = _LAYOUT_ENDPOINT_MODELS | {_STRUCTURED_TABLE_MODEL}
+
+#: 方向分类可能给出的直角（与 ``pdf_splitting.split.page_rotation.THETAS`` 同一集合）。
+_PAGE_ANGLES = (0, 90, 180, 270)
+
 #: ``pred_html`` 里的单元格开标签（``<td`` / ``<th``）。
 _TABLE_CELL_TAG_RE = re.compile(r"<t[dh][\s>]", re.IGNORECASE)
 
@@ -445,12 +461,32 @@ class PaddleOCRApiImage:
 
 
 @dataclass(frozen=True)
+class ParsedPageOrientation:
+    """一页的方向分类结果（``prunedResult.doc_preprocessor_res`` + 帧尺寸）。
+
+    ``angle`` = 服务端把页面**逆时针**转正了多少度（0/90/180/270，脏值一律按 0）；
+    ``width``/``height`` = **转正帧**尺寸（90/270 时与原页互换），拿不到时为 0。
+
+    为什么要单独成对象而不是只给一个 angle：反变换回原页帧同时需要「转了多少」与
+    「转正后多大」两个量（像素→归一化的分母是后者），缺一个就换不回去。
+    """
+
+    angle: int
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
 class ParsedTableResult:
     """PP-StructureV3 量到的一张表（``prunedResult.table_res_list[j]``）。
 
     ``cell_boxes`` 是**裁图像素**坐标 ``(x0, y0, x1, y1)``，与同一 ``prunedResult`` 的
-    ``width``/``height`` 同量纲。换成页面坐标必须同时带上「裁图在页面上的位置」
-    （见 ``apps.pdf_splitting.services.split.table_geometry.map_pixel_rect``）。
+    ``width``/``height``（= ``image_size``）同量纲。换成页面坐标必须同时带上「裁图在
+    页面上的位置」（见 ``apps.pdf_splitting.services.split.table_geometry.map_pixel_rect``）。
+
+    ⚠️ 开启方向分类后这一帧是**转正帧**：``page_angle`` 非 0 时 ``cell_boxes`` /
+    ``text_boxes`` 与原页差一次旋转，消费方（表格几何 pass）必须先用
+    ``page_rotation.derotate_pixel_box`` 换回原页帧再算页面坐标。
 
     顺序**不是契约**（2026-11-21 实测）：单页裁图样本 p10/p16/p22 碰巧 row-major，
     批量送整页的 p71/p72/p54/p20 就不是。所以下游不按下标取文本（改按几何归属），
@@ -462,6 +498,11 @@ class ParsedTableResult:
     html: str  # pred_html，拿不到为 ""
     image_size: tuple[int, int] | None  # (width, height)，拿不到为 None
     texts: tuple[str, ...]  # table_ocr_pred.rec_texts（行级 OCR，可为空）
+    #: 本页被服务端转正的角度（``doc_preprocessor_res.angle``）；0 = 没转。
+    #:
+    #: 为什么不塞进 ``image_size``：尺寸只能告诉你「转没转」（宽高互换），告诉不了
+    #: 「往哪边转」，而 90 与 270 的框在页面上的落点完全不同。
+    page_angle: int = 0
     #: ``table_ocr_pred.rec_boxes``，与 ``texts`` **按下标成对**（同一批行级 OCR 的框）。
     #:
     #: 为什么必须带上框：``cell_box_list`` 的顺序不可依赖（批量送检的样本 p71/p72/p54/p20
@@ -502,6 +543,12 @@ class PaddleOCRApiResult:
     # 批量送子 PDF 时必须知道「哪张表属于哪一页」，扁平的 ``tables`` 表达不了。
     # 两个字段都保留而不是让调用方自己猜：猜错的代价是把 A 页的格子画到 B 页上。
     table_pages: list[list[ParsedTableResult]] = field(default_factory=list)
+    # 逐页方向分类结果（外层下标 = 页序，见 ``parse_page_orientations``）。
+    #
+    # 为什么必须透出：开启方向分类后**所有**坐标都在转正帧，反变换回原页帧要用到
+    # 「转了多少度」与「转正后多大」。透出成数据而不是让调用方再解一遍响应，是为了让
+    # 「解析响应」这件事只有本模块一处实现。默认空列表：OCR 端点/旧调用方行为不变。
+    page_orientations: list[ParsedPageOrientation] = field(default_factory=list)
 
 
 def _count_html_cells(html_text: str) -> int:
@@ -655,17 +702,18 @@ def _parse_table_entry(entry: Any, *, image_size: tuple[int, int] | None) -> Par
 
 
 def _parse_pruned_tables(pruned: dict[str, Any]) -> list[ParsedTableResult]:
-    """一个 ``prunedResult`` 里的所有表（``table_res_list``）。"""
+    """一个 ``prunedResult`` 里的所有表（``table_res_list``），带上本页的转正角度。"""
     entries = pruned.get("table_res_list")
     if not isinstance(entries, list):
         return []
     image_size = _as_image_size(pruned.get("width"), pruned.get("height"))
+    page_angle = _page_orientation(pruned).angle
     parsed: list[ParsedTableResult] = []
     for entry in entries:
         table = _parse_table_entry(entry, image_size=image_size)
         if table is None:
             continue
-        parsed.append(table)
+        parsed.append(replace(table, page_angle=page_angle))
     return parsed
 
 
@@ -738,6 +786,55 @@ def _layout_pages(result: dict[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(pages, list):
         return []
     return [page for page in pages if isinstance(page, dict)]
+
+
+def _as_page_angle(raw: Any) -> int:
+    """``doc_preprocessor_res.angle`` → 0/90/180/270；其它一律 0 并留痕。
+
+    与 ``apps.pdf_splitting.services.split.page_rotation.normalize_theta`` 同一规则
+    （本模块不能 import 它：那边的包是服务层，反向 import 会绕成环）。
+    缺字段不告警：关闭方向分类时这个字段本来就不存在，每页一条告警会淹没真告警。
+    """
+    if raw is None:
+        return 0
+    try:
+        angle = int(raw) % 360
+    except (TypeError, ValueError):
+        angle = -1
+    if angle not in _PAGE_ANGLES:
+        logger.warning("PaddleOCR 方向解析: angle=%r 不是 0/90/180/270，已按 0 处理", raw)
+        return 0
+    return angle
+
+
+def _page_orientation(pruned: dict[str, Any]) -> ParsedPageOrientation:
+    """一个 ``prunedResult`` 的方向分类结果（角度 + 转正帧尺寸）。"""
+    preprocessor = pruned.get("doc_preprocessor_res")
+    raw_angle = preprocessor.get("angle") if isinstance(preprocessor, dict) else None
+    size = _as_image_size(pruned.get("width"), pruned.get("height"))
+    width, height = size if size is not None else (0, 0)
+    return ParsedPageOrientation(angle=_as_page_angle(raw_angle), width=width, height=height)
+
+
+def parse_page_orientations(result: dict[str, Any]) -> list[ParsedPageOrientation]:
+    """从一次响应里取出**逐页**方向（外层下标 = 页序）。
+
+    形状与 ``parse_table_results_by_page`` 同源：主路径
+    ``layoutParsingResults[].prunedResult.doc_preprocessor_res``，没有容器包装的裸片段行按
+    「一页」处理（PDF 的 JSONL 里会出现）。**一律不抛**：脏 angle 归 0，脏尺寸归 0——
+    一次付费调用的结果不能因为一个脏字段作废。
+
+    为什么要按页给：多页 PDF 里可能只有某几页躺倒，angle 得逐页对；一个大一的 angle
+    会把正常页的框也转歪。
+    """
+    pages = _layout_pages(result)
+    if not pages:
+        return [_page_orientation(result)]
+    orientations: list[ParsedPageOrientation] = []
+    for page in pages:
+        pruned = _as_pruned_result(page.get("prunedResult"))
+        orientations.append(_page_orientation(pruned if pruned is not None else {}))
+    return orientations
 
 
 class PaddleOCRApiEngine:
@@ -916,7 +1013,7 @@ class PaddleOCRApiEngine:
         if model in _OCR_ENDPOINT_MODELS:
             optional_payload.update(
                 {
-                    "useDocOrientationClassify": False,
+                    "useDocOrientationClassify": model in _DOC_ORIENTATION_MODELS,
                     "useDocUnwarping": False,
                     "useTextlineOrientation": False,
                 }
@@ -924,7 +1021,7 @@ class PaddleOCRApiEngine:
         elif model in _LAYOUT_ENDPOINT_MODELS:
             optional_payload.update(
                 {
-                    "useDocOrientationClassify": False,
+                    "useDocOrientationClassify": model in _DOC_ORIENTATION_MODELS,
                     "useDocUnwarping": False,
                     "useChartRecognition": False,
                 }
@@ -1123,6 +1220,9 @@ class PaddleOCRApiEngine:
         all_tables: list[ParsedTableResult] = []
         # 逐页的那一份按行序拼接：外层下标就是送检页序，交给调用方按页对齐。
         all_table_pages: list[list[ParsedTableResult]] = []
+        # 方向同样逐页累加。**裸片段行不补位**：补了会让页序与 table_pages/layout_results
+        # 错位一格，而错位一格就意味着把 A 页的 angle 用到 B 页上。
+        all_orientations: list[ParsedPageOrientation] = []
         for line in jsonl_text.strip().split("\n"):
             line = line.strip()
             if not line:
@@ -1164,6 +1264,7 @@ class PaddleOCRApiEngine:
             all_images.extend(parsed.images)
             all_tables.extend(parsed.tables)
             all_table_pages.extend(parsed.table_pages)
+            all_orientations.extend(parsed.page_orientations)
 
         merged = "\n".join(all_texts)
         logger.info(
@@ -1181,6 +1282,7 @@ class PaddleOCRApiEngine:
             layout_results=all_layout_results,
             tables=all_tables,
             table_pages=all_table_pages,
+            page_orientations=all_orientations,
         )
 
     def _parse_response(self, data: dict[str, Any], model: str) -> PaddleOCRApiResult:
@@ -1197,16 +1299,27 @@ class PaddleOCRApiEngine:
             if model == _STRUCTURED_TABLE_MODEL:
                 # PP-StructureV3 要**同时**读两个信封：正文仍只来自 ocrResults（调用方
                 # 行为不变），量到的表格几何在 layoutParsingResults（见 parse_table_results）。
-                return replace(
+                parsed = replace(
                     parsed,
                     tables=parse_table_results(result),
                     table_pages=parse_table_results_by_page(result),
                 )
-            return parsed
         elif model in _LAYOUT_ENDPOINT_MODELS:
-            return self._parse_layout_response(result, model)
+            parsed = self._parse_layout_response(result, model)
         else:
             raise RuntimeError(f"不支持的 PaddleOCR 模型: {model}")
+
+        # 方向逐页透出（单行 JSON 与 JSONL 两条路径共用本方法，所以挂在这里而不是各分支里）。
+        orientations = parse_page_orientations(result)
+        turned = [item.angle for item in orientations if item.angle]
+        if turned:
+            logger.info(
+                "PaddleOCR 页面方向分类命中: model=%s, pages=%d, angles=%s（坐标在转正帧，需反变换）",
+                model,
+                len(orientations),
+                turned,
+            )
+        return replace(parsed, page_orientations=orientations)
 
     def _collect_text_fragments(self, value: Any) -> list[str]:
         """从任意嵌套结构中提取可读文本片段。"""
@@ -1537,7 +1650,7 @@ class PaddleOCRApiEngine:
         if model in _OCR_ENDPOINT_MODELS:
             optional_payload.update(
                 {
-                    "useDocOrientationClassify": False,
+                    "useDocOrientationClassify": model in _DOC_ORIENTATION_MODELS,
                     "useDocUnwarping": False,
                     "useTextlineOrientation": False,
                 }
@@ -1545,7 +1658,7 @@ class PaddleOCRApiEngine:
         elif model in _LAYOUT_ENDPOINT_MODELS:
             optional_payload.update(
                 {
-                    "useDocOrientationClassify": False,
+                    "useDocOrientationClassify": model in _DOC_ORIENTATION_MODELS,
                     "useDocUnwarping": False,
                     "useChartRecognition": False,
                 }
