@@ -6,7 +6,8 @@
    ``[来源：栏名]``，结论就退化成"不知道谁说的"（MoA 原版的坑，见模块 docstring）；
 2. **空 / 失败候选不进 prompt**：空答案被编号进去，聚合者会"参考"一段沉默，
    而律师看到的结论里会多出一份根本不存在的论据；
-3. **超长必须截断 + 明说截断**：截了不标注，聚合者会以为自己看的是全文；
+3. **超长必须截断 + 明说截断**（超过硬上限则整栏丢弃报 ``too_long``）：截了不标注，
+   聚合者会以为自己看的是全文；
 4. **调用失败最多两次、第二次换温度**：无限重试会把"模型抽风"变成账单失控。
 
 全部离线：合成调用通过 ``call_model`` 注入，退避被置零，不联网也不建库。
@@ -21,9 +22,12 @@ import pytest
 from apps.agent.services.chat import aggregate
 from apps.agent.services.chat.aggregate import (
     AGGREGATE_SYSTEM_PROMPT,
+    HARD_CANDIDATE_CHARS,
     MAX_CANDIDATE_CHARS,
     MAX_CANDIDATES,
+    STRICT_RETRY_SUFFIX,
     SYNTHESIS_MAX_ATTEMPTS,
+    SYNTHESIS_MAX_TOKENS,
     SYNTHESIS_RETRY_TEMPERATURE,
     SYNTHESIS_TEMPERATURE,
     Candidate,
@@ -32,6 +36,7 @@ from apps.agent.services.chat.aggregate import (
     partition_candidates,
     strip_code_fences,
     synthesize,
+    validate_reply,
 )
 from apps.core.llm.exceptions import LLMError
 
@@ -135,6 +140,23 @@ class TestBuildAggregateMessages:
         # 保留的是前 MAX_CANDIDATE_CHARS 字，不是整段（否则 prompt 预算就白设了）
         assert "甲" * MAX_CANDIDATE_CHARS in content
         assert "甲" * (MAX_CANDIDATE_CHARS + 1) not in content
+
+    def test_over_hard_limit_candidate_is_dropped_not_truncated(self) -> None:
+        """超过硬上限整栏丢弃：前 6 千字代表不了一份十万字文档，截断会制造假前提。"""
+        huge_text = "乙" * (HARD_CANDIDATE_CHARS + 1)
+        candidates = [
+            Candidate(lane="pi", model="kimi-2.6", text=_STATUTE),
+            Candidate(lane="dsh", model="glm53", text=huge_text),
+        ]
+        used, dropped = partition_candidates(candidates)
+
+        assert [candidate.lane for candidate in used] == ["pi"]
+        assert [(item.lane, item.reason) for item in dropped] == [("dsh", "too_long")]
+
+        content = _user_content(build_aggregate_messages(_TASK, candidates))
+        assert "乙" not in content
+        # 进 prompt 的只有一栏，序号不能因为丢了一栏而断号
+        assert "1. 【pi · kimi-2.6】" in content
 
     def test_no_usable_candidate_raises_instead_of_calling_model_with_empty_prompt(self) -> None:
         with pytest.raises(ValueError, match="没有可综合的候选"):
@@ -254,3 +276,77 @@ class TestStripCodeFences:
 
     def test_plain_content_is_kept(self) -> None:
         assert strip_code_fences("  正文 [来源：pi]  ") == "正文 [来源：pi]"
+
+
+class TestOutputGates:
+    """真机缺陷回归：推理型模型把思考过程当正文吐出来。
+
+    真跑（2026-11-21，kimi-2.6）拿到的正文是「我们需要回答用户问题……需要综合三份
+    候选……」，并且 ``completion_tokens == 2048 == SYNTHESIS_MAX_TOKENS``——输出预算
+    被思考过程吃光，正文停在半句上。这两条闸门就是为它加的。
+    """
+
+    @pytest.mark.parametrize(
+        ("text", "completion", "expected"),
+        [
+            ("结论 [来源：pi]", 100, ""),
+            ("我们需要回答用户问题", 100, "no_anchor"),
+            ("结论 [来源：pi]", SYNTHESIS_MAX_TOKENS, "truncated"),
+            ("结论 [来源：pi]", SYNTHESIS_MAX_TOKENS + 50, "truncated"),
+        ],
+    )
+    def test_validate_reply(self, text: str, completion: int, expected: str) -> None:
+        assert validate_reply(text, completion) == expected
+
+    @pytest.mark.asyncio
+    async def test_reasoning_leak_is_retried_with_stricter_instruction(self) -> None:
+        """第一次吐思考过程（无锚点）→ 重试时 system 追加加强语 → 第二次合格。"""
+        recorder = _Recorder(
+            [
+                _reply(content="我们需要回答用户问题。先看三份候选分别说了什么。"),
+                _reply(content="结论正文 [来源：pi、dsh]"),
+            ]
+        )
+
+        synthesis = await synthesize(
+            _TASK, [Candidate(lane="pi", model="kimi-2.6", text=_STATUTE)], model="judge-x", call_model=recorder
+        )
+
+        assert synthesis.text == "结论正文 [来源：pi、dsh]"
+        assert len(recorder.calls) == 2
+        # 第一次没加强语，第二次有——加强语只在失败之后才追加
+        first_system = recorder.calls[0][0][0]["content"]
+        second_system = recorder.calls[1][0][0]["content"]
+        assert STRICT_RETRY_SUFFIX not in first_system
+        assert STRICT_RETRY_SUFFIX in second_system
+        # 两次都只改温度，不动候选正文
+        assert recorder.calls[0][0][1]["content"] == recorder.calls[1][0][1]["content"]
+
+    @pytest.mark.asyncio
+    async def test_truncated_output_never_becomes_the_answer(self) -> None:
+        """顶到输出上限 = 没写完：两次都截断就报错，绝不当结论返回。"""
+        truncated = SynthesisReply(
+            content="综合结论写到一半 [来源：pi]",
+            model="judge-x",
+            prompt_tokens=10,
+            completion_tokens=SYNTHESIS_MAX_TOKENS,
+            total_tokens=10 + SYNTHESIS_MAX_TOKENS,
+        )
+        recorder = _Recorder([truncated, truncated])
+
+        with pytest.raises(LLMError, match="被截断"):
+            await synthesize(
+                _TASK, [Candidate(lane="pi", model="kimi-2.6", text=_STATUTE)], model="judge-x", call_model=recorder
+            )
+
+        assert len(recorder.calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_single_reasoning_leak_fails_with_anchor_message(self) -> None:
+        """两次都缺锚点 → 报错文案点明「疑似思考过程」，律师不会拿到一段自我对话。"""
+        recorder = _Recorder([_reply(content="我们需要回答用户问题"), _reply(content="我们需要再想想")])
+
+        with pytest.raises(LLMError, match="来源锚点"):
+            await synthesize(
+                _TASK, [Candidate(lane="pi", model="kimi-2.6", text=_STATUTE)], model="judge-x", call_model=recorder
+            )

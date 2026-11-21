@@ -20,13 +20,17 @@ system prompt 抄 togethercomputer/MoA 的 aggregator 常量（``moa.py:17-19`` 
 ## 三种"没进 prompt"的表示
 
 契约的 ``DROPPED_REASONS`` 是关闭集 ``empty`` / ``failed`` / ``too_long``，本模块
-只产出前两个：
+**三个都产出**——一个关闭集里存在却永不产出的取值，等于契约在说假话：
 
 - ``Candidate.text is None`` → ``failed``：该栏本轮没落库正文（跑了但失败 / 崩了）；
 - ``Candidate.text`` 全空白 → ``empty``：落了库但一个字都没有；
-- 超长 → **截断后仍然进 prompt**（也在 ``lanes_used`` 里），因此**不**报 ``too_long``。
-  ``too_long`` 留给"整栏被丢弃"的实现；本实现的取舍是"宁可给聚合者一份打了
-  折扣的候选，也不要让律师以为那栏没参与"。
+- 正文超过 :data:`HARD_CANDIDATE_CHARS` → ``too_long``：**整栏丢弃**，不进 prompt。
+
+为什么是两档而不是一档：``MAX_CANDIDATE_CHARS``（6 千字）以内原样进；
+介于 6 千与 2.4 万字之间**截断并在正文里标注**（一份两万字的法律意见，前 6 千字
+仍能代表它的主要论证）；**超过 2.4 万字整栏丢弃**——十万字文档的前 6 千字代表
+不了那份文档，喂进去等于让聚合者以为"这就是该栏的全部观点"，而 ``lanes_used``
+里还留着它的名字，比缺一栏更误导。
 
 ## 为什么分成两半
 
@@ -38,6 +42,7 @@ system prompt 抄 togethercomputer/MoA 的 aggregator 常量（``moa.py:17-19`` 
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 import re
 import uuid
@@ -49,16 +54,30 @@ from apps.core.llm.exceptions import LLMError, LLMTimeoutError
 from ..adjudication.contracts import DroppedCandidate, Synthesis, SynthesisCitation
 from .citation_check import extract_case_refs, extract_statute_refs
 
+logger = logging.getLogger(__name__)
+
 #: 单栏正文进 prompt 的字数上限。6000 字 ≈ 一份长法律意见；四栏合计 2.4 万字，
 #: 加上问题与 system 之后仍远小于主流模型的上下文窗口，又足够装下完整论证。
 MAX_CANDIDATE_CHARS = 6000
+#: 单栏正文的**硬上限**：超过它整栏丢弃（``too_long``），不做截断。
+#: 取 4 倍 ``MAX_CANDIDATE_CHARS``：一份文档的前 1/4 之后已经没有代表性，
+#: 再喂给聚合者只会把"该栏只说了这些"这个假前提写进结论。
+HARD_CANDIDATE_CHARS = 24_000
 #: 一次最多综合几栏。与多答运行时的 ``MAX_ANSWERS``（``services/chat/multi.py``）
 #: 同值 4——**不 import 它**：那会把后端注册与 Django 模型拖进这个纯函数模块，
 #: 让 prompt 装配的单测必须先起 Django。
 MAX_CANDIDATES = 4
-#: 合成正文的 token 预算。契约要求正文 ≤1200 字（中文约 1.5 token/字），
-#: 2048 给"偶有超长"留余量，同时不让一次点击变成上千 token 的账单。
-SYNTHESIS_MAX_TOKENS = 2048
+#: 合成正文的 token 预算。
+#:
+#: 正文本身只要 ≤1200 字（约 1600–1800 token），但**必须给推理预算留位置**：
+#: 真机实测 kimi-2.6 与 glm53 在 2048 上限下都把预算全烧在思考过程里、正文一个
+#: 字没吐（两次尝试都 ``completion == max == 2048``）；4096 下 glm53 吃到 4084
+#: （99.7%）、6144 下 kimi-2.6 吃到 5958（96.9%）——推理型模型的思考预算没有上限，
+#: 只能给足：8192 让"思考 + 1600 字正文"都装得下。
+#:
+#: 上限只是闸门，不是开销：按实际 token 计费，模型不写就不花钱；它同时是截断
+#: 闸门的阈值（顶到它 = 没写完，不许当结论）。
+SYNTHESIS_MAX_TOKENS = 8192
 #: 单次调用的硬超时（秒）。合成要输出上千字，比 judge 的 60s 宽一倍。
 SYNTHESIS_TIMEOUT_SECONDS = 120.0
 #: 总尝试次数（含首次）。**没有 ``while True``**：协议不稳定时的无限重试
@@ -76,6 +95,21 @@ SYNTHESIS_BACKOFF_JITTER = 0.3
 
 #: 模型没在 metadata 里留下模型名时，来源头写这个——**不猜**（猜出来的是假来源）。
 UNKNOWN_MODEL_LABEL = "未标注模型"
+
+#: 正文必须出现的来源锚点前缀（system prompt 规则 1 要求每条实质结论都带它）。
+#:
+#: 它同时是**唯一的合规信号**：真跑出来的教训——推理型模型（kimi-2.6）会把
+#: 「我们需要回答用户问题……需要综合三份候选……」这类**思考过程当成正文吐出来**，
+#: 而且把 2048 的输出预算全吃光，律师看到的是一段没写完的自我对话。这种文本
+#: 里必然一个 ``[来源：`` 都没有，所以「缺锚点」是它的可靠指纹。
+ANCHOR_MARKER = "[来源："
+
+#: 重试时追加到 system 末尾的加强语（第一次已证明这条路径会退化）。
+STRICT_RETRY_SUFFIX = (
+    "\n\n再次强调：第一句话就是结论正文，直接输出最终 Markdown；"
+    "不要输出思考过程、分析步骤、自我提问或任何复述本指令的内容；"
+    "每条实质结论后必须标 [来源：栏名]。"
+)
 
 #: aggregator 的 system prompt（MoA 口径 + 本仓库的三条补充，见模块 docstring）。
 AGGREGATE_SYSTEM_PROMPT = """你是一名资深中国律师，手上有多份 AI 对同一个法律问题给出的回答。你的任务是把它们综合成一份可以直接给律师用的回答。
@@ -153,6 +187,9 @@ def partition_candidates(candidates: Sequence[Candidate]) -> tuple[list[Candidat
             dropped.append(DroppedCandidate(lane=candidate.lane, reason="failed"))
         elif not candidate.text.strip():
             dropped.append(DroppedCandidate(lane=candidate.lane, reason="empty"))
+        elif len(candidate.text) > HARD_CANDIDATE_CHARS:
+            # 截断也救不回来：前 6 千字代表不了一份十万字的文档，整栏不参与。
+            dropped.append(DroppedCandidate(lane=candidate.lane, reason="too_long"))
         else:
             used.append(candidate)
     return used, dropped
@@ -205,6 +242,24 @@ def strip_code_fences(text: str) -> str:
     return match.group("body").strip()
 
 
+def validate_reply(text: str, completion_tokens: int, *, max_tokens: int = SYNTHESIS_MAX_TOKENS) -> str:
+    """正文是否可用；可用返回空串，否则返回封闭原因（``truncated`` / ``no_anchor``）。
+
+    两道闸门都来自真机缺陷（不是假想）：
+
+    - ``truncated``：``completion_tokens`` 顶到输出上限 = **没写完**，不是"干净结果"。
+      真跑时 2048 全被思考过程吃掉，正文停在半句上；这种文本绝不能当结论展示。
+    - ``no_anchor``：提示词要求每条实质结论带 ``[来源：栏名]``，一段合规正文不可能
+      一个都没有——缺它就是"模型没在写结论"（思考过程 / 拒答 / 复述指令）。
+      把无锚点文本当结论，等于让律师看一段无法回溯到任何一栏的话。
+    """
+    if completion_tokens >= max_tokens:
+        return "truncated"
+    if ANCHOR_MARKER not in text:
+        return "no_anchor"
+    return ""
+
+
 def extract_citations(used: Sequence[Candidate]) -> list[SynthesisCitation]:
     """从各栏原文抽法条 / 案号做**来源锚点**（只标出处，不做核验）。
 
@@ -225,6 +280,24 @@ def extract_citations(used: Sequence[Candidate]) -> list[SynthesisCitation]:
             seen.add(key)
             citations.append(SynthesisCitation(lane=candidate.lane, quote=quote))
     return citations
+
+
+#: 三种"拿到了但不可用"的对外文案（律师看到的是这一类，不是模型原文）。
+_UNUSABLE_MESSAGES: dict[str, str] = {
+    "empty": "综合结论为空",
+    "truncated": f"综合结论在 {SYNTHESIS_MAX_TOKENS} token 输出上限处被截断，未写完",
+    "no_anchor": "综合结论缺少来源锚点（疑似输出的是思考过程而非结论）",
+}
+
+
+def _with_strict_retry(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """重试时在 system 末尾追加加强语（幂等：已经加过就不再加）。"""
+    if not messages or messages[0].get("role") != "system":
+        return messages
+    content = messages[0].get("content", "")
+    if STRICT_RETRY_SUFFIX in content:
+        return messages
+    return [{**messages[0], "content": content + STRICT_RETRY_SUFFIX}, *messages[1:]]
 
 
 def _backoff_seconds(attempt: int) -> float:
@@ -333,7 +406,7 @@ async def synthesize(
         except (LLMError, OSError, ValueError, RuntimeError) as error:
             # 只吞"这次调用没结果"的四类（网关 / 网络 / 超时 / 注入实现自报不可用）。
             # 其它异常（TypeError / AttributeError / KeyError）故意不接：多是我们
-            # 自己写错，宽 `except Exception` 会把 bug 变成"综合总是失败"。
+            # 自己写错，宽 except 基类会把 bug 变成"综合总是失败"。
             last_error = error
         else:
             prompt_tokens += reply.prompt_tokens
@@ -341,7 +414,8 @@ async def synthesize(
             total_tokens += reply.total_tokens
             used_model = reply.model or model
             text = strip_code_fences(reply.content)
-            if text:
+            reason = validate_reply(text, reply.completion_tokens) if text else "empty"
+            if not reason:
                 return Synthesis(
                     synthesis_id=synthesis_id,
                     session_id="",
@@ -354,8 +428,17 @@ async def synthesize(
                     unverified=[],
                     tokens={"prompt": prompt_tokens, "completion": completion_tokens, "total": total_tokens},
                 )
-            # 空正文同样算这次没拿到东西：换温度再问一次。
-            last_error = LLMError("综合结论为空")
+            # 空正文 / 被输出上限截断 / 缺来源锚点：都算"这次没拿到可用结论"，
+            # 换温度重来一次，并把"只输出最终正文"的加强语补进 system。
+            last_error = LLMError(_UNUSABLE_MESSAGES[reason])
+            logger.warning(
+                "综合结论未通过校验（第 %s 次）：%s，completion=%s / max=%s",
+                attempt + 1,
+                reason,
+                reply.completion_tokens,
+                SYNTHESIS_MAX_TOKENS,
+            )
+            messages = _with_strict_retry(messages)
 
         if attempt + 1 < SYNTHESIS_MAX_ATTEMPTS:
             await asyncio.sleep(_backoff_seconds(attempt))
@@ -367,6 +450,9 @@ async def synthesize(
 
 __all__ = [
     "AGGREGATE_SYSTEM_PROMPT",
+    "ANCHOR_MARKER",
+    "STRICT_RETRY_SUFFIX",
+    "HARD_CANDIDATE_CHARS",
     "MAX_CANDIDATE_CHARS",
     "MAX_CANDIDATES",
     "SYNTHESIS_MAX_ATTEMPTS",
@@ -385,4 +471,5 @@ __all__ = [
     "render_candidate",
     "strip_code_fences",
     "synthesize",
+    "validate_reply",
 ]

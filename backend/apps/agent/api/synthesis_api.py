@@ -96,7 +96,7 @@ async def synthesize_session(request: Any, session_id: str, payload: SynthesisIn
     except LookupError as exc:
         raise HttpError(404, "该轮次不存在") from exc
     # 只接 ValueError：``resolve_model`` 的唯一失败原因是"没有可用模型"，它必须
-    # 变成 422（可操作："去请求里指定 model"），而不是 500。宽 `except Exception`
+    # 变成 422（可操作："去请求里指定 model"），而不是 500。宽 except 基类
     # 在这里会把"我们写错了"也折成 422，让人查错方向。
     try:
         model = await resolve_model(session, payload.turn, payload.model)
