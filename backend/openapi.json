@@ -25334,6 +25334,47 @@
         ]
       }
     },
+    "/api/v1/agent/sessions/{session_id}/regenerate": {
+      "post": {
+        "operationId": "apps_agent_api_chat_api_regenerate_message",
+        "summary": "Regenerate Message",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "重生成 / 续写（SSE，与发消息同形）。\n\n**不新落用户消息**：复用原提问（``user_message_recorded=True``），轮次号也不增\n（``turn=target.turn_no``）——否则同一个问题会变成两轮，「第几轮」这个口径当场废掉。\n\n开流前先把这一轮同栏的旧回答标 ``metadata.superseded``（幂等），列表接口据此\n隐藏它们；消息行本身不删，审计仍能回溯「AI 当时说过什么」。",
+        "tags": [
+          "Agent 对话"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegenerateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/sessions/{session_id}/steer": {
       "post": {
         "operationId": "apps_agent_api_chat_api_steer_running_session",
@@ -55252,6 +55293,39 @@
           "message"
         ],
         "title": "MessageIn",
+        "type": "object"
+      },
+      "RegenerateIn": {
+        "description": "重生成 / 续写的请求体。\n\n``from_message_id`` 可以是这一轮里的**任意一条**（提问 / 回答 / 工具行）：\n服务端按\"同一轮\"定位，不要求前端先算出是哪一栏。",
+        "properties": {
+          "from_message_id": {
+            "title": "From Message Id",
+            "type": "integer"
+          },
+          "mode": {
+            "default": "regenerate",
+            "title": "Mode",
+            "type": "string"
+          },
+          "agents": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agents"
+          }
+        },
+        "required": [
+          "from_message_id"
+        ],
+        "title": "RegenerateIn",
         "type": "object"
       },
       "SteerOut": {

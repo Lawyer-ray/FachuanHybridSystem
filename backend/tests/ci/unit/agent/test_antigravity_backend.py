@@ -475,6 +475,9 @@ class TestLoopbackGateway:
                     f"http://127.0.0.1:{gateway.port}/r/nope/v1/chat/completions", json={}
                 )
             assert response.status_code == 401
+            # 只断言状态码不算测过：401 的语义是"路由存在但 token 不认"，
+            # 正文必须点明这一点（404 会静默，见 gateway 的注释）
+            assert "unknown gateway route" in response.text
         finally:
             await gateway.stop()
             reset_loopback_gateway()

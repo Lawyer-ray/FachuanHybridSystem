@@ -875,7 +875,8 @@ class AntigravityBackend:
 
 #: 需要在边界处翻译成 ``BackendError`` 的异常集合。
 #:
-#: 枚举而不是 ``except Exception``（本仓库的宽异常棘轮，见
+#: 枚举而不是宽 except 基类（本仓库的宽异常棘轮按行正则扫源码，注释里写字面量也会被
+#: 计入，所以这里只描述不照抄，见
 #: ``devtools/security_guard.py --check broad-except``）：SDK 的异常是**平铺**的
 #: （没有公共基类），所以逐个列出；再加传输层与 ``RuntimeError``/``ValueError``
 #: ——harness 进程崩溃、subprocess 传参错误都落在后两类。**取消类不在这里**：

@@ -10784,6 +10784,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/sessions/{session_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Message
+         * @description 重生成 / 续写（SSE，与发消息同形）。
+         *
+         *     **不新落用户消息**：复用原提问（``user_message_recorded=True``），轮次号也不增
+         *     （``turn=target.turn_no``）——否则同一个问题会变成两轮，「第几轮」这个口径当场废掉。
+         *
+         *     开流前先把这一轮同栏的旧回答标 ``metadata.superseded``（幂等），列表接口据此
+         *     隐藏它们；消息行本身不删，审计仍能回溯「AI 当时说过什么」。
+         */
+        post: operations["apps_agent_api_chat_api_regenerate_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/sessions/{session_id}/steer": {
         parameters: {
             query?: never;
@@ -24665,6 +24691,24 @@ export interface components {
              * @default false
              */
             dual: boolean;
+        };
+        /**
+         * RegenerateIn
+         * @description 重生成 / 续写的请求体。
+         *
+         *     ``from_message_id`` 可以是这一轮里的**任意一条**（提问 / 回答 / 工具行）：
+         *     服务端按"同一轮"定位，不要求前端先算出是哪一栏。
+         */
+        RegenerateIn: {
+            /** From Message Id */
+            from_message_id: number;
+            /**
+             * Mode
+             * @default regenerate
+             */
+            mode: string;
+            /** Agents */
+            agents?: string[] | null;
         };
         /**
          * SteerOut
@@ -40304,6 +40348,30 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_chat_api_regenerate_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegenerateIn"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

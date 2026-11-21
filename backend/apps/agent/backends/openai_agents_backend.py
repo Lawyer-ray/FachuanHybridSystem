@@ -671,9 +671,16 @@ class OpenAiAgentsBackend:
             # 思考参数 + 流式 usage 开关合并进同一份 ``extra_body``：
             # 两者都是「网关要的、SDK 默认不发」的字段，分两处构造会让后一处覆盖前一处。
             base_settings = _thinking_settings(model, resolved.settings) or ModelSettings()
+            # ``ModelSettings.extra_body`` 的静态类型是 ``object``（SDK 允许任意结构），
+            # 直接解包 mypy 会报 [dict-item]；这里先收窄成 dict 再合并——非 dict 时按
+            # "没有 base 字段"处理（比抛 TypeError 好：那会让整栏直接失败）。
+            base_extra_body = base_settings.extra_body
             model_settings = dataclasses_replace(
                 base_settings,
-                extra_body={**(base_settings.extra_body or {}), **STREAM_USAGE_EXTRA_BODY},
+                extra_body={
+                    **(base_extra_body if isinstance(base_extra_body, dict) else {}),
+                    **STREAM_USAGE_EXTRA_BODY,
+                },
             )
             agent = Agent(
                 name="法穿法律助手",
