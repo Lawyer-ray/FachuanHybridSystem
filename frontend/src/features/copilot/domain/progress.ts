@@ -43,12 +43,27 @@ export interface ToolCallInput {
   agentKind?: string
   /** `rewrite_folder_file` 的参数解析结果；其他工具为 undefined */
   rewrite?: ChatMessage['rewrite']
+  /** 执行态（缺省 `running`：`tool_call` 到达即视为开始） */
+  toolState?: ChatMessage['toolState']
+  /** 开始时刻（ms）。由调用方取 `Date.now()`——本模块是纯函数，不读时钟。 */
+  startedAt?: number
+  /** 工具入参（只用于生成「读取 X」这类短标题） */
+  toolArgs?: unknown
 }
 
 /** 一次 `tool_result` 事件里与本模块有关的部分 */
 export interface ToolResultInput {
   toolCallId?: string
   result: string
+  /**
+   * 结算态：成功 / 失败 / 被中止。
+   *
+   * **必须由事件给**（`tool_result.is_error` / 停止信号），不能由 `result` 是否为空
+   * 推断：删除类工具的合法结果就是空串，按空字符串判失败会把「成功」显示成「失败」。
+   */
+  toolState?: Extract<ChatMessage['toolState'], 'ok' | 'error' | 'stopped'>
+  /** 结束时刻（ms）；缺省表示时刻未知（历史数据 / 注入实现） */
+  endedAt?: number
 }
 
 /**
@@ -76,7 +91,13 @@ export function applyToolCall(
   let next = messages
   if (existing) {
     // 参数渐进完整：后到的解析结果覆盖前一条，不新增行
-    if (call.rewrite) next = messages.map((m) => (m === existing ? { ...m, rewrite: call.rewrite } : m))
+    if (call.rewrite || call.toolArgs !== undefined) {
+      next = messages.map((m) =>
+        m === existing
+          ? { ...m, ...(call.rewrite ? { rewrite: call.rewrite } : {}), ...(call.toolArgs !== undefined ? { toolArgs: call.toolArgs } : {}) }
+          : m,
+      )
+    }
   } else {
     next = [
       ...messages,
@@ -88,6 +109,10 @@ export function applyToolCall(
         ...(callId ? { toolCallId: callId } : {}),
         ...(call.rewrite ? { rewrite: call.rewrite } : {}),
         ...(call.agentKind ? { agentKind: call.agentKind } : {}),
+        // 五态与耗时的起点：律师要回答「这个工具跑了多久」，必须从声明那刻记
+        toolState: call.toolState ?? 'running',
+        ...(call.startedAt !== undefined ? { toolStartedAt: call.startedAt } : {}),
+        ...(call.toolArgs !== undefined ? { toolArgs: call.toolArgs } : {}),
       },
     ]
   }
@@ -142,7 +167,14 @@ export function applyToolResult(
     const byId = Boolean(matchId) && m.role === 'tool' && m.toolCallId === matchId
     const lastEmpty =
       !matchId && m.role === 'tool' && !m.content && messages.slice(i + 1).every((x) => x.role !== 'tool')
-    if (byId || lastEmpty) return { ...m, content: res.result }
+    if (byId || lastEmpty) {
+      return {
+        ...m,
+        content: res.result,
+        ...(res.toolState ? { toolState: res.toolState } : {}),
+        ...(res.endedAt !== undefined ? { toolEndedAt: res.endedAt } : {}),
+      }
+    }
     if (m.id !== ownerId || !m.pendingTool) return m
     // 不是这次调用的结果：别人的工具不影响本栏的「正在查」
     if (matchId && m.pendingTool.toolCallId !== matchId) return m
