@@ -46,7 +46,7 @@ import asyncio
 import json
 import re
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from itertools import combinations
 
 from apps.core.llm.exceptions import LLMError, LLMTimeoutError
@@ -55,7 +55,7 @@ from . import judge_client
 from .judge_client import JudgeCall
 
 #: 同时在飞的判等调用上限（3 栏 = 6 次，6 栏 = 30 次）。
-ENTAIL_CONCURRENCY = 4
+ENTAIL_CONCURRENCY = 2
 #: 单次判等调用的硬超时（秒）。
 ENTAIL_TIMEOUT_SECONDS = 30.0
 #: 整个判等阶段的 deadline（秒）：过线之后的调用不再发起。
@@ -72,6 +72,9 @@ _REASON_EMPTY = "empty_response"
 _REASON_PARSE = "parse_failed"
 #: 这一对没被预取就被人问了——编排漏了一对，按判不了记（并在原因里说清）。
 _REASON_NOT_PREFETCHED = "not_prefetched"
+#: 模型**按契约**回了 ``{"entails": null}``：判了，但它说判不了（拒答/看不出结论）。
+#: 与 ``parse_failed``（它压根没按契约回答）分开——前者是我们的口径问题，后者是它的。
+_REASON_UNDECIDED = "judge_undecided"
 
 #: 整段（可带围栏）就只是一个 json 代码块时，剥掉围栏再解析。
 _WHOLE_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL | re.IGNORECASE)
@@ -107,7 +110,7 @@ def build_entail_prompt(first: str, second: str) -> str:
 3. 一方多出或缺少实体要件、结论相反、责任主体不同、金额或期限口径不同 → false。
 4. 只在真的判不了时用 null（任一段看不出结论：纯程序性说明、拒答、跑题）；不要为了"看起来保守"就用 null。
 
-[输出契约] 只输出一个 JSON 对象，不加围栏、不加任何其他文字：
+[输出契约] **只输出一个 JSON 对象，第一句就是它**：不写分析、不写推理、不写解释、不加围栏：
 {{"entails": true|false|null, "why": "≤30字"}}
 
 - entails 必须是 JSON 布尔或 null；不许写成字符串 "true"/"false"，也不许用 1/0。
@@ -135,20 +138,47 @@ def _load_json(text: str) -> object:
     return None
 
 
+#: 兜底提取：只认 ``"entails": true|false|null`` 这个**具名键**（不是任意裸值）。
+#:
+#: 为什么需要它：推理型模型会先写一段思考过程再给 JSON（真机实测 6 个方向里 5 个
+#: 整段解析失败），而那段思考里通常已经写出了唯一那个键。这里只承认"这个键出现且
+#: 只对应一个取值"——出现两个不同取值算歧义，不判；一个都没有，不判。
+_ENTAILS_KEY_RE = re.compile(r'"entails"\s*:\s*(true|false|null)', re.IGNORECASE)
+
+
+def _extract_keyed_verdict(text: str) -> bool | None:
+    """按具名键提取判定；取值不唯一或不存在时返回 ``None``（≠ 判否）。"""
+    values = {match.group(1).lower() for match in _ENTAILS_KEY_RE.finditer(text)}
+    if len(values) != 1:
+        return None
+    raw = values.pop()
+    if raw == "true":
+        return True
+    if raw == "false":
+        return False
+    return None
+
+
 def parse_entails(text: str) -> bool | None:
     """解析 judge 输出；只认 JSON 布尔 / null，其余（含 ``"true"``、``1``）一律 ``None``。
 
     不替模型补完它没遵守的协议：把字符串折算成布尔，等于把"它没回答"记成"它回答了"。
+    整段不是 JSON 时退到 :func:`_extract_keyed_verdict`（只认具名键、只认唯一取值）。
     """
     if not text or not text.strip():
         return None
     data = _load_json(text)
     if not isinstance(data, dict):
-        return None
+        return _extract_keyed_verdict(text)
     value = data.get("entails")
     if value is None or isinstance(value, bool):
         return value
     return None
+
+
+def _looks_contractual(text: str) -> bool:
+    """回复里到底有没有出现那个具名键（有 = 它按契约答了，只是答"判不了"）。"""
+    return bool(_ENTAILS_KEY_RE.search(text))
 
 
 def _reason_for_error(error: BaseException) -> str:
@@ -180,7 +210,9 @@ async def _judge_direction(
         return None, _REASON_EMPTY
     verdict = parse_entails(reply.content)
     if verdict is None:
-        return None, _REASON_PARSE
+        # 两种"None"必须分开报：模型按契约回了 null（judge_undecided）与它压根没按
+        # 契约回答（parse_failed）是两件事——前者要改口径，后者要改调用/预算。
+        return None, (_REASON_UNDECIDED if _looks_contractual(reply.content) else _REASON_PARSE)
     return verdict, ""
 
 
@@ -193,6 +225,10 @@ async def _entail_direction(
     timeout: float,
 ) -> tuple[bool | None, str]:
     """一个方向：最多 ``ENTAIL_MAX_ATTEMPTS`` 次，失败换下一个 judge 并退避。"""
+    if not first.strip() or not second.strip():
+        # 栏名对不上正文（编排漏了）——不送空串给模型：它对空串只会礼貌地回答"无结论"，
+        # 而我们要的是"我们自己漏了"，必须自己认。
+        return None, _REASON_EMPTY
     prompt = build_entail_prompt(first, second)
     reason = _REASON_JUDGE_ERROR
     for attempt in range(ENTAIL_MAX_ATTEMPTS):
@@ -221,7 +257,12 @@ class SyncEntails:
       ``parse_failed`` / ``not_prefetched``），写进 ``clusters_error`` 供律师看到"为什么没成团"。
     """
 
-    def __init__(self, *, models: Sequence[str], call_judge: JudgeCall | None) -> None:
+    def __init__(self, *, models: Sequence[str], texts: Mapping[str, str], call_judge: JudgeCall | None) -> None:
+        # ``cluster_answers`` 把**栏名**当 id 传给我们，而判定要用的是**正文**。
+        # 少了这张表，送进 prompt 的就是 "pi" / "dsh" 两个词——真机实测这里出过事：
+        # 6 个方向全部回 ``{"entails": null, "why": "两段仅为名称，均无结论"}``，
+        # 评审卡永远显示「未成团」，而每一处代码看起来都对。
+        self.texts = dict(texts)
         self.models = tuple(models)
         self.calls = 0
         self.failed = 0
@@ -242,6 +283,10 @@ class SyncEntails:
                 由 ``jury`` 转成 ``clusters_error``——自己写错的 bug 不该被静默降级。
         """
         order = list(dict.fromkeys(ids))
+        if self._call_judge is None:
+            # 预热异步门面：`LLMService.create()` 第一次读平台配置有同步 ORM，
+            # 并发首调会撞成 SynchronousOnlyOperation，被 fallback 吞成"后端不可用"。
+            await judge_client.warm_async_service()
         pairs = list(combinations(order, 2))
         directions = [(first, second) for first, second in pairs] + [(second, first) for first, second in pairs]
         if not directions:
@@ -279,8 +324,8 @@ class SyncEntails:
                 self._record(first, second, None, _REASON_JUDGE_ERROR)
                 return
             verdict, reason = await _entail_direction(
-                first=first,
-                second=second,
+                first=self.texts.get(first, ""),
+                second=self.texts.get(second, ""),
                 models=self.models,
                 call_judge=self._call_judge,
                 timeout=min(ENTAIL_TIMEOUT_SECONDS, remaining),
@@ -301,18 +346,21 @@ class SyncEntails:
             self.reasons[reason] = self.reasons.get(reason, 0) + 1
 
 
-def make_entails(judge_models: Sequence[str], *, call_judge: JudgeCall | None = None) -> SyncEntails:
+def make_entails(
+    judge_models: Sequence[str], *, texts: Mapping[str, str], call_judge: JudgeCall | None = None
+) -> SyncEntails:
     """造一个判等函数（``cluster_answers`` 的 ``entails`` 参数）。
 
     Args:
         judge_models: 可用的 judge 模型清单（空 = 判不了，每个方向都记 ``judge_error``）。
+        texts: ``{栏名: 正文}``——**必须给**：``cluster_answers`` 传的是栏名，判定要正文。
         call_judge: 可注入的调用实现；``None`` 走 ``judge_client`` 的生产门面。
 
     Returns:
         :class:`SyncEntails`——调用形状与 ``EntailsFn`` 一致，失败返回 ``None``。
     """
     models = tuple(model.strip() for model in judge_models if model.strip())
-    return SyncEntails(models=models, call_judge=call_judge)
+    return SyncEntails(models=models, texts=texts, call_judge=call_judge)
 
 
 def describe_failures(entails: SyncEntails) -> str:

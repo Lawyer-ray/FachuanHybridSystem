@@ -107,7 +107,7 @@ async def _cluster_lanes(
     if not models:
         return [], "无可用评审模型"
 
-    entails = make_entails(models, call_judge=call_judge)
+    entails = make_entails(models, texts=answers, call_judge=call_judge)
     try:
         # 判等是 I/O，先并发预取；cluster_answers 只是纯查表（微秒级），不需要开线程。
         await entails.prefetch(usable)
