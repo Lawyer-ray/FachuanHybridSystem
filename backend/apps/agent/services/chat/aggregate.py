@@ -395,7 +395,6 @@ async def synthesize(
     prompt_tokens = 0
     completion_tokens = 0
     total_tokens = 0
-    used_model = model
 
     for attempt in range(SYNTHESIS_MAX_ATTEMPTS):
         temperature = SYNTHESIS_TEMPERATURE if attempt == 0 else SYNTHESIS_RETRY_TEMPERATURE

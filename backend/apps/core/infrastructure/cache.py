@@ -56,6 +56,12 @@ def _hash_key_component(value: str) -> str:
 
     v = (value or "").strip().encode("utf-8")
     secret = (getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
+    # 这条被 CodeQL 判成 py/weak-sensitive-data-hashing（"口令用了快哈希"），是**误报**：
+    # 入参是法院系统的**登录账号**（plugins/court_automation/login/token_service.py:229），
+    # 不是口令；这里派生的是缓存键，HMAC-SHA256 正是缓存键该用的原语——换成
+    # pbkdf2/scrypt 只会让每次取 token 多花几十毫秒，安全性一点没提高（原值不落盘、
+    # 不可逆，也不需要抗离线爆破）。
+    # codeql[py/weak-sensitive-data-hashing]
     return hmac.new(secret, v, hashlib.sha256).hexdigest()[:32]
 
 

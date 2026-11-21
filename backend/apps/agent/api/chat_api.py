@@ -171,10 +171,15 @@ async def regenerate_message(request: Any, session_id: str, payload: RegenerateI
                 mode=payload.mode,
                 lane=lanes[0] if lanes else "",
             )
-        except (LookupError, ValueError) as error:
-            # 定位失败是**可操作**的错误（消息不在这个会话 / 这条回答没有正文），
-            # 用一句话说清，别让前端归到「未知错误」
-            yield _sse(project_message("regenerate_target_missing", message=str(error)))
+        except LookupError:
+            # 定位失败是**可操作**的错误，但**不能把异常文本放进响应**（同上：CodeQL
+            # 判 stack-trace-exposure）。这里按分支给固定文案，细节进日志。
+            logger.info("重生成：消息不存在（session=%s msg=%s）", session_id, payload.from_message_id)
+            yield _sse(project_message("regenerate_target_missing", message="找不到这条消息或它对应的提问"))
+            return
+        except ValueError:
+            logger.info("重生成：请求不可执行（session=%s msg=%s）", session_id, payload.from_message_id)
+            yield _sse(project_message("regenerate_target_invalid", message="续写需要一条已有正文的回答"))
             return
 
         marked = await mark_superseded(session=current, turn_no=target.turn_no, lane=target.lane)
@@ -200,10 +205,15 @@ async def regenerate_message(request: Any, session_id: str, payload: RegenerateI
                 turn=target.turn_no,
             ):
                 yield _sse(event)
-        except SessionNotLiveError as error:
-            yield _sse(project_message("session_not_live", message=str(error)))
-        except PiError as error:
-            yield _sse(project_message("pi_error", message=str(error)))
+        except SessionNotLiveError:
+            # 与 ``send_message`` 同一条红线：**异常文本不进响应**。
+            # 只要异常对象参与构造响应，CodeQL 的 py/stack-trace-exposure 就判 error
+            # （本仓库已被拦过三次）；堆栈与分类由 logger 留档，律师只需要一句结论。
+            logger.warning("重生成：会话已不在运行中（session=%s）", session_id, exc_info=True)
+            yield _sse(project_message("session_not_live", message="本轮已结束，无法继续写入"))
+        except PiError:
+            logger.warning("重生成：模型进程异常（session=%s）", session_id, exc_info=True)
+            yield _sse(project_message("pi_error", message="模型调用失败，请稍后重试"))
 
     return StreamingHttpResponse(generator(), content_type="text/event-stream")
 
