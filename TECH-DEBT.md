@@ -14,23 +14,6 @@
 
 ---
 
-## ④ 正文抽取质量（政务页实测只抽到 830 字）
-
-**现象**：同一个政务页面，`fetch_url` 只返回 800–900 字，而页面实际正文更长；
-模型据此回答可能"漏掉后半篇文章"。另外特殊排版（多列表格/懒加载）会整段丢失。
-
-**证据**：`backend/mcp_server/tools/web_search/fetch_url.py` 的正文抽取只有
-`_CONTENT_SELECTORS`（7 个 CSS 选择器）+ 退化到 `<body>`，没有成熟的内容评分/去噪。
-
-**修法**：先跑选择器，命中字数 < 300 时回退到 `trafilatura`（它自己的阈值
-`MIN_EXTRACTED_SIZE=250` 正是"级联降级闸门"，不是合格线）；日期可用 `htmldate` 替代
-我们现在手写的 meta/JSON-LD/关键词三层。
-**依赖代价**：`trafilatura` 会带 `courlan` / `htmldate` / `justext` / `pyphen` 等 4–6 个小包
-（纯 Python，`lxml` 已在依赖里）。**风险**：体量增加、抽取结果与现有测试基线可能不一致
-（需要 `test_fetch_url.py` 全量重跑并核对）。
-
----
-
 ## ⑤ 主对话路径只有「读侧」健康过滤，没有精确在飞计数
 
 **现象**：pi / dsh / openai-agents 在**外部进程**里直接跟网关说话，我们只能给它们一把 Key，

@@ -512,6 +512,50 @@ def _format_table(table: Any) -> str:
     return "\n".join(lines)
 
 
+#: 选择器抽到的正文低于这个字数时，才去请 trafilatura 二次抽取。
+#: 依据：政务页实测只抽到 830 字（页面实际更长）；trafilatura 自己的
+#: ``MIN_EXTRACTED_SIZE=250`` 正是「级联降级闸门」而非合格线，取同量级即可。
+_MIN_EXTRACT_CHARS = int(os.getenv("FACHUAN_FETCH_MIN_EXTRACT_CHARS", "300"))
+
+
+def _extract_text_trafilatura(html: str) -> str:
+    """用 trafilatura 二次抽取（**可选依赖**：没装就返回空串，退回选择器结果）。
+
+    为什么只做「兜底」而不是替换整条管线：trafilatura 抽取更干净，但会改变现有
+    输出的段落/表格形态，直接替换会让下游（分块续读、注入包裹、表格保真）的基线
+    全部漂移。先用它补「选择器明显漏抽」的那一类页面（政务页/老站），
+    命中率与稳定性观察够再谈替换。
+    """
+    try:
+        import trafilatura
+    except ImportError:  # pragma: no cover - 未安装时静默降级
+        logger.debug("trafilatura 未安装，仅用选择器抽取正文")
+        return ""
+    try:
+        extracted = trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+            favor_recall=True,
+        )
+    except Exception:  # pragma: no cover - 第三方解析异常不该拖垮抓取
+        logger.debug("trafilatura 抽取失败，退回选择器结果", exc_info=True)
+        return ""
+    return (extracted or "").strip()
+
+
+def _extract_text_with_fallback(html: str) -> str:
+    """选择器抽取 → 字数不足时用 trafilatura 兜底（取更长的那份）。"""
+    text = _extract_text(html)
+    if len(text) >= _MIN_EXTRACT_CHARS:
+        return text
+    improved = _extract_text_trafilatura(html)
+    if len(improved) > len(text):
+        logger.info("正文选择器只抽到 %d 字，trafilatura 兜底后 %d 字", len(text), len(improved))
+        return improved
+    return text
+
+
 def _extract_text(html: str) -> str:
     """从 HTML 提取正文纯文本。
 
@@ -900,7 +944,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                 ),
             }
 
-        text = _extract_text(html)
+        text = _extract_text_with_fallback(html)
         if not text:
             # 有壳无内容：多半是 SPA 需要 JS 渲染
             return {

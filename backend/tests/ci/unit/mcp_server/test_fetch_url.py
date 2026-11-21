@@ -1162,3 +1162,52 @@ class TestHostThrottle:
         assert result["reason"] == "host_throttled"
         instance = fake_http.return_value.__enter__.return_value
         assert instance.stream.call_count == 0, "熔断期间不该再发请求"
+
+
+class TestTrafilaturaFallback:
+    """选择器明显抽不到东西时，用 trafilatura 兜底（**可选依赖**）。
+
+    ⚠️ 证据更正：最初以为「政务页只抽 830 字」是漏抽，实测那页正文本身就是 830 字
+    （trafilatura 只给 694）。所以这条兜底不是「修抽取质量」，而是给**老站/怪排版**
+    的免费保险：只有选择器几乎抽不到（< 300 字）时才请它出手。
+    """
+
+    def test_falls_back_when_selector_finds_little(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _module()
+        html = "<html><body><div class='weird-old-layout'>只有一点点</div></body></html>"
+        _set_response(fake_http, _response(200, html))
+        monkeypatch.setattr(module, "_extract_text_trafilatura", lambda _html: "兜底正文。" * 100)
+
+        result = module.fetch_url("https://old.example.com/a")
+
+        assert result["ok"] is True
+        assert "兜底正文" in result["text"]
+
+    def test_keeps_selector_result_when_it_is_rich(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _module()
+        html = "<html><body><article>" + "选择器正文。" * 200 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+        called: list[int] = []
+        monkeypatch.setattr(module, "_extract_text_trafilatura", lambda _html: called.append(1) or "短的兜底")
+
+        result = module.fetch_url("https://new.example.com/a")
+
+        assert "选择器正文" in result["text"]
+        assert called == [], "选择器抽到足够内容时不该再花时间跑 trafilatura"
+
+    def test_returns_empty_when_trafilatura_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _module()
+        monkeypatch.setattr(module, "_MIN_EXTRACT_CHARS", 300)
+        # 模拟未安装：import 失败 → 返回空串（调用方保留选择器结果）
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _fake_import(name: str, *a: Any, **kw: Any) -> Any:
+            if name == "trafilatura":
+                raise ImportError("not installed")
+            return real_import(name, *a, **kw)
+
+        monkeypatch.setattr(builtins, "__import__", _fake_import)
+
+        assert module._extract_text_trafilatura("<html></html>") == ""
