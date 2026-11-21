@@ -86,6 +86,10 @@ class AdaptiveLimiter:
         self._limit = max(self.min_limit, min(self.max_limit, start))
         self._base: float | None = None
         self._samples: deque[float] = deque(maxlen=self._window_size)
+        #: 本窗口内观测到的最大在飞数——判断「这段延迟样本里到底有没有排队信息」。
+        #: 低流量时样本全是「不排队」，据此加并发就是凭空调高（Netflix Gradient2
+        #: 的 app-limited 守卫，见 ``_adjust``）。
+        self._window_peak = 0
         self._adjustments = 0
         #: 慢启动阶段（翻倍上涨），一旦观测到排队/过载就转入「加性增长、乘性下降」。
         #: 没有慢启动时每次只 +1，30 个槽位要 240 个样本才爬满——高峰期等于常年低并发。
@@ -134,6 +138,7 @@ class AdaptiveLimiter:
             overload: 上游是否报了「压过界」类错误（``empty`` / 429 / 超时）。
         """
         with self._cond:
+            self._window_peak = max(self._window_peak, self._in_flight)
             self._in_flight = max(0, self._in_flight - 1)
             if overload:
                 # 明确过载信号：不等窗口，立刻退让（多把 key 同时报空说明是上游，
@@ -159,7 +164,15 @@ class AdaptiveLimiter:
 
     def _adjust(self) -> None:
         samples = sorted(self._samples)
+        peak = self._window_peak
         self._samples.clear()
+        self._window_peak = 0
+        # app-limited 守卫：当前并发连上限的一半都没用上时，这批样本里没有排队信息
+        # （延迟低只是因为没人抢），据此上调会让 limit 在闲时爬到顶、忙时被打回，
+        # 形成周期性锯齿。Netflix Gradient2/Vegas 都做同一件事：样本不足就不动。
+        # 对照见 Gradient2Limit.java「inflight < limit/2 → 直接返回」。
+        if peak * 2 < self._limit:
+            return
         base = self._base or samples[0]
         p50 = samples[len(samples) // 2]
         if p50 <= base * self.UP_RATIO and self._limit < self.max_limit:

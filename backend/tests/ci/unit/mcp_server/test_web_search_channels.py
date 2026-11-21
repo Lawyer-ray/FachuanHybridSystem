@@ -633,28 +633,40 @@ class TestAdaptiveLimiter:
         module = importlib.import_module("mcp_server.adaptive_limiter")
         return module.AdaptiveLimiter(**kw)
 
+    @staticmethod
+    def _pump(limiter: Any, latency: float, rounds: int) -> None:
+        """模拟「有真实并发」的采样：先占住半个窗口的槽位再释放。
+
+        直接 ``release(latency=...)`` 而从不 ``acquire``，在飞数恒为 0，
+        会被 app-limited 守卫正确拦下（不涨价）——那样测的就不是增长逻辑了。
+        """
+        for _ in range(rounds):
+            want = max(1, limiter.limit // 2)
+            held = 0
+            for _ in range(want):
+                if limiter.acquire(timeout=0.05):
+                    held += 1
+            for _ in range(held):
+                limiter.release(latency=latency)
+
     def test_starts_at_safe_level_and_climbs_on_fast_samples(self) -> None:
         limiter = self._limiter(max_limit=30, initial=10, window=4)
 
         assert limiter.limit == 10  # 起步 = 每 key 1 并发（实测安全水位）
-        for _ in range(4 * 40):
-            limiter.release(latency=0.05)
+        self._pump(limiter, 0.05, 4 * 40)
         assert limiter.limit == 30, "延迟贴近底噪时应爬到硬上限（吃满所有 key）"
 
     def test_halves_when_latency_jumps(self) -> None:
         limiter = self._limiter(max_limit=30, window=4)
-        for _ in range(4 * 40):
-            limiter.release(latency=0.05)  # 先爬到高位
+        self._pump(limiter, 0.05, 4 * 40)  # 先爬到高位
         high = limiter.limit
 
-        for _ in range(4):  # 一次窗口的「明显排队」样本
-            limiter.release(latency=0.05 * 10)
+        self._pump(limiter, 0.05 * 10, 4)  # 一次窗口的「明显排队」样本
         assert limiter.limit < high, "延迟翻十倍时必须退让"
 
     def test_overload_signal_retreats_without_waiting_window(self) -> None:
         limiter = self._limiter(max_limit=30, window=4)
-        for _ in range(4 * 8):  # 先爬到一定高度
-            limiter.release(latency=0.05)
+        self._pump(limiter, 0.05, 4 * 8)  # 先爬到一定高度
         before = limiter.limit
         assert before >= 5
 
@@ -665,8 +677,7 @@ class TestAdaptiveLimiter:
 
     def test_never_exceeds_max_or_goes_below_one(self) -> None:
         limiter = self._limiter(max_limit=3, window=2, min_limit=1)
-        for _ in range(50):
-            limiter.release(latency=0.01)
+        self._pump(limiter, 0.01, 50)
         assert limiter.limit == 3
         for _ in range(50):
             limiter.release(latency=9.0, overload=True)
@@ -679,6 +690,20 @@ class TestAdaptiveLimiter:
 
         threading.Timer(0.05, lambda: limiter.release(latency=0.01)).start()
         assert limiter.acquire(timeout=1.0) is True  # 释放后立刻能拿到
+
+    def test_app_limited_does_not_raise_limit(self) -> None:
+        """低流量样本里没有排队信息 → 不许上调（否则闲时爬满、忙时被打回，来回锯齿）。
+
+        对照 Netflix Gradient2 的 `inflight < limit/2` 守卫。
+        """
+        limiter = self._limiter(max_limit=30, initial=10, window=4)
+
+        for _ in range(200):
+            # 只占 1 个槽位（远低于 10/2）就释放：延迟再漂亮也不能涨价
+            assert limiter.acquire(timeout=0.05)
+            limiter.release(latency=0.01)
+
+        assert limiter.limit == 10, "app-limited 时不该上调 limit"
 
 
 class TestFirmScheduling:

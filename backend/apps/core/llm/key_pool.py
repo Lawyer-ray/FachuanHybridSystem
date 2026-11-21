@@ -2,13 +2,127 @@
 
 供 ``OpenAICompatibleBackend`` 使用，统一「每 Key 并发上限」的语义，
 避免各调用点各自实现一套轮询规则。
+
+## 什么错误才算「这把 Key 坏了」（2026-11-21 对齐 LiteLLM 后的定案）
+
+旧实现是**二值** ``release(success=False)``：任何异常（含一次参数错、一次上下文
+超长、一次内容审核）都会让该 ``(Key, 模型)`` 冷却 30 秒。后果是**自伤**：
+
+- 一次用户传的超长 prompt 触发 400，``for _ in range(len(pool.keys))`` 会把这个
+  请求在**每把 Key 上重放一遍**，于是整池一起进冷却；
+- 下一个正常用户拿到 `_raise_no_key_available` →「该平台全部 API Key 均不可用」。
+
+LiteLLM 的做法是**状态码白名单**（``router_utils/cooldown_handlers.py``
+``_is_cooldown_required``：只有 429/401/402/408/404 与 5xx 才冷却，其余 4XX 一律
+不冷却），因为「客户端错不该怪 deployment」。本模块照此实现，并按我们自己的
+语义微调：**403 在我们这里是「该 Key 没有这个模型的权限」，是真问题** → 冷却。
+
+另外两条同样来自 LiteLLM：
+
+- **不是一次就冷却**：默认连续 ``FAILS_BEFORE_COOLDOWN=2`` 次才冷却
+  （LiteLLM 的 ``allowed_fails`` 默认 3；我们池子小、key 少，取 2）；
+- **冷却时长可被 ``retry-after`` 覆盖**且夹在 ``[5, 300]`` 秒
+  （网关实测 429 会带 ``retry-after: 60``，比写死的 30 秒长——30 秒后放回轮转
+  只会让同一把 Key 反复挨打）。
 """
 
 from __future__ import annotations
 
+import logging
+import os
 import threading
 import time
 from typing import Any
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+#: 只有这些状态码说明「这把 Key 本身有问题」，才值得冷却（LiteLLM 白名单微调版）。
+#: 403 纳入的理由：律所网关按 Key 授权模型，403 = 这把 Key 没有该模型权限。
+COOLABLE_STATUS: frozenset[int] = frozenset({401, 402, 403, 404, 408, 429})
+
+#: 无状态码的异常里，只有「网络/超时」这类可能是 Key 侧问题。
+#: 其余（解析失败、ValueError、业务校验）与 Key 无关 → 不冷却、也不该换 Key 重试。
+_TRANSPORT_ERROR_NAMES: frozenset[str] = frozenset(
+    {
+        "APITimeoutError",
+        "APIConnectionError",
+        "InternalServerError",
+        "TimeoutException",
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "ReadError",
+        "WriteTimeout",
+        "PoolTimeout",
+        "RemoteProtocolError",
+    }
+)
+
+
+def _env_float(name: str, default: float, low: float, high: float) -> float:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return max(low, min(float(raw), high))
+    except ValueError:
+        logger.warning("%s 不是数字（%r），按默认 %s 处理", name, raw, default)
+        return default
+
+
+def _env_int(name: str, default: int, low: int, high: int) -> int:
+    return int(_env_float(name, float(default), float(low), float(high)))
+
+
+def _exception_status(exc: BaseException | None) -> int | None:
+    """沿异常链找 HTTP 状态码（SDK 常把它挂在 ``.status_code`` 或 ``.response``）。"""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        status = getattr(current, "status_code", None)
+        if isinstance(status, int):
+            return status
+        response = getattr(current, "response", None)
+        code = getattr(response, "status_code", None)
+        if isinstance(code, int):
+            return code
+        current = current.__cause__ or current.__context__
+    return None
+
+
+def is_key_fault(exc: BaseException | None) -> bool:
+    """这个异常是否该算在「Key 头上」（→ 冷却 + 换下一把）。
+
+    判定顺序与 LiteLLM 的 ``_is_cooldown_required`` 同构：**默认不冷却**，
+    只有明确属于 Key 侧或网关侧的失败才为真。
+    """
+    if exc is None:
+        return True
+    status = _exception_status(exc)
+    if status is not None:
+        return status in COOLABLE_STATUS or status >= 500
+    if isinstance(exc, (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError)):
+        return True
+    return type(exc).__name__ in _TRANSPORT_ERROR_NAMES
+
+
+def cooldown_hint(exc: BaseException | None) -> float | None:
+    """从 ``retry-after`` 头取建议冷却秒数（夹在 ``[5, 300]``）；取不到返回 ``None``。"""
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None)
+    if not headers:
+        return None
+    raw = headers.get("retry-after") or headers.get("x-ratelimit-reset-requests")
+    if not raw:
+        return None
+    try:
+        seconds = float(str(raw).strip())
+    except ValueError:
+        return None  # 也可能是 HTTP-date，这里不解析：宁可用默认冷却
+    return max(5.0, min(seconds, 300.0))
 
 
 class KeyPool:
@@ -16,14 +130,17 @@ class KeyPool:
 
     - 并发上限为 0 表示不限制；
     - 全部候选 Key 处于并发上限时超限使用（保证请求可用）；
-    - 失败后的 ``(Key, 模型)`` 组合进入 30 秒冷却。冷却**按组合而非按 Key** 记账，
+    - 失败后的 ``(Key, 模型)`` 组合进入冷却，冷却**按组合而非按 Key** 记账，
       避免某模型的无权限 403 误伤同一 Key 对其他模型的正常请求；
     - ``scopes`` 为 ``{key: [model, ...]}``，未出现的 Key 表示不限模型。
 
     线程安全：``acquire`` / ``release`` 由内部锁保护，可在多线程与多事件循环下共用。
     """
 
-    COOLDOWN_SECONDS = 30.0
+    #: 冷却秒数。30 是保守默认；命中 429 的 ``retry-after`` 时以网关给的为准。
+    COOLDOWN_SECONDS: float = _env_float("FACHUAN_KEY_COOLDOWN_SECONDS", 30.0, 5.0, 300.0)
+    #: 连续多少次「Key 侧失败」才冷却（LiteLLM ``allowed_fails`` 的同族语义）。
+    FAILS_BEFORE_COOLDOWN: int = _env_int("FACHUAN_KEY_FAILS_BEFORE_COOLDOWN", 2, 1, 10)
 
     def __init__(
         self,
@@ -36,6 +153,8 @@ class KeyPool:
         self.scopes: dict[str, list[str]] = {key: list(models) for key, models in (scopes or {}).items()}
         self._active = [0] * len(self.keys)
         self._failed_until: dict[tuple[int, str], float] = {}
+        self._fails: dict[tuple[int, str], int] = {}
+        self._reason: dict[tuple[int, str], str] = {}
         self._cursor = 0
         self._lock = threading.Lock()
 
@@ -77,12 +196,49 @@ class KeyPool:
                     return idx
             return None
 
-    def release(self, idx: int, *, success: bool, model: str = "") -> None:
+    def release(
+        self,
+        idx: int,
+        *,
+        success: bool,
+        model: str = "",
+        error: BaseException | None = None,
+        cooldown_seconds: float | None = None,
+    ) -> None:
+        """归还槽位，并按失败类型决定是否冷却该 ``(Key, 模型)``。
+
+        Args:
+            idx: :meth:`acquire` 返回的下标。
+            success: 本次调用是否成功。客户端断连/取消应传 ``True``（不是 Key 的错）。
+            model: 本轮使用的模型名（冷却按 ``(Key, 模型)`` 组合记账）。
+            error: 失败时的原始异常。**由池统一判定「是否 Key 故障」**——调用方
+                不要在外部自己判，否则每个调用点会各写一份漂移的白名单。
+            cooldown_seconds: 覆盖本次冷却时长（通常来自 ``retry-after``）。
+        """
+        used = (model or "").strip()
+        key = (idx, used)
         with self._lock:
             if 0 <= idx < len(self._active):
                 self._active[idx] = max(0, self._active[idx] - 1)
-                if not success:
-                    self._failed_until[(idx, (model or "").strip())] = time.monotonic() + self.COOLDOWN_SECONDS
+            if success:
+                self._failed_until.pop(key, None)
+                self._fails.pop(key, None)
+                self._reason.pop(key, None)
+                return
+            if not is_key_fault(error):
+                # 与 Key 无关的失败（400 参数错 / 上下文超长 / 内容审核 / 解析失败）：
+                # 不计数、不冷却、不换 Key。
+                self._reason[key] = f"non-key: {type(error).__name__ if error else 'unknown'}"
+                return
+            strikes = self._fails.get(key, 0) + 1
+            if strikes < self.FAILS_BEFORE_COOLDOWN:
+                self._fails[key] = strikes
+                self._reason[key] = f"失败 {strikes}/{self.FAILS_BEFORE_COOLDOWN}"
+                return
+            seconds = cooldown_seconds if cooldown_seconds is not None else self.COOLDOWN_SECONDS
+            self._failed_until[key] = time.monotonic() + max(1.0, seconds)
+            self._fails.pop(key, None)
+            self._reason[key] = f"{type(error).__name__ if error else '失败'}（冷却 {seconds:.0f}s）"
 
     def is_cooling(self, idx: int, model: str = "") -> bool:
         """该 ``(Key, 模型)`` 组合是否处于失败冷却中。"""
@@ -94,6 +250,31 @@ class KeyPool:
         """各 Key 当前占用的槽位数（只读快照，供日志与监控观察池饱和度）。"""
         with self._lock:
             return list(self._active)
+
+    def snapshot(self) -> list[dict[str, Any]]:
+        """冷却/失败的只读快照（**不含 key 明文**，只用下标，供 Admin/日志观测）。
+
+        运维最常问的两个问题——「第 3 把 Key 是不是废了」「现在几把在飞」——
+        以前只能靠 grep 日志里重启即变号的别名。
+        """
+        now = time.monotonic()
+        with self._lock:
+            rows: list[dict[str, Any]] = []
+            keys = set(self._failed_until) | set(self._reason) | set(self._fails)
+            for idx, model in sorted(keys):
+                until = self._failed_until.get((idx, model), 0.0)
+                rows.append(
+                    {
+                        "index": idx + 1,
+                        "model": model or "*",
+                        "active": self._active[idx] if 0 <= idx < len(self._active) else 0,
+                        "cooling": until > now,
+                        "cooling_remaining": round(max(0.0, until - now), 1),
+                        "fails": self._fails.get((idx, model), 0),
+                        "reason": self._reason.get((idx, model), ""),
+                    }
+                )
+            return rows
 
 
 # ─── 进程级池注册表 ──────────────────────────────────────────────────────────

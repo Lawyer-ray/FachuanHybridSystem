@@ -14,7 +14,7 @@ import openai
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMError, LLMNetworkError, LLMTimeoutError
 from apps.core.llm.key_pool import KeyPool as _KeyPool
-from apps.core.llm.key_pool import shared_pool
+from apps.core.llm.key_pool import cooldown_hint, is_key_fault, shared_pool
 
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage, OpenAIProviderConfig
 
@@ -305,6 +305,12 @@ class OpenAICompatibleBackend:
             base_url=base_url,
             timeout=timeout_val,
             http_client=http_client,
+            # max_retries=0：把重试权收回到本层。
+            # SDK 默认 2 次且遵守 retry-after——网关实测 429 带 retry-after: 60，
+            # 于是一次 create() 会在**同一把已限流的 Key 上**睡 60/180 秒
+            # （key_scheduler 记录的 60.96/130.20/241.02 秒全是 60 的整数倍）。
+            # 那段时间里 KeyPool 的冷却与换 Key 根本没机会执行。
+            max_retries=0,
         )
         # 只保留同 base_url 的客户端（同一平台多 Key 轮询共享连接池，切换平台才重建）
         self._sync_clients = {k: v for k, v in self._sync_clients.items() if k[1] == base_url}
@@ -325,6 +331,9 @@ class OpenAICompatibleBackend:
             base_url=base_url,
             timeout=timeout_val,
             http_client=http_async_client,
+            # 同上：重试由 KeyPool 的「换下一把 Key」承担，SDK 内建重试只会
+            # 在同一把 Key 上干等 retry-after。
+            max_retries=0,
         )
         # 只保留当前事件循环、且同 base_url 的客户端；旧循环已结束，其连接随循环销毁
         self._async_clients = {k: v for k, v in self._async_clients.items() if k[0] == loop_id and k[2] == base_url}
@@ -470,7 +479,16 @@ class OpenAICompatibleBackend:
                 pool.release(idx, success=True, model=used_model)
                 return result
             except Exception as error:
-                pool.release(idx, success=False, model=used_model)
+                pool.release(
+                    idx,
+                    success=False,
+                    model=used_model,
+                    error=error,
+                    cooldown_seconds=cooldown_hint(error),
+                )
+                if not is_key_fault(error):
+                    # 与 Key 无关的失败：换 Key 重放同一个坏请求只会把整池连坐冷却
+                    self._raise_mapped_error(error, request_timeout, provider.base_url)
                 last_error = error
                 logger.warning(
                     "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
@@ -553,7 +571,16 @@ class OpenAICompatibleBackend:
                 pool.release(idx, success=True, model=used_model)
                 return result
             except Exception as error:
-                pool.release(idx, success=False, model=used_model)
+                pool.release(
+                    idx,
+                    success=False,
+                    model=used_model,
+                    error=error,
+                    cooldown_seconds=cooldown_hint(error),
+                )
+                if not is_key_fault(error):
+                    # 与 Key 无关的失败：换 Key 重放同一个坏请求只会把整池连坐冷却
+                    self._raise_mapped_error(error, request_timeout, provider.base_url)
                 last_error = error
                 logger.warning(
                     "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
@@ -649,10 +676,19 @@ class OpenAICompatibleBackend:
             try:
                 stream_obj = self._create_sync_stream(pool.keys[idx], provider.base_url, request_timeout, payload)
             except Exception as error:
-                pool.release(idx, success=False, model=used_model)
+                pool.release(
+                    idx,
+                    success=False,
+                    model=used_model,
+                    error=error,
+                    cooldown_seconds=cooldown_hint(error),
+                )
+                if not is_key_fault(error):
+                    self._raise_mapped_error(error, request_timeout, provider.base_url)
                 last_error = error
                 continue
             ok = False
+            stream_error: Exception | None = None
             try:
                 yield from self._iter_stream(stream_obj, used_model)
                 ok = True
@@ -661,9 +697,16 @@ class OpenAICompatibleBackend:
                 ok = True
                 raise
             except Exception as error:
+                stream_error = error
                 self._raise_mapped_error(error, request_timeout, provider.base_url)
             finally:
-                pool.release(idx, success=ok, model=used_model)
+                pool.release(
+                    idx,
+                    success=ok,
+                    model=used_model,
+                    error=None if ok else stream_error,
+                    cooldown_seconds=None if ok else cooldown_hint(stream_error),
+                )
             return
         self._raise_no_key_available(last_error, request_timeout, provider.base_url)
 
@@ -711,10 +754,19 @@ class OpenAICompatibleBackend:
                     pool.keys[idx], provider.base_url, request_timeout, payload
                 )
             except Exception as error:
-                pool.release(idx, success=False, model=used_model)
+                pool.release(
+                    idx,
+                    success=False,
+                    model=used_model,
+                    error=error,
+                    cooldown_seconds=cooldown_hint(error),
+                )
+                if not is_key_fault(error):
+                    self._raise_mapped_error(error, request_timeout, provider.base_url)
                 last_error = error
                 continue
             ok = False
+            stream_error: Exception | None = None
             try:
                 async for chunk in self._aiter_stream(stream_obj, used_model):
                     yield chunk
@@ -724,9 +776,16 @@ class OpenAICompatibleBackend:
                 ok = True
                 raise
             except Exception as error:
+                stream_error = error
                 self._raise_mapped_error(error, request_timeout, provider.base_url)
             finally:
-                pool.release(idx, success=ok, model=used_model)
+                pool.release(
+                    idx,
+                    success=ok,
+                    model=used_model,
+                    error=None if ok else stream_error,
+                    cooldown_seconds=None if ok else cooldown_hint(stream_error),
+                )
             return
         self._raise_no_key_available(last_error, request_timeout, provider.base_url)
 
@@ -784,7 +843,18 @@ class OpenAICompatibleBackend:
                     pool.release(idx, success=True, model=used_model)
                     return result
                 except Exception as error:
-                    pool.release(idx, success=False, model=used_model)
+                    pool.release(
+                        idx,
+                        success=False,
+                        model=used_model,
+                        error=error,
+                        cooldown_seconds=cooldown_hint(error),
+                    )
+                    if not is_key_fault(error):
+                        # 与 Key 无关的失败（参数错 / 上下文超长 / 内容审核 / 解析失败）：
+                        # 换 Key 重放同一个坏请求只会把整池连坐冷却（实测一次 400
+                        # 能把 10 把 Key 全冻 30 秒），直接抛出原始错误。
+                        self._raise_mapped_error(error, request_timeout, base_url)
                     last_error = error
             self._raise_no_key_available(last_error, request_timeout, base_url)
         return _embed_once("")
@@ -836,7 +906,18 @@ class OpenAICompatibleBackend:
                     pool.release(idx, success=True, model=used_model)
                     return result
                 except Exception as error:
-                    pool.release(idx, success=False, model=used_model)
+                    pool.release(
+                        idx,
+                        success=False,
+                        model=used_model,
+                        error=error,
+                        cooldown_seconds=cooldown_hint(error),
+                    )
+                    if not is_key_fault(error):
+                        # 与 Key 无关的失败（参数错 / 上下文超长 / 内容审核 / 解析失败）：
+                        # 换 Key 重放同一个坏请求只会把整池连坐冷却（实测一次 400
+                        # 能把 10 把 Key 全冻 30 秒），直接抛出原始错误。
+                        self._raise_mapped_error(error, request_timeout, base_url)
                     last_error = error
             self._raise_no_key_available(last_error, request_timeout, base_url)
         return await _aembed_once("")
