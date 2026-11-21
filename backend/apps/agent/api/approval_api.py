@@ -80,6 +80,10 @@ async def pi_approval_request(request: Any, payload: PiApprovalIn) -> Any:  # pr
         tool_args=payload.args or {},
         user_id=payload.user_id or None,
         session_id=payload.session_id or None,
+        reason=payload.reason,
+        # 多栏归因 + 同轮内同名调用的区分：一且丢了就没法回答「这张卡是哪一栏的」。
+        run_id=payload.run_id,
+        tool_call_id=payload.tool_call_id,
     )
     return PiApprovalOut(
         approved=approved,

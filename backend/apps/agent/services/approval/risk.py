@@ -37,6 +37,10 @@ MCP_TOOL_PREFIX = tool_prefix()
 #: 逐笔审批会让 agent 不可用）与 ``export_`` / ``download_``（拉取导出,无破坏性）。
 #: ``sync_`` 不进高危但已列入 WRITE_PREFIXES（中级留痕,见下）。
 DANGER_PATTERNS: tuple[str, ...] = (
+    # ``rewrite_``：2026-11 审计补入——``rewrite_folder_file`` 是**唯一会在主路径上
+    # 真正改律师文件**的工具，原先因为它只命中 WRITE_PREFIXES 而被判 MEDIUM（免审批、
+    # 不落 AgentApproval），等于最危险的那个反而无人闸门。
+    "rewrite_",
     "delete",
     "remove_",
     "destroy",

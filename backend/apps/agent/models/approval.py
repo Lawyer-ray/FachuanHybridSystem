@@ -10,6 +10,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from .session import AgentSession
 
@@ -44,6 +45,21 @@ class AgentApproval(models.Model):
     tool_name = models.CharField(max_length=200, verbose_name="工具名")
     tool_args = models.JSONField(default=dict, blank=True, verbose_name="工具参数")
     reason = models.TextField(blank=True, default="", verbose_name="请求理由")
+    #: 驳回理由。与请求理由**分列**：一列两用会让审计分不清「为什么提」和「为什么拒」，
+    #: 而且 `decide_approval` 会把发起方写的内容覆盖掉（2026-11 审计）。
+    decision_reason = models.TextField(blank=True, default="", verbose_name="驳回理由")
+    #: 运行标识 ``{session_id}:{agent_kind}:{turn}``（``services/chat/stream.next_run_turn``）。
+    #: 多栏并答时这张卡属于「哪一栏、哪一轮」只能靠它——会话级字段区分不出来。
+    run_id = models.CharField(max_length=64, blank=True, default="", db_index=True, verbose_name="运行标识")
+    #: 工具调用标识（MCP/后端的 call id）：同一轮内两次 ``delete_case`` 靠它区分。
+    tool_call_id = models.CharField(max_length=120, blank=True, default="", verbose_name="工具调用标识")
+    #: 去重键 ``sha256(session|short_tool|args)``：三个入口（后端钩子 / MCP 闸门 /
+    #: 写端点兜底）共用同一张卡，避免一次删除弹两张卡、等两次。
+    dedupe_key = models.CharField(max_length=64, blank=True, default="", db_index=True, verbose_name="去重键")
+    #: 被消费时间 —— 一次批准只放行一次调用（MCP 闸门重试命中台账时消费它）。
+    consumed_at = models.DateTimeField(null=True, blank=True, verbose_name="消费时间")
+    #: 过期时间 —— 到期后即使状态是 approved 也不再放行（不靠 created_at + 常量推）。
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="过期时间")
     #: 风险等级（low/medium/high/critical）。落库是为了审计时分得清
     #: 「删一条草稿」和「清空全库」，也便于事后统计哪类操作最常被拒。
     risk_level = models.CharField(max_length=16, blank=True, default="", verbose_name="风险等级")
@@ -70,6 +86,7 @@ class AgentApproval(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["status", "-created_at"], name="agent_approval_status_idx"),
+            models.Index(fields=["dedupe_key", "status"], name="agent_approval_dedupe_idx"),
         ]
 
     def __str__(self) -> str:
@@ -79,6 +96,17 @@ class AgentApproval(models.Model):
     def is_granted(self) -> bool:
         """唯一的放行条件。"""
         return self.status == self.Status.APPROVED
+
+    @property
+    def is_live_grant(self) -> bool:
+        """可用于「一次性放行」的批准：已批准 + 未被消费 + 未过期。
+
+        MCP 服务端闸门用它判断「这轮请求是否被放行过」，而不是只看 ``status``：
+        只看状态会让一次批准被反复重放。
+        """
+        if not self.is_granted or self.consumed_at is not None:
+            return False
+        return self.expires_at is None or self.expires_at > timezone.now()
 
 
 class AgentApprovalPolicy(models.Model):

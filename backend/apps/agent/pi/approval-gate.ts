@@ -49,6 +49,9 @@ const RUN_ID = process.env.FACHUAN_RUN_ID ?? "";
  * sync_ 不进高危但已列入 WRITE_PREFIXES（中级留痕）。
  */
 const HIGH_RISK_PATTERNS: readonly string[] = [
+  // rewrite_：``rewrite_folder_file`` 是唯一真正改律师文件的工具，
+  // 与 Python 侧 DANGER_PATTERNS 同步升级（2026-11 审计）。
+  "rewrite_",
   "delete",
   "remove_",
   "destroy",

@@ -53,7 +53,29 @@ def lookup_approval_policy(*, user_id: int | None, tool_name: str) -> str | None
 
 #: 多栏并答时禁止直接调用的写类工具（短名）。新增写文件的工具必须同时加进
 #: 这里：漏加等于"多栏又能互相覆盖"，而这条路径没有别的地方会拦。
-MULTI_LANE_WRITE_TOOLS: frozenset[str] = frozenset({"rewrite_folder_file", "apply_file_write_patches"})
+#: 名单按「**真实写盘**」列，不按风险等级列：下面标 MEDIUM / LOW 的那几个
+#: 默认不会进审批层（
+#: 低/中风险直接放行），但多栏时照样会改同一批文件。
+MULTI_LANE_WRITE_TOOLS: frozenset[str] = frozenset(
+    {
+        # 主写工具（rewrite_folder_file 与 apply_file_write_patches）
+        "rewrite_folder_file",
+        "apply_file_write_patches",
+        # 归档/同步：会重建绑定目录里的整批文件（判 MEDIUM，走不到审批层）
+        "generate_archive_folder",
+        "sync_case_materials",
+        # 下列 8 个判 LOW（download_ 被刻意排除在写前缀之外），但有文件夹绑定时
+        # ``_save_or_download`` 会真的落盘到合同目录（详见 2026-11 审计）。
+        "download_authority_letter",
+        "download_legal_rep_certificate",
+        "download_power_of_attorney_combined",
+        "download_authorization_package",
+        "download_power_of_attorney",
+        "download_preservation_application",
+        "download_delay_delivery_application",
+        "download_full_preservation_package",
+    }
+)
 
 #: 多栏会话登记键前缀。用**计数**而不是布尔：同一会话并发两轮时，先收尾的
 #: 那一轮不能把仍在跑的多栏轮误判成单栏（宁可多拒一次，不可少拒一次）。

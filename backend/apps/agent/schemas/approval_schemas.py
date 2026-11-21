@@ -28,6 +28,13 @@ class PiApprovalIn(Schema):
     user_id: int = 0
     session_id: str = ""
     risk_level: str = ""
+    #: 运行标识 ``{session_id}:{agent_kind}:{turn}``。多栏并答时审批卡靠它归到
+    #: 正确那一栏；缺失（旧 extension）不报错，只丢归因。
+    run_id: str = ""
+    #: 工具调用标识（同轮内区分两次同名调用）。
+    tool_call_id: str = ""
+    #: 发起方给的理由，落 ``AgentApproval.reason``（与驳回理由分列，互不覆盖）。
+    reason: str = ""
 
 
 class PiApprovalOut(Schema):

@@ -46,6 +46,12 @@ logger = logging.getLogger(__name__)
 
 MAX_QUEUED = 256
 REDIS_KEY_PREFIX = "agent:bus:"
+#: 跨 worker 的「有人在看这个会话」计数键。审批层靠它区分
+#: 「真没人看 → 挂起等离线审批」与「有人在别的 worker 看 → 走在线超时」。
+#: 不能拿 ``redis_cache_enabled()`` 代替：生产用 Redis，那个表达式恒真，
+#: 会让离线审批这条路永远不可达。
+SUBSCRIBER_KEY_PREFIX = "agent:bus:subs:"
+SUBSCRIBER_TTL = 3600
 RELAY_POLL_INTERVAL = 0.05
 #: 事件在 Redis 里的存活时间，防止无人消费时无限堆积
 REDIS_TTL = 60
@@ -99,6 +105,25 @@ def redis_cache_enabled() -> bool:
     return "redis" in backend.lower()
 
 
+def _bump_subscribers(session_id: str, delta: int) -> None:
+    """跨 worker 订阅计数 +1/-1（无 Redis 时静默跳过）。
+
+    计数带 TTL 只是为了兜「进程被杀没走到 unregister」的泄漏；不刷新不重入。
+    """
+    if not redis_cache_enabled():
+        return
+    key = f"{SUBSCRIBER_KEY_PREFIX}{session_id}"
+    try:
+        if delta > 0:
+            cache.add(key, 0, SUBSCRIBER_TTL)
+            cache.incr(key)
+        else:
+            if int(cache.decr(key) or 0) <= 0:
+                cache.delete(key)
+    except Exception:
+        logger.warning("更新跨进程订阅者计数失败: %s", session_id, exc_info=True)
+
+
 class EventBus:
     """按会话分发事件的进程内总线 + Redis 跨进程中继。"""
 
@@ -116,6 +141,7 @@ class EventBus:
         async with self._lock:
             self._subscribers.setdefault(session_id, []).append(queue)
         self._ensure_relay()
+        _bump_subscribers(session_id, 1)
         return queue
 
     async def unregister(self, session_id: str, queue: asyncio.Queue[dict[str, Any]]) -> None:
@@ -130,6 +156,21 @@ class EventBus:
                 return
             if not queues:
                 self._subscribers.pop(session_id, None)
+        _bump_subscribers(session_id, -1)
+
+    async def remote_subscriber_count(self, session_id: str) -> int:
+        """跨进程订阅者数（Redis 计数）；无 Redis 时恒 0。
+
+        含本进程（register 时也 +1），但调用方已经先用 ``has_subscribers``
+        判过本地，重复计数不影响结论。
+        """
+        if not redis_cache_enabled():
+            return 0
+        try:
+            return int(cache.get(f"{SUBSCRIBER_KEY_PREFIX}{session_id}") or 0)
+        except Exception:
+            logger.warning("读取跨进程订阅者计数失败: %s", session_id, exc_info=True)
+            return 0
 
     async def subscriber_count(self, session_id: str) -> int:
         async with self._lock:
