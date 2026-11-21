@@ -54,6 +54,13 @@ jobs:
         run: uv sync --frozen
 
       - name: openapi 产物与代码一致
+        # 导出 schema 要 import Django 设置，而 settings 在非 DEBUG 下强制要求
+        # DJANGO_SECRET_KEY（apps/core/config/django_runtime.py 的安全红线）。
+        # 这个 job 只做「产物 vs 代码」比对、不连库，因此用 DEBUG 模式 + 一次性
+        # 测试密钥即可（不引入任何真实凭据）。
+        env:
+          DJANGO_DEBUG: "1"
+          DJANGO_SECRET_KEY: "openapi-freshness-check-only-not-a-secret"  # pragma: allowlist secret
         run: bash scripts/check-openapi-fresh.sh
   backend-security-guard:
     runs-on: ubuntu-latest
