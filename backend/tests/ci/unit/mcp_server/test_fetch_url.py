@@ -938,17 +938,20 @@ class TestBodySizeCap:
 
 
 class TestRobotsTxt:
-    """robots.txt 尊重(2026-10-25 审计六十七轮,对齐官方 fetch server)——
-    目标站通用组(User-agent: *)明确 Disallow 的路径不抓;robots.txt 拉不到
-    (网络错/非 2xx)fail-open 放行(与官方 fail-closed 的刻意差异,理由见
-    fetch_url._ROBOTS_CACHE_TTL 注释)。autouse fixture 已把检查 patch 成
-    恒放行,本类用例在体内恢复真实实现。"""
+    """robots.txt **strict 模式**(2026-10-25 六十七轮口径)——目标站通用组
+    (User-agent: *)明确 Disallow 的路径不抓;robots.txt 拉不到(网络错/非 2xx)
+    fail-open 放行(与官方 fail-closed 的刻意差异,理由见 fetch_url._ROBOTS_CACHE_TTL)。
+
+    2026-11-21 起默认已是 ``off``(不查 robots,理由见 ``_ROBOTS_MODE``),所以
+    本类每个用例都显式把模式切回 ``strict``;默认行为由
+    ``test_default_mode_ignores_robots`` 单独钉住。"""
 
     @staticmethod
     def _use_real_robots(monkeypatch: pytest.MonkeyPatch) -> Any:
         module = _module()
         real = module._robots_allows_real
         monkeypatch.setattr(module, "_robots_allows", real)
+        monkeypatch.setattr(module, "_ROBOTS_MODE", "strict")
         return module
 
     @staticmethod
@@ -970,6 +973,25 @@ class TestRobotsTxt:
         assert result["ok"] is False
         assert result["reason"] == "robots_disallowed"
         instance.stream.assert_not_called()
+
+    def test_default_mode_ignores_robots(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+        """默认模式(off):即使目标站通用组 Disallow 全站,也照抓正文。
+
+        公众号 ``mp.weixin.qq.com`` 就是这种站(``Disallow: /`` + 六条 Allow 白名单,
+        ``/s/`` 不在白名单),旧口径下整站不可读——这是 2026-11-21 改默认值的直接原因。
+        断言连 robots.txt 都不该去拉(省一次无谓请求)。
+        """
+        module = self._use_real_robots(monkeypatch)
+        monkeypatch.setattr(module, "_ROBOTS_MODE", "off")
+        instance = fake_http.return_value.__enter__.return_value
+        instance.get.return_value = self._robots_response(body="User-Agent: *\nDisallow: /\n")
+        _set_response(fake_http, _response(200, "<html><body><article>公众号正文</article></body></html>"))
+
+        result = module.fetch_url("https://example.com/s/Hj6EBQIG69HrH7egbBFoFQ")
+
+        assert result["ok"] is True
+        assert "公众号正文" in result["text"]
+        instance.get.assert_not_called()
 
     def test_robots_404_fails_open(self, fake_http: Any, monkeypatch: pytest.MonkeyPatch) -> None:
         """robots.txt 404 = 站点没写规则,标准语义为全允许,照常抓取。"""

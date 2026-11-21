@@ -119,6 +119,19 @@ _HEADERS = {
 #: 逐块累积双保险——声明头可以骗,实读为准)。
 _MAX_BODY_BYTES = 10 * 1024 * 1024
 
+#: robots.txt 策略开关(2026-11-21):
+#:
+#: ``off``(默认)——**不查 robots.txt**。为什么改:robots.txt 是给「自动化遍历」的
+#: 约定(RFC 9309),不约束「用户显式指定要读的那一篇」,浏览器同样不读它。实测
+#: 代价是公众号 ``mp.weixin.qq.com`` 的通用组为 ``Disallow: /`` + 六条 ``Allow``
+#: 白名单,``/s/`` 不在白名单 → 整站不可读;而公众号是中文法律内容的主要来源,
+#: 律师把链接贴进对话的意图是「读这一篇」,不是让系统去爬。真正的底线一条都没
+#: 放松:SSRF 内网拦截、反爬/验证页识别、每 host 0.5s 限速、响应体 10MB 上限。
+#:
+#: ``strict``——恢复 2026-10-25 六十七轮的口径(见下方原注释):通用组明确
+#: ``Disallow`` 的路径不抓,返回 ``robots_disallowed``;robots.txt 拉不到仍 fail-open。
+_ROBOTS_MODE = os.getenv("FACHUAN_FETCH_ROBOTS_MODE", "off").strip().lower()
+
 #: robots.txt 尊重(2026-10-25 审计六十七轮,对齐官方 fetch server):模型自主
 #: 抓取按目标站 robots.txt 的**通用组(User-agent: \*)**判定,明确 Disallow
 #: 的路径不抓,返回 ``robots_disallowed``。与官方的**刻意差异**:robots.txt
@@ -649,9 +662,13 @@ def _cache_put(url: str, kind: str, title: str, text: str, published: str = "") 
 def _robots_allows(url: str, http: httpx.Client) -> bool:
     """目标站 robots.txt 通用组是否允许抓取该 URL(见 ``_ROBOTS_CACHE_TTL`` 注释)。
 
-    robots.txt 拉不到或没有 2xx 响应时返回 True(fail-open)。缓存按
+    仅在 ``_ROBOTS_MODE == "strict"`` 时真正判定;默认 ``off`` 直接放行
+    (2026-11-21,理由见 ``_ROBOTS_MODE`` 注释:用户显式指定的单篇不是爬虫遍历)。
+    strict 下 robots.txt 拉不到或没有 2xx 响应时返回 True(fail-open)。缓存按
     origin 记 ``(过期时刻, parser)``;parser 为 None 表示「无规则=全允许」。
     """
+    if _ROBOTS_MODE != "strict":
+        return True
     parsed = urlparse(url)
     if (parsed.hostname or "").lower() in _ROBOTS_EXEMPT_HOSTS:
         return True
@@ -945,7 +962,10 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                 "ok": False,
                 "url": target,
                 "reason": "antispider",
-                "message": "目标站点返回了反爬/验证码页面，无法获取正文",
+                "message": (
+                    "目标站点返回了反爬/验证码页面，无法获取正文。不要再重试、也不要换 UA 重试；"
+                    "请用户把正文粘贴进对话，或用浏览器「打印 → 另存为 PDF」后上传，再由 read_agent_attachment 读取"
+                ),
             }
 
         # 搜狗跳转链接解析失败：落在搜狗自家域名上（首页/跳转壳），说明 token
