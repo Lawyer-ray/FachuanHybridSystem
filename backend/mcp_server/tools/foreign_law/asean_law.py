@@ -356,6 +356,7 @@ def asean_law_verify(
         | `votes` | 每个判定器的摘要（**不含**自由文本，只能看判定面） |
         | `matched_by` | 怎么定位到这部法的；`ambiguous` 表示名称没认准 |
         | `source_url` | 该法在 BARLC 的详情页，给律师点回原页 |
+        | `matched_paragraph` | 引用指定到「款」时该款正文。**只用于展示**：判定基于整条原文 |
         | `effective_date` / `revise_date` | 生效日/修订日（ISO 日期串） |
         | `version_warnings` | 时效告警。**非空时必须原样转达给律师** |
 
@@ -397,6 +398,8 @@ def asean_law_verify(
         law_title=check.law_title,
         section_number=check.section_number,
         section_text=check.section_text,
+        # 指定到「款」时该款正文（仅定位展示；判定仍基于整条 section_text）。
+        matched_paragraph=check.matched_paragraph,
         reason=check.reason,
         claim=str(claim or ""),
         # --- 合议结论面（判定已在插件里做完，这里只负责透出）--------------------

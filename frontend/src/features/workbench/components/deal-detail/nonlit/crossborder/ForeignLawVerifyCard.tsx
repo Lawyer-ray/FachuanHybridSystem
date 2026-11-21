@@ -267,6 +267,18 @@ export function ForeignLawVerifyCard() {
               </div>
             ) : null}
 
+            {/* 指定到款时把该款正文单独标出来（判定仍基于整条，见后端说明） */}
+            {row.state === 'done' && row.result?.matched_paragraph ? (
+              <div className="mt-2 rounded-[8px] border border-status-blue/40 bg-status-blue-bg/30 px-2.5 py-2">
+                <div className="mb-1 text-[10px] text-muted-foreground">
+                  引用指定到该款（判定仍基于整条原文）
+                </div>
+                <pre className="whitespace-pre-wrap font-mono text-[10.5px] leading-[1.65] text-secondary-foreground">
+                  {row.result.matched_paragraph}
+                </pre>
+              </div>
+            ) : null}
+
             {/* 调用轨迹：让人看得出系统真的连了 BARLC，不是编的 */}
             {row.state === 'done' && row.result?.trace?.length ? (
               <div className="mt-2 rounded-[8px] border border-border-light bg-background px-2.5 py-2">

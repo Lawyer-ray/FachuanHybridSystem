@@ -91,6 +91,8 @@ class ForeignLawVerifyOut(BaseModel):
     # ---- 溯源与生效版本（申报书要求「注明国别、名称及生效版本」）--------------
     #: 该法在 BARLC（公开学术平台的代码内简称）的详情页地址，给律师点回原页。
     source_url: str = ""  # privacy-allow BARLC 是公开学术平台缩写，非客户机构
+    #: 指定到「款」时该款正文（仅定位展示；判定基于整条 section_text）。
+    matched_paragraph: str = ""
     effective_date: str = ""
     revise_date: str = ""
     #: 时效告警。非空时前端**必须**原样展示（如「生效日晚于引用时点」）。

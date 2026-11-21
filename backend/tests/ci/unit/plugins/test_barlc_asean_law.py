@@ -117,6 +117,10 @@ class _FakeAdapter:
     def find_section(sections, number):
         return BarlcAdapter.find_section(sections, number)
 
+    @staticmethod
+    def known_country_codes():
+        return {"LAWCOUNTRYTG", "LAWCOUNTRYMLXY"}
+
 
 # ---------------------------------------------------------------- 名称归一化
 
@@ -678,3 +682,128 @@ def test_unknown_country_is_rejected_with_valid_codes() -> None:
         verifier.resolve_law(CRED, law_name="Civil Code", country_code="LAWCOUNTRYMY")
     assert "LAWCOUNTRYMLXY" in str(excinfo.value)
     assert excinfo.value.country_code == "LAWCOUNTRYMY"
+
+
+# ---------------------------------------------------------------- 款/项定位
+
+
+def test_extract_paragraph_locates_parenthesised_clause() -> None:
+    from plugins.barlc_asean_law.adapter import extract_paragraph
+
+    text = "Section 4. Rental must be in writing. (1) Must be registered. (2) Fees apply."
+    assert extract_paragraph(text, "2") == "(2) Fees apply."
+    assert extract_paragraph(text, "9") == ""
+
+
+def test_extract_paragraph_refuses_non_sequential_markers() -> None:
+    """编号不连续 = 多半是正文里的编号引用，不是分项列表。"""
+    from plugins.barlc_asean_law.adapter import extract_paragraph
+
+    assert extract_paragraph("(2) a (4) b", "2") == ""
+    assert extract_paragraph("(1) only", "1") == ""
+
+
+def test_check_reports_matched_paragraph_but_judges_whole_article() -> None:
+    """定位到款时要明说「判定仍基于整条」——引导句常在分项之外。"""
+    text = "Section 4. Rental must be in writing. (1) Must be registered. (2) Fees apply."
+    verifier = JudicialVerifier(
+        _FakeAdapter(
+            hits=[_hit("321381", "1999年商业和工业房地产租赁法", "Rental Act", "LAWCOUNTRYTG")],
+            sections=[LawSection(number="4", text=text)],
+        )
+    )
+    check = verifier.check(
+        CRED,
+        CitationRequest(law_name="Rental Act", section_number="第4条第2款"),
+        jury=False,
+    )
+    assert check.matched_paragraph == "(2) Fees apply."
+    assert check.section_text == text  # 判定单元仍是整条
+    assert "判定仍基于整条原文" in check.reason
+
+
+# ---------------------------------------------------------------- 分页懒匹配
+
+
+def test_scan_pages_finds_law_on_later_page() -> None:
+    """目标法排在第 61 位之后时，只看第一页会变成假「不存在该引用」。"""
+
+    class _PagedAdapter(_FakeAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls: list[int] = []
+
+        def search(self, credential, *, keyword, country_code=None, field="Title", page=1, page_size=20):
+            self.calls.append(page)
+            if page == 1:
+                return 120, [_hit(f"x{i}", "", f"Unrelated Code {i}", "LAWCOUNTRYTG") for i in range(60)]
+            return 120, [_hit("321381", "1999年商业和工业房地产租赁法", "Rental Act", "LAWCOUNTRYTG")]
+
+    adapter = _PagedAdapter()
+    verifier = JudicialVerifier(adapter)
+    resolved = verifier.resolve_law(CRED, law_name="Rental Act", country_code="LAWCOUNTRYTG")
+
+    assert resolved is not None
+    assert resolved.detail.sys_id == "321381"
+    assert adapter.calls == [1, 2], "应逐页懒取，命中即停"
+
+
+def test_scan_pages_stops_when_first_page_matches() -> None:
+    class _OnePageAdapter(_FakeAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def search(self, credential, *, keyword, country_code=None, field="Title", page=1, page_size=20):
+            self.calls += 1
+            return (
+                500,
+                [_hit("321381", "1999年商业和工业房地产租赁法", "Rental Act", "LAWCOUNTRYTG")],
+            )
+
+    adapter = _OnePageAdapter()
+    verifier = JudicialVerifier(adapter)
+    verifier.resolve_law(CRED, law_name="Rental Act", country_code="LAWCOUNTRYTG")
+    assert adapter.calls == 1, "第一页命中就不该再翻页"
+
+
+# ---------------------------------------------------------------- 跨进程缓存
+
+
+def test_shared_cache_prefers_backend_and_survives_failures() -> None:
+    from plugins.barlc_asean_law.cache import SharedCache
+
+    class _Backend:
+        def __init__(self) -> None:
+            self.store: dict[str, object] = {}
+
+        def get(self, key: str):
+            return self.store.get(key)
+
+        def set(self, key: str, value, ttl: int):
+            self.store[key] = value
+
+        def delete(self, key: str):
+            self.store.pop(key, None)
+
+    cache = SharedCache(namespace="unit", ttl=60)
+    backend = _Backend()
+    cache._backend = backend  # 注入假后端，避免测试依赖 Redis
+    cache.put(("a", "中文 键"), {"v": 1})
+    assert cache.get(("a", "中文 键")) == {"v": 1}
+    # 键必须被清洗（含中文/空格时摘要），不能把原文塞进缓存键
+    assert all(" " not in key and "键" not in key for key in backend.store)
+
+    class _Broken:
+        def get(self, key):
+            raise RuntimeError("redis down")
+
+        def set(self, key, value, ttl):
+            raise RuntimeError("redis down")
+
+        def delete(self, key):
+            raise RuntimeError("redis down")
+
+    cache._backend = _Broken()
+    cache.put(("b",), 2)  # 后端炸了也不能抛
+    assert cache.get(("b",)) == 2  # 退化到进程内可用

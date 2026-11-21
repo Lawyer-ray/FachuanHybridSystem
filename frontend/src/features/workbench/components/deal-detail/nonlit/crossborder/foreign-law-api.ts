@@ -81,6 +81,8 @@ export interface ForeignLawVerifyResult {
   agreement?: number | null
   /** 怎么定位到这部法的：exact / containment / ambiguous */
   matched_by?: string
+  /** 指定到「款」时该款正文（仅定位展示；判定基于整条 section_text） */
+  matched_paragraph?: string
   elements?: ForeignLawElement[]
   votes?: ForeignLawVote[]
   jury_tokens?: number
