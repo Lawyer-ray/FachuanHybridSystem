@@ -1100,6 +1100,25 @@ class TestPublishDate:
 
         assert _module().fetch_url("https://a.gov.cn/y")["published"] == "2025-11-20"
 
+    def test_text_fallback_is_keyword_anchored(self, fake_http: Any) -> None:
+        """没有 meta 的政务页：正文头部的「发布时间：2026-01-12」可以兜底。"""
+        html = (
+            "<html><body><article>"
+            "来源：陕西省人社厅 发布时间：2026-01-12　浏览：12 次\n"
+            + "正文。" * 100
+            + "</article></body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        assert _module().fetch_url("https://a.gov.cn/d")["published"] == "2026-01-12"
+
+    def test_quoted_law_date_is_not_treated_as_publish_date(self, fake_http: Any) -> None:
+        """正文里引用的「自 2023年12月5日起施行」不是发布日期——误判比没有更糟。"""
+        html = "<html><body><article>" + "本解释自 2023年12月5日起施行。" + "正文。" * 100 + "</article></body></html>"
+        _set_response(fake_http, _response(200, html))
+
+        assert _module().fetch_url("https://a.gov.cn/e")["published"] == ""
+
     def test_missing_date_is_empty_string(self, fake_http: Any) -> None:
         html = "<html><body><article>" + "正文。" * 100 + "</article></body></html>"
         _set_response(fake_http, _response(200, html))

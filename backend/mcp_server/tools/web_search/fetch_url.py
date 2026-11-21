@@ -219,6 +219,11 @@ _META_DATE = re.compile(
 _JSONLD_DATE = re.compile(r'"datePublished"\s*:\s*"([^"]+)"', re.IGNORECASE)
 _TIME_TAG = re.compile(r"""<time[^>]+datetime=["']([^"']+)["']""", re.IGNORECASE)
 _DATE_PREFIX = re.compile(r"(\d{4}-\d{2}-\d{2})")
+#: 最后一道：正文头部**带关键词**的日期。政务站常见「来源：xxx 时间：2026-01-12」而没有 meta。
+#: 必须锚定关键词，否则会把正文里引用的「自 2023年12月5日起施行」误当发布日期。
+_TEXT_DATE_ANCHORED = re.compile(
+    r"(?:发布时间|发布日期|发布日|时间|日期|更新日期|成文日期)\s*[:：]?\s*(\d{4})[-年./](\d{1,2})[-月./](\d{1,2})"
+)
 
 
 def _extract_published(html: str) -> str:
@@ -236,6 +241,21 @@ def _extract_published(html: str) -> str:
         if found:
             return found.group(1)
     return ""
+
+
+def _extract_published_fallback(text: str) -> str:
+    """正文头部（前 400 字）里**带关键词**的日期；只为没有 meta 的政务站兜底。
+
+    关键词锚定是必要的：政务/判决页正文里到处是「自 2023年12月5日起施行」，
+    无锚定的正则会把它们当成发布日期（比没有日期更糟——模型会据此判断「最新」）。
+    """
+    match = _TEXT_DATE_ANCHORED.search((text or "")[:400])
+    if not match:
+        return ""
+    year, month, day = match.group(1), int(match.group(2)), int(match.group(3))
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return ""
+    return f"{year}-{month:02d}-{day:02d}"
 
 
 #: 搜狗跳转页里的真实地址（``window.location.replace("...")`` 或 meta refresh）。
@@ -890,7 +910,7 @@ def fetch_url(url: str, max_chars: int = DEFAULT_MAX_CHARS, start_index: int = 0
                 "message": "页面需要 JavaScript 渲染，静态抓取拿不到正文",
             }
         title = _meta_title(html)
-        published = _extract_published(html)
+        published = _extract_published(html) or _extract_published_fallback(text)
 
     kind = "外部 PDF 文档抓取内容" if is_pdf else ("外部 Word 文档抓取内容" if is_docx else "外部网页抓取内容")
     # 成功结果按原始输入 URL 入缓存——分块续读的后续 chunk 直接命中
