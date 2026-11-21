@@ -113,6 +113,23 @@ export function decideApproval(approvalId: string, approved: boolean, reason = '
  * 直接回一条 `error` 事件（不静默截断），所以前端必须先截——用户敲回车之后
  * 才被告知「选多了」是很差的体验。
  */
+/**
+ * 重生成 / 续写（`POST /agent/sessions/{id}/regenerate`，返回未消费的 SSE Response）。
+ *
+ * 与 {@link openMessageStream} 同形，所以复用同一条流消费链路；区别只在语义：
+ * **不新落用户消息**（复用原提问）、轮次号不增、开流前服务端把这一轮同栏的旧回答
+ * 标成 `metadata.superseded`（列表接口据此隐藏，行不删）。
+ *
+ * `from_message_id` 传的是**被操作那条消息的库主键**（`parseMessageId` 的结果）。
+ */
+export function openRegenerateStream(
+  sessionId: string,
+  body: { from_message_id: number; mode: 'regenerate' | 'continue'; agents?: string[] },
+  signal?: AbortSignal,
+): Promise<Response> {
+  return api.post(`agent/sessions/${sessionId}/regenerate`, { json: body, signal })
+}
+
 export function openMessageStream(
   sessionId: string,
   message: string,

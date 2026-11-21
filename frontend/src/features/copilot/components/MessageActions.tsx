@@ -15,7 +15,7 @@
  */
 
 import { useId } from 'react'
-import { Check, Copy, ThumbsDown, ThumbsUp, Type } from 'lucide-react'
+import { Check, Copy, CornerDownRight, RotateCcw, ThumbsDown, ThumbsUp, Type } from 'lucide-react'
 
 import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
@@ -40,14 +40,64 @@ export interface MessageActionsProps {
   rating?: 'up' | 'down'
   /** 发生时刻（ms）；缺失则不渲染时间戳 */
   createdAt?: number
+  /** 能否重跑同一提问（见 domain/turn-actions.ts 的 canRegenerate） */
+  regenerable?: boolean
+  /** 能否接着被中断的前缀继续写（canContinue） */
+  continuable?: boolean
+  /** 触发重生成 / 续写（由调用方决定传哪条消息的库主键） */
+  onRegenerate?: (mode: 'regenerate' | 'continue') => void
 }
 
-export function MessageActions({ content, messageId, rating, createdAt }: MessageActionsProps) {
+export function MessageActions({
+  content,
+  messageId,
+  rating,
+  createdAt,
+  regenerable = false,
+  continuable = false,
+  onRegenerate,
+}: MessageActionsProps) {
   const rate = useCopilot((s) => s.rateMessage)
   const { copied, copy } = useCopyFeedback({ resetMs: 1500 })
   // 同一屏里每条回答都有一份，id 必须逐实例唯一（用 useId，不用下标/内容哈希）
   const reasonId = `${A11Y_ID_PREFIX}-${useId()}`
   const canRate = messageId !== null
+
+  /**
+   * 重生成 / 续写。
+   *
+   * 只在**能跑**时才出现（判据在 domain/turn-actions.ts：还得是已落库的 assistant，
+   * 续写还要求这条被截断过）——这两个动作会真花钱重跑一次模型，做成「常显但置灰」
+   * 只会让律师反复试点。
+   */
+  const regenButton = onRegenerate ? (
+    <>
+      {regenerable && (
+        <button
+          type="button"
+          aria-label="重新生成"
+          title="重跑这条提问（旧回答保留在审计里，不删档）"
+          className="flex h-6 items-center gap-0.5 rounded-[6px] px-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={() => onRegenerate('regenerate')}
+        >
+          <RotateCcw className="h-3 w-3" />
+          重生成
+        </button>
+      )}
+      {continuable && (
+        <button
+          type="button"
+          aria-label="继续写"
+          title="接着这条被中断的回答继续写下去"
+          className="flex h-6 items-center gap-0.5 rounded-[6px] px-1 text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          onClick={() => onRegenerate('continue')}
+        >
+          <CornerDownRight className="h-3 w-3" />
+          继续写
+        </button>
+      )}
+    </>
+  ) : null
 
   /** 评分按钮：不可用时仍可聚焦/悬浮，只是不生效，并把原因挂到 aria-describedby */
   const rateButton = (r: 'up' | 'down') => {
@@ -76,6 +126,7 @@ export function MessageActions({ content, messageId, rating, createdAt }: Messag
 
   return (
     <span className="ml-1.5 inline-flex items-center gap-0.5 align-middle" data-testid="message-actions">
+      {regenButton}
       {rateButton('up')}
       {rateButton('down')}
       {/* 复制动作 hover/focus 才浮现：常显会让每条回答下面都挂一排灰图标，

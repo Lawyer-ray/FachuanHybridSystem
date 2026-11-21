@@ -18,7 +18,7 @@ import {
   splitQuoteBlock,
   splitRefBlocks,
 } from '../domain'
-import { MAX_ANSWERS } from '../domain'
+import { MAX_ANSWERS, ratableMessageId } from '../domain'
 // 直接从子模块引：`domain/index.ts` 的出口表不归本文件维护（多 agent 并行改造期间
 // 谁都在改它），而收尾判定是纯函数，路径直一点也更好追
 import { classifyStreamEnd } from '../domain/stream-guard'
@@ -108,7 +108,7 @@ let controller: AbortController | null = null
 
 export type TurnSlice = Pick<
   CopilotState,
-  'send' | 'stop' | 'steer' | 'revokeQueuedSteers' | 'submitTask'
+  'send' | 'regenerate' | 'stop' | 'steer' | 'revokeQueuedSteers' | 'submitTask'
 >
 
 export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
@@ -348,6 +348,57 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     } finally {
       controller = null
       set({ streaming: false, queuePosition: null })
+    }
+  },
+
+  regenerate: async (fromMessageId, mode) => {
+    const sessionId = get().sessionId
+    if (!sessionId || get().streaming) return
+    const target = get().messages.find((message) => ratableMessageId(message) === fromMessageId)
+    if (!target) {
+      set({ lastError: '这条回答还没落库，暂时不能重生成' })
+      return
+    }
+    const lane = target.agentKind ?? ''
+    // 新气泡承接这次重放的输出；旧气泡原样留着——服务端已把它标成 superseded，
+    // 流结束后拉一次历史就看不见了（连点重生成时同栏会同时出现两条，是预期的）。
+    const assistantId = nextLocalId()
+    controller = new AbortController()
+    set((s) => ({
+      streaming: true,
+      lastError: null,
+      messages: [
+        ...s.messages,
+        {
+          id: assistantId,
+          role: 'assistant' as const,
+          content: '',
+          createdAt: Date.now(),
+          streaming: true,
+          ...(lane ? { agentKind: lane } : {}),
+          ...(target.model ? { model: target.model } : {}),
+        },
+      ],
+    }))
+    const { handlers, finishAssistant } = createTurnHandlers(assistantId, set, () => assistantId, 1)
+    try {
+      const resp = await copilotApi.openRegenerateStream(
+        sessionId,
+        { from_message_id: fromMessageId, mode, ...(lane ? { agents: [lane] } : {}) },
+        controller.signal,
+      )
+      if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`)
+      await consumeAgentStream(resp, handlers)
+      finishAssistant()
+    } catch {
+      finishAssistant()
+      if (!controller?.signal.aborted) set({ lastError: '重生成中断，请稍后重试' })
+    } finally {
+      controller = null
+      set({ streaming: false })
+      // 服务端是真相：superseded 标记、新回答的主键、来源锚点都在那边。
+      // 切会话会重拉历史，所以只在用户还停在这个会话时做。
+      if (get().sessionId === sessionId) await get().switchSession(sessionId)
     }
   },
 

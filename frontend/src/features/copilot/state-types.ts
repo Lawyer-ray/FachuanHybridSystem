@@ -151,6 +151,14 @@ export interface CopilotState extends AgentBackendSelection {
    */
   send: (text: string, onQueued?: (sent: boolean) => void) => Promise<void>
   /** 停止生成（中断在途流） */
+  /**
+   * 重生成 / 续写一条已落库的回答（点哪一栏重跑哪一栏）。
+   *
+   * `fromMessageId` 是**库主键**（`ratableMessageId` 的结果）；`mode`：
+   * `regenerate` 重跑同一提问、`continue` 接着被中断的前缀写。
+   * 旧回答服务端只标 `superseded` 不删，流结束后拉一次历史对齐。
+   */
+  regenerate: (fromMessageId: number, mode: 'regenerate' | 'continue') => Promise<void>
   stop: () => void
   /** 审批决定：本地即时标记，提交失败保持现状（服务端超时 fail-closed）；拒绝可附理由 */
   decide: (approvalId: string, approved: boolean, reason?: string) => Promise<void>
