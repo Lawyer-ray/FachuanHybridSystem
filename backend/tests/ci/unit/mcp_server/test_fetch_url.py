@@ -206,6 +206,22 @@ class TestHonestFailures:
         assert result["reason"] == "antispider"
         assert "验证码" in result["message"]
 
+    def test_wechat_captcha_page_without_the_word_captcha(self, fake_http: Any) -> None:
+        """微信验证页只写「环境异常」（页面上没有「验证码」三字）。
+
+        2026-11-21 实测：非浏览器 UA 或短时间连抓会被 302 到
+        ``mp/wappoc_appmsgcaptcha``，落地页标题是「环境异常」。只认
+        ``验证码/captcha`` 的标记表会在这种页面上静默漏判，把验证页当正文
+        交给模型——比报错糟得多。
+        """
+        _set_response(fake_http, _response(200, "<html><body><h2>环境异常</h2><p>请点击按钮进行验证</p></body></html>"))
+
+        result = _module().fetch_url("https://mp.weixin.qq.com/s/xxxx")
+
+        assert result["ok"] is False
+        assert result["reason"] == "antispider"
+        assert "粘贴" in result["message"]  # 文案必须给出可执行的出路
+
     def test_blocked_403(self, fake_http: Any) -> None:
         _set_response(fake_http, _response(403, "denied"))
 
@@ -1233,3 +1249,48 @@ class TestTrafilaturaFallback:
         monkeypatch.setattr(builtins, "__import__", _fake_import)
 
         assert module._extract_text_trafilatura("<html></html>") == ""
+
+
+class TestTitleFallback:
+    """标题兜底：微信正文页的 ``<title>`` 恒空，标题只在 og:title / msg_title。"""
+
+    _BODY = "<article>" + "正文内容。" * 80 + "</article>"
+
+    def test_og_title_when_title_is_empty(self, fake_http: Any) -> None:
+        html = (
+            "<html><head><title></title>"
+            '<meta property="og:title" content="第二届广东省律师AI技能大赛初赛结果出炉！">'
+            f"</head><body>{self._BODY}</body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://mp.weixin.qq.com/s/xxxx")
+
+        assert result["ok"] is True
+        assert result["title"] == "第二届广东省律师AI技能大赛初赛结果出炉！"
+
+    def test_msg_title_variable_when_no_meta(self, fake_http: Any) -> None:
+        html = (
+            "<html><head><title></title></head><body>"
+            "<script>var msg_title = '公众号文章标题'.html(false);</script>"
+            f"{self._BODY}</body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://mp.weixin.qq.com/s/yyyy")
+
+        assert result["ok"] is True
+        assert result["title"] == "公众号文章标题"
+
+    def test_title_tag_still_wins(self, fake_http: Any) -> None:
+        """回归：``<title>`` 非空时行为不变（不给普通站点引入 og:title 覆盖）。"""
+        html = (
+            "<html><head><title>法院公告</title>"
+            '<meta property="og:title" content="某站首页">'
+            f"</head><body>{self._BODY}</body></html>"
+        )
+        _set_response(fake_http, _response(200, html))
+
+        result = _module().fetch_url("https://example.com/a")
+
+        assert result["title"] == "法院公告"

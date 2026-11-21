@@ -40,6 +40,7 @@ import socket
 import threading
 import time
 import urllib.robotparser
+from html import unescape as _html_unescape
 from typing import Any
 from urllib.parse import urlparse
 
@@ -317,6 +318,11 @@ _ANTISPIDER_MARKERS = (
     "captcha",
     "安全验证",
     "请完成验证",
+    # 微信公众号的滑块/验证页(2026-11-21 实测):非浏览器 UA 或短时间连抓会被 302 到
+    # mp/wappoc_appmsgcaptcha,落地页文案是「环境异常」,页面上不一定出现「验证码」
+    # 三个字——只靠上一条 ``captcha`` 会在站点改文案后静默漏判。
+    "环境异常",
+    "wappoc_appmsgcaptcha",
 )
 
 #: HTML meta 声明的 charset(只嗅探 <head> 前若干字节)
@@ -620,10 +626,30 @@ def _extract_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+#: 标题兜底链(2026-11-21):``<title>`` 优先(不改既有行为),空则退到 og/twitter,
+#: 最后退到内联 JS 变量。
+#:
+#: 存在理由:微信公众号正文页的 ``<title>`` 是**空的**——标题只写在
+#: ``<meta property="og:title">`` 与 ``var msg_title = '…'`` 两处(实测
+#: mp.weixin.qq.com/s/… 2026-11-21)。只读 ``<title>`` 会返回空串,前端标题栏
+#: 一片空白,模型也失去「这篇是什么」的第一条线索。
+_TITLE_META_KEYS = (("property", "og:title"), ("name", "twitter:title"))
+_MSG_TITLE_RE = re.compile(r"""var\s+msg_title\s*=\s*(['"])(.+?)\1""", re.S)
+
+
 def _meta_title(html: str) -> str:
+    """页面标题:``<title>`` → ``og:title`` → ``twitter:title`` → ``var msg_title``。"""
     soup = _soup(html)
-    if soup.title and soup.title.string:
+    if soup.title and soup.title.string and soup.title.string.strip():
         return soup.title.string.strip()
+    for attr, key in _TITLE_META_KEYS:
+        tag = soup.find("meta", attrs={attr: key})
+        content = (tag.get("content") or "").strip() if tag is not None else ""
+        if content:
+            return content
+    match = _MSG_TITLE_RE.search(html)
+    if match and match.group(2).strip():
+        return _html_unescape(match.group(2)).strip()
     return ""
 
 
