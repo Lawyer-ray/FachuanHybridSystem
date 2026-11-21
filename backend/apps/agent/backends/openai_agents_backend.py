@@ -107,10 +107,15 @@ from openai.types.responses import (
     ResponseTextDeltaEvent,
 )
 
-from ..pi.model_config import _next_key
 from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
 from .dsh_config import without_proxy_env
-from .gateway_cache import GatewaySettings, get_gateway_settings, model_supports_thinking, settings_from_provider
+from .gateway_cache import (
+    GatewaySettings,
+    get_gateway_settings,
+    model_supports_thinking,
+    resolve_gateway_target,
+    settings_from_provider,
+)
 from .mcp_session_pool import PooledMCPServer, get_mcp_session_pool
 from .toolface import SERVER_NAME, endpoint_from_env, port_open, shared_enabled
 
@@ -200,29 +205,15 @@ def gateway_from_settings(
     缓存有效期内，所有会话压在同一把 key 上（见 ``gateway_cache`` 模块 docstring
     的红线二）。
 
-    **``api_key`` 非空时直接用它，不再轮转**：编排层按轮次给每一栏分配了互不
-    相同的 key（见 ``key_scheduler``），这里再轮转等于把分配结果覆盖掉——两个
-    agent 撞回同一把 key 时不报错，只表现为「偶尔某栏卡 60 秒」（网关 429 +
-    ``retry-after: 60``）。``None`` / 空串回落到原轮转口径，行为与引入本参数前一致。
-
-    **模型分辨率**：``model_hint``（``RunContext.model``，用户本轮显式选的）优先；
-    否则用 provider 的 ``default_model``；再否则取白名单第一个。**绝不写死模型名**
-    ——用户可以在 Admin 里随时换模型，写死等于让「换模型」在这一栏静默失效。
-    显式指定但不在白名单里时照用：白名单表达「有哪些可选」，不是硬闸门
-    （与 ``dsh_config.build_config`` 同口径，否则同一个模型 pi 能用、这一栏不能用）。
+    **三条判定口径（key 轮转 / 模型分辨率 / 不可用条件）已收敛到
+    :func:`gateway_cache.resolve_gateway_target`**：接第 3、4 个后端时它们只能靠
+    「照抄上一份」，而两份实现分叉的症状是「Admin 里换了模型，这一栏还用旧的」。
+    本函数只把结果摊成元组（对外签名与历史调用点保持不变）。
     """
-    if not settings.base_url or not settings.api_keys:
+    target = resolve_gateway_target(settings, model_hint, api_key=api_key)
+    if target is None:
         return None
-    model = (model_hint or "").strip() or settings.default_model or (settings.models[0] if settings.models else "")
-    if not model:
-        return None
-    # 编排层指定了本轮的 key 就用它；为空才回落到与 pi / dsh 共用的
-    # ``_next_key`` 轮转序列（避免所有会话与所有后端压在同一把 key 上触发限流）。
-    return (
-        settings.base_url,
-        (api_key or "").strip() or _next_key(list(settings.api_keys), provider=getattr(settings, "name", "")),
-        model,
-    )
+    return (target.base_url, target.api_key, target.model)
 
 
 def gateway_from_provider(provider: Any, model_hint: str | None) -> tuple[str, str, str] | None:

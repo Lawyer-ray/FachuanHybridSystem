@@ -159,6 +159,19 @@ def _collect_backend_options() -> list[BackendOptionOut]:
                 models=[],
             )
         )
+    # 同理：antigravity 的门槛是「随 wheel 分发的平台二进制」，装不上（非 mac/linux x86/arm
+    # 的机器、或 uv lock 没同步）时它连注册都没有。列出来 + 置灰 + 说清缺什么，
+    # 比让它从菜单里消失更容易排查。
+    if "antigravity" not in registered:
+        options.append(
+            _backend_option(
+                "antigravity",
+                {},
+                available=False,
+                reason="未注册 AntigravityBackend（缺 google-antigravity SDK 或平台无对应 wheel）",
+                models=[],
+            )
+        )
     return options
 
 

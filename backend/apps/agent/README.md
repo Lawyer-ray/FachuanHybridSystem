@@ -517,6 +517,36 @@ POST /tasks {message, title?, case_id?}
   `<skill name=... location=...>` 全文块 + 用户参数——模型无需任何文件读取工具
   （这也是本系统工具面刻意不声明 read/bash 的前提下，用户点名通道仍可用的原因）。
 
+## 5.3 后端矩阵：四个 agent 同题并答
+
+`registry` 里现在有四个真实后端。前端「跑哪几个 AI」菜单（`AnswerAgentMenu`）按
+`GET /agent/backends` 渲染，**勾满 4 个就是四栏并答**（编排层 `MAX_ANSWERS = 4`，
+前后端同口径），不需要改前端。
+
+| kind | 运行时 | 上下文 | 插话 | 审批闸门 | 工具面 |
+|:-|:-|:-|:-|:-|:-|
+| `pi` | Node 子进程（每请求一个） | pi 自己管（`--session-dir`） | ✅ | ✅ extension 回调 | `--tools mcp__fachuan__*` |
+| `dsh` | DeepSeek Harness 常驻 | runtime 自己管 | ❌ | ⚠️ 未接线（能力声明 `approval=False`） | mcp-client 配置 + tier 头 |
+| `openai-agents` | Python SDK（每轮自建） | 无状态（历史由编排层渲染） | ❌ | ✅ guardrail | MCP `tool_filter` |
+| `antigravity` | **Go 二进制**（每轮一个进程，118MB） | 无状态 | ❌ | ✅ `PreToolCallDecideHook` | MCP eager 原生工具 + tier 头 |
+
+### antigravity 的三条硬事实（改它之前先看这三条）
+
+1. **SDK 不给 OpenAI 兼容通道传鉴权**。`LocalOpenAIAgentConfig` 只有 `base_url`，
+   wire 上没有任何 auth 头；而律所网关强制 Bearer、且没有 Gemini 原生路由。
+   解法的全部细节在 `backends/antigravity_gateway.py`：**本进程内的 loopback 反向
+   代理**按「一次运行一个随机 token」注入 `Authorization`。key 不进 URL、不进日志。
+2. **工具面必须 eager**。惰性通道（`call_mcp_tool`）要求模型先用 `view_file` 读
+   schema 文件，而本后端没有文件工具面 → `force_all_tools_eager=True` 恒开，并用
+   `x-fachuan-tool-tier: lite` 把工具面压到 61 个（`full` 是 424 个 / 8.3 万 token/轮）。
+3. **它默认是代码 agent**。默认 18 个内置工具（文件/命令/子 agent/联网）必须全关
+   （`enabled_tools=[]`），身份提示词必须用 `CustomSystemInstructions` 全量替换——
+   传 `str` 只「追加一节」，模型仍自称 DeepMind 的编程助手。
+
+真机验收（律所网关 `kimi-2.6` + :8011）：一轮 52 delta / 3 次工具调用
+（`get_current_user` → `list_cases` ×2）/ 20561 in / 443 out，回答按律师本人身份
+过滤。冷启 0.2s；`lite` 档工具面使首轮 input 约 20.5K token。
+
 ## 6. 事件契约
 
 ```

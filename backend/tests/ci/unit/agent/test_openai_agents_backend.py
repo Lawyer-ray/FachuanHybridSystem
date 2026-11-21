@@ -346,7 +346,13 @@ class TestGatewayResolution:
         assert gateway_from_provider(_provider(default_model="", extra_models=""), None) is None
 
     def test_key_rotation_uses_shared_helper(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """多 key 时轮流用：全压在同一把 key 上会触发网关限流。"""
+        """多 key 时轮流用：全压在同一把 key 上会触发网关限流。
+
+        ``_next_key`` 的落点已经收敛到 ``pi.model_config``（四个后端共用的唯一
+        权威，经 ``gateway_cache.resolve_gateway_target`` 调用），所以这里 patch
+        的是**权威本身**——patch 本模块的同名属性已经打不中了（那个名字随重构
+        一起删掉了）。
+        """
         seen: list[str] = []
 
         def _next(keys_in: list[str], **_kw: object) -> str:
@@ -354,7 +360,7 @@ class TestGatewayResolution:
             seen.append(chosen)
             return chosen
 
-        monkeypatch.setattr(backend_module, "_next_key", _next)
+        monkeypatch.setattr("apps.agent.pi.model_config._next_key", _next)
         provider = _provider(api_keys="k1\nk2\nk3")
         for _ in range(4):
             gateway_from_provider(provider, None)
