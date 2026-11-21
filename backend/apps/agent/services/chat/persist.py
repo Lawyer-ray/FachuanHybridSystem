@@ -120,12 +120,16 @@ async def _record_run(
     else:
         status = AgentRun.Status.OK
     try:
-        from apps.core.llm.provider_lookup import resolve_provider_name
+        from apps.core.llm.provider_lookup import aresolve_provider_name
 
+        # 本函数是 async：平台解析必须走异步通道。同步 ``get_providers()`` 会在
+        # 事件循环里抛 ``SynchronousOnlyOperation``，被 ``_load_from_db`` 吞成空
+        # 列表后成本归属静默变成空串（真机 pi 栏 100% 复现）。
+        provider_name = await aresolve_provider_name(model)
         await AgentRun.objects.acreate(
             session=session,
             user_id=user_id,
-            provider=resolve_provider_name(model),
+            provider=provider_name,
             model=(model or "")[:100],
             agent_kind=(agent_kind or "")[:32],
             status=status,

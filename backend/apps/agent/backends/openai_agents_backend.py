@@ -12,7 +12,9 @@
    （复用 pi 的 ``model_config`` 函数，见 :func:`gateway_from_provider`）。硬编码
    模型名会让 Admin 里换模型在这一栏静默失效。
 2. **事件翻译**：SDK 的 ``raw_response_event`` / ``run_item_stream_event`` →
-   ``sse_types.py`` 的契约事件（见 :meth:`OpenAiAgentsBackend._translate_stream_event`）。
+   ``sse_types.py`` 的契约事件（见 :meth:`OpenAiAgentsBackend._translate_stream_event`），
+   收尾再从 ``RunResultStreaming.raw_responses`` 累加出**一帧** ``usage``（见
+   :func:`_usage_frame`）。
 3. **代理剔除**：律所网关是内网地址，开发机的 ``HTTPS_PROXY`` 指向本地 Clash，
    不拿掉就会「502 no body」。复用 ``dsh_config.without_proxy_env``（同一个坑、
    同一份实现）。
@@ -71,11 +73,14 @@ agent 本身无状态。收益是上下文只有一个来源——两套来源�
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import logging
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterable
 from dataclasses import dataclass
+
+dataclasses_replace = dataclasses.replace
 from typing import Any, cast
 
 from agents import (
@@ -156,8 +161,26 @@ TICK_TIMEOUT_SECONDS = 0.2
 #: **已经决定**要调的写操作，``delete_case`` 连审批卡都不该弹——直接不给这个工具。
 BLOCKED_TOOL_NAMES: tuple[str, ...] = ("delete_case",)
 
-#: ``done`` 里不编造水位：SDK 的 ``Usage`` 只有 token 计数，没有模型窗口大小。
-#: 与 ``dsh_backend`` 同口径——编造 0 会让前端显示「上下文已满」。
+#: 让网关在**流式**响应里也回 ``usage`` 的请求字段。
+#:
+#: ## 为什么必须显式要（实测，2026-11-21）
+#:
+#: 律所网关是 LiteLLM → vLLM：``stream=true`` 时**默认不回 usage**，同一句问题
+#: 直接 curl 网关的对照结果：
+#:
+#: - 不带 ``stream_options`` → 全程没有 usage 块（``usage=None``）
+#: - 带 ``{"include_usage": true}`` → 末块带
+#:   ``{"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10, ...}``
+#:
+#: 而 ``openai-agents`` 默认不传它（它面向官方端点，那边流式本来就带 usage）。
+#: 结果就是这一栏 ``ModelResponse.usage`` 恒 None → 成本账恒记 0
+#: （真机实测 ``usage=0in/0out``，同题 pi/antigravity 是 42.9K/38.2K）。
+#: 这是**网关侧默认值**的差异，不是 SDK 的 bug，所以补在请求参数上。
+STREAM_USAGE_EXTRA_BODY: dict[str, Any] = {"stream_options": {"include_usage": True}}
+
+#: 收尾水位不编造（``done`` 的水位取自本模块 ``result_for``）：SDK 的 ``Usage``
+#: 只有 token 计数，没有模型窗口大小。与 ``dsh_backend`` 同口径——编造 0 会让
+#: 前端显示「上下文已满」。
 _CONTEXT_UNKNOWN: int | None = None
 
 
@@ -481,12 +504,61 @@ def _thinking_settings(model: str, settings: GatewaySettings) -> ModelSettings |
     )
 
 
+def _usage_frame(raw_responses: Iterable[Any]) -> dict[str, Any] | None:
+    """一轮的 SDK 原始响应 → **一帧** ``usage``（``sse_types.UsageEvent``）；无数据 ``None``。
+
+    ## 源与字段（实测 agents 0.25，不是猜的）
+
+    ``RunResultStreaming.raw_responses`` 是**每次模型调用一条** ``ModelResponse``
+    （工具循环一轮会有多条），每条带 ``usage: agents.usage.Usage``：
+    ``input_tokens`` / ``output_tokens`` / ``input_tokens_details.cached_tokens`` /
+    ``input_tokens_details.cache_write_tokens``。``RawResponsesStreamEvent`` 里拿
+    不到它——只有收尾时的 ``result`` 有全量，所以本帧只能在**一轮跑完之后**发。
+
+    ## 口径（为什么这么累加、这么拆）
+
+    - 一轮**最多一帧**：工具循环的每一次模型调用都是一笔真实开销，逐条发会让
+      ``stream.py`` 的累加（它按帧求和）依赖帧数；收尾一次总和与服务端计费口径
+      一致（``usage.add`` 也是同一个加法）。
+    - ``input_tokens`` 在 Responses 语义里**含**缓存命中与缓存写入部分（
+      ``InputTokensDetails.cached_tokens`` / ``cache_write_tokens`` 的字段说明都是
+      「输入 token 的一部分」），而 ``sse_types.UsageEvent`` 约定 ``input_tokens``
+      只装未命中部分、缓存单列。所以这里减掉两者（下限 0，防御 provider 给出
+      不一致的值），否则前端算出的命中率恒偏低、成本账虚高。
+    - 拿不到就返回 ``None``（不发 0/0 假帧）：provider 不报 usage 时记 0 会让
+      「这一栏花了多少钱」看起来是免费，而编造的 0 无法与真实 0 区分。
+    """
+    input_tokens = 0
+    output_tokens = 0
+    cache_read_tokens = 0
+    cache_write_tokens = 0
+    reported = False
+    for response in raw_responses:
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            continue
+        reported = True
+        input_tokens += int(getattr(usage, "input_tokens", 0) or 0)
+        output_tokens += int(getattr(usage, "output_tokens", 0) or 0)
+        details = getattr(usage, "input_tokens_details", None)
+        cache_read_tokens += int(getattr(details, "cached_tokens", 0) or 0)
+        cache_write_tokens += int(getattr(details, "cache_write_tokens", 0) or 0)
+    if not reported or input_tokens + output_tokens <= 0:
+        return None
+    return {
+        "type": "usage",
+        "input_tokens": max(0, input_tokens - cache_read_tokens - cache_write_tokens),
+        "output_tokens": output_tokens,
+        "cache_read_tokens": cache_read_tokens,
+        "cache_write_tokens": cache_write_tokens,
+    }
+
+
 class OpenAiAgentsBackend:
     """openai-agents 运行时（每次 ``stream()`` 自建 agent + MCP 连接，跑完即关）。
 
-    能力声明依据见模块 docstring。收尾事实由 ``result_for(run_id)`` 取——``done``
-    事件与 ``AgentRun`` 都要它，而编排层收到 ``done`` 就 ``break``，异步生成器的
-    ``return`` 值调用方取不到。
+    能力声明依据见模块 docstring。收尾事实由 ``result_for(run_id)`` 取——编排层
+    铸的 ``done`` 与 ``AgentRun`` 都要它，而异步生成器的 ``return`` 值调用方取不到。
     """
 
     kind = "openai-agents"
@@ -519,8 +591,10 @@ class OpenAiAgentsBackend:
         """跑一轮，产出一轮全部 SSE 事件。
 
         事件体已带 ``agent="openai-agents"`` 与 ``run_id=ctx.run_id``（``base.py``
-        契约要求）；``meta`` 由编排层发，``done`` 由本模块发——协议要求一轮恰好
-        一个 ``done``，而只有后端知道「模型真的说完了」。
+        契约要求）；``meta`` / ``done`` 都由编排层发。本模块**不发** ``done``：
+        ``services/chat/stream.py`` 每条流自己铸一条，后端再发一条会让单栏出现两条
+        ``done``（实测 ``done=2``），与 ``pi_backend`` / ``antigravity_backend`` 同口径。
+        token 用量在最后发且只发一帧（见 :func:`_usage_frame`）。
 
         Raises:
             BackendError: 网关配置不可用 / SDK 异常，均在边界处转换。
@@ -576,7 +650,7 @@ class OpenAiAgentsBackend:
         *,
         resolved: ResolvedGateway,
     ) -> AsyncGenerator[StreamFrame, None]:
-        """取池里的 MCP 连接 → 跑一轮 → 逐事件翻译，最后发 ``done``。"""
+        """取池里的 MCP 连接 → 跑一轮 → 逐事件翻译 → 收尾发一帧 ``usage``。"""
         base_url, api_key, model = resolved.base_url, resolved.api_key, resolved.model
         target = self._mcp_target(ctx)
         pooled: PooledMCPServer | None = None
@@ -594,6 +668,13 @@ class OpenAiAgentsBackend:
         try:
             # 代理剔除只覆盖客户端构造（窗口为何不能更大：见 ``build_openai_client``）。
             client = build_openai_client(base_url=base_url, api_key=api_key)
+            # 思考参数 + 流式 usage 开关合并进同一份 ``extra_body``：
+            # 两者都是「网关要的、SDK 默认不发」的字段，分两处构造会让后一处覆盖前一处。
+            base_settings = _thinking_settings(model, resolved.settings) or ModelSettings()
+            model_settings = dataclasses_replace(
+                base_settings,
+                extra_body={**(base_settings.extra_body or {}), **STREAM_USAGE_EXTRA_BODY},
+            )
             agent = Agent(
                 name="法穿法律助手",
                 model=OpenAIChatCompletionsModel(model=model, openai_client=client),
@@ -606,7 +687,7 @@ class OpenAiAgentsBackend:
                 # 不思考时传空 ``ModelSettings()`` 而不是 ``None``：SDK 的
                 # ``Agent.model_settings`` 不接受 None，传 None 会被当成
                 # “沿用默认”，与“显式不要思考参数”是两回事。
-                model_settings=_thinking_settings(model, resolved.settings) or ModelSettings(),
+                model_settings=model_settings,
             )
             # ``context=ctx`` 不只是「顺手传个上下文」：审批 guardrail 只能经
             # ``data.context.context`` 取回本轮 RunContext（用户 / 会话 / run_id
@@ -658,15 +739,12 @@ class OpenAiAgentsBackend:
                 # 桶淘汰 / 连接失效三处执行，见 ``mcp_session_pool`` 的模块 docstring。
                 get_mcp_session_pool().release(url=target.url, user_token=target.user_token, pooled=pooled)
 
+        # 收尾事实要在最后那一帧**之前**写好：编排层拿到 usage 后就可能结束迭代
+        # （客户端断开），之后本生成器不会再往下跑。
         self._results[ctx.run_id] = OpenAiAgentsRunResult(model=model)
-        yield {
-            "type": "done",
-            "session_id": str(ctx.session.session_id),
-            "context_used_tokens": _CONTEXT_UNKNOWN,
-            "context_total_tokens": _CONTEXT_UNKNOWN,
-            "agent": self.kind,
-            "run_id": ctx.run_id,
-        }
+        usage = _usage_frame(result.raw_responses)
+        if usage is not None:
+            yield {**usage, "agent": self.kind, "run_id": ctx.run_id}
 
     def _mcp_target(self, ctx: RunContext) -> McpTarget | None:
         """本轮该连哪个 MCP、用谁的 token；不该连/连不上返回 ``None``。

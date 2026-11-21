@@ -13,7 +13,8 @@
 6. **注册**：``ensure_registered()`` 后 ``openai-agents`` 在注册表里；SDK 缺失时
    静默降级、不抛。
 7. **端到端**：跑 ``stream()``（SDK 的 ``Runner`` / ``AsyncOpenAI`` / MCP 全部打桩），
-   断言事件序列、``done`` 收尾、``result_for`` 的模型回填。
+   断言事件序列、**不发** ``done``（由编排层铸）、``usage`` 一轮一帧、``result_for``
+   的模型回填。
 8. **审批闸门**：HIGH / CRITICAL 工具被拒 → ``reject_content``（工具不执行、本轮
    继续）、LOW 直过、批准放行；开关 ``FACHUAN_OPENAI_APPROVAL=off`` 时 guardrail
    不挂且能力声明同步为 False。
@@ -37,9 +38,10 @@ import pytest
 pytest.importorskip("agents", reason="openai-agents SDK 未安装，跳过 openai-agents 后端用例")
 
 from agents import Agent, ToolInputGuardrailData
-from agents.items import MessageOutputItem, ToolCallItem, ToolCallOutputItem
+from agents.items import MessageOutputItem, ModelResponse, ToolCallItem, ToolCallOutputItem
 from agents.stream_events import AgentUpdatedStreamEvent, RawResponsesStreamEvent, RunItemStreamEvent
 from agents.tool_context import ToolContext
+from agents.usage import Usage
 from openai.types.responses import (
     ResponseFunctionToolCall,
     ResponseOutputMessage,
@@ -47,6 +49,7 @@ from openai.types.responses import (
     ResponseReasoningTextDeltaEvent,
     ResponseTextDeltaEvent,
 )
+from openai.types.responses.response_usage import InputTokensDetails
 
 from apps.agent.backends import (
     AgentBackend,
@@ -120,6 +123,32 @@ def _settings(**overrides: Any) -> Any:
     }
     fields.update(overrides)
     return SimpleNamespace(**fields)
+
+
+def _model_response(
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    cached_tokens: int = 0,
+    cache_write_tokens: int = 0,
+) -> ModelResponse:
+    """一条 SDK 原始响应（``RunResultStreaming.raw_responses`` 的元素）。
+
+    用真实 SDK 类型构造而不是字典桩：``usage`` / ``input_tokens_details.cached_tokens``
+    这些字段名就是收尾 ``usage`` 帧的契约，猜错了只会在真机上表现为「账上恒为 0」。
+    """
+    return ModelResponse(
+        output=[],
+        usage=Usage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            input_tokens_details=InputTokensDetails(
+                cached_tokens=cached_tokens,
+                cache_write_tokens=cache_write_tokens,
+            ),
+        ),
+        response_id="resp_1",
+    )
 
 
 def _text_delta(text: str) -> RawResponsesStreamEvent:
@@ -306,6 +335,21 @@ class TestEventTranslation:
         raw = ResponseOutputMessage(id="m1", content=[], role="assistant", status="completed", type="message")
         item = MessageOutputItem(agent=agent, raw_item=raw)
         assert self._frames(RunItemStreamEvent(name="message_output_created", item=item)) == []
+
+
+class TestUsageAccounting:
+    """``usage`` 帧口径：字段与 ``sse_types.UsageEvent`` 对齐，拿不到就不发。"""
+
+    def test_all_zero_usage_is_not_a_frame(self) -> None:
+        """provider 返回了 usage 但计数全 0（不报）：仍不能发 0/0 假帧。"""
+        assert backend_module._usage_frame([_model_response(input_tokens=0, output_tokens=0)]) is None
+
+    def test_input_tokens_never_negative(self) -> None:
+        """provider 给不一致的值（缓存 > input）时下限 0：负数进账会污染成本与命中率。"""
+        frame = backend_module._usage_frame([_model_response(input_tokens=100, output_tokens=5, cached_tokens=120)])
+        assert frame is not None
+        assert frame["input_tokens"] == 0
+        assert frame["cache_read_tokens"] == 120
 
 
 class TestGatewayResolution:
@@ -704,11 +748,23 @@ class TestRegistration:
 
 
 class _FakeStreamResult:
-    """``RunResultStreaming`` 的最小替身：按固定顺序吐事件。"""
+    """``RunResultStreaming`` 的最小替身：按固定顺序吐事件。
 
-    def __init__(self, events: list[Any], *, error: BaseException | None = None) -> None:
+    ``raw_responses`` 不是可选项：真实 ``RunResultStreaming`` 一定有它（每次模型
+    调用一条），收尾的 ``usage`` 帧就靠它累加（见 ``_usage_frame``）。默认空 =
+    provider 一个字都没报，此时后端**不得**发 usage。
+    """
+
+    def __init__(
+        self,
+        events: list[Any],
+        *,
+        error: BaseException | None = None,
+        raw_responses: list[ModelResponse] | None = None,
+    ) -> None:
         self._events = events
         self._error = error
+        self.raw_responses: list[ModelResponse] = raw_responses if raw_responses is not None else []
         self.is_complete = False
         self.cancelled = False
 
@@ -732,6 +788,8 @@ class _IdleStreamResult:
 
     def __init__(self) -> None:
         self.release = asyncio.Event()
+        # 与真实 ``RunResultStreaming`` 同形：收尾读 ``raw_responses``（见 ``_usage_frame``）。
+        self.raw_responses: list[ModelResponse] = []
         self.is_complete = False
         self.cancelled = False
 
@@ -841,17 +899,57 @@ class TestStreamEndToEnd:
 
     @pytest.mark.django_db
     @pytest.mark.asyncio
-    async def test_ends_with_exactly_one_done(self, _wired: SimpleNamespace) -> None:
-        """协议要求一轮恰好一个 ``done``；没有它编排层会当截断（前端一直显示生成中）。"""
-        frames = [frame async for frame in OpenAiAgentsBackend().stream(_ctx())]
-        done = [f for f in frames if f and f["type"] == "done"]
-        assert len(done) == 1
-        assert done[0]["session_id"] == "sess-1"
-        assert done[0]["agent"] == "openai-agents"
+    async def test_backend_does_not_mint_done(self, _wired: SimpleNamespace) -> None:
+        """``done`` 由编排层铸（``stream.py`` 的 ``if follow_ok: yield done``），后端**不发**。
+
+        后端再发一条的实测症状是单栏 ``done=2``（``verify_agent_lanes`` 的 done 计数
+        与 ``test_backend_extensibility`` 的「单栏 done 恒为 1」都据此），前端会收到
+        两次收尾。收尾事实改由 ``result_for`` 交给编排层。
+        """
+        backend = OpenAiAgentsBackend()
+        frames = [frame async for frame in backend.stream(_ctx())]
+        assert [f for f in frames if f and f["type"] == "done"] == [], "后端只交 result_for，done 由编排层铸造"
+        recorded = backend.result_for("sess-1:openai-agents:1")
+        assert recorded is not None
+        assert recorded.model == "resolved-model"
         # 水位不编造：SDK 没有窗口大小，给 None 而不是 0（0 会让前端显示「已满」）。
-        assert done[0]["context_used_tokens"] is None
-        assert done[0]["context_total_tokens"] is None
-        assert frames[-1] is done[0], "done 必须是最后一帧"
+        assert recorded.context_used is None
+        assert recorded.context_total is None
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
+    async def test_emits_exactly_one_usage_frame_after_all_deltas(self, _wired: SimpleNamespace) -> None:
+        """工具循环每轮模型调用都是一笔开销：**收尾一帧**总和，且不并进 input。
+
+        实测（2026-11-22，同一题）该栏 ``usage=0in/0out`` 而 pi/antigravity 是
+        42.9K/38.2K——成本账恒记 0。这里用真实 SDK 类型喂两轮 ``raw_responses``。
+        """
+        _wired.result.raw_responses = [
+            _model_response(input_tokens=1000, output_tokens=50, cached_tokens=800, cache_write_tokens=30),
+            _model_response(input_tokens=300, output_tokens=20, cached_tokens=100),
+        ]
+        frames = [frame async for frame in OpenAiAgentsBackend().stream(_ctx())]
+        usage = [f for f in frames if f and f["type"] == "usage"]
+        assert len(usage) == 1, "一轮只能一帧：stream.py 按帧累加，逐次调用各发一帧会让帧数与计费口径耦合"
+        assert usage[0] == {
+            "type": "usage",
+            # 1300 里 900 是缓存（读 900 + 写 30 都计在 SDK 的 input_tokens 里）
+            "input_tokens": 370,
+            "output_tokens": 70,
+            "cache_read_tokens": 900,
+            "cache_write_tokens": 30,
+            "agent": "openai-agents",
+            "run_id": "sess-1:openai-agents:1",
+        }
+        assert frames.index(usage[0]) == len(frames) - 1, "usage 必须是最后一帧（正文全部发完之后）"
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
+    async def test_no_usage_frame_when_provider_reports_nothing(self, _wired: SimpleNamespace) -> None:
+        """拿不到就**不发**：0/0 假帧与「真的一分钱没花」在成本账上无法区分。"""
+        _wired.result.raw_responses = []
+        frames = [frame async for frame in OpenAiAgentsBackend().stream(_ctx())]
+        assert [f for f in frames if f and f["type"] == "usage"] == []
 
     @pytest.mark.django_db
     @pytest.mark.asyncio
@@ -906,7 +1004,7 @@ class TestStreamEndToEnd:
         stub.release.set()
         rest = [frame async for frame in stream]
         assert [f["content"] for f in rest if f and f["type"] == "delta"] == ["案"]
-        assert rest[-1] is not None and rest[-1]["type"] == "done"
+        assert [f for f in rest if f and f["type"] == "done"] == [], "done 由编排层铸"
         assert stub.cancelled is False, "正常跑完不得 cancel"
 
     @pytest.mark.django_db
@@ -948,7 +1046,7 @@ class TestStreamEndToEnd:
         """无律师 token 时降级为「无工具但能对话」，而不是整轮 401 失败。"""
         frames = [frame async for frame in OpenAiAgentsBackend().stream(_ctx(token=""))]
         assert _wired.captured["agent"]["mcp_servers"] == []
-        assert any(f and f["type"] == "done" for f in frames)
+        assert any(f and f["type"] == "delta" for f in frames)
 
     @pytest.mark.django_db
     @pytest.mark.asyncio

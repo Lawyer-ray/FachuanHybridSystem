@@ -101,6 +101,44 @@ class TestArecordLlmCall:
             assert await tracking.arecord_llm_call(**_write_kwargs()) is None  # 不应抛出
 
 
+class TestArecordLlmCallAsyncProviderAttribution:
+    """async 审计的平台归属必须走 aget_providers（不能读同步 ORM）。
+
+    评分/审校链路（``judge_client`` → ``service.achat``）落在事件循环里；同步
+    ``get_providers()`` 会抛 ``SynchronousOnlyOperation``，被吞后 provider 静默
+    落成空串，报表显示「未知」。
+    """
+
+    @pytest.mark.asyncio
+    async def test_provider_resolved_without_sync_accessor(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from types import SimpleNamespace
+
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        providers = [
+            SimpleNamespace(
+                name="平台乙", priority=1, enabled=True, extra_models=["m2"], default_model="m2", all_models=["m2"]
+            )
+        ]
+
+        def _sync_access_forbidden() -> list[Any]:
+            raise AssertionError("async 审计调用了同步 get_providers")
+
+        async def _aget() -> list[Any]:
+            return providers
+
+        monkeypatch.setattr(LLMProviderService, "get_providers", _sync_access_forbidden)
+        monkeypatch.setattr(LLMProviderService, "aget_providers", _aget)
+
+        with (
+            patch.object(tracking, "is_tracking_enabled_async", new_callable=AsyncMock, return_value=True),
+            patch("apps.core.models.LLMCallRecord.objects.acreate", new_callable=AsyncMock) as mock_create,
+        ):
+            await tracking.arecord_llm_call(**_write_kwargs())
+
+        assert mock_create.call_args.kwargs["provider"] == "平台乙"
+
+
 class TestIsTrackingEnabled:
     def test_default_enabled(self) -> None:
         with patch("apps.core.llm.config.LLMConfig._get_system_config", return_value=""):
