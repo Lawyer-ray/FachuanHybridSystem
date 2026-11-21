@@ -54,7 +54,10 @@ def _current_lawyer_id(request: Any) -> int | None:
     try:
         user = getattr(request, "auth", None) or getattr(request, "user", None)
         return int(getattr(user, "id", 0) or 0) or None
-    except Exception:  # 匿名/服务账号/自定义 auth 对象：留痕记 None 即可
+    except (AttributeError, TypeError, ValueError):
+        # 匿名 / 服务账号 / 自定义 auth 对象：留痕记 None 即可。
+        # 具体类型而非宽捕获：属性缺失是 AttributeError，``int()`` 失败是
+        # TypeError/ValueError（本仓有宽异常捕获棘轮，只许下调）。
         return None
 
 

@@ -26,6 +26,8 @@ import logging
 import os
 from typing import Any
 
+from django.db import DatabaseError, IntegrityError
+
 from apps.legal_research.models import ForeignLawVerification
 
 logger = logging.getLogger(__name__)
@@ -111,7 +113,10 @@ def record_verification(
         )
         row.save()
         return row
-    except Exception:  # 留痕是旁路：写失败不能让律师拿不到结论
+    except (DatabaseError, IntegrityError, ValueError, TypeError):
+        # 留痕是旁路：写失败不能让律师拿不到结论。
+        # 具体类型而非宽捕获：落库失败是 DatabaseError/IntegrityError，字段构造
+        # 失败是 ValueError/TypeError（本仓有宽异常捕获棘轮，只许下调）。
         logger.exception(
             "域外法核验留痕写入失败（不影响核验结果）law=%s section=%s",
             payload.get("law_name"),
