@@ -279,7 +279,10 @@ if [ "$RUN_BACKEND" = true ]; then
   # 产物 backend/openapi.json 是前端 TS 类型的唯一输入，不在必经链上会静默腐烂
   # （实测落后 12 条路径 / 21 个 schema）。CI 侧只在 pull_request 跑（见
   # backend-ci.yml 的 openapi-freshness），本地这侧随时可跑。
-  if bash scripts/check-openapi-fresh.sh --json >/dev/null 2>&1; then
+  # 注意用 $ROOT_DIR：本函数前面已经 `cd "$BACKEND_DIR"`，写相对 `scripts/...`
+  # 会落到 backend/scripts/（**空目录**）上 → 这一步长期假红，假红多了大家就
+  # 学会无视这道闸门，真漂移也就没人看（2026-11-21 实测发现）。
+  if bash "$ROOT_DIR/scripts/check-openapi-fresh.sh" --json >/dev/null 2>&1; then
     pass "openapi-fresh"
   else
     fail "openapi-fresh（产物落后代码，跑 make openapi-refresh 后重试）"
@@ -319,6 +322,18 @@ if [ "$RUN_BACKEND" = true ]; then
         fail "migrations-applied（目标库有未应用的迁移，跑 manage.py migrate 后重试）"
         ;;
     esac
+  fi
+
+  # [3d] 迁移图分支冲突（多个会话在同一分支各建一个迁移的典型事故）
+  #
+  # 3b/3c 都看不见这类问题：文件齐全、也能 apply，但同一 app 出现两个 leaf 时
+  # `migrate` 直接 CommandError。本项目允许多个 AI 并行改同一分支，所以这道
+  # 必须独立跑（纯读迁移图，不需要数据库，quick 模式也能跑）。
+  header "3d" "迁移图分支冲突检查"
+  if ONLY=graph "$ROOT_DIR/scripts/check_migrations.sh" 2>&1 | tail -3 | grep -q "全部通过"; then
+    pass "migrations-single-leaf"
+  else
+    fail "migrations-single-leaf（同一 app 多个 leaf，跑 makemigrations --merge）"
   fi
 
   # [4] Pre-commit（对齐 backend job 的 Pre-commit step）

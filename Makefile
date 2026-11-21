@@ -31,6 +31,20 @@ ci-backend: ## 仅后端 CI（快速模式）
 ci-frontend: ## 仅前端 CI（tsc + eslint + build）
 	@bash scripts/ci-local.sh --quick --frontend
 
+migrate-check: ## 迁移三道闸门（生成 / 已应用 / 分支冲突）——开 PR 前必须全绿
+	@bash scripts/check_migrations.sh
+
+pr-ready: ## 开 PR 前的一键自检（迁移三道闸门 + 护栏通电 + 分级一致性 + 快速 CI）
+	@echo "── 迁移三道闸门 ──"
+	@bash scripts/check_migrations.sh
+	@echo "── 护栏通电 ──"
+	@node scripts/check-guardrails-wired.mjs
+	@echo "── 审批分级跨语言一致性 ──"
+	@node scripts/check-approval-parity.mjs
+	@echo "── 快速 CI（ruff / mypy / tsc / eslint / build）──"
+	@bash scripts/ci-local.sh --quick
+	@echo "\n✅ pr-ready 全绿：可以开 PR 了（迁移已在本地库应用）"
+
 ci-backend-full: ## 仅后端 CI（完整模式，需要 PostgreSQL）
 	@bash scripts/ci-local.sh --full --backend
 

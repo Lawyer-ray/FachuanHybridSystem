@@ -23,11 +23,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+
   # OpenAPI 产物与代码一致性（护栏）。
   #
   # 为什么必须有：backend/openapi.json 是 frontend/src/types/api-schema.d.ts 的唯一输入，
   # 不在必经链上就会静默腐烂（2026-11-21 实测落后 12 条路径 + 21 个 schema，其中 3 个
-  # 是改名）。腐烂的后果不是构建变红，而是「类型看起来对、运行时字段不存在」。
+  # 是改名）。腐烂的后果不是构建变红，而是“类型看起来对、运行时字段不存在”。
   #
   # 为什么只在 pull_request 跑：现存漂移是历史欠账，若也在 push 到 main 时跑，main 会
   # 立刻变红；修它需要一次「纯产物刷新」提交。限定 PR 后 main 保持绿，而下一份 PR 起
@@ -615,6 +616,68 @@ jobs:
           PYTHONPATH: "apiSystem:."
           HYPOTHESIS_PROFILE: "default"
         run: uv run pytest -c pytest.ini --no-cov -q tests/ci/property/
+
+  migrations-graph:
+    # 迁移三道闸门（CI 侧）：真建库 → 跑完整迁移图 → 再检查。
+    #
+    # 为什么需要这个 job（三次真实事故的产物）：
+    #   ① 模型改了但没生成迁移文件 → 开发机上是「字段不存在」的 500；
+    #   ② 迁移文件在但库没应用     → 单测/CI 全绿（测试库自己建表），真人一点就炸；
+    #   ③ 多个会话在同一分支各建一个迁移 → 同一 app 两个 leaf，`migrate` 直接
+    #      CommandError。本项目允许多个 AI 并行改同一分支，这条尤其容易踩。
+    #
+    # 在**空库上跑一遍完整 migrate** 是唯一同时覆盖 ②③（以及迁移 SQL 本身）
+    # 的检查：有分支冲突会立刻 CommandError，有坏 SQL 也会在这里炸。
+    name: migrations-graph
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fachuan_ci_migrations
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fachuan_ci_migrations"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DJANGO_DEBUG: "1"
+      DB_ENGINE: "postgresql"
+      DB_NAME: "fachuan_ci_migrations"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"  # pragma: allowlist secret
+      DB_HOST: "127.0.0.1"
+      DB_PORT: "5432"
+      PYTHONPATH: "apiSystem:."
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+      - name: Setup Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: ① 模型改了但没生成迁移
+        run: uv run python apiSystem/manage.py makemigrations --check --dry-run
+
+      - name: ③ 迁移图无分支冲突（空库跑完整图）
+        run: uv run python apiSystem/manage.py migrate --noinput
+
+      - name: ② 迁移全部已应用
+        run: uv run python apiSystem/manage.py migrate --check
 
   backend-e2e-nightly:
     if: github.event_name == 'schedule'

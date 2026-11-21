@@ -1957,7 +1957,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ParseTextRequest"
+                "$ref": "#/components/schemas/ParseTextIn"
               }
             }
           },
@@ -2013,7 +2013,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IdCardValidateResponse"
+                  "$ref": "#/components/schemas/IdCardValidateOut"
                 }
               }
             }
@@ -2027,7 +2027,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/IdCardValidateRequest"
+                "$ref": "#/components/schemas/IdCardValidateIn"
               }
             }
           },
@@ -2960,7 +2960,7 @@
             }
           }
         },
-        "description": "获取内容模板\n\nAPI 层职责：\n1. 接收查询参数\n2. 调用 Service 静态方法\n3. 返回模板\n\nRequirements: 2.1, 2.2, 2.3, 2.4",
+        "description": "获取内容模板\n\nAPI 层职责：\n1. 接收查询参数\n2. 调用 Service 方法\n3. 返回模板\n\nRequirements: 2.1, 2.2, 2.3, 2.4",
         "tags": [
           "财产线索"
         ],
@@ -14127,6 +14127,88 @@
         ]
       }
     },
+    "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
+      "get": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf",
+        "summary": "Get Pdf Split Segment Pdf",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "segment_id",
+            "schema": {
+              "title": "Segment Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "单段 PDF 下载（Content-Disposition: attachment）。\n\n单个下载 / 多选下载 / 整包下载共用同一份切页与命名实现（见\n``PdfSplitService.build_download_*``），否则「单下的那份」与「包里那份」\n会在页边界或文件名上对不上。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/md": {
+      "get": {
+        "operationId": "apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_markdown",
+        "summary": "Get Pdf Split Segment Markdown",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "segment_id",
+            "schema": {
+              "title": "Segment Id",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "单段 Markdown 下载：与同一段的 PDF 同名（只差扩展名），律所归案时成对存放。",
+        "tags": [
+          "PDF 拆解"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/pdf-splitting/jobs/{job_id}/download": {
       "get": {
         "operationId": "apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_download",
@@ -14141,6 +14223,16 @@
               "type": "string"
             },
             "required": true
+          },
+          {
+            "in": "query",
+            "name": "ids",
+            "schema": {
+              "default": "",
+              "title": "Ids",
+              "type": "string"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -14148,6 +14240,7 @@
             "description": "OK"
           }
         },
+        "description": "整包 / 多选打包下载（zip，平铺）：每段一份 pdf + 一份同名 md。\n\n不带 ``ids`` 就是原来的整包（向后兼容，只是包里多了 md）；带 ``ids``（段\n**主键**，逗号分隔）只打选中的段，非法或不属于本任务的 id 整体 400。\n打包在 Service 现算而不是回读 ``exports/split_result.zip``：那份可能是本次\n上线前导出的（没有 md），直接发出去就是「整包缺 md」——而这次需求的核心恰恰\n是每份 pdf 必须配一份 md。",
         "tags": [
           "PDF 拆解"
         ],
@@ -22485,7 +22578,24 @@
       "post": {
         "operationId": "apps_contract_review_api_direct_edit_api_apply_edit",
         "summary": "Apply Edit",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "expect_mtime",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expect Mtime"
+            },
+            "required": false
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -22498,7 +22608,7 @@
             }
           }
         },
-        "description": "采纳一条候选：写成 Word 修订痕迹（`<w:del>` + `<w:ins>`）并覆写原文件。\n\n定位失败返回 `applied=false` 而不是报错——「选中的原文已被改过」是律师\n常见操作结果，前端要能提示「重新框选」，而不是弹 500。",
+        "description": "采纳一条候选：写成 Word 修订痕迹（`<w:del>` + `<w:ins>`）并覆写原文件。\n\n定位失败返回 `applied=false` 而不是报错——「选中的原文已被改过」是律师\n常见操作结果，前端要能提示「重新框选」，而不是弹 500。\n\n`expect_mtime`（query，与 `contracts/{id}/folder-save` 同口径）是**乐观锁**：\n调用方读到文件时的 mtime。不一致说明这期间文件已被别人改过，此时必须\n409 而不是覆写——不传就等于放弃这道锁（服务层 `save_file_content` 会\n整段跳过 mtime 校验），所以只要调用方拿得到 mtime 就必须带上。",
         "tags": [
           "合同审查"
         ],
@@ -22545,6 +22655,82 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TaskEditApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contract-review/direct-edit/patch/propose": {
+      "post": {
+        "operationId": "apps_contract_review_api_direct_edit_api_propose_write_patch_endpoint",
+        "summary": "Propose Write Patch Endpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritePatchOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "登记一条候选改写（**不碰文件**）。\n\n多栏并答时写类工具（`rewrite_folder_file` 等）被摘出工具面，模型改用\n`propose_write_patch` 出草案；三栏的草案在 `apply` 时统一做冲突检测。",
+        "tags": [
+          "合同审查"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritePatchProposeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/contract-review/direct-edit/patch/apply": {
+      "post": {
+        "operationId": "apps_contract_review_api_direct_edit_api_apply_write_patches_endpoint",
+        "summary": "Apply Write Patches Endpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WritePatchApplyOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把选中的候选改写**一次性**写进文件（Word 修订痕迹）。\n\n互斥冲突（同一段原文两种改法）返回 409 且一个字都不写；文件在提案后被改过\n（mtime 不符）同样 409。审批不在这里做——它由工具名在网关侧判 HIGH 后弹卡，\n本端点不提供任何绕过开关。",
+        "tags": [
+          "合同审查"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WritePatchApplyIn"
               }
             }
           },
@@ -23247,6 +23433,32 @@
           {
             "JWTOrSessionAuth": []
           }
+        ]
+      }
+    },
+    "/api/v1/document-parsing/webhook/{provider}": {
+      "post": {
+        "operationId": "apps_document_parsing_api_webhook_api_receive_webhook",
+        "summary": "云解析平台完成回调（MinerU / Textin 服务器调用）",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "接收云端回调并写回解析结果。\n\n验签策略（fail-closed）：平台未启用回调 → 404；签名不匹配 → 403；\n载荷不可识别 → 400；找不到对应任务 → 404。只有真的写回了（或确认是\n重复推送）才回 200。",
+        "tags": [
+          "文档解析"
         ]
       }
     },
@@ -24626,9 +24838,41 @@
         ]
       }
     },
+    "/api/v1/agent/backends": {
+      "get": {
+        "operationId": "apps_agent_api_session_api_list_backends",
+        "summary": "List Backends",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BackendOptionOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "列出可用的 agent 后端（前端切换器用）。\n\n``available=False`` 的选项要在前端置灰并显示 ``reason``——用户若选了它，\n报错会发生在**建完会话之后**，而 ``agent_kind`` 是会话级属性、不能中途改，\n只能换个后端重开。所以可用性必须能提前问出来。\n未注册的 dsh 也会以置灰条目出现（见 ``_collect_backend_options``）。",
+        "tags": [
+          "Agent 会话"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/sessions": {
       "post": {
-        "operationId": "apps_agent_api_agent_api_create_session",
+        "operationId": "apps_agent_api_session_api_create_session",
         "summary": "Create Session",
         "parameters": [],
         "responses": {
@@ -24643,9 +24887,9 @@
             }
           }
         },
-        "description": "新建会话。",
+        "description": "新建会话。\n\n``agent_kind`` 未注册时直接拒绝（HttpError 400），**不静默回退到 pi**：\n用户以为换了后端而实际没换，比直接报错难发现得多——会先归因于\n「新模型效果不行」，白白浪费一轮调试。\n空串仍允许（旧客户端不传），走模型默认值 `pi`。",
         "tags": [
-          "Agent"
+          "Agent 会话"
         ],
         "requestBody": {
           "content": {
@@ -24664,7 +24908,7 @@
         ]
       },
       "get": {
-        "operationId": "apps_agent_api_agent_api_list_sessions",
+        "operationId": "apps_agent_api_session_api_list_sessions",
         "summary": "List Sessions",
         "parameters": [
           {
@@ -24744,7 +24988,7 @@
         },
         "description": "列出当前用户的会话。\n\n可按入口（origin）与案件 / 合同过滤。归属始终按当前用户过滤——\n``case_id`` 只用于缩小范围，不能借它看到别人的会话。",
         "tags": [
-          "Agent"
+          "Agent 会话"
         ],
         "security": [
           {
@@ -24755,7 +24999,7 @@
     },
     "/api/v1/agent/sessions/{session_id}": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_session_detail",
+        "operationId": "apps_agent_api_session_api_get_session_detail",
         "summary": "Get Session Detail",
         "parameters": [
           {
@@ -24782,7 +25026,7 @@
         },
         "description": "会话详情（不归属当前用户时同样 404，不泄露存在性）。",
         "tags": [
-          "Agent"
+          "Agent 会话"
         ],
         "security": [
           {
@@ -24791,7 +25035,7 @@
         ]
       },
       "delete": {
-        "operationId": "apps_agent_api_agent_api_delete_session",
+        "operationId": "apps_agent_api_session_api_delete_session",
         "summary": "Delete Session",
         "parameters": [
           {
@@ -24811,7 +25055,7 @@
         },
         "description": "删除会话（级联删除消息与审批）。",
         "tags": [
-          "Agent"
+          "Agent 会话"
         ],
         "security": [
           {
@@ -24820,7 +25064,7 @@
         ]
       },
       "patch": {
-        "operationId": "apps_agent_api_agent_api_update_session_title",
+        "operationId": "apps_agent_api_session_api_update_session_title",
         "summary": "Update Session Title",
         "parameters": [
           {
@@ -24847,7 +25091,7 @@
         },
         "description": "重命名会话（侧边栏会话列表的改名入口）。",
         "tags": [
-          "Agent"
+          "Agent 会话"
         ],
         "requestBody": {
           "content": {
@@ -24866,9 +25110,85 @@
         ]
       }
     },
+    "/api/v1/agent/sessions/{session_id}/stats": {
+      "get": {
+        "operationId": "apps_agent_api_session_api_get_session_stats",
+        "summary": "Get Session Stats",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatsOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "会话 token 用量与上下文水位（读库即可，不起 pi 进程）。",
+        "tags": [
+          "Agent 会话"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/sessions/{session_id}/compact": {
+      "post": {
+        "operationId": "apps_agent_api_session_api_compact_session_context",
+        "summary": "Compact Session Context",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompactOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "手动压缩会话上下文（同步执行：起 pi 续写 session 文件，压缩完才返回）。\n\n摘要与自动压缩同源（``compaction-takeover`` 确定性编译，保案号/当事人/\n金额/期限锚点）。进程池忙时 429，pi 故障 502——都不吞。",
+        "tags": [
+          "Agent 会话"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/agent/sessions/{session_id}/messages": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_list_messages",
+        "operationId": "apps_agent_api_chat_api_list_messages",
         "summary": "List Messages",
         "parameters": [
           {
@@ -24923,9 +25243,9 @@
             }
           }
         },
-        "description": "会话消息历史（旧→新），前端重开会话时据此回放转录。\n\n``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），\n不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端\n用最后一条的 message_id 作为下一页游标。",
+        "description": "会话消息历史（旧→新），前端重开会话时据此回放转录。\n\n``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），\n不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端\n用最后一条的 message_id 作为下一页游标。\n\n与 POST /messages（send_message）同路径，必须登记在同一路由器，\n否则 Ninja 会按子路由各自建 URL pattern，GET 先匹配导致 POST 405。",
         "tags": [
-          "Agent"
+          "Agent 对话"
         ],
         "security": [
           {
@@ -24934,7 +25254,7 @@
         ]
       },
       "post": {
-        "operationId": "apps_agent_api_agent_api_send_message",
+        "operationId": "apps_agent_api_chat_api_send_message",
         "summary": "Send Message",
         "parameters": [
           {
@@ -24954,7 +25274,7 @@
         },
         "description": "发消息并流式返回（SSE）。限流：每用户 20 次/分钟（RATE_LIMIT['AGENT_SEND_*'] 可覆盖）。",
         "tags": [
-          "Agent"
+          "Agent 对话"
         ],
         "requestBody": {
           "content": {
@@ -24975,7 +25295,7 @@
     },
     "/api/v1/agent/sessions/{session_id}/events/replay": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_replay_sse_events",
+        "operationId": "apps_agent_api_chat_api_replay_sse_events",
         "summary": "Replay Sse Events",
         "parameters": [
           {
@@ -25005,112 +25325,7 @@
         },
         "description": "P2-1 SSE 断线重连：回放 last_event_id 之后的事件。\n\n前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。",
         "tags": [
-          "Agent"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/agent/tasks": {
-      "post": {
-        "operationId": "apps_agent_api_agent_api_submit_task",
-        "summary": "Submit Task",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskOut"
-                }
-              }
-            }
-          }
-        },
-        "description": "提交一个后台任务：立即返回，agent 在后台跑，跑完通知。\n\n适合「这个案子帮我把材料梳理一遍」这类要跑几分钟、人不可能一直盯着的活。\n任务式运行没有 SSE 连接，因此高危工具会**挂起等离线审批**（见\n`GET /approvals/pending`），而不是被直接拒绝。",
-        "tags": [
-          "Agent"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TaskIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/agent/tasks/{session_id}": {
-      "get": {
-        "operationId": "apps_agent_api_agent_api_get_task_status",
-        "summary": "Get Task Status",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "schema": {
-              "title": "Session Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TaskOut"
-                }
-              }
-            }
-          }
-        },
-        "description": "查询后台任务进度（前端轮询用）。",
-        "tags": [
-          "Agent"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      },
-      "delete": {
-        "operationId": "apps_agent_api_agent_api_cancel_task",
-        "summary": "Cancel Task",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "session_id",
-            "schema": {
-              "title": "Session Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "取消后台任务（P1-4）。\n\n排队中：从 django-q 队列移除并置 cancelled；\n运行中：诚实告知暂不支持中途终止（pi 子进程在 worker 内，无跨进程\nabort 通道——见差距报告 P2），任务会跑到自然结束；\n已结束：如实返回终态。",
-        "tags": [
-          "Agent"
+          "Agent 对话"
         ],
         "security": [
           {
@@ -25121,7 +25336,7 @@
     },
     "/api/v1/agent/sessions/{session_id}/steer": {
       "post": {
-        "operationId": "apps_agent_api_agent_api_steer_running_session",
+        "operationId": "apps_agent_api_chat_api_steer_running_session",
         "summary": "Steer Running Session",
         "parameters": [
           {
@@ -25148,7 +25363,7 @@
         },
         "description": "运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。\n\nP2-3 跨 Worker：Redis 路由表发现会话在其他 worker → HTTP 转发。\n用于「agent 写到一半发现要改方向」，不必停止重发。",
         "tags": [
-          "Agent"
+          "Agent 对话"
         ],
         "requestBody": {
           "content": {
@@ -25169,7 +25384,7 @@
     },
     "/api/v1/agent/sessions/{session_id}/follow-up": {
       "post": {
-        "operationId": "apps_agent_api_agent_api_follow_up_running_session",
+        "operationId": "apps_agent_api_chat_api_follow_up_running_session",
         "summary": "Follow Up Running Session",
         "parameters": [
           {
@@ -25196,7 +25411,7 @@
         },
         "description": "追加一轮：agent 干完当前所有活后再跑这条。",
         "tags": [
-          "Agent"
+          "Agent 对话"
         ],
         "requestBody": {
           "content": {
@@ -25217,7 +25432,7 @@
     },
     "/api/v1/agent/sessions/{session_id}/queue": {
       "delete": {
-        "operationId": "apps_agent_api_agent_api_clear_session_queue",
+        "operationId": "apps_agent_api_chat_api_clear_session_queue",
         "summary": "Clear Session Queue",
         "parameters": [
           {
@@ -25244,7 +25459,7 @@
         },
         "description": "撤回已排队但尚未生效的插话 / 追加消息（「撤销」按钮）。",
         "tags": [
-          "Agent"
+          "Agent 对话"
         ],
         "security": [
           {
@@ -25253,45 +25468,17 @@
         ]
       }
     },
-    "/api/v1/agent/skills": {
-      "get": {
-        "operationId": "apps_agent_api_agent_api_list_skills",
-        "summary": "List Skills",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SkillListOut"
-                }
-              }
-            }
-          }
-        },
-        "description": "当前律师可见的技能清单（偏好只记差异，缺省全启用）。",
-        "tags": [
-          "Agent"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/agent/skills/{skill_name}": {
-      "patch": {
-        "operationId": "apps_agent_api_agent_api_toggle_skill",
-        "summary": "Toggle Skill",
+    "/api/v1/agent/messages/{message_id}/rating": {
+      "post": {
+        "operationId": "apps_agent_api_chat_api_rate_message",
+        "summary": "Rate Message",
         "parameters": [
           {
             "in": "path",
-            "name": "skill_name",
+            "name": "message_id",
             "schema": {
-              "title": "Skill Name",
-              "type": "string"
+              "title": "Message Id",
+              "type": "integer"
             },
             "required": true
           }
@@ -25302,21 +25489,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SkillToggleOut"
+                  "$ref": "#/components/schemas/MessageRatingOut"
                 }
               }
             }
           }
         },
-        "description": "启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。",
+        "description": "给一条已落库的消息点赞 / 点踩（``none`` 撤销）。\n\n归属看**消息所属会话**：别人的会话一律 404，不是 403——403 等于承认\n「这条消息存在」，是无成本的存在性探测。",
         "tags": [
-          "Agent"
+          "Agent 对话"
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SkillToggleIn"
+                "$ref": "#/components/schemas/MessageRatingIn"
               }
             }
           },
@@ -25329,10 +25516,48 @@
         ]
       }
     },
-    "/api/v1/agent/sessions/{session_id}/stats": {
+    "/api/v1/agent/tasks": {
+      "post": {
+        "operationId": "apps_agent_api_task_api_submit_task",
+        "summary": "Submit Task",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "提交一个后台任务：立即返回，agent 在后台跑，跑完通知。\n\n适合「这个案子帮我把材料梳理一遍」这类要跑几分钟、人不可能一直盯着的活。\n任务式运行没有 SSE 连接，因此高危工具会**挂起等离线审批**（见\n`GET /approvals/pending`），而不是被直接拒绝。",
+        "tags": [
+          "Agent 任务"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/tasks/{session_id}": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_session_stats",
-        "summary": "Get Session Stats",
+        "operationId": "apps_agent_api_task_api_get_task_status",
+        "summary": "Get Task Status",
         "parameters": [
           {
             "in": "path",
@@ -25350,15 +25575,44 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionStatsOut"
+                  "$ref": "#/components/schemas/TaskOut"
                 }
               }
             }
           }
         },
-        "description": "会话 token 用量与上下文水位（读库即可，不起 pi 进程）。",
+        "description": "查询后台任务进度（前端轮询用）。",
         "tags": [
-          "Agent"
+          "Agent 任务"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "apps_agent_api_task_api_cancel_task",
+        "summary": "Cancel Task",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "取消后台任务（P1-4）。\n\n排队中：从 django-q 队列移除并置 cancelled；\n运行中：诚实告知暂不支持中途终止（pi 子进程在 worker 内，无跨进程\nabort 通道——见差距报告 P2），任务会跑到自然结束；\n已结束：如实返回终态。",
+        "tags": [
+          "Agent 任务"
         ],
         "security": [
           {
@@ -25367,10 +25621,287 @@
         ]
       }
     },
-    "/api/v1/agent/sessions/{session_id}/compact": {
+    "/api/v1/agent/approval/request": {
       "post": {
-        "operationId": "apps_agent_api_agent_api_compact_session_context",
-        "summary": "Compact Session Context",
+        "operationId": "apps_agent_api_approval_api_pi_approval_request",
+        "summary": "Pi Approval Request",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PiApprovalOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "pi extension 的工具调用审批闸门（同步阻塞等用户回答）。\n\n鉴权：``X-Internal-Token`` 头（extension 没有用户会话，不走 JWT）。",
+        "tags": [
+          "Agent 审批"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PiApprovalIn"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/v1/agent/approval/{approval_id}/decide": {
+      "post": {
+        "operationId": "apps_agent_api_approval_api_submit_approval_decision",
+        "summary": "Submit Approval Decision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端提交审批决定（仅会话所有者或超级用户可决定）。",
+        "tags": [
+          "Agent 审批"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDecideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/approvals/pending": {
+      "get": {
+        "operationId": "apps_agent_api_approval_api_list_pending_approvals_endpoint",
+        "summary": "List Pending Approvals Endpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "当前用户**仍待处理**的审批（离线审批入口）。\n\n任务式后台运行没有 SSE 连接，高危工具会挂起等决定。用户下次打开\n对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。",
+        "tags": [
+          "Agent 审批"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/approvals": {
+      "get": {
+        "operationId": "apps_agent_api_approval_api_list_approvals",
+        "summary": "List Approvals",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "列出审批记录（审计用；非超级用户仅见自己会话的记录）。",
+        "tags": [
+          "Agent 审批"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/approvals/export": {
+      "get": {
+        "operationId": "apps_agent_api_approval_api_export_approvals",
+        "summary": "Export Approvals",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 0,
+              "description": "回看天数；0（默认）= 不限时间",
+              "minimum": 0,
+              "title": "Days",
+              "type": "integer"
+            },
+            "required": false,
+            "description": "回看天数；0（默认）= 不限时间"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Status"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "审批状态过滤"
+            },
+            "required": false,
+            "description": "审批状态过滤"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "导出审批记录 CSV（合规留痕：UTF-8 BOM，Excel 直开不乱码）。\n\n## 权限（与 ``/approvals`` 同口径）\n\n普通律师只拿到**自己会话**的记录，超级用户拿全部。无权看的记录不是报 403\n而是**不出现**——403 等于告诉对方「确实存在别人的审批」。\n\n## 截断\n\n单次最多导出 ``EXPORT_MAX_ROWS`` 条（按时间倒序）。命中上限时**不静默**：\n响应头 ``X-Export-Truncated: true`` + warning 日志，调用方应缩小 ``days`` /\n``status`` 范围后重导。",
+        "tags": [
+          "Agent 审批"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/question/{question_id}/answer": {
+      "post": {
+        "operationId": "apps_agent_api_question_api_submit_question_answer",
+        "summary": "Submit Question Answer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "question_id",
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "description": "前端提交提问回答（仅会话所有者或超级用户）。\n\n``success=False`` 不一定是错误：等待方可能已超时（律师过了 5 分钟才点\n提交）。此时答案仍被记录，但模型已经按假设继续了——前端应提示「回答已\n记录，但本轮已继续」，而不是当成失败重试。",
+        "tags": [
+          "Agent 提问"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/questions/pending": {
+      "get": {
+        "operationId": "apps_agent_api_question_api_list_pending_questions",
+        "summary": "List Pending Questions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "当前律师待回答的提问（重开会话时补拉，避免错过）。",
+        "tags": [
+          "Agent 提问"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/sessions/{session_id}/review": {
+      "post": {
+        "operationId": "apps_agent_api_review_api_review_session",
+        "summary": "Review Session",
         "parameters": [
           {
             "in": "path",
@@ -25388,15 +25919,163 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompactOut"
+                  "$ref": "#/components/schemas/Review"
                 }
               }
             }
           }
         },
-        "description": "手动压缩会话上下文（同步执行：起 pi 续写 session 文件，压缩完才返回）。\n\n摘要与自动压缩同源（``compaction-takeover`` 确定性编译，保案号/当事人/\n金额/期限锚点）。进程池忙时 429，pi 故障 502——都不吞。",
+        "description": "对指定轮次跑一次 rubric 评审（独立请求，不进 SSE）。",
         "tags": [
-          "Agent"
+          "Agent 评审"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "apps_agent_api_review_api_get_session_review",
+        "summary": "Get Session Review",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "turn",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Turn"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          }
+        },
+        "description": "回放已落库的评审结果；``turn`` 不传时取最近一次。",
+        "tags": [
+          "Agent 评审"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/reviews/{review_id}/adopt": {
+      "post": {
+        "operationId": "apps_agent_api_review_api_adopt_review",
+        "summary": "Adopt Review",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "schema": {
+              "title": "Review Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdoptionOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "律师显式采纳某栏/合并结果（幂等：同一 review 重复采纳覆盖同一行）。\n\n影子开关**不**拦这条路由：采纳是律师点的，不是系统自动做的；\n``FACHUAN_REVIEW_SHADOW`` 只决定将来的自动路径能否启动\n（见 ``services/review/adoption.py`` 的模块说明）。",
+        "tags": [
+          "Agent 评审"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/reviews/{review_id}/adoption": {
+      "get": {
+        "operationId": "apps_agent_api_review_api_get_review_adoption",
+        "summary": "Get Review Adoption",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "schema": {
+              "title": "Review Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdoptionEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "description": "回显当前采纳结果（刷新可回放）；未采纳时 ``adoption`` 为 ``null``。",
+        "tags": [
+          "Agent 评审"
         ],
         "security": [
           {
@@ -25407,7 +26086,7 @@
     },
     "/api/v1/agent/sessions/{session_id}/attachments": {
       "post": {
-        "operationId": "apps_agent_api_agent_api_upload_attachment",
+        "operationId": "apps_agent_api_attachment_api_upload_attachment",
         "summary": "Upload Attachment",
         "parameters": [
           {
@@ -25434,7 +26113,7 @@
         },
         "description": "上传一个对话附件（multipart 字段名 ``file``；白名单/20MB 限额见 service）。\n\n归属：会话必须属于当前用户。上传后前端在消息里附\n「[已上传附件：name (attachment_id=…)]」，模型用 read_agent_attachment 读正文。",
         "tags": [
-          "Agent"
+          "Agent 附件"
         ],
         "security": [
           {
@@ -25445,7 +26124,7 @@
     },
     "/api/v1/agent/attachments/{attachment_id}/content": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_attachment_content",
+        "operationId": "apps_agent_api_attachment_api_get_attachment_content",
         "summary": "Get Attachment Content",
         "parameters": [
           {
@@ -25465,7 +26144,7 @@
         },
         "description": "读附件原始内容（base64）——**mcp_server 专用**（用户 token 鉴权）。\n\n返回内容只用于服务端转投 /document-parsing 提取正文，不会直接进入模型\n上下文；前端不需要也不应消费本端点。",
         "tags": [
-          "Agent"
+          "Agent 附件"
         ],
         "security": [
           {
@@ -25476,7 +26155,7 @@
     },
     "/api/v1/agent/attachments/{attachment_id}/pages": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_attachment_pages",
+        "operationId": "apps_agent_api_attachment_api_get_attachment_pages",
         "summary": "Get Attachment Pages",
         "parameters": [
           {
@@ -25543,7 +26222,7 @@
         },
         "description": "把附件按页渲染成图片（base64）——**mcp_server 专用**（用户 token 鉴权）。\n\nPDF 走 PyMuPDF 逐页渲染：扫描件的文本提取为空，但页面图里是真实内容，\n模型看图仍能读——这是「解析为空」的附件需要的另一条腿。\n\n三段状态严格分开，不让调用方猜：\n\n- 参数非法（pages 语法错 / dpi 非数字 / format 不认识）→ 400\n- 归属不符或不存在 → 404（不区分，防枚举 attachment_id）\n- 渲染失败（encrypted / too_large / unsupported_mime / page_out_of_range /\n  parse_empty）→ **200 + error 错误码**：mcp_server 要把错误码翻译成模型\n  看得懂的原因，500 会让它只剩「服务端错误」\n\n权限与 /content 端点同一口径：``get_attachment_for_user``（只认会话所有者，\n超管同样 fail-closed），这里不放宽也不跳过。",
         "tags": [
-          "Agent"
+          "Agent 附件"
         ],
         "security": [
           {
@@ -25554,7 +26233,7 @@
     },
     "/api/v1/agent/sessions/{session_id}/folder-refs": {
       "post": {
-        "operationId": "apps_agent_api_agent_api_create_session_folder_ref",
+        "operationId": "apps_agent_api_attachment_api_create_session_folder_ref",
         "summary": "Create Session Folder Ref",
         "parameters": [
           {
@@ -25581,7 +26260,7 @@
         },
         "description": "拖拽引用落库：引用合同绑定文件夹内的原文件（不复制字节、storage_path 留空）。\n\n归属：会话必须属于当前用户；合同侧走行级 ACL（与 folder-entries 目录树\n同口径——团队共享合同，协办律师同样可引用）。文件名/MIME/大小为创建时快照。",
         "tags": [
-          "Agent"
+          "Agent 附件"
         ],
         "requestBody": {
           "content": {
@@ -25602,7 +26281,7 @@
     },
     "/api/v1/agent/folder-refs/content": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_folder_ref_content",
+        "operationId": "apps_agent_api_attachment_api_get_folder_ref_content",
         "summary": "Get Folder Ref Content",
         "parameters": [
           {
@@ -25643,7 +26322,7 @@
         },
         "description": "读绑定文件夹内原文件（base64）——**mcp_server 专用**（用户 token 鉴权）。\n\n与 /attachments/{id}/content 同构：内容只用于服务端转投 /document-parsing\n提取正文，不直接进模型上下文。权限与 folder-entries 同口径（行级 ACL）；\nkind=contract/case 决定走合同还是案件的绑定文件夹。",
         "tags": [
-          "Agent"
+          "Agent 附件"
         ],
         "security": [
           {
@@ -25654,7 +26333,7 @@
     },
     "/api/v1/agent/folder-refs/pages": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_folder_ref_pages",
+        "operationId": "apps_agent_api_attachment_api_get_folder_ref_pages",
         "summary": "Get Folder Ref Pages",
         "parameters": [
           {
@@ -25742,7 +26421,7 @@
         },
         "description": "把绑定文件夹内文件按页渲染成图（base64）——**mcp_server 专用**。\n\n与 /attachments/{id}/pages 同构（三段状态：参数非法 400 / 无权或不存在\n404 / 渲染失败 200 + error 错误码）；页图缓存键含源文件 size/mtime 指纹，\n文件被替换后旧缓存自动失效。",
         "tags": [
-          "Agent"
+          "Agent 附件"
         ],
         "security": [
           {
@@ -25751,125 +26430,10 @@
         ]
       }
     },
-    "/api/v1/agent/approval/request": {
-      "post": {
-        "operationId": "apps_agent_api_agent_api_pi_approval_request",
-        "summary": "Pi Approval Request",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PiApprovalOut"
-                }
-              }
-            }
-          }
-        },
-        "description": "pi extension 的工具调用审批闸门（同步阻塞等用户回答）。\n\n鉴权：``X-Internal-Token`` 头（extension 没有用户会话，不走 JWT）。",
-        "tags": [
-          "Agent"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PiApprovalIn"
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/api/v1/agent/approval/{approval_id}/decide": {
-      "post": {
-        "operationId": "apps_agent_api_agent_api_submit_approval_decision",
-        "summary": "Submit Approval Decision",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "approval_id",
-            "schema": {
-              "title": "Approval Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "前端提交审批决定（仅会话所有者或超级用户可决定）。",
-        "tags": [
-          "Agent"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApprovalDecideIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/agent/question/{question_id}/answer": {
-      "post": {
-        "operationId": "apps_agent_api_agent_api_submit_question_answer",
-        "summary": "Submit Question Answer",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "question_id",
-            "schema": {
-              "title": "Question Id",
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "前端提交提问回答（仅会话所有者或超级用户）。\n\n``success=False`` 不一定是错误：等待方可能已超时（律师过了 5 分钟才点\n提交）。此时答案仍被记录，但模型已经按假设继续了——前端应提示「回答已\n记录，但本轮已继续」，而不是当成失败重试。",
-        "tags": [
-          "Agent"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QuestionAnswerIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/agent/questions/pending": {
+    "/api/v1/agent/skills": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_list_pending_questions",
-        "summary": "List Pending Questions",
+        "operationId": "apps_agent_api_skill_api_list_skills",
+        "summary": "List Skills",
         "parameters": [],
         "responses": {
           "200": {
@@ -25877,21 +26441,64 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "title": "Response",
-                  "type": "array"
+                  "$ref": "#/components/schemas/SkillListOut"
                 }
               }
             }
           }
         },
-        "description": "当前律师待回答的提问（重开会话时补拉，避免错过）。",
+        "description": "当前律师可见的技能清单（偏好只记差异，缺省全启用）。",
         "tags": [
-          "Agent"
+          "Agent 技能"
         ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/skills/{skill_name}": {
+      "patch": {
+        "operationId": "apps_agent_api_skill_api_toggle_skill",
+        "summary": "Toggle Skill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_name",
+            "schema": {
+              "title": "Skill Name",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkillToggleOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。",
+        "tags": [
+          "Agent 技能"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillToggleIn"
+              }
+            }
+          },
+          "required": true
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -25901,7 +26508,7 @@
     },
     "/api/v1/agent/usage": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_usage",
+        "operationId": "apps_agent_api_usage_api_get_usage",
         "summary": "Get Usage",
         "parameters": [
           {
@@ -25929,7 +26536,7 @@
         },
         "description": "当前用户的成本与耗时汇总（超级用户可加 ``?all=true`` 看全所）。\n\n口径：token 由 pi 上报，一轮内工具循环的多段 assistant 逐段累加；\n取消与出错的轮次同样计入（那些轮也消耗了 token）。",
         "tags": [
-          "Agent"
+          "Agent 用量"
         ],
         "security": [
           {
@@ -25940,7 +26547,7 @@
     },
     "/api/v1/agent/usage/daily": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_usage_daily",
+        "operationId": "apps_agent_api_usage_api_get_usage_daily",
         "summary": "Get Usage Daily",
         "parameters": [
           {
@@ -25973,7 +26580,7 @@
         },
         "description": "按天的成本趋势（前端画折线用）。",
         "tags": [
-          "Agent"
+          "Agent 用量"
         ],
         "security": [
           {
@@ -25984,7 +26591,7 @@
     },
     "/api/v1/agent/usage/by-model": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_get_usage_by_model",
+        "operationId": "apps_agent_api_usage_api_get_usage_by_model",
         "summary": "Get Usage By Model",
         "parameters": [
           {
@@ -26017,7 +26624,7 @@
         },
         "description": "按模型的用量分布。",
         "tags": [
-          "Agent"
+          "Agent 用量"
         ],
         "security": [
           {
@@ -26026,50 +26633,17 @@
         ]
       }
     },
-    "/api/v1/agent/approvals/pending": {
+    "/api/v1/agent/usage/by-agent": {
       "get": {
-        "operationId": "apps_agent_api_agent_api_list_pending_approvals_endpoint",
-        "summary": "List Pending Approvals Endpoint",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "title": "Response",
-                  "type": "array"
-                }
-              }
-            }
-          }
-        },
-        "description": "当前用户**仍待处理**的审批（离线审批入口）。\n\n任务式后台运行没有 SSE 连接，高危工具会挂起等决定。用户下次打开\n对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。",
-        "tags": [
-          "Agent"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/agent/approvals": {
-      "get": {
-        "operationId": "apps_agent_api_agent_api_list_approvals",
-        "summary": "List Approvals",
+        "operationId": "apps_agent_api_usage_api_get_usage_by_agent",
+        "summary": "Get Usage By Agent",
         "parameters": [
           {
             "in": "query",
-            "name": "limit",
+            "name": "days",
             "schema": {
-              "default": 50,
-              "title": "Limit",
+              "default": 30,
+              "title": "Days",
               "type": "integer"
             },
             "required": false
@@ -26082,8 +26656,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "additionalProperties": true,
-                    "type": "object"
+                    "$ref": "#/components/schemas/UsageByAgentOut"
                   },
                   "title": "Response",
                   "type": "array"
@@ -26092,9 +26665,9 @@
             }
           }
         },
-        "description": "列出审批记录（审计用；非超级用户仅见自己会话的记录）。",
+        "description": "按 agent 后端的成本归因（哪个后端跑了多少轮、花了多少 token）。\n\n权限口径与 ``/usage`` ``/usage/daily`` ``/usage/by-model`` 一致：只看当前用户。\n``by_model`` 分不清「同一个模型被两个 agent 用时钱是谁花的」，这个端点回答它。\n空 ``agent_kind``（引入字段前的历史行）已在 SQL 侧归 ``pi``，不会多出一行\n「(未记录)」。",
         "tags": [
-          "Agent"
+          "Agent 用量"
         ],
         "security": [
           {
@@ -26149,6 +26722,48 @@
               "type": "integer"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "contract_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Contract Id"
+            },
+            "required": false
+          },
+          {
+            "in": "query",
+            "name": "case_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Case Id"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -26167,7 +26782,7 @@
             }
           }
         },
-        "description": "当前律师可见的记忆列表。\n\n**默认只返回 pending + active**，不返 ``deleted``：软删的语义是「律师不想\n再看到它」，默认列表里还躺着会让人以为删除没生效（前端靠 ``status`` 过滤\n可以遮蔽，但接口本身应该语义正确）。要看已删列表显式传 ``status=deleted``\n（恢复入口需要）。",
+        "description": "当前律师可见的记忆列表（默认 pending + active，业务逻辑见 service）。\n\n``contract_id`` / ``case_id``：只看挂在某个项目/案件上的项目笔记，\n供「项目页 AI 上下文面板」使用。两个都给时取并集（与注入侧同一语义）。\n``offset`` 配合 ``limit`` 翻页（面板的「加载更多」）。",
         "tags": [
           "Agent 记忆"
         ],
@@ -26286,7 +26901,7 @@
             }
           }
         },
-        "description": "语义 + 关键词混合检索。\n\n这是 ``recall_memory`` MCP 工具的后端。与 ``GET /`` 的区别：\n\n- `GET /` 是**浏览**：按时间倒序列出全部记忆，用于管理界面；\n- `GET /search` 是**检索**：按相关度返回 top-N，带向量召回。\n\n为什么必须分开：律师问「我以前说的格式要求」时，记忆里存的是「文书先给\n结论」——字面无关、语义相关，列表浏览永远找不到。早前 `recall_memory`\n拉全量后做子串过滤，就是漏了这一层。",
+        "description": "语义 + 关键词混合检索（``recall_memory`` MCP 工具的后端）。\n\n与 ``GET /`` 的区别：``GET /`` 是按时间倒序**浏览**全部记忆（管理界面）；\n``GET /search`` 是按相关度**检索** top-N（带向量召回）。律师问「我以前\n说的格式要求」时，记忆里存的是「文书先给结论」——字面无关、语义相关，\n列表浏览永远找不到。",
         "tags": [
           "Agent 记忆"
         ],
@@ -26311,6 +26926,22 @@
               "type": "boolean"
             },
             "required": false
+          },
+          {
+            "in": "query",
+            "name": "session_id",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            },
+            "required": false
           }
         ],
         "responses": {
@@ -26325,10 +26956,96 @@
             }
           }
         },
-        "description": "注入用记忆快照（pi 扩展在 session_start 调用）。\n\n``refresh=true`` 仅在长期记忆刚写入时使用——它会让快照内容变化，\n进而破坏该会话后续轮次的 prompt cache 前缀。",
+        "description": "注入用记忆快照（pi 扩展在 session_start 调用）。\n\n``refresh=true`` 仅在长期记忆刚写入时使用——它会让快照内容变化，\n进而破坏该会话后续轮次的 prompt cache 前缀。\n\n``session_id`` 决定「本项目/本案」那两块要不要渲染：带着它才会把同团队\n写在该项目上的笔记注入进来（跨会话共享判断的唯一入口）。",
         "tags": [
           "Agent 记忆"
         ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/memory/notes": {
+      "post": {
+        "operationId": "apps_agent_api_memory_api_create_project_note",
+        "summary": "Create Project Note",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "写一条项目笔记（挂到项目或某案件上）。\n\n与 ``POST /agent/memory`` 的区别：那条存的是**这个律师的习惯**（跨项目\n通用，按 scope 分层）；这条存的是**这个项目的结论**，只在本项目/本案的\n会话里注入，同团队所有人都看得到、都写得了。",
+        "tags": [
+          "Agent 记忆"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/memory/{memory_id}/confirm": {
+      "post": {
+        "operationId": "apps_agent_api_memory_api_confirm_project_note",
+        "summary": "Confirm Project Note",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memory_id",
+            "schema": {
+              "title": "Memory Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "把一条笔记升为「项目事实」（人工点一下），可顺带改写内容。\n\n为什么要人点：模型写的判断可能是它自己的推理，也可能被卷宗里的文字带偏。\n一旦标成事实，后面的会话会当**前提**使用，错误会被逐轮放大。",
+        "tags": [
+          "Agent 记忆"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -28910,38 +29627,6 @@
       },
       "LawyerOut": {
         "properties": {
-          "license_pdf_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License Pdf Url"
-          },
-          "avatar_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avatar Url"
-          },
-          "law_firm_detail": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LawFirmOut"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "id": {
             "anyOf": [
               {
@@ -29006,6 +29691,38 @@
             "description": "指明用户是否被认为是活跃的。以反选代替删除帐号。",
             "title": "有效",
             "type": "boolean"
+          },
+          "license_pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Pdf Url"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "law_firm_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LawFirmOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -29231,11 +29948,6 @@
       "LawyerSlimOut": {
         "description": "列表瘦身版：只供「lawyer_id → 人名/电话/执业证/律所名」的映射消费。\n\n办案主页等列表页要按 500 人全量映射团队信息，但只需要这四个字段；\n完整 LawyerOut 还带 license_pdf_url / avatar_url 两个文件签 URL\n（每个都要走存储后端取签名）加 law_firm_detail 整个嵌套对象，几百条\n累起来是纯浪费。law_firm_name 平铺成字符串替代嵌套对象。",
         "properties": {
-          "law_firm_name": {
-            "default": "",
-            "title": "Law Firm Name",
-            "type": "string"
-          },
           "id": {
             "anyOf": [
               {
@@ -29283,6 +29995,11 @@
               }
             ],
             "title": "执业证号"
+          },
+          "law_firm_name": {
+            "default": "",
+            "title": "Law Firm Name",
+            "type": "string"
           }
         },
         "title": "LawyerSlimOut",
@@ -29858,17 +30575,6 @@
       "ClientOut": {
         "description": "客户输出 Schema\n\n证件号原样出参（2026-10 产品决策：本机部署、律师办案需要完整证件号填文书，\n此前安全审计加的「前 3 后 4」打码已撤除）。",
         "properties": {
-          "client_type_label": {
-            "title": "Client Type Label",
-            "type": "string"
-          },
-          "identity_docs": {
-            "items": {
-              "$ref": "#/components/schemas/ClientIdentityDocOut"
-            },
-            "title": "Identity Docs",
-            "type": "array"
-          },
           "id": {
             "anyOf": [
               {
@@ -29959,12 +30665,23 @@
             ],
             "default": "",
             "title": "法定代表人/负责人身份证号码"
+          },
+          "client_type_label": {
+            "title": "Client Type Label",
+            "type": "string"
+          },
+          "identity_docs": {
+            "items": {
+              "$ref": "#/components/schemas/ClientIdentityDocOut"
+            },
+            "title": "Identity Docs",
+            "type": "array"
           }
         },
         "required": [
+          "name",
           "client_type_label",
-          "identity_docs",
-          "name"
+          "identity_docs"
         ],
         "title": "ClientOut",
         "type": "object"
@@ -30094,7 +30811,8 @@
         "title": "PartyListOut",
         "type": "object"
       },
-      "ParseTextRequest": {
+      "ParseTextIn": {
+        "description": "当事人文本解析请求体",
         "properties": {
           "text": {
             "title": "Text",
@@ -30109,10 +30827,11 @@
         "required": [
           "text"
         ],
-        "title": "ParseTextRequest",
+        "title": "ParseTextIn",
         "type": "object"
       },
-      "IdCardValidateResponse": {
+      "IdCardValidateOut": {
+        "description": "身份证号校验结果",
         "properties": {
           "valid": {
             "title": "Valid",
@@ -30127,10 +30846,11 @@
           "valid",
           "message"
         ],
-        "title": "IdCardValidateResponse",
+        "title": "IdCardValidateOut",
         "type": "object"
       },
-      "IdCardValidateRequest": {
+      "IdCardValidateIn": {
+        "description": "身份证号校验请求体",
         "properties": {
           "id_number": {
             "title": "Id Number",
@@ -30140,7 +30860,7 @@
         "required": [
           "id_number"
         ],
-        "title": "IdCardValidateRequest",
+        "title": "IdCardValidateIn",
         "type": "object"
       },
       "OACredentialCheckOut": {
@@ -30954,9 +31674,6 @@
       },
       "CaseAssignmentOut": {
         "properties": {
-          "lawyer_detail": {
-            "$ref": "#/components/schemas/LawyerOutFromDTO"
-          },
           "id": {
             "anyOf": [
               {
@@ -30975,12 +31692,15 @@
           "lawyer": {
             "title": "律师",
             "type": "integer"
+          },
+          "lawyer_detail": {
+            "$ref": "#/components/schemas/LawyerOutFromDTO"
           }
         },
         "required": [
-          "lawyer_detail",
           "case",
-          "lawyer"
+          "lawyer",
+          "lawyer_detail"
         ],
         "title": "CaseAssignmentOut",
         "type": "object"
@@ -31023,78 +31743,6 @@
       },
       "CaseContactOut": {
         "properties": {
-          "role_display": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role Display"
-          },
-          "stage_display": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stage Display"
-          },
-          "authority_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Authority Name"
-          },
-          "case_id": {
-            "title": "Case Id",
-            "type": "integer"
-          },
-          "authority_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Authority Id"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "title": "Created At"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "title": "Updated At"
-          },
           "id": {
             "anyOf": [
               {
@@ -31168,17 +31816,89 @@
             ],
             "default": "",
             "title": "备注"
+          },
+          "role_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Display"
+          },
+          "stage_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Display"
+          },
+          "authority_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Name"
+          },
+          "case_id": {
+            "title": "Case Id",
+            "type": "integer"
+          },
+          "authority_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Id"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
+          "name",
           "role_display",
           "stage_display",
           "authority_name",
           "case_id",
           "authority_id",
           "created_at",
-          "updated_at",
-          "name"
+          "updated_at"
         ],
         "title": "CaseContactOut",
         "type": "object"
@@ -31225,6 +31945,34 @@
       },
       "CaseLogAttachmentOut": {
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "ID"
+          },
+          "log": {
+            "title": "日志",
+            "type": "integer"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "原始文件名"
+          },
           "file_path": {
             "anyOf": [
               {
@@ -31258,7 +32006,19 @@
               }
             ],
             "title": "Uploaded At"
-          },
+          }
+        },
+        "required": [
+          "log",
+          "file_path",
+          "media_url",
+          "uploaded_at"
+        ],
+        "title": "CaseLogAttachmentOut",
+        "type": "object"
+      },
+      "CaseLogOut": {
+        "properties": {
           "id": {
             "anyOf": [
               {
@@ -31270,35 +32030,18 @@
             ],
             "title": "ID"
           },
-          "log": {
-            "title": "日志",
+          "case": {
+            "title": "案件",
             "type": "integer"
           },
-          "original_filename": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": "",
-            "title": "原始文件名"
-          }
-        },
-        "required": [
-          "file_path",
-          "media_url",
-          "uploaded_at",
-          "log"
-        ],
-        "title": "CaseLogAttachmentOut",
-        "type": "object"
-      },
-      "CaseLogOut": {
-        "properties": {
+          "content": {
+            "title": "日志内容",
+            "type": "string"
+          },
+          "actor": {
+            "title": "操作人",
+            "type": "integer"
+          },
           "attachments": {
             "items": {
               "$ref": "#/components/schemas/CaseLogAttachmentOut"
@@ -31361,58 +32104,23 @@
               }
             ],
             "title": "Updated At"
-          },
-          "id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "ID"
-          },
-          "case": {
-            "title": "案件",
-            "type": "integer"
-          },
-          "content": {
-            "title": "日志内容",
-            "type": "string"
-          },
-          "actor": {
-            "title": "操作人",
-            "type": "integer"
           }
         },
         "required": [
+          "case",
+          "content",
+          "actor",
           "attachments",
           "reminders",
           "actor_detail",
           "created_at",
-          "updated_at",
-          "case",
-          "content",
-          "actor"
+          "updated_at"
         ],
         "title": "CaseLogOut",
         "type": "object"
       },
       "CaseNumberOut": {
         "properties": {
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "title": "Created At"
-          },
           "id": {
             "anyOf": [
               {
@@ -31440,78 +32148,29 @@
             ],
             "default": "",
             "title": "备注"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Created At"
           }
         },
         "required": [
-          "created_at",
-          "number"
+          "number",
+          "created_at"
         ],
         "title": "CaseNumberOut",
         "type": "object"
       },
       "CaseOut": {
         "properties": {
-          "parties": {
-            "items": {
-              "$ref": "#/components/schemas/CasePartyOut"
-            },
-            "title": "Parties",
-            "type": "array"
-          },
-          "assignments": {
-            "items": {
-              "$ref": "#/components/schemas/CaseAssignmentOut"
-            },
-            "title": "Assignments",
-            "type": "array"
-          },
-          "logs": {
-            "items": {
-              "$ref": "#/components/schemas/CaseLogOut"
-            },
-            "title": "Logs",
-            "type": "array"
-          },
-          "case_numbers": {
-            "items": {
-              "$ref": "#/components/schemas/CaseNumberOut"
-            },
-            "title": "Case Numbers",
-            "type": "array"
-          },
-          "supervising_authorities": {
-            "items": {
-              "$ref": "#/components/schemas/SupervisingAuthorityOut"
-            },
-            "title": "Supervising Authorities",
-            "type": "array"
-          },
-          "chats": {
-            "items": {
-              "$ref": "#/components/schemas/CaseChatOut"
-            },
-            "title": "Chats",
-            "type": "array"
-          },
-          "contract_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contract Id"
-          },
-          "contacts": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/CaseContactOut"
-            },
-            "title": "Contacts",
-            "type": "array"
-          },
           "id": {
             "anyOf": [
               {
@@ -31641,26 +32300,84 @@
             ],
             "default": "",
             "title": "当前阶段"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/CasePartyOut"
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/CaseAssignmentOut"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "logs": {
+            "items": {
+              "$ref": "#/components/schemas/CaseLogOut"
+            },
+            "title": "Logs",
+            "type": "array"
+          },
+          "case_numbers": {
+            "items": {
+              "$ref": "#/components/schemas/CaseNumberOut"
+            },
+            "title": "Case Numbers",
+            "type": "array"
+          },
+          "supervising_authorities": {
+            "items": {
+              "$ref": "#/components/schemas/SupervisingAuthorityOut"
+            },
+            "title": "Supervising Authorities",
+            "type": "array"
+          },
+          "chats": {
+            "items": {
+              "$ref": "#/components/schemas/CaseChatOut"
+            },
+            "title": "Chats",
+            "type": "array"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "contacts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CaseContactOut"
+            },
+            "title": "Contacts",
+            "type": "array"
           }
         },
         "required": [
+          "name",
           "parties",
           "assignments",
           "logs",
           "case_numbers",
           "supervising_authorities",
           "chats",
-          "contract_id",
-          "name"
+          "contract_id"
         ],
         "title": "CaseOut",
         "type": "object"
       },
       "CasePartyOut": {
         "properties": {
-          "client_detail": {
-            "$ref": "#/components/schemas/ClientLiteOut"
-          },
           "id": {
             "anyOf": [
               {
@@ -31692,12 +32409,15 @@
             ],
             "default": "",
             "title": "诉讼地位"
+          },
+          "client_detail": {
+            "$ref": "#/components/schemas/ClientLiteOut"
           }
         },
         "required": [
-          "client_detail",
           "case",
-          "client"
+          "client",
+          "client_detail"
         ],
         "title": "CasePartyOut",
         "type": "object"
@@ -31952,29 +32672,6 @@
       },
       "SupervisingAuthorityOut": {
         "properties": {
-          "created_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "title": "Created At"
-          },
-          "authority_type_display": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Authority Type Display"
-          },
           "id": {
             "anyOf": [
               {
@@ -32011,6 +32708,29 @@
             ],
             "default": "trial",
             "title": "性质"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Created At"
+          },
+          "authority_type_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Type Display"
           }
         },
         "required": [
@@ -33591,6 +34311,28 @@
               }
             ],
             "title": "Supervising Authority Id"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          },
+          "source_segment_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Segment Ref"
           }
         },
         "required": [
@@ -33670,6 +34412,28 @@
               }
             ],
             "title": "Supervising Authority Id"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          },
+          "source_segment_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Segment Ref"
           }
         },
         "required": [
@@ -35402,144 +36166,6 @@
       "ContractOut": {
         "description": "合同序列化输出。\n\ncases 不再整表内嵌（144 合同 × 案件嵌套曾是列表接口的体积/耗时大头），\n只给 case_count 计数；案件明细由 /cases/cases?contract_id= 按需拉取。",
         "properties": {
-          "contract_parties": {
-            "items": {
-              "$ref": "#/components/schemas/ContractPartyOut"
-            },
-            "title": "Contract Parties",
-            "type": "array"
-          },
-          "case_count": {
-            "title": "Case Count",
-            "type": "integer"
-          },
-          "case_type_label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Case Type Label"
-          },
-          "status_label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status Label"
-          },
-          "reminders": {
-            "items": {
-              "$ref": "#/components/schemas/ReminderLiteOut"
-            },
-            "title": "Reminders",
-            "type": "array"
-          },
-          "payments": {
-            "items": {
-              "$ref": "#/components/schemas/ContractPaymentOut"
-            },
-            "title": "Payments",
-            "type": "array"
-          },
-          "supplementary_agreements": {
-            "items": {
-              "$ref": "#/components/schemas/SupplementaryAgreementOut"
-            },
-            "title": "Supplementary Agreements",
-            "type": "array"
-          },
-          "total_received": {
-            "title": "Total Received",
-            "type": "number"
-          },
-          "total_invoiced": {
-            "title": "Total Invoiced",
-            "type": "number"
-          },
-          "unpaid_amount": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unpaid Amount"
-          },
-          "assignments": {
-            "items": {
-              "$ref": "#/components/schemas/ContractAssignmentOut"
-            },
-            "title": "Assignments",
-            "type": "array"
-          },
-          "primary_lawyer": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ContractLawyerOut"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "matched_document_template": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Matched Document Template"
-          },
-          "matched_folder_templates": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Matched Folder Templates"
-          },
-          "has_matched_templates": {
-            "default": false,
-            "title": "Has Matched Templates",
-            "type": "boolean"
-          },
-          "client_payment_records": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/ClientPaymentRecordOut"
-            },
-            "title": "Client Payment Records",
-            "type": "array"
-          },
-          "finalized_materials": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/FinalizedMaterialOut"
-            },
-            "title": "Finalized Materials",
-            "type": "array"
-          },
-          "can_archive": {
-            "default": false,
-            "title": "Can Archive",
-            "type": "boolean"
-          },
           "id": {
             "anyOf": [
               {
@@ -35689,9 +36315,149 @@
               }
             ],
             "title": "律所OA案件编号"
+          },
+          "contract_parties": {
+            "items": {
+              "$ref": "#/components/schemas/ContractPartyOut"
+            },
+            "title": "Contract Parties",
+            "type": "array"
+          },
+          "case_count": {
+            "title": "Case Count",
+            "type": "integer"
+          },
+          "case_type_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Type Label"
+          },
+          "status_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Label"
+          },
+          "reminders": {
+            "items": {
+              "$ref": "#/components/schemas/ReminderLiteOut"
+            },
+            "title": "Reminders",
+            "type": "array"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/ContractPaymentOut"
+            },
+            "title": "Payments",
+            "type": "array"
+          },
+          "supplementary_agreements": {
+            "items": {
+              "$ref": "#/components/schemas/SupplementaryAgreementOut"
+            },
+            "title": "Supplementary Agreements",
+            "type": "array"
+          },
+          "total_received": {
+            "title": "Total Received",
+            "type": "number"
+          },
+          "total_invoiced": {
+            "title": "Total Invoiced",
+            "type": "number"
+          },
+          "unpaid_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unpaid Amount"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/ContractAssignmentOut"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "primary_lawyer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContractLawyerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matched_document_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Document Template"
+          },
+          "matched_folder_templates": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Folder Templates"
+          },
+          "has_matched_templates": {
+            "default": false,
+            "title": "Has Matched Templates",
+            "type": "boolean"
+          },
+          "client_payment_records": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ClientPaymentRecordOut"
+            },
+            "title": "Client Payment Records",
+            "type": "array"
+          },
+          "finalized_materials": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FinalizedMaterialOut"
+            },
+            "title": "Finalized Materials",
+            "type": "array"
+          },
+          "can_archive": {
+            "default": false,
+            "title": "Can Archive",
+            "type": "boolean"
           }
         },
         "required": [
+          "name",
+          "case_type",
           "contract_parties",
           "case_count",
           "case_type_label",
@@ -35703,22 +36469,13 @@
           "total_invoiced",
           "unpaid_amount",
           "assignments",
-          "primary_lawyer",
-          "name",
-          "case_type"
+          "primary_lawyer"
         ],
         "title": "ContractOut",
         "type": "object"
       },
       "ContractPartyOut": {
         "properties": {
-          "client_detail": {
-            "$ref": "#/components/schemas/ClientLiteOut"
-          },
-          "role_label": {
-            "title": "Role Label",
-            "type": "string"
-          },
           "id": {
             "anyOf": [
               {
@@ -35743,23 +36500,26 @@
             "maxLength": 16,
             "title": "身份",
             "type": "string"
+          },
+          "client_detail": {
+            "$ref": "#/components/schemas/ClientLiteOut"
+          },
+          "role_label": {
+            "title": "Role Label",
+            "type": "string"
           }
         },
         "required": [
-          "client_detail",
-          "role_label",
           "contract",
-          "client"
+          "client",
+          "client_detail",
+          "role_label"
         ],
         "title": "ContractPartyOut",
         "type": "object"
       },
       "ContractPaymentOut": {
         "properties": {
-          "invoice_status_label": {
-            "title": "Invoice Status Label",
-            "type": "string"
-          },
           "id": {
             "anyOf": [
               {
@@ -35817,14 +36577,18 @@
             "format": "date-time",
             "title": "更新时间",
             "type": "string"
+          },
+          "invoice_status_label": {
+            "title": "Invoice Status Label",
+            "type": "string"
           }
         },
         "required": [
-          "invoice_status_label",
           "contract",
           "amount",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "invoice_status_label"
         ],
         "title": "ContractPaymentOut",
         "type": "object"
@@ -35929,13 +36693,6 @@
       "SupplementaryAgreementOut": {
         "description": "补充协议输出 Schema",
         "properties": {
-          "parties": {
-            "items": {
-              "$ref": "#/components/schemas/SupplementaryAgreementPartyOut"
-            },
-            "title": "Parties",
-            "type": "array"
-          },
           "id": {
             "anyOf": [
               {
@@ -35973,13 +36730,20 @@
             "format": "date-time",
             "title": "修改时间",
             "type": "string"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/SupplementaryAgreementPartyOut"
+            },
+            "title": "Parties",
+            "type": "array"
           }
         },
         "required": [
-          "parties",
           "contract",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "parties"
         ],
         "title": "SupplementaryAgreementOut",
         "type": "object"
@@ -35987,21 +36751,6 @@
       "SupplementaryAgreementPartyOut": {
         "description": "补充协议当事人输出 Schema",
         "properties": {
-          "client_detail": {
-            "$ref": "#/components/schemas/ClientLiteOut"
-          },
-          "client_name": {
-            "title": "Client Name",
-            "type": "string"
-          },
-          "is_our_client": {
-            "title": "Is Our Client",
-            "type": "boolean"
-          },
-          "role_label": {
-            "title": "Role Label",
-            "type": "string"
-          },
           "id": {
             "anyOf": [
               {
@@ -36022,20 +36771,51 @@
             "maxLength": 16,
             "title": "身份",
             "type": "string"
+          },
+          "client_detail": {
+            "$ref": "#/components/schemas/ClientLiteOut"
+          },
+          "client_name": {
+            "title": "Client Name",
+            "type": "string"
+          },
+          "is_our_client": {
+            "title": "Is Our Client",
+            "type": "boolean"
+          },
+          "role_label": {
+            "title": "Role Label",
+            "type": "string"
           }
         },
         "required": [
+          "client",
           "client_detail",
           "client_name",
           "is_our_client",
-          "role_label",
-          "client"
+          "role_label"
         ],
         "title": "SupplementaryAgreementPartyOut",
         "type": "object"
       },
       "ContractIn": {
         "properties": {
+          "name": {
+            "maxLength": 100,
+            "title": "合同名称",
+            "type": "string"
+          },
+          "case_type": {
+            "maxLength": 32,
+            "title": "合同类型",
+            "type": "string"
+          },
+          "status": {
+            "default": "active",
+            "maxLength": 32,
+            "title": "合同状态",
+            "type": "string"
+          },
           "specified_date": {
             "anyOf": [
               {
@@ -36068,6 +36848,11 @@
               }
             ],
             "title": "End Date"
+          },
+          "is_filed": {
+            "default": false,
+            "title": "是否已建档",
+            "type": "boolean"
           },
           "fee_mode": {
             "anyOf": [
@@ -36162,33 +36947,12 @@
               }
             ],
             "title": "Supplementary Agreements"
-          },
-          "name": {
-            "maxLength": 100,
-            "title": "合同名称",
-            "type": "string"
-          },
-          "case_type": {
-            "maxLength": 32,
-            "title": "合同类型",
-            "type": "string"
-          },
-          "status": {
-            "default": "active",
-            "maxLength": 32,
-            "title": "合同状态",
-            "type": "string"
-          },
-          "is_filed": {
-            "default": false,
-            "title": "是否已建档",
-            "type": "boolean"
           }
         },
         "required": [
-          "lawyer_ids",
           "name",
-          "case_type"
+          "case_type",
+          "lawyer_ids"
         ],
         "title": "ContractIn",
         "type": "object"
@@ -42488,6 +43252,14 @@
             },
             "title": "Quality Flags",
             "type": "array"
+          },
+          "page_spans": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SegmentPageSpanOut"
+            },
+            "title": "Page Spans",
+            "type": "array"
           }
         },
         "required": [
@@ -42505,6 +43277,30 @@
           "content_md"
         ],
         "title": "SegmentOut",
+        "type": "object"
+      },
+      "SegmentPageSpanOut": {
+        "description": "一段正文里属于某一页的字符区间（相对 ``content_md``，左闭右开）。\n\n前端切/并段时按它把正文按页搬运，而不是整段照抄（污染）或整段丢弃（丢失）。",
+        "properties": {
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          },
+          "end": {
+            "title": "End",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "start",
+          "end"
+        ],
+        "title": "SegmentPageSpanOut",
         "type": "object"
       },
       "ConfirmRequestIn": {
@@ -45742,28 +46538,6 @@
       },
       "ProjectOut": {
         "properties": {
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          },
           "id": {
             "anyOf": [
               {
@@ -45801,12 +46575,34 @@
               }
             ],
             "title": "创建人"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
+          "name",
           "created_at",
-          "updated_at",
-          "name"
+          "updated_at"
         ],
         "title": "ProjectOut",
         "type": "object"
@@ -45838,62 +46634,6 @@
       },
       "RecordingOut": {
         "properties": {
-          "video_url": {
-            "title": "Video Url",
-            "type": "string"
-          },
-          "stream_url": {
-            "title": "Stream Url",
-            "type": "string"
-          },
-          "extract_status_label": {
-            "title": "Extract Status Label",
-            "type": "string"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          },
-          "extract_started_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Extract Started At"
-          },
-          "extract_finished_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Extract Finished At"
-          },
           "id": {
             "anyOf": [
               {
@@ -45981,17 +46721,73 @@
               }
             ],
             "title": "抽帧错误信息"
+          },
+          "extract_started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extract Started At"
+          },
+          "extract_finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extract Finished At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "video_url": {
+            "title": "Video Url",
+            "type": "string"
+          },
+          "stream_url": {
+            "title": "Stream Url",
+            "type": "string"
+          },
+          "extract_status_label": {
+            "title": "Extract Status Label",
+            "type": "string"
           }
         },
         "required": [
-          "video_url",
-          "stream_url",
-          "extract_status_label",
-          "created_at",
-          "updated_at",
+          "project",
           "extract_started_at",
           "extract_finished_at",
-          "project"
+          "created_at",
+          "updated_at",
+          "video_url",
+          "stream_url",
+          "extract_status_label"
         ],
         "title": "RecordingOut",
         "type": "object"
@@ -46015,32 +46811,6 @@
       },
       "ScreenshotOut": {
         "properties": {
-          "image_url": {
-            "title": "Image Url",
-            "type": "string"
-          },
-          "capture_time_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Capture Time Seconds"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
           "id": {
             "anyOf": [
               {
@@ -46085,6 +46855,17 @@
             ],
             "title": "备注"
           },
+          "capture_time_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Time Seconds"
+          },
           "sha256": {
             "anyOf": [
               {
@@ -46096,13 +46877,28 @@
               }
             ],
             "title": "内容哈希"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
           }
         },
         "required": [
-          "image_url",
+          "project",
           "capture_time_seconds",
           "created_at",
-          "project"
+          "image_url"
         ],
         "title": "ScreenshotOut",
         "type": "object"
@@ -46153,69 +46949,6 @@
       },
       "ExportTaskOut": {
         "properties": {
-          "status_label": {
-            "title": "Status Label",
-            "type": "string"
-          },
-          "export_type_label": {
-            "title": "Export Type Label",
-            "type": "string"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "finished_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finished At"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          },
-          "download_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Download Url"
-          },
           "id": {
             "anyOf": [
               {
@@ -46291,18 +47024,81 @@
               }
             ],
             "title": "错误信息"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          },
+          "export_type_label": {
+            "title": "Export Type Label",
+            "type": "string"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Url"
           }
         },
         "required": [
-          "status_label",
-          "export_type_label",
+          "project",
+          "export_type",
           "started_at",
           "finished_at",
           "created_at",
           "updated_at",
-          "download_url",
-          "project",
-          "export_type"
+          "status_label",
+          "export_type_label",
+          "download_url"
         ],
         "title": "ExportTaskOut",
         "type": "object"
@@ -46645,41 +47441,6 @@
       "DocumentTemplateOut": {
         "description": "文书模板输出",
         "properties": {
-          "template_type_display": {
-            "title": "Template Type Display",
-            "type": "string"
-          },
-          "case_types_display": {
-            "title": "Case Types Display",
-            "type": "string"
-          },
-          "case_stages_display": {
-            "title": "Case Stages Display",
-            "type": "string"
-          },
-          "contract_types_display": {
-            "title": "Contract Types Display",
-            "type": "string"
-          },
-          "file_location": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Location"
-          },
-          "folder_bindings": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/FolderBindingOut"
-            },
-            "title": "Folder Bindings",
-            "type": "array"
-          },
           "id": {
             "anyOf": [
               {
@@ -46787,16 +47548,51 @@
             "format": "date-time",
             "title": "更新时间",
             "type": "string"
+          },
+          "template_type_display": {
+            "title": "Template Type Display",
+            "type": "string"
+          },
+          "case_types_display": {
+            "title": "Case Types Display",
+            "type": "string"
+          },
+          "case_stages_display": {
+            "title": "Case Stages Display",
+            "type": "string"
+          },
+          "contract_types_display": {
+            "title": "Contract Types Display",
+            "type": "string"
+          },
+          "file_location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Location"
+          },
+          "folder_bindings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FolderBindingOut"
+            },
+            "title": "Folder Bindings",
+            "type": "array"
           }
         },
         "required": [
+          "name",
+          "created_at",
+          "updated_at",
           "template_type_display",
           "case_types_display",
           "case_stages_display",
-          "contract_types_display",
-          "name",
-          "created_at",
-          "updated_at"
+          "contract_types_display"
         ],
         "title": "DocumentTemplateOut",
         "type": "object"
@@ -47061,22 +47857,6 @@
       "FolderTemplateOut": {
         "description": "文件夹模板输出",
         "properties": {
-          "template_type_display": {
-            "title": "Template Type Display",
-            "type": "string"
-          },
-          "case_types_display": {
-            "title": "Case Types Display",
-            "type": "string"
-          },
-          "case_stages_display": {
-            "title": "Case Stages Display",
-            "type": "string"
-          },
-          "contract_types_display": {
-            "title": "Contract Types Display",
-            "type": "string"
-          },
           "id": {
             "anyOf": [
               {
@@ -47138,17 +47918,33 @@
             "format": "date-time",
             "title": "更新时间",
             "type": "string"
+          },
+          "template_type_display": {
+            "title": "Template Type Display",
+            "type": "string"
+          },
+          "case_types_display": {
+            "title": "Case Types Display",
+            "type": "string"
+          },
+          "case_stages_display": {
+            "title": "Case Stages Display",
+            "type": "string"
+          },
+          "contract_types_display": {
+            "title": "Contract Types Display",
+            "type": "string"
           }
         },
         "required": [
-          "template_type_display",
-          "case_types_display",
-          "case_stages_display",
-          "contract_types_display",
           "name",
           "template_type",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "template_type_display",
+          "case_types_display",
+          "case_stages_display",
+          "contract_types_display"
         ],
         "title": "FolderTemplateOut",
         "type": "object"
@@ -49167,6 +49963,193 @@
         "title": "TaskEditApplyIn",
         "type": "object"
       },
+      "WritePatchOut": {
+        "description": "一条候选改写的回执（字段与 `WritePatch` 契约同口径）。",
+        "properties": {
+          "patch_id": {
+            "title": "Patch Id",
+            "type": "string"
+          },
+          "owner_kind": {
+            "title": "Owner Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "integer"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "original": {
+            "title": "Original",
+            "type": "string"
+          },
+          "replacement": {
+            "title": "Replacement",
+            "type": "string"
+          },
+          "base_mtime": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Mtime"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "session_id": {
+            "default": "",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn": {
+            "default": 0,
+            "title": "Turn",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "patch_id",
+          "owner_kind",
+          "owner_id",
+          "subpath",
+          "original",
+          "replacement",
+          "status"
+        ],
+        "title": "WritePatchOut",
+        "type": "object"
+      },
+      "WritePatchProposeIn": {
+        "description": "登记一条候选改写（**不落盘**）。",
+        "properties": {
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "original": {
+            "title": "Original",
+            "type": "string"
+          },
+          "replacement": {
+            "title": "Replacement",
+            "type": "string"
+          },
+          "session_id": {
+            "default": "",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn": {
+            "default": 0,
+            "title": "Turn",
+            "type": "integer"
+          },
+          "agent_kind": {
+            "default": "",
+            "title": "Agent Kind",
+            "type": "string"
+          },
+          "run_id": {
+            "default": "",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subpath",
+          "original",
+          "replacement"
+        ],
+        "title": "WritePatchProposeIn",
+        "type": "object"
+      },
+      "WritePatchApplyOut": {
+        "properties": {
+          "applied": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applied",
+            "type": "array"
+          },
+          "merged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Merged",
+            "type": "array"
+          },
+          "subpath": {
+            "title": "Subpath",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "applied",
+          "merged",
+          "subpath"
+        ],
+        "title": "WritePatchApplyOut",
+        "type": "object"
+      },
+      "WritePatchApplyIn": {
+        "description": "应用选中的候选改写（一次性写盘，仍走 HIGH 审批闸门）。",
+        "properties": {
+          "patch_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Patch Ids",
+            "type": "array"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "patch_ids"
+        ],
+        "title": "WritePatchApplyIn",
+        "type": "object"
+      },
       "LegalResearchCreateOut": {
         "properties": {
           "task_id": {
@@ -49991,7 +50974,7 @@
         "type": "object"
       },
       "ForeignLawVerifyOut": {
-        "description": "``asean_law_verify`` 的返回结构（原样透出）。\n\n成功时 ``verdict == \"待判定\"`` 表示条文已取到，需判定层比对 ``section_text``\n与 ``claim``；``\"不存在该引用\"`` 是规则层直接判死，不消耗模型调用。",
+        "description": "``asean_law_verify`` 的返回结构（原样透出）。\n\n判定已在插件里完成（多判定器合议），这里**不再有**「等外部判定层比对」那一步：\n\n- ``verdict`` 可能是四个结论之一，也可能是 ``待判定``（没有结论）；\n- ``待判定`` 有两种成因，靠 ``adjudicated`` 区分：\n  合议跑过但弃权（``true``，**不要再找模型判**）vs. 合议未开启（``false``）；\n- ``不存在该引用`` 是规则层直接判死，不消耗模型调用；\n- ``needs_human`` 为真时，前端**必须**把 ``review_reasons`` 展示出来，\n  不能只给一个绿色 pill。",
         "properties": {
           "ok": {
             "title": "Ok",
@@ -50031,6 +51014,101 @@
             "default": "",
             "title": "Claim",
             "type": "string"
+          },
+          "adjudicated": {
+            "default": false,
+            "title": "Adjudicated",
+            "type": "boolean"
+          },
+          "unconfirmed": {
+            "default": false,
+            "title": "Unconfirmed",
+            "type": "boolean"
+          },
+          "needs_human": {
+            "default": false,
+            "title": "Needs Human",
+            "type": "boolean"
+          },
+          "review_reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Review Reasons",
+            "type": "array"
+          },
+          "agreement": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreement"
+          },
+          "matched_by": {
+            "default": "",
+            "title": "Matched By",
+            "type": "string"
+          },
+          "elements": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Elements",
+            "type": "array"
+          },
+          "votes": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Votes",
+            "type": "array"
+          },
+          "jury_tokens": {
+            "default": 0,
+            "title": "Jury Tokens",
+            "type": "integer"
+          },
+          "cached": {
+            "default": false,
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "source_url": {
+            "default": "",
+            "title": "Source Url",
+            "type": "string"
+          },
+          "matched_paragraph": {
+            "default": "",
+            "title": "Matched Paragraph",
+            "type": "string"
+          },
+          "effective_date": {
+            "default": "",
+            "title": "Effective Date",
+            "type": "string"
+          },
+          "revise_date": {
+            "default": "",
+            "title": "Revise Date",
+            "type": "string"
+          },
+          "version_warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Version Warnings",
+            "type": "array"
           },
           "detail": {
             "default": "",
@@ -50088,6 +51166,32 @@
             "maxLength": 32,
             "pattern": "^$|^[A-Z0-9]{2,32}$",
             "title": "Country Code",
+            "type": "string"
+          },
+          "as_of_date": {
+            "default": "",
+            "description": "引用时点（YYYY-MM-DD），如合同签署日或争议发生时点；给了才做时效比对",
+            "maxLength": 10,
+            "title": "As Of Date",
+            "type": "string"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "关联合同 id（仅用于留痕归类，可空）",
+            "title": "Contract Id"
+          },
+          "citation_anchor": {
+            "default": "",
+            "description": "合同内的锚点，如「第三条 租金」（可空）",
+            "maxLength": 128,
+            "title": "Citation Anchor",
             "type": "string"
           }
         },
@@ -53659,6 +54763,65 @@
         "title": "DownloadTicketIn",
         "type": "object"
       },
+      "BackendOptionOut": {
+        "description": "一个可选 agent 后端（``GET /agent/backends`` 的列表项）。\n\n``available`` 与 ``reason`` 是这个契约存在的理由：dsh 的 SDK / 运行时 /\n模型凭据任意一项缺失时，用户只能在**选了之后**报错——那时已经建了会话\n（``agent_kind`` 是会话级属性，建完不能改），只能换个后端重开。所以后端\n自检结果要能提前问出来，让选项置灰而不是让用户撞墙。\n\n能力字段是 :class:`apps.agent.backends.base.BackendCapabilities` 的逐项\n展开（而不是嵌套对象）：前端据此隐藏插话框、逐字动画等，嵌套一层只会让\nUI 里多写一层解引用。",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "capabilities": {
+            "additionalProperties": true,
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "models": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "description",
+          "available",
+          "reason",
+          "capabilities"
+        ],
+        "title": "BackendOptionOut",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
           "success": {
@@ -53724,6 +54887,11 @@
               }
             ],
             "title": "Contract Id"
+          },
+          "agent_kind": {
+            "default": "pi",
+            "title": "Agent Kind",
+            "type": "string"
           }
         },
         "title": "SessionIn",
@@ -53741,227 +54909,6 @@
           "title"
         ],
         "title": "SessionRenameIn",
-        "type": "object"
-      },
-      "MessageOut": {
-        "description": "会话消息（历史回放）。``metadata`` 含 ``model`` / ``truncated``（中断的回答）等。",
-        "properties": {
-          "message_id": {
-            "title": "Message Id",
-            "type": "integer"
-          },
-          "role": {
-            "title": "Role",
-            "type": "string"
-          },
-          "content": {
-            "title": "Content",
-            "type": "string"
-          },
-          "tool_name": {
-            "title": "Tool Name",
-            "type": "string"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "default": {},
-            "title": "Metadata",
-            "type": "object"
-          }
-        },
-        "required": [
-          "message_id",
-          "role",
-          "content",
-          "tool_name",
-          "created_at"
-        ],
-        "title": "MessageOut",
-        "type": "object"
-      },
-      "MessageIn": {
-        "description": "发消息请求体。",
-        "properties": {
-          "message": {
-            "title": "Message",
-            "type": "string"
-          }
-        },
-        "required": [
-          "message"
-        ],
-        "title": "MessageIn",
-        "type": "object"
-      },
-      "TaskIn": {
-        "description": "提交后台任务。",
-        "properties": {
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "title": {
-            "default": "",
-            "title": "Title",
-            "type": "string"
-          },
-          "case_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Case Id"
-          },
-          "contract_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contract Id"
-          }
-        },
-        "required": [
-          "message"
-        ],
-        "title": "TaskIn",
-        "type": "object"
-      },
-      "SteerOut": {
-        "description": "插话结果。``disposition`` 为 queued（已排队）或 handled（被扩展消费）。",
-        "properties": {
-          "success": {
-            "title": "Success",
-            "type": "boolean"
-          },
-          "disposition": {
-            "title": "Disposition",
-            "type": "string"
-          }
-        },
-        "required": [
-          "success",
-          "disposition"
-        ],
-        "title": "SteerOut",
-        "type": "object"
-      },
-      "SteerIn": {
-        "description": "运行中插话 / 追加一轮的请求体。",
-        "properties": {
-          "message": {
-            "title": "Message",
-            "type": "string"
-          }
-        },
-        "required": [
-          "message"
-        ],
-        "title": "SteerIn",
-        "type": "object"
-      },
-      "ClearQueueOut": {
-        "description": "撤回排队消息的结果；``messages`` 是被撤回的原文。",
-        "properties": {
-          "success": {
-            "title": "Success",
-            "type": "boolean"
-          },
-          "messages": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Messages",
-            "type": "array"
-          }
-        },
-        "required": [
-          "success",
-          "messages"
-        ],
-        "title": "ClearQueueOut",
-        "type": "object"
-      },
-      "SkillListOut": {
-        "properties": {
-          "skills": {
-            "items": {
-              "$ref": "#/components/schemas/SkillOut"
-            },
-            "title": "Skills",
-            "type": "array"
-          }
-        },
-        "required": [
-          "skills"
-        ],
-        "title": "SkillListOut",
-        "type": "object"
-      },
-      "SkillOut": {
-        "description": "技能清单项。``description`` 来自 SKILL.md frontmatter。",
-        "properties": {
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "name",
-          "description",
-          "enabled"
-        ],
-        "title": "SkillOut",
-        "type": "object"
-      },
-      "SkillToggleOut": {
-        "properties": {
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "name",
-          "enabled"
-        ],
-        "title": "SkillToggleOut",
-        "type": "object"
-      },
-      "SkillToggleIn": {
-        "properties": {
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "enabled"
-        ],
-        "title": "SkillToggleIn",
         "type": "object"
       },
       "SessionStatsOut": {
@@ -54060,6 +55007,723 @@
           "compacted"
         ],
         "title": "CompactOut",
+        "type": "object"
+      },
+      "MessageOut": {
+        "description": "会话消息（历史回放）。``metadata`` 含 ``model`` / ``truncated``（中断的回答）等。",
+        "properties": {
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "tool_name": {
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "agent_kind": {
+            "default": "",
+            "title": "Agent Kind",
+            "type": "string"
+          },
+          "rating": {
+            "default": "",
+            "title": "Rating",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Metadata",
+            "type": "object"
+          }
+        },
+        "required": [
+          "message_id",
+          "role",
+          "content",
+          "tool_name",
+          "created_at"
+        ],
+        "title": "MessageOut",
+        "type": "object"
+      },
+      "AgentSpecIn": {
+        "description": "本轮一个参与方：哪个后端 + 用哪个模型。",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "AgentSpecIn",
+        "type": "object"
+      },
+      "MessageIn": {
+        "description": "发消息请求体。",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "agents": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AgentSpecIn"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agents"
+          },
+          "dual": {
+            "default": false,
+            "title": "Dual",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "MessageIn",
+        "type": "object"
+      },
+      "SteerOut": {
+        "description": "插话结果。``disposition`` 为 queued（已排队）或 handled（被扩展消费）。",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "disposition": {
+            "title": "Disposition",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "disposition"
+        ],
+        "title": "SteerOut",
+        "type": "object"
+      },
+      "SteerIn": {
+        "description": "运行中插话 / 追加一轮的请求体。",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "SteerIn",
+        "type": "object"
+      },
+      "ClearQueueOut": {
+        "description": "撤回排队消息的结果；``messages`` 是被撤回的原文。",
+        "properties": {
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "messages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "success",
+          "messages"
+        ],
+        "title": "ClearQueueOut",
+        "type": "object"
+      },
+      "MessageRatingOut": {
+        "description": "反馈回执。``rating`` 是落库后的值，空串 = 已撤销（``metadata`` 里无该键）。",
+        "properties": {
+          "message_id": {
+            "title": "Message Id",
+            "type": "integer"
+          },
+          "rating": {
+            "default": "",
+            "title": "Rating",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "title": "MessageRatingOut",
+        "type": "object"
+      },
+      "MessageRatingIn": {
+        "description": "律师对一条消息的反馈：``up`` / ``down``；``none`` = 撤销（删键）。",
+        "properties": {
+          "rating": {
+            "enum": [
+              "up",
+              "down",
+              "none"
+            ],
+            "title": "Rating",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "MessageRatingIn",
+        "type": "object"
+      },
+      "TaskIn": {
+        "description": "提交后台任务。",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "TaskIn",
+        "type": "object"
+      },
+      "PiApprovalOut": {
+        "description": "审批结果（只有 approved=true 放行）。",
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "boolean"
+          },
+          "approval_id": {
+            "default": "",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "risk_level": {
+            "default": "",
+            "title": "Risk Level",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved"
+        ],
+        "title": "PiApprovalOut",
+        "type": "object"
+      },
+      "PiApprovalIn": {
+        "description": "pi extension 发来的审批请求。\n\n``risk_level`` 由 extension 预判后一并送来（仅作参考与日志），\n服务端以 ``classify_risk`` 的判定为准——extension 可以被绕过，\n不能让客户端决定自己要不要审批。",
+        "properties": {
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
+          "user_id": {
+            "default": 0,
+            "title": "User Id",
+            "type": "integer"
+          },
+          "session_id": {
+            "default": "",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "risk_level": {
+            "default": "",
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "run_id": {
+            "default": "",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "default": "",
+            "title": "Tool Call Id",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool"
+        ],
+        "title": "PiApprovalIn",
+        "type": "object"
+      },
+      "ApprovalDecideIn": {
+        "description": "前端审批决定。",
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "boolean"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved"
+        ],
+        "title": "ApprovalDecideIn",
+        "type": "object"
+      },
+      "Status": {
+        "enum": [
+          "pending",
+          "approved",
+          "rejected",
+          "timeout",
+          "cancelled"
+        ],
+        "title": "Status",
+        "type": "string"
+      },
+      "QuestionAnswerIn": {
+        "description": "前端提交提问回答。",
+        "properties": {
+          "answers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuestionAnswerItem"
+            },
+            "title": "Answers",
+            "type": "array"
+          },
+          "skipped": {
+            "default": false,
+            "title": "Skipped",
+            "type": "boolean"
+          }
+        },
+        "title": "QuestionAnswerIn",
+        "type": "object"
+      },
+      "QuestionAnswerItem": {
+        "description": "单个问题的回答。\n\n按 ``id`` 回填而不是下标：前端可能只答一部分或顺序错乱，按 id 对齐\n才不会出现「答的是第 2 题被当成第 1 题」的静默错位——法律场景里\n问错一次比不问更糟。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "selections": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Selections",
+            "type": "array"
+          },
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          },
+          "comment": {
+            "default": "",
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "QuestionAnswerItem",
+        "type": "object"
+      },
+      "CriteriaVerdict": {
+        "additionalProperties": false,
+        "description": "一条 rubric 对一栏的一次判定（N 栏 × M 条 = N×M 条）。",
+        "properties": {
+          "rubric_id": {
+            "title": "Rubric Id",
+            "type": "string"
+          },
+          "lane": {
+            "title": "Lane",
+            "type": "string"
+          },
+          "criteria_met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Criteria Met"
+          },
+          "explanation": {
+            "default": "",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "evidence_quote": {
+            "default": "",
+            "title": "Evidence Quote",
+            "type": "string"
+          },
+          "judge_model": {
+            "default": "",
+            "title": "Judge Model",
+            "type": "string"
+          },
+          "attempts": {
+            "default": 0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "unscored_reason": {
+            "default": "",
+            "title": "Unscored Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rubric_id",
+          "lane"
+        ],
+        "title": "CriteriaVerdict",
+        "type": "object"
+      },
+      "LaneReview": {
+        "additionalProperties": false,
+        "description": "一栏的汇总。",
+        "properties": {
+          "lane": {
+            "title": "Lane",
+            "type": "string"
+          },
+          "valid": {
+            "default": 0,
+            "title": "Valid",
+            "type": "integer"
+          },
+          "yes": {
+            "default": 0,
+            "title": "Yes",
+            "type": "integer"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "one_line": {
+            "default": "",
+            "title": "One Line",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lane"
+        ],
+        "title": "LaneReview",
+        "type": "object"
+      },
+      "Review": {
+        "additionalProperties": false,
+        "description": "一轮多答的评审结果（一次 ``/review`` 的完整产物）。",
+        "properties": {
+          "review_id": {
+            "title": "Review Id",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "integer"
+          },
+          "rubric_id": {
+            "default": "",
+            "title": "Rubric Id",
+            "type": "string"
+          },
+          "rubric_version": {
+            "default": "",
+            "title": "Rubric Version",
+            "type": "string"
+          },
+          "stage": {
+            "const": "shadow",
+            "default": "shadow",
+            "title": "Stage",
+            "type": "string"
+          },
+          "lanes": {
+            "items": {
+              "$ref": "#/components/schemas/LaneReview"
+            },
+            "title": "Lanes",
+            "type": "array"
+          },
+          "verdicts": {
+            "items": {
+              "$ref": "#/components/schemas/CriteriaVerdict"
+            },
+            "title": "Verdicts",
+            "type": "array"
+          },
+          "headline": {
+            "default": "",
+            "title": "Headline",
+            "type": "string"
+          },
+          "unverified": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unverified",
+            "type": "array"
+          },
+          "tokens": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Tokens",
+            "type": "object"
+          }
+        },
+        "required": [
+          "review_id",
+          "session_id",
+          "turn"
+        ],
+        "title": "Review",
+        "type": "object"
+      },
+      "ReviewIn": {
+        "description": "触发一轮评审所需的上下文。",
+        "properties": {
+          "turn": {
+            "minimum": 1,
+            "title": "Turn",
+            "type": "integer"
+          },
+          "agents": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Agents",
+            "type": "array"
+          },
+          "rubric_id": {
+            "title": "Rubric Id",
+            "type": "string"
+          },
+          "judge_models": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Judge Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "turn",
+          "agents",
+          "rubric_id",
+          "judge_models"
+        ],
+        "title": "ReviewIn",
+        "type": "object"
+      },
+      "AdoptionOut": {
+        "description": "一次采纳的线上形状（POST 返回、GET 回显同一形状）。",
+        "properties": {
+          "review_id": {
+            "title": "Review Id",
+            "type": "string"
+          },
+          "lane": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane"
+          },
+          "merged": {
+            "title": "Merged",
+            "type": "boolean"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "adopted_at": {
+            "title": "Adopted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_id",
+          "lane",
+          "merged",
+          "note",
+          "adopted_at"
+        ],
+        "title": "AdoptionOut",
+        "type": "object"
+      },
+      "AdoptIn": {
+        "description": "律师显式采纳的请求体。",
+        "properties": {
+          "lane": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane"
+          },
+          "merged": {
+            "default": false,
+            "title": "Merged",
+            "type": "boolean"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "title": "AdoptIn",
+        "type": "object"
+      },
+      "AdoptionEnvelope": {
+        "description": "GET 回显；``adoption=None`` = 这轮还没采纳（不是错误）。",
+        "properties": {
+          "adoption": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdoptionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "adoption"
+        ],
+        "title": "AdoptionEnvelope",
         "type": "object"
       },
       "AttachmentOut": {
@@ -54264,145 +55928,75 @@
         "title": "FolderRefIn",
         "type": "object"
       },
-      "PiApprovalOut": {
-        "description": "审批结果（只有 approved=true 放行）。",
+      "SkillListOut": {
         "properties": {
-          "approved": {
-            "title": "Approved",
-            "type": "boolean"
-          },
-          "approval_id": {
-            "default": "",
-            "title": "Approval Id",
-            "type": "string"
-          },
-          "reason": {
-            "default": "",
-            "title": "Reason",
-            "type": "string"
-          },
-          "risk_level": {
-            "default": "",
-            "title": "Risk Level",
-            "type": "string"
-          }
-        },
-        "required": [
-          "approved"
-        ],
-        "title": "PiApprovalOut",
-        "type": "object"
-      },
-      "PiApprovalIn": {
-        "description": "pi extension 发来的审批请求。\n\n``risk_level`` 由 extension 预判后一并送来（仅作参考与日志），\n服务端以 ``classify_risk`` 的判定为准——extension 可以被绕过，\n不能让客户端决定自己要不要审批。",
-        "properties": {
-          "tool": {
-            "title": "Tool",
-            "type": "string"
-          },
-          "args": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Args"
-          },
-          "user_id": {
-            "default": 0,
-            "title": "User Id",
-            "type": "integer"
-          },
-          "session_id": {
-            "default": "",
-            "title": "Session Id",
-            "type": "string"
-          },
-          "risk_level": {
-            "default": "",
-            "title": "Risk Level",
-            "type": "string"
-          }
-        },
-        "required": [
-          "tool"
-        ],
-        "title": "PiApprovalIn",
-        "type": "object"
-      },
-      "ApprovalDecideIn": {
-        "description": "前端审批决定。",
-        "properties": {
-          "approved": {
-            "title": "Approved",
-            "type": "boolean"
-          },
-          "reason": {
-            "default": "",
-            "title": "Reason",
-            "type": "string"
-          }
-        },
-        "required": [
-          "approved"
-        ],
-        "title": "ApprovalDecideIn",
-        "type": "object"
-      },
-      "QuestionAnswerIn": {
-        "description": "前端提交提问回答。",
-        "properties": {
-          "answers": {
-            "default": [],
+          "skills": {
             "items": {
-              "$ref": "#/components/schemas/QuestionAnswerItem"
+              "$ref": "#/components/schemas/SkillOut"
             },
-            "title": "Answers",
+            "title": "Skills",
             "type": "array"
-          },
-          "skipped": {
-            "default": false,
-            "title": "Skipped",
-            "type": "boolean"
-          }
-        },
-        "title": "QuestionAnswerIn",
-        "type": "object"
-      },
-      "QuestionAnswerItem": {
-        "description": "单个问题的回答。\n\n按 ``id`` 回填而不是下标：前端可能只答一部分或顺序错乱，按 id 对齐\n才不会出现「答的是第 2 题被当成第 1 题」的静默错位——法律场景里\n问错一次比不问更糟。",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "selections": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Selections",
-            "type": "array"
-          },
-          "text": {
-            "default": "",
-            "title": "Text",
-            "type": "string"
-          },
-          "comment": {
-            "default": "",
-            "title": "Comment",
-            "type": "string"
           }
         },
         "required": [
-          "id"
+          "skills"
         ],
-        "title": "QuestionAnswerItem",
+        "title": "SkillListOut",
+        "type": "object"
+      },
+      "SkillOut": {
+        "description": "技能清单项。``description`` 来自 SKILL.md frontmatter。",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "enabled"
+        ],
+        "title": "SkillOut",
+        "type": "object"
+      },
+      "SkillToggleOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "enabled"
+        ],
+        "title": "SkillToggleOut",
+        "type": "object"
+      },
+      "SkillToggleIn": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SkillToggleIn",
         "type": "object"
       },
       "UsageOut": {
@@ -54494,6 +56088,65 @@
         "title": "UsageOut",
         "type": "object"
       },
+      "UsageByAgentOut": {
+        "description": "按 agent 后端的成本归因行（``GET /usage/by-agent``）。\n\n与 :class:`UsageOut` 的 ``/usage`` 是汇总／拆解关系：``total_tokens`` 同口径\n（``input + output + cacheWrite``，**不含** cacheRead）。\n\n多 agent 上线后同一个模型可能被两个后端同时使用，``by_model`` 分不清钱是谁\n花的——这里按 ``AgentRun.agent_kind`` 拆开（历史空串在 SQL 侧归 ``pi``）。",
+        "properties": {
+          "agent_kind": {
+            "title": "Agent Kind",
+            "type": "string"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "cache_read_tokens": {
+            "title": "Cache Read Tokens",
+            "type": "integer"
+          },
+          "cache_write_tokens": {
+            "title": "Cache Write Tokens",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "title": "Total Tokens",
+            "type": "integer"
+          },
+          "cache_hit_rate": {
+            "title": "Cache Hit Rate",
+            "type": "number"
+          },
+          "failed_runs": {
+            "title": "Failed Runs",
+            "type": "integer"
+          },
+          "cancelled_runs": {
+            "title": "Cancelled Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent_kind",
+          "runs",
+          "input_tokens",
+          "output_tokens",
+          "cache_read_tokens",
+          "cache_write_tokens",
+          "total_tokens",
+          "cache_hit_rate",
+          "failed_runs",
+          "cancelled_runs"
+        ],
+        "title": "UsageByAgentOut",
+        "type": "object"
+      },
       "MemoryOut": {
         "properties": {
           "id": {
@@ -54532,6 +56185,48 @@
             "default": "",
             "title": "Source Session Id",
             "type": "string"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "confirmed_at": {
+            "default": "",
+            "title": "Confirmed At",
+            "type": "string"
+          },
+          "confirmed_by": {
+            "default": "",
+            "title": "Confirmed By",
+            "type": "string"
+          },
+          "supersedes_id": {
+            "default": "",
+            "title": "Supersedes Id",
+            "type": "string"
+          },
+          "is_superseded": {
+            "default": false,
+            "title": "Is Superseded",
+            "type": "boolean"
           }
         },
         "required": [
@@ -54635,6 +56330,87 @@
           "content"
         ],
         "title": "SnapshotOut",
+        "type": "object"
+      },
+      "ProjectNoteIn": {
+        "description": "写一条项目笔记（挂到项目/某案件上，同团队成员都能看到）。",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "kind": {
+            "default": "fact",
+            "title": "Kind",
+            "type": "string"
+          },
+          "supersede_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersede Id"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "ProjectNoteIn",
+        "type": "object"
+      },
+      "NoteConfirmIn": {
+        "description": "把一条笔记升为「项目事实」；``content`` 非空时顺手改写（律师说得更准）。",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          }
+        },
+        "title": "NoteConfirmIn",
         "type": "object"
       },
       "PromoteCandidateOut": {

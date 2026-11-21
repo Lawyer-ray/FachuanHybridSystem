@@ -1182,7 +1182,7 @@ export interface paths {
          *
          *     API 层职责：
          *     1. 接收查询参数
-         *     2. 调用 Service 静态方法
+         *     2. 调用 Service 方法
          *     3. 返回模板
          *
          *     Requirements: 2.1, 2.2, 2.3, 2.4
@@ -5927,6 +5927,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pdf Split Segment Pdf
+         * @description 单段 PDF 下载（Content-Disposition: attachment）。
+         *
+         *     单个下载 / 多选下载 / 整包下载共用同一份切页与命名实现（见
+         *     ``PdfSplitService.build_download_*``），否则「单下的那份」与「包里那份」
+         *     会在页边界或文件名上对不上。
+         */
+        get: operations["apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pdf-splitting/jobs/{job_id}/segments/{segment_id}/md": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pdf Split Segment Markdown
+         * @description 单段 Markdown 下载：与同一段的 PDF 同名（只差扩展名），律所归案时成对存放。
+         */
+        get: operations["apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_markdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pdf-splitting/jobs/{job_id}/download": {
         parameters: {
             query?: never;
@@ -5934,7 +5978,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Pdf Split Download */
+        /**
+         * Get Pdf Split Download
+         * @description 整包 / 多选打包下载（zip，平铺）：每段一份 pdf + 一份同名 md。
+         *
+         *     不带 ``ids`` 就是原来的整包（向后兼容，只是包里多了 md）；带 ``ids``（段
+         *     **主键**，逗号分隔）只打选中的段，非法或不属于本任务的 id 整体 400。
+         *     打包在 Service 现算而不是回读 ``exports/split_result.zip``：那份可能是本次
+         *     上线前导出的（没有 md），直接发出去就是「整包缺 md」——而这次需求的核心恰恰
+         *     是每份 pdf 必须配一份 md。
+         */
         get: operations["apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_download"];
         put?: never;
         post?: never;
@@ -9264,6 +9317,11 @@ export interface paths {
          *
          *     定位失败返回 `applied=false` 而不是报错——「选中的原文已被改过」是律师
          *     常见操作结果，前端要能提示「重新框选」，而不是弹 500。
+         *
+         *     `expect_mtime`（query，与 `contracts/{id}/folder-save` 同口径）是**乐观锁**：
+         *     调用方读到文件时的 mtime。不一致说明这期间文件已被别人改过，此时必须
+         *     409 而不是覆写——不传就等于放弃这道锁（服务层 `save_file_content` 会
+         *     整段跳过 mtime 校验），所以只要调用方拿得到 mtime 就必须带上。
          */
         post: operations["apps_contract_review_api_direct_edit_api_apply_edit"];
         delete?: never;
@@ -9295,6 +9353,53 @@ export interface paths {
          *     两条路只在「文件从哪来、写回哪去」上不同。
          */
         post: operations["apps_contract_review_api_direct_edit_api_apply_task_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contract-review/direct-edit/patch/propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose Write Patch Endpoint
+         * @description 登记一条候选改写（**不碰文件**）。
+         *
+         *     多栏并答时写类工具（`rewrite_folder_file` 等）被摘出工具面，模型改用
+         *     `propose_write_patch` 出草案；三栏的草案在 `apply` 时统一做冲突检测。
+         */
+        post: operations["apps_contract_review_api_direct_edit_api_propose_write_patch_endpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contract-review/direct-edit/patch/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Write Patches Endpoint
+         * @description 把选中的候选改写**一次性**写进文件（Word 修订痕迹）。
+         *
+         *     互斥冲突（同一段原文两种改法）返回 409 且一个字都不写；文件在提案后被改过
+         *     （mtime 不符）同样 409。审批不在这里做——它由工具名在网关侧判 HIGH 后弹卡，
+         *     本端点不提供任何绕过开关。
+         */
+        post: operations["apps_contract_review_api_direct_edit_api_apply_write_patches_endpoint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9631,6 +9736,30 @@ export interface paths {
         get: operations["apps_document_parsing_api_parsing_api_get_record"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/document-parsing/webhook/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 云解析平台完成回调（MinerU / Textin 服务器调用）
+         * @description 接收云端回调并写回解析结果。
+         *
+         *     验签策略（fail-closed）：平台未启用回调 → 404；签名不匹配 → 403；
+         *     载荷不可识别 → 400；找不到对应任务 → 404。只有真的写回了（或确认是
+         *     重复推送）才回 200。
+         */
+        post: operations["apps_document_parsing_api_webhook_api_receive_webhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10474,6 +10603,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/backends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Backends
+         * @description 列出可用的 agent 后端（前端切换器用）。
+         *
+         *     ``available=False`` 的选项要在前端置灰并显示 ``reason``——用户若选了它，
+         *     报错会发生在**建完会话之后**，而 ``agent_kind`` 是会话级属性、不能中途改，
+         *     只能换个后端重开。所以可用性必须能提前问出来。
+         *     未注册的 dsh 也会以置灰条目出现（见 ``_collect_backend_options``）。
+         */
+        get: operations["apps_agent_api_session_api_list_backends"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/sessions": {
         parameters: {
             query?: never;
@@ -10488,13 +10642,18 @@ export interface paths {
          *     可按入口（origin）与案件 / 合同过滤。归属始终按当前用户过滤——
          *     ``case_id`` 只用于缩小范围，不能借它看到别人的会话。
          */
-        get: operations["apps_agent_api_agent_api_list_sessions"];
+        get: operations["apps_agent_api_session_api_list_sessions"];
         put?: never;
         /**
          * Create Session
          * @description 新建会话。
+         *
+         *     ``agent_kind`` 未注册时直接拒绝（HttpError 400），**不静默回退到 pi**：
+         *     用户以为换了后端而实际没换，比直接报错难发现得多——会先归因于
+         *     「新模型效果不行」，白白浪费一轮调试。
+         *     空串仍允许（旧客户端不传），走模型默认值 `pi`。
          */
-        post: operations["apps_agent_api_agent_api_create_session"];
+        post: operations["apps_agent_api_session_api_create_session"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10512,227 +10671,21 @@ export interface paths {
          * Get Session Detail
          * @description 会话详情（不归属当前用户时同样 404，不泄露存在性）。
          */
-        get: operations["apps_agent_api_agent_api_get_session_detail"];
+        get: operations["apps_agent_api_session_api_get_session_detail"];
         put?: never;
         post?: never;
         /**
          * Delete Session
          * @description 删除会话（级联删除消息与审批）。
          */
-        delete: operations["apps_agent_api_agent_api_delete_session"];
+        delete: operations["apps_agent_api_session_api_delete_session"];
         options?: never;
         head?: never;
         /**
          * Update Session Title
          * @description 重命名会话（侧边栏会话列表的改名入口）。
          */
-        patch: operations["apps_agent_api_agent_api_update_session_title"];
-        trace?: never;
-    };
-    "/api/v1/agent/sessions/{session_id}/messages": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Messages
-         * @description 会话消息历史（旧→新），前端重开会话时据此回放转录。
-         *
-         *     ``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），
-         *     不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端
-         *     用最后一条的 message_id 作为下一页游标。
-         */
-        get: operations["apps_agent_api_agent_api_list_messages"];
-        put?: never;
-        /**
-         * Send Message
-         * @description 发消息并流式返回（SSE）。限流：每用户 20 次/分钟（RATE_LIMIT['AGENT_SEND_*'] 可覆盖）。
-         */
-        post: operations["apps_agent_api_agent_api_send_message"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/sessions/{session_id}/events/replay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Replay Sse Events
-         * @description P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
-         *
-         *     前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
-         */
-        get: operations["apps_agent_api_agent_api_replay_sse_events"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/tasks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Submit Task
-         * @description 提交一个后台任务：立即返回，agent 在后台跑，跑完通知。
-         *
-         *     适合「这个案子帮我把材料梳理一遍」这类要跑几分钟、人不可能一直盯着的活。
-         *     任务式运行没有 SSE 连接，因此高危工具会**挂起等离线审批**（见
-         *     `GET /approvals/pending`），而不是被直接拒绝。
-         */
-        post: operations["apps_agent_api_agent_api_submit_task"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/tasks/{session_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Task Status
-         * @description 查询后台任务进度（前端轮询用）。
-         */
-        get: operations["apps_agent_api_agent_api_get_task_status"];
-        put?: never;
-        post?: never;
-        /**
-         * Cancel Task
-         * @description 取消后台任务（P1-4）。
-         *
-         *     排队中：从 django-q 队列移除并置 cancelled；
-         *     运行中：诚实告知暂不支持中途终止（pi 子进程在 worker 内，无跨进程
-         *     abort 通道——见差距报告 P2），任务会跑到自然结束；
-         *     已结束：如实返回终态。
-         */
-        delete: operations["apps_agent_api_agent_api_cancel_task"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/sessions/{session_id}/steer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Steer Running Session
-         * @description 运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。
-         *
-         *     P2-3 跨 Worker：Redis 路由表发现会话在其他 worker → HTTP 转发。
-         *     用于「agent 写到一半发现要改方向」，不必停止重发。
-         */
-        post: operations["apps_agent_api_agent_api_steer_running_session"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/sessions/{session_id}/follow-up": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Follow Up Running Session
-         * @description 追加一轮：agent 干完当前所有活后再跑这条。
-         */
-        post: operations["apps_agent_api_agent_api_follow_up_running_session"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/sessions/{session_id}/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Clear Session Queue
-         * @description 撤回已排队但尚未生效的插话 / 追加消息（「撤销」按钮）。
-         */
-        delete: operations["apps_agent_api_agent_api_clear_session_queue"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/skills": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Skills
-         * @description 当前律师可见的技能清单（偏好只记差异，缺省全启用）。
-         */
-        get: operations["apps_agent_api_agent_api_list_skills"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/skills/{skill_name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Toggle Skill
-         * @description 启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。
-         */
-        patch: operations["apps_agent_api_agent_api_toggle_skill"];
+        patch: operations["apps_agent_api_session_api_update_session_title"];
         trace?: never;
     };
     "/api/v1/agent/sessions/{session_id}/stats": {
@@ -10746,7 +10699,7 @@ export interface paths {
          * Get Session Stats
          * @description 会话 token 用量与上下文水位（读库即可，不起 pi 进程）。
          */
-        get: operations["apps_agent_api_agent_api_get_session_stats"];
+        get: operations["apps_agent_api_session_api_get_session_stats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10771,7 +10724,427 @@ export interface paths {
          *     摘要与自动压缩同源（``compaction-takeover`` 确定性编译，保案号/当事人/
          *     金额/期限锚点）。进程池忙时 429，pi 故障 502——都不吞。
          */
-        post: operations["apps_agent_api_agent_api_compact_session_context"];
+        post: operations["apps_agent_api_session_api_compact_session_context"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @description 会话消息历史（旧→新），前端重开会话时据此回放转录。
+         *
+         *     ``before_id``：游标分页——取该消息 id 之前的 ``limit`` 条（加载更早），
+         *     不传为最新一页。返回条数等于 limit 时大概率还有更早消息，由前端
+         *     用最后一条的 message_id 作为下一页游标。
+         *
+         *     与 POST /messages（send_message）同路径，必须登记在同一路由器，
+         *     否则 Ninja 会按子路由各自建 URL pattern，GET 先匹配导致 POST 405。
+         */
+        get: operations["apps_agent_api_chat_api_list_messages"];
+        put?: never;
+        /**
+         * Send Message
+         * @description 发消息并流式返回（SSE）。限流：每用户 20 次/分钟（RATE_LIMIT['AGENT_SEND_*'] 可覆盖）。
+         */
+        post: operations["apps_agent_api_chat_api_send_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/events/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replay Sse Events
+         * @description P2-1 SSE 断线重连：回放 last_event_id 之后的事件。
+         *
+         *     前端断线重连时先调此端点取缺失事件再续 SSE。Redis 不可用返回空。
+         */
+        get: operations["apps_agent_api_chat_api_replay_sse_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/steer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Steer Running Session
+         * @description 运行中插话：在当前 assistant turn 的工具调用之后、下次模型调用之前生效。
+         *
+         *     P2-3 跨 Worker：Redis 路由表发现会话在其他 worker → HTTP 转发。
+         *     用于「agent 写到一半发现要改方向」，不必停止重发。
+         */
+        post: operations["apps_agent_api_chat_api_steer_running_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/follow-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Follow Up Running Session
+         * @description 追加一轮：agent 干完当前所有活后再跑这条。
+         */
+        post: operations["apps_agent_api_chat_api_follow_up_running_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear Session Queue
+         * @description 撤回已排队但尚未生效的插话 / 追加消息（「撤销」按钮）。
+         */
+        delete: operations["apps_agent_api_chat_api_clear_session_queue"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/messages/{message_id}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate Message
+         * @description 给一条已落库的消息点赞 / 点踩（``none`` 撤销）。
+         *
+         *     归属看**消息所属会话**：别人的会话一律 404，不是 403——403 等于承认
+         *     「这条消息存在」，是无成本的存在性探测。
+         */
+        post: operations["apps_agent_api_chat_api_rate_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Task
+         * @description 提交一个后台任务：立即返回，agent 在后台跑，跑完通知。
+         *
+         *     适合「这个案子帮我把材料梳理一遍」这类要跑几分钟、人不可能一直盯着的活。
+         *     任务式运行没有 SSE 连接，因此高危工具会**挂起等离线审批**（见
+         *     `GET /approvals/pending`），而不是被直接拒绝。
+         */
+        post: operations["apps_agent_api_task_api_submit_task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/tasks/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Task Status
+         * @description 查询后台任务进度（前端轮询用）。
+         */
+        get: operations["apps_agent_api_task_api_get_task_status"];
+        put?: never;
+        post?: never;
+        /**
+         * Cancel Task
+         * @description 取消后台任务（P1-4）。
+         *
+         *     排队中：从 django-q 队列移除并置 cancelled；
+         *     运行中：诚实告知暂不支持中途终止（pi 子进程在 worker 内，无跨进程
+         *     abort 通道——见差距报告 P2），任务会跑到自然结束；
+         *     已结束：如实返回终态。
+         */
+        delete: operations["apps_agent_api_task_api_cancel_task"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/approval/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pi Approval Request
+         * @description pi extension 的工具调用审批闸门（同步阻塞等用户回答）。
+         *
+         *     鉴权：``X-Internal-Token`` 头（extension 没有用户会话，不走 JWT）。
+         */
+        post: operations["apps_agent_api_approval_api_pi_approval_request"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/approval/{approval_id}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Approval Decision
+         * @description 前端提交审批决定（仅会话所有者或超级用户可决定）。
+         */
+        post: operations["apps_agent_api_approval_api_submit_approval_decision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/approvals/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending Approvals Endpoint
+         * @description 当前用户**仍待处理**的审批（离线审批入口）。
+         *
+         *     任务式后台运行没有 SSE 连接，高危工具会挂起等决定。用户下次打开
+         *     对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。
+         */
+        get: operations["apps_agent_api_approval_api_list_pending_approvals_endpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Approvals
+         * @description 列出审批记录（审计用；非超级用户仅见自己会话的记录）。
+         */
+        get: operations["apps_agent_api_approval_api_list_approvals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/approvals/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Approvals
+         * @description 导出审批记录 CSV（合规留痕：UTF-8 BOM，Excel 直开不乱码）。
+         *
+         *     ## 权限（与 ``/approvals`` 同口径）
+         *
+         *     普通律师只拿到**自己会话**的记录，超级用户拿全部。无权看的记录不是报 403
+         *     而是**不出现**——403 等于告诉对方「确实存在别人的审批」。
+         *
+         *     ## 截断
+         *
+         *     单次最多导出 ``EXPORT_MAX_ROWS`` 条（按时间倒序）。命中上限时**不静默**：
+         *     响应头 ``X-Export-Truncated: true`` + warning 日志，调用方应缩小 ``days`` /
+         *     ``status`` 范围后重导。
+         */
+        get: operations["apps_agent_api_approval_api_export_approvals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/question/{question_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Question Answer
+         * @description 前端提交提问回答（仅会话所有者或超级用户）。
+         *
+         *     ``success=False`` 不一定是错误：等待方可能已超时（律师过了 5 分钟才点
+         *     提交）。此时答案仍被记录，但模型已经按假设继续了——前端应提示「回答已
+         *     记录，但本轮已继续」，而不是当成失败重试。
+         */
+        post: operations["apps_agent_api_question_api_submit_question_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/questions/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pending Questions
+         * @description 当前律师待回答的提问（重开会话时补拉，避免错过）。
+         */
+        get: operations["apps_agent_api_question_api_list_pending_questions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Review
+         * @description 回放已落库的评审结果；``turn`` 不传时取最近一次。
+         */
+        get: operations["apps_agent_api_review_api_get_session_review"];
+        put?: never;
+        /**
+         * Review Session
+         * @description 对指定轮次跑一次 rubric 评审（独立请求，不进 SSE）。
+         */
+        post: operations["apps_agent_api_review_api_review_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/reviews/{review_id}/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Review
+         * @description 律师显式采纳某栏/合并结果（幂等：同一 review 重复采纳覆盖同一行）。
+         *
+         *     影子开关**不**拦这条路由：采纳是律师点的，不是系统自动做的；
+         *     ``FACHUAN_REVIEW_SHADOW`` 只决定将来的自动路径能否启动
+         *     （见 ``services/review/adoption.py`` 的模块说明）。
+         */
+        post: operations["apps_agent_api_review_api_adopt_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/reviews/{review_id}/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Review Adoption
+         * @description 回显当前采纳结果（刷新可回放）；未采纳时 ``adoption`` 为 ``null``。
+         */
+        get: operations["apps_agent_api_review_api_get_review_adoption"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10794,7 +11167,7 @@ export interface paths {
          *     归属：会话必须属于当前用户。上传后前端在消息里附
          *     「[已上传附件：name (attachment_id=…)]」，模型用 read_agent_attachment 读正文。
          */
-        post: operations["apps_agent_api_agent_api_upload_attachment"];
+        post: operations["apps_agent_api_attachment_api_upload_attachment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10815,7 +11188,7 @@ export interface paths {
          *     返回内容只用于服务端转投 /document-parsing 提取正文，不会直接进入模型
          *     上下文；前端不需要也不应消费本端点。
          */
-        get: operations["apps_agent_api_agent_api_get_attachment_content"];
+        get: operations["apps_agent_api_attachment_api_get_attachment_content"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10849,7 +11222,7 @@ export interface paths {
          *     权限与 /content 端点同一口径：``get_attachment_for_user``（只认会话所有者，
          *     超管同样 fail-closed），这里不放宽也不跳过。
          */
-        get: operations["apps_agent_api_agent_api_get_attachment_pages"];
+        get: operations["apps_agent_api_attachment_api_get_attachment_pages"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10874,7 +11247,7 @@ export interface paths {
          *     归属：会话必须属于当前用户；合同侧走行级 ACL（与 folder-entries 目录树
          *     同口径——团队共享合同，协办律师同样可引用）。文件名/MIME/大小为创建时快照。
          */
-        post: operations["apps_agent_api_agent_api_create_session_folder_ref"];
+        post: operations["apps_agent_api_attachment_api_create_session_folder_ref"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10896,7 +11269,7 @@ export interface paths {
          *     提取正文，不直接进模型上下文。权限与 folder-entries 同口径（行级 ACL）；
          *     kind=contract/case 决定走合同还是案件的绑定文件夹。
          */
-        get: operations["apps_agent_api_agent_api_get_folder_ref_content"];
+        get: operations["apps_agent_api_attachment_api_get_folder_ref_content"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10920,7 +11293,7 @@ export interface paths {
          *     404 / 渲染失败 200 + error 错误码）；页图缓存键含源文件 size/mtime 指纹，
          *     文件被替换后旧缓存自动失效。
          */
-        get: operations["apps_agent_api_agent_api_get_folder_ref_pages"];
+        get: operations["apps_agent_api_attachment_api_get_folder_ref_pages"];
         put?: never;
         post?: never;
         delete?: never;
@@ -10929,73 +11302,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/agent/approval/request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pi Approval Request
-         * @description pi extension 的工具调用审批闸门（同步阻塞等用户回答）。
-         *
-         *     鉴权：``X-Internal-Token`` 头（extension 没有用户会话，不走 JWT）。
-         */
-        post: operations["apps_agent_api_agent_api_pi_approval_request"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/approval/{approval_id}/decide": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Submit Approval Decision
-         * @description 前端提交审批决定（仅会话所有者或超级用户可决定）。
-         */
-        post: operations["apps_agent_api_agent_api_submit_approval_decision"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/question/{question_id}/answer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Submit Question Answer
-         * @description 前端提交提问回答（仅会话所有者或超级用户）。
-         *
-         *     ``success=False`` 不一定是错误：等待方可能已超时（律师过了 5 分钟才点
-         *     提交）。此时答案仍被记录，但模型已经按假设继续了——前端应提示「回答已
-         *     记录，但本轮已继续」，而不是当成失败重试。
-         */
-        post: operations["apps_agent_api_agent_api_submit_question_answer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/questions/pending": {
+    "/api/v1/agent/skills": {
         parameters: {
             query?: never;
             header?: never;
@@ -11003,16 +11310,36 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Pending Questions
-         * @description 当前律师待回答的提问（重开会话时补拉，避免错过）。
+         * List Skills
+         * @description 当前律师可见的技能清单（偏好只记差异，缺省全启用）。
          */
-        get: operations["apps_agent_api_agent_api_list_pending_questions"];
+        get: operations["apps_agent_api_skill_api_list_skills"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/skills/{skill_name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Toggle Skill
+         * @description 启停一个技能（下一轮对话生效：注入面按用户偏好逐个 ``--skill``）。
+         */
+        patch: operations["apps_agent_api_skill_api_toggle_skill"];
         trace?: never;
     };
     "/api/v1/agent/usage": {
@@ -11029,7 +11356,7 @@ export interface paths {
          *     口径：token 由 pi 上报，一轮内工具循环的多段 assistant 逐段累加；
          *     取消与出错的轮次同样计入（那些轮也消耗了 token）。
          */
-        get: operations["apps_agent_api_agent_api_get_usage"];
+        get: operations["apps_agent_api_usage_api_get_usage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11049,7 +11376,7 @@ export interface paths {
          * Get Usage Daily
          * @description 按天的成本趋势（前端画折线用）。
          */
-        get: operations["apps_agent_api_agent_api_get_usage_daily"];
+        get: operations["apps_agent_api_usage_api_get_usage_daily"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11069,7 +11396,7 @@ export interface paths {
          * Get Usage By Model
          * @description 按模型的用量分布。
          */
-        get: operations["apps_agent_api_agent_api_get_usage_by_model"];
+        get: operations["apps_agent_api_usage_api_get_usage_by_model"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11078,7 +11405,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/agent/approvals/pending": {
+    "/api/v1/agent/usage/by-agent": {
         parameters: {
             query?: never;
             header?: never;
@@ -11086,33 +11413,15 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Pending Approvals Endpoint
-         * @description 当前用户**仍待处理**的审批（离线审批入口）。
+         * Get Usage By Agent
+         * @description 按 agent 后端的成本归因（哪个后端跑了多少轮、花了多少 token）。
          *
-         *     任务式后台运行没有 SSE 连接，高危工具会挂起等决定。用户下次打开
-         *     对话页时调这个接口，把待审批卡片摆出来——而不是让那次运行默默超时。
+         *     权限口径与 ``/usage`` ``/usage/daily`` ``/usage/by-model`` 一致：只看当前用户。
+         *     ``by_model`` 分不清「同一个模型被两个 agent 用时钱是谁花的」，这个端点回答它。
+         *     空 ``agent_kind``（引入字段前的历史行）已在 SQL 侧归 ``pi``，不会多出一行
+         *     「(未记录)」。
          */
-        get: operations["apps_agent_api_agent_api_list_pending_approvals_endpoint"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/agent/approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Approvals
-         * @description 列出审批记录（审计用；非超级用户仅见自己会话的记录）。
-         */
-        get: operations["apps_agent_api_agent_api_list_approvals"];
+        get: operations["apps_agent_api_usage_api_get_usage_by_agent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11130,12 +11439,11 @@ export interface paths {
         };
         /**
          * List Memories
-         * @description 当前律师可见的记忆列表。
+         * @description 当前律师可见的记忆列表（默认 pending + active，业务逻辑见 service）。
          *
-         *     **默认只返回 pending + active**，不返 ``deleted``：软删的语义是「律师不想
-         *     再看到它」，默认列表里还躺着会让人以为删除没生效（前端靠 ``status`` 过滤
-         *     可以遮蔽，但接口本身应该语义正确）。要看已删列表显式传 ``status=deleted``
-         *     （恢复入口需要）。
+         *     ``contract_id`` / ``case_id``：只看挂在某个项目/案件上的项目笔记，
+         *     供「项目页 AI 上下文面板」使用。两个都给时取并集（与注入侧同一语义）。
+         *     ``offset`` 配合 ``limit`` 翻页（面板的「加载更多」）。
          */
         get: operations["apps_agent_api_memory_api_list_memories"];
         put?: never;
@@ -11179,16 +11487,12 @@ export interface paths {
         };
         /**
          * Search Memory
-         * @description 语义 + 关键词混合检索。
+         * @description 语义 + 关键词混合检索（``recall_memory`` MCP 工具的后端）。
          *
-         *     这是 ``recall_memory`` MCP 工具的后端。与 ``GET /`` 的区别：
-         *
-         *     - `GET /` 是**浏览**：按时间倒序列出全部记忆，用于管理界面；
-         *     - `GET /search` 是**检索**：按相关度返回 top-N，带向量召回。
-         *
-         *     为什么必须分开：律师问「我以前说的格式要求」时，记忆里存的是「文书先给
-         *     结论」——字面无关、语义相关，列表浏览永远找不到。早前 `recall_memory`
-         *     拉全量后做子串过滤，就是漏了这一层。
+         *     与 ``GET /`` 的区别：``GET /`` 是按时间倒序**浏览**全部记忆（管理界面）；
+         *     ``GET /search`` 是按相关度**检索** top-N（带向量召回）。律师问「我以前
+         *     说的格式要求」时，记忆里存的是「文书先给结论」——字面无关、语义相关，
+         *     列表浏览永远找不到。
          */
         get: operations["apps_agent_api_memory_api_search_memory"];
         put?: never;
@@ -11212,10 +11516,60 @@ export interface paths {
          *
          *     ``refresh=true`` 仅在长期记忆刚写入时使用——它会让快照内容变化，
          *     进而破坏该会话后续轮次的 prompt cache 前缀。
+         *
+         *     ``session_id`` 决定「本项目/本案」那两块要不要渲染：带着它才会把同团队
+         *     写在该项目上的笔记注入进来（跨会话共享判断的唯一入口）。
          */
         get: operations["apps_agent_api_memory_api_get_snapshot"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Project Note
+         * @description 写一条项目笔记（挂到项目或某案件上）。
+         *
+         *     与 ``POST /agent/memory`` 的区别：那条存的是**这个律师的习惯**（跨项目
+         *     通用，按 scope 分层）；这条存的是**这个项目的结论**，只在本项目/本案的
+         *     会话里注入，同团队所有人都看得到、都写得了。
+         */
+        post: operations["apps_agent_api_memory_api_create_project_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/memory/{memory_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Project Note
+         * @description 把一条笔记升为「项目事实」（人工点一下），可顺带改写内容。
+         *
+         *     为什么要人点：模型写的判断可能是它自己的推理，也可能被卷宗里的文字带偏。
+         *     一旦标成事实，后面的会话会当**前提**使用，错误会被逐轮放大。
+         */
+        post: operations["apps_agent_api_memory_api_confirm_project_note"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12434,11 +12788,6 @@ export interface components {
         };
         /** LawyerOut */
         LawyerOut: {
-            /** License Pdf Url */
-            license_pdf_url?: string | null;
-            /** Avatar Url */
-            avatar_url?: string | null;
-            law_firm_detail?: components["schemas"]["LawFirmOut"] | null;
             /** ID */
             id?: number | null;
             /**
@@ -12466,6 +12815,11 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+            /** License Pdf Url */
+            license_pdf_url?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
+            law_firm_detail?: components["schemas"]["LawFirmOut"] | null;
         };
         /** LoginOut */
         LoginOut: {
@@ -12574,11 +12928,6 @@ export interface components {
          *     累起来是纯浪费。law_firm_name 平铺成字符串替代嵌套对象。
          */
         LawyerSlimOut: {
-            /**
-             * Law Firm Name
-             * @default
-             */
-            law_firm_name: string;
             /** ID */
             id?: number | null;
             /**
@@ -12590,6 +12939,11 @@ export interface components {
             phone?: string | null;
             /** 执业证号 */
             license_no?: string | null;
+            /**
+             * Law Firm Name
+             * @default
+             */
+            law_firm_name: string;
         };
         /** LawyerCreateIn */
         LawyerCreateIn: {
@@ -12754,10 +13108,6 @@ export interface components {
          *     此前安全审计加的「前 3 后 4」打码已撤除）。
          */
         ClientOut: {
-            /** Client Type Label */
-            client_type_label: string;
-            /** Identity Docs */
-            identity_docs: components["schemas"]["ClientIdentityDocOut"][];
             /** ID */
             id?: number | null;
             /** 名称 */
@@ -12794,6 +13144,10 @@ export interface components {
              * @default
              */
             legal_representative_id_number: string | null;
+            /** Client Type Label */
+            client_type_label: string;
+            /** Identity Docs */
+            identity_docs: components["schemas"]["ClientIdentityDocOut"][];
         };
         /**
          * ClientIn
@@ -12849,8 +13203,11 @@ export interface components {
              */
             is_our_client: boolean;
         };
-        /** ParseTextRequest */
-        ParseTextRequest: {
+        /**
+         * ParseTextIn
+         * @description 当事人文本解析请求体
+         */
+        ParseTextIn: {
             /** Text */
             text: string;
             /**
@@ -12859,15 +13216,21 @@ export interface components {
              */
             parse_multiple: boolean;
         };
-        /** IdCardValidateResponse */
-        IdCardValidateResponse: {
+        /**
+         * IdCardValidateOut
+         * @description 身份证号校验结果
+         */
+        IdCardValidateOut: {
             /** Valid */
             valid: boolean;
             /** Message */
             message: string;
         };
-        /** IdCardValidateRequest */
-        IdCardValidateRequest: {
+        /**
+         * IdCardValidateIn
+         * @description 身份证号校验请求体
+         */
+        IdCardValidateIn: {
             /** Id Number */
             id_number: string;
         };
@@ -13253,13 +13616,13 @@ export interface components {
         };
         /** CaseAssignmentOut */
         CaseAssignmentOut: {
-            lawyer_detail: components["schemas"]["LawyerOutFromDTO"];
             /** ID */
             id?: number | null;
             /** 案件 */
             case: number;
             /** 律师 */
             lawyer: number;
+            lawyer_detail: components["schemas"]["LawyerOutFromDTO"];
         };
         /** CaseChatOut */
         CaseChatOut: {
@@ -13280,20 +13643,6 @@ export interface components {
         };
         /** CaseContactOut */
         CaseContactOut: {
-            /** Role Display */
-            role_display: string | null;
-            /** Stage Display */
-            stage_display: string | null;
-            /** Authority Name */
-            authority_name: string | null;
-            /** Case Id */
-            case_id: number;
-            /** Authority Id */
-            authority_id: number | null;
-            /** Created At */
-            created_at: string;
-            /** Updated At */
-            updated_at: string;
             /** ID */
             id?: number | null;
             /** 姓名 */
@@ -13323,6 +13672,20 @@ export interface components {
              * @default
              */
             note: string | null;
+            /** Role Display */
+            role_display: string | null;
+            /** Stage Display */
+            stage_display: string | null;
+            /** Authority Name */
+            authority_name: string | null;
+            /** Case Id */
+            case_id: number;
+            /** Authority Id */
+            authority_id: number | null;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
         };
         /** CaseLogActorOut */
         CaseLogActorOut: {
@@ -13337,12 +13700,6 @@ export interface components {
         };
         /** CaseLogAttachmentOut */
         CaseLogAttachmentOut: {
-            /** File Path */
-            file_path: string | null;
-            /** Media Url */
-            media_url: string | null;
-            /** Uploaded At */
-            uploaded_at: string;
             /** ID */
             id?: number | null;
             /** 日志 */
@@ -13352,9 +13709,23 @@ export interface components {
              * @default
              */
             original_filename: string | null;
+            /** File Path */
+            file_path: string | null;
+            /** Media Url */
+            media_url: string | null;
+            /** Uploaded At */
+            uploaded_at: string;
         };
         /** CaseLogOut */
         CaseLogOut: {
+            /** ID */
+            id?: number | null;
+            /** 案件 */
+            case: number;
+            /** 日志内容 */
+            content: string;
+            /** 操作人 */
+            actor: number;
             /** Attachments */
             attachments: components["schemas"]["CaseLogAttachmentOut"][];
             /** Reminders */
@@ -13368,19 +13739,9 @@ export interface components {
             created_at: string;
             /** Updated At */
             updated_at: string;
-            /** ID */
-            id?: number | null;
-            /** 案件 */
-            case: number;
-            /** 日志内容 */
-            content: string;
-            /** 操作人 */
-            actor: number;
         };
         /** CaseNumberOut */
         CaseNumberOut: {
-            /** Created At */
-            created_at: string;
             /** ID */
             id?: number | null;
             /** 案号 */
@@ -13390,28 +13751,11 @@ export interface components {
              * @default
              */
             remarks: string | null;
+            /** Created At */
+            created_at: string;
         };
         /** CaseOut */
         CaseOut: {
-            /** Parties */
-            parties: components["schemas"]["CasePartyOut"][];
-            /** Assignments */
-            assignments: components["schemas"]["CaseAssignmentOut"][];
-            /** Logs */
-            logs: components["schemas"]["CaseLogOut"][];
-            /** Case Numbers */
-            case_numbers: components["schemas"]["CaseNumberOut"][];
-            /** Supervising Authorities */
-            supervising_authorities: components["schemas"]["SupervisingAuthorityOut"][];
-            /** Chats */
-            chats: components["schemas"]["CaseChatOut"][];
-            /** Contract Id */
-            contract_id: number | null;
-            /**
-             * Contacts
-             * @default []
-             */
-            contacts: components["schemas"]["CaseContactOut"][];
             /** ID */
             id?: number | null;
             /** 案件名称 */
@@ -13459,10 +13803,28 @@ export interface components {
              * @default
              */
             current_stage: string | null;
+            /** Parties */
+            parties: components["schemas"]["CasePartyOut"][];
+            /** Assignments */
+            assignments: components["schemas"]["CaseAssignmentOut"][];
+            /** Logs */
+            logs: components["schemas"]["CaseLogOut"][];
+            /** Case Numbers */
+            case_numbers: components["schemas"]["CaseNumberOut"][];
+            /** Supervising Authorities */
+            supervising_authorities: components["schemas"]["SupervisingAuthorityOut"][];
+            /** Chats */
+            chats: components["schemas"]["CaseChatOut"][];
+            /** Contract Id */
+            contract_id: number | null;
+            /**
+             * Contacts
+             * @default []
+             */
+            contacts: components["schemas"]["CaseContactOut"][];
         };
         /** CasePartyOut */
         CasePartyOut: {
-            client_detail: components["schemas"]["ClientLiteOut"];
             /** ID */
             id?: number | null;
             /** 案件 */
@@ -13474,6 +13836,7 @@ export interface components {
              * @default
              */
             legal_status: string | null;
+            client_detail: components["schemas"]["ClientLiteOut"];
         };
         /** ClientIdentityDocLiteOut */
         ClientIdentityDocLiteOut: {
@@ -13549,10 +13912,6 @@ export interface components {
         };
         /** SupervisingAuthorityOut */
         SupervisingAuthorityOut: {
-            /** Created At */
-            created_at: string;
-            /** Authority Type Display */
-            authority_type_display: string | null;
             /** ID */
             id?: number | null;
             /**
@@ -13565,6 +13924,10 @@ export interface components {
              * @default trial
              */
             authority_type: string | null;
+            /** Created At */
+            created_at: string;
+            /** Authority Type Display */
+            authority_type_display: string | null;
         };
         /** CaseIn */
         CaseIn: {
@@ -14075,6 +14438,10 @@ export interface components {
             party_ids?: number[];
             /** Supervising Authority Id */
             supervising_authority_id?: number | null;
+            /** Source Message Id */
+            source_message_id?: number | null;
+            /** Source Segment Ref */
+            source_segment_ref?: string | null;
         };
         /** CaseMaterialBindIn */
         CaseMaterialBindIn: {
@@ -14097,6 +14464,10 @@ export interface components {
             party_ids?: number[];
             /** Supervising Authority Id */
             supervising_authority_id?: number | null;
+            /** Source Message Id */
+            source_message_id?: number | null;
+            /** Source Segment Ref */
+            source_segment_ref?: string | null;
         };
         /** CaseMaterialGroupOrderIn */
         CaseMaterialGroupOrderIn: {
@@ -14887,53 +15258,6 @@ export interface components {
          *     只给 case_count 计数；案件明细由 /cases/cases?contract_id= 按需拉取。
          */
         ContractOut: {
-            /** Contract Parties */
-            contract_parties: components["schemas"]["ContractPartyOut"][];
-            /** Case Count */
-            case_count: number;
-            /** Case Type Label */
-            case_type_label: string | null;
-            /** Status Label */
-            status_label: string | null;
-            /** Reminders */
-            reminders: components["schemas"]["ReminderLiteOut"][];
-            /** Payments */
-            payments: components["schemas"]["ContractPaymentOut"][];
-            /** Supplementary Agreements */
-            supplementary_agreements: components["schemas"]["SupplementaryAgreementOut"][];
-            /** Total Received */
-            total_received: number;
-            /** Total Invoiced */
-            total_invoiced: number;
-            /** Unpaid Amount */
-            unpaid_amount: number | null;
-            /** Assignments */
-            assignments: components["schemas"]["ContractAssignmentOut"][];
-            primary_lawyer: components["schemas"]["ContractLawyerOut"] | null;
-            /** Matched Document Template */
-            matched_document_template?: string | null;
-            /** Matched Folder Templates */
-            matched_folder_templates?: string | null;
-            /**
-             * Has Matched Templates
-             * @default false
-             */
-            has_matched_templates: boolean;
-            /**
-             * Client Payment Records
-             * @default []
-             */
-            client_payment_records: components["schemas"]["ClientPaymentRecordOut"][];
-            /**
-             * Finalized Materials
-             * @default []
-             */
-            finalized_materials: components["schemas"]["FinalizedMaterialOut"][];
-            /**
-             * Can Archive
-             * @default false
-             */
-            can_archive: boolean;
             /** ID */
             id?: number | null;
             /** 合同名称 */
@@ -14987,12 +15311,56 @@ export interface components {
             law_firm_oa_url: string | null;
             /** 律所OA案件编号 */
             law_firm_oa_case_number?: string | null;
+            /** Contract Parties */
+            contract_parties: components["schemas"]["ContractPartyOut"][];
+            /** Case Count */
+            case_count: number;
+            /** Case Type Label */
+            case_type_label: string | null;
+            /** Status Label */
+            status_label: string | null;
+            /** Reminders */
+            reminders: components["schemas"]["ReminderLiteOut"][];
+            /** Payments */
+            payments: components["schemas"]["ContractPaymentOut"][];
+            /** Supplementary Agreements */
+            supplementary_agreements: components["schemas"]["SupplementaryAgreementOut"][];
+            /** Total Received */
+            total_received: number;
+            /** Total Invoiced */
+            total_invoiced: number;
+            /** Unpaid Amount */
+            unpaid_amount: number | null;
+            /** Assignments */
+            assignments: components["schemas"]["ContractAssignmentOut"][];
+            primary_lawyer: components["schemas"]["ContractLawyerOut"] | null;
+            /** Matched Document Template */
+            matched_document_template?: string | null;
+            /** Matched Folder Templates */
+            matched_folder_templates?: string | null;
+            /**
+             * Has Matched Templates
+             * @default false
+             */
+            has_matched_templates: boolean;
+            /**
+             * Client Payment Records
+             * @default []
+             */
+            client_payment_records: components["schemas"]["ClientPaymentRecordOut"][];
+            /**
+             * Finalized Materials
+             * @default []
+             */
+            finalized_materials: components["schemas"]["FinalizedMaterialOut"][];
+            /**
+             * Can Archive
+             * @default false
+             */
+            can_archive: boolean;
         };
         /** ContractPartyOut */
         ContractPartyOut: {
-            client_detail: components["schemas"]["ClientLiteOut"];
-            /** Role Label */
-            role_label: string;
             /** ID */
             id?: number | null;
             /** 合同 */
@@ -15004,11 +15372,12 @@ export interface components {
              * @default PRINCIPAL
              */
             role: string;
+            client_detail: components["schemas"]["ClientLiteOut"];
+            /** Role Label */
+            role_label: string;
         };
         /** ContractPaymentOut */
         ContractPaymentOut: {
-            /** Invoice Status Label */
-            invoice_status_label: string;
             /** ID */
             id?: number | null;
             /** 合同 */
@@ -15045,6 +15414,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Invoice Status Label */
+            invoice_status_label: string;
         };
         /**
          * FinalizedMaterialOut
@@ -15109,8 +15480,6 @@ export interface components {
          * @description 补充协议输出 Schema
          */
         SupplementaryAgreementOut: {
-            /** Parties */
-            parties: components["schemas"]["SupplementaryAgreementPartyOut"][];
             /** ID */
             id?: number | null;
             /** 合同 */
@@ -15130,19 +15499,14 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Parties */
+            parties: components["schemas"]["SupplementaryAgreementPartyOut"][];
         };
         /**
          * SupplementaryAgreementPartyOut
          * @description 补充协议当事人输出 Schema
          */
         SupplementaryAgreementPartyOut: {
-            client_detail: components["schemas"]["ClientLiteOut"];
-            /** Client Name */
-            client_name: string;
-            /** Is Our Client */
-            is_our_client: boolean;
-            /** Role Label */
-            role_label: string;
             /** ID */
             id?: number | null;
             /** 当事人 */
@@ -15152,15 +15516,36 @@ export interface components {
              * @default PRINCIPAL
              */
             role: string;
+            client_detail: components["schemas"]["ClientLiteOut"];
+            /** Client Name */
+            client_name: string;
+            /** Is Our Client */
+            is_our_client: boolean;
+            /** Role Label */
+            role_label: string;
         };
         /** ContractIn */
         ContractIn: {
+            /** 合同名称 */
+            name: string;
+            /** 合同类型 */
+            case_type: string;
+            /**
+             * 合同状态
+             * @default active
+             */
+            status: string;
             /** Specified Date */
             specified_date?: string | null;
             /** Start Date */
             start_date?: string | null;
             /** End Date */
             end_date?: string | null;
+            /**
+             * 是否已建档
+             * @default false
+             */
+            is_filed: boolean;
             /**
              * Fee Mode
              * @default FIXED
@@ -15180,20 +15565,6 @@ export interface components {
             parties?: components["schemas"]["ContractPartyIn"][] | null;
             /** Supplementary Agreements */
             supplementary_agreements?: components["schemas"]["SupplementaryAgreementInput"][] | null;
-            /** 合同名称 */
-            name: string;
-            /** 合同类型 */
-            case_type: string;
-            /**
-             * 合同状态
-             * @default active
-             */
-            status: string;
-            /**
-             * 是否已建档
-             * @default false
-             */
-            is_filed: boolean;
         };
         /**
          * ContractPartyIn
@@ -18549,6 +18920,25 @@ export interface components {
              * @default []
              */
             quality_flags: string[];
+            /**
+             * Page Spans
+             * @default []
+             */
+            page_spans: components["schemas"]["SegmentPageSpanOut"][];
+        };
+        /**
+         * SegmentPageSpanOut
+         * @description 一段正文里属于某一页的字符区间（相对 ``content_md``，左闭右开）。
+         *
+         *     前端切/并段时按它把正文按页搬运，而不是整段照抄（污染）或整段丢弃（丢失）。
+         */
+        SegmentPageSpanOut: {
+            /** Page */
+            page: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
         };
         /** ConfirmRequestIn */
         ConfirmRequestIn: {
@@ -19938,10 +20328,6 @@ export interface components {
         };
         /** ProjectOut */
         ProjectOut: {
-            /** Created At */
-            created_at: string | null;
-            /** Updated At */
-            updated_at: string | null;
             /** ID */
             id?: number | null;
             /** 项目名称 */
@@ -19950,6 +20336,10 @@ export interface components {
             description?: string | null;
             /** 创建人 */
             created_by?: number | null;
+            /** Created At */
+            created_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
         };
         /** ProjectIn */
         ProjectIn: {
@@ -19963,20 +20353,6 @@ export interface components {
         };
         /** RecordingOut */
         RecordingOut: {
-            /** Video Url */
-            video_url: string;
-            /** Stream Url */
-            stream_url: string;
-            /** Extract Status Label */
-            extract_status_label: string;
-            /** Created At */
-            created_at: string | null;
-            /** Updated At */
-            updated_at: string | null;
-            /** Extract Started At */
-            extract_started_at: string | null;
-            /** Extract Finished At */
-            extract_finished_at: string | null;
             /** Id */
             id?: string | null;
             /** 项目 */
@@ -20014,6 +20390,20 @@ export interface components {
             extract_message?: string | null;
             /** 抽帧错误信息 */
             extract_error?: string | null;
+            /** Extract Started At */
+            extract_started_at: string | null;
+            /** Extract Finished At */
+            extract_finished_at: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Video Url */
+            video_url: string;
+            /** Stream Url */
+            stream_url: string;
+            /** Extract Status Label */
+            extract_status_label: string;
         };
         /** RecordingUpdate */
         RecordingUpdate: {
@@ -20022,12 +20412,6 @@ export interface components {
         };
         /** ScreenshotOut */
         ScreenshotOut: {
-            /** Image Url */
-            image_url: string;
-            /** Capture Time Seconds */
-            capture_time_seconds: number | null;
-            /** Created At */
-            created_at: string | null;
             /** Id */
             id?: string | null;
             /** 项目 */
@@ -20041,8 +20425,14 @@ export interface components {
             title?: string | null;
             /** 备注 */
             note?: string | null;
+            /** Capture Time Seconds */
+            capture_time_seconds: number | null;
             /** 内容哈希 */
             sha256?: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Image Url */
+            image_url: string;
         };
         /** ScreenshotReorderIn */
         ScreenshotReorderIn: {
@@ -20058,20 +20448,6 @@ export interface components {
         };
         /** ExportTaskOut */
         ExportTaskOut: {
-            /** Status Label */
-            status_label: string;
-            /** Export Type Label */
-            export_type_label: string;
-            /** Started At */
-            started_at: string | null;
-            /** Finished At */
-            finished_at: string | null;
-            /** Created At */
-            created_at: string | null;
-            /** Updated At */
-            updated_at: string | null;
-            /** Download Url */
-            download_url: string | null;
             /** Id */
             id?: string | null;
             /** 项目 */
@@ -20104,6 +20480,20 @@ export interface components {
             message?: string | null;
             /** 错误信息 */
             error?: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Created At */
+            created_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Status Label */
+            status_label: string;
+            /** Export Type Label */
+            export_type_label: string;
+            /** Download Url */
+            download_url: string | null;
         };
         /** ExportCreateIn */
         ExportCreateIn: {
@@ -20238,21 +20628,6 @@ export interface components {
          * @description 文书模板输出
          */
         DocumentTemplateOut: {
-            /** Template Type Display */
-            template_type_display: string;
-            /** Case Types Display */
-            case_types_display: string;
-            /** Case Stages Display */
-            case_stages_display: string;
-            /** Contract Types Display */
-            contract_types_display: string;
-            /** File Location */
-            file_location?: string | null;
-            /**
-             * Folder Bindings
-             * @default []
-             */
-            folder_bindings: components["schemas"]["FolderBindingOut"][];
             /** ID */
             id?: number | null;
             /** 模板名称 */
@@ -20316,6 +20691,21 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Template Type Display */
+            template_type_display: string;
+            /** Case Types Display */
+            case_types_display: string;
+            /** Case Stages Display */
+            case_stages_display: string;
+            /** Contract Types Display */
+            contract_types_display: string;
+            /** File Location */
+            file_location?: string | null;
+            /**
+             * Folder Bindings
+             * @default []
+             */
+            folder_bindings: components["schemas"]["FolderBindingOut"][];
         };
         /**
          * FolderBindingOut
@@ -20407,14 +20797,6 @@ export interface components {
          * @description 文件夹模板输出
          */
         FolderTemplateOut: {
-            /** Template Type Display */
-            template_type_display: string;
-            /** Case Types Display */
-            case_types_display: string;
-            /** Case Stages Display */
-            case_stages_display: string;
-            /** Contract Types Display */
-            contract_types_display: string;
             /** ID */
             id?: number | null;
             /** 模板名称 */
@@ -20464,6 +20846,14 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Template Type Display */
+            template_type_display: string;
+            /** Case Types Display */
+            case_types_display: string;
+            /** Case Stages Display */
+            case_stages_display: string;
+            /** Contract Types Display */
+            contract_types_display: string;
         };
         /**
          * FolderTemplateIn
@@ -21467,6 +21857,101 @@ export interface components {
             /** Suggested */
             suggested: string;
         };
+        /**
+         * WritePatchOut
+         * @description 一条候选改写的回执（字段与 `WritePatch` 契约同口径）。
+         */
+        WritePatchOut: {
+            /** Patch Id */
+            patch_id: string;
+            /** Owner Kind */
+            owner_kind: string;
+            /** Owner Id */
+            owner_id: number;
+            /** Subpath */
+            subpath: string;
+            /** Original */
+            original: string;
+            /** Replacement */
+            replacement: string;
+            /** Base Mtime */
+            base_mtime?: number | null;
+            /** Status */
+            status: string;
+            /**
+             * Session Id
+             * @default
+             */
+            session_id: string;
+            /**
+             * Turn
+             * @default 0
+             */
+            turn: number;
+        };
+        /**
+         * WritePatchProposeIn
+         * @description 登记一条候选改写（**不落盘**）。
+         */
+        WritePatchProposeIn: {
+            /** Contract Id */
+            contract_id?: number | null;
+            /** Case Id */
+            case_id?: number | null;
+            /** Subpath */
+            subpath: string;
+            /** Original */
+            original: string;
+            /** Replacement */
+            replacement: string;
+            /**
+             * Session Id
+             * @default
+             */
+            session_id: string;
+            /**
+             * Turn
+             * @default 0
+             */
+            turn: number;
+            /**
+             * Agent Kind
+             * @default
+             */
+            agent_kind: string;
+            /**
+             * Run Id
+             * @default
+             */
+            run_id: string;
+        };
+        /** WritePatchApplyOut */
+        WritePatchApplyOut: {
+            /** Applied */
+            applied: string[];
+            /** Merged */
+            merged: string[];
+            /** Subpath */
+            subpath: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /**
+         * WritePatchApplyIn
+         * @description 应用选中的候选改写（一次性写盘，仍走 HIGH 审批闸门）。
+         */
+        WritePatchApplyIn: {
+            /** Patch Ids */
+            patch_ids: string[];
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
         /** LegalResearchCreateOut */
         LegalResearchCreateOut: {
             /** Task Id */
@@ -21908,8 +22393,14 @@ export interface components {
          * ForeignLawVerifyOut
          * @description ``asean_law_verify`` 的返回结构（原样透出）。
          *
-         *     成功时 ``verdict == "待判定"`` 表示条文已取到，需判定层比对 ``section_text``
-         *     与 ``claim``；``"不存在该引用"`` 是规则层直接判死，不消耗模型调用。
+         *     判定已在插件里完成（多判定器合议），这里**不再有**「等外部判定层比对」那一步：
+         *
+         *     - ``verdict`` 可能是四个结论之一，也可能是 ``待判定``（没有结论）；
+         *     - ``待判定`` 有两种成因，靠 ``adjudicated`` 区分：
+         *       合议跑过但弃权（``true``，**不要再找模型判**）vs. 合议未开启（``false``）；
+         *     - ``不存在该引用`` 是规则层直接判死，不消耗模型调用；
+         *     - ``needs_human`` 为真时，前端**必须**把 ``review_reasons`` 展示出来，
+         *       不能只给一个绿色 pill。
          */
         ForeignLawVerifyOut: {
             /** Ok */
@@ -21949,6 +22440,82 @@ export interface components {
              * @default
              */
             claim: string;
+            /**
+             * Adjudicated
+             * @default false
+             */
+            adjudicated: boolean;
+            /**
+             * Unconfirmed
+             * @default false
+             */
+            unconfirmed: boolean;
+            /**
+             * Needs Human
+             * @default false
+             */
+            needs_human: boolean;
+            /**
+             * Review Reasons
+             * @default []
+             */
+            review_reasons: string[];
+            /** Agreement */
+            agreement?: number | null;
+            /**
+             * Matched By
+             * @default
+             */
+            matched_by: string;
+            /**
+             * Elements
+             * @default []
+             */
+            elements: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Votes
+             * @default []
+             */
+            votes: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Jury Tokens
+             * @default 0
+             */
+            jury_tokens: number;
+            /**
+             * Cached
+             * @default false
+             */
+            cached: boolean;
+            /**
+             * Source Url
+             * @default
+             */
+            source_url: string;
+            /**
+             * Matched Paragraph
+             * @default
+             */
+            matched_paragraph: string;
+            /**
+             * Effective Date
+             * @default
+             */
+            effective_date: string;
+            /**
+             * Revise Date
+             * @default
+             */
+            revise_date: string;
+            /**
+             * Version Warnings
+             * @default []
+             */
+            version_warnings: string[];
             /**
              * Detail
              * @default
@@ -21995,6 +22562,23 @@ export interface components {
              * @default
              */
             country_code: string;
+            /**
+             * As Of Date
+             * @description 引用时点（YYYY-MM-DD），如合同签署日或争议发生时点；给了才做时效比对
+             * @default
+             */
+            as_of_date: string;
+            /**
+             * Contract Id
+             * @description 关联合同 id（仅用于留痕归类，可空）
+             */
+            contract_id?: number | null;
+            /**
+             * Citation Anchor
+             * @description 合同内的锚点，如「第三条 租金」（可空）
+             * @default
+             */
+            citation_anchor: string;
         };
         /** ForeignLawSearchHitOut */
         ForeignLawSearchHitOut: {
@@ -23825,6 +24409,42 @@ export interface components {
              */
             resource: string;
         };
+        /**
+         * BackendOptionOut
+         * @description 一个可选 agent 后端（``GET /agent/backends`` 的列表项）。
+         *
+         *     ``available`` 与 ``reason`` 是这个契约存在的理由：dsh 的 SDK / 运行时 /
+         *     模型凭据任意一项缺失时，用户只能在**选了之后**报错——那时已经建了会话
+         *     （``agent_kind`` 是会话级属性，建完不能改），只能换个后端重开。所以后端
+         *     自检结果要能提前问出来，让选项置灰而不是让用户撞墙。
+         *
+         *     能力字段是 :class:`apps.agent.backends.base.BackendCapabilities` 的逐项
+         *     展开（而不是嵌套对象）：前端据此隐藏插话框、逐字动画等，嵌套一层只会让
+         *     UI 里多写一层解引用。
+         */
+        BackendOptionOut: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Description */
+            description: string;
+            /** Available */
+            available: boolean;
+            /** Reason */
+            reason: string;
+            /** Capabilities */
+            capabilities: {
+                [key: string]: unknown;
+            };
+            /**
+             * Models
+             * @default []
+             */
+            models: string[];
+            /** Default Model */
+            default_model?: string | null;
+        };
         /** SessionOut */
         SessionOut: {
             /**
@@ -23875,6 +24495,11 @@ export interface components {
             case_id?: number | null;
             /** Contract Id */
             contract_id?: number | null;
+            /**
+             * Agent Kind
+             * @default pi
+             */
+            agent_kind: string;
         };
         /**
          * SessionRenameIn
@@ -23883,111 +24508,6 @@ export interface components {
         SessionRenameIn: {
             /** Title */
             title: string;
-        };
-        /**
-         * MessageOut
-         * @description 会话消息（历史回放）。``metadata`` 含 ``model`` / ``truncated``（中断的回答）等。
-         */
-        MessageOut: {
-            /** Message Id */
-            message_id: number;
-            /** Role */
-            role: string;
-            /** Content */
-            content: string;
-            /** Tool Name */
-            tool_name: string;
-            /** Created At */
-            created_at: string;
-            /**
-             * Metadata
-             * @default {}
-             */
-            metadata: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * MessageIn
-         * @description 发消息请求体。
-         */
-        MessageIn: {
-            /** Message */
-            message: string;
-        };
-        /**
-         * TaskIn
-         * @description 提交后台任务。
-         */
-        TaskIn: {
-            /** Message */
-            message: string;
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-            /** Case Id */
-            case_id?: number | null;
-            /** Contract Id */
-            contract_id?: number | null;
-        };
-        /**
-         * SteerOut
-         * @description 插话结果。``disposition`` 为 queued（已排队）或 handled（被扩展消费）。
-         */
-        SteerOut: {
-            /** Success */
-            success: boolean;
-            /** Disposition */
-            disposition: string;
-        };
-        /**
-         * SteerIn
-         * @description 运行中插话 / 追加一轮的请求体。
-         */
-        SteerIn: {
-            /** Message */
-            message: string;
-        };
-        /**
-         * ClearQueueOut
-         * @description 撤回排队消息的结果；``messages`` 是被撤回的原文。
-         */
-        ClearQueueOut: {
-            /** Success */
-            success: boolean;
-            /** Messages */
-            messages: string[];
-        };
-        /** SkillListOut */
-        SkillListOut: {
-            /** Skills */
-            skills: components["schemas"]["SkillOut"][];
-        };
-        /**
-         * SkillOut
-         * @description 技能清单项。``description`` 来自 SKILL.md frontmatter。
-         */
-        SkillOut: {
-            /** Name */
-            name: string;
-            /** Description */
-            description: string;
-            /** Enabled */
-            enabled: boolean;
-        };
-        /** SkillToggleOut */
-        SkillToggleOut: {
-            /** Name */
-            name: string;
-            /** Enabled */
-            enabled: boolean;
-        };
-        /** SkillToggleIn */
-        SkillToggleIn: {
-            /** Enabled */
-            enabled: boolean;
         };
         /**
          * SessionStatsOut
@@ -24023,6 +24543,423 @@ export interface components {
             context_used_tokens?: number | null;
             /** Context Total Tokens */
             context_total_tokens?: number | null;
+        };
+        /**
+         * MessageOut
+         * @description 会话消息（历史回放）。``metadata`` 含 ``model`` / ``truncated``（中断的回答）等。
+         */
+        MessageOut: {
+            /** Message Id */
+            message_id: number;
+            /** Role */
+            role: string;
+            /** Content */
+            content: string;
+            /** Tool Name */
+            tool_name: string;
+            /**
+             * Agent Kind
+             * @default
+             */
+            agent_kind: string;
+            /**
+             * Rating
+             * @default
+             */
+            rating: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Metadata
+             * @default {}
+             */
+            metadata: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * AgentSpecIn
+         * @description 本轮一个参与方：哪个后端 + 用哪个模型。
+         */
+        AgentSpecIn: {
+            /** Kind */
+            kind: string;
+            /** Model */
+            model?: string | null;
+        };
+        /**
+         * MessageIn
+         * @description 发消息请求体。
+         */
+        MessageIn: {
+            /** Message */
+            message: string;
+            /** Agents */
+            agents?: (components["schemas"]["AgentSpecIn"] | string)[] | null;
+            /**
+             * Dual
+             * @default false
+             */
+            dual: boolean;
+        };
+        /**
+         * SteerOut
+         * @description 插话结果。``disposition`` 为 queued（已排队）或 handled（被扩展消费）。
+         */
+        SteerOut: {
+            /** Success */
+            success: boolean;
+            /** Disposition */
+            disposition: string;
+        };
+        /**
+         * SteerIn
+         * @description 运行中插话 / 追加一轮的请求体。
+         */
+        SteerIn: {
+            /** Message */
+            message: string;
+        };
+        /**
+         * ClearQueueOut
+         * @description 撤回排队消息的结果；``messages`` 是被撤回的原文。
+         */
+        ClearQueueOut: {
+            /** Success */
+            success: boolean;
+            /** Messages */
+            messages: string[];
+        };
+        /**
+         * MessageRatingOut
+         * @description 反馈回执。``rating`` 是落库后的值，空串 = 已撤销（``metadata`` 里无该键）。
+         */
+        MessageRatingOut: {
+            /** Message Id */
+            message_id: number;
+            /**
+             * Rating
+             * @default
+             */
+            rating: string;
+        };
+        /**
+         * MessageRatingIn
+         * @description 律师对一条消息的反馈：``up`` / ``down``；``none`` = 撤销（删键）。
+         */
+        MessageRatingIn: {
+            /**
+             * Rating
+             * @enum {string}
+             */
+            rating: "up" | "down" | "none";
+        };
+        /**
+         * TaskIn
+         * @description 提交后台任务。
+         */
+        TaskIn: {
+            /** Message */
+            message: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Case Id */
+            case_id?: number | null;
+            /** Contract Id */
+            contract_id?: number | null;
+        };
+        /**
+         * PiApprovalOut
+         * @description 审批结果（只有 approved=true 放行）。
+         */
+        PiApprovalOut: {
+            /** Approved */
+            approved: boolean;
+            /**
+             * Approval Id
+             * @default
+             */
+            approval_id: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Risk Level
+             * @default
+             */
+            risk_level: string;
+        };
+        /**
+         * PiApprovalIn
+         * @description pi extension 发来的审批请求。
+         *
+         *     ``risk_level`` 由 extension 预判后一并送来（仅作参考与日志），
+         *     服务端以 ``classify_risk`` 的判定为准——extension 可以被绕过，
+         *     不能让客户端决定自己要不要审批。
+         */
+        PiApprovalIn: {
+            /** Tool */
+            tool: string;
+            /** Args */
+            args?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * User Id
+             * @default 0
+             */
+            user_id: number;
+            /**
+             * Session Id
+             * @default
+             */
+            session_id: string;
+            /**
+             * Risk Level
+             * @default
+             */
+            risk_level: string;
+            /**
+             * Run Id
+             * @default
+             */
+            run_id: string;
+            /**
+             * Tool Call Id
+             * @default
+             */
+            tool_call_id: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * ApprovalDecideIn
+         * @description 前端审批决定。
+         */
+        ApprovalDecideIn: {
+            /** Approved */
+            approved: boolean;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * Status
+         * @enum {string}
+         */
+        Status: "pending" | "approved" | "rejected" | "timeout" | "cancelled";
+        /**
+         * QuestionAnswerIn
+         * @description 前端提交提问回答。
+         */
+        QuestionAnswerIn: {
+            /**
+             * Answers
+             * @default []
+             */
+            answers: components["schemas"]["QuestionAnswerItem"][];
+            /**
+             * Skipped
+             * @default false
+             */
+            skipped: boolean;
+        };
+        /**
+         * QuestionAnswerItem
+         * @description 单个问题的回答。
+         *
+         *     按 ``id`` 回填而不是下标：前端可能只答一部分或顺序错乱，按 id 对齐
+         *     才不会出现「答的是第 2 题被当成第 1 题」的静默错位——法律场景里
+         *     问错一次比不问更糟。
+         */
+        QuestionAnswerItem: {
+            /** Id */
+            id: string;
+            /**
+             * Selections
+             * @default []
+             */
+            selections: string[];
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /**
+         * CriteriaVerdict
+         * @description 一条 rubric 对一栏的一次判定（N 栏 × M 条 = N×M 条）。
+         */
+        CriteriaVerdict: {
+            /** Rubric Id */
+            rubric_id: string;
+            /** Lane */
+            lane: string;
+            /** Criteria Met */
+            criteria_met?: boolean | null;
+            /**
+             * Explanation
+             * @default
+             */
+            explanation: string;
+            /**
+             * Evidence Quote
+             * @default
+             */
+            evidence_quote: string;
+            /**
+             * Judge Model
+             * @default
+             */
+            judge_model: string;
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            /**
+             * Unscored Reason
+             * @default
+             */
+            unscored_reason: string;
+        };
+        /**
+         * LaneReview
+         * @description 一栏的汇总。
+         */
+        LaneReview: {
+            /** Lane */
+            lane: string;
+            /**
+             * Valid
+             * @default 0
+             */
+            valid: number;
+            /**
+             * Yes
+             * @default 0
+             */
+            yes: number;
+            /** Score */
+            score?: number | null;
+            /**
+             * One Line
+             * @default
+             */
+            one_line: string;
+        };
+        /**
+         * Review
+         * @description 一轮多答的评审结果（一次 ``/review`` 的完整产物）。
+         */
+        Review: {
+            /** Review Id */
+            review_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Turn */
+            turn: number;
+            /**
+             * Rubric Id
+             * @default
+             */
+            rubric_id: string;
+            /**
+             * Rubric Version
+             * @default
+             */
+            rubric_version: string;
+            /**
+             * Stage
+             * @default shadow
+             * @constant
+             */
+            stage: "shadow";
+            /** Lanes */
+            lanes?: components["schemas"]["LaneReview"][];
+            /** Verdicts */
+            verdicts?: components["schemas"]["CriteriaVerdict"][];
+            /**
+             * Headline
+             * @default
+             */
+            headline: string;
+            /** Unverified */
+            unverified?: string[];
+            /** Tokens */
+            tokens?: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * ReviewIn
+         * @description 触发一轮评审所需的上下文。
+         */
+        ReviewIn: {
+            /** Turn */
+            turn: number;
+            /** Agents */
+            agents: string[];
+            /** Rubric Id */
+            rubric_id: string;
+            /** Judge Models */
+            judge_models: string[];
+        };
+        /**
+         * AdoptionOut
+         * @description 一次采纳的线上形状（POST 返回、GET 回显同一形状）。
+         */
+        AdoptionOut: {
+            /** Review Id */
+            review_id: string;
+            /** Lane */
+            lane: string | null;
+            /** Merged */
+            merged: boolean;
+            /** Note */
+            note: string;
+            /** Adopted At */
+            adopted_at: string;
+        };
+        /**
+         * AdoptIn
+         * @description 律师显式采纳的请求体。
+         */
+        AdoptIn: {
+            /** Lane */
+            lane?: string | null;
+            /**
+             * Merged
+             * @default false
+             */
+            merged: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * AdoptionEnvelope
+         * @description GET 回显；``adoption=None`` = 这轮还没采纳（不是错误）。
+         */
+        AdoptionEnvelope: {
+            adoption: components["schemas"]["AdoptionOut"] | null;
         };
         /**
          * AttachmentOut
@@ -24170,115 +25107,34 @@ export interface components {
             /** Subpath */
             subpath: string;
         };
-        /**
-         * PiApprovalOut
-         * @description 审批结果（只有 approved=true 放行）。
-         */
-        PiApprovalOut: {
-            /** Approved */
-            approved: boolean;
-            /**
-             * Approval Id
-             * @default
-             */
-            approval_id: string;
-            /**
-             * Reason
-             * @default
-             */
-            reason: string;
-            /**
-             * Risk Level
-             * @default
-             */
-            risk_level: string;
+        /** SkillListOut */
+        SkillListOut: {
+            /** Skills */
+            skills: components["schemas"]["SkillOut"][];
         };
         /**
-         * PiApprovalIn
-         * @description pi extension 发来的审批请求。
-         *
-         *     ``risk_level`` 由 extension 预判后一并送来（仅作参考与日志），
-         *     服务端以 ``classify_risk`` 的判定为准——extension 可以被绕过，
-         *     不能让客户端决定自己要不要审批。
+         * SkillOut
+         * @description 技能清单项。``description`` 来自 SKILL.md frontmatter。
          */
-        PiApprovalIn: {
-            /** Tool */
-            tool: string;
-            /** Args */
-            args?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * User Id
-             * @default 0
-             */
-            user_id: number;
-            /**
-             * Session Id
-             * @default
-             */
-            session_id: string;
-            /**
-             * Risk Level
-             * @default
-             */
-            risk_level: string;
+        SkillOut: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Enabled */
+            enabled: boolean;
         };
-        /**
-         * ApprovalDecideIn
-         * @description 前端审批决定。
-         */
-        ApprovalDecideIn: {
-            /** Approved */
-            approved: boolean;
-            /**
-             * Reason
-             * @default
-             */
-            reason: string;
+        /** SkillToggleOut */
+        SkillToggleOut: {
+            /** Name */
+            name: string;
+            /** Enabled */
+            enabled: boolean;
         };
-        /**
-         * QuestionAnswerIn
-         * @description 前端提交提问回答。
-         */
-        QuestionAnswerIn: {
-            /**
-             * Answers
-             * @default []
-             */
-            answers: components["schemas"]["QuestionAnswerItem"][];
-            /**
-             * Skipped
-             * @default false
-             */
-            skipped: boolean;
-        };
-        /**
-         * QuestionAnswerItem
-         * @description 单个问题的回答。
-         *
-         *     按 ``id`` 回填而不是下标：前端可能只答一部分或顺序错乱，按 id 对齐
-         *     才不会出现「答的是第 2 题被当成第 1 题」的静默错位——法律场景里
-         *     问错一次比不问更糟。
-         */
-        QuestionAnswerItem: {
-            /** Id */
-            id: string;
-            /**
-             * Selections
-             * @default []
-             */
-            selections: string[];
-            /**
-             * Text
-             * @default
-             */
-            text: string;
-            /**
-             * Comment
-             * @default
-             */
-            comment: string;
+        /** SkillToggleIn */
+        SkillToggleIn: {
+            /** Enabled */
+            enabled: boolean;
         };
         /**
          * UsageOut
@@ -24336,6 +25192,38 @@ export interface components {
              */
             budget_warn: boolean;
         };
+        /**
+         * UsageByAgentOut
+         * @description 按 agent 后端的成本归因行（``GET /usage/by-agent``）。
+         *
+         *     与 :class:`UsageOut` 的 ``/usage`` 是汇总／拆解关系：``total_tokens`` 同口径
+         *     （``input + output + cacheWrite``，**不含** cacheRead）。
+         *
+         *     多 agent 上线后同一个模型可能被两个后端同时使用，``by_model`` 分不清钱是谁
+         *     花的——这里按 ``AgentRun.agent_kind`` 拆开（历史空串在 SQL 侧归 ``pi``）。
+         */
+        UsageByAgentOut: {
+            /** Agent Kind */
+            agent_kind: string;
+            /** Runs */
+            runs: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Cache Write Tokens */
+            cache_write_tokens: number;
+            /** Total Tokens */
+            total_tokens: number;
+            /** Cache Hit Rate */
+            cache_hit_rate: number;
+            /** Failed Runs */
+            failed_runs: number;
+            /** Cancelled Runs */
+            cancelled_runs: number;
+        };
         /** MemoryOut */
         MemoryOut: {
             /** Id */
@@ -24359,6 +25247,30 @@ export interface components {
              * @default
              */
             source_session_id: string;
+            /** Contract Id */
+            contract_id?: number | null;
+            /** Case Id */
+            case_id?: number | null;
+            /**
+             * Confirmed At
+             * @default
+             */
+            confirmed_at: string;
+            /**
+             * Confirmed By
+             * @default
+             */
+            confirmed_by: string;
+            /**
+             * Supersedes Id
+             * @default
+             */
+            supersedes_id: string;
+            /**
+             * Is Superseded
+             * @default false
+             */
+            is_superseded: boolean;
         };
         /** MemoryCreateIn */
         MemoryCreateIn: {
@@ -24402,6 +25314,35 @@ export interface components {
         SnapshotOut: {
             /** Content */
             content: string;
+        };
+        /**
+         * ProjectNoteIn
+         * @description 写一条项目笔记（挂到项目/某案件上，同团队成员都能看到）。
+         */
+        ProjectNoteIn: {
+            /** Content */
+            content: string;
+            /** Contract Id */
+            contract_id?: number | null;
+            /** Case Id */
+            case_id?: number | null;
+            /** Session Id */
+            session_id?: string | null;
+            /**
+             * Kind
+             * @default fact
+             */
+            kind: string;
+            /** Supersede Id */
+            supersede_id?: string | null;
+        };
+        /**
+         * NoteConfirmIn
+         * @description 把一条笔记升为「项目事实」；``content`` 非空时顺手改写（律师说得更准）。
+         */
+        NoteConfirmIn: {
+            /** Content */
+            content?: string | null;
         };
         /** PromoteCandidateOut */
         PromoteCandidateOut: {
@@ -26325,7 +27266,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ParseTextRequest"];
+                "application/json": components["schemas"]["ParseTextIn"];
             };
         };
         responses: {
@@ -26367,7 +27308,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["IdCardValidateRequest"];
+                "application/json": components["schemas"]["IdCardValidateIn"];
             };
         };
         responses: {
@@ -26377,7 +27318,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IdCardValidateResponse"];
+                    "application/json": components["schemas"]["IdCardValidateOut"];
                 };
             };
         };
@@ -32833,9 +33774,53 @@ export interface operations {
             };
         };
     };
-    apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_download: {
+    apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_pdf: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                segment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_segment_markdown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                segment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_pdf_splitting_api_pdf_splitting_api_get_pdf_split_download: {
+        parameters: {
+            query?: {
+                ids?: string;
+            };
             header?: never;
             path: {
                 job_id: string;
@@ -37570,7 +38555,9 @@ export interface operations {
     };
     apps_contract_review_api_direct_edit_api_apply_edit: {
         parameters: {
-            query?: never;
+            query?: {
+                expect_mtime?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -37612,6 +38599,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskEditApplyOut"];
+                };
+            };
+        };
+    };
+    apps_contract_review_api_direct_edit_api_propose_write_patch_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritePatchProposeIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritePatchOut"];
+                };
+            };
+        };
+    };
+    apps_contract_review_api_direct_edit_api_apply_write_patches_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritePatchApplyIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritePatchApplyOut"];
                 };
             };
         };
@@ -37997,6 +39032,26 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DocumentParsingRecordDetailOut"];
                 };
+            };
+        };
+    };
+    apps_document_parsing_api_webhook_api_receive_webhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -38831,7 +39886,27 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_list_sessions: {
+    apps_agent_api_session_api_list_backends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendOptionOut"][];
+                };
+            };
+        };
+    };
+    apps_agent_api_session_api_list_sessions: {
         parameters: {
             query?: {
                 limit?: number;
@@ -38856,7 +39931,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_create_session: {
+    apps_agent_api_session_api_create_session: {
         parameters: {
             query?: never;
             header?: never;
@@ -38880,7 +39955,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_session_detail: {
+    apps_agent_api_session_api_get_session_detail: {
         parameters: {
             query?: never;
             header?: never;
@@ -38902,7 +39977,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_delete_session: {
+    apps_agent_api_session_api_delete_session: {
         parameters: {
             query?: never;
             header?: never;
@@ -38922,7 +39997,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_update_session_title: {
+    apps_agent_api_session_api_update_session_title: {
         parameters: {
             query?: never;
             header?: never;
@@ -38948,7 +40023,51 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_list_messages: {
+    apps_agent_api_session_api_get_session_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionStatsOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_session_api_compact_session_context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompactOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_chat_api_list_messages: {
         parameters: {
             query?: {
                 limit?: number;
@@ -38973,7 +40092,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_send_message: {
+    apps_agent_api_chat_api_send_message: {
         parameters: {
             query?: never;
             header?: never;
@@ -38997,7 +40116,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_replay_sse_events: {
+    apps_agent_api_chat_api_replay_sse_events: {
         parameters: {
             query?: {
                 last_event_id?: number;
@@ -39019,7 +40138,107 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_submit_task: {
+    apps_agent_api_chat_api_steer_running_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_chat_api_follow_up_running_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteerOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_chat_api_clear_session_queue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearQueueOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_chat_api_rate_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageRatingIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageRatingOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_task_api_submit_task: {
         parameters: {
             query?: never;
             header?: never;
@@ -39043,7 +40262,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_task_status: {
+    apps_agent_api_task_api_get_task_status: {
         parameters: {
             query?: never;
             header?: never;
@@ -39065,7 +40284,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_cancel_task: {
+    apps_agent_api_task_api_cancel_task: {
         parameters: {
             query?: never;
             header?: never;
@@ -39085,18 +40304,42 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_steer_running_session: {
+    apps_agent_api_approval_api_pi_approval_request: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PiApprovalIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PiApprovalOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_approval_api_submit_approval_decision: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                session_id: string;
+                approval_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SteerIn"];
+                "application/json": components["schemas"]["ApprovalDecideIn"];
             };
         };
         responses: {
@@ -39105,61 +40348,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["SteerOut"];
-                };
+                content?: never;
             };
         };
     };
-    apps_agent_api_agent_api_follow_up_running_session: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SteerIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SteerOut"];
-                };
-            };
-        };
-    };
-    apps_agent_api_agent_api_clear_session_queue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClearQueueOut"];
-                };
-            };
-        };
-    };
-    apps_agent_api_agent_api_list_skills: {
+    apps_agent_api_approval_api_list_pending_approvals_endpoint: {
         parameters: {
             query?: never;
             header?: never;
@@ -39174,23 +40367,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SkillListOut"];
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
                 };
             };
         };
     };
-    apps_agent_api_agent_api_toggle_skill: {
+    apps_agent_api_approval_api_list_approvals: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    apps_agent_api_approval_api_export_approvals: {
+        parameters: {
+            query?: {
+                /** @description 回看天数；0（默认）= 不限时间 */
+                days?: number;
+                /** @description 审批状态过滤 */
+                status?: components["schemas"]["Status"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_question_api_submit_question_answer: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                skill_name: string;
+                question_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SkillToggleIn"];
+                "application/json": components["schemas"]["QuestionAnswerIn"];
             };
         };
         responses: {
@@ -39199,15 +40441,37 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
+                content?: never;
+            };
+        };
+    };
+    apps_agent_api_question_api_list_pending_questions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content: {
-                    "application/json": components["schemas"]["SkillToggleOut"];
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
                 };
             };
         };
     };
-    apps_agent_api_agent_api_get_session_stats: {
+    apps_agent_api_review_api_get_session_review: {
         parameters: {
-            query?: never;
+            query?: {
+                turn?: number | null;
+            };
             header?: never;
             path: {
                 session_id: string;
@@ -39222,17 +40486,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SessionStatsOut"];
+                    "application/json": components["schemas"]["Review"];
                 };
             };
         };
     };
-    apps_agent_api_agent_api_compact_session_context: {
+    apps_agent_api_review_api_review_session: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review"];
+                };
+            };
+        };
+    };
+    apps_agent_api_review_api_adopt_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_review_api_get_review_adoption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
             };
             cookie?: never;
         };
@@ -39244,12 +40560,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CompactOut"];
+                    "application/json": components["schemas"]["AdoptionEnvelope"];
                 };
             };
         };
     };
-    apps_agent_api_agent_api_upload_attachment: {
+    apps_agent_api_attachment_api_upload_attachment: {
         parameters: {
             query?: never;
             header?: never;
@@ -39271,7 +40587,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_attachment_content: {
+    apps_agent_api_attachment_api_get_attachment_content: {
         parameters: {
             query?: never;
             header?: never;
@@ -39291,7 +40607,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_attachment_pages: {
+    apps_agent_api_attachment_api_get_attachment_pages: {
         parameters: {
             query?: {
                 pages?: string;
@@ -39318,7 +40634,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_create_session_folder_ref: {
+    apps_agent_api_attachment_api_create_session_folder_ref: {
         parameters: {
             query?: never;
             header?: never;
@@ -39344,7 +40660,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_folder_ref_content: {
+    apps_agent_api_attachment_api_get_folder_ref_content: {
         parameters: {
             query?: {
                 kind?: string;
@@ -39366,7 +40682,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_folder_ref_pages: {
+    apps_agent_api_attachment_api_get_folder_ref_pages: {
         parameters: {
             query?: {
                 kind?: string;
@@ -39394,79 +40710,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_pi_approval_request: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PiApprovalIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PiApprovalOut"];
-                };
-            };
-        };
-    };
-    apps_agent_api_agent_api_submit_approval_decision: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                approval_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApprovalDecideIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_agent_api_agent_api_submit_question_answer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                question_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuestionAnswerIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_agent_api_agent_api_list_pending_questions: {
+    apps_agent_api_skill_api_list_skills: {
         parameters: {
             query?: never;
             header?: never;
@@ -39481,14 +40725,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["SkillListOut"];
                 };
             };
         };
     };
-    apps_agent_api_agent_api_get_usage: {
+    apps_agent_api_skill_api_toggle_skill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                skill_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillToggleIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillToggleOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_usage_api_get_usage: {
         parameters: {
             query?: {
                 days?: number;
@@ -39510,7 +40778,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_usage_daily: {
+    apps_agent_api_usage_api_get_usage_daily: {
         parameters: {
             query?: {
                 days?: number;
@@ -39534,7 +40802,7 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_get_usage_by_model: {
+    apps_agent_api_usage_api_get_usage_by_model: {
         parameters: {
             query?: {
                 days?: number;
@@ -39558,32 +40826,10 @@ export interface operations {
             };
         };
     };
-    apps_agent_api_agent_api_list_pending_approvals_endpoint: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
-                };
-            };
-        };
-    };
-    apps_agent_api_agent_api_list_approvals: {
+    apps_agent_api_usage_api_get_usage_by_agent: {
         parameters: {
             query?: {
-                limit?: number;
+                days?: number;
             };
             header?: never;
             path?: never;
@@ -39597,9 +40843,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
+                    "application/json": components["schemas"]["UsageByAgentOut"][];
                 };
             };
         };
@@ -39610,6 +40854,9 @@ export interface operations {
                 scope?: string | null;
                 status?: string | null;
                 limit?: number;
+                offset?: number;
+                contract_id?: number | null;
+                case_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -39701,6 +40948,7 @@ export interface operations {
         parameters: {
             query?: {
                 refresh?: boolean;
+                session_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -39715,6 +40963,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SnapshotOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_create_project_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectNoteIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_memory_api_confirm_project_note: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
                 };
             };
         };
