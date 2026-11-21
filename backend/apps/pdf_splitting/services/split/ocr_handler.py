@@ -170,7 +170,17 @@ def vl_page_layout(layout_results: Any, *, page_no: int, text: str) -> dict[str,
     冒充结构化结果。
     """
     pruned = [item.get("prunedResult") for item in layout_results or [] if isinstance(item, dict)]
-    blocks = normalize_paddleocr_vl_blocks(pruned)
+    return vl_blocks_layout(normalize_paddleocr_vl_blocks(pruned), page_no=page_no, text=text)
+
+
+def vl_blocks_layout(blocks: Any, *, page_no: int, text: str) -> dict[str, Any] | None:
+    """已归一化的 ``EngineBlock`` 列表 → ``PageDescriptor.layout`` 形状。
+
+    形状知识（块类型归一化表、千分比坐标基准、缺框只留文字）只写在这里：两个消费方
+    都要吃它——VL 页的实时取字（``vl_page_layout``）与转正页回填（``rotated_backfill``，
+    块来自 ``DualEngineOutcome.blocks_by_engine``）。回填若另写一份，回填页的格子和
+    VL 兜底页就会长得不一样，同一份卷宗在两条路径下版面不一致。
+    """
     if not blocks:
         return None
     out: list[dict[str, Any]] = []

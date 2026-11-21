@@ -14,6 +14,12 @@
 三个 ``build_segments_markdown`` 调用点都只调 ``switches()``（理由见它自己的 docstring）：
 分别读两个键迟早会出现「某一条路径读了回滚开关、另一条没读」的劈叉。
 
+## 转正页回填开关为什么也放在本文件
+
+它读的是同一个 ``_as_flag`` / ``_system_value`` 对（读不到默认值 + 留痕），单建一个
+开关模块只会多一份「读配置失败怎么办」的实现。它与几何无关，与其余键一样**读一次即用**，
+不进 ``switches()``（那个元组只服务三个 ``build_segments_markdown`` 调用点）。
+
 ## L2 开关为什么不进 ``switches()``
 
 ``local_lines_enabled()`` 是**几何来源**的选择（本地线条兜底），不是``build_segments_markdown``
@@ -46,6 +52,18 @@ TABLE_UNIFORM_FALLBACK_KEY = "PDF_SPLIT_TABLE_UNIFORM_FALLBACK"
 #: （``table_geometry_pass.summary_block`` 恒给这个键，关着时是 0）。
 TABLE_GEOMETRY_LOCAL_LINES_KEY = "PDF_SPLIT_TABLE_GEOMETRY_LOCAL_LINES_ENABLED"
 
+#: 转正页用 PaddleOCR-VL 的文本 + 版面回填正文（SystemConfig；默认**开**）。
+#:
+#: 只在**angle ≠ 0 且 VL 在该页有结果**时生效：VL 报 ``angle ∈ {90,180,270}`` 说明
+#: 服务端为了识别把页面转正过，而主引擎没做方向分类——实测 job 523fabce 的 p52
+#: 内容躺倒 90°、MinerU「成功」但正文全是乱码，而 VL 那次认对了 689 字。
+#: angle=0 的页（绝大多数）**逐位不变**，这是本开关的边界。
+#:
+#: 关掉即回到今天的行为：VL 只参与比对（``engine_disagreements``），一个字也不进正文。
+#: 哪些页被换过 / 哪些页被跳过及其原因，见 summary 的 ``rotated_backfill`` 区块与
+#: job 目录下的 ``analysis/rotated_backfill.json``。
+ROTATED_PAGE_USE_VL_TEXT_KEY = "PDF_SPLIT_ROTATED_PAGE_USE_VL_TEXT"
+
 
 def geometry_enabled() -> bool:
     """``PDF_SPLIT_TABLE_GEOMETRY_ENABLED``（默认 ``1``）。"""
@@ -64,6 +82,16 @@ def local_lines_enabled() -> bool:
     理由与适用卷宗见 ``TABLE_GEOMETRY_LOCAL_LINES_KEY`` 的注释。
     """
     return _as_flag(_system_value(TABLE_GEOMETRY_LOCAL_LINES_KEY, "0"), default=False)
+
+
+def rotated_page_use_vl_text_enabled() -> bool:
+    """``PDF_SPLIT_ROTATED_PAGE_USE_VL_TEXT``（默认 ``1``）。
+
+    默认开的理由：被判为「内容转正过」的页上，主引擎的正文**本来就不可信**，
+    留着乱码对律师是纯损失；而回填只碰这一小撮页，且有 VL 结果才动手。
+    关掉这个开关是唯一的回滚手段——关掉后与改动前逐位一致。
+    """
+    return _as_flag(_system_value(ROTATED_PAGE_USE_VL_TEXT_KEY, "1"), default=True)
 
 
 def switches() -> tuple[bool, bool]:

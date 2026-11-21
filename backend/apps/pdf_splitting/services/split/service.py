@@ -63,6 +63,9 @@ def _dual_engine_summary(payload: dict[str, Any]) -> dict[str, Any]:
         "engine_disagree_summary": dict(payload.get("engine_disagree_summary") or {})
         or {"high": 0, "medium": 0, "low": 0},
         "dual_engine": dict(payload.get("dual_engine") or {}),
+        # 转正页回填的记账（cross_check 阶段写好并落盘）：哪几页被 VL 换过、每页跳过原因。
+        # 空 dict = 这次没开双引擎 / 没被转正页命中——不能省这个键，否则前端要写分支。
+        "rotated_backfill": dict(payload.get("rotated_backfill") or {}),
     }
 
 
@@ -281,15 +284,20 @@ class PdfSplitService:
         为什么失败不抛异常：分歧是**附加信息**，取字早已成功且已落盘。让一个
         可选的交叉校验把整份卷宗判失败，是拿主路径给辅助功能陪葬。失败就把
         空分歧交给分段阶段，任务照常往下走。
+
+        本阶段还顺带做**转正页回填**（`rotated_backfill`）：它是全仓唯一同时拿得到
+        `pages`（extract 阶段落的 pages.json）与 `DualEngineOutcome` 的地方，所以
+        VL 回填必须在这里下手，否则 VL 认对的那些页永远进不了正文。
         """
         engines = parse_dual_engines(getattr(job, "dual_engines", ""))
         if len(engines) < 2:
             return {}
 
+        storage = PdfSplitStorage(job.id)
         # pdf_path 只在测试里显式传入；生产路径总是走任务目录下那份源文件副本
         # （任务目录自带 source/original.pdf，不依赖附件是否还在）。
         if pdf_path is None:
-            pdf_path = PdfSplitStorage(job.id).source_pdf_path
+            pdf_path = storage.source_pdf_path
         self._enter_cross_check(job)
         try:
             factories, unavailable = plan_dual_engine_factories(engines)
@@ -309,6 +317,7 @@ class PdfSplitService:
         dual["selected"] = engines
         dual["unavailable"] = unavailable
         summary["dual_engine"] = dual
+        summary["rotated_backfill"] = self._apply_rotated_page_backfill(job=job, storage=storage, outcome=outcome)
         return summary
 
     def segment_stage(self, job: PdfSplitJob) -> None:
@@ -433,6 +442,114 @@ class PdfSplitService:
             table_geometry_pass.geometries_by_page_block(artifact),
             table_geometry_pass.summary_block(artifact, enabled=True),
         )
+
+    def _apply_rotated_page_backfill(
+        self, *, job: PdfSplitJob, storage: PdfSplitStorage, outcome: Any
+    ) -> dict[str, Any]:
+        """转正页回填：**全仓唯一的调用点**（判据与规则全在 `rotated_backfill`）。
+
+        双引擎跑在 cross_check 阶段，而 pages 在 extract 阶段就已落盘——本阶段是唯一
+        同时拿得到两者（又不必重新付一次云端费）的位置。回填结果写回 pages.json，
+        分段阶段与几何 pass 读到的就是修正后的正文。
+
+        整个回填包在 try 里的理由：它是**附加修正**，一个回填 bug 不能把已经付费的
+        双引擎分歧一起丢掉（那些分歧还没落盘）。失败只记 warning 并在 summary 里留
+        ``error``，任务照常往下走，正文保持原样（乱码但不丢页）。
+
+        异常类型只收具体的几个：读/写盘 ``OSError``、raw dict → dataclass 的
+        ``TypeError`` / ``KeyError``、页号脏值 ``ValueError``。
+        """
+        from . import rotated_backfill, table_geometry_switches, two_stage
+
+        enabled = table_geometry_switches.rotated_page_use_vl_text_enabled()
+        # 先给一个空判决：万一后面的写盘炸了，summary 里也要如实写出「已经改了哪几页」，
+        # 不能因为最后一步失败就把前面的替换说成没发生。
+        result = rotated_backfill.RotatedBackfillResult()
+        try:
+            raw_pages = two_stage.load_pages(storage)
+            if not raw_pages:
+                # 取字产物缺失（重排/人工重提的异常路径）：没有 pages 可回填，如实记一条
+                logger.warning("pdf_split_rotated_backfill_pages_missing", extra={"job_id": str(job.id)})
+                return rotated_backfill.summary_block(rotated_backfill.RotatedBackfillResult(), enabled=enabled)
+
+            view = rotated_backfill.vl_page_view(outcome)
+            pages = rotated_backfill.pages_from_raw(raw_pages)
+            chars_before = {page.page_no: len(str(page.text or "")) for page in pages}
+            result = rotated_backfill.apply_rotated_backfill(
+                pages,
+                angles=view.angles,
+                vl_text=view.text,
+                vl_blocks=view.blocks,
+                enabled=enabled,
+                template_key=str(getattr(job, "template_key", "") or ""),
+            )
+            if result.applied:
+                self._write_back_pages(storage=storage, raw_pages=raw_pages, pages=pages, applied=result.applied)
+            storage.write_json(
+                storage.rotated_backfill_json_path,
+                rotated_backfill.backfill_report(
+                    result,
+                    angles=view.angles,
+                    chars_before=chars_before,
+                    pages=pages,
+                    enabled=enabled,
+                    written_at=timezone.now().isoformat(),
+                ),
+            )
+        except (OSError, TypeError, ValueError, KeyError) as exc:
+            logger.warning(
+                "pdf_split_rotated_backfill_failed",
+                exc_info=True,
+                extra={"job_id": str(job.id), "error": type(exc).__name__},
+            )
+            return rotated_backfill.summary_block(result, enabled=enabled, error=type(exc).__name__)
+        return rotated_backfill.summary_block(result, enabled=enabled)
+
+    def _write_back_pages(
+        self,
+        *,
+        storage: PdfSplitStorage,
+        raw_pages: list[dict[str, Any]],
+        pages: list[PageDescriptor],
+        applied: tuple[int, ...],
+    ) -> None:
+        """把回填结果写回 pages.json：先备份，再改 raw dict，最后整体回写。
+
+        ## 为什么改 raw dict 而不是重新 ``asdict(pages)``
+
+        pages.json 是**跨阶段契约**（extract 写、segment 读）。重新序列化整份会把别的
+        版本写进去的、本版本不认识的键全部丢掉——而那些键可能正是下游要的。所以只改
+        本次真正动过的页的那几个字段（``rotated_backfill.BACKFILL_FIELDS``）。
+
+        ## 备份
+
+        覆盖前把旧文件复制成 ``pages.json.bak-<ts>``：回填是律师看不见的正文替换，
+        出问题时必须能一眼看到「换之前是什么」。
+
+        ## ⚠️ 前提：本函数只能在 segment 阶段**之前**跑
+
+        ``two_stage.table_geometry_is_stale()`` 用 mtime 判定几何产物是否过期。
+        cross_check 在 segment 之前，那时几何产物还不存在，这次 mtime 更新无害；
+        **若将来有人把 cross_check 排到 segment 之后**，几何产物就会被判成 stale
+        重量一次（多花一笔云端钱）。
+        """
+        from . import rotated_backfill
+
+        if storage.pages_json_path.exists():
+            backup_name = f"{storage.pages_json_path.name}.bak-{timezone.now().strftime('%Y%m%dT%H%M%S')}"
+            storage.save_overwrite(
+                storage.pages_json_path.with_name(backup_name), ContentFile(storage.pages_json_path.read_bytes())
+            )
+
+        wanted = set(applied)
+        by_page = {page.page_no: page for page in pages if page.page_no in wanted}
+        for item in raw_pages:
+            page = by_page.get(int(item.get("page_no") or 0))
+            if page is None:
+                continue
+            for field_name in rotated_backfill.BACKFILL_FIELDS:
+                item[field_name] = getattr(page, field_name)
+        storage.write_json(storage.pages_json_path, raw_pages)
 
     def _bbox_backend(self, *, job_id: Any, storage: PdfSplitStorage, pages: list[PageDescriptor]) -> str:
         """两阶段任务的坐标系来源：读**实际引擎**，不是任务上的平台偏好。
