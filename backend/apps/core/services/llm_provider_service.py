@@ -25,9 +25,12 @@ logger = logging.getLogger("apps.core.services.llm_provider")
 def _config_generation() -> int:
     """跨进程配置代次（缓存不可用或首次读取时返回 0 = 只靠 TTL）。
 
-    模块级而不是 ``@staticmethod``：四层架构规定 Service 层禁用静态方法
+    放模块级而不是做成静态方法：四层架构规定 Service 层不用静态方法
     （``tests/ci/structure/test_four_layer_architecture.py`` 的棘轮只许下调）；
-    本函数无 IO 之外的状态，纯函数更合适。
+    本函数没有实例状态，纯函数更合适。
+
+    注：那个棘轮扫描器是**按行正则**，注释/文档串里出现这个装饰器名字也会被
+    计入——所以这里的说明文字刻意不写它的字面形式。
     """
     try:
         from apps.core.llm.key_health import config_generation
@@ -76,6 +79,16 @@ class RemoteModelList:
     def ok(self) -> bool:
         """是否存在至少一个拉取成功的 Key。"""
         return any(item.ok for item in self.per_key)
+
+
+def _split_fallback_models(raw: str) -> list[str]:
+    """降级模型链：逗号/换行/分号分隔，去重保序（与 ``parse_key_entries`` 同风格）。"""
+    models: list[str] = []
+    for part in (raw or "").replace("\n", ",").replace(";", ",").split(","):
+        model = part.strip()
+        if model and model not in models:
+            models.append(model)
+    return models
 
 
 def _extract_model_ids(payload: Any) -> list[str]:
@@ -196,12 +209,15 @@ class LLMProviderService:
                     key_model_scopes={key: models for key, models in entries if models},
                     default_model=(row.default_model or "").strip(),
                     extra_models=row.parsed_models(),
+                    fallback_models=_split_fallback_models(row.fallback_models),
                     embedding_model=(row.embedding_model or "").strip(),
                     vision_model=(row.vision_model or "").strip(),
                     enable_thinking=bool(row.enable_thinking),
                     thinking_switch_supported=row.supports_thinking(),
                     timeout=int(row.timeout or 120),
                     concurrency_per_key=int(row.concurrency_per_key or 0),
+                    rpm_limit=int(getattr(row, "rpm_limit", 0) or 0),
+                    tpm_limit=int(getattr(row, "tpm_limit", 0) or 0),
                     priority=int(row.priority or 10),
                     enabled=bool(row.enabled),
                 )

@@ -17,6 +17,9 @@ LiteLLM 的答案（``router_utils/cooldown_handlers.py`` ``_is_cooldown_require
 
 from __future__ import annotations
 
+import time
+from collections import deque
+
 import pytest
 
 from apps.core.llm.key_pool import KeyPool, cooldown_hint, is_key_fault
@@ -157,3 +160,57 @@ class TestPoolCooldownPolicy:
             assert idx is not None
             pool.release(idx, success=False, model="kimi-2.6", error=_StatusError(422))
         assert pool.is_cooling(idx, "kimi-2.6") is False
+
+
+class TestRateLimits:
+    """rpm/tpm：**滑动窗口**统计 + 默认只观测不拒绝。
+
+    为什么默认不拒绝：额度没有探测手段（网关的 ``x-ratelimit-*`` 头我们没解析），
+    填错就拒绝会误伤正常律师。先跑一周看真实分布，再开 ``FACHUAN_KEY_RATE_LIMIT_ENFORCE=1``。
+
+    为什么是滑动窗口而不是分钟桶（LiteLLM 用分钟桶）：固定窗口在 12:00:59 与
+    12:01:01 的瞬时速率可以翻倍——它敢那么写是因为还有单请求 token 预检兜底。
+    """
+
+    @pytest.fixture()
+    def pool(self, monkeypatch: pytest.MonkeyPatch) -> KeyPool:
+        monkeypatch.setattr(KeyPool, "COOLDOWN_SECONDS", 30.0)
+        monkeypatch.setattr(KeyPool, "FAILS_BEFORE_COOLDOWN", 2)
+        monkeypatch.setattr("apps.core.llm.key_pool.rate_limit_enforce", lambda: False)
+        pool = KeyPool(["k1", "k2"], concurrency_per_key=5)
+        pool.configure_limits(rpm=2, tpm=1000)
+        return pool
+
+    def test_observe_mode_counts_but_never_blocks(self, pool: KeyPool) -> None:
+        for _ in range(10):
+            idx = pool.acquire("m")
+            assert idx is not None
+            pool.release(idx, success=True, model="m")
+
+        rows = {row["index"]: row for row in pool.rate_snapshot()}
+        assert sum(row["requests_60s"] for row in rows.values()) > 2, "观察模式仍要计数"
+        assert all(row["requests_60s"] <= 10 for row in rows.values())
+
+    def test_enforce_mode_skips_over_rpm(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("apps.core.llm.key_pool.rate_limit_enforce", lambda: True)
+        pool = KeyPool(["k1", "k2"], concurrency_per_key=5)
+        pool.configure_limits(rpm=1, tpm=0)
+        # 只把 k1 的窗口占满（手工塞一条样本，避免 acquire 轮转把两把都填满）
+        pool._window.setdefault(0, deque()).append((time.monotonic(), 0))
+
+        idx = pool.acquire("m")
+
+        assert idx == 1, "超 rpm 的 Key 应被跳过，改用另一把"
+
+    def test_tokens_are_recorded_for_tpm(self, pool: KeyPool) -> None:
+        idx = pool.acquire("m")
+        assert idx is not None
+        pool.release(idx, success=True, model="m", tokens=750)
+
+        rows = {row["index"]: row for row in pool.rate_snapshot()}
+        assert rows[idx + 1]["tokens_60s"] == 750
+
+    def test_zero_limits_mean_unlimited(self) -> None:
+        pool = KeyPool(["k1"], concurrency_per_key=3)
+        pool.configure_limits(rpm=0, tpm=0)
+        assert pool._over_limit(0, __import__("time").monotonic()) == ""

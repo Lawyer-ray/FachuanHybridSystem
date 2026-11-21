@@ -30,6 +30,20 @@ def _content_preview(content: str, limit: int = _LOG_CONTENT_PREVIEW_LIMIT) -> s
     return f"{content[:limit]}…(共{len(content)}字)"
 
 
+def _usage_tokens(response: Any) -> int:
+    """从响应里取 total_tokens（供 tpm 统计）；取不到返回 0，绝不因此报错。"""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return 0
+    total = getattr(usage, "total_tokens", None)
+    if total is None and isinstance(usage, dict):
+        total = usage.get("total_tokens")
+    try:
+        return max(0, int(total or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _pick_provider(providers: list[OpenAIProviderConfig], model: str) -> OpenAIProviderConfig | None:
     """按模型名匹配平台；未匹配时返回优先级最高的启用平台（并记录告警）。"""
     enabled = [p for p in providers if p.enabled]
@@ -142,7 +156,14 @@ class OpenAICompatibleBackend:
         池是**进程级**的（按配置内容寻址），与 Agent 路径共用同一个实例，
         否则两条路径各自记账，「每 Key 并发上限」会被放大成两倍。
         """
-        return shared_pool(provider.name, provider.api_keys, provider.concurrency_per_key, provider.key_model_scopes)
+        return shared_pool(
+            provider.name,
+            provider.api_keys,
+            provider.concurrency_per_key,
+            provider.key_model_scopes,
+            rpm_limit=provider.rpm_limit,
+            tpm_limit=provider.tpm_limit,
+        )
 
     @staticmethod
     def _raise_no_key_for_model(provider: OpenAIProviderConfig, model: str) -> NoReturn:
@@ -525,7 +546,7 @@ class OpenAICompatibleBackend:
                 break
             try:
                 result = self._chat_sync_once(pool.keys[idx], provider.base_url, request_timeout, payload, used_model)
-                pool.release(idx, success=True, model=used_model)
+                pool.release(idx, success=True, model=used_model, tokens=_usage_tokens(result))
                 return result
             except Exception as error:
                 pool.release(
@@ -645,7 +666,7 @@ class OpenAICompatibleBackend:
                 result = await self._chat_async_once(
                     pool.keys[idx], provider.base_url, request_timeout, payload, used_model
                 )
-                pool.release(idx, success=True, model=used_model)
+                pool.release(idx, success=True, model=used_model, tokens=_usage_tokens(result))
                 return result
             except Exception as error:
                 pool.release(

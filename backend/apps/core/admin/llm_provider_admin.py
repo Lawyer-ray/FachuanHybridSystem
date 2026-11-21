@@ -62,6 +62,8 @@ class LLMProviderAdmin(admin.ModelAdmin):
                     "api_keys",
                     "timeout",
                     "concurrency_per_key",
+                    "rpm_limit",
+                    "tpm_limit",
                 ),
                 # 2026-11-21 审计（P0-2）：并发记账是**进程内**的，而生产有
                 # 2 个 gunicorn worker + 1 个共享 MCP 进程 → 这里填 3，网关实际
@@ -80,6 +82,7 @@ class LLMProviderAdmin(admin.ModelAdmin):
                 "fields": (
                     "default_model",
                     "extra_models",
+                    "fallback_models",
                     "enable_thinking",
                     "embedding_model",
                     "vision_model",

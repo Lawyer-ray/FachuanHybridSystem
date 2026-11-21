@@ -32,6 +32,7 @@ import logging
 import os
 import threading
 import time
+from collections import deque
 from typing import Any
 
 import httpx
@@ -43,6 +44,10 @@ logger = logging.getLogger(__name__)
 #: 只有这些状态码说明「这把 Key 本身有问题」，才值得冷却（LiteLLM 白名单微调版）。
 #: 403 纳入的理由：律所网关按 Key 授权模型，403 = 这把 Key 没有该模型权限。
 COOLABLE_STATUS: frozenset[int] = frozenset({401, 402, 403, 404, 408, 429})
+
+#: rpm/tpm 的执行模式：默认**只观测不拒绝**（记日志 + 快照），确认阈值合理后再开。
+#: 依据：额度没有探测手段（网关的 x-ratelimit-* 头我们没解析），填错就拒绝会误伤医生。
+ENFORCE_ENV = "FACHUAN_KEY_RATE_LIMIT_ENFORCE"
 
 #: 无状态码的异常里，只有「网络/超时」这类可能是 Key 侧问题。
 #: 其余（解析失败、ValueError、业务校验）与 Key 无关 → 不冷却、也不该换 Key 重试。
@@ -93,6 +98,11 @@ def _exception_status(exc: BaseException | None) -> int | None:
             return code
         current = current.__cause__ or current.__context__
     return None
+
+
+def rate_limit_enforce() -> bool:
+    """rpm/tpm 是否**真的拒绝**（否则只观测）。"""
+    return (os.getenv(ENFORCE_ENV) or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def is_key_fault(exc: BaseException | None) -> bool:
@@ -191,7 +201,50 @@ class KeyPool:
         self._fails: dict[tuple[int, str], int] = {}
         self._reason: dict[tuple[int, str], str] = {}
         self._cursor = 0
+        #: 每 Key 的 (时间戳, tokens) 滑窗（60 秒）。**滑动窗口而不是分钟桶**：
+        #: 固定窗口在 12:00:59 与 12:01:01 的瞬时速率可以翻倍（LiteLLM 敢用分钟桶是因为
+        #: 它有单请求 token 预检兜底，我们没有）。
+        self._window: dict[int, deque[tuple[float, int]]] = {}
+        self._rpm_limit = 0
+        self._tpm_limit = 0
         self._lock = threading.Lock()
+
+    def configure_limits(self, *, rpm: int = 0, tpm: int = 0) -> None:
+        """设置该池的 rpm/tpm 上限（0 = 不限）。由 ``shared_pool`` 按平台配置注入。"""
+        self._rpm_limit = max(0, int(rpm or 0))
+        self._tpm_limit = max(0, int(tpm or 0))
+
+    def _window_totals(self, idx: int, now: float) -> tuple[int, int]:
+        """该 Key 最近 60 秒的 ``(请求数, tokens)``（顺手清掉过期样本）。"""
+        window = self._window.get(idx)
+        if not window:
+            return 0, 0
+        cutoff = now - 60.0
+        while window and window[0][0] < cutoff:
+            window.popleft()
+        return len(window), sum(tokens for _, tokens in window)
+
+    def rate_snapshot(self) -> list[dict[str, Any]]:
+        """各 Key 的 60 秒窗口用量（只读；用于诊断与「观察模式」日志）。"""
+        now = time.monotonic()
+        with self._lock:
+            rows = []
+            for idx in range(len(self.keys)):
+                requests, tokens = self._window_totals(idx, now)
+                if requests or tokens:
+                    rows.append({"index": idx + 1, "requests_60s": requests, "tokens_60s": tokens})
+            return rows
+
+    def _over_limit(self, idx: int, now: float) -> str:
+        """该 Key 是否超 rpm/tpm；返回原因（未超返空串）。"""
+        if not (self._rpm_limit or self._tpm_limit):
+            return ""
+        requests, tokens = self._window_totals(idx, now)
+        if self._rpm_limit and requests >= self._rpm_limit:
+            return f"rpm {requests}/{self._rpm_limit}"
+        if self._tpm_limit and tokens >= self._tpm_limit:
+            return f"tpm {tokens}/{self._tpm_limit}"
+        return ""
 
     def _eligible(self, model: str) -> list[int]:
         """返回可用于该模型的 Key 下标（未声明白名单的 Key 视为不限模型）。"""
@@ -221,9 +274,15 @@ class KeyPool:
                     continue
                 if self.keys[idx] in shared:
                     continue
+                if rate_limit_enforce() and self._over_limit(idx, now):
+                    continue
                 if self.limit and self._active[idx] >= self.limit:
                     continue
                 self._active[idx] += 1
+                self._window.setdefault(idx, deque()).append((now, 0))
+                over = self._over_limit(idx, now)
+                if over and not rate_limit_enforce():
+                    logger.info("Key rpm/tpm 观察：第 %d 把超限（%s），当前仅记录不拒绝", idx + 1, over)
                 return idx
             # 全部处于并发上限：超限使用下一个「未冷却」的 Key，保证请求可用。
             # 两趟：先挑本地与**跨进程**都没判坏的；实在没有才退到「只避开本地冷却」。
@@ -237,6 +296,7 @@ class KeyPool:
                     if not ignore_shared and self.keys[idx] in shared:
                         continue
                     self._active[idx] += 1
+                    self._window.setdefault(idx, deque()).append((now, 0))
                     return idx
             return None
 
@@ -248,6 +308,7 @@ class KeyPool:
         model: str = "",
         error: BaseException | None = None,
         cooldown_seconds: float | None = None,
+        tokens: int = 0,
     ) -> None:
         """归还槽位，并按失败类型决定是否冷却该 ``(Key, 模型)``。
 
@@ -265,6 +326,9 @@ class KeyPool:
             if 0 <= idx < len(self._active):
                 self._active[idx] = max(0, self._active[idx] - 1)
             api_key = self.keys[idx] if 0 <= idx < len(self.keys) else ""
+            if tokens > 0 and 0 <= idx < len(self.keys):
+                window = self._window.setdefault(idx, deque())
+                window.append((time.monotonic(), int(tokens)))
             if success:
                 self._failed_until.pop(key, None)
                 self._fails.pop(key, None)
@@ -382,6 +446,9 @@ def shared_pool(
     keys: list[str],
     concurrency_per_key: int = 0,
     scopes: dict[str, list[str]] | None = None,
+    *,
+    rpm_limit: int = 0,
+    tpm_limit: int = 0,
 ) -> KeyPool:
     """返回进程内共享的 Key 池，按配置内容寻址。
 
@@ -398,6 +465,7 @@ def shared_pool(
             for stale in [k for k in _shared_pools if k[0] == name]:
                 del _shared_pools[stale]
             pool = KeyPool(keys, effective_limit(concurrency_per_key), scopes, provider=name)
+            pool.configure_limits(rpm=rpm_limit, tpm=tpm_limit)
             _shared_pools[cache_key] = pool
         return pool
 

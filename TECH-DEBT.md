@@ -14,24 +14,6 @@
 
 ---
 
-## ② 额度模型（rpm / tpm）完全缺失
-
-**现象**：网关对每把 Key 除了并发上限还有**每分钟请求数 / token 数**限制（LiteLLM 侧可配）。
-现在只有并发维度，一旦上长文档/大 prompt，会直接吃 429——而且我们**不知道**离限额还有多远。
-
-**证据**：`backend/apps/core/models/llm_provider.py` 的字段清单里没有 rpm/tpm
-（`grep -n "rpm\|tpm" apps/core/models/llm_provider.py` 无输出）；
-`LLMProvider.concurrency_per_key` 是唯一与限流有关的配置。
-
-**修法**：`LLMProvider` 加 `rpm_limit` / `tpm_limit`（默认 0 = 不限 → 行为不变），
-`KeyPool` 加**滑动窗口**计数（`deque[(ts, tokens)]` 求和，**不要照搬 LiteLLM 的分钟桶**——
-固定窗口在 12:00:59 与 12:01:01 的瞬时速率可以翻倍）。
-先做「只观测不拒绝」跑一周，拿到真实分布再决定是否拦截。
-
-**代价**：1 个迁移 + KeyPool 计数；**风险**：额度填错会误伤（所以先观察模式）。
-
----
-
 ## ④ 正文抽取质量（政务页实测只抽到 830 字）
 
 **现象**：同一个政务页面，`fetch_url` 只返回 800–900 字，而页面实际正文更长；
