@@ -17,7 +17,7 @@ from ninja.errors import HttpError
 from apps.core.infrastructure.throttling import get_rate_limit_config, rate_limit
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..errors import SessionNotFoundError, TooManyAgentsError, project
+from ..errors import SessionNotFoundError, TooManyAgentsError, project, project_message
 from ..models import AgentMessage
 from ..pi.rpc_client import PiError
 from ..schemas import ClearQueueOut, MessageIn, MessageOut, SteerIn, SteerOut
@@ -195,10 +195,12 @@ async def send_message(  # pragma: no cover
             # （未知后端）还是上游 SDK 错误，前端需要那个 ``code`` 才能给出
             # 「换一栏」还是「稍后重试」的可执行建议。
             logger.exception("SSE 生成器异常")
-            # 不把上游异常对象直接交给序列化层：CodeQL 的 py/stack-trace-exposure 会
-            # 把它判成"堆栈可能进响应"（error 级）。诊断信息已经在上面 logger.exception
-            # 里完整留档，前端只需要一个稳定的 code + 人话文案。
-            yield _sse(project(RuntimeError("stream_failed"), message="流处理异常，请稍后重试"))
+            # 用 ``project_message``（吃**字符串**）而不是 ``project(exc)``：
+            # 只要异常对象参与构造响应，CodeQL 的 py/stack-trace-exposure 就判成
+            # "堆栈可能进响应"（error 级，实测两次都被拦）；而这条路径也不需要细分类——
+            # 能走到这里说明异常已穿过 stream/multi 的全部兜底，对律师只有一个结论：
+            # 这一轮没跑成，稍后重试。分类与堆栈由上面的 logger.exception 完整留档。
+            yield _sse(project_message("stream_failed", message="流处理异常，请稍后重试"))
 
     response = StreamingHttpResponse(generator(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
