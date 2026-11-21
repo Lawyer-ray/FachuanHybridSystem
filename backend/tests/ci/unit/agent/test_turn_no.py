@@ -12,9 +12,32 @@ from apps.agent.services.chat import stream as stream_mod
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_two_turns_get_increasing_turn_no() -> None:
+async def test_two_turns_get_increasing_turn_no(monkeypatch: pytest.MonkeyPatch) -> None:
     session = await AgentSession.objects.acreate(title="轮次", origin="chat")
     sid = str(session.session_id)
+
+    # 只有 Redis 后端才计数：``stream._next_turn_sync`` 在非 Redis 缓存下直接返回
+    # ``None``（进程内计数会让两个 worker 各自从 1 开始，反而造出重复 run_id）。
+    # CI 没有 Redis，所以这里注入一个假 INCR 后端，把「同一会话内递增」这条行为
+    # 单独钉住——它测的是编排逻辑，不是 Redis 本身。
+    counters: dict[str, int] = {}
+
+    class _SeqCache:
+        def add(self, key: str, value: int, timeout: int | None = None) -> bool:
+            if key in counters:
+                return False
+            counters[key] = value
+            return True
+
+        def incr(self, key: str, delta: int = 1) -> int:
+            counters[key] = counters.get(key, 0) + delta
+            return counters[key]
+
+        def touch(self, key: str, timeout: int) -> bool:
+            return True
+
+    monkeypatch.setattr(stream_mod, "redis_cache_enabled", lambda: True)
+    monkeypatch.setattr(stream_mod, "cache", _SeqCache())
 
     first = await stream_mod.next_run_turn(sid)
     second = await stream_mod.next_run_turn(sid)

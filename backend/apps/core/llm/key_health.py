@@ -7,8 +7,8 @@
 
 - 某把 Key 在 worker A 里因 401 被冷却，worker B 与 MCP 进程都不知道 → 同一个坏
   Key 会被反复选中、反复吃 401；
-- Admin 换 Key 后只有「保存的那个 worker」清缓存，其它进程要等 TTL（MCP 与
-  服务路径都是 **300 秒**）→ 用户看到「聊天好了、检索还用旧 Key」。
+- Admin 换 Key 后只有「保存的那个 worker」清缓存，其它进程要等 TTL（引入本模块时
+  服务路径与解析路径都是 **300 秒**）→ 用户看到「聊天好了、检索还用旧 Key」。
 
 所以这里补两样最小可用的跨进程状态，全部走 `django.core.cache`：
 配 Redis 即为全局共享，未配则 LocMem（**等价于今天的进程内行为，不会更差**）。
@@ -23,9 +23,11 @@
 ## 红线二：Key 明文与可枚举指纹都不进缓存键
 
 缓存键里出现 Key 明文（或裸 SHA256）会被安全扫描器一律拦下（见
-`key_scheduler.fingerprint` 的同类论证）。这里复用仓库既有的 HMAC 派生
-（`apps.core.infrastructure.cache._hash_key_component`，SECRET_KEY 为密钥），
-既有非可枚举性、也不会被 `py/weak-sensitive-data-hashing` 命中。
+`key_scheduler.fingerprint` 的同类论证）。这里复用仓库既有的派生函数
+（`apps.core.infrastructure.cache._hash_key_component`，PBKDF2-SHA256 + SECRET_KEY 作 pepper）：
+跨进程稳定、不可枚举，也不触发 `py/weak-sensitive-data-hashing`——把凭据喂给**任何**快哈希
+（SHA256 / HMAC-SHA256 / keyed BLAKE2b 三次实测）都会被该查询判成「对低熵输入不够慢」，
+理由见 `_hash_key_component` 注释。
 
 ## 红线三：健康状态必须有 TTL
 
