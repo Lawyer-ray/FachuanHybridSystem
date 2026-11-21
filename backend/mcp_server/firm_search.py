@@ -65,6 +65,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .adaptive_limiter import AdaptiveLimiter
+
 logger = logging.getLogger(__name__)
 
 #: 显式覆盖（逃生口 / 本机联调 / 单测）。两者齐备才生效，优先于平台配置。
@@ -76,17 +78,12 @@ ENV_TIMEOUT = "FACHUAN_FIRM_SEARCH_TIMEOUT"
 ENV_PATH = "FACHUAN_FIRM_SEARCH_PATH"
 #: 选平台的模型提示（留空 = 优先级最高的启用平台，与模型调用同口径）。
 ENV_MODEL_HINT = "FACHUAN_FIRM_SEARCH_MODEL_HINT"
-#: 检索侧的**总并发闸门**（与网关的「每 key 并发」是两件事，见 ``_concurrency_gate``）。
+#: 检索并发的**上限封顶**（可选）。不填 = 吃满「key 数 × 每 key 并发」，
+#: 实际放行速率由自适应调度器按实测延迟自己调（见 ``_limiter_for``）。
 ENV_MAX_CONCURRENT = "FACHUAN_FIRM_SEARCH_MAX_CONCURRENT"
 
-#: 默认总并发上限。理由见 ``_concurrency_gate`` 的实测数据：10 是安全水位。
-DEFAULT_MAX_CONCURRENT = 10
-
-#: 闸门满时最多排队多少秒；超过就快速失败（让通道层如实告诉模型「正在排队」）。
-#:
-#: 15s 的来历：30 并发 / 闸门 10 = 3 轮，实测每轮约 3s、总 12s；给 3s 余量。
-#: 等 10s 时实测 27/30（3 个 busy），等 20s 时 28/30（剩下的失败变成上游
-#: 返回畸形响应，不再是排队问题）。再长就只是在拖慢律师的等待。
+#: 排队上限：槽位满时最多等多久，超时即 ``busy``（快速失败，别拖死整轮对话）。
+#: 30 并发 / 上限 30 的实测：一轮约 3s，最坏队列约 2 轮，15s 足够。
 _GATE_WAIT_SECONDS = 15.0
 
 #: 百炼检索工具在网关上的注册名（``<server>-<tool>``）。
@@ -99,6 +96,10 @@ DEFAULT_TIMEOUT = 45.0
 
 #: 鉴权/限流类状态码：换一把 key 重试一次，比整条通道冷却两分钟划算。
 _RETRYABLE_STATUS = frozenset({401, 403, 429})
+
+#: 这些失败说明「上游被压过界了」——调度器据此立刻退让（比等延迟统计更及时）。
+#: ``empty`` 实测是 30 并发下的主要症状（27%），``timeout`` 是排队排到超时。
+_OVERLOAD_REASONS = frozenset({"empty", "timeout"})
 
 
 @dataclass(frozen=True)
@@ -258,49 +259,48 @@ def _pages_from_result(result: dict[str, Any]) -> list[dict[str, Any]] | None:
     return None
 
 
-_gate_lock = threading.Lock()
-_gate: tuple[int, threading.BoundedSemaphore] | None = None
+_limiter_lock = threading.Lock()
+_limiter: tuple[tuple[str, int, int], AdaptiveLimiter] | None = None
 
 
-def _concurrency_gate() -> threading.BoundedSemaphore | None:
-    """检索侧总并发闸门（**与网关的 per-key 并发是两个不同的限额**）。
+def _capacity(cfg: FirmSearchConfig) -> int:
+    """硬上限 = key 数 × 每 key 并发（网关允许的最大并行数）。"""
+    per_key = int(cfg.concurrency_per_key or 0) or 1
+    return max(1, len(cfg.keys) * per_key)
 
-    ## 为什么需要它（2026-11-21 实测水位）
 
-    ``LLMProvider.concurrency_per_key=3`` 是「网关允许多少并发」，不是「上游检索
-    服务吃得下多少」。10 把 key × 3 = 30 槽位的实测结果：
+def _limiter_for(cfg: FirmSearchConfig) -> AdaptiveLimiter:
+    """取该平台的自适应调度器（按 provider + 容量寻址，配置变了就重建）。
 
-    | 并发 | 成功 | 耗时 |
-    |---|---|---|
-    | 5 | 5/5 | 2.4s |
-    | 10 | 10/10 | 2.8s |
-    | 20 | 14/20 | 48.5s（含 45s 超时） |
-    | 30（满槽位） | 22/30 | 23s，p50 21s |
-
-    即：**每 key 1 并发（10 并发）是安全水位**，满了会排队、变慢、甚至返回空
-    pages。所以池仍然按网关限额取槽（不顶穿网关），再加一道检索侧闸门压住上游。
-
-    闸门**不会突破网关限额**：它只会在「池允许的并发」之下再收紧。
-    设为 0 表示关闭闸门（只保留网关限额）。
+    ``FACHUAN_FIRM_SEARCH_MAX_CONCURRENT`` 现在只作为**上限封顶**（可填一个比
+    硬件上限更保守的值，例如所里只想给检索留 5 个槽位）；不填就吃满
+    「key 数 × 每 key 并发」，实际放行速率由 :class:`~mcp_server.adaptive_limiter.AdaptiveLimiter`
+    按实测延迟自己找安全水位——轻载爬满、上游一排队就退回来。
     """
-    global _gate
+    global _limiter
+    cap = _capacity(cfg)
     raw = (os.getenv(ENV_MAX_CONCURRENT) or "").strip()
-    try:
-        limit = int(raw) if raw else DEFAULT_MAX_CONCURRENT
-    except ValueError:
-        logger.warning("%s 不是整数（%r），回退默认 %s", ENV_MAX_CONCURRENT, raw, DEFAULT_MAX_CONCURRENT)
-        limit = DEFAULT_MAX_CONCURRENT
-    if limit <= 0:
-        return None
-    with _gate_lock:
-        if _gate is None or _gate[0] != limit:
-            _gate = (limit, threading.BoundedSemaphore(limit))
-        return _gate[1]
+    if raw:
+        try:
+            ceiling = int(raw)
+            if ceiling > 0:
+                cap = min(cap, ceiling)
+        except ValueError:
+            logger.warning("%s 不是整数（%r），按硬件上限 %s 处理", ENV_MAX_CONCURRENT, raw, cap)
 
-
-def _release_gate(gate: threading.BoundedSemaphore | None) -> None:
-    if gate is not None:
-        gate.release()
+    key = (cfg.provider, cap, int(cfg.concurrency_per_key or 0))
+    with _limiter_lock:
+        if _limiter is None or _limiter[0] != key:
+            # 起步 = 每 key 1 并发（实测安全水位），再向上试探到硬上限。
+            initial = min(cap, max(1, len(cfg.keys)))
+            _limiter = (key, AdaptiveLimiter(max_limit=cap, initial=initial))
+            logger.info(
+                "兜底检索调度器就绪：平台=%s 硬上限=%s（key 数 × 每 key 并发）起步=%s",
+                cfg.provider or "?",
+                cap,
+                initial,
+            )
+        return _limiter[1]
 
 
 def _key_pool(cfg: FirmSearchConfig) -> Any:
@@ -389,18 +389,26 @@ def search(query: str, count: int, config: FirmSearchConfig | None = None) -> di
     if not cfg.keys:
         return {"ok": False, "reason": "no_key", "pages": [], "detail": "兜底检索通道没有可用 Key"}
 
-    gate = _concurrency_gate()
-    if gate is not None and not gate.acquire(timeout=_GATE_WAIT_SECONDS):
+    limiter = _limiter_for(cfg)
+    if not limiter.acquire(timeout=_GATE_WAIT_SECONDS):
         return {
             "ok": False,
             "reason": "busy",
             "pages": [],
-            "detail": f"兜底检索并发已满（上限 {DEFAULT_MAX_CONCURRENT}），排队 {_GATE_WAIT_SECONDS:.0f} 秒仍未轮到",
+            "detail": f"兜底检索并发已满（当前放行 {limiter.limit}/{limiter.max_limit}），排队 {_GATE_WAIT_SECONDS:.0f} 秒仍未轮到",
         }
+    started = time.monotonic()
+    out: dict[str, Any] = {"ok": False, "reason": "internal_error", "pages": [], "detail": "兜底检索未完成"}
     try:
-        return _search_locked(cfg, query, count)
+        out = _search_locked(cfg, query, count)
     finally:
-        _release_gate(gate)
+        # 「空结果 / 超时」是上游被压过界的直接证据，交给调度器立刻退让；
+        # 其余失败（鉴权、畸形响应）与并发无关，只参与延迟统计。
+        limiter.release(
+            latency=time.monotonic() - started,
+            overload=out.get("reason") in _OVERLOAD_REASONS,
+        )
+    return out
 
 
 def _search_locked(cfg: FirmSearchConfig, query: str, count: int) -> dict[str, Any]:
@@ -477,7 +485,6 @@ def _search_locked(cfg: FirmSearchConfig, query: str, count: int) -> dict[str, A
 
 
 __all__ = [
-    "DEFAULT_MAX_CONCURRENT",
     "DEFAULT_MCP_PATH",
     "ENV_KEY",
     "ENV_MAX_CONCURRENT",

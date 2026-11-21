@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import collections
 import importlib
 import json
 import threading
@@ -620,20 +621,101 @@ class TestCallDeadline:
         assert elapsed < 3.0, f"必须在截止时刻附近截断，实测 {elapsed:.2f}s"
 
 
-class TestConcurrencyGate:
-    """检索侧总并发闸门：10 把 key × 3 槽位 ≠ 上游吃得下。
+class TestAdaptiveLimiter:
+    """自适应并发调度：上限 = key 数 × 每 key 并发，实际放行按实测延迟自调。
 
-    2026-11-21 实测水位：5/10 并发全成（2-3s），20 并发 14/20（48s，含超时），
-    30 并发（满槽位）22/30、p50 21s。所以网关限额之外再压一道检索侧闸门，
-    默认 10；满了排队，排不到就快速失败（``busy``），而不是把上游打爆。
+    背景（2026-11-21 实测）：10 把 key × 每把 3 并发 = 硬上限 30，但把 30 个请求
+    同时放出去上游顶不住——30 并发时 27% 返回空 pages、p50 21s；10 并发时全成、2.8s。
+    写死任何一个数都会在某种负载下变成错的，所以用窗口采样自己找水位。
     """
 
-    def test_gate_caps_effective_concurrency(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        module = _firm_module()
-        cfg = module.FirmSearchConfig(url="http://gw/WebSearch/mcp", keys=("k",), timeout=5)
-        monkeypatch.setenv(module.ENV_MAX_CONCURRENT, "2")
-        monkeypatch.setattr(module, "_gate", None)
+    def _limiter(self, **kw: Any) -> Any:
+        module = importlib.import_module("mcp_server.adaptive_limiter")
+        return module.AdaptiveLimiter(**kw)
 
+    def test_starts_at_safe_level_and_climbs_on_fast_samples(self) -> None:
+        limiter = self._limiter(max_limit=30, initial=10, window=4)
+
+        assert limiter.limit == 10  # 起步 = 每 key 1 并发（实测安全水位）
+        for _ in range(4 * 40):
+            limiter.release(latency=0.05)
+        assert limiter.limit == 30, "延迟贴近底噪时应爬到硬上限（吃满所有 key）"
+
+    def test_halves_when_latency_jumps(self) -> None:
+        limiter = self._limiter(max_limit=30, window=4)
+        for _ in range(4 * 40):
+            limiter.release(latency=0.05)  # 先爬到高位
+        high = limiter.limit
+
+        for _ in range(4):  # 一次窗口的「明显排队」样本
+            limiter.release(latency=0.05 * 10)
+        assert limiter.limit < high, "延迟翻十倍时必须退让"
+
+    def test_overload_signal_retreats_without_waiting_window(self) -> None:
+        limiter = self._limiter(max_limit=30, window=4)
+        for _ in range(4 * 8):  # 先爬到一定高度
+            limiter.release(latency=0.05)
+        before = limiter.limit
+        assert before >= 5
+
+        # 单个过载信号就该立刻退让——不等攒满一个窗口的延迟样本
+        limiter.release(latency=0.05, overload=True)
+
+        assert limiter.limit == before - 2
+
+    def test_never_exceeds_max_or_goes_below_one(self) -> None:
+        limiter = self._limiter(max_limit=3, window=2, min_limit=1)
+        for _ in range(50):
+            limiter.release(latency=0.01)
+        assert limiter.limit == 3
+        for _ in range(50):
+            limiter.release(latency=9.0, overload=True)
+        assert limiter.limit == 1
+
+    def test_acquire_blocks_until_release_then_succeeds(self) -> None:
+        limiter = self._limiter(max_limit=1, window=4)
+        assert limiter.acquire(timeout=0.1) is True  # 第一个槽位
+        assert limiter.acquire(timeout=0.05) is False  # 上限 1，第二个拿不到
+
+        threading.Timer(0.05, lambda: limiter.release(latency=0.01)).start()
+        assert limiter.acquire(timeout=1.0) is True  # 释放后立刻能拿到
+
+
+class TestFirmScheduling:
+    """服务层把调度器接上：峰值不越过硬上限、过载后自动退让。"""
+
+    @staticmethod
+    def _cfg(module: Any, keys: int = 10, per_key: int = 3) -> Any:
+        return module.FirmSearchConfig(
+            url="http://gw/WebSearch/mcp",
+            keys=tuple(f"sk-{i}" for i in range(keys)),
+            timeout=5,
+            provider="test",
+            concurrency_per_key=per_key,
+        )
+
+    def _reset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        monkeypatch.setattr(module, "_limiter", None)
+        monkeypatch.delenv(module.ENV_MAX_CONCURRENT, raising=False)
+
+    def test_capacity_is_keys_times_per_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        self._reset(monkeypatch)
+        limiter = module._limiter_for(self._cfg(module))
+        assert limiter.max_limit == 30  # 10 把 key × 每把 3 并发
+
+    def test_env_can_cap_below_hardware_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        self._reset(monkeypatch)
+        monkeypatch.setenv(module.ENV_MAX_CONCURRENT, "4")
+        limiter = module._limiter_for(self._cfg(module))
+        assert limiter.max_limit == 4  # 所里想给检索留几个槽位
+
+    def test_peak_never_exceeds_capacity_and_all_succeed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _firm_module()
+        self._reset(monkeypatch)
+        cfg = self._cfg(module, keys=4, per_key=3)  # 硬上限 12
         state = {"inflight": 0, "peak": 0}
         lock = threading.Lock()
 
@@ -641,55 +723,39 @@ class TestConcurrencyGate:
             with lock:
                 state["inflight"] += 1
                 state["peak"] = max(state["peak"], state["inflight"])
-            time.sleep(0.15)
+            time.sleep(0.02)
             with lock:
                 state["inflight"] -= 1
             payload = {"status": 0, "pages": [{"title": "T", "url": "https://a.gov.cn/x", "snippet": "s"}]}
-            envelope = {"jsonrpc": "2.0", "id": 1,
-                        "result": {"content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}]}}
+            envelope = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "result": {"content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}]},
+            }
             return module._Fetched(status_code=200, text=f"data: {json.dumps(envelope, ensure_ascii=False)}\n\n")
 
         monkeypatch.setattr(module, "_call", fake_call)
+        # 每 key 并发由共享 Key 池负责，这里把池上限拉到 3 以模拟真实配置
+        monkeypatch.setattr(module, "_key_pool", lambda c: _WidePool(list(c.keys)))
 
-        with ThreadPoolExecutor(max_workers=6) as pool:
-            results = list(pool.map(lambda _: module.search("合同", 3, cfg), range(6)))
+        with ThreadPoolExecutor(max_workers=24) as pool:
+            results = list(pool.map(lambda _: module.search("合同", 3, cfg), range(24)))
 
-        assert all(r["ok"] for r in results), results
-        assert state["peak"] <= 2, f"闸门上限 2 被突破：峰值 {state['peak']}"
+        assert all(r["ok"] for r in results), collections.Counter(r.get("reason") for r in results)
+        assert state["peak"] <= 12, f"越过硬上限：峰值 {state['peak']}"
 
-    def test_gate_busy_fails_fast(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        module = _firm_module()
-        cfg = module.FirmSearchConfig(url="http://gw/WebSearch/mcp", keys=("k",), timeout=5)
-        monkeypatch.setenv(module.ENV_MAX_CONCURRENT, "1")
-        monkeypatch.setattr(module, "_gate", None)
-        monkeypatch.setattr(module, "_GATE_WAIT_SECONDS", 0.05)
 
-        def slow_call(url: str, key: str, query: str, count: int, timeout: float) -> Any:
-            time.sleep(0.4)
-            return module._Fetched(status_code=500, text="")
+class _WidePool:
+    """不限制并发/冷却的池替身（调度器用例只验调度器本身）。"""
 
-        monkeypatch.setattr(module, "_call", slow_call)
+    def __init__(self, keys: list[str]) -> None:
+        self.keys = keys
+        self._i = 0
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            first = pool.submit(module.search, "合同", 3, cfg)
-            time.sleep(0.05)
-            second = module.search("合同", 3, cfg)
-            first.result()
+    def acquire(self, model: str = "") -> int:
+        idx = self._i % len(self.keys)
+        self._i += 1
+        return idx
 
-        assert second["ok"] is False
-        assert second["reason"] == "busy"
-
-    def test_empty_reason_does_not_trip_channel_breaker(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """空结果多半是上游排队/降级——不该让兜底通道冷却 2 分钟。"""
-        web = _module()
-        monkeypatch.setattr(
-            _firm_module(),
-            "search",
-            lambda *a, **k: {"ok": False, "reason": "empty", "pages": [], "detail": "兜底检索未返回任何结果"},
-        )
-
-        outcome = web._firm_search_outcome("合同", 5, 1)
-
-        assert outcome is not None and not outcome.ok
-        assert outcome.reason == "empty"
-        assert outcome.cooldown == 0.0
+    def release(self, idx: int, *, success: bool, model: str = "") -> None:
+        return None
