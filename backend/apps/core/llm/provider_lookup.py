@@ -34,7 +34,10 @@ def resolve_provider_name(model: str | None) -> str:
 
         provider = _pick_provider(LLMProviderService.get_providers(), (model or "").strip())
         return str(getattr(provider, "name", "") or "")[:50] if provider is not None else ""
-    except Exception:  # pragma: no cover - 统计旁路，永不抛
+    except (AttributeError, ImportError, IndexError, KeyError, RuntimeError, TypeError, ValueError):
+        # 统计旁路，永不抛：平台解析失败只影响「这条记录归到哪个平台」。
+        # 用具体类型而不是宽捕获（宽异常捕获棘轮只许下调）：这里可能失败的原因
+        # 就是「没配平台 / 模型名为空 / 配置对象形状变了 / 循环导入」这几类。
         logger.debug("解析模型所属平台失败（按未知处理）", exc_info=True)
         return ""
 

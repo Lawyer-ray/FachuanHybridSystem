@@ -46,7 +46,7 @@ API_MODEL_OBJECTS_RATCHET = 0
 # 2026-10-11 两轮下沉：264 → 197（零跨文件引用批），197 → 12（全量纯函数批，186 个）。
 # 剩余 12 个为跨类同名（调用方导入易撞名）、与既有 import 同名的薄包装、
 # 依赖类常量的真 classmethod 等个案，转换需逐个人工评估（改名或合并去重）。
-SERVICE_STATIC_METHOD_RATCHET = 12
+SERVICE_STATIC_METHOD_RATCHET = 11
 
 
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:
