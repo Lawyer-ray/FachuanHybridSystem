@@ -449,7 +449,56 @@ class OpenAICompatibleBackend:
 
     # ── API 方法 ─────────────────────────────────────────────────────────────
 
+    #: 值得换模型重试的失败：模型挂了/网关抖/超时。参数错（400）不在其列。
+    _FALLBACK_TRIGGER_ERRORS = (LLMTimeoutError, LLMNetworkError, LLMAPIError)
+
+    def _fallback_models_for(self, model: str | None) -> list[str]:
+        """该模型可降级到的候选（来自 Admin 的 ``fallback_models``）。
+
+        ``fallback_models`` 长期是「僵尸字段」：Admin 里看不到、服务层不加载、只有 pi 会
+        真的降级（审计 P1-10）。配置已能加载（v27.20.7），这里补上**运行时执行**。
+        排除自身，避免「降级到自己」空转。
+        """
+        used = (model or self.default_model or "").strip()
+        provider = self._resolve_provider(used)
+        if provider is None:
+            return []
+        candidates = [str(m).strip() for m in (provider.fallback_models or []) if str(m).strip()]
+        return [m for m in candidates if m != used]
+
     def chat(
+        self,
+        messages: list[dict[str, Any]],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """同步对话；主模型失败时按 ``fallback_models`` 顺序换模型重试。
+
+        降级**只发生在非流式路径**：流式一旦吐出 token 就无法回退（已流出的内容作废），
+        宁可让调用方看到错误。
+        """
+        try:
+            return self._chat_primary(messages, model, temperature, max_tokens, **kwargs)
+        except self._FALLBACK_TRIGGER_ERRORS as error:
+            fallbacks = self._fallback_models_for(model)
+            if not fallbacks:
+                raise
+            for candidate in fallbacks:
+                logger.warning(
+                    "主模型失败，按 fallback_models 重试: %s → %s（原因 %s）",
+                    model or self.default_model,
+                    candidate,
+                    type(error).__name__,
+                )
+                try:
+                    return self._chat_primary(messages, candidate, temperature, max_tokens, **dict(kwargs))
+                except self._FALLBACK_TRIGGER_ERRORS:
+                    continue
+            raise
+
+    def _chat_primary(
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
@@ -532,6 +581,34 @@ class OpenAICompatibleBackend:
         return self._build_response(response, used_model, start_time)
 
     async def achat(
+        self,
+        messages: list[dict[str, Any]],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """异步对话；降级语义与 :meth:`chat` 完全一致（非流式才降级）。"""
+        try:
+            return await self._achat_primary(messages, model, temperature, max_tokens, **kwargs)
+        except self._FALLBACK_TRIGGER_ERRORS as error:
+            fallbacks = self._fallback_models_for(model)
+            if not fallbacks:
+                raise
+            for candidate in fallbacks:
+                logger.warning(
+                    "主模型失败，按 fallback_models 重试: %s → %s（原因 %s）",
+                    model or self.default_model,
+                    candidate,
+                    type(error).__name__,
+                )
+                try:
+                    return await self._achat_primary(messages, candidate, temperature, max_tokens, **dict(kwargs))
+                except self._FALLBACK_TRIGGER_ERRORS:
+                    continue
+            raise
+
+    async def _achat_primary(
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
