@@ -17,6 +17,10 @@ const apiSpies = vi.hoisted(() => ({
   fetchReview: vi.fn(),
   adoptReview: vi.fn(),
   fetchReviewAdoption: vi.fn(),
+  fetchReviewOptions: vi.fn(),
+  fetchSynthesis: vi.fn(),
+  runReview: vi.fn(),
+  runSynthesis: vi.fn(),
 }))
 vi.mock('../../api', async () => {
   const actual = await vi.importActual<typeof import('../../api')>('../../api')
@@ -62,6 +66,8 @@ const reviewWire = (over: Partial<Review> = {}): Review => ({
   verdicts: [verdict()],
   headline: 'pi 栏多数通过；dsh 栏多数通过',
   unverified: [],
+  clusters: [],
+  clusters_error: '',
   ...over,
 })
 
@@ -77,6 +83,13 @@ const adoptionWire = (over: Partial<ReviewAdoptionWire> = {}): ReviewAdoptionWir
 beforeEach(() => {
   vi.clearAllMocks()
   apiSpies.fetchReviewAdoption.mockResolvedValue({ adoption: null })
+  apiSpies.fetchReviewOptions.mockResolvedValue({
+    rubric_ids: ['contract_answer_v1'],
+    judge_models: ['judge-a'],
+    max_lanes: 4,
+  })
+  // 404 = 该轮还没跑过综合结论（正常态）
+  apiSpies.fetchSynthesis.mockRejectedValue(new Error('404'))
 })
 
 describe('ReviewSummaryCard：汇总与证据', () => {
@@ -156,6 +169,62 @@ describe('ReviewSummaryCard：汇总与证据', () => {
   })
 })
 
+describe('ReviewSummaryCard：共识 / 分歧（成团）', () => {
+  it('多于一栏的簇 = 共识，单栏 = 单独立场；非 tie 时突出代表', () => {
+    render(
+      <ReviewSummaryCard
+        review={toReviewView(
+          reviewWire({
+            clusters: [
+              { member_ids: ['pi', 'dsh'], representative_id: 'pi', tie: false },
+              { member_ids: ['openai-agents'], representative_id: 'openai-agents', tie: false },
+            ],
+          }),
+        )}
+      />,
+    )
+    const list = screen.getByTestId('review-clusters')
+    expect(list.textContent).toContain('共识：Pi、DeepSeek Harness')
+    expect(list.textContent).toContain('单独立场：openai-agents')
+    expect(screen.getByTestId('cluster-0').getAttribute('data-emphasized')).toBe('true')
+    expect(screen.getByTestId('cluster-0').textContent).toContain('代表 Pi')
+  })
+
+  it('clustersError 非空：显示「未成团：原因」，绝不显示成「三份全异」', () => {
+    render(<ReviewSummaryCard review={toReviewView(reviewWire({ clusters_error: '判等超时' }))} />)
+    expect(screen.getByTestId('clusters-error').textContent).toBe('未成团：判等超时')
+    expect(screen.queryByTestId('cluster-0')).toBeNull()
+    // 失败不是一个结论：既不能说「三份全异」，也不能冒出任何立场组
+    expect(screen.getByTestId('review-clusters').textContent).not.toContain('全异')
+    expect(screen.getByTestId('review-clusters').textContent).not.toContain('共识：')
+    expect(screen.getByTestId('review-clusters').textContent).not.toContain('单独立场')
+  })
+
+  it('tie=true：所有簇都不加高亮，也不提示代表', () => {
+    render(
+      <ReviewSummaryCard
+        review={toReviewView(
+          reviewWire({
+            clusters: [
+              { member_ids: ['pi'], representative_id: 'pi', tie: true },
+              { member_ids: ['dsh'], representative_id: 'dsh', tie: true },
+            ],
+          }),
+        )}
+      />,
+    )
+    expect(screen.queryAllByTestId(/^cluster-\d+$/).every((item) => item.getAttribute('data-emphasized') === null)).toBe(true)
+    expect(screen.getByTestId('clusters-tie').textContent).toContain('没有可判定的代表')
+    expect(screen.getByTestId('review-clusters').textContent).not.toContain('代表 Pi')
+  })
+
+  it('没有成团结果（空簇且无错误）= 没跑成团：整块不渲染', () => {
+    render(<ReviewSummaryCard review={toReviewView(reviewWire())} />)
+    expect(screen.queryByTestId('review-clusters')).toBeNull()
+    expect(screen.queryByTestId('clusters-error')).toBeNull()
+  })
+})
+
 describe('AdoptBar：采纳 / 合并 / 回显', () => {
   it('采纳某一栏：POST 带 lane/merged/note，成功后本地回显（不重取评审）', async () => {
     apiSpies.adoptReview.mockResolvedValue(adoptionWire({ lane: 'pi', merged: false, note: '最贴题' }))
@@ -220,7 +289,7 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     { id: 'a2', role: 'assistant', content: '次答', agentKind: 'dsh' },
   ]
 
-  it('该轮没有评审（404）→ 不渲染空卡', async () => {
+  it('该轮没有评审（404）→ 不渲染空卡，但给「评审」按钮且不自动跑', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
     render(
       <MultiAnswers
@@ -231,9 +300,50 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     )
     await waitFor(() => expect(apiSpies.fetchReview).toHaveBeenCalledWith('s-1', 2))
     expect(screen.queryByTestId('review-summary')).toBeNull()
+    // 花了才跑：收起时绝不能已经发过 POST
+    expect(await screen.findByRole('button', { name: '评审' })).toBeTruthy()
+    expect(apiSpies.runReview).not.toHaveBeenCalled()
   })
 
-  it('有评审 → 栏下方挂出汇总卡', async () => {
+  it('点「评审」才 POST（snake_case 请求体），成功后本地挂出卡片', async () => {
+    apiSpies.fetchReview.mockRejectedValue(new Error('404'))
+    apiSpies.runReview.mockResolvedValue(reviewWire())
+    render(
+      <MultiAnswers
+        answers={answers}
+        renderAnswer={() => <div />}
+        reviewTarget={{ sessionId: 's-1', turn: 2 }}
+      />,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '评审' }))
+    await waitFor(() =>
+      expect(apiSpies.runReview).toHaveBeenCalledWith('s-1', {
+        turn: 2,
+        agents: ['pi', 'dsh'],
+        rubricId: 'contract_answer_v1',
+        // 平台清单 = judge 模型与重试回退链
+        judgeModels: ['judge-a'],
+      }),
+    )
+    expect((await screen.findByTestId('review-summary')).textContent).toContain('pi 栏多数通过')
+  })
+
+  it('平台没有可用模型（judge_models 空）→ 按钮禁用并说明原因', async () => {
+    apiSpies.fetchReview.mockRejectedValue(new Error('404'))
+    apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: [], max_lanes: 4 })
+    render(
+      <MultiAnswers
+        answers={answers}
+        renderAnswer={() => <div />}
+        reviewTarget={{ sessionId: 's-1', turn: 2 }}
+      />,
+    )
+    const button = await screen.findByRole('button', { name: '评审' })
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(true))
+    expect(screen.getByTestId('review-start').textContent).toContain('平台无可用评审模型')
+  })
+
+  it('有评审 → 栏下方挂出汇总卡，并在其下给出「综合结论」按钮', async () => {
     apiSpies.fetchReview.mockResolvedValue(reviewWire())
     render(
       <MultiAnswers
@@ -244,5 +354,7 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     )
     expect((await screen.findByTestId('review-summary')).textContent).toContain('pi 栏多数通过')
     expect(screen.getByTestId('multi-answers')).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '综合结论' })).toBeTruthy()
+    expect(apiSpies.runSynthesis).not.toHaveBeenCalled()
   })
 })

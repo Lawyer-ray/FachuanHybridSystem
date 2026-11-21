@@ -36,6 +36,7 @@ export type {
   PatchConflictKind,
   Review,
   ReviewStage,
+  Synthesis,
   UnscoredReason,
   WritePatchStatus,
 } from './adjudication-types'

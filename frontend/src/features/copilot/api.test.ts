@@ -28,6 +28,8 @@ import {
   deleteSession,
   fetchHistory,
   fetchPendingApprovals,
+  fetchReviewOptions,
+  fetchSynthesis,
   getUsageSummary,
   listSessions,
   openMessageStream,
@@ -38,6 +40,9 @@ import {
   setAgentSkillEnabled,
   fetchSessionStats,
   compactSession,
+  REVIEW_TIMEOUT_MS,
+  runReview,
+  runSynthesis,
 } from './api'
 
 /** 让 mock 返回链式 .json() */
@@ -335,6 +340,43 @@ describe('copilot api：@ 引用候选源', () => {
     expect(again.files).toHaveLength(7)
     expect(apiMock.get).toHaveBeenCalledTimes(7)
     clearScopeFolderRowsCache()
+  })
+
+  it('fetchReviewOptions GET agent/review/options（judge_models 空 = 平台无可用模型）', async () => {
+    apiMock.get.mockReturnValue(chain({ rubric_ids: ['contract_answer_v1'], judge_models: [], max_lanes: 4 }))
+    await expect(fetchReviewOptions()).resolves.toEqual({
+      rubric_ids: ['contract_answer_v1'],
+      judge_models: [],
+      max_lanes: 4,
+    })
+    expect(apiMock.get).toHaveBeenCalledWith('agent/review/options')
+  })
+
+  it('runReview POST sessions/{id}/review：请求体 snake_case，超时用评审专用预算', async () => {
+    await runReview('s-1', { turn: 2, agents: ['pi', 'dsh'], rubricId: 'contract_answer_v1', judgeModels: ['judge-a'] })
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/review', {
+      json: {
+        turn: 2,
+        agents: ['pi', 'dsh'],
+        rubric_id: 'contract_answer_v1',
+        judge_models: ['judge-a'],
+      },
+      // ky 默认 10s；评审是 N×M 次 judge 调用，必超时
+      timeout: REVIEW_TIMEOUT_MS,
+    })
+  })
+
+  it('fetchSynthesis GET sessions/{id}/synthesis?turn=（404 = 该轮没跑过，正常态）', async () => {
+    await fetchSynthesis('s-1', 3)
+    expect(apiMock.get).toHaveBeenCalledWith('agent/sessions/s-1/synthesis', { searchParams: { turn: 3 } })
+  })
+
+  it('runSynthesis POST sessions/{id}/synthesize：model 空串照发（服务端按本轮栏模型解析）', async () => {
+    await runSynthesis('s-1', { turn: 3, agents: ['pi', 'dsh'], model: '' })
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/synthesize', {
+      json: { turn: 3, agents: ['pi', 'dsh'], model: '' },
+      timeout: REVIEW_TIMEOUT_MS,
+    })
   })
 
   it('loadScopeFolderRows：未绑定文件夹 → browsable=false，不报错', async () => {

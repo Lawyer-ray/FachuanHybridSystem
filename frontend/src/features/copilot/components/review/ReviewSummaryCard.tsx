@@ -1,6 +1,6 @@
 /**
- * 多答裁决汇总卡：一句 headline + 每栏 one_line + 分歧点（两侧原句并排）+
- * 点分数展开的逐条证据 + 采纳条。
+ * 多答裁决汇总卡：一句 headline + 每栏 one_line + 共识/分歧（成团）+ 分歧点
+ * （两侧原句并排）+ 点分数展开的逐条证据 + 采纳条。
  *
  * ## 为什么放在多答栏下方而不是上方
  *
@@ -26,6 +26,7 @@ import { useState } from 'react'
 import type { ReviewView } from '../../domain/fusion'
 import { AdoptBar } from './AdoptBar'
 import { ConflictPair } from './ConflictPair'
+import { ConsensusList } from './ConsensusList'
 import { EvidenceList } from './EvidenceList'
 
 export function ReviewSummaryCard({ review }: { review: ReviewView }) {
@@ -84,6 +85,9 @@ export function ReviewSummaryCard({ review }: { review: ReviewView }) {
           )
         })}
       </ul>
+
+      {/* 成团：谁和谁是同一个立场。失败只显示原因，不折算成「三份全异」（见 ConsensusList） */}
+      <ConsensusList clusters={review.clusters} clustersError={review.clustersError} />
 
       {review.conflicts.length > 0 && (
         <div className="mt-2" data-testid="review-conflicts">
