@@ -829,7 +829,7 @@ def rebuild_confirmed_segments_md(storage: PdfSplitStorage, normalized: list[dic
     **表格几何也必须在这里读回来**（与分段阶段同口径）：不读的话，律师确认完分段
     再点格子，格子就退回整表框——“确认后反而变差”比一开始不准更难解释。
     """
-    from apps.pdf_splitting.services.split import table_geometry, two_stage
+    from apps.pdf_splitting.services.split import table_geometry_switches, two_stage
 
     raw_pages = two_stage.load_pages(storage)
     bbox_backend = str(two_stage.load_extract_summary(storage).get("ocr_provider") or "")
@@ -841,7 +841,7 @@ def rebuild_confirmed_segments_md(storage: PdfSplitStorage, normalized: list[dic
         bbox_backend=bbox_backend,
         previous_entries=previous,
         table_geometry=geometry,
-        legacy_uniform=table_geometry.uniform_fallback_enabled(),
+        legacy_uniform=table_geometry_switches.uniform_fallback_enabled(),
     )
 
 

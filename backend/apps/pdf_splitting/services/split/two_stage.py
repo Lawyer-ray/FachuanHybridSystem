@@ -320,7 +320,7 @@ def load_table_geometry(storage: PdfSplitStorage) -> dict[int, dict[int, PageTab
     空表 = “没有任何几何”（旧任务/关着开关/整个 pass 失败）→ 定位退回整表框，
     正文不受影响。
     """
-    from .table_geometry import geometries_by_page_block
+    from .table_geometry_pass import geometries_by_page_block
 
     return geometries_by_page_block(load_table_geometry_payload(storage))
 

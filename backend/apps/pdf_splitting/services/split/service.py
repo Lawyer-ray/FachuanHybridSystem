@@ -319,7 +319,7 @@ class PdfSplitService:
         ``build_segments_markdown`` 调用点才能共享同一份——否则会出现
         “确认分段后点格子又画错”。
         """
-        from . import table_geometry, two_stage
+        from . import table_geometry_switches, two_stage
         from .pipeline import PageDescriptor
 
         storage = PdfSplitStorage(job.id)
@@ -357,7 +357,7 @@ class PdfSplitService:
                     bbox_backend=bbox_backend,
                     table_geometry=geometry,
                     # 回滚开关：几何缺失时是否退回旧均分（默认关 = 整表框）
-                    legacy_uniform=table_geometry.uniform_fallback_enabled(),
+                    legacy_uniform=table_geometry_switches.uniform_fallback_enabled(),
                 ),
                 inconsistencies,
             ),
@@ -406,30 +406,32 @@ class PdfSplitService:
         本方法**不落盘**：产物由 ``_persist_analysis`` 在写完 ``pages.json`` 之后写，
         否则产物会永远比 pages.json 旧，过期判定每次都成立（等于没有缓存）。
         """
-        from . import table_geometry, two_stage
+        from . import table_geometry_pass, table_geometry_switches, two_stage
 
-        enabled, _legacy_uniform = table_geometry.switches()
+        enabled, _legacy_uniform = table_geometry_switches.switches()
         if not enabled:
             logger.info("pdf_split_table_geometry_disabled", extra={"job_id": str(job.id)})
-            return {}, {}, table_geometry.summary_block({}, enabled=False)
+            return {}, {}, table_geometry_pass.summary_block({}, enabled=False)
 
         if two_stage.table_geometry_is_stale(storage):
-            artifact = table_geometry.build_geometry_artifact(
+            artifact = table_geometry_pass.build_geometry_artifact(
                 pages,
                 pdf_path=storage.source_pdf_path,
-                engine=table_geometry.PaddleTableGeometryEngine(),
+                engine=table_geometry_pass.PaddleTableGeometryEngine(),
                 bbox_backend=bbox_backend,
+                # L2 本地线条兜底（默认关）：开关只在这里读，pass 层收布尔值
+                local_lines_enabled=table_geometry_switches.local_lines_enabled(),
             )
             logger.info(
                 "pdf_split_table_geometry_measured",
-                extra={"job_id": str(job.id), **table_geometry.summary_block(artifact, enabled=True)},
+                extra={"job_id": str(job.id), **table_geometry_pass.summary_block(artifact, enabled=True)},
             )
         else:
             artifact = two_stage.load_table_geometry_payload(storage)
         return (
             artifact,
-            table_geometry.geometries_by_page_block(artifact),
-            table_geometry.summary_block(artifact, enabled=True),
+            table_geometry_pass.geometries_by_page_block(artifact),
+            table_geometry_pass.summary_block(artifact, enabled=True),
         )
 
     def _bbox_backend(self, *, job_id: Any, storage: PdfSplitStorage, pages: list[PageDescriptor]) -> str:

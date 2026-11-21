@@ -31,7 +31,7 @@ from typing import Any
 import pymupdf as fitz
 import pytest
 
-from apps.pdf_splitting.services.split import table_geometry
+from apps.pdf_splitting.services.split import table_geometry, table_geometry_pass
 from apps.pdf_splitting.services.split.markdown_builder import (
     build_positioned_blocks,
     build_segment_markdown,
@@ -137,10 +137,10 @@ def _geometry_for(pages: list[PageDescriptor], payloads: list[dict[str, Any]], t
         document.save(pdf_path)
     finally:
         document.close()
-    artifact = table_geometry.build_geometry_artifact(
+    artifact = table_geometry_pass.build_geometry_artifact(
         pages, pdf_path=pdf_path, engine=_Engine(payloads), bbox_backend="mineru"
     )
-    return table_geometry.geometries_by_page_block(artifact)
+    return table_geometry_pass.geometries_by_page_block(artifact)
 
 
 def _payload(html: str, cell_boxes: list[list[float]]) -> dict[str, Any]:
@@ -257,7 +257,7 @@ class TestCrossPage:
         finally:
             document.close()
 
-        artifact = table_geometry.build_geometry_artifact(
+        artifact = table_geometry_pass.build_geometry_artifact(
             pages, pdf_path=pdf_path, engine=_Engine([_payload(_p10_html(), _batch_boxes())]), bbox_backend="mineru"
         )
 

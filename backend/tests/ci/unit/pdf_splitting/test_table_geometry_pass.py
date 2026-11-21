@@ -41,7 +41,12 @@ from typing import Any
 import pymupdf as fitz
 import pytest
 
-from apps.pdf_splitting.services.split import table_geometry
+from apps.pdf_splitting.services.split import (
+    table_geometry,
+    table_geometry_lines,
+    table_geometry_pass,
+    table_geometry_switches,
+)
 from apps.pdf_splitting.services.split.split_models import PageDescriptor
 
 FIXTURE_PATH = (
@@ -203,7 +208,7 @@ class _ExplodingBatchEngine:
 def _build(
     pages: list[PageDescriptor], *, pdf_path: Path, engine: Any, bbox_backend: str = "mineru", **kwargs: Any
 ) -> dict[str, Any]:
-    return table_geometry.build_geometry_artifact(
+    return table_geometry_pass.build_geometry_artifact(
         pages, pdf_path=pdf_path, engine=engine, bbox_backend=bbox_backend, **kwargs
     )
 
@@ -619,7 +624,7 @@ class TestArtifact:
         pages = [_page(10, [_table_block(P10_BLOCK_BBOX, _p10_html())])]
 
         artifact = _build(pages, pdf_path=_pdf(tmp_path, 1), engine=_BatchEngine([[payload]]))
-        mapping = table_geometry.geometries_by_page_block(artifact)
+        mapping = table_geometry_pass.geometries_by_page_block(artifact)
 
         assert set(artifact) == {"engine", "generated_at", "summary", "pages"}
         assert artifact["engine"] == table_geometry.PP_STRUCTURE_ENGINE
@@ -652,9 +657,9 @@ class TestArtifact:
 
     def test_summary_区块形状固定(self) -> None:
         """开关关着 / 产物缺失时也给出同一组键的零值（前端不用为三种情况写分支）。"""
-        block = table_geometry.summary_block({}, enabled=False)
+        block = table_geometry_pass.summary_block({}, enabled=False)
 
-        assert set(block) == set(table_geometry.SUMMARY_KEYS)
+        assert set(block) == set(table_geometry_pass.SUMMARY_KEYS)
         assert block["enabled"] is False
         assert block["mode"] == "none"
         assert block["reason_counts"] == {}
@@ -674,9 +679,9 @@ class TestArtifact:
         assert artifact["summary"]["mode"] == "none"
 
     def test_坏产物逐条跳过不抛(self) -> None:
-        assert table_geometry.geometries_by_page_block(None) == {}
-        assert table_geometry.geometries_by_page_block({"pages": "x"}) == {}
-        assert table_geometry.geometries_by_page_block({"pages": {"10": {"tables": {"0": {"rows": None}}}}}) == {}
+        assert table_geometry_pass.geometries_by_page_block(None) == {}
+        assert table_geometry_pass.geometries_by_page_block({"pages": "x"}) == {}
+        assert table_geometry_pass.geometries_by_page_block({"pages": {"10": {"tables": {"0": {"rows": None}}}}}) == {}
 
 
 # ── 开关 ──────────────────────────────────────────────────────
@@ -694,9 +699,9 @@ class TestSwitches:
         ],
     )
     def test_开关值解析(self, monkeypatch: Any, raw: str, expected: bool) -> None:
-        monkeypatch.setattr(table_geometry, "_system_value", lambda key, default: raw)
+        monkeypatch.setattr(table_geometry_switches, "_system_value", lambda key, default: raw)
 
-        assert table_geometry.geometry_enabled() is expected
+        assert table_geometry_switches.geometry_enabled() is expected
 
     def test_缺省时开启几何且不回落均分(self, monkeypatch: Any) -> None:
         """默认值：``PDF_SPLIT_TABLE_GEOMETRY_ENABLED=1``、``..._UNIFORM_FALLBACK=0``。"""
@@ -706,18 +711,18 @@ class TestSwitches:
             seen[key] = default
             return ""
 
-        monkeypatch.setattr(table_geometry, "_system_value", fake)
+        monkeypatch.setattr(table_geometry_switches, "_system_value", fake)
 
-        assert table_geometry.switches() == (True, False)
+        assert table_geometry_switches.switches() == (True, False)
         assert seen == {
-            table_geometry.TABLE_GEOMETRY_ENABLED_KEY: "1",
-            table_geometry.TABLE_UNIFORM_FALLBACK_KEY: "0",
+            table_geometry_switches.TABLE_GEOMETRY_ENABLED_KEY: "1",
+            table_geometry_switches.TABLE_UNIFORM_FALLBACK_KEY: "0",
         }
 
     def test_开关读不到时回落默认值不抛(self) -> None:
         """配置读不出来（DB 不可用）不能让分段挂掉——但要走默认路径并留痕。"""
-        assert table_geometry._as_flag("", default=True) is True
-        assert table_geometry._as_flag("???", default=False) is False
+        assert table_geometry_switches._as_flag("", default=True) is True
+        assert table_geometry_switches._as_flag("???", default=False) is False
 
 
 # ── 真实批量样本上的三处整改（2026-11-21 端到端诊断）────────────────
@@ -752,7 +757,7 @@ class TestPairingIndexSpace:
         assert list(tables) == ["2"], "配上的表要挂在**版面块下标**（2）上"
         assert tables["2"]["match"]["reason"] == table_geometry.REASON_MATCHED
         assert artifact["summary"]["pages_measured"] == 1
-        mapping = table_geometry.geometries_by_page_block(artifact)
+        mapping = table_geometry_pass.geometries_by_page_block(artifact)
         assert set(mapping[10]) == {2}
 
 
@@ -881,3 +886,212 @@ class TestContainmentPairing:
         artifact = _build(pages, pdf_path=_pdf(tmp_path, 1), engine=_BatchEngine([[_payload(boxes, html=html)]]))
 
         assert artifact["pages"]["10"]["skipped"] == {"0": table_geometry.REASON_UNMATCHED_PP_TABLE}
+
+
+# ── L2 本地线条兜底（默认关）：PP 没量到的页才试，文本归属证明不了就不出格子 ──────
+
+
+#: L2 用例的块（MinerU 千分比，layout 1000×1000 → 归一化 (0.1,0.2,0.4,0.5)）。
+#:
+#: 面积 0.09 / 4 格 = 0.0225 ≤ ``_SPLIT_MAX_CELL_AREA_RATIO``(0.04) —— 这样 PP 回空表时
+#: 该块被判 ``no_table_detected``（真表被漏检），正是 L2 的触发原因。
+L2_BLOCK_BBOX = [100, 200, 400, 500]
+L2_REGION = (0.1, 0.2, 0.4, 0.5)
+
+
+def _lined_pdf(
+    tmp_path: Path,
+    regions: list[tuple[float, float, float, float]],
+    *,
+    page_no: int = 1,
+    rows: int = 2,
+    cols: int = 2,
+) -> Path:
+    """画了黑色表格线的 PDF：第 ``page_no`` 页上每个 ``regions`` 区域一块 ``rows×cols`` 网格。
+
+    用真 PDF + 真渲染而不是造灰度数组：L2 的阈值口径（覆盖率 / 连续性）本来就是对着
+    「扫描件墨线」定的，喂合成数组会把「渲染出来的线够不够黑」这件事整段跳过去。
+    """
+    document = fitz.open()
+    try:
+        for index in range(page_no):
+            page = document.new_page(width=595, height=841)
+            if index != page_no - 1:
+                continue
+            for left, top, right, bottom in regions:
+                for step in range(cols + 1):
+                    x = (left + (right - left) * step / cols) * 595
+                    page.draw_line((x, top * 841), (x, bottom * 841), color=(0.0, 0.0, 0.0), width=1)
+                for step in range(rows + 1):
+                    y = (top + (bottom - top) * step / rows) * 841
+                    page.draw_line((left * 595, y), (right * 595, y), color=(0.0, 0.0, 0.0), width=1)
+        path = tmp_path / "lined.pdf"
+        document.save(path)
+    finally:
+        document.close()
+    return path
+
+
+class _CountingDetector:
+    """包住真实检测器只为记调用次数/区域（判定一个字都不改）。"""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[float, float, float, float]] = []
+
+    def __call__(self, image_bytes: bytes, *, region: tuple[float, float, float, float]) -> Any:
+        self.calls.append(region)
+        return table_geometry_lines.detect_grid_from_png(image_bytes, region=region)
+
+
+class TestLocalLinesFallback:
+    def test_开关关着时一次也不调_L2(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """默认关 = 今天的行为：不渲染、不检测，失败页仍是整表框 + ``no_table_detected``。"""
+        detector = _CountingDetector()
+        monkeypatch.setattr(table_geometry_pass, "detect_grid_from_png", detector)
+        pages = [_page(1, [_table_block(L2_BLOCK_BBOX, _html(2, 2))])]
+
+        artifact = _build(pages, pdf_path=_lined_pdf(tmp_path, [L2_REGION]), engine=_BatchEngine([[]]))
+
+        assert detector.calls == []
+        assert artifact["pages"]["1"]["skipped"] == {"0": table_geometry.REASON_NO_TABLE_DETECTED}
+        assert artifact["pages"]["1"]["tables"] == {}
+        assert artifact["summary"]["raster_lines_matched"] == 0
+        assert artifact["summary"]["reason_counts"] == {table_geometry.REASON_NO_TABLE_DETECTED: 1}
+
+    def test_量到网格且文本对得上时出_raster_lines_格子(self, tmp_path: Path) -> None:
+        """开关开 + PP 没量到 + 行列与 td 数都对得上 HTML → 换成页图量出来的格子。"""
+        html = _html(2, 2)
+        pages = [_page(1, [_table_block(L2_BLOCK_BBOX, html)])]
+
+        artifact = _build(
+            pages,
+            pdf_path=_lined_pdf(tmp_path, [L2_REGION]),
+            engine=_BatchEngine([[]]),
+            local_lines_enabled=True,
+        )
+
+        entry = artifact["pages"]["1"]["tables"]["0"]
+        assert entry["engine"] == "raster_lines"
+        assert (entry["rows"], entry["cols"]) == (2, 2)
+        by_position = {(cell["row"], cell["col"]): cell["text"] for cell in entry["cells"]}
+        assert by_position == {(0, 0): "R0C0", (0, 1): "R0C1", (1, 0): "R1C0", (1, 1): "R1C1"}
+        first = entry["cells"][0]["rect"]
+        assert first["x"] == pytest.approx(0.10, abs=TOL)
+        assert first["y"] == pytest.approx(0.20, abs=TOL)
+        assert first["w"] == pytest.approx(0.15, abs=TOL)
+        assert first["h"] == pytest.approx(0.15, abs=TOL)
+        assert entry["diagnostics"]["l2"] == {"col_lines": 3, "row_lines": 3, "reason": "ok"}
+        summary = artifact["summary"]
+        assert summary["raster_lines_matched"] == 1
+        assert (summary["pages_measured"], summary["pages_failed"]) == (1, 0)
+        assert (summary["tables_total"], summary["cells_total"]) == (1, 4)
+        assert summary["reason_counts"] == {}
+        assert artifact["pages"]["1"]["skipped"] == {}
+        geometry = table_geometry_pass.geometries_by_page_block(artifact)[1][0]
+        assert geometry.engine == "raster_lines"
+
+    def test_行列或文本数对不上时记_no_text_且不出格子(self, tmp_path: Path) -> None:
+        """两个门槛各断一次：①行×列 ≠ HTML 网格；②有合并单元格（td 数 < 格位数）。
+
+        L2 没有 ``pred_html``，按下标 row-major 贴文本必须有「td 数 == 行×列」这条证明，
+        否则空文本格子会让右栏出现空白块 —— 比整表框更糟的假成功。
+        """
+        pdf_path = _lined_pdf(tmp_path, [L2_REGION])
+        merged = "<table><tr><td rowspan='2'>甲</td><td>乙</td></tr><tr><td>丙</td></tr></table>"
+
+        shapes = _build(
+            [_page(1, [_table_block(L2_BLOCK_BBOX, _html(3, 3))])],
+            pdf_path=pdf_path,
+            engine=_BatchEngine([[]]),
+            local_lines_enabled=True,
+        )
+        spanned = _build(
+            [_page(1, [_table_block(L2_BLOCK_BBOX, merged)])],
+            pdf_path=pdf_path,
+            engine=_BatchEngine([[]]),
+            local_lines_enabled=True,
+        )
+
+        # ①行列不等（3×3 HTML vs 2×2 墨线）；②形状相同但 td 数 3 < 格位数 4（合并单元格）
+        for artifact, html_grid, html_texts in ((shapes, [3, 3], 9), (spanned, [2, 2], 3)):
+            page_payload = artifact["pages"]["1"]
+            assert page_payload["tables"] == {}
+            assert page_payload["skipped"] == {"0": table_geometry.REASON_NO_TABLE_DETECTED}
+            l2 = page_payload["diagnostics"]["l2"]["0"]
+            assert l2["reason"] == table_geometry_pass.REASON_RASTER_LINES_NO_TEXT
+            assert l2["grid"] == [2, 2]
+            assert l2["html_grid"] == html_grid
+            assert l2["html_texts"] == html_texts
+            assert artifact["summary"]["raster_lines_matched"] == 0
+            assert artifact["summary"]["reason_counts"] == {table_geometry.REASON_NO_TABLE_DETECTED: 1}
+
+    def test_PP_已成功的页不再跑_L2(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """同页只要有一块量到 PP 几何，另一块**也不**跑 L2：两源各画一套格子比没框更糟。
+
+        这一页的两个块分别是「PP 量到」与 ``pp_box_outside_block``（**在**触发集合里）：
+        没有页级门槛的话第二块会走 L2，所以这条断言真是门槛本身在起作用。
+        """
+        detector = _CountingDetector()
+        monkeypatch.setattr(table_geometry_pass, "detect_grid_from_png", detector)
+        html = _html(2, 2)
+        pages = [
+            _page(
+                2,
+                [
+                    _table_block([100, 100, 400, 300], html),
+                    _table_block([500, 600, 900, 800], html),
+                ],
+            )
+        ]
+        good = _payload(_grid_boxes((0.1, 0.1, 0.4, 0.3), 2, 2), html=html)
+        outside = _payload(_grid_boxes((0.48, 0.58, 0.94, 0.82), 2, 2), html=html)
+
+        artifact = _build(
+            pages,
+            pdf_path=_lined_pdf(tmp_path, [(0.1, 0.1, 0.4, 0.3), (0.48, 0.58, 0.94, 0.82)], page_no=2),
+            engine=_BatchEngine([[good, outside]]),
+            local_lines_enabled=True,
+        )
+
+        assert detector.calls == []
+        assert set(artifact["pages"]["2"]["tables"]) == {"0"}
+        assert "engine" not in artifact["pages"]["2"]["tables"]["0"]
+        assert artifact["pages"]["2"]["skipped"] == {"1": table_geometry.REASON_PP_BOX_OUTSIDE_BLOCK}
+        assert "diagnostics" not in artifact["pages"]["2"]
+        assert artifact["summary"]["raster_lines_matched"] == 0
+
+    def test_同页两个候选块只渲染一次页图(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """页图渲染是这条兜底的主要成本：同页多块必须共用一张（渲染次数 == 1）。"""
+        renders: list[int] = []
+        original = table_geometry_pass._render_page_image
+
+        def counting(pdf_path: Path, *, page_no: int) -> bytes | None:
+            renders.append(page_no)
+            return original(pdf_path, page_no=page_no)
+
+        detector = _CountingDetector()
+        monkeypatch.setattr(table_geometry_pass, "_render_page_image", counting)
+        monkeypatch.setattr(table_geometry_pass, "detect_grid_from_png", detector)
+        html = _html(2, 2)
+        regions = [(0.1, 0.1, 0.4, 0.3), (0.5, 0.6, 0.9, 0.8)]
+        pages = [
+            _page(
+                2,
+                [
+                    _table_block([100, 100, 400, 300], html),
+                    _table_block([500, 600, 900, 800], html),
+                ],
+            )
+        ]
+
+        artifact = _build(
+            pages,
+            pdf_path=_lined_pdf(tmp_path, regions, page_no=2),
+            engine=_BatchEngine([[]]),
+            local_lines_enabled=True,
+        )
+
+        assert renders == [2]
+        assert len(detector.calls) == 2
+        assert set(artifact["pages"]["2"]["tables"]) == {"0", "1"}
+        assert artifact["summary"]["raster_lines_matched"] == 2

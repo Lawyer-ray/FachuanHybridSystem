@@ -232,7 +232,7 @@ def analyze_pdf(
                 pages,
                 bbox_backend=bbox_backend,
                 table_geometry=geometry,
-                legacy_uniform=_table_geometry().uniform_fallback_enabled(),
+                legacy_uniform=_table_geometry_switches().uniform_fallback_enabled(),
             ),
             inconsistencies,
         ),
@@ -254,11 +254,18 @@ def analyze_pdf(
     )
 
 
-def _table_geometry() -> Any:
-    """延迟拿到 ``table_geometry`` 模块（import 面已经很大，模块级再加一条不划算）。"""
-    from . import table_geometry
+def _table_geometry_pass() -> Any:
+    """延迟拿到 ``table_geometry_pass`` 模块（import 面已经很大，模块级再加一条不划算）。"""
+    from . import table_geometry_pass
 
-    return table_geometry
+    return table_geometry_pass
+
+
+def _table_geometry_switches() -> Any:
+    """延迟拿到 ``table_geometry_switches`` 模块（同上：模块级 import 不划算）。"""
+    from . import table_geometry_switches
+
+    return table_geometry_switches
 
 
 def _measure_table_geometry(
@@ -271,8 +278,8 @@ def _measure_table_geometry(
     手里就有 ``pdf_path`` 与 ``pages``，量一次即可，落盘由调用方用 outcome 完成
     （否则用户确认分段后重建时就拿不到几何，会退回整表框）。
     """
-    module = _table_geometry()
-    enabled, _legacy_uniform = module.switches()
+    module = _table_geometry_pass()
+    enabled, _legacy_uniform = _table_geometry_switches().switches()
     if not enabled:
         logger.info("pdf_split_table_geometry_disabled", extra={"entry": "analyze_pdf"})
         return {}, {}, module.summary_block({}, enabled=False)
@@ -281,6 +288,8 @@ def _measure_table_geometry(
         pdf_path=pdf_path,
         engine=module.PaddleTableGeometryEngine(),
         bbox_backend=bbox_backend,
+        # 与 _ensure_table_geometry 同口径：L2 开关只在这里读，pass 层收布尔值
+        local_lines_enabled=_table_geometry_switches().local_lines_enabled(),
     )
     return artifact, module.geometries_by_page_block(artifact), module.summary_block(artifact, enabled=True)
 
