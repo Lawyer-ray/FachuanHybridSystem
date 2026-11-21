@@ -29,8 +29,12 @@ from .judge_prompt import ParsedVerdict, build_prompt, parse_verdict
 JUDGE_MAX_ATTEMPTS = 2
 #: 单次调用的硬超时（秒）。计划文档 §6.3 的 ``JUDGE_PER_ITEM_TIMEOUT``。
 JUDGE_TIMEOUT_SECONDS = 60.0
-#: judge 输出很短（一个 JSON 对象），不需要长输出预算。
-JUDGE_MAX_TOKENS = 900
+#: judge 输出很短（一个 JSON 对象），但**预算不等于答案长度**：推理型模型先写一段
+#: 思考过程再给 JSON，900 会被思考吃光（真机实测：三栏判等 6 个方向里 5 个
+#: ``parse_failed``，正文里根本没有 JSON）。1600 仍有一个方向（openai-agents→pi）
+#: 把预算全烧在推理上、一个字符 JSON 都没吐；2600 才够。按实际 token 计费，
+#: 模型不写就不花钱。
+JUDGE_MAX_TOKENS = 2600
 #: 指数退避基数 / 上限 / 抖动（秒），口径见计划文档 §6.7。
 JUDGE_BACKOFF_BASE = 0.5
 JUDGE_BACKOFF_CAP = 4.0
@@ -96,6 +100,16 @@ async def _async_llm_service() -> Any:
 
             _async_service = await LLMService.create()
     return _async_service
+
+
+async def warm_async_service() -> None:
+    """把异步门面预热好（幂等）。
+
+    并发的第一批 judge 调用如果各自触发 ``LLMService.create()``，其中一次会走同步 ORM
+    读平台配置而抛 ``SynchronousOnlyOperation``，被 fallback 吞成"后端不可用"——
+    症状是「整段判等全部 judge_error，而同一批请求里串行的打分完全正常」。
+    """
+    await _async_llm_service()
 
 
 async def _llm_judge(prompt: str, judge_model: str) -> JudgeReply:

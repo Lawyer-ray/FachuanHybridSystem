@@ -10,12 +10,14 @@
 
 import { describe, expect, it } from 'vitest'
 
-import type { CriteriaVerdict, EquivalenceCluster, LaneReview, Review } from '../adjudication-types'
+import type { CriteriaVerdict, EquivalenceCluster, LaneReview, Review, Synthesis } from '../adjudication-types'
 import {
   conflictPairsOf,
+  droppedReasonLabel,
   reviewTurnOf,
   toClusterViews,
   toReviewView,
+  toSynthesisView,
   unscoredLabelOf,
 } from './fusion'
 
@@ -51,6 +53,8 @@ const review = (over: Partial<Review> = {}): Review => ({
   verdicts: [],
   headline: '',
   unverified: [],
+  clusters: [],
+  clusters_error: '',
   ...over,
 })
 
@@ -100,6 +104,39 @@ describe('toReviewView：snake_case → camelCase', () => {
   it('有判定时即使线上留了 unscored_reason 也不展示（只有判不了才有原因）', () => {
     const view = toReviewView(review({ verdicts: [verdict({ criteria_met: true, unscored_reason: 'timeout' })] }))
     expect(view.verdicts[0]!.unscoredReason).toBe('')
+  })
+
+  it('clusters 走 toClusterViews（成员/代表/emphasized 一并映射）', () => {
+    const view = toReviewView(
+      review({
+        clusters: [
+          cluster({ member_ids: ['pi', 'dsh'], representative_id: 'pi', tie: false }),
+          cluster({ member_ids: ['openai-agents'], representative_id: 'openai-agents', tie: false }),
+        ],
+      }),
+    )
+    expect(view.clusters).toEqual([
+      { memberIds: ['pi', 'dsh'], representativeId: 'pi', tie: false, emphasized: true },
+      { memberIds: ['openai-agents'], representativeId: 'openai-agents', tie: false, emphasized: true },
+    ])
+  })
+
+  it('tie=true 的簇进视图后不被突出、代表清空（不自己找「第一条」）', () => {
+    const view = toReviewView(
+      review({
+        clusters: [
+          cluster({ member_ids: ['pi'], representative_id: 'pi', tie: true }),
+          cluster({ member_ids: ['dsh'], representative_id: 'dsh', tie: true }),
+        ],
+      }),
+    )
+    expect(view.clusters.every((item) => item.emphasized === false)).toBe(true)
+    expect(view.clusters.every((item) => item.representativeId === '')).toBe(true)
+  })
+
+  it('clusters_error 原样透传（空串 = 成功或未跑，非空 = 成团失败的原因）', () => {
+    expect(toReviewView(review()).clustersError).toBe('')
+    expect(toReviewView(review({ clusters_error: '判等超时' })).clustersError).toBe('判等超时')
   })
 })
 
@@ -176,6 +213,62 @@ describe('toClusterViews：tie 时不许突出任何簇', () => {
     expect(views.map((view) => view.memberIds.length)).toEqual([1, 2])
     expect(views.every((view) => view.emphasized === true)).toBe(true)
     expect(views[1]!.representativeId).toBe('a2')
+  })
+})
+
+describe('droppedReasonLabel：丢弃原因的三种人读文案', () => {
+  it('封闭集内给人读原因（不是「没参与」这种模糊说法）', () => {
+    expect(droppedReasonLabel('empty')).toBe('本轮无正文')
+    expect(droppedReasonLabel('failed')).toBe('本轮失败')
+    expect(droppedReasonLabel('too_long')).toBe('超长被截')
+  })
+
+  it('后端将来新增原因：原样显示，不崩也不吞', () => {
+    expect(droppedReasonLabel('rate_limited')).toBe('rate_limited')
+  })
+})
+
+describe('toSynthesisView：综合结论 snake_case → camelCase', () => {
+  const synthesis = (over: Partial<Synthesis> = {}): Synthesis => ({
+    synthesis_id: 'sy-1',
+    session_id: 's-1',
+    turn: 2,
+    text: '## 结论\n\n甲方可主张解除',
+    model: 'kimi-2.6',
+    lanes_used: ['pi', 'dsh'],
+    dropped: [{ lane: 'openai-agents', reason: 'empty' }],
+    citations: [{ lane: 'pi', quote: '《民法典》第五百八十四条' }],
+    unverified: ['pi 引《X 办法》第 7 条，本轮无核验命中'],
+    tokens: { prompt: 2100, completion: 640, total: 2740 },
+    ...over,
+  })
+
+  it('字段逐个改名，栏名带上人读标签，顺序不改写', () => {
+    const view = toSynthesisView(synthesis())
+    expect(view.synthesisId).toBe('sy-1')
+    expect(view.text).toContain('甲方可主张解除')
+    expect(view.model).toBe('kimi-2.6')
+    expect(view.lanesUsed).toEqual([
+      { lane: 'pi', label: 'Pi' },
+      { lane: 'dsh', label: 'DeepSeek Harness' },
+    ])
+    expect(view.dropped).toEqual([{ lane: 'openai-agents', label: 'openai-agents', reason: '本轮无正文' }])
+    expect(view.citations).toEqual([{ lane: 'pi', label: 'Pi', quote: '《民法典》第五百八十四条' }])
+    expect(view.unverified).toEqual(['pi 引《X 办法》第 7 条，本轮无核验命中'])
+    expect(view.tokens).toEqual({ prompt: 2100, completion: 640, total: 2740 })
+  })
+
+  it('dropped 的三个原因都翻成人话（空 / 失败 / 超长）', () => {
+    const view = toSynthesisView(
+      synthesis({
+        dropped: [
+          { lane: 'pi', reason: 'empty' },
+          { lane: 'dsh', reason: 'failed' },
+          { lane: 'openai-agents', reason: 'too_long' },
+        ],
+      }),
+    )
+    expect(view.dropped.map((item) => item.reason)).toEqual(['本轮无正文', '本轮失败', '超长被截'])
   })
 })
 

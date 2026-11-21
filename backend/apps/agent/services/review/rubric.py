@@ -119,6 +119,15 @@ def load_rubric(rubric_id: str) -> list[RubricItem]:
         raise UnknownRubricError(rubric_id) from exc
 
 
+def available_rubric_ids() -> list[str]:
+    """内置 rubric 的 id 清单（``GET /agent/review/options`` 用）。
+
+    排序返回：前端按它渲染下拉，顺序必须稳定——字典插入顺序会在新增一条 rubric
+    之后默默改变下拉项的位置。
+    """
+    return sorted(_BUILTIN_RUBRICS)
+
+
 @dataclass(frozen=True)
 class LaneScore:
     """一栏的结算结果。

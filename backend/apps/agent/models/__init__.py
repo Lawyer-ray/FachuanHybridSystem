@@ -13,6 +13,7 @@ from .run import AgentRun
 from .session import AgentSession
 from .skill import AgentSkillPreference
 from .subtask import AgentSubtask
+from .synthesis import AgentSynthesis
 
 __all__ = [
     "AgentApproval",
@@ -27,5 +28,6 @@ __all__ = [
     "AgentSession",
     "AgentSkillPreference",
     "AgentSubtask",
+    "AgentSynthesis",
     "content_hash_of",
 ]

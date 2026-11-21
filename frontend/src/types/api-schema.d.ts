@@ -11083,6 +11083,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent/review/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Review Options
+         * @description 列出可选的 rubric 与 judge 模型（前端构造 ``/review`` 请求前先问这里）。
+         *
+         *     ``_available_models()`` 是**同步** ORM（查 LLMProvider），必须 ``sync_to_async``——
+         *     在事件循环里直接调会抛 ``SynchronousOnlyOperation``，而它会被降级路径吞成
+         *     "平台没有可用模型"，症状是按钮永远置灰而日志一片安静。
+         */
+        get: operations["apps_agent_api_review_api_review_options"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent/sessions/{session_id}/review": {
         parameters: {
             query?: never;
@@ -11143,6 +11167,46 @@ export interface paths {
          * @description 回显当前采纳结果（刷新可回放）；未采纳时 ``adoption`` 为 ``null``。
          */
         get: operations["apps_agent_api_review_api_get_review_adoption"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/synthesize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Synthesize Session
+         * @description 对指定轮次跑一次综合结论（独立请求，不进 SSE）。
+         */
+        post: operations["apps_agent_api_synthesis_api_synthesize_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/synthesis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Synthesis
+         * @description 回放已落库的综合结论；``turn`` 不传时取最近一次。
+         */
+        get: operations["apps_agent_api_synthesis_api_get_session_synthesis"];
         put?: never;
         post?: never;
         delete?: never;
@@ -24802,6 +24866,18 @@ export interface components {
             comment: string;
         };
         /**
+         * ReviewOptions
+         * @description 触发评审前前端要问的可选项（契约 §C1）。
+         */
+        ReviewOptions: {
+            /** Rubric Ids */
+            rubric_ids: string[];
+            /** Judge Models */
+            judge_models: string[];
+            /** Max Lanes */
+            max_lanes: number;
+        };
+        /**
          * CriteriaVerdict
          * @description 一条 rubric 对一栏的一次判定（N 栏 × M 条 = N×M 条）。
          */
@@ -24837,6 +24913,24 @@ export interface components {
              * @default
              */
             unscored_reason: string;
+        };
+        /**
+         * EquivalenceCluster
+         * @description "这几份答案其实是同一个立场"。
+         *
+         *     ``tie=True`` 表示**没有可判定的代表**（全异或平票）。这时上层必须显示"三份各说
+         *     各的"，绝不允许悄悄回落成第一条——那会让律师以为自己看到的是共识。
+         */
+        EquivalenceCluster: {
+            /** Member Ids */
+            member_ids: string[];
+            /** Representative Id */
+            representative_id: string;
+            /**
+             * Tie
+             * @default false
+             */
+            tie: boolean;
         };
         /**
          * LaneReview
@@ -24905,6 +24999,13 @@ export interface components {
             tokens?: {
                 [key: string]: number;
             };
+            /** Clusters */
+            clusters?: components["schemas"]["EquivalenceCluster"][];
+            /**
+             * Clusters Error
+             * @default
+             */
+            clusters_error: string;
         };
         /**
          * ReviewIn
@@ -24915,10 +25016,13 @@ export interface components {
             turn: number;
             /** Agents */
             agents: string[];
-            /** Rubric Id */
+            /**
+             * Rubric Id
+             * @default contract_answer_v1
+             */
             rubric_id: string;
             /** Judge Models */
-            judge_models: string[];
+            judge_models?: string[];
         };
         /**
          * AdoptionOut
@@ -24960,6 +25064,78 @@ export interface components {
          */
         AdoptionEnvelope: {
             adoption: components["schemas"]["AdoptionOut"] | null;
+        };
+        /**
+         * DroppedCandidate
+         * @description 没进聚合 prompt 的候选（**必须交出去**，否则"少了一栏"看起来像聚合者漏读）。
+         */
+        DroppedCandidate: {
+            /** Lane */
+            lane: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * Synthesis
+         * @description 一次「综合结论」的完整产物（MoA aggregator 的那一步，收敛成一份可引用的文书）。
+         *
+         *     与 ``Review`` 的分工：``Review`` 判"哪栏更好"（打分），``Synthesis`` 产"一份合成稿"
+         *     （结论）。两者互不依赖，可以只跑其中一个。
+         */
+        Synthesis: {
+            /** Synthesis Id */
+            synthesis_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Turn */
+            turn: number;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Model
+             * @default
+             */
+            model: string;
+            /** Lanes Used */
+            lanes_used?: string[];
+            /** Dropped */
+            dropped?: components["schemas"]["DroppedCandidate"][];
+            /** Citations */
+            citations?: components["schemas"]["SynthesisCitation"][];
+            /** Unverified */
+            unverified?: string[];
+            /** Tokens */
+            tokens?: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * SynthesisCitation
+         * @description 综合结论里某一句依据来自哪一栏的哪一条引用（来源锚点，不是核验结果）。
+         */
+        SynthesisCitation: {
+            /** Lane */
+            lane: string;
+            /** Quote */
+            quote: string;
+        };
+        /**
+         * SynthesisIn
+         * @description 触发一次综合结论所需的上下文。
+         */
+        SynthesisIn: {
+            /** Turn */
+            turn: number;
+            /** Agents */
+            agents: string[];
+            /**
+             * Model
+             * @default
+             */
+            model: string;
         };
         /**
          * AttachmentOut
@@ -40467,6 +40643,26 @@ export interface operations {
             };
         };
     };
+    apps_agent_api_review_api_review_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOptions"];
+                };
+            };
+        };
+    };
     apps_agent_api_review_api_get_session_review: {
         parameters: {
             query?: {
@@ -40561,6 +40757,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdoptionEnvelope"];
+                };
+            };
+        };
+    };
+    apps_agent_api_synthesis_api_synthesize_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SynthesisIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Synthesis"];
+                };
+            };
+        };
+    };
+    apps_agent_api_synthesis_api_get_session_synthesis: {
+        parameters: {
+            query?: {
+                turn?: number | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Synthesis"];
                 };
             };
         };

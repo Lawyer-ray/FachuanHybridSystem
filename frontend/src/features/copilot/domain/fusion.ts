@@ -17,7 +17,16 @@
  * `Review` 是判定快照，不可变；采纳记录走独立端点，见 `domain/adoption.ts`。
  */
 
-import type { CriteriaVerdict, EquivalenceCluster, LaneReview, Review, ReviewStage, UnscoredReason } from '../adjudication-types'
+import type {
+  CriteriaVerdict,
+  DroppedReason,
+  EquivalenceCluster,
+  LaneReview,
+  Review,
+  ReviewStage,
+  Synthesis,
+  UnscoredReason,
+} from '../adjudication-types'
 import { agentLabel } from './dual'
 
 /** 一栏的视图（`score === null` 表示无有效判定，**不是** 0） */
@@ -68,6 +77,10 @@ export interface ReviewView {
   lanes: LaneView[]
   verdicts: VerdictView[]
   conflicts: ConflictPairView[]
+  /** 成团（共识/分歧）；`tie` 时全部 `emphasized=false`，见 {@link toClusterViews} */
+  clusters: ClusterView[]
+  /** 成团失败的原因（空串 = 成功或未跑）；**不是**「三份全异」 */
+  clustersError: string
 }
 
 /**
@@ -167,6 +180,9 @@ export function toReviewView(review: Review): ReviewView {
     lanes: review.lanes.map(toLaneView),
     verdicts: review.verdicts.map(toVerdictView),
     conflicts: conflictPairsOf(review.verdicts),
+    // 成团规则只在 toClusterViews 一处：tie 时不许突出任何一簇
+    clusters: toClusterViews(review.clusters),
+    clustersError: review.clusters_error,
   }
 }
 
@@ -185,6 +201,78 @@ export function toClusterViews(clusters: readonly EquivalenceCluster[]): Cluster
     tie: cluster.tie,
     emphasized: !tied && !cluster.tie,
   }))
+}
+
+/** 「哪一栏」的视图：kind 与给人看的标签（未知 kind 原样显示） */
+export interface SynthesisLaneView {
+  lane: string
+  label: string
+}
+
+/** 被丢弃的候选（栏 + 人读原因）。`reason` 缺失时为空串，不是「成功」 */
+export interface SynthesisDroppedView extends SynthesisLaneView {
+  /** 人读原因（`empty` → 本轮无正文 …）；未知原因原样透出 */
+  reason: string
+}
+
+/** 来源锚点：哪一栏、引了哪一句（只做锚点，不是核验结果） */
+export interface SynthesisCitationView extends SynthesisLaneView {
+  quote: string
+}
+
+/** 综合结论的视图（camelCase）：组件只认这一层，不读 `lanes_used` 这类线上字段 */
+export interface SynthesisView {
+  synthesisId: string
+  /** 合成后的 Markdown 正文；空 = 没合成出东西，组件整卡不渲染 */
+  text: string
+  /** 实际执行合成的模型 */
+  model: string
+  /** 真正进了 prompt 的栏（顺序 = 请求顺序） */
+  lanesUsed: SynthesisLaneView[]
+  /** 没进 prompt 的栏 + 原因（空/失败/超长），必须展示，否则「少了一栏」像聚合者漏读 */
+  dropped: SynthesisDroppedView[]
+  citations: SynthesisCitationView[]
+  /** 提到但没核上的引用（「没核上」不是「错」） */
+  unverified: string[]
+  tokens: Record<string, number>
+}
+
+/**
+ * `dropped[].reason` 封闭集 → 人读文案。
+ *
+ * 三者的可信度完全不同（没正文 / 跑了但失败 / 超长被截），都不许折叠成
+ * 「没参与」。后端将来新增原因时落到 `?? reason`：显示原始编码，不崩、不吞。
+ */
+const DROPPED_LABELS: Record<DroppedReason, string> = {
+  empty: '本轮无正文',
+  failed: '本轮失败',
+  too_long: '超长被截',
+}
+
+export function droppedReasonLabel(reason: string): string {
+  return DROPPED_LABELS[reason as DroppedReason] ?? reason
+}
+
+/** 线上 `Synthesis` → 综合结论卡视图（顺序原样，不排序） */
+export function toSynthesisView(wire: Synthesis): SynthesisView {
+  return {
+    synthesisId: wire.synthesis_id,
+    text: wire.text,
+    model: wire.model,
+    lanesUsed: wire.lanes_used.map((lane) => ({ lane, label: agentLabel(lane) })),
+    dropped: wire.dropped.map((item) => ({
+      lane: item.lane,
+      label: agentLabel(item.lane),
+      reason: droppedReasonLabel(item.reason),
+    })),
+    citations: wire.citations.map((item) => ({
+      lane: item.lane,
+      label: agentLabel(item.lane),
+      quote: item.quote,
+    })),
+    unverified: [...wire.unverified],
+    tokens: { ...wire.tokens },
+  }
 }
 
 /**
