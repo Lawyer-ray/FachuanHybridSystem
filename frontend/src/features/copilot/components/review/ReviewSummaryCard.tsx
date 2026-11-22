@@ -34,25 +34,49 @@ export function ReviewSummaryCard({ review }: { review: ReviewView }) {
   const [openLane, setOpenLane] = useState<string | null>(null)
 
   return (
-    <section
+    // 默认折叠：评审一展开就是四栏打分 + 共识/分歧 + 逐条分歧原文，常常占掉一整屏。
+    // 律师关心的是"结论和哪栏更靠谱"，细节按需展开即可（<details> 原生支持键盘与读屏，
+    // 不自己造展开状态）。
+    <details
       data-testid="review-summary"
       aria-label="多答评审"
-      className="mt-2 min-w-0 rounded-[8px] border border-border bg-secondary/30 p-2 text-xs"
+      className="group mt-2 min-w-0 rounded-[8px] border border-border bg-secondary/30 px-2 py-1.5 text-xs"
     >
-      <header className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
         <span className="flex-none font-medium">评审</span>
-        <span data-testid="review-headline" className="min-w-0 flex-1 text-muted-foreground">
+        <span data-testid="review-headline" className="min-w-0 flex-1 truncate text-muted-foreground">
           {review.headline || '本轮评审没有给出一句话结论'}
         </span>
-        {review.stage === 'shadow' && (
-          <span
-            className="flex-none text-[10px] text-muted-foreground"
-            title="影子模式：评审与采纳都只展示/留痕，不触发任何自动动作"
-          >
-            影子模式
-          </span>
-        )}
-      </header>
+        {/* 折叠态也给出每栏分数：一眼就能看出"哪栏被扣分了"，不用展开 */}
+        <span className="hidden flex-none items-center gap-1 sm:flex">
+          {review.lanes.map((lane) => (
+            <span
+              key={lane.lane}
+              data-testid={`review-badge-${lane.lane}`}
+              className="rounded-full bg-background px-1.5 py-px text-[10px] tabular-nums text-muted-foreground"
+              title={`${lane.label}：${lane.score === null ? '无有效判定' : `${Math.round(lane.score * 100)}%`}`}
+            >
+              {lane.label} {lane.score === null ? '—' : `${Math.round(lane.score * 100)}%`}
+            </span>
+          ))}
+        </span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 12 12"
+          className="size-3 flex-none text-muted-foreground transition-transform group-open:rotate-180"
+        >
+          <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      </summary>
+
+      {review.stage === 'shadow' && (
+        <p
+          className="mt-1 text-[10px] text-muted-foreground"
+          title="影子模式：评审与采纳都只展示/留痕，不触发任何自动动作"
+        >
+          影子模式：评审与采纳只展示/留痕，不触发任何自动动作
+        </p>
+      )}
 
       <ul className="mt-1.5 space-y-1">
         {review.lanes.map((lane) => {
@@ -101,6 +125,6 @@ export function ReviewSummaryCard({ review }: { review: ReviewView }) {
       )}
 
       <AdoptBar reviewId={review.reviewId} lanes={review.lanes} />
-    </section>
+    </details>
   )
 }

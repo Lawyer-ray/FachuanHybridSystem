@@ -94,6 +94,18 @@ beforeEach(() => {
 })
 
 describe('ReviewSummaryCard：汇总与证据', () => {
+  it('默认折叠：<details> 不带 open；但折叠态仍给每栏分数徽标', () => {
+    render(<ReviewSummaryCard review={toReviewView(reviewWire())} />)
+    const card = screen.getByTestId('review-summary') as HTMLDetailsElement
+    expect(card.tagName).toBe('DETAILS')
+    // 展开一次 = 四栏打分 + 共识/分歧 + 逐条分歧原文，常常占掉一整屏 → 默认收起
+    expect(card.open).toBe(false)
+    // "哪栏被扣分了"要一眼可见，不用展开
+    expect(screen.getByTestId('review-badge-pi').textContent).toContain('%')
+    // 细节仍在 DOM 里（<details> 只是隐藏），按需展开即可
+    expect(screen.getByTestId('lane-score-pi')).toBeTruthy()
+  })
+
   it('headline + 每栏 one_line；score=null 显示无有效判定（不是 0%）', () => {
     render(
       <ReviewSummaryCard
