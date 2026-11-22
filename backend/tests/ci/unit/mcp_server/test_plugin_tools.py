@@ -234,7 +234,7 @@ def test_risk_aliases_align_with_risk_level() -> None:
     from apps.agent.services.approval import RiskLevel
 
     assert set(plugin_tools.RISK_ALIASES.values()) <= {level.value for level in RiskLevel}
-    assert plugin_tools.UNDECLARED_RISK == RiskLevel.HIGH.value
+    assert RiskLevel.HIGH.value == plugin_tools.UNDECLARED_RISK
 
 
 def test_undeclared_tool_registers_as_high_risk(fake_discovery: Callable[..., None]) -> None:
@@ -321,3 +321,62 @@ def test_invalid_risk_declaration_falls_back_to_high(
 def test_declared_risks_normalizes_case_and_whitespace() -> None:
     module = _fake_module("plugins.p.mcp_tools", MCP_TOOL_RISK={"a": " READ ", "b": "Write", "c": "nope"})
     assert plugin_tools.declared_risks(module) == {"a": "low", "b": "medium"}
+
+
+class TestDeclaredWriteBypassesApproval:
+    """「声明 write」到底省掉了什么：**免人工审批 + 留审计**，而不是免留痕。
+
+    这条钉的是 v27.22.9 的实际诉求——威科检索工具（名字形如 ``*_search``，按名字
+    只会判 LOW）声明 ``MCP_TOOL_RISK = {"...": "write"}`` 之后：
+
+    - ✅ 不再需要人工审批（``classify_risk`` 落到 MEDIUM，不是 HIGH/CRITICAL）；
+    - ✅ 注解显式 ``destructive_hint=False``（MCP 规范对未声明的 destructive 按 true 理解，
+      所以必须显式写 false 才能「非只读但非破坏」）；
+    - ❌ 不会被当成只读（``read_only_hint`` 不为真）——它确实会建任务、花外部额度。
+
+    反向对照：同一份工具**不声明**风险时走「未声明 = high」分支，必须审批。
+    两者一起才证明「免审批」是声明带来的，而不是名字本来就免审批。
+    """
+
+    @staticmethod
+    def _tool() -> Callable[..., None]:
+        def weike_like_search() -> None: ...
+
+        return weike_like_search
+
+    def test_declared_write_is_medium_and_needs_no_approval(self, fake_discovery: Callable[..., None]) -> None:
+        from apps.agent.services.approval import RiskLevel, classify_risk
+
+        module = _fake_module(
+            "plugins.p.mcp_tools",
+            MCP_TOOLS=[self._tool()],
+            MCP_TOOL_RISK={"weike_like_search": "write"},
+        )
+        fake_discovery({"plugins.p.mcp_tools": module})
+
+        annotations: dict[str, Any] = {}
+        plugin_tools.register_plugin_tools(_register_into([], annotations))
+        annotation = annotations["weike_like_search"]
+
+        # medium 的语义：非只读（不冒充只读）+ 显式非破坏
+        assert annotation.read_only_hint is not True
+        assert annotation.destructive_hint is False
+
+        level = classify_risk("weike_like_search", {"facts": "案情"}, annotations=_hints(annotation))
+        assert level == RiskLevel.MEDIUM
+        assert level not in (RiskLevel.HIGH, RiskLevel.CRITICAL), "medium 不该触发人工审批"
+
+    def test_undeclared_falls_back_to_high_and_needs_approval(self, fake_discovery: Callable[..., None]) -> None:
+        """反向对照：同名字、不声明 → high（需审批）。证明免审批来自声明。"""
+        from apps.agent.services.approval import RiskLevel, classify_risk
+
+        module = _fake_module("plugins.p.mcp_tools", MCP_TOOLS=[self._tool()])
+        fake_discovery({"plugins.p.mcp_tools": module})
+
+        annotations: dict[str, Any] = {}
+        plugin_tools.register_plugin_tools(_register_into([], annotations))
+        annotation = annotations["weike_like_search"]
+
+        assert annotation.destructive_hint is True, "未声明必须按破坏性注册（保守方向）"
+        level = classify_risk("weike_like_search", {"facts": "案情"}, annotations=_hints(annotation))
+        assert level in (RiskLevel.HIGH, RiskLevel.CRITICAL)

@@ -61,7 +61,7 @@ from collections import OrderedDict
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 
@@ -107,7 +107,15 @@ MAX_TURNS = 24
 ANTHROPIC_MODEL_MARKER = "anthropic"
 
 #: 权限三件套（写死，不给调用方覆盖）。理由见模块 docstring 第 3 条。
-_HARDENED_PERMISSION_MODE = "default"
+#:
+#: 类型写成 ``Literal["default"]`` 而不是 ``str``：SDK 的
+#: ``ClaudeAgentOptions.permission_mode`` 是 Literal 联合
+#: （``default`` / ``acceptEdits`` / ``plan`` / ``bypassPermissions`` / ``dontAsk`` / ``auto``），
+#: 传 ``str`` 会被 mypy 判 ``arg-type``（CI 的 changed-files 门就是这么红的）。
+#: 收窄到单值还有第二个好处：哪天 SDK 把这个取值删了/改名，类型检查当场报错，
+#: 而不是等到运行时被 SDK 默默当默认处理——那会让「审批回调必被调用」这条安全
+#: 前提静默失效。
+_HARDENED_PERMISSION_MODE: Literal["default"] = "default"
 
 #: 共享 MCP 的连接超时（秒）。与 ``TOOL_TIMEOUT_SECONDS`` 对齐。
 MCP_CLIENT_TIMEOUT_SECONDS = 200.0

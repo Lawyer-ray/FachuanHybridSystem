@@ -63,13 +63,19 @@ class ExecutorSourceGatewayMixin:  # pragma: no cover
         extra_kwargs = {name: value for name, value in optional_kwargs.items() if name in params}
 
         if "offset" in params:
-            return search_cases(
-                session=session,
-                keyword=keyword,
-                max_candidates=batch_size,
-                max_pages=max_pages,
-                offset=offset,
-                **extra_kwargs,
+            # ``list(...)`` 而不是直接 return：三个数据源的 ``search_cases`` 都没有
+            # 严格返回类型（鸭子类型客户端，mypy 看到的是 Any），直接 return 会被
+            # ``no-any-return`` 判错——这个错误会被 CI 的 mypy 全量棘轮记一笔。
+            # 顺带把「返回 list」这件事钉死：调用方按 ``list[Any]`` 消费。
+            return list(
+                search_cases(
+                    session=session,
+                    keyword=keyword,
+                    max_candidates=batch_size,
+                    max_pages=max_pages,
+                    offset=offset,
+                    **extra_kwargs,
+                )
             )
 
         window = search_cases(

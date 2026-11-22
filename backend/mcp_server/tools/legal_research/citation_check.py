@@ -37,7 +37,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from mcp_server.client import client
+from mcp_server.client import FachuanApiError, FachuanTransportError, client
 
 #: 中文法条引用：《民法典》第一千零七十九条 / 《公司法》第32条第二款
 _STATUTE_RE = re.compile(
@@ -204,24 +204,49 @@ def verify_citations(text: str, credential_id: int | None = None) -> dict[str, A
     references: list[dict[str, Any]] = []
     coverage = "format_only"
     note = ""
+    #: 服务端 422（本所没有威科账号）→ 降级为只做格式校验。此时不发检索，
+    #: 所以下面消费 ``payload`` 的整段要跳过。
+    degraded = False
 
     if statutes:
         # 走既有威科链路（含登录、凭证解密、插件探测——不重写以保住安全审计
         # 做过的域白名单等约束）
-        payload = client.post(
-            "/legal-research/law-verification/check",
-            json={
-                "text": body,
-                # None 也照发：服务端按当前用户解析威科账号（凭证 ID 是实现细节，
-                # 不该让模型去 list_credentials 里猜）。解析不出时服务端会 422，
-                # 由下面的兜底降级成 format_only。
-                "credential_id": int(credential_id) if credential_id else None,
-            },
-            timeout=180,
+        try:
+            payload = client.post(
+                "/legal-research/law-verification/check",
+                json={
+                    "text": body,
+                    # None 也照发：服务端按当前用户解析威科账号（凭证 ID 是实现细节，
+                    # 不该让模型去 list_credentials 里猜）。
+                    "credential_id": int(credential_id) if credential_id else None,
+                },
+                timeout=180,
+            )
+        except FachuanTransportError:
+            # 连不上 ≠ 凭证问题：类型本身就是「可重试」标记，照旧抛给上层
+            # （降级成 format_only 会把「服务挂了」伪装成「查过了没问题」）。
+            raise
+        except FachuanApiError as exc:
+            # 服务端解析不出威科账号 → 422。这不是失败，是「没查」：
+            # 降级为只做格式校验，并在 note 里说清，别让律师以为已经核过。
+            if "HTTP 422" not in str(exc):
+                raise
+            note = (
+                "本所未配置威科先行账号凭证，本次只做了格式与结构校验，法条一律标记为 "
+                "not_verified。配置凭证后可重新核查条文现行有效性。"
+            )
+            for item in statutes:
+                references.append({**item, "status": "not_verified", "issue": "未执行法规库检索"})
+            degraded = True
+        if not degraded:
+            coverage = "full"
+        checked = (
+            {}
+            if degraded
+            else {str(item.get("law_name") or "").strip(): item for item in (payload.get("references") or [])}
         )
-        coverage = "full"
-        checked = {str(item.get("law_name") or "").strip(): item for item in (payload.get("references") or [])}
-        for item in statutes:
+        # 降级时不逐条对账：那批 references 已在 422 分支里按 not_verified 补过
+        for item in (statutes if not degraded else []):
             hit = checked.get(item["law_name"])
             if hit is None:
                 references.append(
@@ -254,12 +279,13 @@ def verify_citations(text: str, credential_id: int | None = None) -> dict[str, A
                 }
             )
     else:
-        note = (
-            "未提供 credential_id，本次只做了格式与结构校验，法条一律标记为 "
-            "not_verified。若需确认条文现行有效性，请带 credential_id 重新核查。"
-            if statutes
-            else "文中未发现法条引用。"
-        )
+        if statutes and not note:
+            note = (
+                "未提供 credential_id，本次只做了格式与结构校验，法条一律标记为 "
+                "not_verified。若需确认条文现行有效性，请带 credential_id 重新核查。"
+            )
+        elif not note:
+            note = "文中未发现法条引用。"
         for item in statutes:
             references.append({**item, "status": "not_verified", "issue": "未执行法规库检索"})
 
