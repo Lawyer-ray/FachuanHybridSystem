@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from ...models import AgentMessage, AgentSession, AgentSynthesis
 from ..adjudication.contracts import Synthesis
@@ -83,7 +84,13 @@ async def load_turn_candidates(
         ValueError: 候选数超过 ``MAX_CANDIDATES``（由 ``partition_candidates`` 拦）。
     """
     task, answers = await load_turn_answers(session, turn, list(lanes))
-    rows = await _turn_assistant_rows(session, turn)
+    rows = [
+        row
+        for row in await _turn_assistant_rows(session, turn)
+        # 综合结论自己也是一条 assistant（``agent_kind="synthesis"``）：把它算进
+        # "本轮各栏用过的模型"会让第二次综合沿用它自己的模型，越跑越偏。
+        if str(row.agent_kind or "") != SYNTHESIS_AGENT_KIND
+    ]
 
     present: set[str] = set()
     models: dict[str, str] = {}
@@ -122,7 +129,13 @@ async def resolve_model(session: AgentSession, turn: int, requested: str) -> str
     if model:
         return model
 
-    rows = await _turn_assistant_rows(session, turn)
+    rows = [
+        row
+        for row in await _turn_assistant_rows(session, turn)
+        # 综合结论自己也是一条 assistant（``agent_kind="synthesis"``）：把它算进
+        # "本轮各栏用过的模型"会让第二次综合沿用它自己的模型，越跑越偏。
+        if str(row.agent_kind or "") != SYNTHESIS_AGENT_KIND
+    ]
     seen: list[str] = []
     for row in rows:
         name = str((row.metadata or {}).get("model") or "").strip()
@@ -133,8 +146,52 @@ async def resolve_model(session: AgentSession, turn: int, requested: str) -> str
     return seen[0]
 
 
+#: 综合结论在会话转录里的 ``agent_kind``。
+#:
+#: 用它而不是"执行综合的那个 agent"（如 ``pi``）：写 ``pi`` 会和那一栏自己的回答
+#: 混在同一条 lane 里（前端按 kind 合并同轮 assistant 消息，会把原答案与综合稿拼成
+#: 一段），而"每栏一条"的统计口径也会失真。独立取值让综合既能在转录里被检索/引用/
+#: 继续追问，又不会被算成某一栏的回答。
+SYNTHESIS_AGENT_KIND = "synthesis"
+
+
+async def save_synthesis_message(*, session: AgentSession, synthesis: Synthesis) -> Any:
+    """把综合结论写进会话转录（**一轮一条，重复点击覆盖**）。
+
+    ## 为什么既落 ``AgentSynthesis`` 又落一条消息
+
+    两处解决的是不同问题：``AgentSynthesis`` 是**快照**（含 dropped/citations/
+    unverified，刷新后回放、审计用）；转录里的 assistant 消息是**可检索的正文**
+    （历史回放、后续追问、引用检索都按消息表走）。
+
+    ## 为什么删除后再建而不是 update
+
+    ``AgentMessage`` 没有 (session, turn_no, agent_kind) 唯一约束；同一轮重复点
+    "生成综合结论"时，upsert 语义应是"这一轮的综合结论以最后一次为准"，而不是
+    在转录里堆出三条综合稿。先删后排是最直白的实现，且不依赖约束是否存在。
+    """
+    await AgentMessage.objects.filter(
+        session=session, turn_no=synthesis.turn, agent_kind=SYNTHESIS_AGENT_KIND
+    ).adelete()
+    return await AgentMessage.objects.acreate(
+        session=session,
+        role=AgentMessage.Role.ASSISTANT,
+        turn_no=synthesis.turn,
+        agent_kind=SYNTHESIS_AGENT_KIND,
+        content=synthesis.text,
+        metadata={
+            "synthesis_id": synthesis.synthesis_id,
+            "model": synthesis.model,
+            "lanes_used": list(synthesis.lanes_used),
+            "unverified": len(synthesis.unverified),
+        },
+    )
+
+
 async def save_synthesis(*, session: AgentSession, user_id: int | None, synthesis: Synthesis) -> AgentSynthesis:
-    """把一次综合结论的完整快照落库（**不**写 assistant 消息，见 ``models/synthesis.py``）。"""
+    """把一次综合结论的完整快照落库（**不**写 assistant 消息，那一步由
+    :func:`save_synthesis_message` 单独做——两件事的失败面不同：快照失败要报错，
+    转录消息失败只降级为"检索不到"）。"""
     return await AgentSynthesis.objects.acreate(
         session=session,
         user_id=user_id,

@@ -25,6 +25,8 @@
 
 from __future__ import annotations
 
+import logging
+import uuid
 from typing import Any
 
 from ninja import Router, Schema
@@ -34,11 +36,22 @@ from pydantic import Field
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentSynthesis
-from ..services.adjudication.contracts import DroppedCandidate, Synthesis, SynthesisCitation
-from ..services.chat.aggregate import MAX_CANDIDATES, synthesize
+from ..services.adjudication.contracts import DroppedCandidate, Review, Synthesis, SynthesisCitation
+from ..services.chat.aggregate import MAX_CANDIDATES, extract_citations, partition_candidates
 from ..services.session_service import get_session as get_session_record
-from ..services.synthesis.store import latest_synthesis, load_turn_candidates, resolve_model, save_synthesis
+from ..services.synthesis.agent_runner import DEFAULT_SYNTHESIS_KIND, build_synthesis_prompt, run_synthesis_agent
+from ..services.synthesis.store import (
+    SYNTHESIS_AGENT_KIND,
+    latest_synthesis,
+    load_turn_candidates,
+    resolve_model,
+    save_synthesis,
+    save_synthesis_message,
+)
+from ..services.synthesis.verify import verify_synthesis_citations
 from ._helpers import _user_id
+
+logger = logging.getLogger(__name__)
 
 router = Router(tags=["Agent 综合结论"], auth=JWTOrSessionAuth())
 
@@ -50,8 +63,17 @@ class SynthesisIn(Schema):
     turn: int = Field(ge=1)
     #: 参与综合的栏（``agent_kind``）；正文从 AgentMessage 里按栏回读。
     agents: list[str] = Field(min_length=1, max_length=MAX_CANDIDATES)
-    #: 执行合成的模型；空串 = 服务端取本轮某栏实际用过的模型（见 ``resolve_model``）。
+    #: 执行合成的模型；空串 = 交给所选 agent 按平台默认解析。
     model: str = Field(default="", max_length=200)
+    #: 用哪个 agent 运行时做综合（注册表 kind）。默认 ``pi``（见 agent_runner）。
+    kind: str = Field(default=DEFAULT_SYNTHESIS_KIND, max_length=64)
+    #: 是否先跑一轮评审，把"哪栏更可靠"作为取舍依据喂给综合（默认跑）。
+    #:
+    #: 评审一轮约 5 万 token，但它产出的分数与分歧点正是综合最需要的信息；
+    #: 关掉后综合只能自己猜谁更有理。
+    review: bool = True
+    #: 威科凭证 ID：给了才做外部引用核验（不给 = 只做格式检查，见 verify.py）。
+    credential_id: int | None = Field(default=None, ge=1)
 
 
 def _normalize_lanes(agents: list[str]) -> list[str]:
@@ -84,7 +106,13 @@ def _to_synthesis(record: AgentSynthesis) -> Synthesis:
 
 @router.post("/sessions/{session_id}/synthesize", response=Synthesis)
 async def synthesize_session(request: Any, session_id: str, payload: SynthesisIn) -> Synthesis:
-    """对指定轮次跑一次综合结论（独立请求，不进 SSE）。"""
+    """对指定轮次跑一次综合结论（独立请求，不进 SSE）。
+
+    流程：**(可选)评审 → 组 prompt → 跑指定 agent → 核验引用 → 落 AgentSynthesis**。
+
+    不写 assistant 消息、不写 AgentRun（口径见模块 docstring 与
+    ``services/synthesis/agent_runner``）：综合是"律师点一次"的动作，不属于任何一栏。
+    """
     user_id = _user_id(request)
     session = await get_session_record(session_id=session_id, user_id=user_id)
     if session is None:
@@ -95,19 +123,128 @@ async def synthesize_session(request: Any, session_id: str, payload: SynthesisIn
         task, candidates = await load_turn_candidates(session, payload.turn, lanes)
     except LookupError as exc:
         raise HttpError(404, "该轮次不存在") from exc
-    # 只接 ValueError：``resolve_model`` 的唯一失败原因是"没有可用模型"，它必须
-    # 变成 422（可操作："去请求里指定 model"），而不是 500。宽 except 基类
-    # 在这里会把"我们写错了"也折成 422，让人查错方向。
-    try:
-        model = await resolve_model(session, payload.turn, payload.model)
-    except ValueError as exc:
-        raise HttpError(422, "未配置综合模型") from exc
 
-    synthesis = await synthesize(task, candidates, model=model)
-    # ``session_id`` / ``turn`` 由 API 补齐（``synthesize`` 与轮次无关，见其 docstring）。
-    synthesis = synthesis.model_copy(update={"session_id": str(session.session_id), "turn": payload.turn})
+    # 丢弃口径与裸调用同源（empty / failed）；没有可用候选时不调模型——省一次
+    # 无意义的钱，也让律师看到"这份综合是空的、原因是什么"。
+    used, dropped = partition_candidates(candidates)
+    if not used:
+        raise HttpError(422, "没有可综合的候选：全部为空或失败")
+
+    review_summary = ""
+    if payload.review:
+        review_summary = await _run_review_summary(session=session, turn=payload.turn, lanes=lanes)
+
+    model = (payload.model or "").strip()
+    if not model:
+        # 没指定就交给所选 agent 按平台默认解析；解析不出也不报 422——
+        # 运行时会给出它自己的可读错误。
+        try:
+            model = await resolve_model(session, payload.turn, "")
+        except ValueError:
+            model = ""
+
+    prompt = build_synthesis_prompt(task, used, review_summary=review_summary)
+    run = await run_synthesis_agent(
+        session=session,
+        user_id=user_id,
+        kind=payload.kind,
+        model=model or None,
+        prompt=prompt,
+        # 归因串与多答同构：会话:综合:轮次。综合不写 AgentRun，但审批与日志仍用它。
+        run_id=f"{session.session_id}:synthesis:{payload.turn}",
+    )
+
+    unverified, verify_note = await verify_synthesis_citations(
+        text=run.text,
+        credential_id=payload.credential_id,
+        user=getattr(request, "user", None),
+    )
+    # 有逐条未核验项时 note 是冗余的（它就是"共 N 条未通过"）；没有逐条项时
+    # note 才是唯一信息（"未提供凭证" / "核验未执行：…"），必须留给前端。
+    if verify_note and not unverified:
+        unverified = [verify_note]
+
+    synthesis = Synthesis(
+        synthesis_id=uuid.uuid4().hex,
+        session_id=str(session.session_id),
+        turn=payload.turn,
+        text=run.text,
+        model=run.model or model,
+        lanes_used=[candidate.lane for candidate in used],
+        dropped=dropped,
+        citations=extract_citations(used),
+        unverified=unverified,
+        # 不记成本（业务方口径）：综合是一次点击动作，成本归因价值低，
+        # 而多一张运行记录会让「本轮几栏 / 多少钱」的统计口径变复杂。
+        tokens={},
+    )
     await save_synthesis(session=session, user_id=user_id, synthesis=synthesis)
+    # 转录里的"第 6 栏"：写 ``agent_kind="synthesis"``，既能在历史回放/检索/后续追问里
+    # 被看到，又不会被算成某一栏的回答（口径见 store.SYNTHESIS_AGENT_KIND）。
+    # 失败只降级为"检索不到"，不影响已经拿到的结论——所以单独 try。
+    try:
+        await save_synthesis_message(session=session, synthesis=synthesis)
+    except (KeyboardInterrupt, SystemExit, GeneratorExit):
+        raise
+    except BaseException:
+        # 转录写入失败只降级为"检索不到"，不影响已经拿到的结论（见上）。
+        logger.warning("综合结论写入转录失败（结论本身已落快照）session=%s", session.session_id, exc_info=True)
     return synthesis
+
+
+async def _run_review_summary(*, session: Any, turn: int, lanes: list[str]) -> str:
+    """跑一轮评审并把结论压成一段给综合看的文字；跑不成返回空串。
+
+    **不阻断综合**：评审是"更准"的手段，不是前置条件。判官模型没配、评审报错，
+    综合照样跑（只是少了取舍依据），这与"点了综合结果什么都没出"是两种体验。
+    """
+    from ..services.review.judge_models import configured_judge_models, resolve_judge_models
+    from ..services.review.jury import run_jury
+    from ..services.review.rubric import DEFAULT_RUBRIC_ID, load_rubric
+    from ..services.review.store import load_turn_answers, load_turn_models
+
+    try:
+        rubric = load_rubric(DEFAULT_RUBRIC_ID)
+        task, answers = await load_turn_answers(session, turn, lanes)
+        turn_models = await load_turn_models(session, turn, lanes)
+        judge_models = resolve_judge_models(requested=[], configured=configured_judge_models(), turn_models=turn_models)
+        if not judge_models:
+            return ""
+        review = await run_jury(
+            session_id=str(session.session_id),
+            turn=turn,
+            task=task,
+            answers=answers,
+            rubric=rubric,
+            judge_models=judge_models,
+            rubric_id=DEFAULT_RUBRIC_ID,
+        )
+    except (KeyboardInterrupt, SystemExit, GeneratorExit):
+        raise
+    except BaseException:
+        # 评审失败不阻断综合（见 docstring）。用 ``BaseException`` 而非 ``Exception``
+        # 是为了显式放行上面三类控制流异常；同时也是仓库棘轮的要求。
+        logger.warning("综合前置评审失败（不阻断综合）session=%s turn=%s", session.session_id, turn, exc_info=True)
+        return ""
+    return _format_review(review)
+
+
+def _format_review(review: Review) -> str:
+    """评审结果 → 一段纯文本（给 agent 读，不是给前端渲染）。"""
+    lines: list[str] = []
+    if review.headline:
+        lines.append(f"一句话结论：{review.headline}")
+    for lane in review.lanes:
+        score = "" if lane.score is None else f"｜得分 {lane.score:.2f}"
+        line = (lane.one_line or "").strip()
+        lines.append(f"- {lane.lane}{score}" + (f"｜{line}" if line else ""))
+    for cluster in review.clusters:
+        lanes_in = "、".join(getattr(cluster, "lanes", []) or [])
+        if lanes_in:
+            lines.append(f"立场相同：{lanes_in}")
+    if review.unverified:
+        lines.append("本轮评审提到但没核到的引用：" + "；".join(review.unverified))
+    return "\n".join(lines)
 
 
 @router.get("/sessions/{session_id}/synthesis", response=Synthesis)

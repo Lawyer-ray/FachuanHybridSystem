@@ -371,10 +371,35 @@ describe('copilot api：@ 引用候选源', () => {
     expect(apiMock.get).toHaveBeenCalledWith('agent/sessions/s-1/synthesis', { searchParams: { turn: 3 } })
   })
 
-  it('runSynthesis POST sessions/{id}/synthesize：model 空串照发（服务端按本轮栏模型解析）', async () => {
+  it('runSynthesis POST sessions/{id}/synthesize：model 空串照发 + 综合的 agent/评审/凭证口径', async () => {
     await runSynthesis('s-1', { turn: 3, agents: ['pi', 'dsh'], model: '' })
     expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/synthesize', {
-      json: { turn: 3, agents: ['pi', 'dsh'], model: '' },
+      json: {
+        turn: 3,
+        agents: ['pi', 'dsh'],
+        model: '',
+        // 默认 pi（与后端 agent_runner.DEFAULT_SYNTHESIS_KIND 同值）
+        kind: 'pi',
+        // 默认先评审：评审分数是综合取舍的依据
+        review: true,
+        // 没选凭证 = 不做外部核验（服务端只做格式检查并回 note）
+        credential_id: null,
+      },
+      timeout: REVIEW_TIMEOUT_MS,
+    })
+  })
+
+  it('runSynthesis 透传选中的 agent / 模型 / 先评审开关', async () => {
+    await runSynthesis('s-1', {
+      turn: 2,
+      agents: ['pi'],
+      model: 'glm53',
+      kind: 'claude-agent',
+      review: false,
+      credentialId: 7,
+    })
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/synthesize', {
+      json: { turn: 2, agents: ['pi'], model: 'glm53', kind: 'claude-agent', review: false, credential_id: 7 },
       timeout: REVIEW_TIMEOUT_MS,
     })
   })

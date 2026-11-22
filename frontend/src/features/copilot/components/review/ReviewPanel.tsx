@@ -15,9 +15,14 @@
  * 刷新页面时若只有历史合成记录（没跑评审），综合结论卡照样要显示出来。
  */
 
+import { agentLabel } from '../../domain'
+
 import { useReviewActions } from './use-review-actions'
 import { ReviewSummaryCard } from './ReviewSummaryCard'
 import { SynthesisCard } from './SynthesisCard'
+
+const SELECT_CLASS =
+  'rounded-[4px] border border-border bg-background px-1 py-0.5 text-[11px] text-foreground/80'
 
 const ACTION_BUTTON_CLASS =
   'flex-none rounded-[4px] border border-border bg-background px-1.5 py-0.5 text-[11px] text-foreground/80 transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50'
@@ -77,7 +82,56 @@ export function ReviewPanel({
           >
             {actions.synthesisRunning ? '生成中…' : actions.synthesis ? '重新生成综合结论' : '综合结论'}
           </button>
-          <span className="text-[11px] text-muted-foreground">把各栏收敛成一份合成稿（来源可追溯，点了才跑）</span>
+
+          {/* 用哪个 agent 跑综合：选项来自本轮各栏 + pi。
+              选 agent 而不是"选模型"是有意的——agent 决定它能不能调工具去核引用。 */}
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            执行
+            <select
+              data-testid="synthesis-kind"
+              value={actions.synthesisKind}
+              disabled={actions.synthesisRunning}
+              onChange={(event) => actions.setSynthesisKind(event.target.value)}
+              className={SELECT_CLASS}
+            >
+              {[...new Set([...agents, 'pi'])].map((kind) => (
+                <option key={kind} value={kind}>
+                  {agentLabel(kind)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* 模型留空 = 交给所选 agent 按平台默认解析。清单与评审共用平台模型列表：
+              两者都是"平台上有哪些模型"，各拉一份迟早漂移。 */}
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            模型
+            <select
+              data-testid="synthesis-model"
+              value={actions.synthesisModel}
+              disabled={actions.synthesisRunning}
+              onChange={(event) => actions.setSynthesisModel(event.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">自动</option>
+              {(actions.judgeModels ?? []).map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              data-testid="synthesis-with-review"
+              checked={actions.synthesisWithReview}
+              disabled={actions.synthesisRunning}
+              onChange={(event) => actions.setSynthesisWithReview(event.target.checked)}
+            />
+            先评审（约 5 万 token，更准）
+          </label>
         </div>
       )}
 

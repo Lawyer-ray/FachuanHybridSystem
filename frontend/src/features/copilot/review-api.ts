@@ -102,11 +102,28 @@ export function fetchSynthesis(sessionId: string, turn: number): Promise<Synthes
  */
 export function runSynthesis(
   sessionId: string,
-  input: { turn: number; agents: string[]; model: string },
+  input: {
+    turn: number
+    agents: string[]
+    model: string
+    /** 用哪个 agent 运行时做综合（后端注册表 kind）；默认 `pi` */
+    kind?: string
+    /** 是否先跑一轮评审再把结论喂给综合（默认 true，约 5 万 token） */
+    review?: boolean
+    /** 威科凭证：给了才做外部引用核验 */
+    credentialId?: number | null
+  },
 ): Promise<Synthesis> {
   return api
     .post(`agent/sessions/${sessionId}/synthesize`, {
-      json: { turn: input.turn, agents: input.agents, model: input.model },
+      json: {
+        turn: input.turn,
+        agents: input.agents,
+        model: input.model,
+        kind: input.kind ?? 'pi',
+        review: input.review ?? true,
+        credential_id: input.credentialId ?? null,
+      },
       timeout: REVIEW_TIMEOUT_MS,
     })
     .json<Synthesis>()

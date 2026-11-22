@@ -49,6 +49,15 @@ export interface ReviewActions {
   synthesisRunning: boolean
   startReview: () => void
   startSynthesis: () => void
+  /** 综合用哪个 agent 运行时（默认 pi；可换成本轮任意一栏的 kind） */
+  synthesisKind: string
+  setSynthesisKind: (kind: string) => void
+  /** 综合用哪个模型（空 = 交给所选 agent 按平台默认解析） */
+  synthesisModel: string
+  setSynthesisModel: (model: string) => void
+  /** 先跑评审再综合（默认开：评审分数是综合取舍的依据） */
+  synthesisWithReview: boolean
+  setSynthesisWithReview: (on: boolean) => void
 }
 
 /**
@@ -66,6 +75,10 @@ export function useReviewActions(
   const [options, setOptions] = useState<ReviewOptions | null>(null)
   const [reviewRunning, setReviewRunning] = useState(false)
   const [synthesisRunning, setSynthesisRunning] = useState(false)
+  // 默认 pi：注册表里最稳的一个（与后端 agent_runner.DEFAULT_SYNTHESIS_KIND 同值）。
+  const [synthesisKind, setSynthesisKind] = useState('pi')
+  const [synthesisModel, setSynthesisModel] = useState('')
+  const [synthesisWithReview, setSynthesisWithReview] = useState(true)
 
   // 选项是平台级配置（不是某一轮的数据）：只在挂载时取一次。
   // 取失败不拦功能：judge_models 允许为空，服务端会按配置解析。
@@ -145,8 +158,10 @@ export function useReviewActions(
       const wire = await runSynthesis(targetSessionId, {
         turn: targetTurn,
         agents: [...agents],
-        // 空串 = 服务端按本轮各栏模型解析（合成看候选模型，不是 judge）
-        model: '',
+        // 空串 = 交给所选 agent 按平台默认解析
+        model: synthesisModel,
+        kind: synthesisKind,
+        review: synthesisWithReview,
       })
       setSynthesis(toSynthesisView(wire))
     } catch (error) {
@@ -169,5 +184,11 @@ export function useReviewActions(
     synthesisRunning,
     startReview,
     startSynthesis,
+    synthesisKind,
+    setSynthesisKind,
+    synthesisModel,
+    setSynthesisModel,
+    synthesisWithReview,
+    setSynthesisWithReview,
   }
 }

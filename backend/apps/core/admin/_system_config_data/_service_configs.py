@@ -97,6 +97,17 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "value": "2",
             "is_secret": False,
         },
+        {
+            "key": "YUANDIAN_MCP_SERVERS",
+            "category": "enterprise_data",
+            "description": (
+                "元典 MCP Server 清单（逗号或换行分隔，地址为 <YUANDIAN_BASE_URL>/mcp/<名称>/stream）。"
+                "可选：law 法律法规 / case 案例文书 / company 企业信息 / securities 证券合规 / "
+                "hallucination 幻觉校验（**仅 VIP 可用，默认不挂**）。留空 = 不挂任何元典 MCP。"
+            ),
+            "value": "law,case,company,securities",
+            "is_secret": False,
+        },
     ]
 
 

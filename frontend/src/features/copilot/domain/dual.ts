@@ -65,6 +65,10 @@ const AGENT_LABELS: Record<string, string> = {
   'openai-agents': 'OpenAI Agents',
   antigravity: 'Antigravity',
   'claude-agent': 'Claude Agent',
+  // 综合结论在转录里也是一条 assistant（后端 agent_kind="synthesis"）。
+  // 它不是"某一栏 AI 的回答"，所以 distinctAgentKinds 会把它排掉（见该函数），
+  // 这里只是给它一个可读名字，供转录列表/检索结果展示。
+  synthesis: '综合结论',
 }
 
 export function agentLabel(kind: string): string {
@@ -132,7 +136,9 @@ export function distinctAgentKinds(answers: readonly ChatMessage[]): string[] {
   const seen: string[] = []
   for (const answer of answers) {
     const kind = answer.agentKind
-    if (answer.role === 'assistant' && kind && !seen.includes(kind)) seen.push(kind)
+    // ``synthesis`` 是综合结论（不是某一栏 AI 的回答）：算进栏清单会让多答布局
+    // 凭空多出第 6 栏，而它已经由 SynthesisCard 渲染。
+    if (answer.role === 'assistant' && kind && kind !== 'synthesis' && !seen.includes(kind)) seen.push(kind)
   }
   return seen
 }
