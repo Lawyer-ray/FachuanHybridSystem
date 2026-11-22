@@ -85,6 +85,16 @@ rg -n "acquire" backend/apps/core/llm/key_selector.py
 
 ---
 
+### A3 OA 归档超过 2 个附件时静默只传前 2 个，任务仍置 COMPLETED
+
+- **现象**：`playwright_archive.py:265-275` 在 `len(file_paths) > 2` 时只上传前两个文件、仅打一条
+  `logger.warning`，任务状态照样走 `COMPLETED` → 材料静默漏传，界面上看不出少东西。
+- **证据**：`apps/oa_filing/services/oa_scripts/jtn/archive/playwright_archive.py:265-275`（审计 P08-03）。
+- **修法**：二选一并写进 README/报错文案——① 入口直接拒绝 >2 个附件（`ScriptExecutionError`，
+  任务置 FAILED）；② 实现「增加」按钮加行（OA 页面已预留 `file_inputs` 多行）。
+- **代价**：①要改调用方调用约定（可能要限制前端选文件数）；②要对着真实 OA 页面调 Playwright
+  加行流程，需真机验证 + 回归。约 0.5~2 天。
+
 ## B. plugins 子模块（私有仓库 FachuanPlugins）—— 必须另开两段式 PR
 
 > 本 PR 按纪律**不改 plugins**（子模块指针与内容都未动）。以下 5 条 P0 已确认，证据在
