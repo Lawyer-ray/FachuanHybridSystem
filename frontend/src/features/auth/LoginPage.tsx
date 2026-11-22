@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useMediaQuery } from '../../hooks/use-media'
+import { useMediaQuery } from '@/hooks/use-media'
 import './login.css'
 import { socialAuthApi, SOCIAL_PROVIDERS_KEY } from './social-api'
 import {

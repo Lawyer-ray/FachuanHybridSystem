@@ -18,10 +18,7 @@ import {
   splitQuoteBlock,
   splitRefBlocks,
 } from '../domain'
-import { MAX_ANSWERS, ratableMessageId } from '../domain'
-// 直接从子模块引：`domain/index.ts` 的出口表不归本文件维护（多 agent 并行改造期间
-// 谁都在改它），而收尾判定是纯函数，路径直一点也更好追
-import { classifyStreamEnd } from '../domain/stream-guard'
+import { MAX_ANSWERS, classifyStreamEnd, ratableMessageId } from '../domain'
 import { uploadAttachmentsAndCompose } from '../outgoing'
 import { storeSession } from '../persistence'
 import { consumeAgentStream } from '../streaming'
@@ -173,8 +170,16 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     // 不发、chips 保留可重试（outgoing 复用已成功回执，不重复上传）。
     const pendingFiles = get().pendingFiles
     const pendingRefs = get().pendingRefs
+    // 待发 `@` 引用由这里下发（outgoing 不反向 import store，见其文件头）
+    const pendingMentions = get().pendingMentions
     if (pendingFiles.length > 0 || pendingRefs.length > 0) set({ uploadingAttachments: true })
-    const outgoing = await uploadAttachmentsAndCompose(sessionId, outgoingText, pendingFiles, pendingRefs)
+    const outgoing = await uploadAttachmentsAndCompose(
+      sessionId,
+      outgoingText,
+      pendingFiles,
+      pendingRefs,
+      pendingMentions,
+    )
     set({ uploadingAttachments: false })
     if (outgoing === null) {
       set({ lastError: '附件/引用准备失败，请重试（已保留，重试不会重复上传）', sending: false })
@@ -274,6 +279,7 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     const { handlers, finishAssistant } = createTurnHandlers(
       assistantId,
       set,
+      get,
       (kind) => assistantByAgent[kind] ?? assistantId,
       turnAgents.length,
     )
@@ -350,7 +356,6 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       set({ streaming: false, queuePosition: null })
     }
   },
-
   regenerate: async (fromMessageId, mode) => {
     const sessionId = get().sessionId
     if (!sessionId || get().streaming) return
@@ -380,7 +385,7 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
         },
       ],
     }))
-    const { handlers, finishAssistant } = createTurnHandlers(assistantId, set, () => assistantId, 1)
+    const { handlers, finishAssistant } = createTurnHandlers(assistantId, set, get, () => assistantId, 1)
     try {
       const resp = await copilotApi.openRegenerateStream(
         sessionId,
@@ -401,11 +406,9 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       if (get().sessionId === sessionId) await get().switchSession(sessionId)
     }
   },
-
   stop: () => {
     controller?.abort()
   },
-
   steer: async (text) => {
     const trimmed = text.trim()
     const sessionId = get().sessionId
@@ -422,7 +425,6 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       set({ steering: false })
     }
   },
-
   revokeQueuedSteers: async () => {
     const sessionId = get().sessionId
     if (!sessionId || get().queuedSteers.length === 0) return
@@ -433,15 +435,13 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
       set({ lastError: '撤回插话失败，请重试' })
     }
   },
-
   submitTask: async (text) => {
     const trimmed = text.trim()
     if (!trimmed || get().streaming) return
     set({ lastError: null })
     try {
       const receipt = await copilotApi.submitAgentTask(trimmed, '', get().context ?? undefined)
-      // 受理即切到任务会话：侧栏徽标 + 轮询由此展开；跑完的通知消息
-      // 写进会话历史，refreshHistory（面板轮询触发）后即可见
+      // 受理即切任务会话：徽标 + 轮询由此展开；完成通知进会话历史
       await get().switchSession(receipt.session_id)
     } catch {
       set({ lastError: '提交后台任务失败，请稍后重试' })

@@ -11,7 +11,7 @@
  * 律师扫一眼就知道哪几行需要自己核对。演示态常量 `DEMO_OA_FIELD_MAPPING`。
  */
 
-import { PageTable } from '../court/PageTable'
+import { PageTable } from '../PageTable'
 import { Pill } from '../ui'
 import { DEMO_OA_FIELD_MAPPING, type OAFieldMappingRow } from '../demo-data'
 

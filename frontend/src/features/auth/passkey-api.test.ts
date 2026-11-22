@@ -19,7 +19,7 @@ vi.mock('ky', async (importOriginal) => {
   const actual = await importOriginal<typeof import('ky')>()
   return { ...actual, default: { create: () => clientMock } }
 })
-vi.mock('@/lib/api', () => ({ createApiClient: () => clientMock }))
+vi.mock('@/lib/api', () => ({ createApiClient: () => clientMock, createAnonymousClient: () => clientMock }))
 vi.mock('@/lib/token', () => ({ setTokens: setTokensMock }))
 
 import { passkeyApi } from './passkey-api'

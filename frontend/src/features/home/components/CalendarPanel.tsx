@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { WEEKDAYS } from '../constants'
@@ -9,6 +9,7 @@ import { BTN, BTN_ICON, PANEL } from '../ui'
 import { useElementWidth } from '@/hooks/use-element-width'
 import { useMediaQuery } from '@/hooks/use-media'
 import { cn } from '@/lib/utils'
+import type { CalendarEventActions } from './DayEventRow'
 import { DayCell } from './DayCell'
 
 export interface CalendarView {
@@ -28,17 +29,16 @@ interface Props {
   loading: boolean
   /** 选中某天（桌面端高亮 / 移动端开当日抽屉由调用方决定） */
   onSelectDay: (key: string) => void
-  /** 打开某条安排的详情（弹窗由调用方挂载——日历格、手机抽屉、今日卡共用同一个） */
-  onOpenEvent: (e: CalendarEvent) => void
-  /** 勾选完成 / 取消完成（合并事件的全部成员由调用方统一处理） */
-  onToggleComplete: (e: CalendarEvent) => void
   /** 点日历格空白处 → 新增该日安排（弹窗由调用方挂载）。仅桌面端：手机端点格子一律开当日抽屉，新增走抽屉里的「＋新增」 */
   onOpenAdd: (key: string) => void
-  /** 右键事件行 → 快捷菜单（光标坐标随事件带上）；可选，不传则右键走浏览器默认行为 */
-  onEventContextMenu?: (e: CalendarEvent, pos: { x: number; y: number }) => void
+  /** 事件级动作（详情 / 勾完成 / 右键菜单）：整包传给格子与事件行，不再三层逐项透传 */
+  eventActions: CalendarEventActions
   /** 密度是否降到紧凑档（点格子=看这一天）。调用方据此决定开当日抽屉还是弹新增 */
   onCompactChange?: (compact: boolean) => void
 }
+
+/** 空日的事件列表常量：`?? []` 每次渲染都造新数组，会让 DayCell 的 memo 恒失效 */
+const NO_EVENTS: CalendarEvent[] = []
 
 /** 大日历面板：月份切换 + 周一起点月历 + 事件行 + 悬停摘要 + 统计。
  *  纯展示受控组件：视图月与数据都在 HomePage，本组件不own取数、不own弹窗。 */
@@ -51,10 +51,8 @@ export function CalendarPanel({
   stats,
   loading,
   onSelectDay,
-  onOpenEvent,
-  onToggleComplete,
   onOpenAdd,
-  onEventContextMenu,
+  eventActions,
   onCompactChange,
 }: Props) {
   const [selected, setSelected] = useState(today)
@@ -79,12 +77,16 @@ export function CalendarPanel({
     onCompactChange?.(compact)
   }, [compact, onCompactChange])
 
-  const cells = buildMonthGrid(view.year, view.month)
+  // 视图月网格按年月记忆：`cell` 对象身份稳定，DayCell 的 memo 才有意义
+  const cells = useMemo(() => buildMonthGrid(view.year, view.month), [view.year, view.month])
 
-  const pickDay = (key: string) => {
-    setSelected(key)
-    onSelectDay(key)
-  }
+  const pickDay = useCallback(
+    (key: string) => {
+      setSelected(key)
+      onSelectDay(key)
+    },
+    [onSelectDay],
+  )
 
   return (
     <section ref={sectionRef} className={`${PANEL} @container`}>
@@ -135,14 +137,12 @@ export function CalendarPanel({
             cell={cell}
             today={today}
             selected={cell.key === selected}
-            events={cell.key ? (eventsByDay[cell.key] ?? []) : []}
+            events={cell.key ? (eventsByDay[cell.key] ?? NO_EVENTS) : NO_EVENTS}
             maxRows={maxRows}
             density={density}
             onPick={pickDay}
-            onOpenDetail={onOpenEvent}
             onOpenAdd={onOpenAdd}
-            onToggleComplete={onToggleComplete}
-            onEventContextMenu={onEventContextMenu}
+            actions={eventActions}
           />
         ))}
         {loading && (

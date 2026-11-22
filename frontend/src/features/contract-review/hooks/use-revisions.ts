@@ -13,11 +13,9 @@ export const reviewKeys = {
 /** 决策提交的入参（variables 同时用于乐观更新与 busyId 推导，见 useRevisions） */
 interface DecideVars {
   revisionId: string
-  /** 乐观更新与回滚要用到的前后状态：从列表项上抄下来，回滚不依赖当时的 items 闭包 */
+  /** 乐观态的目标状态。回滚**不**靠这里：onMutate 返回的 snapshot 才是回滚依据 */
   nextStatus: ReviewRevision['status']
   nextReason: string
-  prevStatus: ReviewRevision['status']
-  prevReason: string
   action: ResolveAction
   reason: string
 }
@@ -83,8 +81,6 @@ export function useRevisions(taskId: string | null) {
       reason,
       nextStatus,
       nextReason: action === 'reject' ? reason : '',
-      prevStatus: revision.status,
-      prevReason: revision.reject_reason,
     })
   }
 

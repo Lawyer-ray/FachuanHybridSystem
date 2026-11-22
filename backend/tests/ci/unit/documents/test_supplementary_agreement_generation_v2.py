@@ -163,21 +163,18 @@ class TestGenerateSupplementaryAgreement:
 
 
 class TestFindSupplementaryAgreementTemplate:
-    def test_matcher_invoked_then_cast_raises(self):
-        """疑似缺陷：cast("DocumentTemplate" | None, ...) 在运行期求值 str | None 抛 TypeError。
-
-        首参表达式在 TemplateMatcher() 之前求值，导致方法必然抛错且匹配器不会执行。
-        此处只锁定现状，不改产品代码；修复后应改为断言返回模板本身。
+    def test_returns_matched_template(self):
+        """2026-11-23 审计修复：`cast("DocumentTemplate" | None, ...)` 的首参是表达式，
+        运行期求值 `"str" | None` 抛 TypeError，匹配器根本没跑。改为字符串字面量后
+        本用例断言「匹配器被调 + 返回它的结果」。
         """
-        import pytest
-
         svc = SupplementaryAgreementGenerationService(contract_service=MagicMock())
         tpl = _template()
         with patch(f"{PIPELINE}.TemplateMatcher") as mock_matcher:
             mock_matcher.return_value.match_supplementary_agreement_template.return_value = tpl
-            with pytest.raises(TypeError):
-                svc.find_supplementary_agreement_template("civil")
-            mock_matcher.return_value.match_supplementary_agreement_template.assert_not_called()
+            result = svc.find_supplementary_agreement_template("civil")
+            mock_matcher.return_value.match_supplementary_agreement_template.assert_called_once_with("civil")
+        assert result is tpl
 
 
 class TestBuildContext:

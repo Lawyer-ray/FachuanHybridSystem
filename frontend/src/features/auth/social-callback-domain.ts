@@ -1,8 +1,9 @@
 /**
  * 社交登录回调页的纯逻辑。
  *
- * 从 SocialCallbackPage 抽出来，便于单测（frontend 当前不引 @testing-library，
- * 只测纯函数）。
+ * 从 SocialCallbackPage 抽出来便于单测：纯函数用 node 环境直接测；页面本身的
+ * 组件测试见 SocialCallbackPage.dom.test.tsx（文件头 `// @vitest-environment jsdom`
+ * + @testing-library/react，本仓 *.dom.test.tsx 的通用写法）。
  */
 
 import { SOCIAL_LOGIN_ERROR_TEXT, type SocialLoginErrorCode } from './constants'

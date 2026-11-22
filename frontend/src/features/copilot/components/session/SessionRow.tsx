@@ -29,6 +29,15 @@ import { StatusBadge } from '@/components/shared/status-badge'
  */
 const isolateRowGesture = (e: React.MouseEvent) => e.stopPropagation()
 
+/**
+ * 子按钮的按键隔离（与 isolateRowGesture 同理，但按键走的不是 MouseEvent）。
+ *
+ * 行容器对 Enter/Space 做 `preventDefault()` + `onSwitch()`；按键从按钮冒泡上去
+ * 就会被它吃掉：键盘用户在「重命名」上按 Enter 既不进编辑态（默认激活被 preventDefault
+ * 掉了），还会被切到另一个会话。按钮自己的 Enter 激活由浏览器完成，这里只拦冒泡。
+ */
+const isolateRowKeyGesture = (e: React.KeyboardEvent) => e.stopPropagation()
+
 export function SessionRow({
   session,
   active,
@@ -102,7 +111,8 @@ export function SessionRow({
         onRequestDelete()
       }}
       onKeyDown={(e) => {
-        // 键盘用户必须能切会话；内层按钮的按键不冒泡到这里
+        // 键盘用户必须能切会话。内层按钮各自 stopPropagation（见 isolateRowKeyGesture），
+        // 所以这里的 preventDefault 只作用于行本身，不会吃掉按钮的 Enter 激活。
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onSwitch()
@@ -132,6 +142,7 @@ export function SessionRow({
           }}
           onDoubleClick={isolateRowGesture}
           onContextMenu={isolateRowGesture}
+          onKeyDown={isolateRowKeyGesture}
         >
           <Pencil className="h-3 w-3" />
         </button>
@@ -145,6 +156,7 @@ export function SessionRow({
           }}
           onDoubleClick={isolateRowGesture}
           onContextMenu={isolateRowGesture}
+          onKeyDown={isolateRowKeyGesture}
         >
           <Trash2 className="h-3 w-3" />
         </button>

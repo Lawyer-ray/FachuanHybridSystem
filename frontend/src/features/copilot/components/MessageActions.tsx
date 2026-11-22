@@ -19,8 +19,7 @@ import { Check, Copy, CornerDownRight, RotateCcw, ThumbsDown, ThumbsUp, Type } f
 
 import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
-import { formatClock } from '../domain'
-import { toPlainText } from '../domain/plain-text'
+import { formatClock, markdownToPlainText } from '../domain'
 import { useCopilot } from '../store'
 
 /** 可及名/原因 id 的公共前缀（同一气泡里多个实例也不能撞 id） */
@@ -146,7 +145,7 @@ export function MessageActions({
           aria-label="复制纯文本"
           title="复制纯文本（去掉 Markdown 标记，贴到 Word/邮件里用）"
           className="flex h-6 w-6 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-          onClick={() => void copy(toPlainText(content))}
+          onClick={() => void copy(markdownToPlainText(content))}
         >
           <Type className="h-3 w-3" aria-hidden />
         </button>

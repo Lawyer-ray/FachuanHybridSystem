@@ -177,21 +177,6 @@ export function parseCiteMarkers(text: string, known?: ReadonlySet<number>): Cit
 }
 
 /**
- * 把正文与引用表对齐：正文里出现但引用表没有的编号一律剔除（同上，宁缺勿错）。
- *
- * @returns `marks` 已按 `known` 过滤；`citations` 只保留正文真的引用到的那几条
- */
-export function reconcileCitations(
-  text: string,
-  citations: readonly CitationRef[],
-): { marks: CiteMarker[]; citations: CitationRef[] } {
-  const byNo = new Map(citations.map((citation) => [citation.citeNo, citation]))
-  const marks = parseCiteMarkers(text, new Set(byNo.keys()))
-  const used = new Set(marks.map((mark) => mark.citeNo))
-  return { marks, citations: citations.filter((citation) => used.has(citation.citeNo)) }
-}
-
-/**
  * 「第 N 页」的措辞必须诚实。
  *
  * 解析器给的页号对 PDF 是物理页，但对 docx/txt 是**分段批次**——直接写「第 3 页」

@@ -19,7 +19,7 @@ import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { ROW_BTN } from '../../../ui'
 import { badgeOf } from './badges'
 import { HistoryError } from './HistoryError'
-import { HistoryHeader, HistoryPager } from './HistoryParts'
+import { HISTORY_PAGE_SIZE, HistoryHeader, HistoryPager } from './HistoryParts'
 
 const STATUS_LABEL: Record<string, string> = { success: '成功', failed: '失败' }
 
@@ -132,7 +132,7 @@ export function ConvertHistoryDialog({ open, onOpenChange }: { open: boolean; on
 
   const items = data?.items ?? []
   const count = data?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(count / 20))
+  const totalPages = Math.max(1, Math.ceil(count / HISTORY_PAGE_SIZE))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

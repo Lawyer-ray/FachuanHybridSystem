@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { HTTPError } from 'ky'
 
 import { usePollSession, type PollLease } from '@/hooks/use-poll-session'
 
@@ -134,7 +135,9 @@ export function useRecognize(): UseRecognizeResult {
         }
       } catch (e) {
         if (lease.isStale()) return
-        const status = (e as { response?: { status?: number } })?.response?.status
+        // 用 instanceof HTTPError 而不是结构化猜形状：任何恰好带 response.status=404
+        // 的其他错误都会被误判成「任务还没落库」并进 15 轮宽限，用户白等
+        const status = e instanceof HTTPError ? e.response.status : 0
         if (status === 404) {
           notFoundStreak++
           if (notFoundStreak >= NOT_FOUND_GRACE_POLLS) {

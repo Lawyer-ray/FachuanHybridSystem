@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 from django.utils import timezone
@@ -268,36 +268,50 @@ class TestGetDownloadProgress:
 # ── cleanup_orphaned_files ────────────────────────────────────────
 
 
+def _age_file(path: Path) -> None:
+    """把文件 mtime 拨到 3 天前，避免 min_age_hours=24 把它当成「刚写入」跳过。"""
+    old_mtime = timezone.now().timestamp() - 3 * 24 * 3600
+    os.utime(path, (old_mtime, old_mtime))
+
+
 @pytest.mark.django_db
 class TestCleanupOrphanedFiles:
-    def test_no_directory(self, service):
-        with patch("apps.automation.services.admin.court_document_admin_service.settings") as mock_settings:
-            mock_settings.MEDIA_ROOT = "/nonexistent_root"
-            result = service.cleanup_orphaned_files()
-            assert result["orphaned_files"] == 0
+    def test_no_directory(self, service, settings):
+        settings.MEDIA_ROOT = "/nonexistent_root"
+        result = service.cleanup_orphaned_files()
+        assert result["orphaned_files"] == 0
+        assert result["message"] == "文档目录不存在"
 
-    def test_no_orphans(self, service, success_doc, tmp_path):
-        with patch("apps.automation.services.admin.court_document_admin_service.settings") as mock_settings:
-            media = str(tmp_path)
-            # Create the doc file under media/court_documents/
-            court_dir = tmp_path / "court_documents"
-            court_dir.mkdir()
-            doc_file = court_dir / "doc3.pdf"
-            doc_file.write_bytes(b"test")
-            success_doc.local_file_path = "court_documents/doc3.pdf"
-            success_doc.save()
-            mock_settings.MEDIA_ROOT = media
-            result = service.cleanup_orphaned_files()
-            assert result["orphaned_files"] == 0
+    def test_no_orphans(self, service, success_doc, tmp_path, settings):
+        media = tmp_path / "media"
+        court_dir = media / "court_documents"
+        court_dir.mkdir(parents=True)
+        doc_file = court_dir / "doc3.pdf"
+        doc_file.write_bytes(b"test")
+        _age_file(doc_file)
+        success_doc.local_file_path = "court_documents/doc3.pdf"
+        success_doc.save()
+        settings.MEDIA_ROOT = str(media)
+        result = service.cleanup_orphaned_files(dry_run=False)
+        assert result["orphaned_files"] == 0
+        assert doc_file.exists()
 
-    def test_with_orphan_file(self, service, tmp_path):
-        with patch("apps.automation.services.admin.court_document_admin_service.settings") as mock_settings:
-            media = str(tmp_path)
-            court_dir = tmp_path / "court_documents"
-            court_dir.mkdir()
-            orphan = court_dir / "orphan.pdf"
-            orphan.write_bytes(b"orphan content")
-            mock_settings.MEDIA_ROOT = media
-            result = service.cleanup_orphaned_files()
-            assert result["orphaned_files"] == 1
-            assert result["deleted_files"] == 1
+    def test_with_orphan_file(self, service, tmp_path, settings):
+        media = tmp_path / "media"
+        court_dir = media / "court_documents"
+        court_dir.mkdir(parents=True)
+        orphan = court_dir / "orphan.pdf"
+        orphan.write_bytes(b"orphan content")
+        _age_file(orphan)
+        settings.MEDIA_ROOT = str(media)
+
+        # 审计 P05-01：默认 dry_run，只返回清单，不落删除
+        dry_result = service.cleanup_orphaned_files()
+        assert dry_result["orphaned_files"] == 1
+        assert dry_result["deleted_files"] == 0
+        assert orphan.exists()
+
+        # 显式 dry_run=False 才真的删
+        result = service.cleanup_orphaned_files(dry_run=False)
+        assert result["deleted_files"] == 1
+        assert not orphan.exists()

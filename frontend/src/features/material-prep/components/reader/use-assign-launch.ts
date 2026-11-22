@@ -169,7 +169,12 @@ export async function loadDocxBytes(
 /** 已归到的当事人（甲乙丙丁）→ 抽屉的 party_* 兜底选项 */
 export function partiesOf(draft: DraftState): Record<string, string> {
   return draft.infos.reduce<Record<string, string>>((acc, info, i) => {
-    if (info.v?.trim()) acc[`party_${'abcd'[i] ?? 'a'}`] = info.v.trim()
+    // 后端只认 party_a..party_d。越界（第 5 条起）不能再回落成 party_a——
+    // 那会把真实的第一当事人（我方委托人）覆盖成标的额/案由之类的无关字段，
+    // 建出来的案件把我方当事人记错。所以越界直接丢弃。
+    const key = 'abcd'[i]
+    if (!key) return acc
+    if (info.v?.trim()) acc[`party_${key}`] = info.v.trim()
     return acc
   }, {})
 }

@@ -7,7 +7,7 @@
 
 import { DEMO_CONTRACT_GEN, DEMO_CONTRACT_TERMS } from '../demo-data'
 import { ActionButton, InsetBlock, Pill } from '../ui'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export function DocDrawer({ name, onClose }: { name: string | null; onClose: () => void }) {
   const doc = name ? DEMO_CONTRACT_GEN.find((d) => d.name === name) : null

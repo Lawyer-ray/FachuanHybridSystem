@@ -1,7 +1,7 @@
 /**
  * 文书识别域出口：组件 / 领域类型。
  *
- * RecognizeDialog 走 lazy 出口：home 首屏卡片（SideCards）静态引用本模块取
+ * RecognizeDialog 走 lazy 出口：home 首屏卡片（QuickAdd）静态引用本模块取
  * domain 纯函数，若在这里静态 re-export 弹窗组件，dynamic import 会被静态
  * 依赖钉死拆不出 chunk（INEFFECTIVE_DYNAMIC_IMPORT），首屏被迫背上整个识别
  * 弹窗 UI。useRecognize 无外部消费方，随弹窗进懒 chunk，不再对外暴露。

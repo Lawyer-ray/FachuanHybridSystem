@@ -37,7 +37,7 @@ const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn() }))
 vi.mock('sonner', () => ({ toast: toastMock }))
 
 import type { SynthesisJob } from '../../adjudication-types'
-import type { AgentBackendOption } from '../../backend-types'
+import type { AgentBackendOption } from '../../types'
 import { useCopilot } from '../../store'
 import { ReviewPanel } from './ReviewPanel'
 

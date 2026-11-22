@@ -5,7 +5,7 @@
  * 改一处忘一处的风险是实际发生过的，故抽到本文件做单一来源。
  */
 
-import type { MemoryKind, MemoryScope } from '../../memory-api'
+import type { MemoryKind, MemoryScope } from '../../types'
 
 /** 类型中文名与注入优先级一致：纠正 > 偏好 > 惯例 > 事实 */
 export const KIND_LABEL: Record<MemoryKind, string> = {

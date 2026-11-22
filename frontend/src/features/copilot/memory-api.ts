@@ -13,50 +13,26 @@
 
 import { api } from '@/lib/api'
 
-/** 记忆作用域 */
-export type MemoryScope = 'lawyer' | 'team' | 'law_firm'
+// 域类型住在 `memory-types.ts`（与 `scope-types.ts` / `skill-types.ts` 同构）：
+// 本文件只 import 进来供签名使用，并 re-export 一次保持既有 `from './memory-api'`
+// 的 import 路径可用（新增代码请从 `./types` 引）。
+import type {
+  AgentMemoryItem,
+  MemoryKind,
+  MemoryScopes,
+  MemoryScope,
+  MemoryStatus,
+  PromoteCandidate,
+} from './memory-types'
 
-/** 记忆类型：纠正 > 偏好 > 惯例 > 事实（注入优先级同序） */
-export type MemoryKind = 'fact' | 'preference' | 'procedure' | 'correction' | 'playbook'
-
-/** 待确认 = 自动抽取/行为推断产出，确认后才进上下文 */
-export type MemoryStatus = 'pending' | 'active' | 'deleted'
-
-/**
- * 操作指引：长篇多步骤规范（阅卷流程/立案步骤/归档规则）。
- *
- * 与短规则的通道不同——它不进每轮注入（注入层单条上限 200 字、律所层配额
- * 700 字，36 行的规范塞进去会被直接跳过、律师还以为记忆坏了），只在记忆块
- * 里留一行索引，模型需要时用 recall_memory 取全文。
- */
-export interface AgentMemoryItem {
-  id: string
-  scope: MemoryScope
-  kind: MemoryKind
-  content: string
-  status: MemoryStatus
-  confidence: number
-  hit_count: number
-  created_at: string
-  source_session_id: string
-}
-
-/** 策展候选：来自团队成员/律所同事的个人记忆 */
-export interface PromoteCandidate {
-  id: string
-  kind: MemoryKind
-  content: string
-  hit_count: number
-  from_lawyer: string
-  /** 命中的敏感模式名（身份证/手机号/案号…），非空说明提升前必须脱敏 */
-  pii_risk: string[]
-}
-
-/** 我可策展的作用域（决定界面是否显示「提升」入口） */
-export interface MemoryScopes {
-  law_firm: { id: number | null; can_curate: boolean }
-  teams: { id: number; name: string; can_curate: boolean }[]
-}
+export type {
+  AgentMemoryItem,
+  MemoryKind,
+  MemoryScopes,
+  MemoryScope,
+  MemoryStatus,
+  PromoteCandidate,
+} from './memory-types'
 
 export function listMemories(params: {
   scope?: MemoryScope
@@ -131,4 +107,42 @@ export function promoteMemory(payload: {
       },
     })
     .json<AgentMemoryItem>()
+}
+
+/**
+ * 项目笔记的回执（`POST /agent/memory/notes` 的 `MemoryOut` 子集）。
+ *
+ * 本组端点从 `api.ts` 并入本文件：前缀同为 `agent/memory`，与会话 CRUD 无关；
+ * `api.ts` 仍 re-export，既有 import 路径不变。
+ */
+export interface ProjectNoteReceipt {
+  id: string
+  content: string
+  contract_id: number | null
+  case_id: number | null
+  /** 非空 = 已有人点过确认（项目事实）；空 = 同事的判断 */
+  confirmed_at: string
+}
+
+/**
+ * 把一条结论存进项目笔记（同团队可见）。
+ *
+ * **只传 sessionId**：前端拿不到可靠的 `contract_id`（案件页的 `CopilotScope`
+ * 只有 case_id），让前端猜锚点必然把结论写到错的项目上。锚点由服务端按会话
+ * 归属反查，会话不属于自己时按「没有锚点」处理。
+ */
+export function createProjectNote(input: {
+  content: string
+  sessionId: string
+  kind?: string
+}): Promise<ProjectNoteReceipt> {
+  return api
+    .post('agent/memory/notes', {
+      json: {
+        content: input.content,
+        session_id: input.sessionId,
+        ...(input.kind ? { kind: input.kind } : {}),
+      },
+    })
+    .json<ProjectNoteReceipt>()
 }

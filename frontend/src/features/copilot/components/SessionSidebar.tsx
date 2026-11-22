@@ -29,10 +29,11 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Brain, Plus, X } from 'lucide-react'
 
-import { deleteSession, listSessions, renameSession } from '../api'
+import { deleteSession, renameSession } from '../api'
 import { MemoryDrawer } from './memory/MemoryDrawer'
 import { groupSessions } from '../domain'
 import { useRailResize } from '../hooks/use-rail-resize'
+import { SESSIONS_QUERY_PREFIX, sessionsQueryOptions } from '../session-queries'
 import { useCopilot } from '../store'
 import type { AgentSession, SessionGroup } from '../types'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
@@ -63,10 +64,8 @@ export function SessionSidebar({ variant, onClose, panelWidth = 0 }: SessionSide
   // 始终拉全量（后端按 updated_at 降序 + 注水 scope_name），侧栏按项目分组。
   // 不再按 scope 过滤：过滤后别的项目会话就消失了，与「项目=文件夹」不符。
   const sessionsQuery = useQuery({
-    queryKey: ['copilot', 'sessions', 'all'],
-    queryFn: () => listSessions(100),
+    ...sessionsQueryOptions('all'),
     refetchOnMount: 'always',
-    retry: false,
     // 有排队/运行中的后台任务时轮询：状态落到 succeeded/failed 即停
     refetchInterval: (query) => {
       const data = query.state.data
@@ -83,7 +82,7 @@ export function SessionSidebar({ variant, onClose, panelWidth = 0 }: SessionSide
 
   const renameMutation = useMutation({
     mutationFn: (payload: { id: string; title: string }) => renameSession(payload.id, payload.title),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: SESSIONS_QUERY_PREFIX }),
   })
 
   const deleteMutation = useMutation({
@@ -93,7 +92,7 @@ export function SessionSidebar({ variant, onClose, panelWidth = 0 }: SessionSide
       const index = sessions.findIndex((s) => s.session_id === id)
       const next = sessions[index + 1] ?? sessions[index - 1]
       if (id === sessionId) void switchSession(next?.session_id ?? null)
-      void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] })
+      void queryClient.invalidateQueries({ queryKey: SESSIONS_QUERY_PREFIX })
     },
   })
 

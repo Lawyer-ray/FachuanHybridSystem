@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CopyPlus, Download, FileSearch, Loader2, Save } from 'lucide-react'
-import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle } from '@/components/shared/onlyoffice/OfficeView'
-import { downloadUrl } from '@/lib/download'
-import { withDownloadTicket } from '@/lib/download-ticket'
-import { folderFileUrl, type FolderOwnerKind } from '../../api'
-import { workbenchKeys } from '../../hooks/use-workbench-data'
-import { canSaveAs, intentSubpath, useSaveAs } from './use-save-as'
+import type { FolderOwnerKind } from '../../api'
+import { canSaveAs } from './use-save-as'
+import { useFolderSave } from './use-folder-save'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
@@ -47,12 +43,8 @@ export function FilePreview({
   /** 保存/另存为成功后回调（父级据此刷新文件夹列表） */
   onSaved?: () => void
 }) {
-  /** 站内路径（不带票据）：DS 取文件走后端签名代理，这里只用来签配置 */
-  const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const editorRef = useRef<OfficeEditorHandle | null>(null)
   const [ready, setReady] = useState(false)
-  const [busy, setBusy] = useState<'save' | 'saveAs' | 'download' | null>(null)
-  const qc = useQueryClient()
   const isDocx = /\.docx$/i.test(file.name)
   // 另存为只对合同文件夹的 docx 开放（cases 没有 folder-save-as 系列端点）
   const saveAsEnabled = canSaveAs(kind, file.name)
@@ -74,77 +66,26 @@ export function FilePreview({
     return h ? h.requestSave() : false
   }, [])
 
-  const save = useCallback(() => {
-    if (busy) return
-    setBusy('save')
-    try {
-      if (!requestSave()) {
-        toast.error('编辑器尚未就绪，请稍后重试')
-        return
-      }
-      toast.success('已提交保存', { description: '文档服务器正在写回原文件' })
-      // 落盘在 DS 回调里（1–3 秒）：文件夹树缓存 60s 不主动失效会一直旧，
-      // 这里与 onSaved（父级刷新业务数据）一起延迟刷新
-      window.setTimeout(() => {
-        void qc.invalidateQueries({ queryKey: workbenchKeys.folderEntries(kind, ownerId) })
-        onSaved?.()
-      }, 2500)
-    } finally {
-      setBusy(null)
-    }
-  }, [busy, requestSave, onSaved, qc, kind, ownerId])
-
-  /** 另存为：登记意图 → forcesave（登记失败不保存，否则会把原稿覆盖） */
-  const runSaveAs = useSaveAs({
+  // 保存 / 另存为 / 下载：与右栏文档卡共用同一条 DS 保存链路（见 use-folder-save）
+  const { fileUrl, save, saveAs, download, busy, downloading } = useFolderSave({
     kind,
     ownerId,
-    file: { subpath: intentSubpath(kind, ownerId, file.subpath), name: file.name },
+    file,
     requestSave,
     onSaved,
-    enabled: saveAsEnabled,
-    locked: busy !== null,
+    canSave: isDocx,
+    saveAsEnabled,
+    ready,
   })
-  const saveAs = useCallback(() => {
-    if (busy) return
-    setBusy('saveAs')
-    try {
-      // 编排本身是异步的（登记接口往返），这里只占住按钮防连点；
-      // 错误由 useSaveAs 内部 toast 处理，不在 UI 层重复提示
-      void runSaveAs().finally(() => setBusy(null))
-    } catch {
-      setBusy(null)
-    }
-  }, [busy, runSaveAs])
 
-  const download = useCallback(async () => {
-    setBusy('download')
-    try {
-      // 票据是一次性的：每次下载都要现换，不能缓存复用
-      const url = await withDownloadTicket(fileUrl)
-      downloadUrl(url, file.name)
-    } finally {
-      setBusy(null)
-    }
-  }, [fileUrl, file.name])
-
-  // 键盘：⌘S 保存是律师的肌肉记忆；Esc 退出。
-  // 用 ref 持最新回调，避免把 save 放进依赖造成 memo 环路（它依赖 busy）。
-  const saveRef = useRef(save)
-  useEffect(() => {
-    saveRef.current = save
-  }, [save])
+  // 键盘：⌘S 由 useFolderSave 接管；Esc 退出是整页预览独有的导航行为，留在本层
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault()
-        if (ready && !busy) void saveRef.current()
-        return
-      }
-      if (e.key === 'Escape' && !busy) onBack()
+      if (e.key === 'Escape' && busy === null) onBack()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [ready, busy, onBack])
+  }, [busy, onBack])
 
   return (
     <div className="flex h-[calc(100vh-56px)] flex-col bg-secondary/40">
@@ -174,7 +115,7 @@ export function FilePreview({
           <button
             type="button"
             onClick={save}
-            disabled={!ready || busy !== null}
+            disabled={!ready || busy !== null || downloading}
             className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[12px] font-semibold text-background transition-opacity hover:opacity-85 disabled:opacity-50"
             title="保存到原文件（⌘S）"
           >
@@ -187,7 +128,7 @@ export function FilePreview({
           <button
             type="button"
             onClick={saveAs}
-            disabled={!ready || busy !== null}
+            disabled={!ready || busy !== null || downloading}
             className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] border border-border bg-card px-2.5 text-[12px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary disabled:opacity-50"
             title="另存为新文件（原名[修订版]V1_今天.docx），原文件不动"
           >
@@ -199,10 +140,10 @@ export function FilePreview({
         <button
           type="button"
           onClick={() => void download()}
-          disabled={busy !== null}
+          disabled={busy !== null || downloading}
           className="inline-flex h-[30px] flex-none items-center gap-1.5 rounded-[8px] border border-border bg-card px-2.5 text-[12px] font-[550] text-secondary-foreground transition-colors hover:bg-secondary disabled:opacity-50"
         >
-          {busy === 'download' ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+          {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
           下载
         </button>
 

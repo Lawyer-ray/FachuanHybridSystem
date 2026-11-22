@@ -127,9 +127,11 @@ vi.mock('./ReaderToolbar', () => ({
     )
   },
 }))
-vi.mock('./ReaderChrome', () => ({
+vi.mock('./FixedReader', () => ({
   FixedReader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ReaderLoading: () => <div>READER_LOADING</div>,
+}))
+vi.mock('./ReaderLoading', () => ({ ReaderLoading: () => <div>READER_LOADING</div> }))
+vi.mock('./ReaderError', () => ({
   ReaderError: ({ error, onBack }: { error: string; onBack: () => void }) => (
     <div>
       READER_ERROR:{error}

@@ -1,17 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useRef, useState } from 'react'
 import { CopyPlus, Download, FileSearch, Loader2, Save, Sparkles, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { OfficeView, type OfficeEditorHandle, type PluginBridgeMessage } from '@/components/shared/onlyoffice/OfficeView'
 import { prefillCopilot, quoteCopilot } from '@/features/copilot/launch'
-import { downloadUrl } from '@/lib/download'
-import { withDownloadTicket } from '@/lib/download-ticket'
-import { folderFileUrl, type FolderOwnerKind } from '../../api'
-import { workbenchKeys } from '../../hooks/use-workbench-data'
+import { formatBytes } from '@/lib/format'
+import type { FolderOwnerKind } from '../../api'
 import { FileKindChip } from './FileKindBadge'
-import { fmtSize } from './folder-tree-types'
-import { canSaveAs, intentSubpath, useSaveAs } from './use-save-as'
+import { canSaveAs } from './use-save-as'
+import { useFolderSave } from './use-folder-save'
 import { useLiveRewriteApply } from './use-live-rewrite-apply'
 import { useFileRewriteNonce } from './use-rewrite-refresh'
 
@@ -42,11 +39,7 @@ export function FilePreviewCard({
   /** 「AI 审查」——仅 docx（流水线只吃 docx） */
   onReview?: (f: { subpath: string; name: string }) => void
 }) {
-  const [downloading, setDownloading] = useState(false)
-  const [busy, setBusy] = useState<'save' | 'saveAs' | null>(null)
   const [ready, setReady] = useState(false)
-  const qc = useQueryClient()
-  const fileUrl = folderFileUrl(kind, ownerId, file.subpath)
   const isDocx = /\.docx$/i.test(file.name)
   // 另存为只对合同文件夹的 docx 开放（cases 没有 folder-save-as 系列端点）
   const saveAsEnabled = canSaveAs(kind, file.name)
@@ -106,74 +99,17 @@ export function FilePreviewCard({
     h.sendToPlugin('get-selection')
   }, [file.name, kind, ownerId])
 
-  const save = useCallback(() => {
-    if (busy || !isDocx) return
-    setBusy('save')
-    try {
-      if (!requestSave()) {
-        toast.error('编辑器尚未就绪，请稍后重试')
-        return
-      }
-      toast.success('已提交保存', { description: '文档服务器正在写回原文件' })
-      // 落盘发生在 DS 回调里（通常 1–3 秒），延迟刷新才能读到新 mtime。
-      // 两路都刷：文件夹树（react-query 缓存 60s，不主动失效就一直旧）+
-      // 父级详情（onSaved 刷新大小/日期等业务数据）
-      window.setTimeout(() => {
-        void qc.invalidateQueries({ queryKey: workbenchKeys.folderEntries(kind, ownerId) })
-        onSaved?.()
-      }, 2500)
-    } finally {
-      setBusy(null)
-    }
-  }, [busy, isDocx, requestSave, onSaved, qc, kind, ownerId])
-
-  /** 另存为：登记意图 → forcesave（登记失败不保存，否则会把原稿覆盖） */
-  const runSaveAs = useSaveAs({
+  // 保存 / 另存为 / 下载（含 ⌘S）：与整页预览共用同一条 DS 保存链路
+  const { fileUrl, save, saveAs, download, busy, downloading } = useFolderSave({
     kind,
     ownerId,
-    file: { subpath: intentSubpath(kind, ownerId, file.subpath), name: file.name },
+    file,
     requestSave,
     onSaved,
-    enabled: saveAsEnabled,
-    locked: busy !== null,
+    canSave: isDocx,
+    saveAsEnabled,
+    ready,
   })
-  const saveAs = useCallback(() => {
-    if (busy || !saveAsEnabled) return
-    setBusy('saveAs')
-    try {
-      // 登记接口是异步往返：先占住按钮防连点，错误由 useSaveAs 内部提示
-      void runSaveAs().finally(() => setBusy(null))
-    } catch {
-      setBusy(null)
-    }
-  }, [busy, saveAsEnabled, runSaveAs])
-
-  const download = useCallback(async () => {
-    setDownloading(true)
-    try {
-      // 票据一次性：每次下载现换，不能缓存复用
-      const url = await withDownloadTicket(fileUrl)
-      downloadUrl(url, file.name)
-    } finally {
-      setDownloading(false)
-    }
-  }, [fileUrl, file.name])
-
-  // ⌘S 保存：律师的肌肉记忆，在编辑器里按一直是这个动作
-  const saveRef = useRef(save)
-  useEffect(() => {
-    saveRef.current = save
-  }, [save])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault()
-        if (isDocx && ready) void saveRef.current()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [isDocx, ready])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-border bg-card">
@@ -309,7 +245,7 @@ export function FilePreviewCard({
       {/* 底部：元信息 + 可编辑提示 */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border-light px-3 py-1.5 text-[11px] text-muted-foreground">
         {file.modified_at && <span className="tabular-nums">{file.modified_at.slice(0, 10)}</span>}
-        {file.size ? <span>· {fmtSize(file.size)}</span> : null}
+        {file.size ? <span>· {formatBytes(file.size)}</span> : null}
         {isDocx && <span className="ml-auto">{ready ? '可直接编辑 · ⌘S 保存到原文件' : '正在打开文档…'}</span>}
       </div>
     </div>

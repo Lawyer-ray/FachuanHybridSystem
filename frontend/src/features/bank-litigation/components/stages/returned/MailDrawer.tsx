@@ -9,7 +9,7 @@
  */
 import { DEMO_RETURNED_MAILS, DEMO_X2_MAIL_ATTACHMENTS } from '../../demo-data'
 import { ActionButton, InsetBlock, KeyValueRow, Pill } from '../../ui'
-import { DetailDrawer } from '../DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 import { AttachmentRow } from './AttachmentRow'
 import { claimKindOf } from './claim-kind'
 

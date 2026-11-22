@@ -337,31 +337,28 @@ class TestExecuteArchive:
         submit = MagicMock()
         monkeypatch.setattr(mod, "_submit_session_job", submit)
         # execute_archive 直调模块函数 lookup_by_file_path（导入方命名空间）
+        # 2026-11-23 审计：空类 StampLookupService 已删除（API/服务本来就只调模块函数），
+        # 这里不再需要 patch 该类，只返回 submit 供断言。
         monkeypatch.setattr(mod, "lookup_by_file_path", MagicMock(side_effect=lookups))
-        lookup_svc = MagicMock()
-        return lookup_svc, submit
+        return submit
 
     def test_mixed_contracts_rejected(self, monkeypatch: pytest.MonkeyPatch):
         lookups = [
             SimpleNamespace(contract_id=1, oa_case_number="OA-1"),
             SimpleNamespace(contract_id=2, oa_case_number="OA-2"),
         ]
-        lookup_svc, _ = self._patch_common(monkeypatch, lookups)
-        with patch("apps.oa_filing.services.stamp_lookup_service.StampLookupService", lookup_svc):
-            with pytest.raises(ScriptExecutionError, match="分属不同合同"):
-                ScriptExecutorService().execute_archive(["/a.pdf", "/b.pdf"], MagicMock())
+        self._patch_common(monkeypatch, lookups)
+        with pytest.raises(ScriptExecutionError, match="分属不同合同"):
+            ScriptExecutorService().execute_archive(["/a.pdf", "/b.pdf"], MagicMock())
 
     def test_success_assembles_session(self, monkeypatch: pytest.MonkeyPatch):
         lookups = [
             SimpleNamespace(contract_id=7, oa_case_number="OA-7"),
             SimpleNamespace(contract_id=7, oa_case_number="OA-7"),
         ]
-        lookup_svc, submit = self._patch_common(monkeypatch, lookups)
+        submit = self._patch_common(monkeypatch, lookups)
         user = MagicMock()
-        with (
-            patch("apps.oa_filing.services.stamp_lookup_service.StampLookupService", lookup_svc),
-            patch("apps.oa_filing.models.ArchiveSession") as model,
-        ):
+        with patch("apps.oa_filing.models.ArchiveSession") as model:
             from apps.oa_filing.models import ArchiveSessionStatus
 
             model.objects.create.return_value = SimpleNamespace(id=41, pk=41)

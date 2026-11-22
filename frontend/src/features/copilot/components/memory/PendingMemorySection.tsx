@@ -7,7 +7,7 @@
 
 import { Check, Sparkles, X } from 'lucide-react'
 
-import type { AgentMemoryItem } from '../../memory-api'
+import type { AgentMemoryItem } from '../../types'
 import { Button } from '@/components/ui/button'
 import { KIND_LABEL } from './labels'
 

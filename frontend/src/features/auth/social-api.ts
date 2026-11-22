@@ -22,19 +22,14 @@
  * - authedSocialClient 来自 createApiClient（prefix=/api/v1），传相对段
  *   `social/...`，ky 在 join 边界归一化拼出 /api/v1/social/...。
  */
-import ky, { type KyInstance } from 'ky'
-import { createApiClient } from '@/lib/api'
+import { type KyInstance } from 'ky'
+import { createAnonymousClient, createApiClient } from '@/lib/api'
 import { setTokens } from '@/lib/token'
 import type { components, operations } from '@/types/api-schema'
 
 /** 未登录即可用的客户端：不带 JWT，但要带 cookie（state 在 session 里）。
- *  豁免统一出口 createApiClient 的原因：登录前的匿名请求没有可刷新的 token，
- *  createApiClient 的 401 处理会走「刷新失败 → 跳转 /login」，把登录页用户
- *  甩进重定向环；这里失败只需原地抛错，由调用方降级（如 listProviders 静默）。 */
-const socialClient: KyInstance = ky.create({
-  credentials: 'same-origin',
-  retry: 0,
-})
+ *  参数口径与豁免理由见 lib/api.ts 的 createAnonymousClient。 */
+const socialClient: KyInstance = createAnonymousClient()
 
 /** 已登录才可用的客户端：复用 lib/api 统一出口（JWT 注入、401 单飞刷新重试）。
  *  透传 credentials: 'same-origin'——绑定授权的 state 存 Django session cookie，

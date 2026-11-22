@@ -11,6 +11,7 @@ import {
   looksLikeCaseFolder,
   parseDatedFolder,
   pickServiceItems,
+  serviceItemStatus,
   stripOrderPrefix,
   type FolderEntry,
 } from './service-items'
@@ -148,5 +149,34 @@ describe('pickServiceItems', () => {
   it('保留 subpath 供下载/预览定位', () => {
     const items = pickServiceItems(roots, childrenOf)
     expect(items[0]!.subpath).toBe('2026.06.09-租赁合同')
+  })
+})
+
+/**
+ * 交付状态判定（原 service-item-status.test.ts）。
+ *
+ * 这里引的是 `service-items.serviceItemStatus` 本体——旧测试文件在文件内抄了
+ * 一份同逻辑副本，判据一改测试仍然全绿，等于没测。判错会让律师以为事情办完了
+ * （或反过来重复催办），所以这条必须是真覆盖。
+ */
+describe('serviceItemStatus', () => {
+  it('有文件 → 已交付', () => {
+    expect(serviceItemStatus(1, true)).toBe('done')
+    expect(serviceItemStatus(9, false)).toBe('done')
+  })
+
+  it('有日期但没文件 → 进行中（计划过、尚未产出）', () => {
+    // 真实例子：3-办案/2026.06.09-租赁合同/ 是空目录
+    expect(serviceItemStatus(0, true)).toBe('doing')
+  })
+
+  it('无日期无文件 → 待办', () => {
+    expect(serviceItemStatus(0, false)).toBe('todo')
+  })
+
+  it('文件数缺省按 0 处理（后端老响应没有 file_count）', () => {
+    // 从对象里取，模拟老响应真的没有这个字段（而不是在类型层假装 undefined）
+    const legacy: { name: string; file_count?: number } = { name: '2026.06.09-租赁合同' }
+    expect(serviceItemStatus(legacy.file_count ?? 0, true)).toBe('doing')
   })
 })

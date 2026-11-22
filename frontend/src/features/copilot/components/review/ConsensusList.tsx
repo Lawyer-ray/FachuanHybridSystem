@@ -18,7 +18,7 @@
  */
 
 import { agentLabel } from '../../domain'
-import type { ClusterView } from '../../domain/fusion'
+import type { ClusterView } from '../../domain'
 
 export function ConsensusList({ clusters, clustersError }: { clusters: ClusterView[]; clustersError: string }) {
   if (clustersError) {

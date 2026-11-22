@@ -1,16 +1,17 @@
 import { Fragment, useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, FileCode2, PencilLine, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileCode2 } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
 import { blockKeyOf } from '../../draft/block-keys'
 import { reviewHintOf } from '../../draft/quality'
 import type { EngineDisagreement, Inconsistency, Segment } from '../../types'
 import { rectPrecisionOf } from '../../types'
-import { SegmentPageHint, SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
+import { SegmentQualityHint, type DocHintPage } from './SegmentQualityHint'
 import { SegmentMarkdownView, type MarkdownViewMode } from './SegmentMarkdownView'
 import { BlockRow } from './SegmentRow'
-import { EngineDisagreementsInline } from './EngineDisagreementsInline'
+import { PageAnchoredHints } from './PageAnchoredHints'
 import { SuspectsPanel } from './SuspectsPanel'
+import { SegmentMarkdownTabs } from './SegmentMarkdownTabs'
+import { groupDisagreementsByPage, groupDocHintsByPage } from './segment-markdown-page-groups'
 
 /**
  * 右侧栏的「Markdown 正文」面板（云端识别的取字结果）。
@@ -108,7 +109,7 @@ export function SegmentMarkdown({
   engineChecked?: string[]
   onToggleEngineChecked?: (key: string, checked: boolean) => void
   onJumpEngine?: (pageNo: number, key: string) => void
-  onAdoptEngine?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  onAdoptEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 「修改」：两侧都不对时进编辑态 */
   onEditEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 全卷不一致统计：用于「更推荐改成什么」 */
@@ -168,47 +169,22 @@ export function SegmentMarkdown({
 
   const blocks = seg.blocks ?? []
 
-  // 分歧按页号分组：挂到该页**第一行之前**。
-  //
-  // 刻意不做行级精确匹配：一条分歧的「行」可能横跨多个 block（MinerU 把整页压成
-  // 1 行、VL 分成几十行），`blocks[].text` 还被截断过，实测只有约 2/3 能对上。
-  // 按页挂是律师真正需要的粒度——「这一页有疑问，翻过去看」，成本也低得多。
-  const byPage = new Map<number, { items: EngineDisagreement[]; keys: string[] }>()
-  const pageSet = new Set(seg.refs.map((r) => r.p))
-  engineItems.forEach((d, i) => {
-    const k = engineKeys[i]
-    if (!k || !pageSet.has(d.page_no)) return
-    const bucket = byPage.get(d.page_no) ?? { items: [], keys: [] }
-    bucket.items.push(d)
-    bucket.keys.push(k)
-    byPage.set(d.page_no, bucket)
+  // 按页分组（分歧 / 证件页提示 / 图纸页）是纯函数，见 segment-markdown-page-groups.ts
+  const byPage = groupDisagreementsByPage({
+    engineItems,
+    engineKeys,
+    pageNos: seg.refs.map((r) => r.p),
   })
-
-  /**
-   * 逐页的「需要核对」提示：证件页缺字段 / 疑似图纸页。
-   *
-   * 与引擎分歧同一落点（该页正文第一行之前）——同一段里已经有这个示范，律师读到
-   * 哪一页就看到那一页的问题，不用回栏顶比页号再找位置。
-   *
-   * 落不到任何一行的页（图纸页往往一个字都没取出来）单独补在正文之后：那一页本来
-   * 就「没东西可读」，提示只能自己成一行，否则就等于没提示。
-   */
-  const docByPage = new Map<number, DocHintPage>()
-  for (const d of docPages) if (!docByPage.has(d.page)) docByPage.set(d.page, d)
-  const graphicSet = new Set(graphicPages)
-  const hintedPages = [...new Set([...docByPage.keys(), ...graphicSet])].sort((a, b) => a - b)
-  const pagesWithRows = new Set(blocks.map((b) => b.page))
-  const orphanHintPages = hintedPages.filter((p) => !pagesWithRows.has(p))
+  const { docByPage, graphicPages: graphicSet, orphanHintPages } = groupDocHintsByPage({
+    docPages,
+    graphicPages,
+    blocks,
+  })
   /**
    * 没有定位块（本地 OCR / 旧任务）时没有「分块」这一档，落到渲染视图。
    * 归一在这里做而不是 useState 初值：hooks 必须跑在 `seg` 早返回之前，那时还拿不到 blocks。
    */
   const tab: MarkdownViewMode | 'blocks' = view === 'blocks' && blocks.length === 0 ? 'render' : view
-
-  const pageHintOf = (page: number) =>
-    docByPage.has(page) || graphicSet.has(page) ? (
-      <SegmentPageHint page={page} doc={docByPage.get(page)} graphic={graphicSet.has(page)} onGotoPage={onGotoPage} />
-    ) : null
 
   return (
     <div className="@container flex flex-col gap-1.5">
@@ -232,7 +208,7 @@ export function SegmentMarkdown({
 
       {/* 段级提示紧贴标题之下：自动分段切错边界/起错名，错的可能是整段（把别的材料
           末尾混进来），必须在律师开始读之前说。逐页的问题（证件页缺字段 / 图纸页）
-          不在这儿——它们挂到正文里对应页的第一行之前，见下面的 pageHintOf。 */}
+          不在这儿——它们挂到正文里对应页的第一行之前，见 PageAnchoredHints。 */}
       <SegmentQualityHint review={reviewHintOf(seg)} flags={seg.qualityFlags} />
 
       {/* 块改动没同步进正文：必须说出来。静默留旧值就是「以为改好了其实没改」，
@@ -245,56 +221,17 @@ export function SegmentMarkdown({
 
       {open && (
         <div className="flex flex-col gap-1">
-          {/* 唯一的视图切换器：文字 tab + 一条发丝下划线，没有盒子。
-              右侧那枚 ✎ 是「编辑整段」——它是视图而不是动作入口，所以不再单独占一行。
-              **编辑态整行不渲染**：点 tab 会直接卸载 textarea，等于静默丢掉没保存的正文；
-              编辑态自己那条「保存整段 / 取消」才是出口。 */}
+          {/* 唯一的视图切换器（见 SegmentMarkdownTabs：tab / ✎ / 双击三个入口
+              改的是同一个 view 状态；编辑态整行不渲染，免得不小心丢掉未保存正文） */}
           {tab !== 'edit' && (
-            <div className="flex items-center gap-0.5 px-1">
-              {blocks.length > 0 && (
-                <ViewTab active={tab === 'blocks'} onClick={() => setView('blocks')}>
-                  分块
-                </ViewTab>
-              )}
-              <ViewTab active={tab === 'render'} onClick={() => setView('render')}>
-                渲染
-              </ViewTab>
-              <ViewTab active={tab === 'source'} onClick={() => setView('source')}>
-                源码
-              </ViewTab>
-              <span className="ml-auto" />
-              {/* 一次性教学文案：只在分块视图、且有地方放的时候出现（容器窄于 320px 直接不显示，
-                  它不该跟 tab 抢同一行）。定位中换成「取消定位」，那是当下真正要给的出口。 */}
-              {tab === 'blocks' &&
-                (focusedBlockKey ? (
-                  <button
-                    type="button"
-                    onClick={() => onLocateBlock(null)}
-                    className="flex flex-none items-center gap-0.5 rounded px-1 pb-1 text-[10.5px] text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <X className="h-3 w-3 flex-none" aria-hidden />
-                    取消定位
-                  </button>
-                ) : (
-                  <span
-                    title={onEditMarkdown ? '双击某一行定位到原页；右键改这一行' : '双击某一行定位到原页'}
-                    className="hidden flex-none pb-1 text-[10.5px] text-muted-foreground/60 @[320px]:inline"
-                  >
-                    {onEditMarkdown ? '双击定位 · 右键改行' : '双击定位'}
-                  </span>
-                ))}
-              {onEditMarkdown && (
-                <button
-                  type="button"
-                  aria-label="编辑整段"
-                  title="整段编辑 Markdown（保存后以整段正文为准）"
-                  onClick={() => setView('edit')}
-                  className="flex h-5 w-5 flex-none items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                >
-                  <PencilLine className="h-3 w-3" aria-hidden />
-                </button>
-              )}
-            </div>
+            <SegmentMarkdownTabs
+              tab={tab}
+              hasBlocks={blocks.length > 0}
+              onSelect={setView}
+              focusedBlockKey={focusedBlockKey}
+              onLocateBlock={onLocateBlock}
+              onEditMarkdown={onEditMarkdown}
+            />
           )}
 
           {/* 默认「列表即正文」：每行就是原文的一段，改动直接在这行上做，双击能定位原页。
@@ -311,19 +248,20 @@ export function SegmentMarkdown({
               const pageBucket = isFirstOfPage ? byPage.get(b.page) : undefined
               return (
                 <Fragment key={key}>
-                  {isFirstOfPage && pageHintOf(b.page)}
-                  {pageBucket && (
-                    <EngineDisagreementsInline
+                  {isFirstOfPage && (
+                    <PageAnchoredHints
+                      page={b.page}
+                      bucket={pageBucket}
+                      docByPage={docByPage}
+                      graphicPages={graphicSet}
+                      onGotoPage={onGotoPage}
                       seg={seg}
-                      items={pageBucket.items}
-                      keys={pageBucket.keys}
-                      checked={engineChecked}
-                      onJump={onJumpEngine}
-                      onToggleChecked={onToggleEngineChecked}
-                      onAdopt={onAdoptEngine}
-                      onEdit={onEditEngine}
+                      engineChecked={engineChecked}
+                      onJumpEngine={onJumpEngine}
+                      onToggleEngineChecked={onToggleEngineChecked}
+                      onAdoptEngine={onAdoptEngine}
+                      onEditEngine={onEditEngine}
                       inconsistencies={inconsistencies}
-                      heading={`P${b.page} 分歧`}
                     />
                   )}
                   <BlockRow
@@ -374,7 +312,20 @@ export function SegmentMarkdown({
           {tab === 'blocks' && orphanHintPages.length > 0 && (
             <div className="flex flex-col gap-1">
               {orphanHintPages.map((page) => (
-                <Fragment key={`hint-${page}`}>{pageHintOf(page)}</Fragment>
+                <PageAnchoredHints
+                  key={`hint-${page}`}
+                  page={page}
+                  docByPage={docByPage}
+                  graphicPages={graphicSet}
+                  onGotoPage={onGotoPage}
+                  seg={seg}
+                  engineChecked={engineChecked}
+                  onJumpEngine={onJumpEngine}
+                  onToggleEngineChecked={onToggleEngineChecked}
+                  onAdoptEngine={onAdoptEngine}
+                  onEditEngine={onEditEngine}
+                  inconsistencies={inconsistencies}
+                />
               ))}
             </div>
           )}
@@ -384,37 +335,5 @@ export function SegmentMarkdown({
         </div>
       )}
     </div>
-  )
-}
-
-/**
- * 视图 tab：文字 + 下划线，**不用盒子**。
- *
- * 一排「选中项带边框、未选中透明边框」的按钮是这一栏看起来乱的主要原因——两个盒子
- * 并排时，人眼会先去读边框而不是文字。下划线只占 1.5px，而且只有一项有。
- */
-function ViewTab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'flex-none border-b-[1.5px] px-1.5 pb-1 text-[11px] transition-colors',
-        active
-          ? 'border-foreground font-medium text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {children}
-    </button>
   )
 }

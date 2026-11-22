@@ -10,6 +10,7 @@ import { DEMO_GAP_NOTICES, DEMO_X2_GAP_TIMELINE, type GapNoticeRow } from '../..
 import { Pill } from '../../ui'
 import { cn } from '@/lib/utils'
 
+import { ClickableRow } from '../../ClickableRow'
 import { sourceOf } from './gap-utils'
 
 /** 通知渠道图标（未知渠道退化为邮件） */
@@ -39,13 +40,11 @@ export function GapNoticeList({
         const isChecked = checked.has(g.item)
         const timelineCount = DEMO_X2_GAP_TIMELINE.filter((t) => t.item === g.item).length
         return (
-          <li
+          <ClickableRow
             key={g.item}
+            nestedControl
             onClick={() => onPick(g.item)}
-            className={cn(
-              'flex cursor-pointer items-start gap-2.5 px-5 py-3 transition-colors hover:bg-secondary/40',
-              isChecked && 'bg-secondary/50',
-            )}
+            className={cn('flex items-start gap-2.5 px-5 py-3', isChecked && 'bg-secondary/50')}
           >
             <button
               type="button"
@@ -108,7 +107,7 @@ export function GapNoticeList({
                 {done ? '已补齐' : g.status === 'pending' ? '已发出' : '等待客户'}
               </Pill>
             </div>
-          </li>
+          </ClickableRow>
         )
       })}
     </ul>

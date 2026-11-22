@@ -4,7 +4,13 @@
  * **常法顾问**按「哪天做了什么」推进，事项天然散落成流水（ServiceItemStream）;
  * **专项服务**按合同约定的阶段交付——尽调 → 方案 → 起草 → 登记 → 交割，每个阶段
  * 验收几份定稿文书，再按节点收款。阶段本身的结构（树、层级、验收标准）在
- * `special-phase-tree.ts`；本文件只留「交付物行」的视图口径与文件名解析。
+ * `special-phase-tree.ts`；本文件只剩「交付物行」的类型与文件名解析。
+ *
+ * 状态取值两套，别再增加第三套：
+ * - `DeliverableState`（本文件）：交付物行的**视图口径**「定稿 / 撰写中 / 待开始」；
+ * - `PhaseState`（`special-phase-tree.ts`）：阶段行的「已完成 / 进行中 / 未开始」。
+ * 曾经的 `phaseLabel` / `deliverableLabel` / `STATE_LABEL` 是这两套的第二份文案
+ * 映射，全仓零引用（真正在用的是 `special-phase-state.ts`），已删。
  */
 
 /** 交付物状态：定稿 / 撰写中 / 待开始 */
@@ -26,24 +32,6 @@ export interface Deliverable {
   size?: number
 }
 
-/** 阶段行的三种状态：已完成 / 进行中 / 未开始 */
-export type PhaseState = DeliverableState
-
-const STATE_LABEL: Record<PhaseState, string> = {
-  ok: '已完成',
-  doing: '进行中',
-  todo: '未开始',
-}
-
-export function phaseLabel(s: PhaseState): string {
-  return STATE_LABEL[s]
-}
-
-/** 交付物状态文案（54 号原型：定稿 / 撰写中 / 待开始） */
-export function deliverableLabel(s: DeliverableState): string {
-  return s === 'ok' ? '定稿' : s === 'doing' ? '撰写中' : '待开始'
-}
-
 /** 文件名 → 展示名：去扩展名、去结尾的版本串（版本单独成 chip） */
 export function splitVersion(fileName: string): { name: string; version?: string } {
   const stem = fileName.replace(/\.[^.]+$/, '')
@@ -58,19 +46,4 @@ function normaliseVersion(v: string): string {
   if (/^v\d+$/.test(lower)) return lower
   const n = lower.match(/\d+/)
   return n ? 'v' + n[0] : lower
-}
-
-/**
- * 默认版本号：一个交付物第一次出现就是 v1。
- *
- * 同名文件（除版本串外完全同名）按版本号自然序排，取最大 +1；认不出就当 v1。
- */
-export function nextVersion(names: string[]): string {
-  let max = 0
-  for (const n of names) {
-    const v = splitVersion(n).version
-    const num = v ? Number(v.replace(/\D/g, '')) : NaN
-    if (Number.isFinite(num) && num > max) max = num
-  }
-  return 'v' + (max + 1)
 }

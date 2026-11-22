@@ -207,7 +207,6 @@ class ScriptExecutorService:
 
     def execute_stamp(self, file_path: str, user: Any, site_name: str = "金诚同达OA") -> Any:
         from apps.oa_filing.models import StampSession, StampSessionStatus
-        from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
         lookup = lookup_by_file_path(file_path)
         # 安全审计 A-04：校验反查出的合同归属权限
@@ -263,7 +262,6 @@ class ScriptExecutorService:
 
     def execute_archive(self, file_paths: list[str], user: Any, site_name: str = "金诚同达OA") -> Any:
         from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
-        from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
         # 安全审计：对 file_paths 中每个路径逐一反查校验（含 .. 拒绝与绑定目录收敛），
         # 修复「只校 file_paths[0]、其余路径原样存 session 后被上传到外部 OA」的任意文件外带

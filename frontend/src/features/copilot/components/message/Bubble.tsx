@@ -17,7 +17,7 @@ import { useAuth } from '@/features/auth'
 import { bizHintParts, formatClock, ratableMessageId } from '../../domain'
 // 直接从子模块引：canContinue / canRegenerate 属「这一轮能不能重放」的判据，
 // 与转录渲染无关，不塞进 domain/index.ts 的出口表（那里是按域分块的）
-import { canContinue, canRegenerate } from '../../domain/turn-actions'
+import { canContinue, canRegenerate } from '../../domain'
 import { useSmoothStreamText } from '../../hooks/use-smooth-stream-text'
 import { useCopilot } from '../../store'
 import type { ChatMessage } from '../../types'

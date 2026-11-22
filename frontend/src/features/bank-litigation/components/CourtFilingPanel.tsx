@@ -12,19 +12,15 @@ import { FieldMappingTable } from './court/FieldMappingTable'
 import { MaterialList } from './court/MaterialList'
 import { SubmitHistory } from './court/SubmitHistory'
 import { PHASE_META, SessionResult, pillTone } from './filing-session'
-
-/* `BankLitigationPage` 从本文件取两个面板，OA 那一半指向新拆出的文件，
-   调用点不用改 import 路径。 */
-export { OAFilingPanel } from './oa/OAFilingPanel'
 import type { FilingEngine, FilingType } from '../types'
 import { fmtMoney } from '../utils'
 
 /**
- * 立案执行面板 —— 律所 OA 与一张网两个外部系统的入口。
- * 律所 OA 那一半已拆到 `oa/OAFilingPanel.tsx`（文件行数红线），
- * 这里保留一张网面板 + 两侧共用的轮询阶段/会话结果呈现。
+ * 一张网在线立案面板（`CourtFilingPanel`）。
+ * 律所 OA 那一半在 `oa/OAFilingPanel.tsx`（当年按文件行数红线拆出去的），
+ * 两侧共用件在 `filing-session.tsx`。
  *
- * ═══ 这两条链路的共同形状 ═══
+ * ═══ 两条链路的共同形状 ═══
  * 提交 → 后台线程跑浏览器自动化（Playwright）→ 前端轮询会话状态 → 终态停。
  * 所以界面上必须诚实呈现三件事：
  *   1. **不能假装秒完成**：真实跑一次要开页面、填表单、传附件，几十秒到几分钟。

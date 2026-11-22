@@ -10,11 +10,6 @@ import { PhotoPageView } from './PhotoPageView'
 import { SkeletonLines } from './SkeletonLines'
 import { resolveDragRect, type PageRect } from './ui'
 
-// 兼容出口：PageRect 类型已随拖框判定迁至 ui.ts，历史导入路径（Flow / use-ocr）保持可用
-export type { PageRect } from './ui'
-// 同理：双引擎覆盖层已拆到 EngineBoxOverlay.tsx，类型仍从本模块可导入
-export type { EngineBoxGroup }
-
 /**
  * 普通定位框的描边样式（按精度分四档）。
  *

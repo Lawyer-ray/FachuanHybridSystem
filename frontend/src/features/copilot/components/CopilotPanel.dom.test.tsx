@@ -89,6 +89,7 @@ vi.mock('./FolderTreeDrawer', () => ({
   ),
 }))
 
+import { SESSION_LIST_LIMIT } from '../session-queries'
 import { CopilotPanel } from './CopilotPanel'
 
 function session(over: Record<string, unknown> = {}) {
@@ -147,7 +148,9 @@ describe('CopilotPanel：标题与头部', () => {
     apiMock.listSessions.mockResolvedValue([session({ title: '合同违约分析', llm_model: 'claude-x' })])
     renderPanel()
     await waitFor(() => expect(screen.getByText('合同违约分析')).toBeTruthy())
-    expect(apiMock.listSessions).toHaveBeenCalledWith(50, undefined)
+    // 页大小由 session-queries 的共享常量决定（曾出现 50/100 两套页大小 → 同一 queryKey 先挂载者定内容，
+    // 导致第 51–100 条的会话被判成「不存在」）
+    expect(apiMock.listSessions).toHaveBeenCalledWith(SESSION_LIST_LIMIT)
     expect(screen.getByText('claude-x')).toBeTruthy()
   })
 
@@ -160,7 +163,7 @@ describe('CopilotPanel：标题与头部', () => {
     expect(screen.getByText('AI 助手 · 某某公司执行异议之诉')).toBeTruthy()
     expect(screen.queryByText('不该出现的标题')).toBeNull()
     // 会话列表按业务范围取，不与全量列表共用缓存
-    expect(apiMock.listSessions).toHaveBeenCalledWith(50, { origin: 'case', refId: 390 })
+    expect(apiMock.listSessions).toHaveBeenCalledWith(SESSION_LIST_LIMIT, { origin: 'case', refId: 390 })
 
     fireEvent.click(screen.getByRole('button', { name: '退出业务范围，回到全部会话' }))
     expect(screen.getByRole('button', { name: '退出业务范围，回到全部会话' }).textContent).toContain('本案')

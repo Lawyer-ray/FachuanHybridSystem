@@ -29,6 +29,21 @@ import { useCopilot } from '../store'
 import type { FolderRefDraft, SelectionQuote } from '../types'
 import { useImeEnterGuard } from './use-ime-enter-guard'
 
+/** 输入框自适应高度的像素上限（约 5 行）：全 feature 只此一份，改它即改两处调用 */
+export const MAX_COMPOSER_HEIGHT = 120
+
+/**
+ * 跟随内容撑高：先归零再按 scrollHeight 夹到 {@link MAX_COMPOSER_HEIGHT}。
+ *
+ * 具名导出而不是在两处各写一遍：Composer 的 `@` 选中路径（选完后要立即长个儿）
+ * 早于 useComposerSubmit 返回，所以它在 Composer 里直接调；本 hook 的 autoGrow
+ * 也走同一个函数，两处口径不可能再漂。
+ */
+export function growTextarea(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT)}px`
+}
+
 export interface ComposerSubmitOptions {
   text: string
   setText: React.Dispatch<React.SetStateAction<string>>
@@ -74,12 +89,11 @@ export function useComposerSubmit(options: ComposerSubmitOptions) {
   /** 输入法 Enter 守卫：选词确认的 Enter 不能当发送（PIT-006） */
   const ime = useImeEnterGuard()
 
-  /** 跟随内容自适应高度（1–5 行） */
+  /** 跟随内容自适应高度（1–5 行）：夹高口径见 growTextarea */
   const autoGrow = () => {
     const el = textareaRef.current
     if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+    growTextarea(el)
   }
 
   const submit = () => {

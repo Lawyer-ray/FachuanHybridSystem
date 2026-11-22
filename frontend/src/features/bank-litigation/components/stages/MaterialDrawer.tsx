@@ -12,7 +12,7 @@ import { DEMO_INTAKE_SEGMENTS, DEMO_X1_CONFIDENCE_FACTORS, DEMO_X1_SEGMENT_PREVI
 import type { X1ConfidenceFactorRow } from '../demo-data'
 import { ActionButton, InsetBlock, KeyValueRow, Pill } from '../ui'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 import { ScanPreview } from './ScanPreview'
 
 export function MaterialDrawer({

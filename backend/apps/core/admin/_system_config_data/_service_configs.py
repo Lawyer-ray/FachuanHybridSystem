@@ -66,14 +66,14 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "key": "TIANYANCHA_MCP_API_KEY",
             "category": "enterprise_data",
             "description": "天眼查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
-            "value": "sk_qJKABWT2vMAa0c35LJOtzg2dougEOzab",  # pragma: allowlist secret
+            "value": "",
             "is_secret": True,
         },
         {
             "key": "QCC_MCP_API_KEY",
             "category": "enterprise_data",
             "description": "企查查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
-            "value": "M8AqueMrJJGv79nHRaEK72QxYTfrh4YF6W48UBpwA4aWeVmK",  # pragma: allowlist secret
+            "value": "",
             "is_secret": True,
         },
         # 元典可配的只有 key 与 agent 侧 MCP 总开关：平台地址 / MCP Server 清单 / 每 key
@@ -134,7 +134,7 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "key": "PADDLEOCR_API_TOKEN",
             "category": "ocr",
             "description": "PaddleOCR API Token（Authorization: token {TOKEN}）",
-            "value": "7c120d2b6d1c17b97e755ca59f82b6ecb28a6ee9",  # pragma: allowlist secret
+            "value": "",
             "is_secret": True,
         },
     ]

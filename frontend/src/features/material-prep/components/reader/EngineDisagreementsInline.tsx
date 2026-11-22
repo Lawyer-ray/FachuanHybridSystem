@@ -62,7 +62,7 @@ export function EngineDisagreementsInline({
    * `blockKey` 是页面块 key（`<segId>:<page>:<idx>`），与 `onEditBlock` 同一口径；
    * 该分歧没匹配到块时为 null，调用方应退回整段编辑。
    */
-  onAdopt?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  onAdopt?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 「修改」：两侧都不对时进编辑态，预填主引擎文本作起点 */
   onEdit?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 全卷不一致统计：用于「更推荐改成什么」（只认 high 置信度） */
@@ -151,7 +151,7 @@ function InlineRow({
   onJump?: (pageNo: number, key: string) => void
   onToggleChecked?: (checked: boolean) => void
   /** 「采用」：确认这一侧对，**直接写入**（不再进编辑态，那语义太绕） */
-  onAdopt?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  onAdopt?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 「修改」：两侧都不对时进编辑态，预填 TXT 作起点 */
   onEdit?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 全卷不一致统计：用来给「更推荐改成什么」的建议（只信 high） */
@@ -254,7 +254,7 @@ function InlineRow({
               {onAdopt && text.trim() && (
                 <button
                   type="button"
-                  onClick={() => onAdopt(item.page_no, variantFullTextOf(item, v.engine), v.engine, itemKey)}
+                  onClick={() => onAdopt(item.page_no, variantFullTextOf(item, v.engine), itemKey)}
                   title={`确认 ${engineLabel(v.engine)} 这版是对的，直接写入正文`}
                   className="flex-none self-start rounded bg-card px-1 text-[10.5px] text-secondary-foreground hover:bg-secondary @[220px]:self-auto"
                 >

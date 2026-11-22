@@ -5,7 +5,11 @@
  */
 
 /**
- * Markdown 源码 → 给剪贴板用的纯文本。
+ * Markdown 源码 → 给剪贴板用的纯文本（`markdownToPlainText`）。
+ *
+ * 名字带 Markdown：本 barrel 里另有一个 `export.toPlainText`（整段转录 → 纯文本）。
+ * 两者同名时 `export *` 会直接撞名（barrel 因此长期不引本模块），而且调用方也
+ * 容易把 `string → string` 和 `ChatMessage[] → string` 弄反。
  *
  * 刻意**不**写完整解析器：这里只需要「粘到 Word/邮件里不难看」，任何一处
  * 改写都不该丢字。因此只剥结构性标记（标题井号、强调星号、行内反引号、
@@ -15,7 +19,7 @@
  * 拿到 undefined），而且流式期间正文还在变，取 DOM 会把「正在增长的最后一帧」
  * 复制进去，与「复制这条回答」的语义不符。
  */
-export function toPlainText(markdown: string): string {
+export function markdownToPlainText(markdown: string): string {
   return markdown
     // 围栏代码块：保留代码本身，只去掉 ```lang / ``` 这两行围栏
     .replace(/^[ \t]*```.*$/gm, '')

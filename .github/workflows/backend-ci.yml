@@ -344,7 +344,16 @@ jobs:
         run: |
           set -euo pipefail
           BASELINE=47
-          errors=$(uv run mypy --config-file=mypy.ini apps --no-pretty --no-error-summary 2>/dev/null | grep -c "error:" || true)
+          # fail-closed（2026-11-23 审计 P0）：旧写法 `... 2>/dev/null | grep -c "error:" || true`
+          # 在 mypy 自己崩掉时（INTERNAL ERROR / django-stubs 插件实例化失败 / uv sync 失效）
+          # 把 stderr 丢掉、grep 得 0，于是 `0 <= BASELINE` 直接绿——门禁是**开环**的，
+          # 类型检查死了也没人知道。改为：先抓全部输出，识别崩溃特征即判红，再数错误。
+          out=$(uv run mypy --config-file=mypy.ini apps --no-pretty --no-error-summary 2>&1 || true)
+          if printf '%s\n' "$out" | grep -qE "INTERNAL ERROR|Error constructing plugin instance|Traceback \\(most recent call last\\)"; then
+            echo "::error::mypy 执行失败（这不是「0 错」）：$(printf '%s' "$out" | head -5)"
+            exit 1
+          fi
+          errors=$(printf '%s\n' "$out" | grep -c "error:" || true)
           echo "mypy full-scan errors=${errors} baseline=${BASELINE}"
           if [ "${errors}" -gt "${BASELINE}" ]; then
             echo "::error::mypy 全量错误数 ${errors} 超过基线 ${BASELINE}——请修复新增错误，或在大规模清理后下调基线"

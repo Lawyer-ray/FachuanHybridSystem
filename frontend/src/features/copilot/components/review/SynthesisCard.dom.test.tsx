@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Synthesis } from '../../adjudication-types'
 import { agentLabel } from '../../domain/dual'
-import { toSynthesisView } from '../../domain/fusion'
+import { toSynthesisView } from '../../domain'
 import { SynthesisCard } from './SynthesisCard'
 
 const synthesisWire = (over: Partial<Synthesis> = {}): Synthesis => ({

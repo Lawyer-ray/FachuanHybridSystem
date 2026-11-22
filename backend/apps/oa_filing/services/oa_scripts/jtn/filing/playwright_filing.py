@@ -314,10 +314,13 @@ class PlaywrightFilingMixin:  # pragma: no cover
         await self._set_select(page, f"{_p}is_publicgood", info.is_publicgood)
         await self._set_select(page, f"{_p}is_factory", info.is_factory)
         await self._set_select(page, f"{_p}is_secret", info.is_secret)
-        # 是否加急 → 是，并填写原因
-        await self._set_select(page, f"{_p}is_emergency", "1")
+        # 2026-11-23 审计修复：原先这里把每一份立案都硬编码成「加急=是」并附伪造理由
+        # 「着急将合同盖章拿给客户付款」，导致律所 OA 里持续出现不实数据。
+        # CaseInfo 目前没有加急相关字段，正确做法是「默认不加急、理由留空」；
+        # 真正的加急需由调用方显式传入，不许默认伪造。
+        await self._set_select(page, f"{_p}is_emergency", "0")
         await asyncio.sleep(_SHORT_WAIT)
-        await self._set_field(page, f"{_p}urgentmemo", "着急将合同盖章拿给客户付款")
+        await self._set_field(page, f"{_p}urgentmemo", "")
         await self._set_select(page, f"{_p}isunion", info.isunion)
         await self._set_select(page, f"{_p}isforeigncoop", info.isforeigncoop)
 

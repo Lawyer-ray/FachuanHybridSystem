@@ -7,7 +7,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { CheckItem, PickItem } from './MenuItems'
+import { CheckItem } from './CheckItem'
+import { PickItem } from './PickItem'
 import {
   CLOUD_ENGINES,
   cloudEngineLabel,

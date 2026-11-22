@@ -342,8 +342,12 @@ class HttpFilingMixin:  # pragma: no cover
         payload[_project_field_name("is_publicgood")] = case_info.is_publicgood
         payload[_project_field_name("is_factory")] = case_info.is_factory
         payload[_project_field_name("is_secret")] = case_info.is_secret
-        payload[_project_field_name("is_emergency")] = "1"
-        payload[_project_field_name("urgentmemo")] = "着急将合同盖章拿给客户付款"
+        # 2026-11-23 审计修复：原先这里把每一份立案都硬编码成「加急=是」并附伪造理由
+        # 「着急将合同盖章拿给客户付款」，导致律所 OA 里持续出现不实数据。
+        # CaseInfo 目前没有加急相关字段，正确做法是「默认不加急、理由留空」；
+        # 真正的加急需由调用方显式传入，不许默认伪造。
+        payload[_project_field_name("is_emergency")] = "0"
+        payload[_project_field_name("urgentmemo")] = ""
         payload[_project_field_name("isunion")] = case_info.isunion
         payload[_project_field_name("isforeigncoop")] = case_info.isforeigncoop
 

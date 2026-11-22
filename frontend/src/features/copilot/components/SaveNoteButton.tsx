@@ -29,7 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea'
 
 import { createProjectNote } from '../api'
-import { toPlainText } from '../domain/plain-text'
+import { markdownToPlainText } from '../domain'
 import { useCopilot } from '../store'
 
 /** 与后端 `write.NOTE_MAX_CHARS` 一致；超了后端 400，前端先拦一次说人话 */
@@ -46,7 +46,7 @@ export function SaveNoteButton({ content }: { content: string }) {
   const openDialog = () => {
     // 预填一句话草稿：去掉 Markdown 标记、压成单行、截到上限。
     // 律师改一句比从零写快得多，也比整段照搬有用。
-    setDraft(toPlainText(content).replace(/\s+/g, ' ').trim().slice(0, NOTE_MAX_CHARS))
+    setDraft(markdownToPlainText(content).replace(/\s+/g, ' ').trim().slice(0, NOTE_MAX_CHARS))
     setOpen(true)
   }
 

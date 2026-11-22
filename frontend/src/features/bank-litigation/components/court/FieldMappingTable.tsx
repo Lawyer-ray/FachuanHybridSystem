@@ -1,4 +1,4 @@
-import { PageTable } from './PageTable'
+import { PageTable } from '../PageTable'
 import { Pill } from '../ui'
 
 import { DEMO_COURT_FIELD_MAPPING } from '../demo-data'

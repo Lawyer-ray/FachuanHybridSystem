@@ -1,5 +1,12 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { INBOX_LIST_KEY, convertToPack, listInbox, setReadState, type ListInboxParams } from '../api'
+import {
+  INBOX_LIST_KEY,
+  convertToPack,
+  inboxListKey,
+  listInbox,
+  setReadState,
+  type ListInboxParams,
+} from '../api'
 import type { InboxRow } from '../types'
 
 /**
@@ -16,7 +23,7 @@ import type { InboxRow } from '../types'
  */
 export function useInboxList(params: ListInboxParams) {
   return useQuery({
-    queryKey: [...INBOX_LIST_KEY, params],
+    queryKey: inboxListKey(params),
     queryFn: () => listInbox(params),
     staleTime: 15_000,
     refetchOnWindowFocus: false,
@@ -27,17 +34,13 @@ export function useInboxList(params: ListInboxParams) {
 /**
  * 收件箱条数（一级页签角标用）。
  *
- * 与 InboxView 共用同一个 queryKey（`{}` 无筛选就等于默认全量），因此两者命中
- * 同一份缓存：页签上的数字和列表里的行数天然一致，不会出现「角标 12、列表 9」。
+ * 走 `useInboxList({})` 而不是另发一条同名请求：params 归一后（见 `inboxListKey`）
+ * 它与工具栏未读数、列表本体在「全部来源 / 无搜索 / 只看未读关」时是**同一个 key**，
+ * 三者命中同一份缓存，页签数字与列表行数天然一致（不会出现「角标 12、列表 9」）。
  * 收件箱阶段没打开时它也负责把数据先拉回来，切过去就不必再等 loading。
  */
 export function useInboxCounts(): number {
-  const { data } = useQuery({
-    queryKey: [...INBOX_LIST_KEY, {}],
-    queryFn: () => listInbox({}),
-    staleTime: 15_000,
-    refetchOnWindowFocus: false,
-  })
+  const { data } = useInboxList({})
   return data?.length ?? 0
 }
 

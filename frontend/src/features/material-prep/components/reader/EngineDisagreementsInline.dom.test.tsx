@@ -92,13 +92,14 @@ describe('EngineDisagreementsInline', () => {
     })
   })
 
-  it('点「采用」回传该引擎的整段文字与页号', () => {
+  it('点「采用」回传该侧的整段文字与页号', () => {
     const onAdopt = vi.fn()
     const { baseElement } = renderInline([dis()], seg([3]), { onAdopt })
     const buttons = Array.from(baseElement.querySelectorAll('button')).filter((b) => b.textContent === '采用')
     expect(buttons).toHaveLength(2)
     fireEvent.click(buttons[1]!)
-    expect(onAdopt).toHaveBeenCalledWith(3, '示例乙', 'paddleocr_vl', expect.any(String))
+    // 引擎标识不再回传（下游只看文本，见 use-engine-adopt），文字仍是该侧那一份
+    expect(onAdopt).toHaveBeenCalledWith(3, '示例乙', expect.any(String))
   })
 
   it('空文本的一侧显示「（无此行）」且不给「采用」按钮', () => {
@@ -239,7 +240,7 @@ describe('EngineDisagreementsInline：全文与折叠', () => {
     const { baseElement } = renderInline(items, seg([3]), { onAdopt, onEdit })
     const adopt = Array.from(baseElement.querySelectorAll('button')).find((b) => b.textContent === '采用')!
     fireEvent.click(adopt)
-    expect(onAdopt).toHaveBeenCalledWith(3, full, 'mineru', expect.any(String))
+    expect(onAdopt).toHaveBeenCalledWith(3, full, expect.any(String))
 
     const edit = Array.from(baseElement.querySelectorAll('button')).find((b) => b.textContent?.includes('修改'))!
     fireEvent.click(edit)

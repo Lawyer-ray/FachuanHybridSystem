@@ -9,7 +9,7 @@
 import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from '@/features/bank-litigation/components/stages/DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export type Tone = 'neutral' | 'green' | 'red' | 'yellow' | 'blue'
 

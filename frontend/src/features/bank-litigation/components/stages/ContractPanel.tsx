@@ -26,8 +26,8 @@ import { ContractGenCard, ContractTermsCard, TermEditDrawer } from './ContractTe
 import { initTermDrafts, pendingTermCount } from './contract-terms'
 import { ContractRail } from './ContractRail'
 import { DocDrawer } from './ContractDocDrawer'
-import { DetailDrawer } from './DetailDrawer'
-import { useStageAction } from './use-stage-action'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
+import { useConflictRun, useExportConflictReport, useGenDocs } from './use-contract-actions'
 import { ActionButton, InsetBlock, KeyValueRow, Pill, SectionTitle, StepItem, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
 
@@ -47,54 +47,9 @@ export function ContractPanel() {
   /** 利冲报告导出结果（拿到文件名即视为已生成） */
   const [report, setReport] = useState<string | null>(null)
 
-  /* ① 生成委托材料 */
-  const genDocs = useStageAction({
-    steps: [
-      { text: '读取案件数据', ms: 500, parallel: ['当事人', '案由与标的', '管辖法院', '收费约定'] },
-      { text: '套用《民事委托代理合同 v3.2》', ms: 900 },
-      { text: '填充 24 个字段', ms: 700 },
-      {
-        text: '生成授权委托书',
-        ms: 600,
-        retry: { times: 1, delay: 800, reason: '共同借款人信息不完整，补齐后重试' },
-      },
-      { text: '生成风险告知书 / 收费协议', ms: 600 },
-      { text: '检查必填项', ms: 500 },
-    ],
-    toSummary: () => '4 份文书已生成，1 份待补（送达地址确认书需选管辖法院模板）',
-  })
-  /* ② 派机器人去 OA 做利冲检索 —— 这是本页的核心动作 */
-  const conflictRun = useStageAction({
-    steps: [
-      { text: '启动服务端浏览器', ms: 700, parallel: ['分配容器', '加载自动化脚本'] },
-      { text: '打开律所 OA 登录页', ms: 800 },
-      {
-        text: '登录 OA',
-        ms: 900,
-        retry: { times: 2, delay: 1500, reason: '登录会话超时，重新认证' },
-      },
-      { text: '进入当事人库检索', ms: 600 },
-      { text: '检索：委托人 某某银行某某支行 → 无冲突', ms: 500 },
-      { text: '检索：被告 谭某某 → 无同名记录', ms: 450 },
-      { text: '检索：共同借款人 李某某 → 命中！', ms: 900 },
-      {
-        text: '命中红色冲突',
-        ms: 600,
-        confirm: '共同借款人李某某与本所在办「离婚案」当事人为同一人（证件号一致）。这属于禁止性冲突，是否终止本次委托？',
-      },
-      { text: '停止建卷，保留利冲结果页快照', ms: 500 },
-    ],
-    toSummary: () => '命中 1 处红色冲突（李某某），OA 立案已自动阻断',
-  })
-  /* ③ 导出利冲报告：短进度，落一个 PDF */
-  const exportReport = useStageAction({
-    steps: [
-      { text: '汇总 6 方检索记录', ms: 350 },
-      { text: '附上命中快照与证件号比对', ms: 450 },
-      { text: '渲染 PDF 并加律所抬头', ms: 550 },
-    ],
-    toSummary: () => 'LCA-20261101-0007 利冲审查报告.pdf 已生成，可在文书库下载',
-  })
+  const genDocs = useGenDocs()
+  const conflictRun = useConflictRun()
+  const exportReport = useExportConflictReport()
 
   const red = DEMO_CONFLICT_HITS.filter((h) => h.level === 'red')
   const yellow = DEMO_CONFLICT_HITS.filter((h) => h.level === 'yellow')
@@ -149,28 +104,7 @@ export function ContractPanel() {
             onOpenHit={setHitOpen}
           />
 
-          {/* 机器人执行日志 */}
-          <WorkCard>
-            <SectionTitle
-              title="机器人执行过程"
-              hint="服务端浏览器自动化"
-              action={
-                <ActionButton sm onClick={() => setReplayOpen(true)}>
-                  <Video className="size-3" />
-                  查看执行录像
-                </ActionButton>
-              }
-            />
-            <div className="mt-3">
-              <StepItem index={1} title="登录律所 OA" desc="用配置账号登录 · 1,840 ms" state="done" />
-              <StepItem index={2} title="检索当事人库" desc="6 方逐方比对 · 2,260 ms" state="done" />
-              <StepItem index={3} title="命中红色冲突" desc="李某某 与「离婚案」当事人同人" state="blocked" />
-              <StepItem index={4} title="停止建卷" desc="等律师决定是否终止委托" state="todo" />
-            </div>
-            <div className="mt-2 text-[10px] text-muted-foreground">
-              录像 {DEMO_X3_BROWSER_FRAMES.length} 帧 · 11-01 10:22 — 10:24
-            </div>
-          </WorkCard>
+          <BotRunCard onOpenReplay={() => setReplayOpen(true)} />
         </div>
 
         <ContractRail
@@ -190,6 +124,33 @@ export function ContractPanel() {
       />
       <BotReplayDrawer open={replayOpen} onClose={() => setReplayOpen(false)} />
     </div>
+  )
+}
+
+/** 机器人执行过程：服务端浏览器自动化跑过的四步（只读，录像在抽屉里） */
+function BotRunCard({ onOpenReplay }: { onOpenReplay: () => void }) {
+  return (
+    <WorkCard>
+      <SectionTitle
+        title="机器人执行过程"
+        hint="服务端浏览器自动化"
+        action={
+          <ActionButton sm onClick={onOpenReplay}>
+            <Video className="size-3" />
+            查看执行录像
+          </ActionButton>
+        }
+      />
+      <div className="mt-3">
+        <StepItem index={1} title="登录律所 OA" desc="用配置账号登录 · 1,840 ms" state="done" />
+        <StepItem index={2} title="检索当事人库" desc="6 方逐方比对 · 2,260 ms" state="done" />
+        <StepItem index={3} title="命中红色冲突" desc="李某某 与「离婚案」当事人同人" state="blocked" />
+        <StepItem index={4} title="停止建卷" desc="等律师决定是否终止委托" state="todo" />
+      </div>
+      <div className="mt-2 text-[10px] text-muted-foreground">
+        录像 {DEMO_X3_BROWSER_FRAMES.length} 帧 · 11-01 10:22 — 10:24
+      </div>
+    </WorkCard>
   )
 }
 

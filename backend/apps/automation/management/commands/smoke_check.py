@@ -49,9 +49,31 @@ class _DummyDocumentProcessorService:
 
 
 class Command(BaseCommand):
+    def __init__(self) -> None:
+        super().__init__()
+        # `--database-path` 真正切库后才置值；`_ensure_safe_target` / migrate 闸门都看它
+        self._database_path: str | None = None
+
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument("--database-path", default=None)
-        parser.add_argument("--skip-migrate", action="store_true", default=False)
+        parser.add_argument(
+            "--allow-migrate",
+            action="store_true",
+            default=False,
+            help="显式允许执行 migrate（默认不跑：日志 P05-04 的「smoke_check 会跑 migrate」）",
+        )
+        parser.add_argument(
+            "--skip-migrate",
+            action="store_true",
+            default=False,
+            help="已废弃：migrate 现在默认不执行，本开关仅保留兼容旧调用",
+        )
+        parser.add_argument(
+            "--yes",
+            action="store_true",
+            default=False,
+            help="在非 DEBUG / 非测试库上确认执行（误在生产库上跑会在真库里建数据）",
+        )
         parser.add_argument("--skip-admin", action="store_true", default=False)
         parser.add_argument("--skip-upload", action="store_true", default=False)
         parser.add_argument("--skip-websocket", action="store_true", default=False)
@@ -63,7 +85,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]  # pragma: no cover
         self._database_path = None
         self._maybe_switch_sqlite_db(options.get("database_path"))
-        if not options.get("skip_migrate"):
+        self._ensure_safe_target(options)
+        # migrate 只两种情况下跑（审计 P05-04）：显式 --allow-migrate，或目标是
+        # 测试库/临时库（CI 与 make ci-backend 的 smoke 步骤依赖它建表）。
+        if options.get("allow_migrate") or self._is_disposable_target():
             call_command("migrate", "--noinput", verbosity=0)
         user, created_smoke_user = self._ensure_smoke_superuser()
         try:
@@ -96,10 +121,50 @@ class Command(BaseCommand):
             return
         db_path = Path(database_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._database_path = str(db_path)  # type: ignore[assignment]
+        self._database_path = str(db_path)
         settings.DATABASES["default"]["NAME"] = str(db_path)
         for conn in connections.all():
             conn.close()
+
+    def _default_db_name(self) -> str:
+        return str(settings.DATABASES.get("default", {}).get("NAME", ""))
+
+    def _is_disposable_target(self) -> bool:
+        """目标库是否「随便造也无所谓」：调用方指定的临时库，或库名带 test。
+
+        ``--database-path`` 只在 sqlite 下真正生效（见 ``_maybe_switch_sqlite_db``），
+        所以以 ``self._database_path`` 是否被置上为准——不能拿「传了这个参数」当已切库。
+        """
+        if self._database_path:
+            return True
+        return "test" in os.path.basename(self._default_db_name()).lower()
+
+    def _ensure_safe_target(self, options: dict[str, Any]) -> None:
+        """在真实（非 DEBUG、非测试）库上必须 ``--yes`` 才继续（审计 P05-04）。
+
+        smoke_check 会建 superuser、登 admin 页面、打上传接口。旧实现无条件在
+        ``settings.DATABASES["default"]`` 上跑 migrate + 建超管，误在生产库上执行等于
+        往真实库里塞测试数据。
+
+        不需要确认的情形：显式 ``--yes``；可丢弃的目标库（``--database-path`` 已生效的
+        临时库、库名带 test）；``DEBUG`` 为真（开发库）。反过来说：**DEBUG 关且库名不像
+        测试库**一定拦住。
+
+        注：这里用「且」而非「或」——pytest 的 ``setup_test_environment()`` 会把 DEBUG
+        强制置 False，测试库再要求 ``--yes`` 会让所有跑 ``call_command("smoke_check")`` 的
+        既有测试一起变红；而「DEBUG 关 + 库名不像测试库」已经圈住了审计点名的真库误伤场景。
+        """
+        if options.get("yes"):
+            return
+        if self._is_disposable_target():
+            return
+        if settings.DEBUG:
+            return
+
+        raise CommandError(
+            "smoke_check 拒绝在非 DEBUG / 非测试库上运行: DEBUG="
+            f"{settings.DEBUG}, DB={self._default_db_name()!r}；确认无误请加 --yes"
+        )
 
     def _ensure_smoke_superuser(self) -> tuple[Any, bool]:
         """返回 (smoke 用户, 是否本次新建)。新建的用户在命令结束时删除（安全审计 C-03）。"""
@@ -112,7 +177,11 @@ class Command(BaseCommand):
                 staff_user.is_staff = True
                 staff_user.save(update_fields=["is_staff"])
             return staff_user, False
-        smoke_password = getattr(settings, "SMOKE_ADMIN_PASSWORD", "smoke_admin_password")
+        # 口令只从 settings 读：以前这里有个内置默认口令 "smoke_admin_password"，
+        # 等于把超管账号的密码写进了仓库（审计 P05-04）。缺配就拒绝执行。
+        smoke_password = str(getattr(settings, "SMOKE_ADMIN_PASSWORD", "") or "").strip()
+        if not smoke_password:
+            raise CommandError("SMOKE_ADMIN_PASSWORD 未配置：smoke_check 拒绝用内置默认口令创建 superuser")
         created = User.objects.create_superuser(
             username=username, email="smoke_admin@example.com", password=smoke_password
         )

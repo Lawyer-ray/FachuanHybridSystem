@@ -1,11 +1,8 @@
-import { Loader2 } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 /**
- * 阅读器的外壳与加载/错误态（从 Reader.tsx 拆出的纯展示分支）。
- * Reader 顶层编排保持单一职责后，这两个 early-return 分支随固定容器一起下沉。
+ * 阅读器外壳：fixed inset 全屏层，正文与「加载中 / 打开失败」两个 early-return
+ * 分支共用（否则出错时页面会变成一片没有退路的空白）。
  *
  * 右缘吃 `--copilot-docked-w`（AppShell 并排 AI 助手时写入）：阅读器是
  * fixed inset 全屏层，不跟页面 padding 走，只能自己把右缘收进来，阅读时
@@ -37,28 +34,5 @@ export function FixedReader({
     >
       {children}
     </div>
-  )
-}
-
-/** 打开中：解析页数（detail 已到、draft 未就绪） */
-export function ReaderLoading() {
-  return (
-    <FixedReader>
-      <div className="flex flex-1 items-center justify-center gap-2 text-sm text-secondary-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> 正在打开材料包，解析页数…
-      </div>
-    </FixedReader>
-  )
-}
-
-/** 打开失败：错误文案 + 返回（关闭阅读器） */
-export function ReaderError({ error, onBack }: { error: string; onBack: () => void }) {
-  return (
-    <FixedReader>
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm">
-        <p className="text-destructive">{error}</p>
-        <Button onClick={onBack}>返回</Button>
-      </div>
-    </FixedReader>
   )
 }

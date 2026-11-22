@@ -31,9 +31,26 @@ export type CourtSmsDetail = Omit<
   documents: { id: number | null; name: string; source: string; download_url: string | null }[]
 }
 
+/** 单件文书下载的相对路径（automationApi 的 prefix 之后；绝对路径由它接前缀拼出） */
+function courtSmsDocPath(smsId: number, refIndex: number): string {
+  return `court-sms/${smsId}/documents/${refIndex}/download`
+}
+
 /** 单件文书下载地址（带下载票据，供 <a download> 直链使用；文件名后端已重命名） */
 export async function courtSmsDocDownloadUrl(smsId: number, refIndex: number): Promise<string> {
-  return withAuthToken(`${API_BASE_URL}/automation/court-sms/${smsId}/documents/${refIndex}/download`)
+  return withAuthToken(`${API_BASE_URL}/automation/${courtSmsDocPath(smsId, refIndex)}`)
+}
+
+/**
+ * 取单件文书的二进制（Safari 等支持「剪贴板写文件」时的数据源）。
+ *
+ * 走 Authorization 头（automationApi 自带）而**不用** courtSmsDocDownloadUrl：
+ * 请求带得上头，就没必要消耗一张 60 秒一次性下载票据（安全审计 M-2）。
+ * 放在 api 层而不是 UI 层，是为了让这条路径只有一处权威实现——UI 自己拼
+ * `/automation/court-sms/...` 时路径一改就静默降级成「只复制文件名」。
+ */
+export async function fetchCourtSmsDocBlob(smsId: number, refIndex: number): Promise<Blob> {
+  return automationApi.get(courtSmsDocPath(smsId, refIndex)).blob()
 }
 
 /** 全部文书打包 ZIP 下载地址 */

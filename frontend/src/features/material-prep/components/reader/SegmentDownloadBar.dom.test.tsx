@@ -72,7 +72,7 @@ import { appendTicket } from '@/lib/download-ticket'
 import { toast } from 'sonner'
 import { Rail } from './Rail'
 import { SegmentDownloadBar, SegmentDownloadMenuItems, SegmentSelectBox } from './SegmentDownloadBar'
-import { useSegmentDownloads, type DownloadableSegment, type SegmentRowDownload } from './use-segment-selection'
+import { useSegmentDownloads, type DownloadableSegment, type SegmentRowDownload } from './use-segment-downloads'
 
 /**
  * 与 Rail 的组合方式一致：工具条一份状态，每个段行取自己的 `rowFor(pk)`。

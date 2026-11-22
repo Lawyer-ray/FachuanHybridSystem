@@ -10,7 +10,7 @@
 
 import { Plus } from 'lucide-react'
 
-import type { MemoryKind } from '../../memory-api'
+import type { MemoryKind } from '../../types'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { KIND_LABEL, MAX_CONTENT, MAX_PLAYBOOK } from './labels'

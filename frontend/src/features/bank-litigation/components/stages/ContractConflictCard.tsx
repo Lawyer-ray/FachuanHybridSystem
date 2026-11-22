@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, FileText, ShieldAlert } from 'lucide-react
 
 import { DEMO_CONFLICT_HITS } from '../demo-data'
 import { ActionButton, Pill, SectionTitle, WorkCard } from '../ui'
+import { ClickableRow } from '../ClickableRow'
 import { cn } from '@/lib/utils'
 
 /** 导出进度：复用 useStageAction 的三个字段，不引入新状态机 */
@@ -86,10 +87,10 @@ export function ConflictCard({
 
       <ul className="divide-y divide-border-light">
         {DEMO_CONFLICT_HITS.map((h, i) => (
-          <li
+          <ClickableRow
             key={`${h.subject}-${i}`}
             onClick={() => onOpenHit(`${h.subject}-${i}`)}
-            className="flex cursor-pointer items-center gap-3 px-5 py-2.5 transition-colors hover:bg-secondary/40"
+            className="flex items-center gap-3 px-5 py-2.5"
           >
             <span
               className={cn(
@@ -117,7 +118,7 @@ export function ConflictCard({
             <Pill tone={h.level === 'red' ? 'red' : h.level === 'yellow' ? 'yellow' : 'green'}>
               {h.level === 'red' ? '冲突' : h.level === 'yellow' ? '复核' : '无冲突'}
             </Pill>
-          </li>
+          </ClickableRow>
         ))}
       </ul>
     </WorkCard>

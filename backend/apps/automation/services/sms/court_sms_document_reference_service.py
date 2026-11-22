@@ -64,6 +64,8 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         seen_paths: set[str],
         seen_names: set[str],
         seen_digests: set[str],
+        *,
+        sms_id: int | None,
     ) -> str | None:  # pragma: no cover
         """路径规范化后做三重去重（绝对路径 / 文件名 / 内容 SHA-256），通过则登记并返回。
 
@@ -71,7 +73,7 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         （case_log_attachment，重名时带 _N 后缀），路径与文件名都不同，必须按内容
         哈希判同，否则详情里同一份文书出现两次。
         """
-        normalized = self._normalize_existing_path(raw_path)
+        normalized = self._normalize_existing_path(raw_path, sms_id=sms_id)
         if not normalized or normalized in seen_paths:
             return None
 
@@ -135,7 +137,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         for doc in sms.scraper_task.documents.all():
             if doc.download_status != "success":
                 continue
-            normalized = self._accept_path(doc.local_file_path, seen_paths, seen_names, seen_digests)
+            normalized = self._accept_path(
+                doc.local_file_path, seen_paths, seen_names, seen_digests, sms_id=getattr(sms, "id", None)
+            )
             if not normalized:
                 continue
             refs.append(
@@ -158,7 +162,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
     ) -> None:
         paths = sms.document_file_paths if isinstance(sms.document_file_paths, list) else []
         for raw_path in paths:
-            normalized = self._accept_path(raw_path, seen_paths, seen_names, seen_digests)
+            normalized = self._accept_path(
+                raw_path, seen_paths, seen_names, seen_digests, sms_id=getattr(sms, "id", None)
+            )
             if not normalized:
                 continue
             refs.append(
@@ -183,7 +189,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         result = sms.scraper_task.result
         candidate_paths = [*result.get("renamed_files", []), *result.get("files", [])]
         for raw_path in candidate_paths:
-            normalized = self._accept_path(raw_path, seen_paths, seen_names, seen_digests)
+            normalized = self._accept_path(
+                raw_path, seen_paths, seen_names, seen_digests, sms_id=getattr(sms, "id", None)
+            )
             if not normalized:
                 continue
             refs.append(
@@ -215,7 +223,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
                 continue
 
             raw_path = getattr(file_obj, "path", "") or getattr(file_obj, "name", "")
-            normalized = self._accept_path(raw_path, seen_paths, seen_names, seen_digests)
+            normalized = self._accept_path(
+                raw_path, seen_paths, seen_names, seen_digests, sms_id=getattr(sms, "id", None)
+            )
             if not normalized:
                 continue
             refs.append(
@@ -233,7 +243,7 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         seen: set[str] = set()
 
         for raw_path in [*existing, *paths]:
-            normalized = self._normalize_existing_path(raw_path)
+            normalized = self._normalize_existing_path(raw_path, sms_id=getattr(sms, "id", None))
             if not normalized or normalized in seen:
                 continue
             seen.add(normalized)
@@ -358,7 +368,15 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
             attachment.file.name = relative_new_path
             attachment.save(update_fields=["file"])
 
-    def _normalize_existing_path(self, raw_path: str | None) -> str | None:  # pragma: no cover
+    def _normalize_existing_path(self, raw_path: str | None, *, sms_id: int | None = None) -> str | None:
+        """把引用路径解析成规范绝对路径；**文件不存在就返回 None**。
+
+        审计 P05-02：旧实现在路径不存在时会猜——先按 stem 前缀匹配，再兜底取「同目录同后缀
+        最新文件」当成这份文书。同目录下往往躺着同一案件多次送达的多份文书，猜出来的那份
+        不是短信记录的那份（2026-11-14 实测 57/63 条短信因此错配，上诉期/缴费期限被写进
+        错误的上下文）。少一份文书只是详情里缺一项，猜错会改错期限——所以这里只做
+        「存在性 + 规范化」，找不到就返回 None 并留 warning（写明短信 id 与目标路径）。
+        """
         if not raw_path:
             return None
 
@@ -367,21 +385,9 @@ class CourtSMSDocumentReferenceService:  # pragma: no cover
         if path.exists():
             return path.resolve().as_posix()
 
-        # 文件被重命名时，尝试在同目录下匹配
-        parent = path.parent
-        if not parent.is_dir():
-            return None
-
-        suffix = path.suffix.lower()
-        same_suffix = [f for f in parent.iterdir() if f.is_file() and f.suffix.lower() == suffix]
-        if not same_suffix:
-            return None
-
-        # 1) stem 前缀匹配（如 民事调解书.pdf → 民事调解书（xxx）_20260514收.pdf）
-        stem = path.stem
-        prefix_matches = [f for f in same_suffix if f.stem.startswith(stem)]
-        if prefix_matches:
-            return max(prefix_matches, key=lambda f: f.stat().st_mtime).resolve().as_posix()
-
-        # 2) 兜底：取同后缀最新的文件（适用于完全重命名的情况）
-        return max(same_suffix, key=lambda f: f.stat().st_mtime).resolve().as_posix()
+        logger.warning(
+            "短信 %s 的文书引用路径不存在，已跳过（不再按同目录文件兜底猜）: %s",
+            sms_id,
+            path,
+        )
+        return None

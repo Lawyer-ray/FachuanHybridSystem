@@ -4,7 +4,7 @@ import { canvasToBlob, imageRegionBlob, loadPdfDocument, renderPdfPageRegion } f
 import { fetchAttachmentBytes, ocrImage } from '../../api'
 import { matLabel, setInfoSource, setInfoValue } from '../../draft'
 import { useReader } from '../../store'
-import type { PageRect } from './PageCell'
+import type { PageRect } from './ui'
 
 /** 标来源 ⇒ 框选 ⇒ RapidOCR 的完整流程：点页记来源、拖框取字、确认填入 */
 
@@ -18,6 +18,12 @@ import type { PageRect } from './PageCell'
  */
 async function runOcr(mi: number, p: number, rect: PageRect) {
   const s = useReader.getState()
+  // 「取字态」不等于「有材料包」：openId 为 null 时附件 id 会以 undefined 发出去，
+  // 错误又被下面的 catch 收成一句「OCR 识别失败」。没打开包就直接不发请求。
+  if (!s.openId) {
+    s.setOcrPending(null)
+    return
+  }
   const d = s.draft
   if (!d) return
   const m = d.mats[mi]
@@ -29,14 +35,14 @@ async function runOcr(mi: number, p: number, rect: PageRect) {
   try {
     let text = ''
     if (m.k === 'pdf') {
-      const bytes = await fetchAttachmentBytes(s.openId as number, m.partIndex)
+      const bytes = await fetchAttachmentBytes(s.openId, m.partIndex)
       const doc = await loadPdfDocument(`${s.openId}:${m.partIndex}`, bytes)
       const canvas = await renderPdfPageRegion(doc, p, rect)
       const blob = await canvasToBlob(canvas)
       const res = await ocrImage(blob)
       text = res.blocks.map((b) => b.text).filter(Boolean).join('\n')
     } else if (m.k === 'photo') {
-      const bytes = await fetchAttachmentBytes(s.openId as number, m.partIndex)
+      const bytes = await fetchAttachmentBytes(s.openId, m.partIndex)
       const blob = await imageRegionBlob(bytes, rect)
       const res = await ocrImage(blob)
       text = res.blocks.map((b) => b.text).filter(Boolean).join(' ')

@@ -1,23 +1,8 @@
 import { toast } from 'sonner'
 
 import { copyText } from '@/lib/clipboard'
-import { getAccessToken } from '@/lib/token'
 
-import { API_BASE_URL, copyCourtSmsDocsToClipboard } from '../../../api'
-
-/** 取单件文书二进制（Safari 等支持浏览器剪贴板写文件时的降级数据源）
- *
- * 直接 fetch + Authorization 头，不用下载票据——fetch 本来就能带头，
- * 没必要消耗一张一次性票据（安全审计 M-2）。 */
-export async function fetchDocBlob(smsId: number, refIndex: number): Promise<Blob> {
-  // 裸路径 + Authorization 头：不经 withAuthToken（那是给带不上头的 <a>/<img> 用的），
-  // 避免白白消耗一张一次性票据
-  const url = `${API_BASE_URL}/automation/court-sms/${smsId}/documents/${refIndex}/download`
-  const token = getAccessToken()
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
-  if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}`)
-  return res.blob()
-}
+import { copyCourtSmsDocsToClipboard, fetchCourtSmsDocBlob } from '../../../api'
 
 /**
  * 构造 PDF 剪贴板条目：标准类型（Safari）优先，旧版 Chromium 只认 `web ` 前缀的
@@ -70,7 +55,7 @@ async function copyDocs(smsId: number, indexes: number[], names: string[], fallb
 
   // 2) 浏览器剪贴板（Safari 可写 PDF 文件）
   try {
-    const blobs = await Promise.all(indexes.map((i) => fetchDocBlob(smsId, i)))
+    const blobs = await Promise.all(indexes.map((i) => fetchCourtSmsDocBlob(smsId, i)))
     if (await copyBlobsToClipboard(blobs)) {
       toast.success(`文件已复制，可直接粘贴到对话框发送（若粘贴无反应请${fallbackVerb}）`)
       return

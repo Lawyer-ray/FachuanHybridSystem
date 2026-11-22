@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { useToday } from '@/hooks/use-today'
 import { errMessage } from '@/lib/errors'
 import { listCasesByContract } from '../api'
 import { buildDealCases } from '../domain'
@@ -25,11 +26,10 @@ export function useContractCases(contractId: number | null): {
     staleTime: 60_000,
   })
 
-  const today = useMemo(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
+  // 本地今天（引用已按日期稳定）：不能用 useMemo([]) 冻结成 mount 常量，
+  // 否则「今日到期」红点会定格在打开抽屉那一天——同域 use-workbench-data 的
+  // 注释里明确修过这个缺陷，use-deal-detail 也已改用 useToday。
+  const today = useToday()
 
   const cases = useMemo(
     () => (query.data ? buildDealCases(query.data, today) : []),

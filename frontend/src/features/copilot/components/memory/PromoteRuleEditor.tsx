@@ -7,7 +7,7 @@
 
 import { AlertTriangle, ShieldAlert } from 'lucide-react'
 
-import type { MemoryKind } from '../../memory-api'
+import type { MemoryKind } from '../../types'
 import { Textarea } from '@/components/ui/textarea'
 import { KIND_LABEL, LAW_FIRM_KINDS, MAX_RULE_CHARS, TEAM_KINDS } from './labels'
 

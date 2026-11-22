@@ -12,7 +12,7 @@ import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 import { SegmentDownloadMenuItems, SegmentSelectBox } from './SegmentDownloadBar'
 import { splitNameTail } from './segment-name'
-import type { SegmentRowDownload } from './use-segment-selection'
+import type { SegmentRowDownload } from './use-segment-downloads'
 
 export type DropPos = 'before' | 'after'
 
@@ -61,7 +61,6 @@ export function RailSegRow({
   dropPos?: DropPos | null
   /** 本段页范围里疑似图纸/照片的页号（来自 summary.page_quality，旧任务为空） */
   graphicPages?: number[]
-  /** 本段覆盖的证件页类型码（`page_quality.doc_hints`，旧任务为空） */
   /** 本段覆盖到的证件页（含该页缺失字段）。`missing` 为空 = 字段都在，只是认出类型 */
   docHintPages?: { page: number; doc: string; missing: string[] }[]
   /** 行内改名由父层持有（右键「重命名」也要打开它） */
@@ -90,7 +89,7 @@ export function RailSegRow({
   }
 
   const displayName = whole && auto ? '整份' : seg.fn
-  const meta = crossGroup ? `${seg.refs.length} 页` : whole ? '' : segRangeTextLocal(seg)
+  const meta = crossGroup ? `${seg.refs.length} 页` : whole ? '' : segRangeText(seg)
 
   return (
     <ContextMenu>
@@ -161,7 +160,8 @@ export function RailSegRow({
           {/* 这里原本是一个按段类型上色的圆点（SEG_COLORS）。已按反馈移除：
               左栏是「找材料」的目录，不是按类型分类的图表；一圈彩色点只会
               把视线从「段名」上拽开，而段名才是律师真正在找的东西。
-              类型仍然可见：行内已显示了类型名胶囊（老草稿才有）。 */}
+              类型也没有单独的胶囊：段名本身就带着类型词（选类型 = 改名），
+              所以「类型」不会丢，只是不再重复画一遍。 */}
           {editing ? (
             <input
               autoFocus
@@ -246,9 +246,6 @@ function docHintTooltip(pages: { page: number; doc: string; missing: string[] }[
   }
   return `含${labels}页，建议核对原图`
 }
-
-/** 页区间文案：连续「P5–19」、断续「P3, P7–9」、跨源「跨源」——labels.segRangeText 的本地别名 */
-const segRangeTextLocal = segRangeText
 
 /**
  * 段名：**头部吃剩余宽度并截断，尾部固定显示**。

@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { DEMO_X2_ASSIGN_CANDIDATES, type AssignCandidate } from '../../demo-data'
 import { ActionButton, InsetBlock, Pill } from '../../ui'
-import { DetailDrawer } from '../DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 import type { useStageAction } from '../use-stage-action'
 
 /** 手动归案弹窗：搜案件 → 选中 → 选归入槽位 → 确认（带进度） */

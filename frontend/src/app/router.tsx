@@ -1,8 +1,8 @@
 import { Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router'
-import { Loader2 } from 'lucide-react'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { RouteFallback } from './shell/route-fallback'
 import { hasToken } from '@/lib/token'
 import { LoginPage, SocialCallbackPage } from '@/features/auth'
 import { AppShell } from './shell/AppShell'
@@ -29,15 +29,6 @@ import { ROUTES, settings } from './paths'
 function RequireAuth({ children }: { children: ReactNode }) {
   if (!hasToken()) return <Navigate to={ROUTES.login} replace />
   return <>{children}</>
-}
-
-/** 路由级懒加载 fallback：与各页面的 loading 分支同风格（居中细 spinner） */
-export function RouteFallback() {
-  return (
-    <div className="flex items-center justify-center gap-2 py-24 text-sm text-secondary-foreground">
-      <Loader2 className="h-4 w-4 animate-spin" /> 正在加载…
-    </div>
-  )
 }
 
 /** /settings/bindings → /settings：账号绑定页并入设置页后的旧路径前转（保留 query） */

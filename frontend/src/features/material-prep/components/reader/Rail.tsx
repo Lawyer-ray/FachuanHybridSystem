@@ -5,7 +5,7 @@ import type { BundleMat, DraftState, Inconsistency, PageQuality } from '../../ty
 import { docHintPagesOf, docTodosOf, graphicPagesOf, isAutoSegName, isWholeMat, segMats } from '../../draft'
 import { RailSegRow, type DropPos } from './RailSegRow'
 import { SegmentDownloadBar } from './SegmentDownloadBar'
-import { useSegmentDownloads, type DownloadableSegment } from './use-segment-selection'
+import { useSegmentDownloads, type DownloadableSegment } from './use-segment-downloads'
 import { useRailWidth } from './use-rail-width'
 
 /**
@@ -18,7 +18,8 @@ import { useRailWidth } from './use-rail-width'
  *
  * 下载已转好的产物（PDF / Markdown）也在这里：段列表本来就在左栏，律师在这里
  * 认段、改名、调序，「要哪几段」的判断只能在同一处做（中栏一次只显示一段，勾不出多选）。
- * 顶部工具栏与每行的勾选框 / PDF / MD 共用一份状态，见 `use-segment-selection`。
+ * 顶部工具栏与每行的勾选框 / PDF / MD 共用一份状态，见 `use-segment-selection` /
+ * `use-segment-downloads`。
  */
 export function Rail({
   draft,
@@ -105,7 +106,7 @@ export function Rail({
     auto: isAutoSegName(draft, draft.segs[si]!),
     classified: !isAutoSegName(draft, draft.segs[si]!),
     selected: sel.includes(si),
-    // 行内勾选/下载只认主键：与工具条共用同一份选中与置忙状态（见 use-segment-selection）
+    // 行内勾选/下载只认主键：与工具条共用同一份选中与置忙状态（见 use-segment-downloads）
     download: dl.rowFor(draft.segs[si]!.splitRef?.pk),
     dropPos: drop?.si === si ? drop.pos : null,
     editing: editingSi === si,
@@ -129,7 +130,11 @@ export function Rail({
     onMerge: si > 0 ? () => onMergeSeg(si) : undefined,
     onDragStartRow: () => setDragSi(si),
     onHoverDrop: (pos: DropPos) => {
-      if (dragSi !== si) setDrop({ si, pos })
+      if (dragSi === si) return
+      // dragover 在拖动期间连续触发（约每 50–100ms），落点没变时必须返回原引用：
+      // 旧写法每次都 setDrop({…}) 新建对象，useState 判定为变化 → 整个 Rail
+      // 连同 40 行 rowProps（含两次 O(pageQuality) 扫描）全量重渲。
+      setDrop((cur) => (cur && cur.si === si && cur.pos === pos ? cur : { si, pos }))
     },
     // dragSi / drop 读的是最新渲染的闭包（rowProps 每次 render 重建），dragOver 期间
     // setDrop 触发的重渲会让 drop 时拿到最新值

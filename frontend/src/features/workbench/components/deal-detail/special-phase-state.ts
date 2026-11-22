@@ -1,12 +1,7 @@
-import {
-  cloneTree,
-  flattenTree,
-  walk,
-  type PhaseDeliverable,
-  type PhaseNode,
-  type PhaseState,
-  type DeliverableState,
-} from './special-phase-tree'
+// 引具体模块而不是 `special-phase-tree` 出口：出口要 re-export 本文件的
+// `folderNameOf`，从出口引回来会绕成环。
+import { cloneTree, type PhaseDeliverable, type PhaseNode, type PhaseState, type DeliverableState } from './phase-tree'
+import { flattenTree, walk, type FlatPhase } from './phase-tree-query'
 
 /**
  * 阶段状态：有**实际文件**的叶子 = 已完成（docx 撰写中按实际文件也算推进过）；
@@ -78,4 +73,17 @@ export function phaseMetaText(childCount: number, fileCount: number): string {
   if (childCount) return `${childCount} 个子阶段`
   if (fileCount) return `${fileCount} 个文件`
   return '空'
+}
+
+/* ---------------- 阶段 = 文件夹（目录名派生） ---------------- */
+
+/**
+ * 目录名 = `<编号>-<阶段名>`（如 `3.1-职工安置文书`）。
+ *
+ * 阶段即文件夹：律师在系统里看到的树与磁盘上交付给客户的结构逐字一致。
+ * 右栏「合同文件夹」必须**由阶段树派生**，不能另存一份——原型里独立写死的
+ * 目录名在阶段改名后立刻与左栏对不上。
+ */
+export function folderNameOf(item: FlatPhase): string {
+  return `${item.no}-${item.node.name}`
 }

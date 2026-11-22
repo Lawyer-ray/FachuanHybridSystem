@@ -1,7 +1,7 @@
 /**
  * 办案主页 feature 的后端对接出口。
  *
- * 按资源拆为 contract / folder / invoice / memory / stages 五个子模块，本文件只做
+ * 按资源拆为 contract / folder / invoice / memory / project / stages 六个子模块，本文件只做
  * barrel re-export，消费方继续 `from '../api'` / `from '../../api'` 不变
  * （api/client.ts 是被各子模块共用的客户端实例，不经 barrel 导出——它不是公开契约）。
  *
@@ -20,4 +20,5 @@ export * from './contract'
 export * from './folder'
 export * from './invoice'
 export * from './memory'
+export * from './project'
 export * from './stages'

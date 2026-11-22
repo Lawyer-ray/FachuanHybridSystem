@@ -17,7 +17,6 @@ import { useRedetectParties } from './use-redetect-parties'
 import { useReviewBackfill } from './use-review-backfill'
 import { useReaderKeys } from './use-reader-keys'
 import { useWheelZoom } from './use-wheel-zoom'
-import type { DraftState } from '../../types'
 
 /**
  * Reader 的全部接线：store 字段、子 hook、派生量与 props 装配都收在这里，
@@ -127,54 +126,63 @@ export function useReaderScreen() {
   const pickField = readyDraft && pickInfo >= 0 && readyDraft.infos[pickInfo] ? readyDraft.infos[pickInfo].k : ''
 
   // 三栏主体的 props 一次拼好再展开（ReaderBody 参数多，逐个平铺会让
-  // 「谁提供数据」和「怎么排版」混在一起）
-  const bodyProps = {
-    // 到这里 readyDraft 必非 null（Reader 只在草稿就绪后渲染），
-    // 但类型上是 DraftState | null：显式断言把它收窄，避免下游三栏主体报错。
-    draft: readyDraft as DraftState,
-    // 页级质量统计与跨页不一致都是「机器读到什么」，旧任务里直接是空 / 缺省
-    pageQuality: readyDraft?.pageQuality ?? null,
-    inconsistencies,
-    messageId: openId as number,
-    narrow,
-    railOpen: view.railOpen,
-    metaOpen: view.metaOpen,
-    onOpenMeta: view.openMeta,
-    onCollapsePanels: view.collapsePanels,
-    railWrapCls: widths.railWrapCls,
-    metaWrapCls: widths.metaWrapCls,
-    pickInfo,
-    pickField,
-    selMode,
-    selPages,
-    // 选页汇总条只数当前选区（跨段时文案不同）
-    selCount: selDetail.count,
-    selCross: selDetail.cross,
-    focusedSeg: actions.focusedSeg,
-    zoom,
-    effCols: widths.effCols,
-    ocrPending,
-    flowOps,
-    metaOps,
-    onToggleSel: st.onToggleSel,
-    onOcrBox: ocr.onOcrBox,
-    onRequestDelete: actions.setDeleteTarget,
-    onFocusSeg: actions.focusSeg,
-    onRenameMat: view.startRenameMat,
-    onSetPickInfo: st.setPickInfo,
-    onClearSel: st.clearSel,
-    onApplySel: st.applySel,
-    onExitHint,
-    flowWrapRef: setFlowWrap,
-    // 「已核对」是律师的判断，落在草稿上随防抖保存落盘，所以走 st.update 而不是组件 state
-    onToggleEngineChecked: toggleEngineChecked,
-    // 自动分段进度面板：隐藏时为空（面板自己不渲染），隐藏后任务仍在后台跑
-    autoSplitTask: inflight.task.hidden ? null : inflight.task,
-    onHideAutoSplit: inflight.hide,
-    // 重跑当事人识别（只覆盖机填值，见 use-redetect-parties）
-    onRedetectParties: redetect.redetect,
-    redetectBusy: redetect.busy,
-  }
+  // 「谁提供数据」和「怎么排版」混在一起）。
+  //
+  // 草稿未就绪时整份 props 为 null（Reader 先显示加载骸架）。这样收窄而不用
+  // `as DraftState`：断言只在类型层生效，运行期 null 照样会传给下游读 `segs`，
+  // 而这正是文件头警告过的那种白屏。
+  const bodyProps = !readyDraft
+    ? null
+    : {
+      draft: readyDraft,
+      // 页级质量统计与跨页不一致都是「机器读到什么」，旧任务里直接是空 / 缺省
+      pageQuality: readyDraft.pageQuality ?? null,
+      inconsistencies,
+      // 0 = 还没打开任何材料包（与 useAssignLaunch 的 `messageId: openId ?? 0`
+      // 同一口径）。不要写成 `openId as number`：断言不会把 null 变成 0，
+      // 只会把「可能没打开包」这个真实状态从类型里抹掉。
+      messageId: openId ?? 0,
+      narrow,
+      railOpen: view.railOpen,
+      metaOpen: view.metaOpen,
+      onOpenMeta: view.openMeta,
+      onCollapsePanels: view.collapsePanels,
+      railWrapCls: widths.railWrapCls,
+      metaWrapCls: widths.metaWrapCls,
+      railWrapStyle: widths.railWrapStyle,
+      metaWrapStyle: widths.metaWrapStyle,
+      pickInfo,
+      pickField,
+      selMode,
+      selPages,
+      // 选页汇总条只数当前选区（跨段时文案不同）
+      selCount: selDetail.count,
+      selCross: selDetail.cross,
+      focusedSeg: actions.focusedSeg,
+      zoom,
+      effCols: widths.effCols,
+      ocrPending,
+      flowOps,
+      metaOps,
+      onToggleSel: st.onToggleSel,
+      onOcrBox: ocr.onOcrBox,
+      onRequestDelete: actions.setDeleteTarget,
+      onFocusSeg: actions.focusSeg,
+      onRenameMat: view.startRenameMat,
+      onSetPickInfo: st.setPickInfo,
+      onClearSel: st.clearSel,
+      onApplySel: st.applySel,
+      onExitHint,
+      flowWrapRef: setFlowWrap,
+      // 「已核对」是律师的判断，落在草稿上随防抖保存落盘，所以走 st.update 而不是组件 state
+      onToggleEngineChecked: toggleEngineChecked,
+      // 自动分段进度面板：隐藏时为空（面板自己不渲染），隐藏后任务仍在后台跑
+      autoSplitTask: inflight.task.hidden ? null : inflight.task,
+      onHideAutoSplit: inflight.hide,
+      // 重跑当事人识别（只覆盖机填值，见 use-redetect-parties）
+      onRedetectParties: redetect.redetect,
+      redetectBusy: redetect.busy,
+    }
 
   return {
     // 逐个解构而不是把 st / ocr / actions / view 整个返回：React Compiler 的 ref 规则

@@ -33,7 +33,8 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 
-import { fetchPromoteCandidates, promoteMemory, type MemoryKind, type MemoryScopes } from '../../memory-api'
+import { fetchPromoteCandidates, promoteMemory } from '../../memory-api'
+import type { MemoryKind, MemoryScopes } from '../../types'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LAW_FIRM_KINDS, MAX_RULE_CHARS } from './labels'

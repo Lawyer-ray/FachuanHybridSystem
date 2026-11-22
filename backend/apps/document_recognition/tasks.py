@@ -96,7 +96,10 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
 
         recognition = result.recognition
         task.document_type = recognition.document_type.value
-        task.case_number = recognition.case_number
+        # 2026-11-23 审计修复：case_number 是 NOT NULL CharField（blank=True 只允许空串），
+        # 识别不出案号时这里是 None → task.save() 抛 IntegrityError，任务由 SUCCESS 变 FAILED。
+        # 与下方 llm_model / raw_text 同口径：空值一律用空串。
+        task.case_number = recognition.case_number or ""
         task.key_time = recognition.key_time
         task.confidence = recognition.confidence
         task.extraction_method = recognition.extraction_method

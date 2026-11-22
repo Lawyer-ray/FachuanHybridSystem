@@ -30,7 +30,10 @@ export function QuestionCountdown({
   const [remain, setRemain] = useState(() => remaining(timeoutSeconds, receivedAt))
 
   useEffect(() => {
-    setRemain(remaining(timeoutSeconds, receivedAt))
+    // frozen：本组件已 return null，再每秒 setState 只会触发一轮空渲染（与
+    // 「到点就停表」同一个意图）——干脆不建表。首帧的 remain 已由 useState
+    // 初始化器算过，不需要在 effect 首行再算一次。
+    if (frozen) return
     const timer = setInterval(() => {
       const next = remaining(timeoutSeconds, receivedAt)
       setRemain(next)
@@ -38,7 +41,7 @@ export function QuestionCountdown({
       if (next <= 0) clearInterval(timer)
     }, 1000)
     return () => clearInterval(timer)
-  }, [timeoutSeconds, receivedAt])
+  }, [timeoutSeconds, receivedAt, frozen])
 
   if (frozen) return null
 

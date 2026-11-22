@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 /**
  * 右栏宽度的 localStorage 键（跨会话保留：律师的屏幕与阅读习惯是稳定的）。
@@ -120,11 +120,6 @@ export function useMetaWidth(narrow: boolean) {
     },
     [persist],
   )
-
-  // 窄屏走抽屉，宽度由抽屉 CSS 决定（固定 296），拖拽手柄此时不渲染
-  useEffect(() => {
-    if (narrow) return
-  }, [narrow])
 
   return { width, onPointerDown, onPointerMove, endDrag, dragging: draggingRef }
 }

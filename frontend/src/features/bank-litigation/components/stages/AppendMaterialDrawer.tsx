@@ -12,7 +12,7 @@ import { useState } from 'react'
 import { DEMO_X1_APPEND_CHANNELS } from '../demo-data'
 import { ActionButton } from '../ui'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export function AppendMaterialDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [channel, setChannel] = useState<'link' | 'upload' | 'mail'>('link')

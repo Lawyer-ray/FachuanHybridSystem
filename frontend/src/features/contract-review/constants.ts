@@ -27,6 +27,27 @@ export function defaultStepToggles(): Record<string, boolean> {
   return init
 }
 
+/** 提交给后端的审查人署名（写进接口契约的用户可见品牌串：改名只改这一处） */
+export const REVIEWER_NAME = '法穿SI'
+
+/**
+ * 特别交代的 chip 分隔符。
+ *
+ * 输入侧（律师可能手打英文逗号）与输出侧（chip 拼回 textarea）必须同一口径，
+ * 否则 `toggleChip` 的去重和出站 `client_demands` 拆分会不一致。两个值成对
+ * 导出：`DEMAND_SPLIT_RE` 负责拆，`DEMAND_SEPARATOR` 负责拼。
+ */
+const DEMAND_SPLIT_RE = /[，,]/
+export const DEMAND_SEPARATOR = '，'
+
+/** 把交代文本拆成条目（trim + 去空）：chip 去重与出站 client_demands 共用同一口径 */
+export function splitDemands(note: string): string[] {
+  return note
+    .split(DEMAND_SPLIT_RE)
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
 /** 常用交代 chips（写进 textarea，律师可继续编辑） */
 export const DEMAND_CHIPS = [
   { key: '压工期', text: '这单一定要压工期' },

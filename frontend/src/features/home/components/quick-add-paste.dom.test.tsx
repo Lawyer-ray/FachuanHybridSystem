@@ -16,7 +16,7 @@ vi.mock('sonner', () => ({
 
 import { toast } from 'sonner'
 
-import { QuickAdd } from './SideCards'
+import { QuickAdd } from './QuickAdd'
 
 const fileRejectReason = vi.hoisted(() => vi.fn<(f: File) => string | null>(() => null))
 vi.mock('@/features/document-recognition', () => ({

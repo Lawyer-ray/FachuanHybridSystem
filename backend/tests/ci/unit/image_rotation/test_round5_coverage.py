@@ -638,11 +638,10 @@ class TestGuessExt:
         assert _guess_ext("noext") == ".jpg"
 
 
-class TestImageRotationJobService:
+class TestImageRotationJobServiceFunctions:
     def test_get_job_not_found(self):
         from apps.core.exceptions import NotFoundError
         from apps.image_rotation.models import ImageRotationJob
-        from apps.image_rotation.services.job_service import ImageRotationJobService
 
         # 安全审计（2026-10-19）：get_job 改为 queryset 链（objects.all() + 可选属主过滤 + get），
         # 与 doc_converter B-10 同口径，故 mock 落在 objects.all() 返回的 queryset 上

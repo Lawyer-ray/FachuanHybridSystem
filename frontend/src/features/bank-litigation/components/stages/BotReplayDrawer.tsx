@@ -15,7 +15,7 @@ import { CircleDot, Lock } from 'lucide-react'
 import { DEMO_X3_BROWSER_FRAMES } from '../demo-data'
 import { ActionButton, InsetBlock, Pill, StepItem } from '../ui'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 /** 每帧停留时长：前两帧快、命中那帧慢一点，像人眼睛跟着看 */
 const FRAME_MS = [900, 1100, 1300, 1600, 1400]

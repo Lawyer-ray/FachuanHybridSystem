@@ -32,7 +32,7 @@ import { memo, useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import { activityText, currentTool } from '../domain'
-import { IdleWatchdog } from '../domain/stream-guard'
+import { IdleWatchdog } from '../domain'
 import type { ChatMessage } from '../types'
 
 /**

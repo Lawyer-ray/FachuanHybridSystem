@@ -17,7 +17,8 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('./PdfPageView', () => ({ PdfPageView: () => null }))
 vi.mock('./PhotoPageView', () => ({ PhotoPageView: () => null }))
 
-import { PageCell, type EngineBoxGroup } from './PageCell'
+import { PageCell } from './PageCell'
+import type { EngineBoxGroup } from './EngineBoxOverlay'
 import type { BundleMat } from '../../types'
 
 const mat: BundleMat = { partIndex: 0, n: '证据.docx', k: 'office', pages: 3 }

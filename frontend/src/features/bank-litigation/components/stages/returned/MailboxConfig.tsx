@@ -9,7 +9,7 @@ import { useState } from 'react'
 
 import { DEMO_X2_SCAN_INTERVALS, DEMO_X2_SCAN_MAILBOXES, type ScanMailboxConfig } from '../../demo-data'
 import { ActionButton, InsetBlock, Pill } from '../../ui'
-import { DetailDrawer } from '../DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 /** 邮箱配置弹窗：轮询间隔 / 文件夹 / 发件人白名单 */
 export function MailboxConfigDrawer({
@@ -40,7 +40,7 @@ function MailboxConfigForm({
   onClose: () => void
   onSave: (cfg: ScanMailboxConfig) => void
 }) {
-  const [interval, setInterval] = useState(base?.interval ?? '')
+  const [interval, setScanInterval] = useState(base?.interval ?? '')
   const [folder, setFolder] = useState(base?.folder ?? '')
   const [whitelist, setWhitelist] = useState(base?.whitelist ?? '')
 
@@ -75,7 +75,7 @@ function MailboxConfigForm({
             <select
               id="x2-interval"
               value={interval}
-              onChange={(e) => setInterval(e.target.value)}
+              onChange={(e) => setScanInterval(e.target.value)}
               className="mt-1 w-full rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-[12px] outline-none focus:border-foreground"
             >
               {DEMO_X2_SCAN_INTERVALS.map((i) => (

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import type { TurnStats } from '../types'
 import {
-  cacheHitRate,
   elapsedMs,
   emptyTurnStats,
   formatDuration,
@@ -10,7 +9,6 @@ import {
   formatShortSeconds,
   formatSpeed,
   formatTokenCount,
-  laneSpeed,
   laneUsageBadge,
   laneUsageCacheHitRate,
   laneUsageDetail,
@@ -20,8 +18,6 @@ import {
   laneUsageTotal,
   outputTokens,
   pickLaneUsage,
-  summarizeLane,
-  totalTokens,
 } from './usage'
 
 function stats(over: Partial<TurnStats> = {}): TurnStats {
@@ -32,33 +28,22 @@ describe('token 口径', () => {
   it('exactTokens 只算输出，输入与缓存另计', () => {
     const s = stats({ exactTokens: 100, inputTokens: 20, cacheReadTokens: 800, cacheWriteTokens: 0 })
     expect(outputTokens(s)).toBe(100)
-    expect(totalTokens(s)).toBe(920)
+    // 输入侧三桶是 LaneUsage 的独立字段，不进 outputTokens（见「实时账 → LaneUsage」）
+    expect(laneUsageFromStats(s).inputTokens).toBe(20)
   })
 
   it('未收到 usage 时退回字符估算（此时数值带 ≈）', () => {
     const s = stats({ estTokens: 42 })
     expect(outputTokens(s)).toBe(42)
-    expect(summarizeLane(s).exact).toBe(false)
-  })
-
-  it('缓存命中率分母含三桶；全空返回 null（不显示 0%）', () => {
-    expect(cacheHitRate(stats())).toBeNull()
-    expect(
-      cacheHitRate(stats({ inputTokens: 200, cacheReadTokens: 600, cacheWriteTokens: 200 })),
-    ).toBeCloseTo(0.6, 5)
+    expect(laneUsageFromStats(s).estimated).toBe(true)
   })
 })
 
-describe('耗时与速度', () => {
+describe('耗时', () => {
   it('首字到结束；流未结束时用最近 delta 兜底', () => {
     expect(elapsedMs(stats({ firstDeltaAt: 1000, lastDeltaAt: 4000 }))).toBe(3000)
     expect(elapsedMs(stats({ firstDeltaAt: 1000, lastDeltaAt: 4000, doneAt: 5000 }))).toBe(4000)
     expect(elapsedMs(stats())).toBe(0)
-  })
-
-  it('速度 = 输出 token / 秒；不足 0.1s 不除（避免爆表）', () => {
-    expect(laneSpeed(stats({ firstDeltaAt: 0, doneAt: 2000, exactTokens: 40 }))).toBe(20)
-    expect(laneSpeed(stats({ firstDeltaAt: 0, doneAt: 50, exactTokens: 40 }))).toBe(0)
   })
 })
 

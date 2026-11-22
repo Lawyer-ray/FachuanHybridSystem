@@ -113,7 +113,7 @@ describe('partiesOf：甲乙丙丁的对齐', () => {
     expect(partiesOf(d)).toEqual({ party_b: '李某' })
   })
 
-  it('超过 4 条时索引越界回落成 party_a（不允许拼出 party_e 这种后端不认的键）', () => {
+  it('超过 4 条时越界的条目直接丢弃（既不拼出 party_e，也不覆盖 party_a）', () => {
     const d = draft({
       infos: Array.from({ length: 6 }, (_, i) => ({
         k: `字段${i}`,
@@ -125,9 +125,10 @@ describe('partiesOf：甲乙丙丁的对齐', () => {
     const parties = partiesOf(d)
     // 键只可能有 party_a..party_d（后端不认 party_e）
     expect(Object.keys(parties)).toEqual(['party_a', 'party_b', 'party_c', 'party_d'])
-    // 第 4 条（索引 3）落到 party_d；越界的第 5、6 条回落 party_a 并覆盖前者
+    // 第 4 条（索引 3）落到 party_d；越界的第 5、6 条丢弃——
+    // 早期实现把它们回落成 party_a，等于用标的额/案由覆盖真实委托人，已修
     expect(parties.party_d).toBe('值3')
-    expect(parties.party_a).toBe('值5')
+    expect(parties.party_a).toBe('值0')
   })
 
   it('值两端空白被 trim（后端按名字建客户，带空白会建成两家）', () => {

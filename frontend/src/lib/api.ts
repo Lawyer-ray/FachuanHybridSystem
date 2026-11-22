@@ -279,6 +279,21 @@ export function createApiClient(options?: Options): KyInstance {
 }
 
 /**
+ * 匿名客户端：登录前用的客户端（无 JWT，但带同源 cookie）。
+ *
+ * 豁免统一出口 createApiClient 的原因：登录前的匿名请求没有可刷新的 token，
+ * createApiClient 的 401 处理会走「刷新失败 → 跳转 /login」，把正在登录的用户
+ * 甩进重定向环；这里失败只需原地抛错，由调用方降级（如 listProviders 静默）。
+ * 参数口径（social / passkey 两处原本各抄一份）：
+ * - credentials: 'same-origin' —— 授权 state 存在 Django session cookie 里，
+ *   SameSite=Lax 不会随跨域 XHR 发送；
+ * - retry: 0 —— 授权会话是后端 session 单槽写入，ky 自动重试会覆盖在途 state。
+ */
+export function createAnonymousClient(): KyInstance {
+  return ky.create({ credentials: 'same-origin', retry: 0 })
+}
+
+/**
  * 默认 API 客户端实例
  */
 export const api = createApiClient()

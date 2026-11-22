@@ -21,7 +21,7 @@ import { DEMO_RETURNED_MAILS, type ScanMailboxConfig } from '../demo-data'
 import { StageActionCard } from './StageActionCard'
 import { useStageAction } from './use-stage-action'
 import { StatCell, StatStrip } from '../ui'
-import { claimKindOf } from './returned/claim-kind'
+import { claimKindOf, mapIgnored } from './returned/claim-kind'
 import { ScanMailboxList } from './returned/ScanMailboxList'
 import { ScanBatchTable } from './returned/ScanBatchTable'
 import { ReturnedDiffTable } from './returned/ReturnedDiffTable'
@@ -75,7 +75,8 @@ export function ReturnedPanel() {
     toSummary: () => '律师函签收回执已手动归属到本案',
   })
 
-  const rows = DEMO_RETURNED_MAILS.map((m) => (ignored.has(m.subject) ? { ...m, action: '已标记无关' } : m))
+  /* 与归案卡片共用同一份「已标记无关」变换（`mapIgnored`），否则顶部统计与卡片列表会对不上 */
+  const rows = mapIgnored(DEMO_RETURNED_MAILS, ignored)
   const auto = rows.filter((m) => claimKindOf(m.action) === 'auto')
   const manual = rows.filter((m) => claimKindOf(m.action) === 'manual')
   const attachments = rows.reduce((n, m) => n + m.attachments, 0)

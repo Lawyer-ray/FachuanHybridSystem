@@ -35,7 +35,7 @@ vi.mock('@/features/document-recognition', () => ({
   RecognizeDialogLazy: () => null,
 }))
 
-import { InboxCard } from './SideCards'
+import { InboxCard } from './InboxCard'
 
 // CardHead 现在带「查看全部」用的是 react-router 的 Link，渲染必须包 Router
 function wrap(children: ReactNode) {

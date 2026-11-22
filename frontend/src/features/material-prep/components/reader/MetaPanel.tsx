@@ -80,7 +80,7 @@ export function MetaPanel({
   onToggleEngineChecked?: (key: string, checked: boolean) => void
   onJumpEngine?: (pageNo: number, key: string) => void
   /** 采用某一侧引擎的文本写回正文 */
-  onAdoptEngine?: (pageNo: number, text: string, engine: string, disagreeKey?: string) => void
+  onAdoptEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 「修改」：两侧都不对时进编辑态，预填主引擎文本 */
   onEditEngine?: (pageNo: number, text: string, disagreeKey?: string) => void
   /** 全卷不一致统计：用于「更推荐改成什么」 */

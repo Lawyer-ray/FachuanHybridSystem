@@ -6,8 +6,8 @@
  * 用无 JWT 但带同源 cookie 的客户端；register/* 与凭据管理要求 JWT。
  * 业务失败一律 HTTP 200 + { success: false, message }，在此 throw 交给调用方。
  */
-import ky, { type KyInstance } from 'ky'
-import { createApiClient } from '@/lib/api'
+import { type KyInstance } from 'ky'
+import { createAnonymousClient, createApiClient } from '@/lib/api'
 import { setTokens } from '@/lib/token'
 import type { components } from '@/types/api-schema'
 import type {
@@ -17,7 +17,8 @@ import type {
   RegistrationResponseJSON,
 } from './passkey-coding'
 
-const passkeyClient: KyInstance = ky.create({ credentials: 'same-origin', retry: 0 })
+/** 登录挑战用的匿名客户端：参数口径与豁免理由见 lib/api.ts 的 createAnonymousClient */
+const passkeyClient: KyInstance = createAnonymousClient()
 const authedClient = createApiClient({ credentials: 'same-origin', retry: 0 })
 
 /** ceremony 选项响应（public_key 为浏览器可直用的 WebAuthn Options JSON） */

@@ -1,11 +1,12 @@
 import { FileSearch, Pencil } from 'lucide-react'
 
 import { withDownloadTicket } from '@/lib/download-ticket'
+import { formatBytes } from '@/lib/format'
 import { folderFileUrl } from '../../api'
 import { stripEntryParens } from './detail-domain'
 import { DeleteConfirm } from './folder-tree-menu'
 import { EntryInput } from './folder-tree-ui'
-import { fmtSize, type NodeActions, type TreeCtx } from './folder-tree-types'
+import type { NodeActions, TreeCtx } from './folder-tree-types'
 import { FileKindBadge } from './FileKindBadge'
 
 /**
@@ -99,7 +100,7 @@ export function FolderFileRow({
       {/* 日期/大小 hover 时让位给浮层按钮（绝对定位，不参与布局） */}
       <span className="flex-none text-[11px] whitespace-nowrap text-muted-foreground/80 tabular-nums group-hover:opacity-0">
         {file.modified_at.slice(0, 10)}
-        {file.size > 0 && ' · ' + fmtSize(file.size)}
+        {file.size > 0 && ' · ' + formatBytes(file.size)}
       </span>
       <span className="absolute top-1/2 right-1 hidden -translate-y-1/2 items-center rounded-[6px] bg-secondary px-0.5 group-hover:flex">
         {ctx.onReviewFile && (

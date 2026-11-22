@@ -570,8 +570,11 @@ async def retry_task(request: Any, task_id: int) -> TaskStatusResponseSchema:  #
             )
 
         # 重置为 pending：worker 拉起时会自己置回 processing
+        # 2026-11-23 审计修复：error_message 是 NOT NULL CharField，写 None 会让这次
+        # task.save() 抛 IntegrityError → 「重跑失败任务」接口直接 500。空值用空串
+        # （与 services/date_capture_service.py:217 的正确写法同口径）。
         task.status = DocumentRecognitionStatus.PENDING
-        task.error_message = None
+        task.error_message = ""
         task.started_at = None
         task.finished_at = None
         task.save(update_fields=["status", "error_message", "started_at", "finished_at"])

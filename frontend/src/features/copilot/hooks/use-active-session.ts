@@ -14,8 +14,8 @@
 import { useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { listSessions } from '../api'
 import { COPILOT_LAUNCH_EVENT, takePendingLaunchContext, type CopilotLaunchContext } from '../launch'
+import { SESSIONS_QUERY_PREFIX, sessionsQueryOptions } from '../session-queries'
 import { useCopilot } from '../store'
 import { resolveCapabilities } from '../store/backends'
 
@@ -88,11 +88,9 @@ export function useActiveSession(): ActiveSessionInfo {
   const scopeKey = context ? `${context.origin}:${context.refId}` : 'all'
   const scope = context ? { origin: context.origin, refId: context.refId } : undefined
   const sessionsQuery = useQuery({
-    queryKey: ['copilot', 'sessions', scopeKey],
-    queryFn: () => listSessions(50, scope),
+    // key / 页大小 / 取数统一在 session-queries（与 SessionSidebar、路由判据同一份）
+    ...sessionsQueryOptions(scopeKey, scope),
     enabled: Boolean(sessionId) || Boolean(context),
-    staleTime: 30_000,
-    retry: false,
   })
   const currentSession = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId) : undefined
   // 会话的后端只能从列表缓存读：store 不存它（新会话的归属由本轮勾选推导，见
@@ -103,7 +101,7 @@ export function useActiveSession(): ActiveSessionInfo {
   // 每轮流结束后刷新会话列表：首条消息会自动生成标题，标题要能浮上来
   useEffect(() => {
     if (!streaming && (sessionId || context)) {
-      void queryClient.invalidateQueries({ queryKey: ['copilot', 'sessions'] })
+      void queryClient.invalidateQueries({ queryKey: SESSIONS_QUERY_PREFIX })
     }
   }, [streaming, sessionId, context, queryClient])
 

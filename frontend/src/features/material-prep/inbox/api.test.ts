@@ -124,3 +124,24 @@ describe('attachmentUrl', () => {
     expect(attachmentUrl(3, 1, false)).toBe('/api/v1/inbox/messages/3/attachments/1/download')
   })
 })
+
+describe('inboxListKey：同一份请求只能有一种 key 写法', () => {
+  it('缺省 params 与「显式默认值」归一到同一个 key（否则同一份列表会被重复请求）', async () => {
+    const { inboxListKey } = await import('./api')
+    expect(inboxListKey({})).toEqual(inboxListKey({ source: 'all', unreadOnly: false, search: '' }))
+    // 首尾空白不该造出第二个 key（listInbox 发出的请求已 trim）
+    expect(inboxListKey({ search: '  判决书  ' })).toEqual(inboxListKey({ search: '判决书' }))
+  })
+
+  it('真不同的筛选仍然分开缓存', async () => {
+    const { inboxListKey } = await import('./api')
+    expect(inboxListKey({ unreadOnly: true })).not.toEqual(inboxListKey({ unreadOnly: false }))
+    expect(inboxListKey({ source: 'court_sms' })).not.toEqual(inboxListKey({ source: 'all' }))
+    expect(inboxListKey({ search: '判决书' })).not.toEqual(inboxListKey({ search: '' }))
+  })
+
+  it('以 INBOX_LIST_KEY 为前缀（乐观更新与失效按前缀匹配）', async () => {
+    const { inboxListKey, INBOX_LIST_KEY } = await import('./api')
+    expect(inboxListKey({ source: 'court_sms' }).slice(0, 1)).toEqual([...INBOX_LIST_KEY])
+  })
+})

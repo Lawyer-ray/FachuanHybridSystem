@@ -12,7 +12,7 @@ import { DEMO_UNDERSTAND_FIELDS, DEMO_X1_FIELD_LOCATES } from '../demo-data'
 import type { X1FieldLocateRow } from '../demo-data'
 import { ActionButton, InsetBlock, KeyValueRow, Pill } from '../ui'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export function FieldDrawer({
   picked,

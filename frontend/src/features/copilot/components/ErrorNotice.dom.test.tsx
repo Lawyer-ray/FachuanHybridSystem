@@ -18,9 +18,9 @@ const clipboardMock = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/clipboard', () => clipboardMock)
 
-import type { AgentBackendOption } from '../backend-types'
 import { encodeError } from '../domain'
 import { useCopilot } from '../store'
+import type { AgentBackendOption } from '../types'
 import { ErrorNotice } from './ErrorNotice'
 
 function backend(kind: string, label: string, available = true): AgentBackendOption {

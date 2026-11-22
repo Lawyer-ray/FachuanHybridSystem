@@ -8,6 +8,9 @@
  * （只有一条底线的字段、直角黄铜按钮），套用基础组件的圆角边框反而要层层覆盖。
  */
 import { useState } from 'react'
+
+import { errMessage } from '@/lib/errors'
+
 import { useAuth } from '../store'
 
 interface Props {
@@ -30,12 +33,20 @@ export function PasswordLoginForm({ onLoggedIn }: Props) {
     }
     setLoading(true)
     setError('')
-    const res = await login(username, password)
-    setLoading(false)
-    if (res.ok) {
-      onLoggedIn()
-    } else {
-      setError(res.message || '登录失败')
+    try {
+      const res = await login(username, password)
+      if (res.ok) {
+        onLoggedIn()
+      } else {
+        setError(res.message || '登录失败')
+      }
+    } catch (e) {
+      // store 层目前靠 authApi.login 内部 catch 兜住，但 useAuth.login 的签名
+      // 只承诺 { ok }、没承诺「不会 throw」。漏了这条 catch，异常一次就把
+      // loading 永久钉在 true——按钮停在「登录中…」且再也提交不了，只能刷新页面
+      setError(errMessage(e, '登录失败，请稍后重试'))
+    } finally {
+      setLoading(false)
     }
   }
 

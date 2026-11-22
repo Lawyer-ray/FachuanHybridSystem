@@ -39,6 +39,7 @@ export {
   deleteCourtSms,
   abortCourtSmsTask,
   courtSmsDocDownloadUrl,
+  fetchCourtSmsDocBlob,
   courtSmsDownloadAllUrl,
   copyCourtSmsDocsToClipboard,
   uploadCourtSmsMaterials,

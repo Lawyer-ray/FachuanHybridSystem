@@ -1,5 +1,6 @@
 import type { KyInstance } from 'ky'
 
+import { todayKey } from '@/lib/date'
 import type { components } from '@/types/api-schema'
 
 /**
@@ -198,7 +199,7 @@ export async function createFromTemplate(
           name: `${projectName}·委托合同`,
           case_type: t.caseType,
           status: 'active',
-          start_date: today(),
+          start_date: todayKey(),
           representation_stages: [t.stage],
           lawyer_ids: [lawyerId],
           fee_mode: 'FIXED',
@@ -272,8 +273,4 @@ async function ensureClient(
   } catch {
     return null
   }
-}
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
 }

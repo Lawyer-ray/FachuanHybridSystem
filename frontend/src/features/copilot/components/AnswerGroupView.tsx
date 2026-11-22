@@ -27,7 +27,7 @@ import { Fragment, memo, useCallback, useMemo } from 'react'
 
 import { attachedToolIds, DEFAULT_AGENT_KIND, distinctAgentKinds, HISTORY_PAGE_SIZE, mergeAgentAnswers } from '../domain'
 // 从子模块直引：`domain/index.ts` 的桶出口不在本片白名单内（与 LaneFactsBadge 同一口径）
-import { reviewTurnOf } from '../domain/fusion'
+import { reviewTurnOf } from '../domain'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { MultiAnswers } from './MultiAnswers'
@@ -84,8 +84,13 @@ export const AnswerGroupView = memo(function AnswerGroupView({
   // 的评审挂到 B 轮的答案下面（错位的证据比不显示更糟）。窗口完整只有两种：
   // 已翻到顶（noMoreHistory）或总量不足一页（= 本来就是全量）。
   const sessionId = useCopilot((s) => s.sessionId)
+  // 组里没有答案（空组）就没有可挂裁决卡的错钡：返回 null，不靠 `answers[0]!`
+  // 把「非空」这个调用方不变量偷过去
+  const headId = answers[0]?.id
   const reviewTurn = useCopilot((s) =>
-    reviewTurnOf(s.messages, answers[0]!.id, s.noMoreHistory || s.messages.length < HISTORY_PAGE_SIZE),
+    headId
+      ? reviewTurnOf(s.messages, headId, s.noMoreHistory || s.messages.length < HISTORY_PAGE_SIZE)
+      : null,
   )
   const reviewTarget = useMemo(
     () =>

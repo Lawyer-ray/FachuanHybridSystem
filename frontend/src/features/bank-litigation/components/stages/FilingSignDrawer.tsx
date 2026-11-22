@@ -11,7 +11,7 @@ import { DEMO_SIGN_CHECKS } from '../demo-data'
 import { useState } from 'react'
 import { ActionButton, InsetBlock, KeyValueRow, Pill } from '../ui'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export function SignDrawer({ name, onClose }: { name: string | null; onClose: () => void }) {
   const d = name ? DEMO_SIGN_CHECKS.find((x) => x.docName === name) : null

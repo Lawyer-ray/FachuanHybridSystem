@@ -20,7 +20,7 @@ import { BTN, BTN_PRIMARY, ROW_BTN } from '../../../ui'
 import { FlowNotice } from '../dialog/TaskFlowDialog'
 import { badgeOf } from './badges'
 import { HistoryError } from './HistoryError'
-import { HistoryHeader, HistoryPager } from './HistoryParts'
+import { HISTORY_PAGE_SIZE, HistoryHeader, HistoryPager } from './HistoryParts'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: '排队中',
@@ -69,7 +69,7 @@ export function ConverterHistoryDialog({ open, onOpenChange }: { open: boolean; 
 
   const items = data?.items ?? []
   const count = data?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(count / 20))
+  const totalPages = Math.max(1, Math.ceil(count / HISTORY_PAGE_SIZE))
   const okItems = (job?.items ?? []).filter((it) => it.ok)
   const jobId = pickedId
 

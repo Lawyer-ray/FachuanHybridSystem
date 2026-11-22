@@ -20,8 +20,7 @@
 import { useEffect, useState } from 'react'
 
 import { adoptReview, fetchReviewAdoption } from '../../api'
-import { adoptionSummary, toAdoptionView, type AdoptionView } from '../../domain/adoption'
-import type { LaneView } from '../../domain/fusion'
+import { adoptionSummary, toAdoptionView, type AdoptionView, type LaneView } from '../../domain'
 
 const BUTTON_CLASS =
   'flex-none rounded-[4px] border border-border bg-background px-1.5 py-0.5 text-[11px] text-foreground/80 transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50'

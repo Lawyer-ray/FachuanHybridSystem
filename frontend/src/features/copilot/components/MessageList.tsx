@@ -186,7 +186,10 @@ export function MessageList({ wide = false }: { wide?: boolean } = {}) {
         {queuePosition !== null && <QueueBanner position={queuePosition} />}
         <div className="flex flex-col gap-2.5">
           {groups.map((group) => {
-            const head = group.answers[0]!
+            const head = group.answers[0]
+            // 空组不渲染：`head` 是轮次锚点与 key 的唯一来源（groupAnswerRuns 不会
+            // 产出空组，这里只是不让 `!` 把该不变量藏起来）
+            if (!head) return null
             // 每轮用户提问是轮次大纲的锚点：TurnRail 按它算当前轮、跳转也落到它
             const promptId = head.role === 'user' ? head.id : undefined
             return (

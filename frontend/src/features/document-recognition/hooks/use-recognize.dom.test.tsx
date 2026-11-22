@@ -10,6 +10,7 @@
  * 测试不能 `await submit(...)`，否则陪 fake timer 一起挂——统一用 startSubmit
  * 「发起后冲微任务」再按需推进计时器。
  */
+import { HTTPError } from 'ky'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -56,9 +57,9 @@ function makeTask(partial: Partial<TaskOut>): TaskOut {
   }
 }
 
-/** ky 404 的错误形状（use-recognize 从 e.response.status 判宽限） */
+/** 真实的 ky HTTPError（use-recognize 用 `instanceof HTTPError` 判宽限，结构化假形状已不适用） */
 function httpError(status: number) {
-  return Object.assign(new Error(`HTTP ${status}`), { response: { status } })
+  return new HTTPError(new Response(null, { status }), new Request('http://localhost/api/v1/recognize/tasks/5'), {} as never)
 }
 
 type HookResult = ReturnType<typeof useRecognize>

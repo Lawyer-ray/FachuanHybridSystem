@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
 
-import { SectionTitle, WorkCard } from '../ui'
+import { SectionTitle, WorkCard } from './ui'
 
 /**
- * court/ 下四张表共用的外框：白卡 + 贴边表头 + 贴边行。
+ * 表格外框：白卡 + 贴边表头 + 贴边行。
  *
- * 抽出来的唯一原因是口径一致 —— 四张表如果各自写 padding，
+ * `court/`（四张）与 `oa/`（三张）两个兄弟子域共用，所以放在 `components/`
+ * 而不是 `court/` 内部 —— 否则 `oa/*` 得深引兄弟子域的内部文件。
+ *
+ * 抽出来的唯一原因是口径一致 —— 七张表如果各自写 padding，
  * 行基线会歪一两像素，一屏之内就能看出来。
  */
 export function PageTable({

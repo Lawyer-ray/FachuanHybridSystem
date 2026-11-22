@@ -7,7 +7,8 @@
  * - `backend-types.ts`：可选 agent 后端与「新建会话用哪个」的选择字段；
  * - `scope-types.ts`：会话归属的业务范围（案件内 / 合同内）；
  * - `skill-types.ts`：技能清单与启停回执（`/` 菜单的数据源）；
- * - `state-types.ts`：store 的状态形状（`CopilotState`）。
+ * - `state-types.ts`：store 的状态形状（`CopilotState`）；
+ * - `memory-types.ts`：记忆条目、策展候选与可策展作用域。
  */
 
 import type { CitationRef } from './domain/knowledge'
@@ -20,6 +21,14 @@ export type { MentionCandidate, MentionInsert, MentionKind } from './domain/ment
 export type { AgentBackendOption, AgentSpec } from './backend-types'
 export type { CopilotContext, CopilotScope } from './scope-types'
 export type { AgentSkill, AgentSkillList, AgentSkillToggleReceipt } from './skill-types'
+export type {
+  AgentMemoryItem,
+  MemoryKind,
+  MemoryScopes,
+  MemoryScope,
+  MemoryStatus,
+  PromoteCandidate,
+} from './memory-types'
 
 /** 会话（GET/POST /agent/sessions） */
 export interface AgentSession {
@@ -48,7 +57,6 @@ export interface AgentSession {
   created_at: string
   updated_at: string
 }
-
 /** 会话分组（侧栏按业务范围分组展示，类 IDE 项目分组） */
 export interface SessionGroup {
   key: string
@@ -58,7 +66,6 @@ export interface SessionGroup {
   /** 业务范围的实体 id（合同/案件组才有）——侧栏据此判断「当前项目」 */
   refId?: number
 }
-
 /** 历史消息（GET /agent/sessions/{id}/messages） */
 export interface AgentHistoryMessage {
   message_id: number
@@ -77,7 +84,6 @@ export interface AgentHistoryMessage {
   rating?: 'up' | 'down' | ''
   metadata: Record<string, unknown>
 }
-
 /**
  * SSE 流事件（POST /agent/sessions/{id}/messages 的 data 帧）。
  * 单一来源是自动生成的 sse-events.ts（`python -m apps.agent.sse_types --ts`
@@ -108,7 +114,6 @@ export interface TurnStats {
   /** 采样点 [时间, 累计估算 token]，只保留近几秒 */
   samples: Array<[number, number]>
 }
-
 /** 转录气泡（历史回放与流式共用一个模型） */
 /** 引用归属：合同绑定文件夹 / 案件绑定文件夹（两套独立绑定） */
 export type RefOwnerKind = 'contract' | 'case'
@@ -122,7 +127,6 @@ export interface SentRefMeta {
   /** 目录引用：不落附件，靠 [已引用目录：…] 提示块让模型自行浏览 */
   isFolder?: boolean
 }
-
 /**
  * 框选引用（豆包式）：律师在 OnlyOffice 里选中一段文本后，引用以卡片挂在
  * 输入框上方（不是把模板文字灌进输入框），随下一条消息以
@@ -136,7 +140,6 @@ export interface SelectionQuote {
   /** 选中的文本（换行已归一为空格、限长截断） */
   text: string
 }
-
 /**
  * 业务归属锚点（详情页工作区/浮层 context 下每轮注入的 `[当前业务：…]` 块）。
  *
@@ -422,28 +425,25 @@ export interface AgentCompactReceipt {
   context_total_tokens: number | null
 }
 
-/** `/` 命令菜单项（技能补全 / 内置命令）；构建与过滤见 domain.ts，交互见 hooks/use-slash-menu */
+/**
+ * `/` 命令菜单项（技能补全 / 内置命令）；构建与过滤见 domain.ts，交互见 hooks/use-slash-menu。
+ * 字段口径：`key` 是列表 key（`skill-名` / `command-名`）；`id` 是技能名 / 命令 id；
+ * `label` 是展示名；`disabled` + `disabledHint` 表示不可选与原因（如「先开始对话」）。
+ */
 export interface SlashMenuItem {
-  /** 列表 key（`skill-名` / `command-名`） */
   key: string
   kind: 'skill' | 'command'
-  /** 技能名 / 命令 id（技能补全文本、命令触发动作用） */
   id: string
-  /** 展示名：技能名 / 命令中文标签 */
   label: string
   description: string
-  /** 不可选（如无活动会话时的 compact） */
   disabled?: boolean
-  /** 禁用原因（菜单项小字提示，如「先开始对话」） */
   disabledHint?: string
 }
 
-/** store 状态形状定义在同目录 `state-types.ts`（体量与关注点都与契约不同） */
-
-/** 结构化提问的题面类型由纯领域模块定义（回流类型与契约分属两处） */
+/** store 状态形状在同目录 `state-types.ts`（体量与关注点都与契约不同）；
+ *  结构化提问的题面类型由纯领域模块定义（回流类型与契约分属两处） */
 export type { QuestionAnswerItem, QuestionDraft, QuestionItem, QuestionOption } from './domain/question'
 export type { CopilotState } from './state-types'
-
 /** 多答裁决卡视图（camelCase；线上契约→视图的映射见 domain/fusion.ts） */
 export type { ClusterView, ConflictPairView, ConflictSideView, LaneView, ReviewView, VerdictView } from './domain/fusion'
 /** 评审采纳记录视图（独立端点，不进冻结的 Review 快照；见 domain/adoption.ts） */

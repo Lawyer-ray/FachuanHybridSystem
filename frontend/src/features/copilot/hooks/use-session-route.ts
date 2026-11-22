@@ -24,17 +24,8 @@ import { toast } from 'sonner'
 
 import { assistantSession, ROUTES } from '@/app/paths'
 
-import { listSessions } from '../api'
+import { sessionsQueryOptions } from '../session-queries'
 import { useCopilot } from '../store'
-
-/**
- * 会话列表：缓存键与页大小都跟 SessionSidebar 一致。
- *
- * 同一个 key 在 react-query 里只有一次在飞请求，所以页面同时开着会话栏时这里
- * 不会多打一次接口；判「id 不在列表」的窗口也与用户能翻到的列表是同一个。
- */
-const SESSIONS_KEY = ['copilot', 'sessions', 'all'] as const
-const SESSIONS_LIMIT = 100
 
 export function useSessionRoute(): void {
   const { sessionId: paramId } = useParams()
@@ -63,14 +54,13 @@ export function useSessionRoute(): void {
    */
   const openingIdRef = useRef<string | null>(null)
 
+  // 会话列表：key / 页大小 / 取数跟 SessionSidebar 同源（见 session-queries）——同一个
+  // key 在 react-query 里只有一次在飞请求，所以页面同时开着会话栏时这里不会多打一次
+  // 接口；判「id 不在列表」的窗口也与用户能翻到的列表是同一个（只装 50 条时 51–100 名
+  // 的合法老会话会被误判成坏 id）。
   // 只取「列出来了没」与「列了哪些」两个值：useQuery 返回的 result 对象每轮都是新的，
-  // 直接把它放进依赖会让 effect 每轮都跑（幂等但白干）
-  const { isSuccess: sessionsLoaded, data: listedSessions } = useQuery({
-    queryKey: SESSIONS_KEY,
-    queryFn: () => listSessions(SESSIONS_LIMIT),
-    staleTime: 30_000,
-    retry: false,
-  })
+  // 直接把它放进依赖会让 effect 每轮都跑（幂等但白干）。
+  const { isSuccess: sessionsLoaded, data: listedSessions } = useQuery(sessionsQueryOptions('all'))
 
   useEffect(() => {
     const prev = syncRef.current

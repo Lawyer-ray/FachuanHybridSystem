@@ -23,3 +23,12 @@ export const contractFolderApi = createApiClient({ prefix: '/api/v1/contracts' }
 export const casesApi = createApiClient({ prefix: '/api/v1/cases' })
 export const organizationApi = createApiClient({ prefix: '/api/v1/organization' })
 export const remindersApi = createApiClient({ prefix: '/api/v1/reminders' })
+/**
+ * 客户档案（`/api/v1/client/clients`：模板建项目时先落委托人与对方当事人）。
+ *
+ * 注意前缀是**单数** `client`、路径段是复数 `clients`——后端 router 就是这么挂的，
+ * 不是笔误。
+ */
+export const clientApi = createApiClient({ prefix: '/api/v1/client' })
+/** 材料收件箱（`/api/v1/inbox/messages/upload`：示例材料与真实上传同一条入口） */
+export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })

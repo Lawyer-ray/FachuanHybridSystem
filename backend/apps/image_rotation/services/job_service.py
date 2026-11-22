@@ -17,30 +17,6 @@ from ..models import ImageRotationJob, ImageRotationJobStatus, ImageRotationPage
 logger = logging.getLogger("apps.image_rotation")
 
 
-class ImageRotationJobService:
-    """图片旋转历史任务服务"""
-
-    # ------------------------------------------------------------------
-    # 创建
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # 查询
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # OCR 重识别
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # 关联导出
-    # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
-    # 删除
-    # ------------------------------------------------------------------
-
-
 def _guess_ext(filename: str) -> str:
     if "." in filename:
         ext = "." + filename.rsplit(".", 1)[-1].lower()
@@ -49,7 +25,7 @@ def _guess_ext(filename: str) -> str:
     return ".jpg"
 
 
-# ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 @transaction.atomic
 def create_job(
     *,
@@ -96,7 +72,7 @@ def create_job(
     return job
 
 
-# ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 def get_job(job_id: str | uuid.UUID, user: Any = None) -> ImageRotationJob:
     """获取任务.
 
@@ -118,7 +94,7 @@ def get_job(job_id: str | uuid.UUID, user: Any = None) -> ImageRotationJob:
         ) from None
 
 
-# ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 def list_jobs(*, created_by: Any = None, page: int = 1, page_size: int = 20, user: Any = None) -> dict[str, Any]:
     from apps.core.api.pagination import paginate_queryset
 
@@ -134,14 +110,14 @@ def list_jobs(*, created_by: Any = None, page: int = 1, page_size: int = 20, use
     return paginate_queryset(qs, page=page, page_size=page_size)
 
 
-# ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 def get_job_detail(job_id: str | uuid.UUID, user: Any = None) -> tuple[ImageRotationJob, list[ImageRotationPage]]:
     job = get_job(job_id, user=user)
     pages = list(job.pages.all())
     return job, pages
 
 
-# ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 def run_ocr(
     job_id: str | uuid.UUID,
     provider: str = "local",
@@ -182,7 +158,7 @@ def run_ocr(
     return pages
 
 
-# ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 async def arun_ocr(
     job_id: str | uuid.UUID,
     provider: str = "local",
@@ -224,7 +200,7 @@ async def arun_ocr(
     return pages
 
 
-# ↓↓ 由 ImageRotationJobService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 def delete_job(job_id: str | uuid.UUID, user: Any = None) -> None:
     """删除任务（信号自动清理文件）。"""
     job = get_job(job_id, user=user)

@@ -10,7 +10,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { StatusBadge, type Tone } from '@/components/shared/status-badge'
 import { HistoryError } from '../history/HistoryError'
-import { HistoryPager } from '../history/HistoryParts'
+import { HISTORY_PAGE_SIZE, HistoryPager } from '../history/HistoryParts'
 import { SMS_STATUS_LABEL } from './stages'
 
 /** 状态 → 色档（需处理类显眼，进行中蓝，完成绿）。
@@ -29,8 +29,6 @@ const GROUPS: { value: CourtSmsGroup; label: string }[] = [
   { value: 'completed', label: '已完成' },
   { value: 'all', label: '全部' },
 ]
-
-const PAGE_SIZE = 20
 
 function Row({ item, onPick }: { item: CourtSmsListItem; onPick: (id: number) => void }) {
   return (
@@ -93,7 +91,7 @@ export function CourtSmsHistoryDialog({
 
   const items = data?.items ?? []
   const count = data?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(count / HISTORY_PAGE_SIZE))
 
   const switchGroup = (g: CourtSmsGroup) => {
     setGroup(g)

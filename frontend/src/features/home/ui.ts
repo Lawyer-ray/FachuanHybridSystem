@@ -1,4 +1,5 @@
 import { SMALL_OUTLINE_BTN } from '@/components/shared/button-styles'
+import { BTN_PRIMARY as BTN_PRIMARY_CLS, PANEL as PANEL_CLS, ROW_BTN as ROW_BTN_CLS } from '@/components/shared/panel-styles'
 
 /** 阅读器风格的小描边按钮（与 material-prep reader/ui.ts 的 PBTN 同款，上提 shared 共用） */
 export const BTN = SMALL_OUTLINE_BTN
@@ -12,16 +13,15 @@ export const BTN = SMALL_OUTLINE_BTN
 export const BTN_ICON =
   'flex h-[30px] w-[28px] flex-none items-center justify-center rounded-[7px] border border-border bg-transparent text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-zinc-300'
 
-/** 深色主操作按钮（记一笔 / 提交 / 转换 / 计算） */
-export const BTN_PRIMARY =
-  'flex h-[32px] flex-none items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-[14px] text-[12.5px] font-semibold text-background transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-45'
+/** 深色主操作按钮（记一笔 / 提交 / 转换 / 计算）：与 shared/panel-styles 同款，直接复用 */
+export const BTN_PRIMARY = BTN_PRIMARY_CLS
 
 /** 危险操作描边按钮（停止并删除任务等破坏性动作，配两段确认使用） */
 export const BTN_DANGER =
   'flex h-[30px] flex-none items-center gap-1.5 rounded-[7px] border border-status-red/40 bg-status-red-bg px-[12px] text-[12.5px] font-medium text-status-red transition-colors hover:border-status-red/60 hover:bg-status-red/10 disabled:cursor-not-allowed disabled:opacity-45'
 
-/** 首页面板（白卡） */
-export const PANEL = 'rounded-[14px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,.02)]'
+/** 首页面板（白卡）：与 shared/panel-styles 逐字同款，直接复用（避免两份手抄漂移） */
+export const PANEL = PANEL_CLS
 
 /** 工具卡内的输入控件 */
 export const FIELD =
@@ -31,7 +31,5 @@ export const FIELD =
 export const COUNT_PILL =
   'rounded-[99px] border border-border bg-secondary px-[8px] py-[1px] text-[11px] font-semibold text-muted-foreground'
 
-/** 行内小按钮：描边风格（工具卡结果行 / 历史弹窗行操作 / 法院短信成功弹窗四家同款）。
- *  disabled 工具类对不带 disabled 属性的按钮是纯 no-op，取并集一份即可。 */
-export const ROW_BTN =
-  'flex h-[26px] flex-none items-center gap-1 rounded-[7px] border border-border bg-card px-2 text-[10.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
+/** 行内小按钮：描边风格（工具卡结果行 / 历史弹窗行操作 / 法院短信成功弹窗）—— 复用 shared 版 */
+export const ROW_BTN = ROW_BTN_CLS

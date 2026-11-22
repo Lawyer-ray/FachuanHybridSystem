@@ -9,7 +9,7 @@
  * 所以每侧都必然有明确的成立/不成立。
  */
 
-import type { ConflictPairView } from '../../domain/fusion'
+import type { ConflictPairView } from '../../domain'
 
 export function ConflictPair({ pair }: { pair: ConflictPairView }) {
   return (
