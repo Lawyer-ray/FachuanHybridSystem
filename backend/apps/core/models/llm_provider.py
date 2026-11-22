@@ -9,18 +9,6 @@ from apps.core.model_fields.encrypted import EncryptedTextField
 _BEARER_PREFIX = "bearer "
 _MODEL_SEPARATOR = ","
 
-#: 支持 ``chat_template_kwargs.thinking`` 开关的推理模型名特征（小写子串匹配）。
-#: 这些模型默认会「思考」，历史实现在请求里显式关闭以省延迟；配置项允许打开。
-_THINKING_CAPABLE_MARKERS = (
-    "kimi",
-    "mimo",
-    "deepseekr1",  # 归一化后的 deepseek-r1 / deepseek_r1
-    "deepseekreasoner",
-    "qwq",
-    "reasoner",
-    "glmz",  # 归一化后的 glm-z
-)
-
 
 def _normalize_key(raw: str) -> str:
     """去掉首尾空白与可选的 ``Bearer `` 前缀。"""
@@ -154,13 +142,16 @@ class LLMProvider(models.Model):
     def supports_thinking(self, model: str = "") -> bool:
         """该模型是否属于「可开关思考模式」的推理模型。
 
-        与后端 ``_normalize_model_key`` 保持同一套匹配口径，使 ``kimi26`` /
-        ``kimi-2.6`` / ``kimi-2.6(Anthropic)`` 判定一致。
+        判定口径的唯一来源是 :func:`apps.core.llm.gateway_profile.model_supports_thinking`
+        （Agent 通道与服务通道共用同一份特征表，``kimi26`` / ``kimi-2.6`` /
+        ``kimi-k2`` 判定一致）。``model`` 留空时用 ``default_model``。
+
+        ⚠️ **必须函数内 import**：``apps.core.llm`` 是重包（``__init__`` 连锁导入
+        ``config`` / ``service``），模块顶层导入会与 Model 层形成循环导入。
         """
-        used = (model or self.default_model or "").lower()
-        for ch in ("-", "_", ".", " ", "(", ")", "/", ":"):
-            used = used.replace(ch, "")
-        return any(marker in used for marker in _THINKING_CAPABLE_MARKERS)
+        from apps.core.llm.gateway_profile import model_supports_thinking
+
+        return model_supports_thinking(model or self.default_model)
 
     def parsed_models(self) -> list[str]:
         """按逗号/换行解析模型列表。"""

@@ -175,20 +175,23 @@ def model_supports_thinking(model: str, provider: Any | None = None) -> bool:
     """该模型是否属于「可开关思考模式」的推理模型。
 
     ``provider`` 给得出时直接问它（``LLMProvider.supports_thinking``，同步上下文
-    里已是实列）；走缓存路径拿不到实列时用 ``LLMProvider`` 同一份特征表——
-    两处各写一套会让同一个模型在「传了 provider」与「走缓存」两条路径上判出
-    不同结果，表现是同一平台的思考开关时灵时不灵。
+    里已是实列）；走缓存路径拿不到实列时用 :mod:`apps.core.llm.gateway_profile`
+    的同一份特征表——两处各写一套会让同一个模型在「传了 provider」与「走缓存」
+    两条路径上判出不同结果，表现是同一平台的思考开关时灵时不灵。
+
+    ⚠️ **不能反向 import ``apps.core.models.llm_provider``**：Agent 层依赖 Model
+    层是层次倒挂，且特征表一旦分叉就会重现「kimi-k2 在一个入口思考、另一个入口
+    不思考」的分叉。
     """
     method = getattr(provider, "supports_thinking", None) if provider is not None else None
     if callable(method):
         return bool(method(model))
 
-    from apps.core.models.llm_provider import _THINKING_CAPABLE_MARKERS
+    # 延迟 import：``apps.core.llm`` 是重包，而本模块在 AppConfig 阶段就可能被 import
+    # （同 ``_load`` 的处理）。
+    from apps.core.llm import gateway_profile
 
-    used = (model or "").lower()
-    for ch in ("-", "_", ".", " ", "(", ")", "/", ":"):
-        used = used.replace(ch, "")
-    return any(marker in used for marker in _THINKING_CAPABLE_MARKERS)
+    return gateway_profile.model_supports_thinking(model)
 
 
 _lock = threading.Lock()
