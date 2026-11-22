@@ -179,7 +179,7 @@ describe('综合结论后台任务', () => {
 
     await waitFor(() => expect(jobSpies.waitForSynthesisJob).toHaveBeenCalled())
     expect(jobSpies.fetchLatestSynthesisJob).toHaveBeenCalledWith('s-1', 2)
-    expect(jobSpies.waitForSynthesisJob.mock.calls[0][1]).toMatchObject({ job_id: 'job-1' })
+    expect(jobSpies.waitForSynthesisJob.mock.calls[0]?.[1]).toMatchObject({ job_id: 'job-1' })
     await waitFor(() => expect(screen.getByTestId('synthesis-run').textContent).toContain('评审中'))
     expect(jobSpies.startSynthesisJob).not.toHaveBeenCalled()
   })

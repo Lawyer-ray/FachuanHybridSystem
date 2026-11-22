@@ -420,7 +420,7 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     )
   })
 
-  it('平台没有可用评审模型 → 不禁用按钮，提示"本次会跳过评审直接综合"', async () => {
+  it('平台没有可用评审模型 → 评审提示「跳过评审」仍然显示，按钮按缺失原因禁用', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
     apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: [], max_lanes: 5 })
     render(
@@ -431,8 +431,11 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
       />,
     )
     const button = (await screen.findByRole('button', { name: '生成综合结论' })) as HTMLButtonElement
-    expect(button.disabled).toBe(false)
+    // 作业化之后：没有可用模型 = 提交出去也会失败，所以按钮禁用并给出原因；
+    // 评审那一路仍要说明「跳过评审」（评审是可选增强，缺模型不该连综合一起停掉）。
     expect((await screen.findByTestId('review-models-missing')).textContent).toContain('跳过评审')
+    await waitFor(() => expect(button.disabled).toBe(true))
+    expect(screen.getByTestId('synthesis-blocked').textContent).toContain('没有')
   })
 
   it('模型下拉默认选中平台第一个模型，不停在「自动」', async () => {
