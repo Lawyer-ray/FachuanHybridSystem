@@ -12,6 +12,9 @@
  *    （名字 / `N 个 AI`）——身份靠 `aria-label` 说清「会话默认（谁）」；
  * 5. **每行带模型下拉**（规格 4.1）：默认预填 `default_model`、未勾选置灰、
  *    清单为空时整枚下拉消失（降级）。
+ * 6. **归属规则写在菜单里**：本菜单是新会话 `agent_kind` 的唯一入口（勾 1 个归它、
+ *    勾多个归第一个），这条不能只活在代码注释里——用户看不到就会以为「选 2 个
+ *    对比」不会把会话绑到第一家。
  */
 
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -276,6 +279,16 @@ describe('AnswerAgentMenu：每行的模型下拉（规格 4.1）', () => {
   it('底部显示已选数量与上限', () => {
     renderMenu({ selected: ['pi', 'dsh'] })
     openMenu()
+    expect(screen.getByText('已选 2 个 · 最多 4 个')).toBeTruthy()
+  })
+
+  it('底部一句说清归属规则：勾 1 个＝归它，勾多个＝归第一个', () => {
+    renderMenu({ selected: ['pi', 'dsh'] })
+    openMenu()
+
+    const rule = screen.getByText(/新会话也归它/)
+    expect(rule.textContent).toBe('勾 1 个＝本轮只问它，新会话也归它；勾 2 个以上＝并排对比，会话归属第一个')
+    // 数量/上限那行照旧，不被这条文案挤掉
     expect(screen.getByText('已选 2 个 · 最多 4 个')).toBeTruthy()
   })
 })

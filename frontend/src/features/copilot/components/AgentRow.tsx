@@ -31,7 +31,7 @@ import { noApprovalWarn } from '../store/backends'
 import { AgentModelPicker } from './AgentModelPicker'
 import { NoApprovalBadge } from './NoApprovalBadge'
 
-/** 左侧勾选区（视觉上 12px 见方，与既有 AgentBackendPicker 一致：只画对勾不画方框） */
+/** 左侧勾选区（视觉上 12px 见方，与 AnswerAgentMenu 的行口径一致：只画对勾不画方框） */
 const CHECK_CLASS = 'mt-0.5 flex h-3 w-3 flex-none items-center justify-center'
 
 export function AgentRow({

@@ -7,9 +7,10 @@
  *
  * ## 与「会话后端」是两回事
  *
- * `selectedAgentKind`（`store/backends.ts`）决定**新会话**由谁处理，建完不可更换
- * （上下文归后端自己管）。本 slice 的 `answerAgents` 只决定**这一轮问哪几家**，
- * 可以逐轮改：多答是「同一问题拿几份意见」，不是「换脑子」。
+ * 会话的 `agent_kind` 建完不可更换（上下文归后端自己管）。`selectedAgentKind`
+ * （`store/backends.ts`）是「一个都不勾」时的会话归属回退值；勾了 agent 时归属
+ * 由本轮选择推导（见 `store/turn.ts`）。本 slice 的 `answerAgents` 决定**这一轮问
+ * 哪几家**，可以逐轮改：多答是「同一问题拿几份意见」，不是「换脑子」。
  *
  * ## 模型与勾选分开存
  *

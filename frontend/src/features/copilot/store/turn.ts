@@ -31,7 +31,6 @@ import { resolveCapabilities } from './backends'
 import { bumpSessionEpoch } from './session-epoch'
 import type { Slice } from './slice'
 
-/** 轮次统计初值（send 入列时复位；reset 也复用它） */
 /** 轮次统计初值（形状定义在 domain/usage，store 与 turn-handlers 共用同一份） */
 export const EMPTY_STATS: TurnStats = emptyTurnStats()
 
@@ -147,10 +146,12 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     const startedSessionId = get().sessionId
     let sessionId = startedSessionId
     if (!sessionId) {
-      // 新会话带上用户选的 agent 后端（空串 = 不指定，后端用默认值 pi）。
-      // 只在建会话这一刻生效：已有会话换后端会丢掉上下文，见 store/backends.ts。
+      // 新会话归属 = 本轮勾选的第一个（顺序 = 栏的左右顺序）；未勾 / 全不可用退回
+      // selectedAgentKind（部署默认）。❗必须用**过滤后**的清单（见 resolveAnswerAgents）：
+      // 直接取 answerAgents[0] 会让「勾了一个缺 SDK 的后端」变成会话归属，而它不在本轮。
+      const ownerKind = resolveAnswerAgents(pre)[0] || pre.selectedAgentKind
       try {
-        sessionId = (await copilotApi.createSession('', get().context ?? undefined, pre.selectedAgentKind)).session_id
+        sessionId = (await copilotApi.createSession('', get().context ?? undefined, ownerKind)).session_id
       } catch {
         set({ lastError: '创建会话失败，请稍后重试', sending: false })
         onQueued?.(false)
@@ -191,9 +192,8 @@ export const createTurnSlice: Slice<TurnSlice> = (set, get) => ({
     if (pre.pendingQuote) set({ pendingQuote: null })
     const composed = outgoing.composed
 
-    // 本轮要几栏：选中的 agent 清单（过滤不可用/截到上限后才是真实栏数）。
-    // 单栏路径必须与引入多答前**完全一致**（那条的 agentKind 留空，渲染不加
-    // 标签，见 domain/dual.groupAnswerRuns）。
+    // 本轮要几栏：选中的 agent 清单（过滤不可用 / 截到上限后才是真实栏数）。单栏路径
+    // 必须与多答前**完全一致**（agentKind 留空、渲染不加标签，见 domain/dual.groupAnswerRuns）。
     const turnAgents = resolveAnswerAgents(pre)
     // 每栏带模型（缺省不带 = 平台默认）；顺序与 turnAgents 逐一对应
     const turnSpecs = resolveAnswerSpecs(pre)

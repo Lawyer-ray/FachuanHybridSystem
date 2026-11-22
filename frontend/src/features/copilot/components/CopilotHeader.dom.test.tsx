@@ -6,22 +6,26 @@
  * 渲染漏传（按钮该出现时没出现）。所以断言都落在「点了调到谁」与「什么状态
  * 显示什么」上，不测样式。
  *
- * 另有一组与本次需求直接相关：`currentAgentKind` 决定 agent 后端标识的**形态**——
- * 新对话时是可选后端的下拉（决定下一个会话用谁），已有会话时是标题后面的弱化
- * 后缀（看着不可点，就不是假按钮），而「为什么不能中途换」只活在「新对话」的
+ * 另有一组与本次需求直接相关：header 里的后端**只可以是后缀**——已有会话时是
+ * 标题后面的弱化文本（看着不可点，就不是假按钮）；新对话态**一个后端控件都
+ * 没有**，选谁归输入区的 AnswerAgentMenu，两处可选必然不一致（真实反馈：
+ * 「还是有两个地方可以选呀」）。而「为什么不能中途换」只活在「新对话」的
  * tooltip 里。
  */
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// header 只从 store 读清单（已建会话的后端显示名）；选谁不在 header 里
 const storeMock = vi.hoisted(() => ({
-  backends: [
-    { kind: 'pi', label: 'Pi', description: '', available: true, reason: '', capabilities: {} },
-    { kind: 'dsh', label: 'DeepSeek Harness', description: '', available: true, reason: '', capabilities: {} },
-  ],
-  selectedAgentKind: 'pi',
-  selectAgentKind: vi.fn<(kind: string) => void>(),
+  backends: [] as Array<{
+    kind: string
+    label: string
+    description: string
+    available: boolean
+    reason: string
+    capabilities: Record<string, boolean>
+  }>,
 }))
 
 vi.mock('../store', () => ({
@@ -50,9 +54,12 @@ function makeProps(overrides: Partial<CopilotHeaderProps> = {}): CopilotHeaderPr
   }
 }
 
+/** 每个用例都从同一份清单出发：「清单没拉到」那条会把它置空 */
 beforeEach(() => {
-  storeMock.selectedAgentKind = 'pi'
-  storeMock.selectAgentKind.mockClear()
+  storeMock.backends = [
+    { kind: 'pi', label: 'Pi', description: '', available: true, reason: '', capabilities: {} },
+    { kind: 'dsh', label: 'DeepSeek Harness', description: '', available: true, reason: '', capabilities: {} },
+  ]
 })
 
 describe('CopilotHeader：标题与开关', () => {
@@ -131,12 +138,17 @@ describe('CopilotHeader：agent 后端入口', () => {
   /** 标题后缀是纯文本节点（不是按钮、不可点） */
   const titleSuffix = () => screen.getByText(/^· /).textContent
 
-  it('没有当前会话时是可切换的下拉（决定新会话用谁），标题不带后端后缀', () => {
+  it('新对话态没有任何后端选择控件（新会话用谁只由输入区的 AnswerAgentMenu 决定）', () => {
     render(<CopilotHeader {...makeProps({ currentAgentKind: null })} />)
 
-    expect(screen.getByRole('button', { name: /后端：Pi，点击更换/ })).toBeTruthy()
-    expect(screen.getByText('AI 助手')).toBeTruthy()
+    // 没有下拉、没有列表、没有「后端：…」之类的按钮，也没有标题后缀
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(screen.queryByRole('button', { name: /后端/ })).toBeNull()
     expect(screen.queryByText(/^· /)).toBeNull()
+    expect(screen.getByText('AI 助手')).toBeTruthy()
+    // header 自己的按钮照旧在位：删掉的只是后端选择器
+    expect(screen.getByRole('button', { name: /新对话/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /收起会话栏/ })).toBeTruthy()
   })
 
   it('已有会话时后端名做标题后缀：可见、弱化、不是按钮', () => {

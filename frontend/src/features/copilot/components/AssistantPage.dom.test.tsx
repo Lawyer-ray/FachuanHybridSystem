@@ -17,7 +17,8 @@ const storeMock = vi.hoisted(() => ({
   draggingFiles: false,
   switchSession: vi.fn(async () => {}),
   exitContext: vi.fn(async () => {}),
-  // CopilotHeader 里的 AgentBackendPicker 读这三项（空清单 = 退化为纯展示）
+  // header 现在只读 `backends`（已建会话的后端显示名）；新会话用谁由输入区的
+  // AnswerAgentMenu 决定，header 不再读 `selectedAgentKind` / `selectAgentKind`
   backends: [] as Array<{ kind: string; label: string; description: string; available: boolean; reason: string; capabilities: Record<string, boolean> }>,
   selectedAgentKind: '',
   selectAgentKind: vi.fn(),
