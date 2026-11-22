@@ -4,8 +4,8 @@
  *
  * 必须成立的事实：
  * 1. **选择即增删**：点一项回调一次 kind，顺序由 store 决定（菜单不排序）；
- * 2. **上限 4**：选满后未选项置灰——超出的选择后端会 400，而那发生在用户已经
- *    敲了回车之后；
+ * 2. **上限 {@link MAX_ANSWERS}**：选满后未选项置灰——超出的选择后端会 400，而那
+ *    发生在用户已经敲了回车之后；
  * 3. **不可用项置灰并说明原因**：缺 SDK / 没配 LLM 的后端留着（说明真相是
  *    「这里缺东西」），但点不动；
  * 4. 触发按钮：未选（= 单跑会话默认）时只留图标（省输入框宽度），选了才出文字
@@ -23,8 +23,16 @@ import { useState } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
+import { MAX_ANSWERS } from '../domain'
 import type { AgentBackendOption } from '../types'
 import { AnswerAgentMenu } from './AnswerAgentMenu'
+
+/** 底部「已选 N 个 · 最多 M 个」的期望文案。
+ *
+ * M **跟着 {@link MAX_ANSWERS} 算**，不写字面值：上限是产品常量（会随可用后端
+ * 增减），把 `4` 写进断言就等于给它加了一颗地雷——常量一变，五条无关的用例
+ * 一起红，而下一个人还以为是菜单坏了。 */
+const quota = (selected: number) => `已选 ${selected} 个 · 最多 ${MAX_ANSWERS} 个`
 
 function option(
   kind: string,
@@ -195,18 +203,19 @@ describe('AnswerAgentMenu', () => {
     expect(screen.getByRole('checkbox', { name: 'Pi，会话默认' }).getAttribute('aria-checked')).toBe('false')
   })
 
-  it('选满 4 个后未选项置灰（超上限后端会 400）', () => {
-    // 已选 4 个 = 满额；清单里再来第五个后端
-    const allBackends = [...backends, option('x', '第五个')]
-    renderMenu({ selected: ['pi', 'dsh', 'oai', 'gpt'], backends: allBackends })
+  it(`选满 ${MAX_ANSWERS} 个后未选项置灰（超上限后端会 400）`, () => {
+    // 造 MAX_ANSWERS+1 个后端：前 MAX_ANSWERS 个选中 = 满额，多出来的那个该置灰
+    const allBackends = Array.from({ length: MAX_ANSWERS + 1 }, (_, i) => option(`k${i}`, `第${i + 1}个`))
+    const picked = allBackends.slice(0, MAX_ANSWERS).map((b) => b.kind)
+    renderMenu({ selected: picked, backends: allBackends, defaultKind: 'k0' })
     openMenu()
 
     expect(screen.getAllByRole('option')).toHaveLength(allBackends.length)
     // 已选的仍可点（取消不需要名额）
-    expect((screen.getByRole('checkbox', { name: 'Pi，会话默认' }) as HTMLButtonElement).disabled).toBe(false)
-    const fifth = screen.getByRole('checkbox', { name: '第五个' }) as HTMLButtonElement
-    expect(fifth.disabled).toBe(true)
-    expect(fifth.title).toContain('最多同时问 4 个')
+    expect((screen.getByRole('checkbox', { name: '第1个，会话默认' }) as HTMLButtonElement).disabled).toBe(false)
+    const overflow = screen.getByRole('checkbox', { name: `第${MAX_ANSWERS + 1}个` }) as HTMLButtonElement
+    expect(overflow.disabled).toBe(true)
+    expect(overflow.title).toContain(`最多同时问 ${MAX_ANSWERS} 个`)
   })
 
   it('不可用的后端置灰并显示原因（点不动，但留在列表里说明真相）', () => {
@@ -243,13 +252,13 @@ describe('AnswerAgentMenu：关闭时机（勾选不关，点外部空白 / Esca
   it('勾一行后菜单仍然打开，底部「已选 N 个」当场更新', () => {
     renderStatefulMenu()
     openMenu()
-    expect(screen.getByText('已选 0 个 · 最多 4 个')).toBeTruthy()
+    expect(screen.getByText(quota(0))).toBeTruthy()
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }))
 
     // 菜单一关，用户就得重开再找到那一行才能继续配模型
     expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
-    expect(screen.getByText('已选 1 个 · 最多 4 个')).toBeTruthy()
+    expect(screen.getByText(quota(1))).toBeTruthy()
     expect(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }).getAttribute('aria-checked')).toBe('true')
   })
 
@@ -290,7 +299,7 @@ describe('AnswerAgentMenu：关闭时机（勾选不关，点外部空白 / Esca
     renderMenu()
     openMenu()
 
-    fireEvent.pointerDown(screen.getByText('已选 0 个 · 最多 4 个'))
+    fireEvent.pointerDown(screen.getByText(quota(0)))
     fireEvent.pointerDown(screen.getByText(/新会话也归它/))
 
     expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
@@ -381,7 +390,7 @@ describe('AnswerAgentMenu：每行的模型下拉（规格 4.1）', () => {
   it('底部显示已选数量与上限', () => {
     renderMenu({ selected: ['pi', 'dsh'] })
     openMenu()
-    expect(screen.getByText('已选 2 个 · 最多 4 个')).toBeTruthy()
+    expect(screen.getByText(quota(2))).toBeTruthy()
   })
 
   it('底部一句说清归属规则：勾 1 个＝归它，勾多个＝归第一个', () => {
@@ -391,6 +400,6 @@ describe('AnswerAgentMenu：每行的模型下拉（规格 4.1）', () => {
     const rule = screen.getByText(/新会话也归它/)
     expect(rule.textContent).toBe('勾 1 个＝本轮只问它，新会话也归它；勾 2 个以上＝并排对比，会话归属第一个')
     // 数量/上限那行照旧，不被这条文案挤掉
-    expect(screen.getByText('已选 2 个 · 最多 4 个')).toBeTruthy()
+    expect(screen.getByText(quota(2))).toBeTruthy()
   })
 })
