@@ -21,7 +21,7 @@ import { mergeCitations } from './knowledge'
  *
  * 定在 4 不是技术上限：成本随栏数线性涨，且四栏并排在侧边栏面板里已接近
  * 可读性极限（每栏不到 150px）。 */
-export const MAX_ANSWERS = 4
+export const MAX_ANSWERS = 5
 
 /** 转录项：一条消息，或一轮里连续的若干条 assistant（多答时 2~4 条） */
 export interface AnswerGroup {
@@ -57,13 +57,14 @@ export function runIdOf(event: object): string {
  * **只放「给人看的品牌名」，不放后端标识**：没登记的 kind 原样显示（`agentLabel`
  * 的兜底），所以新后端上线时漏加一行不会崩，只是栏头出现英文标识。
  *
- * 四个后端的顺序不代表优先级（顺序由后端 `GET /agent/backends` 给）。
+ * 五个后端的顺序不代表优先级（顺序由后端 `GET /agent/backends` 给）。
  */
 const AGENT_LABELS: Record<string, string> = {
   pi: 'Pi',
   dsh: 'DeepSeek Harness',
   'openai-agents': 'OpenAI Agents',
   antigravity: 'Antigravity',
+  'claude-agent': 'Claude Agent',
 }
 
 export function agentLabel(kind: string): string {

@@ -60,6 +60,7 @@ PI = "fake-pi"
 DSH = "fake-dsh"
 FOURTH = "fake-4th"
 FIFTH = "fake-5th"
+SIXTH = "fake-6th"
 
 #: 新后端在「只声明必须字段」时应得的能力：全部保守（除流式）。
 #:
@@ -339,18 +340,22 @@ class TestOrchestrationRunsThreeKinds:
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio
-    async def test_four_kinds_reach_max_answers_without_any_kind_branch(self) -> None:
-        """``MAX_ANSWERS = 4`` 之内，编排层对 N 没有假设——4 栏同样成立。
+    async def test_all_kinds_reach_max_answers_without_any_kind_branch(self) -> None:
+        """``MAX_ANSWERS`` 之内，编排层对 N 没有假设——选满同样成立。
 
-        这条断言是「不需要写 quad.py」的直接证据：同一份代码，2→3→4 只改 ``kinds``。
+        这条断言是「不需要为每多一个 agent 写一份 quad.py / penta.py」的直接证据：
+        同一份代码，2→3→4→5 只改 ``kinds``。``MAX_ANSWERS`` 从 4 提到 5 是为了
+        接入 ``claude-agent``（Anthropic 协议通道），本断言用的是**凭空造出来的**
+        假 kind，因此与真实后端数量无关——它守的是编排层的可扩展性，不是注册表现状。
         """
-        _install(PI, DSH, FOURTH, FIFTH)
+        kinds = [PI, DSH, FOURTH, FIFTH, SIXTH][: multi.MAX_ANSWERS]
+        _install(*kinds)
 
-        events = await _collect([PI, DSH, FOURTH, FIFTH])
+        events = await _collect(kinds)
 
         dones = [e for e in events if e.get("type") == "done"]
-        assert len(dones) == multi.MAX_ANSWERS == 4
-        assert {d["agent"] for d in dones} == {PI, DSH, FOURTH, FIFTH}
+        assert len(dones) == multi.MAX_ANSWERS == 5
+        assert {d["agent"] for d in dones} == set(kinds)
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.asyncio

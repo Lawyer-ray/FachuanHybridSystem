@@ -64,9 +64,10 @@ MAX_CANDIDATE_CHARS = 6000
 #: 再喂给聚合者只会把"该栏只说了这些"这个假前提写进结论。
 HARD_CANDIDATE_CHARS = 24_000
 #: 一次最多综合几栏。与多答运行时的 ``MAX_ANSWERS``（``services/chat/multi.py``）
-#: 同值 4——**不 import 它**：那会把后端注册与 Django 模型拖进这个纯函数模块，
-#: 让 prompt 装配的单测必须先起 Django。
-MAX_CANDIDATES = 4
+#: 同值 5——**不 import 它**：那会把后端注册与 Django 模型拖进这个纯函数模块，
+#: 让 prompt 装配的单测必须先起 Django。两处不同值会让「选满 5 栏」时的综合
+#: 静默只取前 4 栏（用户看不出少了一栏）。
+MAX_CANDIDATES = 5
 #: 合成正文的 token 预算。
 #:
 #: 正文本身只要 ≤1200 字（约 1600–1800 token），但**必须给推理预算留位置**：
