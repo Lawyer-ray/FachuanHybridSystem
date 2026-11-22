@@ -173,8 +173,9 @@ export function useReviewActions(
       const wire = await runSynthesis(targetSessionId, {
         turn: targetTurn,
         agents: [...agents],
-        // 空串 = 交给所选 agent 按平台默认解析
-        model: synthesisModel,
+        // 解析后的模型：用户在平台清单到达前就点了按钮时，`synthesisModel` 还是空串，
+        // 这里用清单第一项兜住——否则实际发出的是"自动"，与下拉框显示的不一致。
+        model: synthesisModel || (judgeModels?.[0] ?? ''),
         kind: synthesisKind,
         review: synthesisWithReview,
       })

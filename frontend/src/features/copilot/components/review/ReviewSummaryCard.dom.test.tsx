@@ -328,6 +328,8 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
 
   it('点「生成综合结论」：默认带 review=true（先评审后综合），不为评审单独发请求', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
+    // 显式给平台清单：默认模型取自它，不写死就等于依赖别的用例留下的 mock
+    apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: ['judge-a'], max_lanes: 5 })
     apiSpies.runSynthesis.mockResolvedValue(synthesisWire())
     render(
       <MultiAnswers
@@ -336,7 +338,9 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
         reviewTarget={{ sessionId: 's-1', turn: 2 }}
       />,
     )
-    fireEvent.click(await screen.findByRole('button', { name: '生成综合结论' }))
+    // 等默认模型落到下拉框再点：UI 在平台清单到达前就渲染了按钮
+    await waitFor(() => expect((screen.getByTestId('synthesis-model') as HTMLSelectElement).value).toBe('judge-a'))
+    fireEvent.click(screen.getByRole('button', { name: '生成综合结论' }))
     await waitFor(() =>
       expect(apiSpies.runSynthesis).toHaveBeenCalledWith('s-1', {
         turn: 2,
