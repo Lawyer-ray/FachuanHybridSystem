@@ -16,7 +16,10 @@ from apps.core.security.secret_codec import SecretCodec
 #: PADDLEOCR_API_TOKEN 加入原因：单 Key 有提交排队（实测 10010 队列已满），
 #: 而一份 164 页卷宗串行识别要 80 分钟。多 Key 由凭证池轮询分配才能真并行。
 #: 这些 key 的 secret 属性不变，只是提示文案换掉（"每行一个"而不是"留空不改"）。
-_MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QCC_MCP_API_KEY", "PADDLEOCR_API_TOKEN"}
+#:
+#: YUANDIAN_API_KEYS 加入原因：元典按 Key 维度限流（超限回 429），单 Key 撞限流
+#: 时只能干等；多 Key 由数据源层轮询换下一把才能把并发用满。与 QCC / 天眼查同口径。
+_MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QCC_MCP_API_KEY", "PADDLEOCR_API_TOKEN", "YUANDIAN_API_KEYS"}
 
 #: 枚举型配置：key → ((值, 展示文案), ...)，前台渲染成下拉框而非自由文本框。
 #:

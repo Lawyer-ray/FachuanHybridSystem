@@ -76,6 +76,16 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "value": "M8AqueMrJJGv79nHRaEK72QxYTfrh4YF6W48UBpwA4aWeVmK",  # pragma: allowlist secret
             "is_secret": True,
         },
+        # 元典只有 key 是可配的：平台地址 / MCP Server 清单 / 每 key 并发上限都是代码常量，
+        # 见 ``apps/core/services/yuandian_settings.py``。别把这三条加回默认配置——
+        # 它们不随部署变，落库只会多出一个「没点过初始化就是空」的失败面。
+        {
+            "key": "YUANDIAN_API_KEYS",
+            "category": "enterprise_data",
+            "description": "元典 API Key（Bearer Token；支持多 Key，每行一个）",
+            "value": "",
+            "is_secret": True,
+        },
     ]
 
 

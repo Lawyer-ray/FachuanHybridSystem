@@ -44,7 +44,11 @@ from typing import Protocol
 #: 与 ``mcp_server/tools/legal_research/citation_check.py`` 的 ``_STATUTE_RE``
 #: 同源（少捕一个「第 N 款」分组：评审侧只核到条）。改任一处都要两处同批改——
 #: 两边的输入是同一批模型写出来的句子，一边改另一边不改就会漏判。
-STATUTE_RE = re.compile(r"《(?P<law>[^》]{2,40})》\s*第(?P<article>[一二三四五六七八九十百千零〇\d]+)条")
+STATUTE_RE = re.compile(
+    # 条号两侧都允许空白：模型很常写「第 874 条」（实测 2026-11-22：综合稿里
+    # 全是这种写法，旧正则一条都抽不到 → 核验返回 0 条 → 被当成"没有引用"的假绿）。
+    r"《(?P<law>[^》]{2,40})》\s*第\s*(?P<article>[一二三四五六七八九十百千零〇\d]+)\s*条"
+)
 
 #: 案号：（20XX）某0105民初某某号 / （20XX）最高法民申某某号。与上面同源。
 CASE_NO_RE = re.compile(

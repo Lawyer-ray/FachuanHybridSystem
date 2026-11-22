@@ -2,8 +2,9 @@
  * store：agent 后端选择（切换器状态流转）。
  *
  * 三组验收点——它们对应三条会「静默出错」的路径：
- * 1. `send` 建会话时把所选 kind 发下去。漏传不会报错，用户以为换了后端却在用
- *    pi 跑（`agent_kind` 建完不可改，整段会话都错）；
+ * 1. `send` 建会话时下发 `agent_kind`：勾了 agent 时是**本轮勾选的第一个**（过滤掉
+ *    不可用的），一个都不勾才是 `selectedAgentKind`。发错不会报错，用户以为换了
+ *    后端却在用 pi 跑（`agent_kind` 建完不可改，整段会话都错）；
  * 2. 不可用的后端选不中。选中灰项 → 建会话才 400，那时用户已经丢掉了一次操作；
  * 3. 偏好跨刷新 / 登出收敛：持久化的 kind 已下线时回落默认，而不是让界面停在
  *    一个选不中的值上。
@@ -196,6 +197,15 @@ describe('copilot store：新会话带上所选后端', () => {
       Promise.resolve(sseResponse(['data: {"type":"done","session_id":"s-1"}\n\n'])),
     )
 
+  /**
+   * 会话归属由**本轮勾选**推导（见 store/turn.ts）：勾 1 个归它、勾 2 个以上归第一
+   * 个（顺序 = 栏的左右顺序）、一个都不勾才用 `selectedAgentKind`。
+   *
+   * 断言第三个实参（= agent_kind）而不是内部变量：这三态错了不会报错，只会在整段
+   * 会话里一直用错后端。
+   */
+  const ownerKindArg = () => vi.mocked(copilotApi.createSession).mock.calls[0]![2]
+
   it('send 建会话时把 selectedAgentKind 作为 agent_kind 下发', async () => {
     vi.mocked(copilotApi.createSession).mockResolvedValue(session)
     emptyStream()
@@ -213,6 +223,63 @@ describe('copilot store：新会话带上所选后端', () => {
     await useCopilot.getState().send('你好')
 
     expect(copilotApi.createSession).toHaveBeenCalledWith('', undefined, '')
+  })
+
+  it('勾 1 个：会话归属就是它（本轮唯一参与者）', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    useCopilot.setState({
+      backends: [option('pi'), option('dsh')],
+      selectedAgentKind: 'pi',
+      answerAgents: ['dsh'],
+    })
+
+    await useCopilot.getState().send('你好')
+
+    expect(ownerKindArg()).toBe('dsh')
+  })
+
+  it('勾 2 个：会话归第一个（顺序 = 栏的左右顺序，与栏头一致）', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    useCopilot.setState({
+      backends: [option('pi'), option('dsh')],
+      selectedAgentKind: 'pi',
+      answerAgents: ['dsh', 'pi'],
+    })
+
+    await useCopilot.getState().send('你好')
+
+    expect(ownerKindArg()).toBe('dsh')
+  })
+
+  it('一个都不勾：会话归 selectedAgentKind（部署默认）', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    useCopilot.setState({
+      backends: [option('pi'), option('dsh')],
+      selectedAgentKind: 'dsh',
+      answerAgents: [],
+    })
+
+    await useCopilot.getState().send('你好')
+
+    expect(ownerKindArg()).toBe('dsh')
+  })
+
+  it('勾了不可用（缺 SDK）的后端：它不会成为会话归属，回落到本轮真实参与者', async () => {
+    vi.mocked(copilotApi.createSession).mockResolvedValue(session)
+    emptyStream()
+    useCopilot.setState({
+      backends: [option('pi'), option('dsh', false, '未安装 DeepSeek Harness SDK')],
+      selectedAgentKind: 'pi',
+      // 用户先勾了不可用的 dsh 再勾 pi：dsh 连栏都不会出现，更不该是会话归属
+      answerAgents: ['dsh', 'pi'],
+    })
+
+    await useCopilot.getState().send('你好')
+
+    expect(ownerKindArg()).toBe('pi')
   })
 
   it('已有会话不重建、不换后端（agent_kind 会话级不可换）', async () => {

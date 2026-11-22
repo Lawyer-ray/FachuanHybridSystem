@@ -95,9 +95,9 @@ export function useActiveSession(): ActiveSessionInfo {
     retry: false,
   })
   const currentSession = sessionId ? sessionsQuery.data?.find((s) => s.session_id === sessionId) : undefined
-  // 会话的后端只能从列表缓存读：store 不存它（切换语义只对新会话成立，见
-  // AgentBackendPicker）。缓存未到时按「可切换」渲染——新对话本来就是多数场景，
-  // 且此时用户正在选。
+  // 会话的后端只能从列表缓存读：store 不存它（新会话的归属由本轮勾选推导，见
+  // store/turn.ts）。缓存未到 / 新对话时为 null，header 因此不画后端后缀——新对话
+  // 本来就没有已定的后端，选谁在输入区的 AnswerAgentMenu。
   const currentAgentKind = currentSession?.agent_kind ?? null
 
   // 每轮流结束后刷新会话列表：首条消息会自动生成标题，标题要能浮上来

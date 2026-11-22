@@ -24,7 +24,7 @@
  * 其中一个。所以这里不把合成做成评审的后续步骤，只由 UI 决定按钮先后。
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { errMessage } from '@/lib/errors'
@@ -49,6 +49,15 @@ export interface ReviewActions {
   synthesisRunning: boolean
   startReview: () => void
   startSynthesis: () => void
+  /** 综合用哪个 agent 运行时（默认 pi；可换成本轮任意一栏的 kind） */
+  synthesisKind: string
+  setSynthesisKind: (kind: string) => void
+  /** 综合用哪个模型（空 = 交给所选 agent 按平台默认解析） */
+  synthesisModel: string
+  setSynthesisModel: (model: string) => void
+  /** 先跑评审再综合（默认开：评审分数是综合取舍的依据） */
+  synthesisWithReview: boolean
+  setSynthesisWithReview: (on: boolean) => void
 }
 
 /**
@@ -66,6 +75,13 @@ export function useReviewActions(
   const [options, setOptions] = useState<ReviewOptions | null>(null)
   const [reviewRunning, setReviewRunning] = useState(false)
   const [synthesisRunning, setSynthesisRunning] = useState(false)
+  // 默认 pi：注册表里最稳的一个（与后端 agent_runner.DEFAULT_SYNTHESIS_KIND 同值）。
+  const [synthesisKind, setSynthesisKind] = useState('pi')
+  const [synthesisModel, setSynthesisModel] = useState('')
+  const [synthesisWithReview, setSynthesisWithReview] = useState(true)
+  //: 只在**第一次**拿到平台模型清单时补默认值。之后用户手动切回"自动"不再被覆盖
+  //: ——"列表刷新把我选的改回去"是最难查的一类交互 bug。
+  const modelDefaultApplied = useRef(false)
 
   // 选项是平台级配置（不是某一轮的数据）：只在挂载时取一次。
   // 取失败不拦功能：judge_models 允许为空，服务端会按配置解析。
@@ -115,6 +131,18 @@ export function useReviewActions(
 
   const judgeModels = options?.judge_models ?? null
 
+  // 默认选中一个**具体模型**，不停在"自动"：
+  // 「自动」意味着"交给后端按本轮某栏的模型解析"，而这个选择器是给律师用来
+  // 指定"用哪个模型出结论"的——留空等于没表达意图，还让结果不可预期。
+  // 取值来自平台清单（不是猜的模型名），清单为空时才回落到"自动"。
+  useEffect(() => {
+    if (modelDefaultApplied.current) return
+    const first = options?.judge_models?.[0]
+    if (!first) return
+    modelDefaultApplied.current = true
+    setSynthesisModel((current) => current || first)
+  }, [options])
+
   const submitReview = async (targetSessionId: string, targetTurn: number): Promise<void> => {
     setReviewRunning(true)
     try {
@@ -145,10 +173,22 @@ export function useReviewActions(
       const wire = await runSynthesis(targetSessionId, {
         turn: targetTurn,
         agents: [...agents],
-        // 空串 = 服务端按本轮各栏模型解析（合成看候选模型，不是 judge）
-        model: '',
+        // 解析后的模型：用户在平台清单到达前就点了按钮时，`synthesisModel` 还是空串，
+        // 这里用清单第一项兜住——否则实际发出的是"自动"，与下拉框显示的不一致。
+        model: synthesisModel || (judgeModels?.[0] ?? ''),
+        kind: synthesisKind,
+        review: synthesisWithReview,
       })
       setSynthesis(toSynthesisView(wire))
+      // 综合内部会先跑评审（后端同一条链路），但它不经过本 hook 的 setReview。
+      // 成功后回读一次，把打分卡补上——否则「先评审」勾了却看不到任何打分。
+      if (synthesisWithReview) {
+        fetchReview(targetSessionId, targetTurn)
+          .then((value) => setReview(toReviewView(value)))
+          .catch(() => {
+            /* 评审没落库/没跑成都不影响综合结果，静默即可 */
+          })
+      }
     } catch (error) {
       toast.error('综合结论失败', { description: errMessage(error, '请稍后重试') })
     } finally {
@@ -169,5 +209,11 @@ export function useReviewActions(
     synthesisRunning,
     startReview,
     startSynthesis,
+    synthesisKind,
+    setSynthesisKind,
+    synthesisModel,
+    setSynthesisModel,
+    synthesisWithReview,
+    setSynthesisWithReview,
   }
 }

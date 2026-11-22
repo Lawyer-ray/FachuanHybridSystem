@@ -29,7 +29,8 @@ const storeMock = vi.hoisted(() => ({
   // 待答提问与待审审批同口径补拉（面板打开/每轮流结束时各一次）
   loadPendingQuestions: vi.fn(async () => {}),
   refreshHistory: vi.fn(async () => {}),
-  // 后端切换器（AgentBackendPicker）读这两项；空清单 = 退化为纯展示
+  // header 现在只读 `backends`（已建会话的后端显示名）；新会话用谁由左下
+  // AnswerAgentMenu 决定，header 不再读 `selectedAgentKind` / `selectAgentKind`
   backends: [] as Array<{ kind: string; label: string; description: string; available: boolean; reason: string; capabilities: Record<string, boolean> }>,
   selectedAgentKind: '',
   loadBackends: vi.fn(async () => {}),

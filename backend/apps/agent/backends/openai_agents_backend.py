@@ -114,13 +114,7 @@ from openai.types.responses import (
 
 from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext, StreamFrame
 from .dsh_config import without_proxy_env
-from .gateway_cache import (
-    GatewaySettings,
-    get_gateway_settings,
-    model_supports_thinking,
-    resolve_gateway_target,
-    settings_from_provider,
-)
+from .gateway_cache import GatewaySettings, get_gateway_settings, resolve_gateway_target, settings_from_provider
 from .mcp_session_pool import PooledMCPServer, get_mcp_session_pool
 from .toolface import SERVER_NAME, endpoint_from_env, port_open, shared_enabled
 
@@ -480,7 +474,10 @@ def _thinking_settings(model: str, settings: GatewaySettings) -> ModelSettings |
 
     ``reasoning_effort`` 的取值受**服务端白名单**约束（实测 DeepSeek V4.1：
     ``low`` / ``high`` / ``xhigh`` / ``max``），因此不直接写死字面量，而是经
-    ``gateway_effort`` 归一化——原样发 ``medium`` 会 400。
+    :func:`apps.core.llm.gateway_profile.gateway_effort` 归一化——原样发 ``medium``
+    会 400。字段形状也只有那一处（``wire_fields``）：四个后端各拼一份必然分叉，
+    ``kimi-k2`` 就曾在两条通道上判出相反的思考结论（见 ``gateway_profile`` 的
+    docstring）。
 
     Args:
         model: 本轮最终模型名（已按 model_hint / default_model 解析过）。
@@ -492,16 +489,17 @@ def _thinking_settings(model: str, settings: GatewaySettings) -> ModelSettings |
     Returns:
         ``None`` 表示该模型不开启思考（平台未开或非推理模型），此时不插手请求。
     """
-    from ..pi.model_config import DEFAULT_THINKING_LEVEL, gateway_effort
+    # 延迟 import：``apps.core.llm`` 是重包（``__init__`` 会拉起 service/config），
+    # 而本模块在 ``AgentConfig.ready()`` 注册后端时就被 import（同 ``gateway_cache``）。
+    from apps.core.llm.gateway_profile import resolve_thinking, wire_fields
 
-    if not settings.enable_thinking or not model_supports_thinking(model):
+    directives = resolve_thinking(model, enable_thinking=settings.enable_thinking)
+    if not directives.enabled:
+        # 平台没开思考，或该模型不是推理模型：**一个字段都不插手**（与 pi / dsh 同
+        # 口径）。``wire_fields`` 的「显式发 ``thinking=false``」分支是服务通道语义
+        # （``openai_compatible`` 要保持历史行为），Agent 通道是不开就不发。
         return None
-    return ModelSettings(
-        extra_body={
-            "reasoning_effort": gateway_effort(DEFAULT_THINKING_LEVEL),
-            "chat_template_kwargs": {"thinking": True},
-        }
-    )
+    return ModelSettings(extra_body=wire_fields(directives))
 
 
 def _usage_frame(raw_responses: Iterable[Any]) -> dict[str, Any] | None:

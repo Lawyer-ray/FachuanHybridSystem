@@ -26,6 +26,7 @@
  * - message-id.ts 转录消息 id 解析（db-/local- 两种前缀与「能否评分」）
  * - export.ts     会话导出（Markdown / 纯文本）与文件名
  * - outline.ts    轮次大纲（已加载窗口内的提问 → 回答）
+ * - tool-content.ts 工具返回原文 → 可读文本（拆 MCP 信封、解转义、JSON 美化、HTML 兜底）
  *
  * 全部为纯函数（无 React、无 IO），vitest 直接覆盖（node 环境，无 DOM）。
  * 唯一例外是 `export.downloadText`：允许触达 Blob/URL/document 的下载动作。
@@ -51,6 +52,7 @@ export * from './slash'
 export * from './time'
 export * from './sse'
 export * from './tokens'
+export * from './tool-content'
 export * from './tool-view'
 export * from './usage'
 export * from './transcript'

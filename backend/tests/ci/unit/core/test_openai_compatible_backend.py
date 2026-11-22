@@ -221,10 +221,42 @@ class TestBuildExtraBody:
 
     def test_enable_thinking_provider_sends_true(self):
         from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
 
         b = OpenAICompatibleBackend(config=_config())
         provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
-        assert b._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+        result = b._build_extra_body("kimi26", provider)
+        assert result is not None
+        assert result["chat_template_kwargs"] == {"thinking": True}
+        # 光发开关等于永远停在默认深度，必须带配套的 reasoning_effort
+        assert result["reasoning_effort"] in GATEWAY_EFFORTS
+
+    def test_kimi_k2_gets_thinking_and_effort(self):
+        """``kimi-k2`` 是旧窄表（``{"kimi26", ...}``）漏掉的模型名（P0）。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
+
+        b = OpenAICompatibleBackend(config=_config())
+        provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=True)
+        result = b._build_extra_body("kimi-k2", provider)
+        assert result is not None
+        assert result["chat_template_kwargs"] == {"thinking": True}
+        assert result["reasoning_effort"] in GATEWAY_EFFORTS
+
+    def test_enable_thinking_false_sends_only_switch(self):
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+
+        b = OpenAICompatibleBackend(config=_config())
+        provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=False)
+        assert b._build_extra_body("kimi-k2", provider) == {"chat_template_kwargs": {"thinking": False}}
+
+    def test_non_reasoning_model_returns_none(self):
+        """非推理模型不下发任何开关（未知 chat_template_kwargs 部分后端当 400）。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+
+        b = OpenAICompatibleBackend(config=_config())
+        provider = OpenAIProviderConfig(name="p", default_model="qwen3", enable_thinking=True)
+        assert b._build_extra_body("qwen3", provider) is None
 
     def test_normal_model_returns_none(self):
         b = OpenAICompatibleBackend(config=_config())

@@ -18,7 +18,7 @@ from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskEvent
-from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTaskStatus
+from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTaskSource, LegalResearchTaskStatus
 from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
 from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
@@ -95,6 +95,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     ]
     ordering: ClassVar[list[str]] = ["-created_at"]
     add_fields: ClassVar[list[str]] = [
+        "source",
         "credential",
         "search_url",
         "keyword",
@@ -184,6 +185,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         self._configure_scan_threshold_fields(form=form)
         self._configure_concurrency_field(form=form)
         self._attach_search_mode_cleaner(form)
+        self._attach_credential_source_cleaner(form)
 
         model_field = form.base_fields.get("llm_model")
         if model_field is None:
@@ -387,12 +389,18 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         if credential_field is None:
             return
 
+        # 必填与否由数据源决定（见 _attach_credential_source_cleaner）。字段层面一律非必填，
+        # 否则元典任务会被“没有可用的wkxx账号”卡住——元典 Key 是律所级的，存在系统配置里。
+        credential_field.required = False
+
         queryset = self._get_weike_credential_queryset(request)
         credential_field.queryset = queryset
 
         count = queryset.count()
         if count <= 0:
-            credential_field.help_text = "没有可用的wkxx账号，请先在“账号密码”中创建。"
+            credential_field.help_text = (
+                "没有可用的wkxx账号，请先在“账号密码”中创建。元典任务使用系统配置里的 API Key，此处可留空。"
+            )
             return
 
         if count == 1:
@@ -402,7 +410,30 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             credential_field.widget = forms.HiddenInput()
             return
 
-        credential_field.help_text = "仅显示wkxx账号。"
+        credential_field.help_text = "仅显示wkxx账号；威科先行任务必选。元典任务使用系统配置里的 API Key，此处可留空。"
+
+    @staticmethod
+    def _attach_credential_source_cleaner(form: type[forms.ModelForm]) -> None:  # pragma: no cover
+        """按数据源校验 credential：威科先行必须有站点账号，元典可留空。"""
+        base_clean = form.clean
+
+        def clean(self) -> dict[str, Any]:  # pragma: no cover
+            cleaned = base_clean(self) or {}
+            if "source" not in cleaned:
+                # source 自身校验已报错，不再叠加 credential 的错误
+                return cleaned
+            source = str(cleaned.get("source") or "").strip().lower()
+            if source != LegalResearchTaskSource.WEIKE.value:
+                return cleaned
+            # 只有一个威科账号时 get_fields() 会把 credential 整个移出表单，
+            # 由 save_model 兜底填默认账号，这里不能误报必填。
+            if "credential" not in self.fields:
+                return cleaned
+            if not cleaned.get("credential"):
+                self.add_error("credential", "威科先行需要选择站点账号")
+            return cleaned
+
+        form.clean = clean  # type: ignore[method-assign]
 
     @staticmethod
     def _get_credential_model() -> Any:  # pragma: no cover

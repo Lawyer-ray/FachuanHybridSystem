@@ -66,6 +66,7 @@ from apps.agent.backends.antigravity_gateway import (
     reset_loopback_gateway,
 )
 from apps.agent.services import approval as approval_service
+from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
 
 
 class _Session:
@@ -387,11 +388,18 @@ class TestGatewayResolution:
         assert gateway_cache.resolve_gateway_target(_settings(models=(), default_model=""), None) is None
 
     def test_thinking_extra_follows_platform_switch(self) -> None:
-        """平台开关 + 模型能力共同决定；非推理模型一律不注入（网关会 400）。"""
-        assert backend_module.thinking_extra(_settings(enable_thinking=True), "kimi-2.6") == {
-            "chat_template_kwargs": {"thinking": True},
-            "reasoning_effort": "max",
-        }
+        """平台开关 + 模型能力共同决定；非推理模型一律不注入（网关会 400）。
+
+        字段形状与档位均来自 ``apps.core.llm.gateway_profile.wire_fields``——
+        本模块不再自己拼字面量（两份拼法必然分叉，见 ``gateway_profile`` 的
+        模块 docstring）。
+        """
+        extra = backend_module.thinking_extra(_settings(enable_thinking=True), "kimi-2.6")
+        assert extra == {"chat_template_kwargs": {"thinking": True}, "reasoning_effort": "max"}
+        # ``kimi-k2`` 命中宽匹配 "kimi"：正是服务通道（只认 "kimi26"）曾判反的那个模型
+        wide = backend_module.thinking_extra(_settings(enable_thinking=True), "kimi-k2")
+        assert wide["chat_template_kwargs"] == {"thinking": True}
+        assert wide["reasoning_effort"] in GATEWAY_EFFORTS
         assert backend_module.thinking_extra(_settings(enable_thinking=False), "kimi-2.6") == {}
         # glm53 不在推理模型特征表里 → 不注入
         assert backend_module.thinking_extra(_settings(enable_thinking=True), "glm53") == {}
@@ -423,18 +431,30 @@ class TestLoopbackGateway:
         网关（LiteLLM → vLLM）要 ``chat_template_kwargs.thinking`` +
         ``reasoning_effort`` 才开思考；不补的症状是**静默变浅**（不报错、
         ``thoughts_token_count`` 恒 0），所以这条注入必须有用例守着。
+
+        注入内容直接取 :func:`thinking_extra` 的产物（即
+        ``gateway_profile.wire_fields``）：本模块与代理都不自己拼字面量，否则
+        又是一份会分叉的权威。
         """
+        extra = backend_module.thinking_extra(_settings(enable_thinking=True), "kimi-k2")
         body = json.dumps({"model": "m", "messages": []}).encode()
-        extra = {"chat_template_kwargs": {"thinking": True}, "reasoning_effort": "max"}
         payload = json.loads(normalize_request_body(body, extra))
         assert payload["chat_template_kwargs"] == {"thinking": True}
-        assert payload["reasoning_effort"] == "max"
+        assert payload["reasoning_effort"] in GATEWAY_EFFORTS
 
     def test_normalize_never_overrides_harness_values(self) -> None:
-        """只补缺不覆盖：harness 将来自己带这些字段时，以它为准。"""
-        body = json.dumps({"model": "m", "reasoning_effort": "low"}).encode()
-        payload = json.loads(normalize_request_body(body, {"reasoning_effort": "max"}))
+        """只补缺不覆盖：harness 将来自己带这些字段时，以它为准。
+
+        两个字段都要验：代理补的是**缺**，不是「模型侧的选择」——把 ``thinking``
+        或 ``reasoning_effort`` 强行改成平台默认值，等于绕过 harness 自己的决定。
+        """
+        extra = backend_module.thinking_extra(_settings(enable_thinking=True), "kimi-k2")
+        body = json.dumps(
+            {"model": "m", "reasoning_effort": "low", "chat_template_kwargs": {"thinking": False}}
+        ).encode()
+        payload = json.loads(normalize_request_body(body, extra))
         assert payload["reasoning_effort"] == "low"
+        assert payload["chat_template_kwargs"] == {"thinking": False}
 
     def test_normalize_passes_through_non_json(self) -> None:
         raw = b"not json"

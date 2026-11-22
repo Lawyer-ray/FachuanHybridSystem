@@ -25,6 +25,7 @@ from apps.legal_research.schemas import (
 )
 from apps.legal_research.services.capability.mcp_wrapper import LegalResearchCapabilityMcpWrapper
 from apps.legal_research.services.capability.service import LegalResearchCapabilityService
+from apps.legal_research.services.credential_resolver import resolve_weike_credential_id
 from apps.legal_research.services.task.service import LegalResearchTaskService
 
 router = Router(tags=["案例检索"], auth=JWTOrSessionAuth())
@@ -90,9 +91,29 @@ def _serialize_result(result: Any) -> LegalResearchResultOut:
     )
 
 
+def _resolve_credential_for(request: Any, explicit: int | None) -> int:
+    """把"要不要传凭证 ID"从调用方手里拿走：没传就按当前用户自动解析。
+
+    解析不出（本所没配威科账号）→ 422 并说清原因。**不猜、不跨所借用**：
+    宁可让律师看到"本所未配置威科账号"，也不要用别人的账号去查、更不要静默失败。
+    """
+    from ninja.errors import HttpError
+
+    user = getattr(request, "user", None)
+    if user is None or not getattr(user, "is_authenticated", False):
+        user = getattr(request, "auth", None)
+    resolved = resolve_weike_credential_id(user=user, explicit=explicit)
+    if resolved is None:
+        raise HttpError(422, "本所未配置威科先行账号凭证，无法执行检索/核查；请在账号凭证里补一条威科账号")
+    return resolved
+
+
 @router.post("/tasks", response=LegalResearchCreateOut)
 async def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResearchCreateOut:  # pragma: no cover
     service = _get_service()
+    # 凭证可省略：在这一层解析，服务层继续只认 int（它的归属校验保持原样）。
+    credential_id = _resolve_credential_for(request, payload.credential_id)
+    payload = payload.model_copy(update={"credential_id": credential_id})
 
     def _do() -> LegalResearchCreateOut:
         task = service.create_task(payload=payload, user=getattr(request, "user", None))
@@ -107,6 +128,7 @@ async def capability_search(request: Any, payload: AgentSearchRequestV1) -> Agen
     headers = getattr(request, "headers", {}) or {}
     idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
     svc = _get_capability_service()
+    payload = payload.model_copy(update={"credential_id": _resolve_credential_for(request, payload.credential_id)})
     return await sync_to_async(svc.search)(
         payload=payload,
         user=getattr(request, "user", None),
@@ -119,6 +141,7 @@ async def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> 
     headers = getattr(request, "headers", {}) or {}
     idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
     svc = _get_capability_mcp_wrapper()
+    payload = payload.model_copy(update={"credential_id": _resolve_credential_for(request, payload.credential_id)})
     return await sync_to_async(svc.search)(
         payload=payload,
         user=getattr(request, "user", None),
@@ -232,12 +255,13 @@ async def check_law_references(request: Any, payload: LawVerificationCheckIn) ->
         user = getattr(request, "auth", None)
 
     service = LawVerificationService()
+    credential_id = _resolve_credential_for(request, payload.credential_id)
     loop = get_running_loop()
     return await loop.run_in_executor(
         None,
         lambda: service.check_references(
             text=payload.text,
-            credential_id=payload.credential_id,
+            credential_id=credential_id,
             user=user,
         ),
     )

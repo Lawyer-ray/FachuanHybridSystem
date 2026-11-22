@@ -582,12 +582,25 @@ class ExecutorQueryMixin:  # pragma: no cover
     def _title_prefilter(
         cls, *, keyword: str, case_summary: str, title_hint: str, min_overlap: float
     ) -> bool:  # pragma: no cover
+        """粗筛：标题与检索词是否有交集（只挡明显无关，命中概率交给后续相似度打分）。
+
+        **分母只能算 keyword 的 token。** ``case_summary`` 是整段案情，而
+        ``split_tokens`` 只按空白/标点切分（不做中文分词），一个长句会变成
+        “合同约定逾期付款违约金按日万分之五计算”这种整句 token——一旦算进分母，
+        分母被几个永远不可能出现在标题里的长句撞大，overlap 就恒在 0.1 左右，
+        于是所有候选被误杀。实测：capability 检索带 200 字 facts 时
+        22/22、111/111、320/320 全被跳过（task 130 / 135 / 136，status 却是 completed）。
+
+        summary token 只做“加分”：keyword 一个都没命中、但摘要 token 命中标题时，
+        按 1 个命中记账（宁可放过，不可错杀）。
+        """
         if not title_hint or not title_hint.strip():
             return True
-        query_tokens = _split_tokens(f"{keyword} {case_summary}")
-        if not query_tokens:
+        keyword_tokens = _split_tokens(keyword)
+        if not keyword_tokens:
             return True
         title_lower = title_hint.lower()
-        matched = sum(1 for t in query_tokens if t.lower() in title_lower)
-        overlap = matched / len(query_tokens)
-        return overlap >= min_overlap
+        matched = sum(1 for token in keyword_tokens if token.lower() in title_lower)
+        if matched == 0 and any(token.lower() in title_lower for token in _split_tokens(case_summary)):
+            matched = 1
+        return (matched / len(keyword_tokens)) >= min_overlap

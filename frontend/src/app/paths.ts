@@ -27,6 +27,8 @@ export const ROUTES = {
   projectReview: '/projects/:id/review/:taskId',
   /** AI 助手独立页（全宽）：抽屉面板放不下的多 agent 并排在这里看 */
   assistant: '/assistant',
+  /** 指定会话的 AI 助手页（`:sessionId` 是会话唯一 id）：URL 即会话，见 use-session-route */
+  assistantSession: '/assistant/:sessionId',
   settings: '/settings',
   /** 账号绑定并入设置页后的旧路径，只做前转 */
   legacyBindings: '/settings/bindings',
@@ -101,6 +103,28 @@ export function projectReview(projectId: number | string, taskId: string): strin
  */
 export function assistant(): string {
   return ROUTES.assistant
+}
+
+/**
+ * AI 助手页的某一条会话：`/assistant/<sessionId>`（可复制、可刷新、可贴给别人）。
+ *
+ * `encodeURIComponent`：sessionId 是后端签发的 UUID，正常不含特殊字符，但这里是
+ * **唯一**把会话 id 拼进路径的地方，编一次比在别处赌它安全。
+ */
+export function assistantSession(sessionId: string): string {
+  return `${ROUTES.assistant}/${encodeURIComponent(sessionId)}`
+}
+
+/**
+ * 这个 pathname 是不是「AI 助手独立页」——**含** `/assistant/<sessionId>` 子路径。
+ *
+ * 收在这里而不是各处手写，是因为它必须与上面的路由表一起改。壳层（AppShell）
+ * 用它决定「本页还要不要叠一层抽屉」：写成 `pathname === assistant()` 的精确
+ * 等号时，会话进 URL 之后 `/assistant/<id>` 会被判成「不在独立页」，于是壳层的
+ * 抽屉又渲染出来——同一段对话一屏两个输入框（AppShell 注释里明令禁止的正是它）。
+ */
+export function isAssistantPath(pathname: string): boolean {
+  return pathname === ROUTES.assistant || pathname.startsWith(`${ROUTES.assistant}/`)
 }
 
 /** 设置页（系统状态 + 账号绑定） */

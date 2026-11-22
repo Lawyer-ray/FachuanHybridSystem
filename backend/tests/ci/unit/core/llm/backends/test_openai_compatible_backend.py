@@ -9,6 +9,7 @@ import pytest
 
 from apps.core.llm.backends.base import BackendConfig, LLMResponse, LLMStreamChunk, LLMUsage
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNetworkError, LLMTimeoutError
+from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
 
 
 def _cfg(**kwargs: Any) -> BackendConfig:
@@ -20,8 +21,15 @@ def _cfg(**kwargs: Any) -> BackendConfig:
 # ── _build_extra_body ─────────────────────────────────────────────
 
 
+# 开启思考时两个字段都必须下发：``thinking`` 管「要不要想」，``reasoning_effort``
+# 管「想多深」。断言**逐个写在用例里**而不是收进一个 helper——
+# ``tests/ci/structure/test_test_quality_ratchet.py`` 是按函数体扫 ``assert`` 的，
+# 把断言藏进 helper 会让这些用例被判成「零断言」，而那正是该棘轮要防的形状。
+
+
 class TestBuildExtraBody:
     def test_kimi_model_disables_thinking(self):
+        """平台没开思考时推理模型仍要显式下发 false（省略开关实测无效，模型依旧思考）。"""
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
         backend = OpenAICompatibleBackend()
@@ -35,7 +43,44 @@ class TestBuildExtraBody:
 
         backend = OpenAICompatibleBackend()
         provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
-        assert backend._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+        fields = backend._build_extra_body("kimi26", provider)
+        assert fields is not None
+        assert fields["chat_template_kwargs"] == {"thinking": True}
+        assert fields["reasoning_effort"] in GATEWAY_EFFORTS
+
+    def test_kimi_k2_uses_gateway_capability_table(self):
+        """``kimi-k2`` 是旧窄表（``{"kimi26", ...}``）漏掉的模型名。
+
+        以前服务通道对它一个字段都不发、Agent 通道却判为可思考——同一模型两个入口
+        思考与否相反且没有任何报错（P0）。现在两侧共用 gateway_profile 的能力表。
+        """
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=True)
+        fields = backend._build_extra_body("kimi-k2", provider)
+        assert fields is not None
+        assert fields["chat_template_kwargs"] == {"thinking": True}
+        assert fields["reasoning_effort"] in GATEWAY_EFFORTS
+
+    def test_enable_thinking_false_sends_only_thinking_false(self):
+        """关闭思考时只发 false，**不带** reasoning_effort。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="kimi-k2", enable_thinking=False)
+        assert backend._build_extra_body("kimi-k2", provider) == {"chat_template_kwargs": {"thinking": False}}
+
+    def test_non_reasoning_model_returns_none(self):
+        """非推理模型（qwen3）不下发任何开关，即使平台开关是打开的。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        provider = OpenAIProviderConfig(name="p", default_model="qwen3", enable_thinking=True)
+        assert backend._build_extra_body("qwen3", provider) is None
 
     def test_hyphenated_kimi_name_matches(self):
         """真实配置是 ``kimi-2.6``（带连字符），必须与 ``kimi26`` 同样命中。"""
@@ -46,9 +91,15 @@ class TestBuildExtraBody:
         off = OpenAIProviderConfig(name="p", default_model="kimi-2.6", enable_thinking=False)
         on = OpenAIProviderConfig(name="p", default_model="kimi-2.6", enable_thinking=True)
         assert backend._build_extra_body("kimi-2.6", off) == {"chat_template_kwargs": {"thinking": False}}
-        assert backend._build_extra_body("kimi-2.6", on) == {"chat_template_kwargs": {"thinking": True}}
+        fields = backend._build_extra_body("kimi-2.6", on)
+        assert fields is not None
+        assert fields["chat_template_kwargs"] == {"thinking": True}
+        assert fields["reasoning_effort"] in GATEWAY_EFFORTS
         # 网关里的 Anthropic 别名同样要命中
-        assert backend._build_extra_body("kimi-2.6(Anthropic)", on) == {"chat_template_kwargs": {"thinking": True}}
+        alias_fields = backend._build_extra_body("kimi-2.6(Anthropic)", on)
+        assert alias_fields is not None
+        assert alias_fields["chat_template_kwargs"] == {"thinking": True}
+        assert alias_fields["reasoning_effort"] in GATEWAY_EFFORTS
 
     def test_payload_carries_thinking_switch(self):
         """_build_payload 必须把开关放进 extra_body（而非顶级字段）。"""
@@ -58,7 +109,12 @@ class TestBuildExtraBody:
         backend = OpenAICompatibleBackend()
         on = OpenAIProviderConfig(name="p", default_model="kimi-2.6", enable_thinking=True)
         payload = backend._build_payload("kimi-2.6", [{"role": "user", "content": "hi"}], 0.7, 10, provider=on)
-        assert payload["extra_body"] == {"chat_template_kwargs": {"thinking": True}}
+        extra_body = payload["extra_body"]
+        assert extra_body is not None
+        assert extra_body["chat_template_kwargs"] == {"thinking": True}
+        assert extra_body["reasoning_effort"] in GATEWAY_EFFORTS
+        # 开关必须落在 extra_body 里，不能漏到顶级字段（SDK 不认顶级 chat_template_kwargs）
+        assert "chat_template_kwargs" not in payload
 
     def test_provider_enable_thinking_ignored_for_plain_model(self):
         """开启思考不影响非推理模型：非推理模型不下发任何开关。"""
@@ -92,7 +148,67 @@ class TestBuildExtraBody:
         assert result is None
 
 
-# ── Properties ────────────────────────────────────────────────────
+# ── 降级 ─────────────────────────────────────────────────
+
+
+class TestModelFallbackChain:
+    def _backend(self, fallback_models: list[str]) -> Any:
+        """把平台配置塞进 ``_config.providers``（``_providers_from_config`` 的口径）。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        provider = OpenAIProviderConfig(
+            name="p",
+            base_url="http://test",
+            api_keys=["k"],  # pragma: allowlist secret
+            default_model="kimi-2.6",
+            fallback_models=fallback_models,
+        )
+        return OpenAICompatibleBackend(config=_cfg(providers=[provider]))
+
+    def _calls_until_error(self, backend: Any, error: Exception) -> list[str]:
+        calls: list[str] = []
+
+        def _primary(messages: Any, model: str | None = None, *a: Any, **kw: Any) -> Any:
+            calls.append(model or "")
+            raise error
+
+        with patch.object(backend, "_chat_primary", side_effect=_primary):
+            with pytest.raises(type(error)):
+                backend.chat([{"role": "user", "content": "hi"}], model="kimi-2.6")
+        return calls
+
+    def test_parameter_error_400_does_not_fall_back(self):
+        """400 参数错换模型必然同一个错：旧实现会把整条链每个模型各打一遍。"""
+        backend = self._backend(["glm53", "kimi-2.6(Anthropic)"])
+        calls = self._calls_until_error(backend, LLMAPIError(message="bad request", status_code=400))
+        assert calls == ["kimi-2.6"]
+
+    def test_server_error_500_falls_back(self):
+        backend = self._backend(["glm53", "kimi-2.6(Anthropic)"])
+        calls = self._calls_until_error(backend, LLMAPIError(message="upstream boom", status_code=500))
+        assert calls == ["kimi-2.6", "glm53", "kimi-2.6(Anthropic)"]
+
+    def test_timeout_falls_back(self):
+        backend = self._backend(["glm53"])
+        calls = self._calls_until_error(backend, LLMTimeoutError(message="timed out", timeout_seconds=30))
+        assert calls == ["kimi-2.6", "glm53"]
+
+    def test_backend_unavailable_does_not_fall_back(self):
+        """所有后端都不可用时再降级等于把整链再打一遍。"""
+        from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+        backend = self._backend(["glm53"])
+        calls = self._calls_until_error(backend, LLMBackendUnavailableError())
+        assert calls == ["kimi-2.6"]
+
+    def test_fallback_models_is_list_of_str(self):
+        """``OpenAIProviderConfig.fallback_models`` 是 ``list[str]``：逐项去重、排除主模型。"""
+        backend = self._backend(["glm53", "kimi-2.6", "glm53", " kimi-2.6(Anthropic) "])
+        assert backend._fallback_models_for("kimi-2.6") == ["glm53", "kimi-2.6(Anthropic)"]
+
+
+# ── Properties ────────────────────────────────────────────
 
 
 class TestProperties:

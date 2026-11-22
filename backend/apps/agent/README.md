@@ -517,18 +517,30 @@ POST /tasks {message, title?, case_id?}
   `<skill name=... location=...>` 全文块 + 用户参数——模型无需任何文件读取工具
   （这也是本系统工具面刻意不声明 read/bash 的前提下，用户点名通道仍可用的原因）。
 
-## 5.3 后端矩阵：四个 agent 同题并答
+## 5.3 后端矩阵：五个 agent 同题并答
 
-`registry` 里现在有四个真实后端。前端「跑哪几个 AI」菜单（`AnswerAgentMenu`）按
-`GET /agent/backends` 渲染，**勾满 4 个就是四栏并答**（编排层 `MAX_ANSWERS = 4`，
+`registry` 里现在有五个真实后端。前端「跑哪几个 AI」菜单（`AnswerAgentMenu`）按
+`GET /agent/backends` 渲染，**勾满 5 个就是五栏并答**（编排层 `MAX_ANSWERS = 5`，
 前后端同口径），不需要改前端。
 
-| kind | 运行时 | 上下文 | 插话 | 审批闸门 | 工具面 |
-|:-|:-|:-|:-|:-|:-|
-| `pi` | Node 子进程（每请求一个） | pi 自己管（`--session-dir`） | ✅ | ✅ extension 回调 | `--tools mcp__fachuan__*` |
-| `dsh` | DeepSeek Harness 常驻 | runtime 自己管 | ❌ | ⚠️ 未接线（能力声明 `approval=False`） | mcp-client 配置 + tier 头 |
-| `openai-agents` | Python SDK（每轮自建） | 无状态（历史由编排层渲染） | ❌ | ✅ guardrail | MCP `tool_filter` |
-| `antigravity` | **Go 二进制**（每轮一个进程，118MB） | 无状态 | ❌ | ✅ `PreToolCallDecideHook` | MCP eager 原生工具 + tier 头 |
+| kind | 运行时 | 协议 | 上下文 | 插话 | 审批闸门 | 工具面 |
+|:-|:-|:-|:-|:-|:-|:-|
+| `pi` | Node 子进程（每请求一个） | OpenAI 兼容 | pi 自己管（`--session-dir`） | ✅ | ✅ extension 回调 | `--tools mcp__fachuan__*` |
+| `dsh` | DeepSeek Harness 常驻 | OpenAI 兼容 | runtime 自己管 | ❌ | ⚠️ 未接线（能力声明 `approval=False`） | mcp-client 配置 + tier 头 |
+| `openai-agents` | Python SDK（每轮自建） | OpenAI 兼容 | 无状态（历史由编排层渲染） | ❌ | ✅ guardrail | MCP `tool_filter` |
+| `antigravity` | **Go 二进制**（每轮一个进程，118MB） | OpenAI 兼容 | 无状态 | ❌ | ✅ `PreToolCallDecideHook` | MCP eager 原生工具 + tier 头 |
+| `claude-agent` | **`claude` CLI 子进程**（每轮一个，随 wheel 分发 ~160MB） | **Anthropic Messages** | CLI autocompact | ❌（未接句柄） | ✅ `can_use_tool`（实测卡 300s） | MCP http + tier 头 |
+
+### claude-agent 的四条硬事实（改它之前先看这四条）
+
+1. **`ANTHROPIC_BASE_URL` 不能带 `/v1`**——库里 `LLMProvider.base_url` 带，CLI 又自己
+   拼 `/v1/messages`，照抄会 404（`claude_agent_backend.anthropic_base_url` 负责剥）。
+2. **模型名必须含 `anthropic`**——`glm53` 走 `/v1/messages` 会把思考塞进 `text` 块、
+   **正文为空**（实测 3/3 次空回合）。显式选了不兼容模型时报错，不回落。
+3. **审批回调会被绕过**——`bypassPermissions` / 整工具级 `allowed_tools` / settings 里
+   的 `permissions.allow` 都会在回调之前放行。这三个选项写死在后端常量里，不对外暴露。
+4. **内置工具要四件套才关得干净**——`tools=[]` + `setting_sources=[]` +
+   `strict_mcp_config=True` + `skills=[]`；少一个 CLI 仍会带出文件/命令工具。
 
 ### antigravity 的三条硬事实（改它之前先看这三条）
 

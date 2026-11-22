@@ -43,8 +43,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
+from apps.core.llm.gateway_profile import resolve_thinking, selectable_efforts
+
 from ..pi.model_config import _next_key
-from .gateway_cache import get_gateway_settings, model_supports_thinking, settings_from_provider
+from .gateway_cache import get_gateway_settings, settings_from_provider
 
 logger = logging.getLogger(__name__)
 
@@ -594,7 +596,9 @@ def _provider_patch_path(dsh_home: str, *, base_url: str, models: list[str], thi
             #   以前这里列了它，等于在 UI 上埋了一个必炸档位。
             # - ``minimal`` 不列：服务端会静默降成 low，不如直接不给。
             # - 补上 ``xhigh`` / ``max``：律师要的就是能调到最高。
-            for effort in ("off", "low", "high", "xhigh", "max"):
+            # 集合本身不在这里写：``selectable_efforts()`` 是唯一来源，否则
+            # dsh 与 pi 的档位又会各自漂移（本函数原先就自己抄了一份）。
+            for effort in selectable_efforts():
                 # key 必须加引号：YAML 1.1 把裸的 ``off`` / ``on`` / ``yes`` / ``no``
                 # 解析成**布尔**，于是 ``off: "off"`` 会变成 ``False: 'off'``，
                 # dsh 找不到名为 off 的档位 → 用户无法关闭思考，且不报错。
@@ -787,11 +791,12 @@ def build_config(
     # 思考模式：与 pi 同口径——**平台总开关 + 该模型确实是推理模型**两个条件都满足
     # 才声明。只按平台开关不看模型会给普通模型错报能力（网关直接 400，见 pi 侧
     # `_model_entry` 的同款注释）；只按模型不看开关则等于绕过律师/Amon 的配置。
-    # 模型能力由 ``gateway_cache.model_supports_thinking`` 统一判：它先问
-    # provider 的 ``supports_thinking``（同步上下文传了 provider 时），走缓存路径
-    # 时用与 ``LLMProvider`` 同一份特征表——同一个模型在两条路径上不会判出两种结果。
-    thinking_capable = bool(settings.enable_thinking and model_supports_thinking(model, provider))
-    extra = dsh_patches(home, base_url=base_url, models=declared, thinking=thinking_capable)
+    # 两个条件的合成只有一处实现：``gateway_profile.resolve_thinking``。dsh 没有
+    # 会话级档位（不像 pi 的 ``--thinking``），所以不传 ``level``——``enabled``
+    # 就是「开关 ∧ 能力」。这与改前同一判定（``LLMProvider.supports_thinking``
+    # 本来就只是这张特征表的一层转发）。
+    thinking_enabled = resolve_thinking(model, enable_thinking=settings.enable_thinking).enabled
+    extra = dsh_patches(home, base_url=base_url, models=declared, thinking=thinking_enabled)
     mcp_patch = dsh_mcp_patch(home, user_token=user_token, session_id=session_id)
     return DshProviderConfig(
         dsh_home=home,

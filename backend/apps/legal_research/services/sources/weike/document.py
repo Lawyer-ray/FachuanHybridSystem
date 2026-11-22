@@ -11,6 +11,9 @@ from typing import Any
 from apps.core.exceptions.error_codes import REQUEST_ERROR
 from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
+# 响应访问器在 v27.4.4「Service 层静态方法棘轮」中由 mixin 下沉为 transport 的
+# 模块级纯函数；本模块必须直接引用它们（用 self._response_* 会 AttributeError）。
+from .transport import _response_body, _response_headers, _response_status
 from .types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 
 logger = logging.getLogger(__name__)
@@ -128,10 +131,9 @@ def build_download_filename(detail: WeikeCaseDetail) -> str:
 class WeikeDocumentMixin:
     _request_get_with_retry: Callable[..., Any]
     _request_post_json_with_retry: Callable[..., Any]
-    _response_status: Callable[[Any], int]
     _response_json: Callable[[Any], dict[str, Any]]
-    _response_headers: Callable[[Any], dict[str, str]]
-    _response_body: Callable[[Any], bytes]
+    # _response_status / _response_headers / _response_body 不再标注为本类成员：
+    # 它们是 transport 里的模块级函数（四层架构棘轮要求），本文件直接调用。
 
     DETAIL_RETRY_ATTEMPTS = 3
     DETAIL_RETRY_HTTP_STATUSES = frozenset({400, 408, 409, 425, 429, 500, 502, 503, 504})
@@ -163,7 +165,7 @@ class WeikeDocumentMixin:
                     max_attempts=self.DETAIL_RETRY_ATTEMPTS,
                     retry_statuses=self.DETAIL_RETRY_HTTP_STATUSES,
                 )
-                meta_status = self._response_status(meta_resp)
+                meta_status = _response_status(meta_resp)
                 meta_payload = self._response_json(meta_resp)
                 _record_detail_event(
                     session=session,
@@ -228,7 +230,7 @@ class WeikeDocumentMixin:
                     max_attempts=self.DETAIL_RETRY_ATTEMPTS,
                     retry_statuses=self.DETAIL_RETRY_HTTP_STATUSES,
                 )
-                html_status = self._response_status(html_resp)
+                html_status = _response_status(html_resp)
                 html_payload = self._response_json(html_resp)
                 _record_detail_event(
                     session=session,
@@ -367,7 +369,7 @@ class WeikeDocumentMixin:
                 max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
                 retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
             )
-            limit_status = self._response_status(limit_resp)
+            limit_status = _response_status(limit_resp)
             try:
                 limit_payload_json = self._response_json(limit_resp)
             except Exception:
@@ -412,7 +414,7 @@ class WeikeDocumentMixin:
             except Exception:
                 response_json = {}
 
-            path_status = self._response_status(path_resp)
+            path_status = _response_status(path_resp)
             if self._is_session_restricted_response(status=path_status, payload=response_json):
                 self._mark_session_restricted(
                     session=session,
@@ -440,12 +442,12 @@ class WeikeDocumentMixin:
                 max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
                 retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
             )
-            if self._response_status(pdf_resp) != 200:
+            if _response_status(pdf_resp) != 200:
                 continue
 
-            headers = self._response_headers(pdf_resp)
+            headers = _response_headers(pdf_resp)
             content_type = str(headers.get("content-type") or headers.get("Content-Type") or "").lower()
-            pdf_bytes = self._response_body(pdf_resp)
+            pdf_bytes = _response_body(pdf_resp)
             if pdf_bytes and ("pdf" in content_type or pdf_bytes.startswith(b"%PDF")):
                 return pdf_bytes, filename
 
@@ -495,7 +497,7 @@ class WeikeDocumentMixin:
                 max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
                 retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
             )
-            limit_status = self._response_status(limit_resp)
+            limit_status = _response_status(limit_resp)
             try:
                 limit_payload_json = self._response_json(limit_resp)
             except Exception:
@@ -540,7 +542,7 @@ class WeikeDocumentMixin:
             except Exception:
                 response_json = {}
 
-            path_status = self._response_status(path_resp)
+            path_status = _response_status(path_resp)
             if self._is_session_restricted_response(status=path_status, payload=response_json):
                 self._mark_session_restricted(
                     session=session,
@@ -568,11 +570,11 @@ class WeikeDocumentMixin:
                 max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
                 retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
             )
-            if self._response_status(doc_resp) != 200:
+            if _response_status(doc_resp) != 200:
                 continue
 
-            headers = self._response_headers(doc_resp)
-            doc_bytes = self._response_body(doc_resp)
+            headers = _response_headers(doc_resp)
+            doc_bytes = _response_body(doc_resp)
             if doc_bytes and len(doc_bytes) > 0:
                 return doc_bytes, filename
 

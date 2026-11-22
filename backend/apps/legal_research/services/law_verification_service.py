@@ -12,6 +12,7 @@ PermissionDenied / ExternalServiceError（均为 apps.core.exceptions，
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -32,6 +33,20 @@ def sanitize_weike_login_url(raw_url: Any) -> str | None:
     return None
 
 
+#: 条号内的空白归一化：`第 874 条` → `第874条`。
+#:
+#: 下游（私有插件的 `verify_references`）按无空格的写法抽引用，而模型很喜欢写
+#: 「第 874 条」（实测 2026-11-22：一篇综合稿全是这种写法，一条都抽不到 → 核验
+#: 返回 0 条 → 被上层当成"文里没有引用"的假绿）。归一化放在**服务入口**：所有
+#: 调用方（MCP 工具 / 综合核验 / 管理端）都经过这里，一处修好全链路生效。
+_ARTICLE_SPACING_RE = re.compile(r"第\s*([0-9０-９]+)\s*条")
+
+
+def normalize_article_spacing(text: str) -> str:
+    """把「第 N 条」里的空白去掉，只用于**核验前的抽取**，不改任何落库内容。"""
+    return _ARTICLE_SPACING_RE.sub(r"第\1条", text)
+
+
 class LawVerificationService:
     """文档法规引用核查（基于威科先行私有 API）。"""
 
@@ -44,7 +59,7 @@ class LawVerificationService:
             PermissionDenied: 凭证不属于当前律所（HTTP 403）
             ExternalServiceError: 登录失败 / 核查失败（HTTP 502）
         """
-        stripped_text = str(text or "").strip()
+        stripped_text = normalize_article_spacing(str(text or "").strip())
         if not stripped_text:
             raise ValidationException("text 不能为空", code="TEXT_REQUIRED")
 

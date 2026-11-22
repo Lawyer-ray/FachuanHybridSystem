@@ -22,8 +22,6 @@ import pytest
 from apps.agent.services.chat import aggregate
 from apps.agent.services.chat.aggregate import (
     AGGREGATE_SYSTEM_PROMPT,
-    HARD_CANDIDATE_CHARS,
-    MAX_CANDIDATE_CHARS,
     MAX_CANDIDATES,
     STRICT_RETRY_SUFFIX,
     SYNTHESIS_MAX_ATTEMPTS,
@@ -130,33 +128,33 @@ class TestBuildAggregateMessages:
 
         assert [(item.lane, item.reason) for item in dropped] == [("openai-agents", "failed")]
 
-    def test_over_long_candidate_is_truncated_and_labelled(self) -> None:
-        long_text = "甲" * (MAX_CANDIDATE_CHARS + 500)
+    def test_long_candidate_goes_in_whole(self) -> None:
+        """长候选**原样**进 prompt（2026-11-22 起不截断）。
+
+        截断的唯一后果是聚合者读不到后文论证，却仍然写出一段看似完整的结论——
+        静默降级比报错危险。上限交给模型上下文窗口，超了网关会 400。
+        """
+        long_text = "甲" * 50_000
         messages = build_aggregate_messages(_TASK, [Candidate(lane="pi", model="kimi-2.6", text=long_text)])
 
         content = _user_content(messages)
-        assert "已截断" in content
-        assert f"原文共 {MAX_CANDIDATE_CHARS + 500} 字" in content
-        # 保留的是前 MAX_CANDIDATE_CHARS 字，不是整段（否则 prompt 预算就白设了）
-        assert "甲" * MAX_CANDIDATE_CHARS in content
-        assert "甲" * (MAX_CANDIDATE_CHARS + 1) not in content
+        assert "甲" * 50_000 in content
+        assert "已截断" not in content
 
-    def test_over_hard_limit_candidate_is_dropped_not_truncated(self) -> None:
-        """超过硬上限整栏丢弃：前 6 千字代表不了一份十万字文档，截断会制造假前提。"""
-        huge_text = "乙" * (HARD_CANDIDATE_CHARS + 1)
+    def test_absurdly_long_candidate_is_kept_not_dropped(self) -> None:
+        """曾经的 2.4 万字硬上限已取消：整栏丢弃会让 `lanes_used` 说假话。"""
+        huge = "乙" * 300_000
         candidates = [
             Candidate(lane="pi", model="kimi-2.6", text=_STATUTE),
-            Candidate(lane="dsh", model="glm53", text=huge_text),
+            Candidate(lane="dsh", model="glm53", text=huge),
         ]
         used, dropped = partition_candidates(candidates)
 
-        assert [candidate.lane for candidate in used] == ["pi"]
-        assert [(item.lane, item.reason) for item in dropped] == [("dsh", "too_long")]
-
+        assert [candidate.lane for candidate in used] == ["pi", "dsh"]
+        assert dropped == []
         content = _user_content(build_aggregate_messages(_TASK, candidates))
-        assert "乙" not in content
-        # 进 prompt 的只有一栏，序号不能因为丢了一栏而断号
-        assert "1. 【pi · kimi-2.6】" in content
+        assert "乙" * 1000 in content
+        assert "2. 【dsh · glm53】" in content
 
     def test_no_usable_candidate_raises_instead_of_calling_model_with_empty_prompt(self) -> None:
         with pytest.raises(ValueError, match="没有可综合的候选"):

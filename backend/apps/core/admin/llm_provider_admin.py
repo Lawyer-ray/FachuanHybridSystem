@@ -10,6 +10,7 @@ from django.db import models
 from django.http import HttpRequest, HttpResponseRedirect, JsonResponse
 from django.urls import path, reverse
 
+from apps.core.llm.gateway_profile import RATE_LIMIT_CHANNEL_NOTE
 from apps.core.models import LLMProvider
 from apps.core.models.llm_provider import parse_key_entries
 from apps.core.services.llm_provider_service import LLMProviderService
@@ -111,6 +112,12 @@ class LLMProviderAdmin(admin.ModelAdmin):
         form = super().get_form(request, obj, **kwargs)
         if "api_keys" in form.base_fields:
             form.base_fields["api_keys"].help_text = "留空表示不修改已保存的 Key"
+        # rpm/tpm 与并发上限同栏，最容易被当成 copilot 的限流开关：把适用范围写在字段下方。
+        # 文案取自 gateway_profile.RATE_LIMIT_CHANNEL_NOTE（不写字面量——这个口径只有一处）。
+        for rate_field_name in ("rpm_limit", "tpm_limit"):
+            rate_field = form.base_fields.get(rate_field_name)
+            if rate_field is not None:
+                rate_field.help_text = RATE_LIMIT_CHANNEL_NOTE
         return form
 
     def save_model(self, request: HttpRequest, obj: Any, form: Any, change: bool) -> None:

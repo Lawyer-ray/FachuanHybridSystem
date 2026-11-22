@@ -30,40 +30,42 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from apps.core.llm.gateway_profile import (
+    DEFAULT_THINKING_LEVEL,
+    fallback_chain,
+    gateway_effort,
+    model_supports_thinking,
+    resolve_thinking,
+)
+
 logger = logging.getLogger(__name__)
 
 GATEWAY_URL_ENV = "FACHUAN_PI_GATEWAY_URL"
 GATEWAY_KEY_ENV = "FACHUAN_PI_GATEWAY_KEY"
-DEFAULT_CONTEXT_WINDOW = 128000
-DEFAULT_MAX_TOKENS = 8192
-#: 平台开启思考时传给 pi 的 ``--thinking`` 等级（pi: minimal/low/medium/high/xhigh/max）
+#: 上下文窗口声明（写进 ``models.json`` 的 ``contextWindow``）。
 #:
-#: 取 ``max``：律师要的是「能想多深想多深」。这是**默认档位**，不是能力开关——
-#: 是否真的思考仍由平台总开关 ``enable_thinking`` 与该模型是否推理模型决定。
+#: ## 为什么现在是 1,000,000 且可被环境变量覆盖
 #:
-#: ⚠️ 档位取值受上游约束，不可照搬 pi 的七档全集。实测（2026-11，DeepSeek V4.1
-#: 走 vLLM）服务端原话：
-#:     ``reasoning_effort must be low, high, xhigh, max, or an integer within [1, 100]``
-#: 也就是说 **``medium`` 会直接 400 失败**（曾经就是默认值，等于默认配置下
-#: 「一开思考就报错」）。发往服务端前会经 ``_GATEWAY_EFFORT_MAP`` 归一化。
-DEFAULT_THINKING_LEVEL = "max"
+#: 它决定**harness 什么时候开始自动压缩**：pi 到达这个值就摘要历史。声明得比真实
+#: 窗口小，模型明明装得下也会被提前摘要（综合结论这种"一次喂五栏全文"的场景直接
+#: 被吃掉一半）；声明得比真实窗口大，则会在真实上限处被网关 400，而那是**跑到一半
+#: 才炸**，整轮回答丢失。
+#:
+#: 所以两个数都不是拍脑袋能定的：真值以模型卡/实测为准，这里只给默认与覆盖口。
+#: 2026-11-22 按业务方决定取 1M；若某部署的模型实际是 256K，设
+#: ``FACHUAN_CONTEXT_WINDOW=262144`` 即可，不用改代码。
+DEFAULT_CONTEXT_WINDOW = int(os.environ.get("FACHUAN_CONTEXT_WINDOW", "1000000") or 1000000)
 
-#: pi 的思考等级 → 网关真正接受的 ``reasoning_effort``。
+#: 单次输出的 token 上限（``models.json`` 的 ``maxTokens``）。
 #:
-#: 网关只认 ``low`` / ``high`` / ``xhigh`` / ``max``（及 1–100 整数），不认
-#: ``minimal`` / ``medium``。这里把 pi 的七档收窄映射到服务端能吃的值：
-#:
-#: - ``medium`` 不映射到 ``high`` 而是保留 **不合法的事实** 会炸，所以映射到
-#:   ``high``（最接近的中档）；
-#: - ``minimal`` 服务端会静默降成 ``low``（实测回显已变 low），显式映射避免误导。
-_GATEWAY_EFFORT_MAP: dict[str, str] = {
-    "minimal": "low",
-    "low": "low",
-    "medium": "high",
-    "high": "high",
-    "xhigh": "xhigh",
-    "max": "max",
-}
+#: 同样可覆盖：合成结论要一次写上千字，8192 在"思考 + 正文"并存的推理模型上会被
+#: 顶满（实测 kimi-2.6 曾吃到 5958/6144），顶满即被视为"没写完"。
+DEFAULT_MAX_TOKENS = int(os.environ.get("FACHUAN_MAX_TOKENS", "32768") or 32768)
+# 上面的 ``DEFAULT_THINKING_LEVEL`` / ``gateway_effort`` 是**从
+# ``apps.core.llm.gateway_profile`` 再导出**的（思考档位与能力特征表的唯一来源）：
+# ``antigravity_backend`` / ``openai_agents_backend`` 都写着
+# ``from ..pi.model_config import DEFAULT_THINKING_LEVEL, gateway_effort``，
+# 删掉这两个名字会把它们打断。
 
 
 def _next_key(keys: list[str], provider: str = "") -> str:
@@ -187,6 +189,8 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
 
     仅对推理模型且平台开启 ``enable_thinking`` 时声明 ``reasoning: true``，
     避免给普通模型（glm53 等）错报能力导致 pi 发它不认的 thinking 参数。
+    两个条件由 :func:`apps.core.llm.gateway_profile.resolve_thinking` 统一算：
+    ``supported`` 是模型能力（特征表唯一来源），``enabled`` 还叠加了平台开关。
 
     ``input`` 是 pi 的 **vision gate**：pi 的 openai-completions 适配器只在
     ``model.input`` 含 ``"image"`` 时才把 image block 转成 ``image_url`` 下发。
@@ -199,12 +203,12 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
     路径，fail-closed 更安全。唯一真值来源是 ``provider.vision_model``
     （语义：该平台的多模态模型名，留空禁用视觉）。
     """
-    supports = bool(getattr(provider, "supports_thinking", None) and provider.supports_thinking(name))
+    directives = resolve_thinking(name, enable_thinking=enable_thinking)
     entry: dict[str, Any] = {
         "id": name,
         "contextWindow": DEFAULT_CONTEXT_WINDOW,
         "maxTokens": DEFAULT_MAX_TOKENS,
-        "reasoning": bool(enable_thinking and supports),
+        "reasoning": directives.supported and directives.enabled,
         "input": ["text", "image"] if _is_vision_model(name, provider) else ["text"],
         # 网关适配（实测必需）：本仓库的 LiteLLM 网关把思考开关放在
         # ``chat_template_kwargs.thinking``（布尔），而 pi 的 openai-completions
@@ -245,7 +249,8 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
         #
         # 为什么值不是原样七档：服务端（DeepSeek V4.1 / vLLM）只认
         # ``low`` / ``high`` / ``xhigh`` / ``max``，发 ``medium`` 直接 400。
-        # 详见 ``_GATEWAY_EFFORT_MAP``。
+        # 映射口径的唯一来源是 ``apps.core.llm.gateway_profile.gateway_effort``
+        # （本表的值必须与它一致；``off`` 一栏是 pi 自己的语义，不在网关白名单里）。
         entry["thinkingLevelMap"] = {
             "off": "off",
             "minimal": "low",
@@ -256,22 +261,6 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
             "max": "max",
         }
     return entry
-
-
-def gateway_effort(level: str) -> str:
-    """把 pi/dsh 的思考档位归一成网关真正接受的 ``reasoning_effort`` 值。
-
-    服务端白名单（实测）：``low`` / ``high`` / ``xhigh`` / ``max``。
-    其余值（``minimal`` / ``medium``）一律映射到最接近的合法档位，绝不原样下发
-    ——原样发 ``medium`` 会得到 400，整轮对话直接失败。
-    """
-    cleaned = (level or "").strip().lower()
-    if not cleaned:
-        return ""
-    if cleaned in _GATEWAY_EFFORT_MAP:
-        return _GATEWAY_EFFORT_MAP[cleaned]
-    # 未知值不把它当合法 effort 传下去：fail-closed 到默认档
-    return _GATEWAY_EFFORT_MAP.get(DEFAULT_THINKING_LEVEL, "max")
 
 
 def resolve_thinking_level(model_hint: str = "", provider: Any | None = None) -> str | None:
@@ -295,8 +284,9 @@ def resolve_thinking_level(model_hint: str = "", provider: Any | None = None) ->
     target = model_hint or str(getattr(provider, "default_model", "") or "")
     if target and models and target not in models:
         return None
-    supports = getattr(provider, "supports_thinking", None)
-    if callable(supports) and not supports(target):
+    # 能力判定只问 ``gateway_profile``（特征表唯一来源）。原先问的是
+    # ``provider.supports_thinking``，那只是同一张表的一层转发。
+    if not model_supports_thinking(target):
         return None
     return DEFAULT_THINKING_LEVEL
 
@@ -414,15 +404,13 @@ def resolve_fallback_models(model_hint: str = "") -> list[str]:
     """解析降级模型链（P2-7）：[主模型, fallback1, fallback2, ...]。
 
     主模型失败（PiError）时按序尝试备选；无备选返回单元素列表。
+
+    ``fallback_models`` 原样交给 :func:`gateway_profile.fallback_chain`，
+    **不能先 ``str()``**：该字段在服务通道是 ``list[str]``，字符串化会得到
+    ``"['glm53', 'qwen3']"`` 这种形态，清洗后产出一个名为 ``['glm53`` 的模型。
     """
     provider = _load_provider(model_hint)
     if provider is None:
         return [model_hint] if model_hint else []
     primary = model_hint or str(getattr(provider, "default_model", "") or "")
-    chain = [primary] if primary else []
-    raw_fallback = str(getattr(provider, "fallback_models", "") or "")
-    for part in raw_fallback.replace(";", ",").split(","):
-        name = part.strip()
-        if name and name not in chain:
-            chain.append(name)
-    return chain
+    return fallback_chain(primary, getattr(provider, "fallback_models", "") or "")

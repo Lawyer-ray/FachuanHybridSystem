@@ -24,6 +24,25 @@ LiteLLM 的做法是**状态码白名单**（``router_utils/cooldown_handlers.py
 - **冷却时长可被 ``retry-after`` 覆盖**且夹在 ``[5, 300]`` 秒
   （网关实测 429 会带 ``retry-after: 60``，比写死的 30 秒长——30 秒后放回轮转
   只会让同一把 Key 反复挨打）。
+
+## 为什么 Agent 通道（copilot）不做 rpm/tpm
+
+``configure_limits`` 的 rpm/tpm 只在**本模块能看到请求边界**时才有意义：
+它记账的单位是「60 秒窗口内的请求数 / token 数」，而这两个数都要求调用方在
+**每次 model 调用**前后各报一次（``acquire`` 记请求、``release`` 补 token）。
+
+服务通道（诉状生成、合同审查等）满足这个前提；Agent 通道不满足：
+
+- pi / dsh / openai-agents / antigravity 的 model 调用都在**外部进程内部**发生，
+  Django 侧只拿到「一轮对话开始 / 结束」，看不到中间的 N 次 tool → model 往返；
+- 按轮次近似会把「一轮 = 20 次 model 调用」记成 1 次，阈值实际放宽 20 倍。
+  这种「看着有限流、其实没限」比不设限更危险——它会让人相信一个不存在的保护。
+
+另一条实测依据（``TECH-DEBT.md`` ⑤）：连「精确在飞计数」也**买不到容量**——
+40 并发压测下租约模式拿到的 429 比现状更多，瓶颈是总槽位（Key 数 × 每 Key 并发），
+不是「选得不准」。同理，rpm/tpm 只承诺给**能看到请求边界**的服务通道
+（运维可见的文案在 ``gateway_profile.RATE_LIMIT_CHANNEL_NOTE``，Admin 表单直接引用它）；
+Agent 通道要提高容量，正确动作是加 Key。
 """
 
 from __future__ import annotations

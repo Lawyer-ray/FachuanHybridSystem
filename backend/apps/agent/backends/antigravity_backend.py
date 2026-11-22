@@ -237,28 +237,30 @@ def thinking_extra(settings: Any, model: str) -> dict[str, Any]:
     ## 口径与其它后端严格同源
 
     - 开关取 ``LLMProvider.enable_thinking``（平台级，Admin 里可关）；
-    - 模型能力取 :func:`gateway_cache.model_supports_thinking`（与 ``pi.model_config``
-      同一张特征表）；
-    - 档位取 ``pi.model_config`` 的 ``DEFAULT_THINKING_LEVEL`` 并经
-      :func:`gateway_effort` 归一（原样发 ``medium`` 会被网关 400）。
+    - 模型能力、档位归一与字段形状全部由
+      :mod:`apps.core.llm.gateway_profile` 决定（``resolve_thinking`` +
+      ``wire_fields``）——同一张特征表、同一份白名单，不再从 ``pi.model_config``
+      取 ``DEFAULT_THINKING_LEVEL`` / ``gateway_effort``（那是第二个权威，
+      ``kimi-k2`` 就曾在两条通道上判出相反的思考结论）。
 
     Returns:
-        ``{"reasoning_effort": ..., "chat_template_kwargs": {"thinking": True}}``；
+        ``wire_fields`` 的产物：
+        ``{"chat_template_kwargs": {"thinking": True}, "reasoning_effort": ...}``；
         平台未开或模型不是推理模型时返回 ``{}``（**不注入任何字段**——给非推理模型
         发思考参数会被网关 400）。
     """
-    from ..pi.model_config import DEFAULT_THINKING_LEVEL, gateway_effort
-    from .gateway_cache import model_supports_thinking
+    # 延迟 import：``apps.core.llm`` 是重包（``__init__`` 会拉起 service/config），
+    # 而本模块在 ``AgentConfig.ready()`` 注册后端时就被 import（同 ``gateway_cache``）。
+    from apps.core.llm.gateway_profile import resolve_thinking, wire_fields
 
-    if settings is None or not getattr(settings, "enable_thinking", False):
+    if settings is None:
         return {}
-    if not model_supports_thinking(model):
+    directives = resolve_thinking(model, enable_thinking=bool(getattr(settings, "enable_thinking", False)))
+    if not directives.enabled:
+        # 平台没开思考，或该模型不是推理模型：一个字段都不注入（给非推理模型发思考
+        # 参数会被网关 400）。显式 ``thinking=false`` 属服务通道语义，Agent 通道不开就不发。
         return {}
-    effort = gateway_effort(DEFAULT_THINKING_LEVEL)
-    extra: dict[str, Any] = {"chat_template_kwargs": {"thinking": True}}
-    if effort:
-        extra["reasoning_effort"] = effort
-    return extra
+    return wire_fields(directives)
 
 
 # ── 运行目录 ──────────────────────────────────────────────────────────────

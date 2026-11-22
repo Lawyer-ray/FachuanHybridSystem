@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import logging
 import random
 import time
@@ -19,9 +20,66 @@ class ExecutorSourceGatewayMixin:  # pragma: no cover
     PAGE_SIZE_HINT: int
     MAX_PAGE_WINDOW: int
 
-    def _fetch_candidate_batch(self, **kwargs: Any) -> list[Any]:
-        """搜索批次获取，由组合本 mixin 的执行器宿主类提供。"""
-        raise NotImplementedError
+    @classmethod
+    def _fetch_candidate_batch(
+        cls,
+        *,
+        source_client: Any,
+        session: Any,
+        keyword: str,
+        offset: int,
+        batch_size: int,
+        advanced_query: list[dict[str, str]] | None = None,
+        court_filter: str = "",
+        cause_of_action_filter: str = "",
+        date_from: str = "",
+        date_to: str = "",
+        raw_payload: dict[str, Any] | None = None,
+    ) -> list[Any]:
+        """拉取一批候选案例：按数据源客户端**实际支持的参数**自适应透传。
+
+        三个来源客户端的 ``search_cases`` 签名并不一致（``base.CaseSourceClient``
+        只有 offset/raw_payload，威科多出 advanced_query/法院/案由/日期筛选），
+        所以这里先 ``inspect.signature`` 取参数名，只透传对端认识的字段；
+        对端没有 ``offset`` 时退回「取窗口 + 切片」。
+
+        注意：本方法必须是 ``classmethod`` —— 调用方 ``_fetch_candidate_batch_with_retry``
+        也是 classmethod，写 ``cls._fetch_candidate_batch(...)``；若本方法退回实例方法，
+        运行时会抛 ``missing 1 required positional argument: 'self'``（v27.2.8 起任务式
+        检索 100% 失败的根因）。
+        """
+        search_cases = source_client.search_cases
+        params = inspect.signature(search_cases).parameters
+        max_pages = cls._estimate_max_pages(offset=offset, batch_size=batch_size)
+
+        optional_kwargs: dict[str, Any] = {
+            "advanced_query": advanced_query,
+            "court_filter": court_filter,
+            "cause_of_action_filter": cause_of_action_filter,
+            "date_from": date_from,
+            "date_to": date_to,
+            "raw_payload": raw_payload,
+        }
+        extra_kwargs = {name: value for name, value in optional_kwargs.items() if name in params}
+
+        if "offset" in params:
+            return search_cases(
+                session=session,
+                keyword=keyword,
+                max_candidates=batch_size,
+                max_pages=max_pages,
+                offset=offset,
+                **extra_kwargs,
+            )
+
+        window = search_cases(
+            session=session,
+            keyword=keyword,
+            max_candidates=offset + batch_size,
+            max_pages=max_pages,
+            **extra_kwargs,
+        )
+        return list(window[offset : offset + batch_size])
 
     @classmethod
     def _fetch_candidate_batch_with_retry(  # pragma: no cover
@@ -42,7 +100,7 @@ class ExecutorSourceGatewayMixin:  # pragma: no cover
     ) -> list[Any]:
         for attempt in range(1, cls.SEARCH_RETRY_ATTEMPTS + 1):
             try:
-                return cls._fetch_candidate_batch(  # type: ignore[call-arg]
+                return cls._fetch_candidate_batch(
                     source_client=source_client,
                     session=session,
                     keyword=keyword,

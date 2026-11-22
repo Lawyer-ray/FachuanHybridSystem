@@ -8,7 +8,9 @@
 3. **事件翻译**：用 SDK 的真实事件对象（``ResponseTextDeltaEvent`` 等）喂
    ``_translate_stream_event``，断言产出符合 ``sse_types.py`` 契约。
 4. **网关解析**：provider 桩 → ``(base_url, api_key, model)``，**模型必须来自库**，
-   不许硬编码。
+   不许硬编码。思考参数（``_thinking_settings``）同样由
+   ``apps.core.llm.gateway_profile`` 单一权威产出：``kimi-k2`` 宽匹配命中，平台
+   开关关闭或非推理模型一律不插手请求。
 5. **代理剔除**：构造客户端的那一刻环境里不能有代理变量（内网网关会 502）。
 6. **注册**：``ensure_registered()`` 后 ``openai-agents`` 在注册表里；SDK 缺失时
    静默降级、不抛。
@@ -69,10 +71,12 @@ from apps.agent.backends.openai_agents_backend import (
     BLOCKED_TOOL_NAMES,
     MAX_TURNS,
     OpenAiAgentsBackend,
+    _thinking_settings,
     gateway_from_provider,
     resolve_gateway,
 )
 from apps.agent.services import approval as approval_service
+from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
 
 
 class _Session:
@@ -409,6 +413,33 @@ class TestGatewayResolution:
         for _ in range(4):
             gateway_from_provider(provider, None)
         assert seen == ["k1", "k2", "k3", "k1"]
+
+
+class TestThinkingSettings:
+    """思考参数由 ``gateway_profile`` 产出，不再由本模块自己拼字段。
+
+    分叉后果（``gateway_profile`` 模块 docstring 的实测记录）：``kimi-k2`` 在
+    Agent 通道命中宽匹配 ``"kimi"`` 而判为可思考，服务通道只认 ``"kimi26"``
+    则一个字段都不发——同一平台同一模型，一边深度推理一边不推理，且不报错。
+    """
+
+    def test_reasoning_model_gets_switch_and_whitelisted_effort(self) -> None:
+        """``kimi-k2``（宽匹配）两个字段一起下发，档位必在网关白名单内。"""
+        settings = _thinking_settings("kimi-k2", _settings(enable_thinking=True))
+        assert settings is not None
+        extra_body = settings.extra_body
+        assert isinstance(extra_body, dict)
+        assert extra_body["chat_template_kwargs"] == {"thinking": True}
+        # 原样发 ``medium`` 会被网关 400，所以档位必须经白名单归一后再断言
+        assert extra_body["reasoning_effort"] in GATEWAY_EFFORTS
+
+    def test_platform_switch_off_sends_nothing(self) -> None:
+        """平台总开关关掉时不插手请求（与 pi / dsh 同口径：不开就不发）。"""
+        assert _thinking_settings("kimi-k2", _settings(enable_thinking=False)) is None
+
+    def test_non_reasoning_model_sends_nothing(self) -> None:
+        """非推理模型（``qwen3``）不注入：发思考参数会被网关 400。"""
+        assert _thinking_settings("qwen3", _settings(enable_thinking=True)) is None
 
 
 class TestProxyStripping:

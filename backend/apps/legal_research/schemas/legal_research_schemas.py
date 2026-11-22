@@ -18,7 +18,10 @@ CapabilityDecisionLiteral = Literal["accept", "review", "reject"]
 
 
 class LegalResearchTaskCreateIn(BaseModel):
-    credential_id: int = Field(..., gt=0, description="wkxx账号凭证ID")
+    #: 可省略：省略时服务端自动挑本所的威科凭证（见
+    #: ``legal_research.services.credential_resolver``）。凭证 ID 是外部系统登录账号
+    #: 的主键，一张表里混着法院/OA/工商/邮箱/威科，不该让人或模型去猜。
+    credential_id: int | None = Field(default=None, gt=0, description="wkxx账号凭证ID（省略=自动)")
     keyword: str = Field(
         ...,
         min_length=1,
@@ -113,7 +116,7 @@ class AgentSearchBudgetIn(BaseModel):
 
 class AgentSearchRequestV1(BaseModel):
     version: Literal["v1"] = "v1"
-    credential_id: int = Field(..., gt=0, description="账号凭证ID")
+    credential_id: int | None = Field(default=None, gt=0, description="账号凭证ID（省略=自动挑本所的威科账号）")
     intent: CapabilityIntentLiteral = Field(default="similar_case", description="检索意图")
     facts: str = Field(..., min_length=5, max_length=8000, description="事实摘要")
     legal_issue: str = Field(default="", max_length=2000, description="争点摘要")
@@ -124,6 +127,15 @@ class AgentSearchRequestV1(BaseModel):
     target_count: int = Field(default=5, ge=1, le=20, description="目标返回数量")
     budget: AgentSearchBudgetIn = Field(default_factory=AgentSearchBudgetIn, description="调用预算")
     search_mode: SearchModeLiteral = Field(default="expanded", description="检索模式：expanded 或 single")
+    min_similarity_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "相似度阈值（可选项）。不传 = 0.9（严格，适合短关键词检索）；"
+            "传 0.5–0.7 适合长案情段落（整段事实与判决书全文的相似度天然偏低）"
+        ),
+    )
 
 
 class AgentSearchSubscoresOut(BaseModel):
@@ -187,4 +199,4 @@ class LawVerificationCheckIn(BaseModel):
     """
 
     text: str = Field(min_length=1, description="待核查的文书全文")
-    credential_id: int = Field(gt=0, description="法规检索服务账号的凭证 ID（LawyerCredential 主键）")
+    credential_id: int | None = Field(default=None, gt=0, description="凭证 ID（省略=自动挑本所的威科账号）")

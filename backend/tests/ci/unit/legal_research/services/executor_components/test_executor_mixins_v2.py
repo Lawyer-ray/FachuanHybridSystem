@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import inspect
 import time
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -589,3 +591,118 @@ class TestSourceGateway:
                 task_id="1",
             )
         assert len(result) == 2
+
+# ===========================================================================
+# 回归：_fetch_candidate_batch 必须真实存在且能被 classmethod 调用
+# （v27.2.8 起它只剩 `raise NotImplementedError` 桩、调用方还是 cls. →
+#  运行时 "missing 1 required positional argument: 'self'"，任务式检索 100% 失败）
+# ===========================================================================
+
+
+class TestFetchCandidateBatchRealImplementation:
+    def _make_concrete(self):
+        from apps.legal_research.services.executor_components.source_gateway import ExecutorSourceGatewayMixin
+
+        class Concrete(ExecutorSourceGatewayMixin):
+            SEARCH_RETRY_ATTEMPTS = 3
+            DETAIL_RETRY_ATTEMPTS = 3
+            DOWNLOAD_RETRY_ATTEMPTS = 3
+            RETRY_BACKOFF_SECONDS = 0.0
+            RETRY_BACKOFF_MAX_SECONDS = 0.0
+            PAGE_SIZE_HINT = 20
+            MAX_PAGE_WINDOW = 2000
+
+        return Concrete
+
+    def _make_client_with_offset(self) -> tuple[Any, list[dict[str, Any]]]:
+        """数据源 search_cases 支持 offset + 高级筛选（威科真实形态）。"""
+        calls: list[dict[str, Any]] = []
+
+        def search_cases(
+            *,
+            session: Any,
+            keyword: str,
+            max_candidates: int,
+            max_pages: int = 10,
+            offset: int = 0,
+            advanced_query: Any = None,
+            court_filter: str = "",
+            cause_of_action_filter: str = "",
+            date_from: str = "",
+            date_to: str = "",
+            raw_payload: Any = None,
+        ) -> list[str]:
+            calls.append(
+                {
+                    "keyword": keyword,
+                    "max_candidates": max_candidates,
+                    "max_pages": max_pages,
+                    "offset": offset,
+                    "advanced_query": advanced_query,
+                    "court_filter": court_filter,
+                    "raw_payload": raw_payload,
+                }
+            )
+            return ["a", "b"]
+
+        return SimpleNamespace(search_cases=search_cases), calls
+
+    def _make_client_without_offset(self) -> tuple[Any, list[dict[str, Any]]]:
+        """数据源 search_cases 只认 base.CaseSourceClient 的最小签名。"""
+        calls: list[dict[str, Any]] = []
+
+        def search_cases(
+            *, session: Any, keyword: str, max_candidates: int, max_pages: int = 10, raw_payload: Any = None
+        ) -> list[str]:
+            calls.append({"keyword": keyword, "max_candidates": max_candidates})
+            return [f"item{i}" for i in range(max_candidates)]
+
+        return SimpleNamespace(search_cases=search_cases), calls
+
+    def test_retry_wrapper_reaches_real_implementation(self) -> None:
+        """不打桩 _fetch_candidate_batch，直接走 retry 包装（原 bug 的复现入口）。"""
+        Concrete = self._make_concrete()
+        client, calls = self._make_client_with_offset()
+
+        result = Concrete._fetch_candidate_batch_with_retry(
+            source_client=client,
+            session=MagicMock(),
+            keyword="买卖合同纠纷 违约金",
+            offset=40,
+            batch_size=20,
+            task_id="t-regress",
+            advanced_query=[{"field": "title", "keyword": "超龄"}],
+            court_filter="北京市第三中级人民法院",
+            raw_payload={"x": 1},
+        )
+
+        assert result == ["a", "b"]
+        assert calls, "search_cases 未被调用（classmethod 调用链断）"
+        assert calls[0]["offset"] == 40
+        assert calls[0]["max_candidates"] == 20
+        assert calls[0]["advanced_query"] == [{"field": "title", "keyword": "超龄"}]
+        assert calls[0]["court_filter"] == "北京市第三中级人民法院"
+        assert calls[0]["raw_payload"] == {"x": 1}
+
+    def test_client_without_offset_gets_window_slice(self) -> None:
+        """对端没有 offset 参数时，退回「取窗口 + 切片」。"""
+        Concrete = self._make_concrete()
+        client, calls = self._make_client_without_offset()
+
+        result = Concrete._fetch_candidate_batch(
+            source_client=client,
+            session=MagicMock(),
+            keyword="k",
+            offset=5,
+            batch_size=3,
+        )
+
+        assert calls[0]["max_candidates"] == 8  # offset + batch_size
+        assert result == ["item5", "item6", "item7"]
+
+    def test_implementation_is_not_the_host_provided_stub(self) -> None:
+        """兜底断言：不允许再退回「由宿主类提供」的 NotImplementedError 桩。"""
+        from apps.legal_research.services.executor_components.source_gateway import ExecutorSourceGatewayMixin
+
+        source = inspect.getsource(ExecutorSourceGatewayMixin._fetch_candidate_batch.__func__)
+        assert "raise NotImplementedError" not in source

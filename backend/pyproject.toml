@@ -49,6 +49,23 @@ dependencies = [
     # 工具面走共享 MCP（McpStreamableHttpServer）。
     # 锁到 0.1.24：官方标 Development Status :: 3 - Alpha，升级必须走回归。
     "google-antigravity==0.1.24",
+    # Claude Agent SDK：第五个 agent 运行时（与 pi / dsh / openai-agents / antigravity
+    # 并存，会话级切换）。
+    #
+    # 与其它四个的区别：它说的是 **Anthropic Messages 协议**（`/v1/messages`），
+    # 其余四个都走 OpenAI 兼容端点——这正是它在并答里的对照价值。
+    # 纯 Python wheel + **随包分发的 `claude` 二进制**（实测 156–170MB），
+    # 故只有 macosx / manylinux / musllinux / win 轮子。
+    #
+    # 锁到 0.2.187（**不能降到 0.2.99**）：两个版本的 mcp 约束不同——
+    #   0.2.99  要求 ``mcp>=1.23.0,<2.0.0`` → 与本仓库 ``mcp[cli]>=2.2.0`` 冲突，
+    #           ``uv lock`` 直接无解（实测报 "project and mcp[cli]>=2.2.0 are
+    #           incompatible"）；
+    #   0.2.187 要求 ``mcp>=1.23.0,<3.0.0`` → 兼容。
+    # 升级时必须先看它的 ``Requires-Dist: mcp`` 上界，再跑两条判死回归：
+    #   ① ``kimi-2.6(Anthropic)`` 经律所网关 ``/v1/messages`` 能回答；
+    #   ② ``can_use_tool`` 在高危工具前真阻塞（实测 300s 不超时）且拒绝后工具未执行。
+    "claude-agent-sdk==0.2.187",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",

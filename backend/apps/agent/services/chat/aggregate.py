@@ -13,24 +13,20 @@ system prompt 抄 togethercomputer/MoA 的 aggregator 常量（``moa.py:17-19`` 
 2. **空 / 失败候选不进 prompt**。MoA 的 ``utils.py:47-51`` 把空字符串照样编号塞
    进 prompt，聚合者于是"参考"了一份空回答（还可能把它的沉默当成默认意见）。
    这里把它们挑出来放进 ``Synthesis.dropped``，附封闭集原因，**不静默丢**。
-3. **单栏长度上限 + 显式截断标注**。一份二十万字的合同全文会把四份候选顶出
-   上下文窗口；超 ``MAX_CANDIDATE_CHARS`` 的部分丢掉，但正文里写明"已截断"，
-   聚合者与律师都知道这份候选不完整。
+3. **不截断**（2026-11-22 改）。此前有 6000 字截断 + 2.4 万字整栏丢弃两档，
+   前提是"窗口装不下"。现在模型声明 1M 上下文（见
+   ``pi/model_config.DEFAULT_CONTEXT_WINDOW``），五栏全文一次喂进去绰绰有余，
+   再截断只会让聚合者看不到后文的论证——那是**静默的质量损失**。
 
-## 三种"没进 prompt"的表示
-
-契约的 ``DROPPED_REASONS`` 是关闭集 ``empty`` / ``failed`` / ``too_long``，本模块
-**三个都产出**——一个关闭集里存在却永不产出的取值，等于契约在说假话：
+## 两种"没进 prompt"的表示
 
 - ``Candidate.text is None`` → ``failed``：该栏本轮没落库正文（跑了但失败 / 崩了）；
-- ``Candidate.text`` 全空白 → ``empty``：落了库但一个字都没有；
-- 正文超过 :data:`HARD_CANDIDATE_CHARS` → ``too_long``：**整栏丢弃**，不进 prompt。
+- ``Candidate.text`` 全空白 → ``empty``：落了库但一个字都没有。
 
-为什么是两档而不是一档：``MAX_CANDIDATE_CHARS``（6 千字）以内原样进；
-介于 6 千与 2.4 万字之间**截断并在正文里标注**（一份两万字的法律意见，前 6 千字
-仍能代表它的主要论证）；**超过 2.4 万字整栏丢弃**——十万字文档的前 6 千字代表
-不了那份文档，喂进去等于让聚合者以为"这就是该栏的全部观点"，而 ``lanes_used``
-里还留着它的名字，比缺一栏更误导。
+契约关闭集里还有 ``too_long``，那是**历史取值**：窗口只有 128K 的时代，超长候选
+会被整栏丢弃。1M 窗口生效后本模块不再产出它——但保留在关闭集里，因为历史
+``AgentSynthesis`` 快照按它落过库，``model_validate`` 回放时不能因为"现在的代码
+不产出"就判定旧数据非法。
 
 ## 为什么分成两半
 
@@ -56,28 +52,32 @@ from .citation_check import extract_case_refs, extract_statute_refs
 
 logger = logging.getLogger(__name__)
 
-#: 单栏正文进 prompt 的字数上限。6000 字 ≈ 一份长法律意见；四栏合计 2.4 万字，
-#: 加上问题与 system 之后仍远小于主流模型的上下文窗口，又足够装下完整论证。
-MAX_CANDIDATE_CHARS = 6000
-#: 单栏正文的**硬上限**：超过它整栏丢弃（``too_long``），不做截断。
-#: 取 4 倍 ``MAX_CANDIDATE_CHARS``：一份文档的前 1/4 之后已经没有代表性，
-#: 再喂给聚合者只会把"该栏只说了这些"这个假前提写进结论。
-HARD_CANDIDATE_CHARS = 24_000
-#: 一次最多综合几栏。与多答运行时的 ``MAX_ANSWERS``（``services/chat/multi.py``）
-#: 同值 4——**不 import 它**：那会把后端注册与 Django 模型拖进这个纯函数模块，
-#: 让 prompt 装配的单测必须先起 Django。
-MAX_CANDIDATES = 4
-#: 合成正文的 token 预算。
+#: **不再有单栏字数上限**（2026-11-22）。
 #:
-#: 正文本身只要 ≤1200 字（约 1600–1800 token），但**必须给推理预算留位置**：
-#: 真机实测 kimi-2.6 与 glm53 在 2048 上限下都把预算全烧在思考过程里、正文一个
-#: 字没吐（两次尝试都 ``completion == max == 2048``）；4096 下 glm53 吃到 4084
-#: （99.7%）、6144 下 kimi-2.6 吃到 5958（96.9%）——推理型模型的思考预算没有上限，
-#: 只能给足：8192 让"思考 + 1600 字正文"都装得下。
+#: 曾经有 ``MAX_CANDIDATE_CHARS``（6000，截断并标注）与 ``HARD_CANDIDATE_CHARS``
+#: （2.4 万，整栏丢弃）两档，前提是"1M 窗口不存在"。现在五栏全文一次进 prompt，
+#: 截断带来的唯一后果是**聚合者读不到后文的论证**——它仍然会写出一段看似完整的
+#: 结论，只是依据少了一半，且没有任何报错。这类静默降级比报错危险。
+#:
+#: 真正的闸门留在两处：``MAX_CANDIDATES``（栏数）与网关的上下文窗口（硬上限，
+#: 超了会 400 而不是静默截断）。
+#: 一次最多综合几栏。与多答运行时的 ``MAX_ANSWERS``（``services/chat/multi.py``）
+#: 同值 5——**不 import 它**：那会把后端注册与 Django 模型拖进这个纯函数模块，
+#: 让 prompt 装配的单测必须先起 Django。两处不同值会让「选满 5 栏」时的综合
+#: 静默只取前 4 栏（用户看不出少了一栏）。
+MAX_CANDIDATES = 5
+#: 合成正文的 token 预算（**输出**上限，不是 prompt 预算）。
+#:
+#: 2026-11-22 从 8192 抬到 32768，与 ``pi/model_config.DEFAULT_MAX_TOKENS`` 同口径：
+#:
+#: 1. 不再限制正文字数（见 :data:`AGGREGATE_SYSTEM_PROMPT` 规则 4），结论该多长就多长；
+#: 2. 推理模型的思考与正文**共用**这份预算——实测 kimi-2.6 在 6144 上限下吃到
+#:    5958（96.9%），8192 时一次综合用掉 5723（正文仅 2042 字）。放开字数后，
+#:    8192 会立刻变成"每次都顶满 → 判定没写完 → 重试一次 → 整条失败"。
 #:
 #: 上限只是闸门，不是开销：按实际 token 计费，模型不写就不花钱；它同时是截断
 #: 闸门的阈值（顶到它 = 没写完，不许当结论）。
-SYNTHESIS_MAX_TOKENS = 8192
+SYNTHESIS_MAX_TOKENS = 32768
 #: 单次调用的硬超时（秒）。合成要输出上千字，比 judge 的 60s 宽一倍。
 SYNTHESIS_TIMEOUT_SECONDS = 120.0
 #: 总尝试次数（含首次）。**没有 ``while True``**：协议不稳定时的无限重试
@@ -120,7 +120,9 @@ AGGREGATE_SYSTEM_PROMPT = """你是一名资深中国律师，手上有多份 AI
 1. 每一条实质结论后面都要标来源锚点，格式 [来源：栏名]；栏名取自候选开头的【栏名 · 模型】。多个候选都主张的写 [来源：栏名1、栏名2]。
 2. 只使用候选里出现过的法条、案号与数字。候选没给的依据不许补；确实缺依据时在正文里写明"候选未给出依据"。
 3. 候选结论互相矛盾时，采用法律依据更充分的那一份，并用一句话说明分歧在哪；分不出高下就如实并列两种意见，不要只挑一个当结论。
-4. 输出中文 Markdown 正文，不超过 1200 字。不要 ``` 代码围栏，不要"以下是综合结论"这类开场白，也不要复述本指令。"""
+4. 输出中文 Markdown 正文。**长度由内容需要决定**：该展开的论证写透，不要为凑长度
+   重复或堆砌；也不要因为想简短而丢掉候选里的关键依据。不要 ``` 代码围栏，
+   不要"以下是综合结论"这类开场白，也不要复述本指令。"""
 
 #: 用户消息：问题 + 候选（每份带来源头）。
 _AGGREGATE_USER_TEMPLATE = "问题：\n{task}\n\n候选回答（共 {count} 份，每份以【栏名 · 模型】开头）：\n\n{candidates}"
@@ -187,26 +189,21 @@ def partition_candidates(candidates: Sequence[Candidate]) -> tuple[list[Candidat
             dropped.append(DroppedCandidate(lane=candidate.lane, reason="failed"))
         elif not candidate.text.strip():
             dropped.append(DroppedCandidate(lane=candidate.lane, reason="empty"))
-        elif len(candidate.text) > HARD_CANDIDATE_CHARS:
-            # 截断也救不回来：前 6 千字代表不了一份十万字的文档，整栏不参与。
-            dropped.append(DroppedCandidate(lane=candidate.lane, reason="too_long"))
         else:
+            # 不再按长度丢弃/截断：唯一的上限是模型上下文窗口本身（见模块 docstring）。
             used.append(candidate)
     return used, dropped
 
 
 def render_candidate(index: int, candidate: Candidate) -> str:
-    """渲染一份候选：``序号. 【栏名 · 模型】`` + 正文（超长按上限截断并标注）。
+    """渲染一份候选：``序号. 【栏名 · 模型】`` + **完整正文**（不截断）。
 
     ``index`` 是**进 prompt 之后的序号**（1 起），不用原始请求下标——中间夹着
     被丢弃的栏时，用请求下标会出现 "1. 3. 4." 这种断号，聚合者会以为漏读了。
     """
     text = (candidate.text or "").strip()
     header = f"{index}. {_source_header(candidate)}"
-    if len(text) <= MAX_CANDIDATE_CHARS:
-        return f"{header}\n{text}"
-    kept = text[:MAX_CANDIDATE_CHARS]
-    return f"{header}\n{kept}\n（本栏原文共 {len(text)} 字，此处只保留前 {MAX_CANDIDATE_CHARS} 字，已截断）"
+    return f"{header}\n{text}"
 
 
 def build_aggregate_messages(task: str, candidates: Sequence[Candidate]) -> list[dict[str, str]]:
@@ -451,8 +448,6 @@ __all__ = [
     "AGGREGATE_SYSTEM_PROMPT",
     "ANCHOR_MARKER",
     "STRICT_RETRY_SUFFIX",
-    "HARD_CANDIDATE_CHARS",
-    "MAX_CANDIDATE_CHARS",
     "MAX_CANDIDATES",
     "SYNTHESIS_MAX_ATTEMPTS",
     "SYNTHESIS_MAX_TOKENS",

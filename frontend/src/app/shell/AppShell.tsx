@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { CopilotPanelLazy, PanelBackdropLazy, preloadAllRoutes, preloadRoute, whenIdle } from '../preload'
-import { ROUTES } from '../paths'
+import { assistant, assistantSession, isAssistantPath } from '../paths'
 import { RouteFallback } from '../router'
 import { useCopilotShell } from './use-copilot-shell'
 
@@ -31,8 +31,9 @@ import { useCopilotShell } from './use-copilot-shell'
  * AI 助手与 ⌘K 检索的全部开关状态在 useCopilotShell（与路由无关）；本文件只做
  * 布局装配。
  *
- * /assistant（AI 助手独立页）例外：那一页自己就是全屏助手，本层不再叠抽屉，
- * 也不给内容区留并排 padding——见下面 copilotPanelVisible 的注释。
+ * /assistant 及其会话子路径 /assistant/:sessionId（AI 助手独立页）例外：那一页
+ * 自己就是全屏助手，本层不再叠抽屉，也不给内容区留并排 padding——见下面
+ * copilotPanelVisible 的注释。
  */
 export function AppShell() {
   // 登录后空闲时把三个主入口的 chunk 预载进来：切标签不再等下载。
@@ -68,11 +69,14 @@ export function AppShell() {
     setSearchOpen,
   } = useCopilotShell()
 
-  // AI 助手独立页（/assistant）自己就是全屏助手：壳层不再叠一层抽屉——同一段
-  // 对话出现两个输入框，用户不知道该跟哪个说（与复审页「两个 AI 助手并排」
-  // 同一取舍，见 use-copilot-shell）。抽屉的开关状态原样保留，离开本页即恢复；
-  // 并排 padding 同理要停，否则页面会被一个看不见的面板让出一截。
-  const onAssistantPage = pathname === ROUTES.assistant
+  // AI 助手独立页（/assistant 与 /assistant/:sessionId）自己就是全屏助手：壳层不再
+  // 叠一层抽屉——同一段对话出现两个输入框，用户不知道该跟哪个说（与复审页「两个
+  // AI 助手并排」同一取舍，见 use-copilot-shell）。抽屉的开关状态原样保留，离开本页
+  // 即恢复；并排 padding 同理要停，否则页面会被一个看不见的面板让出一截。
+  //
+  // 判据必须走 isAssistantPath（含子路径）：会话进 URL 后写回 `=== ROUTES.assistant`
+  // 的精确等号，`/assistant/<id>` 就会重新叠出抽屉。
+  const onAssistantPage = isAssistantPath(pathname)
   const copilotPanelVisible = copilotMounted && !onAssistantPage
   const contentDocked = effectiveDocked && !onAssistantPage
 
@@ -101,7 +105,14 @@ export function AppShell() {
             onExpand={() => {
               // 先收抽屉再跳页：留着抽屉会让独立页叠在一起（同一段对话两个输入框）。
               toggleCopilot()
-              void navigate(ROUTES.assistant)
+              // 带着**当前会话**跳（会话进 URL）：到独立页看到的还是同一段对话，刷新、
+              // 复制链接、贴给别人都是它。没有会话才落 `assistant()` 新对话。
+              // store 走动态 import：本文件在首屏包里，静态引入 copilot 域会把 markdown /
+              // 语法高亮一起拖进来（见 ../preload 为何 AssistantPageLazy 不进预载）。
+              void import('@/features/copilot/store').then(({ useCopilot }) => {
+                const sessionId = useCopilot.getState().sessionId
+                void navigate(sessionId ? assistantSession(sessionId) : assistant())
+              })
             }}
           />
         </Suspense>

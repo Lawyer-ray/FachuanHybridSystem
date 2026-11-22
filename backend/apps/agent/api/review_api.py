@@ -55,7 +55,7 @@ class ReviewIn(Schema):
     #: 会话内第几轮（从 1 起，按 user 消息顺序计数）。
     turn: int = Field(ge=1)
     #: 参与本轮的栏（``agent_kind``）；答案从 AgentMessage 里按栏回读。
-    #: 上限与多答运行时一致（``MAX_ANSWERS = 4``），避免一次评审把 judge 预算放大。
+    #: 上限与多答运行时一致（``MAX_ANSWERS``，当前 5），避免一次评审把 judge 预算放大。
     agents: list[str] = Field(min_length=1, max_length=MAX_ANSWERS)
     #: 默认走内置合同问答 rubric（库里还没有 rubric 表单，见 ``rubric.DEFAULT_RUBRIC_ID``）。
     rubric_id: str = DEFAULT_RUBRIC_ID

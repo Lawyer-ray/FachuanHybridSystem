@@ -49,6 +49,7 @@ def ensure_registered() -> None:
         _register_dsh()
         _register_openai_agents()
         _register_antigravity()
+        _register_claude_agent()
         return
 
     # 延迟 import：pi_backend 会连带拉起 pi 的 rpc / 池依赖。
@@ -62,6 +63,7 @@ def ensure_registered() -> None:
     _register_dsh()
     _register_openai_agents()
     _register_antigravity()
+    _register_claude_agent()
 
 
 def _register_dsh() -> None:
@@ -159,3 +161,34 @@ def _register_antigravity() -> None:
         logger.info("google-antigravity SDK 未安装，antigravity 后端不可用（其它后端不受影响）")
         return
     registry.register(AntigravityBackend())
+
+
+def _register_claude_agent() -> None:
+    """注册 claude-agent 后端；SDK 没装时**静默降级**（只登记一次）。
+
+    与其它可选后端同构。注意：``claude_agent_backend`` 顶层**不** import
+    ``claude_agent_sdk``（差异于 dsh / openai-agents / antigravity 的写法），
+    因为它只需要在 ``stream()`` 里用到 SDK 的类型；这样即使 SDK 缺失，模块本身
+    的纯函数（base_url 归一化、模型过滤、能力声明）仍可被测试直接引用。
+    所以这里的 import 成功**不代表** SDK 已装——真正的可用性由 ``stream()``
+    的延迟 import 决定，而 ``/backends`` 前端会据运行时报错标不可用。
+
+    为了让「SDK 没装」也能在这里就被识别（而不是等用户点进去才失败），额外
+    做一次 ``find_spec`` 探测。
+    """
+    kind = "claude-agent"
+    if kind in registry.available_kinds():
+        return
+    if kind in _attempted:
+        return
+
+    from importlib.util import find_spec
+
+    if find_spec("claude_agent_sdk") is None:
+        _attempted.add(kind)
+        logger.info("claude-agent-sdk 未安装，claude-agent 后端不可用（其它后端不受影响）")
+        return
+
+    from .claude_agent_backend import ClaudeAgentBackend
+
+    registry.register(ClaudeAgentBackend())

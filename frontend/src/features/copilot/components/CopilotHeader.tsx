@@ -1,21 +1,31 @@
 /**
- * Copilot 面板 header：会话栏开关、上下文范围、目录树、并排、后端、模型、新对话、收起。
+ * Copilot 面板 header：会话栏开关、上下文范围、目录树、并排、模型、新对话、收起
+ * （另加已建会话的后端名后缀，它不是控件）。
  *
  * 抽屉（CopilotPanel）与独立页（AssistantPage）共用：页面上没有「收起」语义，
  * 故 onClose 可缺省（不为页面造一个假的关闭按钮），并排按钮同理由 dockCapable 控制。
  *
  * 从 CopilotPanel 拆出（后者撞 350 行软红线）。拆出的好处不止行数：这一行控件
- * 的可见条件互相独立，聚在一处才能一眼对照——尤其 agent 后端标识必须紧挨「新对话」，
- * 用户才会把它理解成「下一个会话用谁」而不是「当前会话可以换」（换不了，见
- * AgentBackendPicker）。
+ * 的可见条件互相独立，聚在一处才能一眼对照。
  *
- * 纯展示组件：所有状态与动作由 CopilotPanel 传入，避免两处各订阅一份 store。
+ * 「后端」在 header 里只有一种形态：已建会话的只读后缀（「AI 助手 · Pi」）。它
+ * 不是按钮——`agent_kind` 建会话时定死，换不了。新对话态 header **不含**任何后端
+ * 控件：选谁由输入区的 AnswerAgentMenu 一处承担（勾的第一个同时成为新会话归属，
+ * 见 store/turn.ts）。两处都能选就是「逻辑重复」，且两处一旦不一致，用户看到的
+ * 本轮参与方与实际发生的会话归属就是两回事。
+ *
+ * 状态与动作都由宿主传入，只有一处例外：已建会话的后端名要取**显示名**（`Pi` /
+ * `DeepSeek Harness`），清单在 store 里。两个宿主（抽屉 CopilotPanel / 独立页
+ * AssistantPage）都只传 kind，为一个标题后缀把 label 串过两层 props 只会让
+ * 宿主各存一份派生值，故这里直接读同一个 slice（不是第二份数据源：清单只有
+ * store 一份，selector 拿到的还是同一个数组引用）。
  */
 
 import { Columns2, FolderTree, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen, Plus, Sparkles, SquareStack, X } from 'lucide-react'
 
+import { useCopilot } from '../store'
+import { findBackend } from '../store/backends'
 import type { CopilotContext } from '../types'
-import { AgentBackendPicker } from './AgentBackendPicker'
 
 export interface CopilotHeaderProps {
   /** 会话栏是否常驻（宽屏展开态）；窄屏时开关作用于覆盖式列表 */
@@ -33,7 +43,13 @@ export interface CopilotHeaderProps {
   currentTitle: string
   /** 最近一轮实际使用的模型（空串不显示标签） */
   currentModel: string
-  /** 当前会话的后端 kind；null = 还没有会话（后端可自由选） */
+  /**
+   * 当前会话的后端 kind；null = 还没有会话。
+   *
+   * 有会话时它就是标题后面的弱化后缀（`AI 助手 · antigravity`）——后端名必须
+   * **看得见**，不能只放 `title`。新对话态这里既没有后缀也没有下拉：新会话用谁由
+   * 输入区的 AnswerAgentMenu 决定（唯一入口）。
+   */
   currentAgentKind: string | null
   onNewSession: () => void
   /** 收起（仅抽屉有）：缺省时不渲染关闭钮 */
@@ -79,6 +95,12 @@ export function CopilotHeader({
   onExpand,
   onExitFullscreen,
 }: CopilotHeaderProps) {
+  const backends = useCopilot((s) => s.backends)
+  // 已有会话的后端名：清单没到（或拉取失败）时退回 kind 原文，宁可显示 `pi` 也不空着
+  const sessionAgentLabel = currentAgentKind
+    ? (findBackend(backends, currentAgentKind)?.label ?? currentAgentKind)
+    : null
+
   return (
     <header className="flex h-12 flex-none items-center gap-1.5 border-b border-border px-2.5">
       <button
@@ -93,8 +115,18 @@ export function CopilotHeader({
       <span className="copilot-orb ml-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-[8px]" aria-hidden>
         <Sparkles className="h-3.5 w-3.5 text-background" strokeWidth={2.2} />
       </span>
-      <span className="min-w-0 flex-1 truncate px-0.5 text-[13px] font-semibold text-foreground">
-        {context ? `AI 助手 · ${context.title}` : currentTitle || 'AI 助手'}
+      <span className="flex min-w-0 flex-1 items-baseline gap-1 px-0.5">
+        <span className="min-w-0 truncate text-[13px] font-semibold text-foreground">
+          {context ? `AI 助手 · ${context.title}` : currentTitle || 'AI 助手'}
+        </span>
+        {/* 会话级后端名：只说事实（谁是本会话的后端），弱化到与标题同一行的后缀。
+            不是按钮——后端在建会话时定死，「换」这个动作在这里没有落点（唯一的
+            出口是「新对话」，其 tooltip 说明了原因）。 */}
+        {sessionAgentLabel && (
+          <span className="max-w-28 flex-none truncate text-[11px] font-normal text-muted-foreground">
+            · {sessionAgentLabel}
+          </span>
+        )}
       </span>
       {context && (
         <button
@@ -142,8 +174,6 @@ export function CopilotHeader({
           <Columns2 className="h-4 w-4" />
         </button>
       )}
-      {/* agent 后端：没有当前会话时可切换（决定新会话用谁），有会话时只读 */}
-      <AgentBackendPicker currentKind={currentAgentKind} />
       {currentModel && (
         <span
           className="hidden max-w-28 flex-none truncate rounded-[6px] bg-secondary px-1.5 py-0.5 text-[10.5px] text-muted-foreground sm:block"
@@ -156,6 +186,7 @@ export function CopilotHeader({
         type="button"
         className="flex h-7 flex-none items-center gap-1 rounded-[8px] px-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         onClick={onNewSession}
+        title="需要换后端请新建对话——后端在建会话时确定，中途更换会丢失上下文"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
         新对话

@@ -1120,6 +1120,75 @@ class TestThinkingConfiguration:
         assert "reasoningEfforts" not in text
         assert "chatTemplateKwargs" not in text
 
+    @staticmethod
+    def _reasoning_efforts(text: str) -> dict[str, str]:
+        """解析生成的 patch 里 ``reasoningEfforts:`` 那一段（key → 上游 effort）。"""
+        efforts: dict[str, str] = {}
+        in_block = False
+        for line in text.splitlines():
+            if line.strip() == "reasoningEfforts:":
+                in_block = True
+                continue
+            if not in_block:
+                continue
+            key, sep, value = line.strip().partition(":")
+            if not sep or not key.startswith('"'):
+                break
+            efforts[key.strip().strip('"')] = value.strip().strip('"')
+        return efforts
+
+    def test_effort_levels_equal_selectable_efforts(self, tmp_path: object) -> None:
+        """档位集合只能来自 ``gateway_profile.selectable_efforts()``。
+
+        本函数原先自己抄了一份 ``("off", "low", "high", "xhigh", "max")``，
+        与 pi 侧各写一份——两边漂移的表现是「同一个模型在 pi 能调 Max、在 dsh 调不到」。
+        """
+        from apps.agent.backends.dsh_config import _provider_patch_path
+        from apps.core.llm.gateway_profile import selectable_efforts
+
+        with open(
+            _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["kimi-2.6"], thinking=True),
+            encoding="utf-8",
+        ) as handle:
+            efforts = self._reasoning_efforts(handle.read())
+
+        assert tuple(efforts) == selectable_efforts()
+        # off 必须仍是 dsh 自己的语义（不能把档位映射成网关的 low）
+        assert efforts["off"] == "off"
+        assert efforts["max"] == "max"
+
+    def test_effort_keys_stay_quoted_for_yaml_1_1(self, tmp_path: object) -> None:
+        """``off`` / ``on`` / ``yes`` / ``no`` 裸标量在 YAML 1.1 里是布尔。
+
+        去掉引号会让 ``off: "off"`` 变成 ``False: 'off'``，dsh 找不到名为 off
+        的档位——用户无法关闭思考，且不报错。
+        """
+        from apps.agent.backends.dsh_config import _provider_patch_path
+
+        with open(
+            _provider_patch_path(str(tmp_path), base_url="http://gw/v1", models=["kimi-2.6"], thinking=True),
+            encoding="utf-8",
+        ) as handle:
+            stripped = [line.strip() for line in handle]
+        assert '"off": "off"' in stripped
+
+    def test_build_config_declares_thinking_only_for_reasoning_models(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """能力判定走 profile 的特征表：``qwen3`` 就算平台开了开关也不声明档位。"""
+        monkeypatch.setenv(DSH_HOME_ENV, str(tmp_path))
+        for model, expected in (("kimi-2.6", True), ("qwen3", False)):
+            config = build_config(
+                user_id=1,
+                model_hint=model,
+                provider=_provider(default_model=model, enable_thinking=True),
+            )
+            assert isinstance(config, DshProviderConfig)
+            provider_patch = [path for path in config.patches if "provider" in path][0]
+            with open(provider_patch, encoding="utf-8") as handle:
+                text = handle.read()
+            assert ("reasoningEfforts:" in text) is expected, model
+
     def test_thinking_requires_both_switch_and_model_capability(self, tmp_path: object) -> None:
         """平台开关 + 该模型确实是推理模型，两个条件都要满足。"""
         from types import SimpleNamespace

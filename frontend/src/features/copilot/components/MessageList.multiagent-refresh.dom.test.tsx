@@ -4,7 +4,12 @@
  *
  * 与 `domain/multiagent-refresh.test.ts` 的分工：那边验 domain 变换，这里验
  * `MessageList → AnswerGroupView → MultiAnswers` 真把结果画成了三栏，而且
- * 工具只在所属那栏出现、不再作为全宽 ToolRow 堆在转录流底部。
+ * 工具只在所属那栏出现、不再作为整行工具条堆在转录流底部。
+ *
+ * 单栏（含只有工具、没有正文的轮次）的连续工具现在是**换行 chip 流**（见 ToolChips
+ * 的 `ToolChipList`）：`<details>` 收起是一枚 chip、展开才占整行。整行形态的 `ToolRow`
+ * 只剩多栏里「没归位到任何一栏」的工具在用。所以这里断言的是「工具仍在时间流里、
+ * 在气泡之外、结果仍可读」，**不再锁具体文案**（`ok` 态已不出「已完成」字）。
  */
 
 import { act, render, screen } from '@testing-library/react'
@@ -59,6 +64,20 @@ const SESSION_268_ROWS = rowsOf([
   { role: 'assistant', content: 'dsh 的回答', agent_kind: 'dsh' },
   { role: 'assistant', content: 'openai-agents 的回答', agent_kind: 'openai-agents' },
 ])
+
+/**
+ * 时间流里承载某工具的那枚 chip。
+ *
+ * 用结构断言而不是纯子串：工具名必须落在一枚 `<details>`（可展开看返回值）里，
+ * 且**不在任何气泡内**（气泡带 `data-msg-id`，栏内的 `OwnToolList` 就在气泡里）——
+ * 否则「在气泡外」这件事一旦漂移，纯子串断言还会因为别处的同名文字而永远为真。
+ */
+function chipOf(toolName: string): HTMLElement {
+  const chip = screen.getByText(toolName).closest('details')
+  expect(chip).not.toBeNull()
+  expect(chip!.closest('[data-msg-id]')).toBeNull()
+  return chip as HTMLElement
+}
 
 function renderMessages(messages: ChatMessage[]) {
   useCopilot.setState({
@@ -121,13 +140,15 @@ describe('刷新：同一轮的三个 agent 并排', () => {
     }
     expect(screen.getByTestId('multi-column-pi').textContent).not.toContain('search_cases')
     expect(screen.getByTestId('multi-column-dsh').textContent).not.toContain('search_cases')
-    // 全宽工具行的文案是「已完成 · 工具名」；多栏归位后不该再出现
+    // 守卫本轮需求：`ok` 态**不再出可见文字**「已完成」（用户要的是只有图标的 chip，
+    // 见 ToolChips 文件头）。整行 ToolRow 的文案正是「已完成 · 工具名」，而这里也
+    // 根本不该有多栏归位后的整行工具条——两件事一起防，别把它改回来。
     expect(document.body.textContent).not.toContain('已完成 · ')
   })
 })
 
 describe('多 agent 但整轮没有正文（中断 / 全部失败）', () => {
-  it('新问题：只有工具行时仍要画出来，不能因多 kind 被合并吞掉', () => {
+  it('新问题：只有工具时仍要画出来（chip 流），不能因多 kind 被合并吞掉', () => {
     renderMessages(
       historyToMessages(
         rowsOf([
@@ -145,14 +166,23 @@ describe('多 agent 但整轮没有正文（中断 / 全部失败）', () => {
     )
 
     expect(screen.queryByTestId('multi-answers')).toBeNull()
-    expect(document.body.textContent).toContain('已完成 · get_current_user')
-    expect(document.body.textContent).toContain('已完成 · tool_search')
-    expect(document.body.textContent).toContain('已完成 · search_cases')
+    // 三条工具各一枚 chip，且结果跟着 chip（展开/可读）
+    expect(chipOf('get_current_user').textContent).toContain('已确认身份')
+    expect(chipOf('tool_search').textContent).toContain('找到工具')
+    // 工具原文先过 `domain/tool-content` 的 `formatToolContent`（见 ToolRow/ToolChips）：
+    // 键值可见、已展开成多行、**不再**把原文的紧凑形状原样吐出来。
+    // 这里刻意不写「反证式 `not.toContain('{\n')`」：本样本是紧凑 JSON `{"cases":1}`
+    //（不是 MCP 信封），它美化后本来就以 `{\n` 开头，那条守卫在这里恒假；
+    // 等价的反证是「紧凑原文不见了」——美化一旦被关掉，最后一条会立刻变红。
+    const cases = chipOf('search_cases').textContent ?? ''
+    expect(cases).toContain('"cases": 1')
+    expect(cases).toContain('\n')
+    expect(cases).not.toContain('{"cases":1}')
   })
 })
 
-describe('旧数据 / 单 agent：工具仍按时间平铺', () => {
-  it('空 agentKind 的工具行照样画出（律师要看到查了什么）', () => {
+describe('旧数据 / 单 agent：工具仍在时间流里（换成换行 chip 流）', () => {
+  it('空 agentKind 的工具 chip 照样画出（律师要看到查了什么）', () => {
     renderMessages(
       historyToMessages(
         rowsOf([
@@ -164,12 +194,11 @@ describe('旧数据 / 单 agent：工具仍按时间平铺', () => {
     )
 
     expect(screen.queryByTestId('multi-answers')).toBeNull()
-    expect(document.body.textContent).toContain('已完成 · get_case')
-    expect(document.body.textContent).toContain('旧工具结果：案件 393')
+    expect(chipOf('get_case').textContent).toContain('旧工具结果：案件 393')
     expect(document.body.textContent).toContain('旧的 Pi 回答')
   })
 
-  it('单 agent 轮次不分栅，工具行在气泡外平铺', () => {
+  it('单 agent 轮次不分栅，工具 chip 在气泡外组成换行流', () => {
     renderMessages(
       historyToMessages(
         rowsOf([
@@ -182,8 +211,8 @@ describe('旧数据 / 单 agent：工具仍按时间平铺', () => {
     )
 
     expect(screen.queryByTestId('multi-answers')).toBeNull()
-    expect(document.body.textContent).toContain('已完成 · get_current_user')
-    expect(document.body.textContent).toContain('已完成 · list_lawyers')
+    expect(chipOf('get_current_user').textContent).toContain('已确认身份')
+    expect(chipOf('list_lawyers').textContent).toContain('律师名单')
     expect(document.body.textContent).toContain('查到了')
   })
 })

@@ -110,7 +110,7 @@ describe('groupAnswerRuns（转录 → 渲染项）', () => {
 
 describe('MAX_ANSWERS（与后端同口径的上限）', () => {
   it('上限是 4：成本线性增长，四栏并排已是可读性极限', () => {
-    expect(MAX_ANSWERS).toBe(4)
+    expect(MAX_ANSWERS).toBe(5)
   })
 })
 

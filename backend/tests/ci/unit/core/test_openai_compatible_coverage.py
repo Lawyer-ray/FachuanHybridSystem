@@ -161,10 +161,14 @@ class TestBuildExtraBody:
 
     def test_enable_thinking_provider_sends_true(self):
         from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
 
         backend = OpenAICompatibleBackend()
         provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
-        assert backend._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+        result = backend._build_extra_body("kimi26", provider)
+        assert result is not None
+        assert result["chat_template_kwargs"] == {"thinking": True}
+        assert result["reasoning_effort"] in GATEWAY_EFFORTS
 
 
 class TestRaiseMappedError:

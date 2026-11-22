@@ -8,14 +8,16 @@
  *
  * `agent_kind` 是**会话级、不可更换**的属性——上下文归后端自己管（pi 有自己的
  * session 文件），换后端等于换脑子，前面的对话对它不存在。所以：
- * - 没会话（`sessionId === null`）时 `selectedAgentKind` 决定新建的会话用谁；
- * - 已建会话只读展示 `session.agent_kind`，UI 上手（见 AgentBackendPicker）。
+ * - 没会话（`sessionId === null`）时**本轮勾选的第一个后端**决定新建会话的
+ *   归属（见 store/turn.ts 与 components/AnswerAgentMenu）；`selectedAgentKind`
+ *   是本轮没勾任何后端时的兜底（= 部署默认）；
+ * - 已建会话只读展示 `session.agent_kind`（标题后的后缀，不是控件）。
  *
  * ## 读不到清单时怎么办
  *
- * `backends` 为空（接口失败 / 还没拉）时切换器退化为纯展示，**不阻塞**发消息：
- * 空串 `selectedAgentKind` 就是「不指定」，后端走默认值 pi。为一次探测失败
- * 拦住用户提问，代价远大于收益。
+ * `backends` 为空（接口失败 / 还没拉）时多选菜单只显示一句「清单暂不可用」，
+ * **不阻塞**发消息：空串 `selectedAgentKind` 就是「不指定」，后端走默认值 pi。
+ * 为一次探测失败拦住用户提问，代价远大于收益。
  */
 
 import * as copilotApi from '../api'

@@ -26174,13 +26174,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Synthesis"
+                  "$ref": "#/components/schemas/SynthesisJobOut"
                 }
               }
             }
           }
         },
-        "description": "对指定轮次跑一次综合结论（独立请求，不进 SSE）。",
+        "description": "提交一次综合结论任务，立即返回任务状态（不等结果）。\n\n同一会话同一轮已有进行中的任务时，返回那一个（``created=False``，参数以先提交的\n为准），不重复花钱。",
         "tags": [
           "Agent 综合结论"
         ],
@@ -26194,6 +26194,147 @@
           },
           "required": true
         },
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/sessions/{session_id}/synthesis/jobs": {
+      "get": {
+        "operationId": "apps_agent_api_synthesis_api_get_latest_synthesis_job",
+        "summary": "Get Latest Synthesis Job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "turn",
+            "schema": {
+              "title": "Turn",
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesisJobOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "某一轮最近一次综合任务（刷新页面后接着显示进度）；该轮没提交过时 404。",
+        "tags": [
+          "Agent 综合结论"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/sessions/{session_id}/synthesis/jobs/{job_id}": {
+      "get": {
+        "operationId": "apps_agent_api_synthesis_api_get_synthesis_job",
+        "summary": "Get Synthesis Job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesisJobOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "轮询某个综合任务。",
+        "tags": [
+          "Agent 综合结论"
+        ],
+        "security": [
+          {
+            "JWTOrSessionAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/sessions/{session_id}/synthesis/jobs/{job_id}/cancel": {
+      "post": {
+        "operationId": "apps_agent_api_synthesis_api_cancel_synthesis_job",
+        "summary": "Cancel Synthesis Job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesisJobOut"
+                }
+              }
+            }
+          }
+        },
+        "description": "取消综合任务：排队中立即取消；运行中置取消标志，数秒内停下（轮询可见）。\n\n已结束的任务原样返回（取消是幂等的）。",
+        "tags": [
+          "Agent 综合结论"
+        ],
         "security": [
           {
             "JWTOrSessionAuth": []
@@ -50342,10 +50483,17 @@
       "LegalResearchTaskCreateIn": {
         "properties": {
           "credential_id": {
-            "description": "wkxx账号凭证ID",
-            "exclusiveMinimum": 0,
-            "title": "Credential Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "wkxx账号凭证ID（省略=自动)",
+            "title": "Credential Id"
           },
           "keyword": {
             "description": "检索关键词；支持空格、逗号、分号、换行分隔多个关键词",
@@ -50432,7 +50580,6 @@
           }
         },
         "required": [
-          "credential_id",
           "keyword",
           "case_summary"
         ],
@@ -50761,10 +50908,17 @@
             "type": "string"
           },
           "credential_id": {
-            "description": "账号凭证ID",
-            "exclusiveMinimum": 0,
-            "title": "Credential Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "账号凭证ID（省略=自动挑本所的威科账号）",
+            "title": "Credential Id"
           },
           "intent": {
             "default": "similar_case",
@@ -50849,10 +51003,23 @@
             ],
             "title": "Search Mode",
             "type": "string"
+          },
+          "min_similarity_score": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "相似度阈值（可选项）。不传 = 0.9（严格，适合短关键词检索）；传 0.5–0.7 适合长案情段落（整段事实与判决书全文的相似度天然偏低）",
+            "title": "Min Similarity Score"
           }
         },
         "required": [
-          "credential_id",
           "facts"
         ],
         "title": "AgentSearchRequestV1",
@@ -51131,15 +51298,21 @@
             "type": "string"
           },
           "credential_id": {
-            "description": "法规检索服务账号的凭证 ID（LawyerCredential 主键）",
-            "exclusiveMinimum": 0,
-            "title": "Credential Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "凭证 ID（省略=自动挑本所的威科账号）",
+            "title": "Credential Id"
           }
         },
         "required": [
-          "text",
-          "credential_id"
+          "text"
         ],
         "title": "LawVerificationCheckIn",
         "type": "object"
@@ -55882,7 +56055,7 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "minItems": 1,
             "title": "Agents",
             "type": "array"
@@ -56108,6 +56281,82 @@
         "title": "SynthesisCitation",
         "type": "object"
       },
+      "SynthesisJobOut": {
+        "description": "一次综合任务的状态（轮询用）。",
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "cancel_requested": {
+            "title": "Cancel Requested",
+            "type": "boolean"
+          },
+          "review": {
+            "title": "Review",
+            "type": "boolean"
+          },
+          "created": {
+            "default": false,
+            "title": "Created",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "synthesis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Synthesis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "job_id",
+          "session_id",
+          "turn",
+          "status",
+          "stage",
+          "error",
+          "cancel_requested",
+          "review",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SynthesisJobOut",
+        "type": "object"
+      },
       "SynthesisIn": {
         "description": "触发一次综合结论所需的上下文。",
         "properties": {
@@ -56120,7 +56369,7 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 4,
+            "maxItems": 5,
             "minItems": 1,
             "title": "Agents",
             "type": "array"
@@ -56130,6 +56379,29 @@
             "maxLength": 200,
             "title": "Model",
             "type": "string"
+          },
+          "kind": {
+            "default": "pi",
+            "maxLength": 64,
+            "title": "Kind",
+            "type": "string"
+          },
+          "review": {
+            "default": true,
+            "title": "Review",
+            "type": "boolean"
+          },
+          "credential_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Id"
           }
         },
         "required": [

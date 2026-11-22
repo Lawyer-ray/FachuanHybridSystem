@@ -6,21 +6,26 @@
  * 渲染漏传（按钮该出现时没出现）。所以断言都落在「点了调到谁」与「什么状态
  * 显示什么」上，不测样式。
  *
- * 另有一条与本次需求直接相关：agent 后端标识必须出现在 header 里，且由
- * `currentAgentKind` 决定可切换还是只读——它就是用户理解「下一个会话用谁」
- * 的唯一入口。
+ * 另有一组与本次需求直接相关：header 里的后端**只可以是后缀**——已有会话时是
+ * 标题后面的弱化文本（看着不可点，就不是假按钮）；新对话态**一个后端控件都
+ * 没有**，选谁归输入区的 AnswerAgentMenu，两处可选必然不一致（真实反馈：
+ * 「还是有两个地方可以选呀」）。而「为什么不能中途换」只活在「新对话」的
+ * tooltip 里。
  */
 
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// header 只从 store 读清单（已建会话的后端显示名）；选谁不在 header 里
 const storeMock = vi.hoisted(() => ({
-  backends: [
-    { kind: 'pi', label: 'Pi', description: '', available: true, reason: '', capabilities: {} },
-    { kind: 'dsh', label: 'DeepSeek Harness', description: '', available: true, reason: '', capabilities: {} },
-  ],
-  selectedAgentKind: 'pi',
-  selectAgentKind: vi.fn<(kind: string) => void>(),
+  backends: [] as Array<{
+    kind: string
+    label: string
+    description: string
+    available: boolean
+    reason: string
+    capabilities: Record<string, boolean>
+  }>,
 }))
 
 vi.mock('../store', () => ({
@@ -49,9 +54,12 @@ function makeProps(overrides: Partial<CopilotHeaderProps> = {}): CopilotHeaderPr
   }
 }
 
+/** 每个用例都从同一份清单出发：「清单没拉到」那条会把它置空 */
 beforeEach(() => {
-  storeMock.selectedAgentKind = 'pi'
-  storeMock.selectAgentKind.mockClear()
+  storeMock.backends = [
+    { kind: 'pi', label: 'Pi', description: '', available: true, reason: '', capabilities: {} },
+    { kind: 'dsh', label: 'DeepSeek Harness', description: '', available: true, reason: '', capabilities: {} },
+  ]
 })
 
 describe('CopilotHeader：标题与开关', () => {
@@ -127,18 +135,65 @@ describe('CopilotHeader：条件渲染', () => {
 })
 
 describe('CopilotHeader：agent 后端入口', () => {
-  it('没有当前会话时是可切换的下拉（决定新会话用谁）', () => {
+  /** 标题后缀是纯文本节点（不是按钮、不可点） */
+  const titleSuffix = () => screen.getByText(/^· /).textContent
+
+  it('新对话态没有任何后端选择控件（新会话用谁只由输入区的 AnswerAgentMenu 决定）', () => {
     render(<CopilotHeader {...makeProps({ currentAgentKind: null })} />)
-    expect(screen.getByRole('button', { name: /后端：Pi，点击更换/ })).toBeTruthy()
+
+    // 没有下拉、没有列表、没有「后端：…」之类的按钮，也没有标题后缀
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(screen.queryByRole('button', { name: /后端/ })).toBeNull()
+    expect(screen.queryByText(/^· /)).toBeNull()
+    expect(screen.getByText('AI 助手')).toBeTruthy()
+    // header 自己的按钮照旧在位：删掉的只是后端选择器
+    expect(screen.getByRole('button', { name: /新对话/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /收起会话栏/ })).toBeTruthy()
   })
 
-  it('已有会话时是只读标识（显示该会话的后端，不能改）', () => {
+  it('已有会话时后端名做标题后缀：可见、弱化、不是按钮', () => {
     render(<CopilotHeader {...makeProps({ currentAgentKind: 'dsh' })} />)
-    const locked = screen.getByRole('button', { name: /本会话使用 DeepSeek Harness，不可更换/ })
-    expect(locked).toBeTruthy()
-    // 只读态不再提供 listbox
-    fireEvent.click(locked)
+
+    // 无标题会话 → 「AI 助手 · <后端名>」
+    expect(screen.getByText('AI 助手')).toBeTruthy()
+    expect(titleSuffix()).toBe('· DeepSeek Harness')
+    // 后端名不能是可点的假按钮：没有下拉，也没有任何「本会话使用…」的按钮
+    expect(screen.queryByRole('button', { name: /后端：/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /本会话使用/ })).toBeNull()
     expect(screen.queryByRole('listbox')).toBeNull()
+  })
+
+  it('既有会话标题又有后端时：标题后跟后端后缀', () => {
+    render(<CopilotHeader {...makeProps({ currentAgentKind: 'pi', currentTitle: '合同违约分析' })} />)
+
+    expect(screen.getByText('合同违约分析')).toBeTruthy()
+    expect(titleSuffix()).toBe('· Pi')
+  })
+
+  it('业务范围内也带后端后缀（后端名在哪个宿主/范围子下都看得见）', () => {
+    render(
+      <CopilotHeader
+        {...makeProps({ currentAgentKind: 'dsh', context: { origin: 'case', refId: 7, title: '张三诉李四' } })}
+      />,
+    )
+
+    expect(screen.getByText('AI 助手 · 张三诉李四')).toBeTruthy()
+    expect(titleSuffix()).toBe('· DeepSeek Harness')
+  })
+
+  it('后端清单没拉到时后缀显示 kind 原文（不显示空白）', () => {
+    storeMock.backends = []
+    render(<CopilotHeader {...makeProps({ currentAgentKind: 'dsh' })} />)
+
+    expect(titleSuffix()).toBe('· dsh')
+  })
+
+  it('「新对话」的 tooltip 承担「为什么不能中途换后端」（解释不靠只能弹一句的假按钮）', () => {
+    render(<CopilotHeader {...makeProps({ currentAgentKind: 'dsh' })} />)
+
+    expect(screen.getByRole('button', { name: /新对话/ }).getAttribute('title')).toBe(
+      '需要换后端请新建对话——后端在建会话时确定，中途更换会丢失上下文',
+    )
   })
 })
 

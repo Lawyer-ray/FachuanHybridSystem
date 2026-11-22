@@ -303,7 +303,7 @@ class TestReviewOptions:
 
         assert options.rubric_ids == [DEFAULT_RUBRIC_ID]
         assert options.judge_models == ["kimi-2.6", "glm53"]
-        assert options.max_lanes == 4
+        assert options.max_lanes == review_api.MAX_ANSWERS
 
     def test_empty_platform_models_is_an_empty_list_not_an_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(review_api, "_available_models", lambda: [])

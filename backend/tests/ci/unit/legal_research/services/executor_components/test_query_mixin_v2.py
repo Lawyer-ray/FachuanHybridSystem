@@ -253,6 +253,50 @@ class TestTitlePrefilter:
             is True
         )
 
+    # ── 回归：长案情不得把 overlap 撞成 0（task 130/135/136 全量误杀） ──
+
+    LONG_SUMMARY = (
+        "我方当事人向对方供应建材，对方拖欠货款86万元，合同约定逾期付款违约金按日万分之五计算，"
+        "对方以货物质量不合格抗辩。\n争议焦点：买卖合同货款及违约金\n案由：买卖合同纠纷"
+    )
+
+    def test_long_case_summary_does_not_kill_matching_title(self) -> None:
+        """keyword 命中标题、summary 是整段案情时，必须放行（旧实现 1/8=0.125 < 0.15 → 误杀）。"""
+        assert (
+            _TestQuery._title_prefilter(
+                keyword="买卖合同纠纷 买卖合同货款及违约金",
+                case_summary=self.LONG_SUMMARY,
+                # 虚构主体：真实裁判文书标题里的企业全称属隐私，测试用假名（结构完全相同）
+                title_hint="某某种植专业合作社与某某商贸有限公司 买卖合同纠纷 一审民事裁定书",
+                min_overlap=0.15,
+            )
+            is True
+        )
+
+    def test_long_case_summary_still_rejects_unrelated_title(self) -> None:
+        """粗筛不能因此失效：标题与 keyword/摘要都无交集时仍要挡掉。"""
+        assert (
+            _TestQuery._title_prefilter(
+                keyword="买卖合同纠纷 违约金",
+                case_summary=self.LONG_SUMMARY,
+                title_hint="房屋租赁合同纠纷二审民事判决书",
+                min_overlap=0.15,
+            )
+            is False
+        )
+
+    def test_summary_token_hit_counts_as_one_match(self) -> None:
+        """keyword 一个都不中、但 summary token 命中标题时按 1 个命中记账（宁可放过）。"""
+        assert (
+            _TestQuery._title_prefilter(
+                keyword="不当得利 返还",
+                case_summary="超龄劳动者",
+                title_hint="超龄劳动者工伤认定行政案",
+                min_overlap=0.5,
+            )
+            is True
+        )
+
 
 class TestParseQueryVariants:
     def test_valid_json(self) -> None:
