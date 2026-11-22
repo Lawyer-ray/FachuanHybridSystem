@@ -137,11 +137,16 @@ class ImageRotationService:
             exif_orientation_tag=self.EXIF_ORIENTATION_TAG,
         )
 
-        # 应用手动旋转（前端顺时针角度，PIL rotate 为逆时针，需取反）
+        # 应用手动旋转（前端给的是**顺时针**角度）
+        # 2026-11-23 审计修复（P11-03）：这里原先又写了一次 `(-rotation) % 360`，
+        # 而 rotate_image_for_output 内部已经用 to_pil_angle() 做过「顺时针 → PIL 逆时针」的
+        # 唯一转换（apps/image_rotation/services/transform/angles.py 明确要求只在此处转换），
+        # 两次取反相互抵消成「再反转」→ /export 的 90°/270° 结果与界面方向相反。
+        # 语义约定：传进来的 rotation 就是界面/ONNX 的顺时针角，直接交给下游。
         if rotation in (90, 180, 270):
             processed_bytes = rotate_image_for_output(
                 processed_bytes,
-                rotation=(-rotation) % 360,
+                rotation=rotation,
                 img_format=normalized_format,
             )
 

@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from decimal import Decimal
 from json import JSONDecodeError, dumps, loads
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.db.models import Count, Sum
@@ -169,19 +169,32 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         changes: dict[str, Any],
         level: str = "INFO",
     ) -> None:  # pragma: no cover
+        # 2026-11-23 审计修复（P02-02）：
+        # 1) actor 是 NOT NULL 的 PROTECT FK，user_id 可能为 None（脚本/定时任务路径）。
+        #    原先 `cast(int, user_id)` 只是给类型检查看的，运行期仍写 None → IntegrityError。
+        # 2) 更要命的是失败发生在**外层事务内部**：PostgreSQL 里一条失败语句会让整个事务进入
+        #    aborted 状态，而这里把异常吞掉后外层照常 commit —— 结果是**整个财务变更被静默回滚，
+        #    函数却正常返回**，调用方以为改成功了。
+        # 因此：缺操作者时不写（并明确告警），写入放进 savepoint，失败只回滚这一段。
+        if user_id is None:
+            logger.warning("财务变更审计日志缺少操作者，跳过写入：contract=%s action=%s", contract_id, action)
+            return
         try:
             from apps.contracts.models import ContractFinanceLog
 
             payload = self._normalize_json_payload(changes)
-            ContractFinanceLog.objects.create(
-                contract_id=contract_id,
-                action=action,
-                level=level,
-                actor_id=cast(int, user_id),
-                payload=payload,
-            )
+            with transaction.atomic():  # savepoint：失败只回滚审计行，不污染外层事务
+                ContractFinanceLog.objects.create(
+                    contract_id=contract_id,
+                    action=action,
+                    level=level,
+                    actor_id=user_id,
+                    payload=payload,
+                )
         except Exception:
-            logger.exception("操作失败")
+            logger.exception(
+                "写财务变更审计日志失败（已隔离，不影响主事务）：contract=%s action=%s", contract_id, action
+            )
 
     def _normalize_json_payload(self, value: Any) -> Any:
         try:
