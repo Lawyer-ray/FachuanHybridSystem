@@ -14,7 +14,21 @@
  * 没勾的行模型下拉置灰（选了也不跑，允许改只会让人以为自己已经配好了）。
  *
  * 行渲染拆在 {@link AgentRow}、模型下拉在 AgentModelPicker：本文件只留菜单外壳
- * （触发器摘要、上限计数、禁用态），否则三件事挤在一起必然撞 350 行软红线。
+ * （触发器摘要、上限计数、禁用态、关闭时机），否则三件事挤在一起必然撞 350 行软红线。
+ *
+ * ## 关闭时机：勾选**不**关，点外部空白 / Escape 才关
+ *
+ * 勾选不是「确认」——勾完 Pi 紧接着要给它选模型，勾 2 个以上还得来回给每一行配。
+ * 勾一次关一次，用户就得重新开、重新找那一行。所以：
+ *
+ * - 点菜单内部任何地方（行、模型下拉、底部两句文案）都**不**关；
+ * - 点菜单外部空白 → 关（`document` 上的 `pointerdown`，判 ref 的 `contains`）；
+ * - `Escape` → 关并把焦点还给触发器（只做这一条键盘路径，不做 roving focus）；
+ * - 再点一次触发器 → 关（它自己的 toggle，既有行为）。
+ *
+ * 用 `pointerdown` 而不是 `click`：`click` 在行内按钮的 `onClick` **之后**才冒到
+ * `document`，那时菜单可能已被自己的状态更新卸载、`contains` 判不出东西；按住拖选
+ * 时 `pointerdown` 也更贴直觉。
  *
  * ## 上限
  *
@@ -46,7 +60,7 @@
  * 「本轮参与的 AI：会话默认（Pi）；点击选择」），不能只说一句「选择 AI」。
  */
 
-import { useCallback, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GitCompare, ChevronDown } from 'lucide-react'
 
 import { DEFAULT_AGENT_KIND, MAX_ANSWERS } from '../domain'
@@ -85,7 +99,35 @@ export function AnswerAgentMenu({
   onSelectModel: (kind: string, model: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
+  const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // 关闭途径只有三条（勾选**不**在其中，见文件头）：外部 pointerdown、Escape、
+  // 再点触发器（走它自己的 toggle）。监听只在 open 时挂着，关掉就摘。
+  //
+  // ref 挂在外壳（含触发器）而不是只挂浮层：只挂浮层的话，点触发器会先被判成
+  // 「外部」关掉、再被 onClick 翻回打开，那枚按钮就再也关不掉菜单了。
+  useEffect(() => {
+    if (!open) return
+    const onDown = (event: Event) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (rootRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      // 浮层关掉后焦点不能留在已卸载的节点里：还给触发器，键盘用户不用从头 Tab
+      triggerRef.current?.focus()
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
 
   // 清单没拉到时也要能显示「这家是谁」：kind 原文比空白可读
   const names = selected.map((kind) => findBackend(backends, kind)?.label ?? kind)
@@ -99,8 +141,9 @@ export function AnswerAgentMenu({
   const usageTitle = `选择这一轮问哪几个 AI（最多 ${MAX_ANSWERS} 个）以及各自用哪个模型。每多选一个就多跑一轮，token 与耗时随之增加。`
 
   return (
-    <div className="relative flex-none">
+    <div ref={rootRef} className="relative flex-none">
       <button
+        ref={triggerRef}
         type="button"
         className={`${TRIGGER_CLASS} ${
           active ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
@@ -150,7 +193,6 @@ export function AnswerAgentMenu({
               model={models[option.kind] ?? ''}
               onToggle={onToggle}
               onSelectModel={onSelectModel}
-              onRowPicked={close}
             />
           ))}
           <p className="px-2 py-1 text-[11px] text-muted-foreground">

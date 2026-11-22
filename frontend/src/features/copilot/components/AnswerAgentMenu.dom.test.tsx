@@ -15,8 +15,11 @@
  * 6. **归属规则写在菜单里**：本菜单是新会话 `agent_kind` 的唯一入口（勾 1 个归它、
  *    勾多个归第一个），这条不能只活在代码注释里——用户看不到就会以为「选 2 个
  *    对比」不会把会话绑到第一家。
+ * 7. **关闭时机**：勾选**不**关（勾完还要给那一行选模型），只有点菜单外部空白、
+ *    `Escape`（焦点还给触发器）、再点触发器这三种会关。
  */
 
+import { useState } from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -72,10 +75,38 @@ function renderMenu(props: Partial<React.ComponentProps<typeof AnswerAgentMenu>>
   return { onToggle, onSelectModel, ...rendered }
 }
 
+/**
+ * 有状态宿主：`selected` 真的随点击变，才能验「勾完那一行当场就能选模型」——
+ * 上面那个 vi.fn 版本永远停在传入的 props 上。
+ */
+function renderStatefulMenu() {
+  function Host() {
+    const [selected, setSelected] = useState<string[]>([])
+    return (
+      <AnswerAgentMenu
+        backends={backends}
+        selected={selected}
+        models={{}}
+        defaultKind="pi"
+        disabled={false}
+        hint=""
+        // 与 store/answers.ts 的 toggleAnswerAgent 同语义：已选 = 移除，未选 = 追加
+        onToggle={(kind) =>
+          setSelected((cur) => (cur.includes(kind) ? cur.filter((k) => k !== kind) : [...cur, kind]))
+        }
+        onSelectModel={() => {}}
+      />
+    )
+  }
+  return render(<Host />)
+}
+
 /** 打开菜单（触发按钮的 aria-label 随选择变化，按前缀找） */
 function openMenu() {
   fireEvent.click(screen.getByRole('button', { name: /本轮参与的 AI/ }))
 }
+
+const MULTI_LISTBOX = { name: '可选 AI（多选）' } as const
 
 describe('AnswerAgentMenu', () => {
   it('未选时触发器收成纯图标：不出文字，身份由 aria-label 说清', () => {
@@ -148,13 +179,13 @@ describe('AnswerAgentMenu', () => {
     expect(dshRow.querySelector('[data-no-approval-badge]')!.getAttribute('title')).toContain('没有人工审批闸门')
   })
 
-  it('点一项回调那次 kind，并收起菜单', () => {
+  it('点一项回调那次 kind，菜单**不**收起（勾选不是「确认」）', () => {
     const { onToggle } = renderMenu()
     openMenu()
     fireEvent.click(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }))
 
     expect(onToggle).toHaveBeenCalledWith('dsh')
-    expect(screen.queryByRole('listbox', { name: '可选 AI（多选）' })).toBeNull()
+    expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
   })
 
   it('已选项带对勾（aria-checked）', () => {
@@ -205,6 +236,77 @@ describe('AnswerAgentMenu', () => {
     expect(
       (screen.getByLabelText('本轮参与的 AI：会话默认（Pi）；点击选择') as HTMLButtonElement).title,
     ).toBe('发送中，请稍候')
+  })
+})
+
+describe('AnswerAgentMenu：关闭时机（勾选不关，点外部空白 / Escape 才关）', () => {
+  it('勾一行后菜单仍然打开，底部「已选 N 个」当场更新', () => {
+    renderStatefulMenu()
+    openMenu()
+    expect(screen.getByText('已选 0 个 · 最多 4 个')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }))
+
+    // 菜单一关，用户就得重开再找到那一行才能继续配模型
+    expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
+    expect(screen.getByText('已选 1 个 · 最多 4 个')).toBeTruthy()
+    expect(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }).getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('勾完那一行的模型下拉立刻可点，且展开/选完不连带关掉父菜单', () => {
+    renderStatefulMenu()
+    openMenu()
+    const picker = () => screen.getByLabelText('DeepSeek Harness 使用的模型：glm53') as HTMLButtonElement
+    expect(picker().disabled).toBe(true)
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }))
+    expect(picker().disabled).toBe(false)
+
+    // 点下拉触发器（pointerdown 先到 document）→ 父菜单不能把自己判成「外部」
+    fireEvent.pointerDown(picker())
+    fireEvent.click(picker())
+    expect(screen.getByRole('listbox', { name: 'DeepSeek Harness 的模型' })).toBeTruthy()
+    expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
+
+    const model = screen.getByRole('option', { name: 'claude-opus-4-5' })
+    fireEvent.pointerDown(model)
+    fireEvent.click(model)
+    // 模型下拉收起自己那一层，父菜单照旧开着（还要接着配别家）
+    expect(screen.queryByRole('listbox', { name: 'DeepSeek Harness 的模型' })).toBeNull()
+    expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
+  })
+
+  it('点菜单外部（document.body）→ 关闭', () => {
+    renderMenu()
+    openMenu()
+    expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
+
+    fireEvent.pointerDown(document.body)
+
+    expect(screen.queryByRole('listbox', MULTI_LISTBOX)).toBeNull()
+  })
+
+  it('点菜单内部的空白（底部文案区）→ 不关闭', () => {
+    renderMenu()
+    openMenu()
+
+    fireEvent.pointerDown(screen.getByText('已选 0 个 · 最多 4 个'))
+    fireEvent.pointerDown(screen.getByText(/新会话也归它/))
+
+    expect(screen.getByRole('listbox', MULTI_LISTBOX)).toBeTruthy()
+  })
+
+  it('Escape 关闭并把焦点还给触发器', () => {
+    renderMenu()
+    openMenu()
+    const trigger = screen.getByRole('button', { name: /本轮参与的 AI/ })
+    // fireEvent.click 不移动焦点，所以焦点本来不在触发器上
+    expect(document.activeElement).not.toBe(trigger)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(screen.queryByRole('listbox', MULTI_LISTBOX)).toBeNull()
+    expect(document.activeElement).toBe(trigger)
   })
 })
 

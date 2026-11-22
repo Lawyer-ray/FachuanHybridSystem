@@ -42,7 +42,6 @@ export function AgentRow({
   model,
   onToggle,
   onSelectModel,
-  onRowPicked,
 }: {
   option: AgentBackendOption
   /** 这一行是否已勾选 */
@@ -55,8 +54,6 @@ export function AgentRow({
   model: string
   onToggle: (kind: string) => void
   onSelectModel: (kind: string, model: string) => void
-  /** 勾选成功后收起菜单（模型下拉是独立控件，不受此影响） */
-  onRowPicked: () => void
 }) {
   const blocked = !option.available || blockedByLimit
   // 徽标会被这个 aria-label 盖掉，所以「默认」必须并进无障碍名，不能只靠视力
@@ -84,10 +81,8 @@ export function AgentRow({
         aria-label={checkboxName}
         aria-checked={picked}
         role="checkbox"
-        onClick={() => {
-          onToggle(option.kind)
-          onRowPicked()
-        }}
+        // 勾选只改这一行的状态，不收起菜单：勾完往往还要在同一行选模型
+        onClick={() => onToggle(option.kind)}
         title={title}
       >
         <span className={CHECK_CLASS}>{picked && <Check className="h-3 w-3 text-foreground" aria-hidden />}</span>
