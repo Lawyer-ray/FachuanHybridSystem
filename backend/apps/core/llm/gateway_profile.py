@@ -42,6 +42,7 @@ from .exceptions import LLMAPIError, LLMNetworkError, LLMTimeoutError
 __all__ = [
     "DEFAULT_THINKING_LEVEL",
     "GATEWAY_EFFORTS",
+    "RATE_LIMIT_CHANNEL_NOTE",
     "RETRYABLE_EXCEPTIONS",
     "ThinkingDirectives",
     "fallback_chain",
@@ -301,3 +302,23 @@ def fallback_chain(primary: str | None, raw_fallback: Sequence[str] | str | None
         seen.add(name)
         chain.append(name)
     return chain
+
+
+# ── 5. 通道能力差异 ─────────────────────────────────────────────────
+
+#: ``LLMProvider.rpm_limit`` / ``tpm_limit`` 的适用范围：两个字段只在**服务通道**生效。
+#:
+#: 为什么单列一个常量：rpm/tpm 要算「60 秒窗口内发了几次请求 / 用了多少 token」，
+#: 必须有**请求边界**。服务通道（诉状生成、合同审查）每次模型调用都过
+#: ``key_pool.KeyPool``，边界清晰；Agent 通道（copilot）的 model 调用发生在 pi /
+#: dsh / antigravity 的**外部进程**里，Django 侧只能看到轮次，看不到中间的 N 次
+#: tool → model 往返。按轮次近似会把「一轮 = 20 次调用」记成 1 次，等于放宽 20 倍。
+#:
+#: 靠字段的 ``help_text`` 描述这件事会连带产生一份 help_text-only 迁移，而这段口径
+#: 会在**多条通道**上被引用（Admin 表单、结构守卫），放在本模块才能只有一份真相。
+#:
+#: 为什么仍留着这两个字段：服务通道确实按它们限流（``key_pool.configure_limits``
+#: 的唯一调用方在 ``openai_compatible``），只是不对 Agent 通道作任何承诺。
+RATE_LIMIT_CHANNEL_NOTE = (
+    "仅服务通道生效；Agent 通道（copilot）无法观测请求边界，不受此限。原因见 apps/core/llm/key_pool.py 模块 docstring。"
+)

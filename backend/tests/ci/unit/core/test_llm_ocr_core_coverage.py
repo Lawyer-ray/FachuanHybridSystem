@@ -40,12 +40,17 @@ class TestOpenAICompatibleBackend:
         assert result["chat_template_kwargs"]["thinking"] is False
 
     def test_build_extra_body_enable_thinking_provider(self):
+        """开启思考时两个字段都下发：thinking 管「要不要想」，reasoning_effort 管「想多深」。"""
         from apps.core.llm.backends.base import OpenAIProviderConfig
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+        from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
 
         backend = OpenAICompatibleBackend()
         provider = OpenAIProviderConfig(name="p", default_model="kimi26", enable_thinking=True)
-        assert backend._build_extra_body("kimi26", provider) == {"chat_template_kwargs": {"thinking": True}}
+        result = backend._build_extra_body("kimi26", provider)
+        assert result is not None
+        assert result["chat_template_kwargs"] == {"thinking": True}
+        assert result["reasoning_effort"] in GATEWAY_EFFORTS
 
     def test_build_extra_body_normal(self):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend

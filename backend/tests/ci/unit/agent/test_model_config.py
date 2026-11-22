@@ -73,6 +73,38 @@ class TestReasoningDeclaration:
         [entry] = _models_of(payload)
         assert entry["reasoning"] is False
 
+    def test_kimi_k2_declares_reasoning_through_wide_marker(self, monkeypatch: Any) -> None:
+        """``kimi-k2`` 必须判为推理模型。
+
+        口径在 ``gateway_profile`` 里是**宽匹配**（``"kimi"`` 命中 ``kimi-k2`` /
+        ``kimi-2.6`` / ``kimi26``）。服务通道原先只认 ``kimi26``，于是同一个模型在
+        两条通道上判出相反结论（copilot 里推理、诉状生成里不推理，且无报错）。
+        """
+        monkeypatch.setattr(
+            model_config,
+            "_load_provider",
+            lambda hint="": _provider(default_model="kimi-k2", enable_thinking=True),
+        )
+        payload = model_config.build_models_json("kimi-k2")
+        assert payload is not None
+        [entry] = _models_of(payload)
+        assert entry["reasoning"] is True
+        assert entry["thinkingLevelMap"]["max"] == "max"
+
+    def test_qwen3_never_declares_reasoning(self, monkeypatch: Any) -> None:
+        """``qwen3`` 不在特征表里：即便平台开了开关也不能声明能力。"""
+        monkeypatch.setattr(
+            model_config,
+            "_load_provider",
+            lambda hint="": _provider(default_model="qwen3", enable_thinking=True),
+        )
+        payload = model_config.build_models_json("qwen3")
+        assert payload is not None
+        [entry] = _models_of(payload)
+        assert entry["reasoning"] is False
+        # 没声明能力时不能同时写档位表：pi 会以为它支持思考
+        assert "thinkingLevelMap" not in entry
+
     def test_entry_keeps_window_and_max_tokens(self, monkeypatch: Any) -> None:
         monkeypatch.setattr(model_config, "_load_provider", lambda hint="": _provider(enable_thinking=True))
         payload = model_config.build_models_json("kimi-2.6")
@@ -188,6 +220,78 @@ class TestSupportsImageInput:
         """model_hint 为空时回落 default_model，与 models.json 实际渲染的模型保持一致。"""
         monkeypatch.setattr(model_config, "_load_provider", lambda hint="": _provider(vision_model="kimi-2.6"))
         assert model_config.supports_image_input() is True
+
+
+class TestGatewayProfileDelegation:
+    """档位与能力判定的唯一来源是 ``apps.core.llm.gateway_profile``。"""
+
+    def test_gateway_effort_is_reexported(self) -> None:
+        """``antigravity_backend`` / ``openai_agents_backend`` 都从这里 from-import。"""
+        from apps.core.llm import gateway_profile
+
+        assert model_config.gateway_effort is gateway_profile.gateway_effort
+        assert model_config.DEFAULT_THINKING_LEVEL == gateway_profile.DEFAULT_THINKING_LEVEL
+
+    def test_empty_level_no_longer_returns_empty_string(self) -> None:
+        """新口径下 ``gateway_effort("")`` 回到默认档，**不再返回空串**。
+
+        旧实现用 ``""`` 当「没有档位」的哨兵（``antigravity_backend`` 里还有
+        ``if effort:``）。这条锁住新语义，避免有人按旧假设继续用空串判真假。
+        """
+        from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
+
+        assert model_config.gateway_effort("") == model_config.DEFAULT_THINKING_LEVEL
+        assert model_config.gateway_effort("") in GATEWAY_EFFORTS
+
+    def test_medium_is_normalised_before_reaching_gateway(self) -> None:
+        """原样发 ``medium`` 会被网关 400，映射必须在 profile 里发生。"""
+        assert model_config.gateway_effort("medium") == "high"
+        assert model_config.gateway_effort("minimal") == "low"
+
+
+class TestFallbackModels:
+    """降级链解析：``fallback_models`` 有 ``list[str]`` 与 DB 原串两种真实形态。"""
+
+    def test_list_form_is_not_stringified(self, monkeypatch: Any) -> None:
+        """服务通道的 ``fallback_models`` 是 ``list[str]``。
+
+        切到 ``fallback_chain`` 时若保留 ``str(...)``，会得到
+        ``"['glm53', 'qwen3']"`` 并切出一个名为 ``['glm53`` 的模型——降级请求
+        于是必然 404，而不是换到备用模型。
+        """
+        monkeypatch.setattr(
+            model_config,
+            "_load_provider",
+            lambda hint="": _provider(fallback_models=["glm53", "qwen3"]),
+        )
+        assert model_config.resolve_fallback_models("kimi-2.6") == ["kimi-2.6", "glm53", "qwen3"]
+
+    def test_db_raw_string_form_splits_mixed_separators(self, monkeypatch: Any) -> None:
+        """Agent 通道给的是 DB 原串（逗号/分号/换行混写）。"""
+        monkeypatch.setattr(
+            model_config,
+            "_load_provider",
+            lambda hint="": _provider(fallback_models="glm53; qwen3\nkimi-k2"),
+        )
+        assert model_config.resolve_fallback_models("kimi-2.6") == ["kimi-2.6", "glm53", "qwen3", "kimi-k2"]
+
+    def test_primary_repeated_in_fallback_kept_once(self, monkeypatch: Any) -> None:
+        """降级到自己只会空烧一次请求。"""
+        monkeypatch.setattr(
+            model_config,
+            "_load_provider",
+            lambda hint="": _provider(fallback_models=["kimi-2.6", "glm53"]),
+        )
+        assert model_config.resolve_fallback_models("kimi-2.6") == ["kimi-2.6", "glm53"]
+
+    def test_no_fallback_returns_primary_only(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(model_config, "_load_provider", lambda hint="": _provider(fallback_models=""))
+        assert model_config.resolve_fallback_models("kimi-2.6") == ["kimi-2.6"]
+
+    def test_without_provider_returns_hint(self, monkeypatch: Any) -> None:
+        monkeypatch.setattr(model_config, "_load_provider", lambda hint="": None)
+        assert model_config.resolve_fallback_models("kimi-2.6") == ["kimi-2.6"]
+        assert model_config.resolve_fallback_models("") == []
 
 
 class TestSettingsJson:

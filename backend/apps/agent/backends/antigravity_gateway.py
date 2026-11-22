@@ -36,6 +36,11 @@ tool_choice / tools``）。而网关（LiteLLM → vLLM）的思考需要两个�
 所以注册路由时把本轮该注入的字段一并带上（由后端按
 ``LLMProvider.enable_thinking`` + 模型能力算好），转发时**只补缺不覆盖**。
 
+本模块**不自己拼这些字段**：字段集合（哪些 key、哪些档位合法）的唯一来源是
+:func:`apps.core.llm.gateway_profile.wire_fields`，后端把它算好后以
+:attr:`_Route.extra_body` 传进来。代理只负责「合并进请求体且不覆盖 harness
+自己发的值」。
+
 ## 红线一：按 run 分 key，不共享
 
 :8011 与网关两头都是「每把 key 有并发上限」。编排层按轮次给每一栏分配了互不相同的
@@ -111,9 +116,11 @@ def normalize_request_body(body: bytes, extra_body: dict[str, Any] | None = None
 
     Args:
         body: harness 发来的原始请求体。
-        extra_body: 本轮要补的字段（思考开关等）。**只补缺、不覆盖**：harness
-            将来自己带上这些字段时，以它为准——那时本函数的注入就该自动失效，
-            而不是把模型侧显式选择改掉。
+        extra_body: 本轮要补的字段，即
+            :func:`apps.core.llm.gateway_profile.wire_fields` 的产物（本模块不
+            自己拼，见模块 docstring）。**只补缺、不覆盖**：harness 将来自己带上
+            这些字段时，以它为准——那时本函数的注入就该自动失效，而不是把模型侧
+            显式选择改掉。
     """
     if not body:
         return body
@@ -155,7 +162,7 @@ class _Route:
     base_url: str
     #: 真实 key。**不得进日志**——需要标识时只用 :attr:`token` 前缀。
     api_key: str
-    #: 本轮要补进请求体的字段（思考开关等）；空 = 不补。
+    #: 本轮要补进请求体的字段（``gateway_profile.wire_fields`` 的产物）；空 = 不补。
     extra_body: dict[str, Any]
     created_at: float
 

@@ -11,8 +11,16 @@ from typing import TYPE_CHECKING, Any, NoReturn
 import httpx2 as httpx
 import openai
 
+from apps.core.llm import gateway_profile
 from apps.core.llm.config import LLMConfig
-from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMError, LLMNetworkError, LLMTimeoutError
+from apps.core.llm.exceptions import (
+    LLMAPIError,
+    LLMAuthenticationError,
+    LLMBackendUnavailableError,
+    LLMError,
+    LLMNetworkError,
+    LLMTimeoutError,
+)
 from apps.core.llm.key_pool import KeyPool as _KeyPool
 from apps.core.llm.key_pool import cooldown_hint, is_key_fault, shared_pool
 
@@ -424,68 +432,52 @@ class OpenAICompatibleBackend:
 
     # ── thinking 模式控制 ────────────────────────────────────────────────────
 
-    #: 支持 ``chat_template_kwargs.thinking`` 开关的推理模型特征（归一化后子串匹配）。
-    #: 归一化会去掉 ``-`` ``_`` ``.`` 与括号后缀，使 ``kimi26`` / ``kimi-2.6`` /
-    #: ``kimi-2.6(Anthropic)`` 命中同样一条规则。
-    _DISABLE_THINKING_MODELS = {"kimi26", "mimo", "deepseekr1", "deepseekreasoner", "qwq", "reasoner", "glmz"}
-
-    @staticmethod
-    def _normalize_model_key(model: str) -> str:
-        """车型名归一化：小写 + 去分隔符/括号，便于模型名子串匹配。"""
-        lowered = model.lower()
-        for ch in ("-", "_", ".", " ", "(", ")", "/", ":"):
-            lowered = lowered.replace(ch, "")
-        return lowered
-
     def _build_extra_body(
         self, model: str | None = None, provider: OpenAIProviderConfig | None = None
     ) -> dict[str, Any] | None:
-        """推理模型的思考模式开关。
+        """推理模型的思考模式字段（口径唯一来源：:mod:`apps.core.llm.gateway_profile`）。
 
-        vLLM/SGLang（以及经 LiteLLM 网关转发的后端）部分模型（kimi26、DeepSeek R1、MiMo 等）
-        默认不输出 ``reasoning_content``，需要显式下发
-        ``chat_template_kwargs.thinking=true`` 才开启思考。
-
-        实测（内部 LiteLLM 网关 / ``kimi-2.6``）：
+        实测三态（内部 LiteLLM 网关 / ``kimi-2.6``）决定了「关闭也必须显式下发」：
 
         - ``thinking=false`` → 直接作答，``completion_tokens_details.reasoning_tokens=0``
         - **不下发开关** → 同上，依旧不思考（← 关键：省略开关并不等于开启）
         - ``thinking=true``  → ``reasoning_content`` 有内容，``reasoning_tokens>0``
 
-        因此开启思考必须**显式下发 true**，不能仅靠省略开关。
+        且 ``thinking`` 只管「要不要想」，「想多深」靠配套的 ``reasoning_effort``：
+        只发前者等于永远停在默认深度。
 
-        现在改为由平台的 ``enable_thinking`` 配置项控制：
+        历史教训：本方法曾自持一份**窄匹配**能力表（``{"kimi26", ...}``），于是
+        ``kimi-k2`` 在服务通道一个字段都不发、在 Agent 通道却是 ``thinking=true`` +
+        ``reasoning_effort=max``——同一模型两个入口思考与否相反且没有任何报错。现在
+        模型能力表与档位映射都只在 :mod:`apps.core.llm.gateway_profile`，本文件不再持有。
 
-        - 开启（``enable_thinking=True``）：下发 ``thinking=true``；
-        - 关闭（默认）：保持原行为，显式下发 ``thinking=false``。
-
-        非推理模型不下发任何开关，避免污染请求体（部分后端会把未知
+        非推理模型返回 ``None``：不下发任何开关，避免污染请求体（部分后端会把未知
         ``chat_template_kwargs`` 当 400 处理）。
         """
-        used = self._normalize_model_key(model or self.default_model)
-        if not any(m in used for m in self._DISABLE_THINKING_MODELS):
-            return None
-        enable = bool(provider is not None and provider.enable_thinking)
-        return {"chat_template_kwargs": {"thinking": enable}}
+        directives = gateway_profile.resolve_thinking(
+            model or self.default_model,
+            enable_thinking=bool(provider is not None and provider.enable_thinking),
+        )
+        return gateway_profile.wire_fields(directives) or None
 
     # ── API 方法 ─────────────────────────────────────────────────────────────
 
-    #: 值得换模型重试的失败：模型挂了/网关抖/超时。参数错（400）不在其列。
-    _FALLBACK_TRIGGER_ERRORS = (LLMTimeoutError, LLMNetworkError, LLMAPIError)
-
     def _fallback_models_for(self, model: str | None) -> list[str]:
-        """该模型可降级到的候选（来自 Admin 的 ``fallback_models``）。
+        """该模型降级时可换的候选（Admin ``fallback_models`` → 去重链，排除主模型自身）。
 
         ``fallback_models`` 长期是「僵尸字段」：Admin 里看不到、服务层不加载、只有 pi 会
         真的降级（审计 P1-10）。配置已能加载（v27.20.7），这里补上**运行时执行**。
-        排除自身，避免「降级到自己」空转。
+
+        链的拼装与去重由 :func:`apps.core.llm.gateway_profile.fallback_chain` 统一负责——
+        ``OpenAIProviderConfig.fallback_models`` 是 ``list[str]``（不是 DB 原串）。主模型恒在
+        链首，这里排掉它，避免「降级到自己」空转。
         """
         used = (model or self.default_model or "").strip()
         provider = self._resolve_provider(used)
         if provider is None:
             return []
-        candidates = [str(m).strip() for m in (provider.fallback_models or []) if str(m).strip()]
-        return [m for m in candidates if m != used]
+        chain = gateway_profile.fallback_chain(used, provider.fallback_models)
+        return [name for name in chain if name != used]
 
     def chat(
         self,
@@ -502,7 +494,12 @@ class OpenAICompatibleBackend:
         """
         try:
             return self._chat_primary(messages, model, temperature, max_tokens, **kwargs)
-        except self._FALLBACK_TRIGGER_ERRORS as error:
+        except gateway_profile.RETRYABLE_EXCEPTIONS as error:
+            # 粗筛之后再问一次“换模型能改变结果吗”：LLMAPIError 把 4xx 与 5xx 装在同一
+            # 个类型里，400/422 换模型必然同样失败（3 个 fallback = 4 倍计费）；
+            # LLMBackendUnavailableError 表示所有后端都不可用，再降级等于把整链重打一遍。
+            if isinstance(error, LLMBackendUnavailableError) or not gateway_profile.is_retryable(error):
+                raise
             fallbacks = self._fallback_models_for(model)
             if not fallbacks:
                 raise
@@ -515,7 +512,7 @@ class OpenAICompatibleBackend:
                 )
                 try:
                     return self._chat_primary(messages, candidate, temperature, max_tokens, **dict(kwargs))
-                except self._FALLBACK_TRIGGER_ERRORS:
+                except gateway_profile.RETRYABLE_EXCEPTIONS:
                     continue
             raise
 
@@ -609,10 +606,12 @@ class OpenAICompatibleBackend:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        """异步对话；降级语义与 :meth:`chat` 完全一致（非流式才降级）。"""
+        """异步对话；降级语义与 :meth:`chat` 完全一致（非流式才降级，可重试判定同一套）。"""
         try:
             return await self._achat_primary(messages, model, temperature, max_tokens, **kwargs)
-        except self._FALLBACK_TRIGGER_ERRORS as error:
+        except gateway_profile.RETRYABLE_EXCEPTIONS as error:
+            if isinstance(error, LLMBackendUnavailableError) or not gateway_profile.is_retryable(error):
+                raise
             fallbacks = self._fallback_models_for(model)
             if not fallbacks:
                 raise
@@ -625,7 +624,7 @@ class OpenAICompatibleBackend:
                 )
                 try:
                     return await self._achat_primary(messages, candidate, temperature, max_tokens, **dict(kwargs))
-                except self._FALLBACK_TRIGGER_ERRORS:
+                except gateway_profile.RETRYABLE_EXCEPTIONS:
                     continue
             raise
 
