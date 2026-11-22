@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from apps.automation.services.sms._sms_case_binding_mixin import SMSCaseBindingMixin
 
@@ -98,53 +98,29 @@ class TestAddCaseNumbersToCase:
         mixin._cs.add_case_number_internal.assert_not_called()
 
 
-class TestCleanupOldCaseLog:
+class TestUnbindOldCaseLog:
+    """审计 P05-03：重新绑定只做软解绑，不得删日志 / 删附件。"""
+
     def test_no_case_log_id(self) -> None:
         mixin = _make_mixin()
-        sms = SimpleNamespace(id=1, case_log_id=None)
-        with patch("apps.cases.models.CaseLog") as mock_log:
-            mixin._cleanup_old_case_log(sms)
-            # 无 case_log_id 直接早退，不查询数据库
-            mock_log.objects.filter.assert_not_called()
+        sms = SimpleNamespace(id=1, case_log_id=None, save=MagicMock())
+        mixin._unbind_old_case_log(sms)
+        # 无 case_log_id 直接早退，不写库也不查库
+        sms.save.assert_not_called()
 
-    def test_log_not_found(self) -> None:
+    def test_unbind_keeps_case_log_row(self) -> None:
         mixin = _make_mixin()
-        sms = SimpleNamespace(id=1, case_log_id=999, case_log=None, save=MagicMock())
-        with patch("apps.cases.models.CaseLog") as mock_log:
-            mock_log.objects.filter.return_value.first.return_value = None
-            mixin._cleanup_old_case_log(sms)
-        assert sms.case_log is None
-        sms.save.assert_called_once()
-
-    def test_log_found_with_attachments(self) -> None:
-        mixin = _make_mixin()
-        att1 = MagicMock()
-        att1.file = MagicMock()
-        att2 = MagicMock()
-        att2.file = None
         old_log = MagicMock()
-        old_log.id = 42
-        mock_attachments = MagicMock()
-        mock_attachments.count.return_value = 2
-        mock_attachments.__iter__ = MagicMock(return_value=iter([att1, att2]))
-        sms = SimpleNamespace(id=1, case_log_id=42, case_log=None, save=MagicMock())
-        with (
-            patch("apps.cases.models.CaseLog") as mock_log,
-            patch("apps.cases.models.CaseLogAttachment") as mock_att,
-        ):
-            mock_log.objects.filter.return_value.first.return_value = old_log
-            mock_att.objects.filter.return_value = mock_attachments
-            mixin._cleanup_old_case_log(sms)
-        att1.file.delete.assert_called_once_with(save=False)
-        # att2.file is None, so file.delete should never have been called on it
-        old_log.delete.assert_called_once()
-        sms.save.assert_called_once()
+        sms = SimpleNamespace(id=1, case_log_id=999, case_log=old_log, save=MagicMock())
+        mixin._unbind_old_case_log(sms)
+        assert sms.case_log is None
+        sms.save.assert_called_once_with(update_fields=["case_log"])
+        old_log.delete.assert_not_called()
 
-    def test_exception_during_cleanup(self) -> None:
+    def test_exception_during_unbind_is_swallowed(self) -> None:
         mixin = _make_mixin()
-        sms = SimpleNamespace(id=1, case_log_id=42)
-        with patch("apps.cases.models.CaseLog") as mock_log:
-            mock_log.objects.filter.side_effect = Exception("db error")
-            # 异常被吞掉，不向上抛
-            mixin._cleanup_old_case_log(sms)
-            mock_log.objects.filter.assert_called_once()
+        sms = SimpleNamespace(id=1, case_log_id=42, case_log=MagicMock())
+        sms.save = MagicMock(side_effect=Exception("db error"))
+        # 异常被吞掉，不向上抛（否则重新绑定整体失败）
+        mixin._unbind_old_case_log(sms)
+        sms.save.assert_called_once()

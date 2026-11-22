@@ -14,9 +14,19 @@ from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.utils import timezone
 
-from apps.automation.models import CourtDocument, DocumentDownloadStatus, ScraperTask
+from apps.automation.models import CourtDocument, CourtSMS, DocumentDownloadStatus, ScraperTask
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
 from apps.core.services.storage_service import resolve_media_path
+
+
+def _add_protected_path(protected_paths: set[str], raw_path: Any) -> None:
+    """把一个 DB 里的文件路径归一成规范绝对路径后并入白名单（解析不了就忽略）。"""
+    if not raw_path:
+        return
+    try:
+        protected_paths.add(resolve_media_path(str(raw_path)).resolve().as_posix())
+    except (OSError, ValueError):
+        return
 
 
 class CourtDocumentAdminService:
@@ -309,46 +319,99 @@ class CourtDocumentAdminService:
                 message="重试失败下载任务失败", code="RETRY_FAILED_DOWNLOADS_FAILED", errors={"error": str(e)}
             ) from e
 
-    def cleanup_orphaned_files(self) -> dict[str, Any]:  # pragma: no cover
+    def cleanup_orphaned_files(
+        self,
+        *,
+        dry_run: bool = True,
+        min_age_hours: float = 24.0,
+    ) -> dict[str, Any]:  # pragma: no cover
         """
-        清理孤立的文件（数据库中没有记录但文件存在）
+        清理孤立文件（数据库里没有任何引用、且落盘已足够久的文件）
+
+        数据安全默认值（审计 P05-01：旧实现会立刻物理删除，且白名单只认
+        `status=success` 且路径字符串逐字相等，导致在飞任务的文件、被短信/案件日志
+        引用的副本、以及「库里存绝对路径」的存量文件全被判成孤儿）：
+
+        - ``dry_run=True``：默认**只返回将被删除的清单**，不落删除；
+        - ``min_age_hours=24``：太新的文件可能正在下载/归档途中，跳过；
+        - 白名单见 :meth:`_collect_protected_file_paths`；
+        - 两侧路径都 ``Path.resolve()`` 后比较（绝对路径 / 相对路径统一）；
+        - 真正删除前用 ``logger.warning`` 打出完整清单，删文件不可恢复，事后只能靠这条日志定位。
+
+        Args:
+            dry_run: True（默认）只列清单不删除
+            min_age_hours: 只处理 mtime 早于 N 小时的文件
 
         Returns:
-            Dict[str, Any]: 清理结果
+            Dict[str, Any]: orphaned_files（数量）/ orphaned_paths（清单）/
+            deleted_files / delete_errors / dry_run
 
         Raises:
             BusinessException: 清理失败
         """
         try:
-            # 获取所有已下载文书的文件路径
-            downloaded_files = set(
-                CourtDocument.objects.filter(
-                    download_status=DocumentDownloadStatus.SUCCESS, local_file_path__isnull=False
-                )
-                .exclude(local_file_path="")
-                .values_list("local_file_path", flat=True)
-            )
+            media_root_setting = str(getattr(settings, "MEDIA_ROOT", "") or "").strip()
+            if not media_root_setting:
+                return {
+                    "orphaned_files": 0,
+                    "orphaned_paths": [],
+                    "deleted_files": 0,
+                    "delete_errors": [],
+                    "dry_run": dry_run,
+                    "message": "MEDIA_ROOT 未配置",
+                }
 
-            # 扫描文件系统中的文件
-            media_root = getattr(settings, "MEDIA_ROOT", "")
-            documents_dir = Path(media_root) / "court_documents"
+            documents_dir = Path(media_root_setting) / "court_documents"
 
             if not documents_dir.exists():
-                return {"orphaned_files": 0, "deleted_files": 0, "message": "文档目录不存在"}
+                return {
+                    "orphaned_files": 0,
+                    "orphaned_paths": [],
+                    "deleted_files": 0,
+                    "delete_errors": [],
+                    "dry_run": dry_run,
+                    "message": "文档目录不存在",
+                }
+
+            protected_paths = self._collect_protected_file_paths()
+            cutoff_timestamp = timezone.now().timestamp() - min_age_hours * 3600
 
             orphaned_files: list[str] = []
-            for root, _dirs, files in documents_dir.walk():
-                for file in files:
-                    file_path = root / file
-                    relative_path = file_path.relative_to(media_root).as_posix()
+            for file_path in sorted(documents_dir.rglob("*")):
+                if not file_path.is_file():
+                    continue
+                try:
+                    if file_path.stat().st_mtime > cutoff_timestamp:
+                        continue
+                except OSError:
+                    continue
+                resolved_path = file_path.resolve().as_posix()
+                if resolved_path in protected_paths:
+                    continue
+                orphaned_files.append(resolved_path)
 
-                    if relative_path not in downloaded_files:
-                        orphaned_files.append(str(file_path))
+            result: dict[str, Any] = {
+                "orphaned_files": len(orphaned_files),
+                "orphaned_paths": orphaned_files,
+                "deleted_files": 0,
+                "delete_errors": [],
+                "dry_run": dry_run,
+            }
 
-            # 删除孤立文件
+            if not orphaned_files or dry_run:
+                self.logger.info("清理孤立文件完成", extra={"action": "cleanup_orphaned_files", "result": result})
+                return result
+
+            # 删除前把完整清单写进日志（不可恢复操作的追溯依据）
+            self.logger.warning(
+                "准备删除 %s 个孤立文书文件: %s",
+                len(orphaned_files),
+                orphaned_files,
+                extra={"action": "cleanup_orphaned_files", "orphaned_paths": orphaned_files},
+            )
+
             deleted_count = 0
-            delete_errors = []
-
+            delete_errors: list[dict[str, str]] = []
             for file_path_str in orphaned_files:
                 try:
                     Path(file_path_str).unlink()
@@ -356,11 +419,8 @@ class CourtDocumentAdminService:
                 except (OSError, ValueError) as e:
                     delete_errors.append({"file_path": file_path_str, "error": str(e)})
 
-            result = {
-                "orphaned_files": len(orphaned_files),
-                "deleted_files": deleted_count,
-                "delete_errors": delete_errors,
-            }
+            result["deleted_files"] = deleted_count
+            result["delete_errors"] = delete_errors
 
             self.logger.info("清理孤立文件完成", extra={"action": "cleanup_orphaned_files", "result": result})
 
@@ -371,6 +431,43 @@ class CourtDocumentAdminService:
             raise BusinessException(
                 message="清理孤立文件失败", code="CLEANUP_ORPHANED_FILES_FAILED", errors={"error": str(e)}
             ) from e
+
+    def _collect_protected_file_paths(self) -> set[str]:
+        """数据库里仍被引用的文件（规范绝对路径集合）——这些都不是孤儿。
+
+        - ``CourtDocument.local_file_path``：**不看下载状态**。pending/downloading
+          可能正在往这份文件里写，failed 也可能被 ``retry_failed_downloads`` 写回同一路径；
+        - ``CourtSMS.document_file_paths``：短信详情与下载都按这份清单取文书；
+        - ``CaseLogAttachment.file``：已归档到案件日志的副本，律师正在看的那份。
+
+        两侧都经 ``resolve_media_path(...).resolve()`` 归一后再比：库里可能存 media 相对
+        路径、也可能存绝对路径（历史存量），逐字比较会把同一份文件判成两个。
+        """
+        protected_paths: set[str] = set()
+
+        document_paths = (
+            CourtDocument.objects.exclude(local_file_path__isnull=True)
+            .exclude(local_file_path="")
+            .values_list("local_file_path", flat=True)
+        )
+        for raw_path in document_paths:
+            _add_protected_path(protected_paths, raw_path)
+
+        for raw_paths in CourtSMS.objects.values_list("document_file_paths", flat=True):
+            if not isinstance(raw_paths, list):
+                continue
+            for raw_path in raw_paths:
+                _add_protected_path(protected_paths, raw_path)
+
+        from apps.cases.models import CaseLogAttachment
+
+        for attachment in CaseLogAttachment.objects.all().iterator():
+            file_field = getattr(attachment, "file", None)
+            if not file_field:
+                continue
+            _add_protected_path(protected_paths, getattr(file_field, "name", ""))
+
+        return protected_paths
 
     def get_download_progress(self, task_id: int | None = None) -> dict[str, Any]:  # pragma: no cover
         """
