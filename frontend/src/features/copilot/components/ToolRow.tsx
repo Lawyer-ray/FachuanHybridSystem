@@ -1,10 +1,13 @@
 /**
- * 转录流里的工具行（单栏 / 历史回放时按时间平铺的那条 `<details>`）。
+ * 整行形态的工具行：一条 `<details>` 占满一行，展开看返回值。
  *
- * 从 MessageList 拆出（后者已到软红线）。多栏时工具行不在这里出现——它们归位到
- * 各自那一栏（正文未到时是气泡内的活动行 StreamActivity，到了之后是气泡下方的
- * chip ToolChips）。单栏没有「谁的工具」这个问题，按到达顺序平铺本身就是对的，
- * 所以仍保留整行可展开的形态（返回值常常要看，chip 太窄）。
+ * **现在只是兜底形态**：单栏转录流把连续的 tool 消息收成 chip 带（见 ToolChips 的
+ * `ToolChipList`），多栏时工具归位到各自那栏（正文未到时是气泡内的活动行
+ * StreamActivity，到了之后是气泡下方的 chip `OwnToolList`）。会走到这里的只剩
+ * 「多栏轮次里没归位到任何一栏的工具」（例如 agentKind 不属于本轮任何一栏）：它们
+ * 不属于任何 agent，只能按到达顺序平铺，孤零零几条用整行最省事。
+ *
+ * 从 MessageList 拆出（后者已到软红线）。
  *
  * ## 五态与耗时（{@link ToolStateIcon} / {@link ToolElapsed}）
  *
@@ -24,13 +27,31 @@ import type { ChatMessage } from '../types'
 
 import { DiffBlock } from './markdown/DiffBlock'
 
-/** 状态色调 → 文本色（只影响「已完成/失败」这半句，不影响工具名）。 */
+/** 状态色调 → 文本色（只影响「已完成/失败」这半句，不影响工具名） */
 const TONE_TEXT = {
   muted: 'text-muted-foreground',
   ok: 'text-emerald-600 dark:text-emerald-500',
   warn: 'text-amber-600 dark:text-amber-500',
   error: 'text-destructive',
 } as const
+
+/**
+ * 状态词（「已完成 / 失败 / 调用中」…）与它的色调。chip（ToolChips）与整行（ToolRow）
+ * 共用：同一份状态在两种形态里必须说同一句话、同一个颜色。
+ *
+ * `hidden`：成功态在 chip 里只留对勾（见 ToolChips 文件头），字给读屏（`sr-only`）而
+ * 不上屏。这里不提供「不渲染字」的选项——那是「只靠图标传真」的不可读方案。
+ */
+export const ToolStateWord = memo(function ToolStateWord({
+  state,
+  hidden = false,
+}: {
+  state: ToolState
+  hidden?: boolean
+}) {
+  const label = toolStateLabel(state)
+  return <span className={hidden ? 'sr-only' : `flex-none ${TONE_TEXT[label.tone]}`}>{label.text}</span>
+})
 
 /** 五态图标：preparing 灰点 / running 转圈 / ok 对勾 / error 警示 / stopped 灰横线。 */
 export const ToolStateIcon = memo(function ToolStateIcon({
@@ -74,7 +95,6 @@ export const ToolElapsed = memo(function ToolElapsed({ message }: { message: Cha
 // props 只有 message 一个引用，未变的消息走浅比较 bail out。
 export const ToolRow = memo(function ToolRow({ message }: { message: ChatMessage }) {
   const state = toolStateOf(message)
-  const label = toolStateLabel(state)
   const name = shortToolName(message.toolName)
   // 改写类工具：把「改了哪一句」直接画出来，而不是让律师去看 2000 字的 JSON 结果。
   // 只有结算后才画（运行中参数还在渐进完整，画出来会是个半截 diff）。
@@ -89,7 +109,7 @@ export const ToolRow = memo(function ToolRow({ message }: { message: ChatMessage
             rewrite.filename
           ) : (
             <>
-              <span className={TONE_TEXT[label.tone]}>{label.text}</span> · {name}
+              <ToolStateWord state={state} /> · {name}
             </>
           )}
         </span>

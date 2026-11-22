@@ -2,6 +2,14 @@
  * 一轮回答的渲染决策：单栏（1 条）走普通气泡，多栏（2~4 条）交给 MultiAnswers
  * 并排。
  *
+ * ## 单栏：连续的 tool 消息收成 chip 带
+ *
+ * 一条工具占一整行时，16 条工具吃掉约 450px，而每条的信息只有「工具名 + 耗时」。
+ * 所以单栏按顺序扫一遍 `answers`，把**连续**的 tool 消息聚成一段交给 `ToolChipList`
+ * （一行放多枚、自动换行；点开的那枚 `open:basis-full` 独占整行看返回值），非 tool
+ * 消息照旧一条一条走 `renderAnswer`。**消息顺序不变**：聚段只换排版，不重排、不跨
+ * 消息合并（换行容器内部的先后就是到达先后）。
+ *
  * 从 MessageList 拆出（后者已到软红线）：这里同时承担三件互相关联的事——
  * 「这一轮跑了几家」的还原、同栏多段消息的合并、以及单栏/多栏的分派。它们
  * 共用一个判据，分开放两处迟早漂移（一处合并了、另一处没合并，同一轮会时
@@ -23,9 +31,28 @@ import { reviewTurnOf } from '../domain/fusion'
 import { useCopilot } from '../store'
 import type { ChatMessage } from '../types'
 import { MultiAnswers } from './MultiAnswers'
+import { ToolChipList } from './ToolChips'
 
-/** 单栏没有「已归位的工具」（工具行照旧平铺），共用一个空集避免每次新建 */
+/** 单栏不涉及「工具归位」（工具收进 chip 带），共用一个空集避免每次新建 */
 const EMPTY_HIDE_TOOLS: ReadonlySet<string> = new Set()
+
+/** 单栏的一段：一串**连续的** tool 消息（收进 chip 带），或一条普通消息 */
+type AnswerRun = { key: string; tools: ChatMessage[] } | { key: string; message: ChatMessage }
+
+/** 按原顺序聚段：连续的 tool 消息并为一段，其余消息各自一段 */
+function groupToolRuns(answers: ChatMessage[]): AnswerRun[] {
+  const runs: AnswerRun[] = []
+  for (const message of answers) {
+    if (message.role !== 'tool') {
+      runs.push({ key: message.id, message })
+      continue
+    }
+    const last = runs[runs.length - 1]
+    if (last && 'tools' in last) last.tools.push(message)
+    else runs.push({ key: message.id, tools: [message] })
+  }
+  return runs
+}
 
 export const AnswerGroupView = memo(function AnswerGroupView({
   answers,
@@ -92,20 +119,25 @@ export const AnswerGroupView = memo(function AnswerGroupView({
     [renderAnswer, hideTools],
   )
 
-  if (answers.length <= 1) return <>{renderAnswer(answers[0]!, EMPTY_HIDE_TOOLS)}</>
+  // 单栏才聚段（见 groupToolRuns）：多栏走 MultiAnswers，不白算
+  const runs = useMemo(() => (agents.length > 1 ? [] : groupToolRuns(answers)), [agents.length, answers])
 
-  // **单栏（0 或 1 个 kind）：逐条按原顺序渲染**，不合并、不把工具吸进气泡。
+  // **单栏（0 或 1 个 kind）：按原顺序渲染**，不合并、不把工具吸进气泡。
   //
   // 0 个 kind = 这一轮一条 assistant 都没有（整轮失败 / 只有工具）：照原顺序
-  // 渲染工具行，不能凭空造一个空白栏。
-  // 1 个 kind = 只问了一家：行为必须与引入多栅前完全一致——工具行按时间平铺在
-  // 气泡之间（多轮时间顺序本身就是对的），多段 assistant 也保持分段。
+  // 渲染，不能凭空造一个空白栏。
+  // 1 个 kind = 只问了一家：多段 assistant 保持分段；工具**按到达顺序**聚成
+  // chip 带（同一段里连续的几条和成一排，前后顺序即时间顺序）。
   if (agents.length <= 1) {
     return (
       <>
-        {answers.map((message) => (
-          <Fragment key={message.id}>{renderAnswer(message, EMPTY_HIDE_TOOLS)}</Fragment>
-        ))}
+        {runs.map((run) =>
+          'tools' in run ? (
+            <ToolChipList key={run.key} tools={run.tools} />
+          ) : (
+            <Fragment key={run.key}>{renderAnswer(run.message, EMPTY_HIDE_TOOLS)}</Fragment>
+          ),
+        )}
       </>
     )
   }

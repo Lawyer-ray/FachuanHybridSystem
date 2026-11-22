@@ -93,13 +93,57 @@ describe('ToolRow：五态与耗时', () => {
   })
 })
 
-describe('ToolChip：状态与耗时和整行同一口径', () => {
-  it('保留工具短名（不把 chip 撑宽），状态进 title', () => {
-    render(<ToolChip tool={tool({ toolState: 'error', toolStartedAt: 0, toolEndedAt: 2_000 })} />)
+/** 节点上**看得见**的文字：去掉 `sr-only` 的读屏专用文本（chip 的成功态就是这种） */
+function visibleTextOf(node: Element): string {
+  const clone = node.cloneNode(true) as Element
+  for (const el of clone.querySelectorAll('.sr-only')) el.remove()
+  return clone.textContent ?? ''
+}
 
-    expect(document.body.textContent).toContain('get_current_user')
-    expect(document.body.textContent).toContain('2s')
-    expect(screen.getByTitle(/失败 · /)).toBeTruthy()
+describe('ToolChip：折叠态只出必要信息，展开态独占整行', () => {
+  it('ok：可见文字只有工具名与耗时，「已完成」只给读屏（16 条工具不再重复 16 遍）', () => {
+    render(<ToolChip tool={tool({ toolState: 'ok', toolStartedAt: 0, toolEndedAt: 200 })} />)
+    const summary = document.querySelector('summary')!
+
+    const visible = visibleTextOf(summary)
+    expect(visible).toContain('get_current_user')
+    expect(visible).toContain('0.2s')
+    expect(visible).not.toContain('已完成')
+    // 字不给眼睛看，但必须给读屏：不许只靠绿对勾传「成了没」
+    expect(summary.textContent).toContain('已完成')
+  })
+
+  it.each([
+    ['preparing', '准备中'],
+    ['running', '调用中'],
+    ['error', '失败'],
+    ['stopped', '已中止'],
+  ] as const)('%s：状态必须出字（不只放 title），工具名与耗时照旧', (state, text) => {
+    render(<ToolChip tool={tool({ toolState: state, toolStartedAt: 0, toolEndedAt: 2_000 })} />)
+    const summary = document.querySelector('summary')!
+
+    expect(visibleTextOf(summary)).toContain(text)
+    expect(visibleTextOf(summary)).toContain('get_current_user')
+    expect(screen.getByTitle(new RegExp(`${text} · `))).toBeTruthy()
+  })
+
+  it('summary 里有可见的展开指示，且不嵌交互元素（否则出两个焦点）', () => {
+    render(<ToolChip tool={tool({ toolState: 'ok' })} />)
+    const summary = document.querySelector('summary')!
+
+    expect(summary.querySelector('svg[aria-hidden="true"]')).toBeTruthy()
+    expect(summary.querySelector('button, a')).toBeNull()
+  })
+
+  it('展开态：details 拿 open:basis-full 独占整行，返回值不再被窄上限困住', () => {
+    render(<ToolChip tool={tool({ toolState: 'ok', content: '{"ok":true}' })} />)
+    const details = document.querySelector('details')!
+
+    // 收起时是一枚 chip，展开时在换行容器里占一整行（这是当年用整行 ToolRow 的理由）
+    expect(details.className).toContain('open:basis-full')
+    const pre = document.querySelector('pre')!
+    expect(pre.textContent).toBe('{"ok":true}')
+    expect(pre.className).not.toContain('max-w-[')
   })
 
   it('没有开始时刻时不显示耗时，运行中给一个省略号', () => {

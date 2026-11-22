@@ -1,18 +1,18 @@
 /**
- * agent 后端切换器：新对话可选，已有会话只读。
+ * 新对话的 agent 后端选择器：**唯一**能给新会话定 `agent_kind` 的地方。
  *
- * ## 为什么不是普通下拉
+ * ## 只在还没有会话时出现
  *
  * `agent_kind` 是**会话级、不可更换**的属性（上下文归后端自己管：pi 有自己的
- * session 文件，换后端等于换脑子）。所以这个控件的形态必须随状态变：
+ * session 文件，换后端等于换脑子）。若已建会话仍给下拉，用户一改就会以为
+ * 「换了」，实际下一轮还在旧后端跑——这种假切换比直接禁用难发现得多。
  *
- * | 状态 | 形态 | 用户看到的 |
- * |:--|:--|:--|
- * | 新对话（未建会话） | 下拉 | 可点，选完变成标签 |
- * | 已有会话 | 标签 | 当前后端名 + 锁图标，点击只解释为什么不能换 |
+ * 所以本组件只有一种形态：下拉。已有会话时由调用方（CopilotHeader）不渲染它，
+ * 改为把 `agent_kind` 作为标题后缀显示（只读、不可点）。上一版在这里挂过一个
+ * 「锁 + 后端名」的只读按钮，点了只弹一句「换不了」——它看着可点却没有可选的东西，
+ * 用户直接判定「这个按钮没意义」（真实反馈），故整块删掉。
  *
- * 若已建会话仍给下拉，用户一改就会以为「换了」，实际下一轮还在旧后端跑——
- * 这种假切换比直接禁用难发现得多。
+ * 「有没有会话」由调用方判：会话列表缓存归宿主（useActiveSession），本组件不自查。
  *
  * ## 不可用项置灰
  *
@@ -22,7 +22,7 @@
  */
 
 import { useCallback, useState } from 'react'
-import { Check, ChevronDown, Lock } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 
 import { useCopilot } from '../store'
 import { findBackend, noApprovalWarn } from '../store/backends'
@@ -31,15 +31,7 @@ import { NoApprovalBadge } from './NoApprovalBadge'
 /** 关闭下拉的两种方式：选中 / 点外面；`null` 表示不选（只关闭） */
 type CloseReason = string | null
 
-export function AgentBackendPicker({ currentKind }: {
-  /**
-   * 已有会话的后端 kind；`null` = 还没有会话（可自由选）。
-   *
-   * 由调用方从会话列表里取（`currentSession.agent_kind`）而不是本组件自己查：
-   * 列表缓存归 CopilotPanel 管，组件再订阅一次就是两份数据源。
-   */
-  currentKind: string | null
-}) {
+export function AgentBackendPicker() {
   const backends = useCopilot((s) => s.backends)
   const selectedAgentKind = useCopilot((s) => s.selectedAgentKind)
   const selectAgentKind = useCopilot((s) => s.selectAgentKind)
@@ -50,39 +42,9 @@ export function AgentBackendPicker({ currentKind }: {
     if (reason) selectAgentKind(reason)
   }, [selectAgentKind])
 
-  const lockedKind = currentKind
-  const activeKind = lockedKind ?? selectedAgentKind
-  const active = activeKind ? findBackend(backends, activeKind) : undefined
+  const active = selectedAgentKind ? findBackend(backends, selectedAgentKind) : undefined
   // 清单还没到（或拉取失败）时只显示 kind 原文：宁可显示 `pi` 也不显示空白
-  const activeLabel = active?.label ?? activeKind
-
-  // 已有会话：只读标签，点击展开的是一句解释而不是选项列表
-  if (lockedKind) {
-    return (
-      <div className="relative flex-none">
-        <button
-          type="button"
-          className="flex h-7 max-w-40 items-center gap-1 rounded-[8px] bg-secondary px-2 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={`本会话使用 ${activeLabel}，不可更换`}
-          aria-expanded={open}
-          title={`本会话由 ${activeLabel} 处理。后端在建会话时确定，中途更换会丢失上下文；需要换后端请新建对话。`}
-        >
-          <Lock className="h-3 w-3 flex-none" aria-hidden />
-          <span className="truncate">{activeLabel}</span>
-        </button>
-        {open && (
-          <div
-            role="status"
-            className="absolute top-full right-0 z-[120] mt-1 w-56 rounded-[10px] border border-border bg-popover p-2 text-[11.5px] leading-relaxed text-muted-foreground shadow-md"
-          >
-            本会话由「{activeLabel}」处理。后端在建会话时确定，中途更换会丢失上下文——
-            需要换后端请点「新对话」。
-          </div>
-        )}
-      </div>
-    )
-  }
+  const activeLabel = active?.label ?? selectedAgentKind
 
   return (
     <div className="relative flex-none">
@@ -112,7 +74,7 @@ export function AgentBackendPicker({ currentKind }: {
             </p>
           )}
           {backends.map((option) => {
-            const isActive = option.kind === activeKind
+            const isActive = option.kind === selectedAgentKind
             return (
               <button
                 key={option.kind}

@@ -21,10 +21,16 @@
  * 选满 {@link MAX_ANSWERS} 后其余项置灰：超出的选择后端会直接 400，而那发生在
  * 用户已经敲了回车之后——置灰比报错便宜得多。
  *
- * ## 未选 = 单跑会话默认后端
+ * ## 未选 = 单跑会话默认后端（此时触发按钮只剩图标）
  *
  * `selected` 为空数组时本轮只跑一个：会话默认后端。菜单里用「默认」徽标标出它
  * （清单第一项，与新建会话的默认同口径），律师能看出不选时到底是谁在答。
+ *
+ * 而那个「1 个 AI」的摘要文字被拿掉了：未选是**绝大多数轮次**的常态，写一个含糊的
+ * 数量只占输入框宽度（约 60px），信息量还不如菜单里那一行。常态收成纯图标，
+ * 选了才出文字（名字 / `N 个 AI`）——文字只在「本轮 ≠ 会话默认」时出现才有意义。
+ * 由此，未选态的身份必须由 `aria-label` / `title` 承担（形如
+ * 「本轮参与的 AI：会话默认（Pi）；点击选择」），不能只说一句「选择 AI」。
  */
 
 import { useCallback, useState } from 'react'
@@ -70,9 +76,14 @@ export function AnswerAgentMenu({
 
   // 清单没拉到时也要能显示「这家是谁」：kind 原文比空白可读
   const names = selected.map((kind) => findBackend(backends, kind)?.label ?? kind)
-  const summary = names.length === 0 ? '1 个 AI' : names.length === 1 ? names[0]! : `${names.length} 个 AI`
+  // 空串 = 未选（不显示摘要文字，只留图标）
+  const summary = names.length === 0 ? '' : names.length === 1 ? names[0]! : `${names.length} 个 AI`
+  // 未选时「本轮到底谁在跑」只能靠菜单里的默认项：触发器上补一个默认后端名
+  const fallbackKind = defaultKind || DEFAULT_AGENT_KIND
+  const defaultLabel = findBackend(backends, fallbackKind)?.label ?? fallbackKind
   const active = selected.length > 1 || (selected.length === 1 && selected[0] !== defaultKind)
   const full = selected.length >= MAX_ANSWERS
+  const usageTitle = `选择这一轮问哪几个 AI（最多 ${MAX_ANSWERS} 个）以及各自用哪个模型。每多选一个就多跑一轮，token 与耗时随之增加。`
 
   return (
     <div className="relative flex-none">
@@ -85,16 +96,23 @@ export function AnswerAgentMenu({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`本轮参与的 AI：${summary}`}
+        aria-label={summary ? `本轮参与的 AI：${summary}` : `本轮参与的 AI：会话默认（${defaultLabel}）；点击选择`}
         title={
           disabled
             ? hint || '本轮正在进行，结束前不能改参与方'
-            : `选择这一轮问哪几个 AI（最多 ${MAX_ANSWERS} 个）以及各自用哪个模型。每多选一个就多跑一轮，token 与耗时随之增加。`
+            : summary
+              ? usageTitle
+              : `本轮不选 = 单跑会话默认 AI（${defaultLabel}）。${usageTitle}`
         }
       >
         <GitCompare className="h-4 w-4 flex-none" />
-        <span className="max-w-24 truncate">{summary}</span>
-        <ChevronDown className="h-3 w-3 flex-none" aria-hidden />
+        {/* 未选 = 只有图标（省输入框宽度）；有摘要才连文字与下拉箭头一起出 */}
+        {summary && (
+          <>
+            <span className="max-w-24 truncate">{summary}</span>
+            <ChevronDown className="h-3 w-3 flex-none" aria-hidden />
+          </>
+        )}
       </button>
       {open && (
         <div

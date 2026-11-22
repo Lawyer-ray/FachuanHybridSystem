@@ -8,7 +8,8 @@
  *    敲了回车之后；
  * 3. **不可用项置灰并说明原因**：缺 SDK / 没配 LLM 的后端留着（说明真相是
  *    「这里缺东西」），但点不动；
- * 4. 触发按钮上要能看出「本轮问几个」，否则律师得点开才知道；
+ * 4. 触发按钮：未选（= 单跑会话默认）时只留图标（省输入框宽度），选了才出文字
+ *    （名字 / `N 个 AI`）——身份靠 `aria-label` 说清「会话默认（谁）」；
  * 5. **每行带模型下拉**（规格 4.1）：默认预填 `default_model`、未勾选置灰、
  *    清单为空时整枚下拉消失（降级）。
  */
@@ -74,19 +75,32 @@ function openMenu() {
 }
 
 describe('AnswerAgentMenu', () => {
-  it('未选时触发按钮说明本轮只跑 1 个 AI', () => {
+  it('未选时触发器收成纯图标：不出文字，身份由 aria-label 说清', () => {
     renderMenu()
-    expect(screen.getByLabelText('本轮参与的 AI：1 个 AI')).toBeTruthy()
+
+    const trigger = screen.getByLabelText('本轮参与的 AI：会话默认（Pi）；点击选择')
+    expect(trigger.textContent).toBe('')
+    // 省下的就是这串文字占的宽度（约 60px 输入框）
+    expect(screen.queryByText('1 个 AI')).toBeNull()
+    // 兜底信息仍在：tooltip 说清不选时是谁在答
+    expect(trigger.getAttribute('title')).toContain('本轮不选 = 单跑会话默认 AI（Pi）')
+  })
+
+  it('清单还没到时，未选态说默认 kind 原文（不留空括号）', () => {
+    renderMenu({ backends: [], defaultKind: '' })
+    expect(screen.getByLabelText('本轮参与的 AI：会话默认（pi）；点击选择')).toBeTruthy()
   })
 
   it('选中多个时按钮显示数量（不用点开就知道几栏）', () => {
     renderMenu({ selected: ['pi', 'dsh', 'oai'] })
-    expect(screen.getByLabelText('本轮参与的 AI：3 个 AI')).toBeTruthy()
+    const trigger = screen.getByLabelText('本轮参与的 AI：3 个 AI')
+    expect(trigger.textContent).toContain('3 个 AI')
   })
 
   it('只选一个时按钮直接显示那家的名字', () => {
     renderMenu({ selected: ['dsh'] })
-    expect(screen.getByLabelText('本轮参与的 AI：DeepSeek Harness')).toBeTruthy()
+    const trigger = screen.getByLabelText('本轮参与的 AI：DeepSeek Harness')
+    expect(trigger.textContent).toContain('DeepSeek Harness')
   })
 
   it('清单没拉到时显示 kind 原文，而不是空白', () => {
@@ -94,16 +108,22 @@ describe('AnswerAgentMenu', () => {
     expect(screen.getByLabelText('本轮参与的 AI：pi')).toBeTruthy()
   })
 
-  it('点开菜单列出全部后端，默认那家带「默认」徽标', () => {
+  it('点开菜单列出全部后端，默认那家带「默认」徽标且点名到后端', () => {
     renderMenu()
     openMenu()
 
     const listbox = screen.getByRole('listbox', { name: '可选 AI（多选）' })
     expect(listbox).toBeTruthy()
     expect(screen.getAllByRole('option')).toHaveLength(backends.length)
-    // 默认项（清单第一项）标出来：律师要知道「不选时到底是谁在答」
+    // 默认项（清单第一项）标出来：律师要知道「不选时到底是谁在答」。
+    // 徽标取「名字 + 默认 chip」（不取「默认 · 名字」：名字就在左边，再抄一遍会挤破行），
+    // 所以名字与默认的绑定要同时落在可见文本、悬停提示与无障碍名上。
     expect(screen.getByText('默认')).toBeTruthy()
+    expect(screen.getByText('默认').getAttribute('title')).toContain('会话默认 AI：Pi')
+    expect(screen.getByRole('checkbox', { name: 'Pi，会话默认' })).toBeTruthy()
     expect(screen.getByRole('option', { name: /Pi/ }).getAttribute('aria-selected')).toBe('false')
+    // 非默认项不挂这枚徽标
+    expect(screen.getByTestId('agent-row-dsh').textContent).not.toContain('默认')
   })
 
   /**
@@ -138,7 +158,7 @@ describe('AnswerAgentMenu', () => {
     renderMenu({ selected: ['dsh'] })
     openMenu()
     expect(screen.getByRole('checkbox', { name: 'DeepSeek Harness' }).getAttribute('aria-checked')).toBe('true')
-    expect(screen.getByRole('checkbox', { name: 'Pi' }).getAttribute('aria-checked')).toBe('false')
+    expect(screen.getByRole('checkbox', { name: 'Pi，会话默认' }).getAttribute('aria-checked')).toBe('false')
   })
 
   it('选满 4 个后未选项置灰（超上限后端会 400）', () => {
@@ -149,7 +169,7 @@ describe('AnswerAgentMenu', () => {
 
     expect(screen.getAllByRole('option')).toHaveLength(allBackends.length)
     // 已选的仍可点（取消不需要名额）
-    expect((screen.getByRole('checkbox', { name: 'Pi' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('checkbox', { name: 'Pi，会话默认' }) as HTMLButtonElement).disabled).toBe(false)
     const fifth = screen.getByRole('checkbox', { name: '第五个' }) as HTMLButtonElement
     expect(fifth.disabled).toBe(true)
     expect(fifth.title).toContain('最多同时问 4 个')
@@ -172,14 +192,16 @@ describe('AnswerAgentMenu', () => {
 
   it('流式中禁用：按钮点不动，提示说清原因', () => {
     renderMenu({ disabled: true })
-    const trigger = screen.getByLabelText('本轮参与的 AI：1 个 AI') as HTMLButtonElement
+    const trigger = screen.getByLabelText('本轮参与的 AI：会话默认（Pi）；点击选择') as HTMLButtonElement
     expect(trigger.disabled).toBe(true)
     expect(trigger.title).toContain('结束前不能改参与方')
   })
 
   it('传入的禁用原因优先于默认文案', () => {
     renderMenu({ disabled: true, hint: '发送中，请稍候' })
-    expect((screen.getByLabelText('本轮参与的 AI：1 个 AI') as HTMLButtonElement).title).toBe('发送中，请稍候')
+    expect(
+      (screen.getByLabelText('本轮参与的 AI：会话默认（Pi）；点击选择') as HTMLButtonElement).title,
+    ).toBe('发送中，请稍候')
   })
 })
 
