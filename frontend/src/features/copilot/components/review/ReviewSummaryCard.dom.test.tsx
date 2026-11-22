@@ -341,7 +341,8 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
       expect(apiSpies.runSynthesis).toHaveBeenCalledWith('s-1', {
         turn: 2,
         agents: ['pi', 'dsh'],
-        model: '',
+        // 默认选中平台第一个模型（不再留"自动"）
+        model: 'judge-a',
         kind: 'pi',
         review: true,
       }),
@@ -380,6 +381,20 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     const button = (await screen.findByRole('button', { name: '生成综合结论' })) as HTMLButtonElement
     expect(button.disabled).toBe(false)
     expect((await screen.findByTestId('review-models-missing')).textContent).toContain('跳过评审')
+  })
+
+  it('模型下拉默认选中平台第一个模型，不停在「自动」', async () => {
+    apiSpies.fetchReview.mockRejectedValue(new Error('404'))
+    apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: ['kimi-2.6', 'glm53'], max_lanes: 5 })
+    render(
+      <MultiAnswers
+        answers={answers}
+        renderAnswer={() => <div />}
+        reviewTarget={{ sessionId: 's-1', turn: 2 }}
+      />,
+    )
+    const select = (await screen.findByTestId('synthesis-model')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe('kimi-2.6'))
   })
 
   it('有评审 → 挂出汇总卡；综合按钮始终在（不再依赖评审先跑完）', async () => {

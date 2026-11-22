@@ -24,7 +24,7 @@
  * 其中一个。所以这里不把合成做成评审的后续步骤，只由 UI 决定按钮先后。
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { errMessage } from '@/lib/errors'
@@ -79,6 +79,9 @@ export function useReviewActions(
   const [synthesisKind, setSynthesisKind] = useState('pi')
   const [synthesisModel, setSynthesisModel] = useState('')
   const [synthesisWithReview, setSynthesisWithReview] = useState(true)
+  //: 只在**第一次**拿到平台模型清单时补默认值。之后用户手动切回"自动"不再被覆盖
+  //: ——"列表刷新把我选的改回去"是最难查的一类交互 bug。
+  const modelDefaultApplied = useRef(false)
 
   // 选项是平台级配置（不是某一轮的数据）：只在挂载时取一次。
   // 取失败不拦功能：judge_models 允许为空，服务端会按配置解析。
@@ -127,6 +130,18 @@ export function useReviewActions(
   }, [sessionId, turn])
 
   const judgeModels = options?.judge_models ?? null
+
+  // 默认选中一个**具体模型**，不停在"自动"：
+  // 「自动」意味着"交给后端按本轮某栏的模型解析"，而这个选择器是给律师用来
+  // 指定"用哪个模型出结论"的——留空等于没表达意图，还让结果不可预期。
+  // 取值来自平台清单（不是猜的模型名），清单为空时才回落到"自动"。
+  useEffect(() => {
+    if (modelDefaultApplied.current) return
+    const first = options?.judge_models?.[0]
+    if (!first) return
+    modelDefaultApplied.current = true
+    setSynthesisModel((current) => current || first)
+  }, [options])
 
   const submitReview = async (targetSessionId: string, targetTurn: number): Promise<void> => {
     setReviewRunning(true)
