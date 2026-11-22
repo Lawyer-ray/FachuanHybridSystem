@@ -21,8 +21,28 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.legal_research.services.sources.weike import document as weike_document
 from apps.legal_research.services.sources.weike.document import _record_detail_event
 from apps.legal_research.services.sources.weike.types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
+
+# ---------------------------------------------------------------------------
+# transport 模块级响应访问器的默认桩
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _stub_transport_response_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """给 transport 的模块级响应访问器装默认桩（200 / {} / b""）。
+
+    `_response_status` / `_response_headers` / `_response_body` 在 v27.4.4 的「Service 层
+    静态方法棘轮」中从 mixin 下沉成模块级函数。本文件曾经改成给**实例**塞 MagicMock，
+    于是「线上 `self._response_status` 已不存在 → AttributeError 被 except 吞掉 → 静默
+    回退 Playwright 拿到网页壳」这件事在 CI 里始终是绿的（task 127/128/129 现场证据）。
+    现在按生产代码的真实形态 patch 模块级函数：谁再把调用改回 `self.*`，这里必红。
+    """
+    monkeypatch.setattr(weike_document, "_response_status", lambda _resp: 200)
+    monkeypatch.setattr(weike_document, "_response_headers", lambda _resp: {})
+    monkeypatch.setattr(weike_document, "_response_body", lambda _resp: b"")
 
 # ---------------------------------------------------------------------------
 # Helper to create a mixin instance with required protocol attributes
@@ -36,10 +56,9 @@ def _make_mixin():
     m = WeikeDocumentMixin.__new__(WeikeDocumentMixin)
     m._request_get_with_retry = MagicMock()
     m._request_post_json_with_retry = MagicMock()
-    m._response_status = MagicMock(return_value=200)
     m._response_json = MagicMock(return_value={})
-    m._response_headers = MagicMock(return_value={})
-    m._response_body = MagicMock(return_value=b"")
+    # _response_status / _response_headers / _response_body 是 transport 的模块级函数，
+    # 由本文件的 autouse fixture 统一打桩（不要改回实例属性）。
     return m
 
 
@@ -197,7 +216,6 @@ class TestFetchCaseDetailSuccess:
         item = _make_item(doc_id_raw="R1", doc_id_unquoted="U1")
 
         # Meta response: 200
-        m._response_status.side_effect = lambda r: 200
         m._response_json.side_effect = lambda r: {
             "currentDoc": {
                 "title": "Case Title",
@@ -222,12 +240,12 @@ class TestFetchCaseDetailSuccess:
         assert detail.doc_id_raw == "R1"
 
     @patch("apps.legal_research.services.sources.weike.document.LegalResearchTaskEventService")
-    def test_meta_non_200_skips(self, _mock_event: MagicMock) -> None:
+    def test_meta_non_200_skips(self, _mock_event: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
         m = _make_mixin()
         session = _make_session()
         item = _make_item(doc_id_raw="R1", doc_id_unquoted="U1")
 
-        m._response_status.return_value = 500
+        monkeypatch.setattr(weike_document, "_response_status", lambda _resp: 500)
         m._response_json.return_value = {}
 
         # Both calls return 500
@@ -242,7 +260,6 @@ class TestFetchCaseDetailSuccess:
         session = _make_session()
         item = _make_item()
 
-        m._response_status.return_value = 200
         m._response_json.return_value = {"code": "C_001_009"}
         m._request_get_with_retry.return_value = MagicMock()
 
@@ -259,17 +276,11 @@ class TestFetchCaseDetailSuccess:
         html_resp = MagicMock()
         m._request_get_with_retry.side_effect = [meta_resp, html_resp]
 
-        def status_effect(r):
-            if r is meta_resp:
-                return 200
-            return 200  # html status
-
         def json_effect(r):
             if r is meta_resp:
                 return {"currentDoc": {"title": "T", "additionalFields": {}}}
             return {"code": "C_001_009"}
 
-        m._response_status.side_effect = status_effect
         m._response_json.side_effect = json_effect
 
         with pytest.raises(RuntimeError, match="C_001_009"):
@@ -362,7 +373,7 @@ class TestFetchCaseDetailViaDom:
         m = _make_mixin()
         mock_page = MagicMock()
         mock_locator = MagicMock()
-        mock_locator.inner_text.return_value = "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：(2024)京0105民初1号\n裁判日期：2024年6月1日\n正文内容。"
+        mock_locator.inner_text.return_value = "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：（20XX）京0105民初某某号\n裁判日期：2024年6月1日\n正文内容。"
         mock_page.locator.return_value = mock_locator
         session = _make_session(page=mock_page)
         item = _make_item(title_hint="hint")
@@ -392,20 +403,20 @@ class TestFetchCaseDetailViaDom:
 
 class TestFetchCaseDetailDomFallback:
     @patch("apps.legal_research.services.sources.weike.document.LegalResearchTaskEventService")
-    def test_all_api_fail_falls_to_dom(self, _mock_event: MagicMock) -> None:
+    def test_all_api_fail_falls_to_dom(self, _mock_event: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
         m = _make_mixin()
         session = _make_session()
         item = _make_item()
 
         # All API calls return 500
-        m._response_status.return_value = 500
+        monkeypatch.setattr(weike_document, "_response_status", lambda _resp: 500)
         m._response_json.return_value = {}
         m._request_get_with_retry.side_effect = [MagicMock(), MagicMock()]
 
         # Make DOM fallback return a result
         mock_page = MagicMock()
         mock_locator = MagicMock()
-        mock_locator.inner_text.return_value = "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：(2024)京0105民初1号\n裁判日期：2024年6月1日"
+        mock_locator.inner_text.return_value = "标题：张某诉李某合同纠纷判决书\n审理法院：北京市朝阳区人民法院\n案号：（20XX）京0105民初某某号\n裁判日期：2024年6月1日"
         mock_page.locator.return_value = mock_locator
         session.page = mock_page
 
@@ -414,12 +425,14 @@ class TestFetchCaseDetailDomFallback:
         assert "raw_meta" in detail.__dict__ or hasattr(detail, "raw_meta")
 
     @patch("apps.legal_research.services.sources.weike.document.LegalResearchTaskEventService")
-    def test_dom_fallback_also_fails_raises_combined(self, _mock_event: MagicMock) -> None:
+    def test_dom_fallback_also_fails_raises_combined(
+        self, _mock_event: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         m = _make_mixin()
         session = _make_session()
         item = _make_item()
 
-        m._response_status.return_value = 500
+        monkeypatch.setattr(weike_document, "_response_status", lambda _resp: 500)
         m._response_json.return_value = {}
         m._request_get_with_retry.side_effect = [MagicMock(), MagicMock()]
 
@@ -428,3 +441,59 @@ class TestFetchCaseDetailDomFallback:
 
         with pytest.raises(RuntimeError, match="获取案例详情失败"):
             m.fetch_case_detail(session=session, item=item)
+
+
+# ===========================================================================
+# 真实组合回归：document + transport（禁止再依赖实例上的响应访问器）
+# ===========================================================================
+
+
+class TestRealCompositionedClient:
+    """按生产组合（WeikeDocumentMixin + WeikeTransportMixin）跑详情链路。
+
+    本类**不**在实例上塞 `_response_status/_response_headers/_response_body`：
+    它们必须由 transport 的模块级函数提供（autouse fixture 只补默认 200）。
+    一旦有人把 document.py 的调用改回 `self._response_*`，这里会直接 AttributeError——
+    这正是 task 127/128/129「详情静默回退 Playwright 网页壳 + PDF 下载报错」的根因。
+    """
+
+    def _make_client(self) -> Any:
+        from apps.legal_research.services.sources.weike.document import WeikeDocumentMixin
+        from apps.legal_research.services.sources.weike.transport import WeikeTransportMixin
+
+        class Composed(WeikeDocumentMixin, WeikeTransportMixin):
+            pass
+
+        return Composed()
+
+    @patch("apps.legal_research.services.sources.weike.document.LegalResearchTaskEventService")
+    def test_detail_uses_api_payload_not_dom_fallback(self, _mock_event: MagicMock) -> None:
+        client = self._make_client()
+
+        meta_payload = {
+            "currentDoc": {
+                "title": "某甲公司与某乙公司买卖合同纠纷一审判决书",
+                "additionalFields": {
+                    "courtText": "北京市朝阳区人民法院",
+                    "documentNumber": "（20XX）京0105民初某某号",
+                    "judgmentDate": "2024.06.01",
+                    "caseDigest": "货款及违约金争议",
+                },
+            }
+        }
+        html_payload = {"content": "<h1>判决书</h1><div>本院认为，被告应支付货款。</div>"}
+
+        def _fake_get(url: str, timeout: float | None = None) -> Any:
+            body = html_payload if "/html?" in url else meta_payload
+            return SimpleNamespace(status_code=200, json=lambda: body, headers={}, text="")
+
+        session = WeikeSession(http_client=SimpleNamespace(get=_fake_get), task_id="")
+        item = _make_item(doc_id_raw="R1", doc_id_unquoted="U1")
+
+        detail = client.fetch_case_detail(session=session, item=item)
+
+        assert detail.court_text == "北京市朝阳区人民法院"
+        assert detail.document_number == "（20XX）京0105民初某某号"
+        assert "本院认为" in detail.content_text
+        # 走的是 API 路径，不是 Playwright DOM 兜底
+        assert "detail_source" not in (detail.raw_meta or {})

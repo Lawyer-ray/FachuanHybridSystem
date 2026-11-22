@@ -205,7 +205,11 @@ class LegalResearchCapabilityService:  # pragma: no cover
             search_mode=payload.search_mode or LegalResearchSearchMode.EXPANDED,
             target_count=int(payload.target_count),
             max_candidates=int(payload.budget.max_candidates),
-            min_similarity_score=0.9,
+            # 调用方未指定时沿用 0.9；长案情段落建议显式降阈值（实测同一批候选
+            # 0.9 时 0 命中、0.5 时命中 0.55–0.96，见 docs/harness/backend/integrations.md）。
+            min_similarity_score=(
+                float(payload.min_similarity_score) if payload.min_similarity_score is not None else 0.9
+            ),
             status=LegalResearchTaskStatus.PENDING,
             message="能力调用执行中",
             llm_backend=LLMConfig.get_default_backend(),

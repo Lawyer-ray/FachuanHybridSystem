@@ -7,7 +7,7 @@ from typing import Any
 
 from apps.legal_research.services.sources import CaseDetail
 
-from .intent_mixin import _split_tokens
+from .intent_mixin import _is_location_or_court_token, _split_tokens
 
 
 class ExecutorFeedbackMixin:
@@ -32,7 +32,9 @@ class ExecutorFeedbackMixin:
         keyword_tokens = [
             token
             for token in _split_tokens(search_keyword)
-            if not cls._is_location_or_court_token(token)  # type: ignore[attr-defined]
+            # 模块级纯函数直接调用：写 cls._is_location_or_court_token 会让
+            # LegalResearchExecutor 在运行时抛 AttributeError（本 mixin 只是聚合方）。
+            if not _is_location_or_court_token(token)
         ]
         if not keyword_tokens:
             return

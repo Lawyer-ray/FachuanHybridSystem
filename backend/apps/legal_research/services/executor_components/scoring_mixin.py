@@ -9,6 +9,7 @@ from typing import Any
 
 from apps.legal_research.models import LegalResearchTask
 from apps.legal_research.services.executor_components.policy_mixin import DualReviewPolicy
+from apps.legal_research.services.executor_components.result_persistence import _extract_similarity_metadata
 from apps.legal_research.services.similarity.service import SimilarityResult
 from apps.legal_research.services.sources import CaseDetail
 
@@ -246,7 +247,8 @@ class ExecutorScoringMixin:  # pragma: no cover
                         task.llm_model = sim.model
 
         dual_review_metadata: dict[str, Any] | None = None
-        similarity_metadata = cls._extract_similarity_metadata(similarity=sim)  # type: ignore[attr-defined]
+        # 模块级纯函数（result_persistence.py），不能写成 cls._extract_similarity_metadata
+        similarity_metadata = _extract_similarity_metadata(similarity=sim)
         if (
             dual_review_policy.enabled
             and sim.score >= dual_review_policy.trigger_floor

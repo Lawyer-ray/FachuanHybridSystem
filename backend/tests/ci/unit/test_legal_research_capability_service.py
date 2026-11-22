@@ -425,3 +425,58 @@ def test_capability_search_returns_degraded_when_failure_circuit_open(monkeypatc
     with pytest.raises(ServiceUnavailableError, match="降级"):
         service.search(payload=payload, user=lawyer, idempotency_key="")
     assert LegalResearchTask.objects.count() == 0
+
+
+# ===========================================================================
+# 相似度阈值：默认 0.9，可由调用方下调（长案情段落必需）
+# ===========================================================================
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("value", [None, 0.5])
+def test_capability_search_min_similarity_threshold(
+    monkeypatch: pytest.MonkeyPatch, lawyer, value: float | None
+) -> None:
+    """不传 min_similarity_score → 落 0.9；传了就按传的落库。
+
+    背景：0.9 对「整段案情 vs 判决书全文」的相似度天然过严（实测同一批候选
+    0.9 时 0 命中、0.5 时命中 0.55–0.96），而此前该值在 capability 服务里硬编码，
+    调用方无法下调 → MCP/Agent 带长 facts 时恒为 0 结果。
+    """
+    cache.clear()
+    credential = _build_credential(lawyer=lawyer)
+
+    def _stub_execute(self, *, task_id: str, timeout_ms: int):
+        task = LegalResearchTask.objects.get(id=int(task_id))
+        task.status = LegalResearchTaskStatus.COMPLETED
+        task.save(update_fields=["status", "updated_at"])
+        return {"status": "completed", "query_trace": {"primary_queries": [], "query_stats": {}}}
+
+    monkeypatch.setattr(LegalResearchCapabilityService, "_execute_with_timeout", _stub_execute)
+    service = LegalResearchCapabilityService()
+    payload = AgentSearchRequestV1(
+        credential_id=credential.id,
+        intent="similar_case",
+        facts="被告逾期交货，原告主张价差损失与违约金。",
+        target_count=1,
+        min_similarity_score=value,
+    )
+
+    service.search(payload=payload, user=lawyer, idempotency_key=f"idem-threshold-{value}")
+
+    task = LegalResearchTask.objects.order_by("-id").first()
+    assert task is not None
+    assert task.min_similarity_score == (0.9 if value is None else value)
+
+
+def test_agent_search_request_rejects_out_of_range_threshold() -> None:
+    from pydantic import ValidationError
+
+    for bad in (-0.1, 1.1):
+        with pytest.raises(ValidationError):
+            AgentSearchRequestV1(
+                credential_id=1,
+                intent="similar_case",
+                facts="被告逾期交货，原告主张价差损失。",
+                min_similarity_score=bad,
+            )
