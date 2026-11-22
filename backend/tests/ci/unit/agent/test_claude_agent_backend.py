@@ -57,6 +57,13 @@ from apps.agent.backends.claude_agent_backend import (
 from apps.agent.backends.gateway_cache import GatewaySettings
 
 
+def _ev(payload: dict[str, Any]) -> Any:
+    """造一个 SDK 的 ``StreamEvent``（原始 API 事件 dict 原样带在 ``event`` 上）。"""
+    from claude_agent_sdk import StreamEvent
+
+    return StreamEvent(uuid="u", session_id="s", event=payload)
+
+
 def _settings(**over: Any) -> GatewaySettings:
     base = {
         "name": "律所 kimi",
@@ -198,7 +205,7 @@ def test_translate_text_delta() -> None:
         {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "你好"}}, state
     )
     assert frames == [{"type": "delta", "content": "你好"}]
-    assert state.streamed_text is True
+    assert state.saw_stream_text is True
 
 
 def test_translate_drops_thinking_delta_inside_text_block() -> None:
@@ -255,6 +262,52 @@ def test_translate_tool_use_emits_on_block_stop() -> None:
         }
     ]
     assert state.tool_names["toolu_1"] == "mcp__fachuan__list_cases"
+
+
+def test_text_after_tool_round_is_not_swallowed() -> None:
+    """回归（2026-11-22 会话 335）：工具轮次之后的正文必须照常发出。
+
+    事故序列：第 1 轮 assistant 只有 tool_use（无正文）→ 第 2 轮才有正文。
+    旧实现把「发过任何帧」当成「正文已发过」，于是第 2 轮正文被丢弃，界面只剩
+    工具卡片、一个字都没有，而 ``AgentRun`` 记了 1745 output token。
+    """
+    from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock
+
+    backend = ClaudeAgentBackend()
+    backend._states["r"] = _RunState()
+
+    # 第 1 轮：只有工具调用
+    first = AssistantMessage(
+        content=[ToolUseBlock(id="toolu_1", name="mcp__fachuan__get_server_time", input={})],
+        model="kimi26",
+    )
+    frames1 = backend._translate(first, "r")
+    assert [f["type"] for f in frames1] == ["tool_call"]
+
+    # 第 2 轮：正文（工具结果回来之后）
+    second = AssistantMessage(content=[TextBlock(text="民法典874条属于技术合同章。")], model="kimi26")
+    frames2 = backend._translate(second, "r")
+    assert frames2 == [{"type": "delta", "content": "民法典874条属于技术合同章。"}], (
+        "工具轮次之后的正文被丢掉了——这正是会话 335 里 claude-agent 一片空白的原因"
+    )
+
+    # 第 3 轮：再多一轮正文也必须发（工具循环可能有多轮）
+    third = AssistantMessage(content=[TextBlock(text="另见刑法285条。")], model="kimi26")
+    assert backend._translate(third, "r") == [{"type": "delta", "content": "另见刑法285条。"}]
+
+
+def test_stream_text_suppresses_assistant_fallback() -> None:
+    """流式通道吐过正文时，assistant 整段不能再发一遍（否则前端双份回答）。"""
+    from claude_agent_sdk import AssistantMessage, TextBlock
+
+    backend = ClaudeAgentBackend()
+    backend._states["r"] = _RunState()
+    backend._translate(
+        _ev({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "逐字"}}),
+        "r",
+    )
+    msg = AssistantMessage(content=[TextBlock(text="逐字")], model="kimi26")
+    assert backend._translate(msg, "r") == []
 
 
 def test_translate_usage_from_stream_events() -> None:

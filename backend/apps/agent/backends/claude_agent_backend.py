@@ -270,8 +270,19 @@ class ClaudeAgentRunResult:
 class _RunState:
     """单轮的事件翻译状态。**按 run_id 归集**：后端是单例且允许多会话并发。"""
 
-    #: 已流出的正文（用于判断 assistant 整段是否需要兜底补发）。
-    streamed_text: bool = False
+    #: 本轮**是否见过流式 text delta**（只由 ``text_delta`` 置真）。
+    #:
+    #: 判据是「流式通道通不通」，**不是**「发过没有」：
+    #:
+    #: - 流式通（``include_partial_messages`` 生效）→ 正文已逐块发过，
+    #:   ``AssistantMessage`` 兜底必须**完全关掉**，否则同一段正文出现两遍；
+    #: - 流式不通（网关不吐 partial）→ 每一轮 ``AssistantMessage`` 的 TextBlock
+    #:   都要发——工具循环里第 2、3 轮才有正文。
+    #:
+    #: 2026-11-22 会话 335 的事故正是把判据写成了「发过任何帧」：第一轮的
+    #: ``tool_call`` 帧把标志置真，后续所有正文被当成"已发过"丢掉，症状是
+    #: 「只有工具卡片、一个字正文都没有，但 AgentRun 记了 1745 output token」。
+    saw_stream_text: bool = False
     #: ``content_block`` index → 该块的状态（type / tool 名 / 累积的 JSON 片段）。
     blocks: dict[int, dict[str, Any]] = field(default_factory=dict)
     #: 累计用量（``message_start`` 与 ``message_delta`` 分两处给）。
@@ -343,6 +354,9 @@ class ClaudeAgentBackend:
             mcp_servers=resolved["mcp_servers"],
             system_prompt=_instructions(ctx),
             max_turns=MAX_TURNS,
+            # 逐 token 增量：不开只有「整段 assistant 消息」一种粒度，
+            # 前端表现为长时间空白后突然出现一大段。兜底路径见 ``_translate``。
+            include_partial_messages=True,
             can_use_tool=_can_use_tool,
         )
 
@@ -454,9 +468,10 @@ class ClaudeAgentBackend:
         if isinstance(msg, AssistantMessage):
             frames: list[dict[str, Any]] = []
             for block in msg.content:
-                if isinstance(block, TextBlock) and block.text and not state.streamed_text:
-                    # 兜底：网关若没走 delta 通道（或 SDK 没开 partial），
-                    # 至少把整段正文补上——否则用户看到的是空白回答。
+                if isinstance(block, TextBlock) and block.text and not state.saw_stream_text:
+                    # 兜底：仅当流式通道没吐过正文时，把整段补上。
+                    # 工具循环里每一轮 assistant 消息都可能带正文，所以这里
+                    # **不复位任何标志**——不置真，下一轮继续能发。
                     frames.append({"type": "delta", "content": block.text})
                 elif isinstance(block, ToolUseBlock) and block.id not in state.tool_names:
                     # 同理兜底：没有 stream 事件时也要让前端看到工具调用。
@@ -469,8 +484,6 @@ class ClaudeAgentBackend:
                             "arguments": json.dumps(block.input, ensure_ascii=False) if block.input else None,
                         }
                     )
-            if frames:
-                state.streamed_text = True
             return frames
 
         if isinstance(msg, UserMessage):
@@ -530,7 +543,7 @@ class ClaudeAgentBackend:
                 text = str(delta.get("text") or "")
                 if not text:
                     return []
-                state.streamed_text = True
+                state.saw_stream_text = True
                 return [{"type": "delta", "content": text}]
             if dtype == "thinking_delta" and block.get("type") == "thinking":
                 # 只在真正的 thinking 块里转发。网关的部分路由会把 thinking_delta
