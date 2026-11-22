@@ -28,7 +28,7 @@ _KNOWN_CONTEXT_WINDOWS: dict[str, int] = {
     "claude-haiku-4-5": 200000,
     "deepseek-chat": 65536,
     "deepseek-reasoner": 65536,
-    "kimi26": 262144,
+    "kimi26": 1000000,  # 业务方口径 1M（2026-11-22）；与 pi/models.json 声明同源
 }
 
 

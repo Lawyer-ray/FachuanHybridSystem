@@ -42,8 +42,25 @@ logger = logging.getLogger(__name__)
 
 GATEWAY_URL_ENV = "FACHUAN_PI_GATEWAY_URL"
 GATEWAY_KEY_ENV = "FACHUAN_PI_GATEWAY_KEY"
-DEFAULT_CONTEXT_WINDOW = 128000
-DEFAULT_MAX_TOKENS = 8192
+#: 上下文窗口声明（写进 ``models.json`` 的 ``contextWindow``）。
+#:
+#: ## 为什么现在是 1,000,000 且可被环境变量覆盖
+#:
+#: 它决定**harness 什么时候开始自动压缩**：pi 到达这个值就摘要历史。声明得比真实
+#: 窗口小，模型明明装得下也会被提前摘要（综合结论这种"一次喂五栏全文"的场景直接
+#: 被吃掉一半）；声明得比真实窗口大，则会在真实上限处被网关 400，而那是**跑到一半
+#: 才炸**，整轮回答丢失。
+#:
+#: 所以两个数都不是拍脑袋能定的：真值以模型卡/实测为准，这里只给默认与覆盖口。
+#: 2026-11-22 按业务方决定取 1M；若某部署的模型实际是 256K，设
+#: ``FACHUAN_CONTEXT_WINDOW=262144`` 即可，不用改代码。
+DEFAULT_CONTEXT_WINDOW = int(os.environ.get("FACHUAN_CONTEXT_WINDOW", "1000000") or 1000000)
+
+#: 单次输出的 token 上限（``models.json`` 的 ``maxTokens``）。
+#:
+#: 同样可覆盖：合成结论要一次写上千字，8192 在"思考 + 正文"并存的推理模型上会被
+#: 顶满（实测 kimi-2.6 曾吃到 5958/6144），顶满即被视为"没写完"。
+DEFAULT_MAX_TOKENS = int(os.environ.get("FACHUAN_MAX_TOKENS", "32768") or 32768)
 # 上面的 ``DEFAULT_THINKING_LEVEL`` / ``gateway_effort`` 是**从
 # ``apps.core.llm.gateway_profile`` 再导出**的（思考档位与能力特征表的唯一来源）：
 # ``antigravity_backend`` / ``openai_agents_backend`` 都写着
