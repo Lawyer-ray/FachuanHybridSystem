@@ -178,3 +178,31 @@ rg -n "acquire" backend/apps/core/llm/key_selector.py
 > **已证伪，不要再报**：「多栏并答会撞 `SessionBusyError`」不成立——`services/chat/multi.py:206-214`
 > 按 kind 去重，pi 单轮最多出现一次。残留真问题只是该异常没被 `errors._classify` 归类（用户看到
 > 「Agent 运行失败」而非「会话已有运行中的对话」）。
+
+---
+
+## G. 已确认但本轮未修的 P0（按图施工清单）
+
+> 这些都已由审计 agent 复核到 `file:line`，本轮因时间与「单 PR 可验证性」割舍。
+> 每条都给了修法方向，接手者可直接派 writer；**改完请回来删掉对应行**。
+
+| # | 现象 | 证据 | 修法方向 |
+|:-|:-|:-|:-|
+| G1 | `finance` 计息区间早于最早一条 LPR 记录时，**前段天数被静默丢弃**，只算后半段且不报错（打官司算利息会少算钱） | `apps/finance/services/lpr/rate_service.py:179-206`（`seg_start = max(...)`，只在 segments 全空才抛错）、`api/lpr_api.py:207-231` | 起段前先校验「区间起点 ≥ 最早 LPR 生效日」，否则抛 `ValidationException`；或在 `get_rate_segments` 里显式补齐前段 |
+| G2 | `workflow` 的 `record_step` 每次状态推进把 `started_at` 写成 `None`（`Meta.ordering=["started_at"]` 会让排序塌），`attempts` 每次写入都 +1 | `apps/workflow/temporal/activities.py:58-75` | 只在 created 或 非running→running 时写 `started_at`；`finished_at` 不覆盖；`attempts` 按 status 迁移判重试 |
+| G3 | `chat_records` 抽帧先删本项目全部 EXTRACT 截图再逐帧写（无事务），中途失败即丢全部成果 | `apps/chat_records/tasks.py:257-259`、`:278-298`、失败分支 `:331-340` | 先写新记录（ordering 从 base+1 起）→ 成功后同一事务内删旧；或整段包 `transaction.atomic()` 并清理孤儿文件 |
+| G4 | MCP 工具 `start_workflow_from_steps` 不传 `user` → `_require_admin(None)` 恒抛，工具 100% 失败；`start_workflow` 同样跳过案件校验 | `apps/workflow/mcp/workflow_tools.py:864-906` | `user` 形参一路透传；无 user 时给出可读错误而不是静默失败 |
+| G5 | `_build_mcp_kwargs` **无条件注入 `case_id`**，而 12/21 个 MCP 工具签名没有 `case_id` → 走这些步骤必 `TypeError`，工作流 run 直接 failed | `apps/workflow/temporal/workflows.py:865-899` → `activities.py:759-772` | 按工具签名过滤 kwargs（`inspect.signature`）或维护「需要 case_id」白名单 |
+| G6 | `enterprise_data` 的 `RiskType`（中文）与企查查映射表（英文）不匹配 → **4 种风险全部返回失信被执行人数据**，还回填请求值 | `apps/enterprise_data/api/enterprise_data_api.py:15,59`、`services/providers/qichacha_mcp.py:176-198` | 建唯一中文→工具映射表（四个写全），未命中抛错，删静默兜底 |
+| G7 | `pdf_splitting` 的 `confirm_segments` 在 `@transaction.atomic` **内部**提交导出任务 → worker 可能读到删前/建前数据，导出错包 | `apps/pdf_splitting/services/job_service.py:373-422` | 抽 `_submit_export(job_id)`，改 `transaction.on_commit(...)` |
+| G8 | MCP 工具描述写 `split_mode="by_page"`，枚举真值是 `page_split`，`_normalize_split_mode` 对非法值**静默回落最贵的云端识别** | `mcp_server/tools/pdf_splitting/pdf_splitting.py:18`、`apps/pdf_splitting/models.py:51-54`、`services/job_service.py:701-706` | docstring 改 `page_split`；非法非空值 `logger.warning` |
+| G9 | `cases` 就绪度/材料齐备/利冲三端点**无案件级 ACL**，利冲结果还回吐他案案名与客户 ID | `apps/cases/api/case_readiness_api.py:48,64,78`、`services/case_readiness_service.py:467-532` | 统一 `CaseAccessPolicy().ensure_access_ctx` 前置校验 |
+| G10 | `cases` 我方当事人「对立诉讼地位」冲突校验**永远不触发**：映射表键写 `plaintiff_side`，枚举真值是 `plaintiff` → `get()` 恒 None 直接 return | `apps/cases/services/party/case_party_mutation_service.py:95-112`、`apps/core/models/enums.py:29-40` | 改用 `apps/cases/domain/party_status.py` 的 `is_plaintiff_side/is_defendant_side` |
+| G11 | `cases` JSON 导入把 `authority_type` 写成大写 `"TRIAL"`（choices 里没有该值）→ 落库即脏数据 | `apps/cases/services/case_import_service.py:213` | 改 `AuthorityType.TRIAL` 常量 + 非法值回落告警 |
+| G12 | `documents` 的 `TemplateAuditLog` 全链路建成但**一条也写不进去**：导入的模块不存在，`except ImportError` 把异常降级成 debug 后返回 None | `apps/documents/signals.py:30-38,129-141` | 指向真实模块或补最小实现；降级路径改 `logger.exception` |
+| G13 | `documents.retry_analysis` 在调 LLM **之前**就物理删除全部 `FieldMapping` 且无事务 → LLM 失败即永久丢失人工确认过的映射 | 审计 P04-03（`tmp/backend-audit/reports/P04-documents.md`） | 改为「先算后换」：新映射算出后再在事务内替换 |
+| G14 | `batch_printing` 任务端点无属主校验且列表不分页 → 任意登录用户可列出/取消/删除全所打印任务 | `apps/batch_printing/services/job/job_service.py:50-71,141-152`、`api/batch_printing_api.py:135-172` | 照 `image_rotation` 已修的范式加 `user=` 收敛 |
+| G15 | `contracts` 的 `list_payment_invoices` **缺行级 ACL**：任意登录用户可读任意合同的发票列表 + `file_url` | 审计 P02（`tmp/backend-audit/reports/P02-contracts.md`） | 接入 `ContractAccessPolicy` 行级校验 |
+| G16 | `contracts` 的 `archive clear-all` 在 `async def` 里**同步迭代 QuerySet**，生产无 `DJANGO_ALLOW_ASYNC_UNSAFE` → 端点必 500 | 同上 | 改 `sync_to_async` 或用 `aiterator` |
+| G17 | `reminders` ICS 订阅漏了 `case_log` 与全局提醒的属主约束 → 持 token 者可拉全所「仅绑案件日志」提醒与全部全局提醒 | `apps/reminders/services/calendar_feed_service.py:69-78`、对照 `reminder_read_scope.py:42-48` | 第三个 OR 分支并入口径 |
+| G18 | `message_hub`/`document_parsing` 的 Textin 回调闭环缺一环：`bind_textin_job` 无调用点，回调必 `task_not_found` → 任务永久 processing | `apps/document_parsing/services/callback_result_service.py:66-80`（无调用）、`task_dispatch*` 只绑 mineru | 调度时一并写 `metadata['callback_job_id']` |
