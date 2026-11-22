@@ -6,6 +6,8 @@ Pytest 配置文件
 import contextlib
 import os
 import sys
+import tempfile
+import warnings
 from typing import Any
 
 import django
@@ -60,6 +62,94 @@ def _configure_test_database(django_settings: Any) -> None:
     }
 
 
+#: 关掉「并发测试库隔离」的开关（排障用；默认开启）。
+TEST_DB_ISOLATION_ENV = "FACHUAN_TEST_DB_ISOLATION"
+
+#: flock 句柄：进程内一直持有，进程退出（含崩溃）时由内核释放。
+_TEST_DB_LOCK_HANDLES: list[Any] = []
+
+
+def _concurrent_test_db_isolation(base_name: str, engine: str) -> str | None:
+    """有第二个 pytest 在用同一个测试库时，给本次运行换一个库名。
+
+    为什么需要：``TransactionTestCase``（对应 ``@pytest.mark.django_db(transaction=True)``）
+    的 teardown 会 ``flush``——对 Postgres 就是 ``TRUNCATE ... CASCADE``，作用于**整个库**。
+    两个 pytest 进程共用一个测试库时，A 的 flush 会把 B 正在用的 fixture 行删掉，B 随后
+    在另一条连接上写外键就报 ``ForeignKeyViolation``；也可能表现为「查不到自己刚建的数据」
+    或毫不相关的统计断言失败。这类失败**不可复现**，最容易被误判成代码 bug。
+
+    实测（2026-11-22）：并行会话同时跑 pytest 那一次，
+    ``test_synthesis_verify.py::test_verify_never_reports_green_when_extraction_failed``
+    报外键违规；之后用完全相同的命令连跑 6 次全绿。
+
+    判据用 ``flock`` 而不是 pid 文件：进程崩溃时锁由内核自动释放，不会留下「假占用」。
+    锁按库名（不是按会话）区分，所以三方并行也只是各自换名，不会互相排队等待。
+
+    Args:
+        base_name: 本次要用的测试库基名（已按 ``TEST_DB_NAME`` / ``DB_NAME`` 解析）。
+        engine: 数据库引擎标识；SQLite 按路径走，换库名没有意义，直接跳过。
+
+    Returns:
+        与其它会话撞库时返回**新的库名**（带本次进程号），否则 ``None`` = 沿用原名。
+    """
+    raw = os.environ.get(TEST_DB_ISOLATION_ENV, "1").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return None
+    if "sqlite" in engine:
+        return None
+    # xdist 已经按 worker 派生 ``_gw0`` 后缀（pytest-django 内建），再叠一层只会白建库。
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        return None
+    try:
+        import fcntl
+    except ImportError:  # 非 POSIX（Windows）：没有 flock，退回「共用一个库」
+        return None
+
+    lock_path = os.path.join(tempfile.gettempdir(), f"fachuan-pytest-db-{base_name}.lock")
+    handle = open(lock_path, "a+")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        return f"{base_name}_s{os.getpid()}"
+    _TEST_DB_LOCK_HANDLES.append(handle)
+    return None
+
+
+@pytest.fixture(scope="session")
+def django_db_modify_db_settings(django_db_modify_db_settings_parallel_suffix: None) -> None:
+    """建库前把「与另一个 pytest 撞库」的会话换到自己的库名。
+
+    这是 pytest-django 官方的「建库前最后一刻改库名」入口（它自己的 xdist ``_gw0`` /
+    tox 后缀就走这条链），本文件**覆盖**同名 fixture 以接入自己的判据。
+
+    为什么不能写在 ``pytest_configure`` 里：pytest-django 在它之前就加载了 settings，
+    实测改完环境变量，它仍去建 ``test_fachuan_test``（直接撞上别人的库）。
+    """
+    from django.conf import settings
+    from django.db import connections
+
+    default_db = settings.DATABASES["default"]
+    base_name = str(default_db.get("NAME") or "").strip()
+    isolated_name = _concurrent_test_db_isolation(base_name, str(default_db.get("ENGINE") or ""))
+
+    if not isolated_name:
+        return
+    default_db["NAME"] = isolated_name
+    # 光改 settings 不够：``_install_runtime_db_guard()`` 在 ``pytest_configure`` 里就
+    # 碰过 ``connections['default']``，连接对象已建立并**拷贝**了一份 settings_dict。
+    # 不同步改它，Django 仍会去建旧名字的库（实测：撞上别人的 ``test_fachuan_*``）。
+    with contextlib.suppress(Exception):
+        connections["default"].settings_dict["NAME"] = isolated_name
+    warnings.warn(
+        f"另一个 pytest 正在使用测试库 '{base_name}'（flock 被占用），"
+        f"本次运行改用 '{isolated_name}'，避免互相 flush 造成不可复现的失败。"
+        f"（关闭隔离：{TEST_DB_ISOLATION_ENV}=off）",
+        UserWarning,
+        stacklevel=1,
+    )
+
+
 def pytest_configure(config: Any) -> None:
     """
     Apply test database settings once, *before* Django loads settings.
@@ -80,6 +170,7 @@ def pytest_configure(config: Any) -> None:
     test_db_name = os.environ.get("TEST_DB_NAME")
     if test_db_name:
         os.environ["DB_NAME"] = test_db_name
+
 
     # Production safety check
     db_name = os.environ.get("DB_NAME", "fachuan_dev")

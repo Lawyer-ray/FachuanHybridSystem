@@ -20,7 +20,19 @@ from apps.legal_research.services.credential_resolver import resolve_weike_crede
 
 
 @pytest.fixture
-def firm_user(db):
+def firm_user(transactional_db):
+    """律所 + 律师 + 用户，**提交可见**（`transactional_db`，不是 `db`）。
+
+    为什么必须是事务模式而不是 `db`：本文件的异步用例会在 `sync_to_async` 里读库，
+    那是**另一条数据库连接**。非事务模式下 fixture 的数据还在未提交的事务里，另一条
+    连接看不到它（如果那条连接还要写外键，就会直接报 `ForeignKeyViolation`——机制已用
+    探针实测：同一份数据 `db` 下必报、`transactional_db` 下正常）。
+
+    改成 fixture 直接要 `transactional_db`，比依赖用例上的
+    `@pytest.mark.django_db(transaction=True)` 更稳：pytest-django 只要在 fixturenames
+    里看到 `transactional_db` 就走 `TransactionTestCase`（fixtures.py `_django_db_helper`），
+    因此新增用例忘了写 marker 也不会退化成“看不到 fixture 数据”。
+    """
     from django.contrib.auth import get_user_model
 
     from apps.organization.models import LawFirm, Lawyer
@@ -71,15 +83,15 @@ async def test_verify_never_reports_green_when_extraction_failed(firm_user, monk
     都认不出，核验返回 0 条，上层于是当作"文里没有法规引用"，`unverified` 空着
     ——律师看到的是"全部通过"，实际一条都没核。
     """
-    from asgiref.sync import sync_to_async
-
+    from apps.agent.services.synthesis import verify as verify_module
     from apps.legal_research.services import law_verification_service as svc_module
-    from apps.organization.models import AccountCredential
 
-    user, lawyer = firm_user
-    await sync_to_async(AccountCredential.objects.create)(
-        lawyer=lawyer, site_name="威科", url="https://www.wkinfo.com.cn/login/index", account="a"
-    )
+    user, _lawyer = firm_user
+
+    # 凭证解析直接打桩：本用例验的是「核验返回 0 条 ≠ 全部通过」，不需要真的在库里
+    # 建一条威科账号。顺带把「异步用例在另一条连接上**写库**」这条路去掉——那条路
+    # 是 2026-11-22 那个偶发外键违规的唯一写入口（详见本文件 ``firm_user`` 的注释）。
+    monkeypatch.setattr(verify_module, "resolve_weike_credential_id", lambda **_kwargs: 42)
 
     class _EmptyService:
         def check_references(self, *, text: str, credential_id: int, user):
