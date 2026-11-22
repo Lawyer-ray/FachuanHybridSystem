@@ -46,6 +46,38 @@ make mcp-status    # 进程/日志
 - 直接 ORM 的工具(不经 REST)放 `apps/<域>/mcp/`,注册时用 `_workflow_tool` 包装(参数剥离+异常翻译),并**必须**处理身份(ContextVar Bearer → 律师),否则退化为服务账号语义。
 - `**kwargs`/`**extra` 形参会被 FastMCP 编译成必填 object 参数,禁用;可选聚合参数用 `dict | None`。
 
+### 插件工具：有插件目录就有工具，没有就没有
+
+主仓的 409 个工具是 `server.py` 里的**硬编码 import 清单**；`backend/plugins/` 是
+**独立版本控制**（子模块 + 私有目录），插件能力本来只能被 app 层调用。现在插件可以
+自带 MCP 工具：
+
+```
+backend/plugins/<插件名>/mcp_tools.py      # 约定文件名，主仓只按目录扫描发现
+```
+
+```python
+def search_xxx(keyword: Annotated[str, Field(description="检索关键词")]) -> dict:
+    '''一句话说明（会原样进 tools/list 的 description）。'''
+    ...
+
+MCP_TOOLS = [search_xxx]          # 必填：要暴露的函数
+def check_available() -> bool:    # 可选：缺凭据时返回 False，工具就整块不出现
+    return True
+```
+
+- **主仓不出现任何插件名**：靠目录扫描发现，不靠注册表登记（`git hooks` 里那条
+  「Forbid committing weike private implementation paths」正是原因）。
+- **没插件 = 连名字都不出现**：不是「有工具但一调就报错」——后者会让模型反复重试。
+- **撞名以内置为准**；注解由 `_tool_annotations` 按名字 + `classify_risk` 推，
+  分层默认走 `deferred`（不占每轮固定前缀）。
+- **一个坏插件不拖垮 MCP**：import 失败 / 契约不合法 / `check_available` 抛异常 →
+  跳过该插件并记 warning，其余工具照常。
+- 回滚开关：`FACHUAN_PLUGIN_TOOLS=off`。
+
+实现与用例：`mcp_server/plugin_tools.py`、`tests/ci/unit/mcp_server/test_plugin_tools.py`。
+真机验证：放一个探针插件后 `make mcp` 报 `429 → 430`，删掉后回到 `429`。
+
 ## 测试金字塔（tests/ci/unit/mcp_server/）
 
 | 层 | 文件 | 覆盖 |

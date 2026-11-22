@@ -14,6 +14,7 @@ from mcp.types import ToolAnnotations
 
 from apps.agent.services.approval import RiskLevel, classify_risk
 from mcp_server.client import FachuanApiError
+from mcp_server.plugin_tools import register_plugin_tools
 from mcp_server.tools import (
     add_case_party,
     add_contract_party,
@@ -1310,6 +1311,20 @@ _t(list_doc_converter_jobs)
 _t(create_doc_converter_job)
 _t(list_litigation_sessions)
 _t(list_pending_court_document_tasks)
+
+
+# ---------------------------------------------------------------------------
+# 插件自带工具：有插件目录就有工具，没有就没有
+# ---------------------------------------------------------------------------
+# 放在所有内置 ``_t(...)`` **之后**：插件工具与内置撞名时以内置为准（内置是
+# 审批与审计口径的基准），所以注册前要先拿到内置名单。总开关
+# ``FACHUAN_PLUGIN_TOOLS=off`` 可一键不注册（回滚用）。
+def _builtin_tool_names() -> set[str]:
+    """此刻已注册的内置工具名（插件注册前调用，等于 409 个内置工具）。"""
+    return {tool.name for tool in mcp._tool_manager.list_tools()}
+
+
+PLUGIN_TOOL_NAMES: list[str] = register_plugin_tools(_t, reserved_names=_builtin_tool_names())
 
 
 # ---------------------------------------------------------------------------
