@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from apps.agent.models import AgentQuestion, AgentSession, AgentSubtask
@@ -150,7 +152,28 @@ class TestSubtaskDispatchGuard:
 
 
 class TestCitationVerification:
-    """引用核查：默认 not_verified 是审计文化的基石。"""
+    """引用核查：默认 not_verified 是审计文化的基石。
+
+    ## 为什么这里必须把传输层打掉
+
+    这些用例测的是**纯解析与状态约定**。v27.22.6 之后 ``verify_citations`` 不再
+    「没给 credential_id 就本地短路」，而是照发 ``credential_id: null`` 让服务端按
+    当前用户解析威科账号——于是不打桩时它们会真的去连后端（CI 里连不上，报
+    ``FachuanTransportError: 服务端不可达``）。
+
+    这里统一模拟「服务端 422：本所未配置威科账号」，因为那正是**没凭证**这个场景
+    在生产里的真实形态；它必须降级成 ``format_only`` 而不是报错，也不是标 verified。
+    """
+
+    @pytest.fixture(autouse=True)
+    def _stub_verify_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from mcp_server import client as client_module
+        from mcp_server.tools.legal_research import citation_check as citation_module
+
+        def _post(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            raise client_module.FachuanApiError("HTTP 422: 本所未配置威科先行账号凭证")
+
+        monkeypatch.setattr(citation_module.client, "post", _post)
 
     def test_default_status_is_not_verified(self) -> None:
         """没给凭证 = 没查。绝不能因为「格式看起来对」就标 verified。"""
@@ -159,7 +182,8 @@ class TestCitationVerification:
         assert result["summary"]["verified"] == 0
         refs = [r for r in result["references"] if r.get("law_name")]
         assert refs and all(r["status"] == "not_verified" for r in refs)
-        assert "未提供 credential_id" in result["note"]
+        # 口径变了：不再是「你没传 credential_id」，而是「服务端没解析到账号」
+        assert "凭证" in result["note"]
 
     def test_extracts_statute_and_converts_chinese_numeral(self) -> None:
         result = verify_citations("《民法典》第一千零七十九条", credential_id=None)
