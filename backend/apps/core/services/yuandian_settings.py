@@ -60,7 +60,9 @@ _DISABLED_VALUES = frozenset({"false", "0", "no", "off"})
 #: - ``DatabaseError``：库未迁移、连接不通；
 #: - ``SynchronousOnlyOperation``：在 async 上下文里直接调用了同步 ORM。
 #:
-#: 不写 ``except Exception``（异常棘轮门禁）；``CancelledError`` 等控制流异常不在其中。
+#: 不用宽口径捕获（异常棘轮门禁：全库 ``Exception`` 捕获数有上限）；
+#: ``CancelledError`` 等控制流异常不在其中。注：写棘轮日志时不要把这四个词原样
+#: 写进注释——它在全库数数，连注释一起算（本条就踩过）。
 _READ_ERRORS: tuple[type[BaseException], ...] = (DatabaseError, SynchronousOnlyOperation, *CACHE_ERRORS)
 
 #: 元典开放平台地址。MCP Server 地址为 ``<base>/mcp/<名称>/stream``。
