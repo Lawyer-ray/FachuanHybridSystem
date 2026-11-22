@@ -30,11 +30,7 @@ class StampLookupError(Exception):
     """文件路径反查失败。"""
 
 
-class StampLookupService:  # pragma: no cover
-    """文件路径 → 合同反查。"""
-
-
-# ↓↓ 由 StampLookupService 下沉的模块级纯函数（四层架构静态方法棘轮）
+# 模块级服务函数（四层架构棘轮：Service 层不得用静态方法装饰器）
 def lookup_by_file_path(file_path: str) -> StampLookupResult:
     """根据文件路径反查合同，返回 OA 案件编号等信息。
 

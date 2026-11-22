@@ -382,9 +382,25 @@ def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
 
 
 def _get_job_service() -> Any:
-    from apps.image_rotation.services.job_service import ImageRotationJobService
+    """历史任务服务（模块级函数集合）。
 
-    return ImageRotationJobService()
+    2026-11-23 审计修复：原 `ImageRotationJobService` 是**空类**（静态方法棘轮下沉后
+    方法全部搬到模块级，类体只剩注释），而这里 `return ImageRotationJobService()`
+    再调用 `.list_jobs()/.get_job()/.delete_job()` —— 8 个 `/jobs*` 端点必然
+    `AttributeError` 500，且全部带 `# pragma: no cover` 所以测试与覆盖率都看不见。
+    现在直接返回模块，与 apps/oa_filing、apps/pdf_splitting 等「模块级纯函数」范式一致。
+    """
+    from apps.image_rotation.services import job_service
+
+    return job_service
+
+
+def _actor(request: HttpRequest) -> Any:
+    """归属过滤用的操作者；未登录返回 None（服务层仅在传入 user 时按属主收敛）。"""
+    user = getattr(request, "user", None)
+    if user is None or not getattr(user, "is_authenticated", False):
+        return None
+    return user
 
 
 def _serialize_job(job: Any) -> dict[str, Any]:
@@ -452,7 +468,7 @@ def create_job(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
 def list_jobs(request: HttpRequest, page: int = 1, page_size: int = 20) -> dict[str, Any]:  # pragma: no cover
     """分页列出历史任务（标准信封 items/total/page/page_size/total_pages）"""
     try:
-        result = _get_job_service().list_jobs(page=page, page_size=page_size)
+        result = _get_job_service().list_jobs(page=page, page_size=page_size, user=_actor(request))
         return {
             "items": [_serialize_job(j) for j in result["items"]],
             "total": result["total"],
@@ -470,7 +486,7 @@ def get_job_detail(request: HttpRequest, job_id: str) -> dict[str, Any]:  # prag
     """获取任务详情"""
     try:
         service = _get_job_service()
-        job, pages = service.get_job_detail(job_id)
+        job, pages = service.get_job_detail(job_id, user=_actor(request))
         job_data = _serialize_job(job)
         job_data["export_zip_url"] = job.export_zip_url
         job_data["export_pdf_url"] = job.export_pdf_url
@@ -492,7 +508,7 @@ async def run_job_ocr(request: HttpRequest, job_id: str) -> dict[str, Any]:  # p
         provider: str = payload.get("provider", "local")
         service = _get_job_service()
 
-        pages = await service.arun_ocr(job_id, provider=provider)
+        pages = await service.arun_ocr(job_id, provider=provider, user=_actor(request))
         pages_data = [_serialize_page(p) for p in pages]
         return {
             "success": True,
@@ -512,7 +528,7 @@ def update_job_pages(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pr
         if not updates:
             return {"success": True}
 
-        job = _get_job_service().get_job(job_id)
+        job = _get_job_service().get_job(job_id, user=_actor(request))
         pages_map = {str(p.id): p for p in job.pages.all()}
 
         for upd in updates:
@@ -556,7 +572,7 @@ def save_export_url(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pra
         allowed_prefix = f"{settings.MEDIA_URL}{MediaEntity.IMAGE_ROTATION}/"
         if not media_url.startswith(allowed_prefix) or ".." in media_url:
             return {"success": False, "message": "无效的导出文件 URL"}
-        job = _get_job_service().get_job(job_id)
+        job = _get_job_service().get_job(job_id, user=_actor(request))
         if file_type == "zip":
             job.export_zip_url = media_url
             job.save(update_fields=["export_zip_url", "updated_at"])
@@ -577,7 +593,7 @@ def download_job_export(request: HttpRequest, job_id: str, file_type: str) -> An
     from django.conf import settings
     from django.http import FileResponse
 
-    job = _get_job_service().get_job(job_id)
+    job = _get_job_service().get_job(job_id, user=_actor(request))
     media_url = job.export_zip_url if file_type == "zip" else job.export_pdf_url if file_type == "pdf" else ""
 
     if not media_url:
@@ -615,7 +631,7 @@ def update_job_name(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pra
     try:
         payload = _body(request)
         new_name: str = payload.get("name", "").strip()
-        job = _get_job_service().get_job(job_id)
+        job = _get_job_service().get_job(job_id, user=_actor(request))
         job.name = new_name
         job.save(update_fields=["name", "updated_at"])
         return {"success": True, "display_name": job.name or "未命名任务"}
@@ -627,5 +643,5 @@ def update_job_name(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pra
 @router.delete("/jobs/{job_id}")
 def delete_job(request: HttpRequest, job_id: str) -> dict[str, str]:  # pragma: no cover
     """删除任务"""
-    _get_job_service().delete_job(job_id)
+    _get_job_service().delete_job(job_id, user=_actor(request))
     return {"status": "deleted"}

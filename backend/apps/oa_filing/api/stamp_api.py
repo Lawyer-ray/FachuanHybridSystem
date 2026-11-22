@@ -15,12 +15,6 @@ logger = logging.getLogger("apps.oa_filing.api.stamp")
 router = Router()
 
 
-def _get_stamp_lookup_service() -> Any:
-    from apps.oa_filing.services.stamp_lookup_service import StampLookupService
-
-    return StampLookupService()
-
-
 def _get_task_executor_service() -> Any:
     from apps.oa_filing.services.script_executor_service import ScriptExecutorService
 
@@ -39,8 +33,6 @@ async def lookup_contract(request: HttpRequest, payload: StampApplyIn) -> Any:
     from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
     from apps.core.exceptions import PermissionDenied
     from apps.oa_filing.services.stamp_lookup_service import StampLookupError, lookup_by_file_path
-
-    service = _get_stamp_lookup_service()
 
     def _lookup() -> Any:
         try:

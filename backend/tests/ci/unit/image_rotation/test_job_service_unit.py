@@ -1,4 +1,4 @@
-"""ImageRotationJobService 单元测试 — 任务创建/查询/删除与 OCR 重识别编排。
+"""图片旋转历史任务服务（模块级函数）单元测试 — 任务创建/查询/删除与 OCR 重识别编排。
 
 存储经 autouse fixture 把 MEDIA_ROOT 指到临时目录；OCR / 重命名服务注入 mock。
 """
@@ -16,7 +16,6 @@ from django.test import override_settings
 from apps.core.exceptions import NotFoundError
 from apps.image_rotation.models import ImageRotationJob, ImageRotationJobStatus, ImageRotationPage
 from apps.image_rotation.services.job_service import (
-    ImageRotationJobService,
     _guess_ext,
     arun_ocr,
     create_job,

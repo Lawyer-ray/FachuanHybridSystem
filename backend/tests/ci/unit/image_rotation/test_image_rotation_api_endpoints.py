@@ -718,7 +718,8 @@ class TestDeleteJob:
         with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             result = delete_job(req, "1")
             assert result["status"] == "deleted"
-            mock_svc.return_value.delete_job.assert_called_once_with("1")
+            # 2026-11-23 审计：端点现在必须把当前 user 传给服务层做属主收敛（修 IDOR）。
+            mock_svc.return_value.delete_job.assert_called_once_with("1", user=req.user)
 
 
 # ── save_export_url ──────────────────────────────────────────────

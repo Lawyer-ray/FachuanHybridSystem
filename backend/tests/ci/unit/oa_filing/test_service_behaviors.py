@@ -3,7 +3,8 @@
 覆盖此前零覆盖的服务分支：
 - _friendly_error_message：timeout/DNS/refused/未知异常 → 用户可读提示
 - 会话属主隔离（安全审计 A-04 语义）：非属主读他人会话 = DoesNotExist、admin 豁免
-- StampLookupService：空路径/.. 拒绝/绑定命中/未命中（此前整个服务零测试）
+- lookup_by_file_path：空路径/.. 拒绝/绑定命中/未命中（此前整个服务零测试）
+  （2026-11-23 审计：空类 StampLookupService 已删除；这些用例本来就只调模块级函数）
 - import_session_service：get_credential 命中与缺失、会话 lawyer_id 过滤
 - JTNAdapter 对五个 Protocol 的 runtime conformance
 """
@@ -96,11 +97,6 @@ class TestSessionOwnerIsolation:
 
 @pytest.mark.django_db
 class TestStampLookupService:
-    def _svc(self) -> Any:
-        from apps.oa_filing.services.stamp_lookup_service import StampLookupService
-
-        return StampLookupService()
-
     def test_empty_path_rejected(self) -> None:
         from apps.oa_filing.services.stamp_lookup_service import StampLookupError
 
@@ -115,7 +111,6 @@ class TestStampLookupService:
 
     def test_contract_binding_hit(self, tmp_path: Any) -> None:
         from apps.contracts.models import ContractFolderBinding
-        from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
         contract = ContractFactory(law_firm_oa_case_number="OA-STAMP-1")
         ContractFolderBinding.objects.create(contract=contract, folder_path=str(tmp_path))
@@ -128,7 +123,7 @@ class TestStampLookupService:
         assert result.file_path == str(target)
 
     def test_no_binding_raises(self, tmp_path: Any) -> None:
-        from apps.oa_filing.services.stamp_lookup_service import StampLookupError, StampLookupService
+        from apps.oa_filing.services.stamp_lookup_service import StampLookupError
 
         target = tmp_path / "孤儿文件.pdf"
         target.write_bytes(b"%PDF-0")
@@ -138,7 +133,7 @@ class TestStampLookupService:
     def test_escape_out_of_binding_dir_rejected(self, tmp_path: Any) -> None:
         """绑定目录外的同名路径不得命中（安全审计 B-18）。"""
         from apps.contracts.models import ContractFolderBinding
-        from apps.oa_filing.services.stamp_lookup_service import StampLookupError, StampLookupService
+        from apps.oa_filing.services.stamp_lookup_service import StampLookupError
 
         bound = tmp_path / "bound"
         bound.mkdir()

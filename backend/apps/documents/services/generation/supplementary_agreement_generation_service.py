@@ -140,7 +140,9 @@ class SupplementaryAgreementGenerationService:
         """
         from .pipeline import TemplateMatcher
 
-        return cast("DocumentTemplate" | None, TemplateMatcher().match_supplementary_agreement_template(case_type))
+        # 2026-11-23 审计修复：原先写 cast("DocumentTemplate" | None, ...)，首参是**表达式**
+        # 而不是字符串字面量，运行期求值 "str" | None 直接 TypeError（匹配器根本没跑）。
+        return cast("DocumentTemplate | None", TemplateMatcher().match_supplementary_agreement_template(case_type))
 
     def build_context(self, contract: Any, agreement: Any) -> dict[str, Any]:
         """
