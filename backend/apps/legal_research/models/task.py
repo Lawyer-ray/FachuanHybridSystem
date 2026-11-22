@@ -20,6 +20,11 @@ class LegalResearchSearchMode(models.TextChoices):
     SINGLE = "single", "单检索"
 
 
+class LegalResearchTaskSource(models.TextChoices):
+    WEIKE = "weike", "威科先行"
+    YUANDIAN = "yuandian", "元典"
+
+
 class LegalResearchTask(models.Model):
     legacy_uuid = models.UUIDField(default=uuid4, editable=False, db_index=True, verbose_name="历史UUID")
     created_by = models.ForeignKey(
@@ -30,14 +35,22 @@ class LegalResearchTask(models.Model):
         related_name="legal_research_tasks",
         verbose_name="创建人",
     )
+    # 元典任务不需要律师的站点账号：元典 Key 是律所级的，存在 SystemConfig（YUANDIAN_API_KEYS）。
     credential = models.ForeignKey(
         "organization.AccountCredential",
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="legal_research_tasks",
         verbose_name="站点账号",
     )
 
-    source = models.CharField(max_length=32, default="weike", verbose_name="数据源")
+    source = models.CharField(
+        max_length=32,
+        choices=LegalResearchTaskSource.choices,
+        default=LegalResearchTaskSource.WEIKE,
+        verbose_name="数据源",
+    )
     search_url = models.URLField(max_length=2000, blank=True, verbose_name="WKInfo搜索URL")
     keyword = models.CharField(max_length=255, verbose_name="检索关键词")
     # 高级检索：JSON 数组，每项 {"field": "courtOpinion", "keyword": "逾期利息", "op": "AND"}

@@ -5,6 +5,7 @@ from typing import cast
 
 from .base import CaseSourceClient
 from .weike import WeikeCaseClient
+from .yuandian import YuandianCaseClient
 
 
 class UnsupportedCaseSourceError(ValueError):  # pragma: no cover
@@ -14,6 +15,7 @@ class UnsupportedCaseSourceError(ValueError):  # pragma: no cover
 class SourceClientFactory:  # pragma: no cover
     _builders: dict[str, Callable[[], CaseSourceClient]] = {
         "weike": cast(Callable[[], CaseSourceClient], WeikeCaseClient),
+        "yuandian": cast(Callable[[], CaseSourceClient], YuandianCaseClient),
     }
 
     @classmethod

@@ -267,7 +267,10 @@ def _check_permission(*, task: LegalResearchTask, user: Any | None) -> None:  # 
     if task.created_by_id == user.id:
         return
 
-    if task.credential.lawyer.law_firm_id == user.law_firm_id:
+    # 元典任务的 credential 为空（Key 在 SystemConfig，律所级），不能靠账号归属判全。
+    # 先用 credential_id 判空再取关联对象：null 时不多打一次查询，且 mypy 能收窄类型。
+    credential = task.credential if task.credential_id else None
+    if credential is not None and credential.lawyer.law_firm_id == user.law_firm_id:
         return
 
     raise PermissionDenied(message="无权限访问该任务", code="PERMISSION_DENIED")

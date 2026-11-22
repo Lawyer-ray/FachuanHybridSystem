@@ -102,10 +102,13 @@ class LegalResearchExecutor(  # pragma: no cover
         session = None
         try:
             source_client = get_case_source_client(task.source)
+            # 元典任务的 credential 为空（Key 从 SystemConfig 读，律所级），传空串——
+            # 元典客户端的 open_session 忽略这三个参数；威科任务 credential 非空，行为不变。
+            credential = task.credential
             session = source_client.open_session(
-                username=task.credential.account,
-                password=task.credential.password,
-                login_url=task.credential.url or None,
+                username=credential.account if credential is not None else "",
+                password=credential.password if credential is not None else "",
+                login_url=(credential.url or None) if credential is not None else None,
             )
             if hasattr(session, "task_id"):
                 session.task_id = str(task.id)

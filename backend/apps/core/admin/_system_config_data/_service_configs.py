@@ -76,6 +76,27 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "value": "M8AqueMrJJGv79nHRaEK72QxYTfrh4YF6W48UBpwA4aWeVmK",  # pragma: allowlist secret
             "is_secret": True,
         },
+        {
+            "key": "YUANDIAN_BASE_URL",
+            "category": "enterprise_data",
+            "description": "元典开放平台地址（默认 https://open.chineselaw.com）",
+            "value": "https://open.chineselaw.com",
+            "is_secret": False,
+        },
+        {
+            "key": "YUANDIAN_API_KEYS",
+            "category": "enterprise_data",
+            "description": "元典 API Key（X-API-Key；支持多 Key，每行一个）",
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "YUANDIAN_CONCURRENCY_PER_KEY",
+            "category": "enterprise_data",
+            "description": "元典每把 Key 的并发上限（元典按 key 限流，429 时换下一把）",
+            "value": "2",
+            "is_secret": False,
+        },
     ]
 
 
