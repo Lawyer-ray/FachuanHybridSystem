@@ -113,8 +113,14 @@ export function AppRouter() {
           <Route path={ROUTES.projectReview} element={<ReviewWorkbenchPageLazy />} />
           {/* AI 助手独立页（全宽）：抽屉面板宽 600~1200px，多 agent 并排时每栏放不下。
               两者共用同一个 copilot store（切过去就是同一段对话）；/assistant 上壳层
-              不再渲染抽屉，避免同一段对话两个输入框同屏。 */}
+              不再渲染抽屉，避免同一段对话两个输入框同屏。
+
+              `/assistant/:sessionId` 与 `/assistant` **必须指向同一个页面组件**：会话
+              进 URL 只改 URL，对话区、流式与装配都还在同一份 store 上（hook 在页面里做
+              双向同步，见 features/copilot/hooks/use-session-route）。拆成两个页面
+              组件 = 两份 store 订阅 + 两套装配，切会话会重挂整棵对话树。 */}
           <Route path={ROUTES.assistant} element={<AssistantPageLazy />} />
+          <Route path={ROUTES.assistantSession} element={<AssistantPageLazy />} />
           {/* 设置：系统状态 + 账号绑定 */}
           <Route path={ROUTES.settings} element={<SettingsPageLazy />} />
           {/* 旧路径迁移：账号绑定已并入设置页。保留 query 前转（bound= 绑定成功

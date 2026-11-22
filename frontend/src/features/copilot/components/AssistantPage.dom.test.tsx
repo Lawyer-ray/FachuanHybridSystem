@@ -8,11 +8,17 @@
  *  · 会话列表：宽屏常驻可折叠（偏好与抽屉共用 `copilot:rail`），窄屏收成覆盖层
  *  · 业务范围：合同范围的材料目录开关、退出范围回调
  *  · 输入区按当前后端能力决定是否提供插话；页面上没有「收起」（不是抽屉）
+ *  · 会话进 URL：URL 里的 id 交给 store；直接打开时 URL 被 replace 成上次会话，
+ *    而「退出全屏」仍认得「这次是直接打开的」
  */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const storeMock = vi.hoisted(() => ({
+  /** 当前会话（同步的另一半）：null = 新对话 */
+  sessionId: null as string | null,
+  lastError: null as string | null,
   context: null as { origin: 'case' | 'contract'; refId: number; title: string } | null,
   draggingFiles: false,
   switchSession: vi.fn(async () => {}),
@@ -35,6 +41,8 @@ const mediaMock = vi.hoisted(() => ({ useMediaQuery: vi.fn(() => false) }))
 vi.mock('../store', () => ({
   useCopilot: (sel: (s: typeof storeMock) => unknown) => sel(storeMock),
 }))
+// useSessionRoute 会拉一份会话列表（坏 id 兜底用）：本文件不关心它，别让它真发请求
+vi.mock('../api', () => ({ listSessions: vi.fn(async () => []) }))
 vi.mock('../hooks/use-active-session', () => ({ useActiveSession: () => sessionMock }))
 vi.mock('@/hooks/use-media', () => mediaMock)
 vi.mock('../hooks/use-copilot-drop', () => ({
@@ -73,9 +81,14 @@ vi.mock('./FolderTreeDrawer', () => ({
   ),
 }))
 
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 
 import { AssistantPage } from './AssistantPage'
+
+/** 每个用例一份干净的 query 缓存（页面里的 useSessionRoute 要 useQuery） */
+function newQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
+}
 
 /**
  * 页面用 `useNavigate` / `useLocation`（它是路由组件，这是正当用法），所以渲染
@@ -83,9 +96,33 @@ import { AssistantPage } from './AssistantPage'
  */
 function renderPage(): ReturnType<typeof render> {
   return render(
-    <MemoryRouter>
-      <AssistantPage />
-    </MemoryRouter>,
+    <QueryClientProvider client={newQueryClient()}>
+      <MemoryRouter>
+        <AssistantPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+/** 当前 location 的 pathname（MemoryRouter 不碰 window.location，只能从站内读） */
+function LocationTag() {
+  const loc = useLocation()
+  return <div data-testid="url">{loc.pathname}</div>
+}
+
+/** 带**路由表**的渲染：会话进 URL 的用例要跑真实的 `/assistant` ↔ `/assistant/:sessionId` */
+function renderWithRoutes(path: string): ReturnType<typeof render> {
+  return render(
+    <QueryClientProvider client={newQueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <LocationTag />
+        <Routes>
+          <Route path="/" element={<div>首页标记</div>} />
+          <Route path="/assistant" element={<AssistantPage />} />
+          <Route path="/assistant/:sessionId" element={<AssistantPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -93,6 +130,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   mediaMock.useMediaQuery.mockReturnValue(false)
+  storeMock.sessionId = null
+  storeMock.lastError = null
   storeMock.context = null
   storeMock.draggingFiles = false
   sessionMock.currentTitle = ''
@@ -218,13 +257,15 @@ describe('AssistantPage：退出全屏', () => {
   it('站内进入（有历史栈）时退回上一页，而不是弹回首页', () => {
     // 造出「从 /projects 点进来」的历史：location.key 不是 'default'
     render(
-      <MemoryRouter initialEntries={['/projects', '/assistant']} initialIndex={1}>
-        <Routes>
-          <Route path="/projects" element={<div>项目页标记</div>} />
-          <Route path="/" element={<div>首页标记</div>} />
-          <Route path="/assistant" element={<AssistantPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={newQueryClient()}>
+        <MemoryRouter initialEntries={['/projects', '/assistant']} initialIndex={1}>
+          <Routes>
+            <Route path="/projects" element={<div>项目页标记</div>} />
+            <Route path="/" element={<div>首页标记</div>} />
+            <Route path="/assistant" element={<AssistantPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     fireEvent.click(screen.getByRole('button', { name: '退出全屏' }))
@@ -238,16 +279,49 @@ describe('AssistantPage：退出全屏', () => {
     // `/assistant` 作为唯一入口 → location.key === 'default'，此时 navigate(-1)
     // 会离开应用（浏览器空白页），所以必须回落首页。
     render(
-      <MemoryRouter initialEntries={['/assistant']}>
-        <Routes>
-          <Route path="/" element={<div>首页标记</div>} />
-          <Route path="/assistant" element={<AssistantPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={newQueryClient()}>
+        <MemoryRouter initialEntries={['/assistant']}>
+          <Routes>
+            <Route path="/" element={<div>首页标记</div>} />
+            <Route path="/assistant" element={<AssistantPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
     fireEvent.click(screen.getByRole('button', { name: '退出全屏' }))
 
     expect(screen.getByText('首页标记')).toBeTruthy()
+  })
+
+  it('直接打开 /assistant 且有上次会话：URL 变 /assistant/<id> 后「退出全屏」仍回首页', async () => {
+    // 会话进 URL 后本页首帧会把 `/assistant` replace 成 `/assistant/<id>`，而 replace
+    // 会换掉 location.key。判据若在点击时现算，这里就会误判成「站内进来的」→
+    // navigate(-1) 把用户弹出应用（浏览器空白页），正是那条判断当初要防的事。
+    storeMock.sessionId = 's-0'
+    renderWithRoutes('/assistant')
+    await waitFor(() => expect(screen.getByTestId('url').textContent).toBe('/assistant/s-0'))
+
+    fireEvent.click(screen.getByRole('button', { name: '退出全屏' }))
+
+    expect(screen.getByText('首页标记')).toBeTruthy()
+  })
+})
+
+describe('AssistantPage：会话进 URL', () => {
+  it('URL 里的会话 id 交给 store（/assistant/<id> 直接打开就是这个会话）', async () => {
+    renderWithRoutes('/assistant/s-7')
+
+    await waitFor(() => expect(storeMock.switchSession).toHaveBeenCalledWith('s-7'))
+    // URL 不被改写：贴过来的链接不能被换成自己上次那个会话
+    expect(screen.getByTestId('url').textContent).toBe('/assistant/s-7')
+  })
+
+  it('新对话（URL 无 id）且 store 也无会话：URL 保持 /assistant', async () => {
+    renderWithRoutes('/assistant')
+    await waitFor(() => expect(screen.getByTestId('url')).toBeTruthy())
+
+    expect(screen.getByTestId('url').textContent).toBe('/assistant')
+    expect(storeMock.switchSession).not.toHaveBeenCalled()
   })
 })

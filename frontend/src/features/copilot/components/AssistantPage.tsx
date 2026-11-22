@@ -1,5 +1,5 @@
 /**
- * AI 助手独立页（/assistant）：抽屉面板的全宽宿主。
+ * AI 助手独立页（/assistant 与 /assistant/:sessionId）：抽屉面板的全宽宿主。
  *
  * 为什么要它：抽屉宽 600~1200px，多 agent 并排（2~4 栏）时每栏只剩一百多像素，
  * 工具行也挤成两行。本页把宽度交还给屏幕——左侧会话列表（可折叠）+ 右侧对话区，
@@ -16,15 +16,20 @@
  *
  * 布局也**不搬抽屉的约束**：没有 `--copilot-w`、没有 max-w-[600px]、不做 fixed
  * 定位与滚轮囚闭——本页在文档流里，滚动归自己。
+ *
+ * 会话在 URL 里（`/assistant/<sessionId>`，可复制 / 可刷新 / 可贴给别人）：双向
+ * 同步全部在 useSessionRoute，本文件只负责调用它——抽屉没有 URL，所以那个 hook
+ * 不能搬进 useActiveSession 让抽屉也吃一份。
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { useElementWidth } from '@/hooks/use-element-width'
 import { useMediaQuery } from '@/hooks/use-media'
 
 import { useActiveSession } from '../hooks/use-active-session'
 import { useCopilotDrop } from '../hooks/use-copilot-drop'
+import { useSessionRoute } from '../hooks/use-session-route'
 import { readStoredRailOpen, storeRailOpen } from '../persistence'
 import { useCopilot } from '../store'
 
@@ -47,18 +52,27 @@ export function AssistantPage() {
   const switchSession = useCopilot((s) => s.switchSession)
   const draggingFiles = useCopilot((s) => s.draggingFiles)
   const { currentTitle, currentModel, currentAgentKind, currentCapabilities } = useActiveSession()
+  // 会话进 URL（双向同步）。**必须排在 useActiveSession 之后**：挂载期它先
+  // switchSession(store 里那个 id)，本 hook 的首帧 seed 随后用 URL 里的 id 覆盖——
+  // 顺序反过来就变成「贴过来的链接被换成自己上次的会话」。
+  useSessionRoute()
   const navigate = useNavigate()
   const location = useLocation()
 
   /**
-   * 退出全屏：回到**进入前那一页**（用户是从某个页面点「全屏」过来的）。
+   * 本页这次打开时站内有没有历史栈 —— **首帧就要记下来**。
    *
-   * `location.key === 'default'` 表示这个路由是被**直接**打开的（粘贴链接 / 刷新，
-   * 站内没有历史栈），此时 `navigate(-1)` 会把用户弹出应用。那种情况下退回首页。
-   * 不判这一下的话，用户刷新一次再点「退出全屏」就会掉到浏览器空白页。
+   * 直接打开 / 刷新时 `location.key === 'default'`（站内没有历史栈），此时
+   * `navigate(-1)` 会把用户弹出应用，所以「退出全屏」要退回首页。不判这一下的话，
+   * 用户刷新一次再点「退出全屏」就会掉到浏览器空白页。
+   *
+   * 为什么不能用 `location.key` 现算：会话进 URL 后本页首帧会把 `/assistant`
+   * `replace` 成 `/assistant/<id>`，而 replace 会**换掉 location.key** —— 之后再读就
+   * 不是 'default' 了，正是上面那个坑。存进 ref 则全程保持首帧的判断。
    */
+  const openedDirectly = useRef(location.key === 'default')
   const exitFullscreen = () => {
-    if (location.key === 'default') void navigate(ROUTES.home)
+    if (openedDirectly.current) void navigate(ROUTES.home)
     else void navigate(-1)
   }
 

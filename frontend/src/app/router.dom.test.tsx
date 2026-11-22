@@ -22,7 +22,7 @@
  *   里，mock 掉反而会让整棵树在 context 缺失时抛错并显示「页面出错了」。
  */
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Outlet, useLocation } from 'react-router'
+import { MemoryRouter, Outlet, useLocation, useParams } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/token', () => ({ hasToken: () => true }))
@@ -35,7 +35,7 @@ vi.mock('@/features/auth', () => ({
 const seen = vi.hoisted(() => ({ caseIds: [] as Array<number | null> }))
 
 vi.mock('./preload', () => ({
-  AssistantPageLazy: () => <div data-testid="assistant">助手页</div>,
+  AssistantPageLazy: () => <AssistantParams />,
   HomePageLazy: () => <div data-testid="home">首页</div>,
   ClientUploadPageLazy: () => <div data-testid="upload">上传页</div>,
   DeskPageLazy: () => <div data-testid="desk">预处理页</div>,
@@ -69,7 +69,19 @@ function LocationTag({ testid }: { testid: string }) {
   return <div data-testid={testid}>{`${loc.pathname}${loc.search}`}</div>
 }
 
-import { ROUTES } from './paths'
+/**
+ * 助手页桩：把路由吐给它的 `:sessionId` 打到页面上。
+ *
+ * 两条 Route（`/assistant` 与 `/assistant/:sessionId`）必须指向**同一个页面
+ * 组件**，所以这里也共用同一个桩——它读得到 id，就说明 id 是由 URL 交给页面的，
+ * 页面自己不需要再解析一次路径。
+ */
+function AssistantParams() {
+  const { sessionId } = useParams()
+  return <div data-testid="assistant">{sessionId ?? '(无会话)'}</div>
+}
+
+import { ROUTES, assistantSession } from './paths'
 import { AppRouter } from './router'
 
 function renderAt(path: string) {
@@ -94,7 +106,17 @@ describe('未知路径兜底', () => {
 describe('AI 助手独立页路由', () => {
   it('ROUTES.assistant 渲染助手页（路径模板只在 paths.ts 里定义）', () => {
     renderAt(ROUTES.assistant)
-    expect(screen.getByTestId('assistant')).toBeTruthy()
+    expect(screen.getByTestId('assistant').textContent).toBe('(无会话)')
+  })
+
+  it('ROUTES.assistantSession 把 :sessionId 交给**同一个**助手页', () => {
+    renderAt(assistantSession('s-1'))
+    expect(screen.getByTestId('assistant').textContent).toBe('s-1')
+  })
+
+  it('id 里的保留字符绕一圈回到页面是原样（assistantSession 编码 ↔ 路由解码）', () => {
+    renderAt(assistantSession('a/b c'))
+    expect(screen.getByTestId('assistant').textContent).toBe('a/b c')
   })
 })
 

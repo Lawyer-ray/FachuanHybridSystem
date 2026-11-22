@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   assistant,
+  assistantSession,
+  isAssistantPath,
   loginPath,
   materialPrep,
   materialPrepDetail,
@@ -59,5 +61,25 @@ describe('paths：AI 助手独立页', () => {
   it('assistant 就是独立页路由（侧边栏入口与路由表同源，不手拼）', () => {
     expect(assistant()).toBe(ROUTES.assistant)
     expect(ROUTES.assistant).toBe('/assistant')
+  })
+
+  it('assistantSession 拼出会话子路径（会话进 URL：可复制、可刷新、可贴给别人）', () => {
+    expect(assistantSession('5b0f8b6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b')).toBe(
+      '/assistant/5b0f8b6e-1c2d-4e5f-8a9b-0c1d2e3f4a5b',
+    )
+    expect(ROUTES.assistantSession).toBe('/assistant/:sessionId')
+  })
+
+  it('assistantSession 对 id 做 URL 编码（它是唯一把会话 id 拼进路径的地方）', () => {
+    expect(assistantSession('a/b c')).toBe('/assistant/a%2Fb%20c')
+  })
+
+  it('isAssistantPath 认子路径：只看精确等号的话 /assistant/<id> 会重新叠出壳层抽屉', () => {
+    expect(isAssistantPath('/assistant')).toBe(true)
+    expect(isAssistantPath('/assistant/s-1')).toBe(true)
+    // 只是前缀相同的邻居路径不算（否则 /assistant-xxx 会误吞抽屉）
+    expect(isAssistantPath('/assistant-archive')).toBe(false)
+    expect(isAssistantPath('/assistants/s-1')).toBe(false)
+    expect(isAssistantPath('/projects/393')).toBe(false)
   })
 })
