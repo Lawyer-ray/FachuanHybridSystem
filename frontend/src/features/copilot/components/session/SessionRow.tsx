@@ -5,6 +5,10 @@
  * 每行各建一个 `useMutation` 就是每行一个 useQueryClient 订阅，100 条会话
  * 100 个订阅；现在由父层持有 `renameMutation`，本组件只把 {id, title} 下发，
  * `['copilot','sessions']` 的失效逻辑也就只有一处。
+ *
+ * 鼠标手势：单击进入 / 双击重命名 / 右键直接弹删除确认（这一行屏蔽浏览器默认菜单）。
+ * 双击与右键是**鼠标专属**路径，所以 hover 才出现的铅笔与垃圾桶按钮必须保留——
+ * 键盘用户和触屏用户没有等价手势，那两个按钮是它们唯一的重命名/删除入口。
  */
 
 import { useState } from 'react'
@@ -13,6 +17,17 @@ import { MessageSquare, Pencil, Trash2 } from 'lucide-react'
 import { taskBadge } from '../../domain'
 import type { AgentSession } from '../../types'
 import { StatusBadge } from '@/components/shared/status-badge'
+
+/**
+ * 子按钮隔离：双击与右键是**行级**手势，从按钮冒泡到行容器会叠加成
+ * 「右键垃圾桶 → 又弹一次删除确认」「双击垃圾桶 → 顺带进重命名」。
+ *
+ * 这里只 `stopPropagation()`、不 `preventDefault()`：右键按钮时浏览器系统菜单照常弹。
+ * 理由是按钮本来就有 aria-label 且在 tab 序里，用户要的是行上的手势；在按钮上再
+ * 屏蔽一次浏览器菜单只会多一处「右键失灵」，收益为零。两个按钮共用这一个 handler，
+ * 避免四处 inline 写漏一处就复发上面的叠加。
+ */
+const isolateRowGesture = (e: React.MouseEvent) => e.stopPropagation()
 
 export function SessionRow({
   session,
@@ -40,6 +55,12 @@ export function SessionRow({
     if (title && title !== session.title) onRename(session.session_id, title)
   }
 
+  /** 进编辑态：铅笔按钮与行双击走同一条，删了按钮就只剩鼠标能用（见文件头） */
+  const startRename = () => {
+    setDraft(session.title)
+    setEditing(true)
+  }
+
   if (editing) {
     return (
       <div className="px-1.5 py-1">
@@ -49,6 +70,8 @@ export function SessionRow({
           maxLength={60}
           className="w-full rounded-[8px] border border-input bg-background px-2 py-1.5 text-[13px] text-foreground outline-none focus:border-foreground/40"
           onChange={(e) => setDraft(e.target.value)}
+          // autoFocus 之后紧跟一次全选：双击进来是为了改名，不是追加
+          onFocus={(e) => e.currentTarget.select()}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commitRename()
             if (e.key === 'Escape') setEditing(false)
@@ -72,6 +95,12 @@ export function SessionRow({
           : 'text-secondary-foreground hover:bg-secondary/50'
       }`}
       onClick={onSwitch}
+      onDoubleClick={startRename}
+      onContextMenu={(e) => {
+        // 只在本行 preventDefault：全局屏蔽会把正文区右键的复制/翻译/检查一起吃掉
+        e.preventDefault()
+        onRequestDelete()
+      }}
       onKeyDown={(e) => {
         // 键盘用户必须能切会话；内层按钮的按键不冒泡到这里
         if (e.key === 'Enter' || e.key === ' ') {
@@ -99,9 +128,10 @@ export function SessionRow({
           aria-label="重命名"
           onClick={(e) => {
             e.stopPropagation()
-            setDraft(session.title)
-            setEditing(true)
+            startRename()
           }}
+          onDoubleClick={isolateRowGesture}
+          onContextMenu={isolateRowGesture}
         >
           <Pencil className="h-3 w-3" />
         </button>
@@ -113,6 +143,8 @@ export function SessionRow({
             e.stopPropagation()
             onRequestDelete()
           }}
+          onDoubleClick={isolateRowGesture}
+          onContextMenu={isolateRowGesture}
         >
           <Trash2 className="h-3 w-3" />
         </button>
