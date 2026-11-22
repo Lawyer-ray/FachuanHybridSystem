@@ -110,7 +110,7 @@ class TestPiArgs:
 
     def test_args_are_byte_identical_without_exclusion(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """单栏/无排除时的启动参数与引入本功能前**逐字一致**（旧列表固化在这里）。"""
-        monkeypatch.setattr(rpc_client, "resolve_extensions", lambda primary=None: [primary or "/ext/approval-gate.ts"])
+        monkeypatch.setattr(rpc_client, "resolve_extensions", lambda primary=None, **_kw: [primary or "/ext/approval-gate.ts"])
         legacy = [
             "pi",
             "--mode",
@@ -127,7 +127,7 @@ class TestPiArgs:
         assert self._session(frozenset())._build_args("pi") == legacy
 
     def test_exclusion_is_appended_after_tools(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(rpc_client, "resolve_extensions", lambda primary=None: [primary or "/ext/approval-gate.ts"])
+        monkeypatch.setattr(rpc_client, "resolve_extensions", lambda primary=None, **_kw: [primary or "/ext/approval-gate.ts"])
         args = self._session(frozenset({"mcp__fachuan__rewrite_folder_file"}))._build_args("pi")
         index = args.index("--exclude-tools")
         assert args[index - 2 : index] == ["--tools", rpc_client.TOOL_SELECTION]

@@ -416,3 +416,16 @@ class RunContext:
     #: ``None`` = 不摘任何工具，此时 ``PiRpcSession._build_args`` 的输出与引入
     #: 本字段前**逐字一致**（有断言用例守着，别让它漂）。
     tool_exclude: frozenset[str] | None = None
+
+    #: 本轮**全量替换**运行时默认 system prompt；``None`` = 后端用自己的默认。
+    #: 支持面因后端而异（见各后端 ``stream``）：做不到「替换」的后端必须报
+    #: ``BackendError``，不许静默忽略——综合结论的规则只靠它下发。
+    system_prompt: str | None = None
+
+    #: 本轮模型循环上限；``None`` = 后端用自己的默认。
+    max_turns: int | None = None
+
+    #: 隔离运行：不读、不写该会话在运行时侧的持久对话历史（综合结论这类一次性任务用）。
+    #: 审批路由、日志、归因仍用真实 ``session``（``session_id`` 不变）。保证不了隔离的
+    #: 后端必须报 ``BackendError``，宁可失败也不污染会话历史。
+    isolated: bool = False

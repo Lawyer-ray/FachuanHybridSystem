@@ -44,10 +44,39 @@ import {
   runReview,
   runSynthesis,
 } from './api'
+import {
+  cancelSynthesisJob,
+  fetchLatestSynthesisJob,
+  fetchSynthesisJob,
+  startSynthesisJob,
+  SYNTHESIS_SUBMIT_TIMEOUT_MS,
+  SynthesisWaitTimeoutError,
+  waitForSynthesisJob,
+} from './review-api'
+import type { SynthesisJob } from './adjudication-types'
 
 /** 让 mock 返回链式 .json() */
 function chain<T>(value: T) {
   return { json: () => Promise.resolve(value) }
+}
+
+/** 综合任务的 wire 形状（轮询用例按需覆盖 status / stage） */
+function jobWire(over: Partial<SynthesisJob> = {}): SynthesisJob {
+  return {
+    job_id: 'job-1',
+    session_id: 's-1',
+    turn: 2,
+    status: 'queued',
+    stage: '',
+    error: '',
+    cancel_requested: false,
+    review: true,
+    created: true,
+    created_at: '2026-11-22T00:00:00Z',
+    updated_at: '2026-11-22T00:00:00Z',
+    synthesis: null,
+    ...over,
+  }
 }
 
 beforeEach(() => {
@@ -371,8 +400,8 @@ describe('copilot api：@ 引用候选源', () => {
     expect(apiMock.get).toHaveBeenCalledWith('agent/sessions/s-1/synthesis', { searchParams: { turn: 3 } })
   })
 
-  it('runSynthesis POST sessions/{id}/synthesize：model 空串照发 + 综合的 agent/评审/凭证口径', async () => {
-    await runSynthesis('s-1', { turn: 3, agents: ['pi', 'dsh'], model: '' })
+  it('startSynthesisJob POST sessions/{id}/synthesize：立即返回任务；model 空串照发 + agent/评审/凭证口径', async () => {
+    await startSynthesisJob('s-1', { turn: 3, agents: ['pi', 'dsh'], model: '' })
     expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/synthesize', {
       json: {
         turn: 3,
@@ -382,15 +411,16 @@ describe('copilot api：@ 引用候选源', () => {
         kind: 'pi',
         // 默认先评审：评审分数是综合取舍的依据
         review: true,
-        // 没选凭证 = 不做外部核验（服务端只做格式检查并回 note）
+        // 省略 = 服务端自动挑本所的威科账号
         credential_id: null,
       },
-      timeout: REVIEW_TIMEOUT_MS,
+      // 提交只做校验与入队：不再需要评审那样的长超时
+      timeout: SYNTHESIS_SUBMIT_TIMEOUT_MS,
     })
   })
 
-  it('runSynthesis 透传选中的 agent / 模型 / 先评审开关', async () => {
-    await runSynthesis('s-1', {
+  it('startSynthesisJob 透传选中的 agent / 模型 / 先评审开关 / 凭证', async () => {
+    await startSynthesisJob('s-1', {
       turn: 2,
       agents: ['pi'],
       model: 'glm53',
@@ -400,8 +430,80 @@ describe('copilot api：@ 引用候选源', () => {
     })
     expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/synthesize', {
       json: { turn: 2, agents: ['pi'], model: 'glm53', kind: 'claude-agent', review: false, credential_id: 7 },
-      timeout: REVIEW_TIMEOUT_MS,
+      timeout: SYNTHESIS_SUBMIT_TIMEOUT_MS,
     })
+  })
+
+  it('综合任务的查询 / 最近一次 / 取消路径', async () => {
+    await fetchSynthesisJob('s-1', 'job-1')
+    expect(apiMock.get).toHaveBeenCalledWith('agent/sessions/s-1/synthesis/jobs/job-1')
+    await fetchLatestSynthesisJob('s-1', 3)
+    expect(apiMock.get).toHaveBeenCalledWith('agent/sessions/s-1/synthesis/jobs', { searchParams: { turn: 3 } })
+    await cancelSynthesisJob('s-1', 'job-1')
+    expect(apiMock.post).toHaveBeenCalledWith('agent/sessions/s-1/synthesis/jobs/job-1/cancel')
+  })
+
+  it('waitForSynthesisJob 轮询到终态，每次进展回调 onUpdate', async () => {
+    apiMock.get
+      .mockReturnValueOnce(chain(jobWire({ status: 'running', stage: 'review' })))
+      .mockReturnValueOnce(chain(jobWire({ status: 'running', stage: 'verify' })))
+      .mockReturnValueOnce(chain(jobWire({ status: 'succeeded', stage: '' })))
+    const updates: string[] = []
+    const finished = await waitForSynthesisJob('s-1', jobWire({ status: 'queued' }), {
+      intervalMs: 1,
+      onUpdate: (job) => updates.push(`${job.status}:${job.stage}`),
+    })
+    expect(finished.status).toBe('succeeded')
+    expect(updates).toEqual(['running:review', 'running:verify', 'succeeded:'])
+    expect(apiMock.get).toHaveBeenCalledTimes(3)
+  })
+
+  it('waitForSynthesisJob 中止 = 只停轮询（AbortError），不再请求、更不调取消接口', async () => {
+    apiMock.get.mockReturnValue(chain(jobWire({ status: 'running' })))
+    const controller = new AbortController()
+    const pending = waitForSynthesisJob('s-1', jobWire({ status: 'running' }), {
+      intervalMs: 50,
+      signal: controller.signal,
+    })
+    controller.abort()
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    expect(apiMock.get).not.toHaveBeenCalled()
+    expect(apiMock.post).not.toHaveBeenCalled()
+  })
+
+  it('waitForSynthesisJob 超过总上限：给出可读提示（后台任务不受影响）', async () => {
+    apiMock.get.mockReturnValue(chain(jobWire({ status: 'running' })))
+    await expect(
+      waitForSynthesisJob('s-1', jobWire({ status: 'running' }), { intervalMs: 1, maxWaitMs: 5 }),
+    ).rejects.toBeInstanceOf(SynthesisWaitTimeoutError)
+  })
+
+  it('waitForSynthesisJob 偶发失败会重试，连续 3 次失败才放弃', async () => {
+    const boom = { json: () => Promise.reject(new Error('网络抖动')) }
+    apiMock.get
+      .mockReturnValueOnce(boom)
+      .mockReturnValueOnce(boom)
+      .mockReturnValueOnce(chain(jobWire({ status: 'succeeded' })))
+    await expect(waitForSynthesisJob('s-1', jobWire({ status: 'running' }), { intervalMs: 1 })).resolves.toMatchObject({
+      status: 'succeeded',
+    })
+
+    apiMock.get.mockReset()
+    apiMock.get.mockReturnValue(boom)
+    await expect(waitForSynthesisJob('s-1', jobWire({ status: 'running' }), { intervalMs: 1 })).rejects.toThrow('网络抖动')
+    expect(apiMock.get).toHaveBeenCalledTimes(3)
+  })
+
+  it('runSynthesis = 提交 + 轮询：成功返回结论，失败带后端原因', async () => {
+    const synthesis = { synthesis_id: 'syn-1', text: '结论' }
+    apiMock.post.mockReturnValueOnce(chain(jobWire({ status: 'queued' })))
+    apiMock.get.mockReturnValueOnce(chain(jobWire({ status: 'succeeded', synthesis: synthesis as never })))
+    await expect(runSynthesis('s-1', { turn: 2, agents: ['pi'], model: '' }, { intervalMs: 1 })).resolves.toEqual(
+      synthesis,
+    )
+
+    apiMock.post.mockReturnValueOnce(chain(jobWire({ status: 'failed', error: '没有可用模型' })))
+    await expect(runSynthesis('s-1', { turn: 2, agents: ['pi'], model: '' })).rejects.toThrow('没有可用模型')
   })
 
   it('loadScopeFolderRows：未绑定文件夹 → browsable=false，不报错', async () => {

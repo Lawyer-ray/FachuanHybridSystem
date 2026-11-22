@@ -20,11 +20,21 @@ const apiSpies = vi.hoisted(() => ({
   fetchReviewOptions: vi.fn(),
   fetchSynthesis: vi.fn(),
   runReview: vi.fn(),
-  runSynthesis: vi.fn(),
 }))
 vi.mock('../../api', async () => {
   const actual = await vi.importActual<typeof import('../../api')>('../../api')
   return { ...actual, ...apiSpies }
+})
+// 综合是后台任务：提交 / 轮询 / 取消 / 刷新恢复四个入口在 review-api 里
+const jobSpies = vi.hoisted(() => ({
+  startSynthesisJob: vi.fn(),
+  fetchLatestSynthesisJob: vi.fn(),
+  cancelSynthesisJob: vi.fn(),
+  waitForSynthesisJob: vi.fn(),
+}))
+vi.mock('../../review-api', async () => {
+  const actual = await vi.importActual<typeof import('../../review-api')>('../../review-api')
+  return { ...actual, ...jobSpies }
 })
 
 import type { CriteriaVerdict, LaneReview, Review } from '../../adjudication-types'
@@ -89,8 +99,15 @@ beforeEach(() => {
     judge_models: ['judge-a'],
     max_lanes: 4,
   })
-  // 404 = 该轮还没跑过综合结论（正常态）
+  // 404 = 该轮还没跑过综合结论 / 没提交过任务（正常态）
   apiSpies.fetchSynthesis.mockRejectedValue(new Error('404'))
+  jobSpies.fetchLatestSynthesisJob.mockRejectedValue(new Error('404'))
+  jobSpies.startSynthesisJob.mockImplementation(async () => jobWire())
+  jobSpies.waitForSynthesisJob.mockImplementation(async (_sessionId: string, job: ReturnType<typeof jobWire>) => ({
+    ...job,
+    status: 'succeeded',
+    synthesis: synthesisWire(),
+  }))
 })
 
 describe('ReviewSummaryCard：汇总与证据', () => {
@@ -297,6 +314,25 @@ describe('AdoptBar：采纳 / 合并 / 回显', () => {
 })
 
 
+/** 综合任务的 wire 形状（刚提交：排队中）。 */
+function jobWire(over: Record<string, unknown> = {}) {
+  return {
+    job_id: 'job-1',
+    session_id: 's-1',
+    turn: 2,
+    status: 'queued',
+    stage: '',
+    error: '',
+    cancel_requested: false,
+    review: true,
+    created: true,
+    created_at: '2026-11-22T00:00:00Z',
+    updated_at: '2026-11-22T00:00:00Z',
+    synthesis: null,
+    ...over,
+  }
+}
+
 /** 综合结论的 wire 形状（`toSynthesisView` 只读这几个字段）。 */
 function synthesisWire() {
   return {
@@ -335,14 +371,13 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     expect(await screen.findByRole('button', { name: '生成综合结论' })).toBeTruthy()
     // 花了才跑：还没点，绝不能已经发过 POST
     expect(apiSpies.runReview).not.toHaveBeenCalled()
-    expect(apiSpies.runSynthesis).not.toHaveBeenCalled()
+    expect(jobSpies.startSynthesisJob).not.toHaveBeenCalled()
   })
 
   it('点「生成综合结论」：默认带 review=true（先评审后综合），不为评审单独发请求', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
     // 显式给平台清单：默认模型取自它，不写死就等于依赖别的用例留下的 mock
     apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: ['judge-a'], max_lanes: 5 })
-    apiSpies.runSynthesis.mockResolvedValue(synthesisWire())
     render(
       <MultiAnswers
         answers={answers}
@@ -354,7 +389,7 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     await waitFor(() => expect((screen.getByTestId('synthesis-model') as HTMLSelectElement).value).toBe('judge-a'))
     fireEvent.click(screen.getByRole('button', { name: '生成综合结论' }))
     await waitFor(() =>
-      expect(apiSpies.runSynthesis).toHaveBeenCalledWith('s-1', {
+      expect(jobSpies.startSynthesisJob).toHaveBeenCalledWith('s-1', {
         turn: 2,
         agents: ['pi', 'dsh'],
         // 默认选中平台第一个模型（不再留"自动"）
@@ -369,7 +404,6 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
 
   it('取消勾选「先评审」→ review=false', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
-    apiSpies.runSynthesis.mockResolvedValue(synthesisWire())
     render(
       <MultiAnswers
         answers={answers}
@@ -381,10 +415,12 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     expect(checkbox.checked).toBe(true)
     fireEvent.click(checkbox)
     fireEvent.click(screen.getByRole('button', { name: '生成综合结论' }))
-    await waitFor(() => expect(apiSpies.runSynthesis).toHaveBeenCalledWith('s-1', expect.objectContaining({ review: false })))
+    await waitFor(() =>
+      expect(jobSpies.startSynthesisJob).toHaveBeenCalledWith('s-1', expect.objectContaining({ review: false })),
+    )
   })
 
-  it('平台没有可用评审模型 → 不禁用按钮，提示"本次会跳过评审直接综合"', async () => {
+  it('平台没有可用评审模型 → 评审提示「跳过评审」仍然显示，按钮按缺失原因禁用', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
     apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: [], max_lanes: 5 })
     render(
@@ -395,8 +431,11 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
       />,
     )
     const button = (await screen.findByRole('button', { name: '生成综合结论' })) as HTMLButtonElement
-    expect(button.disabled).toBe(false)
+    // 作业化之后：没有可用模型 = 提交出去也会失败，所以按钮禁用并给出原因；
+    // 评审那一路仍要说明「跳过评审」（评审是可选增强，缺模型不该连综合一起停掉）。
     expect((await screen.findByTestId('review-models-missing')).textContent).toContain('跳过评审')
+    await waitFor(() => expect(button.disabled).toBe(true))
+    expect(screen.getByTestId('synthesis-blocked').textContent).toContain('没有')
   })
 
   it('模型下拉默认选中平台第一个模型，不停在「自动」', async () => {
@@ -413,6 +452,29 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     await waitFor(() => expect(select.value).toBe('kimi-2.6'))
   })
 
+  it('律师明确选了「自动」→ 提交空串（交给后端解析），不被改回清单第一项', async () => {
+    apiSpies.fetchReview.mockRejectedValue(new Error('404'))
+    apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: ['kimi-2.6', 'glm53'], max_lanes: 5 })
+    render(
+      <MultiAnswers
+        answers={answers}
+        renderAnswer={() => <div />}
+        reviewTarget={{ sessionId: 's-1', turn: 2 }}
+      />,
+    )
+    const select = (await screen.findByTestId('synthesis-model')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe('kimi-2.6'))
+
+    fireEvent.change(select, { target: { value: '' } })
+    expect(select.value).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: '生成综合结论' }))
+
+    // 修复前：`synthesisModel || 第一项` 把「自动」改成了 kimi-2.6
+    await waitFor(() =>
+      expect(jobSpies.startSynthesisJob).toHaveBeenCalledWith('s-1', expect.objectContaining({ model: '' })),
+    )
+  })
+
   it('有评审 → 挂出汇总卡；综合按钮始终在（不再依赖评审先跑完）', async () => {
     apiSpies.fetchReview.mockResolvedValue(reviewWire())
     render(
@@ -425,6 +487,6 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     expect((await screen.findByTestId('review-summary')).textContent).toContain('pi 栏多数通过')
     expect(screen.getByTestId('multi-answers')).toBeTruthy()
     expect(await screen.findByRole('button', { name: '生成综合结论' })).toBeTruthy()
-    expect(apiSpies.runSynthesis).not.toHaveBeenCalled()
+    expect(jobSpies.startSynthesisJob).not.toHaveBeenCalled()
   })
 })

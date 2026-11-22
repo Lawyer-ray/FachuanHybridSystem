@@ -41,7 +41,8 @@ export function useSessionRoute(): void {
   /** URL 里的会话 id；null = 当前落在 `/assistant`（无会话 / 新对话） */
   const urlSessionId = paramId ?? null
   const sessionId = useCopilot((s) => s.sessionId) ?? null
-  const lastError = useCopilot((s) => s.lastError) ?? null
+  /** 只看「历史拉取失败」：`lastError` 也会被发消息失败、限流等写入，不能当坏 id 的证据 */
+  const historyLoadError = useCopilot((s) => s.historyLoadError) ?? false
   const switchSession = useCopilot((s) => s.switchSession)
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -92,10 +93,12 @@ export function useSessionRoute(): void {
     }
 
     // ② 坏 id 兜底：`/assistant/<不存在或已删>`。switchSession 拉历史失败时只设
-    //    lastError、sessionId 仍停在那个坏 id，页面上就是一个永远空着的对话 + 一句
+    //    错误状态、sessionId 仍停在那个坏 id，页面上就是一个永远空着的对话 + 一句
     //    「加载会话历史失败」，而 URL 看着完全正常。三条同时成立才算数：
     //    · 这个 id 是打开页面时就有的（见 openingIdRef，发消息建出来的不算）；
-    //    · 历史确实拉失败了（lastError）——**只有**这种情况才需要把用户放回新对话；
+    //    · 历史确实拉失败了（historyLoadError）——**只有**这种情况才需要把用户放回
+    //      新对话。不能看 lastError：发消息失败 / 限流也写它，老会话（不在最近 N 条
+    //      列表里）发一次消息失败就会被误判成「会话不存在」；
     //    · 列表在 id 就位之后加载完，仍查无此 id。
     //    只凭「不在列表」就重置会误伤两种**合法**的缺席：刚建出来的会话（列表要等
     //    本轮流结束才刷新）、以及不在最新 N 条里的老会话——后者恰恰是「把链接贴给
@@ -105,7 +108,7 @@ export function useSessionRoute(): void {
     if (
       sessionId !== null &&
       sessionId === openingIdRef.current &&
-      lastError !== null &&
+      historyLoadError &&
       sessionsLoaded &&
       !listedSessions?.some((s) => s.session_id === sessionId)
     ) {
@@ -131,5 +134,5 @@ export function useSessionRoute(): void {
       // sessionId 恒等于新值，少了这个比较就是 ④→render→③→… 的乒乓
       if (pathname !== target) void navigate(target, { replace: true })
     }
-  }, [urlSessionId, sessionId, lastError, sessionsLoaded, listedSessions, pathname, navigate, switchSession])
+  }, [urlSessionId, sessionId, historyLoadError, sessionsLoaded, listedSessions, pathname, navigate, switchSession])
 }

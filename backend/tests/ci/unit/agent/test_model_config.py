@@ -225,28 +225,71 @@ class TestSupportsImageInput:
 class TestGatewayProfileDelegation:
     """档位与能力判定的唯一来源是 ``apps.core.llm.gateway_profile``。"""
 
-    def test_gateway_effort_is_reexported(self) -> None:
-        """``antigravity_backend`` / ``openai_agents_backend`` 都从这里 from-import。"""
+    #: pi 七档 → 网关档位的既定映射（``thinkingLevelMap`` 改为生成后必须与之逐项一致，含顺序）。
+    EXPECTED_LEVEL_MAP: dict[str, str] = {
+        "off": "off",
+        "minimal": "low",
+        "low": "low",
+        "medium": "high",
+        "high": "high",
+        "xhigh": "xhigh",
+        "max": "max",
+    }
+
+    def test_thinking_level_map_matches_previous_literal(self, monkeypatch: Any) -> None:
+        """生成的 ``thinkingLevelMap`` 与改动前的手写字面量完全一致（键、值、顺序）。"""
+        monkeypatch.setattr(
+            model_config,
+            "_load_provider",
+            lambda hint="": _provider(default_model="kimi-2.6", enable_thinking=True),
+        )
+        payload = model_config.build_models_json("kimi-2.6")
+        assert payload is not None
+        [entry] = _models_of(payload)
+        level_map = entry["thinkingLevelMap"]
+        assert level_map == self.EXPECTED_LEVEL_MAP
+        assert list(level_map) == list(self.EXPECTED_LEVEL_MAP)
+
+    def test_thinking_level_map_is_derived_from_gateway_effort(self, monkeypatch: Any) -> None:
+        """表必须由 ``gateway_effort`` 生成，而不是手写第二份映射。
+
+        把 ``gateway_effort`` 换成探针：除 ``off``（pi 自身语义，原样保留）外，每一档的值都
+        必须跟着变。手写字面量时这条会失败——那正是「档位知识散回多处」的回流。
+        """
+        monkeypatch.setattr(model_config, "gateway_effort", lambda level: f"probe-{level}")
+        monkeypatch.setattr(
+            model_config,
+            "_load_provider",
+            lambda hint="": _provider(default_model="kimi-2.6", enable_thinking=True),
+        )
+        payload = model_config.build_models_json("kimi-2.6")
+        assert payload is not None
+        [entry] = _models_of(payload)
+        level_map = entry["thinkingLevelMap"]
+        assert level_map.pop("off") == "off"
+        assert level_map == {level: f"probe-{level}" for level in level_map}
+
+    def test_off_level_is_not_sent_through_gateway_mapping(self) -> None:
+        """``gateway_effort("off")`` 会落到 ``low``；表里的 ``off`` 必须保持 pi 的「关闭」语义。"""
         from apps.core.llm import gateway_profile
 
-        assert model_config.gateway_effort is gateway_profile.gateway_effort
-        assert model_config.DEFAULT_THINKING_LEVEL == gateway_profile.DEFAULT_THINKING_LEVEL
+        assert gateway_profile.gateway_effort("off") == "low"
+        assert model_config._thinking_level_map()["off"] == "off"
 
-    def test_empty_level_no_longer_returns_empty_string(self) -> None:
-        """新口径下 ``gateway_effort("")`` 回到默认档，**不再返回空串**。
+    def test_reasoning_flag_equals_directives_enabled(self, monkeypatch: Any) -> None:
+        """``reasoning`` 只看 ``resolve_thinking(...).enabled``（它已包含模型能力与平台开关）。"""
+        from apps.core.llm.gateway_profile import resolve_thinking
 
-        旧实现用 ``""`` 当「没有档位」的哨兵（``antigravity_backend`` 里还有
-        ``if effort:``）。这条锁住新语义，避免有人按旧假设继续用空串判真假。
-        """
-        from apps.core.llm.gateway_profile import GATEWAY_EFFORTS
-
-        assert model_config.gateway_effort("") == model_config.DEFAULT_THINKING_LEVEL
-        assert model_config.gateway_effort("") in GATEWAY_EFFORTS
-
-    def test_medium_is_normalised_before_reaching_gateway(self) -> None:
-        """原样发 ``medium`` 会被网关 400，映射必须在 profile 里发生。"""
-        assert model_config.gateway_effort("medium") == "high"
-        assert model_config.gateway_effort("minimal") == "low"
+        for model, enable in (("kimi-2.6", True), ("kimi-2.6", False), ("glm53", True), ("glm53", False)):
+            monkeypatch.setattr(
+                model_config,
+                "_load_provider",
+                lambda hint="", m=model, e=enable: _provider(default_model=m, enable_thinking=e),
+            )
+            payload = model_config.build_models_json(model)
+            assert payload is not None
+            [entry] = _models_of(payload)
+            assert entry["reasoning"] is resolve_thinking(model, enable_thinking=enable).enabled
 
 
 class TestFallbackModels:

@@ -645,6 +645,38 @@ def test_error_message_never_echoes_the_api_key() -> None:
     assert key_label("test-key-1") in str(excinfo.value)
 
 
+def test_redirect_is_not_followed_and_key_never_reaches_redirect_target() -> None:
+    """3xx 不跟随：鉴权是自定义头 ``X-API-Key``，httpx 跨域跳转不会剥它，跟随即泄露 key。"""
+    recorder = _Recorder()
+    evil_url = "https://evil.example/collect"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorder.requests.append(request)
+        if request.url.host == "evil.example":
+            # 跟随了才会走到这里：返回一个"成功"信封，让错误实现看起来一切正常
+            return httpx.Response(200, json=_search_envelope([SEARCH_ROW]))
+        return httpx.Response(302, headers={"Location": evil_url})
+
+    client, session = _build_client(handler, max_attempts=2)
+
+    with pytest.raises(YuandianRequestError) as excinfo:
+        client.search_cases(session=session, keyword="买卖合同", max_candidates=10)
+
+    assert "302" in str(excinfo.value)
+    assert "evil.example" not in str(excinfo.value)
+    # 只发了一次请求（3xx 不重试），且从未发往跳转目标
+    assert [str(request.url).split("?")[0] for request in recorder.requests] == [SEARCH_URL]
+    assert all(request.url.host != "evil.example" for request in recorder.requests)
+
+
+def test_http_client_does_not_follow_redirects() -> None:
+    client = YuandianTransport().open_client()
+    try:
+        assert client.follow_redirects is False
+    finally:
+        client.close()
+
+
 def test_search_raises_on_connection_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from apps.legal_research.services.sources.yuandian import transport as transport_module
 

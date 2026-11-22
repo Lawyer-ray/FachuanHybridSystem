@@ -1,32 +1,33 @@
-"""Agent 综合结论 API —— 按需触发 MoA aggregator，并支持刷新后回放。
+"""Agent 综合结论 API —— 提交后台任务、轮询进度、取消、回放结论。
 
 端点前缀：``/api/v1/agent``（综合结论子域）。
 
-## 为什么是独立请求，不塞进 SSE
+## 为什么是后台任务，不是一个同步请求
 
-一轮对话的收尾是按栏 ``done`` 判定的；综合要等所有栏的正文都落库之后才能开始，
-而且要输出上千字（一次长调用，可能几十秒）。塞进 SSE 会让"晚到的结论"错过 turn
-的收尾帧，前端只能等一个可能永远不来的事件。独立请求的语义更干净：律师点"综合
-结论"，拿到一份完整结果；失败就是失败，不拖累对话。
+一次综合 = (可选)评审（多 judge，约 5 万 token）+ agent 综合（最多 2 次）+ 威科核验，
+常常跑几分钟。同步请求会先被前端或反代超时掐断，而后端照样跑完、照样落库，律师
+再点一次就重复花钱。所以 ``POST .../synthesize`` 只做校验并提交任务，立即返回任务；
+前端轮询 ``GET .../synthesis/jobs/{job_id}`` 到终态。流水线见
+``services/synthesis/pipeline.py``，任务的幂等 / 心跳 / 取消见 ``services/synthesis/jobs.py``。
 
-## 为什么不落成 assistant 消息
+## 为什么不塞进 SSE
 
-转录里的 assistant 消息**等于"某一栏的回答"**（多答轮次按 ``agent_kind`` 分栏
-渲染），凭空多一条会让律师以为多跑了第四个 agent。落 ``AgentSynthesis`` 独立表
-（快照 + 可回放），理由与 ``AgentReview`` 相同。
+一轮对话的收尾按栏 ``done`` 判定；综合要等所有栏正文落库后才能开始。塞进 SSE 会让
+"晚到的结论"错过 turn 的收尾帧。
 
 ## 错误口径
 
 - 会话不存在 / 不归属当前用户 / session_id 不是 UUID：一律 404（不区分，避免
-  变成"这个 id 存在"的探针）；
+  变成"这个 id 存在"的探针）；任务不属于该会话同样 404；
 - 该轮次不存在：404；
-- 请求没指定模型且本轮各栏都没留下模型名：422（**不猜模型名**）。
+- 本轮所有候选都为空或失败：422（不提交任务，省一次无意义的钱）；
+- 运行期失败（agent 报错、超时、核验之外的异常）不走 HTTP 错误码：任务记 ``failed``
+  并带一句人话原因，由轮询拿到。
 """
 
 from __future__ import annotations
 
-import logging
-import uuid
+from datetime import datetime
 from typing import Any
 
 from ninja import Router, Schema
@@ -36,22 +37,15 @@ from pydantic import Field
 from apps.core.security.auth import JWTOrSessionAuth
 
 from ..models import AgentSynthesis
-from ..services.adjudication.contracts import DroppedCandidate, Review, Synthesis, SynthesisCitation
-from ..services.chat.aggregate import MAX_CANDIDATES, extract_citations, partition_candidates
+from ..models.synthesis import AgentSynthesisJob
+from ..services.adjudication.contracts import DroppedCandidate, Synthesis, SynthesisCitation
+from ..services.chat.aggregate import MAX_CANDIDATES
 from ..services.session_service import get_session as get_session_record
-from ..services.synthesis.agent_runner import DEFAULT_SYNTHESIS_KIND, build_synthesis_prompt, run_synthesis_agent
-from ..services.synthesis.store import (
-    SYNTHESIS_AGENT_KIND,
-    latest_synthesis,
-    load_turn_candidates,
-    resolve_model,
-    save_synthesis,
-    save_synthesis_message,
-)
-from ..services.synthesis.verify import verify_synthesis_citations
+from ..services.synthesis.agent_runner import DEFAULT_SYNTHESIS_KIND
+from ..services.synthesis.jobs import get_job, latest_job, request_cancel, submit_job
+from ..services.synthesis.pipeline import NoUsableCandidatesError, SynthesisRequest, load_usable_candidates
+from ..services.synthesis.store import latest_synthesis
 from ._helpers import _user_id
-
-logger = logging.getLogger(__name__)
 
 router = Router(tags=["Agent 综合结论"], auth=JWTOrSessionAuth())
 
@@ -67,15 +61,35 @@ class SynthesisIn(Schema):
     model: str = Field(default="", max_length=200)
     #: 用哪个 agent 运行时做综合（注册表 kind）。默认 ``pi``（见 agent_runner）。
     kind: str = Field(default=DEFAULT_SYNTHESIS_KIND, max_length=64)
-    #: 是否先跑一轮评审，把"哪栏更可靠"作为取舍依据喂给综合（默认跑）。
-    #:
-    #: 评审一轮约 5 万 token，但它产出的分数与分歧点正是综合最需要的信息；
-    #: 关掉后综合只能自己猜谁更有理。
+    #: 是否先跑一轮评审，把"哪栏更可靠"作为取舍依据喂给综合（默认跑，约 5 万 token）。
     review: bool = True
     #: 威科凭证 ID。**可以省略**：省略时服务端自动挑本所的威科凭证
-    #: （见 ``legal_research.services.credential_resolver``）。凭证 ID 是实现细节
-    #: ——一张表里混着法院/OA/工商/邮箱/威科，让律师去猜 6 和 7 的区别没有意义。
+    #: （见 ``legal_research.services.credential_resolver``）。
     credential_id: int | None = Field(default=None, ge=1)
+
+
+class SynthesisJobOut(Schema):
+    """一次综合任务的状态（轮询用）。"""
+
+    job_id: str
+    session_id: str
+    turn: int
+    #: ``queued`` / ``running`` / ``succeeded`` / ``failed`` / ``cancelled``。
+    status: str
+    #: 运行中的阶段：``review`` / ``synthesis`` / ``verify`` / ``saving``；其余时候为空。
+    stage: str
+    #: 失败原因（给人看的一句话）。
+    error: str
+    #: 已请求取消、等待 worker 停下。
+    cancel_requested: bool
+    #: 这次是否先跑了评审（成功后前端据此回读评审卡）。
+    review: bool
+    #: 本次提交是否新建了任务（``False`` = 同轮已有进行中的任务，返回的是它）。
+    created: bool = False
+    created_at: datetime
+    updated_at: datetime
+    #: 成功时的结论；其余状态为 ``None``。
+    synthesis: Synthesis | None = None
 
 
 def _normalize_lanes(agents: list[str]) -> list[str]:
@@ -91,7 +105,7 @@ def _normalize_lanes(agents: list[str]) -> list[str]:
 
 
 def _to_synthesis(record: AgentSynthesis) -> Synthesis:
-    """把落库快照还原成契约对象（``latest_synthesis`` 已 ``select_related`` 会话）。"""
+    """把落库快照还原成契约对象（调用方已 ``select_related`` 会话）。"""
     return Synthesis(
         synthesis_id=record.synthesis_id,
         session_id=str(record.session.session_id),
@@ -106,168 +120,103 @@ def _to_synthesis(record: AgentSynthesis) -> Synthesis:
     )
 
 
-@router.post("/sessions/{session_id}/synthesize", response=Synthesis)
-async def synthesize_session(request: Any, session_id: str, payload: SynthesisIn) -> Synthesis:
-    """对指定轮次跑一次综合结论（独立请求，不进 SSE）。
+def _to_job_out(job: AgentSynthesisJob, *, created: bool = False) -> SynthesisJobOut:
+    """任务行 → 响应（调用方已 ``select_related`` 会话与结论）。"""
+    params = job.params or {}
+    return SynthesisJobOut(
+        job_id=job.job_id,
+        session_id=str(job.session.session_id),
+        turn=job.turn,
+        status=job.status,
+        stage=job.stage,
+        error=job.error,
+        cancel_requested=job.cancel_requested,
+        review=bool(params.get("review", True)),
+        created=created,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        synthesis=_to_synthesis(job.synthesis) if job.synthesis is not None else None,
+    )
 
-    流程：**(可选)评审 → 组 prompt → 跑指定 agent → 核验引用 → 落 AgentSynthesis**。
 
-    不写 assistant 消息、不写 AgentRun（口径见模块 docstring 与
-    ``services/synthesis/agent_runner``）：综合是"律师点一次"的动作，不属于任何一栏。
-    """
-    user_id = _user_id(request)
-    session = await get_session_record(session_id=session_id, user_id=user_id)
+async def _owned_session(request: Any, session_id: str) -> Any:
+    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
     if session is None:
         raise HttpError(404, "会话不存在")
+    return session
+
+
+@router.post("/sessions/{session_id}/synthesize", response=SynthesisJobOut)
+async def synthesize_session(request: Any, session_id: str, payload: SynthesisIn) -> SynthesisJobOut:
+    """提交一次综合结论任务，立即返回任务状态（不等结果）。
+
+    同一会话同一轮已有进行中的任务时，返回那一个（``created=False``，参数以先提交的
+    为准），不重复花钱。
+    """
+    user_id = _user_id(request)
+    session = await _owned_session(request, session_id)
 
     lanes = _normalize_lanes(payload.agents)
+    # 先在请求里做便宜的校验（只读库），坏请求当场报错，不进队列。
     try:
-        task, candidates = await load_turn_candidates(session, payload.turn, lanes)
+        await load_usable_candidates(session, payload.turn, lanes)
     except LookupError as exc:
         raise HttpError(404, "该轮次不存在") from exc
+    except NoUsableCandidatesError as exc:
+        raise HttpError(422, str(exc)) from exc
 
-    # 丢弃口径与裸调用同源（empty / failed）；没有可用候选时不调模型——省一次
-    # 无意义的钱，也让律师看到"这份综合是空的、原因是什么"。
-    used, dropped = partition_candidates(candidates)
-    if not used:
-        raise HttpError(422, "没有可综合的候选：全部为空或失败")
-
-    review_summary = ""
-    if payload.review:
-        review_summary = await _run_review_summary(session=session, user_id=user_id, turn=payload.turn, lanes=lanes)
-
-    model = (payload.model or "").strip()
-    if not model:
-        # 没指定就交给所选 agent 按平台默认解析；解析不出也不报 422——
-        # 运行时会给出它自己的可读错误。
-        try:
-            model = await resolve_model(session, payload.turn, "")
-        except ValueError:
-            model = ""
-
-    prompt = build_synthesis_prompt(task, used, review_summary=review_summary)
-    run = await run_synthesis_agent(
+    job, created = await submit_job(
         session=session,
         user_id=user_id,
-        kind=payload.kind,
-        model=model or None,
-        prompt=prompt,
-        # 归因串与多答同构：会话:综合:轮次。综合不写 AgentRun，但审批与日志仍用它。
-        run_id=f"{session.session_id}:synthesis:{payload.turn}",
+        request=SynthesisRequest(
+            turn=payload.turn,
+            lanes=lanes,
+            model=(payload.model or "").strip(),
+            kind=payload.kind,
+            review=payload.review,
+            credential_id=payload.credential_id,
+        ),
     )
-
-    unverified, verify_note = await verify_synthesis_citations(
-        text=run.text,
-        credential_id=payload.credential_id,
-        user=getattr(request, "user", None),
-    )
-    # 有逐条未核验项时 note 是冗余的（它就是"共 N 条未通过"）；没有逐条项时
-    # note 才是唯一信息（"未提供凭证" / "核验未执行：…"），必须留给前端。
-    if verify_note and not unverified:
-        unverified = [verify_note]
-
-    synthesis = Synthesis(
-        synthesis_id=uuid.uuid4().hex,
-        session_id=str(session.session_id),
-        turn=payload.turn,
-        text=run.text,
-        model=run.model or model,
-        lanes_used=[candidate.lane for candidate in used],
-        dropped=dropped,
-        citations=extract_citations(used),
-        unverified=unverified,
-        # 不记成本（业务方口径）：综合是一次点击动作，成本归因价值低，
-        # 而多一张运行记录会让「本轮几栏 / 多少钱」的统计口径变复杂。
-        tokens={},
-    )
-    await save_synthesis(session=session, user_id=user_id, synthesis=synthesis)
-    # 转录里的"第 6 栏"：写 ``agent_kind="synthesis"``，既能在历史回放/检索/后续追问里
-    # 被看到，又不会被算成某一栏的回答（口径见 store.SYNTHESIS_AGENT_KIND）。
-    # 失败只降级为"检索不到"，不影响已经拿到的结论——所以单独 try。
-    try:
-        await save_synthesis_message(session=session, synthesis=synthesis)
-    except (KeyboardInterrupt, SystemExit, GeneratorExit):
-        raise
-    except BaseException:
-        # 转录写入失败只降级为"检索不到"，不影响已经拿到的结论（见上）。
-        logger.warning("综合结论写入转录失败（结论本身已落快照）session=%s", session.session_id, exc_info=True)
-    return synthesis
+    return _to_job_out(job, created=created)
 
 
-async def _run_review_summary(*, session: Any, user_id: int | None, turn: int, lanes: list[str]) -> str:
-    """跑一轮评审、**落库**，并把结论压成一段给综合看的文字；跑不成返回空串。
+@router.get("/sessions/{session_id}/synthesis/jobs", response=SynthesisJobOut)
+async def get_latest_synthesis_job(request: Any, session_id: str, turn: int) -> SynthesisJobOut:
+    """某一轮最近一次综合任务（刷新页面后接着显示进度）；该轮没提交过时 404。"""
+    session = await _owned_session(request, session_id)
+    job = await latest_job(session, turn)
+    if job is None:
+        raise HttpError(404, "该轮尚无综合任务")
+    return _to_job_out(job)
 
-    **不阻断综合**：评审是"更准"的手段，不是前置条件。判官模型没配、评审报错，
-    综合照样跑（只是少了取舍依据）。
 
-    **为什么要落库**：前端把「评审」并进了「生成综合结论」这一个按钮，评审结果
-    不再由用户单独触发——不落库的话，那 5 万 token 打出来的分数只喂给模型、
-    律师一点也看不到，审计里也查不到"这份综合是基于什么评的"。
+@router.get("/sessions/{session_id}/synthesis/jobs/{job_id}", response=SynthesisJobOut)
+async def get_synthesis_job(request: Any, session_id: str, job_id: str) -> SynthesisJobOut:
+    """轮询某个综合任务。"""
+    session = await _owned_session(request, session_id)
+    job = await get_job(session, job_id)
+    if job is None:
+        raise HttpError(404, "综合任务不存在")
+    return _to_job_out(job)
+
+
+@router.post("/sessions/{session_id}/synthesis/jobs/{job_id}/cancel", response=SynthesisJobOut)
+async def cancel_synthesis_job(request: Any, session_id: str, job_id: str) -> SynthesisJobOut:
+    """取消综合任务：排队中立即取消；运行中置取消标志，数秒内停下（轮询可见）。
+
+    已结束的任务原样返回（取消是幂等的）。
     """
-    from ..services.review.judge_models import configured_judge_models, resolve_judge_models
-    from ..services.review.jury import run_jury
-    from ..services.review.rubric import DEFAULT_RUBRIC_ID, load_rubric
-    from ..services.review.store import load_turn_answers, load_turn_models, save_review
-
-    try:
-        rubric = load_rubric(DEFAULT_RUBRIC_ID)
-        task, answers = await load_turn_answers(session, turn, lanes)
-        turn_models = await load_turn_models(session, turn, lanes)
-        judge_models = resolve_judge_models(requested=[], configured=configured_judge_models(), turn_models=turn_models)
-        if not judge_models:
-            return ""
-        review = await run_jury(
-            session_id=str(session.session_id),
-            turn=turn,
-            task=task,
-            answers=answers,
-            rubric=rubric,
-            judge_models=judge_models,
-            rubric_id=DEFAULT_RUBRIC_ID,
-        )
-        # 落库：前端合并按钮后没有"只评审"入口，不落库这份打分就彻底不可见。
-        await save_review(
-            session=session,
-            user_id=user_id,
-            rubric_id=DEFAULT_RUBRIC_ID,
-            judge_models=judge_models,
-            review=review,
-        )
-    except (KeyboardInterrupt, SystemExit, GeneratorExit):
-        raise
-    except BaseException:
-        # 评审失败不阻断综合（见 docstring）。用 ``BaseException`` 而非 ``Exception``
-        # 是为了显式放行上面三类控制流异常；同时也是仓库棘轮的要求。
-        logger.warning("综合前置评审失败（不阻断综合）session=%s turn=%s", session.session_id, turn, exc_info=True)
-        return ""
-    return _format_review(review)
-
-
-def _format_review(review: Review) -> str:
-    """评审结果 → 一段纯文本（给 agent 读，不是给前端渲染）。"""
-    lines: list[str] = []
-    if review.headline:
-        lines.append(f"一句话结论：{review.headline}")
-    for lane in review.lanes:
-        score = "" if lane.score is None else f"｜得分 {lane.score:.2f}"
-        line = (lane.one_line or "").strip()
-        lines.append(f"- {lane.lane}{score}" + (f"｜{line}" if line else ""))
-    for cluster in review.clusters:
-        lanes_in = "、".join(getattr(cluster, "lanes", []) or [])
-        if lanes_in:
-            lines.append(f"立场相同：{lanes_in}")
-    if review.unverified:
-        lines.append("本轮评审提到但没核到的引用：" + "；".join(review.unverified))
-    return "\n".join(lines)
+    session = await _owned_session(request, session_id)
+    job = await request_cancel(session, job_id)
+    if job is None:
+        raise HttpError(404, "综合任务不存在")
+    return _to_job_out(job)
 
 
 @router.get("/sessions/{session_id}/synthesis", response=Synthesis)
 async def get_session_synthesis(request: Any, session_id: str, turn: int | None = None) -> Synthesis:
     """回放已落库的综合结论；``turn`` 不传时取最近一次。"""
-    session = await get_session_record(session_id=session_id, user_id=_user_id(request))
-    if session is None:
-        raise HttpError(404, "会话不存在")
-
+    session = await _owned_session(request, session_id)
     record = await latest_synthesis(session, turn)
     if record is None:
         raise HttpError(404, "该轮尚无综合结论")

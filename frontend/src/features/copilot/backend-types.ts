@@ -23,10 +23,11 @@ export interface AgentBackendOption {
   /** 能力声明（字段见后端 `BackendCapabilities`），前端据此隐藏插话框等 */
   capabilities: Record<string, boolean>
   /**
-   * 该后端可选的模型（`GET /agent/backends` 的 `models`；空 = 跟随平台默认）。
+   * 该后端可选的模型（`GET /agent/backends` 的 `models`）。
    *
-   * 三个后端最终都落到同一个 LiteLLM，所以共用同一份清单；将来某后端有独占
-   * 模型时在它自己返回值里收窄，前端不写死任何对应关系。
+   * 服务端已按运行时收窄：OpenAI 兼容通道的后端共用整份平台清单，claude-agent 只给
+   * Anthropic 协议模型（后端 `session_api._models_for_kind`）。前端不写死任何模型名规则；
+   * 空数组 = 该后端当前没有可用模型。
    *
    * **缺省 `[]`**：后端尚未上线该字段的部署里它不存在，前端据此隐去模型下拉
    * （见 {@link AgentBackendOption.default_model} 的注释）。

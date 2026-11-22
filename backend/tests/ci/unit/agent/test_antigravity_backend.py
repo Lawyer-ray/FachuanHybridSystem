@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -655,3 +656,96 @@ class TestRegistration:
         finally:
             registry.clear()
             builtin_module._attempted.discard("antigravity")
+
+
+# ── 本轮运行选项（综合结论：system prompt / max_turns / isolated）──────────
+
+
+class TestRunOptions:
+    """``RunContext.system_prompt`` 全量替换身份；``max_turns`` 靠工具调用计数兜底。"""
+
+    def test_system_prompt_overrides_default_identity(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from dataclasses import replace
+
+        monkeypatch.setenv("FACHUAN_AGENT_HOME", str(agent_home().parent))
+        backend = AntigravityBackend()
+        target = backend_module.ResolvedTarget(
+            base_url="http://gw.internal:4000/v1",
+            api_key="sk-1",  # pragma: allowlist secret
+            model="kimi-2.6",
+            thinking={},
+        )
+        ctx = replace(_ctx(), system_prompt="综合规则", isolated=True)
+        config = backend._build_config(ctx, target, "http://127.0.0.1:1234/r/tok/v1", hooks=[], mcp_servers=[])
+        assert isinstance(config.system_instructions, types.CustomSystemInstructions)
+        assert config.system_instructions.text == "综合规则"
+
+    @staticmethod
+    def _wire_drive(monkeypatch: pytest.MonkeyPatch, backend: AntigravityBackend, tool_calls: int) -> None:
+        """把 harness / 代理 / 合流全部换成桩，只留 ``_drive`` 的计数逻辑可测。"""
+
+        class _Gateway:
+            async def register(self, **_kw: Any) -> Any:
+                return SimpleNamespace(base_url="http://127.0.0.1:1/r/t/v1", token="t")
+
+            def unregister(self, token: str) -> None:
+                return None
+
+        class _FakeAgent:
+            def __init__(self, config: Any) -> None:
+                return None
+
+            async def __aenter__(self) -> _FakeAgent:
+                return self
+
+            async def __aexit__(self, *exc: object) -> None:
+                return None
+
+        async def _chat(agent: Any, prompt: str, sink: Any) -> Any:
+            return SimpleNamespace(usage_metadata=None)
+
+        async def _merge(chat_task: Any, sink: Any) -> Any:
+            for index in range(tool_calls):
+                yield {"type": "tool_call", "tool_call_id": f"c{index}", "name": "list_cases", "arguments": "{}"}
+
+        monkeypatch.setattr(backend_module, "get_loopback_gateway", lambda: _Gateway())
+        monkeypatch.setattr(backend_module, "Agent", _FakeAgent)
+        monkeypatch.setattr(backend, "_build_config", lambda *a, **k: None)
+        monkeypatch.setattr(backend, "_mcp_servers", lambda ctx: [])
+        monkeypatch.setattr(backend, "_chat", _chat)
+        monkeypatch.setattr(backend, "_merge", _merge)
+
+    @staticmethod
+    def _target() -> Any:
+        return backend_module.ResolvedTarget(
+            base_url="http://gw.internal:4000/v1",
+            api_key="sk-1",  # pragma: allowlist secret
+            model="kimi-2.6",
+            thinking={},
+        )
+
+    def test_max_turns_exceeded_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from dataclasses import replace
+
+        backend = AntigravityBackend()
+        self._wire_drive(monkeypatch, backend, tool_calls=3)
+        ctx = replace(_ctx(), max_turns=2)
+
+        async def run() -> list[Any]:
+            return [frame async for frame in backend._drive(ctx, self._target())]
+
+        with pytest.raises(BackendError, match="2 次工具调用上限"):
+            asyncio.run(run())
+
+    def test_within_max_turns_runs_normally(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from dataclasses import replace
+
+        backend = AntigravityBackend()
+        self._wire_drive(monkeypatch, backend, tool_calls=2)
+        ctx = replace(_ctx(), max_turns=2)
+
+        async def run() -> list[Any]:
+            return [frame async for frame in backend._drive(ctx, self._target())]
+
+        frames = asyncio.run(run())
+        assert [f["type"] for f in frames if f] == ["tool_call", "tool_call"]

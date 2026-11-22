@@ -3,13 +3,15 @@
 pi 以 ``--no-session`` + 每请求新进程的方式运行，天然无记忆。多轮对话
 靠把 ``AgentMessage`` 表里的历史渲染成 transcript、附在 prompt 前实现。
 
-渲染是纯函数（输入只要带 ``role`` / ``content`` / ``tool_name`` 属性的对象），
-便于单测；取数与落库在 chat_service。
+渲染是纯函数（输入只要带 ``role`` / ``content`` / ``tool_name`` 属性的对象；
+``agent_kind`` 可选，只用来认出综合结论），便于单测；取数与落库在 chat_service。
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from .synthesis.kinds import SYNTHESIS_AGENT_KIND
 
 #: 回放窗口：最多带多少条历史消息
 MAX_HISTORY_MESSAGES = 30
@@ -27,6 +29,10 @@ def _label(message: Any) -> str:
     if role == _ROLE_TOOL:
         return f"工具[{getattr(message, 'tool_name', '') or '未知'}]"
     if role == _ROLE_ASSISTANT:
+        # 综合结论是对前一轮多栏回答的合并（点按钮时才写入，位置未必紧跟那一轮）：
+        # 标出来，模型才不会把它当成上一句话的直接回答
+        if getattr(message, "agent_kind", "") == SYNTHESIS_AGENT_KIND:
+            return "助手（综合结论）"
         return "助手"
     return "用户"
 

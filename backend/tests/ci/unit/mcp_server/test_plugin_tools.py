@@ -11,6 +11,8 @@
 3. **坏插件不拖垮 MCP**。导入失败 / 契约不合法 / 可用性探针抛异常 → 跳过该插件，
    其余工具照常。MCP 起不来等于全所 AI 功能停摆。
 4. **总开关能一键关**（回滚用）。
+5. **风险等级只认插件声明**：没声明（或声明非法）的工具按高危注册（每次都要审批），
+   只有显式声明 ``read`` 的才直接放行；等级经 MCP 注解进入 ``classify_risk``。
 
 全部离线：不启 MCP、不 import 任何真实插件。
 """
@@ -34,12 +36,27 @@ def _fake_module(name: str, **attrs: Any) -> types.ModuleType:
     return module
 
 
-def _register_into(collector: list[str]) -> Callable[[Callable[..., Any]], Any]:
-    def _register(func: Callable[..., Any]) -> Any:
+def _register_into(
+    collector: list[str], annotations: dict[str, Any] | None = None
+) -> Callable[..., Any]:
+    """模拟 ``server._t``：记下注册了谁，以及插件侧给它算出来的注解。"""
+
+    def _register(func: Callable[..., Any], **kwargs: Any) -> Any:
         collector.append(func.__name__)
+        if annotations is not None:
+            annotations[func.__name__] = kwargs.get("annotations")
         return func
 
     return _register
+
+
+def _hints(annotation: Any) -> dict[str, Any]:
+    """``ToolAnnotations`` → 审批内核认的注解字典（与 ``approval.annotations`` 同形）。"""
+    return {
+        "read_only_hint": getattr(annotation, "read_only_hint", None),
+        "destructive_hint": getattr(annotation, "destructive_hint", None),
+        "open_world_hint": getattr(annotation, "open_world_hint", None),
+    }
 
 
 @pytest.fixture
@@ -207,3 +224,100 @@ def test_duplicate_name_registered_once(fake_discovery: Callable[..., None]) -> 
 def test_sys_modules_is_not_polluted_by_test_modules() -> None:
     """守护用例自身：假模块只存在于 monkeypatch 的作用域内。"""
     assert not any(name.endswith(".mcp_tools") and name in sys.modules for name in ("plugins.p.mcp_tools",))
+
+
+# ── 风险等级 ──────────────────────────────────────────────────────────
+
+
+def test_risk_aliases_align_with_risk_level() -> None:
+    """插件可写的等级最终必须落在审批分级 ``RiskLevel`` 的取值里（两边口径对账）。"""
+    from apps.agent.services.approval import RiskLevel
+
+    assert set(plugin_tools.RISK_ALIASES.values()) <= {level.value for level in RiskLevel}
+    assert plugin_tools.UNDECLARED_RISK == RiskLevel.HIGH.value
+
+
+def test_undeclared_tool_registers_as_high_risk(fake_discovery: Callable[..., None]) -> None:
+    """名字看着是只读（``search_``），但没声明 → 按高危注册：插件实现主仓看不到。"""
+    from apps.agent.services.approval import RiskLevel, classify_risk
+
+    def search_private_cases() -> None: ...
+
+    fake_discovery({"plugins.p.mcp_tools": _fake_module("plugins.p.mcp_tools", MCP_TOOLS=[search_private_cases])})
+
+    got: list[str] = []
+    annotations: dict[str, Any] = {}
+    assert plugin_tools.register_plugin_tools(_register_into(got, annotations)) == ["search_private_cases"]
+
+    annotation = annotations["search_private_cases"]
+    assert annotation is not None and annotation.destructive_hint is True
+    assert annotation.read_only_hint is not True
+    # 修复前：注解按名字推导成只读 → LOW，直接执行
+    assert classify_risk("search_private_cases", annotations=_hints(annotation)) == RiskLevel.HIGH
+
+
+@pytest.mark.parametrize(
+    ("declared", "expected_level"),
+    [("read", "low"), ("low", "low"), ("write", "medium"), ("medium", "medium"), ("high", "high")],
+)
+def test_declared_risk_drives_classification(
+    fake_discovery: Callable[..., None], declared: str, expected_level: str
+) -> None:
+    from apps.agent.services.approval import classify_risk
+
+    def lookup_private_cases() -> None: ...
+
+    module = _fake_module(
+        "plugins.p.mcp_tools",
+        MCP_TOOLS=[lookup_private_cases],
+        MCP_TOOL_RISK={"lookup_private_cases": declared},
+    )
+    fake_discovery({"plugins.p.mcp_tools": module})
+
+    annotations: dict[str, Any] = {}
+    plugin_tools.register_plugin_tools(_register_into([], annotations))
+
+    annotation = annotations["lookup_private_cases"]
+    assert classify_risk("lookup_private_cases", annotations=_hints(annotation)).value == expected_level
+    # 注解与审批分级一致：只读 ⇔ low；写（非只读）必须显式 destructive=False / True
+    assert (annotation.read_only_hint is True) == (expected_level == "low")
+    if expected_level != "low":
+        assert annotation.destructive_hint is (expected_level == "high")
+
+
+def test_declared_read_cannot_downgrade_dangerous_name(fake_discovery: Callable[..., None]) -> None:
+    """名字判定仍是第二层：声明 ``read`` 也拦不住 ``delete_`` 前缀被判高危。"""
+    from apps.agent.services.approval import RiskLevel, classify_risk
+
+    def delete_private_record() -> None: ...
+
+    module = _fake_module(
+        "plugins.p.mcp_tools",
+        MCP_TOOLS=[delete_private_record],
+        MCP_TOOL_RISK={"delete_private_record": "read"},
+    )
+    fake_discovery({"plugins.p.mcp_tools": module})
+
+    annotations: dict[str, Any] = {}
+    plugin_tools.register_plugin_tools(_register_into([], annotations))
+    level = classify_risk("delete_private_record", annotations=_hints(annotations["delete_private_record"]))
+    assert level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
+
+
+@pytest.mark.parametrize("bad_table", ["read", ["read"], {"tool": "maybe"}, {"tool": None}])
+def test_invalid_risk_declaration_falls_back_to_high(
+    fake_discovery: Callable[..., None], bad_table: Any
+) -> None:
+    def tool() -> None: ...
+
+    module = _fake_module("plugins.p.mcp_tools", MCP_TOOLS=[tool], MCP_TOOL_RISK=bad_table)
+    fake_discovery({"plugins.p.mcp_tools": module})
+
+    annotations: dict[str, Any] = {}
+    assert plugin_tools.register_plugin_tools(_register_into([], annotations)) == ["tool"]
+    assert annotations["tool"].destructive_hint is True
+
+
+def test_declared_risks_normalizes_case_and_whitespace() -> None:
+    module = _fake_module("plugins.p.mcp_tools", MCP_TOOL_RISK={"a": " READ ", "b": "Write", "c": "nope"})
+    assert plugin_tools.declared_risks(module) == {"a": "low", "b": "medium"}

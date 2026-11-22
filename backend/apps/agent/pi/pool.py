@@ -21,6 +21,10 @@ MCP 已经共享为一份常驻（见 ``shared_mcp.py``），进程本身的造�
 目录**不再随请求删除**：``--session-id`` 按 cwd 隔离会话，稳定的 cwd 是
 多轮记忆的前提；含 API key 的 models.json 由 ``write_models_json`` 以 0600
 原子创建、目录 0700，安全性不再依赖「用完就删」。
+
+例外是**隔离运行**（``acquire(isolated=True)``，综合结论这类一次性任务）：cwd、
+配置目录与 session 文件都落在一次性的临时根目录里、用临时 session id，本轮结束即
+整体删除——不读也不写真实会话的 pi 历史。
 """
 
 from __future__ import annotations
@@ -28,12 +32,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import shutil
+import tempfile
+import time
+import uuid
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .rpc_client import PiRpcSession
+from .rpc_client import PiError, PiRpcSession
 from .session_store import layout
 from .shared_mcp import YUANDIAN_API_KEY_ENV, McpEndpoint, write_pi_config
 
@@ -41,22 +49,70 @@ logger = logging.getLogger(__name__)
 
 
 def _yuandian_env() -> dict[str, str]:
-    """元典 MCP 的 Bearer key → pi 子进程 env；没配 key 时返回空字典。
+    """元典 MCP 的 Bearer key → pi 子进程 env；总开关关闭或没配 key 时返回空字典。
 
-    同步函数：内部经 :func:`load_yuandian_settings` 读 SystemConfig（同步 ORM），
-    调用方必须用 ``sync_to_async(..., thread_sensitive=True)`` 包住。
+    同步函数：内部读 SystemConfig（同步 ORM），调用方必须用
+    ``sync_to_async(..., thread_sensitive=True)`` 包住。
 
-    没 key 时**不写空串**：``mcp.json`` 里 ``Bearer ${...}`` 展开成 ``Bearer ``
-    只会换来一条看不懂的 401；不注入时 pi 展开成空值，mcp_server 侧/元典侧
-    都按「未配置」处理。多把 key 的 429 轮换不在本轮范围（header 是静态展开，
-    换 key 得重启 pi），先用第一把。
+    **每个 pi 进程一把 key**：多把 key 时按进程内轮转（:func:`pick_api_key`），
+    每次 ``acquire`` 拉起的新进程拿下一把。做不到按调用换 key——``mcp.json`` 里的
+    ``Bearer ${...}`` 在 pi 启动时静态展开，同一进程内某把 key 被元典 429 了也换不了，
+    只能等下一个进程。
+
+    没 key 时**不写空串**：``Bearer ${...}`` 展开成 ``Bearer `` 只会换来一条看不懂的
+    401；而且此时 :func:`shared_mcp._build_yuandian_server_entries` 也不会挂元典 server。
     """
-    from apps.core.services.yuandian_settings import load_yuandian_settings
+    from apps.core.services.yuandian_settings import load_yuandian_settings, pick_api_key, yuandian_mcp_enabled
 
+    if not yuandian_mcp_enabled():
+        return {}
     api_keys = load_yuandian_settings().api_keys
     if not api_keys:
         return {}
-    return {YUANDIAN_API_KEY_ENV: api_keys[0]}
+    return {YUANDIAN_API_KEY_ENV: pick_api_key(api_keys)}
+
+
+#: 隔离运行的临时根目录放在稳定根目录（``layout()`` 的父目录）下的这个子目录里。
+ISOLATED_DIR_NAME = "isolated"
+
+#: 超过这个时长的隔离目录视为进程崩溃残留（正常一轮早已结束并删除），建新目录时顺手清掉。
+ISOLATED_STALE_SECONDS = 6 * 3600
+
+
+def _make_isolated_root(stable_work_dir: Path) -> Path:
+    """为一次隔离运行建临时根目录（``work/`` + ``config/`` + ``sessions/``，0700）。
+
+    放在稳定根目录下而不是系统 ``/tmp``：里面会写含真实 key 的 models.json，
+    与常规配置同一处、同一权限口径；``mkdtemp`` 本身就以 0700 创建。
+    """
+    base = Path(stable_work_dir).parent / ISOLATED_DIR_NAME
+    base.mkdir(parents=True, exist_ok=True)
+    _sweep_stale_isolated_roots(base)
+    root = Path(tempfile.mkdtemp(prefix="run-", dir=str(base)))
+    for name in ("work", "config", "sessions"):
+        (root / name).mkdir(mode=0o700, exist_ok=True)
+    return root
+
+
+def _sweep_stale_isolated_roots(base: Path) -> None:
+    """删掉进程崩溃时没来得及清理的隔离目录（里面有 key 与对话内容，不能长期留盘）。"""
+    deadline = time.time() - ISOLATED_STALE_SECONDS
+    for child in base.iterdir():
+        try:
+            stale = child.is_dir() and child.stat().st_mtime < deadline
+        except OSError:
+            continue
+        if stale:
+            _remove_isolated_root(child)
+
+
+def _remove_isolated_root(root: Path) -> None:
+    """删隔离运行的临时目录；失败只告警（目录里有 key 与对话内容，必须留痕）。"""
+
+    def _warn(func: Callable[..., Any], path: str, exc: BaseException) -> None:
+        logger.warning("隔离运行临时目录清理失败 path=%s（含 key 与对话内容）: %s", path, exc)
+
+    shutil.rmtree(root, onexc=_warn)
 
 
 class PoolQueueTimeoutError(RuntimeError):
@@ -179,6 +235,8 @@ class PiProcessPool:
         tool_exclude: frozenset[str] | None = None,
         skill_paths: list[str] | None = None,
         api_key: str | None = None,
+        isolated: bool = False,
+        system_prompt: str | None = None,
     ) -> AsyncIterator[PiRpcSession]:
         """构造一个 pi 会话，退出时销毁进程并清理临时目录。
 
@@ -193,6 +251,15 @@ class PiProcessPool:
             api_key: 本轮编排层指定的网关 key（``RunContext.api_key``），原样转交
                 ``write_pi_config`` 写进 models.json；``None`` 时仍由写函数按
                 ``_next_key`` 轮转（旧行为）。
+            isolated: 隔离运行（``RunContext.isolated``）。为 ``True`` 时本轮用一次性
+                临时根目录（cwd / ``PI_CODING_AGENT_DIR`` / session 文件都在里面）与
+                临时 pi session id，**不读不写** ``session_id`` 对应的会话历史；本轮结束
+                （含异常 / 取消）后整个目录删除；也不加载记忆注入 extension（律师个人
+                记忆不进综合这类一次性任务）。``session_env`` 照旧注入，审批卡仍投到
+                真实会话。
+            system_prompt: 替换本轮的 ``AGENTS.md``（法穿给 pi 注入人格的唯一挂载点）。
+                只在 ``isolated=True`` 时支持：常规路径的配置目录是全局共享的，不能为
+                一轮改全局文件。非隔离时传入直接抛 ``PiError``，不静默忽略。
 
         三条纪律：
 
@@ -206,10 +273,14 @@ class PiProcessPool:
         """
         if self._closed:
             raise RuntimeError("进程池已关闭")
+        if system_prompt is not None and not isolated:
+            raise PiError("pi 只在隔离运行时支持替换 system prompt（配置目录全局共享，不能为一轮改全局 AGENTS.md）")
         effective_model = model or self._config.model
         # 稳定布局：work（cwd）/ config（PI_CODING_AGENT_DIR）/ sessions
         cwd, config_dir, sessions_root = layout()
         session_dir = str(Path(sessions_root) / session_id) if session_id else None
+        pi_session_id = session_id
+        isolated_root: Path | None = None
         session: PiRpcSession | None = None
         aborted = False
         queued = self._semaphore.locked()
@@ -218,6 +289,13 @@ class PiProcessPool:
         try:
             async with self._slot():
                 try:
+                    if isolated:
+                        # 拿到执行位后才建目录：排队期间不占磁盘、不留含 key 的文件。
+                        isolated_root = _make_isolated_root(Path(cwd))
+                        pi_session_id = uuid.uuid4().hex
+                        cwd = isolated_root / "work"
+                        config_dir = isolated_root / "config"
+                        session_dir = str(isolated_root / "sessions" / pi_session_id)
                     # 自愈共享 MCP：原实现只在进程池首次创建时拉一次，
                     # 之后 MCP 崩了就「所有会话无工具直到 Django 重启」。
                     # 每次拿到执行位都 ensure 一把（幂等，端口在就秒回）；
@@ -239,6 +317,10 @@ class PiProcessPool:
                     await sync_to_async(write_pi_config, thread_sensitive=True)(
                         config_dir, self._config.mcp_endpoint, model_hint=effective_model or "", api_key=api_key
                     )
+                    if system_prompt is not None:
+                        # 只会落到隔离目录（上面已拦住非隔离）：覆盖 write_pi_config 刚写的
+                        # 法穿默认 AGENTS.md，本轮的人格与规则就是调用方给的这一份。
+                        (Path(config_dir) / "AGENTS.md").write_text(system_prompt, encoding="utf-8")
                     # 思考等级由 write_pi_config 一并写入隔离目录的 settings.json
                     # （pi 官方开关是 modelThinkingLevels，不是 CLI 参数也不是
                     # models.json 的 reasoning 字段）。
@@ -262,10 +344,11 @@ class PiProcessPool:
                         extension_path=self._config.extension_path,
                         extra_env=env,
                         session_dir=session_dir,
-                        session_id=session_id,
+                        session_id=pi_session_id,
                         tool_selection=tool_selection,
                         exclude_tools=tool_exclude,
                         skill_paths=skill_paths,
+                        memory_injection=not isolated,
                     )
                     await session.start()
                     yield session
@@ -285,6 +368,8 @@ class PiProcessPool:
                         except Exception:
                             logger.warning("pi 进程关闭异常（忽略）", exc_info=True)
         finally:
+            if isolated_root is not None:
+                _remove_isolated_root(isolated_root)
             if queued:
                 await self._leave_queue()
 

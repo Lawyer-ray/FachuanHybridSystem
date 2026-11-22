@@ -37,7 +37,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .exceptions import LLMAPIError, LLMNetworkError, LLMTimeoutError
+from .exceptions import LLMAPIError, LLMBackendUnavailableError, LLMNetworkError, LLMTimeoutError
 
 __all__ = [
     "DEFAULT_THINKING_LEVEL",
@@ -245,9 +245,16 @@ def is_retryable(error: BaseException) -> bool:
     """这次失败该不该换模型重试（换模型能改变结果吗）。
 
     - :class:`LLMTimeoutError` / :class:`LLMNetworkError` → ``True``；
+    - :class:`LLMBackendUnavailableError` → ``False``：所有后端都不可用，再降级等于把
+      整条链重打一遍（它是 :class:`LLMAPIError` 子类，所以必须先于状态码判断）；
     - :class:`LLMAPIError` → 看 ``status_code``：**5xx / 无状态的兜底 → True**；
       ``400/422``（参数错：模型不认 ``reasoning_effort``、上下文超长、prompt 非法）、
       ``401/403``（鉴权）、``404``（模型不存在）→ **False**（换哪个模型都是同一个错）；
+    - **``429``（限流）→ False**：业务口径是「限流只重试、用别的 Key 轮询，不换模型」。
+      同一模型上的换 Key 重试由 Key 池负责（``openai_compatible._chat_primary`` 的
+      Key 循环 + ``key_pool.cooldown_hint`` 按 ``retry-after`` 冷却）；只有一把 Key 时
+      按 ``retry-after`` 等一次再试（≤10 秒，见 ``key_pool.rate_limit_wait_seconds``）；
+      仍被限流时报可读的限流错误，而不是悄悄换成另一个模型；
     - 其他异常 → ``False``
 
     修正的是一个真实浪费：旧实现把 400 也当可重试，一次坏 prompt 会把降级链上
@@ -255,6 +262,8 @@ def is_retryable(error: BaseException) -> bool:
     """
     if isinstance(error, (LLMTimeoutError, LLMNetworkError)):
         return True
+    if isinstance(error, LLMBackendUnavailableError):
+        return False
     if isinstance(error, LLMAPIError):
         # ``status_code is None`` 是 ``_raise_mapped_error`` 最后那条兜底（非 HTTP 失败），
         # 无从归类，按可重试处理：换模型仍是合理的下一步。

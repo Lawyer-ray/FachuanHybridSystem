@@ -226,3 +226,40 @@ class TestRoute:
         path_view = session_api.router.path_operations["/backends"]
         assert [op.methods for op in path_view.operations] == [["GET"]]
         assert [op.path for op in path_view.operations] == ["/backends"]
+
+
+class TestModelsPerKind:
+    """模型清单按运行时收窄：claude-agent 只给 Anthropic 协议模型（前端据此过滤下拉）。"""
+
+    _PLATFORM = ["glm53", "kimi-2.6(Anthropic)", "kimi-2.6"]
+
+    def _patch_models(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(session_api, "_available_models", lambda: list(self._PLATFORM))
+
+    def test_claude_agent_only_gets_anthropic_models(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._patch_models(monkeypatch)
+        register(_FakeBackend("claude-agent"))
+        option = _options()["claude-agent"]
+        assert option.models == ["kimi-2.6(Anthropic)"]
+        # 预填的默认模型也必须是能用的那个，不是平台清单第一项
+        assert option.default_model == "kimi-2.6(Anthropic)"
+
+    def test_claude_agent_without_anthropic_models_gets_empty_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(session_api, "_available_models", lambda: ["glm53", "kimi-2.6"])
+        register(_FakeBackend("claude-agent"))
+        option = _options()["claude-agent"]
+        assert option.models == []
+        assert option.default_model is None
+
+    def test_other_backends_keep_the_full_platform_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._patch_models(monkeypatch)
+        register(_FakeBackend("pi"))
+        assert _options()["pi"].models == self._PLATFORM
+
+    def test_filter_shares_the_backend_marker(self) -> None:
+        """判据取自 claude_agent_backend 的常量，不是这里另写一份字面量。"""
+        from apps.agent.backends.claude_agent_backend import ANTHROPIC_MODEL_MARKER
+
+        assert session_api._models_for_kind("claude-agent", [f"x-{ANTHROPIC_MODEL_MARKER.upper()}", "y"]) == [
+            f"x-{ANTHROPIC_MODEL_MARKER.upper()}"
+        ]

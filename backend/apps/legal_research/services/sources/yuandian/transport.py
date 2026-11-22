@@ -50,7 +50,9 @@ class YuandianTransport:
 
     def open_client(self) -> httpx.Client:
         timeout = httpx.Timeout(self._timeout_seconds, connect=DEFAULT_CONNECT_TIMEOUT_SECONDS)
-        return httpx.Client(transport=self._http_transport, timeout=timeout, follow_redirects=True)
+        # 不跟随重定向：鉴权走自定义头 ``X-API-Key``，httpx 跨域跳转只会剥 ``Authorization``，
+        # 跟随就会把 key 原样发给跳转目标。3xx 在 ``_decode_envelope`` 里按失败处理。
+        return httpx.Client(transport=self._http_transport, timeout=timeout, follow_redirects=False)
 
     def request_json(
         self,
@@ -139,6 +141,9 @@ class YuandianTransport:
 
 def _decode_envelope(*, response: httpx.Response, route_key: str, api_key: str) -> dict[str, Any]:
     status = response.status_code
+    if 300 <= status < 400:
+        # 不跟随（见 ``open_client``）；也不回显 Location，避免把跳转目标当成可信地址传出去。
+        raise YuandianRequestError(f"元典接口 {route_key} 返回重定向 HTTP {status}（已拒绝跟随）")
     if status >= 400:
         raise YuandianRequestError(_redact(f"元典接口 {route_key} 返回 HTTP {status}{_body_hint(response)}", api_key))
 

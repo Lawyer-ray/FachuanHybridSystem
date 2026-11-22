@@ -49,6 +49,14 @@ export interface CopilotState extends AgentBackendSelection {
   loadPendingQuestions: () => Promise<void>
   streaming: boolean
   loadingHistory: boolean
+  /**
+   * 当前会话的历史拉取失败（只由 switchSession 设置；切会话 / 历史成功加载时清除）。
+   *
+   * 与 `lastError` 分开：后者是「给律师看的最近一条错误」，发消息失败、限流、压缩
+   * 失败都会写它；而「这个会话 id 可能是坏的」只能由「拉不到它的历史」推出来
+   * （见 hooks/use-session-route 的坏 id 兜底）。
+   */
+  historyLoadError: boolean
   lastError: string | null
   /** 关闭当前错误提示（错误文案不自动消失：律师可能正看着它决定下一步） */
   clearError: () => void

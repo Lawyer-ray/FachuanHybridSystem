@@ -21,7 +21,14 @@ from ..errors import SessionNotFoundError, TooManyAgentsError, frame_for, projec
 from ..models import AgentMessage
 from ..pi.rpc_client import PiError
 from ..schemas import ClearQueueOut, MessageIn, MessageOut, SteerIn, SteerOut
-from ..services.chat.regenerate import MODE_CONTINUE, REPLAY_MODES, continuation_prompt, mark_superseded, resolve_target
+from ..services.chat.regenerate import (
+    MODE_CONTINUE,
+    REPLAY_MODES,
+    SynthesisNotReplayableError,
+    continuation_prompt,
+    mark_superseded,
+    resolve_target,
+)
 from ..services.chat_service import (
     MAX_ANSWERS,
     SessionNotLiveError,
@@ -176,6 +183,10 @@ async def regenerate_message(request: Any, session_id: str, payload: RegenerateI
             # 判 stack-trace-exposure）。这里按分支给固定文案，细节进日志。
             logger.info("重生成：消息不存在（session=%s msg=%s）", session_id, payload.from_message_id)
             yield _sse(project_message("regenerate_target_missing", message="找不到这条消息或它对应的提问"))
+            return
+        except SynthesisNotReplayableError:
+            logger.info("重生成：目标是综合结论（session=%s msg=%s）", session_id, payload.from_message_id)
+            yield _sse(project_message("regenerate_synthesis", message="综合结论请在综合工具条里点「重新生成」"))
             return
         except ValueError:
             logger.info("重生成：请求不可执行（session=%s msg=%s）", session_id, payload.from_message_id)

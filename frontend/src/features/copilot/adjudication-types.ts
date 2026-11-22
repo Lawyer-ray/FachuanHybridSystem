@@ -92,7 +92,7 @@ export interface Review {
  *
  * - `empty` 该栏本轮没有正文；
  * - `failed` 该栏本轮失败（没有可聚合的回答）；
- * - `too_long` 单栏正文超过长度上限、被截后才进 prompt。
+ * - `too_long` 历史取值：单栏超长被整栏丢弃（后端已不再产出，保留以回放旧快照）。
  *
  * 三者都不是「候选没参与」——它们必须被展示出来，否则聚合稿少了一栏的来源。
  */
@@ -112,7 +112,7 @@ export interface DroppedCandidate {
 }
 
 /**
- * 一次「综合结论」的线上形状（`POST .../synthesize` 响应与 `GET .../synthesis` 回放同形）。
+ * 一次「综合结论」的线上形状（`GET .../synthesis` 回放；也嵌在成功的 {@link SynthesisJob} 里）。
  *
  * 与 {@link Review} 的分工：`Review` 判「哪栏更好」（打分），`Synthesis` 产「一份合成稿」
  * （结论）。两者互不依赖，可以只跑其中一个。camelCase 的视图形状在
@@ -136,6 +136,38 @@ export interface Synthesis {
   unverified: string[]
   /** 合成自身的 token 成本（与各栏生成成本分开记） */
   tokens: Record<string, number>
+}
+
+/** 综合任务的状态：`queued` / `running` 进行中，其余为终态 */
+export type SynthesisJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+
+/** 运行中的阶段（后端 `synthesis/pipeline.STAGE_*`）；空 = 未开始或已结束 */
+export type SynthesisJobStage = '' | 'review' | 'synthesis' | 'verify' | 'saving'
+
+/**
+ * 一次「生成综合结论」的后台任务（`POST .../synthesize` 的响应，轮询 `GET .../synthesis/jobs/{id}`）。
+ *
+ * 综合（评审 + agent 综合 + 威科核验）常常跑几分钟，所以提交后立即返回任务，前端轮询到终态。
+ * 同一会话同一轮同时只有一个进行中的任务：重复提交拿到的是已在跑的那一个（`created=false`）。
+ */
+export interface SynthesisJob {
+  job_id: string
+  session_id: string
+  turn: number
+  status: SynthesisJobStatus
+  stage: SynthesisJobStage
+  /** 失败原因（给人看的一句话） */
+  error: string
+  /** 已请求取消、等后台停下（通常几秒内变成 `cancelled`） */
+  cancel_requested: boolean
+  /** 这次是否先跑了评审（成功后据此回读评审卡） */
+  review: boolean
+  /** 本次提交是否新建了任务 */
+  created: boolean
+  created_at: string
+  updated_at: string
+  /** 成功时的结论；其余状态为 null */
+  synthesis: Synthesis | null
 }
 
 /** 融合的一条命中（RRF 只吃名次，不吃原始分） */

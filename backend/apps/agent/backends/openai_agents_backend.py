@@ -683,7 +683,8 @@ class OpenAiAgentsBackend:
             agent = Agent(
                 name="法穿法律助手",
                 model=OpenAIChatCompletionsModel(model=model, openai_client=client),
-                instructions=_instructions(ctx),
+                # ``ctx.system_prompt`` 给了就全量替换默认人格（综合结论等一次性任务）。
+                instructions=ctx.system_prompt if ctx.system_prompt is not None else _instructions(ctx),
                 mcp_servers=[pooled.server] if pooled is not None else [],
                 # 思考强度：与 pi / dsh 同口径、同模型、同档位。
                 # 三个 agent 跑的是同一个网关同一份模型，若只给其中两个配，
@@ -697,7 +698,10 @@ class OpenAiAgentsBackend:
             # ``context=ctx`` 不只是「顺手传个上下文」：审批 guardrail 只能经
             # ``data.context.context`` 取回本轮 RunContext（用户 / 会话 / run_id
             # 三个归因字段）。不传时闸门就变成无主审批单，审计断链。
-            result = Runner.run_streamed(agent, ctx.prompt, context=ctx, max_turns=MAX_TURNS)
+            # 不传 SDK ``session``：每轮无状态，历史只在 ``ctx.prompt`` 里，``ctx.isolated``
+            # 天然成立（不读也不写任何持久对话历史）。
+            max_turns = ctx.max_turns if ctx.max_turns is not None else MAX_TURNS
+            result = Runner.run_streamed(agent, ctx.prompt, context=ctx, max_turns=max_turns)
             stream_events = result.stream_events()
             pending_next: asyncio.Task[Any] | None = None
             try:

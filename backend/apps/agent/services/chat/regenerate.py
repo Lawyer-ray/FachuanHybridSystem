@@ -33,6 +33,7 @@ from typing import Literal
 from django.utils import timezone
 
 from ...models import AgentMessage, AgentSession
+from ..synthesis.kinds import SYNTHESIS_AGENT_KIND
 
 #: 两种重放模式。``regenerate`` = 重跑同一提问；``continue`` = 接着被中断的前缀写。
 MODE_REGENERATE = "regenerate"
@@ -40,6 +41,15 @@ MODE_CONTINUE = "continue"
 REPLAY_MODES: frozenset[str] = frozenset({MODE_REGENERATE, MODE_CONTINUE})
 
 ReplayMode = Literal["regenerate", "continue"]
+
+
+class SynthesisNotReplayableError(ValueError):
+    """综合结论不能从转录里重生成 / 续写。
+
+    它不是某一栏的回答，没有对应的运行时可重跑（``agent_kind="synthesis"`` 不在后端
+    注册表里）；更不能先把它标成「已被取代」再失败。要重新生成，走综合工具条。
+    """
+
 
 #: 写进 ``metadata.superseded_reason`` 的封闭取值（前端/日志据此区分原因）。
 REASON_REGENERATED = "regenerated"
@@ -100,6 +110,7 @@ async def resolve_target(
         lane / model: 显式覆盖；空则沿用它自己的 ``agent_kind`` / ``metadata.model``。
 
     Raises:
+        SynthesisNotReplayableError: 目标是综合结论（``ValueError`` 子类）。
         ValueError: ``mode`` 不合法，或 ``continue`` 指向的不是一条有正文的回答。
         LookupError: 消息不属于该会话，或找不到它对应的提问。
     """
@@ -109,6 +120,8 @@ async def resolve_target(
     message = await AgentMessage.objects.filter(session=session, id=from_message_id).afirst()
     if message is None:
         raise LookupError("消息不存在")
+    if SYNTHESIS_AGENT_KIND in (lane, message.agent_kind):
+        raise SynthesisNotReplayableError("综合结论请在综合工具条里重新生成")
 
     prompt_row = message if message.role == AgentMessage.Role.USER else await _prompt_for(session, message)
     if prompt_row is None:

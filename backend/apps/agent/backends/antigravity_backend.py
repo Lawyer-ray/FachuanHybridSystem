@@ -654,7 +654,18 @@ class AntigravityBackend:
                 agent = Agent(config)
                 await agent.__aenter__()
             chat_task = asyncio.create_task(self._chat(agent, ctx.prompt, sink), name=f"antigravity:{ctx.run_id}")
+            # SDK 0.1.24 的 ``BudgetConfig`` 未接进 agent 配置，没有轮数开关：改限工具调用
+            # 次数。模型只有调了工具才会进入下一轮，所以「轮数 ≤ 工具调用数 + 1」，限住
+            # 工具调用就限住了轮数（最多多一轮收尾）。超限即中止（finally 里 cancel ``chat_task``）。
+            tool_calls = 0
             async for frame in self._merge(chat_task, sink):
+                if ctx.max_turns is not None and frame is not None and frame.get("type") == "tool_call":
+                    tool_calls += 1
+                    if tool_calls > ctx.max_turns:
+                        raise BackendError(
+                            BackendErrorKind.UNKNOWN,
+                            f"antigravity 本轮超过 {ctx.max_turns} 次工具调用上限，已中止",
+                        )
                 yield frame
             usage = await self._collect_usage(chat_task)
             if usage is not None:
@@ -700,12 +711,20 @@ class AntigravityBackend:
           ``disabled_tools=BLOCKED_TOOL_NAMES``；
         - ``workspaces`` 指向 ``FACHUAN_AGENT_HOME`` 下的空目录：文件工具已关，
           这里只是不让 harness 把 cwd（仓库根）当工作区。
+
+        ## 隔离（``ctx.isolated``）
+
+        不传 ``conversation_id``：每轮都是新对话，不续接任何历史（历史只在 ``ctx.prompt``
+        里），所以隔离运行无需特殊处理。
         """
         home = agent_home()
         return LocalOpenAIAgentConfig(
             model=target.model,
             base_url=loopback_base_url,
-            system_instructions=types.CustomSystemInstructions(text=_instructions(ctx)),
+            # ``ctx.system_prompt`` 给了就用它（综合结论等一次性任务），同样是全量替换。
+            system_instructions=types.CustomSystemInstructions(
+                text=ctx.system_prompt if ctx.system_prompt is not None else _instructions(ctx)
+            ),
             capabilities=types.CapabilitiesConfig(
                 enabled_tools=[],  # 内置工具一个都不给（见 docstring）
                 enable_subagents=False,

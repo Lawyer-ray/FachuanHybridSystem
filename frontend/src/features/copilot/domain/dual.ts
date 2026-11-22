@@ -17,19 +17,28 @@
 import type { ChatMessage } from '../types'
 import { mergeCitations } from './knowledge'
 
-/** 一轮里最多几栏。与后端 `MAX_ANSWERS` 同口径（规格 2.3：超过直接 400）。
+/** 一轮里最多几栏。必须与后端 `services/chat/multi.MAX_ANSWERS` 同值（规格 2.3：超过直接 400）。
  *
- * 定在 4 不是技术上限：成本随栏数线性涨，且四栏并排在侧边栏面板里已接近
- * 可读性极限（每栏不到 150px）。 */
+ * 这个值不是技术上限：成本随栏数线性涨，栏数再多，侧边栏面板里每栏的宽度就不够读了；
+ * 当前取值对应已注册的 agent 运行时个数。 */
 export const MAX_ANSWERS = 5
 
-/** 转录项：一条消息，或一轮里连续的若干条 assistant（多答时 2~4 条） */
+/** 转录项：一条消息，或一轮里连续的若干条 assistant（多答时 2~{@link MAX_ANSWERS} 条） */
 export interface AnswerGroup {
   answers: ChatMessage[]
 }
 
 /** 空串 / 未标注一律当 pi：引入多答之前本系统只有 pi 在跑（见后端字段注释） */
 export const DEFAULT_AGENT_KIND = 'pi'
+
+/**
+ * 综合结论在会话转录里的 `agent_kind`。
+ *
+ * **必须与后端 `apps/agent/services/synthesis/kinds.SYNTHESIS_AGENT_KIND` 同值**（后端
+ * 那一处是唯一定义，前端只有这一处镜像）。它不是任何一栏 AI 的回答：不进栏清单、
+ * 不占栏位，正文由 ReviewPanel 下的 SynthesisCard 渲染。
+ */
+export const SYNTHESIS_AGENT_KIND = 'synthesis'
 
 /**
  * 事件该归到哪个 agent。
@@ -50,7 +59,6 @@ export function runIdOf(event: object): string {
   return (event as { run_id?: string }).run_id ?? ''
 }
 
-/** kind → 栏标签（只列需要中文名的；未知 kind 直接显示 kind 自身） */
 /**
  * kind → 栏头显示名。
  *
@@ -65,10 +73,9 @@ const AGENT_LABELS: Record<string, string> = {
   'openai-agents': 'OpenAI Agents',
   antigravity: 'Antigravity',
   'claude-agent': 'Claude Agent',
-  // 综合结论在转录里也是一条 assistant（后端 agent_kind="synthesis"）。
-  // 它不是"某一栏 AI 的回答"，所以 distinctAgentKinds 会把它排掉（见该函数），
-  // 这里只是给它一个可读名字，供转录列表/检索结果展示。
-  synthesis: '综合结论',
+  // 综合结论在转录里也是一条 assistant（见 SYNTHESIS_AGENT_KIND）。它不是某一栏的
+  // 回答，distinctAgentKinds / mergeAgentAnswers 都会把它排掉；这里只给它一个可读名字。
+  [SYNTHESIS_AGENT_KIND]: '综合结论',
 }
 
 export function agentLabel(kind: string): string {
@@ -102,10 +109,16 @@ export function agentLabel(kind: string): string {
  * 判据也不依赖后端新增字段（消息表没有 turn_id），历史数据同样成立。
  *
  * 单条也返回长度为 1 的组：调用方用一个形状处理，不必分两条路径。
+ *
+ * 综合结论消息（{@link SYNTHESIS_AGENT_KIND}）**不进任何组**：它的正文由该轮
+ * ReviewPanel 下的 SynthesisCard 按轮次回读渲染。而且它是律师点按钮那一刻才写入的，
+ * 按落库顺序会排在**当时最新一轮**的末尾（未必是它所属的那一轮），留在转录流里
+ * 会挂错轮次。
  */
 export function groupAnswerRuns(messages: ChatMessage[]): AnswerGroup[] {
   const groups: AnswerGroup[] = []
   for (const message of messages) {
+    if (message.agentKind === SYNTHESIS_AGENT_KIND) continue
     const last = groups[groups.length - 1]
     // user 一定是新组的开头；非 user 只要上一组也不是 user 就并入（= 同一轮）
     const mergeable = message.role !== 'user' && last !== undefined && last.answers[0]?.role !== 'user'
@@ -136,9 +149,9 @@ export function distinctAgentKinds(answers: readonly ChatMessage[]): string[] {
   const seen: string[] = []
   for (const answer of answers) {
     const kind = answer.agentKind
-    // ``synthesis`` 是综合结论（不是某一栏 AI 的回答）：算进栏清单会让多答布局
-    // 凭空多出第 6 栏，而它已经由 SynthesisCard 渲染。
-    if (answer.role === 'assistant' && kind && kind !== 'synthesis' && !seen.includes(kind)) seen.push(kind)
+    // 综合结论不是某一栏 AI 的回答：算进栏清单会让多答布局凭空多出一栏，
+    // 而它已经由 SynthesisCard 渲染。
+    if (answer.role === 'assistant' && kind && kind !== SYNTHESIS_AGENT_KIND && !seen.includes(kind)) seen.push(kind)
   }
   return seen
 }
@@ -149,7 +162,7 @@ export function distinctAgentKinds(answers: readonly ChatMessage[]): string[] {
  * 后端在**每个** agent 的每轮各发一次 done（见 streaming.ts 的 onDone 契约），
  * 但单后端轮次里同一个 agent 也可能产出多段 assistant 消息（工具调用被拆段、
  * 停止后重发等）。多栏渲染要求「一栏一个气泡」，否则同一个人会说两遍话、
- * 栏头重复成四栏。
+ * 栏头重复出现。
  *
  * 判据是本轮的**栏清单**（store 开流时就知道），不是「有没有 agentKind」：
  * - 栏清单里有的 kind：同 kind 的多条合成一条（内容按到达顺序拼接）；
@@ -157,6 +170,11 @@ export function distinctAgentKinds(answers: readonly ChatMessage[]): string[] {
  *   不相干的回答（那会把两轮回答拼成一段看似连贯的话）。
  *
  * 首条的位置即该栏的位置：栏的左右顺序 = 清单顺序（见 store 的 rounds 记账）。
+ *
+ * 例外：综合结论（{@link SYNTHESIS_AGENT_KIND}）**不输出**。它同样不在栏清单里，
+ * 但不是「降级时的不相干回答」——它由 ReviewPanel 下的 SynthesisCard 渲染；按上面
+ * 「原样各自一条」处理会多出一栏「综合结论」，与卡片重复。`groupAnswerRuns` 已先把
+ * 它排掉，这里再守一道，给直接传入整段转录的调用方。
  */
 export function mergeAgentAnswers(answers: ChatMessage[], agents: readonly string[]): ChatMessage[] {
   if (agents.length <= 0) return answers
@@ -168,7 +186,7 @@ export function mergeAgentAnswers(answers: ChatMessage[], agents: readonly strin
     const kind = answer.agentKind ?? DEFAULT_AGENT_KIND
     if (!agents.includes(kind)) continue
 
-    // 工具调用归到**它自己那个 agent** 名下。多答时四个 agent 同时调工具，
+    // 工具调用归到**它自己那个 agent** 名下。多答时几个 agent 同时调工具，
     // 转录里交错相邻；只按时间平铺就分不清谁查了什么（真实反馈：一坨工具条
     // 堆在底部、占满整行）。
     if (answer.role === 'tool') {
@@ -214,6 +232,8 @@ export function mergeAgentAnswers(answers: ChatMessage[], agents: readonly strin
   const emitted = new Set<string>()
   for (const answer of answers) {
     const kind = answer.agentKind ?? DEFAULT_AGENT_KIND
+    // 综合结论由 SynthesisCard 渲染，不占栏（见函数文档）
+    if (kind === SYNTHESIS_AGENT_KIND) continue
 
     // **工具消息不参与栏的排序**，必须在循环最开头跳过。
     //

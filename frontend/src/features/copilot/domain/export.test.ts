@@ -33,6 +33,15 @@ describe('toMarkdown：多答分栏', () => {
     const md = toMarkdown([USER, message({ id: 'a1', role: 'assistant', content: '旧数据的回答' })])
     expect(md).toContain('### pi\n')
   })
+
+  it('综合结论写可读名「综合结论」，不露出内部标识 synthesis', () => {
+    const md = toMarkdown([
+      USER,
+      message({ id: 's1', role: 'assistant', agentKind: 'synthesis', model: 'kimi-2.6', content: '综合稿' }),
+    ])
+    expect(md).toContain('### 综合结论 · kimi-2.6')
+    expect(md).not.toContain('### synthesis')
+  })
 })
 
 describe('toMarkdown：引用与锚点', () => {

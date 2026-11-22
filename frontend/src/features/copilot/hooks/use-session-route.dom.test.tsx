@@ -40,6 +40,7 @@ const EMPTY_STORE: Partial<CopilotState> = {
   streaming: false,
   sending: false,
   loadingHistory: false,
+  historyLoadError: false,
   lastError: null,
   noMoreHistory: false,
   queuePosition: null,
@@ -218,7 +219,7 @@ describe('行为表 7–8：URL 变了 / 坏 id', () => {
     apiMock.fetchHistory.mockRejectedValue(new Error('404 会话不存在'))
     renderRoute(['/assistant/ghost'])
 
-    // 不崩：宿主一直在（store 会先停在坏 id 上，只留一句 lastError）
+    // 不崩：宿主一直在（store 会先停在坏 id 上，只留一句「加载会话历史失败」）
     await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalled())
     expect(screen.getByTestId('pathname')).toBeTruthy()
 
@@ -290,5 +291,44 @@ describe('防护：replace 语义 / 不乒乓 / 不误伤新会话', () => {
     expect(currentPath()).toBe('/assistant/new-1')
     expect(useCopilot.getState().sessionId).toBe('new-1')
     expect(toastMock.error).not.toHaveBeenCalled()
+  })
+
+  it('老会话（不在最近 N 条里）历史加载成功后发消息失败：不算坏 id，不跳回新对话', async () => {
+    // 链接贴过来的老会话：存在、能拉到历史，只是不在侧栏的最近 100 条里
+    renderRoute(['/assistant/old-9'])
+    await waitFor(() =>
+      expect(useCopilot.getState().messages.map((m) => m.content)).toContain('来自 old-9 的历史'),
+    )
+    await waitFor(() => expect(apiMock.listSessions).toHaveBeenCalled())
+
+    // 本轮发消息失败（限流）：lastError 有值，但历史并没有拉失败
+    await act(async () => {
+      useCopilot.setState({ lastError: '当前使用人数较多，请稍后再试' })
+    })
+    await act(async () => {})
+
+    expect(useCopilot.getState().historyLoadError).toBe(false)
+    expect(currentPath()).toBe('/assistant/old-9')
+    expect(useCopilot.getState().sessionId).toBe('old-9')
+    expect(toastMock.error).not.toHaveBeenCalled()
+  })
+})
+
+describe('store：historyLoadError 只由「拉历史失败」设置', () => {
+  it('switchSession 拉历史失败置 true；切到另一会话并成功加载后清回 false', async () => {
+    apiMock.fetchHistory.mockRejectedValueOnce(new Error('404'))
+    await pickSession('ghost')
+    expect(useCopilot.getState().historyLoadError).toBe(true)
+
+    await pickSession('s-1')
+    expect(useCopilot.getState().historyLoadError).toBe(false)
+  })
+
+  it('发消息失败等其它错误只写 lastError，不碰 historyLoadError', async () => {
+    await pickSession('s-1')
+    await act(async () => {
+      useCopilot.setState({ lastError: '连接中断，请重试' })
+    })
+    expect(useCopilot.getState().historyLoadError).toBe(false)
   })
 })

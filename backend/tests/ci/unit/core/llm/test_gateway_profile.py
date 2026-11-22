@@ -271,6 +271,22 @@ class TestIsRetryable:
         """401/403 走 ``LLMAuthenticationError``（非 ``LLMAPIError`` 子类），同样不该重试。"""
         assert is_retryable(LLMAuthenticationError()) is False
 
+    def test_rate_limit_is_not_retryable(self) -> None:
+        """429 只换 Key 不换模型（业务口径）：换模型的判定必须是 False。"""
+        assert is_retryable(LLMAPIError(message="rate limited", status_code=429)) is False
+
+    def test_backend_unavailable_is_not_retryable(self) -> None:
+        """``LLMBackendUnavailableError`` 是**无状态码**的 ``LLMAPIError`` 子类。
+
+        只看状态码会落进「无状态 → 可重试」那条兜底，把整条降级链再打一遍；
+        判定必须先认出它（此前这条判断在 ``openai_compatible.chat/achat`` 里各写一遍）。
+        """
+        from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+        error = LLMBackendUnavailableError()
+        assert isinstance(error, LLMAPIError) and error.status_code is None
+        assert is_retryable(error) is False
+
 
 class TestFallbackChain:
     def test_mixed_separators(self) -> None:

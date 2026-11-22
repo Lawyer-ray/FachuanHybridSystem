@@ -31,6 +31,7 @@ from ...models import AgentMessage, AgentSession, AgentSynthesis
 from ..adjudication.contracts import Synthesis
 from ..chat.aggregate import Candidate
 from ..review.store import load_turn_answers
+from .kinds import SYNTHESIS_AGENT_KIND
 
 
 async def _turn_assistant_rows(session: AgentSession, turn: int) -> list[AgentMessage]:
@@ -144,15 +145,6 @@ async def resolve_model(session: AgentSession, turn: int, requested: str) -> str
     if not seen:
         raise ValueError("未配置综合模型：请求里没有指定，本轮各栏也没有留下模型名")
     return seen[0]
-
-
-#: 综合结论在会话转录里的 ``agent_kind``。
-#:
-#: 用它而不是"执行综合的那个 agent"（如 ``pi``）：写 ``pi`` 会和那一栏自己的回答
-#: 混在同一条 lane 里（前端按 kind 合并同轮 assistant 消息，会把原答案与综合稿拼成
-#: 一段），而"每栏一条"的统计口径也会失真。独立取值让综合既能在转录里被检索/引用/
-#: 继续追问，又不会被算成某一栏的回答。
-SYNTHESIS_AGENT_KIND = "synthesis"
 
 
 async def save_synthesis_message(*, session: AgentSession, synthesis: Synthesis) -> Any:

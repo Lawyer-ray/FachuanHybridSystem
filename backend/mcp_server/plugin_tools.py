@@ -35,18 +35,41 @@ def search_private_cases(
 #: 要暴露的工具列表（必填）。函数名即工具名，写进 MCP 后模型看到的就是它。
 MCP_TOOLS = [search_private_cases]
 
+#: 每个工具的风险等级（强烈建议填）。**没声明的工具一律按「高危」注册：每次调用都要审批。**
+MCP_TOOL_RISK = {"search_private_cases": "read"}
+
 
 def check_available() -> bool:
     '''可选：运行期可用性（缺凭据 / 服务不可达时返回 False）。'''
     return True
 ```
 
-### 命名与分级（插件作者必须知道）
+### 风险等级（``MCP_TOOL_RISK``，插件作者必须知道）
+
+取值对齐审批分级 ``RiskLevel``，另收两个别名：
+
+| 取值 | 含义 | 审批 |
+|:-|:-|:-|
+| ``"read"`` / ``"low"`` | 只读、无副作用 | 直接执行（``readOnlyHint``） |
+| ``"write"`` / ``"medium"`` | 常规写入 | 静默执行、留审计（``destructiveHint=false``） |
+| ``"high"`` | 删除 / 外发 / 递交等不可逆动作 | 每次人工审批（``destructiveHint=true``） |
+| ``"critical"`` | 批量清空等 | 同 ``high``（见下方限制） |
+
+- **不声明 = 高危**：``MCP_TOOL_RISK`` 缺失、不是 dict、漏了某个工具、或取值不认识，
+  该工具都按 ``high`` 注册并记 warning。插件工具的实现主仓看不到，名字也由插件
+  作者自己起，「看名字猜只读」对它不成立——宁可多问一次。
+- **只读要显式声明**：``{"工具名": "read"}`` 才直接放行。
+- **名字仍是第二层**：等级通过 MCP 注解下发，审批取「名字判定」与「注解判定」的较大者，
+  所以声明了 ``read`` 但名字带 ``delete_`` / ``submit_`` 的工具照样要审批。
+- **生效面**：注解随 ``tools/list`` 下发（pi 的 ``approval-gate.ts`` 按它分级），
+  同一份注解也进服务端审批闸门（``tool_approval_gate``）与各后端的 ``classify_risk``——
+  只在注册时写这一处，五个后端口径一致。
+- **限制**：MCP 注解表达不了「二次确认」，``critical`` 目前与 ``high`` 同级（需审批、
+  不弹二次确认）；真正的紧急级仍只由 ``CRITICAL_PATTERNS`` 按名字判定。
+
+### 命名与分层
 
 - **工具名不可与内置 409 个重名**：撞名直接跳过并告警（内置优先）。
-- **注解自动推导**：``_tool_annotations`` 按名字 + ``classify_risk`` 推
-  readOnly / destructive，插件不用自己写；但**名字里带 ``delete_`` / ``submit_``
-  这类前缀会被判高危并弹审批卡**——这是刻意的。
 - **分层自动生效**：未登记进 ``DIRECT_TOOLS`` 的插件工具默认走 ``deferred``
   （``tool_search`` 按需加载），所以不会白占每轮的固定前缀。
 
@@ -84,6 +107,24 @@ ENTRY_MODULE = "mcp_tools"
 
 #: 插件侧导出名：要暴露的函数列表。
 EXPORTS_ATTR = "MCP_TOOLS"
+
+#: 插件侧导出名：``{工具名: 风险等级}``（见模块 docstring「风险等级」）。
+RISK_ATTR = "MCP_TOOL_RISK"
+
+#: 插件可写的风险等级 → 审批分级 ``RiskLevel`` 的取值（``low/medium/high/critical``）。
+#: 这里用字符串而不 import ``RiskLevel``：本模块要能脱离 Django 单测；两边取值一致由
+#: ``tests/ci/unit/mcp_server/test_plugin_tools.py`` 对账。
+RISK_ALIASES: dict[str, str] = {
+    "read": "low",
+    "low": "low",
+    "write": "medium",
+    "medium": "medium",
+    "high": "high",
+    "critical": "critical",
+}
+
+#: 未声明 / 声明非法时的等级：需要人工审批。
+UNDECLARED_RISK = "high"
 
 
 def enabled() -> bool:
@@ -155,6 +196,58 @@ def _collect(module: ModuleType) -> list[Callable[..., Any]]:
     return tools
 
 
+def declared_risks(module: ModuleType) -> dict[str, str]:
+    """读插件的 ``MCP_TOOL_RISK``，返回 ``{工具名: 规范化等级}``（只含合法项）。
+
+    不合法的部分只告警、不整块丢弃插件：等级缺失的工具由调用方按
+    :data:`UNDECLARED_RISK` 处理（更严，不会更松）。
+    """
+    raw = getattr(module, RISK_ATTR, None)
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        logger.warning(
+            "插件 %s 的 %s 必须是 dict，实际 %s，其工具一律按高危（需审批）注册",
+            module.__name__,
+            RISK_ATTR,
+            type(raw),
+        )
+        return {}
+    risks: dict[str, str] = {}
+    for name, value in raw.items():
+        level = RISK_ALIASES.get(str(value or "").strip().lower())
+        if level is None:
+            logger.warning(
+                "插件 %s 的工具 %s 风险等级 %r 不认识（可选 %s），按高危（需审批）注册",
+                module.__name__,
+                name,
+                value,
+                "/".join(sorted(RISK_ALIASES)),
+            )
+            continue
+        risks[str(name)] = level
+    return risks
+
+
+def tool_annotations_for(level: str) -> Any:
+    """风险等级 → MCP ``ToolAnnotations``（审批按注解分级，见模块 docstring）。
+
+    映射与 ``server._tool_annotations`` / ``approval.risk._classify_by_annotations`` 同口径：
+
+    - ``low`` → ``readOnlyHint=True``（分级退回名字判定）；
+    - ``medium`` → 显式 ``destructiveHint=False``（非只读 → 至少中级；MCP 规范对未声明的
+      destructive 按 true 理解，所以必须显式写 false）；
+    - ``high`` / ``critical`` → ``destructiveHint=True``（至少高级 → 需审批）。
+    """
+    from mcp.types import ToolAnnotations
+
+    if level == "low":
+        return ToolAnnotations(read_only_hint=True)
+    if level == "medium":
+        return ToolAnnotations(destructive_hint=False)
+    return ToolAnnotations(destructive_hint=True)
+
+
 def _availability_ok(module: ModuleType) -> bool:
     """调用插件可选的 ``check_available()``；不带这个钩子视为可用。
 
@@ -177,14 +270,16 @@ def _availability_ok(module: ModuleType) -> bool:
 
 
 def register_plugin_tools(
-    register_tool: Callable[[Callable[..., Any]], Any],
+    register_tool: Callable[..., Any],
     *,
     reserved_names: Iterable[str] = (),
 ) -> list[str]:
     """把插件工具注册进 MCP；返回**实际注册成功的工具名**（排序）。
 
     Args:
-        register_tool: 主仓的注册装饰器（``mcp_server.server._t``）。传函数而不是
+        register_tool: 主仓的注册装饰器（``mcp_server.server._t``），以
+            ``register_tool(func, annotations=...)`` 调用：注解由插件声明的风险等级
+            决定（:func:`tool_annotations_for`），不再按名字推导。传函数而不是
             让本模块 import ``server``——``server`` 在 import 期就会注册 409 个工具，
             反向依赖会让「导入本模块」产生一次完整注册副作用。
         reserved_names: 内置工具名集合。插件工具与之撞名时**跳过插件侧**：
@@ -215,6 +310,7 @@ def register_plugin_tools(
             logger.info("插件 %s 报告不可用（check_available=False），不注册其工具", module_path)
             continue
 
+        risks = declared_risks(module)
         for tool in _collect(module):
             name = tool.__name__
             if name in reserved:
@@ -223,7 +319,16 @@ def register_plugin_tools(
             if name in registered:
                 logger.warning("插件工具 %s 重复注册，跳过后出现的那个", name)
                 continue
-            register_tool(tool)
+            level = risks.get(name)
+            if level is None:
+                level = UNDECLARED_RISK
+                logger.warning(
+                    "插件 %s 的工具 %s 未在 %s 声明风险等级，按高危注册（每次调用需审批）",
+                    module_path,
+                    name,
+                    RISK_ATTR,
+                )
+            register_tool(tool, annotations=tool_annotations_for(level))
             registered.append(name)
 
     if registered:
@@ -235,8 +340,13 @@ __all__ = [
     "ENABLED_ENV",
     "ENTRY_MODULE",
     "EXPORTS_ATTR",
+    "RISK_ALIASES",
+    "RISK_ATTR",
+    "UNDECLARED_RISK",
+    "declared_risks",
     "discover_entry_modules",
     "enabled",
     "plugins_root",
     "register_plugin_tools",
+    "tool_annotations_for",
 ]

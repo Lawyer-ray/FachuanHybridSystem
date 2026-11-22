@@ -1122,3 +1122,33 @@ class TestStreamEndToEnd:
         monkeypatch.setattr(backend_module.Runner, "run_streamed", lambda *a, **kw: _CancellingResult([]))
         with pytest.raises(asyncio.CancelledError):
             _ = [frame async for frame in OpenAiAgentsBackend().stream(_ctx())]
+
+
+# ── 10. 本轮运行选项（综合结论：system prompt / max_turns / isolated）──────────
+
+
+class TestRunOptions:
+    """``RunContext.system_prompt`` / ``max_turns`` 必须真的进 SDK；``isolated`` 天然成立。
+
+    综合结论的三条规则（来源锚点 / 只用候选依据 / 分歧写明）只靠 ``system_prompt``
+    下发：字段加了但没接线，规则就悄无声息地不生效。
+    """
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
+    async def test_defaults_without_overrides(self, _wired: SimpleNamespace) -> None:
+        _ = [frame async for frame in OpenAiAgentsBackend().stream(_ctx())]
+        assert _wired.captured["run"]["max_turns"] == MAX_TURNS
+        assert "律师助理" in _wired.captured["agent"]["instructions"]
+
+    @pytest.mark.django_db
+    @pytest.mark.asyncio
+    async def test_overrides_reach_agent_and_runner(self, _wired: SimpleNamespace) -> None:
+        from dataclasses import replace
+
+        ctx = replace(_ctx(), system_prompt="综合规则", max_turns=8, isolated=True)
+        _ = [frame async for frame in OpenAiAgentsBackend().stream(ctx)]
+        assert _wired.captured["agent"]["instructions"] == "综合规则"
+        assert _wired.captured["run"]["max_turns"] == 8
+        # 无状态：不给 SDK 传 session，隔离运行不需要额外处理
+        assert "session" not in _wired.captured["run"]

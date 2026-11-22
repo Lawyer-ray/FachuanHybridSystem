@@ -123,6 +123,23 @@ def _dsh_probe() -> tuple[bool, str]:
     return True, ""
 
 
+def _models_for_kind(kind: str, models: list[str]) -> list[str]:
+    """某个后端实际能用的模型（平台清单按运行时收窄）。
+
+    claude-agent 走 Anthropic Messages 协议，只有模型名含
+    :data:`~apps.agent.backends.claude_agent_backend.ANTHROPIC_MODEL_MARKER` 的才能用
+    （与它 ``select_anthropic_model`` 的判据同源：小写子串匹配）。把整份平台清单给它，
+    前端就能选出「claude-agent + glm53」这种必然失败的组合（实测空正文 / 入口报错）。
+    其余后端都走 OpenAI 兼容端点，用整份清单。
+    """
+    if kind != "claude-agent":
+        return list(models)
+    # 延迟 import：claude_agent_backend 只在注册了 claude-agent 时才需要
+    from ..backends.claude_agent_backend import ANTHROPIC_MODEL_MARKER
+
+    return [name for name in models if ANTHROPIC_MODEL_MARKER in name.lower()]
+
+
 def _collect_backend_options() -> list[BackendOptionOut]:
     """列出可选后端及其可用性（同步：查注册表 + 查 LLMProvider，全在纯同步路径上）。"""
     ensure_registered()
@@ -142,7 +159,7 @@ def _collect_backend_options() -> list[BackendOptionOut]:
                 asdict(get_backend(kind).capabilities),
                 available=available,
                 reason=reason,
-                models=models,
+                models=_models_for_kind(kind, models),
             )
         )
     # dsh 未注册（缺 SDK / 未接好）时仍列出，置灰并说明原因：直接不出现会让用户
