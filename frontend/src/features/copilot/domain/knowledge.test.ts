@@ -14,7 +14,6 @@ import {
   narrowCitations,
   pageSpanNote,
   parseCiteMarkers,
-  reconcileCitations,
   splitCiteSegments,
   type CitationRef,
 } from './knowledge'
@@ -71,24 +70,6 @@ describe('parseCiteMarkers：流式半截标记不命中', () => {
     expect(hasPendingCiteMarker('见[K，另见甲')).toBe(false)
     // 普通文本里恰好有 `[` 与 `K`，但不是标记
     expect(hasPendingCiteMarker('索引 [K 说明')).toBe(false)
-  })
-})
-
-describe('reconcileCitations：正文没引用到的来源一律剔除', () => {
-  it('只保留正文真的引用到的引用表项', () => {
-    const result = reconcileCitations('结论见[K2]。', [cite(1), cite(2), cite(3)])
-    expect(result.marks.map((m) => m.citeNo)).toEqual([2])
-    expect(result.citations.map((c) => c.citeNo)).toEqual([2])
-  })
-
-  it('正文引用了引用表没有的编号 → 不产生标记，也不产生来源', () => {
-    const result = reconcileCitations('见[K7]', [cite(1)])
-    expect(result.marks).toEqual([])
-    expect(result.citations).toEqual([])
-  })
-
-  it('引用表为空时正文原样保留（[K1] 当普通文本）', () => {
-    expect(reconcileCitations('见[K1]', [])).toEqual({ marks: [], citations: [] })
   })
 })
 

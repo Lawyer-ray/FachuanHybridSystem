@@ -14,9 +14,10 @@ import { AlertTriangle, FileText, PencilLine } from 'lucide-react'
 
 import { DEMO_CONTRACT_GEN, DEMO_CONTRACT_TERMS } from '../demo-data'
 import { pendingTermCount, type TermDraft } from './contract-terms'
+import { ClickableRow } from '../ClickableRow'
 import { ActionButton, InsetBlock, Pill, SectionTitle, WorkCard } from '../ui'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export function ContractTermsCard({
   drafts,
@@ -209,10 +210,11 @@ export function ContractGenCard({
       </div>
       <ul className="divide-y divide-border-light">
         {DEMO_CONTRACT_GEN.map((d) => (
-          <li
+          <ClickableRow
             key={d.name}
+            nestedControl
             onClick={() => onOpenDoc(d.name)}
-            className="flex cursor-pointer items-center gap-3 px-5 py-2.5 transition-colors hover:bg-secondary/40"
+            className="flex items-center gap-3 px-5 py-2.5"
           >
             <FileText className="size-3.5 flex-none text-muted-foreground" />
             <span className="min-w-0 flex-1">
@@ -234,7 +236,7 @@ export function ContractGenCard({
               <option value="v2.8">模板 v2.8</option>
               <option value="custom">自定义</option>
             </select>
-          </li>
+          </ClickableRow>
         ))}
       </ul>
     </WorkCard>

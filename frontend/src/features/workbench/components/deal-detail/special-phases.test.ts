@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { buildDeliverables, buildPhases } from './special-phases'
-import { nextVersion, splitVersion } from './special-term'
+import { splitVersion } from './special-term'
 
 describe('splitVersion：文件名 → 文书名 + 版本', () => {
   it('吃掉结尾的 v 版本串，书名号保留在名称里', () => {
@@ -25,17 +25,6 @@ describe('splitVersion：文件名 → 文书名 + 版本', () => {
   })
 })
 
-describe('nextVersion：同名文书的下一个版本号', () => {
-  it('取最大值 +1', () => {
-    expect(nextVersion(['《股东协议》v1.docx', '《股东协议》v2.docx'])).toBe('v3')
-  })
-
-  it('空集合从 v1 起', () => {
-    expect(nextVersion([])).toBe('v1')
-    expect(nextVersion(['无关.txt'])).toBe('v1')
-  })
-})
-
 describe('buildPhases：根层目录 → 阶段行', () => {
   const roots = [
     { name: '1-合同发票', subpath: '1-合同发票', file_count: 12 },
@@ -52,12 +41,12 @@ describe('buildPhases：根层目录 → 阶段行', () => {
   })
 
   it('有文件=已完成；第一个空目录=进行中；其后=未开始', () => {
-    expect(buildPhases(roots).map((p) => p.state)).toEqual(['ok', 'ok', 'ok', 'doing', 'todo'])
+    expect(buildPhases(roots).map((p) => p.state)).toEqual(['done', 'done', 'done', 'doing', 'todo'])
   })
 
   it('日期前缀只作阶段开始日，不进名称', () => {
     const phases = buildPhases([{ name: '1-2026.06.05-尽职调查', subpath: 'd', file_count: 1 }])
-    expect(phases[0]).toMatchObject({ name: '尽职调查', startDate: '2026-06-05', state: 'ok' })
+    expect(phases[0]).toMatchObject({ name: '尽职调查', startDate: '2026-06-05', state: 'done' })
   })
 
   it('纯日期目录不是阶段（那是事项，归服务事项流）', () => {

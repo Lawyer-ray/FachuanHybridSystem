@@ -21,7 +21,8 @@ import {
   WorkCard,
 } from './ui'
 import { HistoryBlock } from './convert/HistoryBlock'
-import { fmtSize, saveBlob, useTypeList } from './convert/convert-utils'
+import { fmtSize, saveBlob } from './convert/convert-utils'
+import { useTypeList } from './convert/use-type-list'
 import {
   DEMO_CONVERT_MAPPING_DETAIL,
   DEMO_CONVERT_PREVIEW,

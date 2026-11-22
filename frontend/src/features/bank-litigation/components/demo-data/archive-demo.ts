@@ -1,7 +1,7 @@
 /**
  * 演示数据 · B3. OA 归档
  *
- * 归档操作日志 / 归档类别对比 / 材料明细。
+ * 归档操作日志 / 归档类别对比 / 材料明细 / 已就位映射。
  * 真实功能上线时整个文件删除即可。
  */
 
@@ -56,6 +56,26 @@ export interface ArchiveMaterialMeta {
   at: string
   /** 来源文件名（合同文件夹 / 案件材料里的原名） */
   source: string
+}
+
+/**
+ * 演示态：已就位的前 9 项（code → 文件名）。
+ *
+ * ⚠️ 真实实现应来自后端 `build_archive_checklist_service()` 的结果；
+ * 这里先按「模板类 + 合同类 + 部分案件材料已齐」造一份，等后端提供
+ * 只读清单接口后替换这一处即可（结构已按后端 ChecklistItem 对齐）。
+ */
+export const DEMO_ARCHIVE_DONE: Record<string, string> = {
+  lt_1: '案卷封面.pdf',
+  lt_2: '结案归档登记表.pdf',
+  lt_3: '案卷目录.pdf',
+  lt_4: '委托代理合同（扫描件）.pdf',
+  lt_6: '律师办案工作日记.pdf',
+  lt_7: '民事起诉状（定稿）.pdf',
+  lt_17: '（20XX）粤0606民初XXXX号 民事判决书.pdf',
+  lt_18: '办案服务质量监督卡.pdf',
+  lt_19: '办案小结.pdf',
+  lt_20: '授权委托书（扫描件）.pdf',
 }
 
 export const DEMO_ARCHIVE_MATERIALS: Record<string, ArchiveMaterialMeta> = {

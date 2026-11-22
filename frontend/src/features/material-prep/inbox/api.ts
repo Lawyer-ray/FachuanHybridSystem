@@ -41,6 +41,31 @@ export interface ListInboxParams {
   limit?: number
 }
 
+/**
+ * 列表 queryKey：把 params 归一到**唯一一种写法**再拼 key。
+ *
+ * 为什么必须归一：同一份列表被三处取——一级页签角标（多少条）、工具栏未读数
+ * （当前来源+搜索下多少条未读）、列表本体；三处传的 params 写法各不相同：
+ * `{}` / `{source, search}` / `{source, unreadOnly, search}`。react-query 按 key 的
+ * **结构**判等，`{}` 与 `{source:'all',unreadOnly:false,search:''}` 是两个 key，
+ * 于是进收件箱阶段会对同一份 200 行列表连发三次请求，而注释里承诺的
+ * 「角标与列表天然一致」并不成立（两处各自拿到的行数可以不同步）。
+ *
+ * 归一后的取值必须与 `listInbox` 实际发出的请求参数一一对应（默认 limit、
+ * trim 过的 search），否则又会出现「请求相同、key 不同」的隐形重复。
+ */
+export function inboxListKey(params: ListInboxParams = {}): readonly unknown[] {
+  return [
+    ...INBOX_LIST_KEY,
+    {
+      source: params.source ?? 'all',
+      unreadOnly: params.unreadOnly ?? false,
+      search: params.search?.trim() ?? '',
+      limit: params.limit ?? INBOX_PAGE_SIZE,
+    },
+  ]
+}
+
 /** GET /inbox/messages —— 收件箱列表（后端已按 received_at 倒序） */
 export async function listInbox(params: ListInboxParams = {}): Promise<InboxRow[]> {
   const searchParams: Record<string, string> = { limit: String(params.limit ?? INBOX_PAGE_SIZE) }

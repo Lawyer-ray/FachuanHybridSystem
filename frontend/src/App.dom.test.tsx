@@ -62,9 +62,12 @@ vi.mock('@/features/workbench', async () => {
   }
 })
 vi.mock('@/features/material-prep', () => ({ DeskPage: () => <main>desk-page</main> }))
-vi.mock('@/lib/api', () => ({
-  api: { get: vi.fn(() => ({ json: () => Promise.resolve({ id: 1, username: '张律师' }) })) },
-}))
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>()
+  // 只替换断言用到的 api；createApiClient / createAnonymousClient 保持真实实现，
+  // 否则任一 feature 新增客户端工厂都会让整份 App 测试因 mock 缺字段而失败。
+  return { ...actual, api: { get: vi.fn(() => ({ json: () => Promise.resolve({ id: 1, username: '张律师' }) })) } }
+})
 vi.mock('@/features/search', () => ({
   // 透出 open 状态：⌘K 开关与 AI 助手互斥的断言都看它
   GlobalSearch: ({ open }: { open: boolean }) => <div>{open ? 'gs-open' : 'gs-closed'}</div>,

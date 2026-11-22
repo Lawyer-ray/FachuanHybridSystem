@@ -2,16 +2,17 @@
 /**
  * 法院短信文书复制三级降级单测（jsdom）。
  *
- * mock 只打 api 层（../../../api 的后端直写与下载地址）与 sonner toast；
- * 浏览器能力（ClipboardItem / navigator.clipboard / fetch）按用例用
- * vi.stubGlobal 提供可控桩，覆盖「后端直写 → 浏览器写 PDF → 文件名兜底」全链路。
+ * mock 只打 api 层（../../../api 的后端直写与文书二进制）与 sonner toast；
+ * 浏览器能力（ClipboardItem / navigator.clipboard）按用例用 vi.stubGlobal
+ * 提供可控桩，覆盖「后端直写 → 浏览器写 PDF → 文件名兜底」全链路。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { toastMock, backendCopyMock, fetchMock, writeMock, writeTextMock } = vi.hoisted(() => ({
+const { toastMock, backendCopyMock, blobFetchMock, writeMock, writeTextMock } = vi.hoisted(() => ({
   toastMock: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn() }),
   backendCopyMock: vi.fn(),
-  fetchMock: vi.fn(),
+  // 文书二进制由 api 层取（路径与鉴权头是 api 层的事，见 api/court-sms.test.ts）
+  blobFetchMock: vi.fn(),
   writeMock: vi.fn(),
   writeTextMock: vi.fn(),
 }))
@@ -21,9 +22,10 @@ vi.mock('sonner', () => ({ toast: toastMock }))
 vi.mock('../../../api', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   copyCourtSmsDocsToClipboard: backendCopyMock,
+  fetchCourtSmsDocBlob: blobFetchMock,
 }))
 
-import { copyAllDocFiles, copyBlobsToClipboard, copyDocFile, fetchDocBlob } from './copy-files'
+import { copyAllDocFiles, copyBlobsToClipboard, copyDocFile } from './copy-files'
 
 /** 可控的 ClipboardItem 桩：unsupported 里列出的类型构造时抛错（模拟浏览器不支持） */
 class FakeClipboardItem {
@@ -49,22 +51,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
-})
-
-describe('fetchDocBlob', () => {
-  it('按下载地址取文件：ok 返回 blob；非 2xx 抛「下载失败 HTTP xxx」', async () => {
-    vi.stubGlobal('fetch', fetchMock)
-    fetchMock.mockResolvedValueOnce({ ok: true, blob: async () => blob('a') })
-    await expect(fetchDocBlob(3, 0)).resolves.toBeInstanceOf(Blob)
-    // 安全审计 M-2：fetch 能带 Authorization 头，故用裸路径而非下载票据
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/automation/court-sms/3/documents/0/download',
-      expect.anything(),
-    )
-
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 500, blob: async () => blob('x') })
-    await expect(fetchDocBlob(3, 1)).rejects.toThrow('下载失败 HTTP 500')
-  })
 })
 
 describe('copyBlobsToClipboard', () => {
@@ -123,7 +109,6 @@ describe('copyBlobsToClipboard', () => {
 describe('copyDocs 三级降级（经 copyDocFile / copyAllDocFiles 入口）', () => {
   function enableBrowserClipboard() {
     vi.stubGlobal('ClipboardItem', FakeClipboardItem)
-    vi.stubGlobal('fetch', fetchMock)
     vi.stubGlobal('navigator', { clipboard: { write: writeMock, writeText: writeTextMock } })
   }
 
@@ -134,19 +119,20 @@ describe('copyDocs 三级降级（经 copyDocFile / copyAllDocFiles 入口）', 
     expect(toastMock.success).toHaveBeenCalledWith(
       expect.stringContaining('已复制 2 个文件'),
     )
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(blobFetchMock).not.toHaveBeenCalled()
     expect(writeMock).not.toHaveBeenCalled()
   })
 
   it('一级不可用（copied=0）：降级浏览器剪贴板，逐件 fetch 后写 PDF 成功', async () => {
     enableBrowserClipboard()
     backendCopyMock.mockResolvedValueOnce({ success: false, copied: 0, reason: 'unsupported' })
-    fetchMock.mockImplementation(async (url: string) => ({ ok: true, blob: async () => blob(url) }))
+    blobFetchMock.mockImplementation(async (_id: number, i: number) => blob(`idx-${i}`))
     writeMock.mockResolvedValueOnce(undefined)
     await copyAllDocFiles(3, ['a.pdf', 'b.pdf'])
     // 全部入口：indexes = [0, 1]，两件各取一次
     expect(backendCopyMock).toHaveBeenCalledWith(3, [0, 1])
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(blobFetchMock).toHaveBeenCalledTimes(2)
+    expect(blobFetchMock.mock.calls).toEqual([[3, 0], [3, 1]])
     expect(writeMock).toHaveBeenCalledTimes(1)
     expect(toastMock.success).toHaveBeenCalledWith(expect.stringContaining('改用打包下载'))
   })
@@ -154,7 +140,7 @@ describe('copyDocs 三级降级（经 copyDocFile / copyAllDocFiles 入口）', 
   it('一级网络失败 + 二级取文件失败：落到三级文件名兜底（toast.info）', async () => {
     enableBrowserClipboard()
     backendCopyMock.mockRejectedValueOnce(new Error('后端不可达'))
-    fetchMock.mockResolvedValue({ ok: false, status: 404, blob: async () => blob('x') })
+    blobFetchMock.mockRejectedValue(new Error('Request failed with status code 404'))
     writeTextMock.mockResolvedValueOnce(undefined)
     await copyDocFile(3, 0, '判决书.pdf')
     expect(writeTextMock).toHaveBeenCalledWith('判决书.pdf')
@@ -165,7 +151,7 @@ describe('copyDocs 三级降级（经 copyDocFile / copyAllDocFiles 入口）', 
   it('三级也失败（writeText 被拒）：toast.error 提示改用下载', async () => {
     enableBrowserClipboard()
     backendCopyMock.mockResolvedValueOnce({ success: false, copied: 0, reason: null })
-    fetchMock.mockResolvedValue({ ok: false, status: 500, blob: async () => blob('x') })
+    blobFetchMock.mockRejectedValue(new Error('Request failed with status code 500'))
     writeTextMock.mockRejectedValueOnce(new Error('NotAllowedError'))
     await copyAllDocFiles(3, ['a.pdf', 'b.pdf'])
     expect(toastMock.error).toHaveBeenCalledWith('复制失败，请改用下载')

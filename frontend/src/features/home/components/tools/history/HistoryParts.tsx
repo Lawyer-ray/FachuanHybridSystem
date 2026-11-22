@@ -7,6 +7,14 @@ import { cn } from '@/lib/utils'
  * 的历史入口按钮、弹窗头部、分页底栏、状态徽章配色。
  */
 
+/**
+ * 历史列表的每页条数（后端分页契约，四张卡的 listXxx(page) 都按它翻页）。
+ *
+ * 以前 4 个弹窗各写一份字面量 20（其中法院短信那份还是私有 PAGE_SIZE），
+ * 后端改每页条数时总页数会与真实分页悄悄错位——表现为最后一页空白或翻不到。
+ */
+export const HISTORY_PAGE_SIZE = 20
+
 /** 卡片头部的「历史」入口按钮（四张卡同款） */
 export function HistoryButton({ title, onClick }: { title: string; onClick: () => void }) {
   return (

@@ -1,23 +1,14 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { createReminder, listReminderTypes, searchTargetOptions, REMINDER_TYPES_KEY, type TargetOption } from '../api'
+import { createReminder, listReminderTypes, REMINDER_TYPES_KEY, type TargetOption } from '../api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCN, parseKey } from '../domain'
-import { useTypeaheadSearch } from '@/hooks/use-typeahead-search'
+import { TargetPicker } from './TargetPicker'
 import { errMessage } from '@/lib/errors'
-import { cn } from '@/lib/utils'
-
-/** 关联对象分类 tab。'all' = 全部 */
-const TABS: { key: string; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'contract', label: '合同' },
-  { key: 'case', label: '案件' },
-  { key: 'case_log', label: '日志' },
-]
 
 interface Props {
   /** 目标日期 YYYY-MM-DD；null 表示关闭 */
@@ -50,12 +41,8 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
   // 用 useId 防止未来同弹窗多实例时 id 撞车
   const targetInputId = useId()
   const targetListId = useId()
-  // 关联对象：picked=已选中的候选（null 表示未选）；kw 由检索 hook 持有
+  // 关联对象：picked=已选中的候选（null 表示未选，此时展示检索框）
   const [picked, setPicked] = useState<TargetOption | null>(null)
-  // 点候选兜底层收起；重新输入即展开（对齐旧实现「点别处清空 options」）
-  const [optionsHidden, setOptionsHidden] = useState(false)
-  // 候选分类筛选：'all' / contract / case / case_log
-  const [tab, setTab] = useState('all')
 
   const { data: types = [] } = useQuery({
     queryKey: REMINDER_TYPES_KEY,
@@ -63,41 +50,17 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
     staleTime: 10 * 60_000,
   })
 
-  // 关键字联想：输入停 250ms 才请求、空关键词不发（minLength 默认 1）、
-  // 上一请求由 signal 自动中止（无响应竞态）。
-  // searching 取 hook 的 isSearching（已扣掉 keepPreviousData 的 placeholder 帧），
-  // 不能直接用 isFetching —— 后者恒真，输入框会一直显示「搜索中…」。
-  // 选中 picked 后隐藏候选列表，展示 picked 行
-  const { keyword: kw, setKeyword: setKw, data: searched = [], isSearching: searching } = useTypeaheadSearch<TargetOption[]>({
-    queryKey: (dk) => ['reminder-target-options', dk],
-    queryFn: ({ keyword, signal }) => searchTargetOptions(keyword, signal),
-    enabled: day != null && !picked,
-  })
-  const options = useMemo(
-    () => (picked || optionsHidden ? [] : searched),
-    [picked, optionsHidden, searched],
-  )
-
-  // 每次打开都重置表单（否则上次填的内容会留着）
+  // 每次打开都重置表单（否则上次填的内容会留着）。
+  // 关联检索框内部的词/tab/面板状态由 TargetPicker 以 key={day} 重挂时自己复位
   useEffect(() => {
     if (day) {
       setType('other')
       setContent('')
       setTime(defaultTime)
       setBusy(false)
-      setKw('')
       setPicked(null)
-      setOptionsHidden(false)
-      setTab('all')
     }
-    // setKw 是 hook 内 useState 的 setter，引用恒稳定，列进 deps 不影响触发时机
-  }, [day, defaultTime, setKw])
-
-  // 当前 tab 下可见的候选
-  const visibleOptions = useMemo(
-    () => (tab === 'all' ? options : options.filter((o) => o.target_type === tab)),
-    [options, tab],
-  )
+  }, [day, defaultTime])
 
   const trimmed = content.trim()
   const canSave = trimmed.length > 0 && /^\d{2}:\d{2}$/.test(time) && !busy
@@ -170,118 +133,30 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
                 <button
                   type="button"
                   className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => {
-                    setPicked(null)
-                    setKw('')
-                  }}
+                  onClick={() => setPicked(null)}
                 >
                   <X className="h-3 w-3" />
                   清除
                 </button>
               )}
             </div>
-            {picked ? (
+            {picked && (
               <div className="flex h-9 items-center gap-2 rounded-[8px] border border-input bg-secondary/40 px-2.5">
                 <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">
                   {picked.target_type_label}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px]">{picked.title}</span>
               </div>
-            ) : (
-              <div className="relative">
-                {/* combobox ARIA：输入框声明 listbox 弹层（aria-expanded 随候选
-                    有无开合，aria-controls 指向下方列表）；候选来自后端联想，
-                    aria-autocomplete="list"。键盘上下键未实现，不加
-                    aria-activedescendant——只做静态语义，不发明新交互 */}
-                <input
-                  id={targetInputId}
-                  role="combobox"
-                  aria-expanded={options.length > 0}
-                  aria-controls={targetListId}
-                  aria-autocomplete="list"
-                  className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
-                  value={kw}
-                  onChange={(e) => {
-                    // 重新输入即展开候选：这一下同时作废「点候选收起」与「点了兜底层」
-                    // 两种隐藏态，所以两处都必须在这里复位（不是多余的重复）
-                    setOptionsHidden(false)
-                    setKw(e.target.value)
-                  }}
-                  placeholder={searching ? '搜索中…' : '输入当事人名称 / 案号搜索'}
-                />
-
-                {options.length > 0 && (
-                  <>
-                    {/* 兜底层：点别处收起候选 */}
-                    <div className="fixed inset-0 z-40" onClick={() => setOptionsHidden(true)} aria-hidden />
-                    {/* 候选面板**向上**展开：输入框在弹窗中部，向下会顶出视口。
-                        自身限高可滚，不把弹窗撑高。 */}
-                    <div className="absolute inset-x-0 bottom-[calc(100%+4px)] z-50 max-h-[228px] overflow-hidden rounded-[10px] border border-border bg-card shadow-[0_10px_28px_rgba(0,0,0,.14)]">
-                      {/* 分类筛选 tab：合同 / 案件 / 案件日志，点一下只看这类 */}
-                      <div className="flex items-center gap-1 border-b border-border px-1.5 py-1.5">
-                        {TABS.filter((t) => t.key === 'all' || options.some((o) => o.target_type === t.key)).map(
-                          (t) => {
-                            const n = t.key === 'all' ? options.length : options.filter((o) => o.target_type === t.key).length
-                            return (
-                              <button
-                                key={t.key}
-                                type="button"
-                                onClick={() => setTab(t.key)}
-                                className={cn(
-                                  'flex-none rounded-[6px] px-2 py-[3px] text-[11px] font-medium transition-colors',
-                                  tab === t.key
-                                    ? 'bg-foreground text-background'
-                                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-                                )}
-                              >
-                                {t.label}
-                                <span className="ml-1 tabular-nums opacity-60">{n}</span>
-                              </button>
-                            )
-                          },
-                        )}
-                      </div>
-                      {/* 结果列表：listbox 只包结果行，上方的分类 tab 留在
-                          listbox 外（它们仍是普通按钮，混进来会破坏语义） */}
-                      <div
-                        id={targetListId}
-                        role="listbox"
-                        aria-label="关联对象候选"
-                        className="max-h-[184px] overflow-y-auto py-1"
-                      >
-                        {visibleOptions.map((o) => (
-                          <button
-                            key={`${o.target_type}-${o.id}`}
-                            type="button"
-                            role="option"
-                            aria-selected={false}
-                            className="flex w-full items-center gap-2 px-2.5 py-[7px] text-left transition-colors hover:bg-secondary"
-                            onClick={() => {
-                              setPicked(o)
-                              setKw('')
-                            }}
-                          >
-                            <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">
-                              {o.target_type_label}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-[12px]">{o.title}</span>
-                            {o.hint && (
-                              <span className="max-w-[110px] flex-none truncate text-[10px] text-muted-foreground">
-                                {o.hint}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {kw.trim() && !searching && options.length === 0 && (
-                  <p className="mt-1 text-[10.5px] text-muted-foreground">没有匹配的关联对象，也可以留空不绑定</p>
-                )}
-              </div>
             )}
+            {/* 检索框常驻挂载（picked 时 open=false 自行不渲染）：保留 tab 选择等内部态，
+                让「清除」后重新展开时跟以前一样接着上次的分类筛选 */}
+            <TargetPicker
+              key={day ?? 'none'}
+              open={!picked}
+              inputId={targetInputId}
+              listId={targetListId}
+              onPick={setPicked}
+            />
           </div>
 
           <label className="flex flex-col gap-1.5">

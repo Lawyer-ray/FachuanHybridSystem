@@ -1,6 +1,8 @@
 import { countUnclassified, matLabel } from '../../draft'
 import { ReviewLaunchDrawer } from '@/features/contract-review'
-import { FixedReader, ReaderError, ReaderLoading } from './ReaderChrome'
+import { FixedReader } from './FixedReader'
+import { ReaderError } from './ReaderError'
+import { ReaderLoading } from './ReaderLoading'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
 import { ReaderBody } from './ReaderBody'
@@ -46,9 +48,9 @@ export function Reader() {
   if (meta.status === 'loading') return <ReaderLoading />
   if (meta.status === 'error') return <ReaderError error={meta.error} onBack={store.close} />
   // 草稿未就绪时继续显示骸架，而不是把 null 传给需要 DraftState 的三栏主体。
-  // bodyProps.draft / toolbarProps.draft 的类型都是非空 DraftState
-  // （use-reader-screen.ts 里用 as DraftState 收窄，依赖的就是这个前置判断）。
-  if (!draft) return <ReaderLoading />
+  // bodyProps 在 use-reader-screen 里由 `readyDraft` 判别式构造（未就绪即 null），
+  // 所以这里判空就把 `draft` 在类型上收窄成 DraftState，无需下游再断言。
+  if (!draft || !bodyProps) return <ReaderLoading />
 
   const unclassified = countUnclassified(draft)
   const pages = draft.mats.reduce((s, m) => s + m.pages, 0)

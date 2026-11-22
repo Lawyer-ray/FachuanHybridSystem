@@ -7,7 +7,7 @@
 
 import { ShieldAlert } from 'lucide-react'
 
-import type { MemoryScopes, PromoteCandidate } from '../../memory-api'
+import type { MemoryScopes, PromoteCandidate } from '../../types'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { KIND_LABEL } from './labels'
 

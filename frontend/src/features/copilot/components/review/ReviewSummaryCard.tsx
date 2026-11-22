@@ -23,7 +23,7 @@
 
 import { useState } from 'react'
 
-import type { ReviewView } from '../../domain/fusion'
+import type { ReviewView } from '../../domain'
 import { AdoptBar } from './AdoptBar'
 import { ConflictPair } from './ConflictPair'
 import { ConsensusList } from './ConsensusList'

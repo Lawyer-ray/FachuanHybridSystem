@@ -5,7 +5,7 @@
  * 让热更新失效（本仓库 eslint 对这条是 error 级）。
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type NonLitPhase = 'idle' | 'running' | 'awaiting' | 'done' | 'failed'
 
@@ -41,11 +41,30 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
   const [log, setLog] = useState<NonLitLogLine[]>([])
   const [retries, setRetries] = useState(0)
   const resumeRef = useRef<(() => void) | null>(null)
-  const aborted = useRef(false)
+  /**
+   * 跑批代币：`execute` 开头领一个新号，链条每推进一步比对一次，号变了就退出。
+   *
+   * 为什么不用布尔 `aborted`：`reset()` 既要中止在跑的链条，又不能影响随后的
+   * 下一次 `execute()`——布尔只能靠 `setTimeout(0)` 复位，而那条 0ms 回调会先于
+   * 链条里 `await sleep(...)` 的续行执行，于是刚置的中止标记立刻被清掉，`reset()`
+   * 实际上中止不了任何东西（除了同一 tick 内还被检查到的场景）。代币没有「复位」
+   * 这个动作：新 `execute` 领新号，自然与旧链条断开。
+   */
+  const runIdRef = useRef(0)
+
+  /** 中止在跑的链条（置空 resume 让 `await confirm` 不悬着，代币作废让链条下次检查即退出） */
+  const abortCurrentRun = useCallback(() => {
+    runIdRef.current++
+    const resume = resumeRef.current
+    resumeRef.current = null
+    resume?.()
+  }, [])
+
+  /** 卸载中止：链条里有多处 `await sleep()`，没有这一句就会对已卸载组件继续 setState */
+  useEffect(() => () => abortCurrentRun(), [abortCurrentRun])
 
   const reset = useCallback(() => {
-    aborted.current = true
-    resumeRef.current = null
+    abortCurrentRun()
     setPhase('idle')
     setPercent(0)
     setProgress('')
@@ -53,8 +72,7 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
     setConfirmText('')
     setLog([])
     setRetries(0)
-    setTimeout(() => { aborted.current = false }, 0)
-  }, [])
+  }, [abortCurrentRun])
 
   const confirm = useCallback(() => {
     const fn = resumeRef.current
@@ -63,7 +81,9 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
   }, [])
 
   const execute = useCallback(async () => {
-    aborted.current = false
+    const runId = ++runIdRef.current
+    /** 本代是否仍是当前代（reset / 卸载 / 新一次 execute 都会让旧代失效） */
+    const alive = () => runIdRef.current === runId
     setPhase('running')
     setLog([])
     setPercent(0)
@@ -75,7 +95,7 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
     let rt = 0
 
     for (let i = 0; i < steps.length; i++) {
-      if (aborted.current) return
+      if (!alive()) return
       const s = steps[i]!
       const w = weights[i]!
       const from = (acc / total) * 100
@@ -87,7 +107,7 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
       // 并行子任务
       if (s.parallel?.length) {
         for (const sub of s.parallel) {
-          if (aborted.current) return
+          if (!alive()) return
           setLog((v) => [...v, { at: clock(), text: `  ↳ ${sub}`, kind: 'sub' }])
           await sleep(jitter(Math.max(120, w / (s.parallel.length + 1))))
         }
@@ -96,7 +116,7 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
       // 重试
       if (s.retry) {
         for (let t = 0; t < s.retry.times; t++) {
-          if (aborted.current) return
+          if (!alive()) return
           rt++
           setRetries(rt)
           setLog((v) => [...v, { at: clock(), text: `${s.retry!.reason}（第 ${t + 1} 次重试）`, kind: 'warn' }])
@@ -110,7 +130,7 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
 
       // 平滑推进
       for (let k = 1; k <= 6; k++) {
-        if (aborted.current) return
+        if (!alive()) return
         setPercent(Math.round(from + ((to - from) * k) / 6))
         await sleep(jitter(Math.max(40, w / 9)))
       }
@@ -122,7 +142,7 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
         setProgress('')
         setConfirmText(s.confirm)
         await new Promise<void>((res) => { resumeRef.current = res })
-        if (aborted.current) return
+        if (!alive()) return
         setLog((v) => [...v, { at: clock(), text: '已确认，继续', kind: 'ok' }])
         setPhase('running')
         setConfirmText('')
@@ -131,7 +151,7 @@ export function useNonLitAction(steps: NonLitStep[], summary: string) {
       acc += w
     }
 
-    if (aborted.current) return
+    if (!alive()) return
     setPhase('done')
     setPercent(100)
     setProgress('')

@@ -1,3 +1,5 @@
+import { useId } from 'react'
+
 import { cn } from '@/lib/utils'
 import { DEMAND_CHIPS } from '../../constants'
 import { SectionHead } from './SectionHead'
@@ -17,10 +19,14 @@ export function DemandSection({
   onChangeNote: (v: string) => void
   onToggleChip: (text: string) => void
 }) {
+  // textarea 没有可关联的 <label>（分节标题是 span），用 aria-labelledby 挂上去：
+  // 否则读屏与「占位符消失后」都没有「特别交代」这个名称，只剩 placeholder 猜
+  const titleId = useId()
   return (
     <section className="py-4">
-      <SectionHead index={3} title="特别交代" note="选填" />
+      <SectionHead index={3} title="特别交代" note="选填" titleId={titleId} />
       <textarea
+        aria-labelledby={titleId}
         className="w-full resize-y rounded-[8px] border border-border bg-card px-2.5 py-2 text-[12.5px] leading-[1.6] outline-none focus:border-foreground"
         rows={3}
         placeholder="客户有没有特别在意的点？比如「这单一定要压工期，预算不能再加」"

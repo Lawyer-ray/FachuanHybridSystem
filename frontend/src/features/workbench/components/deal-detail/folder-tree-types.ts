@@ -1,9 +1,11 @@
 import type { DragEvent, MouseEvent } from 'react'
 
-import { formatBytes } from '@/lib/format'
 import type { FolderOwnerKind } from '../../api'
 
-/** 绑定文件夹树的共享类型与小工具（与组件分开，满足 react-refresh 仅导出组件的约束）。 */
+/** 绑定文件夹树的共享类型（与组件分开，满足 react-refresh 仅导出组件的约束）。
+ *  本文件**只导出类型**：运行时函数一律落在 `lib/` 或有名字的 `*-domain.ts`/
+ *  `use-*.ts` 里——类型文件混入运行时值会让 `import type` 与值导入混在一处，
+ *  也让「删掉一个类型文件」不再是纯编译期操作。 */
 
 /**
  * 拖放 / 拖拽接线（use-folder-drop 产出，经 TreeCtx 下发给行组件）。
@@ -62,13 +64,3 @@ export interface NodeActions {
   upload: (subpath: string, files: File[]) => void
   deleteEntry: (subpath: string) => void
 }
-
-/**
- * 文件大小短格式。
- *
- * 口径统一到 lib/format 的 formatBytes（此前本地那份漏了 GB 档，大文件会显示成
- * 「512000.0 MB」）。这里只保留 fmtSize 这个名字给同目录的 FolderTree /
- * FilePreviewCard，避免改调用点、也避免重命名文件——注意运行时函数放在
- * `*-types.ts` 里本身就是归属问题（该文件只应导出类型，函数应迁出到独立模块）。
- */
-export const fmtSize = formatBytes

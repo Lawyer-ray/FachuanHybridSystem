@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 
 import { errMessage } from '@/lib/errors'
 import { confirmParty } from '../api'
-import { defaultStepToggles } from '../constants'
+import { DEMAND_SEPARATOR, defaultStepToggles, REVIEWER_NAME, splitDemands } from '../constants'
 import type { PartyKey } from '../domain'
 
 /**
@@ -34,16 +34,13 @@ export function useLaunchSubmit(params: {
 
   const toggleChip = useCallback((text: string) => {
     setNote((prev) => {
-      const parts = prev
-        .split(/[，,]/)
-        .map((x) => x.trim())
-        .filter(Boolean)
+      const parts = splitDemands(prev)
       // 先看当前是否已含这一条（判断必须用原始 parts，不能用过滤后的 kept——
       // 那样 includes 永远为 false，chip 只能加不能取消）
       if (parts.includes(text)) {
-        return parts.filter((x) => x !== text).join('，')
+        return parts.filter((x) => x !== text).join(DEMAND_SEPARATOR)
       }
-      return [...parts, text].join('，')
+      return [...parts, text].join(DEMAND_SEPARATOR)
     })
   }, [])
 
@@ -68,12 +65,9 @@ export function useLaunchSubmit(params: {
       await confirmParty(taskId, {
         represented_party: party,
         selected_steps: selected,
-        reviewer_name: '法穿SI',
+        reviewer_name: REVIEWER_NAME,
         client_note: note.trim(),
-        client_demands: note
-          .split(/[，,]/)
-          .map((x) => x.trim())
-          .filter(Boolean),
+        client_demands: splitDemands(note),
         our_client_name: partyOptions.find((o) => o.key === party)?.name ?? '',
         stance_basis: partyHint ?? '',
       })

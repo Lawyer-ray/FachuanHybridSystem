@@ -47,17 +47,19 @@ export function resetUploadReceipts(): void {
  *
  * 上传在途/收尾的状态落点（uploadingAttachments/pendingFiles）由调用方
  * store.send 负责；本模块只做纯出站组装。
+ *
+ * **待发 `@` 引用由调用方传进来**（`store/turn.ts` 读 `pendingMentions` 后下发）：
+ * 本模块不 import store。`store/index.ts` 顶层就 import 了本模块的
+ * `resetUploadReceipts`，反向引用会形成 store → outgoing → store 的模块初始化环
+ * （`useCopilot` 在环里可能是未初始化绑定），惰性 import 只是把问题推到运行期。
  */
 export async function uploadAttachmentsAndCompose(
   sessionId: string,
   trimmed: string,
   files: File[],
   folderRefs: FolderRefDraft[] = [],
-  mentions?: readonly MentionInsert[],
+  mentionsToSend: readonly MentionInsert[] = [],
 ): Promise<OutgoingMessage | null> {
-  // 调用点（store/turn.ts）目前只传前四个参数：`store/**` 不在本次改动范围内，
-  // 故不传时从 store 读 `pendingMentions`（同一个真相来源，不另设缓存）
-  const mentionsToSend = mentions ?? (await readPendingMentions())
   if (files.length === 0 && folderRefs.length === 0 && mentionsToSend.length === 0) return { composed: trimmed }
   const receipts: AgentAttachmentReceipt[] = []
   try {
@@ -123,17 +125,4 @@ export async function uploadAttachmentsAndCompose(
   const uploadBlocks = receipts.map((r) => `[已上传附件：${r.filename} (attachment_id=${r.attachment_id})]`)
   const blocks = [...mentionBlocks, ...refBlocks, ...dirBlocks, ...uploadBlocks].join('\n')
   return { composed: `${trimmed}\n\n${blocks}` }
-}
-
-/**
- * 读待发 `@` 引用。
- *
- * 为什么是惰性 import 而不是顶部静态 import：`store/index.ts` 顶层就 import 了本
- * 模块的 `resetUploadReceipts`，静态反向引用会形成 index → outgoing → index 的
- * 模块初始化环（`useCopilot` 在环里可能是未初始化绑定）。惰性 import 发生在
- * 发送时刻，那时 store 早已就绪。
- */
-async function readPendingMentions(): Promise<readonly MentionInsert[]> {
-  const { useCopilot } = await import('./store')
-  return useCopilot.getState().pendingMentions ?? []
 }

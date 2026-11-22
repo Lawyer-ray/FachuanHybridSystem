@@ -10,6 +10,7 @@
  */
 
 import ReactMarkdown from 'react-markdown'
+import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { DEMO_X1_ORIGINAL_COMPARE } from '../demo-data'
@@ -24,40 +25,84 @@ const MARKDOWN_VIEW_LABEL: Record<MarkdownView, string> = {
   compare: '原文对照',
 }
 
+/* ═══ react-markdown 标签映射 ═══
+ * node / children 由 react-markdown 单独传，不随 props 展开
+ * （展开会把 node="[object Object]" 落成 DOM 属性）；
+ * 手写标签会重复子节点，表格会渲染两遍 —— 只挂 className，内容交给插槽。
+ *
+ * ⚠️ 每个标签必须是**模块级**组件。写成 render 内的箭头函数时，每次渲染都是
+ * 新的组件类型，react-markdown 按 type 建元素 → 整篇 markdown 子树
+ * unmount/remount，选中态、滚动位置、`<pre>` 滚动偏移全丢，成本随文档长度线性上升。
+ */
+function MdH1({ node: _n, ...p }: React.ComponentProps<'h1'> & { node?: unknown }) {
+  return <h1 className={cn('text-[14px] font-[650]', p.className)} {...p} />
+}
+
+function MdH2({ node: _n, ...p }: React.ComponentProps<'h2'> & { node?: unknown }) {
+  return <h2 className={cn('mt-1 text-[13px] font-[650]', p.className)} {...p} />
+}
+
+function MdH3({ node: _n, ...p }: React.ComponentProps<'h3'> & { node?: unknown }) {
+  return <h3 className={cn('mt-1 text-[12px] font-[620]', p.className)} {...p} />
+}
+
+function MdP({ node: _n, ...p }: React.ComponentProps<'p'> & { node?: unknown }) {
+  return <p className={cn('text-secondary-foreground', p.className)} {...p} />
+}
+
+function MdStrong({ node: _n, ...p }: React.ComponentProps<'strong'> & { node?: unknown }) {
+  return <strong className={cn('font-[650] text-foreground', p.className)} {...p} />
+}
+
+function MdTable({ node: _n, ...p }: React.ComponentProps<'table'> & { node?: unknown }) {
+  return <table className={cn('my-1 w-full border-collapse text-[10.5px] tabular-nums', p.className)} {...p} />
+}
+
+function MdTh({ node: _n, ...p }: React.ComponentProps<'th'> & { node?: unknown }) {
+  return (
+    <th
+      className={cn('border border-border-light bg-secondary/60 px-1.5 py-1 text-left font-medium', p.className)}
+      {...p}
+    />
+  )
+}
+
+function MdTd({ node: _n, ...p }: React.ComponentProps<'td'> & { node?: unknown }) {
+  return <td className={cn('border border-border-light px-1.5 py-1', p.className)} {...p} />
+}
+
+function MdUl({ node: _n, ...p }: React.ComponentProps<'ul'> & { node?: unknown }) {
+  return <ul className={cn('list-disc pl-4', p.className)} {...p} />
+}
+
+function MdOl({ node: _n, ...p }: React.ComponentProps<'ol'> & { node?: unknown }) {
+  return <ol className={cn('list-decimal pl-4', p.className)} {...p} />
+}
+
+function MdCode({ node: _n, ...p }: React.ComponentProps<'code'> & { node?: unknown }) {
+  return <code className={cn('rounded-[3px] bg-secondary px-1 font-mono text-[10.5px]', p.className)} {...p} />
+}
+
+/** 恒等引用，配合模块级标签组件才能避免整篇重建 */
+const MD_COMPONENTS: Components = {
+  h1: MdH1,
+  h2: MdH2,
+  h3: MdH3,
+  p: MdP,
+  strong: MdStrong,
+  table: MdTable,
+  th: MdTh,
+  td: MdTd,
+  ul: MdUl,
+  ol: MdOl,
+  code: MdCode,
+}
+
 /** 渲染视图：标题/段落/表格按文档的样子排，不再是等宽源码 */
 function RenderedMarkdown({ markdown }: { markdown: string }) {
   return (
     <div className="flex flex-col gap-1.5 text-[11.5px] leading-[1.7]">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          // node / children 由 react-markdown 单独传，不随 props 展开
-          // （展开会把 node="[object Object]" 落成 DOM 属性）；
-          // 手写标签会重复子节点，表格会渲染两遍 —— 只挂 className，内容交给插槽。
-          h1: ({ node: _n, ...p }) => <h1 className={cn('text-[14px] font-[650]', p.className)} {...p} />,
-          h2: ({ node: _n, ...p }) => <h2 className={cn('mt-1 text-[13px] font-[650]', p.className)} {...p} />,
-          h3: ({ node: _n, ...p }) => <h3 className={cn('mt-1 text-[12px] font-[620]', p.className)} {...p} />,
-          p: ({ node: _n, ...p }) => <p className={cn('text-secondary-foreground', p.className)} {...p} />,
-          strong: ({ node: _n, ...p }) => <strong className={cn('font-[650] text-foreground', p.className)} {...p} />,
-          table: ({ node: _n, ...p }) => (
-            <table className={cn('my-1 w-full border-collapse text-[10.5px] tabular-nums', p.className)} {...p} />
-          ),
-          th: ({ node: _n, ...p }) => (
-            <th
-              className={cn('border border-border-light bg-secondary/60 px-1.5 py-1 text-left font-medium', p.className)}
-              {...p}
-            />
-          ),
-          td: ({ node: _n, ...p }) => (
-            <td className={cn('border border-border-light px-1.5 py-1', p.className)} {...p} />
-          ),
-          ul: ({ node: _n, ...p }) => <ul className={cn('list-disc pl-4', p.className)} {...p} />,
-          ol: ({ node: _n, ...p }) => <ol className={cn('list-decimal pl-4', p.className)} {...p} />,
-          code: ({ node: _n, ...p }) => (
-            <code className={cn('rounded-[3px] bg-secondary px-1 font-mono text-[10.5px]', p.className)} {...p} />
-          ),
-        }}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
         {markdown}
       </ReactMarkdown>
     </div>

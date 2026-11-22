@@ -12,7 +12,19 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { DEMO_RETURNED_MAILS, DEMO_X2_CLAIM_FILTERS, type ClaimFilter } from '../../demo-data'
 import { ActionButton, Pill, SectionTitle, WorkCard } from '../../ui'
-import { claimKindOf } from './claim-kind'
+import { ClickableRow } from '../../ClickableRow'
+import { claimKindOf, filterKindOf, mapIgnored } from './claim-kind'
+
+/**
+ * 一行是否命中某个筛选口径。
+ *
+ * 计数与列表必须走**同一条**判定：「筛选按钮上写 3、列表里只有 2 条」这类口径漂移
+ * 就是这么长出来的（以前两处各铺一版 `f === '自动归案' ? 'auto' : ...`）。
+ */
+function matchFilter(action: string, f: ClaimFilter): boolean {
+  const kind = filterKindOf(f)
+  return kind === null || claimKindOf(action) === kind
+}
 
 /** 归案结果列表（含筛选条） */
 export function ClaimedMailCard({
@@ -28,19 +40,11 @@ export function ClaimedMailCard({
   /** 归案日志筛选 */
   const [claimFilter, setClaimFilter] = useState<ClaimFilter>('全部')
 
-  const rows = DEMO_RETURNED_MAILS.map((m) => (ignored.has(m.subject) ? { ...m, action: '已标记无关' } : m))
+  const rows = mapIgnored(DEMO_RETURNED_MAILS, ignored)
   const ignoredCount = rows.filter((m) => claimKindOf(m.action) === 'ignored').length
 
-  const claimCount = (f: ClaimFilter) =>
-    f === '全部'
-      ? rows.length
-      : rows.filter((m) => claimKindOf(m.action) === (f === '自动归案' ? 'auto' : f === '待人工' ? 'manual' : 'ignored')).length
-  const shownMails =
-    claimFilter === '全部'
-      ? rows
-      : rows.filter(
-          (m) => claimKindOf(m.action) === (claimFilter === '自动归案' ? 'auto' : claimFilter === '待人工' ? 'manual' : 'ignored'),
-        )
+  const claimCount = (f: ClaimFilter) => rows.filter((m) => matchFilter(m.action, f)).length
+  const shownMails = rows.filter((m) => matchFilter(m.action, claimFilter))
 
   return (
     <WorkCard padded={false}>
@@ -81,10 +85,11 @@ export function ClaimedMailCard({
           const kind = claimKindOf(m.action)
           const isAuto = kind === 'auto'
           return (
-            <li
+            <ClickableRow
               key={m.subject}
+              nestedControl
               onClick={() => onOpenMail(m.subject)}
-              className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-secondary/40"
+              className="flex items-start gap-3 px-5 py-3"
             >
               <span
                 className={cn(
@@ -131,7 +136,7 @@ export function ClaimedMailCard({
                   </span>
                 ) : null}
               </div>
-            </li>
+            </ClickableRow>
           )
         })}
       </ul>

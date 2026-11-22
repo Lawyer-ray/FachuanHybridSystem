@@ -24,90 +24,24 @@ import { AlertTriangle, Check, Circle, FileText, FolderOpen } from 'lucide-react
 import { cn } from '@/lib/utils'
 
 import { ActionButton, InsetBlock, Pill, RailSection, SectionTitle, StatTile, WorkCard } from './ui'
+import { LITIGATION_CHECKLIST, SOURCE_LABEL, type ArchiveItem } from './constants'
 import {
   DEMO_ARCHIVE_CATEGORIES,
+  DEMO_ARCHIVE_DONE,
   DEMO_ARCHIVE_LOG,
   DEMO_ARCHIVE_MATERIALS,
 } from './demo-data'
-
-/** 归档清单项（与后端 ChecklistItem 同构，省略前端用不到的字段） */
-interface ArchiveItem {
-  code: string
-  name: string
-  /** 是否必需项（缺了无法归档） */
-  required: boolean
-  /** 材料从哪来：模板生成 / 合同文件夹 / 案件材料 / 手工上传 */
-  source: 'template' | 'contract' | 'case' | 'manual'
-  /** 是否已就位 */
-  done: boolean
-  /** 已就位的文件名（展示用） */
-  file?: string
-}
-
-/**
- * 诉讼类归档清单（20 项）。
- *
- * 顺序与名称严格对齐 `apps/contracts/services/archive/constants.py`
- * 的 `LITIGATION_CHECKLIST`。这份常量在前端留一份只读副本是**有代价的**
- * （后端改动要同步），但比让前端猜「有哪些项」要好：
- * 清单是执业规范，变更频率极低，而猜错会导致归档缺项。
- */
-const LITIGATION_CHECKLIST: Omit<ArchiveItem, 'done' | 'file'>[] = [
-  { code: 'lt_1', name: '案卷封面', required: true, source: 'template' },
-  { code: 'lt_2', name: '结案归档登记表', required: true, source: 'template' },
-  { code: 'lt_3', name: '案卷目录', required: true, source: 'template' },
-  { code: 'lt_4', name: '委托合同、风险告知书', required: true, source: 'contract' },
-  { code: 'lt_5', name: '收费凭证', required: false, source: 'contract' },
-  { code: 'lt_6', name: '律师办案工作日记', required: true, source: 'template' },
-  { code: 'lt_7', name: '起诉书、上诉书或答辩书', required: true, source: 'case' },
-  { code: 'lt_8', name: '阅卷笔录', required: false, source: 'case' },
-  { code: 'lt_9', name: '会见当事人谈话笔录', required: false, source: 'case' },
-  { code: 'lt_10', name: '调查材料等案件关联材料', required: false, source: 'case' },
-  { code: 'lt_11', name: '诉讼保全申请书、证据保全申请书、先行给付申请书和法院裁定书', required: false, source: 'case' },
-  { code: 'lt_12', name: '承办律师代理意见', required: false, source: 'case' },
-  { code: 'lt_13', name: '集体讨论记录', required: false, source: 'case' },
-  { code: 'lt_14', name: '出庭通知书', required: false, source: 'case' },
-  { code: 'lt_15', name: '代理词', required: false, source: 'case' },
-  { code: 'lt_16', name: '庭审笔录', required: false, source: 'case' },
-  { code: 'lt_17', name: '判决书、裁定书、调解书、上诉书', required: true, source: 'case' },
-  { code: 'lt_18', name: '办案服务质量监督卡', required: true, source: 'template' },
-  { code: 'lt_19', name: '办案小结', required: true, source: 'template' },
-  { code: 'lt_20', name: '授权委托证明材料', required: true, source: 'contract' },
-]
-
-/** 材料来源 → 展示名 */
-const SOURCE_LABEL: Record<ArchiveItem['source'], string> = {
-  template: '模板生成',
-  contract: '合同文件夹',
-  case: '案件材料',
-  manual: '手工上传',
-}
-
-/**
- * 演示态：已就位的前 9 项。
- *
- * ⚠️ 真实实现应来自后端 `build_archive_checklist_service()` 的结果；
- * 这里先按「模板类 + 合同类 + 部分案件材料已齐」造一份，等后端提供
- * 只读清单接口后替换这一处即可（结构已按后端 ChecklistItem 对齐）。
- */
-const DEMO_DONE: Record<string, string> = {
-  lt_1: '案卷封面.pdf',
-  lt_2: '结案归档登记表.pdf',
-  lt_3: '案卷目录.pdf',
-  lt_4: '委托代理合同（扫描件）.pdf',
-  lt_6: '律师办案工作日记.pdf',
-  lt_7: '民事起诉状（定稿）.pdf',
-  lt_17: '（20XX）粤0606民初XXXX号 民事判决书.pdf',
-  lt_18: '办案服务质量监督卡.pdf',
-  lt_19: '办案小结.pdf',
-  lt_20: '授权委托书（扫描件）.pdf',
-}
 
 export function OAArchivePanel() {
   const [showOnlyMissing, setShowOnlyMissing] = useState(false)
 
   const items = useMemo<ArchiveItem[]>(
-    () => LITIGATION_CHECKLIST.map((it) => ({ ...it, done: Boolean(DEMO_DONE[it.code]), file: DEMO_DONE[it.code] })),
+    () =>
+      LITIGATION_CHECKLIST.map((it) => ({
+        ...it,
+        done: Boolean(DEMO_ARCHIVE_DONE[it.code]),
+        file: DEMO_ARCHIVE_DONE[it.code],
+      })),
     [],
   )
 
@@ -298,7 +232,9 @@ export function OAArchivePanel() {
         <ul className="divide-y divide-border-light">
           {DEMO_ARCHIVE_LOG.map((l) => (
             <li
-              key={`${l.at}-${l.action}`}
+              // 不能用 `at+action`：同一分钟会有多条同动作日志（11-03 10:42 两条「上传材料」），
+              // 重复 key 会让 React 在新增/过滤时复用错行。at+target 在日志里唯一。
+              key={`${l.at}-${l.target}`}
               className="grid grid-cols-[74px_88px_minmax(0,1fr)_56px_64px] items-center gap-2 px-5 py-[7px] text-[11px]"
             >
               <span className="tabular-nums text-muted-foreground">{l.at}</span>

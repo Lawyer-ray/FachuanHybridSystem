@@ -3,7 +3,7 @@ import { ImageIcon, Loader2, Sparkles, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { fileFromClipboard } from '@/features/home/components/clipboard-file'
+import { fileFromClipboard } from '@/lib/clipboard-file'
 
 /**
  * 记收款弹窗第①节「粘贴到账凭据」：**文字和图片走同一个入口**。

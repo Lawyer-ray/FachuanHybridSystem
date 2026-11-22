@@ -252,7 +252,7 @@ export function ReviewAssistant({
 
             {/* 红删：选区原文（截断展示，完整内容在文档里） */}
             <p className="mt-1.5 text-[11px] leading-[1.5] text-status-red line-through decoration-status-red/60">
-              {truncate(item.suggested === selection ? selection : selection, 90)}
+              {truncate(selection, 90)}
             </p>
             {/* 绿增：建议改法 */}
             <p className="mt-0.5 text-[11px] leading-[1.5] text-status-green">

@@ -19,9 +19,9 @@ import { DEMO_ARCHIVE_CATEGORIES, DEMO_ARCHIVE_LOG, DEMO_ARCHIVE_MATERIALS } fro
 import { OAArchivePanel } from './ArchiveChecklistPanel'
 
 /**
- * 清单本体（20 项）与「已就位」映射是文件内私有常量，
- * 这里按 DEMO_DONE 的键（= lt_1/lt_2/lt_3/lt_4/lt_6/lt_7/lt_17/lt_18/lt_19/lt_20）
- * 与 demo-data 的章节描述对齐后硬编码一份，用于独立算出预期数。
+ * 清单本体（20 项）在 `constants.ts`、已就位映射在 `demo-data/archive-demo.ts`（DEMO_ARCHIVE_DONE），
+ * 这里故意**不** import 它们，而是按 DEMO_ARCHIVE_DONE 的键
+ * （= lt_1/lt_2/lt_3/lt_4/lt_6/lt_7/lt_17/lt_18/lt_19/lt_20）硬编码一份，用于独立算出预期数。
  * 若清单变了，这些断言会失败 —— 那正是我们要的：清单变更需要人复核。
  */
 const DONE_CODES = ['lt_1', 'lt_2', 'lt_3', 'lt_4', 'lt_6', 'lt_7', 'lt_17', 'lt_18', 'lt_19', 'lt_20']

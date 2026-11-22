@@ -27,9 +27,8 @@ import {
   fetchMemoryScopes,
   forgetMemory,
   listMemories,
-  type MemoryKind,
-  type MemoryScope,
 } from '../../memory-api'
+import type { MemoryKind, MemoryScope } from '../../types'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { MemoryComposer } from './MemoryComposer'

@@ -13,14 +13,16 @@ import type { InvoiceActionResult, InvoiceCopyResult, InvoiceIntake, SelectableC
  * 表现是首页卡片一直加载不出来，而 tsc/lint 全绿（款项侧踩过这个坑，
  * 见 payment-intake/api.test.ts 的锁死断言）。
  *
- * ## ⚠️ 本前缀**未定稿**
+ * ## 本前缀已核对（两段来源，别再「简化」）
  *
- * 与款项待认领（已实测 `/api/v1/contracts/finance/intake`）同构地写成
- * `/api/v1/contracts/finance/invoice-intake`，但后端 P5 尚未装配该 router。
- * **待 P5 后端定稿后校对**：以 `backend/apps/contracts/api/__init__.py` 里
- * `router.add_router(...)` 的挂载前缀为准，并用
- * `curl /api/v1/openapi.json` 探活（401/403 = 路径存在仅缺鉴权；404 = 路径错）。
- * 校对时同步更新 api.test.ts 的锁死断言。
+ * 1. `backend/apps/contracts/api/__init__.py:37` ——
+ *    `router.add_router("/finance/invoice-intake", invoice_intake_router, …)`；
+ * 2. `backend/apiSystem/apiSystem/api.py:217` —— contracts router 挂在 `/api/v1/contracts`。
+ *
+ * 两段拼起来正是 `/api/v1/contracts/finance/invoice-intake`，与款项待认领
+ * (`/api/v1/contracts/finance/intake`) 同构。历史注意：这里曾经写着「待 P5
+ * 校对」，但后端早已装配——照那条注释去「核对」并改动前缀，会把能用的接口
+ * 改成 404。改前请按上面两处来源重新确认，并同步 api.test.ts 的锁死断言。
  */
 export const invoiceIntakeApi = createApiClient({ prefix: '/api/v1/contracts/finance/invoice-intake' })
 

@@ -280,6 +280,20 @@ describe('多答：工具调用归到各自的栏', () => {
     expect(merged[0]!.tools?.map((t) => t.toolName)).toEqual(['a', 'b', 'c'])
   })
 
+  it('不改动入参：工具挂到合并结果的新对象上，store 里的消息对象零改写', () => {
+    // 同一个纯函数模块的另一条口径（knowledge.mergeCitations）也有这条锁；
+    // 就地 `answer.tools = tools` 会让 `answers[0]` 这个入参多出一个字段——
+    // 而它在调用点就是 store `messages` 的切片
+    const pi = mk('a1', 'assistant', 'pi', { content: 'pi 的话' })
+    const messages: ChatMessage[] = [mk('t1', 'tool', 'pi', { toolName: 'x' }), pi]
+
+    const merged = mergeAgentAnswers(messages, ['pi', 'dsh'])
+
+    expect(pi.tools).toBeUndefined()
+    expect(messages[0]!.tools).toBeUndefined()
+    expect(merged[0]!.tools?.map((t) => t.toolName)).toEqual(['x'])
+  })
+
   it('只有工具没有正文的栏不会多出一坨无主工具条', () => {
     // 某栏工具跑了但正文还没到（流式中）——工具已经挂到 byAgent 以待合并，
     // 不该在结果里再出现一条游离的 tool 消息。

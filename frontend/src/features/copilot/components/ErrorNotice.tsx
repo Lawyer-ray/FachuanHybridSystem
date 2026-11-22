@@ -37,7 +37,7 @@ import { AlertTriangle, ArrowLeftRight, Check, Copy, Info, Minimize2, RefreshCw,
 
 import { useCopyFeedback } from '@/hooks/use-copy-feedback'
 
-import type { AgentBackendOption } from '../backend-types'
+import type { AgentBackendOption } from '../types'
 import {
   classifyError,
   diagnosticsOf,
@@ -137,7 +137,7 @@ export function ErrorNotice({ input }: {
   if (!error || !source) return null
 
   // 出错的后端（`scope` 里若写的是某个后端 kind 就以它为准，否则用当前选择）
-  const currentKind = backends.some((b) => b.kind === error.scope) ? error.scope! : selectedAgentKind
+  const currentKind = backends.find((b) => b.kind === error.scope)?.kind ?? selectedAgentKind
   const switchTarget = pickBackendTarget(backends, currentKind)
 
   // handler 为 null = 这个动作现在做不到（例如没有别的可用后端）→ 不渲染按钮
@@ -195,6 +195,10 @@ export function ErrorNotice({ input }: {
       <div className="flex flex-none items-center gap-0.5">
         {visible.map((action) => {
           const ActionIcon = ACTION_ICON[action.id]
+          // `visible` 已滤过一遍 handlers；这里再取一次就要自己兜住「取不到」——
+          // 用下标断言会让两次判定脱钩（漏一个 `!` 就是运行期 undefined 当 onClick）
+          const handler = handlers[action.id]
+          if (!handler) return null
           // 倒计时期间显示剩余秒数（律师要看到「还要等多久」），到点变回「重试」
           const labelled = action.id === 'retry' && action.waitSeconds !== undefined && action.waitSeconds > 0
           const label = labelled ? (counting ? `等 ${remaining} 秒后重试` : '重试') : action.label
@@ -205,7 +209,7 @@ export function ErrorNotice({ input }: {
               disabled={action.id === 'retry' && counting}
               className="flex h-6 items-center gap-1 rounded-[5px] border border-border px-1.5 text-[11px] text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
               title={ACTION_TITLE[action.id](switchTarget)}
-              onClick={handlers[action.id]!}
+              onClick={handler}
             >
               <ActionIcon className="size-3" aria-hidden />
               {label}

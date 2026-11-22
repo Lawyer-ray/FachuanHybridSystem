@@ -17,7 +17,8 @@ import { useToday } from '@/hooks/use-today'
 import { todayKey } from '@/lib/date'
 import { errMessage } from '@/lib/errors'
 import { ErrorBlock } from '@/components/shared/AsyncState'
-import { InboxCard, QuickAdd } from './SideCards'
+import { InboxCard } from './InboxCard'
+import { QuickAdd } from './QuickAdd'
 import { PendingIntakeCard } from '@/features/payment-intake'
 import { PendingInvoicesCard } from '@/features/invoice-intake'
 import { CardHead } from '@/components/shared/CardHead'
@@ -118,24 +119,28 @@ export function HomePage() {
     toast.info(e.case_id ? `打开案件 #${e.case_id}：${e.title}` : '这条安排还没关联案件，可到「案件台账」里查看')
   }, [])
 
-  /* 勾选完成：合并事件要带全部 member_ids 下发（eventReminderIds 保证口径） */
+  /* 勾选完成：合并事件要带全部 member_ids 下发（eventReminderIds 保证口径）。
+     依赖取 mutate（useMutation 里引用稳定），别依赖整个 mutation 结果对象——
+     它每次渲染都换新引用，会让 useCallback 白做、连带击穿日历格的 memo */
   const completeMutation = useCompleteReminder()
+  const { mutate: completeMutate } = completeMutation
   const handleToggleComplete = useCallback(
     (e: CalendarEvent) => {
-      completeMutation.mutate({ ids: eventReminderIds(e), completed: !e.is_completed })
+      completeMutate({ ids: eventReminderIds(e), completed: !e.is_completed })
     },
-    [completeMutation],
+    [completeMutate],
   )
 
   /* 删除：同样全量下发 member_ids；入口按后端 can_delete 显隐（谁创建谁删）。
      先关弹窗再下发——乐观移除 + 失败回滚由 hook 负责，弹窗停留会让已消失的事件看起来还"开着" */
   const deleteMutation = useDeleteReminder()
+  const { mutate: deleteMutate } = deleteMutation
   const handleDeleteEvent = useCallback(
     (e: CalendarEvent) => {
       setDetail(null)
-      deleteMutation.mutate({ ids: eventReminderIds(e) })
+      deleteMutate({ ids: eventReminderIds(e) })
     },
-    [deleteMutation],
+    [deleteMutate],
   )
 
   /* 右键事件行的快捷菜单（标记完成 / 直接删除）：删除走同一个 mutation，
@@ -144,6 +149,18 @@ export function HomePage() {
   const handleEventContextMenu = useCallback((event: CalendarEvent, pos: { x: number; y: number }) => {
     setCtxMenu({ event, ...pos })
   }, [])
+
+  /* 事件级动作整包（详情 / 勾完成 / 右键菜单）：日历三层只传这一个对象。
+     必须 useMemo 固化引用——CalendarPanel → DayCell → DayEventRow 都套了 memo，
+     对象每次重建就等于没 memo。 */
+  const eventActions = useMemo(
+    () => ({
+      onOpenEvent: handleOpenEvent,
+      onToggleComplete: handleToggleComplete,
+      onEventContextMenu: handleEventContextMenu,
+    }),
+    [handleOpenEvent, handleToggleComplete, handleEventContextMenu],
+  )
 
   const openAddDialog = useCallback(
     (day: string) => {
@@ -264,10 +281,8 @@ export function HomePage() {
                 stats={stats}
                 loading={viewQuery.isLoading}
                 onSelectDay={handleSelectDay}
-                onOpenEvent={handleOpenEvent}
                 onOpenAdd={openAddDialog}
-                onToggleComplete={handleToggleComplete}
-                onEventContextMenu={handleEventContextMenu}
+                eventActions={eventActions}
                 // 密度回传：窄日历改成「点格开当日抽屉」，宽日历保持「点空白新增」
                 onCompactChange={setCalendarCompact}
               />

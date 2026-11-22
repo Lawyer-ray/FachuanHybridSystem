@@ -56,11 +56,14 @@ function renderPanel(events: CalendarEvent[]) {
     onShiftMonth: vi.fn(),
     onGoToday: vi.fn(),
     onSelectDay: vi.fn(),
+    onOpenAdd: vi.fn(),
+    onCompactChange: vi.fn(),
+  }
+  // 事件级动作以整包传入（CalendarPanel 不再逐项透传）
+  const eventActions = {
     onOpenEvent: vi.fn(),
     onToggleComplete: vi.fn(),
-    onOpenAdd: vi.fn(),
     onEventContextMenu: vi.fn(),
-    onCompactChange: vi.fn(),
   }
   const utils = render(
     <CalendarPanel
@@ -70,9 +73,10 @@ function renderPanel(events: CalendarEvent[]) {
       stats={STATS}
       loading={false}
       {...handlers}
+      eventActions={eventActions}
     />,
   )
-  return { ...handlers, ...utils }
+  return { ...handlers, ...eventActions, ...utils }
 }
 
 /** 紧凑档格内标题列表（纯展示块；不能按 aria-hidden 找——lucide 图标 svg 也带 aria-hidden） */

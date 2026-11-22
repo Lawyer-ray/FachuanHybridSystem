@@ -9,6 +9,7 @@ export function SectionHead({
   title,
   badge,
   note,
+  titleId,
 }: {
   index: number
   title: string
@@ -16,13 +17,17 @@ export function SectionHead({
   badge?: string
   /** 右侧弱文案（如「选填」），与 badge 二选一 */
   note?: string
+  /** 标题元素的 id：给本节的控件做 aria-labelledby（这里的标题是 span，没有 for 可用） */
+  titleId?: string
 }) {
   return (
     <div className="mb-2.5 flex items-center gap-2">
       <span className="grid size-[17px] flex-none place-items-center rounded-full bg-secondary text-[10px] font-bold text-secondary-foreground">
         {index}
       </span>
-      <span className="text-[12.5px] font-[650]">{title}</span>
+      <span id={titleId} className="text-[12.5px] font-[650]">
+        {title}
+      </span>
       {badge && (
         <span className="ml-auto rounded-[5px] bg-status-yellow-bg px-1.5 py-0.5 text-[10px] font-[650] text-[#a16207]">
           {badge}

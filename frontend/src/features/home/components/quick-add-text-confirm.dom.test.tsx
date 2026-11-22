@@ -39,7 +39,7 @@ vi.mock('@/features/document-recognition', () => ({
 
 import { toast } from 'sonner'
 
-import { QuickAdd } from './SideCards'
+import { QuickAdd } from './QuickAdd'
 
 function candidate(key: string) {
   return {

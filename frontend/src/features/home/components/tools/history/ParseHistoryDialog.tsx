@@ -13,7 +13,7 @@ import { FlowNotice } from '../dialog/TaskFlowDialog'
 import { copyOutcome, downloadOutcome } from '../doc-parse-outcome'
 import { badgeOf } from './badges'
 import { HistoryError } from './HistoryError'
-import { HistoryHeader, HistoryPager } from './HistoryParts'
+import { HISTORY_PAGE_SIZE, HistoryHeader, HistoryPager } from './HistoryParts'
 import { BlockReviewPanel } from '../review/BlockReviewPanel'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -133,7 +133,7 @@ export function ParseHistoryDialog({ open, onOpenChange }: { open: boolean; onOp
 
   const items = data?.items ?? []
   const count = data?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(count / 20))
+  const totalPages = Math.max(1, Math.ceil(count / HISTORY_PAGE_SIZE))
 
   const ok = detail?.status === 'completed'
   const outcome = detail

@@ -1,6 +1,6 @@
 import { FileText } from 'lucide-react'
 
-import { PageTable } from './PageTable'
+import { PageTable } from '../PageTable'
 import { Pill } from '../ui'
 
 import { DEMO_COURT_MATERIALS, type CourtMaterialRow } from '../demo-data'

@@ -17,11 +17,27 @@ import { extractPdfPages } from './pdf-split'
  */
 
 /** 搜索真实案件（归案 modal 用）；模块级建一次客户端，避免每次检索重复 create */
+// 路径必须带后端挂载前缀：api_v1.add_router('/cases', …) + @router.get('/cases/search')
+// → 真实地址 /api/v1/cases/cases/search（生成物 api-schema.d.ts 里唯一存在的 search 路径）
 const coreApi = createApiClient() // prefix = API_BASE_URL(/api/v1)
+
+// ────────────────────── 归案自动建合同的产品口径 ──────────────────────
+// 这些值由前端单方面决定并直接写进后端库，属「临时兜底」而非契约字段：
+// 后端没给归案时填什么，故前端选了一组固定值让 OA 立案有据可依。
+// 真要改口径（尤其费率）必须产品确认后再改，不要就地调数字。
+
+/** 归案建合同用的案件类型（合同与案件同一口径） */
+const ASSIGN_CASE_TYPE = 'civil'
+/** 归案建合同：固定收费模式 */
+const ASSIGN_CONTRACT_FEE_MODE = 'FIXED'
+/** 归案建合同：固定收费金额（元）。产品口径，非真实计费依据 */
+const ASSIGN_CONTRACT_FIXED_AMOUNT = 5000
+/** 归案建合同必填代理阶段：空着详情页与左栏程序节点条都画不出来 */
+const ASSIGN_CONTRACT_STAGES = ['first_trial', 'second_trial', 'enforcement']
 
 export async function searchCases(q: string, signal?: AbortSignal): Promise<CaseRow[]> {
   if (!q.trim()) return []
-  return coreApi.get('cases/search', { searchParams: { q, limit: '10' }, signal }).json<CaseRow[]>()
+  return coreApi.get('cases/cases/search', { searchParams: { q, limit: '10' }, signal }).json<CaseRow[]>()
 }
 
 // ───────────────────────── 归案（建案 + 材料落地）─────────────────────────
@@ -130,11 +146,7 @@ async function segmentUploadBlob(
 }
 
 /** 建客户（归案生成合同时要用） */
-async function ensureClient(p: {
-  name: string
-  isOur: boolean
-  idNumber?: string
-}): Promise<number | null> {
+async function ensureClient(p: { name: string; isOur: boolean }): Promise<number | null> {
   try {
     const r = await clientApi
       .post('clients', {
@@ -142,7 +154,7 @@ async function ensureClient(p: {
           name: p.name,
           client_type: p.name.length > 12 || /公司|银行|支行|分行|律所/.test(p.name) ? 'legal' : 'natural',
           is_our_client: p.isOur,
-          id_number: p.idNumber ?? '',
+          id_number: '',
           address: '',
           legal_representative: p.isOur ? '某某' : '',
         },
@@ -237,16 +249,16 @@ export async function assignPack(opts: {
         .post('contracts/full', {
           json: {
             name: `${opts.caseName ?? '新材料'}·委托合同`,
-            case_type: 'civil',
+            case_type: ASSIGN_CASE_TYPE,
             status: 'active',
             start_date: new Date().toISOString().slice(0, 10),
             // ⚠️ 必须给代理阶段：不给的话详情页显示
             //    「合同没有勾选代理阶段，也还没有立案的程序」，
             //    左栏的程序节点条也画不出来。
-            representation_stages: ['first_trial', 'second_trial', 'enforcement'],
+            representation_stages: ASSIGN_CONTRACT_STAGES,
             lawyer_ids: [me],
-            fee_mode: 'FIXED',
-            fixed_amount: 5000,
+            fee_mode: ASSIGN_CONTRACT_FEE_MODE,
+            fixed_amount: ASSIGN_CONTRACT_FIXED_AMOUNT,
             parties: ourId ? [{ client_id: ourId, role: 'PRINCIPAL' }] : [],
             cases: [],
           },
@@ -263,7 +275,7 @@ export async function assignPack(opts: {
         json: {
           case: {
             name: opts.caseName ?? '新材料归案案件',
-            case_type: 'civil',
+            case_type: ASSIGN_CASE_TYPE,
             status: 'active',
             current_stage: 'first_trial',
             cause_of_action: opts.cause ?? '',

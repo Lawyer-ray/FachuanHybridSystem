@@ -11,7 +11,9 @@
  *    只在本行 `preventDefault`，不做全局屏蔽——正文区右键的复制/翻译/检查不能被吃掉；
  * 4. **右键子按钮**不额外弹删除确认（否则行容器再收一次事件，等于弹两次）；
  * 5. **双击子按钮**不误进重命名（否则双击垃圾桶顺带改名）；
- * 6. 编辑态 Enter 提交、Esc 取消（双击引入的新入口不能破坏旧键盘路径）。
+ * 6. **Enter 落在子按钮上**不被行容器的 Enter 处理吃掉（行的 preventDefault 会
+ *    让按钮失去默认激活、还把用户切到另一个会话）；
+ * 7. 编辑态 Enter 提交、Esc 取消（双击引入的新入口不能破坏旧键盘路径）。
  */
 
 import { createEvent } from '@testing-library/dom'
@@ -122,6 +124,23 @@ describe('SessionRow：子按钮隔离', () => {
 
     fireEvent.doubleClick(screen.getByRole('button', { name: '重命名' }))
     expect(screen.queryByRole('textbox')).toBeNull()
+    expect(onRequestDelete).not.toHaveBeenCalled()
+  })
+
+  it('Enter 落在子按钮上：不冒泡到行，行的 Enter 处理不 preventDefault', () => {
+    const { onRequestDelete, onSwitch } = renderRow()
+    const pencil = screen.getByRole('button', { name: '重命名' })
+    const trash = screen.getByRole('button', { name: '删除对话' })
+
+    const pencilEv = createEvent.keyDown(pencil, { key: 'Enter' })
+    fireEvent(pencil, pencilEv)
+    const trashEv = createEvent.keyDown(trash, { key: 'Enter' })
+    fireEvent(trash, trashEv)
+
+    // 行容器对 Enter 是 `preventDefault()` + `onSwitch()`：一旦按键冒泡上去，键盘
+    // 用户在「重命名」上按 Enter 就会既不进编辑态（默认激活被吃掉）又被切会话
+    expect(onSwitch).not.toHaveBeenCalled()
+    expect([pencilEv.defaultPrevented, trashEv.defaultPrevented]).toEqual([false, false])
     expect(onRequestDelete).not.toHaveBeenCalled()
   })
 

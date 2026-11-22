@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -34,12 +34,26 @@ const REFRESH_DELAYS_MS = [2500, 6000, 12000] as const
 export function PendingSyncButton() {
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
+  /** 补刷定时器句柄：卸载时要清、连续点击时也要先清上一批（否则点一次刷三轮，点两次刷六轮） */
+  const timersRef = useRef<number[]>([])
+
+  useEffect(() => {
+    return () => {
+      for (const id of timersRef.current) window.clearTimeout(id)
+      timersRef.current = []
+    }
+  }, [])
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: INTAKE_PENDING_KEY })
     void qc.invalidateQueries({ queryKey: INTAKE_COUNT_KEY })
     void qc.invalidateQueries({ queryKey: INVOICE_INTAKE_PENDING_KEY })
     void qc.invalidateQueries({ queryKey: INVOICE_INTAKE_COUNT_KEY })
+  }
+
+  const scheduleRefetches = () => {
+    for (const id of timersRef.current) window.clearTimeout(id)
+    timersRef.current = REFRESH_DELAYS_MS.map((delay) => window.setTimeout(invalidate, delay))
   }
 
   const run = async () => {
@@ -66,9 +80,7 @@ export function PendingSyncButton() {
       toast.error(errMessage(e, '同步失败，请重试'))
     } finally {
       // 异步拉取回来的那批：隔几秒再刷一次（失败静默，不打扰）
-      for (const delay of REFRESH_DELAYS_MS) {
-        window.setTimeout(invalidate, delay)
-      }
+      scheduleRefetches()
       setBusy(false)
     }
   }

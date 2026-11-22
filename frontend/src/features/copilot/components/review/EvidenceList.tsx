@@ -7,7 +7,7 @@
  * 解析失败或协议偏离，这三种的可信度完全不同。
  */
 
-import type { VerdictView } from '../../domain/fusion'
+import type { VerdictView } from '../../domain'
 
 const VERDICT_TONE: Record<'yes' | 'no' | 'unscored', string> = {
   yes: 'text-emerald-600 dark:text-emerald-400',

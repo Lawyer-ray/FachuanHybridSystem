@@ -2,8 +2,7 @@
  * Auth Feature API：简单的用户名/密码登录，拿 JWT。
  */
 import { HTTPError } from 'ky'
-import ky from 'ky'
-import { api, API_BASE_URL } from '@/lib/api'
+import { api, API_BASE_URL, createAnonymousClient } from '@/lib/api'
 import { errMessage } from '@/lib/errors'
 import { setTokens, type TokenPair } from '@/lib/token'
 import type { components } from '@/types/api-schema'
@@ -12,11 +11,14 @@ import type { LoginRequest, User } from './types'
 /** POST /token/pair 的响应（生成物）；含 username 冗余字段，存侧只取 access/refresh（TokenPair） */
 type TokenPairResponse = components['schemas']['TokenObtainPairOutputSchema']
 
+/** 登录端点用的匿名客户端（登录前没有 JWT，也别让 401 处理把用户甩进重定向环） */
+const anonymousClient = createAnonymousClient()
+
 export const authApi = {
   async login(data: LoginRequest): Promise<{ success: boolean; user?: User; message?: string }> {
     let tokenPair: TokenPairResponse
     try {
-      tokenPair = await ky.post(`${API_BASE_URL}/token/pair`, { json: data }).json<TokenPairResponse>()
+      tokenPair = await anonymousClient.post(`${API_BASE_URL}/token/pair`, { json: data }).json<TokenPairResponse>()
     } catch (e) {
       // 401 才是「账号密码不对」；500 / 断网 / 超时另给文案，别一概说成密码错
       if (e instanceof HTTPError && e.response.status === 401) {

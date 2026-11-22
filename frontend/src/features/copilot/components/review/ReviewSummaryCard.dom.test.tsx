@@ -38,8 +38,7 @@ vi.mock('../../review-api', async () => {
 })
 
 import type { CriteriaVerdict, LaneReview, Review } from '../../adjudication-types'
-import type { ReviewAdoptionWire } from '../../domain/adoption'
-import { toReviewView } from '../../domain/fusion'
+import { toReviewView, type ReviewAdoptionWire } from '../../domain'
 import type { ChatMessage } from '../../types'
 import { MultiAnswers } from '../MultiAnswers'
 import { ReviewSummaryCard } from './ReviewSummaryCard'

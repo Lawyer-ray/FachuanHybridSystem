@@ -7,7 +7,7 @@
 
 import { Trash2 } from 'lucide-react'
 
-import type { AgentMemoryItem, MemoryScope } from '../../memory-api'
+import type { AgentMemoryItem, MemoryScope } from '../../types'
 import { EmptyBlock, LoadingBlock } from '@/components/shared/AsyncState'
 import { KIND_LABEL, SCOPE_LABEL } from './labels'
 

@@ -22,7 +22,7 @@
 import { api } from '@/lib/api'
 
 import type { Review, Synthesis, SynthesisJob } from './adjudication-types'
-import type { ReviewAdoptPayload, ReviewAdoptionEnvelope, ReviewAdoptionWire } from './domain/adoption'
+import type { ReviewAdoptPayload, ReviewAdoptionEnvelope, ReviewAdoptionWire } from './domain'
 
 /**
  * 取某一轮的评审结果（`GET /agent/sessions/{id}/review?turn=`）。

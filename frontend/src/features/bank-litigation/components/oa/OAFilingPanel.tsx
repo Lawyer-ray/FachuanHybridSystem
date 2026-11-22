@@ -2,7 +2,7 @@
  * 律所 OA 立案面板（`OAFilingPanel`）。
  *
  * ═══ 为什么这个面板单独一个文件 ═══
- * 一张网（`CourtFilingPanel`）和 OA 立案挤在同一个 `FilingPanels.tsx` 里时，
+ * 一张网（`CourtFilingPanel.tsx`）和 OA 立案挤在同一个文件里时，
  * 文件轻松越过 450 行红线。两个面板除了共用 `SessionResult` 之外没有任何交集，
  * 拆开后各自的展示组件（`oa/*`、`court/*`）也有了明确归属。
  *

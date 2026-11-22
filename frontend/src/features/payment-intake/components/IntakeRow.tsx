@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowRightLeft, Check, Info } from 'lucide-react'
 
 import { KIND_STYLES } from '../constants'
-import { amountText, candidateReason, intakeHeadline, intakeShape } from '../domain'
+import { amountText, candidateReason, hasUsableSuggestion, intakeHeadline, intakeShape } from '../domain'
 import type { Intake } from '../types'
 import { ROW_BTN } from '@/components/shared/panel-styles'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,8 @@ export function IntakeRow({
   const top = intake.candidates[0]
   const style = top ? KIND_STYLES[top.kind] : null
   const headline = intakeHeadline(intake)
+  // 第二道防线：只认实名命中的建议（domain.ts 的 hasUsableSuggestion 注释解释了为何 amount_only / ai_suggested 不可一键确认）
+  const canConfirm = hasUsableSuggestion(intake)
 
   return (
     <div className="rounded-[10px] border border-border bg-card px-2.5 py-2 transition-colors hover:border-zinc-300">
@@ -89,14 +91,10 @@ export function IntakeRow({
       <div className="mt-[7px] flex items-center gap-1.5">
         <button
           type="button"
-          disabled={busy || !intake.suggested_contract_id}
+          disabled={busy || !canConfirm}
           onClick={onConfirm}
           className={cn(ROW_BTN, 'font-semibold')}
-          title={
-            intake.suggested_contract_id
-              ? '采纳系统建议，写入该项目的收款记录'
-              : '系统未给出可信建议，请选「换个项目」'
-          }
+          title={canConfirm ? '采纳系统建议，写入该项目的收款记录' : '系统未给出可信建议，请选「换个项目」'}
         >
           <Check className="h-3 w-3" aria-hidden />
           确认

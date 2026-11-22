@@ -20,9 +20,10 @@
  *
  * 主题：中性灰阶，无 emoji；发送成功静默，失败由 MessageList 的错误行兜底。
  *
- * 拆分记录（本文件已收敛到 ≤200 行）：ComposerFooter / ComposerQuote / PendingChips /
- * ComposerToolbar（左侧三个工具按钮 + 隐藏 file input）、use-composer-submit
- * （submit + handleKeyDown + autoGrow）、use-composer-intake（框选引用 / 选区预填
+ * 拆分记录（现行 338 行，仍在 200–350 可接受带）：ComposerFooter / ComposerQuote /
+ * PendingChips / ComposerToolbar（左侧三个工具按钮 + 隐藏 file input）、
+ * use-composer-submit（submit + handleKeyDown + autoGrow + 具名导出的 growTextarea /
+ * MAX_COMPOSER_HEIGHT）、use-composer-intake（框选引用 / 选区预填
  * 两条事件通道）。submit 牵动 speech / slash / send 三个 hook 的协调顺序，
  * 改它之前先读 use-composer-submit.ts 的文件头。
  */
@@ -36,7 +37,7 @@ import { fetchAgentSkills } from '../api'
 import { applyMention, detectMentionToken, type MentionInsert, type MentionToken } from '../domain'
 import { useComposerIntake } from '../hooks/use-composer-intake'
 import { useDraft } from '../hooks/use-draft'
-import { useComposerSubmit } from '../hooks/use-composer-submit'
+import { growTextarea, useComposerSubmit } from '../hooks/use-composer-submit'
 import { useMentionMenu } from '../hooks/use-mention-menu'
 import { useSlashMenu } from '../hooks/use-slash-menu'
 import { useSpeechInput } from '../hooks/use-speech-input'
@@ -52,18 +53,6 @@ import { SlashMenu } from './SlashMenu'
 
 /** 引用候选 listbox 的 id：textarea 的 aria-controls 指向它 */
 const MENTION_LISTBOX_ID = 'composer-mention-listbox'
-
-/**
- * textarea 自适应高度（1–5 行）。
- *
- * 与 use-composer-submit 的 autoGrow 同口径：`@` 选中后要立即长个儿，而那条路径的
- * autoGrow 在 useComposerSubmit 返回后才有（它依赖 mention.onKeyDown，与这里是一个
- * 环）。两处的高度上限必须一致，改一处必须同步另一处。
- */
-function growTextarea(el: HTMLTextAreaElement): void {
-  el.style.height = 'auto'
-  el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-}
 
 /** 流式中的「已插话 N 条」提示条（撤回按钮在前一排，两者共用一行） */
 const STEER_BAR_CLASS = 'mb-1.5 flex items-center gap-1.5 px-1 text-[11.5px] text-muted-foreground'

@@ -12,7 +12,7 @@ import { DEMO_UNDERSTAND_DOCS, DEMO_X1_CONVERT_METHODS } from '../demo-data'
 import { ActionButton, InsetBlock, KeyValueRow, Pill } from '../ui'
 import type { ActionStep } from './use-stage-action'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 import { MarkdownDoc, type MarkdownView } from './MarkdownDoc'
 import { useStageAction } from './use-stage-action'
 

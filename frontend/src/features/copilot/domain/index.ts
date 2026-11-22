@@ -27,11 +27,17 @@
  * - export.ts     会话导出（Markdown / 纯文本）与文件名
  * - outline.ts    轮次大纲（已加载窗口内的提问 → 回答）
  * - tool-content.ts 工具返回原文 → 可读文本（拆 MCP 信封、解转义、JSON 美化、HTML 兜底）
+ * - plain-text.ts   Markdown 源码 → 纯文本（剪贴板 / 项目笔记；`markdownToPlainText`）
+ * - adoption.ts    评审采纳记录（独立端点）→ 视图
+ * - fusion.ts      多答裁决的线上契约 → 视图（评审卡/综合结论卡的数据源）
+ * - stream-guard.ts 流收尾判定与空闲看门狗（缺 done / 断流的唯一判据）
+ * - turn-actions.ts 「能不能重生成 / 续写」判据（消息操作按钮）
  *
  * 全部为纯函数（无 React、无 IO），vitest 直接覆盖（node 环境，无 DOM）。
  * 唯一例外是 `export.downloadText`：允许触达 Blob/URL/document 的下载动作。
  */
 
+export * from './adoption'
 export * from './approval'
 export * from './attachment'
 export * from './diff'
@@ -42,17 +48,21 @@ export * from './page-span'
 export * from './dual'
 export * from './error'
 export * from './export'
+export * from './fusion'
 export * from './location'
 export * from './message-id'
 export * from './outline'
+export * from './plain-text'
 export * from './progress'
 export * from './question'
 export * from './reference'
 export * from './slash'
 export * from './time'
 export * from './sse'
+export * from './stream-guard'
 export * from './tokens'
 export * from './tool-content'
 export * from './tool-view'
+export * from './turn-actions'
 export * from './usage'
 export * from './transcript'

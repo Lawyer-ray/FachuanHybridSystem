@@ -6,7 +6,7 @@
  */
 import { DEMO_GAP_NOTICES } from '../../demo-data'
 import { ActionButton, InsetBlock, KeyValueRow, Pill } from '../../ui'
-import { DetailDrawer } from '../DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 import { sourceOf } from './gap-utils'
 import { GapTimelineBlock } from './GapTimelineBlock'

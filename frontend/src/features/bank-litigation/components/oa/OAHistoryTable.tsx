@@ -7,11 +7,11 @@
  * 时间戳（精确到分钟）、耗时（真实量级，不是「几秒」）、状态（已立案/审批中/已退回）。
  *
  * 数据是演示态（`DEMO_OA_HISTORY`）：真实实现应来自 oa-filing 会话表，
- * 面板只做只读呈现，不参与任何判断。外框与一张网那几张表共用 `court/PageTable`，
+ * 面板只做只读呈现，不参与任何判断。外框与一张网那几张表共用 `components/PageTable`，
  * 保证同一工作台里所有表格的行基线一致。
  */
 
-import { PageTable } from '../court/PageTable'
+import { PageTable } from '../PageTable'
 import { Pill } from '../ui'
 import { DEMO_OA_HISTORY, type OAFilingHistoryRow } from '../demo-data'
 

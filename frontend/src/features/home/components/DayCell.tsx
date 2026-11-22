@@ -1,9 +1,11 @@
+import { memo } from 'react'
+
 import type { CalendarEvent } from '../api'
 import { briefLine, cardTitle, isKeyKind } from '../api-meta'
 import type { CalendarDensity } from '../calendar-density'
 import { formatCN, parseKey } from '../domain'
 import { cn } from '@/lib/utils'
-import { DayEventRow } from './DayEventRow'
+import { DayEventRow, type CalendarEventActions } from './DayEventRow'
 
 /**
  * 月历的单日格（从 CalendarPanel.tsx 拆出）：事件行（wide / medium）、
@@ -41,16 +43,14 @@ interface CellProps {
   /** 内容密度（按面板净宽）；compact 同时决定交互：整格点按 = 看这一天 */
   density: CalendarDensity
   onPick: (key: string) => void
-  onOpenDetail: (e: CalendarEvent) => void
   /** 点日历格空白处 → 新增该日安排（非 compact 档） */
   onOpenAdd: (key: string) => void
-  /** 勾选完成 / 取消完成 */
-  onToggleComplete: (e: CalendarEvent) => void
-  /** 右键事件行 → 快捷菜单（删除等）；仅事件行触发（compact 档不渲染事件行） */
-  onEventContextMenu?: (e: CalendarEvent, pos: { x: number; y: number }) => void
+  /** 事件级动作（详情 / 勾完成 / 右键菜单），整包交给事件行，本层不再逐项声明 */
+  actions: CalendarEventActions
 }
 
-export function DayCell({ cell, today, selected, events, maxRows, density, onPick, onOpenAdd, onOpenDetail, onToggleComplete, onEventContextMenu }: CellProps) {
+/** 单日格：列表项级 memo（42 格全量重渲只因为 HomePage 开了个抽屉/详情是纯浪费） */
+export const DayCell = memo(function DayCell({ cell, today, selected, events, maxRows, density, onPick, onOpenAdd, actions }: CellProps) {
   const compact = density === 'compact'
 
   if (!cell.key || cell.day == null) {
@@ -123,14 +123,7 @@ export function DayCell({ cell, today, selected, events, maxRows, density, onPic
       {density !== 'compact' && shown.length > 0 && (
         <div className="flex flex-col gap-[2px]">
           {shown.map((e) => (
-            <DayEventRow
-              key={e.id}
-              event={e}
-              density={density}
-              onOpenDetail={onOpenDetail}
-              onToggleComplete={onToggleComplete}
-              onEventContextMenu={onEventContextMenu}
-            />
+            <DayEventRow key={e.id} event={e} density={density} actions={actions} />
           ))}
           {hidden > 0 && (
             <span
@@ -175,4 +168,4 @@ export function DayCell({ cell, today, selected, events, maxRows, density, onPic
       )}
     </div>
   )
-}
+})

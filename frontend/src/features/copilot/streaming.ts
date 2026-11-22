@@ -156,12 +156,6 @@ function explicitAgentOf(event: object): string {
   return ((event as { agent?: string }).agent ?? '').trim()
 }
 
-/**
- * `citations` 事件的载荷（原始形状，未收窄）；不是引用事件时返回 `null`。
- *
- * 为什么不用 `case 'citations'` 见读循环里的注释：事件联合类型是后端生成物，
- * 前端不能先手改（会被 CI 的逐字节契约比对打回），所以这里用形状判据取值。
- */
 /** 消费一条 agent SSE 流，逐帧分发；流读尽或中途异常时返回/抛出。 */
 export async function consumeAgentStream(resp: Response, h: StreamHandlers): Promise<StreamOutcome> {
   const reader = resp.body!.getReader()
@@ -198,9 +192,6 @@ export async function consumeAgentStream(resp: Response, h: StreamHandlers): Pro
       if (!event) continue
       // 每帧自己的来源：双答时两个 agent 的事件交替到达，绝不能记在 handler 上
       const origin: EventOrigin = { kind: agentOf(event), runId: runIdOf(event) }
-      // 逐句溯源：`citations`（增量事件，一轮可多次）。
-      //
-      // 为什么不写成 `case 'citations'`：`AgentStreamEvent` 是后端 pydantic 的
       switch (event.type) {
         case 'thinking':
           h.onProgress()

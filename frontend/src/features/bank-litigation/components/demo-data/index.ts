@@ -75,6 +75,7 @@ export {
 // B3. OA 归档
 export {
   DEMO_ARCHIVE_CATEGORIES,
+  DEMO_ARCHIVE_DONE,
   DEMO_ARCHIVE_LOG,
   DEMO_ARCHIVE_MATERIALS,
   type ArchiveCategoryRow,

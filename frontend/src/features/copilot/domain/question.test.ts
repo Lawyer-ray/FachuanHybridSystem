@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import type { QuestionDraft, QuestionItem } from './question'
 import {
-  answeredCount,
   buildAnswerBatch,
   emptyDraft,
   formatCountdown,
@@ -152,12 +151,7 @@ describe('buildAnswerBatch', () => {
   })
 })
 
-describe('answeredCount / formatCountdown', () => {
-  it('统计已答题数', () => {
-    const items = [q({ id: 'q1' }), q({ id: 'q2' }), q({ id: 'q3' })]
-    expect(answeredCount(items, { q1: draft({ selections: ['甲合同'] }), q3: draft({ text: 'x' }) })).toBe(2)
-  })
-
+describe('formatCountdown', () => {
   it('倒计时到点返回空串（UI 改用「已继续」文案）', () => {
     expect(formatCountdown(0)).toBe('')
     expect(formatCountdown(-5)).toBe('')

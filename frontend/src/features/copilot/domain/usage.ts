@@ -37,36 +37,11 @@ export function outputTokens(stats: TurnStats): number {
   return stats.exactTokens ?? stats.estTokens
 }
 
-/** 总 token（输出 + 输入 + 缓存读 + 缓存写；缺省桶按 0） */
-export function totalTokens(stats: TurnStats): number {
-  return (
-    outputTokens(stats) +
-    (stats.inputTokens ?? 0) +
-    (stats.cacheReadTokens ?? 0) +
-    (stats.cacheWriteTokens ?? 0)
-  )
-}
-
 /** 生成耗时（首字 → 结束；流未结束用最近一次 delta 兜底） */
 export function elapsedMs(stats: TurnStats): number {
   if (stats.firstDeltaAt === null) return 0
   const end = stats.doneAt ?? stats.lastDeltaAt ?? stats.firstDeltaAt
   return Math.max(0, end - stats.firstDeltaAt)
-}
-
-/** 生成速度（输出 token / 秒；不足 0.1s 不除，避免爆表） */
-export function laneSpeed(stats: TurnStats): number {
-  const seconds = elapsedMs(stats) / 1000
-  if (seconds < 0.1) return 0
-  return outputTokens(stats) / seconds
-}
-
-/** 缓存命中率（0~1）；没有任何输入侧数据时返回 null（UI 不显示，而不是显示 0%） */
-export function cacheHitRate(stats: TurnStats): number | null {
-  const read = stats.cacheReadTokens ?? 0
-  const denom = (stats.inputTokens ?? 0) + read + (stats.cacheWriteTokens ?? 0)
-  if (denom <= 0) return null
-  return read / denom
 }
 
 /** token 数的人读格式：998 / 1.2k / 12k / 1.2M */
@@ -159,7 +134,7 @@ export function laneUsageCacheHitRate(usage: LaneUsage): number | null {
 export function laneUsageSpeed(usage: LaneUsage): number | null {
   if (usage.outputTokens === null || usage.durationMs === null) return null
   const seconds = usage.durationMs / 1000
-  // 与 laneSpeed 同口径：不足 0.1s 不除，否则 3 个 token 能算出 3000 tok/s
+  // 不足 0.1s 不除：否则 3 个 token 能算出 3000 tok/s
   if (seconds < 0.1) return null
   return usage.outputTokens / seconds
 }
@@ -318,26 +293,4 @@ export function laneUsageDetail(usage: LaneUsage, model?: string | null): string
 export function formatShortSeconds(ms: number): string {
   const seconds = Math.max(0.1, ms / 1000)
   return seconds < 100 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`
-}
-
-/** 一栏的摘要（UI 用一次算好，避免渲染里反复算） */
-export interface LaneSummary {
-  output: number
-  total: number
-  speed: number
-  hitRate: number | null
-  durationMs: number
-  /** 是否已有精确 usage（否则 token 数是字符估算，UI 要加 ≈） */
-  exact: boolean
-}
-
-export function summarizeLane(stats: TurnStats): LaneSummary {
-  return {
-    output: outputTokens(stats),
-    total: totalTokens(stats),
-    speed: laneSpeed(stats),
-    hitRate: cacheHitRate(stats),
-    durationMs: elapsedMs(stats),
-    exact: stats.exactTokens !== null,
-  }
 }

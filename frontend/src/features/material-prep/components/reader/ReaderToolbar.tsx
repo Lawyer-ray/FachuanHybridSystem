@@ -11,7 +11,7 @@ import {
 import { PBTN, PBTN_ON, ZOOM_MAX, ZOOM_MIN } from './ui'
 import { cn } from '@/lib/utils'
 import { AutoSplitSettings } from './AutoSplitSettings'
-import { PickItem } from './MenuItems'
+import { PickItem } from './PickItem'
 import { cloudSelectionSummary, type CloudEngine, type CloudSelection } from './platform-selection'
 
 /**

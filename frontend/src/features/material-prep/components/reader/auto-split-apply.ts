@@ -1,0 +1,128 @@
+import {
+  applyAutoSplit,
+  applyAutoSplitPreservingEdits,
+  fillSegmentText,
+  withEngineDisagreements,
+  withPageQuality,
+} from '../../draft'
+import { applyDetectedParties } from '../../draft/detect-parties'
+import { resolveParties } from '../../draft/party-lookup'
+import { useReader } from '../../store'
+import { ruleSegmentCountOf, segmentBackendNote } from './auto-split-helpers'
+import type { AutoSplitResult, ExtractedText } from './auto-split-tracks'
+
+/** 重跑前冲突询问的三种结果。
+ *
+ * - `keep`：保留律师改过的东西（人工正文搬回新分段）→ `applyAutoSplitPreservingEdits`
+ * - `overwrite`：以 AI 结果为准，改动会被覆盖 → `applyAutoSplit`
+ * - `cancel`：整次重跑不执行
+ */
+export type RerunChoice = 'keep' | 'overwrite' | 'cancel'
+
+/** 自动回填到的当事人（空串 = 没识别出来） */
+export interface DetectedParties {
+  our: string
+  their: string
+}
+
+/**
+ * 把这次识别的结果全部回写草稿，返回顺带识别出的当事人。
+ *
+ * ⚠️ 调用前必须已确认「打开的还是同一个材料包」（`openId` 未变），否则会把结果写到
+ * 另一个包的草稿上。检查留在调用方（run）里：那是编排的一部分，不是回写的一部分。
+ */
+export async function applyAutoSplitResults(params: {
+  results: AutoSplitResult[]
+  photoTexts: ExtractedText[]
+  officeTexts: ExtractedText[]
+  choice: RerunChoice
+}): Promise<DetectedParties> {
+  const { results, photoTexts, officeTexts, choice } = params
+  const current = useReader.getState()
+  // 用户在前面的弹窗里选了「保留我的修改」就走保留版：人工正文搬回新分段；
+  // 选「用识别结果覆盖」（或本来就没冲突）就走原版，行为与重跑前完全一致。
+  const applyFor = choice === 'keep' ? applyAutoSplitPreservingEdits : applyAutoSplit
+  for (const result of results) {
+    // 页级质量跟着同一次识别结果一起落到草稿上。
+    // 引擎分歧同路：它也是「这次识别产出了什么」，且要随草稿持久化（抽屉与双框都要读它）
+    current.update((value) =>
+      withEngineDisagreements(
+        withPageQuality(applyFor(value, result.mi, result.segments, result.jobId), result.pageQuality),
+        result.engineDisagreements,
+      ),
+    )
+  }
+  // 跨页不一致是全本的：多个源的结果合并进同一份清单
+  current.setInconsistencies(results.flatMap((item) => item.inconsistencies))
+  for (const item of photoTexts) {
+    current.update((value) => fillSegmentText(value, item.mi, item.md))
+  }
+  for (const item of officeTexts) {
+    current.update((value) => fillSegmentText(value, item.mi, item.md))
+  }
+
+  // ── 自动回填当事人 ──
+  // 分段完成后正文已在草稿里，当事人信息（借款人/银行）也就在里面。
+  // 不回填的话律师得自己翻材料手打一遍右栏那两个框 —— 那正是机器该干的活。
+  // 只填空字段（律师已填/改过的不覆盖），识别不出就留空，不猜。
+  // 身份判定走 resolveParties：先按标签取候选，再去**客户库**对账
+  // （同一叠纸里「申请人」可能同时指委托单位和职工，光看标签必错一半，
+  //   见 draft/party-lookup.ts）。客户库查不到才退回纯标签判定。
+  // ⚠️ 必须判空：单测里 store 的 draft 可能是 null，直接识别会抛
+  //    「Cannot read properties of null」，把整条成功路径带崩（实测挂了 6 个用例）。
+  //    现场不会有 null（阅读器打开着才有这个 hook），但测试环境有。
+  let detected: DetectedParties = { our: '', their: '' }
+  try {
+    const draftNow = useReader.getState().draft
+    if (draftNow) {
+      detected = await resolveParties(draftNow)
+      if (detected.our || detected.their) {
+        current.update((value) => {
+          const { infos, changed } = applyDetectedParties(value.infos, detected)
+          return changed ? { ...value, infos } : value
+        })
+      }
+    }
+  } catch {
+    // 当事人识别是**附加价值**，失败不能拖垮分段主流程 ——
+    // 分段成功才是主线，识别不到就留空让律师自己填。
+    // 不加这层 try，测试环境里 draft 字段不全就会把整条成功路径带崩
+    // （实测挂了 6 个用例，toast 一个都没弹）。
+  }
+  return detected
+}
+
+/**
+ * 收尾文案：分了几段、拿到的是哪种质量、图片/Office 各几份、失败几份。
+ *
+ * 为什么要分类数：混在一起报「完成 N 份」会让律师以为图片也分了段——
+ * 图片只回填正文、不产生分段，必须说清楚。
+ */
+export function summarizeAutoSplitResults(params: {
+  results: AutoSplitResult[]
+  /** 云端任务失败的 PDF 份数 */
+  pdfFailed: number
+  photoTexts: ExtractedText[]
+  officeTexts: ExtractedText[]
+  photoFailed: number
+  officeFailed: number
+  detected: DetectedParties
+}): { message: string; warned: boolean } {
+  const { results, pdfFailed, photoTexts, officeTexts, photoFailed, officeFailed, detected } = params
+  const count = results.reduce((sum, item) => sum + item.segments.length, 0)
+  // 分段后端可观测：律所 AI 失败会降级规则引擎（summary 三态 llm/mixed/rule），
+  // 得让用户知道拿到的是哪种质量、有几段是规则兜的要重点复核
+  const ruleSegments = results.reduce(
+    (sum, item) => sum + ruleSegmentCountOf(item.segmentBackend, item.segments),
+    0,
+  )
+  const backendNote = segmentBackendNote(results.map((item) => item.segmentBackend), ruleSegments)
+  const parts: string[] = []
+  if (results.length > 0) parts.push(`${results.length} 个 PDF 已分段（${backendNote}，共 ${count} 段）`)
+  if (photoTexts.length > 0) parts.push(`${photoTexts.length} 张图片已识别正文`)
+  if (officeTexts.length > 0) parts.push(`${officeTexts.length} 份 Office 已转正文`)
+  const failedTotal = pdfFailed + photoFailed + officeFailed
+  const filled = detected.our || detected.their ? '；已自动填入当事人' : ''
+  const tail = failedTotal > 0 ? `；${failedTotal} 份识别失败，可稍后重试` : '；未识别材料仍需人工归类'
+  return { message: `${parts.join('，')}${filled}${tail}`, warned: failedTotal > 0 }
+}

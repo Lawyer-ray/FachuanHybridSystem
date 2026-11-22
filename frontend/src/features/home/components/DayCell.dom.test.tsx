@@ -50,10 +50,11 @@ function renderCell(over: Partial<CellProps> = {}) {
   const cbs = {
     onPick: vi.fn(),
     onOpenAdd: vi.fn(),
-    onOpenDetail: vi.fn(),
+    onOpenEvent: vi.fn(),
     onToggleComplete: vi.fn(),
     onEventContextMenu: vi.fn(),
   }
+  // 事件级动作以整包下发（DayCell 不再逐项声明）
   const props: CellProps = {
     cell: { key: '2026-10-20', day: 20, inMonth: true },
     today: '2026-10-20',
@@ -61,7 +62,13 @@ function renderCell(over: Partial<CellProps> = {}) {
     events: [ev(1)],
     maxRows: 3,
     density: 'wide',
-    ...cbs,
+    onPick: cbs.onPick,
+    onOpenAdd: cbs.onOpenAdd,
+    actions: {
+      onOpenEvent: cbs.onOpenEvent,
+      onToggleComplete: cbs.onToggleComplete,
+      onEventContextMenu: cbs.onEventContextMenu,
+    },
     ...over,
   }
   const utils = render(<DayCell {...props} />)
@@ -96,7 +103,7 @@ describe('DayCell：桌面点击分派', () => {
     const { cbs, container, unmount } = renderCell()
     const row = container.querySelector('[data-calendar-event]') as HTMLElement
     fireEvent.click(row)
-    expect(cbs.onOpenDetail).toHaveBeenCalled()
+    expect(cbs.onOpenEvent).toHaveBeenCalled()
     expect(cbs.onOpenAdd).not.toHaveBeenCalled()
     unmount()
   })
@@ -177,7 +184,7 @@ describe('DayCell：事件行交互', () => {
     const row = container.querySelector('[data-calendar-event]') as HTMLElement
     const e = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
     row.dispatchEvent(e)
-    expect(cbs.onOpenDetail).toHaveBeenCalled()
+    expect(cbs.onOpenEvent).toHaveBeenCalled()
     expect(e.defaultPrevented).toBe(true)
     unmount()
   })
@@ -193,7 +200,9 @@ describe('DayCell：事件行交互', () => {
   })
 
   it('未传 onEventContextMenu 时不拦右键（走浏览器默认）', () => {
-    const { container, unmount } = renderCell({ onEventContextMenu: undefined })
+    const { container, unmount } = renderCell({
+      actions: { onOpenEvent: vi.fn(), onToggleComplete: vi.fn() },
+    })
     const row = container.querySelector('[data-calendar-event]') as HTMLElement
     const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
     row.dispatchEvent(e)
@@ -271,7 +280,7 @@ describe('DayCell：内容密度档', () => {
   it('medium 档仍是桌面交互（点事件行开详情，点空白新增）', () => {
     const { cbs, cellEl, container, unmount } = renderCell({ density: 'medium' })
     fireEvent.click(container.querySelector('[data-calendar-event]') as HTMLElement)
-    expect(cbs.onOpenDetail).toHaveBeenCalledTimes(1)
+    expect(cbs.onOpenEvent).toHaveBeenCalledTimes(1)
     fireEvent.click(cellEl)
     expect(cbs.onOpenAdd).toHaveBeenCalledWith('2026-10-20')
     unmount()

@@ -12,23 +12,17 @@
  *   · 表格上方可全选/全不选，选中的文档一起批量重转
  */
 
-import { FileText, Play } from 'lucide-react'
-
 import { useState } from 'react'
 
-import { DEMO_UNDERSTAND_DOCS, DEMO_UNDERSTAND_FIELDS, DEMO_UNDERSTAND_ISSUES } from '../demo-data'
-import { ActionButton, InsetBlock, Pill, RailSection, SectionTitle, StatCell, StatStrip, WorkCard } from '../ui'
+import { DEMO_UNDERSTAND_DOCS } from '../demo-data'
+import { StatCell, StatStrip } from '../ui'
 import { FieldDrawer } from './FieldDrawer'
 import { MarkdownDrawer } from './MarkdownDrawer'
 import { StageActionCard } from './StageActionCard'
+import { BatchBar } from './understand/BatchBar'
+import { UnderstandRail } from './understand/UnderstandRail'
+import { ConvertIssuesTable, DocConversionList, ExtractedFieldTable } from './understand/UnderstandTables'
 import { useStageAction } from './use-stage-action'
-
-
-const METHOD_HINT: Record<string, string> = {
-  原生PDF: '直接抽取文字层，保真度最高',
-  OCR: '图片型扫描件，走 OCR 识别',
-  表格还原: '识别表格结构，还原成 markdown 表',
-}
 
 export function UnderstandPanel() {
   /** 正在看全文的那份（null=关闭） */
@@ -115,185 +109,26 @@ export function UnderstandPanel() {
 
       <div className="grid grid-cols-1 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col gap-[18px]">
-          {/* 批量操作条 */}
-          <WorkCard className="flex flex-wrap items-center gap-2 py-2.5">
-            <ActionButton
-              sm
-              onClick={() =>
-                setChecked(allChecked ? new Set() : new Set(DEMO_UNDERSTAND_DOCS.map((d) => d.fileName)))
-              }
-            >
-              {allChecked ? '全不选' : '全选'}
-            </ActionButton>
-            <span className="text-[11px] text-muted-foreground">
-              已选 {checked.size} / {DEMO_UNDERSTAND_DOCS.length} 份
-            </span>
-            <span className="ml-auto flex items-center gap-2">
-              {batchRun.phase === 'running' ? (
-                <span className="text-[10.5px] tabular-nums text-muted-foreground">
-                  {batchRun.percent}% · {batchRun.progress}
-                </span>
-              ) : batchRun.phase === 'done' ? (
-                <span className="text-[10.5px] text-status-green">{batchRun.summary}</span>
-              ) : null}
-              <ActionButton
-                sm
-                dark
-                disabled={checked.size === 0 || batchRun.phase === 'running'}
-                onClick={() => void batchRun.execute()}
-              >
-                <Play className="size-3" /> 批量重转{checked.size ? ` ${checked.size} 份` : ''}
-              </ActionButton>
-            </span>
-          </WorkCard>
 
-          {DEMO_UNDERSTAND_DOCS.map((d) => (
-            <WorkCard key={d.fileName} padded={false}>
-              <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-                <input
-                  type="checkbox"
-                  aria-label={`选中 ${d.fileName}`}
-                  checked={checked.has(d.fileName)}
-                  onChange={() => toggle(d.fileName)}
-                  className="size-3.5 flex-none accent-foreground"
-                />
-                <FileText className="size-3.5 flex-none text-muted-foreground" />
-                <SectionTitle title={d.fileName} hint={d.type} className="w-full" />
-                <div className="flex flex-none items-center gap-1.5">
-                  <Pill tone="blue">{d.method}</Pill>
-                  <Pill tone={d.quality === 'high' ? 'green' : 'yellow'}>
-                    {d.quality === 'high' ? '高保真' : '需复核'}
-                  </Pill>
-                  <ActionButton sm onClick={() => setViewing(d.fileName)}>
-                    查看全文
-                  </ActionButton>
-                </div>
-              </div>
+          <BatchBar
+            checkedCount={checked.size}
+            total={DEMO_UNDERSTAND_DOCS.length}
+            allChecked={allChecked}
+            onToggleAll={() =>
+              setChecked(allChecked ? new Set() : new Set(DEMO_UNDERSTAND_DOCS.map((d) => d.fileName)))
+            }
+            batch={batchRun}
+            onRun={() => void batchRun.execute()}
+          />
 
-              <div className="px-5 py-3">
-                <div className="mb-2 flex items-center gap-3 text-[10.5px] text-muted-foreground">
-                  <span>{d.pages} 页</span>
-                  <span className="text-border">·</span>
-                  <span>{d.chars.toLocaleString()} 字</span>
-                  <span className="text-border">·</span>
-                  <span>{METHOD_HINT[d.method]}</span>
-                </div>
+          <DocConversionList checkedNames={checked} onToggle={toggle} onOpen={setViewing} />
 
-                {/* markdown 原文预览：等宽、保留 markdown 标记 */}
-                <InsetBlock className="bg-secondary/20">
-                  <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap font-mono text-[10.5px] leading-[1.7] text-secondary-foreground">
-                    {d.excerpt}
-                  </pre>
-                </InsetBlock>
-              </div>
-            </WorkCard>
-          ))}
-          {/* 转换问题 */}
-          <WorkCard padded={false}>
-            <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <SectionTitle title="转换时发现的问题" hint="已标记，律师可对照原图核" className="w-full" />
-            </div>
-            <ul className="divide-y divide-border-light">
-              {DEMO_UNDERSTAND_ISSUES.map((i) => (
-                <li key={i.doc + i.issue} className="px-5 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium">{i.doc}</span>
-                    <Pill tone="yellow">需复核</Pill>
-                    <span className="ml-auto flex items-center gap-2">
-                      <span className="text-[10.5px] text-status-green">{i.action}</span>
-                      <ActionButton sm title="只重转这一份" onClick={() => setViewing(findDocName(i.doc))}>
-                        重转
-                      </ActionButton>
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-[10.5px] text-muted-foreground">{i.issue}</div>
-                  <div className="mt-0.5 text-[10.5px] text-muted-foreground">影响：{i.impact}</div>
-                </li>
-              ))}
-            </ul>
-          </WorkCard>
+          <ConvertIssuesTable onOpen={setViewing} />
 
-          {/* 关键字段抽取：每行点开可校对 */}
-          <WorkCard padded={false}>
-            <div className="flex items-center gap-2 border-b border-border-light px-5 py-3">
-              <SectionTitle
-                title="抽取到的关键字段"
-                hint="从 markdown 正文里抽，不靠文件名 · 点任意一行校对"
-                className="w-full"
-              />
-            </div>
-            <ul className="divide-y divide-border-light">
-              {DEMO_UNDERSTAND_FIELDS.map((f) => {
-                const key = `${f.doc}-${f.field}`
-                const fixed = overrides[key]
-                return (
-                  <li
-                    key={key}
-                    onClick={() => setEditing({ doc: f.doc, field: f.field })}
-                    className="flex cursor-pointer items-center gap-3 px-5 py-2 transition-colors hover:bg-secondary/40"
-                  >
-                    <span className="w-[84px] flex-none text-[10.5px] text-muted-foreground">{f.doc}</span>
-                    <span className="w-[92px] flex-none text-[11.5px] text-secondary-foreground">{f.field}</span>
-                    <span className="min-w-0 flex-1 truncate text-[11.5px] font-medium" title={fixed ?? f.value}>
-                      {fixed ?? f.value}
-                    </span>
-                    {fixed ? <Pill tone="green">已改</Pill> : null}
-                    <span className="w-[120px] flex-none truncate text-[10px] text-muted-foreground" title={f.source}>
-                      {f.source}
-                    </span>
-                    <span
-                      className="w-[44px] flex-none text-right text-[10.5px] tabular-nums"
-                      style={{ color: f.confidence >= 0.95 ? undefined : 'var(--status-yellow)' }}
-                    >
-                      {(f.confidence * 100).toFixed(0)}%
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          </WorkCard>
+          <ExtractedFieldTable overrides={overrides} onEdit={setEditing} />
         </div>
 
-        <WorkCard padded={false}>
-          <RailSection title="为什么先转 markdown">
-            <p className="text-[10.5px] leading-[1.7] text-muted-foreground">
-              律师看的、AI 读的、后续抽字段用的，必须是**同一份正文**。
-              如果三处各读各的，就会出现「AI 说合同写了 5%，律师看是 6%」这种扯不清的事。
-            </p>
-          </RailSection>
-
-          <RailSection title="转换方法">
-            <div className="flex flex-col gap-2">
-              {Object.entries(METHOD_HINT).map(([k, v]) => (
-                <div key={k}>
-                  <div className="text-[11.5px] font-medium">{k}</div>
-                  <div className="mt-0.5 text-[10.5px] leading-[1.55] text-muted-foreground">{v}</div>
-                </div>
-              ))}
-            </div>
-          </RailSection>
-
-          <RailSection title="质量标记">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <Pill tone="green">高保真</Pill>
-                <span className="text-[10.5px] text-muted-foreground">可直接用于抽取</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Pill tone="yellow">需复核</Pill>
-                <span className="text-[10.5px] text-muted-foreground">表格错行/字迹模糊</span>
-              </div>
-            </div>
-          </RailSection>
-
-          <RailSection title="与后续阶段的关系">
-            <div className="flex flex-col gap-1.5 text-[10.5px] leading-[1.6] text-muted-foreground">
-              <div>→ 缺件检测：拿正文里的类型与日期判断</div>
-              <div>→ 委托合同生成：抽当事人/标的/管辖填模板</div>
-              <div>→ 起诉条件：核合同条款、利率、逾期天数</div>
-            </div>
-          </RailSection>
-        </WorkCard>
+        <UnderstandRail />
       </div>
 
       <MarkdownDrawer fileName={viewing} onClose={() => setViewing(null)} />
@@ -306,9 +141,4 @@ export function UnderstandPanel() {
       />
     </div>
   )
-}
-
-/** 「转换问题」里的短文件名 → 正式文档名（找不到就原样传，抽屉里会显示无样本） */
-function findDocName(short: string): string {
-  return DEMO_UNDERSTAND_DOCS.find((d) => d.fileName.startsWith(short))?.fileName ?? short
 }

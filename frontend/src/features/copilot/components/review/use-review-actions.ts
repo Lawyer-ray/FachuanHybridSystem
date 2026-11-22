@@ -36,11 +36,11 @@ import { errMessage } from '@/lib/errors'
 
 import { fetchReview, fetchReviewOptions, fetchSynthesis, type ReviewOptions } from '../../api'
 import type { SynthesisJob } from '../../adjudication-types'
-import type { AgentBackendOption } from '../../backend-types'
+import type { AgentBackendOption } from '../../types'
 import { agentLabel } from '../../domain'
 import { useCopilot } from '../../store'
 import { findBackend } from '../../store/backends'
-import { toReviewView, toSynthesisView, type ReviewView, type SynthesisView } from '../../domain/fusion'
+import { toReviewView, toSynthesisView, type ReviewView, type SynthesisView } from '../../domain'
 import {
   cancelSynthesisJob,
   fetchLatestSynthesisJob,

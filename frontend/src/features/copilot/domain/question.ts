@@ -159,14 +159,6 @@ export function isAnswered(draft: QuestionDraft | undefined): boolean {
   return draft.selections.length > 0 || draft.text.trim().length > 0
 }
 
-/** 已答题数（卡片进度与「还有几题没答」提示的数据源） */
-export function answeredCount(
-  questions: readonly QuestionItem[],
-  drafts: Record<string, QuestionDraft>,
-): number {
-  return questions.filter((q) => isAnswered(drafts[q.id])).length
-}
-
 /**
  * 组装回传体：**只带已作答的题**，未答的不出现在 `answers` 里
  * （后端会把缺项标成 `unanswered`，模型据此知道自己没得到答案）。

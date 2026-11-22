@@ -61,7 +61,7 @@ describe('采用：确认这一侧对，直接写入', () => {
   it('直接写库，不进编辑态', () => {
     const { result, editBlock, onGotoPage } = setup()
     act(() => {
-      result.current.adopt(3, GOOD, 'mineru', 'dk-1')
+      result.current.adopt(3, GOOD, 'dk-1')
     })
     expect(editBlock).toHaveBeenCalledWith(0, expect.stringContaining('s1:3'), GOOD)
     // 关键：没有发出编辑请求（采用不该再要一次确认）
@@ -72,7 +72,7 @@ describe('采用：确认这一侧对，直接写入', () => {
   it('写入后立刻标为已核对（律师已明确表态）', () => {
     const { result, onToggleChecked } = setup()
     act(() => {
-      result.current.adopt(3, GOOD, 'mineru', 'dk-1')
+      result.current.adopt(3, GOOD, 'dk-1')
     })
     expect(onToggleChecked).toHaveBeenCalledWith('dk-1', true)
   })
@@ -80,7 +80,7 @@ describe('采用：确认这一侧对，直接写入', () => {
   it('找不到能容纳该文本的块时什么都不做（宁可不改，也不写错块）', () => {
     const { result, editBlock } = setup()
     act(() => {
-      result.current.adopt(3, '这段文字在块里不存在', 'mineru', 'dk-1')
+      result.current.adopt(3, '这段文字在块里不存在', 'dk-1')
     })
     expect(editBlock).not.toHaveBeenCalled()
   })
@@ -88,7 +88,7 @@ describe('采用：确认这一侧对，直接写入', () => {
   it('页号对不上也不动（防止把别页文字写进本页块）', () => {
     const { result, editBlock } = setup()
     act(() => {
-      result.current.adopt(99, GOOD, 'mineru', 'dk-1')
+      result.current.adopt(99, GOOD, 'dk-1')
     })
     expect(editBlock).not.toHaveBeenCalled()
   })

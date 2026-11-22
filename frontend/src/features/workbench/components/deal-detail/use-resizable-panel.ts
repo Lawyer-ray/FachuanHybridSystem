@@ -121,17 +121,24 @@ export function useResizablePanel({
     }
   }, [dragging, storageKey, width])
 
-  /** 键盘调整用：支持函数式更新（与 setState 同形） */
+  /**
+   * 键盘调整用：支持函数式更新（与 setState 同形）。
+   *
+   * 布局读取（`getBoundingClientRect`）与「用户拖过了」标记都在 updater **外面**：
+   * updater 必须是纯函数（StrictMode 会双调、并发渲染下还可能被丢弃重放），
+   * 里面读 DOM 等于每次更新都量一次布局，里面改别的 state 则会让
+   * `userAdjusted` 与实际 width 脱节（`effective` 走 `userAdjusted ? clamped : auto`
+   * 分支，标错就整块宽度口径变）。updater 里只留钳制算术。
+   */
   const setWidth = useCallback((next: number | ((w: number) => number)) => {
+    const box = containerEl?.getBoundingClientRect()
+    // 容器还没挂载（首帧）时只钳 min，不钳 max——否则 max 缺失会让
+    // Math.min 把值放到 v 本身，min 也随之失效
+    const max = box ? Math.max(min, box.width * maxRatio) : Number.POSITIVE_INFINITY
+    setUserAdjusted(true)
     setWidthState((prev) => {
       const v = typeof next === 'function' ? next(prev) : next
-      setUserAdjusted(true)
-      const box = containerEl?.getBoundingClientRect()
-      // 容器还没挂载（首帧）时只钳 min，不钳 max——否则 max 缺失会让
-      // Math.min 把值放到 v 本身，min 也随之失效
-      const clampedToMin = Math.max(min, v)
-      const max = box ? Math.max(min, box.width * maxRatio) : Number.POSITIVE_INFINITY
-      return Math.round(Math.min(max, clampedToMin))
+      return Math.round(Math.min(max, Math.max(min, v)))
     })
   }, [containerEl, min, maxRatio])
 

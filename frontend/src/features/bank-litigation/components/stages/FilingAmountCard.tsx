@@ -13,8 +13,9 @@ import { AlertTriangle } from 'lucide-react'
 
 import { DEMO_X3_AMOUNTS } from '../demo-data'
 import { ActionButton, InsetBlock, Pill, SectionTitle, WorkCard } from '../ui'
+import { ClickableRow } from '../ClickableRow'
 import { cn } from '@/lib/utils'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export function FilingAmountCard() {
   const [open, setOpen] = useState<string | null>(null)
@@ -41,11 +42,11 @@ export function FilingAmountCard() {
 
       <ul className="divide-y divide-border-light">
         {DEMO_X3_AMOUNTS.map((a) => (
-          <li
+          <ClickableRow
             key={a.item}
             onClick={() => setOpen(a.item)}
             className={cn(
-              'grid cursor-pointer grid-cols-[92px_repeat(3,minmax(0,1fr))_84px] items-center gap-x-2 px-5 py-2 transition-colors hover:bg-secondary/40',
+              'grid grid-cols-[92px_repeat(3,minmax(0,1fr))_84px] items-center gap-x-2 px-5 py-2',
               !a.consistent && 'bg-status-red-bg/40',
             )}
           >
@@ -71,7 +72,7 @@ export function FilingAmountCard() {
             >
               {a.consistent ? '—' : `+${a.delta}`}
             </span>
-          </li>
+          </ClickableRow>
         ))}
       </ul>
 

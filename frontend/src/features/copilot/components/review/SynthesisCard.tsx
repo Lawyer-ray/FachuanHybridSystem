@@ -23,7 +23,7 @@
  */
 
 import { AssistantMarkdown } from '../AssistantMarkdown'
-import type { SynthesisView } from '../../domain/fusion'
+import type { SynthesisView } from '../../domain'
 
 export function SynthesisCard({ synthesis }: { synthesis: SynthesisView }) {
   if (!synthesis.text.trim()) return null

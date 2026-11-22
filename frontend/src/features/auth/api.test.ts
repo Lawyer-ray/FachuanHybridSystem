@@ -31,6 +31,8 @@ vi.mock('ky', () => ({
 vi.mock('@/lib/api', () => ({
   api: { get: (...args: unknown[]) => meGet(...(args as [])) },
   API_BASE_URL: '/api/v1',
+  // 登录端点走 lib/api 的匿名客户端口径（无 JWT / retry: 0）
+  createAnonymousClient: () => ({ post: (...args: unknown[]) => kyPost(...(args as [])) }),
 }))
 
 vi.mock('@/lib/token', () => ({

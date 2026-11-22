@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * ReaderChrome 测试（jsdom）。
+ * 阅读器外壳与两个 early-return 分支的测试（jsdom）：
+ * `FixedReader` + `ReaderLoading` + `ReaderError`（三个组件各一个文件，本文件统一钉住它们的外壳约定）。
  *
  * 阅读器是 fixed inset 全屏层，两个 early-return 分支（加载中 / 打开失败）
  * 也要有完整外壳，否则出错时页面会变成一片没有退路的空白。这里钉住三条：
@@ -11,7 +12,9 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { FixedReader, ReaderError, ReaderLoading } from './ReaderChrome'
+import { FixedReader } from './FixedReader'
+import { ReaderError } from './ReaderError'
+import { ReaderLoading } from './ReaderLoading'
 
 describe('FixedReader', () => {
   it('渲染子节点并把 rootRef 挂到根容器', () => {

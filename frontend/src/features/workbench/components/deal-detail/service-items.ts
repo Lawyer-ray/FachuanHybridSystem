@@ -22,6 +22,10 @@
  * 含「办案」，或它下面全是 `日期-事项` 形态的子目录，就认作事项来源。
  */
 
+// 状态值域取自服务事项行本身（type-only，编译期擦除）：不要在纯逻辑模块里
+// 另起一个同值联合类型，那正是「同一概念多种叫法」的来源。
+import type { ServiceItem } from './ServiceItemStream'
+
 export interface ParsedItem {
   /** 目录名（事项名去掉日期前缀后的原样文字） */
   title: string
@@ -115,4 +119,19 @@ export function pickServiceItems(roots: FolderEntry[], childrenOf: (subpath: str
     if (b.date) return 1
     return a.title.localeCompare(b.title, 'zh')
   })
+}
+
+/**
+ * 服务事项的交付状态判定（`ServiceItem['status']` 的唯一真身）。
+ *
+ * 判据是「事项目录里**有没有文件**」而不是「有没有日期」：日期只说明计划过，
+ * 文件才说明做完了。空目录 = 事情还没产出东西。
+ *
+ * 为什么抽成导出的纯函数：此前判定只写在 `use-service-items` 的 map 里，测试
+ * 文件为了「便于直接测边界」又抄了一份同逻辑副本——判据一改，测试仍然全绿
+ * （假覆盖）。现在 hook 与测试引同一份。
+ */
+export function serviceItemStatus(fileCount: number, hasDate: boolean): ServiceItem['status'] {
+  if (fileCount > 0) return 'done'
+  return hasDate ? 'doing' : 'todo'
 }

@@ -4,6 +4,12 @@
  * 对流式请求的说明：后端是 POST 返回 SSE（见 agent_api.send_message），
  * EventSource 发不了 POST 也带不了 JWT 头，所以走 ky 拿原生 Response，
  * 由调用方（store）读 resp.body 流。ky 实例同时给了 JWT 注入与 401 刷新重试。
+ *
+ * 按职责拆出去的部分（本文件只 re-export，import 路径一律不变）：
+ * - `review-api.ts`      评审 / 综合结论 / 采纳（8 个端点）
+ * - `memory-api.ts`      记忆域（含 @see createProjectNote 项目笔记，同为 `agent/memory` 前缀）
+ * - `api/folders.ts`     绑定文件夹浏览（contracts / cases 两个后端域）
+ * - `api/mention-sources.ts` `@` 引用的跨实体候选源（core `search/`）
  */
 
 import { api, UPLOAD_TIMEOUT_MS } from '@/lib/api'
@@ -78,9 +84,44 @@ export {
 } from './review-api'
 export type { ReviewOptions } from './review-api'
 
+/**
+ * 目录树 / `@` 候选源 / 项目笔记：实现已按后端域拆到旁边三个文件，这里只
+ * re-export（理由同上一段：import 路径不变）。
+ */
+export {
+  clearScopeFolderRowsCache,
+  fetchCaseFolderEntries,
+  fetchContractFolderEntries,
+  fetchScopeFolderEntries,
+  loadScopeFolderRows,
+  SCOPE_SUBDIR_SCAN,
+} from './api/folders'
+export type { FolderEntries, ScopeFolderRows } from './api/folders'
+export { globalSearch } from './api/mention-sources'
+export type { GlobalSearchItem, GlobalSearchResult } from './api/mention-sources'
+export { createProjectNote } from './memory-api'
+export type { ProjectNoteReceipt } from './memory-api'
+
 /** 前端提交审批决定（同意/拒绝高危工具调用） */
 export function decideApproval(approvalId: string, approved: boolean, reason = ''): Promise<Record<string, unknown>> {
   return api.post(`agent/approval/${approvalId}/decide`, { json: { approved, reason } }).json<Record<string, unknown>>()
+}
+
+/**
+ * 重生成 / 续写（`POST /agent/sessions/{id}/regenerate`，返回未消费的 SSE Response）。
+ *
+ * 与 {@link openMessageStream} 同形，所以复用同一条流消费链路；区别只在语义：
+ * **不新落用户消息**（复用原提问）、轮次号不增、开流前服务端把这一轮同栏的旧回答
+ * 标成 `metadata.superseded`（列表接口据此隐藏，行不删）。
+ *
+ * `from_message_id` 传的是**被操作那条消息的库主键**（`parseMessageId` 的结果）。
+ */
+export function openRegenerateStream(
+  sessionId: string,
+  body: { from_message_id: number; mode: 'regenerate' | 'continue'; agents?: string[] },
+  signal?: AbortSignal,
+): Promise<Response> {
+  return api.post(`agent/sessions/${sessionId}/regenerate`, { json: body, signal })
 }
 
 /**
@@ -90,9 +131,6 @@ export function decideApproval(approvalId: string, approved: boolean, reason = '
  * 鉴权 401 由 ky 的 401 刷新钩子先行处理）。
  * `signal` 用于「停止生成」：中断即客户端断开，服务端会把已流出的
  * 部分回答落库（metadata.truncated），前端随后重拉历史即可对齐。
- */
-/**
- * 打开一条 SSE 流。
  *
  * `agents`：本轮跑哪几个 agent、各用哪个模型（顺序 = 栏的左右顺序）。契约见
  * 后端 `MessageIn.agents: list[AgentSpecIn | str] | None`——两种形状都收（老前端
@@ -113,23 +151,6 @@ export function decideApproval(approvalId: string, approved: boolean, reason = '
  * 直接回一条 `error` 事件（不静默截断），所以前端必须先截——用户敲回车之后
  * 才被告知「选多了」是很差的体验。
  */
-/**
- * 重生成 / 续写（`POST /agent/sessions/{id}/regenerate`，返回未消费的 SSE Response）。
- *
- * 与 {@link openMessageStream} 同形，所以复用同一条流消费链路；区别只在语义：
- * **不新落用户消息**（复用原提问）、轮次号不增、开流前服务端把这一轮同栏的旧回答
- * 标成 `metadata.superseded`（列表接口据此隐藏，行不删）。
- *
- * `from_message_id` 传的是**被操作那条消息的库主键**（`parseMessageId` 的结果）。
- */
-export function openRegenerateStream(
-  sessionId: string,
-  body: { from_message_id: number; mode: 'regenerate' | 'continue'; agents?: string[] },
-  signal?: AbortSignal,
-): Promise<Response> {
-  return api.post(`agent/sessions/${sessionId}/regenerate`, { json: body, signal })
-}
-
 export function openMessageStream(
   sessionId: string,
   message: string,
@@ -184,178 +205,6 @@ export function createFolderRef(
   return api
     .post(`agent/sessions/${sessionId}/folder-refs`, { json: { kind, owner_id: ownerId, subpath } })
     .json<AgentAttachmentReceipt>()
-}
-
-/** 合同绑定文件夹的某一层条目（目录树懒加载数据源，非递归） */
-export interface FolderEntries {
-  browsable: boolean
-  message: string | null
-  path_display: string
-  subpath: string
-  parent_subpath: string
-  folders: { name: string; subpath: string }[]
-  files: { name: string; subpath: string; size: number; modified_at: string }[]
-}
-
-/**
- * 合同绑定文件夹某一层。`signal` 供 `@` 引用源的中断（查询词变了就 abort 上一轮）。
- *
- * 契约：`backend/apps/contracts/api/folder_binding_api.py`（路由前缀 `/contracts`
- * 由 `backend/apiSystem/apiSystem/api.py:217` 装配）。
- */
-export function fetchContractFolderEntries(contractId: number, subpath = '', signal?: AbortSignal): Promise<FolderEntries> {
-  return api
-    .get(`contracts/${contractId}/folder-entries`, { searchParams: subpath ? { subpath } : {}, ...(signal ? { signal } : {}) })
-    .json<FolderEntries>()
-}
-
-/**
- * 案件绑定文件夹某一层（与合同版同形：`CaseFolderEntriesResponseSchema` 与
- * `ContractFolderEntriesOut` 的 folders/files 字段一致）。
- *
- * 契约：`backend/apps/cases/api/case_folder_browse_api.py:54`
- * `GET /{case_id}/folder-entries?subpath=`，前缀 `/cases` 见 api.py:215。
- */
-export function fetchCaseFolderEntries(caseId: number, subpath = '', signal?: AbortSignal): Promise<FolderEntries> {
-  return api
-    .get(`cases/${caseId}/folder-entries`, { searchParams: subpath ? { subpath } : {}, ...(signal ? { signal } : {}) })
-    .json<FolderEntries>()
-}
-
-/** 业务范围 → 绑定文件夹某一层的条目（案件/合同两个端点同形，合并成一个入口） */
-export function fetchScopeFolderEntries(
-  scope: CopilotScope,
-  subpath = '',
-  signal?: AbortSignal,
-): Promise<FolderEntries> {
-  return scope.origin === 'case'
-    ? fetchCaseFolderEntries(scope.refId, subpath, signal)
-    : fetchContractFolderEntries(scope.refId, subpath, signal)
-}
-
-/** `@` 引用的文书/目录候选源要的行（本前端只用名字/路径/大小） */
-export interface ScopeFolderRows {
-  browsable: boolean
-  message: string | null
-  folders: { name: string; subpath: string }[]
-  files: { name: string; subpath: string; size: number }[]
-}
-
-/** 候选源再下钻几层子目录（多几次请求换「@起诉状」在真实目录结构上真能命中） */
-export const SCOPE_SUBDIR_SCAN = 6
-
-/** 绑定文件夹候选的缓存（一个业务范围一份）：候选集不随查询词变化，重复拉没意义 */
-const scopeRowsCache = new Map<string, Promise<ScopeFolderRows>>()
-
-/** 测试 / 绑定文件夹变更后用：清掉候选缓存 */
-export function clearScopeFolderRowsCache(): void {
-  scopeRowsCache.clear()
-}
-
-/**
- * 业务范围 → 绑定文件夹里可 @ 的文件与子目录（根层 + 前 {@link SCOPE_SUBDIR_SCAN} 个子目录）。
- *
- * 为什么带下钻：文书几乎不在绑定根（典型是 `1-一审/2-立案材料/起诉状.pdf`），只列根
- * 会让 `@起诉状` 永远搜不到真正想引的东西。结果按 `origin:refId` 缓存——一次打开菜单
- * 只发一轮请求，之后每个查询词都命中缓存。
- *
- * **已知局限**（需后端端点才能根治，见产出）：深层（≥3 级）文书搜不到，且无服务端
- * 递归检索能力；单个子目录读失败只跳过它（换机器/权限变了的目录很常见）。
- *
- * 注：错误不进缓存（用户到详情页重新绑定后重试应该能看到变化）。
- */
-export function loadScopeFolderRows(scope: CopilotScope): Promise<ScopeFolderRows> {
-  const key = `${scope.origin}:${scope.refId}`
-  const cached = scopeRowsCache.get(key)
-  if (cached) return cached
-  const pending = (async (): Promise<ScopeFolderRows> => {
-    const root = await fetchScopeFolderEntries(scope)
-    if (!root.browsable) return { browsable: false, message: root.message, folders: [], files: [] }
-    const subdirs = root.folders.slice(0, SCOPE_SUBDIR_SCAN)
-    const deeper = await Promise.allSettled(subdirs.map((folder) => fetchScopeFolderEntries(scope, folder.subpath)))
-    const files = root.files.map(({ name, subpath, size }) => ({ name, subpath, size }))
-    for (const result of deeper) {
-      if (result.status !== 'fulfilled' || !result.value.browsable) continue
-      for (const { name, subpath, size } of result.value.files) files.push({ name, subpath, size })
-    }
-    return { browsable: true, message: null, folders: root.folders, files }
-  })().catch((error: unknown) => {
-    scopeRowsCache.delete(key)
-    throw error
-  })
-  scopeRowsCache.set(key, pending)
-  return pending
-}
-
-/** 项目笔记的回执（`POST /agent/memory/notes` 的 `MemoryOut` 子集） */
-export interface ProjectNoteReceipt {
-  id: string
-  content: string
-  contract_id: number | null
-  case_id: number | null
-  /** 非空 = 已有人点过确认（项目事实）；空 = 同事的判断 */
-  confirmed_at: string
-}
-
-/**
- * 把一条结论存进项目笔记（同团队可见）。
- *
- * **只传 sessionId**：前端拿不到可靠的 `contract_id`（案件页的 `CopilotScope`
- * 只有 case_id），让前端猜锚点必然把结论写到错的项目上。锚点由服务端按会话
- * 归属反查，会话不属于自己时按「没有锚点」处理。
- */
-export function createProjectNote(input: {
-  content: string
-  sessionId: string
-  kind?: string
-}): Promise<ProjectNoteReceipt> {
-  return api
-    .post('agent/memory/notes', {
-      json: {
-        content: input.content,
-        session_id: input.sessionId,
-        ...(input.kind ? { kind: input.kind } : {}),
-      },
-    })
-    .json<ProjectNoteReceipt>()
-}
-
-/** 全局搜索的一条结果（`core/api/search_api.py` 的 `SearchResultItem`） */
-export interface GlobalSearchItem {
-  id: number
-  title: string
-  subtitle: string
-  side: string
-  case_type: string
-  contract_id: number | null
-  contract_name: string
-}
-
-/**
- * `GET /search` 的返回（`GlobalSearchResult`）：六类固定键，本前端只用两类的标题/副标题。
- *
- * 为什么用全局搜索做 `@案件` / `@合同` 的候选源：它不是为引用写的，但它是**唯一**
- * 按关键词跨案件/合同检索、且已做行级 ACL 过滤的端点（`search_service.py` 每条
- * search_* 都接 user/org_access）。单类列表端点（`GET /cases`）要自己拼过滤词，
- * 且搜索口径会与全局搜索漂移。
- */
-export interface GlobalSearchResult {
-  clients: GlobalSearchItem[]
-  cases: GlobalSearchItem[]
-  contracts: GlobalSearchItem[]
-  inbox: GlobalSearchItem[]
-  court_sms: GlobalSearchItem[]
-  contacts: GlobalSearchItem[]
-}
-
-/**
- * 跨实体关键词搜索。契约：`backend/apps/core/api/search_api.py:52`
- * `GET /search?q=&limit=`（前缀 `/search` 见 api.py:320）。
- *
- * `q` 为空时后端直接回空（不是错误）；`limit` 服务端硬顶 10。
- */
-export function globalSearch(q: string, limit = 5, signal?: AbortSignal): Promise<GlobalSearchResult> {
-  return api.get('search', { searchParams: { q, limit }, ...(signal ? { signal } : {}) }).json<GlobalSearchResult>()
 }
 
 /** 给一条助手消息点赞/点踩（反馈回流；rating: up/down/none，none=撤销） */

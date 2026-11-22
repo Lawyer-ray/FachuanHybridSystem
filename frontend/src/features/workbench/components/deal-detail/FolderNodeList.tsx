@@ -130,7 +130,13 @@ function FolderRow({
           style={{ paddingLeft: 4 }}
           onClick={() => ctx.toggle(folder.subpath)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') ctx.toggle(folder.subpath)
+            // 与 FolderFileRow 同口径：role="button" 需响应 Enter 与 Space，
+            // 且 Space 必须 preventDefault——否则文件夹展开/收起的同时页面滚一屏，
+            // 焦点被带出可视区。
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              ctx.toggle(folder.subpath)
+            }
           }}
           onContextMenu={(e) => {
             e.preventDefault()

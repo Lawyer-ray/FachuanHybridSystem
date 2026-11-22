@@ -185,6 +185,30 @@ describe('createFromTemplate：建普通项目', () => {
     })
   })
 
+  it('start_date 取本地今天：UTC 与本地跨日时不差一天', async () => {
+    // 回归：原实现是 `new Date().toISOString().slice(0, 10)`（UTC），东八区
+    // 00:00–07:59 建项目会把合同起始日写成昨天。23:30Z 恰好落在东八区次日
+    // 07:30：UTC 日期还是 10-20，本地已是 10-21。
+    //
+    // 期望值用 Date 的**本地**取值现算，不 import todayKey——引被测实现等于照抄。
+    // 注：跑在 UTC 时区的机器上两种写法同值，本用例恒真但不误报。
+    vi.setSystemTime(new Date('2026-10-20T23:30:00Z'))
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const localToday = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+
+    const { clientApi, contractApi, contractCalls, caseApi } = setup()
+    await createFromTemplate(EXISTING, {
+      projectName: '某某银行诉谭某某',
+      lawyerId: 7,
+      caseApi: caseApi as never,
+      contractApi: contractApi as never,
+      clientApi: clientApi as never,
+    })
+    const json = (contractCalls[0]?.opts as { json: Record<string, unknown> }).json
+    expect(json.start_date).toBe(localToday)
+  })
+
   it('案件字段：当事人分原告/被告、指派、管辖法院', async () => {
     const { clientApi, contractApi, caseApi, caseCalls } = setup()
     await createFromTemplate(EXISTING, {

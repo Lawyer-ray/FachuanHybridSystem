@@ -15,7 +15,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatBytes } from '@/lib/format'
 import { errMessage } from '@/lib/errors'
 import { getLinkInfo, listUploadedFiles, uploadFiles } from '../api'
-import { ACCEPT_ATTR, CLOSED_STATE_TEXT, type LinkState, type PublicFileItem, type PublicLinkInfo } from '../types'
+import { ACCEPT_ATTR, CLOSED_STATE_TEXT } from '../constants'
+import type { LinkState, PublicFileItem, PublicLinkInfo } from '../types'
 
 function stateHint(state: LinkState): string {
   if (state === 'open') return ''
@@ -140,32 +141,50 @@ export function ClientUploadPage() {
           </section>
         ) : (
           <>
+            {/* 上传区：整个区域可点（行为不变），但必须同时能键盘进入并回车/空格触发。
+                这是客户（非律师）唯一的上传入口，微信内置浏览器里也常有键盘/读屏用户。 */}
             <section
-              className="cursor-pointer rounded-xl border-2 border-dashed border-zinc-300 px-4 py-10 text-center transition-colors hover:border-zinc-400"
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer rounded-xl border-2 border-dashed border-zinc-300 px-4 py-10 text-center transition-colors hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               onClick={() => inputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  inputRef.current?.click()
+                }
+              }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault()
                 addFiles(e.dataTransfer.files)
               }}
             >
-              <UploadCloud className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <UploadCloud className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden />
               <p className="text-sm font-medium">点击选择文件，或把文件拖到这里</p>
               <p className="mt-2 text-xs text-muted-foreground">
                 支持 PDF / Word / Excel / PPT / 图片 / 压缩包；单个文件 ≤ 50MB，压缩包 ≤ 200MB
               </p>
-              <input
-                ref={inputRef}
-                type="file"
-                multiple
-                accept={ACCEPT_ATTR}
-                className="hidden"
-                onChange={(e) => {
-                  addFiles(e.target.files)
-                  e.target.value = ''
-                }}
-              />
             </section>
+            {/* 真正的 file input 留在按钮之外：`display:none` 时本来就不在无障碍树上，
+                放进去只会形成 role=button 内嵌交互控件。由上面的区域负责触发。 */}
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept={ACCEPT_ATTR}
+              aria-label="选择要上传的文件"
+              className="hidden"
+              onChange={(e) => {
+                addFiles(e.target.files)
+                e.target.value = ''
+              }}
+            />
+
+            {/* 已选份数给读屏播报（视觉上不新增任何文字，份数仍在提交按钮上） */}
+            <p className="sr-only" aria-live="polite">
+              {files.length > 0 ? `已选 ${files.length} 个文件` : ''}
+            </p>
 
             {files.length > 0 && (
               <ul className="mt-4 space-y-2">

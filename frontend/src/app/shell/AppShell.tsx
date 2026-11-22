@@ -6,7 +6,7 @@ import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { CopilotPanelLazy, PanelBackdropLazy, preloadAllRoutes, preloadRoute, whenIdle } from '../preload'
 import { assistant, assistantSession, isAssistantPath } from '../paths'
-import { RouteFallback } from '../router'
+import { RouteFallback } from './route-fallback'
 import { useCopilotShell } from './use-copilot-shell'
 
 /**

@@ -199,7 +199,7 @@ describe('OCR 与检索', () => {
     const rows = [{ id: 1, name: '案件A' }]
     core.get.mockReturnValueOnce(respond(rows))
     await expect(searchCases('王五')).resolves.toBe(rows)
-    expect(core.get).toHaveBeenCalledWith('cases/search', {
+    expect(core.get).toHaveBeenCalledWith('cases/cases/search', {
       searchParams: { q: '王五', limit: '10' },
       signal: undefined,
     })

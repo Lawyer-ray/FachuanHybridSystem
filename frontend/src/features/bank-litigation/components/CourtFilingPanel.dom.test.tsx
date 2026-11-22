@@ -49,7 +49,7 @@ vi.mock('./court/SubmitHistory', () => ({
 }))
 vi.mock('./court/CourtPlatform', () => ({ CourtPlatform: () => <div>COURT_PLATFORM</div> }))
 
-import { CourtFilingPanel } from './FilingPanels'
+import { CourtFilingPanel } from './CourtFilingPanel'
 
 /** 立案信息：默认全绿（能直接递） */
 function info(over: Record<string, unknown> = {}) {

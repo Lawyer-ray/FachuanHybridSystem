@@ -7,8 +7,8 @@
  * - `buildPhases`：根层目录 → 阶段骨架，仅在合同还没有结构化阶段时给页面兜底内容。
  */
 
-import type { PhaseNode } from './special-phase-tree'
-import { splitVersion, type Deliverable, type PhaseState } from './special-term'
+import type { PhaseNode, PhaseState } from './special-phase-tree'
+import { splitVersion, type Deliverable } from './special-term'
 
 /** 认作专项的阶段目录：`<序号>-名称` 或 `日期-名称`，且**不是**发票/邮寄等档案目录 */
 const ARCHIVE_DIR = /发票|邮寄|合同|收据|归档|往来|其他|附件/i
@@ -81,7 +81,7 @@ export function buildPhases(folders: FolderKid[]): FolderPhase[] {
 
   return rows.map<FolderPhase>((r, i) => {
     const fileCount = counts[i] ?? 0
-    const state: PhaseState = fileCount > 0 ? 'ok' : i === lastFilled + 1 ? 'doing' : 'todo'
+    const state: PhaseState = fileCount > 0 ? 'done' : i === lastFilled + 1 ? 'doing' : 'todo'
     return { name: r.title, subpath: r.f.subpath, startDate: r.date, fileCount, state }
   })
 }

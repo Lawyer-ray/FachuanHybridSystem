@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 
 import { CaseListPage } from './CaseListPage'
 import { fmtMoney } from '../utils'
-import { CourtFilingPanel } from './FilingPanels'
+import { CourtFilingPanel } from './CourtFilingPanel'
 import { DocConvertPanel } from './DocConvertPanel'
 import { OAStampPanel } from './OAActionPanels'
 import { OAArchivePanel } from './ArchiveChecklistPanel'

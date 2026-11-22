@@ -154,7 +154,7 @@ describe('searchCases', () => {
     core.get.mockReturnValue(respond([{ id: 1 }]))
     const ac = new AbortController()
     await expect(searchCases('谭某某', ac.signal)).resolves.toEqual([{ id: 1 }])
-    expect(core.get).toHaveBeenCalledWith('cases/search', {
+    expect(core.get).toHaveBeenCalledWith('cases/cases/search', {
       searchParams: { q: '谭某某', limit: '10' },
       signal: ac.signal,
     })

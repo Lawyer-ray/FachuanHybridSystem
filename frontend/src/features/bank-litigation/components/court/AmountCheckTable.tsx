@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
 
-import { PageTable } from './PageTable'
+import { PageTable } from '../PageTable'
 import { Pill } from '../ui'
 
 import { DEMO_COURT_AMOUNT_CHECK } from '../demo-data'

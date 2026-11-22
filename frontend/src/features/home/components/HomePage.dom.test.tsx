@@ -44,7 +44,7 @@ vi.mock('./CalendarPanel', async () => {
   return {
   // 真实面板按**自身净宽**算密度再回传（见 calendar-density.ts）；这里用 mediaMock 代替，
   // 手机视口 → 紧凑档，于是「点格子开当日抽屉」。
-    CalendarPanel: (p: { view: unknown; onSelectDay: (k: string) => void; onShiftMonth: (d: number) => void; onGoToday: () => void; onOpenEvent: (e: unknown) => void; onOpenAdd: (d: string) => void; onEventContextMenu?: (e: unknown, pos: { x: number; y: number }) => void; onCompactChange?: (compact: boolean) => void }) => {
+    CalendarPanel: (p: { view: unknown; onSelectDay: (k: string) => void; onShiftMonth: (d: number) => void; onGoToday: () => void; onOpenAdd: (d: string) => void; eventActions: { onOpenEvent: (e: unknown) => void; onToggleComplete: (e: unknown) => void; onEventContextMenu?: (e: unknown, pos: { x: number; y: number }) => void }; onCompactChange?: (compact: boolean) => void }) => {
       useEffect(() => {
         p.onCompactChange?.(mediaMock.isMobile)
       }, [p])
@@ -59,9 +59,9 @@ vi.mock('./CalendarPanel', async () => {
           <button type="button" onClick={() => p.onShiftMonth(1)}>下月</button>
           <button type="button" onClick={() => p.onShiftMonth(-1)}>上月</button>
           <button type="button" onClick={() => p.onGoToday()}>回今天</button>
-          <button type="button" onClick={() => p.onOpenEvent({ id: 7, day: '2026-11-15', title: '开庭', member_ids: [11, 12], is_completed: false })}>打开事件</button>
+          <button type="button" onClick={() => p.eventActions.onOpenEvent({ id: 7, day: '2026-11-15', title: '开庭', member_ids: [11, 12], is_completed: false })}>打开事件</button>
           <button type="button" onClick={() => p.onOpenAdd('2026-11-20')}>加安排</button>
-          <button type="button" onClick={() => p.onEventContextMenu?.({ id: 8, day: '2026-11-15', title: '右键事件' }, { x: 10, y: 20 })}>右键事件</button>
+          <button type="button" onClick={() => p.eventActions.onEventContextMenu?.({ id: 8, day: '2026-11-15', title: '右键事件' }, { x: 10, y: 20 })}>右键事件</button>
         </div>
       )
     },
@@ -85,7 +85,7 @@ const inboxProps = vi.hoisted(() => ({
   onOpen: null as null | ((i: unknown) => void),
   onOpenPack: null as null | ((id: number) => void),
 }))
-vi.mock('./SideCards', () => ({
+vi.mock('./InboxCard', () => ({
   InboxCard: (p: { onOpen: (i: unknown) => void; onOpenPack: (id: number) => void }) => {
     inboxProps.onOpen = p.onOpen
     inboxProps.onOpenPack = p.onOpenPack
@@ -106,8 +106,9 @@ vi.mock('./SideCards', () => ({
       </div>
     )
   },
-  QuickAdd: () => <div>QUICK_ADD</div>,
 }))
+
+vi.mock('./QuickAdd', () => ({ QuickAdd: () => <div>QUICK_ADD</div> }))
 
 vi.mock('./ToolDock', () => ({ ToolDock: () => <div>TOOL_DOCK</div> }))
 

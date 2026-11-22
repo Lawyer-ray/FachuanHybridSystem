@@ -31,11 +31,11 @@ const stubs = vi.hoisted(() => ({
 vi.mock('@/features/auth', () => ({
   useAuth: (sel: (s: typeof stubs.authState) => unknown) => sel(stubs.authState),
 }))
-vi.mock('@/lib/api', () => ({
-  api: {
-    get: vi.fn(() => ({ json: stubs.jsonMock })),
-  },
-}))
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>()
+  // 只替换断言用到的 api；其余导出保持真实，否则任一 feature 新增客户端工厂都会打红本档。
+  return { ...actual, api: { get: vi.fn(() => ({ json: stubs.jsonMock })) } }
+})
 vi.mock('@/features/search', () => ({
   GlobalSearch: ({ open }: { open: boolean }) => <div>{open ? 'gs-open' : 'gs-closed'}</div>,
 }))

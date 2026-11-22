@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// 先引 store 再引 api：store/turn ↔ turn-handlers 有模块级环，反过来引会让
-// createTurnSlice 在初始化前被读成 undefined（其余 store 测试同此顺序）
-import { useCopilot } from './store'
 import * as copilotApi from './api'
+import { useCopilot } from './store'
 
 vi.mock('./api', () => ({
   createSession: vi.fn(),

@@ -3,7 +3,7 @@
  * 立案会话的共用呈现：轮询阶段文案 + 会话结果块。
  *
  * ═══ 为什么单独一个文件 ═══
- * OA 立案（`oa/OAFilingPanel.tsx`）与一张网（`FilingPanels.tsx`）的会话形状完全相同：
+ * OA 立案（`oa/OAFilingPanel.tsx`）与一张网（`CourtFilingPanel.tsx`）的会话形状完全相同：
  * 提交 → 后台跑 → 轮询 → 终态停。两侧共用这套阶段文案与结果块，
  * 但 react-refresh 规则不允许一个「组件文件」再导出常量/纯函数，
  * 所以把共用部分收在这里，两个面板各自 import。

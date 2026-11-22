@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { copyInvoiceToClipboard } from '../api'
 import { formatAmount } from '../constants'
 import { ROW_BTN } from '@/components/shared/panel-styles'
+import { copyText } from '@/lib/clipboard'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
@@ -94,14 +95,4 @@ export function ConfirmedInvoiceRow({ row }: { row: ConfirmedRow }) {
       </div>
     </div>
   )
-}
-
-/** 落板失败时兜底复制文件名（至少能对上文件）。 */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
 }

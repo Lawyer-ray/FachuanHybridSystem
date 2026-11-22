@@ -132,7 +132,7 @@ export function AnswerAgentMenu({
   // 清单没拉到时也要能显示「这家是谁」：kind 原文比空白可读
   const names = selected.map((kind) => findBackend(backends, kind)?.label ?? kind)
   // 空串 = 未选（不显示摘要文字，只留图标）
-  const summary = names.length === 0 ? '' : names.length === 1 ? names[0]! : `${names.length} 个 AI`
+  const summary = names.length === 0 ? '' : names.length === 1 ? (names.at(0) ?? '') : `${names.length} 个 AI`
   // 未选时「本轮到底谁在跑」只能靠菜单里的默认项：触发器上补一个默认后端名
   const fallbackKind = defaultKind || DEFAULT_AGENT_KIND
   const defaultLabel = findBackend(backends, fallbackKind)?.label ?? fallbackKind

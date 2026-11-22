@@ -221,9 +221,12 @@ export function mergeAgentAnswers(answers: ChatMessage[], agents: readonly strin
 
   // 把工具挂回各自那一栏。挂在**合并后**的那条上（而不是每段 assistant 各挂），
   // 界面才是「一个人 → 他查过的东西 → 他的话」，而不是「话、工具、话、工具」。
+  // 回填时**造新对象**而不是 `answer.tools = tools`：`byAgent` 里装的是入参的原
+  // 对象（渲染期就是 store `messages` 的切片），就地写等于在 render 里给 store
+  // 状态挂字段。返回的合并结果全为新引用，入参零改动（同 domain/knowledge 口径）。
   for (const [kind, tools] of toolsByAgent) {
     const answer = byAgent.get(kind)
-    if (answer) answer.tools = tools
+    if (answer) byAgent.set(kind, { ...answer, tools })
   }
   // 归位后的工具 id（下面过滤要用同一份判据，不能各算一遍）
   const attached = attachedToolIds([...byAgent.values()])

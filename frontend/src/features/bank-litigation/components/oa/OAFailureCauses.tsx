@@ -11,7 +11,7 @@
  * 演示态常量 `DEMO_OA_FAILURE_CAUSES`；真实实现应来自会话失败事件聚合。
  */
 
-import { PageTable } from '../court/PageTable'
+import { PageTable } from '../PageTable'
 import { Pill } from '../ui'
 import { DEMO_OA_FAILURE_CAUSES } from '../demo-data'
 

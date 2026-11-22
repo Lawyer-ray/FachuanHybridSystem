@@ -12,7 +12,7 @@ import { ArrowRight } from 'lucide-react'
 
 import { DEMO_X3_FIX_DIFF } from '../demo-data'
 import { ActionButton, InsetBlock, Pill } from '../ui'
-import { DetailDrawer } from './DetailDrawer'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 
 export function FilingFixPreviewDrawer({
   open,

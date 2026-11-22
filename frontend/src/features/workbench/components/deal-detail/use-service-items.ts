@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 
 import { listFolderEntries, type FolderOwnerKind } from '../../api'
 import { workbenchKeys } from '../../hooks/use-workbench-data'
-import { parseDatedFolder, pickServiceItems, stripOrderPrefix } from './service-items'
+import { parseDatedFolder, pickServiceItems, serviceItemStatus, stripOrderPrefix } from './service-items'
 import type { ServiceItem } from './ServiceItemStream'
 
 /**
@@ -71,10 +71,10 @@ export function useServiceItems(
       })
       .map<ServiceItem>(({ kid, date, title }) => {
         // 交付状态看事项目录里**有没有文件**（后端在列目录时顺手算了 file_count）：
-        // 空目录 = 事情还没产出东西 → 待办/进行中。比「有没有日期」可靠得多——
-        // 日期只说明计划过，文件才说明做完了。
+        // 空目录 = 事情还没产出东西 → 待办/进行中。判据本身在 serviceItemStatus
+        // 里（唯一真身，测试引同一份）。
         const n = kid.file_count ?? 0
-        const status: ServiceItem['status'] = n > 0 ? 'done' : date ? 'doing' : 'todo'
+        const status = serviceItemStatus(n, date !== '')
         return {
           date,
           kind: '办案',

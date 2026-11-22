@@ -1,7 +1,7 @@
 import { FileDown, Loader2, PackageOpen } from 'lucide-react'
 
 import { ContextMenuItem } from '@/components/ui/context-menu'
-import type { SegmentDownloads, SegmentFileKind, SegmentRowDownload } from './use-segment-selection'
+import type { SegmentDownloads, SegmentFileKind, SegmentRowDownload } from './use-segment-downloads'
 
 /**
  * 「下载已转好的产物」的 UI：列表头工具条 + 段行里的勾选框与 PDF/MD 按钮。
@@ -16,7 +16,7 @@ import type { SegmentDownloads, SegmentFileKind, SegmentRowDownload } from './us
  * 宽度预算），而只要 PDF 不要 MD 是低频需求。真要一段的产物，勾上它 → 「下载选中（1）」
  * 只需两下；右键菜单只是给细粒度需求留的门。
  *
- * 状态与换票逻辑全在 `use-segment-selection.ts`：工具条和段行必须是**同一份**
+ * 状态与换票逻辑全在 `use-segment-downloads.ts` / `use-segment-selection.ts`：工具条和段行必须是**同一份**
  * 选中/置忙状态，两处各自 useState 迟早不同步。本文件只管长相。
  *
  * 落点为什么是左栏（Rail）：段列表本来就在那儿——律师在这里认段、改名、调序，

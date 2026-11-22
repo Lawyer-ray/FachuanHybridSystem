@@ -5,7 +5,6 @@ import { FileStack, Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { bankLitigation, materialPrep, projectDetail } from '@/app/paths'
-import { createApiClient } from '@/lib/api'
 import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -19,7 +18,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
-import { PROJECT_TEMPLATES, createFromTemplate, fetchSampleFile, type ProjectTemplate } from '../templates'
+import { createBlankProject, createProjectFromTemplate, currentLawyerId, uploadSampleMaterial } from '../api/project'
+import { PROJECT_TEMPLATES, type ProjectTemplate } from '../templates'
 
 /**
  * 新建项目对话框。
@@ -57,67 +57,18 @@ export function NewProjectDialog({
     if (!canSubmit) return
     setBusy(true)
     try {
-      const me = await currentLawyerId()
-      const caseApi = createApiClient({ prefix: '/api/v1/cases' })
-      const contractApi = createApiClient({ prefix: '/api/v1/contracts' })
-      const clientApi = createApiClient({ prefix: '/api/v1/client' })
-
-      let caseId: number
-      // 合同 id 与案件 id 是两套独立自增的主键，跳转时必须用对的那个：
-      // `/projects/:id` 要合同 id。这里显式记下来，不在跳转处猜。
-      let contractId: number | null = null
-      if (tpl) {
-        const r = await createFromTemplate(tpl, {
-          projectName: name.trim(),
-          lawyerId: me,
-          caseApi,
-          contractApi,
-          clientApi,
-        })
-        caseId = r.caseId
-        contractId = r.contractId
-      } else {
-        // 空白项目：只建合同+案件，别的等用户自己填
-        const r = await contractApi
-          .post('contracts/full', {
-            json: {
-              name: name.trim(),
-              case_type: 'civil',
-              status: 'active',
-              start_date: new Date().toISOString().slice(0, 10),
-              lawyer_ids: [me],
-              fee_mode: 'FIXED',
-              fixed_amount: 5000,
-              cases: [
-                {
-                  name: `${name.trim()}·案件`,
-                  case_type: 'civil',
-                  status: 'active',
-                  current_stage: 'first_trial',
-                  cause_of_action: '',
-                },
-              ],
-            },
-          })
-          .json<{ id?: number }>()
-        contractId = r?.id != null ? Number(r.id) : null
-        const list = await caseApi.get('cases').json<{ id?: number; name?: string; contract_id?: number }[]>()
-        const hit = list.find((c) => c.contract_id === r?.id)
-        if (hit?.id == null) throw new Error('建项目失败：建完案件后查不到')
-        caseId = Number(hit.id)
-      }
+      const lawyerId = await currentLawyerId()
+      const created = tpl
+        ? await createProjectFromTemplate(tpl, { projectName: name.trim(), lawyerId })
+        : await createBlankProject(name.trim(), lawyerId)
+      const { caseId, contractId } = created
 
       await qc.invalidateQueries({ queryKey: ['cases'] })
 
       // 同时放入示例材料：与真实上传走同一条路径（进收件箱 → 待处理）
       if (tpl && withSample) {
         toast.loading('正在放入示例材料…', { id: 'newproj' })
-        const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
-        const file = await fetchSampleFile(tpl)
-        const fd = new FormData()
-        fd.append('files', file)
-        fd.append('subject', tpl.sample.label)
-        await inboxApi.post('messages/upload', { body: fd, timeout: 300_000 })
+        await uploadSampleMaterial(tpl)
         toast.success('项目已创建，示例材料已进「待处理」', { id: 'newproj', duration: 4000 })
         onOpenChange(false)
         void navigate(materialPrep('todo'))
@@ -229,19 +180,4 @@ export function NewProjectDialog({
       </DialogContent>
     </Dialog>
   )
-}
-
-/** 当前律师 id（新建项目必须指派主办律师） */
-async function currentLawyerId(): Promise<number> {
-  const orgApi = createApiClient({ prefix: '/api/v1/organization' })
-  try {
-    const me = await orgApi.get('me').json<{ id?: number }>()
-    if (me?.id != null) return Number(me.id)
-  } catch {
-    /* 端点不可用时走兜底 */
-  }
-  const list = await orgApi.get('lawyers').json<{ id: number }[] | { items?: { id: number }[] }>()
-  const arr = Array.isArray(list) ? list : (list.items ?? [])
-  if (arr[0]?.id != null) return Number(arr[0].id)
-  throw new Error('无法确定当前律师，请重新登录后重试')
 }

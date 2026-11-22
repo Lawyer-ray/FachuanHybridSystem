@@ -28,7 +28,7 @@ vi.mock('./intro-cache', () => ({
   hasPlayedIntro: () => hasPlayedMock(),
   markIntroPlayed: vi.fn(),
 }))
-vi.mock('../../hooks/use-media', () => ({ useMediaQuery: () => mediaDesktop }))
+vi.mock('@/hooks/use-media', () => ({ useMediaQuery: () => mediaDesktop }))
 vi.mock('./components/PasswordLoginForm', () => ({ PasswordLoginForm: () => <div>账密表单</div> }))
 vi.mock('./components/PasskeyLoginButton', () => ({ PasskeyLoginButton: () => <div>通行密钥按钮</div> }))
 vi.mock('./components/SocialQrPanel', () => ({ SocialQrPanel: () => <div>二维码面板</div> }))

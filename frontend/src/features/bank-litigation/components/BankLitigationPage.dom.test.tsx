@@ -37,7 +37,7 @@ vi.mock('./CaseListPage', () => ({
     )
   },
 }))
-vi.mock('./FilingPanels', () => ({
+vi.mock('./CourtFilingPanel', () => ({
   CourtFilingPanel: ({ caseId }: { caseId: number }) => <div>COURT_FILING:{caseId}</div>,
 }))
 vi.mock('./DocConvertPanel', () => ({
