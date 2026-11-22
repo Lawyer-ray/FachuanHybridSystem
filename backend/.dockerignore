@@ -27,6 +27,13 @@ apiSystem/db.sqlite3
 dump.rdb
 cookies/
 scripts/
+# 2026-11-23 审计：Dockerfile 是 `COPY . .`，上面只排了 scripts/，而 devtools/
+# （security_guard / privacy_review 等调试与审查脚本）和 tests/（1700+ 个测试文件）
+# 会被原样烤进生产镜像——与那行注释的**意图直接矛盾**，也白白增大镜像与攻击面。
+# 生产代码对这两个目录零 import（`rg "from devtools|from tests" apps apiSystem mcp_server` 为空），
+# 容器入口与 deploy 脚本也不需要它们。
+devtools/
+tests/
 .secrets.baseline
 .env.*
 *.rdb

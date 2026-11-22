@@ -20,14 +20,14 @@ def get_feishu_configs() -> list[dict[str, Any]]:
             "key": "FEISHU_APP_SECRET",
             "category": "feishu",
             "description": "飞书应用 App Secret",
-            "value": "vkKUfuUb9QOxqjxESKMwCdKVsHOW81OL",
+            "value": "",
             "is_secret": True,
         },
         {
             "key": "FEISHU_DEFAULT_OWNER_ID",
             "category": "feishu",
             "description": "飞书群聊默认群主 ID（open_id 格式：ou_xxxxxx）",
-            "value": "ou_ca5452b3e9bc932c9980f3e313867aed",
+            "value": "",
             "is_secret": False,
         },
         # ============ 群聊名称模板配置 ============
