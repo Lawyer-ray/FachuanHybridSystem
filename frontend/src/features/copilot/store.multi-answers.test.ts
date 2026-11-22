@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as copilotApi from './api'
 import { useCopilot } from './store'
+import { MAX_ANSWERS } from './domain'
 import { canAddAnswerAgent, resolveAnswerAgents, resolveAnswerSpecs } from './store/turn'
 import type { AgentBackendOption, AgentSession } from './types'
 
@@ -101,15 +102,22 @@ describe('resolveAnswerAgents / canAddAnswerAgent（开流前的栏数决策）'
     expect(resolveAnswerAgents({ backends: [], answerAgents: ['pi', 'dsh'] })).toEqual(['pi', 'dsh'])
   })
 
+  // 下面的用例都**跟着 {@link MAX_ANSWERS} 算**，不写字面值：上限是产品常量
+  // （随可用后端增减），把 4 / 5 写进断言就等于给它加了一颗地雷——常量一变，
+  // 几条与上限无关的用例一起红，而下一个人会以为是逻辑坏了。
+  const kinds = (n: number) => Array.from({ length: n }, (_, i) => `k${i}`)
+
   it('超过 MAX_ANSWERS 的部分被截掉（后端会 400，前端先截）', () => {
-    const backends = ['a', 'b', 'c', 'd', 'e'].map((k) => option(k))
-    expect(resolveAnswerAgents({ backends, answerAgents: ['a', 'b', 'c', 'd', 'e'] })).toEqual(['a', 'b', 'c', 'd'])
+    const picked = kinds(MAX_ANSWERS + 2)
+    const backends = picked.map((k) => option(k))
+    expect(resolveAnswerAgents({ backends, answerAgents: picked })).toEqual(picked.slice(0, MAX_ANSWERS))
   })
 
-  it('canAddAnswerAgent：满 4 个后不能再加', () => {
+  it(`canAddAnswerAgent：满 ${MAX_ANSWERS} 个后不能再加`, () => {
+    const full = kinds(MAX_ANSWERS)
     expect(canAddAnswerAgent([])).toBe(true)
-    expect(canAddAnswerAgent(['a', 'b', 'c'])).toBe(true)
-    expect(canAddAnswerAgent(['a', 'b', 'c', 'd'])).toBe(false)
+    expect(canAddAnswerAgent(full.slice(0, MAX_ANSWERS - 1))).toBe(true)
+    expect(canAddAnswerAgent(full)).toBe(false)
   })
 })
 
@@ -180,10 +188,11 @@ describe('answerAgents 的选择（toggleAnswerAgent）', () => {
     expect(useCopilot.getState().answerAgents).toEqual(['pi'])
   })
 
-  it('满 4 个后忽略新增（键盘/程序路径也不能绕过上限）', () => {
-    useCopilot.setState({ answerAgents: ['a', 'b', 'c', 'd'] })
-    useCopilot.getState().toggleAnswerAgent('e')
-    expect(useCopilot.getState().answerAgents).toEqual(['a', 'b', 'c', 'd'])
+  it(`满 ${MAX_ANSWERS} 个后忽略新增（键盘/程序路径也不能绕过上限）`, () => {
+    const full = Array.from({ length: MAX_ANSWERS }, (_, i) => `k${i}`)
+    useCopilot.setState({ answerAgents: full })
+    useCopilot.getState().toggleAnswerAgent('overflow')
+    expect(useCopilot.getState().answerAgents).toEqual(full)
   })
 
   it('登出清空选择', () => {
