@@ -134,7 +134,7 @@ async def synthesize_session(request: Any, session_id: str, payload: SynthesisIn
 
     review_summary = ""
     if payload.review:
-        review_summary = await _run_review_summary(session=session, turn=payload.turn, lanes=lanes)
+        review_summary = await _run_review_summary(session=session, user_id=user_id, turn=payload.turn, lanes=lanes)
 
     model = (payload.model or "").strip()
     if not model:
@@ -194,16 +194,20 @@ async def synthesize_session(request: Any, session_id: str, payload: SynthesisIn
     return synthesis
 
 
-async def _run_review_summary(*, session: Any, turn: int, lanes: list[str]) -> str:
-    """跑一轮评审并把结论压成一段给综合看的文字；跑不成返回空串。
+async def _run_review_summary(*, session: Any, user_id: int | None, turn: int, lanes: list[str]) -> str:
+    """跑一轮评审、**落库**，并把结论压成一段给综合看的文字；跑不成返回空串。
 
     **不阻断综合**：评审是"更准"的手段，不是前置条件。判官模型没配、评审报错，
-    综合照样跑（只是少了取舍依据），这与"点了综合结果什么都没出"是两种体验。
+    综合照样跑（只是少了取舍依据）。
+
+    **为什么要落库**：前端把「评审」并进了「生成综合结论」这一个按钮，评审结果
+    不再由用户单独触发——不落库的话，那 5 万 token 打出来的分数只喂给模型、
+    律师一点也看不到，审计里也查不到"这份综合是基于什么评的"。
     """
     from ..services.review.judge_models import configured_judge_models, resolve_judge_models
     from ..services.review.jury import run_jury
     from ..services.review.rubric import DEFAULT_RUBRIC_ID, load_rubric
-    from ..services.review.store import load_turn_answers, load_turn_models
+    from ..services.review.store import load_turn_answers, load_turn_models, save_review
 
     try:
         rubric = load_rubric(DEFAULT_RUBRIC_ID)
@@ -220,6 +224,14 @@ async def _run_review_summary(*, session: Any, turn: int, lanes: list[str]) -> s
             rubric=rubric,
             judge_models=judge_models,
             rubric_id=DEFAULT_RUBRIC_ID,
+        )
+        # 落库：前端合并按钮后没有"只评审"入口，不落库这份打分就彻底不可见。
+        await save_review(
+            session=session,
+            user_id=user_id,
+            rubric_id=DEFAULT_RUBRIC_ID,
+            judge_models=judge_models,
+            review=review,
         )
     except (KeyboardInterrupt, SystemExit, GeneratorExit):
         raise

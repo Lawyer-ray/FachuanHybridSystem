@@ -164,6 +164,15 @@ export function useReviewActions(
         review: synthesisWithReview,
       })
       setSynthesis(toSynthesisView(wire))
+      // 综合内部会先跑评审（后端同一条链路），但它不经过本 hook 的 setReview。
+      // 成功后回读一次，把打分卡补上——否则「先评审」勾了却看不到任何打分。
+      if (synthesisWithReview) {
+        fetchReview(targetSessionId, targetTurn)
+          .then((value) => setReview(toReviewView(value)))
+          .catch(() => {
+            /* 评审没落库/没跑成都不影响综合结果，静默即可 */
+          })
+      }
     } catch (error) {
       toast.error('综合结论失败', { description: errMessage(error, '请稍后重试') })
     } finally {

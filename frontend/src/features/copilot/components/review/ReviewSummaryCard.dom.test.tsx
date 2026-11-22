@@ -284,13 +284,30 @@ describe('AdoptBar：采纳 / 合并 / 回显', () => {
   })
 })
 
+
+/** 综合结论的 wire 形状（`toSynthesisView` 只读这几个字段）。 */
+function synthesisWire() {
+  return {
+    synthesis_id: 'syn-1',
+    session_id: 's-1',
+    turn: 2,
+    text: '综合稿[来源：pi]',
+    model: 'kimi-2.6',
+    lanes_used: ['pi', 'dsh'],
+    dropped: [],
+    citations: [],
+    unverified: [],
+    tokens: {},
+  }
+}
+
 describe('MultiAnswers：无评审数据整块不渲染', () => {
   const answers: ChatMessage[] = [
     { id: 'a1', role: 'assistant', content: '主答', agentKind: 'pi' },
     { id: 'a2', role: 'assistant', content: '次答', agentKind: 'dsh' },
   ]
 
-  it('该轮没有评审（404）→ 不渲染空卡，但给「评审」按钮且不自动跑', async () => {
+  it('该轮没有评审（404）→ 不渲染空卡；只给「生成综合结论」按钮且不自动跑', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
     render(
       <MultiAnswers
@@ -301,14 +318,41 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     )
     await waitFor(() => expect(apiSpies.fetchReview).toHaveBeenCalledWith('s-1', 2))
     expect(screen.queryByTestId('review-summary')).toBeNull()
-    // 花了才跑：收起时绝不能已经发过 POST
-    expect(await screen.findByRole('button', { name: '评审' })).toBeTruthy()
+    // 只有一个入口：评审并进了综合按钮（打分是其中一步，不再需要先点一次）
+    expect(screen.queryByRole('button', { name: '评审' })).toBeNull()
+    expect(await screen.findByRole('button', { name: '生成综合结论' })).toBeTruthy()
+    // 花了才跑：还没点，绝不能已经发过 POST
+    expect(apiSpies.runReview).not.toHaveBeenCalled()
+    expect(apiSpies.runSynthesis).not.toHaveBeenCalled()
+  })
+
+  it('点「生成综合结论」：默认带 review=true（先评审后综合），不为评审单独发请求', async () => {
+    apiSpies.fetchReview.mockRejectedValue(new Error('404'))
+    apiSpies.runSynthesis.mockResolvedValue(synthesisWire())
+    render(
+      <MultiAnswers
+        answers={answers}
+        renderAnswer={() => <div />}
+        reviewTarget={{ sessionId: 's-1', turn: 2 }}
+      />,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: '生成综合结论' }))
+    await waitFor(() =>
+      expect(apiSpies.runSynthesis).toHaveBeenCalledWith('s-1', {
+        turn: 2,
+        agents: ['pi', 'dsh'],
+        model: '',
+        kind: 'pi',
+        review: true,
+      }),
+    )
+    // 评审不再单独 POST：它由后端在综合请求里一并跑
     expect(apiSpies.runReview).not.toHaveBeenCalled()
   })
 
-  it('点「评审」才 POST（snake_case 请求体），成功后本地挂出卡片', async () => {
+  it('取消勾选「先评审」→ review=false', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
-    apiSpies.runReview.mockResolvedValue(reviewWire())
+    apiSpies.runSynthesis.mockResolvedValue(synthesisWire())
     render(
       <MultiAnswers
         answers={answers}
@@ -316,22 +360,16 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
         reviewTarget={{ sessionId: 's-1', turn: 2 }}
       />,
     )
-    fireEvent.click(await screen.findByRole('button', { name: '评审' }))
-    await waitFor(() =>
-      expect(apiSpies.runReview).toHaveBeenCalledWith('s-1', {
-        turn: 2,
-        agents: ['pi', 'dsh'],
-        rubricId: 'contract_answer_v1',
-        // 平台清单 = judge 模型与重试回退链
-        judgeModels: ['judge-a'],
-      }),
-    )
-    expect((await screen.findByTestId('review-summary')).textContent).toContain('pi 栏多数通过')
+    const checkbox = (await screen.findByTestId('synthesis-with-review')) as HTMLInputElement
+    expect(checkbox.checked).toBe(true)
+    fireEvent.click(checkbox)
+    fireEvent.click(screen.getByRole('button', { name: '生成综合结论' }))
+    await waitFor(() => expect(apiSpies.runSynthesis).toHaveBeenCalledWith('s-1', expect.objectContaining({ review: false })))
   })
 
-  it('平台没有可用模型（judge_models 空）→ 按钮禁用并说明原因', async () => {
+  it('平台没有可用评审模型 → 不禁用按钮，提示"本次会跳过评审直接综合"', async () => {
     apiSpies.fetchReview.mockRejectedValue(new Error('404'))
-    apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: [], max_lanes: 4 })
+    apiSpies.fetchReviewOptions.mockResolvedValue({ rubric_ids: [], judge_models: [], max_lanes: 5 })
     render(
       <MultiAnswers
         answers={answers}
@@ -339,12 +377,12 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
         reviewTarget={{ sessionId: 's-1', turn: 2 }}
       />,
     )
-    const button = await screen.findByRole('button', { name: '评审' })
-    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(true))
-    expect(screen.getByTestId('review-start').textContent).toContain('平台无可用评审模型')
+    const button = (await screen.findByRole('button', { name: '生成综合结论' })) as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    expect((await screen.findByTestId('review-models-missing')).textContent).toContain('跳过评审')
   })
 
-  it('有评审 → 栏下方挂出汇总卡，并在其下给出「综合结论」按钮', async () => {
+  it('有评审 → 挂出汇总卡；综合按钮始终在（不再依赖评审先跑完）', async () => {
     apiSpies.fetchReview.mockResolvedValue(reviewWire())
     render(
       <MultiAnswers
@@ -355,7 +393,7 @@ describe('MultiAnswers：无评审数据整块不渲染', () => {
     )
     expect((await screen.findByTestId('review-summary')).textContent).toContain('pi 栏多数通过')
     expect(screen.getByTestId('multi-answers')).toBeTruthy()
-    expect(await screen.findByRole('button', { name: '综合结论' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '生成综合结论' })).toBeTruthy()
     expect(apiSpies.runSynthesis).not.toHaveBeenCalled()
   })
 })

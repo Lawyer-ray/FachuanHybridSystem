@@ -51,36 +51,17 @@ export function ReviewPanel({
 
   return (
     <div className="mt-2 min-w-0 space-y-2" data-testid="review-panel">
-      {actions.review ? (
-        <ReviewSummaryCard review={actions.review} />
-      ) : (
-        <div className="flex flex-wrap items-center gap-1.5" data-testid="review-start">
-          <button
-            type="button"
-            disabled={actions.reviewRunning || modelsMissing}
-            onClick={actions.startReview}
-            className={ACTION_BUTTON_CLASS}
-          >
-            {actions.reviewRunning ? '评审中…' : '评审'}
-          </button>
-          <span className="text-[11px] text-muted-foreground">
-            {modelsMissing
-              ? '平台无可用评审模型，暂时不能跑评审'
-              : '对这几栏跑一轮 rubric 评审（一轮三栏约 5 万 token，点了才跑）'}
-          </span>
-        </div>
-      )}
-
-      {/* 综合结论按钮只在评审卡之后出现：先看打分与共识/分歧，再决定要不要合成 */}
-      {actions.review && (
-        <div className="flex flex-wrap items-center gap-1.5" data-testid="synthesis-start">
+      {/* 只有一个入口：「生成综合结论」。评审是它的**第一步**（默认勾选），
+          不是需要人先点一次的独立动作——业务方口径：打分只是综合的一个步骤。
+          评审卡有就展示（历史轮次 / 综合后回读），没有也不影响点按钮。 */}
+      <div className="flex flex-wrap items-center gap-1.5" data-testid="synthesis-start">
           <button
             type="button"
             disabled={actions.synthesisRunning}
             onClick={actions.startSynthesis}
             className={ACTION_BUTTON_CLASS}
           >
-            {actions.synthesisRunning ? '生成中…' : actions.synthesis ? '重新生成综合结论' : '综合结论'}
+            {actions.synthesisRunning ? '生成中…' : actions.synthesis ? '重新生成综合结论' : '生成综合结论'}
           </button>
 
           {/* 用哪个 agent 跑综合：选项来自本轮各栏 + pi。
@@ -132,9 +113,15 @@ export function ReviewPanel({
             />
             先评审（约 5 万 token，更准）
           </label>
-        </div>
+      </div>
+
+      {modelsMissing && actions.synthesisWithReview && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-500" data-testid="review-models-missing">
+          平台无可用评审模型，本次会跳过评审直接综合
+        </p>
       )}
 
+      {actions.review && <ReviewSummaryCard review={actions.review} />}
       {actions.synthesis && <SynthesisCard synthesis={actions.synthesis} />}
     </div>
   )
