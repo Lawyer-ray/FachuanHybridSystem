@@ -25,6 +25,19 @@ LiteLLM 的做法是**状态码白名单**（``router_utils/cooldown_handlers.py
   （网关实测 429 会带 ``retry-after: 60``，比写死的 30 秒长——30 秒后放回轮转
   只会让同一把 Key 反复挨打）。
 
+## 429 的口径：换 Key，不换模型
+
+限流是**这把 Key 的配额**到了，换一个模型不解决问题（同一把 Key 照样超限），
+所以业务口径是「只重试、用别的 Key 轮询，不换模型」：
+
+- 调用方的 Key 循环（``openai_compatible._chat_primary`` 等）遇到 429 换下一把
+  Key 重试，次数上限是 :meth:`KeyPool.attempt_budget`（候选 Key 数与
+  ``MAX_KEY_ATTEMPTS`` 取小）；
+- ``retry-after`` 只用来**定冷却时长**（:func:`cooldown_hint`），不在请求线程里 sleep；
+- 所有候选 Key 都因 429 冷却时，:meth:`KeyPool.rate_limited` 为真，调用方据此报
+  可读的限流错误（状态码仍是 429），``gateway_profile.is_retryable`` 对它返回
+  ``False``，不会被降级链悄悄换成另一个模型。
+
 ## 为什么 Agent 通道（copilot）不做 rpm/tpm
 
 ``configure_limits`` 的 rpm/tpm 只在**本模块能看到请求边界**时才有意义：
@@ -59,6 +72,13 @@ import httpx
 from apps.core.infrastructure.cache import CACHE_ERRORS
 
 logger = logging.getLogger(__name__)
+
+#: 限流状态码（见模块 docstring「429 的口径」）。
+RATE_LIMIT_STATUS = 429
+
+#: 冷却原因里标注状态码的前缀（``HTTP 429 · ...``）。跨进程冷却只存原因字符串，
+#: :meth:`KeyPool.rate_limited` 靠它认出「别的进程判的也是限流」。
+_STATUS_REASON_PREFIX = "HTTP "
 
 #: 只有这些状态码说明「这把 Key 本身有问题」，才值得冷却（LiteLLM 白名单微调版）。
 #: 403 纳入的理由：律所网关按 Key 授权模型，403 = 这把 Key 没有该模型权限。
@@ -140,8 +160,64 @@ def is_key_fault(exc: BaseException | None) -> bool:
     return type(exc).__name__ in _TRANSPORT_ERROR_NAMES
 
 
+def is_rate_limited(exc: BaseException | None) -> bool:
+    """这个异常是不是限流（429，沿异常链找状态码）。"""
+    return _exception_status(exc) == RATE_LIMIT_STATUS
+
+
 def cooldown_hint(exc: BaseException | None) -> float | None:
-    """从 ``retry-after`` 头取建议冷却秒数（夹在 ``[5, 300]``）；取不到返回 ``None``。"""
+    """从 ``retry-after`` 头取建议冷却秒数（夹在 ``[5, 300]``）；取不到返回 ``None``。
+
+    **沿异常链找响应头**（与 :func:`_exception_status` 同口径）：调用方拿到的通常是
+    ``_raise_mapped_error`` 包过一层的 ``LLMAPIError``（``raise ... from error``），
+    响应对象挂在 ``__cause__`` 的原始 SDK 异常上。只看最外层会把网关给的
+    ``retry-after: 60`` 丢掉，退回写死的 30 秒——同一把 Key 30 秒后放回轮转又挨一次 429。
+    """
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        hint = _retry_after_of(current)
+        if hint is not None:
+            return hint
+        current = current.__cause__ or current.__context__
+    return None
+
+
+#: 单 Key 平台遇 429 时「等一次再试」的等待上限（秒）。网关要求等得更久就不等，
+#: 直接报限流：在请求线程里干等十几秒，比让律师稍后重试更糟。
+RATE_LIMIT_WAIT_MAX_SECONDS = 10.0
+#: 网关没给 ``retry-after`` 时的等待秒数。
+RATE_LIMIT_WAIT_DEFAULT_SECONDS = 2.0
+
+
+def rate_limit_wait_seconds(exc: BaseException | None) -> float | None:
+    """单 Key 遇 429 时该等多久再试一次；``None`` = 不值得等（直接报限流）。
+
+    取网关给的 ``retry-after`` **原值**（不走 :func:`cooldown_hint` 的 ``[5, 300]`` 夹取：
+    那是冷却口径，不是等待口径）；没给就等 :data:`RATE_LIMIT_WAIT_DEFAULT_SECONDS`；
+    超过 :data:`RATE_LIMIT_WAIT_MAX_SECONDS` 返回 ``None``。
+    """
+    if not is_rate_limited(exc):
+        return None
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        headers = getattr(getattr(current, "response", None), "headers", None)
+        raw = headers.get("retry-after") if headers else None
+        if raw:
+            try:
+                seconds = max(0.0, float(str(raw).strip()))
+            except ValueError:
+                break  # HTTP-date 形态不解析，按默认等待
+            return seconds if seconds <= RATE_LIMIT_WAIT_MAX_SECONDS else None
+        current = current.__cause__ or current.__context__
+    return RATE_LIMIT_WAIT_DEFAULT_SECONDS
+
+
+def _retry_after_of(exc: BaseException) -> float | None:
+    """单个异常自身响应头里的 ``retry-after``（不沿链）。"""
     response = getattr(exc, "response", None)
     headers = getattr(response, "headers", None)
     if not headers:
@@ -202,6 +278,9 @@ class KeyPool:
     COOLDOWN_SECONDS: float = _env_float("FACHUAN_KEY_COOLDOWN_SECONDS", 30.0, 5.0, 300.0)
     #: 连续多少次「Key 侧失败」才冷却（LiteLLM ``allowed_fails`` 的同族语义）。
     FAILS_BEFORE_COOLDOWN: int = _env_int("FACHUAN_KEY_FAILS_BEFORE_COOLDOWN", 2, 1, 10)
+    #: 一次请求最多换几把 Key（与候选 Key 数取小，见 :meth:`attempt_budget`）。
+    #: Key 很多时不设上限，一次全池 5xx 会让单个请求串行打满全部 Key、拖到超时。
+    MAX_KEY_ATTEMPTS: int = _env_int("FACHUAN_KEY_MAX_ATTEMPTS", 4, 1, 32)
 
     def __init__(
         self,
@@ -219,6 +298,8 @@ class KeyPool:
         self._failed_until: dict[tuple[int, str], float] = {}
         self._fails: dict[tuple[int, str], int] = {}
         self._reason: dict[tuple[int, str], str] = {}
+        #: 进入冷却时的 HTTP 状态码（无状态码的传输错误不记）；:meth:`rate_limited` 用。
+        self._cool_status: dict[tuple[int, str], int] = {}
         self._cursor = 0
         #: 每 Key 的 (时间戳, tokens) 滑窗（60 秒）。**滑动窗口而不是分钟桶**：
         #: 固定窗口在 12:00:59 与 12:01:01 的瞬时速率可以翻倍（LiteLLM 敢用分钟桶是因为
@@ -275,6 +356,41 @@ class KeyPool:
     def has_key_for(self, model: str = "") -> bool:
         """是否存在可用于该模型的 Key（不校验并发与冷却状态）。"""
         return bool(self._eligible(model))
+
+    def candidate_count(self, model: str = "") -> int:
+        """可用于该模型的 Key 数（不看冷却与并发）。"""
+        return len(self._eligible((model or "").strip()))
+
+    def attempt_budget(self, model: str = "") -> int:
+        """一次请求在同一模型上最多换几把 Key：``min(候选 Key 数, MAX_KEY_ATTEMPTS)``，至少 1。"""
+        return max(1, min(len(self._eligible((model or "").strip())), self.MAX_KEY_ATTEMPTS))
+
+    def rate_limited(self, model: str = "") -> bool:
+        """可用于该模型的 Key 是否**全部**因限流（429）处于冷却。
+
+        本进程的冷却看记下的状态码；只在别的进程冷却的 Key 看共享原因里的
+        ``HTTP 429`` 标注。只要有一把 Key 不在冷却、或因别的原因冷却，就返回 ``False``
+        ——那不是「被限流了」，调用方按原口径处理。
+        """
+        used = (model or "").strip()
+        shared = self._shared_cooling()
+        rate_tag = f"{_STATUS_REASON_PREFIX}{RATE_LIMIT_STATUS}"
+        with self._lock:
+            candidates = self._eligible(used)
+            if not candidates:
+                return False
+            now = time.monotonic()
+            for idx in candidates:
+                key = (idx, used)
+                if self._failed_until.get(key, 0.0) > now:
+                    if self._cool_status.get(key) != RATE_LIMIT_STATUS:
+                        return False
+                    continue
+                health = shared.get(self.keys[idx])
+                if health is not None and rate_tag in str(getattr(health, "reason", "") or ""):
+                    continue
+                return False
+            return True
 
     def acquire(self, model: str = "") -> int | None:
         """在可用于该模型的 Key 中选中一个下标并占用；无候选或全部冷却时返回 None。"""
@@ -352,6 +468,7 @@ class KeyPool:
                 self._failed_until.pop(key, None)
                 self._fails.pop(key, None)
                 self._reason.pop(key, None)
+                self._cool_status.pop(key, None)
                 self._clear_shared(api_key)
                 return
             if not is_key_fault(error):
@@ -367,7 +484,14 @@ class KeyPool:
             seconds = cooldown_seconds if cooldown_seconds is not None else self.COOLDOWN_SECONDS
             self._failed_until[key] = time.monotonic() + max(1.0, seconds)
             self._fails.pop(key, None)
-            self._reason[key] = f"{type(error).__name__ if error else '失败'}（冷却 {seconds:.0f}s）"
+            status = _exception_status(error)
+            label = f"{type(error).__name__ if error else '失败'}（冷却 {seconds:.0f}s）"
+            if status is None:
+                self._cool_status.pop(key, None)
+                self._reason[key] = label
+            else:
+                self._cool_status[key] = status
+                self._reason[key] = f"{_STATUS_REASON_PREFIX}{status} · {label}"
             self._mark_shared(api_key, seconds, self._reason[key])
 
     def _shared_cooling(self) -> dict[str, Any]:

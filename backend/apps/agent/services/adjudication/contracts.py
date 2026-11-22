@@ -206,7 +206,7 @@ class Synthesis(BaseModel):
     dropped: list[DroppedCandidate] = Field(default_factory=list)
     #: 逐条来源锚点（哪一栏提到的哪一条引用）。
     citations: list[SynthesisCitation] = Field(default_factory=list)
-    #: 提到但检索/核验没兜住的引用（复用 ``chat/citation_check.verify_references``）。
+    #: 提到但核验没兜住的引用（威科核验，见 ``synthesis/verify.verify_synthesis_citations``）。
     unverified: list[str] = Field(default_factory=list)
     #: 合成自身的 token 成本（与各栏生成成本分开记）。
     tokens: dict[str, int] = Field(default_factory=dict)
@@ -227,6 +227,11 @@ A4 确定性融合  backend/apps/agent/services/chat/
     fusion.py        rrf_fuse(lanes: Mapping[str, Sequence[RetrievalHit]], final_k: int) -> list[FusedHit]
     equivalence.py   cluster_answers(ids, entails) -> list[EquivalenceCluster]
     citation_check.py verify_references(...) -> list[str]       # 返回 unverified 文案
-    aggregate.py     build_aggregate_messages(task, candidates, *, max_chars) -> list[dict]
-                     synthesize(...) -> Synthesis                   # MoA aggregator 那一步
+    aggregate.py     partition_candidates(candidates) -> (used, dropped)
+                     render_candidate(index, candidate) / extract_citations(used)
+
+B3 综合结论  backend/apps/agent/services/synthesis/
+    pipeline.py      run_synthesis_pipeline(...) -> AgentSynthesis  # 评审 → agent 综合 → 核验 → 落库
+    jobs.py          submit_job / get_job / request_cancel / run_synthesis_job  # 后台任务
+    api              POST /agent/sessions/{session_id}/synthesize -> SynthesisJob（轮询到终态）
 """

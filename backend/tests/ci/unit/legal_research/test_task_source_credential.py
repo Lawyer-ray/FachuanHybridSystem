@@ -67,19 +67,24 @@ def _build_add_form(admin: LegalResearchTaskAdmin, **overrides):
 
 @pytest.mark.django_db
 class TestYuandianSystemConfigDefaults:
-    """元典只有 API Key 进 SystemConfig（无新表），且 secret 默认值绝不预置真实 Key。
+    """元典进 SystemConfig 的只有 API Key 与 MCP 总开关（无新表），且 secret 默认值绝不预置真实 Key。
 
     平台地址 / MCP Server 清单 / 每 key 并发上限是**代码常量**
     （``apps.core.services.yuandian_settings``）：它们不随部署变，落库只会多出一个
-    「没点过初始化就是空」的失败面。所以这里只允许出现 API Key 一条。
+    「没点过初始化就是空」的失败面。所以这里只允许出现 API Key 与总开关两条。
     """
 
-    def test_only_api_keys_is_seeded(self):
+    def test_only_api_keys_and_mcp_switch_are_seeded(self):
         from apps.core.admin._system_config_data import get_default_configs
 
         configs = {item["key"]: item for item in get_default_configs()}
         yuandian_keys = sorted(key for key in configs if key.startswith("YUANDIAN_"))
-        assert yuandian_keys == ["YUANDIAN_API_KEYS"], "元典只该有 API Key 一个配置项"
+        assert yuandian_keys == ["YUANDIAN_API_KEYS", "YUANDIAN_MCP_ENABLED"], "元典只该有 API Key 与 MCP 总开关两个配置项"
+
+        # 总开关：非 secret、默认开启（与「配了 key 就挂」的既有行为一致）
+        assert configs["YUANDIAN_MCP_ENABLED"]["category"] == "enterprise_data"
+        assert configs["YUANDIAN_MCP_ENABLED"]["is_secret"] is False
+        assert configs["YUANDIAN_MCP_ENABLED"]["value"] == "true"
 
         assert configs["YUANDIAN_API_KEYS"]["category"] == "enterprise_data"
         assert configs["YUANDIAN_API_KEYS"]["is_secret"] is True

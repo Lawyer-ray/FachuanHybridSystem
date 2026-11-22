@@ -10,6 +10,11 @@
  * 一切都只能由点击触发：一轮评审约 5 万 token，自动跑等于替律师决定花钱
  * （见 `use-review-actions`）。
  *
+ * ## 后台任务：显示阶段、可以取消
+ *
+ * 综合在后台跑（常常几分钟）：按钮上显示当前阶段（排队 / 评审 / 综合 / 核验），旁边给
+ * 「取消」。关掉页面不会取消，回来接着显示进度或结论。
+ *
  * ## 为什么单独成组件
  *
  * `MultiAnswers` 是流式热路径上的 memo 边界（每个 delta 都会重渲），新增的请求
@@ -17,6 +22,7 @@
  * 刷新页面时若只有历史合成记录（没跑评审），综合结论卡照样要显示出来。
  */
 
+import type { SynthesisJob } from '../../adjudication-types'
 import { agentLabel } from '../../domain'
 
 import { useReviewActions } from './use-review-actions'
@@ -36,6 +42,26 @@ const FIELD_SHELL_CLASS =
 const SELECT_CLASS =
   'appearance-none bg-transparent pr-3.5 text-[12px] text-foreground outline-none ' +
   'disabled:cursor-not-allowed disabled:opacity-60'
+
+/** 次要操作（取消）：描边，不与主按钮抢视觉。 */
+const SECONDARY_BUTTON_CLASS =
+  'inline-flex flex-none items-center rounded-md border border-border bg-background px-2 py-1.5 text-[12px] ' +
+  'text-foreground/80 transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50'
+
+/** 后台阶段 → 按钮上的进度文案（阶段取值见后端 `synthesis/pipeline.STAGE_*`）。 */
+const STAGE_LABELS: Record<string, string> = {
+  review: '评审中…',
+  synthesis: '综合中…',
+  verify: '核验引用中…',
+  saving: '保存中…',
+}
+
+function progressLabel(job: SynthesisJob | null, submitting: boolean, cancelling: boolean): string {
+  if (cancelling) return '正在取消…'
+  if (submitting || !job) return '提交中…'
+  if (job.status === 'queued') return '排队中…'
+  return STAGE_LABELS[job.stage] ?? '生成中…'
+}
 
 
 function Chevron() {
@@ -61,6 +87,18 @@ function Sparkle() {
       />
     </svg>
   )
+}
+
+/**
+ * 不能跑综合的运行时：综合要求隔离运行（不读写该会话的历史），dsh 会把历史续写到
+ * 磁盘且没有删除会话的接口，后端对它直接报错（见 ``dsh_backend`` 的 isolated 分支）。
+ * 不放进下拉框，免得律师选了必然失败的一项。
+ */
+const SYNTHESIS_UNSUPPORTED_KINDS = new Set(['dsh'])
+
+/** 「执行」下拉的选项：本轮各栏 + pi（去重，排掉不支持隔离运行的） */
+function synthesisKindOptions(agents: readonly string[]): string[] {
+  return [...new Set([...agents, 'pi'])].filter((kind) => !SYNTHESIS_UNSUPPORTED_KINDS.has(kind))
 }
 
 export function ReviewPanel({
@@ -96,13 +134,32 @@ export function ReviewPanel({
       >
         <button
           type="button"
-          disabled={actions.synthesisRunning}
+          disabled={actions.synthesisRunning || actions.synthesisBlockedReason !== ''}
+          title={actions.synthesisBlockedReason || undefined}
           onClick={actions.startSynthesis}
           className={PRIMARY_BUTTON_CLASS}
+          data-testid="synthesis-run"
         >
           <Sparkle />
-          {actions.synthesisRunning ? '生成中…' : actions.synthesis ? '重新生成' : '生成综合结论'}
+          {actions.synthesisRunning
+            ? progressLabel(actions.synthesisJob, actions.synthesisSubmitting, actions.synthesisCancelling)
+            : actions.synthesis
+              ? '重新生成'
+              : '生成综合结论'}
         </button>
+
+        {/* 取消只对已拿到的后台任务有效（提交请求还没回来时没有任务可取消） */}
+        {actions.synthesisRunning && actions.synthesisJob && (
+          <button
+            type="button"
+            disabled={actions.synthesisCancelling}
+            onClick={actions.cancelSynthesis}
+            className={SECONDARY_BUTTON_CLASS}
+            data-testid="synthesis-cancel"
+          >
+            取消
+          </button>
+        )}
 
         {/* 右侧设置项：执行 agent / 模型 / 先评审。窄屏时整体换行到下一行。 */}
         <div className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -118,7 +175,7 @@ export function ReviewPanel({
                 onChange={(event) => actions.setSynthesisKind(event.target.value)}
                 className={SELECT_CLASS}
               >
-                {[...new Set([...agents, 'pi'])].map((kind) => (
+                {synthesisKindOptions(agents).map((kind) => (
                   <option key={kind} value={kind}>
                     {agentLabel(kind)}
                   </option>
@@ -128,7 +185,8 @@ export function ReviewPanel({
             </span>
           </label>
 
-          {/* 模型清单与评审共用平台模型列表：两者都是"平台上有哪些模型"，各拉一份迟早漂移。
+          {/* 模型清单跟随所选执行 agent（口径在后端 /agent/backends 的 models，见
+              use-review-actions 的 synthesisModelsFor）：换 agent 后原模型不能用就自动换。
               留「自动」是为了允许"交给后端按本轮各栏解析"，但默认已选中具体模型。 */}
           <label className={FIELD_SHELL_CLASS} title="用哪个模型生成综合结论；「自动」= 按本轮各栏的模型解析">
             <span className="text-[11px] text-muted-foreground">模型</span>
@@ -141,7 +199,7 @@ export function ReviewPanel({
                 className={SELECT_CLASS}
               >
                 <option value="">自动</option>
-                {(actions.judgeModels ?? []).map((model) => (
+                {(actions.synthesisModels ?? []).map((model) => (
                   <option key={model} value={model}>
                     {model}
                   </option>
@@ -168,6 +226,12 @@ export function ReviewPanel({
           </label>
         </div>
       </div>
+
+      {actions.synthesisBlockedReason && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-500" data-testid="synthesis-blocked">
+          {actions.synthesisBlockedReason}
+        </p>
+      )}
 
       {modelsMissing && actions.synthesisWithReview && (
         <p className="text-[11px] text-amber-600 dark:text-amber-500" data-testid="review-models-missing">

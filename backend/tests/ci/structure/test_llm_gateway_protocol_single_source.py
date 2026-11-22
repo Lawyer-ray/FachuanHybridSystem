@@ -104,6 +104,11 @@ THINKING_MARKER_STRINGS: tuple[str, ...] = (
 #: 判定口径：tuple/list 字面量里**同时出现这四个值** → 有人在自建白名单。
 EFFORT_WHITELIST_LEVELS: tuple[str, ...] = ("low", "high", "xhigh", "max")
 
+#: 网关**不接受**的档位。tuple/list 里出现其中任一个，说明它是 harness 自己的档位词汇
+#: （如 ``pi/model_config._PI_THINKING_LEVELS`` 的七档），不是网关白名单的复印件——
+#: 白名单按定义不可能含 ``medium``（发了直接 400）。
+HARNESS_ONLY_LEVELS: frozenset[str] = frozenset({"minimal", "medium"})
+
 #: 网关请求字段的字面构造：``{"chat_template_kwargs": {"thinking": ...}}``。
 WIRE_FIELD_KEY = "chat_template_kwargs"
 WIRE_FIELD_INNER_KEY = "thinking"
@@ -187,13 +192,16 @@ class TestLLMGatewayProtocolSingleSource:
         同时含 ``low`` / ``high`` / ``xhigh`` / ``max`` 的 tuple/list 就是白名单的复印件
         （dsh 曾自写一份 ``("off", "low", "high", "xhigh", "max")``，与 pi 的口径不一致）。
         正确写法：``gateway_profile.selectable_efforts()`` / ``GATEWAY_EFFORTS``。
+
+        含 :data:`HARNESS_ONLY_LEVELS` 的不算：那是 harness 自己的档位全集（键），值仍须经
+        ``gateway_effort`` 映射，不构成第二份白名单。
         """
         expected = set(EFFORT_WHITELIST_LEVELS)
         offenders: list[str] = []
         for py_file in _iter_scannable_files():
             for node in ast.walk(_parse(py_file)):
                 values = _constant_str_values(node)
-                if expected <= values:
+                if expected <= values and not (values & HARNESS_ONLY_LEVELS):
                     offenders.append(f"{_rel(py_file)}:{node.lineno}: {sorted(values)}")
 
         assert offenders == [], (

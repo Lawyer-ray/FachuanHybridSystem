@@ -44,8 +44,9 @@ pi 与 dsh 共用同一份实现。本模块**保留原有的全部符号名**�
   所以那个名字必须继续是**本模块命名空间里的可替换间接层**。
 
 本文件还负责把**元典**的 MCP Server（``law`` / ``case`` / ``company`` / ``securities``）
-一并挂进同一份 ``mcp.json``：清单与地址是代码常量，只有 API Key 从系统配置读，
-且只以 ``${FACHUAN_YUANDIAN_API_KEY}`` 占位落盘（见 ``_build_yuandian_server_entries``）。
+一并挂进同一份 ``mcp.json``：清单与地址是代码常量，从系统配置读的只有 API Key 与
+总开关 ``YUANDIAN_MCP_ENABLED``，key 只以 ``${FACHUAN_YUANDIAN_API_KEY}`` 占位落盘
+（见 ``_build_yuandian_server_entries``）。
 
 pi 专属的部分（``mcp.json`` 字段表 ``_build_server_entry``、exposure、模型配置、
 AGENTS.md）留在本文件——``mcp_server`` 侧的漂移门禁
@@ -138,7 +139,8 @@ _VALID_EXPOSURES = frozenset({"direct", "deferred", "codemode", "hidden"})
 #:
 #: ``mcp.json`` 里只写 ``Authorization: Bearer ${FACHUAN_YUANDIAN_API_KEY}`` 占位
 #: （pi 支持 mcp.json header 的环境变量展开，与 ``FACHUAN_USER_TOKEN`` 同一机制），
-#: 真 key 由 :meth:`apps.agent.pi.pool.PiProcessPool.acquire` 注入子进程 env。
+#: 真 key 由 :meth:`apps.agent.pi.pool.PiProcessPool.acquire` 注入子进程 env
+#: （多把 key 时每个 pi 进程轮转一把，见 ``pool._yuandian_env``）。
 #: 为什么必须这样：``mcp.json`` 是常驻的明文配置文件（会话目录复用到下一个用户），
 #: 而元典 key 是长期凭证——落盘等于把 key 写进磁盘快照/备份/工单附件。
 YUANDIAN_API_KEY_ENV = "FACHUAN_YUANDIAN_API_KEY"  # pragma: allowlist secret
@@ -491,21 +493,27 @@ def _write_mcp_json(root: Path, resolved: McpEndpoint) -> Path:
 
 
 def _build_yuandian_server_entries() -> dict[str, Any]:
-    """元典 MCP Server 的 ``mcpServers`` 条目；没配 key 时返回空字典（不挂）。
+    """元典 MCP Server 的 ``mcpServers`` 条目；总开关关闭或没配 key 时返回空字典（不挂）。
 
     为什么没 key 就整块不挂：带空 key 的元典 server 每条 ``tools/list`` 都会 401，
     pi 仍会把这批工具声明给模型，结果是一堆「知道有但查不了」的工具把模型带进
-    反复重试——用户没填 key 就不该有这些工具。
+    反复重试——用户没填 key 就不该有这些工具。总开关（``YUANDIAN_MCP_ENABLED``）
+    关闭时同理：律所不允许把案情发给元典，就不该让模型看到这些工具。
 
-    读库失败同样走这条降级（:func:`load_yuandian_settings` 不抛）：元典挂不上
-    不该影响法穿自己的工具面。
+    读库失败同样走降级（两个读取函数都不抛）：元典挂不上不该影响法穿自己的工具面。
+    判定口径与 ``pool._yuandian_env`` 一致——挂了 server 就有 key 注入，反之亦然。
 
     清单与地址是代码常量（``apps.core.services.yuandian_settings``），因此这里
     没有任何「用户把 server 名写错」的入口。
     """
-    from apps.core.services.yuandian_settings import YUANDIAN_MCP_BASE_URL, YUANDIAN_MCP_SERVERS, load_yuandian_settings
+    from apps.core.services.yuandian_settings import (
+        YUANDIAN_MCP_BASE_URL,
+        YUANDIAN_MCP_SERVERS,
+        load_yuandian_settings,
+        yuandian_mcp_enabled,
+    )
 
-    if not load_yuandian_settings().api_keys:
+    if not yuandian_mcp_enabled() or not load_yuandian_settings().api_keys:
         return {}
     return {
         f"yuandian-{name}": {

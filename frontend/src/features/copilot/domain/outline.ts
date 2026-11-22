@@ -6,7 +6,7 @@
  */
 
 import type { ChatMessage } from '../types'
-import { DEFAULT_AGENT_KIND } from './dual'
+import { DEFAULT_AGENT_KIND, SYNTHESIS_AGENT_KIND } from './dual'
 
 /** 大纲一项（TurnRail 的数据源） */
 export interface TurnOutline {
@@ -49,6 +49,9 @@ export function buildTurnOutline(messages: ChatMessage[]): TurnOutline[] {
     const current = outline[outline.length - 1]
     // 窗口起点落在轮次中间：前面那几条没有可跳的提问，忽略（见文件头）
     if (!current || message.role !== 'assistant') continue
+    // 综合结论不是某一栏的回答，也未必落在它所属的那一轮之后（点按钮时才写入）：
+    // 不算进本轮的 agent，也不当本轮的回答锚点
+    if (message.agentKind === SYNTHESIS_AGENT_KIND) continue
     if (!current.answerId && !(message.failed && !message.content.trim())) current.answerId = message.id
     const agent = message.agentKind || DEFAULT_AGENT_KIND
     if (!current.agents.includes(agent)) current.agents.push(agent)

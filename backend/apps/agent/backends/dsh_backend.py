@@ -499,6 +499,33 @@ def _acquire_without_proxy(pool: Any, ctx: RunContext, sdk_config: Any) -> Any:
         return pool.acquire(ctx, sdk_config)
 
 
+def _reject_unsupported_run_options(ctx: RunContext) -> None:
+    """dsh 做不到的三个运行选项：显式报错，不静默忽略。
+
+    - ``isolated``：dsh 按 ``session_id`` 在磁盘上续接会话（``resume_session``），换临时
+      id 又会在 dsh home 里留下一份删不掉的历史（SDK 没有删除会话的接口）。
+    - ``system_prompt``：SDK 的 ``run`` / ``start_session`` 没有按轮替换 system prompt 的
+      参数，能改的只有 ``dsh_config`` 按 harness 进程写的启动配置（进程按会话复用）。
+    - ``max_turns``：SDK 没有按轮的上限参数。
+
+    宁可让调用方（如综合结论）拿到可读错误去换 agent，也不要污染会话历史或让规则不生效。
+    """
+    unsupported = [
+        name
+        for name, value in (
+            ("isolated", ctx.isolated),
+            ("system_prompt", ctx.system_prompt is not None),
+            ("max_turns", ctx.max_turns is not None),
+        )
+        if value
+    ]
+    if unsupported:
+        raise BackendError(
+            BackendErrorKind.UNAVAILABLE,
+            f"dsh 不支持本轮运行选项：{', '.join(unsupported)}；请换用 pi / openai-agents / antigravity",
+        )
+
+
 class DshBackend:
     """DeepSeek Harness 运行时（常驻子进程池化，同步 SDK 桥成异步事件流）。
 
@@ -570,6 +597,7 @@ class DshBackend:
 
     async def _stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
         session_id = str(ctx.session.session_id)
+        _reject_unsupported_run_options(ctx)
         # 解析 provider 走同步 ORM：必须放线程里。放主线程会抛
         # SynchronousOnlyOperation（并被兜底 except 吞成「未知错误」）。
         config = await self._resolve_config(ctx)

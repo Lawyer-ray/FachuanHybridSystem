@@ -36,9 +36,9 @@ class BackendOptionOut(Schema):
     #: 能力声明，见 ``BackendCapabilities`` 各字段注释。
     capabilities: dict[str, Any]
     #: 该后端可选的模型清单（来自启用的 ``LLMProvider``：``default_model`` +
-    #: ``extra_models``）。空列表 = 不支持逐栏指定模型，前端不显示下拉。
-    #: 三个后端最终都落到同一个 LiteLLM 网关，所以共用同一份清单是合理的；
-    #: 若将来某后端有独占模型，在它自己的返回值里收窄，不要在这里加分支类型。
+    #: ``extra_models``）。空列表 = 该后端当前没有可用模型（前端不显示下拉 / 综合工具条
+    #: 禁用该执行 agent）。OpenAI 兼容通道的后端共用整份清单；claude-agent 走 Anthropic
+    #: 协议，按 ``session_api._models_for_kind`` 收窄成它能用的那几个。
     models: list[str] = []
     #: 未指定模型时该后端会用的那个（UI 预填用）。
     #: ``None`` = 没有可用平台/默认模型，此时 ``models`` 也应为空。

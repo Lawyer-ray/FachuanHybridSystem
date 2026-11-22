@@ -40,7 +40,7 @@ from ..services.chat import env
 from ..services.chat import pool as chat_pool
 from ..services.live_sessions import get_live_registry, register_live_route, unregister_live_route
 from ..services.skill_service import enabled_skill_paths
-from .base import BackendCapabilities, RunContext
+from .base import BackendCapabilities, BackendError, BackendErrorKind, RunContext
 
 logger = logging.getLogger(__name__)
 
@@ -125,12 +125,23 @@ class PiBackend:
         Raises:
             PiNotAvailableError / PiError / PoolQueueTimeoutError: pi 侧异常原样外抛，
                 由编排层翻译成中文 ``error`` 事件。
+            BackendError: 非隔离运行却要求替换 system prompt；或本轮超过 ``ctx.max_turns``。
+
+        ``ctx.isolated=True`` 时：不读写本会话的 pi 历史（池用临时目录）、不注入律师
+        技能、不登记为可插话的运行中会话；审批 env 仍是真实会话。
         """
         return self._stream(ctx)
 
     async def _stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
         session = ctx.session
         session_id = str(session.session_id)
+        if ctx.system_prompt is not None and not ctx.isolated:
+            # 常规路径的 AGENTS.md 在全局共享的配置目录里，不能为一轮改；只有隔离运行
+            # 有自己的临时配置目录（见 ``PiProcessPool.acquire``）。
+            raise BackendError(
+                BackendErrorKind.UNAVAILABLE,
+                "pi 只在隔离运行（isolated=True）时支持替换 system prompt",
+            )
 
         pi_pool = await chat_pool.get_pool()
         # 本轮模型：``ctx.model`` 是用户逐栏显式指定的（多答时每栏可以不同），
@@ -149,7 +160,9 @@ class PiBackend:
         session_env = env.session_env(session, ctx.user_id, user_token=ctx.user_token, run_id=ctx.run_id)
         # 本律师启用的技能目录（`--skill` 注入；偏好查询走同步 ORM，放线程里）。
         # 无用户身份（测试场景）时给空清单——不注入任何技能也能正常对话。
-        if ctx.user_id is not None:
+        # 隔离运行（综合结论等一次性任务）不注入：system prompt 已由调用方全量给定，
+        # 律师个人技能会把与本任务无关的工作流带进来。
+        if ctx.user_id is not None and not ctx.isolated:
             skill_paths = await sync_to_async(enabled_skill_paths, thread_sensitive=True)(ctx.user_id)
         else:
             skill_paths = []
@@ -169,6 +182,11 @@ class PiBackend:
 
         context_used: int | None = None
         context_total: int | None = None
+        # 隔离运行：池改用一次性临时目录 + 临时 pi session id（不碰本会话的 pi 历史）。
+        # 只在隔离时才多传参数，常规路径的 acquire 参数与引入隔离前逐字一致。
+        isolation_kwargs: dict[str, Any] = (
+            {"isolated": True, "system_prompt": ctx.system_prompt} if ctx.isolated else {}
+        )
         async with pi_pool.acquire(
             session_env=session_env,
             model=model,
@@ -181,6 +199,7 @@ class PiBackend:
             # 编排层按轮次分配的 key（见 ``key_scheduler``）：它会被写进本会话的
             # models.json。``None`` 时写函数仍走 ``_next_key`` 轮转（旧行为）。
             api_key=ctx.api_key,
+            **isolation_kwargs,
         ) as pi_session:
             # 同时消费两个来源：pi 事件流 + 外部总线（审批请求）。
             # 不用「两个 get() task + asyncio.wait」—那个写法在 yield 让出控制权后
@@ -190,10 +209,12 @@ class PiBackend:
             pending_next: asyncio.Task[dict[str, Any]] | None = None
             # 登记运行中会话：用户可在本轮跑到一半时 steer / follow_up。
             # 必须包在事件循环外面——登记后才有 prompt，否则插话会打空。
+            # 隔离运行不登记：用户此刻对本会话的插话应当进 pi 那一栏，而不是综合进程。
             registry = get_live_registry()
-            await registry.register(session_id, pi_session)
-            # P2-3：跨 worker 路由注册（Redis 路由表）
-            register_live_route(session_id, env._worker_id())
+            if not ctx.isolated:
+                await registry.register(session_id, pi_session)
+                # P2-3：跨 worker 路由注册（Redis 路由表）
+                register_live_route(session_id, env._worker_id())
             try:
                 await pi_session.prompt(ctx.prompt)
                 while True:
@@ -215,6 +236,14 @@ class PiBackend:
                         event = task.result()
                     except StopAsyncIteration:
                         break
+                    # pi 没有 max-turns 开关：按 ``turn_start`` 计数，超限就 abort 并报错。
+                    # 超限的结论不可信（循环被掐断在半路），不能当正常结束。
+                    if ctx.max_turns is not None and int(getattr(pi_session, "turns_started", 0) or 0) > ctx.max_turns:
+                        await pi_session.abort()
+                        raise BackendError(
+                            BackendErrorKind.UNKNOWN,
+                            f"pi 本轮超过 {ctx.max_turns} 轮模型循环上限，已中止",
+                        )
                     # 统一补 ``agent`` / ``run_id``：两个 agent 同题并行时，前端靠
                     # 这两个字段把交错的事件分流到不同栏。
                     event = {**event, "agent": self.kind, "run_id": ctx.run_id}
@@ -243,8 +272,9 @@ class PiBackend:
                     if event.get("type") == "done":
                         break
             finally:
-                await registry.unregister(session_id, pi_session)
-                unregister_live_route(session_id)
+                if not ctx.isolated:
+                    await registry.unregister(session_id, pi_session)
+                    unregister_live_route(session_id)
                 if pending_next is not None:
                     # 提前退出（done / 取消）时可能还挂着一次 __anext__，必须收掉，
                     # 否则任务泄漏并在事件循环关闭时刷 "Task was destroyed" 警告。

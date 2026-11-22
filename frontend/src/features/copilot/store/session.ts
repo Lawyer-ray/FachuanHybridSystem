@@ -102,6 +102,7 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
         pendingQuestions: [],
         questionDrafts: {},
         lastError: null,
+        historyLoadError: false,
         loadingHistory: id !== null,
         // 翻页下限**必须随会话一起清掉**：它是上一个会话的事实，不是新会话的。
         // 不清的话，在 A 会话翻到底（true）再切到 B，B 在历史回来之前（以及拉取
@@ -132,7 +133,7 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
     } catch {
       if (get().sessionId === id) {
         withViewTransition(() => {
-          set({ lastError: '加载会话历史失败', loadingHistory: false })
+          set({ lastError: '加载会话历史失败', historyLoadError: true, loadingHistory: false })
         })
       }
     }
@@ -151,7 +152,8 @@ export const createSessionSlice: Slice<SessionSlice> = (set, get) => ({
           //   → 后台任务跑完触发 refreshHistory → 转录被换回「最新 200 条」，
           //     可 noMoreHistory 还是 true ⟹ 按钮不出，最早那 50 条再也翻不回来。
           // 替换后的转录是「最新一页」，就用同一把尺子（本批 < 页大小）重算。
-          set({ messages: historyToMessages(rows), noMoreHistory: isLastHistoryPage(rows) })
+          // 历史既然拉到了，「这个会话拉不到历史」的事实也就不成立了
+          set({ messages: historyToMessages(rows), noMoreHistory: isLastHistoryPage(rows), historyLoadError: false })
         })
       }
     } catch {

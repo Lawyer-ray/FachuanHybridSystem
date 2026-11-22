@@ -62,14 +62,31 @@ def search_xxx(keyword: Annotated[str, Field(description="检索关键词")]) ->
     ...
 
 MCP_TOOLS = [search_xxx]          # 必填：要暴露的函数
+MCP_TOOL_RISK = {"search_xxx": "read"}   # 强烈建议：每个工具的风险等级（不写 = 高危，每次都要审批）
 def check_available() -> bool:    # 可选：缺凭据时返回 False，工具就整块不出现
     return True
 ```
 
+**风险等级（`MCP_TOOL_RISK`）**——插件工具的审批分级只看这里声明的等级（再与名字判定取较大者）：
+
+| 取值 | 审批 | 下发的 MCP 注解 |
+|:-|:-|:-|
+| `read` / `low` | 直接执行 | `readOnlyHint: true` |
+| `write` / `medium` | 静默执行、留审计 | `destructiveHint: false` |
+| `high` | 每次人工审批 | `destructiveHint: true` |
+| `critical` | 同 `high`（注解表达不了二次确认；紧急级仍只按名字判定） | `destructiveHint: true` |
+
+- **不声明 = 高危**：没有 `MCP_TOOL_RISK`、漏了某个工具、或取值不认识，该工具都按 `high` 注册
+  并记 warning。插件实现主仓看不到，「看名字猜只读」对它不成立——宁可多问一次。
+- **只读必须显式声明** `"read"` 才直接放行；声明了 `read` 但名字带 `delete_` / `submit_`
+  这类前缀的，名字判定照样把它拉到高危。
+- 等级只在注册时写进 MCP 注解这一处：pi（`approval-gate.ts` 读 `tools/list` 注解）、
+  服务端审批闸门（`tool_approval_gate.py`）、其余后端的 `classify_risk` 读的都是它。
+
 - **主仓不出现任何插件名**：靠目录扫描发现，不靠注册表登记（`git hooks` 里那条
   「Forbid committing weike private implementation paths」正是原因）。
 - **没插件 = 连名字都不出现**：不是「有工具但一调就报错」——后者会让模型反复重试。
-- **撞名以内置为准**；注解由 `_tool_annotations` 按名字 + `classify_risk` 推，
+- **撞名以内置为准**（内置名单由 `_t` 注册时自己登记，不读 FastMCP 私有的 `_tool_manager`）；
   分层默认走 `deferred`（不占每轮固定前缀）。
 - **一个坏插件不拖垮 MCP**：import 失败 / 契约不合法 / `check_available` 抛异常 →
   跳过该插件并记 warning，其余工具照常。

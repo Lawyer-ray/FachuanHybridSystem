@@ -13,14 +13,15 @@
  * - **读**（`fetchReview` / `fetchReviewOptions` / `fetchSynthesis` / `fetchReviewAdoption`）：
  *   纯回放，404 一律是**正常态**（该轮没评审过/没合成过/没人采纳），调用方按
  *   「没有这张卡」处理，不弹错；
- * - **触发**（`runReview` / `runSynthesis`）：花钱动作（一轮三栏评审约 5 万 token），
- *   只能在律师点了按钮之后调用，且必须放宽 ky 的 10s 默认超时；
+ * - **触发**（`runReview` / `startSynthesisJob`）：花钱动作（一轮三栏评审约 5 万 token），
+ *   只能在律师点了按钮之后调用。评审是一次长请求（放宽 ky 的 10s 默认超时）；综合是
+ *   **后台任务**：提交后立即返回任务，再轮询到终态（`waitForSynthesisJob`）；
  * - **采纳**（`adoptReview`）：只落一条留痕（stage=shadow），不改写任何内容。
  */
 
 import { api } from '@/lib/api'
 
-import type { Review, Synthesis } from './adjudication-types'
+import type { Review, Synthesis, SynthesisJob } from './adjudication-types'
 import type { ReviewAdoptPayload, ReviewAdoptionEnvelope, ReviewAdoptionWire } from './domain/adoption'
 
 /**
@@ -55,7 +56,7 @@ export function fetchReviewOptions(): Promise<ReviewOptions> {
 }
 
 /**
- * 评审/综合结算是 N×M 次 judge 调用，ky 默认 10s 必然超时；给足 3 分钟。
+ * 评审结算是 N×M 次 judge 调用，ky 默认 10s 必然超时；给足 3 分钟。
  *
  * 不做自动重试：一次评审的钱是按 token 算的，失败后由律师自己再点。
  */
@@ -94,26 +95,42 @@ export function fetchSynthesis(sessionId: string, turn: number): Promise<Synthes
   return api.get(`agent/sessions/${sessionId}/synthesis`, { searchParams: { turn } }).json<Synthesis>()
 }
 
+/** 综合任务的提交参数（与后端 `SynthesisIn` 一一对应） */
+export interface SynthesisInput {
+  turn: number
+  agents: string[]
+  /** 空串 = 交给所选 agent 按平台默认解析 */
+  model: string
+  /** 用哪个 agent 运行时做综合（后端注册表 kind）；默认 `pi` */
+  kind?: string
+  /** 是否先跑一轮评审再把结论喂给综合（默认 true，约 5 万 token） */
+  review?: boolean
+  /** 威科凭证；省略 = 服务端自动挑本所的威科账号 */
+  credentialId?: number | null
+}
+
+/** 提交只做校验与入队，很快返回；30s 足够覆盖冷启动。 */
+export const SYNTHESIS_SUBMIT_TIMEOUT_MS = 30_000
+
+/** 轮询间隔。 */
+export const SYNTHESIS_POLL_INTERVAL_MS = 2_000
+
 /**
- * 跑一次综合结论（`POST /agent/sessions/{id}/synthesize`）。
- *
- * `model` 空 = 服务端按本轮各栏模型解析（契约 §C4）——**不用**评审模型配置：
- * 合成看的是候选的模型，不是 judge。同样是花钱动作，只能由按钮触发。
+ * 前端最多等多久。后端流水线上限约 17.5 分钟（`jobs.JOB_TIMEOUT_SECONDS`），这里留余量。
+ * 超过只是**停止轮询**并提示稍后再看，后端任务不受影响。
  */
-export function runSynthesis(
-  sessionId: string,
-  input: {
-    turn: number
-    agents: string[]
-    model: string
-    /** 用哪个 agent 运行时做综合（后端注册表 kind）；默认 `pi` */
-    kind?: string
-    /** 是否先跑一轮评审再把结论喂给综合（默认 true，约 5 万 token） */
-    review?: boolean
-    /** 威科凭证：给了才做外部引用核验 */
-    credentialId?: number | null
-  },
-): Promise<Synthesis> {
+export const SYNTHESIS_MAX_WAIT_MS = 20 * 60_000
+
+/** 轮询连续失败几次后放弃（偶发网络抖动不该让一次几分钟的综合"失败"）。 */
+const SYNTHESIS_POLL_MAX_ERRORS = 3
+
+/**
+ * 提交一次综合结论任务（`POST /agent/sessions/{id}/synthesize`），立即返回任务。
+ *
+ * 花钱动作，只能由按钮触发。同一轮已有进行中的任务时后端返回那一个（`created=false`），
+ * 不会重复花钱。
+ */
+export function startSynthesisJob(sessionId: string, input: SynthesisInput): Promise<SynthesisJob> {
   return api
     .post(`agent/sessions/${sessionId}/synthesize`, {
       json: {
@@ -124,9 +141,122 @@ export function runSynthesis(
         review: input.review ?? true,
         credential_id: input.credentialId ?? null,
       },
-      timeout: REVIEW_TIMEOUT_MS,
+      timeout: SYNTHESIS_SUBMIT_TIMEOUT_MS,
     })
-    .json<Synthesis>()
+    .json<SynthesisJob>()
+}
+
+/** 读某个综合任务（`GET /agent/sessions/{id}/synthesis/jobs/{jobId}`）。 */
+export function fetchSynthesisJob(sessionId: string, jobId: string): Promise<SynthesisJob> {
+  return api.get(`agent/sessions/${sessionId}/synthesis/jobs/${jobId}`).json<SynthesisJob>()
+}
+
+/**
+ * 某一轮最近一次综合任务（`GET /agent/sessions/{id}/synthesis/jobs?turn=`）。
+ *
+ * 刷新页面后据此接着显示进度。该轮没提交过时 404——**正常态**，调用方静默处理。
+ */
+export function fetchLatestSynthesisJob(sessionId: string, turn: number): Promise<SynthesisJob> {
+  return api.get(`agent/sessions/${sessionId}/synthesis/jobs`, { searchParams: { turn } }).json<SynthesisJob>()
+}
+
+/**
+ * 取消综合任务（`POST /agent/sessions/{id}/synthesis/jobs/{jobId}/cancel`）。
+ *
+ * 排队中立即变 `cancelled`；运行中只置 `cancel_requested`，后台几秒内停下（继续轮询可见）。
+ */
+export function cancelSynthesisJob(sessionId: string, jobId: string): Promise<SynthesisJob> {
+  return api.post(`agent/sessions/${sessionId}/synthesis/jobs/${jobId}/cancel`).json<SynthesisJob>()
+}
+
+/** 任务是否还在进行中（排队 / 运行）。 */
+export function isSynthesisJobActive(job: Pick<SynthesisJob, 'status'>): boolean {
+  return job.status === 'queued' || job.status === 'running'
+}
+
+/** 轮询超过 {@link SYNTHESIS_MAX_WAIT_MS} 仍未结束（后端任务照常在跑）。 */
+export class SynthesisWaitTimeoutError extends Error {
+  constructor() {
+    super('综合结论仍在后台生成，稍后回到这一轮即可查看')
+    this.name = 'SynthesisWaitTimeoutError'
+  }
+}
+
+function abortError(): DOMException {
+  return new DOMException('已停止等待综合结论', 'AbortError')
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError())
+      return
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(abortError())
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+/**
+ * 轮询任务直到终态（`succeeded` / `failed` / `cancelled`），返回终态任务。
+ *
+ * - `signal` 中止 = **只停止轮询**（组件卸载 / 切轮次），不取消后端任务，reject `AbortError`；
+ * - 超过 `maxWaitMs` reject {@link SynthesisWaitTimeoutError}；
+ * - 单次轮询失败会重试，连续失败 3 次才放弃（reject 最后一次的错误）。
+ */
+export async function waitForSynthesisJob(
+  sessionId: string,
+  job: SynthesisJob,
+  options: {
+    signal?: AbortSignal
+    onUpdate?: (job: SynthesisJob) => void
+    intervalMs?: number
+    maxWaitMs?: number
+  } = {},
+): Promise<SynthesisJob> {
+  const { signal, onUpdate, intervalMs = SYNTHESIS_POLL_INTERVAL_MS, maxWaitMs = SYNTHESIS_MAX_WAIT_MS } = options
+  const deadline = Date.now() + maxWaitMs
+  let current = job
+  let errors = 0
+  while (isSynthesisJobActive(current)) {
+    if (Date.now() >= deadline) throw new SynthesisWaitTimeoutError()
+    await sleep(intervalMs, signal)
+    try {
+      current = await fetchSynthesisJob(sessionId, current.job_id)
+      errors = 0
+    } catch (error) {
+      if (signal?.aborted) throw abortError()
+      errors += 1
+      if (errors >= SYNTHESIS_POLL_MAX_ERRORS) throw error
+      continue
+    }
+    if (signal?.aborted) throw abortError()
+    onUpdate?.(current)
+  }
+  return current
+}
+
+/**
+ * 提交 + 轮询到终态，返回结论（便捷封装；需要进度 / 取消时直接用上面三件）。
+ *
+ * 任务 `failed` / `cancelled` 时 reject，错误文案取后端给的人话原因。
+ */
+export async function runSynthesis(
+  sessionId: string,
+  input: SynthesisInput,
+  options: Parameters<typeof waitForSynthesisJob>[2] = {},
+): Promise<Synthesis> {
+  const job = await waitForSynthesisJob(sessionId, await startSynthesisJob(sessionId, input), options)
+  if (job.status === 'succeeded' && job.synthesis) return job.synthesis
+  if (job.status === 'cancelled') throw new Error('综合结论已取消')
+  throw new Error(job.error || '综合结论生成失败，请稍后重试')
 }
 
 /**

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from ...models import AgentMessage, AgentReview, AgentSession
 from ..adjudication.contracts import EquivalenceCluster, Review
+from ..synthesis.kinds import SYNTHESIS_AGENT_KIND
 
 
 async def _turn_window(session: AgentSession, turn: int, lanes: list[str]) -> tuple[AgentMessage, list[AgentMessage]]:
@@ -31,6 +32,10 @@ async def _turn_window(session: AgentSession, turn: int, lanes: list[str]) -> tu
         role=AgentMessage.Role.ASSISTANT,
         agent_kind__in=lanes,
         id__gt=anchor.pk,
+    ).exclude(
+        # 综合结论不是任何一栏的回答：请求里即便带了这个 kind，也不能把它当评审候选
+        # （否则会「评审综合稿自己」，judge 模型也会被它的 metadata.model 带偏）。
+        agent_kind=SYNTHESIS_AGENT_KIND
     )
     if turn < len(user_messages):
         rows = rows.filter(id__lt=user_messages[turn].pk)

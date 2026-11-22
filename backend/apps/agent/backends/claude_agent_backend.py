@@ -32,6 +32,10 @@ OpenAI 兼容端点——这正是它在四栏并答里的对照价值。
    并把代理变量置空——律所网关是内网地址，带着 Clash 去访问是「502 无 body」
    （见 ``dsh_config.without_proxy_env`` 的记录）。
 
+CLI 会把会话记录写进 ``CLAUDE_CONFIG_DIR``，所以该目录**每轮新建、用完即删**
+（:func:`make_config_dir` / :func:`remove_config_dir`）：律师的对话属于敏感数据，
+不能在多个会话、多个律师之间共用一个目录。
+
 ## 与其它后端的口径差异（都是刻意的）
 
 - **``steer=False``**：SDK 支持 ``client.query(priority=...)``，但「运行中插话可能被
@@ -50,11 +54,14 @@ import contextlib
 import json
 import logging
 import os
+import shutil
 import tempfile
-from collections.abc import AsyncGenerator, AsyncIterator
+import time
+from collections import OrderedDict
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from asgiref.sync import sync_to_async
 
@@ -71,8 +78,9 @@ KIND = "claude-agent"
 #: 「声明与实现同源」，见 ``openai_agents_backend.approval_enabled`` 的同款说明。
 APPROVAL_ENV = "FACHUAN_CLAUDE_APPROVAL"
 
-#: 显式指定 CLI 路径（离线部署把自己放的二进制指过来）。留空则用 SDK 随 wheel
-#: 分发的内置二进制，再退回 PATH 上的 ``claude``。
+#: 显式指定 CLI 路径（离线部署把自己放的二进制指过来），经
+#: ``ClaudeAgentOptions.cli_path`` 交给 SDK。留空则由 SDK 自己找：先用随 wheel 分发的
+#: 内置二进制，再退回 PATH 上的 ``claude``。
 CLI_PATH_ENV = "FACHUAN_CLAUDE_CLI_PATH"
 
 #: 工具面档位（``lite`` / ``full``）。**默认 ``lite``**：Anthropic 协议的
@@ -109,6 +117,18 @@ MCP_CLIENT_TIMEOUT_SECONDS = 200.0
 #: 所以在审批回调里直接拒。
 BLOCKED_TOOL_NAMES: frozenset[str] = frozenset({"delete_case"})
 
+#: 每轮 ``CLAUDE_CONFIG_DIR`` 的目录名前缀（建在系统临时目录下）。
+CONFIG_DIR_PREFIX = "fachuan-claude-"
+
+#: 超过这个时长的 ``fachuan-claude-*`` 目录视为崩溃残留，新建目录时顺手清掉
+#: （进程被杀时 ``finally`` 不会执行）。一轮最多 :data:`MAX_TURNS` 次模型调用，
+#: 远跑不到这么久；也顺带清掉旧版本留下的共用目录 ``fachuan-claude-config``。
+CONFIG_DIR_STALE_SECONDS = 6 * 3600
+
+#: ``result_for`` 最多保留多少轮的收尾事实。后端是单例，只增不删会随运行轮数无限
+#: 增长；编排层在本轮结束后立刻读取，保留最近这些足够。
+MAX_KEPT_RESULTS = 256
+
 
 # ── 配置解析（纯函数，便于离线测试）────────────────────────────────────
 
@@ -123,6 +143,11 @@ def tool_tier() -> str:
     """本轮工具面档位；未知取值一律回落 ``lite``（fail-safe）。"""
     raw = os.environ.get(TOOL_TIER_ENV, TIER_LITE).strip().lower()
     return TIER_FULL if raw == TIER_FULL else TIER_LITE
+
+
+def resolve_cli_path() -> str | None:
+    """:data:`CLI_PATH_ENV` 指定的 CLI 路径；没配返回 ``None``（交给 SDK 自己找）。"""
+    return os.environ.get(CLI_PATH_ENV, "").strip() or None
 
 
 def backend_capabilities() -> BackendCapabilities:
@@ -186,7 +211,7 @@ def select_anthropic_model(settings: GatewaySettings | None, model_hint: str | N
     return None
 
 
-def build_env(*, base_url: str, api_key: str, model: str, cli_path: str | None) -> dict[str, str]:
+def build_env(*, base_url: str, api_key: str, model: str, config_dir: str | os.PathLike[str]) -> dict[str, str]:
     """给 ``claude`` 子进程的环境变量（**覆盖**宿主同名变量）。
 
     ## 为什么每一项都是必须的
@@ -196,17 +221,18 @@ def build_env(*, base_url: str, api_key: str, model: str, cli_path: str | None) 
     - 代理变量**置空**：SDK 的 ``env`` 是叠加语义，宿主的 ``HTTPS_PROXY``（本机
       Clash）会渗进来，导致访问内网网关得到「502 无 body」且重试 5 次。
       ``NO_PROXY`` 也一并写上（双保险：空串在某些客户端里语义不稳）。
-    - ``CLAUDE_CONFIG_DIR``：会话配置目录独立，避免加载开发机上的 user settings
-      （那里可能有 hooks / permissions.allow —— 后者会**绕过**我们的审批回调）。
+    - ``CLAUDE_CONFIG_DIR``：本轮独立的配置目录（调用方用 :func:`make_config_dir`
+      创建、本轮结束后删除）。既避免加载开发机上的 user settings（那里可能有 hooks /
+      permissions.allow —— 后者会**绕过**我们的审批回调），也避免不同会话的记录落在一起。
     - ``DISABLE_TELEMETRY`` / ``DISABLE_ERROR_REPORTING``：不往厂商侧发送会话内容。
+
+    CLI 路径不走 env：SDK 只认 ``ClaudeAgentOptions.cli_path``（见 :func:`resolve_cli_path`）。
     """
-    cfg_dir = Path(tempfile.gettempdir()) / "fachuan-claude-config"
-    cfg_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     env = {
         "ANTHROPIC_BASE_URL": anthropic_base_url(base_url),
         "ANTHROPIC_API_KEY": api_key,
         "ANTHROPIC_MODEL": model,
-        "CLAUDE_CONFIG_DIR": str(cfg_dir),
+        "CLAUDE_CONFIG_DIR": os.fspath(config_dir),
         "DISABLE_TELEMETRY": "1",
         "DISABLE_ERROR_REPORTING": "1",
         # 代理变量置空：内网网关必须直连。
@@ -219,9 +245,40 @@ def build_env(*, base_url: str, api_key: str, model: str, cli_path: str | None) 
         "NO_PROXY": "127.0.0.1,localhost",
         "no_proxy": "127.0.0.1,localhost",
     }
-    if cli_path:
-        env["FACHUAN_CLAUDE_CLI_PATH"] = cli_path
     return env
+
+
+def make_config_dir() -> Path:
+    """新建本轮的 ``CLAUDE_CONFIG_DIR``（0700）；顺手清掉超时的崩溃残留。"""
+    base = Path(tempfile.gettempdir())
+    _sweep_stale_config_dirs(base)
+    path = Path(tempfile.mkdtemp(prefix=CONFIG_DIR_PREFIX, dir=base))
+    # mkdtemp 本就按 0700 创建；显式再设一次，不依赖实现细节与 umask。
+    path.chmod(0o700)
+    return path
+
+
+def remove_config_dir(path: Path | None) -> None:
+    """删除本轮的配置目录（含 CLI 写进去的会话记录）；删不掉只记日志。"""
+    if path is None:
+        return
+    shutil.rmtree(path, ignore_errors=True)
+    if path.exists():
+        logger.warning("claude-agent 配置目录删除失败（留给下次清理）: %s", path)
+
+
+def _sweep_stale_config_dirs(base: Path) -> None:
+    deadline = time.time() - CONFIG_DIR_STALE_SECONDS
+    try:
+        candidates = list(base.glob(f"{CONFIG_DIR_PREFIX}*"))
+    except OSError:
+        return
+    for child in candidates:
+        try:
+            if child.is_dir() and child.stat().st_mtime < deadline:
+                shutil.rmtree(child, ignore_errors=True)
+        except OSError:
+            continue
 
 
 def build_mcp_servers(*, url: str, user_token: str, session_id: str) -> dict[str, dict[str, Any]]:
@@ -302,19 +359,31 @@ class ClaudeAgentBackend:
 
     capabilities: BackendCapabilities
 
-    #: 按 ``run_id`` 归集的收尾事实（并发两轮互不覆盖）。
-    _results: dict[str, ClaudeAgentRunResult]
+    #: 按 ``run_id`` 归集的收尾事实（并发两轮互不覆盖）。有界：最多
+    #: :data:`MAX_KEPT_RESULTS` 条，超出丢最旧的（见 :meth:`_remember_result`）。
+    _results: OrderedDict[str, ClaudeAgentRunResult]
     #: 按 ``run_id`` 归集的翻译状态。
     _states: dict[str, _RunState]
 
     def __init__(self) -> None:
         self.capabilities = backend_capabilities()
-        self._results = {}
+        self._results = OrderedDict()
         self._states = {}
 
     def result_for(self, run_id: str) -> ClaudeAgentRunResult | None:
-        """取某一轮的收尾事实；未跑过 / 本轮异常时为 ``None``。"""
+        """取某一轮的收尾事实；未跑过 / 本轮异常 / 已被挤出保留窗口时为 ``None``。"""
         return self._results.get(run_id)
+
+    def _remember_result(self, run_id: str, result: ClaudeAgentRunResult) -> None:
+        """记下本轮收尾事实，只保留最近 :data:`MAX_KEPT_RESULTS` 条。
+
+        不做「读一次就删」：编排层（``stream`` / ``multi`` / 综合）各读一次，但读的次数
+        是调用方的实现细节，按次数删会让第二次读悄悄拿到 ``None``。按条数封顶就够了。
+        """
+        self._results[run_id] = result
+        self._results.move_to_end(run_id)
+        while len(self._results) > MAX_KEPT_RESULTS:
+            self._results.popitem(last=False)
 
     def stream(self, ctx: RunContext) -> AsyncGenerator[StreamFrame, None]:
         """跑一轮，产出 SSE 事件（``agent`` / ``run_id`` 已带）。
@@ -333,34 +402,43 @@ class ClaudeAgentBackend:
 
         resolved = await self._resolve_gateway(ctx)
         self._results.pop(ctx.run_id, None)
-        self._states[ctx.run_id] = _RunState()
+        state = _RunState()
+        self._states[ctx.run_id] = state
         session_id = str(ctx.session.session_id)
-
-        options = ClaudeAgentOptions(
-            env=build_env(
-                base_url=resolved["base_url"],
-                api_key=resolved["api_key"],
-                model=resolved["model"],
-                cli_path=(os.environ.get(CLI_PATH_ENV, "").strip() or None),
-            ),
-            model=resolved["model"],
-            # 内置工具全关（四件套见模块 docstring 第 4 条）。业务工具全部来自 MCP。
-            tools=[],
-            skills=[],
-            setting_sources=[],
-            strict_mcp_config=True,
-            permission_mode=_HARDENED_PERMISSION_MODE,
-            allowed_tools=[],
-            mcp_servers=resolved["mcp_servers"],
-            system_prompt=_instructions(ctx),
-            max_turns=MAX_TURNS,
-            # 逐 token 增量：不开只有「整段 assistant 消息」一种粒度，
-            # 前端表现为长时间空白后突然出现一大段。兜底路径见 ``_translate``。
-            include_partial_messages=True,
-            can_use_tool=_can_use_tool,
-        )
+        max_turns = ctx.max_turns if ctx.max_turns is not None else MAX_TURNS
+        config_dir: Path | None = None
 
         try:
+            # 本轮独立的 CLAUDE_CONFIG_DIR：CLI 的会话记录只落在这里，本轮结束即删（见 finally）。
+            config_dir = make_config_dir()
+            # ``ctx.isolated`` 无需额外处理：每轮都是全新 ``claude`` 子进程与全新配置目录，
+            # 且不设 ``resume`` / ``continue_conversation``，本就不读、不续接任何历史会话。
+            options = ClaudeAgentOptions(
+                env=build_env(
+                    base_url=resolved["base_url"],
+                    api_key=resolved["api_key"],
+                    model=resolved["model"],
+                    config_dir=config_dir,
+                ),
+                cli_path=resolve_cli_path(),
+                model=resolved["model"],
+                # 内置工具全关（四件套见模块 docstring 第 4 条）。业务工具全部来自 MCP。
+                tools=[],
+                skills=[],
+                setting_sources=[],
+                strict_mcp_config=True,
+                permission_mode=_HARDENED_PERMISSION_MODE,
+                allowed_tools=[],
+                mcp_servers=resolved["mcp_servers"],
+                system_prompt=_instructions(ctx),
+                max_turns=max_turns,
+                # 逐 token 增量：不开只有「整段 assistant 消息」一种粒度，
+                # 前端表现为长时间空白后突然出现一大段。兜底路径见 ``_translate``。
+                include_partial_messages=True,
+                # 本轮 ctx 由闭包绑定：SDK 回调的第三个参数（``ToolPermissionContext``）
+                # 只有 signal / suggestions / tool_use_id 等字段，不携带任何业务上下文。
+                can_use_tool=_bind_can_use_tool(ctx),
+            )
             async with ClaudeSDKClient(options=options) as client:
                 await client.query(ctx.prompt)
                 async for msg in _with_ticks(client.receive_response()):
@@ -373,10 +451,14 @@ class ClaudeAgentBackend:
 
                     result_msg = _result_message(msg)
                     if result_msg is not None:
-                        usage = self._usage_frame(result_msg)
-                        self._results[ctx.run_id] = ClaudeAgentRunResult(model=resolved["model"])
+                        failure = self._result_failure(result_msg, max_turns=max_turns)
+                        # 失败的一轮同样产生了费用：用量帧照发，再报错。
+                        usage = self._usage_frame(result_msg, state)
                         if usage is not None:
                             yield {**usage, "agent": self.kind, "run_id": ctx.run_id}
+                        if failure is not None:
+                            raise failure
+                        self._remember_result(ctx.run_id, ClaudeAgentRunResult(model=resolved["model"]))
                         break
         except BackendError:
             raise
@@ -392,6 +474,8 @@ class ClaudeAgentBackend:
             raise self._wrap_error(exc) from exc
         finally:
             self._states.pop(ctx.run_id, None)
+            # ``async with`` 已退出（子进程已关）后才删，CLI 不会再往里写。
+            remove_config_dir(config_dir)
 
     async def _resolve_gateway(self, ctx: RunContext) -> dict[str, Any]:
         """解析网关 + 模型 + MCP 配置；不可用时抛可读的 ``BackendError``。"""
@@ -589,17 +673,23 @@ class ClaudeAgentBackend:
         return []
 
     @staticmethod
-    def _usage_frame(result_msg: Any) -> dict[str, Any] | None:
+    def _usage_frame(result_msg: Any, state: _RunState | None = None) -> dict[str, Any] | None:
         """一轮结束时的 ``usage`` 帧（一轮**只发一帧**）。
 
-        优先用 ``ResultMessage.usage``（SDK 汇总的整轮值）；它缺失时退回流事件
-        累加值。**拿不到就返回 ``None``**（不发 0/0 假帧：编造的 0 无法与真实 0 区分）。
+        优先用 ``ResultMessage.usage``（SDK 汇总的整轮值）；它缺失或全为 0 时退回
+        ``state`` 里流事件的累加值。**两边都拿不到就返回 ``None``**（不发 0/0 假帧：
+        编造的 0 无法与真实 0 区分）。
         """
         usage = getattr(result_msg, "usage", None) or {}
         input_tokens = int(usage.get("input_tokens") or 0)
         output_tokens = int(usage.get("output_tokens") or 0)
         cache_read = int(usage.get("cache_read_input_tokens") or 0)
         cache_write = int(usage.get("cache_creation_input_tokens") or 0)
+        if input_tokens + output_tokens <= 0 and state is not None and state.reported_usage:
+            input_tokens = state.input_tokens
+            output_tokens = state.output_tokens
+            cache_read = state.cache_read_tokens
+            cache_write = state.cache_write_tokens
         if input_tokens + output_tokens <= 0:
             return None
         return {
@@ -611,6 +701,42 @@ class ClaudeAgentBackend:
         }
 
     # ── 错误分类 ────────────────────────────────────────────────────────
+
+    @classmethod
+    def _result_failure(cls, result_msg: Any, *, max_turns: int) -> BackendError | None:
+        """错误的 ``ResultMessage`` → 可读的 ``BackendError``；正常结果返回 ``None``。
+
+        CLI 失败时先发一条 ``is_error=True`` 的结果（``subtype`` 如 ``error_max_turns`` /
+        ``error_during_execution``，API 失败时 ``subtype`` 可能仍是 ``success``）再非零退出。
+        只 ``break`` 不报错，这一栏就是一片空白、也没有任何提示。
+        """
+        subtype = str(getattr(result_msg, "subtype", "") or "")
+        if not getattr(result_msg, "is_error", False) and not subtype.startswith("error"):
+            return None
+        terminal_reason = str(getattr(result_msg, "terminal_reason", "") or "")
+        if subtype == "error_max_turns" or terminal_reason == "max_turns":
+            return BackendError(
+                BackendErrorKind.UNKNOWN,
+                f"claude-agent 超过 {max_turns} 轮仍未完成，已停止；请把问题拆小或减少要查的内容后重试",
+            )
+
+        status = getattr(result_msg, "api_error_status", None)
+        errors = [item.strip() for item in (getattr(result_msg, "errors", None) or []) if isinstance(item, str)]
+        detail = "；".join(item for item in errors if item) or str(getattr(result_msg, "result", "") or "").strip()
+        head = (
+            f"claude-agent 本轮失败（{subtype or 'error'}"
+            + (f"，HTTP {status}" if isinstance(status, int) else "")
+            + "）"
+        )
+        message = f"{head}：{(detail or '未给出原因')[:300]}"
+        if isinstance(status, int):
+            if status == 429:
+                return BackendError(BackendErrorKind.RATE_LIMITED, message, retryable=True)
+            if status in (401, 403):
+                return BackendError(BackendErrorKind.AUTH, message)
+            if status >= 500:
+                return BackendError(BackendErrorKind.UNAVAILABLE, message, retryable=True)
+        return cls._wrap_error(RuntimeError(message))
 
     @staticmethod
     def _wrap_error(exc: BaseException) -> BackendError:
@@ -633,25 +759,46 @@ class ClaudeAgentBackend:
         return BackendError.wrap(exc, BackendErrorKind.UNKNOWN)
 
 
-# ── 审批回调（模块级：SDK 只要求 callable）──────────────────────────────
+# ── system prompt 与审批回调 ─────────────────────────────────────────────
+
+
+#: 默认 system prompt（``ctx.system_prompt`` 为空时使用）。
+DEFAULT_INSTRUCTIONS = (
+    "你是法穿法律事务系统的助手。用户是执业律师。"
+    "需要事实时必须调用工具查询，不得编造案件、当事人、金额、期限或法条。"
+    "回答简洁、直接给结论，再给依据。"
+)
 
 
 def _instructions(ctx: RunContext) -> str:
-    """本轮的 system prompt（全量替换 CLI 默认预设，**不是追加**）。"""
-    del ctx
-    return (
-        "你是法穿法律事务系统的助手。用户是执业律师。"
-        "需要事实时必须调用工具查询，不得编造案件、当事人、金额、期限或法条。"
-        "回答简洁、直接给结论，再给依据。"
-    )
+    """本轮的 system prompt（全量替换 CLI 默认预设，**不是追加**）。
+
+    ``ctx.system_prompt`` 非空时用它（如综合结论的规则），否则用 :data:`DEFAULT_INSTRUCTIONS`。
+    """
+    return ctx.system_prompt or DEFAULT_INSTRUCTIONS
 
 
-async def _can_use_tool(tool_name: str, tool_input: dict[str, Any], context: Any) -> Any:
+def _bind_can_use_tool(ctx: RunContext) -> Callable[[str, dict[str, Any], Any], Awaitable[Any]]:
+    """把本轮 ``ctx`` 绑进审批回调，返回符合 SDK ``CanUseTool`` 签名的协程函数。
+
+    每次 ``_stream`` 各自绑定：后端是单例且允许并发，两轮的回调互不串用。
+    """
+
+    async def can_use_tool(tool_name: str, tool_input: dict[str, Any], context: Any) -> Any:
+        return await _can_use_tool(ctx, tool_name, tool_input, context)
+
+    return can_use_tool
+
+
+async def _can_use_tool(ctx: RunContext, tool_name: str, tool_input: dict[str, Any], context: Any) -> Any:
     """高危工具执行前的审批闸门。
 
     **这是本后端能声明 ``approval=True`` 的唯一依据**，但只有在
     ``permission_mode="default"`` + ``allowed_tools=[]`` + ``setting_sources=[]``
     同时成立时才真的会被调用（其余组合会静默跳过，见模块 docstring 第 3 条）。
+
+    会话 / 轮次 / 用户一律取自 ``ctx``（由 :func:`_bind_can_use_tool` 绑定）；
+    ``context`` 是 SDK 的 ``ToolPermissionContext``，只用它的 ``tool_use_id`` 关联审批卡与工具卡。
 
     拒绝一律返回 ``PermissionResultDeny``（**不抛异常**）：抛异常会被 SDK 包成
     「工具故障」，而真实语义是「律师拒了，本轮继续，模型换个只读方案」。
@@ -668,13 +815,10 @@ async def _can_use_tool(tool_name: str, tool_input: dict[str, Any], context: Any
     if short in BLOCKED_TOOL_NAMES:
         return PermissionResultDeny(message=f"该操作（{short}）已被系统禁用，请换只读方案。")
 
-    ctx: RunContext | None = getattr(context, "context", None)
-    session_id = str(getattr(getattr(ctx, "session", None), "session_id", "") or "")
-    run_id = str(getattr(ctx, "run_id", "") or "")
-    user_id = getattr(ctx, "user_id", None)
+    session_id = str(ctx.session.session_id)
 
     # 2) 多栏并答时禁止写（结构性冲突，不是偏好问题）。
-    refusal = multi_lane_write_refusal(session_id=session_id or None, tool_name=tool_name)
+    refusal = multi_lane_write_refusal(session_id=session_id, tool_name=tool_name)
     if refusal:
         return PermissionResultDeny(message=refusal)
 
@@ -685,9 +829,10 @@ async def _can_use_tool(tool_name: str, tool_input: dict[str, Any], context: Any
     approved, _approval_id, _reason = await request_approval(
         tool_name=tool_name,
         tool_args=args,
-        user_id=user_id,
+        user_id=ctx.user_id,
         session_id=session_id,
-        run_id=run_id,
+        run_id=ctx.run_id,
+        tool_call_id=str(getattr(context, "tool_use_id", "") or ""),
     )
     if approved:
         return PermissionResultAllow()
@@ -760,15 +905,20 @@ __all__ = [
     "APPROVAL_REJECTED_MESSAGE",
     "BLOCKED_TOOL_NAMES",
     "CLI_PATH_ENV",
+    "CONFIG_DIR_PREFIX",
     "ClaudeAgentBackend",
     "ClaudeAgentRunResult",
     "KIND",
+    "MAX_KEPT_RESULTS",
     "TOOL_TIER_ENV",
     "anthropic_base_url",
     "approval_enabled",
     "backend_capabilities",
     "build_env",
     "build_mcp_servers",
+    "make_config_dir",
+    "remove_config_dir",
+    "resolve_cli_path",
     "select_anthropic_model",
     "short_tool_name",
     "tool_tier",

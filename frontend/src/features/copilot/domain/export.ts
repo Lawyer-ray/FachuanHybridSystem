@@ -6,7 +6,7 @@
  */
 
 import type { ChatMessage } from '../types'
-import { DEFAULT_AGENT_KIND } from './dual'
+import { agentLabel, DEFAULT_AGENT_KIND, SYNTHESIS_AGENT_KIND } from './dual'
 import { bizHintParts } from './transcript'
 
 export interface ExportOptions {
@@ -41,7 +41,9 @@ function clip(text: string, max: number): string {
 
 /** 助手栏头：`pi · kimi-2.6`（旧数据无 agent 时按 pi，与界面同口径） */
 function answerHeading(message: ChatMessage): string {
-  const agent = message.agentKind || DEFAULT_AGENT_KIND
+  const kind = message.agentKind || DEFAULT_AGENT_KIND
+  // 综合结论不是某一栏的回答：导出时写可读名「综合结论」，别露出内部标识 synthesis
+  const agent = kind === SYNTHESIS_AGENT_KIND ? agentLabel(kind) : kind
   const model = message.model?.trim()
   return model ? `${agent} · ${model}` : agent
 }

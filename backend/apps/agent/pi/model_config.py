@@ -61,11 +61,14 @@ DEFAULT_CONTEXT_WINDOW = int(os.environ.get("FACHUAN_CONTEXT_WINDOW", "1000000")
 #: 同样可覆盖：合成结论要一次写上千字，8192 在"思考 + 正文"并存的推理模型上会被
 #: 顶满（实测 kimi-2.6 曾吃到 5958/6144），顶满即被视为"没写完"。
 DEFAULT_MAX_TOKENS = int(os.environ.get("FACHUAN_MAX_TOKENS", "32768") or 32768)
-# 上面的 ``DEFAULT_THINKING_LEVEL`` / ``gateway_effort`` 是**从
-# ``apps.core.llm.gateway_profile`` 再导出**的（思考档位与能力特征表的唯一来源）：
-# ``antigravity_backend`` / ``openai_agents_backend`` 都写着
-# ``from ..pi.model_config import DEFAULT_THINKING_LEVEL, gateway_effort``，
-# 删掉这两个名字会把它们打断。
+
+#: pi 的思考档位全集（pi 自己的配置词汇，``--thinking`` / ``thinkingLevelMap`` 的键），
+#: 顺序即写进 ``models.json`` 的顺序。它**不是**网关白名单：``minimal`` / ``medium``
+#: 网关不认，下发前一律经 ``gateway_profile.gateway_effort`` 映射（见 :func:`_thinking_level_map`）。
+_PI_THINKING_LEVELS: tuple[str, ...] = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
+
+#: pi 的「关闭思考」档位。它是 pi 的语义，不在网关白名单里，原样保留、不做映射。
+_PI_THINKING_OFF = "off"
 
 
 def _next_key(keys: list[str], provider: str = "") -> str:
@@ -189,8 +192,8 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
 
     仅对推理模型且平台开启 ``enable_thinking`` 时声明 ``reasoning: true``，
     避免给普通模型（glm53 等）错报能力导致 pi 发它不认的 thinking 参数。
-    两个条件由 :func:`apps.core.llm.gateway_profile.resolve_thinking` 统一算：
-    ``supported`` 是模型能力（特征表唯一来源），``enabled`` 还叠加了平台开关。
+    两个条件由 :func:`apps.core.llm.gateway_profile.resolve_thinking` 统一算，
+    其 ``enabled`` 已同时包含「模型有思考能力」与「平台开关打开」。
 
     ``input`` 是 pi 的 **vision gate**：pi 的 openai-completions 适配器只在
     ``model.input`` 含 ``"image"`` 时才把 image block 转成 ``image_url`` 下发。
@@ -208,7 +211,7 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
         "id": name,
         "contextWindow": DEFAULT_CONTEXT_WINDOW,
         "maxTokens": DEFAULT_MAX_TOKENS,
-        "reasoning": directives.supported and directives.enabled,
+        "reasoning": directives.enabled,
         "input": ["text", "image"] if _is_vision_model(name, provider) else ["text"],
         # 网关适配（实测必需）：本仓库的 LiteLLM 网关把思考开关放在
         # ``chat_template_kwargs.thinking``（布尔），而 pi 的 openai-completions
@@ -219,11 +222,10 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
         # - thinkingFormat=chat-template：走 chat_template_kwargs 通道
         # - chatTemplateKwargs：告诉 pi 往该通道写什么。
         #   ``$var: thinking.enabled`` 是 pi 的变量语法，由思考等级推导布尔值
-        # - supportsReasoningEffort=false：避免发网关不认的 reasoning_effort
-        # 为什么现在是 ``True``（与早先的 ``False`` 相反）：
-        # 早先写 False 是因为当时的判断是「网关不认 reasoning_effort，发了会
-        # 400」。实测（2026-11-19）证明那个判断错了——网关（LiteLLM → vLLM）
-        # 接受且**需要** ``reasoning_effort`` 才能真正分级：
+        # - supportsReasoningEffort=true：同时下发 reasoning_effort（档位见 thinkingLevelMap）
+        #
+        # 为什么 supportsReasoningEffort 是 ``True``：实测（2026-11-19）网关
+        # （LiteLLM → vLLM）接受且**需要** ``reasoning_effort`` 才能真正分级：
         #
         #   reasoning_effort=max  + chat_template_kwargs.thinking=true
         #   → HTTP 200，reasoning_tokens 26–48，reasoning_content 有内容
@@ -249,24 +251,26 @@ def _model_entry(name: str, *, enable_thinking: bool, provider: Any) -> dict[str
         #
         # 为什么值不是原样七档：服务端（DeepSeek V4.1 / vLLM）只认
         # ``low`` / ``high`` / ``xhigh`` / ``max``，发 ``medium`` 直接 400。
-        # 映射口径的唯一来源是 ``apps.core.llm.gateway_profile.gateway_effort``
-        # （本表的值必须与它一致；``off`` 一栏是 pi 自己的语义，不在网关白名单里）。
-        entry["thinkingLevelMap"] = {
-            "off": "off",
-            "minimal": "low",
-            "low": "low",
-            "medium": "high",
-            "high": "high",
-            "xhigh": "xhigh",
-            "max": "max",
-        }
+        # 表由 ``gateway_profile.gateway_effort`` 生成，不在本文件手写。
+        entry["thinkingLevelMap"] = _thinking_level_map()
     return entry
+
+
+def _thinking_level_map() -> dict[str, str]:
+    """pi 七档 → 网关 ``reasoning_effort`` 的映射表（``models.json`` 的 ``thinkingLevelMap``）。
+
+    值一律取自 :func:`apps.core.llm.gateway_profile.gateway_effort`（档位映射的唯一来源）；
+    只有 ``off`` 例外，原样写 ``"off"``——它是 pi 的「关闭思考」语义，交给网关映射会变成 ``low``。
+    """
+    return {
+        level: _PI_THINKING_OFF if level == _PI_THINKING_OFF else gateway_effort(level) for level in _PI_THINKING_LEVELS
+    }
 
 
 def resolve_thinking_level(model_hint: str = "", provider: Any | None = None) -> str | None:
     """解析该模型应使用的 pi 思考等级（``--thinking`` 参数值）。
 
-    重要：``models.json`` 里的 ``reasoning: true`` 只是冓「这个模型能思考」，
+    重要：``models.json`` 里的 ``reasoning: true`` 只是声明「这个模型能思考」，
     真正的推理开关是会话的 ``thinkingLevel``，默认 ``off``。只声明能力而不传
     ``--thinking``，模型依旧不思考、也不会产生 ``thinking_delta`` 事件。
 

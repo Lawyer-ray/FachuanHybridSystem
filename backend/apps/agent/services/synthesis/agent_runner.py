@@ -2,35 +2,39 @@
 
 ## 为什么改成跑 agent
 
-裸调用（`chat/aggregate._llm_aggregate`）只能"转述候选"：它没有工具，无法核实
-候选里的法条与案号，`Synthesis.unverified` 因此恒为 `[]`（契约里有字段、
-前端有渲染块，却永远不出现）。
+裸调用只能"转述候选"：它没有工具，无法核实候选里的法条与案号。跑 agent 之后它能：
 
-跑 agent 之后它能：
-
-1. 在**新开的上下文**里读下五栏全文（模型窗口声明 1M，
-   见 `pi/model_config.DEFAULT_CONTEXT_WINDOW`），不受会话历史干扰；
+1. 在**隔离的上下文**里读五栏全文（``RunContext.isolated=True``：不读也不写本会话
+   在运行时侧的对话历史，见下）；
 2. 自己调 `verify_citations` / 检索工具去核引用；
 3. 像普通一栏那样带审批闸门与审计（走的是同一个 `AgentBackend`）。
 
-## 三个刻意的口径
+## 本轮下发给运行时的三个参数
 
-- **不落 assistant 消息**：综合结果只进 `AgentSynthesis`，不进会话转录。落成
-  "第 6 栏"会和五栏并答的语义混在一起（`agent_kind` 写什么都不对），而且历史
-  回放靠合成表已经够了。
-- **不记成本**：不写 `AgentRun`。综合是"律师点一次"的动作，成本归因价值低，
-  而多一张运行记录会让"本轮几栏/多少钱"的统计口径变复杂。
-- **默认 `pi`**：后端注册表里最稳的一个；调用方可以换成任意已注册 kind。
+- ``system_prompt``：`chat/aggregate.AGGREGATE_SYSTEM_PROMPT`，**全量替换**运行时默认人格
+  （来源锚点 / 只用候选依据 / 分歧写明这三条规则只靠它下发）；
+- ``max_turns``：:data:`SYNTHESIS_MAX_TURNS`；
+- ``isolated=True``：综合要读五栏全文、写一份长结论，落进某一栏的会话历史会污染那一栏的
+  下一轮（pi 曾按会话 id 续接同一份 session 文件）。审批路由仍用真实会话。
+
+做不到这三条的后端（如 dsh）在入口报 ``BackendError``，这里转成 ``LLMError``。
+
+## 落库口径（由调用方完成，本模块只产出正文）
+
+- 快照进 `AgentSynthesis`；正文另写一条 ``agent_kind="synthesis"`` 的 assistant 消息进
+  会话转录（见 ``store.save_synthesis_message``），不算任何一栏的回答；
+- 不写 `AgentRun`（不记成本）。
 
 ## 失败口径
 
-- 拿不到正文 → `LLMError`（API 转 502）；
-- 正文缺来源锚点（`[来源：`）→ 视为没拿到可用结论，重试一次；仍缺就报错
-  —— 宁可让律师重试，也不要给一份"看不出谁说的"综合稿。
+- 拿不到正文 / 后端报错 → `LLMError`；
+- 正文缺来源锚点（`[来源：`）→ 视为没拿到可用结论，重试一次；仍缺就报错；
+- 取消（``asyncio.CancelledError``）原样上抛，不转成 `LLMError`。
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -48,7 +52,7 @@ DEFAULT_SYNTHESIS_KIND = "pi"
 #: 不需要几十轮工具循环；太大只会在跑偏时烧更多钱。
 SYNTHESIS_MAX_TURNS = 8
 
-#: 一次综合最多允许的尝试次数（缺锚点 / 空正文时重试）。与裸调用同口径。
+#: 一次综合最多允许的尝试次数（缺锚点 / 空正文时重试一次）。
 SYNTHESIS_AGENT_ATTEMPTS = 2
 
 
@@ -93,6 +97,10 @@ def synthesis_system_prompt() -> str:
     为什么要写死在代码里而不是交给调用方：pi / claude-agent 这类 harness 默认是
     "命令行编码助手"（antigravity 就踩过——不全量替换它会自称 DeepMind 的编程助手）。
     综合这一轮的身份是"资深中国律师做多稿合并"，任何残留的编码助手人格都会污染结论。
+
+    经 ``RunContext.system_prompt`` 下发：openai-agents / antigravity / claude-agent 替换
+    整段 system prompt；pi 替换的是隔离目录里的 ``AGENTS.md``（法穿给 pi 注入人格的
+    唯一挂载点，pi 自带的基础提示仍在）。
     """
     return AGGREGATE_SYSTEM_PROMPT
 
@@ -123,19 +131,22 @@ async def run_synthesis_agent(
     prompt: str,
     run_id: str,
 ) -> SynthesisRun:
-    """跑一轮综合 agent，收齐正文。
+    """跑一轮综合 agent（隔离运行），收齐正文。
 
     Args:
-        kind: agent 后端标识（注册表键）。未注册时抛 ``LLMError``（API 转 422）。
+        kind: agent 后端标识（注册表键）。未注册时抛 ``LLMError``。
         model: 指定模型；``None`` 让后端自己按平台默认解析。
         run_id: 本轮归因串。综合不写 ``AgentRun``，但审批与日志仍用它。
 
     Raises:
-        LLMError: 后端不可用 / 未注册 / 两轮都没拿到带锚点的正文。
+        LLMError: 后端不可用 / 未注册 / 不支持隔离运行 / 两轮都没拿到带锚点的正文。
+        asyncio.CancelledError: 调用方取消时原样上抛（不转成 ``LLMError``）。
     """
     from apps.agent.backends import registry
     from apps.agent.backends.base import BackendError, RunContext
     from apps.agent.backends.builtin import ensure_registered
+    from apps.agent.pi.pool import PoolQueueTimeoutError
+    from apps.agent.pi.rpc_client import PiError
     from apps.agent.services.chat import env
 
     ensure_registered()
@@ -157,17 +168,25 @@ async def run_synthesis_agent(
             user_token=await env.mint_user_token(user_id),
             model=model,
             tool_selection=None,
+            system_prompt=synthesis_system_prompt(),
+            max_turns=SYNTHESIS_MAX_TURNS,
+            isolated=True,
         )
         chunks: list[str] = []
         try:
-            async for frame in backend.stream(ctx):
-                if not frame:
-                    continue
-                if frame.get("type") == "delta":
-                    chunks.append(str(frame.get("content") or ""))
-                elif frame.get("type") == "error":
-                    raise LLMError(f"综合 agent 报错: {frame.get('message') or frame.get('detail') or '未知错误'}")
-        except BackendError as exc:
+            # ``aclosing``：提前退出（报错帧 / 取消）时立刻收掉后端生成器，让它的
+            # finally（关进程、删隔离目录）当场执行，而不是等垃圾回收。
+            async with contextlib.aclosing(backend.stream(ctx)) as frames:
+                async for frame in frames:
+                    if not frame:
+                        continue
+                    if frame.get("type") == "delta":
+                        chunks.append(str(frame.get("content") or ""))
+                    elif frame.get("type") == "error":
+                        raise LLMError(f"综合 agent 报错: {frame.get('message') or frame.get('detail') or '未知错误'}")
+        except (BackendError, PiError, PoolQueueTimeoutError) as exc:
+            # pi 后端把 PiError / 排队超时原样外抛（由聊天编排层翻译），综合没有那一层，
+            # 在这里一并转成 LLMError。取消是 BaseException，不在此列，原样上抛。
             raise LLMError(f"综合 agent 失败: {exc}") from exc
 
         text = "".join(chunks).strip()

@@ -76,3 +76,21 @@ describe('buildTurnOutline：preview 截断', () => {
     expect(outline[0]?.preview).toBe('问'.repeat(40))
   })
 })
+
+describe('buildTurnOutline：综合结论不算一栏', () => {
+  it('synthesis 消息不进 agents、不当回答锚点（它点按钮时才写入，可能落在后一轮之后）', () => {
+    const outline = buildTurnOutline([
+      message({ id: 'u1', role: 'user', content: '问题一' }),
+      message({ id: 'a1', role: 'assistant', agentKind: 'pi', content: '回答一' }),
+      message({ id: 'a2', role: 'assistant', agentKind: 'dsh', content: '回答二' }),
+      message({ id: 'u2', role: 'user', content: '问题二' }),
+      // 第 1 轮的综合结论在第 2 轮提问之后才生成：按落库顺序排在这里
+      message({ id: 's1', role: 'assistant', agentKind: 'synthesis', content: '综合稿' }),
+      message({ id: 'a3', role: 'assistant', agentKind: 'pi', content: '回答三' }),
+    ])
+    expect(outline.map((item) => ({ answerId: item.answerId, agents: item.agents }))).toEqual([
+      { answerId: 'a1', agents: ['pi', 'dsh'] },
+      { answerId: 'a3', agents: ['pi'] },
+    ])
+  })
+})

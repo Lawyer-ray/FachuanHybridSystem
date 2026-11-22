@@ -14,6 +14,7 @@ import re
 from typing import Any
 
 from ...models import AgentMemory, AgentMessage, AgentSession
+from ..synthesis.kinds import SYNTHESIS_AGENT_KIND
 from . import snapshot, write
 
 logger = logging.getLogger(__name__)
@@ -90,10 +91,12 @@ def _render_transcript(session: AgentSession, *, max_chars: int = 12000) -> str:
     """把会话消息渲染成抽取用的纯文本（尾部保留，前面的丢）。
 
     只取 user 与 assistant 的文本：tool 消息是工具返回的数据，既是噪音也
-    可能含他人隐私，不该进抽取输入。
+    可能含他人隐私，不该进抽取输入。综合结论（``agent_kind="synthesis"``）也排掉：
+    它是各栏回答的二次合并，不含律师表达的新信息，却会挤占尾部的字数预算。
     """
     messages = list(
         AgentMessage.objects.filter(session=session, role__in=["user", "assistant"])
+        .exclude(agent_kind=SYNTHESIS_AGENT_KIND)
         .order_by("created_at")
         .values_list("role", "content")
     )

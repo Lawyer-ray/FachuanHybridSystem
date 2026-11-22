@@ -18,11 +18,14 @@ OA、工商、邮箱、东盟法、威科先行……库里现在 10 条，其�
    会让同一个问题在不同时间用不同账号，出问题难复现）；
 4. 一条都没有 → 返回 `None`，由调用方降级为"只做格式检查"。
 
-## 与 MCP 工具的关系
+## 调用方
 
-`capability_search` / `check_law_references` 仍然要求显式 `credential_id`。
-它们应该改成先过本模块（见 `TECH-DEBT`），但那是独立一步：改了会动 5 个工具的
-签名与前端调用，不该和综合核验混在一个提交里。
+- REST：`legal_research_api` 的建任务、能力检索（含 MCP 包装版）与法规核查接口，
+  `credential_id` 均可省略，省略时经本模块解析；解析不出返回 422（不降级）。
+- MCP 工具：`create_research_task` / `capability_search` / `check_law_references` /
+  `verify_citations` 的 `credential_id` 均为可选，原样转发给上面的 REST 接口。
+- 综合结论的引用核验（`agent/services/synthesis/verify.py`）：解析不出时降级为
+  "只做格式检查"。
 """
 
 from __future__ import annotations

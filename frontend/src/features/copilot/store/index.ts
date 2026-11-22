@@ -42,6 +42,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
   approvals: [],
   streaming: false,
   loadingHistory: false,
+  historyLoadError: false,
   // pendingQuestions / questionDrafts 由 createQuestionSlice 提供初值（同 approvals 的模式）
   lastError: null,
   turnStats: EMPTY_STATS,
@@ -97,6 +98,7 @@ export const useCopilot = create<CopilotState>((set, get) => ({
       questionDrafts: {},
       streaming: false,
       loadingHistory: false,
+      historyLoadError: false,
       lastError: null,
       turnStats: { ...EMPTY_STATS },
       turnStatsByLane: {},

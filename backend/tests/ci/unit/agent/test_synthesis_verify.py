@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import threading
 import uuid
 
 import pytest
@@ -121,3 +123,91 @@ def test_normalize_article_spacing() -> None:
     assert normalize_article_spacing("第 874 条") == "第874条"
     assert normalize_article_spacing("第874条") == "第874条"
     assert normalize_article_spacing("第 1 条、第 874 条") == "第1条、第874条"
+
+
+# ── 执行方式与取消（评审 🔴4 / 🔴6）────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_check_references_runs_off_the_shared_sync_thread(monkeypatch) -> None:
+    """威科核验不能占 asgiref 的全局同步线程（``thread_sensitive=True``），且用完关连接。
+
+    旧实现 ``sync_to_async(check_references, thread_sensitive=True)``：一次几分钟的
+    威科登录 + 核查期间，全进程所有 thread_sensitive 的同步 ORM 都得排队。
+    """
+    from apps.agent.services.synthesis import verify as verify_module
+    from apps.legal_research.services import law_verification_service as svc_module
+
+    seen: dict[str, str] = {}
+
+    class _RecordingService:
+        def check_references(self, *, text: str, credential_id: int, user):
+            seen["call_thread"] = threading.current_thread().name
+            return {"references": [{"law_name": "民法典", "article_num": 874, "status": "valid"}]}
+
+    class _RecordingConnections:
+        def close_all(self) -> None:
+            seen["close_thread"] = threading.current_thread().name
+
+    monkeypatch.setattr(verify_module, "resolve_weike_credential_id", lambda **_kwargs: 42)
+    monkeypatch.setattr(verify_module, "connections", _RecordingConnections())
+    monkeypatch.setattr(svc_module, "LawVerificationService", _RecordingService)
+
+    unverified, note = await verify_synthesis_citations(text="依据《民法典》第874条。", credential_id=None, user=None)
+
+    assert (unverified, note) == ([], "")
+    assert seen["call_thread"].startswith(verify_module.VERIFY_THREAD_PREFIX)
+    # 连接按线程持有：必须在**同一个**核验线程里关掉
+    assert seen["close_thread"] == seen["call_thread"]
+
+
+@pytest.mark.asyncio
+async def test_cancellation_is_not_swallowed_as_verify_failure(monkeypatch) -> None:
+    """取消不是"核验失败"：旧实现把 CancelledError 接住并返回「核验未执行」，综合随后照常落库。"""
+    from apps.agent.services.synthesis import verify as verify_module
+    from apps.legal_research.services import law_verification_service as svc_module
+
+    started = threading.Event()
+    release = threading.Event()
+
+    class _BlockingService:
+        def check_references(self, *, text: str, credential_id: int, user):
+            started.set()
+            release.wait(timeout=5)
+            return {"references": []}
+
+    monkeypatch.setattr(verify_module, "resolve_weike_credential_id", lambda **_kwargs: 42)
+    monkeypatch.setattr(svc_module, "LawVerificationService", _BlockingService)
+
+    task = asyncio.ensure_future(
+        verify_synthesis_citations(text="依据《民法典》第874条。", credential_id=None, user=None)
+    )
+    try:
+        for _ in range(200):
+            if started.is_set():
+                break
+            await asyncio.sleep(0.01)
+        assert started.is_set(), "核验线程没有启动"
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    finally:
+        release.set()
+
+
+@pytest.mark.asyncio
+async def test_ordinary_verify_failure_still_degrades(monkeypatch) -> None:
+    """普通异常仍按"核验未执行"降级，不阻断综合（取消之外的口径不变）。"""
+    from apps.agent.services.synthesis import verify as verify_module
+    from apps.legal_research.services import law_verification_service as svc_module
+
+    class _BrokenService:
+        def check_references(self, *, text: str, credential_id: int, user):
+            raise RuntimeError("威科登录失败")
+
+    monkeypatch.setattr(verify_module, "resolve_weike_credential_id", lambda **_kwargs: 42)
+    monkeypatch.setattr(svc_module, "LawVerificationService", _BrokenService)
+
+    unverified, note = await verify_synthesis_citations(text="依据《民法典》第874条。", credential_id=None, user=None)
+    assert unverified == []
+    assert note == "核验未执行：RuntimeError"

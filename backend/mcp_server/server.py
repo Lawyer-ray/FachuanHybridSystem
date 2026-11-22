@@ -571,8 +571,20 @@ def _warn_tool_result_size(name: str, result: Any) -> None:
         logger.warning("tool %s 返回 %d 字节,超出 pi 截断线 20480——模型只会收到截断数据", name, size)
 
 
-def _t(func: Any) -> Any:
+#: 经 ``_t`` 注册过的工具名(注册顺序无关,只用于判重)。
+#:
+#: 自己记账而不是读 ``mcp._tool_manager``:后者是 FastMCP 的私有属性,SDK 升级改名
+#: 时「插件撞名以内置为准」会静默失效(拿到空集合 = 插件可以覆盖 ``delete_case``)。
+#: 所有注册都必须走 ``_t``(``test_tool_annotations`` 禁裸 ``mcp.tool()``),所以这里是全集。
+_REGISTERED_TOOL_NAMES: set[str] = set()
+
+
+def _t(func: Any, *, annotations: ToolAnnotations | None = None) -> Any:
     """409 个工具的统一注册装饰器(替代裸 ``mcp.tool()``)。
+
+    ``annotations`` 只给插件工具用:插件按自己声明的风险等级传入
+    (``plugin_tools.tool_annotations_for``);内置工具一律不传,按名字推导
+    (``_tool_annotations``)。
 
     统一翻译 ``ValueError`` → ``FachuanApiError``(ToolError 子类):SDK 对
     非 ToolError 异常只回 ``Error executing tool X`` 不带消息——工具自己的
@@ -616,7 +628,9 @@ def _t(func: Any) -> Any:
 
         target = _sw
 
-    return mcp.tool(annotations=_tool_annotations(name))(target)
+    _REGISTERED_TOOL_NAMES.add(name)
+    resolved = annotations if annotations is not None else _tool_annotations(name)
+    return mcp.tool(annotations=resolved)(target)
 
 
 # 案件
@@ -1320,8 +1334,12 @@ _t(list_pending_court_document_tasks)
 # 审批与审计口径的基准），所以注册前要先拿到内置名单。总开关
 # ``FACHUAN_PLUGIN_TOOLS=off`` 可一键不注册（回滚用）。
 def _builtin_tool_names() -> set[str]:
-    """此刻已注册的内置工具名（插件注册前调用，等于 409 个内置工具）。"""
-    return {tool.name for tool in mcp._tool_manager.list_tools()}
+    """此刻已注册的内置工具名（插件注册前调用，等于 409 个内置工具）。
+
+    读 ``_t`` 自己的登记表而不是 FastMCP 私有的 ``_tool_manager``（理由见
+    ``_REGISTERED_TOOL_NAMES``）。返回副本：插件注册也走 ``_t``，不能让名单跟着变。
+    """
+    return set(_REGISTERED_TOOL_NAMES)
 
 
 PLUGIN_TOOL_NAMES: list[str] = register_plugin_tools(_t, reserved_names=_builtin_tool_names())

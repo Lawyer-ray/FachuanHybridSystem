@@ -23,7 +23,7 @@ _MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QCC_MCP_API_KEY", "PADDLEOCR_AP
 
 #: 枚举型配置：key → ((值, 展示文案), ...)，前台渲染成下拉框而非自由文本框。
 #:
-#: 为什么需要：这些键的合法取值是**封闭集合**（OCR 引擎、模型），自由文本会让人
+#: 为什么需要：这些键的合法取值是**封闭集合**（OCR 引擎、模型、开关），自由文本会让人
 #: 手输错一个字就得到运行时 500 或 400（如把 PaddleOCR-VL-1.6 写成 paddleocr_vl16）。
 #: 值一律用小写下划线键（与代码里的模型表一致），展示文案写人话。
 _ENUM_CONFIGS: dict[str, tuple[tuple[str, str], ...]] = {
@@ -38,6 +38,10 @@ _ENUM_CONFIGS: dict[str, tuple[tuple[str, str], ...]] = {
         ("pp_structure_v3", "PP-StructureV3（文档结构化，表格/版面）"),
         ("pp_ocrv6", "PP-OCRv6（纯文字 OCR，快但生僻字易错）"),
         ("pp_ocrv5", "PP-OCRv5（纯文字 OCR，旧版）"),
+    ),
+    "YUANDIAN_MCP_ENABLED": (
+        ("true", "开启：AI 助手挂载元典 MCP 工具"),
+        ("false", "关闭：不挂载（案情不会经 AI 助手发给元典）"),
     ),
 }
 

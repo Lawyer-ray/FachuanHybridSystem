@@ -161,17 +161,20 @@ def default_tool_result_guard_extension() -> str:
     return str(Path(__file__).resolve().parent / "tool-result-guard.ts")
 
 
-def resolve_extensions(primary: str | None = None) -> list[str]:
+def resolve_extensions(primary: str | None = None, *, memory_injection: bool = True) -> list[str]:
     """要加载的 extension 列表（审批在前，其余按注入顺序）。
 
     审批 extension 必须永远存在（工具调用的人工闸门）；记忆注入与结果守卫
     是可选的——文件缺失时只告警不阻断，因为它们是增强能力，缺了对话仍可
     正常进行。这与审批的 fail-closed 策略刻意不同：不能把「没有记忆」或
     「没有结果守卫」当成致命故障。
+
+    ``memory_injection=False`` 时不加载记忆注入（隔离运行用：综合结论是对几栏
+    回答的客观合并，不该带上律师的个人记忆）。审批永远加载，不受此开关影响。
     """
     extensions = [primary or default_approval_extension()]
     optional = (
-        ("记忆注入", default_memory_extension()),
+        ("记忆注入", default_memory_extension() if memory_injection else ""),
         ("工具结果守卫", default_tool_result_guard_extension()),
         ("压缩接管", default_compaction_extension()),
     )
@@ -240,6 +243,7 @@ class PiRpcSession:
         tool_selection: str | None = None,
         exclude_tools: frozenset[str] | None = None,
         skill_paths: list[str] | None = None,
+        memory_injection: bool = True,
     ) -> None:
         self._cwd = cwd
         self._session_dir = session_dir
@@ -260,6 +264,8 @@ class PiRpcSession:
         #: 任何技能——配合恒定的 ``--no-skills``（见 :meth:`_build_args`），
         #: 宿主机的用户级技能目录永远不会混进律师的生产会话。
         self._skill_paths: list[str] = list(skill_paths) if skill_paths else []
+        #: 是否加载记忆注入 extension（见 :func:`resolve_extensions`）。
+        self._memory_injection = memory_injection
         self._extension = extension_path if extension_path is not None else default_approval_extension()
         self._extra_env = extra_env or {}
         self._command_timeout = command_timeout
@@ -269,6 +275,9 @@ class PiRpcSession:
         self._events: asyncio.Queue[PiEvent | None] = asyncio.Queue()
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._next_id = 0
+        #: 本进程已开始的模型轮次数（pi 的 ``turn_start`` 事件计数）。pi 没有
+        #: max-turns 开关，轮数上限由调用方据此判定并 ``abort``（见 ``pi_backend``）。
+        self._turns_started = 0
 
     # ── 生命周期 ────────────────────────────────────────────────────────────
 
@@ -287,8 +296,8 @@ class PiRpcSession:
         ]
         if self._exclude_tools:
             args.extend(["--exclude-tools", ",".join(sorted(self._exclude_tools))])
-        # 多个 --extension：审批网关 + 记忆注入。pi 支持重复传该参数。
-        for extension in resolve_extensions(self._extension):
+        # 多个 --extension：审批网关 + 记忆注入（可关）+ 结果守卫 + 压缩接管。pi 支持重复传该参数。
+        for extension in resolve_extensions(self._extension, memory_injection=self._memory_injection):
             args.extend(["--extension", extension])
         # 上下文管理交给 pi：每会话一个 session 文件，pi 负责裁剪与自动 compaction。
         # 没有 session_id 时退回 --no-session（脚本/测试场景）。
@@ -391,6 +400,11 @@ class PiRpcSession:
     def alive(self) -> bool:
         return self._proc is not None and self._proc.returncode is None
 
+    @property
+    def turns_started(self) -> int:
+        """已开始的模型轮次数（每次 LLM 调用一轮）。"""
+        return self._turns_started
+
     async def _abort_before_close(self, proc: asyncio.subprocess.Process) -> None:
         """关闭前的最后一搏：直接往 stdin 写 clear_queue + abort。
 
@@ -483,6 +497,8 @@ class PiRpcSession:
             self._events.put_nowait(PiEvent("extension_ui", record))
             return
 
+        if rtype == "turn_start":
+            self._turns_started += 1
         self._events.put_nowait(PiEvent("event", record))
 
     # ── 命令 ────────────────────────────────────────────────────────────────

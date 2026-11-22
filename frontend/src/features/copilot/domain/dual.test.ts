@@ -13,10 +13,12 @@ import {
   agentOf,
   attachedToolIds,
   DEFAULT_AGENT_KIND,
+  distinctAgentKinds,
   groupAnswerRuns,
   MAX_ANSWERS,
   mergeAgentAnswers,
   runIdOf,
+  SYNTHESIS_AGENT_KIND,
 } from './dual'
 import type { CitationRef } from './knowledge'
 import type { ChatMessage } from '../types'
@@ -109,7 +111,7 @@ describe('groupAnswerRuns（转录 → 渲染项）', () => {
 })
 
 describe('MAX_ANSWERS（与后端同口径的上限）', () => {
-  it('上限是 4：成本线性增长，四栏并排已是可读性极限', () => {
+  it('上限是 5：与后端 MAX_ANSWERS 同值（改任一处必须两处同改）', () => {
     expect(MAX_ANSWERS).toBe(5)
   })
 })
@@ -328,5 +330,47 @@ describe('attachedToolIds / 归位后不再平铺', () => {
 
   it('单栏回答（没有 tools 字段）返回空集：历史工具行照旧平铺', () => {
     expect(attachedToolIds([{ id: 'a1', role: 'assistant', content: 'x' }]).size).toBe(0)
+  })
+})
+
+describe('综合结论（SYNTHESIS_AGENT_KIND）不占栏', () => {
+  const answer = (id: string, agentKind: string): ChatMessage => ({
+    id,
+    role: 'assistant',
+    content: `答 ${id}`,
+    agentKind,
+  })
+
+  it('与后端 synthesis/kinds.SYNTHESIS_AGENT_KIND 同值', () => {
+    expect(SYNTHESIS_AGENT_KIND).toBe('synthesis')
+  })
+
+  it('distinctAgentKinds 不把综合结论算成一栏', () => {
+    const answers = [answer('a1', 'pi'), answer('a2', 'dsh'), answer('s1', SYNTHESIS_AGENT_KIND)]
+    expect(distinctAgentKinds(answers)).toEqual(['pi', 'dsh'])
+  })
+
+  it('mergeAgentAnswers 不输出综合结论：刷新后的历史回放不会多出一栏（它由 SynthesisCard 渲染）', () => {
+    const answers = [answer('a1', 'pi'), answer('a2', 'dsh'), answer('s1', SYNTHESIS_AGENT_KIND)]
+    const merged = mergeAgentAnswers(answers, distinctAgentKinds(answers))
+    expect(merged.map((m) => m.id)).toEqual(['a1', 'a2'])
+  })
+
+  it('groupAnswerRuns 不把综合结论放进任何组（挂到落库时的最新一轮会挂错轮次）', () => {
+    const user = (id: string): ChatMessage => ({ id, role: 'user', content: '问' })
+    const groups = groupAnswerRuns([
+      user('u1'),
+      answer('a1', 'pi'),
+      answer('a2', 'dsh'),
+      user('u2'),
+      // 第 1 轮的综合结论在第 2 轮提问之后才生成
+      answer('s1', SYNTHESIS_AGENT_KIND),
+      answer('a3', 'pi'),
+    ])
+    expect(groups.map((g) => g.answers.map((a) => a.id))).toEqual([['u1'], ['a1', 'a2'], ['u2'], ['a3']])
+  })
+
+  it('栏头可读名是「综合结论」', () => {
+    expect(agentLabel(SYNTHESIS_AGENT_KIND)).toBe('综合结论')
   })
 })

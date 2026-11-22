@@ -1269,3 +1269,51 @@ class TestMultiTurnResume:
 
         _H([]).resume_session("s-1").run("hello", on_notification=lambda _n: None)
         assert called == ["hello"]
+
+
+# ── 本轮运行选项：dsh 做不到的一律报错 ────────────────────────────────────
+
+
+class TestUnsupportedRunOptions:
+    """dsh 按会话续接磁盘历史、没有按轮的 system prompt / 轮数参数：显式报错，不静默。
+
+    综合结论以 ``isolated=True`` 调用；dsh 若静默放行，就会把五栏全文与综合稿写进
+    dsh 那一栏的会话历史，并且综合规则根本不生效。
+    """
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"isolated": True},
+            {"system_prompt": "综合规则"},
+            {"max_turns": 8},
+        ],
+    )
+    def test_stream_rejects_before_touching_the_pool(self, overrides: dict[str, Any]) -> None:
+        from dataclasses import replace
+
+        from apps.agent.backends import BackendError, BackendErrorKind
+
+        class _ExplodingPool(_HarnessPool):
+            def __init__(self) -> None:
+                super().__init__(max_size=1)
+
+            def acquire(self, ctx: RunContext, config: Any) -> Any:  # pragma: no cover - 不该走到
+                raise AssertionError("不支持的运行选项必须在取 harness 之前就拒绝")
+
+        backend = DshBackend(pool=_ExplodingPool())
+        ctx = replace(_ctx(), **overrides)
+
+        async def run() -> None:
+            async for _frame in backend.stream(ctx):
+                pass  # pragma: no cover
+
+        with pytest.raises(BackendError) as excinfo:
+            asyncio.run(run())
+        assert excinfo.value.kind is BackendErrorKind.UNAVAILABLE
+        assert next(iter(overrides)) in excinfo.value.message
+
+    def test_default_ctx_is_not_rejected(self) -> None:
+        from apps.agent.backends.dsh_backend import _reject_unsupported_run_options
+
+        _reject_unsupported_run_options(_ctx())

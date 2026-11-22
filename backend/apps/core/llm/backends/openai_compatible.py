@@ -13,16 +13,9 @@ import openai
 
 from apps.core.llm import gateway_profile
 from apps.core.llm.config import LLMConfig
-from apps.core.llm.exceptions import (
-    LLMAPIError,
-    LLMAuthenticationError,
-    LLMBackendUnavailableError,
-    LLMError,
-    LLMNetworkError,
-    LLMTimeoutError,
-)
+from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMError, LLMNetworkError, LLMTimeoutError
 from apps.core.llm.key_pool import KeyPool as _KeyPool
-from apps.core.llm.key_pool import cooldown_hint, is_key_fault, shared_pool
+from apps.core.llm.key_pool import cooldown_hint, is_key_fault, is_rate_limited, rate_limit_wait_seconds, shared_pool
 
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage, OpenAIProviderConfig
 
@@ -184,6 +177,56 @@ class OpenAICompatibleBackend:
             message=f"平台「{provider.name}」没有任何 API Key 被授权访问模型 {model}",
             errors={"detail": "no api key authorized for model", "provider": provider.name, "model": model},
         )
+
+    def _single_key_rate_limit_wait(
+        self,
+        pool: _KeyPool,
+        model: str,
+        last_error: Exception | None,
+        last_idx: int | None,
+    ) -> float | None:
+        """单 Key 平台遇 429：该等多久再试一次；``None`` = 不等（交给 :meth:`_raise_keys_exhausted`）。
+
+        业务口径：限流只重试、多 Key 时换 Key 轮询，不换模型。只有一把 Key 时没得换，
+        就按网关的 ``retry-after`` 等**一次**再试（上限见
+        :data:`apps.core.llm.key_pool.RATE_LIMIT_WAIT_MAX_SECONDS`）。这把 Key 已被池判进
+        冷却时不等——再试也拿不到它（``acquire`` 会跳过冷却中的 Key）。
+        """
+        if last_idx is None or pool.candidate_count(model) != 1:
+            return None
+        if pool.is_cooling(last_idx, model):
+            return None
+        return rate_limit_wait_seconds(last_error)
+
+    def _raise_keys_exhausted(
+        self,
+        provider: OpenAIProviderConfig,
+        pool: _KeyPool,
+        model: str,
+        last_error: Exception | None,
+        timeout: float,
+        base_url: str,
+    ) -> NoReturn:
+        """本模型上的 Key 都试过 / 都在冷却：限流时报可读的 429，其余照旧。
+
+        限流（最后一次失败是 429，或一次都没发出去、而候选 Key 全因 429 冷却）报
+        ``status_code=429`` 的 :class:`LLMAPIError`——``gateway_profile.is_retryable``
+        对它返回 ``False``，降级链不会因此换模型（业务口径：限流只换 Key 不换模型）。
+        旧实现在「全部冷却、一次没发」时抛**无状态码**的错误，被当成可重试，
+        悄悄换成了另一个模型。
+        """
+        if is_rate_limited(last_error) or (last_error is None and pool.rate_limited(model)):
+            logger.warning(
+                "OpenAI-compatible 平台 Key 均被限流",
+                extra={"provider": provider.name, "model": model, "key_count": len(pool.keys)},
+            )
+            raise LLMAPIError(
+                message=f"平台「{provider.name}」的 API Key 均被限流（429），请稍后重试",
+                code="LLM_RATE_LIMITED",
+                status_code=429,
+                errors={"detail": "all api keys rate limited", "provider": provider.name, "model": model},
+            ) from last_error
+        self._raise_no_key_available(last_error, timeout, base_url)
 
     def _raise_no_key_available(self, last_error: Exception | None, timeout: float, base_url: str) -> NoReturn:
         if last_error is None:
@@ -391,6 +434,11 @@ class OpenAICompatibleBackend:
 
     def _raise_mapped_error(self, error: Exception, timeout_seconds: float, base_url: str) -> NoReturn:
         provider_name = "OpenAI-compatible"
+        if isinstance(error, LLMError):
+            # 已经映射过（``_chat_sync_once`` 等内层已调过本方法）：原样抛。再映射一次会掉进
+            # 最后那条兜底，丢掉 ``status_code``——400 变成「无状态码」，被 ``is_retryable``
+            # 当成可重试，降级链就会拿同一个坏请求去打每个备选模型。
+            raise error
         if isinstance(error, openai.AuthenticationError):
             logger.warning("%s 认证失败", provider_name, extra={"error": str(error)})
             raise LLMAuthenticationError(
@@ -495,10 +543,10 @@ class OpenAICompatibleBackend:
         try:
             return self._chat_primary(messages, model, temperature, max_tokens, **kwargs)
         except gateway_profile.RETRYABLE_EXCEPTIONS as error:
-            # 粗筛之后再问一次“换模型能改变结果吗”：LLMAPIError 把 4xx 与 5xx 装在同一
-            # 个类型里，400/422 换模型必然同样失败（3 个 fallback = 4 倍计费）；
-            # LLMBackendUnavailableError 表示所有后端都不可用，再降级等于把整链重打一遍。
-            if isinstance(error, LLMBackendUnavailableError) or not gateway_profile.is_retryable(error):
+            # 粗筛之后再问一次“换模型能改变结果吗”（判定只在 ``is_retryable`` 一处）：
+            # LLMAPIError 把 4xx 与 5xx 装在同一个类型里，400/422 换模型必然同样失败；
+            # 429 只换 Key 不换模型；所有后端都不可用时再降级等于把整链重打一遍。
+            if not gateway_profile.is_retryable(error):
                 raise
             fallbacks = self._fallback_models_for(model)
             if not fallbacks:
@@ -512,7 +560,10 @@ class OpenAICompatibleBackend:
                 )
                 try:
                     return self._chat_primary(messages, candidate, temperature, max_tokens, **dict(kwargs))
-                except gateway_profile.RETRYABLE_EXCEPTIONS:
+                except gateway_profile.RETRYABLE_EXCEPTIONS as candidate_error:
+                    # 备选模型也按同一判定：不可重试（400 / 429 / 鉴权）立即抛，不把整条链打完。
+                    if not gateway_profile.is_retryable(candidate_error):
+                        raise
                     continue
             raise
 
@@ -537,34 +588,51 @@ class OpenAICompatibleBackend:
         if not pool.has_key_for(used_model):
             self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
-        for _ in range(max(1, len(pool.keys))):
-            idx = pool.acquire(used_model)
-            if idx is None:
+        waited = False
+        while True:
+            last_idx: int | None = None
+            for _ in range(pool.attempt_budget(used_model)):
+                idx = pool.acquire(used_model)
+                if idx is None:
+                    break
+                last_idx = idx
+                try:
+                    result = self._chat_sync_once(
+                        pool.keys[idx], provider.base_url, request_timeout, payload, used_model
+                    )
+                    pool.release(idx, success=True, model=used_model, tokens=_usage_tokens(result))
+                    return result
+                except Exception as error:
+                    pool.release(
+                        idx,
+                        success=False,
+                        model=used_model,
+                        error=error,
+                        cooldown_seconds=cooldown_hint(error),
+                    )
+                    if not is_key_fault(error):
+                        # 与 Key 无关的失败：换 Key 重放同一个坏请求只会把整池连坐冷却
+                        self._raise_mapped_error(error, request_timeout, provider.base_url)
+                    last_error = error
+                    logger.warning(
+                        "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
+                        provider.name,
+                        type(error).__name__,
+                        error,
+                        extra={"provider": provider.name, "error_type": type(error).__name__},
+                    )
+            wait = None if waited else self._single_key_rate_limit_wait(pool, used_model, last_error, last_idx)
+            if wait is None:
                 break
-            try:
-                result = self._chat_sync_once(pool.keys[idx], provider.base_url, request_timeout, payload, used_model)
-                pool.release(idx, success=True, model=used_model, tokens=_usage_tokens(result))
-                return result
-            except Exception as error:
-                pool.release(
-                    idx,
-                    success=False,
-                    model=used_model,
-                    error=error,
-                    cooldown_seconds=cooldown_hint(error),
-                )
-                if not is_key_fault(error):
-                    # 与 Key 无关的失败：换 Key 重放同一个坏请求只会把整池连坐冷却
-                    self._raise_mapped_error(error, request_timeout, provider.base_url)
-                last_error = error
-                logger.warning(
-                    "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
-                    provider.name,
-                    type(error).__name__,
-                    error,
-                    extra={"provider": provider.name, "error_type": type(error).__name__},
-                )
-        self._raise_no_key_available(last_error, request_timeout, provider.base_url)
+            waited = True
+            logger.warning(
+                "OpenAI-compatible 单 Key 被限流，等待 %.1fs 后重试一次: provider=%s",
+                wait,
+                provider.name,
+                extra={"provider": provider.name, "wait_seconds": wait},
+            )
+            time.sleep(wait)
+        self._raise_keys_exhausted(provider, pool, used_model, last_error, request_timeout, provider.base_url)
 
     def _chat_sync_once(
         self,
@@ -610,7 +678,7 @@ class OpenAICompatibleBackend:
         try:
             return await self._achat_primary(messages, model, temperature, max_tokens, **kwargs)
         except gateway_profile.RETRYABLE_EXCEPTIONS as error:
-            if isinstance(error, LLMBackendUnavailableError) or not gateway_profile.is_retryable(error):
+            if not gateway_profile.is_retryable(error):
                 raise
             fallbacks = self._fallback_models_for(model)
             if not fallbacks:
@@ -624,7 +692,9 @@ class OpenAICompatibleBackend:
                 )
                 try:
                     return await self._achat_primary(messages, candidate, temperature, max_tokens, **dict(kwargs))
-                except gateway_profile.RETRYABLE_EXCEPTIONS:
+                except gateway_profile.RETRYABLE_EXCEPTIONS as candidate_error:
+                    if not gateway_profile.is_retryable(candidate_error):
+                        raise
                     continue
             raise
 
@@ -657,36 +727,51 @@ class OpenAICompatibleBackend:
         if not pool.has_key_for(used_model):
             self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
-        for _ in range(max(1, len(pool.keys))):
-            idx = pool.acquire(used_model)
-            if idx is None:
+        waited = False
+        while True:
+            last_idx: int | None = None
+            for _ in range(pool.attempt_budget(used_model)):
+                idx = pool.acquire(used_model)
+                if idx is None:
+                    break
+                last_idx = idx
+                try:
+                    result = await self._chat_async_once(
+                        pool.keys[idx], provider.base_url, request_timeout, payload, used_model
+                    )
+                    pool.release(idx, success=True, model=used_model, tokens=_usage_tokens(result))
+                    return result
+                except Exception as error:
+                    pool.release(
+                        idx,
+                        success=False,
+                        model=used_model,
+                        error=error,
+                        cooldown_seconds=cooldown_hint(error),
+                    )
+                    if not is_key_fault(error):
+                        # 与 Key 无关的失败：换 Key 重放同一个坏请求只会把整池连坐冷却
+                        self._raise_mapped_error(error, request_timeout, provider.base_url)
+                    last_error = error
+                    logger.warning(
+                        "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
+                        provider.name,
+                        type(error).__name__,
+                        error,
+                        extra={"provider": provider.name, "error_type": type(error).__name__},
+                    )
+            wait = None if waited else self._single_key_rate_limit_wait(pool, used_model, last_error, last_idx)
+            if wait is None:
                 break
-            try:
-                result = await self._chat_async_once(
-                    pool.keys[idx], provider.base_url, request_timeout, payload, used_model
-                )
-                pool.release(idx, success=True, model=used_model, tokens=_usage_tokens(result))
-                return result
-            except Exception as error:
-                pool.release(
-                    idx,
-                    success=False,
-                    model=used_model,
-                    error=error,
-                    cooldown_seconds=cooldown_hint(error),
-                )
-                if not is_key_fault(error):
-                    # 与 Key 无关的失败：换 Key 重放同一个坏请求只会把整池连坐冷却
-                    self._raise_mapped_error(error, request_timeout, provider.base_url)
-                last_error = error
-                logger.warning(
-                    "OpenAI-compatible Key 调用失败，切换下一个 Key: provider=%s, %s: %.200s",
-                    provider.name,
-                    type(error).__name__,
-                    error,
-                    extra={"provider": provider.name, "error_type": type(error).__name__},
-                )
-        self._raise_no_key_available(last_error, request_timeout, provider.base_url)
+            waited = True
+            logger.warning(
+                "OpenAI-compatible 单 Key 被限流，等待 %.1fs 后重试一次: provider=%s",
+                wait,
+                provider.name,
+                extra={"provider": provider.name, "wait_seconds": wait},
+            )
+            await asyncio.sleep(wait)
+        self._raise_keys_exhausted(provider, pool, used_model, last_error, request_timeout, provider.base_url)
 
     def _create_sync_stream(self, api_key: str, base_url: str, timeout: float, payload: dict[str, Any]) -> Any:
         client = self._build_sync_client(api_key=api_key, base_url=base_url, timeout_seconds=timeout)
@@ -766,7 +851,7 @@ class OpenAICompatibleBackend:
         if not pool.has_key_for(used_model):
             self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
-        for _ in range(max(1, len(pool.keys))):
+        for _ in range(pool.attempt_budget(used_model)):
             idx = pool.acquire(used_model)
             if idx is None:
                 break
@@ -805,7 +890,7 @@ class OpenAICompatibleBackend:
                     cooldown_seconds=None if ok else cooldown_hint(stream_error),
                 )
             return
-        self._raise_no_key_available(last_error, request_timeout, provider.base_url)
+        self._raise_keys_exhausted(provider, pool, used_model, last_error, request_timeout, provider.base_url)
 
     async def astream(
         self,
@@ -842,7 +927,7 @@ class OpenAICompatibleBackend:
         if not pool.has_key_for(used_model):
             self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
-        for _ in range(max(1, len(pool.keys))):
+        for _ in range(pool.attempt_budget(used_model)):
             idx = pool.acquire(used_model)
             if idx is None:
                 break
@@ -884,7 +969,7 @@ class OpenAICompatibleBackend:
                     cooldown_seconds=None if ok else cooldown_hint(stream_error),
                 )
             return
-        self._raise_no_key_available(last_error, request_timeout, provider.base_url)
+        self._raise_keys_exhausted(provider, pool, used_model, last_error, request_timeout, provider.base_url)
 
     # ── 接口方法 ─────────────────────────────────────────────────────────────
 
@@ -931,7 +1016,7 @@ class OpenAICompatibleBackend:
             if not pool.has_key_for(used_model):
                 self._raise_no_key_for_model(provider, used_model)
             last_error: Exception | None = None
-            for _ in range(max(1, len(pool.keys))):
+            for _ in range(pool.attempt_budget(used_model)):
                 idx = pool.acquire(used_model)
                 if idx is None:
                     break
@@ -953,7 +1038,7 @@ class OpenAICompatibleBackend:
                         # 能把 10 把 Key 全冻 30 秒），直接抛出原始错误。
                         self._raise_mapped_error(error, request_timeout, base_url)
                     last_error = error
-            self._raise_no_key_available(last_error, request_timeout, base_url)
+            self._raise_keys_exhausted(provider, pool, used_model, last_error, request_timeout, base_url)
         return _embed_once("")
 
     async def aembed_texts(
@@ -994,7 +1079,7 @@ class OpenAICompatibleBackend:
             if not pool.has_key_for(used_model):
                 self._raise_no_key_for_model(provider, used_model)
             last_error: Exception | None = None
-            for _ in range(max(1, len(pool.keys))):
+            for _ in range(pool.attempt_budget(used_model)):
                 idx = pool.acquire(used_model)
                 if idx is None:
                     break
@@ -1016,7 +1101,7 @@ class OpenAICompatibleBackend:
                         # 能把 10 把 Key 全冻 30 秒），直接抛出原始错误。
                         self._raise_mapped_error(error, request_timeout, base_url)
                     last_error = error
-            self._raise_no_key_available(last_error, request_timeout, base_url)
+            self._raise_keys_exhausted(provider, pool, used_model, last_error, request_timeout, base_url)
         return await _aembed_once("")
 
     def is_available(self) -> bool:
