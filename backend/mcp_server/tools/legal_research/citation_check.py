@@ -179,9 +179,9 @@ def verify_citations(text: str, credential_id: int | None = None) -> dict[str, A
 
     Args:
         text: 要核查的全文（起诉状、审查意见、备忘录等）。
-        credential_id: 威科先行检索凭证 ID（法规有效性与原文核查需要它）。
-            不传时**只做格式与结构校验**，所有法条一律 `not_verified`——
-            这不是失败，是「没查」，会在 `note` 里说清。
+        credential_id: 威科检索凭证 ID。**省略即可**：服务端会按当前用户自动挑
+            本所的威科账号（见 `legal_research.services.credential_resolver`）。
+            本所确实没有威科账号时才降级为只做格式校验，并在 `note` 里说清。
 
     Returns:
         ``{references, summary, needs_review, coverage, note}``。
@@ -202,12 +202,18 @@ def verify_citations(text: str, credential_id: int | None = None) -> dict[str, A
     coverage = "format_only"
     note = ""
 
-    if credential_id and statutes:
+    if statutes:
         # 走既有威科链路（含登录、凭证解密、插件探测——不重写以保住安全审计
         # 做过的域白名单等约束）
         payload = client.post(
             "/legal-research/law-verification/check",
-            json={"text": body, "credential_id": int(credential_id)},
+            json={
+                "text": body,
+                # None 也照发：服务端按当前用户解析威科账号（凭证 ID 是实现细节，
+                # 不该让模型去 list_credentials 里猜）。解析不出时服务端会 422，
+                # 由下面的兜底降级成 format_only。
+                "credential_id": int(credential_id) if credential_id else None,
+            },
             timeout=180,
         )
         coverage = "full"
