@@ -52,7 +52,7 @@ def test_resolver_passthrough_explicit(firm_user) -> None:
     assert resolve_weike_credential_id(user=user, explicit=7) == 7
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_verify_degrades_without_weike_credential(firm_user) -> None:
     """没有威科凭证：不报错，返回"未配置"说明（律师才知道该去补账号，而不是以为查过有问题）。"""
@@ -60,3 +60,52 @@ async def test_verify_degrades_without_weike_credential(firm_user) -> None:
     unverified, note = await verify_synthesis_citations(text="依据《民法典》第874条。", credential_id=None, user=user)
     assert unverified == []
     assert "威科" in note and "格式检查" in note
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_verify_never_reports_green_when_extraction_failed(firm_user, monkeypatch) -> None:
+    """**防静默假绿**：核验返回 0 条、但本地能抽出引用 → 必须报"未核验"。
+
+    2026-11-22 实测事故：模型把条号写成「第 874 条」（带空格），旧抽取正则一条
+    都认不出，核验返回 0 条，上层于是当作"文里没有法规引用"，`unverified` 空着
+    ——律师看到的是"全部通过"，实际一条都没核。
+    """
+    from asgiref.sync import sync_to_async
+
+    from apps.legal_research.services import law_verification_service as svc_module
+    from apps.organization.models import AccountCredential
+
+    user, lawyer = firm_user
+    await sync_to_async(AccountCredential.objects.create)(
+        lawyer=lawyer, site_name="威科", url="https://www.wkinfo.com.cn/login/index", account="a"
+    )
+
+    class _EmptyService:
+        def check_references(self, *, text: str, credential_id: int, user):
+            return {"references": [], "total": 0}
+
+    monkeypatch.setattr(svc_module, "LawVerificationService", _EmptyService)
+
+    unverified, note = await verify_synthesis_citations(
+        text="依据《民法典》第 874 条，受让人按约定实施…", credential_id=None, user=user
+    )
+    assert unverified, "抽到引用但核验没返回时必须报未核验，不能空着"
+    assert "未核验" in unverified[0]
+    assert "抽出 1 条引用" in note
+
+
+def test_statute_regex_accepts_spaces_around_article() -> None:
+    """「第 874 条」带空格是模型的常见写法，抽取器必须认。"""
+    from apps.agent.services.chat.citation_check import extract_statute_refs
+
+    refs = extract_statute_refs("依据《民法典》第 874 条、《刑法》第285条第3款。")
+    assert [r.law_name for r in refs] == ["民法典", "刑法"]
+
+
+def test_normalize_article_spacing() -> None:
+    from apps.legal_research.services.law_verification_service import normalize_article_spacing
+
+    assert normalize_article_spacing("第 874 条") == "第874条"
+    assert normalize_article_spacing("第874条") == "第874条"
+    assert normalize_article_spacing("第 1 条、第 874 条") == "第1条、第874条"

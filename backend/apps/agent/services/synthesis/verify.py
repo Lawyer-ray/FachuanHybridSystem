@@ -27,6 +27,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
+from apps.agent.services.chat.citation_check import extract_statute_refs
 from apps.legal_research.services.credential_resolver import resolve_weike_credential_id
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,17 @@ async def verify_synthesis_citations(
 
     references = payload.get("references") if isinstance(payload, dict) else None
     if not references:
+        # **防静默假绿**：后端返回空有两种可能——
+        #   (a) 文末确实没有法规引用；
+        #   (b) 抽取器没认出来（实测过：旧正则不认「第 874 条」的写法，
+        #       整篇综合稿一条都抽不到，被当成"没有引用"，unverified 空着 = 假通过）。
+        # 用本地抽取器交叉验证：本地抽到而核验没返回，就必须如实告诉律师"没核成"。
+        local = extract_statute_refs(body)
+        if local:
+            logger.warning("核验返回 0 条，但本地抽出 %d 条引用，按未核验处理", len(local))
+            return [f"《{ref.law_name}》未核验（核验服务未返回该条结果）" for ref in local], (
+                f"抽出 {len(local)} 条引用，但核验未返回结果；请人工核对"
+            )
         return [], "核验已执行，但文末未识别到法规引用"
 
     unverified = [_describe(item) for item in references if not _is_verified(item)]
