@@ -27,6 +27,8 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
+from apps.legal_research.services.credential_resolver import resolve_weike_credential_id
+
 logger = logging.getLogger(__name__)
 
 #: 不该被"核验失败不阻断"吞掉的控制流异常。
@@ -72,10 +74,16 @@ async def verify_synthesis_citations(
     body = str(text or "").strip()
     if not body:
         return [], "空正文，未核验"
-    if not credential_id:
-        # 不是失败：没给凭证就是"没查"。写成"未提供凭证"而不是"未通过核验"，
+
+    # 凭证**自己找**：credential_id 是实现细节（一张表里混着法院/OA/工商/邮箱/威科），
+    # 不该让律师或模型去猜 6 和 7 有什么区别。解析口径见 credential_resolver。
+    resolved_id = await sync_to_async(resolve_weike_credential_id, thread_sensitive=True)(
+        user=user, explicit=credential_id
+    )
+    if not resolved_id:
+        # 不是失败：没有威科账号就是"没查"。写成"未配置"而不是"未通过核验"，
         # 否则律师会以为查过了且有问题。
-        return [], "未提供威科凭证，本次只做了格式检查，未做外部核验"
+        return [], "本所未配置威科先行账号凭证，本次只做了格式检查，未做外部核验"
 
     from apps.legal_research.services.law_verification_service import LawVerificationService
 
@@ -83,7 +91,7 @@ async def verify_synthesis_citations(
     try:
         # check_references 是同步阻塞的（威科登录 + HTTP/Playwright IO），必须下线程。
         payload = await sync_to_async(service.check_references, thread_sensitive=True)(
-            text=body, credential_id=int(credential_id), user=user
+            text=body, credential_id=int(resolved_id), user=user
         )
     except _NOT_OURS:
         raise

@@ -72,7 +72,9 @@ class SynthesisIn(Schema):
     #: 评审一轮约 5 万 token，但它产出的分数与分歧点正是综合最需要的信息；
     #: 关掉后综合只能自己猜谁更有理。
     review: bool = True
-    #: 威科凭证 ID：给了才做外部引用核验（不给 = 只做格式检查，见 verify.py）。
+    #: 威科凭证 ID。**可以省略**：省略时服务端自动挑本所的威科凭证
+    #: （见 ``legal_research.services.credential_resolver``）。凭证 ID 是实现细节
+    #: ——一张表里混着法院/OA/工商/邮箱/威科，让律师去猜 6 和 7 的区别没有意义。
     credential_id: int | None = Field(default=None, ge=1)
 
 
