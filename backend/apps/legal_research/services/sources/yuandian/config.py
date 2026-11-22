@@ -1,38 +1,41 @@
-"""元典（yuandian）案例数据源的配置读取。
+"""元典（yuandian）案例数据源的配置。
 
-只认三个键，默认项落在 SystemConfig 的 ``enterprise_data`` 分类下（YU2 lane 按同一份
-键名写默认项，本地不改名）：
+**key 的唯一读取口径是** :mod:`apps.core.services.yuandian_settings`：本模块只把那里
+的 :class:`~apps.core.services.yuandian_settings.YuandianSettings` 转成检索适配器要的
+形状（:class:`YuandianConfig`），并保留 ``client.py`` 与测试引用的既有符号名。
 
-``YUANDIAN_BASE_URL`` · ``YUANDIAN_API_KEYS`` · ``YUANDIAN_CONCURRENCY_PER_KEY``
-
-读取走 :meth:`SystemConfigService.get_value`（按 key 取，和
-``apps/enterprise_data/services/provider_registry.py`` 同口径），分类只是这些键的归属，
-不参与读取——按分类整包读出会把同分类下别的 provider 的密钥一并解密进内存。
+平台地址与并发上限已提为代码常量（``YUANDIAN_MCP_BASE_URL`` /
+``YUANDIAN_CONCURRENCY_PER_KEY``）：它们不随部署变，历史实现从 SystemConfig 读，
+结果多出一个「没初始化就是空」的失败面。分类 ``CONFIG_CATEGORY`` 仍保留——
+``YUANDIAN_API_KEYS`` 的默认项挂在这个分类下。
 """
 
 from __future__ import annotations
 
-import logging
-import os
 import threading
 from dataclasses import dataclass, field
 
-from django.db import DatabaseError
-
 from apps.core.services.system_config_service import SystemConfigService
+from apps.core.services.yuandian_settings import (
+    API_KEYS_CONFIG_KEY,
+    API_KEYS_ENV_KEY,
+    CONFIG_CATEGORY,
+    YUANDIAN_CONCURRENCY_PER_KEY,
+    YUANDIAN_MCP_BASE_URL,
+    load_yuandian_settings,
+    split_api_keys,
+)
 
-logger = logging.getLogger(__name__)
-
-CONFIG_CATEGORY = "enterprise_data"
-BASE_URL_CONFIG_KEY = "YUANDIAN_BASE_URL"
-API_KEYS_CONFIG_KEY = "YUANDIAN_API_KEYS"  # pragma: allowlist secret
-CONCURRENCY_CONFIG_KEY = "YUANDIAN_CONCURRENCY_PER_KEY"
-
-#: 库里没填时回落到同名环境变量（开发机/容器用，与 provider_registry 的「先读库、再回落 env」一致）。
-API_KEYS_ENV_KEY = "YUANDIAN_API_KEYS"  # pragma: allowlist secret
-
-DEFAULT_BASE_URL = "https://open.chineselaw.com"
-DEFAULT_CONCURRENCY_PER_KEY = 2
+__all__ = [
+    "API_KEYS_CONFIG_KEY",
+    "API_KEYS_ENV_KEY",
+    "CONFIG_CATEGORY",
+    "YuandianConfig",
+    "YuandianConfigError",
+    "key_label",
+    "load_yuandian_config",
+    "split_secret_values",
+]
 
 
 class YuandianConfigError(RuntimeError):
@@ -63,73 +66,25 @@ def key_label(api_key: str) -> str:
 
 
 def split_secret_values(raw_value: str) -> tuple[str, ...]:
-    """多行 secret → 去空行、去重保序的元组。每行一把 key（用户明确要求换行分隔，不用 JSON）。
-
-    与 ``provider_registry._split_secret_values`` 的去重保序口径一致；区别是本包只按行切：
-    key 里可能出现逗号/分号，多切一刀就把一把 key 切成两把废 key。
-    """
-    if not raw_value:
-        return ()
-    values: list[str] = []
-    seen: set[str] = set()
-    for line in raw_value.splitlines():
-        normalized = line.strip()
-        if not normalized or normalized in seen:
-            continue
-        values.append(normalized)
-        seen.add(normalized)
-    return tuple(values)
+    """历史名（本模块与既有测试在用）；实现见 :func:`yuandian_settings.split_api_keys`。"""
+    return split_api_keys(raw_value)
 
 
 @dataclass(frozen=True)
 class YuandianConfig:
     """元典数据源的连接配置。``api_keys`` 不参与 repr，避免 key 进日志/异常栈。"""
 
-    base_url: str = DEFAULT_BASE_URL
+    base_url: str = YUANDIAN_MCP_BASE_URL
     api_keys: tuple[str, ...] = field(default=(), repr=False)
-    concurrency_per_key: int = DEFAULT_CONCURRENCY_PER_KEY
+    concurrency_per_key: int = YUANDIAN_CONCURRENCY_PER_KEY
 
 
 def load_yuandian_config(*, config_service: SystemConfigService | None = None) -> YuandianConfig:
-    """读一次（不缓存）：管理后台改完 key，下一次 ``open_session`` 就生效。"""
-    service = config_service or SystemConfigService()
-    base_url = _read_config_value(service, BASE_URL_CONFIG_KEY).rstrip("/") or DEFAULT_BASE_URL
-    return YuandianConfig(
-        base_url=base_url,
-        api_keys=_read_api_keys(service),
-        concurrency_per_key=_read_positive_int(service, CONCURRENCY_CONFIG_KEY, DEFAULT_CONCURRENCY_PER_KEY),
-    )
+    """读一次（不缓存）：管理后台改完 key，下一次 ``open_session`` 就生效。
 
-
-def _read_api_keys(service: SystemConfigService) -> tuple[str, ...]:
-    stored = split_secret_values(_read_config_value(service, API_KEYS_CONFIG_KEY))
-    if stored:
-        return stored
-    return split_secret_values(os.environ.get(API_KEYS_ENV_KEY, "") or "")
-
-
-def _read_positive_int(service: SystemConfigService, config_key: str, default: int) -> int:
-    raw = _read_config_value(service, config_key)
-    if not raw:
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        logger.warning(
-            "元典系统配置不是整数，使用默认值",
-            extra={"config_key": config_key, "default": default},
-        )
-        return default
-    return value if value > 0 else default
-
-
-def _read_config_value(service: SystemConfigService, config_key: str) -> str:
-    """读库；异常只记键名与异常类型——key 真实值不流入日志。"""
-    try:
-        return str(service.get_value(config_key, "") or "").strip()
-    except (DatabaseError, ValueError, TypeError, AttributeError) as exc:
-        logger.warning(
-            "读取元典系统配置失败，使用默认值",
-            extra={"config_key": config_key, "error_type": type(exc).__name__},
-        )
-        return ""
+    key 来自 :func:`load_yuandian_settings`（读库失败降级成空 key，交给
+    ``open_session`` 抛 :class:`YuandianConfigError` 说清「没配 key」）；
+    地址与并发上限取上面两个常量的默认值。
+    """
+    settings = load_yuandian_settings(config_service=config_service)
+    return YuandianConfig(api_keys=settings.api_keys)

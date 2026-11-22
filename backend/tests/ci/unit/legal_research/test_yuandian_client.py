@@ -16,6 +16,7 @@ import httpx
 import pytest
 from django.db import DatabaseError
 
+from apps.core.services.yuandian_settings import YUANDIAN_CONCURRENCY_PER_KEY, YUANDIAN_MCP_BASE_URL
 from apps.legal_research.services.sources.base import CaseDetail, CaseSearchItem, CaseSourceSession
 from apps.legal_research.services.sources.factory import SourceClientFactory
 from apps.legal_research.services.sources.yuandian import (
@@ -30,8 +31,6 @@ from apps.legal_research.services.sources.yuandian.client import DOCUMENT_NUMBER
 from apps.legal_research.services.sources.yuandian.config import (
     API_KEYS_CONFIG_KEY,
     API_KEYS_ENV_KEY,
-    BASE_URL_CONFIG_KEY,
-    CONCURRENCY_CONFIG_KEY,
     key_label,
     split_secret_values,
 )
@@ -181,22 +180,17 @@ def _search_item(doc_id: str = "case-0001") -> YuandianSearchItem:
     )
 
 
-# ── 配置：三个键、多 key 解析、env 回落 ───────────────────────
-def test_config_reads_three_keys_and_defaults() -> None:
-    service = _FakeSystemConfig(
-        {
-            BASE_URL_CONFIG_KEY: "https://open.chineselaw.com/",
-            API_KEYS_CONFIG_KEY: "test-key-1\ntest-key-2\n",  # pragma: allowlist secret
-            CONCURRENCY_CONFIG_KEY: "3",
-        }
-    )
+# ── 配置：只读 key、多 key 解析、env 回落 ─────────────────────
+def test_config_reads_api_keys_only() -> None:
+    """只有 key 进系统配置；地址与并发上限是代码常量（不读库、不会配置成空）。"""
+    service = _FakeSystemConfig({API_KEYS_CONFIG_KEY: "test-key-1\ntest-key-2\n"})  # pragma: allowlist secret
 
     config = load_yuandian_config(config_service=service)  # type: ignore[arg-type]
 
-    assert config.base_url == "https://open.chineselaw.com"
+    assert config.base_url == YUANDIAN_MCP_BASE_URL == "https://open.chineselaw.com"
     assert config.api_keys == ("test-key-1", "test-key-2")
-    assert config.concurrency_per_key == 3
-    assert service.requested == [BASE_URL_CONFIG_KEY, API_KEYS_CONFIG_KEY, CONCURRENCY_CONFIG_KEY]
+    assert config.concurrency_per_key == YUANDIAN_CONCURRENCY_PER_KEY == 2
+    assert service.requested == [API_KEYS_CONFIG_KEY], "除 key 外不应再读任何元典配置项"
 
 
 def test_config_defaults_when_store_is_empty() -> None:
@@ -232,18 +226,6 @@ def test_config_survives_broken_store(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert config.base_url == "https://open.chineselaw.com"
     assert config.api_keys == ()
-    assert config.concurrency_per_key == 2
-
-
-@pytest.mark.parametrize(
-    "raw",
-    ["abc", "0", "-3", " ", "2.5"],
-)
-def test_config_invalid_concurrency_falls_back_to_default(raw: str) -> None:
-    service = _FakeSystemConfig({CONCURRENCY_CONFIG_KEY: raw})
-
-    config = load_yuandian_config(config_service=service)  # type: ignore[arg-type]
-
     assert config.concurrency_per_key == 2
 
 

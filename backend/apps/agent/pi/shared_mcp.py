@@ -43,6 +43,10 @@ pi 与 dsh 共用同一份实现。本模块**保留原有的全部符号名**�
 - ``scripts/verify_dsh_mcp.py`` 替换 ``shared_mcp.resolve_endpoint``，
   所以那个名字必须继续是**本模块命名空间里的可替换间接层**。
 
+本文件还负责把**元典**的 MCP Server（``law`` / ``case`` / ``company`` / ``securities``）
+一并挂进同一份 ``mcp.json``：清单与地址是代码常量，只有 API Key 从系统配置读，
+且只以 ``${FACHUAN_YUANDIAN_API_KEY}`` 占位落盘（见 ``_build_yuandian_server_entries``）。
+
 pi 专属的部分（``mcp.json`` 字段表 ``_build_server_entry``、exposure、模型配置、
 AGENTS.md）留在本文件——``mcp_server`` 侧的漂移门禁
 （``tests/ci/unit/mcp_server/test_pi_timeout_alignment.py``）按本文件路径扫
@@ -106,6 +110,8 @@ __all__ = [
     "spawn_shared_server",
     "tool_prefix",
     "wait_until_ready",
+    "YUANDIAN_API_KEY_ENV",
+    "STREAMABLE_HTTP_TYPE",
     "write_pi_config",
     "write_pi_mcp_config",
 ]
@@ -127,6 +133,22 @@ __all__ = [
 #: ``deferred`` 没有此问题（加载后仍以真名调用）。
 EXPOSURE_ENV = "FACHUAN_MCP_EXPOSURE"
 _VALID_EXPOSURES = frozenset({"direct", "deferred", "codemode", "hidden"})
+
+#: 元典 MCP 的 Bearer key 在 pi 子进程 env 里的变量名。
+#:
+#: ``mcp.json`` 里只写 ``Authorization: Bearer ${FACHUAN_YUANDIAN_API_KEY}`` 占位
+#: （pi 支持 mcp.json header 的环境变量展开，与 ``FACHUAN_USER_TOKEN`` 同一机制），
+#: 真 key 由 :meth:`apps.agent.pi.pool.PiProcessPool.acquire` 注入子进程 env。
+#: 为什么必须这样：``mcp.json`` 是常驻的明文配置文件（会话目录复用到下一个用户），
+#: 而元典 key 是长期凭证——落盘等于把 key 写进磁盘快照/备份/工单附件。
+YUANDIAN_API_KEY_ENV = "FACHUAN_YUANDIAN_API_KEY"  # pragma: allowlist secret
+
+#: 远端 MCP Server 在 ``mcp.json`` 里的 ``type`` 取值。
+#:
+#: 元典官方示例写 ``"type": "http"``，但那是**没在 pi 上验证过**的写法；
+#: 本仓库自己的共享 HTTP server 用的是这个值（``_build_server_entry`` 共享分支，
+#: 已在 pi 上跑通），所以元典 server 跟着它走——同一个 pi 版本只认一套取值最稳。
+STREAMABLE_HTTP_TYPE = "streamable-http"
 
 
 def resolve_exposure() -> str:
@@ -235,7 +257,6 @@ def write_pi_config(
     """
     from . import model_config
     from .model_config import write_models_json
-    from .user_token import USER_TOKEN_ENV
 
     resolved = endpoint or resolve_endpoint()
     root = Path(target_dir)
@@ -268,12 +289,7 @@ def write_pi_config(
     # ``pool.acquire(session_env=...)`` 注入。mcp_server 端透传该头，工具即以
     # 律师本人身份调 REST API（confused deputy 修复，见 ``pi/user_token.py``）。
     # token 缺失时展开为空，mcp_server 回退服务账号（stdio/手工场景）。
-    config_path = root / "mcp.json"
-    server = _build_server_entry(resolved, USER_TOKEN_ENV)
-    config_path.write_text(
-        json.dumps({"mcpServers": {SERVER_NAME: server}}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    config_path = _write_mcp_json(root, resolved)
 
     # 3) 系统提示词（AGENTS.md）
     _write_agents_md(root)
@@ -404,7 +420,7 @@ def _build_server_entry(resolved: McpEndpoint, user_token_env: str) -> dict[str,
 
     if shared_enabled():
         return {
-            "type": "streamable-http",
+            "type": STREAMABLE_HTTP_TYPE,
             "url": resolved.url,
             "headers": {
                 "Authorization": f"Bearer ${{{user_token_env}}}",
@@ -452,18 +468,58 @@ def _build_server_entry(resolved: McpEndpoint, user_token_env: str) -> dict[str,
 
 def write_pi_mcp_config(target_dir: str | Path, endpoint: McpEndpoint | None = None) -> Path:
     """兼容旧名：仅写 MCP 配置（不碰模型），保留供测试/脚本使用。"""
-    from .user_token import USER_TOKEN_ENV
-
     resolved = endpoint or resolve_endpoint()
     root = Path(target_dir)
     root.mkdir(parents=True, exist_ok=True)
+    return _write_mcp_json(root, resolved)
+
+
+def _write_mcp_json(root: Path, resolved: McpEndpoint) -> Path:
+    """写 ``mcp.json``：法穿共享 MCP + 元典 MCP（没配元典 key 时只有法穿那一条）。
+
+    两处写入口（``write_pi_config`` / ``write_pi_mcp_config``）共用这一份，避免
+    「手工写配置」与「正式链路」的 ``mcpServers`` 像历史上那样各写一份字段表、
+    改一处漏一处。
+    """
+    from .user_token import USER_TOKEN_ENV
+
+    servers: dict[str, Any] = {SERVER_NAME: _build_server_entry(resolved, USER_TOKEN_ENV)}
+    servers.update(_build_yuandian_server_entries())
     config_path = root / "mcp.json"
-    server = _build_server_entry(resolved, USER_TOKEN_ENV)
-    config_path.write_text(
-        json.dumps({"mcpServers": {SERVER_NAME: server}}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    config_path.write_text(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2), encoding="utf-8")
     return config_path
+
+
+def _build_yuandian_server_entries() -> dict[str, Any]:
+    """元典 MCP Server 的 ``mcpServers`` 条目；没配 key 时返回空字典（不挂）。
+
+    为什么没 key 就整块不挂：带空 key 的元典 server 每条 ``tools/list`` 都会 401，
+    pi 仍会把这批工具声明给模型，结果是一堆「知道有但查不了」的工具把模型带进
+    反复重试——用户没填 key 就不该有这些工具。
+
+    读库失败同样走这条降级（:func:`load_yuandian_settings` 不抛）：元典挂不上
+    不该影响法穿自己的工具面。
+
+    清单与地址是代码常量（``apps.core.services.yuandian_settings``），因此这里
+    没有任何「用户把 server 名写错」的入口。
+    """
+    from apps.core.services.yuandian_settings import YUANDIAN_MCP_BASE_URL, YUANDIAN_MCP_SERVERS, load_yuandian_settings
+
+    if not load_yuandian_settings().api_keys:
+        return {}
+    return {
+        f"yuandian-{name}": {
+            "type": STREAMABLE_HTTP_TYPE,
+            "url": f"{YUANDIAN_MCP_BASE_URL}/mcp/{name}/stream",
+            "headers": {
+                # 元典实测要求显式要 SSE：缺这个头时服务端按一次性 JSON 应答，
+                # 流式 MCP 工具结果拿不到。两个头的值都是官方配置原文。
+                "Accept": "application/json, text/event-stream",
+                "Authorization": f"Bearer ${{{YUANDIAN_API_KEY_ENV}}}",
+            },
+        }
+        for name in YUANDIAN_MCP_SERVERS
+    }
 
 
 def _copy_user_credentials(target: Path) -> None:

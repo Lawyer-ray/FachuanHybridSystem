@@ -67,23 +67,23 @@ def _build_add_form(admin: LegalResearchTaskAdmin, **overrides):
 
 @pytest.mark.django_db
 class TestYuandianSystemConfigDefaults:
-    """元典配置项落在 SystemConfig（无新表），且 secret 默认值绝不预置真实 Key。"""
+    """元典只有 API Key 进 SystemConfig（无新表），且 secret 默认值绝不预置真实 Key。
 
-    def test_enterprise_data_configs_include_yuandian_keys(self):
+    平台地址 / MCP Server 清单 / 每 key 并发上限是**代码常量**
+    （``apps.core.services.yuandian_settings``）：它们不随部署变，落库只会多出一个
+    「没点过初始化就是空」的失败面。所以这里只允许出现 API Key 一条。
+    """
+
+    def test_only_api_keys_is_seeded(self):
         from apps.core.admin._system_config_data import get_default_configs
 
         configs = {item["key"]: item for item in get_default_configs()}
-        assert configs["YUANDIAN_BASE_URL"]["category"] == "enterprise_data"
-        assert configs["YUANDIAN_BASE_URL"]["value"] == "https://open.chineselaw.com"
-        assert configs["YUANDIAN_BASE_URL"]["is_secret"] is False
+        yuandian_keys = sorted(key for key in configs if key.startswith("YUANDIAN_"))
+        assert yuandian_keys == ["YUANDIAN_API_KEYS"], "元典只该有 API Key 一个配置项"
 
         assert configs["YUANDIAN_API_KEYS"]["category"] == "enterprise_data"
         assert configs["YUANDIAN_API_KEYS"]["is_secret"] is True
         assert configs["YUANDIAN_API_KEYS"]["value"] == ""
-
-        assert configs["YUANDIAN_CONCURRENCY_PER_KEY"]["category"] == "enterprise_data"
-        assert configs["YUANDIAN_CONCURRENCY_PER_KEY"]["value"] == "2"
-        assert configs["YUANDIAN_CONCURRENCY_PER_KEY"]["is_secret"] is False
 
     def test_api_keys_registered_as_multi_key(self):
         from apps.core.admin.forms.system_config_admin_form import _MULTI_KEY_CONFIGS

@@ -76,37 +76,15 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "value": "M8AqueMrJJGv79nHRaEK72QxYTfrh4YF6W48UBpwA4aWeVmK",  # pragma: allowlist secret
             "is_secret": True,
         },
-        {
-            "key": "YUANDIAN_BASE_URL",
-            "category": "enterprise_data",
-            "description": "元典开放平台地址（默认 https://open.chineselaw.com）",
-            "value": "https://open.chineselaw.com",
-            "is_secret": False,
-        },
+        # 元典只有 key 是可配的：平台地址 / MCP Server 清单 / 每 key 并发上限都是代码常量，
+        # 见 ``apps/core/services/yuandian_settings.py``。别把这三条加回默认配置——
+        # 它们不随部署变，落库只会多出一个「没点过初始化就是空」的失败面。
         {
             "key": "YUANDIAN_API_KEYS",
             "category": "enterprise_data",
-            "description": "元典 API Key（X-API-Key；支持多 Key，每行一个）",
+            "description": "元典 API Key（Bearer Token；支持多 Key，每行一个）",
             "value": "",
             "is_secret": True,
-        },
-        {
-            "key": "YUANDIAN_CONCURRENCY_PER_KEY",
-            "category": "enterprise_data",
-            "description": "元典每把 Key 的并发上限（元典按 key 限流，429 时换下一把）",
-            "value": "2",
-            "is_secret": False,
-        },
-        {
-            "key": "YUANDIAN_MCP_SERVERS",
-            "category": "enterprise_data",
-            "description": (
-                "元典 MCP Server 清单（逗号或换行分隔，地址为 <YUANDIAN_BASE_URL>/mcp/<名称>/stream）。"
-                "可选：law 法律法规 / case 案例文书 / company 企业信息 / securities 证券合规 / "
-                "hallucination 幻觉校验（**仅 VIP 可用，默认不挂**）。留空 = 不挂任何元典 MCP。"
-            ),
-            "value": "law,case,company,securities",
-            "is_secret": False,
         },
     ]
 

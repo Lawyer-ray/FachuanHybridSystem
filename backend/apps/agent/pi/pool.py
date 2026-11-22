@@ -35,9 +35,28 @@ from typing import Any
 
 from .rpc_client import PiRpcSession
 from .session_store import layout
-from .shared_mcp import McpEndpoint, write_pi_config
+from .shared_mcp import YUANDIAN_API_KEY_ENV, McpEndpoint, write_pi_config
 
 logger = logging.getLogger(__name__)
+
+
+def _yuandian_env() -> dict[str, str]:
+    """元典 MCP 的 Bearer key → pi 子进程 env；没配 key 时返回空字典。
+
+    同步函数：内部经 :func:`load_yuandian_settings` 读 SystemConfig（同步 ORM），
+    调用方必须用 ``sync_to_async(..., thread_sensitive=True)`` 包住。
+
+    没 key 时**不写空串**：``mcp.json`` 里 ``Bearer ${...}`` 展开成 ``Bearer ``
+    只会换来一条看不懂的 401；不注入时 pi 展开成空值，mcp_server 侧/元典侧
+    都按「未配置」处理。多把 key 的 429 轮换不在本轮范围（header 是静态展开，
+    换 key 得重启 pi），先用第一把。
+    """
+    from apps.core.services.yuandian_settings import load_yuandian_settings
+
+    api_keys = load_yuandian_settings().api_keys
+    if not api_keys:
+        return {}
+    return {YUANDIAN_API_KEY_ENV: api_keys[0]}
 
 
 class PoolQueueTimeoutError(RuntimeError):
@@ -223,7 +242,18 @@ class PiProcessPool:
                     # 思考等级由 write_pi_config 一并写入隔离目录的 settings.json
                     # （pi 官方开关是 modelThinkingLevels，不是 CLI 参数也不是
                     # models.json 的 reasoning 字段）。
-                    env = {**(self._config.extra_env or {}), "PI_CODING_AGENT_DIR": str(config_dir)}
+                    #
+                    # 元典 key 只经 env 进 pi：mcp.json 里写的是
+                    # ``Bearer ${FACHUAN_YUANDIAN_API_KEY}`` 占位，这里注入真值。
+                    # 与 write_pi_config 各自读一次库（get_value 有 300s 缓存，代价是
+                    # 一次缓存命中），换来 write_pi_config 返回值仍是 Path——改成
+                    # ``(path, env)`` 会波及拿它当路径用的调用点与既有断言。
+                    yuandian_env = await sync_to_async(_yuandian_env, thread_sensitive=True)()
+                    env = {
+                        **(self._config.extra_env or {}),
+                        "PI_CODING_AGENT_DIR": str(config_dir),
+                        **yuandian_env,
+                    }
                     env.update(session_env or {})
                     session = PiRpcSession(
                         cwd=str(cwd),
