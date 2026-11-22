@@ -22,7 +22,7 @@ from apps.legal_research.models import CaseDownloadTask, LegalResearchTask
 from apps.legal_research.models.task import LegalResearchTaskSource
 from apps.legal_research.services.task import executor as executor_module
 from apps.legal_research.services.task.executor import LegalResearchExecutor
-from apps.legal_research.services.task.service import _check_permission
+from apps.legal_research.services.task.service import LegalResearchTaskService, _check_permission
 from apps.organization.models.credential import AccountCredential
 from apps.organization.models.law_firm import LawFirm
 from apps.testing.factories import LawyerFactory
@@ -229,7 +229,20 @@ class TestCheckPermissionWithNullCredential:
             keyword="逾期利息",
             case_summary="借款合同纠纷",
         )
-        _check_permission(task=task, user=requester)
+
+        # 走服务层公开入口：能拿到任务对象 = 权限门真放行（拒绝会抛 PermissionDenied）。
+        # requester 既不是创建人也不是超管，唯一放行分支就是「凭证归属同所」。
+        visible = LegalResearchTaskService().get_task(task_id=task.id, user=requester)
+
+        assert visible.id == task.id
+        assert visible.credential_id == task.credential_id
+        assert visible.credential is not None
+        assert visible.credential.lawyer.law_firm_id == requester.law_firm_id
+
+        # 对照：不同所律师必须仍被拒 —— 判空不能把规则放宽成「有凭证就能看」。
+        outsider = LawyerFactory(law_firm=LawFirm.objects.create(name="元典测试律所丁"))
+        with pytest.raises(PermissionDenied):
+            LegalResearchTaskService().get_task(task_id=task.id, user=outsider)
 
 
 class _StopAfterOpenSession(Exception):

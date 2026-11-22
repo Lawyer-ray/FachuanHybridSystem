@@ -310,9 +310,18 @@ def test_session_key_slot_releases_after_use() -> None:
 
     with session.key_slot("test-key-1"):
         pass
-    # 槽位上限为 1：上一段没释放的话这里会永久阻塞（用例超时即失败）。
+
+    # 槽位上限为 1：上一段没在 finally 里 release 的话，池内余量不会回到 1。
+    # 非阻塞探测直接读余量，泄漏时立刻变红（而不是把用例挂到超时才失败）。
+    semaphore = session._key_slots["test-key-1"]
+    assert semaphore.acquire(blocking=False) is True, "with 结束后同一把 key 的槽位必须归还"
+    semaphore.release()
+
+    # 占用—归还循环得是真的：with 期间槽位必须是占着的，退出后再次归还。
     with session.key_slot("test-key-1"):
-        pass
+        assert semaphore.acquire(blocking=False) is False, "with 期间槽位应处于被占用状态"
+    assert semaphore.acquire(blocking=False) is True, "with 退出后槽位再次归还"
+    semaphore.release()
 
 
 def test_session_close_is_idempotent() -> None:
