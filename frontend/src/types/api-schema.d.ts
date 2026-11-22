@@ -11212,9 +11212,74 @@ export interface paths {
         put?: never;
         /**
          * Synthesize Session
-         * @description 对指定轮次跑一次综合结论（独立请求，不进 SSE）。
+         * @description 提交一次综合结论任务，立即返回任务状态（不等结果）。
+         *
+         *     同一会话同一轮已有进行中的任务时，返回那一个（``created=False``，参数以先提交的
+         *     为准），不重复花钱。
          */
         post: operations["apps_agent_api_synthesis_api_synthesize_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/synthesis/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Latest Synthesis Job
+         * @description 某一轮最近一次综合任务（刷新页面后接着显示进度）；该轮没提交过时 404。
+         */
+        get: operations["apps_agent_api_synthesis_api_get_latest_synthesis_job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/synthesis/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Synthesis Job
+         * @description 轮询某个综合任务。
+         */
+        get: operations["apps_agent_api_synthesis_api_get_synthesis_job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent/sessions/{session_id}/synthesis/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Synthesis Job
+         * @description 取消综合任务：排队中立即取消；运行中置取消标志，数秒内停下（轮询可见）。
+         *
+         *     已结束的任务原样返回（取消是幂等的）。
+         */
+        post: operations["apps_agent_api_synthesis_api_cancel_synthesis_job"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22053,9 +22118,9 @@ export interface components {
         LegalResearchTaskCreateIn: {
             /**
              * Credential Id
-             * @description wkxx账号凭证ID
+             * @description wkxx账号凭证ID（省略=自动)
              */
-            credential_id: number;
+            credential_id?: number | null;
             /**
              * Keyword
              * @description 检索关键词；支持空格、逗号、分号、换行分隔多个关键词
@@ -22302,9 +22367,9 @@ export interface components {
             version: "v1";
             /**
              * Credential Id
-             * @description 账号凭证ID
+             * @description 账号凭证ID（省略=自动挑本所的威科账号）
              */
-            credential_id: number;
+            credential_id?: number | null;
             /**
              * Intent
              * @description 检索意图
@@ -22350,6 +22415,11 @@ export interface components {
              * @enum {string}
              */
             search_mode: "expanded" | "single";
+            /**
+             * Min Similarity Score
+             * @description 相似度阈值（可选项）。不传 = 0.9（严格，适合短关键词检索）；传 0.5–0.7 适合长案情段落（整段事实与判决书全文的相似度天然偏低）
+             */
+            min_similarity_score?: number | null;
         };
         /** AgentSearchYearRangeIn */
         AgentSearchYearRangeIn: {
@@ -22475,9 +22545,9 @@ export interface components {
             text: string;
             /**
              * Credential Id
-             * @description 法规检索服务账号的凭证 ID（LawyerCredential 主键）
+             * @description 凭证 ID（省略=自动挑本所的威科账号）
              */
-            credential_id: number;
+            credential_id?: number | null;
         };
         /**
          * ForeignLawVerifyOut
@@ -25167,6 +25237,44 @@ export interface components {
             quote: string;
         };
         /**
+         * SynthesisJobOut
+         * @description 一次综合任务的状态（轮询用）。
+         */
+        SynthesisJobOut: {
+            /** Job Id */
+            job_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Turn */
+            turn: number;
+            /** Status */
+            status: string;
+            /** Stage */
+            stage: string;
+            /** Error */
+            error: string;
+            /** Cancel Requested */
+            cancel_requested: boolean;
+            /** Review */
+            review: boolean;
+            /**
+             * Created
+             * @default false
+             */
+            created: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            synthesis?: components["schemas"]["Synthesis"] | null;
+        };
+        /**
          * SynthesisIn
          * @description 触发一次综合结论所需的上下文。
          */
@@ -25180,6 +25288,18 @@ export interface components {
              * @default
              */
             model: string;
+            /**
+             * Kind
+             * @default pi
+             */
+            kind: string;
+            /**
+             * Review
+             * @default true
+             */
+            review: boolean;
+            /** Credential Id */
+            credential_id?: number | null;
         };
         /**
          * AttachmentOut
@@ -40850,7 +40970,77 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Synthesis"];
+                    "application/json": components["schemas"]["SynthesisJobOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_synthesis_api_get_latest_synthesis_job: {
+        parameters: {
+            query: {
+                turn: number;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SynthesisJobOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_synthesis_api_get_synthesis_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SynthesisJobOut"];
+                };
+            };
+        };
+    };
+    apps_agent_api_synthesis_api_cancel_synthesis_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SynthesisJobOut"];
                 };
             };
         };
