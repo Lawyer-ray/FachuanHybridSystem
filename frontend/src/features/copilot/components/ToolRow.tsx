@@ -20,40 +20,25 @@
  */
 
 import { memo, useEffect, useState } from 'react'
-import { AlertTriangle, Check, Circle, Loader2, Minus } from 'lucide-react'
+import { Check, Circle, Loader2, Minus, X } from 'lucide-react'
 
-import { formatElapsed, shortToolName, toolStateLabel, toolStateOf, toolSummary, type ToolState } from '../domain'
+import { formatElapsed, formatToolContent, shortToolName, toolStateLabel, toolStateOf, toolSummary, type ToolState } from '../domain'
 import type { ChatMessage } from '../types'
 
 import { DiffBlock } from './markdown/DiffBlock'
 
-/** 状态色调 → 文本色（只影响「已完成/失败」这半句，不影响工具名） */
-const TONE_TEXT = {
-  muted: 'text-muted-foreground',
-  ok: 'text-emerald-600 dark:text-emerald-500',
-  warn: 'text-amber-600 dark:text-amber-500',
-  error: 'text-destructive',
-} as const
-
 /**
- * 状态词（「已完成 / 失败 / 调用中」…）与它的色调。chip（ToolChips）与整行（ToolRow）
- * 共用：同一份状态在两种形态里必须说同一句话、同一个颜色。
+ * 状态词（「已完成 / 失败 / 调用中」…），**只给读屏**（`sr-only`）。
  *
- * `hidden`：成功态在 chip 里只留对勾（见 ToolChips 文件头），字给读屏（`sr-only`）而
- * 不上屏。这里不提供「不渲染字」的选项——那是「只靠图标传真」的不可读方案。
+ * 状态一律只出图标（用户要的是「打勾或打叉，我自己点开看」）：五个状态在屏幕上都是
+ * 一枚图标，字只留在无障碍树里——不许为了省像素把读屏信息删掉。chip（ToolChips）
+ * 与整行（ToolRow）共用这一份措辞，同一份状态在两种形态里说同一句话。
  */
-export const ToolStateWord = memo(function ToolStateWord({
-  state,
-  hidden = false,
-}: {
-  state: ToolState
-  hidden?: boolean
-}) {
-  const label = toolStateLabel(state)
-  return <span className={hidden ? 'sr-only' : `flex-none ${TONE_TEXT[label.tone]}`}>{label.text}</span>
+export const ToolStateWord = memo(function ToolStateWord({ state }: { state: ToolState }) {
+  return <span className="sr-only">{toolStateLabel(state).text}</span>
 })
 
-/** 五态图标：preparing 灰点 / running 转圈 / ok 对勾 / error 警示 / stopped 灰横线。 */
+/** 五态图标：preparing 灰点 / running 转圈 / ok 绿勾 / error 红叉 / stopped 灰横线。 */
 export const ToolStateIcon = memo(function ToolStateIcon({
   state,
   className = 'h-3 w-3',
@@ -67,7 +52,7 @@ export const ToolStateIcon = memo(function ToolStateIcon({
   }
   if (state === 'running') return <Loader2 className={`${cls} animate-spin`} aria-hidden="true" />
   if (state === 'ok') return <Check className={`${cls} text-emerald-600 dark:text-emerald-500`} aria-hidden="true" />
-  if (state === 'error') return <AlertTriangle className={`${cls} text-destructive`} aria-hidden="true" />
+  if (state === 'error') return <X className={`${cls} text-destructive`} aria-hidden="true" />
   return <Minus className={`${cls} text-muted-foreground`} aria-hidden="true" />
 })
 
@@ -100,31 +85,24 @@ export const ToolRow = memo(function ToolRow({ message }: { message: ChatMessage
   // 只有结算后才画（运行中参数还在渐进完整，画出来会是个半截 diff）。
   const settled = state === 'ok' || state === 'error'
   const rewrite = settled ? message.rewrite : undefined
+  // 原文归一化（拆 MCP 信封 / 解转义 / JSON 美化 / HTML 兜底，见 domain/tool-content）
+  const content = formatToolContent(message.content)
   return (
     <details className="group rounded-[10px] border border-border bg-secondary/40 px-2.5 py-1.5">
       <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[12px] text-muted-foreground">
         <ToolStateIcon state={state} />
         <span className="truncate" title={toolSummary(message)}>
-          {rewrite ? (
-            rewrite.filename
-          ) : (
-            <>
-              <ToolStateWord state={state} /> · {name}
-            </>
-          )}
+          {rewrite ? rewrite.filename : name}
+          <ToolStateWord state={state} />
         </span>
         <ToolElapsed message={message} />
       </summary>
       {rewrite && <DiffBlock original={rewrite.original} replacement={rewrite.replacement} filename={rewrite.filename} />}
-      {message.content && (
-        <details className="mt-1.5 border-t border-border pt-1.5">
-          <summary className="cursor-pointer list-none text-[11px] text-muted-foreground hover:text-foreground">
-            工具返回原文
-          </summary>
-          <pre className="mt-1 max-h-56 overflow-y-auto font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-secondary-foreground">
-            {message.content}
-          </pre>
-        </details>
+      {/* 展开就直接看到原文：不再套一层「工具返回原文」的二次点击 */}
+      {content && (
+        <pre className="mt-1.5 max-h-56 overflow-y-auto border-t border-border pt-1.5 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-secondary-foreground">
+          {content}
+        </pre>
       )}
     </details>
   )

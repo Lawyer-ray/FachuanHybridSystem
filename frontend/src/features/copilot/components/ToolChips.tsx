@@ -19,10 +19,10 @@
  *
  * ## 五态措辞与无障碍
  *
- * - `ok` 只留绿色对勾：16 次里 16 次都是它，「已完成」重复 16 遍是纯噪声。字仍给读屏
- *   留着（`sr-only`）——眼睛看不到，耳朵听得到；
- * - 其余四态（准备中/调用中/失败/已中止）是律师要立刻看见的异常，**一律出字**，
- *   不许只藏在 `title` 里（键盘与触屏读不到 tooltip）；
+ * - **五个状态全部只出图标**：`ok` 绿勾 / `error` 红叉 / `stopped` 灰横线 / `running`
+ *   转圈 / `preparing` 灰点。可见文字为零（用户：「用打勾或者打叉来表示结果，我会自己
+ *   点开」）；「已完成」在 16 条工具里重复 16 遍本来就是纯噪声；
+ * - 字**没有删**，只是移进 `sr-only`（见 `ToolStateWord`）：眼睛看不到、耳朵听得到；
  * - `list-style: none` 去掉了 summary 的原生三角，所以补一枚可见 chevron（`open` 时转 90°），
  *   否则没人知道这枚 chip 还能点；
  * - summary 里只有图标与文本，不嵌 button/link（交互元素嵌进 summary 会变成两个焦点）。
@@ -31,7 +31,7 @@
 import { memo } from 'react'
 import { ChevronRight } from 'lucide-react'
 
-import { shortToolName, toolStateLabel, toolStateOf, toolSummary } from '../domain'
+import { formatToolContent, shortToolName, toolStateLabel, toolStateOf, toolSummary } from '../domain'
 import type { ChatMessage } from '../types'
 
 import { DiffBlock } from './markdown/DiffBlock'
@@ -74,6 +74,8 @@ export const ToolChip = memo(function ToolChip({ tool }: { tool: ChatMessage }) 
   const label = toolStateLabel(state)
   const name = shortToolName(tool.toolName)
   const settled = state === 'ok' || state === 'error'
+  // 原文归一化（拆 MCP 信封 / 解转义 / JSON 美化 / HTML 兜底，见 domain/tool-content）
+  const content = formatToolContent(tool.content)
   return (
     <details className="group/chip max-w-full rounded-[6px] border border-border/70 bg-secondary/30 open:basis-full">
       <summary
@@ -82,8 +84,8 @@ export const ToolChip = memo(function ToolChip({ tool }: { tool: ChatMessage }) 
       >
         <ToolStateIcon state={state} className="h-2.5 w-2.5" />
         <span className="max-w-[190px] truncate font-mono">{name}</span>
-        {/* 成功态只留对勾（字给读屏），其余四态必须出字 */}
-        <ToolStateWord state={state} hidden={state === 'ok'} />
+        {/* 状态只出图标，字给读屏 */}
+        <ToolStateWord state={state} />
         <ToolElapsed message={tool} />
         {state === 'running' && tool.toolStartedAt === undefined && (
           <span className="flex-none text-[10px] opacity-70">…</span>
@@ -102,9 +104,9 @@ export const ToolChip = memo(function ToolChip({ tool }: { tool: ChatMessage }) 
           />
         </div>
       )}
-      {tool.content && (
+      {content && (
         <pre className="max-h-40 overflow-auto border-t border-border/70 px-1.5 py-1 font-mono text-[10.5px] leading-relaxed break-all whitespace-pre-wrap text-secondary-foreground">
-          {tool.content}
+          {content}
         </pre>
       )}
     </details>

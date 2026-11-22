@@ -169,7 +169,15 @@ describe('多 agent 但整轮没有正文（中断 / 全部失败）', () => {
     // 三条工具各一枚 chip，且结果跟着 chip（展开/可读）
     expect(chipOf('get_current_user').textContent).toContain('已确认身份')
     expect(chipOf('tool_search').textContent).toContain('找到工具')
-    expect(chipOf('search_cases').textContent).toContain('{"cases":1}')
+    // 工具原文先过 `domain/tool-content` 的 `formatToolContent`（见 ToolRow/ToolChips）：
+    // 键值可见、已展开成多行、**不再**把原文的紧凑形状原样吐出来。
+    // 这里刻意不写「反证式 `not.toContain('{\n')`」：本样本是紧凑 JSON `{"cases":1}`
+    //（不是 MCP 信封），它美化后本来就以 `{\n` 开头，那条守卫在这里恒假；
+    // 等价的反证是「紧凑原文不见了」——美化一旦被关掉，最后一条会立刻变红。
+    const cases = chipOf('search_cases').textContent ?? ''
+    expect(cases).toContain('"cases": 1')
+    expect(cases).toContain('\n')
+    expect(cases).not.toContain('{"cases":1}')
   })
 })
 
