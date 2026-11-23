@@ -25,7 +25,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+
+from asgiref.sync import sync_to_async
+from django.db import transaction
 
 from ...models import AgentMessage, AgentSession, AgentSynthesis
 from ..adjudication.contracts import Synthesis
@@ -147,7 +149,37 @@ async def resolve_model(session: AgentSession, turn: int, requested: str) -> str
     return seen[0]
 
 
-async def save_synthesis_message(*, session: AgentSession, synthesis: Synthesis) -> Any:
+def _save_synthesis_message_sync(session: AgentSession, synthesis: Synthesis) -> AgentMessage:
+    """同事务「先删后建」该轮综合稿（同步实现；async 入口见 :func:`save_synthesis_message`）。
+
+    S42-03（2026-11-23 二轮审计）：原实现先 ``adelete()`` 提交、再 ``acreate()``，两步不在
+    同一事务里——第二步失败（DB 连接断/超时、content 超长、约束失败、进程被 SIGKILL）时
+    这一轮的结论就从**转录**里消失：``AgentSynthesis`` 快照在删除之前已单独落库，所以
+    刷新后看着结论还在（走快照端点），但历史回放/检索/后续追问读消息表读不到，而且用户
+    不知道需要再点一次"生成综合结论"才能修好。现在两步包进同一个 ``transaction.atomic()``：
+    要么整批换新，要么保持原样。
+
+    ``transaction.atomic()`` 不能在 async 上下文里用，所以拆成本同步实现 + ``sync_to_async``
+    （与 ``services/synthesis/jobs._submit_sync`` 同一做法）。
+    """
+    with transaction.atomic():
+        AgentMessage.objects.filter(session=session, turn_no=synthesis.turn, agent_kind=SYNTHESIS_AGENT_KIND).delete()
+        return AgentMessage.objects.create(
+            session=session,
+            role=AgentMessage.Role.ASSISTANT,
+            turn_no=synthesis.turn,
+            agent_kind=SYNTHESIS_AGENT_KIND,
+            content=synthesis.text,
+            metadata={
+                "synthesis_id": synthesis.synthesis_id,
+                "model": synthesis.model,
+                "lanes_used": list(synthesis.lanes_used),
+                "unverified": len(synthesis.unverified),
+            },
+        )
+
+
+async def save_synthesis_message(*, session: AgentSession, synthesis: Synthesis) -> AgentMessage:
     """把综合结论写进会话转录（**一轮一条，重复点击覆盖**）。
 
     ## 为什么既落 ``AgentSynthesis`` 又落一条消息
@@ -161,23 +193,11 @@ async def save_synthesis_message(*, session: AgentSession, synthesis: Synthesis)
     ``AgentMessage`` 没有 (session, turn_no, agent_kind) 唯一约束；同一轮重复点
     "生成综合结论"时，upsert 语义应是"这一轮的综合结论以最后一次为准"，而不是
     在转录里堆出三条综合稿。先删后排是最直白的实现，且不依赖约束是否存在。
+
+    删除与新建在**同一事务**里（见 :func:`_save_synthesis_message_sync`），
+    否则第二步失败会让该轮结论从转录里凭空消失而快照还在。
     """
-    await AgentMessage.objects.filter(
-        session=session, turn_no=synthesis.turn, agent_kind=SYNTHESIS_AGENT_KIND
-    ).adelete()
-    return await AgentMessage.objects.acreate(
-        session=session,
-        role=AgentMessage.Role.ASSISTANT,
-        turn_no=synthesis.turn,
-        agent_kind=SYNTHESIS_AGENT_KIND,
-        content=synthesis.text,
-        metadata={
-            "synthesis_id": synthesis.synthesis_id,
-            "model": synthesis.model,
-            "lanes_used": list(synthesis.lanes_used),
-            "unverified": len(synthesis.unverified),
-        },
-    )
+    return await sync_to_async(_save_synthesis_message_sync, thread_sensitive=True)(session, synthesis)
 
 
 async def save_synthesis(*, session: AgentSession, user_id: int | None, synthesis: Synthesis) -> AgentSynthesis:

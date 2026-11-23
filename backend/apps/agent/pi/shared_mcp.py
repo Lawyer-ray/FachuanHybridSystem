@@ -61,6 +61,7 @@ import contextlib
 import json
 import logging
 import os
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -301,6 +302,32 @@ def write_pi_config(
     return config_path
 
 
+def _atomic_write_text(path: Path, data: str) -> None:
+    """原子写文本文件（同目录临时文件 + ``os.replace``）。
+
+    S37-11（2026-11-23 二轮审计）：原实现在 ``_write_settings_json`` /
+    ``_write_mcp_json`` / ``_write_agents_md`` 三处直接 ``Path.write_text`` /
+    ``shutil.copyfile``——先 truncate 再写，中间有毫秒级的半截窗口。而**非隔离**运行时的
+    配置目录（``session_store.layout()``，默认 ``~/.fachuan-agent/config``）是**全局共享**
+    目录，且每次 ``acquire`` 都会整份重写：并发 acquire 或多个 worker 共享同一目录时，
+    一方刚 truncate、另一方（或刚起的 pi 子进程）就在读 → 半截 JSON 解析失败
+    （``mcp.json`` = 无工具/起不来，``settings.json`` = provider 与思考等级静默丢失）或
+    半截 ``AGENTS.md``（人格说明被截断）。
+
+    现在改成与 ``model_config.write_models_json`` 同一做法：同目录 ``mkstemp`` 写完再
+    ``os.replace`` 原子替换，读侧任何时刻看到的都是完整文件。
+    """
+    tmp_fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}-", suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp_file:
+            tmp_file.write(data)
+        os.replace(tmp_name, path)
+    finally:
+        # replace 成功后 tmp 已不存在，suppress 兜底；失败时清掉残留临时文件
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+
+
 def _write_settings_json(target_dir: str | Path, *, model_hint: str = "", provider: Any = None) -> Path | None:
     """写隔离目录的 ``settings.json``（pin provider/model + 思考等级 + 图像闸门）。
 
@@ -356,7 +383,7 @@ def _write_settings_json(target_dir: str | Path, *, model_hint: str = "", provid
         settings["modelThinkingLevels"] = {f"{provider_name}/{model_id}": level}
 
     path = Path(target_dir) / "settings.json"
-    path.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
+    _atomic_write_text(path, json.dumps(settings, ensure_ascii=False, indent=2))
     logger.info(
         "pi settings.json 已写入: provider=%s model=%s thinking=%s",
         provider_name,
@@ -488,7 +515,7 @@ def _write_mcp_json(root: Path, resolved: McpEndpoint) -> Path:
     servers: dict[str, Any] = {SERVER_NAME: _build_server_entry(resolved, USER_TOKEN_ENV)}
     servers.update(_build_yuandian_server_entries())
     config_path = root / "mcp.json"
-    config_path.write_text(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2), encoding="utf-8")
+    _atomic_write_text(config_path, json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2))
     return config_path
 
 
@@ -561,13 +588,14 @@ def _write_agents_md(target: Path) -> None:
     默认用本 app 内置模板；``FACHUAN_PI_AGENTS_PATH`` 可指向自定义文件。
     写失败只降级（少一份人格说明不致命），不阻断会话。
     """
-    import shutil
-
     source = Path(os.environ.get("FACHUAN_PI_AGENTS_PATH", "") or (Path(__file__).resolve().parent / "AGENTS.md"))
     try:
         if not source.is_file():
             logger.warning("AGENTS.md 模板不存在，agent 将缺少系统提示词: %s", source)
             return
-        shutil.copyfile(source, target / "AGENTS.md")
-    except OSError:
+        # 原子写（见 ``_atomic_write_text``）：``shutil.copyfile`` 是 truncate 直写，
+        # 共享配置目录并发 acquire 时有半截窗口。读侧多一种可能的失败
+        # （非 UTF-8 模板 → UnicodeDecodeError）也按“写失败只降级”处理。
+        _atomic_write_text(target / "AGENTS.md", source.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
         logger.warning("写入 AGENTS.md 失败，agent 将缺少系统提示词", exc_info=True)

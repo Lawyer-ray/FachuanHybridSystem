@@ -282,7 +282,12 @@ async def ask_user(
         from .event_bus import get_bus
 
         bus = get_bus()
-        has_remote = bool(await bus.has_subscribers(session_id)) or redis_cache_enabled()
+        # S47-25（2026-11-23 二轮审计）：原实现写的是 ``... or redis_cache_enabled()``——它
+        # 判的是「缓存后端是不是 Redis」，与「有没有人在听」毫无关系。生产配了 Redis 时它
+        # 恒为 True，于是 ``no_channel`` 分支不可达：任务式/后台/律师没开页面时也照样阻塞满
+        # 180 秒才返回 ``timed_out``，白白占着 pi 进程与执行位。现在改为问真正的订阅事实
+        # （``_bump_subscribers`` 已在维护跨 worker 订阅计数）。
+        has_remote = bool(await bus.has_subscribers(session_id)) or bool(await bus.remote_subscriber_count(session_id))
         delivered = await bus.publish(
             session_id,
             {

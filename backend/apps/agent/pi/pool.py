@@ -169,7 +169,7 @@ class PiProcessPool:
         """取一个执行位；满员时带排队超时，不无限挂死。
 
         P2-2 全机并发闸门：Redis 可用时走分布式计数（跨 worker 共享
-        容量），不可用退化为进程内 asyncio.Semaphore（现行行为）。
+        容量），不可用（或闸门操作本身失败）退化为进程内 asyncio.Semaphore。
 
         Raises:
             PoolQueueTimeoutError: 排队超过 ``queue_timeout``。
@@ -177,15 +177,7 @@ class PiProcessPool:
         # P2-2：Redis 分布式信号量路径。INCR/EXPIRE/DECR 是同步网络 IO，
         # 必须放线程里跑，否则每次闸门操作都阻塞整个事件循环（所有 SSE 一起卡）。
         redis_gate = _try_redis_slot(self.size)
-        if redis_gate is not None:
-            timeout = self._config.queue_timeout
-            deadline = asyncio.get_event_loop().time() + (timeout if timeout > 0 else 3600)
-            while True:
-                if await asyncio.to_thread(redis_gate.try_acquire):
-                    break
-                if timeout > 0 and asyncio.get_event_loop().time() >= deadline:
-                    raise PoolQueueTimeoutError(f"agent 执行位已满，排队超过 {timeout:.0f} 秒（全机容量 {self.size}）")
-                await asyncio.sleep(0.2)
+        if redis_gate is not None and await self._acquire_redis_slot(redis_gate):
             try:
                 yield
             finally:
@@ -193,7 +185,7 @@ class PiProcessPool:
                 await asyncio.to_thread(redis_gate.release)
             return
 
-        # 无 Redis 路径（现行行为）
+        # 进程内信号量路径：本来就没有 Redis，或闸门刚刚报错降级（见 _acquire_redis_slot）
         timeout = self._config.queue_timeout
         if timeout <= 0:
             async with self._semaphore:
@@ -207,6 +199,42 @@ class PiProcessPool:
             yield
         finally:
             self._semaphore.release()
+
+    async def _acquire_redis_slot(self, redis_gate: _RedisGate) -> bool:
+        """在分布式闸门上等到一个执行位。
+
+        Returns:
+            ``True`` = 已拿到执行位（调用方必须在退出时 ``release``）；
+            ``False`` = 闸门不可用，调用方改走进程内信号量。
+
+        Raises:
+            PoolQueueTimeoutError: 等到 ``queue_timeout`` 仍无空位（真容量满）。
+
+        S37-09（2026-11-23 二轮审计）：原实现把 ``try_acquire`` 的两个失败面
+        （Redis 报错 / 容量满）当同一个 ``False``，每 0.2 秒重试一次直到
+        ``queue_timeout``（默认 60 秒）——Redis 一抖（重启/超时/OOM/ACL 变更），
+        全机所有对话就统一报「执行位已满（全机容量 4）」，与真容量满文案一模一样，
+        且 ``try_acquire`` 的 except 分支一行日志都没有，日志里查不到 Redis 故障痕迹。
+        现在闸门操作失败抛 :class:`_RedisGateUnavailable`：本 worker 立即降级为
+        进程内信号量（仍限流），并留一条 warning；只有真的排满才抛
+        ``PoolQueueTimeoutError``。
+        """
+        timeout = self._config.queue_timeout
+        deadline = asyncio.get_event_loop().time() + (timeout if timeout > 0 else 3600)
+        while True:
+            try:
+                if await asyncio.to_thread(redis_gate.try_acquire):
+                    return True
+            except _RedisGateUnavailable:
+                logger.warning(
+                    "Redis 执行位闸门不可用，本次降级为进程内信号量（容量 %s）",
+                    self.size,
+                    exc_info=True,
+                )
+                return False
+            if timeout > 0 and asyncio.get_event_loop().time() >= deadline:
+                raise PoolQueueTimeoutError(f"agent 执行位已满，排队超过 {timeout:.0f} 秒（全机容量 {self.size}）")
+            await asyncio.sleep(0.2)
 
     async def _announce_queue(self) -> None:
         """登记排队并回调前端可见的排队位置。"""
@@ -388,6 +416,26 @@ class PiProcessPool:
 
 _GLOBAL_SEM_KEY = "agent:pool:global_count"
 
+#: 闸门操作可能抛的具体异常（连接断 / 超时 / ACL 变更 / 协议错）。
+#:
+#: 不用 ``except Exception``：异常棘轮禁止新增宽捕获，而这里失败就该降级，
+#: 用一个具名元组反而更诚实（与 ``event_bus._CACHE_ERRORS`` 同口径）。
+_GATE_ERRORS: tuple[type[BaseException], ...] = (OSError, ValueError, TypeError, RuntimeError)
+try:  # pragma: no cover - redis 随 RedisCache 一起装，这里只为类型收敛
+    from redis.exceptions import RedisError as _RedisError
+
+    _GATE_ERRORS = (*_GATE_ERRORS, _RedisError)
+except ImportError:  # pragma: no cover
+    pass
+
+
+class _RedisGateUnavailable(Exception):
+    """闸门操作失败（Redis 连不上 / 报错）。
+
+    与「执行位已满」是两回事：满员是**正常排队的结论**，闸门不可用是**降级信号**
+    （见 ``PiProcessPool._acquire_redis_slot``）。
+    """
+
 
 def _redis_sync_client() -> Any:
     """原生 Redis 客户端（同步；与 event_bus 同源判定）。"""
@@ -408,19 +456,39 @@ class _RedisGate:
         self._acquired = False
 
     def try_acquire(self) -> bool:
+        """试着占一个执行位。
+
+        Returns:
+            ``True`` = 占到了；``False`` = 容量已满（**正常排队信号**）。
+
+        Raises:
+            _RedisGateUnavailable: Redis 连不上或 INCR/EXPIRE 报错（**降级信号**）。
+
+        S37-09（2026-11-23 二轮审计）：原实现是 ``except Exception: return False``——
+        把「Redis 故障」和「容量满」混成同一个返回值，且一行日志都不留。
+        """
         client = _redis_sync_client()
         if client is None:
-            return False
+            raise _RedisGateUnavailable("Redis 客户端不可用")
+        incremented = False
         try:
             current = int(client.incr(self._key))
+            incremented = True
             client.expire(self._key, 300)  # 5 分钟兜底
-            if current > self._size:
+        except _GATE_ERRORS as exc:
+            if incremented:
+                # INCR 已生效但 EXPIRE 没写下去：尽力归还这一格，
+                # 否则计数没有 TTL 兜底，会永久泄漏成「容量永远满」。
+                with contextlib.suppress(*_GATE_ERRORS):
+                    client.decr(self._key)
+            raise _RedisGateUnavailable(str(exc)) from exc
+        if current > self._size:
+            # 容量满：把刚多占的一格还回去（归还失败不影响「满员」这个结论）
+            with contextlib.suppress(*_GATE_ERRORS):
                 client.decr(self._key)
-                return False
-            self._acquired = True
-            return True
-        except Exception:
             return False
+        self._acquired = True
+        return True
 
     def release(self) -> None:
         if not self._acquired:
