@@ -182,15 +182,15 @@ E4 `llm-privacy-guard` 偶发判红。四条本轮均未动代码。
 
 ## H. 新 P0（按优先级，全部已二轮证实）
 
-> 本轮已修掉其中 3 条（会话 SSE 越权 `chat_api.py:115`、收件箱搜索越权 `search_api.py:94`、
-> `_persist_analysis` 分段丢失 `split/service.py:1014`），下表是**仍未修**的。
+> 本轮已修掉其中 4 条：会话 SSE 越权 `chat_api.py:115`、收件箱搜索越权 `search_api.py:94`、
+> `_persist_analysis` 分段丢失 `split/service.py:1014`，以及子模块内 `C02-01`（凭证缓存不存明文，
+> 子模块提交 `e42260a`，**未 push、主仓指针未提交——待用户授权**）。下表是**仍未修**的。
 
 | # | 现象 | 证据 | 为什么不本轮修 |
 |:-|:-|:-|:-|
 | H1 | 合同审查 LLM 异常被吞成空结果，任务仍标 `COMPLETED`（失败不可见） | `apps/contract_review/services/review/contract_reviewer.py:187` | 需产品定义「失败怎么展示」（`failed` vs 「完成了但内容为空」），前端也要跟着改 |
 | H2 | Redis broker 下 `cancel()` 只删 OrmQ 行 → 排队任务「取消」静默失效，调用方已置 CANCELLED 但任务照跑 | `apps/core/tasking/submission.py:75` | 是运行时语义变更：真出队（要处理已弹出/正在执行的竞态）还是只置协作标记，**要人拍板** |
 | H3 | 记忆 `promote_memory` 的 `get_or_create` 少 team/law_firm 维度 → 命中他团队/律所同行，越权回吐内容 | `apps/agent/services/memory/curation.py:156` | 多租户口径未定（同律所共享 vs 仅本人/本团队），错修会把同律所规则也挡掉 |
-| H4 | 凭证缓存把 `password` 置空，TTL 内缓存命中后仍被当登录凭证使用（自动登录用空密码） | `plugins/court_automation/token/cache_manager.py:165` | 在 `backend/plugins` 子模块内；子模块 commit 可做，但 **push / 子模块 PR / 主仓指针更新需用户授权** |
 | H5 | 在 `EncryptedTextField` 列上做 `token__startswith=<明文前缀>` → 恒查不到，保全/一张网 Token 复用链路永久失效 | `plugins/court_automation/token/court_token_store_service.py:29` | 同上；且「删 `token_prefix` 形参」vs「加明文前缀列（要迁移）」需拍板 |
 | H6 | 询价 API 四端点签名与适配器不符（`create_quote`/`credential_ids`/`aget_quote`）→ 全部必 500，且行级 ACL 参数根本没传到 service | `plugins/court_automation/preservation_quote/api_endpoint.py:104,155,248` | 同上（子模块）；修法牵扯「改适配层」vs「改前端契约」 |
 
