@@ -121,7 +121,10 @@ async def abrowse_cloud_folder(
     if not account:
         return _error_result("云存储账号不存在", path, storage_type)
 
-    provider = create_provider_from_account(account)
+    # S25-06（2026-11-23 二轮审计）：原实现在事件循环里同步调 create_provider_from_account，
+    # 凭证刷新路径（OAuthTokenManager.get_valid_token → httpx.post → Model.save()）在
+    # OneDrive/Dropbox token 过期时会抛 SynchronousOnlyOperation。现在摆渡到线程执行。
+    provider = await sync_to_async(create_provider_from_account)(account)
     browse_path = (path or "").strip().rstrip("/") or "/"
 
     try:

@@ -107,6 +107,16 @@ class DocConvertRecordService:
                 message=f"转换记录不存在: ID={record_id}", code="DOC_CONVERT_RECORD_NOT_FOUND"
             ) from None
 
+    def delete_record(self, record_id: int, user: Any = None) -> None:
+        """删除单条转换记录（产物文件由 post_delete 信号清理）。
+
+        S29-10（2026-11-23 二轮审计）：原实现由 API 先 ``get_record`` 取实例、再自己
+        ``record.delete()`` —— api 层直连 ORM 删除，而四层架构门禁只 grep ``.objects.``
+        拓不到实例方法。现在属主校验与删除收在同一步内，API 只调服务。
+        """
+        record = self.get_record(record_id, user=user)
+        record.delete()
+
     def _to_summary(self, record: DocConvertRecord) -> dict[str, Any]:
         return {
             "id": record.id,

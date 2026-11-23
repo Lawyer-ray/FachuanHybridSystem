@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from asgiref.sync import sync_to_async
 from django.db.models import Q, QuerySet
 from django.utils.functional import Promise
 
@@ -147,6 +148,18 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
             case=case,
             message=message,
         )
+
+    async def aensure_access_ctx(
+        self, *, case_id: int, ctx: AccessContext, case: Any | None = None, message: str | Promise = "无权限访问此案件"
+    ) -> None:
+        """``ensure_access_ctx`` 的异步版。
+
+        S44-02（2026-11-23 二轮审计）：原实现是每个异步端点自己写
+        ``await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=..., ctx=...ctx)``，
+        同一套桥接在 cases / litigation_ai / documents / reminders 共 5 处逐字复制，改「怎么等」
+        必漏其余。现在把桥接收敛到策略层一个方法（与 contracts 的 ``aensure_access_ctx`` 同名同义）。
+        """
+        await sync_to_async(self.ensure_access_ctx)(case_id=case_id, ctx=ctx, case=case, message=message)
 
     def ensure_case_log_access_ctx(self, *, case_log_id: int, ctx: AccessContext) -> None:
         """通过案件日志定位所属案件后校验访问权（reminders 原口径：日志不存在则跳过）。"""

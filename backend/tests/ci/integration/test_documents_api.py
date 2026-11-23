@@ -272,19 +272,12 @@ def test_delete_placeholder(authenticated_client):
 def test_preview_placeholders(authenticated_client):
     contract = Contract.objects.create(name="预览合同", case_type="civil")
     resp = authenticated_client.get(f"/api/v1/documents/placeholders/preview/{contract.id}")
-    # May return 400 if contract lacks required data for context building
-    assert resp.status_code in (200, 400)
-    body = resp.json()
-    if resp.status_code == 400:
-        # 产品 bug：context_builder.py:132 调用 ContractServiceAdapter.get_contract_internal，
-        # 该方法不存在（AttributeError 被包装为 CONTEXT_BUILD_ERROR），当前预览端点必 400
-        assert body["code"] == "CONTEXT_BUILD_ERROR"
-        assert body["message"] == "构建合同上下文失败"
-        assert "get_contract_internal" in body["errors"]["contract_id"]
-        pytest.xfail(
-            "占位符预览端点因 ContractServiceAdapter 缺 get_contract_internal 而不可用（产品 bug，修复后本用例转绿）"
-        )
+    # S38-20（2026-11-23 二轮审计）：原实现把「预览端点必 400」当预期，用 pytest.xfail 把
+    # 产品缺陷（context_builder 曾调不存在的 ContractServiceAdapter.get_contract_internal）
+    # 标成预期，CI 因此常绿。该缺陷已修（context_builder.py 改调公开的 get_contract），
+    # 现在直接断言 200：同类回归会硬失败，不会再被 xfail 掩盖。
     assert resp.status_code == 200
+    body = resp.json()
     assert body["contract_id"] == contract.id  # 本用例创建的合同锚点
     assert isinstance(body["values"], dict)
     assert isinstance(body["missing_keys"], list)

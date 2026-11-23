@@ -72,6 +72,10 @@ def register_watchdog_schedule() -> None:
 
     与 `core/tasking/cleanup_tasks._register_schedules` 同一套路：
     已存在则跳过，不重复建、也不覆盖用户改过的间隔。
+
+    S17-02（2026-11-23 二轮审计）：`allow_startup_db` 守卫**不在本函数内**，而在唯一
+    调用点 `apps/pdf_splitting/apps.py::ready → _register_watchdog`（`with allow_startup_db():`）。
+    本函数只负责「调度表已就绪时幂等注册」；失败统一转成 WARNING 不外抛（见下方 except）。
     """
     try:
         from apps.core.tasking import ScheduleQueryService

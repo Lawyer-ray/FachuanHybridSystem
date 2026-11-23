@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, ClassVar, Literal
 
 from apps.core.models.enums import CaseStatus
@@ -13,9 +14,15 @@ from .number_schemas import CaseNumberIn, CaseNumberOut
 from .party_schemas import CasePartyCreate, CasePartyOut
 from .supervising_authority_schemas import SupervisingAuthorityIn, SupervisingAuthorityOut
 
+logger = logging.getLogger("apps.cases.schemas")
+
 try:
     from apps.contacts.schemas import CaseContactOut
 except ImportError:
+    # S29-01（2026-11-23 二轮审计）：原实现只在 except 里静默赋 None，联系人字段会无日志、
+    # 无告警地降级成空数组（改 contacts 侧名称或引入循环 import 时「联系人集体消失」不可见）。
+    # 降级分支保留（contacts 是可选域），但必经 WARNING。
+    logger.warning("CaseContactOut 导入失败，CaseOut.contacts 将降级为空数组", exc_info=True)
     CaseContactOut = None  # type: ignore[assignment,misc]
 
 
@@ -184,6 +191,7 @@ class CaseOut(ModelSchema):
 
     @staticmethod
     def resolve_contacts(obj: Any) -> list:
+        # 降级分支的静默问题已在模块加载处用 WARNING 兜住（S29-01），此处不再逐条打日志
         if CaseContactOut is None:
             return []
         return CaseOut._resolve_list_field(obj, "contacts")

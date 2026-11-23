@@ -6,12 +6,11 @@ import io
 import logging
 from typing import Any
 
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import FileResponse, HttpRequest
 from ninja import Form, Query, Router, Schema
 
-from apps.core.exceptions import NotFoundError
+from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.http.download import content_disposition
 from apps.message_hub.models import InboxMessage
 from apps.message_hub.schemas import (
@@ -117,10 +116,11 @@ def upload_messages(  # pragma: no cover
     from apps.message_hub.services.manual_upload_service import create_manual_message
 
     files = request.FILES.getlist("files")
+    # S42-02（2026-11-23 二轮审计）：原实现抛 django.core.exceptions.ValidationError，
+    # 全局处理器只注册了项目自有 ValidationException → 落到兜底 handler 变成
+    # 500「系统错误」。现在改用 ValidationException（4xx + 可按 code 区分）。
     if not files:
-        from django.core.exceptions import ValidationError
-
-        raise ValidationError("没有收到文件")
+        raise ValidationException("没有收到文件", code="INBOX_NO_FILES")
     uploader = request.user if request.user and request.user.is_authenticated else None
     msg = create_manual_message(list(files), subject, uploaded_by=uploader)
     return 201, msg
@@ -258,8 +258,10 @@ def append_attachments(  # pragma: no cover
     from apps.message_hub.services.manual_upload_service import append_manual_attachments
 
     files = request.FILES.getlist("files")
+    # S42-02（2026-11-23 二轮审计）：同 upload_messages，Django ValidationError →
+    # 项目自有 ValidationException（否则 500 而非 4xx）。
     if not files:
-        raise ValidationError("没有收到文件")
+        raise ValidationException("没有收到文件", code="INBOX_NO_FILES")
     msg = _get_message_or_404(request, message_id)
     append_manual_attachments(msg, files)
     return 201, _get_message_or_404(request, msg.pk)
@@ -284,8 +286,9 @@ class OcrResultOut(Schema):
 def ocr_recognize(request: HttpRequest) -> OcrResultOut:  # pragma: no cover
     """前端框选取字：接收一张页面图片，RapidOCR 识别后返回归一化文字块坐标。"""
     up = request.FILES.get("file")
+    # S42-02（2026-11-23 二轮审计）：同前两处，Django ValidationError → ValidationException。
     if not up:
-        raise ValidationError("没有收到图片")
+        raise ValidationException("没有收到图片", code="INBOX_NO_IMAGE")
     data = up.read()
 
     width = height = 0

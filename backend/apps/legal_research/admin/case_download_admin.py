@@ -248,7 +248,10 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
             return api_optional.get_private_weike_api() is not None
         except Exception:
-            logger.debug("探测私有威科 API 可用性失败（已忽略）", exc_info=True)
+            # S41-32（2026-11-23 二轮审计）：原实现把探测异常记成 logger.debug，admin 的
+            # 「增加」按钮凭空消失时日志里看不到原因 → 现在提为 warning + exc_info。
+            # 降级行为不变（False = 不展示 add 入口，add_view 仍会拦并提示）。
+            logger.warning("探测私有威科 API 可用性失败（已忽略，case_download 新增入口不展示）", exc_info=True)
             return False
 
     def save_model(self, request, obj: CaseDownloadTask, form, change) -> None:  # type: ignore[override]  # pragma: no cover

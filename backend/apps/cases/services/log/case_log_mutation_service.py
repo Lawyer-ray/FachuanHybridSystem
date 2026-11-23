@@ -30,8 +30,8 @@ class CaseLogMutationService:
         reminder_time: datetime | None = None,
         event_date: str | None = None,
     ) -> CaseLog:
-        # pragma: no cover
-        # ... (header)
+        # S14-06（2026-11-23 二轮审计）：原实现此处有一行裸 `# pragma: no cover`，且误写成
+        # 独立注释行（不在任何 clause 上，本身就不生效）——现删除，create_log 正常计入覆盖率。
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
@@ -75,7 +75,10 @@ class CaseLogMutationService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> CaseLog:  # pragma: no cover
+    ) -> CaseLog:
+        # S14-06（2026-11-23 二轮审计）：原实现在签名行尾挂 `# pragma: no cover`，把 update_log
+        # （内容改写 + CaseLogVersion 版本行 + 提醒同步的关键写路径）整函数排除出覆盖率分母，
+        # 而它本就有测试（tests/ci/unit/cases/test_cases_services_deep.py）——现在去掉豁免。
         log = self.query_service.get_log_internal(log_id=log_id)
 
         if not perm_open_access:
