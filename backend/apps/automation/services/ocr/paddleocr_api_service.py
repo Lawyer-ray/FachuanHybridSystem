@@ -974,6 +974,17 @@ class PaddleOCRApiEngine:
             raise RuntimeError(f"PaddleOCR API 未返回 jobId: {resp_data}")
         return resp_data
 
+    def _validate_result_download(self, response: httpx.Response) -> None:
+        """校验结果下载响应。同步/异步共用。
+
+        S43-03（2026-11-23 二轮审计）：原实现下载 jsonUrl 后不看状态码就直接解析。
+        httpx 对 4xx/5xx 不抛异常，于是 403（直链过期）/5xx/网关 HTML 错误页会落到
+        _parse_job_result：不是被当成「识别成功但一个字都没有」，就是把错误体里的
+        字符串字段当成 OCR 正文返回。现在下载失败必须显式抛错。
+        """
+        if response.status_code != 200:
+            raise RuntimeError(f"PaddleOCR API 结果下载失败: HTTP {response.status_code}, body={response.text[:200]}")
+
     def recognize_bytes(
         self,
         image_bytes: bytes,
@@ -1147,6 +1158,8 @@ class PaddleOCRApiEngine:
                         result_resp = client.get(
                             jsonl_url, timeout=_build_http_timeout(_HTTP_POLL_READ_TIMEOUT_SECONDS)
                         )
+                        # 下载失败（403/5xx/网关错误页）必须在解析前抛出，否则会被当成空结果。
+                        self._validate_result_download(result_resp)
                         # 走到这里才算这个 Key 真的可用；finally 据此决定是否让它进冷却。
                         token_ok = True
                         return self._parse_job_result(result_resp.text, model)
@@ -1767,6 +1780,8 @@ class PaddleOCRApiEngine:
                         jsonl_resp = await client.get(
                             jsonl_url, timeout=_build_http_timeout(_HTTP_POLL_READ_TIMEOUT_SECONDS)
                         )
+                        # S43-03：与同步版一致——下载失败先抛错，不能静默解析成空文本。
+                        self._validate_result_download(jsonl_resp)
                         token_ok = True
                         return self._parse_job_result(jsonl_resp.text, model)
 

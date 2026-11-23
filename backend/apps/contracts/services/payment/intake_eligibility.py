@@ -35,7 +35,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from django.db.models import DecimalField, F, Q, QuerySet, Sum, Value
+from django.db.models import DecimalField, Exists, F, OuterRef, Q, QuerySet, Sum, Value
 from django.db.models.functions import Coalesce
 
 if TYPE_CHECKING:
@@ -77,13 +77,21 @@ def fully_paid_q() -> Q:
     return Q(fixed_amount__isnull=False) & Q(paid_total__gte=F("fixed_amount"))
 
 
-def _case_closed_q() -> Q:
-    """「案件全部结案」的判定。
+def _case_scope_conditions() -> tuple[Exists, Exists]:
+    """「是否挂了案件」与「是否有在办案件」两个 Exists 条件。
 
-    只对**有关联案件**的项目生效：没挂案件的非诉项目不该被这条排除。
-    ``~Q(cases__isnull=True)`` 保证否定条件只作用于"有案件"的行。
+    S43-24（2026-11-23 二轮审计）：原判定是
+    ``Q(cases__isnull=False) & ~Q(cases__status="active")``，拿去做 ``exclude()`` 时
+    跨多值关系的取反语义变成「**存在任一**非 active 案件」——项目下只要有一件已结案
+    案件（哪怕另一件在办），整份合同就被排除，永远进不了到账/发票认领的下拉与自动
+    匹配。注释与模块 docstring 的目标语义是「**全部**结案才排除」，这里用两个 Exists
+    显式表达：同时满足「有案件」且「没有在办案件」才排除；没挂案件的非诉项目不受影响。
     """
-    return Q(cases__isnull=False) & ~Q(cases__status="active")
+    from apps.cases.models import Case
+
+    has_case = Exists(Case.objects.filter(contract=OuterRef("pk")))
+    has_active_case = Exists(Case.objects.filter(contract=OuterRef("pk"), status="active"))
+    return has_case, has_active_case
 
 
 def _archived_or_unsigned_q() -> Q:
@@ -115,8 +123,12 @@ def eligible_contract_qs(*, include_expired: bool = True, exclude_fully_paid: bo
     if exclude_fully_paid:
         # 已收满：用 NOT 包住"收满"条件
         qs = qs.exclude(fully_paid_q())
-    # 案件全部结案：exclude "有案件且没有在办案件"
-    qs = qs.exclude(_case_closed_q())
+    # 案件全部结案才排除 = 保留「有在办案件」或「压根没扴案件」的项目
+    # （见 _case_scope_conditions：写成正条件，免得跨多值关系的取反语义又翻车）
+    has_case, has_active_case = _case_scope_conditions()
+    qs = qs.annotate(has_case=has_case, has_active_case=has_active_case).filter(
+        Q(has_active_case=True) | Q(has_case=False)
+    )
     if not include_expired:
         from django.utils import timezone
 

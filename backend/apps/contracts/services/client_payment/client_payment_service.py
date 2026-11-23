@@ -165,8 +165,14 @@ class ClientPaymentRecordService:
             raise NotFoundError("客户回款记录 %(id)s 不存在" % {"id": record_id}) from None
 
         # 删除关联图片
-        if record.image_path:
-            self._image_service.delete_image(record.image_path)
+        #
+        # S37-05（2026-11-23 二轮审计）：原实现「先删磁盘图片、再删行」，两者都在
+        # atomic 内；行删除失败或事务因别的原因回滚时，图片已被 delete_media_file
+        # 物理删除（无回收站），留下 image_path 指向不存在文件的悬空记录。现在把文件
+        # 删除挂到 on_commit：只有行真的提交后才动磁盘。
+        image_path = record.image_path
+        if image_path:
+            transaction.on_commit(lambda: self._image_service.delete_image(image_path))
 
         record.delete()
 

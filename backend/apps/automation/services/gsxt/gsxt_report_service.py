@@ -272,6 +272,13 @@ async def _run_full_flow(task_id: int) -> None:  # pragma: no cover
             target.remove_listener("dialog", handle_dialog)
             logger.info("发送报告结果: %s", dialog_msg)
 
+            # S09-04（2026-11-23 二轮审计）：原实现抓到 dialog 文本却不判失败，无条件写
+            # WAITING_EMAIL，于是页面明确提示「发送失败」时任务仍记为「已发送待收邮件」，
+            # 30 分钟后才落 FAILED 且 GSXT 给的失败原因丢失（只在 stdout 日志里）。
+            # 现在与 gsxt_login_service 的同段流程对齐：dialog 报错即抛，由外层异常分支落 FAILED。
+            if dialog_msg and ("失败" in dialog_msg or "error" in dialog_msg.lower()):
+                raise GsxtReportError(f"发送报告失败：{dialog_msg}")
+
             task.status = GsxtReportStatus.WAITING_EMAIL
             task.error_message = "报告已发送到邮箱，正在自动轮询收取…"
             await save_task(task, ["status", "error_message"])

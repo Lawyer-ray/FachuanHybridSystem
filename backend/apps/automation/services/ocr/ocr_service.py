@@ -202,7 +202,11 @@ class OCRService:
             is_pdf = image_path.lower().endswith(".pdf")
             api_result = self.paddleocr_engine.recognize_bytes(file_bytes, is_pdf=is_pdf)
             return str(api_result.text)
-        except (OSError, ValueError) as e:
+        # S43-02（2026-11-23 二轮审计）：原实现只捕获 (OSError, ValueError)，而
+        # PaddleOCRApiEngine 的所有失败出口都是 RuntimeError（未配置/Key 全冷却/
+        # 轮询 4xx/超时/Job failed），于是云端一挂就直接抛给调用方，本地 RapidOCR
+        # 兜底永不触发。现在把 RuntimeError 也纳入降级条件。
+        except (OSError, ValueError, RuntimeError) as e:
             logger.warning("PaddleOCR API 调用失败，降级到本地 RapidOCR: %s", e)
             # 降级到本地
             result = self.ocr(image_path)
@@ -215,7 +219,8 @@ class OCRService:
         try:
             api_result = self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)
             return str(api_result.text)
-        except (OSError, ValueError) as e:
+        # S43-02：同上——引擎失败形态是 RuntimeError，不纳入降级条件等于没有兜底。
+        except (OSError, ValueError, RuntimeError) as e:
             logger.warning("PaddleOCR API 调用失败，降级到本地 RapidOCR: %s", e)
             # 降级到本地
             result = self.ocr(image_bytes)

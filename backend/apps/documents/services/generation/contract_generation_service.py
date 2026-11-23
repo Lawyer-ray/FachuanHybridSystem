@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .version_probe import probe_next_version
+
 if TYPE_CHECKING:
     from apps.core.interfaces import IContractFolderBindingService, IContractService
     from apps.documents.models import DocumentTemplate
@@ -293,55 +295,22 @@ class ContractGenerationService:
         Returns:
             版本号字符串 (如 "V1", "V2", "V3")
         """
-        import re
-        from datetime import date
-
         if not contract_id or not self.folder_binding_service:
             return "V1"
 
         try:
             # 获取绑定信息
             binding = self.folder_binding_service.get_binding(owner_id=contract_id)
-            if not binding or not binding.folder_path:
-                return "V1"
-
-            # 构建子目录路径
-            subdir_path = self.folder_binding_service._resolve_subdir_path(
-                owner_type=binding.contract.case_type if hasattr(binding, "contract") else "",
+            # S48-48（2026-11-23 二轮审计）：原实现把「解析子目录 → 列文件名 → 取最大版本号」
+            # 70 行逐字复制在补充协议份且已分叉（那边不剥 .docx → 恒 V1 → 覆盖旧文件），
+            # 现在收敛到 version_probe.probe_next_version 一份实现。
+            return probe_next_version(
+                folder_binding_service=self.folder_binding_service,
+                binding=binding,
+                doc_type=template_name,
+                case_name=contract_name,
                 subdir_key=subdir_key,
             )
-            if not subdir_path:
-                return "V1"
-
-            # 获取文件名列表（云存储 vs 本地）
-            storage_type = getattr(binding, "storage_type", "local")
-            if storage_type != "local":
-                from apps.cloud_storage.factory import create_provider_for_binding
-
-                provider = create_provider_for_binding(binding)
-                names: list[str] = []
-                for _d, _s, files in provider.walk(subdir_path):
-                    names.extend(c.name for c in files if not c.is_dir)
-            else:
-                folder_path = Path(binding.folder_path) / subdir_path
-                if not folder_path.exists():
-                    return "V1"
-                names = [f.name for f in folder_path.iterdir() if f.is_file()]
-
-            # 构建文件名模式（不包含版本号和日期）
-            template_prefix = re.sub(r"\.(docx?|doc)$", "", template_name or "合同", flags=re.IGNORECASE)
-            # 查找已存在的版本号（括号兼容全角/半角，见 naming.find_max_doc_version）
-            from .pipeline.naming import _today_compact, find_max_doc_version
-
-            # 日期口径统一走 _today_compact()（timezone.localdate），不用 date.today()：
-            # 后者是宿主机时区，CI(UTC) 与开发机(Asia/Shanghai) 会在凌晨差一天。
-            today_str = _today_compact()
-
-            max_version = find_max_doc_version(
-                names=names, doc_type=template_prefix, case_name=contract_name, date_str=today_str
-            )
-
-            return f"V{max_version + 1}"
 
         except (TypeError, ValueError) as e:
             logger.warning("获取版本号失败,使用默认版本 V1: %s", e)

@@ -15,9 +15,15 @@ logger = logging.getLogger("apps.automation")
 class ScreenshotUtils:
     """截图相关工具方法"""
 
-    def collect_screenshots(self, limit: int = 5) -> list[str]:
+    @staticmethod
+    def collect_screenshots(limit: int = 5) -> list[str]:
         """
         收集最新的截图
+
+        S31-06（2026-11-23 二轮审计）：原实现是实例方法（无 self 使用），而唯一的生产
+        调用点 TestService.test_login 用类名直调 → 必现 TypeError 并被 except Exception
+        吞成「登录失败: collect_screenshots() missing 1 required positional argument: 'self'」。
+        现在改为静态方法，类名/实例两种调用法都成立。
 
         Args:
             limit: 最多收集多少张

@@ -155,9 +155,14 @@ class SMSDocumentMixin:
             return sms
 
         except Exception as e:
+            # S37-14（2026-11-23 二轮审计）：原实现异常分支与成功分支写同一个状态
+            # （NOTIFYING）——重命名/归档失败被记成「阶段完成」，直接用乱名或未归档的
+            # 文件去发通知，事后 status 看不出失败、error_message 也是空的。
+            # 现在落 FAILED 并写明原因，交给 admin 的重试入口处理。
             logger.error("文书重命名阶段失败: SMS ID=%s, 错误: %s", sms.id, e)
-            sms.status = CourtSMSStatus.NOTIFYING
-            sms.save()
+            sms.status = CourtSMSStatus.FAILED
+            sms.error_message = f"文书重命名/归档阶段失败: {e!s}"
+            sms.save(update_fields=["status", "error_message", "updated_at"])
             return sms
 
     def _save_renamed_paths(self, sms: CourtSMS, renamed_paths: list[str]) -> None:  # pragma: no cover

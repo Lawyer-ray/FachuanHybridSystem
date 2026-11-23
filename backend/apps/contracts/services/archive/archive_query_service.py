@@ -27,10 +27,37 @@ def get_material_or_none(material_id: int, contract_id: int) -> FinalizedMateria
 
 
 def delete_material(material: FinalizedMaterial) -> None:  # pragma: no cover
-    """删除归档材料（含文件清理）。"""
-    if material.file_path:
-        delete_media_file(material.file_path)
+    """删除归档材料（含文件清理）。
+
+    S22-03（2026-11-23 二轮审计）：原实现「先删磁盘文件、再删行」——行删除抛错或
+    事务回滚时文件已不可恢复（`delete_media_file` 无回收站），留下悬空记录。现在
+    DB 是权威、文件是派生：先删行，提交成功后再删文件（`delete_media_file` 自身
+    失败只留痕，不回滚数据）。
+    """
+    file_path = material.file_path
     material.delete()
+    if file_path:
+        delete_media_file(file_path)
+
+
+def delete_all_materials(contract_id: int) -> int:
+    """清空合同下全部归档材料，返回删除的材料条数。
+
+    S22-03（2026-11-23 二轮审计）：原实现由 API 层逐条调 ``delete_material``，每条
+    各自一个事务，中途抛错就停在「前面删了、后面还在」且不可回滚的半清空状态。
+    现在整批行删除在同一事务内完成，物理文件推迟到提交之后（行回滚不会丢文件）。
+    """
+    with transaction.atomic():
+        materials = list(FinalizedMaterial.objects.filter(contract_id=contract_id))
+        file_paths = [m.file_path for m in materials if m.file_path]
+        if materials:
+            FinalizedMaterial.objects.filter(pk__in=[m.pk for m in materials]).delete()
+
+    deleted_count = len(materials)
+    for file_path in file_paths:
+        delete_media_file(file_path)
+
+    return deleted_count
 
 
 def reorder_materials(contract_id: int, orders: dict[str, list[int]]) -> None:
@@ -80,11 +107,9 @@ def move_material(material: FinalizedMaterial, target_code: str) -> None:
 def get_materials_for_contract(contract_id: int) -> Any:  # pragma: no cover
     """获取合同的所有归档材料。
 
-    **必须返回已求值的 list**（2026-11-23 二轮审计 G16）：调用方
-    `archive_api.clear_all_archive_materials` 是 `async def`，把本函数包进
-    `sync_to_async` 后若返回 lazy QuerySet，真正触发 SQL 的会是 async 上下文里的
-    `for ... in materials`，生产环境没有 `DJANGO_ALLOW_ASYNC_UNSAFE` →
-    `SynchronousOnlyOperation` → 端点必然 500。
+    **必须返回已求值的 list**（2026-11-23 二轮审计 G16）：返回 lazy QuerySet 时，
+    真正触发 SQL 的会是 async 上下文里的迭代，生产环境没有
+    `DJANGO_ALLOW_ASYNC_UNSAFE` → `SynchronousOnlyOperation` → 端点必然 500。
     """
     return list(FinalizedMaterial.objects.filter(contract_id=contract_id))
 

@@ -107,7 +107,9 @@ class TestService:
                 # 5. 收集截图
                 result["logs"].append("📸 收集调试截图...")
                 screenshot_limit = get_config("validation.screenshot_limit", 5)
-                result["screenshots"] = ScreenshotUtils.collect_screenshots(limit=screenshot_limit)  # type: ignore[call-arg]
+                # S31-06（2026-11-23 二轮审计）：collect_screenshots 原为实例方法，此处的
+                # 类名直调必现 TypeError 并被外层 except 伪装成「登录失败」；现已是静态方法。
+                result["screenshots"] = ScreenshotUtils.collect_screenshots(limit=screenshot_limit)
                 result["logs"].append(f"✅ 收集到 {len(result['screenshots'])} 张截图")
 
                 # 6. 等待用户观察

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
-from django.utils import timezone
 from ninja import Router, Schema
 
 router = Router(tags=["仪表盘"])
@@ -58,84 +56,17 @@ class DashboardStatsOut(Schema):
 async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """返回仪表盘聚合统计数据。
 
-    9 条独立 DB 查询通过 asyncio.gather 并发执行，
-    延迟从 9 次串行降低到最慢那一次。
-    用 Semaphore 限制并发为 4，避免线程池耗尽和 DB 连接暴涨。
+    9 条独立 DB 查询的并发编排（asyncio.gather + Semaphore(4)）与读范围口径
+    都在 ``DashboardService.agather_payload`` 内，本层只构造请求上下文后转发。
+
+    S23-05（2026-11-23 二轮审计）：原实现由本函数 import service 模块的 9 个
+    ``_`` 前缀私有查询函数自行并发（同时留下一个从未使用的 ``DashboardService()``
+    实例），跨层绑死私有符号、读范围口径也无法在 service 内统一加门禁；
+    现在改为只依赖 service 的公开方法。
     """
-    import asyncio
-
     from apps.core.security import get_request_access_context
-    from apps.core.services.dashboard_service import (
-        DashboardService,
-        _case_status_distribution,
-        _case_trend,
-        _case_type_stats,
-        _client_count,
-        _contract_count,
-        _contract_trend,
-        _fee_stats,
-        _reminder_counts,
-        _upcoming_reminders,
-    )
+    from apps.core.services.dashboard_service import DashboardService
 
-    service = DashboardService()
-
-    # 安全审计（2026-10-19）：提醒列表接入读范围过滤（scope_reminders_for_context），
-    # 非管理员不再看到他人案件的提醒 content 原文；ctx 按请求构造后传入 service。
-    # 计数与财务聚合（monthly_fee、全所计数、trend 等）暂保持全所口径，待产品拍板。
+    # 安全审计（2026-10-19）：ctx 按请求构造后传入 service（提醒列表在其内部按读范围过滤）。
     ctx = await sync_to_async(get_request_access_context)(request)
-
-    # thread_sensitive=False 让每个调用在独立线程中执行，实现真正并行
-    stf = sync_to_async(thread_sensitive=False)
-
-    # M3 修复：限制并发线程数为 4，避免 9 线程同时抢占连接池
-    sem = asyncio.Semaphore(4)
-
-    async def _guarded(coro: Any) -> Any:
-        async with sem:
-            return await coro
-
-    (
-        case_type_dist_and_count,
-        case_trend,
-        case_status_dist,
-        fee_stats,
-        reminder_counts,
-        upcoming_reminders,
-        client_count,
-        contract_count,
-        contract_trend,
-    ) = await asyncio.gather(
-        _guarded(stf(_case_type_stats)()),
-        _guarded(stf(_case_trend)(timezone.localdate() - timedelta(days=365))),
-        _guarded(stf(_case_status_distribution)()),
-        _guarded(
-            stf(_fee_stats)(
-                timezone.localdate().replace(day=1), timezone.localdate(), timezone.localdate() - timedelta(days=365)
-            )
-        ),
-        _guarded(stf(_reminder_counts)(timezone.now())),
-        # 安全审计（2026-10-19）：提醒列表必须带 ctx 过滤（见上方注释）
-        _guarded(stf(_upcoming_reminders)(timezone.now(), ctx)),
-        _guarded(stf(_client_count)()),
-        _guarded(stf(_contract_count)()),
-        _guarded(stf(_contract_trend)(timezone.localdate() - timedelta(days=365))),
-    )
-
-    case_type_dist, active_case_count = case_type_dist_and_count
-    monthly_fee, fee_trend = fee_stats
-
-    return {
-        "client_count": client_count,
-        "contract_count": contract_count,
-        "case_count": active_case_count,
-        "monthly_fee": str(monthly_fee),
-        "case_trend": case_trend,
-        "contract_trend": contract_trend,
-        "fee_trend": fee_trend,
-        "case_type_distribution": case_type_dist,
-        "case_status_distribution": case_status_dist,
-        "upcoming_reminders": upcoming_reminders,
-        "overdue_count": reminder_counts["overdue_count"],
-        "today_count": reminder_counts["today_count"],
-    }
+    return await DashboardService().agather_payload(ctx)

@@ -369,15 +369,15 @@ async def preview_archive_material(request: HttpRequest, contract_id: int, mater
 @router.post("/{contract_id}/archive/clear-all", response=ClearAllOut)
 async def clear_all_archive_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """清空全部归档材料"""
-    from apps.contracts.services.archive.archive_query_service import delete_material, get_materials_for_contract
+    from apps.contracts.services.archive.archive_query_service import delete_all_materials
 
     if not await _ensure_contract_access(request, contract_id):
         return HttpResponse(status=404)
-    materials = await sync_to_async(get_materials_for_contract)(contract_id)
-    deleted_count = 0
-    for material in materials:
-        await sync_to_async(delete_material)(material)
-        deleted_count += 1
+
+    # S22-03（2026-11-23 二轮审计）：原实现在这里逐条 `sync_to_async(delete_material)`，
+    # 每条各自一个事务，中途抛错就停在「前面删了、后面还在」且不可回滚的半清空状态。
+    # 现在整批交给 service 在同一事务内完成（文件删除推迟到提交之后）。
+    deleted_count = await sync_to_async(delete_all_materials)(contract_id)
 
     logger.info("已清空全部归档材料: contract_id=%s, count=%s", contract_id, deleted_count)
     return ClearAllOut(deleted_count=deleted_count)

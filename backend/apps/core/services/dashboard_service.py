@@ -63,6 +63,80 @@ class DashboardService:
             "today_count": reminder_counts["today_count"],
         }
 
+    async def agather_payload(self, ctx: Any = None) -> dict[str, Any]:
+        """并发执行 9 条聚合查询，返回仪表盘接口的 payload。
+
+        S23-05（2026-11-23 二轮审计）：原实现把下面 9 个模块级私有查询函数直接
+        import 进 ``apps/core/api/dashboard_api.py``，并发编排、Semaphore 限流与
+        「哪几条查询带读范围 ctx」的口径全摊在 API 层；与此同时 service 里那句
+        ``service = DashboardService()`` 一次都没被用过（全函数零 ``service.`` 调用）。
+        现在并发编排与读范围口径统一收在本方法内，API 层只
+        ``await service.agather_payload(ctx)``。
+
+        读范围口径（与 2026-10-19 安全审计一致）：提醒列表按请求 ctx 过滤
+        （``scope_reminders_for_context``，非管理员看不到他人案件提醒的 content 原文）；
+        计数与财务聚合（monthly_fee、全所计数、trend）暂保持全所口径，待产品拍板。
+        """
+        import asyncio
+
+        from asgiref.sync import sync_to_async
+
+        today = timezone.localdate()
+        now = timezone.now()
+        month_start = today.replace(day=1)
+        trend_start = today - timedelta(days=365)
+
+        # thread_sensitive=False 让每个调用在独立线程中执行，实现真正并行
+        stf = sync_to_async(thread_sensitive=False)
+
+        # 限制并发线程数为 4，避免 9 线程同时抢占连接池
+        sem = asyncio.Semaphore(4)
+
+        async def _guarded(coro: Any) -> Any:
+            async with sem:
+                return await coro
+
+        (
+            case_type_dist_and_count,
+            case_trend,
+            case_status_dist,
+            fee_stats,
+            reminder_counts,
+            upcoming_reminders,
+            client_count,
+            contract_count,
+            contract_trend,
+        ) = await asyncio.gather(
+            _guarded(stf(_case_type_stats)()),
+            _guarded(stf(_case_trend)(trend_start)),
+            _guarded(stf(_case_status_distribution)()),
+            _guarded(stf(_fee_stats)(month_start, today, trend_start)),
+            _guarded(stf(_reminder_counts)(now)),
+            # 读范围过滤：只有提醒列表带 ctx（见方法 docstring）
+            _guarded(stf(_upcoming_reminders)(now, ctx)),
+            _guarded(stf(_client_count)()),
+            _guarded(stf(_contract_count)()),
+            _guarded(stf(_contract_trend)(trend_start)),
+        )
+
+        case_type_dist, active_case_count = case_type_dist_and_count
+        monthly_fee, fee_trend = fee_stats
+
+        return {
+            "client_count": client_count,
+            "contract_count": contract_count,
+            "case_count": active_case_count,
+            "monthly_fee": str(monthly_fee),
+            "case_trend": case_trend,
+            "contract_trend": contract_trend,
+            "fee_trend": fee_trend,
+            "case_type_distribution": case_type_dist,
+            "case_status_distribution": case_status_dist,
+            "upcoming_reminders": upcoming_reminders,
+            "overdue_count": reminder_counts["overdue_count"],
+            "today_count": reminder_counts["today_count"],
+        }
+
     # ── 总量（独立小查询，无法合并）────────────────────────────────────────────
 
     # ── Case: 活跃数 + 类型分布（合并为 1 条查询）─────────────────────────────

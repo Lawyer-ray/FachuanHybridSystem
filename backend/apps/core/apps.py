@@ -52,7 +52,11 @@ class CoreConfig(AppConfig):
 
             run_startup_db_sync(_register_cleanup_schedules)
         except Exception:
-            logger.debug("cleanup_tasks 调度注册跳过（未就绪）", exc_info=True)
+            # S48-31（2026-11-23 二轮审计）：原实现用 logger.debug 吞掉这里的任何异常，
+            # 默认日志级别下不落盘 —— 三条定时任务（tmp 清理 / exports 清理 /
+            # 磁盘监控）没注册上时，运维看到的是「某天临时文件永不清理 / 磁盘无人监控」，
+            # 而不是一条告警。→ 现在升到 warning 并带 exc_info。
+            logger.warning("cleanup_tasks 调度注册失败（定时任务可能未注册）", exc_info=True)
 
         # 启动期迁移健康检查（只在 DEBUG 下 WARNING，不阻断启动）。
         #

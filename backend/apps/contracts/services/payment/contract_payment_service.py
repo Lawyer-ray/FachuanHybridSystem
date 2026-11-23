@@ -445,12 +445,19 @@ class ContractPaymentService(DjangoPermsMixin):
         if actor_id is None:
             return
         try:
-            ContractFinanceLog.objects.create(
-                contract_id=contract_id,
-                action=action,
-                level=level,
-                actor_id=actor_id,
-                payload=payload or {},
-            )
+            # S43-27（2026-11-23 二轮审计）：本方法总在调用方的 atomic 内被调，且常在
+            # `return` 前最后一条语句（如 create_payment）。原实现裸 try 吞掉日志 INSERT
+            # 的 DatabaseError：PostgreSQL 上该语句已让整个事务进入 aborted 状态，而
+            # Django 6.1 不再置 needs_rollback → 外层 atomic 走 commit()（PG 等价
+            # ROLLBACK）→ 收款记录根本没落库、函数却正常返回一个 DB 里不存在的对象。
+            # 现在把日志写入包进 savepoint：失败只回滚这一步，外层事务与主流程不受污染。
+            with transaction.atomic():
+                ContractFinanceLog.objects.create(
+                    contract_id=contract_id,
+                    action=action,
+                    level=level,
+                    actor_id=actor_id,
+                    payload=payload or {},
+                )
         except Exception as e:
             logger.warning("财务日志记录失败 (contract_id=%s, action=%s): %s", contract_id, action, e)

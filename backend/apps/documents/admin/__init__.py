@@ -4,6 +4,7 @@ Documents Admin 模块
 包含所有文书生成相关的 Django Admin 配置.
 """
 
+from .audit_log_admin import TemplateAuditLogAdmin
 from .document_template_admin import DocumentTemplateAdmin
 from .external_template_admin import ExternalTemplateAdmin
 from .folder_binding_admin import DocumentTemplateFolderBindingAdmin
@@ -20,4 +21,5 @@ __all__ = [
     "ProxyMatterRuleAdmin",
     "ExternalTemplateAdmin",
     "PlaceholderOverviewAdmin",
+    "TemplateAuditLogAdmin",
 ]

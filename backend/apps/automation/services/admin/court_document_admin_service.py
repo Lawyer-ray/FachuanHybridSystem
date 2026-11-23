@@ -69,12 +69,16 @@ class CourtDocumentAdminService:
             errors={},
         )
 
-    @transaction.atomic
     def batch_delete_documents(
         self, document_ids: list[int], delete_files: bool = False
     ) -> dict[str, Any]:  # pragma: no cover
         """
         批量删除文书记录
+
+        S42-33（2026-11-23 二轮审计）：原实现在同一个 @transaction.atomic 里先 unlink
+        物理文件再删记录，DB 侧一旦回滚（FK PROTECT / 约束 / 连接断）记录还在而文件已
+        不可恢复。现在改成两段：先在事务里删记录，事务提交后再删文件——文件删除不可
+        回滚，必须排在「记录确实删掉了」之后。
 
         Args:
             document_ids: 文书ID列表
@@ -91,35 +95,23 @@ class CourtDocumentAdminService:
             raise ValidationException(message="没有选中任何文书", code="NO_DOCUMENTS_SELECTED", errors={})
 
         try:
-            # 获取要删除的文书
-            documents = CourtDocument.objects.filter(id__in=document_ids)
+            # ① 事务内只做 DB 删除，顺带把待删文件路径带出来
+            deleted_count, document_file_paths = self._delete_document_records(document_ids)
 
-            if not documents.exists():
-                raise ValidationException(
-                    message="没有找到要删除的文书", code="NO_DOCUMENTS_FOUND", errors={"document_ids": document_ids}
-                )
-
+            # ② 事务已提交：删物理文件（不可回滚，必须后置）
             deleted_files_count = 0
             file_errors = []
-
-            # 如果需要删除文件（local_file_path 可能是 media 相对路径，删除前先解析）
             if delete_files:
-                for document in documents:
-                    if not document.local_file_path:
-                        continue
-                    file_path = resolve_media_path(document.local_file_path)
+                for document_id, local_file_path in document_file_paths:
+                    file_path = resolve_media_path(local_file_path)
                     if file_path.exists():
                         try:
                             file_path.unlink()
                             deleted_files_count += 1
                         except Exception as e:
                             file_errors.append(
-                                {"document_id": document.id, "file_path": document.local_file_path, "error": str(e)}
+                                {"document_id": document_id, "file_path": local_file_path, "error": str(e)}
                             )
-
-            # 删除数据库记录
-            deleted_count = documents.count()
-            documents.delete()
 
             result = {
                 "deleted_records": deleted_count,
@@ -147,6 +139,25 @@ class CourtDocumentAdminService:
             raise BusinessException(
                 message="批量删除文书失败", code="BATCH_DELETE_FAILED", errors={"error": str(e)}
             ) from e
+
+    @transaction.atomic
+    def _delete_document_records(self, document_ids: list[int]) -> tuple[int, list[tuple[int, str]]]:
+        """事务内删除文书记录，返回 (删除行数, 待清理文件路径 [(document_id, 相对路径)])。
+
+        路径必须**删前**读出来：记录删掉之后就再也查不到它们了，而物理文件的删除
+        必须等事务提交（见 batch_delete_documents）。
+        """
+        # 先物化：delete() 之后同一个 queryset 已无行可遍历
+        documents = list(CourtDocument.objects.filter(id__in=document_ids))
+        if not documents:
+            raise ValidationException(
+                message="没有找到要删除的文书", code="NO_DOCUMENTS_FOUND", errors={"document_ids": document_ids}
+            )
+
+        file_paths = [(int(doc.id), str(doc.local_file_path)) for doc in documents if doc.local_file_path]
+
+        CourtDocument.objects.filter(id__in=[doc.id for doc in documents]).delete()
+        return len(documents), file_paths
 
     def get_document_statistics(self, queryset: QuerySet[Any, Any] | None = None) -> dict[str, Any]:  # pragma: no cover
         """

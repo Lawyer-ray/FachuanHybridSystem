@@ -99,15 +99,21 @@ class EmailFolderScanService:
         created_logs: list[CaseLog] = []
         skipped_count = 0
 
-        with transaction.atomic():
-            for subdir, files in subdirs:
-                subdir_name = subdir.name if isinstance(subdir, Path) else PurePosixPath(subdir).name
-                source_key = f"{subfolder}/{subdir_name}"
-                if source_key in existing_sources:
-                    skipped_count += 1
-                    logger.info("案件 %d 跳过已导入子目录: %s", case_id, source_key)
-                    continue
+        # S14-02（2026-11-23 二轮审计）：原实现用一个 `transaction.atomic()` 包住所有
+        # 子目录的导入，云存储 read_file / WebDAV 下载等网络 IO 全在同一事务里，
+        # 锁与连接持有时间随文件体量线性增长，任一文件超时（WebDAV 单请求 timeout=30）
+        # 会把已完成的子目录一起回滚。现在按子目录分事务：每个子目录的「建日志 +
+        # 传附件 + 打 source_subfolder 标记」自成一块，失败只回滚当前子目录。
+        # 幂等性靠 source_subfolder 标记：已成功的子目录重跑时直接跳过。
+        for subdir, files in subdirs:
+            subdir_name = subdir.name if isinstance(subdir, Path) else PurePosixPath(subdir).name
+            source_key = f"{subfolder}/{subdir_name}"
+            if source_key in existing_sources:
+                skipped_count += 1
+                logger.info("案件 %d 跳过已导入子目录: %s", case_id, source_key)
+                continue
 
+            with transaction.atomic():
                 content = self._build_log_content(subdir_name)
 
                 log = self.mutation_service.create_log(
@@ -241,8 +247,14 @@ class EmailFolderScanService:
             children = provider.list_directory(folder_path)
         except CloudStorageError:
             raise
-        except Exception:
-            return []
+        except Exception as exc:
+            # S14-03（2026-11-23 二轮审计）：原实现把非 CloudStorageError 的传输层
+            # 异常（httpx.RequestError 超时/连接失败、gdrive HttpError/socket.timeout）
+            # 吞成 []，调用方于是回落到 fallback 并报「文件夹内没有可导入的文件」——
+            # 云存储故障被伪装成空目录，且连一条 error 日志都没有。现在记完整异常
+            # 并按云存储错误契约上抛，让故障可见、不再误导用户反复重试。
+            logger.exception("云存储列目录失败: %s", folder_path)
+            raise CloudStorageError("云存储列目录失败: %(error)s" % {"error": exc}) from exc
 
         for child in sorted(children, key=lambda c: c.name.lower()):
             if not child.is_dir:

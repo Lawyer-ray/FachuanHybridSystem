@@ -232,8 +232,8 @@ class DocxFormatNormalizer:  # pragma: no cover
         # 2. 编号定义
         self._copy_numbering_from_reference()
 
-        # 3. 页眉页脚
-        self._copy_header_footer()
+        # 3. 页眉页脚（返回失败项数，失败必须冒到日志顶层，见 S27-13）
+        header_footer_failed = self._copy_header_footer()
 
         # 4. 获取参考文档的格式模板
         ref_body = self._get_ref_format("body")
@@ -246,7 +246,17 @@ class DocxFormatNormalizer:  # pragma: no cover
                 continue
             self._apply_reference_format(para, i, ref_body, ref_h0, ref_num_id)
 
-        logger.debug("参考文档格式复制完成")
+        if header_footer_failed:
+            # S27-13（2026-11-23 二轮审计）：原实现把页眉/页脚的复制失败降级成
+            # debug 日志（生产环境看不到），normalize() 继续 save()、任务照样标
+            # 「已完成」—— 产物静默丢掉律所抬头/页码，而这是用户最直接能看出的
+            # 交付缺陷。现在失败一律 warning，并在这里汇总一次。
+            logger.warning(
+                "参考文档格式已套用，但有 %d 处页眉/页脚复制失败（产物可能缺抬头/页码）",
+                header_footer_failed,
+            )
+        else:
+            logger.debug("参考文档格式复制完成")
 
     def _get_ref_format(self, role: str) -> dict[str, Any]:  # pragma: no cover
         """从参考文档提取指定角色的格式模板"""
@@ -624,10 +634,11 @@ class DocxFormatNormalizer:  # pragma: no cover
 
     # ── 页眉页脚 ─────────────────────────────────────────────
 
-    def _copy_header_footer(self) -> None:  # pragma: no cover
-        """从参考文档复制页眉页脚（含页码域代码）"""
+    def _copy_header_footer(self) -> int:  # pragma: no cover
+        """从参考文档复制页眉页脚（含页码域代码）。返回失败项数（0 = 全部成功）"""
         assert self.ref_doc is not None and self.doc is not None
 
+        header_footer_failed = 0
         for ref_sec, doc_sec in zip(self.ref_doc.sections, self.doc.sections):
             # ── 页眉 ──
             try:
@@ -647,7 +658,9 @@ class DocxFormatNormalizer:  # pragma: no cover
                             new_p.append(etree.fromstring(etree.tostring(ref_run._element)))
                         doc_header._element.append(new_p)
             except Exception as e:
-                logger.debug("页眉复制跳过: %s", e)
+                # S27-13：失败不能只写 debug——页眉丢了就是交付缺陷，必须 warning
+                header_footer_failed += 1
+                logger.warning("页眉复制失败（该节页眉未套用参考文档格式）: %s", e)
 
             # ── 页脚 ──
             try:
@@ -671,7 +684,11 @@ class DocxFormatNormalizer:  # pragma: no cover
                         self._clear_footer(doc_footer)
                         logger.debug("页脚：已清空")
             except Exception as e:
-                logger.debug("页脚复制跳过: %s", e)
+                # S27-13：同页眉，失败必须 warning
+                header_footer_failed += 1
+                logger.warning("页脚复制失败（该节页脚未套用参考文档格式）: %s", e)
+
+        return header_footer_failed
 
     def _clear_footer(self, footer: Any) -> None:  # pragma: no cover
         """清空页脚内容"""

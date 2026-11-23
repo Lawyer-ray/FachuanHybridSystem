@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from apps.contracts.models import ContractFolderBinding
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from ._scan_service_contract import _ScanServiceContract
@@ -58,18 +60,25 @@ class _BindingMixin(_ScanServiceContract):
         return binding
 
     def _resolve_session_storage_provider(self, session: Any) -> Any | None:
-        """从 session → contract → binding 链路解析云存储 provider；失败按本地存储（None）。"""
+        """从 session → contract → binding 链路解析云存储 provider；未绑定按本地存储（None）。
+
+        S13-30（2026-11-23 二轮审计）：原实现 ``except Exception`` 把**任何**异常都
+        抹平成「本地存储」（provider 构造失败、凭据缺失也不例外），于是云端绑定被当
+        本地处理：``source_path`` 的相对路径去进程 CWD 下找 → 整批导入报「源文件
+        不存在」，根因只在 debug 日志里；CWD 下恰好有同名文件则读错文件入库。现在
+        只把「未绑定文件夹」（``ObjectDoesNotExist``）当本地，其余异常原样上抛——
+        下游 ``_import_pipeline`` 本就能承接真实错误（云端失败会显式 raise）。
+        """
         try:
             binding = session.contract.folder_binding
-            return self._make_provider_for_binding(binding)
-        except Exception:
+        except ObjectDoesNotExist:
             logger.debug(
-                "解析云存储 provider 失败（已忽略，按本地存储确认导入）: contract_id=%s session_id=%s",
+                "合同未绑定文件夹，按本地存储确认导入: contract_id=%s session_id=%s",
                 session.contract_id,
                 session.id,
-                exc_info=True,
             )
             return None
+        return self._make_provider_for_binding(binding)
 
     def _make_provider_for_binding(self, binding: ContractFolderBinding) -> Any | None:  # pragma: no cover
         """Create a cloud storage provider for the binding, or None for local."""

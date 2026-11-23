@@ -7,7 +7,7 @@ LLM Ninja API
 """
 
 import logging
-from typing import Any, ClassVar
+from typing import Any
 
 from asgiref.sync import sync_to_async
 from ninja import Router
@@ -53,7 +53,11 @@ class ConversationMessage(Schema):
     role: str
     content: str
     created_at: str
-    metadata: ClassVar[dict[str, Any]] = {}
+    # S23-06（2026-11-23 二轮审计）：原实现把 metadata 声明成 ClassVar，pydantic 不当
+    # 字段处理——构造函数里的 metadata= 被当 extra 静默丢弃、model_dump 也不产出该键，
+    # 接口因此**永远不返回** metadata（service 已查出的来源/工具调用标记在最后一跳丢失）。
+    # → 现在声明为真字段，与 OpenAPI 已声明的 schema 一致（纯增量，不破坏前端）。
+    metadata: dict[str, Any] = {}
 
 
 class ConversationHistoryResponse(Schema):
@@ -172,7 +176,7 @@ async def get_conversation_history(request: Any, session_id: str) -> Any:
         session_id=session_id, user_id=(None if is_admin else user_id), limit=50
     )
     messages = [
-        ConversationMessage(  # type: ignore[call-arg]
+        ConversationMessage(
             role=m["role"],
             content=m["content"],
             created_at=m["created_at"],

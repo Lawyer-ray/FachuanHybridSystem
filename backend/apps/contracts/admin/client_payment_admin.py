@@ -84,22 +84,17 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):  # pra
         return cleaned_data
 
     def save(self, commit: bool = True) -> ClientPaymentRecord:  # pragma: no cover
+        """保存表单实例（凭证图片不在这里落盘）。
+
+        S32-08（2026-11-23 二轮审计）：原实现在这里也处理图片（编辑态先删旧图、再把
+        新图写到磁盘并把 ``instance.image_path`` 指向它），而 ``save_model`` 的编辑
+        分支随后又「删一次旧图 → 再写一次」——删掉的正是这里刚写的那份，同一次上传
+        写两遍磁盘、删一遍刚写的文件；第二次 ``save_image`` 失败（超 10MB / 扩展名
+        不符）时，第一次写的文件还会残留成孤儿。现在图片只在
+        ``ClientPaymentRecordAdmin.save_model`` 存一次（新建与编辑两条路径都在那里），
+        本方法只负责普通的表单字段保存。
+        """
         instance = super().save(commit=False)
-        uploaded_file = self.cleaned_data.get("image")
-
-        if uploaded_file:
-            from apps.contracts.admin.wiring_admin import get_client_payment_image_service
-
-            image_service = get_client_payment_image_service()
-
-            # 删除旧图片
-            if instance.pk and instance.image_path:
-                image_service.delete_image(instance.image_path)
-
-            # 保存新图片（需要先有 ID）
-            if instance.pk:
-                image_path = image_service.save_image(uploaded_file, instance.id)
-                instance.image_path = image_path
 
         if commit:
             instance.save()

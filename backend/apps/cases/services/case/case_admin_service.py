@@ -470,16 +470,32 @@ class CaseAdminService:
         original = Case.objects.get(pk=case_id)
 
         # 复制主对象
+        #
+        # S48-01（2026-11-23 二轮审计）：原实现只拷 9 个字段，副本静默丢掉
+        # preservation_amount（财产保全金额）、specified_date（指定日期）、
+        # group_key/group_name（案组）、previous_case，且未拷 start_date——它被
+        # `default=date.today` 重置成副本创建日而非原案收案日。案组串案统计与
+        # 立案金额校验于是按副本的错误值走。现在改为显式白名单复制：
+        #   - start_date/specified_date/preservation_amount/group_key/group_name 拷原值；
+        #   - previous_case 指向原案件（副本是原案的后续，而不是复制原案的前序链）；
+        #   - yz_wid（一张网案件标识）有意不拷：同一 ajbh 不能同时挂在两个案件上，
+        #     否则一张网同步会同时改两个案件。
         new_case = Case.objects.create(
             contract=original.contract,
             is_filed=False,  # 副本默认未建档
             name=f"{original.name} (副本)",
             status=original.status,
+            start_date=original.start_date,
             effective_date=original.effective_date,
+            specified_date=original.specified_date,
             cause_of_action=original.cause_of_action,
             target_amount=original.target_amount,
+            preservation_amount=original.preservation_amount,
             case_type=original.case_type,
             current_stage=original.current_stage,
+            previous_case=original,
+            group_key=original.group_key,
+            group_name=original.group_name,
         )
 
         # 批量复制当事人

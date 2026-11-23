@@ -22,12 +22,18 @@ class WeChatWorkFileMixin:  # pragma: no cover
     def is_available(self) -> bool:  # 由 WeChatWorkTokenMixin 提供  # pragma: no cover
         raise NotImplementedError
 
+    def is_available_for_messaging(self) -> bool:  # 由 WeChatWorkTokenMixin 提供  # pragma: no cover
+        raise NotImplementedError
+
     def _get_access_token(self) -> str:  # 由 WeChatWorkTokenMixin 提供  # pragma: no cover
         raise NotImplementedError
 
     def send_file(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
         """发送文件到群聊（上传临时素材 -> 发送文件消息）"""
-        if not self.is_available():
+        # S35-03（2026-11-23 二轮审计）：原实现用平台可用性判定，把建群专用的
+        # DEFAULT_OWNER_ID 也算成发文件的必需项 → 没配群主时发文件被拒且报错指错项。
+        # 现在只校验消息三项。
+        if not self.is_available_for_messaging():
             raise ConfigurationException(
                 message="企业微信配置不完整，无法发送文件",
                 platform="wechat_work",

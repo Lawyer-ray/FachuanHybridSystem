@@ -9,6 +9,7 @@ from pathlib import Path
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
+from django.db import transaction
 from django.db.models import Max
 from docx import Document
 from docx.document import Document as DocumentType
@@ -82,6 +83,12 @@ def _make_title(reason: str) -> str:
     return text.strip()[:_TITLE_MAX]
 
 
+# S27-05（2026-11-23 二轮审计）：原实现「删 pending → aggregate 取最大序号 →
+# bulk_create」三步裸跑、无事务，bulk_create 中途失败会留下「旧 pending 已删、新行
+# 一条没进」的空清单（律师重新打开复审台看不到任何待决策项，且无法恢复）；并发
+# 重跑时后一个的 delete 还会抹掉前一个刚插入的行。整函数包进一个事务，
+# 失败即整体回滚。
+@transaction.atomic
 def _persist_revisions(task: ReviewTask, reviews: list[ReviewResult], *, kind: str = RevisionKind.RISK) -> int:
     """把审查产出落成结构化清单（复审台左栏的数据来源）。
 

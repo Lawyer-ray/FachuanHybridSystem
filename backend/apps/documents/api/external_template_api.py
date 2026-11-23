@@ -328,10 +328,12 @@ async def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, 
 
     from apps.documents.services.external_template.query_service import get_template_or_raise
 
-    # 安全审计 B-05：模板按律所隔离（superuser 豁免）
-    _user = getattr(request, "auth", None) or getattr(request, "user", None)
-    _firm_id = None if getattr(_user, "is_superuser", False) else getattr(_user, "law_firm_id", None)
-    template = await sync_to_async(get_template_or_raise)(template_id, law_firm_id=_firm_id)
+    # 安全审计 B-05；S01-05（2026-11-23 二轮审计）：原实现自己内联了一份少一个分支的律所过滤
+    # （无律所用户 firm_id 为 None，get_template_or_raise 就不加 filter → 能读任意律所的模板正文），
+    # 与同文件 _ensure_template_access 的口径冲突。现在改走同一口径：无律所 403（TEMPLATE_FIRM_FORBIDDEN）、
+    # 跨律所 404、superuser 豁免。
+    await _ensure_template_access(request, template_id)
+    template = await sync_to_async(get_template_or_raise)(template_id)
     abs_path = Path(settings.MEDIA_ROOT) / template.file_path
 
     def _convert() -> Any:

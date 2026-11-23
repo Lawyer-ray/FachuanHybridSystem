@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from django.conf import settings
+from django.db import DatabaseError
 from playwright.sync_api import BrowserContext, Page
 
 from apps.automation.services.scraper.scrapers.base import BaseScraper
@@ -280,6 +281,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         Raises:
             无异常抛出,所有错误通过日志记录
         """
+        document: Any | None = None
         try:
             success, filepath, error = download_result
 
@@ -337,7 +339,23 @@ class BaseCourtDocumentScraper(BaseScraper):
                     "error": str(e),
                 },
             )
+            # S31-08（2026-11-23 二轮审计）：原实现建记录与更新下载状态跨两个事务，
+            # 后一步失败时已提交的行会永久停在 PENDING、无 local_file_path 也无任何
+            # 错误标记（半成品）。现在尽力把它标成 failed 并写明原因（补偿失败只记日志）。
+            self._mark_document_failed(document, e)
             return None
+
+    def _mark_document_failed(self, document: Any | None, error: Exception) -> None:
+        """尽力把「已建行但更新下载状态失败」的文书标成 failed，避免半成品停在 PENDING。"""
+        document_id = getattr(document, "id", None)
+        if not document_id:
+            return
+        try:
+            self.document_service.update_download_status(
+                document_id=cast(int, document_id), status="failed", error_message=f"保存下载结果失败: {error!s}"
+            )
+        except (DatabaseError, ValueError, RuntimeError) as mark_error:
+            logger.warning("标记文书下载失败状态也失败: document_id=%s, 错误: %s", document_id, mark_error)
 
     def _save_documents_batch(
         self, documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]]

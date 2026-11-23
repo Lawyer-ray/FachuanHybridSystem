@@ -3,9 +3,7 @@ from __future__ import annotations
 import itertools
 import logging
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone
-
-_CST = timezone(timedelta(hours=8))
+from datetime import UTC, datetime
 
 from docx import Document
 from docx.document import Document as DocumentType
@@ -73,7 +71,11 @@ class DocxRevisionTool:
         先尝试单 run 匹配，失败则跨 run 匹配（空白容忍，见 _find_span）。
         """
         author = author or AUTHOR
-        date = datetime.now(tz=_CST).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # S27-11（2026-11-23 二轮审计）：原实现用 UTC+8 的 _CST 取时刻，却按 "…Z"
+        # 写进 w:date —— 而 Z 是 xsd:dateTime 的 UTC 标记，等于把本地时刻冒充 UTC，
+        # Word 里显示成比真实时间晚 8 小时的「未来时间」，与客户端自己写的修订
+        # 先后顺序还会颠倒。现在取真 UTC，与 Word 自身行为一致。
+        date = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # 尝试单 run 精确匹配
         for run in paragraph.runs:

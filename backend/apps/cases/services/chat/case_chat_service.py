@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.exceptions import ChatCreationException, MessageSendException, ValidationException
@@ -53,7 +53,10 @@ class CaseChatService:
         self.provider_facade = provider_facade or ChatProviderFacade()
         self.recreate_policy = recreate_policy or ChatRecreatePolicy()
         self._access_policy = access_policy
-        self._send_notification_usecase = None
+        self._send_notification_usecase: SendNotificationUsecase | None = None
+        # 构建上面用例时绑定的访问上下文；上下文变了必须重建，否则重建群聊会顶着
+        # 上一个调用方的身份去鉴权（S15-01）。
+        self._usecase_access: tuple[Any, ...] | None = None
 
     @property
     def access_policy(self) -> CaseAccessPolicy:
@@ -300,7 +303,9 @@ class CaseChatService:
             from apps.cases.dependencies import create_message_content
 
             content = create_message_content(title=title, text=sms_content.strip(), file_path=None)
-            usecase = self._get_send_notification_usecase()
+            usecase = self._get_send_notification_usecase(
+                user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx
+            )
             result = usecase.execute(
                 case_id=case_id, platform=platform, chat=chat, content=content, document_paths=document_paths
             )
@@ -322,15 +327,44 @@ class CaseChatService:
                 errors={"case_id": case_id, "original_error": str(e)},
             ) from e
 
-    def _get_send_notification_usecase(self) -> SendNotificationUsecase:
-        if self._send_notification_usecase is None:
-            self._send_notification_usecase = SendNotificationUsecase(  # type: ignore[assignment]
-                repo=self.repo,
-                provider_facade=self.provider_facade,
-                recreate_policy=self.recreate_policy,
-                chat_creator=lambda case_id, platform: self.create_chat_for_case(case_id, platform),
-            )
-        return cast(SendNotificationUsecase, self._send_notification_usecase)
+    def _get_send_notification_usecase(
+        self,
+        *,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+        ctx: AccessContext | None = None,
+    ) -> SendNotificationUsecase:
+        """取文书通知发送用例（同一访问上下文下复用）。
+
+        S15-01（2026-11-23 二轮审计）：原实现的 chat_creator 是
+        `lambda case_id, platform: self.create_chat_for_case(case_id, platform)`，
+        把调用方的 user/org_access/ctx 全丢掉。于是「群聊已解散 → 重建群聊」这条
+        回收路径上 create_chat_for_case 以 user=None 鉴定权限，CaseAccessPolicy 直接
+        判无权限并抛 ForbiddenError，重建永远失败。现在把调用方的访问上下文绑进
+        chat_creator，并在上下文变化时重建用例（原缓存会把首个调用方的身份复用到
+        后面的调用方）。
+        """
+        access: tuple[Any, ...] = (user, org_access, perm_open_access, ctx)
+        if self._send_notification_usecase is not None and self._usecase_access == access:
+            return self._send_notification_usecase
+
+        usecase = SendNotificationUsecase(
+            repo=self.repo,
+            provider_facade=self.provider_facade,
+            recreate_policy=self.recreate_policy,
+            chat_creator=lambda case_id, platform: self.create_chat_for_case(
+                case_id,
+                platform,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
+                ctx=ctx,
+            ),
+        )
+        self._send_notification_usecase = usecase
+        self._usecase_access = access
+        return usecase
 
     def unbind_chat(self, chat_id: int) -> bool:
         """解除群聊绑定(软删除)

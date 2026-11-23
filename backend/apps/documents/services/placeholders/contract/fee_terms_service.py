@@ -128,7 +128,9 @@ class FeeTermsService(BasePlaceholderService):
 
         fixed_amount_1 = str(fixed_amount) if fixed_amount else "       "
         fixed_amount_2 = self._number_to_chinese(fixed_amount) if fixed_amount else "      "
-        risk_rate_str = str(risk_rate) if risk_rate else "12"
+        # S19-09（2026-11-23 二轮审计）：原实现缺 risk_rate 时写死「12」%，会把空比例变成一份
+        # 写明 12% 风险律师费的合同；全风险分支同样缺值时写「[风险比例待定]」，现与它统一。
+        risk_rate_str = str(risk_rate) if risk_rate else "[风险比例待定]"
 
         return (
             f"本合同为风险代理收费，前期款为本合同签订之日起5日内，甲方向乙方一次性支付本案前期律师代理服务费{fixed_amount_1}元"

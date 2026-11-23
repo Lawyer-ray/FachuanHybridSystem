@@ -173,7 +173,10 @@ async def register_contract_folder_save_as_intent(
         perm_open_access=ctx.perm_open_access,
     )
 
-    clean_name = service._validator.sanitize_file_name(service._clean_entry_name(data.name))
+    # S22-06（2026-11-23 二轮审计）：原来在这里直接点取 Service 的私有成员
+    # （``_validator`` / ``_clean_entry_name``），封装泄漏且与 ``save_new_file`` 的
+    # 清洗链早晚漂移。现在走 Service 的公共方法。
+    clean_name: str = await sync_to_async(service.clean_save_as_name)(data.name)
 
     # source_path 必须与前端签配置时用的 file_url **逐字一致**（folderFileUrl 口径：
     # `/api/v1/contracts/{id}/folder-file?subpath=<encodeURIComponent>`）。

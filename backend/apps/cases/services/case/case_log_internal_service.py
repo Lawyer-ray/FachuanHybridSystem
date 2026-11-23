@@ -72,6 +72,13 @@ class CaseLogInternalService:
 
             attachment = CaseLogAttachment(log=case_log)
             attachment.file.name = file_path
+            # S48-03（2026-11-23 二轮审计）：原实现只把入参 file_path 写进 file.name，
+            # 从未使用入参 file_name，CaseLogAttachment.save() 于是从存储相对路径推导
+            # original_filename，落库成带 DatedUUIDPath 前缀的存储名，前端/下载看到的
+            # “原始文件名”变成 UUID 名。现在优先用调用方给的业务文件名；
+            # file_name 为空时仍回落到 save() 的推导。
+            if file_name:
+                attachment.original_filename = file_name
             attachment.save()
             logger.info(
                 "添加案件日志附件成功",

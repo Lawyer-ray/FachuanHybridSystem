@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, OperationalError, transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
@@ -295,30 +295,43 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 delivery_event_key=build_delivery_event_key(normalized_content, received_at),
             )
 
-            logger.info("创建短信记录成功: ID=%s, 长度=%s", sms.id, len(content))
+            logger.info("创建短信记录成功: ID=%s, 长度=%s", sms.id, len(normalized_content))
 
-            if materials:
-                # 先落盘再入队：qcluster 是独立进程，异步任务启动时文件必须已就位，
-                # 否则匹配阶段读不到文书会直接判「无材料」进待人工。
-                intake_result = intake.save_materials(sms.id, materials)
-                logger.info(
-                    "客户转交材料入库: SMS ID=%s, 成功=%s, 跳过=%s",
+            # S37-03（2026-11-23 二轮审计）：原实现建记录/落盘/入队三步各自提交，
+            # 后两步任一失败就留下一条 status=PENDING、无文书的记录，而重试会被上面的
+            # 幂等分支直接返回（既不补落盘也不重新入队）→ 对外表现为「提交成功」，实际
+            # 永远停在 PENDING。现在落盘/入队失败就删掉刚建的记录（post_delete 信号会
+            # 清掉落盘材料），重试于是能重新走完整流程。
+            try:
+                if materials:
+                    # 先落盘再入队：qcluster 是独立进程，异步任务启动时文件必须已就位，
+                    # 否则匹配阶段读不到文书会直接判「无材料」进待人工。
+                    intake_result = intake.save_materials(sms.id, materials)
+                    logger.info(
+                        "客户转交材料入库: SMS ID=%s, 成功=%s, 跳过=%s",
+                        sms.id,
+                        intake_result["saved"],
+                        intake_result["skipped"],
+                    )
+                    sms.refresh_from_db(fields=["document_file_paths", "status", "content"])
+                    # 入库明细不回写库（它是本次请求的瞬时结果），挂在实例上供
+                    # API 层拼进响应；不新增数据库字段，也不污染模型的业务语义。
+                    sms.material_intake_result = intake_result  # type: ignore[attr-defined]
+
+                task_id = submit_task(
+                    "apps.automation.workers.court_sms_tasks.process_sms",
                     sms.id,
-                    intake_result["saved"],
-                    intake_result["skipped"],
+                    task_name=f"court_sms_processing_{sms.id}",
                 )
-                sms.refresh_from_db(fields=["document_file_paths", "status", "content"])
-                # 入库明细不回写库（它是本次请求的瞬时结果），挂在实例上供
-                # API 层拼进响应；不新增数据库字段，也不污染模型的业务语义。
-                sms.material_intake_result = intake_result  # type: ignore[attr-defined]
-
-            task_id = submit_task(
-                "apps.automation.workers.court_sms_tasks.process_sms",
-                sms.id,
-                task_name=f"court_sms_processing_{sms.id}",
-            )
-
-            logger.info("提交异步处理任务: SMS ID=%s, Task ID=%s", sms.id, task_id)
+                logger.info("提交异步处理任务: SMS ID=%s, Task ID=%s", sms.id, task_id)
+            except (DatabaseError, OperationalError, RuntimeError, ValueError):
+                logger.exception("短信落盘/入队失败，回滚刚创建的记录: SMS ID=%s", sms.id)
+                try:
+                    sms.delete()
+                except (DatabaseError, OperationalError):
+                    # 删不掉也要把原始错误抛出去：否则会留下一条无任务、无错误信息的 PENDING 行
+                    logger.exception("回滚未处理的短信记录失败: SMS ID=%s", sms.id)
+                raise
 
             # 短信通道没有材料明细，显式给 None，保持 getattr 语义一致
             if not materials:

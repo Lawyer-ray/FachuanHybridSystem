@@ -14,9 +14,14 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
 
 from .download_response_factory import build_download_response
+from .material_common import get_contract_folder_binding_service
+from .material_common import require_case_contract as _require_case_contract_shared
+from .material_common import save_or_download as _save_or_download_shared
 
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
+
+_SAVE_ENDPOINT = "documents.preservation.save_or_download"
 
 
 def _get_preservation_materials_service() -> Any:
@@ -29,24 +34,15 @@ def _get_preservation_materials_service() -> Any:
 
 
 def _get_folder_binding_service() -> Any:
-    from apps.core.interfaces import ServiceLocator
+    """工厂函数:获取合同文件夹绑定服务（测试按模块 monkeypatch 这个点）"""
+    return get_contract_folder_binding_service()
 
-    return ServiceLocator.get_contract_folder_binding_service()
 
-
+# S01-04（2026-11-23 二轮审计）：`_require_case_contract` / `_save_or_download` 的实现已收敛到
+# material_common（与授权材料共用同一份 ACL + 落盘口径）。这里保留同名薄封装：端点仍调本模块
+# 的名字，测试也按模块 monkeypatch `_get_folder_binding_service`，绑定服务因此仍由本模块解析。
 async def _require_case_contract(request: Any, case_id: int) -> Any:
-    """获取案件绑定的合同 ID，无合同则返回 None。同时验证用户对案件的访问权限。"""
-    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-    from apps.core.security import get_request_access_context
-    from apps.documents.services.case_contract_query import get_case_contract_info
-
-    ctx = get_request_access_context(request)
-    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
-
-    case = await sync_to_async(get_case_contract_info)(case_id)
-    if not case:
-        return None
-    return case
+    return await _require_case_contract_shared(request, case_id)
 
 
 async def _save_or_download(
@@ -58,35 +54,17 @@ async def _save_or_download(
     content_type: str,
     subdir_key: str = "contract_documents",
 ) -> Any:
-    """如有合同文件夹绑定则保存文件，否则返回下载响应。"""
-    from apps.agent.services.approval.write_guard import ensure_request_not_multi_lane
-
-    # 入口 C 兜底：agent 多栏并答时不得向合同文件夹落盘（这一支会真写文件）
-    await ensure_request_not_multi_lane(request, endpoint="documents.preservation.save_or_download")
-
-    if contract_id is None:
-        return build_download_response(content=content, filename=filename, content_type=content_type)
-
-    binding_service = _get_folder_binding_service()
-    saved_path = await sync_to_async(binding_service.save_file_for_contract)(
+    return await _save_or_download_shared(
+        request,
+        endpoint=_SAVE_ENDPOINT,
+        binding_service_getter=_get_folder_binding_service,
         contract_id=contract_id,
-        file_content=content,
-        file_name=filename,
+        case_id=case_id,
+        content=content,
+        filename=filename,
+        content_type=content_type,
         subdir_key=subdir_key,
     )
-    if saved_path:
-        logger.info(
-            "文件已保存到合同文件夹",
-            extra={"case_id": case_id, "contract_id": contract_id, "file_name": filename, "path": saved_path},
-        )
-        return {
-            "success": True,
-            "message": f"文件已保存到: {saved_path}",
-            "filename": filename,
-            "folder_path": saved_path,
-        }
-
-    return build_download_response(content=content, filename=filename, content_type=content_type)
 
 
 @router.post("/cases/{case_id}/preservation/application/download")

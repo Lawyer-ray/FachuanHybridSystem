@@ -123,19 +123,30 @@ def check_disk_space(warning_pct: float = 85.0, critical_pct: float = 95.0) -> d
 
 
 def _register_schedules() -> None:
-    """注册文件清理和磁盘监控定时任务。"""
-    try:
-        from apps.core.tasking import ScheduleQueryService
+    """注册文件清理和磁盘监控定时任务。
 
-        svc = ScheduleQueryService()
-        schedules = [
-            ("apps.core.tasking.cleanup_tasks.cleanup_temp_files", "core:cleanup_temp_files", 60),
-            ("apps.core.tasking.cleanup_tasks.cleanup_export_files", "core:cleanup_export_files", 1440),
-            ("apps.core.tasking.cleanup_tasks.check_disk_space", "core:check_disk_space", 60),
-        ]
-        for func, name, minutes in schedules:
+    S20-04（2026-11-23 二轮审计）：原实现把三条注册包在**一个** try 里，任一条
+    （尤其第一条）抛错就静默丢弃其余两条，且只留一行 ``logger.debug``（默认日志
+    级别不落盘）——结果是三条定时任务消失而无人知道。现在逐条隔离：单条失败只
+    记 warning 并继续下一条，末尾把未注册清单再喊一次。
+    """
+    from apps.core.tasking import ScheduleQueryService
+
+    svc = ScheduleQueryService()
+    schedules = [
+        ("apps.core.tasking.cleanup_tasks.cleanup_temp_files", "core:cleanup_temp_files", 60),
+        ("apps.core.tasking.cleanup_tasks.cleanup_export_files", "core:cleanup_export_files", 1440),
+        ("apps.core.tasking.cleanup_tasks.check_disk_space", "core:check_disk_space", 60),
+    ]
+    unregistered: list[str] = []
+    for func, name, minutes in schedules:
+        try:
             if not svc.schedule_exists(name):
                 svc.create_interval_schedule(func=func, name=name, minutes=minutes)
                 logger.info("已注册定时任务: %s", name)
-    except Exception:
-        logger.debug("定时任务注册跳过（未就绪）")
+        except Exception:
+            logger.warning("定时任务注册失败: %s（继续注册其余任务）", name, exc_info=True)
+            unregistered.append(name)
+
+    if unregistered:
+        logger.warning("定时任务未注册（磁盘/tmp 将无人清理）: %s", ", ".join(unregistered))

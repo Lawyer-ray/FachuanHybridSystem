@@ -51,7 +51,12 @@ class DocumentTemplateFolderBindingForm(forms.ModelForm[DocumentTemplateFolderBi
         elif self.data.get("folder_template"):
             folder_template_id = self.data.get("folder_template")
 
-        if folder_template_id:
+        # S18-b-02（2026-11-23 二轮审计）：原实现无条件写 self.fields["folder_node_id"]。
+        # 但 change 视图里 folder_node_id 在 readonly_fields 中，Django 的 get_form 会把
+        # 声明字段从 base_fields 剔除（同时并入 exclude），于是打开任一存量绑定行的变更页
+        # 必抛 KeyError（folder_template 是非空外键，这分支必进）。现在只在该字段确实
+        # 留在表单里时才加载选项。
+        if folder_template_id and "folder_node_id" in self.fields:
             try:
                 service = _get_folder_template_admin_service()
                 folder_template: FolderTemplate = service.get_folder_template_by_pk(folder_template_id)
